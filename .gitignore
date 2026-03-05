@@ -9,6 +9,7 @@ node_modules
 /.svelte-kit
 /build
 /storybook-static
+coverage/
 
 # Firebase Functions
 functions/lib/**/*.js
@@ -33,6 +34,8 @@ tests/e2e/.auth/
 # Test artifacts (regenerate locally as needed)
 playwright-report/
 test-results/
+.test-triage-temp.json
+test-triage-report.json
 
 # Vite
 vite.config.js.timestamp-*
@@ -44,6 +47,7 @@ cert
 
 .houdini
 
+npm-debug.log
 bun.lock
 
 # Android Keystore (NEVER commit these!)
@@ -54,3 +58,6 @@ android/keystore.properties
 # Release artifacts
 dist/release/
 dist/*
+
+# Local-only docs (do not commit)
+docs/testing/presentation-prep.md

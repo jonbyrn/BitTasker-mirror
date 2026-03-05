@@ -2,11 +2,9 @@
 	import Logo from '$lib/components/Logo.svelte';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { VerifyTrunstileStore } from '$houdini';
 	import { isCaptchaVerified } from '$lib/stores/auth.store';
 	import { t } from 'svelte-i18n';
-
-	const verifyTrunstileStore = new VerifyTrunstileStore();
+	import authService from '$lib/api/services/auth.service';
 
 	let error = $state('');
 	let isLoading = $state(false);
@@ -16,6 +14,13 @@
 
 	onMount(async () => {
 		try {
+			// E2E bypass: when running Playwright (or with VITE_E2E_TURNSTILE_BYPASS=true), skip Turnstile and enable Continue
+			if (import.meta.env.VITE_E2E_TURNSTILE_BYPASS === 'true') {
+				isCaptchaVerified.set(true);
+				// Diagnostic: visible in Playwright page console and CI attachments
+				console.log('[E2E] Turnstile bypass active on signup');
+				return;
+			}
 			// Setup callback for Turnstile
 			window.onloadTurnstileCallback = renderTurnstile;
 		} catch (err) {
@@ -67,37 +72,27 @@
 
 	async function verifyCaptcha(token: string) {
 		try {
-			const { data, errors } = await verifyTrunstileStore.mutate({
-				input: {
-					token,
-					action: 'signup' // Optional custom action to track in analytics
-				}
-			});
+			const result = await authService.verifyTurnstile(token, 'signup');
 
-			if (errors && errors.length > 0) {
-				console.error('GraphQL errors:', errors);
-				throw new Error(errors[0].message);
-			}
-			
-			if (!data || !data.verifyTurnstileToken) {
+			if (!result) {
 				console.error('No data returned from captcha verification');
 				throw new Error($t('signup.error.captcha_failed'));
 			}
 
-			const success = data.verifyTurnstileToken.success;
-			
+			const success = result.success;
+
 			isCaptchaVerified.set(success);
-			
+
 			if (success) {
 				error = ''; // Clear any previous errors
 				captchaFailed = false;
 			} else {
-				error = $t('signup.error.captcha_failed');
+				error = result.message || $t('signup.error.captcha_failed');
 				captchaFailed = true;
 			}
 		} catch (err) {
 			console.error('Error verifying captcha:', err);
-			error = $t('signup.error.captcha_failed');
+			error = err instanceof Error ? err.message : $t('signup.error.captcha_failed');
 			isCaptchaVerified.set(false);
 			captchaFailed = true;
 		}
@@ -113,7 +108,7 @@
 	></script>
 </svelte:head>
 
-<div class="mx-auto flex w-full max-w-2xl flex-grow flex-col items-center justify-center px-4 py-8">
+<div class="mx-auto flex w-full max-w-2xl grow flex-col items-center justify-center px-4 py-8">
 	<div class="card bg-base-100 w-full p-4 shadow-xl mb-6">
 		<div class="flex flex-col items-center justify-center">
 			<Logo />
@@ -169,6 +164,7 @@
 
 				<button
 					class="btn btn-primary mt-4"
+					data-testid="signup-continue"
 					onclick={() => goto('/auth/onboarding')}
 					disabled={isLoading || !$isCaptchaVerified}
 				>

@@ -1,4 +1,5 @@
-import type { EncryptedData } from '$lib/types/auth';
+import type { CryptoEncryptedData } from '$lib/types/auth';
+import { entropyToMnemonic } from 'bip39';
 import { bytesToBase64, base64ToBytes } from './encoding';
 
 export async function generateRandomKey(): Promise<CryptoKey> {
@@ -22,7 +23,7 @@ export async function importKey(keyData: string): Promise<CryptoKey> {
 	]);
 }
 
-export async function encrypt(data: string, key: CryptoKey): Promise<EncryptedData> {
+export async function encrypt(data: string, key: CryptoKey): Promise<CryptoEncryptedData> {
 	const encoder = new TextEncoder();
 	const iv = crypto.getRandomValues(new Uint8Array(12));
 	const dataBytes = encoder.encode(data);
@@ -48,7 +49,7 @@ export async function encrypt(data: string, key: CryptoKey): Promise<EncryptedDa
 	};
 }
 
-export async function decrypt(encryptedData: EncryptedData, key: CryptoKey): Promise<string> {
+export async function decrypt(encryptedData: CryptoEncryptedData, key: CryptoKey): Promise<string> {
 	const decoder = new TextDecoder();
 	const dataBytes = base64ToBytes(encryptedData.data);
 	const ivBytes = base64ToBytes(encryptedData.iv);
@@ -126,24 +127,20 @@ export async function deriveContextKey(
 	try {
 		const encoder = new TextEncoder();
 		const contextBytes = encoder.encode(context);
-		
+
 		// Combine context and salt for unique derivation
 		const combinedSalt = new Uint8Array(contextBytes.length + salt.length);
 		combinedSalt.set(contextBytes);
 		combinedSalt.set(salt, contextBytes.length);
-		
+
 		// Export master key to use as key material
 		const masterKeyBytes = await crypto.subtle.exportKey('raw', masterKey);
-		
+
 		// Import as HKDF key material
-		const keyMaterial = await crypto.subtle.importKey(
-			'raw',
-			masterKeyBytes,
-			'HKDF',
-			false,
-			['deriveKey']
-		);
-		
+		const keyMaterial = await crypto.subtle.importKey('raw', masterKeyBytes, 'HKDF', false, [
+			'deriveKey'
+		]);
+
 		// Derive context-specific key using HKDF
 		return await crypto.subtle.deriveKey(
 			{
@@ -181,8 +178,23 @@ export function usdFromSats(sats: number, price: number) {
 
 export function formatNumberForInput(value: number | undefined): string {
 	if (value == null || isNaN(value)) return '';
-	return value.toLocaleString('en-US', { 
+	return value.toLocaleString('en-US', {
 		minimumFractionDigits: 0,
 		maximumFractionDigits: 2
 	});
+}
+
+export async function deriveWalletFromNostr(nsec: string): Promise<string> {
+	// Use the nsec as entropy to deterministically generate mnemonic
+	const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(nsec));
+	const entropy = new Uint8Array(hash).slice(0, 16); // 128 bits = 12 word mnemonic
+
+	// Convert entropy to hex string for BIP39
+	const entropyHex = Array.from(entropy)
+		.map((b) => b.toString(16).padStart(2, '0'))
+		.join('');
+
+	// Convert to mnemonic using BIP39
+	const mnemonic = entropyToMnemonic(entropyHex);
+	return mnemonic;
 }

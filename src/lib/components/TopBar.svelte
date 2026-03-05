@@ -309,7 +309,7 @@
 		</div>
 		<!-- login/signup or notification + avatar -->
 		{#if !isLoggedIn}
-			<a href="/auth/login" class="btn btn-sm sm:btn-md btn-secondary">{$t('navbar.login')}</a>
+			<a href="/auth/login" class="btn btn-sm sm:btn-md btn-secondary" data-testid="login-link">{$t('navbar.login')}</a>
 			<a href="/auth/signup" class="btn btn-sm sm:btn-md btn-primary">{$t('navbar.signup')}</a>
 		{:else}
 			<!-- Notification Center -->

@@ -1,24 +1,35 @@
 <script lang="ts">
-	import type { ContractStatusEvent } from '$lib/types/contract';
+	import type { ContractStatusEvent, NostrContractStatus } from '$lib/types/contract';
 	import { t } from 'svelte-i18n';
 	import { locale } from 'svelte-i18n';
 	import { formatStandardDateTime } from '$lib/utils/helpers/dateFormatter';
-	import { EscrowStatus } from '$lib/utils/escrow/v1/escrow.enum';
+	import { EscrowStatus } from '$lib/utils/escrow';
 	import { getActionDescription } from '$lib/utils/helpers/contractStatusFormatter';
 
-	const { statusEvents, contractPubkey } = $props<{
+	const {
+		statusEvents,
+		contractPubkey,
+		contractCreatedAt,
+		contractCreatorPubkey,
+		contractFundingTransactionHash,
+		onDisplayCountChange
+	} = $props<{
 		statusEvents: ContractStatusEvent[];
 		contractPubkey: string;
+		contractCreatedAt?: number;
+		contractCreatorPubkey?: string;
+		contractFundingTransactionHash?: string;
+		onDisplayCountChange?: (count: number) => void;
 	}>();
 
 	/**
 	 * Filter to show only blockchain-confirmed events and final states
 	 * Excludes pending/transition states (PendingCompletion, PendingAcceptance, etc.)
-	 * 
+	 *
 	 * Shows:
 	 * - Blockchain states (0-5): Funded, InDispute, DisputeResolved, DisputeUnresolved, Completed, Cancelled
 	 * - Final Nostr states: FundsReleased (10), InProgress (7), DisputeResolutionProposed (12)
-	 * 
+	 *
 	 * Hides all pending states (6+, except specific ones) to avoid redundant timeline entries like:
 	 * "Pending completion" → "Task completed" (shows only "Task completed")
 	 */
@@ -34,7 +45,7 @@
 			case EscrowStatus.FundsReleased: // Final payment state
 			case EscrowStatus.DisputeResolutionProposed: // Proposal exists
 				return true;
-			
+
 			// All other states (pending states) should not show
 			default:
 				return false;
@@ -45,6 +56,41 @@
 	const filteredStatusEvents = $derived(
 		statusEvents.filter((event: ContractStatusEvent) => shouldShowInTimeline(event.content.action))
 	);
+
+	// Build unified timeline: contract initiation first (if provided), then status events, sorted by timestamp
+	interface TimelineItem {
+		timestamp: number;
+		pubkey: string;
+		isInitiation: boolean;
+		content?: NostrContractStatus;
+		transactionHash?: string; // For initiation: funding tx; for status: action tx
+	}
+	const allTimelineItems = $derived.by((): TimelineItem[] => {
+		const items: TimelineItem[] = [];
+		if (contractCreatedAt != null && contractCreatorPubkey != null) {
+			items.push({
+				timestamp: contractCreatedAt * 1000, // Nostr uses seconds; status events use ms
+				pubkey: contractCreatorPubkey,
+				isInitiation: true,
+				transactionHash: contractFundingTransactionHash
+			});
+		}
+		for (const ev of filteredStatusEvents) {
+			items.push({
+				timestamp: ev.content.timestamp,
+				pubkey: ev.pubkey,
+				isInitiation: false,
+				content: ev.content,
+				transactionHash: ev.content.transactionHash
+			});
+		}
+		return items.sort((a, b) => a.timestamp - b.timestamp);
+	});
+
+	// Notify parent of display count when timeline items change
+	$effect(() => {
+		onDisplayCountChange?.(allTimelineItems.length);
+	});
 
 	// Format date for timeline
 	function formatTimelineDate(timestamp: number): string {
@@ -89,16 +135,16 @@
 		}
 	}
 
-	// Get sender role text
-	function getSenderRoleText(pubkey: string): string {
+	// Get sender role for badge (Tasker/Taskee)
+	function getSenderRoleBadge(pubkey: string): { labelKey: string; badgeClass: string } {
 		if (pubkey === contractPubkey) {
-			return $t('dashboard.contracts.timeline.from_client');
-		} else if (pubkey !== contractPubkey) {
-			return $t('dashboard.contracts.timeline.from_freelancer');
+			return { labelKey: 'dashboard.client', badgeClass: 'badge-primary' };
 		}
-		return $t('dashboard.contracts.timeline.from_unknown');
+		if (pubkey !== contractPubkey) {
+			return { labelKey: 'dashboard.freelancer', badgeClass: 'badge-secondary' };
+		}
+		return { labelKey: 'dashboard.contracts.timeline.from_unknown', badgeClass: 'badge-neutral' };
 	}
-	
 
 	// Get Rootstock explorer URL for transaction
 	function getTransactionUrl(txHash: string): string {
@@ -111,7 +157,7 @@
 	}
 </script>
 
-{#if filteredStatusEvents.length === 0}
+{#if allTimelineItems.length === 0}
 	<div class="text-base-content/60 py-4 text-center">
 		<svg
 			xmlns="http://www.w3.org/2000/svg"
@@ -131,25 +177,35 @@
 	</div>
 {:else}
 	<div class="timeline timeline-snap-icon max-md:timeline-compact timeline-vertical">
-		{#each filteredStatusEvents as { content, pubkey }, index (index)}
+		{#each allTimelineItems as item, index (`${item.isInitiation}-${item.timestamp}`)}
 			<li>
 				<!-- Timeline point -->
 				<div class="timeline-middle">
 					<div class="bg-base-300 h-2 w-2 rounded-full"></div>
 				</div>
 
-				<!-- Timeline content -->
+				<!-- Timeline content: more padding between content and center line; extra left padding on mobile -->
 				<div
-					class="timeline-{index % 2 === 0 ? 'start' : 'end'} mb-10 md:text-{index % 2 === 0
+					class="timeline-{index % 2 === 0 ? 'start' : 'end'} mb-10 pl-8 pr-8 {index % 2 === 0
+						? 'md:pl-0 md:pr-10'
+						: 'md:pl-10 md:pr-0'} md:text-{index % 2 === 0
 						? 'end'
 						: 'start'}"
 				>
 					<time class="text-base-content/60 font-mono text-xs italic">
-						{formatTimelineDate(content.timestamp)}
+						{formatTimelineDate(item.timestamp)}
 					</time>
 
+					<div class="mt-1.5">
+						<span
+							class="badge badge-sm shrink-0 {getSenderRoleBadge(item.pubkey).badgeClass}"
+						>
+							{$t(getSenderRoleBadge(item.pubkey).labelKey)}
+						</span>
+					</div>
+
 					<div class="mt-1 flex items-center gap-2">
-						{#if content.action === EscrowStatus.Completed || content.action === EscrowStatus.FundsReleased || content.action === EscrowStatus.DisputeResolved}
+						{#if !item.isInitiation && item.content && (item.content.action === EscrowStatus.Completed || item.content.action === EscrowStatus.FundsReleased || item.content.action === EscrowStatus.DisputeResolved)}
 							<div
 								class="bg-success text-success-content flex h-5 min-h-5 w-5 min-w-5 shrink-0 items-center justify-center rounded-full"
 							>
@@ -169,19 +225,15 @@
 								</svg>
 							</div>
 						{/if}
-						<div class="text-sm font-semibold {getActionColorClass(content.action)}">
-							{$t(getActionDescription(content.action))}
-						</div>
+						<span class="text-sm font-semibold {item.isInitiation ? 'text-base-content/60' : item.content ? getActionColorClass(item.content.action) : 'text-base-content/60'}">
+							{item.isInitiation ? $t('dashboard.contracts.timeline.contract_initiated') : item.content ? $t(getActionDescription(item.content.action)) : ''}
+						</span>
 					</div>
 
-					<div class="text-base-content/60 mt-1 text-xs">
-						{getSenderRoleText(pubkey)}
-					</div>
-
-					{#if content.transactionHash}
+					{#if (item.transactionHash ?? item.content?.transactionHash)}
 						<div class="text-base-content/60 mt-2 text-xs">
 							<a
-								href={getTransactionUrl(content.transactionHash)}
+								href={getTransactionUrl((item.transactionHash ?? item.content?.transactionHash) ?? '')}
 								target="_blank"
 								rel="noopener noreferrer"
 								class="link link-primary inline-flex items-center gap-1"
@@ -205,16 +257,16 @@
 						</div>
 					{/if}
 
-					{#if content.proposedClientAmount && content.proposedFreelancerAmount}
+					{#if !item.isInitiation && item.content?.proposedClientAmount && item.content?.proposedFreelancerAmount}
 						<div class="text-base-content/80 mt-2 space-y-1 text-xs">
 							<div>
 								<span class="font-medium">{$t('dashboard.contracts.timeline.proposed_split')}:</span
 								>
 							</div>
 							<div class="pl-2">
-								<div>{$t('dashboard.client')}: {content.proposedClientAmount} RBTC</div>
+								<div>{$t('dashboard.client')}: {item.content.proposedClientAmount} RBTC</div>
 								<div>
-									{$t('dashboard.freelancer')}: {content.proposedFreelancerAmount} RBTC
+									{$t('dashboard.freelancer')}: {item.content.proposedFreelancerAmount} RBTC
 								</div>
 							</div>
 						</div>
@@ -222,7 +274,7 @@
 				</div>
 
 				<!-- Timeline line (except for last item) -->
-				{#if index < filteredStatusEvents.length - 1}
+				{#if index < allTimelineItems.length - 1}
 					<hr class="bg-base-300" />
 				{/if}
 			</li>

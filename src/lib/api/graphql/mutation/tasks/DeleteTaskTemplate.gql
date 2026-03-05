@@ -1,3 +1,0 @@
-mutation DeleteTaskTemplate($deleteTaskTemplateId: Int!) {
-	deleteTaskTemplate(id: $deleteTaskTemplateId)
-}

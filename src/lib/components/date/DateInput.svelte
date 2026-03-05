@@ -13,6 +13,8 @@
     required?: boolean;
     className?: string;
     timeStep?: number; // Step in minutes for time inputs (default: 15)
+    /** When true, hides the "times will be rounded to X-minute intervals" hint (e.g. in bid form) */
+    hideTimeRoundedHint?: boolean;
   }
   
   let { 
@@ -27,6 +29,7 @@
     required = false,
     className = '',
     timeStep = 15, // Default to 15-minute intervals
+    hideTimeRoundedHint = false,
   } = $props();
   
   // Reactive localized text
@@ -283,7 +286,7 @@
     placeholder={localizedPlaceholder}
     class="input input-bordered w-full"
   />
-  {#if (type === 'time' || type === 'datetime') && timeStep && timeStep !== 1}
+  {#if !hideTimeRoundedHint && (type === 'time' || type === 'datetime') && timeStep && timeStep !== 1}
     <div class="text-xs text-base-content/60 mt-1">
       {$t('common.components.date_input.time_rounded_intervals', { values: { timeStep } })}
     </div>

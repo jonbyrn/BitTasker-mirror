@@ -608,12 +608,14 @@ BitTasker is a Bitcoin platform in the gig economy sector inspired by Airtasker,
 - **Unit Testing**: Vitest for fast, ESM-native unit testing
 - **Component Testing**: Testing Library for Svelte component testing
 - **Integration Testing**: Playwright for browser-based integration tests
-- **E2E Testing**: Playwright for cross-browser end-to-end testing
+- **E2E Testing**: Playwright for cross-browser end-to-end testing (see [docs/testing/e2e-account-creation.md](docs/testing/e2e-account-creation.md) for account-creation flow and [docs/testing/e2e-testing.md](docs/testing/e2e-testing.md) for pipeline)
 - **Performance Testing**: Lighthouse CI for performance metrics
 - **Security Testing**: OWASP ZAP for automated security scanning
 - **Snapshot Testing**: Visual regression testing with Storybook and Chromatic
 - **Test Data Generation**: Faker.js for generating test data
 - **Coverage Reporting**: Vitest coverage with C8/V8 engine
+
+**How we test (for contributors):** Run `npm run test:ci` before pushing or opening a merge request. The same suite runs in CI. New or changed helpers, stores, API services, or critical UI should include or extend tests where practical; if you break a test, fix or remove it. See [Testing overview](docs/testing/README.md) for what runs where and team practices.
 
 ### CI/CD Pipeline
 

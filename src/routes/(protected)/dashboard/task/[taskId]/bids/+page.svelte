@@ -18,6 +18,7 @@
 	import Drawer from '$lib/components/Drawer.svelte';
 	import Modal from '$lib/components/Modal.svelte';
 	import MessageModal from '$lib/components/messages/MessageModal.svelte';
+	import UserInfoDisplay from '$lib/components/user/UserInfoDisplay.svelte';
 	import KINDS from '$lib/utils/constants/kinds';
 
 	// State
@@ -41,9 +42,7 @@
 	);
 
 	// Check if any bid is currently being processed - prevents race condition during acceptance
-	let hasProcessingBid = $derived(
-		bids.some((bid) => $bidStore.processingBidIds.has(bid.id))
-	);
+	let hasProcessingBid = $derived(bids.some((bid) => $bidStore.processingBidIds.has(bid.id)));
 
 	// Message modal state
 	let showMessageModal = $state(false);
@@ -98,38 +97,33 @@
 		return formatted;
 	}
 
-
 	async function loadTaskDetails() {
 		try {
 			$bidStore.error = '';
 
-			// Check if id is an event ID (64 hex chars) or UUID (uniqueId)
+			// Event ID (64 hex) → find by id; otherwise id is d-tag (readable or legacy task-uuid)
 			const id = page.params.taskId;
-			const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+			const isEventId = /^[0-9a-fA-F]{64}$/.test(id);
 
-			if (isUuid) {
-				// It's a uniqueId (UUID), query by d-tag
-				const dTagValue = `task-${id}`;
-				const filter = {
-					kinds: [KINDS.TASK_CREATION],
-					'#d': [dTagValue],
-					limit: 1
-				};
-
-				const response = await nostrEventsService.requestEvents({
-					filters: [filter]
-				});
-
-				if (response.data && response.data.length > 0) {
-					task = response.data[0];
-				}
-			} else {
+			if (isEventId) {
 				try {
 					const result = await nostrEventsService.findEventById(id);
 					task = result.data;
 				} catch {
 					$bidStore.error = $t('task.drawer.error.load');
 					return;
+				}
+			} else {
+				const filter = {
+					kinds: [KINDS.TASK_CREATION],
+					'#d': [id],
+					limit: 1
+				};
+				const response = await nostrEventsService.requestEvents({
+					filters: [filter]
+				});
+				if (response.data && response.data.length > 0) {
+					task = response.data[0];
 				}
 			}
 
@@ -145,9 +139,10 @@
 
 	async function loadBids() {
 		const taskId = page.params.taskId;
+		const legacyTaskId = task?.id ?? taskId;
 		await bidStore.loadBidsForTask(taskId);
 		// Subscribe to real-time updates
-		await bidStore.subscribeToUpdates(taskId);
+		await bidStore.subscribeToUpdates(taskId, legacyTaskId);
 	}
 
 	function toggleBidDetails(bidId: string) {
@@ -241,10 +236,9 @@
 		}
 	}
 
-	function retryLoadingData() {
-		loadTaskDetails();
-		loadBids();
-		fetchBtcPrice();
+	async function retryLoadingData() {
+		await loadTaskDetails();
+		await Promise.all([loadBids(), fetchBtcPrice()]);
 	}
 
 	onMount(async () => {
@@ -276,17 +270,15 @@
 	}
 </script>
 
-<div class="mx-auto max-w-6xl px-2 py-4 md:px-0">
+<!-- Mismas dimensiones que Mi Panel -->
+<div class="mx-auto h-full max-w-6xl px-2 py-6 md:px-0 md:py-0">
 	<div class="mb-4 sm:mb-6">
 		<h3 class="text-xl font-bold sm:text-2xl">{$t('task.drawer.bids_received')}</h3>
 		<p class="text-base-content/70 mt-2 text-sm sm:text-base">
 			{$t('task.drawer.bids_description')}
 		</p>
 		<div class="mt-3 flex justify-between items-center">
-			<button
-				onclick={() => history.back()}
-				class="btn btn-ghost btn-sm"
-			>
+			<button onclick={() => history.back()} class="btn btn-ghost btn-sm">
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
 					class="mr-1 h-4 w-4"
@@ -305,7 +297,7 @@
 			</button>
 
 			<button
-				class="btn btn-ghost btn-sm gap-2"
+				class="btn btn-secondary btn-sm gap-2"
 				onclick={retryLoadingData}
 				disabled={$bidStore.isLoading}
 				aria-label={$t('dashboard.tasks.refresh')}
@@ -404,23 +396,9 @@
 			<p class="text-base-content/60 mt-2 mb-4">
 				{$bidStore.error}
 			</p>
-			<button class="btn btn-primary" onclick={retryLoadingData}>
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					class="mr-2 h-4 w-4"
-					fill="none"
-					viewBox="0 0 24 24"
-					stroke="currentColor"
-				>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="2"
-						d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-					/>
-				</svg>
-				{$t('dashboard.bids.bid_acceptance.retry')}
-			</button>
+				<div class="text-base-content/60 text-sm">
+					{$t('dashboard.bids.bid_acceptance.retry')}
+				</div>
 		</div>
 	{:else if bids.length === 0}
 		<div class="py-12 text-center">
@@ -439,21 +417,7 @@
 				/>
 			</svg>
 			<h3 class="mt-4 text-xl font-semibold">{$t('task.drawer.no_bids')}</h3>
-			<button class="btn btn-primary" onclick={retryLoadingData}>
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					class="mr-2 h-4 w-4"
-					fill="none"
-					viewBox="0 0 24 24"
-					stroke="currentColor"
-				>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="2"
-						d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-					/>
-				</svg>
+			<button class="btn btn-primary mt-4" onclick={retryLoadingData}>
 				{$t('dashboard.bids.bid_acceptance.retry')}
 			</button>
 		</div>
@@ -467,99 +431,17 @@
 					<div class="p-4 md:p-6">
 						<!-- Top row: User info and status (full width) -->
 						<div class="mb-4 flex w-full items-center justify-between gap-4">
-							<!-- Left side: Avatar + Username on same row, then member since and rating below -->
+							<!-- Left side: UserInfoDisplay -->
 							<div class="flex min-w-0 flex-1 items-center gap-4">
-								<!-- Avatar -->
-								{#if bidContent.bidderId}
-									<a
-										href="/npub/{bidContent.bidderId}"
-										class="avatar shrink-0 cursor-pointer transition-opacity hover:opacity-80"
-									>
-										<div
-											class="bg-base-300 flex h-12 w-12 items-center justify-center rounded-full sm:h-14 sm:w-14"
-										>
-											{#if bidContent.bidderAvatar}
-												<img
-													src={bidContent.bidderAvatar}
-													alt={$t('task.drawer.avatar_alt')}
-													class="h-12 w-12 rounded-full object-cover sm:h-14 sm:w-14"
-												/>
-											{:else}
-												<div
-													class="avatar placeholder text-neutral-content bg-primary flex h-12 w-12 items-center justify-center rounded-full sm:h-14 sm:w-14"
-												>
-													<span class="text-lg font-semibold sm:text-2xl">
-														{(bidContent.bidderName || 'A').charAt(0).toUpperCase()}
-													</span>
-												</div>
-											{/if}
-										</div>
-									</a>
-								{:else}
-									<div class="avatar shrink-0">
-										<div
-											class="bg-base-300 flex h-12 w-12 items-center justify-center rounded-full sm:h-14 sm:w-14"
-										>
-											{#if bidContent.bidderAvatar}
-												<img
-													src={bidContent.bidderAvatar}
-													alt={$t('task.drawer.avatar_alt')}
-													class="h-12 w-12 rounded-full object-cover sm:h-14 sm:w-14"
-												/>
-											{:else}
-												<div
-													class="avatar placeholder text-neutral-content bg-primary flex h-12 w-12 items-center justify-center rounded-full sm:h-14 sm:w-14"
-												>
-													<span class="text-lg font-semibold sm:text-2xl">
-														{(bidContent.bidderName || 'A').charAt(0).toUpperCase()}
-													</span>
-												</div>
-											{/if}
-										</div>
-									</div>
-								{/if}
-								<!-- User info column -->
-								<div class="flex min-w-0 flex-1 flex-col items-start">
-									<!-- Display name -->
-									{#if bidContent.bidderId}
-										<a
-											href="/npub/{bidContent.bidderId}"
-											class="w-full cursor-pointer truncate text-base font-semibold transition-opacity hover:opacity-80 sm:text-lg"
-										>
-											{bidContent.bidderName || $t('task.drawer.anonymous')}
-										</a>
-									{:else}
-										<p class="w-full truncate text-base font-semibold sm:text-lg">
-											{bidContent.bidderName || $t('task.drawer.anonymous')}
-										</p>
-									{/if}
-									<!-- Member since -->
-									<span class="text-base-content/60 text-xs sm:text-sm">
-										{$t('task.drawer.member_since')}
-										{getCachedFormattedDate(new Date(bidContent.timestamp))}
-									</span>
-									<!-- Rating -->
-									<!-- TODO: Rating fields do not exist in the bid event -->
-									<div class="flex items-center gap-1">
-										{#each Array(5) as _, i}
-											<svg
-												xmlns="http://www.w3.org/2000/svg"
-												class="h-3 w-3 sm:h-4 sm:w-4 {i < (bidContent.bidderRating || 0)
-													? 'text-yellow-400'
-													: 'text-base-content/30'}"
-												fill="currentColor"
-												viewBox="0 0 24 24"
-											>
-												<path
-													d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
-												/>
-											</svg>
-										{/each}
-										<span class="text-base-content/60 ml-1 text-xs sm:text-sm"
-											>{bidContent.bidderRating || 0}</span
-										>
-									</div>
-								</div>
+								<UserInfoDisplay
+									avatar={bidContent.bidderAvatar}
+									username={bidContent.bidderName ?? ''}
+									rating={bidContent.bidderRating ?? 0}
+									size="md"
+									pubkey={bidContent.bidderId}
+									profileLink={bidContent.bidderId}
+									memberSince={bidContent.timestamp}
+								/>
 							</div>
 
 							<!-- Right side: Status badge and profile link (right-aligned) -->
@@ -612,7 +494,7 @@
 									{getTranslatedBidContent(bidContent, 'description')}
 								</p>
 							</div>
-						
+
 							<!-- Payment info row: FIXED info on left, price on right (same row for all screen sizes) -->
 							<div class="flex flex-row items-center justify-between gap-2">
 								<!-- Payment type info - left aligned with max-width -->
@@ -620,42 +502,42 @@
 									{bidContent.paymentType} ? {bidContent.estimatedDuration}
 								</div> -->
 
-									<!-- Estimated date for FIXED bids -->
-							{#if bidContent.paymentType === 'FIXED' && bidContent.startDateTime && bidContent.endDateTime}
-							<div class="flex items-start max-w-[60%] gap-2">
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									class="text-base-content/60 mt-0.5 h-4 w-4 shrink-0"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke="currentColor"
-								>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										stroke-width="2"
-										d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-									/>
-								</svg>
-								<div class="flex min-w-0 flex-1 flex-col">
-									<small class="text-base-content/60 text-xs">
-										{$t('bids.estimated_date')}
-									</small>
-									<span class="text-sm font-medium">
-										{(() => {
-											const startDate = parseDateWithLocalTime(bidContent.startDateTime);
-											const endDate = parseDateWithLocalTime(bidContent.endDateTime);
-											return startDate && endDate
-												? `${formatStandardDateTime(startDate, $locale || 'en')} - ${formatStandardDateTime(endDate, $locale || 'en')}`
-												: 'N/A';
-										})()}
-									</span>
-									<span class="text-base-content/60 text-xs">
-										({bidContent.estimatedDuration})
-									</span>
-								</div>
-							</div>
-						{/if}
+								<!-- Estimated date for FIXED bids -->
+								{#if bidContent.paymentType === 'FIXED' && bidContent.startDateTime && bidContent.endDateTime}
+									<div class="flex items-start max-w-[60%] gap-2">
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											class="text-base-content/60 mt-0.5 h-4 w-4 shrink-0"
+											fill="none"
+											viewBox="0 0 24 24"
+											stroke="currentColor"
+										>
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												stroke-width="2"
+												d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+											/>
+										</svg>
+										<div class="flex min-w-0 flex-1 flex-col">
+											<small class="text-base-content/60 text-xs">
+												{$t('bids.estimated_date')}
+											</small>
+											<span class="text-sm font-medium">
+												{(() => {
+													const startDate = parseDateWithLocalTime(bidContent.startDateTime);
+													const endDate = parseDateWithLocalTime(bidContent.endDateTime);
+													return startDate && endDate
+														? `${formatStandardDateTime(startDate, $locale || 'en')} - ${formatStandardDateTime(endDate, $locale || 'en')}`
+														: 'N/A';
+												})()}
+											</span>
+											<span class="text-base-content/60 text-xs">
+												({bidContent.estimatedDuration})
+											</span>
+										</div>
+									</div>
+								{/if}
 								<!-- Payment info column (aligned right) -->
 								<div class="shrink-0 text-right">
 									<div class="text-xl font-bold sm:text-2xl">
@@ -792,7 +674,7 @@
 										onclick={() =>
 											openMessageModal(
 												bidContent.bidderId || '',
-												bidContent.bidderName || $t('task.drawer.anonymous')
+												bidContent.bidderName ?? ''
 											)}
 									>
 										<svg

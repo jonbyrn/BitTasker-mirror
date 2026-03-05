@@ -223,7 +223,7 @@
 
 <!-- Bottom-sheet menu overlay (under the dock) -->
 {#if isMenuOpen || isMenuClosing}
-	<div class="bottom-nav-overlay fixed inset-0 z-[70] flex flex-col justify-end" onclickcapture={handleBottomNavTap}>
+	<div class="bottom-nav-overlay fixed inset-0 z-70 flex flex-col justify-end" onclickcapture={handleBottomNavTap}>
 		<button
 			type="button"
 			class="bottom-nav-backdrop flex-1 bg-black"
@@ -254,7 +254,7 @@
 			class:menu-expand={isMenuExpanding && !isMenuClosing}
 			class:menu-collapse={isMenuClosing || (!isMenuExpanding && !isMenuClosing)}
 		>
-			<div class="bottom-nav-scroll max-h-[52rem] overflow-y-auto pt-2">
+			<div class="bottom-nav-scroll max-h-208 overflow-y-auto pt-2">
 				<div class="p-2">
 				{#if isLoggedIn}
 					<!-- Logged-in user menu -->
@@ -366,9 +366,8 @@
 							</button>
 						</li>
 					{#if isTaskeesOpen}
-						{@const findTasksHref = '/tasks'}
 						<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
-							<a href={findTasksHref} onclick={(e) => handleNavWithMenuClose(e, findTasksHref)} class="min-h-[44px] py-2 pl-6">
+							<a href="/tasks" onclick={(e) => handleNavWithMenuClose(e, '/tasks')} class="min-h-[44px] py-2 pl-6">
 								<IconMagnify class="text-primary" />
 								<span class="font-medium">{$t('navbar.find_tasks')}</span>
 							</a>
@@ -572,9 +571,8 @@
 							</button>
 						</li>
 					{#if isTaskeesOpen}
-						{@const taskeesHref = '/tasks'}
 						<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
-							<a href={taskeesHref} onclick={(e) => handleNavWithMenuClose(e, taskeesHref)} class="min-h-[44px] py-2 pl-6">
+							<a href="/tasks" onclick={(e) => handleNavWithMenuClose(e, '/tasks')} class="min-h-[44px] py-2 pl-6">
 								<IconCurrencyBtc class="text-primary" />
 								<span class="font-medium">{$t('footer.start_earning')}</span>
 							</a>
@@ -715,7 +713,7 @@
 	<!-- Dock is fixed at bottom of screen and animates in/out based on scroll -->
 	<div
 		bind:this={dockEl}
-		class="dock pb-safe bg-primary/95 border-base-300/70 z-[80] border-t text-black backdrop-blur-sm"
+		class="dock pb-safe bg-primary/95 border-base-300/70 z-80 border-t text-black backdrop-blur-sm"
 		onclickcapture={handleBottomNavTap}
 	>
 		<!-- Home -->
@@ -799,7 +797,7 @@
 {:else}
 	<div
 		bind:this={dockEl}
-		class="dock pb-safe bg-primary/95 border-base-300/70 z-[80] border-t text-black backdrop-blur-sm"
+		class="dock pb-safe bg-primary/95 border-base-300/70 z-80 border-t text-black backdrop-blur-sm"
 		onclickcapture={handleBottomNavTap}
 	>
 		<!-- Home -->

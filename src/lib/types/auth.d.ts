@@ -1,36 +1,93 @@
-export interface Credentials {
-	username: string;
-	password: string; // encrytpion data
-	server: string; // device id
-	isLegacyFormat: boolean; // TODO: To be removed later once all legacy users are migrated to master key format
-}
+import type { NostrEvent } from 'nostr-tools';
 
-export interface NostrRegistrationData {
-	email?: string;
-	username?: string;
-	publicKey: string;
-	encryptedPrivateKey: string;
-	iv: string;
-	salt: string;
-	authTag: string;
+type ContextEncryption = {
+	encrypted: CryptoEncryptedData;
 	iterations: number;
-	googleToken?: string; // Optional Google token for social registration
-	authMethod?: 'passkey';
-	password?: string;
-	deviceId?: string;
+	salt: string;
+};
+
+export type EncryptedData = {
+	masterSalt: string;
+	nostr: ContextEncryption;
+	wallet: ContextEncryption;
+};
+
+export interface BiometricData {
+	npub: string;
+	exportedKey: string;
+	encryptedData: EncryptedData;
+	credentialId: string;
 }
 
-export interface NostrLoginData {
+export interface Credentials {
+	npub: string;
+	challenge: string;
+	credentialId: string;
+	exportedKey: string;
+	response: {
+		authenticatorData: string;
+		clientDataJSON: string;
+		signature: string;
+		userHandle?: string;
+	};
+}
+
+export interface PasskeyLoginArgs {
+	npub: string;
+	challenge: string;
+	credentialId: string;
+	deviceId: string;
+	deviceName: string;
+	platform: string;
+	response: {
+		authenticatorData: string;
+		clientDataJSON: string;
+		signature: string;
+		userHandle?: string;
+	};
+	appVersion: string;
+}
+
+export interface NostrLoginArgs {
 	event: NostrEvent;
 	challenge: string;
-	encryptedPrivateKey?: string;
-	iv?: string;
-	salt?: string;
-	authTag?: string;
-	iterations?: number;
-	authMethod?: 'passkey' | 'alby';
-	deviceId?: string;
-	masterKeyData?: MasterKeyEncryptedData;
+	deviceId: string;
+	authMethod: 'passkey';
+	encryptedData: EncryptedData;
+	deviceName: string;
+	credentialId: string;
+	passkeyPubkey: string;
+	clientDataJSON: string;
+	attestationObject: string;
+	platform: string;
+	appVersion: string;
+}
+
+export interface EncryptedNostrDataArgs {
+	event: NostrEvent;
+	deviceId: string;
+	deviceName: string;
+	platform: string;
+	appVersion: string;
+}
+
+export interface PasskeyEncryptedDataArgs {
+	npub: string;
+	challenge: string;
+	credentialId: string;
+	response: {
+		authenticatorData: string;
+		clientDataJSON: string;
+		signature: string;
+		userHandle?: string;
+	};
+}
+
+export interface PasskeyLoginData {
+	event: NostrEvent;
+	deviceId: string;
+	deviceName?: string;
+	platform: 'mobile' | 'web';
 }
 
 interface NostrKeyData {
@@ -55,7 +112,7 @@ interface NostrKeyData {
 	};
 	masterSalt: string;
 	exportedMasterKey: string;
-	keyDerivationMethod: "master-key" | null;
+	keyDerivationMethod: 'master-key' | null;
 	encryptedWalletMnemonic: string;
 }
 
@@ -78,13 +135,13 @@ export interface UserData {
 	deleted?: boolean;
 	nostrKey?: NostrKeyData;
 
-	userRole?: "USER";
+	userRole?: 'USER';
 	dob?: null;
 	biddingAllowed?: false;
 	mobileNumber?: null;
-	verificationLevel?: "NONE";
-	displayName?: "test4";
-	username?: "test4";
+	verificationLevel?: 'NONE';
+	displayName?: 'test4';
+	username?: 'test4';
 	profilePictureId?: null;
 	profilePictureUrl?: null;
 }
@@ -103,89 +160,6 @@ export interface Location {
 	createdAt: string;
 	updatedAt: string;
 }
-
-export interface ApiUserProfile {
-	id: number;
-	name: string | null;
-	email: string;
-	dob: string | null;
-	profilePicture: string | null;
-	userRole: string;
-	authMethods: Array<{
-		id: number;
-		userId: number;
-		type: string;
-		identifier: string;
-		credentials: Record<string, any>; // TODO: Define the type for credentials
-		isVerified: boolean;
-		lastUsedAt: string;
-		createdAt: string;
-		updatedAt: string;
-		providerDetails: any; // TODO: Define the type for provider details
-	}>;
-	client: {
-		id: number;
-		userId: number;
-		tasksCompleted: number;
-		tasksPosted: number;
-		averageRating: number | null;
-		level: number;
-		experiencePoints: number;
-		verificationLevel: string;
-		createdAt: string;
-		updatedAt: string;
-	} | null;
-	freelancer: {
-		id: number;
-		userId: number;
-		professionalTitle: string | null;
-		bio: string | null;
-		promotionalVideo: string | null;
-		yearsExperience: number | null;
-		specialties: string[];
-		standardRates: any; // TODO: Define the type for standard rates
-		tasksCompleted: number;
-		bidsSent: number;
-		successRate: number | null;
-		averageRating: number | null;
-		level: number;
-		experiencePoints: number;
-		reputationScore: number;
-		feeDiscount: number;
-		monthlyActivityPoints: number;
-		verificationLevel: string;
-		identityVerified: boolean;
-		createdAt: string;
-		updatedAt: string;
-	} | null;
-	preferences: any; // TODO: Define the type for preferences
-	location: {
-		id: number;
-		userId: number;
-		addressLine1: string | null;
-		addressLine2: string | null;
-		city: string;
-		state: string;
-		postalCode: string;
-		country: string;
-		latitude: number;
-		longitude: number;
-		createdAt: string;
-		updatedAt: string;
-	} | null;
-	isEmailVerified: boolean;
-	onboardingComplete: boolean;
-	lastLoginAt: string;
-	createdAt: string;
-	updatedAt: string;
-}
-
-export interface EncryptedData {
-	data: string;
-	iv: string;
-	authTag: string;
-}
-
 export interface BiometricVerifyOptions {
 	reason: string;
 	title: string;
@@ -209,18 +183,26 @@ export interface AuthState {
 	error: string | null;
 }
 
-export interface AccountRecoveryData {
-	publicKey: string;
-	recoveryData: Partial<MasterKeyEncryptedData>;
+export interface RecoveryData {
+	credentialId: string;
+	recoveryData: EncryptedData;
 	email?: string;
 }
 
 export interface NostrRecoveryCompleteData {
-	publicKey: string;
+	npub: string;
 	otp: string;
-	recoveryData: Partial<MasterKeyEncryptedData>;
-	encryptedMasterKeyData: MasterKeyEncryptedData;
+	recoveryData: EncryptedData;
+	encryptedData: EncryptedData;
 	deviceId: string;
+	deviceName?: string;
+	platform: string;
+	credentialId: string;
+	challenge: string;
+	passkeyPubkey: string;
+	clientDataJSON: string;
+	attestationObject: string;
+	revokeAll: boolean;
 }
 
 export interface NostrRecoveryData {
@@ -229,27 +211,25 @@ export interface NostrRecoveryData {
 	masterSalt: string;
 }
 
+export interface CryptoEncryptedData {
+	data: string;
+	iv: string;
+	authTag: string;
+}
 
-/********************** Master Key Encrypted Data types **********************/
-
-type ContextEncryption = {
-	encrypted: EncryptedData;
-	iterations: number;
-	salt: string;
-};
-
-export type MasterKeyEncryptedData = {
-	exportedMasterKey: string;
-	masterSalt: string;
-	nostr: ContextEncryption;
-	wallet: ContextEncryption;
-};
-
-export type MasterKeyRegistration = {
+export type RegistrationData = {
+	email?: string | null | undefined;
+	username?: string | null | undefined;
+	publicKey: string;
+	encryptedData: EncryptedData;
 	authMethod?: string | null | undefined;
 	deviceId?: string | null | undefined;
-	email?: string | null | undefined;
-	masterKeyData: MasterKeyEncryptedData;
-	publicKey: string;
-	username?: string | null | undefined;
+	deviceName?: string | null | undefined;
+	credentialId: string | null | undefined;
+	platform: string | null | undefined;
+	challenge: string;
+	passkeyPubkey: string;
+	clientDataJSON: string;
+	attestationObject: string;
+	appVersion: string;
 };

@@ -187,3 +187,13 @@ export function formatNumberWithTwoDecimals(number: number): string {
 		maximumFractionDigits: 2
 	}).format(number);
 }
+
+/**
+ * Format an integer with thousands separators (e.g. 12345 → "12,345").
+ * Use for sats and other whole-number displays.
+ */
+export function formatInteger(num: number): string {
+	return new Intl.NumberFormat('en-US', {
+		maximumFractionDigits: 0
+	}).format(Math.round(num));
+}

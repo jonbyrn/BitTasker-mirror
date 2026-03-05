@@ -8,7 +8,7 @@
 	import { taskStore } from '$lib/stores/task.store';
 	import { deleteTask } from '$lib/nostr/task';
 	import { myTasksStore } from '$lib/stores/task.store';
-	import { getContracts } from '$lib/utils/escrow/v1/nostrContract';
+	import { escrow } from '$lib/utils/escrow';
 	import { appStore } from '$lib/stores/app.store';
 	import Tabs from '$lib/components/Tabs.svelte';
 	import TaskDrawer from '$lib/components/task/TaskDrawer.svelte';
@@ -19,39 +19,39 @@
 
 	// Tab configuration - reactive to language changes
 	const tabs = $derived([
-		{ 
-			id: 'tasks', 
-			label: $t('dashboard.tabs.tasks'), 
+		{
+			id: 'tasks',
+			label: $t('dashboard.tabs.tasks'),
 			buttonLabel: $t('dashboard.create_task'),
 			buttonHref: '/dashboard/create-task',
 			icon: 'plus'
 		},
-		{ 
-			id: 'bids', 
-			label: $t('dashboard.tabs.bids'), 
+		{
+			id: 'bids',
+			label: $t('dashboard.tabs.bids'),
 			buttonLabel: $t('dashboard.find_task'),
 			buttonHref: '/tasks',
 			icon: 'search'
 		},
-		{ 
-			id: 'contracts', 
-			label: $t('dashboard.tabs.contracts'), 
+		{
+			id: 'contracts',
+			label: $t('dashboard.tabs.contracts'),
 			buttonLabel: $t('dashboard.manage_wallet'),
 			buttonHref: '/dashboard/wallet',
 			icon: 'wallet'
 		},
-		{ 
-			id: 'saved-searches', 
-			label: $t('dashboard.tabs.saved_searches'), 
+		{
+			id: 'saved-searches',
+			label: $t('dashboard.tabs.saved_searches'),
 			buttonLabel: $t('dashboard.find_task'),
 			buttonHref: '/tasks',
 			icon: 'search'
 		}
 		// { id: 'recurring', label: $t('dashboard.tabs.recurring'), buttonLabel: $t('dashboard.create_task'), buttonHref: '/dashboard/create-task', icon: 'plus' }
 	]);
-	
+
 	let activeTabId = $state('tasks');
-	const activeTab = $derived(tabs.find(t => t.id === activeTabId) || tabs[0]);
+	const activeTab = $derived(tabs.find((t) => t.id === activeTabId) || tabs[0]);
 
 	// Task drawer state
 	let selectedTask = $state<Task | null>(null);
@@ -63,7 +63,7 @@
 	// Set active tab based on URL param
 	onMount(() => {
 		const tabParam = page.url.searchParams.get('tab');
-		if (tabParam && tabs.some(t => t.id === tabParam)) {
+		if (tabParam && tabs.some((t) => t.id === tabParam)) {
 			activeTabId = tabParam;
 		} else {
 			page.url.searchParams.set('tab', activeTabId);
@@ -74,14 +74,14 @@
 	// Watch for URL changes and update active tab
 	$effect(() => {
 		const tabParam = page.url.searchParams.get('tab');
-		if (tabParam && tabs.some(t => t.id === tabParam)) {
+		if (tabParam && tabs.some((t) => t.id === tabParam)) {
 			activeTabId = tabParam;
 		}
 	});
 
 	// Handle tab change
 	function handleTabChange(tabId: string) {
-		if (tabs.some(t => t.id === tabId)) {
+		if (tabs.some((t) => t.id === tabId)) {
 			activeTabId = tabId;
 			page.url.searchParams.set('tab', tabId);
 			goto(page.url.toString(), { replaceState: true, keepFocus: true, noScroll: true });
@@ -89,7 +89,11 @@
 	}
 
 	// Task drawer functions
-	const setDrawerState = (isOpen: boolean, task: Task | null = selectedTask, tab: string = drawerInitialTab) => {
+	const setDrawerState = (
+		isOpen: boolean,
+		task: Task | null = selectedTask,
+		tab: string = drawerInitialTab
+	) => {
 		drawerOpen = isOpen;
 		selectedTask = task;
 		drawerInitialTab = tab;
@@ -107,7 +111,7 @@
 
 		// Check if task has contracts - prevent editing if contracts exist
 		try {
-			const contracts = await getContracts({ taskIds: [taskToEdit.id] });
+			const contracts = await escrow.contractOps.getContracts({ taskIds: [taskToEdit.id] });
 			if (contracts.length > 0) {
 				appStore.showErrorToast(
 					$t('dashboard.task_details_by_task.cannot_edit_with_contract') ||
@@ -127,7 +131,6 @@
 			return;
 		}
 
-		const uniqueId = (taskToEdit as Task & { uniqueId?: string }).uniqueId ?? taskToEdit.id;
 		const editTask: TaskBody = {
 			title: taskToEdit.title,
 			taskType: taskToEdit.taskType,
@@ -143,7 +146,7 @@
 			status: taskToEdit.status,
 			translations: taskToEdit.translations
 		};
-		taskStore.saveEditTaskDraft(taskToEdit.id, uniqueId, editTask);
+		taskStore.saveEditTaskDraft(taskToEdit.id, taskToEdit.id, editTask);
 		activeTaskModal = null;
 		goto(`/dashboard/create-task?edit=true`);
 	};
@@ -153,7 +156,8 @@
 		if (!taskToDelete) return;
 		try {
 			isDeleting = true;
-			await deleteTask(taskToDelete.id);
+			const eventId = 'eventId' in taskToDelete ? (taskToDelete as Task & { eventId?: string }).eventId : undefined;
+			await deleteTask(taskToDelete.id, eventId);
 			$myTasksStore.items = $myTasksStore.items.filter((t) => t.id !== taskToDelete.id);
 			activeTaskModal = null;
 			setDrawerState(false, null);
@@ -170,7 +174,7 @@
 	<div class="mb-6 flex items-center justify-between">
 		<div>
 			<h3 class="font-bold">{$t('dashboard.title')}</h3>
-			<p class="text-base-content/70 px-1">{$t('dashboard.description')}</p>
+			<p class="text-base-content/70">{$t('dashboard.description')}</p>
 		</div>
 		<a href={activeTab.buttonHref} class="btn btn-primary btn-sm sm:btn-md whitespace-nowrap">
 			{#if activeTab.icon === 'search'}
@@ -182,7 +186,12 @@
 					stroke="currentColor"
 					aria-label={$t('dashboard.page.search_icon_alt')}
 				>
-					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+					/>
 				</svg>
 			{:else if activeTab.icon === 'wallet'}
 				<svg
@@ -193,7 +202,12 @@
 					stroke="currentColor"
 					aria-label="Wallet icon"
 				>
-					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
+					/>
 				</svg>
 			{:else if activeTab.icon === 'plus'}
 				<svg
@@ -204,7 +218,12 @@
 					stroke="currentColor"
 					aria-label={$t('dashboard.page.plus_icon_alt')}
 				>
-					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M12 4v16m8-8H4"
+					/>
 				</svg>
 			{/if}
 			<span>{activeTab.buttonLabel}</span>
@@ -222,7 +241,9 @@
 			aria-labelledby="tab-tasks"
 			transition:slide={{ duration: 300 }}
 		>
-			<DashboardTasksPanel openTaskDrawer={(task, tab = 'details') => setDrawerState(true, task, tab)} />
+			<DashboardTasksPanel
+				openTaskDrawer={(task, tab = 'details') => setDrawerState(true, task, tab)}
+			/>
 		</div>
 	{:else if activeTabId === 'saved-searches'}
 		<div
@@ -283,7 +304,9 @@
 						</svg>
 					</div>
 					<div>
-						<h4 class="text-sm font-semibold">{$t('dashboard.task_details_by_task.edit_task_confirmation.title')}</h4>
+						<h4 class="text-sm font-semibold">
+							{$t('dashboard.task_details_by_task.edit_task_confirmation.title')}
+						</h4>
 					</div>
 				</div>
 			</div>
@@ -360,7 +383,9 @@
 						</svg>
 					</div>
 					<div>
-						<h4 class="text-sm font-semibold">{$t('dashboard.task_details_by_task.delete_task_confirm_title')}</h4>
+						<h4 class="text-sm font-semibold">
+							{$t('dashboard.task_details_by_task.delete_task_confirm_title')}
+						</h4>
 					</div>
 				</div>
 			</div>

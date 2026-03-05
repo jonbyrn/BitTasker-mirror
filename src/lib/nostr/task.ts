@@ -1,5 +1,6 @@
-import type { TaskBody, TaskTranslations } from '$lib/types/task';
+import type { Task, TaskBody, TaskTranslations } from '$lib/types/task.d';
 import type { Event as NostrEvent, Filter } from 'nostr-tools';
+import { nip19 } from 'nostr-tools';
 import type { RecurrencePattern } from '$lib/types/recurring-tasks';
 import { calculatePOW } from '$lib/nostr';
 import { getSignedEvent } from '$lib/utils/nostr';
@@ -14,16 +15,51 @@ import KINDS from '$lib/utils/constants/kinds';
 import { TranslationService } from '$lib/services/translation.service';
 import { SUPPORTED_LANGUAGES } from '$lib/i18n/i18n';
 import { appStore } from '$lib/stores/app.store';
+import { tasksStore, myTasksStore } from '$lib/stores/task.store';
+import { cleanup as cleanupTasksCache } from '$lib/nostr/findTasks';
+import { cleanupMyTasks } from '$lib/nostr/findMyTasks';
+import { createDebug } from '$lib/utils/debug';
+
+const d = createDebug('task');
 
 // Define relay URLs with fallbacks
 const RELAYS = [import.meta.env.VITE_NOSTR_RELAY_URL].filter(Boolean); // Remove any undefined values
 
 /**
+ * Generate a readable d-tag for Nostr Addressable Events (kind:pubkey:d-tag).
+ * Readable format (title + timestamp) for SEO and stable identification.
+ * Suffix: 6 chars from npub (task creator or user) when provided; otherwise random.
+ */
+function getReadableDTag(title: string, createdAt: number, npub?: string): string {
+	const slug =
+		title
+			.trim()
+			.toLowerCase()
+			.replace(/\s+/g, '-')
+			.replace(/[^a-z0-9-]/g, '')
+			.slice(0, 50) || 'task';
+	const fromNpub = npub ? npub.replace(/[^a-z0-9]/gi, '').slice(0, 6) : '';
+	const suffix =
+		fromNpub.length >= 6
+			? fromNpub
+			: Array.from(crypto.getRandomValues(new Uint8Array(3)))
+					.map((b) => b.toString(16).padStart(2, '0'))
+					.join('');
+	return `${slug}-${createdAt}-${suffix}`;
+}
+
+/**
  * Get the centralized pool instance from appStore
  */
 function getPool() {
-	return get(appStore).pool;
+	const pool = get(appStore)?.pool;
+	if (!pool) {
+		throw new Error('Pool not found');
+	}
+	return pool;
 }
+
+type TaskWithIds = Task & { uniqueId?: string; eventId?: string };
 
 // Translation service instance
 const translationService = new TranslationService();
@@ -32,9 +68,7 @@ const translationService = new TranslationService();
  * Generate translations for a task
  * Translates title and description to all supported languages
  */
-async function generateTaskTranslations(
-	taskData: TaskBody
-): Promise<TaskTranslations | undefined> {
+async function generateTaskTranslations(taskData: TaskBody): Promise<TaskTranslations | undefined> {
 	// Only generate translations if translation service is available
 	if (!translationService.isAvailable()) {
 		console.warn('Translation service not available, skipping translations');
@@ -44,21 +78,23 @@ async function generateTaskTranslations(
 	try {
 		// Detect source language from the combined text (title + description)
 		const combinedText = `${taskData.title} ${taskData.description}`.trim();
-		
+
 		if (!combinedText) {
 			return undefined;
 		}
-		
+
 		const detectedLanguage = await translationService.detectLanguage(combinedText);
-		
+
 		// Determine source language - if detection fails, default to 'en'
 		// but we'll still translate to ensure both languages are available
-		const sourceLanguage = (detectedLanguage && SUPPORTED_LANGUAGES.includes(detectedLanguage as any)) 
-			? detectedLanguage 
-			: 'en';
-		
+		const sourceLanguage =
+			detectedLanguage &&
+			SUPPORTED_LANGUAGES.includes(detectedLanguage as (typeof SUPPORTED_LANGUAGES)[number])
+				? detectedLanguage
+				: 'en';
+
 		// Always translate to the other language to ensure we have translations in both
-		const targetLanguages = SUPPORTED_LANGUAGES.filter(lang => lang !== sourceLanguage);
+		const targetLanguages = SUPPORTED_LANGUAGES.filter((lang) => lang !== sourceLanguage);
 
 		// Translate title and description to all target languages in parallel
 		const translationPromises = targetLanguages.map(async (targetLang) => {
@@ -87,10 +123,10 @@ async function generateTaskTranslations(
 		});
 
 		const results = await Promise.all(translationPromises);
-		
+
 		// Build translations object, filtering out failed translations
 		const translations: TaskTranslations['translations'] = {};
-		results.forEach(result => {
+		results.forEach((result) => {
 			if (result) {
 				translations[result.language] = {
 					title: result.title,
@@ -101,17 +137,20 @@ async function generateTaskTranslations(
 
 		// If we couldn't detect the language or translation failed, try the reverse
 		// This ensures we always have translations available in both languages
-		if ((!detectedLanguage || !SUPPORTED_LANGUAGES.includes(detectedLanguage as any)) && 
-			Object.keys(translations).length === 0) {
+		if (
+			(!detectedLanguage ||
+				!SUPPORTED_LANGUAGES.includes(detectedLanguage as (typeof SUPPORTED_LANGUAGES)[number])) &&
+			Object.keys(translations).length === 0
+		) {
 			// Try translating assuming the text is in Spanish
 			const reverseSource = sourceLanguage === 'en' ? 'es' : 'en';
 			const reverseTarget = reverseSource === 'en' ? 'es' : 'en';
-			
+
 			const [reverseTitleResult, reverseDescResult] = await Promise.all([
 				translationService.translate(taskData.title, reverseTarget, reverseSource),
 				translationService.translate(taskData.description, reverseTarget, reverseSource)
 			]);
-			
+
 			if (!('code' in reverseTitleResult) && !('code' in reverseDescResult)) {
 				translations[reverseTarget] = {
 					title: reverseTitleResult.translatedText,
@@ -136,12 +175,15 @@ async function generateTaskTranslations(
 }
 
 /**
- * Generate tags for a task event
+ * Generate tags for a task event.
+ * @param taskData - Task body
+ * @param pow - Proof-of-work
+ * @param dTagValue - d-tag value (unique identifier; readable format for SEO per Nostr Addressable Events)
  */
 async function generateTaskTags(
 	taskData: TaskBody,
 	pow: [string, string],
-	uniqueId: string
+	dTagValue: string
 ): Promise<string[][]> {
 	// Normalize and validate skills
 	const normalizedSkills = taskData.skills
@@ -150,13 +192,13 @@ async function generateTaskTags(
 		.filter((skill) => /^[a-z0-9\s-]+$/.test(skill))
 		.slice(0, 10); // Limit to 10 skills
 
-	const tags: [string, ...any][] = [
+	const tags: Array<[string, ...string[]]> = [
 		['c', ...taskData.categories.map((id) => id.toString())],
 		['s', ...normalizedSkills],
 		['p', await getNpub()],
 		['pow', ...pow],
-		['d', `task-${uniqueId}`], // Use uniqueId as the d tag to ensure uniqueness
-		['S', TaskStatusEnum.OPEN] // Default status - OPEN
+		['d', dTagValue], // d-tag: unique identifier (kind:pubkey:d-tag = Addressable Event); readable format for SEO
+		['S', taskData.status ?? TaskStatusEnum.OPEN] // Default status - OPEN
 	];
 
 	if (taskData.deadline) {
@@ -218,8 +260,9 @@ export async function createTask(taskData: TaskBody): Promise<string> {
 			throw new Error('User not authenticated');
 		}
 
-		// Generate a unique identifier for this task
-		const uniqueId = crypto.randomUUID();
+		const createdAt = Math.floor(Date.now() / 1000);
+		// d-tag: readable format (title + timestamp) for SEO; kind:pubkey:d-tag = Addressable Event identifier; suffix from npub
+		const dTagValue = getReadableDTag(taskData.title, createdAt, npub);
 
 		// Use user name if available, otherwise use shortened npub as fallback
 		const username =
@@ -232,33 +275,32 @@ export async function createTask(taskData: TaskBody): Promise<string> {
 
 		// Generate translations for all supported languages
 		const translations = await generateTaskTranslations(taskData);
-	
 
-		// Add creation timestamp, unique identifier, and translations to task data
+		// Add creation timestamp and translations (no uniqueId in content; d-tag in tags is the identifier)
 		const taskDataWithMeta = {
 			...taskData,
 			creator,
-			createdAt: Math.floor(Date.now() / 1000),
-			uniqueId,
+			createdAt,
 			...(translations && { translations })
 		};
 
-		// Calculate POW based on task value and uniqueId
-		const pow = await calculatePOW(taskData.budget.amount, uniqueId);
+		// Calculate POW based on task value and d-tag (stable identifier)
+		const pow = await calculatePOW(taskData.budget.amount, dTagValue);
 
-		// Create event
+		// Create event (Addressable Event: same kind, pubkey, d-tag = replaceable)
 		const event = {
 			kind: KINDS.TASK_CREATION,
-			created_at: Math.floor(Date.now() / 1000),
+			created_at: createdAt,
 			content: JSON.stringify(taskDataWithMeta),
-			tags: await generateTaskTags(taskData, pow, uniqueId)
+			tags: await generateTaskTags(taskData, pow, dTagValue)
 		};
 
 		// Sign and publish
 		const signedEvent = await getSignedEvent(event);
 		await nostrEventsService.publishEvent(signedEvent);
 
-		return signedEvent.id;
+		// Return d-tag (stable, readable identifier) for URLs and Addressable Event coordinate
+		return dTagValue;
 	} catch (error) {
 		console.error('❌ Failed to create task:', error);
 		throw error;
@@ -278,12 +320,17 @@ export async function createRecurringTask(
 	}
 ): Promise<string> {
 	try {
-		const uniqueId = crypto.randomUUID();
-		const pow = await calculatePOW(taskData.budget.amount, uniqueId);
+		const npub = await getNpub();
+		if (!npub) {
+			throw new Error('User not authenticated');
+		}
+		const createdAt = Math.floor(Date.now() / 1000);
+		// Recurring tasks use same dTagValue format as regular tasks (readable, kind:pubkey:d-tag)
+		const dTagValue = getReadableDTag(taskData.title ?? schedule.name, createdAt, npub);
+		const pow = await calculatePOW(taskData.budget.amount, dTagValue);
 
 		// Generate translations for the recurring task template (same as regular tasks)
 		const translations = await generateTaskTranslations(taskData);
-		
 
 		// Include translations in the template
 		const taskDataWithTranslations = {
@@ -293,14 +340,14 @@ export async function createRecurringTask(
 
 		const event = {
 			kind: KINDS.RECURRING_TASK,
-			created_at: Math.floor(Date.now() / 1000),
+			created_at: createdAt,
 			content: JSON.stringify({
 				template: taskDataWithTranslations,
 				schedule,
-				uniqueId
+				dTagValue
 			}),
 			tags: [
-				...(await generateTaskTags(taskData, pow, uniqueId)),
+				...(await generateTaskTags(taskData, pow, dTagValue)),
 				['t', 'recurring'],
 				['f', schedule.recurrencePattern.frequency],
 				['i', schedule.recurrencePattern.interval.toString()]
@@ -320,60 +367,104 @@ export async function createRecurringTask(
 }
 
 /**
- * Update an existing task
+ * Get the stable identifier for a task Nostr event (Addressable Event).
+ * Use this when calling updateTask so repeated updates work: after the first update
+ * the event id changes (new event published with same d-tag), and the backend/relay
+ * typically only serves the latest event by d-tag, so old event ids return 404.
+ *
+ * @param event - Nostr task event (kind TASK_CREATION)
+ * @returns d-tag from tags if present (stable across updates), else event.id (64 hex)
+ */
+export function getTaskStableId(event: NostrEvent): string {
+	const dTag = event.tags?.find((t: string[]) => t[0] === 'd')?.[1];
+	return dTag ?? event.id;
+}
+
+/**
+ * Update an existing task. taskId = d-tag (preferred) or event id (64 hex).
+ * Prefer d-tag so repeated updates work: with event id, after the first update
+ * the backend may return 404 for the old id (see getTaskStableId).
+ * Busca por backend; si falla por event id, intenta relay (pool).
  */
 export async function updateTask(taskId: string, updates: Partial<TaskBody>): Promise<string> {
 	try {
-		// Check if taskId is an event ID (64 hex chars) or UUID (uniqueId)
 		const isEventId = /^[0-9a-fA-F]{64}$/.test(taskId);
-		const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(taskId);
-		let originalTask: any = null;
+		d.log('updateTask', {
+			taskId: taskId.slice(0, 20) + '…',
+			taskIdFormat: isEventId ? 'event-id' : 'd-tag',
+			updates: Object.keys(updates)
+		});
+
+		let originalTask: NostrEvent | null = null;
 
 		if (isEventId) {
-			// It's an event ID, use it directly
-			const result = await nostrEventsService.findEventById(taskId);
-			originalTask = result.data;
-		} else if (isUuid) {
-			// It's a uniqueId (UUID), query by d-tag
-			const dTagValue = `task-${taskId}`;
-			const filter = {
-				kinds: [KINDS.TASK_CREATION],
-				'#d': [dTagValue],
-				limit: 1
-			};
-			
-			const response = await nostrEventsService.requestEvents({
-				filters: [filter]
-			});
-			
-			if (response.data && response.data.length > 0) {
-				originalTask = response.data[0];
-			}
-		} else {
-			// Try as event ID anyway (fallback for edge cases)
 			try {
 				const result = await nostrEventsService.findEventById(taskId);
-				originalTask = result.data;
+				originalTask = result.data as unknown as NostrEvent;
+				d.log('updateTask: API findEventById success', { taskId: taskId.slice(0, 16) + '…' });
+			} catch (apiErr) {
+				d.log('updateTask: API findEventById failed, trying relay fallback', {
+					taskId: taskId.slice(0, 16) + '…',
+					apiError: apiErr
+				});
+				// Fallback: contrato viejo con event id; backend puede no tenerlo → buscar en relay
+				const relays = get(appStore).relays?.length ? get(appStore).relays : RELAYS;
+				originalTask = await getTaskById(taskId, undefined, relays);
+				d.log('updateTask: relay fallback', {
+					taskId: taskId.slice(0, 16) + '…',
+					found: !!originalTask,
+					relaysCount: relays.length
+				});
+			}
+		} else {
+			try {
+				const response = await nostrEventsService.requestEvents({
+					filters: [{ kinds: [KINDS.TASK_CREATION], '#d': [taskId], limit: 1 }]
+				});
+				if (response.data?.length > 0) {
+					originalTask = response.data[0] as unknown as NostrEvent;
+				}
 			} catch {
-				throw new Error('Task not found');
+				// ignore
 			}
 		}
 
 		if (!originalTask) {
+			d.error('updateTask: Task not found', {
+				taskId,
+				taskIdFormat: isEventId ? 'event-id' : 'd-tag'
+			});
 			throw new Error('Task not found');
+		}
+
+		// Enforce: only the task author (same npub as current user) may update
+		const npub = await getNpub();
+		if (!npub) {
+			throw new Error('User not authenticated');
+		}
+		const userPubkeyHex = npub.startsWith('npub') ? (nip19.decode(npub).data as string) : npub;
+		if (originalTask.pubkey.toLowerCase() !== userPubkeyHex.toLowerCase()) {
+			d.error('updateTask: Task author mismatch', {
+				taskPubkey: originalTask.pubkey.slice(0, 16) + '…',
+				userPubkey: userPubkeyHex.slice(0, 16) + '…'
+			});
+			throw new Error('Only the task author may update this task');
 		}
 
 		// Parse original task data
 		const originalTaskData = JSON.parse(originalTask.content);
 
-		// Get the original uniqueId
-		const uniqueId = originalTaskData.uniqueId;
-		if (!uniqueId) {
-			throw new Error('Original task has no uniqueId');
+		// Get d-tag from event tags (Addressable Events: kind:pubkey:d-tag = unique identifier)
+		// Support legacy: if no d tag, fall back to uniqueId in content (task-${uniqueId})
+		const dTagFromTags = originalTask.tags?.find((t: string[]) => t[0] === 'd')?.[1];
+		const dTagValue =
+			dTagFromTags || (originalTaskData.uniqueId ? `task-${originalTaskData.uniqueId}` : null);
+		if (!dTagValue) {
+			throw new Error('Original task has no d-tag in tags and no uniqueId in content');
 		}
 
 		// Check if title or description changed - if so, regenerate translations
-		const needsRetranslation = 
+		const needsRetranslation =
 			(updates.title && updates.title !== originalTaskData.title) ||
 			(updates.description && updates.description !== originalTaskData.description);
 
@@ -392,23 +483,22 @@ export async function updateTask(taskId: string, updates: Partial<TaskBody>): Pr
 			}
 		}
 
-		// Merge updates with original task data
+		// Merge updates with original task data (preserve uniqueId in content if present for legacy)
 		const updatedTaskData = {
 			...originalTaskData,
 			...updates,
-			uniqueId, // Keep the same uniqueId
+			...(originalTaskData.uniqueId && { uniqueId: originalTaskData.uniqueId }),
 			updatedAt: Math.floor(Date.now() / 1000),
 			...(translations && { translations })
 		};
 
-		// Calculate POW based on updated task value
-		const pow = await calculatePOW(updatedTaskData.budget?.amount || 0, uniqueId);
-		// Create update event using the same kind as creation for proper replacement
+		// Calculate POW based on updated task value (use d-tag for stable identifier)
+		const pow = await calculatePOW(updatedTaskData.budget?.amount || 0, dTagValue);
+		// Create update event: same kind, pubkey, d-tag = replaceable Addressable Event (latest version)
 		const event = {
-			kind: KINDS.TASK_CREATION, // Use same kind as creation
-			// created_at: Math.floor(originalTask.created_at + 0.000001), // Add a microsecond to original timestamp for update
+			kind: KINDS.TASK_CREATION,
 			content: JSON.stringify(updatedTaskData),
-			tags: await generateTaskTags(updatedTaskData, pow, uniqueId)
+			tags: await generateTaskTags(updatedTaskData, pow, dTagValue)
 		};
 
 		// Sign and publish
@@ -416,25 +506,93 @@ export async function updateTask(taskId: string, updates: Partial<TaskBody>): Pr
 		await nostrEventsService.publishEvent(signedEvent);
 		// await publishToRelays(signedEvent);
 
+		const updatedTask: TaskWithIds = {
+			...(updatedTaskData as Task),
+			id: dTagValue,
+			uniqueId: dTagValue,
+			eventId: signedEvent.id,
+			npub: signedEvent.pubkey,
+			createdAt: updatedTaskData.createdAt ?? originalTask.created_at
+		};
+
+		// Clear caches so next fetch is fresh
+		cleanupTasksCache();
+		cleanupMyTasks();
+
+		// Update in-memory stores to reflect status immediately (target single task, avoid full array iteration)
+		const originalEventId = originalTask.id;
+		const isMatchingTask = (t: TaskWithIds) =>
+			t.uniqueId === dTagValue || t.id === dTagValue || t.eventId === originalEventId;
+
+		tasksStore.update((state) => {
+			const index = state.items.findIndex((task) => isMatchingTask(task as TaskWithIds));
+			if (index === -1) return state;
+			const taskWithIds = state.items[index] as TaskWithIds;
+			const items = [
+				...state.items.slice(0, index),
+				{ ...taskWithIds, ...updatedTask },
+				...state.items.slice(index + 1)
+			];
+			return { ...state, items };
+		});
+
+		myTasksStore.update((state) => {
+			const index = state.items.findIndex((task) => isMatchingTask(task as TaskWithIds));
+			if (index === -1) return state;
+			const taskWithIds = state.items[index] as TaskWithIds;
+			const items = [
+				...state.items.slice(0, index),
+				{ ...taskWithIds, ...updatedTask },
+				...state.items.slice(index + 1)
+			];
+			return { ...state, items };
+		});
+
 		return signedEvent.id;
 	} catch (error) {
-		console.error('Failed to update task:', error);
+		d.error('Failed to update task', { taskId, error });
 		throw error;
 	}
 }
 
 /**
  * Delete a task
+ * @param taskId - The task ID (can be eventId or uniqueId)
+ * @param eventId - Optional eventId to skip the fetch request. If provided, it will be used directly.
  */
-export async function deleteTask(taskId: string): Promise<string> {
+export async function deleteTask(taskId: string, eventId?: string): Promise<string> {
 	try {
+		let finalEventId = eventId;
+
+		// If eventId is provided, use it directly (avoids unnecessary request)
+		if (finalEventId) {
+			// Validate that it's a valid event ID format
+			if (!/^[0-9a-fA-F]{64}$/.test(finalEventId)) {
+				throw new Error('Invalid eventId format');
+			}
+		} else {
+			// taskId must be a 64-char hex eventId when eventId is not provided (caller should pass eventId from the already-fetched task)
+			const isEventId = /^[0-9a-fA-F]{64}$/.test(taskId);
+			if (isEventId) {
+				finalEventId = taskId;
+			} else {
+				throw new Error(
+					"eventId is required when taskId is a UUID. Pass the task's eventId from the already-fetched task."
+				);
+			}
+		}
+
+		if (!finalEventId) {
+			throw new Error('Could not determine eventId');
+		}
+
 		// Create deletion event (kind 5)
 		const event = {
 			kind: 5,
 			created_at: Math.floor(Date.now() / 1000),
 			content: 'Task deleted',
 			tags: [
-				['e', taskId] // Reference to event being deleted
+				['e', finalEventId] // Reference to event being deleted
 			]
 		};
 
@@ -457,7 +615,7 @@ export async function deleteTask(taskId: string): Promise<string> {
 export async function publishToRelays(event: NostrEvent, relays = RELAYS): Promise<void> {
 	try {
 		const pool = getPool();
-		const pub = pool.publish(relays, event as any); // Type cast to any to bypass type check
+		const pub = pool.publish(relays, event); // Type cast to any to bypass type check
 		await Promise.race([
 			Promise.all(pub),
 			new Promise((_, reject) => setTimeout(() => reject(new Error('Publish timeout')), 5000))
