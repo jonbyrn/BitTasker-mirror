@@ -1,5 +1,10 @@
 import type { HandleClientError } from '@sveltejs/kit';
 import { init, replayIntegration, handleErrorWithSentry } from '@sentry/sveltekit';
+// Eagerly pull BaseApiService into the entry bundle so it is guaranteed to be fully
+// evaluated before any route chunk that extends it. This, combined with the
+// manualChunks isolation in vite.config.ts, eliminates the circular chunk dependency
+// that causes "TypeError: Class extends value undefined" (BITTASKER-DEV-1X).
+import '$lib/api/apiService';
 
 if (process.env.NODE_ENV !== 'development') {
 	init({
@@ -23,14 +28,37 @@ if (process.env.NODE_ENV !== 'development') {
 
 		// Enable sending user PII (Personally Identifiable Information)
 		// https://docs.sentry.io/platforms/javascript/guides/sveltekit/configuration/options/#sendDefaultPii
-		sendDefaultPii: true,
+		sendDefaultPii: true
 	});
 }
 
-// If you have a custom error handler, pass it to `handleErrorWithSentry`
-/* { error, event, status, message } */
-export const handleError: HandleClientError = handleErrorWithSentry(() => {
+/**
+ * handleErrorWithSentry captures the error for Sentry first, then our callback runs.
+ * This catches chunk errors that bypass the vite:preloadError listener in +layout.svelte
+ * (e.g. errors surfaced directly through SvelteKit's error boundary).
+ * The same version-scoped sessionStorage key used in +layout.svelte ensures
+ * that the two layers never conflict: whichever fires first sets the flag.
+ */
+export const handleError: HandleClientError = handleErrorWithSentry(({ error }) => {
+	const message = (error as Error)?.message ?? '';
+	const isChunkError =
+		message.toLowerCase().includes('failed to fetch dynamically imported module') ||
+		(error as Error)?.name === 'ChunkLoadError';
+
+	if (isChunkError) {
+		const CHUNK_RELOAD_KEY = `chunk-reload-${__BUILD_VERSION__}`;
+		if (!sessionStorage.getItem(CHUNK_RELOAD_KEY)) {
+			// Sentry already queued the event above via handleErrorWithSentry.
+			// Set the flag then reload — the page will not display an error UI.
+			sessionStorage.setItem(CHUNK_RELOAD_KEY, '1');
+			location.reload();
+			return { message: 'Reloading to apply updates…' };
+		}
+		// Flag already set: reloading did not fix it. Persistent error — surface it.
+		return { message: 'An error occurred loading the application. Please refresh.' };
+	}
+
 	return {
-		message: 'Whoops! An error occurred',
+		message: 'Whoops! An error occurred'
 	};
 });

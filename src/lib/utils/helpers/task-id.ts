@@ -1,13 +1,9 @@
 import type { Task } from '$lib/types/task';
 
 /**
- * Get the stable identifier for a task (uniqueId if available, fallback to id)
- * This ensures we use the stable uniqueId when available, but maintain backward compatibility
+ * Get the identifier for a task (event id).
+ * Tasks are identified by event id; #d tag uses readable format (task title + timestamp) per Nostr conventions.
  */
 export function getTaskId(task: Task): string {
-	// Type guard: check if task has uniqueId property
-	if ('uniqueId' in task && typeof (task as any).uniqueId === 'string' && (task as any).uniqueId) {
-		return (task as any).uniqueId;
-	}
 	return task.id;
 }

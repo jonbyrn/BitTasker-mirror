@@ -1,35 +1,20 @@
 import type { Task } from '$lib/types/task';
 import type { NostrBidContent, NostrEventWithFollowup } from '$lib/types/bid';
-import type { ContractTransactionResult } from '$lib/types/wallet';
-import type { FeeTier } from '$lib/utils/wallet/networkConfig';
-import { FEE_TIERS } from '$lib/utils/wallet/networkConfig';
+import type { BidAcceptanceResult, BidEscrowDetails } from '$lib/types/wallet';
+import { type FeeTier, FEE_TIERS } from '@bittasker/wallet-core';
 import { walletStore } from '$lib/stores/wallet.store';
 import { get } from 'svelte/store';
 import { ethers } from 'ethers';
-import { registerPendingContractByTxHash } from '$lib/utils/escrow/v1/escrowEvents';
-import { escrow } from '$lib/utils/escrow/v1/escrow';
+import { cleanupPendingContractByTxHash, registerPendingContractByTxHash } from './escrowEvents';
+import { escrow } from './escrow';
 import { extractContractError } from '$lib/utils/wallet/contractErrorHandler';
 import { normalizeRskAddress } from '@bittasker/wallet-core';
 import type { NostrEvent } from 'nostr-tools';
 import { parseDateWithLocalTime } from '$lib/utils/helpers/dateFormatter';
+import { getTaskStableId } from '$lib/nostr/task';
+import { createDebug } from '$lib/utils/debug';
 
-export interface BidEscrowDetails {
-	freelancerAddress: string;
-	baseAmount: string;
-	totalAmount: string;
-	clientFee: string;
-	freelancerFee: string;
-	estimatedStartTime: number;
-	estimatedCompletionTime: number;
-	clientFeeTier: FeeTier;
-	freelancerFeeTier: FeeTier;
-}
-
-export interface BidAcceptanceResult {
-	success: boolean;
-	transactionResult?: ContractTransactionResult;
-	error?: string;
-}
+const d = createDebug('escrow:bid');
 
 /**
  * Calculate escrow details from bid data
@@ -37,7 +22,11 @@ export interface BidAcceptanceResult {
  * @param task Task details
  * @param btcPrice Current BTC price in USD (needed to convert USD to rBTC)
  */
-export function calculateBidEscrowDetails(bid: NostrBidContent, task: Task, btcPrice: number): BidEscrowDetails {
+export function calculateBidEscrowDetails(
+	bid: NostrBidContent,
+	task: Task,
+	btcPrice: number
+): BidEscrowDetails {
 	// Convert bid amount from USD to rBTC
 	// Ensure minimum amount to avoid parsing issues
 	if (bid.amount <= 0) {
@@ -108,10 +97,10 @@ export function calculateBidEscrowDetails(bid: NostrBidContent, task: Task, btcP
  */
 export function validateSufficientBalance(details: BidEscrowDetails): string[] {
 	const errors: string[] = [];
-	
+
 	// Get current wallet state
 	const walletState = get(walletStore);
-	
+
 	if (!walletState.rsk.connected || !walletState.rsk.balance) {
 		errors.push('RSK wallet not connected. Please connect your wallet to check balance.');
 		return errors;
@@ -121,24 +110,26 @@ export function validateSufficientBalance(details: BidEscrowDetails): string[] {
 		// Parse current balance (in wei) and required amount
 		const currentBalanceWei = BigInt(walletState.rsk.balance);
 		const requiredAmountWei = ethers.parseEther(details.totalAmount);
-		
+
 		// Estimate gas cost (approximate)
 		const estimatedGasLimit = BigInt(150000); // Conservative estimate for escrow creation
 		const estimatedGasPrice = BigInt(65164000); // 0.065164 gwei (typical RSK gas price)
 		const estimatedGasCost = estimatedGasLimit * estimatedGasPrice;
-		
+
 		// Total required = escrow amount + gas fees
 		const totalRequired = requiredAmountWei + estimatedGasCost;
-		
+
 		if (currentBalanceWei < totalRequired) {
 			const currentBalanceRBTC = ethers.formatEther(currentBalanceWei);
 			const requiredRBTC = ethers.formatEther(totalRequired);
 			const shortfallRBTC = ethers.formatEther(totalRequired - currentBalanceWei);
-			
-			errors.push(`Insufficient RBTC balance. You have ${parseFloat(currentBalanceRBTC).toFixed(6)} RBTC but need ${parseFloat(requiredRBTC).toFixed(6)} RBTC (including gas fees). Shortfall: ${parseFloat(shortfallRBTC).toFixed(6)} RBTC.`);
+
+			errors.push(
+				`Insufficient RBTC balance. You have ${parseFloat(currentBalanceRBTC).toFixed(6)} RBTC but need ${parseFloat(requiredRBTC).toFixed(6)} RBTC (including gas fees). Shortfall: ${parseFloat(shortfallRBTC).toFixed(6)} RBTC.`
+			);
 		}
 	} catch (error) {
-		console.error('Error validating balance:', error);
+		d.error('validateSufficientBalance', error);
 		errors.push('Unable to validate balance. Please check your wallet connection.');
 	}
 
@@ -170,6 +161,7 @@ export function validateEscrowDetails(details: BidEscrowDetails): ValidationResu
 			// Normalize RSK address checks for valid Hex format and lowercases it
 			normalizeRskAddress(details.freelancerAddress);
 		} catch (error) {
+			d.error('validateEscrowDetails: freelancer address', error);
 			errors.push('Invalid freelancer address format');
 		}
 	}
@@ -199,7 +191,7 @@ export function validateEscrowDetails(details: BidEscrowDetails): ValidationResu
 		} else {
 			timeText = 'just now';
 		}
-		
+
 		warnings.push({
 			key: 'dashboard.bids.bid_acceptance.warning.past_start_time',
 			params: { timeText }
@@ -225,12 +217,19 @@ export async function acceptBidAndCreateEscrow(
 	// Store transaction hash outside try block for cleanup in catch block
 	let transactionHash: string | null = null;
 
+	const taskId = getTaskStableId(task);
+	d.log('acceptBidAndCreateEscrow start', { taskId, bidId: bid.id });
+
 	try {
 		const bidContent = bid.content as unknown as NostrBidContent;
 		const taskContent = JSON.parse(task.content) as Task;
-		
+
 		// Calculate escrow details
 		const escrowDetails = calculateBidEscrowDetails(bidContent, taskContent, btcPrice);
+		d.log('acceptBidAndCreateEscrow escrowDetails', {
+			taskId,
+			totalAmount: escrowDetails.totalAmount
+		});
 
 		// Validate details
 		const validationResult = validateEscrowDetails(escrowDetails);
@@ -279,16 +278,17 @@ export async function acceptBidAndCreateEscrow(
 		if (escrowDetails.estimatedStartTime <= now) {
 			// Start time is in the past - adjust to current time + 1 hour
 			const newStartTime = now + 3600; // 1 hour buffer
-			
+
 			// Calculate the time shift (how much later the new start time is compared to original)
 			const timeShift = newStartTime - escrowDetails.estimatedStartTime;
-			
+
 			// Shift the completion time by the same amount
 			adjustedStartTime = newStartTime;
 			adjustedCompletionTime = escrowDetails.estimatedCompletionTime + timeShift;
 		}
 
 		// Create the escrow using multi-network manager
+		d.log('acceptBidAndCreateEscrow createEscrow', { taskId });
 		const transactionResult = await escrow.createEscrow(
 			escrowDetails.freelancerAddress,
 			escrowDetails.baseAmount,
@@ -308,11 +308,16 @@ export async function acceptBidAndCreateEscrow(
 
 		// Store transaction hash for potential cleanup in catch block
 		transactionHash = transactionResult.hash;
+		d.log('acceptBidAndCreateEscrow tx submitted', {
+			taskId,
+			txHash: transactionHash.slice(0, 10)
+		});
 
-		// Register pending contract creation with our event management system
+		// Register pending contract creation with our event management system.
+		// Use d-tag (stable id) so updateTask(contract.taskId) works on repeated updates (Nostr Addressable Event).
 		registerPendingContractByTxHash({
 			bidEventId: bid.id,
-			taskId: task.id,
+			taskId,
 			taskTitle: taskContent.title,
 			taskDescription: taskContent.description,
 			freelancerPubkey: bidContent.bidderId || '',
@@ -321,27 +326,26 @@ export async function acceptBidAndCreateEscrow(
 			estimatedCompletionTime: adjustedCompletionTime,
 			transactionHash: transactionHash
 		});
+		d.log('acceptBidAndCreateEscrow success', { taskId, txHash: transactionHash.slice(0, 10) });
 
 		return {
 			success: true,
 			transactionResult
 		};
-
 	} catch (error) {
-		console.error('Failed to accept bid and create escrow:', error);
-		
+		d.error('acceptBidAndCreateEscrow failed', { taskId }, error);
+
 		// Clean up any pending contracts that might have been registered
 		// If transaction was submitted and registered, we need to clean up by transaction hash
 		if (transactionHash) {
 			try {
-				const { cleanupPendingContractByTxHash } = await import('$lib/utils/escrow/v1/escrowEvents');
 				cleanupPendingContractByTxHash(transactionHash);
+				d.log('acceptBidAndCreateEscrow cleanup', { taskId, txHash: transactionHash.slice(0, 10) });
 			} catch (cleanupError) {
-				// If cleanup fails, log but don't throw - we're already in error handling
-				console.warn('Failed to cleanup pending contract in catch block:', cleanupError);
+				d.warn('acceptBidAndCreateEscrow cleanup failed', { taskId }, cleanupError);
 			}
 		}
-		
+
 		return {
 			success: false,
 			error: extractContractError(error).userMessage

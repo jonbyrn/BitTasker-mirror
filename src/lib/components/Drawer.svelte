@@ -95,7 +95,7 @@
 	// Track if component has mounted to ensure proper initial state
 	let isMounted = $state(false);
 	let drawerPanelRef: HTMLDivElement | null = $state(null);
-	
+
 	// Track the visual open state (ensures animation on first open)
 	// Start as false to ensure drawer always starts closed visually
 	let visualOpenState = $state(false);
@@ -104,11 +104,11 @@
 	onMount(async () => {
 		// Ensure drawer starts visually closed
 		visualOpenState = false;
-		
+
 		// Wait for DOM to be ready and browser to paint initial closed state
 		await tick();
 		await new Promise((resolve) => requestAnimationFrame(resolve));
-		
+
 		// Now sync with actual prop state and mark as mounted
 		// This will trigger animation if props.isOpen is true
 		visualOpenState = props.isOpen;
@@ -118,10 +118,10 @@
 	// Sync visual state with props after mount (for subsequent opens/closes)
 	$effect(() => {
 		if (!isMounted || !browser) return;
-		
+
 		// Track props.isOpen to react to changes
 		const shouldBeOpen = props.isOpen;
-		
+
 		// Only update if state actually changed
 		if (visualOpenState !== shouldBeOpen) {
 			// Force a reflow to ensure browser sees the state change and applies transition
@@ -144,7 +144,7 @@
 
 <!-- Drawer Overlay -->
 <div
-	class="fixed inset-0 z-[60] bg-black/50 transition-opacity duration-300 ease-in-out"
+	class="fixed inset-0 z-60 bg-black/50 transition-opacity duration-300 ease-in-out"
 	style={`bottom: ${effectiveBottomOffset};`}
 	class:opacity-0={!visualOpenState}
 	class:pointer-events-none={!visualOpenState || !props.isOpen}
@@ -159,7 +159,7 @@
 	bind:this={drawerPanelRef}
 	class="bg-base-100 fixed top-0 {position === 'left'
 		? 'left-0'
-		: 'right-0'} z-[70] {drawerWidthClass} 
+		: 'right-0'} z-70 {drawerWidthClass} 
 		{props.isScrollable ? 'overflow-y-auto' : 'overflow-auto'} 
 		transform shadow-xl transition-transform duration-300 ease-in-out"
 	class:translate-x-0={visualOpenState}
@@ -173,18 +173,14 @@
 >
 	{#if props.isOpen}
 		<!-- Header -->
-		<div
-			class="sticky top-0 z-10 flex items-center justify-between p-4 {props.title
-				? 'bg-base-200'
-				: ''}"
-		>
-			<h4 id="drawer-title" class="text-xl font-bold">
+		<div class="bg-base-200 sticky top-0 z-10 flex items-center justify-between p-4">
+			<h4 id="drawer-title" class="min-w-0 flex-1 truncate pr-2 text-xl font-bold">
 				{#if props.title}
 					{props.title}
 				{/if}
 			</h4>
 			<button
-				class="btn btn-ghost btn-circle"
+				class="btn btn-ghost btn-circle shrink-0"
 				onclick={props.onClose}
 				aria-label={$t('common.components.drawer.close')}
 			>
@@ -206,7 +202,7 @@
 		</div>
 
 		<!-- Content -->
-		<div class="p-4 drawer-content">
+		<div class="drawer-content p-4">
 			{@render props.children?.()}
 		</div>
 

@@ -17,10 +17,7 @@
 		parseDateToLocalMidnight
 	} from '$lib/utils/helpers/dateFormatter';
 	import { locale } from 'svelte-i18n';
-	import TranslatableTask from '$lib/components/task/TranslatableTask.svelte';
-	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { TASKS_PER_PAGE } from '$lib/stores/task.store';
-	import { getStatusBadge } from '$lib/utils/helpers/taskStatusBadge';
 	import { debounce } from '$lib/utils/helpers/common';
 	import { taskTranslationService } from '$lib/services/task-translation.service';
 	import { currentUserLanguage } from '$lib/stores/translation.store';
@@ -1114,7 +1111,8 @@
 	});
 </script>
 
-<main class="mx-auto min-h-0 max-w-6xl px-1 md:px-2 py-0 find-tasks-container find-tasks-page flex-1 w-full h-full" data-find-tasks-page="true">
+<!-- Mismas dimensiones que Mi Panel -->
+<main class="find-tasks-container find-tasks-page mx-auto flex-1 w-full h-full min-h-0 max-w-6xl px-2 py-6 md:px-0 md:py-0" data-find-tasks-page="true">
 	<div
 		id="panel-find-tasks"
 		role="tabpanel"
@@ -1213,6 +1211,7 @@
 												{loadDrawerComponents}
 												onSelectTaskForMap={selectTaskForMap}
 												{isMapVisible}
+												hasBid={false}
 											/>
 										</li>
 									{/each}
@@ -1364,7 +1363,11 @@
 >
 	{#snippet children()}
 		{#if drawersLoaded && BidForm && selectedTaskForBid}
-			<BidForm task={selectedTaskForBid!} onClose={() => (isBidOpen = false)} stickySubmit={false} />
+			<BidForm
+				task={selectedTaskForBid!}
+				onClose={() => (isBidOpen = false)}
+				stickySubmit={false}
+			/>
 		{:else}
 			<div class="flex items-center justify-center p-8">
 				<span class="loading loading-spinner loading-md"></span>

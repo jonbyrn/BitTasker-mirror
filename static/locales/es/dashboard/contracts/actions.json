@@ -9,7 +9,7 @@
 				"counter_proposal": "Contrapropuesta",
 				"accept_proposal": "Aceptar Propuesta",
 				"cancel_contract": "Cancelar Contrato",
-				"resolve_timelock": "Resolver Timelock",
+				"resolve_timelock": "Reclamar Fondos",
 				"delete_contract": "Eliminar Contrato",
 				"proposal_counter": "Tus propuestas: {count}/2",
 				"proposal_counter_final": "Propuesta final (2/2)",
@@ -62,7 +62,9 @@
 				"cancel_contract_confirm_message": "¿Está seguro de que desea cancelar este contrato? Esto cancelará el contrato de pago seguro y reembolsará todos los fondos. Advertencia: Esta acción no se puede deshacer.",
 				"cancel_time_restriction": "Este contrato no se puede cancelar en este momento.",
 				"cancel_time_restriction_too_close": "Este contrato no se puede cancelar porque faltan menos de 24 horas para la hora de inicio estimada y el período de gracia ha expirado.",
-				"cancel_time_restriction_grace_period_expired": "Este contrato no se puede cancelar porque faltan menos de 24 horas para la hora de inicio estimada y ha pasado más de 1 hora desde la creación del contrato."
+				"cancel_time_restriction_grace_period_expired": "Este contrato no se puede cancelar porque faltan menos de 24 horas para la hora de inicio estimada y ha pasado más de 1 hora desde la creación del contrato.",
+				"notification_payment_released_title": "Pago liberado",
+				"notification_payment_released_body": "El pago ha sido liberado para la tarea {taskTitle}"
 			}
 		}
 	}

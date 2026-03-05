@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
 import DebugWalletAssetList from '$lib/components/wallet/DebugWalletAssetList.svelte';
-import { walletManager } from '$lib/stores/wallet.store';
+import { loadRSKTokenBalances } from '$lib/stores/wallet.store';
 import { appStore } from '$lib/stores/app.store';
 import type { TokenBalance } from '$lib/types/wallet';
 
@@ -21,6 +21,8 @@ vi.mock('svelte-i18n', async () => {
 		'wallet.debug_wallet.asset_list.usd_value': 'USD Value',
 		'wallet.debug_wallet.asset_list.send': 'Send',
 		'wallet.debug_wallet.asset_list.address': 'Address',
+		'wallet.debug_wallet.asset_list.token_details': 'Token Details',
+		'wallet.debug_wallet.asset_list.decimals': 'Decimals',
 		'wallet.balance_refreshed': 'Balance refreshed successfully'
 	};
 	const tStore = readable((key: string) => translations[key] || key);
@@ -29,19 +31,30 @@ vi.mock('svelte-i18n', async () => {
 	};
 });
 
-// Mock dependencies
-vi.mock('$lib/stores/wallet.store', () => ({
-	walletManager: {
-		loadRSKTokenBalances: vi.fn()
-	},
-	formatAddress: vi.fn((addr: string) => `${addr.slice(0, 6)}...${addr.slice(-4)}`)
-}));
+// Mock wallet store — component imports loadRSKTokenBalances, walletStore, formatAddress
+vi.mock('$lib/stores/wallet.store', async () => {
+	const { writable } = await import('svelte/store');
+	return {
+		loadRSKTokenBalances: vi.fn(),
+		walletStore: writable({
+			isConnected: true,
+			isInitializing: false,
+			rsk: { address: '0x1234567890123456789012345678901234567890' }
+		}),
+		formatAddress: vi.fn((addr: string) => `${addr.slice(0, 6)}...${addr.slice(-4)}`)
+	};
+});
 
 vi.mock('$lib/stores/app.store', () => ({
 	appStore: {
 		showSuccessToast: vi.fn(),
 		showErrorToast: vi.fn()
 	}
+}));
+
+vi.mock('$lib/utils/helpers/haptics', () => ({
+	triggerHaptic: vi.fn().mockResolvedValue(undefined),
+	ImpactStyle: { Light: 'light', Medium: 'medium', Heavy: 'heavy' }
 }));
 
 describe('DebugWalletAssetList', () => {
@@ -72,19 +85,25 @@ describe('DebugWalletAssetList', () => {
 	});
 
 	it('should render loading state initially', async () => {
-		vi.mocked(walletManager.loadRSKTokenBalances).mockImplementation(
-			() => new Promise(() => {}) // Never resolves
-		);
+		let resolveLoad: (value: TokenBalance[]) => void;
+		const loadPromise = new Promise<TokenBalance[]>((r) => {
+			resolveLoad = r;
+		});
+		vi.mocked(loadRSKTokenBalances).mockImplementation(() => loadPromise);
 
 		render(DebugWalletAssetList);
 
-		// Check for loading spinner by class
+		// Component loads tokens when wallet is connected; check for loading spinner
 		const loadingSpinner = document.querySelector('.loading.loading-spinner');
 		expect(loadingSpinner).toBeInTheDocument();
+
+		// Resolve so the component's loadTokens() completes and the test run can exit
+		resolveLoad!([]);
+		await loadPromise;
 	});
 
 	it('should render token list when loaded', async () => {
-		vi.mocked(walletManager.loadRSKTokenBalances).mockResolvedValue(mockTokens);
+		vi.mocked(loadRSKTokenBalances).mockResolvedValue(mockTokens);
 
 		render(DebugWalletAssetList);
 
@@ -95,7 +114,7 @@ describe('DebugWalletAssetList', () => {
 	});
 
 	it('should display token balances correctly', async () => {
-		vi.mocked(walletManager.loadRSKTokenBalances).mockResolvedValue(mockTokens);
+		vi.mocked(loadRSKTokenBalances).mockResolvedValue(mockTokens);
 
 		render(DebugWalletAssetList);
 
@@ -106,7 +125,7 @@ describe('DebugWalletAssetList', () => {
 	});
 
 	it('should show native token badge for RBTC', async () => {
-		vi.mocked(walletManager.loadRSKTokenBalances).mockResolvedValue([mockTokens[0]]);
+		vi.mocked(loadRSKTokenBalances).mockResolvedValue([mockTokens[0]]);
 
 		render(DebugWalletAssetList);
 
@@ -117,7 +136,7 @@ describe('DebugWalletAssetList', () => {
 	});
 
 	it('should show ERC-20 token badge for tokens', async () => {
-		vi.mocked(walletManager.loadRSKTokenBalances).mockResolvedValue([mockTokens[1]]);
+		vi.mocked(loadRSKTokenBalances).mockResolvedValue([mockTokens[1]]);
 
 		render(DebugWalletAssetList);
 
@@ -131,9 +150,9 @@ describe('DebugWalletAssetList', () => {
 		const user = userEvent.setup();
 		const onSendToken = vi.fn();
 
-		vi.mocked(walletManager.loadRSKTokenBalances).mockResolvedValue([mockTokens[0]]);
+		vi.mocked(loadRSKTokenBalances).mockResolvedValue([mockTokens[0]]);
 
-		render(DebugWalletAssetList, { onSendToken });
+		render(DebugWalletAssetList, { props: { onSendToken } });
 
 		await waitFor(() => {
 			expect(screen.getByText('Send')).toBeInTheDocument();
@@ -148,7 +167,7 @@ describe('DebugWalletAssetList', () => {
 	it('should refresh tokens when refresh button is clicked', async () => {
 		const user = userEvent.setup();
 
-		vi.mocked(walletManager.loadRSKTokenBalances).mockResolvedValue(mockTokens);
+		vi.mocked(loadRSKTokenBalances).mockResolvedValue(mockTokens);
 
 		render(DebugWalletAssetList);
 
@@ -159,24 +178,29 @@ describe('DebugWalletAssetList', () => {
 		const refreshButton = screen.getByLabelText('Refresh');
 		await user.click(refreshButton);
 
-		expect(walletManager.loadRSKTokenBalances).toHaveBeenCalledTimes(2);
+		await waitFor(() => {
+			expect(loadRSKTokenBalances).toHaveBeenCalledTimes(2);
+		});
 	});
 
 	it('should display error message on load failure', async () => {
 		const errorMessage = 'Failed to load tokens';
-		vi.mocked(walletManager.loadRSKTokenBalances).mockRejectedValue(new Error(errorMessage));
+		vi.mocked(loadRSKTokenBalances).mockRejectedValue(new Error(errorMessage));
 
 		render(DebugWalletAssetList);
 
-		await waitFor(() => {
-			expect(screen.getByText(errorMessage)).toBeInTheDocument();
-		});
+		await waitFor(
+			() => {
+				expect(screen.getByText(errorMessage)).toBeInTheDocument();
+			},
+			{ timeout: 3000 }
+		);
 
 		expect(appStore.showErrorToast).toHaveBeenCalled();
 	});
 
 	it('should show empty state when no tokens', async () => {
-		vi.mocked(walletManager.loadRSKTokenBalances).mockResolvedValue([]);
+		vi.mocked(loadRSKTokenBalances).mockResolvedValue([]);
 
 		render(DebugWalletAssetList);
 
@@ -186,12 +210,14 @@ describe('DebugWalletAssetList', () => {
 	});
 
 	it('should display token address for ERC-20 tokens', async () => {
-		vi.mocked(walletManager.loadRSKTokenBalances).mockResolvedValue([mockTokens[1]]);
+		vi.mocked(loadRSKTokenBalances).mockResolvedValue([mockTokens[1]]);
 
 		render(DebugWalletAssetList);
 
 		await waitFor(() => {
-			expect(screen.getByText('Address')).toBeInTheDocument();
+			// Component shows "Address:" label; formatted address appears in adjacent <code>
+			expect(screen.getByText('Address:')).toBeInTheDocument();
+			expect(screen.getByText('0x1234...7890')).toBeInTheDocument();
 		});
 	});
 });

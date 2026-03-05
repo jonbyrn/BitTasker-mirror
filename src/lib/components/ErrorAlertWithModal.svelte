@@ -27,13 +27,8 @@
 	// Auto-detect error type if not provided
 	const errorType = $derived(providedErrorType || detectErrorType(error));
 
-	// Determine if modal should auto-open
-	const shouldAutoOpen = $derived(
-		autoOpenModal !== undefined ? autoOpenModal : isPasskeyError
-	);
-
 	let showErrorModal = $state(false);
-	
+
 	// errorMessage is derived from error prop - use $derived for reactive values
 	const errorMessage = $derived(error || '');
 
@@ -46,10 +41,10 @@
 			showErrorModal = false;
 			return;
 		}
-		
+
 		// Determine if we should auto-open - access props directly for reactivity
 		const shouldOpen = autoOpenModal !== undefined ? autoOpenModal : isPasskeyError;
-		
+
 		// Auto-open if error exists and shouldOpen is true
 		if (error && shouldOpen) {
 			// Use setTimeout to ensure DOM is ready after error appears
@@ -57,7 +52,7 @@
 			const timeoutId = setTimeout(() => {
 				showErrorModal = true;
 			}, 0);
-			
+
 			return () => clearTimeout(timeoutId);
 		}
 	});
@@ -96,17 +91,18 @@
 				d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
 			/>
 		</svg>
-		<span class="overflow-wrap-anywhere break-all whitespace-normal flex-1">{error}</span>
+		<span class="overflow-wrap-anywhere flex-1 break-all whitespace-normal">{error}</span>
 		{#if showHelpButton}
-			<div class="flex items-start shrink-0 ml-2">
+			<div class="ml-2 flex shrink-0 items-start">
 				<button
-					class="btn btn-sm btn-primary gap-1.5 sm:gap-2 shadow-sm hover:shadow-md active:scale-95 transition-all cursor-pointer"
+					data-testid="error-alert-help-button"
+					class="btn btn-sm btn-primary cursor-pointer gap-1.5 shadow-sm transition-all hover:shadow-md active:scale-95 sm:gap-2"
 					onclick={openModal}
 					title={$t('common.components.error_troubleshooting_modal.button_title')}
 					type="button"
 				>
 					<IconInformation class="h-4 w-4 shrink-0" />
-					<span class="text-xs sm:text-sm font-medium">
+					<span class="text-xs font-medium sm:text-sm">
 						{$t('common.components.error_troubleshooting_modal.help')}
 					</span>
 				</button>

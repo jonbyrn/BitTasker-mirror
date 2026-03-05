@@ -176,20 +176,22 @@ function createBidStore() {
     /**
      * Subscribe to bid and bid-status updates for a specific task
      */
-    async function subscribeToUpdates(taskId: string) {
+    async function subscribeToUpdates(taskId: string, legacyTaskId?: string) {
         try {
             // Close existing subscriptions if any
             unsubscribeFromUpdates();
 
             const npub = await getNpub();
             const userPubkeyHex = npub.startsWith('npub') ? (nip19.decode(npub).data as string) : npub;
-            const pool = get(appStore).pool;
+            const pool = get(appStore)?.pool;
 
             if (!pool) {
                 console.error('[BidStore] Pool not available');
                 return;
             }
 
+            const taskIds =
+                legacyTaskId && legacyTaskId !== taskId ? [taskId, legacyTaskId] : [taskId];
             const since = Math.floor(Date.now() / 1000);
 
             // Subscription 1: New bids for this task (where user is recipient)
@@ -197,7 +199,7 @@ function createBidStore() {
                 [import.meta.env.VITE_NOSTR_RELAY_URL],
                 {
                     kinds: [KINDS.BIDS],
-                    ...TAG_FILTERS.byTask(taskId),
+                    ...TAG_FILTERS.byTask(taskIds),
                     ...TAG_FILTERS.byNpub(userPubkeyHex),
                     since
                 },
@@ -206,10 +208,10 @@ function createBidStore() {
 
             // Subscription 2: Bid status updates TO user (incoming)
             bidStatusSubscriptionIncoming = pool.subscribe(
-                get(appStore).relays,
+                get(appStore)?.relays ?? [],
                 {
                     kinds: [KINDS.BID_STATUS],
-                    ...TAG_FILTERS.byTask(taskId),
+                    ...TAG_FILTERS.byTask(taskIds),
                     ...TAG_FILTERS.byNpub(userPubkeyHex),
                     since
                 },
@@ -222,7 +224,7 @@ function createBidStore() {
                 {
                     kinds: [KINDS.BID_STATUS],
                     authors: [userPubkeyHex],
-                    ...TAG_FILTERS.byTask(taskId),
+                    ...TAG_FILTERS.byTask(taskIds),
                     since
                 },
                 { onevent: handleBidStatusEvent }

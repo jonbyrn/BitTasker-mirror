@@ -4,37 +4,33 @@
 	import { Preferences } from '@capacitor/preferences';
 	import { StorageKeys } from '$lib/utils/constants/storage';
 	import { t } from 'svelte-i18n';
-	import IconCheck from '~icons/mdi/check-circle-outline';
 	import {
 		publishProfileMetadata,
 		publishMultipleImages,
 		subscribeToProfileUpdates,
-		publishSkillsUpdate
+		publishSkillsUpdate,
+		generateProfileTranslations
 	} from '$lib/nostr/profile';
 	import Uploader from '$lib/components/Uploader.svelte';
 	import SkillsMultiselect from '$lib/components/SkillsMultiselect.svelte';
 	import uploadService from '$lib/api/services/upload.service';
 	import KINDS from '$lib/utils/constants/kinds';
 
-	let { nextStep, prevStep, currentStep, totalSteps } = $props<{
+	let { displayName, nextStep, prevStep } = $props<{
+		displayName: string;
 		nextStep: () => void;
 		prevStep: () => void;
-		currentStep: number;
-		totalSteps: number;
 	}>();
 
 	// User data
-	let displayName = $state('');
 	let professionalTitle = $state('');
 	let profileDescription = $state('');
-	let skillsInput = $state('');
 	let skills = $state<Skill[]>([]);
 	let selectedSkills = $state<string[]>([]);
 
 	// Status indicators
 	let isLoading = $state(false);
 	let error = $state('');
-	let nameError = $state('');
 	let descriptionError = $state('');
 	let picture = $state<NostrProfileImage | null>(null);
 	let selectedFile = $state<File | null>(null);
@@ -43,7 +39,6 @@
 
 	// Event IDs for updates
 	let imageEventId = $state<string | null>(null);
-	let saveForLater = $state(false);
 	let showPrevBtn = $state(false);
 	let cleanup: (() => void) | null = null;
 
@@ -104,20 +99,20 @@
 						}
 					}
 					// Handle skills update
-				else if (
-					event.kind === KINDS.PROFILE_SKILLS &&
-					event.tags.find((t) => t[0] === 'd' && t[1] === 'skills')
-				) {
-					const skillsData = JSON.parse(event.content);
-					if (Array.isArray(skillsData)) {
-						skills = skillsData.map((skill) => ({
-							...skill,
-							id: skill.id
-						}));
-						// Mirror arriving skills into selectedSkills once to initialize the UI
-						selectedSkills = skillsData.map((s) => s.name);
+					else if (
+						event.kind === KINDS.PROFILE_SKILLS &&
+						event.tags.find((t) => t[0] === 'd' && t[1] === 'skills')
+					) {
+						const skillsData = JSON.parse(event.content);
+						if (Array.isArray(skillsData)) {
+							skills = skillsData.map((skill) => ({
+								...skill,
+								id: skill.id
+							}));
+							// Mirror arriving skills into selectedSkills once to initialize the UI
+							selectedSkills = skillsData.map((s) => s.name);
+						}
 					}
-				}
 				} catch (err) {
 					console.error('Failed to process profile update:', err);
 					error = $t('onboarding_auth.form.failed_process_profile_update');
@@ -142,7 +137,9 @@
 		if (selectedFile) {
 			try {
 				pictureLoading = true;
-				const uploadedFile = await uploadService.uploadSingleFile(selectedFile, { folder: 'profile' });
+				const uploadedFile = await uploadService.uploadSingleFile(selectedFile, {
+					folder: 'profile'
+				});
 				const uploadedPicture = {
 					url: uploadedFile.url,
 					type: selectedFile.type,
@@ -168,7 +165,10 @@
 		// If both arrays represent the same names (order-insensitive), skip
 		const currentNames = new Set(skills.map((s) => s.name));
 		const selectedNames = new Set(selectedSkills);
-		if (currentNames.size === selectedNames.size && [...currentNames].every((n) => selectedNames.has(n))) {
+		if (
+			currentNames.size === selectedNames.size &&
+			[...currentNames].every((n) => selectedNames.has(n))
+		) {
 			return;
 		}
 
@@ -186,73 +186,25 @@
 		});
 	});
 
-	// Add skill tag (legacy function for compatibility)
-	function addSkill() {
-		if (
-			skillsInput &&
-			skillsInput.trim() &&
-			skillsInput.trim().length > 2 &&
-			!selectedSkills.includes(skillsInput.trim()) &&
-			selectedSkills.length < 20
-		) {
-			selectedSkills = [...selectedSkills, skillsInput.trim()];
-			skillsInput = '';
-		} else {
-			error = $t('onboarding_auth.form.skill_already_exists_or_too_short');
-		}
-	}
-
-	// Remove skill tag (legacy function for compatibility)
-	function removeSkill(index: number) {
-		selectedSkills = selectedSkills.filter((_, i) => i !== index);
-	}
-
-	// Handle key press for skill tags (legacy function for compatibility)
-	function handleSkillKeypress(event: KeyboardEvent) {
-		if (event.key === 'Enter' || event.key === ',') {
-			event.preventDefault();
-			addSkill();
-		}
-	}
-
 	async function handleSubmit(event: SubmitEvent) {
 		event.preventDefault();
-		
+
 		try {
 			isLoading = true;
 			error = '';
-			nameError = '';
 			descriptionError = '';
 
-			// Validate display name
-			if (!displayName) {
-				nameError = $t('onboarding_auth.form.display_name_required');
+			// Enforce minimum description length of 100 characters
+			if (profileDescription && profileDescription.trim().length < 100) {
+				descriptionError = `${profileDescription.trim().length}/100 ${$t('onboarding_auth.form.min_characters')}`;
 				isLoading = false;
 				return;
-			}
-
-
-			// Validate profile description only when not saving for later
-			if (!saveForLater) {
-				if (!profileDescription) {
-					descriptionError = $t('onboarding_auth.form.profile_description_required');
-					isLoading = false;
-					return;
-				}
-
-				// Enforce minimum description length of 100 characters
-				if (profileDescription.trim().length < 100) {
-					descriptionError = `${profileDescription.trim().length}/100 ${$t('onboarding_auth.form.min_characters')}`;
-					isLoading = false;
-					return;
-				}
 			}
 
 			// Upload and publish profile picture if a new file is selected
 			await handleImageUpload();
 
 			// Generate translations for profile content (professionalTitle and about)
-			const { generateProfileTranslations } = await import('$lib/nostr/profile');
 			const profileTranslations = await generateProfileTranslations({
 				professionalTitle,
 				about: profileDescription
@@ -274,8 +226,8 @@
 
 			await publishProfileMetadata(profileData);
 
-			// Publish skills if not saving for later
-			if (!saveForLater && skills.length > 0) {
+			// Publish skills
+			if (skills.length > 0) {
 				await publishSkillsUpdate(skills);
 			}
 
@@ -283,7 +235,10 @@
 			nextStep();
 		} catch (err: unknown) {
 			console.error('Profile setup failed:', err);
-			error = err instanceof Error ? err.message : $t('onboarding_auth.form.profile_setup.errors.profile_setup_failed');
+			error =
+				err instanceof Error
+					? err.message
+					: $t('onboarding_auth.form.profile_setup.errors.profile_setup_failed');
 		} finally {
 			isLoading = false;
 		}
@@ -297,12 +252,6 @@
 				<!-- Profile Picture Skeleton -->
 				<div class="mx-auto max-h-32 w-full max-w-32">
 					<div class="bg-base-300 h-32 w-32 animate-pulse rounded-full"></div>
-				</div>
-
-				<!-- Display Name Skeleton -->
-				<div class="space-y-2">
-					<div class="bg-base-300 h-4 w-24 animate-pulse rounded"></div>
-					<div class="bg-base-300 h-12 w-full animate-pulse rounded"></div>
 				</div>
 
 				<!-- Professional Title Skeleton -->
@@ -326,41 +275,15 @@
 		</div>
 	</div>
 {:else}
-	<div class="card bg-base-100 w-full shadow-xl">
+	<div class="card bg-base-100 w-full shadow-xl" data-testid="onboarding-step-profile">
 		<div class="card-body">
-			<!-- Educational Header -->
-            <div class="education-header mb-6 text-center">
-                <div class="step-indicator text-primary mb-2 text-sm font-medium text-end">
-                    {$t('onboarding_auth.form.profile_setup.step')} {currentStep + 1} {$t('onboarding_auth.form.profile_setup.of')} {totalSteps}
-                </div>
-                <h3 class="step-title mb-3 mt-4">{$t('onboarding_auth.form.profile_setup.title')}</h3>
-                <h5 class="mb-3">{$t('onboarding_auth.form.profile_setup.subtitle')}</h5>
-                <p class="step-description text-base-content mb-6 text-lg max-w-xl mx-auto">
-                    {$t('onboarding_auth.form.profile_setup.description')}
-                </p>
+			<div class="education-header text-center">
+				<h4 class="step-title">{$t('onboarding_auth.form.profile_setup.title')}</h4>
 
-                <!-- Features List (aligned with Nostr import styling) -->
-                <div class="features-list mb-6 space-y-2 text-left mx-auto w-fit">
-                    <div class="feature-item flex items-center justify-start gap-2 text-lg">
-                        <IconCheck class="text-primary min-w-[1.5em]" />
-                        <span>{@html $t('onboarding_auth.form.profile_setup.features.visible')}</span>
-                    </div>
-                    <div class="feature-item flex items-center justify-start gap-2 text-lg">
-                        <IconCheck class="text-primary min-w-[1.5em]" />
-                        <span>{@html $t('onboarding_auth.form.profile_setup.features.trustworthy')}</span>
-                    </div>
-                    <div class="feature-item flex items-center justify-start gap-2 text-lg">
-                        <IconCheck class="text-primary min-w-[1.5em]" />
-                        <span>{@html $t('onboarding_auth.form.profile_setup.features.discoverable')}</span>
-                    </div>
-                    <div class="feature-item flex items-center justify-start gap-2 text-lg">
-                        <IconCheck class="text-primary min-w-[1.5em]" />
-                        <span>{@html $t('onboarding_auth.form.profile_setup.features.professional')}</span>
-                    </div>
-                </div>
-
-                <p class="text-primary mb-6 text-lg">{$t('onboarding_auth.form.profile_setup.stand_out')}</p>
-            </div>
+				<p class="text-primary text-base md:text-lg">
+					{$t('onboarding_auth.form.profile_setup.stand_out')}
+				</p>
+			</div>
 
 			<form onsubmit={handleSubmit} class="space-y-4">
 				<!-- Profile Picture Upload -->
@@ -386,26 +309,6 @@
 					/>
 				</div>
 
-				<!-- Display Name Field -->
-				<div class="form-control mx-auto max-w-xl">
-					<label class="label" for="displayName">
-						<span class="label-text">{$t('onboarding_auth.form.display_name')}</span>
-					</label>
-					<input
-						type="text"
-						id="displayName"
-						bind:value={displayName}
-						class="input input-bordered w-full {nameError ? 'input-error' : ''}"
-						placeholder={$t('onboarding_auth.form.your_full_name')}
-						required
-					/>
-					{#if nameError}
-						<label class="label" for="displayName">
-							<span class="label-text-alt text-error">{nameError}</span>
-						</label>
-					{/if}
-				</div>
-
 				<!-- Professional Title Field -->
 				<div class="form-control mx-auto max-w-xl">
 					<label class="label" for="professionalTitle">
@@ -414,6 +317,7 @@
 					<input
 						type="text"
 						id="professionalTitle"
+						data-testid="onboarding-professional-title"
 						bind:value={professionalTitle}
 						class="input input-bordered w-full"
 						placeholder={$t('onboarding_auth.form.professional_title_placeholder')}
@@ -422,19 +326,21 @@
 
 				<!-- Profile Description Field -->
 				<div class="form-control mx-auto max-w-xl">
-                    <label class="label" for="profileDescription">
-                        <span class="label-text">{$t('onboarding_auth.form.profile_description')}</span>
-                        <span class="label-text-alt">{profileDescription.length}/100 {$t('onboarding_auth.form.min_characters')}</span>
-                    </label>
+					<label class="label" for="profileDescription">
+						<span class="label-text">{$t('onboarding_auth.form.profile_description')}</span>
+						<span class="label-text-alt"
+							>{profileDescription.length}/100 {$t('onboarding_auth.form.min_characters')}</span
+						>
+					</label>
 					<textarea
 						id="profileDescription"
+						data-testid="onboarding-profile-description"
 						bind:value={profileDescription}
-                        minlength={saveForLater ? undefined : 100}
+						minlength={profileDescription.length === 0 ? undefined : 100}
 						class="textarea textarea-bordered h-24 w-full rounded-2xl {descriptionError
 							? 'textarea-error'
 							: ''}"
-                        placeholder={$t('onboarding_auth.form.profile_description_placeholder')}
-						disabled={saveForLater}
+						placeholder={$t('onboarding_auth.form.profile_description_placeholder')}
 					></textarea>
 					{#if descriptionError}
 						<label class="label whitespace-normal" for="profileDescription">
@@ -444,32 +350,21 @@
 				</div>
 
 				<!-- Skills Tags -->
-				<div class="form-control mx-auto max-w-xl">
+				<div class="form-control mx-auto max-w-xl" data-testid="onboarding-skills">
 					<label class="label" for="skills">
 						<span class="label-text">{$t('onboarding_auth.form.skills')}</span>
 						<span class="label-text-alt">{selectedSkills.length}/20</span>
 					</label>
 					<SkillsMultiselect
-						bind:selectedSkills={selectedSkills}
+						bind:selectedSkills
 						maxSelections={20}
 						placeholder={$t('onboarding_auth.form.add_skills')}
 						className="w-full"
 					/>
 				</div>
 
-				<!-- Save for Later Option -->
-				<div class="form-control space-y-2 mx-auto max-w-xl">
-					<label class="label flex cursor-pointer items-center justify-start gap-2">
-						<input type="checkbox" bind:checked={saveForLater} class="checkbox checkbox-sm" />
-						<span class="label-text">{$t('onboarding_auth.form.save_for_later')}</span>
-					</label>
-					<span class="text-base-content/70 block text-xs">
-						{$t('onboarding_auth.form.you_can_complete_your_profile_later')}
-					</span>
-				</div>
-
 				{#if error}
-					<div class="alert alert-error alert-outline">
+					<div class="alert alert-error alert-outline mx-auto max-w-xl">
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
 							class="h-6 w-6 shrink-0 stroke-current"
@@ -491,12 +386,17 @@
 				<div class="mt-6 flex justify-between">
 					{#if showPrevBtn}
 						<button type="button" class="btn btn-outline" onclick={prevStep}>
-							{$t('onboarding_auth.form.back')}	
+							{$t('onboarding_auth.form.back')}
 						</button>
 					{:else}
 						<div></div>
 					{/if}
-					<button type="submit" class="btn btn-primary" disabled={isLoading || pictureLoading}>
+					<button
+						type="submit"
+						class="btn btn-primary"
+						data-testid="onboarding-profile-next"
+						disabled={isLoading || pictureLoading}
+					>
 						{#if isLoading}
 							<span class="loading loading-spinner"></span>
 						{/if}
@@ -507,4 +407,3 @@
 		</div>
 	</div>
 {/if}
-

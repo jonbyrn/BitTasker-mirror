@@ -94,15 +94,37 @@
         "show_more_details": "Mostrar más detalles",
         "show_less": "Mostrar menos",
         "no_task_description": "No hay descripción disponible",
-        "bid_id": "ID de Oferta"
+        "bid_id": "ID de Oferta",
+        "section_task": "Tarea",
+        "section_budget": "Presupuesto",
+        "section_your_bid": "Tu puja",
+        "section_your_offer": "Tu oferta",
+        "section_received_offer": "Oferta recibida",
+        "task_original_budget": "Presupuesto original de la tarea",
+        "your_offer_amount": "Tu oferta",
+        "sent_at": "Enviado el",
+        "status_countered": "Contraoferta",
+        "status_withdrawn": "Retirada",
+        "withdraw_bid": "Retirar Oferta",
+        "withdraw_confirm_title": "¿Retirar Oferta?",
+        "withdraw_confirm_message": "¿Estás seguro de que deseas retirar esta oferta? El Tasker ya no podrá verla.",
+        "withdraw_confirm_submit": "Retirar",
+        "withdraw_confirm_cancel": "Cancelar",
+        "withdraw_success": "Oferta retirada exitosamente",
+        "withdraw_error": "Error al retirar la oferta"
     },
     "bid_form": {
         "title": "Coloca tu oferta",
+        "help_modal_title": "¿Cómo hacer una oferta?",
+        "help_tooltip": "Indica tu precio, fechas y cómo harás la tarea. Es tu propuesta para quedarte con el trabajo. El tasker la revisará y puede aceptarla, rechazarla o enviar una contraoferta",
+        "task_you_are_bidding_on": "Tarea sobre la que ofertas",
         "form": {
+            "suggested_price": "Precio sugerido",
             "payment_type": "Tipo de Pago",
             "fixed_price": "Precio Fijo",
             "hourly_rate": "Tarifa por Hora",
             "budget": "Presupuesto",
+            "budget_unavailable": "No disponible",
             "hourly_rate_label": "Tarifa por Hora",
             "estimated_hours": "Horas Estimadas",
             "total_estimated": "Monto Total Estimado",
@@ -123,15 +145,16 @@
                 "placeholder": "Selecciona fecha y hora"
             },
             "description": {
-                "label": "Descripción de la Oferta",
+                "label": "Descripción de tu oferta",
                 "placeholder": "Explica por qué eres la persona adecuada para esta tarea"
             },
+            "additional_info_title": "Información adicional (opcional)",
             "approach": {
-                "label": "Tu Enfoque (Opcional)",
+                "label": "Tu Enfoque",
                 "placeholder": "Describe cómo planeas completar esta tarea"
             },
             "cover_letter": {
-                "label": "Carta de Presentación (Opcional)",
+                "label": "Carta de Presentación",
                 "placeholder": "Añade información adicional sobre tu experiencia y cualificaciones"
             },
             "airdatepicker": {
@@ -243,7 +266,11 @@
         "creating_escrow": "Creando Contrato de Pago Seguro...",
         "creating": "Creando...",
         "accept_and_pay": "Aceptar y Pagar",
+        "accept": "Aceptar",
+        "fund_contract_title": "Financiar contrato",
+        "fund": "Financiar",
         "bid_accepted_message": "¡Tu oferta ha sido aceptada!",
+        "task_status_update_error": "El contrato de pago y el estado de la oferta se actualizaron, pero no se pudo actualizar el estado de la tarea. Las ofertas pueden seguir apareciendo abiertas.",
         "day": "día",
         "days": "días",
         "hour": "hora",

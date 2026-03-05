@@ -12,16 +12,20 @@ const DEFAULT_RELAYS = [import.meta.env.VITE_NOSTR_RELAY_URL].filter(Boolean);
  * This ensures we use a single pool across the entire application
  */
 function getPool() {
-	return get(appStore).pool;
+    const pool = get(appStore)?.pool;
+    if (!pool) {
+        throw new Error('Pool not found');
+    }
+    return pool;
 }
 
 export type ContractProfile = {
-	name?: string;
-	picture?: string;
-	createdAt?: string;
-	reviews?: Array<{ id: string; from: string; rating: number; text: string; date: string }>;
-	averageRating?: number;
-	tasksCompleted?: number;
+    name?: string;
+    picture?: string;
+    createdAt?: string;
+    reviews?: Array<{ id: string; from: string; rating: number; text: string; date: string }>;
+    averageRating?: number;
+    tasksCompleted?: number;
 };
 
 /**
@@ -35,8 +39,8 @@ export async function fetchContractProfile(pubkey: string): Promise<ContractProf
         // First check cache
         const cachedProfile = await profileCache.getProfile(pubkey);
         if (
-            cachedProfile && 
-            'reviews' in cachedProfile && 
+            cachedProfile &&
+            'reviews' in cachedProfile &&
             'averageRating' in cachedProfile &&
             Array.isArray(cachedProfile.reviews)
         ) {
@@ -53,7 +57,7 @@ export async function fetchContractProfile(pubkey: string): Promise<ContractProf
         };
 
         const events = await pool.querySync(DEFAULT_RELAYS, filter);
-        
+
         let name: string | undefined = undefined;
         let picture: string | undefined = undefined;
         let createdAt: string | undefined = undefined;

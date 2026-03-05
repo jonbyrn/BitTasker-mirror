@@ -3,9 +3,8 @@
 	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 	import { t } from 'svelte-i18n';
 	import TranslatableTask from '$lib/components/task/TranslatableTask.svelte';
-	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
-	import { satsFromUsd } from '$lib/utils/helpers/crypto';
 	import { getStatusBadge } from '$lib/utils/helpers/taskStatusBadge';
+	import UsdSatsDisplay from '$lib/components/shared/UsdSatsDisplay.svelte';
 	import { getTaskId } from '$lib/utils/helpers/task-id';
 	import TaskShareButton from '$lib/components/task/TaskShareButton.svelte';
 	import type { Component } from 'svelte';
@@ -30,7 +29,8 @@
 		drawersLoaded,
 		loadDrawerComponents,
 		onSelectTaskForMap,
-		isMapVisible
+		isMapVisible,
+		hasBid = false
 	} = $props<{
 		task: Task;
 		selectedTask: Task | null;
@@ -43,11 +43,13 @@
 		loadDrawerComponents: () => Promise<void>;
 		onSelectTaskForMap?: (task: Task) => void;
 		isMapVisible?: boolean;
+		hasBid?: boolean;
 	}>();
 
 	const statusBadge = $derived(getStatusBadge(task.status));
 	const isSelected = $derived(selectedTask && getTaskId(selectedTask) === getTaskId(task));
 	const isOpen = $derived(task.status === TaskStatusEnum.OPEN);
+	const canBid = $derived(isOpen && !hasBid);
 	const taskId = $derived(getTaskId(task));
 </script>
 
@@ -94,15 +96,14 @@
 			</div>
 			<!-- Right: Status Badge + Price (fixed width, aligned right) -->
 			<div class="flex shrink-0 flex-col items-end justify-between gap-4 w-[min(30%,120px)]">
-				<div class="badge {statusBadge.color} badge-sm">
+				<div class="badge {statusBadge.color} badge-sm max-w-full truncate text-center">
 					{$t(`common.status.${task.status.toLowerCase()}`) || statusBadge.text}
 				</div>
-				<div class="text-right text-xl font-bold mt-2">
-					${formatNumberWithTwoDecimals(task.budget.amount)}
-
-					<div class="text-base-content/60 text-sm">
-						{satsFromUsd(task.budget.amount, btcPrice)}
-					</div>
+				<div class="mt-2 text-right">
+					<UsdSatsDisplay
+						amount={task.budget.amount}
+						btcPrice={btcPrice}
+					/>
 				</div>
 			</div>
 		</div>
@@ -167,11 +168,11 @@
 				</span>
 				<button
 					class="btn btn-primary btn-sm flex-1 md:flex-none"
-					class:btn-disabled={!isOpen}
-					disabled={!isOpen}
+					class:btn-disabled={!canBid}
+					disabled={!canBid}
 					onclick={async (e) => {
 						e.stopPropagation();
-						if (isOpen) {
+						if (canBid) {
 							await onSelectTask(task);
 						}
 					}}
@@ -179,9 +180,11 @@
 						'Sign up to bid on this task'}
 				>
 					<IconPlus class="h-4 w-4" />
-					{isOpen
-						? $t('dashboard.find_tasks.sign_up_to_bid') || 'Bid'
-						: $t('dashboard.find_tasks.bidding_closed') || 'Bidding closed'}
+					{hasBid
+						? $t('dashboard.find_tasks.bid_sent') || 'Bid sent'
+						: isOpen
+							? $t('dashboard.find_tasks.sign_up_to_bid') || 'Bid'
+							: $t('dashboard.find_tasks.bidding_closed') || 'Bidding closed'}
 				</button>
 
 				<button
