@@ -15,7 +15,6 @@ export const SERVICES_PER_PAGE = 10;
 export const STEPS = writable([
 	ServiceStepEnum.BASICS,
 	ServiceStepEnum.LOCATION,
-	ServiceStepEnum.DETAILS,
 	ServiceStepEnum.PRICING,
 	ServiceStepEnum.TIERS,
 	ServiceStepEnum.ADD_ONS,
@@ -32,7 +31,7 @@ const getInitialState = () => ({
 		serviceLocationTypes: [],
 		locationDetails: undefined,
 		pricing: {
-			type: ServicePricingTypeEnum.FIXED,
+			type: ServicePricingTypeEnum.TIERED,
 			currency: 'USDt',
 			amount: 0
 		},

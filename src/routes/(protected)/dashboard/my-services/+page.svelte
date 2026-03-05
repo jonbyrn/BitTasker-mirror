@@ -13,7 +13,6 @@
 	import IconPlus from '~icons/mdi/plus';
 	import IconEyeOutline from '~icons/mdi/eye-outline';
 	import IconPencilOutline from '~icons/mdi/pencil-outline';
-	import IconContentCopy from '~icons/mdi/content-copy';
 	import IconBriefcaseOutline from '~icons/mdi/briefcase-outline';
 
 	let services = $state<Service[]>([]);
@@ -73,13 +72,6 @@
 		e.stopPropagation();
 		const id = service.uniqueId || service.id;
 		goto(`/dashboard/list-service?edit=true&serviceId=${encodeURIComponent(id)}`);
-	}
-
-	function handleDuplicate(service: Service, e: MouseEvent) {
-		e.preventDefault();
-		e.stopPropagation();
-		const id = service.uniqueId || service.id;
-		goto(`/dashboard/list-service?duplicate=true&serviceId=${encodeURIComponent(id)}`);
 	}
 
 	async function handleStatusToggle(service: Service, _e?: Event) {
@@ -210,15 +202,6 @@
 								>
 									<IconPencilOutline class="h-4 w-4" aria-hidden="true" />
 									{$t('dashboard.services.my_services.edit')}
-								</button>
-								<button
-									type="button"
-									class="btn btn-ghost btn-sm gap-1"
-									onclick={(e) => handleDuplicate(service, e)}
-									aria-label={$t('dashboard.services.my_services.duplicate')}
-								>
-									<IconContentCopy class="h-4 w-4" aria-hidden="true" />
-									{$t('dashboard.services.my_services.duplicate')}
 								</button>
 							</div>
 						</div>

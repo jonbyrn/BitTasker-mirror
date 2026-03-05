@@ -6,11 +6,59 @@
 	import type { ServiceTier, DeliveryTime, RushDelivery } from '$lib/types/service.d';
 	import { t } from 'svelte-i18n';
 	import { get } from 'svelte/store';
+	import { formatNumberForInput, SATS_PER_BTC } from '$lib/utils/helpers/crypto';
+	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 
 	let { errors, direction } = $props();
 
-	// Initialize tiers if not set (run once on mount)
+	let btcPrice = $state<number>(0);
+
+	async function fetchBtcPrice(): Promise<void> {
+		try {
+			btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
+		} catch (err) {
+			console.error('Error fetching BTC price:', err);
+		}
+	}
+
+	function cleanInput(value: string): string {
+		return value.replace(/[^0-9.,]/g, '');
+	}
+
+	function tierSatsDisplay(priceUsd: number): string {
+		return formatNumberForInput(btcPrice > 0 ? Math.round((priceUsd / btcPrice) * SATS_PER_BTC) : 0);
+	}
+
+	function handleTierUsdChange(tierId: string, event: Event) {
+		const rawValue = (event.target as HTMLInputElement).value;
+		const input = cleanInput(rawValue);
+		let cleanedInput = input.replace(/,/g, '');
+		if (cleanedInput.length > 1 && cleanedInput.startsWith('0') && cleanedInput[1] !== '.') {
+			cleanedInput = cleanedInput.replace(/^0+/, '') || '0';
+		}
+		const usdValue = parseFloat(cleanedInput);
+		updateTier(tierId, { price: !isNaN(usdValue) ? usdValue : 0 });
+	}
+
+	function handleTierSatsChange(tierId: string, event: Event) {
+		const rawValue = (event.target as HTMLInputElement).value;
+		const input = cleanInput(rawValue);
+		let cleanedInput = input.replace(/,/g, '');
+		if (cleanedInput.length > 1 && cleanedInput.startsWith('0')) {
+			cleanedInput = cleanedInput.replace(/^0+/, '') || '0';
+		}
+		const satsValue = parseInt(cleanedInput, 10);
+		if (!isNaN(satsValue) && btcPrice > 0) {
+			const usdValue = (satsValue / SATS_PER_BTC) * btcPrice;
+			updateTier(tierId, { price: usdValue });
+		} else if (!isNaN(satsValue) && satsValue === 0) {
+			updateTier(tierId, { price: 0 });
+		}
+	}
+
+	// Initialize tiers and fetch BTC price (run once on mount)
 	onMount(() => {
+		fetchBtcPrice();
 		if (!$store.service.pricing?.tiers || $store.service.pricing.tiers.length === 0) {
 			// Create default 3 tiers with translated names (same language detection as tasks)
 			const translate = get(t);
@@ -222,40 +270,53 @@
 				/>
 			</div>
 
-			<!-- Tier Description -->
+			<!-- Tier Description (required) -->
 			<div class="w-full">
 				<label for="tier-description-{tier.id}" class="label" id="tier-description-label-{tier.id}">
-					<span class="label-text">{$t('dashboard.services.create.tiers.description_label')}</span>
+					<span class="label-text">{$t('dashboard.services.create.tiers.description_label')} <span class="text-error">*</span></span>
 				</label>
 				<textarea
 					id="tier-description-{tier.id}"
 					value={tier.description}
-					onchange={(e) => updateTier(tier.id, { description: (e.target as HTMLTextAreaElement).value })}
+					oninput={(e) => updateTier(tier.id, { description: (e.target as HTMLTextAreaElement).value })}
 					class="textarea textarea-bordered w-full"
 					placeholder={$t('dashboard.services.create.tiers.description_placeholder')}
 					rows="3"
 				></textarea>
 			</div>
 
-			<!-- Tier Price -->
+			<!-- Tier Price (required): $ USD + Sats, same as fixed price step -->
 			<div class="w-full">
-				<label for="tier-price-{tier.id}" class="label" id="tier-price-label-{tier.id}">
-					<span class="label-text">{$t('dashboard.services.create.tiers.price_label')}</span>
+				<label for="tier-price-usd-{tier.id}" class="label" id="tier-price-label-{tier.id}">
+					<span class="label-text">{$t('dashboard.services.create.tiers.price_label')} <span class="text-error">*</span></span>
 				</label>
 				<div class="flex gap-2">
-					<input
-						type="number"
-						id="tier-price-{tier.id}"
-						min="0"
-						step="0.01"
-						value={tier.price}
-						onchange={(e) => updateTier(tier.id, { price: Number((e.target as HTMLInputElement).value) })}
-						class="input input-bordered flex-1"
-					/>
-					<span class="flex items-center px-4 text-sm font-semibold">
-						{$store.service.pricing?.currency || 'USDt'}
-					</span>
+					<div class="relative flex-1">
+						<span class="text-base-content/70 absolute top-1/2 left-3 z-10 -translate-y-1/2">$</span>
+						<input
+							type="text"
+							id="tier-price-usd-{tier.id}"
+							value={formatNumberForInput(tier.price)}
+							oninput={(e) => handleTierUsdChange(tier.id, e)}
+							class="input input-bordered w-full pl-7"
+							placeholder="0"
+						/>
+					</div>
+					<div class="relative flex-1">
+						<span class="text-base-content/70 absolute top-1/2 right-3 z-10 -translate-y-1/2">{$t('dashboard.services.create.pricing.sats_label')}</span>
+						<input
+							type="text"
+							id="tier-price-sats-{tier.id}"
+							value={tierSatsDisplay(tier.price)}
+							oninput={(e) => handleTierSatsChange(tier.id, e)}
+							class="input input-bordered w-full pr-12"
+							placeholder="0"
+						/>
+					</div>
 				</div>
+				<span class="label-text-alt mt-1 block text-base-content/70">
+					{$t('dashboard.services.create.pricing.btc_price')} ${Math.round(btcPrice).toLocaleString()}
+				</span>
 			</div>
 
 			<!-- Delivery Time -->

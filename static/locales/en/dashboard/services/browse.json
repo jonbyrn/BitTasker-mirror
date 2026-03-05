@@ -24,6 +24,7 @@
 					"hourly": "Hourly Rate",
 					"tiered": "Tiered Pricing",
 					"inquiry_required": "Request Quote",
+					"request_quote": "Request Quote",
 					"from_price": "From $X",
 					"not_set": "Price not set"
 				},

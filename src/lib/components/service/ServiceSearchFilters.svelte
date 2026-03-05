@@ -276,7 +276,7 @@
 							onchange={() => toggleLocationType(ServiceLocationTypeEnum.TASKEE_LOCATION)}
 						/>
 						<span class="label-text">
-							{$t('dashboard.services.create.location.taskee_title') || 'At Client Location'}
+							{$t('dashboard.services.create.location.taskee_title') || 'At Tasker Location'}
 						</span>
 					</label>
 				</div>

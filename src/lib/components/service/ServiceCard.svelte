@@ -74,7 +74,7 @@
 		const locationLabels: Record<ServiceLocationTypeEnum, string> = {
 			[ServiceLocationTypeEnum.REMOTE]: $t('dashboard.services.create.location.remote_title') || 'Remote',
 			[ServiceLocationTypeEnum.TASKER_LOCATION]: $t('dashboard.services.create.location.tasker_title') || 'At My Location',
-			[ServiceLocationTypeEnum.TASKEE_LOCATION]: $t('dashboard.services.create.location.taskee_title') || 'At Client Location'
+			[ServiceLocationTypeEnum.TASKEE_LOCATION]: $t('dashboard.services.create.location.taskee_title') || 'At Tasker Location'
 		};
 
 		return service.serviceLocationTypes
@@ -139,8 +139,8 @@
 					class="h-full w-full object-cover transition-opacity duration-300"
 					loading="lazy"
 				/>
-				<!-- Carousel Controls - Only show if more than 2 images -->
-				{#if portfolioImages.length > 2}
+				<!-- Carousel Controls - Show if 2 or more images -->
+				{#if portfolioImages.length > 1}
 					<!-- Previous Button -->
 					{#if currentImageIndex > 0}
 						<button
@@ -276,7 +276,7 @@
 					</div>
 				{:else if service.pricing?.type === ServicePricingTypeEnum.HOURLY && service.pricing.hourlyRate}
 					<div class="text-xs text-base-content/60 leading-tight">
-						{satsFromUsd(service.pricing.hourlyRate, btcPrice)} Sats/hr
+						{satsFromUsd(service.pricing.hourlyRate, btcPrice)}/hr
 					</div>
 				{:else if service.pricing?.type === ServicePricingTypeEnum.TIERED && service.pricing.tiers && service.pricing.tiers.length > 0}
 					<div class="text-xs text-base-content/60 leading-tight">
@@ -287,8 +287,7 @@
 									.filter((price: number) => price > 0)
 							),
 							btcPrice
-						)}{' '}
-						Sats
+						)}
 					</div>
 				{/if}
 			</div>

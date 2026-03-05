@@ -1206,7 +1206,7 @@
 		const locLabels: Record<ServiceLocationTypeEnum, string> = {
 			[ServiceLocationTypeEnum.REMOTE]: $t('dashboard.services.create.location.remote_title') || 'Remote',
 			[ServiceLocationTypeEnum.TASKER_LOCATION]: $t('dashboard.services.create.location.tasker_title') || 'At My Location',
-			[ServiceLocationTypeEnum.TASKEE_LOCATION]: $t('dashboard.services.create.location.taskee_title') || 'At Client Location'
+			[ServiceLocationTypeEnum.TASKEE_LOCATION]: $t('dashboard.services.create.location.taskee_title') || 'At Tasker Location'
 		};
 		const base =
 			service.locationDetails?.taskerLocation?.serviceLocation?.displayName ||

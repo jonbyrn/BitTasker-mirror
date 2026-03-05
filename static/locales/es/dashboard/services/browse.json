@@ -24,6 +24,7 @@
 					"hourly": "Tarifa por Hora",
 					"tiered": "Precios por Niveles",
 					"inquiry_required": "Solicitar Cotización",
+					"request_quote": "Solicitar Cotización",
 					"from_price": "Desde $X",
 					"not_set": "Precio no establecido"
 				},

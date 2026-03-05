@@ -366,21 +366,17 @@
 		serviceListRef.addEventListener('scroll', scrollHandler, { passive: true });
 	}
 
-	// Initial data fetch and setup
+	// Initial data fetch and setup - always refetch on mount so newly published services appear
 	onMount(() => {
 		if (browser) {
 			fetchBtcPrice();
-
-			if ($servicesStore.items.length > 0) {
-				dataLoaded = true;
-				isInitialLoad = false;
-				showSkeleton = false;
+			dataLoaded = false;
+			showSkeleton = true;
+			loadNostrData().then(() => {
 				if (serviceListRef) {
 					setupInfiniteScroll();
 				}
-			} else {
-				setupLazyLoading();
-			}
+			});
 		}
 	});
 

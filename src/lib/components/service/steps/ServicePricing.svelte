@@ -10,7 +10,6 @@
 
 	let { errors, direction } = $props();
 
-	// BTC price and USD amount from store (derived — no $effect needed)
 	let btcPrice = $state<number>(0);
 	let usdAmount = $derived.by(
 		() =>
@@ -47,6 +46,7 @@
 			store.updateService({
 				pricing: {
 					...$store.service.pricing!,
+					type: ServicePricingTypeEnum.FIXED,
 					amount: usdValue,
 					currency: 'USDt'
 				}
@@ -55,6 +55,7 @@
 			store.updateService({
 				pricing: {
 					...$store.service.pricing!,
+					type: ServicePricingTypeEnum.FIXED,
 					amount: 0,
 					currency: 'USDt'
 				}
@@ -75,6 +76,7 @@
 			store.updateService({
 				pricing: {
 					...$store.service.pricing!,
+					type: ServicePricingTypeEnum.FIXED,
 					amount: usdValue,
 					currency: 'USDt'
 				}
@@ -83,6 +85,7 @@
 			store.updateService({
 				pricing: {
 					...$store.service.pricing!,
+					type: ServicePricingTypeEnum.FIXED,
 					amount: 0,
 					currency: 'USDt'
 				}
@@ -90,10 +93,9 @@
 		}
 	}
 
-	// Update pricing type
 	function updatePricingType(type: ServicePricingTypeEnum) {
 		const currentPricing = $store.service.pricing || {
-			type: ServicePricingTypeEnum.FIXED,
+			type: ServicePricingTypeEnum.TIERED,
 			currency: 'USDt',
 			amount: 0
 		};
@@ -104,9 +106,6 @@
 				type,
 				...(type === ServicePricingTypeEnum.FIXED
 					? { hourlyRate: undefined, estimatedHours: undefined, tiers: undefined, inquiryForm: undefined }
-					: {}),
-				...(type === ServicePricingTypeEnum.HOURLY
-					? { amount: undefined, tiers: undefined, inquiryForm: undefined }
 					: {}),
 				...(type === ServicePricingTypeEnum.TIERED
 					? { amount: undefined, hourlyRate: undefined, estimatedHours: undefined, inquiryForm: undefined }
@@ -134,7 +133,7 @@
 >
 	<h4 class="text-lg font-semibold">{$t('dashboard.services.create.pricing.budget_question')}</h4>
 
-	<!-- Pill buttons (same as Create Task) -->
+	<!-- Pricing type: FIXED, TIERED, or INQUIRY_REQUIRED -->
 	<div class="flex flex-wrap gap-4">
 		<button
 			type="button"
@@ -163,7 +162,7 @@
 		<span class="label-text-alt text-error">{errors.pricingType}</span>
 	{/if}
 
-	<!-- Fixed: Presupuesto con $ y Sats (igual que Create Task) -->
+	<!-- Fixed price: amount in USD and Sats -->
 	{#if $store.service.pricing?.type === ServicePricingTypeEnum.FIXED}
 		<div class="w-full">
 			<label for="budget" class="label">

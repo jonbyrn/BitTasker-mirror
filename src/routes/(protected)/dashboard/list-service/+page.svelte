@@ -17,7 +17,6 @@
 	// Import step components
 	import ServiceBasics from '$lib/components/service/steps/ServiceBasics.svelte';
 	import ServiceLocation from '$lib/components/service/steps/ServiceLocation.svelte';
-	import ServiceDetails from '$lib/components/service/steps/ServiceDetails.svelte';
 	import ServicePricing from '$lib/components/service/steps/ServicePricing.svelte';
 	import ServiceTiers from '$lib/components/service/steps/ServiceTiers.svelte';
 	import ServiceAddOns from '$lib/components/service/steps/ServiceAddOns.svelte';
@@ -103,26 +102,9 @@
 					return;
 				}
 			} else if (isDuplicating && serviceIdParam) {
-				// Load service for duplicate mode
-				try {
-					const service = await findServiceByUniqueId(serviceIdParam);
-
-					if (!service) {
-						appStore.showErrorToast($t('dashboard.services.create.errors.service_not_found'));
-						goto('/dashboard/my-services');
-						return;
-					}
-
-					// Load service into store for duplication
-					await store.loadServiceForDuplicate(service.id, service);
-					await store.loadDraft(false); // Duplicate mode uses CREATE_STORAGE_KEY
-					isEditDataLoaded = true;
-				} catch (error) {
-					console.error('Error loading service for duplicate:', error);
-					appStore.showErrorToast($t('dashboard.services.create.errors.load_failed'));
-					goto('/dashboard/my-services');
-					return;
-				}
+				// Duplicate option removed: redirect to create
+				goto('/dashboard/list-service');
+				return;
 			} else {
 				// New service: clear create draft so "Publicar Servicio" always shows an empty form
 				await store.clearDraft(false);
@@ -193,29 +175,30 @@
 					}
 				}
 				break;
-			case ServiceStepEnum.DETAILS:
-				// Details step is optional, no validation needed
-				break;
 			case ServiceStepEnum.PRICING:
-				if (!service?.pricing) {
+				if (!service?.pricing?.type) {
 					errors.pricing = $t('dashboard.services.create.errors.pricing_required');
 				} else if (service.pricing.type === ServicePricingTypeEnum.FIXED) {
-					// Misma validación que Create Task: presupuesto no puede ser cero
 					if (service.pricing.amount == null || service.pricing.amount <= 0) {
 						errors.amount = $t('dashboard.services.create.errors.budget_required');
 						errors.pricing = $t('dashboard.services.create.errors.budget_required');
 					}
-				} else if (service.pricing.type === ServicePricingTypeEnum.HOURLY) {
-					if (!service.pricing.hourlyRate || service.pricing.hourlyRate <= 0)
-						errors.pricing = $t('dashboard.services.create.errors.hourly_rate_required');
-				} else if (service.pricing.type === ServicePricingTypeEnum.TIERED) {
-					if (!service.pricing.tiers || service.pricing.tiers.length < 2)
-						errors.pricing = $t('dashboard.services.create.errors.tiers_required');
 				}
-				// INQUIRY_REQUIRED doesn't need validation (inquiry form is optional)
+				// TIERED and INQUIRY_REQUIRED: no amount/tiers required here
 				break;
 			case ServiceStepEnum.TIERS:
-				// Tiers step validation is handled in PRICING step
+				if (service?.pricing?.type === ServicePricingTypeEnum.TIERED) {
+					if (!service.pricing.tiers || service.pricing.tiers.length < 2) {
+						errors.pricing = $t('dashboard.services.create.errors.tiers_required');
+					} else {
+						const invalidTier = service.pricing.tiers.some(
+							(t) => !(t.description?.trim()) || t.price == null || t.price <= 0
+						);
+						if (invalidTier) {
+							errors.tiers = $t('dashboard.services.create.errors.tiers_description_price_required');
+						}
+					}
+				}
 				break;
 			case ServiceStepEnum.ADD_ONS:
 				// Add-ons step is optional, no validation needed
@@ -240,11 +223,34 @@
 	const handleNext = async () => {
 		if (!validateCurrentStep()) return;
 
-		// Proceed to next step immediately
-		store.nextStep();
-		store.saveDraft();
+		// When "Cotización Requerida" or "Precio fijo": skip only TIERS -> ADD_ONS (do not skip Add-ons)
+		if (
+			$store.currentStep === ServiceStepEnum.PRICING &&
+			($store.service.pricing?.type === ServicePricingTypeEnum.INQUIRY_REQUIRED ||
+				$store.service.pricing?.type === ServicePricingTypeEnum.FIXED)
+		) {
+			store.setStep(ServiceStepEnum.ADD_ONS);
+			store.saveDraft($store.isEditing, true);
+		} else {
+			store.nextStep();
+			store.saveDraft($store.isEditing, true);
+		}
 		direction = 'forward';
 	};
+
+	function handleBack() {
+		// When returning from ADD_ONS and we skipped TIERS (Precio fijo or Cotización Requerida), go back to PRICING
+		if (
+			$store.currentStep === ServiceStepEnum.ADD_ONS &&
+			($store.service.pricing?.type === ServicePricingTypeEnum.FIXED ||
+				$store.service.pricing?.type === ServicePricingTypeEnum.INQUIRY_REQUIRED)
+		) {
+			store.setStep(ServiceStepEnum.PRICING);
+		} else {
+			store.previousStep();
+		}
+		direction = 'backward';
+	}
 
 	async function handleSubmit() {
 		if (!validateCurrentStep()) return;
@@ -280,25 +286,19 @@
 				status: 'active' // Set to active when publishing
 			};
 
-			const isUpdating = $page.url.searchParams.get('edit') === 'true';
+			// Use store state so we update even if URL lost edit=true (e.g. after navigation)
+			const dTag = $store.uniqueId || $store.service.uniqueId;
+			const isUpdating = $store.isEditing && Boolean(dTag);
 
-			if (isUpdating) {
+			if (isUpdating && dTag) {
 				// updateService uses #d tag (human-readable identifier)
-				const dTag = $store.service.uniqueId;
-				if (!dTag) {
-					appStore.showErrorToast($t('dashboard.services.create.errors.service_not_found'));
-					return;
-				}
 				signedEventId = await updateService(dTag, serviceData);
 				appStore.showSuccessToast($t('dashboard.services.create.success.updated'));
 
-				// Refresh My Services list to show updated service
+				await store.clearDraft(true);
 				await refreshMyServices();
 
-				const url = new URL($page.url);
-				url.searchParams.delete('edit');
-				url.searchParams.delete('serviceId');
-				goto(url);
+				await goto('/dashboard/my-services');
 			} else {
 				signedEventId = await listService(serviceData);
 				appStore.showSuccessToast($t('dashboard.services.create.success.created'));
@@ -329,19 +329,15 @@
 	<!-- Page Header -->
 	<div class="mb-6">
 		<h3 class="">
-			{#if $page.url.searchParams.get('edit') === 'true'}
+			{#if $store.isEditing}
 				{$t('dashboard.services.create.edit_title')}
-			{:else if $page.url.searchParams.get('duplicate') === 'true'}
-				{$t('dashboard.services.create.duplicate_title')}
 			{:else}
 				{$t('dashboard.services.create.title')}
 			{/if}
 		</h3>
 		<p class="text-base-content/70">
-			{#if $page.url.searchParams.get('edit') === 'true'}
+			{#if $store.isEditing}
 				{$t('dashboard.services.create.edit_description')}
-			{:else if $page.url.searchParams.get('duplicate') === 'true'}
-				{$t('dashboard.services.create.duplicate_description')}
 			{:else}
 				{$t('dashboard.services.create.description')}
 			{/if}
@@ -370,8 +366,6 @@
 						<ServiceBasics {errors} {direction} />
 					{:else if $store.currentStep === ServiceStepEnum.LOCATION}
 						<ServiceLocation {errors} {direction} />
-					{:else if $store.currentStep === ServiceStepEnum.DETAILS}
-						<ServiceDetails {errors} {direction} />
 					{:else if $store.currentStep === ServiceStepEnum.PRICING}
 						<ServicePricing {errors} {direction} />
 					{:else if $store.currentStep === ServiceStepEnum.TIERS}
@@ -393,10 +387,7 @@
 						{#if $store.currentStep !== ServiceStepEnum.BASICS}
 							<button
 								class="btn btn-secondary"
-								onclick={() => {
-									store.previousStep();
-									direction = 'backward';
-								}}
+								onclick={handleBack}
 							>
 								{$t('dashboard.services.create.back')}
 							</button>

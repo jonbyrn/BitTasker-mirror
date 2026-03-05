@@ -127,12 +127,9 @@
 	}}
 >
 	<div class="w-full">
-		<label class="label" for="inquiry-form-title"	id="inquiry-form-title">
+		<label class="label" for="inquiry-form-title" id="inquiry-form-title">
 			<span class="label-text-alt">{$t('dashboard.services.create.inquiry_form.hint')}</span>
 		</label>
-		<div class="alert alert-outline alert-info mt-2" id="inquiry-form-note">
-			<span>{$t('dashboard.services.create.inquiry_form.note')}</span>
-		</div>
 	</div>
 
 	{#if ($store.service.pricing?.inquiryForm?.fields || []).length === 0}
