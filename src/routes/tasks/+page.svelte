@@ -544,11 +544,12 @@
 		const trimmedQuery = searchQuery.trim();
 		const newSearchValue = trimmedQuery.length < SEARCH_MIN_LENGTH ? '' : trimmedQuery;
 
-		// Update searchParams
+		// Update searchParams and explicitly clear until for new search
 		searchParams = {
 			...searchParams,
 			page: 1,
 			search: newSearchValue,
+			until: undefined,
 			limit: TASKS_PER_PAGE
 		};
 
@@ -568,6 +569,7 @@
 			...searchParams,
 			...filters,
 			page: 1,
+			until: undefined,
 			limit: TASKS_PER_PAGE
 		};
 
