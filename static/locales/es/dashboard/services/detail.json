@@ -27,7 +27,22 @@
 				"addons_title": "Complementos",
 				"base_price": "Precio base",
 				"addons_total": "Complementos",
-				"total_price": "Total"
+				"total_price": "Total",
+				"request_quote_modal": {
+					"title": "Solicitar Cotización",
+					"title_label": "Título",
+					"title_placeholder": "Título breve de tu solicitud",
+					"title_required": "El título es obligatorio",
+					"description_label": "Descripción",
+					"description_placeholder": "Describe con detalle lo que necesitas",
+					"description_required": "La descripción es obligatoria",
+					"custom_form_section": "Datos adicionales",
+					"field_required": "Este campo es obligatorio",
+					"images_label": "Imágenes",
+					"optional": "Opcional",
+					"choose": "Elige...",
+					"submit": "Enviar Solicitud"
+				}
 			}
 		}
 	}

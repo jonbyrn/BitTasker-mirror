@@ -94,6 +94,19 @@ export interface InquiryForm {
 }
 
 /**
+ * Payload when a Tasker requests a quote for a service (solicitar cotización).
+ * Order in UI: title, description, custom form (if any), images.
+ */
+export interface QuoteRequestPayload {
+	title: string;
+	description: string;
+	/** Responses keyed by inquiry form field id; only present when service has inquiryForm.fields */
+	customFormResponses?: Record<string, string | number | boolean | string[]>;
+	/** Optional images; same shape as task attachments */
+	attachments?: Attachment[];
+}
+
+/**
  * Service Location Details Interface
  * Location-specific configurations for services
  */

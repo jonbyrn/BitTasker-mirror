@@ -20,6 +20,8 @@
 	import { TASK_CATEGORIES } from '$lib/utils/constants/categories';
 	import ServiceTierSelector from '$lib/components/service/ServiceTierSelector.svelte';
 	import ServiceAddOnsSelector from '$lib/components/service/ServiceAddOnsSelector.svelte';
+	import RequestQuoteModal from '$lib/components/service/RequestQuoteModal.svelte';
+	import type { QuoteRequestPayload } from '$lib/types/service.d';
 
 	let { service, serviceId } = $props<{
 		service: Service | null;
@@ -54,6 +56,7 @@
 
 	let selectedTierId = $state<string | null>(null);
 	let selectedAddOnIds = $state<string[]>([]);
+	let requestQuoteModalOpen = $state(false);
 
 	const basePriceForAddOns = $derived.by(() => {
 		if (!service?.pricing) return 0;
@@ -132,7 +135,17 @@
 			goto(`/auth/login?returnTo=${encodeURIComponent(window.location.pathname)}`);
 			return;
 		}
+		// For INQUIRY_REQUIRED: open quote request modal (no redirect to messages)
+		if (service?.pricing?.type === ServicePricingTypeEnum.INQUIRY_REQUIRED) {
+			requestQuoteModalOpen = true;
+			return;
+		}
 		goto(`/dashboard/messages/to/${service.npub}`);
+	}
+
+	function handleQuoteRequestConfirm(payload: QuoteRequestPayload) {
+		// TODO: persist quote request (Nostr event or API) and optionally notify taskee
+		requestQuoteModalOpen = false;
 	}
 </script>
 
@@ -429,4 +442,11 @@
 			</div>
 		{/if}
 	</div>
+
+	<RequestQuoteModal
+		bind:open={requestQuoteModalOpen}
+		service={service}
+		onConfirm={handleQuoteRequestConfirm}
+		onClose={() => (requestQuoteModalOpen = false)}
+	/>
 </div>
