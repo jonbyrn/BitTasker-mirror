@@ -1,6 +1,6 @@
 /**
  * Contract Registry
- * 
+ *
  * Centralized registry for tracking contract addresses across networks and environments.
  * Tracks both current and legacy contract addresses for backward compatibility.
  * Internal use only - contract version information is not exposed to users.
@@ -69,20 +69,17 @@ const registry: ContractRegistry = {
 
 /**
  * Initialize contract registry with addresses from environment variables.
- * Falls back to VITE_RSK_CONTRACT_ADDRESS when network-specific vars are not set.
  */
 export function initializeContractRegistry(): void {
-	const fallback = import.meta.env.VITE_RSK_CONTRACT_ADDRESS || null;
+	const _rskNetwork = (import.meta.env.VITE_RSK_NETWORK || 'testnet') as Environment;
 
 	// RSK Escrow contracts
-	registry.rsk.mainnet.escrow.current =
-		import.meta.env.VITE_RSK_CONTRACT_ADDRESS_MAINNET || fallback;
-	registry.rsk.testnet.escrow.current =
-		import.meta.env.VITE_RSK_CONTRACT_ADDRESS_TESTNET || fallback;
-	
+	registry.rsk.mainnet.escrow.current = import.meta.env.VITE_RSK_CONTRACT_ADDRESS_MAINNET || null;
+	registry.rsk.testnet.escrow.current = import.meta.env.VITE_RSK_CONTRACT_ADDRESS_TESTNET || null;
+
 	// BSC Escrow contract
 	registry.bsc.mainnet.escrow.current = import.meta.env.VITE_BSC_CONTRACT_ADDRESS || null;
-	
+
 	// Normalize addresses to lowercase
 	if (registry.rsk.mainnet.escrow.current) {
 		registry.rsk.mainnet.escrow.current = registry.rsk.mainnet.escrow.current.toLowerCase();
@@ -145,35 +142,33 @@ export function isKnownContract(
 	environment: Environment
 ): { isKnown: boolean; contractType: 'escrow' | 'etherSwap' | null; isCurrent: boolean } {
 	const normalizedAddress = address.toLowerCase();
-	
+
 	// Check escrow contracts
 	const escrowCurrent = getEscrowContractAddress(network, environment);
 	if (escrowCurrent && normalizedAddress === escrowCurrent) {
 		return { isKnown: true, contractType: 'escrow', isCurrent: true };
 	}
-	
-	const escrowContracts = network === 'rsk' 
-		? registry.rsk[environment].escrow
-		: registry.bsc.mainnet.escrow;
-	
+
+	const escrowContracts =
+		network === 'rsk' ? registry.rsk[environment].escrow : registry.bsc.mainnet.escrow;
+
 	if (escrowContracts.legacy.includes(normalizedAddress)) {
 		return { isKnown: true, contractType: 'escrow', isCurrent: false };
 	}
-	
+
 	// Check EtherSwap contracts
 	const etherSwapCurrent = getEtherSwapContractAddress(network, environment);
 	if (etherSwapCurrent && normalizedAddress === etherSwapCurrent) {
 		return { isKnown: true, contractType: 'etherSwap', isCurrent: true };
 	}
-	
-	const etherSwapContracts = network === 'rsk'
-		? registry.rsk[environment].etherSwap
-		: { current: null, legacy: [] };
-	
+
+	const etherSwapContracts =
+		network === 'rsk' ? registry.rsk[environment].etherSwap : { current: null, legacy: [] };
+
 	if (etherSwapContracts.legacy.includes(normalizedAddress)) {
 		return { isKnown: true, contractType: 'etherSwap', isCurrent: false };
 	}
-	
+
 	return { isKnown: false, contractType: null, isCurrent: false };
 }
 
@@ -187,13 +182,16 @@ export function addLegacyContract(
 	contractType: 'escrow' | 'etherSwap'
 ): void {
 	const normalizedAddress = address.toLowerCase();
-	
+
 	if (network === 'rsk') {
 		if (!registry.rsk[environment][contractType].legacy.includes(normalizedAddress)) {
 			registry.rsk[environment][contractType].legacy.push(normalizedAddress);
 		}
 	} else if (network === 'bsc' && environment === 'mainnet') {
-		if (contractType === 'escrow' && !registry.bsc.mainnet.escrow.legacy.includes(normalizedAddress)) {
+		if (
+			contractType === 'escrow' &&
+			!registry.bsc.mainnet.escrow.legacy.includes(normalizedAddress)
+		) {
 			registry.bsc.mainnet.escrow.legacy.push(normalizedAddress);
 		}
 	}
@@ -201,4 +199,3 @@ export function addLegacyContract(
 
 // Initialize registry on module load
 initializeContractRegistry();
-

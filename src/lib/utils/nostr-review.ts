@@ -4,7 +4,7 @@
  */
 
 import type { Event as NostrEvent, Filter } from 'nostr-tools';
-import { DEFAULT_RELAYS, getSignedEvent, publishEvent, subscribeToEvents } from './nostr';
+import { getSignedEvent, publishEvent, subscribeToEvents } from './nostr';
 import { npubToHex } from './nostrKeys';
 import KINDS from './constants/kinds';
 import type {
@@ -14,6 +14,9 @@ import type {
 	RevieweeRole
 } from '$lib/types/review';
 import { escrow, ESCROW_STATUSES_REVIEW_COMPLETED } from '$lib/utils/escrow';
+
+//--- Relay Configuration ---
+const DEFAULT_RELAYS = [import.meta.env.VITE_NOSTR_RELAY_URL].filter(Boolean);
 
 /** Unique key for a review event (pubkey + identifier from tags) for deduplication. */
 function getReviewEventDedupeKey(event: NostrEvent): string {
@@ -31,9 +34,14 @@ function parseReviewEvent(event: NostrEvent, relayUrl: string): NostrVerifiedRev
 		const isNewFormat = event.kind === 1985;
 		if (isNewFormat) {
 			const data = JSON.parse(event.content) as ReviewEventContent;
-			const escrowId = event.tags.find((t) => t[0] === 'escrow')?.[1] ?? event.tags.find((t) => t[0] === 'd')?.[1] ?? '';
+			const escrowId =
+				event.tags.find((t) => t[0] === 'escrow')?.[1] ??
+				event.tags.find((t) => t[0] === 'd')?.[1] ??
+				'';
 			const revieweePubkey = event.tags.find((t) => t[0] === 'p')?.[1] ?? '';
-			const revieweeRole = (event.tags.find((t) => t[0] === 'reviewee_role')?.[1] ?? data.revieweeRole ?? '') as RevieweeRole;
+			const revieweeRole = (event.tags.find((t) => t[0] === 'reviewee_role')?.[1] ??
+				data.revieweeRole ??
+				'') as RevieweeRole;
 			const content: ReviewContentWithRatings = {
 				overallRating: data.overallRating,
 				categoryRatings: data.categoryRatings,
@@ -55,12 +63,19 @@ function parseReviewEvent(event: NostrEvent, relayUrl: string): NostrVerifiedRev
 		const legacy = JSON.parse(event.content) as {
 			reviewerPubkey: string;
 			revieweePubkey: string;
-			content: { overallRating: number; categoryRatings: Record<string, number>; comment?: string; photos?: string[] };
+			content: {
+				overallRating: number;
+				categoryRatings: Record<string, number>;
+				comment?: string;
+				photos?: string[];
+			};
 			fullContent?: ReviewContentWithRatings;
 			createdAt: number;
 		};
 		const roleTag = event.tags.find((t) => t[0] === 'role');
-		const revieweeRole = roleTag ? (roleTag[1] as RevieweeRole) : (legacy.fullContent?.revieweeRole as RevieweeRole | undefined);
+		const revieweeRole = roleTag
+			? (roleTag[1] as RevieweeRole)
+			: (legacy.fullContent?.revieweeRole as RevieweeRole | undefined);
 		const content: ReviewContentWithRatings = legacy.fullContent ?? {
 			overallRating: legacy.content.overallRating,
 			categoryRatings: legacy.content.categoryRatings,
@@ -68,7 +83,10 @@ function parseReviewEvent(event: NostrEvent, relayUrl: string): NostrVerifiedRev
 			comment: legacy.content.comment,
 			photos: legacy.content.photos
 		};
-		const legacyEscrowId = event.tags.find((t) => t[0] === 'e')?.[1] ?? event.tags.find((t) => t[0] === 'escrow')?.[1] ?? event.tags.find((t) => t[0] === 'd')?.[1];
+		const legacyEscrowId =
+			event.tags.find((t) => t[0] === 'e')?.[1] ??
+			event.tags.find((t) => t[0] === 'escrow')?.[1] ??
+			event.tags.find((t) => t[0] === 'd')?.[1];
 		return {
 			reviewerPubkey: legacy.reviewerPubkey ?? event.pubkey,
 			revieweePubkey: legacy.revieweePubkey,
@@ -186,10 +204,15 @@ const REVIEW_KINDS = [KINDS.REVIEW_VERIFIED, KINDS.REVIEW_LEGACY] as number[];
 export async function getReviewsByTask(taskId: string, limit = 50): Promise<NostrVerifiedReview[]> {
 	const reviews: NostrVerifiedReview[] = [];
 	const filter: Filter = { kinds: REVIEW_KINDS, '#task': [taskId], limit };
-	await subscribeReviews(filter, limit, (event, relayUrl) => {
-		const r = parseReviewEvent(event, relayUrl);
-		if (r) reviews.push(r);
-	}, { getCount: () => reviews.length, requiredCount: limit });
+	await subscribeReviews(
+		filter,
+		limit,
+		(event, relayUrl) => {
+			const r = parseReviewEvent(event, relayUrl);
+			if (r) reviews.push(r);
+		},
+		{ getCount: () => reviews.length, requiredCount: limit }
+	);
 	return reviews.slice(0, limit);
 }
 
@@ -200,10 +223,15 @@ export async function getReviewsByReviewer(
 	const hex = npubToHex(reviewerPubkey);
 	const reviews: NostrVerifiedReview[] = [];
 	const filter: Filter = { kinds: REVIEW_KINDS, authors: [hex], limit };
-	await subscribeReviews(filter, limit, (event, relayUrl) => {
-		const r = parseReviewEvent(event, relayUrl);
-		if (r) reviews.push(r);
-	}, { getCount: () => reviews.length, requiredCount: limit });
+	await subscribeReviews(
+		filter,
+		limit,
+		(event, relayUrl) => {
+			const r = parseReviewEvent(event, relayUrl);
+			if (r) reviews.push(r);
+		},
+		{ getCount: () => reviews.length, requiredCount: limit }
+	);
 	return reviews.slice(0, limit);
 }
 
@@ -214,10 +242,15 @@ export async function getReviewsForUser(
 	const hex = npubToHex(revieweePubkey);
 	const reviews: NostrVerifiedReview[] = [];
 	const filter: Filter = { kinds: REVIEW_KINDS, '#p': [hex], limit };
-	await subscribeReviews(filter, limit, (event, relayUrl) => {
-		const r = parseReviewEvent(event, relayUrl);
-		if (r) reviews.push(r);
-	}, { getCount: () => reviews.length, requiredCount: limit });
+	await subscribeReviews(
+		filter,
+		limit,
+		(event, relayUrl) => {
+			const r = parseReviewEvent(event, relayUrl);
+			if (r) reviews.push(r);
+		},
+		{ getCount: () => reviews.length, requiredCount: limit }
+	);
 	return reviews.slice(0, limit);
 }
 
@@ -272,8 +305,16 @@ export async function getReviewsForEscrow(
 		if (r) reviews.push(r);
 	};
 	await new Promise<void>((resolve) => {
-		const unsub1 = subscribeToEvents(relayUrl, [{ kinds: REVIEW_KINDS, '#escrow': [escrowId], limit: 50 }], push);
-		const unsub2 = subscribeToEvents(relayUrl, [{ kinds: REVIEW_KINDS, '#e': [escrowId], limit: 50 }], push);
+		const unsub1 = subscribeToEvents(
+			relayUrl,
+			[{ kinds: REVIEW_KINDS, '#escrow': [escrowId], limit: 50 }],
+			push
+		);
+		const unsub2 = subscribeToEvents(
+			relayUrl,
+			[{ kinds: REVIEW_KINDS, '#e': [escrowId], limit: 50 }],
+			push
+		);
 		setTimeout(() => {
 			unsub1();
 			unsub2();
