@@ -165,7 +165,7 @@
 					onchange={(e) => handleFieldTypeChange(field.id, (e.target as HTMLSelectElement).value as InquiryFormField['type'])}
 				>
 					<option value="text">{$t('dashboard.services.create.inquiry_form.type_text')}</option>
-					<option value="textarea">{$t('dashboard.services.create.inquiry_form.type_textarea')}</option>
+					<!-- textarea and file not offered: description/images are in the quote request modal -->
 					<option value="number">{$t('dashboard.services.create.inquiry_form.type_number')}</option>
 					<option value="select">{$t('dashboard.services.create.inquiry_form.type_select')}</option>
 					<option value="checkbox">{$t('dashboard.services.create.inquiry_form.type_checkbox')}</option>
@@ -189,8 +189,8 @@
 				/>
 			</div>
 
-			<!-- Field Placeholder (for text, textarea, number) -->
-			{#if field.type === 'text' || field.type === 'textarea' || field.type === 'number'}
+			<!-- Field Placeholder (for text, number) -->
+			{#if field.type === 'text' || field.type === 'number'}
 				<div class="w-full">
 					<label for="field-placeholder-{field.id}" class="label">
 						<span class="label-text">{$t('dashboard.services.create.inquiry_form.placeholder_label')}</span>

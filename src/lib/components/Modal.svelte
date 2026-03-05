@@ -151,7 +151,7 @@
 			<div class="card-body flex min-h-0 flex-col overflow-hidden">
 				{#if !props.hideHeader}
 					<div class="mb-4 flex items-center justify-between">
-						<h3 id="modal-title" class="card-title">{props.title}</h3>
+						<span id="modal-title" class="card-title">{props.title}</span>
 						{#if showCloseButton}
 							<button
 								class="btn btn-circle btn-ghost btn-sm"

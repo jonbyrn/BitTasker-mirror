@@ -27,7 +27,22 @@
 				"addons_title": "Add-ons",
 				"base_price": "Base price",
 				"addons_total": "Add-ons",
-				"total_price": "Total"
+				"total_price": "Total",
+				"request_quote_modal": {
+					"title": "Request Quote",
+					"title_label": "Title",
+					"title_placeholder": "Short title for your request",
+					"title_required": "Title is required",
+					"description_label": "Description",
+					"description_placeholder": "Describe what you need in detail",
+					"description_required": "Description is required",
+					"custom_form_section": "Additional details",
+					"field_required": "This field is required",
+					"images_label": "Images",
+					"optional": "Optional",
+					"choose": "Choose...",
+					"submit": "Send Request"
+				}
 			}
 		}
 	}
