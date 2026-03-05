@@ -490,6 +490,7 @@
 		// If we have existing tasks and search hasn't changed, don't reload - just use what's in the store
 		if (hasExistingTasks && !searchChanged) {
 			$tasksStore.searchParamsKey = currentSearchKey;
+			loadingState = 'loaded';
 			return;
 		}
 
@@ -497,6 +498,8 @@
 		if ($tasksStore.loading) return;
 
 		try {
+			loadingState = 'loading';
+
 			// Only load if we don't have tasks or search changed
 			const newSearchParams: SearchTasksParams = {
 				...searchParams,
@@ -538,49 +541,18 @@
 	 * Debounced search function with proper error handling
 	 */
 	const debouncedSearch = debounce(async () => {
-		if (searchQuery.trim().length < SEARCH_MIN_LENGTH) {
-			clearTasksStore();
+		const trimmedQuery = searchQuery.trim();
+		const newSearchValue = trimmedQuery.length < SEARCH_MIN_LENGTH ? '' : trimmedQuery;
 
-			// Preserve existing filters, only clear the search term
-			searchParams = {
-				...searchParams,
-				page: 1,
-				search: '',
-				limit: TASKS_PER_PAGE
-			};
-			searchQuery = '';
-
-			try {
-				await findTasks(searchParams);
-			} catch (err) {
-				tasksStore.update((state) => ({
-					...state,
-					error: err instanceof Error ? err.message : 'Search failed'
-				}));
-			}
-			return;
-		}
-
-		const newParams: SearchTasksParams = {
+		// Update searchParams
+		searchParams = {
 			...searchParams,
 			page: 1,
-			search: searchQuery.trim(),
+			search: newSearchValue,
 			limit: TASKS_PER_PAGE
 		};
 
-		searchParams = newParams;
-
-		// Clear existing tasks when starting a new search
-		clearTasksStore();
-
-		try {
-			await findTasks(searchParams);
-		} catch (err) {
-			tasksStore.update((state) => ({
-				...state,
-				error: err instanceof Error ? err.message : 'Search failed'
-			}));
-		}
+		await loadNostrData();
 	}, SEARCH_DEBOUNCE_DELAY);
 
 	/**
