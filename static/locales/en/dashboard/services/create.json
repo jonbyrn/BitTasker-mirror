@@ -167,7 +167,9 @@
 					"question_placeholder": "e.g. How long does delivery take?",
 					"answer_label": "Answer",
 					"answer_placeholder": "Provide a clear and helpful answer...",
-					"add": "Add FAQ"
+					"add": "Add FAQ",
+					"max": "max",
+					"max_reached": "Maximum of 5 FAQs allowed."
 				},
 				"inquiry_form": {
 					"title": "Inquiry Form Builder",
@@ -251,29 +253,29 @@
 					"show_less": "Show less",
 					"status_title": "Status",
 					"status_label": "Status",
-				"status_note": "Your service will be published as 'active' and visible to all users.",
-				"not_set": "Not set"
-			},
-			"errors": {
-				"title_required": "Service title is required",
-				"title_too_long": "Title cannot exceed 200 characters",
-				"description_required": "Service description is required",
-				"description_too_long": "Description cannot exceed 5000 characters",
-				"category_required": "At least one category is required",
-				"skill_required": "At least one skill is required",
-				"location_type_required": "At least one location type is required",
-				"service_location_required": "Service location is required when 'At My Location' is selected",
-				"taskee_location_required": "Service location is required when 'At Tasker Location' is selected",
-				"pricing_required": "Pricing configuration is required",
-				"budget_required": "Valid price is required",
-				"amount_required": "Fixed price amount is required",
-				"hourly_rate_required": "Hourly rate is required",
-				"tiers_required": "At least 2 tiers are required for tiered pricing",
-				"tiers_description_price_required": "Description and price are required for each tier",
-				"create_failed": "Failed to create service. Please try again.",
-				"service_not_found": "Service not found",
-				"load_failed": "Failed to load service. Please try again."
-			},
+					"status_note": "Your service will be published as 'active' and visible to all users.",
+					"not_set": "Not set"
+				},
+				"errors": {
+					"title_required": "Service title is required",
+					"title_too_long": "Title cannot exceed 200 characters",
+					"description_required": "Service description is required",
+					"description_too_long": "Description cannot exceed 5000 characters",
+					"category_required": "At least one category is required",
+					"skill_required": "At least one skill is required",
+					"location_type_required": "At least one location type is required",
+					"service_location_required": "Service location is required when 'At My Location' is selected",
+					"taskee_location_required": "Service location is required when 'At Tasker Location' is selected",
+					"pricing_required": "Pricing configuration is required",
+					"budget_required": "Valid price is required",
+					"amount_required": "Fixed price amount is required",
+					"hourly_rate_required": "Hourly rate is required",
+					"tiers_required": "At least 2 tiers are required for tiered pricing",
+					"tiers_description_price_required": "Description and price are required for each tier",
+					"create_failed": "Failed to create service. Please try again.",
+					"service_not_found": "Service not found",
+					"load_failed": "Failed to load service. Please try again."
+				},
 				"upload": {
 					"uploading_files": "Uploading files...",
 					"files_uploaded": "Files uploaded successfully!",

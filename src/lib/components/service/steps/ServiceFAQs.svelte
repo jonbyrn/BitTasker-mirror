@@ -8,6 +8,8 @@
 
 	let { errors, direction } = $props();
 
+	const MAX_FAQS = 5;
+
 	// Initialize FAQs if not set (run once on mount)
 	onMount(() => {
 		if (!$store.service.faqs) {
@@ -17,9 +19,10 @@
 		}
 	});
 
-	// Add new FAQ
+	// Add new FAQ (max MAX_FAQS)
 	function addFAQ() {
 		const currentFAQs = $store.service.faqs || [];
+		if (currentFAQs.length >= MAX_FAQS) return;
 		const newFAQ: ServiceFAQ = {
 			id: crypto.randomUUID(),
 			question: '',
@@ -59,6 +62,10 @@
 	<div class="w-full">
 		<label class="label" for="faqs-title">
 			<span class="label-text-alt">{$t('dashboard.services.create.faqs.hint')}</span>
+			<span class="label-text-alt ml-1"
+				>({($store.service.faqs || []).length}/{MAX_FAQS}
+				{$t('dashboard.services.create.faqs.max')})</span
+			>
 		</label>
 	</div>
 
@@ -68,10 +75,12 @@
 		</div>
 	{/if}
 
-	{#each ($store.service.faqs || []) as faq}
-		<div class="card bg-base-200 p-4 space-y-4">
+	{#each $store.service.faqs || [] as faq}
+		<div class="card bg-base-200 space-y-4 p-4">
 			<div class="flex items-center justify-between">
-				<h4 class="font-semibold">{$t('dashboard.services.create.faqs.faq')} #{($store.service.faqs || []).indexOf(faq) + 1}</h4>
+				<h4 class="font-semibold">
+					{$t('dashboard.services.create.faqs.faq')} #{($store.service.faqs || []).indexOf(faq) + 1}
+				</h4>
 				<button
 					class="btn btn-sm btn-error"
 					onclick={() => removeFAQ(faq.id)}
@@ -113,13 +122,24 @@
 		</div>
 	{/each}
 
-	<!-- Add FAQ Button -->
-	<button class="btn btn-outline w-full" onclick={addFAQ}>
+	<!-- Add FAQ Button (disabled at max) -->
+	<button
+		class="btn btn-outline w-full"
+		onclick={addFAQ}
+		disabled={($store.service.faqs || []).length >= MAX_FAQS}
+		title={($store.service.faqs || []).length >= MAX_FAQS
+			? $t('dashboard.services.create.faqs.max_reached')
+			: ''}
+	>
 		+ {$t('dashboard.services.create.faqs.add')}
 	</button>
+	{#if ($store.service.faqs || []).length >= MAX_FAQS}
+		<p class="label-text-alt text-base-content/70">
+			{$t('dashboard.services.create.faqs.max_reached')}
+		</p>
+	{/if}
 
 	{#if errors.faqs}
 		<span class="label-text-alt text-error block">{errors.faqs}</span>
 	{/if}
 </div>
-

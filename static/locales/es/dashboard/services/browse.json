@@ -9,6 +9,8 @@
 				"clear_filters": "Limpiar Filtros",
 				"showing_services": "Mostrando {count} servicio{count, plural, =1 {} other {s}}",
 				"view_service": "Ver Servicio",
+				"view_map": "Ver mapa",
+				"view_list": "Ver lista",
 				"no_services_found": "No se encontraron servicios",
 				"no_services_message": "Intenta ajustar tu búsqueda o filtros para encontrar más servicios.",
 				"no_more_services": "No hay más servicios para cargar",
