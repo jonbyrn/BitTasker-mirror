@@ -121,7 +121,7 @@
 					delay: 100
 				}}
 			>
-				<ProfileSetup {nextStep} {prevStep} />
+				<ProfileSetup {nextStep} {prevStep} displayName={formData.displayName} />
 			</div>
 		{:else if currentStep === 3}
 			<div
