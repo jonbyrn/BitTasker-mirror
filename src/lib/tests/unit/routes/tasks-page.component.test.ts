@@ -308,6 +308,32 @@ describe('Tasks Page - Component Tests', () => {
 		});
 	});
 
+	describe('Search Execution', () => {
+		it('should call findTasks with the entered search term', async () => {
+			const { findTasks } = await import('$lib/nostr/findTasks');
+
+			render(TasksPage);
+			await tick();
+
+			const searchInput = screen.getByPlaceholderText('Search tasks...') as HTMLInputElement;
+
+			// Type a valid search term (>= 3 chars)
+			await fireEvent.input(searchInput, { target: { value: 'Fixing pipes' } });
+
+			// Since we mocked debounce to be immediate, it should trigger findTasks right away
+			await waitFor(
+				() => {
+					expect(findTasks).toHaveBeenCalledWith(
+						expect.objectContaining({
+							search: 'Fixing pipes'
+						})
+					);
+				},
+				{ timeout: 2000 }
+			);
+		});
+	});
+
 	describe('View Mode Toggle', () => {
 		it('should toggle between list and map view', async () => {
 			render(TasksPage);
