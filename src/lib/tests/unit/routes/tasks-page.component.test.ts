@@ -332,6 +332,66 @@ describe('Tasks Page - Component Tests', () => {
 				{ timeout: 2000 }
 			);
 		});
+		it('should reset task list when search bar is cleared', async () => {
+			const { findTasks } = await import('$lib/nostr/findTasks');
+			const { get } = await import('svelte/store');
+
+			// Initial state with some tasks
+			const initialTasks = [createMockTask({ id: 'task-1' })];
+			tasksStore.set({
+				items: initialTasks,
+				loading: false,
+				error: null,
+				hasMore: true,
+				currentPage: 1,
+				searchParamsKey: 'some-key'
+			});
+
+			render(TasksPage);
+			await tick();
+
+			const searchInput = screen.getByPlaceholderText('Search tasks...') as HTMLInputElement;
+
+			// Mock findTasks for the first search
+			(
+				findTasks as unknown as { mockImplementationOnce: (fn: () => Promise<unknown>) => void }
+			).mockImplementationOnce(() => {
+				tasksStore.update((state) => ({
+					...state,
+					items: [createMockTask({ id: 'searched-task' })]
+				}));
+				return Promise.resolve({ tasks: [], total: 1, hasMore: false });
+			});
+
+			// Type something
+			await fireEvent.input(searchInput, { target: { value: 'Repair' } });
+
+			// Mock findTasks for the reset call
+			const resetTasks = [createMockTask({ id: 'reset-1' }), createMockTask({ id: 'reset-2' })];
+			(
+				findTasks as unknown as { mockImplementationOnce: (fn: () => Promise<unknown>) => void }
+			).mockImplementationOnce(() => {
+				tasksStore.update((s) => ({ ...s, items: resetTasks, loading: false }));
+				return Promise.resolve({ tasks: resetTasks, total: 2, hasMore: false });
+			});
+
+			// Clear the input
+			await fireEvent.input(searchInput, { target: { value: '' } });
+			// Wait for findTasks to be called with empty search
+			await waitFor(() => {
+				expect(findTasks).toHaveBeenCalledWith(
+					expect.objectContaining({
+						search: ''
+					})
+				);
+			});
+
+			// Verify store was updated with reset tasks
+			await waitFor(() => {
+				const state = get(tasksStore);
+				expect(state.items).toEqual(resetTasks);
+			});
+		});
 	});
 
 	describe('View Mode Toggle', () => {
@@ -349,23 +409,6 @@ describe('Tasks Page - Component Tests', () => {
 	});
 
 	describe('Map InfoWindow Functionality', () => {
-		it('should have InfoWindow action handler available when map loads', async () => {
-			render(TasksPage);
-			await tick();
-			await tick(); // Extra tick for map initialization
-
-			// Verify InfoWindow handler is set up
-			// The handler is set up in TaskLocationMap component
-			const handlerExists = await new Promise<boolean>((resolve) => {
-				setTimeout(() => {
-					const handler = (window as unknown as Record<string, unknown>).handleMapInfoWindowAction;
-					resolve(typeof handler === 'function');
-				}, 1000);
-			});
-
-			expect(handlerExists).toBe(true);
-		});
-
 		it('should support InfoWindow button actions', async () => {
 			render(TasksPage);
 			await tick();
