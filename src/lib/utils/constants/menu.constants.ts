@@ -19,7 +19,7 @@ import IconCurrencyUsd from '~icons/mdi/currency-usd';
 import IconDomain from '~icons/mdi/domain';
 import IconEmailOutline from '~icons/mdi/email-outline';
 import IconFileSign from '~icons/mdi/file-sign';
-import IconFormatListBulleted from '~icons/mdi/format-list-bulleted';
+import IconChartBoxOutline from '~icons/mdi/chart-box-outline';
 import IconFrequentlyAskedQuestions from '~icons/mdi/frequently-asked-questions';
 import IconHelpCircleOutline from '~icons/mdi/help-circle-outline';
 import IconHome from '~icons/mdi/home';
@@ -105,6 +105,11 @@ export const LOGGED_IN_MENU_SECTIONS: MenuSection[] = [
 		label: 'navbar.task_management',
 		icon: IconBriefcaseOutline,
 		items: [
+			{
+				label: 'navbar.panel',
+				icon: IconChartBoxOutline,
+				href: '/dashboard'
+			},
 			{
 				label: 'navbar.create_task',
 				icon: IconPlusCircleOutline,
@@ -299,14 +304,14 @@ export const LOGGED_OUT_MENU_SECTIONS = [
  */
 export const AVATAR_MENU_ITEMS: MenuItem[] = [
 	{
+		label: 'navbar.panel',
+		icon: IconChartBoxOutline,
+		href: '/dashboard'
+	},
+	{
 		label: 'navbar.find_tasks',
 		icon: IconMagnify,
 		href: '/tasks'
-	},
-	{
-		label: 'navbar.my_tasks',
-		icon: IconFormatListBulleted,
-		href: '/dashboard'
 	},
 	{
 		label: 'navbar.messages',
@@ -387,4 +392,3 @@ export const MOBILE_AUTH_BUTTONS: { login: MenuItem; signup: MenuItem } = {
 		href: '/auth/signup'
 	}
 };
-

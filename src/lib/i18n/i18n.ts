@@ -104,8 +104,14 @@ async function loadEssentialTranslations(currentLocale: SupportedLanguage): Prom
 export function getNamespacesForRoute(route: string): string[] {
 	const namespaces: string[] = [];
 
-	if(route.includes('/tasks')) {
-		namespaces.push('common', 'dashboard/dashboard','dashboard/tasks/find','dashboard/tasks/info','dashboard/bids');
+	if (route.includes('/tasks')) {
+		namespaces.push(
+			'common',
+			'dashboard/dashboard',
+			'dashboard/tasks/find',
+			'dashboard/tasks/info',
+			'dashboard/bids'
+		);
 		// Include wallet namespace for bid-related components
 		namespaces.push('dashboard/wallet');
 		// Include categories and recommendations for task discovery
@@ -117,6 +123,8 @@ export function getNamespacesForRoute(route: string): string[] {
 		namespaces.push('dashboard/bids');
 		// Always load wallet namespace for bid-related components that use wallet translations
 		namespaces.push('dashboard/wallet');
+		// Panel tab "Mis Servicios" is shown at /dashboard?tab=my-services (pathname is /dashboard)
+		namespaces.push('dashboard/services/my-services', 'dashboard/services/browse');
 
 		// Load notifications namespace for notification components
 		namespaces.push('notifications');
@@ -136,7 +144,12 @@ export function getNamespacesForRoute(route: string): string[] {
 		// Note: /find-tasks route redirects to /tasks, so this check is kept for backward compatibility
 		// but /tasks route already loads all necessary namespaces above
 		if (route.includes('/find-tasks')) {
-			namespaces.push('dashboard/tasks/find', 'dashboard/recomendations', 'dashboard/bids', 'categories');
+			namespaces.push(
+				'dashboard/tasks/find',
+				'dashboard/recomendations',
+				'dashboard/bids',
+				'categories'
+			);
 		}
 		if (route.includes('/create-task')) {
 			namespaces.push('dashboard/tasks/create', 'categories');
@@ -157,13 +170,18 @@ export function getNamespacesForRoute(route: string): string[] {
 
 	// Services routes (public)
 	if (route.includes('/services') && !route.includes('/services/[')) {
-		namespaces.push('dashboard/services/browse', 'dashboard/services/create', 'dashboard/services/detail', 'categories');
+		namespaces.push(
+			'dashboard/services/browse',
+			'dashboard/services/create',
+			'dashboard/services/detail',
+			'categories'
+		);
 	}
 
 	if (route.includes('/onboarding')) namespaces.push('onboarding');
 	if (route.includes('/how-it-works')) namespaces.push('how_it_works');
 	if (route.includes('/auth')) namespaces.push('auth');
-	
+
 	// Protected routes (routes that require authentication)
 	if (route.includes('(protected)')) {
 		namespaces.push('auth');

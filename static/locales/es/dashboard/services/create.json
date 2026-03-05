@@ -167,7 +167,9 @@
 					"question_placeholder": "ej. ¿Cuánto tiempo toma la entrega?",
 					"answer_label": "Respuesta",
 					"answer_placeholder": "Proporciona una respuesta clara y útil...",
-					"add": "Agregar Pregunta"
+					"add": "Agregar Pregunta",
+					"max": "máx",
+					"max_reached": "Máximo 5 preguntas frecuentes permitidas."
 				},
 				"inquiry_form": {
 					"title": "Constructor de Formulario de Consulta",
@@ -251,29 +253,29 @@
 					"show_less": "Ver menos",
 					"status_title": "Estado",
 					"status_label": "Estado",
-				"status_note": "Tu servicio se publicará como 'activo' y será visible para todos los usuarios.",
-				"not_set": "No establecido"
-			},
-			"errors": {
-				"title_required": "El título del servicio es requerido",
-				"title_too_long": "El título no puede exceder 200 caracteres",
-				"description_required": "La descripción del servicio es requerida",
-				"description_too_long": "La descripción no puede exceder 5000 caracteres",
-				"category_required": "Se requiere al menos una categoría",
-				"skill_required": "Se requiere al menos una habilidad",
-				"location_type_required": "Se requiere al menos un tipo de ubicación",
-				"service_location_required": "La ubicación del servicio es requerida cuando se selecciona 'En Mi Ubicación'",
-				"taskee_location_required": "La ubicación del servicio es requerida cuando se selecciona 'En Ubicación del Tasker'",
-				"pricing_required": "La configuración de precios es requerida",
-				"budget_required": "Se requiere un precio válido",
-				"amount_required": "El monto del precio fijo es requerido",
-				"hourly_rate_required": "La tarifa por hora es requerida",
-				"tiers_required": "Se requieren al menos 2 niveles para precios por niveles",
-				"tiers_description_price_required": "La descripción y el precio son obligatorios en cada nivel",
-				"create_failed": "Error al crear el servicio. Por favor intenta de nuevo.",
-				"service_not_found": "Servicio no encontrado",
-				"load_failed": "Error al cargar el servicio. Por favor intenta de nuevo."
-			},
+					"status_note": "Tu servicio se publicará como 'activo' y será visible para todos los usuarios.",
+					"not_set": "No establecido"
+				},
+				"errors": {
+					"title_required": "El título del servicio es requerido",
+					"title_too_long": "El título no puede exceder 200 caracteres",
+					"description_required": "La descripción del servicio es requerida",
+					"description_too_long": "La descripción no puede exceder 5000 caracteres",
+					"category_required": "Se requiere al menos una categoría",
+					"skill_required": "Se requiere al menos una habilidad",
+					"location_type_required": "Se requiere al menos un tipo de ubicación",
+					"service_location_required": "La ubicación del servicio es requerida cuando se selecciona 'En Mi Ubicación'",
+					"taskee_location_required": "La ubicación del servicio es requerida cuando se selecciona 'En Ubicación del Tasker'",
+					"pricing_required": "La configuración de precios es requerida",
+					"budget_required": "Se requiere un precio válido",
+					"amount_required": "El monto del precio fijo es requerido",
+					"hourly_rate_required": "La tarifa por hora es requerida",
+					"tiers_required": "Se requieren al menos 2 niveles para precios por niveles",
+					"tiers_description_price_required": "La descripción y el precio son obligatorios en cada nivel",
+					"create_failed": "Error al crear el servicio. Por favor intenta de nuevo.",
+					"service_not_found": "Servicio no encontrado",
+					"load_failed": "Error al cargar el servicio. Por favor intenta de nuevo."
+				},
 				"upload": {
 					"uploading_files": "Subiendo archivos...",
 					"files_uploaded": "¡Archivos subidos exitosamente!",
