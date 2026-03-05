@@ -159,9 +159,7 @@
 					<IconPlus class="h-4 w-4" />
 					{hasBid
 						? $t('dashboard.find_tasks.bid_sent') || 'Bid sent'
-						: isOpen
-							? $t('dashboard.find_tasks.sign_up_to_bid') || 'Bid'
-							: $t('dashboard.find_tasks.bidding_closed') || 'Bidding closed'}
+						: $t('dashboard.find_tasks.sign_up_to_bid') || 'Bid'}
 				</button>
 
 				<button
