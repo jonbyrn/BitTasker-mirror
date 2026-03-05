@@ -262,53 +262,23 @@
 		x: direction === 'forward' ? 20 : -20
 	}}
 >
+	<!-- Same compact layout as create-task (TaskBudget): one grid with thumbnails + one upload cell -->
 	<div class="w-full">
-		<label class="label" for="portfolio-title">
-			<span class="label-text-alt">{$t('dashboard.services.create.portfolio.hint')}</span>
+		<label for="portfolio-upload" class="label block text-lg font-semibold">
+			{$t('dashboard.services.create.portfolio.title_media')}
+		</label>
+		<label for="portfolio-upload" class="label-text-alt block text-base-content/70">
+			{$t('dashboard.services.create.portfolio.description_media')}
 		</label>
 	</div>
 
-	<!-- File Upload Input -->
-	<div class="w-full">
-		<label for="portfolio-upload" class="btn btn-outline btn-primary w-full cursor-pointer" id="portfolio-upload-button">
-			{$t('dashboard.services.create.portfolio.upload_button')}
-			<input
-				type="file"
-				id="portfolio-upload"
-				class="hidden"
-				accept="image/*,video/*"
-				multiple
-				onchange={handleFileChange}
-			/>
-		</label>
-	</div>
-
-	<!-- Upload Progress (only shown when publishing) -->
-	{#if isUploading}
-		<div class="alert alert-outline alert-info">
-			<span class="loading loading-spinner loading-sm"></span>
-			<span>
-				{$t('dashboard.services.create.portfolio.uploading')} ({uploadProgress.completed}/
-				{uploadProgress.total})
-				{#if uploadProgress.currentFile}
-					- {uploadProgress.currentFile}
-				{/if}
-			</span>
-		</div>
-	{/if}
-
-	<!-- Error Display -->
-	{#if error}
-		<div class="alert alert-outline alert-error">
-			<span>{error}</span>
-		</div>
-	{/if}
-
-	<!-- Portfolio Items Grid -->
-	{#if ($store.service.portfolio || []).length > 0 || (get(store).pendingFiles || []).length > 0}
-		<div class="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
+	<div class="space-y-4">
+		<div
+			class="grid grid-cols-2 justify-start gap-6 sm:grid-cols-4 sm:gap-8 md:grid-cols-6 lg:grid-cols-8"
+		>
 			{#each [...($store.service.portfolio || []), ...(get(store).pendingFiles || [])] as file, index}
-				<div class="relative aspect-square overflow-hidden rounded-lg border border-base-300">
+				<div class="relative h-24 w-24 sm:h-28 sm:w-28 md:h-32 md:w-32">
+					<div class="h-full w-full overflow-hidden rounded-lg border border-base-300">
 					{#if file && typeof file === 'object' && 'url' in file}
 						<!-- Already uploaded - show from URL -->
 						{@const fileType = file.type || ''}
@@ -382,21 +352,87 @@
 							</div>
 						{/if}
 					{/if}
+					</div>
 					<button
-						class="btn btn-sm btn-error absolute right-2 top-2"
+						type="button"
+						class="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-error p-1 text-error-content shadow-md hover:opacity-90"
 						onclick={() => removeFile(index)}
 						title={$t('dashboard.services.create.portfolio.remove')}
+						aria-label={$t('dashboard.services.create.portfolio.remove')}
 					>
-						✕
+						<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+							<path
+								fill-rule="evenodd"
+								d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+								clip-rule="evenodd"
+							/>
+						</svg>
 					</button>
 				</div>
 			{/each}
+
+			{#if (($store.service.portfolio || []).length + (get(store).pendingFiles || []).length) < 10 && !isUploading}
+				<div class="relative h-24 w-24 sm:h-28 sm:w-28 md:h-32 md:w-32">
+					<label
+						for="portfolio-upload"
+						class="flex h-full w-full cursor-pointer flex-col items-center justify-center rounded-lg border border-base-300 bg-base-200 p-2 text-center transition hover:bg-base-300"
+					>
+						<svg
+							class="mb-1 h-6 w-6 sm:mb-2 sm:h-8 sm:w-8 text-base-content/70"
+							aria-hidden="true"
+							xmlns="http://www.w3.org/2000/svg"
+							fill="none"
+							viewBox="0 0 20 16"
+						>
+							<path
+								stroke="currentColor"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"
+							/>
+						</svg>
+						<p class="mb-1 text-xs font-semibold sm:text-sm">{$t('dashboard.services.create.portfolio.upload_label')}</p>
+						<p class="text-[8px] sm:text-xs text-base-content/70">
+							{$t('dashboard.services.create.portfolio.file_types')} {$t('dashboard.services.create.portfolio.max_duration')}
+						</p>
+						<p class="text-center text-[8px] whitespace-normal sm:px-1 sm:text-xs text-base-content/70">
+							{$t('dashboard.services.create.portfolio.max_size')}
+						</p>
+						<input
+							id="portfolio-upload"
+							type="file"
+							class="hidden"
+							accept="image/*,video/*"
+							multiple
+							onchange={handleFileChange}
+						/>
+					</label>
+				</div>
+			{/if}
 		</div>
-	{:else}
-		<div class="alert alert-outline alert-info" id="portfolio-empty-message">
-			<span>{$t('dashboard.services.create.portfolio.empty_message')}</span>
-		</div>
-	{/if}
+
+		{#if isUploading}
+			<div class="space-y-2">
+				<div class="text-info text-sm">
+					{$t('dashboard.services.create.portfolio.uploading')} {uploadProgress.currentFile}
+				</div>
+				<div class="h-2 w-full rounded-full bg-base-300">
+					<div
+						class="bg-info h-2 rounded-full transition-all duration-300"
+						style="width: {uploadProgress.total > 0 ? (uploadProgress.completed / uploadProgress.total) * 100 : 0}%"
+					></div>
+				</div>
+				<div class="text-xs text-base-content/60">
+					{uploadProgress.completed} / {uploadProgress.total}
+				</div>
+			</div>
+		{/if}
+
+		{#if error}
+			<div class="text-error text-sm">{error}</div>
+		{/if}
+	</div>
 
 	{#if errors.portfolio}
 		<span class="label-text-alt text-error block">{errors.portfolio}</span>
