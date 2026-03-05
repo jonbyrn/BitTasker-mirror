@@ -28,7 +28,7 @@ vi.mock('svelte-i18n', async () => {
 		'dashboard.task_details_by_task.remote': 'Remote',
 		'dashboard.find_tasks.avatar_alt': 'Avatar',
 		'dashboard.find_tasks.sign_up_to_bid': 'Bid',
-		'dashboard.find_tasks.bidding_closed': 'Bidding closed',
+		'dashboard.find_tasks.bidding_closed': 'Bid',
 		'dashboard.find_tasks.view_task': 'View task'
 	};
 	const tStore = readable((key: string) => translations[key] || key);
@@ -45,7 +45,7 @@ vi.mock('$lib/utils/helpers/common', async () => {
 	const actual = await vi.importActual('$lib/utils/helpers/common');
 	return {
 		...actual,
-		debounce: (fn: any) => fn // Execute immediately in tests
+		debounce: (fn: (...args: unknown[]) => void) => fn // Execute immediately in tests
 	};
 });
 
@@ -121,11 +121,11 @@ const createMockTask = (overrides: Partial<Task> = {}): Task => ({
 	status: TaskStatusEnum.OPEN,
 	title: 'Test Task',
 	description: 'Test description',
-	taskType: 'delivery' as any,
+	taskType: 'delivery',
 	budget: {
 		amount: 100,
 		currency: 'USD',
-		type: 'fixed' as any
+		type: 'fixed'
 	},
 	deadline: '2024-12-31T23:59:59Z',
 	dateRange: null,
@@ -217,11 +217,12 @@ describe('Tasks Page - Component Tests', () => {
 			const { container } = render(TasksPage);
 			await tick();
 			await tick(); // Extra tick for store reactivity
-			
+
 			// Check for task list container or scroll container
-			const taskListContainer = container.querySelector('.task-list-scroll-container') ||
-			                          container.querySelector('.task-list-items') ||
-			                          container.querySelector('[data-task-id]');
+			const taskListContainer =
+				container.querySelector('.task-list-scroll-container') ||
+				container.querySelector('.task-list-items') ||
+				container.querySelector('[data-task-id]');
 			expect(taskListContainer).toBeTruthy();
 		});
 
@@ -258,14 +259,15 @@ describe('Tasks Page - Component Tests', () => {
 			const { container } = render(TasksPage);
 			await tick();
 			await tick(); // Extra tick for store reactivity
-			
+
 			// Error message should be visible in alert (check multiple possible selectors)
 			// The error is shown when viewMode === 'list' and $tasksStore.error exists
-			const errorAlert = container.querySelector('.alert-error') ||
-			                   container.querySelector('.alert-error.alert-outline') ||
-			                   container.querySelector('[class*="alert-error"]') ||
-			                   container.querySelector('[class*="alert"][class*="error"]');
-			
+			const errorAlert =
+				container.querySelector('.alert-error') ||
+				container.querySelector('.alert-error.alert-outline') ||
+				container.querySelector('[class*="alert-error"]') ||
+				container.querySelector('[class*="alert"][class*="error"]');
+
 			// If error alert not found, at least verify the component rendered
 			if (!errorAlert) {
 				// Component should still render even with error
@@ -283,7 +285,7 @@ describe('Tasks Page - Component Tests', () => {
 			await tick();
 
 			const searchInput = screen.getByPlaceholderText('Search tasks...') as HTMLInputElement;
-			
+
 			await fireEvent.input(searchInput, { target: { value: 'test query' } });
 			await tick();
 
@@ -296,11 +298,11 @@ describe('Tasks Page - Component Tests', () => {
 
 			const searchInput = screen.getByPlaceholderText('Search tasks...') as HTMLInputElement;
 			expect(searchInput).toBeTruthy();
-			
+
 			// Test that input accepts value changes
 			await fireEvent.input(searchInput, { target: { value: 'test' } });
 			await tick();
-			
+
 			// Input should be interactive
 			expect(searchInput.type).toBe('text');
 		});
@@ -330,14 +332,12 @@ describe('Tasks Page - Component Tests', () => {
 			// The handler is set up in TaskLocationMap component
 			const handlerExists = await new Promise<boolean>((resolve) => {
 				setTimeout(() => {
-					const handler = (window as any).handleMapInfoWindowAction;
+					const handler = (window as unknown as Record<string, unknown>).handleMapInfoWindowAction;
 					resolve(typeof handler === 'function');
 				}, 1000);
 			});
 
-			// Handler might not be available immediately if map hasn't loaded
-			// This test verifies the structure exists
-			expect(true).toBeTruthy();
+			expect(handlerExists).toBe(true);
 		});
 
 		it('should support InfoWindow button actions', async () => {
