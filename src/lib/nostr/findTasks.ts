@@ -24,8 +24,13 @@ const BATCH_SIZE = TASKS_PER_PAGE; // Default tasks limit per page
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 const MAX_CACHE_SIZE = 100; // Maximum number of tasks to keep in cache
 
-// Memory cache with indexed tasks for better performance
-const cache = new Map<string, { data: IndexedTask[]; timestamp: number }>();
+// Memory cache with indexed tasks and pagination metadata
+type TaskCacheEntry = {
+	data: IndexedTask[];
+	timestamp: number;
+	hasMore: boolean;
+};
+const cache = new Map<string, TaskCacheEntry>();
 
 /**
  * Convert search params to Nostr filter
@@ -214,7 +219,7 @@ export async function findTasks(
 				const startIndex = currentItemsCount;
 				const endIndex = Math.min(startIndex + limit, cleanTasks.length);
 				const limitedTasks = cleanTasks.slice(startIndex, endIndex);
-				const hasMore = endIndex < cleanTasks.length || cleanTasks.length >= MAX_CACHE_SIZE;
+				const hasMore = endIndex < cleanTasks.length || cached.hasMore;
 
 				tasksStore.update((state) => ({
 					...state,
@@ -238,7 +243,7 @@ export async function findTasks(
 				const startIndex = currentItemsCount;
 				const endIndex = Math.min(startIndex + limit, cleanTasks.length);
 				const limitedTasks = cleanTasks.slice(startIndex, endIndex);
-				const hasMore = endIndex < cleanTasks.length || cleanTasks.length >= MAX_CACHE_SIZE;
+				const hasMore = endIndex < cleanTasks.length || cached.hasMore;
 
 				tasksStore.update((state) => ({
 					...state,
@@ -258,8 +263,12 @@ export async function findTasks(
 			// Limit results to requested batch size for initial load
 			const limitedTasks = cleanTasks.slice(0, limit);
 
-			// hasMore: true if we got the full limit AND there are more tasks available in cache
-			const hasMore = limitedTasks.length >= limit && cleanTasks.length > limit;
+			// hasMore: trust cache metadata for initial load so cache hits don't accidentally disable
+			// infinite scroll after clear-search/filter-reset scenarios.
+			const hasMore =
+				params.page === 1 && params.until === undefined
+					? cached.hasMore || limitedTasks.length >= limit
+					: limitedTasks.length >= limit && cleanTasks.length > limit;
 
 			tasksStore.update((state) => ({
 				...state,
@@ -315,6 +324,9 @@ export async function findTasks(
 			const { tasks: filteredTasks, metrics } = filterIndexedTasks(indexedTasks, params);
 			performanceMonitor.addMetric(metrics);
 
+			// hasMore from API is based on relay page fullness
+			const hasMoreFromApi = events.length >= (params.limit || BATCH_SIZE);
+
 			// Get existing cached data if available
 			const existingCached = cache.get(cacheKey);
 			let allCachedTasks: IndexedTask[] = [];
@@ -325,7 +337,7 @@ export async function findTasks(
 				for (const t of existingCached.data) {
 					mergedById.set(t.id, t);
 				}
-				for (const t of filteredTasks) {
+				for (const t of indexedTasks) {
 					const existing = mergedById.get(t.id);
 					const tCreated = (t as Task).createdAt ?? 0;
 					const existingCreated = (existing as Task)?.createdAt ?? 0;
@@ -335,7 +347,8 @@ export async function findTasks(
 				}
 				allCachedTasks = Array.from(mergedById.values());
 			} else {
-				allCachedTasks = filteredTasks;
+				// Cache unfiltered indexed tasks; frontend-only filters are applied on read.
+				allCachedTasks = indexedTasks;
 			}
 
 			// Deduplicate and limit cache to MAX_CACHE_SIZE
@@ -344,8 +357,12 @@ export async function findTasks(
 				allCachedTasks = allCachedTasks.slice(0, MAX_CACHE_SIZE);
 			}
 
-			// Update cache with merged indexed data
-			cache.set(cacheKey, { data: allCachedTasks, timestamp: Date.now() });
+			// Update cache with merged indexed data and pagination metadata
+			cache.set(cacheKey, {
+				data: allCachedTasks,
+				timestamp: Date.now(),
+				hasMore: hasMoreFromApi
+			});
 
 			// Convert back to regular Task objects and deduplicate (defense in depth)
 			const cleanTasks = deduplicateTasksById(cleanupIndexedTasks(filteredTasks));
@@ -354,8 +371,8 @@ export async function findTasks(
 			// Limit results to requested batch size
 			const limitedTasks = cleanTasks.slice(0, limit);
 
-			// hasMore: true if we got the full limit from API
-			const hasMore = events.length >= limit;
+			// hasMore: true if relay returned a full page
+			const hasMore = hasMoreFromApi;
 
 			// Update store and ensure no duplicate ids (defense in depth)
 			tasksStore.update((state) => ({
@@ -375,6 +392,12 @@ export async function findTasks(
 			};
 		} catch (apiError) {
 			console.error('API request failed - ', apiError);
+			tasksStore.update((state) => ({
+				...state,
+				loading: false,
+				error: apiError instanceof Error ? apiError.message : 'Failed to fetch tasks',
+				hasMore: false
+			}));
 
 			return {
 				tasks: [],

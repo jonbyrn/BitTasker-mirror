@@ -1,8 +1,7 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
 	import { goto } from '$app/navigation';
-	import type { Component } from 'svelte';
-	
+
 	// Icon imports
 	import IconMagnify from '~icons/mdi/magnify';
 	import IconFilter from '~icons/mdi/filter';
@@ -11,11 +10,10 @@
 	import IconFormatListBulleted from '~icons/mdi/format-list-bulleted';
 
 	let {
-		searchQuery,
+		searchQuery = $bindable(),
 		searchInputClass,
 		searchPlaceholder,
 		onSearchInput,
-		isFilterDrawerOpen,
 		onFilterClick,
 		onSaveSearch,
 		canSaveSearch,
@@ -29,7 +27,6 @@
 		searchInputClass: string;
 		searchPlaceholder: string;
 		onSearchInput: (e: Event) => void;
-		isFilterDrawerOpen: boolean;
 		onFilterClick: () => void;
 		onSaveSearch: () => Promise<void>;
 		canSaveSearch: boolean;
@@ -43,12 +40,12 @@
 
 <section class="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:gap-2">
 	<!-- Search Input -->
-	<div class="relative flex-1 min-w-0">
+	<div class="relative min-w-0 flex-1">
 		<input
 			type="text"
 			class={searchInputClass}
 			placeholder={searchPlaceholder}
-			value={searchQuery}
+			bind:value={searchQuery}
 			oninput={onSearchInput}
 			aria-label={$t('find_tasks.search_placeholder') || 'Search tasks'}
 		/>
@@ -58,14 +55,17 @@
 	</div>
 
 	<!-- Buttons: separate row on mobile, same row on tablet+ -->
-	<nav class="flex shrink-0 items-center justify-center gap-2 md:justify-end" aria-label="Task actions">
+	<nav
+		class="flex shrink-0 items-center justify-center gap-2 md:justify-end"
+		aria-label="Task actions"
+	>
 		<!-- Advanced Filters Button -->
 		<button
 			class="btn btn-sm btn-primary"
 			aria-label={$t('find_tasks.filters')}
 			onclick={onFilterClick}
 		>
-			<IconFilter class="h-4 w-4 mr-1" />
+			<IconFilter class="mr-1 h-4 w-4" />
 			<span>{$t('find_tasks.filters')}</span>
 		</button>
 

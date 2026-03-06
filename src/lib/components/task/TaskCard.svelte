@@ -7,11 +7,10 @@
 	import UsdSatsDisplay from '$lib/components/shared/UsdSatsDisplay.svelte';
 	import { getTaskId } from '$lib/utils/helpers/task-id';
 	import TaskShareButton from '$lib/components/task/TaskShareButton.svelte';
-	import type { Component } from 'svelte';
-	
+
 	// Icon imports
 	import IconPlus from '~icons/mdi/plus';
-	
+
 	// Reusable display components
 	import TaskDeadlineDisplay from '$lib/components/task/TaskDeadlineDisplay.svelte';
 	import TaskLocationDisplay from '$lib/components/task/TaskLocationDisplay.svelte';
@@ -22,8 +21,6 @@
 		task,
 		selectedTask,
 		btcPrice,
-		formatDateTimeReactive,
-		formatDateRangeReactive,
 		onSelectTask,
 		onViewTask,
 		drawersLoaded,
@@ -35,8 +32,6 @@
 		task: Task;
 		selectedTask: Task | null;
 		btcPrice: number;
-		formatDateTimeReactive: (dateString: string) => string;
-		formatDateRangeReactive: (start: string, end: string) => string;
 		onSelectTask: (task: Task) => Promise<void>;
 		onViewTask: (task: Task) => Promise<void>;
 		drawersLoaded: boolean;
@@ -53,9 +48,6 @@
 	const taskId = $derived(getTaskId(task));
 </script>
 
-<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-<!-- svelte-ignore a11y_click_events_have_key_events -->
-<!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
 	class="card bg-base-100 rounded-xl shadow-md transition-shadow hover:shadow-lg"
 	class:bg-base-300={isSelected}
@@ -64,7 +56,7 @@
 	class:opacity-60={!isOpen}
 	class:cursor-pointer={isMapVisible}
 	data-task-id={taskId}
-	{...(isMapVisible ? { role: 'button', tabindex: 0 } : {})}
+	{...isMapVisible ? { role: 'button', tabindex: 0 } : {}}
 	onclick={(e) => {
 		// Only handle card click if map is visible and click didn't come from a button
 		if (isMapVisible && onSelectTaskForMap && !(e.target as HTMLElement).closest('button')) {
@@ -85,7 +77,7 @@
 		<!-- Top Row: Title + Status Badge + Price -->
 		<div class="mb-3 flex flex-row items-stretch justify-between gap-2">
 			<!-- Left: Title (flexible, takes available space) -->
-			<div class="flex-1 min-w-0 pr-2 md:pr-4">
+			<div class="min-w-0 flex-1 pr-2 md:pr-4">
 				<TranslatableTask
 					{task}
 					showDescription={true}
@@ -94,16 +86,27 @@
 					titleClass="card-title line-clamp-2 text-lg font-semibold"
 				/>
 			</div>
-			<!-- Right: Status Badge + Price (fixed width, aligned right) -->
-			<div class="flex shrink-0 flex-col items-end justify-between gap-4 w-[min(30%,120px)]">
-				<div class="badge {statusBadge.color} badge-sm max-w-full truncate text-center">
-					{$t(`common.status.${task.status.toLowerCase()}`) || statusBadge.text}
+			<!-- Right: Status Badge + Share Button + Price (aligned right) -->
+			<div class="flex shrink-0 flex-col items-end gap-2">
+				<div class="flex items-center gap-2">
+					<div class="badge {statusBadge.color} badge-sm max-w-[100px] truncate text-center">
+						{$t(`common.status.${task.status.toLowerCase()}`) || statusBadge.text}
+					</div>
+					<span
+						role="presentation"
+						class="ml-2 shrink-0"
+						onclick={(e) => e.stopPropagation()}
+						onkeydown={(e) => {
+							if (e.key === 'Enter' || e.key === ' ') {
+								e.stopPropagation();
+							}
+						}}
+					>
+						<TaskShareButton {task} variant="circle" class="btn-xs" />
+					</span>
 				</div>
-				<div class="mt-2 text-right">
-					<UsdSatsDisplay
-						amount={task.budget.amount}
-						btcPrice={btcPrice}
-					/>
+				<div class="text-right">
+					<UsdSatsDisplay amount={task.budget.amount} {btcPrice} />
 				</div>
 			</div>
 		</div>
@@ -126,7 +129,7 @@
 
 		<!-- Bottom Row: Avatar + Action Buttons -->
 		<div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-			<!-- Left: Avatar, Username, Review Stars, and Share Button (mobile) -->
+			<!-- Left: Avatar, Username, Review Stars -->
 			<div class="flex min-w-0 flex-1 items-center gap-3">
 				<UserInfoDisplay
 					avatar={task.creator?.avatar}
@@ -136,36 +139,10 @@
 					pubkey={task.npub}
 					memberSince={task.createdAt}
 				/>
-				<!-- Share Button - Mobile Only (right side of row) -->
-				<span
-					role="presentation"
-					class="inline-block md:hidden shrink-0"
-					onclick={(e) => e.stopPropagation()}
-					onkeydown={(e) => {
-						if (e.key === 'Enter' || e.key === ' ') {
-							e.stopPropagation();
-						}
-					}}
-				>
-					<TaskShareButton task={task} variant="icon-only" />
-				</span>
 			</div>
 
-			<!-- Right: Share Button (tablet/desktop) + Action Buttons -->
+			<!-- Right: Action Buttons -->
 			<div class="flex w-full shrink-0 items-center gap-2 md:w-auto">
-				<!-- Share Button - Tablet/Desktop Only -->
-				<span
-					role="presentation"
-					class="hidden md:inline-block"
-					onclick={(e) => e.stopPropagation()}
-					onkeydown={(e) => {
-						if (e.key === 'Enter' || e.key === ' ') {
-							e.stopPropagation();
-						}
-					}}
-				>
-					<TaskShareButton task={task} variant="icon-only" />
-				</span>
 				<button
 					class="btn btn-primary btn-sm flex-1 md:flex-none"
 					class:btn-disabled={!canBid}
@@ -182,9 +159,7 @@
 					<IconPlus class="h-4 w-4" />
 					{hasBid
 						? $t('dashboard.find_tasks.bid_sent') || 'Bid sent'
-						: isOpen
-							? $t('dashboard.find_tasks.sign_up_to_bid') || 'Bid'
-							: $t('dashboard.find_tasks.bidding_closed') || 'Bidding closed'}
+						: $t('dashboard.find_tasks.sign_up_to_bid') || 'Bid'}
 				</button>
 
 				<button
