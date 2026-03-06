@@ -21,7 +21,9 @@
 		onToggleViewMode,
 		user,
 		drawersLoaded,
-		loadDrawerComponents
+		loadDrawerComponents,
+		translationNamespace = 'find_tasks',
+		filterLabelKey = 'filters'
 	} = $props<{
 		searchQuery: string;
 		searchInputClass: string;
@@ -35,7 +37,19 @@
 		user: { npub?: string } | null;
 		drawersLoaded: boolean;
 		loadDrawerComponents: () => Promise<void>;
+		translationNamespace?: string;
+		filterLabelKey?: string;
 	}>();
+
+	const filtersLabel = $derived($t(`${translationNamespace}.${filterLabelKey}`) || $t('find_tasks.filters'));
+	const saveLabel = $derived($t(`${translationNamespace}.save`) || $t('find_tasks.save'));
+	const mapLabel = $derived($t(`${translationNamespace}.map`) || $t('find_tasks.map'));
+	const listLabel = $derived($t(`${translationNamespace}.list`) || $t('find_tasks.list'));
+	const viewMapTitle = $derived($t(`${translationNamespace}.view_map`) || $t('find_tasks.view_map'));
+	const viewListTitle = $derived($t(`${translationNamespace}.view_list`) || $t('find_tasks.view_list'));
+	const saveTooltipEnabled = $derived($t(`${translationNamespace}.save_search_tooltip_enabled`) || $t('find_tasks.save_search_tooltip_enabled'));
+	const saveTooltipDisabled = $derived($t(`${translationNamespace}.save_search_tooltip_disabled`) || $t('find_tasks.save_search_tooltip_disabled'));
+	const searchPlaceholderLabel = $derived($t(`${translationNamespace}.search_placeholder`) || searchPlaceholder);
 </script>
 
 <section class="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:gap-2">
@@ -47,26 +61,26 @@
 			placeholder={searchPlaceholder}
 			bind:value={searchQuery}
 			oninput={onSearchInput}
-			aria-label={$t('find_tasks.search_placeholder') || 'Search tasks'}
+			aria-label={searchPlaceholderLabel}
 		/>
 		<div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
 			<IconMagnify class="h-5 w-5 text-gray-400" />
 		</div>
 	</div>
 
-	<!-- Buttons: separate row on mobile, same row on tablet+ -->
+	<!-- Buttons: same row as Find Tasks -->
 	<nav
 		class="flex shrink-0 items-center justify-center gap-2 md:justify-end"
-		aria-label="Task actions"
+		aria-label="Search actions"
 	>
-		<!-- Advanced Filters Button -->
+		<!-- Filters Button -->
 		<button
 			class="btn btn-sm btn-primary"
-			aria-label={$t('find_tasks.filters')}
+			aria-label={filtersLabel}
 			onclick={onFilterClick}
 		>
 			<IconFilter class="mr-1 h-4 w-4" />
-			<span>{$t('find_tasks.filters')}</span>
+			<span>{filtersLabel}</span>
 		</button>
 
 		<!-- Save Search Button -->
@@ -82,19 +96,17 @@
 					goto('/auth/signup');
 				}
 			}}
-			title={canSaveSearch
-				? $t('find_tasks.save_search_tooltip_enabled')
-				: $t('find_tasks.save_search_tooltip_disabled')}
+			title={canSaveSearch ? saveTooltipEnabled : saveTooltipDisabled}
 		>
 			<IconBookmarkOutline class="h-4 w-4" />
-			<span>{$t('find_tasks.save')}</span>
+			<span>{saveLabel}</span>
 		</button>
 
 		<!-- Map/List Toggle Button (Mobile/Tablet only) -->
 		<button
 			class="btn btn-sm btn-secondary gap-2 lg:hidden"
 			onclick={onToggleViewMode}
-			title={viewMode === 'list' ? $t('find_tasks.view_map') : $t('find_tasks.view_list')}
+			title={viewMode === 'list' ? viewMapTitle : viewListTitle}
 		>
 			{#if viewMode === 'list'}
 				<IconMap class="h-4 w-4" />
@@ -103,9 +115,9 @@
 			{/if}
 			<span>
 				{#if viewMode === 'list'}
-					{$t('find_tasks.map')}
+					{mapLabel}
 				{:else}
-					{$t('find_tasks.list')}
+					{listLabel}
 				{/if}
 			</span>
 		</button>

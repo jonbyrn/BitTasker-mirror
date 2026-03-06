@@ -6,10 +6,17 @@
 	import { servicesStore } from '$lib/stores/service.store';
 	import { findServices, cleanup } from '$lib/nostr/findServices';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
+	import { user } from '$lib/stores/user.store';
+	import type { QuoteRequestPayload } from '$lib/types/service.d';
 	import ServiceCard from '$lib/components/service/ServiceCard.svelte';
+	import TaskListControls from '$lib/components/task/TaskListControls.svelte';
 	import ServiceSearchFilters from '$lib/components/service/ServiceSearchFilters.svelte';
 	import TaskLocationMap from '$lib/components/maps/TaskLocationMap.svelte';
+	import RequestQuoteModal from '$lib/components/service/RequestQuoteModal.svelte';
+	import { authState } from '$lib/stores/auth.store';
 	import { t } from 'svelte-i18n';
+	import IconChevronUp from '~icons/mdi/chevron-up';
+	import { goto } from '$app/navigation';
 
 	// Function to create initial search parameters
 	function getInitialSearchParams(): SearchServicesParams {
@@ -45,6 +52,10 @@
 	// Infinite scroll state
 	let scrollHandler: ((e: Event) => void) | null = null;
 	let isLoadingMore = $state(false);
+	let showScrollToTop = $state(false);
+
+	// App shell reference for scroll prevention (same as Find Tasks)
+	let appShellContent: HTMLElement | null = $state.raw(null);
 	let lastScrollTop = $state(0);
 	let lastLoadScrollTop = $state(0);
 
@@ -71,12 +82,38 @@
 	// Selected service for map display
 	let selectedServiceForMap = $state<Service | null>(null);
 
+	// Request quote modal
+	let requestQuoteModalOpen = $state(false);
+	let serviceForQuote = $state<Service | null>(null);
+
+	function openRequestQuoteModal(service: Service) {
+		if (!$authState.isAuthenticated) {
+			goto(`/auth/login?returnTo=${encodeURIComponent('/services')}`);
+			return;
+		}
+		serviceForQuote = service;
+		requestQuoteModalOpen = true;
+	}
+
+	function handleQuoteRequestConfirm(_payload: QuoteRequestPayload) {
+		// For now: log; full Nostr flow later
+		console.log('[Quote Request from browse]', { service: serviceForQuote, payload: _payload });
+		requestQuoteModalOpen = false;
+		serviceForQuote = null;
+	}
+
 	function toggleViewMode() {
 		viewMode = viewMode === 'list' ? 'map' : 'list';
 	}
 
 	function selectServiceForMap(service: Service) {
 		selectedServiceForMap = service;
+		// On mobile, switch to map view so user sees the map (same as tasks)
+		if (typeof window !== 'undefined' && window.innerWidth < 1024 && viewMode === 'list') {
+			viewMode = 'map';
+		} else {
+			scrollToServiceCard(service.id);
+		}
 	}
 
 	async function scrollToServiceCard(serviceId: string) {
@@ -320,21 +357,38 @@
 	}
 
 	/**
-	 * Setup infinite scroll with scroll listener
+	 * Scroll to top of service list
+	 */
+	function scrollToTop() {
+		if (serviceListRef) {
+			serviceListRef.scrollTo({
+				top: 0,
+				behavior: 'smooth'
+			});
+		}
+	}
+
+	/**
+	 * Setup infinite scroll with scroll listener (includes scroll-to-top button visibility)
 	 */
 	function setupInfiniteScroll(): void {
 		if (!browser || !serviceListRef) return;
+
+		const SCROLL_TO_TOP_THRESHOLD = 300;
 
 		scrollHandler = (() => {
 			let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
 			return (e: Event) => {
+				const target = e.target as HTMLElement;
+				if (!target) return;
+
+				// Show/hide scroll to top button (immediate, no debounce)
+				showScrollToTop = target.scrollTop > SCROLL_TO_TOP_THRESHOLD;
+
 				if (debounceTimer) clearTimeout(debounceTimer);
 
 				debounceTimer = setTimeout(() => {
-					const target = e.target as HTMLElement;
-					if (!target) return;
-
 					const { scrollTop, scrollHeight, clientHeight } = target;
 
 					if (scrollTop <= lastScrollTop) {
@@ -369,6 +423,20 @@
 	// Initial data fetch and setup - always refetch on mount so newly published services appear
 	onMount(() => {
 		if (browser) {
+			// Prevent app-shell scroll on mobile (same as Find Tasks - scroll happens inside list)
+			let retryCount = 0;
+			const addDataAttr = () => {
+				const content = document.querySelector('.app-shell__content');
+				if (content instanceof HTMLElement && !content.hasAttribute('data-find-services-page')) {
+					appShellContent = content;
+					content.setAttribute('data-find-services-page', 'true');
+				} else if (!content && retryCount < 10) {
+					retryCount++;
+					requestAnimationFrame(addDataAttr);
+				}
+			};
+			requestAnimationFrame(addDataAttr);
+
 			fetchBtcPrice();
 			dataLoaded = false;
 			showSkeleton = true;
@@ -383,6 +451,16 @@
 	// Cleanup on component destroy
 	onDestroy(() => {
 		if (browser) {
+			// Remove data attribute from app-shell__content
+			if (appShellContent) {
+				appShellContent.removeAttribute('data-find-services-page');
+			} else {
+				const content = document.querySelector('.app-shell__content');
+				if (content instanceof HTMLElement) {
+					content.removeAttribute('data-find-services-page');
+				}
+			}
+
 			if (intersectionObserver) {
 				intersectionObserver.disconnect();
 				intersectionObserver = null;
@@ -423,114 +501,75 @@
 	}
 </script>
 
-<div class="mx-auto max-w-6xl p-4 md:p-0">
-	<div id="panel-find-services" role="tabpanel" class="">
-		<!-- Search and Filter Controls -->
-		<div class="mb-4">
-			<div class="flex flex-wrap items-center gap-3">
-				<!-- Search Input -->
-				<div class="relative mt-2 min-w-[200px] flex-1">
-					<input
-						type="text"
-						class={getSearchInputClass()}
-						placeholder={getSearchPlaceholder()}
-						bind:value={searchQuery}
-						oninput={debouncedSearch}
-					/>
-					<div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="h-5 w-5 text-gray-400"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-							/>
-						</svg>
-					</div>
-				</div>
+<!-- Same layout and structure as Find Tasks -->
+<main
+	class="find-services-container mx-auto h-full min-h-0 w-full max-w-6xl flex-1 px-2 py-6 md:px-0 md:py-0"
+	data-find-services-page="true"
+>
+	<div
+		id="panel-find-services"
+		role="tabpanel"
+		class="grid h-full min-h-0 grid-rows-[auto_1fr] overflow-hidden"
+	>
+		<!-- Same controls as Find Tasks: TaskListControls with services translation namespace -->
+		<TaskListControls
+			bind:searchQuery
+			searchInputClass={getSearchInputClass()}
+			searchPlaceholder={getSearchPlaceholder()}
+			onSearchInput={() => debouncedSearch()}
+			onFilterClick={() => (isFilterDrawerOpen = true)}
+			onSaveSearch={async () => {}}
+			canSaveSearch={false}
+			{viewMode}
+			onToggleViewMode={toggleViewMode}
+			user={$user}
+			drawersLoaded={true}
+			loadDrawerComponents={async () => {}}
+			translationNamespace="dashboard.services.browse"
+			filterLabelKey="filters_button"
+		/>
 
-				<!-- Filter Buttons -->
-				<div class="flex items-center gap-2">
-					{#if hasActiveParams}
-						<button class="btn btn-sm btn-ghost" onclick={clearFilters}>
-							{$t('dashboard.services.browse.clear_filters') || 'Clear Filters'}
-						</button>
+		<!-- Main Content Area - same structure as Find Tasks -->
+		<section class="min-h-0 flex-1" data-services-content-area>
+			{#if viewMode === 'list'}
+				<div class="grid min-h-0 grid-cols-1 gap-6 lg:grid-cols-2" data-services-list-view>
+					{#if $servicesStore.error}
+						<div class="col-span-full mb-3">
+							<div class="alert alert-error alert-outline mb-3">
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									class="h-5 w-5 shrink-0 stroke-current"
+									fill="none"
+									viewBox="0 0 24 24"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M10 14l2-2m0 0l2-2m-2 2l-2 2m2-2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+									/>
+								</svg>
+								<span>
+									{$t('dashboard.services.browse.error_loading')?.replace('{error}', $servicesStore.error) ||
+										`Error loading services: ${$servicesStore.error}`}
+								</span>
+							</div>
+						</div>
 					{/if}
-					<button class="btn btn-sm btn-primary" onclick={() => (isFilterDrawerOpen = true)}>
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="mr-1 h-4 w-4"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
+
+					<!-- Services List Column (same as tasks list column) -->
+					<div class="min-h-0" data-services-list-column>
+						<div
+							class="task-list-scroll-container box-border h-full w-full overflow-y-auto max-h-[65vh] lg:max-h-none"
+							bind:this={serviceListRef}
 						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"
-							/>
-						</svg>
-						{$t('dashboard.services.browse.filters_button') || 'Filters'}
-					</button>
-				</div>
-			</div>
-		</div>
-
-		<!-- Main Content - Dynamic Layout based on view mode -->
-		{#if viewMode === 'list'}
-			<div class="relative w-full">
-				<!-- Error Message -->
-				{#if $servicesStore.error}
-					<div class="alert alert-error alert-outline mb-3">
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="h-5 w-5 shrink-0 stroke-current"
-							fill="none"
-							viewBox="0 0 24 24"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M10 14l2-2m0 0l2-2m-2 2l-2 2m2-2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-							/>
-						</svg>
-						<span>
-							{$t('dashboard.services.browse.error_loading')?.replace('{error}', $servicesStore.error) ||
-								`Error loading services: ${$servicesStore.error}`}
-						</span>
-					</div>
-				{/if}
-
-				<!-- Service Count -->
-				{#if $servicesStore.items && $servicesStore.items.length > 0}
-					<div class="text-base-content/70 mb-4 text-sm">
-						{$t('dashboard.services.browse.showing_services', {
-							values: { count: $servicesStore.items.length }
-						}) ||
-							`Showing ${$servicesStore.items.length} service${$servicesStore.items.length !== 1 ? 's' : ''}`}
-					</div>
-				{/if}
-
-				<!-- Mobile: Full width list, Desktop: Split with map -->
-				<div class="lg:flex lg:gap-6">
-					<!-- Services List -->
-					<div class="lg:w-1/2">
-						<div class="max-h-[65vh] overflow-y-auto" bind:this={serviceListRef}>
 							<!-- Skeleton Loading -->
 							{#if showSkeleton && !dataLoaded}
 								<div class="grid grid-cols-1 gap-4 mb-12">
 									{#each Array(4) as _}
 										<div class="card bg-base-100 shadow-md overflow-hidden h-full flex flex-col">
 											<!-- Image placeholder - same as ServiceCard (gradient + icon), with pulse -->
-											<figure class="relative w-full h-48 overflow-hidden bg-base-200 shrink-0 animate-pulse">
+											<figure class="relative w-full h-[88px] overflow-hidden bg-base-200 shrink-0 animate-pulse">
 												<div class="h-full w-full bg-linear-to-br from-primary/20 to-secondary/20 flex items-center justify-center">
 													<svg
 														xmlns="http://www.w3.org/2000/svg"
@@ -622,7 +661,14 @@
 								<div class="grid grid-cols-1 gap-4 mb-12">
 									{#each $servicesStore.items as service (service.id)}
 										<div data-service-id={service.id}>
-											<ServiceCard {service} {btcPrice} />
+											<ServiceCard
+												{service}
+												{btcPrice}
+												selectedService={selectedServiceForMap}
+												onSelectServiceForMap={selectServiceForMap}
+												isMapVisible={true}
+												onRequestQuote={openRequestQuoteModal}
+											/>
 										</div>
 									{/each}
 								</div>
@@ -674,92 +720,69 @@
 						</div>
 					</div>
 
-					<!-- Desktop Map Sidebar (hidden on mobile) -->
-					<div class="hidden lg:block lg:w-1/2">
+					<!-- Desktop Map Sidebar - same as Find Tasks (map-container-wrapper, hidden on mobile) -->
+					<aside
+						class="map-container-wrapper hidden min-h-0 lg:block overflow-hidden"
+						data-services-map-column
+						aria-label={$t('dashboard.services.browse.map') || 'Services map'}
+					>
 						<TaskLocationMap
 							services={$servicesStore.items}
-							height="65vh"
+							height="100%"
 							selectedService={selectedServiceForMap}
-							onServiceSelected={(event) => {
+							onServiceSelected={(event: { service: Service }) => {
 								selectedServiceForMap = event.service;
 								scrollToServiceCard(event.service.id);
 							}}
 							btcPrice={btcPrice}
 						/>
-					</div>
+					</aside>
 				</div>
 
-				<!-- Mobile Floating Button - Show Map (only visible on mobile) -->
-				<button
-					class="inverted-colors fixed left-1/2 z-50 flex -translate-x-1/2 transform items-center gap-2 rounded-2xl px-4 py-3 text-sm font-medium shadow-lg transition-all duration-200 hover:shadow-xl lg:hidden"
-					style="bottom: var(--app-bottom-fab);"
-					onclick={toggleViewMode}
-					title={$t('dashboard.services.browse.view_map') || 'View map'}
-					aria-label={$t('dashboard.services.browse.view_map') || 'View map'}
-				>
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="h-5 w-5"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
+				<!-- Mobile Floating Button - Scroll to Top (same as Find Tasks) -->
+				{#if showScrollToTop}
+					<button
+						class="scroll-to-top-button inverted-colors fixed right-4 z-50 flex translate-y-[10px] scale-90 items-center justify-center rounded-4xl p-3 opacity-0 transition-all duration-300 hover:scale-110 hover:opacity-100 hover:brightness-110 active:scale-95 active:opacity-90 lg:hidden"
+						style="bottom: var(--app-bottom-fab);"
+						onclick={scrollToTop}
+						title={$t('dashboard.services.browse.scroll_to_top') || 'Scroll to top'}
+						aria-label={$t('dashboard.services.browse.scroll_to_top') || 'Scroll to top'}
 					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"
-						/>
-					</svg>
-					<span class="text-xs">
-						{$t('dashboard.services.browse.view_map') || 'View map'}
-					</span>
-				</button>
-			</div>
-		{:else}
-			<!-- Map View - Full Width (Mobile only) -->
-			<div class="relative w-full lg:hidden">
-				<TaskLocationMap
-					services={$servicesStore.items}
-					height="65vh"
-					selectedService={selectedServiceForMap}
-					onServiceSelected={(event) => {
-						selectedServiceForMap = event.service;
-						// When a service is selected on the map, switch to list view to show the service
-						viewMode = 'list';
-						scrollToServiceCard(event.service.id);
-					}}
-					btcPrice={btcPrice}
-				/>
-
-				<!-- Mobile Floating Button - Show List -->
-				<button
-					class="fixed left-1/2 z-50 flex -translate-x-1/2 transform items-center gap-2 rounded-2xl px-4 py-3 text-sm font-medium shadow-lg transition-all duration-200 hover:shadow-xl"
-					style="bottom: var(--app-bottom-fab);"
-					onclick={toggleViewMode}
-					aria-label={$t('dashboard.services.browse.view_list') || 'View list'}
+						<IconChevronUp class="h-5 w-5" />
+					</button>
+				{/if}
+			{:else}
+				<!-- Map View - Full width on mobile/tablet, same as Find Tasks -->
+				<section
+					class="map-container-wrapper relative min-h-0 w-full lg:hidden"
 				>
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="h-5 w-5"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M4 6h16M4 10h16M4 14h16M4 18h16"
-						/>
-					</svg>
-					<span class="text-xs">
-						{$t('dashboard.services.browse.view_list') || 'View list'}
-					</span>
-				</button>
-			</div>
-		{/if}
+					<TaskLocationMap
+						services={$servicesStore.items}
+						height="100%"
+						selectedService={selectedServiceForMap}
+						onServiceSelected={(event: { service: Service }) => {
+							selectedServiceForMap = event.service;
+							viewMode = 'list';
+							scrollToServiceCard(event.service.id);
+						}}
+						btcPrice={btcPrice}
+					/>
+				</section>
+			{/if}
+		</section>
 	</div>
+</main>
+
+	<!-- Request Quote Modal -->
+	<RequestQuoteModal
+		bind:open={requestQuoteModalOpen}
+		service={serviceForQuote}
+		onConfirm={handleQuoteRequestConfirm}
+		onClose={() => {
+			requestQuoteModalOpen = false;
+			serviceForQuote = null;
+		}}
+	/>
 
 	<!-- Filter Drawer -->
 	<ServiceSearchFilters
@@ -768,5 +791,100 @@
 		onApply={handleFilterApply}
 		initialFilters={searchParams}
 	/>
-</div>
 
+<style>
+	/* Prevent app-shell__content from scrolling on mobile (same as Find Tasks) */
+	/* This page handles its own internal scrolling inside the list */
+	:global(.app-shell__content[data-find-services-page]) {
+		display: flex;
+		flex-direction: column;
+		flex: 1;
+		min-height: 0;
+	}
+
+	@media (min-width: 1024px) {
+		:global(.app-shell__content[data-find-services-page]) {
+			overflow-y: auto;
+			height: auto;
+			min-height: 100%;
+		}
+	}
+
+	/* Same map container styles as Find Tasks - prevent overflow */
+	.find-services-container {
+		--services-content-height: calc(
+			100vh - var(--app-dock-height, var(--app-footer-height, 64px)) -
+				var(--header-controls-height, 10rem)
+		);
+	}
+
+	[data-services-content-area] {
+		display: flex;
+		flex-direction: column;
+		min-height: 0;
+	}
+
+	[data-services-list-view] {
+		display: grid;
+		min-height: 0;
+		flex: 1;
+	}
+
+	[data-services-list-column],
+	[data-services-map-column] {
+		height: 100%;
+		min-height: 0;
+		min-width: 0;
+	}
+
+	.map-container-wrapper {
+		height: 100%;
+		max-height: 100%;
+		overflow: hidden;
+	}
+
+	.map-container-wrapper :global(.task-location-map) {
+		height: 100% !important;
+		min-height: 0;
+		overflow: hidden;
+	}
+
+	@media (max-width: 1023px) {
+		.task-list-scroll-container {
+			max-height: var(--services-content-height);
+		}
+
+		.map-container-wrapper {
+			max-height: var(--services-content-height);
+			height: var(--services-content-height);
+		}
+	}
+
+	@media (min-width: 1024px) {
+		[data-services-list-view] {
+			height: 100%;
+			max-height: 65vh;
+		}
+
+		[data-services-list-column],
+		[data-services-map-column] {
+			max-height: 100%;
+		}
+
+		.task-list-scroll-container {
+			height: 100%;
+			max-height: 100%;
+		}
+	}
+
+	.scroll-to-top-button {
+		animation: fadeInScrollButton 0.3s ease-out forwards;
+	}
+
+	@keyframes fadeInScrollButton {
+		to {
+			opacity: 1;
+			transform: translateY(0) scale(1);
+		}
+	}
+</style>
