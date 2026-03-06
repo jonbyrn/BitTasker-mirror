@@ -68,7 +68,7 @@ const registry: ContractRegistry = {
 };
 
 /**
- * Initialize contract registry with addresses from environment variables.
+ * Initialize contract registry with addresses from environment variables
  */
 export function initializeContractRegistry(): void {
 	const _rskNetwork = (import.meta.env.VITE_RSK_NETWORK || 'testnet') as Environment;

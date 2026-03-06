@@ -1,6 +1,11 @@
 import '@testing-library/jest-dom/vitest';
 import { vi } from 'vitest';
 
+// Stub RSK contract address env vars for tests (used by escrow, nostrContract)
+// Uses network-specific vars per dev approach; testnet is default for CI
+vi.stubEnv('VITE_RSK_NETWORK', 'testnet');
+vi.stubEnv('VITE_RSK_CONTRACT_ADDRESS_TESTNET', '0xf87e93E73431Aad778592C78E2F86Ef671461c32');
+
 // Mock @bittasker/wallet-core to avoid EventBus import failure in test env
 // (wallet-core dist/index.js imports ./core/EventBus which may not resolve)
 // Individual tests can override with their own vi.mock if needed
@@ -81,6 +86,7 @@ if (typeof global !== 'undefined') {
 		label = 'Mock Camera Track';
 		enabled = true;
 		readyState = 'live' as MediaStreamTrackState;
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any -- test mock, DOM type mismatch
 	} as any;
 
 	// Mock crypto.getRandomValues if not already available
@@ -104,16 +110,14 @@ if (typeof global !== 'undefined') {
 // Mock localStorage (required for some tests)
 if (typeof window !== 'undefined') {
 	const localStorageMock = {
-		getItem: vi.fn((key: string) => {
-			return null;
-		}),
-		setItem: vi.fn((key: string, value: string) => {}),
-		removeItem: vi.fn((key: string) => {}),
+		getItem: vi.fn(() => null),
+		setItem: vi.fn(),
+		removeItem: vi.fn(),
 		clear: vi.fn(),
 		length: 0,
-		key: vi.fn((index: number) => null)
+		key: vi.fn(() => null)
 	};
-	
+
 	Object.defineProperty(window, 'localStorage', {
 		value: localStorageMock,
 		writable: true

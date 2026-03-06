@@ -67,9 +67,10 @@ vi.mock('$app/navigation', () => ({
 	goto: vi.fn()
 }));
 
-// Mock browser environment
+// Mock browser environment (include building for Houdini adapter)
 vi.mock('$app/environment', () => ({
-	browser: true
+	browser: true,
+	building: true
 }));
 
 // Mock navigator.permissions
