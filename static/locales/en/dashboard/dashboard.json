@@ -212,7 +212,6 @@
 				"rejected": "Rejected",
 				"pending": "Pending",
 				"decline": "Decline",
-				"accept": "Accept",
 				"bid_rejected_message": "Your bid has been declined by the task owner.",
 				"bid_accepted_message": "Congratulations! Your bid has been accepted. The secure payment contract has been created.",
 				"bid_already_accepted": "This bid has already been accepted.",
@@ -716,3 +715,4 @@
 		}
 	}
 }
+
