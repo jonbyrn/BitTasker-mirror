@@ -22,7 +22,6 @@
 	import { currentUserLanguage } from '$lib/stores/translation.store';
 	import { loadPageTranslations } from '$lib/i18n/routeTranslations';
 	import { LRUCache } from '$lib/utils/helpers/lru-cache';
-	import { getTaskId } from '$lib/utils/helpers/task-id';
 	import type FilterDrawerComponent from '$lib/components/filters/FilterDrawer.svelte';
 	import type BidFormComponent from '$lib/components/bidding/BidForm.svelte';
 	import type SaveSearchFormComponent from '$lib/components/task/SaveSearchForm.svelte';
@@ -988,61 +987,6 @@
 		selectedTaskForMap = task;
 	}
 
-	/**
-	 * Scroll to a specific task card by task ID
-	 */
-	async function scrollToTaskCard(taskId: string) {
-		// Wait for DOM to update, especially important when switching views
-		await tick();
-
-		// Use double requestAnimationFrame to ensure the element is fully rendered
-		// This helps avoid forced reflows by ensuring layout is stable
-		await new Promise<void>((resolve) => {
-			requestAnimationFrame(() => {
-				requestAnimationFrame(() => {
-					// Try to find the card by data attribute in the scrollable container first
-					let cardElement: HTMLElement | null = null;
-
-					if (taskListRef) {
-						const found = taskListRef.querySelector(`[data-task-id="${taskId}"]`);
-						if (found instanceof HTMLElement) {
-							cardElement = found;
-						}
-					}
-
-					// Fallback to document query if not found in container
-					if (!cardElement) {
-						const found = document.querySelector(`[data-task-id="${taskId}"]`);
-						if (found instanceof HTMLElement) {
-							cardElement = found;
-						}
-					}
-
-					if (cardElement && taskListRef) {
-						// Batch all DOM reads together to minimize reflows
-						const containerRect = taskListRef.getBoundingClientRect();
-						const elementRect = cardElement.getBoundingClientRect();
-						const scrollTop = taskListRef.scrollTop;
-						const elementTop = elementRect.top - containerRect.top + scrollTop;
-						const centerOffset = containerRect.height / 2 - elementRect.height / 2;
-
-						taskListRef.scrollTo({
-							top: elementTop - centerOffset,
-							behavior: 'smooth'
-						});
-					} else if (cardElement) {
-						// Fallback to scrollIntoView if no container ref
-						cardElement.scrollIntoView({
-							behavior: 'smooth',
-							block: 'center'
-						});
-					}
-					resolve();
-				});
-			});
-		});
-	}
-
 	// Toggle view mode function
 	function toggleViewMode() {
 		viewMode = viewMode === 'list' ? 'map' : 'list';
@@ -1175,8 +1119,6 @@
 												{task}
 												selectedTask={selectedTaskForMap}
 												{btcPrice}
-												{formatDateTimeReactive}
-												{formatDateRangeReactive}
 												{onSelectTask}
 												{onViewTask}
 												{drawersLoaded}
@@ -1237,13 +1179,6 @@
 								{onViewTask}
 								{drawersLoaded}
 								{loadDrawerComponents}
-								onTaskSelected={async (event: {
-									task: Task;
-									locationType: 'pickup' | 'dropoff';
-								}) => {
-									selectedTaskForMap = event.task;
-									await scrollToTaskCard(getTaskId(event.task));
-								}}
 							/>
 						{:else}
 							<div class="bg-base-200 flex h-full w-full items-center justify-center rounded-lg">
@@ -1283,16 +1218,6 @@
 							{onViewTask}
 							{drawersLoaded}
 							{loadDrawerComponents}
-							onTaskSelected={async (event: { task: Task; locationType: 'pickup' | 'dropoff' }) => {
-								selectedTaskForMap = event.task;
-								// When a task is selected on the map, switch to list view to show the task
-								viewMode = 'list';
-								// Wait for view mode change to complete before scrolling
-								await tick();
-								// Wait for next frame to ensure DOM is fully updated and taskListRef is available
-								await new Promise((resolve) => requestAnimationFrame(resolve));
-								await scrollToTaskCard(getTaskId(event.task));
-							}}
 						/>
 					{:else}
 						<div class="bg-base-200 flex h-full w-full items-center justify-center rounded-lg">

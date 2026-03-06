@@ -4,7 +4,7 @@ import { tick } from 'svelte';
 // Import the component: from unit/routes/ up to src then routes/tasks
 import TasksPage from '../../../../routes/tasks/+page.svelte';
 import { tasksStore } from '$lib/stores/task.store';
-import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
+import { BudgetTypeEnum, TaskStatusEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
 import type { Task } from '$lib/types/task.d';
 
 // Mock svelte-i18n
@@ -121,11 +121,11 @@ const createMockTask = (overrides: Partial<Task> = {}): Task => ({
 	status: TaskStatusEnum.OPEN,
 	title: 'Test Task',
 	description: 'Test description',
-	taskType: 'delivery',
+	taskType: TaskTypeEnum.REMOTE,
 	budget: {
 		amount: 100,
 		currency: 'USD',
-		type: 'fixed'
+		type: BudgetTypeEnum.FIXED
 	},
 	deadline: '2024-12-31T23:59:59Z',
 	dateRange: null,
@@ -157,14 +157,15 @@ const createMockTask = (overrides: Partial<Task> = {}): Task => ({
 describe('Tasks Page - Component Tests', () => {
 	beforeEach(() => {
 		// Reset store to initial state
-		tasksStore.set({
+		tasksStore.update((state) => ({
+			...state,
 			items: [],
 			loading: false,
 			error: null,
 			hasMore: true,
 			currentPage: 1,
 			searchParamsKey: ''
-		});
+		}));
 	});
 
 	afterEach(() => {
@@ -205,14 +206,15 @@ describe('Tasks Page - Component Tests', () => {
 			];
 
 			// Set store before rendering
-			tasksStore.set({
+			tasksStore.update((state) => ({
+				...state,
 				items: mockTasks,
 				loading: false,
 				error: null,
 				hasMore: true,
 				currentPage: 1,
 				searchParamsKey: ''
-			});
+			}));
 
 			const { container } = render(TasksPage);
 			await tick();
@@ -227,14 +229,15 @@ describe('Tasks Page - Component Tests', () => {
 		});
 
 		it('should display no results message when no tasks', async () => {
-			tasksStore.set({
+			tasksStore.update((state) => ({
+				...state,
 				items: [],
 				loading: false,
 				error: null,
 				hasMore: false,
 				currentPage: 1,
 				searchParamsKey: ''
-			});
+			}));
 
 			render(TasksPage);
 			await tick();
@@ -247,14 +250,15 @@ describe('Tasks Page - Component Tests', () => {
 		});
 
 		it('should display error message when error occurs', async () => {
-			tasksStore.set({
+			tasksStore.update((state) => ({
+				...state,
 				items: [],
 				loading: false,
 				error: 'Failed to load tasks',
 				hasMore: false,
 				currentPage: 1,
 				searchParamsKey: ''
-			});
+			}));
 
 			const { container } = render(TasksPage);
 			await tick();
@@ -338,14 +342,15 @@ describe('Tasks Page - Component Tests', () => {
 
 			// Initial state with some tasks
 			const initialTasks = [createMockTask({ id: 'task-1' })];
-			tasksStore.set({
+			tasksStore.update((state) => ({
+				...state,
 				items: initialTasks,
 				loading: false,
 				error: null,
 				hasMore: true,
 				currentPage: 1,
 				searchParamsKey: 'some-key'
-			});
+			}));
 
 			render(TasksPage);
 			await tick();
