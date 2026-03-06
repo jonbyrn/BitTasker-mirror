@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Task, SearchTasksParams } from '$lib/types/task.d';
-	import { onMount, onDestroy, tick, type Component } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import { browser } from '$app/environment';
 	import { user } from '$lib/stores/user.store';
 	import { appStore } from '$lib/stores/app.store';
@@ -18,6 +18,10 @@
 	import Drawer from '$lib/components/Drawer.svelte';
 	import { TASKS_PER_PAGE } from '$lib/stores/task.store';
 	import { getStatusBadge } from '$lib/utils/helpers/taskStatusBadge';
+	import type FilterDrawerComponent from '$lib/components/filters/FilterDrawer.svelte';
+	import type BidFormComponent from '$lib/components/bidding/BidForm.svelte';
+	import type SaveSearchFormComponent from '$lib/components/task/SaveSearchForm.svelte';
+	import type TaskLocationMapComponent from '$lib/components/maps/TaskLocationMap.svelte';
 
 	// Constants
 	const SCROLL_TO_TOP_THRESHOLD = 300; // px - Show scroll to top button after scrolling this distance
@@ -27,10 +31,10 @@
 	const DOM_QUERY_MAX_RETRIES = 10; // Maximum retries for DOM element queries
 
 	// Lazy loaded components
-	let TaskLocationMap: Component<Record<string, unknown>> | null = $state(null);
-	let FilterDrawer: Component<Record<string, unknown>> | null = $state(null);
-	let SaveSearchForm: Component<Record<string, unknown>> | null = $state(null);
-	let BidForm: Component<Record<string, unknown>> | null = $state(null);
+	let TaskLocationMap: typeof TaskLocationMapComponent | null = $state(null);
+	let FilterDrawer: typeof FilterDrawerComponent | null = $state(null);
+	let SaveSearchForm: typeof SaveSearchFormComponent | null = $state(null);
+	let BidForm: typeof BidFormComponent | null = $state(null);
 
 	// Component loading states
 	let drawersLoaded = $state(false);
@@ -549,51 +553,6 @@
 		selectedTask = task;
 	}
 
-	// Función para hacer scroll a una card específica
-	async function scrollToTaskCard(taskId: string) {
-		// Wait for DOM to update, especially important when switching views
-		await tick();
-
-		// Use requestAnimationFrame to ensure the element is fully rendered
-		requestAnimationFrame(() => {
-			// Try multiple selectors to find the card
-			let cardElement = document.querySelector(`[data-task-id="${taskId}"]`) as HTMLElement;
-
-			// If not found by data attribute, try to find by taskCardRefs
-			if (!cardElement && taskCardRefs.has(taskId)) {
-				const refElement = taskCardRefs.get(taskId);
-				if (refElement) {
-					cardElement = refElement;
-				}
-			}
-
-			// If still not found, try to find in the scrollable container
-			if (!cardElement && taskListRef) {
-				cardElement = taskListRef.querySelector(`[data-task-id="${taskId}"]`) as HTMLElement;
-			}
-
-			if (cardElement && taskListRef) {
-				// Calculate scroll position relative to the scrollable container
-				const containerRect = taskListRef.getBoundingClientRect();
-				const elementRect = cardElement.getBoundingClientRect();
-				const scrollTop = taskListRef.scrollTop;
-				const elementTop = elementRect.top - containerRect.top + scrollTop;
-				const centerOffset = containerRect.height / 2 - elementRect.height / 2;
-
-				taskListRef.scrollTo({
-					top: elementTop - centerOffset,
-					behavior: 'smooth'
-				});
-			} else if (cardElement) {
-				// Fallback to scrollIntoView if no container ref
-				cardElement.scrollIntoView({
-					behavior: 'smooth',
-					block: 'center'
-				});
-			}
-		});
-	}
-
 	// Action para registrar las referencias de las cards
 	function registerTaskCard(node: HTMLElement, { taskId }: { taskId: string }) {
 		// Cuando el elemento se monta
@@ -1084,18 +1043,7 @@
 						<div class="hidden min-h-0 lg:block" style="height: 100%;">
 							{#if mapLoaded && TaskLocationMap}
 								<div class="h-full min-h-0">
-									<TaskLocationMap
-										tasks={$tasksStore.items}
-										height="100%"
-										{selectedTask}
-										onTaskSelected={async (event: {
-											task: Task;
-											locationType: 'pickup' | 'dropoff';
-										}) => {
-											selectedTask = event.task;
-											scrollToTaskCard(event.task.id);
-										}}
-									/>
+									<TaskLocationMap tasks={$tasksStore.items} height="100%" {selectedTask} />
 								</div>
 							{:else}
 								<div class="bg-base-200 flex h-full w-full items-center justify-center rounded-lg">
@@ -1136,19 +1084,7 @@
 				<div class="relative min-h-0 overflow-hidden lg:hidden" style="height: 100%;">
 					{#if mapLoaded && TaskLocationMap}
 						<div class="h-full min-h-0">
-							<TaskLocationMap
-								tasks={$tasksStore.items}
-								height="100%"
-								{selectedTask}
-								onTaskSelected={async (event: {
-									task: Task;
-									locationType: 'pickup' | 'dropoff';
-								}) => {
-									selectedTask = event.task;
-									viewMode = 'list';
-									scrollToTaskCard(event.task.id);
-								}}
-							/>
+							<TaskLocationMap tasks={$tasksStore.items} height="100%" {selectedTask} />
 						</div>
 					{:else}
 						<div class="bg-base-200 flex h-full w-full items-center justify-center rounded-lg">
