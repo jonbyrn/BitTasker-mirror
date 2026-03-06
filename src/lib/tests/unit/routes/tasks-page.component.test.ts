@@ -426,6 +426,56 @@ describe('Tasks Page - Component Tests', () => {
 				{ timeout: 3000 }
 			);
 		});
+
+		it('should maintain infinite scroll (hasMore true) after clearing search when reset returns a full page', async () => {
+			const { findTasks } = await import('$lib/nostr/findTasks');
+			const { get } = await import('svelte/store');
+
+			render(TasksPage);
+			await tick();
+
+			const searchInput = screen.getByPlaceholderText('Search tasks...') as HTMLInputElement;
+
+			// Trigger a search (mock can return anything)
+			await fireEvent.input(searchInput, { target: { value: 'Repair' } });
+			await waitFor(() => {
+				expect(findTasks).toHaveBeenCalled();
+			});
+
+			// Mock findTasks for the clear-search call: update store with full page + hasMore true
+			const fullPageTasks = Array.from({ length: 10 }, (_, i) =>
+				createMockTask({ id: `after-clear-${i}` })
+			);
+			(
+				findTasks as unknown as { mockImplementationOnce: (fn: () => Promise<unknown>) => void }
+			).mockImplementationOnce(() => {
+				tasksStore.update((s) => ({
+					...s,
+					items: fullPageTasks,
+					loading: false,
+					hasMore: true,
+					currentPage: 1
+				}));
+				return Promise.resolve({
+					tasks: fullPageTasks,
+					total: 10,
+					hasMore: true
+				});
+			});
+
+			// Clear the search
+			await fireEvent.input(searchInput, { target: { value: '' } });
+
+			// Verify store ends up with hasMore true so infinite scroll can load more
+			await waitFor(
+				() => {
+					const state = get(tasksStore);
+					expect(state.hasMore).toBe(true);
+					expect(state.items.length).toBeGreaterThan(0);
+				},
+				{ timeout: 3000 }
+			);
+		});
 	});
 
 	describe('View Mode Toggle', () => {
