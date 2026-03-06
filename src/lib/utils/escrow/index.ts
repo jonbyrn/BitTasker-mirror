@@ -13,7 +13,7 @@
  * - Modular architecture with access patterns for operations
  */
 
-import type { EscrowVersion, IVersionHandler } from './types';
+import type { IVersionHandler } from './types';
 import { updateTask } from '$lib/nostr/task';
 import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 import type {
@@ -34,33 +34,38 @@ import type { Attachment, Task } from '$lib/types/task';
 import type { Writable } from 'svelte/store';
 
 import * as v1 from './v1';
-// import * as v2 from './v2';
+import * as v2 from './v2';
 // import * as v3 from './v3'; // Future versions
 
-// TODO: Refactor implementation to avoid imports from v1 folder
+// TODO: Refacotring needed
+// These utilities are version-agnostic helpers (fee display, input validation).
+// Imported from v2 since it is now the LATEST version. If v3 introduces
+// breaking changes to these helpers, update this import accordingly.
 import {
 	formatRBTCAmount,
 	getFeePercentageDisplay,
 	validateEscrowDetails,
 	validateSufficientBalance
-} from './v1/escrowBid';
+} from './v2/escrowBid';
 
 /**
  * Version Registry
  * Add new versions here as they're implemented
  */
 const VERSION_HANDLERS: Record<string, IVersionHandler> = {
-	v1: v1
-	// 'v2': v2,
-	// 'v3': v3, // Just add new versions here
+	v1: v1,
+	v2: v2
+	// v3: v3, // Just add new versions here
 };
 
 /**
  * Latest Version
- * Update this when releasing a new version
- * New contracts will always use this version
+ * Update this when releasing a new version AND registering it in VERSION_HANDLERS.
+ * New contracts will always use this version.
+ * ⚠️ Must match a key in VERSION_HANDLERS — pointing to an unregistered version
+ *    causes getHandler() to silently fall back to v1 for ALL new contract operations.
  */
-export const LATEST_ESCROW_VERSION: EscrowVersion = 'v1';
+export const LATEST_ESCROW_VERSION = Object.keys(VERSION_HANDLERS).at(-1) || 'v1';
 
 /**
  * Global Escrow Manager Class
@@ -72,10 +77,9 @@ class EscrowManager {
 	 * Defaults to LATEST if version not found (forward compatibility)
 	 */
 	private getHandler(version: string): IVersionHandler {
-		if (!(version in VERSION_HANDLERS)) {
-			return VERSION_HANDLERS[LATEST_ESCROW_VERSION];
-		}
-		return VERSION_HANDLERS[version];
+		// Fall back to v1 (always registered) rather than LATEST_ESCROW_VERSION,
+		// which may not yet be registered during incremental V2 rollout.
+		return VERSION_HANDLERS[version] ?? VERSION_HANDLERS['v1'];
 	}
 
 	/**
@@ -88,9 +92,9 @@ class EscrowManager {
 			return LATEST_ESCROW_VERSION;
 		}
 
-		// Look for version tag ['v', 'v1']
+		// Look for version tag ['v', 'v1'] — missing tag means original V1 contract
 		const versionTag = contract.contractEvent.tags.find((tag: string[]) => tag[0] === 'v');
-		return versionTag?.[1] || LATEST_ESCROW_VERSION;
+		return versionTag?.[1] || 'v1';
 	}
 
 	// ============================================
@@ -454,9 +458,9 @@ class EscrowManager {
 		 * Handle incoming status update event from Nostr (version extracted from event)
 		 */
 		handleStatusEvent: async (event: NostrEvent): Promise<void> => {
-			// Extract version from event tags
+			// Extract version from event tags — missing tag means original V1 contract
 			const versionTag = event.tags?.find((tag: string[]) => tag[0] === 'v');
-			const version = versionTag?.[1] || LATEST_ESCROW_VERSION;
+			const version = versionTag?.[1] || 'v1';
 			const handler = this.getHandler(version);
 			return handler.nostrContract.handleStatusEvent(event);
 		},
@@ -465,9 +469,9 @@ class EscrowManager {
 		 * Handle incoming contract creation event from Nostr (version extracted from event)
 		 */
 		handleContractEvent: async (event: NostrEvent): Promise<void> => {
-			// Extract version from event tags
+			// Extract version from event tags — missing tag means original V1 contract
 			const versionTag = event.tags?.find((tag: string[]) => tag[0] === 'v');
-			const version = versionTag?.[1] || LATEST_ESCROW_VERSION;
+			const version = versionTag?.[1] || 'v1';
 			const handler = this.getHandler(version);
 			return handler.nostrContract.handleContractEvent(event);
 		}
@@ -560,7 +564,7 @@ class EscrowManager {
 	/**
 	 * Get latest version identifier
 	 */
-	getLatestVersion(): EscrowVersion {
+	getLatestVersion(): string {
 		return LATEST_ESCROW_VERSION;
 	}
 
@@ -574,8 +578,8 @@ class EscrowManager {
 	/**
 	 * Get all supported versions
 	 */
-	getSupportedVersions(): EscrowVersion[] {
-		return Object.keys(VERSION_HANDLERS) as EscrowVersion[];
+	getSupportedVersions(): string[] {
+		return Object.keys(VERSION_HANDLERS);
 	}
 
 	/**
@@ -592,9 +596,6 @@ class EscrowManager {
 // Export singleton instance
 export const escrow = new EscrowManager();
 
-// Export types for external use
-export type { EscrowVersion };
-
 // Re-export types
 export type {
 	IVersionHandler,
@@ -604,7 +605,7 @@ export type {
 } from './types';
 
 // Re-export utility types from escrowBid for convenience
-export type { ValidationWarning, ValidationResult } from './v1/escrowBid';
+export type { ValidationWarning, ValidationResult } from './v2/escrowBid';
 
 // Re-export EscrowStatus enum from v1 (for backward compatibility and type imports)
 export { EscrowStatus } from './v1/escrow.enum';

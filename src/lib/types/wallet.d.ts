@@ -49,6 +49,8 @@ export interface EscrowData {
     freelancerFeeTier: FeeTier;
     createdAt: number;
     lastUpdated: number;
+    /** V2+: whether the client marked taskee as no-show on-chain. */
+    noShowMarked?: boolean;
 }
 
 // Dispute proposal interface

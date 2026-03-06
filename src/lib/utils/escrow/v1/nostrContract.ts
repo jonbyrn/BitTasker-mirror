@@ -22,9 +22,11 @@ import { contractStore } from '$lib/stores/contract.store';
 import { get } from 'svelte/store';
 import { appStore } from '$lib/stores/app.store';
 import { publishEscrowStatus } from './escrowEvents';
+import { getProvider } from '$lib/stores/wallet.store';
+import { EscrowError, EscrowErrorCode, isEscrowError } from '$lib/utils/helpers/escrowErrors';
+import { createDebug } from '$lib/utils/debug';
 import KINDS from '$lib/utils/constants/kinds';
 import nostrEventsService from '$lib/api/services/nostr/events';
-import { createDebug } from '$lib/utils/debug';
 
 const d = createDebug('contracts');
 
@@ -82,10 +84,7 @@ export async function publishContractEvent(params: CreateContractParams): Promis
 export async function publishContractStatus(params: PublishStatusParams): Promise<void> {
 	try {
 		let npub = await getNpub();
-		if (npub.startsWith('npub')) {
-			const { nip19 } = await import('nostr-tools');
-			npub = nip19.decode(npub).data as string;
-		}
+		npub = npub.startsWith('npub') ? (nip19.decode(npub).data as string) : npub;
 
 		const statusData: NostrContractStatus = {
 			contractEventId: params.contractEventId,
@@ -100,6 +99,7 @@ export async function publishContractStatus(params: PublishStatusParams): Promis
 			type: 'contract-status'
 		};
 
+		// TODO: Unnecessary code to be removed, pass contract data from arguments
 		// Query the contract directly by escrowId to get recipient info
 		const contractEvents = await queryNostrEvents({
 			kinds: [KINDS.CONTRACT],
@@ -159,11 +159,7 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 	});
 
 	let npub = await getNpub();
-
-	if (npub.startsWith('npub')) {
-		const { nip19 } = await import('nostr-tools');
-		npub = nip19.decode(npub).data as string;
-	}
+	npub = npub.startsWith('npub') ? (nip19.decode(npub).data as string) : npub;
 
 	// Get current network from environment
 	const currentNetwork = import.meta.env.VITE_RSK_NETWORK;
@@ -463,56 +459,7 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
  * @param escrowId - The escrow ID to check contract status
  * @throws EscrowError if deletion is not allowed or fails
  */
-
-/**
- * Recovery mechanism: Check if a transaction is confirmed and publish missing FundsReleased event
- * This fixes cases where acceptTask() confirmed but the FundsReleased event was never published
- */
-async function recoverMissingFundsReleasedEvent(
-	escrowId: string,
-	contractEventId: string,
-	transactionHash: string
-): Promise<void> {
-	try {
-		// Get provider to check transaction status
-		const { getProvider } = await import('$lib/stores/wallet.store');
-		const provider = await getProvider('rsk');
-
-		if (!provider) {
-			return;
-		}
-
-		// Check if transaction is confirmed
-		const receipt = await provider.getTransactionReceipt(transactionHash);
-
-		if (!receipt) {
-			return; // Transaction not yet confirmed, wait
-		}
-
-		// Check transaction status
-		if (receipt.status === 0) {
-			return; // Transaction failed, don't publish FundsReleased
-		}
-
-		// Transaction is confirmed and successful - publish missing FundsReleased event
-		// Import and publish the missing event
-		// Import the function directly (escrowEvents exports individual functions, not a namespace)
-		await publishEscrowStatus({
-			escrowId,
-			contractEventId,
-			transactionHash: receipt.hash,
-			status: EscrowStatus.FundsReleased
-		});
-	} catch {
-		// Don't throw - recovery is best-effort
-	}
-}
-
 export async function deleteContract(contractEventId: string, escrowId: string): Promise<void> {
-	const { EscrowError, EscrowErrorCode, isEscrowError } = await import(
-		'$lib/utils/helpers/escrowErrors'
-	);
-
 	try {
 		// Step 1: Get contract using new getContracts() function
 		const contracts = await getContracts({ escrowIds: [escrowId] });
@@ -586,6 +533,36 @@ export async function deleteContract(contractEventId: string, escrowId: string):
 	}
 }
 
+// TODO: Suspicious code to be verified and removed if not needed
+/**
+ * Recovery mechanism: Check if a transaction is confirmed and publish missing FundsReleased event
+ * This fixes cases where acceptTask() confirmed but the FundsReleased event was never published
+ */
+async function recoverMissingFundsReleasedEvent(
+	escrowId: string,
+	contractEventId: string,
+	transactionHash: string
+): Promise<void> {
+	try {
+		const provider = getProvider('rsk');
+		if (!provider) return;
+
+		const receipt = await provider.getTransactionReceipt(transactionHash);
+		if (!receipt || receipt.status === 0) return;
+
+		// Import and publish the missing event
+		// Import the function directly (escrowEvents exports individual functions, not a namespace)
+		await publishEscrowStatus({
+			escrowId,
+			contractEventId,
+			transactionHash: receipt.hash,
+			status: EscrowStatus.FundsReleased
+		});
+	} catch (error) {
+		// Don't throw - recovery is best-effort
+	}
+}
+
 /**
  * Handle incoming contract status event from subscription
  */
@@ -596,12 +573,8 @@ export async function handleStatusEvent(event: NostrEvent) {
 
 		// Decrypt the status event
 		const statusEvent = await decryptStatusEvent(event, userPubkeyHex);
-		if (!statusEvent) {
-			console.warn('[handleStatusEvent] ❌ Failed to decrypt status event:', event.id);
-			return;
-		}
+		if (!statusEvent) return;
 
-		console.log({ received: statusEvent });
 		const { action, transactionHash } = statusEvent.content;
 
 		// Extract escrow ID from #r tag (as per existing tag pattern)
@@ -706,6 +679,7 @@ export async function handleStatusEvent(event: NostrEvent) {
 						let confirmedDisputeProposal = freshDisputeProposal;
 						if (escrowData.status === EscrowStatus.InDispute) {
 							try {
+								// TODO: Redundant code - to be checked
 								const proposal = await escrow.getDisputeProposal(
 									escrowId,
 									contract.contractEvent.content.contractAddress
@@ -878,7 +852,7 @@ export async function handleContractEvent(event: NostrEvent) {
 			statusEvents: [],
 			isClient,
 			blockchainStatus,
-			escrowData: escrowData!, // Non-null assertion safe here due to check above
+			escrowData: escrowData!, // TODO: Non-null assertion safe here due to check above
 			status,
 			isPending,
 			permissions,
@@ -946,9 +920,12 @@ async function decryptContractEvent(
 		const conversationKey = await nip44.getConversationKey(nsec, otherPubkey);
 		const decryptedContent = nip44.decrypt(event.content, conversationKey);
 
+		const content = JSON.parse(decryptedContent) as NostrContract;
+		if (content.type !== 'contract') return null;
+
 		return {
 			...event,
-			content: JSON.parse(decryptedContent)
+			content
 		} as ContractEvent;
 	} catch (error) {
 		// Skip events that fail to decrypt
@@ -988,9 +965,12 @@ async function decryptStatusEvent(
 		const conversationKey = await nip44.getConversationKey(nsec, otherPubkey);
 		const decryptedContent = nip44.decrypt(event.content, conversationKey);
 
+		const content = JSON.parse(decryptedContent) as NostrContractStatus;
+		if (content.type !== 'contract-status') return null;
+
 		return {
 			...event,
-			content: JSON.parse(decryptedContent)
+			content
 		} as ContractStatusEvent;
 	} catch (error) {
 		// Skip events that fail to decrypt

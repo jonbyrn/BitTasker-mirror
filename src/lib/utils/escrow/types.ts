@@ -28,12 +28,6 @@ import type { EscrowError } from '../helpers/escrowErrors';
 import type { InterfaceAbi } from 'ethers';
 
 /**
- * Supported escrow contract versions
- * Extend this type when adding new versions (v3, v4, etc.)
- */
-export type EscrowVersion = 'v1' | 'v2';
-
-/**
  * Core Escrow Handler Interface
  * All version-specific escrow implementations must implement this interface
  */

@@ -36,6 +36,7 @@ export enum EscrowStatus {
 	FundsClaimed = 8, // ⭐ NEW - Freelancer claimed payment after timelock (FINAL)
 	NoShow = 9, // ⭐ NEW - Client marked freelancer as no-show
 	WorkInProgress = 10, // ⭐ NEW - Work actively in progress (replaces V1 InProgress)
+	InDsiputeWIP = 11, // ⭐ NEW - In dispute, work in progress
 
 	// ============================================
 	// BUFFER ZONE (11-19) - Reserved for Future Blockchain States
@@ -77,10 +78,12 @@ export function isBlockchainState(status: EscrowStatus): boolean {
 }
 
 /**
- * Helper function to check if a status is a pending state
+ * Helper function to check if a status is a pending (pre-confirmation) state.
+ * Does NOT include DisputeResolutionProposed (112), which is an application-only
+ * state with no pending transaction — it persists until the dispute resolves.
  */
 export function isPendingState(status: EscrowStatus): boolean {
-	return status >= 100 && status <= 111;
+	return status >= EscrowStatus.PendingFunding && status !== EscrowStatus.DisputeResolutionProposed;
 }
 
 /**
@@ -116,5 +119,10 @@ export function mapBlockchainStateToEnum(blockchainState: number): EscrowStatus 
 		10: EscrowStatus.WorkInProgress // V2 NEW
 	};
 
-	return mapping[blockchainState] ?? EscrowStatus.Funded;
+	const result = mapping[blockchainState];
+	if (result === undefined) {
+		console.error(`[EscrowV2] Unknown blockchain state: ${blockchainState} — defaulting to Funded`);
+		return EscrowStatus.Funded;
+	}
+	return result;
 }
