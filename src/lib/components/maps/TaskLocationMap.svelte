@@ -1,4 +1,5 @@
 <script lang="ts">
+	/* global google */
 	import type { Task, Location } from '$lib/types/task';
 	import type { Service, ServiceTier } from '$lib/types/service.d';
 	import { smallCountries, mediumCountries, largeCountries } from '$lib/utils/constants/countries';
@@ -14,16 +15,13 @@
 	import { currentUserLanguage } from '$lib/stores/translation.store';
 	import { locale } from 'svelte-i18n';
 	import { get } from 'svelte/store';
-	import { getServiceDisplayTitle, getServiceDisplayDescription } from '$lib/utils/serviceDisplayTranslation';
+	import { SvelteSet } from 'svelte/reactivity';
 
 	let {
 		tasks = [],
 		services = [],
 		height = '60vh',
 		selectedTask = null,
-		selectedService = null,
-		onTaskSelected,
-		onServiceSelected,
 		showFullscreen = true,
 		btcPrice = 0,
 		formatDateTimeReactive,
@@ -37,9 +35,6 @@
 		services?: Service[];
 		height?: string;
 		selectedTask?: Task | null;
-		selectedService?: Service | null;
-		onTaskSelected?: (event: { task: Task; locationType: 'pickup' | 'dropoff' }) => void;
-		onServiceSelected?: (event: { service: Service }) => void;
 		showFullscreen?: boolean;
 		btcPrice?: number;
 		formatDateTimeReactive?: (dateString: string) => string;
@@ -59,32 +54,27 @@
 	let circles: google.maps.Circle[] = $state([]);
 	let isMapLoaded = $state(false);
 	let hasError = $state(false);
-	let error = $state('');
-	let scriptLoaded = $state(false);
+	let errorMsg = $state('');
 	let googleMapsReady = $state(false);
 	let lastTaskIds = $state('');
 	let lastSelectedTaskId = $state<string | null>(null);
 	let serviceRadius = $state(5); // Default to 5 km
-	let isComponentMounted = $state(false);
 	let isLoading = $state(true);
 	let userLocation: Location | null = $state(null);
 	let markerLibrary: google.maps.MarkerLibrary | null = $state(null);
-	let userCountry: string | null = $state(null);
-	let mapHeight = $derived(height); // Add mapHeight variable - use $derived to react to prop changes
 
 	// Fullscreen state
 	let isFullscreen = $state(false);
 	let mapContainerDiv: HTMLElement | null = $state(null);
-	let fullscreenResizeHandler: ((this: Window, ev: UIEvent) => any) | null = null;
-	let escKeyHandler: ((this: Window, ev: KeyboardEvent) => any) | null = null;
+	let fullscreenResizeHandler: ((this: Window, ev: UIEvent) => void) | null = null;
+	let escKeyHandler: ((this: Window, ev: KeyboardEvent) => void) | null = null;
 	let containerResizeObserver: ResizeObserver | null = null;
-	
+
 	// Location button state
 	let isLocating = $state(false);
-	
+
 	// InfoWindow state
 	let infoWindow: google.maps.InfoWindow | null = $state(null);
-	let openInfoWindowMarker: google.maps.marker.AdvancedMarkerElement | null = $state(null);
 
 	/**
 	 * Generate HTML content for InfoWindow matching TaskCard styling
@@ -93,13 +83,13 @@
 		const statusBadge = getStatusBadge(task.status);
 		const isOpen = task.status === TaskStatusEnum.OPEN;
 		const taskId = getTaskId(task);
-		
+
 		// Get translated task title and description (same logic as TranslatableTask)
 		// Use get() to access stores synchronously in function context
 		const userLang = get(currentUserLanguage) || get(locale) || 'en';
 		let displayTitle = task.title;
 		let displayDescription = task.description;
-		
+
 		if (task.translations && task.translations.sourceLanguage !== userLang) {
 			const translation = task.translations.translations[userLang];
 			if (translation) {
@@ -107,60 +97,62 @@
 				displayDescription = translation.description || task.description;
 			}
 		}
-		
+
 		// Get translations for UI text - use try/catch since $t() might fail if translations aren't loaded
 		let statusText = statusBadge.text;
 		let bidText = 'Bid';
-		let biddingClosedText = 'Bidding closed';
 		let viewText = 'View';
-		
+
 		try {
 			// Try to get translations - $t() is available in Svelte component context
 			const statusTranslated = $t(`common.status.${task.status.toLowerCase()}`);
 			if (statusTranslated) statusText = statusTranslated;
-			
+
 			const bidTranslated = $t('dashboard.find_tasks.sign_up_to_bid');
 			if (bidTranslated) bidText = bidTranslated;
-			
-			const biddingClosedTranslated = $t('dashboard.find_tasks.bidding_closed');
-			if (biddingClosedTranslated) biddingClosedText = biddingClosedTranslated;
-			
+
 			const viewTranslated = $t('find_tasks.view_task');
 			if (viewTranslated) viewText = viewTranslated;
 		} catch (error) {
 			// Fallback to defaults if translations fail
 			console.warn('Translation error in InfoWindow:', error);
 		}
-		
+
 		// Format price
 		const priceFormatted = formatNumberWithTwoDecimals(task.budget.amount);
 		const satsFormatted = btcPrice > 0 ? satsFromUsd(task.budget.amount, btcPrice) : '';
-		
+
 		// Format deadline
 		let deadlineText = '';
 		if (task.deadline) {
 			deadlineText = formatDateTimeReactive?.(task.deadline) || task.deadline;
 		} else if (task.dateRange?.start && task.dateRange?.end) {
-			deadlineText = formatDateRangeReactive?.(task.dateRange.start, task.dateRange.end) || 
+			deadlineText =
+				formatDateRangeReactive?.(task.dateRange.start, task.dateRange.end) ||
 				`${task.dateRange.start} - ${task.dateRange.end}`;
 		}
-		
+
 		// Format location
-		const locationText = task.pickupLocation?.displayName || 
-			task.dropOffLocation?.displayName || 
+		const locationText =
+			task.pickupLocation?.displayName ||
+			task.dropOffLocation?.displayName ||
 			'Location not specified';
-		
+
 		// Get username (always present, not optional)
 		const username = task.creator?.username ?? '';
 		const rating = task.creator?.rating || 0;
-		
+
 		// Generate stars HTML - match TaskCard styling (text-yellow-400 for filled, text-base-content/30 for empty)
-		const starsHtml = Array(5).fill(0).map((_, i) => 
-			`<svg class="h-3 w-3 ${i < rating ? 'text-yellow-400' : 'text-base-content/30'}" fill="currentColor" viewBox="0 0 24 24">
+		const starsHtml = Array(5)
+			.fill(0)
+			.map(
+				(_, i) =>
+					`<svg class="h-3 w-3 ${i < rating ? 'text-yellow-400' : 'text-base-content/30'}" fill="currentColor" viewBox="0 0 24 24">
 				<path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
 			</svg>`
-		).join('');
-		
+			)
+			.join('');
+
 		// Avatar HTML
 		let avatarHtml = '';
 		if (task.creator?.avatar) {
@@ -175,14 +167,14 @@
 				</svg>
 			</div>`;
 		}
-		
+
 		// Helper function to escape HTML
 		const escapeHtml = (text: string): string => {
 			const div = document.createElement('div');
 			div.textContent = text;
 			return div.innerHTML;
 		};
-		
+
 		// Helper function to escape for use in HTML attributes (like onclick)
 		const escapeAttr = (text: string): string => {
 			return text
@@ -192,17 +184,18 @@
 				.replace(/</g, '&lt;')
 				.replace(/>/g, '&gt;');
 		};
-		
+
 		// Truncate and escape description (use translated description)
 		const description = (displayDescription || '').substring(0, 150);
-		const descriptionTruncated = description.length < (displayDescription?.length || 0) ? description + '...' : description;
+		const descriptionTruncated =
+			description.length < (displayDescription?.length || 0) ? description + '...' : description;
 		const escapedDescription = escapeHtml(descriptionTruncated);
 		const escapedTitle = escapeHtml(displayTitle || 'Untitled Task');
 		const escapedLocation = escapeHtml(locationText);
 		const escapedUsername = escapeHtml(username);
 		const escapedDeadline = deadlineText ? escapeHtml(deadlineText) : '';
 		const escapedTaskId = escapeAttr(taskId);
-		
+
 		return `
 			<div class="task-info-window" style="min-width: 280px; max-width: 320px; font-family: system-ui, -apple-system, sans-serif;">
 				<div class="card bg-base-100 rounded-xl shadow-md" style="border: none;">
@@ -232,14 +225,18 @@
 						
 						<!-- Second Row: Deadline + Location (matches TaskCard: mb-3, gap-3) -->
 						<div style="margin-bottom: 12px; display: flex; flex-direction: column; gap: 12px;">
-							${deadlineText ? `
+							${
+								deadlineText
+									? `
 								<div style="display: flex; align-items: center; gap: 8px;">
 									<svg class="text-primary" style="width: 32px; height: 32px; flex-shrink: 0;" viewBox="0 0 24 24" fill="currentColor">
 										<path d="M12,20A8,8 0 0,0 20,12A8,8 0 0,0 12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20M12,2A10,10 0 0,1 22,12A10,10 0 0,1 12,22C6.47,22 2,17.5 2,12A10,10 0 0,1 12,2M12.5,7V12.25L17,14.92L16.25,16.15L11,13V7H12.5Z"/>
 									</svg>
 									<span style="font-size: 14px; font-weight: 500; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;">${escapedDeadline}</span>
 								</div>
-							` : ''}
+							`
+									: ''
+							}
 							<div style="display: flex; align-items: center; gap: 8px;">
 								<svg class="text-primary" style="width: 32px; height: 32px; flex-shrink: 0;" viewBox="0 0 24 24" fill="currentColor">
 									<path d="M12,2C8.13,2 5,5.13 5,9C5,14.25 12,22 12,22C12,22 19,14.25 19,9C19,5.13 15.87,2 12,2M12,11.5A2.5,2.5 0 0,1 9.5,9A2.5,2.5 0 0,1 12,6.5A2.5,2.5 0 0,1 14.5,9A2.5,2.5 0 0,1 12,11.5Z"/>
@@ -266,7 +263,9 @@
 						
 						<!-- Action Buttons (stacked on mobile/tablet, equal width on desktop) -->
 						<div class="task-info-window-buttons flex flex-col gap-2 lg:flex-row" style="width: 100%;">
-							${onSelectTask ? `
+							${
+								onSelectTask
+									? `
 								<button 
 									class="btn btn-primary btn-sm task-info-window-btn ${!isOpen ? 'btn-disabled' : ''}" 
 									style="width: 100%; min-height: 44px;"
@@ -278,10 +277,14 @@
 									<svg style="width: 16px; height: 16px; margin-right: 4px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
 									</svg>
-									${isOpen ? bidText : biddingClosedText}
+									${bidText}
 								</button>
-							` : ''}
-							${onViewTask ? `
+							`
+									: ''
+							}
+							${
+								onViewTask
+									? `
 								<button 
 									class="btn btn-secondary btn-sm task-info-window-btn" 
 									style="width: 100%; min-height: 44px;"
@@ -295,7 +298,9 @@
 									</svg>
 									${viewText}
 								</button>
-							` : ''}
+							`
+									: ''
+							}
 						</div>
 					</div>
 				</div>
@@ -311,17 +316,17 @@
 			console.warn('Cannot show InfoWindow: map is not initialized');
 			return;
 		}
-		
+
 		if (!task) {
 			console.warn('Cannot show InfoWindow: task is not provided');
 			return;
 		}
-		
+
 		// Close existing InfoWindow if open
 		if (infoWindow) {
 			infoWindow.close();
 		}
-		
+
 		try {
 			// Create new InfoWindow
 			const content = generateInfoWindowContent(task);
@@ -329,10 +334,7 @@
 				content,
 				maxWidth: 320
 			});
-			
-			// Store reference to marker
-			openInfoWindowMarker = marker;
-			
+
 			// Open InfoWindow at marker position
 			infoWindow.open({
 				anchor: marker,
@@ -341,14 +343,18 @@
 		} catch (error) {
 			console.error('Error showing InfoWindow:', error);
 		}
-		
+
 		// Set up global handler for button clicks (since InfoWindow content is HTML string)
 		// Capture tasks array in closure for the handler
 		const currentTasks: Task[] = tasks;
-		(window as any).handleMapInfoWindowAction = async (event: Event, action: string, taskId: string) => {
+		(window as unknown as Record<string, unknown>).handleMapInfoWindowAction = async (
+			event: Event,
+			action: string,
+			taskId: string
+		) => {
 			event.preventDefault();
 			event.stopPropagation();
-			
+
 			let task: Task | undefined;
 			for (const t of currentTasks) {
 				if (getTaskId(t) === taskId) {
@@ -357,7 +363,7 @@
 				}
 			}
 			if (!task) return;
-			
+
 			if (action === 'bid' && onSelectTask) {
 				await onSelectTask(task);
 				// Don't close InfoWindow - keep it open
@@ -378,10 +384,9 @@
 		if (infoWindow) {
 			infoWindow.close();
 			infoWindow = null;
-			openInfoWindowMarker = null;
 		}
 	}
-	
+
 	// Function to get user's location
 	async function getUserLocation(): Promise<Location | null> {
 		return new Promise((resolve) => {
@@ -411,21 +416,23 @@
 						// Handle geolocation errors
 						// Error codes: 1 = PERMISSION_DENIED, 2 = POSITION_UNAVAILABLE, 3 = TIMEOUT
 						const errorCode = error.code;
-						
+
 						if (errorCode === 1) {
 							// Permission denied - user blocked location access
 							// Don't log this as it's user-initiated
 							resolve(null);
 							return;
 						}
-						
+
 						if (errorCode === 3) {
 							// Timeout - retry with lower accuracy and longer timeout
 							navigator.geolocation.getCurrentPosition(
 								(position) => {
 									try {
 										const userLoc: Location = {
-											displayName: $t('dashboard.bids.components.maps.task_location_map.your_location'),
+											displayName: $t(
+												'dashboard.bids.components.maps.task_location_map.your_location'
+											),
 											latitude: position.coords.latitude,
 											longitude: position.coords.longitude,
 											zipCode: '',
@@ -437,7 +444,7 @@
 										resolve(null);
 									}
 								},
-								(retryError) => {
+								() => {
 									// Retry also failed - resolve null silently
 									resolve(null);
 								},
@@ -449,10 +456,11 @@
 							);
 							return;
 						}
-						
+
 						// Other errors (POSITION_UNAVAILABLE, etc.)
 						// Only log if it's not a common/expected error
-						if (errorCode !== 2) { // Don't log POSITION_UNAVAILABLE as it's common
+						if (errorCode !== 2) {
+							// Don't log POSITION_UNAVAILABLE as it's common
 							console.warn('Geolocation error:', error.message || 'Unknown error');
 						}
 						resolve(null);
@@ -562,7 +570,6 @@
 			try {
 				// Check if script is already loaded and API is available
 				if (window.google?.maps?.Map) {
-					scriptLoaded = true;
 					googleMapsReady = true;
 					resolve();
 					return;
@@ -575,19 +582,17 @@
 					existingScript.addEventListener('load', () => {
 						// Check immediately first (API might already be ready)
 						if (window.google?.maps?.Map) {
-							scriptLoaded = true;
 							googleMapsReady = true;
 							resolve();
 							return;
 						}
-						
+
 						// Google Maps API needs time to initialize after script loads
 						// Poll for API readiness instead of fixed timeout for better reliability
 						let attempts = 0;
 						const maxAttempts = 50; // 5 seconds max (50 * 100ms)
 						const checkReady = () => {
 							if (window.google?.maps?.Map) {
-								scriptLoaded = true;
 								googleMapsReady = true;
 								resolve();
 							} else if (attempts < maxAttempts) {
@@ -610,14 +615,13 @@
 				script.defer = true;
 
 				script.onload = () => {
-					scriptLoaded = true;
 					// Check immediately first (API might already be ready)
 					if (window.google?.maps?.Map) {
 						googleMapsReady = true;
 						resolve();
 						return;
 					}
-					
+
 					// Google Maps API needs time to initialize after script loads
 					// Poll for API readiness instead of fixed timeout for better reliability
 					let attempts = 0;
@@ -683,18 +687,19 @@
 		try {
 			// Try to use Capacitor's native fullscreen if available
 			await ScreenOrientation.lock({ orientation: 'portrait' });
-		} catch (error) {
+		} catch {
 			console.log('Using fallback fullscreen method - Capacitor ScreenOrientation not available');
 		}
 
 		// Calculate navigation bar heights
 		const headerEl = document.querySelector('.app-shell__header') as HTMLElement;
 		const headerHeight = headerEl ? Math.ceil(headerEl.getBoundingClientRect().height) : 0;
-		
+
 		// Get footer height from CSS variable (set dynamically by layout)
-		const footerHeightStr = getComputedStyle(document.documentElement).getPropertyValue('--app-footer-height') || '0px';
+		const footerHeightStr =
+			getComputedStyle(document.documentElement).getPropertyValue('--app-footer-height') || '0px';
 		const footerHeight = parseFloat(footerHeightStr.replace('px', '')) || 0;
-		
+
 		// Calculate available height (viewport minus navigation bars)
 		const viewportHeight = window.innerHeight;
 		const availableHeight = viewportHeight - headerHeight - footerHeight;
@@ -753,17 +758,18 @@
 		fullscreenResizeHandler = () => {
 			// Only handle resize if still in fullscreen
 			if (!isFullscreen) return;
-			
+
 			// Recalculate navigation bar heights on resize
 			const headerEl = document.querySelector('.app-shell__header') as HTMLElement;
 			const headerHeight = headerEl ? Math.ceil(headerEl.getBoundingClientRect().height) : 0;
-			
-			const footerHeightStr = getComputedStyle(document.documentElement).getPropertyValue('--app-footer-height') || '0px';
+
+			const footerHeightStr =
+				getComputedStyle(document.documentElement).getPropertyValue('--app-footer-height') || '0px';
 			const footerHeight = parseFloat(footerHeightStr.replace('px', '')) || 0;
-			
+
 			const viewportHeight = window.innerHeight;
 			const availableHeight = viewportHeight - headerHeight - footerHeight;
-			
+
 			if (mapContainerDiv) {
 				mapContainerDiv.style.top = `${headerHeight}px`;
 				mapContainerDiv.style.bottom = `${footerHeight}px`;
@@ -771,7 +777,7 @@
 				mapContainerDiv.style.maxHeight = `${availableHeight}px`;
 				mapContainerDiv.style.minHeight = `${availableHeight}px`;
 			}
-			
+
 			if (mapElement) {
 				mapElement.style.height = '100%';
 				mapElement.style.minHeight = '100%';
@@ -798,7 +804,7 @@
 		try {
 			// Release orientation lock if we used Capacitor
 			await ScreenOrientation.unlock();
-		} catch (error) {
+		} catch {
 			console.log('Capacitor ScreenOrientation not available');
 		}
 
@@ -846,13 +852,13 @@
 			if (containerResizeObserver) {
 				containerResizeObserver.disconnect();
 			}
-			
+
 			containerResizeObserver = new ResizeObserver(() => {
 				if (!isFullscreen) {
 					updateMapElementHeight();
 				}
 			});
-			
+
 			containerResizeObserver.observe(mapContainerDiv);
 			if (mapContainerDiv.parentElement) {
 				containerResizeObserver.observe(mapContainerDiv.parentElement);
@@ -893,7 +899,7 @@
 		isLocating = true;
 		try {
 			const location = await getUserLocation();
-			
+
 			if (location && location.latitude && location.longitude) {
 				const position = {
 					lat: location.latitude,
@@ -902,10 +908,10 @@
 
 				// Center map on user location
 				map.setCenter(position);
-				
+
 				// Set appropriate zoom level (city level for privacy)
 				map.setZoom(14);
-				
+
 				// Pan smoothly to location
 				map.panTo(position);
 			} else {
@@ -927,19 +933,32 @@
 				throw new Error('Map element not found');
 			}
 
-		// Determine map center: services mode (first service) > first task pickup > user location > default
-		let centerLocation: Location;
-		if (isServicesMode && services.length > 0) {
-			const firstServiceLoc = getServiceLocation(services[0]);
-			if (firstServiceLoc?.latitude != null && firstServiceLoc?.longitude != null) {
-				centerLocation = {
-					displayName: firstServiceLoc.displayName || 'Service Location',
-					latitude: firstServiceLoc.latitude,
-					longitude: firstServiceLoc.longitude,
-					zipCode: firstServiceLoc.zipCode || '',
-					locationLoaded: true
-				};
+			// Determine map center: first task pickup location > user location > default
+			let centerLocation: Location;
+
+			if (tasks.length > 0) {
+				// Use first task's pickup location if available
+				const firstTask = tasks[0];
+				if (firstTask.pickupLocation?.latitude && firstTask.pickupLocation.longitude) {
+					centerLocation = {
+						displayName: firstTask.pickupLocation.displayName || 'Task Location',
+						latitude: firstTask.pickupLocation.latitude,
+						longitude: firstTask.pickupLocation.longitude,
+						zipCode: firstTask.pickupLocation.zipCode || '',
+						locationLoaded: true
+					};
+				} else {
+					// Fallback to user location or default
+					centerLocation = userLocation || {
+						displayName: 'Centroamérica',
+						latitude: 13.6929,
+						longitude: -89.2182,
+						zipCode: '',
+						locationLoaded: false
+					};
+				}
 			} else {
+				// Fallback to user location or default
 				centerLocation = userLocation || {
 					displayName: 'Centroamérica',
 					latitude: 13.6929,
@@ -948,58 +967,24 @@
 					locationLoaded: false
 				};
 			}
-		} else if (tasks.length > 0) {
-			// Use first task's pickup location if available
-			const firstTask = tasks[0];
-			if (firstTask.pickupLocation?.latitude && firstTask.pickupLocation.longitude) {
-				centerLocation = {
-					displayName: firstTask.pickupLocation.displayName || 'Task Location',
-					latitude: firstTask.pickupLocation.latitude,
-					longitude: firstTask.pickupLocation.longitude,
-					zipCode: firstTask.pickupLocation.zipCode || '',
-					locationLoaded: true
-				};
-			} else {
-				centerLocation = userLocation || {
-					displayName: 'Centroamérica',
-					latitude: 13.6929,
-					longitude: -89.2182,
-					zipCode: '',
-					locationLoaded: false
-				};
-			}
-		} else {
-			centerLocation = userLocation || {
-				displayName: 'Centroamérica',
-				latitude: 13.6929,
-				longitude: -89.2182,
-				zipCode: '',
-				locationLoaded: false
-			};
-		}
 
 			// Try to get country with a short timeout for better zoom level
 			// If it completes quickly, use country-specific zoom; otherwise use fallback
 			const GEOCODING_TIMEOUT_MS = 1500; // 1.5 seconds max wait
-			
+
 			// Ensure we always have a Promise for Promise.race
-			const countryPromise = window.google?.maps 
-				? getCountryFromCoordinates(
-					centerLocation.latitude!,
-					centerLocation.longitude!
-				)
+			const countryPromise = window.google?.maps
+				? getCountryFromCoordinates(centerLocation.latitude!, centerLocation.longitude!)
 				: Promise.resolve(null);
-			
+
 			// Race between geocoding and timeout
 			const countryResult = await Promise.race([
 				countryPromise,
-				new Promise<string | null>((resolve) => 
+				new Promise<string | null>((resolve) =>
 					setTimeout(() => resolve(null), GEOCODING_TIMEOUT_MS)
 				)
 			]).catch(() => null);
-			
-			userCountry = countryResult;
-			
+
 			// Determine zoom level - use country if available, otherwise fallback
 			const zoomLevel = getZoomLevelForCountry(
 				countryResult,
@@ -1089,7 +1074,9 @@
 					mapElement.style.minHeight = `${parentHeight}px`;
 				} else {
 					// Fallback: ensure minimum height
-					const computedHeight = window.getComputedStyle(mapElement.parentElement || mapElement).height;
+					const computedHeight = window.getComputedStyle(
+						mapElement.parentElement || mapElement
+					).height;
 					if (computedHeight && computedHeight !== '0px' && computedHeight !== 'auto') {
 						mapElement.style.height = computedHeight;
 						mapElement.style.minHeight = computedHeight;
@@ -1105,37 +1092,37 @@
 				google.maps.event.trigger(map, 'resize');
 			}
 
-		// Hide loading after everything is ready
-		// Use requestAnimationFrame for better performance
-		requestAnimationFrame(() => {
-			isLoading = false;
-			// Ensure height is maintained after loading completes
-			// Skip if in fullscreen (fullscreen handles its own sizing)
-			if (mapElement && map && !isFullscreen) {
-				// Batch DOM operations to avoid forced reflow
-				requestAnimationFrame(() => {
-					if (!mapElement || !map) return;
-					// Re-check and set height after loading state changes
-					const parentHeight = mapElement.parentElement?.offsetHeight;
-					if (parentHeight && parentHeight > 0) {
-						const heightStr = `${parentHeight}px`;
-						mapElement.style.height = heightStr;
-						mapElement.style.minHeight = heightStr;
-					}
-					google.maps.event.trigger(map, 'resize');
-				});
-			} else if (map && isFullscreen) {
-				// Just trigger resize if in fullscreen
-				requestAnimationFrame(() => {
-					if (map) {
+			// Hide loading after everything is ready
+			// Use requestAnimationFrame for better performance
+			requestAnimationFrame(() => {
+				isLoading = false;
+				// Ensure height is maintained after loading completes
+				// Skip if in fullscreen (fullscreen handles its own sizing)
+				if (mapElement && map && !isFullscreen) {
+					// Batch DOM operations to avoid forced reflow
+					requestAnimationFrame(() => {
+						if (!mapElement || !map) return;
+						// Re-check and set height after loading state changes
+						const parentHeight = mapElement.parentElement?.offsetHeight;
+						if (parentHeight && parentHeight > 0) {
+							const heightStr = `${parentHeight}px`;
+							mapElement.style.height = heightStr;
+							mapElement.style.minHeight = heightStr;
+						}
 						google.maps.event.trigger(map, 'resize');
-					}
-				});
-			}
-		});
+					});
+				} else if (map && isFullscreen) {
+					// Just trigger resize if in fullscreen
+					requestAnimationFrame(() => {
+						if (map) {
+							google.maps.event.trigger(map, 'resize');
+						}
+					});
+				}
+			});
 		} catch (err) {
 			console.error('Error initializing map:', err);
-			error = err instanceof Error ? err.message : 'Error initializing map';
+			errorMsg = err instanceof Error ? err.message : 'Error initializing map';
 			hasError = true;
 			isLoading = false;
 		}
@@ -1220,7 +1207,7 @@
 		return 'Remote';
 	}
 
-	function generateServiceInfoWindowContent(service: Service): string {
+	/* function generateServiceInfoWindowContent(service: Service): string {
 		const escapeHtml = (text: string): string => {
 			const div = document.createElement('div');
 			div.textContent = text;
@@ -1255,14 +1242,14 @@
 					</div>
 				</div>
 			</div>`;
-	}
+	} */
 
-	function showServiceInfoWindow(service: Service, marker: google.maps.marker.AdvancedMarkerElement) {
+	/* function showServiceInfoWindow(service: Service, marker: google.maps.marker.AdvancedMarkerElement) {
 		if (!map) return;
 		if (infoWindow) infoWindow.close();
 		try {
 			infoWindow = new google.maps.InfoWindow({ content: generateServiceInfoWindowContent(service), maxWidth: 320 });
-			openInfoWindowMarker = marker;
+			//openInfoWindowMarker = marker;
 			infoWindow.open({ anchor: marker, map });
 			const currentServices: Service[] = services;
 			(window as any).handleMapServiceInfoWindowAction = (event: Event, serviceId: string) => {
@@ -1273,13 +1260,13 @@
 					onServiceSelected?.({ service: svc });
 					if (typeof window !== 'undefined' && (window as any).goto) {
 						(window as any).goto(`/services/${serviceId}`);
-					}
+					} 
 				}
 			};
 		} catch (e) {
 			console.error('Error showing service InfoWindow:', e);
 		}
-	}
+	} */
 
 	async function createServiceMarker(
 		lat: number,
@@ -1307,8 +1294,8 @@
 			});
 			marker.addListener('click', () => {
 				hideAllCircles();
-				showServiceInfoWindow(service, marker);
-				onServiceSelected?.({ service });
+				/* showServiceInfoWindow(service, marker);
+				onServiceSelected?.({ service }); */
 			});
 			return marker;
 		} catch (error) {
@@ -1336,10 +1323,9 @@
 			latitude: number;
 			longitude: number;
 			tasks: Task[];
-			locationType: 'pickup';
 		}> = [];
 
-		const processedLocations = new Set<string>();
+		const processedLocations = new SvelteSet<string>();
 
 		for (const task of tasks) {
 			// Solo procesar pickup location
@@ -1354,15 +1340,14 @@
 						(t) =>
 							t.pickupLocation?.latitude &&
 							t.pickupLocation.longitude &&
-							Math.abs(t.pickupLocation.latitude - task?.pickupLocation?.latitude!) < 0.001 &&
-							Math.abs(t.pickupLocation.longitude - task?.pickupLocation?.longitude!) < 0.001
+							Math.abs(t.pickupLocation.latitude - (task.pickupLocation?.latitude || 0)) < 0.001 &&
+							Math.abs(t.pickupLocation.longitude - (task.pickupLocation?.longitude || 0)) < 0.001
 					);
 
 					groups.push({
 						latitude: task.pickupLocation.latitude,
 						longitude: task.pickupLocation.longitude,
-						tasks: nearbyTasks,
-						locationType: 'pickup'
+						tasks: nearbyTasks
 					});
 				}
 			}
@@ -1380,12 +1365,7 @@
 
 			// Create markers for grouped tasks
 			for (const group of groupedTasks) {
-				const marker = await createTaskMarker(
-					group.latitude,
-					group.longitude,
-					group.tasks,
-					group.locationType
-				);
+				const marker = await createTaskMarker(group.latitude, group.longitude, group.tasks);
 				if (marker) markers.push(marker);
 			}
 		} catch (error) {
@@ -1396,8 +1376,7 @@
 	async function createTaskMarker(
 		lat: number,
 		lng: number,
-		tasks: Task[],
-		locationType: 'pickup'
+		tasks: Task[]
 	): Promise<google.maps.marker.AdvancedMarkerElement | null> {
 		if (!map || !googleMapsReady || !window.google?.maps || !markerLibrary) return null;
 
@@ -1455,7 +1434,7 @@
 				hideAllCircles();
 
 				// Crear y mostrar el círculo para este marcador
-				showCircleForMarker(lat, lng, locationType);
+				showCircleForMarker(lat, lng);
 
 				// Hacer zoom al círculo pero con restricción de zoom máximo
 				const position = { lat, lng };
@@ -1465,27 +1444,27 @@
 
 				if (circle) {
 					// Ajustar el zoom pero respetar el máximo de 14
-					const bounds = circle.getBounds()!;
-					map!.fitBounds(bounds);
-
-					// Asegurar que el zoom no exceda 14
-					const currentZoom = map!.getZoom() || 0;
-					if (currentZoom > 14) {
-						map!.setZoom(14);
+					const bounds = circle.getBounds();
+					if (bounds && map) {
+						map.fitBounds(bounds);
 					}
 
-					// Pan inicial
-					map!.panTo(position);
+					if (map) {
+						// Asegurar que el zoom no exceda 14
+						const currentZoom = map.getZoom() || 0;
+						if (currentZoom > 14) {
+							map.setZoom(14);
+						}
+
+						// Pan inicial
+						map.panTo(position);
+					}
 				}
 
 				// Show InfoWindow with task details
 				// Si hay múltiples tareas, mostrar la primera
 				const selectedTask = tasks[0];
 				showInfoWindow(selectedTask, marker);
-
-				// Don't call onTaskSelected when showing InfoWindow - the bubble provides the interaction
-				// This prevents switching to list view on mobile/tablet
-				// onTaskSelected?.({ task: selectedTask, locationType });
 			});
 
 			return marker;
@@ -1495,7 +1474,7 @@
 		}
 	}
 
-	function showCircleForMarker(lat: number, lng: number, locationType: 'pickup') {
+	function showCircleForMarker(lat: number, lng: number) {
 		if (!map || !googleMapsReady || !window.google?.maps) return;
 
 		const position = { lat, lng };
@@ -1525,7 +1504,7 @@
 	function clearMarkers() {
 		// Close InfoWindow before clearing markers
 		closeInfoWindow();
-		
+
 		markers.forEach((marker) => {
 			if (marker) marker.map = null;
 		});
@@ -1557,7 +1536,7 @@
 
 		// Solo mostrar pickup location
 		if (task.pickupLocation?.latitude && task.pickupLocation.longitude) {
-			showCircleForMarker(task.pickupLocation.latitude, task.pickupLocation.longitude, 'pickup');
+			showCircleForMarker(task.pickupLocation.latitude, task.pickupLocation.longitude);
 
 			// Hacer zoom al círculo con restricciones
 			const position = {
@@ -1571,7 +1550,10 @@
 			);
 
 			if (circle) {
-				map.fitBounds(circle.getBounds()!);
+				const bounds = circle.getBounds();
+				if (bounds) {
+					map.fitBounds(bounds);
+				}
 
 				// Asegurar que el zoom no exceda 14
 				const currentZoom = map.getZoom() || 0;
@@ -1587,47 +1569,44 @@
 	// Function to update map element height
 	function updateMapElementHeight() {
 		if (!mapElement || !mapContainerDiv) return;
-		
+
 		// First, check if height prop is a fixed pixel value - respect it
 		const fixedHeight = parseFixedHeight(height);
 		if (fixedHeight !== null) {
 			applyMapHeight(fixedHeight);
 			return;
 		}
-		
+
 		// If height is 100%, try to use parent height
 		if (height === '100%') {
 			// Walk up the parent chain to find a parent with actual height
 			let parent = mapContainerDiv.parentElement;
 			let foundHeight = 0;
-			let foundElement: HTMLElement | null = null;
-			
+
 			// Check up to 5 levels of parents
 			for (let i = 0; i < 5 && parent; i++) {
 				const parentHeight = parent.offsetHeight;
 				const computedHeight = window.getComputedStyle(parent).height;
 				const heightValue = parseFloat(computedHeight);
-				
+
 				if (parentHeight > 100) {
 					foundHeight = parentHeight;
-					foundElement = parent as HTMLElement;
 					break;
 				} else if (!isNaN(heightValue) && heightValue > 100) {
 					foundHeight = heightValue;
-					foundElement = parent as HTMLElement;
 					break;
 				}
-				
+
 				parent = parent.parentElement;
 			}
-			
+
 			// If we found a height, use it
 			if (foundHeight > 100) {
 				applyMapHeight(foundHeight);
 				return;
 			}
 		}
-		
+
 		// Fallback: use viewport-based calculation (for vh units or when no parent height found)
 		const calculatedHeight = calculateMapHeight();
 		applyMapHeight(calculatedHeight);
@@ -1654,31 +1633,36 @@
 	 */
 	function calculateMapHeight(): number {
 		const viewportHeight = window.innerHeight;
-		const dockHeightStr = getComputedStyle(document.documentElement).getPropertyValue('--app-dock-height') || 
-			getComputedStyle(document.documentElement).getPropertyValue('--app-footer-height') || '64px';
+		const dockHeightStr =
+			getComputedStyle(document.documentElement).getPropertyValue('--app-dock-height') ||
+			getComputedStyle(document.documentElement).getPropertyValue('--app-footer-height') ||
+			'64px';
 		const dockHeight = parseFloat(dockHeightStr.replace('px', '')) || 64;
-		
-		const headerHeightStr = getComputedStyle(document.documentElement).getPropertyValue('--header-controls-height') || '10rem';
+
+		const headerHeightStr =
+			getComputedStyle(document.documentElement).getPropertyValue('--header-controls-height') ||
+			'10rem';
 		const headerHeightRem = parseFloat(headerHeightStr.replace('rem', '')) || 10;
 		const headerHeightPx = headerHeightRem * 16; // Convert rem to px (assuming 16px base)
-		
+
 		return Math.max(400, viewportHeight - dockHeight - headerHeightPx);
 	}
-	
+
 	/**
 	 * Apply calculated height to map container and element
 	 * Batches DOM operations to avoid forced reflows
 	 */
 	function applyMapHeight(calculatedHeight: number | string): void {
 		if (!mapContainerDiv || !mapElement) return;
-		
+
 		// Batch all DOM writes together to avoid forced reflows
 		requestAnimationFrame(() => {
 			if (!mapContainerDiv || !mapElement) return;
-			
+
 			// Read all computed styles first (if needed)
-			const heightStr = typeof calculatedHeight === 'number' ? `${calculatedHeight}px` : calculatedHeight;
-			
+			const heightStr =
+				typeof calculatedHeight === 'number' ? `${calculatedHeight}px` : calculatedHeight;
+
 			// Batch all style writes
 			mapContainerDiv.style.height = heightStr;
 			mapContainerDiv.style.maxHeight = heightStr; // Prevent expansion beyond set height
@@ -1687,7 +1671,7 @@
 			mapElement.style.height = heightStr;
 			mapElement.style.minHeight = heightStr;
 			mapElement.style.maxHeight = heightStr; // Prevent expansion beyond set height
-			
+
 			// Trigger resize if map is loaded (in next frame to avoid blocking)
 			if (map && isMapLoaded && window.google?.maps) {
 				requestAnimationFrame(() => {
@@ -1705,7 +1689,7 @@
 		if (mapElement && mapContainerDiv && !isFullscreen) {
 			// Check if height prop is a fixed pixel value
 			const fixedHeight = parseFixedHeight(height);
-			
+
 			if (fixedHeight !== null) {
 				// Use the fixed height from prop
 				applyMapHeight(fixedHeight);
@@ -1717,7 +1701,7 @@
 				const calculatedHeight = calculateMapHeight();
 				applyMapHeight(calculatedHeight);
 			}
-			
+
 			// Set up ResizeObserver to watch for container size changes
 			// Only set up ResizeObserver if height is not a fixed pixel value
 			// Fixed heights should remain constant (reuse fixedHeight from above)
@@ -1725,21 +1709,21 @@
 				if (containerResizeObserver) {
 					containerResizeObserver.disconnect();
 				}
-				
+
 				containerResizeObserver = new ResizeObserver(() => {
 					// Don't update height if in fullscreen or if we have a fixed height
 					if (!isFullscreen && parseFixedHeight(height) === null) {
 						updateMapElementHeight();
 					}
 				});
-				
+
 				containerResizeObserver.observe(mapContainerDiv);
-				
+
 				// Also observe parent to catch when it gets height (only for non-fixed heights)
 				if (mapContainerDiv.parentElement) {
 					containerResizeObserver.observe(mapContainerDiv.parentElement);
 				}
-				
+
 				return () => {
 					if (containerResizeObserver) {
 						containerResizeObserver.disconnect();
@@ -1781,26 +1765,22 @@
 		}
 	});
 
-
 	onMount(async () => {
 		try {
-			// Mark component as mounted
-			isComponentMounted = true;
-
 			// Get user location first - this is now the primary way to determine map center
 			userLocation = await getUserLocation();
 
 			// Load Google Maps script
 			await loadGoogleMapsScript();
-			
+
 			// Wait for DOM to be ready
 			await tick();
-			
+
 			// Wait for layout to stabilize - multiple frames to ensure parent heights are calculated
-			await new Promise(resolve => requestAnimationFrame(resolve));
-			await new Promise(resolve => requestAnimationFrame(resolve));
-			await new Promise(resolve => requestAnimationFrame(resolve));
-			
+			await new Promise((resolve) => requestAnimationFrame(resolve));
+			await new Promise((resolve) => requestAnimationFrame(resolve));
+			await new Promise((resolve) => requestAnimationFrame(resolve));
+
 			// Force height calculation before initialization - respect height prop
 			if (mapContainerDiv && mapElement) {
 				const fixedHeight = parseFixedHeight(height);
@@ -1816,14 +1796,14 @@
 					applyMapHeight(calculatedHeight);
 				}
 			}
-			
+
 			// Initialize map if all conditions are met
 			if (mapElement && googleMapsReady && !isMapLoaded && !hasError) {
 				await tryInitMap();
 			}
 		} catch (err) {
 			console.error('Error loading Google Maps:', err);
-			error = err instanceof Error ? err.message : 'Error loading Google Maps';
+			errorMsg = err instanceof Error ? err.message : 'Error loading Google Maps';
 			isLoading = false;
 		}
 	});
@@ -1841,48 +1821,46 @@
 			google.maps.event.clearInstanceListeners(map);
 		}
 		// Clean up global handler
-		if ((window as any).handleMapInfoWindowAction) {
-			delete (window as any).handleMapInfoWindowAction;
+		if ((window as unknown as Record<string, unknown>).handleMapInfoWindowAction) {
+			delete (window as unknown as Record<string, unknown>).handleMapInfoWindowAction;
 		}
 	});
 </script>
 
-<div 
-	bind:this={mapContainerDiv}
-	class="task-location-map relative w-full"
->
-	<div 
-		bind:this={mapElement} 
-		class="w-full h-full overflow-hidden rounded-lg"
-	>
-			{#if isLoading}
-				<div class="bg-base-200 flex h-full w-full items-center justify-center">
-					<div class="text-center">
-						<span class="loading loading-spinner loading-lg mb-2"></span>
-						<p class="text-base-content/70 text-sm">{$t('dashboard.bids.components.maps.task_location_map.loading_map')}</p>
-					</div>
+<div bind:this={mapContainerDiv} class="task-location-map relative w-full">
+	<div bind:this={mapElement} class="h-full w-full overflow-hidden rounded-lg">
+		{#if isLoading}
+			<div class="bg-base-200 flex h-full w-full items-center justify-center">
+				<div class="text-center">
+					<span class="loading loading-spinner loading-lg mb-2"></span>
+					<p class="text-base-content/70 text-sm">
+						{$t('dashboard.bids.components.maps.task_location_map.loading_map')}
+					</p>
 				</div>
-			{:else if hasError}
-				<div class="bg-base-200 flex h-full w-full items-center justify-center">
-					<div class="text-center">
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="text-error mx-auto mb-2 h-12 w-12"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-							/>
-						</svg>
-						<p class="text-error text-sm">{$t('dashboard.bids.components.maps.task_location_map.error_loading_map')}</p>
-					</div>
+			</div>
+		{:else if hasError}
+			<div class="bg-base-200 flex h-full w-full items-center justify-center">
+				<div class="text-center">
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="text-error mx-auto mb-2 h-12 w-12"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+						/>
+					</svg>
+					<p class="text-error text-sm">
+						{$t('dashboard.bids.components.maps.task_location_map.error_loading_map')}
+					</p>
 				</div>
-			{/if}
+			</div>
+		{/if}
 	</div>
 
 	<!-- Map Control Buttons -->
@@ -1934,38 +1912,38 @@
 					? $t('common.task.location_picker.exit_fullscreen')
 					: $t('common.task.location_picker.enter_fullscreen')}
 			>
-					{#if isFullscreen}
-						<!-- Exit fullscreen icon -->
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="text-base-content h-5 w-5"
-							viewBox="0 0 24 24"
-							fill="currentColor"
-						>
-							<path
-								d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
-							/>
-						</svg>
-					{:else}
-						<!-- Enter fullscreen icon -->
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="text-base-content h-5 w-5"
-							viewBox="0 0 24 24"
-							fill="currentColor"
-						>
-							<path
-								d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"
-							/>
-						</svg>
-					{/if}
+				{#if isFullscreen}
+					<!-- Exit fullscreen icon -->
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="text-base-content h-5 w-5"
+						viewBox="0 0 24 24"
+						fill="currentColor"
+					>
+						<path
+							d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
+						/>
+					</svg>
+				{:else}
+					<!-- Enter fullscreen icon -->
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="text-base-content h-5 w-5"
+						viewBox="0 0 24 24"
+						fill="currentColor"
+					>
+						<path
+							d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"
+						/>
+					</svg>
+				{/if}
 			</button>
 		{/if}
 	</div>
 </div>
 
 <!-- Error Message -->
-{#if error}
+{#if errorMsg}
 	<div class="alert alert-error alert-outline mt-3">
 		<svg
 			xmlns="http://www.w3.org/2000/svg"
@@ -1980,7 +1958,7 @@
 				d="M10 14l2-2m0 0l2-2m-2 2l-2 2m2-2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
 			/>
 		</svg>
-		<span class="text-sm">{error}</span>
+		<span class="text-sm">{errorMsg}</span>
 	</div>
 {/if}
 
@@ -2005,7 +1983,10 @@
 	}
 
 	:global(.task-info-window) {
-		font-family: system-ui, -apple-system, sans-serif;
+		font-family:
+			system-ui,
+			-apple-system,
+			sans-serif;
 	}
 
 	:global(.task-info-window .btn) {
@@ -2033,7 +2014,7 @@
 		:global(.task-info-window .task-info-window-buttons) {
 			flex-direction: column !important;
 		}
-		
+
 		:global(.task-info-window .task-info-window-btn) {
 			width: 100% !important;
 			min-height: 44px !important;
@@ -2047,7 +2028,7 @@
 			flex-direction: row !important;
 			width: 100% !important;
 		}
-		
+
 		:global(.task-info-window .task-info-window-btn) {
 			width: auto !important;
 			min-height: auto !important;

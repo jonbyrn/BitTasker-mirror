@@ -6,6 +6,7 @@
 	import { t } from 'svelte-i18n';
 	import DateInput from '$lib/components/date/DateInput.svelte';
 	import { serializeDateWithLocalTime } from '$lib/utils/helpers/dateFormatter';
+	import { SvelteDate } from 'svelte/reactivity';
 
 	// Props
 	const props = $props<{
@@ -30,9 +31,14 @@
 	// New datetime fields for fixed price bids
 	let startDateTime = $state<Date | null>(null);
 	let endDateTime = $state<Date | null>(null);
+	let scheduleFieldsTouched = $state(false);
+
+	const FIFTEEN_MINUTES_IN_MS = 15 * 60 * 1000;
+	const DEFAULT_START_OFFSET_HOURS = 1;
+	const DEFAULT_DURATION_IN_HOURS = 1;
+	const MS_PER_HOUR = 60 * 60 * 1000;
 
 	// USDT conversion state
-	let usdAmount = $state<number>(0);
 	let hourlyRateUsd = $state<number>(0);
 	let btcPrice = $state<number>(0);
 
@@ -45,6 +51,55 @@
 		}
 	}
 
+	function roundDateToInterval(
+		date: Date,
+		intervalMs = FIFTEEN_MINUTES_IN_MS,
+		direction: 'ceil' | 'floor' = 'ceil'
+	): Date {
+		const rounded = new SvelteDate(date);
+		const remainder = rounded.getTime() % intervalMs;
+		if (remainder === 0) {
+			return rounded;
+		}
+
+		if (direction === 'ceil') {
+			rounded.setTime(rounded.getTime() + (intervalMs - remainder));
+		} else {
+			rounded.setTime(rounded.getTime() - remainder);
+		}
+
+		return rounded;
+	}
+
+	function getDefaultFutureStart(): Date {
+		const now = new SvelteDate();
+		const target = new SvelteDate(now.getTime() + DEFAULT_START_OFFSET_HOURS * MS_PER_HOUR);
+		return roundDateToInterval(target, FIFTEEN_MINUTES_IN_MS, 'ceil');
+	}
+
+	function getDefaultFutureEnd(start: Date): Date {
+		const target = new SvelteDate(start.getTime() + DEFAULT_DURATION_IN_HOURS * MS_PER_HOUR);
+		return roundDateToInterval(target, FIFTEEN_MINUTES_IN_MS, 'ceil');
+	}
+
+	// Prefill schedule fields
+	$effect(() => {
+		if (scheduleFieldsTouched || bidType !== 'FIXED') {
+			return;
+		}
+
+		const preferredStart = getDefaultFutureStart();
+		const preferredEnd = getDefaultFutureEnd(preferredStart);
+
+		if (!startDateTime) {
+			startDateTime = preferredStart;
+		}
+
+		if (!endDateTime) {
+			endDateTime = preferredEnd;
+		}
+	});
+
 	// Handle USD amount changes for USDT
 	function handleUsdChange(event: Event) {
 		let input = cleanInput((event.target as HTMLInputElement).value);
@@ -52,11 +107,9 @@
 
 		const usdValue = parseFloat(input.replace(/,/g, ''));
 		if (!isNaN(usdValue)) {
-			usdAmount = usdValue;
 			const satsValue = satsFromUsd(usdValue, btcPrice);
 			amount = satsValue.toString();
 		} else {
-			usdAmount = 0;
 			amount = '0';
 		}
 	}
@@ -69,10 +122,8 @@
 		const satsValue = parseInt(input.replace(/,/g, ''), 10);
 		if (!isNaN(satsValue)) {
 			amount = satsValue.toString();
-			usdAmount = usdFromSats(satsValue, btcPrice);
 		} else {
 			amount = '0';
-			usdAmount = 0;
 		}
 	}
 
@@ -132,38 +183,6 @@
 			: parseFloat(amount || '0')
 	);
 
-	// Handle payment type change
-	function handlePaymentTypeChange(newType: PaymentType) {
-		if (bidType === newType) return;
-
-		bidType = newType;
-
-		if (newType === 'HOURLY') {
-			// Clear fixed price fields and initialize hourly rate with current USD amount
-			amount = '';
-			if (usdAmount > 0) {
-				// Convert the current USD amount to hourly rate sats
-				const satsValue = satsFromUsd(usdAmount, btcPrice);
-				hourlyRate = satsValue.toString();
-				hourlyRateUsd = usdAmount; // Set the hourly rate USD value
-			} else {
-				hourlyRate = '';
-				hourlyRateUsd = 0;
-			}
-		} else {
-			// Clear hourly rate fields and initialize fixed price with current hourly rate
-			hourlyRate = '';
-			hourlyRateUsd = 0;
-			estimatedHours = '';
-			if (parseInt(hourlyRate || '0') > 0 && parseFloat(estimatedHours || '0') > 0) {
-				// Convert hourly rate to total amount
-				const totalSats = parseInt(hourlyRate) * parseFloat(estimatedHours);
-				amount = totalSats.toString();
-				usdAmount = usdFromSats(totalSats, btcPrice);
-			}
-		}
-	}
-
 	// Helper function to format duration for display
 	function formatDurationForDisplay(): string {
 		if (bidType === 'FIXED' && startDateTime && endDateTime) {
@@ -215,7 +234,9 @@
 			if (!estimatedHours || estimatedHours.trim() === '') {
 				errors.estimatedHours = $t('dashboard.bids.counter_offer.errors.estimated_hours_required');
 			} else if (parseFloat(estimatedHours) <= 0) {
-				errors.estimatedHours = $t('dashboard.bids.counter_offer.errors.estimated_hours_greater_than_zero');
+				errors.estimatedHours = $t(
+					'dashboard.bids.counter_offer.errors.estimated_hours_greater_than_zero'
+				);
 			}
 		}
 
@@ -276,9 +297,7 @@
 
 <div class="bg-base-100 mx-auto max-h-[80vh] max-w-2xl overflow-y-auto rounded-lg shadow-lg">
 	<!-- Header with close button -->
-	<div
-		class="bg-base-100 border-base-300 sticky top-0 z-10 flex items-center justify-between p-4"
-	>
+	<div class="bg-base-100 border-base-300 sticky top-0 z-10 flex items-center justify-between p-4">
 		<h4 class="font-bold">{$t('dashboard.bids.counter_offer.title')}</h4>
 		<button
 			type="button"
@@ -308,7 +327,9 @@
 		<!-- Original bid amount display -->
 		<div class="mb-4 flex items-center justify-between">
 			<div>
-				<span class="text-sm font-medium text-base-content/70">{$t('dashboard.bids.counter_offer.original_bid_amount')}</span>
+				<span class="text-base-content/70 text-sm font-medium"
+					>{$t('dashboard.bids.counter_offer.original_bid_amount')}</span
+				>
 			</div>
 			<div class="text-right">
 				<div class="text-lg font-bold">
@@ -327,8 +348,8 @@
 				handleSubmit();
 			}}
 		>
-		<!-- Payment Type -->
-		<!-- 	<div class="form-control">
+			<!-- Payment Type -->
+			<!-- 	<div class="form-control">
 			<label class="label cursor-pointer" for="payment-type-group">
 				<span class="label-text">Payment Type</span>
 			</label>
@@ -359,253 +380,286 @@
 			</div>
 		</div> -->
 
-		{#if bidType === 'FIXED'}
-			<!-- Fixed price counter offer amount - USD and Sats -->
-			<div class="form-control">
-				<label class="label" for="counter-amount">
-					<span class="label-text font-medium">{$t('dashboard.bids.counter_offer.counter_offer_amount')}</span>
-				</label>
-				<div class="flex gap-2">
-					<div class="relative flex-1">
-						<span class="text-base-content/70 absolute top-1/2 left-3 z-9 -translate-y-1/2">$</span>
-						<input
-							type="text"
-							id="counter-usd"
-							value={formatNumberForInput(props.bid.amount)}
-							onchange={handleUsdChange}
-							oninput={handleUsdChange}
-							class="input input-bordered w-full pl-7 {validationErrors.amount
-								? 'input-error'
-								: ''}"
-							placeholder="0.00"
-							min="0"
-						/>
-					</div>
-					<div class="relative flex-1">
-						<span class="text-base-content/70 absolute top-1/2 right-3 z-9 -translate-y-1/2"
-							>{$t('dashboard.bids.counter_offer.sats')}</span
+			{#if bidType === 'FIXED'}
+				<!-- Fixed price counter offer amount - USD and Sats -->
+				<div class="form-control">
+					<label class="label" for="counter-amount">
+						<span class="label-text font-medium"
+							>{$t('dashboard.bids.counter_offer.counter_offer_amount')}</span
 						>
-						<input
-							type="text"
-							id="counter-sats"
-							value={formatNumberForInput(Math.round((props.bid.amount / btcPrice) * 100_000_000))}
-							onchange={handleSatsChange}
-							oninput={handleSatsChange}
-							class="input input-bordered w-full pr-12 {validationErrors.amount
-								? 'input-error'
-								: ''}"
-							placeholder="0"
-							min="0"
-						/>
+					</label>
+					<div class="flex gap-2">
+						<div class="relative flex-1">
+							<span class="text-base-content/70 absolute top-1/2 left-3 z-9 -translate-y-1/2"
+								>$</span
+							>
+							<input
+								type="text"
+								id="counter-usd"
+								value={formatNumberForInput(props.bid.amount)}
+								onchange={handleUsdChange}
+								oninput={handleUsdChange}
+								class="input input-bordered w-full pl-7 {validationErrors.amount
+									? 'input-error'
+									: ''}"
+								placeholder="0.00"
+								min="0"
+							/>
+						</div>
+						<div class="relative flex-1">
+							<span class="text-base-content/70 absolute top-1/2 right-3 z-9 -translate-y-1/2"
+								>{$t('dashboard.bids.counter_offer.sats')}</span
+							>
+							<input
+								type="text"
+								id="counter-sats"
+								value={formatNumberForInput(
+									Math.round((props.bid.amount / btcPrice) * 100_000_000)
+								)}
+								onchange={handleSatsChange}
+								oninput={handleSatsChange}
+								class="input input-bordered w-full pr-12 {validationErrors.amount
+									? 'input-error'
+									: ''}"
+								placeholder="0"
+								min="0"
+							/>
+						</div>
 					</div>
+					{#if validationErrors.amount}
+						<div class="label">
+							<span id="amount-error" class="label-text-alt text-error"
+								>{validationErrors.amount}</span
+							>
+						</div>
+					{/if}
+					{#if parseInt(amount || '0') > 0}
+						<span class="label-text-alt text-info mt-1 block">
+							{$t('dashboard.bids.counter_offer.btc_price')} ${Math.round(
+								btcPrice
+							).toLocaleString()}
+						</span>
+					{/if}
 				</div>
-				{#if validationErrors.amount}
-					<div class="label">
-						<span id="amount-error" class="label-text-alt text-error"
-							>{validationErrors.amount}</span
-						>
-					</div>
-				{/if}
-				{#if parseInt(amount || '0') > 0}
-					<span class="label-text-alt text-info mt-1 block">
-						{$t('dashboard.bids.counter_offer.btc_price')} ${Math.round(btcPrice).toLocaleString()}
-					</span>
-				{/if}
-			</div>
 
-			<!-- Date and Time Selection for Fixed Price -->
-			<div class="form-control">
-				<label class="label" for="datetime-range">
-					<span class="label-text">{$t('dashboard.bids.counter_offer.date_time_range')}</span>
-				</label>
-				<div class="flex flex-col gap-4">
-					<DateInput
-						bind:value={startDateTime}
-						type="datetime"
-						labelKey="dashboard.bids.counter_offer.airdatepicker.select_start_datetime"
-						placeholderKey="dashboard.bids.counter_offer.airdatepicker.select_start_datetime"
-						minDate={new Date()}
-						maxDate={undefined}
-						timeStep={15}
-						onChange={(date: Date | null) => startDateTime = date}
-						className={validationErrors.datetime ? 'input-error' : ''}
+				<!-- Date and Time Selection for Fixed Price -->
+				<div class="form-control">
+					<label class="label" for="datetime-range">
+						<span class="label-text">{$t('dashboard.bids.counter_offer.date_time_range')}</span>
+					</label>
+					<div class="flex flex-col gap-4">
+						<DateInput
+							bind:value={startDateTime}
+							type="datetime"
+							labelKey="dashboard.bids.counter_offer.airdatepicker.select_start_datetime"
+							placeholderKey="dashboard.bids.counter_offer.airdatepicker.select_start_datetime"
+							minDate={new Date()}
+							maxDate={undefined}
+							timeStep={15}
+							onChange={(date: Date | null) => {
+								startDateTime = date;
+								scheduleFieldsTouched = true;
+							}}
+							className={validationErrors.datetime ? 'input-error' : ''}
+						/>
+						<DateInput
+							bind:value={endDateTime}
+							type="datetime"
+							labelKey="dashboard.bids.counter_offer.airdatepicker.select_end_datetime"
+							placeholderKey="dashboard.bids.counter_offer.airdatepicker.select_end_datetime"
+							minDate={startDateTime || new Date()}
+							maxDate={undefined}
+							timeStep={15}
+							onChange={(date: Date | null) => {
+								endDateTime = date;
+								scheduleFieldsTouched = true;
+							}}
+							className={validationErrors.datetime ? 'input-error' : ''}
+						/>
+					</div>
+					{#if validationErrors.datetime}
+						<div class="label">
+							<span id="datetime-error" class="label-text-alt text-error"
+								>{validationErrors.datetime}</span
+							>
+						</div>
+					{/if}
+					{#if startDateTime && endDateTime}
+						<span class="label-text-alt text-info mt-1 block">
+							{$t('dashboard.bids.counter_offer.duration')}
+							{formatDurationForDisplay()}
+						</span>
+					{/if}
+				</div>
+			{:else}
+				<!-- Hourly rate counter offer details -->
+				<div class="form-control">
+					<label class="label" for="hourly-rate">
+						<span class="label-text font-medium"
+							>{$t('dashboard.bids.counter_offer.hourly_rate')}</span
+						>
+					</label>
+					<div class="flex gap-2">
+						<div class="relative flex-1">
+							<span class="text-base-content/70 absolute top-1/2 left-3 z-10 -translate-y-1/2"
+								>$</span
+							>
+							<input
+								type="text"
+								id="hourly-rate-usd"
+								value={formatNumberForInput(hourlyRateUsd)}
+								onchange={handleHourlyRateUsdChange}
+								oninput={handleHourlyRateUsdChange}
+								class="input input-bordered w-full pl-7 {validationErrors.hourlyRate
+									? 'input-error'
+									: ''}"
+								placeholder="0.00"
+								min="0"
+							/>
+						</div>
+						<div class="relative flex-1">
+							<span class="text-base-content/70 absolute top-1/2 right-3 z-10 -translate-y-1/2"
+								>{$t('dashboard.bids.counter_offer.sats')}</span
+							>
+							<input
+								type="text"
+								id="hourly-rate-sats"
+								value={formatNumberForInput(parseInt(hourlyRate || '0'))}
+								onchange={handleHourlyRateSatsChange}
+								oninput={handleHourlyRateSatsChange}
+								class="input input-bordered w-full pr-12 {validationErrors.hourlyRate
+									? 'input-error'
+									: ''}"
+								placeholder="0"
+								min="0"
+							/>
+						</div>
+					</div>
+					{#if validationErrors.hourlyRate}
+						<div class="label">
+							<span id="hourly-rate-error" class="label-text-alt text-error"
+								>{validationErrors.hourlyRate}</span
+							>
+						</div>
+					{/if}
+					{#if parseInt(hourlyRate || '0') > 0}
+						<span class="label-text-alt text-info mt-1 block">
+							{$t('dashboard.bids.counter_offer.btc_price')} ${btcPrice.toLocaleString()}
+						</span>
+					{/if}
+				</div>
+
+				<!-- Estimated Hours -->
+				<div class="form-control">
+					<label class="label" for="estimated-hours">
+						<span class="label-text font-medium"
+							>{$t('dashboard.bids.counter_offer.estimated_hours')}</span
+						>
+					</label>
+					<input
+						id="estimated-hours"
+						type="text"
+						class="input input-bordered w-full"
+						class:input-error={validationErrors.estimatedHours}
+						aria-invalid={validationErrors.estimatedHours ? 'true' : undefined}
+						aria-describedby={validationErrors.estimatedHours ? 'estimated-hours-error' : undefined}
+						placeholder="e.g., 8, 16, 24"
+						min="1"
+						step="1"
+						value={estimatedHours}
+						onchange={handleEstimatedHoursChange}
+						oninput={handleEstimatedHoursChange}
 					/>
-					<DateInput
-						bind:value={endDateTime}
-						type="datetime"
-						labelKey="dashboard.bids.counter_offer.airdatepicker.select_end_datetime"
-						placeholderKey="dashboard.bids.counter_offer.airdatepicker.select_end_datetime"
-						minDate={startDateTime || new Date()}
-						maxDate={undefined}
-						timeStep={15}
-						onChange={(date: Date | null) => endDateTime = date}
-						className={validationErrors.datetime ? 'input-error' : ''}
-					/>
+					{#if validationErrors.estimatedHours}
+						<div class="label">
+							<span id="estimated-hours-error" class="label-text-alt text-error"
+								>{validationErrors.estimatedHours}</span
+							>
+						</div>
+					{/if}
 				</div>
-				{#if validationErrors.datetime}
-					<div class="label">
-						<span id="datetime-error" class="label-text-alt text-error"
-							>{validationErrors.datetime}</span
+
+				<!-- Estimated total for hourly rate -->
+				<div class="form-control">
+					<label class="label" for="total-estimated-amount">
+						<span class="label-text font-medium"
+							>{$t('dashboard.bids.counter_offer.total_estimated_amount')}</span
 						>
-					</div>
-				{/if}
-				{#if startDateTime && endDateTime}
-					<span class="label-text-alt text-info mt-1 block">
-						{$t('dashboard.bids.counter_offer.duration')} {formatDurationForDisplay()}
-					</span>
-				{/if}
-			</div>
-		{:else}
-			<!-- Hourly rate counter offer details -->
-			<div class="form-control">
-				<label class="label" for="hourly-rate">
-					<span class="label-text font-medium">{$t('dashboard.bids.counter_offer.hourly_rate')}</span>
-				</label>
-				<div class="flex gap-2">
-					<div class="relative flex-1">
-						<span class="text-base-content/70 absolute top-1/2 left-3 z-10 -translate-y-1/2">$</span
-						>
-						<input
-							type="text"
-							id="hourly-rate-usd"
-							value={formatNumberForInput(hourlyRateUsd)}
-							onchange={handleHourlyRateUsdChange}
-							oninput={handleHourlyRateUsdChange}
-							class="input input-bordered w-full pl-7 {validationErrors.hourlyRate
-								? 'input-error'
-								: ''}"
-							placeholder="0.00"
-							min="0"
-						/>
-					</div>
-					<div class="relative flex-1">
-						<span class="text-base-content/70 absolute top-1/2 right-3 z-10 -translate-y-1/2"
-							>{$t('dashboard.bids.counter_offer.sats')}</span
-						>
-						<input
-							type="text"
-							id="hourly-rate-sats"
-							value={formatNumberForInput(parseInt(hourlyRate || '0'))}
-							onchange={handleHourlyRateSatsChange}
-							oninput={handleHourlyRateSatsChange}
-							class="input input-bordered w-full pr-12 {validationErrors.hourlyRate
-								? 'input-error'
-								: ''}"
-							placeholder="0"
-							min="0"
-						/>
+					</label>
+					<div class="bg-base-200 rounded-md p-3">
+						<div class="text-lg font-semibold">
+							${(
+								(parseInt(hourlyRate || '0') / 100_000_000) *
+								btcPrice *
+								parseFloat(estimatedHours || '0')
+							).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+						</div>
+						<div class="text-sm opacity-70">
+							{parseInt(hourlyRate || '0').toLocaleString('en-US')}
+							{$t('dashboard.bids.counter_offer.sats')} × {parseFloat(
+								estimatedHours || '0'
+							).toLocaleString('en-US')}
+							{$t('dashboard.bids.counter_offer.hours')}
+						</div>
+						<div class="mt-1 text-sm opacity-70">
+							≈ {(parseInt(hourlyRate || '0') * parseFloat(estimatedHours || '0')).toLocaleString(
+								'en-US'
+							)}
+							{$t('dashboard.bids.counter_offer.sats')}
+						</div>
 					</div>
 				</div>
-				{#if validationErrors.hourlyRate}
-					<div class="label">
-						<span id="hourly-rate-error" class="label-text-alt text-error"
-							>{validationErrors.hourlyRate}</span
-						>
-					</div>
-				{/if}
-				{#if parseInt(hourlyRate || '0') > 0}
-					<span class="label-text-alt text-info mt-1 block">
-						{$t('dashboard.bids.counter_offer.btc_price')} ${btcPrice.toLocaleString()}
-					</span>
-				{/if}
-			</div>
-
-			<!-- Estimated Hours -->
-			<div class="form-control">
-				<label class="label" for="estimated-hours">
-					<span class="label-text font-medium">{$t('dashboard.bids.counter_offer.estimated_hours')}</span>
-				</label>
-				<input
-					id="estimated-hours"
-					type="text"
-					class="input input-bordered w-full"
-					class:input-error={validationErrors.estimatedHours}
-					aria-invalid={validationErrors.estimatedHours ? 'true' : undefined}
-					aria-describedby={validationErrors.estimatedHours ? 'estimated-hours-error' : undefined}
-					placeholder="e.g., 8, 16, 24"
-					min="1"
-					step="1"
-					value={estimatedHours}
-					onchange={handleEstimatedHoursChange}
-					oninput={handleEstimatedHoursChange}
-				/>
-				{#if validationErrors.estimatedHours}
-					<div class="label">
-						<span id="estimated-hours-error" class="label-text-alt text-error"
-							>{validationErrors.estimatedHours}</span
-						>
-					</div>
-				{/if}
-			</div>
-
-			<!-- Estimated total for hourly rate -->
-			<div class="form-control">
-				<label class="label" for="total-estimated-amount">
-					<span class="label-text font-medium">{$t('dashboard.bids.counter_offer.total_estimated_amount')}</span>
-				</label>
-				<div class="bg-base-200 rounded-md p-3">
-					<div class="text-lg font-semibold">
-						${(
-							(parseInt(hourlyRate || '0') / 100_000_000) *
-							btcPrice *
-							parseFloat(estimatedHours || '0')
-						).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-					</div>
-					<div class="text-sm opacity-70">
-						{parseInt(hourlyRate || '0').toLocaleString('en-US')} {$t('dashboard.bids.counter_offer.sats')} × {parseFloat(
-							estimatedHours || '0'
-						).toLocaleString('en-US')} {$t('dashboard.bids.counter_offer.hours')}
-					</div>
-					<div class="mt-1 text-sm opacity-70">
-						≈ {(parseInt(hourlyRate || '0') * parseFloat(estimatedHours || '0')).toLocaleString(
-							'en-US'
-						)} {$t('dashboard.bids.counter_offer.sats')}
-					</div>
-				</div>
-			</div>
-		{/if}
-
-		<!-- Message -->
-		<div class="form-control flex flex-col">
-			<label class="label" for="counter-message">
-				<span class="label-text">{$t('dashboard.bids.counter_offer.message')}</span>
-			</label>
-			<textarea
-				id="counter-message"
-				class="textarea textarea-bordered h-12 w-full"
-				class:textarea-error={validationErrors.message}
-				oninput={(e) => (message = (e.target as HTMLTextAreaElement).value)}
-				placeholder={$t('dashboard.bids.counter_offer.message_placeholder')}
-				aria-invalid={validationErrors.message ? 'true' : undefined}
-				aria-describedby={validationErrors.message ? 'message-error' : undefined}
-				>{message}</textarea
-			>
-			{#if validationErrors.message}
-				<label class="label" for="counter-message">
-					<span id="message-error" class="label-text-alt text-error"
-						>{validationErrors.message}</span
-					>
-				</label>
 			{/if}
-		</div>
 
-		<!-- Submit Buttons - Mobile: Stacked, Desktop: Side by side -->
-		<div
-			class="bg-base-100 border-base-300 sticky bottom-0 flex w-full flex-col justify-end gap-3 py-4 sm:flex-row md:py-2"
-		>
-			<button
-				type="button"
-				class="btn btn-error"
-				onclick={props.onCancel}
-				disabled={isSubmitting}
+			<!-- Message -->
+			<div class="form-control flex flex-col">
+				<label class="label" for="counter-message">
+					<span class="label-text">{$t('dashboard.bids.counter_offer.message')}</span>
+				</label>
+				<textarea
+					id="counter-message"
+					class="textarea textarea-bordered h-12 w-full"
+					class:textarea-error={validationErrors.message}
+					oninput={(e) => (message = (e.target as HTMLTextAreaElement).value)}
+					placeholder={$t('dashboard.bids.counter_offer.message_placeholder')}
+					aria-invalid={validationErrors.message ? 'true' : undefined}
+					aria-describedby={validationErrors.message ? 'message-error' : undefined}
+					>{message}</textarea
+				>
+				{#if validationErrors.message}
+					<label class="label" for="counter-message">
+						<span id="message-error" class="label-text-alt text-error"
+							>{validationErrors.message}</span
+						>
+					</label>
+				{/if}
+			</div>
+
+			<!-- Submit Buttons - Mobile: Stacked, Desktop: Side by side -->
+			<div
+				class="bg-base-100 border-base-300 sticky bottom-0 flex w-full flex-col justify-end gap-3 py-4 sm:flex-row md:py-2"
 			>
-				{$t('dashboard.bids.counter_offer.cancel')}
-			</button>
-			<button type="submit" class="btn btn-primary" disabled={isSubmitting}>
-				<span class="hidden sm:inline">{isSubmitting ? $t('dashboard.bids.counter_offer.submitting') : $t('dashboard.bids.counter_offer.send_counter_offer')}</span>
-				<span class="sm:hidden">{isSubmitting ? $t('dashboard.bids.counter_offer.submitting') : $t('dashboard.bids.counter_offer.send_offer')}</span>
-			</button>
-		</div>
-	</form>
+				<button
+					type="button"
+					class="btn btn-error"
+					onclick={props.onCancel}
+					disabled={isSubmitting}
+				>
+					{$t('dashboard.bids.counter_offer.cancel')}
+				</button>
+				<button type="submit" class="btn btn-primary" disabled={isSubmitting}>
+					<span class="hidden sm:inline"
+						>{isSubmitting
+							? $t('dashboard.bids.counter_offer.submitting')
+							: $t('dashboard.bids.counter_offer.send_counter_offer')}</span
+					>
+					<span class="sm:hidden"
+						>{isSubmitting
+							? $t('dashboard.bids.counter_offer.submitting')
+							: $t('dashboard.bids.counter_offer.send_offer')}</span
+					>
+				</button>
+			</div>
+		</form>
 	</div>
 </div>

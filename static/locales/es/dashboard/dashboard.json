@@ -210,7 +210,6 @@
 				"accepted": "Aceptado",
 				"rejected": "Rechazado",
 				"pending": "Pendiente",
-				"accept": "Aceptar",
 				"bid_rejected_message": "Tu oferta ha sido rechazada por el propietario de la tarea.",
 				"bid_accepted_message": "¡Felicidades! Tu oferta ha sido aceptada. El contrato de pago seguro ha sido creado.",
 				"bid_already_accepted": "Esta oferta ya ha sido aceptada.",
@@ -716,3 +715,4 @@
 		}
 	}
 }
+
