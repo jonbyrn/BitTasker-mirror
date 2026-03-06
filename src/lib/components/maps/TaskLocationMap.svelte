@@ -16,18 +16,23 @@
 	import { locale } from 'svelte-i18n';
 	import { get } from 'svelte/store';
 	import { SvelteSet } from 'svelte/reactivity';
+	import { getServiceDisplayTitle, getServiceDisplayDescription } from '$lib/utils/serviceDisplayTranslation';
+	import { goto } from '$app/navigation';
 
 	let {
 		tasks = [],
 		services = [],
 		height = '60vh',
 		selectedTask = null,
+		selectedService = null,
 		showFullscreen = true,
 		btcPrice = 0,
 		formatDateTimeReactive,
 		formatDateRangeReactive,
 		onSelectTask,
 		onViewTask,
+		onServiceSelected,
+		onViewService,
 		drawersLoaded = false,
 		loadDrawerComponents
 	} = $props<{
@@ -35,12 +40,15 @@
 		services?: Service[];
 		height?: string;
 		selectedTask?: Task | null;
+		selectedService?: Service | null;
 		showFullscreen?: boolean;
 		btcPrice?: number;
 		formatDateTimeReactive?: (dateString: string) => string;
 		formatDateRangeReactive?: (start: string, end: string) => string;
 		onSelectTask?: (task: Task) => Promise<void>;
 		onViewTask?: (task: Task) => Promise<void>;
+		onServiceSelected?: (event: { service: Service }) => void;
+		onViewService?: (service: Service) => void;
 		drawersLoaded?: boolean;
 		loadDrawerComponents?: () => Promise<void>;
 	}>();
@@ -58,6 +66,8 @@
 	let googleMapsReady = $state(false);
 	let lastTaskIds = $state('');
 	let lastSelectedTaskId = $state<string | null>(null);
+	let lastSelectedServiceId = $state<string | null>(null);
+	let serviceMarkerByPosition = new Map<string, google.maps.marker.AdvancedMarkerElement>();
 	let serviceRadius = $state(5); // Default to 5 km
 	let isLoading = $state(true);
 	let userLocation: Location | null = $state(null);
@@ -933,10 +943,29 @@
 				throw new Error('Map element not found');
 			}
 
-			// Determine map center: first task pickup location > user location > default
+			// Determine map center: first task/service location > user location > default (same logic for tasks and services)
 			let centerLocation: Location;
 
-			if (tasks.length > 0) {
+			if (isServicesMode && services.length > 0) {
+				const firstServiceLoc = getServiceLocation(services[0]);
+				if (firstServiceLoc?.latitude != null && firstServiceLoc?.longitude != null) {
+					centerLocation = {
+						displayName: firstServiceLoc.displayName || 'Service Location',
+						latitude: firstServiceLoc.latitude,
+						longitude: firstServiceLoc.longitude,
+						zipCode: firstServiceLoc.zipCode || '',
+						locationLoaded: true
+					};
+				} else {
+					centerLocation = userLocation || {
+						displayName: 'Centroamérica',
+						latitude: 13.6929,
+						longitude: -89.2182,
+						zipCode: '',
+						locationLoaded: false
+					};
+				}
+			} else if (tasks.length > 0) {
 				// Use first task's pickup location if available
 				const firstTask = tasks[0];
 				if (firstTask.pickupLocation?.latitude && firstTask.pickupLocation.longitude) {
@@ -948,7 +977,6 @@
 						locationLoaded: true
 					};
 				} else {
-					// Fallback to user location or default
 					centerLocation = userLocation || {
 						displayName: 'Centroamérica',
 						latitude: 13.6929,
@@ -958,7 +986,6 @@
 					};
 				}
 			} else {
-				// Fallback to user location or default
 				centerLocation = userLocation || {
 					displayName: 'Centroamérica',
 					latitude: 13.6929,
@@ -1207,66 +1234,137 @@
 		return 'Remote';
 	}
 
-	/* function generateServiceInfoWindowContent(service: Service): string {
+	/**
+	 * Generate HTML content for Service InfoWindow (matches Task info window design)
+	 */
+	function generateServiceInfoWindowContent(service: Service): string {
 		const escapeHtml = (text: string): string => {
 			const div = document.createElement('div');
 			div.textContent = text;
 			return div.innerHTML;
 		};
+		const escapeAttr = (text: string): string =>
+			text.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
 		const currentLocale = get(locale) || 'en';
 		const displayTitle = getServiceDisplayTitle(service, currentLocale) || 'Service';
 		const displayDescription = getServiceDisplayDescription(service, currentLocale) || '';
-		const title = escapeHtml(displayTitle);
-		const desc = displayDescription.substring(0, 120);
-		const escapedDesc = escapeHtml(desc + (displayDescription.length > 120 ? '...' : ''));
+		const desc = (displayDescription || '').substring(0, 150);
+		const escapedDesc = escapeHtml(desc + (displayDescription && displayDescription.length > 150 ? '...' : ''));
+		const escapedTitle = escapeHtml(displayTitle);
 		const price = getServicePricingDisplay(service);
 		const locationText = escapeHtml(getServiceLocationDisplay(service));
 		const username = escapeHtml(service.creator?.username || 'Provider');
+		const rating = service.creator?.rating || 0;
 		const viewText = $t('dashboard.services.browse.view_service') || 'View Service';
-		const serviceId = service.uniqueId || service.id;
+		const serviceId = escapeAttr(service.uniqueId || service.id);
+
+		const starsHtml = Array(5)
+			.fill(0)
+			.map(
+				(_, i) =>
+					`<svg style="width:6px;height:6px" class="${i < rating ? 'text-yellow-400' : 'text-base-content/30'}" fill="currentColor" viewBox="0 0 24 24">
+				<path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+			</svg>`
+			)
+			.join('');
+
+		let avatarHtml = '';
+		if (service.creator?.avatar) {
+			avatarHtml = `<img src="${escapeAttr(service.creator.avatar)}" alt="Avatar" class="h-5 w-5 rounded-full object-cover" />`;
+		} else if (service.creator?.username) {
+			const initial = service.creator.username.charAt(0).toUpperCase();
+			avatarHtml = `<div class="bg-primary text-primary-content flex h-5 w-5 items-center justify-center rounded-full text-xs font-semibold">${initial}</div>`;
+		} else {
+			avatarHtml = `<div class="bg-base-300 flex h-5 w-5 items-center justify-center rounded-full">
+				<svg class="h-3 w-3 text-base-content/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+				</svg>
+			</div>`;
+		}
+
 		return `
-			<div class="service-info-window" style="min-width: 260px; max-width: 320px; font-family: system-ui, sans-serif;">
-				<div class="card bg-base-100 rounded-xl shadow-md" style="border: none;">
-					<div class="card-body rounded-xl p-4">
-						<div style="margin-bottom: 12px;">
-							<h3 style="font-size: 18px; font-weight: 600; margin: 0; -webkit-line-clamp: 2; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical;">${title}</h3>
-							<p style="font-size: 14px; color: hsl(var(--bc) / 0.8); margin-top: 4px; -webkit-line-clamp: 2; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical;">${escapedDesc}</p>
+			<div class="task-info-window task-info-window-compact" style="min-width: 260px; max-width: 300px; font-family: system-ui, -apple-system, sans-serif; padding: 0; margin: 0;">
+				<div class="card bg-base-100 rounded-xl shadow-md" style="border: none; margin: 0;">
+					<div class="card-body rounded-xl" style="padding: 6px 12px 6px 12px;">
+						<!-- Top Row: Title + Price -->
+						<div style="margin-bottom: 3px; display: flex; flex-direction: row; align-items: stretch; justify-content: space-between; gap: 6px;">
+							<div style="flex: 1; min-width: 0; padding-right: 6px;">
+								<h3 class="card-title" style="font-size: 13px; font-weight: 600; line-height: 1.3; margin: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">
+									${escapedTitle}
+								</h3>
+								<p style="font-size: 11px; color: hsl(var(--bc) / 0.8); margin-top: 2px; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; white-space: pre-line;">
+									${escapedDesc}
+								</p>
+							</div>
+							<div style="flex-shrink: 0; text-align: right; font-size: 13px; font-weight: bold;">
+								${price}
+							</div>
 						</div>
-						<div style="margin-bottom: 12px; font-size: 20px; font-weight: bold;">${price}</div>
-						<div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
-							<svg class="text-primary" style="width: 20px; height: 20px; flex-shrink: 0;" viewBox="0 0 24 24" fill="currentColor"><path d="M12,2C8.13,2 5,5.13 5,9C5,14.25 12,22 12,22C12,22 19,14.25 19,9C19,5.13 15.87,2 12,2M12,11.5A2.5,2.5 0 0,1 9.5,9A2.5,2.5 0 0,1 12,6.5A2.5,2.5 0 0,1 14.5,9A2.5,2.5 0 0,1 12,11.5Z"/></svg>
-							<span style="font-size: 14px;">${locationText}</span>
+						<!-- Location -->
+						<div style="margin-bottom: 3px; display: flex; align-items: center; gap: 4px;">
+							<svg class="text-primary" style="width: 18px; height: 18px; flex-shrink: 0;" viewBox="0 0 24 24" fill="currentColor">
+								<path d="M12,2C8.13,2 5,5.13 5,9C5,14.25 12,22 12,22C12,22 19,14.25 19,9C19,5.13 15.87,2 12,2M12,11.5A2.5,2.5 0 0,1 9.5,9A2.5,2.5 0 0,1 12,6.5A2.5,2.5 0 0,1 14.5,9A2.5,2.5 0 0,1 12,11.5Z"/>
+							</svg>
+							<span style="font-size: 12px; font-weight: 500; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical;">${locationText}</span>
 						</div>
-						<div style="font-size: 14px; color: hsl(var(--bc) / 0.7); margin-bottom: 12px;">${username}</div>
-						<button class="btn btn-primary btn-sm" style="width: 100%; min-height: 44px;" data-service-id="${serviceId}" data-action="view" onclick="window.handleMapServiceInfoWindowAction(event, '${serviceId.replace(/'/g, "\\'")}')">${viewText}</button>
+						<!-- Provider Info + Stars (compact single row) -->
+						<div style="display: flex; align-items: center; gap: 6px; margin-bottom: 2px;">
+							<div class="avatar" style="flex-shrink: 0; width: 20px; height: 20px; min-width: 20px; overflow: hidden;">${avatarHtml}</div>
+							<span style="font-size: 11px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0;">${username}</span>
+							<div style="display: flex; align-items: center; gap: 1px; flex-shrink: 0;">
+								${starsHtml}
+								<span style="font-size: 10px; color: hsl(var(--bc) / 0.6); margin-left: 1px;">${rating}</span>
+							</div>
+						</div>
+						<!-- Ver Button -->
+						<div class="task-info-window-buttons flex flex-col gap-2 lg:flex-row" style="width: 100%; margin-top: 0; padding-top: 0;">
+							<button class="btn btn-secondary btn-sm task-info-window-btn" style="width: 100%; min-height: 24px !important; padding: 2px 8px !important; font-size: 11px;" data-service-id="${serviceId}" data-action="view" onclick="window.handleMapServiceInfoWindowAction(event, '${serviceId.replace(/'/g, "\\'")}')">
+								<svg style="width: 12px; height: 12px; margin-right: 3px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+								</svg>
+								${viewText}
+							</button>
+						</div>
 					</div>
 				</div>
-			</div>`;
-	} */
+			</div>
+		`;
+	}
 
-	/* function showServiceInfoWindow(service: Service, marker: google.maps.marker.AdvancedMarkerElement) {
+	function showServiceInfoWindow(service: Service, marker: google.maps.marker.AdvancedMarkerElement) {
 		if (!map) return;
-		if (infoWindow) infoWindow.close();
+		if (!service) return;
+		closeInfoWindow();
 		try {
-			infoWindow = new google.maps.InfoWindow({ content: generateServiceInfoWindowContent(service), maxWidth: 320 });
-			//openInfoWindowMarker = marker;
+			infoWindow = new google.maps.InfoWindow({
+				content: generateServiceInfoWindowContent(service),
+				maxWidth: 320
+			});
 			infoWindow.open({ anchor: marker, map });
+
 			const currentServices: Service[] = services;
-			(window as any).handleMapServiceInfoWindowAction = (event: Event, serviceId: string) => {
+			(window as unknown as Record<string, unknown>).handleMapServiceInfoWindowAction = (
+				event: Event,
+				serviceId: string
+			) => {
 				event.preventDefault();
 				event.stopPropagation();
 				const svc = currentServices.find((s) => (s.uniqueId || s.id) === serviceId);
 				if (svc) {
 					onServiceSelected?.({ service: svc });
-					if (typeof window !== 'undefined' && (window as any).goto) {
-						(window as any).goto(`/services/${serviceId}`);
-					} 
+					if (onViewService) {
+						onViewService(svc);
+					} else {
+						goto(`/services/${serviceId}`);
+					}
 				}
 			};
 		} catch (e) {
 			console.error('Error showing service InfoWindow:', e);
 		}
-	} */
+	}
 
 	async function createServiceMarker(
 		lat: number,
@@ -1292,10 +1390,28 @@
 				content: markerContainer,
 				gmpDraggable: false
 			});
+
+			const posKey = `${lat.toFixed(4)},${lng.toFixed(4)}`;
+			serviceMarkerByPosition.set(posKey, marker);
+
 			marker.addListener('click', () => {
 				hideAllCircles();
-				/* showServiceInfoWindow(service, marker);
-				onServiceSelected?.({ service }); */
+				showCircleForMarker(lat, lng);
+
+				const position = { lat, lng };
+				const circle = circles.find(
+					(c) => c.getCenter()?.lat() === lat && c.getCenter()?.lng() === lng
+				);
+				if (circle) {
+					const bounds = circle.getBounds();
+					if (bounds && map) map.fitBounds(bounds);
+					const currentZoom = map?.getZoom() || 0;
+					if (currentZoom > 14 && map) map.setZoom(14);
+					if (map) map.panTo(position);
+				}
+
+				onServiceSelected?.({ service });
+				showServiceInfoWindow(service, marker);
 			});
 			return marker;
 		} catch (error) {
@@ -1509,6 +1625,7 @@
 			if (marker) marker.map = null;
 		});
 		markers = [];
+		serviceMarkerByPosition.clear();
 	}
 
 	function clearCircles() {
@@ -1564,6 +1681,31 @@
 				map.panTo(position);
 			}
 		}
+	}
+
+	function highlightServiceOnMap(service: Service) {
+		if (!map || !isMapLoaded) return;
+		const loc = getServiceLocation(service);
+		if (!loc?.latitude || loc.longitude == null) return;
+
+		hideAllCircles();
+		showCircleForMarker(loc.latitude, loc.longitude);
+
+		const position = { lat: loc.latitude, lng: loc.longitude };
+		const circle = circles.find(
+			(c) => c.getCenter()?.lat() === loc.latitude && c.getCenter()?.lng() === loc.longitude
+		);
+		if (circle) {
+			const bounds = circle.getBounds();
+			if (bounds) map.fitBounds(bounds);
+			const currentZoom = map.getZoom() || 0;
+			if (currentZoom > 14) map.setZoom(14);
+			map.panTo(position);
+		}
+
+		const posKey = `${loc.latitude.toFixed(4)},${loc.longitude.toFixed(4)}`;
+		const marker = serviceMarkerByPosition.get(posKey);
+		if (marker) showServiceInfoWindow(service, marker);
 	}
 
 	// Function to update map element height
@@ -1765,6 +1907,19 @@
 		}
 	});
 
+	// Watch for selectedService changes - same as tasks
+	$effect.pre(() => {
+		if (selectedService && map && isMapLoaded && isServicesMode) {
+			const currentId = selectedService.uniqueId || selectedService.id;
+			if (currentId !== lastSelectedServiceId) {
+				lastSelectedServiceId = currentId;
+				requestAnimationFrame(() => {
+					highlightServiceOnMap(selectedService);
+				});
+			}
+		}
+	});
+
 	onMount(async () => {
 		try {
 			// Get user location first - this is now the primary way to determine map center
@@ -1820,9 +1975,12 @@
 		if (map) {
 			google.maps.event.clearInstanceListeners(map);
 		}
-		// Clean up global handler
+		// Clean up global handlers
 		if ((window as unknown as Record<string, unknown>).handleMapInfoWindowAction) {
 			delete (window as unknown as Record<string, unknown>).handleMapInfoWindowAction;
+		}
+		if ((window as unknown as Record<string, unknown>).handleMapServiceInfoWindowAction) {
+			delete (window as unknown as Record<string, unknown>).handleMapServiceInfoWindowAction;
 		}
 	});
 </script>
@@ -1967,15 +2125,53 @@
 		z-index: 9999;
 	}
 
-	/* Style InfoWindow content to match theme (evita fondo blanco en popup de servicios) */
+	/* Style InfoWindow - solid dark, no white margin/border */
+	:global(.gm-style .gm-style-iw) {
+		padding: 0 !important;
+		background-color: hsl(var(--b1)) !important;
+		border: none !important;
+		outline: none !important;
+	}
+
 	:global(.gm-style .gm-style-iw-c) {
 		padding: 0 !important;
 		border-radius: 0.75rem !important;
+		background-color: hsl(var(--b1)) !important;
+		border: none !important;
+		box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3) !important;
 	}
 
 	:global(.gm-style .gm-style-iw-d) {
 		overflow: hidden !important;
 		background-color: hsl(var(--b1)) !important;
+		padding: 0 !important;
+		border: none !important;
+	}
+
+	:global(.gm-style .gm-style-iw-tc) {
+		background-color: hsl(var(--b1)) !important;
+		border: none !important;
+	}
+
+	:global(.gm-style .gm-style-iw-tc::after) {
+		background: hsl(var(--b1)) !important;
+	}
+
+	:global(.gm-style .gm-style-iw-chr) {
+		top: 4px !important;
+		right: 4px !important;
+	}
+
+	:global(.gm-style .gm-style-iw-t) {
+		padding: 0 !important;
+		background-color: hsl(var(--b1)) !important;
+		border: none !important;
+	}
+
+	/* Remove default light border/shadow that creates white margin effect */
+	:global(.gm-style .gm-style-iw),
+	:global(.gm-style .gm-style-iw-t) {
+		box-shadow: none !important;
 	}
 
 	:global(.service-info-window) {
@@ -2000,6 +2196,10 @@
 		justify-content: center;
 	}
 
+	:global(.task-info-window-compact .task-info-window-btn) {
+		min-height: 24px !important;
+	}
+
 	:global(.task-info-window .btn:hover) {
 		opacity: 0.9;
 		transform: translateY(-1px);
@@ -2019,6 +2219,10 @@
 			width: 100% !important;
 			min-height: 44px !important;
 			flex: none !important;
+		}
+
+		:global(.task-info-window-compact .task-info-window-btn) {
+			min-height: 24px !important;
 		}
 	}
 

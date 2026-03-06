@@ -7,14 +7,33 @@
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { satsFromUsd } from '$lib/utils/helpers/crypto';
 	import { ServicePricingTypeEnum, ServiceLocationTypeEnum } from '$lib/utils/enums/service.enum';
-	import { json } from '@sveltejs/kit';
 	import Avatar from '../Avatar.svelte';
+	import ServiceShareButton from './ServiceShareButton.svelte';
+	import IconEye from '~icons/mdi/eye';
+	import IconPlus from '~icons/mdi/plus';
 
-	const { service, btcPrice, onclick } = $props<{
+	const { service, btcPrice, onclick, selectedService, onSelectServiceForMap, isMapVisible, onRequestQuote } = $props<{
 		service: Service;
 		btcPrice: number;
 		onclick?: () => void;
+		selectedService?: Service | null;
+		onSelectServiceForMap?: (service: Service) => void;
+		isMapVisible?: boolean;
+		onRequestQuote?: (service: Service) => void;
 	}>();
+
+	const isInquiryRequired = $derived(
+		service.pricing?.type === ServicePricingTypeEnum.INQUIRY_REQUIRED
+	);
+
+	function formatMemberSince(timestamp: number): string {
+		try {
+			const date = new Date(timestamp * 1000);
+			return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+		} catch {
+			return '';
+		}
+	}
 
 	// Helper function to get pricing display
 	function getPricingDisplay(): string {
@@ -82,7 +101,7 @@
 			.join(', ');
 	}
 
-	// Handle card click
+	// Handle card click - when map visible: select on map; otherwise go to detail (same as TaskCard)
 	function handleCardClick(e: MouseEvent | KeyboardEvent): void {
 		if (e.type === 'keydown') {
 			const keyEvent = e as KeyboardEvent;
@@ -92,8 +111,17 @@
 			keyEvent.preventDefault();
 		}
 
-		const serviceIdentifier = service.uniqueId || service.id;
-		goto(`/services/${serviceIdentifier}`);
+		// Don't handle if click came from a button
+		if ((e.target as HTMLElement).closest('button')) {
+			return;
+		}
+
+		if (isMapVisible && onSelectServiceForMap) {
+			onSelectServiceForMap(service);
+		} else {
+			const serviceIdentifier = service.uniqueId || service.id;
+			goto(`/services/${serviceIdentifier}`);
+		}
 		if (onclick) {
 			onclick();
 		}
@@ -123,14 +151,17 @@
 </script>
 
 <div
-	class="card bg-base-100 shadow-md hover:shadow-xl transition-all cursor-pointer overflow-hidden h-full flex flex-col"
+	class="card bg-base-100 rounded-xl shadow-md hover:shadow-xl transition-all cursor-pointer overflow-hidden h-full flex flex-col gap-0 p-0"
+	class:bg-base-300={selectedService && (service.uniqueId || service.id) === (selectedService.uniqueId || selectedService.id)}
+	class:border-primary={selectedService && (service.uniqueId || service.id) === (selectedService.uniqueId || selectedService.id)}
+	class:border-2={selectedService && (service.uniqueId || service.id) === (selectedService.uniqueId || selectedService.id)}
 	role="button"
 	tabindex="0"
 	onclick={handleCardClick}
 	onkeydown={handleCardClick}
 >
-	<!-- Portfolio Image - Larger, more prominent with carousel if multiple images -->
-	<figure class="relative w-full h-48 overflow-hidden bg-base-200 shrink-0">
+	<!-- Portfolio Image - Compact (50% smaller) -->
+	<figure class="relative w-full h-[88px] overflow-hidden bg-base-200 shrink-0 rounded-t-xl mt-0">
 		{#if portfolioImages.length > 0}
 			<div class="relative h-full w-full">
 				<img
@@ -187,16 +218,16 @@
 					{/if}
 					<!-- Image Indicators -->
 					<div class="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
-						{#each portfolioImages.slice(0, 5) as _, i}
+						{#each portfolioImages.slice(0, 5) as img, idx (img?.url ?? idx)}
 							<button
-								class="h-1.5 rounded-full transition-all {i === currentImageIndex
+								class="h-1.5 rounded-full transition-all {idx === currentImageIndex
 									? 'w-4 bg-base-100'
 									: 'w-1.5 bg-base-100/50'}"
 								onclick={(e) => {
 									e.stopPropagation();
-									currentImageIndex = i;
+									currentImageIndex = idx;
 								}}
-								aria-label="Go to image {i + 1}"
+								aria-label="Go to image {idx + 1}"
 							></button>
 						{/each}
 					</div>
@@ -222,112 +253,59 @@
 		{/if}
 	</figure>
 
-	<!-- Card Body -->
-	<div class="card-body p-4 flex-1 flex flex-col">
-		<!-- Provider Info - Single line, compact with rating (stars flush right) -->
-		{#if service.creator}
-			<div class="flex w-full items-center justify-between gap-2 -mr-4">
-				{#if service.creator.avatar}
-					<div class="avatar shrink-0">
-						<div class="">
-							<Avatar name={service.creator.name} picture={service.creator.avatar} size="sm" />
-						</div>		
-					</div>	
-				{:else}
-					<div class="avatar shrink-0">
-						<div class="">
-							<Avatar name={service.creator.name} size="sm" />
-						</div>
-					</div>
-				{/if}
-				<span class="text-sm font-medium text-base-content truncate min-w-0 flex-1">{service.creator.name || service.creator.username}</span>
-				<!-- Rating Stars - right-aligned -->
-				<div class="flex items-center shrink-0">
-					{#each Array(5) as _, i}
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="h-3 w-3 text-base-content/40"
-							fill="currentColor"
-							viewBox="0 0 24 24"
-						>
-							<path
-								d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
-							/>
-						</svg>
-					{/each}
-					<span class="text-base-content/60 ml-1 text-xs">
-						{rating.toFixed(1)}
-					</span>
-				</div>
+	<!-- Card Body - Same layout as TaskCard: Title+Price+Share | Location (arriba) | Description | Provider+Ver (abajo) -->
+	<div class="card-body rounded-b-xl p-4 flex-1 flex flex-col">
+		<!-- Top Row: Title + Share + Price (matches TaskCard: Title + Status+Share+Price) -->
+		<div class="mb-3 flex flex-row items-stretch justify-between gap-2">
+			<div class="min-w-0 flex-1 pr-2 md:pr-4">
+				<span class="card-title line-clamp-2 text-lg font-semibold text-base-content">
+					{displayTitle}
+				</span>
+				<p class="text-sm text-base-content/80 whitespace-pre-line line-clamp-2 mt-1">
+					{displayDescription}
+				</p>
 			</div>
-		{/if}
-
-		<!-- Service Title with Price - Larger, more prominent (locale-aware) -->
-		<div class="flex items-start justify-between gap-2">
-			<span class="text-sm font-semibold line-clamp-2 text-base-content hover:text-primary transition-colors">
-				{displayTitle}
-			</span>
-			<!-- Price - Next to title -->
-			<div class="text-right shrink-0">
-				<div class="text-base font-bold leading-tight">{getPricingDisplay()}</div>
-				{#if service.pricing?.type === ServicePricingTypeEnum.FIXED && service.pricing.amount}
-					<div class="text-base-content/60 text-sm">
-						{satsFromUsd(service.pricing.amount, btcPrice)}
-					</div>
-				{:else if service.pricing?.type === ServicePricingTypeEnum.HOURLY && service.pricing.hourlyRate}
-					<div class="text-xs text-base-content/60 leading-tight">
-						{satsFromUsd(service.pricing.hourlyRate, btcPrice)}/hr
-					</div>
-				{:else if service.pricing?.type === ServicePricingTypeEnum.TIERED && service.pricing.tiers && service.pricing.tiers.length > 0}
-					<div class="text-xs text-base-content/60 leading-tight">
-						{satsFromUsd(
-							Math.min(
-								...service.pricing.tiers
-									.map((tier: ServiceTier) => tier.price || 0)
-									.filter((price: number) => price > 0)
-							),
-							btcPrice
-						)}
-					</div>
-				{/if}
+			<div class="flex shrink-0 flex-col items-end gap-2">
+				<span
+					role="presentation"
+					class="shrink-0"
+					onclick={(e) => e.stopPropagation()}
+					onkeydown={(e) => e.key === 'Enter' && e.stopPropagation()}
+				>
+					<ServiceShareButton {service} variant="circle" class="btn-xs" />
+				</span>
+				<div class="text-right">
+					<div class="text-base font-bold leading-tight">{getPricingDisplay()}</div>
+					{#if service.pricing?.type === ServicePricingTypeEnum.FIXED && service.pricing.amount}
+						<div class="text-base-content/60 text-sm">
+							{satsFromUsd(service.pricing.amount, btcPrice)}
+						</div>
+					{:else if service.pricing?.type === ServicePricingTypeEnum.HOURLY && service.pricing.hourlyRate}
+						<div class="text-xs text-base-content/60 leading-tight">
+							{satsFromUsd(service.pricing.hourlyRate, btcPrice)}/hr
+						</div>
+					{:else if service.pricing?.type === ServicePricingTypeEnum.TIERED && service.pricing.tiers && service.pricing.tiers.length > 0}
+						<div class="text-xs text-base-content/60 leading-tight">
+							{satsFromUsd(
+								Math.min(
+									...service.pricing.tiers
+										.map((tier: ServiceTier) => tier.price || 0)
+										.filter((price: number) => price > 0)
+								),
+								btcPrice
+							)}
+						</div>
+					{/if}
+				</div>
 			</div>
 		</div>
 
-		<!-- Description: 2 lines max with ellipsis (locale-aware) -->
-			<p class="text-sm text-base-content/70 line-clamp-2">{displayDescription}</p>
-
-		<!-- Categories and Skills - Moved up, no border, limit to 2 lines and show +X -->
-		{#if (service.categories && service.categories.length > 0) || (service.skills && service.skills.length > 0)}
-			{@const totalCategories = service.categories?.length || 0}
-			{@const totalSkills = service.skills?.length || 0}
-			{@const shownCategories = service.categories?.slice(0, 2) || []}
-			{@const shownSkills = service.skills?.slice(0, 2) || []}
-			{@const remainingCount = Math.max(0, (totalCategories - 2) + (totalSkills - 2))}
-			<div class="flex flex-wrap gap-1.5 mb-2 max-h-11.5 overflow-hidden">
-				{#if shownCategories.length > 0}
-					{#each shownCategories as category}
-						<span class="badge badge-sm badge-info badge-outline">
-							{typeof category === 'string' ? category : category.name}
-						</span>
-					{/each}
-				{/if}
-				{#if shownSkills.length > 0}
-					{#each shownSkills as skill}
-						<span class="badge badge-sm badge-info badge-outline">{skill}</span>
-					{/each}
-				{/if}
-				{#if remainingCount > 0}
-					<span class="badge badge-sm badge-info badge-outline">+{remainingCount}</span>
-				{/if}
-			</div>
-		{/if}
-
-		<!-- Location - At bottom, no border -->
+		<!-- Second Row: Location (arriba - matches TaskCard Deadline+Location) -->
 		{#if getLocationTypesDisplay()}
-			<div class="flex items-center gap-1.5 text-xs text-base-content/60 mt-auto">
+			<div class="mb-3 flex items-center gap-2">
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
-					class="h-4 w-4 shrink-0 text-primary"
+					class="h-5 w-5 shrink-0 text-primary"
 					fill="none"
 					viewBox="0 0 24 24"
 					stroke="currentColor"
@@ -345,8 +323,99 @@
 						d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
 					/>
 				</svg>
-				<span class="truncate">{getLocationTypesDisplay()}</span>
+				<span class="text-sm text-base-content/80 truncate flex-1 min-w-0">{getLocationTypesDisplay()}</span>
 			</div>
 		{/if}
+
+		<!-- Categories and Skills -->
+		{#if (service.categories && service.categories.length > 0) || (service.skills && service.skills.length > 0)}
+			{@const totalCategories = service.categories?.length || 0}
+			{@const totalSkills = service.skills?.length || 0}
+			{@const shownCategories = service.categories?.slice(0, 2) || []}
+			{@const shownSkills = service.skills?.slice(0, 2) || []}
+			{@const remainingCount = Math.max(0, (totalCategories - 2) + (totalSkills - 2))}
+			<div class="flex flex-wrap gap-1.5 mb-3 max-h-11.5 overflow-hidden">
+				{#if shownCategories.length > 0}
+					{#each shownCategories as category, i (`cat-${i}-${typeof category === 'string' ? category : category.name}`)}
+						<span class="badge badge-sm badge-info badge-outline">
+							{typeof category === 'string' ? category : category.name}
+						</span>
+					{/each}
+				{/if}
+				{#if shownSkills.length > 0}
+					{#each shownSkills as skill (skill)}
+						<span class="badge badge-sm badge-info badge-outline">{skill}</span>
+					{/each}
+				{/if}
+				{#if remainingCount > 0}
+					<span class="badge badge-sm badge-info badge-outline">+{remainingCount}</span>
+				{/if}
+			</div>
+		{/if}
+
+		<!-- Bottom Row: Avatar + Ver (abajo - matches TaskCard) -->
+		<div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between mt-auto">
+			{#if service.creator}
+				<div class="flex min-w-0 flex-1 items-center gap-3">
+					{#if service.creator.avatar}
+						<Avatar name={service.creator.username} picture={service.creator.avatar} size="md" />
+					{:else}
+						<Avatar name={service.creator.username} size="md" />
+					{/if}
+					<div class="min-w-0 flex-1">
+						<div class="text-sm font-medium text-base-content truncate">
+							{service.creator.username}
+						</div>
+						{#if service.createdAt}
+							<div class="text-xs text-base-content/60">
+								{$t('common.profile.member_since')} {formatMemberSince(service.createdAt)}
+							</div>
+						{/if}
+						<div class="flex items-center gap-1.5">
+							{#each [0, 1, 2, 3, 4] as idx (idx)}
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									class="h-3 w-3 text-base-content/40"
+									fill="currentColor"
+									viewBox="0 0 24 24"
+								>
+									<path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+								</svg>
+							{/each}
+							<span class="text-base-content/60 text-xs">{rating.toFixed(1)}</span>
+						</div>
+					</div>
+				</div>
+			{:else}
+				<div class="flex-1"></div>
+			{/if}
+			<div class="flex w-full shrink-0 items-center gap-2 md:w-auto">
+				{#if isInquiryRequired && onRequestQuote}
+					<button
+						class="btn btn-primary btn-sm flex-1 md:flex-none"
+						onclick={(e) => {
+							e.stopPropagation();
+							onRequestQuote(service);
+						}}
+						aria-label={$t('dashboard.services.browse.quote')}
+					>
+						<IconPlus class="h-4 w-4" />
+						{$t('dashboard.services.browse.quote')}
+					</button>
+				{/if}
+				<button
+					class="btn btn-secondary btn-sm flex-1 md:flex-none"
+					onclick={(e) => {
+						e.stopPropagation();
+						const serviceIdentifier = service.uniqueId || service.id;
+						goto(`/services/${serviceIdentifier}`);
+					}}
+					aria-label={$t('dashboard.services.browse.view')}
+				>
+					<IconEye class="h-4 w-4" />
+					{$t('dashboard.services.browse.view')}
+				</button>
+			</div>
+		</div>
 	</div>
 </div>
