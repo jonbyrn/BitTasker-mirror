@@ -343,33 +343,33 @@ function decodeNsec(sk: string): Uint8Array {
 
 /**
  * Convert Nostr public key (npub or hex) to hex. Idempotent for hex input.
- * Use for relay filters and comparisons.
+ * Use for relay filters and comparisons. (Required for review system.)
  */
 export function npubToHex(pubkey: string): string {
-    if (!pubkey?.trim()) return '';
-    const p = pubkey.trim();
-    if (p.startsWith('npub')) {
-        try {
-            const decoded = nip19.decode(p);
-            return (decoded.data as string) ?? '';
-        } catch {
-            return p;
-        }
-    }
-    return p.startsWith('0x') ? p.slice(2) : p;
+	if (!pubkey?.trim()) return '';
+	const p = pubkey.trim();
+	if (p.startsWith('npub')) {
+		try {
+			const decoded = nip19.decode(p);
+			return (decoded.data as string) ?? '';
+		} catch {
+			return p;
+		}
+	}
+	return p.startsWith('0x') ? p.slice(2) : p;
 }
 
 /**
  * Convert hex public key to npub. Idempotent for npub input.
- * Use when profile/relay APIs expect npub.
+ * Use when profile/relay APIs expect npub. (Required for review system.)
  */
 export function hexToNpub(hex: string): string {
-    if (!hex?.trim()) return '';
-    const h = hex.trim();
-    if (h.startsWith('npub')) return h;
-    try {
-        return nip19.npubEncode(h.startsWith('0x') ? h.slice(2) : h);
-    } catch {
-        return h;
-    }
+	if (!hex?.trim()) return '';
+	const h = hex.trim();
+	if (h.startsWith('npub')) return h;
+	try {
+		return nip19.npubEncode(h.startsWith('0x') ? h.slice(2) : h);
+	} catch {
+		return h;
+	}
 }

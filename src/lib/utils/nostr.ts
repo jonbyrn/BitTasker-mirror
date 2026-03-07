@@ -9,8 +9,7 @@ import { hexToBytes } from '$lib/utils/helpers/encoding';
 import KINDS from '$lib/utils/constants/kinds';
 
 // --- Relay Configuration ---
-/** Default Nostr relay URLs (from env). Use this single source for relay config. */
-export const DEFAULT_RELAYS = [import.meta.env.VITE_NOSTR_RELAY_URL].filter(Boolean);
+const DEFAULT_RELAYS = [import.meta.env.VITE_NOSTR_RELAY_URL].filter(Boolean);
 
 // Determine if events need decryption based on event kinds
 const encryptedKinds = [
@@ -31,36 +30,6 @@ function getPool() {
         throw new Error('Pool not found');
     }
     return pool;
-}
-
-/**
- * Subscribe to Nostr events from a relay. Pool accepts one filter per subscription,
- * so multiple filters create multiple subscriptions; the returned function closes all.
- * @param relayUrl - Single relay URL
- * @param filters - Nostr filters (one subscription per filter)
- * @param onEvent - Called for each event
- * @param onEose - Optional; called when relay sends end-of-stored-events (may be called once per filter)
- * @returns Unsubscribe function (closes all subscriptions)
- */
-export function subscribeToEvents(
-    relayUrl: string,
-    filters: Filter[],
-    onEvent: (event: NostrEvent) => void,
-    onEose?: () => void
-): () => void {
-    const pool = getPool();
-    const relays = [relayUrl];
-    const subs: { close: () => void }[] = [];
-    for (const filter of filters) {
-        const sub = pool.subscribe(relays, filter, {
-            onevent: onEvent,
-            ...(onEose && { oneose: onEose })
-        });
-        subs.push(sub);
-    }
-    return () => {
-        subs.forEach((s) => s.close());
-    };
 }
 
 /**

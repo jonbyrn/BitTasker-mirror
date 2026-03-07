@@ -11,16 +11,9 @@ import { formatStandardDateShort } from '$lib/utils/helpers/dateFormatter';
 import { TAG_FILTERS, TAG_PATTERNS } from '$lib/utils/constants/tags';
 import nip44 from '$lib/nostr/nip44';
 import KINDS from '$lib/utils/constants/kinds';
-import type {
-	NostrProfileImage,
-	NostrReview,
-	NostrSkill,
-	SkillCertification,
-	TimeSlot,
-	ProfileTranslations
-} from '$lib/types/profile';
+import type { NostrProfileImage, NostrReview, NostrSkill, SkillCertification, TimeSlot, ProfileTranslations } from '$lib/types/profile';
 
-//--- Relay Configuration ---
+// --- Relay Configuration ---
 const DEFAULT_RELAYS = [import.meta.env.VITE_NOSTR_RELAY_URL].filter(Boolean);
 
 /**
@@ -268,9 +261,7 @@ export function subscribeToProfileUpdates(
 	};
 }
 
-export async function fetchProfileMetadata(
-	npub: string
-): Promise<{ name?: string; picture?: string; createdAt?: string }> {
+export async function fetchProfileMetadata(npub: string): Promise<{ name?: string; picture?: string; createdAt?: string }> {
 	try {
 		// First check cache (using original format for cache key)
 		const cachedProfile = await profileCache.getProfile(npub);
@@ -295,12 +286,7 @@ export async function fetchProfileMetadata(
 		// If not in cache, fetch from relays
 		const pool = getPool();
 		const filter: Filter = {
-			kinds: [
-				KINDS.PROFILE_METADATA,
-				KINDS.FILE_METADATA,
-				KINDS.PROFILE_IMAGES,
-				KINDS.NIP_65_RELAY_LIST
-			],
+			kinds: [KINDS.PROFILE_METADATA, KINDS.FILE_METADATA, KINDS.PROFILE_IMAGES, KINDS.NIP_65_RELAY_LIST],
 			authors: [hexPubkey],
 			limit: 20
 		};
@@ -405,16 +391,13 @@ export async function fetchComprehensiveProfile(pubkey: string): Promise<{
 	website?: string;
 	professionalTitle?: string;
 	translations?: ProfileTranslations;
-	skills?: Array<
-		| string
-		| {
-				name: string;
-				level: number;
-				verificationStatus?: string;
-				endorsements?: number;
-				certifications?: SkillCertification[];
-		  }
-	>;
+	skills?: Array<string | {
+		name: string;
+		level: number;
+		verificationStatus?: string;
+		endorsements?: number;
+		certifications?: SkillCertification[];
+	}>;
 	portfolio?: Array<{
 		id: string;
 		title: string;
@@ -476,7 +459,7 @@ export async function fetchComprehensiveProfile(pubkey: string): Promise<{
 		const events = await pool.querySync(DEFAULT_RELAYS, filter);
 
 		// Initialize profile data
-		const profileData: Record<string, unknown> = {
+		const profileData: any = {
 			name: '',
 			display_name: '',
 			about: '',
@@ -541,8 +524,7 @@ export async function fetchComprehensiveProfile(pubkey: string): Promise<{
 						}
 						break;
 
-					case KINDS.PROFILE_IMAGES: {
-						// Profile images
+					case KINDS.PROFILE_IMAGES: { // Profile images
 						const dTag = event.tags.find((t) => t[0] === 'd');
 						if (dTag && dTag[1] === 'profile-images') {
 							if (Array.isArray(content)) {
@@ -564,24 +546,22 @@ export async function fetchComprehensiveProfile(pubkey: string): Promise<{
 
 					case KINDS.PROFILE_SKILLS: // Skills (30000)
 						if (Array.isArray(content)) {
-							profileData.skills = content.map(
-								(skill: NostrSkill & { translations?: Record<string, unknown>; id?: string }) => {
-									// Handle both string format and object format
-									if (typeof skill === 'string') {
-										return skill;
-									} else {
-										return {
-											name: skill.name,
-											level: skill.level,
-											verificationStatus: skill.verificationStatus,
-											endorsements: skill.endorsements,
-											certifications: skill.certifications || [],
-											translations: skill.translations,
-											id: skill.id
-										};
-									}
+							profileData.skills = content.map((skill: NostrSkill & { translations?: any; id?: string }) => {
+								// Handle both string format and object format
+								if (typeof skill === 'string') {
+									return skill;
+								} else {
+									return {
+										name: skill.name,
+										level: skill.level,
+										verificationStatus: skill.verificationStatus,
+										endorsements: skill.endorsements,
+										certifications: skill.certifications || [],
+										translations: skill.translations,
+										id: skill.id
+									};
 								}
-							);
+							});
 						}
 						break;
 
@@ -714,18 +694,17 @@ export async function sendDirectMessage(
  * Listen for incoming DMs for the current user
  * Uses the centralized pool to subscribe to all relays simultaneously
  * Returns an unsubscribe function
- *
+ * 
  * Note: pool.subscribe only accepts ONE filter at a time, so we need TWO separate subscriptions:
  * Subscription 1: Messages TO the user (#p tag contains user's pubkey)
  * Subscription 2: Messages FROM the user (authors contains user's pubkey)
- *
+ * 
  * @arg npub - The public key of the user to listen for messages from
  * @arg nsec - The private key of the user to listen for messages from
  * @arg callback - The callback function to call when a message is received
  */
 export function listenForIncomingMessages(
-	npub: string,
-	nsec: Uint8Array,
+	npub: string, nsec: Uint8Array,
 	callback: (msg: { plaintext: string; senderPubkey: string; event: NostrEvent }) => void
 ): () => void {
 	let isUnsubscribed = false;
@@ -758,10 +737,10 @@ export function listenForIncomingMessages(
 				{
 					kinds: [KINDS.DIRECT_MESSAGES],
 					...TAG_PATTERNS.directMessage(npub),
-					since: Math.floor(Date.now() / 1000) - 7 * 24 * 60 * 60 // Last 7 days
+					since: Math.floor(Date.now() / 1000) - (7 * 24 * 60 * 60)  // Last 7 days
 				},
 				{
-					onevent: eventHandler
+					onevent: eventHandler,
 				}
 			);
 
@@ -771,10 +750,10 @@ export function listenForIncomingMessages(
 				{
 					kinds: [KINDS.DIRECT_MESSAGES],
 					authors: [npub],
-					since: Math.floor(Date.now() / 1000) - 7 * 24 * 60 * 60 // Last 7 days
+					since: Math.floor(Date.now() / 1000) - (7 * 24 * 60 * 60)  // Last 7 days
 				},
 				{
-					onevent: eventHandler
+					onevent: eventHandler,
 				}
 			);
 		} catch (error) {

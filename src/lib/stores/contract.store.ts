@@ -4,8 +4,8 @@ import { createDebug } from '$lib/utils/debug';
 
 const d = createDebug('storecontracts');
 import { escrow } from '$lib/utils/escrow';
-import { getNpub, npubToHex } from '$lib/utils/nostrKeys';
-import type { NostrEvent } from 'nostr-tools';
+import { getNpub } from '$lib/utils/nostrKeys';
+import { nip19, type NostrEvent } from 'nostr-tools';
 import { appStore } from '$lib/stores/app.store';
 import { get } from 'svelte/store';
 import KINDS from '$lib/utils/constants/kinds';
@@ -71,7 +71,7 @@ function createContractStore() {
 			}
 
 			const npub = await getNpub();
-			const userPubkeyHex = npubToHex(npub ?? '');
+			const userPubkeyHex = npub.startsWith('npub') ? (nip19.decode(npub).data as string) : npub;
 			const _appStore = get(appStore);
 			const pool = _appStore?.pool;
 
@@ -119,7 +119,7 @@ function createContractStore() {
 			if (contractSubscription) return;
 
 			const npub = await getNpub();
-			const userPubkeyHex = npubToHex(npub ?? '');
+			const userPubkeyHex = npub.startsWith('npub') ? (nip19.decode(npub).data as string) : npub;
 			const _appStore = get(appStore);
 			const pool = _appStore?.pool;
 
