@@ -1,6 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
-	import { goto } from '$app/navigation';
+import { onMount } from 'svelte';
 	import { t } from 'svelte-i18n';
 	import { cubicOut } from 'svelte/easing';
 	import type { TransitionConfig } from 'svelte/transition';
@@ -48,11 +47,7 @@
 
 	function popoverTransition(
 		node: Element,
-		{
-			duration = 200,
-			y = -8,
-			start = 0.98
-		}: { duration?: number; y?: number; start?: number } = {}
+		{ duration = 200, y = -8, start = 0.98 }: { duration?: number; y?: number; start?: number } = {}
 	): TransitionConfig {
 		return {
 			duration,
@@ -65,11 +60,7 @@
 		};
 	}
 
-	function handleTopNavTap(event: MouseEvent) {
-		const target = event.target as HTMLElement | null;
-		if (!target) return;
-		const interactive = target.closest('a,button,summary,[role="button"]');
-		if (!interactive) return;
+	function triggerTapHaptic() {
 		// Fire-and-forget; navigation should not be blocked.
 		void triggerHaptic(ImpactStyle.Light);
 	}
@@ -77,7 +68,12 @@
 	// Toggle avatar dropdown
 	function toggleAvatarDropdown(event: MouseEvent) {
 		event.stopPropagation();
+		triggerTapHaptic();
 		isAvatarDropdownOpen = !isAvatarDropdownOpen;
+	}
+
+	function handleAuthTapHaptic() {
+		triggerTapHaptic();
 	}
 
 	// Initialize stores when component mounts
@@ -112,11 +108,7 @@
 	});
 
 	// Derived values for user display name
-	let userDisplayName = $derived(
-		$profileStore.data?.name ||
-		$user.name ||
-		''
-	);
+	let userDisplayName = $derived($profileStore.data?.name || $user.name || '');
 
 	// Close drawer
 	function closeDrawer() {
@@ -139,6 +131,7 @@
 	async function handleMenuItemClick(event: MouseEvent, action?: string, href?: string) {
 		event.preventDefault();
 		event.stopPropagation();
+		triggerTapHaptic();
 		closeDropdowns();
 		isAvatarDropdownOpen = false;
 		if (action === 'logout') {
@@ -166,6 +159,7 @@
 	}
 
 	function showNpubQrCode() {
+		triggerTapHaptic();
 		showNpubQrModal = true;
 	}
 
@@ -212,6 +206,7 @@
 			onclick={(e) => {
 				e.preventDefault();
 				e.stopPropagation();
+				triggerTapHaptic();
 				toggleSection(section.id);
 			}}
 			aria-expanded={openSectionId === section.id}
@@ -225,7 +220,7 @@
 		</button>
 		{#if openSectionId === section.id}
 			<div
-				class="absolute left-0 top-full"
+				class="absolute top-full left-0"
 				use:clickOutside={{
 					callback: () => closeDropdowns(),
 					exclude: `#${buttonId}`
@@ -257,12 +252,11 @@
 
 <!-- Main TopBar component -->
 <div
-	class="navbar bg-base-100/80 border-base-300 pt-safe sticky top-0 z-50 w-full border-b backdrop-blur-sm"
-	onclickcapture={handleTopNavTap}
+	class="ios-tap-safe navbar bg-base-100/80 border-base-300 pt-safe sticky top-0 z-50 w-full border-b backdrop-blur-sm"
 >
 	<!-- Navbar start -->
 	<div class="navbar-start ml-2 flex-1 sm:flex">
-		<a href={isLoggedIn ? '/dashboard' : '/'} class="block">
+		<a href={isLoggedIn ? '/dashboard' : '/'} class="block" onclick={triggerTapHaptic}>
 			<img
 				src="/images/Logos/BitTasker-square-logo.svg"
 				alt={$t('common.components.topbar.logo_alt')}
@@ -288,7 +282,7 @@
 				<!-- First item is standalone link -->
 				{@const firstSection = LOGGED_OUT_MENU_SECTIONS[0]}
 				<li>
-					<a href="/how-it-works" class="btn btn-ghost">
+					<a href="/how-it-works" class="btn btn-ghost" onclick={triggerTapHaptic}>
 						<firstSection.icon class="text-primary" />
 						<span>{$t('footer.how_it_works')}</span>
 					</a>
@@ -309,8 +303,25 @@
 		</div>
 		<!-- login/signup or notification + avatar -->
 		{#if !isLoggedIn}
-			<a href="/auth/login" class="btn btn-sm sm:btn-md btn-secondary" data-testid="login-link">{$t('navbar.login')}</a>
-			<a href="/auth/signup" class="btn btn-sm sm:btn-md btn-primary">{$t('navbar.signup')}</a>
+				<a
+					href="/auth/login"
+					onclick={handleAuthTapHaptic}
+					onpointerup={handleAuthTapHaptic}
+					ontouchend={handleAuthTapHaptic}
+					class="btn btn-sm sm:btn-md btn-secondary min-h-[44px] min-w-[44px] touch-manipulation"
+					data-testid="login-link"
+				>
+				{$t('navbar.login')}
+			</a>
+				<a
+					href="/auth/signup"
+					onclick={handleAuthTapHaptic}
+					onpointerup={handleAuthTapHaptic}
+					ontouchend={handleAuthTapHaptic}
+					class="btn btn-sm sm:btn-md btn-primary min-h-[44px] min-w-[44px] touch-manipulation"
+				>
+				{$t('navbar.signup')}
+			</a>
 		{:else}
 			<!-- Notification Center -->
 			<NotificationCenter />
@@ -319,7 +330,12 @@
 				class="dropdown dropdown-end relative"
 				use:clickOutside={{ callback: () => (isAvatarDropdownOpen = false) }}
 			>
-				<button class="btn btn-ghost" onclick={toggleAvatarDropdown} aria-haspopup="true" aria-expanded={isAvatarDropdownOpen}>
+				<button
+					class="btn btn-ghost min-h-[44px] min-w-[44px] touch-manipulation"
+					onclick={toggleAvatarDropdown}
+					aria-haspopup="true"
+					aria-expanded={isAvatarDropdownOpen}
+				>
 					<Avatar name={$user.name} picture={userPicture()} size="sm" />
 				</button>
 				{#if isAvatarDropdownOpen}
@@ -339,13 +355,15 @@
 						<ul>
 							<!-- User Info Header -->
 							{#if userDisplayName}
-								<li class="border-b border-base-300 pb-2 mb-2">
+								<li class="border-base-300 mb-2 border-b pb-2">
 									<button
 										onclick={showNpubQrCode}
 										class="flex w-full items-center gap-2 whitespace-nowrap"
 									>
 										<IconQrcode class="text-primary" />
-										<span class="wrap-break-words whitespace-normal font-bold">{userDisplayName}</span>
+										<span class="wrap-break-words font-bold whitespace-normal"
+											>{userDisplayName}</span
+										>
 									</button>
 								</li>
 							{/if}
@@ -388,7 +406,9 @@
 								{$t(item.label)}
 							</button>
 						{:else}
-							{@const itemHref = item.getDynamicHref ? item.getDynamicHref(isLoggedIn) : item.href || '#'}
+							{@const itemHref = item.getDynamicHref
+								? item.getDynamicHref(isLoggedIn)
+								: item.href || '#'}
 							<a
 								href={itemHref}
 								onclick={(e) => handleMenuItemClick(e, undefined, itemHref)}
@@ -408,7 +428,10 @@
 					<a
 						href={loginBtn.href}
 						class="btn btn-secondary flex w-full items-center justify-center gap-2"
-						onclick={closeDrawer}
+						onclick={() => {
+							triggerTapHaptic();
+							closeDrawer();
+						}}
 					>
 						<loginBtn.icon />
 						{$t(loginBtn.label)}
@@ -416,7 +439,10 @@
 					<a
 						href={signupBtn.href}
 						class="btn btn-primary flex w-full items-center justify-center gap-2"
-						onclick={closeDrawer}
+						onclick={() => {
+							triggerTapHaptic();
+							closeDrawer();
+						}}
 					>
 						<signupBtn.icon />
 						{$t(signupBtn.label)}
@@ -478,5 +504,13 @@
 		position: absolute;
 		top: 100%;
 		left: 0;
+	}
+
+	/* iOS Safari can mis-handle taps on sticky, blurred layers. */
+	@supports (-webkit-touch-callout: none) {
+		.ios-tap-safe {
+			-webkit-backdrop-filter: none !important;
+			backdrop-filter: none !important;
+		}
 	}
 </style>

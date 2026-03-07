@@ -166,6 +166,7 @@
 	// This avoids any bottom-nav overlap caused by height rounding, fonts, or safe-area differences.
 	let footerEl = $state<HTMLElement | null>(null);
 	let footerObserver: ResizeObserver | null = null;
+	let lastFooterHeightVar = '';
 
 	$effect(() => {
 		if (footerObserver) {
@@ -176,7 +177,10 @@
 		// If the footer is unmounted (or not rendered on desktop), ensure we don't keep a stale value.
 		if (!footerEl) {
 			if (typeof document !== 'undefined') {
-				document.documentElement.style.setProperty('--app-footer-height', `0px`);
+				if (lastFooterHeightVar !== '0px') {
+					lastFooterHeightVar = '0px';
+					document.documentElement.style.setProperty('--app-footer-height', `0px`);
+				}
 			}
 			return;
 		}
@@ -194,7 +198,10 @@
 			const isLgUp =
 				typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches;
 			if (isLgUp) {
-				document.documentElement.style.setProperty('--app-footer-height', `0px`);
+				if (lastFooterHeightVar !== '0px') {
+					lastFooterHeightVar = '0px';
+					document.documentElement.style.setProperty('--app-footer-height', `0px`);
+				}
 				return;
 			}
 
@@ -208,19 +215,29 @@
 					(window.getComputedStyle(el).display === 'none' ||
 						window.getComputedStyle(el).visibility === 'hidden');
 				if (isHidden) {
-					document.documentElement.style.setProperty('--app-footer-height', `0px`);
+					if (lastFooterHeightVar !== '0px') {
+						lastFooterHeightVar = '0px';
+						document.documentElement.style.setProperty('--app-footer-height', `0px`);
+					}
 				} else {
 					// When switching from desktop->mobile, the footer can briefly report 0 before layout stabilizes.
 					// Use the safe fallback immediately so floating UI doesn't get covered by the dock.
-					document.documentElement.style.setProperty(
-						'--app-footer-height',
-						`var(--bottom-nav-height-safe)`
-					);
+					if (lastFooterHeightVar !== 'var(--bottom-nav-height-safe)') {
+						lastFooterHeightVar = 'var(--bottom-nav-height-safe)';
+						document.documentElement.style.setProperty(
+							'--app-footer-height',
+							`var(--bottom-nav-height-safe)`
+						);
+					}
 				}
 				return;
 			}
 			const h = Math.max(0, measured);
-			document.documentElement.style.setProperty('--app-footer-height', `${h}px`);
+			const nextHeight = `${h}px`;
+			if (lastFooterHeightVar !== nextHeight) {
+				lastFooterHeightVar = nextHeight;
+				document.documentElement.style.setProperty('--app-footer-height', nextHeight);
+			}
 		}
 
 		updateVar();
