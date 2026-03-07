@@ -31,11 +31,10 @@
 	let activeTab = $state<'received' | 'given' | 'pending'>('received');
 	let pendingCount = $state(0);
 	let reviewsExpanded = $state(false);
-	let reviewsSectionTitle = $derived(
-		receivedReviews.length > 0
-			? `${$t('profile.reviews')} (${receivedReviews.length})`
-			: `${$t('profile.reviews')} (${$t('reviews.list.no_reviews')})`
+	let hasAnyReviews = $derived(
+		receivedReviews.length > 0 || givenReviews.length > 0 || pendingCount > 0
 	);
+	let reviewsSectionTitle = $derived(`${$t('profile.reviews')} (${receivedReviews.length + givenReviews.length})`);
 
 	// Get current user pubkey if viewing own profile
 	onMount(async () => {
@@ -147,7 +146,7 @@
 			</svg>
 			<span>{$t('reviews.profile.no_user')}</span>
 		</div>
-	{:else}
+	{:else if hasAnyReviews}
 		<CollapsibleSection
 			title={reviewsSectionTitle}
 			bind:expanded={reviewsExpanded}

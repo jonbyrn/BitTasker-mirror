@@ -3,6 +3,7 @@
 	import Avatar from '$lib/components/Avatar.svelte';
 	import UserRatingDisplay from '$lib/components/reviews/UserRatingDisplay.svelte';
 	import ProfileReviewsSection from '$lib/components/profile/ProfileReviewsSection.svelte';
+	import CollapsibleSection from '$lib/components/shared/CollapsibleSection.svelte';
 	import { onMount } from 'svelte';
 	import { fetchComprehensiveProfile } from '$lib/utils/nostr-message';
 	import { getStatsForUser } from '$lib/utils/review-source';
@@ -191,6 +192,10 @@
 	let aboutElement: HTMLParagraphElement | null = $state(null);
 	let isAboutTruncated = $state(false);
 	let showFullAbout = $state(false);
+
+	let certificationsExpanded = $state(false);
+	let portfolioExpanded = $state(false);
+	let availabilityExpanded = $state(false);
 
 	// Review count from Nostr kind 1985 (matches Reviews section)
 	let reviewCount = $state(0);
@@ -782,12 +787,48 @@
 						</div>
 					</div>
 
-					<!-- Portfolio Section -->
-					{#if userProfile?.portfolio && userProfile.portfolio.length > 0}
-						<div class="card bg-base-100 w-full rounded-2xl shadow-lg">
-							<div class="card-body p-4">
-								<p class="mb-4 text-xl font-bold">{$t('common.profile.portfolio')}</p>
-								<div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+					<!-- Certifications Section (dropdown) -->
+					{#if userProfile?.certifications && userProfile.certifications.length > 0}
+						<CollapsibleSection
+							title={$t('profile.certifications')}
+							bind:expanded={certificationsExpanded}
+							contentClass="pt-2"
+							headerClass="mb-2"
+						>
+							<div class="card bg-base-100 w-full rounded-2xl shadow-lg">
+								<div class="card-body p-4">
+									<div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+										{#each userProfile.certifications as cert}
+											<div class="card bg-base-200 flex flex-row items-center justify-start rounded-xl overflow-hidden">
+												{#if cert.fileUrl}
+													<img src={cert.fileUrl} alt={cert.name} class="h-full w-20 rounded-lg object-cover shrink-0" />
+												{/if}
+												<div class="card-body p-4">
+													<h4 class="card-title text-base">{cert.name}</h4>
+													<p class="text-base-content/70 text-sm">{cert.issuer}</p>
+													{#if cert.date}
+														<p class="text-sm text-base-content/70">{cert.date}</p>
+													{/if}
+												</div>
+											</div>
+										{/each}
+									</div>
+								</div>
+							</div>
+						</CollapsibleSection>
+					{/if}
+
+					<!-- Portfolio Section (dropdown) -->
+					<CollapsibleSection
+						title={$t('common.profile.portfolio')}
+						bind:expanded={portfolioExpanded}
+						contentClass="pt-2"
+						headerClass="mb-2"
+					>
+						{#if userProfile?.portfolio && userProfile.portfolio.length > 0}
+							<div class="card bg-base-100 w-full rounded-2xl shadow-lg">
+								<div class="card-body p-4">
+									<div class="grid grid-cols-1 gap-6 md:grid-cols-2">
 									{#each userProfile.portfolio as project, projectIndex}
 										<div class="card bg-base-200 rounded-xl overflow-hidden">
 											<!-- Título, badges y descripción arriba de la imagen -->
@@ -912,17 +953,17 @@
 											
 										</div>
 									{/each}
+									</div>
 								</div>
 							</div>
-						</div>
-					{:else}
-						<div class="card bg-base-100 w-full rounded-2xl shadow-lg">
-							<div class="card-body p-4">
-								<p class="mb-4 text-xl font-bold">{$t('common.profile.portfolio')}</p>
-								<p class="text-base-content/60 text-sm">{$t('common.profile.no_portfolio')}</p>
+						{:else}
+							<div class="card bg-base-100 w-full rounded-2xl shadow-lg">
+								<div class="card-body p-4">
+									<p class="text-base-content/60 text-sm">{$t('common.profile.no_portfolio')}</p>
+								</div>
 							</div>
-						</div>
-					{/if}
+						{/if}
+					</CollapsibleSection>
 
 					<!-- Reviews Section (Nostr kind 1985) -->
 					{#if routeNpub}
@@ -998,11 +1039,16 @@
 						</div>
 					</div>
 
-					<!-- Availability -->
-					<div class="card bg-base-100 w-full rounded-2xl shadow-lg">
-						<div class="card-body p-3">
-							<p class="mb-2 text-xl font-bold">{$t('common.profile.availability')}</p>
-							<div class="space-y-2">
+					<!-- Availability (dropdown) -->
+					<CollapsibleSection
+						title={$t('common.profile.availability')}
+						bind:expanded={availabilityExpanded}
+						contentClass="pt-2"
+						headerClass="mb-2"
+					>
+						<div class="card bg-base-100 w-full rounded-2xl shadow-lg">
+							<div class="card-body p-3">
+								<div class="space-y-2">
 								<div class="flex items-center gap-2">
 									{#if userProfile?.availability?.timeSlots && userProfile.availability.timeSlots.length > 0}
 										<div class="bg-success h-2 w-2 rounded-full"></div>
@@ -1051,6 +1097,7 @@
 							</div>
 						</div>
 					</div>
+					</CollapsibleSection>
 
 					<!-- Quick Actions -->
 					<div class="hidden md:block">

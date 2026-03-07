@@ -2,6 +2,7 @@
 	import { profileStore } from '$lib/stores/profile.store';
 	import { t } from 'svelte-i18n';
 	import { formatTime12Hour } from '$lib/utils/helpers/dateFormatter';
+	import CollapsibleSection from '$lib/components/shared/CollapsibleSection.svelte';
 
 	let { formatDate } = $props<{
 		formatDate: (date: string) => string;
@@ -98,6 +99,8 @@
 		if (!availability?.timeSlots?.length) return null;
 		return getNextAvailable(availability.timeSlots, availability.noticeHours);
 	});
+
+	let availabilityExpanded = $state(false);
 </script>
 
 <!-- Profile Sidebar -->
@@ -111,12 +114,16 @@
 			</div>
 		</div>
 	{:else if $profileStore.data}
-		<!-- Availability Card -->
-		<div class="card bg-base-200 mb-6 rounded-xl">
-			<div class="card-body">
-				<h3 class="card-title text-lg">{$t('profile_availability.availabilityTitle')}</h3>
-
-				{#if $profileStore.data.availability}
+		<!-- Availability (dropdown) -->
+		<CollapsibleSection
+			title={$t('profile_availability.availabilityTitle')}
+			bind:expanded={availabilityExpanded}
+			contentClass="pt-2"
+			headerClass="mb-4"
+		>
+			<div class="card bg-base-200 mb-6 rounded-xl">
+				<div class="card-body">
+					{#if $profileStore.data.availability}
 					<div class="mt-2">
 						<p class="font-medium">{$t('profile_availability.weeklySchedule')}</p>
 						<div class="mt-2 space-y-2">
@@ -185,8 +192,9 @@
 				<!-- <div class="card-actions mt-4">
 					<button class="btn btn-primary btn-block">Contact</button>
 				</div> -->
+				</div>
 			</div>
-		</div>
+		</CollapsibleSection>
 	{:else if $profileStore.error}
 		<div class="alert alert-outline alert-error">
 			<span>{$t('profile_availability.error_load')}</span>

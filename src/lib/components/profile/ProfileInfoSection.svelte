@@ -3,8 +3,7 @@
 	import { t, locale } from 'svelte-i18n';
 	import { onMount } from 'svelte';
 	import { getUserDisplayName } from '$lib/utils/helpers/userDisplayName';
-	import ReviewsEmptyState from '$lib/components/reviews/ReviewsEmptyState.svelte';
-
+	import CollapsibleSection from '$lib/components/shared/CollapsibleSection.svelte';
 	// Helper function to get translated profile content
 	// Reactive to locale changes via $locale
 	function getTranslatedProfileContent(
@@ -126,6 +125,9 @@
 	
 	// Estado para el carrusel de imágenes de cada proyecto
 	let projectImageSlides = $state<Record<string, number>>({});
+
+	let certificationsExpanded = $state(false);
+	let portfolioExpanded = $state(false);
 
 	// Check if description is actually truncated (same logic as TranslatableTask)
 	function checkIfTruncated() {
@@ -257,9 +259,13 @@
 			{/if}
 		</div>
 
-		<!-- Certifications Section -->
-		<div class="mb-8">
-			<h3 class="mb-4 text-xl font-semibold">{$t('profile.certifications')}</h3>
+		<!-- Certifications Section (dropdown) -->
+		<CollapsibleSection
+			title={$t('profile.certifications')}
+			bind:expanded={certificationsExpanded}
+			contentClass="pt-2"
+			headerClass="mb-4"
+		>
 			{#if $profileStore.data.certifications && $profileStore.data.certifications.length > 0}
 				<div class="grid grid-cols-1 gap-3 md:grid-cols-3">
 					{#each $profileStore.data.certifications as cert}
@@ -268,19 +274,11 @@
 							<div class="card-body p-4">
 								<div class="flex items-start justify-between">
 									<h4 class="card-title text-base">{cert.name}</h4>
-									<!-- {#if cert.verified}
-										<div class="badge badge-success">{$t('profile.verified')}</div>
-									{:else}
-										<div class="badge badge-warning text-black">{$t('profile.unverified')}</div>
-									{/if} -->
 								</div>
 								<p class="text-base-content/70 text-sm">{cert.issuer}</p>
 								<p class="text-sm">
 									<span class="text-base-content/70">{$t('profile.since')} </span>
 									{formatDate(cert.date)}
-									<!-- <span class="text-base-content/70"
-										>({yearsFrom(cert.date)} {$t('profile.years')})</span
-									> -->
 								</p>
 							</div>
 						</div>
@@ -291,11 +289,15 @@
 					<span>{$t('profile.noCertifications')}</span>
 				</div>
 			{/if}
-		</div>
+		</CollapsibleSection>
 
-		<!-- Portfolio Section -->
-		<div class="mb-8">
-			<h3 class="mb-4 text-xl font-semibold">{$t('profile.portfolio.title')}</h3>
+		<!-- Portfolio Section (dropdown) -->
+		<CollapsibleSection
+			title={$t('profile.portfolio.title')}
+			bind:expanded={portfolioExpanded}
+			contentClass="pt-2"
+			headerClass="mb-4"
+		>
 			{#if $profileStore.data.portfolio && $profileStore.data.portfolio.length > 0}
 				<div class="grid grid-cols-1 gap-6 md:grid-cols-2">
 					{#each $profileStore.data.portfolio as item}
@@ -410,12 +412,12 @@
 					<span>{$t('profile.noPortfolio')}</span>
 				</div>
 			{/if}
-		</div>
+		</CollapsibleSection>
 
-		<!-- Reviews Section -->
-		<div class="mb-8">
-			<h3 class="mb-4 text-xl font-semibold">{$t('profile.reviews')}</h3>
-			{#if $profileStore.data.reviews && $profileStore.data.reviews.length > 0}
+		<!-- Reviews Section: only show when there are reviews -->
+		{#if $profileStore.data.reviews && $profileStore.data.reviews.length > 0}
+			<div class="mb-8">
+				<h3 class="mb-4 text-xl font-semibold">{$t('profile.reviews')}</h3>
 				<div class="grid grid-cols-1 gap-6 md:grid-cols-2">
 					{#each $profileStore.data.reviews as review}
 						<div class="card bg-base-200">
@@ -452,10 +454,8 @@
 						</div>
 					{/each}
 				</div>
-			{:else}
-				<ReviewsEmptyState showHint={true} />
-			{/if}
-		</div>
+			</div>
+		{/if}
 	{:else if $profileStore.error}
 		<div class="alert alert-error alert-outline">
 			<span>{$t('profile.loadError')}</span>
