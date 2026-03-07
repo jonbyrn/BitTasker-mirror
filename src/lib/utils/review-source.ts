@@ -14,16 +14,18 @@ import type { NostrVerifiedReview, ReviewStats } from '$lib/types/review';
 
 export async function getReviewsForUser(
 	revieweePubkey: string,
-	limit = 50
+	limit = 50,
+	options?: { maxWaitMs?: number }
 ): Promise<NostrVerifiedReview[]> {
-	return nostrGetReviewsForUser(revieweePubkey, limit);
+	return nostrGetReviewsForUser(revieweePubkey, limit, options);
 }
 
 export async function getReviewsByReviewer(
 	reviewerPubkey: string,
-	limit = 50
+	limit = 50,
+	options?: { maxWaitMs?: number }
 ): Promise<NostrVerifiedReview[]> {
-	return nostrGetReviewsByReviewer(reviewerPubkey, limit);
+	return nostrGetReviewsByReviewer(reviewerPubkey, limit, options);
 }
 
 export async function getReviewsForEscrow(

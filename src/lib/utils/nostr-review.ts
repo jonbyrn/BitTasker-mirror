@@ -293,7 +293,7 @@ function subscribeReviews(
 	mapEvent: (event: NostrEvent, relayUrl: string) => void,
 	options: { getCount?: () => number; requiredCount?: number; maxWaitMs?: number } = {}
 ): Promise<void> {
-	const { getCount, requiredCount = limit, maxWaitMs = 10000 } = options;
+	const { getCount, requiredCount = limit, maxWaitMs = 5000 } = options;
 	return new Promise((resolve) => {
 		const relayUrl = DEFAULT_RELAYS[0] || '';
 		if (!relayUrl) {
@@ -343,7 +343,8 @@ export async function getReviewsByTask(taskId: string, limit = 50): Promise<Nost
 
 export async function getReviewsByReviewer(
 	reviewerPubkey: string,
-	limit = 50
+	limit = 50,
+	options?: { maxWaitMs?: number }
 ): Promise<NostrVerifiedReview[]> {
 	const hex = npubToHex(reviewerPubkey);
 	const reviews: NostrVerifiedReview[] = [];
@@ -355,14 +356,15 @@ export async function getReviewsByReviewer(
 			const r = parseReviewEvent(event, relayUrl);
 			if (r) reviews.push(r);
 		},
-		{ getCount: () => reviews.length, requiredCount: limit }
+		{ getCount: () => reviews.length, requiredCount: limit, maxWaitMs: options?.maxWaitMs }
 	);
 	return reviews.slice(0, limit);
 }
 
 export async function getReviewsForUser(
 	revieweePubkey: string,
-	limit = 50
+	limit = 50,
+	options?: { maxWaitMs?: number }
 ): Promise<NostrVerifiedReview[]> {
 	const hex = npubToHex(revieweePubkey);
 	const reviews: NostrVerifiedReview[] = [];
@@ -374,7 +376,7 @@ export async function getReviewsForUser(
 			const r = parseReviewEvent(event, relayUrl);
 			if (r) reviews.push(r);
 		},
-		{ getCount: () => reviews.length, requiredCount: limit }
+		{ getCount: () => reviews.length, requiredCount: limit, maxWaitMs: options?.maxWaitMs }
 	);
 	return reviews.slice(0, limit);
 }

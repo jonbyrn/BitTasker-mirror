@@ -11,6 +11,7 @@
 		filter,
 		sort = 'newest',
 		limit = 50,
+		initialReviews,
 		onReviewClick,
 		onReply
 	} = $props<{
@@ -18,12 +19,14 @@
 		filter?: ReviewFilter;
 		sort?: ReviewSort;
 		limit?: number;
+		/** If provided, use these immediately and skip initial fetch (e.g. from parent that already loaded). */
+		initialReviews?: NostrVerifiedReview[];
 		onReviewClick?: (review: NostrVerifiedReview) => void;
 		onReply?: (reviewId: string) => void;
 	}>();
 
 	let reviews = $state<NostrVerifiedReview[]>([]);
-	let isLoading = $state(false);
+	let isLoading = $state(true);
 	let error = $state<string | null>(null);
 	let hasMore = $state(true);
 
@@ -49,9 +52,17 @@
 		}
 	}
 
-	// Load reviews when revieweePubkey or deps change; cleanup avoids set-state after unmount
+	// Load reviews when revieweePubkey or deps change; skip fetch if we have initialReviews for this pubkey
 	$effect(() => {
-		void (revieweePubkey, filter, sort, limit);
+		void [revieweePubkey, filter, sort, limit, initialReviews];
+		const hasInitial = (initialReviews?.length ?? 0) > 0;
+		if (hasInitial && initialReviews) {
+			const filtered = filter ? filterReviews(initialReviews, filter) : initialReviews;
+			reviews = sortReviews(filtered, sort);
+			isLoading = false;
+			hasMore = false;
+			return;
+		}
 		let cancelled = false;
 		loadReviews(() => cancelled);
 		return () => {

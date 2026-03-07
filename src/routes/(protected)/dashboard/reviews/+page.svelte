@@ -35,7 +35,9 @@
 		}
 	});
 
-	// Load reviews when pubkey is available; cleanup avoids set-state after unmount/navigation
+	// Load reviews when pubkey is available (parallel for faster display); cleanup avoids set-state after unmount
+	const REVIEWS_MAX_WAIT_MS = 4000;
+
 	$effect(() => {
 		if (!currentUserPubkey) {
 			isLoading = false;
@@ -48,18 +50,18 @@
 
 		(async () => {
 			try {
-				const received = await getReviewsForUser(currentUserPubkey, 100);
+				const opts = { maxWaitMs: REVIEWS_MAX_WAIT_MS };
+				const [received, given, statsResult, pending] = await Promise.all([
+					getReviewsForUser(currentUserPubkey, 100, opts),
+					getReviewsByReviewer(currentUserPubkey, 100, opts),
+					getStatsForUser(currentUserPubkey),
+					getPendingReviewsCount()
+				]);
 				if (cancelled) return;
 				receivedReviews = received;
-				stats = await getStatsForUser(currentUserPubkey);
-				if (cancelled) return;
-
-				const given = await getReviewsByReviewer(currentUserPubkey, 100);
-				if (cancelled) return;
 				givenReviews = given;
-
-				pendingCount = await getPendingReviewsCount();
-				if (cancelled) return;
+				stats = statsResult;
+				pendingCount = pending;
 			} catch (err) {
 				if (!cancelled) {
 					console.error('Failed to load reviews:', err);
