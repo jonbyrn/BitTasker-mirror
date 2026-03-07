@@ -1,10 +1,9 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import { getReviewsForUser } from '$lib/utils/review-source';
 	import { calculateReviewStats } from '$lib/utils/review-aggregation';
 	import type { NostrVerifiedReview } from '$lib/types/review';
 	import StarRating from '$lib/components/reviews/StarRating.svelte';
-	// @ts-ignore - nostr-tools type definitions issue
+	// @ts-expect-error - nostr-tools type definitions issue
 	import { nip19 } from 'nostr-tools';
 
 	let {
@@ -26,12 +25,12 @@
 	// Convert pubkey to npub format if needed
 	function normalizePubkey(pubkey: string): string {
 		if (!pubkey) return '';
-		
+
 		// If already npub, return as is
 		if (pubkey.startsWith('npub')) {
 			return pubkey;
 		}
-		
+
 		// Try to convert hex to npub
 		try {
 			return nip19.npubEncode(pubkey);
@@ -50,23 +49,34 @@
 
 	const sizeKey = $derived((size ?? 'sm') as keyof typeof textClasses);
 
-	onMount(async () => {
-		await loadUserRating();
+	// React to userPubkey changes (e.g. different profile); cleanup avoids set-state after unmount
+	$effect(() => {
+		void userPubkey;
+		let cancelled = false;
+		(async () => {
+			await loadUserRating(() => cancelled);
+		})();
+		return () => {
+			cancelled = true;
+		};
 	});
 
-	async function loadUserRating() {
+	async function loadUserRating(isCancelled?: () => boolean) {
 		if (!userPubkey) {
-			averageRating = 0;
-			reviewCount = 0;
-			isLoading = false;
+			if (!isCancelled?.()) {
+				averageRating = 0;
+				reviewCount = 0;
+				isLoading = false;
+			}
 			return;
 		}
 
 		try {
-			isLoading = true;
+			if (!isCancelled?.()) isLoading = true;
 			const normalizedPubkey = normalizePubkey(userPubkey);
 			const reviews: NostrVerifiedReview[] = await getReviewsForUser(normalizedPubkey, 100);
-			
+			if (isCancelled?.()) return;
+
 			if (reviews.length > 0) {
 				const stats = calculateReviewStats(reviews);
 				averageRating = Math.round(stats.averageRating * 10) / 10; // Round to 1 decimal
@@ -76,14 +86,15 @@
 				reviewCount = 0;
 			}
 		} catch (error) {
-			console.error('Failed to load user rating:', error);
-			averageRating = 0;
-			reviewCount = 0;
+			if (!isCancelled?.()) {
+				console.error('Failed to load user rating:', error);
+				averageRating = 0;
+				reviewCount = 0;
+			}
 		} finally {
-			isLoading = false;
+			if (!isCancelled?.()) isLoading = false;
 		}
 	}
-
 </script>
 
 {#if isLoading}
@@ -115,4 +126,3 @@
 		{/if}
 	</span>
 {/if}
-
