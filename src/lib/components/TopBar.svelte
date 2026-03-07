@@ -1,5 +1,6 @@
 <script lang="ts">
-import { onMount } from 'svelte';
+	import { goto } from '$app/navigation';
+	import { onMount } from 'svelte';
 	import { t } from 'svelte-i18n';
 	import { cubicOut } from 'svelte/easing';
 	import type { TransitionConfig } from 'svelte/transition';
@@ -240,7 +241,7 @@ import { onMount } from 'svelte';
 					transition:popoverTransition={{ duration: 200, y: -8, start: 0.98 }}
 				>
 					<ul>
-						{#each section.items as item}
+						{#each section.items as item (item.label)}
 							{@render menuItem(item)}
 						{/each}
 					</ul>
@@ -274,7 +275,7 @@ import { onMount } from 'svelte';
 		<ul class="menu menu-horizontal px-1">
 			{#if isLoggedIn}
 				<!-- Logged-in menu sections -->
-				{#each LOGGED_IN_MENU_SECTIONS as section}
+				{#each LOGGED_IN_MENU_SECTIONS as section (section.id)}
 					{@render menuSection(section)}
 				{/each}
 			{:else}
@@ -288,7 +289,7 @@ import { onMount } from 'svelte';
 					</a>
 				</li>
 				<!-- Rest are dropdown sections using DaisyUI details -->
-				{#each LOGGED_OUT_MENU_SECTIONS.slice(1) as section}
+				{#each LOGGED_OUT_MENU_SECTIONS.slice(1) as section (section.id)}
 					{@render menuSection(section)}
 				{/each}
 			{/if}
@@ -303,23 +304,23 @@ import { onMount } from 'svelte';
 		</div>
 		<!-- login/signup or notification + avatar -->
 		{#if !isLoggedIn}
-				<a
-					href="/auth/login"
-					onclick={handleAuthTapHaptic}
-					onpointerup={handleAuthTapHaptic}
-					ontouchend={handleAuthTapHaptic}
-					class="btn btn-sm sm:btn-md btn-secondary min-h-[44px] min-w-[44px] touch-manipulation"
-					data-testid="login-link"
-				>
+			<a
+				href="/auth/login"
+				onclick={handleAuthTapHaptic}
+				onpointerup={handleAuthTapHaptic}
+				ontouchend={handleAuthTapHaptic}
+				class="btn btn-sm sm:btn-md btn-secondary min-h-[44px] min-w-[44px] touch-manipulation"
+				data-testid="login-link"
+			>
 				{$t('navbar.login')}
 			</a>
-				<a
-					href="/auth/signup"
-					onclick={handleAuthTapHaptic}
-					onpointerup={handleAuthTapHaptic}
-					ontouchend={handleAuthTapHaptic}
-					class="btn btn-sm sm:btn-md btn-primary min-h-[44px] min-w-[44px] touch-manipulation"
-				>
+			<a
+				href="/auth/signup"
+				onclick={handleAuthTapHaptic}
+				onpointerup={handleAuthTapHaptic}
+				ontouchend={handleAuthTapHaptic}
+				class="btn btn-sm sm:btn-md btn-primary min-h-[44px] min-w-[44px] touch-manipulation"
+			>
 				{$t('navbar.signup')}
 			</a>
 		{:else}
@@ -367,7 +368,7 @@ import { onMount } from 'svelte';
 									</button>
 								</li>
 							{/if}
-							{#each AVATAR_MENU_ITEMS as item}
+							{#each AVATAR_MENU_ITEMS as item (item.label)}
 								{@render menuItem(item)}
 							{/each}
 						</ul>
@@ -380,77 +381,75 @@ import { onMount } from 'svelte';
 
 <!-- Mobile Drawer - Drawer is @deprecated in favor of BottomNavBar component -->
 <Drawer isOpen={isDrawerOpen} onClose={closeDrawer} position="left" isScrollable={true}>
-	{#snippet children()}
-		<ul class="menu w-full">
-			<!-- Dark mode toggle -->
-			<li><DarkModeToggle /></li>
+	<ul class="menu w-full">
+		<!-- Dark mode toggle -->
+		<li><DarkModeToggle /></li>
 
-			<!-- Language submenu -->
-			<li><LanguageDropdown onLanguageChange={closeDrawer} /></li>
+		<!-- Language submenu -->
+		<li><LanguageDropdown onLanguageChange={closeDrawer} /></li>
 
-			<li class="divider"></li>
+		<li class="divider"></li>
 
-			{#if isLoggedIn}
-				<!-- Logged-in mobile menu -->
-				{#each MOBILE_DRAWER_LOGGED_IN as item}
-					<li>
-						{#if item.action}
-							<button
-								onclick={async (e) => {
-									await handleMenuItemClick(e, item.action);
-									closeDrawer();
-								}}
-								class="flex items-center gap-2"
-							>
-								<item.icon />
-								{$t(item.label)}
-							</button>
-						{:else}
-							{@const itemHref = item.getDynamicHref
-								? item.getDynamicHref(isLoggedIn)
-								: item.href || '#'}
-							<a
-								href={itemHref}
-								onclick={(e) => handleMenuItemClick(e, undefined, itemHref)}
-								class="flex items-center gap-2"
-							>
-								<item.icon />
-								{$t(item.label)}
-							</a>
-						{/if}
-					</li>
-				{/each}
-			{:else}
-				<!-- Logged-out mobile menu -->
-				{@const loginBtn = MOBILE_AUTH_BUTTONS.login}
-				{@const signupBtn = MOBILE_AUTH_BUTTONS.signup}
-				<li class="mt-4 flex flex-col gap-2">
-					<a
-						href={loginBtn.href}
-						class="btn btn-secondary flex w-full items-center justify-center gap-2"
-						onclick={() => {
-							triggerTapHaptic();
-							closeDrawer();
-						}}
-					>
-						<loginBtn.icon />
-						{$t(loginBtn.label)}
-					</a>
-					<a
-						href={signupBtn.href}
-						class="btn btn-primary flex w-full items-center justify-center gap-2"
-						onclick={() => {
-							triggerTapHaptic();
-							closeDrawer();
-						}}
-					>
-						<signupBtn.icon />
-						{$t(signupBtn.label)}
-					</a>
+		{#if isLoggedIn}
+			<!-- Logged-in mobile menu -->
+			{#each MOBILE_DRAWER_LOGGED_IN as item (item.label)}
+				<li>
+					{#if item.action}
+						<button
+							onclick={async (e) => {
+								await handleMenuItemClick(e, item.action);
+								closeDrawer();
+							}}
+							class="flex items-center gap-2"
+						>
+							<item.icon />
+							{$t(item.label)}
+						</button>
+					{:else}
+						{@const itemHref = item.getDynamicHref
+							? item.getDynamicHref(isLoggedIn)
+							: item.href || '#'}
+						<a
+							href={itemHref}
+							onclick={(e) => handleMenuItemClick(e, undefined, itemHref)}
+							class="flex items-center gap-2"
+						>
+							<item.icon />
+							{$t(item.label)}
+						</a>
+					{/if}
 				</li>
-			{/if}
-		</ul>
-	{/snippet}
+			{/each}
+		{:else}
+			<!-- Logged-out mobile menu -->
+			{@const loginBtn = MOBILE_AUTH_BUTTONS.login}
+			{@const signupBtn = MOBILE_AUTH_BUTTONS.signup}
+			<li class="mt-4 flex flex-col gap-2">
+				<a
+					href={loginBtn.href}
+					class="btn btn-secondary flex w-full items-center justify-center gap-2"
+					onclick={() => {
+						triggerTapHaptic();
+						closeDrawer();
+					}}
+				>
+					<loginBtn.icon />
+					{$t(loginBtn.label)}
+				</a>
+				<a
+					href={signupBtn.href}
+					class="btn btn-primary flex w-full items-center justify-center gap-2"
+					onclick={() => {
+						triggerTapHaptic();
+						closeDrawer();
+					}}
+				>
+					<signupBtn.icon />
+					{$t(signupBtn.label)}
+				</a>
+			</li>
+		{/if}
+	</ul>
 </Drawer>
 
 <!-- Logout Confirmation Modal -->

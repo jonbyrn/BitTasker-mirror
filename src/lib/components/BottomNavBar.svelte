@@ -61,7 +61,6 @@
 	function finishMenuClose() {
 		menuState = 'closed';
 		isMenuOpen = false;
-		isMenuExpanding = false;
 	}
 
 	// Route detection for active states - immediate update
@@ -96,8 +95,6 @@
 	type BottomMenuState = 'closed' | 'open';
 	let menuState = $state<BottomMenuState>('closed');
 	let isMenuOpen = $state(false);
-	// Ensures the menu animates from collapsed -> expanded on open
-	let isMenuExpanding = $state(false);
 
 	// Measure actual dock height (avoid relying on 80px fallback)
 	let dockEl = $state<HTMLElement | null>(null);
@@ -165,7 +162,6 @@
 			return;
 		}
 		isMenuOpen = true;
-		isMenuExpanding = true;
 		menuState = 'open';
 	}
 
@@ -858,10 +854,10 @@
 <!-- Bottom Navigation Bar -->
 {#if isLoggedIn}
 	<!-- Dock is fixed at bottom of screen and animates in/out based on scroll -->
-		<div
-			bind:this={dockEl}
-			class="ios-tap-safe dock fixed right-0 bottom-0 left-0 pointer-events-auto pb-safe bg-primary/95 border-base-300/70 z-[80] border-t text-black backdrop-blur-sm"
-		>
+	<div
+		bind:this={dockEl}
+		class="ios-tap-safe dock pb-safe bg-primary/95 border-base-300/70 pointer-events-auto fixed right-0 bottom-0 left-0 z-[80] border-t text-black backdrop-blur-sm"
+	>
 		<!-- Home -->
 		<a
 			href="/dashboard"
@@ -891,12 +887,12 @@
 		</a>
 
 		<!-- Center Menu Button (Hamburger/X) -->
-				<button
-					data-menu-button
-					class="hover:bg-primary-content/10 flex min-h-[48px] min-w-[48px] flex-col items-center gap-1 rounded-lg transition-colors"
-					onclick={handleMenuButtonClick}
-					aria-label={isMenuOpen ? $t('navbar.close_menu') : $t('navbar.menu')}
-				>
+		<button
+			data-menu-button
+			class="hover:bg-primary-content/10 flex min-h-[48px] min-w-[48px] flex-col items-center gap-1 rounded-lg transition-colors"
+			onclick={handleMenuButtonClick}
+			aria-label={isMenuOpen ? $t('navbar.close_menu') : $t('navbar.menu')}
+		>
 			<div class="flex h-6 w-6 flex-col items-center justify-center">
 				<span
 					class="bg-primary-content block h-0.5 w-5 transition-all duration-300 ease-in-out"
@@ -945,10 +941,10 @@
 		</a>
 	</div>
 {:else}
-		<div
-			bind:this={dockEl}
-			class="ios-tap-safe dock fixed right-0 bottom-0 left-0 pointer-events-auto pb-safe bg-primary/95 border-base-300/70 z-[80] border-t text-black backdrop-blur-sm"
-		>
+	<div
+		bind:this={dockEl}
+		class="ios-tap-safe dock pb-safe bg-primary/95 border-base-300/70 pointer-events-auto fixed right-0 bottom-0 left-0 z-[80] border-t text-black backdrop-blur-sm"
+	>
 		<!-- Home -->
 		<a
 			href="/tasks"
@@ -978,12 +974,12 @@
 		</a>
 
 		<!-- Center Menu Button (Hamburger/X) -->
-				<button
-					data-menu-button
-					class="hover:bg-primary-content/10 flex min-h-[48px] min-w-[48px] flex-col items-center gap-1 rounded-lg transition-colors"
-					onclick={handleMenuButtonClick}
-					aria-label={isMenuOpen ? $t('navbar.close_menu') : $t('navbar.menu')}
-				>
+		<button
+			data-menu-button
+			class="hover:bg-primary-content/10 flex min-h-[48px] min-w-[48px] flex-col items-center gap-1 rounded-lg transition-colors"
+			onclick={handleMenuButtonClick}
+			aria-label={isMenuOpen ? $t('navbar.close_menu') : $t('navbar.menu')}
+		>
 			<div class="flex h-6 w-6 flex-col items-center justify-center">
 				<span
 					class="bg-primary-content block h-0.5 w-5 transition-all duration-300 ease-in-out"

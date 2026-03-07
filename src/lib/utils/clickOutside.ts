@@ -19,7 +19,7 @@ export const clickOutside: ClickOutsideAction = (node, options) => {
 				if (targetElement?.closest(options.exclude)) {
 					return;
 				}
-			} catch (e) {
+			} catch {
 				// Invalid selector, ignore
 			}
 		}

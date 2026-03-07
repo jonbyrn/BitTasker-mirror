@@ -1,10 +1,7 @@
 import { test, expect, type Locator, type Page, type TestInfo } from '@playwright/test';
 
 function requireIOSWebkit(testInfo: TestInfo): void {
-	test.skip(
-		!testInfo.project.name.includes('Mobile Safari'),
-		'iOS/WebKit diagnostics only'
-	);
+	test.skip(!testInfo.project.name.includes('Mobile Safari'), 'iOS/WebKit diagnostics only');
 }
 
 async function gotoTasks(page: Page): Promise<void> {
@@ -12,7 +9,11 @@ async function gotoTasks(page: Page): Promise<void> {
 	await expect(page).toHaveURL(/\/tasks(?:\?.*)?$/);
 }
 
-async function firstVisibleLocator(page: Page, selectors: string[], timeoutMs = 10_000): Promise<Locator> {
+async function firstVisibleLocator(
+	page: Page,
+	selectors: string[],
+	timeoutMs = 10_000
+): Promise<Locator> {
 	const start = Date.now();
 	while (Date.now() - start < timeoutMs) {
 		for (const selector of selectors) {
@@ -32,10 +33,6 @@ async function topbarAuthAction(page: Page): Promise<Locator> {
 		'a[href="/auth/login"]',
 		'a[href="/auth/signup"]'
 	]);
-}
-
-function menuButton(page: Page): Locator {
-	return page.locator('.dock button, button[data-menu-button]').first();
 }
 
 function menuBackdrop(page: Page): Locator {
@@ -245,6 +242,9 @@ test.describe('iOS WebKit interaction diagnostics', () => {
 			}
 			await page.waitForTimeout(250);
 		}
-		expect(navigated, 'Expected at least one successful auth navigation in 5 rapid attempts').toBeTruthy();
+		expect(
+			navigated,
+			'Expected at least one successful auth navigation in 5 rapid attempts'
+		).toBeTruthy();
 	});
 });
