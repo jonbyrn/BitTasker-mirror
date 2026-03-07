@@ -1,9 +1,13 @@
 import { test, expect, type Locator, type Page, type TestInfo } from '@playwright/test';
 
-const MENU_LABEL_RE = /(menu|close|men[uú]|cerrar|fechar|chiudi|schlie[ßs]en|fermer|cerrar men[uú])/i;
+const MENU_LABEL_RE =
+	/(menu|close|men[uú]|cerrar|fechar|chiudi|schlie[ßs]en|fermer|cerrar men[uú])/i;
 
 function requireMobileProject(testInfo: TestInfo): void {
-	test.skip(!testInfo.project.use.isMobile, 'This diagnostics spec only runs in mobile viewport projects.');
+	test.skip(
+		!testInfo.project.use.isMobile,
+		'This diagnostics spec only runs in mobile viewport projects.'
+	);
 }
 
 async function gotoTasks(page: Page): Promise<void> {
@@ -27,14 +31,20 @@ async function tryActivate(locator: Locator): Promise<void> {
 	try {
 		await locator.tap({ timeout: 2_000 });
 		return;
-	} catch {}
+	} catch {
+		// Fall through to click fallback.
+	}
 	try {
 		await locator.click({ force: true, timeout: 3_000 });
 		return;
-	} catch {}
+	} catch {
+		// Fall through to HTMLElement.click fallback.
+	}
 	try {
 		await locator.evaluate((el) => (el as HTMLElement).click());
-	} catch {}
+	} catch {
+		// Last-resort activation failed; caller assertions will surface it.
+	}
 }
 
 async function resolveMenuButton(page: Page, timeoutMs = 10_000): Promise<Locator> {
@@ -55,7 +65,11 @@ async function resolveMenuButton(page: Page, timeoutMs = 10_000): Promise<Locato
 	throw new Error('Menu trigger button not found');
 }
 
-async function assertCenterPointTargetsElement(page: Page, locator: Locator, label: string): Promise<void> {
+async function assertCenterPointTargetsElement(
+	page: Page,
+	locator: Locator,
+	label: string
+): Promise<void> {
 	const box = await locator.boundingBox();
 	expect(box, `${label} should have bounding box`).not.toBeNull();
 	if (!box) return;
@@ -93,11 +107,21 @@ async function closeBottomMenu(page: Page): Promise<void> {
 		const button = await resolveMenuButton(page);
 		await tryActivate(button);
 		await page.waitForTimeout(200);
-		if (!(await menuBackdrop(page).isVisible().catch(() => false))) return;
+		if (
+			!(await menuBackdrop(page)
+				.isVisible()
+				.catch(() => false))
+		)
+			return;
 
 		await tryActivate(backdrop);
 		await page.waitForTimeout(200);
-		if (!(await menuBackdrop(page).isVisible().catch(() => false))) return;
+		if (
+			!(await menuBackdrop(page)
+				.isVisible()
+				.catch(() => false))
+		)
+			return;
 	}
 
 	await expect(menuBackdrop(page)).toBeHidden({ timeout: 8_000 });
@@ -116,7 +140,11 @@ async function assertNoBlockingOverlay(page: Page): Promise<void> {
 	}
 }
 
-async function firstVisibleLocator(page: Page, selectors: string[], timeoutMs = 10_000): Promise<Locator> {
+async function firstVisibleLocator(
+	page: Page,
+	selectors: string[],
+	timeoutMs = 10_000
+): Promise<Locator> {
 	const start = Date.now();
 	while (Date.now() - start < timeoutMs) {
 		for (const selector of selectors) {
@@ -138,8 +166,15 @@ async function topbarAuthAction(page: Page): Promise<Locator> {
 	]);
 }
 
-async function activateAndWaitForURL(page: Page, locator: Locator, urlPattern: RegExp): Promise<void> {
-	const waitForUrl = page.waitForURL(urlPattern, { timeout: 10_000 }).then(() => true).catch(() => false);
+async function activateAndWaitForURL(
+	page: Page,
+	locator: Locator,
+	urlPattern: RegExp
+): Promise<void> {
+	const waitForUrl = page
+		.waitForURL(urlPattern, { timeout: 10_000 })
+		.then(() => true)
+		.catch(() => false);
 	await tryActivate(locator);
 	if (await waitForUrl) return;
 
@@ -212,7 +247,9 @@ test.describe('iOS tap overlay diagnostics (unauthenticated)', () => {
 
 		await expect(href).not.toBe('/tasks');
 		await expect(page).not.toHaveURL(beforeUrl);
-		await expect(page).toHaveURL(new RegExp(`${href.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')}(?:\\?.*)?$`));
+		await expect(page).toHaveURL(
+			new RegExp(`${href.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')}(?:\\?.*)?$`)
+		);
 	});
 
 	test('overlay is not hit-testable after menu closes', async ({ page }, testInfo) => {
@@ -290,9 +327,11 @@ test.describe('iOS tap overlay diagnostics (unauthenticated)', () => {
 		const action = await topbarAuthAction(page);
 		await assertCenterPointTargetsElement(page, action, 'Topbar auth action after rapid toggles');
 		await activateAndWaitForURL(page, action, /\/auth\/(login|signup)(?:\?.*)?$/);
-		});
+	});
 
-	test('standalone-mode emulation: topbar auth action remains tappable', async ({ page }, testInfo) => {
+	test('standalone-mode emulation: topbar auth action remains tappable', async ({
+		page
+	}, testInfo) => {
 		requireMobileProject(testInfo);
 
 		await page.addInitScript(() => {
@@ -320,7 +359,11 @@ test.describe('iOS tap overlay diagnostics (unauthenticated)', () => {
 
 		await gotoTasks(page);
 		const action = await topbarAuthAction(page);
-		await assertCenterPointTargetsElement(page, action, 'Topbar auth action in standalone emulation');
+		await assertCenterPointTargetsElement(
+			page,
+			action,
+			'Topbar auth action in standalone emulation'
+		);
 		await activateAndWaitForURL(page, action, /\/auth\/(login|signup)(?:\?.*)?$/);
 	});
 });
