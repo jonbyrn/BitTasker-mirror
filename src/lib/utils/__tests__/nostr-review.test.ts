@@ -8,7 +8,10 @@ import type { EscrowData } from '$lib/types/wallet';
 
 vi.mock('$lib/utils/escrow', () => ({
 	escrow: {
-		getEscrow: vi.fn()
+		getEscrow: vi.fn(),
+		contractOps: {
+			getContracts: vi.fn()
+		}
 	},
 	EscrowStatus: {
 		Funded: 0,
@@ -25,8 +28,17 @@ vi.mock('$lib/utils/escrow', () => ({
 
 vi.mock('$lib/utils/nostrKeys', () => ({
 	getNpub: vi.fn(),
-	npubToHex: (p: string) =>
-		p?.startsWith('npub') ? 'a'.repeat(64) : (p?.replace(/^0x/, '') ?? ''),
+	npubToHex: (p: string) => {
+		if (!p?.trim()) return '';
+		const s = p.trim();
+		if (s.startsWith('npub')) {
+			// Distinct hexes so authorization check (reviewer = one party, reviewee = other) can pass
+			if (s.includes('reviewer')) return 'r'.repeat(64);
+			if (s.includes('reviewee')) return 'e'.repeat(64);
+			return 'a'.repeat(64);
+		}
+		return s.replace(/^0x/, '');
+	},
 	hexToNpub: (h: string) => h
 }));
 
@@ -54,6 +66,19 @@ describe('nostr-review utilities', () => {
 				baseAmount: '1.0',
 				createdAt: Date.now()
 			} as EscrowData);
+
+			// Reviewer = client, reviewee = freelancer (npubToHex mock returns distinct hexes)
+			vi.mocked(escrow.contractOps.getContracts).mockResolvedValue([
+				{
+					contractEvent: {
+						content: {
+							clientPubkey: 'r'.repeat(64),
+							freelancerPubkey: 'e'.repeat(64)
+						},
+						created_at: Date.now() / 1000
+					}
+				}
+			] as unknown as Awaited<ReturnType<typeof escrow.contractOps.getContracts>>);
 
 			vi.mocked(getNpub).mockResolvedValue('npub1reviewer');
 
@@ -93,6 +118,47 @@ describe('nostr-review utilities', () => {
 			};
 
 			await expect(publishReview('123', 'npub1reviewee', content, 'task-abc')).rejects.toThrow();
+		});
+
+		it('should reject invalid review data (audit #2): overallRating out of range', async () => {
+			const content = {
+				overallRating: 99,
+				categoryRatings: { workQuality: 5, experience: 5, deliverySpeed: 5 }
+			};
+			await expect(publishReview('123', 'npub1reviewee', content, 'task-abc')).rejects.toThrow(
+				'Invalid review data.'
+			);
+		});
+
+		it('should reject invalid review data: comment too long', async () => {
+			const content = {
+				overallRating: 5,
+				categoryRatings: { workQuality: 5, experience: 5, deliverySpeed: 5 },
+				comment: 'x'.repeat(1001)
+			};
+			await expect(publishReview('123', 'npub1reviewee', content, 'task-abc')).rejects.toThrow(
+				'Invalid review data.'
+			);
+		});
+
+		it('should reject invalid review data: disallowed category key', async () => {
+			const content = {
+				overallRating: 5,
+				categoryRatings: { workQuality: 5, experience: 5, invalidKey: 5 }
+			};
+			await expect(publishReview('123', 'npub1reviewee', content, 'task-abc')).rejects.toThrow(
+				'Invalid review data.'
+			);
+		});
+
+		it('should reject invalid review data: category rating out of range', async () => {
+			const content = {
+				overallRating: 5,
+				categoryRatings: { workQuality: 5, experience: 0, deliverySpeed: 5 }
+			};
+			await expect(publishReview('123', 'npub1reviewee', content, 'task-abc')).rejects.toThrow(
+				'Invalid review data.'
+			);
 		});
 	});
 

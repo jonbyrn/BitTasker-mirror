@@ -160,7 +160,7 @@ export function calculateTotalPayment(baseAmount: bigint, clientFeeTier: FeeTier
 }
 
 /**
- * Get the default contract address for the current network.
+ * Get the default contract address for the current network
  */
 function getDefaultContractAddress(): string | undefined {
 	const network: RSKNetwork = import.meta.env.VITE_RSK_NETWORK || 'testnet';

@@ -13,7 +13,22 @@ import type {
 	ReviewEventContent,
 	RevieweeRole
 } from '$lib/types/review';
+import { TASKEE_CATEGORY_KEYS, TASKER_CATEGORY_KEYS } from '$lib/types/review';
 import { escrow, ESCROW_STATUSES_REVIEW_COMPLETED } from '$lib/utils/escrow';
+
+// Validation limits (same as form — audit #2)
+const MIN_RATING = 1;
+const MAX_RATING = 5;
+const MAX_COMMENT_LENGTH = 1000;
+const MAX_PHOTOS = 10;
+const MAX_PHOTO_URL_LENGTH = 2048;
+
+const LEGACY_CATEGORY_KEYS = ['quality', 'professionalism', 'timeliness'] as const;
+const ALL_CATEGORY_KEYS = new Set<string>([
+	...TASKEE_CATEGORY_KEYS,
+	...TASKER_CATEGORY_KEYS,
+	...LEGACY_CATEGORY_KEYS
+]);
 
 //--- Relay Configuration ---
 const DEFAULT_RELAYS = [import.meta.env.VITE_NOSTR_RELAY_URL].filter(Boolean);
@@ -102,6 +117,74 @@ function parseReviewEvent(event: NostrEvent, relayUrl: string): NostrVerifiedRev
 	}
 }
 
+const PUBLISH_REVIEW_ERROR_UNAVAILABLE = 'This task is not available for review.';
+const PUBLISH_REVIEW_ERROR_UNAUTHORIZED = "You can't submit a review for this task.";
+const PUBLISH_REVIEW_ERROR_INVALID = 'Invalid review data.';
+
+/**
+ * Validates review content before publishing (audit #2). Same limits as form.
+ * @throws Error with generic message; details logged to console.
+ */
+function validateReviewContent(content: ReviewContentWithRatings): void {
+	const details: string[] = [];
+
+	if (typeof content.overallRating !== 'number' || Number.isNaN(content.overallRating)) {
+		details.push('overallRating must be a number');
+	} else if (content.overallRating < MIN_RATING || content.overallRating > MAX_RATING) {
+		details.push(`overallRating must be between ${MIN_RATING} and ${MAX_RATING}`);
+	}
+
+	const categoryRatings = content.categoryRatings;
+	if (!categoryRatings || typeof categoryRatings !== 'object' || Array.isArray(categoryRatings)) {
+		details.push('categoryRatings must be an object');
+	} else {
+		for (const [key, value] of Object.entries(categoryRatings)) {
+			if (!ALL_CATEGORY_KEYS.has(key)) {
+				details.push(`disallowed category key: ${key}`);
+			}
+			if (
+				typeof value !== 'number' ||
+				Number.isNaN(value) ||
+				value < MIN_RATING ||
+				value > MAX_RATING
+			) {
+				details.push(`category ${key} must be number ${MIN_RATING}-${MAX_RATING}`);
+			}
+		}
+	}
+
+	const comment = content.comment;
+	if (comment !== undefined && comment !== null) {
+		const s = typeof comment === 'string' ? comment.trim() : '';
+		if (s.length > MAX_COMMENT_LENGTH) {
+			details.push(`comment length must be ≤ ${MAX_COMMENT_LENGTH}`);
+		}
+	}
+
+	const photos = content.photos;
+	if (photos !== undefined && photos !== null) {
+		if (!Array.isArray(photos)) {
+			details.push('photos must be an array');
+		} else if (photos.length > MAX_PHOTOS) {
+			details.push(`photos length must be ≤ ${MAX_PHOTOS}`);
+		} else {
+			for (let i = 0; i < photos.length; i++) {
+				const url = photos[i];
+				if (typeof url !== 'string') {
+					details.push(`photos[${i}] must be string`);
+				} else if (url.length > MAX_PHOTO_URL_LENGTH) {
+					details.push(`photos[${i}] URL length must be ≤ ${MAX_PHOTO_URL_LENGTH}`);
+				}
+			}
+		}
+	}
+
+	if (details.length > 0) {
+		console.error('[publishReview] Validation failed', { details });
+		throw new Error(PUBLISH_REVIEW_ERROR_INVALID);
+	}
+}
+
 /** Publish a review (Nostr only; no ZKP). */
 export async function publishReview(
 	escrowId: string,
@@ -109,17 +192,59 @@ export async function publishReview(
 	content: ReviewContentWithRatings,
 	taskId: string
 ): Promise<string> {
+	validateReviewContent(content);
+
 	const escrowData = await escrow.getEscrow(escrowId);
-	if (!escrowData) throw new Error('Escrow not found');
-	if (!ESCROW_STATUSES_REVIEW_COMPLETED.includes(escrowData.status)) {
-		throw new Error(`Escrow is not in a completed state. Current status: ${escrowData.status}`);
+	if (!escrowData) {
+		console.error('[publishReview] Escrow not found', { escrowId });
+		throw new Error(PUBLISH_REVIEW_ERROR_UNAVAILABLE);
 	}
+	if (!ESCROW_STATUSES_REVIEW_COMPLETED.includes(escrowData.status)) {
+		console.error('[publishReview] Escrow not in completed state', {
+			escrowId,
+			status: escrowData.status
+		});
+		throw new Error(PUBLISH_REVIEW_ERROR_UNAVAILABLE);
+	}
+
+	// Authorization: reviewee must be the other party in this escrow (audit #1)
+	const contracts = await escrow.contractOps.getContracts({ escrowIds: [escrowId] });
+	const contract = contracts[0];
+	if (!contract?.contractEvent?.content) {
+		console.error('[publishReview] No contract found for escrow', { escrowId });
+		throw new Error(PUBLISH_REVIEW_ERROR_UNAUTHORIZED);
+	}
+	const clientHex = npubToHex(contract.contractEvent.content.clientPubkey ?? '');
+	const freelancerHex = npubToHex(contract.contractEvent.content.freelancerPubkey ?? '');
 
 	const { getNpub } = await import('$lib/utils/nostrKeys');
 	const reviewerPubkey = await getNpub();
-	if (!reviewerPubkey) throw new Error('Failed to get reviewer pubkey');
-
+	if (!reviewerPubkey) {
+		console.error('[publishReview] Failed to get reviewer pubkey');
+		throw new Error(PUBLISH_REVIEW_ERROR_UNAUTHORIZED);
+	}
+	const reviewerHex = npubToHex(reviewerPubkey);
 	const revieweeHex = npubToHex(revieweePubkey);
+
+	const reviewerIsClient = reviewerHex === clientHex;
+	const reviewerIsFreelancer = reviewerHex === freelancerHex;
+	const revieweeIsOtherParty =
+		(reviewerIsClient && revieweeHex === freelancerHex) ||
+		(reviewerIsFreelancer && revieweeHex === clientHex);
+	if (!reviewerIsClient && !reviewerIsFreelancer) {
+		console.error('[publishReview] Reviewer is not a party to the contract', {
+			escrowId,
+			reviewerHex: reviewerHex.slice(0, 16) + '…'
+		});
+		throw new Error(PUBLISH_REVIEW_ERROR_UNAUTHORIZED);
+	}
+	if (!revieweeIsOtherParty) {
+		console.error('[publishReview] Reviewee is not the other party', {
+			escrowId,
+			revieweeHex: revieweeHex.slice(0, 16) + '…'
+		});
+		throw new Error(PUBLISH_REVIEW_ERROR_UNAUTHORIZED);
+	}
 	const categoryRatings = content.categoryRatings as Record<string, number>;
 	const revieweeRole = content.revieweeRole ?? 'taskee';
 

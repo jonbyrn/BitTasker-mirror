@@ -2,9 +2,6 @@
 	import { profileStore } from '$lib/stores/profile.store';
 	import { t } from 'svelte-i18n';
 	import { formatTime12Hour } from '$lib/utils/helpers/dateFormatter';
-	import CollapsibleSection from '$lib/components/shared/CollapsibleSection.svelte';
-
-	let availabilityExpanded = $state(false);
 
 	let { formatDate } = $props<{
 		formatDate: (date: string) => string;
@@ -47,6 +44,7 @@
 
 		// Function to get next occurrence of a day
 		function getNextDay(targetDay: number): Date {
+			// eslint-disable-next-line svelte/prefer-svelte-reactivity -- match dev: use Date
 			const result = new Date(now);
 			result.setHours(0, 0, 0, 0);
 			const currentDay = result.getDay();
@@ -116,86 +114,79 @@
 		<!-- Availability Card -->
 		<div class="card bg-base-200 mb-6 rounded-xl">
 			<div class="card-body">
-				<CollapsibleSection
-					title={$t('profile_availability.availabilityTitle')}
-					bind:expanded={availabilityExpanded}
-					contentClass="pt-2"
-				>
-					{#snippet children()}
-						{#if $profileStore.data?.availability}
-						<div class="mt-2">
-							<p class="font-medium">{$t('profile_availability.weeklySchedule')}</p>
-							<div class="mt-2 space-y-2">
-								{#each Object.entries(schedule()) as [day, scheduleData]}
-									<div class="border-base-300 flex items-center justify-between border-b py-1">
-										<span class="capitalize">{scheduleData.label}</span>
-										<span>
-											{#if scheduleData.available}
-												{scheduleData.hours}
-											{:else}
-												<span class="text-base-content/50"
-													>{$t('profile_availability.unavailable')}</span
-												>
-											{/if}
-										</span>
-									</div>
-								{/each}
-							</div>
+				<h3 class="card-title text-lg">{$t('profile_availability.availabilityTitle')}</h3>
+
+				{#if $profileStore.data.availability}
+					<div class="mt-2">
+						<p class="font-medium">{$t('profile_availability.weeklySchedule')}</p>
+						<div class="mt-2 space-y-2">
+							{#each Object.entries(schedule()) as [dayKey, scheduleData] (dayKey)}
+								<div class="border-base-300 flex items-center justify-between border-b py-1">
+									<span class="capitalize">{scheduleData.label}</span>
+									<span>
+										{#if scheduleData.available}
+											{scheduleData.hours}
+										{:else}
+											<span class="text-base-content/50"
+												>{$t('profile_availability.unavailable')}</span
+											>
+										{/if}
+									</span>
+								</div>
+							{/each}
 						</div>
+					</div>
 
-						<div class="divider"></div>
+					<div class="divider"></div>
 
-						<div class="flex items-center justify-between">
-							{#if nextAvailable()}
-								{@const next = nextAvailable()}
-								{#if next}
-									<div class="">
-										<p class="font-medium">{$t('profile_availability.nextAvailable')}</p>
-										<p class="text-primary">{formatDate(next)}</p>
-									</div>
-								{/if}
-							{/if}
-
-							<div>
-								<p class="font-medium">{$t('profile_availability.timezone')}</p>
-								<p class="text-base-content/70">
-									{$profileStore.data?.availability?.timezone ||
-										Intl.DateTimeFormat().resolvedOptions().timeZone}
-								</p>
+					<div class="flex items-center justify-between">
+						{#if nextAvailable()}
+							<div class="">
+								<p class="font-medium">{$t('profile_availability.nextAvailable')}</p>
+								<p class="text-primary">{formatDate(nextAvailable())}</p>
 							</div>
+						{/if}
+
+						<div>
+							<p class="font-medium">{$t('profile_availability.timezone')}</p>
+							<p class="text-base-content/70">
+								{$profileStore.data.availability?.timezone ||
+									Intl.DateTimeFormat().resolvedOptions().timeZone}
+							</p>
 						</div>
+					</div>
 
-						<div class="divider"></div>
+					<div class="divider"></div>
 
-						<div class="space-y-2 text-sm">
-							<div class="flex justify-between">
-								<span>{$t('profile_availability.noticeRequired')}</span>
-								<span class="text-base-content/70">
-									{$profileStore.data?.availability?.noticeHours}
-									{$t('profile_availability.hours')}
-								</span>
-							</div>
-							<div class="flex justify-between">
-								<span>{$t('profile_availability.maxBookingsPerDay')}</span>
-								<span class="text-base-content/70"
-									>{$profileStore.data?.availability?.maxBookingsPerDay}</span
-								>
-							</div>
-							<div class="flex justify-between">
-								<span>{$t('profile_availability.breakBetweenBookings')}</span>
-								<span class="text-base-content/70">
-									{$profileStore.data?.availability?.breakBetweenBookings}
-									{$t('profile_availability.minutes')}
-								</span>
-							</div>
+					<div class="space-y-2 text-sm">
+						<div class="flex justify-between">
+							<span>{$t('profile_availability.noticeRequired')}</span>
+							<span class="text-base-content/70">
+								{$profileStore.data.availability.noticeHours}
+								{$t('profile_availability.hours')}
+							</span>
 						</div>
-					{/if}
-					{/snippet}
-				</CollapsibleSection>
+						<div class="flex justify-between">
+							<span>{$t('profile_availability.maxBookingsPerDay')}</span>
+							<span class="text-base-content/70"
+								>{$profileStore.data.availability.maxBookingsPerDay}</span
+							>
+						</div>
+						<div class="flex justify-between">
+							<span>{$t('profile_availability.breakBetweenBookings')}</span>
+							<span class="text-base-content/70">
+								{$profileStore.data.availability.breakBetweenBookings}
+								{$t('profile_availability.minutes')}
+							</span>
+						</div>
+					</div>
+				{/if}
+
+				<!-- <div class="card-actions mt-4">
+					<button class="btn btn-primary btn-block">Contact</button>
+				</div> -->
 			</div>
 		</div>
-
-
 	{:else if $profileStore.error}
 		<div class="alert alert-outline alert-error">
 			<span>{$t('profile_availability.error_load')}</span>

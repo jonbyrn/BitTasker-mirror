@@ -71,7 +71,8 @@ const registry: ContractRegistry = {
  * Initialize contract registry with addresses from environment variables
  */
 export function initializeContractRegistry(): void {
-	const _rskNetwork = (import.meta.env.VITE_RSK_NETWORK || 'testnet') as Environment;
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars -- matches dev
+	const rskNetwork = (import.meta.env.VITE_RSK_NETWORK || 'testnet') as Environment;
 
 	// RSK Escrow contracts
 	registry.rsk.mainnet.escrow.current = import.meta.env.VITE_RSK_CONTRACT_ADDRESS_MAINNET || null;

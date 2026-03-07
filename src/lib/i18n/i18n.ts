@@ -12,7 +12,8 @@ const loadedNamespaces = new Map<string, Set<string>>();
 // Store for loading state
 export const isI18nLoading = writable(false);
 
-// Lazy loading cache
+// Lazy loading cache (eslint-disable: match dev typing)
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const translationCache = new Map<string, any>();
 
 /**
@@ -42,6 +43,7 @@ const getInitialLocale = async (): Promise<SupportedLanguage> => {
 /**
  * Load a specific namespace for a locale
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- match dev
 export async function loadNamespace(locale: SupportedLanguage, namespace: string): Promise<any> {
 	const cacheKey = `${locale}-${namespace}`;
 
@@ -104,8 +106,14 @@ async function loadEssentialTranslations(currentLocale: SupportedLanguage): Prom
 export function getNamespacesForRoute(route: string): string[] {
 	const namespaces: string[] = [];
 
-	if(route.includes('/tasks')) {
-		namespaces.push('common', 'dashboard/dashboard','dashboard/tasks/find','dashboard/tasks/info','dashboard/bids');
+	if (route.includes('/tasks')) {
+		namespaces.push(
+			'common',
+			'dashboard/dashboard',
+			'dashboard/tasks/find',
+			'dashboard/tasks/info',
+			'dashboard/bids'
+		);
 		// Include wallet namespace for bid-related components
 		namespaces.push('dashboard/wallet');
 		// Include categories and recommendations for task discovery
@@ -136,7 +144,12 @@ export function getNamespacesForRoute(route: string): string[] {
 		// Note: /find-tasks route redirects to /tasks, so this check is kept for backward compatibility
 		// but /tasks route already loads all necessary namespaces above
 		if (route.includes('/find-tasks')) {
-			namespaces.push('dashboard/tasks/find', 'dashboard/recomendations', 'dashboard/bids', 'categories');
+			namespaces.push(
+				'dashboard/tasks/find',
+				'dashboard/recomendations',
+				'dashboard/bids',
+				'categories'
+			);
 		}
 		if (route.includes('/create-task')) {
 			namespaces.push('dashboard/tasks/create', 'categories');
@@ -145,18 +158,18 @@ export function getNamespacesForRoute(route: string): string[] {
 		if (route.includes('/messages')) {
 			namespaces.push('dashboard/messages');
 		}
-	if (route.includes('/settings')) {
-		namespaces.push('dashboard/settings');
-	}
-	if (route.includes('/reviews')) {
-		namespaces.push('reviews');
-	}
+		if (route.includes('/settings')) {
+			namespaces.push('dashboard/settings');
+		}
+		if (route.includes('/reviews')) {
+			namespaces.push('reviews');
+		}
 	}
 
 	if (route.includes('/onboarding')) namespaces.push('onboarding');
 	if (route.includes('/how-it-works')) namespaces.push('how_it_works');
 	if (route.includes('/auth')) namespaces.push('auth');
-	
+
 	// Protected routes (routes that require authentication)
 	if (route.includes('(protected)')) {
 		namespaces.push('auth');

@@ -70,7 +70,7 @@ vi.mock('$app/navigation', () => ({
 // Mock browser environment (include building for Houdini adapter)
 vi.mock('$app/environment', () => ({
 	browser: true,
-	building: true
+	building: false
 }));
 
 // Mock navigator.permissions

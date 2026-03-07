@@ -51,10 +51,7 @@
 	// Watch for escrow reaching a final paid state via Nostr subscription (updated by contractStore).
 	// This fires the review modal at the correct moment — after blockchain confirmation — instead of
 	// using a setTimeout after the action function returns (which is pre-confirmation).
-	const reviewTriggerStatuses = [
-		EscrowStatus.FundsReleased,
-		EscrowStatus.DisputeResolved
-	];
+	const reviewTriggerStatuses = [EscrowStatus.FundsReleased, EscrowStatus.DisputeResolved];
 
 	$effect(() => {
 		const status = contract.escrowData?.status;
@@ -303,9 +300,18 @@
 				icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
 			});
 
-			// Note: Review prompt fires via $effect when escrow status reaches FundsReleased
+			// DM to taskee: funds released and work accepted
+			if (taskeeNpub) {
+				sendPaymentReleasedMessageToTaskee(taskeeNpub, {
+					taskId: contractStore.getContractKey(contract, 'taskId') as string,
+					taskTitle: taskTitle || undefined
+				}).catch((messageError: unknown) => {
+					console.error('Failed to send payment released message to taskee:', messageError);
+				});
+			}
+
+			// Review prompt fires via $effect when escrow status reaches FundsReleased
 			// (after blockchain confirmation via Nostr subscription), not here.
-			// Note: Loading will be cleared when contract.isPending becomes false
 		} catch (error) {
 			console.error('Error accepting task:', error);
 
