@@ -22,18 +22,22 @@ const PREVIEW_PORT = 4173;
 const DEV_PORT = 3000;
 const PREVIEW_URL = `http://localhost:${PREVIEW_PORT}`;
 const DEV_URL = `http://localhost:${DEV_PORT}`;
+const isCI = !!process.env.CI;
 
-const useDevServer = !process.env.CI;
+const useDevServer = !isCI;
 /** In CI, if build/ already exists (pipeline artifact), run preview only to avoid a second build. */
-const previewOnly = !!process.env.CI && existsSync(join(process.cwd(), 'build'));
+const previewOnly = isCI && existsSync(join(process.cwd(), 'build'));
 const baseURL = useDevServer ? DEV_URL : PREVIEW_URL;
+const configuredRetries = Number(process.env.PW_E2E_RETRIES ?? (isCI ? 1 : 0));
+const configuredMaxFailures = Number(process.env.PW_E2E_MAX_FAILURES ?? (isCI ? 12 : 0));
 
 export default defineConfig({
 	testDir: './tests/e2e',
 	fullyParallel: true,
-	forbidOnly: !!process.env.CI,
-	retries: process.env.CI ? 2 : 0,
-	workers: process.env.CI ? 1 : undefined,
+	forbidOnly: isCI,
+	retries: Number.isFinite(configuredRetries) ? configuredRetries : 0,
+	maxFailures: Number.isFinite(configuredMaxFailures) ? configuredMaxFailures : 0,
+	workers: isCI ? 1 : undefined,
 	reporter: 'list',
 	use: {
 		baseURL,
@@ -69,6 +73,14 @@ export default defineConfig({
 		{
 			name: 'Mobile Safari',
 			use: { ...devices['iPhone 12'] }
+		},
+		{
+			name: 'Mobile Safari SE',
+			use: { ...devices['iPhone SE (3rd gen)'] }
+		},
+		{
+			name: 'Mobile Safari Pro',
+			use: { ...devices['iPhone 14 Pro'] }
 		}
 
 		/* Test against branded browsers. */
@@ -99,7 +111,7 @@ export default defineConfig({
 					command: 'npm run preview',
 					url: PREVIEW_URL,
 					reuseExistingServer: false,
-					timeout: 15 * 1000,
+					timeout: 60 * 1000,
 					env: {
 						VITE_E2E_TURNSTILE_BYPASS: 'true',
 						...process.env

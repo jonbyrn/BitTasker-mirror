@@ -44,11 +44,11 @@
 		footer?: import('svelte').Snippet;
 	}>();
 
-	const respectBottomNav = props.respectBottomNav ?? true;
-	const bottomOffset = props.bottomOffset ?? 'var(--app-footer-height, 0px)';
-	const effectiveBottomOffset = $derived(respectBottomNav ? bottomOffset : '0px');
-	const maxHeight = props.maxHeight ?? '85vh';
-	const showCloseButton = props.showCloseButton ?? true;
+	let respectBottomNav = $derived(props.respectBottomNav ?? true);
+	let bottomOffset = $derived(props.bottomOffset ?? 'var(--app-footer-height, 0px)');
+	let effectiveBottomOffset = $derived(respectBottomNav ? bottomOffset : '0px');
+	let maxHeight = $derived(props.maxHeight ?? '85vh');
+	let showCloseButton = $derived(props.showCloseButton ?? true);
 
 	// Scroll lock management
 	const disableBodyScroll = () => {

@@ -32,10 +32,10 @@
 	}>();
 
 	// Set defaults
-	const position = props.position || 'right';
-	const respectBottomNav = props.respectBottomNav ?? true;
-	const bottomOffset = props.bottomOffset ?? 'var(--app-footer-height, 0px)';
-	const effectiveBottomOffset = $derived(respectBottomNav ? bottomOffset : '0px');
+	let position = $derived(props.position || 'right');
+	let respectBottomNav = $derived(props.respectBottomNav ?? true);
+	let bottomOffset = $derived(props.bottomOffset ?? 'var(--app-footer-height, 0px)');
+	let effectiveBottomOffset = $derived(respectBottomNav ? bottomOffset : '0px');
 
 	// Scroll lock management
 	const disableBodyScroll = () => {
@@ -142,78 +142,82 @@
 
 <svelte:window onkeydown={handleKeydown} />
 
-<!-- Drawer Overlay -->
-<div
-	class="fixed inset-0 z-60 bg-black/50 transition-opacity duration-300 ease-in-out"
-	style={`bottom: ${effectiveBottomOffset};`}
-	class:opacity-0={!visualOpenState}
-	class:pointer-events-none={!visualOpenState || !props.isOpen}
-	class:invisible={!props.isOpen && !visualOpenState}
-	onclick={props.onClose}
-	role="presentation"
-	aria-hidden="true"
-></div>
+{#if props.isOpen || visualOpenState}
+	<!-- Drawer Overlay -->
+	<div
+		class="fixed inset-0 z-[60] bg-black/50 transition-opacity duration-300 ease-in-out"
+		style={`bottom: ${effectiveBottomOffset};`}
+		class:opacity-0={!visualOpenState}
+		class:pointer-events-none={!visualOpenState || !props.isOpen}
+		class:invisible={!props.isOpen && !visualOpenState}
+		onclick={props.onClose}
+		role="presentation"
+		aria-hidden="true"
+	></div>
 
-<!-- Drawer Panel -->
-<div
-	bind:this={drawerPanelRef}
-	class="bg-base-100 fixed top-0 {position === 'left'
-		? 'left-0'
-		: 'right-0'} z-70 {drawerWidthClass} 
-		{props.isScrollable ? 'overflow-y-auto' : 'overflow-auto'} 
-		transform shadow-xl transition-transform duration-300 ease-in-out"
-	class:translate-x-0={visualOpenState}
-	class:-translate-x-full={!visualOpenState && position === 'left'}
-	class:translate-x-full={!visualOpenState && position === 'right'}
-	style={`bottom: ${effectiveBottomOffset};`}
-	role="dialog"
-	aria-modal="true"
-	aria-labelledby="drawer-title"
-	tabindex="-1"
->
-	{#if props.isOpen}
-		<!-- Header -->
-		<div class="bg-base-200 sticky top-0 z-10 flex items-center justify-between p-4">
-			<h4 id="drawer-title" class="min-w-0 flex-1 truncate pr-2 text-xl font-bold">
-				{#if props.title}
-					{props.title}
-				{/if}
-			</h4>
-			<button
-				class="btn btn-ghost btn-circle shrink-0"
-				onclick={props.onClose}
-				aria-label={$t('common.components.drawer.close')}
-			>
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					class="h-6 w-6"
-					fill="none"
-					viewBox="0 0 24 24"
-					stroke="currentColor"
+	<!-- Drawer Panel -->
+	<div
+		bind:this={drawerPanelRef}
+		class="bg-base-100 fixed top-0 {position === 'left'
+			? 'left-0'
+			: 'right-0'} z-[70] {drawerWidthClass} 
+			{props.isScrollable ? 'overflow-y-auto' : 'overflow-auto'} 
+			transform shadow-xl transition-transform duration-300 ease-in-out"
+		class:translate-x-0={visualOpenState}
+		class:-translate-x-full={!visualOpenState && position === 'left'}
+		class:translate-x-full={!visualOpenState && position === 'right'}
+		class:pointer-events-none={!props.isOpen || !visualOpenState}
+		class:invisible={!props.isOpen && !visualOpenState}
+		style={`bottom: ${effectiveBottomOffset};`}
+		role="dialog"
+		aria-modal="true"
+		aria-labelledby="drawer-title"
+		tabindex="-1"
+	>
+		{#if props.isOpen}
+			<!-- Header -->
+			<div class="bg-base-200 sticky top-0 z-10 flex items-center justify-between p-4">
+				<h4 id="drawer-title" class="min-w-0 flex-1 truncate pr-2 text-xl font-bold">
+					{#if props.title}
+						{props.title}
+					{/if}
+				</h4>
+				<button
+					class="btn btn-ghost btn-circle shrink-0"
+					onclick={props.onClose}
+					aria-label={$t('common.components.drawer.close')}
 				>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="2"
-						d="M6 18L18 6M6 6l12 12"
-					/>
-				</svg>
-			</button>
-		</div>
-
-		<!-- Content -->
-		<div class="drawer-content p-4">
-			{@render props.children?.()}
-		</div>
-
-		<!-- Footer (Optional) -->
-		{#if props.footer}
-			<div class="bg-base-200 sticky bottom-0 border-t p-4">
-				{@render props.footer?.()}
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="h-6 w-6"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M6 18L18 6M6 6l12 12"
+						/>
+					</svg>
+				</button>
 			</div>
+
+			<!-- Content -->
+			<div class="drawer-content p-4">
+				{@render props.children?.()}
+			</div>
+
+			<!-- Footer (Optional) -->
+			{#if props.footer}
+				<div class="bg-base-200 sticky bottom-0 border-t p-4">
+					{@render props.footer?.()}
+				</div>
+			{/if}
 		{/if}
-	{/if}
-</div>
+	</div>
+{/if}
 
 <style>
 	/* Keep content clear of device safe-area insets (not the dock). */
