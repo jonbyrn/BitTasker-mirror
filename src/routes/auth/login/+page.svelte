@@ -38,7 +38,10 @@
 	import LoginQrCodeScannerModal from '$lib/components/LoginQrCodeScannerModal.svelte';
 	import ErrorAlertWithModal from '$lib/components/ErrorAlertWithModal.svelte';
 	import Logo from '$lib/components/Logo.svelte';
-	import migratePasskey, { passkeyMigration } from '$lib/utils/helpers/migratePasskey';
+	import migratePasskey, {
+		passkeyMigration,
+		resetMigration
+	} from '$lib/utils/helpers/migratePasskey';
 	import MigratePasskey from '$lib/components/MigratePasskey.svelte';
 
 	// Polyfill Buffer
@@ -404,6 +407,9 @@
 					.then(async () => {
 						if (res.isNewUser) await goto('/auth/onboarding');
 						else await goto('/dashboard');
+						if ($passkeyMigration.isOpen) {
+							resetMigration();
+						}
 					});
 			}
 		} catch (err) {
