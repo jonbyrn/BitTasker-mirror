@@ -29,7 +29,6 @@ describe('contractPermissions', () => {
 	};
 
 	const mockContract: NostrContract = {
-		id: 'contract-123',
 		escrowId: '123',
 		taskId: 'task-123',
 		taskTitle: 'Test Task',
@@ -37,12 +36,25 @@ describe('contractPermissions', () => {
 		clientPubkey: 'npub1client',
 		freelancerPubkey: 'npub1freelancer',
 		amount: '1.0',
+		currency: 'RBTC',
+		status: EscrowStatus.Funded,
+		type: 'contract',
 		estimatedStartTime: now + oneHour,
 		estimatedCompletionTime: now + oneDay,
-		transactionHash: '0x123',
-		createdAt: now * 1000,
-		updatedAt: now * 1000
+		transactionHash: '0x123'
 	};
+
+	const buildStatusContent = (
+		action: EscrowStatus,
+		overrides: Partial<ContractStatusEvent['content']> = {}
+	): ContractStatusEvent['content'] => ({
+		contractEventId: 'contract-123',
+		escrowId: '123',
+		action,
+		timestamp: now,
+		type: 'contract-status',
+		...overrides
+	});
 
 	beforeEach(() => {
 		// Reset Date.now mock if needed
@@ -100,11 +112,10 @@ describe('contractPermissions', () => {
 						kind: 1,
 						sig: 'sig',
 						tags: [],
-						content: {
-							action: EscrowStatus.PendingCompletion,
+						content: buildStatusContent(EscrowStatus.PendingCompletion, {
 							transactionHash: '0x456',
 							message: 'Pending completion'
-						}
+						})
 					}
 				];
 
@@ -260,11 +271,10 @@ describe('contractPermissions', () => {
 						kind: 1,
 						sig: 'sig',
 						tags: [],
-						content: {
-							action: EscrowStatus.PendingCancellation,
+						content: buildStatusContent(EscrowStatus.PendingCancellation, {
 							transactionHash: '0x789',
 							message: 'Cancelling...'
-						}
+						})
 					}
 				];
 
@@ -292,11 +302,10 @@ describe('contractPermissions', () => {
 						kind: 1,
 						sig: 'sig',
 						tags: [],
-						content: {
-							action: EscrowStatus.PendingCompletion,
+						content: buildStatusContent(EscrowStatus.PendingCompletion, {
 							transactionHash: '0xabc',
 							message: 'Completing...'
-						}
+						})
 					}
 				];
 
@@ -370,10 +379,9 @@ describe('contractPermissions', () => {
 						kind: 1,
 						sig: 'sig',
 						tags: [],
-						content: {
-							action: EscrowStatus.FundsReleased,
+						content: buildStatusContent(EscrowStatus.FundsReleased, {
 							message: 'Funds released'
-						}
+						})
 					}
 				];
 
@@ -407,11 +415,10 @@ describe('contractPermissions', () => {
 						kind: 1,
 						sig: 'sig',
 						tags: [],
-						content: {
-							action: EscrowStatus.PendingAcceptance,
+						content: buildStatusContent(EscrowStatus.PendingAcceptance, {
 							transactionHash: '0xdef',
 							message: 'Accepting...'
-						}
+						})
 					}
 				];
 
@@ -553,10 +560,9 @@ describe('contractPermissions', () => {
 						kind: 1,
 						sig: 'sig',
 						tags: [],
-						content: {
-							action: EscrowStatus.DisputeResolutionProposed,
+						content: buildStatusContent(EscrowStatus.DisputeResolutionProposed, {
 							message: 'Proposal 1'
-						}
+						})
 					},
 					{
 						id: 'event-2',
@@ -565,10 +571,9 @@ describe('contractPermissions', () => {
 						kind: 1,
 						sig: 'sig',
 						tags: [],
-						content: {
-							action: EscrowStatus.DisputeResolutionProposed,
+						content: buildStatusContent(EscrowStatus.DisputeResolutionProposed, {
 							message: 'Proposal 2'
-						}
+						})
 					}
 				];
 

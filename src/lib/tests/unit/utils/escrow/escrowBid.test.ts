@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ethers } from 'ethers';
 import type { NostrBidContent, NostrEventWithFollowup } from '$lib/types/bid';
 import type { Task } from '$lib/types/task';
+import { BudgetTypeEnum, TaskStatusEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
 import type { NostrEvent } from 'nostr-tools';
 
 // Mock dependencies
@@ -95,7 +96,19 @@ const mockCleanupPendingContractByTxHash = cleanupPendingContractByTxHash as Ret
 
 describe('escrowBid', () => {
 	const mockBidContent: NostrBidContent = {
+		type: 'bid',
+		taskId: 'task-123',
+		taskTitle: 'Test Task',
+		taskDescription: 'Test Description',
 		amount: 100, // USD
+		currency: 'USD',
+		paymentType: 'FIXED',
+		description: 'Test bid description',
+		estimatedDuration: '2 hours',
+		proposedApproach: 'Complete with documented steps',
+		coverLetter: 'I can complete this task quickly.',
+		timestamp: Math.floor(Date.now() / 1000),
+		bidId: 'bid-content-123',
 		bidderId: 'npub1test',
 		bidderWalletAddress: '0x2222222222222222222222222222222222222222',
 		startDateTime: serializeDateWithLocalTime(new Date(Date.now() + 3600000)) || '', // 1 hour from now
@@ -103,13 +116,37 @@ describe('escrowBid', () => {
 	};
 
 	const mockTask: Task = {
+		estimatedHours: 2,
 		id: 'task-123',
+		npub: 'npub1client',
+		status: TaskStatusEnum.OPEN,
 		title: 'Test Task',
+		taskType: TaskTypeEnum.REMOTE,
 		description: 'Test Description',
+		budget: {
+			amount: 100,
+			currency: 'USD',
+			type: BudgetTypeEnum.FIXED
+		},
+		deadline: serializeDateWithLocalTime(new Date(Date.now() + 86400000)),
 		dateRange: {
 			start: serializeDateWithLocalTime(new Date(Date.now() + 3600000)) || '',
 			end: serializeDateWithLocalTime(new Date(Date.now() + 7200000)) || ''
-		}
+		},
+		pickupLocation: null,
+		dropOffLocation: null,
+		skills: [],
+		categories: [],
+		isRemovals: false,
+		isBoosted: false,
+		boostPercentage: null,
+		createdAt: Date.now(),
+		updatedAt: new Date().toISOString(),
+		completedAt: null,
+		cancelledAt: null,
+		deletedAt: null,
+		isDeleted: false,
+		requiredSkills: []
 	};
 
 	beforeEach(() => {
@@ -144,9 +181,11 @@ describe('escrowBid', () => {
 		});
 
 		it('should fallback to task dateRange when bid timing not available', () => {
-			const bidWithoutTiming = { ...mockBidContent };
-			delete bidWithoutTiming.startDateTime;
-			delete bidWithoutTiming.endDateTime;
+			const bidWithoutTiming: NostrBidContent = {
+				...mockBidContent,
+				startDateTime: '',
+				endDateTime: ''
+			};
 
 			const btcPrice = 50000;
 			const result = calculateBidEscrowDetails(bidWithoutTiming, mockTask, btcPrice);

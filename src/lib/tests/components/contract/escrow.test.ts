@@ -174,7 +174,7 @@ import { getWallet, getProvider, walletManager } from '$lib/stores/wallet.store'
 // Setup mocks after import
 const mockGetWalletFn = getWallet as ReturnType<typeof vi.fn>;
 const mockGetProviderFn = getProvider as ReturnType<typeof vi.fn>;
-const mockWalletManager = walletManager as { initialize: ReturnType<typeof vi.fn> };
+const mockWalletManager = walletManager as unknown as { initialize: ReturnType<typeof vi.fn> };
 
 describe('escrow', () => {
 	let mockWallet: Wallet;

@@ -1,30 +1,37 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { ethers } from 'ethers';
 import { EscrowStatus } from '$lib/utils/escrow';
 import { determineContractState } from '$lib/utils/helpers/contractPermissions';
 import type { EscrowData, DisputeProposal } from '$lib/types/wallet';
-import type { NostrContract, ContractStatusEvent } from '$lib/types/contract';
+import type { NostrContract, ContractStatusEvent, NostrContractStatus } from '$lib/types/contract';
 
 // Mock dependencies
 vi.mock('@bittasker/wallet-core', () => ({
 	normalizeRskAddress: vi.fn((addr: string) => addr.toLowerCase())
 }));
+vi.mock('$lib/nostr/task', () => ({
+	updateTask: vi.fn().mockResolvedValue(undefined),
+	getTaskStableId: vi.fn((task: { id?: string }) => task.id ?? 'task-id')
+}));
 
 vi.mock('svelte-i18n', () => {
-	const translationFn = (key: string) => key;
-	const mockT = Object.assign(vi.fn((key: string) => key), { subscribe: vi.fn() });
+	const mockT = Object.assign(
+		vi.fn((key: string) => key),
+		{ subscribe: vi.fn() }
+	);
 	return { t: mockT };
 });
 
-vi.mock('svelte/store', () => {
+vi.mock('svelte/store', async () => {
+	const actual = await vi.importActual<typeof import('svelte/store')>('svelte/store');
 	const translationFn = (key: string) => key;
-	const mockGet = vi.fn((store: any) => {
+	const mockGet = vi.fn((store: unknown) => {
 		if (typeof store === 'function') {
-			if (store.subscribe || (store.toString && store.toString().includes('t'))) {
+			const fnStore = store as { subscribe?: unknown; toString?: () => string };
+			if (fnStore.subscribe || fnStore.toString?.().includes('t')) {
 				return translationFn;
 			}
 			try {
-				return store();
+				return (store as () => unknown)();
 			} catch {
 				return translationFn;
 			}
@@ -32,12 +39,8 @@ vi.mock('svelte/store', () => {
 		return store;
 	});
 	return {
-		get: mockGet,
-		writable: vi.fn(() => ({
-			set: vi.fn(),
-			subscribe: vi.fn(),
-			update: vi.fn()
-		}))
+		...actual,
+		get: mockGet
 	};
 });
 
@@ -45,8 +48,29 @@ describe('Escrow Permissions Integration Tests', () => {
 	const now = Math.floor(Date.now() / 1000);
 	const clientPubkey = 'client-pubkey';
 	const freelancerPubkey = 'freelancer-pubkey';
+	const contractEventId = 'contract-123';
+	const escrowId = '123';
 
-	const createMockEscrowData = (state: EscrowStatus, overrides: Partial<EscrowData> = {}): EscrowData => ({
+	const createStatusContent = (
+		action: EscrowStatus,
+		message: string,
+		transactionHash: string,
+		overrides: Partial<NostrContractStatus> = {}
+	): NostrContractStatus => ({
+		contractEventId,
+		escrowId,
+		action,
+		message,
+		timestamp: now,
+		type: 'contract-status',
+		transactionHash,
+		...overrides
+	});
+
+	const createMockEscrowData = (
+		state: EscrowStatus,
+		overrides: Partial<EscrowData> = {}
+	): EscrowData => ({
 		id: '123',
 		client: '0x1111111111111111111111111111111111111111',
 		freelancer: '0x2222222222222222222222222222222222222222',
@@ -382,11 +406,7 @@ describe('Escrow Permissions Integration Tests', () => {
 				kind: 4,
 				sig: 'sig',
 				tags: [],
-				content: {
-					action: EscrowStatus.PendingCompletion,
-					message: 'Completing...',
-					transactionHash: '0x456'
-				}
+				content: createStatusContent(EscrowStatus.PendingCompletion, 'Completing...', '0x456')
 			};
 
 			const result = determineContractState(
@@ -421,11 +441,11 @@ describe('Escrow Permissions Integration Tests', () => {
 					kind: 4,
 					sig: 'sig',
 					tags: [],
-					content: {
-						action: EscrowStatus.DisputeResolutionProposed,
-						message: 'Proposal 1',
-						transactionHash: '0x111'
-					}
+					content: createStatusContent(
+						EscrowStatus.DisputeResolutionProposed,
+						'Proposal 1',
+						'0x111'
+					)
 				},
 				{
 					id: 'prop2',
@@ -434,11 +454,12 @@ describe('Escrow Permissions Integration Tests', () => {
 					kind: 4,
 					sig: 'sig',
 					tags: [],
-					content: {
-						action: EscrowStatus.DisputeResolutionProposed,
-						message: 'Proposal 2',
-						transactionHash: '0x222'
-					}
+					content: createStatusContent(
+						EscrowStatus.DisputeResolutionProposed,
+						'Proposal 2',
+						'0x222',
+						{ timestamp: now + 100 }
+					)
 				}
 			];
 
@@ -470,11 +491,11 @@ describe('Escrow Permissions Integration Tests', () => {
 					kind: 4,
 					sig: 'sig',
 					tags: [],
-					content: {
-						action: EscrowStatus.DisputeResolutionProposed,
-						message: 'Proposal 1',
-						transactionHash: '0x111'
-					}
+					content: createStatusContent(
+						EscrowStatus.DisputeResolutionProposed,
+						'Proposal 1',
+						'0x111'
+					)
 				}
 			];
 

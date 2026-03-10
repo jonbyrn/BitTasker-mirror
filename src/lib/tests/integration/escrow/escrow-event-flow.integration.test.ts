@@ -2,20 +2,39 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ethers } from 'ethers';
 import { EscrowStatus } from '$lib/utils/escrow';
 
+const {
+	mockPublishEscrowStatus,
+	mockHandleEscrowCreated,
+	mockRegisterPendingContractByTxHash,
+	mockCreateContract,
+	mockPublishContractStatus,
+	mockContractState
+} = vi.hoisted(() => ({
+	mockPublishEscrowStatus: vi.fn(),
+	mockHandleEscrowCreated: vi.fn(),
+	mockRegisterPendingContractByTxHash: vi.fn(),
+	mockCreateContract: vi.fn(),
+	mockPublishContractStatus: vi.fn(),
+	mockContractState: { instance: null as unknown }
+}));
+
 // Mock dependencies
 vi.mock('@bittasker/wallet-core', () => ({
 	normalizeRskAddress: vi.fn((addr: string) => addr.toLowerCase())
 }));
+vi.mock('$lib/nostr/task', () => ({
+	updateTask: vi.fn().mockResolvedValue(undefined),
+	getTaskStableId: vi.fn((task: { id?: string }) => task.id ?? 'task-id')
+}));
 
 // Mock ethers
-let mockContractInstance: any = null;
 vi.mock('ethers', async () => {
-	const actual = await vi.importActual('ethers');
+	const actual = await vi.importActual<typeof import('ethers')>('ethers');
 	return {
 		...actual,
 		ethers: {
 			...actual.ethers,
-			Contract: vi.fn().mockImplementation(() => mockContractInstance)
+			Contract: vi.fn().mockImplementation(() => mockContractState.instance)
 		}
 	};
 });
@@ -28,24 +47,57 @@ vi.mock('$lib/stores/wallet.store', () => ({
 	getProvider: vi.fn(() => ({
 		getFeeData: vi.fn().mockResolvedValue({
 			gasPrice: BigInt('1000000000')
-		})
+		}),
+		getBalance: vi.fn().mockResolvedValue(BigInt('1000000000000000000'))
 	})),
 	walletManager: {
 		initialize: vi.fn()
 	}
 }));
 
-// Mock escrowEvents
-const mockPublishEscrowStatus = vi.fn();
-const mockHandleEscrowCreated = vi.fn();
-const mockRegisterPendingContractByTxHash = vi.fn();
+vi.mock('$lib/api/services/push-notification.service', () => ({
+	pushNotificationService: {
+		sendNotificationToNpubs: vi.fn().mockResolvedValue(undefined)
+	}
+}));
 
+vi.mock('$lib/stores/contract.store', () => ({
+	contractStore: {
+		loadContractByEscrowId: vi.fn().mockResolvedValue(undefined)
+	}
+}));
+
+// Mock Nostr contract
+vi.mock('$lib/utils/escrow/v1/nostrContract', async () => {
+	const actual = await vi.importActual<typeof import('$lib/utils/escrow/v1/nostrContract')>(
+		'$lib/utils/escrow/v1/nostrContract'
+	);
+	return {
+		...actual,
+		createContractEvent: mockCreateContract,
+		publishContractEvent: mockCreateContract,
+		publishContractStatus: mockPublishContractStatus
+	};
+});
+
+// Mock escrowEvents
 vi.mock('$lib/utils/escrow/v1/escrowEvents', async () => {
 	const actual = await vi.importActual('$lib/utils/escrow/v1/escrowEvents');
 	return {
 		...actual,
+		handleEscrowCreated: vi.fn(async (...args: unknown[]) => {
+			mockHandleEscrowCreated(...args);
+			return (
+				actual as { handleEscrowCreated: (...params: unknown[]) => Promise<void> }
+			).handleEscrowCreated(...args);
+		}),
 		default: {
-			handleEscrowCreated: mockHandleEscrowCreated,
+			handleEscrowCreated: vi.fn(async (...args: unknown[]) => {
+				mockHandleEscrowCreated(...args);
+				return (
+					actual as { handleEscrowCreated: (...params: unknown[]) => Promise<void> }
+				).handleEscrowCreated(...args);
+			}),
 			publishPendingCompletion: vi.fn(),
 			handleTaskCompleted: vi.fn(),
 			publishPendingAcceptance: vi.fn(),
@@ -58,19 +110,22 @@ vi.mock('$lib/utils/escrow/v1/escrowEvents', async () => {
 			handleProposalAccepted: vi.fn(),
 			handleTimelockResolved: vi.fn()
 		},
-		publishEscrowStatus: mockPublishEscrowStatus,
-		registerPendingContractByTxHash: mockRegisterPendingContractByTxHash
+		publishEscrowStatus: vi.fn(async (...args: unknown[]) => {
+			mockPublishEscrowStatus(...args);
+			return (
+				actual as { publishEscrowStatus: (...params: unknown[]) => Promise<void> }
+			).publishEscrowStatus(...args);
+		}),
+		registerPendingContractByTxHash: vi.fn((...args: unknown[]) => {
+			mockRegisterPendingContractByTxHash(...args);
+			return (
+				actual as {
+					registerPendingContractByTxHash: (...params: unknown[]) => void;
+				}
+			).registerPendingContractByTxHash(...args);
+		})
 	};
 });
-
-// Mock Nostr contract
-const mockCreateContract = vi.fn();
-const mockPublishContractStatus = vi.fn();
-
-vi.mock('$lib/utils/escrow/v1/nostrContract', () => ({
-	createContractEvent: mockCreateContract,
-	publishContractStatus: mockPublishContractStatus
-}));
 
 // Mock app store
 vi.mock('$lib/stores/app.store', () => ({
@@ -83,21 +138,24 @@ vi.mock('$lib/stores/app.store', () => ({
 
 // Mock svelte-i18n
 vi.mock('svelte-i18n', () => {
-	const translationFn = (key: string) => key;
-	const mockT = Object.assign(vi.fn((key: string) => key), { subscribe: vi.fn() });
+	const mockT = Object.assign(
+		vi.fn((key: string) => key),
+		{ subscribe: vi.fn() }
+	);
 	return { t: mockT };
 });
 
 // Mock svelte/store
 vi.mock('svelte/store', () => {
 	const translationFn = (key: string) => key;
-	const mockGet = vi.fn((store: any) => {
+	const mockGet = vi.fn((store: unknown) => {
 		if (typeof store === 'function') {
-			if (store.subscribe || (store.toString && store.toString().includes('t'))) {
+			const fnStore = store as { subscribe?: unknown; toString?: () => string };
+			if (fnStore.subscribe || fnStore.toString?.().includes('t')) {
 				return translationFn;
 			}
 			try {
-				return store();
+				return (store as () => unknown)();
 			} catch {
 				return translationFn;
 			}
@@ -120,15 +178,22 @@ import { escrow } from '$lib/utils/escrow/v1/escrow';
 import * as EscrowNostrEvent from '$lib/utils/escrow/v1/escrowEvents';
 
 describe('Escrow Event Flow Integration Tests', () => {
-	let mockContract: any;
+	let mockContract: {
+		interface: { parseLog: ReturnType<typeof vi.fn> };
+		createEscrow: ReturnType<typeof vi.fn>;
+		completeTask: ReturnType<typeof vi.fn>;
+		acceptTask: ReturnType<typeof vi.fn>;
+		getEscrow: ReturnType<typeof vi.fn>;
+		paused: ReturnType<typeof vi.fn>;
+	};
 
 	beforeEach(() => {
 		vi.clearAllMocks();
 
-		const createMockWait = (receipt: any) => {
-			return vi.fn().mockImplementation(
-				() => new Promise((resolve) => setTimeout(() => resolve(receipt), 10))
-			);
+		const createMockWait = (receipt: unknown) => {
+			return vi
+				.fn()
+				.mockImplementation(() => new Promise((resolve) => setTimeout(() => resolve(receipt), 10)));
 		};
 
 		mockContract = {
@@ -142,12 +207,14 @@ describe('Escrow Event Flow Integration Tests', () => {
 			paused: vi.fn().mockResolvedValue(false)
 		};
 
-		const createMethodWithEstimateGas = (estimateGasValue: bigint, waitReceipt: any) => {
+		const createMethodWithEstimateGas = (estimateGasValue: bigint, waitReceipt: unknown) => {
 			const method = vi.fn().mockResolvedValue({
 				hash: '0x' + Math.random().toString(16).substring(2, 66),
 				wait: createMockWait(waitReceipt)
 			});
-			method.estimateGas = vi.fn().mockResolvedValue(estimateGasValue);
+			(method as unknown as { estimateGas: ReturnType<typeof vi.fn> }).estimateGas = vi
+				.fn()
+				.mockResolvedValue(estimateGasValue);
 			return method;
 		};
 
@@ -169,7 +236,7 @@ describe('Escrow Event Flow Integration Tests', () => {
 			logs: []
 		});
 
-		mockContractInstance = mockContract;
+		mockContractState.instance = mockContract;
 	});
 
 	describe('Blockchain → Nostr Event Flow', () => {
@@ -191,7 +258,7 @@ describe('Escrow Event Flow Integration Tests', () => {
 			});
 
 			// Complete task
-			const result = await escrow.completeTask(escrowId, contractEventId);
+			await escrow.completeTask(escrowId, contractEventId);
 
 			// Should publish pending status immediately
 			expect(mockPublishEscrowStatus).toHaveBeenCalledWith(
@@ -203,7 +270,7 @@ describe('Escrow Event Flow Integration Tests', () => {
 			);
 
 			// Wait for confirmation
-			await new Promise(resolve => setTimeout(resolve, 100));
+			await new Promise((resolve) => setTimeout(resolve, 100));
 
 			// Should publish confirmed status after confirmation
 			expect(mockPublishEscrowStatus).toHaveBeenCalledWith(
@@ -223,9 +290,20 @@ describe('Escrow Event Flow Integration Tests', () => {
 			const amount = ethers.parseEther('1.0').toString();
 
 			mockCreateContract.mockResolvedValue(undefined);
+			await EscrowNostrEvent.registerPendingContractByTxHash({
+				bidEventId: 'bid-456',
+				taskId: 'task-456',
+				taskTitle: 'Event Flow Task',
+				taskDescription: 'Event flow task description',
+				freelancerPubkey: freelancerAddress,
+				amount,
+				estimatedStartTime: Math.floor(Date.now() / 1000) + 3600,
+				estimatedCompletionTime: Math.floor(Date.now() / 1000) + 7200,
+				transactionHash: txHash
+			});
 
 			// Simulate EscrowCreated event from blockchain
-			await EscrowNostrEvent.default.handleEscrowCreated({
+			await EscrowNostrEvent.handleEscrowCreated({
 				escrowId,
 				transactionHash: txHash,
 				client: clientAddress,
@@ -307,7 +385,7 @@ describe('Escrow Event Flow Integration Tests', () => {
 			expect(acceptResult.hash).toBeDefined();
 
 			// Wait for both to confirm
-			await new Promise(resolve => setTimeout(resolve, 150));
+			await new Promise((resolve) => setTimeout(resolve, 150));
 
 			// Both should have published statuses
 			expect(mockPublishEscrowStatus).toHaveBeenCalledWith(
