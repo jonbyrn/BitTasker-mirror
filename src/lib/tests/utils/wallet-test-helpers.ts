@@ -1,6 +1,8 @@
-import type { WalletState, WalletAsset, Transaction, NetworkType } from '@bittasker/wallet-core';
+import type { Transaction, WalletAsset, WalletState } from '@bittasker/wallet-core';
 import { writable, get } from 'svelte/store';
 import type { Writable } from 'svelte/store';
+
+type AddressEntity = Transaction['from'];
 
 /**
  * Wallet Test Helpers
@@ -10,14 +12,10 @@ import type { Writable } from 'svelte/store';
 /**
  * Create a mock wallet store with optional overrides
  */
-export function createMockWalletStore(
-	overrides: Partial<WalletState> = {}
-): Writable<WalletState> {
+export function createMockWalletStore(overrides: Partial<WalletState> = {}): Writable<WalletState> {
 	const defaultState: WalletState = {
 		isInitializing: false,
 		isConnected: false,
-		isConnecting: false,
-		hasAnyConnection: false,
 		error: null,
 		rsk: {
 			connected: false,
@@ -60,7 +58,6 @@ export function createMockWalletStore(
 		rbtcToBtcRate: 1.0,
 		rbtcRateError: false,
 		activeNetwork: 'rsk',
-		activeTab: 'balance',
 		selectedAsset: 'rBTC',
 		...overrides
 	};
@@ -72,7 +69,7 @@ export function createMockWalletStore(
  * Create a mock wallet manager
  * This is a simplified mock that can be extended as needed
  */
-export function createMockWalletManager(overrides: any = {}) {
+export function createMockWalletManager(overrides: Record<string, unknown> = {}) {
 	return {
 		rskWallet: {
 			getAddress: () => '0x1234567890123456789012345678901234567890',
@@ -116,21 +113,69 @@ export function createMockWalletManager(overrides: any = {}) {
 	};
 }
 
+function createAddressEntity(hash: string): AddressEntity {
+	return {
+		ens_domain_name: null,
+		hash,
+		implementations: [],
+		is_contract: false,
+		is_scam: false,
+		is_verified: false,
+		metadata: null,
+		name: null,
+		private_tags: [],
+		proxy_type: null,
+		public_tags: [],
+		reputation: 'neutral',
+		watchlist_names: []
+	};
+}
+
 /**
  * Generate mock transaction data
  */
 export function generateMockTransaction(overrides: Partial<Transaction> = {}): Transaction {
 	return {
 		hash: '0x' + Math.random().toString(16).substring(2, 66),
-		from: '0x1234567890123456789012345678901234567890',
-		to: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
+		from: createAddressEntity('0x1234567890123456789012345678901234567890'),
+		to: createAddressEntity('0xabcdefabcdefabcdefabcdefabcdefabcdefabcd'),
 		value: '1000000000000000000', // 1 RBTC in wei
-		blockNumber: 12345678,
-		blockHash: '0x' + Math.random().toString(16).substring(2, 66),
-		timestamp: Date.now(),
-		network: 'rootstock-bitcoin',
-		type: 'send',
-		status: 'confirmed',
+		gas_used: '21000',
+		gas_price: '20000000000',
+		gas_limit: '21000',
+		block_number: 12345678,
+		timestamp: new Date().toISOString(),
+		status: 'ok',
+		nonce: 1,
+		position: 0,
+		confirmations: 12,
+		raw_input: '0x',
+		method: null,
+		decoded_input: null,
+		transaction_types: [],
+		token_transfers: null,
+		max_fee_per_gas: null,
+		max_priority_fee_per_gas: null,
+		base_fee_per_gas: null,
+		priority_fee: null,
+		transaction_burnt_fee: null,
+		result: 'success',
+		revert_reason: null,
+		created_contract: null,
+		is_pending_update: false,
+		type: 2,
+		has_error_in_internal_transactions: false,
+		fee: {
+			type: 'actual',
+			value: '420000000000000'
+		},
+		exchange_rate: null,
+		historic_exchange_rate: null,
+		confirmation_duration: null,
+		token_transfers_overflow: false,
+		transaction_tag: null,
+		authorization_list: [],
+		actions: [],
 		...overrides
 	};
 }
@@ -140,13 +185,15 @@ export function generateMockTransaction(overrides: Partial<Transaction> = {}): T
  */
 export function generateMockAsset(overrides: Partial<WalletAsset> = {}): WalletAsset {
 	return {
-		symbol: 'RBTC',
+		assetId: 'rbtc',
+		ticker: 'RBTC',
 		name: 'Rootstock Bitcoin',
-		balance: '1000000000000000000', // 1 RBTC in wei
+		precision: 18,
+		icon: '/images/chains/Bitcoin-Rootstock-logo.webp',
+		balance: 1,
 		formattedBalance: '1.00',
 		usdValue: 65000,
-		network: 'rootstock-bitcoin',
-		decimals: 18,
+		network: 'RSK',
 		...overrides
 	};
 }
@@ -154,15 +201,22 @@ export function generateMockAsset(overrides: Partial<WalletAsset> = {}): WalletA
 /**
  * Generate mock address for different networks
  */
-export function generateMockAddress(network: NetworkType = 'rootstock-bitcoin'): string {
-	const addresses: Record<NetworkType, string> = {
+type AddressNetwork =
+	| 'rootstock-bitcoin'
+	| 'usdt-bsc'
+	| 'lightning-bitcoin'
+	| 'liquid-bitcoin'
+	| 'bitcoin';
+
+export function generateMockAddress(network: AddressNetwork = 'rootstock-bitcoin'): string {
+	const addresses: Record<AddressNetwork, string> = {
 		'rootstock-bitcoin': '0x1234567890123456789012345678901234567890',
 		'usdt-bsc': '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
 		'lightning-bitcoin': 'lnbc1p0example1234567890abcdef',
 		'liquid-bitcoin': 'VJL1example123456789012345678901234567890',
-		'bitcoin': 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh'
+		bitcoin: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh'
 	};
-	return addresses[network] || addresses['rootstock-bitcoin'];
+	return addresses[network];
 }
 
 /**
@@ -175,7 +229,7 @@ export async function waitForWalletUpdate(
 	timeout: number = 5000
 ): Promise<WalletState> {
 	const startTime = Date.now();
-	
+
 	return new Promise((resolve, reject) => {
 		const check = () => {
 			const state = get(store);
@@ -204,7 +258,7 @@ export function createMockLightningInvoice(amountSats?: number, memo?: string): 
 /**
  * Create mock parsed address data
  */
-export function createMockParsedAddress(overrides: any = {}) {
+export function createMockParsedAddress(overrides: Record<string, unknown> = {}) {
 	return {
 		isValid: true,
 		address: '0x1234567890123456789012345678901234567890',
@@ -214,8 +268,3 @@ export function createMockParsedAddress(overrides: any = {}) {
 		...overrides
 	};
 }
-
-
-
-
-

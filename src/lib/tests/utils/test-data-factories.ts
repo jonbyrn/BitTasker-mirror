@@ -3,53 +3,127 @@
  * Centralized factories for generating consistent test data across all wallet tests
  */
 
-import type { WalletAsset, Transaction, NetworkType } from '@bittasker/wallet-core';
+import type { Transaction, WalletAsset } from '@bittasker/wallet-core';
+
+type AddressEntity = Transaction['from'];
+
+function createAddressEntity(hash: string): AddressEntity {
+	return {
+		ens_domain_name: null,
+		hash,
+		implementations: [],
+		is_contract: false,
+		is_scam: false,
+		is_verified: false,
+		metadata: null,
+		name: null,
+		private_tags: [],
+		proxy_type: null,
+		public_tags: [],
+		reputation: 'neutral',
+		watchlist_names: []
+	};
+}
+
+function createBaseTransaction(overrides: Partial<Transaction> = {}): Transaction {
+	return {
+		hash: '0x' + Math.random().toString(16).substring(2, 66),
+		from: createAddressEntity('0x1234567890123456789012345678901234567890'),
+		to: createAddressEntity('0xabcdefabcdefabcdefabcdefabcdefabcdefabcd'),
+		value: '1000000000000000000',
+		gas_used: '21000',
+		gas_price: '20000000000',
+		gas_limit: '21000',
+		block_number: 12345678,
+		timestamp: new Date().toISOString(),
+		status: 'ok',
+		nonce: 1,
+		position: 0,
+		confirmations: 12,
+		raw_input: '0x',
+		method: null,
+		decoded_input: null,
+		transaction_types: [],
+		token_transfers: null,
+		max_fee_per_gas: null,
+		max_priority_fee_per_gas: null,
+		base_fee_per_gas: null,
+		priority_fee: null,
+		transaction_burnt_fee: null,
+		result: 'success',
+		revert_reason: null,
+		created_contract: null,
+		is_pending_update: false,
+		type: 2,
+		has_error_in_internal_transactions: false,
+		fee: {
+			type: 'actual',
+			value: '420000000000000'
+		},
+		exchange_rate: null,
+		historic_exchange_rate: null,
+		confirmation_duration: null,
+		token_transfers_overflow: false,
+		transaction_tag: null,
+		authorization_list: [],
+		actions: [],
+		...overrides
+	};
+}
 
 /**
  * Factory for creating test wallet assets
  */
 export const AssetFactory = {
 	createRSKAsset: (overrides: Partial<WalletAsset> = {}): WalletAsset => ({
-		symbol: 'RBTC',
+		assetId: 'rbtc',
+		ticker: 'RBTC',
 		name: 'Rootstock Bitcoin',
-		balance: '1000000000000000000', // 1 RBTC
+		precision: 18,
+		icon: '/images/chains/Bitcoin-Rootstock-logo.webp',
+		balance: 1,
 		formattedBalance: '1.00',
 		usdValue: 65000,
-		network: 'rootstock-bitcoin',
-		decimals: 18,
+		network: 'RSK',
 		...overrides
 	}),
 
 	createBSCBNBAsset: (overrides: Partial<WalletAsset> = {}): WalletAsset => ({
-		symbol: 'BNB',
+		assetId: 'bnb',
+		ticker: 'BNB',
 		name: 'Binance Coin',
-		balance: '500000000000000000', // 0.5 BNB
+		precision: 18,
+		icon: '/images/chains/Binance-Coin.svg',
+		balance: 0.5,
 		formattedBalance: '0.50',
 		usdValue: 150,
-		network: 'usdt-bsc',
-		decimals: 18,
+		network: 'BSC',
 		...overrides
 	}),
 
 	createBSCUSDTAsset: (overrides: Partial<WalletAsset> = {}): WalletAsset => ({
-		symbol: 'USDT',
+		assetId: 'usdt',
+		ticker: 'USDT',
 		name: 'Tether USD',
-		balance: '100000000', // 100 USDT
+		precision: 6,
+		icon: '/images/chains/USDT-BSC.svg',
+		balance: 100,
 		formattedBalance: '100.00',
 		usdValue: 100,
-		network: 'usdt-bsc',
-		decimals: 6,
+		network: 'BSC',
 		...overrides
 	}),
 
 	createBitcoinAsset: (overrides: Partial<WalletAsset> = {}): WalletAsset => ({
-		symbol: 'BTC',
+		assetId: 'btc',
+		ticker: 'BTC',
 		name: 'Bitcoin',
-		balance: '100000000', // 1 BTC in sats
+		precision: 8,
+		icon: '/images/chains/Bitcoin.svg',
+		balance: 1,
 		formattedBalance: '1.00',
 		usdValue: 65000,
-		network: 'bitcoin',
-		decimals: 8,
+		network: 'Bitcoin',
 		...overrides
 	})
 };
@@ -58,47 +132,29 @@ export const AssetFactory = {
  * Factory for creating test transactions
  */
 export const TransactionFactory = {
-	createSendTransaction: (overrides: Partial<Transaction> = {}): Transaction => ({
-		hash: '0x' + Math.random().toString(16).substring(2, 66),
-		from: '0x1234567890123456789012345678901234567890',
-		to: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
-		value: '1000000000000000000', // 1 RBTC
-		blockNumber: 12345678,
-		blockHash: '0x' + Math.random().toString(16).substring(2, 66),
-		timestamp: Date.now(),
-		network: 'rootstock-bitcoin',
-		type: 'send',
-		status: 'confirmed',
-		...overrides
-	}),
+	createSendTransaction: (overrides: Partial<Transaction> = {}): Transaction =>
+		createBaseTransaction({
+			from: createAddressEntity('0x1234567890123456789012345678901234567890'),
+			to: createAddressEntity('0xabcdefabcdefabcdefabcdefabcdefabcdefabcd'),
+			...overrides
+		}),
 
-	createReceiveTransaction: (overrides: Partial<Transaction> = {}): Transaction => ({
-		hash: '0x' + Math.random().toString(16).substring(2, 66),
-		from: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
-		to: '0x1234567890123456789012345678901234567890',
-		value: '500000000000000000', // 0.5 RBTC
-		blockNumber: 12345679,
-		blockHash: '0x' + Math.random().toString(16).substring(2, 66),
-		timestamp: Date.now() - 3600000, // 1 hour ago
-		network: 'rootstock-bitcoin',
-		type: 'receive',
-		status: 'confirmed',
-		...overrides
-	}),
+	createReceiveTransaction: (overrides: Partial<Transaction> = {}): Transaction =>
+		createBaseTransaction({
+			from: createAddressEntity('0xabcdefabcdefabcdefabcdefabcdefabcdefabcd'),
+			to: createAddressEntity('0x1234567890123456789012345678901234567890'),
+			value: '500000000000000000',
+			block_number: 12345679,
+			...overrides
+		}),
 
-	createPendingTransaction: (overrides: Partial<Transaction> = {}): Transaction => ({
-		hash: '0x' + Math.random().toString(16).substring(2, 66),
-		from: '0x1234567890123456789012345678901234567890',
-		to: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
-		value: '200000000000000000', // 0.2 RBTC
-		blockNumber: null,
-		blockHash: null,
-		timestamp: Date.now(),
-		network: 'rootstock-bitcoin',
-		type: 'send',
-		status: 'pending',
-		...overrides
-	})
+	createPendingTransaction: (overrides: Partial<Transaction> = {}): Transaction =>
+		createBaseTransaction({
+			status: 'pending',
+			confirmations: 0,
+			is_pending_update: true,
+			...overrides
+		})
 };
 
 /**
@@ -174,8 +230,3 @@ export const EdgeCaseFactory = {
 	invalidAddress: '0x123', // Too short
 	invalidHash: '0xabc' // Too short
 };
-
-
-
-
-
