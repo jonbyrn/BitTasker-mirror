@@ -17,8 +17,6 @@ describe('Wallet Store State Management', () => {
 		walletStore.set({
 			isInitializing: false,
 			isConnected: false,
-			isConnecting: false,
-			hasAnyConnection: false,
 			error: null,
 			rsk: {
 				connected: false,
@@ -61,14 +59,13 @@ describe('Wallet Store State Management', () => {
 			rbtcToBtcRate: 1.0,
 			rbtcRateError: false,
 			activeNetwork: 'rsk',
-			activeTab: 'balance',
 			selectedAsset: 'rBTC'
 		});
 	});
 
 	describe('walletStore', () => {
 		it('should update state correctly', () => {
-			walletStore.update(s => ({
+			walletStore.update((s) => ({
 				...s,
 				isConnected: true,
 				rsk: {
@@ -86,8 +83,8 @@ describe('Wallet Store State Management', () => {
 
 		it('should maintain state immutability', () => {
 			const initialState = get(walletStore);
-			
-			walletStore.update(s => ({
+
+			walletStore.update((s) => ({
 				...s,
 				isConnected: true
 			}));
@@ -111,7 +108,7 @@ describe('Wallet Store State Management', () => {
 				AssetFactory.createBSCUSDTAsset()
 			];
 
-			walletStore.update(s => ({
+			walletStore.update((s) => ({
 				...s,
 				assets: mockAssets
 			}));
@@ -139,7 +136,7 @@ describe('Wallet Store State Management', () => {
 				bnb: 0.5
 			};
 
-			walletStore.update(s => ({
+			walletStore.update((s) => ({
 				...s,
 				totalBalances: mockBalances
 			}));
@@ -154,7 +151,7 @@ describe('Wallet Store State Management', () => {
 	describe('State persistence and recovery', () => {
 		it('should maintain state across updates', () => {
 			// Set initial state
-			walletStore.update(s => ({
+			walletStore.update((s) => ({
 				...s,
 				isConnected: true,
 				rsk: {
@@ -165,24 +162,24 @@ describe('Wallet Store State Management', () => {
 			}));
 
 			// Update another field
-			walletStore.update(s => ({
+			walletStore.update((s) => ({
 				...s,
-				activeTab: 'transactions'
+				selectedAsset: 'USDt'
 			}));
 
 			const state = get(walletStore);
 			expect(state.isConnected).toBe(true);
 			expect(state.rsk.address).toBe('0x1234567890123456789012345678901234567890');
 			expect(state.rsk.balance).toBe('1000000000000000000');
-			expect(state.activeTab).toBe('transactions');
+			expect(state.selectedAsset).toBe('USDt');
 		});
 	});
 
 	describe('Error state handling', () => {
 		it('should store error messages', () => {
 			const errorMessage = 'Failed to connect to wallet';
-			
-			walletStore.update(s => ({
+
+			walletStore.update((s) => ({
 				...s,
 				error: errorMessage
 			}));
@@ -193,13 +190,13 @@ describe('Wallet Store State Management', () => {
 
 		it('should clear error on successful operation', () => {
 			// Set error
-			walletStore.update(s => ({
+			walletStore.update((s) => ({
 				...s,
 				error: 'Previous error'
 			}));
 
 			// Clear error
-			walletStore.update(s => ({
+			walletStore.update((s) => ({
 				...s,
 				error: null
 			}));
@@ -209,5 +206,3 @@ describe('Wallet Store State Management', () => {
 		});
 	});
 });
-
-

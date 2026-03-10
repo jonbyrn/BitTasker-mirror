@@ -152,11 +152,11 @@ describe('PendingSwap', () => {
 
 	it('shows and clears delete loading state around async deletion', async () => {
 		const swap = makeLightningSwap();
-		let resolveDelete: (() => void) | null = null;
+		let resolveDelete!: () => void;
 		const onDeleteSwap = vi.fn(
 			() =>
 				new Promise<void>((resolve) => {
-					resolveDelete = resolve;
+					resolveDelete = () => resolve();
 				})
 		);
 
@@ -175,7 +175,7 @@ describe('PendingSwap', () => {
 		expect(onDeleteSwap).toHaveBeenCalledWith('swap-1');
 		expect(deleteButton).toBeDisabled();
 
-		resolveDelete?.();
+		resolveDelete();
 		await waitFor(() => expect(deleteButton).not.toBeDisabled());
 	});
 });
