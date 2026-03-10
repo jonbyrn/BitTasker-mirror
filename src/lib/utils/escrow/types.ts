@@ -213,7 +213,7 @@ export interface IEscrowHandler {
 	checkEscrowFundingStatus(escrowId: string): Promise<{
 		wasFunded: boolean;
 		escrowData: EscrowData | null;
-		error?: typeof EscrowError;
+		error?: EscrowError;
 	}>;
 }
 

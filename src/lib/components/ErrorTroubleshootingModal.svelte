@@ -3,6 +3,7 @@
 	import { fade, fly } from 'svelte/transition';
 	import { t } from 'svelte-i18n';
 	import { detectErrorType } from '$lib/utils/helpers/errorTypeDetector';
+	import type { ErrorType as ErrorTroubleshootingType } from '$lib/types/errorTroubleshooting';
 	import {
 		getDeviceCompatibility,
 		getDeviceSpecificTroubleshooting,
@@ -18,14 +19,7 @@
 	import IconShieldAlert from '~icons/mdi/shield-alert';
 	import IconCog from '~icons/mdi/cog';
 
-	export type ErrorType =
-		| 'biometric'
-		| 'network'
-		| 'authentication'
-		| 'permission'
-		| 'hardware'
-		| 'timeout'
-		| 'unknown';
+	export type ErrorType = ErrorTroubleshootingType;
 
 	interface Props {
 		onClose?: () => void;
