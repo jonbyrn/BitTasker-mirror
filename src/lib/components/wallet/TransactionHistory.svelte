@@ -12,9 +12,10 @@
 	import IconCheckAll from '~icons/mdi/check-all';
 	import IconClose from '~icons/mdi/close';
 
-	let { onOpenPaymentRequest, onClose } = $props<{
+	const props = $props<{
 		onOpenPaymentRequest: (swapId: string) => void;
 		onClose?: () => void;
+		closeButtonTestId?: string;
 	}>();
 
 	type SwapAction = {
@@ -272,11 +273,11 @@
 				(action: SwapAction) => action.type === 'viewQR'
 			);
 
-			if (hasViewQRAction && tx.swap.id) {
-				// Call parent callback to open the modal
-				onOpenPaymentRequest(tx.swap.id);
-				return;
-			}
+				if (hasViewQRAction && tx.swap.id) {
+					// Call parent callback to open the modal
+					props.onOpenPaymentRequest(tx.swap.id);
+					return;
+				}
 		}
 
 		// Default behavior: open explorer URL
@@ -663,21 +664,23 @@
 
 		<!-- Close and Refresh buttons -->
 		<div class="flex gap-2">
-			{#if onClose}
+			{#if props.onClose}
 				<button
 					class="btn btn-error min-h-[44px] flex-1 touch-manipulation transition-transform duration-100 select-none active:scale-95 sm:min-h-[48px]"
 					style="-webkit-tap-highlight-color: transparent;"
+					data-testid={props.closeButtonTestId}
 					onclick={() => {
 						triggerHaptic(ImpactStyle.Light);
-						onClose();
+						props.onClose?.();
 					}}
 					aria-label={$t('common.close')}
 				>
-					<IconClose class="h-4 w-4 sm:h-5 sm:w-5" />
-					<span class="text-sm sm:text-base">{$t('common.close')}</span>
+						<IconClose class="h-4 w-4 sm:h-5 sm:w-5" />
+						<span class="text-sm sm:text-base">{$t('common.close')}</span>
 				</button>
 			{/if}
 			<button
+				data-testid="wallet-transactions-refresh"
 				class="btn btn-primary flex min-h-[44px] flex-1 items-center justify-center gap-2"
 				onclick={() => {
 					triggerHaptic(ImpactStyle.Light);

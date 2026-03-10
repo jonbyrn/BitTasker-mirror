@@ -9,6 +9,11 @@ import authService from '$lib/api/services/auth.service';
 
 // Helper function to get mnemonic using the same logic as wallet.store.ts
 export async function getMnemonic(): Promise<string> {
+	const e2eMnemonic = import.meta.env.VITE_E2E_WALLET_MNEMONIC as string | undefined;
+	if (import.meta.env.VITE_E2E_TURNSTILE_BYPASS === 'true' && e2eMnemonic) {
+		return e2eMnemonic.trim();
+	}
+
 	if (process.env.NODE_ENV === 'development') {
 		// return 'draw mobile oven airport ostrich jar fiber motion main move mom firm';
 	}

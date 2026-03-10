@@ -957,6 +957,7 @@
 			class="tabs tabs-boxed border-base-300 mb-3 shrink-0 overflow-hidden rounded-lg border sm:mb-4"
 		>
 			<button
+				data-testid="wallet-send-tab-scan"
 				class="tab flex-1"
 				class:bg-primary={uiState.activeTab === 'scan'}
 				class:text-primary-content={uiState.activeTab === 'scan'}
@@ -970,6 +971,7 @@
 				{$t('wallet.send.scan_qr_code')}
 			</button>
 			<button
+				data-testid="wallet-send-tab-enter"
 				class="tab flex-1"
 				class:bg-primary={uiState.activeTab === 'enter'}
 				class:text-primary-content={uiState.activeTab === 'enter'}
@@ -1192,6 +1194,7 @@
 										<div class="relative flex-1 min-w-0 pr-10 sm:pr-11">
 											<input
 												id="address-input"
+												data-testid="wallet-send-address-input"
 												type="text"
 												class="w-full bg-transparent pl-6 text-base focus:outline-none placeholder:text-base-content/50"
 												placeholder={$t('wallet.send.address_placeholder')}
@@ -1264,7 +1267,9 @@
 							</div>
 							{#if parsedPayment.addressError}
 								<div class="label">
-									<span class="label-text-alt text-error">{parsedPayment.addressError}</span>
+									<span data-testid="wallet-send-address-error" class="label-text-alt text-error"
+										>{parsedPayment.addressError}</span
+									>
 								</div>
 							{/if}
 						</div>
@@ -1509,6 +1514,7 @@
 									<div class="relative flex-1 min-w-0 pr-10 sm:pr-11">
 										<input
 											id="address-input-desktop"
+											data-testid="wallet-send-address-input"
 											type="text"
 											class="w-full bg-transparent pl-6 text-base focus:outline-none placeholder:text-base-content/50"
 											placeholder={$t('wallet.send.address_placeholder')}
@@ -1581,7 +1587,9 @@
 						</div>
 						{#if parsedPayment.addressError}
 							<div class="label">
-								<span class="label-text-alt text-error">{parsedPayment.addressError}</span>
+								<span data-testid="wallet-send-address-error" class="label-text-alt text-error"
+									>{parsedPayment.addressError}</span
+								>
 							</div>
 						{/if}
 					</div>
@@ -1797,6 +1805,7 @@
 				<!-- Mobile Step 1: Cancel and Next -->
 				{#if uiState.currentStep === 1}
 					<button
+						data-testid="wallet-send-cancel"
 						class="btn btn-error min-h-[44px] flex-1 touch-manipulation transition-transform duration-100 select-none active:scale-95 sm:hidden"
 						style="-webkit-tap-highlight-color: transparent;"
 						onclick={() => {
@@ -1845,6 +1854,7 @@
 
 				<!-- Desktop: Always show Cancel and Send -->
 				<button
+					data-testid="wallet-send-cancel"
 					class="btn btn-error min-h-[44px] hidden flex-1 touch-manipulation transition-transform duration-100 select-none active:scale-95 sm:flex sm:min-h-[48px] md:min-h-[56px]"
 					style="-webkit-tap-highlight-color: transparent;"
 					onclick={() => {
@@ -1871,6 +1881,7 @@
 		{#if uiState.activeTab === 'scan' && !uiState.showConfirmation}
 			<div class="flex w-full shrink-0 justify-center pb-4">
 				<button
+					data-testid="wallet-send-cancel"
 					class="btn btn-error min-h-[48px] touch-manipulation transition-transform duration-100 select-none active:scale-95 md:min-h-[56px]"
 					style="-webkit-tap-highlight-color: transparent;"
 					onclick={() => {
