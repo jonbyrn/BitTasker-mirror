@@ -1,158 +1,158 @@
-# Plan de ejecución: Cotizaciones de servicios (Service quotes)
+# Execution plan: Service quotes
 
-Complementa el plan principal `services-listing-feature-plan.md`. Enfoque: **recibir cotizaciones (taskee)** y **gestionar cotizaciones enviadas (tasker)** hasta la creación de contrato.
-
----
-
-## 1. Tipos de cotización (quote request)
-
-Toda solicitud que un **tasker** envía sobre un servicio es una **cotización**. El tipo depende del pricing del servicio:
-
-| Tipo servicio   | Acción del tasker                                      | Payload de la cotización |
-|-----------------|--------------------------------------------------------|---------------------------|
-| **inquiry_required** | "Solicitar cotización" → modal con formulario de inquiry | `type: 'inquiry'`, `formResponses`, `message`, `photos` |
-| **fixed**       | "Solicitar" / "Contratar" → confirmar precio + add-ons + rush (si aplica) | `type: 'fixed'`, `selectedAddOns`, `rushDelivery` |
-| **hourly**      | Igual que fixed: add-ons + rush                        | `type: 'hourly'`, `selectedAddOns`, `rushDelivery` |
-| **tiered**      | Seleccionar tier + add-ons + rush → "Solicitar"        | `type: 'tiered'`, `tierId`, `selectedAddOns`, `rushDelivery` |
-
-- **inquiry_required**: ya existe flujo (Request Quote → modal inquiry → DM con `message_type: 'service_inquiry'`).
-- **fixed / hourly / tiered**: añadir en la página del servicio (vista tasker) un CTA tipo "Solicitar" o "Contratar" que abra un paso de confirmación (tier si aplica, add-ons, rush) y al enviar cree una **cotización** con el mismo patrón de DM (tags + contenido JSON), pero con `message_type: 'service_quote_request'` y payload con `pricingType`, `tierId` (si tiered), `selectedAddOns`, `rushDelivery`, etc.
+Complements the main plan `services-listing-feature-plan.md`. Focus: **receiving quotes (taskee)** and **managing sent quotes (tasker)** up to contract creation.
 
 ---
 
-## 2. Panel Taskee: My Services → Ver cotizaciones
+## 1. Quote request types
 
-### 2.1 Cambios en My Services
+Any request a **tasker** sends about a service is a **quote**. The type depends on the service’s pricing:
 
-- **Componente:** `DashboardMyServicesPanel.svelte`
-- **Nuevo botón por servicio:** "Ver cotizaciones" (junto a Ver / Editar).
-- **Acción:** Navegar a una vista de cotizaciones de ese servicio (reutilizando patrón de "bids por tarea").
+| Service type   | Tasker action                                               | Quote payload |
+|----------------|-------------------------------------------------------------|---------------|
+| **inquiry_required** | “Request quote” → modal with inquiry form | `type: 'inquiry'`, `formResponses`, `message`, `photos` |
+| **fixed**       | “Request” / “Hire” → confirm price + add-ons + rush (if applicable) | `type: 'fixed'`, `selectedAddOns`, `rushDelivery` |
+| **hourly**      | Same as fixed: add-ons + rush                               | `type: 'hourly'`, `selectedAddOns`, `rushDelivery` |
+| **tiered**      | Select tier + add-ons + rush → “Request”                    | `type: 'tiered'`, `tierId`, `selectedAddOns`, `rushDelivery` |
 
-### 2.2 Ruta o vista de cotizaciones por servicio
-
-- **Opciones:**
-  - **A)** Ruta dedicada: `/dashboard/service/[serviceId]/inquiries` (o `/quotes`) que muestre solo las cotizaciones de ese servicio.
-  - **B)** Drawer/panel en el dashboard (como en Tasks con pestaña "bids") que al hacer clic en "Ver cotizaciones" abra el panel de cotizaciones del servicio seleccionado.
-
-Recomendación: **A)** para mantener consistencia con el plan actual (`service/[serviceId]/inquiries`).
-
-### 2.3 Contenido de la vista (taskee)
-
-- **Reutilizar:** patrón de `BidsPanel.svelte` / `DashboardBidsPanel.svelte` pero para **cotizaciones recibidas** (inquiries + quote requests fixed/tiered/hourly).
-- **Lista:** cards de cotización con:
-  - Tasker (nombre, avatar).
-  - Fecha.
-  - Tipo: "Formulario de consulta" vs "Solicitud con tier/precio fijo".
-  - Resumen: respuestas del formulario (inquiry) o tier/precio seleccionado (fixed/tiered/hourly).
-- **Drawer de detalle** (reutilizar patrón `BidDetailsDrawer.svelte`):
-  - Datos completos de la cotización.
-  - **Acciones taskee:**
-    1. **Rechazar:** marcar cotización como rechazada y opcionalmente notificar.
-    2. **Hacer oferta:** abrir formulario de oferta (propuesta de precio/plazo).
-
-### 2.4 Formulario "Hacer oferta" (taskee)
-
-- **Reutilizar:** mismo componente que en Find task cuando el taskee hace una oferta sobre una tarea (`BidForm.svelte`) o el ya previsto `ServiceProposalForm.svelte`.
-- **Diferencia:** aquí la oferta es del **taskee hacia la cotización** que envió el tasker (monto, tipo pago FIXED/HOURLY, descripción, duración, etc.).
-- **Envío:** evento tipo bid/proposal con tags `service`, `inquiry_id` o `quote_request_id`, `message_type: 'proposal'`, etc., y DM al tasker.
+- **inquiry_required:** flow already exists (Request Quote → inquiry modal → DM with `message_type: 'service_inquiry'`).
+- **fixed / hourly / tiered:** on the service page (tasker view), add a CTA such as “Request” or “Hire” that opens a confirmation step (tier if applicable, add-ons, rush) and on submit creates a **quote** using the same DM pattern (tags + JSON content), but with `message_type: 'service_quote_request'` and payload with `pricingType`, `tierId` (if tiered), `selectedAddOns`, `rushDelivery`, etc.
 
 ---
 
-## 3. Panel Tasker: Nueva pestaña "Mis cotizaciones"
+## 2. Taskee panel: My Services → View quotes
+
+### 2.1 Changes in My Services
+
+- **Component:** `DashboardMyServicesPanel.svelte`
+- **New button per service:** “View quotes” (next to View / Edit).
+- **Action:** Navigate to a quotes view for that service (reusing the “bids per task” pattern).
+
+### 2.2 Route or view for quotes per service
+
+- **Options:**
+  - **A)** Dedicated route: `/dashboard/service/[serviceId]/inquiries` (or `/quotes`) that shows only that service’s quotes.
+  - **B)** Drawer/panel in the dashboard (like Tasks with “bids” tab) so that clicking “View quotes” opens the quotes panel for the selected service.
+
+Recommendation: **A)** to stay consistent with the current plan (`service/[serviceId]/inquiries`).
+
+### 2.3 View content (taskee)
+
+- **Reuse:** pattern from `BidsPanel.svelte` / `DashboardBidsPanel.svelte` but for **received quotes** (inquiries + fixed/tiered/hourly quote requests).
+- **List:** quote cards with:
+  - Tasker (name, avatar).
+  - Date.
+  - Type: “Inquiry form” vs “Request with tier/fixed price”.
+  - Summary: form responses (inquiry) or tier/price selected (fixed/tiered/hourly).
+- **Detail drawer** (reuse `BidDetailsDrawer.svelte` pattern):
+  - Full quote data.
+  - **Taskee actions:**
+    1. **Reject:** mark quote as rejected and optionally notify.
+    2. **Make offer:** open offer form (price/delivery proposal).
+
+### 2.4 “Make offer” form (taskee)
+
+- **Reuse:** same component as in Find task when the taskee makes an offer on a task (`BidForm.svelte`) or the planned `ServiceProposalForm.svelte`.
+- **Difference:** here the offer is from the **taskee to the quote** sent by the tasker (amount, payment type FIXED/HOURLY, description, duration, etc.).
+- **Submission:** bid/proposal-style event with tags `service`, `inquiry_id` or `quote_request_id`, `message_type: 'proposal'`, etc., and DM to the tasker.
+
+---
+
+## 3. Tasker panel: New “My quotes” tab
 
 ### 3.1 Dashboard
 
-- **Archivo:** `src/routes/(protected)/dashboard/+page.svelte`
-- **Nueva pestaña:** "Mis cotizaciones" (ej. `id: 'my-quotes'`).
-- **Contenido:** listado de **cotizaciones que yo (tasker) he enviado** (inquiries + quote requests de servicios fixed/tiered/hourly).
+- **File:** `src/routes/(protected)/dashboard/+page.svelte`
+- **New tab:** “My quotes” (e.g. `id: 'my-quotes'`).
+- **Content:** list of **quotes I (tasker) have sent** (inquiries + fixed/tiered/hourly quote requests).
 
-### 3.2 Listado "Mis cotizaciones"
+### 3.2 “My quotes” list
 
-- **Fuente de datos:** DMs o eventos de tipo inquiry/quote_request donde yo soy el autor (tasker) y el destinatario es el taskee del servicio.
-- **Card por cotización:**
-  - Servicio (título, enlace).
-  - Taskee (nombre, avatar).
-  - Fecha.
-  - Estado: pendiente, respondida (con oferta), rechazada, aceptada (contrato creado).
-  - Si hay oferta del taskee: monto, descripción breve.
+- **Data source:** DMs or events of type inquiry/quote_request where I am the author (tasker) and the recipient is the service’s taskee.
+- **Card per quote:**
+  - Service (title, link).
+  - Taskee (name, avatar).
+  - Date.
+  - Status: pending, responded (with offer), rejected, accepted (contract created).
+  - If the taskee sent an offer: amount, short description.
 
-### 3.3 Acciones del tasker por cotización
+### 3.3 Tasker actions per quote
 
-- **Eliminar:** retirar o archivar la cotización (no elimina el DM; solo marca en UI o en tags como "cancelada" por el tasker).
-- **Aceptar oferta:** si el taskee ya envió una oferta (proposal), botón "Aceptar oferta" que dispara el **flujo de creación de contrato** (solo el tasker puede crear el contrato, igual que en tasks).
+- **Remove:** withdraw or archive the quote (does not delete the DM; only marks in UI or in tags as “cancelled” by the tasker).
+- **Accept offer:** if the taskee already sent an offer (proposal), “Accept offer” button that triggers the **contract creation flow** (only the tasker can create the contract, same as for tasks).
 
-### 3.4 Flujo "Aceptar oferta" → Contrato
+### 3.4 “Accept offer” → Contract flow
 
-- **Reutilizar:** lógica de `BidAcceptanceForm.svelte` / `acceptBidAndCreateEscrow` pero con contexto de **servicio** (serviceId, proposal event, etc.).
-- **Pasos:**
-  1. Tasker hace clic en "Aceptar oferta" en una cotización que tiene proposal.
-  2. Se abre el flujo de aceptación (modal/página) con resumen: monto, taskee, servicio, fechas estimadas.
-  3. **Validaciones previas** (como en el plan principal):
-     - Comprobar última versión del servicio (por `d` tag) antes de crear escrow.
-     - Servicio activo, precios coherentes con la oferta.
-  4. Tasker confirma y se llama a la creación de escrow/contrato (adaptar `acceptBidAndCreateEscrow` o equivalente para propuestas de servicio).
-  5. Tras éxito: contrato creado, estado de la cotización/proposal a "accepted".
-
----
-
-## 4. Servicio con fixed / tiered (vista tasker): crear cotización
-
-### 4.1 Página de detalle del servicio
-
-- **Componente:** `ServiceDetailsView.svelte` (y/o página pública del servicio).
-- **Para pricing fixed / hourly / tiered:** además de "Contactar", mostrar botón principal tipo **"Solicitar"** o **"Contratar"**.
-
-### 4.2 Flujo "Solicitar" (fixed / hourly / tiered)
-
-- **Tiered:** el tasker ya tiene el tier elegido en el selector; opcionalmente add-ons y rush. Botón "Solicitar" → confirmación (resumen: tier, add-ons, total) → enviar.
-- **Fixed / Hourly:** selector de add-ons y rush si aplica → "Solicitar" → confirmación → enviar.
-- **Envío:** crear evento/DM de cotización con:
-  - `message_type: 'service_quote_request'` (o tag equivalente).
-  - Payload: `pricingType`, `tierId` (si tiered), `selectedAddOns`, `rushDelivery`, `serviceId`, `taskerNpub`, etc.
-- Misma capa de notificación/inbox que las inquiries para que el taskee vea la solicitud en "Ver cotizaciones".
-
-### 4.3 Reutilización del componente de creación de servicio
-
-- Revisar `ServiceTierSelector.svelte`, `ServiceAddOnsSelector.svelte` y la lógica en `ServicePricing.svelte` / steps de list-service para:
-  - Mostrar en la vista pública el mismo selector de tier y add-ons.
-  - Calcular total (tier o fixed + add-ons + rush) y pasarlo al payload de la cotización al hacer "Solicitar".
+- **Reuse:** logic from `BidAcceptanceForm.svelte` / `acceptBidAndCreateEscrow` but in **service** context (serviceId, proposal event, etc.).
+- **Steps:**
+  1. Tasker clicks “Accept offer” on a quote that has a proposal.
+  2. Acceptance flow opens (modal/page) with summary: amount, taskee, service, estimated dates.
+  3. **Pre-validation** (as in main plan):
+     - Check latest service version (via `d` tag) before creating escrow.
+     - Service active, prices consistent with the offer.
+  4. Tasker confirms and escrow/contract creation is called (adapt `acceptBidAndCreateEscrow` or equivalent for service proposals).
+  5. On success: contract created, quote/proposal status set to “accepted”.
 
 ---
 
-## 5. Resumen de componentes y rutas
+## 4. Service with fixed / tiered (tasker view): create quote
 
-| Elemento | Acción |
-|----------|--------|
-| `DashboardMyServicesPanel.svelte` | Añadir botón "Ver cotizaciones" por servicio → enlace a `/dashboard/service/[serviceId]/inquiries` (o nombre elegido). |
-| Nueva ruta `dashboard/service/[serviceId]/inquiries` | Página con lista de cotizaciones del servicio + drawer detalle; acciones Rechazar / Hacer oferta. |
-| Componente lista cotizaciones | Nuevo o adaptar `BidsPanel` → `ServiceQuotesPanel.svelte` (cotizaciones recibidas por servicio). |
-| Componente detalle cotización | Nuevo o adaptar `BidDetailsDrawer` → `ServiceQuoteDetailsDrawer.svelte`. |
-| Formulario oferta (taskee) | Reutilizar `BidForm.svelte` o `ServiceProposalForm.svelte` (oferta del taskee al tasker). |
-| Dashboard `+page.svelte` | Nueva pestaña "Mis cotizaciones". |
-| Nueva ruta o panel "Mis cotizaciones" | Listado de cotizaciones enviadas por el tasker; acciones Eliminar / Aceptar oferta. |
-| Aceptar oferta (tasker) | Reutilizar flujo `BidAcceptanceForm` + `acceptBidAndCreateEscrow` adaptado a servicio/proposal. |
-| `ServiceDetailsView.svelte` | Para fixed/tiered/hourly: botón "Solicitar" + flujo de confirmación (tier, add-ons, rush) y envío de cotización. |
+### 4.1 Service detail page
 
----
+- **Component:** `ServiceDetailsView.svelte` (and/or public service page).
+- **For fixed / hourly / tiered pricing:** in addition to “Contact”, show a primary button such as **“Request”** or **“Hire”**.
 
-## 6. Tipos de evento / tags (recordatorio)
+### 4.2 “Request” flow (fixed / hourly / tiered)
 
-- **Cotización (tasker → taskee):**
-  - Inquiry: ya definido (`message_type: 'service_inquiry'`, etc.).
-  - Quote request (fixed/tiered/hourly): `message_type: 'service_quote_request'`, payload con `pricingType`, `tierId`, `selectedAddOns`, `rushDelivery`, `serviceId`, etc.
-- **Propuesta (taskee → tasker):** reutilizar estructura de bids con `message_type: 'proposal'`, tags `service`, `inquiry_id` o `quote_request_id`, y contenido tipo bid (amount, payment type, description, etc.).
+- **Tiered:** tasker has already chosen the tier in the selector; optionally add-ons and rush. “Request” button → confirmation (summary: tier, add-ons, total) → submit.
+- **Fixed / Hourly:** add-ons and rush selector if applicable → “Request” → confirmation → submit.
+- **Submission:** create quote event/DM with:
+  - `message_type: 'service_quote_request'` (or equivalent tag).
+  - Payload: `pricingType`, `tierId` (if tiered), `selectedAddOns`, `rushDelivery`, `serviceId`, `taskerNpub`, etc.
+- Same notification/inbox layer as inquiries so the taskee sees the request under “View quotes”.
 
----
+### 4.3 Reusing the service creation component
 
-## 7. Orden sugerido de implementación
-
-1. **Tipos y utilidades:** definir tipo `ServiceQuoteRequest` (inquiry vs fixed/hourly/tiered) y helpers para parsear/crear DMs de cotización.
-2. **Taskee – Ver cotizaciones:** botón en My Services + ruta `dashboard/service/[serviceId]/inquiries` + lista + drawer + acciones Rechazar / Hacer oferta (con formulario reutilizado).
-3. **Tasker – Mis cotizaciones:** pestaña en dashboard + listado de cotizaciones enviadas + Eliminar + Aceptar oferta con flujo de contrato.
-4. **Fixed/tiered/hourly – Solicitar:** en `ServiceDetailsView`, botón "Solicitar" + flujo de confirmación (tier, add-ons, rush) + envío de quote request.
-5. **Integración contrato:** conectar "Aceptar oferta" (tasker) con la creación de escrow/contrato (adaptar `acceptBidAndCreateEscrow` o equivalente para propuestas de servicio).
-6. **Traducciones y pruebas:** claves i18n para "Ver cotizaciones", "Mis cotizaciones", "Solicitar", "Rechazar", "Hacer oferta", "Aceptar oferta", "Eliminar"; pruebas E2E por tipo de cotización.
+- Review `ServiceTierSelector.svelte`, `ServiceAddOnsSelector.svelte` and logic in `ServicePricing.svelte` / list-service steps to:
+  - Show the same tier and add-ons selector on the public view.
+  - Compute total (tier or fixed + add-ons + rush) and pass it in the quote payload when clicking “Request”.
 
 ---
 
-Este plan se integra con la sección 4.6.3 (Create Service Inquiry Management) y la propuesta de reutilización de `BidForm`/`BidsPanel`/`BidDetailsDrawer`/`BidAcceptanceForm` del documento principal.
+## 5. Summary of components and routes
+
+| Element | Action |
+|--------|--------|
+| `DashboardMyServicesPanel.svelte` | Add “View quotes” button per service → link to `/dashboard/service/[serviceId]/inquiries` (or chosen name). |
+| New route `dashboard/service/[serviceId]/inquiries` | Page with service quote list + detail drawer; actions Reject / Make offer. |
+| Quote list component | New or adapt `BidsPanel` → `ServiceQuotesPanel.svelte` (quotes received per service). |
+| Quote detail component | New or adapt `BidDetailsDrawer` → `ServiceQuoteDetailsDrawer.svelte`. |
+| Offer form (taskee) | Reuse `BidForm.svelte` or `ServiceProposalForm.svelte` (taskee’s offer to tasker). |
+| Dashboard `+page.svelte` | New “My quotes” tab. |
+| New route or panel “My quotes” | List of quotes sent by the tasker; actions Remove / Accept offer. |
+| Accept offer (tasker) | Reuse flow `BidAcceptanceForm` + `acceptBidAndCreateEscrow` adapted for service/proposal. |
+| `ServiceDetailsView.svelte` | For fixed/tiered/hourly: “Request” button + confirmation flow (tier, add-ons, rush) and quote submission. |
+
+---
+
+## 6. Event types / tags (reminder)
+
+- **Quote (tasker → taskee):**
+  - Inquiry: already defined (`message_type: 'service_inquiry'`, etc.).
+  - Quote request (fixed/tiered/hourly): `message_type: 'service_quote_request'`, payload with `pricingType`, `tierId`, `selectedAddOns`, `rushDelivery`, `serviceId`, etc.
+- **Proposal (taskee → tasker):** reuse bid structure with `message_type: 'proposal'`, tags `service`, `inquiry_id` or `quote_request_id`, and bid-like content (amount, payment type, description, etc.).
+
+---
+
+## 7. Suggested implementation order
+
+1. **Types and utilities:** define type `ServiceQuoteRequest` (inquiry vs fixed/hourly/tiered) and helpers to parse/create quote DMs.
+2. **Taskee – View quotes:** button in My Services + route `dashboard/service/[serviceId]/inquiries` + list + drawer + actions Reject / Make offer (with reused form).
+3. **Tasker – My quotes:** tab in dashboard + list of sent quotes + Remove + Accept offer with contract flow.
+4. **Fixed/tiered/hourly – Request:** in `ServiceDetailsView`, “Request” button + confirmation flow (tier, add-ons, rush) + quote request submission.
+5. **Contract integration:** connect “Accept offer” (tasker) to escrow/contract creation (adapt `acceptBidAndCreateEscrow` or equivalent for service proposals).
+6. **Translations and tests:** i18n keys for “View quotes”, “My quotes”, “Request”, “Reject”, “Make offer”, “Accept offer”, “Remove”; E2E tests per quote type.
+
+---
+
+This plan integrates with section 4.6.3 (Create Service Inquiry Management) and the proposed reuse of `BidForm` / `BidsPanel` / `BidDetailsDrawer` / `BidAcceptanceForm` from the main document.
