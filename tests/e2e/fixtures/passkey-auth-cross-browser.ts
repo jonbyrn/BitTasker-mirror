@@ -1,11 +1,10 @@
 import { test as base, expect, chromium } from '@playwright/test';
-import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
 	readCredentialSet,
-	readFirstCredentialSet,
 	webauthnCredentialsFileExists,
 	getCredentialSetLabels
 } from '../utils/webauthn-credentials';
@@ -40,6 +39,20 @@ type CrossBrowserAuthBundle = {
 };
 
 const authStateBuilds = new Map<string, Promise<string>>();
+const authBundleCache = new Map<
+	string,
+	Promise<{ statePath: string; storageEntries: Array<{ name: string; value: string }> }>
+>();
+type LocalStorageEntry = { name: string; value: string };
+
+function canonicalBaseURL(input: string): string {
+	try {
+		const url = new URL(input);
+		return url.toString().replace(/\/$/, '');
+	} catch {
+		return input;
+	}
+}
 
 function safeOriginId(baseURL: string): string {
 	try {
@@ -54,11 +67,42 @@ function authStatePathFor(label: string, baseURL: string): string {
 	return join(AUTH_STATE_DIR, `passkey-state-${label}-${safeOriginId(baseURL)}.json`);
 }
 
-async function buildAuthStateWithChromium(label: string, baseURL: string): Promise<string> {
-	const credentials = readCredentialSet(label) ?? readFirstCredentialSet();
-	if (!credentials || credentials.length === 0) {
-		throw new Error(`${CREDENTIALS_MISSING_MESSAGE} (label: ${label})`);
+function formatAvailableCredentialLabels(): string {
+	const labels = getCredentialSetLabels();
+	return labels.length > 0 ? labels.join(', ') : '(none)';
+}
+
+function credentialsForLabelOrThrow(label: string) {
+	const requestedLabel = label.trim();
+	if (!requestedLabel) {
+		throw new Error('Cross-browser auth requires a non-empty credentialLabel.');
 	}
+
+	const credentials = readCredentialSet(requestedLabel);
+	if (!credentials || credentials.length === 0) {
+		throw new Error(
+			`${CREDENTIALS_MISSING_MESSAGE} Requested label "${requestedLabel}" has no credentials. Available labels: ${formatAvailableCredentialLabels()}`
+		);
+	}
+
+	for (const [index, credential] of credentials.entries()) {
+		if (
+			typeof credential.credentialId !== 'string' ||
+			typeof credential.privateKey !== 'string' ||
+			typeof credential.rpId !== 'string'
+		) {
+			throw new Error(
+				`Credential artifact is invalid for label "${requestedLabel}" at index ${index}. Required fields: credentialId, privateKey, rpId.`
+			);
+		}
+	}
+
+	return credentials;
+}
+
+async function buildAuthStateWithChromium(label: string, baseURL: string): Promise<string> {
+	const startedAt = Date.now();
+	const credentials = credentialsForLabelOrThrow(label);
 
 	await mkdir(AUTH_STATE_DIR, { recursive: true });
 	const statePath = authStatePathFor(label, baseURL);
@@ -100,13 +144,11 @@ async function buildAuthStateWithChromium(label: string, baseURL: string): Promi
 			try {
 				await setupPage.goto('/auth/login', { waitUntil: 'load' });
 				await setupPage.getByTestId('login-continue-passkey').click();
-				await setupPage.waitForURL(/\/dashboard/, { timeout: 20_000 });
+				await setupPage.waitForURL(/\/dashboard/, { timeout: 10_000 });
 				authenticated = true;
 			} catch (error) {
 				lastError = error;
-				if (attempt < 1) {
-					await setupPage.waitForTimeout(1_000);
-				}
+				if (attempt < 1) continue;
 			}
 		}
 		if (!authenticated) {
@@ -122,6 +164,9 @@ async function buildAuthStateWithChromium(label: string, baseURL: string): Promi
 		await understandBtn.click({ timeout: 5_000 }).catch(() => {});
 
 		await setupContext.storageState({ path: statePath });
+		console.log(
+			`[E2E][cross-browser-auth] built state for ${label} (${baseURL}) in ${Date.now() - startedAt}ms`
+		);
 		return statePath;
 	} finally {
 		await setupContext.close().catch(() => {});
@@ -141,8 +186,6 @@ function ensureAuthState(label: string, baseURL: string): Promise<string> {
 
 	const buildPromise = (async () => {
 		await mkdir(AUTH_STATE_DIR, { recursive: true });
-		const remapped = await tryRemapExistingAuthState(label, baseURL, statePath);
-		if (remapped) return statePath;
 		return buildAuthStateWithChromium(label, baseURL);
 	})().catch((error) => {
 		authStateBuilds.delete(cacheKey);
@@ -152,93 +195,112 @@ function ensureAuthState(label: string, baseURL: string): Promise<string> {
 	return buildPromise;
 }
 
-async function tryRemapExistingAuthState(
-	label: string,
-	baseURL: string,
-	targetPath: string
-): Promise<boolean> {
-	try {
-		const files = await readdir(AUTH_STATE_DIR);
-		const candidates = files
-			.filter((name) => name.startsWith(`passkey-state-${label}`) && name.endsWith('.json'))
-			.map((name) => join(AUTH_STATE_DIR, name))
-			.filter((path) => path !== targetPath);
-
-		for (const candidate of candidates) {
-			const raw = await readFile(candidate, 'utf-8');
-			const parsed = JSON.parse(raw) as {
-				cookies?: unknown[];
-				origins?: Array<{ origin: string; localStorage?: Array<{ name: string; value: string }> }>;
-			};
-			const sourceEntries =
-				parsed.origins?.find((origin) =>
-					(origin.localStorage ?? []).some(
-						(item) => item.name === 'CapacitorStorage.access_token' && !!item.value
-					)
-				)?.localStorage ?? [];
-			if (sourceEntries.length === 0) continue;
-
-			const remapped = {
-				cookies: parsed.cookies ?? [],
-				origins: [{ origin: baseURL, localStorage: sourceEntries }]
-			};
-			await writeFile(targetPath, JSON.stringify(remapped, null, 2), 'utf-8');
-			return true;
-		}
-		return false;
-	} catch {
-		return false;
-	}
-}
-
-async function loadStateLocalStorageEntries(statePath: string, baseURL: string): Promise<Array<{ name: string; value: string }>> {
-	try {
-		const raw = await readFile(statePath, 'utf-8');
-		const parsed = JSON.parse(raw) as {
-			origins?: Array<{ origin: string; localStorage?: Array<{ name: string; value: string }> }>;
-		};
-		const origin = parsed.origins?.find((entry) => entry.origin === baseURL);
-		return origin?.localStorage ?? [];
-	} catch {
-		return [];
-	}
-}
-
-async function authEntryValue(
+async function loadStateLocalStorageEntries(
 	statePath: string,
-	baseURL: string,
-	key: string
-): Promise<string | null> {
-	const entries = await loadStateLocalStorageEntries(statePath, baseURL);
-	const found = entries.find((entry) => entry.name === key);
-	return found?.value ?? null;
+	baseURL: string
+): Promise<LocalStorageEntry[]> {
+	let rawState = '';
+	try {
+		rawState = await readFile(statePath, 'utf-8');
+	} catch (error) {
+		throw new Error(
+			`Cross-browser auth state file is missing or unreadable at ${statePath}: ${
+				error instanceof Error ? error.message : String(error)
+			}`
+		);
+	}
+
+	let parsed: {
+		origins?: Array<{ origin: string; localStorage?: Array<{ name: unknown; value: unknown }> }>;
+	};
+	try {
+		parsed = JSON.parse(rawState) as typeof parsed;
+	} catch (error) {
+		throw new Error(
+			`Cross-browser auth state file is not valid JSON at ${statePath}: ${
+				error instanceof Error ? error.message : String(error)
+			}`
+		);
+	}
+
+	if (!Array.isArray(parsed.origins)) {
+		throw new Error(
+			`Cross-browser auth state file at ${statePath} is invalid: missing origins array.`
+		);
+	}
+
+	const origin = parsed.origins.find((entry) => entry.origin === baseURL);
+	if (!origin) {
+		throw new Error(
+			`Cross-browser auth state at ${statePath} does not contain origin ${baseURL}. Delete this file and rerun to rebuild deterministic auth state.`
+		);
+	}
+	if (!Array.isArray(origin.localStorage)) {
+		throw new Error(
+			`Cross-browser auth state at ${statePath} is invalid for origin ${baseURL}: missing localStorage array.`
+		);
+	}
+
+	for (const [index, entry] of origin.localStorage.entries()) {
+		if (typeof entry?.name !== 'string' || typeof entry?.value !== 'string') {
+			throw new Error(
+				`Cross-browser auth state at ${statePath} has invalid localStorage entry at index ${index} for origin ${baseURL}.`
+			);
+		}
+	}
+
+	return origin.localStorage as LocalStorageEntry[];
 }
 
-const test = base.extend<CrossBrowserPasskeyFixtures & { crossBrowserAuthBundle: CrossBrowserAuthBundle }>({
-	credentialLabel: ['signup', { option: true, scope: 'worker' }],
+async function ensureAuthBundle(
+	label: string,
+	baseURL: string
+): Promise<{
+	statePath: string;
+	storageEntries: Array<{ name: string; value: string }>;
+}> {
+	const cacheKey = `${label}|${baseURL}`;
+	const existing = authBundleCache.get(cacheKey);
+	if (existing) return existing;
+
+	const bundlePromise = (async () => {
+		const statePath = await ensureAuthState(label, baseURL);
+		const storageEntries = await loadStateLocalStorageEntries(statePath, baseURL);
+		return { statePath, storageEntries };
+	})().catch((error) => {
+		authBundleCache.delete(cacheKey);
+		throw error;
+	});
+	authBundleCache.set(cacheKey, bundlePromise);
+	return bundlePromise;
+}
+
+const test = base.extend<
+	CrossBrowserPasskeyFixtures & { crossBrowserAuthBundle: CrossBrowserAuthBundle }
+>({
+	credentialLabel: ['signup', { option: true }],
 
 	crossBrowserAuthBundle: [
-		async ({ credentialLabel }, use, workerInfo) => {
-			const baseURL = workerInfo.project.use.baseURL ?? 'http://localhost:4173';
-			const statePath = await ensureAuthState(credentialLabel, baseURL);
-			const storageEntries = await loadStateLocalStorageEntries(statePath, baseURL);
-			const accessToken = await authEntryValue(
-				statePath,
-				baseURL,
-				'CapacitorStorage.access_token'
-			);
+		async ({ credentialLabel }, use, testInfo) => {
+			const projectBaseURL = testInfo.project.use.baseURL ?? 'http://localhost:4173';
+			const baseURL = canonicalBaseURL(projectBaseURL);
+			const { statePath, storageEntries } = await ensureAuthBundle(credentialLabel, baseURL);
+			const accessToken = storageEntries.find(
+				(entry) => entry.name === 'CapacitorStorage.access_token'
+			)?.value;
 			if (!accessToken) {
 				throw new Error(
-					`Cross-browser auth state is missing CapacitorStorage.access_token for ${baseURL}.`
+					`Cross-browser auth state at ${statePath} is missing CapacitorStorage.access_token for origin ${baseURL}.`
 				);
 			}
 			await use({ baseURL, statePath, storageEntries });
 		},
-		{ scope: 'worker', timeout: 180_000 }
+		{ timeout: 90_000 }
 	],
 
 	authenticatedPageCrossBrowser: async ({ browser, crossBrowserAuthBundle }, use, testInfo) => {
-		testInfo.setTimeout(Math.max(testInfo.timeout, 120_000));
+		testInfo.setTimeout(Math.max(testInfo.timeout, 60_000));
+		const setupStart = Date.now();
 		const { baseURL, statePath, storageEntries } = crossBrowserAuthBundle;
 
 		const context = await browser.newContext({
@@ -260,17 +322,46 @@ const test = base.extend<CrossBrowserPasskeyFixtures & { crossBrowserAuthBundle:
 		const page = await context.newPage();
 
 		try {
-			await page.goto('/dashboard', { waitUntil: 'load' });
-			await expect
-				.poll(() => page.url(), { timeout: 20_000 })
-				.toMatch(/\/dashboard/);
-			await expect(page.getByTestId('login-link')).toHaveCount(0, { timeout: 10_000 });
+			try {
+				await page.goto('/dashboard', { waitUntil: 'load' });
+			} catch (error) {
+				throw new Error(
+					`Cross-browser auth bootstrap could not open ${baseURL}/dashboard in ${testInfo.project.name}: ${
+						error instanceof Error ? error.message : String(error)
+					}`
+				);
+			}
+
+			const reachedDashboard = await expect
+				.poll(() => page.url(), { timeout: 10_000 })
+				.toMatch(/\/dashboard/)
+				.then(() => true)
+				.catch(() => false);
+			if (!reachedDashboard) {
+				throw new Error(
+					`Cross-browser auth bootstrap did not reach /dashboard in ${testInfo.project.name}. Current URL: ${page.url()}`
+				);
+			}
+
+			const loginVisible = await page
+				.getByTestId('login-link')
+				.first()
+				.isVisible()
+				.catch(() => false);
+			if (loginVisible) {
+				throw new Error(
+					`Cross-browser auth bootstrap landed on authenticated route but login UI is still visible in ${testInfo.project.name}.`
+				);
+			}
 
 			const understandBtn = page.getByRole('button', {
 				name: 'I understand',
 				exact: true
 			});
 			await understandBtn.click({ timeout: 5_000 }).catch(() => {});
+			console.log(
+				`[E2E][cross-browser-auth] prepared page for ${testInfo.title} (${baseURL}) in ${Date.now() - setupStart}ms`
+			);
 
 			await use(page);
 		} finally {

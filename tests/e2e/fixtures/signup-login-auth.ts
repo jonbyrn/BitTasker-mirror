@@ -21,8 +21,9 @@ const VIRTUAL_AUTHENTICATOR_OPTIONS = {
  * Fixture for signup/onboarding E2E tests with explicit credential injection control.
  *
  * - injectWebAuthnCredentials (default false): Set to true via test.use() to inject credentials.
+ * - credentialExportLabel (default 'signup'): Label used for reading/writing credential sets.
  * - Uses default context (new per test) so each test gets fresh storage; no shared auth state.
- * - Teardown exports credentials to worker store and file (label from test title: "Nostr" → 'nostr', else 'signup').
+ * - Teardown exports credentials to worker store and file using credentialExportLabel.
  *
  * Example:
  *   test('signup...', async ({ page }) => { ... });           // no injection
@@ -30,10 +31,11 @@ const VIRTUAL_AUTHENTICATOR_OPTIONS = {
  *   test('login with passkey', async ({ page }) => { ... });   // injects from store/file
  */
 const test = authTest.extend<
-	{ injectWebAuthnCredentials: boolean },
+	{ injectWebAuthnCredentials: boolean; credentialExportLabel: string },
 	{ webauthnCredentialStore: WebAuthnCredential[] }
 >({
 	injectWebAuthnCredentials: [false, { option: true }],
+	credentialExportLabel: ['signup', { option: true }],
 
 	webauthnCredentialStore: [
 		// eslint-disable-next-line no-empty-pattern -- worker fixture has no dependencies
@@ -44,7 +46,11 @@ const test = authTest.extend<
 		{ scope: 'worker' }
 	],
 
-	page: async ({ context, webauthnCredentialStore, injectWebAuthnCredentials }, use, testInfo) => {
+	page: async (
+		{ context, webauthnCredentialStore, injectWebAuthnCredentials, credentialExportLabel },
+		use,
+		testInfo
+	) => {
 		// Use default context (new per test) so each test gets fresh storage – no shared auth state.
 		const page = await context.newPage();
 
@@ -60,9 +66,6 @@ const test = authTest.extend<
 		const cdpSession = await page.context().newCDPSession(page);
 		let authenticatorId: string | null = null;
 
-		// Credential label for teardown write: "Nostr" in title → 'nostr', else 'signup'.
-		const credentialLabel = /Nostr|nostr/i.test(testInfo.title) ? 'nostr' : 'signup';
-
 		try {
 			await cdpSession.send('WebAuthn.enable');
 			const result = await cdpSession.send('WebAuthn.addVirtualAuthenticator', {
@@ -76,10 +79,7 @@ const test = authTest.extend<
 				});
 				// Only inject when explicitly opted in.
 				if (injectWebAuthnCredentials) {
-					const toInject =
-						readCredentialSet(credentialLabel) ??
-						readCredentialSet('signup') ??
-						webauthnCredentialStore;
+					const toInject = readCredentialSet(credentialExportLabel) ?? webauthnCredentialStore;
 					if (toInject.length > 0) {
 						for (const cred of toInject) {
 							await cdpSession.send('WebAuthn.addCredential', {
@@ -110,12 +110,12 @@ const test = authTest.extend<
 				webauthnCredentialStore.length = 0;
 				webauthnCredentialStore.push(...(credentials ?? []));
 				if (webauthnCredentialStore.length > 0) {
-					writeCredentialSet(credentialLabel, webauthnCredentialStore);
+					writeCredentialSet(credentialExportLabel, webauthnCredentialStore);
 					console.log(
 						'[E2E] Exported',
 						webauthnCredentialStore.length,
 						'credential(s) (label:',
-						credentialLabel,
+						credentialExportLabel,
 						')'
 					);
 				}

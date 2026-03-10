@@ -149,7 +149,7 @@ test.describe.serial('Signup and onboarding (create credentials file)', () => {
 		e2eLog('Step 8: Navigated to dashboard', stepLog);
 	});
 
-	// Title contains "Nostr" so fixture uses empty authenticator and writes label 'nostr'.
+	test.use({ credentialExportLabel: 'nostr' });
 	// New user: nsec submit → passkey happens automatically → we land on profile step, then recovery → complete.
 	test('user 2: Nostr login (new user) → profile → recovery → complete onboarding', async ({
 		page
