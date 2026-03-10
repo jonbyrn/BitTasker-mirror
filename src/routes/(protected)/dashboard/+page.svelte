@@ -30,8 +30,8 @@
 		{
 			id: 'my-services',
 			label: $t('dashboard.tabs.my_services'),
-			buttonLabel: $t('dashboard.services.my_services.list_service'),
-			buttonHref: '/dashboard/list-service',
+			buttonLabel: $t('dashboard.services.my_services.create_service'),
+			buttonHref: '/dashboard/create-service',
 			icon: 'plus'
 		},
 		{

@@ -157,7 +157,7 @@ export function getNamespacesForRoute(route: string): string[] {
 		if (route.includes('/messages')) {
 			namespaces.push('dashboard/messages');
 		}
-		if (route.includes('/list-service')) {
+		if (route.includes('/create-service')) {
 			namespaces.push('dashboard/services/create', 'categories');
 		}
 		if (route.includes('/my-services')) {

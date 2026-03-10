@@ -5,7 +5,7 @@
 	import { goto } from '$app/navigation';
 	import { appStore } from '$lib/stores/app.store';
 	import { serviceStore as store, STEPS } from '$lib/stores/service.store';
-	import { listService, updateService, findServiceByUniqueId } from '$lib/nostr/service';
+	import { createService, updateService, findServiceByUniqueId } from '$lib/nostr/service';
 	import { findMyServices } from '$lib/nostr/findServices';
 	import { myServicesStore } from '$lib/stores/service.store';
 	import { ServiceStepEnum, ServicePricingTypeEnum, ServiceLocationTypeEnum } from '$lib/utils/enums/service.enum';
@@ -69,7 +69,7 @@
 	onMount(async () => {
 		try {
 			// Load route translations (create service - all 10 steps) same as create-task
-			await loadPageTranslations('/dashboard/list-service');
+			await loadPageTranslations('/dashboard/create-service');
 			isLoading = true;
 
 			// Check if we're in edit or duplicate mode
@@ -91,9 +91,9 @@
 						return;
 					}
 
-					// Load service into store for editing
+					// Load service into store for editing; always start at step 1 (do not restore draft step)
 					await store.loadServiceForEdit(service.id, service);
-					await store.loadDraft(true);
+					store.setStep(ServiceStepEnum.BASICS);
 					isEditDataLoaded = true;
 				} catch (error) {
 					console.error('Error loading service for edit:', error);
@@ -103,11 +103,11 @@
 				}
 			} else if (isDuplicating && serviceIdParam) {
 				// Duplicate option removed: redirect to create
-				goto('/dashboard/list-service');
+				goto('/dashboard/create-service');
 				return;
 			} else {
-				// New service: clear create draft so "Publicar Servicio" always shows an empty form
-				await store.clearDraft(false);
+				// New service: restore create draft from storage so user can resume from last step when they come back
+				await store.loadDraft(false);
 				isEditDataLoaded = true;
 			}
 
@@ -300,7 +300,7 @@
 
 				await goto('/dashboard/my-services');
 			} else {
-				signedEventId = await listService(serviceData);
+				signedEventId = await createService(serviceData);
 				appStore.showSuccessToast($t('dashboard.services.create.success.created'));
 
 				// Clear the draft (creation or duplicate)
@@ -455,4 +455,3 @@
 		</div>
 	</div>
 </div>
-

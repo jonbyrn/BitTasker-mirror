@@ -762,8 +762,10 @@
 						selectedService={selectedServiceForMap}
 						onServiceSelected={(event: { service: Service }) => {
 							selectedServiceForMap = event.service;
-							viewMode = 'list';
-							scrollToServiceCard(event.service.id);
+							// Keep map view and show popup on pin click (same as tasks) — do not switch to list
+							if (viewMode === 'list') {
+								scrollToServiceCard(event.service.id);
+							}
 						}}
 						btcPrice={btcPrice}
 					/>

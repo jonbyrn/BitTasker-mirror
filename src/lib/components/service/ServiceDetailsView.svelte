@@ -366,7 +366,7 @@
 								<span>{$t('dashboard.services.detail.you_are_provider')}</span>
 							</div>
 							<a
-								href="/dashboard/list-service?edit=true&serviceId={service.uniqueId || service.id}"
+								href="/dashboard/create-service?edit=true&serviceId={service.uniqueId || service.id}"
 								class="btn btn-primary btn-sm mt-4 w-full"
 							>
 								{$t('dashboard.services.detail.edit_service')}
