@@ -19,7 +19,6 @@ test.describe('Public homepage funnel', () => {
 		await expect(page).toHaveURL(/\/tasks$/);
 		await expect(page.locator('body')).toBeVisible();
 
-		await page.goto('/', { waitUntil: 'load' });
 		await page.locator('a[href="/auth/signup"]').first().click();
 		await expect(page).toHaveURL(/\/auth\/signup$/);
 	});
