@@ -16,7 +16,7 @@ export const load: LayoutLoad = async ({ url }) => {
 		if (url.pathname.includes('/onboarding')) {
 			return { currentStep: 2 };
 		} else {
-			redirect(303, '/dashboard');
+			throw redirect(303, '/dashboard');
 		}
 	} else {
 		if (url.pathname.includes('/onboarding')) {
@@ -30,7 +30,7 @@ export const load: LayoutLoad = async ({ url }) => {
 				console.warn(
 					'[E2E] Auth layout redirect: isCaptchaVerified=false, redirecting to /auth/signup'
 				);
-				redirect(303, '/auth/signup');
+				throw redirect(303, '/auth/signup');
 			}
 			// Diagnostic: when we allow onboarding
 			if (e2eBypass) console.log('[E2E] Auth layout: allowing onboarding (E2E bypass env)');

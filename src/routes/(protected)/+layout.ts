@@ -11,7 +11,7 @@ export const load: LayoutLoad = async () => {
 			const { value: token } = await Preferences.get({ key: StorageKeys.ACCESS_TOKEN });
 
 			if (!token || token === null) {
-				redirect(303, '/auth/login');
+				throw redirect(303, '/auth/login');
 			} else {
 				await authState.login();
 			}
@@ -21,6 +21,7 @@ export const load: LayoutLoad = async () => {
 				throw error;
 			}
 			console.error(error);
+			throw redirect(303, '/auth/login');
 		}
 	}
 };
