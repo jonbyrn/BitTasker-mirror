@@ -207,7 +207,7 @@
 		const escapedTaskId = escapeAttr(taskId);
 
 		return `
-			<div class="task-info-window" style="min-width: 280px; max-width: 320px; font-family: system-ui, -apple-system, sans-serif;">
+			<div class="task-info-window task-info-window-task" style="font-family: system-ui, -apple-system, sans-serif;">
 				<div class="card bg-base-100 rounded-xl shadow-md" style="border: none;">
 					<div class="card-body rounded-xl p-4">
 						<!-- Top Row: Title + Status Badge + Price (matches TaskCard: mb-3, gap-2) -->
@@ -338,11 +338,17 @@
 		}
 
 		try {
-			// Create new InfoWindow
+			// Create new InfoWindow - on mobile use narrower max so popup fits without being cut off
 			const content = generateInfoWindowContent(task);
+			const maxWidth =
+				typeof window !== 'undefined'
+					? window.innerWidth <= 768
+						? Math.min(280, window.innerWidth - 48)
+						: Math.min(320, Math.max(260, window.innerWidth - 32))
+					: 320;
 			infoWindow = new google.maps.InfoWindow({
 				content,
-				maxWidth: 320
+				maxWidth
 			});
 
 			// Open InfoWindow at marker position
@@ -1284,7 +1290,7 @@
 		}
 
 		return `
-			<div class="task-info-window task-info-window-compact" style="min-width: 260px; max-width: 300px; font-family: system-ui, -apple-system, sans-serif; padding: 0; margin: 0;">
+			<div class="task-info-window task-info-window-compact task-info-window-service" style="font-family: system-ui, -apple-system, sans-serif; padding: 0; margin: 0;">
 				<div class="card bg-base-100 rounded-xl shadow-md" style="border: none; margin: 0;">
 					<div class="card-body rounded-xl" style="padding: 6px 12px 6px 12px;">
 						<!-- Top Row: Title + Price -->
@@ -1338,9 +1344,15 @@
 		if (!service) return;
 		closeInfoWindow();
 		try {
+			const maxWidth =
+				typeof window !== 'undefined'
+					? window.innerWidth <= 768
+						? Math.min(280, window.innerWidth - 48)
+						: Math.min(320, Math.max(260, window.innerWidth - 32))
+					: 320;
 			infoWindow = new google.maps.InfoWindow({
 				content: generateServiceInfoWindowContent(service),
-				maxWidth: 320
+				maxWidth
 			});
 			infoWindow.open({ anchor: marker, map });
 
@@ -2142,10 +2154,11 @@
 	}
 
 	:global(.gm-style .gm-style-iw-d) {
-		overflow: hidden !important;
+		overflow: auto !important; /* allow scroll on mobile if needed */
 		background-color: hsl(var(--b1)) !important;
 		padding: 0 !important;
 		border: none !important;
+		max-height: 70vh !important; /* prevent popup from exceeding viewport height on mobile */
 	}
 
 	:global(.gm-style .gm-style-iw-tc) {
@@ -2183,6 +2196,34 @@
 			system-ui,
 			-apple-system,
 			sans-serif;
+	}
+
+	/* Desktop: fixed width range for task/service popups */
+	:global(.task-info-window-task) {
+		min-width: 280px;
+		max-width: 320px;
+	}
+
+	:global(.task-info-window-service) {
+		min-width: 260px;
+		max-width: 300px;
+	}
+
+	/* Mobile: narrower popup so it never gets cut off */
+	@media (max-width: 768px) {
+		:global(.gm-style .gm-style-iw),
+		:global(.gm-style .gm-style-iw-c),
+		:global(.gm-style .gm-style-iw-d) {
+			max-width: min(280px, calc(100vw - 48px)) !important;
+		}
+
+		:global(.task-info-window-task),
+		:global(.task-info-window-service) {
+			min-width: 0 !important;
+			max-width: min(280px, calc(100vw - 48px)) !important;
+			width: 100% !important;
+			box-sizing: border-box !important;
+		}
 	}
 
 	:global(.task-info-window .btn) {

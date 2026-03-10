@@ -221,7 +221,7 @@ export interface ServiceTranslations {
 /**
  * ServiceBody Interface
  * Represents user input / form data / what goes in event.content (JSON stringified)
- * Used as input for listService() and updateService() functions
+ * Used as input for createService() and updateService() functions
  * Used in service store to hold form data as user fills it out
  * Difference from Service: ServiceBody excludes event metadata (id, npub) which comes from the Nostr event itself
  */

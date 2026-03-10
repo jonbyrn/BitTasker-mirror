@@ -74,7 +74,7 @@
 		e.preventDefault();
 		e.stopPropagation();
 		const id = service.uniqueId || service.id;
-		goto(`/dashboard/list-service?edit=true&serviceId=${encodeURIComponent(id)}`);
+		goto(`/dashboard/create-service?edit=true&serviceId=${encodeURIComponent(id)}`);
 	}
 
 	async function handleStatusToggle(service: Service, _e?: Event) {
@@ -116,9 +116,9 @@
 		<p class="text-base-content/70 mt-2 max-w-md">
 			{$t('dashboard.services.my_services.empty_message')}
 		</p>
-		<a href="/dashboard/list-service" class="btn btn-primary mt-6">
+		<a href="/dashboard/create-service" class="btn btn-primary mt-6">
 			<IconPlus class="mr-2 h-5 w-5" aria-hidden="true" />
-			{$t('dashboard.services.my_services.list_service')}
+			{$t('dashboard.services.my_services.create_service')}
 		</a>
 	</div>
 {:else}

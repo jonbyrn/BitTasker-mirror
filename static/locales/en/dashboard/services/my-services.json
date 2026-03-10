@@ -5,7 +5,7 @@
 				"page_title": "My Services",
 				"title": "My Services",
 				"description": "Manage your service listings. Edit, duplicate, or view them on the marketplace.",
-				"list_service": "List Service",
+				"create_service": "Create Service",
 				"loading": "Loading your services...",
 				"error_loading": "Error loading services",
 				"retry": "Retry",

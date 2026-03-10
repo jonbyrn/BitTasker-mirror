@@ -546,9 +546,9 @@ function generateServiceNaddr(
 }
 
 /**
- * List a new service (creates NIP-99 event)
+ * Create a new service (creates NIP-99 event)
  */
-export async function listService(serviceData: ServiceBody): Promise<string> {
+export async function createService(serviceData: ServiceBody): Promise<string> {
 	try {
 		// Validate required fields
 		if (!serviceData.title?.trim()) {
@@ -622,7 +622,7 @@ export async function listService(serviceData: ServiceBody): Promise<string> {
 		// Return d-tag (human-readable identifier for URLs and updates)
 		return dTagValue;
 	} catch (error) {
-		console.error('❌ Failed to list service:', error);
+		console.error('❌ Failed to create service:', error);
 		throw error;
 	}
 }

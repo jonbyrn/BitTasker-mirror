@@ -5,7 +5,7 @@
 				"page_title": "Mis Servicios",
 				"title": "Mis Servicios",
 				"description": "Gestiona tus servicios. Edita, duplica o vélos en el marketplace.",
-				"list_service": "Publicar Servicio",
+				"create_service": "Crear Servicio",
 				"loading": "Cargando tus servicios...",
 				"error_loading": "Error al cargar servicios",
 				"retry": "Reintentar",
