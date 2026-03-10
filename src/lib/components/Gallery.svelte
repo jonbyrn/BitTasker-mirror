@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { tick } from 'svelte';
 	import { t } from 'svelte-i18n';
-	import PhotoSwipeLightbox from 'photoswipe/lightbox';
+	import type PhotoSwipeLightbox from 'photoswipe/lightbox';
 	import 'photoswipe/style.css';
 
 	const { galleryID = 'my-gallery', images = [], thumbnailSize = 'h-40 w-40' } = $props();
@@ -23,7 +23,7 @@
 			initializationPending = true;
 
 			// Use tick to wait for DOM updates, then initialize
-			tick().then(() => {
+				tick().then(async () => {
 				// Check if initialization is still pending (effect hasn't been cleaned up)
 				if (!initializationPending) return;
 
@@ -40,8 +40,9 @@
 					}
 
 					// Create new PhotoSwipe instance
-					try {
-						const lightbox = new PhotoSwipeLightbox({
+						try {
+							const { default: PhotoSwipeLightboxCtor } = await import('photoswipe/lightbox');
+							const lightbox = new PhotoSwipeLightboxCtor({
 							gallery: '#' + currentGalleryID,
 							children: 'a',
 							mouseMovePan: true,

@@ -32,7 +32,6 @@
 			// Don't switch if already selected
 			if (code === $locale) {
 				closeDropdown();
-				updateDropdownState();
 				return;
 			}
 
@@ -48,43 +47,22 @@
 			if (onLanguageChange) onLanguageChange(code);
 
 			closeDropdown();
-			updateDropdownState();
 		} catch (error) {
 			console.error('Error changing language:', error);
 		}
 	};
 
 	function closeDropdown() {
-		const dropdown = document.querySelector('details.dropdown[open]');
-		if (dropdown) dropdown.removeAttribute('open');
-	}
-
-	function handleDropdownClick(event: MouseEvent) {
-		const summary = event.currentTarget as HTMLElement;
-		const dropdown = summary.closest('details') as HTMLDetailsElement;
-		if (dropdown && !dropdown.hasAttribute('open')) closeOtherDropdowns(dropdown);
-	}
-
-	function closeOtherDropdowns(currentDropdown: HTMLDetailsElement) {
-		document.querySelectorAll('details[open]').forEach((dropdown) => {
-			if (dropdown !== currentDropdown) dropdown.removeAttribute('open');
-		});
+		isDropdownOpen = false;
 	}
 
 	let isDropdownOpen = $state(false);
-	let dropdownElement: HTMLDetailsElement;
 
-	function updateDropdownState() {
-		if (dropdownElement) isDropdownOpen = dropdownElement.hasAttribute('open');
-	}
-
-	$effect(() => {
-		if (dropdownElement) updateDropdownState();
-	});
-
-	function handleDropdownClickWithState(event: MouseEvent) {
-		handleDropdownClick(event);
-		setTimeout(updateDropdownState, 0);
+	function toggleDropdown(event: MouseEvent) {
+		event.preventDefault();
+		event.stopPropagation();
+		if (isLanguageLoading) return;
+		isDropdownOpen = !isDropdownOpen;
 	}
 
 	const LOCALE_TO_LANGUAGE_KEY = { en: 'english', es: 'spanish' };
@@ -100,12 +78,17 @@
 	const isLanguageLoading = $derived($isI18nLoading);
 </script>
 
-<details class="dropdown dropdown-end language-dropdown {className}" bind:this={dropdownElement} use:clickOutside={{ callback: () => closeDropdown() }}>
-	<summary
+<div
+	class="dropdown dropdown-end language-dropdown {className}"
+	class:dropdown-open={isDropdownOpen}
+	use:clickOutside={{ callback: () => closeDropdown() }}
+>
+	<button
+		type="button"
 		class="btn btn-ghost flex items-center gap-2"
 		class:loading={isLanguageLoading}
 		class:btn-disabled={isLanguageLoading}
-		onclick={handleDropdownClickWithState}
+		onclick={toggleDropdown}
 		class:tooltip={showTooltip}
 		class:tooltip-bottom={showTooltip}
 		data-tip={!isLanguageLoading ? ` ${currentLanguageName()}` : ''}
@@ -132,7 +115,7 @@
 			<path stroke-linecap="round" stroke-linejoin="round" stroke-width="4" d="M19 9l-7 7-7-7"
 			></path>
 		</svg>
-	</summary>
+	</button>
 	<ul class="menu dropdown-content bg-base-100 rounded-box z-1 w-52 p-2 shadow-sm">
 		{#each LANGUAGES as { code, name }}
 			<li>
@@ -160,7 +143,7 @@
 			</li>
 		{/each}
 	</ul>
-</details>
+</div>
 
 <style>
 	/* Ensure proper positioning */

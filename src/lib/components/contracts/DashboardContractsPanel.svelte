@@ -12,6 +12,7 @@
 	import ContractDrawer from './ContractDrawer.svelte';
 	import InfiniteScroll from '$lib/components/InfiniteScroll.svelte';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
+	import { walletStore, walletManager } from '$lib/stores/wallet.store';
 
 	// MDI Icons for filters
 	import IconCheckAll from '~icons/mdi/check-all';
@@ -136,12 +137,10 @@
 		await runTaskStatusReconciliation();
 	}
 
-	onMount(async () => {
-		// Ensure wallet is initialized BEFORE loading contracts
-		try {
-			const { walletStore, walletManager } = await import('$lib/stores/wallet.store');
-			const { get } = await import('svelte/store');
-			let walletState = get(walletStore);
+		onMount(async () => {
+			// Ensure wallet is initialized BEFORE loading contracts
+			try {
+				let walletState = get(walletStore);
 
 			// Wait for wallet initialization if not already initialized
 			if (!walletState.isConnected || !walletState.rsk?.wallet || !walletState.rsk?.provider) {

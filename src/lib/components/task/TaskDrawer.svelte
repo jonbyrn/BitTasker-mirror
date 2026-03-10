@@ -12,6 +12,7 @@
 		task: Task | null;
 		isOpen: boolean;
 		activeTab: string;
+		testId?: string;
 		onClose: () => void;
 		onRequestEditConfirm?: () => void;
 		onRequestDeleteConfirm?: () => void;
@@ -69,6 +70,7 @@
 <Drawer
 	isOpen={props.isOpen}
 	title={drawerTitle}
+	testId={props.testId}
 	onClose={handleClose}
 	position="right"
 	isScrollable={!showCounterOfferForm}

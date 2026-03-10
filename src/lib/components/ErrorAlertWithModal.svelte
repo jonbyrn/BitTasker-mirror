@@ -10,6 +10,7 @@
 		isPasskeyError?: boolean; // Indicates if this is a passkey/biometric error
 		autoOpenModal?: boolean; // Automatically open modal when error appears (default: true for passkey errors)
 		showHelpButton?: boolean; // Show "Get Help" button in alert (default: true)
+		testId?: string; // Optional test id hook for deterministic E2E selectors
 		onRetry?: () => void | Promise<void>; // Optional retry callback - will be passed to ErrorTroubleshootingModal
 		class?: string; // Additional CSS classes for the alert container
 	}
@@ -20,6 +21,7 @@
 		isPasskeyError = false,
 		autoOpenModal = undefined, // Will default to isPasskeyError if not provided
 		showHelpButton = true,
+		testId = undefined,
 		onRetry,
 		class: additionalClasses = ''
 	}: Props = $props();
@@ -77,7 +79,7 @@
 </script>
 
 {#if error}
-	<div class="alert alert-outline alert-error {additionalClasses}">
+	<div class="alert alert-outline alert-error {additionalClasses}" role="alert" data-testid={testId}>
 		<svg
 			xmlns="http://www.w3.org/2000/svg"
 			class="h-6 w-6 shrink-0 stroke-current"

@@ -573,6 +573,7 @@
 									bind:value={nsec}
 									class="input input-bordered w-full pr-10 {error ? 'input-error' : ''}"
 									placeholder={$t('login.nostr_private_key_placeholder')}
+									aria-invalid={error ? 'true' : 'false'}
 									required
 								/>
 								<button
@@ -668,7 +669,7 @@
 					{#if error}
 						{#if isQrScannerError}
 							<!-- QR Scanner errors - simple alert, no passkey retry -->
-							<div class="alert alert-outline alert-error mt-2">
+							<div class="alert alert-outline alert-error mt-2" role="alert" data-testid="login-error-alert">
 								<svg
 									xmlns="http://www.w3.org/2000/svg"
 									class="h-6 w-6 shrink-0 stroke-current"
@@ -698,6 +699,7 @@
 							<ErrorAlertWithModal
 								{error}
 								{isPasskeyError}
+								testId="login-error-alert"
 								autoOpenModal={isPasskeyError}
 								onRetry={async () => {
 									// Close modal and clear error state

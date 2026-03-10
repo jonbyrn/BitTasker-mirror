@@ -375,6 +375,11 @@ export async function findTasks(
 			};
 		} catch (apiError) {
 			console.error('API request failed - ', apiError);
+			tasksStore.update((state) => ({
+				...state,
+				loading: false,
+				error: apiError instanceof Error ? apiError.message : 'Failed to load tasks'
+			}));
 
 			return {
 				tasks: [],

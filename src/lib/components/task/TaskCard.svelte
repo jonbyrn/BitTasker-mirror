@@ -7,7 +7,6 @@
 	import UsdSatsDisplay from '$lib/components/shared/UsdSatsDisplay.svelte';
 	import { getTaskId } from '$lib/utils/helpers/task-id';
 	import TaskShareButton from '$lib/components/task/TaskShareButton.svelte';
-	import type { Component } from 'svelte';
 	
 	// Icon imports
 	import IconPlus from '~icons/mdi/plus';
@@ -51,11 +50,10 @@
 	const isOpen = $derived(task.status === TaskStatusEnum.OPEN);
 	const canBid = $derived(isOpen && !hasBid);
 	const taskId = $derived(getTaskId(task));
+	void formatDateTimeReactive;
+	void formatDateRangeReactive;
 </script>
 
-<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-<!-- svelte-ignore a11y_click_events_have_key_events -->
-<!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
 	class="card bg-base-100 rounded-xl shadow-md transition-shadow hover:shadow-lg"
 	class:bg-base-300={isSelected}
@@ -63,6 +61,7 @@
 	class:border-2={isSelected}
 	class:opacity-60={!isOpen}
 	class:cursor-pointer={isMapVisible}
+	data-testid="tasks-task-card"
 	data-task-id={taskId}
 	{...(isMapVisible ? { role: 'button', tabindex: 0 } : {})}
 	onclick={(e) => {
@@ -168,6 +167,7 @@
 				</span>
 				<button
 					class="btn btn-primary btn-sm flex-1 md:flex-none"
+					data-testid="task-card-bid-button"
 					class:btn-disabled={!canBid}
 					disabled={!canBid}
 					onclick={async (e) => {
@@ -189,6 +189,7 @@
 
 				<button
 					class="btn btn-secondary btn-sm flex-1 md:flex-none"
+					data-testid="task-card-view-button"
 					onclick={async (e) => {
 						e.stopPropagation();
 						if (!drawersLoaded) {

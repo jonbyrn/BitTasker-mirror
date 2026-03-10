@@ -177,6 +177,8 @@
 				</div>
 			</form>
 		</div>
-		<button class="modal-backdrop" onclick={handleClose}>X</button>
+		<form method="dialog" class="modal-backdrop" onclick={handleClose}>
+			<button type="button" onclick={handleClose}>close</button>
+		</form>
 	</div>
 {/if}

@@ -1,9 +1,10 @@
 <script lang="ts">
 	let { count = 4 } = $props<{ count?: number }>();
+	const skeletonIndices = $derived(Array.from({ length: count }, (_, index) => index));
 </script>
 
-<div class="space-y-4">
-	{#each Array(count) as _}
+<div class="space-y-4" data-testid="tasks-list-skeleton">
+	{#each skeletonIndices as index (index)}
 		<div class="card bg-base-100 animate-pulse rounded-xl shadow-md transition-shadow">
 			<div class="card-body rounded-xl p-4 md:p-4">
 				<!-- Top Row: Title + Status Badge + Price -->
