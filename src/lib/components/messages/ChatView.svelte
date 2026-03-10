@@ -10,10 +10,14 @@
 	import ChatMessage from './ChatMessage.svelte';
 	import { nip19 } from 'nostr-tools';
 	import { onDestroy, onMount, tick } from 'svelte';
+	import { SvelteMap } from 'svelte/reactivity';
 	import { t } from 'svelte-i18n';
 	import EmojiPicker from '$lib/components/EmojiPicker.svelte';
-	import { TranslationStore, translationSettings, messageTranslations } from '$lib/stores/translation.store';
-	import { TranslationService } from '$lib/services/translation.service';
+	import {
+		TranslationStore,
+		translationSettings,
+		messageTranslations
+	} from '$lib/stores/translation.store';
 	import { isUserToUserMessage, parseMessageContent } from '$lib/utils/helpers/messageParser';
 	import { getNostrKeyPair } from '$lib/utils/nostrKeys';
 	import { pushNotificationService } from '$lib/api/services/push-notification.service';
@@ -32,7 +36,10 @@
 	} = $props();
 
 	// Message cache by recipient pubkey to avoid reloading
-	const messageCache = new Map<string, { plaintext: string; senderPubkey: string; event: NostrEvent }[]>();
+	const messageCache = new SvelteMap<
+		string,
+		{ plaintext: string; senderPubkey: string; event: NostrEvent }[]
+	>();
 	let lastLoadedRecipient = $state<string | null>(null);
 
 	// State
@@ -64,7 +71,7 @@
 	let isNearTop = $state(false);
 
 	// Draft persistence state
-	let draftSaveTimeout: NodeJS.Timeout | null = null;
+	let draftSaveTimeout: ReturnType<typeof setTimeout> | null = null;
 	let lastSavedDraft = $state('');
 
 	// References
@@ -128,9 +135,6 @@
 	// Track if user is at bottom for scroll-to-bottom button
 	let isAtBottom = $state(true);
 
-	// Translation service instance
-	const translationService = new TranslationService();
-
 	// Preload translations for current conversation
 	// Only run once when messages are first loaded, not on every change
 	let lastPreloadedMessageIds = $state<string[]>([]);
@@ -156,17 +160,17 @@
 		if (!currentRecipient) {
 			return;
 		}
-		
+
 		const hex = recipientHex();
-		
+
 		// Only reload if recipient actually changed
 		if (previousRecipient === hex) {
 			return;
 		}
-		
+
 		// Update previous recipient BEFORE doing anything else to prevent loops
 		previousRecipient = hex;
-		
+
 		// Cleanup previous subscriptions first
 		if (unsubscribe) {
 			unsubscribe();
@@ -180,7 +184,7 @@
 			currentUserProfileUnsubscribe();
 			currentUserProfileUnsubscribe = null;
 		}
-		
+
 		// Check if we already have cached messages for this recipient
 		if (lastLoadedRecipient === hex && messageCache.has(hex)) {
 			// Use cached messages - no need to reload
@@ -204,7 +208,7 @@
 			resetPagination();
 			loadMessages();
 		}
-		
+
 		// Always setup listeners and subscriptions
 		setupRealtimeListener();
 		setupProfileSubscription();
@@ -222,7 +226,11 @@
 	let lastProcessedMessageCount = $state(0);
 	$effect(() => {
 		// Only process if messages changed and we haven't completed initial load
-		if (messages.length > 0 && !isInitialLoadComplete && messages.length !== lastProcessedMessageCount) {
+		if (
+			messages.length > 0 &&
+			!isInitialLoadComplete &&
+			messages.length !== lastProcessedMessageCount
+		) {
 			lastProcessedMessageCount = messages.length;
 			// Only mark messages as processed if translation is enabled
 			// If translation is disabled, don't mark them so they can be batch translated later
@@ -280,7 +288,12 @@
 				}
 
 				// Only translate incoming user-to-user messages with text content
-				return !isFromCurrentUser && hasText && hasText.length > 3 && isUserToUserMessage(message.plaintext);
+				return (
+					!isFromCurrentUser &&
+					hasText &&
+					hasText.length > 3 &&
+					isUserToUserMessage(message.plaintext)
+				);
 			})
 			.map((message) => ({
 				messageId: message.event.id,
@@ -290,7 +303,7 @@
 		// If there are untranslated messages, translate them in batch
 		if (untranslatedMessages.length > 0) {
 			pendingBatchTranslation = true;
-			
+
 			// Mark all as processed IMMEDIATELY to prevent individual translation from processing them
 			untranslatedMessages.forEach(({ messageId }) => {
 				processedMessageIds.add(messageId);
@@ -315,11 +328,11 @@
 	// When translation is enabled, find and translate all untranslated messages in batch
 	$effect(() => {
 		const isEnabled = $translationSettings.enabled;
-		
+
 		// Track state change
 		const wasJustEnabled = !lastTranslationEnabledState && isEnabled;
 		lastTranslationEnabledState = isEnabled;
-		
+
 		// Only process when translation is JUST enabled
 		if (wasJustEnabled) {
 			// Use setTimeout to ensure messages are loaded
@@ -373,13 +386,18 @@
 				const hasText = message.plaintext.trim();
 
 				// Only translate incoming user-to-user messages with text content
-				if (!isFromCurrentUser && hasText && hasText.length > 3 && isUserToUserMessage(message.plaintext)) {
+				if (
+					!isFromCurrentUser &&
+					hasText &&
+					hasText.length > 3 &&
+					isUserToUserMessage(message.plaintext)
+				) {
 					// Mark as processed immediately to avoid duplicates (only if translation is enabled)
 					if ($translationSettings.enabled) {
 						processedMessageIds.add(messageId);
 						try {
 							// TranslationStore handles duplicate prevention internally
-							const result = await TranslationStore.translateMessage(messageId, message.plaintext);
+							await TranslationStore.translateMessage(messageId, message.plaintext);
 						} catch (error) {
 							console.error('Translation error for new message', messageId, ':', error);
 						}
@@ -447,13 +465,13 @@
 			const updatePosition = () => {
 				if (sendButton && scrollButton && inputArea) {
 					const sendButtonRect = sendButton.getBoundingClientRect();
-					
+
 					// Only update if we have valid coordinates
 					if (sendButtonRect.width > 0 && sendButtonRect.height > 0) {
 						// Position scroll button above send button, aligned to the right
 						const topOffset = sendButtonRect.top - sendButtonRect.height - 36; // 36px gap above
 						const rightOffset = window.innerWidth - sendButtonRect.right;
-						
+
 						// Set position immediately to avoid flash in wrong position
 						scrollButton.style.position = 'fixed';
 						scrollButton.style.top = `${topOffset}px`;
@@ -480,7 +498,7 @@
 					scrollButton.style.visibility = 'visible';
 				}
 			}, 50);
-			
+
 			// In app-shell mode, window doesn't scroll; the app scroll container does.
 			const scrollTarget: HTMLElement | Window = appScrollEl ?? window;
 			scrollTarget.addEventListener('scroll', updatePosition as EventListener, { passive: true });
@@ -631,7 +649,7 @@
 			// Sort messages by timestamp (oldest first)
 			const sortedMessages = userMessages.sort((a, b) => a.event.created_at - b.event.created_at);
 			messages = sortedMessages;
-			
+
 			// Cache messages for this recipient
 			const hex = recipientHex();
 			messageCache.set(hex, sortedMessages);
@@ -686,7 +704,7 @@
 			if (olderMessages.length > 0) {
 				// Filter out system messages (bids, contracts, etc.) - only show user-to-user messages
 				const userOlderMessages = olderMessages.filter((msg) => isUserToUserMessage(msg.plaintext));
-				
+
 				// Only update messages and timestamp if we have user messages after filtering
 				if (userOlderMessages.length > 0) {
 					// Sort and prepend older messages
@@ -712,7 +730,7 @@
 				// No messages returned from API - definitely no more messages
 				hasMoreMessages = false;
 			}
-			
+
 			// Preserve scroll position (only if we actually added messages)
 			if (olderMessages.length > 0) {
 				const userOlderMessages = olderMessages.filter((msg) => isUserToUserMessage(msg.plaintext));
@@ -783,7 +801,6 @@
 							newMessage,
 							...messages.slice(existingMessageIndex + 1)
 						].sort((a, b) => a.event.created_at - b.event.created_at);
-					} else {
 					}
 					// If it's not temporary, it's a duplicate, so ignore it
 				} else {
@@ -796,7 +813,6 @@
 					const hex = recipientHex();
 					messageCache.set(hex, messages);
 				}
-			} else {
 			}
 		});
 	}
@@ -907,7 +923,7 @@
 			await sendDirectMessage(messageContent, recipientHex());
 
 			// Send notification to recipient
-			const result = await pushNotificationService.sendNotificationToNpubs({
+			await pushNotificationService.sendNotificationToNpubs({
 				npubs: [recipientPubkey],
 				title: $user.name || $user.npub.slice(0, 6) + '...',
 				body: messageContent?.substring(0, 50) + (messageContent.length > 50 ? '...' : ''),
@@ -957,7 +973,7 @@
 
 	function scrollToMessage(quotedText: string, quotedMessageId?: string | null) {
 		if (!messagesContainer) return;
-		
+
 		// If we have a message ID, use it directly (most reliable)
 		if (quotedMessageId) {
 			const element = messagesContainer.querySelector(`[data-message-id="${quotedMessageId}"]`);
@@ -970,20 +986,20 @@
 				return;
 			}
 		}
-		
+
 		// Fallback to text matching if no ID or ID not found
 		if (!quotedText) return;
-		
+
 		const quotedTextLower = quotedText.toLowerCase().trim();
 		const messageElements = messagesContainer.querySelectorAll('[data-message-id]');
-		
+
 		for (const element of messageElements) {
 			const messageId = element.getAttribute('data-message-id');
 			if (!messageId) continue;
-			
-			const message = messages.find(m => m.event.id === messageId);
+
+			const message = messages.find((m) => m.event.id === messageId);
 			if (!message) continue;
-			
+
 			const messageText = parseMessageContent(message.plaintext).toLowerCase().trim();
 			if (messageText.includes(quotedTextLower) || quotedTextLower.includes(messageText)) {
 				element.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -1033,12 +1049,10 @@
 	}
 
 	// Function to handle reaction add
-	function handleReactionAdd(messageId: string, emoji: string) {
-	}
+	function handleReactionAdd() {}
 
 	// Function to handle reaction remove
-	function handleReactionRemove(messageId: string, emoji: string) {
-	}
+	function handleReactionRemove() {}
 
 	function handleSubmit(event: Event) {
 		event.preventDefault();
@@ -1152,7 +1166,7 @@
 				</div>
 			{:else}
 				<!-- Messages List -->
-				{#each messages as message}
+				{#each messages as message (message.event.id)}
 					{@const isCurrentUserSender = message.senderPubkey === currentUserHex()}
 					{@const messageProfile = isCurrentUserSender ? currentUserProfile : recipientProfile}
 
@@ -1166,7 +1180,8 @@
 						currentUserId={currentUserHex()}
 						onReactionAdd={handleReactionAdd}
 						onReactionRemove={handleReactionRemove}
-						onScrollToMessage={(quotedText: string, quotedMessageId?: string | null) => scrollToMessage(quotedText, quotedMessageId)}
+						onScrollToMessage={(quotedText: string, quotedMessageId?: string | null) =>
+							scrollToMessage(quotedText, quotedMessageId)}
 					/>
 				{/each}
 			{/if}
@@ -1200,12 +1215,14 @@
 	{/if}
 
 	<!-- Message Input Area - Fixed at bottom, above navbar -->
-	<div bind:this={inputArea} class="bg-base-100 shrink-0 border-base-300/20 px-4 sm:px-6 relative">
+	<div bind:this={inputArea} class="bg-base-100 border-base-300/20 relative shrink-0 px-4 sm:px-6">
 		<!-- Reply Indicator -->
 		{#if replyingToMessage}
 			{@const replyMessageId = replyingToMessage.event.id}
 			{@const replyTranslation = $messageTranslations.get(replyMessageId)}
-			{@const replyDisplayText = replyTranslation ? replyTranslation.translatedText : replyingToMessage.plaintext}
+			{@const replyDisplayText = replyTranslation
+				? replyTranslation.translatedText
+				: replyingToMessage.plaintext}
 			<div class="bg-base-200 border-base-300 mb-3 rounded-lg border p-3">
 				<div class="flex items-start justify-between gap-3">
 					<div class="min-w-0 flex-1">
@@ -1244,16 +1261,16 @@
 			</div>
 		{/if}
 
-		<form onsubmit={handleSubmit} class="relative w-full mb-6">
+		<form onsubmit={handleSubmit} class="relative mb-6 w-full">
 			<!-- Main Input Field with Buttons Inside -->
 			<div
-				class="bg-base-200 rounded-2xl transition-all duration-200 w-full flex items-end gap-2 p-2 sm:p-3"
+				class="bg-base-200 flex w-full items-end gap-2 rounded-2xl p-2 transition-all duration-200 sm:p-3"
 			>
 				<!-- Emoji Button - Left Side -->
 				<button
 					type="button"
 					bind:this={emojiButtonRef}
-					class="btn btn-ghost btn-sm hover:bg-base-300 h-8 w-8 min-h-0 p-0 shrink-0 transition-colors"
+					class="btn btn-ghost btn-sm hover:bg-base-300 h-8 min-h-0 w-8 shrink-0 p-0 transition-colors"
 					onclick={() => (showEmojiPicker = !showEmojiPicker)}
 					title="Add emoji"
 					aria-label="Add emoji"
@@ -1297,7 +1314,7 @@
 					bind:this={sendButton}
 					type="submit"
 					data-testid="chat-send-button"
-					class="btn btn-info h-8 w-8 min-h-0 p-0 rounded-full shrink-0 transition-all duration-200 hover:scale-110 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100"
+					class="btn btn-info h-8 min-h-0 w-8 shrink-0 rounded-full p-0 transition-all duration-200 hover:scale-110 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100"
 					disabled={!newMessageText.trim() || isSendingMessage}
 					title={$t('dashboard.bids.components.messages.chat_view.send_message')}
 				>
