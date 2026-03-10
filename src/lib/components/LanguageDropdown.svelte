@@ -18,7 +18,6 @@
 		showLocaleCode = false,
 		showCheckmark = true,
 		className = '',
-		tooltip = '', // unused
 		onLanguageChange = null as ((code: SupportedLanguage) => void) | null
 	} = $props();
 
@@ -117,7 +116,7 @@
 		</svg>
 	</button>
 	<ul class="menu dropdown-content bg-base-100 rounded-box z-1 w-52 p-2 shadow-sm">
-		{#each LANGUAGES as { code, name }}
+		{#each LANGUAGES as { code, name } (code)}
 			<li>
 				<button
 					class="flex w-full items-center gap-2 text-left"

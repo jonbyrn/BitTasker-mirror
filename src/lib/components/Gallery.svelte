@@ -23,7 +23,7 @@
 			initializationPending = true;
 
 			// Use tick to wait for DOM updates, then initialize
-				tick().then(async () => {
+			tick().then(async () => {
 				// Check if initialization is still pending (effect hasn't been cleaned up)
 				if (!initializationPending) return;
 
@@ -33,16 +33,16 @@
 					if (lightboxInstance) {
 						try {
 							lightboxInstance.destroy();
-						} catch (error) {
+						} catch {
 							// Ignore errors when destroying
 						}
 						lightboxInstance = null;
 					}
 
 					// Create new PhotoSwipe instance
-						try {
-							const { default: PhotoSwipeLightboxCtor } = await import('photoswipe/lightbox');
-							const lightbox = new PhotoSwipeLightboxCtor({
+					try {
+						const { default: PhotoSwipeLightboxCtor } = await import('photoswipe/lightbox');
+						const lightbox = new PhotoSwipeLightboxCtor({
 							gallery: '#' + currentGalleryID,
 							children: 'a',
 							mouseMovePan: true,
@@ -72,7 +72,7 @@
 			if (lightboxInstance) {
 				try {
 					lightboxInstance.destroy();
-				} catch (error) {
+				} catch {
 					// Ignore cleanup errors
 				}
 				lightboxInstance = null;
@@ -83,7 +83,7 @@
 
 {#if images && images.length > 0}
 	<div class="pswp-gallery gap-3" id={galleryID}>
-		{#each images as image, index}
+		{#each images as image, index (image.url || image.largeURL || `${galleryID}-${index}`)}
 			<a
 				href={image.url || image.largeURL}
 				data-pswp-width={image.width}

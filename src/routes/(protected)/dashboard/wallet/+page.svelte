@@ -28,6 +28,11 @@
 	import IconChevronRight from '~icons/mdi/chevron-right';
 	import PaymentRequestModal from '$lib/components/wallet/PaymentRequestModal.svelte';
 
+	type SwapUpdateEvent = {
+		swapId: string;
+		swapData: Parameters<typeof getSwapType>[0];
+	};
+
 	let isLoading = $state(false);
 	let unsubscribeFromSwaps: (() => void) | null = null;
 	const isE2EInteractionMode = import.meta.env.VITE_E2E_TURNSTILE_BYPASS === 'true';
@@ -48,7 +53,7 @@
 		await initializeWallet();
 		// Subscribe to real-time swap updates via WebSocket
 		try {
-			unsubscribeFromSwaps = walletManager.onSwapUpdate((event: any) => {
+			unsubscribeFromSwaps = walletManager.onSwapUpdate((event: SwapUpdateEvent) => {
 				// Determine swap type from swap data
 				const swapType = getSwapType(event.swapData);
 
@@ -168,7 +173,10 @@
 
 <!-- Mismas dimensiones que Mi Panel (padding); max-w-4xl para wallet -->
 <div class="bg-base-100 mx-auto h-full max-w-4xl rounded-lg px-2 py-6 shadow-lg md:px-0 md:py-0">
-	<div transition:fly={{ y: 20, duration: 300, easing: linear }} class="flex h-full flex-col p-3 sm:p-6">
+	<div
+		transition:fly={{ y: 20, duration: 300, easing: linear }}
+		class="flex h-full flex-col p-3 sm:p-6"
+	>
 		{#if $rskConnection.connecting}
 			<div class="alert alert-outline alert-info mb-3 py-2 sm:mb-6 sm:py-4">
 				<div class="flex items-center">
@@ -204,10 +212,14 @@
 							</div>
 						</div>
 					</div>
-					<button class="btn btn-outline btn-sm ml-4" onclick={async () => {
-						triggerHaptic(ImpactStyle.Light);
-						await initializeWallet();
-					}} data-testid="wallet-retry-connection">
+					<button
+						class="btn btn-outline btn-sm ml-4"
+						onclick={async () => {
+							triggerHaptic(ImpactStyle.Light);
+							await initializeWallet();
+						}}
+						data-testid="wallet-retry-connection"
+					>
 						{$t('wallet.page.retry_connection')}
 					</button>
 				</div>
@@ -368,10 +380,14 @@
 					{$t('wallet.error.no_mnemonic.message')}
 				</p>
 				<div class="flex justify-center gap-4">
-					<button class="btn btn-primary" onclick={async () => {
-						triggerHaptic(ImpactStyle.Light);
-						await initializeWallet();
-					}} data-testid="wallet-no-wallet-try-again">
+					<button
+						class="btn btn-primary"
+						onclick={async () => {
+							triggerHaptic(ImpactStyle.Light);
+							await initializeWallet();
+						}}
+						data-testid="wallet-no-wallet-try-again"
+					>
 						{$t('wallet.error.no_mnemonic.try_again')}
 					</button>
 				</div>
@@ -400,11 +416,13 @@
 			showReceiveModal = false; // Close receive form
 			openPaymentRequestModal(data); // Open payment request modal
 		}}
-		initialFormState={receiveFormState ? {
-			...receiveFormState,
-			// For Rootstock, go to step 1 (network selector); for others, go to step 2 (details)
-			currentStep: (receiveFormState.selectedNetwork === 'rootstock-bitcoin' ? 1 : 2) as 1 | 2
-		} : undefined}
+		initialFormState={receiveFormState
+			? {
+					...receiveFormState,
+					// For Rootstock, go to step 1 (network selector); for others, go to step 2 (details)
+					currentStep: (receiveFormState.selectedNetwork === 'rootstock-bitcoin' ? 1 : 2) as 1 | 2
+				}
+			: undefined}
 	/>
 </WalletPaymentModal>
 
