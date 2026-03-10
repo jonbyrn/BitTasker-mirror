@@ -19,7 +19,7 @@ export const load: LayoutLoad = async ({ url }) => {
 				const onboardingStatus = await authService.checkOnboardingStatus();
 
 				if (onboardingStatus.isComplete) {
-					redirect(303, '/dashboard');
+					throw redirect(303, '/dashboard');
 				} else {
 					const fields = ['displayName', 'profilePicture', 'professionalTitle', 'profileDescription', 'skills']; // field 'location' left out for step 4 
 					const step3 = fields.filter(field => onboardingStatus.missingFields.includes(field)).length > 0
@@ -30,10 +30,10 @@ export const load: LayoutLoad = async ({ url }) => {
 				console.error('Error checking onboarding status:', error);
 				// If error checking onboarding status, log out user
 				await authState.logout();
-				redirect(303, '/auth/login');
+				throw redirect(303, '/auth/login');
 			}
 		} else {
-			redirect(303, '/dashboard');
+			throw redirect(303, '/dashboard');
 		}
 	} else {
 		if (url.pathname.includes('/onboarding')) {
@@ -45,7 +45,7 @@ export const load: LayoutLoad = async ({ url }) => {
 			if (!verified && !e2eBypass) {
 				// Diagnostic: visible in Playwright page console and CI attachments when redirect happens
 				console.warn('[E2E] Auth layout redirect: isCaptchaVerified=false, redirecting to /auth/signup');
-				redirect(303, '/auth/signup');
+				throw redirect(303, '/auth/signup');
 			}
 			// Diagnostic: when we allow onboarding
 			if (e2eBypass) console.log('[E2E] Auth layout: allowing onboarding (E2E bypass env)');
