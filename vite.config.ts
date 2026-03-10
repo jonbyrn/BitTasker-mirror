@@ -10,6 +10,22 @@ import Icons from 'unplugin-icons/vite';
 import tailwindcss from '@tailwindcss/vite';
 import topLevelAwait from 'vite-plugin-top-level-await';
 
+const coverageGateThresholds = {
+	m1: { lines: 80, statements: 80, functions: 80, branches: 75 },
+	m2: { lines: 85, statements: 85, functions: 85, branches: 80 },
+	m3: { lines: 90, statements: 90, functions: 90, branches: 85 },
+	m4: { lines: 90, statements: 90, functions: 90, branches: 85 }
+} as const;
+
+type CoverageGateStage = keyof typeof coverageGateThresholds;
+
+const coverageGateStage = process.env.COVERAGE_GATE_STAGE?.toLowerCase() as
+	| CoverageGateStage
+	| undefined;
+const coverageThresholds = coverageGateStage
+	? coverageGateThresholds[coverageGateStage]
+	: undefined;
+
 // Vite plugin to ensure browser condition is prioritized during tests
 // This fixes the "mount(...) is not available on the server" error
 const addBrowserCondition: Plugin = {
@@ -38,7 +54,14 @@ export default defineConfig({
 		exclude: ['**/_pending/**'],
 		coverage: {
 			provider: 'v8',
-			reporter: ['text', 'html', 'clover', ['cobertura', { file: 'cobertura-coverage.xml' }]],
+			reporter: [
+				'text',
+				'html',
+				'clover',
+				'json-summary',
+				['cobertura', { file: 'cobertura-coverage.xml' }]
+			],
+			reportsDirectory: 'coverage',
 			include: ['src/**'],
 			exclude: [
 				'node_modules/**',
@@ -60,7 +83,8 @@ export default defineConfig({
 				'**/*.spec.tsx',
 				'vitest*.ts',
 				'scripts/**'
-			]
+			],
+			thresholds: coverageThresholds
 		}
 	},
 	resolve: {
@@ -93,7 +117,7 @@ export default defineConfig({
 			// Enable polyfills for specific globals and modules.
 			globals: {
 				Buffer: true,
-				global: true,
+				global: false,
 				process: true
 			},
 			// Add specific polyfills for modules required by wallet SDK

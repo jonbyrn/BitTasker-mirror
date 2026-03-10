@@ -2,7 +2,7 @@
 
 End-to-end tests for BitTasker use **Playwright** and depend on a **credentials file** created by the first spec. This README explains how to run tests, what utilities and fixtures are available, how to add new E2E tests, and strategies used in existing specs.
 
-**Canonical pipeline and environment details:** [docs/testing/e2e-testing.md](../docs/testing/e2e-testing.md).
+**Canonical pipeline and environment details:** [docs/testing/e2e-testing.md](../../docs/testing/e2e-testing.md).
 
 ---
 
@@ -10,18 +10,39 @@ End-to-end tests for BitTasker use **Playwright** and depend on a **credentials 
 
 Tests must run in order so that the credentials file exists before specs that log in with passkey.
 
-| File                                   | Purpose                                                                                                                          | Doc                                                                              |
-| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| **01-signup-onboarding.spec.ts**       | **Creates** two users (signup + Nostr) and writes passkey credentials to `tests/e2e/.auth/webauthn-credentials.json`. Run first. | [e2e-account-creation.md](../docs/testing/e2e-account-creation.md)               |
-| **02-credentials-login.spec.ts**       | Loads credentials from file; for each user (`signup`, `nostr`) injects passkey, logs in, asserts dashboard.                      | —                                                                                |
-| **03-wallet-post-login.spec.ts**       | Signup user: login → navigate to `/dashboard/wallet` → validate page loads.                                                      | [e2e-wallet-post-login.md](../docs/testing/e2e-wallet-post-login.md)             |
-| **04-messages-start-new-chat.spec.ts** | Nostr user sends message to signup user; signup user opens conversation and sees same message. Requires Nostr relay.             | [e2e-messages-start-new-chat.md](../docs/testing/e2e-messages-start-new-chat.md) |
-| **wallet/balance-management.spec.ts**  | Skipped (`describe.skip`). Re-enable when wallet E2E is added.                                                                   | —                                                                                |
+| File                                   | Purpose                                                                                                                                                                              | Doc                                                                                 |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------- |
+| **01-signup-onboarding.spec.ts**       | **Creates** two users (signup + Nostr) and writes passkey credentials to `tests/e2e/.auth/webauthn-credentials.json`. Run first.                                                     | [e2e-account-creation.md](../../docs/testing/e2e-account-creation.md)               |
+| **02-credentials-login.spec.ts**       | Loads credentials from file; for each user (`signup`, `nostr`) injects passkey, logs in, asserts dashboard.                                                                          | —                                                                                   |
+| **03-wallet-post-login.spec.ts**       | Signup user wallet coverage: load-state validation, open Receive/Send/Transactions modals, invalid-address validation, and offline error/retry handling.                             | [e2e-wallet-post-login.md](../../docs/testing/e2e-wallet-post-login.md)             |
+| **04-messages-start-new-chat.spec.ts** | Nostr user sends message to signup user; signup user receives it; plus relay/network-unavailable error handling with retry UI assertion. Requires Nostr relay for send/receive path. | [e2e-messages-start-new-chat.md](../../docs/testing/e2e-messages-start-new-chat.md) |
+| **dashboard-home.spec.ts**             | `/dashboard` route guard + authenticated dashboard tab-panel load checks.                                                                                                            | —                                                                                   |
+| **find-tasks.spec.ts**                 | `/dashboard/find-tasks` load checks + empty-like search state.                                                                                                                       | —                                                                                   |
+| **create-task.spec.ts**                | `/dashboard/create-task` wizard load + required-field validation path.                                                                                                               | —                                                                                   |
+| **task-detail.spec.ts**                | `/dashboard/task/[taskId]` missing-task state checks.                                                                                                                                | —                                                                                   |
+| **task-bids.spec.ts**                  | `/dashboard/task/[taskId]/bids` missing-task/invalid-bids state checks.                                                                                                              | —                                                                                   |
+| **profile-edit.spec.ts**               | `/dashboard/profile` and `/dashboard/profile/edit` load + invalid profile input validation.                                                                                          | —                                                                                   |
+| **settings.spec.ts**                   | `/dashboard/settings` load with either key-UI or retry error-state fallback.                                                                                                         | —                                                                                   |
+| **dashboard-bids.spec.ts**             | `/dashboard/bids` list/empty/error fallback-state checks.                                                                                                                            | —                                                                                   |
 
 **Recommended:** Run the full ordered suite (credentials phase first, then the rest):
 
 ```bash
 npm run test:e2e
+```
+
+Default ordered run excludes tests tagged `@runtime-passkey`.
+
+To include runtime passkey tests in the default ordered run:
+
+```bash
+npm run test:e2e -- --include-runtime-passkey
+```
+
+**Runtime passkey suite (Chromium only, tagged tests):**
+
+```bash
+npm run test:e2e:runtime-passkey
 ```
 
 **Playwright UI (pick and run tests, watch mode):**
@@ -30,7 +51,13 @@ npm run test:e2e
 npm run test:e2e:ui
 ```
 
-This runs Playwright with `--ui` and all specs in order (`--workers=1`). Run 01 first in the UI to create the credentials file, then run any other spec. You can also pass args: `npm run test:e2e -- --ui`.
+This runs Playwright with `--ui` and all specs in order (`--workers=1`), excluding `@runtime-passkey` by default. Run 01 first in the UI to create the credentials file, then run any other spec. You can also pass args: `npm run test:e2e -- --ui`.
+
+Runtime passkey UI mode:
+
+```bash
+npm run test:e2e:runtime-passkey:ui
+```
 
 To run a subset manually (e.g. for debugging), run 01 first with **`--workers=1`**, then the others:
 
@@ -38,7 +65,7 @@ To run a subset manually (e.g. for debugging), run 01 first with **`--workers=1`
 npx playwright test tests/e2e/01-signup-onboarding.spec.ts tests/e2e/02-credentials-login.spec.ts tests/e2e/03-wallet-post-login.spec.ts --project=chromium --workers=1
 ```
 
-**Environment:** Set **VITE_API_URL** (and **VITE_E2E_TURNSTILE_BYPASS** if you start the dev server yourself). See [docs/testing/e2e-testing.md](../docs/testing/e2e-testing.md) for the full list. Locally, Playwright can start the dev server; in CI it runs build + preview.
+**Environment:** Set **VITE_API_URL** (and **VITE_E2E_TURNSTILE_BYPASS** if you start the dev server yourself). See [docs/testing/e2e-testing.md](../../docs/testing/e2e-testing.md) for the full list. Locally, Playwright can start the dev server; in CI it runs build + preview.
 
 ### Browser support: Chromium required for passkey tests
 
@@ -57,14 +84,14 @@ npx playwright test tests/e2e/01-signup-onboarding.spec.ts --project=chromium --
 
 ## 2. Documentation index
 
-| Document                                                                                      | Purpose                                                                             |
-| --------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| [docs/testing/e2e-testing.md](../docs/testing/e2e-testing.md)                                 | Pipeline: test files, credentials file, fixtures, run order, env vars, how to run.  |
-| [docs/testing/e2e-account-creation.md](../docs/testing/e2e-account-creation.md)               | Account creation E2E: Turnstile, WebAuthn, backend requirements and implementation. |
-| [docs/testing/e2e-wallet-post-login.md](../docs/testing/e2e-wallet-post-login.md)             | Wallet post-login flow and validation.                                              |
-| [docs/testing/e2e-messages-start-new-chat.md](../docs/testing/e2e-messages-start-new-chat.md) | Messages E2E: send/receive flow, Nostr relay, username lookup.                      |
-| [docs/README.md](../docs/README.md)                                                           | Full docs index (testing, CI, etc.).                                                |
-| [MIGRATION.md](./MIGRATION.md)                                                                | Migration notes from `src/` E2E.                                                    |
+| Document                                                                                         | Purpose                                                                             |
+| ------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------- |
+| [docs/testing/e2e-testing.md](../../docs/testing/e2e-testing.md)                                 | Pipeline: test files, credentials file, fixtures, run order, env vars, how to run.  |
+| [docs/testing/e2e-account-creation.md](../../docs/testing/e2e-account-creation.md)               | Account creation E2E: Turnstile, WebAuthn, backend requirements and implementation. |
+| [docs/testing/e2e-wallet-post-login.md](../../docs/testing/e2e-wallet-post-login.md)             | Wallet post-login flow and validation.                                              |
+| [docs/testing/e2e-messages-start-new-chat.md](../../docs/testing/e2e-messages-start-new-chat.md) | Messages E2E: send/receive flow, Nostr relay, username lookup.                      |
+| [docs/README.md](../../docs/README.md)                                                           | Full docs index (testing, CI, etc.).                                                |
+| [MIGRATION.md](./MIGRATION.md)                                                                   | Migration notes from `src/` E2E.                                                    |
 
 ---
 
@@ -185,10 +212,12 @@ The fixture logs in via passkey, dismisses the Beta modal, and hands you a page 
 ### General steps for any new test
 
 1. **Decide which fixture you need**
+
    - **Need an already-logged-in user (signup or Nostr)?** Use `fixtures/passkey-auth-from-file.ts`, and `test.use({ credentialLabel: 'signup' })` or `credentialLabel: 'nostr'`. See [Quick start](#quick-start-tests-needing-a-logged-in-user) above.
    - **Creating new users or custom auth?** Use `fixtures/signup-login-auth.ts` (01) or `fixtures/auth.ts` and implement the flow.
 
 2. **Depend on credentials file only when necessary**
+
    - If the spec needs the credentials file (e.g. passkey login), skip when it’s missing:
      ```ts
      test.skip(() => !webauthnCredentialsFileExists(), CREDENTIALS_MISSING_MESSAGE);
@@ -196,13 +225,16 @@ The fixture logs in via passkey, dismisses the Beta modal, and hands you a page 
    - Use a **function** in `test.skip()` so the condition runs at **runtime** (after 01 has created the file), not at load time.
 
 3. **Place the spec in `tests/e2e/`**
+
    - Any `*.spec.ts` under `tests/e2e/` is included in phase 2 of `npm run test:e2e` (see [scripts/e2e-ordered.js](../../scripts/e2e-ordered.js)). No script change needed.
+   - Tag runtime-only passkey coverage with `@runtime-passkey` so it runs via `npm run test:e2e:runtime-passkey` and is excluded from default ordered runs.
 
 4. **Run order**
+
    - If the new test must run after another (e.g. “B after A”), use `test.describe.serial()` so they run in order in the same worker, or run phases manually with `--workers=1` when ordering matters.
 
 5. **Add a feature doc if useful**
-   - For non-trivial flows, add or update a doc under `docs/testing/` (e.g. `e2e-<feature>.md`) and link it from [docs/testing/e2e-testing.md](../docs/testing/e2e-testing.md) and from this README.
+   - For non-trivial flows, add or update a doc under `docs/testing/` (e.g. `e2e-<feature>.md`) and link it from [docs/testing/e2e-testing.md](../../docs/testing/e2e-testing.md) and from this README.
 
 ---
 
@@ -286,12 +318,10 @@ const attachDiagnostics = async (label: string) => {
 	await test
 		.info()
 		.attach(`${label}-step-log.txt`, { body: stepLog.join('\n'), contentType: 'text/plain' });
-	await test
-		.info()
-		.attach(`${label}-console.txt`, {
-			body: consoleMessages.join('\n') || '(none)',
-			contentType: 'text/plain'
-		});
+	await test.info().attach(`${label}-console.txt`, {
+		body: consoleMessages.join('\n') || '(none)',
+		contentType: 'text/plain'
+	});
 };
 
 // On failure in a step:
@@ -334,7 +364,7 @@ await understandBtn.click({ timeout: 5_000 }).catch(() => {});
 
 ## 8. References
 
-- **E2E pipeline and env:** [docs/testing/e2e-testing.md](../docs/testing/e2e-testing.md)
-- **Docs index:** [docs/README.md](../docs/README.md)
+- **E2E pipeline and env:** [docs/testing/e2e-testing.md](../../docs/testing/e2e-testing.md)
+- **Docs index:** [docs/README.md](../../docs/README.md)
 - **Ordered run script:** `scripts/e2e-ordered.js` (invoked by `npm run test:e2e`)
 - **CDP WebAuthn:** [Chrome DevTools Protocol – WebAuthn](https://chromedevtools.github.io/devtools-protocol/tot/WebAuthn/)

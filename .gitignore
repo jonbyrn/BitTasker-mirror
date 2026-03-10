@@ -61,3 +61,14 @@ dist/*
 
 # Local-only docs (do not commit)
 docs/testing/presentation-prep.md
+
+# Codex local configuration
+.codex/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Claude Code local config
+CLAUDE.local.md

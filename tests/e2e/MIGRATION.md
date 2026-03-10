@@ -17,11 +17,11 @@ See **`docs/testing/e2e-testing.md`** for full design.
 
 ## Migrated (canonical location: tests/e2e)
 
-| Item | New path | Notes |
-|------|----------|--------|
-| Fixtures | `tests/e2e/fixtures/` | `auth.ts`, `signup-login-auth.ts`, `passkey-auth-from-file.ts` |
-| Utils | `tests/e2e/utils/` | `webauthn-credentials.ts`, `auth-helpers.ts` |
-| Specs | `01-signup-onboarding.spec.ts`, `02-credentials-login.spec.ts`, `wallet/*` (skipped for now) | Local imports: `./fixtures/...`, `../fixtures/...` |
+| Item     | New path                                                                                                                             | Notes                                                                                                                                                                 |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Fixtures | `tests/e2e/fixtures/`                                                                                                                | `auth.ts`, `signup-login-auth.ts`, `passkey-auth-from-file.ts`                                                                                                        |
+| Utils    | `tests/e2e/utils/`                                                                                                                   | `webauthn-credentials.ts`, `auth-helpers.ts`                                                                                                                          |
+| Specs    | `01-signup-onboarding.spec.ts`, `02-credentials-login.spec.ts`, `03-wallet-post-login.spec.ts`, `04-messages-start-new-chat.spec.ts` | Wallet coverage now includes migrated legacy send/receive/transactions + negative network-path checks. Messages coverage includes relay/network-unavailable handling. |
 
 **Import pattern:** Same dir `./fixtures/...`; subdir (e.g. wallet) `../fixtures/...`.
 
@@ -37,8 +37,8 @@ See **`docs/testing/e2e-testing.md`** for full design.
 
 ## Changelog
 
-| Date | Change |
-|------|--------|
-| 2025-02-07 | Fixtures and utils moved to tests/e2e; local imports. |
-| 2025-02-07 | Multi-user credentials file; credentialLabel; credentials-login. |
+| Date       | Change                                                                                                                                                                                                                                         |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2025-02-07 | Fixtures and utils moved to tests/e2e; local imports.                                                                                                                                                                                          |
+| 2025-02-07 | Multi-user credentials file; credentialLabel; credentials-login.                                                                                                                                                                               |
 | 2025-02-07 | **Restructure:** 01-signup-onboarding (signup + Nostr users only, writes file); 02-credentials-login (loads file, validates login). Removed login-from-memory test from 01. Run order and --workers=1 documented. Wallet spec skipped for now. |

@@ -43,6 +43,8 @@
 		"test:unit:integration": "vitest run src/lib/tests/integration/",
 		"test:e2e": "node scripts/e2e-ordered.js",
 		"test:e2e:ui": "node scripts/e2e-ordered.js --ui",
+		"test:e2e:runtime-passkey": "node scripts/e2e-ordered.js --runtime-passkey",
+		"test:e2e:runtime-passkey:ui": "node scripts/e2e-ordered.js --runtime-passkey --ui",
 		"storybook": "storybook dev -p 6006 --no-open",
 		"build-storybook": "storybook build",
 		"robots:copy": "node scripts/copy-robots-txt.js",
