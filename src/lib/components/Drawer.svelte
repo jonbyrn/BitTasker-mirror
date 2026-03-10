@@ -14,6 +14,8 @@
 	const props = $props<{
 		isOpen: boolean;
 		title?: string;
+		ariaLabel?: string;
+		testId?: string;
 		onClose: () => void;
 		position?: 'left' | 'right';
 		isScrollable?: boolean;
@@ -36,6 +38,7 @@
 	let respectBottomNav = $derived(props.respectBottomNav ?? true);
 	let bottomOffset = $derived(props.bottomOffset ?? 'var(--app-footer-height, 0px)');
 	let effectiveBottomOffset = $derived(respectBottomNav ? bottomOffset : '0px');
+	let drawerTitleId = $derived(props.testId ? `${props.testId}-title` : 'drawer-title');
 
 	// Scroll lock management
 	const disableBodyScroll = () => {
@@ -147,6 +150,7 @@
 	<div
 		class="fixed inset-0 z-[60] bg-black/50 transition-opacity duration-300 ease-in-out"
 		style={`bottom: ${effectiveBottomOffset};`}
+		data-testid={props.testId ? `${props.testId}-backdrop` : undefined}
 		class:opacity-0={!visualOpenState}
 		class:pointer-events-none={!visualOpenState || !props.isOpen}
 		class:invisible={!props.isOpen && !visualOpenState}
@@ -169,15 +173,17 @@
 		class:pointer-events-none={!props.isOpen || !visualOpenState}
 		class:invisible={!props.isOpen && !visualOpenState}
 		style={`bottom: ${effectiveBottomOffset};`}
+		data-testid={props.testId}
 		role="dialog"
 		aria-modal="true"
-		aria-labelledby="drawer-title"
+		aria-labelledby={props.title ? drawerTitleId : undefined}
+		aria-label={!props.title ? props.ariaLabel || 'Drawer' : undefined}
 		tabindex="-1"
 	>
 		{#if props.isOpen}
 			<!-- Header -->
 			<div class="bg-base-200 sticky top-0 z-10 flex items-center justify-between p-4">
-				<h4 id="drawer-title" class="min-w-0 flex-1 truncate pr-2 text-xl font-bold">
+				<h4 id={drawerTitleId} class="min-w-0 flex-1 truncate pr-2 text-xl font-bold">
 					{#if props.title}
 						{props.title}
 					{/if}
@@ -185,6 +191,7 @@
 				<button
 					class="btn btn-ghost btn-circle shrink-0"
 					onclick={props.onClose}
+					data-testid={props.testId ? `${props.testId}-close` : undefined}
 					aria-label={$t('common.components.drawer.close')}
 				>
 					<svg

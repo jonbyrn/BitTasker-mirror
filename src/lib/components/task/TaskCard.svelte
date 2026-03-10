@@ -46,6 +46,8 @@
 	const isOpen = $derived(task.status === TaskStatusEnum.OPEN);
 	const canBid = $derived(isOpen && !hasBid);
 	const taskId = $derived(getTaskId(task));
+	void formatDateTimeReactive;
+	void formatDateRangeReactive;
 </script>
 
 <div
@@ -55,6 +57,7 @@
 	class:border-2={isSelected}
 	class:opacity-60={!isOpen}
 	class:cursor-pointer={isMapVisible}
+	data-testid="tasks-task-card"
 	data-task-id={taskId}
 	{...isMapVisible ? { role: 'button', tabindex: 0 } : {}}
 	onclick={(e) => {
@@ -145,6 +148,7 @@
 			<div class="flex w-full shrink-0 items-center gap-2 md:w-auto">
 				<button
 					class="btn btn-primary btn-sm flex-1 md:flex-none"
+					data-testid="task-card-bid-button"
 					class:btn-disabled={!canBid}
 					disabled={!canBid}
 					onclick={async (e) => {
@@ -164,6 +168,7 @@
 
 				<button
 					class="btn btn-secondary btn-sm flex-1 md:flex-none"
+					data-testid="task-card-view-button"
 					onclick={async (e) => {
 						e.stopPropagation();
 						if (!drawersLoaded) {

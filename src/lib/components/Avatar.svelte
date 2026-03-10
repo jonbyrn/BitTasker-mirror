@@ -20,7 +20,7 @@
 	}>();
 
 	// Set defaults
-	const size = props.size || 'md';
+	let size = $derived(props.size || 'md');
 
 	// State for image loading and user data
 	let imageError = $state(false);

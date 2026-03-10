@@ -1062,6 +1062,7 @@
 	<div
 		bind:this={messagesContainer}
 		class="relative min-h-0 flex-1 space-y-3 overflow-x-hidden overflow-y-auto px-4 py-6 sm:px-6 md:px-8 md:py-8"
+		data-testid="chat-message-log"
 		role="log"
 		aria-live="polite"
 		aria-label={$t('dashboard.bids.components.messages.chat_view.chat_messages_aria')}
@@ -1281,6 +1282,7 @@
 						bind:value={newMessageText}
 						onkeydown={handleKeyPress}
 						oninput={handleInputChange}
+						data-testid="chat-message-input"
 						class="textarea placeholder-base-content/50 min-h-0 w-full resize-none border-none bg-transparent p-1 text-sm leading-6 focus:ring-0 focus:outline-none sm:p-1.5 sm:text-base"
 						placeholder={$t('dashboard.bids.components.messages.chat_view.send_message')}
 						rows="1"
@@ -1294,6 +1296,7 @@
 				<button
 					bind:this={sendButton}
 					type="submit"
+					data-testid="chat-send-button"
 					class="btn btn-info h-8 w-8 min-h-0 p-0 rounded-full shrink-0 transition-all duration-200 hover:scale-110 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100"
 					disabled={!newMessageText.trim() || isSendingMessage}
 					title={$t('dashboard.bids.components.messages.chat_view.send_message')}

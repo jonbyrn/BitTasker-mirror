@@ -586,6 +586,7 @@
 		<button
 			class="btn btn-primary btn-sm flex gap-2 shadow-md transition-all hover:shadow-lg md:btn-md"
 			onclick={startNewMessage}
+			data-testid="messages-new-message-button"
 		>
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
@@ -610,7 +611,7 @@
 		aria-label={$t('messages.toggle_new_message_modal')}
 	/>
 	{#if showModal}
-		<div class="modal modal-open">
+		<div class="modal modal-open" data-testid="messages-new-message-modal">
 			<div class="modal-box max-w-md">
 				<!-- Modal Header -->
 				<div class="mb-6">
@@ -665,6 +666,7 @@
 								<input
 									id="recipient-pubkey"
 									type="text"
+									data-testid="messages-recipient-input"
 									class="input input-bordered focus:input-primary w-full pl-10 text-sm"
 									bind:value={newMessagePubkey}
 									oninput={handlePubkeyInput}
@@ -723,6 +725,7 @@
 								{#each usernameSearchResults as result}
 									<button
 										type="button"
+										data-testid={`messages-search-result-${result.pubkey}`}
 										class="hover:bg-primary/5 hover:border-primary/20 flex w-full items-center gap-3 rounded-lg border border-transparent p-3 transition-all duration-200"
 										onclick={() => selectUserFromSearch(result.pubkey)}
 										aria-label={$t('messages.select_user')}
@@ -944,7 +947,12 @@
 
 					<!-- Action Buttons -->
 					<div class="border-base-300 flex gap-3 border-t pt-6">
-						<button type="button" class="btn btn-ghost flex-1" onclick={closeModal}>
+						<button
+							type="button"
+							class="btn btn-ghost flex-1"
+							data-testid="messages-new-message-cancel"
+							onclick={closeModal}
+						>
 							<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 								<path
 									stroke-linecap="round"
@@ -957,6 +965,7 @@
 						</button>
 						<button
 							type="submit"
+							data-testid="messages-start-chat-button"
 							class="btn btn-primary flex-1"
 							disabled={!newMessagePubkey || !!newMessageError || isProfileLoading}
 						>
@@ -978,8 +987,16 @@
 					</div>
 				</form>
 			</div>
-			<button class="modal-backdrop" onclick={closeModal} aria-label={$t('messages.close_modal')}
-			></button>
+			<form method="dialog" class="modal-backdrop" onclick={closeModal}>
+				<button
+					type="button"
+					data-testid="messages-new-message-backdrop-close"
+					onclick={closeModal}
+					aria-label={$t('messages.close_modal')}
+				>
+					close
+				</button>
+			</form>
 		</div>
 	{/if}
 
@@ -1064,6 +1081,7 @@
 						<span>{$t(error)}</span>
 						<button
 							aria-label="Retry"
+							data-testid="messages-retry-button"
 							class="btn btn-error btn-outline btn-sm"
 							onclick={loadConversations}
 						>
@@ -1089,6 +1107,7 @@
 					<div class="divide-base-300/20 divide-y">
 						{#each filteredConversations as conversation}
 							<button
+								data-testid={`messages-conversation-${conversation.pubkey}`}
 								class="group hover:bg-base-200/60 active:bg-base-200 flex w-full items-center gap-4 p-4 text-left transition-all duration-200 md:gap-5 md:p-5"
 								onclick={() => selectConversation(conversation.pubkey)}
 							>
@@ -1154,6 +1173,7 @@
 						<button
 							class="btn btn-primary mt-6 gap-2 shadow-md transition-all hover:shadow-lg"
 							onclick={startNewMessage}
+							data-testid="messages-new-message-button"
 						>
 							<svg
 								xmlns="http://www.w3.org/2000/svg"

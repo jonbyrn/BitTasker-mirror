@@ -39,8 +39,8 @@
 		onCancel: () => void;
 	}>();
 
-	const bidContent = props.bid.content as unknown as NostrBidContent;
-	const taskContent = JSON.parse(props.task.content) as Task;
+	let bidContent = $derived(props.bid.content as unknown as NostrBidContent);
+	let taskContent = $derived.by(() => JSON.parse(props.task.content) as Task);
 
 	// Form state
 	let isSubmitting = $state(false);

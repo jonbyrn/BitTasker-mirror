@@ -1215,11 +1215,12 @@
 					</div>
 
 					<!-- Desktop Map Sidebar (hidden on mobile) -->
-					<aside
-						class="map-container-wrapper hidden min-h-0 lg:block"
-						data-tasks-map-column
-						aria-label={$t('find_tasks.map') || 'Task map'}
-					>
+						<aside
+							class="map-container-wrapper hidden min-h-0 lg:block"
+							data-tasks-map-column
+							data-testid="tasks-map-column"
+							aria-label={$t('find_tasks.map') || 'Task map'}
+						>
 						{#if mapLoaded && TaskLocationMap}
 							<TaskLocationMap
 								tasks={$tasksStore.items}
@@ -1290,6 +1291,7 @@
 <Drawer
 	isOpen={isFilterDrawerOpen}
 	title={$t('find_tasks.filters')}
+	testId="tasks-filter-drawer"
 	onClose={() => (isFilterDrawerOpen = false)}
 	position="right"
 	isScrollable={true}
@@ -1303,6 +1305,7 @@
 <Drawer
 	isOpen={isBidOpen}
 	title={$t('bid_form.title')}
+	testId="tasks-bid-drawer"
 	onClose={() => {
 		isBidOpen = false;
 		// Clear selected task after animation completes (with cleanup tracking)
@@ -1343,6 +1346,7 @@
 			task={selectedTaskForDetails}
 			isOpen={isTaskDetailsOpen}
 			activeTab="details"
+			testId="tasks-task-drawer"
 			onClose={() => {
 				isTaskDetailsOpen = false;
 				const closeToken = ++detailsCloseToken;
@@ -1442,6 +1446,7 @@
 		<Drawer
 			isOpen={isTaskDetailsOpen}
 			title={getTranslatedTaskTitle}
+			testId="tasks-task-drawer"
 			onClose={() => {
 				isTaskDetailsOpen = false;
 				const closeToken = ++detailsCloseToken;
