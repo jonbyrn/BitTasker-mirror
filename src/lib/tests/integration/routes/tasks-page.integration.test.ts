@@ -1,8 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { get } from 'svelte/store';
 import { tasksStore } from '$lib/stores/task.store';
-import { findTasks } from '$lib/nostr/findTasks';
-import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
+import { BudgetTypeEnum, TaskStatusEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
 import type { Task, SearchTasksParams } from '$lib/types/task.d';
 
 /**
@@ -23,11 +22,11 @@ const createMockTask = (overrides: Partial<Task> = {}): Task => ({
 	status: TaskStatusEnum.OPEN,
 	title: 'Test Task',
 	description: 'Test description',
-	taskType: 'delivery' as any,
+	taskType: TaskTypeEnum.IN_PERSON,
 	budget: {
 		amount: 100,
 		currency: 'USD',
-		type: 'fixed' as any
+		type: BudgetTypeEnum.FIXED
 	},
 	deadline: '2024-12-31T23:59:59Z',
 	dateRange: null,
@@ -56,36 +55,39 @@ const createMockTask = (overrides: Partial<Task> = {}): Task => ({
 	...overrides
 });
 
+type TasksStoreState = Parameters<typeof tasksStore.set>[0];
+
+const createTasksStoreState = (
+	overrides: Partial<Omit<TasksStoreState, 'pool'>> = {}
+): TasksStoreState => ({
+	pool: tasksStore.pool,
+	items: [],
+	loading: false,
+	error: null,
+	hasMore: true,
+	currentPage: 1,
+	searchParamsKey: '',
+	...overrides
+});
+
 describe('Tasks Page - Integration Tests', () => {
 	beforeEach(() => {
 		// Reset store to initial state
-		tasksStore.set({
-			items: [],
-			loading: false,
-			error: null,
-			hasMore: true,
-			currentPage: 1,
-			searchParamsKey: ''
-		});
+		tasksStore.set(createTasksStoreState());
 		vi.clearAllMocks();
 	});
 
 	describe('Store Integration', () => {
 		it('should update store when tasks are loaded', async () => {
-			const mockTasks = [
-				createMockTask({ id: 'task-1' }),
-				createMockTask({ id: 'task-2' })
-			];
+			const mockTasks = [createMockTask({ id: 'task-1' }), createMockTask({ id: 'task-2' })];
 
 			// Simulate findTasks updating the store
-			tasksStore.set({
-				items: mockTasks,
-				loading: false,
-				error: null,
-				hasMore: true,
-				currentPage: 1,
-				searchParamsKey: 'test-key'
-			});
+			tasksStore.set(
+				createTasksStoreState({
+					items: mockTasks,
+					searchParamsKey: 'test-key'
+				})
+			);
 
 			const state = get(tasksStore);
 			expect(state.items).toHaveLength(2);
@@ -94,14 +96,7 @@ describe('Tasks Page - Integration Tests', () => {
 		});
 
 		it('should handle loading state correctly', () => {
-			tasksStore.set({
-				items: [],
-				loading: true,
-				error: null,
-				hasMore: true,
-				currentPage: 1,
-				searchParamsKey: ''
-			});
+			tasksStore.set(createTasksStoreState({ loading: true }));
 
 			const state = get(tasksStore);
 			expect(state.loading).toBe(true);
@@ -109,14 +104,12 @@ describe('Tasks Page - Integration Tests', () => {
 
 		it('should handle error state correctly', () => {
 			const errorMessage = 'Failed to fetch tasks';
-			tasksStore.set({
-				items: [],
-				loading: false,
-				error: errorMessage,
-				hasMore: false,
-				currentPage: 1,
-				searchParamsKey: ''
-			});
+			tasksStore.set(
+				createTasksStoreState({
+					error: errorMessage,
+					hasMore: false
+				})
+			);
 
 			const state = get(tasksStore);
 			expect(state.error).toBe(errorMessage);
@@ -124,28 +117,24 @@ describe('Tasks Page - Integration Tests', () => {
 
 		it('should track search params key for cache invalidation', () => {
 			const searchKey = JSON.stringify({ search: 'test', page: 1 });
-			tasksStore.set({
-				items: [createMockTask()],
-				loading: false,
-				error: null,
-				hasMore: true,
-				currentPage: 1,
-				searchParamsKey: searchKey
-			});
+			tasksStore.set(
+				createTasksStoreState({
+					items: [createMockTask()],
+					searchParamsKey: searchKey
+				})
+			);
 
 			const state = get(tasksStore);
 			expect(state.searchParamsKey).toBe(searchKey);
 		});
 
 		it('should handle pagination state', () => {
-			tasksStore.set({
-				items: [createMockTask()],
-				loading: false,
-				error: null,
-				hasMore: true,
-				currentPage: 2,
-				searchParamsKey: ''
-			});
+			tasksStore.set(
+				createTasksStoreState({
+					items: [createMockTask()],
+					currentPage: 2
+				})
+			);
 
 			const state = get(tasksStore);
 			expect(state.currentPage).toBe(2);
@@ -154,14 +143,12 @@ describe('Tasks Page - Integration Tests', () => {
 
 		it('should clear items when search params change', () => {
 			// Set initial state with tasks
-			tasksStore.set({
-				items: [createMockTask({ id: 'old-task' })],
-				loading: false,
-				error: null,
-				hasMore: true,
-				currentPage: 1,
-				searchParamsKey: 'old-key'
-			});
+			tasksStore.set(
+				createTasksStoreState({
+					items: [createMockTask({ id: 'old-task' })],
+					searchParamsKey: 'old-key'
+				})
+			);
 
 			// Simulate search params change - should clear items
 			tasksStore.update((state) => ({
@@ -195,14 +182,11 @@ describe('Tasks Page - Integration Tests', () => {
 
 			// Simulate search params being set
 			const searchKey = JSON.stringify(searchParams);
-			tasksStore.set({
-				items: [],
-				loading: false,
-				error: null,
-				hasMore: true,
-				currentPage: 1,
-				searchParamsKey: searchKey
-			});
+			tasksStore.set(
+				createTasksStoreState({
+					searchParamsKey: searchKey
+				})
+			);
 
 			const state = get(tasksStore);
 			expect(state.searchParamsKey).toBe(searchKey);
@@ -215,14 +199,11 @@ describe('Tasks Page - Integration Tests', () => {
 				createMockTask({ id: `task-${i}` })
 			);
 
-			tasksStore.set({
-				items: initialTasks,
-				loading: false,
-				error: null,
-				hasMore: true,
-				currentPage: 1,
-				searchParamsKey: ''
-			});
+			tasksStore.set(
+				createTasksStoreState({
+					items: initialTasks
+				})
+			);
 
 			// Simulate loading more
 			const moreTasks = Array.from({ length: 10 }, (_, i) =>
@@ -241,14 +222,12 @@ describe('Tasks Page - Integration Tests', () => {
 		});
 
 		it('should not load more when hasMore is false', () => {
-			tasksStore.set({
-				items: [createMockTask()],
-				loading: false,
-				error: null,
-				hasMore: false,
-				currentPage: 1,
-				searchParamsKey: ''
-			});
+			tasksStore.set(
+				createTasksStoreState({
+					items: [createMockTask()],
+					hasMore: false
+				})
+			);
 
 			const state = get(tasksStore);
 			expect(state.hasMore).toBe(false);

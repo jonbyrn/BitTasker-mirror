@@ -62,30 +62,36 @@ vi.mock('@capacitor/core', () => ({
 
 // Mock Web Animations API (not available in jsdom)
 if (typeof window !== 'undefined' && !window.Element.prototype.animate) {
-	window.Element.prototype.animate = vi.fn(() => ({
-		finished: Promise.resolve(),
-		cancel: vi.fn(),
-		pause: vi.fn(),
-		play: vi.fn(),
-		reverse: vi.fn(),
-		updatePlaybackRate: vi.fn()
-	}));
+	window.Element.prototype.animate = (() =>
+		({
+			finished: Promise.resolve(),
+			cancel: vi.fn(),
+			pause: vi.fn(),
+			play: vi.fn(),
+			reverse: vi.fn(),
+			updatePlaybackRate: vi.fn()
+		}) as unknown as Animation) as Element['animate'];
 }
 
 // Mock MediaStreamTrack (required for QR scanner tests)
 if (typeof global !== 'undefined') {
-	global.MediaStreamTrack = class MediaStreamTrack {
+	const globalLike = global as unknown as {
+		MediaStreamTrack?: typeof MediaStreamTrack;
+		crypto?: Crypto;
+	};
+
+	globalLike.MediaStreamTrack = class MediaStreamTrack {
 		stop() {}
 		kind = 'video';
 		id = 'mock-track-id';
 		label = 'Mock Camera Track';
 		enabled = true;
 		readyState = 'live' as MediaStreamTrackState;
-	} as any;
+	} as unknown as typeof MediaStreamTrack;
 
 	// Mock crypto.getRandomValues if not already available
-	if (!global.crypto || !global.crypto.getRandomValues) {
-		Object.defineProperty(global, 'crypto', {
+	if (!globalLike.crypto || !globalLike.crypto.getRandomValues) {
+		Object.defineProperty(globalLike, 'crypto', {
 			value: {
 				getRandomValues: vi.fn((arr: Uint8Array) => {
 					for (let i = 0; i < arr.length; i++) {
@@ -104,16 +110,16 @@ if (typeof global !== 'undefined') {
 // Mock localStorage (required for some tests)
 if (typeof window !== 'undefined') {
 	const localStorageMock = {
-		getItem: vi.fn((key: string) => {
+		getItem: vi.fn(() => {
 			return null;
 		}),
-		setItem: vi.fn((key: string, value: string) => {}),
-		removeItem: vi.fn((key: string) => {}),
+		setItem: vi.fn(() => {}),
+		removeItem: vi.fn(() => {}),
 		clear: vi.fn(),
 		length: 0,
-		key: vi.fn((index: number) => null)
+		key: vi.fn(() => null)
 	};
-	
+
 	Object.defineProperty(window, 'localStorage', {
 		value: localStorageMock,
 		writable: true

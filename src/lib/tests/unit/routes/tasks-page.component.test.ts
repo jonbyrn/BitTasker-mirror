@@ -4,7 +4,7 @@ import { tick } from 'svelte';
 // Import the component: from unit/routes/ up to src then routes/tasks
 import TasksPage from '../../../../routes/tasks/+page.svelte';
 import { tasksStore } from '$lib/stores/task.store';
-import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
+import { BudgetTypeEnum, TaskStatusEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
 import type { Task } from '$lib/types/task.d';
 
 // Mock svelte-i18n
@@ -45,7 +45,7 @@ vi.mock('$lib/utils/helpers/common', async () => {
 	const actual = await vi.importActual('$lib/utils/helpers/common');
 	return {
 		...actual,
-		debounce: (fn: any) => fn // Execute immediately in tests
+		debounce: (fn: (...args: unknown[]) => unknown) => fn // Execute immediately in tests
 	};
 });
 
@@ -121,11 +121,11 @@ const createMockTask = (overrides: Partial<Task> = {}): Task => ({
 	status: TaskStatusEnum.OPEN,
 	title: 'Test Task',
 	description: 'Test description',
-	taskType: 'delivery' as any,
+	taskType: TaskTypeEnum.IN_PERSON,
 	budget: {
 		amount: 100,
 		currency: 'USD',
-		type: 'fixed' as any
+		type: BudgetTypeEnum.FIXED
 	},
 	deadline: '2024-12-31T23:59:59Z',
 	dateRange: null,
@@ -154,17 +154,25 @@ const createMockTask = (overrides: Partial<Task> = {}): Task => ({
 	...overrides
 });
 
+type TasksStoreState = Parameters<typeof tasksStore.set>[0];
+
+const createTasksStoreState = (
+	overrides: Partial<Omit<TasksStoreState, 'pool'>> = {}
+): TasksStoreState => ({
+	pool: tasksStore.pool,
+	items: [],
+	loading: false,
+	error: null,
+	hasMore: true,
+	currentPage: 1,
+	searchParamsKey: '',
+	...overrides
+});
+
 describe('Tasks Page - Component Tests', () => {
 	beforeEach(() => {
 		// Reset store to initial state
-		tasksStore.set({
-			items: [],
-			loading: false,
-			error: null,
-			hasMore: true,
-			currentPage: 1,
-			searchParamsKey: ''
-		});
+		tasksStore.set(createTasksStoreState());
 	});
 
 	afterEach(() => {
@@ -205,35 +213,30 @@ describe('Tasks Page - Component Tests', () => {
 			];
 
 			// Set store before rendering
-			tasksStore.set({
-				items: mockTasks,
-				loading: false,
-				error: null,
-				hasMore: true,
-				currentPage: 1,
-				searchParamsKey: ''
-			});
+			tasksStore.set(
+				createTasksStoreState({
+					items: mockTasks
+				})
+			);
 
 			const { container } = render(TasksPage);
 			await tick();
 			await tick(); // Extra tick for store reactivity
-			
+
 			// Check for task list container or scroll container
-			const taskListContainer = container.querySelector('.task-list-scroll-container') ||
-			                          container.querySelector('.task-list-items') ||
-			                          container.querySelector('[data-task-id]');
+			const taskListContainer =
+				container.querySelector('.task-list-scroll-container') ||
+				container.querySelector('.task-list-items') ||
+				container.querySelector('[data-task-id]');
 			expect(taskListContainer).toBeTruthy();
 		});
 
 		it('should display no results message when no tasks', async () => {
-			tasksStore.set({
-				items: [],
-				loading: false,
-				error: null,
-				hasMore: false,
-				currentPage: 1,
-				searchParamsKey: ''
-			});
+			tasksStore.set(
+				createTasksStoreState({
+					hasMore: false
+				})
+			);
 
 			render(TasksPage);
 			await tick();
@@ -246,26 +249,25 @@ describe('Tasks Page - Component Tests', () => {
 		});
 
 		it('should display error message when error occurs', async () => {
-			tasksStore.set({
-				items: [],
-				loading: false,
-				error: 'Failed to load tasks',
-				hasMore: false,
-				currentPage: 1,
-				searchParamsKey: ''
-			});
+			tasksStore.set(
+				createTasksStoreState({
+					error: 'Failed to load tasks',
+					hasMore: false
+				})
+			);
 
 			const { container } = render(TasksPage);
 			await tick();
 			await tick(); // Extra tick for store reactivity
-			
+
 			// Error message should be visible in alert (check multiple possible selectors)
 			// The error is shown when viewMode === 'list' and $tasksStore.error exists
-			const errorAlert = container.querySelector('.alert-error') ||
-			                   container.querySelector('.alert-error.alert-outline') ||
-			                   container.querySelector('[class*="alert-error"]') ||
-			                   container.querySelector('[class*="alert"][class*="error"]');
-			
+			const errorAlert =
+				container.querySelector('.alert-error') ||
+				container.querySelector('.alert-error.alert-outline') ||
+				container.querySelector('[class*="alert-error"]') ||
+				container.querySelector('[class*="alert"][class*="error"]');
+
 			// If error alert not found, at least verify the component rendered
 			if (!errorAlert) {
 				// Component should still render even with error
@@ -283,7 +285,7 @@ describe('Tasks Page - Component Tests', () => {
 			await tick();
 
 			const searchInput = screen.getByPlaceholderText('Search tasks...') as HTMLInputElement;
-			
+
 			await fireEvent.input(searchInput, { target: { value: 'test query' } });
 			await tick();
 
@@ -296,11 +298,11 @@ describe('Tasks Page - Component Tests', () => {
 
 			const searchInput = screen.getByPlaceholderText('Search tasks...') as HTMLInputElement;
 			expect(searchInput).toBeTruthy();
-			
+
 			// Test that input accepts value changes
 			await fireEvent.input(searchInput, { target: { value: 'test' } });
 			await tick();
-			
+
 			// Input should be interactive
 			expect(searchInput.type).toBe('text');
 		});
@@ -328,16 +330,16 @@ describe('Tasks Page - Component Tests', () => {
 
 			// Verify InfoWindow handler is set up
 			// The handler is set up in TaskLocationMap component
-			const handlerExists = await new Promise<boolean>((resolve) => {
+			await new Promise<void>((resolve) => {
 				setTimeout(() => {
-					const handler = (window as any).handleMapInfoWindowAction;
-					resolve(typeof handler === 'function');
+					const globalWindow = window as Window & {
+						handleMapInfoWindowAction?: unknown;
+					};
+					const handler = globalWindow.handleMapInfoWindowAction;
+					expect(typeof handler === 'function' || handler === undefined).toBe(true);
+					resolve();
 				}, 1000);
 			});
-
-			// Handler might not be available immediately if map hasn't loaded
-			// This test verifies the structure exists
-			expect(true).toBeTruthy();
 		});
 
 		it('should support InfoWindow button actions', async () => {
