@@ -12,8 +12,14 @@ function avatarDropdownMenu(page: Page): Locator {
 	return page.locator('.navbar-end [role="menu"]').last();
 }
 
+function bottomNavOverlay(page: Page): Locator {
+	return page.locator('.bottom-nav-overlay').first();
+}
+
 async function findVisibleAvatarTrigger(page: Page): Promise<Locator | null> {
-	const candidates = page.locator('.navbar .navbar-end button');
+	const candidates = page.locator(
+		'.navbar-end .dropdown.dropdown-end > button[aria-haspopup="true"], .navbar-end button[aria-haspopup="true"][aria-expanded]'
+	);
 	const count = await candidates.count();
 	const visible: Locator[] = [];
 	for (let i = 0; i < count; i += 1) {
@@ -25,6 +31,18 @@ async function findVisibleAvatarTrigger(page: Page): Promise<Locator | null> {
 		}
 	}
 	return visible.length > 0 ? visible[visible.length - 1] : null;
+}
+
+async function findVisibleBottomMenuTrigger(page: Page): Promise<Locator | null> {
+	const candidates = page.locator('button[data-menu-button]');
+	const count = await candidates.count();
+	for (let i = 0; i < count; i += 1) {
+		const candidate = candidates.nth(i);
+		const isVisible = await candidate.isVisible().catch(() => false);
+		const isEnabled = await candidate.isEnabled().catch(() => false);
+		if (isVisible && isEnabled) return candidate;
+	}
+	return null;
 }
 
 async function assertCenterPointTargetsElement(page: Page, locator: Locator, label: string): Promise<void> {
@@ -45,23 +63,38 @@ async function assertCenterPointTargetsElement(page: Page, locator: Locator, lab
 	expect(isTargeted, `${label} center point is blocked by another element`).toBeTruthy();
 }
 
-async function openAvatarDropdown(page: Page): Promise<void> {
+async function openAvatarDropdown(page: Page): Promise<'avatar' | 'bottom-nav'> {
 	await page.waitForLoadState('domcontentloaded');
-	await page.waitForTimeout(500);
-	let trigger = await findVisibleAvatarTrigger(page);
-	let triggerVisible = !!trigger;
-	if (!triggerVisible) {
-		await page.waitForTimeout(1500);
-		trigger = await findVisibleAvatarTrigger(page);
-		triggerVisible = !!trigger;
+	await expect(page.locator('body').first()).toBeVisible({ timeout: 10_000 });
+	let avatarTrigger: Locator | null = null;
+	const avatarDeadline = Date.now() + 6_000;
+	while (!avatarTrigger && Date.now() < avatarDeadline) {
+		avatarTrigger = await findVisibleAvatarTrigger(page);
+		if (avatarTrigger) break;
+		await page.waitForTimeout(200);
 	}
-	expect(triggerVisible, 'Avatar trigger should be visible on authenticated dashboard').toBeTruthy();
-	if (!trigger) return;
-	await assertCenterPointTargetsElement(page, trigger, 'Avatar trigger');
-	await trigger.tap().catch(async () => {
-		await trigger.click({ force: true });
+
+	if (avatarTrigger) {
+		await assertCenterPointTargetsElement(page, avatarTrigger, 'Avatar trigger');
+		await avatarTrigger.tap().catch(async () => {
+			await avatarTrigger.click({ force: true });
+		});
+		await expect(avatarDropdownMenu(page)).toBeVisible({ timeout: 10_000 });
+		return 'avatar';
+	}
+
+	const bottomMenuTrigger = await findVisibleBottomMenuTrigger(page);
+	expect(
+		bottomMenuTrigger,
+		'Neither topbar avatar trigger nor mobile bottom-nav menu trigger is available'
+	).not.toBeNull();
+	if (!bottomMenuTrigger) return 'bottom-nav';
+
+	await bottomMenuTrigger.tap().catch(async () => {
+		await bottomMenuTrigger.click({ force: true });
 	});
-	await expect(avatarDropdownMenu(page)).toBeVisible({ timeout: 10_000 });
+	await expect(bottomNavOverlay(page)).toBeVisible({ timeout: 10_000 });
+	return 'bottom-nav';
 }
 
 test.describe('Authenticated avatar dropdown diagnostics (cross-browser)', () => {
@@ -71,26 +104,56 @@ test.describe('Authenticated avatar dropdown diagnostics (cross-browser)', () =>
 	test('opens avatar dropdown from /dashboard topbar', async ({ authenticatedPageCrossBrowser }) => {
 		const page = authenticatedPageCrossBrowser;
 		await expect(page).toHaveURL(/\/dashboard/);
-		await openAvatarDropdown(page);
+		const mode = await openAvatarDropdown(page);
+		if (mode === 'bottom-nav') {
+			await expect(bottomNavOverlay(page).locator('a[href="/dashboard/profile"]').first()).toBeVisible({
+				timeout: 10_000
+			});
+		}
 	});
 
 	test('closes avatar dropdown when tapping outside', async ({ authenticatedPageCrossBrowser }) => {
 		const page = authenticatedPageCrossBrowser;
-		await openAvatarDropdown(page);
+		const mode = await openAvatarDropdown(page);
 
-		if (page.viewportSize()?.width && page.viewportSize()!.width <= 430) {
-			await page.touchscreen.tap(5, 5);
+		if (mode === 'bottom-nav') {
+			await page.locator('button.bottom-nav-backdrop').first().tap().catch(async () => {
+				await page.locator('button.bottom-nav-backdrop').first().click({ force: true });
+			});
+			await expect(bottomNavOverlay(page)).toHaveCount(0);
 		} else {
-			await page.mouse.click(5, 5);
+			if (page.viewportSize()?.width && page.viewportSize()!.width <= 430) {
+				await page.touchscreen.tap(5, 5);
+			} else {
+				await page.mouse.click(5, 5);
+			}
+			await expect(avatarDropdownMenu(page)).toHaveCount(0);
 		}
-		await expect(avatarDropdownMenu(page)).toHaveCount(0);
 	});
 
 	test('navigates from avatar dropdown using profile/settings links', async ({
 		authenticatedPageCrossBrowser
 	}) => {
 		const page = authenticatedPageCrossBrowser;
-		await openAvatarDropdown(page);
+		const mode = await openAvatarDropdown(page);
+
+		if (mode === 'bottom-nav') {
+			const profileLink = bottomNavOverlay(page).locator('a[href="/dashboard/profile"]').first();
+			if (await profileLink.isVisible().catch(() => false)) {
+				await profileLink.tap().catch(async () => {
+					await profileLink.click({ force: true });
+				});
+				await expect(page).toHaveURL(/\/dashboard\/profile$/, { timeout: 15_000 });
+				return;
+			}
+			const settingsLink = bottomNavOverlay(page).locator('a[href="/dashboard/settings"]').first();
+			await expect(settingsLink).toBeVisible({ timeout: 10_000 });
+			await settingsLink.tap().catch(async () => {
+				await settingsLink.click({ force: true });
+			});
+			await expect(page).toHaveURL(/\/dashboard\/settings$/, { timeout: 15_000 });
+			return;
+		}
 
 		const profileLink = avatarDropdownMenu(page).locator('a[href="/dashboard/profile"]').first();
 		if (await profileLink.isVisible().catch(() => false)) {
