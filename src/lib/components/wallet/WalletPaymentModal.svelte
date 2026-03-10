@@ -1,6 +1,4 @@
 <script lang="ts">
-	import { onMount, onDestroy } from 'svelte';
-	import { fly, scale } from 'svelte/transition';
 	import { t } from 'svelte-i18n';
 	import { Capacitor } from '@capacitor/core';
 	import { walletStore } from '$lib/stores/wallet.store';
@@ -13,6 +11,7 @@
 		onClose: () => void;
 		onSuccess?: () => void;
 		children?: Snippet;
+		testId?: string;
 	}
 
 	const props: Props = $props();
@@ -29,11 +28,6 @@
 	const SWIPE_THRESHOLD = 100; // pixels
 	const SWIPE_THRESHOLD_PERCENT = 0.3; // 30% of screen height
 	const isMobile = $derived(Capacitor.getPlatform() !== 'web');
-
-	// Check for reduced motion preference
-	const prefersReducedMotion = $derived(
-		typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
-	);
 
 	// Scroll lock management
 	const disableBodyScroll = () => {
@@ -192,13 +186,14 @@
 		class="fixed inset-0 z-[99] bg-black/80 lg:bg-black/50 backdrop-blur-sm lg:backdrop-blur transition-opacity duration-300"
 		onclick={handleBackdropClick}
 		role="presentation"
-		transition:fly={{ y: prefersReducedMotion ? 0 : 20, duration: prefersReducedMotion ? 0 : 300 }}
+		data-testid={props.testId ? `${props.testId}-backdrop` : undefined}
 	></div>
 
 	<!-- Modal Container -->
 	<div
 		class="fixed inset-0 z-[100] flex items-center justify-center lg:p-4 pointer-events-none"
 		role="presentation"
+		data-testid={props.testId ? `${props.testId}-container` : undefined}
 	>
 		<!-- Modal Content -->
 		<div
@@ -206,6 +201,7 @@
 			class="fixed inset-0 lg:relative w-full h-full lg:w-[90%] lg:max-w-4xl lg:max-h-[90vh] rounded-none lg:rounded-2xl bg-base-100 shadow-2xl flex flex-col overflow-hidden touch-manipulation pointer-events-auto isolate"
 			style="will-change: transform; transform: translateZ(0);"
 			role="dialog"
+			data-testid={props.testId}
 			aria-modal="true"
 			aria-labelledby="wallet-modal-title"
 			tabindex="-1"
@@ -214,8 +210,19 @@
 			ontouchmove={handleTouchMove}
 			ontouchend={handleTouchEnd}
 			onclick={(e) => e.stopPropagation()}
-			transition:scale={{ duration: prefersReducedMotion ? 0 : 300, start: 0.95 }}
 		>
+			<button
+				type="button"
+				class="btn btn-circle btn-sm btn-ghost absolute top-2 right-2 z-20 touch-manipulation"
+				aria-label="Close modal"
+				data-testid={props.testId ? `${props.testId}-close` : undefined}
+				onclick={() => {
+					triggerHaptic(ImpactStyle.Light);
+					props.onClose();
+				}}
+			>
+				✕
+			</button>
 
 			<!-- Content Area -->
 			<div
@@ -266,4 +273,3 @@
 		</div>
 	</div>
 {/if}
-

@@ -1379,6 +1379,7 @@
 		<!-- Mobile Step 1: Cancel and Next -->
 		{#if uiState.currentStep === 1}
 		<button
+				data-testid="wallet-receive-cancel"
 				class="btn btn-error min-h-[44px] flex-1 touch-manipulation transition-transform duration-100 select-none active:scale-95 sm:hidden"
 				style="-webkit-tap-highlight-color: transparent;"
 				onclick={() => {
@@ -1415,6 +1416,7 @@
 				<span class="text-sm">{$t('common.back')}</span>
 			</button>
 			<button
+				data-testid="wallet-receive-get-paid"
 				class="btn btn-primary min-h-[44px] flex-1 touch-manipulation transition-transform duration-100 select-none active:scale-95 sm:hidden"
 				style="-webkit-tap-highlight-color: transparent;"
 				onclick={() => {
@@ -1438,6 +1440,7 @@
 
 		<!-- Desktop: Always show Cancel and Get Paid -->
 		<button
+			data-testid="wallet-receive-cancel"
 			class="btn btn-error min-h-[44px] hidden flex-1 touch-manipulation transition-transform duration-100 select-none active:scale-95 sm:flex sm:min-h-[48px] md:min-h-[56px]"
 			style="-webkit-tap-highlight-color: transparent;"
 			onclick={() => {
@@ -1449,6 +1452,7 @@
 			<span class="text-sm sm:text-base">{$t('wallet.receive.cancel')}</span>
 		</button>
 		<button
+			data-testid="wallet-receive-get-paid"
 			class="btn btn-primary min-h-[44px] hidden flex-1 touch-manipulation transition-transform duration-100 select-none active:scale-95 sm:flex sm:min-h-[48px] md:min-h-[56px]"
 			style="-webkit-tap-highlight-color: transparent;"
 			onclick={() => {

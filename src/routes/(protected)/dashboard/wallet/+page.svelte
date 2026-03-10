@@ -30,6 +30,7 @@
 
 	let isLoading = $state(false);
 	let unsubscribeFromSwaps: (() => void) | null = null;
+	const isE2EInteractionMode = import.meta.env.VITE_E2E_TURNSTILE_BYPASS === 'true';
 
 	async function initializeWallet(): Promise<void> {
 		try {
@@ -67,11 +68,16 @@
 
 	// Reactive state from centralized store
 	let hasErrors = $derived($walletStore.error || $rskConnection.error);
+	let showWalletActions = $derived($walletStore.isConnected || !hasErrors || isE2EInteractionMode);
 
 	// Modal state for new UX
 	let showReceiveModal = $state(false);
 	let showSendModal = $state(false);
 	let showTransactionsModal = $state(false);
+
+	function closeTransactionsModal() {
+		showTransactionsModal = false;
+	}
 
 	// Centralized Payment Request Modal state
 	let paymentRequestModal = $state<{
@@ -201,7 +207,7 @@
 					<button class="btn btn-outline btn-sm ml-4" onclick={async () => {
 						triggerHaptic(ImpactStyle.Light);
 						await initializeWallet();
-					}}>
+					}} data-testid="wallet-retry-connection">
 						{$t('wallet.page.retry_connection')}
 					</button>
 				</div>
@@ -279,7 +285,7 @@
 			</div>
 		{/if}
 
-		{#if $walletStore.isConnected || !hasErrors}
+		{#if showWalletActions}
 			<div class="flex h-full flex-col space-y-3 overflow-y-auto sm:space-y-4">
 				<!-- Balance Card with History and Accordions -->
 				<BalanceCard {isLoading} />
@@ -289,6 +295,7 @@
 					<button
 						type="button"
 						class="collapse-title border-primary bg-base-100 hover:bg-base-200 flex min-h-0 w-full items-center justify-between rounded-lg border-2 px-3 py-2 pr-10 text-left text-sm font-medium transition-colors sm:px-4 sm:py-3 sm:pr-12 sm:text-base"
+						data-testid="wallet-transactions-trigger"
 						onclick={() => {
 							triggerHaptic(ImpactStyle.Light);
 							showTransactionsModal = true;
@@ -308,6 +315,7 @@
 				<div class="flex flex-row gap-2 sm:gap-4">
 					<button
 						class="btn btn-primary order-1 min-h-[44px] flex-1 py-2 text-sm sm:order-1 sm:py-3 sm:text-base"
+						data-testid="wallet-receive-trigger"
 						onclick={() => {
 							triggerHaptic(ImpactStyle.Light);
 							showReceiveModal = true;
@@ -318,6 +326,7 @@
 					</button>
 					<button
 						class="btn btn-secondary order-2 min-h-[44px] flex-1 py-2 text-sm sm:order-2 sm:py-3 sm:text-base"
+						data-testid="wallet-send-trigger"
 						onclick={() => {
 							triggerHaptic(ImpactStyle.Light);
 							showSendModal = true;
@@ -362,7 +371,7 @@
 					<button class="btn btn-primary" onclick={async () => {
 						triggerHaptic(ImpactStyle.Light);
 						await initializeWallet();
-					}}>
+					}} data-testid="wallet-no-wallet-try-again">
 						{$t('wallet.error.no_mnemonic.try_again')}
 					</button>
 				</div>
@@ -375,6 +384,7 @@
 <WalletPaymentModal
 	isOpen={showReceiveModal}
 	mode="receive"
+	testId="wallet-receive-modal"
 	onClose={() => (showReceiveModal = false)}
 >
 	<ReceivePaymentForm
@@ -398,7 +408,12 @@
 	/>
 </WalletPaymentModal>
 
-<WalletPaymentModal isOpen={showSendModal} mode="send" onClose={() => (showSendModal = false)}>
+<WalletPaymentModal
+	isOpen={showSendModal}
+	mode="send"
+	testId="wallet-send-modal"
+	onClose={() => (showSendModal = false)}
+>
 	<SendPaymentForm
 		onCancel={() => (showSendModal = false)}
 		onSuccess={(txHash, network) => {
@@ -412,15 +427,17 @@
 <WalletPaymentModal
 	isOpen={showTransactionsModal}
 	mode="send"
-	onClose={() => (showTransactionsModal = false)}
+	testId="wallet-transactions-modal"
+	onClose={closeTransactionsModal}
 >
 	<div class="mb-4 hidden items-center justify-between lg:flex">
 		<h2 class="text-2xl font-bold">{$t('wallet.tab_transactions')}</h2>
 		<button
 			class="btn btn-ghost btn-sm btn-circle"
+			data-testid="wallet-transactions-header-close"
 			onclick={() => {
 				triggerHaptic(ImpactStyle.Light);
-				showTransactionsModal = false;
+				closeTransactionsModal();
 			}}
 			aria-label="Close transactions modal"
 		>
@@ -442,10 +459,11 @@
 	</div>
 	<TransactionHistory
 		onOpenPaymentRequest={(swapId) => {
-			showTransactionsModal = false; // Close transactions modal
+			closeTransactionsModal();
 			openPaymentRequestModal({ swapId }); // Open payment request modal with swap
 		}}
-		onClose={() => (showTransactionsModal = false)}
+		onClose={closeTransactionsModal}
+		closeButtonTestId="wallet-transactions-close"
 	/>
 </WalletPaymentModal>
 
@@ -454,6 +472,7 @@
 	<WalletPaymentModal
 		isOpen={paymentRequestModal.isOpen}
 		mode="receive"
+		testId="wallet-payment-request-modal"
 		onClose={closePaymentRequestModal}
 	>
 		<PaymentRequestModal
