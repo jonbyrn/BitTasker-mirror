@@ -3,7 +3,7 @@ import {
 	expect,
 	webauthnCredentialsFileExists,
 	CREDENTIALS_MISSING_MESSAGE
-} from './fixtures/passkey-auth-from-file';
+} from './fixtures/passkey-auth-cross-browser';
 
 test.describe('Authenticated avatar dropdown diagnostics', () => {
 	test.skip(() => !webauthnCredentialsFileExists(), CREDENTIALS_MISSING_MESSAGE);
@@ -22,8 +22,8 @@ test.describe('Authenticated avatar dropdown diagnostics', () => {
 		await expect(avatarDropdownMenu(page)).toBeVisible();
 	};
 
-	test('opens avatar dropdown from /dashboard topbar', async ({ authenticatedPageFromPasskeyFile }) => {
-		const page = authenticatedPageFromPasskeyFile;
+	test('opens avatar dropdown from /dashboard topbar', async ({ authenticatedPageCrossBrowser }) => {
+		const page = authenticatedPageCrossBrowser;
 
 		await page.goto('/dashboard', { waitUntil: 'load' });
 		await expect(page).toHaveURL(/\/dashboard/);
@@ -31,8 +31,8 @@ test.describe('Authenticated avatar dropdown diagnostics', () => {
 		await openAvatarDropdown(page);
 	});
 
-	test('closes avatar dropdown when tapping outside', async ({ authenticatedPageFromPasskeyFile }) => {
-		const page = authenticatedPageFromPasskeyFile;
+	test('closes avatar dropdown when tapping outside', async ({ authenticatedPageCrossBrowser }) => {
+		const page = authenticatedPageCrossBrowser;
 
 		await page.goto('/dashboard', { waitUntil: 'load' });
 		await expect(page).toHaveURL(/\/dashboard/);
@@ -43,9 +43,9 @@ test.describe('Authenticated avatar dropdown diagnostics', () => {
 	});
 
 	test('navigates from avatar dropdown using a stable menu link', async ({
-		authenticatedPageFromPasskeyFile
+		authenticatedPageCrossBrowser
 	}) => {
-		const page = authenticatedPageFromPasskeyFile;
+		const page = authenticatedPageCrossBrowser;
 
 		await page.goto('/dashboard', { waitUntil: 'load' });
 		await expect(page).toHaveURL(/\/dashboard/);

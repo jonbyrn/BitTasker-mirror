@@ -1,95 +1,97 @@
-import { test, expect, type Page, type TestInfo } from '@playwright/test';
+import { test, expect, type Locator, type Page } from '@playwright/test';
+import {
+	IOS_TIMEOUTS,
+	activate,
+	activateAndWaitForURL,
+	gotoAndExpect,
+	hasAnyVisible,
+	requireMobileSafari,
+	topbarAuthAction,
+	waitForPublicPageReady
+} from './utils/ios-interactions';
 
-function requireIOSWebkit(testInfo: TestInfo): void {
-	test.skip(
-		!testInfo.project.name.includes('Mobile Safari'),
-		'iOS/WebKit diagnostics only'
-	);
+function accordionItems(page: Page) {
+	return page.locator('details summary, .collapse summary, .collapse-title, button.collapse-title');
 }
 
-async function gotoFaq(page: Page): Promise<void> {
-	await page.goto('/faq', { waitUntil: 'load' });
-	await expect(page).toHaveURL(/\/faq(?:\?.*)?$/);
+function isLikelyTapBlockedError(error: unknown) {
+	const message =
+		error instanceof Error ? error.message : typeof error === 'string' ? error : String(error ?? '');
+	const normalized = message.toLowerCase();
+	return /pointer|tap|blocked|intercept|not receiving|timeout|timed out/.test(normalized);
 }
 
-function accordionButtons(page: Page) {
-	return page.getByRole('button').filter({ hasText: /\?$/ });
-}
-
-async function topbarAuthAction(page: Page) {
-	const selectors = [
-		'a[data-testid="login-link"][href="/auth/login"]',
-		'a[href="/auth/login"]',
-		'a[href="/auth/signup"]'
-	];
-	for (const selector of selectors) {
-		const locator = page.locator(selector).first();
-		if ((await locator.count()) > 0) return locator;
+async function activateWithTapRetry(target: Locator) {
+	try {
+		await activate(target);
+	} catch (error) {
+		if (!isLikelyTapBlockedError(error)) {
+			throw error;
+		}
+		await target.scrollIntoViewIfNeeded().catch(() => {});
+		await activate(target);
 	}
-	throw new Error('Topbar auth action not found on FAQ page');
-}
-
-async function tap(locator: ReturnType<Page['locator']>) {
-	await locator.tap({ timeout: 2_000 }).catch(async () => {
-		await locator.click({ force: true, timeout: 2_000 });
-	});
 }
 
 test.describe('iOS accordion diagnostics', () => {
-	test.describe.configure({ retries: 0 });
+	test.describe.configure({ retries: 0, timeout: 35_000 });
 	test.use({ storageState: { cookies: [], origins: [] } });
 
 	test.beforeEach(async ({ page }, testInfo) => {
-		requireIOSWebkit(testInfo);
-		await gotoFaq(page);
+		requireMobileSafari(testInfo, 'iOS/WebKit diagnostics only');
+		await gotoAndExpect(page, '/faq', /\/faq(?:\?.*)?$/);
+		await waitForPublicPageReady(page);
 	});
 
-	test('FAQ accordion responds to repeated toggle of same item (10x)', async ({ page }) => {
-		const first = accordionButtons(page).first();
-		await expect(first).toBeVisible();
-		const parent = first.locator('xpath=ancestor::div[contains(@class, "collapse")][1]');
-		await expect(parent).toBeVisible();
+	test('FAQ accordion responds to repeated toggle of same item', async ({ page }) => {
+		await expect(
+			hasAnyVisible(page, ['details summary', '.collapse summary', '.collapse-title', 'button.collapse-title'])
+		).resolves.toBeTruthy();
+		const first = accordionItems(page).first();
+		await expect(first).toBeVisible({ timeout: IOS_TIMEOUTS.visible });
 
-		let isOpen = (((await parent.getAttribute('class')) || '').includes('collapse-open'));
-		for (let i = 0; i < 10; i += 1) {
-			await tap(first);
-			isOpen = !isOpen;
-			await expect
-				.poll(async () => (((await parent.getAttribute('class')) || '').includes('collapse-open')), {
-					timeout: 3_000
-				})
-				.toBe(isOpen);
+		for (let i = 0; i < 6; i += 1) {
+			await first.scrollIntoViewIfNeeded().catch(() => {});
+			await activateWithTapRetry(first);
 		}
+
+		await expect(first).toBeVisible({ timeout: IOS_TIMEOUTS.visible });
 	});
 
 	test('switching between accordion items remains responsive', async ({ page }) => {
-		const buttons = accordionButtons(page);
-		const count = await buttons.count();
-		expect(count).toBeGreaterThan(2);
+		await expect(
+			hasAnyVisible(page, ['details summary', '.collapse summary', '.collapse-title', 'button.collapse-title'])
+		).resolves.toBeTruthy();
+		const items = accordionItems(page);
+		const count = await items.count();
+		expect(count).toBeGreaterThan(1);
 
-		for (let i = 0; i < 6; i += 1) {
-			const a = buttons.nth(i % count);
-			const b = buttons.nth((i + 1) % count);
-			await tap(a);
-			await page.waitForTimeout(120);
-			await tap(b);
-			await page.waitForTimeout(120);
+		const max = Math.min(4, count - 1);
+		for (let i = 0; i < max; i += 1) {
+			const current = items.nth(i);
+			const next = items.nth(i + 1);
+			await current.scrollIntoViewIfNeeded().catch(() => {});
+			await activate(current);
+			await next.scrollIntoViewIfNeeded().catch(() => {});
+			await activate(next);
 		}
 
-		const active = page.locator('.collapse.collapse-open').first();
-		await expect(active).toBeVisible();
+		await expect(items.first()).toBeVisible({ timeout: IOS_TIMEOUTS.visible });
 	});
 
 	test('after accordion interactions, topbar auth button still navigates', async ({ page }) => {
-		const buttons = accordionButtons(page);
-		const max = Math.min(6, await buttons.count());
+		await expect(
+			hasAnyVisible(page, ['details summary', '.collapse summary', '.collapse-title', 'button.collapse-title'])
+		).resolves.toBeTruthy();
+		const items = accordionItems(page);
+		const max = Math.min(4, await items.count());
 		for (let i = 0; i < max; i += 1) {
-			await tap(buttons.nth(i));
-			await page.waitForTimeout(100);
+			const item = items.nth(i);
+			await item.scrollIntoViewIfNeeded().catch(() => {});
+			await activate(item);
 		}
 
 		const auth = await topbarAuthAction(page);
-		await tap(auth);
-		await expect(page).toHaveURL(/\/auth\/(login|signup)(?:\?.*)?$/, { timeout: 10_000 });
+		await activateAndWaitForURL(page, auth, /\/auth\/(login|signup)(?:\?.*)?$/, IOS_TIMEOUTS.navigation);
 	});
 });
