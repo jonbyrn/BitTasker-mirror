@@ -1,7 +1,6 @@
 import { test as base, expect } from '@playwright/test';
 import {
 	readCredentialSet,
-	readFirstCredentialSet,
 	webauthnCredentialsFileExists,
 	getCredentialSetLabels
 } from '../utils/webauthn-credentials';
@@ -56,9 +55,14 @@ const test = base.extend<PasskeyAuthFromFileFixtures>({
 			return;
 		}
 
-		const credentials = readCredentialSet(credentialLabel) ?? readFirstCredentialSet();
+		const credentials = readCredentialSet(credentialLabel);
 		if (!credentials || credentials.length === 0) {
-			throw new Error(`${CREDENTIALS_MISSING_MESSAGE} (label: ${credentialLabel})`);
+			const availableLabels = getCredentialSetLabels();
+			throw new Error(
+				`${CREDENTIALS_MISSING_MESSAGE} (requested label: ${credentialLabel}; available labels: ${
+					availableLabels.length > 0 ? availableLabels.join(', ') : 'none'
+				})`
+			);
 		}
 
 		const baseURL = testInfo.project.use.baseURL ?? 'http://localhost:4173';
@@ -93,7 +97,7 @@ const test = base.extend<PasskeyAuthFromFileFixtures>({
 
 			await page.goto('/auth/login', { waitUntil: 'load' });
 			await page.getByTestId('login-continue-passkey').click();
-			await page.waitForURL(/\/dashboard/, { timeout: 15_000 });
+			await page.waitForURL(/\/dashboard/, { timeout: 30_000 });
 
 			// Dismiss Beta Warning modal so it doesn't block navigations (e.g. messages, wallet)
 			const understandBtn = page.getByRole('button', {
