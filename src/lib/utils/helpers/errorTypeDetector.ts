@@ -3,7 +3,7 @@
  * Determines the error type from error messages for better troubleshooting
  */
 
-import type { ErrorType } from '$lib/components/ErrorTroubleshootingModal.svelte';
+import type { ErrorType } from '$lib/types/errorTroubleshooting';
 
 /**
  * Detects the error type from an error message
@@ -38,7 +38,7 @@ export function detectErrorType(errorMessage: string): ErrorType {
 		message.includes('internet') ||
 		message.includes('offline') ||
 		message.includes('fetch') ||
-		message.includes('timeout') && message.includes('network')
+		(message.includes('timeout') && message.includes('network'))
 	) {
 		return 'network';
 	}
@@ -49,7 +49,7 @@ export function detectErrorType(errorMessage: string): ErrorType {
 		message.includes('unauthorized') ||
 		message.includes('login') ||
 		message.includes('password') ||
-		message.includes('credential') && !message.includes('biometric')
+		(message.includes('credential') && !message.includes('biometric'))
 	) {
 		return 'authentication';
 	}
@@ -88,4 +88,3 @@ export function detectErrorType(errorMessage: string): ErrorType {
 	// Default to unknown
 	return 'unknown';
 }
-
