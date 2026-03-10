@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { Event as NostrEvent } from 'nostr-tools';
+import type nip44Module from '$lib/nostr/nip44';
+import type { getNostrKeyPair } from '$lib/utils/nostrKeys';
+import type { getSignedEvent } from '$lib/utils/nostr';
 
 // Hoisted mocks so they can be used in vi.mock and in tests
 const mockPool = {
@@ -25,7 +28,9 @@ vi.mock('$lib/utils/nostrKeys', () => ({
 vi.mock('$lib/utils/nostr', () => ({
 	getSignedEvent: vi.fn(),
 	subscribeToEvents: vi.fn(),
-	publishToMultipleRelays: vi.fn().mockResolvedValue([{ relay: 'wss://relay1.test', success: true, error: null }])
+	publishToMultipleRelays: vi
+		.fn()
+		.mockResolvedValue([{ relay: 'wss://relay1.test', success: true, error: null }])
 }));
 
 vi.mock('$lib/stores/app.store', async () => {
@@ -59,9 +64,9 @@ vi.mock('$env/static/public', () => ({
 }));
 
 describe('NIP-44 Message Utilities', () => {
-	let mockNip44: any;
-	let mockGetNostrKeyPair: any;
-	let mockGetSignedEvent: any;
+	let mockNip44: typeof nip44Module;
+	let mockGetNostrKeyPair: typeof getNostrKeyPair;
+	let mockGetSignedEvent: typeof getSignedEvent;
 
 	beforeEach(async () => {
 		// Reset all mocks
@@ -94,14 +99,15 @@ describe('NIP-44 Message Utilities', () => {
 		});
 
 		// Spy on crypto.getRandomValues (should be available from global setup)
-		if (global.crypto && global.crypto.getRandomValues) {
-			vi.spyOn(global.crypto, 'getRandomValues').mockImplementation((arr: Uint8Array) => {
-				for (let i = 0; i < arr.length; i++) {
-					arr[i] = Math.floor(Math.random() * 256);
+		vi.spyOn(globalThis.crypto, 'getRandomValues').mockImplementation(
+			<T extends ArrayBufferView>(arr: T): T => {
+				const bytes = new Uint8Array(arr.buffer, arr.byteOffset, arr.byteLength);
+				for (let i = 0; i < bytes.length; i++) {
+					bytes[i] = Math.floor(Math.random() * 256);
 				}
 				return arr;
-			});
-		}
+			}
+		);
 	});
 
 	afterEach(() => {
@@ -153,7 +159,7 @@ describe('NIP-44 Message Utilities', () => {
 				];
 				mockPool.querySync.mockResolvedValue(mockEvents);
 
-				const messages = await getMessageHistory(recipientPubkey);
+				await getMessageHistory(recipientPubkey);
 
 				expect(mockNip44.getConversationKey).toHaveBeenCalled();
 				expect(mockNip44.decrypt).toHaveBeenCalledWith('encrypted_content', expect.any(Uint8Array));

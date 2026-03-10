@@ -8,23 +8,31 @@ const mockHandleStatusEvent = vi.fn();
 const mockHandleContractEvent = vi.fn();
 const mockGetNpub = vi.fn();
 
-let subscribeCallCount = 0;
-const closeIncoming = vi.fn();
-const closeOutgoing = vi.fn();
-const closeContract = vi.fn();
-
-const mockSubscribe = vi.fn(() => {
-	subscribeCallCount += 1;
-	if (subscribeCallCount === 1) {
-		return { close: closeIncoming };
-	}
-	if (subscribeCallCount === 2) {
-		throw new Error('subscribe failed');
-	}
-	if (subscribeCallCount === 3) {
-		return { close: closeContract };
-	}
-	return { close: closeOutgoing };
+const { mockSubscribe, closeIncoming, closeOutgoing, subscriptionState } = vi.hoisted(() => {
+	const state = { subscribeCallCount: 0 };
+	const closeIncomingMock = vi.fn();
+	const closeOutgoingMock = vi.fn();
+	const closeContractMock = vi.fn();
+	const subscribeMock = vi.fn(() => {
+		state.subscribeCallCount += 1;
+		if (state.subscribeCallCount === 1) {
+			return { close: closeIncomingMock };
+		}
+		if (state.subscribeCallCount === 2) {
+			throw new Error('subscribe failed');
+		}
+		if (state.subscribeCallCount === 3) {
+			return { close: closeContractMock };
+		}
+		return { close: closeOutgoingMock };
+	});
+	return {
+		mockSubscribe: subscribeMock,
+		closeIncoming: closeIncomingMock,
+		closeOutgoing: closeOutgoingMock,
+		closeContract: closeContractMock,
+		subscriptionState: state
+	};
 });
 
 vi.mock('$lib/utils/escrow', () => ({
@@ -52,7 +60,7 @@ vi.mock('$lib/stores/app.store', async () => {
 	return {
 		appStore: writable({
 			pool: {
-				subscribe: (...args: unknown[]) => mockSubscribe(...args)
+				subscribe: mockSubscribe
 			},
 			relays: ['wss://relay.example.com']
 		})
@@ -126,7 +134,7 @@ function createContract(escrowId: string, createdAt = 1000): ContractWithEvents 
 describe('contract.store', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
-		subscribeCallCount = 0;
+		subscriptionState.subscribeCallCount = 0;
 		mockGetNpub.mockResolvedValue('npub1abc');
 		contractStore.reset();
 	});

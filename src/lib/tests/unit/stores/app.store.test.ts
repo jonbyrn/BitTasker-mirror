@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { get } from 'svelte/store';
 import { appStore } from '$lib/stores/app.store';
+import type { BiometricData } from '$lib/types/auth';
 
 describe('appStore', () => {
 	beforeEach(() => {
@@ -41,7 +42,33 @@ describe('appStore', () => {
 					npub: 'npub123',
 					mnemonic: 'abandon abandon'
 				},
-				biometricData: { password: 'x', npub: 'y' },
+				biometricData: {
+					npub: 'y',
+					exportedKey: 'exported-key',
+					encryptedData: {
+						masterSalt: 'salt',
+						nostr: {
+							encrypted: {
+								ciphertext: 'ciphertext',
+								iv: 'iv',
+								salt: 'salt',
+								authTag: 'tag'
+							},
+							iterations: 100_000,
+							salt: 'salt'
+						},
+						wallet: {
+							encrypted: {
+								ciphertext: 'ciphertext',
+								iv: 'iv',
+								salt: 'salt',
+								authTag: 'tag'
+							},
+							iterations: 100_000,
+							salt: 'salt'
+						}
+					}
+				} as unknown as BiometricData,
 				error: 'Some error'
 			}));
 

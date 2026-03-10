@@ -4,7 +4,6 @@ import { waitFor } from '@testing-library/svelte';
 import BalanceHistory from '$lib/components/wallet/BalanceHistory.svelte';
 import balanceHistoryService from '$lib/api/services/balanceHistory.service';
 import { walletStore } from '$lib/stores/wallet.store';
-import { writable } from 'svelte/store';
 
 // Mock the balance history service
 vi.mock('$lib/api/services/balanceHistory.service', () => ({
@@ -14,8 +13,8 @@ vi.mock('$lib/api/services/balanceHistory.service', () => ({
 }));
 
 // Mock wallet store - component imports walletStore, totalBalances, formatSats
-vi.mock('$lib/stores/wallet.store', () => {
-	const { writable, derived } = require('svelte/store');
+vi.mock('$lib/stores/wallet.store', async () => {
+	const { writable, derived } = await import('svelte/store');
 	const mockWalletStore = writable({
 		rsk: {
 			provider: {},
@@ -30,7 +29,10 @@ vi.mock('$lib/stores/wallet.store', () => {
 			usd: 50000
 		}
 	});
-	const totalBalances = derived(mockWalletStore, ($s) => $s.totalBalances);
+	const totalBalances = derived(
+		mockWalletStore,
+		($s: { totalBalances: { sats: number; usd: number } }) => $s.totalBalances
+	);
 	return {
 		walletStore: mockWalletStore,
 		totalBalances,
@@ -39,8 +41,8 @@ vi.mock('$lib/stores/wallet.store', () => {
 });
 
 // Mock svelte-i18n
-vi.mock('svelte-i18n', () => {
-	const { readable } = require('svelte/store');
+vi.mock('svelte-i18n', async () => {
+	const { readable } = await import('svelte/store');
 	const t = readable((key: string) =>
 		key === 'wallet.balance_history.error' ? 'Failed to load balance history' : key
 	);
@@ -96,7 +98,7 @@ describe('BalanceHistory', () => {
 			},
 			bsc: { connected: false, address: null },
 			totalBalances: { sats: 100000000, usd: 50000 }
-		} as any);
+		});
 	});
 
 	it('should render loading state initially', () => {
@@ -259,4 +261,3 @@ describe('BalanceHistory', () => {
 		expect(container.textContent).toMatch(/-.*5[,.]?000/);
 	});
 });
-

@@ -50,8 +50,16 @@ describe('LocationFilter', () => {
 
 	it('ignores stale search responses and keeps latest results', async () => {
 		const onLocationChange = vi.fn();
-		let firstResolve: ((value: unknown) => void) | null = null;
-		let secondResolve: ((value: unknown) => void) | null = null;
+		type SearchResult = {
+			locations: Array<{
+				displayName: string;
+				latitude: number;
+				longitude: number;
+				zipCode: string;
+			}>;
+		};
+		let firstResolve!: (value: SearchResult) => void;
+		let secondResolve!: (value: SearchResult) => void;
 
 		mockSearchLocations
 			.mockImplementationOnce(
@@ -81,12 +89,12 @@ describe('LocationFilter', () => {
 		await fireEvent.input(input, { target: { value: 'santa' } });
 		vi.advanceTimersByTime(300);
 
-		secondResolve?.({
+		secondResolve({
 			locations: [{ displayName: 'Santa Ana', latitude: 13.99, longitude: -89.55, zipCode: '2201' }]
 		});
 		await Promise.resolve();
 
-		firstResolve?.({
+		firstResolve({
 			locations: [
 				{ displayName: 'San Miguel', latitude: 13.48, longitude: -88.17, zipCode: '3301' }
 			]

@@ -1,22 +1,46 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/svelte';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { writable } from 'svelte/store';
 import BidAcceptanceForm from '$lib/components/bidding/BidAcceptanceForm.svelte';
-import type { NostrEventWithFollowup } from '$lib/types/bid';
+import type { NostrBidContent, NostrEventWithFollowup } from '$lib/types/bid';
 import type { NostrEvent } from 'nostr-tools';
 import type { Task } from '$lib/types/task';
+import { BudgetTypeEnum, TaskStatusEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
 
-const { mockAcceptBidAndCreateEscrow, mockValidateSufficientBalance, mockContractCreationStore } = vi.hoisted(
-	() => ({
+const { mockAcceptBidAndCreateEscrow, mockValidateSufficientBalance, mockContractCreationStore } =
+	vi.hoisted(() => ({
 		mockAcceptBidAndCreateEscrow: vi.fn(),
 		mockValidateSufficientBalance: vi.fn(),
 		mockContractCreationStore: (() => {
-			const { writable } = require('svelte/store');
-			return writable<{ escrowId: string; contractEventId?: string; error?: string } | null>(null);
+			type ContractCreationState = {
+				escrowId: string;
+				contractEventId?: string;
+				error?: string;
+			} | null;
+			let value: ContractCreationState = null;
+			const subscribers = new Set<(next: ContractCreationState) => void>();
+			return {
+				subscribe: vi.fn((run: (next: ContractCreationState) => void) => {
+					run(value);
+					subscribers.add(run);
+					return () => subscribers.delete(run);
+				}),
+				set: vi.fn((next: ContractCreationState) => {
+					value = next;
+					for (const subscriber of subscribers) {
+						subscriber(value);
+					}
+				}),
+				update: vi.fn((updater: (current: ContractCreationState) => ContractCreationState) => {
+					value = updater(value);
+					for (const subscriber of subscribers) {
+						subscriber(value);
+					}
+				})
+			};
 		})()
-	})
-);
+	}));
 
 vi.mock('$lib/utils/escrow', () => ({
 	escrow: {
@@ -32,6 +56,7 @@ vi.mock('$lib/utils/escrow', () => ({
 			validateEscrowDetails: vi.fn(() => ({ errors: [], warnings: [] })),
 			validateSufficientBalance: (...args: unknown[]) => mockValidateSufficientBalance(...args),
 			formatRBTCAmount: vi.fn((amount: string) => amount),
+			getFeePercentageDisplay: vi.fn(() => '2.5%'),
 			acceptBidAndCreateEscrow: mockAcceptBidAndCreateEscrow
 		},
 		eventOps: {
@@ -68,20 +93,25 @@ vi.mock('svelte-i18n', async () => {
 
 vi.mock('$lib/stores/wallet.store', () => ({
 	walletStore: writable({
-		rsk: { connected: true, contractConnected: true, address: '0x123', balance: '1000000000000000000' },
+		rsk: {
+			connected: true,
+			contractConnected: true,
+			address: '0x123',
+			balance: '1000000000000000000'
+		},
 		bsc: { connected: false },
 		allAssets: [],
 		totalBalances: {}
 	}),
 	walletManager: { initialize: vi.fn(), loadAssets: vi.fn() },
 	getProvider: vi.fn(() => null),
-	allAssets: writable([]),
-	totalBalances: writable({}),
-	formatSats: vi.fn((n: number) => n.toString())
+	allAssets: writable([{ assetId: 'rbtc', usdValue: 0 }]),
+	totalBalances: writable({ sats: 0, rbtc: 0 }),
+	formatSats: vi.fn((n: number | bigint | undefined) => String(n ?? 0))
 }));
 
-vi.mock('$lib/stores/bid.store', () => {
-	const { writable } = require('svelte/store');
+vi.mock('$lib/stores/bid.store', async () => {
+	const { writable } = await import('svelte/store');
 	const w = writable({ processingBidIds: new Set<string>() });
 	return {
 		bidStore: {
@@ -103,16 +133,8 @@ vi.mock('$app/navigation', () => ({ goto: vi.fn() }));
 vi.mock('$app/environment', () => ({ browser: true }));
 
 vi.mock('$lib/nostr/task', () => ({ updateTask: vi.fn().mockResolvedValue(undefined) }));
-vi.mock('$lib/utils/location/sendLocation', () => ({ sendLocationsToTaskee: vi.fn().mockResolvedValue(undefined) }));
-
-vi.mock('$lib/components/user/UserInfoDisplay.svelte', () => ({
-	default: vi.fn(() => ({ type: 'div', props: {}, children: [] }))
-}));
-vi.mock('$lib/components/messages/MessageModal.svelte', () => ({
-	default: vi.fn(() => null)
-}));
-vi.mock('$lib/components/bidding/SecurePaymentContractModal.svelte', () => ({
-	default: vi.fn(() => null)
+vi.mock('$lib/utils/location/sendLocation', () => ({
+	sendLocationsToTaskee: vi.fn().mockResolvedValue(undefined)
 }));
 
 vi.mock('$lib/utils/helpers/haptics', () => ({
@@ -123,26 +145,53 @@ vi.mock('$lib/utils/helpers/haptics', () => ({
 vi.mock('$lib/i18n/i18n', () => ({ loadNamespace: vi.fn().mockResolvedValue(undefined) }));
 
 const now = Math.floor(Date.now() / 1000);
-const defaultBidContent = {
+const defaultBidContent: NostrBidContent = {
+	type: 'bid',
+	taskId: 'task-1',
+	taskTitle: 'Test Task',
+	taskDescription: 'Test Description',
+	description: 'Offer details',
+	estimatedDuration: '2h',
+	proposedApproach: 'Test approach',
+	coverLetter: 'Test cover letter',
+	timestamp: now,
+	bidId: 'bid-1',
+	startDateTime: new Date((now + 3600) * 1000).toISOString(),
+	endDateTime: new Date((now + 7200) * 1000).toISOString(),
 	bidderId: 'npub1test123',
 	bidderName: 'Test Taskee',
-	bidderAvatar: null,
 	bidderRating: 4.5,
 	amount: 100,
 	currency: 'USD',
+	paymentType: 'FIXED',
 	estimatedHours: 2
 };
 
 const defaultTaskContent: Task = {
+	estimatedHours: 2,
+	id: 'task-1',
+	npub: 'npub1client',
+	status: TaskStatusEnum.OPEN,
 	title: 'Test Task',
+	taskType: TaskTypeEnum.REMOTE,
 	description: 'Test Description',
-	budget: { amount: 100, currency: 'USD', type: 'fixed' },
-	taskType: 'remote',
+	budget: { amount: 100, currency: 'USD', type: BudgetTypeEnum.FIXED },
 	deadline: null,
 	dateRange: null,
 	pickupLocation: null,
 	dropOffLocation: null,
-	status: 'open',
+	skills: [],
+	categories: [],
+	isRemovals: false,
+	isBoosted: false,
+	boostPercentage: null,
+	createdAt: now,
+	updatedAt: new Date(now * 1000).toISOString(),
+	completedAt: null,
+	cancelledAt: null,
+	deletedAt: null,
+	isDeleted: false,
+	requiredSkills: [],
 	attachments: []
 };
 
@@ -155,7 +204,7 @@ const defaultProps = {
 		kind: 1,
 		sig: 'sig',
 		tags: []
-	} as NostrEventWithFollowup,
+	} as unknown as NostrEventWithFollowup,
 	task: {
 		id: 'task-1',
 		content: JSON.stringify(defaultTaskContent),
@@ -169,6 +218,22 @@ const defaultProps = {
 	onCancel: vi.fn()
 };
 
+function getPrimaryAcceptButton() {
+	return screen.getByRole('button', { name: /^Accept$/ });
+}
+
+function getFundDialog() {
+	return screen.getByRole('dialog', { name: /^Fund Contract$/ });
+}
+
+function getFundButtonInDialog() {
+	return within(getFundDialog()).getByRole('button', { name: /^Fund$/ });
+}
+
+function getCancelButtonInDialog() {
+	return within(getFundDialog()).getByRole('button', { name: /^Cancel$/ });
+}
+
 describe('BidAcceptanceForm', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
@@ -179,80 +244,85 @@ describe('BidAcceptanceForm', () => {
 		});
 	});
 
-	// TODO: Fix svelte-i18n $t store subscription in test env so these tests run without "undefined.toString" in template.
-	// Manual verification: Accept opens Fund Contract modal; Fund with sufficient balance calls handleSubmit; insufficient keeps modal open.
-	describe.skip('Accept button and Fund Contract modal', () => {
+	describe('Accept button and Fund Contract modal', () => {
 		it('shows Accept as the primary button label when not submitting', async () => {
 			render(BidAcceptanceForm, { props: defaultProps });
 			await tick();
-			const acceptButton = screen.getByRole('button', { name: /Accept/i });
-			expect(acceptButton).toBeDefined();
+			expect(getPrimaryAcceptButton()).toBeEnabled();
 		});
 
 		it('opens Fund Contract modal when Accept is clicked', async () => {
 			render(BidAcceptanceForm, { props: defaultProps });
 			await tick();
-			const acceptButton = screen.getByRole('button', { name: /Accept/i });
-			fireEvent.click(acceptButton);
-			await tick();
-			expect(screen.getByText('Fund Contract')).toBeDefined();
+			await fireEvent.click(getPrimaryAcceptButton());
+			await waitFor(() => {
+				expect(getFundDialog()).toBeInTheDocument();
+			});
 		});
 
 		it('does not call acceptBidAndCreateEscrow when only Accept is clicked', async () => {
 			render(BidAcceptanceForm, { props: defaultProps });
 			await tick();
-			const acceptButton = screen.getByRole('button', { name: /Accept/i });
-			fireEvent.click(acceptButton);
-			await tick();
+			await fireEvent.click(getPrimaryAcceptButton());
+			await waitFor(() => {
+				expect(getFundDialog()).toBeInTheDocument();
+			});
 			expect(mockAcceptBidAndCreateEscrow).not.toHaveBeenCalled();
 		});
 
 		it('modal shows Cancel and Fund buttons', async () => {
 			render(BidAcceptanceForm, { props: defaultProps });
 			await tick();
-			fireEvent.click(screen.getByRole('button', { name: /Accept/i }));
-			await tick();
-			expect(screen.getByRole('button', { name: /Cancel/i })).toBeDefined();
-			expect(screen.getByRole('button', { name: /Fund/i })).toBeDefined();
+			await fireEvent.click(getPrimaryAcceptButton());
+			await waitFor(() => {
+				expect(getFundDialog()).toBeInTheDocument();
+			});
+			expect(getCancelButtonInDialog()).toBeInTheDocument();
+			expect(getFundButtonInDialog()).toBeInTheDocument();
 		});
 
 		it('closes modal when Cancel is clicked', async () => {
 			render(BidAcceptanceForm, { props: defaultProps });
 			await tick();
-			fireEvent.click(screen.getByRole('button', { name: /Accept/i }));
-			await tick();
-			expect(screen.getByText('Fund Contract')).toBeDefined();
-			fireEvent.click(screen.getByRole('button', { name: /Cancel/i }));
-			await tick();
+			await fireEvent.click(getPrimaryAcceptButton());
 			await waitFor(() => {
-				expect(screen.queryByText('Fund Contract')).toBeNull();
+				expect(getFundDialog()).toBeInTheDocument();
+			});
+			await fireEvent.click(getCancelButtonInDialog());
+			await waitFor(() => {
+				expect(screen.queryByRole('dialog', { name: /^Fund Contract$/ })).toBeNull();
 			});
 		});
 	});
 
-	describe.skip('Fund button behavior', () => {
+	describe('Fund button behavior', () => {
 		it('calls acceptBidAndCreateEscrow when Fund is clicked and balance is sufficient', async () => {
 			mockValidateSufficientBalance.mockReturnValue([]);
 			render(BidAcceptanceForm, { props: defaultProps });
 			await tick();
-			fireEvent.click(screen.getByRole('button', { name: /Accept/i }));
-			await tick();
-			fireEvent.click(screen.getByRole('button', { name: /Fund/i }));
+			await fireEvent.click(getPrimaryAcceptButton());
+			await waitFor(() => {
+				expect(getFundDialog()).toBeInTheDocument();
+			});
+			await fireEvent.click(getFundButtonInDialog());
 			await waitFor(() => {
 				expect(mockAcceptBidAndCreateEscrow).toHaveBeenCalledTimes(1);
 			});
 		});
 
 		it('keeps modal open and does not call acceptBidAndCreateEscrow when Fund is clicked with insufficient balance', async () => {
-			mockValidateSufficientBalance.mockReturnValue(['Not enough funds']);
+			mockValidateSufficientBalance.mockReturnValue([]);
 			render(BidAcceptanceForm, { props: defaultProps });
 			await tick();
-			fireEvent.click(screen.getByRole('button', { name: /Accept/i }));
-			await tick();
-			fireEvent.click(screen.getByRole('button', { name: /Fund/i }));
+			await fireEvent.click(getPrimaryAcceptButton());
+			await waitFor(() => {
+				expect(getFundDialog()).toBeInTheDocument();
+			});
+			mockValidateSufficientBalance.mockReturnValue(['Not enough funds']);
+			await fireEvent.click(getFundButtonInDialog());
 			await tick();
 			expect(mockAcceptBidAndCreateEscrow).not.toHaveBeenCalled();
-			expect(screen.getByText('Fund Contract')).toBeDefined();
+			expect(getFundDialog()).toBeInTheDocument();
 		});
 	});
 });
