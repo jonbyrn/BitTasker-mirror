@@ -13,6 +13,7 @@ import { contractStore } from '$lib/stores/contract.store';
 import { appStore } from '$lib/stores/app.store';
 import { getStatusMessages } from '$lib/utils/helpers/contractStatusFormatter';
 import { pushNotificationService } from '$lib/api/services/push-notification.service';
+import type { Attachment } from '$lib/types/task';
 
 // Mock @bittasker/wallet-core to avoid EventBus import issues (normalizeRskAddress used by escrow)
 vi.mock('@bittasker/wallet-core', () => ({
@@ -141,14 +142,15 @@ vi.mock('svelte/store', () => {
 		// When get(t) is called, t is a svelte-i18n readable store
 		// get(t) should return the translation function: (key: string) => string
 		if (typeof store === 'function') {
+			const storeFn = store as (() => unknown) & { subscribe?: unknown; toString: () => string };
 			// Check if it has a subscribe method (it's a store)
-			if (store.subscribe || (store.toString && store.toString().includes('t'))) {
+			if (typeof storeFn.subscribe === 'function' || storeFn.toString().includes('t')) {
 				// It's the t store, return translation function
 				return translationFn;
 			}
 			// For other functions/stores, try to get their value
 			try {
-				return store();
+				return storeFn();
 			} catch {
 				// If calling fails, return translation function as fallback
 				return translationFn;
@@ -275,11 +277,13 @@ describe('escrowEvents', () => {
 		});
 
 		it('should include completion attachments when provided', async () => {
-			const attachments = [
+			const attachments: Attachment[] = [
 				{
-					type: 'image',
+					type: 'image/jpeg',
 					url: 'https://example.com/image.jpg',
-					name: 'image.jpg'
+					key: 'attachment-1',
+					alt: 'Task completion image',
+					size: 1024
 				}
 			];
 
@@ -580,7 +584,8 @@ describe('escrowEvents', () => {
 				freelancerPubkey: 'npub1freelancer',
 				amount: '1.0',
 				estimatedStartTime: Math.floor(Date.now() / 1000) + 3600,
-				estimatedCompletionTime: Math.floor(Date.now() / 1000) + 7200
+				estimatedCompletionTime: Math.floor(Date.now() / 1000) + 7200,
+				transactionHash: '0x123'
 			});
 
 			vi.mocked(publishContractEvent).mockResolvedValue(undefined);
