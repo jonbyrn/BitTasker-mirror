@@ -20,16 +20,30 @@ import { defineConfig, devices } from '@playwright/test';
  */
 const PREVIEW_PORT = 4173;
 const DEV_PORT = 3000;
-const PREVIEW_URL = `http://localhost:${PREVIEW_PORT}`;
-const DEV_URL = `http://localhost:${DEV_PORT}`;
+const WEB_HOST = process.env.PW_E2E_HOST || 'localhost';
+const DEFAULT_E2E_WALLET_MNEMONIC =
+	'draw mobile oven airport ostrich jar fiber motion main move mom firm';
+const PREVIEW_URL = `http://${WEB_HOST}:${PREVIEW_PORT}`;
+const DEV_URL = `http://${WEB_HOST}:${DEV_PORT}`;
 const isCI = !!process.env.CI;
+const hasBuildArtifact = existsSync(join(process.cwd(), 'build'));
+const forceDevServer = process.env.PW_E2E_FORCE_DEV === '1';
+const preferLocalPreview = !isCI && hasBuildArtifact && !forceDevServer;
 
-const useDevServer = !isCI;
+const useDevServer = forceDevServer || (!isCI && !preferLocalPreview);
 /** In CI, if build/ already exists (pipeline artifact), run preview only to avoid a second build. */
-const previewOnly = isCI && existsSync(join(process.cwd(), 'build'));
+const previewOnly = isCI && hasBuildArtifact && !forceDevServer;
+const usePreviewOnly = preferLocalPreview || previewOnly;
 const baseURL = useDevServer ? DEV_URL : PREVIEW_URL;
 const configuredRetries = Number(process.env.PW_E2E_RETRIES ?? (isCI ? 1 : 0));
 const configuredMaxFailures = Number(process.env.PW_E2E_MAX_FAILURES ?? (isCI ? 12 : 0));
+const configuredWebServerTimeoutMs = Number(
+	process.env.PW_E2E_WEBSERVER_TIMEOUT_MS ?? (useDevServer ? 180_000 : 90_000)
+);
+const webServerTimeoutMs =
+	Number.isFinite(configuredWebServerTimeoutMs) && configuredWebServerTimeoutMs > 0
+		? configuredWebServerTimeoutMs
+		: 120_000;
 
 export default defineConfig({
 	testDir: './tests/e2e',
@@ -97,33 +111,39 @@ export default defineConfig({
 	/* Local: dev server. CI with build/ present: preview only. CI without build/: build + preview. */
 	webServer: useDevServer
 		? {
-				command: 'npm run dev',
+				command: `npm run dev -- --host ${WEB_HOST} --port ${DEV_PORT}`,
 				url: DEV_URL,
-				reuseExistingServer: true,
-				timeout: 60 * 1000,
+				reuseExistingServer: !isCI,
+				timeout: webServerTimeoutMs,
 				env: {
 					VITE_E2E_TURNSTILE_BYPASS: 'true',
+					VITE_E2E_WALLET_MNEMONIC:
+						process.env.VITE_E2E_WALLET_MNEMONIC || DEFAULT_E2E_WALLET_MNEMONIC,
 					...process.env
 				}
 			}
-		: previewOnly
+		: usePreviewOnly
 			? {
-					command: 'npm run preview',
+					command: `npm run preview -- --host ${WEB_HOST} --port ${PREVIEW_PORT}`,
 					url: PREVIEW_URL,
-					reuseExistingServer: false,
-					timeout: 60 * 1000,
+					reuseExistingServer: !isCI,
+					timeout: webServerTimeoutMs,
 					env: {
 						VITE_E2E_TURNSTILE_BYPASS: 'true',
+						VITE_E2E_WALLET_MNEMONIC:
+							process.env.VITE_E2E_WALLET_MNEMONIC || DEFAULT_E2E_WALLET_MNEMONIC,
 						...process.env
 					}
 				}
 			: {
-					command: 'npm run build && npm run preview',
+					command: `npm run build && npm run preview -- --host ${WEB_HOST} --port ${PREVIEW_PORT}`,
 					url: PREVIEW_URL,
 					reuseExistingServer: !process.env.CI,
-					timeout: 300 * 1000, // 5 min: build can be slow in CI
+					timeout: Math.max(webServerTimeoutMs, 300 * 1000), // build can be slow in CI
 					env: {
 						VITE_E2E_TURNSTILE_BYPASS: 'true',
+						VITE_E2E_WALLET_MNEMONIC:
+							process.env.VITE_E2E_WALLET_MNEMONIC || DEFAULT_E2E_WALLET_MNEMONIC,
 						...process.env
 					}
 				}
