@@ -1,0 +1,16 @@
+{
+	"extends": "./tsconfig.json",
+	"compilerOptions": {
+		"types": ["vitest/globals", "@testing-library/jest-dom", "node"]
+	},
+	"include": [
+		"src/**/*.d.ts",
+		"src/lib/tests/unit/**/*.ts",
+		"src/lib/tests/integration/**/*.ts",
+		"src/lib/tests/components/**/*.ts",
+		"src/lib/tests/utils/**/*.ts",
+		"vitest-setup-client.ts",
+		"src/types/test-env.d.ts"
+	],
+	"exclude": ["src/lib/tests/_pending/**", "src/lib/tests/e2e/**", "src/stories/**", "tests/**"]
+}
