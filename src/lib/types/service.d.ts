@@ -111,9 +111,9 @@ export interface QuoteRequestPayload {
  * Location-specific configurations for services
  */
 export interface ServiceLocationDetails {
-	// For TASKER_LOCATION (when service can be provided at Tasker's location)
-	// Note: Tasker's location is unknown at listing time - this is just a flag/option
-	// Taskee provides their own service location and radius indicating how far they're willing to travel
+	// For TASKER_LOCATION offer mode (taskee/freelancer travels to the tasker/client).
+	// Note: despite the property name, this stores the taskee/freelancer base location
+	// and travel radius used for discovery and distance-fee calculations.
 	taskerLocation?: {
 		serviceLocation: Location; // Taskee's service location (where they operate from - office, studio, base location)
 		serviceRadius?: number; // Service radius in km/miles - distance from Taskee's service location that they're willing to travel
@@ -124,12 +124,15 @@ export interface ServiceLocationDetails {
 		};
 	};
 
-	// For TASKEE_LOCATION (when service can be provided at Taskee's specified location)
+	// For TASKEE_LOCATION offer mode (tasker/client travels to the taskee/freelancer location).
+	// Global location fallback is being phased out; search should use explicit service location data.
 	taskeeLocation?: {
-		useGlobalLocation: boolean; // Use Taskee's global app location setting
-		serviceLocation?: Location; // Specific service location where service can be provided (if not using global)
+		useGlobalLocation: boolean; // Deprecated transitional flag while global location is phased out
+		serviceLocation?: Location; // Preferred explicit location for discovery/filtering/search radius checks
 		locationDisplayName?: string; // Human-readable location name for display
 	};
+	// Discovery rule: match results using explicit taskee/freelancer service coordinates
+	// (and serviceRadius where applicable), not profile-level global location.
 }
 
 /**
@@ -359,4 +362,3 @@ export interface ServiceTranslation {
 	sourceLanguage: string | undefined;
 	timestamp: number;
 }
-
