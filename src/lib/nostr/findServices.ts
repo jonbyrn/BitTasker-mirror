@@ -18,6 +18,8 @@ import { fetchComprehensiveProfile } from '$lib/utils/nostr-message';
 
 // Constants
 const SERVICES_PER_PAGE = 20; // Default services limit per page
+/** When user has a search term, fetch more events and filter client-side (relays often don't support NIP-50). */
+const SEARCH_FETCH_LIMIT = 150;
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 const MAX_CACHE_SIZE = 100; // Maximum number of services to keep in cache
 const DELETION_CACHE_TTL = 5 * 60 * 1000; // 5 minutes for deletion events cache
@@ -47,14 +49,19 @@ const performanceMetrics: FilterPerformanceMetrics[] = [];
  * Only requests service kinds (SERVICE_ACTIVE) — deleted services are NIP-09 kind 5; we filter those client-side until relay supports exclusion.
  */
 function createServiceFilter(params: SearchServicesParams): Filter {
+	// When search is present, request more events and filter client-side (many relays don't support NIP-50).
+	const requestLimit = params.search?.trim()
+		? SEARCH_FETCH_LIMIT
+		: params.limit || SERVICES_PER_PAGE;
+
 	const filter: Filter & { [key: string]: string[] | number[] | string | number | undefined } = {
 		kinds: params.kinds || [KINDS.SERVICE_ACTIVE],
-		limit: params.limit || SERVICES_PER_PAGE,
+		limit: requestLimit,
 		until: params.until || undefined,
 		since: params.since || undefined
 	};
 
-	// Enhanced search with NIP-50
+	// Same as Find Tasks: send search to relay (NIP-50). Results are always filtered client-side with normalizeText so matches show regardless of case.
 	if (params.search) {
 		filter.search = params.search.trim();
 	}
@@ -254,9 +261,17 @@ export async function findServices(
 			};
 		}
 
-		// Fetch from Nostr
-		const response = await nostrEventsService.findEvents(filter);
-		const events = response.data || [];
+		// Fetch from Nostr (same as Find Tasks: we send search; if relay returns 0, fallback and filter client-side so we always show results)
+		let response = await nostrEventsService.findEvents(filter);
+		let events = response.data || [];
+
+		if (params.search?.trim() && events.length === 0) {
+			const fallbackFilter = { ...filter } as Filter & { search?: string };
+			delete fallbackFilter.search;
+			fallbackFilter.limit = SEARCH_FETCH_LIMIT;
+			response = await nostrEventsService.findEvents(fallbackFilter);
+			events = response.data || [];
+		}
 
 		// Convert events to services (with async profile data fetching)
 		const rawServices = await Promise.all(events.map((event: Event) => convertEventToService(event)));

@@ -32,6 +32,11 @@
 			"saved_searches": "Saved Searches",
 			"my_services": "My Services"
 		},
+		"saved_searches": {
+			"filter_label": "Filter by type",
+			"tasks": "Tasks",
+			"services": "Services"
+		},
 		"task_details_by_task": {
 			"title": "Task Details",
 			"tasker": "Tasker Details",
