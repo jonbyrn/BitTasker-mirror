@@ -29,8 +29,8 @@ export interface FilterPerformanceMetrics {
 }
 
 /**
- * Normalize text by removing accents and converting to lowercase
- * This ensures searches work regardless of accent usage
+ * Normalize text by removing accents and converting to lowercase.
+ * Same as Find Tasks: we always show matching results regardless of case or accents—no extra case checks.
  */
 function normalizeText(text: string): string {
 	return text
@@ -226,6 +226,7 @@ export function filterIndexedServices(
 	const normalizedSkills = (params.skills || []).map(normalizeToKey);
 	const normalizedCategories = (params.categories || []).map(normalizeToKey);
 	const normalizedLocationTypes = (params.serviceLocationTypes || []).map(normalizeToKey);
+	// Normalized search term: always show results regardless of input case (same as Find Tasks).
 	const searchTerm = params.search ? normalizeText(params.search) : '';
 
 	// Convert to Sets for O(1) lookup performance
@@ -235,7 +236,7 @@ export function filterIndexedServices(
 
 	let filteredServices = indexedServices;
 
-	// Text search filter (O(n) with pre-normalized text)
+	// Text search filter (O(n) with pre-normalized text); matches always shown, no case check.
 	if (searchTerm) {
 		filteredServices = filteredServices.filter((service) => {
 			return service._searchableText?.includes(searchTerm) ?? false;

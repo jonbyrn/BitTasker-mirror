@@ -17,6 +17,7 @@
 	import { t } from 'svelte-i18n';
 	import IconChevronUp from '~icons/mdi/chevron-up';
 	import { goto } from '$app/navigation';
+	import type SaveServiceSearchFormComponent from '$lib/components/service/SaveServiceSearchForm.svelte';
 
 	// Function to create initial search parameters
 	function getInitialSearchParams(): SearchServicesParams {
@@ -36,6 +37,11 @@
 
 	// Enhanced discovery features
 	let isFilterDrawerOpen = $state(false);
+
+	// Save search state (same pattern as Find Tasks)
+	let isSaveSearchOpen = $state(false);
+	let SaveServiceSearchForm: typeof SaveServiceSearchFormComponent | null = $state(null);
+	let drawersLoaded = $state(false);
 
 	// Loading states
 	let loadingTimeout = $state(false);
@@ -133,6 +139,45 @@
 	}
 
 	/**
+	 * Hash search params for canSaveSearch (same idea as Find Tasks)
+	 */
+	function hashSearchParams(params: SearchServicesParams): string {
+		const parts: string[] = [];
+		if (params.search) parts.push(`s:${params.search}`);
+		if (params.page) parts.push(`p:${params.page}`);
+		if (params.limit) parts.push(`l:${params.limit}`);
+		if (params.categories?.length) {
+			parts.push(`c:${[...params.categories].sort().join(',')}`);
+		}
+		if (params.skills?.length) {
+			parts.push(`sk:${[...params.skills].sort().join(',')}`);
+		}
+		if (params.serviceLocationTypes?.length) {
+			parts.push(`loc:${[...params.serviceLocationTypes].sort().join(',')}`);
+		}
+		if (params.pricingType) parts.push(`pt:${params.pricingType}`);
+		if (params.minPrice !== undefined) parts.push(`min:${params.minPrice}`);
+		if (params.maxPrice !== undefined) parts.push(`max:${params.maxPrice}`);
+		if (params.deliveryTime !== undefined) parts.push(`dt:${params.deliveryTime}`);
+		if (params.location) parts.push(`locn:${params.location}`);
+		return parts.join('|');
+	}
+
+	/**
+	 * Load drawer components (Save Search form) when needed - same pattern as Find Tasks
+	 */
+	async function loadDrawerComponents(): Promise<void> {
+		if (drawersLoaded) return;
+		try {
+			const saveSearchModule = await import('$lib/components/service/SaveServiceSearchForm.svelte');
+			SaveServiceSearchForm = saveSearchModule.default;
+			drawersLoaded = true;
+		} catch (error) {
+			console.error('Error loading save search component:', error);
+		}
+	}
+
+	/**
 	 * Fetch current BTC price
 	 */
 	async function fetchBtcPrice(): Promise<void> {
@@ -176,10 +221,12 @@
 				items: [],
 				currentPage: 1,
 				hasMore: true,
-				error: null
+				error: null,
+				searchParamsKey: ''
 			}));
 
 			await findServices(searchParams);
+			servicesStore.update((state) => ({ ...state, searchParamsKey: hashSearchParams(searchParams) }));
 			dataLoaded = true;
 			isInitialLoad = false;
 			showSkeleton = false;
@@ -246,14 +293,15 @@
 	}
 
 	// Debounced function to update searchParams
-	const debouncedSearch = debounce(async () => {
+		const debouncedSearch = debounce(async () => {
 		if (searchQuery.trim().length < 3) {
 			servicesStore.update((state) => ({
 				...state,
 				items: [],
 				currentPage: 1,
 				hasMore: true,
-				error: null
+				error: null,
+				searchParamsKey: ''
 			}));
 
 			const newParams: SearchServicesParams = {
@@ -265,6 +313,7 @@
 
 			try {
 				await findServices(searchParams);
+				servicesStore.update((state) => ({ ...state, searchParamsKey: hashSearchParams(searchParams) }));
 			} catch (err) {
 				console.error('[FindServices] Search fetch error:', err);
 			}
@@ -284,11 +333,13 @@
 			items: [],
 			currentPage: 1,
 			hasMore: true,
-			error: null
+			error: null,
+			searchParamsKey: ''
 		}));
 
 		try {
 			await findServices(searchParams);
+			servicesStore.update((state) => ({ ...state, searchParamsKey: hashSearchParams(searchParams) }));
 		} catch (err) {
 			console.error('[FindServices] Search fetch error:', err);
 		}
@@ -302,7 +353,8 @@
 			items: [],
 			currentPage: 1,
 			hasMore: true,
-			error: null
+			error: null,
+			searchParamsKey: ''
 		}));
 
 		searchParams = {
@@ -313,7 +365,9 @@
 
 		searchQuery = filterParams.search || '';
 
-		findServices(searchParams);
+		findServices(searchParams).then(() => {
+			servicesStore.update((state) => ({ ...state, searchParamsKey: hashSearchParams(searchParams) }));
+		});
 	}
 
 	// Clear filters
@@ -327,7 +381,8 @@
 			items: [],
 			currentPage: 1,
 			hasMore: true,
-			error: null
+			error: null,
+			searchParamsKey: ''
 		}));
 
 		findServices(searchParams);
@@ -420,9 +475,26 @@
 		serviceListRef.addEventListener('scroll', scrollHandler, { passive: true });
 	}
 
-	// Initial data fetch and setup - always refetch on mount so newly published services appear
+	// Initial data fetch and setup - apply saved service search from dashboard if present (same pattern as Find Tasks)
 	onMount(() => {
 		if (browser) {
+			const savedParamsRaw = sessionStorage.getItem('savedServiceSearchParams');
+			if (savedParamsRaw) {
+				try {
+					const saved = JSON.parse(savedParamsRaw) as SearchServicesParams;
+					sessionStorage.removeItem('savedServiceSearchParams');
+					searchParams = {
+						...getInitialSearchParams(),
+						...saved,
+						page: 1,
+						limit: searchParams.limit ?? 20
+					};
+					searchQuery = saved.search ?? '';
+				} catch (e) {
+					console.warn('[FindServices] Invalid savedServiceSearchParams', e);
+				}
+			}
+
 			// Prevent app-shell scroll on mobile (same as Find Tasks - scroll happens inside list)
 			let retryCount = 0;
 			const addDataAttr = () => {
@@ -445,6 +517,13 @@
 					setupInfiniteScroll();
 				}
 			});
+
+			// Defer loading save-search drawer (same as Find Tasks)
+			if (window.requestIdleCallback) {
+				window.requestIdleCallback(() => loadDrawerComponents(), { timeout: 1500 });
+			} else {
+				setTimeout(loadDrawerComponents, 500);
+			}
 		}
 	});
 
@@ -518,13 +597,17 @@
 			searchPlaceholder={getSearchPlaceholder()}
 			onSearchInput={() => debouncedSearch()}
 			onFilterClick={() => (isFilterDrawerOpen = true)}
-			onSaveSearch={async () => {}}
-			canSaveSearch={false}
+			onSaveSearch={async () => {
+				if (!drawersLoaded) await loadDrawerComponents();
+				await tick();
+				isSaveSearchOpen = true;
+			}}
+			canSaveSearch={$servicesStore.searchParamsKey !== ''}
 			{viewMode}
 			onToggleViewMode={toggleViewMode}
 			user={$user}
-			drawersLoaded={true}
-			loadDrawerComponents={async () => {}}
+			{drawersLoaded}
+			loadDrawerComponents={loadDrawerComponents}
 			translationNamespace="dashboard.services.browse"
 			filterLabelKey="filters_button"
 		/>
@@ -793,6 +876,16 @@
 		onApply={handleFilterApply}
 		initialFilters={searchParams}
 	/>
+
+	<!-- Save Search Form (same pattern as Find Tasks) -->
+	{#if drawersLoaded && SaveServiceSearchForm}
+		<SaveServiceSearchForm
+			isOpen={isSaveSearchOpen}
+			searchParams={searchParams}
+			onClose={() => (isSaveSearchOpen = false)}
+			onSaved={() => {}}
+		/>
+	{/if}
 
 <style>
 	/* Prevent app-shell__content from scrolling on mobile (same as Find Tasks) */

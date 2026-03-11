@@ -17,6 +17,14 @@
 				"save": "Save",
 				"save_search_tooltip_enabled": "Save your search criteria",
 				"save_search_tooltip_disabled": "Add search filters to save",
+				"saved_search_success": "Search saved successfully",
+				"saved_search_error": "Failed to save search",
+				"saved_service_searches": {
+					"no_saved_searches": "No saved service searches yet",
+					"saved_searches_info": "Your saved service searches will appear here. Save searches from the Browse Services page.",
+					"start_new_search": "Browse Services",
+					"apply_search": "Apply"
+				},
 				"map": "Map",
 				"list": "List",
 				"scroll_to_top": "Scroll to top",

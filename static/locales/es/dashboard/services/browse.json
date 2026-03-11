@@ -17,6 +17,14 @@
 				"save": "Guardar",
 				"save_search_tooltip_enabled": "Guarda tus criterios de búsqueda",
 				"save_search_tooltip_disabled": "Agrega filtros de búsqueda para guardar",
+				"saved_search_success": "Búsqueda guardada correctamente",
+				"saved_search_error": "Error al guardar la búsqueda",
+				"saved_service_searches": {
+					"no_saved_searches": "Aún no hay búsquedas de servicios guardadas",
+					"saved_searches_info": "Tus búsquedas de servicios guardadas aparecerán aquí. Guarda búsquedas desde la página Explorar Servicios.",
+					"start_new_search": "Explorar Servicios",
+					"apply_search": "Aplicar"
+				},
 				"map": "Mapa",
 				"list": "Lista",
 				"scroll_to_top": "Ir arriba",

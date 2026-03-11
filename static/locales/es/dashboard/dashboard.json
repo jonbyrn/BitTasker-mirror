@@ -32,6 +32,11 @@
 			"saved_searches": "Búsquedas Guardadas",
 			"my_services": "Mis Servicios"
 		},
+		"saved_searches": {
+			"filter_label": "Filtrar por tipo",
+			"tasks": "Tareas",
+			"services": "Servicios"
+		},
 		"task_details_by_task": {
 			"title": "Detalles de la Tarea",
 			"tasker": "Detalles del Tasker",

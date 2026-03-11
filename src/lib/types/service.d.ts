@@ -303,6 +303,20 @@ export interface SearchServicesParams {
 }
 
 /**
+ * Saved service search (stored via NIP-33, same kind as task saved searches with type tag)
+ */
+export interface SavedServiceSearch {
+	id: string;
+	name: string;
+	params: SearchServicesParams;
+	createdAt: number;
+	notifyOnMatch?: boolean;
+	isActive?: boolean;
+	notificationFrequency?: string;
+	unreadNotifications?: number;
+}
+
+/**
  * Nostr Service Event Interface
  * Nostr event structure for services
  */
