@@ -11,6 +11,9 @@ import { extractContractError } from '$lib/utils/wallet/contractErrorHandler';
 import { normalizeRskAddress } from '@bittasker/wallet-core';
 import type { NostrEvent } from 'nostr-tools';
 import { parseDateWithLocalTime } from '$lib/utils/helpers/dateFormatter';
+import { createDebug } from '$lib/utils/debug';
+
+const d = createDebug('escrow:v2:bid');
 
 export function calculateBidEscrowDetails(
 	bid: NostrBidContent,
@@ -179,6 +182,11 @@ export async function acceptBidAndCreateEscrow(
 	btcPrice: number,
 	network: 'RSK' | 'BSC' = 'RSK'
 ): Promise<BidAcceptanceResult> {
+	d.log('acceptBidAndCreateEscrow start', {
+		bidEventId: bid.id,
+		taskId: task.id,
+		network
+	});
 	let transactionHash: string | null = null;
 
 	try {
@@ -186,9 +194,15 @@ export async function acceptBidAndCreateEscrow(
 		const taskContent = JSON.parse(task.content) as Task;
 
 		const escrowDetails = calculateBidEscrowDetails(bidContent, taskContent, btcPrice);
+		d.log('acceptBidAndCreateEscrow escrowDetails calculated', {
+			baseAmount: escrowDetails.baseAmount,
+			totalAmount: escrowDetails.totalAmount,
+			escrowId: '(will be set after createEscrow)'
+		});
 
 		const validationResult = validateEscrowDetails(escrowDetails);
 		if (validationResult.errors.length > 0) {
+			d.warn('acceptBidAndCreateEscrow validation failed', { errors: validationResult.errors });
 			return {
 				success: false,
 				error: `Validation failed: ${validationResult.errors.join(', ')}`
@@ -233,6 +247,8 @@ export async function acceptBidAndCreateEscrow(
 			adjustedCompletionTime = escrowDetails.estimatedCompletionTime + timeShift;
 		}
 
+		d.log('acceptBidAndCreateEscrow calling escrow.createEscrow (v2, direct payable)');
+
 		const transactionResult = await escrow.createEscrow(
 			escrowDetails.freelancerAddress,
 			escrowDetails.baseAmount,
@@ -243,6 +259,7 @@ export async function acceptBidAndCreateEscrow(
 		);
 
 		if (!transactionResult || !transactionResult.hash) {
+			d.warn('acceptBidAndCreateEscrow createEscrow returned no hash');
 			return {
 				success: false,
 				error: 'Transaction failed: Missing transaction hash. Please try again.'
@@ -250,6 +267,9 @@ export async function acceptBidAndCreateEscrow(
 		}
 
 		transactionHash = transactionResult.hash;
+		d.log('acceptBidAndCreateEscrow createEscrow tx broadcast', {
+			hash: transactionHash.slice(0, 18) + '...'
+		});
 
 		registerPendingContractByTxHash({
 			bidEventId: bid.id,
@@ -263,9 +283,14 @@ export async function acceptBidAndCreateEscrow(
 			transactionHash
 		});
 
+		d.log('acceptBidAndCreateEscrow success', {
+			transactionHash: transactionHash.slice(0, 18) + '...',
+			note: 'Nostr CONTRACT (v2) will be published when EscrowCreated is confirmed'
+		});
+
 		return { success: true, transactionResult };
 	} catch (error) {
-		console.error('[V2] Failed to accept bid and create escrow:', error);
+		d.error('acceptBidAndCreateEscrow failed', { error });
 
 		if (transactionHash) {
 			try {

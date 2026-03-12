@@ -15,6 +15,11 @@ import { pushNotificationService } from '$lib/api/services/push-notification.ser
 import { BidStatusEnum } from '$lib/utils/enums/bid.enum';
 import { contractStore } from '$lib/stores/contract.store';
 import { getStatusMessages } from '$lib/utils/helpers/contractStatusFormatter';
+import { createDebug } from '$lib/utils/debug';
+import { updateTask } from '$lib/nostr/task';
+import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
+
+const d = createDebug('escrow:v2:events');
 const _ = get(t);
 
 export interface EscrowCreatedEvent {
@@ -35,18 +40,25 @@ export function registerPendingContractByTxHash(
 	params: Omit<PendingContractCreation, 'escrowId'>
 ): void {
 	pendingContractsByTxHash.set(params.transactionHash, params as PendingContractCreation);
-	console.log('[V2] ✅ Registered pending contract for transaction:', params.transactionHash);
+	d.log('registerPendingContractByTxHash', {
+		transactionHash: params.transactionHash.slice(0, 18) + '...',
+		taskId: params.taskId
+	});
 }
 
 export function cleanupPendingContractByTxHash(transactionHash: string): void {
 	if (processingContracts.has(transactionHash)) {
-		console.log('[V2] ⚠️ Skipping cleanup - contract is currently being processed:', transactionHash);
+		d.warn('cleanupPendingContractByTxHash skipped (processing)', {
+			transactionHash: transactionHash.slice(0, 18) + '...'
+		});
 		return;
 	}
 
 	const removed = pendingContractsByTxHash.delete(transactionHash);
 	if (removed) {
-		console.log('[V2] 🧹 Cleaned up pending contract for failed transaction:', transactionHash);
+		d.log('cleanupPendingContractByTxHash', {
+			transactionHash: transactionHash.slice(0, 18) + '...'
+		});
 	}
 }
 
@@ -60,6 +72,11 @@ export function registerPendingContract(params: PendingContractCreation): void {
  * Call with CONFIRMED status AFTER transaction confirmation.
  */
 export async function publishEscrowStatus(params: PublishContractStatusParams): Promise<void> {
+	d.log('publishEscrowStatus', {
+		escrowId: params.escrowId,
+		action: params.status,
+		transactionHash: params.transactionHash?.slice(0, 18) + '...'
+	});
 	try {
 		const messages = getStatusMessages(params.status);
 		// V2 pending states start at 100+
@@ -87,12 +104,21 @@ export async function publishEscrowStatus(params: PublishContractStatusParams): 
 		}
 	} catch (error) {
 		const messages = getStatusMessages(params.status);
+		d.error('publishEscrowStatus failed', {
+			escrowId: params.escrowId,
+			action: params.status,
+			error
+		});
 		console.error(`[V2] Failed to publish status (${params.status}):`, error);
 		appStore.showErrorToast(get(t)(messages.errorToast));
 	}
 }
 
 export async function handleEscrowCreated(event: EscrowCreatedEvent): Promise<void> {
+	d.log('handleEscrowCreated', {
+		escrowId: event.escrowId,
+		txHash: event.transactionHash.slice(0, 18) + '...'
+	});
 	let pendingContract = pendingContracts.get(event.escrowId);
 
 	if (!pendingContract) {
@@ -126,7 +152,14 @@ export async function handleEscrowCreated(event: EscrowCreatedEvent): Promise<vo
 				transactionHash: event.transactionHash
 			};
 
+			d.log('handleEscrowCreated calling publishContractEvent (v2 Nostr CONTRACT)', {
+				escrowId: event.escrowId,
+				taskId: pendingContract.taskId
+			});
+
 			await publishContractEvent(contractParams);
+
+			d.log('handleEscrowCreated publishContractEvent done', { escrowId: event.escrowId });
 
 			pushNotificationService.sendNotificationToNpubs({
 				npubs: [pendingContract.freelancerPubkey],
@@ -153,10 +186,26 @@ export async function handleEscrowCreated(event: EscrowCreatedEvent): Promise<vo
 					event.transactionHash
 				);
 			} catch (statusUpdateError) {
-				console.error('[V2] Failed to send bid status update after escrow creation:', statusUpdateError);
+				console.error(
+					'[V2] Failed to send bid status update after escrow creation:',
+					statusUpdateError
+				);
 				appStore.showErrorToast(
 					'Escrow created successfully, but failed to update bid status. The bid status may need to be updated manually.'
 				);
+			}
+
+			// Task status update to IN_PROGRESS (Nostr after chain confirmation). See docs/tasks/task-status.md.
+			try {
+				await updateTask(pendingContract.taskId, { status: TaskStatusEnum.IN_PROGRESS });
+				d.log('handleEscrowCreated task status updated to IN_PROGRESS', {
+					taskId: pendingContract.taskId
+				});
+			} catch (taskUpdateError) {
+				d.error('handleEscrowCreated failed to update task status', {
+					taskId: pendingContract.taskId,
+					error: taskUpdateError
+				});
 			}
 
 			await contractStore.loadContractByEscrowId(event.escrowId);
@@ -164,6 +213,7 @@ export async function handleEscrowCreated(event: EscrowCreatedEvent): Promise<vo
 			pendingContracts.delete(event.escrowId);
 			processingContracts.delete(event.transactionHash);
 		} catch (error) {
+			d.error('handleEscrowCreated failed', { escrowId: event.escrowId, error });
 			console.error('[V2] Failed to create Nostr contract:', error);
 			processingContracts.delete(event.transactionHash);
 
@@ -177,6 +227,6 @@ export async function handleEscrowCreated(event: EscrowCreatedEvent): Promise<vo
 			);
 		}
 	} else {
-		console.log('[V2] No pending contract found for escrow:', event.escrowId);
+		d.warn('handleEscrowCreated no pending contract', { escrowId: event.escrowId });
 	}
 }

@@ -33,9 +33,12 @@ import type { NostrEvent } from 'nostr-tools';
 import type { Attachment, Task } from '$lib/types/task';
 import type { Writable } from 'svelte/store';
 
+import { createDebug } from '$lib/utils/debug';
 import * as v1 from './v1';
 import * as v2 from './v2';
 // import * as v3 from './v3'; // Future versions
+
+const d = createDebug('escrow:manager');
 
 // TODO: Refacotring needed
 // These utilities are version-agnostic helpers (fee display, input validation).
@@ -150,6 +153,11 @@ class EscrowManager {
 		): Promise<ContractTransactionResult> => {
 			const version = this.getVersionFromContract(contract);
 			const handler = this.getHandler(version);
+			d.log('completeTask route', {
+				escrowId: contract.escrowData.id,
+				version,
+				useGasless: version === 'v2'
+			});
 
 			const escrowId = contract.escrowData.id;
 			const contractEventId = contract.contractEvent.id;
@@ -163,6 +171,11 @@ class EscrowManager {
 		acceptTask: async (contract: ContractWithEvents): Promise<ContractTransactionResult> => {
 			const version = this.getVersionFromContract(contract);
 			const handler = this.getHandler(version);
+			d.log('acceptTask route', {
+				escrowId: contract.escrowData.id,
+				version,
+				useGasless: version === 'v2'
+			});
 
 			const escrowId = contract.escrowData.id;
 			const contractEventId = contract.contractEvent.id;
@@ -170,8 +183,8 @@ class EscrowManager {
 
 			const onConfirmed = taskId
 				? async () => {
-					await updateTask(taskId, { status: TaskStatusEnum.COMPLETED });
-				}
+						await updateTask(taskId, { status: TaskStatusEnum.COMPLETED });
+					}
 				: undefined;
 
 			return handler.escrow.acceptTask(escrowId, contractEventId, { onConfirmed });
@@ -243,8 +256,8 @@ class EscrowManager {
 			const onConfirmed =
 				taskId && contract.isClient
 					? async () => {
-						await updateTask(taskId, { status: TaskStatusEnum.COMPLETED });
-					}
+							await updateTask(taskId, { status: TaskStatusEnum.COMPLETED });
+						}
 					: undefined;
 
 			return handler.escrow.acceptProposal(escrowId, contractEventId, { onConfirmed });
@@ -266,8 +279,8 @@ class EscrowManager {
 
 			const onConfirmed = taskId
 				? async () => {
-					await updateTask(taskId, { status: TaskStatusEnum.COMPLETED });
-				}
+						await updateTask(taskId, { status: TaskStatusEnum.COMPLETED });
+					}
 				: undefined;
 
 			return handler.escrow.resolveAfterTimelock(escrowId, Number(escrowStatus), contractEventId, {

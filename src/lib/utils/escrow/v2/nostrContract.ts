@@ -20,13 +20,14 @@ import { getSignedEvent } from '$lib/utils/nostr';
 import { determineContractState } from '$lib/utils/helpers/contractPermissions';
 import { contractStore } from '$lib/stores/contract.store';
 import { get } from 'svelte/store';
-import { appStore } from '$lib/stores/app.store';
 import { publishEscrowStatus } from './escrowEvents';
 import KINDS from '$lib/utils/constants/kinds';
 import nostrEventsService from '$lib/api/services/nostr/events';
 import { EscrowError, EscrowErrorCode, isEscrowError } from '$lib/utils/helpers/escrowErrors';
 import { getProvider } from '$lib/stores/wallet.store';
+import { createDebug } from '$lib/utils/debug';
 
+const d = createDebug('escrow:v2:nostr');
 const VERSION_TAG = 'v2';
 
 /**
@@ -34,6 +35,12 @@ const VERSION_TAG = 'v2';
  */
 export async function publishContractEvent(params: CreateContractParams): Promise<void> {
 	try {
+		d.log('publishContractEvent start', {
+			escrowId: params.escrowId,
+			taskId: params.taskId,
+			version: VERSION_TAG
+		});
+
 		const npub = await getNpub();
 		const clientPubkey = npub.startsWith('npub') ? (nip19.decode(npub).data as string) : npub;
 
@@ -70,14 +77,36 @@ export async function publishContractEvent(params: CreateContractParams): Promis
 			VERSION_TAG
 		);
 
+		d.log('publishContractEvent Nostr CONTRACT event (v2)', {
+			escrowId: params.escrowId,
+			versionTag: VERSION_TAG,
+			tagsIncludeV: tags.some((t) => Array.isArray(t) && t[0] === 'v' && t[1] === VERSION_TAG),
+			kind: KINDS.CONTRACT,
+			recipientPrefix: params.freelancerPubkey?.slice(0, 12) + '...'
+		});
+
 		await publishNostrEvent(KINDS.CONTRACT, contractMessage, params.freelancerPubkey, tags);
+
+		d.log('publishContractEvent success', { escrowId: params.escrowId, version: VERSION_TAG });
 	} catch (error) {
+		d.error('publishContractEvent failed', {
+			escrowId: params.escrowId,
+			version: VERSION_TAG,
+			error
+		});
 		console.warn('[V2] Error creating contract:', error);
 	}
 }
 
 export async function publishContractStatus(params: PublishStatusParams): Promise<void> {
 	try {
+		d.log('publishContractStatus start', {
+			escrowId: params.escrowId,
+			action: params.action,
+			version: VERSION_TAG,
+			transactionHash: params.transactionHash?.slice(0, 18) + '...'
+		});
+
 		let npub = await getNpub();
 		npub = npub.startsWith('npub') ? (nip19.decode(npub).data as string) : npub;
 
@@ -120,13 +149,32 @@ export async function publishContractStatus(params: PublishStatusParams): Promis
 			VERSION_TAG
 		);
 
+		d.log('publishContractStatus Nostr CONTRACT_STATUS event (v2)', {
+			escrowId: params.escrowId,
+			action: params.action,
+			versionTag: VERSION_TAG
+		});
+
 		await publishNostrEvent(KINDS.CONTRACT_STATUS, statusMessage, recipientPubkey, tags);
+
+		d.log('publishContractStatus success', {
+			escrowId: params.escrowId,
+			action: params.action,
+			version: VERSION_TAG
+		});
 	} catch (error) {
+		d.error('publishContractStatus failed', {
+			escrowId: params.escrowId,
+			action: params.action,
+			version: VERSION_TAG,
+			error
+		});
 		console.warn('[V2] Error publishing contract status:', error);
 	}
 }
 
 export async function getContracts(filter?: ContractFilter): Promise<ContractWithEvents[]> {
+	d.log('getContracts start', { filterLimit: filter?.limit });
 	try {
 		let npub = await getNpub();
 		npub = npub.startsWith('npub') ? (nip19.decode(npub).data as string) : npub;
@@ -191,7 +239,7 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 									contractEvent.content.escrowId,
 									contractEvent.id,
 									oldestStale.content.transactionHash
-								).catch(() => { });
+								).catch(() => {});
 							}
 						}
 					}
@@ -209,6 +257,11 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 					// Version-aware blockchain address resolution
 					const contractVersion =
 						contractEvent.tags?.find((t: string[]) => t[0] === 'v')?.[1] || 'v1';
+					d.log('getContracts contract version from Nostr tags', {
+						escrowId: contractEvent.content.escrowId,
+						version: contractVersion,
+						hasV2Tag: contractVersion === 'v2'
+					});
 
 					const v2ContractAddress =
 						currentNetwork === 'mainnet'
@@ -223,12 +276,14 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 
 					const contractAddress =
 						contractEvent.content.contractAddress &&
-							contractEvent.content.contractAddress.toLowerCase() !==
-							defaultAddress?.toLowerCase()
+						contractEvent.content.contractAddress.toLowerCase() !== defaultAddress?.toLowerCase()
 							? contractEvent.content.contractAddress
 							: undefined;
 
-					escrowData = await escrow.loadEscrowDetails(contractEvent.content.escrowId, contractAddress);
+					escrowData = await escrow.loadEscrowDetails(
+						contractEvent.content.escrowId,
+						contractAddress
+					);
 
 					if (escrowData) {
 						blockchainStatus = escrowData.status;
@@ -317,10 +372,13 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 
 		let filteredContracts = contractsWithStatuses;
 		if (filter?.statuses) {
-			filteredContracts = contractsWithStatuses.filter((c) =>
-				filter.statuses!.includes(c.status)
-			);
+			filteredContracts = contractsWithStatuses.filter((c) => filter.statuses!.includes(c.status));
 		}
+
+		d.log('getContracts done', {
+			total: contractsWithStatuses.length,
+			afterFilter: filteredContracts.length
+		});
 
 		return filteredContracts.sort(
 			(a, b) => b.contractEvent.created_at - a.contractEvent.created_at
@@ -329,7 +387,6 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 		throw new Error(error instanceof Error ? error.message : String(error));
 	}
 }
-
 
 /**
  * Delete a contract event (Nostr event)
@@ -580,7 +637,6 @@ export async function handleContractEvent(event: NostrEvent): Promise<void> {
 		const isClient = contractEvent.content.clientPubkey === userPubkeyHex;
 		const isFreelancer = contractEvent.content.freelancerPubkey === userPubkeyHex;
 
-
 		let escrowData: EscrowData | null = null;
 		let blockchainStatus: EscrowStatus | null = null;
 		let isPending = false;
@@ -588,8 +644,7 @@ export async function handleContractEvent(event: NostrEvent): Promise<void> {
 
 		try {
 			// TODO: Add function to load address from escrow manager
-			const contractVersion =
-				event.tags?.find((t: string[]) => t[0] === 'v')?.[1] || 'v1';
+			const contractVersion = event.tags?.find((t: string[]) => t[0] === 'v')?.[1] || 'v1';
 			const currentNetwork = import.meta.env.VITE_RSK_NETWORK;
 			const defaultAddress =
 				contractVersion === 'v2'
@@ -602,7 +657,7 @@ export async function handleContractEvent(event: NostrEvent): Promise<void> {
 
 			const contractAddress =
 				contractEvent.content.contractAddress &&
-					contractEvent.content.contractAddress.toLowerCase() !== defaultAddress?.toLowerCase()
+				contractEvent.content.contractAddress.toLowerCase() !== defaultAddress?.toLowerCase()
 					? contractEvent.content.contractAddress
 					: undefined;
 
@@ -706,10 +761,7 @@ async function decryptContractEvent(
 		const counterpartyPubkey = senderIsUser ? recipientPubkey : event.pubkey;
 		if (!counterpartyPubkey) return null;
 
-		const conversationKey = await nip44.getConversationKey(
-			nsec,
-			counterpartyPubkey
-		);
+		const conversationKey = await nip44.getConversationKey(nsec, counterpartyPubkey);
 		const decrypted = await nip44.decrypt(event.content, conversationKey);
 		const content = JSON.parse(decrypted) as NostrContract;
 
@@ -735,10 +787,7 @@ async function decryptStatusEvent(
 		const counterpartyPubkey = senderIsUser ? recipientPubkey : event.pubkey;
 		if (!counterpartyPubkey) return null;
 
-		const conversationKey = await nip44.getConversationKey(
-			nsec,
-			counterpartyPubkey
-		);
+		const conversationKey = await nip44.getConversationKey(nsec, counterpartyPubkey);
 		const decrypted = await nip44.decrypt(event.content, conversationKey);
 		const content = JSON.parse(decrypted) as NostrContractStatus;
 

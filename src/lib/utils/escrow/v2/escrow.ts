@@ -15,8 +15,10 @@ import { EscrowStatus, mapBlockchainStateToEnum } from './escrow.enum';
 import { getProvider, getWallet } from '$lib/stores/wallet.store';
 import * as EscrowNostrEvent from './escrowEvents';
 import { submitEscrowWrite } from '../relayClient';
+import { createDebug } from '$lib/utils/debug';
 import escrowABI from './abi.json';
 
+const d = createDebug('escrow:v2');
 const getRelayBaseUrl = (): string | undefined =>
 	typeof import.meta.env.VITE_RELAY_URL === 'string' ? import.meta.env.VITE_RELAY_URL : undefined;
 
@@ -46,6 +48,7 @@ export async function ensureEscrowReady(
 	wallet: ethers.Wallet;
 	provider: ethers.JsonRpcProvider;
 }> {
+	d.log('ensureEscrowReady', { contractAddress: contractAddress ?? 'default', requireBalance });
 	let wallet = getRSKWallet();
 	if (!wallet) {
 		try {
@@ -128,10 +131,12 @@ export async function ensureEscrowReady(
 		}
 	}
 
+	d.log('ensureEscrowReady done', { hasContract: !!targetContract });
 	return { contract: targetContract, wallet, provider };
 }
 
 async function connectToEscrowContract(): Promise<void> {
+	d.log('connectToEscrowContract');
 	const wallet = getRSKWallet();
 	const provider = getRSKProvider();
 
@@ -151,8 +156,14 @@ async function connectToEscrowContract(): Promise<void> {
 			throw new Error(`V2 contract address not configured for ${network}.`);
 		}
 
+		d.log('connectToEscrowContract V2', {
+			network,
+			contractAddress: contractAddress.slice(0, 10) + '...'
+		});
+
 		const checksummedAddress = ethers.getAddress(contractAddress.toLowerCase());
 		contract = new ethers.Contract(checksummedAddress, escrowABI, wallet);
+		d.log('connectToEscrowContract done');
 	} catch (error) {
 		throw new Error(
 			`Failed to connect to V2 contract: ${error instanceof Error ? error.message : 'Unknown error'}`
@@ -171,6 +182,7 @@ export function calculateTotalPayment(baseAmount: bigint, clientFeeTier: FeeTier
 }
 
 async function loadEscrowDetails(escrowId: string, contractAddress?: string): Promise<EscrowData> {
+	d.log('loadEscrowDetails', { escrowId, contractAddress: contractAddress ?? 'default' });
 	const MAX_RETRIES = 2;
 	let lastError: Error | null = null;
 
@@ -180,26 +192,26 @@ async function loadEscrowDetails(escrowId: string, contractAddress?: string): Pr
 
 			if (!targetContract) throw new Error('Contract not found');
 
-			const escrowData = await targetContract.getEscrow(escrowId);
+			const paymentData = await targetContract.getPaymentContract(escrowId);
 
 			const escrow: EscrowData = {
 				id: escrowId,
-				client: escrowData.client?.toLowerCase() || '',
-				freelancer: escrowData.freelancer?.toLowerCase() || '',
-				baseAmount: ethers.formatEther(escrowData.amount),
+				client: paymentData.tasker?.toLowerCase() || '',
+				freelancer: paymentData.taskee?.toLowerCase() || '',
+				baseAmount: ethers.formatEther(paymentData.amount),
 				clientFee: '0',
 				freelancerFee: '0',
-				totalAmount: ethers.formatEther(escrowData.amount),
-				status: mapBlockchainStateToEnum(Number(escrowData.state)),
-				estimatedStartTime: Number(escrowData.estimatedStartTime),
-				estimatedCompletionTime: Number(escrowData.estimatedCompletionTime),
+				totalAmount: ethers.formatEther(paymentData.amount),
+				status: mapBlockchainStateToEnum(Number(paymentData.state)),
+				estimatedStartTime: Number(paymentData.estimatedStartTime),
+				estimatedCompletionTime: Number(paymentData.estimatedCompletionTime),
 				completionTime: 0,
-				timelockExpiry: Number(escrowData.timelockEnd),
-				clientFeeTier: Number(escrowData.clientFeeTier) as FeeTier,
-				freelancerFeeTier: Number(escrowData.freelancerFeeTier) as FeeTier,
-				createdAt: Number(escrowData.createdAt) * 1000,
+				timelockExpiry: Number(paymentData.timelockEnd),
+				clientFeeTier: Number(paymentData.taskerFeeTier) as FeeTier,
+				freelancerFeeTier: Number(paymentData.taskeeFeeTier) as FeeTier,
+				createdAt: Number(paymentData.createdAt) * 1000,
 				lastUpdated: Date.now(),
-				noShowMarked: Boolean(escrowData.noShowMarked)
+				noShowMarked: Boolean(paymentData.noShowMarked)
 			};
 
 			return escrow;
@@ -235,6 +247,12 @@ async function createEscrow(
 	cancellationFee: bigint = 0n,
 	upfrontDeposit: bigint = 0n
 ): Promise<ContractTransactionResult> {
+	d.log('createEscrow start', {
+		baseAmount,
+		estimatedStartTime,
+		estimatedCompletionTime,
+		freelancerAddressPrefix: freelancerAddress.slice(0, 10) + '...'
+	});
 	try {
 		const { contract, provider, wallet } = await ensureEscrowReady();
 
@@ -245,7 +263,7 @@ async function createEscrow(
 		const feeDataForEstimate = await provider.getFeeData();
 		const gasPriceForEstimate = feeDataForEstimate.gasPrice || 0n;
 
-		const gasEstimate = await contract.createEscrow.estimateGas(
+		const gasEstimate = await contract.createPaymentContract.estimateGas(
 			freelancerAddressEip55,
 			estimatedStartTime,
 			estimatedCompletionTime,
@@ -259,7 +277,7 @@ async function createEscrow(
 		const feeDataForTx = await provider.getFeeData();
 		const gasPriceForTx = feeDataForTx.gasPrice || 0n;
 
-		const tx = await contract.createEscrow(
+		const tx = await contract.createPaymentContract(
 			freelancerAddressEip55,
 			estimatedStartTime,
 			estimatedCompletionTime,
@@ -278,6 +296,8 @@ async function createEscrow(
 			hash: tx.hash,
 			status: 'pending'
 		};
+
+		d.log('createEscrow tx broadcast (direct, payable)', { hash: tx.hash.slice(0, 18) + '...' });
 
 		const TX_WAIT_TIMEOUT = 5 * 60 * 1000;
 		Promise.race([
@@ -300,27 +320,32 @@ async function createEscrow(
 							return;
 						}
 
-						const escrowCreatedEvent = receipt.logs.find((log) => {
+						const paymentContractCreatedEvent = receipt.logs.find((log) => {
 							try {
 								const parsedLog = contract.interface.parseLog({
 									topics: log.topics,
 									data: log.data
 								});
-								return parsedLog?.name === 'EscrowCreated';
+								return parsedLog?.name === 'PaymentContractCreated';
 							} catch {
 								return false;
 							}
 						});
 
-						if (escrowCreatedEvent) {
+						if (paymentContractCreatedEvent) {
 							const parsedLog = contract.interface.parseLog({
-								topics: escrowCreatedEvent.topics,
-								data: escrowCreatedEvent.data
+								topics: paymentContractCreatedEvent.topics,
+								data: paymentContractCreatedEvent.data
 							});
 
 							if (parsedLog) {
 								const escrowId = parsedLog.args[0].toString();
 								result.escrowId = escrowId;
+
+								d.log('createEscrow PaymentContractCreated confirmed, triggering Nostr publish', {
+									escrowId,
+									txHash: receipt.hash.slice(0, 18) + '...'
+								});
 
 								await EscrowNostrEvent.handleEscrowCreated({
 									escrowId,
@@ -331,10 +356,10 @@ async function createEscrow(
 								});
 							}
 						} else {
-							console.warn('[V2] EscrowCreated event not found in transaction receipt');
+							console.warn('[V2] PaymentContractCreated event not found in transaction receipt');
 							EscrowNostrEvent.cleanupPendingContractByTxHash(receipt.hash);
 							appStore.showErrorToast(
-								'Escrow transaction succeeded, but EscrowCreated event was not found.'
+								'Escrow transaction succeeded, but PaymentContractCreated event was not found.'
 							);
 						}
 					} catch (error) {
@@ -370,6 +395,7 @@ async function completeTask(
 	contractEventId?: string,
 	completionAttachments?: Attachment[]
 ): Promise<ContractTransactionResult> {
+	d.log('completeTask start', { escrowId, contractEventId, useGasless: !!getRelayBaseUrl() });
 	try {
 		const { contract, wallet, provider } = await ensureEscrowReady(undefined, false);
 
@@ -382,6 +408,11 @@ async function completeTask(
 			contractAddress: await contract.getAddress(),
 			relayBaseUrl: getRelayBaseUrl(),
 			useGasless: true
+		});
+
+		d.log('completeTask submitEscrowWrite returned', {
+			escrowId,
+			hash: hash.slice(0, 18) + '...'
 		});
 
 		const result: ContractTransactionResult = { hash, escrowId, status: 'pending' };
@@ -401,6 +432,7 @@ async function completeTask(
 				if (receipt) {
 					result.status = 'confirmed';
 					result.gasUsed = receipt.gasUsed.toString();
+					d.log('completeTask confirmed', { escrowId, txHash: receipt.hash.slice(0, 18) + '...' });
 					if (contractEventId) {
 						await EscrowNostrEvent.publishEscrowStatus({
 							escrowId,
@@ -412,10 +444,12 @@ async function completeTask(
 					}
 				} else {
 					result.status = 'failed';
+					d.warn('completeTask receipt null');
 					appStore.showErrorToast(get(t)('dashboard.contracts.actions.task_completed_error'));
 				}
 			})
 			.catch((error: unknown) => {
+				d.error('completeTask wait failed', { escrowId, error });
 				console.error('[V2] Task completion transaction failed:', error);
 				result.status = 'failed';
 				appStore.showErrorToast(get(t)('dashboard.contracts.actions.task_completed_error'));
@@ -423,6 +457,7 @@ async function completeTask(
 
 		return result;
 	} catch (error) {
+		d.error('completeTask failed', { escrowId, error });
 		throw new Error(
 			`Failed to complete task: ${error instanceof Error ? error.message : 'Unknown error'}`
 		);
@@ -431,8 +466,10 @@ async function completeTask(
 
 async function acceptTask(
 	escrowId: string,
-	contractEventId?: string
+	contractEventId?: string,
+	options?: { onConfirmed?: () => Promise<void> }
 ): Promise<ContractTransactionResult> {
+	d.log('acceptTask start', { escrowId, contractEventId, useGasless: !!getRelayBaseUrl() });
 	try {
 		const { contract, wallet, provider } = await ensureEscrowReady(undefined, false);
 
@@ -445,6 +482,11 @@ async function acceptTask(
 			contractAddress: await contract.getAddress(),
 			relayBaseUrl: getRelayBaseUrl(),
 			useGasless: true
+		});
+
+		d.log('acceptTask submitEscrowWrite returned', {
+			escrowId,
+			hash: hash.slice(0, 18) + '...'
 		});
 
 		const result: ContractTransactionResult = { hash, escrowId, status: 'pending' };
@@ -463,6 +505,7 @@ async function acceptTask(
 				if (receipt) {
 					result.status = 'confirmed';
 					result.gasUsed = receipt.gasUsed.toString();
+					d.log('acceptTask confirmed', { escrowId, txHash: receipt.hash.slice(0, 18) + '...' });
 					if (contractEventId) {
 						await EscrowNostrEvent.publishEscrowStatus({
 							escrowId,
@@ -471,12 +514,20 @@ async function acceptTask(
 							status: EscrowStatus.FundsReleased
 						});
 					}
+					// Task status update to COMPLETED (Nostr after chain confirmation)
+					try {
+						await options?.onConfirmed?.();
+					} catch (err) {
+						d.error('acceptTask onConfirmed failed', { escrowId, error: err });
+					}
 				} else {
 					result.status = 'failed';
+					d.warn('acceptTask receipt null');
 					appStore.showErrorToast(get(t)('dashboard.contracts.actions.payment_released_error'));
 				}
 			})
 			.catch((error: unknown) => {
+				d.error('acceptTask wait failed', { escrowId, error });
 				console.error('[V2] Task acceptance transaction failed:', error);
 				result.status = 'failed';
 				appStore.showErrorToast(get(t)('dashboard.contracts.actions.payment_released_error'));
@@ -484,6 +535,7 @@ async function acceptTask(
 
 		return result;
 	} catch (error) {
+		d.error('acceptTask failed', { escrowId, error });
 		throw new Error(
 			`Failed to accept task: ${error instanceof Error ? error.message : 'Unknown error'}`
 		);
