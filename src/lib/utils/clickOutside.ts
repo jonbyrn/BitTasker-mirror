@@ -1,21 +1,14 @@
 export type ClickOutsideOptions = {
 	callback: () => void;
 	exclude?: string;
-	/** Ignore outside clicks until this timestamp (ms). Use to avoid iOS ghost click closing dropdown right after open. */
-	getIgnoreUntil?: () => number;
 };
 
-type ClickOutsideAction = (
-	node: HTMLElement,
-	options?: ClickOutsideOptions
-) => { destroy: () => void };
+type ClickOutsideAction = (node: HTMLElement, options?: ClickOutsideOptions) => { destroy: () => void };
 
 export const clickOutside: ClickOutsideAction = (node, options) => {
-	const handleClick = (event: MouseEvent) => {
+		// Handle both mouse and touch events so iOS Safari reliably detects outside taps
+	const handleEvent = (event: Event) => {
 		if (!node) return;
-
-		const ignoreUntil = options?.getIgnoreUntil?.();
-		if (typeof ignoreUntil === 'number' && Date.now() < ignoreUntil) return;
 
 		const target = event.target as Node;
 
@@ -29,16 +22,23 @@ export const clickOutside: ClickOutsideAction = (node, options) => {
 		}
 
 		if (node.contains(target)) return;
+		// For passive touch listeners defaultPrevented will always be false, but this is
+		// still useful for normal click handlers.
 		if (event.defaultPrevented) return;
 
 		options?.callback?.();
 	};
 
-	document.addEventListener('click', handleClick, true);
+	const touchOptions: AddEventListenerOptions = { passive: true, capture: true };
+
+	document.addEventListener('click', handleEvent, true);
+	document.addEventListener('touchstart', handleEvent, touchOptions);
 
 	return {
 		destroy() {
-			document.removeEventListener('click', handleClick, true);
+			document.removeEventListener('click', handleEvent, true);
+			// When removing, only `capture` matters for matching; `passive` is ignored.
+			document.removeEventListener('touchstart', handleEvent, { capture: true } as EventListenerOptions);
 		}
 	};
 };

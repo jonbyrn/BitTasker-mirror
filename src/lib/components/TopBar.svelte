@@ -43,9 +43,8 @@
 	// Dropdown state - track which section ID is open
 	let openSectionId = $state<string | null>(null);
 
-	// Control avatar dropdown visibility
-	let isAvatarDropdownOpen = $state(false);
-	let avatarDropdownOpenedAt = 0;
+	// Avatar dropdown <details> element (used to close programmatically on actions like logout)
+	let avatarDropdownDetails = $state<HTMLDetailsElement | null>(null);
 
 	function popoverTransition(
 		node: Element,
@@ -75,16 +74,10 @@
 		void triggerHaptic(ImpactStyle.Light);
 	}
 
-	const AVATAR_DEBUG =
-		typeof window !== 'undefined' && window.location?.search?.includes('avatar-debug=1');
-
-	// Toggle avatar dropdown. Content has pointer-events-none so the button always receives the tap (iOS-safe).
-	function toggleAvatarDropdown(event: MouseEvent) {
-		event.stopPropagation();
-		const next = !isAvatarDropdownOpen;
-		if (next) avatarDropdownOpenedAt = Date.now();
-		isAvatarDropdownOpen = next;
-		if (AVATAR_DEBUG) console.log('[AvatarDropdown]', next ? 'open' : 'close');
+	function closeAvatarDropdown() {
+		if (avatarDropdownDetails?.open) {
+			avatarDropdownDetails.removeAttribute('open');
+		}
 	}
 
 	// Initialize stores when component mounts
@@ -146,9 +139,8 @@
 	async function handleMenuItemClick(event: MouseEvent, action?: string, href?: string) {
 		event.preventDefault();
 		event.stopPropagation();
-		if (AVATAR_DEBUG) console.log('[AvatarDropdown] close (menu item)');
 		closeDropdowns();
-		isAvatarDropdownOpen = false;
+		closeAvatarDropdown();
 		if (action === 'logout') {
 			logout();
 		} else if (href) {
@@ -159,7 +151,7 @@
 	function logout() {
 		closeDrawer();
 		closeDropdowns();
-		isAvatarDropdownOpen = false;
+		closeAvatarDropdown();
 		showLogoutModal = true;
 	}
 
@@ -322,65 +314,50 @@
 		{:else}
 			<!-- Notification Center -->
 			<NotificationCenter />
-			<!-- Avatar dropdown: button receives tap (content pointer-events-none); ignore outside 400ms after open (iOS ghost click) -->
-			<div
-				class="dropdown dropdown-end relative"
-				use:clickOutside={{
-					callback: () => {
-						if (AVATAR_DEBUG) console.log('[AvatarDropdown] close (click outside)');
-						isAvatarDropdownOpen = false;
-					},
-					exclude: '#avatar-dropdown-trigger',
-					getIgnoreUntil: () => avatarDropdownOpenedAt + 400
-				}}
-			>
-				<button
+			<!-- Avatar dropdown: native <details>/<summary> so browser handles open/close (iOS-safe).
+			     Avatar content has pointer-events-none so the summary/button reliably receives the tap. -->
+			<details class="dropdown dropdown-end relative" bind:this={avatarDropdownDetails}>
+				<summary
 					id="avatar-dropdown-trigger"
-					type="button"
-					class="btn btn-ghost flex h-10 min-h-[44px] w-10 min-w-[44px] shrink-0 items-center justify-center rounded-full p-0"
-					aria-haspopup="true"
-					aria-expanded={isAvatarDropdownOpen}
+					class="btn btn-ghost flex h-10 min-h-[44px] w-10 min-w-[44px] shrink-0 items-center justify-center rounded-full p-0 list-none"
 					aria-label={$t('common.components.topbar.open_menu')}
-					onclick={toggleAvatarDropdown}
 				>
 					<span class="pointer-events-none">
 						<Avatar name={$user.name} picture={userPicture()} size="sm" />
 					</span>
-				</button>
-				{#if isAvatarDropdownOpen}
-					<div
-						class="menu dropdown-content bg-base-100 rounded-box right-0 z-10 mt-2 w-56 p-2 shadow-md"
-						style="transform-origin: top right;"
-						role="menu"
-						tabindex="-1"
-						onclick={(e) => e.stopPropagation()}
-						onkeydown={(e) => {
-							if (e.key === 'Escape') {
-								isAvatarDropdownOpen = false;
-							}
-						}}
-						transition:popoverTransition={{ duration: 200, y: -8, start: 0.98 }}
-					>
-						<ul>
-							<!-- User Info Header -->
-							{#if userDisplayName}
-								<li class="border-b border-base-300 pb-2 mb-2">
-									<button
-										onclick={showNpubQrCode}
-										class="flex w-full items-center gap-2 whitespace-nowrap"
-									>
-										<IconQrcode class="text-primary" />
-										<span class="wrap-break-words whitespace-normal font-bold">{userDisplayName}</span>
-									</button>
-								</li>
-							{/if}
-							{#each AVATAR_MENU_ITEMS as item}
-								{@render menuItem(item)}
-							{/each}
-						</ul>
-					</div>
-				{/if}
-			</div>
+				</summary>
+				<div
+					class="menu dropdown-content bg-base-100 rounded-box right-0 z-10 mt-2 w-56 p-2 shadow-md"
+					style="transform-origin: top right;"
+					role="menu"
+					tabindex="-1"
+					onclick={(e) => e.stopPropagation()}
+					onkeydown={(e) => {
+						if (e.key === 'Escape') {
+							closeAvatarDropdown();
+						}
+					}}
+					transition:popoverTransition={{ duration: 200, y: -8, start: 0.98 }}
+				>
+					<ul>
+						<!-- User Info Header -->
+						{#if userDisplayName}
+							<li class="border-b border-base-300 pb-2 mb-2">
+								<button
+									onclick={showNpubQrCode}
+									class="flex w-full items-center gap-2 whitespace-nowrap"
+								>
+									<IconQrcode class="text-primary" />
+									<span class="wrap-break-words whitespace-normal font-bold">{userDisplayName}</span>
+								</button>
+							</li>
+						{/if}
+						{#each AVATAR_MENU_ITEMS as item}
+							{@render menuItem(item)}
+						{/each}
+					</ul>
+				</div>
+			</details>
 		{/if}
 	</div>
 </div>
