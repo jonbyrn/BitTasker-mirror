@@ -43,8 +43,8 @@
 	// Dropdown state - track which section ID is open
 	let openSectionId = $state<string | null>(null);
 
-	// Avatar dropdown <details> element (used to close programmatically on actions like logout)
-	let avatarDropdownDetails = $state<HTMLDetailsElement | null>(null);
+	// Avatar dropdown state (Svelte-controlled, used with overlay/backdrop)
+	let isAvatarDropdownOpen = $state(false);
 
 	function popoverTransition(
 		node: Element,
@@ -74,10 +74,13 @@
 		void triggerHaptic(ImpactStyle.Light);
 	}
 
+	function toggleAvatarDropdown(event: MouseEvent) {
+		event.stopPropagation();
+		isAvatarDropdownOpen = !isAvatarDropdownOpen;
+	}
+
 	function closeAvatarDropdown() {
-		if (avatarDropdownDetails?.open) {
-			avatarDropdownDetails.removeAttribute('open');
-		}
+		isAvatarDropdownOpen = false;
 	}
 
 	// Initialize stores when component mounts
@@ -314,50 +317,74 @@
 		{:else}
 			<!-- Notification Center -->
 			<NotificationCenter />
-			<!-- Avatar dropdown: native <details>/<summary> so browser handles open/close (iOS-safe).
-			     Avatar content has pointer-events-none so the summary/button reliably receives the tap. -->
-			<details class="dropdown dropdown-end relative" bind:this={avatarDropdownDetails}>
-				<summary
+			<!-- Avatar dropdown: Svelte-controlled overlay with backdrop (no <details>, no DaisyUI dropdown logic) -->
+			<div class="relative flex items-center">
+				<button
 					id="avatar-dropdown-trigger"
-					class="btn btn-ghost flex h-10 min-h-[44px] w-10 min-w-[44px] shrink-0 items-center justify-center rounded-full p-0 list-none"
+					class="btn btn-ghost flex h-10 min-h-[44px] w-10 min-w-[44px] shrink-0 items-center justify-center rounded-full p-0"
+					aria-haspopup="true"
+					aria-expanded={isAvatarDropdownOpen}
 					aria-label={$t('common.components.topbar.open_menu')}
+					onclick={toggleAvatarDropdown}
 				>
 					<span class="pointer-events-none">
 						<Avatar name={$user.name} picture={userPicture()} size="sm" />
 					</span>
-				</summary>
-				<div
-					class="menu dropdown-content bg-base-100 rounded-box right-0 z-10 mt-2 w-56 p-2 shadow-md"
-					style="transform-origin: top right;"
-					role="menu"
-					tabindex="-1"
-					onclick={(e) => e.stopPropagation()}
-					onkeydown={(e) => {
-						if (e.key === 'Escape') {
+				</button>
+
+				{#if isAvatarDropdownOpen}
+					<!-- Backdrop: absorbs any tap outside the menu and closes it -->
+					<div
+						class="fixed inset-0 z-90"
+						role="button"
+						tabindex="0"
+						onclick={(e) => {
+							e.stopPropagation();
 							closeAvatarDropdown();
-						}
-					}}
-					transition:popoverTransition={{ duration: 200, y: -8, start: 0.98 }}
-				>
-					<ul>
-						<!-- User Info Header -->
-						{#if userDisplayName}
-							<li class="border-b border-base-300 pb-2 mb-2">
-								<button
-									onclick={showNpubQrCode}
-									class="flex w-full items-center gap-2 whitespace-nowrap"
-								>
-									<IconQrcode class="text-primary" />
-									<span class="wrap-break-words whitespace-normal font-bold">{userDisplayName}</span>
-								</button>
-							</li>
-						{/if}
-						{#each AVATAR_MENU_ITEMS as item}
-							{@render menuItem(item)}
-						{/each}
-					</ul>
-				</div>
-			</details>
+						}}
+						onkeydown={(e) => {
+							if (e.key === 'Enter' || e.key === ' ') {
+								e.preventDefault();
+								closeAvatarDropdown();
+							}
+						}}
+					></div>
+
+					<!-- Floating menu -->
+					<div
+						class="menu bg-base-100 rounded-box absolute right-0 top-[calc(100%+0.5rem)] z-100 mt-2 w-56 p-2 shadow-md"
+						style="transform-origin: top right;"
+						role="menu"
+						tabindex="-1"
+						onclick={(e) => e.stopPropagation()}
+						onkeydown={(e) => {
+							if (e.key === 'Escape') {
+								closeAvatarDropdown();
+							}
+						}}
+						transition:popoverTransition={{ duration: 200, y: -8, start: 0.98 }}
+					>
+						<ul class="relative z-101">
+							<!-- User Info Header -->
+							{#if userDisplayName}
+								<li class="border-base-300 mb-2 border-b pb-2">
+									<button
+										onclick={showNpubQrCode}
+										class="flex w-full items-center gap-2 whitespace-nowrap"
+									>
+										<IconQrcode class="text-primary" />
+										<span class="wrap-break-words whitespace-normal font-bold">{userDisplayName}</span>
+									</button>
+								</li>
+							{/if}
+
+							{#each AVATAR_MENU_ITEMS as item}
+								{@render menuItem(item)}
+							{/each}
+						</ul>
+					</div>
+				{/if}
+			</div>
 		{/if}
 	</div>
 </div>
@@ -454,21 +481,6 @@
 	/* Add bottom spacing when bottom nav is present */
 	:global(body) {
 		margin-bottom: 0;
-	}
-
-	/* Remove hover effect and reduce padding for avatar dropdown summary */
-	:global(.navbar-end .dropdown-end > summary.btn.btn-ghost) {
-		background: none !important;
-		box-shadow: none !important;
-		color: inherit !important;
-		padding: 0.25rem 0.5rem !important;
-		transition: none !important;
-	}
-	:global(.navbar-end .dropdown-end > summary.btn.btn-ghost:hover),
-	:global(.navbar-end .dropdown-end > summary.btn.btn-ghost:focus) {
-		background: none !important;
-		box-shadow: none !important;
-		color: inherit !important;
 	}
 
 	/* Ensure dropdown positioning works correctly in navbar */
