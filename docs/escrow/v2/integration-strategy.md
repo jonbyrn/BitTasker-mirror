@@ -25,7 +25,7 @@ _Check off items as you complete them. Use the detailed phase checklists in [§6
 | Phase | Description                 | Status |
 | ----- | --------------------------- | ------ |
 | 1     | Core Module Setup           | [x]    |
-| 2     | Gasless / Relay Integration | [ ]    |
+| 2     | Gasless / Relay Integration | [x]    |
 | 3     | Core Function Adaptations   | [ ]    |
 | 4     | New v2 Features             | [ ]    |
 | 5     | Error Handling              | [ ]    |
@@ -48,7 +48,7 @@ _Check off items as you complete them. Use the detailed phase checklists in [§6
 | `src/lib/utils/escrow/v2/escrow.enum.ts`                     | v2 EscrowStatus enum                     | [x]  |
 | `src/lib/utils/escrow/v2/nostrContract.ts`                   | Nostr sync for v2                        | [x]  |
 | `src/lib/utils/escrow/v2/index.ts`                           | v2 module exports                        | [x]  |
-| `src/lib/utils/escrow/relayClient.ts` (or `escrowSubmit.ts`) | Gasless relay client / submitEscrowWrite | [ ]  |
+| `src/lib/utils/escrow/relayClient.ts` (or `escrowSubmit.ts`) | Gasless relay client / submitEscrowWrite | [x]  |
 
 ### Files to Modify
 
@@ -63,17 +63,17 @@ _Check off items as you complete them. Use the detailed phase checklists in [§6
 
 ### Gasless Integration Checklist
 
-| Task                                              | Done |
-| ------------------------------------------------- | ---- |
-| Relay client module created                       | [ ]  |
-| Meta-tx building (encode data, sign EIP-191)      | [ ]  |
-| `POST /relay` with retries                        | [ ]  |
-| Receipt polling for relay txHash                  | [ ]  |
-| Fallback to direct on relay failure               | [ ]  |
-| `submitEscrowWrite` wired into v2 write functions | [ ]  |
-| `createPaymentContract` kept direct-only          | [ ]  |
-| `VITE_RELAY_URL` configured                       | [ ]  |
-| Gasless path tested end-to-end                    | [ ]  |
+| Task                                                | Done |
+| --------------------------------------------------- | ---- |
+| Relay client module created                         | [x]  |
+| Meta-tx building (encode data, sign EIP-191)        | [x]  |
+| `POST /relay` with retries                          | [x]  |
+| Receipt polling for relay txHash                    | [x]  |
+| Fallback to direct on relay failure                 | [x]  |
+| `submitEscrowWrite` wired into v2 write functions   | [x]  |
+| `createPaymentContract` kept direct-only            | [x]  |
+| `VITE_RELAY_URL` configured (added to .env.example) | [x]  |
+| Gasless path tested end-to-end                      | [ ]  |
 
 ---
 
@@ -1750,25 +1750,25 @@ _Use this section for step-by-step tracking. Mark `[ ]` → `[x]` as you complet
 
 ### Phase 2: Gasless / Relay Integration (v2)
 
-- [ ] Create relay client or `submitEscrowWrite` module (see `docs/escrow/v2/gasless-frontend-integration.md`)
-- [ ] Implement meta-tx building: encode `data`, sign EIP-191 over `keccak256(solidityPacked(sender, contract, keccak256(data), chainId))`
-- [ ] Implement `POST /relay` with retries on 5xx/timeout; fall back to direct on failure
-- [ ] Implement receipt polling for relay-returned txHash
-- [ ] Wire `submitEscrowWrite` into each v2 write function:
-  - [ ] `completeTask`
-  - [ ] `acceptTask`
-  - [ ] `cancelPaymentContract` (cancelEscrow)
-  - [ ] `disputeTask`
-  - [ ] `proposeResolution`
-  - [ ] `acceptProposal`
-  - [ ] `resolveAfterTimelock`
-  - [ ] `refundTasker`
-  - [ ] `markNoShow`
-  - [ ] `markWorkInProgress`
-  - [ ] `claimNoShowRefund`
-  - [ ] `claimUpfrontDeposit`
-- [ ] Keep `createPaymentContract` always direct (payable)
-- [ ] Configure `VITE_RELAY_URL` per environment
+- [x] Create relay client or `submitEscrowWrite` module (see `docs/escrow/v2/gasless-frontend-integration.md`)
+- [x] Implement meta-tx building: encode `data`, sign EIP-191 over `keccak256(solidityPacked(sender, contract, keccak256(data), chainId))`
+- [x] Implement `POST /relay` with retries on 5xx/timeout; fall back to direct on failure
+- [x] Implement receipt polling for relay-returned txHash
+- [x] Wire `submitEscrowWrite` into each v2 write function:
+  - [x] `completeTask`
+  - [x] `acceptTask`
+  - [x] `cancelPaymentContract` (cancelEscrow)
+  - [x] `disputeTask`
+  - [x] `proposeResolution`
+  - [x] `acceptProposal`
+  - [x] `resolveAfterTimelock`
+  - [ ] `refundTasker` (not yet exported from v2 escrow)
+  - [x] `markNoShow`
+  - [x] `markWorkInProgress`
+  - [x] `claimNoShowRefund`
+  - [x] `claimUpfrontDeposit`
+- [x] Keep `createPaymentContract` always direct (payable)
+- [x] Configure `VITE_RELAY_URL` per environment (added to .env.example)
 
 ### Phase 3: Core Function Adaptations
 

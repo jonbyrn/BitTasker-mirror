@@ -5,6 +5,7 @@ import {
 	FEE_TIERS
 } from '@bittasker/wallet-core';
 import type { ContractTransactionResult, EscrowData } from '$lib/types/wallet';
+import type { EscrowError } from '$lib/utils/helpers/escrowErrors';
 import type { Attachment } from '$lib/types/task';
 import { t } from 'svelte-i18n';
 import { get } from 'svelte/store';
@@ -13,7 +14,11 @@ import { ethers, type JsonRpcProvider } from 'ethers';
 import { EscrowStatus, mapBlockchainStateToEnum } from './escrow.enum';
 import { getProvider, getWallet } from '$lib/stores/wallet.store';
 import * as EscrowNostrEvent from './escrowEvents';
+import { submitEscrowWrite } from '../relayClient';
 import escrowABI from './abi.json';
+
+const getRelayBaseUrl = (): string | undefined =>
+	typeof import.meta.env.VITE_RELAY_URL === 'string' ? import.meta.env.VITE_RELAY_URL : undefined;
 
 let contract: ethers.Contract | null = null;
 const legacyContracts = new Map<string, ethers.Contract>();
@@ -366,30 +371,32 @@ async function completeTask(
 	completionAttachments?: Attachment[]
 ): Promise<ContractTransactionResult> {
 	try {
-		const { contract, provider } = await ensureEscrowReady();
+		const { contract, wallet, provider } = await ensureEscrowReady(undefined, false);
 
-		const feeData = await provider.getFeeData();
-		const gasPrice = feeData.gasPrice || 0n;
-
-		const gasEstimate = await contract.completeTask.estimateGas(escrowId, { gasPrice });
-		const tx = await contract.completeTask(escrowId, {
-			gasLimit: gasEstimate + gasEstimate / 10n,
-			gasPrice
+		const { hash, wait } = await submitEscrowWrite({
+			contract,
+			wallet,
+			provider,
+			method: 'completeTask',
+			args: [escrowId],
+			contractAddress: await contract.getAddress(),
+			relayBaseUrl: getRelayBaseUrl(),
+			useGasless: true
 		});
 
-		const result: ContractTransactionResult = { hash: tx.hash, escrowId, status: 'pending' };
+		const result: ContractTransactionResult = { hash, escrowId, status: 'pending' };
 
 		if (contractEventId) {
 			await EscrowNostrEvent.publishEscrowStatus({
 				escrowId,
 				contractEventId,
-				transactionHash: tx.hash,
+				transactionHash: hash,
 				status: EscrowStatus.PendingCompletion,
 				completionAttachments
 			});
 		}
 
-		tx.wait()
+		wait()
 			.then(async (receipt: ethers.TransactionReceipt | null) => {
 				if (receipt) {
 					result.status = 'confirmed';
@@ -427,29 +434,31 @@ async function acceptTask(
 	contractEventId?: string
 ): Promise<ContractTransactionResult> {
 	try {
-		const { contract, provider } = await ensureEscrowReady();
+		const { contract, wallet, provider } = await ensureEscrowReady(undefined, false);
 
-		const feeData = await provider.getFeeData();
-		const gasPrice = feeData.gasPrice || 0n;
-
-		const gasEstimate = await contract.acceptTask.estimateGas(escrowId, { gasPrice });
-		const tx = await contract.acceptTask(escrowId, {
-			gasLimit: gasEstimate + gasEstimate / 10n,
-			gasPrice
+		const { hash, wait } = await submitEscrowWrite({
+			contract,
+			wallet,
+			provider,
+			method: 'acceptTask',
+			args: [escrowId],
+			contractAddress: await contract.getAddress(),
+			relayBaseUrl: getRelayBaseUrl(),
+			useGasless: true
 		});
 
-		const result: ContractTransactionResult = { hash: tx.hash, escrowId, status: 'pending' };
+		const result: ContractTransactionResult = { hash, escrowId, status: 'pending' };
 
 		if (contractEventId) {
 			await EscrowNostrEvent.publishEscrowStatus({
 				escrowId,
 				contractEventId,
-				transactionHash: tx.hash,
+				transactionHash: hash,
 				status: EscrowStatus.PendingAcceptance
 			});
 		}
 
-		tx.wait()
+		wait()
 			.then(async (receipt: ethers.TransactionReceipt | null) => {
 				if (receipt) {
 					result.status = 'confirmed';
@@ -486,29 +495,31 @@ async function cancelEscrow(
 	contractEventId?: string
 ): Promise<ContractTransactionResult> {
 	try {
-		const { contract, provider } = await ensureEscrowReady();
+		const { contract, wallet, provider } = await ensureEscrowReady(undefined, false);
 
-		const feeData = await provider.getFeeData();
-		const gasPrice = feeData.gasPrice || 0n;
-
-		const gasEstimate = await contract.cancelEscrow.estimateGas(escrowId, { gasPrice });
-		const tx = await contract.cancelEscrow(escrowId, {
-			gasLimit: gasEstimate + gasEstimate / 10n,
-			gasPrice
+		const { hash, wait } = await submitEscrowWrite({
+			contract,
+			wallet,
+			provider,
+			method: 'cancelPaymentContract',
+			args: [escrowId],
+			contractAddress: await contract.getAddress(),
+			relayBaseUrl: getRelayBaseUrl(),
+			useGasless: true
 		});
 
-		const result: ContractTransactionResult = { hash: tx.hash, escrowId, status: 'pending' };
+		const result: ContractTransactionResult = { hash, escrowId, status: 'pending' };
 
 		if (contractEventId) {
 			await EscrowNostrEvent.publishEscrowStatus({
 				escrowId,
 				contractEventId,
-				transactionHash: tx.hash,
+				transactionHash: hash,
 				status: EscrowStatus.PendingCancellation
 			});
 		}
 
-		tx.wait()
+		wait()
 			.then(async (receipt: ethers.TransactionReceipt | null) => {
 				if (receipt) {
 					result.status = 'confirmed';
@@ -545,29 +556,31 @@ async function disputeTask(
 	contractEventId?: string
 ): Promise<ContractTransactionResult> {
 	try {
-		const { contract, provider } = await ensureEscrowReady();
+		const { contract, wallet, provider } = await ensureEscrowReady(undefined, false);
 
-		const feeData = await provider.getFeeData();
-		const gasPrice = feeData.gasPrice || 0n;
-
-		const gasEstimate = await contract.disputeTask.estimateGas(escrowId, { gasPrice });
-		const tx = await contract.disputeTask(escrowId, {
-			gasLimit: gasEstimate + gasEstimate / 10n,
-			gasPrice
+		const { hash, wait } = await submitEscrowWrite({
+			contract,
+			wallet,
+			provider,
+			method: 'disputeTask',
+			args: [escrowId],
+			contractAddress: await contract.getAddress(),
+			relayBaseUrl: getRelayBaseUrl(),
+			useGasless: true
 		});
 
-		const result: ContractTransactionResult = { hash: tx.hash, escrowId, status: 'pending' };
+		const result: ContractTransactionResult = { hash, escrowId, status: 'pending' };
 
 		if (contractEventId) {
 			await EscrowNostrEvent.publishEscrowStatus({
 				escrowId,
 				contractEventId,
-				transactionHash: tx.hash,
+				transactionHash: hash,
 				status: EscrowStatus.PendingDispute
 			});
 		}
 
-		tx.wait()
+		wait()
 			.then(async (receipt: ethers.TransactionReceipt | null) => {
 				if (receipt) {
 					result.status = 'confirmed';
@@ -607,41 +620,38 @@ async function proposeResolution(
 	proposedFreelancerAmount?: string
 ): Promise<ContractTransactionResult> {
 	try {
-		const { contract, provider } = await ensureEscrowReady();
+		const { contract, wallet, provider } = await ensureEscrowReady(undefined, false);
 
 		// V2 uses uint72 for freelancerAmount. parseEther returns bigint; truncate to uint72 max.
 		const freelancerAmountWei = ethers.parseEther(freelancerAmount);
 		const uint72Max = (1n << 72n) - 1n;
 		const safeFreelancerAmount = freelancerAmountWei > uint72Max ? uint72Max : freelancerAmountWei;
 
-		const feeData = await provider.getFeeData();
-		const gasPrice = feeData.gasPrice || 0n;
-
-		const gasEstimate = await contract.proposeResolution.estimateGas(
-			escrowId,
-			safeFreelancerAmount,
-			{ gasPrice }
-		);
-
-		const tx = await contract.proposeResolution(escrowId, safeFreelancerAmount, {
-			gasLimit: gasEstimate + gasEstimate / 10n,
-			gasPrice
+		const { hash, wait } = await submitEscrowWrite({
+			contract,
+			wallet,
+			provider,
+			method: 'proposeResolution',
+			args: [escrowId, safeFreelancerAmount],
+			contractAddress: await contract.getAddress(),
+			relayBaseUrl: getRelayBaseUrl(),
+			useGasless: true
 		});
 
-		const result: ContractTransactionResult = { hash: tx.hash, escrowId, status: 'pending' };
+		const result: ContractTransactionResult = { hash, escrowId, status: 'pending' };
 
 		if (contractEventId && proposedClientAmount && proposedFreelancerAmount) {
 			await EscrowNostrEvent.publishEscrowStatus({
 				escrowId,
 				contractEventId,
-				transactionHash: tx.hash,
+				transactionHash: hash,
 				status: EscrowStatus.PendingResolutionProposal,
 				proposedClientAmount,
 				proposedFreelancerAmount
 			});
 		}
 
-		tx.wait()
+		wait()
 			.then(async (receipt: ethers.TransactionReceipt | null) => {
 				if (receipt) {
 					result.status = 'confirmed';
@@ -680,29 +690,31 @@ async function acceptProposal(
 	contractEventId?: string
 ): Promise<ContractTransactionResult> {
 	try {
-		const { contract, provider } = await ensureEscrowReady();
+		const { contract, wallet, provider } = await ensureEscrowReady(undefined, false);
 
-		const feeData = await provider.getFeeData();
-		const gasPrice = feeData.gasPrice || 0n;
-
-		const gasEstimate = await contract.acceptProposal.estimateGas(escrowId, { gasPrice });
-		const tx = await contract.acceptProposal(escrowId, {
-			gasLimit: gasEstimate + gasEstimate / 10n,
-			gasPrice
+		const { hash, wait } = await submitEscrowWrite({
+			contract,
+			wallet,
+			provider,
+			method: 'acceptProposal',
+			args: [escrowId],
+			contractAddress: await contract.getAddress(),
+			relayBaseUrl: getRelayBaseUrl(),
+			useGasless: true
 		});
 
-		const result: ContractTransactionResult = { hash: tx.hash, escrowId, status: 'pending' };
+		const result: ContractTransactionResult = { hash, escrowId, status: 'pending' };
 
 		if (contractEventId) {
 			await EscrowNostrEvent.publishEscrowStatus({
 				escrowId,
 				contractEventId,
-				transactionHash: tx.hash,
+				transactionHash: hash,
 				status: EscrowStatus.PendingProposalAcceptance
 			});
 		}
 
-		tx.wait()
+		wait()
 			.then(async (receipt: ethers.TransactionReceipt | null) => {
 				if (receipt) {
 					result.status = 'confirmed';
@@ -740,31 +752,33 @@ async function resolveAfterTimelock(
 	contractEventId?: string
 ): Promise<ContractTransactionResult> {
 	try {
-		const { contract, provider } = await ensureEscrowReady();
+		const { contract, wallet, provider } = await ensureEscrowReady(undefined, false);
 
-		const feeData = await provider.getFeeData();
-		const gasPrice = feeData.gasPrice || 0n;
-
-		const gasEstimate = await contract.resolveAfterTimelock.estimateGas(escrowId, { gasPrice });
-		const tx = await contract.resolveAfterTimelock(escrowId, {
-			gasLimit: gasEstimate + gasEstimate / 10n,
-			gasPrice
+		const { hash, wait } = await submitEscrowWrite({
+			contract,
+			wallet,
+			provider,
+			method: 'resolveAfterTimelock',
+			args: [escrowId],
+			contractAddress: await contract.getAddress(),
+			relayBaseUrl: getRelayBaseUrl(),
+			useGasless: true
 		});
 
-		const result: ContractTransactionResult = { hash: tx.hash, escrowId, status: 'pending' };
+		const result: ContractTransactionResult = { hash, escrowId, status: 'pending' };
 
 		if (contractEventId) {
 			await EscrowNostrEvent.publishEscrowStatus({
 				escrowId,
 				contractEventId,
-				transactionHash: tx.hash,
+				transactionHash: hash,
 				status: EscrowStatus.PendingTimelockResolution
 			});
 		}
 
 		appStore.showInfoToast(get(t)('dashboard.contracts.actions.timelock_resolving_message'));
 
-		tx.wait()
+		wait()
 			.then(async (receipt: ethers.TransactionReceipt | null) => {
 				if (receipt) {
 					result.status = 'confirmed';
@@ -835,20 +849,22 @@ async function markNoShow(
 	contractAddress?: string
 ): Promise<ContractTransactionResult> {
 	try {
-		const { contract, provider } = await ensureEscrowReady(contractAddress);
+		const { contract, wallet, provider } = await ensureEscrowReady(contractAddress, false);
 
-		const feeData = await provider.getFeeData();
-		const gasPrice = feeData.gasPrice || 0n;
-
-		const gasEstimate = await contract.markNoShow.estimateGas(escrowId, { gasPrice });
-		const tx = await contract.markNoShow(escrowId, {
-			gasLimit: gasEstimate + gasEstimate / 10n,
-			gasPrice
+		const { hash, wait } = await submitEscrowWrite({
+			contract,
+			wallet,
+			provider,
+			method: 'markNoShow',
+			args: [escrowId],
+			contractAddress: await contract.getAddress(),
+			relayBaseUrl: getRelayBaseUrl(),
+			useGasless: true
 		});
 
-		const result: ContractTransactionResult = { hash: tx.hash, escrowId, status: 'pending' };
+		const result: ContractTransactionResult = { hash, escrowId, status: 'pending' };
 
-		tx.wait()
+		wait()
 			.then(async (receipt: ethers.TransactionReceipt | null) => {
 				if (receipt) {
 					result.status = 'confirmed';
@@ -877,20 +893,22 @@ async function markWorkInProgress(
 	contractAddress?: string
 ): Promise<ContractTransactionResult> {
 	try {
-		const { contract, provider } = await ensureEscrowReady(contractAddress);
+		const { contract, wallet, provider } = await ensureEscrowReady(contractAddress, false);
 
-		const feeData = await provider.getFeeData();
-		const gasPrice = feeData.gasPrice || 0n;
-
-		const gasEstimate = await contract.markWorkInProgress.estimateGas(escrowId, { gasPrice });
-		const tx = await contract.markWorkInProgress(escrowId, {
-			gasLimit: gasEstimate + gasEstimate / 10n,
-			gasPrice
+		const { hash, wait } = await submitEscrowWrite({
+			contract,
+			wallet,
+			provider,
+			method: 'markWorkInProgress',
+			args: [escrowId],
+			contractAddress: await contract.getAddress(),
+			relayBaseUrl: getRelayBaseUrl(),
+			useGasless: true
 		});
 
-		const result: ContractTransactionResult = { hash: tx.hash, escrowId, status: 'pending' };
+		const result: ContractTransactionResult = { hash, escrowId, status: 'pending' };
 
-		tx.wait()
+		wait()
 			.then(async (receipt: ethers.TransactionReceipt | null) => {
 				if (receipt) {
 					result.status = 'confirmed';
@@ -919,20 +937,22 @@ async function claimNoShowRefund(
 	contractAddress?: string
 ): Promise<ContractTransactionResult> {
 	try {
-		const { contract, provider } = await ensureEscrowReady(contractAddress);
+		const { contract, wallet, provider } = await ensureEscrowReady(contractAddress, false);
 
-		const feeData = await provider.getFeeData();
-		const gasPrice = feeData.gasPrice || 0n;
-
-		const gasEstimate = await contract.claimNoShowRefund.estimateGas(escrowId, { gasPrice });
-		const tx = await contract.claimNoShowRefund(escrowId, {
-			gasLimit: gasEstimate + gasEstimate / 10n,
-			gasPrice
+		const { hash, wait } = await submitEscrowWrite({
+			contract,
+			wallet,
+			provider,
+			method: 'claimNoShowRefund',
+			args: [escrowId],
+			contractAddress: await contract.getAddress(),
+			relayBaseUrl: getRelayBaseUrl(),
+			useGasless: true
 		});
 
-		const result: ContractTransactionResult = { hash: tx.hash, escrowId, status: 'pending' };
+		const result: ContractTransactionResult = { hash, escrowId, status: 'pending' };
 
-		tx.wait()
+		wait()
 			.then(async (receipt: ethers.TransactionReceipt | null) => {
 				if (receipt) {
 					result.status = 'confirmed';
@@ -961,20 +981,22 @@ async function claimUpfrontDeposit(
 	contractAddress?: string
 ): Promise<ContractTransactionResult> {
 	try {
-		const { contract, provider } = await ensureEscrowReady(contractAddress);
+		const { contract, wallet, provider } = await ensureEscrowReady(contractAddress, false);
 
-		const feeData = await provider.getFeeData();
-		const gasPrice = feeData.gasPrice || 0n;
-
-		const gasEstimate = await contract.claimUpfrontDeposit.estimateGas(escrowId, { gasPrice });
-		const tx = await contract.claimUpfrontDeposit(escrowId, {
-			gasLimit: gasEstimate + gasEstimate / 10n,
-			gasPrice
+		const { hash, wait } = await submitEscrowWrite({
+			contract,
+			wallet,
+			provider,
+			method: 'claimUpfrontDeposit',
+			args: [escrowId],
+			contractAddress: await contract.getAddress(),
+			relayBaseUrl: getRelayBaseUrl(),
+			useGasless: true
 		});
 
-		const result: ContractTransactionResult = { hash: tx.hash, escrowId, status: 'pending' };
+		const result: ContractTransactionResult = { hash, escrowId, status: 'pending' };
 
-		tx.wait()
+		wait()
 			.then(async (receipt: ethers.TransactionReceipt | null) => {
 				if (receipt) {
 					result.status = 'confirmed';
@@ -1011,9 +1033,9 @@ async function isContractPaused(): Promise<boolean> {
 async function checkEscrowFundingStatus(escrowId: string): Promise<{
 	wasFunded: boolean;
 	escrowData: EscrowData | null;
-	error?: typeof EscrowError;
+	error?: EscrowError;
 }> {
-	const { createEscrowError, isEscrowNotFoundError, EscrowError } = await import(
+	const { createEscrowError, isEscrowNotFoundError } = await import(
 		'$lib/utils/helpers/escrowErrors'
 	);
 
@@ -1042,7 +1064,7 @@ async function checkEscrowFundingStatus(escrowId: string): Promise<{
 		return {
 			wasFunded: false,
 			escrowData: null,
-			error: escrowError as unknown as typeof EscrowError
+			error: escrowError as unknown as EscrowError
 		};
 	}
 }
