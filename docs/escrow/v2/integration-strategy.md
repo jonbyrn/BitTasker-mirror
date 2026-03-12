@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-This document provides a precise integration strategy for supporting Escrow Contract v2 alongside existing v1 contracts. The architecture focuses on forward-compatible version abstraction, minimal code changes, and simultaneous multi-version support without hardcoded version branching.
+This document provides a precise integration strategy for supporting Escrow Contract v2 alongside existing v1 contracts. The architecture focuses on forward-compatible version abstraction, minimal code changes, simultaneous multi-version support, and **gasless-default transaction flow** with direct fallback.
 
 **Core Principles:**
 
@@ -12,6 +12,68 @@ This document provides a precise integration strategy for supporting Escrow Cont
 - All contract versions loadable simultaneously
 - Frontend-only scope (no deployment logic)
 - No hardcoded version checks (`if version === 'v1'`)
+- **Gasless-default:** For v2 non-payable writes, try relay first; fall back to direct calls when relay fails or user has rBTC
+
+---
+
+## Implementation Progress (Master Checklist)
+
+_Check off items as you complete them. Use the detailed phase checklists in [§6 Implementation Checklist](#6-implementation-checklist) for granular tracking._
+
+### Phase Overview
+
+| Phase | Description                 | Status |
+| ----- | --------------------------- | ------ |
+| 1     | Core Module Setup           | [x]    |
+| 2     | Gasless / Relay Integration | [ ]    |
+| 3     | Core Function Adaptations   | [ ]    |
+| 4     | New v2 Features             | [ ]    |
+| 5     | Error Handling              | [ ]    |
+| 6     | Nostr Integration           | [ ]    |
+| 7     | Type Updates                | [ ]    |
+| 8     | Store Integration           | [ ]    |
+| 9     | Permission System           | [ ]    |
+| 10    | UI Integration              | [ ]    |
+| 11    | Testing                     | [ ]    |
+| 12    | Environment Configuration   | [ ]    |
+| 13    | Final Verification          | [ ]    |
+
+### Files to Create
+
+| File                                                         | Purpose                                  | Done |
+| ------------------------------------------------------------ | ---------------------------------------- | ---- |
+| `src/lib/utils/escrow/v2/escrow.ts`                          | Core v2 contract interactions            | [x]  |
+| `src/lib/utils/escrow/v2/escrowBid.ts`                       | Bid acceptance for v2                    | [x]  |
+| `src/lib/utils/escrow/v2/escrowEvents.ts`                    | Transaction lifecycle, Nostr             | [x]  |
+| `src/lib/utils/escrow/v2/escrow.enum.ts`                     | v2 EscrowStatus enum                     | [x]  |
+| `src/lib/utils/escrow/v2/nostrContract.ts`                   | Nostr sync for v2                        | [x]  |
+| `src/lib/utils/escrow/v2/index.ts`                           | v2 module exports                        | [x]  |
+| `src/lib/utils/escrow/relayClient.ts` (or `escrowSubmit.ts`) | Gasless relay client / submitEscrowWrite | [ ]  |
+
+### Files to Modify
+
+| File                                                  | Changes                                               | Done |
+| ----------------------------------------------------- | ----------------------------------------------------- | ---- |
+| `src/lib/utils/escrow/index.ts`                       | Register v2 handler, `LATEST_ESCROW_VERSION`          | [ ]  |
+| `src/lib/utils/wallet/contractErrorHandler.ts`        | v2 custom error parsing                               | [ ]  |
+| `src/lib/utils/helpers/contractPermissions.ts`        | v2 permissions, timing helpers                        | [ ]  |
+| `src/lib/types/wallet.d.ts` (or contract types)       | EscrowData, NostrContract v2 fields                   | [ ]  |
+| `locales/*/dashboard/contracts.json`                  | v2 error translation keys                             | [ ]  |
+| `src/lib/components/contracts/ContractActions.svelte` | v2 action handlers (optional, if not via permissions) | [ ]  |
+
+### Gasless Integration Checklist
+
+| Task                                              | Done |
+| ------------------------------------------------- | ---- |
+| Relay client module created                       | [ ]  |
+| Meta-tx building (encode data, sign EIP-191)      | [ ]  |
+| `POST /relay` with retries                        | [ ]  |
+| Receipt polling for relay txHash                  | [ ]  |
+| Fallback to direct on relay failure               | [ ]  |
+| `submitEscrowWrite` wired into v2 write functions | [ ]  |
+| `createPaymentContract` kept direct-only          | [ ]  |
+| `VITE_RELAY_URL` configured                       | [ ]  |
+| Gasless path tested end-to-end                    | [ ]  |
 
 ---
 
@@ -74,36 +136,33 @@ async function ensureEscrowReady(
 
 **Note**: This function is version-agnostic. It loads the correct ABI based on which version module calls it.
 
-**Write Operation Pattern:**
+**Write Operation Pattern (v2 with Gasless):**
+
+For v2 non-payable lifecycle writes (completeTask, acceptTask, etc.), use a **submitEscrowWrite** abstraction that:
+
+1. Tries **relay (gasless)** first — build meta-tx, POST to relay (see `docs/escrow/v2/gasless-frontend-integration.md`)
+2. On relay success (202 + txHash) → return `{ hash: txHash, wait: () => pollReceipt(provider, txHash) }`
+3. On relay failure → **fall back to direct** call (user pays gas with rBTC)
 
 ```typescript
-async function completeTask(escrowId: string, ...): Promise<ContractTransactionResult> {
-    const { contract, provider } = await ensureEscrowReady();
+// Inside submitEscrowWrite or per-write wrapper
+const { hash, wait } = await submitEscrowWrite({
+	method: 'completeTask',
+	args: [paymentId],
+	contract,
+	wallet,
+	provider,
+	relayBaseUrl: VITE_RELAY_URL,
+	useGasless: true // default
+});
 
-    // Fetch current gas price
-    const feeData = await provider.getFeeData();
-    const gasPrice = feeData.gasPrice || BigInt(0);
-
-    // Estimate gas
-    const gasEstimate = await contract.completeTask.estimateGas(escrowId, { gasPrice });
-
-    // Execute transaction
-    const tx = await contract.completeTask(escrowId, {
-        gasLimit: gasEstimate + (gasEstimate / 10n),
-        gasPrice: gasPrice
-    });
-
-    // Return immediately with pending status
-    return { hash: tx.hash, escrowId, status: 'pending' };
-
-    // Async confirmation handling
-    tx.wait().then(async (receipt) => {
-        // Parse events
-        // Publish to Nostr
-        // Update stores
-    });
-}
+return { hash, escrowId: paymentId, status: 'pending' };
+wait().then(async (receipt) => {
+	/* Nostr, stores */
+});
 ```
+
+**Direct-only:** `createPaymentContract` — always direct (payable).
 
 **Read Operation Pattern:**
 
@@ -1677,17 +1736,41 @@ export function getStatusDisplay(status: EscrowStatus): {
 
 ---
 
-## 6. Implementation Checklist
+## 6. Implementation Checklist (Detailed)
+
+_Use this section for step-by-step tracking. Mark `[ ]` → `[x]` as you complete each item. The [Implementation Progress](#implementation-progress-master-checklist) table above gives a high-level overview._
 
 ### Phase 1: Core Module Setup
 
-- [ ] Create `src/lib/utils/escrow/v2/` directory structure
-- [ ] Copy v1 files as base: `escrow.ts`, `escrowBid.ts`, `escrowEvents.ts`, `nostrContract.ts`, `index.ts`
-- [ ] Update `escrow.enum.ts` with correct v2 states (0-10 blockchain, 100+ Nostr)
-- [ ] Add `mapBlockchainStateToEnum()` helper function
-- [ ] **VERIFIED**: v2 `abi.json` already exists at `src/lib/utils/escrow/v2/abi.json` - DO NOT MODIFY
+- [x] Create `src/lib/utils/escrow/v2/` directory structure
+- [x] Copy v1 files as base: `escrow.ts`, `escrowBid.ts`, `escrowEvents.ts`, `nostrContract.ts`, `index.ts`
+- [x] Update `escrow.enum.ts` with correct v2 states (0-10 blockchain, 100+ Nostr)
+- [x] Add `mapBlockchainStateToEnum()` helper function
+- [x] v2 `abi.json` exists at `src/lib/utils/escrow/v2/abi.json`
 
-### Phase 2: Core Function Adaptations
+### Phase 2: Gasless / Relay Integration (v2)
+
+- [ ] Create relay client or `submitEscrowWrite` module (see `docs/escrow/v2/gasless-frontend-integration.md`)
+- [ ] Implement meta-tx building: encode `data`, sign EIP-191 over `keccak256(solidityPacked(sender, contract, keccak256(data), chainId))`
+- [ ] Implement `POST /relay` with retries on 5xx/timeout; fall back to direct on failure
+- [ ] Implement receipt polling for relay-returned txHash
+- [ ] Wire `submitEscrowWrite` into each v2 write function:
+  - [ ] `completeTask`
+  - [ ] `acceptTask`
+  - [ ] `cancelPaymentContract` (cancelEscrow)
+  - [ ] `disputeTask`
+  - [ ] `proposeResolution`
+  - [ ] `acceptProposal`
+  - [ ] `resolveAfterTimelock`
+  - [ ] `refundTasker`
+  - [ ] `markNoShow`
+  - [ ] `markWorkInProgress`
+  - [ ] `claimNoShowRefund`
+  - [ ] `claimUpfrontDeposit`
+- [ ] Keep `createPaymentContract` always direct (payable)
+- [ ] Configure `VITE_RELAY_URL` per environment
+
+### Phase 3: Core Function Adaptations
 
 - [ ] Add `validatePaymentId()` utility function
 - [ ] Update `createEscrow()` internal function (keep internal name):
@@ -1705,7 +1788,7 @@ export function getStatusDisplay(status: EscrowStatus): {
   - [ ] Change ABI call from `cancelEscrow()` to `cancelPaymentContract()`
 - [ ] Add ID validation to all write functions
 
-### Phase 3: New v2 Features
+### Phase 4: New v2 Features
 
 - [ ] Implement `markNoShow()` function
 - [ ] Implement `claimNoShowRefund()` function
@@ -1713,7 +1796,7 @@ export function getStatusDisplay(status: EscrowStatus): {
 - [ ] Implement `claimUpfrontDeposit()` function
 - [ ] Update `getDisputeProposal()` to return null (v2 doesn't support)
 
-### Phase 4: Error Handling
+### Phase 5: Error Handling
 
 - [ ] **VERIFIED**: Error handler exists at `src/lib/utils/wallet/contractErrorHandler.ts`
 - [ ] **VERIFIED**: Already uses `const _ = get(t)` and `_('...')` pattern
@@ -1722,21 +1805,21 @@ export function getStatusDisplay(status: EscrowStatus): {
 - [ ] Add translation keys to `locales/{lang}/dashboard/contracts.json`
 - [ ] Test error parsing for both v1 strings and v2 custom errors
 
-### Phase 5: Nostr Integration
+### Phase 6: Nostr Integration
 
 - [ ] Update `publishContractEvent()` to use 'v2' version tag
 - [ ] Add `cancellationFee` and `upfrontDeposit` to Nostr contract data
 - [ ] Update status event publishing for new pending states (108-111)
 - [ ] Verify StateTransition event handling (if needed)
 
-### Phase 6: Type Updates
+### Phase 7: Type Updates
 
 - [ ] Add v2-specific fields to `EscrowData` interface (optional fields)
 - [ ] Add v2 fields to `NostrContract` interface
 - [ ] Add v2 permissions to `ContractPermissions` interface
 - [ ] **VERIFIED**: `ContractWithEvents.version` field already exists
 
-### Phase 7: Store Integration
+### Phase 8: Store Integration
 
 - [ ] **VERIFIED**: `contract.store.ts` uses `escrow.contractOps.getContracts()`
 - [ ] **VERIFIED**: Version handling delegated to EscrowManager
@@ -1745,7 +1828,7 @@ export function getStatusDisplay(status: EscrowStatus): {
 - [ ] Update `LATEST_ESCROW_VERSION` to 'v2'
 - [ ] Test multi-version contract loading
 
-### Phase 8: Permission System
+### Phase 9: Permission System
 
 - [ ] Add version parameter to `determineContractState()`
 - [ ] Implement v2-specific permission checks:
@@ -1755,32 +1838,40 @@ export function getStatusDisplay(status: EscrowStatus): {
   - [ ] `canClaimUpfrontDeposit`
 - [ ] Add timing helper functions for v2 permissions
 
-### Phase 9: UI Integration
+### Phase 10: UI Integration
 
 - [ ] Add action handlers for v2 features with dynamic imports
 - [ ] Update status display formatter with v2 states
 - [ ] Add conditional rendering based on permissions (not version)
 - [ ] Test all v2 action buttons
 
-### Phase 10: Testing
+### Phase 11: Testing
 
-- [ ] Write unit tests for ID validation
-- [ ] Write unit tests for error parsing
-- [ ] Write unit tests for v2 functions
-- [ ] Write integration tests for version detection
-- [ ] Write integration tests for permission system
-- [ ] Write fork tests for v2 lifecycle
-- [ ] Write fork tests for no-show flow
-- [ ] Write fork tests for upfront deposit flow
+- [ ] Unit tests:
+  - [ ] ID validation (`validatePaymentId`)
+  - [ ] Error parsing (v2 custom errors)
+  - [ ] v2 functions (create, load, write operations)
+- [ ] Integration tests:
+  - [ ] Version detection / EscrowManager routing
+  - [ ] Permission system
+- [ ] Fork tests (blockchain):
+  - [ ] v2 lifecycle (create → complete → accept)
+  - [ ] No-show flow
+  - [ ] Upfront deposit flow
+- [ ] Gasless tests (see `docs/escrow/v2/tests-implementation-plan.md` §B.5):
+  - [ ] Relay path success
+  - [ ] Fallback to direct on relay failure
+  - [ ] createPaymentContract never uses relay
 
-### Phase 11: Environment Configuration
+### Phase 12: Environment Configuration
 
-- [ ] Update environment variables (already set):
-  - `VITE_RSK_CONTRACT_ADDRESS_MAINNET` (v2 address)
-  - `VITE_RSK_CONTRACT_ADDRESS_TESTNET` (v2 address)
+- [ ] Set/verify environment variables:
+  - [ ] `VITE_RSK_CONTRACT_ADDRESS_TESTNET` (v2 contract on Rootstock Testnet)
+  - [ ] `VITE_RSK_CONTRACT_ADDRESS_MAINNET` (v2 contract on Rootstock Mainnet)
+  - [ ] `VITE_RELAY_URL` — testnet: `https://tx-relay.testnet.bittasker.com`, mainnet: `https://tx-relay.bittasker.com`
 - [ ] Verify v1 addresses still accessible if needed (for historical contracts)
 
-### Phase 12: Final Verification
+### Phase 13: Final Verification
 
 - [ ] Test v1 contracts still work (no regression)
 - [ ] Test v2 contracts work with all new features
@@ -1885,9 +1976,23 @@ export function getStatusDisplay(status: EscrowStatus): {
 - Store version with contract data
 - No regression of v1 functionality
 
+✅ **Default to gasless for v2 non-payable writes**
+
+- Use relay first; fall back to direct on failure
+- See `docs/escrow/v2/gasless-frontend-integration.md` for relay API and meta-tx building
+- `createPaymentContract` always direct (payable)
+
 ---
 
-## 8. Conclusion
+## 8. Related Documents
+
+- **`abi.json`** — `src/lib/utils/escrow/v2/abi.json` (definitive ABI; includes `executeMetaTransaction`, `GAS_REIMBURSEMENT_PER_OP`, gasless-related errors)
+- **`docs/escrow/v2/gasless-frontend-integration.md`** — Relay API, meta-tx building, gasless-default flow
+- **`docs/gasless-integration-research-report.md`** — Current transaction flow, Nostr integration, relay plug-in points
+
+---
+
+## 9. Conclusion
 
 This integration strategy provides a precise, forward-compatible approach to supporting Escrow Contract v2 while maintaining full v1 compatibility. The key principles are:
 
@@ -1919,7 +2024,7 @@ This integration strategy provides a precise, forward-compatible approach to sup
 
 **Verified Constraints:**
 
-- ✅ ABI already exists - no modifications needed
+- ✅ ABI exists at `src/lib/utils/escrow/v2/abi.json` - includes `executeMetaTransaction`, gasless-related constants/errors; no ERC2771 TrustedForwarder
 - ✅ Error handler already exists - extend with v2 errors
 - ✅ EscrowManager already exists - register v2 handler
 - ✅ contract.store already integrated - no changes needed

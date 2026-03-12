@@ -64,6 +64,14 @@ Escrow ID + contract address + version tag form unique identity. Duplicate event
 
 Sum of all escrow balances across all versions must equal total locked on-chain. No funds appear or disappear.
 
+#### I11: Gasless/Direct Equivalence (v2)
+
+For v2 non-payable lifecycle writes, the outcome on-chain must be identical whether the transaction is submitted via relay (gasless) or directly. State transitions, event emission, and balance changes are invariant to submission path.
+
+#### I12: Creation Always Direct
+
+`createPaymentContract` (v2) / `createEscrow` (v1) must always be submitted directly by the tasker (payable); the relay cannot submit creation on behalf of users.
+
 ---
 
 ## Test Philosophy
@@ -76,7 +84,7 @@ Tests assert escrow state transitions, not which internal function was called. A
 
 #### P2: Test Invariants, Not Implementations
 
-Tests enforce invariants I1-I10, not specific code paths. If invariant holds, implementation details are irrelevant.
+Tests enforce invariants I1-I12, not specific code paths. If invariant holds, implementation details are irrelevant. Gasless vs direct submission is an implementation detail; outcome must be the same (I11).
 
 #### P3: Version Parameterization
 

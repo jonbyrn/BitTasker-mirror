@@ -38,6 +38,22 @@ Project documentation lives here. Long-term and canonical docs are in **`docs/`*
 | -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
 | [task-status.md](tasks/task-status.md) | Task status: ownership, lifecycle, call chains, stale display bug, resilience, contracts loading, debug visibility, reviewer checklist. |
 
+### Escrow & Blockchain (`docs/`)
+
+| Document                                                                         | Purpose                                                                                                                  |
+| -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| [gasless-integration-research-report.md](gasless-integration-research-report.md) | Current escrow contract interaction patterns, transaction flow, Nostr integration, and relay plug-in points for gasless. |
+
+**Escrow v2 (`docs/escrow/v2/`):**
+
+| Document                                                                     | Purpose                                                                                             |
+| ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| [abi-diff-report.md](escrow/v2/abi-diff-report.md)                           | v1 → v2 ABI diff: new functions (`executeMetaTransaction`, etc.), events, errors, breaking changes. |
+| [gasless-frontend-integration.md](escrow/v2/gasless-frontend-integration.md) | Relay API, meta-tx building, gasless-default flow with direct fallback.                             |
+| [integration-strategy.md](escrow/v2/integration-strategy.md)                 | Integration strategy for v2: version abstraction, gasless path, implementation phases.              |
+| [bdd-strategy.md](escrow/v2/bdd-strategy.md)                                 | BDD test strategy: invariants (incl. gasless/direct equivalence), principles.                       |
+| [tests-implementation-plan.md](escrow/v2/tests-implementation-plan.md)       | Test plan: behavioral tests, v2-specific (no-show, upfront, gasless), EscrowManager.                |
+
 ### Other (`docs/`)
 
 | Document                                                     | Purpose                                 |

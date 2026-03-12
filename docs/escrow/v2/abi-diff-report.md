@@ -83,16 +83,17 @@ function getTimelockEnd(uint32 escrowId) external view returns (uint32)
 - **Outputs**: `uint32` timestamp
 - **State Mutability**: view
 
-#### **isTrustedForwarder**
+#### **executeMetaTransaction**
 
 ```solidity
-function isTrustedForwarder(address forwarder) external view returns (bool)
+function executeMetaTransaction(address sender, bytes data, bytes signature) external nonpayable
 ```
 
-- **Purpose**: Check if address is trusted forwarder (EIP-2771 meta-transactions)
-- **Inputs**: `forwarder` (address)
-- **Outputs**: `bool`
-- **State Mutability**: view
+- **Purpose**: Execute meta-transaction (gasless). Relay worker calls this; user signs off-chain. Contract reimburses relay from payment.
+- **Inputs**: `sender` (address), `data` (bytes, ABI-encoded calldata), `signature` (bytes, EIP-191)
+- **Outputs**: None
+- **State Mutability**: nonpayable
+- **Note**: No ERC2771 TrustedForwarder — the contract has inlined meta-tx support.
 
 #### **markNoShow**
 
@@ -116,18 +117,16 @@ function markWorkInProgress(uint32 escrowId) external nonpayable
 - **Outputs**: None
 - **State Mutability**: nonpayable
 
-#### **trustedForwarder**
+### 2.2 New Constants
+
+#### **GAS_REIMBURSEMENT_PER_OP**
 
 ```solidity
-function trustedForwarder() external view returns (address)
+function GAS_REIMBURSEMENT_PER_OP() external view returns (uint256)
 ```
 
-- **Purpose**: Get trusted forwarder address
-- **Inputs**: None
-- **Outputs**: `address`
+- **Purpose**: Gas reimbursement amount per meta-transaction op (for relay)
 - **State Mutability**: view
-
-### 2.2 New Constants
 
 #### **CANCELLATION_WINDOW**
 
@@ -244,6 +243,12 @@ event StateTransition(
 - `PlatformFeeTransferFailed()` - Platform fee transfer failed
 - `TaskeePayoutTransferFailed()` - Taskee payout transfer failed
 - `TaskerRefundTransferFailed()` - Tasker refund transfer failed
+
+**Gasless/Meta-Tx Errors:**
+
+- `InsufficientGasReserve()` - Payment amount too low to cover gas reimbursement
+- `InvalidSignature()` - Wrong signer, wrong contract, wrong chainId, or tampered data
+- `RelayTransferFailed()` - Gas reimbursement to relay failed
 
 **Other Errors:**
 
@@ -414,13 +419,12 @@ constructor() nonpayable
 **v2:**
 
 ```solidity
-constructor(address trustedForwarder) nonpayable
+constructor() nonpayable
 ```
 
 **Changes:**
 
-- Added `trustedForwarder` parameter for EIP-2771 meta-transaction support
-- **Impact**: BREAKING - deployment scripts must provide forwarder address
+- Same signature as v1. Meta-transactions use inlined `executeMetaTransaction(sender, data, signature)`; no ERC2771 TrustedForwarder.
 
 ### 4.2 Function: createEscrow
 
@@ -822,7 +826,7 @@ function transferOwnership(address) external pure
 
 **Constructor:**
 
-- New parameter required - deployment scripts break
+- v2 ABI has no-argument constructor (same as v1). Trusted forwarder / meta-tx is handled via inlined `executeMetaTransaction`, not ERC2771.
 
 **All Core Functions:**
 
@@ -919,11 +923,12 @@ function transferOwnership(address) external pure
 - `getTimelockEnd()` - Dedicated timelock getter
 - Improved state inspection without fetching full struct
 
-**Meta-Transaction Support (EIP-2771):**
+**Meta-Transaction Support (Inlined):**
 
-- `trustedForwarder` in constructor
-- `isTrustedForwarder()` - Forwarder validation
-- Enables gasless transactions for users
+- `executeMetaTransaction(sender, data, signature)` - Relay worker calls this; user signs off-chain
+- `GAS_REIMBURSEMENT_PER_OP` - Gas reimbursement amount per op
+- `InsufficientGasReserve`, `InvalidSignature`, `RelayTransferFailed` errors
+- Enables gasless transactions via relay worker; no ERC2771 TrustedForwarder
 
 **Unified State Tracking:**
 
@@ -998,10 +1003,11 @@ function transferOwnership(address) external pure
 - Financial consequences for no-shows
 - Reduces time wasted on abandoned tasks
 
-**Forwarder Validation:**
+**Meta-Transaction Security:**
 
-- Explicit trusted forwarder mechanism
-- Prevents meta-transaction spoofing
+- Signature verification on-chain via `executeMetaTransaction`
+- Replay protection via state machine (cannot complete twice)
+- Relay pre-simulates before submitting
 
 ---
 

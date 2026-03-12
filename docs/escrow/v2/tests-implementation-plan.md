@@ -39,9 +39,10 @@ describe('createEscrow', () => {
 
 **Version-Specific Supplements** (only when absolutely necessary):
 
-- New features exclusive to version (e.g., v2 no-show)
+- New features exclusive to version (e.g., v2 no-show, v2 upfront deposit)
 - ABI signature verification
 - Event name verification
+- **Gasless / relay flow** (v2 only) — relay success, fallback to direct, meta-tx building
 
 **Scaling to vn:**
 
@@ -507,6 +508,81 @@ describe('ABI Signatures', () => {
 
 		expect(getFunc).toBeDefined();
 		expect(getFunc.stateMutability).toBe('view');
+	});
+
+	test('v2 ABI includes executeMetaTransaction', () => {
+		const v2ABI = getABI('v2');
+		const metaTx = v2ABI.find((f) => f.name === 'executeMetaTransaction');
+
+		expect(metaTx).toBeDefined();
+		expect(metaTx.inputs.map((i) => i.name)).toEqual(['sender', 'data', 'signature']);
+	});
+});
+```
+
+#### B.5 V2 Gasless / Relay Tests
+
+These tests validate the gasless-default flow and direct fallback. See `docs/escrow/v2/gasless-frontend-integration.md`.
+
+```typescript
+describe('V2 Gasless Flow', () => {
+	// Relay path
+	test('completeTask via relay returns txHash when relay succeeds', async () => {
+		mockRelayOk({ txHash: '0xabc...' });
+
+		const result = await completeTask('v2', escrowId, { useGasless: true });
+
+		expect(result.hash).toBe('0xabc...');
+		expect(result.status).toBe('pending');
+	});
+
+	test('acceptTask via relay succeeds with valid signature', async () => {
+		mockRelayOk({ txHash: '0x123...' });
+
+		const result = await acceptTask('v2', escrowId, { useGasless: true });
+
+		expect(result.hash).toMatch(/^0x[a-fA-F0-9]{64}$/);
+	});
+
+	// Fallback to direct
+	test('falls back to direct when relay returns 502', async () => {
+		mockRelayError(502);
+
+		const result = await completeTask('v2', escrowId, { useGasless: true });
+
+		// Should have succeeded via direct (if wallet has rBTC)
+		expect(result.hash).toBeDefined();
+	});
+
+	test('falls back to direct when relay returns SIMULATION_FAILED on retryable condition', async () => {
+		mockRelayError(400, { error: 'SIMULATION_FAILED', message: 'RPC timeout' });
+
+		const result = await completeTask('v2', escrowId, { useGasless: true });
+
+		expect(result.hash).toBeDefined();
+	});
+
+	// createPaymentContract always direct
+	test('createPaymentContract never uses relay', async () => {
+		const relaySpy = mockRelayNeverCalled();
+
+		await createEscrow('v2', { amount: '1.0', taskee: '0x...' });
+
+		expect(relaySpy).not.toHaveBeenCalled();
+	});
+
+	// Meta-tx building
+	test('meta-tx signature format matches relay spec', async () => {
+		const { data, signature } = buildMetaTx(
+			'completeTask',
+			[paymentId],
+			signer,
+			contractAddr,
+			chainId
+		);
+
+		expect(data).toMatch(/^0x[a-f0-9]+$/);
+		expect(signature).toHaveLength(132); // 0x + 130 hex
 	});
 });
 ```
