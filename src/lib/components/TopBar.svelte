@@ -184,7 +184,7 @@
 			<!-- Action button (like logout) -->
 			<button
 				onclick={(e) => handleMenuItemClick(e, item.action)}
-				class="relative z-50 flex w-full cursor-pointer items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2 transition-colors hover:bg-base-content/10 active:bg-base-content/20"
+				class="relative z-50 flex w-full cursor-pointer items-center gap-2 whitespace-nowrap"
 				class:text-error={item.isError}
 			>
 				<item.icon class={item.isError ? 'text-error' : 'text-primary'} />
@@ -196,7 +196,7 @@
 			<a
 				href={itemHref}
 				onclick={(e) => handleMenuItemClick(e, undefined, itemHref)}
-				class="relative z-50 flex cursor-pointer items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2 transition-colors hover:bg-base-content/10 active:bg-base-content/20"
+				class="relative z-50 flex cursor-pointer items-center gap-2 whitespace-nowrap"
 			>
 				<item.icon class="text-primary" />
 				<span>{$t(item.label)}</span>
@@ -335,7 +335,7 @@
 				{#if isAvatarDropdownOpen}
 					<!-- Backdrop: absorbs any tap outside the menu and closes it -->
 					<div
-						class="fixed inset-0 z-90 bg-black/10 backdrop-blur-[1px] transition-opacity"
+						class="fixed inset-0 z-90"
 						role="button"
 						tabindex="0"
 						onclick={(e) => {
@@ -352,7 +352,7 @@
 
 					<!-- Floating menu -->
 					<div
-						class="menu bg-base-100/80 backdrop-blur-md border border-base-content/10 rounded-box absolute right-0 top-[calc(100%+0.5rem)] z-100 mt-2 w-56 p-2 shadow-xl"
+						class="menu bg-base-100 rounded-box absolute right-0 top-full z-100 mt-2 w-56 p-2 shadow-md"
 						style="transform-origin: top right;"
 						role="menu"
 						tabindex="-1"
