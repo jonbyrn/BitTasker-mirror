@@ -39,6 +39,46 @@ vi.mock('$lib/stores/contract.store', () => ({
 	}
 }));
 
+// Mock task.store to prevent "Pool not found" when loaded transitively (task.store requires appStore.pool at init)
+vi.mock('$lib/stores/task.store', async () => {
+	const { writable } = await import('svelte/store');
+	const mockPool = { subscribe: () => () => {}, publish: () => [], querySync: () => [] };
+	const mockTasksStore = writable({
+		pool: mockPool,
+		items: [],
+		loading: false,
+		error: null,
+		currentPage: 1,
+		hasMore: true,
+		searchParamsKey: ''
+	});
+	const mockMyTasksStore = writable({
+		items: [],
+		loading: false,
+		error: null,
+		currentPage: 1,
+		hasMore: true
+	});
+	return {
+		tasksStore: {
+			subscribe: mockTasksStore.subscribe,
+			set: vi.fn(),
+			update: vi.fn(),
+			reset: vi.fn(),
+			pool: mockPool
+		},
+		myTasksStore: {
+			subscribe: mockMyTasksStore.subscribe,
+			set: vi.fn(),
+			update: vi.fn(),
+			reset: vi.fn()
+		},
+		taskStore: {},
+		TASKS_PER_PAGE: 10,
+		STEPS: writable([])
+	};
+});
+
 vi.mock('$lib/stores/app.store', () => ({
 	appStore: {
 		showSuccessToast: vi.fn(),
