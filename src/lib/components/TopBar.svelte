@@ -74,10 +74,25 @@
 		void triggerHaptic(ImpactStyle.Light);
 	}
 
-	// Toggle avatar dropdown
+	// Debug logs for avatar dropdown (Web Inspector / Cloudflare preview: add ?avatar-debug=1 to URL)
+	const AVATAR_DEBUG =
+		typeof window !== 'undefined' && window.location?.search?.includes('avatar-debug=1');
+
+	function logAvatar(msg: string, data?: Record<string, unknown>) {
+		if (AVATAR_DEBUG) console.log('[AvatarDropdown] ' + msg, data ?? {});
+	}
+
+	// Toggle avatar dropdown (same pattern as other navbar buttons: button receives click, content is visual only)
 	function toggleAvatarDropdown(event: MouseEvent) {
 		event.stopPropagation();
-		isAvatarDropdownOpen = !isAvatarDropdownOpen;
+		const next = !isAvatarDropdownOpen;
+		logAvatar('toggleAvatarDropdown', {
+			ts: Date.now(),
+			eventType: event?.type,
+			from: isAvatarDropdownOpen,
+			to: next
+		});
+		isAvatarDropdownOpen = next;
 	}
 
 	// Initialize stores when component mounts
@@ -139,6 +154,7 @@
 	async function handleMenuItemClick(event: MouseEvent, action?: string, href?: string) {
 		event.preventDefault();
 		event.stopPropagation();
+		logAvatar('handleMenuItemClick', { action, href });
 		closeDropdowns();
 		isAvatarDropdownOpen = false;
 		if (action === 'logout') {
@@ -314,13 +330,32 @@
 		{:else}
 			<!-- Notification Center -->
 			<NotificationCenter />
-			<!-- Avatar Dropdown -->
+			<!-- Avatar Dropdown: image in background (pointer-events-none), button in front so tap opens menu like other navbar buttons -->
 			<div
 				class="dropdown dropdown-end relative"
-				use:clickOutside={{ callback: () => (isAvatarDropdownOpen = false) }}
+				use:clickOutside={{
+					callback: () => {
+						logAvatar('clickOutside → close');
+						isAvatarDropdownOpen = false;
+					},
+					exclude: '#avatar-dropdown-trigger'
+				}}
 			>
-				<button class="btn btn-ghost" onclick={toggleAvatarDropdown} aria-haspopup="true" aria-expanded={isAvatarDropdownOpen}>
-					<Avatar name={$user.name} picture={userPicture()} size="sm" />
+				<button
+					id="avatar-dropdown-trigger"
+					type="button"
+					class="btn btn-ghost flex h-10 min-h-[44px] w-10 min-w-[44px] shrink-0 items-center justify-center rounded-full p-0"
+					aria-haspopup="true"
+					aria-expanded={isAvatarDropdownOpen}
+					aria-label={$t('common.components.topbar.open_menu')}
+					onclick={(e) => {
+						logAvatar('avatar button onclick', { ts: Date.now(), type: e.type });
+						toggleAvatarDropdown(e);
+					}}
+				>
+					<span class="pointer-events-none">
+						<Avatar name={$user.name} picture={userPicture()} size="sm" />
+					</span>
 				</button>
 				{#if isAvatarDropdownOpen}
 					<div
