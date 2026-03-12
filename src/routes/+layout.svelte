@@ -101,7 +101,11 @@
 		keyboardModule.setupGlobalInputFocusScroll();
 	}
 
-	onMount(() => {
+		const SHOULD_LOG_GLOBAL_ERRORS =
+			import.meta.env.DEV ||
+			(typeof window !== 'undefined' && window.location.search.includes('avatar-debug=1'));
+
+		onMount(() => {
 		initializeTheme();
 		hideSplashScreenWhenReady(300);
 
@@ -113,7 +117,7 @@
 
 		window.addEventListener('vite:preloadError', handlePreloadError);
 
-		// Global error handler
+		// Global error handler (only logs in dev or when ?avatar-debug=1 is present)
 		const handleError = (event: ErrorEvent | PromiseRejectionEvent) => {
 			const error = event instanceof ErrorEvent ? event.error : event.reason;
 
@@ -131,12 +135,14 @@
 				return;
 			}
 
-			console.error('[Global Error Handler]:', {
-				error: errorMessage,
-				stack: error instanceof Error ? error.stack : undefined,
-				type: event instanceof ErrorEvent ? 'error' : 'unhandledrejection',
-				timestamp: new Date().toISOString()
-			});
+			if (SHOULD_LOG_GLOBAL_ERRORS) {
+				console.error('[Global Error Handler]:', {
+					error: errorMessage,
+					stack: error instanceof Error ? error.stack : undefined,
+					type: event instanceof ErrorEvent ? 'error' : 'unhandledrejection',
+					timestamp: new Date().toISOString()
+				});
+			}
 			if (event instanceof ErrorEvent) event.preventDefault();
 		};
 
