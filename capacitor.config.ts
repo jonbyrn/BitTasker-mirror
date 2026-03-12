@@ -9,6 +9,7 @@ const env = loadEnv('', process.cwd(), '');
 // For production builds, omit server config to use bundled webDir
 const serverUrl = process.env.VITE_CLIENT_URL || env.VITE_CLIENT_URL;
 const serverScheme = serverUrl?.startsWith('http://') ? 'http' : 'https';
+const enableDebugWebView = process.env.CAPACITOR_DEBUG_WEBVIEW === 'true';
 
 const config: CapacitorConfig = {
 	zoomEnabled: false,
@@ -17,20 +18,22 @@ const config: CapacitorConfig = {
 	webDir: 'build',
 	// Only set server config if VITE_CLIENT_URL is provided (for live reload)
 	// Otherwise, the app will use the bundled webDir (production mode)
-	...(serverUrl ? {
-		server: {
-			// Load server URL from environment variable for live reload
-			// Example: `VITE_CLIENT_URL=http://192.168.1.50:3000 npm run android`
-			url: serverUrl,
-			cleartext: true,
-			// IMPORTANT: for Android live reload over LAN/USB with HTTP, the dev URL will be http://...
-			// Use the scheme that matches the configured server URL to avoid forcing the wrong one.
-			androidScheme: serverScheme,
-		}
-	} : {}),
+	...(serverUrl
+		? {
+				server: {
+					// Load server URL from environment variable for live reload
+					// Example: `VITE_CLIENT_URL=http://192.168.1.50:3000 npm run android`
+					url: serverUrl,
+					cleartext: true,
+					// IMPORTANT: for Android live reload over LAN/USB with HTTP, the dev URL will be http://...
+					// Use the scheme that matches the configured server URL to avoid forcing the wrong one.
+					androidScheme: serverScheme
+				}
+			}
+		: {}),
 	android: {
-		allowMixedContent: true,
-		webContentsDebuggingEnabled: true
+		allowMixedContent: enableDebugWebView,
+		webContentsDebuggingEnabled: enableDebugWebView
 	},
 	ios: {
 		scheme: 'BitTasker'
@@ -58,17 +61,8 @@ const config: CapacitorConfig = {
 			iosSpinnerColor: '#FFFFFF'
 		},
 		PushNotifications: {
-			presentationOptions: ['badge', 'sound'/* , 'alert' */]
+			presentationOptions: ['badge', 'sound' /* , 'alert' */]
 		}
-		/* SocialLogin: {
-			google: {
-				clientId: env.VITE_GOOGLE_CLIENT_ID,
-				serverClientId: env.VITE_GOOGLE_CLIENT_ID,
-				redirectUrl: env.VITE_GOOGLE_REDIRECT_URI,
-				scopes: ['profile', 'email'],
-				responseType: 'token'
-			}
-		}, */
 	}
 };
 
