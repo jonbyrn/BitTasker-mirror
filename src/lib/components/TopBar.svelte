@@ -181,7 +181,7 @@
 			<!-- Action button (like logout) -->
 			<button
 				onclick={(e) => handleMenuItemClick(e, item.action)}
-				class="flex w-full items-center gap-2 whitespace-nowrap"
+				class="relative z-50 cursor-pointer flex w-full items-center gap-2 whitespace-nowrap"
 				class:text-error={item.isError}
 			>
 				<item.icon class={item.isError ? 'text-error' : 'text-primary'} />
@@ -193,7 +193,7 @@
 			<a
 				href={itemHref}
 				onclick={(e) => handleMenuItemClick(e, undefined, itemHref)}
-				class="flex items-center gap-2 whitespace-nowrap"
+				class="relative z-50 cursor-pointer flex items-center gap-2 whitespace-nowrap"
 			>
 				<item.icon class="text-primary" />
 				<span>{$t(item.label)}</span>
