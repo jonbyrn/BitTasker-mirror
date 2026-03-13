@@ -45,7 +45,11 @@ async function findVisibleBottomMenuTrigger(page: Page): Promise<Locator | null>
 	return null;
 }
 
-async function assertCenterPointTargetsElement(page: Page, locator: Locator, label: string): Promise<void> {
+async function assertCenterPointTargetsElement(
+	page: Page,
+	locator: Locator,
+	label: string
+): Promise<void> {
 	const box = await locator.boundingBox();
 	expect(box, `${label} should have bounding box`).not.toBeNull();
 	if (!box) return;
@@ -64,15 +68,18 @@ async function assertCenterPointTargetsElement(page: Page, locator: Locator, lab
 }
 
 async function openAvatarDropdown(page: Page): Promise<'avatar' | 'bottom-nav'> {
-	await page.waitForLoadState('domcontentloaded');
-	await expect(page.locator('body').first()).toBeVisible({ timeout: 10_000 });
-	let avatarTrigger: Locator | null = null;
-	const avatarDeadline = Date.now() + 6_000;
-	while (!avatarTrigger && Date.now() < avatarDeadline) {
-		avatarTrigger = await findVisibleAvatarTrigger(page);
-		if (avatarTrigger) break;
-		await page.waitForTimeout(200);
-	}
+	await page.waitForLoadState('load');
+	await expect
+		.poll(
+			async () =>
+				Boolean(
+					(await findVisibleAvatarTrigger(page)) || (await findVisibleBottomMenuTrigger(page))
+				),
+			{ timeout: 12_000, intervals: [250, 500, 1000, 2000] }
+		)
+		.toBe(true);
+
+	const avatarTrigger = await findVisibleAvatarTrigger(page);
 
 	if (avatarTrigger) {
 		await assertCenterPointTargetsElement(page, avatarTrigger, 'Avatar trigger');
@@ -101,12 +108,16 @@ test.describe('Authenticated avatar dropdown diagnostics (cross-browser)', () =>
 	test.describe.configure({ retries: 0 });
 	test.skip(() => !webauthnCredentialsFileExists(), CREDENTIALS_MISSING_MESSAGE);
 
-	test('opens avatar dropdown from /dashboard topbar', async ({ authenticatedPageCrossBrowser }) => {
+	test('opens avatar dropdown from /dashboard topbar', async ({
+		authenticatedPageCrossBrowser
+	}) => {
 		const page = authenticatedPageCrossBrowser;
 		await expect(page).toHaveURL(/\/dashboard/);
 		const mode = await openAvatarDropdown(page);
 		if (mode === 'bottom-nav') {
-			await expect(bottomNavOverlay(page).locator('a[href="/dashboard/profile"]').first()).toBeVisible({
+			await expect(
+				bottomNavOverlay(page).locator('a[href="/dashboard/profile"]').first()
+			).toBeVisible({
 				timeout: 10_000
 			});
 		}
@@ -117,9 +128,13 @@ test.describe('Authenticated avatar dropdown diagnostics (cross-browser)', () =>
 		const mode = await openAvatarDropdown(page);
 
 		if (mode === 'bottom-nav') {
-			await page.locator('button.bottom-nav-backdrop').first().tap().catch(async () => {
-				await page.locator('button.bottom-nav-backdrop').first().click({ force: true });
-			});
+			await page
+				.locator('button.bottom-nav-backdrop')
+				.first()
+				.tap()
+				.catch(async () => {
+					await page.locator('button.bottom-nav-backdrop').first().click({ force: true });
+				});
 			await expect(bottomNavOverlay(page)).toHaveCount(0);
 		} else {
 			if (page.viewportSize()?.width && page.viewportSize()!.width <= 430) {

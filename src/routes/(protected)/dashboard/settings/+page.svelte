@@ -100,7 +100,10 @@
 </script>
 
 <!-- Mismas dimensiones que Mi Panel -->
-<div class="mx-auto h-full max-w-6xl px-2 py-6 md:px-0 md:py-0">
+<div
+	class="mx-auto h-full max-w-6xl px-2 py-6 md:px-0 md:py-0"
+	data-testid="dashboard-settings-page"
+>
 	<div class="mb-6">
 		<h3 class="">{$t('settings.title')}</h3>
 		<p class="text-base-content/70">{$t('settings.subtitle')}</p>
@@ -112,7 +115,7 @@
 		</div>
 	{:else if error}
 		<div
-			class="alert alert-error alert-outline mb-6 flex w-fit min-w-full sm:min-w-1/2 flex-col items-start px-5"
+			class="alert alert-error alert-outline mb-6 flex w-fit min-w-full flex-col items-start px-5 sm:min-w-1/2"
 		>
 			<p>{$t(error)}</p>
 			<button class="btn btn-sm btn-outline place-self-end" onclick={loadKeys} disabled={loading}>

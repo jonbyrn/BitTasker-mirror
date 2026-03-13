@@ -8,30 +8,33 @@
 	import { taskStore as store, STEPS } from '$lib/stores/task.store';
 	import { createTask, createRecurringTask, updateTask } from '$lib/nostr/task';
 	import { findMyTasks } from '$lib/nostr/findMyTasks';
-	import {
-		BudgetTypeEnum,
-		TaskStatusEnum,
-		TaskStepEnum,
-		TaskTypeEnum
-	} from '$lib/utils/enums/task.enum';
+	import { TaskStatusEnum, TaskStepEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
 	import TaskBasics from '$lib/components/task/steps/TaskBasics.svelte';
 	import TaskLocation from '$lib/components/task/steps/TaskLocation.svelte';
 	import TaskBudget from '$lib/components/task/steps/TaskBudget.svelte';
 	import TaskRecurring from '$lib/components/task/steps/TaskRecurring.svelte';
 	import TaskReview from '$lib/components/task/steps/TaskReview.svelte';
-	import uploadService from '$lib/api/services/upload.service';
 	import savedSearchService, { type TaskBodyDto } from '$lib/api/services/saved-search.service';
 	import { t } from 'svelte-i18n';
 	import { onDestroy } from 'svelte';
 	import { browser } from '$app/environment';
+
+	type TaskBudgetRef = {
+		uploadPendingFiles?: () => Promise<Attachment[]>;
+	};
+
+	type TaskBasicsRef = {
+		saveCurrentSkillInput?: () => void;
+	};
+
 	let errors = $state<Record<string, string>>({});
 	let isSubmitting = $state(false);
 	let isLoading = $state(false);
 	let isEditDataLoaded = $state(false);
 	let direction: 'forward' | 'backward' = $state('forward');
 	let attachmentsToRemove = $state<Attachment[]>([]);
-	let taskBudgetRef = $state<any>(); // Reference to TaskBudget component
-	let taskBasicsRef: any = $state(null);
+	let taskBudgetRef = $state<TaskBudgetRef | null>(null);
+	let taskBasicsRef = $state<TaskBasicsRef | null>(null);
 
 	// Background function to trigger saved search checks
 	const triggerSavedSearchChecks = async (taskData: TaskBody, eventId: string) => {
@@ -244,39 +247,9 @@
 		return Object.keys(errors).length === 0;
 	}
 
-	const handleRemoveAttachment = () => {
-		if (attachmentsToRemove.length > 0) {
-			attachmentsToRemove.forEach((attachment) => {
-				uploadService.deleteFile(attachment.key).then(() => {
-					attachmentsToRemove = [];
-					store.saveDraft();
-				});
-			});
-		}
-	};
-
-	const uploadFiles = async (files: (Attachment | File)[]): Promise<Attachment[]> => {
-		const uploadPromises = files.map(async (file) => {
-			if (file instanceof File) {
-				const uploadResult = await uploadService.uploadSingleFile(file, { folder: 'task' });
-				return {
-					key: uploadResult.key,
-					url: uploadResult.url,
-					type: file.type,
-					alt: file.name,
-					size: file.size
-				};
-			} else {
-				return file;
-			}
-		});
-
-		return Promise.all(uploadPromises);
-	};
-
 	const handleNext = async () => {
 		// Save current skill input if we're on the basics step
-		if ($store.currentStep === TaskStepEnum.BASICS && taskBasicsRef) {
+		if ($store.currentStep === TaskStepEnum.BASICS && taskBasicsRef?.saveCurrentSkillInput) {
 			taskBasicsRef.saveCurrentSkillInput();
 		}
 
@@ -382,7 +355,10 @@
 </script>
 
 <!-- Mismas dimensiones que Mi Panel: max-w-6xl, px-2 py-6 md:px-0 md:py-0 -->
-<div class="mx-auto h-full max-w-6xl px-2 py-6 md:px-0 md:py-0">
+<div
+	class="mx-auto h-full max-w-6xl px-2 py-6 md:px-0 md:py-0"
+	data-testid="dashboard-create-task-page"
+>
 	<!-- Page Header -->
 	<div class="mb-6">
 		<h3 class="">

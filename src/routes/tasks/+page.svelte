@@ -1070,6 +1070,7 @@
 <main
 	class="find-tasks-container find-tasks-page mx-auto h-full min-h-0 w-full max-w-6xl flex-1 px-2 py-6 md:px-0 md:py-0"
 	data-find-tasks-page="true"
+	data-testid="public-tasks-page"
 >
 	<div
 		id="panel-find-tasks"
@@ -1215,12 +1216,12 @@
 					</div>
 
 					<!-- Desktop Map Sidebar (hidden on mobile) -->
-						<aside
-							class="map-container-wrapper hidden min-h-0 lg:block"
-							data-tasks-map-column
-							data-testid="tasks-map-column"
-							aria-label={$t('find_tasks.map') || 'Task map'}
-						>
+					<aside
+						class="map-container-wrapper hidden min-h-0 lg:block"
+						data-tasks-map-column
+						data-testid="tasks-map-column"
+						aria-label={$t('find_tasks.map') || 'Task map'}
+					>
 						{#if mapLoaded && TaskLocationMap}
 							<TaskLocationMap
 								tasks={$tasksStore.items}

@@ -36,10 +36,12 @@
 	<meta property="twitter:creator" content="@BitTaskerdotcom" />
 
 	<!-- Structured Data -->
-	{@html `<script type="application/ld+json">${JSON.stringify(seo.jsonLd)}</script>`}
+	<script type="application/ld+json">
+		{JSON.stringify(seo.jsonLd)}
+	</script>
 </svelte:head>
 
-<div class="w-full">
+<div class="w-full" data-testid="about-page">
 	<section class="hero bg-base-100 text-base-content min-h-[60vh] pb-12">
 		<div class="hero-content flex-col text-center">
 			<Logo />
@@ -53,7 +55,7 @@
 	</section>
 
 	<!-- Our Mission Section -->
-	<div class="prose mx-auto max-w-4xl my-16 px-8">
+	<div class="prose mx-auto my-16 max-w-4xl px-8">
 		<div class="mb-12 text-center">
 			<h3>{$t('about_page.mission.title')}</h3>
 			<p class="text-base-content/80 py-6 text-lg">
@@ -162,7 +164,9 @@
 								<h4 class="card-title">
 									{$t('about_page.platform.features.fiat.title')}
 								</h4>
-								<p class="text-base-content/80">{$t('about_page.platform.features.fiat.description')}</p>
+								<p class="text-base-content/80">
+									{$t('about_page.platform.features.fiat.description')}
+								</p>
 							</div>
 						</div>
 					</div>

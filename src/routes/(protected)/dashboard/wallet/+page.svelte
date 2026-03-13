@@ -2,6 +2,7 @@
 	// Import polyfills FIRST before any other imports that might use Buffer/bitcoinjs-lib
 	import '$lib/polyfills';
 	import { onMount, onDestroy } from 'svelte';
+	import type { Component } from 'svelte';
 	import { t } from 'svelte-i18n';
 	import { linear } from 'svelte/easing';
 	import { fly } from 'svelte/transition';
@@ -20,7 +21,6 @@
 	import WalletPaymentModal from '$lib/components/wallet/WalletPaymentModal.svelte';
 	import ReceivePaymentForm from '$lib/components/wallet/ReceivePaymentForm.svelte';
 	import SendPaymentForm from '$lib/components/wallet/SendPaymentForm.svelte';
-	import HelpModal from '$lib/components/wallet/HelpModal.svelte';
 	import IconContentCopy from '~icons/mdi/content-copy';
 	import IconDownload from '~icons/mdi/download';
 	import IconUpload from '~icons/mdi/upload';
@@ -35,6 +35,9 @@
 
 	let isLoading = $state(false);
 	let unsubscribeFromSwaps: (() => void) | null = null;
+	let HelpModalComponent = $state<Component<{ onClose?: () => void; showButton?: boolean }> | null>(
+		null
+	);
 	const isE2EInteractionMode = import.meta.env.VITE_E2E_TURNSTILE_BYPASS === 'true';
 
 	async function initializeWallet(): Promise<void> {
@@ -50,6 +53,9 @@
 	}
 
 	onMount(async () => {
+		const { default: HelpModal } = await import('$lib/components/wallet/HelpModal.svelte');
+		HelpModalComponent = HelpModal;
+
 		await initializeWallet();
 		// Subscribe to real-time swap updates via WebSocket
 		try {
@@ -172,7 +178,10 @@
 </svelte:head>
 
 <!-- Mismas dimensiones que Mi Panel (padding); max-w-4xl para wallet -->
-<div class="bg-base-100 mx-auto h-full max-w-4xl rounded-lg px-2 py-6 shadow-lg md:px-0 md:py-0">
+<div
+	class="bg-base-100 mx-auto h-full max-w-4xl rounded-lg px-2 py-6 shadow-lg md:px-0 md:py-0"
+	data-testid="dashboard-wallet-page"
+>
 	<div
 		transition:fly={{ y: 20, duration: 300, easing: linear }}
 		class="flex h-full flex-col p-3 sm:p-6"
@@ -352,7 +361,9 @@
 				<!-- Learn More Section - Below buttons -->
 				<div class="flex justify-center">
 					<div class="text-base-content/70 text-xs sm:text-sm">
-						<HelpModal />
+						{#if HelpModalComponent}
+							<HelpModalComponent />
+						{/if}
 					</div>
 				</div>
 			</div>

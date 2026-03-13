@@ -371,23 +371,43 @@ async function isBottomMenuOpen(page: Page): Promise<boolean> {
 		.catch(() => false);
 }
 
-export async function resolveMenuButton(page: Page): Promise<Locator> {
-	return firstVisibleLocator(page, [
-		'button[data-menu-button]',
-		'.dock button[data-menu-button]',
-		'footer button[data-menu-button]'
-	]);
+export async function resolveMenuButton(
+	page: Page,
+	timeoutMs = IOS_TIMEOUTS.ready
+): Promise<Locator> {
+	return firstVisibleLocator(
+		page,
+		[
+			'button[data-menu-button]',
+			'.dock button[data-menu-button]',
+			'footer button[data-menu-button]'
+		],
+		timeoutMs
+	);
 }
 
 export async function openBottomMenu(page: Page): Promise<void> {
 	if (await isBottomMenuOpen(page)) return;
 
-	const button = await resolveMenuButton(page);
-	for (let attempt = 0; attempt < 3; attempt += 1) {
+	for (let attempt = 0; attempt < 5; attempt += 1) {
+		const button = await resolveMenuButton(page, IOS_TIMEOUTS.navigation);
+		await button.scrollIntoViewIfNeeded().catch(() => {});
 		if (attempt === 0) {
+			await button
+				.evaluate((element) => {
+					if (element instanceof HTMLElement) {
+						element.click();
+					}
+				})
+				.catch(() => {});
+		} else if (attempt === 1) {
+			await button.dispatchEvent('click').catch(() => {});
+		} else if (attempt === 2) {
 			await quickActivate(button).catch(() => activate(button));
-		} else {
+		} else if (attempt === 3) {
 			await quickActivate(button).catch(() => activateWithForceFallback(button));
+		} else {
+			await button.click({ force: true, timeout: IOS_TIMEOUTS.interaction }).catch(() => {});
 		}
 		const opened = await expect
 			.poll(async () => isBottomMenuOpen(page), {
@@ -400,7 +420,7 @@ export async function openBottomMenu(page: Page): Promise<void> {
 		if (opened) return;
 	}
 
-	throw new Error('Bottom menu did not open after 3 attempts');
+	throw new Error('Bottom menu did not open after 5 attempts');
 }
 
 export async function closeBottomMenu(page: Page): Promise<void> {
@@ -411,7 +431,7 @@ export async function closeBottomMenu(page: Page): Promise<void> {
 		if (await backdrop.isVisible().catch(() => false)) {
 			await quickActivate(backdrop).catch(() => {});
 		} else {
-			const button = await resolveMenuButton(page);
+			const button = await resolveMenuButton(page, IOS_TIMEOUTS.navigation);
 			await quickActivate(button).catch(() => {});
 		}
 

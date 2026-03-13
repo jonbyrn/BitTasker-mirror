@@ -65,9 +65,6 @@
 		const tabParam = page.url.searchParams.get('tab');
 		if (tabParam && tabs.some((t) => t.id === tabParam)) {
 			activeTabId = tabParam;
-		} else {
-			page.url.searchParams.set('tab', activeTabId);
-			goto(page.url.toString(), { replaceState: true, keepFocus: true, noScroll: true });
 		}
 	});
 
@@ -76,6 +73,8 @@
 		const tabParam = page.url.searchParams.get('tab');
 		if (tabParam && tabs.some((t) => t.id === tabParam)) {
 			activeTabId = tabParam;
+		} else {
+			activeTabId = tabs[0]?.id || 'tasks';
 		}
 	});
 
@@ -83,8 +82,9 @@
 	function handleTabChange(tabId: string) {
 		if (tabs.some((t) => t.id === tabId)) {
 			activeTabId = tabId;
-			page.url.searchParams.set('tab', tabId);
-			goto(page.url.toString(), { replaceState: true, keepFocus: true, noScroll: true });
+			const nextUrl = new URL(page.url);
+			nextUrl.searchParams.set('tab', tabId);
+			goto(nextUrl.toString(), { replaceState: true, keepFocus: true, noScroll: true });
 		}
 	}
 
@@ -156,7 +156,10 @@
 		if (!taskToDelete) return;
 		try {
 			isDeleting = true;
-			const eventId = 'eventId' in taskToDelete ? (taskToDelete as Task & { eventId?: string }).eventId : undefined;
+			const eventId =
+				'eventId' in taskToDelete
+					? (taskToDelete as Task & { eventId?: string }).eventId
+					: undefined;
 			await deleteTask(taskToDelete.id, eventId);
 			$myTasksStore.items = $myTasksStore.items.filter((t) => t.id !== taskToDelete.id);
 			activeTaskModal = null;
@@ -169,7 +172,7 @@
 	};
 </script>
 
-<div class="mx-auto h-full max-w-6xl px-2 py-6 md:px-0 md:py-0">
+<div class="mx-auto h-full max-w-6xl px-2 py-6 md:px-0 md:py-0" data-testid="dashboard-home-page">
 	<!-- Dashboard Header -->
 	<div class="mb-6 flex items-center justify-between">
 		<div>
@@ -315,10 +318,10 @@
 			<div class="space-y-4">
 				<!-- Main Warning Box -->
 				<div class="bg-error/10 rounded-lg p-4">
-					<p class="text-sm text-error font-semibold mb-2">
+					<p class="text-error mb-2 text-sm font-semibold">
 						{$t('dashboard.task_details_by_task.edit_task_confirmation.warning')}
 					</p>
-					<p class="text-sm text-error">
+					<p class="text-error text-sm">
 						{$t('dashboard.task_details_by_task.edit_task_confirmation.details')}
 					</p>
 				</div>
@@ -394,7 +397,7 @@
 			<div class="space-y-4">
 				<!-- Main Warning Box -->
 				<div class="bg-error/10 rounded-lg p-4">
-					<p class="text-sm text-error font-semibold">
+					<p class="text-error text-sm font-semibold">
 						{$t('dashboard.task_details_by_task.delete_task_confirm_message')}
 					</p>
 				</div>

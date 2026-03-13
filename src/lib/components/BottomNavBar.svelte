@@ -5,10 +5,9 @@
 	import { backOut } from 'svelte/easing';
 	import { page } from '$app/state';
 	import { beforeNavigate, goto } from '$app/navigation';
-	import { Preferences } from '@capacitor/preferences';
-	import { StorageKeys } from '$lib/utils/constants/storage';
 	import { authState } from '$lib/stores/auth.store';
 	import { ImpactStyle, triggerHaptic } from '$lib/utils/helpers/haptics';
+	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 	// Icon imports for unplugin-icons
 	import IconLogout from '~icons/mdi/logout';
 	import IconHelpCircleOutline from '~icons/mdi/help-circle-outline';
@@ -44,6 +43,7 @@
 
 	let currentSection = $state('');
 	let isLoggedIn = $state(false);
+	let showLogoutModal = $state(false);
 
 	function triggerTapHaptic() {
 		void triggerHaptic(ImpactStyle.Light);
@@ -140,12 +140,6 @@
 		unsubscribeAuth = authState.subscribe((state) => {
 			isLoggedIn = state.isAuthenticated;
 		});
-
-		// Initial token presence check (no Nostr libs)
-		(async () => {
-			const { value } = await Preferences.get({ key: StorageKeys.ACCESS_TOKEN });
-			isLoggedIn = Boolean(value);
-		})();
 	});
 
 	// Close menu before any navigation
@@ -188,13 +182,38 @@
 
 	let lastMenuToggleAt = 0;
 
+	function handleDockNav(event: MouseEvent) {
+		if (event.defaultPrevented) return;
+		if (event.button !== 0) return;
+		if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+		triggerTapHaptic();
+	}
+
 	// Handle navigation with menu closing for SPA navigation
-	async function handleNavWithMenuClose(event: MouseEvent, href: string) {
-		event.preventDefault();
+	function handleNavWithMenuClose(event: MouseEvent, href?: string) {
+		if (event.defaultPrevented) return;
+		if (event.button !== 0) return;
+		if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+		if (!href) return;
 		event.stopPropagation();
 		triggerTapHaptic();
 		closeMenu();
-		await goto(href, { noScroll: false, replaceState: false });
+	}
+
+	function requestLogout() {
+		triggerTapHaptic();
+		closeMenu();
+		showLogoutModal = true;
+	}
+
+	function cancelLogout() {
+		showLogoutModal = false;
+	}
+
+	async function confirmLogout() {
+		showLogoutModal = false;
+		await authState.logout();
+		await goto('/');
 	}
 
 	// Close all collapse menus
@@ -238,7 +257,10 @@
 
 <!-- Bottom-sheet menu overlay (under the dock) -->
 {#if isMenuOpen}
-	<div class="bottom-nav-overlay fixed inset-0 z-[70] flex flex-col justify-end">
+	<div
+		class="bottom-nav-overlay fixed inset-0 z-[70] flex flex-col justify-end"
+		data-testid="bottom-nav-popup-overlay"
+	>
 		<button
 			type="button"
 			class="bottom-nav-backdrop flex-1 bg-black"
@@ -270,6 +292,7 @@
 				overflow: hidden;
 			"
 			class:menu-expand={isMenuOpen}
+			data-testid="bottom-nav-popup-panel"
 		>
 			<div class="bottom-nav-scroll max-h-208 overflow-y-auto pt-2">
 				<div class="p-2">
@@ -279,11 +302,9 @@
 							<!-- Logout -->
 							<li>
 								<button
-									onclick={() => {
-										triggerTapHaptic();
-										closeMenu(); /* Add logout logic here */
-									}}
+									onclick={requestLogout}
 									class="min-h-[48px] w-full py-3 text-left"
+									data-testid="bottom-nav-popup-logout-button"
 								>
 									<IconLogout class="text-error" />
 									<span class="text-error font-medium">{$t('navbar.logout')}</span>
@@ -292,7 +313,11 @@
 
 							<!-- Support & Help -->
 							<li>
-								<button onclick={toggleCompany} class="min-h-[48px] py-3">
+								<button
+									onclick={toggleCompany}
+									class="min-h-[48px] py-3"
+									data-testid="bottom-nav-popup-support-toggle"
+								>
 									<IconHelpCircleOutline class="text-primary" />
 									<span class="font-medium">{$t('navbar.support_help')}</span>
 									<svg
@@ -317,6 +342,9 @@
 										href="/how-it-works"
 										onclick={(e) => handleNavWithMenuClose(e, '/how-it-works')}
 										class="min-h-[44px] py-2 pl-6"
+										data-testid="bottom-nav-popup-how-it-works-link"
+										data-sveltekit-preload-data="off"
+										data-sveltekit-preload-code="off"
 									>
 										<IconHelpCircleOutline class="text-primary" />
 										<span class="font-medium">{$t('navbar.how_it_works')}</span>
@@ -327,6 +355,7 @@
 										href="/faq"
 										onclick={(e) => handleNavWithMenuClose(e, '/faq')}
 										class="min-h-[44px] py-2 pl-6"
+										data-testid="bottom-nav-popup-faq-link"
 									>
 										<IconFrequentlyAskedQuestions class="text-primary" />
 										<span class="font-medium">{$t('navbar.faq')}</span>
@@ -337,6 +366,7 @@
 										href="/contact"
 										onclick={(e) => handleNavWithMenuClose(e, '/contact')}
 										class="min-h-[44px] py-2 pl-6"
+										data-testid="bottom-nav-popup-contact-link"
 									>
 										<IconEmailOutline class="text-primary" />
 										<span class="font-medium">{$t('navbar.contact_support')}</span>
@@ -347,6 +377,7 @@
 										href="/feedback"
 										onclick={(e) => handleNavWithMenuClose(e, '/feedback')}
 										class="min-h-[44px] py-2 pl-6"
+										data-testid="bottom-nav-popup-feedback-link"
 									>
 										<IconCommentTextOutline class="text-primary" />
 										<span class="font-medium">{$t('navbar.feedback')}</span>
@@ -357,6 +388,7 @@
 										href="/security"
 										onclick={(e) => handleNavWithMenuClose(e, '/security')}
 										class="min-h-[44px] py-2 pl-6"
+										data-testid="bottom-nav-popup-security-link"
 									>
 										<IconShieldCheck class="text-primary" />
 										<span class="font-medium">{$t('footer.security')}</span>
@@ -367,6 +399,7 @@
 										href="/about"
 										onclick={(e) => handleNavWithMenuClose(e, '/about')}
 										class="min-h-[44px] py-2 pl-6"
+										data-testid="bottom-nav-popup-about-link"
 									>
 										<IconInformationOutline class="text-primary" />
 										<span class="font-medium">{$t('navbar.about_us')}</span>
@@ -377,6 +410,7 @@
 										href="/terms"
 										onclick={(e) => handleNavWithMenuClose(e, '/terms')}
 										class="min-h-[44px] py-2 pl-6"
+										data-testid="bottom-nav-popup-terms-link"
 									>
 										<IconFileDocumentOutline class="text-primary" />
 										<span class="font-medium">{$t('navbar.terms_of_service')}</span>
@@ -387,6 +421,7 @@
 										href="/privacy"
 										onclick={(e) => handleNavWithMenuClose(e, '/privacy')}
 										class="min-h-[44px] py-2 pl-6"
+										data-testid="bottom-nav-popup-privacy-link"
 									>
 										<IconShieldAccount class="text-primary" />
 										<span class="font-medium">{$t('navbar.privacy_policy')}</span>
@@ -396,7 +431,11 @@
 
 							<!-- Task Management -->
 							<li>
-								<button onclick={toggleTaskees} class="min-h-[48px] py-3">
+								<button
+									onclick={toggleTaskees}
+									class="min-h-[48px] py-3"
+									data-testid="bottom-nav-popup-task-management-toggle"
+								>
 									<IconBriefcaseOutline class="text-primary" />
 									<span class="font-medium">{$t('navbar.task_management')}</span>
 									<svg
@@ -421,6 +460,9 @@
 										href="/tasks"
 										onclick={(e) => handleNavWithMenuClose(e, '/tasks')}
 										class="min-h-[44px] py-2 pl-6"
+										data-testid="bottom-nav-popup-find-tasks-link"
+										data-sveltekit-preload-data="off"
+										data-sveltekit-preload-code="off"
 									>
 										<IconMagnify class="text-primary" />
 										<span class="font-medium">{$t('navbar.find_tasks')}</span>
@@ -431,6 +473,9 @@
 										href="/dashboard"
 										onclick={(e) => handleNavWithMenuClose(e, '/dashboard')}
 										class="min-h-[44px] py-2 pl-6"
+										data-testid="bottom-nav-popup-my-tasks-link"
+										data-sveltekit-preload-data="off"
+										data-sveltekit-preload-code="off"
 									>
 										<IconFormatListBulleted class="text-primary" />
 										<span class="font-medium">{$t('navbar.my_tasks')}</span>
@@ -441,6 +486,9 @@
 										href="/dashboard/create-task"
 										onclick={(e) => handleNavWithMenuClose(e, '/dashboard/create-task')}
 										class="min-h-[44px] py-2 pl-6"
+										data-testid="bottom-nav-popup-create-task-link"
+										data-sveltekit-preload-data="off"
+										data-sveltekit-preload-code="off"
 									>
 										<IconPlusCircleOutline class="text-primary" />
 										<span class="font-medium">{$t('navbar.create_task')}</span>
@@ -451,6 +499,7 @@
 										href="/dashboard?tab=bids"
 										onclick={(e) => handleNavWithMenuClose(e, '/dashboard?tab=bids')}
 										class="min-h-[44px] py-2 pl-6"
+										data-testid="bottom-nav-popup-bids-link"
 									>
 										<IconInvoiceTextSendOutline class="text-primary" />
 										<span class="font-medium">{$t('navbar.bids_sent')}</span>
@@ -461,6 +510,7 @@
 										href="/dashboard?tab=contracts"
 										onclick={(e) => handleNavWithMenuClose(e, '/dashboard?tab=contracts')}
 										class="min-h-[44px] py-2 pl-6"
+										data-testid="bottom-nav-popup-contracts-link"
 									>
 										<IconFileSign class="text-primary" />
 										<span class="font-medium">{$t('navbar.contracts')}</span>
@@ -470,7 +520,11 @@
 
 							<!-- My Account -->
 							<li>
-								<button onclick={toggleTaskers} class="min-h-[48px] py-3">
+								<button
+									onclick={toggleTaskers}
+									class="min-h-[48px] py-3"
+									data-testid="bottom-nav-popup-account-toggle"
+								>
 									<IconAccountCircle class="text-primary" />
 									<span class="font-medium">{$t('navbar.my_account')}</span>
 									<svg
@@ -495,6 +549,9 @@
 										href="/dashboard/messages"
 										onclick={(e) => handleNavWithMenuClose(e, '/dashboard/messages')}
 										class="min-h-[44px] py-2 pl-6"
+										data-testid="bottom-nav-popup-messages-link"
+										data-sveltekit-preload-data="off"
+										data-sveltekit-preload-code="off"
 									>
 										<IconChatOutline class="text-primary" />
 										<span class="font-medium">{$t('navbar.messages')}</span>
@@ -506,6 +563,9 @@
 										href="/dashboard/wallet"
 										onclick={(e) => handleNavWithMenuClose(e, '/dashboard/wallet')}
 										class="min-h-[44px] py-2 pl-6"
+										data-testid="bottom-nav-popup-wallet-link"
+										data-sveltekit-preload-data="off"
+										data-sveltekit-preload-code="off"
 									>
 										<IconWalletOutline class="text-primary" />
 										<span class="font-medium">{$t('navbar.wallet')}</span>
@@ -516,6 +576,9 @@
 										href="/dashboard/profile"
 										onclick={(e) => handleNavWithMenuClose(e, '/dashboard/profile')}
 										class="min-h-[44px] py-2 pl-6"
+										data-testid="bottom-nav-popup-profile-link"
+										data-sveltekit-preload-data="off"
+										data-sveltekit-preload-code="off"
 									>
 										<IconAccount class="text-primary" />
 										<span class="font-medium">{$t('navbar.profile')}</span>
@@ -526,6 +589,9 @@
 										href="/dashboard/settings"
 										onclick={(e) => handleNavWithMenuClose(e, '/dashboard/settings')}
 										class="min-h-[44px] py-2 pl-6"
+										data-testid="bottom-nav-popup-settings-link"
+										data-sveltekit-preload-data="off"
+										data-sveltekit-preload-code="off"
 									>
 										<IconCog class="text-primary" />
 										<span class="font-medium">{$t('navbar.settings')}</span>
@@ -536,19 +602,25 @@
 					{:else}
 						<!-- Logged-out user menu (existing structure) -->
 						<!-- Auth buttons at the top -->
-						<div class="mb-2 flex items-center justify-around">
+						<div class="mb-2 flex flex-col gap-2">
 							<a
 								href="/auth/login"
-								class="btn btn-secondary flex w-[48%] items-center justify-center gap-2"
+								class="btn btn-secondary flex min-h-[48px] w-full items-center justify-center gap-2"
 								onclick={(e) => handleNavWithMenuClose(e, '/auth/login')}
+								data-testid="bottom-nav-popup-login-link"
+								data-sveltekit-preload-data="off"
+								data-sveltekit-preload-code="off"
 							>
 								<IconLogin />
 								{$t('navbar.login')}
 							</a>
 							<a
 								href="/auth/signup"
-								class="btn btn-primary flex w-[48%] items-center justify-center gap-2"
+								class="btn btn-primary flex min-h-[48px] w-full items-center justify-center gap-2"
 								onclick={(e) => handleNavWithMenuClose(e, '/auth/signup')}
+								data-testid="bottom-nav-popup-signup-link"
+								data-sveltekit-preload-data="off"
+								data-sveltekit-preload-code="off"
 							>
 								<IconAccountPlus />
 								{$t('navbar.signup')}
@@ -561,6 +633,9 @@
 									href="/tasks"
 									onclick={(e) => handleNavWithMenuClose(e, '/tasks')}
 									class="min-h-[48px] py-3"
+									data-testid="bottom-nav-popup-public-home-link"
+									data-sveltekit-preload-data="off"
+									data-sveltekit-preload-code="off"
 								>
 									<IconHome class="text-primary" />
 									<span class="font-medium">{$t('navbar.home')}</span>
@@ -571,6 +646,9 @@
 									href="/how-it-works"
 									onclick={(e) => handleNavWithMenuClose(e, '/how-it-works')}
 									class="min-h-[48px] py-3"
+									data-testid="bottom-nav-popup-public-how-it-works-link"
+									data-sveltekit-preload-data="off"
+									data-sveltekit-preload-code="off"
 								>
 									<IconHelpCircleOutline class="text-primary" />
 									<span class="font-medium">{$t('footer.how_it_works')}</span>
@@ -579,7 +657,11 @@
 
 							<!-- For Taskers collapse -->
 							<li>
-								<button onclick={toggleTaskers} class="min-h-[48px] py-3">
+								<button
+									onclick={toggleTaskers}
+									class="min-h-[48px] py-3"
+									data-testid="bottom-nav-popup-public-taskers-toggle"
+								>
 									<IconBriefcaseOutline class="text-primary" />
 									<span class="font-medium">{$t('footer.for_taskers')}</span>
 									<svg
@@ -604,6 +686,7 @@
 										href="/dashboard/create-task"
 										onclick={(e) => handleNavWithMenuClose(e, '/dashboard/create-task')}
 										class="min-h-[44px] py-2 pl-6"
+										data-testid="bottom-nav-popup-public-post-task-link"
 									>
 										<IconPlusCircleOutline class="text-primary" />
 										<span class="font-medium">{$t('footer.post_task')}</span>
@@ -615,6 +698,7 @@
 										href="/taskee-fees"
 										onclick={(e) => handleNavWithMenuClose(e, '/taskee-fees')}
 										class="min-h-[44px] py-2 pl-6"
+										data-testid="bottom-nav-popup-public-taskee-fees-link"
 									>
 										<IconCurrencyUsd class="text-primary" />
 										<span class="font-medium">{$t('footer.tasker_fees')}</span>
@@ -625,6 +709,7 @@
 										href="/secure-payments"
 										onclick={(e) => handleNavWithMenuClose(e, '/secure-payments')}
 										class="min-h-[44px] py-2 pl-6"
+										data-testid="bottom-nav-popup-public-secure-payments-link"
 									>
 										<IconShieldCheckOutline class="text-primary" />
 										<span class="font-medium">{$t('footer.escrow')}</span>
@@ -635,6 +720,7 @@
 										href="/faq"
 										onclick={(e) => handleNavWithMenuClose(e, '/faq')}
 										class="min-h-[44px] py-2 pl-6"
+										data-testid="bottom-nav-popup-public-taskers-faq-link"
 									>
 										<IconFrequentlyAskedQuestions class="text-primary" />
 										<span class="font-medium">{$t('footer.faq')}</span>
@@ -644,7 +730,11 @@
 
 							<!-- For Taskees collapse -->
 							<li>
-								<button onclick={toggleTaskees} class="min-h-[48px] py-3">
+								<button
+									onclick={toggleTaskees}
+									class="min-h-[48px] py-3"
+									data-testid="bottom-nav-popup-public-taskees-toggle"
+								>
 									<IconAccountHardHat class="text-primary" />
 									<span class="font-medium">{$t('footer.for_taskees')}</span>
 									<svg
@@ -669,6 +759,7 @@
 										href="/tasks"
 										onclick={(e) => handleNavWithMenuClose(e, '/tasks')}
 										class="min-h-[44px] py-2 pl-6"
+										data-testid="bottom-nav-popup-public-start-earning-link"
 									>
 										<IconCurrencyBtc class="text-primary" />
 										<span class="font-medium">{$t('footer.start_earning')}</span>
@@ -679,6 +770,7 @@
 										href="/community-guidelines"
 										onclick={(e) => handleNavWithMenuClose(e, '/community-guidelines')}
 										class="min-h-[44px] py-2 pl-6"
+										data-testid="bottom-nav-popup-public-community-guidelines-link"
 									>
 										<IconAccountGroup class="text-primary" />
 										<span class="font-medium">{$t('footer.community_guidelines')}</span>
@@ -689,6 +781,7 @@
 										href="/taskee-fees"
 										onclick={(e) => handleNavWithMenuClose(e, '/taskee-fees')}
 										class="min-h-[44px] py-2 pl-6"
+										data-testid="bottom-nav-popup-public-taskees-fees-link"
 									>
 										<IconCurrencyUsd class="text-primary" />
 										<span class="font-medium">{$t('footer.tasker_fees')}</span>
@@ -699,6 +792,7 @@
 										href="/tasker-principles"
 										onclick={(e) => handleNavWithMenuClose(e, '/tasker-principles')}
 										class="min-h-[44px] py-2 pl-6"
+										data-testid="bottom-nav-popup-public-tasker-principles-link"
 									>
 										<IconInvoiceTextSendOutline class="text-primary" />
 										<span class="font-medium">{$t('footer.tasker_principles')}</span>
@@ -709,6 +803,7 @@
 										href="/faq"
 										onclick={(e) => handleNavWithMenuClose(e, '/faq')}
 										class="min-h-[44px] py-2 pl-6"
+										data-testid="bottom-nav-popup-public-taskees-faq-link"
 									>
 										<IconFrequentlyAskedQuestions class="text-primary" />
 										<span class="font-medium">{$t('footer.tasker_faq')}</span>
@@ -718,7 +813,11 @@
 
 							<!-- Company collapse -->
 							<li>
-								<button onclick={toggleCompany} class="min-h-[48px] py-3">
+								<button
+									onclick={toggleCompany}
+									class="min-h-[48px] py-3"
+									data-testid="bottom-nav-popup-public-company-toggle"
+								>
 									<IconDomain class="text-primary" />
 									<span class="font-medium">{$t('footer.company')}</span>
 									<svg
@@ -743,6 +842,7 @@
 										href="/about"
 										onclick={(e) => handleNavWithMenuClose(e, '/about')}
 										class="min-h-[44px] py-2 pl-6"
+										data-testid="bottom-nav-popup-public-about-link"
 									>
 										<IconInformationOutline class="text-primary" />
 										<span class="font-medium">{$t('footer.about_us')}</span>
@@ -753,6 +853,7 @@
 										href="/security"
 										onclick={(e) => handleNavWithMenuClose(e, '/security')}
 										class="min-h-[44px] py-2 pl-6"
+										data-testid="bottom-nav-popup-public-security-link"
 									>
 										<IconShieldCheck class="text-primary" />
 										<span class="font-medium">{$t('footer.security')}</span>
@@ -763,6 +864,7 @@
 										href="/careers"
 										onclick={(e) => handleNavWithMenuClose(e, '/careers')}
 										class="min-h-[44px] py-2 pl-6"
+										data-testid="bottom-nav-popup-public-careers-link"
 									>
 										<IconBriefcaseSearch class="text-primary" />
 										<span class="font-medium">{$t('footer.careers')}</span>
@@ -773,6 +875,7 @@
 										href="/press"
 										onclick={(e) => handleNavWithMenuClose(e, '/press')}
 										class="min-h-[44px] py-2 pl-6"
+										data-testid="bottom-nav-popup-public-press-link"
 									>
 										<IconNewspaper class="text-primary" />
 										<span class="font-medium">{$t('footer.press')}</span>
@@ -783,6 +886,7 @@
 										href="/terms"
 										onclick={(e) => handleNavWithMenuClose(e, '/terms')}
 										class="min-h-[44px] py-2 pl-6"
+										data-testid="bottom-nav-popup-public-terms-link"
 									>
 										<IconFileDocumentOutline class="text-primary" />
 										<span class="font-medium">{$t('footer.terms')}</span>
@@ -793,6 +897,7 @@
 										href="/privacy"
 										onclick={(e) => handleNavWithMenuClose(e, '/privacy')}
 										class="min-h-[44px] py-2 pl-6"
+										data-testid="bottom-nav-popup-public-privacy-link"
 									>
 										<IconShieldAccount class="text-primary" />
 										<span class="font-medium">{$t('footer.privacy')}</span>
@@ -803,6 +908,7 @@
 										href="/contact"
 										onclick={(e) => handleNavWithMenuClose(e, '/contact')}
 										class="min-h-[44px] py-2 pl-6"
+										data-testid="bottom-nav-popup-public-contact-link"
 									>
 										<IconEmailOutline class="text-primary" />
 										<span class="font-medium">{$t('footer.contact')}</span>
@@ -824,6 +930,7 @@
 							href="/tasks"
 							onclick={(e) => handleNavWithMenuClose(e, '/tasks')}
 							class="hover:bg-base-200 flex flex-1 flex-col items-center justify-center gap-1 rounded-lg p-2 transition-colors"
+							data-testid="bottom-nav-popup-quick-find-tasks-link"
 						>
 							<IconMagnify class="text-primary h-6 w-6" />
 							<span class="text-center text-xs font-medium">{$t('navbar.find_tasks')}</span>
@@ -832,6 +939,7 @@
 							href="/dashboard?tab=contracts"
 							onclick={(e) => handleNavWithMenuClose(e, '/dashboard?tab=contracts')}
 							class="hover:bg-base-200 flex flex-1 flex-col items-center justify-center gap-1 rounded-lg p-2 transition-colors"
+							data-testid="bottom-nav-popup-quick-contracts-link"
 						>
 							<IconFileSign class="text-primary h-6 w-6" />
 							<span class="text-center text-xs font-medium">{$t('navbar.contracts')}</span>
@@ -840,6 +948,7 @@
 							href="/dashboard?tab=bids"
 							onclick={(e) => handleNavWithMenuClose(e, '/dashboard?tab=bids')}
 							class="hover:bg-base-200 flex flex-1 flex-col items-center justify-center gap-1 rounded-lg p-2 transition-colors"
+							data-testid="bottom-nav-popup-quick-bids-link"
 						>
 							<IconInvoiceTextSendOutline class="text-primary h-6 w-6" />
 							<span class="text-center text-xs font-medium">{$t('navbar.bids_sent')}</span>
@@ -861,12 +970,14 @@
 		<!-- Home -->
 		<a
 			href="/dashboard"
-			onclick={triggerTapHaptic}
+			onclick={handleDockNav}
+			data-testid="bottom-nav-home-link"
 			class="hover:bg-primary-content/10 flex min-h-[48px] min-w-[48px] flex-col items-center gap-1 rounded-lg transition-colors {currentSection ===
 			'home'
 				? 'dock-active'
 				: ''}"
-			data-sveltekit-reload="off"
+			data-sveltekit-preload-data="off"
+			data-sveltekit-preload-code="off"
 		>
 			<IconHome class="text-primary-content" />
 			<span class="dock-label font-medium">{$t('navbar.home')}</span>
@@ -875,12 +986,14 @@
 		<!-- New Task -->
 		<a
 			href="/dashboard/create-task"
-			onclick={triggerTapHaptic}
+			onclick={handleDockNav}
+			data-testid="bottom-nav-create-task-link"
 			class="hover:bg-primary-content/10 flex min-h-[48px] min-w-[48px] flex-col items-center gap-1 rounded-lg transition-colors {currentSection ===
 			'create-task'
 				? 'dock-active'
 				: ''}"
-			data-sveltekit-reload="off"
+			data-sveltekit-preload-data="off"
+			data-sveltekit-preload-code="off"
 		>
 			<IconPlusCircleOutline class="text-primary-content" />
 			<span class="dock-label font-medium">{$t('navbar.new_task')}</span>
@@ -915,12 +1028,14 @@
 		<!-- Wallet -->
 		<a
 			href="/dashboard/wallet"
-			onclick={triggerTapHaptic}
+			onclick={handleDockNav}
+			data-testid="bottom-nav-wallet-link"
 			class="hover:bg-primary-content/10 flex min-h-[48px] min-w-[48px] flex-col items-center gap-1 rounded-lg transition-colors {currentSection ===
 			'wallet'
 				? 'dock-active'
 				: ''}"
-			data-sveltekit-reload="off"
+			data-sveltekit-preload-data="off"
+			data-sveltekit-preload-code="off"
 		>
 			<IconWalletOutline class="text-primary-content" />
 			<span class="dock-label font-medium">{$t('navbar.wallet')}</span>
@@ -929,12 +1044,14 @@
 		<!-- Messages -->
 		<a
 			href="/dashboard/messages"
-			onclick={triggerTapHaptic}
+			onclick={handleDockNav}
+			data-testid="bottom-nav-messages-link"
 			class="hover:bg-primary-content/10 flex min-h-[48px] min-w-[48px] flex-col items-center gap-1 rounded-lg transition-colors {currentSection ===
 			'messages'
 				? 'dock-active'
 				: ''}"
-			data-sveltekit-reload="off"
+			data-sveltekit-preload-data="off"
+			data-sveltekit-preload-code="off"
 		>
 			<IconChatOutline class="text-primary-content" />
 			<span class="dock-label font-medium">{$t('navbar.messages')}</span>
@@ -948,12 +1065,14 @@
 		<!-- Home -->
 		<a
 			href="/tasks"
-			onclick={triggerTapHaptic}
+			onclick={handleDockNav}
+			data-testid="bottom-nav-public-home-link"
 			class="hover:bg-primary-content/10 flex min-h-[48px] min-w-[48px] flex-col items-center gap-1 rounded-lg transition-colors {currentSection ===
 			'home'
 				? 'dock-active'
 				: ''}"
-			data-sveltekit-reload="off"
+			data-sveltekit-preload-data="off"
+			data-sveltekit-preload-code="off"
 		>
 			<IconHome class="text-primary-content" />
 			<span class="dock-label font-medium">{$t('navbar.home')}</span>
@@ -962,12 +1081,14 @@
 		<!-- About -->
 		<a
 			href="/about"
-			onclick={triggerTapHaptic}
+			onclick={handleDockNav}
+			data-testid="bottom-nav-about-link"
 			class="hover:bg-primary-content/10 flex min-h-[48px] min-w-[48px] flex-col items-center gap-1 rounded-lg transition-colors {currentSection ===
 			'about'
 				? 'dock-active'
 				: ''}"
-			data-sveltekit-reload="off"
+			data-sveltekit-preload-data="off"
+			data-sveltekit-preload-code="off"
 		>
 			<IconInformationOutline class="text-primary-content" />
 			<span class="dock-label font-medium">{$t('navbar.about')}</span>
@@ -1002,12 +1123,14 @@
 		<!-- How It Works -->
 		<a
 			href="/how-it-works"
-			onclick={triggerTapHaptic}
+			onclick={handleDockNav}
+			data-testid="bottom-nav-how-it-works-link"
 			class="hover:bg-primary-content/10 flex min-h-[48px] min-w-[48px] flex-col items-center gap-1 rounded-lg transition-colors {currentSection ===
 			'help'
 				? 'dock-active'
 				: ''}"
-			data-sveltekit-reload="off"
+			data-sveltekit-preload-data="off"
+			data-sveltekit-preload-code="off"
 		>
 			<IconHelpCircleOutline class="text-primary-content" />
 			<span class="dock-label font-medium">{$t('navbar.help')}</span>
@@ -1016,18 +1139,30 @@
 		<!-- Sign Up -->
 		<a
 			href="/auth/signup"
-			onclick={triggerTapHaptic}
+			onclick={handleDockNav}
+			data-testid="bottom-nav-signup-link"
 			class="hover:bg-primary-content/10 flex min-h-[48px] min-w-[48px] flex-col items-center gap-1 rounded-lg transition-colors {currentSection ===
 			'signup'
 				? 'dock-active'
 				: ''}"
-			data-sveltekit-reload="off"
+			data-sveltekit-preload-data="off"
+			data-sveltekit-preload-code="off"
 		>
 			<IconAccountPlus class="text-primary-content" />
 			<span class="dock-label font-medium">{$t('navbar.signup')}</span>
 		</a>
 	</div>
 {/if}
+
+<ConfirmModal
+	isOpen={showLogoutModal}
+	title={$t('common.components.confirm_modal.logout.title')}
+	message={$t('common.components.confirm_modal.logout.message')}
+	confirmText={$t('common.components.confirm_modal.logout.confirm_button')}
+	confirmButtonClass="btn-primary"
+	onConfirm={confirmLogout}
+	onCancel={cancelLogout}
+/>
 
 <style>
 	.pb-safe {
@@ -1048,6 +1183,8 @@
 
 	/* Backdrop fade for seamless open/close */
 	.bottom-nav-backdrop {
+		position: relative;
+		z-index: 0;
 		opacity: 0;
 		transition: opacity 300ms ease;
 	}
@@ -1058,6 +1195,8 @@
 
 	/* Menu starts collapsed, expands upward using transform instead of max-height */
 	.bottom-nav-menu {
+		position: relative;
+		z-index: 1;
 		transform: translateY(100%);
 		transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 		will-change: transform;
@@ -1122,6 +1261,16 @@
 	/* Do not override .bottom-nav-menu transform (used for slide animation) */
 	.bottom-nav-menu {
 		backface-visibility: hidden;
+	}
+
+	.bottom-nav-menu a,
+	.bottom-nav-menu button {
+		touch-action: manipulation;
+	}
+
+	.bottom-nav-scroll {
+		-webkit-overflow-scrolling: touch;
+		overscroll-behavior: contain;
 	}
 
 	/* Override any scrollbar-color properties that might cause issues */

@@ -11,20 +11,8 @@
 
 	let { data: seo } = $props();
 
-	// State to track which detailed step section is open
-	let openStepSection = $state<number>(-1);
-
 	// State for tasker/taskee accordion in step 3
 	let openTaskTalentSection = $state<number>(-1); // Default to closed
-
-	// Function to toggle between step sections
-	function toggleStepSection(index: number): void {
-		if (openStepSection === index) {
-			openStepSection = -1; // Close if already open
-		} else {
-			openStepSection = index; // Open the new one
-		}
-	}
 
 	// Function to toggle between tasker and taskee accordion
 	function toggleTaskTalentSection(index: number): void {
@@ -66,10 +54,12 @@
 	<meta property="twitter:creator" content="@BitTaskerdotcom" />
 
 	<!-- Structured Data -->
-	{@html `<script type="application/ld+json">${JSON.stringify(seo.jsonLd)}</script>`}
+	<script type="application/ld+json">
+		{JSON.stringify(seo.jsonLd)}
+	</script>
 </svelte:head>
 
-<div class="w-full">
+<div class="w-full" data-testid="how-it-works-page">
 	<section class="hero bg-base-100 text-base-content min-h-[60vh] pb-12">
 		<div class="hero-content flex-col text-center">
 			<Logo />
@@ -92,7 +82,7 @@
 		</div>
 
 		<!-- Steps Overview -->
-		<div class="justify-center mb-12 flex">
+		<div class="mb-12 flex justify-center">
 			<div class="steps steps-vertical md:steps-horizontal gap-2">
 				<div class="step step-primary">
 					<div>{$t('how_it_works.steps.sign_up')}</div>
@@ -128,6 +118,7 @@
 			</svg>
 			<span>
 				<strong>{$t('how_it_works.alert.title')}</strong>
+				<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 				{@html $t('how_it_works.alert.description')}
 			</span>
 		</div>
@@ -155,7 +146,7 @@
 
 						<div class="mt-0 flex flex-col gap-4 md:flex-row">
 							<div class="flex-1">
-								<h4 class="mb-2 mt-0">{$t('how_it_works.step_1.quick_secure.title')}</h4>
+								<h4 class="mt-0 mb-2">{$t('how_it_works.step_1.quick_secure.title')}</h4>
 								<ul class="list-inside list-disc space-y-1">
 									<li>{$t('how_it_works.step_1.quick_secure.item_1')}</li>
 									<li>{$t('how_it_works.step_1.quick_secure.item_2')}</li>
@@ -163,7 +154,7 @@
 								</ul>
 							</div>
 							<div class="flex-1">
-								<h4 class="mb-2 mt-0">{$t('how_it_works.step_1.requirements.title')}</h4>
+								<h4 class="mt-0 mb-2">{$t('how_it_works.step_1.requirements.title')}</h4>
 								<ul class="list-inside list-disc space-y-1">
 									<li>{$t('how_it_works.step_1.requirements.item_1')}</li>
 									<li>{$t('how_it_works.step_1.requirements.item_2')}</li>
@@ -185,6 +176,7 @@
 									d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
 								></path>
 							</svg>
+							<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 							<span>{@html $t('how_it_works.step_1.security_note')}</span>
 						</div>
 					</div>
@@ -252,6 +244,7 @@
 									d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
 								/>
 							</svg>
+							<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 							<span>{@html $t('how_it_works.step_2.tip')}</span>
 						</div>
 					</div>
@@ -290,7 +283,7 @@
 									<div class="space-y-4">
 										<div class="mt-4 flex items-start gap-4">
 											<div
-												class="border-primary text-primary mt-1 flex h-8 w-8 min-h-8 min-w-8 items-center justify-center rounded-full border text-sm font-medium"
+												class="border-primary text-primary mt-1 flex h-8 min-h-8 w-8 min-w-8 items-center justify-center rounded-full border text-sm font-medium"
 											>
 												1
 											</div>
@@ -306,7 +299,7 @@
 
 										<div class="flex items-start gap-4">
 											<div
-												class="border-primary text-primary mt-1 flex h-8 w-8 min-h-8 min-w-8 items-center justify-center rounded-full border text-sm font-medium"
+												class="border-primary text-primary mt-1 flex h-8 min-h-8 w-8 min-w-8 items-center justify-center rounded-full border text-sm font-medium"
 											>
 												2
 											</div>
@@ -322,7 +315,7 @@
 
 										<div class="flex items-start gap-4">
 											<div
-												class="border-primary text-primary mt-1 flex h-8 w-8 min-h-8 min-w-8 items-center justify-center rounded-full border text-sm font-medium"
+												class="border-primary text-primary mt-1 flex h-8 min-h-8 w-8 min-w-8 items-center justify-center rounded-full border text-sm font-medium"
 											>
 												3
 											</div>
@@ -331,6 +324,7 @@
 													{$t('how_it_works.step_3.for_taskers.3.title')}
 												</h6>
 												<p class="text-base-content/80 mt-1">
+													<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 													{@html $t('how_it_works.step_3.for_taskers.3.description')}
 												</p>
 											</div>
@@ -351,6 +345,7 @@
 												d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
 											></path>
 										</svg>
+										<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 										<span>{@html $t('how_it_works.step_3.for_taskers.tip')}</span>
 									</div>
 								</div>
@@ -372,7 +367,7 @@
 									<div class="space-y-4">
 										<div class="mt-4 flex items-start gap-4">
 											<div
-												class="border-primary text-primary mt-1 flex h-8 w-8 min-h-8 min-w-8 items-center justify-center rounded-full border text-sm font-medium"
+												class="border-primary text-primary mt-1 flex h-8 min-h-8 w-8 min-w-8 items-center justify-center rounded-full border text-sm font-medium"
 											>
 												1
 											</div>
@@ -386,7 +381,7 @@
 
 										<div class="flex items-start gap-4">
 											<div
-												class="border-primary text-primary mt-1 flex h-8 w-8 min-h-8 min-w-8 items-center justify-center rounded-full border text-sm font-medium"
+												class="border-primary text-primary mt-1 flex h-8 min-h-8 w-8 min-w-8 items-center justify-center rounded-full border text-sm font-medium"
 											>
 												2
 											</div>
@@ -400,7 +395,7 @@
 
 										<div class="flex items-start gap-4">
 											<div
-												class="border-primary text-primary mt-1 flex h-8 w-8 min-h-8 min-w-8 items-center justify-center rounded-full border text-sm font-medium"
+												class="border-primary text-primary mt-1 flex h-8 min-h-8 w-8 min-w-8 items-center justify-center rounded-full border text-sm font-medium"
 											>
 												3
 											</div>
@@ -427,6 +422,7 @@
 												d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
 											></path>
 										</svg>
+										<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 										<span>{@html $t('how_it_works.step_3.for_taskees.tip')}</span>
 									</div>
 								</div>
@@ -450,7 +446,7 @@
 				<div class="card bg-base-100 mb-4 shadow-lg">
 					<div class="card-body">
 						<p class="mb-4">{$t('how_it_works.step_4.description')}</p>
-						
+
 						<div class="divider">{$t('how_it_works.step_4.divider')}</div>
 
 						<div class="space-y-6">
@@ -505,6 +501,7 @@
 									d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.07 16.5c-.77.833.192 2.5 1.732 2.5z"
 								/>
 							</svg>
+							<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 							<span>{@html $t('how_it_works.step_4.warning')}</span>
 						</div>
 					</div>
@@ -538,6 +535,7 @@
 										<IconLock class="text-primary mr-4 text-6xl md:text-3xl" />
 										<div>
 											<h4 class="font-medium">{$t('how_it_works.step_5.feature_1.title')}</h4>
+											<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 											<p>{@html $t('how_it_works.step_5.feature_1.description')}</p>
 										</div>
 									</div>
@@ -583,6 +581,7 @@
 									d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
 								></path>
 							</svg>
+							<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 							<span>{@html $t('how_it_works.step_5.alert')}</span>
 						</div>
 					</div>
@@ -606,6 +605,5 @@
 				{$t('common.browse_faq')}
 			</a>
 		</div>
-		
 	</div>
 </div>
