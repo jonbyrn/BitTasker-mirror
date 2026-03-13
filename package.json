@@ -32,7 +32,7 @@
 		"lint": "prettier --check . && eslint .",
 		"test:unit": "vitest",
 		"test": "npm run test:unit -- --run",
-		"test:ci": "vitest run --dir src/lib/tests src/lib/tests/unit/ src/lib/tests/integration/routes/ src/lib/tests/components/",
+		"test:ci": "vitest run src/lib/tests/unit/ src/lib/tests/integration/routes/ src/lib/tests/components/",
 		"test:triage": "node scripts/test-triage.js",
 		"test:unit:validators": "vitest run src/lib/tests/unit/helpers/validators.test.ts",
 		"test:unit:formatters": "vitest run src/lib/tests/unit/helpers/dateFormatter.test.ts src/lib/tests/unit/helpers/currencyFormatter.test.ts",
