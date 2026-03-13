@@ -7,7 +7,7 @@
  * Standard Nostr tags: https://github.com/nostr-protocol/nips/blob/master/01.md
  */
 
-import type { EscrowStatus } from '../escrow';
+import type { EscrowStatusValue } from '$lib/types/escrow-status';
 
 export const TAGS = {
 	// ============================================================================
@@ -150,7 +150,7 @@ export const TAG_PATTERNS = {
 		contractEventId: string,
 		escrowId: string,
 		recipientPubkey: string,
-		action: EscrowStatus,
+		action: EscrowStatusValue,
 		version: string = 'v1'
 	): string[][] => [
 		[TAGS.E, contractEventId], // Secondary linkage to root contract event

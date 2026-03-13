@@ -1851,8 +1851,8 @@ Implement this phase incrementally. Do **not** try to land the whole Nostr archi
 
 - [ ] Execute the plan in `docs/escrow/v2/status-typing-refactor-plan.md`
 - [x] Normalize shared status types so cross-version models do not assume v1-only `EscrowStatus`
-- [ ] Remove hidden v1 status assumptions from shared helpers
-- [ ] Split contract state resolution into explicit v1 / v2 paths
+- [x] Remove hidden v1 status assumptions from shared helpers
+- [x] Split contract state resolution into explicit v1 / v2 paths
 - [ ] Clean up shared escrow barrel exports so status imports are version-aware
 - [ ] Add v2-specific fields to `EscrowData` interface (optional fields)
 - [ ] Add v2 fields to `NostrContract` interface

@@ -7,6 +7,7 @@ import TAGS, { TAG_FILTERS, TAG_PATTERNS } from '$lib/utils/constants/tags';
 import type {
 	NostrContract,
 	NostrContractStatus,
+	ContractEscrowStatus,
 	ContractWithEvents,
 	ContractEvent,
 	CreateContractParams,
@@ -17,7 +18,7 @@ import type {
 import { escrow } from './escrow';
 import { EscrowStatus } from './escrow.enum';
 import { getSignedEvent } from '$lib/utils/nostr';
-import { determineContractState } from '$lib/utils/helpers/contractPermissions';
+import { determineContractState } from '$lib/utils/helpers/contractPermissions.v2';
 import { contractStore } from '$lib/stores/contract.store';
 import { get } from 'svelte/store';
 import { publishEscrowStatus } from './escrowEvents';
@@ -43,6 +44,10 @@ function getPaymentIdFromEvent(event: {
 }): string | undefined {
 	const dTag = event.tags?.find((tag) => tag[0] === TAGS.D)?.[1];
 	return dTag ?? getCanonicalPaymentId(event.content ?? {});
+}
+
+function asV2Status(status: ContractEscrowStatus | null): EscrowStatus | null {
+	return status as EscrowStatus | null;
 }
 
 /**
@@ -308,7 +313,7 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 					);
 
 					if (escrowData) {
-						blockchainStatus = escrowData.status;
+						blockchainStatus = asV2Status(escrowData.status);
 					}
 
 					// TODO: Messing dispute proposal fetching, mainly because in this version we're not storing disputes on-chain
@@ -380,7 +385,7 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 					statusEvents: statusEvents || [],
 					isClient,
 					blockchainStatus,
-					escrowData,
+					escrowData: escrowData!,
 					status,
 					isPending,
 					permissions,
@@ -518,7 +523,8 @@ export async function handleStatusEvent(event: NostrEvent): Promise<void> {
 		const statusEvent = await decryptStatusEvent(event, userPubkeyHex);
 		if (!statusEvent) return;
 
-		const { action, transactionHash } = statusEvent.content;
+		const action = statusEvent.content.action as EscrowStatus;
+		const { transactionHash } = statusEvent.content;
 
 		const paymentId = statusEvent.content.paymentId ?? statusEvent.content.escrowId;
 		const paymentIdTag = event.tags.find((tag: string[]) => tag[0] === TAGS.R)?.[1];
@@ -543,7 +549,7 @@ export async function handleStatusEvent(event: NostrEvent): Promise<void> {
 		// TODO: Handle dispute proposal fetching
 
 		const { status, permissions } = determineContractState(
-			contract.blockchainStatus,
+			asV2Status(contract.blockchainStatus),
 			updatedStatusEvents,
 			contract.contractEvent.content,
 			contract.escrowData,
@@ -598,7 +604,7 @@ export async function handleStatusEvent(event: NostrEvent): Promise<void> {
 					if (!freshEscrowData) return;
 
 					const { status: newStatus, permissions: newPermissions } = determineContractState(
-						freshEscrowData.status,
+						asV2Status(freshEscrowData.status),
 						updatedStatusEvents,
 						contract.contractEvent.content,
 						freshEscrowData,
@@ -686,7 +692,7 @@ export async function handleContractEvent(event: NostrEvent): Promise<void> {
 			escrowData = await escrow.loadEscrowDetails(paymentId, contractAddress);
 
 			if (escrowData) {
-				blockchainStatus = escrowData.status;
+				blockchainStatus = asV2Status(escrowData.status);
 				// TODO: Handle dispute proposal fetching
 			}
 		} catch (escrowError) {

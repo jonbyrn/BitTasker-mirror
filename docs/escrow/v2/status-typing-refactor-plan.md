@@ -46,6 +46,15 @@ This refactor should **not**:
 
 ## Refactor Steps
 
+Current progress:
+
+- [x] Step 1: normalize shared status types
+- [x] Step 2: remove hidden v1 assumptions from shared helpers
+- [x] Step 3: split state resolution by version
+- [ ] Step 4: reconnect shared callers through explicit version routing
+- [ ] Step 5: clean up barrel exports and import boundaries
+- [ ] Step 6: validate incrementally and remove temporary compatibility shims
+
 ### Step 1: Normalize Shared Status Types
 
 Files:
@@ -96,6 +105,12 @@ Definition of done:
 - no shared helper interprets contract state without explicit version context
 - helper imports clearly show whether they are version-agnostic or version-specific
 
+Implementation note:
+
+- completed by moving v2 state interpretation to `src/lib/utils/helpers/contractPermissions.v2.ts`
+- `src/lib/utils/escrow/v2/nostrContract.ts` now imports the v2 resolver directly instead of flowing through the legacy v1 helper
+- shared tag helpers were widened to accept `EscrowStatusValue` rather than a v1-only status import
+
 ### Step 3: Split State Resolution By Version
 
 Files:
@@ -124,6 +139,10 @@ Definition of done:
 - v1 logic compares only against v1 states
 - v2 logic compares only against v2 states
 - shared callers pass version explicitly instead of relying on implicit defaults
+
+Implementation note:
+
+- completed for the active v1 and v2 Nostr contract paths by keeping the existing v1 resolver in place and adding a dedicated v2 resolver plus focused unit coverage
 
 ### Step 4: Reconnect Shared Callers Through Explicit Version Routing
 
