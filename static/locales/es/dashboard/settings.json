@@ -1,150 +1,167 @@
 {
-    "settings": {
-      "title": "Configuración",
-      "subtitle": "Gestiona la configuración de tu cuenta e identidad Nostr",
-      "nostr": {
-        "title": "Identidad Nostr",
-        "description": "Tu identidad descentralizada en la red Nostr. ¡Mantén tu clave privada segura!",
-        "publicKey-label": "Clave Pública Nostr",
-        "publicKey": {
-          "description": "Esta es tu identidad pública en Nostr. Es seguro compartirla públicamente."
-        },
-        "privateKey-label": "Clave Privada Nostr",
-        "privateKey": {
-          "warning": "⚠️ ¡Mantén esto privado! Nunca compartas tu clave privada con nadie.",
-          "alby": "ℹ️ Tu clave privada está gestionada de forma segura por la extensión Alby y no se puede acceder directamente.",
-          "managed": "Clave privada gestionada por la extensión Alby"
-        },
-        "qrCode": {
-          "generate": "Generar Código QR",
-          "generating": "Generando Código QR...",
-          "show": "Mostrar Código QR"
-        }
-      },
-      "security": {
-        "title": "Recordatorio de Seguridad",
-        "description": "Tu clave privada (nsec) otorga control total sobre tu identidad Nostr. Guárdala de forma segura y nunca la compartas con nadie."
-      },
-      "recovery": {
-        "title": "Recuperación de Cuenta",
-        "description": "Configura recuperación por correo y contraseña para asegurar tu cuenta. Esto te permite recuperar tu cuenta si pierdes acceso a tu método de autenticación principal.",
-        "email-label": "Correo de Recuperación",
-        "email": {
-          "placeholder": "Ingresa tu dirección de correo de recuperación"
-        },
-        "password-label": "Contraseña de Recuperación",
-        "password": {
-          "placeholder": "Crea una contraseña de recuperación fuerte"
-        },
-        "confirmPassword-label": "Confirmar Contraseña de Recuperación",
-        "confirmPassword": {
-          "placeholder": "Confirma tu contraseña de recuperación"
-        },
-        "generated_password_note": "Hemos generado una contraseña segura y fácil de recordar que puedes usar.",
-        "password_strength": {
-          "weak": "Débil",
-          "medium": "Media",
-          "strong": "Fuerte"
-        },
-        "requirements-label": "Requisitos de contraseña:",
-        "requirements": {
-          "length": "8+ caracteres",
-          "uppercase": "Mayúsculas",
-          "lowercase": "Minúsculas",
-          "numbers": "Números",
-          "special": "Caracteres especiales"
-        },
-        "setup": "Configurar Recuperación de Cuenta",
-        "setting": "Configurando recuperación...",
-        "success": "¡La recuperación de cuenta se ha configurado exitosamente!",
-        "notice": {
-          "title": "Importante:",
-          "description": "Tu correo y contraseña de recuperación se usarán para restaurar el acceso a tu cuenta si pierdes tu método de autenticación principal. Manténlos seguros y accesibles."
-        }
-      },
-      "actions": {
-        "title": "Acciones de Cuenta",
-        "description": "Gestiona la configuración de tu cuenta y autenticación.",
-        "logout": "Cerrar Sesión"
-      },
-      "loading": "Cargando...",
-      "retry": "Reintentar",
-      "error": {
-        "loadKeys": "Error al cargar las claves",
-        "albyNotFound": "Extensión Alby no encontrada. Asegúrate de que Alby esté instalado y habilitado.",
-        "publicKeyAlby": "No se pudo obtener la clave pública de la extensión Alby.",
-        "invalidPublicKey": "Formato de clave pública inválido de Alby.",
-        "invalidKeyFormat": "Formato de clave pública inválido",
-        "encodingNsec": "Error al formatear la clave privada",
-        "invalidPrivateKey": "Formato de clave privada inválido",
-        "invalidNostrKeys": "Claves Nostr inválidas. Por favor actualiza e intenta de nuevo.",
-        "noMnemonic": "No se encontró la frase mnemónica. Por favor actualiza e intenta de nuevo.",
-        "recoverySetup": "Error al configurar la recuperación de cuenta. Por favor intenta de nuevo."
-      },
-      "validation": {
-        "emailRequired": "El correo de recuperación es requerido",
-        "passwordRequired": "La contraseña de recuperación es requerida",
-        "passwordMismatch": "Las contraseñas no coinciden"
-      },
-      "copy": {
-        "success": "¡Copiado!",
-        "failed": "Error al copiar"
-      },
-      "passkey": {
-        "title": "Sincronización de Passkey",
-        "description": "Configura un passkey WebAuthn para sincronizar tu autenticación biométrica en diferentes dispositivos y navegadores.",
-        "setup": "Configurar Passkey",
-        "setting": "Configurando passkey...",
-        "success": "¡El passkey se ha configurado exitosamente!",
-        "error": {
-          "setup": "Error al configurar el passkey. Por favor intenta de nuevo.",
-          "webauthn": "WebAuthn no está disponible en este navegador.",
-          "keys": "No se pudieron recuperar las claves biométricas para la configuración del passkey."
-        },
-        "provider": "Esto usará {provider} para la autenticación",
-        "notice": {
-          "title": "Sobre Passkeys:",
-          "description": "Los passkeys te permiten autenticarte utilizando los mismos datos biométricos en diferentes navegadores y dispositivos. Una vez configurado, puedes usar este passkey para iniciar sesión desde otros dispositivos."
-        },
-        "already": {
-          "setup": "Passkey ya configurado"
-        },
-        "test-label": "Probar Passkey",
-        "test": {
-          "success": "¡Probar passkey exitoso!",
-          "error": "¡Probar passkey fallido. Por favor intenta de nuevo."
-        }
-      },
-      "devices": {
-        "title": "Dispositivos Conectados",
-        "description": "Gestiona los dispositivos que tienen acceso a tu cuenta. Puedes revocar el acceso desde cualquier dispositivo excepto el actual.",
-        "noDevices": "No se encontraron dispositivos",
-        "currentDevice": "Actual",
-        "thisDevice": "Este Dispositivo",
-        "refresh": "Actualizar",
-        "revoke": "Revocar Acceso",
-        "revokeDevice": "Revocar acceso del dispositivo",
-        "cannotRevokeCurrentDevice": "No se puede revocar el acceso desde el dispositivo actual",
-        "status": {
-          "active": "El dispositivo está activo",
-          "inactive": "El dispositivo está inactivo"
-        },
-        "lastUsed": {
-          "label": "Último uso",
-          "never": "Nunca",
-          "justNow": "Hace un momento"
-        },
-        "error": {
-          "loadFailed": "Error al cargar dispositivos. Por favor intenta de nuevo.",
-          "revokeFailed": "Error al revocar el acceso del dispositivo. Por favor intenta de nuevo."
-        },
-        "revokeModal": {
-          "title": "Revocar Acceso del Dispositivo",
-          "confirmTitle": "¿Estás seguro?",
-          "confirmMessage": "Esto revocará permanentemente el acceso para \"{deviceName}\".",
-          "warning": "Este dispositivo ya no podrá acceder a tu cuenta y necesitará re-autenticarse.",
-          "confirm": "Revocar Acceso"
-        }
-      }
-    }
-  }
+	"settings": {
+		"title": "Configuración",
+		"subtitle": "Gestiona la configuración de tu cuenta e identidad Nostr",
+		"nostr": {
+			"title": "Identidad Nostr",
+			"description": "Tu identidad descentralizada en la red Nostr. ¡Mantén tu clave privada segura!",
+			"publicKey-label": "Clave Pública Nostr",
+			"publicKey": {
+				"description": "Esta es tu identidad pública en Nostr. Es seguro compartirla públicamente."
+			},
+			"privateKey-label": "Clave Privada Nostr",
+			"privateKey": {
+				"warning": "⚠️ ¡Mantén esto privado! Nunca compartas tu clave privada con nadie.",
+				"alby": "ℹ️ Tu clave privada está gestionada de forma segura por la extensión Alby y no se puede acceder directamente.",
+				"managed": "Clave privada gestionada por la extensión Alby"
+			},
+			"qrCode": {
+				"generate": "Generar Código QR",
+				"generating": "Generando Código QR...",
+				"show": "Mostrar Código QR"
+			}
+		},
+		"security": {
+			"title": "Recordatorio de Seguridad",
+			"description": "Tu clave privada (nsec) otorga control total sobre tu identidad Nostr. Guárdala de forma segura y nunca la compartas con nadie."
+		},
+		"recovery": {
+			"title": "Recuperación de Cuenta",
+			"description": "Configura recuperación por correo y contraseña para asegurar tu cuenta. Esto te permite recuperar tu cuenta si pierdes acceso a tu método de autenticación principal.",
+			"email-label": "Correo de Recuperación",
+			"email": {
+				"placeholder": "Ingresa tu dirección de correo de recuperación"
+			},
+			"password-label": "Contraseña de Recuperación",
+			"password": {
+				"placeholder": "Crea una contraseña de recuperación fuerte"
+			},
+			"confirmPassword-label": "Confirmar Contraseña de Recuperación",
+			"confirmPassword": {
+				"placeholder": "Confirma tu contraseña de recuperación"
+			},
+			"generated_password_note": "Hemos generado una contraseña segura y fácil de recordar que puedes usar.",
+			"password_strength": {
+				"weak": "Débil",
+				"medium": "Media",
+				"strong": "Fuerte"
+			},
+			"requirements-label": "Requisitos de contraseña:",
+			"requirements": {
+				"length": "8+ caracteres",
+				"uppercase": "Mayúsculas",
+				"lowercase": "Minúsculas",
+				"numbers": "Números",
+				"special": "Caracteres especiales"
+			},
+			"setup": "Configurar Recuperación de Cuenta",
+			"setting": "Configurando recuperación...",
+			"success": "¡La recuperación de cuenta se ha configurado exitosamente!",
+			"notice": {
+				"title": "Importante:",
+				"description": "Tu correo y contraseña de recuperación se usarán para restaurar el acceso a tu cuenta si pierdes tu método de autenticación principal. Manténlos seguros y accesibles."
+			}
+		},
+		"actions": {
+			"title": "Acciones de Cuenta",
+			"description": "Gestiona la configuración de tu cuenta y autenticación.",
+			"logout": "Cerrar Sesión",
+			"delete_account": "Eliminar Cuenta"
+		},
+		"delete_account": {
+			"modal": {
+				"title": "Eliminar Tu Cuenta",
+				"warning_title": "Esta acción tiene consecuencias permanentes",
+				"wallet_loss": "Tus datos locales de billetera, claves e historial de transacciones se perderán permanentemente y no podrán recuperarse.",
+				"nostr_broadcast": "Se transmitirá una solicitud de eliminación a los relays de Nostr de inmediato. La eliminación completa de todos los relays no puede garantizarse debido a la naturaleza descentralizada del protocolo Nostr.",
+				"grace_period": "Tu cuenta entrará en un período de gracia de 30 días. Puedes cancelar la eliminación en cualquier momento durante este período simplemente iniciando sesión nuevamente.",
+				"permanent_deletion": "Si no se realiza ningún inicio de sesión en 30 días, tu cuenta será eliminada de forma permanente e irrecuperable de los sistemas de BitTasker.",
+				"active_tasks_warning": "Resuelve cualquier contrato activo o tarea abierta antes de eliminar.",
+				"confirm_button": "Entiendo, eliminar mi cuenta",
+				"cancel_button": "Mantener mi cuenta"
+			},
+			"deleting": "Eliminando cuenta...",
+			"success": "Tu cuenta ha sido programada para eliminación. Tienes 30 días para iniciar sesión y cancelar.",
+			"error": "Error al eliminar la cuenta. Por favor intenta de nuevo."
+		},
+		"loading": "Cargando...",
+		"retry": "Reintentar",
+		"error": {
+			"loadKeys": "Error al cargar las claves",
+			"albyNotFound": "Extensión Alby no encontrada. Asegúrate de que Alby esté instalado y habilitado.",
+			"publicKeyAlby": "No se pudo obtener la clave pública de la extensión Alby.",
+			"invalidPublicKey": "Formato de clave pública inválido de Alby.",
+			"invalidKeyFormat": "Formato de clave pública inválido",
+			"encodingNsec": "Error al formatear la clave privada",
+			"invalidPrivateKey": "Formato de clave privada inválido",
+			"invalidNostrKeys": "Claves Nostr inválidas. Por favor actualiza e intenta de nuevo.",
+			"noMnemonic": "No se encontró la frase mnemónica. Por favor actualiza e intenta de nuevo.",
+			"recoverySetup": "Error al configurar la recuperación de cuenta. Por favor intenta de nuevo."
+		},
+		"validation": {
+			"emailRequired": "El correo de recuperación es requerido",
+			"passwordRequired": "La contraseña de recuperación es requerida",
+			"passwordMismatch": "Las contraseñas no coinciden"
+		},
+		"copy": {
+			"success": "¡Copiado!",
+			"failed": "Error al copiar"
+		},
+		"passkey": {
+			"title": "Sincronización de Passkey",
+			"description": "Configura un passkey WebAuthn para sincronizar tu autenticación biométrica en diferentes dispositivos y navegadores.",
+			"setup": "Configurar Passkey",
+			"setting": "Configurando passkey...",
+			"success": "¡El passkey se ha configurado exitosamente!",
+			"error": {
+				"setup": "Error al configurar el passkey. Por favor intenta de nuevo.",
+				"webauthn": "WebAuthn no está disponible en este navegador.",
+				"keys": "No se pudieron recuperar las claves biométricas para la configuración del passkey."
+			},
+			"provider": "Esto usará {provider} para la autenticación",
+			"notice": {
+				"title": "Sobre Passkeys:",
+				"description": "Los passkeys te permiten autenticarte utilizando los mismos datos biométricos en diferentes navegadores y dispositivos. Una vez configurado, puedes usar este passkey para iniciar sesión desde otros dispositivos."
+			},
+			"already": {
+				"setup": "Passkey ya configurado"
+			},
+			"test-label": "Probar Passkey",
+			"test": {
+				"success": "¡Probar passkey exitoso!",
+				"error": "¡Probar passkey fallido. Por favor intenta de nuevo."
+			}
+		},
+		"devices": {
+			"title": "Dispositivos Conectados",
+			"description": "Gestiona los dispositivos que tienen acceso a tu cuenta. Puedes revocar el acceso desde cualquier dispositivo excepto el actual.",
+			"noDevices": "No se encontraron dispositivos",
+			"currentDevice": "Actual",
+			"thisDevice": "Este Dispositivo",
+			"refresh": "Actualizar",
+			"revoke": "Revocar Acceso",
+			"revokeDevice": "Revocar acceso del dispositivo",
+			"cannotRevokeCurrentDevice": "No se puede revocar el acceso desde el dispositivo actual",
+			"status": {
+				"active": "El dispositivo está activo",
+				"inactive": "El dispositivo está inactivo"
+			},
+			"lastUsed": {
+				"label": "Último uso",
+				"never": "Nunca",
+				"justNow": "Hace un momento"
+			},
+			"error": {
+				"loadFailed": "Error al cargar dispositivos. Por favor intenta de nuevo.",
+				"revokeFailed": "Error al revocar el acceso del dispositivo. Por favor intenta de nuevo."
+			},
+			"revokeModal": {
+				"title": "Revocar Acceso del Dispositivo",
+				"confirmTitle": "¿Estás seguro?",
+				"confirmMessage": "Esto revocará permanentemente el acceso para \"{deviceName}\".",
+				"warning": "Este dispositivo ya no podrá acceder a tu cuenta y necesitará re-autenticarse.",
+				"confirm": "Revocar Acceso"
+			}
+		}
+	}
+}
