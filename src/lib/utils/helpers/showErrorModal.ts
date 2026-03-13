@@ -26,7 +26,14 @@ export async function getErrorModalData(
 
 	// If it's a biometric error, use the biometric error handler
 	let errorMessage: string;
-	if (error?.name || error?.message?.includes('biometric') || error?.message?.includes('passkey')) {
+	const errorDetails =
+		typeof error === 'object' && error !== null
+			? (error as { name?: unknown; message?: unknown })
+			: null;
+	const errorName = typeof errorDetails?.name === 'string' ? errorDetails.name : '';
+	const errorMsg = typeof errorDetails?.message === 'string' ? errorDetails.message : '';
+
+	if (errorName || errorMsg.includes('biometric') || errorMsg.includes('passkey')) {
 		errorMessage = await handleBiometricError(error, platform);
 	} else if (error instanceof Error) {
 		errorMessage = error.message;

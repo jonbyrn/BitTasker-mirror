@@ -88,7 +88,7 @@ describe('BalanceHistory', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		// Reset wallet store (component reads totalBalances from store)
-		walletStore.set({
+		(walletStore as unknown as { set: (value: unknown) => void }).set({
 			rsk: {
 				provider: {},
 				address: '0x1234567890123456789012345678901234567890',

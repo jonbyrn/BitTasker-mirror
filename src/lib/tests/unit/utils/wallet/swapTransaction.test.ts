@@ -16,8 +16,10 @@ vi.mock('$lib/stores/wallet.store', () => ({ walletManager: {} }));
 
 type SwapFixture = Parameters<typeof getSwapType>[0];
 
-function asSwap(swap: Partial<SwapFixture> & Pick<SwapFixture, 'id' | 'status'>): SwapFixture {
-	return swap as SwapFixture;
+function asSwap(
+	swap: { id: string; status: SwapFixture['status'] } & Record<string, unknown>
+): SwapFixture {
+	return swap as unknown as SwapFixture;
 }
 
 describe('swapTransaction', () => {
@@ -197,14 +199,14 @@ describe('swapTransaction', () => {
 
 	describe('mapSwapToTransaction', () => {
 		it('should map submarine swap to ProcessedTransaction with displayType send', () => {
-			const swap = {
+			const swap = asSwap({
 				id: 'sub1',
 				status: 'invoice.settled',
-				createdAt: '2024-01-15T10:00:00Z',
+				createdAt: 1705312800,
 				invoice: 'ln...',
 				lockupAddress: '0x...',
 				invoiceAmount: 50000
-			} as SwapFixture;
+			});
 			const result = mapSwapToTransaction(swap, 'submarine', 100_000);
 			expect(result.type).toBe('send');
 			expect(result.displayType).toBe('send');
@@ -216,13 +218,13 @@ describe('swapTransaction', () => {
 		});
 
 		it('should map reverse swap to ProcessedTransaction with displayType receive', () => {
-			const swap = {
+			const swap = asSwap({
 				id: 'rev1',
 				status: 'invoice.settled',
-				createdAt: '2024-01-15T10:00:00Z',
+				createdAt: 1705312800,
 				invoice: 'ln...',
 				amount: 30000
-			} as SwapFixture;
+			});
 			const result = mapSwapToTransaction(swap, 'reverse', 50_000);
 			expect(result.type).toBe('receive');
 			expect(result.displayType).toBe('receive');
@@ -232,12 +234,12 @@ describe('swapTransaction', () => {
 		});
 
 		it('should map chain swap with displayType receive', () => {
-			const swap = {
+			const swap = asSwap({
 				id: 'chain1',
 				status: 'transaction.claim.pending',
-				createdAt: '2024-01-15T10:00:00Z',
+				createdAt: 1705312800,
 				toAmount: 25000
-			} as SwapFixture;
+			});
 			const result = mapSwapToTransaction(swap, 'chain', 75_000);
 			expect(result.type).toBe('receive');
 			expect(result.displayType).toBe('receive');
@@ -246,28 +248,28 @@ describe('swapTransaction', () => {
 		});
 
 		it('should set pending status label for pending swap', () => {
-			const swap = {
+			const swap = asSwap({
 				id: 'p1',
 				status: 'swap.created',
-				createdAt: '2024-01-15T10:00:00Z',
+				createdAt: 1705312800,
 				invoice: 'ln...',
 				lockupAddress: '0x...',
 				invoiceAmount: 10000
-			} as SwapFixture;
+			});
 			const result = mapSwapToTransaction(swap, 'submarine', 0);
 			expect(result.status.label).toBe('wallet.transaction.status.pending');
 			expect(result.borderColor).toBe('neutral');
 		});
 
 		it('should set failed status and borderColor error for failed swap', () => {
-			const swap = {
+			const swap = asSwap({
 				id: 'f1',
 				status: 'swap.expired',
-				createdAt: '2024-01-15T10:00:00Z',
+				createdAt: 1705312800,
 				invoice: 'ln...',
 				lockupAddress: '0x...',
 				invoiceAmount: 10000
-			} as SwapFixture;
+			});
 			const result = mapSwapToTransaction(swap, 'submarine', 0);
 			expect(result.status.label).toBe('wallet.transaction.status.failed');
 			expect(result.borderColor).toBe('error');
@@ -275,13 +277,13 @@ describe('swapTransaction', () => {
 		});
 
 		it('should include swap id and rawStatus in result.swap', () => {
-			const swap = {
+			const swap = asSwap({
 				id: 'my-swap-id',
 				status: 'transaction.mempool',
-				createdAt: '2024-01-15T10:00:00Z',
+				createdAt: 1705312800,
 				invoice: 'ln...',
 				amount: 1000
-			} as SwapFixture;
+			});
 			const result = mapSwapToTransaction(swap, 'reverse', 0);
 			expect(result.swap).toBeDefined();
 			expect(result.swap?.id).toBe('my-swap-id');
@@ -292,11 +294,11 @@ describe('swapTransaction', () => {
 
 	describe('getSwapActions', () => {
 		it('should include viewQR action for non-final status', () => {
-			const swap = {
+			const swap = asSwap({
 				id: 'a1',
 				status: 'swap.created',
-				createdAt: '2024-01-15T10:00:00Z'
-			} as SwapFixture;
+				createdAt: 1705312800
+			});
 			const actions = getSwapActions(swap, 'submarine');
 			expect(actions.length).toBeGreaterThanOrEqual(1);
 			expect(actions.some((a) => a.type === 'viewQR')).toBe(true);
@@ -304,11 +306,11 @@ describe('swapTransaction', () => {
 		});
 
 		it('should not include viewQR for final status', () => {
-			const swap = {
+			const swap = asSwap({
 				id: 'a2',
 				status: 'transaction.claimed',
-				createdAt: '2024-01-15T10:00:00Z'
-			} as SwapFixture;
+				createdAt: 1705312800
+			});
 			const actions = getSwapActions(swap, 'reverse');
 			expect(actions.some((a) => a.type === 'viewQR')).toBe(false);
 		});

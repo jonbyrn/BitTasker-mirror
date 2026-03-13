@@ -1,8 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { Event as NostrEvent } from 'nostr-tools';
-import type nip44Module from '$lib/nostr/nip44';
-import type { getNostrKeyPair } from '$lib/utils/nostrKeys';
-import type { getSignedEvent } from '$lib/utils/nostr';
 
 // Hoisted mocks so they can be used in vi.mock and in tests
 const mockPool = {
@@ -64,9 +61,16 @@ vi.mock('$env/static/public', () => ({
 }));
 
 describe('NIP-44 Message Utilities', () => {
-	let mockNip44: typeof nip44Module;
-	let mockGetNostrKeyPair: typeof getNostrKeyPair;
-	let mockGetSignedEvent: typeof getSignedEvent;
+	type Nip44Mock = {
+		getConversationKey: ReturnType<typeof vi.fn>;
+		encrypt: ReturnType<typeof vi.fn>;
+		decrypt: ReturnType<typeof vi.fn>;
+	};
+	type MockFn = ReturnType<typeof vi.fn>;
+
+	let mockNip44: Nip44Mock;
+	let mockGetNostrKeyPair: MockFn;
+	let mockGetSignedEvent: MockFn;
 
 	beforeEach(async () => {
 		// Reset all mocks
@@ -74,9 +78,10 @@ describe('NIP-44 Message Utilities', () => {
 		mockPool.querySync.mockResolvedValue([]);
 
 		// Get mocked modules
-		mockNip44 = (await import('$lib/nostr/nip44')).default;
-		mockGetNostrKeyPair = (await import('$lib/utils/nostrKeys')).getNostrKeyPair;
-		mockGetSignedEvent = (await import('$lib/utils/nostr')).getSignedEvent;
+		mockNip44 = (await import('$lib/nostr/nip44')).default as unknown as Nip44Mock;
+		mockGetNostrKeyPair = (await import('$lib/utils/nostrKeys'))
+			.getNostrKeyPair as unknown as MockFn;
+		mockGetSignedEvent = (await import('$lib/utils/nostr')).getSignedEvent as unknown as MockFn;
 
 		// Setup default mock implementations
 		mockNip44.getConversationKey.mockResolvedValue(new Uint8Array(32));

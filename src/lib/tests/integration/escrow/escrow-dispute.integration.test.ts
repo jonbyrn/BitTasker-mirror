@@ -113,13 +113,17 @@ vi.mock('svelte/store', () => {
 import { escrow } from '$lib/utils/escrow/v1/escrow';
 import * as EscrowNostrEvent from '$lib/utils/escrow/v1/escrowEvents';
 
+type MockWithEstimateGas = ReturnType<typeof vi.fn> & {
+	estimateGas: ReturnType<typeof vi.fn>;
+};
+
 describe('Escrow Dispute Resolution Integration Tests', () => {
 	let mockContract: {
 		interface: { parseLog: ReturnType<typeof vi.fn> };
-		disputeTask: ReturnType<typeof vi.fn>;
-		proposeResolution: ReturnType<typeof vi.fn>;
-		acceptProposal: ReturnType<typeof vi.fn>;
-		resolveAfterTimelock: ReturnType<typeof vi.fn>;
+		disputeTask: MockWithEstimateGas;
+		proposeResolution: MockWithEstimateGas;
+		acceptProposal: MockWithEstimateGas;
+		resolveAfterTimelock: MockWithEstimateGas;
 		getEscrow: ReturnType<typeof vi.fn>;
 		getDisputeProposal: ReturnType<typeof vi.fn>;
 		paused: ReturnType<typeof vi.fn>;
@@ -138,16 +142,19 @@ describe('Escrow Dispute Resolution Integration Tests', () => {
 			interface: {
 				parseLog: vi.fn()
 			},
-			disputeTask: vi.fn(),
-			proposeResolution: vi.fn(),
-			acceptProposal: vi.fn(),
-			resolveAfterTimelock: vi.fn(),
+			disputeTask: vi.fn() as unknown as MockWithEstimateGas,
+			proposeResolution: vi.fn() as unknown as MockWithEstimateGas,
+			acceptProposal: vi.fn() as unknown as MockWithEstimateGas,
+			resolveAfterTimelock: vi.fn() as unknown as MockWithEstimateGas,
 			getEscrow: vi.fn(),
 			getDisputeProposal: vi.fn(),
 			paused: vi.fn().mockResolvedValue(false)
 		};
 
-		const createMethodWithEstimateGas = (estimateGasValue: bigint, waitReceipt: unknown) => {
+		const createMethodWithEstimateGas = (
+			estimateGasValue: bigint,
+			waitReceipt: unknown
+		): MockWithEstimateGas => {
 			const method = vi.fn().mockResolvedValue({
 				hash: '0x' + Math.random().toString(16).substring(2, 66),
 				wait: createMockWait(waitReceipt)
@@ -155,7 +162,7 @@ describe('Escrow Dispute Resolution Integration Tests', () => {
 			(method as unknown as { estimateGas: ReturnType<typeof vi.fn> }).estimateGas = vi
 				.fn()
 				.mockResolvedValue(estimateGasValue);
-			return method;
+			return method as MockWithEstimateGas;
 		};
 
 		mockContract.disputeTask = createMethodWithEstimateGas(BigInt(35000), {

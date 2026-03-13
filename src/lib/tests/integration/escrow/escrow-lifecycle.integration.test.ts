@@ -196,9 +196,12 @@ vi.mock('svelte/store', () => {
 				return translationFn;
 			}
 		}
-		if (store && typeof store.subscribe === 'function') {
+		if (store && typeof (store as { subscribe?: unknown }).subscribe === 'function') {
 			let value: unknown;
-			const unsubscribe = store.subscribe((next: unknown) => {
+			const readableStore = store as {
+				subscribe: (run: (next: unknown) => void) => unknown;
+			};
+			const unsubscribe = readableStore.subscribe((next: unknown) => {
 				value = next;
 			});
 			if (typeof unsubscribe === 'function') {
@@ -246,20 +249,32 @@ function asNostrEventWithFollowup(event: {
 	return event as unknown as NostrEventWithFollowup;
 }
 
+type MockWithEstimateGas = ReturnType<typeof vi.fn> & {
+	estimateGas: ReturnType<typeof vi.fn>;
+};
+
 describe('Escrow Lifecycle Integration Tests', () => {
 	let mockContract: {
 		interface: { parseLog: ReturnType<typeof vi.fn> };
-		createEscrow: ReturnType<typeof vi.fn>;
-		completeTask: ReturnType<typeof vi.fn>;
-		acceptTask: ReturnType<typeof vi.fn>;
-		cancelEscrow: ReturnType<typeof vi.fn>;
-		disputeTask: ReturnType<typeof vi.fn>;
-		proposeResolution: ReturnType<typeof vi.fn>;
-		acceptProposal: ReturnType<typeof vi.fn>;
-		resolveAfterTimelock: ReturnType<typeof vi.fn>;
+		createEscrow: MockWithEstimateGas;
+		completeTask: MockWithEstimateGas;
+		acceptTask: MockWithEstimateGas;
+		cancelEscrow: MockWithEstimateGas;
+		disputeTask: MockWithEstimateGas;
+		proposeResolution: MockWithEstimateGas;
+		acceptProposal: MockWithEstimateGas;
+		resolveAfterTimelock: MockWithEstimateGas;
 		getEscrow: ReturnType<typeof vi.fn>;
 		getDisputeProposal: ReturnType<typeof vi.fn>;
 		paused: ReturnType<typeof vi.fn>;
+	};
+	let _mockProvider: {
+		getFeeData: ReturnType<typeof vi.fn>;
+		getTransactionReceipt: ReturnType<typeof vi.fn>;
+	};
+	let _mockWallet: {
+		address: string;
+		signTransaction: ReturnType<typeof vi.fn>;
 	};
 
 	beforeEach(() => {
@@ -280,21 +295,24 @@ describe('Escrow Lifecycle Integration Tests', () => {
 			interface: {
 				parseLog: vi.fn()
 			},
-			createEscrow: vi.fn(),
-			completeTask: vi.fn(),
-			acceptTask: vi.fn(),
-			cancelEscrow: vi.fn(),
-			disputeTask: vi.fn(),
-			proposeResolution: vi.fn(),
-			acceptProposal: vi.fn(),
-			resolveAfterTimelock: vi.fn(),
+			createEscrow: vi.fn() as unknown as MockWithEstimateGas,
+			completeTask: vi.fn() as unknown as MockWithEstimateGas,
+			acceptTask: vi.fn() as unknown as MockWithEstimateGas,
+			cancelEscrow: vi.fn() as unknown as MockWithEstimateGas,
+			disputeTask: vi.fn() as unknown as MockWithEstimateGas,
+			proposeResolution: vi.fn() as unknown as MockWithEstimateGas,
+			acceptProposal: vi.fn() as unknown as MockWithEstimateGas,
+			resolveAfterTimelock: vi.fn() as unknown as MockWithEstimateGas,
 			getEscrow: vi.fn(),
 			getDisputeProposal: vi.fn(),
 			paused: vi.fn().mockResolvedValue(false)
 		};
 
 		// Setup method mocks with estimateGas
-		const createMethodWithEstimateGas = (estimateGasValue: bigint, waitReceipt: unknown) => {
+		const createMethodWithEstimateGas = (
+			estimateGasValue: bigint,
+			waitReceipt: unknown
+		): MockWithEstimateGas => {
 			const method = vi.fn().mockResolvedValue({
 				hash: '0x' + Math.random().toString(16).substring(2, 66),
 				wait: createMockWait(waitReceipt)
@@ -302,7 +320,7 @@ describe('Escrow Lifecycle Integration Tests', () => {
 			(method as unknown as { estimateGas: ReturnType<typeof vi.fn> }).estimateGas = vi
 				.fn()
 				.mockResolvedValue(estimateGasValue);
-			return method;
+			return method as MockWithEstimateGas;
 		};
 
 		mockContract.createEscrow = createMethodWithEstimateGas(BigInt(100000), {

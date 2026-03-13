@@ -210,7 +210,6 @@ export async function findTasks(
 
 			// Convert back to regular Task objects and deduplicate (defense in depth)
 			const cleanTasks = deduplicateTasksById(cleanupIndexedTasks(filteredTasks));
-
 			const limit = params.limit || BATCH_SIZE;
 			const currentItemsCount = get(tasksStore).items.length;
 
@@ -263,6 +262,7 @@ export async function findTasks(
 			// Limit results to requested batch size for initial load
 			const limitedTasks = cleanTasks.slice(0, limit);
 
+			// hasMore: trust cache metadata for initial load so cache hits don't accidentally disable
 			// hasMore: trust cache metadata for initial load so cache hits don't accidentally disable
 			// infinite scroll after clear-search/filter-reset scenarios.
 			const hasMore =
