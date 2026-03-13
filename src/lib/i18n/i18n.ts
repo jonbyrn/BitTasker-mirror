@@ -109,12 +109,12 @@ export function getNamespacesForRoute(route: string): string[] {
 		// Include wallet namespace for bid-related components
 		namespaces.push('dashboard/wallet');
 		// Include categories and recommendations for task discovery
-		namespaces.push('dashboard/recomendations', 'categories');
+		namespaces.push('dashboard/recomendations', 'categories', 'skills');
 	}
 	// Dashboard routes
 	if (route.includes('/dashboard')) {
 		namespaces.push('dashboard/dashboard', 'dashboard/tasks/info');
-		namespaces.push('dashboard/bids');
+		namespaces.push('dashboard/bids', 'skills');
 		// Always load wallet namespace for bid-related components that use wallet translations
 		namespaces.push('dashboard/wallet');
 
@@ -136,10 +136,10 @@ export function getNamespacesForRoute(route: string): string[] {
 		// Note: /find-tasks route redirects to /tasks, so this check is kept for backward compatibility
 		// but /tasks route already loads all necessary namespaces above
 		if (route.includes('/find-tasks')) {
-			namespaces.push('dashboard/tasks/find', 'dashboard/recomendations', 'dashboard/bids', 'categories');
+			namespaces.push('dashboard/tasks/find', 'dashboard/recomendations', 'dashboard/bids', 'categories', 'skills');
 		}
 		if (route.includes('/create-task')) {
-			namespaces.push('dashboard/tasks/create', 'categories');
+			namespaces.push('dashboard/tasks/create', 'categories', 'skills');
 		}
 
 		if (route.includes('/messages')) {

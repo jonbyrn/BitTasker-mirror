@@ -30,6 +30,7 @@
 	import { taskTranslationService } from '$lib/services/task-translation.service';
 	import { currentUserLanguage } from '$lib/stores/translation.store';
 	import { TASK_CATEGORIES } from '$lib/utils/constants/categories';
+	import { translateSkill } from '$lib/utils/helpers/skillTranslations';
 	import UsdSatsDisplay from '../shared/UsdSatsDisplay.svelte';
 
 	// Props
@@ -92,6 +93,10 @@
 
 	// Convert category IDs to translated names for display (reactive)
 	let translatedCategories = $derived(task?.categories?.map(translateCategory) || []);
+	let translatedSkills = $derived.by(() => {
+		$locale;
+		return task?.skills?.map(translateSkill) ?? [];
+	});
 
 	const isRemoteTask = $derived(() => {
 		if (!task?.taskType) return false;
@@ -531,8 +536,8 @@
 												{$t('dashboard.task_details_by_task.required_skills')}
 											</h4>
 											<div class="flex flex-wrap gap-2 pb-4">
-												{#each task.skills as skill (skill)}
-													<span class="badge badge-primary badge-outline badge-sm">{skill}</span>
+												{#each translatedSkills as skill (skill)}
+													<span class="badge badge-outline badge-info badge-sm">{skill}</span>
 												{/each}
 											</div>
 										</div>
@@ -548,7 +553,7 @@
 									</h4>
 									<div class="mt-2 flex flex-wrap gap-2">
 										{#each translatedCategories as category (category)}
-											<span class="badge badge-primary badge-outline badge-sm">
+											<span class="badge badge-outline badge-info badge-sm">
 												{category}
 											</span>
 										{/each}

@@ -9,9 +9,10 @@
 	import {
 		satsFromUsd
 	} from '$lib/utils/helpers/crypto';
-	import { t } from 'svelte-i18n';
+	import { t, locale } from 'svelte-i18n';
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { TASK_CATEGORIES } from '$lib/utils/constants/categories';
+	import { translateSkill } from '$lib/utils/helpers/skillTranslations';
 	import { formatStandardDateShort, parseDateToLocalMidnight } from '$lib/utils/helpers/dateFormatter';
 	import type { Attachment } from '$lib/types/task';
 
@@ -40,6 +41,10 @@
 	let translatedCategories = $derived(
 		$store.task.categories.map(translateCategory)
 	);
+	let translatedSkills = $derived.by(() => {
+		$locale;
+		return ($store.task.skills ?? []).map(translateSkill);
+	});
 
 	// TODO: Refactor by adding to app store global state
 	/**
@@ -219,8 +224,8 @@
 			<div>
 				<h4 class="mb-3 text-base font-semibold text-base-content">{$t('task.skills')}</h4>
 				<div class="flex flex-wrap gap-2">
-					{#each $store.task.skills as skill}
-						<span class="badge badge-primary badge-sm">{skill}</span>
+					{#each translatedSkills as skill}
+						<span class="badge badge-outline badge-info badge-sm">{skill}</span>
 					{/each}
 				</div>
 			</div>

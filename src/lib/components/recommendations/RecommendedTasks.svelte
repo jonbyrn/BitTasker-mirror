@@ -9,6 +9,7 @@
 	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 	import { getRecommendedTasks, updatePreferencesFromFeedback } from '$lib/nostr/recommendations';
 	import { t } from 'svelte-i18n';
+	import { translateSkill } from '$lib/utils/helpers/skillTranslations';
 	import TranslatableTask from '$lib/components/task/TranslatableTask.svelte';
 
 	let { onSelectTask } = $props<{
@@ -193,7 +194,7 @@
 					{#if item.task.skills && item.task.skills.length > 0}
 						<div class="mt-1 flex flex-wrap gap-1">
 							{#each item.task.skills.slice(0, 3) as skill}
-								<span class="badge badge-sm badge-primary">{skill}</span>
+								<span class="badge badge-outline badge-info badge-sm">{translateSkill(skill)}</span>
 							{/each}
 							{#if item.task.skills.length > 3}
 								<span class="badge badge-sm badge-ghost">+{item.task.skills.length - 3}</span>

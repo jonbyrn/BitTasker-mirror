@@ -21,6 +21,7 @@
 	} from '$lib/utils/location/maps';
 	import Gallery from '$lib/components/Gallery.svelte';
 	import { TASK_CATEGORIES } from '$lib/utils/constants/categories';
+	import { translateSkill } from '$lib/utils/helpers/skillTranslations';
 	// Icon imports for unplugin-icons
 	import IconPlus from '~icons/mdi/plus';
 
@@ -79,6 +80,10 @@
 
 	// Convert category IDs to translated names for display (reactive)
 	let translatedCategories = $derived(task?.categories?.map(translateCategory) || []);
+	let translatedSkills = $derived.by(() => {
+		void $locale; // dependency so derived re-runs when locale changes
+		return task?.skills?.map(translateSkill) ?? [];
+	});
 
 	// Directions link for in-person tasks with location (used to make location text/icon clickable)
 	const locationDirectionsLink = $derived.by(() => {
@@ -366,7 +371,7 @@
 						directionsLink={locationDirectionsLink}
 					/>
 				</div>
-				<div class="min-w-0 md:w-2/5 md:flex-shrink-0 md:text-right">
+				<div class="min-w-0 md:w-2/5 md:shrink-0 md:text-right">
 					{#if task.dateRange}
 						<div class="mb-2 md:text-right">
 							<!-- Mobile: stacked layout (label above date, UsdSatsDisplay-like) -->
@@ -427,8 +432,8 @@
 							{$t('dashboard.task_details_by_task.required_skills')}
 						</small>
 						<div class="flex flex-wrap gap-1">
-							{#each task.skills as skill (skill)}
-								<span class="badge badge-primary badge-outline pb-[2px]">{skill}</span>
+							{#each translatedSkills as skill (skill)}
+								<span class="badge badge-outline badge-info pb-[2px]">{skill}</span>
 							{/each}
 						</div>
 					</div>
