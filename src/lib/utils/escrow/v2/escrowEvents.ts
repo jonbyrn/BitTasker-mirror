@@ -16,8 +16,6 @@ import { BidStatusEnum } from '$lib/utils/enums/bid.enum';
 import { contractStore } from '$lib/stores/contract.store';
 import { getStatusMessages } from '$lib/utils/helpers/contractStatusFormatter';
 import { createDebug } from '$lib/utils/debug';
-import { updateTask } from '$lib/nostr/task';
-import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 
 const d = createDebug('escrow:v2:events');
 const _ = get(t);
@@ -149,7 +147,9 @@ export async function handleEscrowCreated(event: EscrowCreatedEvent): Promise<vo
 				amount: pendingContract.amount,
 				estimatedStartTime: pendingContract.estimatedStartTime,
 				estimatedCompletionTime: pendingContract.estimatedCompletionTime,
-				transactionHash: event.transactionHash
+				transactionHash: event.transactionHash,
+				cancellationFee: pendingContract.cancellationFee,
+				upfrontDeposit: pendingContract.upfrontDeposit
 			};
 
 			d.log('handleEscrowCreated calling publishContractEvent (v2 Nostr CONTRACT)', {
@@ -193,19 +193,6 @@ export async function handleEscrowCreated(event: EscrowCreatedEvent): Promise<vo
 				appStore.showErrorToast(
 					'Escrow created successfully, but failed to update bid status. The bid status may need to be updated manually.'
 				);
-			}
-
-			// Task status update to IN_PROGRESS (Nostr after chain confirmation). See docs/tasks/task-status.md.
-			try {
-				await updateTask(pendingContract.taskId, { status: TaskStatusEnum.IN_PROGRESS });
-				d.log('handleEscrowCreated task status updated to IN_PROGRESS', {
-					taskId: pendingContract.taskId
-				});
-			} catch (taskUpdateError) {
-				d.error('handleEscrowCreated failed to update task status', {
-					taskId: pendingContract.taskId,
-					error: taskUpdateError
-				});
 			}
 
 			await contractStore.loadContractByEscrowId(event.escrowId);

@@ -1,22 +1,24 @@
 import type { Event as NostrEvent } from 'nostr-tools';
 import type { DisputeProposal, EscrowData } from '$lib/types/wallet';
+import type { EscrowStatusValue } from '$lib/types/escrow-status';
 import type { Attachment } from '$lib/types/task';
-import type { EscrowStatus } from '$lib/utils/escrow';
+export type ContractEscrowStatus = EscrowStatusValue;
 
 // Contract permissions - grouped for better organization
 export interface ContractPermissions {
-	canComplete: boolean;         // freelancer can mark as complete
-	canAccept: boolean;           // client can accept completed work
-	canDispute: boolean;          // client can dispute
-	canPropose: boolean;          // either party can propose resolution
-	canAcceptProposal: boolean;   // other party can accept proposal
-	canCancel: boolean;           // either party can cancel
-	canResolveTimelock: boolean;  // either party can resolve after timelock
-	canDelete: boolean;           // ONLY if contract was never funded (no blockchain state, no tx hash)
+	canComplete: boolean; // freelancer can mark as complete
+	canAccept: boolean; // client can accept completed work
+	canDispute: boolean; // client can dispute
+	canPropose: boolean; // either party can propose resolution
+	canAcceptProposal: boolean; // other party can accept proposal
+	canCancel: boolean; // either party can cancel
+	canResolveTimelock: boolean; // either party can resolve after timelock
+	canDelete: boolean; // ONLY if contract was never funded (no blockchain state, no tx hash)
 }
 
 // Main contract event data (content of KINDS.CONTRACT NostrEvent)
 export interface NostrContract {
+	paymentId?: string;
 	escrowId: string;
 	taskId: string;
 	taskTitle: string;
@@ -25,20 +27,23 @@ export interface NostrContract {
 	clientPubkey: string;
 	amount: string; // RBTC amount
 	currency: string; // 'RBTC'
-	status: EscrowStatus; // Use enum instead of string
+	status: ContractEscrowStatus; // Version-aware escrow status
 	estimatedStartTime: number;
 	estimatedCompletionTime: number;
 	type: 'contract'; // Identify as contract message in DMs
 	// Transaction hash from escrow creation
 	transactionHash?: string;
 	contractAddress?: string;
+	cancellationFee?: string;
+	upfrontDeposit?: string;
 }
 
 // Contract status update event data (content of KINDS.CONTRACT_STATUS NostrEvent)
 export interface NostrContractStatus {
+	paymentId?: string;
 	contractEventId: string;
 	escrowId: string;
-	action: EscrowStatus;
+	action: ContractEscrowStatus;
 	message?: string;
 	timestamp: number;
 	type: 'contract-status'; // Identify as contract status message in DMs
@@ -57,7 +62,7 @@ export interface ContractEvent extends NostrEvent {
 	statusEvents?: ContractStatusEvent[]; // Attached by queryNostrEvents
 }
 
-// NostrEvent with typed content for CONTRACT_STATUS events  
+// NostrEvent with typed content for CONTRACT_STATUS events
 export interface ContractStatusEvent extends NostrEvent {
 	content: NostrContractStatus;
 }
@@ -70,9 +75,9 @@ export interface ContractWithEvents {
 	isClient: boolean; // true if current user is the client
 
 	// Blockchain state (source of truth)
-	blockchainStatus: EscrowStatus | null; // EscrowStatus enum value from blockchain, null if not funded
+	blockchainStatus: ContractEscrowStatus | null; // Version-aware blockchain status
 	escrowData: EscrowData; // Full escrow data from blockchain
-	status: EscrowStatus; // Unified status (includes pending states from Nostr)
+	status: ContractEscrowStatus; // Unified status (includes pending states from Nostr)
 	isPending: boolean; // true if blockchain transaction is being processed
 
 	// Permission flags (determined by blockchain state + contract rules)
@@ -94,13 +99,15 @@ export interface CreateContractParams {
 	estimatedStartTime: number;
 	estimatedCompletionTime: number;
 	transactionHash?: string; // Optional transaction hash from escrow creation
+	cancellationFee?: string;
+	upfrontDeposit?: string;
 }
 
 // Status update parameters
 export interface PublishStatusParams {
 	contractEventId: string;
 	escrowId: string;
-	action: EscrowStatus;
+	action: ContractEscrowStatus;
 	message?: string;
 	transactionHash?: string;
 	proposedClientAmount?: string;
@@ -112,7 +119,7 @@ export interface PublishStatusParams {
 export interface ContractFilter {
 	escrowIds?: string[];
 	taskIds?: string[];
-	statuses?: EscrowStatus[];
+	statuses?: ContractEscrowStatus[];
 	userPubkey?: string; // filter by client or freelancer
 	limit?: number;
 	since?: number;
@@ -123,12 +130,11 @@ export interface PublishContractStatusParams {
 	escrowId: string;
 	contractEventId: string;
 	transactionHash: string;
-	status: EscrowStatus;
+	status: ContractEscrowStatus;
 	completionAttachments?: Attachment[];
 	proposedClientAmount?: string;
 	proposedFreelancerAmount?: string;
 }
-
 
 export interface ContractCreationEvent {
 	escrowId: string;
@@ -148,4 +154,6 @@ export interface PendingContractCreation {
 	estimatedStartTime: number;
 	estimatedCompletionTime: number;
 	transactionHash: string;
+	cancellationFee?: string;
+	upfrontDeposit?: string;
 }

@@ -12,6 +12,8 @@ import { normalizeRskAddress } from '@bittasker/wallet-core';
 import type { NostrEvent } from 'nostr-tools';
 import { parseDateWithLocalTime } from '$lib/utils/helpers/dateFormatter';
 import { createDebug } from '$lib/utils/debug';
+import { updateTask } from '$lib/nostr/task';
+import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 
 const d = createDebug('escrow:v2:bid');
 
@@ -280,8 +282,23 @@ export async function acceptBidAndCreateEscrow(
 			amount: escrowDetails.baseAmount,
 			estimatedStartTime: adjustedStartTime,
 			estimatedCompletionTime: adjustedCompletionTime,
-			transactionHash
+			transactionHash,
+			cancellationFee: '0',
+			upfrontDeposit: '0'
 		});
+
+		try {
+			await updateTask(task.id, { status: TaskStatusEnum.IN_PROGRESS });
+			d.log('acceptBidAndCreateEscrow task updated at submit-time', {
+				taskId: task.id,
+				transactionHash: transactionHash.slice(0, 18) + '...'
+			});
+		} catch (taskUpdateError) {
+			d.error('acceptBidAndCreateEscrow failed to update task at submit-time', {
+				taskId: task.id,
+				error: taskUpdateError
+			});
+		}
 
 		d.log('acceptBidAndCreateEscrow success', {
 			transactionHash: transactionHash.slice(0, 18) + '...',

@@ -202,7 +202,9 @@ async function loadEscrowDetails(escrowId: string, contractAddress?: string): Pr
 				clientFee: '0',
 				freelancerFee: '0',
 				totalAmount: ethers.formatEther(paymentData.amount),
-				status: mapBlockchainStateToEnum(Number(paymentData.state)),
+				status: mapBlockchainStateToEnum(
+					Number(paymentData.state)
+				) as unknown as EscrowData['status'],
 				estimatedStartTime: Number(paymentData.estimatedStartTime),
 				estimatedCompletionTime: Number(paymentData.estimatedCompletionTime),
 				completionTime: 0,
@@ -871,10 +873,10 @@ async function resolveAfterTimelock(
  * Extracts the final EscrowStatus from a StateTransition event in a V2 transaction receipt.
  * Falls back to inference from the pre-transaction status if parsing fails.
  */
-function extractFinalStateFromReceipt(
+function extractStateTransitionStatus(
 	receipt: ethers.TransactionReceipt,
 	contractInstance: ethers.Contract,
-	priorStatus: number
+	fallbackStatus: EscrowStatus
 ): EscrowStatus {
 	try {
 		for (const log of receipt.logs) {
@@ -887,8 +889,23 @@ function extractFinalStateFromReceipt(
 			}
 		}
 	} catch {
-		// Fall through to inference
+		// Fall through to fallback
 	}
+
+	return fallbackStatus;
+}
+
+function extractFinalStateFromReceipt(
+	receipt: ethers.TransactionReceipt,
+	contractInstance: ethers.Contract,
+	priorStatus: number
+): EscrowStatus {
+	const parsedStatus = extractStateTransitionStatus(
+		receipt,
+		contractInstance,
+		EscrowStatus.DisputeUnresolved
+	);
+	if (parsedStatus !== EscrowStatus.DisputeUnresolved) return parsedStatus;
 
 	// Inference fallback based on prior status
 	if (priorStatus === EscrowStatus.Completed) return EscrowStatus.FundsClaimed;
@@ -898,7 +915,8 @@ function extractFinalStateFromReceipt(
 
 async function markNoShow(
 	escrowId: string,
-	contractAddress?: string
+	contractAddress?: string,
+	contractEventId?: string
 ): Promise<ContractTransactionResult> {
 	try {
 		const { contract, wallet, provider } = await ensureEscrowReady(contractAddress, false);
@@ -916,20 +934,37 @@ async function markNoShow(
 
 		const result: ContractTransactionResult = { hash, escrowId, status: 'pending' };
 
+		if (contractEventId) {
+			await EscrowNostrEvent.publishEscrowStatus({
+				escrowId,
+				contractEventId,
+				transactionHash: hash,
+				status: EscrowStatus.PendingMarkNoShow
+			});
+		}
+
 		wait()
 			.then(async (receipt: ethers.TransactionReceipt | null) => {
 				if (receipt) {
 					result.status = 'confirmed';
 					result.gasUsed = receipt.gasUsed.toString();
+					if (contractEventId) {
+						await EscrowNostrEvent.publishEscrowStatus({
+							escrowId,
+							contractEventId,
+							transactionHash: receipt.hash,
+							status: EscrowStatus.NoShow
+						});
+					}
 				} else {
 					result.status = 'failed';
-					appStore.showErrorToast(get(t)('dashboard.contracts.errors.no_show_marked_error'));
+					appStore.showErrorToast(get(t)('dashboard.contracts.actions.no_show_marked_error'));
 				}
 			})
 			.catch((error: unknown) => {
 				console.error('[V2] markNoShow transaction failed:', error);
 				result.status = 'failed';
-				appStore.showErrorToast(get(t)('dashboard.contracts.errors.no_show_marked_error'));
+				appStore.showErrorToast(get(t)('dashboard.contracts.actions.no_show_marked_error'));
 			});
 
 		return result;
@@ -942,7 +977,8 @@ async function markNoShow(
 
 async function markWorkInProgress(
 	escrowId: string,
-	contractAddress?: string
+	contractAddress?: string,
+	contractEventId?: string
 ): Promise<ContractTransactionResult> {
 	try {
 		const { contract, wallet, provider } = await ensureEscrowReady(contractAddress, false);
@@ -960,20 +996,37 @@ async function markWorkInProgress(
 
 		const result: ContractTransactionResult = { hash, escrowId, status: 'pending' };
 
+		if (contractEventId) {
+			await EscrowNostrEvent.publishEscrowStatus({
+				escrowId,
+				contractEventId,
+				transactionHash: hash,
+				status: EscrowStatus.PendingMarkWorkInProgress
+			});
+		}
+
 		wait()
 			.then(async (receipt: ethers.TransactionReceipt | null) => {
 				if (receipt) {
 					result.status = 'confirmed';
 					result.gasUsed = receipt.gasUsed.toString();
+					if (contractEventId) {
+						await EscrowNostrEvent.publishEscrowStatus({
+							escrowId,
+							contractEventId,
+							transactionHash: receipt.hash,
+							status: EscrowStatus.WorkInProgress
+						});
+					}
 				} else {
 					result.status = 'failed';
-					appStore.showErrorToast(get(t)('dashboard.contracts.errors.work_in_progress_error'));
+					appStore.showErrorToast(get(t)('dashboard.contracts.actions.work_in_progress_error'));
 				}
 			})
 			.catch((error: unknown) => {
 				console.error('[V2] markWorkInProgress transaction failed:', error);
 				result.status = 'failed';
-				appStore.showErrorToast(get(t)('dashboard.contracts.errors.work_in_progress_error'));
+				appStore.showErrorToast(get(t)('dashboard.contracts.actions.work_in_progress_error'));
 			});
 
 		return result;
@@ -986,7 +1039,8 @@ async function markWorkInProgress(
 
 async function claimNoShowRefund(
 	escrowId: string,
-	contractAddress?: string
+	contractAddress?: string,
+	contractEventId?: string
 ): Promise<ContractTransactionResult> {
 	try {
 		const { contract, wallet, provider } = await ensureEscrowReady(contractAddress, false);
@@ -1004,20 +1058,37 @@ async function claimNoShowRefund(
 
 		const result: ContractTransactionResult = { hash, escrowId, status: 'pending' };
 
+		if (contractEventId) {
+			await EscrowNostrEvent.publishEscrowStatus({
+				escrowId,
+				contractEventId,
+				transactionHash: hash,
+				status: EscrowStatus.PendingClaimNoShowRefund
+			});
+		}
+
 		wait()
 			.then(async (receipt: ethers.TransactionReceipt | null) => {
 				if (receipt) {
 					result.status = 'confirmed';
 					result.gasUsed = receipt.gasUsed.toString();
+					if (contractEventId) {
+						await EscrowNostrEvent.publishEscrowStatus({
+							escrowId,
+							contractEventId,
+							transactionHash: receipt.hash,
+							status: EscrowStatus.Refunded
+						});
+					}
 				} else {
 					result.status = 'failed';
-					appStore.showErrorToast(get(t)('dashboard.contracts.errors.no_show_refund_error'));
+					appStore.showErrorToast(get(t)('dashboard.contracts.actions.no_show_refund_error'));
 				}
 			})
 			.catch((error: unknown) => {
 				console.error('[V2] claimNoShowRefund transaction failed:', error);
 				result.status = 'failed';
-				appStore.showErrorToast(get(t)('dashboard.contracts.errors.no_show_refund_error'));
+				appStore.showErrorToast(get(t)('dashboard.contracts.actions.no_show_refund_error'));
 			});
 
 		return result;
@@ -1030,7 +1101,8 @@ async function claimNoShowRefund(
 
 async function claimUpfrontDeposit(
 	escrowId: string,
-	contractAddress?: string
+	contractAddress?: string,
+	contractEventId?: string
 ): Promise<ContractTransactionResult> {
 	try {
 		const { contract, wallet, provider } = await ensureEscrowReady(contractAddress, false);
@@ -1048,20 +1120,37 @@ async function claimUpfrontDeposit(
 
 		const result: ContractTransactionResult = { hash, escrowId, status: 'pending' };
 
+		if (contractEventId) {
+			await EscrowNostrEvent.publishEscrowStatus({
+				escrowId,
+				contractEventId,
+				transactionHash: hash,
+				status: EscrowStatus.PendingClaimUpfrontDeposit
+			});
+		}
+
 		wait()
 			.then(async (receipt: ethers.TransactionReceipt | null) => {
 				if (receipt) {
 					result.status = 'confirmed';
 					result.gasUsed = receipt.gasUsed.toString();
+					if (contractEventId) {
+						await EscrowNostrEvent.publishEscrowStatus({
+							escrowId,
+							contractEventId,
+							transactionHash: receipt.hash,
+							status: extractStateTransitionStatus(receipt, contract, EscrowStatus.FundsClaimed)
+						});
+					}
 				} else {
 					result.status = 'failed';
-					appStore.showErrorToast(get(t)('dashboard.contracts.errors.upfront_deposit_error'));
+					appStore.showErrorToast(get(t)('dashboard.contracts.actions.upfront_deposit_error'));
 				}
 			})
 			.catch((error: unknown) => {
 				console.error('[V2] claimUpfrontDeposit transaction failed:', error);
 				result.status = 'failed';
-				appStore.showErrorToast(get(t)('dashboard.contracts.errors.upfront_deposit_error'));
+				appStore.showErrorToast(get(t)('dashboard.contracts.actions.upfront_deposit_error'));
 			});
 
 		return result;
@@ -1098,7 +1187,7 @@ async function checkEscrowFundingStatus(escrowId: string): Promise<{
 			return { wasFunded: false, escrowData: null };
 		}
 
-		if (escrowData.status === EscrowStatus.Cancelled) {
+		if (Number(escrowData.status) === EscrowStatus.Cancelled) {
 			const amount = parseFloat(escrowData.baseAmount);
 			return { wasFunded: amount > 0, escrowData };
 		}

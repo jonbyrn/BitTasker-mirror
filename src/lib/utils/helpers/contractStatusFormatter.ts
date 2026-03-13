@@ -5,10 +5,10 @@ import { EscrowStatus } from '$lib/utils/escrow';
  * Maps each status to its pending message, confirmed message, and success toast
  */
 interface StatusMessages {
-	pendingMessage?: string;  // Message shown during transaction (info toast)
-	confirmedMessage: string;  // Message published to Nostr
-	successToast: string;      // Success toast after confirmation
-	errorToast: string;        // Error toast if transaction fails
+	pendingMessage?: string; // Message shown during transaction (info toast)
+	confirmedMessage: string; // Message published to Nostr
+	successToast: string; // Success toast after confirmation
+	errorToast: string; // Error toast if transaction fails
 }
 
 /**
@@ -122,6 +122,60 @@ export function getStatusMessages(status: EscrowStatus): StatusMessages {
 				errorToast: 'dashboard.contracts.actions.timelock_resolved_error'
 			};
 
+		// V2 Work Progress / No-show / Refund Flows
+		case EscrowStatus.PendingMarkWorkInProgress:
+			return {
+				pendingMessage: 'dashboard.contracts.actions.work_in_progress_marking_message',
+				confirmedMessage: 'dashboard.contracts.actions.work_in_progress_marked_message',
+				successToast: 'dashboard.contracts.actions.work_in_progress_marked_success',
+				errorToast: 'dashboard.contracts.actions.work_in_progress_error'
+			};
+		case EscrowStatus.WorkInProgress:
+			return {
+				confirmedMessage: 'dashboard.contracts.actions.work_in_progress_marked_message',
+				successToast: 'dashboard.contracts.actions.work_in_progress_marked_success',
+				errorToast: 'dashboard.contracts.actions.work_in_progress_error'
+			};
+		case EscrowStatus.PendingMarkNoShow:
+			return {
+				pendingMessage: 'dashboard.contracts.actions.no_show_marking_message',
+				confirmedMessage: 'dashboard.contracts.actions.no_show_marked_message',
+				successToast: 'dashboard.contracts.actions.no_show_marked_success',
+				errorToast: 'dashboard.contracts.actions.no_show_marked_error'
+			};
+		case EscrowStatus.NoShow:
+			return {
+				confirmedMessage: 'dashboard.contracts.actions.no_show_marked_message',
+				successToast: 'dashboard.contracts.actions.no_show_marked_success',
+				errorToast: 'dashboard.contracts.actions.no_show_marked_error'
+			};
+		case EscrowStatus.PendingClaimNoShowRefund:
+			return {
+				pendingMessage: 'dashboard.contracts.actions.no_show_refund_claiming_message',
+				confirmedMessage: 'dashboard.contracts.actions.no_show_refund_claimed_message',
+				successToast: 'dashboard.contracts.actions.no_show_refund_claimed_success',
+				errorToast: 'dashboard.contracts.actions.no_show_refund_error'
+			};
+		case EscrowStatus.Refunded:
+			return {
+				confirmedMessage: 'dashboard.contracts.actions.no_show_refund_claimed_message',
+				successToast: 'dashboard.contracts.actions.no_show_refund_claimed_success',
+				errorToast: 'dashboard.contracts.actions.no_show_refund_error'
+			};
+		case EscrowStatus.PendingClaimUpfrontDeposit:
+			return {
+				pendingMessage: 'dashboard.contracts.actions.upfront_deposit_claiming_message',
+				confirmedMessage: 'dashboard.contracts.actions.upfront_deposit_claimed_message',
+				successToast: 'dashboard.contracts.actions.upfront_deposit_claimed_success',
+				errorToast: 'dashboard.contracts.actions.upfront_deposit_error'
+			};
+		case EscrowStatus.FundsClaimed:
+			return {
+				confirmedMessage: 'dashboard.contracts.actions.upfront_deposit_claimed_message',
+				successToast: 'dashboard.contracts.actions.upfront_deposit_claimed_success',
+				errorToast: 'dashboard.contracts.actions.upfront_deposit_error'
+			};
+
 		default:
 			return {
 				confirmedMessage: 'dashboard.contracts.actions.unknown_error',
@@ -174,6 +228,22 @@ export function getStatusTranslationKey(status: EscrowStatus): string {
 			return 'dashboard.contracts.status.pending_proposal_acceptance';
 		case EscrowStatus.PendingTimelockResolution:
 			return 'dashboard.contracts.status.pending_timelock_resolution';
+		case EscrowStatus.WorkInProgress:
+			return 'dashboard.contracts.status.work_in_progress';
+		case EscrowStatus.NoShow:
+			return 'dashboard.contracts.status.no_show';
+		case EscrowStatus.Refunded:
+			return 'dashboard.contracts.status.refunded';
+		case EscrowStatus.FundsClaimed:
+			return 'dashboard.contracts.status.funds_claimed';
+		case EscrowStatus.PendingMarkWorkInProgress:
+			return 'dashboard.contracts.status.pending_mark_work_in_progress';
+		case EscrowStatus.PendingMarkNoShow:
+			return 'dashboard.contracts.status.pending_mark_no_show';
+		case EscrowStatus.PendingClaimNoShowRefund:
+			return 'dashboard.contracts.status.pending_claim_no_show_refund';
+		case EscrowStatus.PendingClaimUpfrontDeposit:
+			return 'dashboard.contracts.status.pending_claim_upfront_deposit';
 
 		default:
 			return 'dashboard.contracts.status.funded';
@@ -194,6 +264,7 @@ export function getStatusColorClass(status: EscrowStatus): string {
 		case EscrowStatus.Completed:
 		case EscrowStatus.FundsReleased:
 		case EscrowStatus.DisputeResolved:
+		case EscrowStatus.WorkInProgress:
 			return 'badge-success';
 
 		// Pending states - Info (Blue)
@@ -203,6 +274,10 @@ export function getStatusColorClass(status: EscrowStatus): string {
 		case EscrowStatus.DisputeUnresolved:
 		case EscrowStatus.PendingProposalAcceptance:
 		case EscrowStatus.PendingTimelockResolution:
+		case EscrowStatus.PendingMarkWorkInProgress:
+		case EscrowStatus.PendingMarkNoShow:
+		case EscrowStatus.PendingClaimNoShowRefund:
+		case EscrowStatus.PendingClaimUpfrontDeposit:
 			return 'badge-info';
 
 		// Dispute states - Warning (Yellow)
@@ -210,11 +285,14 @@ export function getStatusColorClass(status: EscrowStatus): string {
 		case EscrowStatus.PendingDispute:
 		case EscrowStatus.DisputeResolutionProposed:
 		case EscrowStatus.PendingResolutionProposal:
+		case EscrowStatus.NoShow:
 			return 'badge-warning';
 
 		// Cancelled states - Error (Red)
 		case EscrowStatus.Cancelled:
 		case EscrowStatus.PendingCancellation:
+		case EscrowStatus.Refunded:
+		case EscrowStatus.FundsClaimed:
 			return 'badge-error';
 
 		default:

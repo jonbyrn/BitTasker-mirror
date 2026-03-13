@@ -166,7 +166,8 @@ export interface IEscrowHandler {
 	 */
 	markWorkInProgress?(
 		escrowId: string,
-		contractAddress?: string
+		contractAddress?: string,
+		contractEventId?: string
 	): Promise<ContractTransactionResult>;
 
 	/**
@@ -175,7 +176,11 @@ export interface IEscrowHandler {
 	 * @param contractAddress - Optional contract address for legacy contracts
 	 * @returns Transaction result
 	 */
-	markNoShow?(escrowId: string, contractAddress?: string): Promise<ContractTransactionResult>;
+	markNoShow?(
+		escrowId: string,
+		contractAddress?: string,
+		contractEventId?: string
+	): Promise<ContractTransactionResult>;
 
 	/**
 	 * Claim refund after no-show (V2+)
@@ -185,7 +190,8 @@ export interface IEscrowHandler {
 	 */
 	claimNoShowRefund?(
 		escrowId: string,
-		contractAddress?: string
+		contractAddress?: string,
+		contractEventId?: string
 	): Promise<ContractTransactionResult>;
 
 	/**
@@ -196,7 +202,8 @@ export interface IEscrowHandler {
 	 */
 	claimUpfrontDeposit?(
 		escrowId: string,
-		contractAddress?: string
+		contractAddress?: string,
+		contractEventId?: string
 	): Promise<ContractTransactionResult>;
 
 	/**
@@ -207,7 +214,7 @@ export interface IEscrowHandler {
 	checkEscrowFundingStatus(escrowId: string): Promise<{
 		wasFunded: boolean;
 		escrowData: EscrowData | null;
-		error?: typeof EscrowError;
+		error?: EscrowError;
 	}>;
 }
 

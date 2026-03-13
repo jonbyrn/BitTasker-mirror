@@ -36,9 +36,34 @@ import type { Writable } from 'svelte/store';
 import { createDebug } from '$lib/utils/debug';
 import * as v1 from './v1';
 import * as v2 from './v2';
+import { EscrowStatus as V2EscrowStatus } from './v2/escrow.enum';
 // import * as v3 from './v3'; // Future versions
 
 const d = createDebug('escrow:manager');
+
+async function updateTaskAtSubmitTime(
+	taskId: string | undefined,
+	status: TaskStatusEnum,
+	context: string,
+	txHash?: string
+): Promise<void> {
+	if (!taskId) return;
+
+	try {
+		await updateTask(taskId, { status });
+		d.log(`${context} task updated at submit-time`, {
+			taskId,
+			status,
+			transactionHash: txHash ? `${txHash.slice(0, 18)}...` : undefined
+		});
+	} catch (error) {
+		d.error(`${context} failed to update task at submit-time`, {
+			taskId,
+			status,
+			error
+		});
+	}
+}
 
 // TODO: Refacotring needed
 // These utilities are version-agnostic helpers (fee display, input validation).
@@ -181,6 +206,12 @@ class EscrowManager {
 			const contractEventId = contract.contractEvent.id;
 			const taskId = contract.contractEvent.content?.taskId as string | undefined;
 
+			if (version === 'v2') {
+				const result = await handler.escrow.acceptTask(escrowId, contractEventId);
+				await updateTaskAtSubmitTime(taskId, TaskStatusEnum.COMPLETED, 'acceptTask', result.hash);
+				return result;
+			}
+
 			const onConfirmed = taskId
 				? async () => {
 						await updateTask(taskId, { status: TaskStatusEnum.COMPLETED });
@@ -212,8 +243,13 @@ class EscrowManager {
 
 			const escrowId = contract.escrowData.id;
 			const contractEventId = contract.contractEvent.id;
+			const taskId = contract.contractEvent.content?.taskId as string | undefined;
 
-			return handler.escrow.disputeTask(escrowId, contractEventId);
+			const result = await handler.escrow.disputeTask(escrowId, contractEventId);
+			if (version === 'v2') {
+				await updateTaskAtSubmitTime(taskId, TaskStatusEnum.DISPUTED, 'disputeTask', result.hash);
+			}
+			return result;
 		},
 
 		/**
@@ -230,14 +266,24 @@ class EscrowManager {
 
 			const escrowId = contract.escrowData.id;
 			const contractEventId = contract.contractEvent.id;
+			const taskId = contract.contractEvent.content?.taskId as string | undefined;
 
-			return handler.escrow.proposeResolution(
+			const result = await handler.escrow.proposeResolution(
 				escrowId,
 				freelancerAmountRBTC,
 				contractEventId,
 				proposedClientAmount,
 				proposedFreelancerAmount
 			);
+			if (version === 'v2') {
+				await updateTaskAtSubmitTime(
+					taskId,
+					TaskStatusEnum.DISPUTE_PROPOSAL,
+					'proposeResolution',
+					result.hash
+				);
+			}
+			return result;
 		},
 
 		/**
@@ -259,6 +305,19 @@ class EscrowManager {
 							await updateTask(taskId, { status: TaskStatusEnum.COMPLETED });
 						}
 					: undefined;
+
+			if (version === 'v2') {
+				const result = await handler.escrow.acceptProposal(escrowId, contractEventId);
+				if (contract.isClient) {
+					await updateTaskAtSubmitTime(
+						taskId,
+						TaskStatusEnum.COMPLETED,
+						'acceptProposal',
+						result.hash
+					);
+				}
+				return result;
+			}
 
 			return handler.escrow.acceptProposal(escrowId, contractEventId, { onConfirmed });
 		},
@@ -283,6 +342,23 @@ class EscrowManager {
 					}
 				: undefined;
 
+			if (version === 'v2') {
+				const result = await handler.escrow.resolveAfterTimelock(
+					escrowId,
+					Number(escrowStatus),
+					contractEventId
+				);
+				if (Number(escrowStatus) === V2EscrowStatus.Completed) {
+					await updateTaskAtSubmitTime(
+						taskId,
+						TaskStatusEnum.COMPLETED,
+						'resolveAfterTimelock',
+						result.hash
+					);
+				}
+				return result;
+			}
+
 			return handler.escrow.resolveAfterTimelock(escrowId, Number(escrowStatus), contractEventId, {
 				onConfirmed
 			});
@@ -301,8 +377,9 @@ class EscrowManager {
 
 			const escrowId = contract.escrowData.id;
 			const contractAddress = contract.contractEvent.content.contractAddress;
+			const contractEventId = contract.contractEvent.id;
 
-			return handler.escrow.markWorkInProgress(escrowId, contractAddress);
+			return handler.escrow.markWorkInProgress(escrowId, contractAddress, contractEventId);
 		},
 
 		markNoShow: async (contract: ContractWithEvents): Promise<ContractTransactionResult> => {
@@ -315,8 +392,9 @@ class EscrowManager {
 
 			const escrowId = contract.escrowData.id;
 			const contractAddress = contract.contractEvent.content.contractAddress;
+			const contractEventId = contract.contractEvent.id;
 
-			return handler.escrow.markNoShow(escrowId, contractAddress);
+			return handler.escrow.markNoShow(escrowId, contractAddress, contractEventId);
 		},
 
 		claimNoShowRefund: async (contract: ContractWithEvents): Promise<ContractTransactionResult> => {
@@ -329,8 +407,9 @@ class EscrowManager {
 
 			const escrowId = contract.escrowData.id;
 			const contractAddress = contract.contractEvent.content.contractAddress;
+			const contractEventId = contract.contractEvent.id;
 
-			return handler.escrow.claimNoShowRefund(escrowId, contractAddress);
+			return handler.escrow.claimNoShowRefund(escrowId, contractAddress, contractEventId);
 		},
 
 		claimUpfrontDeposit: async (
@@ -345,8 +424,9 @@ class EscrowManager {
 
 			const escrowId = contract.escrowData.id;
 			const contractAddress = contract.contractEvent.content.contractAddress;
+			const contractEventId = contract.contractEvent.id;
 
-			return handler.escrow.claimUpfrontDeposit(escrowId, contractAddress);
+			return handler.escrow.claimUpfrontDeposit(escrowId, contractAddress, contractEventId);
 		},
 
 		/**
@@ -620,8 +700,11 @@ export type {
 // Re-export utility types from escrowBid for convenience
 export type { ValidationWarning, ValidationResult } from './v2/escrowBid';
 
-// Re-export EscrowStatus enum from v1 (for backward compatibility and type imports)
+// Legacy compatibility export.
+// Prefer version-specific enums (`v1/escrow.enum`, `v2/escrow.enum`) for behavior,
+// and `EscrowStatusValue` for shared cross-version models.
 export { EscrowStatus } from './v1/escrow.enum';
+export type { EscrowStatusValue } from '$lib/types/escrow-status';
 
 // TODO: Implementation not working as expected, fix later
 // Export EscrowStatus as a type derived from the return type of getEscrowStatus

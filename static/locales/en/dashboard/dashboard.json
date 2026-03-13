@@ -588,7 +588,15 @@
 				"timelock_resolved": "Resolved after timelock",
 				"pending_resolution_proposal": "Pending Resolution Proposal",
 				"pending_proposal_acceptance": "Pending Proposal Acceptance",
-				"pending_timelock_resolution": "Pending Timelock Resolution"
+				"pending_timelock_resolution": "Pending Timelock Resolution",
+				"work_in_progress": "Work In Progress",
+				"no_show": "No-Show",
+				"refunded": "Refunded",
+				"funds_claimed": "Funds Claimed",
+				"pending_mark_work_in_progress": "Pending Work In Progress",
+				"pending_mark_no_show": "Pending No-Show",
+				"pending_claim_no_show_refund": "Pending No-Show Refund",
+				"pending_claim_upfront_deposit": "Pending Upfront Deposit Claim"
 			},
 			"actions": {
 				"complete_task": "Mark Task Complete",

@@ -1807,13 +1807,53 @@ _Use this section for step-by-step tracking. Mark `[ ]` → `[x]` as you complet
 
 ### Phase 6: Nostr Integration
 
-- [ ] Update `publishContractEvent()` to use 'v2' version tag
-- [ ] Add `cancellationFee` and `upfrontDeposit` to Nostr contract data
-- [ ] Update status event publishing for new pending states (108-111)
-- [ ] Verify StateTransition event handling (if needed)
+Implement this phase incrementally. Do **not** try to land the whole Nostr architecture rewrite in one pass.
+
+#### Phase 6A: Event Model Foundations
+
+- [ ] Adopt the architecture in `docs/escrow/v2/nostr-event-architecture.md`
+- [x] **VERIFIED**: Keep task events addressable by stable `d` tag and always update tasks by stable task id
+- [x] Update `publishContractEvent()` to use `v2` version tag and treat `paymentId` / `escrowId` as the canonical contract identity
+- [x] Add `cancellationFee` and `upfrontDeposit` to Nostr contract data
+- [x] Keep contract root event keyed by `d = paymentId`, but publish it only when `paymentId` is known (after creation confirmation)
+
+#### Phase 6B: Submit-Time Nostr Publishing
+
+- [x] Update contract status events to treat `r = paymentId` as the primary lifecycle join key and `e = contractEventId` as secondary linkage
+- [x] Update status event publishing for new pending states (108-111)
+- [x] Move task status updates from confirm-time callbacks to submit-time (immediately after `txHash` is available)
+- [ ] Apply submit-time task updates for the main lifecycle actions:
+  - [x] `createPaymentContract` -> task `IN_PROGRESS`
+  - [x] `acceptTask` -> task `COMPLETED`
+  - [x] `disputeTask` -> task `DISPUTED`
+  - [x] `proposeResolution` -> task `DISPUTE_PROPOSAL`
+  - [x] `acceptProposal` / `resolveAfterTimelock` -> task `COMPLETED` when applicable
+
+#### Phase 6C: Querying and Loading
+
+- [ ] Query root contract by `#d = paymentId`
+- [ ] Query contract status history by `#r = paymentId`
+- [ ] Keep `#e = contractEventId` as a secondary link / follow-up convenience
+- [ ] Verify `StateTransition` event handling (if needed)
+
+#### Phase 6D: Reliability and Recovery
+
+- [ ] Add a persistent tx sync queue keyed by `txHash` so Nostr task/contract updates survive app close or disconnect
+- [ ] Track per-tx sync state:
+  - [ ] task event updated
+  - [ ] pending contract status published
+  - [ ] confirmed contract status published
+  - [ ] root contract event published (creation only)
+- [ ] Add startup / load reconciliation for submitted txs that may have missed Nostr updates
+- [ ] Reconcile task state when blockchain already advanced but Nostr updates were missed
 
 ### Phase 7: Type Updates
 
+- [ ] Execute the plan in `docs/escrow/v2/status-typing-refactor-plan.md`
+- [x] Normalize shared status types so cross-version models do not assume v1-only `EscrowStatus`
+- [ ] Remove hidden v1 status assumptions from shared helpers
+- [ ] Split contract state resolution into explicit v1 / v2 paths
+- [ ] Clean up shared escrow barrel exports so status imports are version-aware
 - [ ] Add v2-specific fields to `EscrowData` interface (optional fields)
 - [ ] Add v2 fields to `NostrContract` interface
 - [ ] Add v2 permissions to `ContractPermissions` interface
@@ -1862,6 +1902,12 @@ _Use this section for step-by-step tracking. Mark `[ ]` → `[x]` as you complet
   - [ ] Relay path success
   - [ ] Fallback to direct on relay failure
   - [ ] createPaymentContract never uses relay
+- [ ] Nostr architecture tests (see `docs/escrow/v2/nostr-event-architecture.md`):
+  - [ ] Task status updates are published immediately after tx submission (`txHash` available)
+  - [ ] Contract pending status is published at tx submission and confirmed status at receipt
+  - [ ] Root contract event is published only after `paymentId` is known
+  - [ ] Pending tx sync queue recovers after app reload / disconnect
+  - [ ] Reconciliation fixes missed Nostr updates when blockchain already advanced
 
 ### Phase 12: Environment Configuration
 
@@ -1988,6 +2034,7 @@ _Use this section for step-by-step tracking. Mark `[ ]` → `[x]` as you complet
 
 - **`abi.json`** — `src/lib/utils/escrow/v2/abi.json` (definitive ABI; includes `executeMetaTransaction`, `GAS_REIMBURSEMENT_PER_OP`, gasless-related errors)
 - **`docs/escrow/v2/gasless-frontend-integration.md`** — Relay API, meta-tx building, gasless-default flow
+- **`docs/escrow/v2/nostr-event-architecture.md`** — Proposed v2 Nostr model: canonical ids, submit-time task updates, recovery, reconciliation
 - **`docs/gasless-integration-research-report.md`** — Current transaction flow, Nostr integration, relay plug-in points
 
 ---

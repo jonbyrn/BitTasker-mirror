@@ -30,13 +30,30 @@ import { createDebug } from '$lib/utils/debug';
 const d = createDebug('escrow:v2:nostr');
 const VERSION_TAG = 'v2';
 
+function getCanonicalPaymentId(identity: {
+	paymentId?: string;
+	escrowId?: string;
+}): string | undefined {
+	return identity.paymentId ?? identity.escrowId;
+}
+
+function getPaymentIdFromEvent(event: {
+	tags?: string[][];
+	content?: NostrContract;
+}): string | undefined {
+	const dTag = event.tags?.find((tag) => tag[0] === TAGS.D)?.[1];
+	return dTag ?? getCanonicalPaymentId(event.content ?? {});
+}
+
 /**
  * Publish a new contract event after escrow creation (as encrypted DM)
  */
 export async function publishContractEvent(params: CreateContractParams): Promise<void> {
 	try {
+		const paymentId = params.escrowId;
+
 		d.log('publishContractEvent start', {
-			escrowId: params.escrowId,
+			paymentId,
 			taskId: params.taskId,
 			version: VERSION_TAG
 		});
@@ -51,7 +68,8 @@ export async function publishContractEvent(params: CreateContractParams): Promis
 				: import.meta.env.VITE_RSK_CONTRACT_ADDRESS_V2_TESTNET;
 
 		const contractData: NostrContract = {
-			escrowId: params.escrowId,
+			paymentId,
+			escrowId: paymentId,
 			taskId: params.taskId,
 			taskTitle: params.taskTitle,
 			taskDescription: params.taskDescription,
@@ -64,12 +82,14 @@ export async function publishContractEvent(params: CreateContractParams): Promis
 			estimatedCompletionTime: params.estimatedCompletionTime,
 			transactionHash: params.transactionHash,
 			type: 'contract',
-			contractAddress
+			contractAddress,
+			cancellationFee: params.cancellationFee,
+			upfrontDeposit: params.upfrontDeposit
 		};
 
 		const contractMessage = JSON.stringify(contractData);
 		const tags = TAG_PATTERNS.contract(
-			params.escrowId,
+			paymentId,
 			params.taskId,
 			params.freelancerPubkey,
 			clientPubkey,
@@ -78,7 +98,7 @@ export async function publishContractEvent(params: CreateContractParams): Promis
 		);
 
 		d.log('publishContractEvent Nostr CONTRACT event (v2)', {
-			escrowId: params.escrowId,
+			paymentId,
 			versionTag: VERSION_TAG,
 			tagsIncludeV: tags.some((t) => Array.isArray(t) && t[0] === 'v' && t[1] === VERSION_TAG),
 			kind: KINDS.CONTRACT,
@@ -87,10 +107,10 @@ export async function publishContractEvent(params: CreateContractParams): Promis
 
 		await publishNostrEvent(KINDS.CONTRACT, contractMessage, params.freelancerPubkey, tags);
 
-		d.log('publishContractEvent success', { escrowId: params.escrowId, version: VERSION_TAG });
+		d.log('publishContractEvent success', { paymentId, version: VERSION_TAG });
 	} catch (error) {
 		d.error('publishContractEvent failed', {
-			escrowId: params.escrowId,
+			paymentId: params.escrowId,
 			version: VERSION_TAG,
 			error
 		});
@@ -112,6 +132,7 @@ export async function publishContractStatus(params: PublishStatusParams): Promis
 
 		const statusData: NostrContractStatus = {
 			contractEventId: params.contractEventId,
+			paymentId: params.escrowId,
 			escrowId: params.escrowId,
 			action: params.action,
 			message: params.message,
@@ -218,7 +239,8 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 
 				// TODO: Suspicious code to be verified and removed if not needed
 				// Version-aware recovery for stale PendingAcceptance events
-				if (statusEvents && contractEvent.content.escrowId) {
+				const paymentId = getPaymentIdFromEvent(contractEvent);
+				if (statusEvents && paymentId) {
 					const pendingAcceptanceEvents = statusEvents.filter(
 						(e) => e.content.action === EscrowStatus.PendingAcceptance && e.content.transactionHash
 					);
@@ -236,7 +258,7 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 							const oldestStale = staleEvents.sort((a, b) => a.created_at - b.created_at)[0];
 							if (oldestStale.content.transactionHash && contractEvent.id) {
 								recoverMissingFundsReleasedEvent(
-									contractEvent.content.escrowId,
+									paymentId,
 									contractEvent.id,
 									oldestStale.content.transactionHash
 								).catch(() => {});
@@ -258,7 +280,7 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 					const contractVersion =
 						contractEvent.tags?.find((t: string[]) => t[0] === 'v')?.[1] || 'v1';
 					d.log('getContracts contract version from Nostr tags', {
-						escrowId: contractEvent.content.escrowId,
+						paymentId: getPaymentIdFromEvent(contractEvent),
 						version: contractVersion,
 						hasV2Tag: contractVersion === 'v2'
 					});
@@ -281,7 +303,7 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 							: undefined;
 
 					escrowData = await escrow.loadEscrowDetails(
-						contractEvent.content.escrowId,
+						getPaymentIdFromEvent(contractEvent) ?? contractEvent.content.escrowId,
 						contractAddress
 					);
 
@@ -334,7 +356,7 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 
 				if (!escrowData && isPending) {
 					escrowData = {
-						id: contractEvent.content.escrowId,
+						id: getPaymentIdFromEvent(contractEvent) ?? contractEvent.content.escrowId,
 						client: contractEvent.content.clientPubkey || '',
 						freelancer: contractEvent.content.freelancerPubkey || '',
 						baseAmount: contractEvent.content.amount || '0',
@@ -498,13 +520,14 @@ export async function handleStatusEvent(event: NostrEvent): Promise<void> {
 
 		const { action, transactionHash } = statusEvent.content;
 
-		const escrowIdTag = event.tags.find((tag: string[]) => tag[0] === TAGS.R);
-		const escrowId = escrowIdTag?.[1];
-		if (!escrowId) return;
+		const paymentId = statusEvent.content.paymentId ?? statusEvent.content.escrowId;
+		const paymentIdTag = event.tags.find((tag: string[]) => tag[0] === TAGS.R)?.[1];
+		const contractId = paymentIdTag ?? paymentId;
+		if (!contractId) return;
 
 		const contractsStore = get(contractStore);
 
-		const index = contractsStore.contractsMap.get(escrowId);
+		const index = contractsStore.contractsMap.get(contractId);
 		if (index === undefined) return;
 
 		const contract = contractsStore.contracts[index];
@@ -546,7 +569,7 @@ export async function handleStatusEvent(event: NostrEvent): Promise<void> {
 				...state,
 				contracts: newContracts,
 				contract:
-					state.contract?.contractEvent.content.escrowId === escrowId
+					state.contract && getPaymentIdFromEvent(state.contract.contractEvent) === contractId
 						? updatedContract
 						: state.contract
 			};
@@ -568,7 +591,7 @@ export async function handleStatusEvent(event: NostrEvent): Promise<void> {
 
 		if (transactionHash && confirmedActions.includes(action)) {
 			escrow
-				.loadEscrowDetails(escrowId, contract.contractEvent.content.contractAddress)
+				.loadEscrowDetails(contractId, contract.contractEvent.content.contractAddress)
 				.then((freshEscrowData) => {
 					// TODO: Handle disupte proposal
 
@@ -586,7 +609,7 @@ export async function handleStatusEvent(event: NostrEvent): Promise<void> {
 					);
 
 					contractStore.update((s) => {
-						const idx = s.contractsMap.get(escrowId);
+						const idx = s.contractsMap.get(contractId);
 						if (idx === undefined) return s;
 
 						const newContracts = [...s.contracts];
@@ -603,7 +626,7 @@ export async function handleStatusEvent(event: NostrEvent): Promise<void> {
 							...s,
 							contracts: newContracts,
 							contract:
-								s.contract?.contractEvent.content.escrowId === escrowId
+								s.contract && getPaymentIdFromEvent(s.contract.contractEvent) === contractId
 									? newContracts[idx]
 									: s.contract
 						};
@@ -626,12 +649,11 @@ export async function handleContractEvent(event: NostrEvent): Promise<void> {
 		const contractEvent = await decryptContractEvent(event, userPubkeyHex);
 		if (!contractEvent) return;
 
-		const escrowIdTag = event.tags.find((tag: string[]) => tag[0] === TAGS.D);
-		const escrowId = escrowIdTag?.[1];
-		if (!escrowId) return;
+		const paymentId = getPaymentIdFromEvent({ tags: event.tags });
+		if (!paymentId) return;
 
 		const contractsStore = get(contractStore);
-		const existingIndex = contractsStore.contractsMap.get(escrowId);
+		const existingIndex = contractsStore.contractsMap.get(paymentId);
 		if (existingIndex !== undefined) return;
 
 		const isClient = contractEvent.content.clientPubkey === userPubkeyHex;
@@ -661,7 +683,7 @@ export async function handleContractEvent(event: NostrEvent): Promise<void> {
 					? contractEvent.content.contractAddress
 					: undefined;
 
-			escrowData = await escrow.loadEscrowDetails(escrowId, contractAddress);
+			escrowData = await escrow.loadEscrowDetails(paymentId, contractAddress);
 
 			if (escrowData) {
 				blockchainStatus = escrowData.status;
@@ -695,7 +717,7 @@ export async function handleContractEvent(event: NostrEvent): Promise<void> {
 		if (!escrowData) {
 			if (!isPending) return;
 			escrowData = {
-				id: escrowId,
+				id: paymentId,
 				client: contractEvent.content.clientPubkey || '',
 				freelancer: contractEvent.content.freelancerPubkey || '',
 				baseAmount: contractEvent.content.amount || '0',
@@ -731,7 +753,7 @@ export async function handleContractEvent(event: NostrEvent): Promise<void> {
 			const newContracts = [...state.contracts, newContract];
 			// TODO: Changed from last version - requires manual testing
 			const newMap = new Map(state.contractsMap);
-			newMap.set(escrowId, newContracts.length - 1);
+			newMap.set(paymentId, newContracts.length - 1);
 
 			return {
 				...state,

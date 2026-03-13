@@ -51,6 +51,8 @@ Project documentation lives here. Long-term and canonical docs are in **`docs/`*
 | [abi-diff-report.md](escrow/v2/abi-diff-report.md)                           | v1 → v2 ABI diff: new functions (`executeMetaTransaction`, etc.), events, errors, breaking changes. |
 | [gasless-frontend-integration.md](escrow/v2/gasless-frontend-integration.md) | Relay API, meta-tx building, gasless-default flow with direct fallback.                             |
 | [integration-strategy.md](escrow/v2/integration-strategy.md)                 | Integration strategy for v2: version abstraction, gasless path, implementation phases.              |
+| [nostr-event-architecture.md](escrow/v2/nostr-event-architecture.md)         | Proposed v2 Nostr event model: task `d` tags, contract/status lifecycle, submit-time task updates.  |
+| [status-typing-refactor-plan.md](escrow/v2/status-typing-refactor-plan.md)   | Plan for fixing shared v1/v2 status typing, version-aware state resolution, and helper cleanup.     |
 | [bdd-strategy.md](escrow/v2/bdd-strategy.md)                                 | BDD test strategy: invariants (incl. gasless/direct equivalence), principles.                       |
 | [tests-implementation-plan.md](escrow/v2/tests-implementation-plan.md)       | Test plan: behavioral tests, v2-specific (no-show, upfront, gasless), EscrowManager.                |
 

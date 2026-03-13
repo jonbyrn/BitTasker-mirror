@@ -588,7 +588,15 @@
 				"timelock_resolved": "Resuelto después del timelock",
 				"pending_resolution_proposal": "Propuesta de resolución pendiente",
 				"pending_proposal_acceptance": "Aceptación de propuesta pendiente",
-				"pending_timelock_resolution": "Resolución de Timelock Pendiente"
+				"pending_timelock_resolution": "Resolución de Timelock Pendiente",
+				"work_in_progress": "Trabajo en progreso",
+				"no_show": "Ausencia",
+				"refunded": "Reembolsado",
+				"funds_claimed": "Fondos reclamados",
+				"pending_mark_work_in_progress": "Marcado de trabajo en progreso pendiente",
+				"pending_mark_no_show": "Marcado de ausencia pendiente",
+				"pending_claim_no_show_refund": "Reembolso por ausencia pendiente",
+				"pending_claim_upfront_deposit": "Reclamo de depósito por adelantado pendiente"
 			},
 			"actions": {
 				"complete_task": "Marcar Tarea como Completada",

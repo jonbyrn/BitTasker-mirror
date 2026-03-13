@@ -1,13 +1,13 @@
 /**
  * Standardized Single-Character Nostr Tags for BitTasker
- * 
+ *
  * Following Nostr best practices, all custom tags use single characters.
  * This improves relay filtering performance and reduces event size.
- * 
+ *
  * Standard Nostr tags: https://github.com/nostr-protocol/nips/blob/master/01.md
  */
 
-import type { EscrowStatus } from "../escrow";
+import type { EscrowStatus } from '../escrow';
 
 export const TAGS = {
 	// ============================================================================
@@ -58,7 +58,7 @@ export const TAGS = {
 	L: 'l' as const,
 
 	/** Version - contract/escrow version (v1, v2, v3, etc.) */
-	V: 'v' as const,
+	V: 'v' as const
 } as const;
 
 /**
@@ -78,7 +78,13 @@ export const TAG_PATTERNS = {
 	 * @param taskCreatorPubkey - Task creator's public key
 	 * @param paymentType - FIXED or HOURLY
 	 */
-	bid: (bidId: string, taskId: string, taskCreatorPubkey: string, paymentType: string, status: string = 'pending'): string[][] => [
+	bid: (
+		bidId: string,
+		taskId: string,
+		taskCreatorPubkey: string,
+		paymentType: string,
+		status: string = 'pending'
+	): string[][] => [
 		[TAGS.D, bidId], // Unique identifier (replaceable) // TODO: Useless generated bid id that should be removed in fovor of nostr event id
 		[TAGS.T, taskId], // Task reference
 		[TAGS.P, taskCreatorPubkey], // Recipient
@@ -93,7 +99,12 @@ export const TAG_PATTERNS = {
 	 * @param taskId - Associated task
 	 * @param status - New status (accepted, rejected)
 	 */
-	bidStatus: (bidEventId: string, taskId: string, status: string, recepientPub: string): string[][] => [
+	bidStatus: (
+		bidEventId: string,
+		taskId: string,
+		status: string,
+		recepientPub: string
+	): string[][] => [
 		[TAGS.E, bidEventId], // Event reference
 		[TAGS.P, recepientPub], // Recipient
 		[TAGS.T, taskId], // Task reference
@@ -118,20 +129,20 @@ export const TAG_PATTERNS = {
 		version: string = 'v1',
 		status: string = 'active'
 	): string[][] => [
-			[TAGS.D, escrowId], // Unique identifier
-			[TAGS.T, taskId], // Task reference
-			[TAGS.P, freelancerPubkey], // Participant
-			[TAGS.P, clientPubkey], // Participant (can have multiple)
-			[TAGS.N, network], // Network (mainnet/testnet)
-			[TAGS.V, version], // Contract version (v1, v2, v3, etc.)
-			[TAGS.S, status], // Status
-			[TAGS.M, 'contract'] // Message type
-		],
+		[TAGS.D, escrowId], // Unique identifier
+		[TAGS.T, taskId], // Task reference
+		[TAGS.P, freelancerPubkey], // Participant
+		[TAGS.P, clientPubkey], // Participant (can have multiple)
+		[TAGS.N, network], // Network (mainnet/testnet)
+		[TAGS.V, version], // Contract version (v1, v2, v3, etc.)
+		[TAGS.S, status], // Status
+		[TAGS.M, 'contract'] // Message type
+	],
 
 	/**
 	 * Contract status update tags
-	 * @param contractEventId - Contract event being updated
-	 * @param escrowId - Associated escrow
+	 * @param contractEventId - Secondary reference to the root contract event
+	 * @param escrowId - Primary contract identity (`paymentId` / `escrowId`)
 	 * @param recipientPubkey - Recipient of the update
 	 * @param action - Status action
 	 */
@@ -142,13 +153,13 @@ export const TAG_PATTERNS = {
 		action: EscrowStatus,
 		version: string = 'v1'
 	): string[][] => [
-			[TAGS.E, contractEventId], // References contract
-			[TAGS.R, escrowId], // Escrow reference
-			[TAGS.P, recipientPubkey], // Recipient
-			[TAGS.S, action?.toString()], // Status action
-			[TAGS.V, version], // Contract version (v1, v2, v3, etc.)
-			[TAGS.M, 'contract-status'] // Message type
-		],
+		[TAGS.E, contractEventId], // Secondary linkage to root contract event
+		[TAGS.R, escrowId], // Primary lifecycle join key (`paymentId` / `escrowId`)
+		[TAGS.P, recipientPubkey], // Recipient
+		[TAGS.S, action?.toString()], // Status action
+		[TAGS.V, version], // Contract version (v1, v2, v3, etc.)
+		[TAGS.M, 'contract-status'] // Message type
+	],
 
 	/**
 	 * Direct message tags (minimal for privacy)
@@ -237,7 +248,7 @@ export const TAG_FILTERS = {
 	byVersion: (version: string) => ({ [`#${TAGS.V}`]: [version] }),
 
 	/** Filter events by location data */
-	byLocation: () => ({ [`#${TAGS.M}`]: ['location'] }),
+	byLocation: () => ({ [`#${TAGS.M}`]: ['location'] })
 } as const;
 
 export default TAGS;
