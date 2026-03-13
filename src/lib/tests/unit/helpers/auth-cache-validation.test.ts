@@ -29,6 +29,7 @@ function createCredentials(npub: string, overrides?: Partial<BiometricData>): Bi
 		npub,
 		encryptedData: mockEncryptedData,
 		exportedKey: 'exportedKey',
+		credentialId: 'cid',
 		...overrides
 	};
 }

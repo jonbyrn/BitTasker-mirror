@@ -5,6 +5,10 @@ import { Preferences } from '@capacitor/preferences';
 import { goto } from '$app/navigation';
 import { appStore } from './app.store';
 import { resetMigration } from '$lib/utils/helpers/migratePasskey';
+import {
+	clearPersistedE2EBiometricData,
+	persistE2EBiometricData
+} from '$lib/utils/helpers/e2eBiometricState';
 
 const initialAuthState: AuthState = {
 	isAuthenticated: false,
@@ -21,6 +25,7 @@ const createAuthStore = () => {
 		await Preferences.remove({ key: StorageKeys.NPUB });
 		await Preferences.remove({ key: StorageKeys.AUTH_METHOD });
 		await Preferences.remove({ key: StorageKeys.WEB_AUTHN_CREDENTIAL_ID });
+		await clearPersistedE2EBiometricData();
 
 		// Clear all user-specific stores, caches, and subscriptions
 		// This prevents stale data when a new user logs in
@@ -55,7 +60,10 @@ const createAuthStore = () => {
 		// Lazy load user store only when needed
 		authState.login();
 
-		if (biometricData) appStore.update((state) => ({ ...state, biometricData }));
+		if (biometricData) {
+			appStore.update((state) => ({ ...state, biometricData }));
+			await persistE2EBiometricData(biometricData);
+		}
 
 		if (redirect) {
 			await goto('/dashboard');

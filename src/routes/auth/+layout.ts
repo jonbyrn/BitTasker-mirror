@@ -36,5 +36,8 @@ export const load: LayoutLoad = async ({ url }) => {
 			if (e2eBypass) console.log('[E2E] Auth layout: allowing onboarding (E2E bypass env)');
 			else console.log('[E2E] Auth layout: allowing onboarding (isCaptchaVerified=true)');
 		}
+		// Diagnostic: when we allow onboarding
+		if (e2eBypass) console.log('[E2E] Auth layout: allowing onboarding (E2E bypass env)');
+		else console.log('[E2E] Auth layout: allowing onboarding (isCaptchaVerified=true)');
 	}
 };

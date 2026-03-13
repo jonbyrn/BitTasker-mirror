@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
 	import { t } from 'svelte-i18n';
 	import { validateEmail } from '$lib/utils/helpers/validators';
 	import authService from '$lib/api/services/auth.service';
@@ -8,6 +7,20 @@
 	let isLoading = $state(false);
 	let error = $state('');
 	let success = $state(false);
+	const EMAIL_SENTINEL = '__RECOVERY_EMAIL__';
+
+	const successMessageParts = $derived.by(() => {
+		const template = String(
+			$t('recovery_send.success_message', { values: { email: EMAIL_SENTINEL } })
+		);
+		const wrappedSentinel = `<strong>${EMAIL_SENTINEL}</strong>`;
+		if (template.includes(wrappedSentinel)) {
+			const [before = '', after = ''] = template.split(wrappedSentinel);
+			return { before, after };
+		}
+		const [before = '', after = ''] = template.split(EMAIL_SENTINEL);
+		return { before, after };
+	});
 
 	async function initiateRecovery(event: Event) {
 		event.preventDefault();
@@ -28,18 +41,21 @@
 
 			await authService.initiateNostrRecovery(email);
 			success = true;
-		} catch (err: any) {
-			error = err.message || $t('recovery_send.errors.failed_initiate');
+		} catch (err: unknown) {
+			error =
+				err instanceof Error && err.message
+					? err.message
+					: $t('recovery_send.errors.failed_initiate');
 		} finally {
 			isLoading = false;
 		}
 	}
 </script>
 
-<div class="bg-base-200 flex grow  flex-col items-center justify-center gap-4 px-4">
+<div class="bg-base-200 flex grow flex-col items-center justify-center gap-4 px-4">
 	<div class="card bg-base-100 w-full max-w-md shadow-xl">
 		<div class="card-body">
-			<h3 class="card-title mb-6 text-center font-semibold text-xl sm:text-2xl leading-tight">
+			<h3 class="card-title mb-6 text-center text-xl leading-tight font-semibold sm:text-2xl">
 				{$t('recovery_send.title')}
 			</h3>
 
@@ -58,7 +74,12 @@
 					/>
 				</div>
 
-				<button type="submit" class="btn btn-primary w-full" disabled={isLoading}>
+				<button
+					type="submit"
+					class="btn btn-primary w-full"
+					data-testid="recovery-send-submit"
+					disabled={isLoading}
+				>
 					{#if isLoading}
 						<span class="loading loading-spinner"></span>
 					{:else}
@@ -70,7 +91,7 @@
 			{#if success}
 				<div class="alert alert-success alert-outline mb-4">
 					<div class="space-y-4">
-						<div class="flex justify-start items-center gap-2">
+						<div class="flex items-center justify-start gap-2">
 							<svg
 								xmlns="http://www.w3.org/2000/svg"
 								fill="none"
@@ -83,12 +104,12 @@
 									d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
 								></path></svg
 							>
-							<h4 class="text-center font-semibold text-xl sm:text-2xl leading-tight">
+							<h4 class="text-center text-xl leading-tight font-semibold sm:text-2xl">
 								{$t('recovery_send.success_title')}
 							</h4>
 						</div>
 						<p class="text-sm">
-							{@html $t('recovery_send.success_message', { values: { email } })}
+							{successMessageParts.before}<strong>{email}</strong>{successMessageParts.after}
 						</p>
 						<div class="text-base-content/70 mt-3 text-xs">
 							<p>{$t('recovery_send.success_tips.check_spam')}</p>
@@ -120,7 +141,12 @@
 
 			<div class="divider"></div>
 
-			<button class="btn btn-soft w-full" onclick={() => goto('/auth/login')}>
+			<a
+				class="btn btn-soft min-h-[44px] w-full min-w-[44px] touch-manipulation"
+				data-testid="recovery-send-back-login"
+				href="/auth/login"
+				data-sveltekit-reload
+			>
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
 					class="h-5 w-5"
@@ -136,7 +162,7 @@
 					/>
 				</svg>
 				{$t('recovery_send.back_to_login')}
-			</button>
+			</a>
 		</div>
 	</div>
 </div>

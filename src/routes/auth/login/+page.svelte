@@ -482,7 +482,10 @@
 	}
 </script>
 
-<div class="mx-auto flex w-full max-w-2xl grow flex-col items-center justify-center px-4 py-8">
+<div
+	class="mx-auto flex w-full max-w-2xl grow flex-col items-center justify-center px-4 py-8"
+	data-testid="login-page"
+>
 	<div class="card bg-base-100 w-full shadow-xl">
 		<div class="card-body">
 			{#if !$passkeyMigration.isOpen}
@@ -686,7 +689,11 @@
 					{#if error}
 						{#if isQrScannerError}
 							<!-- QR Scanner errors - simple alert, no passkey retry -->
-							<div class="alert alert-outline alert-error mt-2" role="alert" data-testid="login-error-alert">
+							<div
+								class="alert alert-outline alert-error mt-2"
+								role="alert"
+								data-testid="login-error-alert"
+							>
 								<svg
 									xmlns="http://www.w3.org/2000/svg"
 									class="h-6 w-6 shrink-0 stroke-current"
@@ -747,6 +754,7 @@
 						<a
 							href="/auth/recover/send"
 							class="link link-primary text-sm"
+							data-testid="login-recover-link"
 							data-sveltekit-preload-data
 						>
 							{$t('login.recover_account')}

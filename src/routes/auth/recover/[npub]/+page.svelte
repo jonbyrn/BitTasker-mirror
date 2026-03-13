@@ -316,7 +316,12 @@
 						/>
 					</div>
 
-					<button type="submit" class="btn btn-primary w-full" disabled={isLoading}>
+					<button
+						type="submit"
+						class="btn btn-primary w-full"
+						data-testid="recovery-npub-continue"
+						disabled={isLoading}
+					>
 						{#if isLoading}
 							<span class="loading loading-spinner"></span>
 						{:else}

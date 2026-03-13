@@ -25,6 +25,7 @@ import {
 } from '$lib/utils/helpers/auth';
 import { checkBiometricAvailability, getBiometricData } from '$lib/utils/helpers/biometrics';
 import authService from '$lib/api/services/auth.service';
+import { restorePersistedE2EBiometricData } from '$lib/utils/helpers/e2eBiometricState';
 
 /**
  * Internal helper to retrieve biometric credentials
@@ -69,6 +70,7 @@ const getBiometrics = async (): Promise<Credentials | null> => {
  * ```
  */
 export const getNpub = async (): Promise<string> => {
+	await restorePersistedE2EBiometricData();
 	const currentState = get(appStore);
 
 	if (currentState.nostrKeys.npub) return currentState.nostrKeys.npub;
@@ -123,6 +125,7 @@ export const getNpub = async (): Promise<string> => {
  * ```
  */
 export const getNostrKeyPair = async (): Promise<{ nsec: Uint8Array; npub: string }> => {
+	await restorePersistedE2EBiometricData();
 	const currentState = get(appStore);
 	if (currentState.nostrKeys.nsec && currentState.nostrKeys.npub) {
 		return {
@@ -181,7 +184,8 @@ export const getNostrKeyPair = async (): Promise<{ nsec: Uint8Array; npub: strin
 		biometricData: {
 			npub,
 			exportedKey,
-			encryptedData: response.encryptedData
+			encryptedData: response.encryptedData,
+			credentialId: credentialData.credentialId
 		}
 	}));
 
@@ -219,6 +223,7 @@ export const getAllKeys = async (): Promise<{
 	nsec: Uint8Array;
 	mnemonic: string;
 }> => {
+	await restorePersistedE2EBiometricData();
 	const currentState = get(appStore);
 
 	if (
@@ -286,7 +291,8 @@ export const getAllKeys = async (): Promise<{
 		biometricData: {
 			npub,
 			exportedKey: credentialData.exportedKey,
-			encryptedData: response.encryptedData
+			encryptedData: response.encryptedData,
+			credentialId: credentialData.credentialId
 		}
 	}));
 

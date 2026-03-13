@@ -19,6 +19,7 @@ export const StorageKeys = {
 
 	// WebAuthn
 	WEB_AUTHN_CREDENTIAL_ID: 'webAuthnCredentialId',
+	E2E_BIOMETRIC_DATA: 'e2eBiometricData',
 
 	// App state
 	LAST_SYNC: 'bittasker_last_sync',

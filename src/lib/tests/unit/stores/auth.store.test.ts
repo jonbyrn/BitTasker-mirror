@@ -91,6 +91,7 @@ describe('auth.store', () => {
 			expect(keysRemoved).toContain('access_token');
 			expect(keysRemoved).toContain('npub');
 			expect(keysRemoved).toContain('auth_method');
+			expect(keysRemoved).toContain('e2eBiometricData');
 		});
 	});
 });

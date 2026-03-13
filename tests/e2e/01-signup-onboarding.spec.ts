@@ -20,6 +20,7 @@
  */
 import { nip19, generateSecretKey } from 'nostr-tools';
 import { test, expect } from './fixtures/signup-login-auth';
+import { writeNostrCredentialSet } from './utils/nostr-test-credentials';
 
 function e2eLog(message: string, stepLog: string[]): void {
 	const line = `[E2E] ${message}`;
@@ -175,6 +176,7 @@ test.describe.serial('Signup and onboarding (create credentials file)', () => {
 		const gotoOptions = { waitUntil: 'load' as const };
 
 		const nsec = nip19.nsecEncode(generateSecretKey());
+		writeNostrCredentialSet({ label: 'nostr', nsec });
 		e2eLog('Step 1: goto /auth/login', stepLog);
 		await page.goto('/auth/login', gotoOptions);
 		await expect(page).toHaveURL(/\/auth\/login/, { timeout: 10_000 });
