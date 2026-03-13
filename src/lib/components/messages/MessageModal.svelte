@@ -177,8 +177,13 @@
 				</div>
 			</form>
 		</div>
-		<form method="dialog" class="modal-backdrop" onclick={handleClose}>
-			<button type="button" onclick={handleClose}>close</button>
-		</form>
+		<button
+			type="button"
+			class="modal-backdrop border-0 bg-transparent p-0"
+			aria-label={$t('common.close')}
+			onclick={handleClose}
+		>
+			close
+		</button>
 	</div>
 {/if}

@@ -19,14 +19,21 @@
 	// Step order: 0 Display name, 1 Passkey, 2 Profile, 3 Recovery, 4 Complete
 	const totalSteps = 5;
 
-	// svelte-ignore state_referenced_locally
-	let currentStep = $state(data.currentStep ?? 0);
+	let currentStep = $state(0);
+	let hasInitializedStep = $state(false);
 	let direction = $state<'forward' | 'backward'>('forward');
 	const formData = $state({
 		displayName: '',
 		username: '',
 		nsec: '',
 		npub: ''
+	});
+
+	$effect(() => {
+		if (!hasInitializedStep) {
+			currentStep = data.currentStep ?? 0;
+			hasInitializedStep = true;
+		}
 	});
 
 	const nextStep = async () => {

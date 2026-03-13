@@ -6,7 +6,7 @@ We are migrating E2E specs and fixtures from `src/lib/tests/e2e/` to **`tests/e2
 
 ## Overview
 
-This directory contains end-to-end tests for BitTasker using Playwright. Tests are organized by feature area and use authentication helpers for consistent test setup.
+This directory now contains legacy E2E support files only. The canonical Playwright specs live in `tests/e2e/`.
 
 ## Setup
 
@@ -25,6 +25,7 @@ npm run test:e2e:setup-auth
 ```
 
 This will:
+
 - Open a browser window
 - Guide you through authenticating with a test account
 - Save the authentication state to `tests/e2e/.auth/test-user.json`
@@ -56,7 +57,7 @@ npm run test:e2e
 npm run test:e2e:wallet
 
 # Authentication tests only
-npm run test:e2e -- tests/e2e/auth-flow.spec.ts
+npx playwright test tests/e2e/01-signup-onboarding.spec.ts tests/e2e/02-credentials-login.spec.ts --project=chromium --workers=1
 ```
 
 ### Run Tests in UI Mode
@@ -77,23 +78,15 @@ npm run test:e2e:headed
 npm run test:e2e:debug
 ```
 
-## Test Structure
+## Legacy Support Structure
 
 ```
-tests/e2e/
+src/lib/tests/e2e/
 ├── fixtures/
-│   └── auth.ts              # Authentication fixtures
 ├── utils/
-│   ├── auth-helpers.ts      # Authentication helper utilities
-│   └── test-helpers.ts      # General test utilities
-├── wallet/
-│   ├── send-payment.spec.ts
-│   ├── receive-payment.spec.ts
-│   ├── balance-management.spec.ts
-│   ├── transaction-history.spec.ts
-│   └── error-scenarios.spec.ts
-├── auth-flow.spec.ts
-└── auth-components.spec.ts
+├── scripts/
+├── docs/
+└── README.md
 ```
 
 ## Authentication Methods
@@ -136,9 +129,9 @@ tests/e2e/
 import { test, expect } from '../fixtures/auth';
 
 test('my authenticated test', async ({ authenticatedPage }) => {
-  // authenticatedPage is already authenticated
-  await authenticatedPage.goto('/dashboard');
-  // ... test code
+	// authenticatedPage is already authenticated
+	await authenticatedPage.goto('/dashboard');
+	// ... test code
 });
 ```
 
@@ -149,9 +142,9 @@ import { test } from '@playwright/test';
 import { createAuthHelper } from '../utils/auth-helpers';
 
 test('my test', async ({ page }) => {
-  const authHelper = createAuthHelper(page);
-  await authHelper.ensureAuthenticated('virtual');
-  // ... test code
+	const authHelper = createAuthHelper(page);
+	await authHelper.ensureAuthenticated('virtual');
+	// ... test code
 });
 ```
 
@@ -161,20 +154,20 @@ For specs that should run after signup-onboarding and reuse the same passkey (e.
 
 ```typescript
 import {
-  test,
-  expect,
-  webauthnCredentialsFileExists,
-  CREDENTIALS_MISSING_MESSAGE
+	test,
+	expect,
+	webauthnCredentialsFileExists,
+	CREDENTIALS_MISSING_MESSAGE
 } from '../../src/lib/tests/e2e/fixtures/passkey-auth-from-file';
 
 test.describe('My feature', () => {
-  test.skip(!webauthnCredentialsFileExists(), CREDENTIALS_MISSING_MESSAGE);
+	test.skip(!webauthnCredentialsFileExists(), CREDENTIALS_MISSING_MESSAGE);
 
-  test('my test', async ({ authenticatedPageFromPasskeyFile }) => {
-    // Page is already logged in via passkey (credentials from file)
-    await authenticatedPageFromPasskeyFile.goto('/dashboard/wallet');
-    // ... test code
-  });
+	test('my test', async ({ authenticatedPageFromPasskeyFile }) => {
+		// Page is already logged in via passkey (credentials from file)
+		await authenticatedPageFromPasskeyFile.goto('/dashboard/wallet');
+		// ... test code
+	});
 });
 ```
 
@@ -239,11 +232,7 @@ For CI/CD environments:
 ## Support
 
 For issues or questions:
+
 - Check existing test files for examples
 - Review Playwright documentation: https://playwright.dev
 - Check project documentation in `.cursor/rules/`
-
-
-
-
-

@@ -36,10 +36,12 @@
 		drawersLoaded: boolean;
 		loadDrawerComponents: () => Promise<void>;
 	}>();
-	void isFilterDrawerOpen;
 </script>
 
-<section class="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:gap-2" data-testid="tasks-controls">
+<section
+	class="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:gap-2"
+	data-testid="tasks-controls"
+>
 	<!-- Search Input -->
 	<div class="relative min-w-0 flex-1">
 		<input

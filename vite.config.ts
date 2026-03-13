@@ -51,7 +51,17 @@ export default defineConfig({
 		environment: 'jsdom',
 		setupFiles: ['./vitest-setup-client.ts'],
 		globals: true,
-		exclude: ['**/_pending/**'],
+		include: ['src/lib/tests/**/*.{test,spec}.{js,ts}'],
+		exclude: [
+			'**/node_modules/**',
+			'**/dist/**',
+			'**/build/**',
+			'**/coverage/**',
+			'**/.{idea,git,cache,output,temp}/**',
+			'**/_pending/**',
+			'**/test-results/**',
+			'src/lib/tests/e2e/**'
+		],
 		coverage: {
 			provider: 'v8',
 			reporter: [
@@ -192,6 +202,17 @@ export default defineConfig({
 		// - http://<laptop-lan-ip>:3000 (same Wi‑Fi), or
 		// - http://localhost:3000 with `adb reverse`
 		// Allowing all hosts prevents Vite from blocking these.
-		allowedHosts: true
+		allowedHosts: true,
+		// Playwright writes traces and temp resources during E2E runs.
+		// If Vite watches those paths it hot-reloads the app mid-test.
+		watch: {
+			ignored: [
+				'**/.tmp/**',
+				'**/test-results/**',
+				'**/playwright-report/**',
+				'**/.svelte-kit/generated/**',
+				'**/build/**'
+			]
+		}
 	}
 });
