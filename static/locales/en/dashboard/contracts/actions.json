@@ -4,6 +4,7 @@
 			"actions": {
 				"complete_task": "Complete Task",
 				"accept_work": "Accept Work",
+				"mark_work_in_progress": "Mark Work In Progress",
 				"dispute_work": "Dispute Work",
 				"propose_resolution": "Propose Resolution",
 				"counter_proposal": "Counter Proposal",

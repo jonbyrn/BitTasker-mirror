@@ -55,6 +55,11 @@ Current progress:
 - [ ] Step 5: clean up barrel exports and import boundaries
 - [ ] Step 6: validate incrementally and remove temporary compatibility shims
 
+Sequencing note:
+
+- after Step 4, the immediate implementation goal is the minimum frontend rollout gate:
+  preserve v1 behavior, create new contracts as v2, and validate the v2 happy path before broader v2 edge flows
+
 ### Step 1: Normalize Shared Status Types
 
 Files:

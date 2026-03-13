@@ -52,6 +52,8 @@ describe('contractPermissions.v2', () => {
 		);
 
 		expect(result.status).toBe(EscrowStatus.Funded);
+		expect(result.permissions.canComplete).toBe(true);
+		expect(result.permissions.canMarkWorkInProgress).toBe(true);
 	});
 
 	it('returns WorkInProgress when blockchain status is WorkInProgress', () => {

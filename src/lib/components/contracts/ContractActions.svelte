@@ -1,5 +1,9 @@
 <script lang="ts">
-	import type { ContractWithEvents, ContractStatusEvent } from '$lib/types/contract';
+	import type {
+		ContractEscrowStatus,
+		ContractWithEvents,
+		ContractStatusEvent
+	} from '$lib/types/contract';
 	import type { Attachment } from '$lib/types/task';
 	import type { EscrowData } from '$lib/types/wallet';
 	import { t, locale } from 'svelte-i18n';
@@ -52,12 +56,12 @@
 
 	// Blockchain check cache (KEEP - performance optimization)
 	let isCheckingBlockchain = $state(false);
-	let blockchainCompletionStatus = $state<EscrowStatus | null>(null);
+	let blockchainCompletionStatus = $state<ContractEscrowStatus | null>(null);
 
 	// Blockchain check cache (30 second TTL)
 	const blockchainCheckCache = new SvelteMap<
 		string,
-		{ status: EscrowStatus | null; timestamp: number }
+		{ status: ContractEscrowStatus | null; timestamp: number }
 	>();
 	const BLOCKCHAIN_CACHE_TTL = 30000; // 30 seconds
 
@@ -231,6 +235,30 @@
 			appStore.showErrorToast(errorMessage);
 
 			setLoading('complete', false);
+		}
+	}
+
+	async function markWorkInProgress() {
+		if (!contract.permissions.canMarkWorkInProgress) return;
+
+		if (contract.isPending) {
+			appStore.showErrorToast($t('dashboard.contracts.actions.work_in_progress_marking_message'));
+			return;
+		}
+
+		setLoading('markWorkInProgress', true);
+		try {
+			await escrow.escrowOps.markWorkInProgress(contract);
+		} catch (error) {
+			console.error('Error marking work in progress:', error);
+
+			const errorMessage =
+				error instanceof Error
+					? getErrorMessage(error)
+					: $t('dashboard.contracts.actions.work_in_progress_error');
+			appStore.showErrorToast(errorMessage);
+
+			setLoading('markWorkInProgress', false);
 		}
 	}
 
@@ -572,6 +600,8 @@
 			blockchainCompletionStatus === EscrowStatus.Cancelled
 	);
 
+	const isMarkWorkInProgressDisabled = $derived(isLoading.markWorkInProgress || contract.isPending);
+
 	const isAcceptDisabled = $derived(isLoading.accept || contract.isPending);
 
 	const isDisputeDisabled = $derived(isLoading.dispute || contract.isPending);
@@ -604,6 +634,38 @@
 </script>
 
 <div class="{containerClass} {containerClass.includes('grid') ? 'w-full' : ''}">
+	<!-- Mark Work In Progress (Freelancer, v2+) -->
+	{#if contract.permissions.canMarkWorkInProgress && !isMarkWorkInProgressDisabled && !isDisabledDueToPending}
+		<button
+			class="btn btn-warning btn-sm {compactButtons
+				? 'w-fit'
+				: isInline
+					? 'w-full sm:w-fit'
+					: 'w-full min-w-0'}"
+			onclick={markWorkInProgress}
+		>
+			{#if isLoading.markWorkInProgress}
+				<span class="loading loading-spinner loading-xs"></span>
+			{:else}
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					class="h-4 w-4"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke="currentColor"
+				>
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+					/>
+				</svg>
+			{/if}
+			{$t('dashboard.contracts.actions.mark_work_in_progress')}
+		</button>
+	{/if}
+
 	<!-- Complete Task (Freelancer) -->
 	{#if contract.permissions.canComplete && !isCompleteDisabled && !isDisabledDueToPending}
 		<button

@@ -14,6 +14,10 @@ export interface ContractPermissions {
 	canCancel: boolean; // either party can cancel
 	canResolveTimelock: boolean; // either party can resolve after timelock
 	canDelete: boolean; // ONLY if contract was never funded (no blockchain state, no tx hash)
+	canMarkWorkInProgress?: boolean; // v2+: freelancer can mark work as started
+	canMarkNoShow?: boolean; // v2+: client can mark taskee as no-show
+	canClaimNoShowRefund?: boolean; // v2+: client can claim refund after no-show flow
+	canClaimUpfrontDeposit?: boolean; // v2+: freelancer can claim upfront deposit when eligible
 }
 
 // Main contract event data (content of KINDS.CONTRACT NostrEvent)

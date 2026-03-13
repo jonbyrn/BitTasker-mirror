@@ -15,6 +15,15 @@ function createDisabledPermissions(): ContractPermissions {
 	};
 }
 
+function canMarkWorkInProgress(escrowData: EscrowData, now: number): boolean {
+	const startTimeSeconds =
+		escrowData.estimatedStartTime > 1000000000000
+			? escrowData.estimatedStartTime / 1000
+			: escrowData.estimatedStartTime;
+
+	return now >= startTimeSeconds && escrowData.status === EscrowStatus.Funded;
+}
+
 function canClientCancel(escrowData: EscrowData, now: number): boolean {
 	const oneHour = 3600;
 	const twentyFourHours = 86400;
@@ -114,7 +123,9 @@ function mapBlockchainStatusToPermissions(
 				status: EscrowStatus.Funded,
 				permissions: {
 					...createDisabledPermissions(),
-					canCancel: isClient ? canClientCancel(escrowData, now) : true
+					canComplete: isFreelancer,
+					canCancel: isClient ? canClientCancel(escrowData, now) : true,
+					canMarkWorkInProgress: isFreelancer && canMarkWorkInProgress(escrowData, now)
 				}
 			};
 		}

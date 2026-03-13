@@ -1847,6 +1847,24 @@ Implement this phase incrementally. Do **not** try to land the whole Nostr archi
 - [ ] Add startup / load reconciliation for submitted txs that may have missed Nostr updates
 - [ ] Reconcile task state when blockchain already advanced but Nostr updates were missed
 
+### Minimum Rollout Gate: v1 Safety + v2 Happy Path
+
+This is the current delivery target before broader v2 parity work:
+
+- [x] Keep historical v1 contracts routed through v1 handlers
+- [x] Keep v1 and v2 registered in `EscrowManager`
+- [x] Make new escrow creation use the latest registered version (`v2`)
+- [ ] Prove mixed v1/v2 contracts load correctly in the same frontend views
+- [ ] Validate that existing v1 contracts still behave the same from the frontend
+- [ ] Validate the minimum v2 frontend happy path end-to-end:
+  - [ ] verify bid acceptance creates new escrow as v2
+  - [ ] load/display the v2 contract correctly
+  - [ ] validate complete task from funded state
+  - [ ] validate accept task / release funds
+- [ ] Keep `markWorkInProgress` as an optional v2 action, not a required step in the minimum rollout happy path
+- [ ] Confirm gasless-default behavior in the frontend with direct fallback still available
+- [ ] Defer no-show, upfront deposit, and broader dispute permutations until the happy path is validated
+
 ### Phase 7: Type Updates
 
 - [ ] Execute the plan in `docs/escrow/v2/status-typing-refactor-plan.md`
@@ -1861,16 +1879,18 @@ Implement this phase incrementally. Do **not** try to land the whole Nostr archi
 
 ### Phase 8: Store Integration
 
-- [ ] **VERIFIED**: `contract.store.ts` uses `escrow.contractOps.getContracts()`
-- [ ] **VERIFIED**: Version handling delegated to EscrowManager
-- [ ] **VERIFIED**: `ContractWithEvents.version` field already exists
-- [ ] Register v2 in EscrowManager's `VERSION_HANDLERS`
-- [ ] Update `LATEST_ESCROW_VERSION` to 'v2'
+- [x] **VERIFIED**: `contract.store.ts` uses `escrow.contractOps.getContracts()`
+- [x] **VERIFIED**: Version handling delegated to EscrowManager
+- [x] **VERIFIED**: v2 is registered in `EscrowManager` `VERSION_HANDLERS`
+- [x] **VERIFIED**: `LATEST_ESCROW_VERSION` currently resolves to `v2`
+- [ ] Keep version detection tag-based (`EscrowManager.getVersionFromContract`) for mixed v1/v2 loading
 - [ ] Test multi-version contract loading
 
 ### Phase 9: Permission System
 
-- [ ] Add version parameter to `determineContractState()`
+- [x] Split contract state / permission resolution into explicit v1 and v2 resolvers
+- [ ] Clean up remaining import boundaries so shared callers do not depend on legacy v1 helper paths
+- [x] Add v2-only permissions to shared `ContractPermissions`
 - [ ] Implement v2-specific permission checks:
   - [ ] `canMarkNoShow`
   - [ ] `canClaimNoShowRefund`
@@ -1880,9 +1900,16 @@ Implement this phase incrementally. Do **not** try to land the whole Nostr archi
 
 ### Phase 10: UI Integration
 
+- [ ] Validate new contract creation flow uses v2 by default in the frontend
+- [ ] Add / verify frontend action wiring for the minimum v2 happy path
+  - [x] create escrow via bid acceptance flow
+  - [x] complete task
+  - [x] accept / release funds
+- [ ] Keep `markWorkInProgress` available as an optional v2-only action
 - [ ] Add action handlers for v2 features with dynamic imports
 - [ ] Update status display formatter with v2 states
 - [ ] Add conditional rendering based on permissions (not version)
+- [ ] Test the minimum v2 action buttons in the frontend before broader v2 actions
 - [ ] Test all v2 action buttons
 
 ### Phase 11: Testing
@@ -1920,6 +1947,7 @@ Implement this phase incrementally. Do **not** try to land the whole Nostr archi
 ### Phase 13: Final Verification
 
 - [ ] Test v1 contracts still work (no regression)
+- [ ] Test minimum v2 happy path works from the frontend
 - [ ] Test v2 contracts work with all new features
 - [ ] Test mixed v1/v2 contracts in same view
 - [ ] Verify version detection from Nostr tags
