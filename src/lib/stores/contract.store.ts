@@ -234,7 +234,10 @@ function createContractStore() {
 									? 'event-id'
 									: 'd-tag'
 								: 'unknown',
-						status: c.status
+						version: escrow.getVersionFromContract(c),
+						status: c.status,
+						blockchainStatus: c.blockchainStatus,
+						isPending: c.isPending
 					}))
 				});
 

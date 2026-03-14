@@ -76,7 +76,7 @@ export async function publishEscrowStatus(params: PublishContractStatusParams): 
 		transactionHash: params.transactionHash?.slice(0, 18) + '...'
 	});
 	try {
-		const messages = getStatusMessages(params.status);
+		const messages = getStatusMessages(params.status, 'v2');
 		// V2 pending states start at 100+
 		const isPending = params.status >= EscrowStatus.PendingFunding;
 
@@ -101,7 +101,7 @@ export async function publishEscrowStatus(params: PublishContractStatusParams): 
 			appStore.showSuccessToast(get(t)(messages.successToast));
 		}
 	} catch (error) {
-		const messages = getStatusMessages(params.status);
+		const messages = getStatusMessages(params.status, 'v2');
 		d.error('publishEscrowStatus failed', {
 			escrowId: params.escrowId,
 			action: params.status,

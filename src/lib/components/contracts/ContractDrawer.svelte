@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Attachment } from '$lib/types/task';
 	import { t } from 'svelte-i18n';
+	import { escrow } from '$lib/utils/escrow';
 	import Drawer from '$lib/components/Drawer.svelte';
 	import TaskDeadlineDisplay from '$lib/components/task/TaskDeadlineDisplay.svelte';
 	import UsdSatsDisplay from '$lib/components/shared/UsdSatsDisplay.svelte';
@@ -24,6 +25,10 @@
 
 	// Timeline display count (bound from ContractTimeline - matches actual items shown)
 	let timelineDisplayCount = $state(0);
+
+	const contractVersion = $derived(
+		$contractStore.contract ? escrow.getVersionFromContract($contractStore.contract) : 'v1'
+	);
 
 	// Helper function to detect video files
 	function isVideoFile(url: string): boolean {
@@ -114,8 +119,13 @@
 									? $t('dashboard.client')
 									: $t('dashboard.freelancer')}
 							</div>
-							<div class="badge {getStatusColorClass($contractStore.contract.status)} shrink-0">
-								{$t(getStatusTranslationKey($contractStore.contract.status))}
+							<div
+								class="badge {getStatusColorClass(
+									$contractStore.contract.status,
+									contractVersion
+								)} shrink-0"
+							>
+								{$t(getStatusTranslationKey($contractStore.contract.status, contractVersion))}
 							</div>
 						</div>
 					</div>

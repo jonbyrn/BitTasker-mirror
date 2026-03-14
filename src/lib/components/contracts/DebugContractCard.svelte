@@ -11,6 +11,7 @@
 	import { escrow } from '$lib/utils/escrow/v1/escrow';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import { onMount, onDestroy } from 'svelte';
+	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 	import { ethers } from 'ethers';
 	import { getRSKConfig } from '@bittasker/wallet-core';
 
@@ -25,6 +26,12 @@
 	function isEthersError(error: unknown): error is EthersError {
 		return typeof error === 'object' && error !== null && ('code' in error || 'message' in error);
 	}
+
+	type ContractFunctionArg = string;
+	type ContractFunctionCall = {
+		name: string;
+		args: ContractFunctionArg[];
+	};
 
 	const {
 		contract,
@@ -45,21 +52,21 @@
 		safetyOverride: boolean;
 		isExecuting?: boolean;
 		onToggleRawData: () => void;
-		onExecuteFunction: (functionName: string, ...args: any[]) => Promise<void>;
+		onExecuteFunction: (functionName: string, ...args: ContractFunctionArg[]) => Promise<void>;
 	}>();
 
 	// Modal state
 	let showConfirmModal = $state(false);
-	let pendingFunction = $state<{ name: string; args: any[] } | null>(null);
+	let pendingFunction = $state<ContractFunctionCall | null>(null);
 	let showResolutionForm = $state(false);
 	let proposedFreelancerAmount = $state('');
 
 	// Gas estimation state
 	let btcPrice = $state<number>(0);
-	let gasEstimates = $state<Map<string, number>>(new Map()); // Map of functionName -> USD cost
-	let blockedFunctions = $state<Set<string>>(new Set()); // Functions that are blocked (contract revert)
-	let unpredictableFunctions = $state<Set<string>>(new Set()); // Functions with unpredictable gas (UNPREDICTABLE_GAS_LIMIT)
-	let estimatingGas = $state<Set<string>>(new Set()); // Functions currently being estimated
+	let gasEstimates = new SvelteMap<string, number>(); // Map of functionName -> USD cost
+	let blockedFunctions = new SvelteSet<string>(); // Functions that are blocked (contract revert)
+	let unpredictableFunctions = new SvelteSet<string>(); // Functions with unpredictable gas (UNPREDICTABLE_GAS_LIMIT)
+	let estimatingGas = new SvelteSet<string>(); // Functions currently being estimated
 	let hasEstimatedGas = $state(false); // Track if initial gas estimation has been done
 	let estimationAbortController = $state<AbortController | null>(null); // Abort controller for race condition prevention
 
@@ -230,7 +237,7 @@
 	}
 
 	// Handle function execution
-	async function handleExecuteFunction(functionName: string, ...args: any[]) {
+	async function handleExecuteFunction(functionName: string, ...args: ContractFunctionArg[]) {
 		if (safetyOverride) {
 			// Skip confirmation if override is enabled
 			// onExecuteFunction expects (functionName, ...args) - parent adds contract.id
@@ -551,25 +558,22 @@
 	}
 
 	// Estimate gas for a specific function
-	async function estimateGasFee(functionName: string, ...args: any[]): Promise<void> {
+	async function estimateGasFee(
+		functionName: string,
+		...args: ContractFunctionArg[]
+	): Promise<void> {
 		if (estimatingGas.has(functionName)) return; // Already estimating
 
-		estimatingGas.add(functionName); // Direct mutation
-		// Create new Set instance to trigger reactivity (Svelte 5 needs new reference)
-		estimatingGas = new Set(estimatingGas);
+		estimatingGas.add(functionName);
 
 		try {
 			const gasEstimation = await escrow.estimateContractGas(functionName, contract.id, ...args);
 			const rbtcCost = parseFloat(gasEstimation.totalCostFormatted);
 			const usdCost = rbtcCost * btcPrice;
-			gasEstimates.set(functionName, usdCost); // Direct mutation
-			// Create new Map instance to trigger reactivity (Svelte 5 needs new reference)
-			gasEstimates = new Map(gasEstimates);
+			gasEstimates.set(functionName, usdCost);
 			// Remove from blocked and unpredictable if estimation succeeded
-			blockedFunctions.delete(functionName); // Direct mutation
-			blockedFunctions = new Set(blockedFunctions); // Create new Set to trigger reactivity
-			unpredictableFunctions.delete(functionName); // Direct mutation
-			unpredictableFunctions = new Set(unpredictableFunctions); // Create new Set to trigger reactivity
+			blockedFunctions.delete(functionName);
+			unpredictableFunctions.delete(functionName);
 		} catch (error) {
 			// Only check abort if this was part of a batch estimation
 			// Individual calls (like proposeResolution debounce) should not be blocked
@@ -585,43 +589,30 @@
 
 			if (isContractRevertError(originalError) || isContractRevertError(error)) {
 				// Contract will revert - function is blocked
-				blockedFunctions.add(functionName); // Direct mutation
-				blockedFunctions = new Set(blockedFunctions); // Create new Set to trigger reactivity
+				blockedFunctions.add(functionName);
 				// Remove from estimates and unpredictable
-				gasEstimates.delete(functionName); // Direct mutation
-				gasEstimates = new Map(gasEstimates); // Create new Map to trigger reactivity
-				unpredictableFunctions.delete(functionName); // Direct mutation
-				unpredictableFunctions = new Set(unpredictableFunctions); // Create new Set to trigger reactivity
+				gasEstimates.delete(functionName);
+				unpredictableFunctions.delete(functionName);
 			} else if (isUnpredictableGasError(originalError) || isUnpredictableGasError(error)) {
 				// Gas estimation is uncertain, but transaction might still work
-				unpredictableFunctions.add(functionName); // Direct mutation
-				unpredictableFunctions = new Set(unpredictableFunctions); // Create new Set to trigger reactivity
+				unpredictableFunctions.add(functionName);
 				// Remove from estimates and blocked
-				gasEstimates.delete(functionName); // Direct mutation
-				gasEstimates = new Map(gasEstimates); // Create new Map to trigger reactivity
-				blockedFunctions.delete(functionName); // Direct mutation
-				blockedFunctions = new Set(blockedFunctions); // Create new Set to trigger reactivity
+				gasEstimates.delete(functionName);
+				blockedFunctions.delete(functionName);
 			} else if (isNetworkError(error)) {
 				// Network error - don't mark as blocked, just show no estimate
 				// Remove from all states, will show "Tx Fee: --"
-				gasEstimates.delete(functionName); // Direct mutation
-				gasEstimates = new Map(gasEstimates); // Create new Map to trigger reactivity
-				blockedFunctions.delete(functionName); // Direct mutation
-				blockedFunctions = new Set(blockedFunctions); // Create new Set to trigger reactivity
-				unpredictableFunctions.delete(functionName); // Direct mutation
-				unpredictableFunctions = new Set(unpredictableFunctions); // Create new Set to trigger reactivity
+				gasEstimates.delete(functionName);
+				blockedFunctions.delete(functionName);
+				unpredictableFunctions.delete(functionName);
 			} else {
 				// Unknown error - treat conservatively, don't mark as blocked
-				gasEstimates.delete(functionName); // Direct mutation
-				gasEstimates = new Map(gasEstimates); // Create new Map to trigger reactivity
-				blockedFunctions.delete(functionName); // Direct mutation
-				blockedFunctions = new Set(blockedFunctions); // Create new Set to trigger reactivity
-				unpredictableFunctions.delete(functionName); // Direct mutation
-				unpredictableFunctions = new Set(unpredictableFunctions); // Create new Set to trigger reactivity
+				gasEstimates.delete(functionName);
+				blockedFunctions.delete(functionName);
+				unpredictableFunctions.delete(functionName);
 			}
 		} finally {
-			estimatingGas.delete(functionName); // Direct mutation
-			estimatingGas = new Set(estimatingGas); // Create new Set to trigger reactivity
+			estimatingGas.delete(functionName);
 		}
 	}
 
@@ -639,7 +630,7 @@
 		estimationAbortController = new AbortController();
 		const signal = estimationAbortController.signal;
 
-		const functionsToEstimate: Array<{ name: string; args: any[] }> = [];
+		const functionsToEstimate: ContractFunctionCall[] = [];
 
 		// Always estimate all functions to determine their actual availability
 		// This allows us to show all buttons but disable based on contract state
@@ -759,13 +750,13 @@
 			</div>
 			<div class="text-right">
 				{#if checkingPayment}
-					<div class="text-sm text-base-content/60">Checking payment...</div>
+					<div class="text-base-content/60 text-sm">Checking payment...</div>
 				{:else if paymentInfo?.paidOut}
 					<div class="text-lg font-bold">0 sats</div>
-					<div class="text-xs text-base-content/60">
+					<div class="text-base-content/60 text-xs">
 						(was {formatSats(contract.baseAmount)} sats)
 					</div>
-					<div class="text-xs text-base-content/60 mt-1">
+					<div class="text-base-content/60 mt-1 text-xs">
 						Paid to: {paymentInfo.recipient === 'client' ? 'Client' : 'Taskee'}
 					</div>
 				{:else}
@@ -777,7 +768,7 @@
 		<!-- Contract Details -->
 		<div class="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
 			<div>
-				<div class="label-text text-xs text-base-content/60">
+				<div class="label-text text-base-content/60 text-xs">
 					{$t('debug.smart_contract.client')}
 				</div>
 				<div class="flex items-center gap-2">
@@ -785,15 +776,15 @@
 						href={getExplorerUrl(contract.client, 'RSK')}
 						target="_blank"
 						rel="noopener noreferrer"
-						class="font-mono text-sm link link-primary"
+						class="link link-primary font-mono text-sm"
 					>
 						{formatAddress(contract.client)}
 					</a>
-					<IconOpenInNew class="h-4 w-4 text-base-content/60" />
+					<IconOpenInNew class="text-base-content/60 h-4 w-4" />
 				</div>
 			</div>
 			<div>
-				<div class="label-text text-xs text-base-content/60">
+				<div class="label-text text-base-content/60 text-xs">
 					{$t('debug.smart_contract.freelancer')}
 				</div>
 				<div class="flex items-center gap-2">
@@ -801,33 +792,33 @@
 						href={getExplorerUrl(contract.freelancer, 'RSK')}
 						target="_blank"
 						rel="noopener noreferrer"
-						class="font-mono text-sm link link-primary"
+						class="link link-primary font-mono text-sm"
 					>
 						{formatAddress(contract.freelancer)}
 					</a>
-					<IconOpenInNew class="h-4 w-4 text-base-content/60" />
+					<IconOpenInNew class="text-base-content/60 h-4 w-4" />
 				</div>
 			</div>
 			<div>
-				<div class="label-text text-xs text-base-content/60">
+				<div class="label-text text-base-content/60 text-xs">
 					{$t('debug.smart_contract.created_at')}
 				</div>
 				<div class="text-sm">{formatTimestamp(contract.createdAt)}</div>
 			</div>
 			<div>
-				<div class="label-text text-xs text-base-content/60">
+				<div class="label-text text-base-content/60 text-xs">
 					{$t('debug.smart_contract.estimated_start')}
 				</div>
 				<div class="text-sm">{formatTimestamp(contract.estimatedStartTime)}</div>
 			</div>
 			<div>
-				<div class="label-text text-xs text-base-content/60">
+				<div class="label-text text-base-content/60 text-xs">
 					{$t('debug.smart_contract.estimated_completion')}
 				</div>
 				<div class="text-sm">{formatTimestamp(contract.estimatedCompletionTime)}</div>
 			</div>
 			<div>
-				<div class="label-text text-xs text-base-content/60">
+				<div class="label-text text-base-content/60 text-xs">
 					{$t('debug.smart_contract.timelock_expiry')}
 				</div>
 				<div class="text-sm">{formatTimestamp(contract.timelockExpiry)}</div>
@@ -835,7 +826,7 @@
 		</div>
 
 		<!-- Action Buttons -->
-		<div class="mt-4 border-t border-base-300 pt-4">
+		<div class="border-base-300 mt-4 border-t pt-4">
 			<h4 class="mb-3 text-sm font-semibold">{$t('debug.smart_contract.actions.title')}</h4>
 			<div class="flex flex-wrap gap-2">
 				<!-- Complete Task -->
@@ -851,7 +842,7 @@
 						{/if}
 						{$t('debug.smart_contract.actions.complete_task')}
 					</button>
-					<span class="text-xs text-base-content/60">{formatGasFee('completeTask')}</span>
+					<span class="text-base-content/60 text-xs">{formatGasFee('completeTask')}</span>
 				</div>
 
 				<!-- Accept Task -->
@@ -867,7 +858,7 @@
 						{/if}
 						{$t('debug.smart_contract.actions.accept_task')}
 					</button>
-					<span class="text-xs text-base-content/60">{formatGasFee('acceptTask')}</span>
+					<span class="text-base-content/60 text-xs">{formatGasFee('acceptTask')}</span>
 				</div>
 
 				<!-- Cancel Escrow -->
@@ -883,7 +874,7 @@
 						{/if}
 						{$t('debug.smart_contract.actions.cancel_contract')}
 					</button>
-					<span class="text-xs text-base-content/60">{formatGasFee('cancelEscrow')}</span>
+					<span class="text-base-content/60 text-xs">{formatGasFee('cancelEscrow')}</span>
 				</div>
 
 				<!-- Dispute Task -->
@@ -899,7 +890,7 @@
 						{/if}
 						{$t('debug.smart_contract.actions.dispute_task')}
 					</button>
-					<span class="text-xs text-base-content/60">{formatGasFee('disputeTask')}</span>
+					<span class="text-base-content/60 text-xs">{formatGasFee('disputeTask')}</span>
 				</div>
 
 				<!-- Propose Resolution -->
@@ -915,10 +906,10 @@
 						>
 							{$t('debug.smart_contract.actions.propose_resolution')}
 						</button>
-						<span class="text-xs text-base-content/60">{formatGasFee('proposeResolution')}</span>
+						<span class="text-base-content/60 text-xs">{formatGasFee('proposeResolution')}</span>
 					</div>
 				{:else}
-					<div class="w-full space-y-2 rounded-lg bg-base-200 p-3">
+					<div class="bg-base-200 w-full space-y-2 rounded-lg p-3">
 						<div class="label-text text-xs">
 							{$t('debug.smart_contract.actions.propose_resolution_form.freelancer_amount')}
 						</div>
@@ -947,7 +938,7 @@
 								{$t('debug.smart_contract.actions.propose_resolution_form.cancel')}
 							</button>
 						</div>
-						<span class="text-xs text-base-content/60">{formatGasFee('proposeResolution')}</span>
+						<span class="text-base-content/60 text-xs">{formatGasFee('proposeResolution')}</span>
 					</div>
 				{/if}
 
@@ -964,7 +955,7 @@
 						{/if}
 						{$t('debug.smart_contract.actions.accept_proposal')}
 					</button>
-					<span class="text-xs text-base-content/60">{formatGasFee('acceptProposal')}</span>
+					<span class="text-base-content/60 text-xs">{formatGasFee('acceptProposal')}</span>
 				</div>
 
 				<!-- Resolve After Timelock -->
@@ -982,13 +973,13 @@
 						{/if}
 						{$t('debug.smart_contract.actions.resolve_timelock')}
 					</button>
-					<span class="text-xs text-base-content/60">{formatGasFee('resolveAfterTimelock')}</span>
+					<span class="text-base-content/60 text-xs">{formatGasFee('resolveAfterTimelock')}</span>
 				</div>
 			</div>
 		</div>
 
 		<!-- Raw Data Toggle -->
-		<div class="mt-4 border-t border-base-300 pt-4">
+		<div class="border-base-300 mt-4 border-t pt-4">
 			<button class="btn btn-ghost btn-sm w-full" onclick={onToggleRawData}>
 				{$t('debug.smart_contract.raw_data')}
 				<svg
@@ -1008,7 +999,7 @@
 			</button>
 
 			{#if isExpanded}
-				<div class="mt-3 rounded-lg bg-base-200 p-4">
+				<div class="bg-base-200 mt-3 rounded-lg p-4">
 					<pre class="overflow-x-auto text-xs"><code
 							>{JSON.stringify(
 								{ contract, permissions },

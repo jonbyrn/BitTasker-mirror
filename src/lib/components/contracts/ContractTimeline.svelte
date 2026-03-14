@@ -3,8 +3,12 @@
 	import { t } from 'svelte-i18n';
 	import { locale } from 'svelte-i18n';
 	import { formatStandardDateTime } from '$lib/utils/helpers/dateFormatter';
-	import { EscrowStatus } from '$lib/utils/escrow';
-	import { getActionDescription } from '$lib/utils/helpers/contractStatusFormatter';
+	import { EscrowStatus as V1EscrowStatus } from '$lib/utils/escrow/v1/escrow.enum';
+	import { EscrowStatus as V2EscrowStatus } from '$lib/utils/escrow/v2/escrow.enum';
+	import {
+		getActionDescription,
+		getEscrowVersionFromTags
+	} from '$lib/utils/helpers/contractStatusFormatter';
 
 	const {
 		statusEvents,
@@ -33,28 +37,31 @@
 	 * Hides all pending states (6+, except specific ones) to avoid redundant timeline entries like:
 	 * "Pending completion" → "Task completed" (shows only "Task completed")
 	 */
-	function shouldShowInTimeline(action: EscrowStatus): boolean {
-		// Blockchain-confirmed states (0-5) - always show
-		if (action >= EscrowStatus.Funded && action <= EscrowStatus.Cancelled) {
+	function shouldShowInTimeline(action: number, version: 'v1' | 'v2'): boolean {
+		if (version === 'v2') {
+			if (action >= V2EscrowStatus.Funded && action <= V2EscrowStatus.InDsiputeWIP) {
+				return true;
+			}
+
+			return action === V2EscrowStatus.DisputeResolutionProposed;
+		}
+
+		if (action >= V1EscrowStatus.Funded && action <= V1EscrowStatus.Cancelled) {
 			return true;
 		}
 
-		// Important Nostr-only states to show
-		switch (action) {
-			case EscrowStatus.InProgress: // Work started
-			case EscrowStatus.FundsReleased: // Final payment state
-			case EscrowStatus.DisputeResolutionProposed: // Proposal exists
-				return true;
-
-			// All other states (pending states) should not show
-			default:
-				return false;
-		}
+		return (
+			action === V1EscrowStatus.InProgress ||
+			action === V1EscrowStatus.FundsReleased ||
+			action === V1EscrowStatus.DisputeResolutionProposed
+		);
 	}
 
 	// Filter status events to show only meaningful timeline entries
 	const filteredStatusEvents = $derived(
-		statusEvents.filter((event: ContractStatusEvent) => shouldShowInTimeline(event.content.action))
+		statusEvents.filter((event: ContractStatusEvent) =>
+			shouldShowInTimeline(Number(event.content.action), getEscrowVersionFromTags(event.tags))
+		)
 	);
 
 	// Build unified timeline: contract initiation first (if provided), then status events, sorted by timestamp
@@ -63,6 +70,7 @@
 		pubkey: string;
 		isInitiation: boolean;
 		content?: NostrContractStatus;
+		version: 'v1' | 'v2';
 		transactionHash?: string; // For initiation: funding tx; for status: action tx
 	}
 	const allTimelineItems = $derived.by((): TimelineItem[] => {
@@ -72,6 +80,7 @@
 				timestamp: contractCreatedAt * 1000, // Nostr uses seconds; status events use ms
 				pubkey: contractCreatorPubkey,
 				isInitiation: true,
+				version: 'v1',
 				transactionHash: contractFundingTransactionHash
 			});
 		}
@@ -81,6 +90,7 @@
 				pubkey: ev.pubkey,
 				isInitiation: false,
 				content: ev.content,
+				version: getEscrowVersionFromTags(ev.tags),
 				transactionHash: ev.content.transactionHash
 			});
 		}
@@ -113,26 +123,68 @@
 	}
 
 	// Get action color class based on EscrowStatus enum
-	function getActionColorClass(action: EscrowStatus): string {
+	function getActionColorClass(action: number, version: 'v1' | 'v2'): string {
+		if (version === 'v2') {
+			switch (action) {
+				case V2EscrowStatus.Completed:
+				case V2EscrowStatus.FundsReleased:
+				case V2EscrowStatus.DisputeResolved:
+				case V2EscrowStatus.WorkInProgress:
+					return 'text-success';
+				case V2EscrowStatus.InDispute:
+				case V2EscrowStatus.PendingDispute:
+				case V2EscrowStatus.DisputeResolutionProposed:
+				case V2EscrowStatus.NoShow:
+					return 'text-warning';
+				case V2EscrowStatus.Cancelled:
+				case V2EscrowStatus.PendingCancellation:
+				case V2EscrowStatus.Refunded:
+				case V2EscrowStatus.FundsClaimed:
+					return 'text-error';
+				case V2EscrowStatus.PendingCompletion:
+				case V2EscrowStatus.PendingAcceptance:
+				case V2EscrowStatus.DisputeUnresolved:
+					return 'text-info';
+				default:
+					return 'text-base-content/60';
+			}
+		}
+
 		switch (action) {
-			case EscrowStatus.Completed:
-			case EscrowStatus.FundsReleased:
-			case EscrowStatus.DisputeResolved:
+			case V1EscrowStatus.Completed:
+			case V1EscrowStatus.FundsReleased:
+			case V1EscrowStatus.DisputeResolved:
 				return 'text-success';
-			case EscrowStatus.InDispute:
-			case EscrowStatus.PendingDispute:
-			case EscrowStatus.DisputeResolutionProposed:
+			case V1EscrowStatus.InDispute:
+			case V1EscrowStatus.PendingDispute:
+			case V1EscrowStatus.DisputeResolutionProposed:
 				return 'text-warning';
-			case EscrowStatus.Cancelled:
-			case EscrowStatus.PendingCancellation:
+			case V1EscrowStatus.Cancelled:
+			case V1EscrowStatus.PendingCancellation:
 				return 'text-error';
-			case EscrowStatus.PendingCompletion:
-			case EscrowStatus.PendingAcceptance:
-			case EscrowStatus.DisputeUnresolved:
+			case V1EscrowStatus.PendingCompletion:
+			case V1EscrowStatus.PendingAcceptance:
+			case V1EscrowStatus.DisputeUnresolved:
 				return 'text-info';
 			default:
 				return 'text-base-content/60';
 		}
+	}
+
+	function isSuccessAction(action: number, version: 'v1' | 'v2'): boolean {
+		if (version === 'v2') {
+			return (
+				action === V2EscrowStatus.Completed ||
+				action === V2EscrowStatus.FundsReleased ||
+				action === V2EscrowStatus.DisputeResolved
+			);
+		}
+
+		return (
+			action === V1EscrowStatus.Completed ||
+			action === V1EscrowStatus.FundsReleased ||
+			action === V1EscrowStatus.DisputeResolved
+		);
 	}
 
 	// Get sender role for badge (Tasker/Taskee)
@@ -186,26 +238,22 @@
 
 				<!-- Timeline content: more padding between content and center line; extra left padding on mobile -->
 				<div
-					class="timeline-{index % 2 === 0 ? 'start' : 'end'} mb-10 pl-8 pr-8 {index % 2 === 0
-						? 'md:pl-0 md:pr-10'
-						: 'md:pl-10 md:pr-0'} md:text-{index % 2 === 0
-						? 'end'
-						: 'start'}"
+					class="timeline-{index % 2 === 0 ? 'start' : 'end'} mb-10 pr-8 pl-8 {index % 2 === 0
+						? 'md:pr-10 md:pl-0'
+						: 'md:pr-0 md:pl-10'} md:text-{index % 2 === 0 ? 'end' : 'start'}"
 				>
 					<time class="text-base-content/60 font-mono text-xs italic">
 						{formatTimelineDate(item.timestamp)}
 					</time>
 
 					<div class="mt-1.5">
-						<span
-							class="badge badge-sm shrink-0 {getSenderRoleBadge(item.pubkey).badgeClass}"
-						>
+						<span class="badge badge-sm shrink-0 {getSenderRoleBadge(item.pubkey).badgeClass}">
 							{$t(getSenderRoleBadge(item.pubkey).labelKey)}
 						</span>
 					</div>
 
 					<div class="mt-1 flex items-center gap-2">
-						{#if !item.isInitiation && item.content && (item.content.action === EscrowStatus.Completed || item.content.action === EscrowStatus.FundsReleased || item.content.action === EscrowStatus.DisputeResolved)}
+						{#if !item.isInitiation && item.content && isSuccessAction(Number(item.content.action), item.version)}
 							<div
 								class="bg-success text-success-content flex h-5 min-h-5 w-5 min-w-5 shrink-0 items-center justify-center rounded-full"
 							>
@@ -225,15 +273,27 @@
 								</svg>
 							</div>
 						{/if}
-						<span class="text-sm font-semibold {item.isInitiation ? 'text-base-content/60' : item.content ? getActionColorClass(item.content.action) : 'text-base-content/60'}">
-							{item.isInitiation ? $t('dashboard.contracts.timeline.contract_initiated') : item.content ? $t(getActionDescription(item.content.action)) : ''}
+						<span
+							class="text-sm font-semibold {item.isInitiation
+								? 'text-base-content/60'
+								: item.content
+									? getActionColorClass(Number(item.content.action), item.version)
+									: 'text-base-content/60'}"
+						>
+							{item.isInitiation
+								? $t('dashboard.contracts.timeline.contract_initiated')
+								: item.content
+									? $t(getActionDescription(item.content.action, item.version))
+									: ''}
 						</span>
 					</div>
 
-					{#if (item.transactionHash ?? item.content?.transactionHash)}
+					{#if item.transactionHash ?? item.content?.transactionHash}
 						<div class="text-base-content/60 mt-2 text-xs">
 							<a
-								href={getTransactionUrl((item.transactionHash ?? item.content?.transactionHash) ?? '')}
+								href={getTransactionUrl(
+									item.transactionHash ?? item.content?.transactionHash ?? ''
+								)}
 								target="_blank"
 								rel="noopener noreferrer"
 								class="link link-primary inline-flex items-center gap-1"

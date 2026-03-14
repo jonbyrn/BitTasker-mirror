@@ -17,7 +17,10 @@ import type {
 } from '$lib/types/contract';
 import { escrow } from './escrow';
 import { EscrowStatus } from './escrow.enum';
+import { escrow as v1Escrow } from '../v1/escrow';
+import { EscrowStatus as V1EscrowStatus } from '../v1/escrow.enum';
 import { getSignedEvent } from '$lib/utils/nostr';
+import { determineContractState as determineV1ContractState } from '$lib/utils/helpers/contractPermissions';
 import { determineContractState } from '$lib/utils/helpers/contractPermissions.v2';
 import { contractStore } from '$lib/stores/contract.store';
 import { get } from 'svelte/store';
@@ -48,6 +51,10 @@ function getPaymentIdFromEvent(event: {
 
 function asV2Status(status: ContractEscrowStatus | null): EscrowStatus | null {
 	return status as EscrowStatus | null;
+}
+
+function asV1Status(status: ContractEscrowStatus | null): V1EscrowStatus | null {
+	return status as V1EscrowStatus | null;
 }
 
 /**
@@ -241,6 +248,9 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 				const statusEvents = contractEvent.statusEvents?.sort(
 					(a, b) => a.created_at - b.created_at
 				);
+				const contractVersion =
+					contractEvent.tags?.find((tag: string[]) => tag[0] === 'v')?.[1] || 'v1';
+				const isV2Contract = contractVersion === 'v2';
 
 				// TODO: Suspicious code to be verified and removed if not needed
 				// Version-aware recovery for stale PendingAcceptance events
@@ -276,18 +286,15 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 				const isFreelancer = contractEvent.content.freelancerPubkey === npub;
 
 				let escrowData: EscrowData | null = null;
-				let blockchainStatus: EscrowStatus | null = null;
+				let blockchainStatus: ContractEscrowStatus | null = null;
 				let isPending = false;
 				const disputeProposal: DisputeProposal | null = null;
 
 				try {
-					// Version-aware blockchain address resolution
-					const contractVersion =
-						contractEvent.tags?.find((t: string[]) => t[0] === 'v')?.[1] || 'v1';
 					d.log('getContracts contract version from Nostr tags', {
 						paymentId: getPaymentIdFromEvent(contractEvent),
 						version: contractVersion,
-						hasV2Tag: contractVersion === 'v2'
+						hasV2Tag: isV2Contract
 					});
 
 					const v2ContractAddress =
@@ -299,7 +306,7 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 							? import.meta.env.VITE_RSK_CONTRACT_ADDRESS_MAINNET
 							: import.meta.env.VITE_RSK_CONTRACT_ADDRESS_TESTNET;
 
-					const defaultAddress = contractVersion === 'v2' ? v2ContractAddress : v1ContractAddress;
+					const defaultAddress = isV2Contract ? v2ContractAddress : v1ContractAddress;
 
 					const contractAddress =
 						contractEvent.content.contractAddress &&
@@ -307,13 +314,16 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 							? contractEvent.content.contractAddress
 							: undefined;
 
-					escrowData = await escrow.loadEscrowDetails(
+					const escrowModule = isV2Contract ? escrow : v1Escrow;
+					escrowData = await escrowModule.loadEscrowDetails(
 						getPaymentIdFromEvent(contractEvent) ?? contractEvent.content.escrowId,
 						contractAddress
 					);
 
 					if (escrowData) {
-						blockchainStatus = asV2Status(escrowData.status);
+						blockchainStatus = isV2Contract
+							? asV2Status(escrowData.status)
+							: asV1Status(escrowData.status);
 					}
 
 					// TODO: Messing dispute proposal fetching, mainly because in this version we're not storing disputes on-chain
@@ -339,16 +349,27 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 					}
 				}
 
-				const { status, permissions } = determineContractState(
-					blockchainStatus,
-					statusEvents || [],
-					contractEvent.content,
-					escrowData,
-					disputeProposal,
-					isPending,
-					isClient,
-					isFreelancer
-				);
+				const { status, permissions } = isV2Contract
+					? determineContractState(
+							asV2Status(blockchainStatus),
+							statusEvents || [],
+							contractEvent.content,
+							escrowData,
+							disputeProposal,
+							isPending,
+							isClient,
+							isFreelancer
+						)
+					: determineV1ContractState(
+							asV1Status(blockchainStatus),
+							statusEvents || [],
+							contractEvent.content,
+							escrowData,
+							disputeProposal,
+							isPending,
+							isClient,
+							isFreelancer
+						);
 
 				const completionAttachments =
 					statusEvents
@@ -368,7 +389,7 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 						clientFee: '0',
 						freelancerFee: '0',
 						totalAmount: contractEvent.content.amount || '0',
-						status: EscrowStatus.PendingFunding,
+						status: isV2Contract ? EscrowStatus.PendingFunding : V1EscrowStatus.PendingFunding,
 						estimatedStartTime: contractEvent.content.estimatedStartTime || 0,
 						estimatedCompletionTime: contractEvent.content.estimatedCompletionTime || 0,
 						completionTime: 0,
@@ -404,7 +425,16 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 
 		d.log('getContracts done', {
 			total: contractsWithStatuses.length,
-			afterFilter: filteredContracts.length
+			afterFilter: filteredContracts.length,
+			countsByVersion: filteredContracts.reduce(
+				(acc, contract) => {
+					const version =
+						contract.contractEvent.tags?.find((tag: string[]) => tag[0] === 'v')?.[1] || 'v1';
+					acc[version] = (acc[version] || 0) + 1;
+					return acc;
+				},
+				{} as Record<string, number>
+			)
 		});
 
 		return filteredContracts.sort(

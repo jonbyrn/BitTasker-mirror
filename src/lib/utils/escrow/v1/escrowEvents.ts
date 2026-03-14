@@ -101,7 +101,7 @@ export function registerPendingContract(params: PendingContractCreation): void {
  */
 export async function publishEscrowStatus(params: PublishContractStatusParams): Promise<void> {
 	try {
-		const messages = getStatusMessages(params.status);
+		const messages = getStatusMessages(params.status, 'v1');
 		const isPending = params.status >= EscrowStatus.PendingFunding; // Pending states are 6+
 
 		// Publish to Nostr
@@ -131,7 +131,7 @@ export async function publishEscrowStatus(params: PublishContractStatusParams): 
 			appStore.showSuccessToast(get(t)(messages.successToast));
 		}
 	} catch (error) {
-		const messages = getStatusMessages(params.status);
+		const messages = getStatusMessages(params.status, 'v1');
 		d.error(
 			'publishEscrowStatus failed',
 			{ status: params.status, escrowId: params.escrowId },

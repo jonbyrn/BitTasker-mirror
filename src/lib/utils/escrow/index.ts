@@ -117,12 +117,22 @@ class EscrowManager {
 	getVersionFromContract(contract: ContractWithEvents): string {
 		// Check if contract has tags array in contractEvent
 		if (!contract.contractEvent.tags || !Array.isArray(contract.contractEvent.tags)) {
-			return LATEST_ESCROW_VERSION;
+			d.log('getVersionFromContract missing tags, defaulting to v1', {
+				escrowId: contract.escrowData?.id ?? contract.contractEvent.content.escrowId,
+				contractEventId: contract.contractEvent.id
+			});
+			return 'v1';
 		}
 
 		// Look for version tag ['v', 'v1'] — missing tag means original V1 contract
 		const versionTag = contract.contractEvent.tags.find((tag: string[]) => tag[0] === 'v');
-		return versionTag?.[1] || 'v1';
+		const resolvedVersion = versionTag?.[1] || 'v1';
+		d.log('getVersionFromContract resolved', {
+			escrowId: contract.escrowData?.id ?? contract.contractEvent.content.escrowId,
+			contractEventId: contract.contractEvent.id,
+			resolvedVersion
+		});
+		return resolvedVersion;
 	}
 
 	// ============================================
