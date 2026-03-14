@@ -180,18 +180,26 @@ describe('escrowBid', () => {
 			expect(result.estimatedStartTime).toBe(expectedStart);
 		});
 
-		it('should fallback to task dateRange when bid timing not available', () => {
+		it('should fallback to a default 1-hour start and duration when bid timing not available', () => {
 			const bidWithoutTiming: NostrBidContent = {
 				...mockBidContent,
 				startDateTime: '',
 				endDateTime: ''
 			};
 
-			const btcPrice = 50000;
-			const result = calculateBidEscrowDetails(bidWithoutTiming, mockTask, btcPrice);
+			vi.useFakeTimers();
+			try {
+				vi.setSystemTime(new Date('2026-03-13T12:00:00.000Z'));
 
-			const expectedStart = Math.floor(new Date(mockTask.dateRange!.start).getTime() / 1000);
-			expect(result.estimatedStartTime).toBe(expectedStart);
+				const btcPrice = 50000;
+				const result = calculateBidEscrowDetails(bidWithoutTiming, mockTask, btcPrice);
+
+				const expectedStart = Math.floor(new Date('2026-03-13T13:00:00.000Z').getTime() / 1000);
+				expect(result.estimatedStartTime).toBe(expectedStart);
+				expect(result.estimatedCompletionTime).toBe(expectedStart + 3600);
+			} finally {
+				vi.useRealTimers();
+			}
 		});
 
 		it('should throw error for invalid bid amount', () => {

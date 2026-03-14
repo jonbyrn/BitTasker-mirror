@@ -1,13 +1,13 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import type { Event as NostrEvent } from 'nostr-tools';
 
-// Hoisted mocks so they can be used in vi.mock and in tests
-const mockPool = {
-	querySync: vi.fn().mockResolvedValue([]),
-	publish: vi.fn().mockResolvedValue([Promise.resolve()]),
-	subscribe: vi.fn(() => ({ close: vi.fn() })),
-	close: vi.fn()
-};
+const { mockPool } = vi.hoisted(() => ({
+	mockPool: {
+		querySync: vi.fn().mockResolvedValue([]),
+		publish: vi.fn().mockResolvedValue([Promise.resolve()]),
+		subscribe: vi.fn(() => ({ close: vi.fn() })),
+		close: vi.fn()
+	}
+}));
 
 // Mock the dependencies
 vi.mock('$lib/nostr/nip44', () => ({
@@ -60,6 +60,11 @@ vi.mock('$env/static/public', () => ({
 	PUBLIC_NOSTR_RELAY_URL_MOCK4: 'wss://relay2.test'
 }));
 
+import nip44 from '$lib/nostr/nip44';
+import { getNostrKeyPair } from '$lib/utils/nostrKeys';
+import { getSignedEvent } from '$lib/utils/nostr';
+import { parseDMEvent, sendDirectMessage } from '$lib/utils/nostr-message';
+
 describe('NIP-44 Message Utilities', () => {
 	type Nip44Mock = {
 		getConversationKey: ReturnType<typeof vi.fn>;
@@ -72,16 +77,15 @@ describe('NIP-44 Message Utilities', () => {
 	let mockGetNostrKeyPair: MockFn;
 	let mockGetSignedEvent: MockFn;
 
-	beforeEach(async () => {
+	beforeEach(() => {
 		// Reset all mocks
 		vi.clearAllMocks();
 		mockPool.querySync.mockResolvedValue([]);
 
-		// Get mocked modules
-		mockNip44 = (await import('$lib/nostr/nip44')).default as unknown as Nip44Mock;
-		mockGetNostrKeyPair = (await import('$lib/utils/nostrKeys'))
-			.getNostrKeyPair as unknown as MockFn;
-		mockGetSignedEvent = (await import('$lib/utils/nostr')).getSignedEvent as unknown as MockFn;
+		// Reuse imported modules instead of dynamically importing the large helper in each test.
+		mockNip44 = nip44 as unknown as Nip44Mock;
+		mockGetNostrKeyPair = getNostrKeyPair as unknown as MockFn;
+		mockGetSignedEvent = getSignedEvent as unknown as MockFn;
 
 		// Setup default mock implementations
 		mockNip44.getConversationKey.mockResolvedValue(new Uint8Array(32));
@@ -120,14 +124,11 @@ describe('NIP-44 Message Utilities', () => {
 	});
 
 	describe('Encryption/Decryption', () => {
-		// Dynamic import + crypto/relay mocks can be slow in CI; allow extra time
-		const ENCRYPT_DECRYPT_TIMEOUT = 15000;
+		const ENCRYPT_DECRYPT_TIMEOUT = 10000;
 
 		it.skip(
 			'should encrypt messages using NIP-44',
 			async () => {
-				const { sendDirectMessage } = await import('$lib/utils/nostr-message');
-
 				const message = 'Hello World';
 				const recipientPubkey = 'recipient-pubkey-hex';
 
@@ -146,25 +147,19 @@ describe('NIP-44 Message Utilities', () => {
 		it(
 			'should decrypt messages using NIP-44',
 			async () => {
-				const { getMessageHistory } = await import('$lib/utils/nostr-message');
-
-				const recipientPubkey = 'recipient-pubkey-hex';
-
-				// Mock relay response via appStore pool
-				const mockEvents: NostrEvent[] = [
+				await parseDMEvent(
 					{
 						id: 'test-event-id',
 						kind: 4,
 						pubkey: 'sender-pubkey',
 						created_at: Math.floor(Date.now() / 1000),
 						content: 'encrypted_content',
-						tags: [['p', recipientPubkey]],
+						tags: [['p', 'recipient-pubkey-hex']],
 						sig: 'test-signature'
-					}
-				];
-				mockPool.querySync.mockResolvedValue(mockEvents);
-
-				await getMessageHistory(recipientPubkey);
+					},
+					'private-key-hex',
+					'recipient-pubkey-hex'
+				);
 
 				expect(mockNip44.getConversationKey).toHaveBeenCalled();
 				expect(mockNip44.decrypt).toHaveBeenCalledWith('encrypted_content', expect.any(Uint8Array));
@@ -175,8 +170,6 @@ describe('NIP-44 Message Utilities', () => {
 		it(
 			'should generate unique nonces for each message',
 			async () => {
-				const { sendDirectMessage } = await import('$lib/utils/nostr-message');
-
 				const message = 'Test message';
 				const recipientPubkey = 'recipient-pubkey-hex';
 
@@ -193,41 +186,31 @@ describe('NIP-44 Message Utilities', () => {
 
 	describe('Error Handling', () => {
 		it('should handle encryption failures gracefully', async () => {
-			const { sendDirectMessage } = await import('$lib/utils/nostr-message');
-
 			mockNip44.encrypt.mockRejectedValue(new Error('Encryption failed'));
 
 			await expect(sendDirectMessage('test', 'recipient-pubkey')).rejects.toThrow();
 		});
 
 		it('should handle decryption failures gracefully', async () => {
-			const { getMessageHistory } = await import('$lib/utils/nostr-message');
-
 			mockNip44.decrypt.mockRejectedValue(new Error('Decryption failed'));
-
-			// Mock relay response via appStore pool
-			const mockEvents: NostrEvent[] = [
-				{
-					id: 'test-event-id',
-					kind: 4,
-					pubkey: 'sender-pubkey',
-					created_at: Math.floor(Date.now() / 1000),
-					content: 'encrypted_content',
-					tags: [['p', 'recipient-pubkey']],
-					sig: 'test-signature'
-				}
-			];
-			mockPool.querySync.mockResolvedValue(mockEvents);
-
-			const messages = await getMessageHistory('recipient-pubkey');
-
-			// Should return empty array when decryption fails
-			expect(messages).toEqual([]);
+			await expect(
+				parseDMEvent(
+					{
+						id: 'test-event-id',
+						kind: 4,
+						pubkey: 'sender-pubkey',
+						created_at: Math.floor(Date.now() / 1000),
+						content: 'encrypted_content',
+						tags: [['p', 'recipient-pubkey']],
+						sig: 'test-signature'
+					},
+					'private-key-hex',
+					'recipient-pubkey'
+				)
+			).rejects.toThrow('Decryption failed');
 		});
 
 		it('should handle invalid public key formats', async () => {
-			const { sendDirectMessage } = await import('$lib/utils/nostr-message');
-
 			// Simulate nip44 rejecting invalid key; implementation should surface the error
 			mockNip44.getConversationKey.mockRejectedValue(new Error('Invalid public key'));
 
@@ -237,8 +220,6 @@ describe('NIP-44 Message Utilities', () => {
 
 	describe('Message Event Structure', () => {
 		it('should create proper NIP-44 message events', async () => {
-			const { sendDirectMessage } = await import('$lib/utils/nostr-message');
-
 			const message = 'Test message';
 			const recipientPubkey = 'recipient-pubkey-hex';
 
@@ -256,8 +237,6 @@ describe('NIP-44 Message Utilities', () => {
 		});
 
 		it('should include thread root tag when specified', async () => {
-			const { sendDirectMessage } = await import('$lib/utils/nostr-message');
-
 			const message = 'Reply message';
 			const recipientPubkey = 'recipient-pubkey-hex';
 			const threadRootId = 'thread-root-id';
@@ -279,8 +258,6 @@ describe('NIP-44 Message Utilities', () => {
 
 	describe('Pubkey Format Handling', () => {
 		it('should handle npub format public keys', async () => {
-			const { sendDirectMessage } = await import('$lib/utils/nostr-message');
-
 			const message = 'Test message';
 			const recipientNpub = 'npub1test123';
 
@@ -293,8 +270,6 @@ describe('NIP-44 Message Utilities', () => {
 		});
 
 		it('should handle hex format public keys directly', async () => {
-			const { sendDirectMessage } = await import('$lib/utils/nostr-message');
-
 			const message = 'Test message';
 			const recipientHex = 'deadbeef'.repeat(8); // 64 char hex
 
