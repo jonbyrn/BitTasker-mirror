@@ -1,0 +1,45 @@
+{
+	"delete_account": {
+		"title": "Eliminar Tu Cuenta",
+		"subtitle": "Respetamos tu derecho a controlar tus datos. Si deseas eliminar tu cuenta de BitTasker, sigue los pasos a continuación.",
+		"how_it_works": {
+			"title": "Cómo Funciona la Eliminación de Cuenta",
+			"step1_title": "Inicia Sesión en BitTasker",
+			"step1_description": "Como BitTasker es una plataforma no custodial, necesitamos verificar tu identidad antes de eliminar tu cuenta. Inicia sesión con tu clave privada de Nostr (nsec), contraseña de recuperación o passkey.",
+			"step2_title": "Ve a Configuración",
+			"step2_description": "Una vez que hayas iniciado sesión, navega a Configuración → Acciones de Cuenta y haz clic en el botón \"Eliminar Cuenta\".",
+			"step3_title": "Confirma la Eliminación",
+			"step3_description": "Revisa las consecuencias y confirma. Tu cuenta entrará en un período de gracia de 30 días durante el cual puedes cancelar simplemente iniciando sesión nuevamente.",
+			"step4_title": "Eliminación Permanente",
+			"step4_description": "Si no se produce ningún inicio de sesión dentro de los 30 días, tu cuenta y los datos asociados serán eliminados de forma permanente e irrecuperable de los sistemas de BitTasker."
+		},
+		"lost_access": {
+			"title": "¿Perdiste el Acceso a Tu Cuenta?",
+			"description": "BitTasker es una plataforma no custodial — tu identidad es tu par de claves Nostr, no un nombre de usuario y contraseña almacenados en nuestros servidores. Si has perdido el acceso a tu cuenta, tienes las siguientes opciones de recuperación:",
+			"option1_title": "Contraseña de Recuperación",
+			"option1_description": "Si anteriormente configuraste un correo electrónico y contraseña de recuperación en Configuración, puedes usarlos para volver a iniciar sesión.",
+			"option2_title": "Clave Privada de Nostr (nsec)",
+			"option2_description": "Tu nsec es la clave maestra de tu identidad. Si la tienes guardada de forma segura, siempre puedes iniciar sesión con ella.",
+			"option3_title": "Passkey",
+			"option3_description": "Si configuraste una passkey WebAuthn, puedes usarla para autenticarte desde cualquier dispositivo compatible.",
+			"no_access_title": "¿Aún No Puedes Acceder a Tu Cuenta?",
+			"no_access_description": "Si has agotado todas las opciones de recuperación y no puedes iniciar sesión, contáctanos. Haremos todo lo posible para ayudarte, aunque nuestra capacidad de actuar sobre cuentas que no podemos verificar está limitada por nuestro diseño no custodial."
+		},
+		"what_gets_deleted": {
+			"title": "Qué Se Elimina",
+			"item1": "Tu perfil de BitTasker y datos de cuenta",
+			"item2": "Tus claves de billetera almacenadas localmente e historial de transacciones",
+			"item3": "Cualquier información personal asociada con tu cuenta en los sistemas de BitTasker",
+			"nostr_note_title": "Nota sobre los Datos de Nostr",
+			"nostr_note_description": "BitTasker está construido sobre el protocolo Nostr. Los eventos que has publicado (tareas, ofertas, mensajes) se transmiten a relés descentralizados fuera del control de BitTasker. Transmitiremos una solicitud de eliminación (NIP-09) en tu nombre, pero no se puede garantizar la eliminación completa de todos los relés de terceros debido a la naturaleza descentralizada del protocolo."
+		},
+		"cta": {
+			"logged_in_title": "¿Listo para Eliminar Tu Cuenta?",
+			"logged_in_description": "Inicia sesión en BitTasker y ve a Configuración para iniciar el proceso de eliminación.",
+			"go_to_settings": "Ir a Configuración",
+			"contact_title": "¿Necesitas Ayuda?",
+			"contact_description": "Si tienes preguntas sobre la eliminación de cuenta o necesitas asistencia, nuestro equipo está aquí para ayudarte.",
+			"contact_button": "Contactar Soporte"
+		}
+	}
+}
