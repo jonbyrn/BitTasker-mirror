@@ -213,11 +213,25 @@ mutation UpdateNotificationPreferences($input: NotificationPreferencesInput!) {
 
 The push notification system is automatically integrated with:
 
-- **Saved Searches**: Instant notifications for matching tasks
+- **Saved Searches**: Instant notifications for matching tasks (respects `pushTaskMatches` preference)
 - **Bid Updates**: Notifications when bid status changes
-- **Chat Messages**: Real-time message notifications  
+- **Chat Messages**: Real-time message notifications
 - **Payment Updates**: Transaction and payment notifications
 - **System Updates**: Important announcements
+
+### Saved search match (same logic as messages and contracts)
+
+Same flow as messages: the frontend knows “who to notify” by **registering** saved searches with the backend when the user saves them; when a task is created, the backend returns those npubs and the frontend calls **`sendNotificationToNpubs`** (same mutation as messages/contracts).
+
+1. **Register when user saves a search** (same idea as “recipient” in messages):
+   - Frontend: after publishing to Nostr, calls `POST .../saved-searches` with body `{ npub, id, name, params, notifyOnMatch, isActive, notificationFrequency }`.
+   - Backend: stores the saved search (by npub + id) so it can match later.
+2. **Update/delete**: frontend calls `PUT .../saved-searches/:id` and `DELETE .../saved-searches/:id` when the user edits or deletes a saved search.
+3. **When a task is created**:
+   - Frontend calls `POST .../saved-searches/check-task` with the task body.
+   - Backend matches the task against stored saved searches, returns `{ success, matchCount, message, npubs: string[] }`.
+   - Frontend calls `sendNotificationToNpubs({ npubs, title, body, type: 'saved_search_match', clickAction })` — same as messages/contracts.
+4. Backend’s existing `sendNotificationToNpubs` resolver sends via FCM; no extra FCM config for saved search.
 
 ### Server-Side Usage Examples
 

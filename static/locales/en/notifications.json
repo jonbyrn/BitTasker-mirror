@@ -23,6 +23,7 @@
         "contract_event": "Contract Events",
         "payment": "Payments",
         "task_update": "Task Updates",
+        "saved_search_match": "Saved Search Matches",
         "message": "Messages",
         "system": "System",
         "security": "Security",
@@ -80,7 +81,8 @@
       "new_message": "New Message",
       "system_maintenance": "System Maintenance",
       "security_alert": "Security Alert",
-      "new_notification": "New Notification"
+      "new_notification": "New Notification",
+      "saved_search_match": "Saved Search Match"
     },
     "messages": {
       "bid_status": {
@@ -179,7 +181,8 @@
       "review_work": "Review Work",
       "resolve_dispute": "Resolve Dispute",
       "check_security": "Check Security",
-      "view_details": "View Details"
+      "view_details": "View Details",
+      "view_matching_tasks": "View matching tasks"
     },
     "permissions": {
       "title": "Notification Permissions",
@@ -202,6 +205,7 @@
       "push": "Push notifications",
       "email": "Email",
       "sms": "SMS",
+      "saved_search_matches": "Saved search matches",
       "quiet_hours": "Quiet hours",
       "quiet_hours_enabled": "Quiet hours enabled",
       "quiet_hours_start": "Start",
@@ -276,7 +280,9 @@
       "payment_pending_body_tasker": "Your payment of {amount} {currency} is pending confirmation",
       "payment_pending_body_taskee": "Payment of {amount} {currency} is pending confirmation",
       "payment_update_title": "Payment Update",
-      "payment_update_body": "Payment of {amount} {currency} processed"
+      "payment_update_body": "Payment of {amount} {currency} processed",
+      "saved_search_match_title": "Saved Search Match",
+      "saved_search_match_body": "A new task matches your saved search \"{searchName}\". Tap to view."
     }
   }
 }

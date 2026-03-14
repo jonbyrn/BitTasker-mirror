@@ -7,6 +7,7 @@ import { NotificationFrequency } from '$lib/utils/enums/task.enum';
 import KINDS from '$lib/utils/constants/kinds';
 import { t } from 'svelte-i18n';
 import { get } from 'svelte/store';
+import savedSearchService from '$lib/api/services/saved-search.service';
 
 // Define relay URLs with fallbacks
 const RELAYS = [import.meta.env.VITE_NOSTR_RELAY_URL].filter(Boolean); // Remove any undefined values
@@ -76,6 +77,20 @@ export async function saveSearch(
         // Publish single event to the relay
         const pool = getPool();
         await Promise.any(pool.publish(RELAYS, savedSearchEvent));
+
+        // Register with backend so it can return this user's npub when a matching task is created (same as messages)
+        const npub = await getNpub();
+        savedSearchService
+            .registerSavedSearch({
+                npub,
+                id: savedSearchEvent.id,
+                name,
+                params,
+                notifyOnMatch: options.notifyOnMatch ?? true,
+                isActive: options.isActive ?? true,
+                notificationFrequency: options.notificationFrequency ?? NotificationFrequency.WEEKLY
+            })
+            .catch((err) => console.warn('Saved search backend sync (register) failed:', err));
 
         appStore.showSuccessToast(get(t)('profile_task.success.save_search'));
 
@@ -186,6 +201,18 @@ export async function updateSavedSearch(
         // Publish update to the relay
         await Promise.any(pool.publish(RELAYS, updatedEvent));
 
+        // Sync update to backend (use Nostr event id so it matches register/delete)
+        const updatedParams = { ...existingParams, ...updates.params };
+        savedSearchService
+            .updateSavedSearchInBackend(eventId, {
+                name: updates.name || existingName,
+                params: updatedParams,
+                notifyOnMatch: updates.notifyOnMatch ?? existingNotifyOnMatch,
+                isActive: updates.isActive ?? existingIsActive,
+                notificationFrequency: updates.notificationFrequency || existingNotificationFrequency
+            })
+            .catch((err) => console.warn('Saved search backend sync (update) failed:', err));
+
         return {
             id: eventId,
             name: updates.name || existingName,
@@ -246,6 +273,11 @@ export async function deleteSavedSearch(eventId: string): Promise<void> {
         // Publish deletion event
         const pool = getPool();
         await Promise.any(pool.publish(RELAYS, deletionEvent));
+
+        // Remove from backend
+        savedSearchService.deleteSavedSearchInBackend(eventId).catch((err) => {
+            console.warn('Saved search backend sync (delete) failed:', err);
+        });
     } catch (error) {
         console.error('Error deleting saved search:', error);
         throw error;

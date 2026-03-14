@@ -112,11 +112,12 @@ Your backend should send notifications with proper data structure:
 ```
 
 Supported notification types:
-- `task_match` - navigates to `/tasks`
+- `task_match` - navigates to `/tasks` (saved search match; same as saved_search_match when no clickAction)
+- `saved_search_match` - navigates to `/tasks` when no clickAction, or to `data.clickAction` when provided
 - `new_bid` - navigates to `/dashboard/task/{taskId}`
 - `message` - navigates to `/dashboard/messages/to/{conversationId}`
 - `task_update` - navigates to `/dashboard/task/{taskId}`
-- Custom URL via `url` field
+- Custom URL via `clickAction` or `click_action` field
 
 ## Testing Instructions
 

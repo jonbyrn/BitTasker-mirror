@@ -63,5 +63,8 @@ export const ENDPOINTS = {
 
 	SAVED_SEARCHES: {
 		TRIGGER_CHECK: `${API_PATH}/${API_VERSION}/saved-searches/check-task`,
+		REGISTER: `${API_PATH}/${API_VERSION}/saved-searches`,
+		UPDATE: (id: string) => `${API_PATH}/${API_VERSION}/saved-searches/${id}`,
+		DELETE: (id: string) => `${API_PATH}/${API_VERSION}/saved-searches/${id}`
 	}
 };

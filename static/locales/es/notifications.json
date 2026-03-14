@@ -23,6 +23,7 @@
       "contract_event": "Eventos de Contrato",
       "payment": "Pagos",
       "task_update": "Actualizaciones de Tarea",
+      "saved_search_match": "Coincidencias de Búsqueda Guardada",
       "message": "Mensajes",
       "system": "Sistema",
       "security": "Seguridad",
@@ -80,7 +81,8 @@
       "new_message": "Nuevo Mensaje",
       "system_maintenance": "Mantenimiento del Sistema",
       "security_alert": "Alerta de Seguridad",
-      "new_notification": "Nueva Notificación"
+      "new_notification": "Nueva Notificación",
+      "saved_search_match": "Coincidencia de Búsqueda Guardada"
     },
     "messages": {
       "bid_status": {
@@ -179,7 +181,8 @@
       "review_work": "Revisar Trabajo",
       "resolve_dispute": "Resolver Disputa",
       "check_security": "Verificar Seguridad",
-      "view_details": "Ver Detalles"
+      "view_details": "Ver Detalles",
+      "view_matching_tasks": "Ver tareas coincidentes"
     },
     "permissions": {
       "title": "Permisos de Notificaciones",
@@ -202,6 +205,7 @@
       "push": "Notificaciones push",
       "email": "Correo electrónico",
       "sms": "SMS",
+      "saved_search_matches": "Coincidencias de búsquedas guardadas",
       "quiet_hours": "Horas de silencio",
       "quiet_hours_enabled": "Horas de silencio habilitadas",
       "quiet_hours_start": "Inicio",
@@ -276,7 +280,9 @@
       "payment_pending_body_tasker": "Tu pago de {amount} {currency} está pendiente de confirmación",
       "payment_pending_body_taskee": "Pago de {amount} {currency} está pendiente de confirmación",
       "payment_update_title": "Actualización de Pago",
-      "payment_update_body": "Pago de {amount} {currency} procesado"
+      "payment_update_body": "Pago de {amount} {currency} procesado",
+      "saved_search_match_title": "Coincidencia de Búsqueda Guardada",
+      "saved_search_match_body": "Una nueva tarea coincide con tu búsqueda guardada \"{searchName}\". Toca para ver."
     }
   }
 }

@@ -219,6 +219,7 @@ class PushNotificationService {
 	/**
 	 * Handle notification data
 	 * Mobile & Web
+	 * Supported types: device_revoked, saved_search_match, task_match, new_bid, message, task_update, etc.
 	 */
 	private async handleNotificationData(data: any): Promise<void> {
 		// Handle notification data (e.g., navigate to specific page)
@@ -232,13 +233,19 @@ class PushNotificationService {
 		// Determine the target URL based on notification type
 		let targetUrl = '/dashboard';
 
-		// Check for clickAction first, then fallback to other locations
+		// Check for clickAction first, then fallback to type-based defaults
 		if (data.clickAction) {
 			targetUrl = data.clickAction;
 		} else if (data.click_action) {
 			targetUrl = data.click_action;
-		} else if (data.clickAction || data.data?.clickAction) {
-			targetUrl = data.clickAction || data.data.clickAction;
+		} else if (data.data?.clickAction) {
+			targetUrl = data.data.clickAction;
+		} else if (
+			data.type === 'saved_search_match' ||
+			data.type === 'task_match'
+		) {
+			// Saved search match: open find-tasks so user sees matching tasks
+			targetUrl = '/tasks';
 		}
 
 		// Navigate using appropriate method for platform

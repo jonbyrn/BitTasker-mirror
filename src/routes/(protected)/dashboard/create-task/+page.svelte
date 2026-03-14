@@ -21,7 +21,9 @@
 	import TaskReview from '$lib/components/task/steps/TaskReview.svelte';
 	import uploadService from '$lib/api/services/upload.service';
 	import savedSearchService, { type TaskBodyDto } from '$lib/api/services/saved-search.service';
+	import { pushNotificationService } from '$lib/api/services/push-notification.service';
 	import { t } from 'svelte-i18n';
+	import { get } from 'svelte/store';
 	import { onDestroy } from 'svelte';
 	import { browser } from '$app/environment';
 	let errors = $state<Record<string, string>>({});
@@ -74,11 +76,34 @@
 
 			const result = await savedSearchService.triggerSavedSearchCheck(taskBodyDto);
 
-			if (result.success && result.matchCount > 0) {
-				console.log(`📧 ${result.matchCount} saved search notifications sent`);
+			// Debug: see what the backend returned (Network tab + Console)
+			console.log('📋 Saved search check result:', {
+				success: result.success,
+				matchCount: result.matchCount,
+				npubsCount: result.npubs?.length ?? 0,
+				npubs: result.npubs
+			});
+
+			if (result.success && result.npubs?.length) {
+				const title = get(t)('notifications.service_messages.saved_search_match_title');
+				const body = get(t)('notifications.service_messages.saved_search_match_body', {
+					values: { searchName: taskData.title }
+				});
+				console.log('📤 Sending saved search notification to npubs:', result.npubs);
+				const sendResult = await pushNotificationService.sendNotificationToNpubs({
+					npubs: result.npubs,
+					title,
+					body,
+					type: 'saved_search_match',
+					clickAction: `${import.meta.env.VITE_CLIENT_URL}/tasks`
+				});
+				console.log('📧 sendNotificationToNpubs result:', sendResult);
+			} else if (result.success && (result.matchCount ?? 0) > 0 && !result.npubs?.length) {
+				console.warn(
+					'⚠️ Backend returned matchCount > 0 but no npubs. The API must return { npubs: string[] } so the frontend can send the notification (same as messages).'
+				);
 			}
 		} catch (error) {
-			// Silently handle errors in background operation - don't interrupt user flow
 			console.warn('⚠️ Background saved search check failed:', error);
 		}
 	};
