@@ -46,8 +46,6 @@
 	const isOpen = $derived(task.status === TaskStatusEnum.OPEN);
 	const canBid = $derived(isOpen && !hasBid);
 	const taskId = $derived(getTaskId(task));
-	void formatDateTimeReactive;
-	void formatDateRangeReactive;
 </script>
 
 <div

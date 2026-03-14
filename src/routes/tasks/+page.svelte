@@ -20,7 +20,6 @@
 	import { debounce } from '$lib/utils/helpers/common';
 	import { taskTranslationService } from '$lib/services/task-translation.service';
 	import { currentUserLanguage } from '$lib/stores/translation.store';
-	import { loadPageTranslations } from '$lib/i18n/routeTranslations';
 	import { LRUCache } from '$lib/utils/helpers/lru-cache';
 	import type FilterDrawerComponent from '$lib/components/filters/FilterDrawer.svelte';
 	import type BidFormComponent from '$lib/components/bidding/BidForm.svelte';
@@ -814,11 +813,6 @@
 
 	// Initial data fetch and setup
 	onMount(async () => {
-		// Ensure translations are loaded for this route
-		if (browser) {
-			await loadPageTranslations('/tasks');
-		}
-
 		// Find app-shell__content element once on mount
 		// Use multiple attempts to ensure DOM is ready with retry limit
 		let retryCount = 0;
@@ -860,18 +854,21 @@
 			loadingState = 'loaded';
 		}
 
+		// Start map preload immediately so the visible desktop sidebar does not get stuck behind
+		// deferred idle work. The helper still applies its own desktop/mobile strategy.
+		mountCleanup.preloadCleanup = attemptMapPreload('mount');
+
 		// Defer non-critical operations
 		if (browser) {
 			const deferredOperations = () => {
 				fetchBtcPrice();
 				loadDrawerComponents();
-				// Use reactive windowWidth instead of window.innerWidth
-				// Attempt map preload for desktop (mount reason)
-				mountCleanup.preloadCleanup = attemptMapPreload('mount');
 			};
 
 			if (window.requestIdleCallback) {
-				mountCleanup.idleCallbackId = window.requestIdleCallback(deferredOperations);
+				mountCleanup.idleCallbackId = window.requestIdleCallback(deferredOperations, {
+					timeout: MAP_PRELOAD_TIMEOUT_MS
+				});
 			} else {
 				mountCleanup.timeoutId = setTimeout(deferredOperations, 100);
 			}

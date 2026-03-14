@@ -13,7 +13,7 @@ const loadedNamespaces = new Map<string, Set<string>>();
 export const isI18nLoading = writable(false);
 
 // Lazy loading cache
-const translationCache = new Map<string, any>();
+const translationCache = new Map<string, TranslationData>();
 
 /**
  * Get the initial locale based on user preference
@@ -39,10 +39,16 @@ const getInitialLocale = async (): Promise<SupportedLanguage> => {
 	return 'en'; // Default fallback
 };
 
+type TranslationData = Record<string, unknown>;
+
 /**
  * Load a specific namespace for a locale
  */
-export async function loadNamespace(locale: SupportedLanguage, namespace: string): Promise<any> {
+export async function loadNamespace(
+	locale: SupportedLanguage,
+	namespace: string,
+	fetchImpl: typeof fetch = fetch
+): Promise<TranslationData> {
 	const cacheKey = `${locale}-${namespace}`;
 
 	// Return cached if available
@@ -52,11 +58,11 @@ export async function loadNamespace(locale: SupportedLanguage, namespace: string
 
 	try {
 		// Fetch JSON as static asset instead of dynamic import
-		const response = await fetch(`/locales/${locale}/${namespace}.json`);
+		const response = await fetchImpl(`/locales/${locale}/${namespace}.json`);
 		if (!response.ok) {
 			throw new Error(`HTTP ${response.status}: ${response.statusText}`);
 		}
-		const data = await response.json();
+		const data: TranslationData = await response.json();
 
 		// Cache the result
 		translationCache.set(cacheKey, data);
@@ -73,7 +79,7 @@ export async function loadNamespace(locale: SupportedLanguage, namespace: string
 		return data;
 	} catch (error) {
 		console.warn(`Failed to load namespace ${namespace} for locale ${locale}:`, error);
-		return {};
+		return {} as TranslationData;
 	}
 }
 
@@ -82,20 +88,24 @@ export async function loadNamespace(locale: SupportedLanguage, namespace: string
  */
 export async function loadNamespaces(
 	locale: SupportedLanguage,
-	namespaces: string[]
+	namespaces: string[],
+	fetchImpl: typeof fetch = fetch
 ): Promise<void> {
-	const loadPromises = namespaces.map((namespace) => loadNamespace(locale, namespace));
+	const loadPromises = namespaces.map((namespace) => loadNamespace(locale, namespace, fetchImpl));
 	await Promise.allSettled(loadPromises);
 }
 
 /**
  * Load essential translations for initial app render
  */
-async function loadEssentialTranslations(currentLocale: SupportedLanguage): Promise<void> {
+async function loadEssentialTranslations(
+	currentLocale: SupportedLanguage,
+	fetchImpl: typeof fetch = fetch
+): Promise<void> {
 	// Only load critical translations needed for initial render
 	const essentialNamespaces = ['home', 'common', 'notifications'];
 
-	await loadNamespaces(currentLocale, essentialNamespaces);
+	await loadNamespaces(currentLocale, essentialNamespaces, fetchImpl);
 }
 
 /**
@@ -104,8 +114,14 @@ async function loadEssentialTranslations(currentLocale: SupportedLanguage): Prom
 export function getNamespacesForRoute(route: string): string[] {
 	const namespaces: string[] = [];
 
-	if(route.includes('/tasks')) {
-		namespaces.push('common', 'dashboard/dashboard','dashboard/tasks/find','dashboard/tasks/info','dashboard/bids');
+	if (route.includes('/tasks')) {
+		namespaces.push(
+			'common',
+			'dashboard/dashboard',
+			'dashboard/tasks/find',
+			'dashboard/tasks/info',
+			'dashboard/bids'
+		);
 		// Include wallet namespace for bid-related components
 		namespaces.push('dashboard/wallet');
 		// Include categories and recommendations for task discovery
@@ -136,7 +152,12 @@ export function getNamespacesForRoute(route: string): string[] {
 		// Note: /find-tasks route redirects to /tasks, so this check is kept for backward compatibility
 		// but /tasks route already loads all necessary namespaces above
 		if (route.includes('/find-tasks')) {
-			namespaces.push('dashboard/tasks/find', 'dashboard/recomendations', 'dashboard/bids', 'categories');
+			namespaces.push(
+				'dashboard/tasks/find',
+				'dashboard/recomendations',
+				'dashboard/bids',
+				'categories'
+			);
 		}
 		if (route.includes('/create-task')) {
 			namespaces.push('dashboard/tasks/create', 'categories');
@@ -153,7 +174,7 @@ export function getNamespacesForRoute(route: string): string[] {
 	if (route.includes('/onboarding')) namespaces.push('onboarding');
 	if (route.includes('/how-it-works')) namespaces.push('how_it_works');
 	if (route.includes('/auth')) namespaces.push('auth');
-	
+
 	// Protected routes (routes that require authentication)
 	if (route.includes('(protected)')) {
 		namespaces.push('auth');
@@ -184,7 +205,8 @@ export function getNamespacesForRoute(route: string): string[] {
  */
 export async function loadRouteTranslations(
 	route: string,
-	currentLocale?: SupportedLanguage
+	currentLocale?: SupportedLanguage,
+	fetchImpl: typeof fetch = fetch
 ): Promise<void> {
 	if (!browser) return;
 
@@ -192,14 +214,14 @@ export async function loadRouteTranslations(
 	const namespaces = getNamespacesForRoute(route);
 
 	if (namespaces.length > 0) {
-		await loadNamespaces(targetLocale, namespaces);
+		await loadNamespaces(targetLocale, namespaces, fetchImpl);
 	}
 }
 
 /**
  * Initialize i18n with minimal overhead
  */
-export async function setupI18n(): Promise<void> {
+export async function setupI18n(fetchImpl: typeof fetch = fetch): Promise<void> {
 	if (!browser) return console.warn('Not in client context');
 
 	isI18nLoading.set(true);
@@ -208,7 +230,7 @@ export async function setupI18n(): Promise<void> {
 		const currentLocale = await getInitialLocale();
 
 		// Load only essential translations
-		await loadEssentialTranslations(currentLocale);
+		await loadEssentialTranslations(currentLocale, fetchImpl);
 
 		// Initialize svelte-i18n
 		init({

@@ -1,7 +1,10 @@
 <script lang="ts">
+	import { afterNavigate } from '$app/navigation';
 	import { onMount } from 'svelte';
 	import { t } from 'svelte-i18n';
 	import '$lib/i18n/i18n';
+	import { loadPageTranslations } from '$lib/i18n/routeTranslations';
+	import { setupI18n } from '$lib/i18n/i18n';
 	import { page } from '$app/state';
 	import { darkMode, initializeTheme } from '$lib/stores/theme.store';
 	import { devicePlatform } from '$lib/stores/device.store';
@@ -21,6 +24,7 @@
 	import '../app.css';
 
 	const { children } = $props();
+	let i18nReady = $state(false);
 
 	/**
 	 * vite:preloadError fires when a dynamic import chunk fails to load,
@@ -148,6 +152,21 @@
 			window.removeEventListener('error', handleError);
 			window.removeEventListener('unhandledrejection', handleError);
 		};
+	});
+
+	onMount(async () => {
+		try {
+			await setupI18n();
+			await loadPageTranslations(currentPath);
+			i18nReady = true;
+		} catch (error) {
+			console.error('Failed to initialize translations:', error);
+		}
+	});
+
+	afterNavigate(() => {
+		if (!i18nReady) return;
+		loadPageTranslations(currentPath).catch(console.error);
 	});
 
 	// Primary app scroll container (middle area in app-shell layout)
@@ -301,76 +320,84 @@
 	{/if}
 </svelte:head>
 
-<main data-theme={$darkMode ? 'dark' : 'light'} id="main" class="app-shell bg-base-200">
-	{#if showTopBar}
-		<header class="app-shell__header">
-			<TopBar />
-		</header>
-	{/if}
+{#if i18nReady}
+	<main data-theme={$darkMode ? 'dark' : 'light'} id="main" class="app-shell bg-base-200">
+		{#if showTopBar}
+			<header class="app-shell__header">
+				<TopBar />
+			</header>
+		{/if}
 
-	<!-- Scrollable middle content. This is the ONLY app-level scroll container. -->
-	<div bind:this={scrollEl} class="app-shell__content bg-base-200">
-		<div class="bg-base-200 overflow-x-hidden">
-			{#if $devicePlatform === 'web' && !isLandingPage}
-				<!-- Ensure web routes can use full-height (no unintended outer scrolling) -->
-				<div class="bg-base-200 flex h-full min-h-0 flex-col overflow-x-hidden">
-					{@render children()}
-				</div>
-			{:else}
-				<div class="bg-base-200 flex min-h-0 flex-1 flex-col justify-between overflow-x-hidden">
-					{@render children()}
+		<!-- Scrollable middle content. This is the ONLY app-level scroll container. -->
+		<div bind:this={scrollEl} class="app-shell__content bg-base-200">
+			<div class="bg-base-200 overflow-x-hidden">
+				{#if $devicePlatform === 'web' && !isLandingPage}
+					<!-- Ensure web routes can use full-height (no unintended outer scrolling) -->
+					<div class="bg-base-200 flex h-full min-h-0 flex-col overflow-x-hidden">
+						{@render children()}
+					</div>
+				{:else}
+					<div class="bg-base-200 flex min-h-0 flex-1 flex-col justify-between overflow-x-hidden">
+						{@render children()}
+					</div>
+				{/if}
+			</div>
+
+			{#if !showFooterSection && showTopBar && !isOnboardingPage && !shouldHideFooterForLoggedInTaskPage && !shouldHideFooterForLoggedInNpubPage && !shouldHideFooterForTasksPage}
+				<div class="tasks-page-footer">
+					{#if !$authState.isAuthenticated}
+						<!-- Section 7: Final Call to Action (CTA) -->
+						<section class="bg-primary text-primary-content py-16">
+							<div class="container mx-auto px-4 text-center">
+								<h2 class="text-4xl font-bold">{$t('homepage.v2.finalcta.title')}</h2>
+								<p class="mx-auto mt-4 max-w-2xl text-lg">
+									{$t('homepage.v2.finalcta.description')}
+								</p>
+								<div class="mt-8 flex flex-col items-center space-y-6">
+									<div class="flex flex-wrap justify-center gap-4">
+										<a
+											href="/tasks"
+											class="btn btn-lg border-none bg-black text-white shadow-lg transition-all duration-300 ease-in-out hover:bg-gray-800"
+										>
+											{$t('homepage.v2.finalcta.tasker_cta')}
+										</a>
+									</div>
+									<div>
+										<a
+											href="/auth/signup"
+											class="btn hover:bg-primary btn-lg border-none bg-white px-8 text-black shadow-lg transition-all duration-300 ease-in-out hover:text-white"
+										>
+											{$t('homepage.v2.finalcta.get_started')}
+										</a>
+									</div>
+								</div>
+							</div>
+						</section>
+					{/if}
+					<BitTaskerFooter />
 				</div>
 			{/if}
 		</div>
 
-		{#if !showFooterSection && showTopBar && !isOnboardingPage && !shouldHideFooterForLoggedInTaskPage && !shouldHideFooterForLoggedInNpubPage && !shouldHideFooterForTasksPage}
-			<div class="tasks-page-footer">
-				{#if !$authState.isAuthenticated}
-					<!-- Section 7: Final Call to Action (CTA) -->
-					<section class="bg-primary text-primary-content py-16">
-						<div class="container mx-auto px-4 text-center">
-							<h2 class="text-4xl font-bold">{$t('homepage.v2.finalcta.title')}</h2>
-							<p class="mx-auto mt-4 max-w-2xl text-lg">
-								{$t('homepage.v2.finalcta.description')}
-							</p>
-							<div class="mt-8 flex flex-col items-center space-y-6">
-								<div class="flex flex-wrap justify-center gap-4">
-									<a
-										href="/tasks"
-										class="btn btn-lg border-none bg-black text-white shadow-lg transition-all duration-300 ease-in-out hover:bg-gray-800"
-									>
-										{$t('homepage.v2.finalcta.tasker_cta')}
-									</a>
-								</div>
-								<div>
-									<a
-										href="/auth/signup"
-										class="btn hover:bg-primary btn-lg border-none bg-white px-8 text-black shadow-lg transition-all duration-300 ease-in-out hover:text-white"
-									>
-										{$t('homepage.v2.finalcta.get_started')}
-									</a>
-								</div>
-							</div>
-						</div>
-					</section>
-				{/if}
-				<BitTaskerFooter />
-			</div>
+		<!-- BottomNavBar: Show on mobile/tablet (≤1024px) -->
+		{#if showTopBar}
+			<footer bind:this={footerEl} class="app-shell__footer lg:hidden">
+				<BottomNavBar />
+			</footer>
 		{/if}
-	</div>
+	</main>
 
-	<!-- BottomNavBar: Show on mobile/tablet (≤1024px) -->
-	{#if showTopBar}
-		<footer bind:this={footerEl} class="app-shell__footer lg:hidden">
-			<BottomNavBar />
-		</footer>
-	{/if}
-</main>
+	<!-- Toast notifications (fixed positioned) -->
+	<Toast />
 
-<!-- Toast notifications (fixed positioned) -->
-<Toast />
-
-<InfiniteScroll />
+	<InfiniteScroll />
+{:else}
+	<main data-theme={$darkMode ? 'dark' : 'light'} id="main" class="app-shell bg-base-200">
+		<div class="app-shell__content bg-base-200 flex items-center justify-center">
+			<span class="loading loading-spinner loading-lg text-primary"></span>
+		</div>
+	</main>
+{/if}
 
 <style>
 	/* Hide footer on mobile/tablet for tasks page */

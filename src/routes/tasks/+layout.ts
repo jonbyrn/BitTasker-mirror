@@ -5,14 +5,10 @@ import { authState } from '$lib/stores/auth.store';
 import { StorageKeys } from '$lib/utils/constants/storage';
 import { tryCatch } from '$lib/utils/tryCatch';
 import { user } from '$lib/stores/user.store';
-import { loadPageTranslations } from '$lib/i18n/routeTranslations';
 
-export const load: LayoutLoad = async ({ url }) => {
+export const load: LayoutLoad = async () => {
 	// Only check authentication on the client side
 	if (browser) {
-		// Load route-specific translations
-		await loadPageTranslations(url.pathname);
-
 		const { value: token } = await Preferences.get({ key: StorageKeys.ACCESS_TOKEN });
 
 		if (token && token !== null) {

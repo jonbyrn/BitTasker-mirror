@@ -1572,8 +1572,14 @@
 
 	onMount(async () => {
 		try {
-			// Get user location first - this is now the primary way to determine map center
-			userLocation = await getUserLocation();
+			// Start geolocation in the background so it cannot block map initialization.
+			void getUserLocation()
+				.then((location) => {
+					userLocation = location;
+				})
+				.catch((error) => {
+					console.warn('Error resolving initial geolocation:', error);
+				});
 
 			// Load Google Maps script
 			await loadGoogleMapsScript();
