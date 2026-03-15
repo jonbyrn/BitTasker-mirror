@@ -14,7 +14,12 @@ const EDIT_STORAGE_KEY = StorageKeys.DRAFT_TASK_EDIT;
 
 export const TASKS_PER_PAGE = 10;
 
-export const STEPS = writable([TaskStepEnum.BASICS, TaskStepEnum.LOCATION, TaskStepEnum.BUDGET, TaskStepEnum.REVIEW]);
+export const STEPS = writable([
+	TaskStepEnum.BASICS,
+	TaskStepEnum.LOCATION,
+	TaskStepEnum.BUDGET,
+	TaskStepEnum.REVIEW
+]);
 
 const getInitialState = () => ({
 	task: {
@@ -287,7 +292,13 @@ const tasksStoreInitialState = {
 	currentPage: 1,
 	hasMore: true,
 	error: null as string | null,
-	searchParamsKey: ''
+	searchParamsKey: '',
+	/**
+	 * The createdAt timestamp of the oldest relay event received in the last fetch,
+	 * recorded BEFORE mute filtering. Used as the pagination cursor so that muting
+	 * tasks does not cause pagination drift.
+	 */
+	lastRelayTimestamp: undefined as number | undefined
 };
 
 // Find tasks store
@@ -298,13 +309,14 @@ export const tasksStore = (() => {
 	}
 
 	const { subscribe, set, update } = writable<{
-		pool: SimplePool,
-		items: Task[],
-		loading: boolean,
-		error: string | null,
-		currentPage: number,
-		hasMore: boolean,
-		searchParamsKey: string
+		pool: SimplePool;
+		items: Task[];
+		loading: boolean;
+		error: string | null;
+		currentPage: number;
+		hasMore: boolean;
+		searchParamsKey: string;
+		lastRelayTimestamp: number | undefined;
 	}>({
 		pool,
 		...tasksStoreInitialState
@@ -316,8 +328,21 @@ export const tasksStore = (() => {
 		set,
 		update,
 		/**
-		 * Reset tasks store to initial state
-		 * Called on logout to prevent stale data
+		 * Remove all tasks from a muted pubkey and return the count removed.
+		 * Called after a mute is confirmed so the canonical list stays mute-free.
+		 */
+		removePubkeyTasks(pubkey: string): number {
+			let removed = 0;
+			update((state) => {
+				const filtered = state.items.filter((t) => t.npub !== pubkey);
+				removed = state.items.length - filtered.length;
+				return { ...state, items: filtered };
+			});
+			return removed;
+		},
+		/**
+		 * Reset tasks store to initial state.
+		 * Called on logout to prevent stale data.
 		 */
 		reset: () => {
 			set({
@@ -325,7 +350,7 @@ export const tasksStore = (() => {
 				...tasksStoreInitialState
 			});
 		}
-	}
+	};
 })();
 
 // My tasks store initial state
@@ -340,11 +365,11 @@ const myTasksStoreInitialState = {
 // My tasks store
 function createMyTasksStore() {
 	const { subscribe, set, update } = writable<{
-		items: Task[],
-		loading: boolean,
-		error: string | null,
-		currentPage: number,
-		hasMore: boolean
+		items: Task[];
+		loading: boolean;
+		error: string | null;
+		currentPage: number;
+		hasMore: boolean;
 	}>(myTasksStoreInitialState);
 
 	return {

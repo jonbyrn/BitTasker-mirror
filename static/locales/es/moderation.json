@@ -1,0 +1,47 @@
+{
+	"moderation": {
+		"menu": {
+			"report": "Reportar",
+			"report_task": "Reportar tarea",
+			"report_bid": "Reportar oferta",
+			"report_message": "Reportar mensaje",
+			"report_user": "Reportar usuario",
+			"mute_user": "Silenciar a {username}",
+			"mute_user_generic": "Silenciar usuario",
+			"block_user": "Bloquear usuario",
+			"muted_toast": "{username} silenciado",
+			"muted_toast_generic": "Usuario silenciado",
+			"mute_error": "No se pudo silenciar al usuario. Inténtalo de nuevo."
+		},
+		"report_modal": {
+			"title_task": "Reportar esta tarea",
+			"title_bid": "Reportar esta oferta",
+			"title_message": "Reportar este mensaje",
+			"title_user": "Reportar este usuario",
+			"description": "Ayúdanos a entender qué está mal con este contenido.",
+			"type_label": "Motivo",
+			"types": {
+				"spam": "Spam",
+				"illegal": "Contenido ilegal",
+				"profanity": "Lenguaje ofensivo o de odio",
+				"nudity": "Desnudez o contenido explícito",
+				"impersonation": "Suplantación de identidad",
+				"other": "Otro"
+			},
+			"details_label": "Detalles adicionales (opcional)",
+			"details_placeholder": "Describe el problema...",
+			"details_required_placeholder": "Por favor describe el problema...",
+			"submit": "Enviar reporte",
+			"submitting": "Enviando...",
+			"cancel": "Cancelar",
+			"success_toast": "Reporte enviado. Gracias.",
+			"error_toast": "No se pudo enviar el reporte. Inténtalo de nuevo.",
+			"select_type": "Por favor selecciona un motivo",
+			"submitted_title": "Reporte enviado",
+			"submitted_description": "Tu reporte ha sido recibido. ¿También quieres ocultar el contenido de este usuario?",
+			"also_mute_label": "Ocultar contenido de este usuario",
+			"also_mute_description": "Sus tareas, ofertas y mensajes ya no aparecerán para ti.",
+			"done": "Listo"
+		}
+	}
+}

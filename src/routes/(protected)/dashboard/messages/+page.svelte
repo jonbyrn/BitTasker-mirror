@@ -4,6 +4,7 @@
 	import { nip19 } from 'nostr-tools';
 	import { goto } from '$app/navigation';
 	import { onMount, onDestroy } from 'svelte';
+	import { SvelteMap } from 'svelte/reactivity';
 	import { isUserToUserMessage } from '$lib/utils/helpers/messageParser';
 	import {
 		fetchProfileMetadata,
@@ -19,6 +20,7 @@
 	import KINDS from '$lib/utils/constants/kinds';
 	import { messageTranslations } from '$lib/stores/translation.store';
 	import { parseMessageContent } from '$lib/utils/helpers/messageParser';
+	import { muteStore } from '$lib/stores/mute.store';
 
 	/**
 	 * Helper function to get display content for a conversation
@@ -83,10 +85,12 @@
 	}
 
 	// State
+	type ConversationLastEvent = Omit<NostrEvent, 'content'> & { content: string };
+
 	let conversations = $state<
 		{
 			pubkey: string;
-			lastEvent: any;
+			lastEvent: ConversationLastEvent;
 			profile: { name?: string; picture?: string };
 		}[]
 	>([]);
@@ -95,10 +99,18 @@
 
 	// Search state
 	let searchQuery = $state('');
+
+	// First filter out muted users, then apply the search query
+	const unmutedConversations = $derived(
+		$muteStore.mutedPubkeys.size > 0
+			? conversations.filter((c) => !$muteStore.mutedPubkeys.has(c.pubkey))
+			: conversations
+	);
+
 	let filteredConversations = $derived(
 		searchQuery.trim() === ''
-			? conversations
-			: conversations.filter((c) => {
+			? unmutedConversations
+			: unmutedConversations.filter((c) => {
 					const query = searchQuery.toLowerCase();
 					return (
 						c.profile.name?.toLowerCase().includes(query) ||
@@ -125,7 +137,7 @@
 			profile: { name?: string; picture?: string };
 		}[]
 	>([]);
-	let searchTimeout: NodeJS.Timeout | null = null;
+	let searchTimeout: ReturnType<typeof setTimeout> | null = null;
 
 	// Real-time subscription for conversation list updates
 	let conversationListUnsubscribe: (() => void) | null = null;
@@ -156,6 +168,13 @@
 			// System messages should be handled by notifications, not shown in chat previews
 			if (!isUserToUserMessage(plaintext)) {
 				return; // Skip system messages in conversation list
+			}
+
+			// Determine the other party before applying the mute check
+			const recipientTag = event.tags.find((tag) => tag[0] === 'p');
+			const otherPartyPubkey = senderPubkey === npub ? recipientTag?.[1] : senderPubkey;
+			if (otherPartyPubkey && $muteStore.mutedPubkeys.has(otherPartyPubkey)) {
+				return; // Skip messages from muted users
 			}
 
 			// Determine the OTHER person in this conversation
@@ -265,7 +284,7 @@
 			// Setup real-time updates for conversation list
 			console.log('listening for incoming conversations');
 			setupConversationListListener(npub, nsec);
-		} catch (err) {
+		} catch {
 			error = 'messages.failed_load_conversations';
 		} finally {
 			isLoading = false;
@@ -389,7 +408,7 @@
 		showUsernameResults = true;
 
 		try {
-			const profileMap = new Map<string, { name?: string; picture?: string }>();
+			const profileMap = new SvelteMap<string, { name?: string; picture?: string }>();
 			const relayUrl = import.meta.env.VITE_NOSTR_RELAY_URL;
 
 			if (!relayUrl) {
@@ -465,7 +484,7 @@
 								}
 							}
 						}
-					} catch (err) {
+					} catch {
 						// Skip invalid profile data
 					}
 				}
@@ -494,7 +513,7 @@
 									.slice(0, 5);
 							}
 						}
-					} catch (err) {
+					} catch {
 						// Skip invalid image data
 					}
 				}
@@ -584,7 +603,7 @@
 			<p class="text-base-content/60 text-sm md:text-base">{$t('messages.subtitle')}</p>
 		</div>
 		<button
-			class="btn btn-primary btn-sm flex gap-2 shadow-md transition-all hover:shadow-lg md:btn-md"
+			class="btn btn-primary btn-sm md:btn-md flex gap-2 shadow-md transition-all hover:shadow-lg"
 			onclick={startNewMessage}
 		>
 			<svg
@@ -700,6 +719,13 @@
 						</div>
 					</div>
 
+					<!-- Username Search Loading -->
+					{#if isUsernameSearching}
+						<div class="flex justify-center py-2">
+							<span class="loading loading-spinner loading-sm"></span>
+						</div>
+					{/if}
+
 					<!-- Username Search Results -->
 					{#if showUsernameResults && usernameSearchResults.length > 0}
 						<div class="space-y-3">
@@ -720,7 +746,7 @@
 								<span class="text-sm font-medium">{$t('messages.search_results')}</span>
 							</div>
 							<div class="border-base-300 max-h-48 space-y-1 overflow-y-auto rounded-lg border p-1">
-								{#each usernameSearchResults as result}
+								{#each usernameSearchResults as result (result.pubkey)}
 									<button
 										type="button"
 										class="hover:bg-primary/5 hover:border-primary/20 flex w-full items-center gap-3 rounded-lg border border-transparent p-3 transition-all duration-200"
@@ -997,16 +1023,16 @@
 	</style>
 
 	<!-- Main Content - Conversation List Only -->
-	<div class="bg-base-100 flex-1 overflow-hidden rounded-2xl shadow-xl border border-base-300/20">
+	<div class="bg-base-100 border-base-300/20 flex-1 overflow-hidden rounded-2xl border shadow-xl">
 		<div class="card-body flex h-full flex-col overflow-hidden p-0">
 			<!-- Search Input -->
-			{#if conversations.length > 0}
-				<div class="border-base-300/30 shrink-0 border-b bg-base-200/30 p-4">
+			{#if unmutedConversations.length > 0}
+				<div class="border-base-300/30 bg-base-200/30 shrink-0 border-b p-4">
 					<div class="relative">
 						<input
 							type="text"
 							placeholder={$t('messages.search_placeholder')}
-							class="input input-bordered bg-base-100 border-base-300/50 focus:border-primary focus:ring-2 focus:ring-primary/20 w-full py-3 pr-4 pl-12 text-sm transition-all duration-200 md:text-base"
+							class="input input-bordered bg-base-100 border-base-300/50 focus:border-primary focus:ring-primary/20 w-full py-3 pr-4 pl-12 text-sm transition-all duration-200 focus:ring-2 md:text-base"
 							bind:value={searchQuery}
 						/>
 						<div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
@@ -1034,7 +1060,7 @@
 				{#if isLoading}
 					<!-- Loading State -->
 					<div class="divide-base-300/20 divide-y">
-						{#each Array(3) as _}
+						{#each [0, 1, 2] as i (i)}
 							<div class="flex animate-pulse items-center gap-3 p-4">
 								<div class="bg-base-300 h-10 w-10 rounded-full"></div>
 								<div class="flex-1">
@@ -1084,10 +1110,10 @@
 							{$t('messages.retry')}
 						</button>
 					</div>
-				{:else if conversations.length > 0}
+				{:else if unmutedConversations.length > 0}
 					<!-- Show conversations with optional loading indicator -->
 					<div class="divide-base-300/20 divide-y">
-						{#each filteredConversations as conversation}
+						{#each filteredConversations as conversation (conversation.pubkey)}
 							<button
 								class="group hover:bg-base-200/60 active:bg-base-200 flex w-full items-center gap-4 p-4 text-left transition-all duration-200 md:gap-5 md:p-5"
 								onclick={() => selectConversation(conversation.pubkey)}
@@ -1104,7 +1130,7 @@
 								<!-- Conversation Info -->
 								<div class="min-w-0 flex-1 cursor-pointer">
 									<div class="flex items-center justify-between gap-2">
-										<span class="line-clamp-1 text-sm md:text-lg truncate font-semibold">
+										<span class="line-clamp-1 truncate text-sm font-semibold md:text-lg">
 											{conversation.profile.name || `${conversation.pubkey.slice(0, 8)}...`}
 										</span>
 										<span class="text-base-content/50 ml-2 shrink-0 text-xs font-medium">
@@ -1112,7 +1138,7 @@
 										</span>
 									</div>
 									<p
-										class="text-base-content/60 mt-1.5 line-clamp-2 text-sm leading-relaxed md:text-md"
+										class="text-base-content/60 md:text-md mt-1.5 line-clamp-2 text-sm leading-relaxed"
 									>
 										{getDisplayContent(conversation)}
 									</p>
@@ -1126,9 +1152,9 @@
 							</div>
 						{/if}
 					</div>
-				{:else if conversations.length === 0}
+				{:else if unmutedConversations.length === 0}
 					<!-- Empty State -->
-					<div class="flex flex-col items-center justify-center py-16 px-4 text-center md:py-24">
+					<div class="flex flex-col items-center justify-center px-4 py-16 text-center md:py-24">
 						<div
 							class="bg-primary/10 mb-6 flex h-20 w-20 items-center justify-center rounded-full md:h-24 md:w-24"
 						>
@@ -1174,7 +1200,7 @@
 					</div>
 				{:else if filteredConversations.length === 0}
 					<!-- No Search Results -->
-					<div class="flex flex-col items-center justify-center py-16 px-4 text-center md:py-24">
+					<div class="flex flex-col items-center justify-center px-4 py-16 text-center md:py-24">
 						<div
 							class="bg-base-200/50 mb-6 flex h-20 w-20 items-center justify-center rounded-full md:h-24 md:w-24"
 						>
