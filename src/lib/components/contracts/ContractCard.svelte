@@ -1,12 +1,9 @@
 <script lang="ts">
 	import type { ContractWithEvents } from '$lib/types/contract';
-	import {
-		getStatusTranslationKey,
-		getStatusColorClass
-	} from '$lib/utils/helpers/contractStatusFormatter';
 	import { contractStore } from '$lib/stores/contract.store';
 	import { t } from 'svelte-i18n';
-	import ContractActions from './ContractActions.svelte';
+	import ContractBadges from './ContractBadges.svelte';
+	import ContractActionsByVersion from './ContractActionsByVersion.svelte';
 	import UserNostrBadge from '../UserNostrBadge.svelte';
 	import TaskDeadlineDisplay from '../task/TaskDeadlineDisplay.svelte';
 	import TaskLocationDisplay from '../task/TaskLocationDisplay.svelte';
@@ -48,33 +45,6 @@
 		};
 	}
 
-	// Format date with proper timestamp handling
-	function formatDate(timestamp: number): string {
-		// Handle invalid or zero timestamps
-		if (!timestamp || timestamp <= 0) {
-			return 'Not set';
-		}
-
-		// Convert to milliseconds if timestamp is in seconds
-		const date = timestamp > 1000000000000 ? new Date(timestamp) : new Date(timestamp * 1000);
-
-		// Check if date is valid
-		if (isNaN(date.getTime())) {
-			return 'Invalid date';
-		}
-
-		return date.toLocaleDateString('en-US', {
-			month: 'short',
-			day: 'numeric',
-			year: 'numeric'
-		});
-	}
-
-	// Get role badge class
-	function getRoleBadgeClass(isClient: boolean): string {
-		return isClient ? 'badge-primary' : 'badge-secondary';
-	}
-
 	// Get available actions count
 	function getAvailableActionsCount(): number {
 		let count = 0;
@@ -104,7 +74,7 @@
 		<!-- Top Row: Title + Description + Badges -->
 		<div class="mb-3 flex flex-row items-start justify-between gap-2">
 			<!-- Left: Title and Description (flexible, takes available space) -->
-			<div class="flex-1 min-w-0 pr-2 md:pr-4">
+			<div class="min-w-0 flex-1 pr-2 md:pr-4">
 				<div class="card-title line-clamp-2 text-lg font-semibold">
 					<button
 						class="hover:text-primary cursor-pointer text-left transition-colors"
@@ -113,37 +83,18 @@
 						{contractStore.getContractKey(contract, 'taskTitle')}
 					</button>
 				</div>
-				<div class="text-sm text-base-content/80 whitespace-pre-line line-clamp-2 mt-1">
+				<div class="text-base-content/80 mt-1 line-clamp-2 text-sm whitespace-pre-line">
 					{contractStore.getContractKey(contract, 'taskDescription')}
 				</div>
 			</div>
-			<!-- Right: Badges -->
-			<div class="flex shrink-0 flex-col items-end self-stretch">
-				<!-- Top row: Role + Dev badge -->
-				<div class="flex flex-wrap justify-end gap-1">
-					<div class="badge {getRoleBadgeClass(contract.isClient)} badge-sm">
-						{contract.isClient ? $t('dashboard.client') : $t('dashboard.freelancer')}
-					</div>
-					{#if import.meta.env.DEV}
-						<div class="badge badge-error badge-sm">
-							{contract.escrowData?.id}
-						</div>
-					{/if}
-				</div>
-				<!-- Bottom row: Status badge (with min gap from top badges) -->
-				<div class="badge {getStatusColorClass(contract.status)} badge-sm mt-2">
-					{#if contract?.isPending}
-						<span class="loading loading-spinner loading-xs mr-1"></span>
-					{/if}
-					{$t(getStatusTranslationKey(contract.status))}
-				</div>
-			</div>
+			<!-- Right: Badges (version-aware) -->
+			<ContractBadges {contract} showDevBadge={import.meta.env.DEV} />
 		</div>
 
 		<!-- Second Row: Deadline + Location + Price -->
 		<div class="mb-3 flex flex-row items-center justify-between gap-3">
 			<!-- Left: Deadline + Location -->
-			<div class="flex flex-col gap-2 min-w-0 flex-1">
+			<div class="flex min-w-0 flex-1 flex-col gap-2">
 				<!-- Deadline -->
 				<TaskDeadlineDisplay
 					deadline={contractStore.getContractKey(contract, 'estimatedCompletionTime') as number}
@@ -154,7 +105,7 @@
 			</div>
 
 			<!-- Right: Price -->
-			<div class="text-right shrink-0">
+			<div class="shrink-0 text-right">
 				{#if btcPrice > 0}
 					{@const priceData = formatPriceStacked(
 						contractStore.getContractKey(contract, 'amount') as string,
@@ -173,14 +124,12 @@
 		<!-- Bottom Row: User Info + Action Buttons -->
 		<div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
 			<!-- Left: User Info (without role headline) -->
-			<UserNostrBadge
-				npub={contractStore.getContractKey(contract, 'otherPartyNpub') as string}
-			/>
+			<UserNostrBadge npub={contractStore.getContractKey(contract, 'otherPartyNpub') as string} />
 
 			<!-- Right: Action Buttons -->
-			<div class="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:w-auto">
+			<div class="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
 				{#if getAvailableActionsCount() > 0}
-					<ContractActions
+					<ContractActionsByVersion
 						{contract}
 						containerClass="flex flex-col gap-2 sm:flex-row sm:flex-wrap w-full sm:w-auto"
 						isInline={true}

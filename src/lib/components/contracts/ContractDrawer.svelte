@@ -4,13 +4,10 @@
 	import Drawer from '$lib/components/Drawer.svelte';
 	import TaskDeadlineDisplay from '$lib/components/task/TaskDeadlineDisplay.svelte';
 	import UsdSatsDisplay from '$lib/components/shared/UsdSatsDisplay.svelte';
-	import ContractTimeline from './ContractTimeline.svelte';
-	import ContractActions from './ContractActions.svelte';
+	import ContractTimelineByVersion from './ContractTimelineByVersion.svelte';
+	import ContractActionsByVersion from './ContractActionsByVersion.svelte';
+	import ContractBadges from './ContractBadges.svelte';
 	import Gallery from '$lib/components/Gallery.svelte';
-	import {
-		getStatusColorClass,
-		getStatusTranslationKey
-	} from '$lib/utils/helpers/contractStatusFormatter';
 	import { contractStore } from '$lib/stores/contract.store';
 	import UserInfoDisplay from '$lib/components/user/UserInfoDisplay.svelte';
 
@@ -89,7 +86,7 @@
 			<!-- Contract Info Card -->
 			<div class="card bg-base-200 min-w-0 overflow-hidden">
 				<div class="card-body min-w-0 p-4">
-					<!-- Row 1: User info | Role + Status badges (stacked, right-aligned) -->
+					<!-- Row 1: User info | Role + Status badges (version-aware) -->
 					<div class="mb-4 flex flex-wrap items-center justify-between gap-3">
 						<UserInfoDisplay
 							pubkey={contractStore.getContractKey(
@@ -104,20 +101,7 @@
 							size="sm"
 							avatarAlt={$t('dashboard.task_details_by_task.avatar_alt')}
 						/>
-						<div class="flex shrink-0 flex-col items-end gap-2">
-							<div
-								class="badge {$contractStore.contract.isClient
-									? 'badge-primary'
-									: 'badge-secondary'} shrink-0"
-							>
-								{$contractStore.contract.isClient
-									? $t('dashboard.client')
-									: $t('dashboard.freelancer')}
-							</div>
-							<div class="badge {getStatusColorClass($contractStore.contract.status)} shrink-0">
-								{$t(getStatusTranslationKey($contractStore.contract.status))}
-							</div>
-						</div>
+						<ContractBadges contract={$contractStore.contract} showDevBadge={false} />
 					</div>
 
 					<!-- Row 2: Task title + description | Price block (same row on all sizes) -->
@@ -203,7 +187,7 @@
 						<div
 							class="order-3 flex min-w-0 flex-wrap gap-2 pl-0 sm:order-2 sm:w-fit sm:flex-row sm:items-center sm:justify-end sm:pl-4"
 						>
-							<ContractActions
+							<ContractActionsByVersion
 								contract={$contractStore.contract}
 								containerClass="flex min-w-0 flex-wrap gap-2 sm:flex-row sm:w-fit"
 								isInline={false}
@@ -279,7 +263,8 @@
 							</h4>
 						</div>
 
-						<ContractTimeline
+						<ContractTimelineByVersion
+							contract={$contractStore.contract}
 							statusEvents={$contractStore.contract.statusEvents}
 							contractPubkey={contractStore.getContractKey(
 								$contractStore.contract,
