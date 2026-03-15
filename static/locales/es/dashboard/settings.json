@@ -162,6 +162,15 @@
 				"warning": "Este dispositivo ya no podrá acceder a tu cuenta y necesitará re-autenticarse.",
 				"confirm": "Revocar Acceso"
 			}
+		},
+		"muted_users": {
+			"title": "Usuarios silenciados",
+			"description": "Los usuarios que has silenciado no aparecerán en tu feed de tareas, ofertas ni mensajes.",
+			"empty": "Aún no has silenciado a nadie.",
+			"unmute": "Desilenciar",
+			"unmuted_toast": "Usuario desilenciado correctamente.",
+			"unmute_error": "No se pudo desilenciar al usuario. Inténtalo de nuevo.",
+			"unmute_aria": "Desilenciar a {name}"
 		}
 	}
 }

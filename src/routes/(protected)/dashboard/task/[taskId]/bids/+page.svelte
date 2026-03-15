@@ -19,6 +19,7 @@
 	import Modal from '$lib/components/Modal.svelte';
 	import MessageModal from '$lib/components/messages/MessageModal.svelte';
 	import UserInfoDisplay from '$lib/components/user/UserInfoDisplay.svelte';
+	import ActionsMenu from '$lib/components/moderation/ActionsMenu.svelte';
 	import KINDS from '$lib/utils/constants/kinds';
 
 	// State
@@ -76,25 +77,6 @@
 
 		// Fallback to original
 		return originalText;
-	}
-
-	// Cache for formatted dates to avoid re-computation
-	let dateFormatterCache = $state<Map<string, string>>(new Map());
-
-	// Optimized date formatting with caching
-	function getCachedFormattedDate(date: Date): string {
-		const key = date.getTime().toString();
-		if (dateFormatterCache.has(key)) {
-			return dateFormatterCache.get(key)!;
-		}
-
-		const formatted = new Date(date).toLocaleDateString('en-US', {
-			month: 'short',
-			year: 'numeric'
-		});
-
-		dateFormatterCache.set(key, formatted);
-		return formatted;
 	}
 
 	async function loadTaskDetails() {
@@ -178,20 +160,10 @@
 		bidId: string,
 		counterOffer: Omit<CounterOffer, 'id' | 'bidId' | 'createdAt' | 'status'>
 	) {
-		try {
-			// TODO: Implement counter offer with nostr
-			/* // API call to create counter offer
-			await bidService.createCounterOffer(bidId, counterOffer);
-			// Clear bid cache to ensure fresh data
-			clearBidCache();
-			// Reset state
-			showCounterOfferForm = false;
-			selectedBid = null;
-			// Reload task to update bids with counter offer
-			await loadTaskDetails(); */
-		} catch (error) {
-			console.error($t('task.drawer.error.counter_offer'), error);
-		}
+		// TODO: Implement counter offer with nostr
+		// Params are reserved for future implementation
+		void bidId;
+		void counterOffer;
 	}
 
 	async function handleRejectBid(eventId: string, bidContent: NostrBidContent) {
@@ -277,7 +249,7 @@
 		<p class="text-base-content/70 mt-2 text-sm sm:text-base">
 			{$t('task.drawer.bids_description')}
 		</p>
-		<div class="mt-3 flex justify-between items-center">
+		<div class="mt-3 flex items-center justify-between">
 			<button onclick={() => history.back()} class="btn btn-ghost btn-sm">
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
@@ -327,7 +299,7 @@
 	</div>
 	{#if $bidStore.isLoading}
 		<div class="space-y-4">
-			{#each Array(1) as _, i}
+			{#each [0] as i (i)}
 				<div class="bg-base-100 border-base-200 rounded-2xl border shadow-sm">
 					<div class="p-4 md:p-6">
 						<!-- Header skeleton -->
@@ -339,7 +311,7 @@
 									<div class="flex items-center gap-4">
 										<div class="bg-base-300 h-4 w-24 animate-pulse rounded"></div>
 										<div class="flex gap-1">
-											{#each Array(5) as _, j}
+											{#each [0, 1, 2, 3, 4] as j (j)}
 												<div class="bg-base-300 h-4 w-4 animate-pulse rounded"></div>
 											{/each}
 										</div>
@@ -396,9 +368,9 @@
 			<p class="text-base-content/60 mt-2 mb-4">
 				{$bidStore.error}
 			</p>
-				<div class="text-base-content/60 text-sm">
-					{$t('dashboard.bids.bid_acceptance.retry')}
-				</div>
+			<div class="text-base-content/60 text-sm">
+				{$t('dashboard.bids.bid_acceptance.retry')}
+			</div>
 		</div>
 	{:else if bids.length === 0}
 		<div class="py-12 text-center">
@@ -423,7 +395,7 @@
 		</div>
 	{:else}
 		<div class="space-y-4">
-			{#each bids as bid}
+			{#each bids as bid (bid.id)}
 				{@const bidContent = bid.content as unknown as NostrBidContent}
 				<div
 					class="bg-base-100 border-base-200 rounded-2xl border shadow-sm transition-all duration-200 hover:shadow-md"
@@ -444,9 +416,9 @@
 								/>
 							</div>
 
-							<!-- Right side: Status badge and profile link (right-aligned) -->
+							<!-- Right side: Status badge, profile link, and actions menu (right-aligned) -->
 							<div class="flex shrink-0 flex-col items-end gap-2">
-								<!-- Bid Status Badge -->
+								<!-- Top row: status badge -->
 								{#if bidContent.status === 'ACCEPTED'}
 									<div class="badge badge-success badge-sm text-primary-content">
 										{$t('dashboard.bids.bid_acceptance.accepted')}
@@ -460,29 +432,40 @@
 										{$t('dashboard.bids.bid_acceptance.pending')}
 									</div>
 								{/if}
-								<!-- See Profile link -->
-								{#if bidContent.bidderId}
-									<button
-										class="btn btn-ghost btn-xs text-primary hover:bg-primary/10 cursor-pointer"
-										onclick={() => goto(`/npub/${bidContent.bidderId}`)}
-									>
-										<svg
-											xmlns="http://www.w3.org/2000/svg"
-											class="h-3 w-3"
-											fill="none"
-											viewBox="0 0 24 24"
-											stroke="currentColor"
+
+								<!-- See Profile link + actions menu (right-aligned) -->
+								<div class="flex items-end gap-1">
+									{#if bidContent.bidderId}
+										<button
+											class="btn btn-ghost btn-xs text-primary hover:bg-primary/10 cursor-pointer"
+											onclick={() => goto(`/npub/${bidContent.bidderId}`)}
 										>
-											<path
-												stroke-linecap="round"
-												stroke-linejoin="round"
-												stroke-width="2"
-												d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-											/>
-										</svg>
-										<span class="">{$t('dashboard.bids.bid_acceptance.see_profile')}</span>
-									</button>
-								{/if}
+											<svg
+												xmlns="http://www.w3.org/2000/svg"
+												class="h-3 w-3"
+												fill="none"
+												viewBox="0 0 24 24"
+												stroke="currentColor"
+											>
+												<path
+													stroke-linecap="round"
+													stroke-linejoin="round"
+													stroke-width="2"
+													d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+												/>
+											</svg>
+											<span class="">{$t('dashboard.bids.bid_acceptance.see_profile')}</span>
+										</button>
+									{/if}
+
+									{#if bidContent.bidderId}
+										<ActionsMenu
+											contentType="bid"
+											reportedPubkey={bidContent.bidderId}
+											reportedEventId={bid.id}
+										/>
+									{/if}
+								</div>
 							</div>
 						</div>
 
@@ -504,7 +487,7 @@
 
 								<!-- Estimated date for FIXED bids -->
 								{#if bidContent.paymentType === 'FIXED' && bidContent.startDateTime && bidContent.endDateTime}
-									<div class="flex items-start max-w-[60%] gap-2">
+									<div class="flex max-w-[60%] items-start gap-2">
 										<svg
 											xmlns="http://www.w3.org/2000/svg"
 											class="text-base-content/60 mt-0.5 h-4 w-4 shrink-0"
@@ -672,10 +655,7 @@
 									<button
 										class="btn btn-primary btn-outline btn-sm flex-1 py-1 sm:flex-none"
 										onclick={() =>
-											openMessageModal(
-												bidContent.bidderId || '',
-												bidContent.bidderName ?? ''
-											)}
+											openMessageModal(bidContent.bidderId || '', bidContent.bidderName ?? '')}
 									>
 										<svg
 											xmlns="http://www.w3.org/2000/svg"
@@ -795,18 +775,16 @@
 		selectedBid = null;
 	}}
 >
-	{#snippet children()}
-		{#if showCounterOfferForm && selectedBid}
-			<CounterOfferForm
-				bid={selectedBid}
-				onSubmit={submitCounterOffer as any}
-				onCancel={() => {
-					showCounterOfferForm = false;
-					selectedBid = null;
-				}}
-			/>
-		{/if}
-	{/snippet}
+	{#if showCounterOfferForm && selectedBid}
+		<CounterOfferForm
+			bid={selectedBid}
+			onSubmit={submitCounterOffer}
+			onCancel={() => {
+				showCounterOfferForm = false;
+				selectedBid = null;
+			}}
+		/>
+	{/if}
 </Modal>
 
 <Drawer
@@ -816,11 +794,9 @@
 	position="right"
 	isScrollable={true}
 >
-	{#snippet children()}
-		{#if showAcceptanceForm && bidToAccept && task}
-			<BidAcceptanceForm bid={bidToAccept} {task} {btcPrice} onCancel={handleCloseBid} />
-		{/if}
-	{/snippet}
+	{#if showAcceptanceForm && bidToAccept && task}
+		<BidAcceptanceForm bid={bidToAccept} {task} {btcPrice} onCancel={handleCloseBid} />
+	{/if}
 </Drawer>
 
 <!-- Message Modal -->

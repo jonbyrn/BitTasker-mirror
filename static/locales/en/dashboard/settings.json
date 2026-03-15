@@ -162,6 +162,15 @@
 				"warning": "This device will no longer be able to access your account and will need to re-authenticate.",
 				"confirm": "Revoke Access"
 			}
+		},
+		"muted_users": {
+			"title": "Muted Users",
+			"description": "Users you have muted will not appear in your task feed, bids, or messages.",
+			"empty": "You haven't muted anyone yet.",
+			"unmute": "Unmute",
+			"unmuted_toast": "User unmuted successfully.",
+			"unmute_error": "Failed to unmute user. Please try again.",
+			"unmute_aria": "Unmute {name}"
 		}
 	}
 }

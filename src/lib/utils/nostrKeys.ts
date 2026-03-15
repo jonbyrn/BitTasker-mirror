@@ -181,6 +181,7 @@ export const getNostrKeyPair = async (): Promise<{ nsec: Uint8Array; npub: strin
 		biometricData: {
 			npub,
 			exportedKey,
+			credentialId: credentialData.credentialId,
 			encryptedData: response.encryptedData
 		}
 	}));
@@ -263,8 +264,6 @@ export const getAllKeys = async (): Promise<{
 		response: credentialData.response
 	});
 
-	console.log(response);
-
 	if (!response.encryptedData) throw new Error('No encrypted data found');
 
 	const { nsec: sk, mnemonic } = await decryptMasterKeyDataFromBiometrics(
@@ -286,7 +285,8 @@ export const getAllKeys = async (): Promise<{
 		biometricData: {
 			npub,
 			exportedKey: credentialData.exportedKey,
-			encryptedData: response.encryptedData
+			encryptedData: response.encryptedData,
+			credentialId: credentialData.credentialId
 		}
 	}));
 
