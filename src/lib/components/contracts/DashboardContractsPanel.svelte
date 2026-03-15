@@ -454,7 +454,7 @@
 				</p>
 			</div>
 		{:else}
-			{#each filteredContracts as contract (contract.escrowData?.id ?? contract.contractEvent.content.escrowId)}
+			{#each filteredContracts as contract (contract.contractEvent.id)}
 				<ContractCard {contract} {btcPrice} />
 			{/each}
 

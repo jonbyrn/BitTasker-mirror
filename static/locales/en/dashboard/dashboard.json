@@ -559,6 +559,7 @@
 			"bid_info_not_available": "Original bid information is not available for this contract.",
 			"available_actions": "Available Actions",
 			"no_actions_available": "No actions available",
+			"v2_actions_coming_soon": "V2 contract. Complete and Accept actions will be available soon.",
 			"status": {
 				"label": "Status",
 				"active": "Active",
@@ -588,7 +589,12 @@
 				"timelock_resolved": "Resolved after timelock",
 				"pending_resolution_proposal": "Pending Resolution Proposal",
 				"pending_proposal_acceptance": "Pending Proposal Acceptance",
-				"pending_timelock_resolution": "Pending Timelock Resolution"
+				"pending_timelock_resolution": "Pending Timelock Resolution",
+				"refunded": "Refunded",
+				"funds_claimed": "Funds Claimed",
+				"no_show": "No Show",
+				"work_in_progress": "Work In Progress",
+				"in_dispute_wip": "In Dispute (WIP)"
 			},
 			"actions": {
 				"complete_task": "Mark Task Complete",

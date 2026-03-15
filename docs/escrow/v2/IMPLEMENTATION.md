@@ -11,6 +11,126 @@ This document tracks the implementation of the V2 escrow layer (mirror of `src/l
 
 ---
 
+## Progress log
+
+Summary of changes that got Milestone A to a shippable state (create v2 contract → see correct badge and success screen).
+
+- **Contract creation & list**
+  - **Deduplication:** Merged v1/v2 contract lists are deduplicated by `contractEvent.id` (not escrowId) so v1 and v2 contracts with the same numeric id (e.g. 123) never collide. Dashboard list key uses `contract.contractEvent.id`.
+  - **V1 getContracts:** Only processes CONTRACT events with no `#v` tag or `#v=v1`. Events with `#v=v2` (and any future version) are skipped so only v2 loaders handle v2 contracts; v1 no longer builds stub entries for v2 escrowIds.
+- **Task identity**
+  - **taskId = task d-tag:** V2 CONTRACT event uses task’s d-tag (from `getTaskStableId(task)`) as the `#t` tag and in content; debug logs in escrowBid and nostrContract confirm this.
+- **Creation flow**
+  - **Address checksum:** Taskee address from bid is normalized with `ethers.getAddress(params.taskee.toLowerCase())` before `createPaymentContract` to avoid “bad address checksum” errors.
+  - **Success screen:** After publishing the v2 CONTRACT event, v2 `contractCreationStore` is set with `escrowId` and `contractEventId` so the “Bid Accepted & Contract Funded” screen shows the green check and “Contract created” instead of staying on “Creating contract…”
+- **Badges**
+  - **ContractBadges** is a version wrapper (like ContractActionsByVersion): delegates to `ContractBadgesV1` or `ContractBadgesV2` from `escrow.getVersionFromContract(contract)`.
+  - **ContractBadgesV2** uses `contract.escrowData?.status` (v2 blockchain state 0–11) and `contractStatusFormatterV2` for label/color; v2-specific status keys added (work_in_progress, refunded, funds_claimed, no_show, in_dispute_wip).
+- **Lint**
+  - Intentional unused params/vars in v2 stubs and ContractActionsV2 (reserved for future use) are documented and exempted with `eslint-disable` / `eslint-disable-next-line` so hooks pass.
+
+---
+
+## Debug logging
+
+Use **`createDebug`** from `src/lib/utils/debug.ts` in all V2 modules so we can follow flow in the console. Enable with `localStorage.debug = 'btasker:escrow:v2'` (or `btasker:*` for all).
+
+**Pattern:**
+
+```ts
+import { createDebug } from '$lib/utils/debug';
+
+const d = createDebug('escrow:v2'); // or escrow:v2:config, escrow:v2:bid, etc.
+
+// Then use:
+d.log('message', { optional, data });
+d.warn('warning message', { context });
+d.error('error context', error);
+```
+
+**Guidelines:**
+
+- Log at entry/exit of public functions (e.g. `loadEscrowDetails start`, `loadEscrowDetails success` with paymentId/state).
+- Log decisions (cache hit/miss, relay vs direct path, exists/not exists).
+- Log external calls (relay POST, getPaymentContractState result) with minimal payload (e.g. txHash slice, paymentId).
+- Use `d.error` for caught errors before rethrow or return error result.
+- Use `d.warn` for fallbacks (e.g. getPaymentContract reverted, using state-only data).
+
+### Checklist: Debug logging
+
+- [x] Add debug section to this doc and checklist.
+- [x] `config.ts`: `createDebug('escrow:v2:config')`; log in getRelayBaseUrl (empty vs resolved), getV2ContractAddressByChainId (chainId, result).
+- [x] `escrow.ts`: `createDebug('escrow:v2')`; log in resolveContractAddress, ensureEscrowReady (address, cache, balance), loadEscrowDetails (start, state/exists, full vs fallback), checkEscrowFundingStatus, submitGaslessMetaTx (start, ok/error), fetchRelayInfo, resetCachedContract.
+- [x] `escrowBid.ts`: log calculateBidEscrowDetails, acceptBidAndCreateEscrow (start, tx, paymentId, Nostr).
+- [x] `escrowEvents.ts`: stubs only; log publishEscrowStatus / CONTRACT_STATUS when implemented.
+- [x] `nostrContract.ts`: log publishContractEvent; getContracts (stub returns []), handleStatusEvent/handleContractEvent stubs.
+
+---
+
+## Testing milestones (when can I test on the frontend?)
+
+We want two early checkpoints before implementing the full lifecycle and heavier paths.
+
+### Milestone A: Create a v2 contract and see it on the dashboard ✅
+
+**What you can test:** Accept a bid (Fund contract) → creation uses V2 → new contract appears in the Contracts list and shows as version 2 (badge/tags). No lifecycle actions yet.
+
+**Minimum implementation to reach this:**
+
+1. **v2 escrowBid.ts** ✅
+   - `calculateBidEscrowDetails` — return v2 creation params; `valueWei = totalAmountWei + 2× GAS_REIMBURSEMENT_PER_OP`.
+   - `acceptBidAndCreateEscrow` — call v2 `createPaymentContract` (direct payable), then publish **CONTRACT** with `escrowId` = `paymentId.toString()`, `transactionHash`, tag `v` = `v2`.
+2. **v2 nostrContract.ts** ✅
+   - `getContracts(filter)` — query CONTRACT with `#v` = `v2`; hydrate with v2 `loadEscrowDetails`; build `ContractWithEvents` with permissions.
+   - `publishContractEvent` — publish CONTRACT with v2 content and tag `v` = `v2`.
+   - `handleContractEvent` — decrypt v2 CONTRACT, load escrow, build contract, add to store.
+3. **Escrow index (src/lib/utils/escrow/index.ts)** ✅
+   - v2 registered in `VERSION_HANDLERS`.
+   - **getContracts:** calls v1 and v2 `getContracts`, merges, sorts by `created_at` desc, applies `limit`.
+   - `LATEST_ESCROW_VERSION = 'v2'` so new creations use v2.
+4. **UI** — Wrappers use `escrow.getVersionFromContract(contract)`; tag `v` = `v2` for badges/actions/timeline.
+
+**Checkpoint:** Accept a bid on testnet → contract created on V2 → appears in dashboard Contracts list → card/drawer shows it (version from tags).
+
+---
+
+### Milestone B: Happy path — Complete (taskee) → Accept (tasker) → funds released
+
+**What you can test:** On a v2 contract in state Funded: taskee clicks **Complete** (gasless or direct) → state becomes Completed; tasker clicks **Accept** → state becomes FundsReleased and funds are released. Full flow without dispute/cancel.
+
+**Minimum implementation to reach this:**
+
+1. **v2 escrow.ts**
+   - `completeTask(paymentId)` — try relay first (`submitGaslessMetaTx(signer, relayUrl, contractAddress, chainId, 'completeTask', [paymentId])`); on 202 get txHash; on 4xx/5xx fall back to direct tx. Return `{ hash: txHash }` (or similar) so caller can publish CONTRACT_STATUS.
+   - `acceptTask(paymentId)` — same pattern (relay then direct), return txHash.
+2. **v2 publish CONTRACT_STATUS**
+   - When we have a txHash after completeTask, publish one CONTRACT_STATUS with `action` = 4 (Completed); when we have txHash after acceptTask, publish with `action` = 7 (FundsReleased). Tag `v` = `v2`. This can live in v2 nostrContract (`publishContractStatus`) or a thin v2 escrowEvents (no pending store).
+3. **ContractActionsV2 (minimal)**
+   - New component (or a slim wrapper) that, for a v2 contract, shows only **Complete** (taskee, when status = Funded/NoShow/WorkInProgress) and **Accept** (tasker, when status = Completed). On click: call v2 escrow.completeTask or acceptTask → on txHash call v2 publishContractStatus → then refresh contract (e.g. `contractStore.loadContractByEscrowId(escrowId)`).
+4. **ContractActionsByVersion**
+   - Already branches on version; point the v2 branch to this minimal ContractActionsV2.
+5. **Permissions**
+   - ContractWithEvents.permissions (canComplete, canAccept) must be set for v2 contracts when we build them in v2 getContracts (derive from v2 state and role).
+
+**Checkpoint:** Open a v2 contract (Funded) as taskee → Complete → see state move to Completed; open as tasker → Accept → see FundsReleased and (optionally) confirm in wallet/explorer.
+
+---
+
+### Order of work (recommended)
+
+| Step | What                                                                          | Gets you to                                      |
+| ---- | ----------------------------------------------------------------------------- | ------------------------------------------------ |
+| 1    | v2 escrowBid (create + publish CONTRACT v2)                                   | Creation path ready                              |
+| 2    | v2 nostrContract (getContracts v2, publishContractEvent, handleContractEvent) | V2 contracts loadable                            |
+| 3    | Escrow index: register v2, getContracts merge v1+v2, LATEST = v2              | **Milestone A** — create and see v2 on dashboard |
+| 4    | v2 escrow: completeTask, acceptTask (relay + direct)                          | Lifecycle ready                                  |
+| 5    | v2 publish CONTRACT_STATUS (on txHash for action 4 and 7)                     | Nostr status in sync                             |
+| 6    | ContractActionsV2 (minimal: Complete + Accept), permissions for v2            | **Milestone B** — happy path end-to-end          |
+
+After Milestone B you can add dispute/cancel/timeline and the rest of the lifecycle without blocking on “are we doing it right?”
+
+---
+
 ## Double-check against source docs
 
 Use this to verify implementation details against the contract and relay repos.
@@ -72,9 +192,9 @@ Mirror of v1: connect to contract, creation (direct only), load details, lifecyc
 
 ### Checklist: Contract connection and readiness
 
-- [ ] Use contract address from config (by chainId: 31 → testnet, 30 → mainnet).
-- [ ] Implement `ensureEscrowReady(contractAddress?: string, requireBalance?: boolean)` for V2 (provider, signer, contract instance with v2 ABI). Reuse wallet store pattern from v1.
-- [ ] Cache contract instance per address; reset cache on provider destroy if needed.
+- [x] Use contract address from config (by chainId: 31 → testnet, 30 → mainnet).
+- [x] Implement `ensureEscrowReady(contractAddress?: string, requireBalance?: boolean)` for V2 (provider, signer, contract instance with v2 ABI). Reuse wallet store pattern from v1.
+- [x] Cache contract instance per address; reset cache on provider destroy if needed.
 
 ### Checklist: Creation (direct only)
 
@@ -85,20 +205,20 @@ Mirror of v1: connect to contract, creation (direct only), load details, lifecyc
 
 ### Checklist: Reading state
 
-- [ ] Implement `loadEscrowDetails(paymentId: string, contractAddress?: string)`: if caller may not be a party, use `getPaymentContractState(paymentId)` (returns state, exists, tasker, taskee, noShowMarked). If caller is a party, use `getPaymentContract(paymentId)` for full struct.
-- [ ] Map `SecurePaymentLegacy` to shared `EscrowData`: tasker→client, taskee→freelancer, amount→current balance, state→mapBlockchainStateToEnum; baseAmount/clientFee/freelancerFee/totalAmount: from creation params or Nostr (getter doesn’t expose fees; store at creation).
-- [ ] Handle `exists === false` (invalid paymentId): return or throw appropriately.
-- [ ] Implement `checkEscrowFundingStatus(paymentId)` using getPaymentContractState; return wasFunded, escrowData, error.
+- [x] Implement `loadEscrowDetails(paymentId: string, contractAddress?: string)`: if caller may not be a party, use `getPaymentContractState(paymentId)` (returns state, exists, tasker, taskee, noShowMarked). If caller is a party, use `getPaymentContract(paymentId)` for full struct.
+- [x] Map `SecurePaymentLegacy` to shared `EscrowData`: tasker→client, taskee→freelancer, amount→current balance, state→mapBlockchainStateToEnum; baseAmount/clientFee/freelancerFee/totalAmount: from creation params or Nostr (getter doesn’t expose fees; store at creation).
+- [x] Handle `exists === false` (invalid paymentId): return or throw appropriately.
+- [x] Implement `checkEscrowFundingStatus(paymentId)` using getPaymentContractState; return wasFunded, escrowData, error.
 
 ### Checklist: Dispute proposal
 
-- [ ] V2 has no `getDisputeProposal`. Either: (a) return null from a stub `getDisputeProposal(paymentId)` for compatibility, or (b) track proposal state from CONTRACT_STATUS (action 112) and events. Document in code.
+- [x] V2 has no `getDisputeProposal`. Either: (a) return null from a stub `getDisputeProposal(paymentId)` for compatibility, or (b) track proposal state from CONTRACT_STATUS (action 112) and events. Document in code — stub returns null.
 
 ### Checklist: Lifecycle — relay helper
 
-- [ ] Implement `submitGaslessMetaTx(signer, relayBaseUrl, contractAddress, chainId, functionName, args)`: build calldata with `contract.interface.encodeFunctionData(functionName, args)`, build hash `keccak256(solidityPacked(sender, contractAddress, keccak256(data), chainId))`, sign with `signer.signMessage(getBytes(innerHash))`, POST `{ sender, data, signature }` to `${relayBaseUrl}/relay`. Return `{ ok: true, txHash }` on 202 or `{ ok: false, error, message }` on 4xx/5xx.
-- [ ] Use `VITE_RELAY_URL` as relay base URL; get `chainId` from relay `GET /info` (string) or from wallet’s network (must match).
-- [ ] Use contract address from config (env) for both relay and direct paths.
+- [x] Implement `submitGaslessMetaTx(signer, relayBaseUrl, contractAddress, chainId, functionName, args)`: build calldata with `contract.interface.encodeFunctionData(functionName, args)`, build hash `keccak256(solidityPacked(sender, contractAddress, keccak256(data), chainId))`, sign with `signer.signMessage(getBytes(innerHash))`, POST `{ sender, data, signature }` to `${relayBaseUrl}/relay`. Return `{ ok: true, txHash }` on 202 or `{ ok: false, error, message }` on 4xx/5xx.
+- [x] Use `VITE_RELAY_URL` as relay base URL (getRelayBaseUrl); get `chainId` from relay `GET /info` (string) or from wallet’s network (must match).
+- [x] Use contract address from config (env) for both relay and direct paths.
 
 ### Checklist: Lifecycle — per-action functions
 
@@ -188,16 +308,16 @@ Rule: **Do not** publish CONTRACT_STATUS without a tx hash.
 
 ## Progress summary
 
-| Area                          | Status                                          |
-| ----------------------------- | ----------------------------------------------- |
-| Config and env                | ✅ Done                                         |
-| V2 enum                       | ✅ Done (formatter/translations deferred to UI) |
-| V2 escrow.ts                  | ⬜ Not started                                  |
-| V2 escrowBid.ts               | ⬜ Not started                                  |
-| V2 escrowEvents.ts            | ⬜ Not started                                  |
-| V2 nostrContract.ts           | ⬜ Not started                                  |
-| V2 index + manager            | ⬜ Not started                                  |
-| UI wrappers and v2 components | ⬜ Not started                                  |
-| Testing                       | ⬜ Not started                                  |
+| Area                          | Status                                                                     |
+| ----------------------------- | -------------------------------------------------------------------------- |
+| Config and env                | ✅ Done                                                                    |
+| V2 enum                       | ✅ Done (formatter/translations deferred to UI)                            |
+| V2 escrow.ts                  | ✅ In progress (connection, load, relay, checkFunding, getDisputeProposal) |
+| V2 escrowBid.ts               | ⬜ Not started                                                             |
+| V2 escrowEvents.ts            | ⬜ Not started                                                             |
+| V2 nostrContract.ts           | ⬜ Not started                                                             |
+| V2 index + manager            | ⬜ Not started                                                             |
+| UI wrappers and v2 components | ⬜ Not started                                                             |
+| Testing                       | ⬜ Not started                                                             |
 
 Update the table and check off items as you go. When all sections are done, the V2 layer is ready and the wrappers can call v2 for contracts with tag `v` = `v2`.

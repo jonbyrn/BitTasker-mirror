@@ -2,6 +2,7 @@
 	import type { ContractWithEvents } from '$lib/types/contract';
 	import { escrow } from '$lib/utils/escrow';
 	import ContractActions from './ContractActions.svelte';
+	import ContractActionsV2 from './ContractActionsV2.svelte';
 
 	const {
 		contract,
@@ -21,8 +22,7 @@
 {#if version === 'v1'}
 	<ContractActions {contract} {containerClass} {isInline} {compactButtons} />
 {:else if version === 'v2'}
-	<!-- TODO: ContractActionsV2 when v2 actions are implemented -->
-	<ContractActions {contract} {containerClass} {isInline} {compactButtons} />
+	<ContractActionsV2 {contract} {containerClass} {isInline} {compactButtons} />
 {:else}
 	<!-- Fallback to v1 for unknown versions -->
 	<ContractActions {contract} {containerClass} {isInline} {compactButtons} />

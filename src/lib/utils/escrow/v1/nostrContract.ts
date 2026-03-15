@@ -223,6 +223,11 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 	for (const event of contractEventsWithStatus) {
 		try {
 			const contractEvent = event as unknown as ContractEvent;
+			// V1 only processes CONTRACT events with no version tag or explicitly #v=v1. Skip any other version (v2, v3, …).
+			const versionTag = contractEvent.tags?.find((tag: string[]) => tag[0] === 'v');
+			const version = versionTag?.[1];
+			if (version != null && version !== 'v1') continue;
+
 			// Get status events attached by queryNostrEvents (already filtered and decrypted)
 			// Cast properly through unknown since NostrEvent has string content by default
 			const statusEvents = contractEvent.statusEvents?.sort((a, b) => a.created_at - b.created_at);

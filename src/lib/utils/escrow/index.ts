@@ -34,7 +34,7 @@ import type { Attachment, Task } from '$lib/types/task';
 import type { Writable } from 'svelte/store';
 
 import * as v1 from './v1';
-// import * as v2 from './v2';
+import * as v2 from './v2';
 // import * as v3 from './v3'; // Future versions
 
 // TODO: Refactor implementation to avoid imports from v1 folder
@@ -50,8 +50,8 @@ import {
  * Add new versions here as they're implemented
  */
 const VERSION_HANDLERS: Record<string, IVersionHandler> = {
-	v1: v1
-	// 'v2': v2,
+	v1: v1,
+	v2: v2
 	// 'v3': v3, // Just add new versions here
 };
 
@@ -60,7 +60,7 @@ const VERSION_HANDLERS: Record<string, IVersionHandler> = {
  * Update this when releasing a new version
  * New contracts will always use this version
  */
-export const LATEST_ESCROW_VERSION: EscrowVersion = 'v1';
+export const LATEST_ESCROW_VERSION: EscrowVersion = 'v2';
 
 /**
  * Global Escrow Manager Class
@@ -430,11 +430,44 @@ class EscrowManager {
 		},
 
 		/**
-		 * Get contracts from Nostr (uses LATEST to fetch all, version extracted per contract)
+		 * Get contracts from Nostr: merge v1 and v2 results, deduplicate by contract event id.
+		 * V1 returns all CONTRACT events (no #v filter), so v2 contracts appear in both lists;
+		 * the same Nostr event has the same contractEvent.id, so we only drop true duplicates.
+		 * We must not deduplicate by escrowId: v1 and v2 use separate id spaces (e.g. v1 "123" vs
+		 * v2 paymentId 123 are different contracts); when v2 paymentIds reach the 100s we'd
+		 * wrongly treat them as the same contract if we keyed by escrowId alone.
 		 */
 		getContracts: async (filter?: ContractFilter): Promise<ContractWithEvents[]> => {
-			const handler = this.getHandler(LATEST_ESCROW_VERSION);
-			return handler.nostrContract.getContracts(filter || {});
+			const f = filter ?? {};
+			const limit = f.limit ?? 5;
+			const [v1Contracts, v2Contracts] = await Promise.all([
+				v1.nostrContract.getContracts({ ...f, limit }),
+				v2.nostrContract.getContracts({ ...f, limit })
+			]);
+			const merged = [...v1Contracts, ...v2Contracts].sort(
+				(a, b) => b.contractEvent.created_at - a.contractEvent.created_at
+			);
+			// Deduplicate by contractEvent.id: same Nostr event returned by both v1 and v2 (v2 contracts
+			// appear in v1 results). When same id, keep the one from the matching version (v2).
+			const byEventId = new Map<string, ContractWithEvents>();
+			for (const contract of merged) {
+				const eventId = contract.contractEvent?.id ?? '';
+				if (!eventId) continue;
+				const version = this.getVersionFromContract(contract);
+				const existing = byEventId.get(eventId);
+				if (!existing) {
+					byEventId.set(eventId, contract);
+				} else {
+					const existingVersion = this.getVersionFromContract(existing);
+					if (version === 'v2' && existingVersion !== 'v2') {
+						byEventId.set(eventId, contract);
+					}
+				}
+			}
+			const deduped = [...byEventId.values()].sort(
+				(a, b) => b.contractEvent.created_at - a.contractEvent.created_at
+			);
+			return deduped.slice(0, limit);
 		},
 
 		/**
