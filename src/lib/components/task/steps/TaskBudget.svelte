@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Attachment } from '$lib/types/task';
+	import type { PaymentAsset, PaymentNetwork } from '$lib/utils/helpers/paymentContext';
 	import { onMount } from 'svelte';
 	import { linear } from 'svelte/easing';
 	import { fly } from 'svelte/transition';
@@ -10,6 +11,10 @@
 	import { t } from 'svelte-i18n';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import uploadService from '$lib/api/services/upload.service';
+	import {
+		getDefaultPaymentNetwork,
+		getPaymentRailLabel
+	} from '$lib/utils/helpers/paymentContext';
 
 	// BTC to USD conversion state
 	let usdAmount = $state<number>(0);
@@ -26,6 +31,10 @@
 	let isCompressing = $state(false);
 	let compressionProgress = $state({ processed: 0, total: 0, currentFile: '' });
 	let error = $state('');
+	const paymentRailOptions: Array<{ asset: PaymentAsset; network: PaymentNetwork }> = [
+		{ asset: 'RBTC', network: getDefaultPaymentNetwork('RBTC') },
+		{ asset: 'USDT', network: getDefaultPaymentNetwork('USDT') }
+	];
 
 	async function fetchBtcPrice(): Promise<void> {
 		try {
@@ -123,6 +132,18 @@
 
 	function cleanInput(value: string): string {
 		return value.replace(/[^0-9.,]/g, '');
+	}
+
+	function handlePaymentRailChange(asset: PaymentAsset, network: PaymentNetwork) {
+		store.updateTask({
+			paymentAsset: asset,
+			paymentNetwork: network
+		});
+	}
+
+	function isSelectedPaymentRail(asset: PaymentAsset, network: PaymentNetwork): boolean {
+		const state = get(store);
+		return state.task.paymentAsset === asset && state.task.paymentNetwork === network;
 	}
 
 	let {
@@ -395,6 +416,29 @@
 	}}
 >
 	<h4 class="text-lg font-semibold">{$t('task.budget_question')}</h4>
+
+	<div class="w-full">
+		<label class="label">
+			<span class="label-text">Payment rail</span>
+		</label>
+		<div class="grid gap-2 sm:grid-cols-2">
+			{#each paymentRailOptions as option}
+				<button
+					type="button"
+					class={`btn h-auto justify-between rounded-xl px-4 py-3 normal-case ${
+						isSelectedPaymentRail(option.asset, option.network) ? 'btn-primary' : 'btn-outline'
+					}`}
+					onclick={() => handlePaymentRailChange(option.asset, option.network)}
+				>
+					<span class="font-medium">{getPaymentRailLabel(option.asset, option.network)}</span>
+					<span class="text-xs opacity-80">{option.network}</span>
+				</button>
+			{/each}
+		</div>
+		<span class="label-text-alt mt-1 block text-white/70">
+			Selected rail controls how bids and escrow metadata are written for this task.
+		</span>
+	</div>
 
 	<div class="w-full">
 		<label for="budget" class="label">

@@ -6,6 +6,10 @@
 	import ContractTimeline from './ContractTimeline.svelte';
 	import ContractActions from './ContractActions.svelte';
 	import { contractStore } from '$lib/stores/contract.store';
+	import {
+		getPaymentRailLabel,
+		resolvePaymentContext
+	} from '$lib/utils/helpers/paymentContext';
 
 	const { contract, isOpen, onClose, onUpdate } = $props<{
 		contract: ContractWithEvents;
@@ -14,10 +18,55 @@
 		onUpdate: () => void;
 	}>();
 
+	const rawPaymentAsset = $derived(contract.contractEvent.content.paymentAsset ?? null);
+	const paymentContext = $derived(
+		resolvePaymentContext(rawPaymentAsset, contract.contractEvent.content.paymentNetwork)
+	);
+	const paymentAsset = $derived(paymentContext.paymentAsset);
+	const hasExplicitPaymentNetwork = $derived(Boolean(contract.contractEvent.content.paymentNetwork?.trim()));
+	const paymentNetwork = $derived(paymentContext.paymentNetwork);
+	const paymentRailLabel = $derived(getPaymentRailLabel(paymentAsset, paymentNetwork));
+	const hasExplicitPaymentAssetContext = $derived(rawPaymentAsset === 'USDT' || rawPaymentAsset === 'RBTC');
+	const isLegacyMissingContextContract = $derived(
+		contract.blockchainStatus === null &&
+			!contract.isPending &&
+			!contract.contractEvent.content.transactionHash &&
+			!hasExplicitPaymentNetwork &&
+			!hasExplicitPaymentAssetContext
+	);
+	const isMetadataOnlyBscContract = $derived(
+		!isLegacyMissingContextContract && paymentNetwork.startsWith('bsc') && contract.blockchainStatus === null
+	);
+	const hasExplicitTimelineRailContext = $derived(
+		Boolean(contract.contractEvent.content.paymentNetwork?.trim())
+	);
+	const shouldFailClosedBscAmountDisplay = $derived(
+		isMetadataOnlyBscContract && !hasExplicitPaymentAssetContext
+	);
+	const contractRailLabel = $derived(
+		isLegacyMissingContextContract
+			? 'Legacy escrow'
+			: shouldFailClosedBscAmountDisplay
+				? 'BSC escrow'
+				: paymentRailLabel
+	);
+
 	// Format RBTC amount
 	function formatRBTC(amount: string): string {
 		const num = parseFloat(amount);
 		return num.toFixed(4);
+	}
+
+	function formatTokenAmount(amount: string, asset: string): string {
+		const num = Number.parseFloat(amount);
+		if (!Number.isFinite(num)) {
+			return `${amount} ${asset}`;
+		}
+
+		return `${num.toLocaleString('en-US', {
+			minimumFractionDigits: 0,
+			maximumFractionDigits: asset === 'USDT' ? 6 : 8
+		})} ${asset}`;
 	}
 
 	// Format date using standardized formatting with reactive locale
@@ -122,6 +171,22 @@
 			<div class="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
 				<!-- Left Column: Contract Info -->
 				<div class="space-y-4">
+					{#if isMetadataOnlyBscContract}
+						<div class="alert alert-warning">
+							<span>
+								{contractRailLabel} escrow details are available in read-only mode. Contract actions
+								remain blocked until the deployed BSC escrow ABI/artifacts are accepted.
+							</span>
+						</div>
+					{:else if isLegacyMissingContextContract}
+						<div class="alert alert-warning">
+							<span>
+								This legacy contract is readable, but contract-changing actions stay blocked until
+								the rail context is normalized safely.
+							</span>
+						</div>
+					{/if}
+
 					<div class="card bg-base-200">
 						<div class="card-body p-4">
 							<h4 class="mb-3 font-semibold">{$t('dashboard.contracts.contract_details')}</h4>
@@ -129,10 +194,30 @@
 							<div class="space-y-3">
 								<div class="flex justify-between">
 									<span class="text-base-content/70">{$t('dashboard.contracts.amount')}:</span>
-									<span class="font-semibold"
-										>{formatRBTC(contractStore.getContractKey(contract, 'amount') as string)} RBTC</span
-									>
+									<span class="font-semibold">
+										{isLegacyMissingContextContract
+											? 'Read-only'
+											: shouldFailClosedBscAmountDisplay
+												? 'Read-only'
+											: paymentAsset === 'USDT'
+												? formatTokenAmount(contractStore.getContractKey(contract, 'amount') as string, paymentAsset)
+												: `${formatRBTC(contractStore.getContractKey(contract, 'amount') as string)} RBTC`}
+									</span>
 								</div>
+
+								<div class="flex justify-between">
+									<span class="text-base-content/70">Rail:</span>
+									<span class="text-sm font-medium">{contractRailLabel}</span>
+								</div>
+
+								{#if isLegacyMissingContextContract}
+									<div class="text-warning text-xs">Missing rail context</div>
+								{:else if shouldFailClosedBscAmountDisplay}
+									<div class="text-warning text-xs">
+										Payment asset context is legacy or missing, so RBTC display is intentionally
+										suppressed until the record is normalized safely.
+									</div>
+								{/if}
 
 								<div class="flex justify-between">
 									<span class="text-base-content/70">{$t('dashboard.contracts.escrow_id')}:</span>
@@ -201,7 +286,9 @@
 				<!-- Right Column: Actions & Status -->
 				<div class="space-y-4">
 					<!-- Available Actions -->
-					<ContractActions {contract} />
+					{#if !isLegacyMissingContextContract}
+						<ContractActions {contract} />
+					{/if}
 
 					<!-- Status Timeline -->
 					<div class="card bg-base-200">
@@ -216,6 +303,16 @@
 							<ContractTimeline
 								statusEvents={contract.statusEvents}
 								contractPubkey={contractStore.getContractKey(contract, 'clientPubkey') as string}
+								paymentAsset={isLegacyMissingContextContract
+									? undefined
+									: shouldFailClosedBscAmountDisplay
+										? undefined
+										: paymentAsset}
+								paymentNetwork={isLegacyMissingContextContract
+									? undefined
+									: hasExplicitTimelineRailContext
+										? paymentNetwork
+										: undefined}
 							/>
 						</div>
 					</div>

@@ -11,6 +11,10 @@
 		getStatusColorClass,
 		getStatusTranslationKey
 	} from '$lib/utils/helpers/contractStatusFormatter';
+	import {
+		getPaymentRailLabel,
+		resolvePaymentContext
+	} from '$lib/utils/helpers/paymentContext';
 	import { contractStore } from '$lib/stores/contract.store';
 	import UserInfoDisplay from '$lib/components/user/UserInfoDisplay.svelte';
 
@@ -69,6 +73,18 @@
 		const num = parseFloat(amount);
 		return num.toFixed(4);
 	}
+
+	function formatTokenAmount(amount: string, asset: string): string {
+		const num = Number.parseFloat(amount);
+		if (!Number.isFinite(num)) {
+			return `${amount} ${asset}`;
+		}
+
+		return `${num.toLocaleString('en-US', {
+			minimumFractionDigits: 0,
+			maximumFractionDigits: asset === 'USDT' ? 6 : 8
+		})} ${asset}`;
+	}
 </script>
 
 <Drawer
@@ -84,8 +100,57 @@
 	isScrollable={true}
 >
 	{#if $contractStore.contract}
+		{@const rawPaymentAsset =
+			$contractStore.contract.contractEvent.content.paymentAsset ?? null}
+		{@const paymentContext = resolvePaymentContext(
+			rawPaymentAsset,
+			$contractStore.contract.contractEvent.content.paymentNetwork
+		)}
+		{@const paymentAsset = paymentContext.paymentAsset}
+		{@const hasExplicitPaymentNetwork = Boolean(
+			$contractStore.contract.contractEvent.content.paymentNetwork?.trim()
+		)}
+		{@const paymentNetwork = paymentContext.paymentNetwork}
+		{@const hasExplicitPaymentAssetContext = rawPaymentAsset === 'USDT' || rawPaymentAsset === 'RBTC'}
+		{@const isLegacyMissingContextContract =
+			$contractStore.contract.blockchainStatus === null &&
+			!$contractStore.contract.isPending &&
+			!$contractStore.contract.contractEvent.content.transactionHash &&
+			!hasExplicitPaymentNetwork &&
+			!hasExplicitPaymentAssetContext}
+		{@const isMetadataOnlyBscContract =
+			!isLegacyMissingContextContract &&
+			paymentNetwork.startsWith('bsc') &&
+			$contractStore.contract.blockchainStatus === null}
+		{@const hasExplicitTimelineRailContext = Boolean(
+			$contractStore.contract.contractEvent.content.paymentNetwork?.trim()
+		)}
+		{@const shouldFailClosedBscAmountDisplay =
+			isMetadataOnlyBscContract && !hasExplicitPaymentAssetContext}
+		{@const paymentRailLabel = getPaymentRailLabel(paymentAsset, paymentNetwork)}
+		{@const contractRailLabel = isLegacyMissingContextContract
+			? 'Legacy escrow'
+			: shouldFailClosedBscAmountDisplay
+				? 'BSC escrow'
+				: paymentRailLabel}
 		<!-- Contract Details -->
 		<div class="min-w-0 space-y-6 overflow-x-hidden">
+			{#if isMetadataOnlyBscContract}
+				<div class="alert alert-warning">
+					<span>
+						{contractRailLabel} escrow details are available in read-only mode. Contract-changing
+						actions stay blocked until the deployed BSC escrow ABI/artifacts are accepted.
+					</span>
+				</div>
+			{:else if isLegacyMissingContextContract}
+				<div class="alert alert-warning">
+					<span>
+						This legacy contract is readable, but contract-changing actions stay blocked until the
+						rail context is normalized safely.
+					</span>
+				</div>
+			{/if}
+
 			<!-- Contract Info Card -->
 			<div class="card bg-base-200 min-w-0 overflow-hidden">
 				<div class="card-body min-w-0 p-4">
@@ -117,6 +182,9 @@
 							<div class="badge {getStatusColorClass($contractStore.contract.status)} shrink-0">
 								{$t(getStatusTranslationKey($contractStore.contract.status))}
 							</div>
+							<div class="badge badge-outline shrink-0">
+								{contractRailLabel}
+							</div>
 						</div>
 					</div>
 
@@ -131,7 +199,25 @@
 							</p>
 						</div>
 						<div class="shrink-0 pl-4 text-right">
-							{#if btcPrice > 0}
+							{#if isLegacyMissingContextContract}
+								<p class="text-lg font-bold">Read-only</p>
+								<p class="text-base-content/60 max-w-44 text-right text-sm">
+									Missing rail context
+								</p>
+							{:else if shouldFailClosedBscAmountDisplay}
+								<p class="text-lg font-bold">Read-only</p>
+								<p class="text-base-content/60 max-w-44 text-right text-sm">
+									BSC escrow legacy context
+								</p>
+							{:else if paymentAsset === 'USDT'}
+								<p class="text-lg font-bold">
+									{formatTokenAmount(
+										contractStore.getContractKey($contractStore.contract, 'amount') as string,
+										paymentAsset
+									)}
+								</p>
+								<p class="text-base-content/60 text-sm">{contractRailLabel}</p>
+							{:else if btcPrice > 0}
 								<UsdSatsDisplay
 									amount={parseFloat(
 										contractStore.getContractKey($contractStore.contract, 'amount') as string
@@ -203,12 +289,26 @@
 						<div
 							class="order-3 flex min-w-0 flex-wrap gap-2 pl-0 sm:order-2 sm:w-fit sm:flex-row sm:items-center sm:justify-end sm:pl-4"
 						>
-							<ContractActions
-								contract={$contractStore.contract}
-								containerClass="flex min-w-0 flex-wrap gap-2 sm:flex-row sm:w-fit"
-								isInline={false}
-								compactButtons={true}
-							/>
+							{#if !isLegacyMissingContextContract}
+								<ContractActions
+									contract={$contractStore.contract}
+									containerClass="flex min-w-0 flex-wrap gap-2 sm:flex-row sm:w-fit"
+									isInline={false}
+									compactButtons={true}
+								/>
+							{/if}
+							{#if isMetadataOnlyBscContract}
+								<div class="text-warning mt-2 text-xs">
+									{contractRailLabel} is available in read-only mode until the deployed BSC escrow
+									ABI/artifacts are accepted.
+									{#if shouldFailClosedBscAmountDisplay}
+										Payment asset context is legacy or missing, so RBTC/sats display is
+										intentionally suppressed until the record is normalized safely.
+									{/if}
+								</div>
+							{:else if isLegacyMissingContextContract}
+								<div class="text-warning mt-2 text-xs">Missing rail context</div>
+							{/if}
 						</div>
 					</div>
 				</div>
@@ -289,6 +389,16 @@
 							contractCreatorPubkey={$contractStore.contract.contractEvent.pubkey}
 							contractFundingTransactionHash={$contractStore.contract.contractEvent.content
 								.transactionHash}
+							paymentAsset={isLegacyMissingContextContract
+								? undefined
+								: shouldFailClosedBscAmountDisplay
+									? undefined
+									: paymentAsset}
+							paymentNetwork={isLegacyMissingContextContract
+								? undefined
+								: hasExplicitTimelineRailContext
+									? paymentNetwork
+									: undefined}
 							onDisplayCountChange={(count) => (timelineDisplayCount = count)}
 						/>
 					</div>

@@ -58,7 +58,7 @@
 		},
 		{
 			id: 'bsc' as const,
-			label: $t('wallet.transaction.network.bsc'),
+			label: 'BSC',
 			icon: '/images/chains/Binance-logo.svg',
 			isImage: true
 		}
@@ -193,15 +193,66 @@
 		}
 	}
 
-	function formatFee(feeSats: number | undefined): string {
+	function getUnitLabel(unit: string | undefined): string {
+		return unit === 'sats' || !unit ? $t('wallet.sats') : unit;
+	}
+
+	function formatAmountByUnit(value: number | string | undefined, unit: string | undefined): string {
 		try {
-			// Fee is pre-calculated in sats in wallet store
-			if (!feeSats || !isFinite(feeSats) || isNaN(feeSats)) return '0';
-			return `${feeSats.toLocaleString()} ${$t('wallet.sats')}`;
+			const numericValue = typeof value === 'number' ? value : Number(value ?? 0);
+			if (!isFinite(numericValue) || isNaN(numericValue)) {
+				return `0 ${getUnitLabel(unit)}`;
+			}
+
+			if (unit === 'sats' || !unit) {
+				return `${Math.floor(numericValue).toLocaleString()} ${$t('wallet.sats')}`;
+			}
+
+			const formatted = numericValue.toLocaleString('en-US', {
+				minimumFractionDigits: 0,
+				maximumFractionDigits: 6
+			});
+			return `${formatted} ${getUnitLabel(unit)}`;
 		} catch (error) {
-			console.error('Error formatting fee:', error);
-			return '0';
+			console.error('Error formatting amount:', error);
+			return `0 ${getUnitLabel(unit)}`;
 		}
+	}
+
+	function getAssetBadgeLabel(tx: {
+		network: 'rsk' | 'bsc' | 'lightning';
+		amountUnit?: string;
+		tokenSymbol?: string;
+	}): string {
+		if (tx.network === 'bsc') {
+			return tx.tokenSymbol || tx.amountUnit || 'USDT';
+		}
+
+		if (tx.network === 'rsk') {
+			return 'rBTC';
+		}
+
+		if (tx.network === 'lightning') {
+			return 'BTC';
+		}
+
+		return tx.amountUnit || '';
+	}
+
+	function getNetworkBadgeLabel(tx: { networkDisplayName?: string; network: 'rsk' | 'bsc' | 'lightning' }): string {
+		if (tx.network === 'bsc') {
+			return 'BSC';
+		}
+
+		if (tx.network === 'rsk') {
+			return 'Rootstock';
+		}
+
+		if (tx.network === 'lightning') {
+			return 'Lightning';
+		}
+
+		return tx.networkDisplayName || '';
 	}
 
 	function formatDate(timestamp: string): string {
@@ -483,7 +534,7 @@
 		<!-- Transaction List -->
 		<div class="space-y-3">
 			{#each paginatedTransactions as tx}
-				{@const valueSats = Number(tx.value)}
+				{@const numericValue = Number(tx.value)}
 				{@const transactionClasses = transactionUI[tx.borderColor]}
 				<div
 					role="button"
@@ -527,23 +578,32 @@
 										{/if}
 									</div>
 									<div class="flex items-center gap-2">
-										<span class="font-semibold">
-											{$t(tx.title)}
-										</span>
+										<div class="flex flex-col gap-1">
+											<span class="font-semibold">
+												{$t(tx.title)}
+											</span>
+											<div class="flex flex-wrap items-center gap-1 text-xs">
+												<span class="badge badge-outline badge-sm">
+													{getAssetBadgeLabel(tx)}
+												</span>
+												<span class="badge badge-outline badge-sm">
+													{getNetworkBadgeLabel(tx)}
+												</span>
+											</div>
+										</div>
 									</div>
 								</div>
 								<div class="flex flex-col items-end">
 									<div class="{transactionClasses.text} font-semibold">
 										{#if tx.displayType === 'receive' || tx.displayType === 'swap-claim'}
-											{#if valueSats > 0}+{/if}
+											{#if numericValue > 0}+{/if}
 										{:else if tx.displayType === 'send'}
-											{#if valueSats > 0}-{/if}
+											{#if numericValue > 0}-{/if}
 										{/if}
-										{valueSats.toLocaleString()}
-										{$t('wallet.sats')}
+										{formatAmountByUnit(tx.value, tx.amountUnit)}
 									</div>
 									<div class="text-xs opacity-70">
-										{$t('wallet.tx_fee')}: {formatFee(tx.feeSats)}
+										{$t('wallet.tx_fee')}: {formatAmountByUnit(tx.feeSats, tx.feeUnit)}
 									</div>
 								</div>
 							</div>
@@ -555,7 +615,7 @@
 									<div
 										class="bg-base-300/20 flex h-10 w-10 items-center justify-center rounded-full"
 									>
-										<img src={tx.networkIcon} alt={tx.networkDisplayName} class="h-10 w-10" />
+										<img src={tx.networkIcon} alt={getNetworkBadgeLabel(tx)} class="h-10 w-10" />
 									</div>
 									<div class="text-sm opacity-70">
 										<div>{formatDate(tx.timestamp)}</div>
@@ -567,7 +627,7 @@
 										{$t('wallet.balance_after')}:
 									</div>
 									<div class="text-sm font-semibold md:text-base">
-										{Math.floor(tx.balanceAfter)?.toLocaleString() || '0'} {$t('wallet.sats')}
+										{formatAmountByUnit(tx.balanceAfter, tx.balanceUnit)}
 									</div>
 									<!-- Swap Action Buttons - Thin, directly below balance -->
 									{#if tx.swap?.actions && tx.swap.actions.length > 0}

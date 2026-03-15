@@ -25,6 +25,11 @@ vi.mock('@bittasker/wallet-core', () => ({
 		rpcUrl: 'https://bsc-dataseed.binance.org/',
 		explorerApiUrl: null, // No longer using BSCScan API
 		chainId: 56
+	})),
+	getUSDTToken: vi.fn(() => ({
+		address: '0x55d398326f99059fF775485246999027B3197955',
+		decimals: 6,
+		symbol: 'USDT'
 	}))
 }));
 
@@ -215,6 +220,16 @@ describe('BalanceHistoryService', () => {
 		it('should have clearCaches method', () => {
 			// Just verify the method exists and can be called
 			expect(() => balanceHistoryService.clearCaches()).not.toThrow();
+		});
+
+		it('should reset BSC unavailability flags when caches are cleared', () => {
+			(balanceHistoryService as any).bscIndexingUnavailable = true;
+			(balanceHistoryService as any).oldCacheFormatsCleared = true;
+
+			balanceHistoryService.clearCaches();
+
+			expect((balanceHistoryService as any).bscIndexingUnavailable).toBe(false);
+			expect((balanceHistoryService as any).oldCacheFormatsCleared).toBe(false);
 		});
 	});
 
@@ -442,6 +457,68 @@ describe('BalanceHistoryService', () => {
 			// Should use in-memory cache for prices
 			// First call: 3 prices, Second call: 0 (cached)
 			expect(cryptoPriceService.getHistoricalPrice).toHaveBeenCalledTimes(3);
+		});
+	});
+
+	describe('BSC USDT daily balances', () => {
+		it('should return today balance in USDT units without fetching market pricing', async () => {
+			const now = new Date();
+			const today = new Date(now);
+			today.setHours(0, 0, 0, 0);
+
+			mockProvider.getBlock.mockResolvedValue({
+				number: 50000000,
+				timestamp: Math.floor(Date.now() / 1000)
+			});
+
+			const result = await balanceHistoryService.getDailyBalances(
+				today,
+				today,
+				mockProvider,
+				mockAddress,
+				12.345678,
+				12.345678,
+				{
+					network: 'bsc',
+					assetSymbol: 'USDT',
+					unitLabel: 'USDT',
+					tokenAddress: '0x55d398326f99059fF775485246999027B3197955',
+					tokenDecimals: 6
+				}
+			);
+
+			expect(result).toHaveLength(1);
+			expect(result[0].sats).toBe(12.345678);
+			expect(result[0].usd).toBe(12.345678);
+			expect(mockProvider.getBlock).toHaveBeenCalledWith('latest');
+			expect(cryptoPriceService.getCurrentPrice).not.toHaveBeenCalled();
+		});
+
+		it('should return unavailable balance changes instead of synthetic zero gains when BSC history lookup fails', async () => {
+			global.fetch = vi.fn().mockResolvedValue({
+				ok: false,
+				status: 500
+			});
+
+			mockProvider.getBlock.mockRejectedValue(new Error('Historical block lookup unavailable'));
+
+			const result = await balanceHistoryService.getBalanceChanges(
+				12.345678,
+				12.345678,
+				mockProvider,
+				mockAddress,
+				{
+					network: 'bsc',
+					assetSymbol: 'USDT',
+					unitLabel: 'USDT',
+					tokenAddress: '0x55d398326f99059fF775485246999027B3197955',
+					tokenDecimals: 6
+				}
+			);
+
+			expect(result).toHaveLength(3);
+			expect(result[0].satsChange).toBeNull();
+			expect(result[0].usdChange).toBeNull();
 		});
 	});
 

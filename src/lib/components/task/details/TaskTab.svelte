@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Attachment, Task, Category } from '$lib/types/task';
+	import type { ContractWithEvents } from '$lib/types/contract';
 	import { TaskTypeEnum } from '$lib/utils/enums/task.enum';
 	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
@@ -21,6 +22,11 @@
 	} from '$lib/utils/location/maps';
 	import Gallery from '$lib/components/Gallery.svelte';
 	import { TASK_CATEGORIES } from '$lib/utils/constants/categories';
+	import {
+		normalizePaymentAsset,
+		normalizePaymentNetwork,
+		resolvePaymentContext
+	} from '$lib/utils/helpers/paymentContext';
 	// Icon imports for unplugin-icons
 	import IconPlus from '~icons/mdi/plus';
 
@@ -79,6 +85,10 @@
 
 	// Convert category IDs to translated names for display (reactive)
 	let translatedCategories = $derived(task?.categories?.map(translateCategory) || []);
+	const paymentContext = $derived(resolvePaymentContext(task.paymentAsset, task.paymentNetwork));
+	const isBscBudgetRail = $derived(
+		paymentContext.paymentAsset === 'USDT' && paymentContext.paymentNetwork.startsWith('bsc')
+	);
 
 	// Directions link for in-person tasks with location (used to make location text/icon clickable)
 	const locationDirectionsLink = $derived.by(() => {
@@ -188,6 +198,27 @@
 		}
 	}
 
+	function getContractRailSafety(contract: ContractWithEvents): {
+		isBscContract: boolean;
+		isAmbiguousLegacyContract: boolean;
+	} {
+		const rawPaymentAsset = contract.contractEvent.content.paymentAsset ?? null;
+		const rawPaymentNetwork = contract.contractEvent.content.paymentNetwork ?? null;
+		if (!rawPaymentNetwork?.trim()) {
+			return { isBscContract: false, isAmbiguousLegacyContract: true };
+		}
+
+		const paymentAsset = normalizePaymentAsset(
+			rawPaymentAsset ?? contract.contractEvent.content.currency ?? undefined
+		);
+		const paymentNetwork = normalizePaymentNetwork(rawPaymentNetwork, paymentAsset);
+
+		return {
+			isBscContract: paymentNetwork.startsWith('bsc'),
+			isAmbiguousLegacyContract: false
+		};
+	}
+
 	// Check if task can be edited (cannot edit if contract exists)
 	async function checkCanEditTask(): Promise<void> {
 		if (!task?.id) {
@@ -245,6 +276,14 @@
 
 			// Task has contracts - check if any escrow was funded
 			for (const contract of contracts) {
+				const { isBscContract, isAmbiguousLegacyContract } = getContractRailSafety(contract);
+				if (isBscContract || isAmbiguousLegacyContract) {
+					// Pre-ABI BSC and legacy contracts without explicit rail context stay non-deletable
+					// until they can be evaluated without falling back to Rootstock-only reads.
+					canDelete = false;
+					return;
+				}
+
 				const fundingStatus = await escrow.escrowOps.checkEscrowFundingStatus(contract);
 
 				if (fundingStatus.error) {
@@ -332,7 +371,16 @@
 					/>
 				</div>
 				<div class="flex shrink-0 flex-col items-end pl-4">
-					{#if btcPrice > 0}
+					{#if isBscBudgetRail}
+						<div class="text-right">
+							<span
+								class="text-base-content/60 block text-xs font-semibold tracking-wide uppercase"
+							>
+								{$t('dashboard.task_details_by_task.budget')} - {task.budget.type}
+							</span>
+							<p class="text-lg font-bold">${task.budget.amount.toFixed(2)}</p>
+						</div>
+					{:else if btcPrice > 0}
 						<UsdSatsDisplay
 							amount={task.budget.amount}
 							{btcPrice}

@@ -413,11 +413,16 @@ export function determineContractState(
 	disputeProposal: DisputeProposal | null,
 	isPending: boolean,
 	isClient: boolean,
-	isFreelancer: boolean
+	isFreelancer: boolean,
+	options?: {
+		allowDeleteWhenNeverFunded?: boolean;
+	}
 ): {
 	status: EscrowStatus;
 	permissions: ContractPermissions;
 } {
+	const allowDeleteWhenNeverFunded = options?.allowDeleteWhenNeverFunded ?? true;
+
 	// CASE 1: Blockchain state exists (escrow was funded)
 	if (blockchainStatus !== null && escrowData) {
 		return mapBlockchainStatusToPermissions(
@@ -536,7 +541,7 @@ export function determineContractState(
 			canAcceptProposal: false,
 			canCancel: false,
 			canResolveTimelock: false,
-			canDelete: true  // ✅ Only case where deletion is allowed
+			canDelete: allowDeleteWhenNeverFunded // ✅ Only allowed when the caller explicitly permits it
 		}
 	};
 }

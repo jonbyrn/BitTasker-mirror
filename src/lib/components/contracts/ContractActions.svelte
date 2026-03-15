@@ -24,6 +24,10 @@
 	} from '$lib/utils/location/sendLocation';
 	import IconSwapHorizontal from '~icons/mdi/swap-horizontal';
 	import { SvelteMap } from 'svelte/reactivity';
+	import {
+		getPaymentRailLabel,
+		resolvePaymentContext
+	} from '$lib/utils/helpers/paymentContext';
 
 	const {
 		contract,
@@ -41,6 +45,32 @@
 	// State for actions
 	let isLoading = $state<Record<string, boolean>>({});
 	let activeModal = $state<ContractModalAction>(ContractModalAction.None);
+
+	const rawPaymentAsset = $derived(contract.contractEvent.content.paymentAsset ?? null);
+	const paymentContext = $derived(
+		resolvePaymentContext(rawPaymentAsset, contract.contractEvent.content.paymentNetwork)
+	);
+	const paymentAsset = $derived(paymentContext.paymentAsset);
+	const hasExplicitPaymentNetwork = $derived(Boolean(contract.contractEvent.content.paymentNetwork?.trim()));
+	const paymentNetwork = $derived(paymentContext.paymentNetwork);
+	const paymentRailLabel = $derived(getPaymentRailLabel(paymentAsset, paymentNetwork));
+	const hasExplicitPaymentAssetContext = $derived(rawPaymentAsset === 'USDT' || rawPaymentAsset === 'RBTC');
+	const isLegacyMissingContextContract = $derived(
+		contract.blockchainStatus === null &&
+			!contract.isPending &&
+			!contract.contractEvent.content.transactionHash &&
+			!hasExplicitPaymentNetwork &&
+			!hasExplicitPaymentAssetContext
+	);
+	const isMetadataOnlyBscContract = $derived(
+		!isLegacyMissingContextContract && paymentNetwork.startsWith('bsc') && contract.blockchainStatus === null
+	);
+	const blockedBscRailLabel = $derived(
+		isMetadataOnlyBscContract && paymentAsset !== 'USDT' && !hasExplicitPaymentAssetContext
+			? 'BSC escrow'
+			: paymentRailLabel
+	);
+	const isRailActionBlocked = $derived(isMetadataOnlyBscContract || isLegacyMissingContextContract);
 
 	// Disable ALL critical actions when transaction is pending
 	const isDisabledDueToPending = $derived(contract.isPending);
@@ -92,6 +122,18 @@
 	// Helper to set loading state
 	function setLoading(action: string, loading: boolean) {
 		isLoading = { ...isLoading, [action]: loading };
+	}
+
+	function showPreAbiBscActionBlockedToast() {
+		appStore.showErrorToast(
+			`${blockedBscRailLabel} escrow actions remain blocked until the deployed BSC escrow ABI/artifacts are accepted.`
+		);
+	}
+
+	function showLegacyRailContextBlockedToast() {
+		appStore.showErrorToast(
+			'Legacy escrow actions remain blocked until the rail context is normalized safely.'
+		);
 	}
 
 	// Check if cancel is allowed based on time restrictions
@@ -180,6 +222,14 @@
 
 	// Complete task with attachments (freelancer only)
 	async function completeTaskWithAttachments(attachments: Attachment[]) {
+		if (isMetadataOnlyBscContract) {
+			showPreAbiBscActionBlockedToast();
+			return;
+		}
+		if (isLegacyMissingContextContract) {
+			showLegacyRailContextBlockedToast();
+			return;
+		}
 		if (!contract.permissions.canComplete) return;
 
 		// Check if already pending via Nostr
@@ -236,6 +286,14 @@
 
 	// Accept task (client only)
 	async function acceptTask() {
+		if (isMetadataOnlyBscContract) {
+			showPreAbiBscActionBlockedToast();
+			return;
+		}
+		if (isLegacyMissingContextContract) {
+			showLegacyRailContextBlockedToast();
+			return;
+		}
 		if (!contract.permissions.canAccept) return;
 
 		// Check if already pending via Nostr
@@ -287,6 +345,14 @@
 
 	// Dispute task (client only)
 	async function disputeTask() {
+		if (isMetadataOnlyBscContract) {
+			showPreAbiBscActionBlockedToast();
+			return;
+		}
+		if (isLegacyMissingContextContract) {
+			showLegacyRailContextBlockedToast();
+			return;
+		}
 		if (!contract.permissions.canDispute)
 			return console.log('User does not have permission to dispute task', contract);
 
@@ -324,6 +390,14 @@
 
 	// Propose resolution
 	async function proposeResolution() {
+		if (isMetadataOnlyBscContract) {
+			showPreAbiBscActionBlockedToast();
+			return;
+		}
+		if (isLegacyMissingContextContract) {
+			showLegacyRailContextBlockedToast();
+			return;
+		}
 		if (!contract.permissions.canPropose) return;
 		if (!proposedFreelancerAmountUSD) {
 			appStore.showErrorToast($t('dashboard.contracts.actions.resolution_amounts_required'));
@@ -382,6 +456,14 @@
 
 	// Accept proposal
 	async function acceptProposal() {
+		if (isMetadataOnlyBscContract) {
+			showPreAbiBscActionBlockedToast();
+			return;
+		}
+		if (isLegacyMissingContextContract) {
+			showLegacyRailContextBlockedToast();
+			return;
+		}
 		if (!contract.permissions.canAcceptProposal) return;
 
 		setLoading('acceptProposal', true);
@@ -411,6 +493,14 @@
 
 	// Cancel escrow
 	async function cancelEscrow() {
+		if (isMetadataOnlyBscContract) {
+			showPreAbiBscActionBlockedToast();
+			return;
+		}
+		if (isLegacyMissingContextContract) {
+			showLegacyRailContextBlockedToast();
+			return;
+		}
 		if (!contract.permissions.canCancel) {
 			return appStore.showErrorToast($t('dashboard.contracts.actions.cancel_time_restriction'));
 		}
@@ -449,6 +539,14 @@
 
 	// Resolve after timelock
 	async function resolveAfterTimelock() {
+		if (isMetadataOnlyBscContract) {
+			showPreAbiBscActionBlockedToast();
+			return;
+		}
+		if (isLegacyMissingContextContract) {
+			showLegacyRailContextBlockedToast();
+			return;
+		}
 		setLoading('resolveTimelock', true);
 		try {
 			// Call RSK escrow resolveAfterTimelock with contract event ID for proper nostr event publishing
@@ -481,6 +579,14 @@
 
 	// Delete contract
 	async function onDeleteContract() {
+		if (isMetadataOnlyBscContract) {
+			showPreAbiBscActionBlockedToast();
+			return;
+		}
+		if (isLegacyMissingContextContract) {
+			showLegacyRailContextBlockedToast();
+			return;
+		}
 		if (!contract.permissions.canDelete) return;
 		setLoading('delete', true);
 		try {
@@ -503,6 +609,14 @@
 
 	// Modal action handlers - these will be called by the modal configurations
 	function openModal(action: ContractModalAction) {
+		if (isMetadataOnlyBscContract) {
+			showPreAbiBscActionBlockedToast();
+			return;
+		}
+		if (isLegacyMissingContextContract) {
+			showLegacyRailContextBlockedToast();
+			return;
+		}
 		// Special handling for cancel action - check time restrictions
 		if (action === ContractModalAction.Cancel) {
 			const timeCheck = canCancelBasedOnTime();
@@ -597,6 +711,14 @@
 	});
 
 	const openDrawerForResolution = () => {
+		if (isMetadataOnlyBscContract) {
+			showPreAbiBscActionBlockedToast();
+			return;
+		}
+		if (isLegacyMissingContextContract) {
+			showLegacyRailContextBlockedToast();
+			return;
+		}
 		$contractStore.isResolutionFormOpen = true;
 		$contractStore.contract = contract;
 		$contractStore.isDrawerOpen = true;
@@ -604,8 +726,23 @@
 </script>
 
 <div class="{containerClass} {containerClass.includes('grid') ? 'w-full' : ''}">
+	{#if isRailActionBlocked}
+		<div class="alert alert-warning {isInline ? 'w-full' : 'col-span-2 w-full'}">
+			{#if isLegacyMissingContextContract}
+				<span>
+					Legacy escrow actions are unavailable until the rail context is normalized safely.
+				</span>
+			{:else}
+				<span>
+					{blockedBscRailLabel} escrow actions are unavailable in read-only mode until the deployed
+					BSC escrow ABI/artifacts are accepted.
+				</span>
+			{/if}
+		</div>
+	{/if}
+
 	<!-- Complete Task (Freelancer) -->
-	{#if contract.permissions.canComplete && !isCompleteDisabled && !isDisabledDueToPending}
+	{#if !isRailActionBlocked && contract.permissions.canComplete && !isCompleteDisabled && !isDisabledDueToPending}
 		<button
 			class="btn btn-success btn-sm {compactButtons
 				? 'w-fit'
@@ -657,7 +794,7 @@
 	{/if}
 
 	<!-- Accept Task (Client) -->
-	{#if contract.permissions.canAccept && !isAcceptDisabled && !isDisabledDueToPending}
+	{#if !isRailActionBlocked && contract.permissions.canAccept && !isAcceptDisabled && !isDisabledDueToPending}
 		<button
 			class="btn btn-success btn-sm {compactButtons
 				? 'w-fit'
@@ -689,7 +826,7 @@
 	{/if}
 
 	<!-- Dispute Task (Client) -->
-	{#if contract.permissions.canDispute && !isDisputeDisabled}
+	{#if !isRailActionBlocked && contract.permissions.canDispute && !isDisputeDisabled}
 		<button
 			class="btn btn-error btn-sm {compactButtons
 				? 'w-fit'
@@ -721,7 +858,7 @@
 	{/if}
 
 	<!-- Accept Proposal -->
-	{#if !isInline && contract.permissions.canAcceptProposal}
+	{#if !isRailActionBlocked && !isInline && contract.permissions.canAcceptProposal}
 		<div class="bg-base-300 col-span-2 w-full min-w-0 space-y-3 rounded-lg p-3">
 			<h5 class="text-sm font-medium">
 				{$t('dashboard.contracts.actions.current_proposal')}
@@ -843,7 +980,7 @@
 	{/if}
 
 	<!-- Propose Resolution -->
-	{#if contract.permissions.canPropose}
+	{#if !isRailActionBlocked && contract.permissions.canPropose}
 		{#if isInline || !$contractStore.isResolutionFormOpen}
 			<button
 				class="btn btn-warning btn-sm {compactButtons
@@ -955,7 +1092,7 @@
 	{/if}
 
 	<!-- Cancel Escrow -->
-	{#if contract.permissions.canCancel && !isCancelDisabled}
+	{#if !isRailActionBlocked && contract.permissions.canCancel && !isCancelDisabled}
 		<button
 			class="btn btn-error btn-sm {compactButtons
 				? 'w-fit'
@@ -987,7 +1124,7 @@
 	{/if}
 
 	<!-- Resolve After Timelock -->
-	{#if contract.permissions.canResolveTimelock}
+	{#if !isRailActionBlocked && contract.permissions.canResolveTimelock}
 		<div
 			class="flex flex-col gap-2 {compactButtons
 				? 'w-fit'
@@ -1047,7 +1184,7 @@
 	{/if}
 
 	<!-- Delete Contract (only visible when can delete) -->
-	{#if contract.permissions.canDelete}
+	{#if !isRailActionBlocked && contract.permissions.canDelete}
 		{#if isLoading.delete}
 			<div
 				class="btn btn-error btn-sm gap-2 {compactButtons

@@ -311,9 +311,12 @@
 			}
 
 			const task: TaskBody = {
+				schemaVersion: $store.task.schemaVersion,
 				title: $store.task.title,
 				description: $store.task.description,
 				budget: $store.task.budget,
+				paymentAsset: $store.task.paymentAsset,
+				paymentNetwork: $store.task.paymentNetwork,
 				deadline: $store.task.deadline,
 				dateRange: $store.task.dateRange,
 				taskType: $store.task.taskType,
@@ -362,9 +365,12 @@
 			isSubmitting = false;
 			if (signedEventId) {
 				const currentTask = {
+					schemaVersion: $store.task.schemaVersion,
 					title: $store.task.title,
 					description: $store.task.description,
 					budget: $store.task.budget,
+					paymentAsset: $store.task.paymentAsset,
+					paymentNetwork: $store.task.paymentNetwork,
 					deadline: $store.task.deadline,
 					dateRange: $store.task.dateRange,
 					taskType: $store.task.taskType,

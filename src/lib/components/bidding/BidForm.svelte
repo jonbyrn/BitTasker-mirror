@@ -7,7 +7,7 @@
 	import { publishNostrEvent } from '$lib/utils/nostr';
 	import { clearBidCache } from '$lib/utils/nostr-bid';
 	import { TAG_PATTERNS } from '$lib/utils/constants/tags';
-	import { getRSKAddress } from '$lib/stores/wallet.store';
+	import { getBSCAddress, getRSKAddress } from '$lib/stores/wallet.store';
 	import { generateBidTranslations } from '$lib/nostr/bid';
 	import { formatNumberForInput } from '$lib/utils/helpers/crypto';
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
@@ -17,6 +17,14 @@
 	import KINDS from '$lib/utils/constants/kinds';
 	import { serializeDateWithLocalTime } from '$lib/utils/helpers/dateFormatter';
 	import { SvelteDate } from 'svelte/reactivity';
+	import {
+		BID_SCHEMA_VERSION,
+		getBidReference,
+		getPaymentRailLabel,
+		getTaskReference,
+		resolvePaymentContext,
+		toAtomicAmountString
+	} from '$lib/utils/helpers/paymentContext';
 
 	// Props - Simplified to just task, onClose, and stickySubmit
 	const {
@@ -67,6 +75,10 @@
 
 	// BTC conversion state
 	let btcPrice = $state<number>(0);
+	let paymentContext = $derived(resolvePaymentContext(task.paymentAsset, task.paymentNetwork));
+	let paymentAsset = $derived(paymentContext.paymentAsset);
+	let paymentNetwork = $derived(paymentContext.paymentNetwork);
+	let bidderWalletNetwork = $derived(paymentNetwork);
 
 	// Fetch BTC price on mount
 	async function fetchBtcPrice(): Promise<void> {
@@ -348,25 +360,33 @@
 
 		submittingBid = true;
 
-		try {
-			const rskAddress = await getRSKAddress();
+			try {
+				const bidderWalletAddress =
+					paymentNetwork.startsWith('bsc') ? await getBSCAddress() : await getRSKAddress();
+				const amountAtomic = toAtomicAmountString(amount, paymentAsset);
 
-			// Generate translations for bid content (description, proposedApproach, coverLetter)
-			const bidTranslations = await generateBidTranslations({
+				// Generate translations for bid content (description, proposedApproach, coverLetter)
+				const bidTranslations = await generateBidTranslations({
 				description,
 				proposedApproach,
 				coverLetter
 			});
 
 			// Create bid data structure with explicit type
+			const bidId = crypto.randomUUID();
 			const bidData = {
+				schemaVersion: BID_SCHEMA_VERSION,
 				type: 'bid',
 				taskId: task.id,
+				taskRef: getTaskReference(task.id),
 				taskTitle: task.title,
 				taskDescription: task.description,
 				taskTranslations: task.translations, // Save task translations
-				amount: amount, // Send USD amount directly
-				currency: 'USD',
+					amount: amount, // Send USD amount directly
+					amountAtomic,
+					currency: 'USD',
+					paymentAsset,
+					paymentNetwork,
 				paymentType: 'FIXED',
 				hourlyRate: null,
 				estimatedHours: null,
@@ -375,7 +395,8 @@
 				proposedApproach,
 				coverLetter: coverLetter,
 				timestamp: Date.now(),
-				bidId: crypto.randomUUID(), // TODO: should be removed in favor of nostr event id property
+				bidId,
+				bidRef: getBidReference(bidId),
 
 				taskCreatorPubkey: task.npub,
 				taskCreatorUsername: task.creator?.username,
@@ -384,7 +405,12 @@
 				// Original task budget — mismo origen que taskTitle/taskDescription: se guarda en la bid
 				// para mostrarlo en Ofertas enviadas (DashboardBidsPanel) sin cargar la tarea de nuevo
 				...(typeof task.budget?.amount === 'number' && {
-					taskBudget: { amount: task.budget.amount, currency: task.budget.currency ?? 'USD' }
+					taskBudget: {
+						amount: task.budget.amount,
+						currency: task.budget.currency ?? 'USD',
+						paymentAsset,
+						paymentNetwork
+					}
 				}),
 
 				// Add logged-in user information
@@ -393,7 +419,8 @@
 				bidderAvatar: $user.picture || '',
 
 				// Add RSK wallet address for escrow funding
-				bidderWalletAddress: rskAddress,
+				bidderWalletAddress,
+				bidderWalletNetwork,
 
 				// Add new datetime fields - serialize with local time to preserve user's selected time
 				startDateTime: serializeDateWithLocalTime(startDateTime),
@@ -404,7 +431,11 @@
 			};
 
 			// Create custom tags for the bid event using TAG_PATTERNS
-			const customTags = TAG_PATTERNS.bid(bidData.bidId, task.id, task.npub, 'FIXED');
+				const customTags = TAG_PATTERNS.bid(bidData.bidId, task.id, task.npub, 'FIXED', 'pending', {
+					paymentNetwork,
+					schemaVersion: BID_SCHEMA_VERSION,
+					amountAtomic
+				});
 
 			// Submit a bid as an encrypted event to the task creator with custom tags
 			await publishNostrEvent(KINDS.BIDS, JSON.stringify(bidData), task.npub, customTags);
@@ -518,6 +549,11 @@
 						class="text-base-content line-clamp-1 block min-w-0 text-sm font-medium wrap-break-word"
 						>{getTaskTranslation('title')}</span
 					>
+					<div class="mt-1 flex flex-wrap gap-2">
+						<span class="badge badge-secondary badge-sm">
+							{getPaymentRailLabel(paymentAsset, paymentNetwork)}
+						</span>
+					</div>
 					{#if getTaskTranslation('description')}
 						<p
 							class="text-base-content/70 mt-0.5 line-clamp-2 text-xs wrap-break-word whitespace-pre-line"

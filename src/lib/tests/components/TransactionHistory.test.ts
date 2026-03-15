@@ -182,6 +182,46 @@ describe('TransactionHistory Component', () => {
 	});
 
 	describe('Transaction Display', () => {
+		it('should render BSC USDT transfer amounts, fees, balances, and network context', async () => {
+			const { transactions } = await import('$lib/stores/wallet.store');
+			const { ProcessedTransactionFactory } = await import('../utils/test-data-factories');
+
+			transactions.set([
+				ProcessedTransactionFactory.create({
+					displayType: 'send',
+					network: 'bsc'
+				}) as any
+			]);
+
+			transactions.update((current) => [
+				{
+					...current[0],
+					value: '1.25',
+					feeSats: 0.025,
+					balanceAfter: 99.5,
+					amountUnit: 'USDT',
+					feeUnit: 'USDT',
+					balanceUnit: 'USDT',
+					tokenSymbol: 'USDT',
+					tokenDecimals: 6,
+					networkIcon: '/images/chains/Binance-logo.svg',
+					networkDisplayName: 'Binance Smart Chain'
+				}
+			]);
+
+			const { container } = render(TransactionHistory);
+			await tick();
+
+			await waitFor(() => {
+				expect(container.textContent).toContain('1.25 USDT');
+			});
+
+			expect(screen.getByText('BSC')).toBeInTheDocument();
+			expect(container.textContent).toContain('0.025 USDT');
+			expect(container.textContent).toContain('99.5 USDT');
+			expect(screen.getByAltText('BSC')).toBeInTheDocument();
+		});
+
 		it('should display transaction details', async () => {
 			render(TransactionHistory);
 			await tick();
@@ -256,5 +296,3 @@ describe('TransactionHistory Component', () => {
 		});
 	});
 });
-
-

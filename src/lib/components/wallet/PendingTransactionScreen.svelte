@@ -18,6 +18,7 @@
 	interface Props {
 		amountSats: number;
 		amountUSD: number;
+		serviceFee?: number;
 		address: string;
 		network: string;
 		txHash: string | null;
@@ -26,7 +27,18 @@
 		onClose: () => void;
 	}
 
-	let { amountSats, amountUSD, address, network, txHash, swapId, networkOptions, onClose }: Props = $props();
+	let {
+		amountSats,
+		amountUSD,
+		serviceFee = 0,
+		address,
+		network,
+		txHash,
+		swapId,
+		networkOptions,
+		onClose
+	}: Props = $props();
+	const isBscUsdtRail = $derived(network === 'usdt-bsc' || network === 'bsc');
 
 	// Transaction status
 	type TransactionStatus = 'sending' | 'confirming' | 'success' | 'error';
@@ -81,6 +93,38 @@
 	function formatAddress(address: string): string {
 		if (address.length <= 20) return address;
 		return `${address.slice(0, 10)}...${address.slice(-8)}`;
+	}
+
+	function formatUsdt(amount: number): string {
+		if (!Number.isFinite(amount)) return '0';
+
+		return new Intl.NumberFormat('en-US', {
+			minimumFractionDigits: 0,
+			maximumFractionDigits: 6
+		}).format(amount);
+	}
+
+	function getAssetBadgeLabel(network: string): string {
+		if (network === 'usdt-bsc' || network === 'bsc') return 'USDT';
+		if (network === 'rootstock-bitcoin' || network === 'rsk') return 'rBTC';
+		if (network === 'lightning-bitcoin' || network === 'bitcoin') return 'BTC';
+		if (network === 'liquid-bitcoin') return 'L-BTC';
+		return network;
+	}
+
+	function getNetworkBadgeLabel(network: string): string {
+		if (network === 'usdt-bsc' || network === 'bsc') return 'BSC';
+		if (network === 'rootstock-bitcoin' || network === 'rsk') return 'Rootstock';
+		if (network === 'lightning-bitcoin') return 'Lightning';
+		if (network === 'liquid-bitcoin') return 'Liquid';
+		if (network === 'bitcoin') return 'Bitcoin';
+		return network;
+	}
+
+	function getPaymentRailLabel(network: string): string {
+		if (network === 'usdt-bsc' || network === 'bsc') return 'USDT on BSC';
+		if (network === 'rootstock-bitcoin' || network === 'rsk') return 'rBTC on Rootstock';
+		return getNetworkBadgeLabel(network);
 	}
 
 
@@ -493,12 +537,20 @@
 			<div class="space-y-2">
 				<div class="text-sm font-medium opacity-70">{$t('wallet.send.amount')}</div>
 				<div class="space-y-1">
-					<div class="font-semibold text-lg">
-						{formatSats(amountSats)} {$t('wallet.sats')}
-					</div>
-					<div class="text-sm opacity-70">
-						≈ {formatUsd(amountUSD)}
-					</div>
+					{#if isBscUsdtRail}
+						<div class="font-semibold text-lg">{formatUsdt(amountSats)} USDT</div>
+						{#if serviceFee > 0}
+							<div class="text-sm opacity-70">Service fee: {formatUsdt(serviceFee)} USDT</div>
+						{/if}
+						<div class="text-sm opacity-70">{getPaymentRailLabel(network)}</div>
+					{:else}
+						<div class="font-semibold text-lg">
+							{formatSats(amountSats)} {$t('wallet.sats')}
+						</div>
+						<div class="text-sm opacity-70">
+							≈ {formatUsd(amountUSD)}
+						</div>
+					{/if}
 				</div>
 			</div>
 
@@ -510,9 +562,9 @@
 						<div class="flex items-center justify-between gap-1.5 pl-1.5 sm:gap-2 sm:pl-2">
 							<div class="flex items-center gap-1.5 sm:gap-2">
 								{#if networkInfo.icon}
-									<img src={networkInfo.icon} alt={networkInfo.name} class="h-4 w-4 sm:h-5 sm:w-5" />
+									<img src={networkInfo.icon} alt={getNetworkBadgeLabel(network)} class="h-4 w-4 sm:h-5 sm:w-5" />
 								{/if}
-								<span class="text-sm font-medium sm:text-base">{networkInfo.name}</span>
+								<span class="text-sm font-medium sm:text-base">{getPaymentRailLabel(network)}</span>
 							</div>
 							{#if explorerUrl}
 								<a
@@ -531,6 +583,14 @@
 					</div>
 				</div>
 			{/if}
+
+			<div class="space-y-2">
+				<div class="text-sm font-medium opacity-70">Payment rail</div>
+				<div class="flex flex-wrap gap-2">
+					<span class="badge badge-outline">{getAssetBadgeLabel(network)}</span>
+					<span class="badge badge-outline">{getNetworkBadgeLabel(network)}</span>
+				</div>
+			</div>
 
 			<!-- Address Display -->
 			<div class="space-y-2">

@@ -1,0 +1,79 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: sponsor-service-db
+    environment:
+      POSTGRES_USER: sponsor
+      POSTGRES_PASSWORD: sponsor_password_dev
+      POSTGRES_DB: sponsor_service
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sponsor"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - sponsor-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: sponsor-service-cache
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - sponsor-network
+
+  sponsor-service:
+    build:
+      context: ../..
+      dockerfile: src/sponsor-service/Dockerfile
+    container_name: sponsor-service
+    environment:
+      NODE_ENV: development
+      SPONSOR_SERVICE_PORT: 3001
+      SPONSOR_SERVICE_HOST: 0.0.0.0
+      DB_USER: sponsor
+      DB_PASSWORD: sponsor_password_dev
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: sponsor_service
+      DB_POOL_SIZE: 20
+      LOG_REQUESTS: "true"
+      BSC_MAINNET_RPC_URL: ${BSC_MAINNET_RPC_URL:-https://bsc-dataseed.binance.org}
+      BSC_TESTNET_RPC_URL: ${BSC_TESTNET_RPC_URL:-https://data-seed-prebsc.binance.org:8545}
+      BSC_MAINNET_ROUTER_ADDRESS: ${BSC_MAINNET_ROUTER_ADDRESS:-}
+      BSC_MAINNET_SPONSOR_ADDRESS: ${BSC_MAINNET_SPONSOR_ADDRESS:-}
+      BSC_TESTNET_ROUTER_ADDRESS: ${BSC_TESTNET_ROUTER_ADDRESS:-}
+      BSC_TESTNET_SPONSOR_ADDRESS: ${BSC_TESTNET_SPONSOR_ADDRESS:-}
+      BSC_TESTNET_USDT_ADDRESS: ${BSC_TESTNET_USDT_ADDRESS:-0x337610d27ae4ca0cd180003c4de79d4b47663363}
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - sponsor-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  sponsor-network:
+    driver: bridge

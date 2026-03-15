@@ -31,6 +31,52 @@ import { ERROR_MESSAGES } from '$lib/utils/constants/wallet.constants';
 import tokenBalanceService from '$lib/api/services/token-balance.service';
 import cryptoPriceService from '$lib/api/services/crypto-price.service';
 
+export type BscDirectSendFailureCode =
+	| 'WRONG_CHAIN'
+	| 'SPONSOR_UNAVAILABLE'
+	| 'ROUTER_ALLOWANCE_MISSING'
+	| 'INSUFFICIENT_USDT_BALANCE'
+	| 'TOKEN_CONFIG_MISMATCH'
+	| 'POLICY_REJECTED'
+	| 'LEGACY_ONLY'
+	| 'SUBMISSION_UNSUPPORTED';
+
+export interface BscDirectSendPreflightParams {
+	recipient: string;
+	recipientAmountAtomic: string;
+	routerAddress: string;
+	chainId: number;
+	tokenAddress: string;
+	fixedFeeAtomic?: string;
+}
+
+export interface BscSponsorStatus {
+	available: boolean;
+	mode: 'unconfigured' | 'legacy-paymaster';
+	address: string | null;
+	reason?: string;
+}
+
+export interface BscDirectSendPreflightResult {
+	isReady: boolean;
+	failureCode?: BscDirectSendFailureCode;
+	failureMessage?: string;
+	allowanceAtomic: string;
+	requiredAllowanceAtomic: string;
+	totalDebitAtomic: string;
+	sponsorAvailable: boolean;
+}
+
+export interface BscDirectSendSubmissionParams extends BscDirectSendPreflightParams {}
+
+export interface BscDirectSendSubmissionResult {
+	success: boolean;
+	txHash?: string;
+	failureCode?: BscDirectSendFailureCode;
+	failureMessage?: string;
+	lifecycleState: 'preflight_blocked' | 'submission_blocked' | 'submitted';
+}
+
 // Extended wallet state with processed transactions
 type WalletStateExtended = Omit<WalletState, 'transactions'> & {
 	transactions: ProcessedTransaction[];
@@ -126,6 +172,55 @@ function getWalletManager(): WalletManager {
 	}
 
 	return sdkWalletManager;
+}
+
+function getBscDirectSendCapableManager(): WalletManager & {
+	getBscSponsorStatus?: () => Promise<BscSponsorStatus>;
+	preflightBscDirectSend?: (
+		params: BscDirectSendPreflightParams
+	) => Promise<BscDirectSendPreflightResult>;
+	submitBscDirectSend?: (
+		params: BscDirectSendSubmissionParams
+	) => Promise<BscDirectSendSubmissionResult>;
+} {
+	return getWalletManager() as WalletManager & {
+		getBscSponsorStatus?: () => Promise<BscSponsorStatus>;
+		preflightBscDirectSend?: (
+			params: BscDirectSendPreflightParams
+		) => Promise<BscDirectSendPreflightResult>;
+		submitBscDirectSend?: (
+			params: BscDirectSendSubmissionParams
+		) => Promise<BscDirectSendSubmissionResult>;
+	};
+}
+
+async function ensureBscDirectSendCapableManager(): Promise<
+	WalletManager & {
+		getBscSponsorStatus?: () => Promise<BscSponsorStatus>;
+		preflightBscDirectSend?: (
+			params: BscDirectSendPreflightParams
+		) => Promise<BscDirectSendPreflightResult>;
+		submitBscDirectSend?: (
+			params: BscDirectSendSubmissionParams
+		) => Promise<BscDirectSendSubmissionResult>;
+	}
+> {
+	if (!sdkWalletManager) {
+		const state = get(walletStore);
+
+		if (state.isInitializing) {
+			const maxWaitTime = 10000;
+			const startTime = Date.now();
+
+			while (!sdkWalletManager && get(walletStore).isInitializing && Date.now() - startTime < maxWaitTime) {
+				await new Promise((resolve) => setTimeout(resolve, 100));
+			}
+		} else {
+			await initialize();
+		}
+	}
+
+	return getBscDirectSendCapableManager();
 }
 
 /**
@@ -259,6 +354,85 @@ export async function getRSKAddress(): Promise<string> {
 	});
 
 	return address || '';
+}
+
+/**
+ * Get BSC wallet address, initializing the wallet if needed.
+ *
+ * @returns The BSC wallet address
+ */
+export async function getBSCAddress(): Promise<string> {
+	const state = get(walletStore);
+
+	if (state.bsc.address) {
+		return state.bsc.address;
+	}
+
+	const address = await initialize().then(() => {
+		return get(walletStore).bsc.address;
+	});
+
+	return address || '';
+}
+
+export async function getBSCSponsorStatus(): Promise<BscSponsorStatus> {
+	const manager = await ensureBscDirectSendCapableManager();
+
+	if (typeof manager.getBscSponsorStatus !== 'function') {
+		return {
+			available: false,
+			mode: 'unconfigured',
+			address: null,
+			reason: 'BSC direct send sponsor status is unavailable in this wallet-core build.'
+		};
+	}
+
+	return manager.getBscSponsorStatus();
+}
+
+export async function preflightBSCDirectSend(
+	params: BscDirectSendPreflightParams
+): Promise<BscDirectSendPreflightResult> {
+	const manager = await ensureBscDirectSendCapableManager();
+
+	if (typeof manager.preflightBscDirectSend !== 'function') {
+		return {
+			isReady: false,
+			failureCode: 'SPONSOR_UNAVAILABLE',
+			failureMessage:
+				'BSC direct send preflight is unavailable in this wallet-core build. Update wallet-core before enabling this send path.',
+			allowanceAtomic: '0',
+			requiredAllowanceAtomic: params.recipientAmountAtomic,
+			totalDebitAtomic: params.recipientAmountAtomic,
+			sponsorAvailable: false
+		};
+	}
+
+	return manager.preflightBscDirectSend(params);
+}
+
+export async function submitBSCDirectSend(
+	params: BscDirectSendSubmissionParams
+): Promise<string> {
+	const manager = await ensureBscDirectSendCapableManager();
+
+	if (typeof manager.submitBscDirectSend !== 'function') {
+		throw new Error(
+			'BSC direct send submission is unavailable in this wallet-core build. Keep the send flow blocked until the sponsored router path is implemented.'
+		);
+	}
+
+	const result = await manager.submitBscDirectSend(params);
+	if (!result.success || !result.txHash) {
+		throw new Error(
+			result.failureMessage ||
+				'BSC direct send submission is unavailable in this wallet-core build.'
+		);
+	}
+
+	await Promise.allSettled([loadAssets(), loadTransactions()]);
+
+	return result.txHash;
 }
 
 /**
@@ -446,8 +620,9 @@ async function loadTransactions(): Promise<void> {
 			throw new Error(`Wallets not available. RSK: ${!!manager.rskWallet}, BSC: ${!!manager.bscWallet}`);
 		}
 
-		// Get current balance for running balance calculation
-		const currentBalanceSats = finalState.totalBalances.sats;
+		// Get current balance for running balance calculation per rail
+		const currentRskBalance = finalState.totalBalances.sats;
+		const currentBscBalance = finalState.totalBalances.usdt;
 
 		// Load blockchain transactions
 		const [rskTxs, bscTxs] = await Promise.all([
@@ -457,8 +632,8 @@ async function loadTransactions(): Promise<void> {
 
 		// Process blockchain transactions
 		const [processedRskTxs, processedBscTxs] = await Promise.all([
-			processTransactions(rskTxs, finalState.rsk.address || '', 'rsk', currentBalanceSats),
-			processTransactions(bscTxs, finalState.bsc.address || '', 'bsc', currentBalanceSats)
+			processTransactions(rskTxs, finalState.rsk.address || '', 'rsk', currentRskBalance),
+			processTransactions(bscTxs, finalState.bsc.address || '', 'bsc', currentBscBalance)
 		]);
 
 		// Load pending swaps from all services
@@ -479,13 +654,13 @@ async function loadTransactions(): Promise<void> {
 		const swapTransactions = [
 			...submarineSwaps
 				.filter((s) => shouldShowSwap(s.status, 'submarine', s))
-				.map((s) => mapSwapToTransaction(s, 'submarine', currentBalanceSats)),
+				.map((s) => mapSwapToTransaction(s, 'submarine', currentRskBalance)),
 			...reverseSwaps
 				.filter((s) => shouldShowSwap(s.status, 'reverse', s))
-				.map((s) => mapSwapToTransaction(s, 'reverse', currentBalanceSats)),
+				.map((s) => mapSwapToTransaction(s, 'reverse', currentRskBalance)),
 			...chainSwaps
 				.filter((s) => shouldShowSwap(s.status, 'chain', s))
-				.map((s) => mapSwapToTransaction(s, 'chain', currentBalanceSats))
+				.map((s) => mapSwapToTransaction(s, 'chain', currentRskBalance))
 		];
 
 		// Combine blockchain transactions
@@ -786,13 +961,11 @@ export async function getTokenBalance(tokenAddress: string): Promise<TokenBalanc
  * @throws {Error} If wallet manager is not initialized or transaction fails
  */
 export async function sendBSCUSDT(to: string, amount: string): Promise<string> {
-	const manager = getWalletManager();
-	const txHash = await manager.bscWallet.sendUSDT(to, amount);
-
-	// Refresh data
-	await Promise.allSettled([loadAssets(), loadTransactions()]);
-
-	return txHash;
+	void to;
+	void amount;
+	throw new Error(
+		'Legacy direct BSC USDT sends are disabled. Use the sponsored direct-send submission path instead.'
+	);
 }
 
 /**
@@ -1275,6 +1448,10 @@ export const walletManager = {
 	initialize,
 	cleanup: disconnectWallet,
 	getRSKAddress,
+	getBSCAddress,
+	getBSCSponsorStatus,
+	preflightBSCDirectSend,
+	submitBSCDirectSend,
 	setActiveTab,
 	loadAssets,
 	loadTransactions,

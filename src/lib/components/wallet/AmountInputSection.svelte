@@ -55,6 +55,8 @@
 	}: Props = $props();
 
 	function handleCalculationChange(expression: string, result: number) {
+		const decimalPlaces = network === 'usdt-bsc' ? 6 : 2;
+
 		if (onCalculationChange) {
 			onCalculationChange(expression, result);
 		} else {
@@ -63,7 +65,7 @@
 				if (unit === 'sats') {
 					onAmountChange(Math.floor(result).toString());
 				} else {
-					onAmountChange(result.toFixed(2).replace(/\.?0+$/, ''));
+					onAmountChange(result.toFixed(decimalPlaces).replace(/\.?0+$/, ''));
 				}
 			}
 		}
@@ -87,6 +89,9 @@
 		// Disable if no network detected
 		if (!network) return true;
 		// Disable if no available balance
+		if (network === 'usdt-bsc') {
+			return Number.parseFloat($walletStore.bsc.formattedUsdtBalance || '0') <= 0;
+		}
 		if ($walletStore.totalBalances.sats <= 0) return true;
 		return false;
 	});
@@ -192,7 +197,7 @@
 		aria-disabled={disabled}
 	>
 		<IconCurrencyUsd class="h-6 w-6 sm:h-8 sm:w-8" />
-		<span>USD</span>
+		<span>{network === 'usdt-bsc' ? 'USDT' : 'USD'}</span>
 	</button>
 	<button
 		type="button"
@@ -201,14 +206,14 @@
 			? 'bg-primary text-primary-content'
 			: 'bg-base-100 text-base-content'}"
 		class:active:bg-base-300={!disabled}
-		class:cursor-not-allowed={disabled}
-		class:pointer-events-none={disabled}
+		class:cursor-not-allowed={disabled || network === 'usdt-bsc'}
+		class:pointer-events-none={disabled || network === 'usdt-bsc'}
 		style="-webkit-tap-highlight-color: transparent;"
-		onclick={() => !disabled && handleUnitToggle('sats')}
-		{disabled}
-		tabindex={disabled ? -1 : 0}
+		onclick={() => !disabled && network !== 'usdt-bsc' && handleUnitToggle('sats')}
+		disabled={disabled || network === 'usdt-bsc'}
+		tabindex={disabled || network === 'usdt-bsc' ? -1 : 0}
 		aria-label="Sats"
-		aria-disabled={disabled}
+		aria-disabled={disabled || network === 'usdt-bsc'}
 	>
 		<IconCurrencyBtc class="h-6 w-6 sm:h-8 sm:w-8" />
 		<span>Sats</span>
@@ -219,6 +224,7 @@
 {#key calculatorKey}
 	<CalculatorKeypad
 		{unit}
+		decimalPlaces={network === 'usdt-bsc' ? 6 : 2}
 		{disabled}
 		onInput={onAmountChange}
 		onCalculationChange={handleCalculationChange}

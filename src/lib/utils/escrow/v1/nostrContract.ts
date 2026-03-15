@@ -12,7 +12,8 @@ import type {
 	CreateContractParams,
 	PublishStatusParams,
 	ContractFilter,
-	ContractStatusEvent
+	ContractStatusEvent,
+	ContractPermissions
 } from '$lib/types/contract';
 import { escrow } from './escrow';
 import { EscrowStatus } from './escrow.enum';
@@ -25,8 +26,138 @@ import { publishEscrowStatus } from './escrowEvents';
 import KINDS from '$lib/utils/constants/kinds';
 import nostrEventsService from '$lib/api/services/nostr/events';
 import { createDebug } from '$lib/utils/debug';
+import {
+	CONTRACT_SCHEMA_VERSION,
+	STATUS_SCHEMA_VERSION,
+	getContractQueryNetworks,
+	getContractReference,
+	normalizePaymentAsset,
+	normalizePaymentNetwork
+} from '$lib/utils/helpers/paymentContext';
 
 const d = createDebug('contracts');
+
+const READ_ONLY_CONTRACT_PERMISSIONS: ContractPermissions = {
+	canComplete: false,
+	canAccept: false,
+	canDispute: false,
+	canPropose: false,
+	canAcceptProposal: false,
+	canCancel: false,
+	canResolveTimelock: false,
+	canDelete: false
+};
+
+function normalizeContractContent(contract: NostrContract): NostrContract {
+	const paymentAsset = normalizePaymentAsset(contract.paymentAsset ?? contract.currency ?? 'RBTC');
+	const paymentNetwork = normalizePaymentNetwork(contract.paymentNetwork, paymentAsset);
+
+	return {
+		...contract,
+		schemaVersion: contract.schemaVersion || CONTRACT_SCHEMA_VERSION,
+		contractRef:
+			contract.contractRef || getContractReference(contract.escrowId, paymentNetwork, paymentAsset),
+		taskRef: contract.taskRef || `task:${contract.taskId}`,
+		currency: paymentAsset,
+		paymentAsset,
+		paymentNetwork
+	};
+}
+
+function normalizeContractStatusContent(
+	status: NostrContractStatus,
+	tags: string[][] = []
+): NostrContractStatus {
+	const taggedNetwork = status.paymentNetwork ?? tags.find((tag) => tag[0] === TAGS.N)?.[1];
+	const paymentAsset = status.paymentAsset
+		? normalizePaymentAsset(status.paymentAsset)
+		: taggedNetwork?.startsWith('bsc')
+			? 'USDT'
+			: 'RBTC';
+	const paymentNetwork = normalizePaymentNetwork(
+		taggedNetwork,
+		paymentAsset
+	);
+
+	return {
+		...status,
+		schemaVersion: status.schemaVersion || STATUS_SCHEMA_VERSION,
+		contractRef:
+			status.contractRef ||
+			(status.escrowId
+				? getContractReference(status.escrowId, paymentNetwork, paymentAsset)
+				: undefined),
+		paymentAsset,
+		paymentNetwork
+	};
+}
+
+function isBscContractLike(contract: NostrContract): boolean {
+	return normalizePaymentNetwork(
+		contract.paymentNetwork,
+		normalizePaymentAsset(contract.paymentAsset ?? contract.currency ?? 'RBTC')
+	).startsWith('bsc');
+}
+
+function createMetadataOnlyEscrowData(contractEvent: ContractEvent): EscrowData {
+	return {
+		id: contractEvent.content.escrowId,
+		client: contractEvent.content.clientPubkey || '',
+		freelancer: contractEvent.content.freelancerPubkey || '',
+		baseAmount: contractEvent.content.amount || '0',
+		clientFee: '0',
+		freelancerFee: '0',
+		totalAmount: contractEvent.content.amount || '0',
+		status: contractEvent.content.transactionHash
+			? EscrowStatus.PendingFunding
+			: contractEvent.content.status || EscrowStatus.Funded,
+		estimatedStartTime: contractEvent.content.estimatedStartTime || 0,
+		estimatedCompletionTime: contractEvent.content.estimatedCompletionTime || 0,
+		completionTime: 0,
+		timelockExpiry: 0,
+		clientFeeTier: 'standard' as const,
+		freelancerFeeTier: 'standard' as const,
+		createdAt: contractEvent.created_at * 1000,
+		lastUpdated: Date.now()
+	};
+}
+
+function determineReadOnlyMetadataStatus(
+	contract: NostrContract,
+	statusEvents: ContractStatusEvent[]
+): EscrowStatus {
+	const latestAction = statusEvents.at(-1)?.content.action;
+
+	if (latestAction !== undefined) {
+		return latestAction;
+	}
+
+	if (contract.transactionHash) {
+		return EscrowStatus.PendingFunding;
+	}
+
+	return contract.status || EscrowStatus.Funded;
+}
+
+function determineMetadataOnlyState(
+	contract: NostrContract,
+	statusEvents: ContractStatusEvent[]
+): { status: EscrowStatus; permissions: ContractPermissions } {
+	return {
+		status: determineReadOnlyMetadataStatus(contract, statusEvents),
+		permissions: READ_ONLY_CONTRACT_PERMISSIONS
+	};
+}
+
+function expandEscrowIdFilters(escrowIds: string[], networks: string[]): string[] {
+	const chainNetworks = networks.filter((network) => network.includes('-'));
+	return [...new Set(
+		escrowIds.flatMap((escrowId) => [
+			escrowId,
+			...chainNetworks.map((network) => `contract:${network}:${escrowId}`)
+		])
+	)];
+}
 
 /**
  * Create a new contract event after escrow creation (as encrypted DM)
@@ -35,22 +166,31 @@ export async function publishContractEvent(params: CreateContractParams): Promis
 	try {
 		const npub = await getNpub();
 		const clientPubkey = npub.startsWith('npub') ? (nip19.decode(npub).data as string) : npub;
-
-		const network = import.meta.env.VITE_RSK_NETWORK;
+		const paymentAsset = normalizePaymentAsset(params.paymentAsset ?? 'RBTC');
+		const paymentNetwork = normalizePaymentNetwork(params.paymentNetwork, paymentAsset);
+		const network = paymentNetwork;
 		const contractAddress =
-			network === 'mainnet'
+			paymentNetwork === 'rsk-mainnet'
 				? import.meta.env.VITE_RSK_CONTRACT_ADDRESS_MAINNET
-				: import.meta.env.VITE_RSK_CONTRACT_ADDRESS_TESTNET;
+				: paymentNetwork === 'rsk-testnet'
+					? import.meta.env.VITE_RSK_CONTRACT_ADDRESS_TESTNET
+					: undefined;
 
 		const contractData: NostrContract = {
+			schemaVersion: CONTRACT_SCHEMA_VERSION,
+			contractRef: getContractReference(params.escrowId, paymentNetwork, paymentAsset),
 			escrowId: params.escrowId,
 			taskId: params.taskId,
+			taskRef: params.taskRef,
+			bidRef: params.bidRef,
 			taskTitle: params.taskTitle,
 			taskDescription: params.taskDescription,
 			freelancerPubkey: params.freelancerPubkey,
 			clientPubkey,
 			amount: params.amount,
-			currency: 'RBTC',
+			currency: paymentAsset,
+			paymentAsset,
+			paymentNetwork,
 			status: EscrowStatus.Funded, // Contract is created when escrow is funded
 			estimatedStartTime: params.estimatedStartTime,
 			estimatedCompletionTime: params.estimatedCompletionTime,
@@ -67,7 +207,8 @@ export async function publishContractEvent(params: CreateContractParams): Promis
 			params.freelancerPubkey,
 			clientPubkey,
 			network,
-			'v1'
+			CONTRACT_SCHEMA_VERSION,
+			'active'
 		);
 
 		await publishNostrEvent(KINDS.CONTRACT, contractMessage, params.freelancerPubkey, tags);
@@ -87,23 +228,10 @@ export async function publishContractStatus(params: PublishStatusParams): Promis
 			npub = nip19.decode(npub).data as string;
 		}
 
-		const statusData: NostrContractStatus = {
-			contractEventId: params.contractEventId,
-			escrowId: params.escrowId,
-			action: params.action,
-			message: params.message,
-			timestamp: Date.now(),
-			transactionHash: params.transactionHash,
-			proposedClientAmount: params.proposedClientAmount,
-			proposedFreelancerAmount: params.proposedFreelancerAmount,
-			completionAttachments: params.completionAttachments,
-			type: 'contract-status'
-		};
-
-		// Query the contract directly by escrowId to get recipient info
+		// Query the contract directly by canonical ref when available, with escrowId as legacy fallback.
 		const contractEvents = await queryNostrEvents({
 			kinds: [KINDS.CONTRACT],
-			'#d': [params.escrowId], // Query by escrowId tag
+			'#d': params.contractRef ? [params.contractRef, params.escrowId] : [params.escrowId],
 			limit: 1
 		});
 
@@ -112,7 +240,42 @@ export async function publishContractStatus(params: PublishStatusParams): Promis
 		}
 
 		// Get the contract data
-		const contractData: NostrContract = contractEvents[0].content as unknown as NostrContract;
+		const contractData = normalizeContractContent(
+			contractEvents[0].content as unknown as NostrContract
+		);
+		const paymentAsset = normalizePaymentAsset(
+			params.paymentAsset ?? contractData.paymentAsset ?? contractData.currency ?? 'RBTC'
+		);
+		const paymentNetwork = normalizePaymentNetwork(
+			params.paymentNetwork ?? contractData.paymentNetwork,
+			paymentAsset
+		);
+		const contractRef =
+			params.contractRef ??
+			contractData.contractRef ??
+			getContractReference(contractData.escrowId, paymentNetwork, paymentAsset);
+		const parentRef =
+			params.parentRef ?? params.taskRef ?? contractData.taskRef ?? `task:${contractData.taskId}`;
+
+		const statusData: NostrContractStatus = {
+			schemaVersion: STATUS_SCHEMA_VERSION,
+			contractEventId: params.contractEventId,
+			escrowId: params.escrowId,
+			contractRef,
+			parentRef,
+			taskRef: params.taskRef ?? contractData.taskRef,
+			bidRef: params.bidRef ?? contractData.bidRef,
+			action: params.action,
+			message: params.message,
+			timestamp: Date.now(),
+			type: 'contract-status',
+			paymentAsset,
+			paymentNetwork,
+			transactionHash: params.transactionHash,
+			proposedClientAmount: params.proposedClientAmount,
+			proposedFreelancerAmount: params.proposedFreelancerAmount,
+			completionAttachments: params.completionAttachments
+		};
 
 		// Determine recipient: if sender is client, send to freelancer, and vice versa
 		const recipientPubkey =
@@ -127,7 +290,7 @@ export async function publishContractStatus(params: PublishStatusParams): Promis
 			params.escrowId,
 			recipientPubkey,
 			params.action,
-			'v1'
+			STATUS_SCHEMA_VERSION
 		);
 
 		await publishNostrEvent(KINDS.CONTRACT_STATUS, statusMessage, recipientPubkey, tags);
@@ -166,19 +329,19 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 	}
 
 	// Get current network from environment
-	const currentNetwork = import.meta.env.VITE_RSK_NETWORK;
+	const currentNetworks = getContractQueryNetworks();
 
 	// Build filter for contract events
 	const nostrFilter: Filter = {
 		kinds: [KINDS.CONTRACT],
 		...TAG_FILTERS.byNpub(npub), // Contracts where user is participant
-		...TAG_FILTERS.byNetwork(currentNetwork), // Filter by current network
+		...TAG_FILTERS.byNetwork(currentNetworks), // Filter by current environment across supported rails
 		limit: filter?.limit || 5 // Default to 5 for infinite scroll
 	};
 
 	// Add optional filters
 	if (filter?.escrowIds) {
-		nostrFilter['#d'] = filter.escrowIds;
+		nostrFilter['#d'] = expandEscrowIdFilters(filter.escrowIds, currentNetworks);
 	}
 
 	if (filter?.taskIds) {
@@ -223,9 +386,15 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 	for (const event of contractEventsWithStatus) {
 		try {
 			const contractEvent = event as unknown as ContractEvent;
+			contractEvent.content = normalizeContractContent(contractEvent.content);
 			// Get status events attached by queryNostrEvents (already filtered and decrypted)
 			// Cast properly through unknown since NostrEvent has string content by default
-			const statusEvents = contractEvent.statusEvents?.sort((a, b) => a.created_at - b.created_at);
+			const statusEvents = contractEvent.statusEvents
+				?.map((statusEvent) => ({
+					...statusEvent,
+					content: normalizeContractStatusContent(statusEvent.content, statusEvent.tags)
+				}))
+				.sort((a, b) => a.created_at - b.created_at);
 
 			// RECOVERY: Check for stale PendingAcceptance events and attempt to recover
 			if (statusEvents && contractEvent.content.escrowId) {
@@ -263,6 +432,7 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 			// Determine if user is client
 			const isClient = contractEvent.content.clientPubkey === npub;
 			const isFreelancer = contractEvent.content.freelancerPubkey === npub;
+			const isBscContract = isBscContractLike(contractEvent.content);
 
 			// Query blockchain escrow data (source of truth)
 			let escrowData: EscrowData | null = null;
@@ -271,47 +441,51 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 			let disputeProposal: DisputeProposal | null = null;
 
 			try {
-				// Check if contract address differs from current environment
-				const currentNetwork = import.meta.env.VITE_RSK_NETWORK;
-				const currentContractAddress =
-					currentNetwork === 'mainnet'
-						? import.meta.env.VITE_RSK_CONTRACT_ADDRESS_MAINNET
-						: import.meta.env.VITE_RSK_CONTRACT_ADDRESS_TESTNET;
+				if (isBscContract) {
+					escrowData = createMetadataOnlyEscrowData(contractEvent);
+				} else {
+					// Check if contract address differs from current environment
+					const currentNetwork = import.meta.env.VITE_RSK_NETWORK;
+					const currentContractAddress =
+						currentNetwork === 'mainnet'
+							? import.meta.env.VITE_RSK_CONTRACT_ADDRESS_MAINNET
+							: import.meta.env.VITE_RSK_CONTRACT_ADDRESS_TESTNET;
 
-				// Determine if we need to pass contract address for backwards compatibility
-				const contractAddress =
-					contractEvent.content.contractAddress &&
-					contractEvent.content.contractAddress.toLowerCase() !==
-						currentContractAddress?.toLowerCase()
-						? contractEvent.content.contractAddress
-						: undefined;
+					// Determine if we need to pass contract address for backwards compatibility
+					const contractAddress =
+						contractEvent.content.contractAddress &&
+						contractEvent.content.contractAddress.toLowerCase() !==
+							currentContractAddress?.toLowerCase()
+							? contractEvent.content.contractAddress
+							: undefined;
 
-				escrowData = await escrow.loadEscrowDetails(
-					contractEvent.content.escrowId,
-					contractAddress
-				);
+					escrowData = await escrow.loadEscrowDetails(
+						contractEvent.content.escrowId,
+						contractAddress
+					);
 
-				if (escrowData) {
-					blockchainStatus = escrowData.status;
+					if (escrowData) {
+						blockchainStatus = escrowData.status;
 
-					// Fetch dispute proposal if in dispute
-					if (blockchainStatus === EscrowStatus.InDispute) {
-						try {
-							disputeProposal = await escrow.getDisputeProposal(
-								contractEvent.content.escrowId,
-								contractAddress
-							);
-							if (disputeProposal && escrowData) {
-								// Calculate client amount from total - freelancer amount
-								const totalAmount = parseFloat(escrowData.baseAmount);
-								const freelancerAmount = parseFloat(disputeProposal.freelancerAmount);
-								disputeProposal.clientAmount = (totalAmount - freelancerAmount).toString();
+						// Fetch dispute proposal if in dispute
+						if (blockchainStatus === EscrowStatus.InDispute) {
+							try {
+								disputeProposal = await escrow.getDisputeProposal(
+									contractEvent.content.escrowId,
+									contractAddress
+								);
+								if (disputeProposal && escrowData) {
+									// Calculate client amount from total - freelancer amount
+									const totalAmount = parseFloat(escrowData.baseAmount);
+									const freelancerAmount = parseFloat(disputeProposal.freelancerAmount);
+									disputeProposal.clientAmount = (totalAmount - freelancerAmount).toString();
+								}
+							} catch (disputeError) {
+								console.warn(
+									`Failed to load dispute proposal for ${contractEvent.content.escrowId}:`,
+									disputeError
+								);
 							}
-						} catch (disputeError) {
-							console.warn(
-								`Failed to load dispute proposal for ${contractEvent.content.escrowId}:`,
-								disputeError
-							);
 						}
 					}
 				}
@@ -351,18 +525,6 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 				}
 			}
 
-			// Determine status and permissions based on blockchain state + Nostr events
-			const { status, permissions } = determineContractState(
-				blockchainStatus,
-				statusEvents || [],
-				contractEvent.content,
-				escrowData,
-				disputeProposal,
-				isPending,
-				isClient,
-				isFreelancer
-			);
-
 			// Extract completion attachments from latest status event with attachments
 			const completionAttachments =
 				statusEvents
@@ -373,7 +535,11 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 			// Skip contracts with null escrowData - these are infrastructure errors that should be retried
 			// Only create contracts with valid escrowData OR legitimate pending state (escrow not found with transactionHash)
 			if (!escrowData && !isPending) {
-				continue; // Skip to next contract in the loop
+				if (isBscContract) {
+					escrowData = createMetadataOnlyEscrowData(contractEvent);
+				} else {
+					continue; // Skip to next contract in the loop
+				}
 			}
 
 			// For pending contracts (escrow not found but has transactionHash), create a minimal escrowData placeholder
@@ -408,6 +574,21 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 				});
 				continue;
 			}
+
+			// Determine status and permissions based on blockchain state + Nostr events
+			const { status, permissions } = isBscContract
+				? determineMetadataOnlyState(contractEvent.content, statusEvents || [])
+				: determineContractState(
+						blockchainStatus,
+						statusEvents || [],
+						contractEvent.content,
+						escrowData,
+						disputeProposal,
+						isPending,
+						isClient,
+						isFreelancer,
+						{ allowDeleteWhenNeverFunded: true }
+					);
 
 			d.log('getContracts per contract', {
 				escrowId: contractEvent.content.escrowId,
@@ -623,6 +804,7 @@ export async function handleStatusEvent(event: NostrEvent) {
 		}
 
 		const contract = contractsStore.contracts[index];
+		const isBscContract = isBscContractLike(contract.contractEvent.content);
 
 		// Add the new status event to the contract's status events
 		const updatedStatusEvents = [...(contract.statusEvents || []), statusEvent].sort(
@@ -632,7 +814,7 @@ export async function handleStatusEvent(event: NostrEvent) {
 		// Fetch dispute proposal BEFORE updating store (if needed)
 		let freshDisputeProposal = contract.disputeProposal;
 
-		if (action === EscrowStatus.DisputeResolutionProposed) {
+		if (!isBscContract && action === EscrowStatus.DisputeResolutionProposed) {
 			try {
 				const proposal = await escrow.getDisputeProposal(
 					escrowId,
@@ -652,16 +834,19 @@ export async function handleStatusEvent(event: NostrEvent) {
 		}
 
 		// Re-determine contract state with fresh proposal
-		const { status, permissions } = determineContractState(
-			contract.blockchainStatus,
-			updatedStatusEvents,
-			contract.contractEvent.content,
-			contract.escrowData,
-			freshDisputeProposal,
-			contract.isPending || false,
-			contract.isClient,
-			!contract.isClient
-		);
+		const { status, permissions } = isBscContract
+			? determineMetadataOnlyState(contract.contractEvent.content, updatedStatusEvents)
+			: determineContractState(
+					contract.blockchainStatus,
+					updatedStatusEvents,
+					contract.contractEvent.content,
+					contract.escrowData,
+					freshDisputeProposal,
+					contract.isPending || false,
+					contract.isClient,
+					!contract.isClient,
+					{ allowDeleteWhenNeverFunded: true }
+				);
 
 		// Update store once with everything
 		contractStore.update((state) => {
@@ -688,6 +873,7 @@ export async function handleStatusEvent(event: NostrEvent) {
 
 		// If blockchain-confirmed action, fetch fresh blockchain data (async, for other fields)
 		if (
+			!isBscContract &&
 			transactionHash &&
 			[
 				EscrowStatus.Completed,
@@ -809,6 +995,7 @@ export async function handleContractEvent(event: NostrEvent) {
 		// Determine if user is client or freelancer
 		const isClient = contractEvent.content.clientPubkey === userPubkeyHex;
 		const isFreelancer = contractEvent.content.freelancerPubkey === userPubkeyHex;
+		const isBscContract = isBscContractLike(contractEvent.content);
 
 		// Query blockchain escrow data (source of truth)
 		let escrowData: EscrowData | null = null;
@@ -817,38 +1004,42 @@ export async function handleContractEvent(event: NostrEvent) {
 		let disputeProposal: DisputeProposal | null = null;
 
 		try {
-			// Check if contract address differs from current environment
-			const currentNetwork = import.meta.env.VITE_RSK_NETWORK;
-			const currentContractAddress =
-				currentNetwork === 'mainnet'
-					? import.meta.env.VITE_RSK_CONTRACT_ADDRESS_MAINNET
-					: import.meta.env.VITE_RSK_CONTRACT_ADDRESS_TESTNET;
+			if (isBscContract) {
+				escrowData = createMetadataOnlyEscrowData(contractEvent);
+			} else {
+				// Check if contract address differs from current environment
+				const currentNetwork = import.meta.env.VITE_RSK_NETWORK;
+				const currentContractAddress =
+					currentNetwork === 'mainnet'
+						? import.meta.env.VITE_RSK_CONTRACT_ADDRESS_MAINNET
+						: import.meta.env.VITE_RSK_CONTRACT_ADDRESS_TESTNET;
 
-			// Determine if we need to pass contract address for backwards compatibility
-			const contractAddress =
-				contractEvent.content.contractAddress &&
-				contractEvent.content.contractAddress.toLowerCase() !==
-					currentContractAddress?.toLowerCase()
-					? contractEvent.content.contractAddress
-					: undefined;
+				// Determine if we need to pass contract address for backwards compatibility
+				const contractAddress =
+					contractEvent.content.contractAddress &&
+					contractEvent.content.contractAddress.toLowerCase() !==
+						currentContractAddress?.toLowerCase()
+						? contractEvent.content.contractAddress
+						: undefined;
 
-			escrowData = await escrow.loadEscrowDetails(escrowId, contractAddress);
+				escrowData = await escrow.loadEscrowDetails(escrowId, contractAddress);
 
-			if (escrowData) {
-				blockchainStatus = escrowData.status;
+				if (escrowData) {
+					blockchainStatus = escrowData.status;
 
-				// Fetch dispute proposal if in dispute
-				if (blockchainStatus === EscrowStatus.InDispute) {
-					try {
-						disputeProposal = await escrow.getDisputeProposal(escrowId, contractAddress);
-						if (disputeProposal && escrowData) {
-							// Calculate client amount from total - freelancer amount
-							const totalAmount = parseFloat(escrowData.baseAmount);
-							const freelancerAmount = parseFloat(disputeProposal.freelancerAmount);
-							disputeProposal.clientAmount = (totalAmount - freelancerAmount).toString();
+					// Fetch dispute proposal if in dispute
+					if (blockchainStatus === EscrowStatus.InDispute) {
+						try {
+							disputeProposal = await escrow.getDisputeProposal(escrowId, contractAddress);
+							if (disputeProposal && escrowData) {
+								// Calculate client amount from total - freelancer amount
+								const totalAmount = parseFloat(escrowData.baseAmount);
+								const freelancerAmount = parseFloat(disputeProposal.freelancerAmount);
+								disputeProposal.clientAmount = (totalAmount - freelancerAmount).toString();
+							}
+						} catch (disputeError) {
+							console.warn(`Failed to load dispute proposal for ${escrowId}:`, disputeError);
 						}
-					} catch (disputeError) {
-						console.warn(`Failed to load dispute proposal for ${escrowId}:`, disputeError);
 					}
 				}
 			}
@@ -860,17 +1051,48 @@ export async function handleContractEvent(event: NostrEvent) {
 			}
 		}
 
+		if (!escrowData) {
+			if (isPending) {
+				escrowData = {
+					id: contractEvent.content.escrowId,
+					client: contractEvent.content.clientPubkey || '',
+					freelancer: contractEvent.content.freelancerPubkey || '',
+					baseAmount: contractEvent.content.amount || '0',
+					clientFee: '0',
+					freelancerFee: '0',
+					totalAmount: contractEvent.content.amount || '0',
+					status: EscrowStatus.PendingFunding,
+					estimatedStartTime: contractEvent.content.estimatedStartTime || 0,
+					estimatedCompletionTime: contractEvent.content.estimatedCompletionTime || 0,
+					completionTime: 0,
+					timelockExpiry: 0,
+					clientFeeTier: 'standard' as const,
+					freelancerFeeTier: 'standard' as const,
+					createdAt: contractEvent.created_at * 1000,
+					lastUpdated: Date.now()
+				};
+			} else if (isBscContract) {
+				escrowData = createMetadataOnlyEscrowData(contractEvent);
+			} else {
+				console.warn(`[ContractStore] Skipping contract without readable escrow state: ${escrowId}`);
+				return;
+			}
+		}
+
 		// Determine status and permissions based on blockchain state
-		const { status, permissions } = determineContractState(
-			blockchainStatus,
-			[], // No status events yet for new contract
-			contractEvent.content,
-			escrowData,
-			disputeProposal,
-			isPending,
-			isClient,
-			isFreelancer
-		);
+		const { status, permissions } = isBscContract
+			? determineMetadataOnlyState(contractEvent.content, [])
+			: determineContractState(
+					blockchainStatus,
+					[], // No status events yet for new contract
+					contractEvent.content,
+					escrowData,
+					disputeProposal,
+					isPending,
+					isClient,
+					isFreelancer,
+					{ allowDeleteWhenNeverFunded: true }
+				);
 
 		// Create the new contract object
 		const newContract: ContractWithEvents = {
@@ -878,7 +1100,7 @@ export async function handleContractEvent(event: NostrEvent) {
 			statusEvents: [],
 			isClient,
 			blockchainStatus,
-			escrowData: escrowData!, // Non-null assertion safe here due to check above
+			escrowData,
 			status,
 			isPending,
 			permissions,
@@ -948,7 +1170,7 @@ async function decryptContractEvent(
 
 		return {
 			...event,
-			content: JSON.parse(decryptedContent)
+			content: normalizeContractContent(JSON.parse(decryptedContent) as NostrContract)
 		} as ContractEvent;
 	} catch (error) {
 		// Skip events that fail to decrypt
@@ -990,7 +1212,10 @@ async function decryptStatusEvent(
 
 		return {
 			...event,
-			content: JSON.parse(decryptedContent)
+			content: normalizeContractStatusContent(
+				JSON.parse(decryptedContent) as NostrContractStatus,
+				event.tags
+			)
 		} as ContractStatusEvent;
 	} catch (error) {
 		// Skip events that fail to decrypt

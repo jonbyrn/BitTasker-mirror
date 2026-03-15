@@ -47,6 +47,8 @@ export default defineConfig({
 				'build/**',
 				'dist/**',
 				'packages/**',
+				'contracts/**',
+				'wallet-core/**',
 				'**/.storybook/**',
 				'**/functions/**',
 				'src/lib/tests/**',
@@ -66,6 +68,7 @@ export default defineConfig({
 	resolve: {
 		conditions: process.env.VITEST ? ['browser', 'development'] : ['browser', 'development'],
 		alias: {
+			'@bittasker/wallet-core': new URL('./wallet-core/src/index.ts', import.meta.url).pathname,
 			buffer: 'buffer',
 			crypto: 'crypto-browserify',
 			stream: 'stream-browserify',
@@ -103,7 +106,9 @@ export default defineConfig({
 			exclude: ['fs', 'path']
 		}),
 		sveltekit(),
-		houdini(),
+		// Tests use the checked-in generated runtime and do not need the Houdini Vite
+		// plugin to regenerate artifacts on every invocation, which can hang focused Vitest runs.
+		...(process.env.VITEST ? [] : [houdini()]),
 		tailwindcss(),
 		wasm(),
 		topLevelAwait(),

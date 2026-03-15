@@ -26,6 +26,7 @@ interface ContractRegistry {
 	};
 	bsc: {
 		mainnet: NetworkContracts;
+		testnet: NetworkContracts;
 	};
 }
 
@@ -63,33 +64,61 @@ const registry: ContractRegistry = {
 				current: null,
 				legacy: []
 			}
+		},
+		testnet: {
+			escrow: {
+				current: null,
+				legacy: []
+			},
+			etherSwap: {
+				current: null,
+				legacy: []
+			}
 		}
 	}
 };
+
+function normalizeAddress(address: string | null | undefined): string | null {
+	return address ? address.toLowerCase() : null;
+}
+
+function getBscEscrowAddress(environment: Environment): string | null {
+	const networkScopedAddress =
+		environment === 'mainnet'
+			? import.meta.env.VITE_BSC_ESCROW_CONTRACT_ADDRESS_MAINNET
+			: import.meta.env.VITE_BSC_ESCROW_CONTRACT_ADDRESS_TESTNET;
+
+	if (networkScopedAddress) {
+		return networkScopedAddress;
+	}
+
+	const selectedBscNetwork = (import.meta.env.VITE_BSC_NETWORK || 'mainnet') as Environment;
+	if (selectedBscNetwork === environment) {
+		return (
+			import.meta.env.VITE_BSC_ESCROW_CONTRACT_ADDRESS ||
+			import.meta.env.VITE_BSC_CONTRACT_ADDRESS ||
+			null
+		);
+	}
+
+	return null;
+}
 
 /**
  * Initialize contract registry with addresses from environment variables
  */
 export function initializeContractRegistry(): void {
-	const rskNetwork = (import.meta.env.VITE_RSK_NETWORK || 'testnet') as Environment;
-	
 	// RSK Escrow contracts
-	registry.rsk.mainnet.escrow.current = import.meta.env.VITE_RSK_CONTRACT_ADDRESS_MAINNET || null;
-	registry.rsk.testnet.escrow.current = import.meta.env.VITE_RSK_CONTRACT_ADDRESS_TESTNET || null;
-	
-	// BSC Escrow contract
-	registry.bsc.mainnet.escrow.current = import.meta.env.VITE_BSC_CONTRACT_ADDRESS || null;
-	
-	// Normalize addresses to lowercase
-	if (registry.rsk.mainnet.escrow.current) {
-		registry.rsk.mainnet.escrow.current = registry.rsk.mainnet.escrow.current.toLowerCase();
-	}
-	if (registry.rsk.testnet.escrow.current) {
-		registry.rsk.testnet.escrow.current = registry.rsk.testnet.escrow.current.toLowerCase();
-	}
-	if (registry.bsc.mainnet.escrow.current) {
-		registry.bsc.mainnet.escrow.current = registry.bsc.mainnet.escrow.current.toLowerCase();
-	}
+	registry.rsk.mainnet.escrow.current = normalizeAddress(
+		import.meta.env.VITE_RSK_CONTRACT_ADDRESS_MAINNET || null
+	);
+	registry.rsk.testnet.escrow.current = normalizeAddress(
+		import.meta.env.VITE_RSK_CONTRACT_ADDRESS_TESTNET || null
+	);
+
+	// BSC Escrow contracts
+	registry.bsc.mainnet.escrow.current = normalizeAddress(getBscEscrowAddress('mainnet'));
+	registry.bsc.testnet.escrow.current = normalizeAddress(getBscEscrowAddress('testnet'));
 }
 
 /**
@@ -101,8 +130,8 @@ export function getEscrowContractAddress(
 ): string | null {
 	if (network === 'rsk') {
 		return registry.rsk[environment].escrow.current;
-	} else if (network === 'bsc' && environment === 'mainnet') {
-		return registry.bsc.mainnet.escrow.current;
+	} else if (network === 'bsc') {
+		return registry.bsc[environment].escrow.current;
 	}
 	return null;
 }
@@ -151,7 +180,7 @@ export function isKnownContract(
 	
 	const escrowContracts = network === 'rsk' 
 		? registry.rsk[environment].escrow
-		: registry.bsc.mainnet.escrow;
+		: registry.bsc[environment].escrow;
 	
 	if (escrowContracts.legacy.includes(normalizedAddress)) {
 		return { isKnown: true, contractType: 'escrow', isCurrent: false };
@@ -189,13 +218,15 @@ export function addLegacyContract(
 		if (!registry.rsk[environment][contractType].legacy.includes(normalizedAddress)) {
 			registry.rsk[environment][contractType].legacy.push(normalizedAddress);
 		}
-	} else if (network === 'bsc' && environment === 'mainnet') {
-		if (contractType === 'escrow' && !registry.bsc.mainnet.escrow.legacy.includes(normalizedAddress)) {
-			registry.bsc.mainnet.escrow.legacy.push(normalizedAddress);
+	} else if (network === 'bsc') {
+		if (
+			contractType === 'escrow' &&
+			!registry.bsc[environment].escrow.legacy.includes(normalizedAddress)
+		) {
+			registry.bsc[environment].escrow.legacy.push(normalizedAddress);
 		}
 	}
 }
 
 // Initialize registry on module load
 initializeContractRegistry();
-

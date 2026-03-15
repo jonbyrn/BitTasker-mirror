@@ -254,6 +254,9 @@ export function mapSwapToTransaction(
         explorerUrl: txHash.startsWith('swap-') ? null : `${explorerBaseUrl}/tx/${txHash}`,
         feeSats: 0, // Swap fees are included in the amount
         balanceAfter: currentBalanceSats,
+        amountUnit: 'sats',
+        feeUnit: 'sats',
+        balanceUnit: 'sats',
         swap: {
             id: swap.id,
             type: swapType,

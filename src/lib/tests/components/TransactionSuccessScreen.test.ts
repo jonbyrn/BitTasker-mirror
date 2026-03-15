@@ -136,8 +136,34 @@ describe('TransactionSuccessScreen Component', () => {
 		render(TransactionSuccessScreen, defaultProps);
 		await tick();
 
-		const networkBadge = screen.getByText('rootstock-bitcoin');
-		expect(networkBadge).toBeDefined();
+		const networkBadges = screen.getAllByText('rBTC on Rootstock');
+		expect(networkBadges.length).toBeGreaterThan(0);
+	});
+
+	it('should render BSC alias networks with rail-safe labeling and no BNB copy', async () => {
+		const bscAliasProps = {
+			...defaultProps,
+			network: 'bsc',
+			amount: 12.3456,
+			serviceFee: 0.25
+		};
+
+		render(TransactionSuccessScreen, bscAliasProps);
+		await tick();
+
+		expect(screen.getAllByText('USDT on BSC').length).toBeGreaterThan(0);
+		expect(screen.getByText(/12.3456 USDT/)).toBeDefined();
+		expect(screen.getByText(/Service fee paid:/)).toBeDefined();
+		expect(screen.getByText(/0.25 USDT/)).toBeDefined();
+		expect(screen.queryByText(/bnb/i)).toBeNull();
+	});
+
+	it('should keep Rootstock success screens free of BSC fee copy', async () => {
+		render(TransactionSuccessScreen, defaultProps);
+		await tick();
+
+		expect(screen.queryByText(/Service fee paid:/)).toBeNull();
+		expect(screen.queryByText(/USDT/)).toBeNull();
 	});
 
 	it('should show pending status initially', async () => {
@@ -283,6 +309,21 @@ describe('TransactionSuccessScreen Component', () => {
 			'_blank',
 			'noopener,noreferrer'
 		);
+	});
+
+	it('should treat the plain bsc alias as USDT on BSC for amount copy', async () => {
+		const bscAliasProps = {
+			...defaultProps,
+			network: 'bsc',
+			amount: 12.5
+		};
+
+		render(TransactionSuccessScreen, bscAliasProps);
+		await tick();
+
+		expect(screen.getByText(/12.5 USDT sent to/)).toBeDefined();
+		expect(screen.getAllByText('USDT on BSC').length).toBeGreaterThan(0);
+		expect(screen.queryByText(/12.5 Sats/)).toBeNull();
 	});
 
 	it('should monitor transaction confirmation for RSK', async () => {
@@ -463,4 +504,3 @@ describe('TransactionSuccessScreen Component', () => {
 		expect(screen.getByText(/1,234,567/)).toBeDefined();
 	});
 });
-

@@ -143,5 +143,42 @@ describe('updateTask', () => {
 
 			expect(result).toBeDefined();
 		});
+
+		it('writes amountAtomic when updating a task onto the USDT on BSC rail', async () => {
+			const { getNpub } = await import('$lib/utils/nostrKeys');
+			const { getSignedEvent } = await import('$lib/utils/nostr');
+			vi.mocked(getNpub).mockResolvedValue(TASK_AUTHOR_PUBKEY);
+			vi.mocked(nostrEventsService.requestEvents).mockResolvedValueOnce({
+				data: [
+					{
+						...createTaskEvent(TASK_AUTHOR_PUBKEY, D_TAG),
+						content: JSON.stringify(
+							createTaskContent({
+								schemaVersion: 'task.v2',
+								paymentAsset: 'RBTC',
+								paymentNetwork: 'rsk-testnet'
+							})
+						)
+					}
+				]
+			} as unknown as ReturnType<typeof nostrEventsService.requestEvents>);
+
+			await updateTask(TASK_ID, {
+				budget: { amount: 12.34, currency: 'USD', type: 'fixed' },
+				paymentAsset: 'USDT',
+				paymentNetwork: 'bsc-testnet'
+			});
+
+			const event = vi.mocked(getSignedEvent).mock.calls.at(-1)?.[0];
+			expect(event).toBeDefined();
+
+			const content = JSON.parse(event.content);
+			expect(content).toMatchObject({
+				schemaVersion: 'task.v2',
+				amountAtomic: '12340000',
+				paymentAsset: 'USDT',
+				paymentNetwork: 'bsc-testnet'
+			});
+		});
 	});
 });

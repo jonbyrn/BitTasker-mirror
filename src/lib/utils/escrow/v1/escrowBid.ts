@@ -13,6 +13,11 @@ import type { NostrEvent } from 'nostr-tools';
 import { parseDateWithLocalTime } from '$lib/utils/helpers/dateFormatter';
 import { getTaskStableId } from '$lib/nostr/task';
 import { createDebug } from '$lib/utils/debug';
+import {
+	getTaskReference,
+	normalizePaymentAsset,
+	normalizePaymentNetwork
+} from '$lib/utils/helpers/paymentContext';
 
 const d = createDebug('escrow:bid');
 
@@ -221,6 +226,13 @@ export async function acceptBidAndCreateEscrow(
 	try {
 		const bidContent = bid.content as unknown as NostrBidContent;
 		const taskContent = JSON.parse(task.content) as Task;
+		const paymentAsset = normalizePaymentAsset(
+			bidContent.paymentAsset ?? taskContent.paymentAsset ?? 'RBTC'
+		);
+		const paymentNetwork = normalizePaymentNetwork(
+			bidContent.paymentNetwork ?? taskContent.paymentNetwork,
+			paymentAsset
+		);
 
 		// Calculate escrow details
 		const escrowDetails = calculateBidEscrowDetails(bidContent, taskContent, btcPrice);
@@ -252,6 +264,14 @@ export async function acceptBidAndCreateEscrow(
 			return {
 				success: false,
 				error: 'BSC wallet not connected. Please connect your wallet first.'
+			};
+		}
+
+		if (network === 'BSC') {
+			return {
+				success: false,
+				error:
+					'BSC escrow creation remains blocked until the deployed SecurePaymentContract ABI and accepted artifact bundle are available.'
 			};
 		}
 
@@ -316,10 +336,13 @@ export async function acceptBidAndCreateEscrow(
 		registerPendingContractByTxHash({
 			bidEventId: bid.id,
 			taskId,
+			taskRef: getTaskReference(taskId),
 			taskTitle: taskContent.title,
 			taskDescription: taskContent.description,
 			freelancerPubkey: bidContent.bidderId || '',
 			amount: escrowDetails.baseAmount,
+			paymentAsset,
+			paymentNetwork,
 			estimatedStartTime: adjustedStartTime,
 			estimatedCompletionTime: adjustedCompletionTime,
 			transactionHash: transactionHash

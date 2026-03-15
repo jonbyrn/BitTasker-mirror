@@ -9,6 +9,7 @@ import { nip19, type NostrEvent } from 'nostr-tools';
 import { appStore } from '$lib/stores/app.store';
 import { get } from 'svelte/store';
 import KINDS from '$lib/utils/constants/kinds';
+import { getContractQueryNetworks } from '$lib/utils/helpers/paymentContext';
 
 // Contract store state
 type ContractStoreState = {
@@ -129,7 +130,7 @@ function createContractStore() {
 			}
 
 			const since = Math.floor(Date.now() / 1000);
-			const currentNetwork = import.meta.env.VITE_RSK_NETWORK;
+			const currentNetworks = getContractQueryNetworks();
 
 			// Subscription 1: Contract events where user is PARTICIPANT
 			contractSubscription = pool.subscribe(
@@ -137,7 +138,7 @@ function createContractStore() {
 				{
 					kinds: [KINDS.CONTRACT],
 					'#p': [userPubkeyHex],
-					'#n': [currentNetwork], // Filter by current network
+					'#n': currentNetworks, // Filter by current environment across supported rails
 					since
 				},
 				{ onevent: escrow.contractOps.handleContractEvent }

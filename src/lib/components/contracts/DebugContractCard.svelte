@@ -13,7 +13,6 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { ethers } from 'ethers';
 	import { getRSKConfig } from '@bittasker/wallet-core';
-
 	// Define error types for better type safety
 	interface EthersError {
 		code?: string;
@@ -31,6 +30,7 @@
 		permissions,
 		isClient,
 		isFreelancer,
+		network,
 		isExpanded,
 		safetyOverride,
 		isExecuting = false,
@@ -41,6 +41,7 @@
 		permissions: ContractPermissions;
 		isClient: boolean;
 		isFreelancer: boolean;
+		network: 'RSK' | 'BSC';
 		isExpanded: boolean;
 		safetyOverride: boolean;
 		isExecuting?: boolean;
@@ -62,6 +63,8 @@
 	let estimatingGas = $state<Set<string>>(new Set()); // Functions currently being estimated
 	let hasEstimatedGas = $state(false); // Track if initial gas estimation has been done
 	let estimationAbortController = $state<AbortController | null>(null); // Abort controller for race condition prevention
+	const isBscReadOnly = $derived(network === 'BSC');
+	const paymentRailLabel = $derived(isBscReadOnly ? 'USDT on BSC' : 'rBTC on Rootstock');
 
 	// Payment information state
 	let paymentInfo = $state<{
@@ -75,6 +78,9 @@
 
 	// Check if contract has zero value or funds were released
 	function hasZeroValue(): boolean {
+		if (isBscReadOnly) {
+			return false;
+		}
 		// If funds were paid out, consider it as zero value
 		if (paymentInfo?.paidOut) {
 			return true;
@@ -85,6 +91,7 @@
 
 	// Determine if function button should be disabled
 	function isFunctionDisabled(functionName: string): boolean {
+		if (isBscReadOnly) return true;
 		// Always disable if contract value is zero or funds were released
 		if (hasZeroValue()) return true;
 
@@ -137,6 +144,9 @@
 
 	// Get tooltip text for disabled buttons
 	function getDisabledTooltip(functionName: string): string {
+		if (isBscReadOnly) {
+			return `${paymentRailLabel} debug actions stay read-only until the deployed BSC escrow ABI/artifacts are accepted.`;
+		}
 		if (hasZeroValue()) {
 			return $t('debug.smart_contract.actions.disabled_zero_value');
 		}
@@ -231,6 +241,9 @@
 
 	// Handle function execution
 	async function handleExecuteFunction(functionName: string, ...args: any[]) {
+		if (isBscReadOnly) {
+			return;
+		}
 		if (safetyOverride) {
 			// Skip confirmation if override is enabled
 			// onExecuteFunction expects (functionName, ...args) - parent adds contract.id
@@ -397,6 +410,11 @@
 	// Fetch BTC price on mount and estimate gas once
 	onMount(async () => {
 		try {
+			if (isBscReadOnly) {
+				checkingPayment = false;
+				return;
+			}
+
 			// Only fetch BTC price if not already set (service has caching, but avoid redundant calls)
 			if (btcPrice === 0) {
 				btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
@@ -758,7 +776,10 @@
 				</div>
 			</div>
 			<div class="text-right">
-				{#if checkingPayment}
+				{#if isBscReadOnly}
+					<div class="text-lg font-bold">Read-only</div>
+					<div class="text-xs text-base-content/60">{paymentRailLabel} legacy context</div>
+				{:else if checkingPayment}
 					<div class="text-sm text-base-content/60">Checking payment...</div>
 				{:else if paymentInfo?.paidOut}
 					<div class="text-lg font-bold">0 sats</div>
@@ -782,7 +803,7 @@
 				</div>
 				<div class="flex items-center gap-2">
 					<a
-						href={getExplorerUrl(contract.client, 'RSK')}
+						href={getExplorerUrl(contract.client, network)}
 						target="_blank"
 						rel="noopener noreferrer"
 						class="font-mono text-sm link link-primary"
@@ -798,7 +819,7 @@
 				</div>
 				<div class="flex items-center gap-2">
 					<a
-						href={getExplorerUrl(contract.freelancer, 'RSK')}
+						href={getExplorerUrl(contract.freelancer, network)}
 						target="_blank"
 						rel="noopener noreferrer"
 						class="font-mono text-sm link link-primary"
@@ -837,6 +858,15 @@
 		<!-- Action Buttons -->
 		<div class="mt-4 border-t border-base-300 pt-4">
 			<h4 class="mb-3 text-sm font-semibold">{$t('debug.smart_contract.actions.title')}</h4>
+			{#if isBscReadOnly}
+				<div class="alert alert-warning">
+					<span>
+						{paymentRailLabel} contracts loaded in this debug view are read-only until the deployed
+						BSC escrow ABI/artifacts are accepted. Explorer links remain available, but contract
+						method execution stays blocked here and payment asset context is treated conservatively.
+					</span>
+				</div>
+			{:else}
 			<div class="flex flex-wrap gap-2">
 				<!-- Complete Task -->
 				<div class="flex flex-col items-center gap-1">
@@ -985,6 +1015,7 @@
 					<span class="text-xs text-base-content/60">{formatGasFee('resolveAfterTimelock')}</span>
 				</div>
 			</div>
+			{/if}
 		</div>
 
 		<!-- Raw Data Toggle -->

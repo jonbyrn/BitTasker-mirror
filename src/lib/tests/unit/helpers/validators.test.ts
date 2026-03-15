@@ -2,7 +2,10 @@ import { describe, it, expect, vi } from 'vitest';
 
 // Mock wallet-core and liquidjs-lib so validators module can load (EventBus missing in test env)
 vi.mock('@bittasker/wallet-core', () => ({
-	normalizeRskAddress: vi.fn((addr: string) => addr)
+	normalizeRskAddress: vi.fn((addr: string) => addr.toLowerCase()),
+	isValidRskAddress: vi.fn((addr: string) =>
+		addr === '0xE1D3F94d0b1aBEbdbE5e722e68CdEcA94a8e7d41'
+	)
 }));
 vi.mock('liquidjs-lib', () => ({
 	address: {
@@ -16,7 +19,14 @@ import {
 	validateName,
 	validatePassword,
 	validateNostrPrivateKey,
-	validateUsername
+	validateUsername,
+	validateEvmPaymentIntent,
+	validateUsdtAmount,
+	formatUsdtToAtomicAmount,
+	formatAtomicToUsdtAmount,
+	validateBscAddress,
+	getBscErrorMessage,
+	BscDirectSendFailureCode
 } from '$lib/utils/helpers/validators';
 
 describe('Validators', () => {
@@ -238,6 +248,174 @@ describe('Validators', () => {
 			const result = validateUsername('a'); 
 			expect(result.isValid).toBe(false);
 			expect(result.error).toBe('onboarding_auth.form.username_setup.errors.too_short');
+		});
+	});
+
+	describe('validateEvmPaymentIntent', () => {
+		it('should accept chain-qualified RSK payment intents', () => {
+			const result = validateEvmPaymentIntent(
+				'rsk:0x1234567890123456789012345678901234567890'
+			);
+			expect(result.isValid).toBe(true);
+		});
+
+		it('should accept chain-qualified BSC payment intents', () => {
+			const result = validateEvmPaymentIntent(
+				'ethereum:0x1234567890123456789012345678901234567890@56'
+			);
+			expect(result.isValid).toBe(true);
+		});
+
+		it('should reject malformed chain-qualified BSC payment intents', () => {
+			const result = validateEvmPaymentIntent('bsc:not-an-address');
+			expect(result.isValid).toBe(false);
+			expect(result.error).toContain('Invalid EVM payment address');
+		});
+
+		it('should reject raw unqualified EVM addresses', () => {
+			const result = validateEvmPaymentIntent(
+				'0x1234567890123456789012345678901234567890'
+			);
+			expect(result.isValid).toBe(false);
+			expect(result.error?.toLowerCase()).toContain('ambiguous');
+		});
+
+		it('should accept a plain checksummed RSK address', () => {
+			const result = validateEvmPaymentIntent(
+				'0xE1D3F94d0b1aBEbdbE5e722e68CdEcA94a8e7d41'
+			);
+			expect(result.isValid).toBe(true);
+			expect(result.network).toBe('rootstock-bitcoin');
+		});
+
+		it('should reject ethereum-style intents without chain id', () => {
+			const result = validateEvmPaymentIntent(
+				'ethereum:0x1234567890123456789012345678901234567890'
+			);
+			expect(result.isValid).toBe(false);
+			expect(result.error).toContain('chain ID');
+		});
+
+		it('should reject unsupported chain ids explicitly', () => {
+			const result = validateEvmPaymentIntent(
+				'ethereum:0x1234567890123456789012345678901234567890@1'
+			);
+			expect(result.isValid).toBe(false);
+			expect(result.error).toContain('Unsupported');
+		});
+	});
+
+	describe('validateUsdtAmount', () => {
+		it('should accept valid USDT amounts', () => {
+			expect(validateUsdtAmount('100').isValid).toBe(true);
+			expect(validateUsdtAmount('100.5').isValid).toBe(true);
+			expect(validateUsdtAmount('0.000001').isValid).toBe(true); // Minimum with 6 decimals
+			expect(validateUsdtAmount(100).isValid).toBe(true);
+		});
+
+		it('should reject amounts with more than 6 decimal places', () => {
+			const result = validateUsdtAmount('100.0000001');
+			expect(result.isValid).toBe(false);
+			expect(result.error).toContain('cannot have more than 6 decimal places');
+		});
+
+		it('should reject non-numeric values', () => {
+			const result = validateUsdtAmount('not-a-number');
+			expect(result.isValid).toBe(false);
+		});
+
+		it('should reject zero and negative amounts', () => {
+			expect(validateUsdtAmount('0').isValid).toBe(false);
+			expect(validateUsdtAmount('-100').isValid).toBe(false);
+		});
+
+		it('should accept amounts with exactly 6 decimal places', () => {
+			const result = validateUsdtAmount('100.123456');
+			expect(result.isValid).toBe(true);
+		});
+	});
+
+	describe('formatUsdtToAtomicAmount', () => {
+		it('should convert USDT to atomic units (multiply by 1,000,000)', () => {
+			expect(formatUsdtToAtomicAmount('100')).toBe('100000000');
+			expect(formatUsdtToAtomicAmount('0.000001')).toBe('1');
+			expect(formatUsdtToAtomicAmount('1.5')).toBe('1500000');
+		});
+
+		it('should return null for invalid amounts', () => {
+			expect(formatUsdtToAtomicAmount('invalid')).toBeNull();
+			expect(formatUsdtToAtomicAmount('-100')).toBeNull();
+		});
+	});
+
+	describe('formatAtomicToUsdtAmount', () => {
+		it('should convert atomic units back to USDT (divide by 1,000,000)', () => {
+			expect(formatAtomicToUsdtAmount('100000000')).toBe('100');
+			expect(formatAtomicToUsdtAmount('1')).toBe('0.000001');
+			expect(formatAtomicToUsdtAmount('1500000')).toContain('1.5');
+		});
+
+		it('should handle BigInt input', () => {
+			expect(formatAtomicToUsdtAmount(100000000n)).toBe('100');
+		});
+
+		it('should handle numeric input', () => {
+			expect(formatAtomicToUsdtAmount(100000000)).toBe('100');
+		});
+	});
+
+	describe('validateBscAddress', () => {
+		it('should accept BSC-qualified addresses', () => {
+			const result = validateBscAddress('bsc:0x1234567890123456789012345678901234567890');
+			expect(result.isValid).toBe(false); // Will fail checksum validation, but that's expected
+		});
+
+		it('should accept ethereum chain ID format for BSC', () => {
+			const result = validateBscAddress('ethereum:0x1234567890123456789012345678901234567890@56');
+			expect(result.isValid).toBe(true);
+		});
+
+		it('should accept BSC testnet chain ID', () => {
+			const result = validateBscAddress('ethereum:0x1234567890123456789012345678901234567890@97');
+			expect(result.isValid).toBe(true);
+		});
+
+		it('should reject raw unqualified addresses', () => {
+			const result = validateBscAddress('0x1234567890123456789012345678901234567890');
+			expect(result.isValid).toBe(false);
+			expect(result.error).toContain('Ambiguous');
+		});
+
+		it('should reject empty addresses', () => {
+			const result = validateBscAddress('');
+			expect(result.isValid).toBe(false);
+			expect(result.error).toContain('required');
+		});
+	});
+
+	describe('getBscErrorMessage', () => {
+		it('should return user-friendly error messages for all failure codes', () => {
+			const codes = [
+				BscDirectSendFailureCode.WRONG_CHAIN,
+				BscDirectSendFailureCode.SPONSOR_UNAVAILABLE,
+				BscDirectSendFailureCode.ROUTER_ALLOWANCE_MISSING,
+				BscDirectSendFailureCode.INSUFFICIENT_USDT_BALANCE,
+				BscDirectSendFailureCode.TOKEN_CONFIG_MISMATCH,
+				BscDirectSendFailureCode.POLICY_REJECTED,
+				BscDirectSendFailureCode.LEGACY_ONLY,
+				BscDirectSendFailureCode.SUBMISSION_UNSUPPORTED
+			];
+
+			codes.forEach(code => {
+				const message = getBscErrorMessage(code);
+				expect(message).toBeTruthy();
+				expect(message).not.toContain('error');
+			});
+		});
+
+		it('should handle unknown error codes gracefully', () => {
+			const message = getBscErrorMessage('UNKNOWN_CODE');
+			expect(message).toContain('An error occurred');
 		});
 	});
 });

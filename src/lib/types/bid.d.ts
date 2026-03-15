@@ -3,6 +3,7 @@ import type { Event as NostrEvent } from 'nostr-tools';
 import type { Location, TaskTranslations } from '$lib/types/task';
 import type { BidStatusEnum } from '$lib/utils/enums/bid.enum';
 import type { BidTranslations } from '$lib/nostr/bid';
+import type { PaymentAsset, PaymentNetwork } from '$lib/utils/helpers/paymentContext';
 
 // Legacy bid types
 export type PaymentType = 'FIXED' | 'HOURLY';
@@ -11,13 +12,19 @@ export type Visibility = 'PUBLIC' | 'PRIVATE';
 
 // New nostr bid types
 export interface NostrBidContent {
+	schemaVersion?: string;
 	type: 'bid';
+	bidRef?: string;
 	taskId: string;
+	taskRef?: string;
 	taskTitle: string; // Add task title
 	taskDescription: string; // Add task description
 	taskTranslations?: TaskTranslations; // Task translations for simple display
 	amount: number;
+	amountAtomic?: string;
 	currency: string;
+	paymentAsset?: PaymentAsset;
+	paymentNetwork?: PaymentNetwork;
 	paymentType: PaymentType;
 	hourlyRate?: number | null; // Allow null values
 	estimatedHours?: number | null; // Allow null values
@@ -37,7 +44,12 @@ export interface NostrBidContent {
 	taskCreatorRating?: number;
 
 	/** Original task budget (when bid was created) for display in sent offers */
-	taskBudget?: { amount: number; currency?: string };
+	taskBudget?: {
+		amount: number;
+		currency?: string;
+		paymentAsset?: PaymentAsset;
+		paymentNetwork?: PaymentNetwork;
+	};
 
 	// Bidder information
 	bidderId?: string;
@@ -47,6 +59,7 @@ export interface NostrBidContent {
 
 	// RSK wallet address for escrow funding
 	bidderWalletAddress?: string;
+	bidderWalletNetwork?: PaymentNetwork;
 
 	// Runtime properties added when processing bids
 	status?: BidStatusEnum;
@@ -285,10 +298,15 @@ export interface SimplifiedTaskBid {
 // Bid status message types for Nostr communication
 export interface NostrBidStatus {
 	type: 'bid-status';
+	schemaVersion?: string;
 	taskId: string;
+	taskRef?: string;
+	bidRef?: string;
 	status: BidStatusEnum;
 	message?: string;
 	timestamp: number;
+	paymentAsset?: PaymentAsset;
+	paymentNetwork?: PaymentNetwork;
 	// For accepted bids, include escrow details
 	escrowId?: string;
 	transactionHash?: string;

@@ -10,13 +10,24 @@
 	interface Props {
 		txHash: string;
 		network: string;
-		amount: number; // Amount in sats
+		amount: number;
+		serviceFee?: number;
 		recipient: string;
 		onClose: () => void;
 		onViewDetails?: () => void;
 	}
 
 	const props = $props();
+	const isBscUsdtRail = $derived(props.network === 'usdt-bsc' || props.network === 'bsc');
+
+	function getPaymentRailLabel(network: string): string {
+		if (network === 'usdt-bsc' || network === 'bsc') return 'USDT on BSC';
+		if (network === 'rootstock-bitcoin' || network === 'rsk') return 'rBTC on Rootstock';
+		if (network === 'lightning-bitcoin') return 'Bitcoin on Lightning';
+		if (network === 'liquid-bitcoin') return 'L-BTC on Liquid';
+		if (network === 'bitcoin') return 'Bitcoin';
+		return network;
+	}
 
 	let isConfirmed = $state(false);
 	let confirmationCount = $state(0);
@@ -61,6 +72,15 @@
 	// Format sats
 	function formatSats(sats: number): string {
 		return new Intl.NumberFormat('en-US').format(sats);
+	}
+
+	function formatUsdt(amount: number): string {
+		if (!Number.isFinite(amount)) return '0';
+
+		return new Intl.NumberFormat('en-US', {
+			minimumFractionDigits: 0,
+			maximumFractionDigits: 6
+		}).format(amount);
 	}
 
 	// Format address (truncate)
@@ -233,8 +253,13 @@
 	<div class="text-center space-y-2">
 		<h2 class="text-2xl md:text-3xl font-bold">{$t('wallet.send.success.payment_sent')}</h2>
 		<p class="text-base-content/70">
-			{formatSats(props.amount)} {$t('wallet.sats')} {$t('wallet.send.success.sent_to')}
+			{#if isBscUsdtRail}
+				{formatUsdt(props.amount)} USDT {$t('wallet.send.success.sent_to')}
+			{:else}
+				{formatSats(props.amount)} {$t('wallet.sats')} {$t('wallet.send.success.sent_to')}
+			{/if}
 		</p>
+		<p class="text-sm text-base-content/60">{getPaymentRailLabel(props.network)}</p>
 		<p class="text-sm font-mono text-base-content/60">{formatAddress(props.recipient)}</p>
 	</div>
 
@@ -269,8 +294,15 @@
 
 		<div class="flex items-center justify-between">
 			<span class="text-sm text-base-content/70">{$t('wallet.network')}:</span>
-			<span class="badge badge-info">{props.network}</span>
+			<span class="badge badge-info">{getPaymentRailLabel(props.network)}</span>
 		</div>
+
+		{#if isBscUsdtRail && (props.serviceFee ?? 0) > 0}
+			<div class="flex items-center justify-between">
+				<span class="text-sm text-base-content/70">Service fee paid:</span>
+				<span class="text-sm font-semibold">{formatUsdt(props.serviceFee ?? 0)} USDT</span>
+			</div>
+		{/if}
 
 		{#if isConfirmed}
 			<div class="flex items-center justify-between">
@@ -351,4 +383,3 @@
 		}
 	}
 </style>
-

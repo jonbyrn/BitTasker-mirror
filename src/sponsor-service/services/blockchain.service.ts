@@ -1,0 +1,202 @@
+/**
+ * Blockchain Service
+ * Handles interaction with BSC blockchain (RPC calls, balance checks, transaction submission)
+ */
+
+import { ethers } from 'ethers';
+import type { NetworkConfig } from '../config/networks.js';
+import { getNetworkConfig } from '../config/networks.js';
+
+export interface TransactionReceipt {
+  transactionHash: string;
+  blockNumber: number;
+  gasUsed: string;
+  status: number | null; // 1 for success, 0 for failure, null for pending
+  confirmations: number;
+}
+
+export class BlockchainService {
+  private providers: Map<number, ethers.JsonRpcProvider> = new Map();
+
+  /**
+   * Get provider for a specific chain
+   */
+  getProvider(chainId: number): ethers.JsonRpcProvider {
+    if (!this.providers.has(chainId)) {
+      const config = getNetworkConfig(chainId);
+      if (!config) {
+        throw new Error(`Unsupported chain ID: ${chainId}`);
+      }
+      this.providers.set(chainId, new ethers.JsonRpcProvider(config.rpcUrl));
+    }
+    return this.providers.get(chainId)!;
+  }
+
+  /**
+   * Get current gas price
+   */
+  async getGasPrice(chainId: number): Promise<string> {
+    try {
+      const provider = this.getProvider(chainId);
+      const gasPrice = await provider.getGasPrice();
+      return gasPrice.toString();
+    } catch (error) {
+      console.error(`Error getting gas price for chain ${chainId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Submit signed transaction to the blockchain
+   */
+  async submitSignedTransaction(
+    chainId: number,
+    signedRawTransaction: string
+  ): Promise<string> {
+    try {
+      const provider = this.getProvider(chainId);
+      const result = await provider.broadcastTransaction(signedRawTransaction);
+      return result;
+    } catch (error) {
+      console.error(`Error submitting transaction to chain ${chainId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get transaction receipt
+   */
+  async getTransactionReceipt(
+    chainId: number,
+    txHash: string
+  ): Promise<TransactionReceipt | null> {
+    try {
+      const provider = this.getProvider(chainId);
+      const receipt = await provider.getTransactionReceipt(txHash);
+
+      if (!receipt) {
+        return null;
+      }
+
+      return {
+        transactionHash: receipt.hash,
+        blockNumber: receipt.blockNumber,
+        gasUsed: receipt.gasUsed.toString(),
+        status: receipt.status,
+        confirmations: receipt.confirmations || 0
+      };
+    } catch (error) {
+      console.error(`Error getting receipt for ${txHash}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Poll for transaction confirmation
+   */
+  async waitForConfirmation(
+    chainId: number,
+    txHash: string,
+    minConfirmations: number = 1,
+    pollInterval: number = 2000,
+    maxRetries: number = 15
+  ): Promise<TransactionReceipt> {
+    let retries = 0;
+
+    while (retries < maxRetries) {
+      const receipt = await this.getTransactionReceipt(chainId, txHash);
+
+      if (receipt && receipt.status !== null) {
+        // Transaction has been mined
+        if (receipt.status === 1) {
+          // Success
+          return receipt;
+        } else {
+          // Failed
+          throw new Error(`Transaction failed: ${txHash}`);
+        }
+      }
+
+      retries++;
+      await new Promise(resolve => setTimeout(resolve, pollInterval));
+    }
+
+    throw new Error(`Transaction confirmation timeout: ${txHash}`);
+  }
+
+  /**
+   * Get account balance
+   */
+  async getBalance(chainId: number, address: string): Promise<string> {
+    try {
+      const provider = this.getProvider(chainId);
+      const balance = await provider.getBalance(address);
+      return balance.toString();
+    } catch (error) {
+      console.error(`Error getting balance for ${address}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get ERC-20 token balance
+   */
+  async getTokenBalance(
+    chainId: number,
+    tokenAddress: string,
+    ownerAddress: string
+  ): Promise<string> {
+    try {
+      const provider = this.getProvider(chainId);
+
+      // Simple ERC-20 balanceOf call
+      const abi = ['function balanceOf(address) view returns (uint256)'];
+      const contract = new ethers.Contract(tokenAddress, abi, provider);
+      const balance = await contract.balanceOf(ownerAddress);
+
+      return balance.toString();
+    } catch (error) {
+      console.error(
+        `Error getting token balance for ${ownerAddress} on token ${tokenAddress}:`,
+        error
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Get network chain ID (for validation)
+   */
+  async getChainId(chainId: number): Promise<number> {
+    try {
+      const provider = this.getProvider(chainId);
+      const network = await provider.getNetwork();
+      return network.chainId;
+    } catch (error) {
+      console.error(`Error getting chain ID:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get current block number
+   */
+  async getBlockNumber(chainId: number): Promise<number> {
+    try {
+      const provider = this.getProvider(chainId);
+      return await provider.getBlockNumber();
+    } catch (error) {
+      console.error(`Error getting block number for chain ${chainId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Clear provider cache (useful for testing)
+   */
+  clearCache(): void {
+    this.providers.clear();
+  }
+}
+
+export const blockchainService = new BlockchainService();

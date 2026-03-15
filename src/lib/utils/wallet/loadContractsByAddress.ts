@@ -1,6 +1,17 @@
 import type { EscrowData } from '$lib/types/wallet';
+import { get } from 'svelte/store';
+import { walletStore } from '$lib/stores/wallet.store';
 import { escrow } from '../escrow/v1/escrow';
+import { escrow as escrowManager } from '../escrow';
+import {
+	normalizePaymentAsset,
+	normalizePaymentNetwork
+} from '$lib/utils/helpers/paymentContext';
 import { callContractMethod } from './rpcHelpers';
+
+function isEvmAddress(value?: string | null): value is string {
+	return typeof value === 'string' && /^0x[a-fA-F0-9]{40}$/.test(value);
+}
 
 /**
  * Load all smart contracts for a given wallet address
@@ -15,12 +26,63 @@ export async function loadContractsByAddress(
 	network: 'RSK' | 'BSC' = 'RSK'
 ): Promise<EscrowData[]> {
 	try {
-		// Ensure escrow contract is ready for the specified network
-		// For now, escrow.ensureEscrowReady() only supports RSK
-		// TODO: Add BSC support when multi-network escrow is implemented
+		const normalizedAddress = walletAddress.toLowerCase();
+
 		if (network === 'BSC') {
-			// For now, return empty array for BSC until multi-network support is added
-			return [];
+			const connectedBscAddress = get(walletStore).bsc.address?.trim() ?? null;
+			const normalizedConnectedBscAddress = connectedBscAddress?.toLowerCase() ?? null;
+
+			if (normalizedConnectedBscAddress && normalizedConnectedBscAddress !== normalizedAddress) {
+				return [];
+			}
+
+			const resolvedConnectedAddress = connectedBscAddress ?? walletAddress;
+			const contracts = await escrowManager.contractOps.getContracts({ limit });
+
+			return contracts
+				.flatMap((contract) => {
+					const paymentAsset = normalizePaymentAsset(
+						contract.contractEvent.content.paymentAsset ??
+							contract.contractEvent.content.currency ??
+							'RBTC'
+					);
+					const paymentNetwork = normalizePaymentNetwork(
+						contract.contractEvent.content.paymentNetwork,
+						paymentAsset
+					);
+
+					if (!paymentNetwork.startsWith('bsc')) {
+						return [];
+					}
+
+					const { client, freelancer } = contract.escrowData;
+					const hasEvmParticipant =
+						isEvmAddress(contract.escrowData.client) || isEvmAddress(contract.escrowData.freelancer);
+
+					if (hasEvmParticipant) {
+						const matchesClient = isEvmAddress(client) && client.toLowerCase() === normalizedAddress;
+						const matchesFreelancer =
+							isEvmAddress(freelancer) && freelancer.toLowerCase() === normalizedAddress;
+
+						if (!matchesClient && !matchesFreelancer) {
+							return [];
+						}
+
+						return [contract.escrowData];
+					}
+
+					return [
+						{
+							...contract.escrowData,
+							client: contract.isClient
+								? resolvedConnectedAddress
+								: contract.escrowData.client,
+							freelancer: contract.isClient
+								? contract.escrowData.freelancer
+								: resolvedConnectedAddress
+						}
+					];
+				});
 		}
 
 		// Read-only operations don't require balance - pass requireBalance: false
@@ -54,8 +116,6 @@ export async function loadContractsByAddress(
 
 		// Load recent escrows (last N to avoid too many calls)
 		const startId = Math.max(0, totalEscrows - limit);
-		const normalizedAddress = walletAddress.toLowerCase();
-
 		// Load contracts in parallel batches to avoid overwhelming the RPC
 		const batchSize = 20; // Conservative batch size to respect RPC rate limits
 
@@ -111,4 +171,3 @@ export async function loadContractsByAddress(
 		);
 	}
 }
-

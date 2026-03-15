@@ -4,10 +4,22 @@
 	import { onMount } from 'svelte';
 	import { Capacitor } from '@capacitor/core';
 	import { appStore } from '$lib/stores/app.store';
-	import { walletStore, walletManager, formatSats, formatUsd } from '$lib/stores/wallet.store';
+	import {
+		walletStore,
+		walletManager,
+		formatSats,
+		formatUsd,
+		getBSCSponsorStatus,
+		preflightBSCDirectSend,
+		submitBSCDirectSend,
+		type BscDirectSendPreflightResult,
+		type BscSponsorStatus
+	} from '$lib/stores/wallet.store';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import {
+		AMBIGUOUS_EVM_ADDRESS_ERROR,
 		parsePaymentAddress,
+		qualifyEvmPaymentAddress,
 		type ParsedPaymentAddress
 	} from '$lib/utils/helpers/paymentAddressParser';
 	import { triggerHaptic, ImpactStyle } from '$lib/utils/helpers/haptics';
@@ -27,6 +39,7 @@
 	import IconChevronRight from '~icons/mdi/chevron-right';
 	import IconOpenInNew from '~icons/mdi/open-in-new';
 	import AddressAccordion from '$lib/components/wallet/AddressAccordion.svelte';
+	import { toAtomicAmountString } from '$lib/utils/helpers/paymentContext';
 
 	let { onCancel, onSuccess } = $props<{
 		onCancel: () => void;
@@ -72,6 +85,14 @@
 		}
 	};
 
+	const BSC_USDT_DECIMALS = 6;
+	const BSC_CHAIN_ID = (import.meta.env.VITE_BSC_NETWORK || 'testnet') === 'mainnet' ? 56 : 97;
+	const BSC_DIRECT_SEND_CONFIG = {
+		tokenAddress: (import.meta.env.VITE_BSC_USDT_TOKEN_ADDRESS || '').trim(),
+		routerAddress: (import.meta.env.VITE_BSC_DIRECT_SEND_ROUTER_ADDRESS || '').trim(),
+		fixedFeeAtomic: (import.meta.env.VITE_BSC_DIRECT_SEND_FIXED_FEE_ATOMIC || '0').trim() || '0'
+	};
+
 	// Grouped State: Form Input & Address Data
 	let formInput = $state({
 		addressInput: '',
@@ -97,6 +118,11 @@
 		amountRequired: true,
 		addressError: null
 	});
+
+	let ambiguousAddress = $state<{
+		rawInput: string;
+		source: 'manual' | 'scan';
+	} | null>(null);
 
 	// Grouped State: UI State
 	let uiState = $state({
@@ -171,9 +197,107 @@
 		pendingSwapId: null
 	});
 
+	let bscDirectSendState = $state<{
+		isChecking: boolean;
+		sponsorStatus: BscSponsorStatus | null;
+		lastPreflight: BscDirectSendPreflightResult | null;
+		blockedMessage: string | null;
+	}>({
+		isChecking: false,
+		sponsorStatus: null,
+		lastPreflight: null,
+		blockedMessage: null
+	});
+
 	// Cached Data
 	let btcPrice = $state<number>(0);
 	let recentAddresses = $state<Array<{ address: string; network: string; label?: string }>>([]);
+
+	function formatUsdtAmount(amount: number, maximumFractionDigits = BSC_USDT_DECIMALS): string {
+		if (!Number.isFinite(amount)) return '0';
+
+		return new Intl.NumberFormat('en-US', {
+			minimumFractionDigits: 0,
+			maximumFractionDigits
+		}).format(amount);
+	}
+
+	function sanitizeTokenAmount(value: number): number {
+		if (!Number.isFinite(value) || value <= 0) return 0;
+		return Number(value.toFixed(BSC_USDT_DECIMALS));
+	}
+
+	function formatEditableAmount(value: number): string {
+		return value
+			.toFixed(parsedPayment.detectedNetwork === 'usdt-bsc' ? BSC_USDT_DECIMALS : 2)
+			.replace(/\.?0+$/, '');
+	}
+
+	function atomicToUsdtAmount(value: string | null | undefined): number {
+		if (!value) return 0;
+
+		try {
+			return Number(value) / 10 ** BSC_USDT_DECIMALS;
+		} catch {
+			return 0;
+		}
+	}
+
+	function getBscConfigError(): string | null {
+		if (!BSC_DIRECT_SEND_CONFIG.tokenAddress) {
+			return 'BSC direct send is unavailable because the USDT token address is not configured.';
+		}
+
+		if (!BSC_DIRECT_SEND_CONFIG.routerAddress) {
+			return 'BSC direct send is unavailable because the direct-send router address is not configured.';
+		}
+
+		return null;
+	}
+
+	function mapBscPreflightFailure(
+		result: BscDirectSendPreflightResult,
+		sponsorStatus: BscSponsorStatus | null
+	): string {
+		switch (result.failureCode) {
+			case 'WRONG_CHAIN':
+				return 'USDT on BSC is blocked because the wallet is connected to the wrong network. Switch to BSC and try again.';
+			case 'ROUTER_ALLOWANCE_MISSING':
+				return 'USDT on BSC is blocked because the router allowance is missing or too low for the requested amount plus fixed fee.';
+			case 'INSUFFICIENT_USDT_BALANCE':
+				return 'USDT on BSC is blocked because the wallet balance is below the requested amount plus fixed fee.';
+			case 'TOKEN_CONFIG_MISMATCH':
+				return 'USDT on BSC is blocked because the configured token does not match the accepted BSC token configuration.';
+			case 'POLICY_REJECTED':
+				return result.failureMessage || 'USDT on BSC is temporarily unavailable because sponsor policy rejected this payment.';
+			case 'LEGACY_ONLY':
+				return (
+					result.failureMessage ||
+					'USDT on BSC is blocked because this build still only has the legacy paymaster boundary. The sponsored router submission path is not enabled yet.'
+				);
+			case 'SUBMISSION_UNSUPPORTED':
+				return (
+					result.failureMessage ||
+					'USDT on BSC is blocked because direct-send submission is not available in this wallet-core build yet.'
+				);
+			case 'SPONSOR_UNAVAILABLE':
+			default:
+				return (
+					result.failureMessage ||
+					sponsorStatus?.reason ||
+					'USDT on BSC is temporarily unavailable because the sponsored send path is not ready.'
+				);
+		}
+	}
+
+	function getBscBlockedHeading(): string {
+		switch (bscDirectSendState.lastPreflight?.failureCode) {
+			case 'WRONG_CHAIN':
+				return 'Switch to BSC to continue';
+			default:
+				return 'USDT on BSC is temporarily unavailable';
+		}
+	}
 
 	// Derived values
 	const amountInSats = $derived.by(() => {
@@ -188,17 +312,45 @@
 		}
 	});
 
+	const amountInUsdt = $derived.by(() => {
+		if (parsedPayment.detectedNetwork !== 'usdt-bsc') return 0;
+		if (parsedPayment.detectedAmount !== null) return sanitizeTokenAmount(parsedPayment.detectedAmount);
+
+		if (formInput.unit === 'usd') {
+			return sanitizeTokenAmount(Number.parseFloat(formInput.amount));
+		}
+
+		if (btcPrice === 0 || amountInSats <= 0) return 0;
+		return sanitizeTokenAmount((amountInSats / 100_000_000) * btcPrice);
+	});
+
+	const bscFixedFeeAmount = $derived(atomicToUsdtAmount(BSC_DIRECT_SEND_CONFIG.fixedFeeAtomic));
+
 	const amountInUSD = $derived.by(() => {
+		if (parsedPayment.detectedNetwork === 'usdt-bsc') {
+			return amountInUsdt;
+		}
+
 		if (btcPrice === 0) return 0;
 		return (amountInSats / 100_000_000) * btcPrice;
 	});
 
 	const showLargeAmountWarning = $derived(amountInUSD > LARGE_AMOUNT_THRESHOLD);
 
-	const totalToSend = $derived(amountInSats + (feeState.estimated?.totalFees || 0));
+	const totalToSend = $derived.by(() => {
+		if (parsedPayment.detectedNetwork === 'usdt-bsc') {
+			return amountInUsdt + (feeState.estimated?.totalFees || 0);
+		}
+
+		return amountInSats + (feeState.estimated?.totalFees || 0);
+	});
 
 	// Total to send in USD
 	const totalToSendUSD = $derived.by(() => {
+		if (parsedPayment.detectedNetwork === 'usdt-bsc') {
+			return totalToSend;
+		}
+
 		if (totalToSend === 0 || btcPrice === 0) return 0;
 		return (totalToSend / 100_000_000) * btcPrice;
 	});
@@ -213,13 +365,8 @@
 				const rbtc = parseFloat($walletStore.rsk.formattedBalance);
 				return Math.floor(rbtc * 100_000_000);
 			case 'usdt-bsc':
-				// USDT: convert USD to sats using BTC price
 				if (!$walletStore.bsc.connected) return 0;
-				const usdt = parseFloat($walletStore.bsc.formattedUsdtBalance);
-				if (btcPrice > 0 && usdt > 0) {
-					return Math.floor((usdt / btcPrice) * 100_000_000);
-				}
-				return 0;
+				return parseFloat($walletStore.bsc.formattedUsdtBalance || '0');
 			default:
 				return $walletStore.totalBalances.sats;
 		}
@@ -233,6 +380,16 @@
 			feeState.estimated !== null
 	);
 
+	const hasPayableAmount = $derived.by(() =>
+		parsedPayment.detectedNetwork === 'usdt-bsc' ? amountInUsdt > 0 : amountInSats > 0
+	);
+
+	const hasBlockedBscSend = $derived(
+		parsedPayment.detectedNetwork === 'usdt-bsc' &&
+			hasPayableAmount &&
+			!!bscDirectSendState.blockedMessage
+	);
+
 	const isFormValid = $derived.by(() => {
 		// Address validation: must have valid parsed data
 		if (!parsedPayment.data?.isValid) {
@@ -241,12 +398,12 @@
 
 		// Amount validation: if amount is required, must have amount > 0
 		// When amount is detected from address, amountRequired is false, so this check is skipped
-		if (parsedPayment.amountRequired && amountInSats <= 0) {
+		if (parsedPayment.amountRequired && !hasPayableAmount) {
 			return false;
 		}
 
 		// Must have a valid amount (either from input or detected)
-		if (amountInSats <= 0) {
+		if (!hasPayableAmount) {
 			return false;
 		}
 
@@ -270,6 +427,88 @@
 		}
 	});
 
+	function resetParsedPaymentState() {
+		parsedPayment.data = null;
+		parsedPayment.detectedNetwork = null;
+		parsedPayment.detectedAmount = null;
+		parsedPayment.detectedMemo = null;
+		parsedPayment.amountRequired = true;
+		feeState.estimated = null;
+		feeState.error = null;
+		bscDirectSendState.sponsorStatus = null;
+		bscDirectSendState.lastPreflight = null;
+		bscDirectSendState.blockedMessage = null;
+	}
+
+	async function applyParsedPayment(parsed: ParsedPaymentAddress, inputValue: string) {
+		ambiguousAddress = null;
+		parsedPayment.data = parsed;
+		formInput.addressInput = inputValue;
+		parsedPayment.detectedNetwork = parsed.network;
+		parsedPayment.detectedAmount = parsed.amount;
+		parsedPayment.detectedMemo = parsed.memo || null;
+		parsedPayment.amountRequired = parsed.amount === null;
+		parsedPayment.addressError = null;
+
+		if (parsed.amount !== null) {
+			formInput.amount =
+				parsed.network === 'usdt-bsc'
+					? parsed.amount.toFixed(6).replace(/\.?0+$/, '')
+					: parsed.amount.toString();
+			formInput.unit = parsed.network === 'usdt-bsc' ? 'usd' : 'sats';
+		} else {
+			formInput.unit = 'usd';
+		}
+
+		if (parsed.memo) {
+			formInput.memo = parsed.memo;
+			uiState.descriptionExpanded = true;
+		}
+
+		const { tick } = await import('svelte');
+		await tick();
+
+		if (parsed.amount !== null && parsed.amount > 0) {
+			await updateFeeEstimate();
+			if (parsed.network === 'usdt-bsc') {
+				await runBscDirectSendPreflight();
+			}
+		} else if (hasPayableAmount) {
+			await updateFeeEstimate();
+			if (parsed.network === 'usdt-bsc') {
+				await runBscDirectSendPreflight();
+			}
+		}
+	}
+
+	function setAmbiguousAddressState(rawInput: string, source: 'manual' | 'scan') {
+		ambiguousAddress = {
+			rawInput: rawInput.trim(),
+			source
+		};
+		resetParsedPaymentState();
+		parsedPayment.addressError = AMBIGUOUS_EVM_ADDRESS_ERROR;
+		formInput.addressInput = rawInput.trim();
+		uiState.activeTab = 'enter';
+		uiState.showConfirmation = false;
+	}
+
+	async function resolveAmbiguousAddress(network: 'rootstock-bitcoin' | 'usdt-bsc') {
+		if (!ambiguousAddress) return;
+
+		triggerHaptic(ImpactStyle.Light);
+		const qualifiedInput = qualifyEvmPaymentAddress(ambiguousAddress.rawInput, network);
+		const parsed = parsePaymentAddress(qualifiedInput);
+
+		if (!parsed.isValid) {
+			resetParsedPaymentState();
+			parsedPayment.addressError = parsed.errorMessage || $t('wallet.send.invalid_address');
+			return;
+		}
+
+		await applyParsedPayment(parsed, qualifiedInput);
+	}
+
 	// Handle QR scan (accepts both Barcode from Capacitor and string from html5-qrcode)
 	async function handleQRScan(barcode: Barcode | string) {
 		try {
@@ -281,6 +520,13 @@
 			qrScanState.scannedValue = null;
 
 			if (!parsed.isValid) {
+				if (parsed.errorCode === 'ambiguous-evm-address') {
+					setAmbiguousAddressState(qrValue, 'scan');
+					qrScanState.error = null;
+					qrScanState.scannedValue = null;
+					return;
+				}
+
 				// Show error with decoded QR code
 				// Use specific error message if available, otherwise use generic message
 				qrScanState.error = parsed.errorMessage || $t('wallet.send.invalid_qr_code');
@@ -288,32 +534,9 @@
 				return;
 			}
 
-			// Valid address - populate form and switch to Enter Payment Details tab
-			parsedPayment.data = parsed;
-			formInput.addressInput = parsed.address;
-			parsedPayment.detectedNetwork = parsed.network;
-			parsedPayment.detectedAmount = parsed.amount;
-			parsedPayment.detectedMemo = parsed.memo || null;
-			parsedPayment.amountRequired = parsed.amount === null;
-
-			if (parsed.amount !== null) {
-				formInput.amount = parsed.amount.toString();
-				// When amount is detected from QR code, default to sats since that's what's in the invoice
-				formInput.unit = 'sats';
-			} else {
-				// When no amount detected, default to USD
-				formInput.unit = 'usd';
-			}
-			if (parsed.memo) {
-				formInput.memo = parsed.memo;
-				// Auto-expand description accordion when memo is detected
-				uiState.descriptionExpanded = true;
-			}
-
-			// Switch to Enter Payment Details tab - the form will reactively update
+			await applyParsedPayment(parsed, qrValue);
 			uiState.activeTab = 'enter';
 			uiState.showConfirmation = false;
-			await updateFeeEstimate();
 		} catch (error) {
 			console.error('Failed to parse QR code:', error);
 			qrScanState.error = $t('wallet.send.failed_to_parse_qr');
@@ -337,14 +560,9 @@
 	// Handle address input
 	async function handleAddressInput() {
 		parsedPayment.addressError = null;
+		ambiguousAddress = null;
 		if (!formInput.addressInput.trim()) {
-			parsedPayment.data = null;
-			parsedPayment.detectedNetwork = null;
-			parsedPayment.detectedAmount = null;
-			parsedPayment.detectedMemo = null;
-			parsedPayment.amountRequired = true;
-			feeState.estimated = null;
-			feeState.error = null;
+			resetParsedPaymentState();
 			// Reset to USD when address is cleared
 			formInput.unit = 'usd';
 			return;
@@ -353,57 +571,20 @@
 		try {
 			const parsed = parsePaymentAddress(formInput.addressInput);
 			if (parsed.isValid) {
-				parsedPayment.data = parsed;
-				parsedPayment.detectedNetwork = parsed.network;
-				parsedPayment.detectedAmount = parsed.amount;
-				parsedPayment.detectedMemo = parsed.memo;
-				parsedPayment.amountRequired = parsed.amount === null;
-
-				if (parsed.amount !== null) {
-					formInput.amount = parsed.amount.toString();
-					// When amount is detected from address, default to sats since that's what's in the invoice
-					formInput.unit = 'sats';
-				} else {
-					// When no amount detected, default to USD
-					formInput.unit = 'usd';
-				}
-				if (parsed.memo) {
-					formInput.memo = parsed.memo;
-					// Auto-expand description accordion when memo is detected
-					uiState.descriptionExpanded = true;
-				}
-
-				// Use tick() to ensure reactive updates complete before checking amountInSats
-				const { tick } = await import('svelte');
-				await tick();
-
-				// Trigger fee estimation if we have:
-				// 1. Amount detected from address, OR
-				// 2. Amount already entered by user (regardless of order)
-				if (parsed.amount !== null && parsed.amount > 0) {
-					await updateFeeEstimate();
-				} else if (amountInSats > 0) {
-					// User entered amount before address - trigger fee estimation now that we have network
-					await updateFeeEstimate();
-				}
+				await applyParsedPayment(parsed, formInput.addressInput.trim());
+			} else if (parsed.errorCode === 'ambiguous-evm-address') {
+				setAmbiguousAddressState(formInput.addressInput, 'manual');
 			} else {
 				// Use specific error message if available, otherwise use generic message
+				resetParsedPaymentState();
 				parsedPayment.addressError = parsed.errorMessage || $t('wallet.send.invalid_address');
-				parsedPayment.data = null;
-				parsedPayment.detectedNetwork = null;
-				parsedPayment.detectedAmount = null;
-				parsedPayment.detectedMemo = null;
-				parsedPayment.amountRequired = true;
-				feeState.estimated = null;
-				feeState.error = null;
 				// Reset to USD when address is invalid
 				formInput.unit = 'usd';
 			}
 		} catch (error) {
 			console.error('Failed to parse address:', error);
+			resetParsedPaymentState();
 			parsedPayment.addressError = $t('wallet.send.failed_to_parse_address');
-			feeState.estimated = null;
-			feeState.error = null;
 		}
 	}
 
@@ -412,11 +593,13 @@
 		// Check if we have a network and an amount (either from input or detected from address)
 		// Use detectedAmount if available and amountInSats is 0 (for immediate estimation when address has amount)
 		const amountToUse =
-			amountInSats > 0
-				? amountInSats
-				: parsedPayment.detectedAmount !== null && parsedPayment.detectedAmount > 0
-					? parsedPayment.detectedAmount
-					: 0;
+			parsedPayment.detectedNetwork === 'usdt-bsc'
+				? amountInUsdt
+				: amountInSats > 0
+					? amountInSats
+					: parsedPayment.detectedAmount !== null && parsedPayment.detectedAmount > 0
+						? parsedPayment.detectedAmount
+						: 0;
 
 		if (amountToUse === 0 || !parsedPayment.detectedNetwork) {
 			feeState.estimated = null;
@@ -505,6 +688,13 @@
 						totalFees: networkFee
 					};
 					break;
+				case 'usdt-bsc':
+					feeState.estimated = {
+						serviceFee: bscFixedFeeAmount,
+						networkFee: 0,
+						totalFees: bscFixedFeeAmount
+					};
+					break;
 				default:
 					feeState.estimated = null;
 			}
@@ -514,6 +704,51 @@
 			feeState.estimated = null;
 		} finally {
 			feeState.isLoading = false;
+		}
+	}
+
+	async function runBscDirectSendPreflight(): Promise<BscDirectSendPreflightResult | null> {
+		if (parsedPayment.detectedNetwork !== 'usdt-bsc' || !parsedPayment.data?.address) {
+			bscDirectSendState.lastPreflight = null;
+			bscDirectSendState.blockedMessage = null;
+			return null;
+		}
+
+		const configError = getBscConfigError();
+		if (configError) {
+			bscDirectSendState.lastPreflight = null;
+			bscDirectSendState.blockedMessage = configError;
+			return null;
+		}
+
+		const recipientAmountAtomic = toAtomicAmountString(amountInUsdt, 'USDT');
+		if (!recipientAmountAtomic) {
+			bscDirectSendState.lastPreflight = null;
+			bscDirectSendState.blockedMessage = null;
+			return null;
+		}
+
+		bscDirectSendState.isChecking = true;
+		try {
+			const sponsorStatus = await getBSCSponsorStatus();
+			const result = await preflightBSCDirectSend({
+				recipient: parsedPayment.data.address,
+				recipientAmountAtomic,
+				fixedFeeAtomic: BSC_DIRECT_SEND_CONFIG.fixedFeeAtomic,
+				routerAddress: BSC_DIRECT_SEND_CONFIG.routerAddress,
+				chainId: BSC_CHAIN_ID,
+				tokenAddress: BSC_DIRECT_SEND_CONFIG.tokenAddress
+			});
+
+			bscDirectSendState.sponsorStatus = sponsorStatus;
+			bscDirectSendState.lastPreflight = result;
+			bscDirectSendState.blockedMessage = result.isReady
+				? null
+				: mapBscPreflightFailure(result, sponsorStatus);
+
+			return result;
+		} finally {
+			bscDirectSendState.isChecking = false;
 		}
 	}
 
@@ -596,6 +831,11 @@
 						};
 					}
 					break;
+				case 'usdt-bsc':
+					feeState.parameters = {
+						fixedFee: bscFixedFeeAmount
+					};
+					break;
 				default:
 					feeState.parameters = null;
 			}
@@ -637,15 +877,18 @@
 	// Handle updates when amount changes (called explicitly)
 	async function handleAmountChange() {
 		// Update fee estimate if we have network and amount
-		if (parsedPayment.detectedNetwork && amountInSats > 0) {
+		if (parsedPayment.detectedNetwork && hasPayableAmount) {
 			await updateFeeEstimate();
+			if (parsedPayment.detectedNetwork === 'usdt-bsc') {
+				await runBscDirectSendPreflight();
+			}
 		}
 	}
 
 	// Handle step navigation
 	function handleNextStep() {
 		// Validate that we have address and amount before proceeding
-		if (parsedPayment.data?.isValid && !parsedPayment.addressError && amountInSats > 0) {
+		if (parsedPayment.data?.isValid && !parsedPayment.addressError && hasPayableAmount) {
 			triggerHaptic(ImpactStyle.Light);
 			uiState.currentStep = 2;
 		} else if (
@@ -668,13 +911,13 @@
 	// Handle calculation change from calculator
 	function handleCalculationChange(expression: string, result: number) {
 		formInput.mathExpression = expression;
-		if (result > 0 || expression === '') {
-			if (formInput.unit === 'sats') {
-				formInput.amount = Math.floor(result).toString();
-			} else {
-				formInput.amount = result.toFixed(2).replace(/\.?0+$/, '');
+			if (result > 0 || expression === '') {
+				if (formInput.unit === 'sats') {
+					formInput.amount = Math.floor(result).toString();
+				} else {
+					formInput.amount = formatEditableAmount(result);
+				}
 			}
-		}
 		// Explicitly trigger amount change handler
 		handleAmountChange();
 	}
@@ -688,6 +931,14 @@
 
 		try {
 			formInput.mathExpression = '';
+
+			if (parsedPayment.detectedNetwork === 'usdt-bsc') {
+				const maxUsdtAmount = Math.max(0, availableBalance - bscFixedFeeAmount);
+				formInput.amount = maxUsdtAmount.toFixed(BSC_USDT_DECIMALS).replace(/\.?0+$/, '');
+				await updateFeeEstimate();
+				await runBscDirectSendPreflight();
+				return;
+			}
 
 			// Fetch fee parameters if not available
 			if (!feeState.parameters) {
@@ -704,7 +955,7 @@
 					formInput.amount = max.toString();
 				} else if (btcPrice > 0) {
 					const usdAmount = (max / 100_000_000) * btcPrice;
-					formInput.amount = usdAmount.toFixed(2).replace(/\.?0+$/, '');
+					formInput.amount = formatEditableAmount(usdAmount);
 				}
 
 				// Trigger fee estimation to get final accurate fees
@@ -727,7 +978,7 @@
 	// Handle unit change
 	function handleUnitChange(newUnit: 'sats' | 'usd') {
 		triggerHaptic(ImpactStyle.Light);
-		formInput.unit = newUnit;
+		formInput.unit = parsedPayment.detectedNetwork === 'usdt-bsc' ? 'usd' : newUnit;
 		// Keep amount when switching units - user may have entered amount before selecting unit
 		formInput.mathExpression = '';
 		// Don't increment calculatorKey - preserve calculator state and amount
@@ -763,7 +1014,7 @@
 		// We'll update with txHash once we get it
 		sendState.pendingTxHash = 'pending'; // Temporary value, will be replaced with actual hash
 		sendState.pendingNetwork = network;
-		sendState.pendingAmount = amountInSats;
+		sendState.pendingAmount = network === 'usdt-bsc' ? amountInUsdt : amountInSats;
 		sendState.pendingAddress = recipient;
 		sendState.isSending = false; // Set to false so pending screen shows immediately
 		sendState.error = null;
@@ -820,17 +1071,34 @@
 				sendState.isSending = false;
 				return;
 			} else if (network === 'usdt-bsc') {
-				// BSC USDT send
-				// Convert amount from sats to USDT (assuming 1:1 with USD for simplicity)
-				const usdtAmount = amountInUSD.toFixed(2);
-				txHash = await walletManager.sendBSCUSDT(recipient, usdtAmount);
+				const recipientAmountAtomic = toAtomicAmountString(amountInUsdt, 'USDT');
+				if (!recipientAmountAtomic) {
+					throw new Error('Enter a valid USDT amount before sending on BSC.');
+				}
+
+				const preflightResult = await runBscDirectSendPreflight();
+				if (!preflightResult || !preflightResult.isReady) {
+					throw new Error(
+						bscDirectSendState.blockedMessage ||
+							'USDT on BSC is temporarily unavailable. Try again after the sponsored send path is ready.'
+					);
+				}
+
+				txHash = await submitBSCDirectSend({
+					recipient,
+					recipientAmountAtomic,
+					fixedFeeAtomic: BSC_DIRECT_SEND_CONFIG.fixedFeeAtomic,
+					routerAddress: BSC_DIRECT_SEND_CONFIG.routerAddress,
+					chainId: BSC_CHAIN_ID,
+					tokenAddress: BSC_DIRECT_SEND_CONFIG.tokenAddress
+				});
 
 				// Store pending transaction details immediately and set isSending to false
 				// This will show pending screen instead of loading screen
 				if (txHash) {
 					sendState.pendingTxHash = txHash;
 					sendState.pendingNetwork = network;
-					sendState.pendingAmount = amountInSats;
+					sendState.pendingAmount = amountInUsdt;
 					sendState.pendingAddress = recipient;
 					sendState.isSending = false; // Set to false immediately to skip loading screen
 				}
@@ -843,7 +1111,7 @@
 				// This will show pending screen instead of loading screen
 				sendState.pendingTxHash = txHash;
 				sendState.pendingNetwork = network;
-				sendState.pendingAmount = amountInSats;
+				sendState.pendingAmount = network === 'usdt-bsc' ? amountInUsdt : amountInSats;
 				sendState.pendingAddress = recipient;
 				sendState.isSending = false; // Set to false immediately to skip loading screen
 
@@ -860,6 +1128,11 @@
 			}
 		} catch (err) {
 			console.error('Send failed:', err);
+			sendState.pendingTxHash = null;
+			sendState.pendingNetwork = null;
+			sendState.pendingAmount = null;
+			sendState.pendingAddress = null;
+			sendState.pendingSwapId = null;
 			sendState.error = err instanceof Error ? err.message : $t('wallet.send.transaction_failed');
 			appStore.showErrorToast(sendState.error);
 			triggerHaptic(ImpactStyle.Heavy);
@@ -918,6 +1191,7 @@
 		<PendingTransactionScreen
 			amountSats={sendState.pendingAmount}
 			amountUSD={amountInUSD}
+			serviceFee={sendState.pendingNetwork === 'usdt-bsc' ? feeState.estimated?.serviceFee ?? 0 : 0}
 			address={sendState.pendingAddress}
 			network={sendState.pendingNetwork}
 			txHash={sendState.pendingTxHash}
@@ -941,7 +1215,8 @@
 			<TransactionSuccessScreen
 				txHash={sendState.successTxHash}
 				network={sendState.successNetwork}
-				amount={amountInSats}
+				amount={sendState.successNetwork === 'usdt-bsc' ? amountInUsdt : amountInSats}
+				serviceFee={sendState.successNetwork === 'usdt-bsc' ? feeState.estimated?.serviceFee ?? 0 : 0}
 				recipient={parsedPayment.data?.address || formInput.addressInput}
 				onClose={() => {
 					uiState.showSuccessScreen = false;
@@ -1162,7 +1437,7 @@
 							<button
 								class="btn btn-primary flex-1"
 								onclick={handleSend}
-								disabled={!isFormValid || feeState.isLoading}
+								disabled={!isFormValid || feeState.isLoading || hasBlockedBscSend || bscDirectSendState.isChecking}
 							>
 								{$t('wallet.send.send')}
 							</button>
@@ -1199,6 +1474,7 @@
 												oninput={handleAddressInput}
 												onfocus={() => (uiState.showRecentAddresses = recentAddresses.length > 0)}
 												onblur={() => setTimeout(() => (uiState.showRecentAddresses = false), 200)}
+												data-testid="recipient-address-input"
 											/>
 											{#if formInput.addressInput.trim()}
 												<div
@@ -1220,18 +1496,14 @@
 												style="-webkit-tap-highlight-color: transparent;"
 												onclick={() => {
 													formInput.addressInput = '';
-													parsedPayment.data = null;
-													parsedPayment.detectedNetwork = null;
-													parsedPayment.detectedAmount = null;
-													parsedPayment.detectedMemo = null;
+													ambiguousAddress = null;
+													resetParsedPaymentState();
 													parsedPayment.addressError = null;
-													parsedPayment.amountRequired = true;
-													feeState.estimated = null;
-													feeState.error = null;
 													uiState.showRecentAddresses = false;
 													triggerHaptic(ImpactStyle.Light);
 												}}
 												aria-label="Clear address"
+												data-testid="clear-address-button"
 											>
 												<IconClose class="h-6 w-6 sm:h-8 sm:w-8" />
 											</button>
@@ -1265,6 +1537,30 @@
 							{#if parsedPayment.addressError}
 								<div class="label">
 									<span class="label-text-alt text-error">{parsedPayment.addressError}</span>
+								</div>
+							{/if}
+							{#if ambiguousAddress}
+								<div class="bg-warning/10 border-warning/30 mt-2 rounded-lg border p-3" data-testid="ambiguous-address-warning">
+									<p class="text-sm font-medium">Network could not be detected safely.</p>
+									<p class="text-base-content/70 mt-1 text-xs">
+										Choose the payment rail before continuing. The form stays blocked until you pick one.
+									</p>
+									<div class="mt-3 grid grid-cols-1 gap-2">
+										<button
+											type="button"
+											class="btn btn-outline btn-sm"
+											onclick={() => resolveAmbiguousAddress('rootstock-bitcoin')}
+										>
+											rBTC on Rootstock
+										</button>
+										<button
+											type="button"
+											class="btn btn-outline btn-sm"
+											onclick={() => resolveAmbiguousAddress('usdt-bsc')}
+										>
+											USDT on BSC
+										</button>
+									</div>
 								</div>
 							{/if}
 						</div>
@@ -1311,7 +1607,16 @@
 						>
 							<span class="text-center text-xs opacity-70">{$t('wallet.amount')}</span>
 							<div class="flex w-full items-center justify-center gap-1.5">
-								{#if formInput.unit === 'sats'}
+								{#if parsedPayment.detectedNetwork === 'usdt-bsc'}
+									<span class="text-primary text-xl font-bold">
+										{formatUsdtAmount(amountInUsdt)} USDT
+									</span>
+									{#if amountInUSD > 0}
+										<span class="text-xs opacity-60">
+											≈ {formatUsd(amountInUSD)}
+										</span>
+									{/if}
+								{:else if formInput.unit === 'sats'}
 									<span class="text-primary text-xl font-bold">
 										{formatSats(amountInSats)}
 										{$t('wallet.sats')}
@@ -1409,9 +1714,13 @@
 											</span>
 										{:else if feeState.estimated}
 											<span class="font-semibold"
-												>{formatSats(feeState.estimated.totalFees)} {$t('wallet.sats')}</span
+												>{parsedPayment.detectedNetwork === 'usdt-bsc'
+													? `${formatUsdtAmount(feeState.estimated.totalFees)} USDT`
+													: `${formatSats(feeState.estimated.totalFees)} ${$t('wallet.sats')}`}</span
 											>
-											{#if btcPrice > 0 && feeState.estimated.totalFees > 0}
+											{#if parsedPayment.detectedNetwork === 'usdt-bsc'}
+												<span class="opacity-60">Fixed service fee</span>
+											{:else if btcPrice > 0 && feeState.estimated.totalFees > 0}
 												<span class="opacity-60">
 													≈ {formatUsd((feeState.estimated.totalFees / 100_000_000) * btcPrice)}
 												</span>
@@ -1426,7 +1735,9 @@
 										{#if feeState.estimated && feeState.estimated.serviceFee > 0}
 											<div class="flex items-center justify-between text-xs opacity-70">
 												<span>{$t('wallet.swap.swap_fee')}:</span>
-												<span>{formatSats(feeState.estimated.serviceFee)} {$t('wallet.sats')}</span>
+												<span>{parsedPayment.detectedNetwork === 'usdt-bsc'
+													? `${formatUsdtAmount(feeState.estimated.serviceFee)} USDT`
+													: `${formatSats(feeState.estimated.serviceFee)} ${$t('wallet.sats')}`}</span>
 											</div>
 										{/if}
 										{#if feeState.estimated && feeState.estimated.networkFee > 0}
@@ -1454,7 +1765,14 @@
 							<span class="text-center text-xs opacity-70">{$t('wallet.send.total_to_send')}</span>
 							{#if totalToSend > 0 && feeState.estimated}
 								<div class="flex w-full items-center justify-center gap-1.5">
-									{#if formInput.unit === 'sats'}
+									{#if parsedPayment.detectedNetwork === 'usdt-bsc'}
+										<span class="text-primary text-xl font-bold">
+											{formatUsdtAmount(totalToSend)} USDT
+										</span>
+										<span class="text-xs opacity-60">
+											≈ {formatUsd(totalToSendUSD)}
+										</span>
+									{:else if formInput.unit === 'sats'}
 										<span class="text-primary text-xl font-bold">
 											{formatSats(totalToSend)}
 											{$t('wallet.sats')}
@@ -1488,6 +1806,15 @@
 								</div>
 							{/if}
 						</div>
+
+						{#if hasBlockedBscSend}
+							<div class="alert alert-outline alert-warning">
+								<div class="flex flex-col gap-1">
+									<span class="font-semibold">{getBscBlockedHeading()}</span>
+									<span class="text-sm opacity-90">{bscDirectSendState.blockedMessage}</span>
+								</div>
+							</div>
+						{/if}
 					{/if}
 				</div>
 
@@ -1537,14 +1864,9 @@
 											style="-webkit-tap-highlight-color: transparent;"
 											onclick={() => {
 												formInput.addressInput = '';
-												parsedPayment.data = null;
-												parsedPayment.detectedNetwork = null;
-												parsedPayment.detectedAmount = null;
-												parsedPayment.detectedMemo = null;
+												ambiguousAddress = null;
+												resetParsedPaymentState();
 												parsedPayment.addressError = null;
-												parsedPayment.amountRequired = true;
-												feeState.estimated = null;
-												feeState.error = null;
 												uiState.showRecentAddresses = false;
 												triggerHaptic(ImpactStyle.Light);
 											}}
@@ -1582,6 +1904,30 @@
 						{#if parsedPayment.addressError}
 							<div class="label">
 								<span class="label-text-alt text-error">{parsedPayment.addressError}</span>
+							</div>
+						{/if}
+						{#if ambiguousAddress}
+							<div class="bg-warning/10 border-warning/30 mt-2 rounded-lg border p-3" data-testid="ambiguous-address-warning-desktop">
+								<p class="text-sm font-medium">Network could not be detected safely.</p>
+								<p class="text-base-content/70 mt-1 text-xs">
+									Choose the payment rail before continuing. The form stays blocked until you pick one.
+								</p>
+								<div class="mt-3 flex flex-wrap gap-2">
+									<button
+										type="button"
+										class="btn btn-outline btn-sm"
+										onclick={() => resolveAmbiguousAddress('rootstock-bitcoin')}
+									>
+										rBTC on Rootstock
+									</button>
+									<button
+										type="button"
+										class="btn btn-outline btn-sm"
+										onclick={() => resolveAmbiguousAddress('usdt-bsc')}
+									>
+										USDT on BSC
+									</button>
+								</div>
 							</div>
 						{/if}
 					</div>
@@ -1681,9 +2027,13 @@
 										</span>
 									{:else if feeState.estimated}
 										<span class="font-semibold"
-											>{formatSats(feeState.estimated.totalFees)} {$t('wallet.sats')}</span
+											>{parsedPayment.detectedNetwork === 'usdt-bsc'
+												? `${formatUsdtAmount(feeState.estimated.totalFees)} USDT`
+												: `${formatSats(feeState.estimated.totalFees)} ${$t('wallet.sats')}`}</span
 										>
-										{#if btcPrice > 0 && feeState.estimated.totalFees > 0}
+										{#if parsedPayment.detectedNetwork === 'usdt-bsc'}
+											<span class="opacity-60">Fixed service fee</span>
+										{:else if btcPrice > 0 && feeState.estimated.totalFees > 0}
 											<span class="opacity-60">
 												≈ {formatUsd((feeState.estimated.totalFees / 100_000_000) * btcPrice)}
 											</span>
@@ -1698,7 +2048,9 @@
 									{#if feeState.estimated && feeState.estimated.serviceFee > 0}
 										<div class="flex items-center justify-between text-xs opacity-70">
 											<span>{$t('wallet.swap.swap_fee')}:</span>
-											<span>{formatSats(feeState.estimated.serviceFee)} {$t('wallet.sats')}</span>
+											<span>{parsedPayment.detectedNetwork === 'usdt-bsc'
+												? `${formatUsdtAmount(feeState.estimated.serviceFee)} USDT`
+												: `${formatSats(feeState.estimated.serviceFee)} ${$t('wallet.sats')}`}</span>
 										</div>
 									{/if}
 									{#if feeState.estimated && feeState.estimated.networkFee > 0}
@@ -1728,7 +2080,14 @@
 						>
 						{#if totalToSend > 0 && feeState.estimated}
 							<div class="flex w-full items-center justify-center gap-1.5 sm:gap-2">
-								{#if formInput.unit === 'sats'}
+								{#if parsedPayment.detectedNetwork === 'usdt-bsc'}
+									<span class="text-primary text-xl font-bold sm:text-2xl">
+										{formatUsdtAmount(totalToSend)} USDT
+									</span>
+									<span class="text-xs opacity-60 sm:text-sm">
+										≈ {formatUsd(totalToSendUSD)}
+									</span>
+								{:else if formInput.unit === 'sats'}
 									<span class="text-primary text-xl font-bold sm:text-2xl">
 										{formatSats(totalToSend)}
 										{$t('wallet.sats')}
@@ -1785,6 +2144,15 @@
 							</div>
 						</div>
 					{/if}
+
+					{#if hasBlockedBscSend}
+						<div class="alert alert-outline alert-warning">
+							<div class="flex flex-col gap-1">
+								<span class="font-semibold">{getBscBlockedHeading()}</span>
+								<span class="text-sm opacity-90">{bscDirectSendState.blockedMessage}</span>
+							</div>
+						</div>
+					{/if}
 				</div>
 			{/if}
 		</div>
@@ -1811,7 +2179,7 @@
 						class="btn btn-primary min-h-[44px] flex-1 touch-manipulation transition-transform duration-100 select-none active:scale-95 sm:hidden"
 						style="-webkit-tap-highlight-color: transparent;"
 						onclick={handleNextStep}
-						disabled={!isFormValid || feeState.isLoading}
+						disabled={!isFormValid || feeState.isLoading || hasBlockedBscSend || bscDirectSendState.isChecking}
 					>
 						{#if feeState.isLoading}
 							<span class="loading loading-spinner loading-sm"></span>
@@ -1836,7 +2204,7 @@
 						class="btn btn-primary min-h-[44px] flex-1 touch-manipulation transition-transform duration-100 select-none active:scale-95 sm:hidden"
 						style="-webkit-tap-highlight-color: transparent;"
 						onclick={showSendConfirmationModal}
-						disabled={!isFormValid || feeState.isLoading}
+						disabled={!isFormValid || feeState.isLoading || hasBlockedBscSend || bscDirectSendState.isChecking}
 					>
 						<IconSend class="h-4 w-4" />
 						<span class="text-sm">{$t('wallet.send.send')}</span>
@@ -1859,7 +2227,7 @@
 					class="btn btn-primary min-h-[44px] hidden flex-1 touch-manipulation transition-transform duration-100 select-none active:scale-95 sm:flex sm:min-h-[48px] md:min-h-[56px]"
 					style="-webkit-tap-highlight-color: transparent;"
 					onclick={showSendConfirmationModal}
-					disabled={!isFormValid || feeState.isLoading}
+					disabled={!isFormValid || feeState.isLoading || hasBlockedBscSend || bscDirectSendState.isChecking}
 				>
 					<IconSend class="h-4 w-4 sm:h-5 sm:w-5" />
 					<span class="text-sm sm:text-base">{$t('wallet.send.send')}</span>
@@ -1906,7 +2274,12 @@
 					<div class="space-y-1">
 						<div class="text-sm font-medium opacity-70">{$t('wallet.send.amount')}</div>
 						<div class="font-semibold">
-							{#if formInput.unit === 'sats'}
+							{#if parsedPayment.detectedNetwork === 'usdt-bsc'}
+								{formatUsdtAmount(amountInUsdt)} USDT
+								<span class="ml-2 text-sm opacity-70">
+									≈ {formatUsd(amountInUSD)}
+								</span>
+							{:else if formInput.unit === 'sats'}
 								{formatSats(amountInSats)}
 								{$t('wallet.sats')}
 								{#if btcPrice > 0}
@@ -1931,13 +2304,26 @@
 						<div class="space-y-1">
 							<div class="text-sm font-medium opacity-70">{$t('wallet.send.transaction_fee')}</div>
 							<div class="font-semibold">
-								{formatSats(feeState.estimated.totalFees)}
-								{$t('wallet.sats')}
-								{#if btcPrice > 0}
+								{#if parsedPayment.detectedNetwork === 'usdt-bsc'}
+									{formatUsdtAmount(feeState.estimated.totalFees)} USDT
+									<span class="ml-2 text-sm opacity-70">Fixed service fee</span>
+								{:else}
+									{formatSats(feeState.estimated.totalFees)}
+									{$t('wallet.sats')}
 									<span class="ml-2 text-sm opacity-70">
 										≈ {formatUsd((feeState.estimated.totalFees / 100_000_000) * btcPrice)}
 									</span>
 								{/if}
+							</div>
+						</div>
+					{/if}
+
+					{#if parsedPayment.detectedNetwork === 'usdt-bsc' && feeState.estimated && feeState.estimated.totalFees > 0}
+						<div class="space-y-1">
+							<div class="text-sm font-medium opacity-70">Total debit</div>
+							<div class="font-semibold">
+								{formatUsdtAmount(totalToSend)} USDT
+								<span class="ml-2 text-sm opacity-70">≈ {formatUsd(totalToSend)}</span>
 							</div>
 						</div>
 					{/if}
@@ -1992,7 +2378,7 @@
 					<button
 						class="btn btn-primary"
 						onclick={handleConfirmedSend}
-						disabled={hasInsufficientBalance && feeState.estimated !== null}
+						disabled={(hasInsufficientBalance && feeState.estimated !== null) || hasBlockedBscSend || bscDirectSendState.isChecking}
 					>
 						{$t('wallet.send.send')}
 					</button>

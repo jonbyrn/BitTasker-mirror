@@ -12,6 +12,11 @@
 	import ContractDrawer from './ContractDrawer.svelte';
 	import InfiniteScroll from '$lib/components/InfiniteScroll.svelte';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
+	import {
+		getPaymentRailLabel,
+		normalizePaymentAsset,
+		normalizePaymentNetwork
+	} from '$lib/utils/helpers/paymentContext';
 
 	// MDI Icons for filters
 	import IconCheckAll from '~icons/mdi/check-all';
@@ -102,6 +107,44 @@
 
 		return filtered;
 	});
+
+	const readOnlyBscContracts = $derived(
+		filteredContracts.filter((contract) => {
+			const paymentAsset = normalizePaymentAsset(
+				contract.contractEvent.content.paymentAsset ?? contract.contractEvent.content.currency ?? 'RBTC'
+			);
+			const paymentNetwork = normalizePaymentNetwork(
+				contract.contractEvent.content.paymentNetwork,
+				paymentAsset
+			);
+
+			return paymentNetwork.startsWith('bsc') && contract.blockchainStatus === null;
+		})
+	);
+
+	const readOnlyBscRailLabel = $derived(
+		readOnlyBscContracts.length > 0
+			? (() => {
+					const rawPaymentAsset =
+						readOnlyBscContracts[0].contractEvent.content.paymentAsset ??
+						readOnlyBscContracts[0].contractEvent.content.currency ??
+						null;
+					const paymentAsset = normalizePaymentAsset(rawPaymentAsset ?? 'RBTC');
+					const paymentNetwork = normalizePaymentNetwork(
+						readOnlyBscContracts[0].contractEvent.content.paymentNetwork,
+						paymentAsset
+					);
+					const hasExplicitPaymentAssetContext =
+						rawPaymentAsset === 'USDT' || rawPaymentAsset === 'RBTC';
+
+					if (paymentNetwork.startsWith('bsc') && paymentAsset !== 'USDT' && !hasExplicitPaymentAssetContext) {
+						return 'BSC escrow';
+					}
+
+					return getPaymentRailLabel(paymentAsset, paymentNetwork);
+				})()
+			: ''
+	);
 
 	// Load contracts on mount
 	async function fetchBtcPrice(): Promise<void> {
@@ -424,6 +467,17 @@
 
 	<!-- Contracts List -->
 	{#if !$contractStore.isLoading && !$contractStore.error}
+		{#if readOnlyBscContracts.length > 0}
+			<div class="alert alert-warning">
+				<span>
+					{readOnlyBscContracts.length} {readOnlyBscContracts.length === 1 ? 'contract is' : 'contracts are'}
+					showing {readOnlyBscRailLabel} in read-only pre-ABI mode. Details remain visible, but
+					contract-changing actions stay blocked until the deployed BSC escrow ABI/artifacts are
+					accepted.
+				</span>
+			</div>
+		{/if}
+
 		{#if filteredContracts.length === 0}
 			<div class="py-12 text-center">
 				<div class="mb-4">

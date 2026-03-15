@@ -4,13 +4,26 @@ import { writable, get } from 'svelte/store';
 import { getNpub } from '$lib/utils/nostrKeys';
 import { nip19 } from 'nostr-tools';
 import { appStore } from '$lib/stores/app.store';
-import { getBidsForTask, decryptBidEvent, clearBidCache } from '$lib/utils/nostr-bid';
+import {
+	getBidsForTask,
+	decryptBidEvent,
+	clearBidCache,
+	normalizeBidStatusContent
+} from '$lib/utils/nostr-bid';
 import KINDS from '$lib/utils/constants/kinds';
 import TAGS, { TAG_FILTERS } from '$lib/utils/constants/tags';
+import type { PaymentAsset, PaymentNetwork } from '$lib/utils/helpers/paymentContext';
+
+// Bid payment metadata extracted from Nostr tags
+type BidPaymentMetadata = {
+	paymentAsset?: PaymentAsset;
+	paymentNetwork?: PaymentNetwork;
+};
 
 // Bid store state
 type BidStoreState = {
     bids: { [taskId: string]: NostrEventWithFollowup[] };
+	paymentMetadata: { [bidId: string]: BidPaymentMetadata };
     currentTaskId: string | null;
     isLoading: boolean;
     error: string | null;
@@ -20,6 +33,7 @@ type BidStoreState = {
 // Initial state
 const initialState: BidStoreState = {
     bids: {},
+	paymentMetadata: {},
     currentTaskId: null,
     isLoading: false,
     error: null,
@@ -30,6 +44,26 @@ const initialState: BidStoreState = {
 let bidSubscription: { close: () => void } | null = null;
 let bidStatusSubscriptionIncoming: { close: () => void } | null = null;
 let bidStatusSubscriptionOutgoing: { close: () => void } | null = null;
+
+/**
+ * Extract payment metadata from bid Nostr tags
+ * Looks for tags like #paymentAsset=USDT, #paymentNetwork=bsc-mainnet
+ */
+function extractPaymentMetadata(event: NostrEventWithFollowup): BidPaymentMetadata {
+	const metadata: BidPaymentMetadata = {};
+
+	const assetTag = event.tags?.find(tag => tag[0] === 'paymentAsset');
+	if (assetTag?.[1]) {
+		metadata.paymentAsset = assetTag[1] as PaymentAsset;
+	}
+
+	const networkTag = event.tags?.find(tag => tag[0] === 'paymentNetwork');
+	if (networkTag?.[1]) {
+		metadata.paymentNetwork = networkTag[1] as PaymentNetwork;
+	}
+
+	return metadata;
+}
 
 /**
  * Handle incoming bid event from subscription
@@ -62,6 +96,9 @@ async function handleBidEvent(event: NostrEvent) {
             return;
         }
 
+        // Extract payment metadata from the bid
+        const metadata = extractPaymentMetadata(decryptedBid);
+
         // Add the new bid to the top of the existing bids array
         bidStore.update((state) => {
             const existingBids = state.bids[taskId] || [];
@@ -77,6 +114,10 @@ async function handleBidEvent(event: NostrEvent) {
                 bids: {
                     ...state.bids,
                     [taskId]: [decryptedBid, ...existingBids]
+                },
+                paymentMetadata: {
+                    ...state.paymentMetadata,
+                    [decryptedBid.id]: metadata
                 }
             };
         });
@@ -141,7 +182,14 @@ async function handleBidStatusEvent(event: NostrEvent) {
                     if (!existingStatus || decryptedStatus.created_at > existingStatus.created_at) {
                         // The decrypted event already has parsed content as NostrBidStatus
                         // Cast it properly for TypeScript
-                        const typedStatus = decryptedStatus as unknown as Omit<NostrEvent, 'content'> & { content: NostrBidStatus };
+                        const typedStatus = {
+                            ...(decryptedStatus as unknown as Omit<NostrEvent, 'content'> & { content: NostrBidStatus }),
+                            content: normalizeBidStatusContent(
+                                (decryptedStatus as unknown as Omit<NostrEvent, 'content'> & { content: NostrBidStatus }).content,
+                                decryptedStatus.tags,
+                                parentBidId
+                            )
+                        };
 
                         return {
                             ...bid,
@@ -349,6 +397,14 @@ function createBidStore() {
         },
 
         /**
+         * Get payment metadata for a specific bid
+         */
+        getPaymentMetadata(bidId: string): BidPaymentMetadata {
+            const state = get({ subscribe });
+            return state.paymentMetadata[bidId] || {};
+        },
+
+        /**
          * Reset store to initial state
          */
         reset() {
@@ -360,4 +416,3 @@ function createBidStore() {
 
 // Export the store instance
 export const bidStore = createBidStore();
-

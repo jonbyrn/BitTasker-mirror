@@ -1,6 +1,7 @@
 import type { TaskBid } from './bid';
 import type { Event as NostrEvent } from 'nostr-tools';
 import { BudgetTypeEnum, TaskTypeEnum, TaskStatusEnum } from '$lib/utils/enums/task.enum';
+import type { PaymentAsset, PaymentNetwork } from '$lib/utils/helpers/paymentContext';
 
 export interface Location {
 	displayName: string;
@@ -52,10 +53,14 @@ export interface Attachment {
 }
 
 export interface TaskBody {
+	schemaVersion?: string;
+	amountAtomic?: string;
 	title: string;
 	taskType: TaskTypeEnum;
 	description: string;
 	budget: Budget;
+	paymentAsset?: PaymentAsset;
+	paymentNetwork?: PaymentNetwork;
 	deadline?: string;
 	dateRange?: DateRange;
 	pickupLocation?: Location;
@@ -68,6 +73,8 @@ export interface TaskBody {
 }
 
 export interface Task {
+	schemaVersion?: string;
+	amountAtomic?: string;
 	estimatedHours: number;
 	id: string;
 	npub: string;
@@ -76,6 +83,8 @@ export interface Task {
 	taskType: TaskTypeEnum;
 	description: string;
 	budget: Budget;
+	paymentAsset?: PaymentAsset;
+	paymentNetwork?: PaymentNetwork;
 	deadline: string | null;
 	dateRange: DateRange | null;
 	pickupLocation: Location | null;

@@ -2,6 +2,7 @@ import type { Event as NostrEvent } from 'nostr-tools';
 import type { DisputeProposal, EscrowData } from '$lib/types/wallet';
 import type { Attachment } from '$lib/types/task';
 import type { EscrowStatus } from '$lib/utils/escrow';
+import type { PaymentAsset, PaymentNetwork } from '$lib/utils/helpers/paymentContext';
 
 // Contract permissions - grouped for better organization
 export interface ContractPermissions {
@@ -17,14 +18,20 @@ export interface ContractPermissions {
 
 // Main contract event data (content of KINDS.CONTRACT NostrEvent)
 export interface NostrContract {
+	schemaVersion?: string;
+	contractRef?: string;
 	escrowId: string;
 	taskId: string;
+	taskRef?: string;
+	bidRef?: string;
 	taskTitle: string;
 	taskDescription: string;
 	freelancerPubkey: string;
 	clientPubkey: string;
 	amount: string; // RBTC amount
 	currency: string; // 'RBTC'
+	paymentAsset?: PaymentAsset;
+	paymentNetwork?: PaymentNetwork;
 	status: EscrowStatus; // Use enum instead of string
 	estimatedStartTime: number;
 	estimatedCompletionTime: number;
@@ -36,12 +43,19 @@ export interface NostrContract {
 
 // Contract status update event data (content of KINDS.CONTRACT_STATUS NostrEvent)
 export interface NostrContractStatus {
+	schemaVersion?: string;
 	contractEventId: string;
 	escrowId: string;
+	contractRef?: string;
+	parentRef?: string;
+	taskRef?: string;
+	bidRef?: string;
 	action: EscrowStatus;
 	message?: string;
 	timestamp: number;
 	type: 'contract-status'; // Identify as contract status message in DMs
+	paymentAsset?: PaymentAsset;
+	paymentNetwork?: PaymentNetwork;
 	// RSK transaction hash if applicable
 	transactionHash?: string;
 	// Dispute resolution data
@@ -87,10 +101,14 @@ export interface ContractWithEvents {
 export interface CreateContractParams {
 	escrowId: string;
 	taskId: string;
+	taskRef?: string;
+	bidRef?: string;
 	taskTitle: string;
 	taskDescription: string;
 	freelancerPubkey: string;
 	amount: string;
+	paymentAsset?: PaymentAsset;
+	paymentNetwork?: PaymentNetwork;
 	estimatedStartTime: number;
 	estimatedCompletionTime: number;
 	transactionHash?: string; // Optional transaction hash from escrow creation
@@ -100,8 +118,14 @@ export interface CreateContractParams {
 export interface PublishStatusParams {
 	contractEventId: string;
 	escrowId: string;
+	contractRef?: string;
+	parentRef?: string;
+	taskRef?: string;
+	bidRef?: string;
 	action: EscrowStatus;
 	message?: string;
+	paymentAsset?: PaymentAsset;
+	paymentNetwork?: PaymentNetwork;
 	transactionHash?: string;
 	proposedClientAmount?: string;
 	proposedFreelancerAmount?: string;
@@ -141,10 +165,13 @@ export interface PendingContractCreation {
 	bidEventId: string;
 	escrowId: string;
 	taskId: string;
+	taskRef?: string;
 	taskTitle: string;
 	taskDescription: string;
 	freelancerPubkey: string;
 	amount: string;
+	paymentAsset?: PaymentAsset;
+	paymentNetwork?: PaymentNetwork;
 	estimatedStartTime: number;
 	estimatedCompletionTime: number;
 	transactionHash: string;

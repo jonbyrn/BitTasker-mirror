@@ -149,6 +149,41 @@
 		return (totalReceived / 100_000_000) * btcPrice;
 	});
 
+	const requestedUsdtAmount = $derived.by(() => {
+		if (formInput.selectedNetwork !== 'usdt-bsc') {
+			return 0;
+		}
+
+		const parsed = Number.parseFloat(formInput.amount);
+		return Number.isFinite(parsed) ? Number(parsed.toFixed(6)) : 0;
+	});
+
+	function formatEditableAmount(value: number): string {
+		return value
+			.toFixed(formInput.selectedNetwork === 'usdt-bsc' ? 6 : 2)
+			.replace(/\.?0+$/, '');
+	}
+
+	function normalizeDirectRequestState(selectedNetwork: string, unit: 'sats' | 'usd', chargeFeesToPayer: boolean) {
+		if (selectedNetwork === 'usdt-bsc') {
+			return {
+				unit: 'usd' as const,
+				chargeFeesToPayer: false
+			};
+		}
+
+		return {
+			unit,
+			chargeFeesToPayer
+		};
+	}
+
+	function hasValidUsdtPrecision(rawAmount: string): boolean {
+		const trimmed = rawAmount.trim();
+		if (!trimmed) return true;
+		return /^\d+(\.\d{0,6})?$/.test(trimmed);
+	}
+
 	// Network options
 	const networkOptions = $derived([
 		{
@@ -182,6 +217,14 @@
 			icon: '/images/chains/Bitcoin.svg',
 			available: false, // Disabled - Coming Soon
 			swapFeeInfo: 'Network fee' // Bitcoin on-chain fee
+		},
+		{
+			value: 'usdt-bsc',
+			label: 'USDT on BSC',
+			description: 'Direct USDT request on BSC',
+			icon: '/images/chains/Binance-logo.svg',
+			available: $walletStore.bsc.connected,
+			swapFeeInfo: 'No BNB required'
 		}
 	]);
 
@@ -222,12 +265,18 @@
 		if (signature === lastRestoredSignature) return;
 
 		{
+			const normalizedDirectRequestState = normalizeDirectRequestState(
+				initialFormState.selectedNetwork,
+				initialFormState.unit,
+				initialFormState.chargeFeesToPayer
+			);
+
 			formInput.amount = initialFormState.amount;
-			formInput.unit = initialFormState.unit;
+			formInput.unit = normalizedDirectRequestState.unit;
 			formInput.mathExpression = initialFormState.mathExpression;
 			formInput.memo = initialFormState.memo;
 			formInput.selectedNetwork = initialFormState.selectedNetwork;
-			formInput.chargeFeesToPayer = initialFormState.chargeFeesToPayer;
+			formInput.chargeFeesToPayer = normalizedDirectRequestState.chargeFeesToPayer;
 			if (initialFormState.currentStep) {
 				uiState.currentStep = initialFormState.currentStep;
 			}
@@ -293,6 +342,20 @@
 		}
 	}
 
+	function selectNetwork(networkValue: string) {
+		const normalizedDirectRequestState = normalizeDirectRequestState(
+			networkValue,
+			formInput.unit,
+			formInput.chargeFeesToPayer
+		);
+
+		formInput.selectedNetwork = networkValue;
+		formInput.unit = normalizedDirectRequestState.unit;
+		formInput.chargeFeesToPayer = normalizedDirectRequestState.chargeFeesToPayer;
+
+		handleAmountOrNetworkChange();
+	}
+
 	// Update fee estimate based on network
 	async function updateFeeEstimate() {
 		if (amountInSats === 0) {
@@ -324,6 +387,14 @@
 						totalFees: 0
 					};
 					// TODO: Fetch swap limits for on-chain Bitcoin if it requires swaps
+					feeState.swapLimits = null;
+					break;
+				case 'usdt-bsc':
+					feeState.estimated = {
+						serviceFee: 0,
+						networkFee: 0,
+						totalFees: 0
+					};
 					feeState.swapLimits = null;
 					break;
 				default:
@@ -429,13 +500,13 @@
 		formInput.mathExpression = expression;
 
 		// Update amount with the calculated result
-		if (result > 0 || expression === '') {
-			if (formInput.unit === 'sats') {
-				formInput.amount = Math.floor(result).toString();
-			} else {
-				formInput.amount = result.toFixed(2).replace(/\.?0+$/, '');
+			if (result > 0 || expression === '') {
+				if (formInput.unit === 'sats') {
+					formInput.amount = Math.floor(result).toString();
+				} else {
+					formInput.amount = formatEditableAmount(result);
+				}
 			}
-		}
 
 		// Trigger fee update when amount changes
 		handleAmountOrNetworkChange();
@@ -454,7 +525,10 @@
 
 	// Validate form
 	const isFormValid = $derived.by(() => {
-		if(formInput.selectedNetwork === 'rootstock-bitcoin') return true;
+		if (formInput.selectedNetwork === 'rootstock-bitcoin') return true;
+		if (formInput.selectedNetwork === 'usdt-bsc') {
+			return hasValidUsdtPrecision(formInput.amount) && !!$walletStore.bsc.address;
+		}
 		return amountInSats > 0;
 	});
 
@@ -469,7 +543,8 @@
 				? amountPayerPays
 				: amountInSats;
 
-			if (!$walletStore.rsk.connected || !$walletStore.rsk.address) {
+			const requiresRskWallet = formInput.selectedNetwork !== 'usdt-bsc';
+			if (requiresRskWallet && (!$walletStore.rsk.connected || !$walletStore.rsk.address)) {
 				return appStore.showErrorToast($t('wallet.rsk_not_connected'));
 			}
 
@@ -493,7 +568,7 @@
 				// Rootstock direct payment - use EIP-1191 checksummed address only
 				// Call parent callback with direct payment data and form state for restoration
 				onOpenPaymentRequest({
-					address: $walletStore.rsk.address, // EIP-1191 checksummed address
+					address: $walletStore.rsk.address,
 					network: 'rootstock-bitcoin',
 					amount: Math.floor(invoiceAmount),
 					memo: formInput.memo || undefined,
@@ -524,6 +599,37 @@
 						chargeFeesToPayer: formInput.chargeFeesToPayer
 					}
 				});
+			} else if (formInput.selectedNetwork === 'usdt-bsc') {
+				if (!$walletStore.bsc.connected || !$walletStore.bsc.address) {
+					return appStore.showErrorToast('BSC wallet not connected');
+				}
+
+				if (formInput.amount.trim() && !hasValidUsdtPrecision(formInput.amount)) {
+					return appStore.showErrorToast('USDT requests support up to 6 decimal places');
+				}
+
+				const normalizedDirectRequestState = normalizeDirectRequestState(
+					formInput.selectedNetwork,
+					formInput.unit,
+					formInput.chargeFeesToPayer
+				);
+
+				onOpenPaymentRequest({
+					address: $walletStore.bsc.address,
+					network: 'usdt-bsc',
+					amount: requestedUsdtAmount,
+					memo: formInput.memo || undefined,
+					chargeFeesToPayer: false,
+					totalFees: 0,
+					formState: {
+						amount: formInput.amount,
+						unit: normalizedDirectRequestState.unit,
+						mathExpression: formInput.mathExpression,
+						memo: formInput.memo,
+						selectedNetwork: formInput.selectedNetwork,
+						chargeFeesToPayer: normalizedDirectRequestState.chargeFeesToPayer
+					}
+				});
 			} else {
 				appStore.showErrorToast($t('wallet.receive_form.network_not_available'));
 				return;
@@ -550,7 +656,7 @@
 
 	// Handle step navigation
 	function handleNextStep() {
-		if (formInput.selectedNetwork === 'rootstock-bitcoin') {
+		if (formInput.selectedNetwork === 'rootstock-bitcoin' || formInput.selectedNetwork === 'usdt-bsc') {
 			triggerHaptic(ImpactStyle.Medium);
 			handleGenerateInvoice();
 			return;
@@ -579,6 +685,7 @@
 				unit={formInput.unit}
 				mathExpression={formInput.mathExpression}
 				calculatorKey={uiState.calculatorKey}
+				network={formInput.selectedNetwork}
 				isBelowSwapMinimum={isBelowSwapMinimum}
 				onAmountChange={(value) => (formInput.amount = value)}
 				onUnitChange={(newUnit) => {
@@ -603,6 +710,7 @@
 			unit={formInput.unit}
 			mathExpression={formInput.mathExpression}
 			calculatorKey={uiState.calculatorKey}
+			network={formInput.selectedNetwork}
 			isBelowSwapMinimum={isBelowSwapMinimum}
 			onAmountChange={(value) => (formInput.amount = value)}
 			onUnitChange={(newUnit) => {
@@ -715,10 +823,8 @@
 									onclick={() => {
 										if (network.available) {
 											triggerHaptic(ImpactStyle.Light);
-											formInput.selectedNetwork = network.value;
+											selectNetwork(network.value);
 											uiState.networkExpanded = false;
-											// Trigger fee update when network changes
-											handleAmountOrNetworkChange();
 										}
 									}}
 								>
@@ -921,7 +1027,7 @@
 					</div>
 				{/if}
 					<!-- Charge Fees to Payer Toggle (Mobile Step 2) -->
-					{#if feeState.estimated && feeState.estimated.totalFees > 0}
+					{#if formInput.selectedNetwork !== 'usdt-bsc' && feeState.estimated && feeState.estimated.totalFees > 0}
 						<button
 							type="button"
 							class="btn border-primary h-auto min-h-0 w-full touch-manipulation items-center justify-center gap-2 rounded-lg border-2 px-3 py-2 text-sm transition-colors select-none {formInput.chargeFeesToPayer
@@ -951,7 +1057,7 @@
 							</div>
 							<span class="label-text">{$t('wallet.receive.charge_fees_to_payer')}</span>
 						</button>
-					{:else}
+					{:else if formInput.selectedNetwork !== 'usdt-bsc'}
 					<button
 							type="button"
 							class="btn btn-outline border-primary h-auto min-h-0 w-full cursor-not-allowed items-center justify-center gap-2 rounded-lg border-2 px-3 py-2 text-sm opacity-50"
@@ -1073,10 +1179,8 @@
 								onclick={() => {
 									if (network.available) {
 										triggerHaptic(ImpactStyle.Light);
-										formInput.selectedNetwork = network.value;
+										selectNetwork(network.value);
 										uiState.networkExpanded = false;
-										// Trigger fee update when network changes
-										handleAmountOrNetworkChange();
 									}
 								}}
 							>
@@ -1278,7 +1382,7 @@
 		{/if}
 
 		<!-- Charge Fees to Payer Toggle (Desktop) -->
-	{#if feeState.estimated && feeState.estimated.totalFees > 0}
+	{#if formInput.selectedNetwork !== 'usdt-bsc' && feeState.estimated && feeState.estimated.totalFees > 0}
 		<button
 			type="button"
 				class="btn border-primary h-auto min-h-0 w-full touch-manipulation items-center justify-center gap-2 rounded-lg border-2 px-3 py-2 text-sm transition-colors select-none sm:gap-3 sm:text-base {formInput.chargeFeesToPayer
@@ -1308,7 +1412,7 @@
 			</div>
 			<span class="label-text">{$t('wallet.receive.charge_fees_to_payer')}</span>
 		</button>
-	{:else}
+	{:else if formInput.selectedNetwork !== 'usdt-bsc'}
 		<button
 			type="button"
 				class="btn btn-outline border-primary h-auto min-h-0 w-full cursor-not-allowed items-center justify-center gap-2 rounded-lg border-2 px-3 py-2 text-sm opacity-50 sm:gap-3 sm:text-base"

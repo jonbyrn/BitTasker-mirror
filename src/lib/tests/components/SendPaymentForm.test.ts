@@ -1,10 +1,20 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import SendPaymentForm from '$lib/components/wallet/SendPaymentForm.svelte';
-import { walletStore, walletManager } from '$lib/stores/wallet.store';
+import {
+	walletStore,
+	walletManager,
+	getBSCSponsorStatus,
+	preflightBSCDirectSend,
+	submitBSCDirectSend
+} from '$lib/stores/wallet.store';
 import cryptoPriceService from '$lib/api/services/crypto-price.service';
-import { parsePaymentAddress } from '$lib/utils/helpers/paymentAddressParser';
+import {
+	AMBIGUOUS_EVM_ADDRESS_ERROR,
+	parsePaymentAddress,
+	qualifyEvmPaymentAddress
+} from '$lib/utils/helpers/paymentAddressParser';
 import { getBiometricData } from '$lib/utils/helpers/biometrics';
 import { getWebBiometricData } from '$lib/utils/helpers/webBiometrics';
 
@@ -87,7 +97,19 @@ vi.mock('$lib/stores/wallet.store', async () => {
 	return {
 		walletStore: mockWalletStore,
 		walletManager: {
+			sendBSCUSDT: vi.fn().mockResolvedValue('0xbscsendhash'),
+			submitBSCDirectSend: vi.fn().mockResolvedValue('0xbscsendhash'),
 			getSubmarineSwapPairs: vi.fn().mockResolvedValue({
+				RBTC: {
+					BTC: {
+						fees: {
+							percentage: 0.1,
+							minerFees: 32
+						}
+					}
+				}
+			}),
+			getCachedSubmarineSwapPairs: vi.fn().mockReturnValue({
 				RBTC: {
 					BTC: {
 						fees: {
@@ -104,6 +126,19 @@ vi.mock('$lib/stores/wallet.store', async () => {
 				totalCost: '1030000000000000'
 			})
 		},
+		getBSCSponsorStatus: vi.fn().mockResolvedValue({
+			available: true,
+			mode: 'legacy-paymaster',
+			address: '0xfeedfeedfeedfeedfeedfeedfeedfeedfeedfeed'
+		}),
+		preflightBSCDirectSend: vi.fn().mockResolvedValue({
+			isReady: true,
+			allowanceAtomic: '12445600',
+			requiredAllowanceAtomic: '12445600',
+			totalDebitAtomic: '12445600',
+			sponsorAvailable: true
+		}),
+		submitBSCDirectSend: vi.fn().mockResolvedValue('0xbscsendhash'),
 		allAssets: writable([]),
 		formatSats: (sats: number) => new Intl.NumberFormat('en-US').format(sats),
 		formatUsd: (amount: number) =>
@@ -120,13 +155,18 @@ vi.mock('$lib/api/services/crypto-price.service', () => ({
 
 // Mock payment address parser (synchronous)
 vi.mock('$lib/utils/helpers/paymentAddressParser', () => ({
+	AMBIGUOUS_EVM_ADDRESS_ERROR:
+		'The network could not be detected safely from this address. Choose rBTC on Rootstock or USDT on BSC before paying.',
 	parsePaymentAddress: vi.fn().mockReturnValue({
 		isValid: true,
 		address: '0x1234567890123456789012345678901234567890',
 		network: 'rootstock-bitcoin',
 		amount: null,
 		memo: null
-	})
+	}),
+	qualifyEvmPaymentAddress: vi.fn((address: string, network: 'rootstock-bitcoin' | 'usdt-bsc') =>
+		network === 'usdt-bsc' ? `bsc:${address}` : `rsk:${address}`
+	)
 }));
 
 // Mock biometrics
@@ -156,9 +196,15 @@ vi.mock('$lib/utils/helpers/haptics', () => ({
 }));
 
 // Mock QrCodeScanner component
-vi.mock('$lib/components/QrCodeScanner.svelte', () => ({
-	default: vi.fn()
-}));
+vi.mock(
+	'$lib/components/QrCodeScanner.svelte',
+	async () => await import('$lib/tests/components/stubs/WebQrCodeScannerStub.svelte')
+);
+
+vi.mock(
+	'$lib/components/WebQrCodeScanner.svelte',
+	async () => await import('$lib/tests/components/stubs/WebQrCodeScannerStub.svelte')
+);
 
 // Mock appStore
 vi.mock('$lib/stores/app.store', () => ({
@@ -175,6 +221,10 @@ describe('SendPaymentForm Component', () => {
 
 	beforeEach(() => {
 		vi.clearAllMocks();
+		vi.stubEnv('VITE_BSC_USDT_TOKEN_ADDRESS', '0x337610d27c682E347C9cD60BD4b3b107C9d34dDd');
+		vi.stubEnv('VITE_BSC_DIRECT_SEND_ROUTER_ADDRESS', '0x1111111111111111111111111111111111111111');
+		vi.stubEnv('VITE_BSC_DIRECT_SEND_FIXED_FEE_ATOMIC', '100000');
+		vi.stubEnv('VITE_BSC_NETWORK', 'testnet');
 		walletStore.update(() => ({
 			hasAnyConnection: true,
 			rsk: {
@@ -182,9 +232,17 @@ describe('SendPaymentForm Component', () => {
 				address: '0x1234567890123456789012345678901234567890',
 				formattedBalance: '0.01'
 			},
-			bsc: { connected: false, address: null, formattedUsdtBalance: '0' },
+			bsc: {
+				connected: false,
+				address: null,
+				formattedUsdtBalance: '0'
+			},
 			totalBalances: { sats: 1_000_000, usd: 50 }
 		} as any));
+	});
+
+	afterEach(() => {
+		vi.unstubAllEnvs();
 	});
 
 	describe('Basic Rendering', () => {
@@ -243,8 +301,59 @@ describe('SendPaymentForm Component', () => {
 			await waitFor(() => expect(parsePaymentAddress).toHaveBeenCalled());
 		});
 
-		it.skip('should show error for invalid address', async () => {
-			// Skip: Address error display may depend on layout (mobile vs desktop); fix selectors when needed
+		it('should block ambiguous raw EVM addresses until the user chooses a rail', async () => {
+			vi.mocked(parsePaymentAddress)
+				.mockReturnValueOnce({
+					isValid: false,
+					address: '0x1234567890123456789012345678901234567890',
+					network: null,
+					amount: null,
+					memo: null,
+					errorCode: 'ambiguous-evm-address',
+					errorMessage: AMBIGUOUS_EVM_ADDRESS_ERROR
+				} as any)
+				.mockReturnValueOnce({
+					isValid: true,
+					address: '0x1234567890123456789012345678901234567890',
+					network: 'usdt-bsc',
+					amount: null,
+					memo: null
+				});
+
+			render(SendPaymentForm, defaultProps);
+			await tick();
+
+			const enterTabButton = screen.getByRole('button', { name: /enter payment details/i });
+			fireEvent.click(enterTabButton);
+			await tick();
+
+			const addressInput =
+				(document.getElementById('address-input') ||
+					document.getElementById('address-input-desktop')) as HTMLInputElement;
+			await waitFor(() => expect(addressInput).toBeInTheDocument());
+			fireEvent.input(addressInput, {
+				target: { value: '0x1234567890123456789012345678901234567890' }
+			});
+			await tick();
+
+			await waitFor(() => {
+				expect(screen.getAllByText(/network could not be detected safely/i).length).toBeGreaterThan(0);
+			});
+
+			const chooseBscButton = screen.getAllByRole('button', { name: /usdt on bsc/i })[0];
+			await fireEvent.click(chooseBscButton);
+			await tick();
+
+			expect(parsePaymentAddress).toHaveBeenLastCalledWith(
+				'bsc:0x1234567890123456789012345678901234567890'
+			);
+			expect(qualifyEvmPaymentAddress).toHaveBeenCalledWith(
+				'0x1234567890123456789012345678901234567890',
+				'usdt-bsc'
+			);
+		});
+
+		it('should show error for invalid address', async () => {
 			vi.mocked(parsePaymentAddress).mockReturnValue({
 				isValid: false,
 				address: 'invalid',
@@ -268,8 +377,8 @@ describe('SendPaymentForm Component', () => {
 
 			await waitFor(
 				() => {
-					const errorText = screen.queryByText(/Invalid address|invalid address format/i);
-					expect(errorText).toBeInTheDocument();
+					const errorText = screen.queryAllByText(/Invalid address|invalid address format/i);
+					expect(errorText.length).toBeGreaterThan(0);
 				},
 				{ timeout: 2000 }
 			);
@@ -277,8 +386,7 @@ describe('SendPaymentForm Component', () => {
 	});
 
 	describe('Amount Handling', () => {
-		it.skip('should show calculator when amount is required', async () => {
-			// Skip: Calculator visibility may depend on responsive layout; fix when AmountInputSection mock is stable
+		it('should show amount entry controls when amount is required', async () => {
 			vi.mocked(parsePaymentAddress).mockReturnValueOnce({
 				isValid: true,
 				address: '0x1234567890123456789012345678901234567890',
@@ -298,11 +406,14 @@ describe('SendPaymentForm Component', () => {
 			await waitFor(() => expect(addressInput).toBeInTheDocument());
 			fireEvent.input(addressInput, { target: { value: '0x1234567890123456789012345678901234567890' } });
 			await tick();
-			await waitFor(() => expect(screen.getByRole('button', { name: '1' })).toBeInTheDocument());
+			await waitFor(() => {
+				expect(screen.getAllByRole('button', { name: /set maximum amount/i }).length).toBeGreaterThan(0);
+				expect(screen.getAllByRole('button', { name: 'USD' }).length).toBeGreaterThan(0);
+				expect(screen.getAllByRole('button', { name: 'Sats' }).length).toBeGreaterThan(0);
+			});
 		});
 
-		it.skip('should disable amount field when amount is in invoice', async () => {
-			// Skip: "from invoice" display depends on DescriptionAccordion/layout; fix selectors when needed
+		it('should disable amount controls when amount is in invoice', async () => {
 			vi.mocked(parsePaymentAddress).mockReturnValueOnce({
 				isValid: true,
 				address: 'lnbc1000u1p3...',
@@ -324,8 +435,17 @@ describe('SendPaymentForm Component', () => {
 			await tick();
 			await waitFor(
 				() => {
-					const fromInvoiceText = screen.queryByText(/from invoice/i) || screen.queryByText('wallet.send.from_invoice');
-					expect(fromInvoiceText).toBeInTheDocument();
+					const maxButtons = screen.getAllByRole('button', { name: /set maximum amount/i });
+					const usdButtons = screen.getAllByRole('button', { name: 'USD' });
+					const satsButtons = screen.getAllByRole('button', { name: 'Sats' });
+
+					expect(maxButtons.length).toBeGreaterThan(0);
+					expect(usdButtons.length).toBeGreaterThan(0);
+					expect(satsButtons.length).toBeGreaterThan(0);
+
+					for (const button of [...maxButtons, ...usdButtons, ...satsButtons]) {
+						expect(button).toBeDisabled();
+					}
 				},
 				{ timeout: 2000 }
 			);
@@ -333,25 +453,121 @@ describe('SendPaymentForm Component', () => {
 	});
 
 	describe('QR Code Scanning', () => {
-		it('should handle QR scan and show confirmation', async () => {
+		it('preserves the full chain-qualified BSC QR payload through scan parsing and preflight', async () => {
 			vi.mocked(parsePaymentAddress).mockReturnValueOnce({
 				isValid: true,
 				address: '0x1234567890123456789012345678901234567890',
-				network: 'rootstock-bitcoin',
-				amount: 100000,
-				memo: 'Test payment'
-			});
+				network: 'usdt-bsc',
+				amount: 12.345678,
+				memo: 'Invoice'
+			} as any);
+
+			walletStore.update(() => ({
+				hasAnyConnection: true,
+				rsk: {
+					connected: true,
+					address: '0x1234567890123456789012345678901234567890',
+					formattedBalance: '0.01'
+				},
+				bsc: {
+					connected: true,
+					address: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
+					formattedUsdtBalance: '50.000000'
+				},
+				totalBalances: { sats: 1_000_000, usd: 50 }
+			} as any));
 
 			render(SendPaymentForm, defaultProps);
 			await tick();
 
-			// Simulate QR scan
-			const component = render(SendPaymentForm, defaultProps);
+			await fireEvent.click(screen.getByTestId('simulate-web-scan-bsc'));
 			await tick();
 
-			// The component should show QR scanner initially
-			// In a real test, we would trigger the onScan callback
-			// For now, we'll test the confirmation screen by switching tabs and entering data
+			await waitFor(() => {
+				expect(parsePaymentAddress).toHaveBeenCalledWith(
+					'bsc:0x1234567890123456789012345678901234567890?amount=12.345678&memo=Invoice'
+				);
+			});
+
+			await waitFor(() => {
+				expect(preflightBSCDirectSend).toHaveBeenCalledWith(
+					expect.objectContaining({
+						recipient: '0x1234567890123456789012345678901234567890',
+						recipientAmountAtomic: '12345678'
+					})
+				);
+			});
+
+			const addressInput =
+				(document.getElementById('address-input') ||
+					document.getElementById('address-input-desktop')) as HTMLInputElement;
+			expect(addressInput.value).toBe(
+				'bsc:0x1234567890123456789012345678901234567890?amount=12.345678&memo=Invoice'
+			);
+		});
+
+		it('blocks ambiguous raw EVM QR scans until the user chooses a rail', async () => {
+			vi.mocked(parsePaymentAddress)
+				.mockReturnValueOnce({
+					isValid: false,
+					address: '0x1234567890123456789012345678901234567890',
+					network: null,
+					amount: null,
+					memo: null,
+					errorCode: 'ambiguous-evm-address',
+					errorMessage: AMBIGUOUS_EVM_ADDRESS_ERROR
+				} as any)
+				.mockReturnValueOnce({
+					isValid: true,
+					address: '0x1234567890123456789012345678901234567890',
+					network: 'usdt-bsc',
+					amount: null,
+					memo: null
+				} as any);
+
+			walletStore.update(() => ({
+				hasAnyConnection: true,
+				rsk: {
+					connected: true,
+					address: '0x1234567890123456789012345678901234567890',
+					formattedBalance: '0.01'
+				},
+				bsc: {
+					connected: true,
+					address: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
+					formattedUsdtBalance: '50.000000'
+				},
+				totalBalances: { sats: 1_000_000, usd: 50 }
+			} as any));
+
+			render(SendPaymentForm, defaultProps);
+			await tick();
+
+			await fireEvent.click(screen.getByTestId('simulate-web-scan-ambiguous'));
+			await tick();
+
+			await waitFor(() => {
+				expect(parsePaymentAddress).toHaveBeenCalledWith(
+					'0x1234567890123456789012345678901234567890'
+				);
+				expect(
+					screen.getAllByText(/network could not be detected safely/i).length
+				).toBeGreaterThan(0);
+			});
+
+			expect(preflightBSCDirectSend).not.toHaveBeenCalled();
+
+			const chooseBscButton = screen.getAllByRole('button', { name: /usdt on bsc/i })[0];
+			await fireEvent.click(chooseBscButton);
+			await tick();
+
+			expect(parsePaymentAddress).toHaveBeenLastCalledWith(
+				'bsc:0x1234567890123456789012345678901234567890'
+			);
+			expect(qualifyEvmPaymentAddress).toHaveBeenCalledWith(
+				'0x1234567890123456789012345678901234567890',
+				'usdt-bsc'
+			);
 		});
 	});
 
@@ -441,9 +657,356 @@ describe('SendPaymentForm Component', () => {
 		});
 	});
 
+	describe('BSC direct send', () => {
+		it('runs BSC preflight and sends a token-native USDT amount', async () => {
+			vi.mocked(parsePaymentAddress).mockReturnValue({
+				isValid: true,
+				address: '0x1234567890123456789012345678901234567890',
+				network: 'usdt-bsc',
+				amount: 12.3456,
+				memo: null
+			} as any);
+
+			walletStore.update(() => ({
+				hasAnyConnection: true,
+				rsk: {
+					connected: true,
+					address: '0x1234567890123456789012345678901234567890',
+					formattedBalance: '0.01'
+				},
+				bsc: {
+					connected: true,
+					address: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
+					formattedUsdtBalance: '50.000000'
+				},
+				totalBalances: { sats: 1_000_000, usd: 50 }
+			} as any));
+
+			render(SendPaymentForm, defaultProps);
+			await tick();
+
+			fireEvent.click(screen.getByRole('button', { name: /enter payment details/i }));
+			await tick();
+
+			const addressInput =
+				(document.getElementById('address-input') ||
+					document.getElementById('address-input-desktop')) as HTMLInputElement;
+			await waitFor(() => expect(addressInput).toBeInTheDocument());
+			fireEvent.input(addressInput, {
+				target: { value: 'bsc:0x1234567890123456789012345678901234567890?amount=12.3456' }
+			});
+			await tick();
+
+			await waitFor(() => {
+				expect(preflightBSCDirectSend).toHaveBeenCalled();
+			});
+
+			expect(screen.getAllByText(/fixed service fee/i).length).toBeGreaterThan(0);
+			expect(screen.queryByText(/no bnb required/i)).toBeNull();
+
+			const sendButtons = screen.getAllByRole('button', { name: /^send$/i });
+			await fireEvent.click(sendButtons[sendButtons.length - 1]);
+			await tick();
+
+			await waitFor(() => {
+				expect(screen.getByText(/total debit/i)).toBeInTheDocument();
+				expect(screen.getAllByText(/12.4456 USDT/).length).toBeGreaterThan(0);
+			});
+
+			const confirmButtons = screen.getAllByRole('button', { name: /^send$/i });
+			await fireEvent.click(confirmButtons[confirmButtons.length - 1]);
+
+			await waitFor(() => {
+				expect(submitBSCDirectSend).toHaveBeenCalledWith({
+					recipient: '0x1234567890123456789012345678901234567890',
+					recipientAmountAtomic: '12345600',
+					fixedFeeAtomic: '100000',
+					routerAddress: '0x1111111111111111111111111111111111111111',
+					chainId: 97,
+					tokenAddress: '0x337610d27c682E347C9cD60BD4b3b107C9d34dDd'
+				});
+			});
+
+			expect(preflightBSCDirectSend).toHaveBeenLastCalledWith({
+				recipient: '0x1234567890123456789012345678901234567890',
+				recipientAmountAtomic: '12345600',
+				fixedFeeAtomic: '100000',
+				routerAddress: '0x1111111111111111111111111111111111111111',
+				chainId: 97,
+				tokenAddress: '0x337610d27c682E347C9cD60BD4b3b107C9d34dDd'
+			});
+		});
+
+		it('blocks USDT on BSC sends when the router allowance is missing', async () => {
+			vi.mocked(parsePaymentAddress).mockReturnValue({
+				isValid: true,
+				address: '0x1234567890123456789012345678901234567890',
+				network: 'usdt-bsc',
+				amount: 12.3456,
+				memo: null
+			} as any);
+
+			vi.mocked(preflightBSCDirectSend).mockResolvedValueOnce({
+				isReady: false,
+				failureCode: 'ROUTER_ALLOWANCE_MISSING',
+				allowanceAtomic: '0',
+				requiredAllowanceAtomic: '12445600',
+				totalDebitAtomic: '12445600',
+				sponsorAvailable: true
+			} as any);
+
+			walletStore.update(() => ({
+				hasAnyConnection: true,
+				rsk: {
+					connected: true,
+					address: '0x1234567890123456789012345678901234567890',
+					formattedBalance: '0.01'
+				},
+				bsc: {
+					connected: true,
+					address: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
+					formattedUsdtBalance: '50.000000'
+				},
+				totalBalances: { sats: 1_000_000, usd: 50 }
+			} as any));
+
+			render(SendPaymentForm, defaultProps);
+			await tick();
+
+			fireEvent.click(screen.getByRole('button', { name: /enter payment details/i }));
+			await tick();
+
+			const addressInput =
+				(document.getElementById('address-input') ||
+					document.getElementById('address-input-desktop')) as HTMLInputElement;
+			await waitFor(() => expect(addressInput).toBeInTheDocument());
+			fireEvent.input(addressInput, {
+				target: { value: 'bsc:0x1234567890123456789012345678901234567890?amount=12.3456' }
+			});
+			await tick();
+
+			await waitFor(() => {
+				expect(preflightBSCDirectSend).toHaveBeenCalled();
+				expect(
+					screen.getAllByText(/router allowance is missing or too low/i).length
+				).toBeGreaterThan(0);
+			});
+
+			const sendButtons = screen.getAllByRole('button', { name: /^send$/i });
+			sendButtons.forEach((button) => expect(button).toBeDisabled());
+			expect(submitBSCDirectSend).not.toHaveBeenCalled();
+		});
+
+		it('blocks USDT on BSC sends when the wallet is on the wrong chain and shows actionable switch guidance', async () => {
+			vi.mocked(parsePaymentAddress).mockReturnValue({
+				isValid: true,
+				address: '0x1234567890123456789012345678901234567890',
+				network: 'usdt-bsc',
+				amount: 12.3456,
+				memo: null
+			} as any);
+
+			vi.mocked(preflightBSCDirectSend).mockResolvedValueOnce({
+				isReady: false,
+				failureCode: 'WRONG_CHAIN',
+				allowanceAtomic: '12445600',
+				requiredAllowanceAtomic: '12445600',
+				totalDebitAtomic: '12445600',
+				sponsorAvailable: true
+			} as any);
+
+			walletStore.update(() => ({
+				hasAnyConnection: true,
+				rsk: {
+					connected: true,
+					address: '0x1234567890123456789012345678901234567890',
+					formattedBalance: '0.01'
+				},
+				bsc: {
+					connected: true,
+					address: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
+					formattedUsdtBalance: '50.000000'
+				},
+				totalBalances: { sats: 1_000_000, usd: 50 }
+			} as any));
+
+			render(SendPaymentForm, defaultProps);
+			await tick();
+
+			fireEvent.click(screen.getByRole('button', { name: /enter payment details/i }));
+			await tick();
+
+			const addressInput =
+				(document.getElementById('address-input') ||
+					document.getElementById('address-input-desktop')) as HTMLInputElement;
+			await waitFor(() => expect(addressInput).toBeInTheDocument());
+			fireEvent.input(addressInput, {
+				target: { value: 'bsc:0x1234567890123456789012345678901234567890?amount=12.3456' }
+			});
+			await tick();
+
+			await waitFor(() => {
+				expect(preflightBSCDirectSend).toHaveBeenCalled();
+				expect(screen.getAllByText(/switch to bsc to continue/i).length).toBeGreaterThan(0);
+				expect(
+					screen.getAllByText(/wallet is connected to the wrong network\. switch to bsc and try again\./i)
+						.length
+				).toBeGreaterThan(0);
+			});
+
+			const sendButtons = screen.getAllByRole('button', { name: /^send$/i });
+			sendButtons.forEach((button) => expect(button).toBeDisabled());
+			expect(submitBSCDirectSend).not.toHaveBeenCalled();
+			expect(screen.queryByText(/bnb/i)).toBeNull();
+		});
+
+		it('blocks USDT on BSC sends when sponsorship is unavailable', async () => {
+			vi.mocked(parsePaymentAddress).mockReturnValue({
+				isValid: true,
+				address: '0x1234567890123456789012345678901234567890',
+				network: 'usdt-bsc',
+				amount: 12.3456,
+				memo: null
+			} as any);
+
+			vi.mocked(getBSCSponsorStatus).mockResolvedValueOnce({
+				available: false,
+				mode: 'legacy-paymaster',
+				address: '0xfeedfeedfeedfeedfeedfeedfeedfeedfeedfeed',
+				reason: 'Sponsored USDT on BSC payments are temporarily unavailable. Please try again shortly.'
+			} as any);
+
+			vi.mocked(preflightBSCDirectSend).mockResolvedValueOnce({
+				isReady: false,
+				failureCode: 'SPONSOR_UNAVAILABLE',
+				allowanceAtomic: '12445600',
+				requiredAllowanceAtomic: '12445600',
+				totalDebitAtomic: '12445600',
+				sponsorAvailable: false
+			} as any);
+
+			walletStore.update(() => ({
+				hasAnyConnection: true,
+				rsk: {
+					connected: true,
+					address: '0x1234567890123456789012345678901234567890',
+					formattedBalance: '0.01'
+				},
+				bsc: {
+					connected: true,
+					address: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
+					formattedUsdtBalance: '50.000000'
+				},
+				totalBalances: { sats: 1_000_000, usd: 50 }
+			} as any));
+
+			render(SendPaymentForm, defaultProps);
+			await tick();
+
+			fireEvent.click(screen.getByRole('button', { name: /enter payment details/i }));
+			await tick();
+
+			const addressInput =
+				(document.getElementById('address-input') ||
+					document.getElementById('address-input-desktop')) as HTMLInputElement;
+			await waitFor(() => expect(addressInput).toBeInTheDocument());
+			fireEvent.input(addressInput, {
+				target: { value: 'bsc:0x1234567890123456789012345678901234567890?amount=12.3456' }
+			});
+			await tick();
+
+			await waitFor(() => {
+				expect(getBSCSponsorStatus).toHaveBeenCalled();
+				expect(preflightBSCDirectSend).toHaveBeenCalled();
+			});
+
+			await waitFor(() => {
+				expect(
+					screen.getAllByText(/temporarily unavailable\. Please try again shortly\./i).length
+				).toBeGreaterThan(0);
+			});
+
+			expect(screen.queryByText(/bnb/i)).toBeNull();
+			const sendButtons = screen.getAllByRole('button', { name: /^send$/i });
+			sendButtons.forEach((button) => expect(button).toBeDisabled());
+			expect(submitBSCDirectSend).not.toHaveBeenCalled();
+		});
+
+		it('blocks USDT on BSC sends when sponsorship is unavailable and shows the sponsor reason', async () => {
+			vi.mocked(parsePaymentAddress).mockReturnValue({
+				isValid: true,
+				address: '0x1234567890123456789012345678901234567890',
+				network: 'usdt-bsc',
+				amount: 12.3456,
+				memo: null
+			} as any);
+
+			vi.mocked(getBSCSponsorStatus).mockResolvedValueOnce({
+				available: false,
+				mode: 'legacy-paymaster',
+				address: '0xfeedfeedfeedfeedfeedfeedfeedfeedfeedfeed',
+				reason: 'Sponsored sends are temporarily unavailable. Please try again shortly.'
+			} as any);
+
+			vi.mocked(preflightBSCDirectSend).mockResolvedValueOnce({
+				isReady: false,
+				failureCode: 'SPONSOR_UNAVAILABLE',
+				allowanceAtomic: '12445600',
+				requiredAllowanceAtomic: '12445600',
+				totalDebitAtomic: '12445600',
+				sponsorAvailable: false
+			} as any);
+
+			walletStore.update(() => ({
+				hasAnyConnection: true,
+				rsk: {
+					connected: true,
+					address: '0x1234567890123456789012345678901234567890',
+					formattedBalance: '0.01'
+				},
+				bsc: {
+					connected: true,
+					address: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
+					formattedUsdtBalance: '50.000000'
+				},
+				totalBalances: { sats: 1_000_000, usd: 50 }
+			} as any));
+
+			render(SendPaymentForm, defaultProps);
+			await tick();
+
+			fireEvent.click(screen.getByRole('button', { name: /enter payment details/i }));
+			await tick();
+
+			const addressInput =
+				(document.getElementById('address-input') ||
+					document.getElementById('address-input-desktop')) as HTMLInputElement;
+			await waitFor(() => expect(addressInput).toBeInTheDocument());
+			fireEvent.input(addressInput, {
+				target: { value: 'bsc:0x1234567890123456789012345678901234567890?amount=12.3456' }
+			});
+			await tick();
+
+			await waitFor(() => {
+				expect(getBSCSponsorStatus).toHaveBeenCalled();
+				expect(preflightBSCDirectSend).toHaveBeenCalled();
+			});
+
+			await waitFor(() => {
+				expect(
+					screen.getAllByText(/sponsored sends are temporarily unavailable/i).length
+				).toBeGreaterThan(0);
+			});
+
+			const sendButtons = screen.getAllByRole('button', { name: /^send$/i });
+			sendButtons.forEach((button) => expect(button).toBeDisabled());
+			expect(submitBSCDirectSend).not.toHaveBeenCalled();
+			expect(screen.queryByText(/bnb/i)).toBeNull();
+		});
+	});
+
 	describe('Large Amount Warning', () => {
-		it.skip('should show warning for amounts over $1,000', async () => {
-			// Skip: Large amount warning modal visibility depends on calculator state; fix when stable
+		it('should show warning for amounts over $1,000', async () => {
 			vi.mocked(parsePaymentAddress).mockReturnValue({
 				isValid: true,
 				address: '0x1234567890123456789012345678901234567890',
@@ -463,18 +1026,16 @@ describe('SendPaymentForm Component', () => {
 			await waitFor(() => expect(addressInput).toBeInTheDocument());
 			fireEvent.input(addressInput, { target: { value: '0x1234567890123456789012345678901234567890' } });
 			await tick();
-			await waitFor(() => expect(screen.getByRole('button', { name: '1' })).toBeInTheDocument());
+			await waitFor(() => expect(screen.getAllByRole('button', { name: '1' }).length).toBeGreaterThan(0));
 
 			// Switch to USD unit
-			const unitToggle = screen.queryByRole('button', { name: /usd/i });
-			if (unitToggle) {
-				fireEvent.click(unitToggle);
-				await tick();
-			}
+			const unitToggle = screen.getAllByRole('button', { name: 'USD' })[0];
+			fireEvent.click(unitToggle);
+			await tick();
 
-			// Enter 1500 via calculator (may need to click 1, 5, 0, 0 - multiple "1" buttons may exist)
+			// Use the first rendered calculator because both mobile and desktop layouts are mounted in tests.
 			const btn1 = screen.getAllByRole('button', { name: '1' })[0];
-			const btn5 = screen.getByRole('button', { name: '5' });
+			const btn5 = screen.getAllByRole('button', { name: '5' })[0];
 			const btn0 = screen.getAllByRole('button', { name: '0' })[0];
 			fireEvent.click(btn1);
 			fireEvent.click(btn5);
@@ -484,8 +1045,9 @@ describe('SendPaymentForm Component', () => {
 
 			await waitFor(
 				() => {
-					const warning = screen.queryByText(/Large Amount|1,500|1500|correct amount/i);
-					expect(warning).toBeInTheDocument();
+					expect(
+						screen.getAllByText(/You're about to send \$1,500\.00\. This is a large amount\./i).length
+					).toBeGreaterThan(0);
 				},
 				{ timeout: 2000 }
 			);
@@ -507,4 +1069,3 @@ describe('SendPaymentForm Component', () => {
 		});
 	});
 });
-

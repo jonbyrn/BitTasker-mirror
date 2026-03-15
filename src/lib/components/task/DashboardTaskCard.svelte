@@ -10,6 +10,7 @@
 	import TaskLocationDisplay from './TaskLocationDisplay.svelte';
 	import IconInformationOutline from '~icons/mdi/information-outline';
 	import IconEyeOutline from '~icons/mdi/eye-outline';
+	import { getPaymentRailLabel, resolvePaymentContext } from '$lib/utils/helpers/paymentContext';
 
 	type TaskFilterCategory =
 		| 'waiting_for_bids'
@@ -34,6 +35,10 @@
 	}>();
 
 	const statusBadge = $derived(getStatusBadge(task.status));
+	const paymentContext = $derived(resolvePaymentContext(task.paymentAsset, task.paymentNetwork));
+	const isBscBudgetRail = $derived(
+		paymentContext.paymentAsset === 'USDT' && paymentContext.paymentNetwork.startsWith('bsc')
+	);
 </script>
 
 <div class="card bg-base-100 rounded-xl shadow-md transition-shadow hover:shadow-lg">
@@ -49,6 +54,11 @@
 					descriptionClass="text-sm text-base-content/80 whitespace-pre-line line-clamp-2"
 					titleClass="card-title line-clamp-2 text-lg font-semibold"
 				/>
+				<div class="mt-2">
+					<span class="badge badge-secondary badge-sm">
+						{getPaymentRailLabel(task.paymentAsset, task.paymentNetwork)}
+					</span>
+				</div>
 			</div>
 			<!-- Right: Status Badge + Share Button + Price (aligned right) -->
 			<div class="flex shrink-0 flex-col items-end gap-2">
@@ -72,9 +82,11 @@
 				<div class="text-right text-xl font-bold">
 					${formatNumberWithTwoDecimals(task.budget.amount)}
 
-					<div class="text-base-content/60 text-sm">
-						{satsFromUsd(task.budget.amount, btcPrice)}
-					</div>
+					{#if !isBscBudgetRail}
+						<div class="text-base-content/60 text-sm">
+							{satsFromUsd(task.budget.amount, btcPrice)}
+						</div>
+					{/if}
 				</div>
 			</div>
 		</div>

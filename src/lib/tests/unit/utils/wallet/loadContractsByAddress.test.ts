@@ -4,12 +4,43 @@ import { EscrowStatus } from '$lib/utils/escrow';
 
 const mockEnsureEscrowReady = vi.fn();
 const mockLoadEscrowDetails = vi.fn();
+const mockGetContracts = vi.fn();
+const { mockWalletStore } = vi.hoisted(() => {
+	const { writable } = require('svelte/store');
+
+	return {
+		mockWalletStore: writable({
+			bsc: {
+				address: null
+			}
+		})
+	};
+});
 
 vi.mock('$lib/utils/escrow/v1/escrow', () => ({
 	escrow: {
 		ensureEscrowReady: (...args: unknown[]) => mockEnsureEscrowReady(...args),
 		loadEscrowDetails: (escrowId: string) => mockLoadEscrowDetails(escrowId)
 	}
+}));
+
+vi.mock('$lib/utils/escrow', async () => {
+	const actual = await vi.importActual<typeof import('$lib/utils/escrow')>('$lib/utils/escrow');
+
+	return {
+		...actual,
+		escrow: {
+			...actual.escrow,
+			contractOps: {
+				...actual.escrow.contractOps,
+				getContracts: (...args: unknown[]) => mockGetContracts(...args)
+			}
+		}
+	};
+});
+
+vi.mock('$lib/stores/wallet.store', () => ({
+	walletStore: mockWalletStore
 }));
 
 import { loadContractsByAddress } from '$lib/utils/wallet/loadContractsByAddress';
@@ -60,6 +91,11 @@ describe('loadContractsByAddress', () => {
 
 	beforeEach(() => {
 		vi.clearAllMocks();
+		mockWalletStore.set({
+			bsc: {
+				address: mockWalletAddress
+			}
+		});
 		mockEnsureEscrowReady.mockResolvedValue({
 			contract: mockContract,
 			wallet: {},
@@ -183,11 +219,184 @@ describe('loadContractsByAddress', () => {
 	});
 
 	describe('BSC network', () => {
-		it('should return empty array for BSC (not yet supported)', async () => {
+		it('should load BSC contracts through the contract query path', async () => {
+			mockGetContracts.mockResolvedValue([
+				{
+					contractEvent: {
+						content: {
+							paymentNetwork: 'bsc-testnet'
+						}
+					},
+					escrowData: {
+						...mockContract1,
+						client: 'npub-client',
+						freelancer: 'npub-freelancer'
+					},
+					isClient: true
+				},
+				{
+					contractEvent: {
+						content: {
+							paymentNetwork: 'rsk-testnet'
+						}
+					},
+					escrowData: {
+						...mockContract2
+					},
+					isClient: false
+				}
+			]);
+
 			const contracts = await loadContractsByAddress(mockWalletAddress, 10, 'BSC');
+
+			expect(mockGetContracts).toHaveBeenCalledWith({ limit: 10 });
+			expect(mockEnsureEscrowReady).not.toHaveBeenCalled();
+			expect(contracts).toHaveLength(1);
+			expect(contracts[0].client).toBe(mockWalletAddress);
+			expect(contracts[0].freelancer).toBe('npub-freelancer');
+		});
+
+		it('should keep legacy BSC USDT contracts readable when paymentNetwork is missing but paymentAsset still implies the BSC rail', async () => {
+			mockGetContracts.mockResolvedValue([
+				{
+					contractEvent: {
+						content: {
+							paymentAsset: 'USDT'
+						}
+					},
+					escrowData: {
+						...mockContract1,
+						client: 'npub-client',
+						freelancer: 'npub-freelancer'
+					},
+					isClient: true
+				}
+			]);
+
+			const contracts = await loadContractsByAddress(mockWalletAddress, 10, 'BSC');
+
+			expect(contracts).toHaveLength(1);
+			expect(contracts[0].client).toBe(mockWalletAddress);
+			expect(contracts[0].freelancer).toBe('npub-freelancer');
+			expect(mockEnsureEscrowReady).not.toHaveBeenCalled();
+		});
+
+		it('should map the connected address onto the freelancer side when the current user is not the client', async () => {
+			mockGetContracts.mockResolvedValue([
+				{
+					contractEvent: {
+						content: {
+							paymentNetwork: 'bsc-mainnet'
+						}
+					},
+					escrowData: {
+						...mockContract2,
+						client: 'npub-client',
+						freelancer: 'npub-freelancer'
+					},
+					isClient: false
+				}
+			]);
+
+			const contracts = await loadContractsByAddress(mockWalletAddress, 5, 'BSC');
+
+			expect(contracts).toHaveLength(1);
+			expect(contracts[0].client).toBe('npub-client');
+			expect(contracts[0].freelancer).toBe(mockWalletAddress);
+			expect(mockEnsureEscrowReady).not.toHaveBeenCalled();
+		});
+
+		it('should preserve real EVM participants when the queried wallet already matches a BSC contract party', async () => {
+			const freelancerAddress = '0x9999999999999999999999999999999999999999';
+			mockGetContracts.mockResolvedValue([
+				{
+					contractEvent: {
+						content: {
+							paymentAsset: 'USDT',
+							paymentNetwork: 'bsc-testnet'
+						}
+					},
+					escrowData: {
+						...mockContract1,
+						client: mockWalletAddress,
+						freelancer: freelancerAddress
+					},
+					isClient: true
+				}
+			]);
+
+			const contracts = await loadContractsByAddress(mockWalletAddress, 5, 'BSC');
+
+			expect(contracts).toHaveLength(1);
+			expect(contracts[0].client).toBe(mockWalletAddress);
+			expect(contracts[0].freelancer).toBe(freelancerAddress);
+		});
+
+		it('should fail closed for BSC contracts whose EVM participants do not match the requested wallet', async () => {
+			mockGetContracts.mockResolvedValue([
+				{
+					contractEvent: {
+						content: {
+							paymentAsset: 'USDT',
+							paymentNetwork: 'bsc-mainnet'
+						}
+					},
+					escrowData: {
+						...mockContract1,
+						client: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+						freelancer: '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
+					},
+					isClient: true
+				}
+			]);
+
+			const contracts = await loadContractsByAddress(mockWalletAddress, 5, 'BSC');
 
 			expect(contracts).toEqual([]);
 			expect(mockEnsureEscrowReady).not.toHaveBeenCalled();
+		});
+
+		it('should fail closed when the requested BSC address does not match the connected wallet address', async () => {
+			mockWalletStore.set({
+				bsc: {
+					address: '0xABCDEFabcdefABCDEFabcdefABCDEFabcdefABCD'
+				}
+			});
+
+			const contracts = await loadContractsByAddress(mockWalletAddress, 5, 'BSC');
+
+			expect(contracts).toEqual([]);
+			expect(mockGetContracts).not.toHaveBeenCalled();
+		});
+
+		it('should map npub-backed BSC participants onto the connected wallet address instead of the raw caller input', async () => {
+			const connectedBscAddress = '0xAbCdEfabcdefABCDEFabcdefABCDEFabcdefABCD';
+			mockWalletStore.set({
+				bsc: {
+					address: connectedBscAddress
+				}
+			});
+			mockGetContracts.mockResolvedValue([
+				{
+					contractEvent: {
+						content: {
+							paymentNetwork: 'bsc-testnet'
+						}
+					},
+					escrowData: {
+						...mockContract1,
+						client: 'npub-client',
+						freelancer: 'npub-freelancer'
+					},
+					isClient: true
+				}
+			]);
+
+			const contracts = await loadContractsByAddress(connectedBscAddress.toLowerCase(), 5, 'BSC');
+
+			expect(contracts).toHaveLength(1);
+			expect(contracts[0].client).toBe(connectedBscAddress);
+			expect(contracts[0].freelancer).toBe('npub-freelancer');
 		});
 	});
 });

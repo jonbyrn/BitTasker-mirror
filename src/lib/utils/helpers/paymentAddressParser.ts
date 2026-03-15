@@ -1,14 +1,16 @@
 import { detectLightningType, parseLightningInvoice } from './lightningInvoice';
-import { validateRSKAddress, validateBitcoinAddress } from './validators';
+import { isValidRskAddress } from '@bittasker/wallet-core';
+import { validateBitcoinAddress } from './validators';
 import { address as liquidAddress } from 'liquidjs-lib';
 
 export interface ParsedPaymentAddress {
 	isValid: boolean;
 	address: string;
 	network: 'lightning-bitcoin' | 'rootstock-bitcoin' | 'liquid-bitcoin' | 'bitcoin' | 'usdt-bsc' | null;
-	amount: number | null; // Amount in sats, null if not specified
+	amount: number | null; // Native-unit amount for the detected rail, null if not specified
 	memo: string | null;
 	errorMessage?: string; // Optional error message with context
+	errorCode?: 'ambiguous-evm-address' | 'unsupported-chain-id' | 'unsupported-scheme';
 }
 
 // Constants
@@ -35,6 +37,8 @@ const ETHEREUM_ADDRESS_REGEX = /^0x[0-9a-fA-F]{40}$/;
 // Liquid address prefix check (for quick filtering before full validation)
 // lq1: Liquid mainnet (Bech32), tex1: Liquid testnet, ert1: Elements regtest, VJL: Legacy P2SH, ex1: Elements
 const LIQUID_ADDRESS_PREFIX_REGEX = /^(lq1|tex1|ert1|VJL|ex1)/i;
+export const AMBIGUOUS_EVM_ADDRESS_ERROR =
+	'The network could not be detected safely from this address. Choose rBTC on Rootstock or USDT on BSC before paying.';
 
 /**
  * Validate Ethereum address checksum (EIP-55)
@@ -60,6 +64,27 @@ function normalizeEthereumAddress(address: string): string {
 	}
 	// Return lowercase for comparison, but validation will check checksum
 	return address.toLowerCase();
+}
+
+function isMixedCaseAddress(address: string): boolean {
+	const hex = address.slice(2);
+	return /[a-f]/.test(hex) && /[A-F]/.test(hex);
+}
+
+function isValidPlainRskPaymentAddress(address: string): boolean {
+	if (!ETHEREUM_ADDRESS_REGEX.test(address) || !isMixedCaseAddress(address)) {
+		return false;
+	}
+
+	return isValidRskAddress(address, 30) || isValidRskAddress(address, 31);
+}
+
+export function qualifyEvmPaymentAddress(
+	address: string,
+	network: 'rootstock-bitcoin' | 'usdt-bsc'
+): string {
+	const trimmedAddress = address.trim();
+	return network === 'usdt-bsc' ? `bsc:${trimmedAddress}` : `rsk:${trimmedAddress}`;
 }
 
 /**
@@ -100,6 +125,19 @@ function extractChainId(address: string, requireEthereumContext: boolean = true)
  */
 function weiToSats(wei: bigint): number {
 	return Number(wei / BigInt(WEI_PER_SAT));
+}
+
+function parseUsdtAmount(amountValue: string | null): number | null {
+	if (!amountValue) {
+		return null;
+	}
+
+	const parsedAmount = Number.parseFloat(amountValue);
+	if (!Number.isFinite(parsedAmount) || parsedAmount < 0) {
+		return null;
+	}
+
+	return parsedAmount;
 }
 
 /**
@@ -463,24 +501,31 @@ export function parsePaymentAddress(input: string): ParsedPaymentAddress {
 	if (chainId !== null) {
 		const network = CHAIN_ID_TO_NETWORK[chainId];
 		if (network) {
-			// Valid chain ID for supported network
-			let amount: number | null = null;
-			const valueParam = queryParams.get('value');
-			if (valueParam) {
-				try {
-					const wei = BigInt(valueParam);
-					amount = weiToSats(wei);
-				} catch (error) {
-					// Invalid value parameter, ignore
-				}
-			}
+			const amount =
+				network === 'usdt-bsc'
+					? parseUsdtAmount(queryParams.get('amount'))
+					: (() => {
+							const valueParam = queryParams.get('value');
+							if (!valueParam) {
+								return null;
+							}
+
+							try {
+								return weiToSats(BigInt(valueParam));
+							} catch (error) {
+								return null;
+							}
+						})();
 
 			return {
 				isValid: true,
 				address: normalizedAddress, // Return normalized address
 				network,
 				amount,
-				memo: queryParams.get('message') || queryParams.get('label') || null
+				memo:
+					network === 'usdt-bsc'
+						? queryParams.get('memo') || queryParams.get('message') || queryParams.get('label') || null
+						: queryParams.get('message') || queryParams.get('label') || null
 			};
 		}
 		// Chain ID exists but not in our supported networks - invalid with error message
@@ -490,7 +535,42 @@ export function parsePaymentAddress(input: string): ParsedPaymentAddress {
 			network: null,
 			amount: null,
 			memo: null,
+			errorCode: 'unsupported-chain-id',
 			errorMessage: `Chain ID ${chainId} is not supported. Supported chain IDs: ${Object.keys(CHAIN_ID_TO_NETWORK).join(', ')}`
+		};
+	}
+
+	// Plain 0x EVM addresses are ambiguous unless they are checksummed RSK addresses.
+	if (!hasScheme && isEthereumAddress) {
+		if (isValidPlainRskPaymentAddress(addressPart)) {
+			let amount: number | null = null;
+			const valueParam = queryParams.get('value');
+			if (valueParam) {
+				try {
+					const wei = BigInt(valueParam);
+					amount = weiToSats(wei);
+				} catch (error) {
+					// Ignore invalid value parameters
+				}
+			}
+
+			return {
+				isValid: true,
+				address: normalizedAddress,
+				network: 'rootstock-bitcoin',
+				amount,
+				memo: queryParams.get('message') || null
+			};
+		}
+
+		return {
+			isValid: false,
+			address: trimmed,
+			network: null,
+			amount: null,
+			memo: null,
+			errorCode: 'ambiguous-evm-address',
+			errorMessage: AMBIGUOUS_EVM_ADDRESS_ERROR
 		};
 	}
 
@@ -500,28 +580,17 @@ export function parsePaymentAddress(input: string): ParsedPaymentAddress {
 	
 	// If it's a BSC URI scheme and valid Ethereum address, treat as BSC
 	if (isBscUri && isEthereumAddress) {
-		let amount: number | null = null;
-		const valueParam = queryParams.get('value');
-		if (valueParam) {
-			try {
-				const wei = BigInt(valueParam);
-				amount = weiToSats(wei);
-			} catch (error) {
-				// Invalid value parameter, ignore
-			}
-		}
-
 		return {
 			isValid: true,
 			address: normalizedAddress,
 			network: 'usdt-bsc',
-			amount,
-			memo: queryParams.get('message') || queryParams.get('label') || null
+			amount: parseUsdtAmount(queryParams.get('amount')),
+			memo: queryParams.get('memo') || queryParams.get('message') || queryParams.get('label') || null
 		};
 	}
 
 	// 6. Check for RSK address (with optional query params)
-	// Check for RSK URI scheme or plain Ethereum address format (default fallback)
+	// Only accept plain raw 0x addresses when they carry a valid RSK checksum.
 	const isRskUri = lowerTrimmed.startsWith('rsk:');
 	
 	// Reject ethereum: scheme without chain ID (ambiguous - could be Ethereum mainnet)
@@ -532,11 +601,12 @@ export function parsePaymentAddress(input: string): ParsedPaymentAddress {
 			network: null,
 			amount: null,
 			memo: null,
+			errorCode: 'unsupported-scheme',
 			errorMessage: 'Ethereum mainnet (chain ID 1) is not supported. Use bsc: for BSC or rsk: for RSK, or specify chain ID with @'
 		};
 	}
 	
-	if (isRskUri || (isEthereumAddress && !isBscUri)) {
+	if (isRskUri || (isEthereumAddress && !hasScheme && isValidPlainRskPaymentAddress(addressPart))) {
 		let amount: number | null = null;
 		const valueParam = queryParams.get('value');
 		if (valueParam) {

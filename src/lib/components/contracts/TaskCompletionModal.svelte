@@ -7,6 +7,10 @@
 	import { appStore } from '$lib/stores/app.store';
 	import { formatUSDWithSatsSync } from '$lib/utils/helpers/currencyFormatter';
 	import { contractStore } from '$lib/stores/contract.store';
+	import {
+		getPaymentRailLabel,
+		resolvePaymentContext
+	} from '$lib/utils/helpers/paymentContext';
 
 	const {
 		contract,
@@ -99,9 +103,43 @@
 	function isVideoFile(attachment: Attachment): boolean {
 		return attachment.type.startsWith('video/');
 	}
+
+	function formatTokenAmount(amount: string, asset: string): string {
+		const num = Number.parseFloat(amount);
+		if (!Number.isFinite(num)) {
+			return `${amount} ${asset}`;
+		}
+
+		return `${num.toLocaleString('en-US', {
+			minimumFractionDigits: 0,
+			maximumFractionDigits: asset === 'USDT' ? 6 : 8
+		})} ${asset}`;
+	}
 </script>
 
 {#if isOpen && contract}
+	{@const rawPaymentAsset = contract.contractEvent.content.paymentAsset ?? null}
+	{@const hasExplicitPaymentAssetContext = rawPaymentAsset === 'USDT' || rawPaymentAsset === 'RBTC'}
+	{@const hasExplicitPaymentNetworkContext = Boolean(
+		contract.contractEvent.content.paymentNetwork?.trim()
+	)}
+	{@const paymentContext = hasExplicitPaymentNetworkContext
+		? resolvePaymentContext(
+				rawPaymentAsset,
+				contract.contractEvent.content.paymentNetwork
+			)
+		: null}
+	{@const paymentAsset = paymentContext?.paymentAsset ?? 'RBTC'}
+	{@const paymentNetwork = paymentContext?.paymentNetwork}
+	{@const isMetadataOnlyBscContract =
+		Boolean(paymentNetwork?.startsWith('bsc')) &&
+		!hasExplicitPaymentAssetContext &&
+		contract.blockchainStatus === null}
+	{@const paymentRailLabel = isMetadataOnlyBscContract
+		? 'BSC escrow'
+		: paymentNetwork
+		? getPaymentRailLabel(paymentAsset, paymentNetwork)
+		: 'Escrow amount'}
 	<div class="modal modal-open">
 		<div class="modal-box max-w-2xl max-h-[85vh] overflow-y-auto">
 			<!-- Header -->
@@ -129,7 +167,18 @@
 						<strong>{$t('dashboard.contracts.task_description')}:</strong> {contractStore.getContractKey(contract, 'taskTitle')}
 					</p>
 					<p class="text-sm text-base-content/80">
-						<strong>{$t('dashboard.contracts.amount')}:</strong> {btcPrice > 0 ? formatUSDWithSatsSync(contractStore.getContractKey(contract, 'amount') as string, btcPrice) : `${contractStore.getContractKey(contract, 'amount') as string} RBTC`}
+						<strong>{$t('dashboard.contracts.amount')}:</strong>
+						{#if paymentAsset === 'USDT' && !isMetadataOnlyBscContract}
+							{formatTokenAmount(contractStore.getContractKey(contract, 'amount') as string, paymentAsset)}
+							<span class="text-base-content/60">({paymentRailLabel})</span>
+						{:else if !hasExplicitPaymentNetworkContext || isMetadataOnlyBscContract}
+							{contractStore.getContractKey(contract, 'amount') as string}
+							<span class="text-base-content/60">({paymentRailLabel})</span>
+						{:else}
+							{btcPrice > 0
+								? formatUSDWithSatsSync(contractStore.getContractKey(contract, 'amount') as string, btcPrice)
+								: `${contractStore.getContractKey(contract, 'amount') as string} RBTC`}
+						{/if}
 					</p>
 				</div>
 			</div>

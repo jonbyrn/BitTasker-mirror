@@ -1,11 +1,15 @@
 <script lang="ts">
-	import type { TaskBid } from '$lib/types/bid';
+	import type { NostrBidContent, TaskBid } from '$lib/types/bid';
 	import { onMount } from 'svelte';
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { satsFromUsd } from '$lib/utils/helpers/crypto';
 	import { t } from 'svelte-i18n';
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 	import { appStore } from '$lib/stores/app.store';
+	import {
+		getPaymentRailLabel,
+		resolvePaymentContext
+	} from '$lib/utils/helpers/paymentContext';
 
 	// Props
 	const props = $props<{
@@ -37,7 +41,37 @@
 	let transactionHash = $state(
 		'0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
 	);
-	let blockExplorerUrl = $derived(`https://blockstream.info/tx/${transactionHash}`);
+	const paymentContext = $derived.by(() => {
+		const bidPaymentContent = props.bid as Partial<NostrBidContent>;
+		return resolvePaymentContext(
+			bidPaymentContent.paymentAsset ?? props.escrowDetails.asset,
+			bidPaymentContent.paymentNetwork
+		);
+	});
+	const paymentAsset = $derived(paymentContext.paymentAsset);
+	const paymentNetwork = $derived(paymentContext.paymentNetwork);
+	const paymentRailLabel = $derived(getPaymentRailLabel(paymentAsset, paymentNetwork));
+	const isUsdtBscEscrow = $derived(paymentAsset === 'USDT' && paymentNetwork.startsWith('bsc'));
+	let blockExplorerUrl = $derived.by(() => {
+		const rskNetwork = import.meta.env.VITE_RSK_NETWORK || 'testnet';
+		const bscNetwork = import.meta.env.VITE_BSC_NETWORK || 'testnet';
+
+		if (paymentNetwork.startsWith('bsc')) {
+			return bscNetwork === 'mainnet'
+				? `https://bscscan.com/tx/${transactionHash}`
+				: `https://testnet.bscscan.com/tx/${transactionHash}`;
+		}
+
+		if (paymentNetwork.startsWith('rsk')) {
+			return rskNetwork === 'mainnet'
+				? `https://rootstock.blockscout.com/tx/${transactionHash}`
+				: `https://rootstock-testnet.blockscout.com/tx/${transactionHash}`;
+		}
+
+		return rskNetwork === 'mainnet'
+			? `https://blockstream.info/tx/${transactionHash}`
+			: `https://blockstream.info/testnet/tx/${transactionHash}`;
+	});
 
 	// Calculate pricing breakdown (same as BidAcceptanceForm)
 	let bidAmountUsd = $derived((props.bid.amount / 100000000) * props.btcPrice);
@@ -142,7 +176,12 @@
 		{#if showDetails}
 			<div class="bg-base-200 rounded-lg p-4">
 				<!-- Task Title -->
-				<h4 class="mb-4 line-clamp-1 text-sm font-semibold">{$t('common.components.bidding.escrow_success.payment_summary')}</h4>
+				<div class="mb-4 flex items-center justify-between gap-2">
+					<h4 class="line-clamp-1 text-sm font-semibold">
+						{$t('common.components.bidding.escrow_success.payment_summary')}
+					</h4>
+					<div class="badge badge-outline badge-sm shrink-0">{paymentRailLabel}</div>
+				</div>
 
 				<!-- Pricing Breakdown (same format as BidAcceptanceForm) -->
 				<div class="space-y-2">
@@ -166,12 +205,18 @@
 							<span class="text-base font-bold">{$t('common.components.bidding.escrow_success.total_price')}</span>
 							<span class="text-base font-bold">${totalFiatPrice.toFixed(2)}</span>
 						</div>
-						<div class="mt-1 flex items-center justify-between">
-							<span class="text-base font-semibold"></span>
-							<span class="text-base-content/60 text-sm"
-								>{satsFromUsd(totalSatsPrice, props.btcPrice)} sats</span
-							>
-						</div>
+						{#if isUsdtBscEscrow}
+							<div class="text-base-content/60 mt-1 text-right text-sm">
+								{paymentRailLabel}
+							</div>
+						{:else}
+							<div class="mt-1 flex items-center justify-between">
+								<span class="text-base font-semibold"></span>
+								<span class="text-base-content/60 text-sm"
+									>{satsFromUsd(totalSatsPrice, props.btcPrice)} sats</span
+								>
+							</div>
+						{/if}
 					</div>
 				</div>
 			</div>

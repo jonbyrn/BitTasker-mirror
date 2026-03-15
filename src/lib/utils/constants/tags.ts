@@ -78,14 +78,41 @@ export const TAG_PATTERNS = {
 	 * @param taskCreatorPubkey - Task creator's public key
 	 * @param paymentType - FIXED or HOURLY
 	 */
-	bid: (bidId: string, taskId: string, taskCreatorPubkey: string, paymentType: string, status: string = 'pending'): string[][] => [
-		[TAGS.D, bidId], // Unique identifier (replaceable) // TODO: Useless generated bid id that should be removed in fovor of nostr event id
-		[TAGS.T, taskId], // Task reference
-		[TAGS.P, taskCreatorPubkey], // Recipient
-		[TAGS.S, status], // Status
-		[TAGS.M, 'bid'], // Message type
-		[TAGS.Y, paymentType] // Payment type (FIXED/HOURLY)
-	],
+	bid: (
+		bidId: string,
+		taskId: string,
+		taskCreatorPubkey: string,
+		paymentType: string,
+		status: string = 'pending',
+		metadata?: {
+			paymentNetwork?: string;
+			schemaVersion?: string;
+			amountAtomic?: string;
+		}
+	): string[][] => {
+		const tags: string[][] = [
+			[TAGS.D, bidId], // Unique identifier (replaceable) // TODO: Useless generated bid id that should be removed in fovor of nostr event id
+			[TAGS.T, taskId], // Task reference
+			[TAGS.P, taskCreatorPubkey], // Recipient
+			[TAGS.S, status], // Status
+			[TAGS.M, 'bid'], // Message type
+			[TAGS.Y, paymentType] // Payment type (FIXED/HOURLY)
+		];
+
+		if (metadata?.paymentNetwork) {
+			tags.push([TAGS.N, metadata.paymentNetwork]);
+		}
+
+		if (metadata?.schemaVersion) {
+			tags.push([TAGS.V, metadata.schemaVersion]);
+		}
+
+		if (metadata?.amountAtomic) {
+			tags.push([TAGS.A, metadata.amountAtomic]);
+		}
+
+		return tags;
+	},
 
 	/**
 	 * Bid status update tags
@@ -93,13 +120,34 @@ export const TAG_PATTERNS = {
 	 * @param taskId - Associated task
 	 * @param status - New status (accepted, rejected)
 	 */
-	bidStatus: (bidEventId: string, taskId: string, status: string, recepientPub: string): string[][] => [
-		[TAGS.E, bidEventId], // Event reference
-		[TAGS.P, recepientPub], // Recipient
-		[TAGS.T, taskId], // Task reference
-		[TAGS.S, status], // Status
-		[TAGS.M, 'bid-status'] // Message type
-	],
+	bidStatus: (
+		bidEventId: string,
+		taskId: string,
+		status: string,
+		recepientPub: string,
+		metadata?: {
+			paymentNetwork?: string;
+			schemaVersion?: string;
+		}
+	): string[][] => {
+		const tags: string[][] = [
+			[TAGS.E, bidEventId], // Event reference
+			[TAGS.P, recepientPub], // Recipient
+			[TAGS.T, taskId], // Task reference
+			[TAGS.S, status], // Status
+			[TAGS.M, 'bid-status'] // Message type
+		];
+
+		if (metadata?.paymentNetwork) {
+			tags.push([TAGS.N, metadata.paymentNetwork]);
+		}
+
+		if (metadata?.schemaVersion) {
+			tags.push([TAGS.V, metadata.schemaVersion]);
+		}
+
+		return tags;
+	},
 
 	/**
 	 * Contract creation tags
@@ -116,8 +164,10 @@ export const TAG_PATTERNS = {
 		clientPubkey: string,
 		network: string,
 		version: string = 'v1',
-		status: string = 'active'
-	): string[][] => [
+		status: string = 'active',
+		amountAtomic?: string
+	): string[][] => {
+		const tags: string[][] = [
 			[TAGS.D, escrowId], // Unique identifier
 			[TAGS.T, taskId], // Task reference
 			[TAGS.P, freelancerPubkey], // Participant
@@ -126,7 +176,14 @@ export const TAG_PATTERNS = {
 			[TAGS.V, version], // Contract version (v1, v2, v3, etc.)
 			[TAGS.S, status], // Status
 			[TAGS.M, 'contract'] // Message type
-		],
+		];
+
+		if (amountAtomic) {
+			tags.push([TAGS.A, amountAtomic]);
+		}
+
+		return tags;
+	},
 
 	/**
 	 * Contract status update tags
@@ -231,7 +288,9 @@ export const TAG_FILTERS = {
 	byIdentifier: (identifier: string) => ({ [`#${TAGS.D}`]: [identifier] }),
 
 	/** Filter events by network (mainnet, testnet) */
-	byNetwork: (network: string) => ({ [`#${TAGS.N}`]: [network] }),
+	byNetwork: (network: string | string[]) => ({
+		[`#${TAGS.N}`]: Array.isArray(network) ? network : [network]
+	}),
 
 	/** Filter events by version (v1, v2, v3, etc.) */
 	byVersion: (version: string) => ({ [`#${TAGS.V}`]: [version] }),

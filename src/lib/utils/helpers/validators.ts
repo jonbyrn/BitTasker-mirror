@@ -1,9 +1,12 @@
-import { normalizeRskAddress } from '@bittasker/wallet-core';
+import { isValidRskAddress, normalizeRskAddress } from '@bittasker/wallet-core';
 
 export interface ValidationResult {
 	isValid: boolean;
 	error?: string;
 }
+
+const ETHEREUM_ADDRESS_REGEX = /^0x[0-9a-fA-F]{40}$/;
+const SUPPORTED_EVM_CHAIN_IDS = new Set(['30', '31', '56', '97']);
 
 
 // Import liquidjs-lib for Liquid address validation
@@ -171,6 +174,91 @@ export function validateRSKAddress(address: string): ValidationResult {
 	}
 }
 
+export function isPlainHexEvmAddress(address: string): boolean {
+	return ETHEREUM_ADDRESS_REGEX.test(address.trim());
+}
+
+export function isSafeRskPaymentAddress(address: string): boolean {
+	if (!isPlainHexEvmAddress(address)) {
+		return false;
+	}
+
+	const trimmed = address.trim();
+	const hasMixedCase = /[a-f]/.test(trimmed.slice(2)) && /[A-F]/.test(trimmed.slice(2));
+	if (!hasMixedCase) {
+		return false;
+	}
+
+	return isValidRskAddress(trimmed, 30) || isValidRskAddress(trimmed, 31);
+}
+
+export function validateEvmPaymentIntent(value: string): ValidationResult & {
+	network?: 'rootstock-bitcoin' | 'usdt-bsc';
+	isAmbiguous?: boolean;
+	address?: string;
+} {
+	const trimmed = value.trim();
+	if (!trimmed) {
+		return { isValid: false, error: 'Payment address is required' };
+	}
+
+	if (/^bsc:0x[0-9a-fA-F]{40}(?:\?|$)/i.test(trimmed)) {
+		return { isValid: true, network: 'usdt-bsc' };
+	}
+
+	if (/^rsk:0x[0-9a-fA-F]{40}(?:\?|$)/i.test(trimmed)) {
+		return { isValid: true, network: 'rootstock-bitcoin' };
+	}
+
+	const ethereumIntentMatch = trimmed.match(
+		/^ethereum:(0x[0-9a-fA-F]{40})@(\d+)(?:\?|$)/i
+	);
+	if (ethereumIntentMatch) {
+		const [, , chainId] = ethereumIntentMatch;
+		if (chainId === '56' || chainId === '97') {
+			return { isValid: true, network: 'usdt-bsc' };
+		}
+		if (chainId === '30' || chainId === '31') {
+			return { isValid: true, network: 'rootstock-bitcoin' };
+		}
+
+		return {
+			isValid: false,
+			error: `Unsupported EVM chain ID in payment request: ${chainId}`
+		};
+	}
+
+	if (/^(bsc|rsk):/i.test(trimmed)) {
+		return { isValid: false, error: 'Invalid EVM payment address' };
+	}
+
+	if (/^ethereum:/i.test(trimmed)) {
+		return {
+			isValid: false,
+			error: 'Unsupported or missing EVM chain ID in payment request'
+		};
+	}
+
+	if (isPlainHexEvmAddress(trimmed)) {
+		if (isSafeRskPaymentAddress(trimmed)) {
+			return {
+				isValid: true,
+				network: 'rootstock-bitcoin',
+				address: normalizeRskAddress(trimmed)
+			};
+		}
+
+		return {
+			isValid: false,
+			isAmbiguous: true,
+			error:
+				'Ambiguous EVM address: the network could not be detected safely. Use an rsk:, bsc:, or ethereum:...@chainId payment request.'
+		};
+	}
+
+	return { isValid: false, error: 'Invalid EVM payment address' };
+}
+
 
 /**
  * Validate Lightning invoice or Lightning address
@@ -237,9 +325,131 @@ export function validateLiquidAddress(address: string): ValidationResult {
 		return { isValid: true };
 	} catch (error) {
 		// Address is invalid (wrong format, bad checksum, or wrong network)
-		return { 
-			isValid: false, 
-			error: 'Invalid Liquid address format or checksum' 
+		return {
+			isValid: false,
+			error: 'Invalid Liquid address format or checksum'
 		};
 	}
+}
+
+/**
+ * Validate USDT amount with correct decimal precision (6 decimals for USDT)
+ * USDT on BSC uses 6 decimal places (not 18 like most ERC-20 tokens)
+ */
+export function validateUsdtAmount(amount: string | number): ValidationResult {
+	const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
+
+	if (isNaN(numAmount)) {
+		return { isValid: false, error: 'Amount must be a valid number' };
+	}
+
+	if (numAmount <= 0) {
+		return { isValid: false, error: 'Amount must be greater than 0' };
+	}
+
+	// Check decimal precision (USDT has 6 decimals: 0.000001 is minimum)
+	const decimalPart = amount.toString().split('.')[1];
+	if (decimalPart && decimalPart.length > 6) {
+		return {
+			isValid: false,
+			error: 'USDT amount cannot have more than 6 decimal places'
+		};
+	}
+
+	return { isValid: true };
+}
+
+/**
+ * Validate and format USDT amount to correct decimal places
+ * Converts user-friendly USDT amount to atomic units (multiply by 1,000,000)
+ */
+export function formatUsdtToAtomicAmount(amount: string | number): string | null {
+	const validation = validateUsdtAmount(amount);
+	if (!validation.isValid) {
+		return null;
+	}
+
+	const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
+	// USDT has 6 decimals, so multiply by 1,000,000
+	const atomicAmount = Math.round(numAmount * 1_000_000);
+	return atomicAmount.toString();
+}
+
+/**
+ * Convert atomic USDT amount back to user-friendly decimal format
+ */
+export function formatAtomicToUsdtAmount(atomicAmount: string | number | bigint): string {
+	const numAmount = typeof atomicAmount === 'bigint'
+		? Number(atomicAmount)
+		: typeof atomicAmount === 'string'
+			? parseInt(atomicAmount, 10)
+			: atomicAmount;
+
+	return (numAmount / 1_000_000).toLocaleString('en-US', {
+		minimumFractionDigits: 0,
+		maximumFractionDigits: 6
+	});
+}
+
+/**
+ * Validate BSC address format with proper chain context
+ * Accepts: bsc:0x..., ethereum:0x...@56, ethereum:0x...@97, plain 0x... (with checksum)
+ */
+export function validateBscAddress(address: string): ValidationResult {
+	if (!address) {
+		return { isValid: false, error: 'Address is required' };
+	}
+
+	const trimmed = address.trim();
+
+	// Check for explicit chain qualifiers
+	if (trimmed.toLowerCase().startsWith('bsc:')) {
+		const hexPart = trimmed.slice(4);
+		return validateRSKAddress('0x' + hexPart); // BSC uses same format as RSK
+	}
+
+	// Check for ethereum: format with chain ID (56 = BSC mainnet, 97 = BSC testnet)
+	const ethereumMatch = trimmed.match(/^ethereum:(0x[0-9a-fA-F]{40})@(56|97)$/i);
+	if (ethereumMatch) {
+		return { isValid: true };
+	}
+
+	// Plain hex address - REJECT without explicit network context
+	if (isPlainHexEvmAddress(trimmed)) {
+		return {
+			isValid: false,
+			error: 'Ambiguous BSC address: please use bsc:0x... or ethereum:0x...@chainId format'
+		};
+	}
+
+	return { isValid: false, error: 'Invalid BSC address format' };
+}
+
+/**
+ * Map BSC-specific error codes to user-friendly messages
+ */
+export enum BscDirectSendFailureCode {
+	WRONG_CHAIN = 'WRONG_CHAIN',
+	SPONSOR_UNAVAILABLE = 'SPONSOR_UNAVAILABLE',
+	ROUTER_ALLOWANCE_MISSING = 'ROUTER_ALLOWANCE_MISSING',
+	INSUFFICIENT_USDT_BALANCE = 'INSUFFICIENT_USDT_BALANCE',
+	TOKEN_CONFIG_MISMATCH = 'TOKEN_CONFIG_MISMATCH',
+	POLICY_REJECTED = 'POLICY_REJECTED',
+	LEGACY_ONLY = 'LEGACY_ONLY',
+	SUBMISSION_UNSUPPORTED = 'SUBMISSION_UNSUPPORTED'
+}
+
+export function getBscErrorMessage(code: BscDirectSendFailureCode | string): string {
+	const messages: Record<string, string> = {
+		[BscDirectSendFailureCode.WRONG_CHAIN]: 'Your wallet is on the wrong network. Switch to BSC Mainnet or Testnet.',
+		[BscDirectSendFailureCode.SPONSOR_UNAVAILABLE]: 'Payment sponsorship is currently unavailable. Try again later.',
+		[BscDirectSendFailureCode.ROUTER_ALLOWANCE_MISSING]: 'Please approve the USDT router contract first.',
+		[BscDirectSendFailureCode.INSUFFICIENT_USDT_BALANCE]: 'Your USDT balance is insufficient for this payment.',
+		[BscDirectSendFailureCode.TOKEN_CONFIG_MISMATCH]: 'USDT token configuration mismatch. Please contact support.',
+		[BscDirectSendFailureCode.POLICY_REJECTED]: 'This payment cannot be sponsored due to policy restrictions.',
+		[BscDirectSendFailureCode.LEGACY_ONLY]: 'This payment method requires manual transaction submission.',
+		[BscDirectSendFailureCode.SUBMISSION_UNSUPPORTED]: 'Payment submission is not currently supported.'
+	};
+
+	return messages[code] || 'An error occurred with your BSC payment. Please try again.';
 }

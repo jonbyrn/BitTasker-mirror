@@ -1,6 +1,7 @@
 import type { BidStatusEnum } from './enums/bid.enum';
 import type { Filter, NostrEvent } from 'nostr-tools';
 import type { NostrBidStatus } from '$lib/types/bid';
+import type { PaymentAsset, PaymentNetwork } from '$lib/utils/helpers/paymentContext';
 import { getNpub, getNostrKeyPair } from '$lib/utils/nostrKeys';
 import { queryNostrEvents, publishNostrEvent } from '$lib/utils/nostr';
 import { TAG_FILTERS, TAG_PATTERNS } from '$lib/utils/constants/tags';
@@ -10,6 +11,14 @@ import { pushNotificationService } from '$lib/api/services/push-notification.ser
 import { nip19, nip44 } from 'nostr-tools';
 import { bidStore } from '$lib/stores/bid.store';
 import KINDS from '$lib/utils/constants/kinds';
+import {
+	STATUS_SCHEMA_VERSION,
+	getBidReference,
+	getTaskReference,
+	normalizePaymentAsset,
+	normalizePaymentContext,
+	normalizePaymentNetwork
+} from '$lib/utils/helpers/paymentContext';
 
 
 /**
@@ -239,11 +248,122 @@ export function getBidStatus(bidEvent: NostrEvent): NostrBidStatus | null {
 	}
 
 	try {
-		return latestStatus.content as unknown as NostrBidStatus;
+		const content = latestStatus.content as unknown as NostrBidStatus;
+		return normalizeBidStatusContent(content, latestStatus.tags, bidEvent.id);
 	} catch (error) {
 		console.warn('Failed to parse bid status:', error);
 		return null;
 	}
+}
+
+export function normalizeBidStatusContent(
+	status: NostrBidStatus,
+	tags: string[][] = [],
+	parentBidEventId?: string
+): NostrBidStatus {
+	const taskId = status.taskId || tags.find((tag) => tag[0] === 't')?.[1] || '';
+	const taggedNetwork = status.paymentNetwork ?? tags.find((tag) => tag[0] === 'n')?.[1];
+	const inferredAsset =
+		status.paymentAsset ?? (taggedNetwork?.startsWith('bsc') ? 'USDT' : 'RBTC');
+	const paymentAsset = normalizePaymentAsset(inferredAsset);
+	const paymentNetwork = normalizePaymentNetwork(
+		taggedNetwork,
+		paymentAsset
+	);
+	const normalized = normalizePaymentContext(
+		{
+			...status,
+			taskId,
+			taskRef: status.taskRef || (taskId ? getTaskReference(taskId) : undefined),
+			bidRef: status.bidRef || (parentBidEventId ? getBidReference(parentBidEventId) : undefined),
+			paymentAsset,
+			paymentNetwork
+		},
+		STATUS_SCHEMA_VERSION,
+		paymentAsset
+	);
+
+	return normalized;
+}
+
+async function resolveBidStatusWriteContext(
+	bidEventId: string,
+	taskId: string,
+	options?: {
+		taskRef?: string;
+		bidRef?: string;
+		paymentAsset?: PaymentAsset;
+		paymentNetwork?: PaymentNetwork;
+	}
+): Promise<{
+	taskRef?: string;
+	bidRef?: string;
+	paymentAsset?: PaymentAsset;
+	paymentNetwork?: PaymentNetwork;
+}> {
+	if (options?.taskRef && options?.bidRef && options?.paymentAsset && options?.paymentNetwork) {
+		const paymentAsset = normalizePaymentAsset(options.paymentAsset);
+		return {
+			taskRef: options.taskRef,
+			bidRef: options.bidRef,
+			paymentAsset,
+			paymentNetwork: normalizePaymentNetwork(options.paymentNetwork, paymentAsset)
+		};
+	}
+
+	try {
+		const bidEvents = await queryNostrEvents({
+			kinds: [KINDS.BIDS],
+			ids: [bidEventId],
+			limit: 1
+		});
+		const bidEvent = Array.isArray(bidEvents) ? bidEvents[0] : undefined;
+
+		if (bidEvent && typeof bidEvent.content === 'object' && bidEvent.content !== null) {
+			const bidContent = bidEvent.content as Record<string, unknown>;
+			const paymentAsset = bidContent.paymentAsset
+				? normalizePaymentAsset(bidContent.paymentAsset as string)
+				: typeof bidContent.paymentNetwork === 'string' &&
+					(bidContent.paymentNetwork as string).startsWith('bsc')
+					? 'USDT'
+				: undefined;
+
+			return {
+				taskRef:
+					options?.taskRef ??
+					(typeof bidContent.taskRef === 'string' ? bidContent.taskRef : undefined) ??
+					getTaskReference(taskId),
+				bidRef:
+					options?.bidRef ??
+					(typeof bidContent.bidRef === 'string' ? bidContent.bidRef : undefined) ??
+					getBidReference(bidEventId),
+				paymentAsset: paymentAsset ?? options?.paymentAsset,
+				paymentNetwork:
+					options?.paymentNetwork ??
+					(typeof bidContent.paymentNetwork === 'string'
+						? normalizePaymentNetwork(bidContent.paymentNetwork, paymentAsset ?? 'RBTC')
+						: undefined)
+			};
+		}
+	} catch (error) {
+		console.warn('Failed to load bid metadata for bid status update:', error);
+	}
+
+	return {
+		taskRef: options?.taskRef ?? getTaskReference(taskId),
+		bidRef: options?.bidRef ?? getBidReference(bidEventId),
+		paymentAsset: options?.paymentAsset
+			? normalizePaymentAsset(options.paymentAsset)
+			: options?.paymentNetwork?.startsWith('bsc')
+				? 'USDT'
+				: undefined,
+		paymentNetwork:
+			options?.paymentNetwork &&
+			normalizePaymentNetwork(
+				options.paymentNetwork,
+				options?.paymentAsset ? normalizePaymentAsset(options.paymentAsset) : 'RBTC'
+			)
+	};
 }
 
 /**
@@ -307,22 +427,41 @@ export async function sendBidStatusUpdate(
 	status: BidStatusEnum,
 	message?: string,
 	escrowId?: string,
-	transactionHash?: string
+	transactionHash?: string,
+	options?: {
+		taskRef?: string;
+		bidRef?: string;
+		paymentAsset?: PaymentAsset;
+		paymentNetwork?: PaymentNetwork;
+	}
 ): Promise<void> {
 	try {
-		const statusData: NostrBidStatus = {
-			type: 'bid-status',
+		const { taskRef, bidRef, paymentAsset, paymentNetwork } = await resolveBidStatusWriteContext(
+			bidEventId,
 			taskId,
+			options
+		);
+		const statusData = normalizeBidStatusContent({
+			type: 'bid-status',
+			schemaVersion: STATUS_SCHEMA_VERSION,
+			taskId,
+			taskRef,
+			bidRef,
 			status,
 			message,
 			timestamp: Date.now(),
+			paymentAsset,
+			paymentNetwork,
 			escrowId,
 			transactionHash
-		};
+		}, [], bidEventId);
 
 		// Send as encrypted DM to the bidder
 		const statusMessage = JSON.stringify(statusData);
-		const tags = TAG_PATTERNS.bidStatus(bidEventId, taskId, status, bidderPubkey);
+		const tags = TAG_PATTERNS.bidStatus(bidEventId, taskId, status, bidderPubkey, {
+			paymentNetwork,
+			schemaVersion: STATUS_SCHEMA_VERSION
+		});
 		await publishNostrEvent(KINDS.BID_STATUS, statusMessage, bidderPubkey, tags);
 
 		// Clear bid cache for this specific task and bidder to ensure fresh data

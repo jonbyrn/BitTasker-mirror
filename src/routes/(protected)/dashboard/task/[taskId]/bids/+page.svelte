@@ -220,7 +220,15 @@
 				bidContent.taskId,
 				bidContent.bidderId || '', // bidder's pubkey
 				BidStatusEnum.REJECTED,
-				$t('dashboard.bids.bid_acceptance.bid_rejected_message') // Optional rejection message
+				$t('dashboard.bids.bid_acceptance.bid_rejected_message'), // Optional rejection message
+				undefined,
+				undefined,
+				{
+					taskRef: bidContent.taskRef,
+					bidRef: bidContent.bidRef,
+					paymentAsset: bidContent.paymentAsset,
+					paymentNetwork: bidContent.paymentNetwork
+				}
 			);
 		} catch (error) {
 			console.error('Error rejecting bid:', error);

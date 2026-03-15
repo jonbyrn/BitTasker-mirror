@@ -5,6 +5,10 @@
 	import { formatStandardDateTime } from '$lib/utils/helpers/dateFormatter';
 	import { EscrowStatus } from '$lib/utils/escrow';
 	import { getActionDescription } from '$lib/utils/helpers/contractStatusFormatter';
+	import {
+		normalizePaymentAsset,
+		resolvePaymentContext
+	} from '$lib/utils/helpers/paymentContext';
 
 	const {
 		statusEvents,
@@ -12,6 +16,8 @@
 		contractCreatedAt,
 		contractCreatorPubkey,
 		contractFundingTransactionHash,
+		paymentAsset,
+		paymentNetwork,
 		onDisplayCountChange
 	} = $props<{
 		statusEvents: ContractStatusEvent[];
@@ -19,8 +25,19 @@
 		contractCreatedAt?: number;
 		contractCreatorPubkey?: string;
 		contractFundingTransactionHash?: string;
+		paymentAsset?: string;
+		paymentNetwork?: string;
 		onDisplayCountChange?: (count: number) => void;
 	}>();
+
+	const hasExplicitPaymentNetwork = $derived(Boolean(paymentNetwork?.trim()));
+	const resolvedPaymentContext = $derived(
+		hasExplicitPaymentNetwork ? resolvePaymentContext(paymentAsset ?? null, paymentNetwork) : null
+	);
+	const normalizedPaymentAsset = $derived(
+		resolvedPaymentContext?.paymentAsset ?? normalizePaymentAsset(paymentAsset ?? null)
+	);
+	const resolvedPaymentNetwork = $derived(resolvedPaymentContext?.paymentNetwork ?? null);
 
 	/**
 	 * Filter to show only blockchain-confirmed events and final states
@@ -146,14 +163,50 @@
 		return { labelKey: 'dashboard.contracts.timeline.from_unknown', badgeClass: 'badge-neutral' };
 	}
 
-	// Get Rootstock explorer URL for transaction
-	function getTransactionUrl(txHash: string): string {
+	// Get chain-aware explorer URL for transaction
+	function getTransactionUrl(txHash: string): string | null {
+		if (resolvedPaymentNetwork?.startsWith('bsc')) {
+			const bscNetwork = import.meta.env.VITE_BSC_NETWORK || 'testnet';
+			return bscNetwork === 'mainnet'
+				? `https://bscscan.com/tx/${txHash}`
+				: `https://testnet.bscscan.com/tx/${txHash}`;
+		}
+
+		if (!resolvedPaymentNetwork?.startsWith('rsk')) {
+			return null;
+		}
+
 		const rskNetwork = import.meta.env.VITE_RSK_NETWORK || 'testnet';
 		if (rskNetwork === 'mainnet') {
 			return `https://rootstock.blockscout.com/tx/${txHash}`;
 		} else {
 			return `https://rootstock-testnet.blockscout.com/tx/${txHash}`;
 		}
+	}
+
+	function getAmountLabel(): string {
+		if (!hasExplicitPaymentNetwork) {
+			return 'Escrow amount';
+		}
+
+		if (normalizedPaymentAsset === 'USDT') {
+			return 'USDT';
+		}
+
+		if (resolvedPaymentNetwork?.startsWith('bsc')) {
+			return 'BSC escrow';
+		}
+
+		if (resolvedPaymentNetwork?.startsWith('rsk')) {
+			return 'RBTC';
+		}
+
+		return 'Escrow amount';
+	}
+
+	function getItemTransactionUrl(item: TimelineItem): string | null {
+		const transactionHash = (item.transactionHash ?? item.content?.transactionHash) ?? null;
+		return transactionHash ? getTransactionUrl(transactionHash) : null;
 	}
 </script>
 
@@ -230,10 +283,10 @@
 						</span>
 					</div>
 
-					{#if (item.transactionHash ?? item.content?.transactionHash)}
+					{#if getItemTransactionUrl(item)}
 						<div class="text-base-content/60 mt-2 text-xs">
 							<a
-								href={getTransactionUrl((item.transactionHash ?? item.content?.transactionHash) ?? '')}
+								href={getItemTransactionUrl(item)}
 								target="_blank"
 								rel="noopener noreferrer"
 								class="link link-primary inline-flex items-center gap-1"
@@ -264,9 +317,9 @@
 								>
 							</div>
 							<div class="pl-2">
-								<div>{$t('dashboard.client')}: {item.content.proposedClientAmount} RBTC</div>
+								<div>{$t('dashboard.client')}: {item.content.proposedClientAmount} {getAmountLabel()}</div>
 								<div>
-									{$t('dashboard.freelancer')}: {item.content.proposedFreelancerAmount} RBTC
+									{$t('dashboard.freelancer')}: {item.content.proposedFreelancerAmount} {getAmountLabel()}
 								</div>
 							</div>
 						</div>

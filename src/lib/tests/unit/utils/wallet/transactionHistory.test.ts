@@ -182,6 +182,42 @@ describe('transactionHistory', () => {
 			const result = await processTransactions(raw as any, userAddress, 'rsk', 0);
 			expect(result[0].status.label).toBe('wallet.transaction.status.pending');
 		});
+
+		it('should derive BSC USDT amount and fee from token transfers', async () => {
+			const raw = [
+				makeTx({
+					hash: '0xbscsend',
+					value: '0',
+					token_transfers: [
+						{
+							from: { hash: userAddress },
+							to: { hash: otherAddress },
+							total: { value: '1000000', decimals: '6' },
+							token: { symbol: 'USDT', decimals: '6' }
+						},
+						{
+							from: { hash: userAddress },
+							to: { hash: '0xtreasury0000000000000000000000000000000003' },
+							total: { value: '25000', decimals: '6' },
+							token: { symbol: 'USDT', decimals: '6' }
+						}
+					],
+					fee: { type: 'actual', value: '123456789' }
+				})
+			];
+
+			const result = await processTransactions(raw as any, userAddress, 'bsc', 100);
+
+			expect(result).toHaveLength(1);
+			expect(result[0].value).toBe('1');
+			expect(result[0].amountUnit).toBe('USDT');
+			expect(result[0].feeSats).toBe(0.025);
+			expect(result[0].feeUnit).toBe('USDT');
+			expect(result[0].balanceAfter).toBe(100);
+			expect(result[0].balanceUnit).toBe('USDT');
+			expect(result[0].tokenSymbol).toBe('USDT');
+			expect(result[0].tokenDecimals).toBe(6);
+		});
 	});
 
 	describe('clearContractAddressesCache', () => {
@@ -192,6 +228,230 @@ describe('transactionHistory', () => {
 			clearContractAddressesCache();
 			await processTransactions([makeTx() as any], userAddress, 'rsk', 0);
 			expect(mockGetSwapAddress.mock.calls.length).toBeGreaterThan(callsAfterFirst);
+		});
+	});
+
+	describe('BSC-specific transaction rendering', () => {
+		it('should render USDT amounts in token units (6 decimals) not sats', async () => {
+			const raw = [
+				makeTx({
+					hash: '0xbscusdt',
+					value: '0',
+					token_transfers: [
+						{
+							from: { hash: userAddress },
+							to: { hash: otherAddress },
+							total: { value: '1000000', decimals: '6' },
+							token: { symbol: 'USDT', decimals: '6' }
+						}
+					],
+					fee: { type: 'actual', value: '50000' }
+				})
+			];
+
+			const result = await processTransactions(raw as any, userAddress, 'bsc', 100);
+
+			expect(result[0].amountUnit).toBe('USDT');
+			expect(result[0].value).toBe('1');
+			expect(result[0].tokenDecimals).toBe(6);
+		});
+
+		it('should generate BSCscan explorer links for mainnet transactions', async () => {
+			vi.stubEnv('VITE_BSC_NETWORK', 'mainnet');
+			const raw = [makeTx({ hash: '0xbscmainnet' })];
+			const result = await processTransactions(raw as any, userAddress, 'bsc', 0);
+
+			expect(result[0].explorerUrl).toMatch(/bscscan\.com\/tx\//);
+			expect(result[0].explorerUrl).toContain('0xbscmainnet');
+			vi.unstubAllEnvs();
+		});
+
+		it('should generate BSCscan testnet explorer links', async () => {
+			vi.stubEnv('VITE_BSC_NETWORK', 'testnet');
+			const raw = [makeTx({ hash: '0xbsctestnet' })];
+			const result = await processTransactions(raw as any, userAddress, 'bsc', 0);
+
+			expect(result[0].explorerUrl).toMatch(/testnet\.bscscan\.com\/tx\//);
+			expect(result[0].explorerUrl).toContain('0xbsctestnet');
+			vi.unstubAllEnvs();
+		});
+
+		it('should display network badge for BSC transactions', async () => {
+			const raw = [makeTx()];
+			const result = await processTransactions(raw as any, userAddress, 'bsc', 0);
+
+			expect(result[0]).toHaveProperty('network');
+			expect(result[0].network).toBe('bsc');
+		});
+
+		it('should calculate fee in USDT for BSC USDT transfers', async () => {
+			const raw = [
+				makeTx({
+					token_transfers: [
+						{
+							from: { hash: userAddress },
+							to: { hash: otherAddress },
+							total: { value: '1000000', decimals: '6' },
+							token: { symbol: 'USDT', decimals: '6' }
+						}
+					],
+					fee: { type: 'actual', value: '10000' }
+				})
+			];
+
+			const result = await processTransactions(raw as any, userAddress, 'bsc', 0);
+
+			expect(result[0].feeUnit).toBe('USDT');
+			expect(result[0].feeSats).toBe(0.01);
+		});
+
+		it('should filter transactions by network context', async () => {
+			const raw = [
+				makeTx({ hash: '0x1', value: '1000000000000000000' }),
+				makeTx({ hash: '0x2', value: '500000000000000000' })
+			];
+
+			const bscResult = await processTransactions(raw as any, userAddress, 'bsc', 100);
+			const rskResult = await processTransactions(raw as any, userAddress, 'rsk', 100);
+
+			// Both should process, but network context differs
+			expect(bscResult.length).toBe(2);
+			expect(rskResult.length).toBe(2);
+			bscResult.forEach((tx) => expect(tx.network).toBe('bsc'));
+			rskResult.forEach((tx) => expect(tx.network).toBe('rsk'));
+		});
+
+		it('should handle USDT balance tracking across transactions', async () => {
+			const raw = [
+				makeTx({
+					hash: '0xtx1',
+					from: { hash: otherAddress },
+					to: { hash: userAddress, is_contract: false },
+					token_transfers: [
+						{
+							from: { hash: otherAddress },
+							to: { hash: userAddress },
+							total: { value: '100000000', decimals: '6' },
+							token: { symbol: 'USDT', decimals: '6' }
+						}
+					]
+				}),
+				makeTx({
+					hash: '0xtx2',
+					from: { hash: userAddress },
+					to: { hash: otherAddress, is_contract: false },
+					token_transfers: [
+						{
+							from: { hash: userAddress },
+							to: { hash: otherAddress },
+							total: { value: '50000000', decimals: '6' },
+							token: { symbol: 'USDT', decimals: '6' }
+						}
+					]
+				})
+			];
+
+			const result = await processTransactions(raw as any, userAddress, 'bsc', 100);
+
+			expect(result.length).toBe(2);
+			expect(result[0].balanceUnit).toBe('USDT');
+			expect(result[1].balanceUnit).toBe('USDT');
+		});
+
+		it('should separate USDT transfers from other tokens on BSC', async () => {
+			const raw = [
+				makeTx({
+					hash: '0xmultitoken',
+					value: '0',
+					token_transfers: [
+						{
+							from: { hash: userAddress },
+							to: { hash: otherAddress },
+							total: { value: '1000000', decimals: '6' },
+							token: { symbol: 'USDT', decimals: '6' }
+						},
+						{
+							from: { hash: userAddress },
+							to: { hash: otherAddress },
+							total: { value: '1000000000000000000', decimals: '18' },
+							token: { symbol: 'BNB', decimals: '18' }
+						}
+					],
+					fee: { type: 'actual', value: '100000' }
+				})
+			];
+
+			const result = await processTransactions(raw as any, userAddress, 'bsc', 100);
+
+			expect(result[0].tokenSymbol).toBe('USDT');
+			expect(result[0].amountUnit).toBe('USDT');
+		});
+	});
+
+	describe('Network-specific explorer links', () => {
+		it('should use Blockscout for RSK mainnet', async () => {
+			vi.stubEnv('VITE_RSK_NETWORK', 'mainnet');
+			const raw = [makeTx({ hash: '0xrskprod' })];
+			const result = await processTransactions(raw as any, userAddress, 'rsk', 0);
+
+			expect(result[0].explorerUrl).toMatch(/blockscout\.com\/tx\//);
+			vi.unstubAllEnvs();
+		});
+
+		it('should use Blockscout testnet for RSK testnet', async () => {
+			vi.stubEnv('VITE_RSK_NETWORK', 'testnet');
+			const raw = [makeTx({ hash: '0xrsktestnet' })];
+			const result = await processTransactions(raw as any, userAddress, 'rsk', 0);
+
+			expect(result[0].explorerUrl).toContain('blockscout');
+			expect(result[0].explorerUrl).toContain('0xrsktestnet');
+			vi.unstubAllEnvs();
+		});
+	});
+
+	describe('Transaction classification and formatting', () => {
+		it('should classify USDT send correctly', async () => {
+			const raw = [
+				makeTx({
+					from: { hash: userAddress },
+					to: { hash: otherAddress, is_contract: false },
+					token_transfers: [
+						{
+							from: { hash: userAddress },
+							to: { hash: otherAddress },
+							total: { value: '500000', decimals: '6' },
+							token: { symbol: 'USDT', decimals: '6' }
+						}
+					]
+				})
+			];
+
+			const result = await processTransactions(raw as any, userAddress, 'bsc', 0);
+
+			expect(result[0].type).toBe('send');
+			expect(result[0].displayType).toBe('send');
+		});
+
+		it('should classify USDT receive correctly', async () => {
+			const raw = [
+				makeTx({
+					from: { hash: otherAddress },
+					to: { hash: userAddress, is_contract: false },
+					token_transfers: [
+						{
+							from: { hash: otherAddress },
+							to: { hash: userAddress },
+							total: { value: '250000', decimals: '6' },
+							token: { symbol: 'USDT', decimals: '6' }
+						}
+					]
+				})
+			];
+
+			const result = await processTransactions(raw as any, userAddress, 'bsc', 0);
+
+			expect(result[0].type).toBe('receive');
+			expect(result[0].displayType).toBe('receive');
 		});
 	});
 });

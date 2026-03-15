@@ -231,7 +231,7 @@ export interface ProcessedTransaction {
     hash: string;
     from: string;
     to: string;
-    value: string; // sats
+    value: string; // normalized amount in the active display unit
     timestamp: string; // API returns ISO 8601
     status: {
         label: string;
@@ -260,8 +260,11 @@ export interface ProcessedTransaction {
     explorerUrl: string | null;
 
     // Financial details
-    feeSats: number;
-    balanceAfter: number; // Running balance after this transaction
+    feeSats: number; // legacy name retained; unit follows feeUnit
+    balanceAfter: number; // legacy name retained; unit follows balanceUnit
+    amountUnit: string;
+    feeUnit: string;
+    balanceUnit: string;
 
     // Raw data for advanced use
     rawMethod?: string; // method selector
@@ -269,6 +272,7 @@ export interface ProcessedTransaction {
 
     // Token info for BSC
     tokenSymbol?: string;
+    tokenDecimals?: number;
 
     // Swap-specific fields
     swap?: {

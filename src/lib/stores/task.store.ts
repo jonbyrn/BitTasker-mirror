@@ -8,6 +8,12 @@ import { StorageKeys } from '$lib/utils/constants/storage';
 import { RecurringFrequencyEnum } from '$lib/utils/enums/task.enum';
 import { SimplePool } from 'nostr-tools';
 import { appStore } from './app.store';
+import {
+	TASK_SCHEMA_VERSION,
+	getDefaultPaymentNetwork,
+	normalizePaymentAsset,
+	normalizePaymentContext
+} from '$lib/utils/helpers/paymentContext';
 
 const CREATE_STORAGE_KEY = StorageKeys.DRAFT_TASK;
 const EDIT_STORAGE_KEY = StorageKeys.DRAFT_TASK_EDIT;
@@ -18,6 +24,7 @@ export const STEPS = writable([TaskStepEnum.BASICS, TaskStepEnum.LOCATION, TaskS
 
 const getInitialState = () => ({
 	task: {
+		schemaVersion: TASK_SCHEMA_VERSION,
 		title: '',
 		description: '',
 		taskType: TaskTypeEnum.IN_PERSON,
@@ -27,6 +34,8 @@ const getInitialState = () => ({
 			type: BudgetTypeEnum.FIXED,
 			estimatedHours: 0
 		},
+		paymentAsset: 'RBTC',
+		paymentNetwork: getDefaultPaymentNetwork('RBTC'),
 		deadline: '',
 		dateRange: undefined,
 		categories: [],
@@ -72,6 +81,30 @@ const getInitialRecurringTask = () => ({
 const initialState = getInitialState();
 const recurringTask = getInitialRecurringTask();
 
+function normalizeDraftTask(task?: Partial<TaskBody> | null): TaskBody {
+	const defaults = getInitialState().task;
+	const paymentNetwork = typeof task?.paymentNetwork === 'string' ? task.paymentNetwork.toLowerCase() : '';
+	const inferredAsset =
+		paymentNetwork.startsWith('bsc') ? 'USDT' : normalizePaymentAsset(task?.paymentAsset);
+	const normalizedPaymentContext = normalizePaymentContext(
+		{
+			paymentAsset: inferredAsset,
+			paymentNetwork: task?.paymentNetwork,
+			schemaVersion: task?.schemaVersion
+		},
+		TASK_SCHEMA_VERSION,
+		inferredAsset
+	);
+
+	return {
+		...defaults,
+		...task,
+		schemaVersion: normalizedPaymentContext.schemaVersion,
+		paymentAsset: normalizedPaymentContext.paymentAsset,
+		paymentNetwork: normalizedPaymentContext.paymentNetwork
+	} as TaskBody;
+}
+
 function createTaskStore() {
 	const recurring = page.url.searchParams.get('recurring');
 	recurringTask.isRecurring = recurring == 'true';
@@ -97,7 +130,7 @@ function createTaskStore() {
 				...state,
 				id: parsedData.id,
 				uniqueId: parsedData.uniqueId,
-				task: { ...parsedData.task },
+				task: normalizeDraftTask(parsedData.task),
 				currentStep: parsedData.currentStep || TaskStepEnum.BASICS,
 				isEditing: parsedData.isEditing || isEditing,
 				recurringTask: { ...parsedData.recurringTask }
@@ -143,13 +176,14 @@ function createTaskStore() {
 
 	const saveEditTaskDraft = async (id: string, uniqueId: string, task: TaskBody) => {
 		if (id && task) {
+			const mergedTask = normalizeDraftTask(task);
 			await Preferences.set({
 				key: EDIT_STORAGE_KEY,
 				value: JSON.stringify({
 					currentStep: TaskStepEnum.BASICS,
 					id,
 					uniqueId,
-					task,
+					task: mergedTask,
 					isEditing: true,
 					recurringTask: recurringTask
 				})
@@ -159,7 +193,7 @@ function createTaskStore() {
 				...state,
 				id,
 				uniqueId,
-				task,
+				task: mergedTask,
 				isEditing: true
 			}));
 		}

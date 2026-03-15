@@ -538,6 +538,7 @@
 											permissions={contract.permissions}
 											isClient={contract.isClient}
 											isFreelancer={contract.isFreelancer}
+											network={group.network}
 											isExpanded={expandedContracts.has(contract.id)}
 											{safetyOverride}
 											{isExecuting}

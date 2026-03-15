@@ -16,6 +16,7 @@
 	import TaskLocationDisplay from '$lib/components/task/TaskLocationDisplay.svelte';
 	import UserInfoDisplay from '$lib/components/user/UserInfoDisplay.svelte';
 	import IconEye from '~icons/mdi/eye';
+	import { getPaymentRailLabel, resolvePaymentContext } from '$lib/utils/helpers/paymentContext';
 
 	let {
 		task,
@@ -46,6 +47,10 @@
 	const isOpen = $derived(task.status === TaskStatusEnum.OPEN);
 	const canBid = $derived(isOpen && !hasBid);
 	const taskId = $derived(getTaskId(task));
+	const paymentContext = $derived(resolvePaymentContext(task.paymentAsset, task.paymentNetwork));
+	const isBscBudgetRail = $derived(
+		paymentContext.paymentAsset === 'USDT' && paymentContext.paymentNetwork.startsWith('bsc')
+	);
 </script>
 
 <div
@@ -85,9 +90,14 @@
 					descriptionClass="text-sm text-base-content/80 whitespace-pre-line line-clamp-2"
 					titleClass="card-title line-clamp-2 text-lg font-semibold"
 				/>
-			</div>
-			<!-- Right: Status Badge + Share Button + Price (aligned right) -->
-			<div class="flex shrink-0 flex-col items-end gap-2">
+				<div class="mt-2">
+					<span class="badge badge-secondary badge-sm">
+						{getPaymentRailLabel(task.paymentAsset, task.paymentNetwork)}
+					</span>
+				</div>
+				</div>
+				<!-- Right: Status Badge + Share Button + Price (aligned right) -->
+				<div class="flex shrink-0 flex-col items-end gap-2">
 				<div class="flex items-center gap-2">
 					<div class="badge {statusBadge.color} badge-sm max-w-[100px] truncate text-center">
 						{$t(`common.status.${task.status.toLowerCase()}`) || statusBadge.text}
@@ -106,7 +116,11 @@
 					</span>
 				</div>
 				<div class="text-right">
-					<UsdSatsDisplay amount={task.budget.amount} {btcPrice} />
+					{#if isBscBudgetRail}
+						<p class="text-lg font-bold">${task.budget.amount.toFixed(2)}</p>
+					{:else}
+						<UsdSatsDisplay amount={task.budget.amount} {btcPrice} />
+					{/if}
 				</div>
 			</div>
 		</div>

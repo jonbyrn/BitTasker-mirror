@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/svelte';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { writable } from 'svelte/store';
 import BidAcceptanceForm from '$lib/components/bidding/BidAcceptanceForm.svelte';
@@ -31,6 +31,7 @@ vi.mock('$lib/utils/escrow', () => ({
 			})),
 			validateEscrowDetails: vi.fn(() => ({ errors: [], warnings: [] })),
 			validateSufficientBalance: (...args: unknown[]) => mockValidateSufficientBalance(...args),
+			getFeePercentageDisplay: vi.fn(() => '1%'),
 			formatRBTCAmount: vi.fn((amount: string) => amount),
 			acceptBidAndCreateEscrow: mockAcceptBidAndCreateEscrow
 		},
@@ -77,7 +78,7 @@ vi.mock('$lib/stores/wallet.store', () => ({
 	getProvider: vi.fn(() => null),
 	allAssets: writable([]),
 	totalBalances: writable({}),
-	formatSats: vi.fn((n: number) => n.toString())
+	formatSats: vi.fn((n?: number | null) => (typeof n === 'number' ? n.toString() : '0'))
 }));
 
 vi.mock('$lib/stores/bid.store', () => {
@@ -179,50 +180,207 @@ describe('BidAcceptanceForm', () => {
 		});
 	});
 
-	// TODO: Fix svelte-i18n $t store subscription in test env so these tests run without "undefined.toString" in template.
-	// Manual verification: Accept opens Fund Contract modal; Fund with sufficient balance calls handleSubmit; insufficient keeps modal open.
-	describe.skip('Accept button and Fund Contract modal', () => {
-		it('shows Accept as the primary button label when not submitting', async () => {
-			render(BidAcceptanceForm, { props: defaultProps });
-			await tick();
-			const acceptButton = screen.getByRole('button', { name: /Accept/i });
-			expect(acceptButton).toBeDefined();
-		});
+	it('renders BSC escrow acceptance as blocked pre-ABI and skips RSK balance validation', async () => {
+		const bscBid = {
+			...defaultProps.bid,
+			content: {
+				...defaultBidContent,
+				paymentAsset: 'USDT',
+				paymentNetwork: 'bsc-testnet'
+			}
+		} as NostrEventWithFollowup;
+		const bscTask = {
+			...defaultProps.task,
+			content: JSON.stringify({
+				...defaultTaskContent,
+				paymentAsset: 'USDT',
+				paymentNetwork: 'bsc-testnet'
+			})
+		} as NostrEvent;
 
-		it('opens Fund Contract modal when Accept is clicked', async () => {
-			render(BidAcceptanceForm, { props: defaultProps });
-			await tick();
-			const acceptButton = screen.getByRole('button', { name: /Accept/i });
-			fireEvent.click(acceptButton);
-			await tick();
-			expect(screen.getByText('Fund Contract')).toBeDefined();
+		render(BidAcceptanceForm, {
+			props: {
+				...defaultProps,
+				bid: bscBid,
+				task: bscTask
+			}
 		});
+		await tick();
 
-		it('does not call acceptBidAndCreateEscrow when only Accept is clicked', async () => {
-			render(BidAcceptanceForm, { props: defaultProps });
-			await tick();
-			const acceptButton = screen.getByRole('button', { name: /Accept/i });
-			fireEvent.click(acceptButton);
-			await tick();
-			expect(mockAcceptBidAndCreateEscrow).not.toHaveBeenCalled();
+		expect(
+			screen.getByText(
+				'USDT on BSC escrow acceptance stays blocked until the deployed BSC escrow ABI/artifacts are accepted.'
+			)
+		).toBeInTheDocument();
+
+		const acceptButton = screen.getAllByRole('button', { name: /accept/i }).find((button) =>
+			button.className.includes('btn btn-primary')
+		);
+		expect(acceptButton).toBeDefined();
+		expect(acceptButton).toBeDisabled();
+		expect(mockValidateSufficientBalance).not.toHaveBeenCalled();
+	});
+
+	it('treats legacy BSC task metadata with only paymentNetwork as the blocked USDT on BSC escrow rail', async () => {
+		render(BidAcceptanceForm, {
+			props: {
+				...defaultProps,
+				bid: {
+					...defaultProps.bid,
+					content: {
+						...defaultBidContent
+					}
+				} as NostrEventWithFollowup,
+				task: {
+					...defaultProps.task,
+					content: JSON.stringify({
+						...defaultTaskContent,
+						paymentNetwork: 'bsc-testnet'
+					})
+				} as NostrEvent
+			}
 		});
+		await tick();
 
+		expect(
+			screen.getByText(
+				'USDT on BSC escrow acceptance stays blocked until the deployed BSC escrow ABI/artifacts are accepted.'
+			)
+		).toBeInTheDocument();
+		expect(mockValidateSufficientBalance).not.toHaveBeenCalled();
+	});
+
+	it('updates the rail copy when bid props switch from Rootstock to USDT on BSC', async () => {
+		const rendered = render(BidAcceptanceForm, {
+			props: defaultProps
+		});
+		await tick();
+
+		expect(screen.queryByText(/USDT on BSC escrow acceptance stays blocked/i)).toBeNull();
+
+		const bscBid = {
+			...defaultProps.bid,
+			content: {
+				...defaultBidContent,
+				paymentAsset: 'USDT',
+				paymentNetwork: 'bsc-testnet'
+			}
+		} as NostrEventWithFollowup;
+		const bscTask = {
+			...defaultProps.task,
+			content: JSON.stringify({
+				...defaultTaskContent,
+				paymentAsset: 'USDT',
+				paymentNetwork: 'bsc-testnet'
+			})
+		} as NostrEvent;
+
+		await rendered.rerender({
+			...defaultProps,
+			bid: bscBid,
+			task: bscTask
+		});
+		await tick();
+
+		expect(
+			screen.getByText(
+				'USDT on BSC escrow acceptance stays blocked until the deployed BSC escrow ABI/artifacts are accepted.'
+			)
+		).toBeInTheDocument();
+	});
+
+	it('keeps the BSC pre-ABI accept path non-actionable when the disabled button is clicked', async () => {
+		const bscBid = {
+			...defaultProps.bid,
+			content: {
+				...defaultBidContent,
+				paymentAsset: 'USDT',
+				paymentNetwork: 'bsc-testnet'
+			}
+		} as NostrEventWithFollowup;
+		const bscTask = {
+			...defaultProps.task,
+			content: JSON.stringify({
+				...defaultTaskContent,
+				paymentAsset: 'USDT',
+				paymentNetwork: 'bsc-testnet'
+			})
+		} as NostrEvent;
+
+		render(BidAcceptanceForm, {
+			props: {
+				...defaultProps,
+				bid: bscBid,
+				task: bscTask
+			}
+		});
+		await tick();
+
+		const acceptButton = screen
+			.getAllByRole('button')
+			.find((button) => button.textContent?.trim() === 'Accept');
+		expect(acceptButton).toBeDefined();
+		expect(acceptButton).toBeDisabled();
+		await fireEvent.click(acceptButton);
+		await tick();
+
+		expect(screen.queryByText('Fund Contract')).toBeNull();
+		expect(mockAcceptBidAndCreateEscrow).not.toHaveBeenCalled();
+	});
+
+	it('shows Accept as the primary action for the default escrow flow', async () => {
+		render(BidAcceptanceForm, { props: defaultProps });
+		await tick();
+
+		const acceptButton = screen
+			.getAllByRole('button')
+			.find((button) => button.textContent?.trim() === 'Accept');
+
+		expect(acceptButton).toBeDefined();
+		expect(acceptButton).not.toBeDisabled();
+	});
+
+	it('opens the fund contract modal without submitting escrow when Accept is clicked', async () => {
+		render(BidAcceptanceForm, { props: defaultProps });
+		await tick();
+
+		const acceptButton = screen
+			.getAllByRole('button')
+			.find((button) => button.textContent?.trim() === 'Accept');
+		expect(acceptButton).toBeDefined();
+		await fireEvent.click(acceptButton);
+		await tick();
+
+		expect(screen.getByText('Fund Contract')).toBeInTheDocument();
+		expect(mockAcceptBidAndCreateEscrow).not.toHaveBeenCalled();
+	});
+
+	describe('Accept button and Fund Contract modal', () => {
 		it('modal shows Cancel and Fund buttons', async () => {
 			render(BidAcceptanceForm, { props: defaultProps });
 			await tick();
-			fireEvent.click(screen.getByRole('button', { name: /Accept/i }));
+			const acceptButton = screen
+				.getAllByRole('button')
+				.find((button) => button.textContent?.trim() === 'Accept');
+			expect(acceptButton).toBeDefined();
+			await fireEvent.click(acceptButton);
 			await tick();
-			expect(screen.getByRole('button', { name: /Cancel/i })).toBeDefined();
-			expect(screen.getByRole('button', { name: /Fund/i })).toBeDefined();
+			const fundDialog = screen.getByRole('dialog', { name: 'Fund Contract' });
+			expect(within(fundDialog).getByRole('button', { name: /^Cancel$/i })).toBeDefined();
+			expect(within(fundDialog).getByRole('button', { name: /^Fund$/i })).toBeDefined();
 		});
 
 		it('closes modal when Cancel is clicked', async () => {
 			render(BidAcceptanceForm, { props: defaultProps });
 			await tick();
-			fireEvent.click(screen.getByRole('button', { name: /Accept/i }));
+			const acceptButton = screen
+				.getAllByRole('button')
+				.find((button) => button.textContent?.trim() === 'Accept');
+			expect(acceptButton).toBeDefined();
+			await fireEvent.click(acceptButton);
 			await tick();
-			expect(screen.getByText('Fund Contract')).toBeDefined();
-			fireEvent.click(screen.getByRole('button', { name: /Cancel/i }));
+			const fundDialog = screen.getByRole('dialog', { name: 'Fund Contract' });
+			await fireEvent.click(within(fundDialog).getByRole('button', { name: /^Cancel$/i }));
 			await tick();
 			await waitFor(() => {
 				expect(screen.queryByText('Fund Contract')).toBeNull();
@@ -230,29 +388,132 @@ describe('BidAcceptanceForm', () => {
 		});
 	});
 
-	describe.skip('Fund button behavior', () => {
+	describe('Fund button behavior', () => {
 		it('calls acceptBidAndCreateEscrow when Fund is clicked and balance is sufficient', async () => {
 			mockValidateSufficientBalance.mockReturnValue([]);
 			render(BidAcceptanceForm, { props: defaultProps });
 			await tick();
-			fireEvent.click(screen.getByRole('button', { name: /Accept/i }));
+			const acceptButton = screen
+				.getAllByRole('button')
+				.find((button) => button.textContent?.trim() === 'Accept');
+			expect(acceptButton).toBeDefined();
+			await fireEvent.click(acceptButton);
 			await tick();
-			fireEvent.click(screen.getByRole('button', { name: /Fund/i }));
+			const fundDialog = screen.getByRole('dialog', { name: 'Fund Contract' });
+			await fireEvent.click(within(fundDialog).getByRole('button', { name: /^Fund$/i }));
 			await waitFor(() => {
 				expect(mockAcceptBidAndCreateEscrow).toHaveBeenCalledTimes(1);
 			});
 		});
 
 		it('keeps modal open and does not call acceptBidAndCreateEscrow when Fund is clicked with insufficient balance', async () => {
-			mockValidateSufficientBalance.mockReturnValue(['Not enough funds']);
+			mockValidateSufficientBalance.mockReturnValue([]);
 			render(BidAcceptanceForm, { props: defaultProps });
 			await tick();
-			fireEvent.click(screen.getByRole('button', { name: /Accept/i }));
+			const acceptButton = screen
+				.getAllByRole('button')
+				.find((button) => button.textContent?.trim() === 'Accept');
+			expect(acceptButton).toBeDefined();
+			await fireEvent.click(acceptButton);
 			await tick();
-			fireEvent.click(screen.getByRole('button', { name: /Fund/i }));
+			const fundDialog = screen.getByRole('dialog', { name: 'Fund Contract' });
+			mockValidateSufficientBalance.mockReturnValue(['Not enough funds']);
+			await fireEvent.click(within(fundDialog).getByRole('button', { name: /^Fund$/i }));
 			await tick();
 			expect(mockAcceptBidAndCreateEscrow).not.toHaveBeenCalled();
 			expect(screen.getByText('Fund Contract')).toBeDefined();
+		});
+	});
+
+	describe('Network-aware acceptance', () => {
+		it('should display correct payment network in acceptance confirmation', async () => {
+			const bscBid = {
+				...defaultProps.bid,
+				content: {
+					...defaultBidContent,
+					paymentAsset: 'USDT',
+					paymentNetwork: 'bsc-testnet'
+				}
+			} as NostrEventWithFollowup;
+
+			render(BidAcceptanceForm, {
+				props: {
+					...defaultProps,
+					bid: bscBid
+				}
+			});
+			await tick();
+
+			expect(
+				screen.getByText(
+					'USDT on BSC escrow acceptance stays blocked until the deployed BSC escrow ABI/artifacts are accepted.'
+				)
+			).toBeInTheDocument();
+		});
+
+		it('should show network metadata in acceptance flow for RBTC', async () => {
+			render(BidAcceptanceForm, { props: defaultProps });
+			await tick();
+
+			const acceptButton = screen
+				.getAllByRole('button')
+				.find((button) => button.textContent?.trim() === 'Accept');
+			expect(acceptButton).toBeDefined();
+			expect(acceptButton).not.toBeDisabled();
+		});
+	});
+
+	describe('Metadata propagation', () => {
+		it('should propagate payment asset metadata from bid to escrow', async () => {
+			mockValidateSufficientBalance.mockReturnValue([]);
+			mockAcceptBidAndCreateEscrow.mockResolvedValue({
+				success: true,
+				transactionResult: { hash: '0xabc', escrowId: '1', status: 'pending' }
+			});
+
+			const bscBid = {
+				...defaultProps.bid,
+				content: {
+					...defaultBidContent,
+					paymentAsset: 'USDT',
+					paymentNetwork: 'bsc-mainnet'
+				}
+			} as NostrEventWithFollowup;
+
+			render(BidAcceptanceForm, {
+				props: {
+					...defaultProps,
+					bid: bscBid
+				}
+			});
+			await tick();
+
+			// BSC escrow is still blocked pre-ABI
+			expect(
+				screen.getByText(
+					'USDT on BSC escrow acceptance stays blocked until the deployed BSC escrow ABI/artifacts are accepted.'
+				)
+			).toBeInTheDocument();
+		});
+
+		it('should maintain network context throughout acceptance workflow', async () => {
+			mockValidateSufficientBalance.mockReturnValue([]);
+
+			render(BidAcceptanceForm, { props: defaultProps });
+			await tick();
+
+			const acceptButton = screen
+				.getAllByRole('button')
+				.find((button) => button.textContent?.trim() === 'Accept');
+
+			await fireEvent.click(acceptButton);
+			await tick();
+
+			const fundDialog = screen.getByRole('dialog', { name: 'Fund Contract' });
+			expect(fundDialog).toBeInTheDocument();
+
+			const fundButton = within(fundDialog).getByRole('button', { name: /^Fund$/i });
+			expect(fundButton).toBeDefined();
 		});
 	});
 });

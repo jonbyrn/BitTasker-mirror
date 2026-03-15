@@ -18,6 +18,7 @@ import { getStatusMessages } from '$lib/utils/helpers/contractStatusFormatter';
 import { createDebug } from '$lib/utils/debug';
 import { updateTask } from '$lib/nostr/task';
 import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
+import { getBidReference } from '$lib/utils/helpers/paymentContext';
 
 const _ = get(t);
 const d = createDebug('escrow:events');
@@ -179,10 +180,14 @@ export async function handleEscrowCreated(event: EscrowCreatedEvent): Promise<vo
 			const contractParams: CreateContractParams = {
 				escrowId: event.escrowId,
 				taskId: pendingContract.taskId,
+				taskRef: pendingContract.taskRef,
+				bidRef: getBidReference(pendingContract.bidEventId),
 				taskTitle: pendingContract.taskTitle,
 				taskDescription: pendingContract.taskDescription,
 				freelancerPubkey: pendingContract.freelancerPubkey,
 				amount: pendingContract.amount,
+				paymentAsset: pendingContract.paymentAsset,
+				paymentNetwork: pendingContract.paymentNetwork,
 				estimatedStartTime: pendingContract.estimatedStartTime,
 				estimatedCompletionTime: pendingContract.estimatedCompletionTime,
 				transactionHash: event.transactionHash
@@ -220,7 +225,13 @@ export async function handleEscrowCreated(event: EscrowCreatedEvent): Promise<vo
 					BidStatusEnum.ACCEPTED,
 					_('dashboard.bids.bid_acceptance.bid_accepted_message'),
 					event.escrowId,
-					event.transactionHash
+					event.transactionHash,
+					{
+						taskRef: pendingContract.taskRef,
+						bidRef: getBidReference(pendingContract.bidEventId),
+						paymentAsset: pendingContract.paymentAsset,
+						paymentNetwork: pendingContract.paymentNetwork
+					}
 				);
 			} catch (statusUpdateError) {
 				// Log error but don't throw - escrow is already created

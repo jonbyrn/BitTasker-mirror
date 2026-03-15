@@ -9,9 +9,15 @@ import { escrow as escrowModule } from './escrow';
 import { acceptBidAndCreateEscrow, calculateBidEscrowDetails } from './escrowBid';
 import { publishContractEvent, publishContractStatus, getContracts, deleteContract, handleStatusEvent, handleContractEvent } from './nostrContract';
 import { publishEscrowStatus, registerPendingContractByTxHash, cleanupPendingContractByTxHash, contractCreationStore } from './escrowEvents';
+import { loadEscrowContractAbi, clearAbiCache, getAbiCacheStats } from './loadEscrowAbi';
+import { createEscrowOnBsc, validateEscrowCreationParams, AbiNotAvailableError, EscrowCreationError } from './createBscEscrow';
+import { decodeBscEscrowEvent, decodeBscEscrowEvents, filterEscrowEventsByType, filterEscrowEventsByEscrowId } from './decodeEscrowEvents';
 
 // Export status enum
 export { EscrowStatus } from './escrow.enum';
+
+// Export escrow types
+export type { BscEscrowCreationParams, BscEscrowEvent, AbiLoadResult, BscEscrowEventType } from '$lib/types/escrow';
 
 // Export ABI for external use (e.g., functionParsing.ts)
 export { default as abi } from './abi.json';
@@ -41,4 +47,19 @@ export const escrowEvents = {
     registerPendingContractByTxHash,
     cleanupPendingContractByTxHash,
     contractCreationStore
+};
+
+// Export BSC escrow operations
+export const bscEscrow = {
+    loadEscrowContractAbi,
+    createEscrowOnBsc,
+    decodeBscEscrowEvent,
+    decodeBscEscrowEvents,
+    filterEscrowEventsByType,
+    filterEscrowEventsByEscrowId,
+    validateEscrowCreationParams,
+    clearAbiCache,
+    getAbiCacheStats,
+    AbiNotAvailableError,
+    EscrowCreationError
 };

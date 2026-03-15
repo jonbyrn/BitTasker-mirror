@@ -7,7 +7,7 @@
  */
 
 import { ethers } from 'ethers';
-import { RSK_NETWORKS, getBSCConfig } from '@bittasker/wallet-core';
+import { RSK_NETWORKS, getBSCConfig, getUSDTToken } from '@bittasker/wallet-core';
 import cryptoPriceService from './crypto-price.service';
 
 // Types
@@ -20,7 +20,7 @@ export interface BalanceChange {
 }
 
 interface HistoricalDataCache {
-	historicalBalances: Array<number>;
+	historicalBalances: Array<number | null>;
 	historicalPrices: Array<number | null>;
 	blockNumbers: Array<number | null>;
 	timestamp: number;
@@ -31,6 +31,14 @@ interface Period {
 	label: string;
 	hours: number;
 	days: number;
+}
+
+export interface BalanceHistoryOptions {
+	network?: 'rsk' | 'bsc';
+	assetSymbol?: string;
+	unitLabel?: string;
+	tokenAddress?: string | null;
+	tokenDecimals?: number | null;
 }
 
 // Constants
@@ -46,7 +54,7 @@ class HistoricalBalanceService {
 	private blockNumberCache: Map<string, number | null> = new Map();
 	private latestBlockCache: Map<string, { block: ethers.Block | null; timestamp: number }> = new Map();
 	private historicalPricesCache: Map<string, number> = new Map();
-	private bscIndexingUnavailable = true; // BSC historical data not implemented yet
+	private bscIndexingUnavailable = false;
 	private oldCacheFormatsCleared = false; // Track if we've cleared old cache formats
 
 	// Periods to calculate
@@ -56,19 +64,99 @@ class HistoricalBalanceService {
 		{ label: '30d', hours: 24 * 30, days: 30 }
 	];
 
+	private shouldTreatHistoryFailureAsUnavailable(options: Required<BalanceHistoryOptions>): boolean {
+		return options.network === 'bsc' && options.assetSymbol === 'USDT';
+	}
+
+	private resolveOptions(options: BalanceHistoryOptions): Required<BalanceHistoryOptions> {
+		const assetSymbol = (options.assetSymbol || 'RBTC').toUpperCase();
+		const fallbackTokenAddress = assetSymbol === 'USDT' ? getUSDTToken()?.address || null : null;
+
+		return {
+			network: options.network || 'rsk',
+			assetSymbol,
+			unitLabel: options.unitLabel || (assetSymbol === 'USDT' ? 'USDT' : 'sats'),
+			tokenAddress: options.tokenAddress ?? fallbackTokenAddress,
+			tokenDecimals: options.tokenDecimals ?? null
+		};
+	}
+
+	private async getTokenDecimals(
+		provider: ethers.Provider,
+		tokenAddress: string,
+		fallbackDecimals: number | null = null
+	): Promise<number> {
+		if (fallbackDecimals !== null && Number.isFinite(fallbackDecimals)) {
+			return fallbackDecimals;
+		}
+
+		try {
+			const tokenContract = new ethers.Contract(
+				tokenAddress,
+				['function decimals() view returns (uint8)'],
+				provider
+			);
+			const decimals = await tokenContract.decimals();
+			return Number(decimals);
+		} catch (error) {
+			console.warn('[BalanceHistoryService] Falling back to default token decimals:', error);
+			return 6;
+		}
+	}
+
+	private async getHistoricalAssetBalance(
+		provider: ethers.Provider,
+		address: string,
+		blockNumber: number,
+		options: Required<BalanceHistoryOptions>,
+		tokenDecimalsPromise?: Promise<number>
+	): Promise<number> {
+		if (options.network === 'bsc' && options.assetSymbol === 'USDT') {
+			if (!options.tokenAddress) {
+				return 0;
+			}
+
+			const decimals = tokenDecimalsPromise
+				? await tokenDecimalsPromise
+				: await this.getTokenDecimals(provider, options.tokenAddress, options.tokenDecimals);
+			const tokenContract = new ethers.Contract(
+				options.tokenAddress,
+				['function balanceOf(address owner) view returns (uint256)'],
+				provider
+			);
+			const balance = await tokenContract.balanceOf(address, { blockTag: blockNumber });
+			return Number(ethers.formatUnits(balance, decimals));
+		}
+
+		const balanceWei = await provider.getBalance(address, blockNumber);
+		const satsBigInt = balanceWei / BigInt(10_000_000_000);
+		return Number(satsBigInt);
+	}
+
+	private getUsdValueForAmount(amount: number, assetPrice: number, assetSymbol: string): number {
+		if (assetSymbol.toUpperCase() === 'USDT') {
+			return amount * assetPrice;
+		}
+
+		return (amount / 100_000_000) * assetPrice;
+	}
+
 	/**
 	 * Get balance changes for all periods (24h, 7d, 30d)
 	 * Main entry point for components
 	 */
 	async getBalanceChanges(
-		currentSats: number,
+		currentAmount: number,
 		currentUsd: number,
 		provider: ethers.Provider | null,
-		address: string | null
+		address: string | null,
+		options: BalanceHistoryOptions = {}
 	): Promise<BalanceChange[]> {
 		if (!provider || !address) {
 			return this.getEmptyBalanceChanges();
 		}
+
+		const resolvedOptions = this.resolveOptions(options);
 
 		// Clear old cache formats on first use (one-time migration)
 		// This ensures old cache formats are removed immediately
@@ -78,14 +166,14 @@ class HistoricalBalanceService {
 		}
 
 		const now = Date.now();
-		const cacheKey = this.getCacheKey(address);
+		const cacheKey = this.getCacheKey(address, resolvedOptions.network, resolvedOptions.assetSymbol);
 		
 		// Also check and clear old format for this specific cache key
 		// This handles cases where the cache key might have been created before the migration
 		this.clearOldCacheFormatForKey(cacheKey);
 		
 		// Check cache for historical data (not calculated changes)
-		let historicalBalances: Array<number> | null = null;
+		let historicalBalances: Array<number | null> | null = null;
 		let historicalPrices: Array<number | null> | null = null;
 		let blockNumbers: Array<number | null> | null = null;
 		
@@ -101,7 +189,9 @@ class HistoricalBalanceService {
 				const prefetched = await this.prefetchHistoricalData(
 					this.periods,
 					now,
-					provider
+					provider,
+					resolvedOptions.network,
+					resolvedOptions.assetSymbol
 				);
 				historicalPrices = prefetched.historicalPrices;
 				blockNumbers = prefetched.blockNumbers;
@@ -110,7 +200,8 @@ class HistoricalBalanceService {
 				historicalBalances = await this.prefetchHistoricalBalances(
 					blockNumbers,
 					provider,
-					address
+					address,
+					resolvedOptions
 				);
 
 				// Cache historical data (not calculated changes)
@@ -152,18 +243,23 @@ class HistoricalBalanceService {
 						const historicalBalanceSats = historicalBalances[index];
 						const historicalPrice = historicalPrices[index];
 
-						if (historicalBalanceSats === undefined || historicalPrice === null) {
+						if (
+							historicalBalanceSats === undefined ||
+							historicalBalanceSats === null ||
+							historicalPrice === null
+						) {
 							return this.getEmptyBalanceChange(period.label);
 						}
 
-						return this.calculatePeriodComparison(
-							period,
-							historicalBalanceSats,
-							historicalPrice,
-							currentSats,
-							currentUsd,
-							targetTimestamp
-						);
+							return this.calculatePeriodComparison(
+								period,
+								historicalBalanceSats,
+								historicalPrice,
+								currentAmount,
+								currentUsd,
+								targetTimestamp,
+								resolvedOptions.assetSymbol
+							);
 					} catch (error) {
 						console.error(`[BalanceHistoryService] ${period.label} period error:`, error);
 						return this.getEmptyBalanceChange(period.label);
@@ -480,15 +576,19 @@ class HistoricalBalanceService {
 	/**
 	 * Fetch historical Bitcoin price
 	 */
-	private async fetchHistoricalPrice(daysAgo: number): Promise<number | null> {
+	private async fetchHistoricalPrice(daysAgo: number, assetSymbol: string): Promise<number | null> {
 		try {
-			const cacheKey = `btc_price_${daysAgo}d`;
+			const normalizedSymbol = assetSymbol.toUpperCase();
+			const cacheKey = `${normalizedSymbol}_price_${daysAgo}d`;
 			const cached = this.historicalPricesCache.get(cacheKey);
 			if (cached) {
 				return cached;
 			}
 
-			const price = await cryptoPriceService.getHistoricalPrice(daysAgo);
+			const price =
+				normalizedSymbol === 'USDT'
+					? 1
+					: await cryptoPriceService.getHistoricalPrice(daysAgo);
 
 			if (price !== null) {
 				this.historicalPricesCache.set(cacheKey, price);
@@ -507,22 +607,24 @@ class HistoricalBalanceService {
 	private async prefetchHistoricalData(
 		periods: Period[],
 		now: number,
-		rskProvider: ethers.Provider | null
+		provider: ethers.Provider | null,
+		network: 'rsk' | 'bsc',
+		assetSymbol: string
 	): Promise<{ historicalPrices: Array<number | null>; blockNumbers: Array<number | null> }> {
 		// Start latest blocks fetch (needed for RPC fallback)
-		const latestBlockPromise = rskProvider ? this.getCachedLatestBlock(rskProvider, 'rsk') : null;
+		const latestBlockPromise = provider ? this.getCachedLatestBlock(provider, network) : null;
 
 		// Start all historical prices fetch in parallel
-		const pricePromises = periods.map((period) => this.fetchHistoricalPrice(period.days));
+		const pricePromises = periods.map((period) => this.fetchHistoricalPrice(period.days, assetSymbol));
 
 		// Start all block number API calls immediately
 		const blockNumberPromises = periods.map((period) => {
 			const targetTimestamp = now - period.hours * 60 * 60 * 1000;
-			if (rskProvider) {
+			if (provider) {
 				return this.getBlockNumberAtTimestamp(
-					rskProvider,
+					provider,
 					targetTimestamp,
-					'rsk',
+					network,
 					latestBlockPromise || undefined
 				);
 			}
@@ -546,24 +648,22 @@ class HistoricalBalanceService {
 	 */
 	private async prefetchHistoricalBalances(
 		blockNumbers: Array<number | null>,
-		rskProvider: ethers.Provider | null,
-		rskAddress: string | null
-	): Promise<Array<number>> {
+		provider: ethers.Provider | null,
+		address: string | null,
+		options: Required<BalanceHistoryOptions>
+	): Promise<Array<number | null>> {
+		const unavailableOnFailure = this.shouldTreatHistoryFailureAsUnavailable(options);
+		const tokenDecimalsPromise =
+			options.network === 'bsc' && options.assetSymbol === 'USDT' && provider && options.tokenAddress
+				? this.getTokenDecimals(provider, options.tokenAddress, options.tokenDecimals)
+				: undefined;
+
 		const balancePromises = blockNumbers.map((blockNumber) => {
-			if (!rskProvider || !rskAddress || blockNumber === null) {
-				return Promise.resolve(0);
+			if (!provider || !address || blockNumber === null) {
+				return Promise.resolve(unavailableOnFailure ? null : 0);
 			}
-		return rskProvider
-			.getBalance(rskAddress, blockNumber)
-			.then((balanceWei) => {
-				// Convert Wei directly to sats using integer arithmetic to avoid floating point precision issues
-				// 1 RBTC = 10^18 Wei, 1 BTC = 10^8 sats
-				// So: sats = (Wei * 10^8) / 10^18 = Wei / 10^10
-				// balanceWei is already a bigint from ethers, so use it directly
-				const satsBigInt = balanceWei / BigInt(10_000_000_000);
-				return Number(satsBigInt);
-			})
-			.catch(() => 0);
+			return this.getHistoricalAssetBalance(provider, address, blockNumber, options, tokenDecimalsPromise)
+				.catch(() => (unavailableOnFailure ? null : 0));
 		});
 
 		return await Promise.all(balancePromises);
@@ -574,25 +674,28 @@ class HistoricalBalanceService {
 	 */
 	private calculatePeriodComparison(
 		period: Period,
-		historicalBalanceSats: number,
+		historicalBalanceAmount: number,
 		historicalPrice: number,
-		currentSats: number,
+		currentAmount: number,
 		currentUsd: number,
-		targetTimestamp: number
+		targetTimestamp: number,
+		assetSymbol: string
 	): BalanceChange {
-		// Calculate historical USD value using the historical BTC price at that time
-		const historicalBtcAmount = historicalBalanceSats / 100_000_000;
-		const historicalUsdValue = historicalBtcAmount * historicalPrice;
+		const historicalUsdValue = this.getUsdValueForAmount(
+			historicalBalanceAmount,
+			historicalPrice,
+			assetSymbol
+		);
 
 		// Calculate changes (current - historical)
-		const satsChange = currentSats - historicalBalanceSats;
+		const satsChange = currentAmount - historicalBalanceAmount;
 		const usdChange = currentUsd - historicalUsdValue;
 
 		// Calculate percentage changes
 		const satsPercentChange =
-			historicalBalanceSats > 0
-				? (satsChange / historicalBalanceSats) * 100
-				: currentSats > 0
+			historicalBalanceAmount > 0
+				? (satsChange / historicalBalanceAmount) * 100
+				: currentAmount > 0
 					? 100
 					: 0;
 		const usdPercentChange =
@@ -610,9 +713,9 @@ class HistoricalBalanceService {
 	/**
 	 * Get cache key for localStorage
 	 */
-	private getCacheKey(address: string): string {
+	private getCacheKey(address: string, network: 'rsk' | 'bsc', assetSymbol: string): string {
 		const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-		return `${CACHE_KEY_PREFIX}${address}_${today}`;
+		return `${CACHE_KEY_PREFIX}${network}_${assetSymbol}_${address}_${today}`;
 	}
 
 	/**
@@ -721,6 +824,8 @@ class HistoricalBalanceService {
 		this.blockNumberCache.clear();
 		this.latestBlockCache.clear();
 		this.historicalPricesCache.clear();
+		this.bscIndexingUnavailable = false;
+		this.oldCacheFormatsCleared = false;
 		
 		// Clear localStorage cache
 		try {
@@ -787,19 +892,23 @@ class HistoricalBalanceService {
 		endDate: Date,
 		provider: ethers.Provider | null,
 		address: string | null,
-		currentSats: number = 0,
-		currentUsd: number = 0
-	): Promise<Array<{ date: Date; sats: number; usd: number }>> {
+		currentAmount: number = 0,
+		currentUsd: number = 0,
+		options: BalanceHistoryOptions = {}
+	): Promise<Array<{ date: Date; sats: number | null; usd: number | null }>> {
 		if (!provider || !address) {
 			return [];
 		}
 
-		const results: Array<{ date: Date; sats: number; usd: number }> = [];
+		const resolvedOptions = this.resolveOptions(options);
+
+		const results: Array<{ date: Date; sats: number | null; usd: number | null }> = [];
 		const now = Date.now();
 		const endTimestamp = endDate.getTime();
 		const startTimestamp = startDate.getTime();
 		const today = new Date();
 		today.setHours(0, 0, 0, 0);
+		const unavailableOnFailure = this.shouldTreatHistoryFailureAsUnavailable(resolvedOptions);
 
 		// Calculate number of days
 		const daysDiff = Math.ceil((endTimestamp - startTimestamp) / (24 * 60 * 60 * 1000));
@@ -808,18 +917,21 @@ class HistoricalBalanceService {
 		const maxDays = Math.min(daysDiff, 365);
 
 		// Get latest block for RPC fallback
-		const latestBlockPromise = this.getCachedLatestBlock(provider, 'rsk');
+		const latestBlockPromise = this.getCachedLatestBlock(provider, resolvedOptions.network);
 
-		// Get current BTC price for today
-		let currentBtcPrice: number | null = null;
+		// Get current asset price for today
+		let currentAssetPrice: number | null = null;
 		try {
-			currentBtcPrice = await cryptoPriceService.getCurrentPrice('BTC');
+			currentAssetPrice =
+				resolvedOptions.assetSymbol === 'USDT'
+					? 1
+					: await cryptoPriceService.getCurrentPrice(resolvedOptions.assetSymbol);
 		} catch (error) {
-			console.warn('[BalanceHistoryService] Failed to get current BTC price, will use provided USD value');
+			console.warn('[BalanceHistoryService] Failed to get current asset price, will use provided USD value');
 		}
 
 		// Fetch balances for each day
-		const balancePromises: Promise<{ date: Date; sats: number; usd: number }>[] = [];
+		const balancePromises: Promise<{ date: Date; sats: number | null; usd: number | null }>[] = [];
 		
 		for (let i = 0; i <= maxDays; i++) {
 			const targetDate = new Date(startTimestamp + i * 24 * 60 * 60 * 1000);
@@ -836,9 +948,10 @@ class HistoricalBalanceService {
 			
 			if (isTodayOrFuture) {
 				// Use current balance for today and future dates
-				const btcAmount = currentSats / 100_000_000;
-				const usd = currentBtcPrice ? btcAmount * currentBtcPrice : currentUsd;
-				balancePromises.push(Promise.resolve({ date: targetDate, sats: currentSats, usd }));
+				const usd = currentAssetPrice
+					? this.getUsdValueForAmount(currentAmount, currentAssetPrice, resolvedOptions.assetSymbol)
+					: currentUsd;
+				balancePromises.push(Promise.resolve({ date: targetDate, sats: currentAmount, usd }));
 				continue;
 			}
 
@@ -854,33 +967,43 @@ class HistoricalBalanceService {
 						const blockNumber = await this.getBlockNumberAtTimestamp(
 							provider,
 							targetEndOfDay,
-							'rsk',
+							resolvedOptions.network,
 							latestBlockPromise || undefined
 						);
 
 						if (!blockNumber) {
-							// If we can't get block number, return zero balance for this day
-							// This ensures we still have data points for all days
-							return { date: targetDate, sats: 0, usd: 0 };
+							return {
+								date: targetDate,
+								sats: unavailableOnFailure ? null : 0,
+								usd: unavailableOnFailure ? null : 0
+							};
 						}
 
 						// Get balance at this block
-						const balanceWei = await provider.getBalance(address, blockNumber);
-						const sats = Number(balanceWei / BigInt(10_000_000_000));
+						const amount = await this.getHistoricalAssetBalance(
+							provider,
+							address,
+							blockNumber,
+							resolvedOptions
+						);
 
 						// Get historical price for this day
 						const daysAgo = Math.floor((now - targetEndOfDay) / (24 * 60 * 60 * 1000));
-						const btcPrice = await this.fetchHistoricalPrice(daysAgo);
+						const assetPrice = await this.fetchHistoricalPrice(daysAgo, resolvedOptions.assetSymbol);
 						
 						// Calculate USD value
-						const btcAmount = sats / 100_000_000;
-						const usd = btcPrice ? btcAmount * btcPrice : 0;
+						const usd = assetPrice
+							? this.getUsdValueForAmount(amount, assetPrice, resolvedOptions.assetSymbol)
+							: 0;
 
-						return { date: targetDate, sats, usd };
+						return { date: targetDate, sats: amount, usd };
 					} catch (error) {
 						console.error(`[BalanceHistoryService] Error fetching balance for ${targetDate.toISOString()}:`, error);
-						// Return zero balance instead of failing - ensures we have data points
-						return { date: targetDate, sats: 0, usd: 0 };
+						return {
+							date: targetDate,
+							sats: unavailableOnFailure ? null : 0,
+							usd: unavailableOnFailure ? null : 0
+						};
 					}
 				})()
 			);
@@ -903,4 +1026,3 @@ class HistoricalBalanceService {
 
 // Export singleton instance
 export default new HistoricalBalanceService();
-

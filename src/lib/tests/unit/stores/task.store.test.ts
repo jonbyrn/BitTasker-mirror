@@ -1,12 +1,27 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { get } from 'svelte/store';
-import { myTasksStore, tasksStore, TASKS_PER_PAGE } from '$lib/stores/task.store';
+import { myTasksStore, taskStore, tasksStore, TASKS_PER_PAGE } from '$lib/stores/task.store';
 import type { Task } from '$lib/types/task.d';
 import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
+
+vi.mock('@capacitor/preferences', () => ({
+	Preferences: {
+		get: vi.fn().mockResolvedValue({ value: null }),
+		set: vi.fn().mockResolvedValue(undefined),
+		remove: vi.fn().mockResolvedValue(undefined)
+	}
+}));
 
 vi.mock('$app/state', () => ({
 	page: { url: { searchParams: new URLSearchParams() } }
 }));
+
+vi.mock('$lib/stores/app.store', async () => {
+	const { readable } = await import('svelte/store');
+	return {
+		appStore: readable({ pool: {} })
+	};
+});
 
 const createMockTask = (overrides: Partial<Task> = {}): Task =>
 	({
@@ -134,6 +149,88 @@ describe('task.store', () => {
 			expect(state.currentPage).toBe(1);
 			expect(state.hasMore).toBe(true);
 			expect(state.searchParamsKey).toBe('');
+		});
+	});
+
+	describe('taskStore', () => {
+		beforeEach(async () => {
+			vi.clearAllMocks();
+			await taskStore.clearDraft(false);
+			await taskStore.clearDraft(true);
+		});
+
+		it('normalizes legacy BSC network-only drafts to the USDT rail when loading', async () => {
+			const { Preferences } = await import('@capacitor/preferences');
+			vi.mocked(Preferences.get).mockResolvedValueOnce({
+				value: JSON.stringify({
+					id: 'draft-1',
+					uniqueId: 'task:draft-1',
+					task: {
+						title: 'Legacy BSC draft',
+						paymentNetwork: 'bsc-testnet'
+					}
+				})
+			});
+
+			await taskStore.loadDraft(false);
+
+			const state = get(taskStore);
+			expect(state.task.paymentAsset).toBe('USDT');
+			expect(state.task.paymentNetwork).toBe('bsc-testnet');
+		});
+
+		it('normalizes legacy USDT drafts without a network to the default BSC network when loading', async () => {
+			const { Preferences } = await import('@capacitor/preferences');
+			vi.mocked(Preferences.get).mockResolvedValueOnce({
+				value: JSON.stringify({
+					id: 'draft-2',
+					uniqueId: 'task:draft-2',
+					task: {
+						title: 'Legacy asset-only draft',
+						paymentAsset: 'USDT'
+					}
+				})
+			});
+
+			await taskStore.loadDraft(false);
+
+			const state = get(taskStore);
+			expect(state.task.paymentAsset).toBe('USDT');
+			expect(state.task.paymentNetwork).toBe('bsc-testnet');
+		});
+
+		it('normalizes edit drafts before persisting them when only the BSC network is present', async () => {
+			const { Preferences } = await import('@capacitor/preferences');
+
+			await taskStore.saveEditTaskDraft(
+				'task-123',
+				'task:task-123',
+				{
+					title: 'Legacy task',
+					description: 'Needs the BSC rail preserved',
+					taskType: 'remote',
+					budget: {
+						amount: 25,
+						currency: 'USD',
+						type: 'fixed',
+						estimatedHours: 0
+					},
+					paymentNetwork: 'bsc-testnet',
+					categories: [],
+					skills: [],
+					attachments: []
+				} as any
+			);
+
+			const state = get(taskStore);
+			expect(state.task.paymentAsset).toBe('USDT');
+			expect(state.task.paymentNetwork).toBe('bsc-testnet');
+
+			const persistedDraft = JSON.parse(vi.mocked(Preferences.set).mock.calls[0][0].value);
+			expect(persistedDraft.task).toMatchObject({
+				paymentAsset: 'USDT',
+				paymentNetwork: 'bsc-testnet'
+			});
 		});
 	});
 });

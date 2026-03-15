@@ -12,6 +12,7 @@
  * - Internal transaction handling (for escrow payouts)
  */
 
+import { ethers } from 'ethers';
 import type { Transaction } from '@bittasker/wallet-core';
 import type { 
     InternalTransaction, 
@@ -34,6 +35,14 @@ export type { ProcessedTransaction } from '$lib/types/wallet';
 interface ContractAddresses {
     etherSwap: string | null;
     escrowAddresses: string[];
+}
+
+interface BscTokenTransferSummary {
+    amount: number;
+    fee: number;
+    symbol: string;
+    decimals: number;
+    direction: 'send' | 'receive';
 }
 
 let contractAddressesCache: ContractAddresses | null = null;
@@ -121,6 +130,118 @@ function isEscrowContract(address: string, escrowAddresses: string[]): boolean {
     }
     const lowerAddress = address.toLowerCase();
     return escrowAddresses.some(escrow => escrow === lowerAddress);
+}
+
+function getEntityHash(entity: any): string | null {
+    if (!entity || typeof entity !== 'object') return null;
+    return entity.hash || entity.address_hash || entity.address || null;
+}
+
+function getTransferDecimals(transfer: any): number {
+    const rawDecimals =
+        transfer?.total?.decimals ??
+        transfer?.token?.decimals ??
+        transfer?.decimals;
+    const parsed = Number.parseInt(String(rawDecimals ?? ''), 10);
+    if (Number.isFinite(parsed) && parsed >= 0) {
+        return parsed;
+    }
+
+    const symbol = String(
+        transfer?.token?.symbol ??
+        transfer?.token_symbol ??
+        transfer?.symbol ??
+        ''
+    ).toUpperCase();
+
+    return symbol === 'USDT' ? 6 : 18;
+}
+
+function getTransferSymbol(transfer: any): string {
+    return String(
+        transfer?.token?.symbol ??
+        transfer?.token_symbol ??
+        transfer?.symbol ??
+        'USDT'
+    ).toUpperCase();
+}
+
+function getTransferAtomicValue(transfer: any): bigint {
+    const rawValue = transfer?.total?.value ?? transfer?.amount ?? transfer?.value ?? '0';
+    try {
+        return BigInt(String(rawValue));
+    } catch {
+        return 0n;
+    }
+}
+
+function formatAtomicValue(value: bigint, decimals: number): number {
+    const normalized = Number(ethers.formatUnits(value, decimals));
+    return Number.isFinite(normalized) ? normalized : 0;
+}
+
+function extractBscTokenTransferSummary(
+    tx: ExtendedTransaction,
+    userAddress: string
+): BscTokenTransferSummary | null {
+    if (!Array.isArray(tx.token_transfers) || tx.token_transfers.length === 0) {
+        return null;
+    }
+
+    const userAddr = userAddress.toLowerCase();
+    const transfers = tx.token_transfers
+        .map((transfer) => {
+            const from = getEntityHash(transfer?.from)?.toLowerCase();
+            const to = getEntityHash(transfer?.to)?.toLowerCase();
+            const decimals = getTransferDecimals(transfer);
+            const symbol = getTransferSymbol(transfer);
+            const atomicValue = getTransferAtomicValue(transfer);
+
+            return { from, to, decimals, symbol, atomicValue };
+        })
+        .filter((transfer) => transfer.atomicValue > 0n && (transfer.from === userAddr || transfer.to === userAddr));
+
+    if (transfers.length === 0) {
+        return null;
+    }
+
+    const outgoing = transfers.filter((transfer) => transfer.from === userAddr);
+    const incoming = transfers.filter((transfer) => transfer.to === userAddr);
+    const prioritized = outgoing.length > 0 ? outgoing : incoming;
+    if (prioritized.length === 0) {
+        return null;
+    }
+
+    const [primary] = prioritized;
+    const matchingTransfers = prioritized.filter(
+        (transfer) => transfer.symbol === primary.symbol && transfer.decimals === primary.decimals
+    );
+
+    if (outgoing.length > 0) {
+        const sorted = [...matchingTransfers].sort((a, b) =>
+            a.atomicValue > b.atomicValue ? -1 : a.atomicValue < b.atomicValue ? 1 : 0
+        );
+        const amountAtomic = sorted[0]?.atomicValue ?? 0n;
+        const totalAtomic = matchingTransfers.reduce((sum, transfer) => sum + transfer.atomicValue, 0n);
+        const feeAtomic = totalAtomic > amountAtomic ? totalAtomic - amountAtomic : 0n;
+
+        return {
+            amount: formatAtomicValue(amountAtomic, primary.decimals),
+            fee: formatAtomicValue(feeAtomic, primary.decimals),
+            symbol: primary.symbol,
+            decimals: primary.decimals,
+            direction: 'send'
+        };
+    }
+
+    const totalIncomingAtomic = matchingTransfers.reduce((sum, transfer) => sum + transfer.atomicValue, 0n);
+    return {
+        amount: formatAtomicValue(totalIncomingAtomic, primary.decimals),
+        fee: 0,
+        symbol: primary.symbol,
+        decimals: primary.decimals,
+        direction: 'receive'
+    };
 }
 
 /**
@@ -468,14 +589,14 @@ function normalizeStatus(status: string): 'confirmed' | 'pending' | 'failed' {
  * @param rawTransactions - Raw transactions from blockchain API
  * @param userAddress - User's wallet address
  * @param network - Network type ('rsk' or 'bsc')
- * @param currentBalanceSats - Current balance in satoshis (for running balance calculation)
+ * @param currentBalanceAmount - Current balance in the active rail unit (sats for RSK, token units for BSC)
  * @returns Processed transactions with all display properties and running balances
  */
 export async function processTransactions(
     rawTransactions: Transaction[],
     userAddress: string,
     network: 'rsk' | 'bsc',
-    currentBalanceSats: number
+    currentBalanceAmount: number
 ): Promise<ProcessedTransaction[]> {
     try {
         // Validate userAddress
@@ -536,6 +657,9 @@ export async function processTransactions(
                     contractAddresses
                 );
 
+                const bscTokenTransferSummary =
+                    network === 'bsc' ? extractBscTokenTransferSummary(tx, userAddress) : null;
+
                 // Extract transaction value
                 // For swap claims/refunds, the value field is 0, but the actual amount is in decoded_input.parameters
                 let valueSats = Number(weiToSatoshi(BigInt(tx.value || '0')));
@@ -550,20 +674,36 @@ export async function processTransactions(
                     }
                 }
 
+                const amountUnit = bscTokenTransferSummary?.symbol || 'sats';
+                const feeUnit = bscTokenTransferSummary?.symbol || 'sats';
+                const balanceUnit = bscTokenTransferSummary?.symbol || 'sats';
+                const normalizedValue = bscTokenTransferSummary?.amount ?? valueSats;
+
                 // Check if transaction has value
-                const hasValue = valueSats > 0;
+                const hasValue = normalizedValue > 0;
+
+                const normalizedType =
+                    network === 'bsc' && bscTokenTransferSummary && type === 'contract'
+                        ? bscTokenTransferSummary.direction
+                        : type;
+                const normalizedMethodName =
+                    normalizedType === type ? methodName : undefined;
 
                 // Determine all display properties in one go (including icon config and translation keys)
                 const { displayType, borderColor, iconConfig, title } = determineDisplayProperties(
-                    type,
+                    normalizedType,
                     subType,
-                    methodName,
+                    normalizedMethodName,
                     hasValue,
                     isInternalEscrowPayout
                 );
 
                 // Calculate fee in sats (internal transactions have no gas fees)
-                const feeSats = tx._isInternal ? 0 : Number(weiToSatoshi(BigInt(tx.fee?.value || '0')));
+                const feeSats = bscTokenTransferSummary
+                    ? bscTokenTransferSummary.fee
+                    : tx._isInternal
+                        ? 0
+                        : Number(weiToSatoshi(BigInt(tx.fee?.value || '0')));
 
                 // Determine network - Lightning for submarine/reverse swaps, otherwise use provided network
                 // Get network information once
@@ -580,15 +720,15 @@ export async function processTransactions(
                     hash: tx.hash,
                     from: tx.from?.hash || '',
                     to: tx.to?.hash || '',
-                    value: valueSats.toString(),
+                    value: normalizedValue.toString(),
                     timestamp: tx.timestamp,
                     status: statusUI[normalizeStatus(tx.status || 'pending') as keyof typeof statusUI],
                     network: isLightningSwap ? 'lightning' : network,
 
                     // Computed fields
-                    type,
+                    type: normalizedType,
                     subType,
-                    methodName,
+                    methodName: normalizedMethodName,
 
                     // Display helpers (all computed in one pass)
                     displayType,
@@ -606,6 +746,9 @@ export async function processTransactions(
 
                     // Balance (will be calculated below)
                     balanceAfter: 0, // Placeholder, calculated in next step
+                    amountUnit,
+                    feeUnit,
+                    balanceUnit,
 
                     // Raw data
                     rawMethod: tx.method || undefined,
@@ -613,9 +756,9 @@ export async function processTransactions(
                 };
 
                 // Add token symbol for BSC transactions if available
-                if (network === 'bsc' && tx.token_transfers && tx.token_transfers.length > 0) {
-                    // For token transfers, use the token symbol
-                    processedTx.tokenSymbol = 'USDT'; // Default for now, can be enhanced
+                if (bscTokenTransferSummary) {
+                    processedTx.tokenSymbol = bscTokenTransferSummary.symbol;
+                    processedTx.tokenDecimals = bscTokenTransferSummary.decimals;
                 }
 
                 return processedTx;
@@ -625,7 +768,7 @@ export async function processTransactions(
         processed.sort((a, b) => new Date(b.timestamp)?.getTime() - new Date(a.timestamp)?.getTime());
 
         // Calculate running balances in single pass (working backwards from current balance)
-        let runningBalance = currentBalanceSats;
+        let runningBalance = currentBalanceAmount;
 
         for (const tx of processed) {
             const txValueSats = Number(tx.value);

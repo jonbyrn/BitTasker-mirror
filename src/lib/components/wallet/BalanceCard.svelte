@@ -6,7 +6,9 @@
 		totalBalances,
 		walletManager,
 		walletStore,
-		formatSats
+		formatSats,
+		setActiveNetwork,
+		setSelectedAsset
 	} from '$lib/stores/wallet.store';
 	import { appStore } from '$lib/stores/app.store';
 	import IconHelpCircle from '~icons/mdi/help-circle';
@@ -37,6 +39,11 @@
 	// Get USD-based assets (USDT, BNB) - we need all of them for the accordion
 	let usdAssets = $derived($allAssets.filter((a) => a.assetId === 'usdt' || a.assetId === 'bnb'));
 	let usdtAsset = $derived(usdAssets.find((a) => a.assetId === 'usdt'));
+
+	function selectHistoryRail(network: 'rsk' | 'bsc', asset: 'rBTC' | 'USDT') {
+		setActiveNetwork(network);
+		setSelectedAsset(asset);
+	}
 
 	function showBalances() {
 		balancesHidden = false;
@@ -234,6 +241,7 @@
 				onclick={() => {
 					triggerHaptic(ImpactStyle.Light);
 					bitcoinExpanded = !bitcoinExpanded;
+					selectHistoryRail('rsk', 'rBTC');
 				}}
 			>
 				<div class="flex min-w-0 flex-1 items-center gap-2">
@@ -344,7 +352,7 @@
 
 		<!-- USD Accordion -->
 		<div
-			class="collapse-arrow border-primary bg-base-100 collapse rounded-lg border-2 opacity-50"
+			class="collapse-arrow border-primary bg-base-100 collapse rounded-lg border-2"
 			class:collapse-open={usdExpanded}
 		>
 			<button
@@ -353,16 +361,23 @@
 				onclick={() => {
 					triggerHaptic(ImpactStyle.Light);
 					usdExpanded = !usdExpanded;
+					selectHistoryRail('bsc', 'USDT');
 				}}
 			>
 				<div class="flex min-w-0 flex-1 items-center gap-2">
-					<img src="/images/chains/Tether-USD.svg" alt="USD" class="h-5 w-5 shrink-0 sm:h-6 sm:w-6" />
-					<span class="text-base-content/70">{$t('wallet.usd')}</span>
+					<img src="/images/chains/Tether-USD.svg" alt="USDT on BSC" class="h-5 w-5 shrink-0 sm:h-6 sm:w-6" />
+					<span>USDT on BSC</span>
 				</div>
 				<div class="ml-2 shrink-0 text-right">
-					<div class="text-base-content/70 text-sm font-semibold sm:text-base">
-						{$t('wallet.coming_soon')}
-					</div>
+					{#if balancesHidden}
+						<div class="text-sm font-semibold sm:text-base">$••••</div>
+					{:else if usdtAsset}
+						<div class="text-sm font-semibold sm:text-base">${usdtAsset.usdValue.toFixed(2)}</div>
+					{:else}
+						<div class="text-sm font-semibold sm:text-base">
+							${parseFloat($walletStore.bsc.formattedUsdtBalance || '0').toFixed(2)}
+						</div>
+					{/if}
 				</div>
 			</button>
 			<div class="collapse-content">
@@ -371,10 +386,10 @@
 					<div class="flex items-center gap-1.5 sm:gap-2">
 						<img
 							src="/images/chains/Binance-logo.svg"
-							alt="USDT (Binance Chain)"
+							alt="USDT on BSC"
 							class="h-4 w-4 opacity-50 sm:h-5 sm:w-5"
 						/>
-						<span class="text-base-content/50 text-sm font-medium sm:text-base">{$t('wallet.usdt_binance_chain')}</span>
+						<span class="text-base-content/50 text-sm font-medium sm:text-base">USDT on BSC</span>
 						<div class="text-base-content/50 ml-auto text-xs">
 							{#if balancesHidden}
 								$••••
@@ -399,9 +414,6 @@
 						</div>
 					</div>
 
-					<div class="mt-2 text-center sm:mt-4">
-						<p class="text-base-content/50 text-sm font-bold sm:text-base">{$t('wallet.coming_soon')}</p>
-					</div>
 				</div>
 			</div>
 		</div>

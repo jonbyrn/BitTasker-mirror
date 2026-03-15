@@ -14,6 +14,7 @@
 	import { TASK_CATEGORIES } from '$lib/utils/constants/categories';
 	import { formatStandardDateShort, parseDateToLocalMidnight } from '$lib/utils/helpers/dateFormatter';
 	import type { Attachment } from '$lib/types/task';
+	import { getPaymentRailLabel, resolvePaymentContext } from '$lib/utils/helpers/paymentContext';
 
 	let { direction } = $props();
 
@@ -39,6 +40,12 @@
 	// Convert category IDs to translated names for display (reactive)
 	let translatedCategories = $derived(
 		$store.task.categories.map(translateCategory)
+	);
+	const paymentContext = $derived(
+		resolvePaymentContext($store.task.paymentAsset, $store.task.paymentNetwork)
+	);
+	const isBscBudgetRail = $derived(
+		paymentContext.paymentAsset === 'USDT' && paymentContext.paymentNetwork.startsWith('bsc')
 	);
 
 	// TODO: Refactor by adding to app store global state
@@ -178,14 +185,25 @@
 				</div>
 
 				<div class="space-y-1">
+					<span class="text-sm font-medium text-base-content/70">Payment rail</span>
+					<div class="flex items-center gap-2">
+						<span class="badge badge-secondary badge-sm">
+							{getPaymentRailLabel($store.task.paymentAsset, $store.task.paymentNetwork)}
+						</span>
+					</div>
+				</div>
+
+				<div class="space-y-1">
 					<span class="text-sm font-medium text-base-content/70">{$t('task.budget_amount')}</span>
 					<div class="flex flex-col">
 						<span class="text-2xl font-bold text-primary">
 							${formatNumberWithTwoDecimals($store.task.budget.amount)}
 						</span>
-						<span class="text-sm text-base-content/60">
-							{satsFromUsd($store.task.budget.amount, btcPrice)}
-						</span>
+						{#if !isBscBudgetRail}
+							<span class="text-sm text-base-content/60">
+								{satsFromUsd($store.task.budget.amount, btcPrice)}
+							</span>
+						{/if}
 					</div>
 				</div>
 			</div>

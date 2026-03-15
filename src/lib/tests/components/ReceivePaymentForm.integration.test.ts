@@ -2,14 +2,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import ReceivePaymentForm from '$lib/components/wallet/ReceivePaymentForm.svelte';
-import { walletManager } from '$lib/stores/wallet.store';
+import { walletManager, walletStore } from '$lib/stores/wallet.store';
 
-// Helper: ReceivePaymentForm renders mobile + desktop; use first match for calculator buttons
 function getCalcButton(name: string) {
 	return screen.getAllByRole('button', { name })[0];
 }
 
-// Mock dependencies (reuse from existing ReceivePaymentForm.test.ts)
 vi.mock('svelte-i18n', async () => {
 	const { readable } = await import('svelte/store');
 	const translations: Record<string, string> = {
@@ -26,20 +24,25 @@ vi.mock('svelte-i18n', async () => {
 		'wallet.sats': 'Sats',
 		'wallet.swap.loading_fees': 'Calculating fees...',
 		'wallet.swap.service_fee': 'Service Fee',
+		'wallet.swap.swap_fee': 'Swap Fee',
 		'wallet.swap.network_transaction_fee': 'Network Transaction Fee',
 		'wallet.swap.total_received_est': 'Total Received (est)',
 		'wallet.swap.error.fee_fetch_failed': 'Failed to fetch fee estimate',
 		'wallet.receive.cancel': 'Cancel',
 		'wallet.receive.generate_invoice': 'Generate Invoice',
 		'wallet.receive.get_paid': 'Get Paid',
+		'wallet.receive.charge_fees_to_payer': 'Charge fees to payer',
 		'wallet.payment_request.title': 'Payment Request',
 		'wallet.receive.network': 'Network',
 		'wallet.receive.enter_amount_to_estimate': 'Enter amount to estimate fees',
 		'common.back': 'Back',
+		'common.next': 'Next',
 		'wallet.receive.unit_sats': 'Sats',
 		'wallet.receive.unit_usd': 'USD',
 		'common.loading': 'Loading...',
-		'wallet.exchange_rate_unavailable': 'Exchange rate unavailable'
+		'wallet.exchange_rate_unavailable': 'Exchange rate unavailable',
+		'wallet.coming_soon': 'Coming Soon',
+		'wallet.max': 'Max'
 	};
 	const tStore = readable((key: string) => translations[key] || key);
 	return {
@@ -57,9 +60,17 @@ vi.mock('$lib/stores/wallet.store', async () => {
 			hasAnyConnection: true,
 			isConnected: true,
 			isInitializing: false,
+			totalBalances: {
+				sats: 250000
+			},
 			rsk: {
 				connected: true,
 				address: '0x1234567890123456789012345678901234567890'
+			},
+			bsc: {
+				connected: true,
+				address: '0x2222222222222222222222222222222222222222',
+				formattedUsdtBalance: '125.000000'
 			}
 		}),
 		walletManager: {
@@ -173,7 +184,6 @@ vi.mock('@capacitor/core', () => ({
 	Capacitor: { getPlatform: vi.fn(() => 'web') }
 }));
 
-// Mock ethers to prevent real network calls
 vi.mock('ethers', async () => {
 	const actual = await vi.importActual('ethers');
 	return {
@@ -183,7 +193,7 @@ vi.mock('ethers', async () => {
 			JsonRpcProvider: vi.fn().mockImplementation(() => ({
 				getBlockNumber: vi.fn().mockResolvedValue(12345678),
 				getFeeData: vi.fn().mockResolvedValue({
-					gasPrice: BigInt('1000000000'), // 1 gwei
+					gasPrice: BigInt('1000000000'),
 					maxFeePerGas: BigInt('1000000000'),
 					maxPriorityFeePerGas: BigInt('100000000')
 				}),
@@ -199,7 +209,6 @@ vi.mock('ethers', async () => {
 
 vi.mock('$lib/stores/app.store', async () => {
 	const { writable } = await import('svelte/store');
-	// Create a mock pool for the store
 	const mockPool = {
 		querySync: vi.fn().mockResolvedValue([]),
 		publish: vi.fn().mockResolvedValue([Promise.resolve()]),
@@ -231,6 +240,23 @@ describe('ReceivePaymentForm Integration Tests', () => {
 
 	beforeEach(() => {
 		vi.clearAllMocks();
+		walletStore.set({
+			hasAnyConnection: true,
+			isConnected: true,
+			isInitializing: false,
+			totalBalances: {
+				sats: 250000
+			},
+			rsk: {
+				connected: true,
+				address: '0x1234567890123456789012345678901234567890'
+			},
+			bsc: {
+				connected: true,
+				address: '0x2222222222222222222222222222222222222222',
+				formattedUsdtBalance: '125.000000'
+			}
+		});
 	});
 
 	describe('Invoice Generation Flow', () => {
@@ -238,7 +264,6 @@ describe('ReceivePaymentForm Integration Tests', () => {
 			render(ReceivePaymentForm, defaultProps);
 			await tick();
 
-			// Enter 10000 sats using calculator (above Lightning swap minimum)
 			await waitFor(() => {
 				expect(screen.getAllByRole('button', { name: '1' }).length).toBeGreaterThan(0);
 			});
@@ -248,22 +273,21 @@ describe('ReceivePaymentForm Integration Tests', () => {
 			fireEvent.click(getCalcButton('0'));
 			fireEvent.click(getCalcButton('0'));
 			fireEvent.click(getCalcButton('0'));
-			fireEvent.click(getCalcButton('0')); // 10000
+			fireEvent.click(getCalcButton('0'));
 			await tick();
 
-			// Wait for fees to calculate
 			await waitFor(() => {
-				expect(document.querySelector('.loading.loading-spinner')).toBeNull();
+				const getPaidButtons = screen.getAllByRole('button', { name: /Get Paid/i });
+				expect(getPaidButtons.some((button) => !button.hasAttribute('disabled'))).toBe(true);
 			}, { timeout: 3000 });
 
-			// On mobile: click Next to go to step 2, then Get Paid
 			const nextButton = screen.queryByRole('button', { name: /Next/i });
 			if (nextButton && !nextButton.hasAttribute('disabled')) {
 				fireEvent.click(nextButton);
 				await tick();
 			}
 			const getPaidButtons = screen.getAllByRole('button', { name: /Get Paid/i });
-			const enabledBtn = getPaidButtons.find((b) => !b.hasAttribute('disabled'));
+			const enabledBtn = getPaidButtons.find((button) => !button.hasAttribute('disabled'));
 			if (enabledBtn) {
 				fireEvent.click(enabledBtn);
 			}
@@ -279,7 +303,6 @@ describe('ReceivePaymentForm Integration Tests', () => {
 			render(ReceivePaymentForm, { ...defaultProps, onOpenPaymentRequest });
 			await tick();
 
-			// Enter 10000 sats and generate invoice
 			fireEvent.click(screen.getAllByRole('button', { name: 'Sats' })[0]);
 			await tick();
 			fireEvent.click(getCalcButton('1'));
@@ -291,7 +314,7 @@ describe('ReceivePaymentForm Integration Tests', () => {
 
 			await waitFor(() => {
 				const getPaidButtons = screen.getAllByRole('button', { name: /Get Paid/i });
-				return getPaidButtons.some((b) => !b.hasAttribute('disabled'));
+				expect(getPaidButtons.some((button) => !button.hasAttribute('disabled'))).toBe(true);
 			}, { timeout: 3000 });
 			const nextButton = screen.queryByRole('button', { name: /Next/i });
 			if (nextButton && !nextButton.hasAttribute('disabled')) {
@@ -299,7 +322,7 @@ describe('ReceivePaymentForm Integration Tests', () => {
 				await tick();
 			}
 			const getPaidButtons = screen.getAllByRole('button', { name: /Get Paid/i });
-			const enabledBtn = getPaidButtons.find((b) => !b.hasAttribute('disabled'));
+			const enabledBtn = getPaidButtons.find((button) => !button.hasAttribute('disabled'));
 			if (enabledBtn) {
 				fireEvent.click(enabledBtn);
 			}
@@ -316,14 +339,12 @@ describe('ReceivePaymentForm Integration Tests', () => {
 			render(ReceivePaymentForm, defaultProps);
 			await tick();
 
-			// Network selector is a collapse; click title to expand
 			const networkButton = screen.getAllByRole('button', {
 				name: /Lightning Bitcoin\s*Network/i
 			})[0];
 			fireEvent.click(networkButton);
 			await tick();
 
-			// Click Rootstock Bitcoin option
 			await waitFor(() => {
 				const rootstockOptions = screen.getAllByRole('button', {
 					name: /Rootstock Bitcoin\s*Network/i
@@ -333,7 +354,6 @@ describe('ReceivePaymentForm Integration Tests', () => {
 			}, { timeout: 2000 });
 			await tick();
 
-			// Verify network was selected
 			await waitFor(() => {
 				const updatedTitles = screen.getAllByRole('button', {
 					name: /Rootstock Bitcoin\s*Network/i
@@ -358,11 +378,11 @@ describe('ReceivePaymentForm Integration Tests', () => {
 			fireEvent.click(getCalcButton('0'));
 			fireEvent.click(getCalcButton('0'));
 			fireEvent.click(getCalcButton('0'));
-			fireEvent.click(getCalcButton('0')); // 100000
+			fireEvent.click(getCalcButton('0'));
 			await tick();
 
 			await waitFor(() => {
-				expect(screen.getByText(/Network Fee:/)).toBeDefined();
+				expect(screen.getAllByText(/297 Sats/i).length).toBeGreaterThan(0);
 			}, { timeout: 3000 });
 		});
 	});
@@ -371,28 +391,22 @@ describe('ReceivePaymentForm Integration Tests', () => {
 		it('should toggle between sats and USD', async () => {
 			render(ReceivePaymentForm, defaultProps);
 			await tick();
-			
-			// Find unit toggle buttons - there might be multiple, get the specific ones from AmountInputSection
+
 			await waitFor(() => {
 				const satsButtons = screen.getAllByRole('button', { name: /^Sats$/i });
 				const usdButtons = screen.getAllByRole('button', { name: /^USD$/i });
 				expect(satsButtons.length).toBeGreaterThan(0);
 				expect(usdButtons.length).toBeGreaterThan(0);
 			});
-			
-			// Get the first unit toggle (from AmountInputSection)
+
 			const satsButton = screen.getAllByRole('button', { name: 'Sats' })[0];
 			const usdButton = screen.getAllByRole('button', { name: 'USD' })[0];
-			
-			// Default should be USD, click sats
+
 			fireEvent.click(satsButton);
 			await tick();
-			
-			// Click USD to toggle back
+
 			fireEvent.click(usdButton);
 			await tick();
 		});
 	});
 });
-
-

@@ -91,6 +91,30 @@ describe('contractPermissions', () => {
 				expect(result.permissions.canDelete).toBe(true);
 			});
 
+			it('should keep never-funded contracts read-only when deletion fallback is disabled', () => {
+				const result = determineContractState(
+					null,
+					[],
+					{
+						...mockContract,
+						transactionHash: undefined,
+						paymentAsset: 'USDT',
+						paymentNetwork: 'bsc-testnet'
+					},
+					null,
+					null,
+					false,
+					true,
+					false,
+					{ allowDeleteWhenNeverFunded: false }
+				);
+
+				expect(result.status).toBe(EscrowStatus.Funded);
+				expect(result.permissions.canDelete).toBe(false);
+				expect(result.permissions.canAccept).toBe(false);
+				expect(result.permissions.canCancel).toBe(false);
+			});
+
 			it('should handle pending states for never-funded contracts', () => {
 				const statusEvents: ContractStatusEvent[] = [
 					{

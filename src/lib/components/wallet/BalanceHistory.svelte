@@ -15,33 +15,74 @@
 
 	let showChartModal = $state(false);
 
+	let balanceHistoryContext = $derived.by(() => {
+		const useBscRail =
+			$walletStore.activeNetwork === 'bsc' ||
+			typeof $walletStore.selectedAsset === 'string' && $walletStore.selectedAsset.toUpperCase() === 'USDT';
+
+		if (useBscRail) {
+			return {
+				currentAmount: $totalBalances.usdt,
+				currentUsd: $totalBalances.usdt,
+				provider: $walletStore.bsc.provider,
+				address: $walletStore.bsc.address,
+				network: 'bsc' as const,
+				assetSymbol: 'USDT',
+				unitLabel: 'USDT'
+			};
+		}
+
+		return {
+			currentAmount: $totalBalances.sats,
+			currentUsd: $totalBalances.usd,
+			provider: $walletStore.rsk.provider,
+			address: $walletStore.rsk.address,
+			network: 'rsk' as const,
+			assetSymbol: 'RBTC',
+			unitLabel: 'sats'
+		};
+	});
+
 	/**
 	 * Create a reactive promise that updates when totalBalances changes
 	 */
 	let balanceChangesPromise = $derived.by(() => {
+		const context = balanceHistoryContext;
 		// Return promise (not awaited) - {#await} in template handles it
 		return balanceHistoryService.getBalanceChanges(
-			$totalBalances.sats,
-			$totalBalances.usd,
-			$walletStore.rsk.provider,
-			$walletStore.rsk.address
+			context.currentAmount,
+			context.currentUsd,
+			context.provider,
+			context.address,
+			context
 		);
 	});
 
 	/**
 	 * Format balance change for display
 	 */
-	function formatBalanceChange(satsChange: number | null, usdChange: number | null) {
-		if (satsChange === null || usdChange === null) {
+	function formatAssetAmount(amount: number, unitLabel: string) {
+		if (unitLabel === 'sats') {
+			return formatSats(Math.abs(amount));
+		}
+
+		return `${Math.abs(amount).toLocaleString('en-US', {
+			minimumFractionDigits: 0,
+			maximumFractionDigits: 6
+		})} ${unitLabel}`;
+	}
+
+	function formatBalanceChange(amountChange: number | null, usdChange: number | null, unitLabel: string) {
+		if (amountChange === null || usdChange === null) {
 			return null;
 		}
 
-		const sats = satsChange;
+		const amount = amountChange;
 		const usd = usdChange;
 		
-		// Check if sats is neutral (zero or effectively zero)
-		const satsIsZero = sats === 0;
-		const satsIsNeutral = satsIsZero;
+		// Check if amount is neutral (zero or effectively zero)
+		const amountIsZero = amount === 0;
+		const amountIsNeutral = amountIsZero;
 		
 		// Check if USD is neutral (zero or below threshold)
 		const usdIsZero = usd === 0;
@@ -53,18 +94,18 @@
 			maximumFractionDigits: 2
 		}).format(Math.abs(usd));
 
-		const satsDisplay = satsIsNeutral
-			? `${formatSats(Math.abs(sats))}`
-			: sats > 0
-				? `+${formatSats(Math.abs(sats))}`
-				: `-${formatSats(Math.abs(sats))}`;
+		const amountDisplay = amountIsNeutral
+			? `${formatAssetAmount(amount, unitLabel)}`
+			: amount > 0
+				? `+${formatAssetAmount(amount, unitLabel)}`
+				: `-${formatAssetAmount(amount, unitLabel)}`;
 
 		const usdDisplay = usdIsNeutral ? `$${formattedUsd}` : usd > 0 ? `+$${formattedUsd}` : `-$${formattedUsd}`;
 
-		// Determine color for sats independently
-		const satsColorClass = satsIsNeutral 
+		// Determine color for asset amount independently
+		const amountColorClass = amountIsNeutral
 			? 'text-base-content/70'  // Match label color for neutral
-			: sats > 0 
+			: amount > 0
 				? 'text-success' 
 				: 'text-error';
 
@@ -76,11 +117,11 @@
 				: 'text-error/80';
 
 		return {
-			satsDisplay,
+			amountDisplay,
 			usdDisplay,
-			satsIsNeutral,
+			amountIsNeutral,
 			usdIsNeutral,
-			satsColorClass,
+			amountColorClass,
 			usdColorClass
 		};
 	}
@@ -130,18 +171,17 @@
 							<div class="text-base-content/50">••••</div>
 							<div class="text-base-content/50">••••</div>
 						{:else if change.satsChange === null}
-							<!-- Loading indicator - matching loaded state dimensions -->
-							<div class="font-semibold text-base-content inline-flex items-center gap-1 min-w-20 justify-center">
-								<span class="loading loading-spinner loading-xs text-primary"></span>
+							<div class="font-semibold text-base-content/60 min-w-20 text-center">
+								N/A
 							</div>
-							<div class="text-base-content/70 inline-flex items-center gap-1 min-w-16 justify-center">
-								<span class="loading loading-spinner loading-xs text-primary"></span>
+							<div class="text-base-content/50 min-w-16 text-center">
+								N/A
 							</div>
 						{:else}
-							{@const formatted = formatBalanceChange(change.satsChange, change.usdChange)}
+							{@const formatted = formatBalanceChange(change.satsChange, change.usdChange, balanceHistoryContext.unitLabel)}
 							{#if formatted}
-								<div class="font-semibold {formatted.satsColorClass}">
-									{formatted.satsDisplay}
+								<div class="font-semibold {formatted.amountColorClass}">
+									{formatted.amountDisplay}
 								</div>
 								<div class="{formatted.usdColorClass}">
 									{formatted.usdDisplay}

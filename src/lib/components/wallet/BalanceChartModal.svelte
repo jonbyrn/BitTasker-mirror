@@ -68,11 +68,62 @@
 
 	interface DailyBalance {
 		date: Date;
-		sats: number;
-		usd: number;
+		sats: number | null;
+		usd: number | null;
 	}
 
 	let dailyBalances = $state<DailyBalance[]>([]);
+
+	let balanceHistoryContext = $derived.by(() => {
+		const useBscRail =
+			$walletStore.activeNetwork === 'bsc' ||
+			typeof $walletStore.selectedAsset === 'string' && $walletStore.selectedAsset.toUpperCase() === 'USDT';
+
+		if (useBscRail) {
+			return {
+				currentAmount: $totalBalances.usdt,
+				currentUsd: $totalBalances.usdt,
+				provider: $walletStore.bsc.provider,
+				address: $walletStore.bsc.address,
+				network: 'bsc' as const,
+				assetSymbol: 'USDT',
+				unitLabel: 'USDT'
+			};
+		}
+
+		return {
+			currentAmount: $totalBalances.sats,
+			currentUsd: $totalBalances.usd,
+			provider: $walletStore.rsk.provider,
+			address: $walletStore.rsk.address,
+			network: 'rsk' as const,
+			assetSymbol: 'RBTC',
+			unitLabel: 'sats'
+		};
+	});
+
+	function getBalanceAxisLabel(): string {
+		return balanceHistoryContext.unitLabel === 'USDT'
+			? 'USDT'
+			: $t('wallet.balance_chart.chart.sats_axis');
+	}
+
+	function getBalanceDatasetLabel(): string {
+		return balanceHistoryContext.unitLabel === 'USDT'
+			? 'USDT Balance'
+			: $t('wallet.balance_chart.chart.bitcoin_balance_label');
+	}
+
+	function formatBalanceUnitValue(value: number): string {
+		if (balanceHistoryContext.unitLabel === 'USDT') {
+			return `${Number(value).toLocaleString('en-US', {
+				minimumFractionDigits: 0,
+				maximumFractionDigits: 6
+			})} USDT`;
+		}
+
+		return `${formatSats(Number(value))} ${$t('wallet.balance_chart.chart.tooltip_sats')}`;
+	}
 
 	// Get date range based on selection
 	function getDateRange(option: DateRangeOption): { start: Date; end: Date } {
@@ -136,12 +187,14 @@
 			return;
 		}
 
-		if (!$walletStore.rsk.provider) {
+		const context = balanceHistoryContext;
+
+		if (!context.provider) {
 			error = 'Wallet provider not available';
 			return;
 		}
 
-		if (!$walletStore.rsk.address) {
+		if (!context.address) {
 			error = 'Wallet address not available';
 			return;
 		}
@@ -155,17 +208,28 @@
 			const balances = await balanceHistoryService.getDailyBalances(
 				start,
 				end,
-				$walletStore.rsk.provider,
-				$walletStore.rsk.address,
-				$totalBalances.sats,
-				$totalBalances.usd
+				context.provider,
+				context.address,
+				context.currentAmount,
+				context.currentUsd,
+				context
 			);
 
-			// Ensure we have data - if empty, log for debugging
+			const usableBalances = balances.filter(
+				(balance) => balance.sats !== null && balance.usd !== null
+			) as Array<{ date: Date; sats: number; usd: number }>;
+
 			if (balances.length === 0) {
 				error = 'No data available for the selected date range';
+				dailyBalances = [];
+			} else if (usableBalances.length === 0) {
+				error =
+					context.unitLabel === 'USDT'
+						? 'Historical balance data is temporarily unavailable for USDT on BSC.'
+						: 'No data available for the selected date range';
+				dailyBalances = [];
 			} else {
-				dailyBalances = balances;
+				dailyBalances = usableBalances;
 			}
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Failed to load balance data';
@@ -221,7 +285,8 @@
 		
 		if (chartInstance && dailyBalances.length > 0 && !isLoading) {
 			updateChart();
-		} else if (chartInstance && currentLocale) {
+		} else if (chartInstance && !isLoading && currentLocale) {
+			clearChartData();
 			// If chart exists but no data, still update labels when language changes
 			updateChartLabels();
 		}
@@ -268,7 +333,7 @@
 		// Update axis labels
 		const dateAxisLabel = $t('wallet.balance_chart.chart.date_axis');
 		const usdAxisLabel = $t('wallet.balance_chart.chart.usd_axis');
-		const satsAxisLabel = $t('wallet.balance_chart.chart.sats_axis');
+		const satsAxisLabel = getBalanceAxisLabel();
 		
 		// Use type assertion to update scale titles
 		const scales = chartInstance.options.scales as any;
@@ -329,7 +394,7 @@
 		}
 		
 		// Update dataset labels
-		const bitcoinBalanceLabel = $t('wallet.balance_chart.chart.bitcoin_balance_label');
+		const bitcoinBalanceLabel = getBalanceDatasetLabel();
 		const totalUsdLabel = $t('wallet.balance_chart.chart.total_usd_label');
 		
 		if (chartInstance.data.datasets[0]) {
@@ -339,6 +404,15 @@
 			chartInstance.data.datasets[1].label = totalUsdLabel;
 		}
 		
+		chartInstance.update('none');
+	}
+
+	function clearChartData() {
+		if (!chartInstance) return;
+
+		chartInstance.data = {
+			datasets: []
+		};
 		chartInstance.update('none');
 	}
 
@@ -353,7 +427,7 @@
 		// Get translations for chart labels
 		const dateAxisLabel = $t('wallet.balance_chart.chart.date_axis');
 		const usdAxisLabel = $t('wallet.balance_chart.chart.usd_axis');
-		const satsAxisLabel = $t('wallet.balance_chart.chart.sats_axis');
+		const satsAxisLabel = getBalanceAxisLabel();
 		
 		chartInstance = new Chart(chartCanvas, {
 			type: 'bar',
@@ -401,14 +475,12 @@
 								const datasetLabel = context.dataset.label || '';
 								const value = context.parsed.y;
 								const tooltipNA = $t('wallet.balance_chart.chart.tooltip_na');
-								const tooltipSats = $t('wallet.balance_chart.chart.tooltip_sats');
-								
 								if (value === null || value === undefined) {
 									return `${datasetLabel}: ${tooltipNA}`;
 								}
 								
-								if (datasetLabel.includes('sats') || datasetLabel.includes('Sats')) {
-									return `${datasetLabel}: ${formatSats(Number(value))} ${tooltipSats}`;
+								if (context.dataset.yAxisID === 'y1') {
+									return `${datasetLabel}: ${formatBalanceUnitValue(Number(value))}`;
 								} else if (datasetLabel.includes('USD')) {
 									return `${datasetLabel}: $${Number(value).toFixed(2)}`;
 								}
@@ -488,6 +560,12 @@
 								size: 11
 							},
 							callback: function(value) {
+								if (balanceHistoryContext.unitLabel === 'USDT') {
+									return Number(value).toLocaleString('en-US', {
+										minimumFractionDigits: 0,
+										maximumFractionDigits: 6
+									});
+								}
 								return formatSats(Number(value));
 							}
 						},
@@ -503,24 +581,29 @@
 	function updateChart() {
 		if (!chartInstance) return;
 
-		if (dailyBalances.length === 0) {
+		const chartBalances = dailyBalances.filter(
+			(balance): balance is { date: Date; sats: number; usd: number } =>
+				balance.sats !== null && balance.usd !== null
+		);
+
+		if (chartBalances.length === 0) {
 			console.warn('[BalanceChartModal] No balance data to display');
 			return;
 		}
 
 		// Prepare data - Chart.js time scale expects {x: Date, y: number} format
-		const chartData = dailyBalances.map(b => ({
+		const chartData = chartBalances.map(b => ({
 			x: b.date, // Date object for time scale
 			y: b.sats
 		}));
 
-		const usdChartData = dailyBalances.map(b => ({
+		const usdChartData = chartBalances.map(b => ({
 			x: b.date, // Date object for time scale
 			y: b.usd
 		}));
 
 		// Get translations for dataset labels
-		const bitcoinBalanceLabel = $t('wallet.balance_chart.chart.bitcoin_balance_label');
+		const bitcoinBalanceLabel = getBalanceDatasetLabel();
 		const totalUsdLabel = $t('wallet.balance_chart.chart.total_usd_label');
 		
 		chartInstance.data = {
@@ -672,4 +755,3 @@
 		</form>
 	</div>
 {/if}
-

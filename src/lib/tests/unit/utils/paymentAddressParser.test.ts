@@ -2,13 +2,19 @@ import { describe, it, expect, vi } from 'vitest';
 
 // Mock wallet-core and liquidjs-lib so paymentAddressParser (via validators) can load
 vi.mock('@bittasker/wallet-core', () => ({
-	normalizeRskAddress: vi.fn((addr: string) => addr)
+	normalizeRskAddress: vi.fn((addr: string) => addr),
+	isValidRskAddress: vi.fn((addr: string, chainId: number) => {
+		return chainId === 30 && addr === '0xE1D3F94d0b1aBEbdbE5e722e68CdEcA94a8e7d41';
+	})
 }));
 vi.mock('liquidjs-lib', () => ({
 	address: { toOutputScript: vi.fn() }
 }));
 
-import { parsePaymentAddress, type ParsedPaymentAddress } from '$lib/utils/helpers/paymentAddressParser';
+import {
+	parsePaymentAddress,
+	AMBIGUOUS_EVM_ADDRESS_ERROR
+} from '$lib/utils/helpers/paymentAddressParser';
 
 describe('parsePaymentAddress', () => {
 	describe('Empty and invalid inputs', () => {
@@ -95,11 +101,21 @@ describe('parsePaymentAddress', () => {
 			expect(result.address.toLowerCase()).toBe('0x1234567890123456789012345678901234567890');
 		});
 
-		it('should parse RSK address without scheme (default fallback)', () => {
+		it('should reject raw unqualified EVM addresses as ambiguous', () => {
 			const address = '0x1234567890123456789012345678901234567890';
+			const result = parsePaymentAddress(address);
+			expect(result.isValid).toBe(false);
+			expect(result.network).toBeNull();
+			expect(result.errorCode).toBe('ambiguous-evm-address');
+			expect(result.errorMessage).toBe(AMBIGUOUS_EVM_ADDRESS_ERROR);
+		});
+
+		it('should parse plain checksummed RSK addresses when the network is provable', () => {
+			const address = '0xE1D3F94d0b1aBEbdbE5e722e68CdEcA94a8e7d41';
 			const result = parsePaymentAddress(address);
 			expect(result.isValid).toBe(true);
 			expect(result.network).toBe('rootstock-bitcoin');
+			expect(result.address).toBe(address.toLowerCase());
 		});
 
 		it('should parse RSK address with chain ID', () => {
@@ -137,6 +153,15 @@ describe('parsePaymentAddress', () => {
 			const result = parsePaymentAddress(address);
 			expect(result.isValid).toBe(true);
 			expect(result.network).toBe('usdt-bsc');
+		});
+
+		it('should parse token-native BSC amounts from chain-qualified requests', () => {
+			const address = 'bsc:0x1234567890123456789012345678901234567890?amount=12.3456&memo=Invoice';
+			const result = parsePaymentAddress(address);
+			expect(result.isValid).toBe(true);
+			expect(result.network).toBe('usdt-bsc');
+			expect(result.amount).toBe(12.3456);
+			expect(result.memo).toBe('Invoice');
 		});
 	});
 
@@ -244,6 +269,13 @@ describe('parsePaymentAddress', () => {
 			expect(result.isValid).toBe(false);
 			expect(result.errorMessage).toContain('Ethereum mainnet');
 		});
+
+		it('should reject raw ethereum-style URIs without a supported chain id', () => {
+			const address = 'ethereum:0x1234567890123456789012345678901234567890?value=1';
+			const result = parsePaymentAddress(address);
+			expect(result.isValid).toBe(false);
+			expect(result.errorMessage).toContain('chain ID');
+		});
 	});
 
 	describe('Edge cases', () => {
@@ -255,11 +287,11 @@ describe('parsePaymentAddress', () => {
 		});
 
 		it('should normalize Ethereum addresses to lowercase', () => {
-			// Use a valid Ethereum address (42 characters: 0x + 40 hex chars)
-			const address = '0x1234567890123456789012345678901234567890';
+			// Qualified addresses are normalized after the network is proven safely.
+			const address = 'bsc:0x1234567890123456789012345678901234567890';
 			const result = parsePaymentAddress(address);
 			expect(result.isValid).toBe(true);
-			expect(result.address).toBe(address.toLowerCase());
+			expect(result.address).toBe('0x1234567890123456789012345678901234567890');
 		});
 
 		it('should handle invalid Ethereum address format', () => {
@@ -269,4 +301,3 @@ describe('parsePaymentAddress', () => {
 		});
 	});
 });
-

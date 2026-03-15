@@ -31,6 +31,7 @@
 	import { currentUserLanguage } from '$lib/stores/translation.store';
 	import { TASK_CATEGORIES } from '$lib/utils/constants/categories';
 	import UsdSatsDisplay from '../shared/UsdSatsDisplay.svelte';
+	import { getPaymentRailLabel, resolvePaymentContext } from '$lib/utils/helpers/paymentContext';
 
 	// Props
 	let { taskId } = $props<{ taskId: string }>();
@@ -102,6 +103,12 @@
 
 	const shouldShowLocationInfo = $derived(
 		() => isRemoteTask() || !!task?.pickupLocation || !!task?.dropOffLocation
+	);
+	const paymentContext = $derived(
+		task ? resolvePaymentContext(task.paymentAsset, task.paymentNetwork) : null
+	);
+	const isBscBudgetRail = $derived(
+		paymentContext?.paymentAsset === 'USDT' && paymentContext?.paymentNetwork.startsWith('bsc')
 	);
 
 	// Check if task deadline has expired
@@ -439,6 +446,11 @@
 									class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between md:gap-8"
 								>
 									<div class="flex flex-col gap-2 md:w-full md:flex-1">
+										<div>
+											<span class="badge badge-secondary badge-sm">
+												{getPaymentRailLabel(task.paymentAsset, task.paymentNetwork)}
+											</span>
+										</div>
 										{#if task.deadline || task.dateRange}
 											{#if task.deadline}
 												<div class="flex flex-col">
@@ -469,7 +481,13 @@
 										<span>{$t('dashboard.task_details_by_task.amount')}</span>
 									</div> -->
 										<div class="tracking-tight">
-											<UsdSatsDisplay amount={task.budget.amount} {btcPrice} size="large" />
+											{#if isBscBudgetRail}
+												<p class="text-right text-2xl font-bold">
+													${formatNumberWithTwoDecimals(task.budget.amount)}
+												</p>
+											{:else}
+												<UsdSatsDisplay amount={task.budget.amount} {btcPrice} size="large" />
+											{/if}
 										</div>
 									</div>
 								</div>

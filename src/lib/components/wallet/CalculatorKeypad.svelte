@@ -4,12 +4,13 @@
 
 	interface Props {
 		unit: 'sats' | 'usd';
+		decimalPlaces?: number;
 		disabled?: boolean;
 		onInput: (value: string) => void;
 		onCalculationChange?: (mathExpression: string, result: number) => void;
 	}
 
-	let { unit, disabled = false, onInput, onCalculationChange }: Props = $props();
+	let { unit, decimalPlaces = 2, disabled = false, onInput, onCalculationChange }: Props = $props();
 
 	// Types
 	type KeyType = 'number' | 'operator' | 'action' | 'decimal';
@@ -98,7 +99,7 @@
 		if (currentUnit === 'sats') {
 			return Math.floor(value).toString();
 		}
-		return value.toFixed(2).replace(/\.?0+$/, '');
+		return value.toFixed(decimalPlaces).replace(/\.?0+$/, '');
 	}
 
 	function notifyCalculationChange(expression: string, result: number): void {
@@ -111,7 +112,8 @@
 		if (previousValue !== null && operator && calculatorValue) {
 			const currentValue = parseFloat(calculatorValue) || 0;
 			const result = performOperation(previousValue, currentValue, operator);
-			const formattedResult = unit === 'sats' ? Math.floor(result) : parseFloat(result.toFixed(2));
+			const formattedResult =
+				unit === 'sats' ? Math.floor(result) : parseFloat(result.toFixed(decimalPlaces));
 			const expression = `${previousValue} ${operator} ${currentValue} = ${formattedResult}`;
 			notifyCalculationChange(expression, formattedResult);
 			return;

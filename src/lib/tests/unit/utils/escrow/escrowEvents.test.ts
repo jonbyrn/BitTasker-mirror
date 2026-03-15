@@ -354,7 +354,18 @@ describe('escrowEvents', () => {
 			await handleEscrowCreated(event);
 
 			expect(vi.mocked(publishContractEvent)).toHaveBeenCalled();
-			expect(vi.mocked(sendBidStatusUpdate)).toHaveBeenCalled();
+			expect(vi.mocked(sendBidStatusUpdate)).toHaveBeenCalledWith(
+				'bid-123',
+				'task-123',
+				'npub1freelancer',
+				BidStatusEnum.ACCEPTED,
+				'dashboard.bids.bid_acceptance.bid_accepted_message',
+				'123',
+				'0x123',
+				expect.objectContaining({
+					bidRef: 'bid:bid-123'
+				})
+			);
 			expect(vi.mocked(contractStore.loadContractByEscrowId)).toHaveBeenCalledWith('123');
 		});
 

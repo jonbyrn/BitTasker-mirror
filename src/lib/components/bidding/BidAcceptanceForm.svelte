@@ -30,6 +30,10 @@
 	import { triggerHaptic, ImpactStyle } from '$lib/utils/helpers/haptics';
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { satsFromUsd } from '$lib/utils/helpers/crypto';
+	import {
+		getPaymentRailLabel,
+		resolvePaymentContext
+	} from '$lib/utils/helpers/paymentContext';
 
 	// Props
 	const props = $props<{
@@ -39,8 +43,19 @@
 		onCancel: () => void;
 	}>();
 
-	const bidContent = props.bid.content as unknown as NostrBidContent;
-	const taskContent = JSON.parse(props.task.content) as Task;
+	let bidContent = $derived(props.bid.content as unknown as NostrBidContent);
+	let taskContent = $derived(JSON.parse(props.task.content) as Task);
+	let paymentContext = $derived(
+		resolvePaymentContext(
+			bidContent.paymentAsset ?? taskContent.paymentAsset,
+			bidContent.paymentNetwork ?? taskContent.paymentNetwork
+		)
+	);
+	let paymentAsset = $derived(paymentContext.paymentAsset);
+	let paymentNetwork = $derived(paymentContext.paymentNetwork);
+	let paymentRailLabel = $derived(getPaymentRailLabel(paymentAsset, paymentNetwork));
+	let escrowNetwork = $derived(paymentNetwork.startsWith('bsc') ? 'BSC' : 'RSK');
+	let isPreAbiBscEscrow = $derived(paymentNetwork.startsWith('bsc'));
 
 	// Form state
 	let isSubmitting = $state(false);
@@ -156,6 +171,11 @@
 	// Separate effect for balance validation
 	$effect(() => {
 		// Only check balance if wallet is connected and basic validation passes
+		if (escrowNetwork === 'BSC') {
+			balanceErrors = [];
+			return;
+		}
+
 		if (
 			!isLoading &&
 			bidEscrowDetails &&
@@ -256,7 +276,7 @@
 				props.bid,
 				props.task,
 				props.btcPrice,
-				'RSK'
+				escrowNetwork
 			);
 
 			// Validate transaction result before showing success
@@ -382,14 +402,36 @@
 		return bidEscrowDetails ? parseFloat(bidEscrowDetails.totalAmount) * props.btcPrice : 0;
 	}
 
+	function getPreAbiBscPricingNote(): string {
+		return `${paymentRailLabel} escrow stays read-only until the deployed BSC escrow ABI/artifacts are accepted. Rootstock gas and sats pricing does not apply to this rail.`;
+	}
+
+	function getPreAbiBscFundModalNote(): string {
+		return `${paymentRailLabel} escrow funding is blocked in this acceptance flow until the deployed BSC escrow ABI/artifacts are accepted.`;
+	}
+
 	/** Open Fund Contract confirmation modal (called when user clicks Accept). */
 	function openFundConfirmationModal() {
+		if (isPreAbiBscEscrow) {
+			appStore.showErrorToast(
+				`${paymentRailLabel} escrow acceptance remains blocked until the deployed BSC escrow ABI/artifacts are accepted.`
+			);
+			return;
+		}
+
 		showFundConfirmationModal = true;
 	}
 
 	/** Called when user clicks Fund in the confirmation modal. Re-checks balance, then closes and submits or shows error. */
 	async function handleFundClick() {
 		triggerHaptic(ImpactStyle.Light);
+		if (isPreAbiBscEscrow) {
+			appStore.showErrorToast(
+				`${paymentRailLabel} escrow acceptance remains blocked until the deployed BSC escrow ABI/artifacts are accepted.`
+			);
+			return;
+		}
+
 		const recheckErrors = bidEscrowDetails
 			? escrow.bidOps.validateSufficientBalance(bidEscrowDetails)
 			: [];
@@ -581,35 +623,37 @@
 										>
 									</div>
 
-									<div class="flex min-w-0 items-center justify-between gap-2">
-										<div class="flex min-w-0 items-center gap-1">
-											<span class="truncate text-xs font-medium italic"
-												>{$t('dashboard.bids.bid_acceptance.estimated_gas_fee')}</span
-											>
-											<div
-												class="tooltip tooltip-top shrink-0"
-												data-tip={$t('dashboard.bids.bid_acceptance.gas_fee_tooltip')}
-											>
-												<svg
-													xmlns="http://www.w3.org/2000/svg"
-													class="text-base-content/60 h-3 w-3"
-													fill="none"
-													viewBox="0 0 24 24"
-													stroke="currentColor"
+									{#if !isPreAbiBscEscrow}
+										<div class="flex min-w-0 items-center justify-between gap-2">
+											<div class="flex min-w-0 items-center gap-1">
+												<span class="truncate text-xs font-medium italic"
+													>{$t('dashboard.bids.bid_acceptance.estimated_gas_fee')}</span
 												>
-													<path
-														stroke-linecap="round"
-														stroke-linejoin="round"
-														stroke-width="2"
-														d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-													/>
-												</svg>
+												<div
+													class="tooltip tooltip-top shrink-0"
+													data-tip={$t('dashboard.bids.bid_acceptance.gas_fee_tooltip')}
+												>
+													<svg
+														xmlns="http://www.w3.org/2000/svg"
+														class="text-base-content/60 h-3 w-3"
+														fill="none"
+														viewBox="0 0 24 24"
+														stroke="currentColor"
+													>
+														<path
+															stroke-linecap="round"
+															stroke-linejoin="round"
+															stroke-width="2"
+															d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+														/>
+													</svg>
+												</div>
 											</div>
+											<span class="shrink-0 text-xs font-bold italic"
+												>${getEstimatedGasFee().toFixed(2)}</span
+											>
 										</div>
-										<span class="shrink-0 text-xs font-bold italic"
-											>${getEstimatedGasFee().toFixed(2)}</span
-										>
-									</div>
+									{/if}
 
 									<div class="border-base-200 border-t pt-2">
 										<div class="flex min-w-0 items-center justify-between gap-2">
@@ -622,17 +666,24 @@
 										</div>
 									</div>
 
-									<!-- BTC Price and Sats on same row -->
-									<div class="">
-										<div class="flex min-w-0 items-center justify-between gap-2">
-											<span class="text-base-content/60 truncate text-xs font-medium italic"
-												>{$t('dashboard.bids.bid_acceptance.btc_price')} {formatBTCPrice()}</span
-											>
-											<span class="text-base-content/60 shrink-0 text-xs font-medium italic"
-												>{formatTotalSatsAmount()} {$t('dashboard.bids.bid_acceptance.sats')}</span
-											>
+									{#if isPreAbiBscEscrow}
+										<div class="text-base-content/60 space-y-1 text-right text-xs font-medium italic">
+											<div>{paymentRailLabel} escrow remains in read-only pre-ABI mode.</div>
+											<div>{getPreAbiBscPricingNote()}</div>
 										</div>
-									</div>
+									{:else}
+										<!-- BTC Price and Sats on same row -->
+										<div class="">
+											<div class="flex min-w-0 items-center justify-between gap-2">
+												<span class="text-base-content/60 truncate text-xs font-medium italic"
+													>{$t('dashboard.bids.bid_acceptance.btc_price')} {formatBTCPrice()}</span
+												>
+												<span class="text-base-content/60 shrink-0 text-xs font-medium italic"
+													>{formatTotalSatsAmount()} {$t('dashboard.bids.bid_acceptance.sats')}</span
+												>
+											</div>
+										</div>
+									{/if}
 								</div>
 							</div>
 						</div>
@@ -688,120 +739,150 @@
 					</div>
 				{/if}
 
-				<!-- Bitcoin Balance Accordion -->
-				<div>
-					<div
-						class="collapse-arrow border-primary bg-base-100 collapse rounded-lg border-2"
-						class:collapse-open={bitcoinExpanded}
-					>
-						<button
-							type="button"
-							class="collapse-title flex items-center justify-between px-3 py-2 pr-10 text-left text-sm font-medium sm:px-4 sm:py-3 sm:pr-12 sm:text-base"
-							onclick={() => (bitcoinExpanded = !bitcoinExpanded)}
-						>
-							<div class="flex min-w-0 flex-1 items-center gap-2">
-								<img
-									src="/images/chains/Bitcoin.svg"
-									alt="Bitcoin"
-									class="h-5 w-5 shrink-0 sm:h-6 sm:w-6"
+				{#if isPreAbiBscEscrow}
+					<div class="alert alert-outline alert-warning">
+						<div class="flex items-start gap-3">
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								class="mt-0.5 h-6 w-6 shrink-0 stroke-current"
+								fill="none"
+								viewBox="0 0 24 24"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16c-.77.833.192 2.5 1.732 2.5z"
 								/>
-								<span>{$t('wallet.bitcoin')}</span>
+							</svg>
+							<div class="min-w-0 flex-1">
+								<p class="font-semibold">
+									{paymentRailLabel} escrow is currently read-only in this acceptance flow.
+								</p>
+								<p class="mt-1 text-sm">
+									Contract acceptance stays blocked until the deployed BSC escrow ABI/artifacts are
+									accepted. The current Rootstock balance and faucet guidance does not apply to this
+									rail.
+								</p>
 							</div>
-							<div class="ml-2 shrink-0 text-right">
-								{#if isLoading || $walletStore.rsk.connecting}
-									<div class="flex h-9 w-9 flex-col items-end justify-center gap-0.5">
-										<span class="loading loading-spinner loading-md"></span>
-									</div>
-								{:else if !$walletStore.rsk.connected || $walletStore.rsk.error}
-									<div class="text-error text-sm font-semibold sm:text-base">
-										{$walletStore.rsk.error
-											? $t('dashboard.bids.bid_acceptance.wallet_error_prefix')
-											: $t('dashboard.bids.bid_acceptance.wallet_not_connected')}
-									</div>
-								{:else if balancesHidden}
-									<div class="text-sm font-semibold sm:text-base">
-										•••• {$t('wallet.sats')}
-									</div>
-									<div class="text-xs opacity-70 sm:text-sm">≈ $••••</div>
-								{:else}
-									<div class="text-sm font-semibold sm:text-base">
-										{formatSats($totalBalances.sats)}
-										{$t('wallet.sats')}
-									</div>
-									{#if bitcoinAsset?.usdValue}
-										<div class="text-xs opacity-70 sm:text-sm">
-											≈ ${bitcoinAsset.usdValue.toFixed(2)}
-										</div>
-									{/if}
-								{/if}
-							</div>
-						</button>
-						<div class="collapse-content">
-							<div class="space-y-1.5 px-3 pb-1.5 sm:space-y-2 sm:px-4 sm:pb-2">
-								<!-- L2 BTC Entry with Lightning Bolt Icon -->
-								<div class="flex items-center justify-between">
-									<div class="flex items-center gap-1.5 sm:gap-2">
-										<svg
-											xmlns="http://www.w3.org/2000/svg"
-											class="h-4 w-4 text-yellow-500 sm:h-5 sm:w-5"
-											fill="none"
-											viewBox="0 0 24 24"
-											stroke="currentColor"
-										>
-											<path
-												stroke-linecap="round"
-												stroke-linejoin="round"
-												stroke-width="2"
-												d="M13 10V3L4 14h7v7l9-11h-7z"
-											/>
-										</svg>
-										<span class="text-sm font-medium sm:text-base">{$t('wallet.l2_btc')}</span>
-									</div>
-									<div class="text-right">
-										{#if balancesHidden}
-											<div class="text-sm font-semibold sm:text-base">
-												•••• {$t('wallet.sats')}
-											</div>
-											<div class="text-xs opacity-70">$••••</div>
-										{:else if bitcoinAsset}
-											{@const balanceInSats = Math.floor(bitcoinAsset.balance * 100_000_000)}
-											<div class="text-sm font-semibold sm:text-base">
-												{formatSats(balanceInSats)}
-												{$t('wallet.sats')}
-											</div>
-											{#if bitcoinAsset.usdValue > 0}
-												<div class="text-xs opacity-70">
-													${bitcoinAsset.usdValue.toFixed(2)}
-												</div>
-											{/if}
-										{:else}
-											<div class="text-sm font-semibold sm:text-base">0 {$t('wallet.sats')}</div>
-										{/if}
-									</div>
+						</div>
+					</div>
+				{:else}
+					<!-- Bitcoin Balance Accordion -->
+					<div>
+						<div
+							class="collapse-arrow border-primary bg-base-100 collapse rounded-lg border-2"
+							class:collapse-open={bitcoinExpanded}
+						>
+							<button
+								type="button"
+								class="collapse-title flex items-center justify-between px-3 py-2 pr-10 text-left text-sm font-medium sm:px-4 sm:py-3 sm:pr-12 sm:text-base"
+								onclick={() => (bitcoinExpanded = !bitcoinExpanded)}
+							>
+								<div class="flex min-w-0 flex-1 items-center gap-2">
+									<img
+										src="/images/chains/Bitcoin.svg"
+										alt="Bitcoin"
+										class="h-5 w-5 shrink-0 sm:h-6 sm:w-6"
+									/>
+									<span>{$t('wallet.bitcoin')}</span>
 								</div>
-
-								<!-- BTC Entry (Coming Soon) -->
-								<div class="flex items-center justify-between">
-									<div class="flex items-center gap-1.5 sm:gap-2">
-										<img
-											src="/images/chains/Bitcoin.svg"
-											alt="BTC"
-											class="h-4 w-4 opacity-50 sm:h-5 sm:w-5"
-										/>
-										<span class="text-base-content/50 text-sm font-medium sm:text-base"
-											>{$t('wallet.btc')}</span
-										>
+								<div class="ml-2 shrink-0 text-right">
+									{#if isLoading || $walletStore.rsk.connecting}
+										<div class="flex h-9 w-9 flex-col items-end justify-center gap-0.5">
+											<span class="loading loading-spinner loading-md"></span>
+										</div>
+									{:else if !$walletStore.rsk.connected || $walletStore.rsk.error}
+										<div class="text-error text-sm font-semibold sm:text-base">
+											{$walletStore.rsk.error
+												? $t('dashboard.bids.bid_acceptance.wallet_error_prefix')
+												: $t('dashboard.bids.bid_acceptance.wallet_not_connected')}
+										</div>
+									{:else if balancesHidden}
+										<div class="text-sm font-semibold sm:text-base">
+											•••• {$t('wallet.sats')}
+										</div>
+										<div class="text-xs opacity-70 sm:text-sm">≈ $••••</div>
+									{:else}
+										<div class="text-sm font-semibold sm:text-base">
+											{formatSats($totalBalances.sats)}
+											{$t('wallet.sats')}
+										</div>
+										{#if bitcoinAsset?.usdValue}
+											<div class="text-xs opacity-70 sm:text-sm">
+												≈ ${bitcoinAsset.usdValue.toFixed(2)}
+											</div>
+										{/if}
+									{/if}
+								</div>
+							</button>
+							<div class="collapse-content">
+								<div class="space-y-1.5 px-3 pb-1.5 sm:space-y-2 sm:px-4 sm:pb-2">
+									<!-- L2 BTC Entry with Lightning Bolt Icon -->
+									<div class="flex items-center justify-between">
+										<div class="flex items-center gap-1.5 sm:gap-2">
+											<svg
+												xmlns="http://www.w3.org/2000/svg"
+												class="h-4 w-4 text-yellow-500 sm:h-5 sm:w-5"
+												fill="none"
+												viewBox="0 0 24 24"
+												stroke="currentColor"
+											>
+												<path
+													stroke-linecap="round"
+													stroke-linejoin="round"
+													stroke-width="2"
+													d="M13 10V3L4 14h7v7l9-11h-7z"
+												/>
+											</svg>
+											<span class="text-sm font-medium sm:text-base">{$t('wallet.l2_btc')}</span>
+										</div>
+										<div class="text-right">
+											{#if balancesHidden}
+												<div class="text-sm font-semibold sm:text-base">
+													•••• {$t('wallet.sats')}
+												</div>
+												<div class="text-xs opacity-70">$••••</div>
+											{:else if bitcoinAsset}
+												{@const balanceInSats = Math.floor(bitcoinAsset.balance * 100_000_000)}
+												<div class="text-sm font-semibold sm:text-base">
+													{formatSats(balanceInSats)}
+													{$t('wallet.sats')}
+												</div>
+												{#if bitcoinAsset.usdValue > 0}
+													<div class="text-xs opacity-70">
+														${bitcoinAsset.usdValue.toFixed(2)}
+													</div>
+												{/if}
+											{:else}
+												<div class="text-sm font-semibold sm:text-base">0 {$t('wallet.sats')}</div>
+											{/if}
+										</div>
 									</div>
-									<div class="text-right">
-										<span class="text-base-content/50 text-sm font-semibold sm:text-base"
-											>{$t('wallet.coming_soon')}</span
-										>
+
+									<!-- BTC Entry (Coming Soon) -->
+									<div class="flex items-center justify-between">
+										<div class="flex items-center gap-1.5 sm:gap-2">
+											<img
+												src="/images/chains/Bitcoin.svg"
+												alt="BTC"
+												class="h-4 w-4 opacity-50 sm:h-5 sm:w-5"
+											/>
+											<span class="text-base-content/50 text-sm font-medium sm:text-base"
+												>{$t('wallet.btc')}</span
+											>
+										</div>
+										<div class="text-right">
+											<span class="text-base-content/50 text-sm font-semibold sm:text-base"
+												>{$t('wallet.coming_soon')}</span
+											>
+										</div>
 									</div>
 								</div>
 							</div>
 						</div>
 					</div>
-				</div>
+				{/if}
 
 				<!-- Additional Notes Section -->
 				<div
@@ -854,10 +935,9 @@
 					</small>
 				</button>
 
-				<!-- Rootstock Escrow Contract Details -->
 				<div>
 					<!-- Wallet Connection Error (only show if connection failed after attempting) -->
-					{#if $walletStore.rsk.error}
+					{#if !isPreAbiBscEscrow && $walletStore.rsk.error}
 						<div
 							class="alert alert-outline alert-warning mt-4 flex! flex-row! items-center! justify-between! text-black"
 						>
@@ -949,7 +1029,7 @@
 				{/if}
 
 				<!-- Testnet Warning Alert -->
-				{#if import.meta.env.VITE_RSK_NETWORK === 'testnet'}
+				{#if !isPreAbiBscEscrow && import.meta.env.VITE_RSK_NETWORK === 'testnet'}
 					<div class="alert alert-outline alert-warning">
 						<div class="flex items-center">
 							<svg
@@ -1024,6 +1104,14 @@
 		<div
 			class="border-base-300 bg-base-100 flex shrink-0 flex-col-reverse justify-end gap-3 border-t py-4 sm:flex-row md:py-3"
 		>
+			{#if isPreAbiBscEscrow}
+				<div class="alert alert-outline alert-warning mb-3 w-full sm:mb-0 sm:mr-auto sm:max-w-xl">
+					<span class="text-sm">
+						{paymentRailLabel} escrow acceptance stays blocked until the deployed BSC escrow
+						ABI/artifacts are accepted.
+					</span>
+				</div>
+			{/if}
 			<button
 				type="button"
 				class="btn btn-error btn-outline"
@@ -1050,6 +1138,7 @@
 				type="button"
 				class="btn btn-primary"
 				disabled={isSubmitting ||
+					isPreAbiBscEscrow ||
 					validationErrors.length > 0 ||
 					balanceErrors.length > 0 ||
 					!$walletStore.rsk.connected}
@@ -1129,9 +1218,14 @@
 								{Number.isFinite(totalUsd) ? `$${formatNumberWithTwoDecimals(totalUsd)}` : '—'}
 							</div>
 							<div class="text-base-content/60 text-sm">
-								{props.btcPrice > 0 && Number.isFinite(totalUsd)
-									? satsFromUsd(totalUsd, props.btcPrice)
-									: ''}
+								{#if isPreAbiBscEscrow}
+									<div>{paymentRailLabel}</div>
+									<div class="max-w-48 text-xs">{getPreAbiBscFundModalNote()}</div>
+								{:else}
+									{props.btcPrice > 0 && Number.isFinite(totalUsd)
+										? satsFromUsd(totalUsd, props.btcPrice)
+										: ''}
+								{/if}
 							</div>
 						</div>
 					{/if}
@@ -1180,7 +1274,11 @@
 							d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
 						/>
 					</svg>
-					<span class="text-xs">{$t('dashboard.bids.bid_acceptance.fund_confirm_warning')}</span>
+					<span class="text-xs">
+						{isPreAbiBscEscrow
+							? `${paymentRailLabel} escrow funding remains blocked until the deployed BSC escrow ABI/artifacts are accepted.`
+							: $t('dashboard.bids.bid_acceptance.fund_confirm_warning')}
+					</span>
 				</div>
 			</div>
 			<!-- Action buttons (like dashboard modals) -->
@@ -1196,7 +1294,7 @@
 					type="button"
 					class="btn btn-primary flex-1"
 					onclick={handleFundClick}
-					disabled={isSubmitting}
+					disabled={isSubmitting || isPreAbiBscEscrow}
 				>
 					{$t('dashboard.bids.bid_acceptance.fund')}
 				</button>
@@ -1249,7 +1347,9 @@
 				{$t('dashboard.bids.bid_acceptance.success_message', {
 					values: {
 						amount: bidEscrowDetails?.totalAmount
-							? escrow.bidOps.formatRBTCAmount(bidEscrowDetails.totalAmount)
+							? isPreAbiBscEscrow
+								? `${formatNumberWithTwoDecimals(bidContent.amount)} USDT`
+								: escrow.bidOps.formatRBTCAmount(bidEscrowDetails.totalAmount)
 							: '0'
 					}
 				})}

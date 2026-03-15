@@ -8,6 +8,7 @@
 	import { triggerHaptic, ImpactStyle } from '$lib/utils/helpers/haptics';
 	import generateQrCodeUrl from '$lib/utils/helpers/generateQrCodeUrl';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
+	import { buildDirectPaymentUri } from '$lib/utils/helpers/evmPaymentIntents';
 	import IconClose from '~icons/mdi/close';
 	import IconCheck from '~icons/mdi/check';
 	import IconChevronLeft from '~icons/mdi/chevron-left';
@@ -36,6 +37,7 @@
 	let isLoadingQR = $state(true);
 	let btcPrice = $state<number>(0);
 	let isTransactionConfirmed = $state(false);
+	let directRequestOpenedAt = $state(0);
 
 	// Determine if this is a swap-based payment or direct address payment
 	const isSwapBased = $derived(!!props.swapId);
@@ -74,6 +76,8 @@
 		// Direct payment: use provided network
 		return props.network || 'rootstock-bitcoin';
 	});
+
+	const isBscDirectNetwork = $derived(network === 'usdt-bsc' || network === 'bsc');
 
 	function getSwapStringValue(swapData: unknown, key: string): string {
 		if (typeof swapData !== 'object' || swapData === null) return '';
@@ -125,6 +129,63 @@
 		return props.amount || 0;
 	});
 
+	const paymentRequestValue = $derived.by(() => {
+		if (currentSwap) {
+			return address;
+		}
+
+		if ((network === 'rootstock-bitcoin' || isBscDirectNetwork) && props.address) {
+			return buildDirectPaymentUri({
+				address: props.address,
+				network: isBscDirectNetwork ? 'usdt-bsc' : network,
+				amount,
+				memo: props.memo
+			});
+		}
+
+		return address;
+	});
+
+	const matchingDirectTransaction = $derived.by(() => {
+		if (
+			!props.isOpen ||
+			isSwapBased ||
+			!isBscDirectNetwork ||
+			!Number.isFinite(amount) ||
+			amount <= 0 ||
+			directRequestOpenedAt <= 0
+		) {
+			return null;
+		}
+
+		const targetAmount = Number(amount.toFixed(6));
+
+		return (
+			$transactions.find((tx) => {
+				if (
+					tx.network !== 'bsc' ||
+					tx.type !== 'receive' ||
+					tx.amountUnit.toUpperCase() !== 'USDT' ||
+					tx.status.label !== 'wallet.transaction.status.confirmed'
+				) {
+					return false;
+				}
+
+				const txTimestamp = new Date(tx.timestamp).getTime();
+				if (!Number.isFinite(txTimestamp) || txTimestamp < directRequestOpenedAt) {
+					return false;
+				}
+
+				const txAmount = Number.parseFloat(tx.value);
+				if (!Number.isFinite(txAmount)) {
+					return false;
+				}
+
+				return Number(txAmount.toFixed(6)) === targetAmount;
+			}) ?? null
+		);
+	});
+
 	// Format sats with thousand separators
 	function formatSats(sats: number): string {
 		return new Intl.NumberFormat('en-US').format(sats);
@@ -171,11 +232,13 @@
 
 	// Calculate USD for the amount the payer will pay (consistent with payerTotalAmount)
 	const payerTotalAmountUSD = $derived.by(() => {
+		if (isBscDirectNetwork) return payerTotalAmount;
 		if (btcPrice === 0) return 0;
 		return (payerTotalAmount / 100_000_000) * btcPrice;
 	});
 
 	const amountInUSD = $derived.by(() => {
+		if (isBscDirectNetwork) return displayAmount;
 		if (btcPrice === 0) return 0;
 		// Use actual received amount for USD calculation
 		return (displayAmount / 100_000_000) * btcPrice;
@@ -205,13 +268,13 @@
 		},
 		{
 			value: 'usdt-bsc',
-			label: 'BSC USDT', // TODO: Add translation
-			icon: null
+			label: 'USDT on BSC',
+			icon: '/images/chains/Binance-logo.svg'
 		},
 		{
 			value: 'bsc',
-			label: 'BSC', // TODO: Add translation
-			icon: null
+			label: 'USDT on BSC',
+			icon: '/images/chains/Binance-logo.svg'
 		}
 	];
 
@@ -228,6 +291,18 @@
 
 	// Reactive effect: Monitor swap status changes (triggered by SDK's WebSocket updates via transactions store)
 	// Only runs for swap-based payments
+	$effect(() => {
+		if (props.isOpen) {
+			if (directRequestOpenedAt === 0) {
+				directRequestOpenedAt = Date.now();
+			}
+			return;
+		}
+
+		directRequestOpenedAt = 0;
+		isTransactionConfirmed = false;
+	});
+
 	$effect(() => {
 		// Only check for completion when modal is open and we have a swap transaction
 		if (!props.isOpen || !isSwapBased || !swapTransaction) return;
@@ -246,16 +321,27 @@
 		}
 	});
 
+	$effect(() => {
+		if (!props.isOpen || isSwapBased || !matchingDirectTransaction || isTransactionConfirmed) {
+			return;
+		}
+
+		isTransactionConfirmed = true;
+		triggerHaptic(ImpactStyle.Medium);
+		appStore.showSuccessToast($t('wallet.payment_request.payment_received'));
+		walletManager.loadAssets();
+	});
+
 	// Generate QR code
 	async function generateQRCode() {
-		if (!address) {
+		if (!paymentRequestValue) {
 			isLoadingQR = false; // Clear loading state if no address
 			return;
 		}
 
 		try {
 			isLoadingQR = true;
-			qrCodeDataUrl = await generateQrCodeUrl(address);
+			qrCodeDataUrl = await generateQrCodeUrl(paymentRequestValue);
 		} catch (error) {
 			console.error('Failed to generate QR code:', error);
 			appStore.showErrorToast($t('wallet.invoice.qr_generation_failed'));
@@ -322,8 +408,12 @@
 								{$t('wallet.payment_request.payment_received')}
 							</h3>
 							<p class="text-base-content/70">
-								{formatSats(displayAmount)}
-								{$t('wallet.sats')} ({formatUSD(amountInUSD)})
+								{#if isBscDirectNetwork}
+									{displayAmount.toFixed(6).replace(/\.?0+$/, '')} USDT ({formatUSD(amountInUSD)})
+								{:else}
+									{formatSats(displayAmount)}
+									{$t('wallet.sats')} ({formatUSD(amountInUSD)})
+								{/if}
 							</p>
 							<!-- Network Display -->
 							<div class="border-base-300 bg-primary/10 mt-4 rounded-lg border p-4">
@@ -374,13 +464,15 @@
 							>
 								<div class="flex items-baseline gap-2">
 									<span class="text-primary text-3xl font-bold tabular-nums md:text-4xl">
-										{formatSats(payerTotalAmount)}
+										{isBscDirectNetwork
+											? payerTotalAmount.toFixed(6).replace(/\.?0+$/, '')
+											: formatSats(payerTotalAmount)}
 									</span>
-									<span class="text-primary text-xl font-semibold md:text-2xl"
-										>{$t('wallet.sats')}</span
-									>
+									<span class="text-primary text-xl font-semibold md:text-2xl">
+										{isBscDirectNetwork ? 'USDT' : $t('wallet.sats')}
+									</span>
 								</div>
-								{#if btcPrice > 0 && payerTotalAmountUSD > 0}
+								{#if payerTotalAmountUSD > 0}
 									<div class="text-base-content/70 text-lg font-semibold md:text-xl">
 										≈ {formatUSD(payerTotalAmountUSD)}
 									</div>
@@ -432,7 +524,7 @@
 						</div>
 
 						<!-- Invoice Total (Rootstock only, above QR code) -->
-						{#if network === 'rootstock-bitcoin' && payerTotalAmount > 0}
+						{#if (network === 'rootstock-bitcoin' || isBscDirectNetwork) && payerTotalAmount > 0}
 							<div
 								class="border-primary bg-base-200 flex flex-col items-center gap-1.5 rounded-lg border-2 p-3 sm:p-4"
 							>
@@ -441,10 +533,14 @@
 								>
 								<div class="flex w-full items-center justify-center gap-1.5">
 									<span class="text-primary text-xl font-bold">
-										{formatSats(payerTotalAmount)}
-										{$t('wallet.sats')}
+										{#if isBscDirectNetwork}
+											{payerTotalAmount.toFixed(6).replace(/\.?0+$/, '')} USDT
+										{:else}
+											{formatSats(payerTotalAmount)}
+											{$t('wallet.sats')}
+										{/if}
 									</span>
-									{#if btcPrice > 0 && payerTotalAmountUSD > 0}
+									{#if payerTotalAmountUSD > 0}
 										<span class="text-xs opacity-60">≈ {formatUSD(payerTotalAmountUSD)}</span>
 									{/if}
 								</div>
@@ -477,7 +573,13 @@
 						</div>
 
 						<!-- Payment Address/Link (Copyable) - One line with expand/collapse -->
-						<AddressAccordion {address} />
+						<AddressAccordion address={paymentRequestValue} />
+
+						{#if !isSwapBased && (network === 'rootstock-bitcoin' || isBscDirectNetwork)}
+							<div class="bg-warning/10 border-warning/40 rounded-lg border p-3 text-sm">
+								Only send {networkInfo.label} to this payment request.
+							</div>
+						{/if}
 
 						<!-- Transaction Description (if provided) -->
 						{#if props.memo}

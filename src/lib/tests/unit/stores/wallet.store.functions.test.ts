@@ -1,6 +1,13 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { get } from 'svelte/store';
-import { getRSKAddress, walletStore, walletManager } from '$lib/stores/wallet.store';
+import {
+	getBSCAddress,
+	getBSCSponsorStatus,
+	getRSKAddress,
+	preflightBSCDirectSend,
+	walletStore,
+	walletManager
+} from '$lib/stores/wallet.store';
 // Import will be used inside hoisted function
 
 // Prevent profile.ts -> upload.service -> BaseApiService load failure in test env
@@ -94,6 +101,21 @@ const mockWalletManager = vi.hoisted(() => {
 		dispose: vi.fn().mockResolvedValue(undefined),
 		rskWallet: mockRskWallet,
 		bscWallet: mockBscWallet,
+		getBscSponsorStatus: vi.fn().mockResolvedValue({
+			available: false,
+			mode: 'unconfigured',
+			address: null,
+			reason: 'Sponsor service is not configured for this environment'
+		}),
+		preflightBscDirectSend: vi.fn().mockResolvedValue({
+			isReady: false,
+			failureCode: 'SPONSOR_UNAVAILABLE',
+			failureMessage: 'Sponsor service is unavailable',
+			allowanceAtomic: '0',
+			requiredAllowanceAtomic: '1100000',
+			totalDebitAtomic: '1100000',
+			sponsorAvailable: false
+		}),
 		loadAssets: vi.fn().mockResolvedValue([]),
 		loadTransactions: vi.fn().mockResolvedValue([]),
 		submarineSwapService: mockSwapService,
@@ -210,6 +232,70 @@ describe('Wallet Store Functions', () => {
 
 			const address = await getRSKAddress();
 			expect(address).toBe('0x1234567890123456789012345678901234567890');
+		});
+	});
+
+	describe('BSC direct-send helpers', () => {
+		it('should return BSC address if wallet is initialized', async () => {
+			await walletManager.initialize();
+
+			const address = await getBSCAddress();
+			expect(address).toBeTruthy();
+			expect(address).toMatch(/^0x[a-fA-F0-9]{40}$/);
+		});
+
+		it('should return cached BSC address if already available', async () => {
+			walletStore.update((s) => ({
+				...s,
+				bsc: {
+					...s.bsc,
+					address: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd'
+				}
+			}));
+
+			const address = await getBSCAddress();
+			expect(address).toBe('0xabcdefabcdefabcdefabcdefabcdefabcdefabcd');
+		});
+
+		it('should proxy sponsor status through the wallet manager', async () => {
+			const sponsorStatus = await getBSCSponsorStatus();
+
+			expect(sponsorStatus).toEqual({
+				available: false,
+				mode: 'unconfigured',
+				address: null,
+				reason: 'Sponsor service is not configured for this environment'
+			});
+			expect(mockWalletManager.getBscSponsorStatus).toHaveBeenCalledTimes(1);
+		});
+
+		it('should proxy direct-send preflight through the wallet manager', async () => {
+			const result = await preflightBSCDirectSend({
+				recipient: '0x1234567890123456789012345678901234567890',
+				recipientAmountAtomic: '1000000',
+				fixedFeeAtomic: '100000',
+				routerAddress: '0x1111111111111111111111111111111111111111',
+				chainId: 97,
+				tokenAddress: '0x337610d27c682E347C9cD60BD4b3b107C9d34dDd'
+			});
+
+			expect(result).toEqual({
+				isReady: false,
+				failureCode: 'SPONSOR_UNAVAILABLE',
+				failureMessage: 'Sponsor service is unavailable',
+				allowanceAtomic: '0',
+				requiredAllowanceAtomic: '1100000',
+				totalDebitAtomic: '1100000',
+				sponsorAvailable: false
+			});
+			expect(mockWalletManager.preflightBscDirectSend).toHaveBeenCalledWith({
+				recipient: '0x1234567890123456789012345678901234567890',
+				recipientAmountAtomic: '1000000',
+				fixedFeeAtomic: '100000',
+				routerAddress: '0x1111111111111111111111111111111111111111',
+				chainId: 97,
+				tokenAddress: '0x337610d27c682E347C9cD60BD4b3b107C9d34dDd'
+			});
 		});
 	});
 

@@ -19,6 +19,11 @@ import { tasksStore, myTasksStore } from '$lib/stores/task.store';
 import { cleanup as cleanupTasksCache } from '$lib/nostr/findTasks';
 import { cleanupMyTasks } from '$lib/nostr/findMyTasks';
 import { createDebug } from '$lib/utils/debug';
+import {
+	TASK_SCHEMA_VERSION,
+	normalizePaymentContext,
+	toAtomicAmountString
+} from '$lib/utils/helpers/paymentContext';
 
 const d = createDebug('task');
 
@@ -185,6 +190,11 @@ async function generateTaskTags(
 	pow: [string, string],
 	dTagValue: string
 ): Promise<string[][]> {
+	const paymentContext = normalizePaymentContext(taskData, TASK_SCHEMA_VERSION);
+	const amountAtomic =
+		taskData.amountAtomic ||
+		toAtomicAmountString(taskData.budget?.amount ?? 0, paymentContext.paymentAsset);
+
 	// Normalize and validate skills
 	const normalizedSkills = taskData.skills
 		.map((skill) => skill.trim().toLowerCase())
@@ -198,8 +208,14 @@ async function generateTaskTags(
 		['p', await getNpub()],
 		['pow', ...pow],
 		['d', dTagValue], // d-tag: unique identifier (kind:pubkey:d-tag = Addressable Event); readable format for SEO
-		['S', taskData.status ?? TaskStatusEnum.OPEN] // Default status - OPEN
+		['S', taskData.status ?? TaskStatusEnum.OPEN], // Default status - OPEN
+		['v', paymentContext.schemaVersion],
+		['n', paymentContext.paymentNetwork]
 	];
+
+	if (amountAtomic) {
+		tags.push(['a', amountAtomic]);
+	}
 
 	if (taskData.deadline) {
 		const dateRangeTags = getDateRangeTags(taskData.deadline);
@@ -235,20 +251,26 @@ async function generateTaskTags(
  */
 export async function createTask(taskData: TaskBody): Promise<string> {
 	try {
+		const normalizedTaskData = normalizePaymentContext(taskData, TASK_SCHEMA_VERSION);
+		const amountAtomic = toAtomicAmountString(
+			normalizedTaskData.budget?.amount ?? 0,
+			normalizedTaskData.paymentAsset
+		);
+
 		// Validar datos requeridos
-		if (!taskData.title?.trim()) {
+		if (!normalizedTaskData.title?.trim()) {
 			throw new Error('Task title is required');
 		}
-		if (!taskData.description?.trim()) {
+		if (!normalizedTaskData.description?.trim()) {
 			throw new Error('Task description is required');
 		}
-		if (!taskData.budget?.amount || taskData.budget.amount <= 0) {
+		if (!normalizedTaskData.budget?.amount || normalizedTaskData.budget.amount <= 0) {
 			throw new Error('Valid budget amount is required');
 		}
-		if (!taskData.categories?.length) {
+		if (!normalizedTaskData.categories?.length) {
 			throw new Error('At least one category is required');
 		}
-		if (!taskData.skills?.length) {
+		if (!normalizedTaskData.skills?.length) {
 			throw new Error('At least one skill is required');
 		}
 
@@ -274,25 +296,26 @@ export async function createTask(taskData: TaskBody): Promise<string> {
 		};
 
 		// Generate translations for all supported languages
-		const translations = await generateTaskTranslations(taskData);
+		const translations = await generateTaskTranslations(normalizedTaskData);
 
 		// Add creation timestamp and translations (no uniqueId in content; d-tag in tags is the identifier)
 		const taskDataWithMeta = {
-			...taskData,
+			...normalizedTaskData,
+			amountAtomic,
 			creator,
 			createdAt,
 			...(translations && { translations })
 		};
 
 		// Calculate POW based on task value and d-tag (stable identifier)
-		const pow = await calculatePOW(taskData.budget.amount, dTagValue);
+		const pow = await calculatePOW(normalizedTaskData.budget.amount, dTagValue);
 
 		// Create event (Addressable Event: same kind, pubkey, d-tag = replaceable)
 		const event = {
 			kind: KINDS.TASK_CREATION,
 			created_at: createdAt,
 			content: JSON.stringify(taskDataWithMeta),
-			tags: await generateTaskTags(taskData, pow, dTagValue)
+			tags: await generateTaskTags(normalizedTaskData, pow, dTagValue)
 		};
 
 		// Sign and publish
@@ -320,21 +343,27 @@ export async function createRecurringTask(
 	}
 ): Promise<string> {
 	try {
+		const normalizedTaskData = normalizePaymentContext(taskData, TASK_SCHEMA_VERSION);
+		const amountAtomic = toAtomicAmountString(
+			normalizedTaskData.budget?.amount ?? 0,
+			normalizedTaskData.paymentAsset
+		);
 		const npub = await getNpub();
 		if (!npub) {
 			throw new Error('User not authenticated');
 		}
 		const createdAt = Math.floor(Date.now() / 1000);
 		// Recurring tasks use same dTagValue format as regular tasks (readable, kind:pubkey:d-tag)
-		const dTagValue = getReadableDTag(taskData.title ?? schedule.name, createdAt, npub);
-		const pow = await calculatePOW(taskData.budget.amount, dTagValue);
+		const dTagValue = getReadableDTag(normalizedTaskData.title ?? schedule.name, createdAt, npub);
+		const pow = await calculatePOW(normalizedTaskData.budget.amount, dTagValue);
 
 		// Generate translations for the recurring task template (same as regular tasks)
-		const translations = await generateTaskTranslations(taskData);
+		const translations = await generateTaskTranslations(normalizedTaskData);
 
 		// Include translations in the template
 		const taskDataWithTranslations = {
-			...taskData,
+			...normalizedTaskData,
+			amountAtomic,
 			...(translations && { translations })
 		};
 
@@ -347,7 +376,7 @@ export async function createRecurringTask(
 				dTagValue
 			}),
 			tags: [
-				...(await generateTaskTags(taskData, pow, dTagValue)),
+				...(await generateTaskTags(normalizedTaskData, pow, dTagValue)),
 				['t', 'recurring'],
 				['f', schedule.recurrencePattern.frequency],
 				['i', schedule.recurrencePattern.interval.toString()]
@@ -469,10 +498,17 @@ export async function updateTask(taskId: string, updates: Partial<TaskBody>): Pr
 			(updates.description && updates.description !== originalTaskData.description);
 
 		// Create updated task data for translation (if needed)
-		const taskDataForTranslation: TaskBody = {
-			...originalTaskData,
-			...updates
-		};
+		const taskDataForTranslation: TaskBody = normalizePaymentContext(
+			{
+				...originalTaskData,
+				...updates
+			},
+			TASK_SCHEMA_VERSION
+		);
+		const amountAtomic = toAtomicAmountString(
+			taskDataForTranslation.budget?.amount ?? 0,
+			taskDataForTranslation.paymentAsset
+		);
 
 		// Generate new translations if content changed
 		let translations = originalTaskData.translations;
@@ -487,6 +523,10 @@ export async function updateTask(taskId: string, updates: Partial<TaskBody>): Pr
 		const updatedTaskData = {
 			...originalTaskData,
 			...updates,
+			schemaVersion: taskDataForTranslation.schemaVersion,
+			amountAtomic,
+			paymentAsset: taskDataForTranslation.paymentAsset,
+			paymentNetwork: taskDataForTranslation.paymentNetwork,
 			...(originalTaskData.uniqueId && { uniqueId: originalTaskData.uniqueId }),
 			updatedAt: Math.floor(Date.now() / 1000),
 			...(translations && { translations })

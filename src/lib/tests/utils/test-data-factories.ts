@@ -145,7 +145,10 @@ export const ProcessedTransactionFactory = {
 		networkDisplayName: 'Rootstock',
 		explorerUrl: null,
 		feeSats: 0,
-		balanceAfter: 0
+		balanceAfter: 0,
+		amountUnit: 'sats',
+		feeUnit: 'sats',
+		balanceUnit: 'sats'
 	})
 };
 
@@ -174,7 +177,6 @@ export const EdgeCaseFactory = {
 	invalidAddress: '0x123', // Too short
 	invalidHash: '0xabc' // Too short
 };
-
 
 
 
