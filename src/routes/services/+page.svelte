@@ -9,15 +9,22 @@
 	import { user } from '$lib/stores/user.store';
 	import type { QuoteRequestPayload } from '$lib/types/service.d';
 	import ServiceCard from '$lib/components/service/ServiceCard.svelte';
-	import TaskListControls from '$lib/components/task/TaskListControls.svelte';
+	import ListingControls from '$lib/components/listing/ListingControls.svelte';
 	import ServiceSearchFilters from '$lib/components/service/ServiceSearchFilters.svelte';
-	import TaskLocationMap from '$lib/components/maps/TaskLocationMap.svelte';
-	import RequestQuoteModal from '$lib/components/service/RequestQuoteModal.svelte';
 	import { authState } from '$lib/stores/auth.store';
 	import { t } from 'svelte-i18n';
 	import IconChevronUp from '~icons/mdi/chevron-up';
 	import { goto } from '$app/navigation';
+	import type TaskLocationMapComponent from '$lib/components/maps/TaskLocationMap.svelte';
+	import type RequestQuoteModalComponent from '$lib/components/service/RequestQuoteModal.svelte';
 	import type SaveServiceSearchFormComponent from '$lib/components/service/SaveServiceSearchForm.svelte';
+	import { serviceQuoteUiStore } from '$lib/stores/service-quote-ui.store';
+import { appStore } from '$lib/stores/app.store';
+import { persistServiceSearchFilters, loadPersistedServiceSearchFilters } from '$lib/utils/service-search-persistence';
+
+	const DESKTOP_MIN_WIDTH = 1024;
+	const MAP_PRELOAD_TIMEOUT_MS = 2000;
+	const MAP_PRELOAD_FALLBACK_MS = 1000;
 
 	// Function to create initial search parameters
 	function getInitialSearchParams(): SearchServicesParams {
@@ -41,7 +48,13 @@
 	// Save search state (same pattern as Find Tasks)
 	let isSaveSearchOpen = $state(false);
 	let SaveServiceSearchForm: typeof SaveServiceSearchFormComponent | null = $state(null);
+	let TaskLocationMap: typeof TaskLocationMapComponent | null = $state(null);
+	let RequestQuoteModal: typeof RequestQuoteModalComponent | null = $state(null);
 	let drawersLoaded = $state(false);
+	let mapLoaded = $state(false);
+	let modalLoaded = $state(false);
+	let mapPreloadAttempted = $state(false);
+	let windowWidth = $state(0);
 
 	// Loading states
 	let loadingTimeout = $state(false);
@@ -67,7 +80,18 @@
 
 	// Has active search parameters
 	let hasActiveParams = $state(false);
+	let activeFilterCount = $state(0);
 	$effect(() => {
+		let count = 0;
+		if (searchParams.categories && searchParams.categories.length > 0) count++;
+		if (searchParams.skills && searchParams.skills.length > 0) count++;
+		if (searchParams.serviceLocationTypes && searchParams.serviceLocationTypes.length > 0) count++;
+		if (searchParams.pricingType) count++;
+		if (searchParams.minPrice !== undefined || searchParams.maxPrice !== undefined) count++;
+		if (searchParams.deliveryTime) count++;
+		if (searchParams.location) count++;
+		activeFilterCount = count;
+
 		hasActiveParams =
 			!!searchParams.search ||
 			(searchParams.categories && searchParams.categories.length > 0) ||
@@ -92,25 +116,111 @@
 	let requestQuoteModalOpen = $state(false);
 	let serviceForQuote = $state<Service | null>(null);
 
-	function openRequestQuoteModal(service: Service) {
+	async function loadMapComponent(): Promise<void> {
+		if (mapLoaded) return;
+		try {
+			TaskLocationMap = (await import('$lib/components/maps/TaskLocationMap.svelte')).default;
+			mapLoaded = true;
+		} catch (error) {
+			console.error('Error loading service map component:', error);
+		}
+	}
+
+	async function loadRequestQuoteModal(): Promise<void> {
+		if (modalLoaded) return;
+		try {
+			RequestQuoteModal = (await import('$lib/components/service/RequestQuoteModal.svelte')).default;
+			modalLoaded = true;
+		} catch (error) {
+			console.error('Error loading request quote modal:', error);
+		}
+	}
+
+	function attemptMapPreload(): (() => void) | null {
+		if (!browser || mapLoaded || mapPreloadAttempted) return null;
+
+		mapPreloadAttempted = true;
+
+		if (windowWidth >= DESKTOP_MIN_WIDTH) {
+			void loadMapComponent();
+			return null;
+		}
+
+		let idleCallbackId: number | undefined;
+		let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
+		if (window.requestIdleCallback) {
+			idleCallbackId = window.requestIdleCallback(() => {
+				if (!mapLoaded) {
+					void loadMapComponent();
+				}
+			}, { timeout: MAP_PRELOAD_TIMEOUT_MS });
+		} else {
+			timeoutId = setTimeout(() => {
+				if (!mapLoaded) {
+					void loadMapComponent();
+				}
+			}, MAP_PRELOAD_FALLBACK_MS);
+		}
+
+		return () => {
+			if (idleCallbackId && window.cancelIdleCallback) {
+				window.cancelIdleCallback(idleCallbackId);
+			}
+			if (timeoutId) {
+				clearTimeout(timeoutId);
+			}
+		};
+	}
+
+	async function openRequestQuoteModal(service: Service) {
 		if (!$authState.isAuthenticated) {
 			goto(`/auth/login?returnTo=${encodeURIComponent('/services')}`);
 			return;
 		}
+		await loadRequestQuoteModal();
+		await tick();
 		serviceForQuote = service;
 		requestQuoteModalOpen = true;
 	}
 
-	function handleQuoteRequestConfirm(_payload: QuoteRequestPayload) {
-		// For now: log; full Nostr flow later
-		console.log('[Quote Request from browse]', { service: serviceForQuote, payload: _payload });
-		requestQuoteModalOpen = false;
+	async function handleQuoteRequestConfirm(payload: QuoteRequestPayload) {
+		if (!serviceForQuote) {
+			return { success: false, error: 'Service is unavailable.' };
+		}
+
+		const result = await serviceQuoteUiStore.submitQuoteRequest({
+			service: serviceForQuote,
+			payload
+		});
+
+		if (!result.success || !result.quoteRequestId) {
+			return {
+				success: false,
+				error: result.error || 'Unable to submit quote request right now.'
+			};
+		}
+
+		// Show success toast before navigation
+		$appStore.addSuccessToast($t('dashboard.services.detail.quote_submitted') || 'Quote request submitted successfully!');
+
+		await goto(
+			`/dashboard?tab=quotes&view=tasker&request=${encodeURIComponent(result.quoteRequestId)}`
+		);
+		serviceQuoteUiStore.setNonBlockingMessage('service_quote_protocol_pending');
 		serviceForQuote = null;
+		return { success: true };
 	}
 
 	function toggleViewMode() {
 		viewMode = viewMode === 'list' ? 'map' : 'list';
 	}
+
+	$effect(() => {
+		if (viewMode === 'map' && !mapLoaded) {
+			void loadMapComponent();
+		}
+	});
 
 	function selectServiceForMap(service: Service) {
 		selectedServiceForMap = service;
@@ -365,6 +475,9 @@
 
 		searchQuery = filterParams.search || '';
 
+		// Persist filters to localStorage
+		persistServiceSearchFilters(searchParams);
+
 		findServices(searchParams).then(() => {
 			servicesStore.update((state) => ({ ...state, searchParamsKey: hashSearchParams(searchParams) }));
 		});
@@ -384,6 +497,9 @@
 			error: null,
 			searchParamsKey: ''
 		}));
+
+		// Clear persisted filters
+		persistServiceSearchFilters(searchParams);
 
 		findServices(searchParams);
 	}
@@ -478,6 +594,8 @@
 	// Initial data fetch and setup - apply saved service search from dashboard if present (same pattern as Find Tasks)
 	onMount(() => {
 		if (browser) {
+			windowWidth = window.innerWidth;
+
 			const savedParamsRaw = sessionStorage.getItem('savedServiceSearchParams');
 			if (savedParamsRaw) {
 				try {
@@ -518,12 +636,18 @@
 				}
 			});
 
+			const cleanupMapPreload = attemptMapPreload();
+
 			// Defer loading save-search drawer (same as Find Tasks)
 			if (window.requestIdleCallback) {
 				window.requestIdleCallback(() => loadDrawerComponents(), { timeout: 1500 });
 			} else {
 				setTimeout(loadDrawerComponents, 500);
 			}
+
+			return () => {
+				cleanupMapPreload?.();
+			};
 		}
 	});
 
@@ -590,8 +714,8 @@
 		role="tabpanel"
 		class="grid h-full min-h-0 grid-rows-[auto_1fr] overflow-hidden"
 	>
-		<!-- Same controls as Find Tasks: TaskListControls with services translation namespace -->
-		<TaskListControls
+		<!-- Same controls as Find Tasks: shared listing controls with services translation namespace -->
+		<ListingControls
 			bind:searchQuery
 			searchInputClass={getSearchInputClass()}
 			searchPlaceholder={getSearchPlaceholder()}
@@ -610,6 +734,7 @@
 			loadDrawerComponents={loadDrawerComponents}
 			translationNamespace="dashboard.services.browse"
 			filterLabelKey="filters_button"
+			{activeFilterCount}
 		/>
 
 		<!-- Main Content Area - same structure as Find Tasks -->
@@ -642,6 +767,21 @@
 
 					<!-- Services List Column (same as tasks list column) -->
 					<div class="min-h-0" data-services-list-column>
+						<!-- Accessibility: Announce search results updates -->
+						<div
+							role="status"
+							aria-live="polite"
+							aria-atomic="true"
+							class="sr-only"
+						>
+							{#if dataLoaded && !showSkeleton}
+								{$servicesStore.items?.length || 0} services found
+								{hasActiveParams ? 'matching your filters' : 'available'}
+							{:else if $servicesStore.loading}
+								Loading services...
+							{/if}
+						</div>
+
 						<div
 							class="task-list-scroll-container box-border h-full w-full overflow-y-auto max-h-[65vh] lg:max-h-none"
 							bind:this={serviceListRef}
@@ -804,22 +944,28 @@
 					</div>
 
 					<!-- Desktop Map Sidebar - same as Find Tasks (map-container-wrapper, hidden on mobile) -->
-					<aside
-						class="map-container-wrapper hidden min-h-0 lg:block overflow-hidden"
-						data-services-map-column
-						aria-label={$t('dashboard.services.browse.map') || 'Services map'}
-					>
-						<TaskLocationMap
-							services={$servicesStore.items}
-							height="100%"
-							selectedService={selectedServiceForMap}
-							onServiceSelected={(event: { service: Service }) => {
-								selectedServiceForMap = event.service;
-								scrollToServiceCard(event.service.id);
-							}}
-							btcPrice={btcPrice}
-						/>
-					</aside>
+						<aside
+							class="map-container-wrapper hidden min-h-0 lg:block overflow-hidden"
+							data-services-map-column
+							aria-label={$t('dashboard.services.browse.map') || 'Services map'}
+						>
+							{#if mapLoaded && TaskLocationMap}
+								<TaskLocationMap
+									services={$servicesStore.items}
+									height="100%"
+									selectedService={selectedServiceForMap}
+									onServiceSelected={(event: { service: Service }) => {
+										selectedServiceForMap = event.service;
+										scrollToServiceCard(event.service.id);
+									}}
+									btcPrice={btcPrice}
+								/>
+							{:else}
+								<div class="bg-base-200 flex h-full w-full items-center justify-center rounded-lg">
+									<span class="loading loading-spinner loading-lg"></span>
+								</div>
+							{/if}
+						</aside>
 				</div>
 
 				<!-- Mobile Floating Button - Scroll to Top (same as Find Tasks) -->
@@ -834,40 +980,48 @@
 						<IconChevronUp class="h-5 w-5" />
 					</button>
 				{/if}
-			{:else}
-				<!-- Map View - Full width on mobile/tablet, same as Find Tasks -->
-				<section
-					class="map-container-wrapper relative min-h-0 w-full lg:hidden"
-				>
-					<TaskLocationMap
-						services={$servicesStore.items}
-						height="100%"
-						selectedService={selectedServiceForMap}
-						onServiceSelected={(event: { service: Service }) => {
-							selectedServiceForMap = event.service;
-							// Keep map view and show popup on pin click (same as tasks) — do not switch to list
-							if (viewMode === 'list') {
-								scrollToServiceCard(event.service.id);
-							}
-						}}
-						btcPrice={btcPrice}
-					/>
-				</section>
-			{/if}
-		</section>
-	</div>
-</main>
+				{:else}
+					<!-- Map View - Full width on mobile/tablet, same as Find Tasks -->
+					<section
+						class="map-container-wrapper relative min-h-0 w-full lg:hidden"
+					>
+						{#if mapLoaded && TaskLocationMap}
+							<TaskLocationMap
+								services={$servicesStore.items}
+								height="100%"
+								selectedService={selectedServiceForMap}
+								onServiceSelected={(event: { service: Service }) => {
+									selectedServiceForMap = event.service;
+									// Keep map view and show popup on pin click (same as tasks) — do not switch to list
+									if (viewMode === 'list') {
+										scrollToServiceCard(event.service.id);
+									}
+								}}
+								btcPrice={btcPrice}
+							/>
+						{:else}
+							<div class="bg-base-200 flex h-full w-full items-center justify-center rounded-lg">
+								<span class="loading loading-spinner loading-lg"></span>
+							</div>
+						{/if}
+					</section>
+				{/if}
+			</section>
+		</div>
+	</main>
 
-	<!-- Request Quote Modal -->
-	<RequestQuoteModal
-		bind:open={requestQuoteModalOpen}
-		service={serviceForQuote}
-		onConfirm={handleQuoteRequestConfirm}
-		onClose={() => {
-			requestQuoteModalOpen = false;
-			serviceForQuote = null;
-		}}
-	/>
+	{#if modalLoaded && RequestQuoteModal}
+		<!-- Request Quote Modal -->
+		<RequestQuoteModal
+			bind:open={requestQuoteModalOpen}
+			service={serviceForQuote}
+			onConfirm={handleQuoteRequestConfirm}
+			onClose={() => {
+				requestQuoteModalOpen = false;
+				serviceForQuote = null;
+			}}
+		/>
+	{/if}
 
 	<!-- Filter Drawer -->
 	<ServiceSearchFilters
