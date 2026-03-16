@@ -74,13 +74,10 @@
 		void triggerHaptic(ImpactStyle.Light);
 	}
 
+	// Toggle avatar dropdown
 	function toggleAvatarDropdown(event: MouseEvent) {
 		event.stopPropagation();
 		isAvatarDropdownOpen = !isAvatarDropdownOpen;
-	}
-
-	function closeAvatarDropdown() {
-		isAvatarDropdownOpen = false;
 	}
 
 	// Initialize stores when component mounts
@@ -143,7 +140,7 @@
 		event.preventDefault();
 		event.stopPropagation();
 		closeDropdowns();
-		closeAvatarDropdown();
+		isAvatarDropdownOpen = false;
 		if (action === 'logout') {
 			logout();
 		} else if (href) {
@@ -154,7 +151,7 @@
 	function logout() {
 		closeDrawer();
 		closeDropdowns();
-		closeAvatarDropdown();
+		isAvatarDropdownOpen = false;
 		showLogoutModal = true;
 	}
 
@@ -312,76 +309,46 @@
 		</div>
 		<!-- login/signup or notification + avatar -->
 		{#if !isLoggedIn}
-			<a href="/auth/login" class="btn btn-sm sm:btn-md btn-secondary" data-testid="login-link"
-				>{$t('navbar.login')}</a
-			>
+			<a href="/auth/login" class="btn btn-sm sm:btn-md btn-secondary" data-testid="login-link">{$t('navbar.login')}</a>
 			<a href="/auth/signup" class="btn btn-sm sm:btn-md btn-primary">{$t('navbar.signup')}</a>
 		{:else}
 			<!-- Notification Center -->
 			<NotificationCenter />
-			<!-- Avatar dropdown: Svelte-controlled overlay with backdrop (no <details>, no DaisyUI dropdown logic) -->
-			<div class="relative flex items-center">
-				<button
-					id="avatar-dropdown-trigger"
-					class="btn btn-ghost flex h-10 min-h-[44px] w-10 min-w-[44px] shrink-0 items-center justify-center rounded-full p-0"
-					aria-haspopup="true"
-					aria-expanded={isAvatarDropdownOpen}
-					aria-label={$t('common.components.topbar.open_menu')}
-					onclick={toggleAvatarDropdown}
-				>
-					<span class="pointer-events-none">
-						<Avatar name={$user.name} picture={userPicture()} size="sm" />
-					</span>
+			<!-- Avatar Dropdown -->
+			<div
+				class="dropdown dropdown-end relative"
+				use:clickOutside={{ callback: () => (isAvatarDropdownOpen = false) }}
+			>
+				<button class="btn btn-ghost" onclick={toggleAvatarDropdown} aria-haspopup="true" aria-expanded={isAvatarDropdownOpen}>
+					<Avatar name={$user.name} picture={userPicture()} size="sm" />
 				</button>
-
 				{#if isAvatarDropdownOpen}
-					<!-- Backdrop: absorbs any tap outside the menu and closes it -->
 					<div
-						class="fixed inset-0 z-90"
-						role="button"
-						tabindex="0"
-						onclick={(e) => {
-							e.stopPropagation();
-							closeAvatarDropdown();
-						}}
-						onkeydown={(e) => {
-							if (e.key === 'Enter' || e.key === ' ') {
-								e.preventDefault();
-								closeAvatarDropdown();
-							}
-						}}
-					></div>
-
-					<!-- Floating menu -->
-					<div
-						class="menu bg-base-100 rounded-box absolute top-full right-0 z-100 mt-2 w-56 p-2 shadow-md"
+						class="menu dropdown-content bg-base-100 rounded-box right-0 z-10 mt-2 w-56 p-2 shadow-md"
 						style="transform-origin: top right;"
 						role="menu"
 						tabindex="-1"
 						onclick={(e) => e.stopPropagation()}
 						onkeydown={(e) => {
 							if (e.key === 'Escape') {
-								closeAvatarDropdown();
+								isAvatarDropdownOpen = false;
 							}
 						}}
 						transition:popoverTransition={{ duration: 200, y: -8, start: 0.98 }}
 					>
-						<ul class="relative z-101">
+						<ul>
 							<!-- User Info Header -->
 							{#if userDisplayName}
-								<li class="border-base-300 mb-2 border-b pb-2">
+								<li class="border-b border-base-300 pb-2 mb-2">
 									<button
 										onclick={showNpubQrCode}
 										class="flex w-full items-center gap-2 whitespace-nowrap"
 									>
 										<IconQrcode class="text-primary" />
-										<span class="wrap-break-words font-bold whitespace-normal"
-											>{userDisplayName}</span
-										>
+										<span class="wrap-break-words whitespace-normal font-bold">{userDisplayName}</span>
 									</button>
 								</li>
 							{/if}
-
 							{#each AVATAR_MENU_ITEMS as item (item.href ?? item.action ?? item.label)}
 								{@render menuItem(item)}
 							{/each}
