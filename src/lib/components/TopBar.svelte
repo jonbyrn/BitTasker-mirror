@@ -43,16 +43,12 @@
 	// Dropdown state - track which section ID is open
 	let openSectionId = $state<string | null>(null);
 
-	// Control avatar dropdown visibility
+	// Avatar dropdown state (Svelte-controlled, used with overlay/backdrop)
 	let isAvatarDropdownOpen = $state(false);
 
 	function popoverTransition(
 		node: Element,
-		{
-			duration = 200,
-			y = -8,
-			start = 0.98
-		}: { duration?: number; y?: number; start?: number } = {}
+		{ duration = 200, y = -8, start = 0.98 }: { duration?: number; y?: number; start?: number } = {}
 	): TransitionConfig {
 		return {
 			duration,
@@ -74,10 +70,13 @@
 		void triggerHaptic(ImpactStyle.Light);
 	}
 
-	// Toggle avatar dropdown
 	function toggleAvatarDropdown(event: MouseEvent) {
 		event.stopPropagation();
 		isAvatarDropdownOpen = !isAvatarDropdownOpen;
+	}
+
+	function closeAvatarDropdown() {
+		isAvatarDropdownOpen = false;
 	}
 
 	// Initialize stores when component mounts
@@ -112,11 +111,7 @@
 	});
 
 	// Derived values for user display name
-	let userDisplayName = $derived(
-		$profileStore.data?.name ||
-		$user.name ||
-		''
-	);
+	let userDisplayName = $derived($profileStore.data?.name || $user.name || '');
 
 	// Close drawer
 	function closeDrawer() {
@@ -140,7 +135,7 @@
 		event.preventDefault();
 		event.stopPropagation();
 		closeDropdowns();
-		isAvatarDropdownOpen = false;
+		closeAvatarDropdown();
 		if (action === 'logout') {
 			logout();
 		} else if (href) {
@@ -151,7 +146,7 @@
 	function logout() {
 		closeDrawer();
 		closeDropdowns();
-		isAvatarDropdownOpen = false;
+		closeAvatarDropdown();
 		showLogoutModal = true;
 	}
 
@@ -181,7 +176,7 @@
 			<!-- Action button (like logout) -->
 			<button
 				onclick={(e) => handleMenuItemClick(e, item.action)}
-				class="flex w-full items-center gap-2 whitespace-nowrap"
+				class="relative z-50 flex w-full cursor-pointer items-center gap-2 whitespace-nowrap"
 				class:text-error={item.isError}
 			>
 				<item.icon class={item.isError ? 'text-error' : 'text-primary'} />
@@ -193,7 +188,7 @@
 			<a
 				href={itemHref}
 				onclick={(e) => handleMenuItemClick(e, undefined, itemHref)}
-				class="flex items-center gap-2 whitespace-nowrap"
+				class="relative z-50 flex cursor-pointer items-center gap-2 whitespace-nowrap"
 			>
 				<item.icon class="text-primary" />
 				<span>{$t(item.label)}</span>
@@ -225,7 +220,7 @@
 		</button>
 		{#if openSectionId === section.id}
 			<div
-				class="absolute left-0 top-full"
+				class="absolute top-full left-0"
 				use:clickOutside={{
 					callback: () => closeDropdowns(),
 					exclude: `#${buttonId}`
@@ -245,7 +240,7 @@
 					transition:popoverTransition={{ duration: 200, y: -8, start: 0.98 }}
 				>
 					<ul>
-						{#each section.items as item}
+						{#each section.items as item (item.href ?? item.action ?? item.label)}
 							{@render menuItem(item)}
 						{/each}
 					</ul>
@@ -280,7 +275,7 @@
 		<ul class="menu menu-horizontal px-1">
 			{#if isLoggedIn}
 				<!-- Logged-in menu sections -->
-				{#each LOGGED_IN_MENU_SECTIONS as section}
+				{#each LOGGED_IN_MENU_SECTIONS as section (section.id)}
 					{@render menuSection(section)}
 				{/each}
 			{:else}
@@ -294,7 +289,7 @@
 					</a>
 				</li>
 				<!-- Rest are dropdown sections using DaisyUI details -->
-				{#each LOGGED_OUT_MENU_SECTIONS.slice(1) as section}
+				{#each LOGGED_OUT_MENU_SECTIONS.slice(1) as section (section.id)}
 					{@render menuSection(section)}
 				{/each}
 			{/if}
@@ -309,47 +304,77 @@
 		</div>
 		<!-- login/signup or notification + avatar -->
 		{#if !isLoggedIn}
-			<a href="/auth/login" class="btn btn-sm sm:btn-md btn-secondary" data-testid="login-link">{$t('navbar.login')}</a>
+			<a href="/auth/login" class="btn btn-sm sm:btn-md btn-secondary" data-testid="login-link"
+				>{$t('navbar.login')}</a
+			>
 			<a href="/auth/signup" class="btn btn-sm sm:btn-md btn-primary">{$t('navbar.signup')}</a>
 		{:else}
 			<!-- Notification Center -->
 			<NotificationCenter />
-			<!-- Avatar Dropdown -->
-			<div
-				class="dropdown dropdown-end relative"
-				use:clickOutside={{ callback: () => (isAvatarDropdownOpen = false) }}
-			>
-				<button class="btn btn-ghost" onclick={toggleAvatarDropdown} aria-haspopup="true" aria-expanded={isAvatarDropdownOpen}>
-					<Avatar name={$user.name} picture={userPicture()} size="sm" />
+			<!-- Avatar dropdown: Svelte-controlled overlay with backdrop (no <details>, no DaisyUI dropdown logic) -->
+			<div class="relative flex items-center">
+				<button
+					id="avatar-dropdown-trigger"
+					class="btn btn-ghost flex h-10 min-h-[44px] w-10 min-w-[44px] shrink-0 items-center justify-center rounded-full p-0"
+					aria-haspopup="true"
+					aria-expanded={isAvatarDropdownOpen}
+					aria-label={$t('common.components.topbar.open_menu')}
+					onclick={toggleAvatarDropdown}
+				>
+					<span class="pointer-events-none">
+						<Avatar name={$user.name} picture={userPicture()} size="sm" />
+					</span>
 				</button>
+
 				{#if isAvatarDropdownOpen}
+					<!-- Backdrop: absorbs any tap outside the menu and closes it -->
 					<div
-						class="menu dropdown-content bg-base-100 rounded-box right-0 z-10 mt-2 w-56 p-2 shadow-md"
+						class="fixed inset-0 z-90"
+						role="button"
+						tabindex="0"
+						onclick={(e) => {
+							e.stopPropagation();
+							closeAvatarDropdown();
+						}}
+						onkeydown={(e) => {
+							if (e.key === 'Enter' || e.key === ' ') {
+								e.preventDefault();
+								closeAvatarDropdown();
+							}
+						}}
+					></div>
+
+					<!-- Floating menu -->
+					<div
+						class="menu bg-base-100 rounded-box absolute top-full right-0 z-100 mt-2 w-56 p-2 shadow-md"
 						style="transform-origin: top right;"
 						role="menu"
 						tabindex="-1"
 						onclick={(e) => e.stopPropagation()}
 						onkeydown={(e) => {
 							if (e.key === 'Escape') {
-								isAvatarDropdownOpen = false;
+								closeAvatarDropdown();
 							}
 						}}
 						transition:popoverTransition={{ duration: 200, y: -8, start: 0.98 }}
 					>
-						<ul>
+						<ul class="relative z-101">
 							<!-- User Info Header -->
 							{#if userDisplayName}
-								<li class="border-b border-base-300 pb-2 mb-2">
+								<li class="border-base-300 mb-2 border-b pb-2">
 									<button
 										onclick={showNpubQrCode}
 										class="flex w-full items-center gap-2 whitespace-nowrap"
 									>
 										<IconQrcode class="text-primary" />
-										<span class="wrap-break-words whitespace-normal font-bold">{userDisplayName}</span>
+										<span class="wrap-break-words font-bold whitespace-normal"
+											>{userDisplayName}</span
+										>
 									</button>
 								</li>
 							{/if}
-							{#each AVATAR_MENU_ITEMS as item}
+
+							{#each AVATAR_MENU_ITEMS as item (item.href ?? item.action ?? item.label)}
 								{@render menuItem(item)}
 							{/each}
 						</ul>
@@ -362,69 +387,69 @@
 
 <!-- Mobile Drawer - Drawer is @deprecated in favor of BottomNavBar component -->
 <Drawer isOpen={isDrawerOpen} onClose={closeDrawer} position="left" isScrollable={true}>
-	{#snippet children()}
-		<ul class="menu w-full">
-			<!-- Dark mode toggle -->
-			<li><DarkModeToggle /></li>
+	<ul class="menu w-full">
+		<!-- Dark mode toggle -->
+		<li><DarkModeToggle /></li>
 
-			<!-- Language submenu -->
-			<li><LanguageDropdown onLanguageChange={closeDrawer} /></li>
+		<!-- Language submenu -->
+		<li><LanguageDropdown onLanguageChange={closeDrawer} /></li>
 
-			<li class="divider"></li>
+		<li class="divider"></li>
 
-			{#if isLoggedIn}
-				<!-- Logged-in mobile menu -->
-				{#each MOBILE_DRAWER_LOGGED_IN as item}
-					<li>
-						{#if item.action}
-							<button
-								onclick={async (e) => {
-									await handleMenuItemClick(e, item.action);
-									closeDrawer();
-								}}
-								class="flex items-center gap-2"
-							>
-								<item.icon />
-								{$t(item.label)}
-							</button>
-						{:else}
-							{@const itemHref = item.getDynamicHref ? item.getDynamicHref(isLoggedIn) : item.href || '#'}
-							<a
-								href={itemHref}
-								onclick={(e) => handleMenuItemClick(e, undefined, itemHref)}
-								class="flex items-center gap-2"
-							>
-								<item.icon />
-								{$t(item.label)}
-							</a>
-						{/if}
-					</li>
-				{/each}
-			{:else}
-				<!-- Logged-out mobile menu -->
-				{@const loginBtn = MOBILE_AUTH_BUTTONS.login}
-				{@const signupBtn = MOBILE_AUTH_BUTTONS.signup}
-				<li class="mt-4 flex flex-col gap-2">
-					<a
-						href={loginBtn.href}
-						class="btn btn-secondary flex w-full items-center justify-center gap-2"
-						onclick={closeDrawer}
-					>
-						<loginBtn.icon />
-						{$t(loginBtn.label)}
-					</a>
-					<a
-						href={signupBtn.href}
-						class="btn btn-primary flex w-full items-center justify-center gap-2"
-						onclick={closeDrawer}
-					>
-						<signupBtn.icon />
-						{$t(signupBtn.label)}
-					</a>
+		{#if isLoggedIn}
+			<!-- Logged-in mobile menu -->
+			{#each MOBILE_DRAWER_LOGGED_IN as item (item.href ?? item.action ?? item.label)}
+				<li>
+					{#if item.action}
+						<button
+							onclick={async (e) => {
+								await handleMenuItemClick(e, item.action);
+								closeDrawer();
+							}}
+							class="flex items-center gap-2"
+						>
+							<item.icon />
+							{$t(item.label)}
+						</button>
+					{:else}
+						{@const itemHref = item.getDynamicHref
+							? item.getDynamicHref(isLoggedIn)
+							: item.href || '#'}
+						<a
+							href={itemHref}
+							onclick={(e) => handleMenuItemClick(e, undefined, itemHref)}
+							class="flex items-center gap-2"
+						>
+							<item.icon />
+							{$t(item.label)}
+						</a>
+					{/if}
 				</li>
-			{/if}
-		</ul>
-	{/snippet}
+			{/each}
+		{:else}
+			<!-- Logged-out mobile menu -->
+			{@const loginBtn = MOBILE_AUTH_BUTTONS.login}
+			{@const signupBtn = MOBILE_AUTH_BUTTONS.signup}
+			<li class="mt-4 flex flex-col gap-2">
+				<a
+					href={loginBtn.href}
+					class="btn btn-secondary flex w-full items-center justify-center gap-2"
+					onclick={closeDrawer}
+				>
+					<loginBtn.icon />
+					{$t(loginBtn.label)}
+				</a>
+				<a
+					href={signupBtn.href}
+					class="btn btn-primary flex w-full items-center justify-center gap-2"
+					onclick={closeDrawer}
+				>
+					<signupBtn.icon />
+					{$t(signupBtn.label)}
+				</a>
+			</li>
+		{/if}
+	</ul>
 </Drawer>
 
 <!-- Logout Confirmation Modal -->
@@ -452,21 +477,6 @@
 	/* Add bottom spacing when bottom nav is present */
 	:global(body) {
 		margin-bottom: 0;
-	}
-
-	/* Remove hover effect and reduce padding for avatar dropdown summary */
-	:global(.navbar-end .dropdown-end > summary.btn.btn-ghost) {
-		background: none !important;
-		box-shadow: none !important;
-		color: inherit !important;
-		padding: 0.25rem 0.5rem !important;
-		transition: none !important;
-	}
-	:global(.navbar-end .dropdown-end > summary.btn.btn-ghost:hover),
-	:global(.navbar-end .dropdown-end > summary.btn.btn-ghost:focus) {
-		background: none !important;
-		box-shadow: none !important;
-		color: inherit !important;
 	}
 
 	/* Ensure dropdown positioning works correctly in navbar */
