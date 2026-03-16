@@ -1,48 +1,44 @@
-type ClickOutsideAction = (
-	node: HTMLElement,
-	options?: { callback: () => void; exclude?: string }
-) => {
-	destroy: () => void;
+export type ClickOutsideOptions = {
+	callback: () => void;
+	exclude?: string;
 };
 
+type ClickOutsideAction = (node: HTMLElement, options?: ClickOutsideOptions) => { destroy: () => void };
+
 export const clickOutside: ClickOutsideAction = (node, options) => {
-	const handleClick = (event: MouseEvent) => {
+		// Handle both mouse and touch events so iOS Safari reliably detects outside taps
+	const handleEvent = (event: Event) => {
 		if (!node) return;
-		
+
 		const target = event.target as Node;
-		
-		// Check if click is on an excluded element FIRST (e.g., the button that opens the dropdown)
-		// This must be checked before checking if inside node, since excluded elements are often outside
+
 		if (options?.exclude) {
 			try {
-				const excludedElement = document.querySelector(options.exclude);
-				if (excludedElement && (excludedElement === target || excludedElement.contains(target))) {
-					return;
-				}
-			} catch (e) {
-				// Invalid selector, ignore
+				const el = document.querySelector(options.exclude);
+				if (el && (el === target || el.contains(target))) return;
+			} catch {
+				// invalid selector
 			}
 		}
-		
-		// Check if click is inside the node
-		if (node.contains(target)) {
-			return;
-		}
-		
-		// Check if default was prevented (shouldn't fire if event was handled)
-		if (event.defaultPrevented) {
-			return;
-		}
-		
-		// Click is outside, call callback
+
+		if (node.contains(target)) return;
+		// For passive touch listeners defaultPrevented will always be false, but this is
+		// still useful for normal click handlers.
+		if (event.defaultPrevented) return;
+
 		options?.callback?.();
 	};
 
-	document.addEventListener('click', handleClick, true);
+	const touchOptions: AddEventListenerOptions = { passive: true, capture: true };
+
+	document.addEventListener('click', handleEvent, true);
+	document.addEventListener('touchstart', handleEvent, touchOptions);
 
 	return {
 		destroy() {
-			document.removeEventListener('click', handleClick, true);
+			document.removeEventListener('click', handleEvent, true);
+			// When removing, only `capture` matters for matching; `passive` is ignored.
+			document.removeEventListener('touchstart', handleEvent, { capture: true } as EventListenerOptions);
 		}
 	};
 };

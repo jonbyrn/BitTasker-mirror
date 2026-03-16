@@ -245,7 +245,7 @@
 					transition:popoverTransition={{ duration: 200, y: -8, start: 0.98 }}
 				>
 					<ul>
-						{#each section.items as item}
+						{#each section.items as item (item.href ?? item.action ?? item.label)}
 							{@render menuItem(item)}
 						{/each}
 					</ul>
@@ -280,7 +280,7 @@
 		<ul class="menu menu-horizontal px-1">
 			{#if isLoggedIn}
 				<!-- Logged-in menu sections -->
-				{#each LOGGED_IN_MENU_SECTIONS as section}
+				{#each LOGGED_IN_MENU_SECTIONS as section (section.id)}
 					{@render menuSection(section)}
 				{/each}
 			{:else}
@@ -294,7 +294,7 @@
 					</a>
 				</li>
 				<!-- Rest are dropdown sections using DaisyUI details -->
-				{#each LOGGED_OUT_MENU_SECTIONS.slice(1) as section}
+				{#each LOGGED_OUT_MENU_SECTIONS.slice(1) as section (section.id)}
 					{@render menuSection(section)}
 				{/each}
 			{/if}
@@ -314,46 +314,64 @@
 		{:else}
 			<!-- Notification Center -->
 			<NotificationCenter />
-			<!-- Avatar Dropdown -->
-			<div
-				class="dropdown dropdown-end relative"
-				use:clickOutside={{ callback: () => (isAvatarDropdownOpen = false) }}
-			>
-				<button class="btn btn-ghost" onclick={toggleAvatarDropdown} aria-haspopup="true" aria-expanded={isAvatarDropdownOpen}>
-					<Avatar name={$user.name} picture={userPicture()} size="sm" />
-				</button>
-				{#if isAvatarDropdownOpen}
-					<div
-						class="menu dropdown-content bg-base-100 rounded-box right-0 z-10 mt-2 w-56 p-2 shadow-md"
-						style="transform-origin: top right;"
-						role="menu"
-						tabindex="-1"
-						onclick={(e) => e.stopPropagation()}
-						onkeydown={(e) => {
-							if (e.key === 'Escape') {
-								isAvatarDropdownOpen = false;
-							}
-						}}
-						transition:popoverTransition={{ duration: 200, y: -8, start: 0.98 }}
+			<!-- Avatar Dropdown: overlay + fixed menu for reliable tap on iOS -->
+			<div class="relative">
+				<div
+					class="dropdown dropdown-end relative"
+					use:clickOutside={{ callback: () => (isAvatarDropdownOpen = false) }}
+				>
+					<button
+						type="button"
+						class="btn btn-ghost touch-manipulation cursor-pointer"
+						onclick={toggleAvatarDropdown}
+						aria-haspopup="true"
+						aria-expanded={isAvatarDropdownOpen}
 					>
-						<ul>
-							<!-- User Info Header -->
-							{#if userDisplayName}
-								<li class="border-b border-base-300 pb-2 mb-2">
-									<button
-										onclick={showNpubQrCode}
-										class="flex w-full items-center gap-2 whitespace-nowrap"
-									>
-										<IconQrcode class="text-primary" />
-										<span class="wrap-break-words whitespace-normal font-bold">{userDisplayName}</span>
-									</button>
-								</li>
-							{/if}
-							{#each AVATAR_MENU_ITEMS as item}
-								{@render menuItem(item)}
-							{/each}
-						</ul>
-					</div>
+						<Avatar name={$user.name} picture={userPicture()} size="sm" />
+					</button>
+					{#if isAvatarDropdownOpen}
+						<div
+							class="menu bg-base-100 rounded-box fixed right-2 top-14 z-50 w-56 p-2 shadow-lg"
+							style="transform-origin: top right;"
+							role="menu"
+							tabindex="-1"
+							onclick={(e) => e.stopPropagation()}
+							onkeydown={(e) => {
+								if (e.key === 'Escape') {
+									isAvatarDropdownOpen = false;
+								}
+							}}
+							transition:popoverTransition={{ duration: 200, y: -8, start: 0.98 }}
+						>
+							<ul>
+								<!-- User Info Header -->
+								{#if userDisplayName}
+									<li class="border-b border-base-300 pb-2 mb-2">
+										<button
+											type="button"
+											onclick={showNpubQrCode}
+											class="flex w-full cursor-pointer touch-manipulation items-center gap-2 whitespace-nowrap"
+										>
+											<IconQrcode class="text-primary" />
+											<span class="wrap-break-words whitespace-normal font-bold">{userDisplayName}</span>
+										</button>
+									</li>
+								{/if}
+								{#each AVATAR_MENU_ITEMS as item (item.href ?? item.action ?? item.label)}
+									{@render menuItem(item)}
+								{/each}
+							</ul>
+						</div>
+					{/if}
+				</div>
+				{#if isAvatarDropdownOpen}
+					<!-- Backdrop: closes menu on tap and avoids iOS stacking/overflow issues -->
+					<button
+						type="button"
+						class="fixed inset-0 z-40 cursor-default"
+						aria-label="Close menu"
+						onclick={() => (isAvatarDropdownOpen = false)}
+					></button>
 				{/if}
 			</div>
 		{/if}
@@ -374,7 +392,7 @@
 
 			{#if isLoggedIn}
 				<!-- Logged-in mobile menu -->
-				{#each MOBILE_DRAWER_LOGGED_IN as item}
+				{#each MOBILE_DRAWER_LOGGED_IN as item (item.href ?? item.action ?? item.label)}
 					<li>
 						{#if item.action}
 							<button
@@ -388,7 +406,9 @@
 								{$t(item.label)}
 							</button>
 						{:else}
-							{@const itemHref = item.getDynamicHref ? item.getDynamicHref(isLoggedIn) : item.href || '#'}
+							{@const itemHref = item.getDynamicHref
+								? item.getDynamicHref(isLoggedIn)
+								: item.href || '#'}
 							<a
 								href={itemHref}
 								onclick={(e) => handleMenuItemClick(e, undefined, itemHref)}
@@ -452,21 +472,6 @@
 	/* Add bottom spacing when bottom nav is present */
 	:global(body) {
 		margin-bottom: 0;
-	}
-
-	/* Remove hover effect and reduce padding for avatar dropdown summary */
-	:global(.navbar-end .dropdown-end > summary.btn.btn-ghost) {
-		background: none !important;
-		box-shadow: none !important;
-		color: inherit !important;
-		padding: 0.25rem 0.5rem !important;
-		transition: none !important;
-	}
-	:global(.navbar-end .dropdown-end > summary.btn.btn-ghost:hover),
-	:global(.navbar-end .dropdown-end > summary.btn.btn-ghost:focus) {
-		background: none !important;
-		box-shadow: none !important;
-		color: inherit !important;
 	}
 
 	/* Ensure dropdown positioning works correctly in navbar */
