@@ -43,12 +43,16 @@
 	// Dropdown state - track which section ID is open
 	let openSectionId = $state<string | null>(null);
 
-	// Avatar dropdown state (Svelte-controlled, used with overlay/backdrop)
+	// Control avatar dropdown visibility
 	let isAvatarDropdownOpen = $state(false);
 
 	function popoverTransition(
 		node: Element,
-		{ duration = 200, y = -8, start = 0.98 }: { duration?: number; y?: number; start?: number } = {}
+		{
+			duration = 200,
+			y = -8,
+			start = 0.98
+		}: { duration?: number; y?: number; start?: number } = {}
 	): TransitionConfig {
 		return {
 			duration,
@@ -111,7 +115,11 @@
 	});
 
 	// Derived values for user display name
-	let userDisplayName = $derived($profileStore.data?.name || $user.name || '');
+	let userDisplayName = $derived(
+		$profileStore.data?.name ||
+		$user.name ||
+		''
+	);
 
 	// Close drawer
 	function closeDrawer() {
@@ -176,7 +184,7 @@
 			<!-- Action button (like logout) -->
 			<button
 				onclick={(e) => handleMenuItemClick(e, item.action)}
-				class="relative z-50 flex w-full cursor-pointer items-center gap-2 whitespace-nowrap"
+				class="flex w-full items-center gap-2 whitespace-nowrap"
 				class:text-error={item.isError}
 			>
 				<item.icon class={item.isError ? 'text-error' : 'text-primary'} />
@@ -188,7 +196,7 @@
 			<a
 				href={itemHref}
 				onclick={(e) => handleMenuItemClick(e, undefined, itemHref)}
-				class="relative z-50 flex cursor-pointer items-center gap-2 whitespace-nowrap"
+				class="flex items-center gap-2 whitespace-nowrap"
 			>
 				<item.icon class="text-primary" />
 				<span>{$t(item.label)}</span>
@@ -220,7 +228,7 @@
 		</button>
 		{#if openSectionId === section.id}
 			<div
-				class="absolute top-full left-0"
+				class="absolute left-0 top-full"
 				use:clickOutside={{
 					callback: () => closeDropdowns(),
 					exclude: `#${buttonId}`
@@ -387,69 +395,71 @@
 
 <!-- Mobile Drawer - Drawer is @deprecated in favor of BottomNavBar component -->
 <Drawer isOpen={isDrawerOpen} onClose={closeDrawer} position="left" isScrollable={true}>
-	<ul class="menu w-full">
-		<!-- Dark mode toggle -->
-		<li><DarkModeToggle /></li>
+	{#snippet children()}
+		<ul class="menu w-full">
+			<!-- Dark mode toggle -->
+			<li><DarkModeToggle /></li>
 
-		<!-- Language submenu -->
-		<li><LanguageDropdown onLanguageChange={closeDrawer} /></li>
+			<!-- Language submenu -->
+			<li><LanguageDropdown onLanguageChange={closeDrawer} /></li>
 
-		<li class="divider"></li>
+			<li class="divider"></li>
 
-		{#if isLoggedIn}
-			<!-- Logged-in mobile menu -->
-			{#each MOBILE_DRAWER_LOGGED_IN as item (item.href ?? item.action ?? item.label)}
-				<li>
-					{#if item.action}
-						<button
-							onclick={async (e) => {
-								await handleMenuItemClick(e, item.action);
-								closeDrawer();
-							}}
-							class="flex items-center gap-2"
-						>
-							<item.icon />
-							{$t(item.label)}
-						</button>
-					{:else}
-						{@const itemHref = item.getDynamicHref
-							? item.getDynamicHref(isLoggedIn)
-							: item.href || '#'}
-						<a
-							href={itemHref}
-							onclick={(e) => handleMenuItemClick(e, undefined, itemHref)}
-							class="flex items-center gap-2"
-						>
-							<item.icon />
-							{$t(item.label)}
-						</a>
-					{/if}
+			{#if isLoggedIn}
+				<!-- Logged-in mobile menu -->
+				{#each MOBILE_DRAWER_LOGGED_IN as item (item.href ?? item.action ?? item.label)}
+					<li>
+						{#if item.action}
+							<button
+								onclick={async (e) => {
+									await handleMenuItemClick(e, item.action);
+									closeDrawer();
+								}}
+								class="flex items-center gap-2"
+							>
+								<item.icon />
+								{$t(item.label)}
+							</button>
+						{:else}
+							{@const itemHref = item.getDynamicHref
+								? item.getDynamicHref(isLoggedIn)
+								: item.href || '#'}
+							<a
+								href={itemHref}
+								onclick={(e) => handleMenuItemClick(e, undefined, itemHref)}
+								class="flex items-center gap-2"
+							>
+								<item.icon />
+								{$t(item.label)}
+							</a>
+						{/if}
+					</li>
+				{/each}
+			{:else}
+				<!-- Logged-out mobile menu -->
+				{@const loginBtn = MOBILE_AUTH_BUTTONS.login}
+				{@const signupBtn = MOBILE_AUTH_BUTTONS.signup}
+				<li class="mt-4 flex flex-col gap-2">
+					<a
+						href={loginBtn.href}
+						class="btn btn-secondary flex w-full items-center justify-center gap-2"
+						onclick={closeDrawer}
+					>
+						<loginBtn.icon />
+						{$t(loginBtn.label)}
+					</a>
+					<a
+						href={signupBtn.href}
+						class="btn btn-primary flex w-full items-center justify-center gap-2"
+						onclick={closeDrawer}
+					>
+						<signupBtn.icon />
+						{$t(signupBtn.label)}
+					</a>
 				</li>
-			{/each}
-		{:else}
-			<!-- Logged-out mobile menu -->
-			{@const loginBtn = MOBILE_AUTH_BUTTONS.login}
-			{@const signupBtn = MOBILE_AUTH_BUTTONS.signup}
-			<li class="mt-4 flex flex-col gap-2">
-				<a
-					href={loginBtn.href}
-					class="btn btn-secondary flex w-full items-center justify-center gap-2"
-					onclick={closeDrawer}
-				>
-					<loginBtn.icon />
-					{$t(loginBtn.label)}
-				</a>
-				<a
-					href={signupBtn.href}
-					class="btn btn-primary flex w-full items-center justify-center gap-2"
-					onclick={closeDrawer}
-				>
-					<signupBtn.icon />
-					{$t(signupBtn.label)}
-				</a>
-			</li>
-		{/if}
-	</ul>
+			{/if}
+		</ul>
+	{/snippet}
 </Drawer>
 
 <!-- Logout Confirmation Modal -->
