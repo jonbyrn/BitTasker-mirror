@@ -12,7 +12,8 @@ export enum BscDirectSendFailureCode {
   POLICY_REJECTED = 'POLICY_REJECTED',
   REQUEST_EXPIRED = 'REQUEST_EXPIRED',
   DUPLICATE_REQUEST = 'DUPLICATE_REQUEST',
-  SUBMISSION_FAILED = 'SUBMISSION_FAILED'
+  SUBMISSION_FAILED = 'SUBMISSION_FAILED',
+  INTERNAL_ERROR = 'INTERNAL_ERROR'
 }
 
 export enum SubmissionLifecycleState {
@@ -28,17 +29,21 @@ export enum SubmissionLifecycleState {
 export interface BscDirectSendRequest {
   // Request identification
   correlationId: string;
-  signedRawTransaction: string;
-  signedRawTransactionHash: string;
+
+  // Meta-transaction data
+  user: string;
+  recipient: string;
+  amount: string; // Atomic units as string
+  nonce: number;
+  deadline: number;
+  signature: string;
 
   // Chain context
   chainId: number;
-  requestExpiry: number; // Unix timestamp in seconds
 
-  // Expected validation
-  expectedTargetContract: string;
-  expectedMethodSelector: string;
-  expectedTokenAddress: string;
+  // Optional but recommended for validation
+  expectedTargetContract?: string;
+  expectedTokenAddress?: string;
 }
 
 export interface SubmissionResponse {

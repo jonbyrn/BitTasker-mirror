@@ -4,7 +4,53 @@
  */
 
 import { ethers } from 'ethers';
-import crypto from 'crypto';
+
+/**
+ * Verify EIP-712 signature for a transfer request
+ */
+export async function verifyTransferSignature(
+  chainId: number,
+  routerAddress: string,
+  user: string,
+  recipient: string,
+  amount: string,
+  nonce: number,
+  deadline: number,
+  signature: string
+): Promise<boolean> {
+  try {
+    const domain = {
+      name: "DirectSendRouter",
+      version: "1",
+      chainId: chainId,
+      verifyingContract: routerAddress,
+    };
+
+    const types = {
+      TransferRequest: [
+        { name: "user", type: "address" },
+        { name: "recipient", type: "address" },
+        { name: "amount", type: "uint256" },
+        { name: "nonce", type: "uint256" },
+        { name: "deadline", type: "uint256" },
+      ],
+    };
+
+    const value = {
+      user,
+      recipient,
+      amount,
+      nonce,
+      deadline,
+    };
+
+    const recoveredAddress = ethers.verifyTypedData(domain, types, value, signature);
+    return recoveredAddress.toLowerCase() === user.toLowerCase();
+  } catch (error) {
+    console.error('Error verifying EIP-712 signature:', error);
+    return false;
+  }
+}
 
 /**
  * Verify that the signed raw transaction hash matches the actual transaction

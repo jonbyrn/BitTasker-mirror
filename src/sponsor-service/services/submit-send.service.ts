@@ -7,7 +7,7 @@ import { getNetworkConfig, isValidChainId } from '../config/networks.js';
 import { blockchainService } from './blockchain.service.js';
 import * as submissionsRepo from '../db/submissions.repository.js';
 import * as treasuryRepo from '../db/treasury-events.repository.js';
-import { verifySignedTransactionHash, validateTransactionStructure } from '../utils/signature-verification.js';
+import { verifyTransferSignature } from '../utils/signature-verification.js';
 import type {
   BscDirectSendRequest,
   BscDirectSendFailureCode,
@@ -21,7 +21,7 @@ export interface SubmitSendOptions {
 }
 
 /**
- * Submit a signed direct-send request
+ * Submit a signed direct-send request (EIP-712 meta-transaction)
  */
 export async function submitDirectSend(
   request: BscDirectSendRequest,
@@ -41,9 +41,11 @@ export async function submitDirectSend(
       };
     }
 
+    const config = getNetworkConfig(chainId)!;
+
     // Check if request is not expired
     const now = Math.floor(Date.now() / 1000);
-    if (request.requestExpiry < now) {
+    if (request.deadline < now) {
       return {
         status: 'rejected',
         correlationId,
@@ -52,9 +54,9 @@ export async function submitDirectSend(
       };
     }
 
-    // Check for duplicate (idempotency)
+    // Check for duplicate (idempotency by signature)
     const existingSubmission = await submissionsRepo.getSubmissionBySignedHash(
-      request.signedRawTransactionHash
+      request.signature
     );
 
     if (existingSubmission) {
@@ -77,43 +79,43 @@ export async function submitDirectSend(
       }
     }
 
-    // Verify transaction structure and signature
+    // Verify EIP-712 signature
     if (!options.skipSignatureVerification) {
-      if (!verifySignedTransactionHash(request.signedRawTransaction, request.signedRawTransactionHash)) {
-        return {
-          status: 'rejected',
-          correlationId,
-          failureCode: 'POLICY_REJECTED' as BscDirectSendFailureCode,
-          errorMessage: 'Transaction signature verification failed'
-        };
-      }
+      const isValid = await verifyTransferSignature(
+        chainId,
+        config.routerAddress,
+        request.user,
+        request.recipient,
+        request.amount,
+        request.nonce,
+        request.deadline,
+        request.signature
+      );
 
-      if (!validateTransactionStructure(request.signedRawTransaction, request.expectedMethodSelector)) {
+      if (!isValid) {
         return {
           status: 'rejected',
           correlationId,
           failureCode: 'POLICY_REJECTED' as BscDirectSendFailureCode,
-          errorMessage: 'Transaction structure validation failed'
+          errorMessage: 'EIP-712 signature verification failed'
         };
       }
     }
 
-    // Check sponsor availability and balance
-    const config = getNetworkConfig(chainId)!;
+    // Check sponsor availability and balance (BNB for gas)
     try {
-      const sponsorBalance = await blockchainService.getTokenBalance(
+      const sponsorBalance = await blockchainService.getBalance(
         chainId,
-        config.usdtTokenAddress,
         config.sponsorAddress
       );
 
-      // We'll do basic validation; full amount validation would require parsing the tx
-      if (parseInt(sponsorBalance) === 0) {
+      // Sponsor needs BNB for gas
+      if (BigInt(sponsorBalance) < ethers.parseEther("0.005")) {
         return {
           status: 'rejected',
           correlationId,
           failureCode: 'SPONSOR_UNAVAILABLE' as BscDirectSendFailureCode,
-          errorMessage: 'Sponsor has insufficient balance'
+          errorMessage: 'Sponsor has insufficient BNB balance for gas'
         };
       }
     } catch (error) {
@@ -126,22 +128,30 @@ export async function submitDirectSend(
       };
     }
 
-    // Submit transaction to blockchain
+    // Submit meta-transaction to blockchain via router contract
     let txHash: string;
     try {
-      txHash = await blockchainService.submitSignedTransaction(chainId, request.signedRawTransaction);
+      txHash = await blockchainService.submitMetaTransaction(
+        chainId,
+        request.user,
+        request.recipient,
+        request.amount,
+        request.nonce,
+        request.deadline,
+        request.signature
+      );
     } catch (error) {
       console.error('Error submitting transaction:', error);
 
       // Save failed submission for audit
       const failedRecord = await submissionsRepo.createSubmission({
         correlationId,
-        signedRawTransactionHash: request.signedRawTransactionHash,
+        signedRawTransactionHash: request.signature,
         chainId,
         status: 'rejected',
         lifecycleState: 'submission_failed' as SubmissionLifecycleState,
         failureCode: 'SUBMISSION_FAILED' as BscDirectSendFailureCode,
-        requestExpiry: request.requestExpiry
+        requestExpiry: request.deadline
       });
 
       await treasuryRepo.createTreasuryEvent({
@@ -154,18 +164,18 @@ export async function submitDirectSend(
         status: 'rejected',
         correlationId,
         failureCode: 'SUBMISSION_FAILED' as BscDirectSendFailureCode,
-        errorMessage: 'Failed to submit transaction to blockchain'
+        errorMessage: 'Failed to submit meta-transaction to blockchain'
       };
     }
 
     // Save successful submission
     const submission = await submissionsRepo.createSubmission({
       correlationId,
-      signedRawTransactionHash: request.signedRawTransactionHash,
+      signedRawTransactionHash: request.signature,
       chainId,
       status: 'accepted',
       lifecycleState: 'submitted' as SubmissionLifecycleState,
-      requestExpiry: request.requestExpiry,
+      requestExpiry: request.deadline,
       txHash
     });
 
@@ -188,7 +198,7 @@ export async function submitDirectSend(
     return {
       status: 'rejected',
       correlationId,
-      failureCode: 'SPONSOR_UNAVAILABLE' as BscDirectSendFailureCode,
+      failureCode: 'INTERNAL_ERROR' as BscDirectSendFailureCode,
       errorMessage: 'An unexpected error occurred'
     };
   }

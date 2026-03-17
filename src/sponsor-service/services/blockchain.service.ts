@@ -16,18 +16,28 @@ export interface TransactionReceipt {
 }
 
 export class BlockchainService {
-  private providers: Map<number, ethers.JsonRpcProvider> = new Map();
+  private providers: Map<number, ethers.AbstractProvider> = new Map();
 
-  /**
-   * Get provider for a specific chain
-   */
-  getProvider(chainId: number): ethers.JsonRpcProvider {
+  getProvider(chainId: number): ethers.AbstractProvider {
     if (!this.providers.has(chainId)) {
       const config = getNetworkConfig(chainId);
       if (!config) {
         throw new Error(`Unsupported chain ID: ${chainId}`);
       }
-      this.providers.set(chainId, new ethers.JsonRpcProvider(config.rpcUrl));
+
+      const urls = [config.rpcUrl, ...(config.rpcUrls ?? [])].filter(Boolean);
+
+      if (urls.length === 1) {
+        this.providers.set(chainId, new ethers.JsonRpcProvider(urls[0]));
+      } else {
+        const providerConfigs = urls.map((url, index) => ({
+          provider: new ethers.JsonRpcProvider(url),
+          priority: index + 1,
+          stallTimeout: 1500,
+          weight: 1
+        }));
+        this.providers.set(chainId, new ethers.FallbackProvider(providerConfigs, chainId));
+      }
     }
     return this.providers.get(chainId)!;
   }
@@ -59,6 +69,45 @@ export class BlockchainService {
       return result;
     } catch (error) {
       console.error(`Error submitting transaction to chain ${chainId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Submit meta-transaction to the router contract
+   */
+  async submitMetaTransaction(
+    chainId: number,
+    user: string,
+    recipient: string,
+    amount: string,
+    nonce: number,
+    deadline: number,
+    signature: string
+  ): Promise<string> {
+    try {
+      const config = getNetworkConfig(chainId);
+      if (!config || !config.routerAddress) {
+        throw new Error(`Router address not configured for chain ${chainId}`);
+      }
+
+      const provider = this.getProvider(chainId);
+      const sponsorKey = process.env[`SPONSOR_PRIVATE_KEY_${chainId}`] || process.env.SPONSOR_PRIVATE_KEY;
+      if (!sponsorKey) {
+        throw new Error(`Sponsor private key not configured for chain ${chainId}`);
+      }
+
+      const wallet = new ethers.Wallet(sponsorKey, provider);
+
+      const abi = [
+        'function route(address user, address recipient, uint256 amount, uint256 nonce, uint256 deadline, bytes signature)'
+      ];
+      const contract = new ethers.Contract(config.routerAddress, abi, wallet);
+
+      const tx = await contract.route(user, recipient, amount, nonce, deadline, signature);
+      return tx.hash;
+    } catch (error) {
+      console.error(`Error submitting meta-transaction to chain ${chainId}:`, error);
       throw error;
     }
   }

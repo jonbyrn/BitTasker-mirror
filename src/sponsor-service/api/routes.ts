@@ -7,6 +7,8 @@ import express, { Router, Request, Response, NextFunction } from 'express';
 import type { BscDirectSendRequest, SubmissionResponse } from '../models/types.js';
 import * as submitSendService from '../services/submit-send.service.js';
 import { checkRateLimit } from '../middleware/rate-limiter.js';
+import { blockchainService } from '../services/blockchain.service.js';
+import { getNetworkConfig, isValidChainId } from '../config/networks.js';
 
 const router = Router();
 
@@ -16,17 +18,52 @@ async function validateSubmitSendRequest(
   res: Response,
   next: NextFunction
 ): Promise<void> {
-  const { signedRawTransaction, signedRawTransactionHash, chainId, correlationId, requestExpiry } =
+  const { user, recipient, amount, nonce, deadline, signature, chainId, correlationId } =
     req.body;
 
   // Validate required fields
-  if (!signedRawTransaction || typeof signedRawTransaction !== 'string') {
-    res.status(400).json({ error: 'signedRawTransaction is required and must be a string' });
+  if (!user || typeof user !== 'string' || !user.startsWith('0x') || user.length !== 42) {
+    res.status(400).json({ error: 'user address is required and must be a valid 42-character address' });
     return;
   }
 
-  if (!signedRawTransactionHash || typeof signedRawTransactionHash !== 'string') {
-    res.status(400).json({ error: 'signedRawTransactionHash is required and must be a string' });
+  if (!recipient || typeof recipient !== 'string' || !recipient.startsWith('0x') || recipient.length !== 42) {
+    res.status(400).json({ error: 'recipient address is required' });
+    return;
+  }
+
+  if (!amount || typeof amount !== 'string' || !/^\d+$/.test(amount)) {
+    res.status(400).json({ error: 'amount is required and must be a numeric string' });
+    return;
+  }
+
+  // Validate amount upper bound (max $1M USDT)
+  const MAX_AMOUNT = BigInt("1000000000000"); // 1M USDT in atomic units (6 decimals)
+  if (BigInt(amount) > MAX_AMOUNT) {
+    res.status(400).json({ error: 'amount exceeds maximum allowed ($1M USDT)' });
+    return;
+  }
+
+  if (typeof nonce !== 'number' || nonce < 0) {
+    res.status(400).json({ error: 'nonce is required and must be a non-negative number' });
+    return;
+  }
+
+  if (typeof deadline !== 'number' || deadline <= 0) {
+    res.status(400).json({ error: 'deadline is required and must be a valid Unix timestamp' });
+    return;
+  }
+
+  // Enforce max deadline of 30 minutes to prevent unusual long-lived signatures
+  const MAX_DEADLINE_SECONDS = 30 * 60; // 30 minutes
+  const now = Math.floor(Date.now() / 1000);
+  if (deadline > now + MAX_DEADLINE_SECONDS) {
+    res.status(400).json({ error: 'deadline must be within 30 minutes' });
+    return;
+  }
+
+  if (!signature || typeof signature !== 'string' || !signature.startsWith('0x')) {
+    res.status(400).json({ error: 'signature is required' });
     return;
   }
 
@@ -37,11 +74,6 @@ async function validateSubmitSendRequest(
 
   if (!correlationId || typeof correlationId !== 'string') {
     res.status(400).json({ error: 'correlationId is required and must be a string' });
-    return;
-  }
-
-  if (!Number.isInteger(requestExpiry) || requestExpiry <= 0) {
-    res.status(400).json({ error: 'requestExpiry is required and must be a valid Unix timestamp' });
     return;
   }
 
@@ -90,13 +122,15 @@ router.post(
     try {
       const request: BscDirectSendRequest = {
         correlationId: req.body.correlationId,
-        signedRawTransaction: req.body.signedRawTransaction,
-        signedRawTransactionHash: req.body.signedRawTransactionHash,
+        user: req.body.user,
+        recipient: req.body.recipient,
+        amount: req.body.amount,
+        nonce: req.body.nonce,
+        deadline: req.body.deadline,
+        signature: req.body.signature,
         chainId: req.body.chainId,
-        requestExpiry: req.body.requestExpiry,
-        expectedTargetContract: req.body.expectedTargetContract || '',
-        expectedMethodSelector: req.body.expectedMethodSelector || '',
-        expectedTokenAddress: req.body.expectedTokenAddress || ''
+        expectedTargetContract: req.body.expectedTargetContract,
+        expectedTokenAddress: req.body.expectedTokenAddress
       };
 
       const response = await submitSendService.submitDirectSend(request);
@@ -146,11 +180,69 @@ router.get('/v1/usdt-bsc/status/:correlationId', async (req: Request, res: Respo
  * GET /health
  * Health check endpoint
  */
-router.get('/health', (req: Request, res: Response) => {
-  res.status(200).json({
-    status: 'ok',
+/**
+ * GET /health
+ * Health check endpoint with comprehensive status
+ */
+router.get('/health', async (req: Request, res: Response) => {
+  const checks: Record<string, { status: string; message?: string; latency?: number }> = {};
+  let overallStatus = 'ok';
+
+  // Check 1: Database connectivity
+  try {
+    const startDb = Date.now();
+    const { query } = await import('../db/connection.js');
+    await query('SELECT 1');
+    checks.database = { status: 'ok', latency: Date.now() - startDb };
+  } catch (error) {
+    checks.database = { status: 'error', message: String(error) };
+    overallStatus = 'degraded';
+  }
+
+  // Check 2: RPC connectivity (BSC mainnet)
+  try {
+    const startRpc = Date.now();
+    const config = getNetworkConfig(56);
+    if (config) {
+      await blockchainService.getBalance(56, config.sponsorAddress);
+      checks.rpc = { status: 'ok', latency: Date.now() - startRpc };
+    } else {
+      checks.rpc = { status: 'skipped', message: 'No mainnet config' };
+    }
+  } catch (error) {
+    checks.rpc = { status: 'error', message: String(error) };
+    overallStatus = 'degraded';
+  }
+
+  // Check 3: Sponsor balance (BSC mainnet) - only show boolean for security
+  try {
+    const config = getNetworkConfig(56);
+    if (config) {
+      const balance = await blockchainService.getBalance(56, config.sponsorAddress);
+      const balanceBn = BigInt(balance);
+      const minBalance = BigInt("5000000000000000"); // 0.005 BNB minimum
+      const hasSufficientBalance = balanceBn >= minBalance;
+
+      if (hasSufficientBalance) {
+        checks.sponsor = { status: 'ok', available: true };
+      } else {
+        checks.sponsor = { status: 'warning', available: false };
+        overallStatus = overallStatus === 'ok' ? 'degraded' : overallStatus;
+      }
+    } else {
+      checks.sponsor = { status: 'skipped', available: false };
+    }
+  } catch (error) {
+    checks.sponsor = { status: 'error', message: String(error) };
+    overallStatus = 'degraded';
+  }
+
+  const statusCode = overallStatus === 'ok' ? 200 : 503;
+  res.status(statusCode).json({
+    status: overallStatus,
     timestamp: new Date().toISOString(),
-    version: '1.0.0'
+    version: '1.0.0',
+    checks
   });
 });
 
