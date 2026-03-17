@@ -1,301 +1,679 @@
-import { expect } from "chai";
-import { ethers } from "hardhat";
-import { DirectSendRouter, ERC20Mock } from "../typechain-types";
-import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
+import { expect } from 'chai';
+import { ethers } from 'hardhat';
+import { DirectSendRouter, ERC20Mock } from '../typechain-types';
+import type { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers';
+import type { TypedDataDomain, TypedDataField, Signer } from 'ethers';
 
-describe("DirectSendRouter", () => {
-  let router: DirectSendRouter;
-  let usdt: ERC20Mock;
-  let owner: SignerWithAddress;
-  let sender: SignerWithAddress;
-  let recipient: SignerWithAddress;
-  let treasury: SignerWithAddress;
-  let attacker: SignerWithAddress;
+describe('DirectSendRouter - Meta-Transaction Tests', () => {
+	let router: DirectSendRouter;
+	let usdt: ERC20Mock;
+	let owner: SignerWithAddress;
+	let user: Signer;
+	let recipient: SignerWithAddress;
+	let treasury: SignerWithAddress;
+	let sponsor: SignerWithAddress;
+	let attacker: SignerWithAddress;
 
-  const FIXED_FEE = ethers.parseUnits("1", 6); // 1 USDT
-  const TRANSFER_AMOUNT = ethers.parseUnits("100", 6); // 100 USDT
-  const LARGE_AMOUNT = ethers.parseUnits("1000000", 6); // 1M USDT
+	const FIXED_FEE = ethers.parseUnits('1', 6); // 1 USDT = $0.01
+	const TRANSFER_AMOUNT = ethers.parseUnits('100', 6); // 100 USDT
 
-  beforeEach(async () => {
-    [owner, sender, recipient, treasury, attacker] = await ethers.getSigners();
+	// EIP-712 domain
+	let domain: TypedDataDomain;
+	let types: Record<string, TypedDataField[]>;
 
-    // Deploy mock USDT
-    const USDTFactory = await ethers.getContractFactory("ERC20Mock");
-    usdt = await USDTFactory.deploy();
+	async function signTransferRequest(
+		userWallet: Signer,
+		recipientAddr: string,
+		amount: bigint,
+		nonce: bigint | number,
+		deadlineVal: bigint
+	): Promise<string> {
+		const message = {
+			user: await userWallet.getAddress(),
+			recipient: recipientAddr,
+			amount: amount,
+			nonce: BigInt(nonce),
+			deadline: deadlineVal
+		};
 
-    // Deploy DirectSendRouter
-    const RouterFactory = await ethers.getContractFactory("DirectSendRouter");
-    router = await RouterFactory.deploy(await usdt.getAddress(), await treasury.getAddress(), FIXED_FEE);
+		return await userWallet.signTypedData(domain, types, message);
+	}
 
-    // Mint USDT to sender
-    const mintAmount = ethers.parseUnits("10000", 6);
-    await usdt.mint(await sender.getAddress(), mintAmount);
-  });
+	beforeEach(async () => {
+		[owner, recipient, treasury, sponsor, attacker] = await ethers.getSigners();
 
-  describe("Deployment", () => {
-    it("should set correct initial state", async () => {
-      expect(await router.USDT()).to.equal(await usdt.getAddress());
-      expect(await router.treasury()).to.equal(await treasury.getAddress());
-      expect(await router.FIXED_FEE()).to.equal(FIXED_FEE);
-      expect(await router.isPaused()).to.equal(false);
-    });
+		// Create a random wallet for user
+		const userWallet = ethers.Wallet.createRandom();
+		// Connect to provider
+		user = userWallet.connect(ethers.provider);
 
-    it("should not allow invalid USDT address", async () => {
-      const RouterFactory = await ethers.getContractFactory("DirectSendRouter");
-      await expect(
-        RouterFactory.deploy(ethers.ZeroAddress, await treasury.getAddress(), FIXED_FEE)
-      ).to.be.revertedWith("Invalid USDT address");
-    });
+		// Send some ETH to user for gas (even though they won't pay gas)
+		await owner.sendTransaction({
+			to: await user.getAddress(),
+			value: ethers.parseEther('1')
+		});
 
-    it("should not allow invalid treasury address", async () => {
-      const RouterFactory = await ethers.getContractFactory("DirectSendRouter");
-      await expect(
-        RouterFactory.deploy(await usdt.getAddress(), ethers.ZeroAddress, FIXED_FEE)
-      ).to.be.revertedWith("Invalid treasury address");
-    });
+		// Deploy mock USDT
+		const USDTFactory = await ethers.getContractFactory('ERC20Mock');
+		usdt = await USDTFactory.deploy();
 
-    it("should not allow zero fee", async () => {
-      const RouterFactory = await ethers.getContractFactory("DirectSendRouter");
-      await expect(
-        RouterFactory.deploy(await usdt.getAddress(), await treasury.getAddress(), 0)
-      ).to.be.revertedWith("Fee must be positive");
-    });
-  });
+		// Deploy DirectSendRouter
+		const RouterFactory = await ethers.getContractFactory('DirectSendRouter');
+		router = await RouterFactory.deploy(
+			await usdt.getAddress(),
+			await treasury.getAddress(),
+			FIXED_FEE,
+			await sponsor.getAddress()
+		);
 
-  describe("Route function", () => {
-    beforeEach(async () => {
-      // Approve router to spend USDT
-      await usdt.connect(sender).approve(await router.getAddress(), TRANSFER_AMOUNT + FIXED_FEE);
-    });
+		// Mint USDT to user
+		const mintAmount = ethers.parseUnits('10000', 6);
+		await usdt.mint(await user.getAddress(), mintAmount);
 
-    it("should transfer USDT and collect fee", async () => {
-      const sponsorId = ethers.id("sponsor-1");
+		// Approve router to spend user's USDT
+		await usdt.connect(user).approve(await router.getAddress(), ethers.parseUnits('10000', 6));
 
-      const tx = await router.connect(sender).route(await recipient.getAddress(), TRANSFER_AMOUNT, sponsorId);
-      const receipt = await tx.wait();
+		// Setup EIP-712 domain for signing
+		domain = {
+			name: 'DirectSendRouter',
+			version: '1',
+			chainId: (await ethers.provider.getNetwork()).chainId.toString(),
+			verifyingContract: await router.getAddress()
+		};
 
-      // Verify recipient received amount
-      expect(await usdt.balanceOf(await recipient.getAddress())).to.equal(TRANSFER_AMOUNT);
+		types = {
+			TransferRequest: [
+				{ name: 'user', type: 'address' },
+				{ name: 'recipient', type: 'address' },
+				{ name: 'amount', type: 'uint256' },
+				{ name: 'nonce', type: 'uint256' },
+				{ name: 'deadline', type: 'uint256' }
+			]
+		};
+	});
 
-      // Verify treasury received fee
-      expect(await usdt.balanceOf(await treasury.getAddress())).to.equal(FIXED_FEE);
+	describe('Deployment', () => {
+		it('should set correct initial state', async () => {
+			expect(await router.USDT()).to.equal(await usdt.getAddress());
+			expect(await router.treasury()).to.equal(await treasury.getAddress());
+			expect(await router.FIXED_FEE()).to.equal(FIXED_FEE);
+			expect(await router.sponsor()).to.equal(await sponsor.getAddress());
+			expect(await router.isPaused()).to.equal(false);
+		});
 
-      // Verify event emission
-      const logs = receipt?.logs || [];
-      expect(logs.length).to.be.greaterThan(0);
-    });
+		it('should not allow invalid USDT address', async () => {
+			const RouterFactory = await ethers.getContractFactory('DirectSendRouter');
+			await expect(
+				RouterFactory.deploy(
+					ethers.ZeroAddress,
+					await treasury.getAddress(),
+					FIXED_FEE,
+					await sponsor.getAddress()
+				)
+			).to.be.revertedWith('Invalid USDT address');
+		});
 
-    it("should emit Transfer event with correct parameters", async () => {
-      const sponsorId = ethers.id("sponsor-2");
+		it('should not allow invalid treasury address', async () => {
+			const RouterFactory = await ethers.getContractFactory('DirectSendRouter');
+			await expect(
+				RouterFactory.deploy(
+					await usdt.getAddress(),
+					ethers.ZeroAddress,
+					FIXED_FEE,
+					await sponsor.getAddress()
+				)
+			).to.be.revertedWith('Invalid treasury address');
+		});
 
-      await expect(router.connect(sender).route(await recipient.getAddress(), TRANSFER_AMOUNT, sponsorId))
-        .to.emit(router, "Transfer")
-        .withArgs(await sender.getAddress(), await recipient.getAddress(), TRANSFER_AMOUNT, FIXED_FEE, sponsorId);
-    });
+		it('should not allow invalid sponsor address', async () => {
+			const RouterFactory = await ethers.getContractFactory('DirectSendRouter');
+			await expect(
+				RouterFactory.deploy(
+					await usdt.getAddress(),
+					await treasury.getAddress(),
+					FIXED_FEE,
+					ethers.ZeroAddress
+				)
+			).to.be.revertedWith('Invalid sponsor address');
+		});
 
-    it("should reject if balance insufficient", async () => {
-      // Create sender with insufficient balance
-      const poorSender = attacker;
-      await usdt.mint(await poorSender.getAddress(), FIXED_FEE); // Only fee, no amount
+		it('should not allow zero fee', async () => {
+			const RouterFactory = await ethers.getContractFactory('DirectSendRouter');
+			await expect(
+				RouterFactory.deploy(
+					await usdt.getAddress(),
+					await treasury.getAddress(),
+					0,
+					await sponsor.getAddress()
+				)
+			).to.be.revertedWith('Fee must be positive');
+		});
 
-      await usdt.connect(poorSender).approve(await router.getAddress(), TRANSFER_AMOUNT + FIXED_FEE);
+		it('should set correct domain separator', async () => {
+			const domainSeparator = await router.DOMAIN_SEPARATOR();
+			expect(domainSeparator).to.not.equal(ethers.ZeroHash);
+		});
+	});
 
-      await expect(router.connect(poorSender).route(await recipient.getAddress(), TRANSFER_AMOUNT, ethers.id("test")))
-        .to.be.revertedWithCustomError(router, "InsufficientUSDTBalance");
-    });
+	describe('Meta-Transaction Route Function', () => {
+		let deadline: bigint;
 
-    it("should reject if allowance insufficient", async () => {
-      // Approve only partial amount
-      await usdt.connect(sender).approve(await router.getAddress(), TRANSFER_AMOUNT); // Missing fee
+		beforeEach(async () => {
+			deadline = BigInt(Math.floor(Date.now() / 1000) + 3600); // 1 hour from now
+		});
 
-      await expect(router.connect(sender).route(await recipient.getAddress(), TRANSFER_AMOUNT, ethers.id("test")))
-        .to.be.revertedWithCustomError(router, "InsufficientAllowance");
-    });
+		it('should transfer USDT and collect fee', async () => {
+			const nonce = 0;
+			const signature = await signTransferRequest(
+				user,
+				await recipient.getAddress(),
+				TRANSFER_AMOUNT,
+				nonce,
+				deadline
+			);
 
-    it("should reject if recipient is zero address", async () => {
-      await expect(router.connect(sender).route(ethers.ZeroAddress, TRANSFER_AMOUNT, ethers.id("test")))
-        .to.be.revertedWithCustomError(router, "InvalidRecipient");
-    });
+			const tx = await router
+				.connect(sponsor)
+				.route(
+					await user.getAddress(),
+					await recipient.getAddress(),
+					TRANSFER_AMOUNT,
+					nonce,
+					deadline,
+					signature
+				);
 
-    it("should reject if amount is zero", async () => {
-      await expect(router.connect(sender).route(await recipient.getAddress(), 0, ethers.id("test")))
-        .to.be.revertedWithCustomError(router, "InvalidAmount");
-    });
+			await tx.wait();
 
-    it("should handle large amounts", async () => {
-      // Mint large amount to sender
-      await usdt.mint(await sender.getAddress(), LARGE_AMOUNT);
-      await usdt.connect(sender).approve(await router.getAddress(), LARGE_AMOUNT + FIXED_FEE);
+			// Verify recipient received amount
+			expect(await usdt.balanceOf(await recipient.getAddress())).to.equal(TRANSFER_AMOUNT);
 
-      const sponsorId = ethers.id("large-transfer");
-      await expect(router.connect(sender).route(await recipient.getAddress(), LARGE_AMOUNT, sponsorId))
-        .to.emit(router, "Transfer")
-        .withArgs(await sender.getAddress(), await recipient.getAddress(), LARGE_AMOUNT, FIXED_FEE, sponsorId);
+			// Verify treasury received fee
+			expect(await usdt.balanceOf(await treasury.getAddress())).to.equal(FIXED_FEE);
 
-      expect(await usdt.balanceOf(await recipient.getAddress())).to.equal(LARGE_AMOUNT);
-    });
+			// Verify user balance decreased
+			const userBalance = await usdt.balanceOf(await user.getAddress());
+			expect(userBalance).to.equal(ethers.parseUnits('10000', 6) - TRANSFER_AMOUNT - FIXED_FEE);
+		});
 
-    it("should allow multiple transfers", async () => {
-      const recipient2 = attacker;
-      const sponsorId1 = ethers.id("sponsor-1");
-      const sponsorId2 = ethers.id("sponsor-2");
+		it('should emit Transfer event with correct parameters', async () => {
+			const nonce = 0;
+			const signature = await signTransferRequest(
+				user,
+				await recipient.getAddress(),
+				TRANSFER_AMOUNT,
+				nonce,
+				deadline
+			);
 
-      // First transfer
-      await router.connect(sender).route(await recipient.getAddress(), TRANSFER_AMOUNT, sponsorId1);
+			await expect(
+				router
+					.connect(sponsor)
+					.route(
+						await user.getAddress(),
+						await recipient.getAddress(),
+						TRANSFER_AMOUNT,
+						nonce,
+						deadline,
+						signature
+					)
+			)
+				.to.emit(router, 'Transfer')
+				.withArgs(
+					await user.getAddress(),
+					await recipient.getAddress(),
+					TRANSFER_AMOUNT,
+					FIXED_FEE
+				);
+		});
 
-      // Second transfer
-      await usdt.connect(sender).approve(await router.getAddress(), TRANSFER_AMOUNT + FIXED_FEE);
-      await router.connect(sender).route(await recipient2.getAddress(), TRANSFER_AMOUNT, sponsorId2);
+		it("should increment user's nonce after successful transfer", async () => {
+			const nonce = 0;
+			const signature = await signTransferRequest(
+				user,
+				await recipient.getAddress(),
+				TRANSFER_AMOUNT,
+				nonce,
+				deadline
+			);
 
-      // Verify both recipients received funds
-      expect(await usdt.balanceOf(await recipient.getAddress())).to.equal(TRANSFER_AMOUNT);
-      expect(await usdt.balanceOf(await recipient2.getAddress())).to.equal(TRANSFER_AMOUNT);
+			await router
+				.connect(sponsor)
+				.route(
+					await user.getAddress(),
+					await recipient.getAddress(),
+					TRANSFER_AMOUNT,
+					nonce,
+					deadline,
+					signature
+				);
 
-      // Verify treasury received both fees
-      expect(await usdt.balanceOf(await treasury.getAddress())).to.equal(FIXED_FEE * 2n);
-    });
-  });
+			expect(await router.nonces(await user.getAddress())).to.equal(1);
+		});
 
-  describe("Pause/Unpause", () => {
-    beforeEach(async () => {
-      await usdt.connect(sender).approve(await router.getAddress(), TRANSFER_AMOUNT + FIXED_FEE);
-    });
+		it('should reject if caller is not sponsor', async () => {
+			const nonce = 0;
+			const signature = await signTransferRequest(
+				user,
+				await recipient.getAddress(),
+				TRANSFER_AMOUNT,
+				nonce,
+				deadline
+			);
 
-    it("should allow owner to pause", async () => {
-      await router.connect(owner).pause();
-      expect(await router.isPaused()).to.equal(true);
-    });
+			await expect(
+				router
+					.connect(attacker)
+					.route(
+						await user.getAddress(),
+						await recipient.getAddress(),
+						TRANSFER_AMOUNT,
+						nonce,
+						deadline,
+						signature
+					)
+			).to.be.revertedWithCustomError(router, 'NotSponsor');
+		});
 
-    it("should allow owner to unpause", async () => {
-      await router.connect(owner).pause();
-      await router.connect(owner).unpause();
-      expect(await router.isPaused()).to.equal(false);
-    });
+		it('should reject if signature is invalid', async () => {
+			const nonce = 0;
+			const signature = await signTransferRequest(
+				user,
+				await recipient.getAddress(),
+				TRANSFER_AMOUNT,
+				nonce,
+				deadline
+			);
 
-    it("should block transfers when paused", async () => {
-      await router.connect(owner).pause();
+			// Tamper with signature - change last character
+			const tamperedSignature =
+				signature.slice(0, -2) + (signature.slice(-2) === '00' ? '01' : '00');
 
-      await expect(router.connect(sender).route(await recipient.getAddress(), TRANSFER_AMOUNT, ethers.id("test")))
-        .to.be.revertedWithCustomError(router, "ContractPaused");
-    });
+			await expect(
+				router
+					.connect(sponsor)
+					.route(
+						await user.getAddress(),
+						await recipient.getAddress(),
+						TRANSFER_AMOUNT,
+						nonce,
+						deadline,
+						tamperedSignature
+					)
+			).to.be.revertedWithCustomError(router, 'InvalidSignature');
+		});
 
-    it("should allow transfers after unpause", async () => {
-      await router.connect(owner).pause();
-      await router.connect(owner).unpause();
+		it('should reject if deadline expired', async () => {
+			const expiredDeadline = BigInt(Math.floor(Date.now() / 1000) - 100); // Past
+			const nonce = 0;
+			const signature = await signTransferRequest(
+				user,
+				await recipient.getAddress(),
+				TRANSFER_AMOUNT,
+				nonce,
+				expiredDeadline
+			);
 
-      const sponsorId = ethers.id("sponsor-unpause");
-      await expect(router.connect(sender).route(await recipient.getAddress(), TRANSFER_AMOUNT, sponsorId))
-        .to.emit(router, "Transfer")
-        .withArgs(await sender.getAddress(), await recipient.getAddress(), TRANSFER_AMOUNT, FIXED_FEE, sponsorId);
-    });
+			await expect(
+				router
+					.connect(sponsor)
+					.route(
+						await user.getAddress(),
+						await recipient.getAddress(),
+						TRANSFER_AMOUNT,
+						nonce,
+						expiredDeadline,
+						signature
+					)
+			).to.be.revertedWithCustomError(router, 'ExpiredDeadline');
+		});
 
-    it("should not allow non-owner to pause", async () => {
-      await expect(router.connect(attacker).pause()).to.be.revertedWithCustomError(router, "OwnableUnauthorizedAccount");
-    });
+		it('should reject if nonce is wrong', async () => {
+			const wrongNonce = 5; // User's actual nonce is 0
+			const deadline = BigInt(Math.floor(Date.now() / 1000) + 3600);
+			const signature = await signTransferRequest(
+				user,
+				await recipient.getAddress(),
+				TRANSFER_AMOUNT,
+				wrongNonce,
+				deadline
+			);
 
-    it("should not allow non-owner to unpause", async () => {
-      await router.connect(owner).pause();
-      await expect(router.connect(attacker).unpause()).to.be.revertedWithCustomError(
-        router,
-        "OwnableUnauthorizedAccount"
-      );
-    });
-  });
+			await expect(
+				router
+					.connect(sponsor)
+					.route(
+						await user.getAddress(),
+						await recipient.getAddress(),
+						TRANSFER_AMOUNT,
+						wrongNonce,
+						deadline,
+						signature
+					)
+			).to.be.revertedWithCustomError(router, 'InvalidNonce');
+		});
 
-  describe("Reentrancy Protection", () => {
-    it("should prevent reentrancy attacks", async () => {
-      // Deploy a malicious contract that attempts reentrancy
-      const MaliciousFactory = await ethers.getContractFactory("ReentrancyAttacker");
-      const malicious = await MaliciousFactory.deploy(await router.getAddress(), await usdt.getAddress());
+		it('should reject if recipient is zero address', async () => {
+			const nonce = 0;
+			const signature = await signTransferRequest(
+				user,
+				ethers.ZeroAddress,
+				TRANSFER_AMOUNT,
+				nonce,
+				deadline
+			);
 
-      // The ReentrancyGuard should prevent the attack
-      // This is tested implicitly - if reentrancy were possible, the test would fail
-      expect(await malicious.getAddress()).to.not.equal(ethers.ZeroAddress);
-    });
-  });
+			await expect(
+				router
+					.connect(sponsor)
+					.route(
+						await user.getAddress(),
+						ethers.ZeroAddress,
+						TRANSFER_AMOUNT,
+						nonce,
+						deadline,
+						signature
+					)
+			).to.be.revertedWithCustomError(router, 'InvalidRecipient');
+		});
 
-  describe("Treasury Management", () => {
-    it("should allow owner to update treasury", async () => {
-      const newTreasury = attacker;
-      await router.connect(owner).setTreasury(await newTreasury.getAddress());
-      expect(await router.treasury()).to.equal(await newTreasury.getAddress());
-    });
+		it('should reject if amount is zero', async () => {
+			const nonce = 0;
+			const signature = await signTransferRequest(
+				user,
+				await recipient.getAddress(),
+				0,
+				nonce,
+				deadline
+			);
 
-    it("should not allow non-owner to update treasury", async () => {
-      const newTreasury = attacker;
-      await expect(router.connect(sender).setTreasury(await newTreasury.getAddress())).to.be.revertedWithCustomError(
-        router,
-        "OwnableUnauthorizedAccount"
-      );
-    });
+			await expect(
+				router
+					.connect(sponsor)
+					.route(
+						await user.getAddress(),
+						await recipient.getAddress(),
+						0,
+						nonce,
+						deadline,
+						signature
+					)
+			).to.be.revertedWithCustomError(router, 'InvalidAmount');
+		});
 
-    it("should not allow zero address as treasury", async () => {
-      await expect(router.connect(owner).setTreasury(ethers.ZeroAddress)).to.be.revertedWith(
-        "Invalid treasury address"
-      );
-    });
+		it('should reject if balance insufficient', async () => {
+			const poorUser = ethers.Wallet.createRandom().connect(ethers.provider);
 
-    it("should collect fees to new treasury after update", async () => {
-      const newTreasury = attacker;
-      const sponsorId = ethers.id("sponsor-treasury-change");
+			// Give poorUser some ETH for the approve transaction
+			await owner.sendTransaction({
+				to: await poorUser.getAddress(),
+				value: ethers.parseEther('1')
+			});
 
-      // Update treasury
-      await router.connect(owner).setTreasury(await newTreasury.getAddress());
+			await usdt.mint(await poorUser.getAddress(), FIXED_FEE); // Only fee, no amount
+			await usdt.connect(poorUser).approve(await router.getAddress(), ethers.parseUnits('10', 6));
 
-      // Do transfer
-      await usdt.connect(sender).approve(await router.getAddress(), TRANSFER_AMOUNT + FIXED_FEE);
-      await router.connect(sender).route(await recipient.getAddress(), TRANSFER_AMOUNT, sponsorId);
+			const nonce = 0;
+			const signature = await signTransferRequest(
+				poorUser,
+				await recipient.getAddress(),
+				TRANSFER_AMOUNT,
+				nonce,
+				deadline
+			);
 
-      // Verify new treasury received fee
-      expect(await usdt.balanceOf(await newTreasury.getAddress())).to.equal(FIXED_FEE);
-    });
-  });
+			await expect(
+				router
+					.connect(sponsor)
+					.route(
+						await poorUser.getAddress(),
+						await recipient.getAddress(),
+						TRANSFER_AMOUNT,
+						nonce,
+						deadline,
+						signature
+					)
+			).to.be.revertedWithCustomError(router, 'InsufficientBalance');
+		});
 
-  describe("Gas Efficiency", () => {
-    it("should use less than 150k gas for route", async () => {
-      await usdt.connect(sender).approve(await router.getAddress(), TRANSFER_AMOUNT + FIXED_FEE);
+		it('should handle multiple transfers with incrementing nonces', async () => {
+			// First transfer
+			let nonce = 0;
+			let signature = await signTransferRequest(
+				user,
+				await recipient.getAddress(),
+				TRANSFER_AMOUNT,
+				nonce,
+				deadline
+			);
 
-      const tx = await router.connect(sender).route(await recipient.getAddress(), TRANSFER_AMOUNT, ethers.id("gas-test"));
-      const receipt = await tx.wait();
+			await router
+				.connect(sponsor)
+				.route(
+					await user.getAddress(),
+					await recipient.getAddress(),
+					TRANSFER_AMOUNT,
+					nonce,
+					deadline,
+					signature
+				);
 
-      // Measure gas used
-      const gasUsed = receipt?.gasUsed || 0n;
-      expect(gasUsed).to.be.lessThan(150000);
-    });
-  });
+			// Second transfer
+			nonce = 1;
+			signature = await signTransferRequest(
+				user,
+				await recipient.getAddress(),
+				TRANSFER_AMOUNT,
+				nonce,
+				deadline
+			);
 
-  describe("Edge Cases", () => {
-    beforeEach(async () => {
-      await usdt.connect(sender).approve(await router.getAddress(), TRANSFER_AMOUNT + FIXED_FEE);
-    });
+			await router
+				.connect(sponsor)
+				.route(
+					await user.getAddress(),
+					await recipient.getAddress(),
+					TRANSFER_AMOUNT,
+					nonce,
+					deadline,
+					signature
+				);
 
-    it("should handle same sender and recipient", async () => {
-      const sponsorId = ethers.id("self-send");
-      // Allow self-send (sender sends to themselves)
-      await expect(router.connect(sender).route(await sender.getAddress(), TRANSFER_AMOUNT, sponsorId))
-        .to.emit(router, "Transfer")
-        .withArgs(await sender.getAddress(), await sender.getAddress(), TRANSFER_AMOUNT, FIXED_FEE, sponsorId);
-    });
+			expect(await router.nonces(await user.getAddress())).to.equal(2);
+			expect(await usdt.balanceOf(await recipient.getAddress())).to.equal(TRANSFER_AMOUNT * 2n);
+			expect(await usdt.balanceOf(await treasury.getAddress())).to.equal(FIXED_FEE * 2n);
+		});
 
-    it("should handle empty sponsor ID", async () => {
-      const emptySponsorId = ethers.ZeroHash;
-      await expect(router.connect(sender).route(await recipient.getAddress(), TRANSFER_AMOUNT, emptySponsorId))
-        .to.emit(router, "Transfer")
-        .withArgs(await sender.getAddress(), await recipient.getAddress(), TRANSFER_AMOUNT, FIXED_FEE, emptySponsorId);
-    });
+		it('should reject replay of same signature (nonce already used)', async () => {
+			const nonce = 0;
+			const signature = await signTransferRequest(
+				user,
+				await recipient.getAddress(),
+				TRANSFER_AMOUNT,
+				nonce,
+				deadline
+			);
 
-    it("should handle exact balance transfer", async () => {
-      const exactBalance = await usdt.balanceOf(await sender.getAddress());
-      const amountToSend = exactBalance - FIXED_FEE;
+			// First execution should succeed
+			await router
+				.connect(sponsor)
+				.route(
+					await user.getAddress(),
+					await recipient.getAddress(),
+					TRANSFER_AMOUNT,
+					nonce,
+					deadline,
+					signature
+				);
 
-      await usdt.connect(sender).approve(await router.getAddress(), exactBalance);
-      const sponsorId = ethers.id("exact-balance");
+			// Second execution with same nonce should fail
+			await expect(
+				router
+					.connect(sponsor)
+					.route(
+						await user.getAddress(),
+						await recipient.getAddress(),
+						TRANSFER_AMOUNT,
+						nonce,
+						deadline,
+						signature
+					)
+			).to.be.revertedWithCustomError(router, 'InvalidNonce');
+		});
+	});
 
-      await expect(router.connect(sender).route(await recipient.getAddress(), amountToSend, sponsorId))
-        .to.emit(router, "Transfer")
-        .withArgs(await sender.getAddress(), await recipient.getAddress(), amountToSend, FIXED_FEE, sponsorId);
+	describe('Pause/Unpause', () => {
+		let deadline: bigint;
+		let nonce: number;
+		let signature: string;
 
-      expect(await usdt.balanceOf(await sender.getAddress())).to.equal(0);
-    });
-  });
+		beforeEach(async () => {
+			deadline = BigInt(Math.floor(Date.now() / 1000) + 3600);
+			nonce = 0;
+			signature = await signTransferRequest(
+				user,
+				await recipient.getAddress(),
+				TRANSFER_AMOUNT,
+				nonce,
+				deadline
+			);
+		});
+
+		it('should allow owner to pause', async () => {
+			await router.connect(owner).pause();
+			expect(await router.isPaused()).to.equal(true);
+		});
+
+		it('should allow owner to unpause', async () => {
+			await router.connect(owner).pause();
+			await router.connect(owner).unpause();
+			expect(await router.isPaused()).to.equal(false);
+		});
+
+		it('should block transfers when paused', async () => {
+			await router.connect(owner).pause();
+
+			await expect(
+				router
+					.connect(sponsor)
+					.route(
+						await user.getAddress(),
+						await recipient.getAddress(),
+						TRANSFER_AMOUNT,
+						nonce,
+						deadline,
+						signature
+					)
+			).to.be.revertedWithCustomError(router, 'ContractPaused');
+		});
+
+		it('should allow transfers after unpause', async () => {
+			await router.connect(owner).pause();
+			await router.connect(owner).unpause();
+
+			await router
+				.connect(sponsor)
+				.route(
+					await user.getAddress(),
+					await recipient.getAddress(),
+					TRANSFER_AMOUNT,
+					nonce,
+					deadline,
+					signature
+				);
+
+			expect(await usdt.balanceOf(await recipient.getAddress())).to.equal(TRANSFER_AMOUNT);
+		});
+
+		it('should not allow non-owner to pause', async () => {
+			await expect(router.connect(attacker).pause()).to.be.revertedWithCustomError(
+				router,
+				'OwnableUnauthorizedAccount'
+			);
+		});
+
+		it('should not allow non-owner to unpause', async () => {
+			await router.connect(owner).pause();
+			await expect(router.connect(attacker).unpause()).to.be.revertedWithCustomError(
+				router,
+				'OwnableUnauthorizedAccount'
+			);
+		});
+	});
+
+	describe('View Functions', () => {
+		it('should return correct domain separator', async () => {
+			const separator = await router.getDomainSeparator();
+			expect(separator).to.not.equal(ethers.ZeroHash);
+		});
+
+		it('should return correct nonce for user', async () => {
+			expect(await router.getNonce(await user.getAddress())).to.equal(0);
+
+			// After a transfer, nonce should be incremented
+			const deadline = BigInt(Math.floor(Date.now() / 1000) + 3600);
+			const signature = await signTransferRequest(
+				user,
+				await recipient.getAddress(),
+				TRANSFER_AMOUNT,
+				0,
+				deadline
+			);
+
+			await router
+				.connect(sponsor)
+				.route(
+					await user.getAddress(),
+					await recipient.getAddress(),
+					TRANSFER_AMOUNT,
+					0,
+					deadline,
+					signature
+				);
+
+			expect(await router.getNonce(await user.getAddress())).to.equal(1);
+		});
+
+		it('should return correct treasury address', async () => {
+			expect(await router.treasury()).to.equal(await treasury.getAddress());
+		});
+
+		it('should return correct sponsor address', async () => {
+			expect(await router.sponsor()).to.equal(await sponsor.getAddress());
+		});
+
+		it('should return correct fixed fee', async () => {
+			expect(await router.FIXED_FEE()).to.equal(FIXED_FEE);
+		});
+	});
+
+	describe('Gas Efficiency', () => {
+		it('should use less than 150k gas for route', async () => {
+			const deadline = BigInt(Math.floor(Date.now() / 1000) + 3600);
+			const signature = await signTransferRequest(
+				user,
+				await recipient.getAddress(),
+				TRANSFER_AMOUNT,
+				0,
+				deadline
+			);
+
+			const tx = await router
+				.connect(sponsor)
+				.route(
+					await user.getAddress(),
+					await recipient.getAddress(),
+					TRANSFER_AMOUNT,
+					0,
+					deadline,
+					signature
+				);
+
+			const receipt = await tx.wait();
+			const gasUsed = receipt?.gasUsed || 0n;
+
+			console.log(`Gas used: ${gasUsed}`);
+			expect(gasUsed).to.be.lessThan(150000n);
+		});
+	});
 });
