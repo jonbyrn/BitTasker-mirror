@@ -8,7 +8,8 @@ vi.mock('svelte-i18n', () => ({
 }));
 
 vi.mock('$app/environment', () => ({
-	browser: true
+	browser: true,
+	dev: false
 }));
 
 vi.mock('$lib/stores/scrollContainer.store', () => ({
