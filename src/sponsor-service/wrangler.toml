@@ -1,0 +1,53 @@
+name = "sponsor-service"
+main = "src/workers/index.ts"
+compatibility_date = "2024-12-19"
+
+# Account and zone configuration
+account_id = ""  # Set via CLOUDFLARE_ACCOUNT_ID env var
+workers_dev = true
+
+# Environments
+[env.development]
+vars = { ENVIRONMENT = "development" }
+d1_databases = [{ binding = "DB", database_id = "", database_name = "sponsor-dev" }]
+kv_namespaces = [{ binding = "KV_CACHE", id = "", preview_id = "" }]
+
+[env.production]
+vars = { ENVIRONMENT = "production" }
+d1_databases = [{ binding = "DB", database_id = "", database_name = "sponsor-prod" }]
+kv_namespaces = [{ binding = "KV_CACHE", id = "", preview_id = "" }]
+
+# Staging environment
+[env.staging]
+vars = { ENVIRONMENT = "staging" }
+d1_databases = [{ binding = "DB", database_id = "", database_name = "sponsor-staging" }]
+kv_namespaces = [{ binding = "KV_CACHE", id = "", preview_id = "" }]
+
+# Bindings
+[triggers]
+crons = ["*/5 * * * *"]  # Run confirmation poller every 5 minutes
+
+# Analytics Engine binding for metrics
+analytics_engine_datasets = []
+
+# Route configuration
+[[routes]]
+pattern = "api.example.com/v1/usdt-bsc/*"
+zone_name = "example.com"
+
+# Build configuration
+[build]
+command = "npm run build"
+cwd = ""
+watch_paths = ["src/**/*.ts"]
+
+[build.upload]
+format = "service-worker"
+
+# Limits
+[limits]
+cpu_ms = 50000
+
+# Observability
+[observability]
+enabled = false
