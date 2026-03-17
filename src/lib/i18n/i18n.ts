@@ -124,7 +124,7 @@ export function getNamespacesForRoute(route: string): string[] {
 		// Always load wallet namespace for bid-related components that use wallet translations
 		namespaces.push('dashboard/wallet');
 		// Panel tab "Mis Servicios" is shown at /dashboard?tab=my-services (pathname is /dashboard)
-		namespaces.push('dashboard/services/my-services', 'dashboard/services/browse');
+		namespaces.push('dashboard/services/my-services', 'dashboard/services/browse', 'dashboard/services/detail');
 
 		// Load notifications namespace for notification components
 		namespaces.push('notifications');
