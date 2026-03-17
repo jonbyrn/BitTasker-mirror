@@ -18,6 +18,7 @@ import type {
 } from '$lib/types/contract';
 import type { EscrowData, DisputeProposal } from '$lib/types/wallet';
 import { EscrowStatus as V1EscrowStatus } from '../v1/escrow.enum';
+import { EscrowStatus as V2EscrowStatus } from './escrow.enum';
 import { determineContractState } from '$lib/utils/helpers/contractPermissions';
 import { contractStore } from '$lib/stores/contract.store';
 import { get } from 'svelte/store';
@@ -169,8 +170,21 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 				}
 			}
 
-			const { status, permissions } = determineContractState(
-				blockchainStatus,
+			// Map v2 blockchain status to v1-equivalent for determineContractState (v1 enum).
+			// V2 WorkInProgress (10) → pass Funded (0) to get canComplete when started; then show 10.
+			// V2 FundsReleased (7) → pass v1 FundsReleased (10) to get final state; then show 7.
+			let statusForPermissions = blockchainStatus;
+			let displayStatusOverride: number | null = null;
+			if (blockchainStatus === (V2EscrowStatus.WorkInProgress as number)) {
+				statusForPermissions = V1EscrowStatus.Funded;
+				displayStatusOverride = V2EscrowStatus.WorkInProgress;
+			} else if (blockchainStatus === (V2EscrowStatus.FundsReleased as number)) {
+				statusForPermissions = V1EscrowStatus.FundsReleased;
+				displayStatusOverride = V2EscrowStatus.FundsReleased;
+			}
+
+			const result = determineContractState(
+				statusForPermissions,
 				statusEvents ?? [],
 				content,
 				escrowData,
@@ -179,6 +193,11 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 				isClient,
 				isFreelancer
 			);
+			let status = result.status;
+			const permissions = result.permissions;
+			if (displayStatusOverride !== null) {
+				status = displayStatusOverride as V1EscrowStatus;
+			}
 
 			if (!escrowData && !isPending) continue;
 
@@ -233,10 +252,72 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 	return result.sort((a, b) => b.contractEvent.created_at - a.contractEvent.created_at);
 }
 
-/** Stub until Milestone B: publish CONTRACT_STATUS after completeTask/acceptTask. */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars -- signature matches interface
-export async function publishContractStatus(_params: PublishStatusParams): Promise<void> {
-	throw new Error('V2 publishContractStatus not implemented yet');
+/**
+ * Publish CONTRACT_STATUS (v2): encrypted DM to the other party with action and txHash.
+ * Queries CONTRACT by escrowId and #v=v2 to get recipient; uses TAG_PATTERNS.contractStatus with version 'v2'.
+ */
+export async function publishContractStatus(params: PublishStatusParams): Promise<void> {
+	try {
+		const npub = await getNpub();
+		const userPubkeyHex = npub.startsWith('npub') ? (nip19.decode(npub).data as string) : npub;
+
+		const filter: Filter = {
+			kinds: [KINDS.CONTRACT],
+			'#d': [params.escrowId],
+			...TAG_FILTERS.byVersion('v2'),
+			...TAG_FILTERS.byNpub(userPubkeyHex),
+			limit: 1
+		};
+		const events = await queryNostrEvents(filter);
+		if (events.length === 0) {
+			d.warn('publishContractStatus: no v2 contract found', { escrowId: params.escrowId });
+			throw new Error('Contract not found for status update');
+		}
+
+		const contractEvent = await decryptContractEvent(events[0] as NostrEvent, userPubkeyHex);
+		if (!contractEvent) {
+			throw new Error('Failed to decrypt contract for status update');
+		}
+
+		const content = contractEvent.content as NostrContract;
+		const recipientPubkey =
+			userPubkeyHex === content.clientPubkey ? content.freelancerPubkey : content.clientPubkey;
+
+		const statusData = {
+			contractEventId: params.contractEventId,
+			escrowId: params.escrowId,
+			action: params.action,
+			message: params.message,
+			timestamp: Date.now(),
+			transactionHash: params.transactionHash,
+			proposedClientAmount: params.proposedClientAmount,
+			proposedFreelancerAmount: params.proposedFreelancerAmount,
+			completionAttachments: params.completionAttachments,
+			type: 'contract-status' as const
+		};
+		const tags = TAG_PATTERNS.contractStatus(
+			params.contractEventId,
+			params.escrowId,
+			recipientPubkey,
+			params.action,
+			'v2'
+		);
+
+		await publishNostrEvent(
+			KINDS.CONTRACT_STATUS,
+			JSON.stringify(statusData),
+			recipientPubkey,
+			tags
+		);
+		d.log('publishContractStatus success', {
+			escrowId: params.escrowId,
+			action: params.action,
+			txHash: params.transactionHash?.slice(0, 10)
+		});
+	} catch (error) {
+		d.error('publishContractStatus failed', { escrowId: params.escrowId }, error);
+		throw error;
+	}
 }
 
 /** Stub: delete contract (V2 may support later). */

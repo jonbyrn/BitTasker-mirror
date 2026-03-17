@@ -4,12 +4,16 @@
  */
 
 import type { FeeTier } from '@bittasker/wallet-core';
+import type { PublishContractStatusParams } from '$lib/types/contract';
+import type { Attachment } from '$lib/types/task';
 import type { ContractTransactionResult, DisputeProposal, EscrowData } from '$lib/types/wallet';
 import { ethers, type JsonRpcProvider } from 'ethers';
 import { getProvider, getWallet } from '$lib/stores/wallet.store';
 import { createDebug } from '$lib/utils/debug';
 import { mapBlockchainStateToEnum } from './escrow.enum';
+import { EscrowStatus } from './escrow.enum';
 import { getV2ContractAddressByChainId, getRelayBaseUrl } from './config';
+import { publishEscrowStatus } from './escrowEvents';
 import escrowABI from './abi.json';
 
 const d = createDebug('escrow:v2');
@@ -529,11 +533,149 @@ async function createEscrow(): Promise<ContractTransactionResult> {
 	return notImplemented('createEscrow');
 }
 
-async function completeTask(): Promise<ContractTransactionResult> {
-	return notImplemented('completeTask');
+/** Options for acceptTask (e.g. onConfirmed callback). */
+export interface AcceptTaskOptions {
+	onConfirmed?: () => Promise<void>;
 }
-async function acceptTask(): Promise<ContractTransactionResult> {
-	return notImplemented('acceptTask');
+
+/**
+ * Complete task (V2): try relay first, then direct tx. Publishes CONTRACT_STATUS (Completed).
+ */
+async function completeTask(
+	escrowId: string,
+	contractEventId?: string,
+	completionAttachments?: Attachment[]
+): Promise<ContractTransactionResult> {
+	const paymentId = parseInt(escrowId, 10);
+	if (Number.isNaN(paymentId) || paymentId < 0) {
+		throw new Error(`Invalid escrow id: ${escrowId}`);
+	}
+
+	const publishStatus = (txHash: string) => {
+		if (!contractEventId) return Promise.resolve();
+		return publishEscrowStatus({
+			escrowId,
+			contractEventId,
+			transactionHash: txHash,
+			status: EscrowStatus.Completed as unknown as PublishContractStatusParams['status'],
+			completionAttachments
+		});
+	};
+
+	// Try relay first
+	const baseUrl = getRelayBaseUrl();
+	if (baseUrl) {
+		try {
+			const { securePaymentAddress, chainId } = await fetchRelayInfo();
+			const wallet = getRSKWallet();
+			if (wallet) {
+				const result = await submitGaslessMetaTx(
+					wallet,
+					baseUrl,
+					securePaymentAddress,
+					chainId,
+					'completeTask',
+					[paymentId]
+				);
+				if (result.ok && result.txHash) {
+					await publishStatus(result.txHash);
+					d.log('completeTask via relay', { escrowId, txHash: result.txHash.slice(0, 18) });
+					return { hash: result.txHash, escrowId, status: 'pending' };
+				}
+			}
+		} catch (err) {
+			d.warn('completeTask relay failed, falling back to direct tx', { escrowId }, err);
+		}
+	}
+
+	// Direct tx
+	const { contract: targetContract, provider } = await ensureEscrowReady(undefined, true);
+	const feeData = await provider.getFeeData();
+	const gasPrice = feeData.gasPrice ?? 0n;
+	const gasEstimate = await targetContract.completeTask.estimateGas(paymentId, { gasPrice });
+	const tx = await targetContract.completeTask(paymentId, {
+		gasLimit: gasEstimate + gasEstimate / 10n,
+		gasPrice
+	});
+	await publishStatus(tx.hash);
+	tx.wait().catch((err: unknown) => {
+		d.error('completeTask tx wait failed', { escrowId }, err);
+	});
+	return { hash: tx.hash, escrowId, status: 'pending' };
+}
+
+/**
+ * Accept task (V2): try relay first, then direct tx. Publishes CONTRACT_STATUS (FundsReleased).
+ * Calls onConfirmed after confirmation when using direct tx.
+ */
+async function acceptTask(
+	escrowId: string,
+	contractEventId?: string,
+	options?: AcceptTaskOptions
+): Promise<ContractTransactionResult> {
+	const paymentId = parseInt(escrowId, 10);
+	if (Number.isNaN(paymentId) || paymentId < 0) {
+		throw new Error(`Invalid escrow id: ${escrowId}`);
+	}
+
+	const publishStatus = (txHash: string) => {
+		if (!contractEventId) return Promise.resolve();
+		return publishEscrowStatus({
+			escrowId,
+			contractEventId,
+			transactionHash: txHash,
+			status: EscrowStatus.FundsReleased as unknown as PublishContractStatusParams['status']
+		});
+	};
+
+	// Try relay first
+	const baseUrl = getRelayBaseUrl();
+	if (baseUrl) {
+		try {
+			const { securePaymentAddress, chainId } = await fetchRelayInfo();
+			const wallet = getRSKWallet();
+			if (wallet) {
+				const result = await submitGaslessMetaTx(
+					wallet,
+					baseUrl,
+					securePaymentAddress,
+					chainId,
+					'acceptTask',
+					[paymentId]
+				);
+				if (result.ok && result.txHash) {
+					await publishStatus(result.txHash);
+					d.log('acceptTask via relay', { escrowId, txHash: result.txHash.slice(0, 18) });
+					return { hash: result.txHash, escrowId, status: 'pending' };
+				}
+			}
+		} catch (err) {
+			d.warn('acceptTask relay failed, falling back to direct tx', { escrowId }, err);
+		}
+	}
+
+	// Direct tx
+	const { contract: targetContract, provider } = await ensureEscrowReady(undefined, true);
+	const feeData = await provider.getFeeData();
+	const gasPrice = feeData.gasPrice ?? 0n;
+	const gasEstimate = await targetContract.acceptTask.estimateGas(paymentId, { gasPrice });
+	const tx = await targetContract.acceptTask(paymentId, {
+		gasLimit: gasEstimate + gasEstimate / 10n,
+		gasPrice
+	});
+	await publishStatus(tx.hash);
+	tx.wait()
+		.then(async (receipt: ethers.TransactionReceipt | null) => {
+			if (receipt) {
+				try {
+					await options?.onConfirmed?.();
+				} catch (err: unknown) {
+					d.error('acceptTask onConfirmed failed', { escrowId }, err);
+				}
+			}
+		})
+		.catch((err: unknown) => d.error('acceptTask tx wait failed', { escrowId }, err));
+	return { hash: tx.hash, escrowId, status: 'pending' };
 }
 async function cancelEscrow(): Promise<ContractTransactionResult> {
 	return notImplemented('cancelEscrow');
