@@ -1,0 +1,69 @@
+npm warn config optional Use `--omit=optional` to exclude optional dependencies, or
+npm warn config `--include=optional` to include them.
+npm warn config
+npm warn config       Default value does install optional deps unless otherwise omitted.
+
+> BitTasker@0.0.1 test
+> npm run test:unit -- --run src/lib/tests/e2e/audit-usdt-bsc.spec.ts
+
+
+> BitTasker@0.0.1 test:unit /home/scott/USDT/BitTasker
+> vitest "--run" "src/lib/tests/e2e/audit-usdt-bsc.spec.ts"
+
+You have specified a baseUrl and/or paths in your tsconfig.json which interferes with SvelteKit's auto-generated tsconfig.json. Remove it to avoid problems with intellisense. For path aliases, use `kit.alias` instead: https://svelte.dev/docs/kit/configuration#alias
+[sentry-vite-plugin] Info: Sending telemetry data on issues and performance to Sentry. To disable telemetry, set `options.telemetry` to `false`.
+
+ RUN  v3.2.4 /home/scott/USDT/BitTasker
+
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/lib/tests/e2e/audit-usdt-bsc.spec.ts [ src/lib/tests/e2e/audit-usdt-bsc.spec.ts ]
+Error: Playwright Test did not expect test.describe() to be called here.
+Most common reasons include:
+- You are calling test.describe() in a configuration file.
+- You are calling test.describe() in a file that is imported by the configuration file.
+- You have two different versions of @playwright/test. This usually happens
+  when one of the dependencies in your package.json depends on @playwright/test.
+ ❯ TestTypeImpl._currentSuite node_modules/playwright/lib/common/testType.js:75:13
+ ❯ TestTypeImpl._describe node_modules/playwright/lib/common/testType.js:115:24
+ ❯ Function.describe node_modules/playwright/lib/transform/transform.js:282:12
+ ❯ src/lib/tests/e2e/audit-usdt-bsc.spec.ts:25:6
+     23| ];
+     24| 
+     25| test.describe('USDT-BSC Implementation Audit', () => {
+       |      ^
+     26|   test.beforeAll(async () => {
+     27|     // Create screenshot directory
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  no tests
+   Start at  16:08:43
+   Duration  80.01s (transform 1.49s, setup 4.60s, collect 0ms, tests 0ms, environment 14.90s, prepare 1.29s)
+
+
+npm ERR! Linux 6.12.73+deb13-amd64
+npm ERR! argv "/usr/bin/node" "/home/scott/USDT/BitTasker/node_modules/.bin/npm" "run" "test:unit" "--" "--run" "src/lib/tests/e2e/audit-usdt-bsc.spec.ts"
+npm ERR! node v22.22.0
+npm ERR! npm  v2.15.12
+npm ERR! code ELIFECYCLE
+npm ERR! BitTasker@0.0.1 test:unit: `vitest "--run" "src/lib/tests/e2e/audit-usdt-bsc.spec.ts"`
+npm ERR! Exit status 1
+npm ERR! 
+npm ERR! Failed at the BitTasker@0.0.1 test:unit script 'vitest "--run" "src/lib/tests/e2e/audit-usdt-bsc.spec.ts"'.
+npm ERR! This is most likely a problem with the BitTasker package,
+npm ERR! not with npm itself.
+npm ERR! Tell the author that this fails on your system:
+npm ERR!     vitest "--run" "src/lib/tests/e2e/audit-usdt-bsc.spec.ts"
+npm ERR! You can get information on how to open an issue for this project with:
+npm ERR!     npm bugs BitTasker
+npm ERR! Or if that isn't available, you can get their info via:
+npm ERR! 
+npm ERR!     npm owner ls BitTasker
+npm ERR! There is likely additional logging output above.
+
+npm ERR! Please include the following file with any support request:
+npm ERR!     /home/scott/USDT/BitTasker/npm-debug.log
