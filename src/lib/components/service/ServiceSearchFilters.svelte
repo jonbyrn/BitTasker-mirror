@@ -3,6 +3,7 @@
 	import { ServicePricingTypeEnum, ServiceLocationTypeEnum } from '$lib/utils/enums/service.enum';
 	import CategoryMultiselect from '$lib/components/CategoryMultiselect.svelte';
 	import SkillsMultiselect from '$lib/components/SkillsMultiselect.svelte';
+	import UnifiedFilterDrawer from '$lib/components/listing/UnifiedFilterDrawer.svelte';
 	import LocationAutoComplete from '$lib/components/LocationAutoComplete.svelte';
 	import { t } from 'svelte-i18n';
 
@@ -69,24 +70,6 @@
 		if (filters.location) count++;
 		if (filters.status && filters.status.length > 0) count++;
 		activeFilterCount = count;
-	});
-
-	// Scroll lock management
-	const disableBodyScroll = () => {
-		document.body.classList.add('overflow-hidden');
-	};
-
-	const enableBodyScroll = () => {
-		document.body.classList.remove('overflow-hidden');
-	};
-
-	$effect(() => {
-		if (isOpen) {
-			disableBodyScroll();
-		} else {
-			enableBodyScroll();
-		}
-		return enableBodyScroll;
 	});
 
 	// Clear all filters (use getDefaultFilters directly)
@@ -161,37 +144,16 @@
 	}
 </script>
 
-<!-- Drawer Overlay -->
-<div
-	class="fixed inset-0 z-40 bg-black/50 transition-opacity duration-300 ease-in-out"
-	class:opacity-0={!isOpen}
-	class:invisible={!isOpen}
-	onclick={onClose}
-	onkeydown={(e) => e.key === 'Escape' && onClose()}
-	role="dialog"
-	tabindex="-1"
-></div>
-
-<div
-	class="bg-base-100 fixed top-0 right-0 z-50 h-full w-full transform overflow-auto shadow-xl transition-transform duration-300 sm:w-[70%] {isOpen
-		? 'translate-x-0'
-		: 'translate-x-full'}"
+<UnifiedFilterDrawer
+	{isOpen}
+	title={$t('dashboard.services.browse.filters_button') || 'Filters'}
+	{onClose}
+	onClear={clearFilters}
+	onApply={applyFilters}
+	clearLabel={$t('dashboard.services.browse.clear_filters') || 'Clear Filters'}
+	applyLabel={$t('dashboard.services.browse.filters.apply') || 'Apply'}
+	{activeFilterCount}
 >
-	<!-- Header -->
-	<div class="bg-base-200 sticky top-0 z-10 flex items-center justify-between p-4">
-		<h3 id="drawer-title" class="text-xl font-bold">{$t('dashboard.services.browse.filters_button') || 'Filters'}</h3>
-		<button
-			class="btn btn-ghost btn-circle"
-			onclick={onClose}
-			aria-label={$t('dashboard.services.browse.close_dialog') || 'Close'}
-		>
-			<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-			</svg>
-		</button>
-	</div>
-
-	<div class="px-2">
 		<!-- Categories -->
 		<div class="collapse-arrow collapse mb-2">
 			<input
@@ -477,19 +439,4 @@
 			</div>
 		</div>
 
-		<!-- Filter Actions -->
-		<div class="divider"></div>
-		<div class="mt-8 mb-20 flex justify-between mx-4">
-			<button class="btn btn-ghost btn-outline" onclick={clearFilters}>
-				{$t('dashboard.services.browse.clear_filters') || 'Clear Filters'}
-			</button>
-			<button class="btn btn-primary" onclick={applyFilters}>
-				{$t('dashboard.services.browse.filters.apply') || 'Apply'}
-				{#if activeFilterCount > 0}
-					<div class="badge badge-secondary ml-2">{activeFilterCount}</div>
-				{/if}
-			</button>
-		</div>
-	</div>
-</div>
-
+	</UnifiedFilterDrawer>

@@ -6,8 +6,8 @@
 	import type { ServiceTier, DeliveryTime, RushDelivery } from '$lib/types/service.d';
 	import { t } from 'svelte-i18n';
 	import { get } from 'svelte/store';
-	import { formatNumberForInput, SATS_PER_BTC } from '$lib/utils/helpers/crypto';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
+	import UsdSatsInput from '$lib/components/shared/UsdSatsInput.svelte';
 
 	let { errors, direction } = $props();
 
@@ -21,39 +21,8 @@
 		}
 	}
 
-	function cleanInput(value: string): string {
-		return value.replace(/[^0-9.,]/g, '');
-	}
-
-	function tierSatsDisplay(priceUsd: number): string {
-		return formatNumberForInput(btcPrice > 0 ? Math.round((priceUsd / btcPrice) * SATS_PER_BTC) : 0);
-	}
-
-	function handleTierUsdChange(tierId: string, event: Event) {
-		const rawValue = (event.target as HTMLInputElement).value;
-		const input = cleanInput(rawValue);
-		let cleanedInput = input.replace(/,/g, '');
-		if (cleanedInput.length > 1 && cleanedInput.startsWith('0') && cleanedInput[1] !== '.') {
-			cleanedInput = cleanedInput.replace(/^0+/, '') || '0';
-		}
-		const usdValue = parseFloat(cleanedInput);
-		updateTier(tierId, { price: !isNaN(usdValue) ? usdValue : 0 });
-	}
-
-	function handleTierSatsChange(tierId: string, event: Event) {
-		const rawValue = (event.target as HTMLInputElement).value;
-		const input = cleanInput(rawValue);
-		let cleanedInput = input.replace(/,/g, '');
-		if (cleanedInput.length > 1 && cleanedInput.startsWith('0')) {
-			cleanedInput = cleanedInput.replace(/^0+/, '') || '0';
-		}
-		const satsValue = parseInt(cleanedInput, 10);
-		if (!isNaN(satsValue) && btcPrice > 0) {
-			const usdValue = (satsValue / SATS_PER_BTC) * btcPrice;
-			updateTier(tierId, { price: usdValue });
-		} else if (!isNaN(satsValue) && satsValue === 0) {
-			updateTier(tierId, { price: 0 });
-		}
+	function updateTierPrice(tierId: string, nextUsdPrice: number): void {
+		updateTier(tierId, { price: nextUsdPrice });
 	}
 
 	// Initialize tiers and fetch BTC price (run once on mount)
@@ -290,33 +259,21 @@
 				<label for="tier-price-usd-{tier.id}" class="label" id="tier-price-label-{tier.id}">
 					<span class="label-text">{$t('dashboard.services.create.tiers.price_label')} <span class="text-error">*</span></span>
 				</label>
-				<div class="flex gap-2">
-					<div class="relative flex-1">
-						<span class="text-base-content/70 absolute top-1/2 left-3 z-10 -translate-y-1/2">$</span>
-						<input
-							type="text"
-							id="tier-price-usd-{tier.id}"
-							value={formatNumberForInput(tier.price)}
-							oninput={(e) => handleTierUsdChange(tier.id, e)}
-							class="input input-bordered w-full pl-7"
-							placeholder="0"
-						/>
-					</div>
-					<div class="relative flex-1">
-						<span class="text-base-content/70 absolute top-1/2 right-3 z-10 -translate-y-1/2">{$t('dashboard.services.create.pricing.sats_label')}</span>
-						<input
-							type="text"
-							id="tier-price-sats-{tier.id}"
-							value={tierSatsDisplay(tier.price)}
-							oninput={(e) => handleTierSatsChange(tier.id, e)}
-							class="input input-bordered w-full pr-12"
-							placeholder="0"
-						/>
-					</div>
-				</div>
-				<span class="label-text-alt mt-1 block text-base-content/70">
-					{$t('dashboard.services.create.pricing.btc_price')} ${Math.round(btcPrice).toLocaleString()}
-				</span>
+				<UsdSatsInput
+					usdAmount={tier.price}
+					{btcPrice}
+					showFieldLabels={false}
+					usdInputId={`tier-price-usd-${tier.id}`}
+					satsInputId={`tier-price-sats-${tier.id}`}
+					btcPriceLabel={$t('dashboard.services.create.pricing.btc_price')}
+					satsLabel={$t('dashboard.services.create.pricing.sats_label')}
+					onUsdChange={({ usdAmount: nextUsdPrice }) => updateTierPrice(tier.id, nextUsdPrice)}
+					onSatsChange={({ usdAmount: nextUsdPrice }) => {
+						if (nextUsdPrice != null) {
+							updateTierPrice(tier.id, nextUsdPrice);
+						}
+					}}
+				/>
 			</div>
 
 			<!-- Delivery Time -->
@@ -557,4 +514,3 @@
 		<span class="label-text-alt text-error block">{errors.tiers}</span>
 	{/if}
 </div>
-

@@ -5,8 +5,15 @@
 	import { serviceStore as store } from '$lib/stores/service.store';
 	import { ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';
 	import { t } from 'svelte-i18n';
-	import { formatNumberForInput, SATS_PER_BTC } from '$lib/utils/helpers/crypto';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
+	import UsdSatsInput from '$lib/components/shared/UsdSatsInput.svelte';
+	import {
+		DEFAULT_INSTANT_BUY_LEAD_HOURS,
+		DEFAULT_INSTANT_BUY_DELIVERY_HOURS,
+		sanitizeInstantBuyLeadHours,
+		sanitizeInstantBuyDeliveryHours,
+		supportsInstantBuyAuthoring
+	} from '$lib/utils/service-instant-buy/authoring';
 
 	let { errors, direction } = $props();
 
@@ -18,10 +25,6 @@
 				? $store.service.pricing.amount
 				: 0
 	);
-	let sats = $derived(
-		formatNumberForInput(btcPrice > 0 ? Math.round((usdAmount / btcPrice) * SATS_PER_BTC) : 0)
-	);
-
 	async function fetchBtcPrice(): Promise<void> {
 		try {
 			btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
@@ -30,67 +33,15 @@
 		}
 	}
 
-	function cleanInput(value: string): string {
-		return value.replace(/[^0-9.,]/g, '');
-	}
-
-	function handleUsdChange(event: Event) {
-		const rawValue = (event.target as HTMLInputElement).value;
-		const input = cleanInput(rawValue);
-		let cleanedInput = input.replace(/,/g, '');
-		if (cleanedInput.length > 1 && cleanedInput.startsWith('0') && cleanedInput[1] !== '.') {
-			cleanedInput = cleanedInput.replace(/^0+/, '') || '0';
-		}
-		const usdValue = parseFloat(cleanedInput);
-		if (!isNaN(usdValue)) {
-			store.updateService({
-				pricing: {
-					...$store.service.pricing!,
-					type: ServicePricingTypeEnum.FIXED,
-					amount: usdValue,
-					currency: 'USDt'
-				}
-			});
-		} else {
-			store.updateService({
-				pricing: {
-					...$store.service.pricing!,
-					type: ServicePricingTypeEnum.FIXED,
-					amount: 0,
-					currency: 'USDt'
-				}
-			});
-		}
-	}
-
-	function handleSatsChange(event: Event) {
-		const rawValue = (event.target as HTMLInputElement).value;
-		const input = cleanInput(rawValue);
-		let cleanedInput = input.replace(/,/g, '');
-		if (cleanedInput.length > 1 && cleanedInput.startsWith('0')) {
-			cleanedInput = cleanedInput.replace(/^0+/, '') || '0';
-		}
-		const satsValue = parseInt(cleanedInput, 10);
-		if (!isNaN(satsValue) && btcPrice > 0) {
-			const usdValue = (satsValue / SATS_PER_BTC) * btcPrice;
-			store.updateService({
-				pricing: {
-					...$store.service.pricing!,
-					type: ServicePricingTypeEnum.FIXED,
-					amount: usdValue,
-					currency: 'USDt'
-				}
-			});
-		} else if (!isNaN(satsValue) && satsValue === 0) {
-			store.updateService({
-				pricing: {
-					...$store.service.pricing!,
-					type: ServicePricingTypeEnum.FIXED,
-					amount: 0,
-					currency: 'USDt'
-				}
-			});
-		}
+	function updateFixedPricingAmount(nextUsdValue: number): void {
+		store.updateService({
+			pricing: {
+				...$store.service.pricing!,
+				type: ServicePricingTypeEnum.FIXED,
+				amount: nextUsdValue,
+				currency: 'USDt'
+			}
+		});
 	}
 
 	function updatePricingType(type: ServicePricingTypeEnum) {
@@ -99,6 +50,14 @@
 			currency: 'USDt',
 			amount: 0
 		};
+		const nextInstantBuyLeadHours = sanitizeInstantBuyLeadHours(
+			type,
+			$store.service.instantBuyLeadHours
+		);
+		const nextInstantBuyDeliveryHours = sanitizeInstantBuyDeliveryHours(
+			type,
+			$store.service.instantBuyDeliveryHours
+		);
 
 		store.updateService({
 			pricing: {
@@ -113,7 +72,42 @@
 				...(type === ServicePricingTypeEnum.INQUIRY_REQUIRED
 					? { amount: undefined, hourlyRate: undefined, estimatedHours: undefined, tiers: undefined }
 					: {})
-			}
+			},
+			instantBuyLeadHours: nextInstantBuyLeadHours,
+			instantBuyDeliveryHours: nextInstantBuyDeliveryHours
+		});
+	}
+
+	function toggleInstantBuy(enabled: boolean) {
+		store.updateService({
+			instantBuyLeadHours: enabled ? DEFAULT_INSTANT_BUY_LEAD_HOURS : undefined,
+			instantBuyDeliveryHours: enabled ? DEFAULT_INSTANT_BUY_DELIVERY_HOURS : undefined
+		});
+	}
+
+	function handleInstantBuyLeadHoursChange(event: Event) {
+		const rawValue = (event.target as HTMLInputElement).value.trim();
+		if (!rawValue) {
+			store.updateService({ instantBuyLeadHours: undefined });
+			return;
+		}
+
+		const parsedValue = Number.parseInt(rawValue, 10);
+		store.updateService({
+			instantBuyLeadHours: Number.isNaN(parsedValue) ? undefined : parsedValue
+		});
+	}
+
+	function handleInstantBuyDeliveryHoursChange(event: Event) {
+		const rawValue = (event.target as HTMLInputElement).value.trim();
+		if (!rawValue) {
+			store.updateService({ instantBuyDeliveryHours: undefined });
+			return;
+		}
+
+		const parsedValue = Number.parseInt(rawValue, 10);
+		store.updateService({
+			instantBuyDeliveryHours: Number.isNaN(parsedValue) ? undefined : parsedValue
 		});
 	}
 
@@ -162,46 +156,84 @@
 		<span class="label-text-alt text-error">{errors.pricingType}</span>
 	{/if}
 
+	{#if supportsInstantBuyAuthoring($store.service.pricing?.type)}
+		<div class="rounded-2xl border border-base-300 bg-base-100 p-4">
+			<div class="flex flex-wrap items-start justify-between gap-3">
+				<div>
+					<p class="font-medium">{$t('dashboard.services.create.pricing.instant_buy.enable_label')}</p>
+					<p class="mt-1 text-sm text-base-content/70">
+						{$t('dashboard.services.create.pricing.instant_buy.enable_description')}
+					</p>
+				</div>
+				<input
+					type="checkbox"
+					class="toggle toggle-primary"
+					checked={$store.service.instantBuyLeadHours != null}
+					onchange={(event) => toggleInstantBuy((event.target as HTMLInputElement).checked)}
+					data-testid="service-pricing-instant-buy-toggle"
+				/>
+			</div>
+
+			{#if $store.service.instantBuyLeadHours != null}
+				<div class="mt-4">
+					<label for="instant-buy-lead-hours" class="label">
+						<span class="label-text">{$t('dashboard.services.create.pricing.instant_buy.lead_time_label')}</span>
+					</label>
+					<input
+						id="instant-buy-lead-hours"
+						type="number"
+						min="0"
+						max="720"
+						step="1"
+						value={$store.service.instantBuyLeadHours}
+						oninput={handleInstantBuyLeadHoursChange}
+						class="input input-bordered w-full max-w-xs {errors.instantBuyLeadHours ? 'input-error' : ''}"
+						data-testid="service-pricing-instant-buy-lead-hours"
+					/>
+					{#if errors.instantBuyLeadHours}
+						<span class="label-text-alt text-error">{errors.instantBuyLeadHours}</span>
+					{/if}
+				</div>
+
+				<div class="mt-4">
+					<label for="instant-buy-delivery-hours" class="label">
+						<span class="label-text">{$t('dashboard.services.create.pricing.instant_buy.delivery_time_label')}</span>
+					</label>
+					<input id="instant-buy-delivery-hours" type="number" min="1" step="1"
+						value={$store.service.instantBuyDeliveryHours}
+						oninput={handleInstantBuyDeliveryHoursChange}
+						class="input input-bordered w-full max-w-xs {errors.instantBuyDeliveryHours ? 'input-error' : ''}"
+						data-testid="service-pricing-instant-buy-delivery-hours" />
+					{#if errors.instantBuyDeliveryHours}
+						<span class="label-text-alt text-error">{errors.instantBuyDeliveryHours}</span>
+					{/if}
+				</div>
+			{/if}
+		</div>
+	{/if}
+
 	<!-- Fixed price: amount in USD and Sats -->
 	{#if $store.service.pricing?.type === ServicePricingTypeEnum.FIXED}
 		<div class="w-full">
 			<label for="budget" class="label">
 				<span class="label-text">{$t('dashboard.services.create.pricing.budget_label')}</span>
 			</label>
-			<div class="flex gap-2">
-				<div class="relative">
-					<span class="text-base-content/70 absolute top-1/2 left-3 z-10 -translate-y-1/2"> $ </span>
-					<input
-						type="text"
-						id="budget-usd"
-						value={formatNumberForInput(usdAmount)}
-						oninput={handleUsdChange}
-						class="input input-bordered w-full pl-7 {errors.amount ? 'input-error' : ''}"
-						placeholder="0"
-						min="0"
-					/>
-				</div>
-				<div class="relative">
-					<span class="text-base-content/70 absolute top-1/2 right-3 z-10 -translate-y-1/2">
-						{$t('dashboard.services.create.pricing.sats_label')}
-					</span>
-					<input
-						type="text"
-						id="budget-sats"
-						value={sats}
-						oninput={handleSatsChange}
-						class="input input-bordered w-full pr-12 {errors.amount ? 'input-error' : ''}"
-						placeholder="0"
-						min="0"
-					/>
-				</div>
-			</div>
-			{#if errors.amount}
-				<span class="label-text-alt text-error">{errors.amount}</span>
-			{/if}
-			<span class="label-text-alt mt-1 block text-base-content/70">
-				{$t('dashboard.services.create.pricing.btc_price')} ${Math.round(btcPrice).toLocaleString()}
-			</span>
+			<UsdSatsInput
+				usdAmount={usdAmount}
+				{btcPrice}
+				error={errors.amount}
+				showFieldLabels={false}
+				usdInputId="budget-usd"
+				satsInputId="budget-sats"
+				btcPriceLabel={$t('dashboard.services.create.pricing.btc_price')}
+				satsLabel={$t('dashboard.services.create.pricing.sats_label')}
+				onUsdChange={({ usdAmount: nextUsdAmount }) => updateFixedPricingAmount(nextUsdAmount)}
+				onSatsChange={({ usdAmount: nextUsdAmount }) => {
+					if (nextUsdAmount != null) {
+						updateFixedPricingAmount(nextUsdAmount);
+					}
+				}}
+			/>
 		</div>
 	{/if}
 

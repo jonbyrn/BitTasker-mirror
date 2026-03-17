@@ -5,6 +5,11 @@
 	import type { UploadResult } from '$lib/api/services/upload.service';
 	import Modal from '$lib/components/Modal.svelte';
 	import MediaUploader from '$lib/components/MediaUploader.svelte';
+	import SchemaDrivenFieldRenderer from '$lib/components/forms/SchemaDrivenFieldRenderer.svelte';
+	import {
+		collectMissingRequiredInquiryFieldIds,
+		hasRequiredTrimmedText
+	} from '$lib/components/forms/FormValidationCore';
 	import { getServiceDisplayTitle } from '$lib/utils/serviceDisplayTranslation';
 	import { t, locale } from 'svelte-i18n';
 
@@ -12,12 +17,16 @@
 		open = $bindable(false),
 		service,
 		onConfirm,
-		onClose
+		onClose,
+		contextSummary = []
 	}: {
 		open?: boolean;
 		service: Service | null;
-		onConfirm: (payload: QuoteRequestPayload) => void;
+		onConfirm: (
+			payload: QuoteRequestPayload
+		) => Promise<{ success: boolean; error?: string } | void> | { success: boolean; error?: string } | void;
 		onClose: () => void;
+		contextSummary?: string[];
 	} = $props();
 
 	const currentLocale = $derived($locale || 'en');
@@ -30,6 +39,14 @@
 	let uploadResults = $state<UploadResult[]>([]);
 	let errors = $state<Record<string, string>>({});
 	let isSubmitting = $state(false);
+	let submitError = $state<string | null>(null);
+
+	// Clear submit error when user modifies form
+	$effect(() => {
+		if (submitError && (title || description || Object.keys(customFormValues).length > 0)) {
+			submitError = null;
+		}
+	});
 
 	const inquiryFields = $derived(service?.pricing?.inquiryForm?.fields ?? []);
 
@@ -40,28 +57,29 @@
 		customFormValues = {};
 		uploadResults = [];
 		errors = {};
+		submitError = null;
 		onClose();
 	}
 
 	function validate(): boolean {
 		const e: Record<string, string> = {};
-		if (!title.trim()) e.title = $t('dashboard.services.detail.request_quote_modal.title_required');
-		if (!description.trim()) e.description = $t('dashboard.services.detail.request_quote_modal.description_required');
-		for (const field of inquiryFields) {
-			if (field.required) {
-				const v = customFormValues[field.id];
-				if (v === undefined || v === '' || (Array.isArray(v) && v.length === 0)) {
-					e[`field_${field.id}`] = $t('dashboard.services.detail.request_quote_modal.field_required');
-				}
-			}
+		if (!hasRequiredTrimmedText(title)) {
+			e.title = $t('dashboard.services.detail.request_quote_modal.title_required');
+		}
+		if (!hasRequiredTrimmedText(description)) {
+			e.description = $t('dashboard.services.detail.request_quote_modal.description_required');
+		}
+		for (const fieldId of collectMissingRequiredInquiryFieldIds(inquiryFields, customFormValues)) {
+			e[`field_${fieldId}`] = $t('dashboard.services.detail.request_quote_modal.field_required');
 		}
 		errors = e;
 		return Object.keys(e).length === 0;
 	}
 
-	function handleConfirm() {
+	async function handleConfirm() {
 		if (!validate() || !service) return;
 		isSubmitting = true;
+		submitError = null;
 		const attachments: Attachment[] = uploadResults.map((r, i) => ({
 			url: r.url,
 			key: r.key,
@@ -79,9 +97,19 @@
 				Object.entries(customFormValues).filter(([, v]) => v !== undefined)
 			) as QuoteRequestPayload['customFormResponses'];
 		}
-		onConfirm(payload);
-		closeModal();
-		isSubmitting = false;
+		try {
+			const result = await onConfirm(payload);
+			if (result && typeof result === 'object' && result.success === false) {
+				submitError = result.error || ($t('error.general') as string);
+				return;
+			}
+			closeModal();
+		} catch (error) {
+			submitError =
+				error instanceof Error ? error.message : (($t('error.general') as string) || 'Failed to submit quote request.');
+		} finally {
+			isSubmitting = false;
+		}
 	}
 
 	function handleFileChange(results: UploadResult[]) {
@@ -146,138 +174,33 @@
 			{#if inquiryFields.length > 0}
 				<div class="space-y-4">
 					<h4 class="font-semibold">{$t('dashboard.services.detail.request_quote_modal.custom_form_section')}</h4>
-					{#each inquiryFields as field}
-						{@const inputId = `quote-field-${field.id}`}
-						{@const value = customFormValues[field.id]}
-						{@const err = errors[`field_${field.id}`]}
-						<div class="form-control">
-							<label for={inputId} class="label">
-								<span class="label-text">{field.label}{#if field.required} <span class="text-error">*</span>{/if}</span>
-							</label>
-							{#if field.type === 'text'}
-								<input
-									id={inputId}
-									type="text"
-									class="input input-bordered w-full"
-									class:input-error={err}
-									placeholder={field.placeholder}
-									value={typeof value === 'string' ? value : ''}
-									oninput={(e) => {
-										customFormValues = { ...customFormValues, [field.id]: (e.target as HTMLInputElement).value };
-									}}
-								/>
-							{:else if field.type === 'textarea'}
-								<textarea
-									id={inputId}
-									class="textarea textarea-bordered w-full"
-									class:textarea-error={err}
-									placeholder={field.placeholder}
-									value={typeof value === 'string' ? value : ''}
-									oninput={(e) => {
-										customFormValues = { ...customFormValues, [field.id]: (e.target as HTMLTextAreaElement).value };
-									}}
-								></textarea>
-							{:else if field.type === 'number'}
-								<input
-									id={inputId}
-									type="number"
-									class="input input-bordered w-full"
-									class:input-error={err}
-									placeholder={field.placeholder}
-									value={value === undefined || value === null ? '' : Number(value)}
-									min={field.validation?.min}
-									max={field.validation?.max}
-									oninput={(e) => {
-										const v = (e.target as HTMLInputElement).value;
-										customFormValues = { ...customFormValues, [field.id]: v === '' ? undefined : Number(v) };
-									}}
-								/>
-							{:else if field.type === 'select' && field.options?.length}
-								<select
-									id={inputId}
-									class="select select-bordered w-full"
-									class:select-error={err}
-									value={typeof value === 'string' ? value : ''}
-									onchange={(e) => {
-										customFormValues = { ...customFormValues, [field.id]: (e.target as HTMLSelectElement).value };
-									}}
-								>
-									<option value="">{$t('dashboard.services.detail.request_quote_modal.choose')}</option>
-									{#each field.options as opt}
-										<option value={opt}>{opt}</option>
-									{/each}
-								</select>
-							{:else if field.type === 'checkbox' && field.options?.length}
-								<div class="flex flex-wrap gap-3">
-									{#each field.options as opt}
-										<label class="flex cursor-pointer items-center gap-2">
-											<input
-												type="checkbox"
-												class="checkbox checkbox-sm"
-												checked={Array.isArray(value) ? value.includes(opt) : false}
-												onchange={(e) => {
-													const arr = Array.isArray(value) ? [...value] : [];
-													if ((e.target as HTMLInputElement).checked) arr.push(opt);
-													else arr.splice(arr.indexOf(opt), 1);
-													customFormValues = { ...customFormValues, [field.id]: arr };
-												}}
-											/>
-											<span class="label-text">{opt}</span>
-										</label>
-									{/each}
-								</div>
-							{:else if field.type === 'checkbox'}
-								<label class="flex cursor-pointer items-center gap-2">
-									<input
-										type="checkbox"
-										class="checkbox checkbox-sm"
-										checked={value === true}
-										onchange={(e) => {
-											customFormValues = { ...customFormValues, [field.id]: (e.target as HTMLInputElement).checked };
-										}}
-									/>
-									<span class="label-text-alt">{field.placeholder || field.label}</span>
-								</label>
-							{:else if field.type === 'date'}
-								<input
-									id={inputId}
-									type="date"
-									class="input input-bordered w-full"
-									class:input-error={err}
-									value={typeof value === 'string' ? value : ''}
-									oninput={(e) => {
-										customFormValues = { ...customFormValues, [field.id]: (e.target as HTMLInputElement).value };
-									}}
-								/>
-							{:else if field.type === 'time'}
-								<input
-									id={inputId}
-									type="time"
-									class="input input-bordered w-full"
-									class:input-error={err}
-									value={typeof value === 'string' ? value : ''}
-									oninput={(e) => {
-										customFormValues = { ...customFormValues, [field.id]: (e.target as HTMLInputElement).value };
-									}}
-								/>
-							{:else}
-								<input
-									id={inputId}
-									type="text"
-									class="input input-bordered w-full"
-									class:input-error={err}
-									placeholder={field.placeholder}
-									value={typeof value === 'string' ? value : ''}
-									oninput={(e) => {
-										customFormValues = { ...customFormValues, [field.id]: (e.target as HTMLInputElement).value };
-									}}
-								/>
-							{/if}
-							{#if err}
-								<span class="label-text-alt text-error">{err}</span>
-							{/if}
-						</div>
-					{/each}
+						{#each inquiryFields as field}
+							{@const inputId = `quote-field-${field.id}`}
+							{@const value = customFormValues[field.id]}
+							{@const err = errors[`field_${field.id}`]}
+							<SchemaDrivenFieldRenderer
+								{field}
+								{inputId}
+								{value}
+								error={err}
+								onValueChange={(nextValue) => {
+									customFormValues = { ...customFormValues, [field.id]: nextValue };
+								}}
+							/>
+						{/each}
+					</div>
+				{/if}
+
+			{#if contextSummary.length > 0}
+				<div class="rounded-xl border border-base-300 bg-base-200/60 p-4">
+					<p class="mb-2 text-sm font-semibold">
+						{$t('dashboard.services.detail.interested')}
+					</p>
+					<ul class="list-disc space-y-1 pl-5 text-sm text-base-content/70">
+						{#each contextSummary as item}
+							<li>{item}</li>
+						{/each}
+					</ul>
 				</div>
 			{/if}
 
@@ -301,6 +224,12 @@
 					maxFileSize={2}
 				/>
 			</div>
+
+			{#if submitError}
+				<div class="alert alert-error alert-soft text-sm" data-testid="request-quote-submit-error">
+					<span>{submitError}</span>
+				</div>
+			{/if}
 		</form>
 	{/snippet}
 	{#snippet footer()}
