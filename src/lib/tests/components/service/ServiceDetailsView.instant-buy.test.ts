@@ -36,7 +36,7 @@ const hoisted = vi.hoisted(() => {
 				provider: {}
 			}
 		}),
-		mockInitializeWallet: vi.fn(),
+		_mockInitializeWallet: vi.fn(),
 		mockCreateServiceContract: vi.fn(),
 		mockShowSuccessToast: vi.fn(),
 		mockShowErrorToast: vi.fn(),
@@ -53,7 +53,7 @@ const {
 	userStore,
 	mockFindServiceByUniqueId,
 	walletStoreMock,
-	mockInitializeWallet,
+	_mockInitializeWallet,
 	mockCreateServiceContract,
 	mockShowSuccessToast,
 	mockShowErrorToast,
@@ -86,7 +86,7 @@ vi.mock('$lib/stores/user.store', () => ({
 vi.mock('$lib/stores/wallet.store', () => ({
 	walletStore: hoisted.walletStoreMock,
 	walletManager: {
-		initialize: hoisted.mockInitializeWallet
+		initialize: hoisted._mockInitializeWallet
 	}
 }));
 
@@ -271,16 +271,12 @@ describe('ServiceDetailsView instant buy flow', () => {
 		setNavigatorOnline(true);
 	});
 
-	it(
-		'shows Buy Now and Request Quote together for eligible fixed-price services',
-		async () => {
+	it('shows Buy Now and Request Quote together for eligible fixed-price services', async () => {
 		const { getByTestId, getByText } = renderView(baseService, baseService.uniqueId);
 
 		expect(getByTestId('service-detail-buy-now')).toBeTruthy();
 		expect(getByText('dashboard.services.detail.request_quote')).toBeTruthy();
-		},
-		40_000
-	);
+	}, 40_000);
 
 	it('falls back to Request Quote only when the listing is not instant-buy eligible', async () => {
 		const inquiryOnlyService = {
@@ -311,9 +307,9 @@ describe('ServiceDetailsView instant buy flow', () => {
 		await waitFor(() => {
 			expect(getByTestId('service-detail-offline-alert')).toBeTruthy();
 			expect((getByTestId('service-detail-buy-now') as HTMLButtonElement).disabled).toBe(true);
-			expect((getByText('dashboard.services.detail.request_quote') as HTMLButtonElement).disabled).toBe(
-				true
-			);
+			expect(
+				(getByText('dashboard.services.detail.request_quote') as HTMLButtonElement).disabled
+			).toBe(true);
 		});
 
 		setNavigatorOnline(true);
@@ -335,9 +331,7 @@ describe('ServiceDetailsView instant buy flow', () => {
 
 		await waitFor(() => {
 			expect(getByTestId('service-instant-buy-offline-alert')).toBeTruthy();
-			expect((getByTestId('service-instant-buy-confirm') as HTMLButtonElement).disabled).toBe(
-				true
-			);
+			expect((getByTestId('service-instant-buy-confirm') as HTMLButtonElement).disabled).toBe(true);
 		});
 
 		setNavigatorOnline(true);
@@ -395,7 +389,7 @@ describe('ServiceDetailsView instant buy flow', () => {
 
 		const buyNowButton = getByTestId('service-detail-buy-now') as HTMLButtonElement;
 		expect(buyNowButton.disabled).toBe(true);
-		expect(getByText('Select a tier to continue with Buy Now.')).toBeTruthy();
+		expect(getByText('dashboard.services.detail.instant_buy.select_tier_required')).toBeTruthy();
 		expect(getByText('dashboard.services.detail.request_quote')).toBeTruthy();
 
 		await fireEvent.click(getByText('Premium'));
@@ -462,118 +456,101 @@ describe('ServiceDetailsView instant buy flow', () => {
 		expect(window.location.search).toBe('');
 	});
 
-	it(
-		'waits for escrow confirmation and opens the exact service contract',
-		async () => {
-			const { getByTestId, findByTestId } = renderView(
-				baseService,
-				baseService.uniqueId
-			);
+	it('waits for escrow confirmation and opens the exact service contract', async () => {
+		const { getByTestId, findByTestId } = renderView(baseService, baseService.uniqueId);
 
-			await fireEvent.click(getByTestId('service-detail-buy-now'));
-			expect(await findByTestId('service-instant-buy-modal')).toBeTruthy();
-			expect((await findByTestId('service-agreement-provider')).textContent).toContain('Designer');
-			expect((await findByTestId('service-agreement-scope')).textContent).toContain(
-				'Logo, color palette, and social avatar pack.'
-			);
-			expect(await findByTestId('service-instant-buy-confirm')).toBeTruthy();
+		await fireEvent.click(getByTestId('service-detail-buy-now'));
+		expect(await findByTestId('service-instant-buy-modal')).toBeTruthy();
+		expect((await findByTestId('service-agreement-provider')).textContent).toContain('Designer');
+		expect((await findByTestId('service-agreement-scope')).textContent).toContain(
+			'Logo, color palette, and social avatar pack.'
+		);
+		expect(await findByTestId('service-instant-buy-confirm')).toBeTruthy();
 
-			await fireEvent.click(getByTestId('service-instant-buy-confirm'));
+		await fireEvent.click(getByTestId('service-instant-buy-confirm'));
 
-			await waitFor(() => expect(mockCreateServiceContract).toHaveBeenCalledTimes(1));
-			expect(mockFindServiceByUniqueId).toHaveBeenCalledTimes(2);
-			expect(mockFindServiceByUniqueId).toHaveBeenNthCalledWith(1, baseService.uniqueId);
-			expect(mockFindServiceByUniqueId).toHaveBeenNthCalledWith(2, baseService.uniqueId);
-			await waitFor(() => {
-				expect(mockWaitForContractCreation).toHaveBeenCalledWith('0xtxhash');
-			});
-			await waitFor(() => {
-				expect(mockClearPendingNavigation).toHaveBeenCalledWith(expect.anything());
-			});
-			expect(mockCreateServiceContract).toHaveBeenCalledWith({
-				freelancerPubkey: 'a'.repeat(64),
-				freelancerAddress: '0x2222222222222222222222222222222222222222',
-				amountUsdt: '200.00',
-				estimatedStartTime: 1_700_086_400,
-				estimatedCompletionTime: 1_700_345_600,
-				serviceId: 'service-123',
-				serviceAddress: `30402:${'a'.repeat(64)}:service-123`,
-				serviceTitle: 'Brand Identity Sprint',
-				serviceDescription: 'Logo, color palette, and social avatar pack.',
-				contextVersionRef: 'service-event-1',
-				purchaseMode: 'instant_buy',
-				instantOrderId: 'sib_123e4567e89b12d3',
+		await waitFor(() => expect(mockCreateServiceContract).toHaveBeenCalledTimes(1));
+		expect(mockFindServiceByUniqueId).toHaveBeenCalledTimes(2);
+		expect(mockFindServiceByUniqueId).toHaveBeenNthCalledWith(1, baseService.uniqueId);
+		expect(mockFindServiceByUniqueId).toHaveBeenNthCalledWith(2, baseService.uniqueId);
+		await waitFor(() => {
+			expect(mockWaitForContractCreation).toHaveBeenCalledWith('0xtxhash');
+		});
+		await waitFor(() => {
+			expect(mockClearPendingNavigation).toHaveBeenCalledWith(expect.anything());
+		});
+		expect(mockCreateServiceContract).toHaveBeenCalledWith({
+			freelancerPubkey: 'a'.repeat(64),
+			freelancerAddress: '0x2222222222222222222222222222222222222222',
+			amountUsdt: '200.00',
+			estimatedStartTime: 1_700_086_400,
+			estimatedCompletionTime: 1_700_345_600,
+			serviceId: 'service-123',
+			serviceAddress: `30402:${'a'.repeat(64)}:service-123`,
+			serviceTitle: 'Brand Identity Sprint',
+			serviceDescription: 'Logo, color palette, and social avatar pack.',
+			contextVersionRef: 'service-event-1',
+			purchaseMode: 'instant_buy',
+			instantOrderId: 'sib_123e4567e89b12d3',
+			selectedTierId: undefined,
+			pricingSnapshot: {
+				serviceVersionRef: 'service-event-1',
+				tierId: undefined
+			},
+			agreementSnapshot: {
+				deliverables: 'Logo, color palette, and social avatar pack.',
 				selectedTierId: undefined,
-				pricingSnapshot: {
-					serviceVersionRef: 'service-event-1',
-					tierId: undefined
-				},
-					agreementSnapshot: {
-						deliverables: 'Logo, color palette, and social avatar pack.',
-						selectedTierId: undefined,
-						priceSnapshotRef: '3c4f154d30c3b678787c2d8068e0a5784e4112c17450c6d54c00ab61916dc7ad',
-						priceSnapshotLabel: '$200'
-				}
-			});
-			await waitFor(() => {
-				expect(mockShowSuccessToast).toHaveBeenCalledWith(
-					'Instant-buy order confirmed. Opening your service contract.'
-				);
-			});
-			await waitFor(() => {
-				expect(mockGoto).toHaveBeenCalledWith(
-					'/dashboard?tab=contracts&context=services&highlight=escrow-123'
-				);
-			});
-		},
-			35_000
-		);
-
-	it(
-		'keeps prepare failures local to the instant-buy modal when the listing changed on the relay',
-		async () => {
-			mockFindServiceByUniqueId.mockResolvedValue({
-				...baseService,
-				id: 'service-event-2'
-			});
-
-			const { getByTestId, findByTestId } = renderView(baseService, baseService.uniqueId);
-
-			await fireEvent.click(getByTestId('service-detail-buy-now'));
-
-			expect(await findByTestId('service-instant-buy-modal')).toBeTruthy();
-			expect((await findByTestId('service-instant-buy-error')).textContent).toContain(
-				'This service was updated. Refresh the page to review the latest details before using Buy Now.'
+				priceSnapshotRef: '3c4f154d30c3b678787c2d8068e0a5784e4112c17450c6d54c00ab61916dc7ad',
+				priceSnapshotLabel: '$200'
+			}
+		});
+		await waitFor(() => {
+			expect(mockShowSuccessToast).toHaveBeenCalledWith(
+				'Instant-buy order confirmed. Opening your service contract.'
 			);
-			expect(mockShowErrorToast).not.toHaveBeenCalled();
-			expect(mockCreateServiceContract).not.toHaveBeenCalled();
-		},
-			20_000
-		);
-
-	it(
-		'keeps the confirmation modal open when revalidation fails before create',
-		async () => {
-			mockFindServiceByUniqueId
-				.mockResolvedValueOnce(baseService)
-				.mockResolvedValueOnce({
-					...baseService,
-					id: 'service-event-2'
-				});
-
-			const { getByTestId, findByTestId } = renderView(baseService, baseService.uniqueId);
-
-			await fireEvent.click(getByTestId('service-detail-buy-now'));
-			expect(await findByTestId('service-instant-buy-modal')).toBeTruthy();
-			await fireEvent.click(getByTestId('service-instant-buy-confirm'));
-
-			expect(mockCreateServiceContract).not.toHaveBeenCalled();
-			expect((await findByTestId('service-instant-buy-error')).textContent).toContain(
-				'This service was updated. Refresh the page to review the latest details before using Buy Now.'
+		});
+		await waitFor(() => {
+			expect(mockGoto).toHaveBeenCalledWith(
+				'/dashboard?tab=contracts&context=services&highlight=escrow-123'
 			);
-		},
-			20_000
+		});
+	}, 35_000);
+
+	it('keeps prepare failures local to the instant-buy modal when the listing changed on the relay', async () => {
+		mockFindServiceByUniqueId.mockResolvedValue({
+			...baseService,
+			id: 'service-event-2'
+		});
+
+		const { getByTestId, findByTestId } = renderView(baseService, baseService.uniqueId);
+
+		await fireEvent.click(getByTestId('service-detail-buy-now'));
+
+		expect(await findByTestId('service-instant-buy-modal')).toBeTruthy();
+		expect((await findByTestId('service-instant-buy-error')).textContent).toContain(
+			'This service was updated. Refresh the page to review the latest details before using Buy Now.'
 		);
+		expect(mockShowErrorToast).not.toHaveBeenCalled();
+		expect(mockCreateServiceContract).not.toHaveBeenCalled();
+	}, 20_000);
+
+	it('keeps the confirmation modal open when revalidation fails before create', async () => {
+		mockFindServiceByUniqueId.mockResolvedValueOnce(baseService).mockResolvedValueOnce({
+			...baseService,
+			id: 'service-event-2'
+		});
+
+		const { getByTestId, findByTestId } = renderView(baseService, baseService.uniqueId);
+
+		await fireEvent.click(getByTestId('service-detail-buy-now'));
+		expect(await findByTestId('service-instant-buy-modal')).toBeTruthy();
+		await fireEvent.click(getByTestId('service-instant-buy-confirm'));
+
+		expect(mockCreateServiceContract).not.toHaveBeenCalled();
+		expect((await findByTestId('service-instant-buy-error')).textContent).toContain(
+			'This service was updated. Refresh the page to review the latest details before using Buy Now.'
+		);
+	}, 20_000);
 
 	it('shows an inline error when the provider wallet is unavailable', async () => {
 		const serviceWithoutWallet = {
@@ -706,9 +683,7 @@ describe('ServiceDetailsView instant buy flow', () => {
 
 		await fireEvent.click(getByTestId('service-detail-buy-now'));
 
-		expect(mockGoto).toHaveBeenCalledWith(
-			'/auth/login?returnTo=%2Fservices%2Fservice-123'
-		);
+		expect(mockGoto).toHaveBeenCalledWith('/auth/login?returnTo=%2Fservices%2Fservice-123');
 		expect(mockCreateServiceContract).not.toHaveBeenCalled();
 	});
 

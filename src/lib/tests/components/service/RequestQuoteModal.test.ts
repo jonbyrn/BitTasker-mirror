@@ -70,6 +70,7 @@ describe('RequestQuoteModal', () => {
 		await fireEvent.click(getByText('dashboard.services.detail.request_quote_modal.submit'));
 
 		await waitFor(() => expect(onConfirm).toHaveBeenCalledTimes(1));
+		await waitFor(() => expect(getByTestId('request-quote-submit-error')).toBeTruthy());
 		expect(getByTestId('request-quote-submit-error').textContent).toContain('Publish failed');
 		expect(titleInput.value).toBe('Need a new logo');
 		expect(descriptionInput.value).toBe('I need three concepts for a launch next week.');
@@ -143,8 +144,6 @@ describe('RequestQuoteModal', () => {
 		await fireEvent.click(getByText('dashboard.services.detail.request_quote_modal.submit'));
 
 		expect(onConfirm).not.toHaveBeenCalled();
-		expect(
-			getByText('dashboard.services.detail.request_quote_modal.field_required')
-		).toBeTruthy();
+		expect(getByText('dashboard.services.detail.request_quote_modal.field_required')).toBeTruthy();
 	});
 });
