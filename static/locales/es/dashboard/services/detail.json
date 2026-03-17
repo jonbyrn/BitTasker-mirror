@@ -36,6 +36,9 @@
 				"see_less": "Ver menos",
 				"price_levels": "Niveles de Precio",
 				"select_tier": "Elige un paquete",
+				"instant_buy": {
+					"select_tier_required": "Selecciona un paquete para continuar con Comprar Ahora."
+				},
 				"addons_title": "Complementos",
 				"base_price": "Precio base",
 				"addons_total": "Complementos",

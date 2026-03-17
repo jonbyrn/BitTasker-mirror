@@ -69,7 +69,8 @@ vi.mock('$app/navigation', () => ({
 
 // Mock browser environment
 vi.mock('$app/environment', () => ({
-	browser: true
+	browser: true,
+	dev: false
 }));
 
 // Mock navigator.permissions

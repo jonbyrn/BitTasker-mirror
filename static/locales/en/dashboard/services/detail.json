@@ -36,6 +36,9 @@
 				"see_less": "See less",
 				"price_levels": "Price Levels",
 				"select_tier": "Choose a package",
+				"instant_buy": {
+					"select_tier_required": "Select a tier to continue with Buy Now."
+				},
 				"addons_title": "Add-ons",
 				"base_price": "Base price",
 				"addons_total": "Add-ons",

@@ -100,7 +100,7 @@ vi.mock('$lib/stores/app.store', () => ({
 }));
 
 vi.mock('$app/navigation', () => ({ goto: vi.fn() }));
-vi.mock('$app/environment', () => ({ browser: true }));
+vi.mock('$app/environment', () => ({ browser: true, dev: false }));
 
 vi.mock('$lib/nostr/task', () => ({ updateTask: vi.fn().mockResolvedValue(undefined) }));
 vi.mock('$lib/utils/location/sendLocation', () => ({ sendLocationsToTaskee: vi.fn().mockResolvedValue(undefined) }));

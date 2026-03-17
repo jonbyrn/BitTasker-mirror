@@ -12,7 +12,7 @@ const mocks = vi.hoisted(() => ({
 	mockShow: vi.fn().mockResolvedValue(undefined)
 }));
 
-vi.mock('$app/environment', () => ({ browser: true }));
+vi.mock('$app/environment', () => ({ browser: true, dev: false }));
 vi.mock('@capacitor/core', () => ({
 	Capacitor: { isNativePlatform: vi.fn(() => false) }
 }));
