@@ -1,8 +1,8 @@
 <script lang="ts">
 	import type { SearchTaskeesParams } from '$lib/nostr/findTaskees';
 	import SkillsMultiselect from '$lib/components/SkillsMultiselect.svelte';
+	import UnifiedFilterDrawer from '$lib/components/listing/UnifiedFilterDrawer.svelte';
 	import LocationAutoComplete from '../LocationAutoComplete.svelte';
-	import Drawer from '$lib/components/Drawer.svelte';
 	import { t } from 'svelte-i18n';
 
 	// Props
@@ -124,15 +124,17 @@
 	}
 </script>
 
-<Drawer
-	isOpen={isOpen}
+<UnifiedFilterDrawer
+	{isOpen}
 	title={$t('find_taskees.filters')}
-	onClose={onClose}
-	position="right"
-	isScrollable={true}
+	{onClose}
+	onClear={clearFilters}
+	onApply={applyFilters}
+	clearLabel={$t('find_taskees.clear_filters')}
+	applyLabel={$t('find_taskees.apply')}
+	{activeFilterCount}
+	actionsClass="mt-8 mb-4 flex justify-between mx-4"
 >
-	{#snippet children()}
-		<div class="px-2">
 		<!-- Location -->
 		<div class="collapse-arrow collapse mb-2" style="overflow: visible; z-index: 1000;">
 			<input
@@ -259,20 +261,4 @@
 			</div>
 		</div>
 
-		<!-- Filter Actions -->
-		<div class="divider"></div>
-		<div class="mt-8 mb-4 flex justify-between mx-4">
-			<button class="btn btn-ghost btn-outline" onclick={clearFilters}>
-				{$t('find_taskees.clear_filters')}
-			</button>
-			<button class="btn btn-primary" onclick={applyFilters}>
-				{$t('find_taskees.apply')}
-				{#if activeFilterCount > 0}
-					<div class="badge badge-secondary ml-2">{activeFilterCount}</div>
-				{/if}
-			</button>
-		</div>
-		</div>
-	{/snippet}
-</Drawer>
-
+	</UnifiedFilterDrawer>

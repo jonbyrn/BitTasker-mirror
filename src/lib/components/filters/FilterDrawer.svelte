@@ -5,15 +5,20 @@
 	import AvailabilityFilter from '$lib/components/filters/AvailabilityFilter.svelte';
 	import CategoryMultiselect from '$lib/components/CategoryMultiselect.svelte';
 	import SkillsMultiselect from '$lib/components/SkillsMultiselect.svelte';
+	import UnifiedFilterDrawer from '$lib/components/listing/UnifiedFilterDrawer.svelte';
 	import LocationAutoComplete from '../LocationAutoComplete.svelte';
 	import { t } from 'svelte-i18n';
 	import { TASKS_PER_PAGE } from '$lib/stores/task.store';
 
 	// Props
-	let { onApply, initialFilters } = $props<{
+	let { isOpen, onClose, onApply, initialFilters, title } = $props<{
+		isOpen: boolean;
+		onClose: () => void;
 		onApply: (filters: SearchTasksParams) => void;
 		initialFilters?: SearchTasksParams;
+		title?: string;
 	}>();
+	const drawerTitle = $derived(title ?? $t('find_tasks.filters'));
 
 	// State
 	const filters = $state<SearchTasksParams>({
@@ -198,7 +203,17 @@
 	}
 </script>
 
-<div class="px-2">
+<UnifiedFilterDrawer
+	{isOpen}
+	title={drawerTitle}
+	{onClose}
+	onClear={clearFilters}
+	onApply={applyFilters}
+	clearLabel={$t('find_tasks.clear_filters')}
+	applyLabel={$t('find_tasks.apply')}
+	{activeFilterCount}
+	actionsClass="mt-8 mb-20 flex justify-between"
+>
 	<!-- Task Type -->
 	<div class="collapse-arrow collapse mb-2">
 		<input
@@ -412,17 +427,4 @@
 		</div>
 	</div>
 
-		<!-- Filter Actions -->
-		<div class="divider"></div>
-		<div class="mt-8 mb-20 flex justify-between">
-			<button class="btn btn-ghost btn-outline" onclick={clearFilters}>
-				{$t('find_tasks.clear_filters')}
-			</button>
-			<button class="btn btn-primary" onclick={applyFilters}>
-				{$t('find_tasks.apply')}
-				{#if activeFilterCount > 0}
-					<div class="badge badge-secondary ml-2">{activeFilterCount}</div>
-				{/if}
-			</button>
-		</div>
-	</div>
+	</UnifiedFilterDrawer>

@@ -132,8 +132,12 @@
 
 		// Initial token presence check (no Nostr libs)
 		(async () => {
-			const { value } = await Preferences.get({ key: StorageKeys.ACCESS_TOKEN });
-			isLoggedIn = Boolean(value);
+			try {
+				const { value } = await Preferences.get({ key: StorageKeys.ACCESS_TOKEN });
+				isLoggedIn = Boolean(value);
+			} catch {
+				isLoggedIn = false;
+			}
 		})();
 	});
 

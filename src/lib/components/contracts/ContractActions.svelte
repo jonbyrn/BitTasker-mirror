@@ -5,24 +5,34 @@
 	import { t, locale } from 'svelte-i18n';
 	import { escrow, EscrowStatus } from '$lib/utils/escrow';
 	import { appStore } from '$lib/stores/app.store';
-	import { getErrorMessage } from '$lib/utils/wallet/contractErrorHandler';
+	import {
+		extractContractError,
+		getErrorMessage
+	} from '$lib/utils/wallet/contractErrorHandler';
 	import { loadNamespace, type SupportedLanguage } from '$lib/i18n/i18n';
 	import { browser } from '$app/environment';
 	import { contractStore } from '$lib/stores/contract.store';
 	import { pushNotificationService } from '$lib/api/services/push-notification.service';
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 	import TaskCompletionModal from './TaskCompletionModal.svelte';
+	import ContractActionBar from './actions/ContractActionBar.svelte';
+	import AcceptContractButton from './actions/AcceptContractButton.svelte';
+	import CancelContractButton from './actions/CancelContractButton.svelte';
+	import CompleteContractButton from './actions/CompleteContractButton.svelte';
+	import DisputeContractButton from './actions/DisputeContractButton.svelte';
+	import ResolutionProposalButton from './actions/ResolutionProposalButton.svelte';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import {
 		ContractModalAction,
 		CONTRACT_MODAL_CONFIGS
 	} from '$lib/utils/constants/contract-modals';
 	import { portal } from '$lib/utils/portal';
+	import { buildContractsDashboardLink } from '$lib/utils/service-contract/dashboard-link';
+	import { browserNetworkStatus } from '$lib/utils/network-status';
 	import {
 		sendTaskCompletionMessageToTasker,
 		sendPaymentReleasedMessageToTaskee
 	} from '$lib/utils/location/sendLocation';
-	import IconSwapHorizontal from '~icons/mdi/swap-horizontal';
 	import { SvelteMap } from 'svelte/reactivity';
 
 	const {
@@ -41,9 +51,43 @@
 	// State for actions
 	let isLoading = $state<Record<string, boolean>>({});
 	let activeModal = $state<ContractModalAction>(ContractModalAction.None);
+	const contextType = $derived(
+		(contract.contractEvent.content.contextType as string | undefined) ?? 'task'
+	);
+	const isServiceContract = $derived(contextType === 'service');
+	const subjectTitle = $derived(
+		(contractStore.getContractKey(contract, 'contextTitle') as string | undefined) ??
+			(contractStore.getContractKey(contract, 'taskTitle') as string | undefined) ??
+			'contract'
+	);
+	const contractsClickAction = $derived(
+		buildContractsDashboardLink({
+			baseUrl: import.meta.env.VITE_CLIENT_URL,
+			contextType,
+			escrowId: contract.escrowData?.id
+		})
+	);
 
 	// Disable ALL critical actions when transaction is pending
 	const isDisabledDueToPending = $derived(contract.isPending);
+	const isOffline = $derived(!$browserNetworkStatus.online);
+	const showReconnectNotice = $derived(
+		$browserNetworkStatus.online && $browserNetworkStatus.lastTransition === 'online'
+	);
+	const compactActionButtons = $derived(compactButtons || isInline);
+	let staleActionNotice = $state<string | null>(null);
+
+	const STALE_ACTION_ERROR_CODES = new Set([
+		'NOT_CLIENT',
+		'NOT_FREELANCER',
+		'INVALID_STATE',
+		'ALREADY_COMPLETED',
+		'ALREADY_DISPUTED',
+		'DISPUTE_EXPIRED',
+		'NO_PROPOSAL',
+		'PROPOSAL_ACCEPTED',
+		'UNAUTHORIZED_CALLER'
+	]);
 
 	// Resolution form state
 	let proposedClientAmountUSD = $state('');
@@ -92,6 +136,26 @@
 	// Helper to set loading state
 	function setLoading(action: string, loading: boolean) {
 		isLoading = { ...isLoading, [action]: loading };
+	}
+
+	function buildStaleActionNotice(): string {
+		return isServiceContract
+			? 'This service contract changed or the action is no longer available. Refreshing the latest contract state.'
+			: 'This contract changed or the action is no longer available. Refreshing the latest contract state.';
+	}
+
+	async function handleRecoverableActionError(error: unknown): Promise<boolean> {
+		const contractError = extractContractError(error);
+		if (!contract.escrowData?.id || !contractError.errorCode) {
+			return false;
+		}
+		if (!STALE_ACTION_ERROR_CODES.has(contractError.errorCode)) {
+			return false;
+		}
+
+		staleActionNotice = buildStaleActionNotice();
+		await contractStore.loadContractByEscrowId(contract.escrowData.id);
+		return true;
 	}
 
 	// Check if cancel is allowed based on time restrictions
@@ -197,6 +261,7 @@
 
 		setLoading('complete', true);
 		try {
+			staleActionNotice = null;
 			await escrow.escrowOps.completeTask(contract, attachments);
 
 			// Task event is owned by the Tasker; COMPLETED is set by the Tasker when they accept task (release funds), not here.
@@ -204,15 +269,17 @@
 
 			pushNotificationService.sendNotificationToNpubs({
 				npubs: [contractStore.getContractKey(contract, 'otherPartyNpub') as string],
-				title: 'Task Completed',
-				body: `Task ${contractStore.getContractKey(contract, 'taskTitle')} has been marked as completed`,
+				title: isServiceContract ? 'Service completed' : 'Task Completed',
+				body: isServiceContract
+					? `Service ${subjectTitle} has been marked as completed.`
+					: `Task ${contractStore.getContractKey(contract, 'taskTitle')} has been marked as completed`,
 				type: 'task_completed',
-				clickAction: `${import.meta.env.VITE_CLIENT_URL}/dashboard?tab=contracts`,
+				clickAction: contractsClickAction,
 				icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
 			});
 
 			const clientPubkey = contractStore.getContractKey(contract, 'clientPubkey') as string;
-			if (clientPubkey) {
+			if (clientPubkey && !isServiceContract) {
 				sendTaskCompletionMessageToTasker(clientPubkey, {
 					taskId: contractStore.getContractKey(contract, 'taskId') as string,
 					taskTitle: contractStore.getContractKey(contract, 'taskTitle') as string,
@@ -224,11 +291,14 @@
 		} catch (error) {
 			console.error('Error completing task:', error);
 
+			const recoveredInPlace = await handleRecoverableActionError(error);
 			const errorMessage =
 				error instanceof Error
 					? getErrorMessage(error)
 					: $t('dashboard.contracts.actions.task_completed_error');
-			appStore.showErrorToast(errorMessage);
+			if (!recoveredInPlace) {
+				appStore.showErrorToast(errorMessage);
+			}
 
 			setLoading('complete', false);
 		}
@@ -246,6 +316,7 @@
 
 		setLoading('accept', true);
 		try {
+			staleActionNotice = null;
 			await escrow.escrowOps.acceptTask(contract);
 			// Task status COMPLETED is updated in escrow onConfirmed callback (after chain confirmation).
 
@@ -254,17 +325,21 @@
 
 			pushNotificationService.sendNotificationToNpubs({
 				npubs: [taskeeNpub],
-				title: $t('dashboard.contracts.actions.notification_payment_released_title'),
-				body: $t('dashboard.contracts.actions.notification_payment_released_body', {
-					values: { taskTitle: taskTitle || '' }
-				}),
+				title: isServiceContract
+					? 'Service payment released'
+					: ($t('dashboard.contracts.actions.notification_payment_released_title') as string),
+				body: isServiceContract
+					? `Payment was released for ${subjectTitle}.`
+					: ($t('dashboard.contracts.actions.notification_payment_released_body', {
+							values: { taskTitle: taskTitle || '' }
+						}) as string),
 				type: 'payment_released',
-				clickAction: `${import.meta.env.VITE_CLIENT_URL}/dashboard?tab=contracts`,
+				clickAction: contractsClickAction,
 				icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
 			});
 
 			// Enviar DM al taskee: fondos liberados y trabajo aceptado
-			if (taskeeNpub) {
+			if (taskeeNpub && !isServiceContract) {
 				sendPaymentReleasedMessageToTaskee(taskeeNpub, {
 					taskId: contractStore.getContractKey(contract, 'taskId') as string,
 					taskTitle: taskTitle || undefined
@@ -275,11 +350,14 @@
 		} catch (error) {
 			console.error('Error accepting task:', error);
 
+			const recoveredInPlace = await handleRecoverableActionError(error);
 			const errorMessage =
 				error instanceof Error
 					? getErrorMessage(error)
 					: $t('dashboard.contracts.actions.payment_released_error');
-			appStore.showErrorToast(errorMessage);
+			if (!recoveredInPlace) {
+				appStore.showErrorToast(errorMessage);
+			}
 
 			setLoading('accept', false);
 		}
@@ -298,25 +376,31 @@
 
 		setLoading('dispute', true);
 		try {
+			staleActionNotice = null;
 			// Call RSK escrow disputeTask - this publishes Nostr event with transactionHash
 			await escrow.escrowOps.disputeTask(contract);
 
 			pushNotificationService.sendNotificationToNpubs({
 				npubs: [contractStore.getContractKey(contract, 'otherPartyNpub') as string],
-				title: 'Dispute Raised',
-				body: `A dispute has been raised for task ${contractStore.getContractKey(contract, 'taskTitle')}`,
+				title: isServiceContract ? 'Service dispute raised' : 'Dispute Raised',
+				body: isServiceContract
+					? `A dispute has been raised for ${subjectTitle}.`
+					: `A dispute has been raised for task ${contractStore.getContractKey(contract, 'taskTitle')}`,
 				type: 'dispute_raised',
-				clickAction: `${import.meta.env.VITE_CLIENT_URL}/dashboard?tab=contracts`,
+				clickAction: contractsClickAction,
 				icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
 			});
 		} catch (error) {
 			console.error('Error disputing task:', error);
 
+			const recoveredInPlace = await handleRecoverableActionError(error);
 			const errorMessage =
 				error instanceof Error
 					? getErrorMessage(error)
 					: $t('dashboard.contracts.actions.dispute_raised_error');
-			appStore.showErrorToast(errorMessage);
+			if (!recoveredInPlace) {
+				appStore.showErrorToast(errorMessage);
+			}
 
 			setLoading('dispute', false);
 		}
@@ -348,6 +432,7 @@
 
 		setLoading('propose', true);
 		try {
+			staleActionNotice = null;
 			// Call RSK escrow proposeResolution with contract event ID and amounts for proper nostr event publishing
 			await escrow.escrowOps.proposeResolution(
 				contract,
@@ -358,10 +443,12 @@
 
 			pushNotificationService.sendNotificationToNpubs({
 				npubs: [contractStore.getContractKey(contract, 'otherPartyNpub') as string],
-				title: 'Resolution Proposed',
-				body: `A resolution has been proposed for task ${contractStore.getContractKey(contract, 'taskTitle')}`,
+				title: isServiceContract ? 'Service resolution proposed' : 'Resolution Proposed',
+				body: isServiceContract
+					? `A resolution has been proposed for ${subjectTitle}.`
+					: `A resolution has been proposed for task ${contractStore.getContractKey(contract, 'taskTitle')}`,
 				type: 'resolution_proposed',
-				clickAction: `${import.meta.env.VITE_CLIENT_URL}/dashboard?tab=contracts`,
+				clickAction: contractsClickAction,
 				icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
 			});
 
@@ -370,11 +457,14 @@
 			proposedFreelancerAmountUSD = '';
 		} catch (error) {
 			console.error('Error proposing resolution:', error);
+			const recoveredInPlace = await handleRecoverableActionError(error);
 			const errorMessage =
 				error instanceof Error
 					? getErrorMessage(error)
 					: $t('dashboard.contracts.actions.resolution_proposed_error');
-			appStore.showErrorToast(errorMessage);
+			if (!recoveredInPlace) {
+				appStore.showErrorToast(errorMessage);
+			}
 		} finally {
 			setLoading('propose', false);
 		}
@@ -386,24 +476,30 @@
 
 		setLoading('acceptProposal', true);
 		try {
+			staleActionNotice = null;
 			// Call RSK escrow acceptProposal with contract event ID for proper nostr event publishing
 			await escrow.escrowOps.acceptProposal(contract);
 
 			pushNotificationService.sendNotificationToNpubs({
 				npubs: [contractStore.getContractKey(contract, 'otherPartyNpub') as string],
-				title: 'Proposal Accepted',
-				body: `A proposal has been accepted for task ${contractStore.getContractKey(contract, 'taskTitle')}`,
+				title: isServiceContract ? 'Service resolution accepted' : 'Proposal Accepted',
+				body: isServiceContract
+					? `A proposal has been accepted for ${subjectTitle}.`
+					: `A proposal has been accepted for task ${contractStore.getContractKey(contract, 'taskTitle')}`,
 				type: 'proposal_accepted',
-				clickAction: `${import.meta.env.VITE_CLIENT_URL}/dashboard?tab=contracts`,
+				clickAction: contractsClickAction,
 				icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
 			});
 		} catch (error) {
 			console.error('Error accepting proposal:', error);
+			const recoveredInPlace = await handleRecoverableActionError(error);
 			const errorMessage =
 				error instanceof Error
 					? getErrorMessage(error)
 					: $t('dashboard.contracts.actions.proposal_accepted_error');
-			appStore.showErrorToast(errorMessage);
+			if (!recoveredInPlace) {
+				appStore.showErrorToast(errorMessage);
+			}
 		} finally {
 			setLoading('acceptProposal', false);
 		}
@@ -423,25 +519,31 @@
 
 		setLoading('cancel', true);
 		try {
+			staleActionNotice = null;
 			// Call RSK escrow cancelEscrow - this publishes Nostr event with transactionHash
 			await escrow.escrowOps.cancelEscrow(contract);
 
 			pushNotificationService.sendNotificationToNpubs({
 				npubs: [contractStore.getContractKey(contract, 'otherPartyNpub') as string],
-				title: 'Escrow Cancelled',
-				body: `An escrow has been cancelled for task ${contractStore.getContractKey(contract, 'taskTitle')}`,
+				title: isServiceContract ? 'Service contract cancelled' : 'Escrow Cancelled',
+				body: isServiceContract
+					? `A service contract has been cancelled for ${subjectTitle}.`
+					: `An escrow has been cancelled for task ${contractStore.getContractKey(contract, 'taskTitle')}`,
 				type: 'escrow_cancelled',
-				clickAction: `${import.meta.env.VITE_CLIENT_URL}/dashboard?tab=contracts`,
+				clickAction: contractsClickAction,
 				icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
 			});
 		} catch (error) {
 			console.error('Error cancelling escrow:', error);
 
+			const recoveredInPlace = await handleRecoverableActionError(error);
 			const errorMessage =
 				error instanceof Error
 					? getErrorMessage(error)
 					: $t('dashboard.contracts.actions.escrow_cancelled_error');
-			appStore.showErrorToast(errorMessage);
+			if (!recoveredInPlace) {
+				appStore.showErrorToast(errorMessage);
+			}
 
 			setLoading('cancel', false);
 		}
@@ -451,6 +553,7 @@
 	async function resolveAfterTimelock() {
 		setLoading('resolveTimelock', true);
 		try {
+			staleActionNotice = null;
 			// Call RSK escrow resolveAfterTimelock with contract event ID for proper nostr event publishing
 			console.log({
 				id: contract.escrowData.id,
@@ -461,19 +564,24 @@
 
 			pushNotificationService.sendNotificationToNpubs({
 				npubs: [contractStore.getContractKey(contract, 'otherPartyNpub') as string],
-				title: 'Timelock Resolved',
-				body: `A timelock has been resolved for task ${contractStore.getContractKey(contract, 'taskTitle')}`,
+				title: isServiceContract ? 'Service contract resolved' : 'Timelock Resolved',
+				body: isServiceContract
+					? `A service contract has been resolved for ${subjectTitle}.`
+					: `A timelock has been resolved for task ${contractStore.getContractKey(contract, 'taskTitle')}`,
 				type: 'timelock_resolved',
-				clickAction: `${import.meta.env.VITE_CLIENT_URL}/dashboard?tab=contracts`,
+				clickAction: contractsClickAction,
 				icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
 			});
 		} catch (error) {
 			console.error('Error resolving timelock:', error);
+			const recoveredInPlace = await handleRecoverableActionError(error);
 			const errorMessage =
 				error instanceof Error
 					? getErrorMessage(error)
 					: $t('dashboard.contracts.actions.timelock_resolved_error');
-			appStore.showErrorToast(errorMessage);
+			if (!recoveredInPlace) {
+				appStore.showErrorToast(errorMessage);
+			}
 		} finally {
 			setLoading('resolveTimelock', false);
 		}
@@ -603,121 +711,59 @@
 	};
 </script>
 
-<div class="{containerClass} {containerClass.includes('grid') ? 'w-full' : ''}">
+<div class="space-y-3">
+	{#if staleActionNotice}
+		<div class="alert alert-warning text-sm" data-testid="contract-actions-stale-alert">
+			<span>{staleActionNotice}</span>
+		</div>
+	{/if}
+
+	{#if isOffline}
+		<div class="alert alert-warning text-sm" data-testid="contract-actions-offline-alert">
+			<span>You are offline. Reconnect before submitting contract actions.</span>
+		</div>
+	{:else if showReconnectNotice}
+		<div class="alert alert-info text-sm" data-testid="contract-actions-reconnect-alert">
+			<span>Back online. Retry any contract action that did not submit before reconnecting.</span>
+		</div>
+	{/if}
+
+<ContractActionBar containerClass={`${containerClass} ${containerClass.includes('grid') ? 'w-full' : ''}`}>
 	<!-- Complete Task (Freelancer) -->
 	{#if contract.permissions.canComplete && !isCompleteDisabled && !isDisabledDueToPending}
-		<button
-			class="btn btn-success btn-sm {compactButtons
-				? 'w-fit'
-				: isInline
-					? 'w-full sm:w-fit'
-					: 'w-full min-w-0'}"
+		<CompleteContractButton
+			compact={compactActionButtons}
+			disabled={isOffline}
+			loading={isLoading.complete || isCheckingBlockchain}
+			label={isServiceContract
+				? 'Mark Service Complete'
+				: ($t('dashboard.contracts.actions.complete_task') as string)}
 			onclick={() => (activeModal = ContractModalAction.Complete)}
-			title={blockchainCompletionStatus === EscrowStatus.Completed
-				? $t('dashboard.contracts.actions.task_already_completed_tooltip')
-				: contract.isPending
-					? $t('dashboard.contracts.actions.task_completion_pending_tooltip')
-					: ''}
-		>
-			{#if isLoading.complete || isCheckingBlockchain}
-				<span class="loading loading-spinner loading-xs"></span>
-			{:else if blockchainCompletionStatus === EscrowStatus.Completed}
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					class="h-4 w-4"
-					fill="none"
-					viewBox="0 0 24 24"
-					stroke="currentColor"
-				>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="2"
-						d="M5 13l4 4L19 7"
-					/>
-				</svg>
-			{:else}
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					class="h-4 w-4"
-					fill="none"
-					viewBox="0 0 24 24"
-					stroke="currentColor"
-				>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="2"
-						d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-					/>
-				</svg>
-			{/if}
-			{$t('dashboard.contracts.actions.complete_task')}
-		</button>
+		/>
 	{/if}
 
 	<!-- Accept Task (Client) -->
 	{#if contract.permissions.canAccept && !isAcceptDisabled && !isDisabledDueToPending}
-		<button
-			class="btn btn-success btn-sm {compactButtons
-				? 'w-fit'
-				: isInline
-					? 'w-full sm:w-fit'
-					: 'w-full min-w-0'}"
+		<AcceptContractButton
+			compact={compactActionButtons}
+			disabled={isOffline}
+			loading={isLoading.accept}
+			label={isServiceContract ? 'Accept Service' : ($t('dashboard.contracts.actions.accept_work') as string)}
 			onclick={() => openModal(ContractModalAction.Accept)}
-		>
-			{#if isLoading.accept}
-				<span class="loading loading-spinner loading-xs"></span>
-			{:else}
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					class="h-4 w-4"
-					fill="none"
-					viewBox="0 0 24 24"
-					stroke="currentColor"
-				>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="2"
-						d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-					/>
-				</svg>
-			{/if}
-			{$t('dashboard.contracts.actions.accept_work')}
-		</button>
+		/>
 	{/if}
 
 	<!-- Dispute Task (Client) -->
 	{#if contract.permissions.canDispute && !isDisputeDisabled}
-		<button
-			class="btn btn-error btn-sm {compactButtons
-				? 'w-fit'
-				: isInline
-					? 'w-full sm:w-fit'
-					: 'w-full min-w-0'}"
+		<DisputeContractButton
+			compact={compactActionButtons}
+			disabled={isOffline}
+			loading={isLoading.dispute}
+			label={isServiceContract
+				? 'Dispute Service'
+				: ($t('dashboard.contracts.actions.dispute_work') as string)}
 			onclick={() => openModal(ContractModalAction.Dispute)}
-		>
-			{#if isLoading.dispute}
-				<span class="loading loading-spinner loading-xs"></span>
-			{:else}
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					class="h-4 w-4"
-					fill="none"
-					viewBox="0 0 24 24"
-					stroke="currentColor"
-				>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="2"
-						d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16c-.77.833.192 2.5 1.732 2.5z"
-					/>
-				</svg>
-			{/if}
-			{$t('dashboard.contracts.actions.dispute_work')}
-		</button>
+		/>
 	{/if}
 
 	<!-- Accept Proposal -->
@@ -771,53 +817,33 @@
 			{/if}
 
 			<!-- Action buttons -->
-			<div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+			<ContractActionBar containerClass="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
 				<!-- Accept Proposal Button - hidden when disabled (loading or no proposal) -->
 				{#if isLoading.acceptProposal}
-					<div
-						class="btn btn-success btn-sm gap-2 {compactButtons ? 'w-fit' : 'flex-1'}"
-						aria-busy="true"
-					>
-						<span class="loading loading-spinner loading-xs"></span>
-						{$t('dashboard.contracts.actions.accept_proposal')}
-					</div>
+					<AcceptContractButton
+						compact={compactButtons}
+						loading={true}
+						label={$t('dashboard.contracts.actions.accept_proposal') as string}
+					/>
 				{:else if contract.disputeProposal}
-					<button
-						class="btn btn-success btn-sm {compactButtons ? 'w-fit' : 'flex-1'}"
+					<AcceptContractButton
+						compact={compactButtons}
+						disabled={isOffline}
+						label={$t('dashboard.contracts.actions.accept_proposal') as string}
 						onclick={acceptProposal}
-					>
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="h-4 w-4"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M5 13l4 4L19 7"
-							/>
-						</svg>
-						{$t('dashboard.contracts.actions.accept_proposal')}
-					</button>
+					/>
 				{/if}
 
 				<!-- Counter Proposal Button (if user has proposals left) -->
 				{#if contract.permissions.canPropose && hasProposalsLeft}
-					<button
-						class="btn btn-warning btn-sm {compactButtons ? 'w-fit' : 'flex-1'}"
+					<ResolutionProposalButton
+						compact={compactButtons}
+						disabled={isOffline}
+						label={`${$t('dashboard.contracts.actions.counter_proposal')} (${currentUserProposalCount}/2)`}
 						onclick={openDrawerForResolution}
-					>
-						<IconSwapHorizontal class="h-4 w-4" />
-						{$t('dashboard.contracts.actions.counter_proposal')}
-						<span class="text-base-content/60 ml-1 text-xs">
-							({currentUserProposalCount}/2)
-						</span>
-					</button>
+					/>
 				{/if}
-			</div>
+			</ContractActionBar>
 
 			<!-- Show message if user has no proposals left -->
 			{#if !hasProposalsLeft}
@@ -845,23 +871,16 @@
 	<!-- Propose Resolution -->
 	{#if contract.permissions.canPropose}
 		{#if isInline || !$contractStore.isResolutionFormOpen}
-			<button
-				class="btn btn-warning btn-sm {compactButtons
-					? 'w-fit'
-					: isInline
-						? 'w-full sm:w-fit'
-						: 'w-full'}"
-				class:hidden={!isInline && contract.permissions.canAcceptProposal}
-				onclick={openDrawerForResolution}
-			>
-				<IconSwapHorizontal class="h-4 w-4" />
-				{contract.disputeProposal
-					? $t('dashboard.contracts.actions.counter_proposal')
-					: $t('dashboard.contracts.actions.propose_resolution')}
-				<span class="text-base-content/60 ml-1 text-xs">
-					({currentUserProposalCount}/2)
-				</span>
-			</button>
+			<div class:hidden={!isInline && contract.permissions.canAcceptProposal}>
+				<ResolutionProposalButton
+					compact={compactActionButtons}
+					disabled={isOffline}
+					label={`${contract.disputeProposal
+						? ($t('dashboard.contracts.actions.counter_proposal') as string)
+						: ($t('dashboard.contracts.actions.propose_resolution') as string)} (${currentUserProposalCount}/2)`}
+					onclick={openDrawerForResolution}
+				/>
+			</div>
 		{:else if !isInline}
 			<div class="bg-base-300 col-span-2 w-full space-y-3 rounded-lg p-3">
 				<h5 class="text-sm font-medium">
@@ -932,58 +951,42 @@
 					).toLocaleString()} Sats)
 				</div>
 
-				<div class="flex flex-row-reverse gap-2 place-self-end">
+				<ContractActionBar containerClass="flex flex-row-reverse gap-2 place-self-end">
 					{#if isLoading.propose}
-						<div class="btn btn-warning btn-sm gap-2" aria-busy="true">
-							<span class="loading loading-spinner loading-xs"></span>
-							{$t('dashboard.contracts.actions.propose')}
-						</div>
+						<ResolutionProposalButton
+							compact={true}
+							loading={true}
+							label={$t('dashboard.contracts.actions.propose') as string}
+						/>
 					{:else}
-						<button class="btn btn-warning btn-sm" onclick={proposeResolution}>
-							{$t('dashboard.contracts.actions.propose')}
-						</button>
+						<ResolutionProposalButton
+							compact={true}
+							disabled={isOffline}
+							label={$t('dashboard.contracts.actions.propose') as string}
+							onclick={proposeResolution}
+						/>
 					{/if}
-					<button
-						class="btn btn-ghost btn-outline btn-sm"
+					<CancelContractButton
+						compact={true}
+						label={$t('dashboard.contracts.actions.cancel') as string}
 						onclick={() => ($contractStore.isResolutionFormOpen = false)}
-					>
-						{$t('dashboard.contracts.actions.cancel')}
-					</button>
-				</div>
+					/>
+				</ContractActionBar>
 			</div>
 		{/if}
 	{/if}
 
 	<!-- Cancel Escrow -->
 	{#if contract.permissions.canCancel && !isCancelDisabled}
-		<button
-			class="btn btn-error btn-sm {compactButtons
-				? 'w-fit'
-				: isInline
-					? 'w-full sm:w-fit'
-					: 'w-full min-w-0'}"
+		<CancelContractButton
+			compact={compactActionButtons}
+			disabled={isOffline}
+			loading={isLoading.cancel}
+			label={isServiceContract
+				? 'Cancel Service Contract'
+				: ($t('dashboard.contracts.actions.cancel_contract') as string)}
 			onclick={() => openModal(ContractModalAction.Cancel)}
-		>
-			{#if isLoading.cancel}
-				<span class="loading loading-spinner loading-xs"></span>
-			{:else}
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					class="h-4 w-4"
-					fill="none"
-					viewBox="0 0 24 24"
-					stroke="currentColor"
-				>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="2"
-						d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-					/>
-				</svg>
-			{/if}
-			{$t('dashboard.contracts.actions.cancel_contract')}
-		</button>
+		/>
 	{/if}
 
 	<!-- Resolve After Timelock -->
@@ -1024,6 +1027,7 @@
 						: isInline
 							? 'w-full sm:w-fit'
 							: 'w-full min-w-0'}"
+					disabled={isOffline}
 					onclick={resolveAfterTimelock}
 				>
 					<svg
@@ -1067,6 +1071,7 @@
 					: isInline
 						? 'w-full sm:w-fit'
 						: 'w-full min-w-0'}"
+				disabled={isOffline}
 				onclick={() => openModal(ContractModalAction.Delete)}
 			>
 				<svg
@@ -1087,6 +1092,7 @@
 			</button>
 		{/if}
 	{/if}
+</ContractActionBar>
 </div>
 
 <!-- Modals -->
@@ -1105,13 +1111,43 @@
 <!-- Generic Confirmation Modal for Accept/Dispute/Cancel/Delete -->
 {#if activeModal !== ContractModalAction.None && activeModal !== ContractModalAction.Complete}
 	{@const config = CONTRACT_MODAL_CONFIGS[activeModal]}
+	{@const customTitle =
+		isServiceContract && activeModal === ContractModalAction.Accept
+			? 'Accept this service?'
+			: isServiceContract && activeModal === ContractModalAction.Dispute
+				? 'Raise a dispute for this service?'
+				: isServiceContract && activeModal === ContractModalAction.Cancel
+					? 'Cancel this service contract?'
+					: isServiceContract && activeModal === ContractModalAction.Delete
+						? 'Delete this service contract?'
+						: null}
+	{@const customMessage =
+		isServiceContract && activeModal === ContractModalAction.Accept
+			? 'This releases funds for the completed service and keeps the service contract history intact.'
+			: isServiceContract && activeModal === ContractModalAction.Dispute
+				? 'This opens a dispute on the service contract and pauses the normal payout path.'
+				: isServiceContract && activeModal === ContractModalAction.Cancel
+					? 'This cancels the service contract and starts the refund path defined by the escrow rules.'
+					: isServiceContract && activeModal === ContractModalAction.Delete
+						? 'Delete this unfunded service contract from your Nostr contract history?'
+						: null}
+	{@const customConfirmText =
+		isServiceContract && activeModal === ContractModalAction.Accept
+			? 'Accept Service'
+			: isServiceContract && activeModal === ContractModalAction.Dispute
+				? 'Dispute Service'
+				: isServiceContract && activeModal === ContractModalAction.Cancel
+					? 'Cancel Service Contract'
+					: isServiceContract && activeModal === ContractModalAction.Delete
+						? 'Delete Service Contract'
+						: null}
 	{#if config}
 		<div use:portal={'modals'}>
 			<ConfirmModal
 				isOpen={true}
-				title={$t(config.titleKey)}
-				message={$t(config.messageKey)}
-				confirmText={$t(config.confirmTextKey)}
+				title={customTitle ?? $t(config.titleKey)}
+				message={customMessage ?? $t(config.messageKey)}
+				confirmText={customConfirmText ?? $t(config.confirmTextKey)}
 				cancelText={$t(config.cancelTextKey)}
 				confirmButtonClass={config.confirmButtonClass}
 				onConfirm={handleModalConfirm}

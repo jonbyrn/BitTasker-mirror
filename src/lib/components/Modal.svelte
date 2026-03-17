@@ -44,11 +44,27 @@
 		footer?: import('svelte').Snippet;
 	}>();
 
+	let windowWidth = $state(0);
+
 	const respectBottomNav = $derived(props.respectBottomNav ?? true);
 	const bottomOffset = $derived(props.bottomOffset ?? 'var(--app-footer-height, 0px)');
 	const effectiveBottomOffset = $derived(respectBottomNav ? bottomOffset : '0px');
-	const maxHeight = $derived(props.maxHeight ?? '85vh');
+	// On mobile (< 768px), use smaller max-height to ensure modal fits in viewport
+	const maxHeight = $derived(
+		props.maxHeight ?? (windowWidth < 768 ? '75vh' : windowWidth < 1024 ? '80vh' : '85vh')
+	);
 	const showCloseButton = $derived(props.showCloseButton ?? true);
+
+	$effect(() => {
+		if (typeof window !== 'undefined') {
+			const handleResize = () => {
+				windowWidth = window.innerWidth;
+			};
+			window.addEventListener('resize', handleResize);
+			windowWidth = window.innerWidth;
+			return () => window.removeEventListener('resize', handleResize);
+		}
+	});
 
 	// Scroll lock management
 	const disableBodyScroll = () => {

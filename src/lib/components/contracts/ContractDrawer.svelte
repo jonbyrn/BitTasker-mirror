@@ -6,6 +6,8 @@
 	import UsdSatsDisplay from '$lib/components/shared/UsdSatsDisplay.svelte';
 	import ContractTimeline from './ContractTimeline.svelte';
 	import ContractActions from './ContractActions.svelte';
+	import ContractContextSummary from './ContractContextSummary.svelte';
+	import ServiceAgreementSummary from './ServiceAgreementSummary.svelte';
 	import Gallery from '$lib/components/Gallery.svelte';
 	import {
 		getStatusColorClass,
@@ -13,6 +15,10 @@
 	} from '$lib/utils/helpers/contractStatusFormatter';
 	import { contractStore } from '$lib/stores/contract.store';
 	import UserInfoDisplay from '$lib/components/user/UserInfoDisplay.svelte';
+	import {
+		buildContractContextPresentation,
+		getContractDetailSectionTitle
+	} from '$lib/utils/service-contract/context-presentation';
 
 	const { btcPrice } = $props<{
 		btcPrice: number;
@@ -69,6 +75,20 @@
 		const num = parseFloat(amount);
 		return num.toFixed(4);
 	}
+
+	const presentation = $derived(
+		$contractStore.contract
+			? buildContractContextPresentation($contractStore.contract, contractStore.getContractKey)
+			: null
+	);
+	const agreementSnapshot = $derived($contractStore.contract?.contractEvent.content.agreementSnapshot);
+	const pricingSnapshot = $derived($contractStore.contract?.contractEvent.content.pricingSnapshot);
+	const detailSectionTitle = $derived(
+		getContractDetailSectionTitle(
+			presentation?.isServiceContract === true,
+			$t('dashboard.contracts.bid_details') as string
+		)
+	);
 </script>
 
 <Drawer
@@ -89,6 +109,11 @@
 			<!-- Contract Info Card -->
 			<div class="card bg-base-200 min-w-0 overflow-hidden">
 				<div class="card-body min-w-0 p-4">
+					{#if presentation?.isUnknownContext}
+						<div class="alert alert-warning mb-4 text-sm">
+							<span>Unknown contract context. Actions are disabled until this contract is repaired.</span>
+						</div>
+					{/if}
 					<!-- Row 1: User info | Role + Status badges (stacked, right-aligned) -->
 					<div class="mb-4 flex flex-wrap items-center justify-between gap-3">
 						<UserInfoDisplay
@@ -123,12 +148,7 @@
 					<!-- Row 2: Task title + description | Price block (same row on all sizes) -->
 					<div class="mb-4 flex flex-row flex-nowrap items-start justify-between gap-4">
 						<div class="min-w-0 flex-1">
-							<p class="text-lg leading-tight font-bold">
-								{contractStore.getContractKey($contractStore.contract, 'taskTitle')}
-							</p>
-							<p class="text-base-content/60 mt-1 text-sm leading-relaxed">
-								{contractStore.getContractKey($contractStore.contract, 'taskDescription')}
-							</p>
+							<ContractContextSummary contract={$contractStore.contract} />
 						</div>
 						<div class="shrink-0 pl-4 text-right">
 							{#if btcPrice > 0}
@@ -183,18 +203,37 @@
 										aria-expanded={isOriginalBidOpen}
 										aria-controls="original-bid-content"
 									>
-										{$t('dashboard.contracts.bid_details')}
+										{detailSectionTitle}
 									</button>
 									<div id="original-bid-content" class="collapse-content">
 										<div class="pt-2">
-											<div>
-												<span class="text-xs font-medium"
-													>{$t('dashboard.contracts.approach')}:</span
-												>
-												<p class="text-base-content/80 mt-1 text-sm">
-													{$t('dashboard.contracts.bid_info_not_available')}
-												</p>
-											</div>
+											{#if presentation?.isServiceContract}
+												<ServiceAgreementSummary
+													quoteRequestId={$contractStore.contract.contractEvent.content.quoteRequestId}
+													proposalId={$contractStore.contract.contractEvent.content.proposalId}
+													instantOrderId={$contractStore.contract.contractEvent.content.instantOrderId}
+													selectedTierLabel={$contractStore.contract.contractEvent.content.selectedTierId}
+													{agreementSnapshot}
+													{pricingSnapshot}
+													estimatedStartTime={contractStore.getContractKey(
+														$contractStore.contract,
+														'estimatedStartTime'
+													) as number | undefined}
+													estimatedCompletionTime={contractStore.getContractKey(
+														$contractStore.contract,
+														'estimatedCompletionTime'
+													) as number | undefined}
+												/>
+											{:else}
+												<div>
+													<span class="text-xs font-medium"
+														>{$t('dashboard.contracts.approach')}:</span
+													>
+													<p class="text-base-content/80 mt-1 text-sm">
+														{$t('dashboard.contracts.bid_info_not_available')}
+													</p>
+												</div>
+											{/if}
 										</div>
 									</div>
 								</div>
