@@ -2,10 +2,11 @@
 	import type { Service } from '$lib/types/service.d';
 	import { t, locale } from 'svelte-i18n';
 	import { get } from 'svelte/store';
-	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
-	import { appStore } from '$lib/stores/app.store';
-	import { getServiceDisplayTitle } from '$lib/utils/serviceDisplayTranslation';
-	import { Capacitor } from '@capacitor/core';
+	import { getServiceDisplayTitle, getServiceDisplayDescription } from '$lib/utils/serviceDisplayTranslation';
+	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
+	import { ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';
+	import EntityShareButton from '$lib/components/shared/EntityShareButton.svelte';
+	import type { EntitySharePayload } from '$lib/components/shared/entity-share';
 
 	let { service, variant = 'circle', class: className = '' } = $props<{
 		service: Service | null;
@@ -13,7 +14,57 @@
 		class?: string;
 	}>();
 
-	let shareSuccess = $state(false);
+	function truncateText(text: string, maxLength = 200): string {
+		if (!text || text.length <= maxLength) return text;
+		const truncated = text.substring(0, maxLength);
+		const lastSpace = truncated.lastIndexOf(' ');
+		if (lastSpace > 0) return truncated.substring(0, lastSpace) + '...';
+		return truncated + '...';
+	}
+
+	function getPriceDisplay(svc: Service): string {
+		if (!svc.pricing) return '';
+		switch (svc.pricing.type) {
+			case ServicePricingTypeEnum.FIXED:
+				return svc.pricing.amount ? `$${formatNumberWithTwoDecimals(svc.pricing.amount)}` : '';
+			case ServicePricingTypeEnum.HOURLY:
+				return svc.pricing.hourlyRate ? `$${formatNumberWithTwoDecimals(svc.pricing.hourlyRate)}/hr` : '';
+			case ServicePricingTypeEnum.TIERED:
+				return 'Tiered pricing';
+			default:
+				return '';
+		}
+	}
+
+	function formatShareText(svc: Service): string {
+		if (!svc) return get(t)('common.share.check_out_task');
+		const currentLocale = get(locale) || 'en';
+		const title = getServiceDisplayTitle(svc, currentLocale) || '';
+		const description = getServiceDisplayDescription(svc, currentLocale) || '';
+		// Start with title, then description
+		let text = title ? `${title}\n\n` : '';
+		text += description ? truncateText(description, 200) : get(t)('common.share.check_out_task');
+		const details: string[] = [];
+
+		// Add pricing info
+		const priceDisplay = getPriceDisplay(svc);
+		if (priceDisplay) {
+			details.push(`💰 Price:\n${priceDisplay}`);
+		}
+
+		// Add location info
+		if (svc.serviceLocationTypes && svc.serviceLocationTypes.length > 0) {
+			const locations = svc.serviceLocationTypes
+				.map((type) =>
+					type === 'remote' ? 'Remote' : type === 'tasker_location' ? 'Tasker Location' : 'Taskee Location'
+				)
+				.join(', ');
+			details.push(`📍 Location:\n${locations}`);
+		}
+
+		if (details.length > 0) text += '\n\n' + details.join('\n\n');
+		return text;
+	}
 
 	function getServiceShareLink(svc: Service | null): string {
 		if (typeof window !== 'undefined' && svc) {
@@ -23,111 +74,30 @@
 		return '';
 	}
 
-	async function handleServiceShare(svc: Service | null, event?: MouseEvent): Promise<void> {
-		if (event) event.stopPropagation();
-		if (!svc) return;
+	function getServiceSharePayload(): EntitySharePayload | null {
+		if (!service) return null;
+		const svc = service;
 		const link = getServiceShareLink(svc);
-		if (!link) return;
+		if (!link) return null;
 		const currentLocale = get(locale) || 'en';
-		const shareTitle = getServiceDisplayTitle(svc, currentLocale) || $t('dashboard.services.browse.view_service');
-		const shareText = $t('common.share.check_out_task') || 'Check out this service';
-
-		if (Capacitor.isNativePlatform()) {
-			try {
-				const { Share } = await import('@capacitor/share');
-				await Share.share({
-					title: shareTitle,
-					text: shareText,
-					url: link,
-					dialogTitle: shareTitle
-				});
-				shareSuccess = true;
-				appStore.showSuccessToast($t('common.toast.link_copied'));
-				setTimeout(() => (shareSuccess = false), 2000);
-				return;
-			} catch (error) {
-				if (
-					(error as Error).name !== 'AbortError' &&
-					!(error as Error).message?.includes('cancel')
-				) {
-					/* fall through */
-				}
-			}
-		}
-
-		if (typeof navigator !== 'undefined' && navigator.share) {
-			try {
-				await navigator.share({
-					title: shareTitle,
-					text: shareText,
-					url: link
-				});
-				shareSuccess = true;
-				appStore.showSuccessToast($t('common.toast.link_copied'));
-				setTimeout(() => (shareSuccess = false), 2000);
-				return;
-			} catch (error) {
-				if ((error as Error).name !== 'AbortError') {
-					/* fall through */
-				}
-			}
-		}
-
-		const fullText = `${shareText}\n\n${link}`;
-		const success = await copyToClipboard(fullText);
-		if (success) {
-			shareSuccess = true;
-			appStore.showSuccessToast($t('common.toast.link_copied'));
-			setTimeout(() => (shareSuccess = false), 2000);
-		} else {
-			appStore.showErrorToast($t('common.toast.link_copy_failed'));
-		}
+		return {
+			title:
+				getServiceDisplayTitle(svc, currentLocale) ||
+				get(t)('dashboard.services.browse.view_service'),
+			text: formatShareText(svc),
+			url: link
+		};
 	}
-
-	const handleClick = async (e: MouseEvent) => {
-		await handleServiceShare(service, e);
-	};
-
-	const buttonClasses = $derived(
-		`btn btn-ghost btn-sm shrink-0 transition-all duration-200 ${shareSuccess ? 'btn-success' : ''} ${variant === 'circle' ? 'btn-circle' : ''} ${className}`
-	);
 </script>
 
-<button
-	class={buttonClasses}
-	onclick={handleClick}
-	title={$t('dashboard.services.browse.share_service') || 'Share service'}
-	aria-label={$t('dashboard.services.browse.share_service') || 'Share service'}
->
-	{#if shareSuccess}
-		<svg
-			xmlns="http://www.w3.org/2000/svg"
-			class="h-4 w-4"
-			fill="none"
-			viewBox="0 0 24 24"
-			stroke="currentColor"
-			stroke-width="2"
-		>
-			<path
-				stroke-linecap="round"
-				stroke-linejoin="round"
-				d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-			/>
-		</svg>
-	{:else}
-		<svg
-			xmlns="http://www.w3.org/2000/svg"
-			class="h-4 w-4"
-			fill="none"
-			viewBox="0 0 24 24"
-			stroke="currentColor"
-			stroke-width="2"
-		>
-			<path
-				stroke-linecap="round"
-				stroke-linejoin="round"
-				d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.935-2.186 2.25 2.25 0 00-3.935 2.186z"
-			/>
-		</svg>
-	{/if}
-</button>
+<EntityShareButton
+	{variant}
+	class={className}
+	presentation="task"
+	getSharePayload={getServiceSharePayload}
+	title={$t('dashboard.services.detail.share_service') || 'Share service'}
+	ariaLabel={$t('dashboard.services.detail.share_service') || 'Share service'}
+	buttonText={variant === 'default' ? $t('dashboard.services.detail.share') : null}
+	successToast={$t('common.toast.link_copied')}
+	errorToast={$t('common.toast.link_copy_failed')}
+/>
