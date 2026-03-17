@@ -109,7 +109,7 @@ describe('services accessibility smoke', () => {
 
 		window.dispatchEvent(new Event('offline'));
 
-		expect(screen.getByRole('heading', { name: 'My Quotes' })).toBeTruthy();
+		expect(screen.getByRole('heading', { name: 'Need a logo refresh' })).toBeTruthy();
 		return waitFor(() => {
 			expect(screen.getByTestId('my-quotes-offline-alert')).toBeTruthy();
 			expect(screen.getByRole('button', { name: 'Accept Proposal' })).toBeDisabled();
