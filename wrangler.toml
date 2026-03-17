@@ -1,6 +1,7 @@
 name = "bittasker-dev-worker"
 main = "workers-site/index.js"
 compatibility_date = "2025-10-07"
+pages_build_output_dir = "build"
 account_id = "0e47af3ee55b77b43b150879938ebbec"
 #account_id = "3fa48b084b262faa8a164ab089d702b6"
 
