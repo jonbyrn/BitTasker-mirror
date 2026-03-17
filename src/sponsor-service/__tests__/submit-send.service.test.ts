@@ -15,6 +15,7 @@ vi.mock('../db/submissions.repository.js');
 vi.mock('../db/treasury-events.repository.js');
 vi.mock('../services/blockchain.service.js');
 vi.mock('../utils/signature-verification.js', () => ({
+  verifyTransferSignature: vi.fn(() => true),
   verifySignedTransactionHash: vi.fn(() => true),
   validateTransactionStructure: vi.fn(() => true)
 }));
@@ -27,13 +28,13 @@ describe('submitSendService', () => {
   describe('submitDirectSend', () => {
     const validRequest: BscDirectSendRequest = {
       correlationId: 'test-123',
-      signedRawTransaction: '0xf86f01821234567890abcdef',
-      signedRawTransactionHash: '0xabcdef1234567890',
-      chainId: 56,
-      requestExpiry: Math.floor(Date.now() / 1000) + 3600,
-      expectedTargetContract: '0x1234567890abcdef1234567890abcdef12345678',
-      expectedMethodSelector: '0x12345678',
-      expectedTokenAddress: '0x55d398326f99059fF775485246999027B3197955'
+      user: '0x1234567890123456789012345678901234567890',
+      recipient: '0x0987654321098765432109876543210987654321',
+      amount: '100000000',
+      nonce: 0,
+      deadline: Math.floor(Date.now() / 1000) + 3600,
+      signature: '0x' + 'b'.repeat(130),
+      chainId: 56
     };
 
     it('should reject request with invalid chain ID', async () => {
@@ -45,7 +46,7 @@ describe('submitSendService', () => {
     });
 
     it('should reject expired request', async () => {
-      const request = { ...validRequest, requestExpiry: Math.floor(Date.now() / 1000) - 100 };
+      const request = { ...validRequest, deadline: Math.floor(Date.now() / 1000) - 100 };
       const response = await submitSendService.submitDirectSend(request);
 
       expect(response.status).toBe('rejected');
@@ -72,7 +73,7 @@ describe('submitSendService', () => {
 
     it('should handle sponsor unavailability', async () => {
       vi.mocked(submissionsRepo.getSubmissionBySignedHash).mockResolvedValueOnce(null);
-      vi.mocked(blockchainService.getTokenBalance).mockRejectedValueOnce(
+      vi.mocked(blockchainService.getBalance).mockRejectedValueOnce(
         new Error('RPC error')
       );
 
@@ -84,8 +85,8 @@ describe('submitSendService', () => {
 
     it('should handle blockchain submission failure', async () => {
       vi.mocked(submissionsRepo.getSubmissionBySignedHash).mockResolvedValueOnce(null);
-      vi.mocked(blockchainService.getTokenBalance).mockResolvedValueOnce('1000000000');
-      vi.mocked(blockchainService.submitSignedTransaction).mockRejectedValueOnce(
+      vi.mocked(blockchainService.getBalance).mockResolvedValueOnce(ethers.parseEther('1').toString());
+      vi.mocked(blockchainService.submitMetaTransaction).mockRejectedValueOnce(
         new Error('Submission failed')
       );
       vi.mocked(submissionsRepo.createSubmission).mockResolvedValueOnce({
@@ -104,8 +105,8 @@ describe('submitSendService', () => {
       const mockSubmissionId = 'sub-123';
 
       vi.mocked(submissionsRepo.getSubmissionBySignedHash).mockResolvedValueOnce(null);
-      vi.mocked(blockchainService.getTokenBalance).mockResolvedValueOnce('1000000000');
-      vi.mocked(blockchainService.submitSignedTransaction).mockResolvedValueOnce(mockTxHash);
+      vi.mocked(blockchainService.getBalance).mockResolvedValueOnce(ethers.parseEther('1').toString());
+      vi.mocked(blockchainService.submitMetaTransaction).mockResolvedValueOnce(mockTxHash);
       vi.mocked(submissionsRepo.createSubmission).mockResolvedValueOnce({
         id: mockSubmissionId
       } as any);

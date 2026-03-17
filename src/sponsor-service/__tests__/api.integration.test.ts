@@ -59,13 +59,13 @@ describe('Sponsor Service API', () => {
   describe('Submit Send Endpoint', () => {
     const validPayload = {
       correlationId: 'test-123',
-      signedRawTransaction: '0xf86f0182',
-      signedRawTransactionHash: '0xabcdef',
-      chainId: 56,
-      requestExpiry: Math.floor(Date.now() / 1000) + 3600,
-      expectedTargetContract: '0x' + 'a'.repeat(40),
-      expectedMethodSelector: '0x12345678',
-      expectedTokenAddress: '0x55d398326f99059fF775485246999027B3197955'
+      user: '0x1234567890123456789012345678901234567890',
+      recipient: '0x0987654321098765432109876543210987654321',
+      amount: '1000000',
+      nonce: 0,
+      deadline: Math.floor(Date.now() / 1000) + 3600,
+      signature: '0x' + 'b'.repeat(130),
+      chainId: 56
     };
 
     it('should reject invalid chain ID', async () => {
@@ -90,26 +90,55 @@ describe('Sponsor Service API', () => {
       expect(response.body.error).toContain('correlationId');
     });
 
-    it('should reject expired requestExpiry', async () => {
+    it('should reject expired deadline', async () => {
       const response = await request(app)
         .post('/v1/usdt-bsc/submit-send')
         .send({
           ...validPayload,
-          requestExpiry: Math.floor(Date.now() / 1000) - 100
+          deadline: Math.floor(Date.now() / 1000) - 100
         });
 
       expect(response.status).toBe(400);
-      expect(response.body.error).toContain('requestExpiry');
+      expect(response.body.error).toContain('deadline');
     });
 
-    it('should reject missing signedRawTransaction', async () => {
-      const { signedRawTransaction, ...payload } = validPayload;
+    it('should reject deadline beyond 30 minutes', async () => {
+      // Deadline set to 31 minutes from now (exceeds 30 min max)
+      const response = await request(app)
+        .post('/v1/usdt-bsc/submit-send')
+        .send({
+          ...validPayload,
+          deadline: Math.floor(Date.now() / 1000) + (31 * 60)
+        });
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toContain('30 minutes');
+    });
+
+    it('should accept deadline at exactly 30 minutes', async () => {
+      // Deadline set to exactly 30 minutes from now (at boundary)
+      const { getSubmissionBySignedHash } = await import('../db/submissions.repository.js');
+      vi.mocked(getSubmissionBySignedHash).mockResolvedValueOnce(null);
+
+      const response = await request(app)
+        .post('/v1/usdt-bsc/submit-send')
+        .send({
+          ...validPayload,
+          deadline: Math.floor(Date.now() / 1000) + (30 * 60)
+        });
+
+      // Should pass validation (not rejected for deadline)
+      expect(response.status).toBe(400); // Fails at signature verification, not deadline
+    });
+
+    it('should reject missing signature', async () => {
+      const { signature, ...payload } = validPayload;
       const response = await request(app)
         .post('/v1/usdt-bsc/submit-send')
         .send(payload);
 
       expect(response.status).toBe(400);
-      expect(response.body.error).toContain('signedRawTransaction');
+      expect(response.body.error).toContain('signature');
     });
 
     it('should accept valid request', async () => {
@@ -118,20 +147,20 @@ describe('Sponsor Service API', () => {
       vi.mocked(createSubmission).mockResolvedValueOnce({
         id: 'sub-123',
         correlationId: validPayload.correlationId,
-        signedRawTransactionHash: validPayload.signedRawTransactionHash,
+        signedRawTransactionHash: validPayload.signature,
         chainId: 56,
         status: 'accepted',
         lifecycleState: 'submitted',
         txHash: '0xtxhash',
-        requestExpiry: validPayload.requestExpiry,
+        requestExpiry: validPayload.deadline,
         createdAt: new Date(),
         updatedAt: new Date(),
         retryCount: 0
       } as any);
 
       const { blockchainService } = await import('../services/blockchain.service.js');
-      vi.mocked(blockchainService.getTokenBalance).mockResolvedValueOnce('1000000000');
-      vi.mocked(blockchainService.submitSignedTransaction).mockResolvedValueOnce('0xtxhash');
+      vi.mocked(blockchainService.getBalance).mockResolvedValueOnce(ethers.parseEther('1').toString());
+      vi.mocked(blockchainService.submitMetaTransaction).mockResolvedValueOnce('0xtxhash');
 
       const response = await request(app)
         .post('/v1/usdt-bsc/submit-send')
@@ -187,13 +216,13 @@ describe('Sponsor Service API', () => {
     it('should enforce rate limits', async () => {
       const payload = {
         correlationId: 'test-rate-limit-' + Date.now(),
-        signedRawTransaction: '0xf86f0182',
-        signedRawTransactionHash: '0xabcdef',
-        chainId: 56,
-        requestExpiry: Math.floor(Date.now() / 1000) + 3600,
-        expectedTargetContract: '0x' + 'a'.repeat(40),
-        expectedMethodSelector: '0x12345678',
-        expectedTokenAddress: '0x55d398326f99059fF775485246999027B3197955'
+        user: '0x1234567890123456789012345678901234567890',
+        recipient: '0x0987654321098765432109876543210987654321',
+        amount: '1000000',
+        nonce: 0,
+        deadline: Math.floor(Date.now() / 1000) + 3600,
+        signature: '0x' + 'b'.repeat(130),
+        chainId: 56
       };
 
       // Simulate rate limit exceeded
