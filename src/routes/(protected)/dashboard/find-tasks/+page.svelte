@@ -1102,17 +1102,15 @@
 
 <!-- Lazy loaded drawer components -->
 {#if drawersLoaded}
-	<Drawer
-		isOpen={isFilterDrawerOpen}
-		title={$t('find_tasks.filters')}
-		onClose={() => (isFilterDrawerOpen = false)}
-		position="right"
-		isScrollable={true}
-	>
-		{#if FilterDrawer}
-			<FilterDrawer initialFilters={searchParams} onApply={handleFilterApply} />
-		{/if}
-	</Drawer>
+	{#if FilterDrawer}
+		<FilterDrawer
+			isOpen={isFilterDrawerOpen}
+			title={$t('find_tasks.filters')}
+			onClose={() => (isFilterDrawerOpen = false)}
+			initialFilters={searchParams}
+			onApply={handleFilterApply}
+		/>
+	{/if}
 
 	{#if selectedTask}
 		<Drawer

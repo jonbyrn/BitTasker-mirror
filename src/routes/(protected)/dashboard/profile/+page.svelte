@@ -4,6 +4,7 @@
 	import { profileStore } from '$lib/stores/profile.store';
 	import ProfileHeader from '$lib/components/profile/ProfileHeader.svelte';
 	import ProfileStats from '$lib/components/profile/ProfileStats.svelte';
+	import ProfileServicesSection from '$lib/components/profile/ProfileServicesSection.svelte';
 	import ProfileInfoSection from '$lib/components/profile/ProfileInfoSection.svelte';
 	import ProfileSidebar from '$lib/components/profile/ProfileSidebar.svelte';
 
@@ -11,13 +12,6 @@
 	function formatDate(dateString: string) {
 		const date = new Date(dateString);
 		return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-	}
-
-	// Calculate years from date (passed to children)
-	function yearsFrom(dateString: string) {
-		const then = new Date(dateString);
-		const now = new Date();
-		return now.getFullYear() - then.getFullYear();
 	}
 
 	// Initialize profile store
@@ -40,9 +34,17 @@
 	<div class="bg-base-100 rounded-xl p-8 shadow-lg">
 		<ProfileHeader />
 
-		<ProfileStats stats={$profileStore.stats} />
+		<ProfileStats
+			stats={$profileStore.stats}
+			serviceCountState={$profileStore.servicesLoading
+				? 'loading'
+				: $profileStore.servicesError
+					? 'error'
+					: 'ready'}
+		/>
+		<ProfileServicesSection />
 
-		<ProfileInfoSection {formatDate} {yearsFrom} />
+		<ProfileInfoSection {formatDate} />
 
 		<ProfileSidebar {formatDate} />
 	</div>

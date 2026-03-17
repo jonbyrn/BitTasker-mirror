@@ -1,14 +1,27 @@
 <script lang="ts">
 	import type { LiveTask } from '$lib/types/homepage';
 	import type { PageData } from './$types';
-	import { t } from 'svelte-i18n';
+	import { locale, t } from 'svelte-i18n';
 	import { onMount, onDestroy } from 'svelte';
+	import type {
+		FeaturedService,
+		FeaturedServiceLabels
+	} from '$lib/services/featuredServices.service';
+	import type { FeaturedSectionState } from '$lib/services/featuredHomepage';
+	import {
+		FEATURED_HOMEPAGE_LIMIT,
+		createFeaturedSectionState,
+		completeFeaturedSectionState
+	} from '$lib/services/featuredHomepage';
 	import { FeaturedTasksService } from '$lib/services/featuredTasks.service';
+	import { FeaturedServicesService } from '$lib/services/featuredServices.service';
 	import Logo from '$lib/components/Logo.svelte';
 	import LiveTaskCard from '$lib/components/homepage/LiveTaskCard.svelte';
+	import FeaturedHomepageSection from '$lib/components/homepage/FeaturedHomepageSection.svelte';
+	import FeaturedServiceCard from '$lib/components/homepage/FeaturedServiceCard.svelte';
 
 	let { data: seo }: { data: PageData } = $props();
-	
+
 	// Define feature types for type safety
 	type FeatureId = 'nostr' | 'bitcoin' | 'payments' | 'escrow';
 
@@ -45,11 +58,52 @@
 
 	let activeFeatureIndex = $state(0);
 	const activeFeatureId = $derived(featureIds[activeFeatureIndex] as FeatureId);
+	const currentLocale = $derived($locale || 'en');
 
-	// Featured tasks state
-	let liveTasks = $state<LiveTask[]>([]);
-	let tasksLoading = $state(true);
-	let tasksError = $state<string | null>(null);
+	function resolveHomepageTranslation(key: string, fallback: string): string {
+		const value = $t(key);
+		return !value || value === key ? fallback : value;
+	}
+
+	const featuredServiceLabels = $derived<FeaturedServiceLabels>({
+		untitledServiceLabel: resolveHomepageTranslation(
+			'dashboard.services.detail.not_found',
+			'Untitled service'
+		),
+		noDescriptionLabel: resolveHomepageTranslation(
+			'common.profile.no_description',
+			'No description available.'
+		),
+		requestQuoteLabel: resolveHomepageTranslation(
+			'dashboard.services.browse.pricing.request_quote',
+			'Request Quote'
+		),
+		serviceListingLabel: resolveHomepageTranslation(
+			'common.homepage.featured.services.meta_fallback',
+			'Service listing'
+		),
+		remoteLabel: resolveHomepageTranslation(
+			'dashboard.services.create.location.remote_title',
+			'Remote'
+		),
+		atProviderLocationLabel: resolveHomepageTranslation(
+			'common.homepage.featured.services.at_provider_location',
+			'At provider location'
+		),
+		travelsToYouLabel: resolveHomepageTranslation(
+			'common.homepage.featured.services.travels_to_you',
+			'Travels to you'
+		),
+		viewServiceLabel: resolveHomepageTranslation(
+			'dashboard.services.browse.view_service',
+			'View Service'
+		)
+	});
+
+	let featuredServicesState = $state<FeaturedSectionState<FeaturedService>>(
+		createFeaturedSectionState()
+	);
+	let featuredTasksState = $state<FeaturedSectionState<LiveTask>>(createFeaturedSectionState());
 
 	// Auto-rotation interval reference
 	let carouselInterval: ReturnType<typeof setInterval> | null = null;
@@ -62,17 +116,28 @@
 	// Load featured tasks from Nostr relay
 	const loadFeaturedTasks = async () => {
 		try {
-			tasksLoading = true;
-			tasksError = null;
-			const tasks = await FeaturedTasksService.getFeaturedTasks(8);
-			liveTasks = tasks;
+			const tasks = await FeaturedTasksService.getFeaturedTasks(FEATURED_HOMEPAGE_LIMIT);
+			featuredTasksState = completeFeaturedSectionState(tasks, null);
 		} catch (error) {
 			console.error('Error loading featured tasks:', error);
-			tasksError = 'Failed to load featured tasks';
-			// Fallback to empty array
-			liveTasks = [];
-		} finally {
-			tasksLoading = false;
+			featuredTasksState = completeFeaturedSectionState([], 'Failed to load featured tasks');
+		}
+	};
+
+	const loadFeaturedServices = async () => {
+		try {
+			const services = await FeaturedServicesService.getFeaturedServices(FEATURED_HOMEPAGE_LIMIT, {
+				locale: currentLocale,
+				labels: featuredServiceLabels
+			});
+			featuredServicesState = completeFeaturedSectionState(services, null, {
+				hideWhenEmpty: true
+			});
+		} catch (error) {
+			console.error('Error loading featured services:', error);
+			featuredServicesState = completeFeaturedSectionState([], 'Failed to load featured services', {
+				hideWhenEmpty: true
+			});
 		}
 	};
 
@@ -100,8 +165,7 @@
 	onMount(async () => {
 		// Start carousel auto-rotation
 		startCarouselRotation();
-		// Load featured tasks from Nostr relay
-		loadFeaturedTasks();
+		await Promise.all([loadFeaturedServices(), loadFeaturedTasks()]);
 	});
 
 	// Clean up interval when component is destroyed
@@ -117,7 +181,7 @@
 	<meta name="author" content="BitTasker" />
 	<meta name="robots" content="index, follow" />
 	<link rel="canonical" href={seo.canonical} />
-	
+
 	<!-- Open Graph / Facebook / WhatsApp -->
 	<meta property="og:type" content="website" />
 	<meta property="og:image:type" content="image/png" />
@@ -143,7 +207,7 @@
 
 	<!-- Structured Data -->
 	{@html `<script type="application/ld+json">${JSON.stringify(seo.jsonLd)}</script>`}
-	
+
 	<link rel="preload" href={featureImages['bitcoin']} as="image" />
 </svelte:head>
 
@@ -168,8 +232,10 @@
 					</div>
 					<!-- Large primary button below -->
 					<div class="flex justify-center">
-						<a href="/auth/signup" class="btn btn-primary btn-lg w-64 px-8 shadow-lg sm:w-auto" data-testid="signup-link"
-							>{$t('homepage.v2.hero.cta')}</a
+						<a
+							href="/auth/signup"
+							class="btn btn-primary btn-lg w-64 px-8 shadow-lg sm:w-auto"
+							data-testid="signup-link">{$t('homepage.v2.hero.cta')}</a
 						>
 					</div>
 				</div>
@@ -195,7 +261,7 @@
 								src={featureImages[featureIds[activeFeatureIndex]]}
 								alt={$t(translationKeys[featureIds[activeFeatureIndex] as FeatureId].title)}
 								class="h-72 w-full object-cover transition-opacity duration-500 md:h-96"
-								loading={activeFeatureIndex === 0 ? undefined : "lazy"}
+								loading={activeFeatureIndex === 0 ? undefined : 'lazy'}
 							/>
 						</figure>
 
@@ -282,144 +348,177 @@
 		</div>
 	</section>
 
-	<!-- Section 4: Live Task Feed -->
-	<section class="bg-base-200 py-16">
-		<div class="container mx-auto px-4">
-			<div class="mb-8 flex items-center justify-between">
-				<h2>{$t('homepage.v2.livetasks.title')}</h2>
-				<div class="flex items-center gap-2">
-					<a href="/tasks" class="btn btn-link text-primary"
-						>{$t('common.view_all')}
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke-width="1.5"
-							stroke="currentColor"
-							class="ml-1 h-5 w-5"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"
-							/>
-						</svg>
-					</a>
-				</div>
-			</div>
-			<div class="overflow-hidden">
-				{#if tasksLoading}
-					<div class="flex justify-center items-center py-12">
-						<div class="loading loading-spinner loading-lg"></div>
-						<span class="ml-2">Loading featured tasks...</span>
-					</div>
-				{:else if tasksError}
-					<div class="flex justify-center items-center py-12">
-						<div class="alert alert-warning max-w-md">
-							<svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-							</svg>
-							<span>{tasksError}</span>
-						</div>
-					</div>
-				{:else if liveTasks.length === 0}
-					<div class="flex justify-center items-center py-12">
-						<div class="text-center">
-							<p class="text-base-content/70">No featured tasks available at the moment.</p>
-						</div>
-					</div>
-				{:else}
-					<div
-						class="scrollbar-hide flex snap-x snap-mandatory gap-4 overflow-x-auto pb-6 pl-8 pt-4 pr-0 md:px-4"
-						style="scrollbar-width:none;"
-					>
-						{#each liveTasks as task (task.id)}
-							<div class="w-80 shrink-0 snap-start">
-								<LiveTaskCard {task} />
-							</div>
-						{/each}
-					</div>
-				{/if}
-			</div>
-
-			<!-- Browse Tasks Button -->
-			<div class="mt-12 text-center">
-				<a href="/tasks" class="btn btn-primary">{$t('navbar.browse_tasks')}</a>
-			</div>
-		</div>
-	</section>
+	<FeaturedHomepageSection
+		title={$t('common.homepage.featured.services.title')}
+		viewAllLabel={$t('common.view_all')}
+		viewAllHref="/services"
+		browseHref="/services"
+		browseLabel={resolveHomepageTranslation('dashboard.services.browse.title', 'Browse Services')}
+		items={featuredServicesState.items}
+		loading={featuredServicesState.loading}
+		error={featuredServicesState.error}
+		hideWhenEmpty={!featuredServicesState.visible}
+		emptyMessage={$t('common.homepage.featured.services.empty')}
+		skeletonCount={FEATURED_HOMEPAGE_LIMIT}
+		sectionTestId="homepage-featured-services"
+		cardTestIdPrefix="homepage-featured-service-card"
+	>
+		{#snippet card(item)}
+			<FeaturedServiceCard service={item as FeaturedService} />
+		{/snippet}
+	</FeaturedHomepageSection>
 
 	<!-- Section 5: Core Benefits -->
-	<section class="bg-base-100 py-16">
+	<section class="bg-base-100 py-16" data-testid="homepage-benefits">
 		<div class="container mx-auto px-4">
 			<h2 class="mb-12 text-center">{$t('homepage.v2.benefits.title')}</h2>
 			<div class="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-2">
-				<div class="card bg-base-200 text-center p-6 shadow-lg hover:shadow-xl transition-shadow h-full">
+				<div
+					class="card bg-base-200 h-full p-6 text-center shadow-lg transition-shadow hover:shadow-xl"
+				>
 					<div class="card-body flex flex-col">
-						<div class="flex justify-center mb-4">
-							<div class="bg-primary/10 text-primary p-3 rounded-full">
-								<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-8 h-8">
-									<path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18.75a60.07 60.07 0 0 1 15.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 0 1 3 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.375c0 .621-.504 1.125-1.125 1.125h-9.75c-.621 0-1.125-.504-1.125-1.125V6.75m18 0v.375c0 .621-.504 1.125-1.125 1.125h-9.75c-.621 0-1.125-.504-1.125-1.125V6.75m18 0v.375c0 .621-.504 1.125-1.125 1.125h-9.75c-.621 0-1.125-.504-1.125-1.125V6.75" />
+						<div class="mb-4 flex justify-center">
+							<div class="bg-primary/10 text-primary rounded-full p-3">
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke-width="1.5"
+									stroke="currentColor"
+									class="h-8 w-8"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										d="M2.25 18.75a60.07 60.07 0 0 1 15.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 0 1 3 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.375c0 .621-.504 1.125-1.125 1.125h-9.75c-.621 0-1.125-.504-1.125-1.125V6.75m18 0v.375c0 .621-.504 1.125-1.125 1.125h-9.75c-.621 0-1.125-.504-1.125-1.125V6.75m18 0v.375c0 .621-.504 1.125-1.125 1.125h-9.75c-.621 0-1.125-.504-1.125-1.125V6.75"
+									/>
 								</svg>
 							</div>
 						</div>
-						<h3 class="text-lg font-semibold mb-4 min-h-12 flex items-center justify-center">{$t('homepage.v2.benefits.payments.title')}</h3>
+						<h3 class="mb-4 flex min-h-12 items-center justify-center text-lg font-semibold">
+							{$t('homepage.v2.benefits.payments.title')}
+						</h3>
 						<p class="text-base-content/80 grow">
 							{$t('homepage.v2.benefits.payments.description')}
 						</p>
 					</div>
 				</div>
-				<div class="card bg-base-200 text-center p-6 shadow-lg hover:shadow-xl transition-shadow h-full">
+				<div
+					class="card bg-base-200 h-full p-6 text-center shadow-lg transition-shadow hover:shadow-xl"
+				>
 					<div class="card-body flex flex-col">
-						<div class="flex justify-center mb-4">
-							<div class="bg-primary/10 text-primary p-3 rounded-full">
-								<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-8 h-8">
-									<path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 12 21a11.99 11.99 0 0 0 8.402-15.036A11.959 11.959 0 0 1 12 2.25Z" />
+						<div class="mb-4 flex justify-center">
+							<div class="bg-primary/10 text-primary rounded-full p-3">
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke-width="1.5"
+									stroke="currentColor"
+									class="h-8 w-8"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 12 21a11.99 11.99 0 0 0 8.402-15.036A11.959 11.959 0 0 1 12 2.25Z"
+									/>
 								</svg>
 							</div>
 						</div>
-						<h3 class="text-lg font-semibold mb-4 min-h-12 flex items-center justify-center">{$t('homepage.v2.benefits.escrow.title')}</h3>
+						<h3 class="mb-4 flex min-h-12 items-center justify-center text-lg font-semibold">
+							{$t('homepage.v2.benefits.escrow.title')}
+						</h3>
 						<p class="text-base-content/80 grow">
 							{$t('homepage.v2.benefits.escrow.description')}
 						</p>
 					</div>
 				</div>
-				<div class="card bg-base-200 text-center p-6 shadow-lg hover:shadow-xl transition-shadow h-full">
+				<div
+					class="card bg-base-200 h-full p-6 text-center shadow-lg transition-shadow hover:shadow-xl"
+				>
 					<div class="card-body flex flex-col">
-						<div class="flex justify-center mb-4">
-							<div class="bg-primary/10 text-primary p-3 rounded-full">
-								<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-8 h-8">
-									<path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1 1 21.75 8.25Z" />
+						<div class="mb-4 flex justify-center">
+							<div class="bg-primary/10 text-primary rounded-full p-3">
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke-width="1.5"
+									stroke="currentColor"
+									class="h-8 w-8"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										d="M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1 1 21.75 8.25Z"
+									/>
 								</svg>
 							</div>
 						</div>
-						<h3 class="text-lg font-semibold mb-4 min-h-12 flex items-center justify-center">{$t('homepage.v2.benefits.ownership.title')}</h3>
+						<h3 class="mb-4 flex min-h-12 items-center justify-center text-lg font-semibold">
+							{$t('homepage.v2.benefits.ownership.title')}
+						</h3>
 						<p class="text-base-content/80 grow">
 							{$t('homepage.v2.benefits.ownership.description')}
 						</p>
 					</div>
 				</div>
-				<div class="card bg-base-200 text-center p-6 shadow-lg hover:shadow-xl transition-shadow h-full">
+				<div
+					class="card bg-base-200 h-full p-6 text-center shadow-lg transition-shadow hover:shadow-xl"
+				>
 					<div class="card-body flex flex-col">
-						<div class="flex justify-center mb-4">
-							<div class="bg-primary/10 text-primary p-3 rounded-full">
-								<svg height="32px" style="enable-background:new 0 0 512 512;" version="1.1" viewBox="0 0 512 512" width="32px" xml:space="preserve" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+						<div class="mb-4 flex justify-center">
+							<div class="bg-primary/10 text-primary rounded-full p-3">
+								<svg
+									height="32px"
+									style="enable-background:new 0 0 512 512;"
+									version="1.1"
+									viewBox="0 0 512 512"
+									width="32px"
+									xml:space="preserve"
+									xmlns="http://www.w3.org/2000/svg"
+									xmlns:xlink="http://www.w3.org/1999/xlink"
+								>
 									<g id="_x34_5-bitcoin">
 										<g>
-											<path d="M362.199,243.996c24.913-12.74,40.767-35.39,37.088-73.044    c-4.814-51.526-47.131-68.796-103.188-73.607V26.001H252.5v69.362c-11.325,0-22.932,0.283-34.539,0.564V26.001h-43.6v71.344    c-16.029,0.484-34.698,0.248-87.479,0v46.43c34.423-0.609,52.483-2.821,56.623,19.251V358.37    c-2.629,17.515-16.643,14.991-47.846,14.438l-8.775,51.809c79.495,0,87.479,0.284,87.479,0.284v61.099h43.601v-60.25    c11.888,0.285,23.498,0.285,34.539,0.285v59.965h43.599V424.9c73.043-3.964,121.871-22.366,128.384-91.16    C429.579,278.535,403.531,253.903,362.199,243.996z M218.811,146.889c24.631,0,101.639-7.643,101.639,43.599    c0,48.979-77.007,43.315-101.639,43.315V146.889z M218.811,373.093v-95.691c29.445,0,119.608-8.209,119.608,47.847    C338.418,379.321,248.255,373.093,218.811,373.093L218.811,373.093z" style="fill:#F7931B;"/>
+											<path
+												d="M362.199,243.996c24.913-12.74,40.767-35.39,37.088-73.044    c-4.814-51.526-47.131-68.796-103.188-73.607V26.001H252.5v69.362c-11.325,0-22.932,0.283-34.539,0.564V26.001h-43.6v71.344    c-16.029,0.484-34.698,0.248-87.479,0v46.43c34.423-0.609,52.483-2.821,56.623,19.251V358.37    c-2.629,17.515-16.643,14.991-47.846,14.438l-8.775,51.809c79.495,0,87.479,0.284,87.479,0.284v61.099h43.601v-60.25    c11.888,0.285,23.498,0.285,34.539,0.285v59.965h43.599V424.9c73.043-3.964,121.871-22.366,128.384-91.16    C429.579,278.535,403.531,253.903,362.199,243.996z M218.811,146.889c24.631,0,101.639-7.643,101.639,43.599    c0,48.979-77.007,43.315-101.639,43.315V146.889z M218.811,373.093v-95.691c29.445,0,119.608-8.209,119.608,47.847    C338.418,379.321,248.255,373.093,218.811,373.093L218.811,373.093z"
+												style="fill:#F7931B;"
+											/>
 										</g>
 									</g>
-									<g id="Layer_1"/>
+									<g id="Layer_1" />
 								</svg>
 							</div>
 						</div>
-						<h3 class="text-lg font-semibold mb-4 min-h-12 flex items-center justify-center">{$t('homepage.v2.benefits.fees.title')}</h3>
+						<h3 class="mb-4 flex min-h-12 items-center justify-center text-lg font-semibold">
+							{$t('homepage.v2.benefits.fees.title')}
+						</h3>
 						<p class="text-base-content/80 grow">{$t('homepage.v2.benefits.fees.description')}</p>
 					</div>
 				</div>
 			</div>
 		</div>
 	</section>
+
+	<FeaturedHomepageSection
+		title={$t('homepage.v2.livetasks.title')}
+		viewAllLabel={$t('common.view_all')}
+		viewAllHref="/tasks"
+		browseHref="/tasks"
+		browseLabel={$t('navbar.browse_tasks')}
+		items={featuredTasksState.items}
+		loading={featuredTasksState.loading}
+		error={featuredTasksState.error}
+		emptyMessage={$t('common.homepage.featured.tasks.empty')}
+		skeletonCount={FEATURED_HOMEPAGE_LIMIT}
+		sectionTestId="homepage-featured-tasks"
+		cardTestIdPrefix="homepage-featured-task-card"
+	>
+		{#snippet card(item)}
+			<LiveTaskCard task={item as LiveTask} />
+		{/snippet}
+	</FeaturedHomepageSection>
 
 	<!-- Section 6: Featured Freelancers -->
 	<!-- <section class="bg-base-200 py-16">
@@ -457,8 +556,8 @@
 				</div>
 			</div> -->
 
-			<!-- Browse Taskees Button -->
-			<!-- <div class="mt-12 text-center">
+	<!-- Browse Taskees Button -->
+	<!-- <div class="mt-12 text-center">
 				<a href="/dashboard/taskees" class="btn btn-primary">{$t('navbar.browse_freelancers')}</a>
 			</div>
 		</div>

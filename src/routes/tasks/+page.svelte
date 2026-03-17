@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { Task, SearchTasksParams } from '$lib/types/task.d';
 	import { onMount, onDestroy, tick } from 'svelte';
-	import { browser } from '$app/environment';
+	import { browser, dev } from '$app/environment';
 	import { tasksStore } from '$lib/stores/task.store';
 	import { user } from '$lib/stores/user.store';
 	import { appStore } from '$lib/stores/app.store';
@@ -20,7 +20,6 @@
 	import { debounce } from '$lib/utils/helpers/common';
 	import { taskTranslationService } from '$lib/services/task-translation.service';
 	import { currentUserLanguage } from '$lib/stores/translation.store';
-	import { loadPageTranslations } from '$lib/i18n/routeTranslations';
 	import { LRUCache } from '$lib/utils/helpers/lru-cache';
 	import type FilterDrawerComponent from '$lib/components/filters/FilterDrawer.svelte';
 	import type BidFormComponent from '$lib/components/bidding/BidForm.svelte';
@@ -35,9 +34,6 @@
 	import IconAlertCircle from '~icons/mdi/alert-circle';
 	import IconChevronUp from '~icons/mdi/chevron-up';
 	import IconMagnify from '~icons/mdi/magnify';
-
-	// Import performance testing helper in development
-	import '$lib/utils/performance-testing-helper';
 
 	// ============================================================================
 	// CONSTANTS - Organized by category
@@ -770,9 +766,8 @@
 
 	// Initial data fetch and setup
 	onMount(async () => {
-		// Ensure translations are loaded for this route
-		if (browser) {
-			await loadPageTranslations('/tasks');
+		if (browser && dev) {
+			void import('$lib/utils/performance-testing-helper');
 		}
 
 		// Find app-shell__content element once on mount
@@ -1232,17 +1227,15 @@
 </main>
 
 <!-- Advanced Filter Drawer Component -->
-<Drawer
-	isOpen={isFilterDrawerOpen}
-	title={$t('find_tasks.filters')}
-	onClose={() => (isFilterDrawerOpen = false)}
-	position="right"
-	isScrollable={true}
->
-	{#if FilterDrawer}
-		<FilterDrawer initialFilters={searchParams} onApply={handleFilterApply} />
-	{/if}
-</Drawer>
+{#if FilterDrawer}
+	<FilterDrawer
+		isOpen={isFilterDrawerOpen}
+		title={$t('find_tasks.filters')}
+		onClose={() => (isFilterDrawerOpen = false)}
+		initialFilters={searchParams}
+		onApply={handleFilterApply}
+	/>
+{/if}
 
 <!-- Bid Form Drawer Component -->
 <Drawer
