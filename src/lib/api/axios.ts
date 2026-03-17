@@ -1,4 +1,5 @@
 import axios, { type AxiosRequestConfig } from 'axios';
+import axiosRetry from 'axios-retry';
 import { Preferences } from '@capacitor/preferences';
 import { StorageKeys } from '$lib/utils/constants/storage';
 import { getDeviceIdentifier } from '$lib/utils/helpers/deviceIdentity';
@@ -13,6 +14,12 @@ const createAxiosInstance = async (config: RequestConfig = {}) => {
 			'Content-Type': 'application/json'
 		},
 		...config
+	});
+
+	axiosRetry(instance, {
+		retries: 3,
+		retryDelay: axiosRetry.exponentialDelay,
+		retryCondition: axiosRetry.isNetworkOrIdempotentRequestError
 	});
 
 	// Request interceptor
