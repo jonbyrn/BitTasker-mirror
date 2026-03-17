@@ -1,8 +1,10 @@
 import type { Service, SearchServicesParams } from '$lib/types/service.d';
 import { type Event, type Filter } from 'nostr-tools';
+import { Preferences } from '@capacitor/preferences';
 import { browser } from '$app/environment';
 import nostrEventsService from '$lib/api/services/nostr/events';
 import KINDS from '$lib/utils/constants/kinds';
+import { StorageKeys } from '$lib/utils/constants/storage';
 import { TAG_FILTERS } from '$lib/utils/constants/tags';
 import {
 	indexServiceData,
@@ -12,6 +14,7 @@ import {
 } from '$lib/utils/service-indexing';
 import { getNpub } from '$lib/utils/nostrKeys';
 import { findServiceByUniqueId } from './service';
+import { appStore } from '$lib/stores/app.store';
 import { servicesStore } from '$lib/stores/service.store';
 import { get } from 'svelte/store';
 import { fetchComprehensiveProfile } from '$lib/utils/nostr-message';
@@ -23,12 +26,48 @@ const SEARCH_FETCH_LIMIT = 150;
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 const MAX_CACHE_SIZE = 100; // Maximum number of services to keep in cache
 const DELETION_CACHE_TTL = 5 * 60 * 1000; // 5 minutes for deletion events cache
+const PROFILE_FETCH_TIMEOUT_MS = 750;
 
 // Memory cache with indexed services for better performance
 const cache = new Map<string, { data: IndexedService[]; timestamp: number }>();
 
 // Deletion events cache (stores deleted service IDs)
 const deletionCache = new Map<string, { deletedIds: Set<string>; timestamp: number }>();
+
+async function getCachedViewerNpub(): Promise<string | null> {
+	const inMemoryNpub = get(appStore)?.nostrKeys?.npub;
+	if (typeof inMemoryNpub === 'string' && inMemoryNpub.trim().length > 0) {
+		return inMemoryNpub;
+	}
+
+	try {
+		const { value } = await Preferences.get({ key: StorageKeys.NPUB });
+		return typeof value === 'string' && value.trim().length > 0 ? value : null;
+	} catch (error) {
+		console.error('Error reading cached npub for public service filtering:', error);
+		return null;
+	}
+}
+
+async function fetchComprehensiveProfileSafe(pubkey: string) {
+	let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+	try {
+		return await Promise.race([
+			fetchComprehensiveProfile(pubkey),
+			new Promise<null>((resolve) => {
+				timeoutId = setTimeout(() => resolve(null), PROFILE_FETCH_TIMEOUT_MS);
+			})
+		]);
+	} catch (error) {
+		console.error('Error fetching creator profile data:', error);
+		return null;
+	} finally {
+		if (timeoutId !== null) {
+			clearTimeout(timeoutId);
+		}
+	}
+}
 
 /**
  * Performance monitor for service filtering
@@ -105,25 +144,13 @@ async function convertEventToService(event: Event): Promise<Service> {
 
 		// Fetch creator profile data (reviews, rating) if creator info exists
 		if (service.creator && event.pubkey) {
-			try {
-				// Fetch comprehensive profile (includes reviews)
-				const profile = await fetchComprehensiveProfile(event.pubkey).catch(() => null);
+			// Discovery must fail open when secondary profile hydration is slow or unavailable.
+			const profile = await fetchComprehensiveProfileSafe(event.pubkey);
 
-				// Update creator with reviews and rating
-				if (profile) {
-					service.creator = {
-						...service.creator,
-					};
-
-					// Calculate average rating from reviews
-					if (profile.reviews && profile.reviews.length > 0) {
-						const totalRating = profile.reviews.reduce((sum, review) => sum + (review.rating || 0), 0);
-						service.creator.rating = totalRating / profile.reviews.length;
-					}
-				}
-			} catch (error) {
-				console.error('Error fetching creator profile data:', error);
-				// Continue without profile data - service is still valid
+			// Update creator with reviews and rating
+			if (profile?.reviews && profile.reviews.length > 0) {
+				const totalRating = profile.reviews.reduce((sum, review) => sum + (review.rating || 0), 0);
+				service.creator.rating = totalRating / profile.reviews.length;
 			}
 		}
 
@@ -282,7 +309,7 @@ export async function findServices(
 		// For public users, exclude own services (if npub available and valid Bech32)
 		let filteredServices = activeServices;
 		try {
-			const npub = await getNpub();
+			const npub = await getCachedViewerNpub();
 			if (npub && typeof npub === 'string' && npub.startsWith('npub1')) {
 				const { nip19 } = await import('nostr-tools');
 				const decoded = nip19.decode(npub);

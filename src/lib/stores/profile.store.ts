@@ -1,16 +1,22 @@
 import type { NostrEvent } from 'nostr-tools';
 import type { NostrProfileImage, NostrSkill, NostrReview, Profile } from '$lib/types/profile';
+import type { Service } from '$lib/types/service.d';
 import { writable } from 'svelte/store';
 import { subscribeToProfileUpdates, closeNostrPool } from '$lib/nostr/profile';
+import { loadCurrentProfileServices } from '$lib/utils/profile/services-loader';
 import KINDS from '$lib/utils/constants/kinds';
 
 // Define the profile state type
 type ProfileState = {
     isLoading: boolean;
     error: string | null;
+    servicesLoading: boolean;
+    servicesError: string | null;
     data: Profile | null;
+    services: Service[];
     stats: {
         tasksCompleted: number;
+        activeServices: number;
         rating: number;
         responseRate: number;
         onTimeRate: number;
@@ -21,6 +27,8 @@ type ProfileState = {
 const initialState: ProfileState = {
     isLoading: true,
     error: null,
+    servicesLoading: true,
+    servicesError: null,
     data: {
         name: '',
         about: '',
@@ -39,8 +47,10 @@ const initialState: ProfileState = {
         },
         reviews: []
     },
+    services: [],
     stats: {
         tasksCompleted: 0,
+        activeServices: 0,
         rating: 0,
         responseRate: 0,
         onTimeRate: 0
@@ -52,6 +62,26 @@ function createProfileStore() {
     const { subscribe, set, update } = writable<ProfileState>(initialState);
     let cleanup: (() => void) | null = null;
 
+    async function loadProfileServices(): Promise<void> {
+        update((state) => ({
+            ...state,
+            servicesLoading: true,
+            servicesError: null
+        }));
+
+        const result = await loadCurrentProfileServices();
+        update((state) => ({
+            ...state,
+            servicesLoading: false,
+            servicesError: result.error,
+            services: result.services,
+            stats: {
+                ...state.stats,
+                activeServices: result.services.length
+            }
+        }));
+    }
+
     return {
         subscribe,
 
@@ -59,7 +89,13 @@ function createProfileStore() {
         async init() {
             try {
                 // Set loading state
-                update(state => ({ ...state, isLoading: true, error: null }));
+                update(state => ({
+                    ...state,
+                    isLoading: true,
+                    error: null,
+                    servicesLoading: true,
+                    servicesError: null
+                }));
 
                 // Subscribe to profile updates
                 cleanup = await subscribeToProfileUpdates(
@@ -204,16 +240,25 @@ function createProfileStore() {
                 set({
                     ...initialState,
                     isLoading: false,
-                    error: null
+                    error: null,
+                    servicesLoading: true,
+                    servicesError: null
                 });
+                await loadProfileServices();
             } catch (error) {
                 console.error('Failed to initialize profile store:', error);
                 set({
                     ...initialState,
                     isLoading: false,
-                    error: 'Failed to load profile data'
+                    error: 'Failed to load profile data',
+                    servicesLoading: false,
+                    servicesError: null
                 });
             }
+        },
+
+        async reloadServices() {
+            await loadProfileServices();
         },
 
         // Cleanup subscriptions

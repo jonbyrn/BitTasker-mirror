@@ -6,6 +6,7 @@ import { ServiceStepEnum, ServicePricingTypeEnum } from '$lib/utils/enums/servic
 import { StorageKeys } from '$lib/utils/constants/storage';
 import { SimplePool } from 'nostr-tools';
 import { appStore } from './app.store';
+import { createDraftWizardStore } from './factories/createDraftWizardStore';
 
 const CREATE_STORAGE_KEY = StorageKeys.DRAFT_SERVICE;
 const EDIT_STORAGE_KEY = StorageKeys.DRAFT_SERVICE_EDIT;
@@ -35,6 +36,8 @@ const getInitialState = () => ({
 			currency: 'USDt',
 			amount: 0
 		},
+		instantBuyLeadHours: undefined,
+		instantBuyDeliveryHours: undefined,
 		skills: [],
 		categories: [],
 		portfolio: [],
@@ -74,31 +77,31 @@ function createServiceStore() {
 		isDuplicating: boolean;
 		originalServiceId: string | null;
 	};
-
-	const store = writable<StoreState>({
-		...initialState,
-		isEditing: isEditMode,
-		isDuplicating: isDuplicateMode,
-		originalServiceId: serviceIdParam || null
-	});
-
-	// Debounce timer for auto-save
-	let autoSaveTimer: ReturnType<typeof setTimeout> | null = null;
-	const AUTO_SAVE_DELAY = 1000; // 1 second debounce
-
-	// Get the appropriate storage key based on editing mode
-	const getStorageKey = (isEditing: boolean = false): string => {
-		return isEditing ? EDIT_STORAGE_KEY : CREATE_STORAGE_KEY;
+	type ServiceDraftPayload = {
+		id: string;
+		uniqueId: string;
+		currentStep: ServiceStepEnum;
+		service: Partial<ServiceBody>;
+		isEditing: boolean;
+		isDuplicating: boolean;
+		originalServiceId: string | null;
 	};
 
-	// Load draft from preferences (merge with initial state so pricing and other fields have defaults)
-	const loadDraft = async (isEditing: boolean = false) => {
-		const storageKey = getStorageKey(isEditing);
-		const stored = await Preferences.get({ key: storageKey });
-		if (stored.value) {
-			const parsedData = JSON.parse(stored.value);
+	const store = createDraftWizardStore<StoreState, ServiceStepEnum, ServiceDraftPayload>({
+		initialState: {
+			...initialState,
+			isEditing: isEditMode,
+			isDuplicating: isDuplicateMode,
+			originalServiceId: serviceIdParam || null
+		},
+		stepsStore: STEPS,
+		getStorageKey: (isEditing = false) => (isEditing ? EDIT_STORAGE_KEY : CREATE_STORAGE_KEY),
+		getCurrentStep: (state) => state.currentStep,
+		setCurrentStep: (state, step) => ({ ...state, currentStep: step }),
+		getIsEditing: (state) => Boolean(state.isEditing),
+		readDraft: (parsedData, { isEditing, state }) => {
 			const initialService = getInitialState().service;
-			store.update((state) => ({
+			return {
 				...state,
 				id: parsedData.id || '',
 				uniqueId: parsedData.uniqueId || '',
@@ -107,43 +110,20 @@ function createServiceStore() {
 				isEditing: Boolean(parsedData.isEditing ?? isEditing),
 				isDuplicating: Boolean(parsedData.isDuplicating ?? false),
 				originalServiceId: parsedData.originalServiceId || null
-			}));
-		}
-	};
-
-	// Save draft to preferences with debounce
-	const saveDraft = async (isEditing: boolean | null = null, immediate: boolean = false) => {
-		if (autoSaveTimer && !immediate) {
-			clearTimeout(autoSaveTimer);
-		}
-
-		const save = async () => {
-			const state = get(store);
-			if (state) {
-				const editingMode = isEditing !== null ? isEditing : Boolean(state.isEditing);
-				const storageKey = getStorageKey(editingMode);
-
-				await Preferences.set({
-					key: storageKey,
-					value: JSON.stringify({
-						id: state.id,
-						uniqueId: state.uniqueId,
-						currentStep: state.currentStep,
-						service: state.service,
-						isEditing: editingMode,
-						isDuplicating: state.isDuplicating,
-						originalServiceId: state.originalServiceId
-					})
-				});
-			}
-		};
-
-		if (immediate) {
-			await save();
-		} else {
-			autoSaveTimer = setTimeout(save, AUTO_SAVE_DELAY);
-		}
-	};
+			};
+		},
+		writeDraft: (state, isEditing) => ({
+			id: state.id,
+			uniqueId: state.uniqueId,
+			currentStep: state.currentStep,
+			service: state.service,
+			isEditing,
+			isDuplicating: state.isDuplicating,
+			originalServiceId: state.originalServiceId
+		}),
+		resetState: () => ({ ...getInitialState(), isEditing: false, isDuplicating: false, originalServiceId: null })
+	});
+	const saveDraft = store.saveDraft;
 
 	// Save edit service draft
 	const saveEditServiceDraft = async (id: string, uniqueId: string, service: Partial<ServiceBody>) => {
@@ -171,42 +151,6 @@ function createServiceStore() {
 				originalServiceId: id
 			}));
 		}
-	};
-
-	// Clear draft from preferences
-	const clearDraft = async (isEditing: boolean = false) => {
-		const storageKey = getStorageKey(isEditing);
-		await Preferences.remove({ key: storageKey });
-		const freshInitialState = getInitialState();
-		store.set({ ...freshInitialState, isEditing: false, isDuplicating: false, originalServiceId: null });
-	};
-
-	// Navigation between steps
-	const nextStep = () => {
-		store.update((state) => {
-			const steps = get(STEPS);
-			const currentIndex = steps.indexOf(state.currentStep);
-			if (currentIndex < steps.length - 1) {
-				return { ...state, currentStep: steps[currentIndex + 1] };
-			}
-			return state;
-		});
-		saveDraft(Boolean(get(store).isEditing), true); // Immediate save on step change
-	};
-
-	const previousStep = () => {
-		store.update((state) => {
-			const steps = get(STEPS);
-			const currentIndex = steps.indexOf(state.currentStep);
-			if (currentIndex > 0) {
-				return { ...state, currentStep: steps[currentIndex - 1] };
-			}
-			return state;
-		});
-	};
-
-	const setStep = (step: ServiceStepEnum) => {
-		store.update((state) => ({ ...state, currentStep: step }));
 	};
 
 	// Update service data (with auto-save)
@@ -279,17 +223,17 @@ function createServiceStore() {
 		await saveDraft(false, true);
 	};
 
-	return {
+		return {
 		set: store.set,
 		subscribe: store.subscribe,
 		update: store.update,
 		STEPS,
-		loadDraft,
-		saveDraft,
-		clearDraft,
-		nextStep,
-		previousStep,
-		setStep,
+		loadDraft: store.loadDraft,
+		saveDraft: store.saveDraft,
+		clearDraft: store.clearDraft,
+		nextStep: store.nextStep,
+		previousStep: store.previousStep,
+		setStep: store.setStep,
 		updateService,
 		updateStore,
 		saveEditServiceDraft,
@@ -345,4 +289,3 @@ export const myServicesStore = writable<{
 	currentPage: 1,
 	hasMore: true
 });
-

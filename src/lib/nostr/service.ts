@@ -9,6 +9,7 @@ import { TAGS } from '$lib/utils/constants/tags';
 import { TranslationService } from '$lib/services/translation.service';
 import { SUPPORTED_LANGUAGES, type SupportedLanguage } from '$lib/i18n/i18n';
 import { ServiceLocationTypeEnum, ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';
+import { createServiceEditConflictError } from '$lib/utils/service-edit-conflict';
 import { nip19 } from 'nostr-tools';
 
 // Translation service instance
@@ -631,7 +632,13 @@ export async function createService(serviceData: ServiceBody): Promise<string> {
  * Update an existing service using NIP-33 parameterized replaceable events.
  * Uses only #d tag identifier (human-readable, like tasks).
  */
-export async function updateService(dTag: string, updates: Partial<ServiceBody>): Promise<string> {
+export async function updateService(
+	dTag: string,
+	updates: Partial<ServiceBody>,
+	options: {
+		expectedServiceEventId?: string;
+	} = {}
+): Promise<string> {
 	try {
 		const npub = await getNpub();
 		if (!npub) {
@@ -665,6 +672,17 @@ export async function updateService(dTag: string, updates: Partial<ServiceBody>)
 		const originalService = response.data.reduce((latest, current) =>
 			current.created_at > latest.created_at ? current : latest
 		);
+
+		if (
+			options.expectedServiceEventId &&
+			originalService.id !== options.expectedServiceEventId
+		) {
+			throw createServiceEditConflictError({
+				dTag,
+				expectedServiceEventId: options.expectedServiceEventId,
+				latestServiceEventId: originalService.id
+			});
+		}
 
 		// Parse original service data
 		const originalServiceData = JSON.parse(originalService.content) as ServiceBody;
@@ -738,8 +756,28 @@ export async function updateService(dTag: string, updates: Partial<ServiceBody>)
  * Delete a service using NIP-09 deletion event (kind 5)
  * @param eventId - Nostr event ID (64-char hex) of the service event to delete
  */
-export async function deleteService(eventId: string): Promise<string> {
+export interface DeleteServiceGuardInput {
+	hasOpenQuotes: boolean;
+	hasActiveContracts: boolean;
+}
+
+export function assertServiceDeletionAllowed(guard: DeleteServiceGuardInput): void {
+	if (guard.hasOpenQuotes) {
+		throw new Error('Cannot delete a service with open quotes.');
+	}
+
+	if (guard.hasActiveContracts) {
+		throw new Error('Cannot delete a service with active contracts.');
+	}
+}
+
+export async function deleteService(
+	eventId: string,
+	guard: DeleteServiceGuardInput
+): Promise<string> {
 	try {
+		assertServiceDeletionAllowed(guard);
+
 		const event = {
 			kind: 5, // NIP-09 deletion event
 			created_at: Math.floor(Date.now() / 1000),
@@ -801,4 +839,3 @@ export async function findServiceByUniqueId(dTag: string): Promise<Service | nul
 
 // Export helper functions for use in other modules
 export { generateServiceTags, generateServiceNaddr, generateServiceTranslations };
-

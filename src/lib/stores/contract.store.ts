@@ -358,7 +358,7 @@ function createContractStore() {
 		 * Use this sparingly - only when you need to fetch fresh data
 		 * (e.g., new contract created, or need to sync status events)
 		 */
-		async loadContractByEscrowId(escrowId: string) {
+		async loadContractByEscrowId(escrowId: string): Promise<boolean> {
 			try {
 				const loadedContracts = await escrow.contractOps.getContracts({ escrowIds: [escrowId] });
 
@@ -369,6 +369,10 @@ function createContractStore() {
 
 					update((state) => {
 						const index = state.contractsMap.get(escrowDataId);
+						const selectedEscrowId =
+							state.contract?.escrowData?.id ?? state.contract?.contractEvent.content.escrowId;
+						const selectedContract =
+							selectedEscrowId === escrowDataId ? updatedContract : state.contract;
 
 						if (index === undefined) {
 							// New contract - add it to the array
@@ -379,7 +383,8 @@ function createContractStore() {
 							return {
 								...state,
 								contracts: [...state.contracts, updatedContract],
-								contractsMap: newContractsMap
+								contractsMap: newContractsMap,
+								contract: selectedContract
 							};
 						}
 
@@ -389,13 +394,18 @@ function createContractStore() {
 
 						return {
 							...state,
-							contracts: newContracts
+							contracts: newContracts,
+							contract: selectedContract
 						};
 					});
+
+					return true;
 				}
 			} catch (err) {
 				d.error('Error reloading contract', { escrowId }, err);
 			}
+
+			return false;
 		},
 
 		/**
@@ -410,17 +420,55 @@ function createContractStore() {
 		 */
 		getContractKey(
 			contract: ContractWithEvents,
-			key: keyof NostrContract | keyof ContractWithEvents | 'otherPartyNpub' | 'contractEventId'
+			key:
+				| keyof NostrContract
+				| keyof ContractWithEvents
+				| 'otherPartyNpub'
+				| 'contractEventId'
+				| 'contextLabel'
 		): string | number | boolean | undefined {
+			const content = contract.contractEvent.content;
+			const contextType = content.contextType ?? 'task';
+			const contextTitle =
+				content.contextTitle ??
+				content.serviceTitle ??
+				content.taskTitle ??
+				content.contextId ??
+				content.serviceId ??
+				content.taskId;
+			const contextDescription =
+				content.contextDescription ?? content.taskDescription ?? '';
+
 			// Handle special computed cases first
 			if (key === 'contractEventId') {
 				return contract.contractEvent.id;
 			}
 
+			if (key === 'contextLabel') {
+				if (contextType === 'service') {
+					return content.purchaseMode === 'instant_buy' ? 'Instant Buy' : 'Quoted Service';
+				}
+				return 'Task Contract';
+			}
+
 			if (key === 'otherPartyNpub') {
-				return contract.isClient
-					? contract.contractEvent.content.freelancerPubkey
-					: contract.contractEvent.content.clientPubkey;
+				return contract.isClient ? content.freelancerPubkey : content.clientPubkey;
+			}
+
+			if (key === 'contextType') {
+				return contextType;
+			}
+
+			if (key === 'contextTitle' || key === 'serviceTitle' || key === 'taskTitle') {
+				return contextTitle;
+			}
+
+			if (key === 'contextDescription' || key === 'taskDescription') {
+				return contextDescription;
+			}
+
+			if (key === 'contextId' || key === 'serviceId' || key === 'taskId') {
+				return content.contextId ?? content.serviceId ?? content.taskId;
 			}
 
 			// Direct properties on ContractWithEvents
