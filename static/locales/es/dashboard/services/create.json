@@ -107,7 +107,14 @@
 					"hour": "hora",
 					"sats_label": "Sats",
 					"tiered_note": "Configura tus niveles de servicio en el siguiente paso",
-					"inquiry_note": "Los taskers podrán solicitar una cotización para este servicio."
+					"inquiry_note": "Los taskers podrán solicitar una cotización para este servicio.",
+					"instant_buy": {
+						"enable_label": "Activar compra inmediata",
+						"enable_description": "Permite que los compradores adquieran este servicio directamente desde la página de tu anuncio.",
+						"lead_time_label": "Tiempo de anticipación antes de iniciar el servicio (horas)",
+						"delivery_time_label": "Tiempo de entrega (horas)",
+						"delivery_time_hint": "Tiempo estimado para completar y entregar el servicio al comprador"
+					}
 				},
 				"tiers": {
 					"title": "Niveles de Servicio",

@@ -176,12 +176,23 @@
         "noCertifications": "No certifications listed yet.",
         "portfolio2": "Portfolio",
         "noPortfolio": "No portfolio items added yet.",
+        "services_summary": {
+            "title": "Active Services",
+            "description": "Listings currently visible to taskers from your public profile.",
+            "create_cta": "Create Service",
+            "empty": "You do not have any active services yet.",
+            "load_error": "Failed to load active services.",
+            "active_badge": "Active",
+            "count_loading": "Loading...",
+            "count_unavailable": "Unavailable"
+        },
         "reviews": "Reviews",
         "noReviews": "No reviews yet.",
         "loadError": "Failed to load profile data. Please try again later."
     },
     "stats": {
         "tasksCompleted": "Tasks Completed",
+        "activeServices": "Active Services",
         "rating": "Rating",
         "responseRate": "Response Rate",
         "onTimeRate": "On-Time Rate"
