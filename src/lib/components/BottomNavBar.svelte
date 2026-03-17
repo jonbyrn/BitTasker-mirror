@@ -246,7 +246,7 @@
 				padding-bottom: max(
 					0px,
 					calc(
-						var(--app-dock-height, var(--app-footer-height, var(--bottom-nav-height-safe))) - env(safe-area-inset-bottom, 0px)
+						var(--app-dock-height, var(--app-footer-height, var(--bottom-nav-height-safe))) - env(safe-area-inset-bottom, constant(safe-area-inset-bottom, 0px))
 					)
 				);
 				overflow: hidden;
@@ -882,7 +882,7 @@
 
 <style>
 	.pb-safe {
-		padding-bottom: env(safe-area-inset-bottom, 0);
+		padding-bottom: env(safe-area-inset-bottom, constant(safe-area-inset-bottom, 0));
 	}
 
 	/* Dock positioning - flex layout with safe area insets */
@@ -891,7 +891,7 @@
 		align-items: center;
 		justify-content: space-around;
 		padding: 0.5rem 0;
-		padding-bottom: calc(0.5rem + env(safe-area-inset-bottom, 0));
+		padding-bottom: calc(0.5rem + env(safe-area-inset-bottom, constant(safe-area-inset-bottom, 0)));
 		min-height: 64px;
 		height: auto;
 		width: 100%;

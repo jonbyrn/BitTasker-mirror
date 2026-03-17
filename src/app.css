@@ -383,27 +383,27 @@ body {
 	}
 }
 
-/* Safe area insets for notched devices */
+/* Safe area insets for notched devices. constant() for iOS 11.0–11.1, env() for 11.2+ (PWA Add to Home Screen). */
 .pt-safe {
-	padding-top: env(safe-area-inset-top, 0);
+	padding-top: env(safe-area-inset-top, constant(safe-area-inset-top, 0px));
 }
 
 .pb-safe {
-	padding-bottom: env(safe-area-inset-bottom, 0);
+	padding-bottom: env(safe-area-inset-bottom, constant(safe-area-inset-bottom, 0px));
 }
 
 .pl-safe {
-	padding-left: env(safe-area-inset-left, 0);
+	padding-left: env(safe-area-inset-left, constant(safe-area-inset-left, 0px));
 }
 
 .pr-safe {
-	padding-right: env(safe-area-inset-right, 0);
+	padding-right: env(safe-area-inset-right, constant(safe-area-inset-right, 0px));
 }
 
 /* CSS Custom Properties for bottom navigation */
 :root {
 	--bottom-nav-height: 80px;
-	--bottom-nav-height-safe: calc(80px + env(safe-area-inset-bottom, 0));
+	--bottom-nav-height-safe: calc(80px + env(safe-area-inset-bottom, constant(safe-area-inset-bottom, 0px)));
 	/* Updated at runtime via ResizeObserver */
 	--app-footer-height: var(--bottom-nav-height-safe);
 	/* Standard bottom offset for floating UI above the dock */
@@ -446,7 +446,7 @@ body {
 .app-shell__header {
 	grid-area: header;
 	min-height: 0;
-	padding-top: env(safe-area-inset-top, 0);
+	padding-top: env(safe-area-inset-top, constant(safe-area-inset-top, 0px));
 }
 
 .app-shell__content {

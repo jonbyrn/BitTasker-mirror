@@ -219,6 +219,6 @@
 	/* Keep content clear of device safe-area insets (not the dock). */
 	.drawer-content {
 		/* Breathing room at bottom for all drawers + safe-area inset */
-		padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0));
+		padding-bottom: calc(1rem + env(safe-area-inset-bottom, constant(safe-area-inset-bottom, 0)));
 	}
 </style>

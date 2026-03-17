@@ -368,7 +368,7 @@ describe('WalletPaymentModal Component', () => {
 			// Content area has flex-1 overflow-hidden and safe area padding
 			const content = document.querySelector('.flex-1.overflow-hidden');
 			expect(content).toBeDefined();
-			expect(content).toHaveClass('pt-[max(0.75rem,env(safe-area-inset-top))]');
+			expect(content).toHaveClass('pt-[max(0.75rem,env(safe-area-inset-top,constant(safe-area-inset-top,0px)))]');
 		});
 
 		it('should apply safe area insets to bottom of content area', () => {
@@ -376,7 +376,7 @@ describe('WalletPaymentModal Component', () => {
 
 			const content = document.querySelector('.flex-1.overflow-hidden');
 			expect(content).toBeDefined();
-			expect(content).toHaveClass('pb-[max(0.75rem,env(safe-area-inset-bottom))]');
+			expect(content).toHaveClass('pb-[max(0.75rem,env(safe-area-inset-bottom,constant(safe-area-inset-bottom,0px)))]');
 		});
 	});
 

@@ -444,10 +444,10 @@
 <style>
 	/* Use SystemBars fallback pattern for safe area insets
 	 * SystemBars injects --safe-area-inset-* variables for Android WebView < 140
-	 * Fallback order: --safe-area-inset-* (SystemBars) -> env() (native) -> 0px
+	 * Fallback order: --safe-area-inset-* (SystemBars) -> env() (native) -> constant() (iOS 11.0–11.1) -> 0px
 	 */
 	.pt-safe {
-		padding-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+		padding-top: var(--safe-area-inset-top, env(safe-area-inset-top, constant(safe-area-inset-top, 0px)));
 	}
 	/* Add bottom spacing when bottom nav is present */
 	:global(body) {
