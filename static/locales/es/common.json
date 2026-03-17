@@ -118,6 +118,20 @@
 		"browse_faq": "Ver Preguntas Frecuentes",
 		"connected": "Connected",
 		"disconnected": "Disconnected",
+		"homepage": {
+			"featured": {
+				"services": {
+					"title": "Servicios Destacados",
+					"empty": "No hay servicios destacados disponibles por ahora.",
+					"meta_fallback": "Listado de servicio",
+					"at_provider_location": "En la ubicación del proveedor",
+					"travels_to_you": "Se desplaza hasta ti"
+				},
+				"tasks": {
+					"empty": "No hay tareas destacadas disponibles por ahora."
+				}
+			}
+		},
 		"link": {
 			"security": "Seguridad",
 			"privacy": "Privacidad",
