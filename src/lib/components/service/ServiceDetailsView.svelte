@@ -1,4 +1,9 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
+	import type {
+		ServiceContractAgreementSnapshot,
+		ServiceContractPricingSnapshot
+	} from '$lib/types/contract';
 	import type { Service, ServiceTier } from '$lib/types/service.d';
 	import type { Attachment } from '$lib/types/task.d';
 	import { t, locale } from 'svelte-i18n';
@@ -20,8 +25,37 @@
 	import { TASK_CATEGORIES } from '$lib/utils/constants/categories';
 	import ServiceTierSelector from '$lib/components/service/ServiceTierSelector.svelte';
 	import ServiceAddOnsSelector from '$lib/components/service/ServiceAddOnsSelector.svelte';
+	import Modal from '$lib/components/Modal.svelte';
 	import RequestQuoteModal from '$lib/components/service/RequestQuoteModal.svelte';
+	import ServiceInstantBuyModal from '$lib/components/service/ServiceInstantBuyModal.svelte';
 	import type { QuoteRequestPayload } from '$lib/types/service.d';
+	import { serviceQuoteUiStore } from '$lib/stores/service-quote-ui.store';
+	import { getInstantBuyEligibility } from '$lib/utils/service-instant-buy/eligibility';
+	import {
+		createInstantBuySnapshot,
+		revalidateLatestInstantBuyService,
+		type InstantBuyCreateSnapshot
+	} from '$lib/utils/service-instant-buy/create';
+	import { buildServiceAddress } from '$lib/utils/service-quote/protocol';
+	import { createServiceContract } from '$lib/utils/service-contract/create';
+	import { waitForContractCreationByTransactionHash } from '$lib/utils/service-contract/await-contract-creation';
+	import { describeServiceContractPreflightFailure } from '$lib/utils/service-contract/preflight-feedback';
+	import {
+		clearPendingServiceContractNavigation,
+		writePendingServiceContractNavigation
+	} from '$lib/utils/service-contract/pending-navigation';
+	import { appStore } from '$lib/stores/app.store';
+	import { ethers } from 'ethers';
+	import { contractStore } from '$lib/stores/contract.store';
+	import { getActiveServiceContractsForService } from '$lib/utils/service-contract/active-contracts';
+	import { queryTaskeeServiceQuoteThreads } from '$lib/utils/service-quote/query';
+	import { summarizeDeleteGuardForThreads } from '$lib/utils/service-quote/resolver';
+	import { deleteService } from '$lib/nostr/service';
+	import { browserNetworkStatus } from '$lib/utils/network-status';
+	import {
+		clearServiceQuoteReentryState,
+		parseServiceQuoteReentryState
+	} from '$lib/utils/service-quote/reentry';
 
 	let { service, serviceId } = $props<{
 		service: Service | null;
@@ -61,6 +95,46 @@
 	let selectedTierId = $state<string | null>(null);
 	let selectedAddOnIds = $state<string[]>([]);
 	let requestQuoteModalOpen = $state(false);
+	let instantBuyModalOpen = $state(false);
+	let instantBuyPreparing = $state(false);
+	let instantBuySubmitting = $state(false);
+	let instantBuyErrorMessage = $state('');
+	let instantBuyErrorHint = $state('');
+	let instantBuyDraft = $state<InstantBuyDraft | null>(null);
+	let deleteCheckInFlight = $state(false);
+	let deleteSubmitting = $state(false);
+	let deleteModalState = $state<{
+		mode: 'blocked' | 'confirm';
+		openQuoteCount: number;
+		activeContractCount: number;
+		totalQuoteCount: number;
+	} | null>(null);
+
+	type ServiceRuntimeFields = Service & {
+		instantBuyLeadHours?: number;
+		serviceAddress?: string;
+		providerWalletAddress?: string;
+		freelancerAddress?: string;
+		rskAddress?: string;
+		walletAddress?: string;
+		creator?: Service['creator'] & {
+			rskAddress?: string;
+			walletAddress?: string;
+			address?: string;
+			providerWalletAddress?: string;
+		};
+	};
+
+	type InstantBuyDraft = {
+		snapshot: InstantBuyCreateSnapshot;
+		amountUsd: number;
+		selectedTierLabel: string | null;
+		providerName: string | null;
+		providerAddress: string | null;
+		serviceAddress: string;
+		pricingSnapshot: ServiceContractPricingSnapshot;
+		agreementSnapshot: ServiceContractAgreementSnapshot;
+	};
 
 	const basePriceForAddOns = $derived.by(() => {
 		if (!service?.pricing) return 0;
@@ -84,6 +158,59 @@
 			service?.pricing?.type !== ServicePricingTypeEnum.INQUIRY_REQUIRED &&
 			displayAddOns.length > 0
 	);
+	const selectedTier = $derived(
+		service?.pricing?.tiers?.find((tier: ServiceTier) => tier.id === selectedTierId) ?? null
+	);
+	const selectedAddOns = $derived(
+		displayAddOns.filter((addOn) => selectedAddOnIds.includes(addOn.id))
+	);
+	const instantBuyService = $derived(service as ServiceRuntimeFields | null);
+	const instantBuyEligibility = $derived(
+		getInstantBuyEligibility(instantBuyService, selectedTierId ?? undefined)
+	);
+	const showInstantBuyCta = $derived(
+		instantBuyEligibility.code === 'eligible' ||
+			instantBuyEligibility.code === 'missing_selected_tier' ||
+			instantBuyEligibility.code === 'invalid_selected_tier'
+	);
+	const isOffline = $derived(!$browserNetworkStatus.online);
+	const showReconnectNotice = $derived(
+		$browserNetworkStatus.online && $browserNetworkStatus.lastTransition === 'online'
+	);
+	const isInstantBuyDisabled = $derived(!instantBuyEligibility.eligible);
+	const instantBuyDisabledReason = $derived.by(() => {
+		if (instantBuyEligibility.code === 'missing_selected_tier') {
+			return $t('dashboard.services.detail.instant_buy.select_tier_required') || 'Select a tier above to use Buy Now';
+		}
+		if (instantBuyEligibility.code === 'invalid_selected_tier') {
+			return $t('dashboard.services.detail.instant_buy.invalid_tier') || 'The selected tier is no longer available';
+		}
+		return $t('dashboard.services.detail.instant_buy.not_eligible') || 'This service is not eligible for instant purchase';
+	});
+	const requestQuoteContextSummary = $derived.by(() => {
+		const summary: string[] = [];
+		if (selectedTier) {
+			summary.push(
+				`${$t('dashboard.services.create.tiers.section_title') || 'Tier'}: ${selectedTier.name} ($${formatNumberWithTwoDecimals(selectedTier.price)})`
+			);
+		}
+		if (selectedAddOns.length > 0) {
+			summary.push(
+				`${$t('dashboard.services.create.review.addons_title') || 'Add-ons'}: ${selectedAddOns
+					.map((addOn) => addOn.name)
+					.join(', ')}`
+			);
+		}
+		if (
+			service?.pricing?.type === ServicePricingTypeEnum.FIXED &&
+			service.pricing.deliveryTime?.display
+		) {
+			summary.push(
+				`${$t('dashboard.services.create.review.pricing_title') || 'Pricing'}: ${service.pricing.deliveryTime.display}`
+			);
+		}
+		return summary;
+	});
 
 	function translateCategory(category: { id: string; name: string } | string): string {
 		const id = typeof category === 'string' ? category : category.id;
@@ -135,39 +262,444 @@
 		return format(dateObj, 'MMM yyyy');
 	}
 
+	function normalizeAddressCandidate(candidate: unknown): string | null {
+		if (typeof candidate !== 'string' || !candidate.trim()) {
+			return null;
+		}
+
+		try {
+			return ethers.getAddress(candidate.trim());
+		} catch {
+			return null;
+		}
+	}
+
+	function resolveProviderWalletAddress(runtimeService: ServiceRuntimeFields): string | null {
+		const creator = runtimeService.creator as Record<string, unknown> | undefined;
+
+		return (
+			normalizeAddressCandidate(runtimeService.providerWalletAddress) ??
+			normalizeAddressCandidate(runtimeService.freelancerAddress) ??
+			normalizeAddressCandidate(runtimeService.rskAddress) ??
+			normalizeAddressCandidate(runtimeService.walletAddress) ??
+			normalizeAddressCandidate(creator?.providerWalletAddress) ??
+			normalizeAddressCandidate(creator?.rskAddress) ??
+			normalizeAddressCandidate(creator?.walletAddress) ??
+			normalizeAddressCandidate(creator?.address)
+		);
+	}
+
+	function resolveInstantBuyAmountUsd(runtimeService: ServiceRuntimeFields): number | null {
+		if (!runtimeService.pricing) {
+			return null;
+		}
+
+		if (runtimeService.pricing.type === ServicePricingTypeEnum.FIXED) {
+			return runtimeService.pricing.amount ?? null;
+		}
+
+		if (runtimeService.pricing.type !== ServicePricingTypeEnum.TIERED || !selectedTierId) {
+			return null;
+		}
+
+		return (
+			runtimeService.pricing.tiers?.find((tier: ServiceTier) => tier.id === selectedTierId)?.price ?? null
+		);
+	}
+
+	function resolveProviderDisplayName(runtimeService: ServiceRuntimeFields): string | null {
+		const providerName = runtimeService.creator?.username?.trim();
+		return providerName && providerName.length > 0 ? providerName : null;
+	}
+
+	function buildInstantBuyAgreementSnapshot(
+		runtimeService: ServiceRuntimeFields,
+		purchaseKey: string
+	): ServiceContractAgreementSnapshot {
+		const selectedTierDescription =
+			runtimeService.pricing?.type === ServicePricingTypeEnum.TIERED && selectedTierId
+				? runtimeService.pricing.tiers?.find((tier: ServiceTier) => tier.id === selectedTierId)
+						?.description ?? ''
+				: '';
+		const includedScope = selectedTierDescription.trim() || displayDescriptionFull || runtimeService.description;
+
+		return {
+			selectedTierId: selectedTierId ?? undefined,
+			deliverables: includedScope,
+			priceSnapshotRef: purchaseKey,
+			priceSnapshotLabel: `$${formatNumberWithTwoDecimals(resolveInstantBuyAmountUsd(runtimeService) ?? 0)}`
+		};
+	}
+
+	function buildInstantBuyDraft(
+		runtimeService: ServiceRuntimeFields,
+		existingInstantOrderId?: string
+	): InstantBuyDraft {
+		const snapshot = createInstantBuySnapshot({
+			service: runtimeService,
+			selectedTierId: selectedTierId ?? undefined,
+			instantOrderId: existingInstantOrderId
+		});
+		const amountUsd = resolveInstantBuyAmountUsd(runtimeService);
+
+		if (amountUsd == null || !Number.isFinite(amountUsd) || amountUsd <= 0) {
+			throw new Error('Instant-buy pricing is unavailable for this service.');
+		}
+
+		const pricingSnapshot: ServiceContractPricingSnapshot = {
+			serviceVersionRef: runtimeService.id,
+			tierId: snapshot.selectedTierId
+		};
+		const agreementSnapshot = buildInstantBuyAgreementSnapshot(runtimeService, snapshot.purchaseKey);
+
+		return {
+			snapshot,
+			amountUsd,
+			selectedTierLabel: selectedTier?.name ?? null,
+			providerName: resolveProviderDisplayName(runtimeService),
+			providerAddress: resolveProviderWalletAddress(runtimeService),
+			serviceAddress: buildServiceAddress(runtimeService),
+			pricingSnapshot,
+			agreementSnapshot
+		};
+	}
+
+	async function revalidateInstantBuyDraft(existingInstantOrderId?: string): Promise<InstantBuyDraft> {
+		if (!service) {
+			throw new Error('Service is unavailable.');
+		}
+
+		const latestService = (await revalidateLatestInstantBuyService({
+			serviceId,
+			expectedServiceEventId: service.id,
+			selectedTierId: selectedTierId ?? undefined
+		})) as ServiceRuntimeFields;
+
+		return buildInstantBuyDraft(latestService, existingInstantOrderId);
+	}
+
+	function handleOpenRequestQuote() {
+		if (!service?.npub) return;
+		if (isOffline) {
+			appStore.showErrorToast('You are offline. Reconnect before requesting a quote.');
+			return;
+		}
+		if (!$authState.isAuthenticated) {
+			goto(`/auth/login?returnTo=${encodeURIComponent(window.location.pathname)}`);
+			return;
+		}
+		requestQuoteModalOpen = true;
+	}
+
+	function resetInstantBuyState() {
+		instantBuyPreparing = false;
+		instantBuySubmitting = false;
+		instantBuyErrorMessage = '';
+		instantBuyErrorHint = '';
+		instantBuyDraft = null;
+	}
+
+	function closeDeleteModal() {
+		if (deleteSubmitting) {
+			return;
+		}
+
+		deleteModalState = null;
+	}
+
+	function buildContractsHighlightUrl(escrowId: string): string {
+		return `/dashboard?tab=contracts&context=services&highlight=${encodeURIComponent(escrowId)}`;
+	}
+
+	async function prepareInstantBuyDraft(existingDraft?: InstantBuyDraft | null) {
+		instantBuyPreparing = true;
+		instantBuyErrorMessage = '';
+		instantBuyErrorHint = '';
+
+		try {
+			instantBuyDraft = await revalidateInstantBuyDraft(existingDraft?.snapshot.instantOrderId);
+		} catch (error) {
+			instantBuyDraft = existingDraft ?? null;
+			instantBuyErrorMessage =
+				error instanceof Error ? error.message : 'Unable to prepare instant buy right now.';
+		} finally {
+			instantBuyPreparing = false;
+		}
+	}
+
+	async function handleOpenInstantBuy() {
+		if (!service) return;
+		if (isOffline) {
+			appStore.showErrorToast('You are offline. Reconnect before funding this service contract.');
+			return;
+		}
+		if (!$authState.isAuthenticated) {
+			goto(`/auth/login?returnTo=${encodeURIComponent(window.location.pathname)}`);
+			return;
+		}
+		if (!instantBuyEligibility.eligible) {
+			appStore.showErrorToast(instantBuyDisabledReason || 'This service is not ready for instant buy.');
+			return;
+		}
+
+		instantBuyModalOpen = true;
+		await prepareInstantBuyDraft(null);
+	}
+
+	async function handleConfirmInstantBuy() {
+		if (!service) {
+			instantBuyErrorMessage = 'Service is unavailable.';
+			instantBuyErrorHint = '';
+			return;
+		}
+		if (isOffline) {
+			return;
+		}
+		if (!instantBuyDraft) {
+			instantBuyErrorMessage = 'The latest service snapshot is still loading. Retry before buying now.';
+			instantBuyErrorHint = '';
+			return;
+		}
+
+		instantBuySubmitting = true;
+		instantBuyErrorMessage = '';
+		instantBuyErrorHint = '';
+
+		try {
+			const draft = await revalidateInstantBuyDraft(instantBuyDraft.snapshot.instantOrderId);
+			instantBuyDraft = draft;
+
+			const contractResult = await createServiceContract({
+				freelancerPubkey: service.npub,
+				freelancerAddress: draft.providerAddress ?? '',
+				amountUsdt: draft.amountUsd.toFixed(2),
+				estimatedStartTime: draft.snapshot.estimatedStartTime,
+				estimatedCompletionTime: draft.snapshot.estimatedEndTime,
+				serviceId: service.uniqueId || service.id,
+				serviceAddress: draft.serviceAddress,
+				serviceTitle: displayTitle,
+				serviceDescription: displayDescriptionFull,
+				contextVersionRef: draft.pricingSnapshot.serviceVersionRef,
+				purchaseMode: 'instant_buy',
+				instantOrderId: draft.snapshot.instantOrderId,
+				selectedTierId: draft.snapshot.selectedTierId,
+				pricingSnapshot: draft.pricingSnapshot,
+				agreementSnapshot: draft.agreementSnapshot
+			});
+
+			if (!contractResult.success) {
+				const feedback = describeServiceContractPreflightFailure(
+					contractResult.errorCode,
+					contractResult.error || 'Unable to complete instant buy right now.'
+				);
+				instantBuyErrorMessage = feedback.message;
+				instantBuyErrorHint = feedback.hint ?? '';
+				return;
+			}
+
+			writePendingServiceContractNavigation(
+				typeof window === 'undefined' ? null : window.sessionStorage,
+				contractResult.transactionHash ?? ''
+			);
+
+			const contractCreationEvent = await waitForContractCreationByTransactionHash(
+				contractResult.transactionHash ?? ''
+			);
+
+			clearPendingServiceContractNavigation(
+				typeof window === 'undefined' ? null : window.sessionStorage
+			);
+			appStore.showSuccessToast('Instant-buy order confirmed. Opening your service contract.');
+			instantBuyModalOpen = false;
+			resetInstantBuyState();
+			await goto(buildContractsHighlightUrl(contractCreationEvent.escrowId));
+		} catch (error) {
+			const errorMessage =
+				error instanceof Error ? error.message : 'Unable to complete instant buy right now.';
+
+			if (
+				errorMessage ===
+				'The escrow transaction was submitted, but the contract confirmation is still syncing. Open Contracts to monitor it.'
+			) {
+				appStore.showInfoToast(errorMessage);
+				instantBuyModalOpen = false;
+				resetInstantBuyState();
+				await goto('/dashboard?tab=contracts&context=services');
+				return;
+			}
+
+			clearPendingServiceContractNavigation(
+				typeof window === 'undefined' ? null : window.sessionStorage
+			);
+			instantBuyErrorMessage = errorMessage;
+			instantBuyErrorHint = '';
+		} finally {
+			instantBuySubmitting = false;
+		}
+	}
+
+	async function handleQuoteRequestConfirm(payload: QuoteRequestPayload) {
+		if (!service) {
+			return { success: false, error: 'Service is unavailable.' };
+		}
+
+		const result = await serviceQuoteUiStore.submitQuoteRequest({
+			service,
+			payload,
+			tierId: selectedTierId,
+			selectedAddOnIds,
+			rushDelivery: false
+		});
+
+		if (!result.success || !result.quoteRequestId) {
+			return {
+				success: false,
+				error: result.error || 'Unable to submit quote request right now.'
+			};
+		}
+
+		// Show success toast before navigation
+		$appStore.addSuccessToast($t('dashboard.services.detail.quote_submitted') || 'Quote request submitted successfully!');
+
+		await goto(
+			`/dashboard?tab=quotes&view=tasker&request=${encodeURIComponent(result.quoteRequestId)}`
+		);
+
+		serviceQuoteUiStore.setNonBlockingMessage('service_quote_protocol_pending');
+		return { success: true };
+	}
+
 	function handleContactTaskee() {
 		if (!service?.npub) return;
 		if (!$authState.isAuthenticated) {
 			goto(`/auth/login?returnTo=${encodeURIComponent(window.location.pathname)}`);
 			return;
 		}
-		// For INQUIRY_REQUIRED: open quote request modal (no redirect to messages)
-		if (service?.pricing?.type === ServicePricingTypeEnum.INQUIRY_REQUIRED) {
-			requestQuoteModalOpen = true;
-			return;
-		}
 		goto(`/dashboard/messages/to/${service.npub}`);
 	}
 
-	function handleQuoteRequestConfirm(payload: QuoteRequestPayload) {
-		// For now: only log to console; full flow (Nostr publish, My Tasks, etc.) later
-		console.log('[Quote Request]', {
-			payload: {
-				title: payload.title,
-				description: payload.description,
-				customFormResponses: payload.customFormResponses,
-				attachments: payload.attachments
-			},
-			service: service
-				? {
-						id: service.id,
-						uniqueId: service.uniqueId,
-						npub: service.npub,
-						title: service.title
-					}
-				: null
+	async function inspectDeleteGuards() {
+		if (!service) {
+			throw new Error('Service is unavailable.');
+		}
+
+		await contractStore.loadContracts();
+		const quoteThreads = await queryTaskeeServiceQuoteThreads({
+			serviceAddress: buildServiceAddress(service),
+			taskeePubkey: service.npub,
+			limit: 100
 		});
-		requestQuoteModalOpen = false;
+		const quoteGuard = summarizeDeleteGuardForThreads(quoteThreads);
+		const activeContracts = getActiveServiceContractsForService($contractStore.contracts, service);
+
+		return {
+			hasOpenQuotes: quoteGuard.hasBlockingThreads,
+			openQuoteCount: quoteGuard.blockingThreadCount,
+			totalQuoteCount: quoteGuard.totalThreadCount,
+			hasActiveContracts: activeContracts.length > 0,
+			activeContractCount: activeContracts.length
+		};
+	}
+
+	function applyReentryState(): void {
+		if (typeof window === 'undefined' || !service || isOwner) {
+			return;
+		}
+
+		const reentryState = parseServiceQuoteReentryState(new URL(window.location.href));
+
+		if (service.pricing?.type === ServicePricingTypeEnum.TIERED && reentryState.tierId) {
+			const matchingTier = tiersWithPrice.find((tier: ServiceTier) => tier.id === reentryState.tierId);
+			if (matchingTier) {
+				selectedTierId = matchingTier.id;
+			}
+		}
+
+		if (displayAddOns.length > 0 && reentryState.selectedAddOnIds.length > 0) {
+			const validAddOnIds = new Set(displayAddOns.map((addOn) => addOn.id));
+			selectedAddOnIds = reentryState.selectedAddOnIds.filter((addOnId) => validAddOnIds.has(addOnId));
+		}
+
+		if (
+			reentryState.openRequestQuote &&
+			$authState.isAuthenticated &&
+			!isOffline &&
+			service.status === 'active'
+		) {
+			requestQuoteModalOpen = true;
+		}
+
+		const nextUrl = clearServiceQuoteReentryState(new URL(window.location.href));
+		window.history.replaceState({}, '', `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`);
+	}
+
+	onMount(() => {
+		applyReentryState();
+	});
+
+	async function handleDeleteService() {
+		if (!service) {
+			return;
+		}
+
+		deleteCheckInFlight = true;
+		try {
+			const guard = await inspectDeleteGuards();
+			deleteModalState = {
+				mode: guard.hasOpenQuotes || guard.hasActiveContracts ? 'blocked' : 'confirm',
+				openQuoteCount: guard.openQuoteCount,
+				activeContractCount: guard.activeContractCount,
+				totalQuoteCount: guard.totalQuoteCount
+			};
+		} catch (error) {
+			appStore.showErrorToast(
+				error instanceof Error
+					? error.message
+					: 'Unable to verify whether this service can be deleted right now.'
+			);
+		} finally {
+			deleteCheckInFlight = false;
+		}
+	}
+
+	async function confirmDeleteService() {
+		if (!service || !deleteModalState || deleteModalState.mode !== 'confirm') {
+			return;
+		}
+
+		deleteSubmitting = true;
+		try {
+			const guard = await inspectDeleteGuards();
+			await deleteService(service.id, {
+				hasOpenQuotes: guard.hasOpenQuotes,
+				hasActiveContracts: guard.hasActiveContracts
+			});
+			appStore.showSuccessToast('Service deleted successfully.');
+			deleteModalState = null;
+			await goto('/dashboard?tab=my-services');
+		} catch (error) {
+			const message =
+				error instanceof Error ? error.message : 'Unable to delete this service right now.';
+			appStore.showErrorToast(message);
+			if (
+				message === 'Cannot delete a service with open quotes.' ||
+				message === 'Cannot delete a service with active contracts.'
+			) {
+				try {
+					const guard = await inspectDeleteGuards();
+					deleteModalState = {
+						mode: 'blocked',
+						openQuoteCount: guard.openQuoteCount,
+						activeContractCount: guard.activeContractCount,
+						totalQuoteCount: guard.totalQuoteCount
+					};
+				} catch {
+					deleteModalState = null;
+				}
+			}
+		} finally {
+			deleteSubmitting = false;
+		}
 	}
 </script>
 
@@ -371,18 +903,75 @@
 							>
 								{$t('dashboard.services.detail.edit_service')}
 							</a>
+							<button
+								type="button"
+								class="btn btn-error btn-outline btn-sm mt-2 w-full"
+								onclick={handleDeleteService}
+								disabled={deleteCheckInFlight || deleteSubmitting}
+							>
+								{#if deleteCheckInFlight || deleteSubmitting}
+									<span class="loading loading-spinner loading-xs"></span>
+								{/if}
+								Delete Service
+							</button>
 						{:else if service.status === 'active'}
 							<div class="mb-6">
 								<h4 class="mb-4">{$t('dashboard.services.detail.interested')}</h4>
-								{#if service.pricing?.type === ServicePricingTypeEnum.INQUIRY_REQUIRED}
-									<button class="btn btn-primary btn-sm w-full" onclick={handleContactTaskee}>
+								{#if isOffline}
+									<div
+										class="alert alert-warning alert-outline mb-3 text-sm"
+										data-testid="service-detail-offline-alert"
+									>
+										<span>
+											You are offline. Reconnect before requesting a quote or funding this service.
+										</span>
+									</div>
+								{:else if showReconnectNotice}
+									<div
+										class="alert alert-info alert-outline mb-3 text-sm"
+										data-testid="service-detail-reconnect-alert"
+									>
+										<span>
+											Back online. Retry if the latest service details are still syncing.
+										</span>
+									</div>
+								{/if}
+								{#if showInstantBuyCta}
+									<button
+										class="btn btn-primary btn-sm w-full"
+										onclick={handleOpenInstantBuy}
+										disabled={isInstantBuyDisabled || instantBuyPreparing || isOffline}
+										data-testid="service-detail-buy-now"
+									>
+										{#if instantBuyPreparing}
+											<span class="loading loading-spinner loading-xs"></span>
+										{/if}
+										{$t('dashboard.services.detail.book_now') || 'Book Now'}
+									</button>
+									{#if instantBuyDisabledReason}
+										<p class="text-base-content/60 mt-2 text-xs">
+											{instantBuyDisabledReason}
+										</p>
+									{/if}
+									<button
+										class="btn btn-outline btn-sm mt-2 w-full"
+										onclick={handleOpenRequestQuote}
+										disabled={isOffline}
+									>
 										{$t('dashboard.services.detail.request_quote')}
 									</button>
 								{:else}
-									<button class="btn btn-primary btn-sm w-full" onclick={handleContactTaskee}>
-										{$t('dashboard.services.detail.contact_taskee')}
+									<button
+										class="btn btn-primary btn-sm w-full"
+										onclick={handleOpenRequestQuote}
+										disabled={isOffline}
+									>
+										{$t('dashboard.services.detail.request_quote')}
 									</button>
 								{/if}
+								<button class="btn btn-ghost btn-sm mt-2 w-full" onclick={handleContactTaskee}>
+									{$t('dashboard.services.detail.contact_taskee')}
+								</button>
 							</div>
 						{:else}
 							<div class="alert alert-warning alert-outline">
@@ -504,7 +1093,92 @@
 	<RequestQuoteModal
 		bind:open={requestQuoteModalOpen}
 		{service}
+		contextSummary={requestQuoteContextSummary}
 		onConfirm={handleQuoteRequestConfirm}
 		onClose={() => (requestQuoteModalOpen = false)}
 	/>
+
+	<ServiceInstantBuyModal
+		open={instantBuyModalOpen}
+		title="Confirm Instant Buy"
+		serviceTitle={displayTitle}
+		providerName={instantBuyDraft?.providerName ?? service?.creator?.username ?? null}
+		selectedTierLabel={instantBuyDraft?.selectedTierLabel ?? null}
+		agreementSnapshot={instantBuyDraft?.agreementSnapshot ?? null}
+		pricingSnapshot={instantBuyDraft?.pricingSnapshot ?? null}
+		instantOrderId={instantBuyDraft?.snapshot.instantOrderId ?? null}
+		estimatedStartTime={instantBuyDraft?.snapshot.estimatedStartTime ?? null}
+		estimatedCompletionTime={instantBuyDraft?.snapshot.estimatedEndTime ?? null}
+		isPreparing={instantBuyPreparing}
+		isSubmitting={instantBuySubmitting}
+		isOffline={isOffline}
+		showReconnectNotice={showReconnectNotice}
+		errorMessage={instantBuyErrorMessage}
+		errorHint={instantBuyErrorHint}
+		canConfirm={instantBuyDraft !== null}
+		onConfirm={handleConfirmInstantBuy}
+		onRetry={() => prepareInstantBuyDraft(instantBuyDraft)}
+		onClose={() => {
+			instantBuyModalOpen = false;
+			resetInstantBuyState();
+		}}
+	/>
+
+	<Modal
+		isOpen={deleteModalState !== null}
+		title={deleteModalState?.mode === 'blocked' ? 'Cannot delete service' : 'Delete service'}
+		onClose={closeDeleteModal}
+		size="md"
+	>
+		{#if deleteModalState}
+			<p class="text-sm text-base-content/80">
+				{#if deleteModalState.mode === 'blocked'}
+					This service cannot be deleted yet.
+				{:else}
+					This permanently removes the current service listing from your dashboard.
+				{/if}
+			</p>
+
+			{#if deleteModalState.mode === 'blocked'}
+				<div class="mt-4 space-y-3">
+					{#if deleteModalState.openQuoteCount > 0}
+						<div class="alert alert-warning">
+							<span>
+								Open quotes are still attached to this service (`{deleteModalState.openQuoteCount}` blocking thread{deleteModalState.openQuoteCount === 1 ? '' : 's'}).
+							</span>
+						</div>
+					{/if}
+					{#if deleteModalState.activeContractCount > 0}
+						<div class="alert alert-error">
+							<span>
+								Active service contracts are still attached to this service (`{deleteModalState.activeContractCount}` active contract{deleteModalState.activeContractCount === 1 ? '' : 's'}).
+							</span>
+						</div>
+					{/if}
+				</div>
+				<div class="mt-6 flex justify-end">
+					<button type="button" class="btn btn-primary" onclick={closeDeleteModal}>Close</button>
+				</div>
+			{:else}
+				<p class="mt-4 text-sm text-base-content/70">
+					{#if deleteModalState.totalQuoteCount > 0}
+						Historical quote threads will remain as records, but no open quotes or active contracts were found.
+					{:else}
+						No open quotes or active contracts were found for this service.
+					{/if}
+				</p>
+				<div class="mt-6 flex justify-end gap-2">
+					<button type="button" class="btn btn-ghost" onclick={closeDeleteModal} disabled={deleteSubmitting}>
+						Cancel
+					</button>
+					<button type="button" class="btn btn-error" onclick={confirmDeleteService} disabled={deleteSubmitting}>
+						{#if deleteSubmitting}
+							<span class="loading loading-spinner loading-xs"></span>
+						{/if}
+						Confirm Delete
+					</button>
+				</div>
+			{/if}
+		{/if}
+	</Modal>
 </div>

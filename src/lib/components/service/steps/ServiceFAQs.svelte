@@ -61,8 +61,8 @@
 >
 	<div class="w-full">
 		<label class="label" for="faqs-title">
-			<span class="label-text-alt">{$t('dashboard.services.create.faqs.hint')}</span>
-			<span class="label-text-alt ml-1"
+			<span class="label-text-alt break-words">{$t('dashboard.services.create.faqs.hint')}</span>
+			<span class="label-text-alt ml-1 break-words"
 				>({($store.service.faqs || []).length}/{MAX_FAQS}
 				{$t('dashboard.services.create.faqs.max')})</span
 			>

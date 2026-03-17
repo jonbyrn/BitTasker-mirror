@@ -71,7 +71,7 @@
 >
 	<div class="w-full">
 		<label class="label" for="addons-title">
-			<span class="label-text-alt">{$t('dashboard.services.create.addons.hint')}</span>
+			<span class="label-text-alt break-words">{$t('dashboard.services.create.addons.hint')}</span>
 		</label>
 	</div>
 

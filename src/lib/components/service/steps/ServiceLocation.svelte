@@ -74,9 +74,10 @@
 				locationDetails: {
 					...$store.service.locationDetails,
 					taskeeLocation: {
-						useGlobalLocation: true,
+						useGlobalLocation: false,
 						serviceLocation: undefined,
-						locationDisplayName: undefined
+						locationDisplayName: undefined,
+						serviceRadius: undefined
 					}
 				}
 			});
@@ -193,8 +194,7 @@
 					mapHeight="300px"
 					showFullscreen={true}
 					showGeolocation={true}
-					showServiceRadius={true}
-					serviceRadius={$store.service.locationDetails?.taskerLocation?.serviceRadius || 10}
+					showServiceRadius={false}
 				/>
 			</div>
 
@@ -307,41 +307,15 @@
 		<div class="card bg-base-200 p-4 space-y-4">
 			<h4 class="font-semibold text-lg">{$t('dashboard.services.create.location.taskee_config_title')}</h4>
 
-			<!-- Use Global Location Toggle -->
+			<!-- Service Location Picker with Service Radius -->
 			<div class="w-full">
-				<label class="label cursor-pointer" id="useGlobalLocation-label">
-					<span class="label-text">{$t('dashboard.services.create.location.use_global_location_label')}</span>
-					<input
-						type="checkbox"
-						class="checkbox checkbox-primary"
-						checked={$store.service.locationDetails?.taskeeLocation?.useGlobalLocation ?? true}
-						onchange={(e) => {
-							const useGlobal = (e.target as HTMLInputElement).checked;
-							store.updateService({
-								locationDetails: {
-									...$store.service.locationDetails,
-									taskeeLocation: {
-										useGlobalLocation: useGlobal,
-										serviceLocation: useGlobal ? undefined : getDefaultLocation(),
-										locationDisplayName: useGlobal ? undefined : ''
-									} as { useGlobalLocation: boolean; serviceLocation?: Location; locationDisplayName?: string }
-								}
-							});
-						}}
-					/>
-				</label>
-			</div>
-
-			<!-- Specific Service Location (if not using global) -->
-			{#if !$store.service.locationDetails?.taskeeLocation?.useGlobalLocation}
-				<div class="w-full">
-					<div class="label">
-						<span class="label-text">{$t('dashboard.services.create.location.taskee_specific_location_label')}</span>
-					</div>
-					<EnhancedLocationPicker
-						label={$t('dashboard.services.create.location.taskee_location_picker_label')}
-						placeholder={$t('dashboard.services.create.location.taskee_location_placeholder')}
-						location={$store.service.locationDetails?.taskeeLocation?.serviceLocation || getDefaultLocation()}
+				<div class="label">
+					<span class="label-text">{$t('dashboard.services.create.location.taskee_specific_location_label')}</span>
+				</div>
+				<EnhancedLocationPicker
+					label={$t('dashboard.services.create.location.taskee_location_picker_label')}
+					placeholder={$t('dashboard.services.create.location.taskee_location_placeholder')}
+					location={$store.service.locationDetails?.taskeeLocation?.serviceLocation || getDefaultLocation()}
 					onLocationSelect={(location) => {
 						const currentTaskeeLocation = $store.service.locationDetails?.taskeeLocation;
 						store.updateService({
@@ -353,19 +327,31 @@
 										...location,
 										locationLoaded: true
 									},
-									locationDisplayName: location.displayName
+									locationDisplayName: location.displayName,
+									serviceRadius: currentTaskeeLocation?.serviceRadius ?? 10
 								}
 							}
 						});
 					}}
-						showMap={true}
-						mapHeight="300px"
-						showFullscreen={true}
-						showGeolocation={true}
-						showServiceRadius={false}
-					/>
-				</div>
-			{/if}
+					onServiceRadiusChange={(radius) => {
+						store.updateService({
+							locationDetails: {
+								...$store.service.locationDetails,
+								taskeeLocation: {
+									...$store.service.locationDetails?.taskeeLocation,
+									serviceRadius: radius
+								}
+							}
+						});
+					}}
+					showMap={true}
+					mapHeight="300px"
+					showFullscreen={true}
+					showGeolocation={true}
+					showServiceRadius={true}
+					serviceRadius={$store.service.locationDetails?.taskeeLocation?.serviceRadius || 10}
+				/>
+			</div>
 		</div>
 	{/if}
 

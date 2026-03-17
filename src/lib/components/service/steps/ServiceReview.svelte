@@ -137,7 +137,7 @@
 	{#if ($store.service.serviceLocationTypes || []).length > 0}
 		<div class="card bg-base-200 p-6">
 			<h4 class="font-semibold text-lg mb-4">{$t('dashboard.services.create.review.location_title')}</h4>
-			<div class="space-y-2">
+			<div class="space-y-4">
 				<div>
 					<span class="font-semibold">{$t('dashboard.services.create.review.location_types_label')}:</span>
 					<div class="ml-2 flex flex-wrap gap-2 mt-1">
@@ -154,6 +154,22 @@
 						{/each}
 					</div>
 				</div>
+
+				<!-- Tasker Location Details -->
+				{#if ($store.service.serviceLocationTypes || []).includes(ServiceLocationTypeEnum.TASKER_LOCATION)}
+					{#if $store.service.locationDetails?.taskerLocation?.serviceLocation?.displayName}
+						<div>
+							<span class="font-semibold">{$t('dashboard.services.create.location.tasker_title')}:</span>
+							<span class="ml-2">{$store.service.locationDetails.taskerLocation.serviceLocation.displayName}</span>
+						</div>
+					{/if}
+					{#if $store.service.locationDetails?.taskerLocation?.serviceRadius}
+						<div>
+							<span class="font-semibold">{$t('dashboard.services.create.location.service_radius_label')}:</span>
+							<span class="ml-2">{$store.service.locationDetails.taskerLocation.serviceRadius} km</span>
+						</div>
+					{/if}
+				{/if}
 			</div>
 		</div>
 	{/if}
