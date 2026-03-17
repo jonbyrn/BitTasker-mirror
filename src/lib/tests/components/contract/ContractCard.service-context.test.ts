@@ -1,0 +1,160 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen, fireEvent } from '@testing-library/svelte';
+import { get } from 'svelte/store';
+import ContractCard from '$lib/components/contracts/ContractCard.svelte';
+import { EscrowStatus } from '$lib/utils/escrow';
+
+const { contractStoreState, getContractKey } = vi.hoisted(() => {
+	let value = {
+		contract: null,
+		isDrawerOpen: false
+	};
+	const subscribers = new Set<(value: typeof value) => void>();
+	const state = {
+		subscribe(run: (value: typeof value) => void) {
+			run(value);
+			subscribers.add(run);
+			return () => subscribers.delete(run);
+		},
+		set(next: typeof value) {
+			value = next;
+			subscribers.forEach((run) => run(value));
+		},
+		update(updater: (value: typeof value) => typeof value) {
+			state.set(updater(value));
+		}
+	};
+	return {
+		contractStoreState: state,
+		getContractKey: vi.fn((contract: any, key: string) => {
+			if (key === 'otherPartyNpub') return 'npub1counterparty';
+			if (key === 'estimatedCompletionTime') return contract.contractEvent.content.estimatedCompletionTime;
+			if (key === 'amount') return contract.contractEvent.content.amount;
+			if (key === 'taskTitle') return contract.contractEvent.content.taskTitle;
+			if (key === 'taskDescription') return contract.contractEvent.content.taskDescription;
+			return contract.contractEvent.content[key];
+		})
+	};
+});
+
+vi.mock('$lib/stores/contract.store', () => ({
+	contractStore: {
+		subscribe: contractStoreState.subscribe,
+		set: contractStoreState.set,
+		update: contractStoreState.update,
+		getContractKey
+	}
+}));
+
+vi.mock('$lib/utils/helpers/contractStatusFormatter', () => ({
+	getStatusTranslationKey: vi.fn(() => 'contract.status'),
+	getStatusColorClass: vi.fn(() => 'badge-neutral')
+}));
+
+vi.mock('svelte-i18n', async () => {
+	const { readable } = await import('svelte/store');
+	return {
+		t: readable((key: string) => key),
+		locale: readable('en')
+	};
+});
+
+vi.mock('$lib/components/contracts/ContractActions.svelte', () => ({
+	default: () => ({
+		$$render: () => '<div data-testid="contract-actions">actions</div>'
+	})
+}));
+
+vi.mock('$lib/components/contracts/ContractContextSummary.svelte', () => ({
+	default: () => ({
+		$$render: (_result: unknown, props: { contract: any }) =>
+			`<div data-testid="context-summary">${props.contract.contractEvent.content.contextTitle}</div>`
+	})
+}));
+
+vi.mock('$lib/components/UserNostrBadge.svelte', () => ({
+	default: () => ({ $$render: () => '<div>User badge</div>' })
+}));
+
+vi.mock('$lib/components/task/TaskDeadlineDisplay.svelte', () => ({
+	default: () => ({ $$render: () => '<div>Deadline</div>' })
+}));
+
+vi.mock('$lib/components/task/TaskLocationDisplay.svelte', () => ({
+	default: () => ({ $$render: () => '<div>Location</div>' })
+}));
+
+function buildContract(overrides: Record<string, unknown> = {}) {
+	return {
+		contractEvent: {
+			content: {
+				escrowId: 'escrow-1',
+				amount: '0.01',
+				taskTitle: 'Fallback task title',
+				taskDescription: 'Fallback task description',
+				contextType: 'service',
+				contextTitle: 'Service contract',
+				estimatedCompletionTime: 1_700_000_000,
+				purchaseMode: 'quote',
+				...overrides
+			}
+		},
+		escrowData: { id: 'escrow-1' },
+		isClient: true,
+		status: EscrowStatus.Funded,
+		isPending: false,
+		blockchainStatus: EscrowStatus.Funded,
+		permissions: {
+			canComplete: false,
+			canAccept: true,
+			canDispute: false,
+			canPropose: false,
+			canAcceptProposal: false,
+			canCancel: false,
+			canResolveTimelock: false,
+			canDelete: false
+		}
+	} as any;
+}
+
+describe('ContractCard service context', () => {
+	beforeEach(() => {
+		contractStoreState.set({ contract: null, isDrawerOpen: false });
+		getContractKey.mockClear();
+	});
+
+	it('renders service purchase labels and actions for service contracts', () => {
+		const contract = buildContract();
+		render(ContractCard, {
+			contract,
+			btcPrice: 100000
+		});
+
+		expect(screen.getByText('Quoted Service')).toBeInTheDocument();
+	});
+
+	it('renders unknown contexts as read-only', () => {
+		const contract = buildContract({ contextType: 'alien-context' });
+		render(ContractCard, {
+			contract,
+			btcPrice: 100000
+		});
+
+		expect(screen.getByText('Unknown Context')).toBeInTheDocument();
+		expect(screen.getByText('Read-only contract context')).toBeInTheDocument();
+		expect(screen.queryByTestId('contract-actions')).not.toBeInTheDocument();
+	});
+
+	it('opens the drawer when the details button is used', async () => {
+		const contract = buildContract();
+		render(ContractCard, {
+			contract,
+			btcPrice: 100000
+		});
+
+		await fireEvent.click(screen.getByText('dashboard.contracts.view_details'));
+
+		expect(get(contractStoreState).isDrawerOpen).toBe(true);
+		expect(get(contractStoreState).contract).toEqual(contract);
+	});
+});
