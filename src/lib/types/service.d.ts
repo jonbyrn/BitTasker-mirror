@@ -100,6 +100,10 @@ export interface InquiryForm {
 export interface QuoteRequestPayload {
 	title: string;
 	description: string;
+	tierId?: string;
+	selectedAddOns?: string[];
+	rushDelivery?: boolean;
+	quoteAmountUsdt?: string;
 	/** Responses keyed by inquiry form field id; only present when service has inquiryForm.fields */
 	customFormResponses?: Record<string, string | number | boolean | string[]>;
 	/** Optional images; same shape as task attachments */
@@ -130,6 +134,7 @@ export interface ServiceLocationDetails {
 		useGlobalLocation: boolean; // Deprecated transitional flag while global location is phased out
 		serviceLocation?: Location; // Preferred explicit location for discovery/filtering/search radius checks
 		locationDisplayName?: string; // Human-readable location name for display
+		serviceRadius?: number; // Service radius in km/miles - distance from Taskee's location for service delivery
 	};
 	// Discovery rule: match results using explicit taskee/freelancer service coordinates
 	// (and serviceRadius where applicable), not profile-level global location.
@@ -234,6 +239,8 @@ export interface ServiceBody {
 	serviceLocationTypes: ServiceLocationTypeEnum[]; // Multiple select location types
 	locationDetails?: ServiceLocationDetails;
 	pricing: ServicePricing; // Includes tiers, simple add-ons, inquiry forms, delivery times
+	instantBuyLeadHours?: number; // Optional lead time for instant-buy listings (hours)
+	instantBuyDeliveryHours?: number; // Optional delivery time for instant-buy fixed pricing (hours)
 	skills: string[];
 	categories: Category[];
 	portfolio?: Attachment[]; // Portfolio items stored via direct file uploads
@@ -265,6 +272,8 @@ export interface Service {
 	serviceLocationTypes: ServiceLocationTypeEnum[]; // From content
 	locationDetails?: ServiceLocationDetails; // From content
 	pricing: ServicePricing; // From content (includes tiers, add-ons, inquiry forms, delivery times)
+	instantBuyLeadHours?: number; // From content when instant-buy is enabled
+	instantBuyDeliveryHours?: number; // From content for instant-buy fixed pricing delivery time
 	skills: string[]; // From content
 	categories: Category[]; // From content
 	portfolio?: Attachment[]; // From content
