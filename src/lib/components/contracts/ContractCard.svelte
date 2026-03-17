@@ -7,39 +7,38 @@
 	import { contractStore } from '$lib/stores/contract.store';
 	import { t } from 'svelte-i18n';
 	import ContractActions from './ContractActions.svelte';
+	import ContractContextSummary from './ContractContextSummary.svelte';
 	import UserNostrBadge from '../UserNostrBadge.svelte';
 	import TaskDeadlineDisplay from '../task/TaskDeadlineDisplay.svelte';
 	import TaskLocationDisplay from '../task/TaskLocationDisplay.svelte';
+	import { buildContractContextPresentation } from '$lib/utils/service-contract/context-presentation';
 
 	const { contract, btcPrice } = $props<{
 		contract: ContractWithEvents;
 		btcPrice: number;
 	}>();
 
-	// Check if blockchain query failed (no blockchain status and not pending)
 	const isBlockchainQueryFailed = $derived(
 		contract.blockchainStatus === null &&
 			!contract.isPending &&
 			!contract.contractEvent.content.transactionHash
 	);
+	const presentation = $derived(
+		buildContractContextPresentation(contract, contractStore.getContractKey)
+	);
 
-	// Format RBTC amount
 	function formatRBTC(amount: string): string {
 		const num = parseFloat(amount);
 		return num.toFixed(4);
 	}
 
-	// Format price with stacked USD and Sats
-	function formatPriceStacked(amount: string, btcPrice: number): { usd: string; sats: string } {
+	function formatPriceStacked(amount: string, currentBtcPrice: number): { usd: string; sats: string } {
 		const rbtc = parseFloat(amount);
-		if (isNaN(rbtc) || btcPrice <= 0) {
+		if (isNaN(rbtc) || currentBtcPrice <= 0) {
 			return { usd: '$0.00', sats: '0 Sats' };
 		}
 
-		// Convert RBTC to USD (assuming RBTC ≈ BTC)
-		const usdAmount = rbtc * btcPrice;
-
-		// Convert to sats
+		const usdAmount = rbtc * currentBtcPrice;
 		const sats = Math.round(rbtc * 100_000_000);
 
 		return {
@@ -48,35 +47,13 @@
 		};
 	}
 
-	// Format date with proper timestamp handling
-	function formatDate(timestamp: number): string {
-		// Handle invalid or zero timestamps
-		if (!timestamp || timestamp <= 0) {
-			return 'Not set';
-		}
-
-		// Convert to milliseconds if timestamp is in seconds
-		const date = timestamp > 1000000000000 ? new Date(timestamp) : new Date(timestamp * 1000);
-
-		// Check if date is valid
-		if (isNaN(date.getTime())) {
-			return 'Invalid date';
-		}
-
-		return date.toLocaleDateString('en-US', {
-			month: 'short',
-			day: 'numeric',
-			year: 'numeric'
-		});
-	}
-
-	// Get role badge class
 	function getRoleBadgeClass(isClient: boolean): string {
 		return isClient ? 'badge-primary' : 'badge-secondary';
 	}
 
-	// Get available actions count
 	function getAvailableActionsCount(): number {
+		if (presentation.isUnknownContext) return 0;
+
 		let count = 0;
 		if (contract.permissions.canComplete) count++;
 		if (contract.permissions.canAccept) count++;
@@ -88,10 +65,10 @@
 		return count;
 	}
 
-	const openDrawer = () => {
+	function openDrawer() {
 		$contractStore.contract = contract;
 		$contractStore.isDrawerOpen = true;
-	};
+	}
 </script>
 
 <div
@@ -99,28 +76,30 @@
 		? 'pointer-events-none opacity-60'
 		: ''}"
 	class:cursor-not-allowed={isBlockchainQueryFailed}
+	data-contract-escrow-id={contract.escrowData?.id ?? contract.contractEvent.content.escrowId}
 >
 	<div class="card-body rounded-xl p-4 md:p-4">
-		<!-- Top Row: Title + Description + Badges -->
 		<div class="mb-3 flex flex-row items-start justify-between gap-2">
-			<!-- Left: Title and Description (flexible, takes available space) -->
-			<div class="flex-1 min-w-0 pr-2 md:pr-4">
-				<div class="card-title line-clamp-2 text-lg font-semibold">
-					<button
-						class="hover:text-primary cursor-pointer text-left transition-colors"
-						onclick={openDrawer}
-					>
-						{contractStore.getContractKey(contract, 'taskTitle')}
-					</button>
-				</div>
-				<div class="text-sm text-base-content/80 whitespace-pre-line line-clamp-2 mt-1">
-					{contractStore.getContractKey(contract, 'taskDescription')}
-				</div>
+			<div class="min-w-0 flex-1 pr-2 md:pr-4">
+				<button
+					class="hover:text-primary w-full cursor-pointer text-left transition-colors"
+					onclick={openDrawer}
+				>
+					<ContractContextSummary {contract} variant="card" />
+				</button>
 			</div>
-			<!-- Right: Badges -->
+
 			<div class="flex shrink-0 flex-col items-end self-stretch">
-				<!-- Top row: Role + Dev badge -->
 				<div class="flex flex-wrap justify-end gap-1">
+					<div
+						class="badge badge-sm {presentation.isServiceContract
+							? 'badge-info'
+							: presentation.isUnknownContext
+								? 'badge-warning'
+								: 'badge-outline'}"
+					>
+						{presentation.cardLabel}
+					</div>
 					<div class="badge {getRoleBadgeClass(contract.isClient)} badge-sm">
 						{contract.isClient ? $t('dashboard.client') : $t('dashboard.freelancer')}
 					</div>
@@ -130,9 +109,8 @@
 						</div>
 					{/if}
 				</div>
-				<!-- Bottom row: Status badge (with min gap from top badges) -->
 				<div class="badge {getStatusColorClass(contract.status)} badge-sm mt-2">
-					{#if contract?.isPending}
+					{#if contract.isPending}
 						<span class="loading loading-spinner loading-xs mr-1"></span>
 					{/if}
 					{$t(getStatusTranslationKey(contract.status))}
@@ -140,21 +118,15 @@
 			</div>
 		</div>
 
-		<!-- Second Row: Deadline + Location + Price -->
 		<div class="mb-3 flex flex-row items-center justify-between gap-3">
-			<!-- Left: Deadline + Location -->
-			<div class="flex flex-col gap-2 min-w-0 flex-1">
-				<!-- Deadline -->
+			<div class="flex min-w-0 flex-1 flex-col gap-2">
 				<TaskDeadlineDisplay
 					deadline={contractStore.getContractKey(contract, 'estimatedCompletionTime') as number}
 				/>
-
-				<!-- Location (contracts don't have location data, default to Remote) -->
 				<TaskLocationDisplay />
 			</div>
 
-			<!-- Right: Price -->
-			<div class="text-right shrink-0">
+			<div class="shrink-0 text-right">
 				{#if btcPrice > 0}
 					{@const priceData = formatPriceStacked(
 						contractStore.getContractKey(contract, 'amount') as string,
@@ -170,15 +142,13 @@
 			</div>
 		</div>
 
-		<!-- Bottom Row: User Info + Action Buttons -->
 		<div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-			<!-- Left: User Info (without role headline) -->
-			<UserNostrBadge
-				npub={contractStore.getContractKey(contract, 'otherPartyNpub') as string}
-			/>
+			<UserNostrBadge npub={contractStore.getContractKey(contract, 'otherPartyNpub') as string} />
 
-			<!-- Right: Action Buttons -->
-			<div class="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:w-auto">
+			<div class="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
+				{#if presentation.isUnknownContext}
+					<div class="text-xs text-base-content/60 sm:mr-2">Read-only contract context</div>
+				{/if}
 				{#if getAvailableActionsCount() > 0}
 					<ContractActions
 						{contract}

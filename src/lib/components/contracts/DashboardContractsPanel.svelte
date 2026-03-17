@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tick } from 'svelte';
 	import { onMount, onDestroy } from 'svelte';
 	import { t } from 'svelte-i18n';
 	import { get } from 'svelte/store';
@@ -12,6 +13,7 @@
 	import ContractDrawer from './ContractDrawer.svelte';
 	import InfiniteScroll from '$lib/components/InfiniteScroll.svelte';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
+	import { browserNetworkStatus } from '$lib/utils/network-status';
 
 	// MDI Icons for filters
 	import IconCheckAll from '~icons/mdi/check-all';
@@ -24,13 +26,45 @@
 	import IconChevronDown from '~icons/mdi/chevron-down';
 	import IconAccountOutline from '~icons/mdi/account-outline';
 	import IconAccountTieOutline from '~icons/mdi/account-tie-outline';
+	import IconLayersTripleOutline from '~icons/mdi/layers-triple-outline';
+	import IconClipboardTextOutline from '~icons/mdi/clipboard-text-outline';
+	import IconBriefcaseOutline from '~icons/mdi/briefcase-outline';
+
+	const {
+		initialContext = 'all',
+		highlightEscrowId = null,
+		onHighlightConsumed,
+		onHighlightMissing
+	} = $props<{
+		initialContext?: 'all' | 'tasks' | 'services';
+		highlightEscrowId?: string | null;
+		onHighlightConsumed?: (escrowId: string) => void;
+		onHighlightMissing?: (escrowId: string) => void;
+	}>();
 
 	// Filters
 	let statusFilter = $state<EscrowStatus | 'all'>('all');
 	let roleFilter = $state<string>('all'); // 'all', 'client', 'freelancer'
+	let contextFilter = $state<'all' | 'tasks' | 'services'>('all');
 	let isStatusDropdownOpen = $state(false);
+	let highlightRecoveryAttempted = $state(false);
+	let lastHandledHighlight = $state<string | null>(null);
+	let highlightRecoveryInFlightFor = $state<string | null>(null);
+	const warnedUnknownContextEscrowIds = new Set<string>();
 
 	let btcPrice = $state<number>(0);
+	const isOffline = $derived(!$browserNetworkStatus.online);
+	const showReconnectNotice = $derived(
+		$browserNetworkStatus.online && $browserNetworkStatus.lastTransition === 'online'
+	);
+	const highlightRecoveryPending = $derived(
+		Boolean(highlightEscrowId) && highlightRecoveryInFlightFor === highlightEscrowId
+	);
+	const hasCachedContracts = $derived($contractStore.contracts.length > 0);
+	const contractsRefreshPartial = $derived($contractStore.isLoading && hasCachedContracts);
+	const contractsStaleData = $derived(Boolean($contractStore.error) && hasCachedContracts);
+	const showBlockingLoadingState = $derived($contractStore.isLoading && !hasCachedContracts);
+	const showBlockingErrorState = $derived(Boolean($contractStore.error) && !hasCachedContracts);
 
 	// Status filter options - using EscrowStatus enum
 	const statusFilterOptions = $derived([
@@ -100,8 +134,23 @@
 			filtered = filtered.filter((c) => !c.isClient);
 		}
 
+		if (contextFilter === 'tasks') {
+			filtered = filtered.filter((contract) => {
+				const contextType = contract.contractEvent.content.contextType;
+				return contextType == null || contextType === 'task';
+			});
+		} else if (contextFilter === 'services') {
+			filtered = filtered.filter((contract) => contract.contractEvent.content.contextType === 'service');
+		}
+
 		return filtered;
 	});
+
+	const contextFilterOptions = $derived([
+		{ id: 'all' as const, label: 'All', icon: IconLayersTripleOutline },
+		{ id: 'tasks' as const, label: 'Tasks', icon: IconClipboardTextOutline },
+		{ id: 'services' as const, label: 'Services', icon: IconBriefcaseOutline }
+	]);
 
 	// Load contracts on mount
 	async function fetchBtcPrice(): Promise<void> {
@@ -126,17 +175,24 @@
 		// Only reconcile contracts where current user is the Tasker (client).
 		// The task event is owned by the Tasker; only they can call updateTask.
 		// Running reconciliation on Taskee contracts causes "Task author mismatch" errors.
-		const taskerContracts = contracts.filter((c) => c.isClient);
+		const taskerContracts = contracts.filter(
+			(c) => c.isClient && (c.contractEvent.content.contextType ?? 'task') === 'task'
+		);
 		if (taskerContracts.length === 0) return;
 		await reconcileTaskStatusWithContracts(taskerContracts, getTaskStatusFromStores);
 	}
 
 	async function refreshContracts(): Promise<void> {
+		if (isOffline) {
+			return;
+		}
 		await contractStore.loadContracts();
 		await runTaskStatusReconciliation();
 	}
 
 	onMount(async () => {
+		contextFilter = initialContext;
+
 		// Ensure wallet is initialized BEFORE loading contracts
 		try {
 			const { walletStore, walletManager } = await import('$lib/stores/wallet.store');
@@ -194,6 +250,10 @@
 		roleFilter = roleId;
 	}
 
+	function selectContextFilter(next: 'all' | 'tasks' | 'services') {
+		contextFilter = next;
+	}
+
 	function toggleStatusDropdown() {
 		isStatusDropdownOpen = !isStatusDropdownOpen;
 	}
@@ -220,11 +280,135 @@
 			window.removeEventListener('click', handler);
 		};
 	});
+
+	$effect(() => {
+		for (const contract of $contractStore.contracts) {
+			const contextType = contract.contractEvent.content.contextType;
+			if (contextType === 'task' || contextType === 'service' || contextType == null) {
+				continue;
+			}
+
+			const escrowId =
+				contract.escrowData?.id ??
+				contract.contractEvent.content.escrowId ??
+				contract.contractEvent.id;
+			if (warnedUnknownContextEscrowIds.has(escrowId)) {
+				continue;
+			}
+
+			warnedUnknownContextEscrowIds.add(escrowId);
+			console.warn('Unknown contract context encountered; leaving contract read-only.', {
+				escrowId,
+				contextType
+			});
+		}
+	});
+
+	$effect(() => {
+		if (!highlightEscrowId || !$contractStore.contracts.length) {
+			highlightRecoveryAttempted = false;
+			highlightRecoveryInFlightFor = null;
+			lastHandledHighlight = null;
+			return;
+		}
+		if (lastHandledHighlight === highlightEscrowId) {
+			return;
+		}
+		if (highlightRecoveryInFlightFor === highlightEscrowId) {
+			return;
+		}
+
+		const matchingContract = filteredContracts.find(
+			(contract) =>
+				(contract.escrowData?.id ?? contract.contractEvent.content.escrowId) === highlightEscrowId
+		);
+
+		if (matchingContract) {
+			void (async () => {
+				await tick();
+				const element = document.querySelector<HTMLElement>(
+					`[data-contract-escrow-id="${highlightEscrowId}"]`
+				);
+				element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+				$contractStore.contract = matchingContract;
+				$contractStore.isDrawerOpen = true;
+				lastHandledHighlight = highlightEscrowId;
+				onHighlightConsumed?.(highlightEscrowId);
+			})();
+			return;
+		}
+
+		if (!highlightRecoveryAttempted) {
+			highlightRecoveryAttempted = true;
+			highlightRecoveryInFlightFor = highlightEscrowId;
+			void (async () => {
+				const recovered = await contractStore.loadContractByEscrowId(highlightEscrowId);
+				highlightRecoveryInFlightFor = null;
+				if (!recovered) {
+					lastHandledHighlight = highlightEscrowId;
+					onHighlightMissing?.(highlightEscrowId);
+				}
+			})();
+			return;
+		}
+
+		lastHandledHighlight = highlightEscrowId;
+		onHighlightMissing?.(highlightEscrowId);
+	});
 </script>
 
 <div class="space-y-6">
 	<!-- Filters container with same design as TasksPanel -->
 	<div class="border-base-300/60 bg-base-100/40 mt-2 rounded-3xl border p-4 shadow-sm">
+		{#if isOffline}
+			<div class="alert alert-warning mb-4 text-sm" data-testid="contracts-panel-offline-alert">
+				<span>You are offline. Reconnect before refreshing or opening updated contract state.</span>
+			</div>
+		{:else if showReconnectNotice}
+			<div class="alert alert-info mb-4 text-sm" data-testid="contracts-panel-reconnect-alert">
+				<span>Back online. Refresh contracts if the latest status has not appeared yet.</span>
+			</div>
+		{/if}
+
+		{#if highlightRecoveryPending}
+			<div class="alert alert-info mb-4 text-sm" data-testid="contracts-panel-highlight-syncing-alert">
+				<span>Opening the highlighted contract. Waiting for the latest service contract data to sync.</span>
+			</div>
+		{/if}
+
+		{#if contractsRefreshPartial}
+			<div class="alert alert-info mb-4 text-sm" data-testid="contracts-panel-partial-alert">
+				<span>
+					Refreshing contracts. Showing last known contract data until the latest relay and chain state finish syncing.
+				</span>
+			</div>
+		{/if}
+
+		{#if $contractStore.error}
+			<div
+				class={`mb-4 flex items-center justify-between gap-3 text-sm alert ${
+					contractsStaleData ? 'alert-warning' : 'alert-error'
+				}`}
+				data-testid={contractsStaleData ? 'contracts-panel-stale-alert' : undefined}
+			>
+				<span>
+					{#if contractsStaleData}
+						Showing last known contract data. {$contractStore.error}
+					{:else}
+						{$contractStore.error}
+					{/if}
+				</span>
+				<button
+					type="button"
+					class="btn btn-ghost btn-xs"
+					onclick={() => refreshContracts()}
+					disabled={$contractStore.isLoading || isOffline || highlightRecoveryPending}
+				>
+					Retry
+				</button>
+			</div>
+		{/if}
+
 		<!-- Header with title and refresh button -->
 		<div class="mb-3 flex items-center justify-between gap-2">
 			<div class="space-y-1">
@@ -240,7 +424,7 @@
 			<button
 				class="btn btn-ghost btn-sm sm:btn-outline gap-2"
 				onclick={() => refreshContracts()}
-				disabled={$contractStore.isLoading}
+				disabled={$contractStore.isLoading || isOffline || highlightRecoveryPending}
 				aria-label={$t('dashboard.contracts.refresh')}
 			>
 				{#if $contractStore.isLoading}
@@ -384,10 +568,30 @@
 				{/each}
 			</div>
 		</div>
+
+		<div class="mt-4">
+			<p class="text-base-content/70 mb-2 text-xs font-semibold tracking-wide uppercase">
+				Contract context
+			</p>
+			<div class="flex flex-wrap gap-2">
+				{#each contextFilterOptions as option (option.id)}
+					{@const IconComponent = option.icon}
+					<button
+						class="btn btn-sm flex items-center gap-2 {contextFilter === option.id
+							? 'btn-primary'
+							: 'btn-secondary'}"
+						onclick={() => selectContextFilter(option.id)}
+					>
+						<IconComponent class="h-4 w-4" />
+						<span>{option.label}</span>
+					</button>
+				{/each}
+			</div>
+		</div>
 	</div>
 
 	<!-- Loading State -->
-	{#if $contractStore.isLoading}
+	{#if showBlockingLoadingState}
 		<div class="flex justify-center py-12">
 			<div class="flex items-center gap-3">
 				<span class="loading loading-spinner loading-md"></span>
@@ -397,7 +601,7 @@
 	{/if}
 
 	<!-- Error State -->
-	{#if $contractStore.error}
+	{#if showBlockingErrorState}
 		<div class="alert alert-outline alert-error">
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
@@ -423,7 +627,7 @@
 	{/if}
 
 	<!-- Contracts List -->
-	{#if !$contractStore.isLoading && !$contractStore.error}
+	{#if !showBlockingLoadingState && !showBlockingErrorState}
 		{#if filteredContracts.length === 0}
 			<div class="py-12 text-center">
 				<div class="mb-4">
