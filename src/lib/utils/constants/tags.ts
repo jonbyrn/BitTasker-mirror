@@ -45,7 +45,7 @@ export const TAGS = {
 	/** Contract action - specific action on contract (creation, update, completion, etc.) */
 	C: 'c' as const,
 
-	/** Amount - monetary amount (when needed as queryable metadata) */
+	/** Context-specific indexed value. Service quotes use it for canonical service identity. */
 	A: 'a' as const,
 
 	/** Payment type - FIXED or HOURLY */
@@ -59,6 +59,9 @@ export const TAGS = {
 
 	/** Version - contract/escrow version (v1, v2, v3, etc.) */
 	V: 'v' as const,
+
+	/** Service-quote schema version */
+	Z: 'z' as const,
 
 	// Service listing tags (NIP-99 / findServices filters)
 	/** Service location types (remote, tasker_location, etc.) */
@@ -229,6 +232,9 @@ export const TAG_FILTERS = {
 	/** Filter events by status */
 	byStatus: (status: string) => ({ [`#${TAGS.S}`]: [status] }),
 
+	/** Filter events by multiple statuses */
+	byStatuses: (statuses: string[]) => ({ [`#${TAGS.S}`]: statuses }),
+
 	/** Filter events by message type */
 	byMessageType: (type: string) => ({ [`#${TAGS.M}`]: [type] }),
 
@@ -246,8 +252,21 @@ export const TAG_FILTERS = {
 	/** Filter events by network (mainnet, testnet) */
 	byNetwork: (network: string) => ({ [`#${TAGS.N}`]: [network] }),
 
+	/** Filter events by canonical service address */
+	byServiceAddress: (serviceAddress: string | string[]) => ({
+		[`#${TAGS.A}`]: Array.isArray(serviceAddress) ? serviceAddress : [serviceAddress]
+	}),
+
 	/** Filter events by version (v1, v2, v3, etc.) */
 	byVersion: (version: string) => ({ [`#${TAGS.V}`]: [version] }),
+
+	/** Filter events by schema version (service quotes) */
+	bySchemaVersion: (version: string) => ({ [`#${TAGS.Z}`]: [version] }),
+
+	/** Filter events by canonical service address */
+	byAddress: (address: string | string[]) => ({
+		[`#${TAGS.A}`]: Array.isArray(address) ? address : [address]
+	}),
 
 	/** Filter events by location data */
 	byLocation: () => ({ [`#${TAGS.M}`]: ['location'] }),

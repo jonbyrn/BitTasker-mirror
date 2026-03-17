@@ -78,6 +78,15 @@ const KINDS = {
     
     /** Service listings (NIP-99) - draft services */
     SERVICE_DRAFT: 30403,
+
+    /** Service quote request - regular encrypted event */
+    SERVICE_QUOTE_REQUEST: 6420,
+
+    /** Service proposal - regular encrypted event */
+    SERVICE_PROPOSAL: 6421,
+
+    /** Service proposal status - regular encrypted event */
+    SERVICE_PROPOSAL_STATUS: 6422,
 }
 
 export default KINDS;

@@ -498,8 +498,10 @@ class EscrowManager {
 		 * Get contract creation store (always uses LATEST)
 		 */
 		getContractCreationStore: (): Writable<{
-			escrowId: string;
+			escrowId?: string;
 			contractEventId?: string;
+			transactionHash?: string;
+			transactionHashes?: string[];
 			error?: string;
 		} | null> => {
 			const handler = this.getHandler(LATEST_ESCROW_VERSION);

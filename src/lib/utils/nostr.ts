@@ -17,7 +17,10 @@ const encryptedKinds = [
     KINDS.BIDS,
     KINDS.CONTRACT,
     KINDS.CONTRACT_STATUS,
-    KINDS.BID_STATUS
+    KINDS.BID_STATUS,
+    KINDS.SERVICE_QUOTE_REQUEST,
+    KINDS.SERVICE_PROPOSAL,
+    KINDS.SERVICE_PROPOSAL_STATUS
 ];
 
 /**
@@ -264,7 +267,13 @@ export async function publishToMultipleRelays(
 
     const publishPromises = relays.map(async (relay) => {
         try {
-            pool.publish([relay], event);
+            const relayPublish = pool.publish([relay], event);
+            await Promise.race([
+                Promise.all(relayPublish),
+                new Promise((_, reject) =>
+                    setTimeout(() => reject(new Error('Publish timeout')), 5000)
+                )
+            ]);
             return { relay, success: true };
         } catch (error) {
             return {
@@ -328,7 +337,10 @@ export async function publishNostrEvent(
     recipientNpub: string,
     tags: string[][],
     relays: string[] = DEFAULT_RELAYS
-): Promise<void> {
+): Promise<{
+    event: NostrEvent;
+    results: { relay: string; success: boolean; error?: string }[];
+}> {
     try {
         // Convert recipient pubkey to hex if it's in npub format
         const recipientPubkeyHex = recipientNpub.startsWith('npub')
@@ -352,8 +364,6 @@ export async function publishNostrEvent(
         // Sign the event
         const signedEvent = await getSignedEvent(eventMetadata);
 
-        console.log({ signedEvent })
-
         // Publish to relays
         const results = await publishToMultipleRelays(signedEvent, relays);
 
@@ -369,6 +379,10 @@ export async function publishNostrEvent(
         if (failedRelays.length > 0) {
             console.warn('Some relays failed:', failedRelays);
         }
+        return {
+            event: signedEvent,
+            results
+        };
     } catch (err: unknown) {
         const errorMessage = (err as Error)?.message || 'Failed to publish event';
         appStore.showErrorToast(errorMessage);
