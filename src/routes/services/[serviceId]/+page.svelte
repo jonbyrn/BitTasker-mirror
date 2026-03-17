@@ -28,18 +28,36 @@
 	// Layout state
 	let width = $state(375);
 
+	// Update width on window resize
+	$effect(() => {
+		if (typeof window !== 'undefined') {
+			const handleResize = () => {
+				width = window.innerWidth;
+			};
+			window.addEventListener('resize', handleResize);
+			// Set initial width
+			width = window.innerWidth;
+			return () => window.removeEventListener('resize', handleResize);
+		}
+	});
+
 	const seo = $derived(
 		data.seo ?? {
 			title: 'Service Details - BitTasker',
 			description: '',
 			keywords: '',
 			canonical: '',
+			robots: 'noindex, follow',
+			ogType: 'website',
 			ogTitle: '',
 			ogDescription: '',
 			ogImage: '',
+			ogImageAlt: '',
+			twitterCard: 'summary_large_image',
 			twitterTitle: '',
 			twitterDescription: '',
 			twitterImage: '',
+			twitterImageAlt: '',
 			jsonLd: null
 		}
 	);
@@ -49,28 +67,30 @@
 	<title>{seo.title}</title>
 	<meta name="description" content={seo.description} />
 	<meta name="keywords" content={seo.keywords} />
+	<meta name="robots" content={seo.robots} />
 	<link rel="canonical" href={seo.canonical} />
 
 	<!-- Open Graph / Facebook -->
-	<meta property="og:type" content="website" />
+	<meta property="og:type" content={seo.ogType} />
 	<meta property="og:url" content={seo.canonical} />
 	<meta property="og:title" content={seo.ogTitle} />
 	<meta property="og:description" content={seo.ogDescription} />
 	<meta property="og:image" content={seo.ogImage} />
+	<meta property="og:image:secure_url" content={seo.ogImage} />
 	<meta property="og:image:width" content="1200" />
 	<meta property="og:image:height" content="630" />
-	<meta property="og:image:alt" content={seo.ogTitle} />
+	<meta property="og:image:alt" content={seo.ogImageAlt} />
 	<meta property="og:site_name" content="BitTasker" />
 
 	<!-- Twitter -->
-	<meta property="twitter:card" content="summary_large_image" />
-	<meta property="twitter:url" content={seo.canonical} />
-	<meta property="twitter:title" content={seo.twitterTitle} />
-	<meta property="twitter:description" content={seo.twitterDescription} />
-	<meta property="twitter:image" content={seo.twitterImage} />
-	<meta property="twitter:image:alt" content={seo.twitterTitle} />
-	<meta property="twitter:site" content="@BitTaskerdotcom" />
-	<meta property="twitter:creator" content="@BitTaskerdotcom" />
+	<meta name="twitter:card" content={seo.twitterCard} />
+	<meta name="twitter:url" content={seo.canonical} />
+	<meta name="twitter:title" content={seo.twitterTitle} />
+	<meta name="twitter:description" content={seo.twitterDescription} />
+	<meta name="twitter:image" content={seo.twitterImage} />
+	<meta name="twitter:image:alt" content={seo.twitterImageAlt} />
+	<meta name="twitter:site" content="@BitTaskerdotcom" />
+	<meta name="twitter:creator" content="@BitTaskerdotcom" />
 
 	<!-- Structured Data -->
 	{#if seo.jsonLd}
