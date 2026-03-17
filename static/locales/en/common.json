@@ -118,6 +118,20 @@
 		"browse_faq": "Browse FAQ",
 		"connected": "Connected",
 		"disconnected": "Disconnected",
+		"homepage": {
+			"featured": {
+				"services": {
+					"title": "Featured Services",
+					"empty": "No featured services available at the moment.",
+					"meta_fallback": "Service listing",
+					"at_provider_location": "At provider location",
+					"travels_to_you": "Travels to you"
+				},
+				"tasks": {
+					"empty": "No featured tasks available at the moment."
+				}
+			}
+		},
 		"link": {
 			"security": "Security",
 			"privacy": "Privacy",
