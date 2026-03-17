@@ -28,6 +28,27 @@ import { createDebug } from '$lib/utils/debug';
 
 const d = createDebug('contracts');
 
+type RuntimeContractContextType = 'task' | 'service' | 'unknown';
+
+function normalizeContractContextType(value: unknown): RuntimeContractContextType {
+	if (value === 'service') return 'service';
+	if (value === 'task' || value == null) return 'task';
+	return 'unknown';
+}
+
+function getReadonlyPermissions() {
+	return {
+		canComplete: false,
+		canAccept: false,
+		canDispute: false,
+		canPropose: false,
+		canAcceptProposal: false,
+		canCancel: false,
+		canResolveTimelock: false,
+		canDelete: false
+	};
+}
+
 /**
  * Create a new contract event after escrow creation (as encrypted DM)
  */
@@ -54,6 +75,22 @@ export async function publishContractEvent(params: CreateContractParams): Promis
 			status: EscrowStatus.Funded, // Contract is created when escrow is funded
 			estimatedStartTime: params.estimatedStartTime,
 			estimatedCompletionTime: params.estimatedCompletionTime,
+			contextType: params.contextType,
+			contextId: params.contextId,
+			contextTitle: params.contextTitle,
+			contextDescription: params.contextDescription,
+			contextVersionRef: params.contextVersionRef,
+			serviceId: params.serviceId,
+			serviceAddress: params.serviceAddress,
+			serviceTitle: params.serviceTitle,
+			quoteRequestId: params.quoteRequestId,
+			proposalId: params.proposalId,
+			proposalEventId: params.proposalEventId,
+			purchaseMode: params.purchaseMode,
+			instantOrderId: params.instantOrderId,
+			selectedTierId: params.selectedTierId,
+			pricingSnapshot: params.pricingSnapshot,
+			agreementSnapshot: params.agreementSnapshot,
 			transactionHash: params.transactionHash, // Include transaction hash if provided
 			type: 'contract', // Identify as contract message
 			contractAddress
@@ -362,6 +399,15 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 				isClient,
 				isFreelancer
 			);
+			const normalizedContextType = normalizeContractContextType(contractEvent.content.contextType);
+			if (normalizedContextType === 'unknown') {
+				d.warn('Unknown contract contextType; forcing read-only rendering', {
+					escrowId: contractEvent.content.escrowId,
+					contextType: contractEvent.content.contextType
+				});
+			}
+			const effectivePermissions =
+				normalizedContextType === 'unknown' ? getReadonlyPermissions() : permissions;
 
 			// Extract completion attachments from latest status event with attachments
 			const completionAttachments =
@@ -431,7 +477,7 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 				escrowData, // TypeScript now knows this is non-null
 				status,
 				isPending,
-				permissions,
+				permissions: effectivePermissions,
 				disputeProposal,
 				completionAttachments
 			});
