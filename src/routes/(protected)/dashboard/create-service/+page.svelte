@@ -13,6 +13,15 @@
 	import { browser } from '$app/environment';
 	import { user } from '$lib/stores/user.store';
 	import { loadPageTranslations } from '$lib/i18n/routeTranslations';
+	import {
+		sanitizeInstantBuyLeadHours,
+		supportsInstantBuyAuthoring,
+		validateInstantBuyLeadHours
+	} from '$lib/utils/service-instant-buy/authoring';
+	import {
+		getServiceEditConflictMessage,
+		isServiceEditConflictError
+	} from '$lib/utils/service-edit-conflict';
 
 	// Import step components
 	import ServiceBasics from '$lib/components/service/steps/ServiceBasics.svelte';
@@ -184,6 +193,19 @@
 						errors.pricing = $t('dashboard.services.create.errors.budget_required');
 					}
 				}
+				const instantBuyLeadHoursValidation = validateInstantBuyLeadHours(
+					service?.pricing?.type,
+					service?.instantBuyLeadHours
+				);
+				if (!instantBuyLeadHoursValidation.valid) {
+					errors.instantBuyLeadHours = 'Instant buy lead time must be a whole number from 0 to 720 hours.';
+				}
+				if (
+					service?.instantBuyLeadHours != null &&
+					!supportsInstantBuyAuthoring(service.pricing?.type)
+				) {
+					errors.instantBuyLeadHours = 'Instant buy is available only for fixed and tiered services.';
+				}
 				// TIERED and INQUIRY_REQUIRED: no amount/tiers required here
 				break;
 			case ServiceStepEnum.TIERS:
@@ -283,6 +305,10 @@
 				categories: $store.service.categories || [],
 				portfolio: $store.service.portfolio,
 				faqs: $store.service.faqs,
+				instantBuyLeadHours: sanitizeInstantBuyLeadHours(
+					$store.service.pricing?.type,
+					$store.service.instantBuyLeadHours
+				),
 				status: 'active' // Set to active when publishing
 			};
 
@@ -292,7 +318,9 @@
 
 			if (isUpdating && dTag) {
 				// updateService uses #d tag (human-readable identifier)
-				signedEventId = await updateService(dTag, serviceData);
+				signedEventId = await updateService(dTag, serviceData, {
+					expectedServiceEventId: $store.id || undefined
+				});
 				appStore.showSuccessToast($t('dashboard.services.create.success.updated'));
 
 				await store.clearDraft(true);
@@ -314,8 +342,11 @@
 				await goto('/dashboard/my-services');
 			}
 		} catch (error) {
-			const errorMessage =
-				error instanceof Error ? error.message : $t('dashboard.services.create.errors.create_failed');
+			const errorMessage = isServiceEditConflictError(error)
+				? getServiceEditConflictMessage()
+				: error instanceof Error
+					? error.message
+					: $t('dashboard.services.create.errors.create_failed');
 			errors.general = errorMessage;
 			appStore.showErrorToast(errorMessage);
 		} finally {
