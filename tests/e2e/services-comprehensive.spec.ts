@@ -275,7 +275,8 @@ test.describe('Services - Phase 2: Instant Buy Flow', () => {
     await page.waitForLoadState('networkidle');
 
     // Look for instant buy button or pricing information
-    const instantBuyBtn = page.locator('button:has-text("Buy Now"), button:has-text("Instant Buy")').first();
+    // Updated to include new "Book Now" text alongside legacy "Buy Now"
+    const instantBuyBtn = page.locator('button:has-text("Book Now"), button:has-text("Buy Now"), button:has-text("Instant Buy")').first();
     const requestQuoteBtn = page.locator('button:has-text("Request Quote")').first();
 
     // At least one should be visible
@@ -294,7 +295,8 @@ test.describe('Services - Phase 2: Instant Buy Flow', () => {
     await page.waitForLoadState('networkidle');
 
     // Look for disabled instant buy button
-    const instantBuyBtn = page.locator('button:has-text("Buy Now"), button:has-text("Instant Buy")').first();
+    // Updated to include new "Book Now" text alongside legacy "Buy Now"
+    const instantBuyBtn = page.locator('button:has-text("Book Now"), button:has-text("Buy Now"), button:has-text("Instant Buy")').first();
 
     if (await instantBuyBtn.isVisible()) {
       const isDisabled = await instantBuyBtn.isDisabled();

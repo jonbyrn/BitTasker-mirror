@@ -153,6 +153,7 @@ As of `2026-03-10`, plan-scope status is:
    - `kinds.ts` / `tags.ts` / `nostr.ts` already provide event-kind constants, tag/filter helpers, encrypted publish/query, and canonical `#e` follow-up linkage primitives; service-quote protocol constants, cardinality/authorization rules, and encrypted-kind routing for `6420/6421/6422` are not implemented yet.
    - Contracts panel exists but currently task-centric status/role filtering; service context filter behavior from Section 10.3 is still pending.
 3. Not implemented yet (must be created in this plan):
+
    - all `service-quote` domain files in Section 16 `new-create`
    - all shared extraction files in Section 16 `new-create` for Phase 1.5
    - `MyQuotesPanel` and `dashboard/quotes` alias route
@@ -196,17 +197,17 @@ As of `2026-03-10`, plan-scope status is:
 
 ### 0.5 Section implementation status snapshot (authoritative)
 
-As of `2026-03-10`, section status is:
+As of `2026-03-12`, section status is:
 
-1. Section 1 (protocol constants/compatibility): **partial**. Compatibility baseline exists; service-quote kinds/message types/encrypted routing remain.
-2. Section 2 (identity/tags/cardinality/linkage): **partial**. Generic tag primitives and query helpers exist; service-quote-specific identity/cardinality/authorization validation remains.
-3. Section 3 (payload schemas): **partial**. `QuoteRequestPayload` typing + modal validation/attachment flow exist; protocol-level request/proposal/status schema modules remain.
-4. Section 4 (timestamp/expiration invariants): **partial**. Unix `created_at` baseline and adjacent escrow time-order validation exist; quote-specific invariants remain.
-5. Section 5 (state machine/resolver): **partial**. Adjacent contract resolver/reconciliation stack exists; service-quote state machine/resolver remain.
-6. Section 6 (NIP-40 relay policy): **partial**. Generic relay fanout/query plumbing exists; NIP-40 capability policy layer remains.
+1. Section 1 (protocol constants/compatibility): **implemented** for service-quote runtime kinds/message types/encrypted routing.
+2. Section 2 (identity/tags/cardinality/linkage): **implemented** for service quotes. Canonical identity/cardinality/linkage validation now lives in `src/lib/utils/service-quote/protocol.ts`.
+3. Section 3 (payload schemas): **implemented** for request/proposal/status payloads. Runtime schema modules live in `src/lib/types/service-quote.d.ts` and `src/lib/utils/service-quote/protocol.ts`.
+4. Section 4 (timestamp/expiration invariants): **implemented** for service-quote request/proposal/status events. Clock-skew and computed-expiration rules are enforced in `src/lib/utils/service-quote/protocol.ts`.
+5. Section 5 (state machine/resolver): **implemented** for the non-funded quote lifecycle. Deterministic resolver behavior now lives in `src/lib/utils/service-quote/resolver.ts`.
+6. Section 6 (NIP-40 relay policy): **implemented** for proposal publish selection. Capability detection and relay target selection now live in `src/lib/utils/service-quote/protocol.ts`.
 7. Section 7 (USDT->RBTC conversion spec): **partial**. Adjacent task/bid conversion + price source exist; quote-domain integer snapshot pipeline remains.
 8. Section 8 (acceptance/idempotency/reconciliation): **partial**. Existing escrow acceptance orchestration exists; service-proposal acceptance path remains.
-9. Section 9 (query/subscription rules): **partial**. Generic query/subscription + follow-up linkage utilities exist; quote-domain rules remain.
+9. Section 9 (query/subscription rules): **implemented** for the quote-domain graph queries. Canonical request/proposal/status graph retrieval now lives in `src/lib/utils/service-quote/query.ts`.
 10. Section 10 (UX/routing/contracts rendering): **partial**. Existing dashboard/services/contracts surfaces exist; quote routes/views/context filtering remain.
 11. Section 11 (state boundaries): **partial**. Existing stores/subscription cleanup exists; service-quote stores/modules remain.
 12. Section 12 (reuse/componentization): **partial**. Reuse baseline exists (`Modal`, `MediaUploader`, `RequestQuoteModal`) and listing/store precursors exist; shared extraction backlog remains.
@@ -459,6 +460,17 @@ Current implementation status: **partial** (request UI payload exists; protocol 
     | 'withdrawn';
   actorPubkey: string;
   message?: string;
+  reasonCode?:
+    | 'validation_failed'
+    | 'chain_revert'
+    | 'invariant_mismatch'
+    | 'duplicate_key_mismatch'
+    | 'publish_failed_permanent'
+    | 'tx_replaced'
+    | 'pending_timeout'
+    | 'rpc_unavailable'
+    | 'nonce_conflict'
+    | 'reconciliation_deferred'; // required when status='accept_failed' or status='accept_unknown'
   timestamp: number; // actor decision timestamp (unix seconds)
   escrowId?: string; // required when status='accepted'
   transactionHash?: string; // required when status='accepted'
@@ -633,15 +645,15 @@ Implemented baseline already present (reuse/extend, do not rebuild):
 2. Existing USD->RBTC conversion path already exists in task bid acceptance pipeline.
 3. Existing unit/integration coverage already exercises conversion + escrow lifecycle in adjacent domain.
 
-1. USDT is canonical for quote/proposal amounts.
-2. RBTC funding amount is computed at acceptance/funding time.
-3. Price source: `cryptoPriceService` BTC quote.
-4. Integer conversion formula (`v1`) only, no float math in accept path.
+4. USDT is canonical for quote/proposal amounts.
+5. RBTC funding amount is computed at acceptance/funding time.
+6. Price source: `cryptoPriceService` BTC quote.
+7. Integer conversion formula (`v1`) only, no float math in accept path.
 
 Inputs:
 
 - `usdtCents` (int)
-- `btcUsdRateMicros` (int, USD per BTC * 1_000_000)
+- `btcUsdRateMicros` (int, USD per BTC \* 1_000_000)
 
 Parsing and arithmetic rules:
 
@@ -928,7 +940,7 @@ Tab-scoped query schema:
 5. `request` allowed when:
    - `tab=quotes&view=tasker`
    - `tab=my-services&view=quotes&service=<encodedServiceAddress>`
-   value is `quoteRequestId`.
+     value is `quoteRequestId`.
 6. `highlight` allowed only when `tab=contracts`; value is `escrowId`.
 
 Invalid query params must be sanitized by a single dashboard query parser to deterministic defaults:
@@ -989,14 +1001,16 @@ Invalid query params must be sanitized by a single dashboard query parser to det
 9. Post-funding service lifecycle must reuse existing contract card/drawer/modal locations; do not create a parallel service-contracts surface.
 10. `TaskCompletionModal` must be adapted to be context-aware; when `contextType='service'`, all visible copy must refer to a service rather than a task.
 11. Service completion surfaces must expose the full agreement snapshot in the same interaction pattern task details use today:
-   - selected tier
-   - selected add-ons
-   - deliverables/quoted scope
-   - rush option
-   - inquiry answers
-   - quoted price snapshot
-   - estimated start time
-   - estimated end time
+
+- selected tier
+- selected add-ons
+- deliverables/quoted scope
+- rush option
+- inquiry answers
+- quoted price snapshot
+- estimated start time
+- estimated end time
+
 12. Evidence upload UX is identical for in-person and digital services.
 13. Current scope does not include a service-specific delivered state, revision/rework loop, or review/rating prompt.
 14. Cancel, dispute, complete, accept/release, and dispute-resolution actions must appear in the same locations and use the same overall styling patterns as task contracts.
@@ -1025,8 +1039,11 @@ Invalid query params must be sanitized by a single dashboard query parser to det
 8. Notification send failures must be non-blocking and must not revert canonical event publish or on-chain acceptance outcomes.
 9. Notification sends must be idempotent per canonical event/action to avoid duplicate pushes from retries, reconciliation, or multi-path listeners.
 10. Instant-buy orders must use this same push-notification foundation and deep-link model:
-   - successful instant buy / contract created -> provider notified
-   - instant-buy implementation must not add a separate notification subsystem
+
+- successful instant buy / contract created -> provider notified
+- instant-buy implementation must not add a separate notification subsystem
+
+`2026-03-12 update:` canonical service quote request/proposal publish now emits non-blocking, idempotent push notifications from `src/lib/utils/service-quote/publish.ts` through the shared helper in `src/lib/utils/service-quote/notifications.ts`, with exact-focus deep links to tasker/provider quote surfaces. Optional DM mirror payloads are defined in `src/lib/types/service-quote.d.ts` and dispatched behind `sideEffects.dmMirror` without affecting canonical publish success. The same helper now powers service contract-created provider push from `src/lib/utils/escrow/v1/escrowEvents.ts`, so negotiated acceptance and instant-buy reuse one notification foundation instead of direct path-specific sends. Focused regression is green across `src/lib/tests/unit/service-quote/notifications.test.ts`, `src/lib/tests/integration/service-quote/push-notifications.integration.test.ts`, and `src/lib/tests/integration/service-quote/messaging-mirror.integration.test.ts`.
 
 ### 10.5 Instant-buy policy
 
@@ -1141,6 +1158,8 @@ Invalid query params must be sanitized by a single dashboard query parser to det
 Current implementation status: **partial**.
 
 Implemented baseline to preserve:
+- `2026-03-12 update:` initial `S4-T4` / `TEST-G4` coverage is now present via semantic accessibility smoke tests for quote panels / instant-buy / homepage shell CTAs plus conservative render-budget smoke tests for tasker quotes and the featured homepage shell. Browser-managed visual snapshots, broader WCAG automation, and tighter perf budgets remain open.
+- `2026-03-12 update:` the homepage featured-shell accessibility baseline is now stricter. `src/lib/components/homepage/FeaturedHomepageSection.svelte` exposes explicit loading/empty/error semantics (`aria-busy`, `status`, `alert`) and hides decorative loading skeletons from assistive tech while presenting loaded cards as a labeled list. Focused regression is green in `src/lib/tests/components/homepage/FeaturedHomepageSection.test.ts` and `src/lib/tests/integration/homepage/homepage-featured-sections-a11y.smoke.test.ts`.
 
 1. Existing route/panel controllers already perform explicit subscription disposal on unmount.
 2. Existing stores already expose dedicated subscribe/unsubscribe methods used by controllers.
@@ -1338,7 +1357,7 @@ Gate criteria:
 
 ### Phase 1: Protocol and Data Foundations
 
-Current status (as of `2026-03-10`): **remaining**. Quote protocol constants/schemas/validators are not yet implemented.
+Current status (as of `2026-03-12`): **implemented** for the quote protocol/runtime path. The bounded Phase `1.5` extraction track still remains separate under `S4-R1`.
 
 Scope:
 
@@ -1366,11 +1385,24 @@ Gate criteria:
 4. Relay policy tests cover `supports_40|unknown|explicit_no_40`.
 5. `npm run check` and `npm run lint` pass.
 
+`2026-03-12 update:` the Phase `1` runtime is now live in `src/lib/utils/service-quote/protocol.ts`, `src/lib/utils/service-quote/publish.ts`, `src/lib/utils/service-quote/query.ts`, and `src/lib/utils/service-quote/resolver.ts`, backed by `src/lib/types/service-quote.d.ts` and `src/lib/stores/service-quote.store.ts`. Canonical `6421` proposal publish now enforces schema/cardinality plus pre-publish linked-request verification and duplicate suppression, canonical `6422` status publish now enforces actor-role authorization and accepted-status feature gating, and the resolver/query layer now resolves equivalent event sets deterministically with explicit transition-history filtering, anti-backdating by proposal expiration, and invalid-event filtering. Focused gate verification is green across `src/lib/tests/unit/service-quote/protocol.test.ts`, `src/lib/tests/unit/service-quote/publish.test.ts`, `src/lib/tests/unit/service-quote/query.test.ts`, and `src/lib/tests/unit/service-quote/resolver.test.ts`.
+
 ### Phase 1.5: Shared Reuse Baseline (No Behavior Change, Owned by `S4-R1`)
 
 Current status (as of `2026-03-10`): **remaining**. Shared extraction targets are not yet created.
 
+`2026-03-12 update:` `src/lib/components/forms/FormValidationCore.ts` is now live as the next bounded Phase `1.5` extraction. `src/lib/components/service/RequestQuoteModal.svelte` and `src/lib/components/service/quotes/ServiceProposalComposer.svelte` now share the same pure required-text, required-inquiry-field, and date-range validation helpers while preserving their existing user-facing copy. Focused regression is green in `src/lib/tests/unit/components/forms/FormValidationCore.test.ts`, `src/lib/tests/components/service/RequestQuoteModal.test.ts`, and `src/lib/tests/components/service/ServiceQuotesProposalComposer.test.ts`.
+`2026-03-12 update:` `src/lib/components/forms/SchemaDrivenFieldRenderer.svelte` is now live as the next bounded Phase `1.5` extraction. `src/lib/components/service/RequestQuoteModal.svelte` now renders schema-defined inquiry fields through that shared renderer while preserving the existing field-type coverage (`text`, `textarea`, `number`, `select`, `checkbox`, `date`, `time`), submit payload shape, and inline validation messages. Focused regression is green in `src/lib/tests/unit/components/forms/schema-driven-field-renderer.test.ts` and `src/lib/tests/components/service/RequestQuoteModal.test.ts`.
+`2026-03-12 update:` `src/lib/utils/service-contract/context-presentation.ts` is now live as the next bounded Phase `1.5` extraction for shared contracts rendering. `src/lib/components/contracts/ContractContextSummary.svelte`, `src/lib/components/contracts/ContractCard.svelte`, `src/lib/components/contracts/ContractDrawer.svelte`, and `src/lib/components/contracts/TaskCompletionModal.svelte` now derive service/task titles, descriptions, summary labels, and service-completion copy through one pure helper without changing current contracts UX. Focused regression is green in `src/lib/tests/unit/service-contract/context-presentation.test.ts`.
+`2026-03-13 update:` `src/lib/components/shared/UsdSatsInput.svelte` is now live as the next bounded Phase `1.5` extraction for paired USD/sats authoring. `src/lib/components/task/steps/TaskBudget.svelte`, `src/lib/components/service/steps/ServicePricing.svelte`, and `src/lib/components/service/steps/ServiceTiers.svelte` now share one sanitization/conversion path for USD and sats entry while preserving their existing price-entry behavior. Focused regression is green in `src/lib/tests/components/shared/UsdSatsInput.test.ts`, `src/lib/tests/components/task/TaskBudget.shared-input.test.ts`, `src/lib/tests/components/service/ServicePricing.instant-buy.test.ts`, and `src/lib/tests/components/service/ServiceTiers.shared-input.test.ts`.
+`2026-03-13 update:` `src/lib/components/listing/ListingControls.svelte` is now live as the next bounded Phase `1.5` extraction for public listing controls. `src/lib/components/task/TaskListControls.svelte` is now a thin compatibility wrapper over the shared control strip, and `src/routes/services/+page.svelte` now consumes the shared listing component directly instead of depending on a task-named control. Focused regression is green in `src/lib/tests/components/listing/ListingControls.test.ts`, `src/lib/tests/unit/routes/tasks-page.component.test.ts`, and `npm run build`.
+`2026-03-13 update:` `src/lib/components/listing/UnifiedFilterDrawer.svelte` is now live as the next bounded Phase `1.5` extraction for public filter drawers. `src/lib/components/filters/FilterDrawer.svelte`, `src/lib/components/filters/TaskeeFilterDrawer.svelte`, and `src/lib/components/service/ServiceSearchFilters.svelte` now share the same drawer shell and apply/clear footer contract, and both task browse routes now mount the task filters through that shared component path directly. Focused regression is green in `src/lib/tests/components/listing/UnifiedFilterDrawer.test.ts`, `src/lib/tests/components/listing/ListingControls.test.ts`, `src/lib/tests/unit/routes/tasks-page.component.test.ts`, and `npm run build`.
+`2026-03-13 update:` `src/lib/components/listing/PublicListingLayoutShell.svelte` is now live as the next bounded Phase `1.5` extraction for the public browse layout frame. `src/routes/tasks/+layout.svelte` and `src/routes/services/+layout.svelte` now share the same sidebar/detail-route shell without changing their current route contracts. Focused regression is green in `src/lib/tests/components/listing/PublicListingLayoutShell.test.ts`, while the dependent homepage and service-detail browser slices remain green in `tests/e2e/homepage-featured-services.spec.ts`, `src/lib/tests/unit/routes/services-page.unit.test.ts`, and `tests/e2e/service-details-visual.spec.ts`, with `npm run build` still green after the extraction.
+`2026-03-13 update:` `src/lib/stores/factories/createDraftWizardStore.ts` is now live as the next bounded Phase `1.5` extraction for shared draft lifecycle + step navigation. `src/lib/stores/task.store.ts` and `src/lib/stores/service.store.ts` now delegate create/edit draft persistence, storage-key selection, autosave debounce, and bounded step navigation to that shared factory while preserving their existing public store APIs and task/service-specific mutations. Focused regression is green in `src/lib/tests/unit/stores/draft-wizard.factory.test.ts`, `src/lib/tests/unit/stores/task.store.test.ts`, `src/lib/tests/unit/stores/service.store.test.ts`, and `src/lib/tests/unit/routes/create-service.edit-conflict.unit.test.ts`, and `npm run build` remains green after the extraction.
+`2026-03-13 verification update:` the existing homepage/SEO discovery slices that depend on this shared browse layer remain green after the latest Phase `1.5` extraction. `tests/e2e/homepage-featured-services.spec.ts` passed on Chromium + Mobile Safari against the built app, and `src/lib/tests/unit/routes/services-page.unit.test.ts` plus `tests/e2e/service-details-visual.spec.ts` remain green for the service-detail metadata parity slice.
+
 Execution policy:
+
 1. This phase is owned by listing-plan work item `S4-R1`.
 2. It is a single bounded prerequisite track for the explicit shared extraction targets below.
 3. It must not be executed as a second parallel refactor epic outside `S4-R1`.
@@ -1406,7 +1438,7 @@ Gate criteria:
 
 ### Phase 2: Taskee Quote Processing
 
-Current status (as of `2026-03-10`): **partial**. Existing UI surfaces are present; quote submit/publish workflow remains.
+Current status (as of `2026-03-12`): **implemented for the provider quote runtime path**. Existing UI surfaces now publish canonical proposals, normalize the provider wallet, and default `freelancerFeeTier` to `1` until explicit tier selection exists. Broader repo-wide `check` / `lint` closure remains tracked separately from this runtime slice.
 
 Scope:
 
@@ -1463,6 +1495,7 @@ Gate criteria:
 ### Phase Boundary Guardrail (Before Phase `4B`)
 
 The following are forbidden before Phase `4B` gates pass:
+
 1. Emitting funded terminal `accepted` from tasker UI.
 2. Triggering accept-to-escrow side effects from quote timeline actions.
 3. Redirecting from tasker quotes to contracts via funded acceptance handoff.
@@ -1471,7 +1504,7 @@ The following are forbidden before Phase `4B` gates pass:
 
 ### Phase 4A: Contracts context exposure (no accept)
 
-Current status (as of `2026-03-10`): **partial**. Contracts panel exists; context-aware `All/Tasks/Services` behavior remains.
+Current status (as of `2026-03-12`): **implemented** for the shared contracts-surface runtime. Broader repo-wide/CI gate closure still tracks separately under the listing-plan `S4-T*` and `S4-CI1` items.
 
 Execution note: remaining Phase `4A` contracts-surface extraction and rendering work is executed under listing-plan owner `S4-AC1A`; treat Phase `4A` and `4B` gates as one concrete implementation track across `S4-AC1A`/`S4-AC1B`/`S4-AC1C`, not separate ownership tracks.
 
@@ -1503,11 +1536,31 @@ Gate criteria:
 7. Service-context contract confirmations/errors use service-aware copy across completion/cancel/dispute/refund/release actions.
 8. `npm run check` and `npm run lint` pass.
 
+`2026-03-12 update:` `src/lib/components/contracts/ContractContextSummary.svelte`, `src/lib/components/contracts/ContractDrawer.svelte`, `src/lib/components/contracts/TaskCompletionModal.svelte`, and `src/lib/stores/contract.store.ts` now provide one shared task/service summary path backed by immutable contract snapshot data. `src/lib/components/contracts/ContractActions.svelte` now routes task and service action layout through the extracted `ContractActionBar` plus per-action button primitives instead of duplicated inline task-biased button markup. `src/lib/components/contracts/DashboardContractsPanel.svelte` now treats unknown `contextType` values as read-only with a one-time warning and waits for one deterministic `loadContractByEscrowId(...)` recovery attempt before surfacing highlight-not-found handling. Focused component regression for the contracts slice is green across context filters/highlight recovery, shared action primitives, task/service action-label parity, service contract cards, and service completion copy.
+
 ### Phase 4B: Escrow acceptance + chain reconciliation
 
-Current status (as of `2026-03-10`): **remaining** for service proposals.
+Current status (as of `2026-03-13`): **implemented** for the negotiated service-proposal runtime baseline. Broader repo-wide/CI gate closure still tracks separately under the listing-plan `S4-T*` and `S4-CI1` items.
 
 Execution note: listing-plan implementation slices for this phase are `S4-AC1B` (service acceptance engine + reconciliation baseline) and `S4-AC1C` (funded service-contract UX/handoff baseline), building on `S4-AC1A` from Phase `4A`.
+
+`2026-03-12 update:` negotiated acceptance now runs through the shared `createServiceContract(...)` runtime helper, requester/provider quote rows expose deterministic `View Contract` continuity, and funded service escrows publish the final quote `accepted` status with `escrowId` after contract creation. Acceptance monitoring now classifies unresolved escrow outcomes into deterministic `accept_unknown` reason codes (`pending_timeout`, `tx_replaced`, `rpc_unavailable`, `nonce_conflict`, `reconciliation_deferred`), publishes the ambiguity status back onto the quote thread, and upgrades the local tasker timeline to `accepted` plus `linkedEscrowId` as soon as contract creation resolves. Focused helper/store/event coverage now pins timeout, replacement, RPC-outage, and nonce-conflict production branches that feed those ambiguity states. Tasker/provider quote surfaces now keep fetch failures local via explicit store-backed error state, render deterministic retry affordances without losing route context, and lock duplicate accept/decline interaction while actions are in flight. First-load quote surfaces now preserve explicit loading placeholders instead of falling through to empty-state copy, exact-focus invalidation waits until the initial tasker/provider load completes, and quote/proposal actions stay disabled with explicit in-context messaging while thread data is still syncing or errored. Provider quotes view is also no longer blocked by a hard-coded fee-tier prerequisite, so canonical proposal publishing stays reachable from the live inbox. Durable reorg reconciliation and broader wallet preflight remain open.
+`2026-03-12 update:` both quote review surfaces now reuse the shared service agreement summary contract before user action. `src/lib/components/dashboard/quotes/MyQuotesPanel.svelte` and `src/lib/components/service/quotes/ServiceQuotesInbox.svelte` now render selected/latest proposals through `src/lib/components/contracts/ServiceAgreementSummary.svelte`, adapted by the pure helper in `src/lib/utils/service-quote/agreement-summary.ts`, so tier/add-ons/inquiry answers/pricing/timing remain visible in-context for tasker review and provider follow-up without introducing a second proposal-summary structure. Focused regression is green in `src/lib/tests/components/dashboard/my-quotes-panel.test.ts`, `src/lib/tests/components/service/ServiceQuotesInbox.test.ts`, and `src/lib/tests/unit/service-quote/agreement-summary.test.ts`.
+`2026-03-12 update:` service-action notification parity coverage is now broader on the shared contracts surface. `src/lib/tests/integration/contracts/service-contract-notifications.integration.test.ts` pins exact `/dashboard?tab=contracts&context=services&highlight=<escrowId>` continuity for service completion, dispute, cancellation, resolution proposal, and proposal acceptance, and also proves push is suppressed when a representative service dispute action fails. Browser/E2E contracts coverage remains narrower than the full gate list, but the shared service-action notification path itself is now directly exercised beyond accept/timelock-only assertions.
+`2026-03-12 update:` browser/offline continuity is now broader for the live quote, instant-buy, and shared contract-action surfaces. `src/lib/utils/network-status.ts` now provides one shared browser connectivity signal reused by `src/lib/components/dashboard/quotes/MyQuotesPanel.svelte`, `src/lib/components/service/quotes/ServiceQuotesInbox.svelte`, `src/lib/components/service/ServiceDetailsView.svelte`, `src/lib/components/service/ServiceInstantBuyModal.svelte`, and `src/lib/components/contracts/ContractActions.svelte`, so quote actions fail closed while offline, service detail CTAs stay in-context with deterministic offline/reconnect messaging, an already-open instant-buy confirmation modal preserves the prepared review while disabling `Buy Now` until the browser reconnects, and shared contract actions now expose explicit offline/reconnect guidance while disabling state-changing buttons in place. Focused regression is green in `src/lib/tests/unit/utils/network-status.test.ts`, `src/lib/tests/components/dashboard/my-quotes-panel.test.ts`, `src/lib/tests/components/service/ServiceQuotesInbox.test.ts`, `src/lib/tests/components/service/ServiceInstantBuyModal.test.ts`, `src/lib/tests/components/service/ServiceDetailsView.instant-buy.test.ts`, and `src/lib/tests/components/contract/ContractActions.service-notification.test.ts`.
+`2026-03-12 update:` provider proposal authoring and contracts-panel continuity are now tighter at the live runtime boundary. `src/lib/utils/service-quote/provider-authoring.ts` is the shared provider prerequisite helper for proposal publishing, normalizing the freelancer wallet and defaulting `freelancerFeeTier` to `1` until explicit tier selection exists, while `src/lib/components/contracts/DashboardContractsPanel.svelte` now exposes deterministic offline/reconnect banners plus inline retry when contract loading fails and disables refresh/retry while the browser is offline. Focused regression is green in `src/lib/tests/unit/service-quote/provider-authoring.test.ts`, `src/lib/tests/unit/service-quote/service-quote-ui.store.test.ts`, `src/lib/tests/components/service/DashboardMyServicesPanel.active-contracts.test.ts`, and `src/lib/tests/components/contract/DashboardContractsPanel.context-filter.test.ts`, and the built-preview browser slice remains green in `tests/e2e/service-quotes-contracts.spec.ts` on Chromium and Mobile Safari.
+`2026-03-12 update:` provider stale-thread handling is now deterministic and fail-closed. `src/lib/stores/service-quote-ui.store.ts` now blocks proposal publishing when the selected inquiry thread is already expired or already linked to an active service contract, and `src/lib/components/service/quotes/ServiceQuotesInbox.svelte` now keeps those threads visible as read-only rows with explicit expired/contract-created follow-up copy instead of leaving the composer active. Focused regression is green in `src/lib/tests/unit/service-quote/service-quote-ui.store.test.ts` and `src/lib/tests/components/service/ServiceQuotesInbox.test.ts`.
+`2026-03-12 update:` funded quote acceptance now waits for post-receipt chain verification before publishing terminal `accepted`. `src/lib/utils/escrow/v1/escrow.ts` now verifies the resolved `escrowId` through `getEscrow` before delegating to `src/lib/utils/escrow/v1/escrowEvents.ts`; receipt/log success with mismatched or unavailable verification data now falls back to `accept_unknown` using the existing `rpc_unavailable` / `reconciliation_deferred` reason codes instead of emitting a false-positive funded accept. Focused regression is green in `src/lib/tests/unit/utils/escrow/escrow-create-ambiguity.test.ts`.
+`2026-03-12 update:` requester-side expired-row continuity is now deterministic. `src/lib/components/dashboard/quotes/MyQuotesPanel.svelte` uses the new pure helper `src/lib/utils/service-quote/reentry.ts` to send expired tasker rows back to `/services/[serviceId]` with prior valid tier/add-on context and a one-shot request-quote intent, while `src/lib/components/service/ServiceDetailsView.svelte` consumes that state, restores valid selections, reopens the request-quote entry point when the buyer is still authenticated and online, and clears the reentry params after consumption. Focused regression is green in `src/lib/tests/unit/service-quote/reentry.test.ts`, `src/lib/tests/components/dashboard/my-quotes-panel.test.ts`, and `src/lib/tests/components/service/ServiceDetailsView.instant-buy.test.ts`, and the preview browser slice is green in `tests/e2e/service-quotes-tasker.spec.ts` on Chromium and Mobile Safari.
+`2026-03-12 update:` highlighted service-contract recovery now exposes an explicit syncing state on the shared contracts surface. `src/lib/components/contracts/DashboardContractsPanel.svelte` now renders a non-blocking “opening highlighted contract” notice while the one deterministic `loadContractByEscrowId(...)` recovery attempt is still pending, and focused regression is green in `src/lib/tests/components/contract/DashboardContractsPanel.context-filter.test.ts`.
+`2026-03-12 update:` the shared contracts surface now has direct browser proof for funded service continuity instead of only route-level canonicalization. `src/routes/e2e/service-harness.html/+page.svelte` seeds a deterministic funded service-contract fixture with client/freelancer pubkeys, `tests/e2e/service-quotes-contracts.spec.ts` now verifies the real shared services-contract surface plus drawer agreement path in built preview on Chromium and Mobile Safari, and `src/lib/tests/components/contract/ContractDrawer.service-context.test.ts` directly covers immutable service-agreement rendering through the shared drawer.
+`2026-03-12 update:` the bounded crash-recovery replay worker from `8.7` is now partially live for the `failed_publish` branch. `src/lib/utils/service-quote/acceptance-ledger.ts` now persists a storage-backed replay ledger for deferred funded `accepted` publication, `src/lib/utils/escrow/v1/escrowEvents.ts` writes and clears replay entries alongside the existing in-memory pending-contract path, and `src/routes/(protected)/dashboard/+page.svelte` now retries due replay entries on dashboard startup plus the deterministic 30s retry cadence while still forcing one immediate retry when a user lands on the highlighted service-contract route. Focused regression is green in `src/lib/tests/unit/service-quote/acceptance-ledger.test.ts`, `src/lib/tests/unit/utils/escrow/escrowEvents.test.ts`, `src/lib/tests/unit/routes/dashboard.acceptance-replay.unit.test.ts`, and `src/lib/tests/unit/service-quote/resolver.test.ts`; the dev-mode contracts browser slice is green in `tests/e2e/service-quotes-contracts.spec.ts` on Chromium and Mobile Safari after raising the spec timeout to tolerate first-hit Vite compile latency. Full confirmed->unknown reorg downgrade handling still remains open.
+`2026-03-12 update:` the canonical resolver/runtime path now covers the bounded reorg/reconfirmation sequence instead of treating the first funded `accepted` as permanently terminal. `src/lib/utils/service-quote/protocol.ts` now admits `accepted -> accept_unknown -> accepted` on the same `transactionHash` / `escrowId` lineage, `src/lib/utils/service-quote/resolver.ts` resolves those later ambiguity events deterministically on the quote thread, and the shared helper in `src/lib/utils/service-contract/finality.ts` now enforces the Rootstock default `3`-confirmation threshold before `src/lib/utils/escrow/v1/escrow.ts` delegates to service contract creation/publishing. Focused regression is green in `src/lib/tests/unit/service-contract/finality.test.ts`, `src/lib/tests/unit/service-quote/protocol.test.ts`, `src/lib/tests/unit/service-quote/resolver.test.ts`, `src/lib/tests/unit/service-quote/reconciliation.test.ts`, `src/lib/tests/unit/service-quote/accept.test.ts`, and `src/lib/tests/unit/utils/escrow/escrow-create-ambiguity.test.ts`. `acceptanceSnapshot` parity and persistent post-success reorg monitoring still remain open.
+`2026-03-12 update:` `acceptanceSnapshot` parity is now live on the funded-accept runtime. `src/lib/utils/service-contract/acceptance-snapshot.ts` builds the canonical snapshot payload with `sourceTimestamp`, conversion identity, and active finality metadata; `src/lib/utils/service-contract/create.ts` stores it on pending service contracts; `src/lib/utils/escrow/v1/escrow.ts` upgrades it with the observed confirmation count before handing off to `src/lib/utils/escrow/v1/escrowEvents.ts`; and both the direct funded `accepted` publish and deferred replay publish now carry that same snapshot back onto the quote thread. `src/lib/utils/service-quote/acceptance-ledger.ts` now rejects persisted replay snapshots that do not match the required shape, and `src/lib/utils/service-quote/protocol.ts` plus `src/lib/utils/service-quote/publish.ts` now fail closed when a funded `accepted` status is missing verified escrow metadata or a valid snapshot, so snapshot-less `accepted` events are not publishable and are ignored by thread resolution. Focused regression is green in `src/lib/tests/unit/service-contract/acceptance-snapshot.test.ts`, `src/lib/tests/unit/service-contract/create.test.ts`, `src/lib/tests/unit/utils/escrow/escrowEvents.test.ts`, `src/lib/tests/unit/service-quote/protocol.test.ts`, `src/lib/tests/unit/service-quote/publish.test.ts`, `src/lib/tests/unit/service-quote/resolver.test.ts`, and `src/lib/tests/unit/utils/escrow/escrow-create-ambiguity.test.ts`. Persistent post-success reorg monitoring still remains open.
+`2026-03-13 update:` persistent post-success funded-accept monitoring is now live. `src/lib/utils/service-quote/acceptance-ledger.ts` now persists a second confirmed-monitor ledger for already-published funded accepts, `src/lib/utils/escrow/v1/escrowEvents.ts` writes that monitor state after both direct and replayed funded `accepted` publication and can revalidate it later by escrow id, `src/routes/(protected)/dashboard/+page.svelte` now runs the deterministic startup/30s worker across both deferred-publish replay and confirmed-monitor revalidation, and `src/lib/utils/escrow/v1/escrow.ts` now exposes the bounded revalidation helper that downgrades previously published funded accepts back to `accept_unknown` when confirmations or escrow invariants no longer hold. Focused regression is green in `src/lib/tests/unit/service-quote/acceptance-ledger.test.ts`, `src/lib/tests/unit/utils/escrow/escrowEvents.test.ts`, `src/lib/tests/unit/routes/dashboard.acceptance-replay.unit.test.ts`, and `src/lib/tests/unit/utils/escrow/escrow-create-ambiguity.test.ts`. Automatic reconfirm-after-downgrade follow-up still remains open.
+`2026-03-13 update:` the stale-data / partial-quorum UX branch is now partially live on the quote and contracts continuity surfaces. `src/lib/stores/service-quote-ui.store.ts` now marks tasker/provider quote data as `partial` when an exact focused request is still syncing but not yet query-visible and as `stale` when refresh fails after a successful read; `src/lib/components/dashboard/quotes/MyQuotesPanel.svelte` plus `src/lib/components/service/quotes/ServiceQuotesInbox.svelte` now surface deterministic partial/stale warnings while keeping state-changing quote actions disabled; and `src/lib/components/contracts/DashboardContractsPanel.svelte` now preserves cached service contracts with explicit stale-data copy and keeps refresh/retry disabled during highlight recovery. Focused regression is green in `src/lib/tests/unit/service-quote/service-quote-ui.store.test.ts`, `src/lib/tests/integration/service-quote/service-quote-ui.store.integration.test.ts`, `src/lib/tests/components/dashboard/MyQuotesPanel.test.ts`, `src/lib/tests/components/service/ServiceQuotesInbox.test.ts`, and `src/lib/tests/components/contract/DashboardContractsPanel.context-filter.test.ts`, and the dev-mode browser slice is green in `tests/e2e/service-ux-hardening.spec.ts` on Chromium after raising the spec timeout to tolerate first-hit Vite compile latency.
+`2026-03-13 update:` automatic reconfirm-after-downgrade follow-up is now live on that same confirmed-monitor path. `src/lib/utils/service-quote/acceptance-ledger.ts` now tracks the last published funded status for each monitored escrow, `src/lib/utils/escrow/v1/escrowEvents.ts` now republishs `accepted` when a previously downgraded service escrow later revalidates cleanly, and the existing dashboard startup/30s worker in `src/routes/(protected)/dashboard/+page.svelte` now drives both downgrade and reconfirm outcomes without introducing a second reconciliation loop. Focused regression is green in `src/lib/tests/unit/service-quote/acceptance-ledger.test.ts`, `src/lib/tests/unit/utils/escrow/escrowEvents.test.ts`, `src/lib/tests/unit/routes/dashboard.acceptance-replay.unit.test.ts`, and `src/lib/tests/unit/utils/escrow/escrow-create-ambiguity.test.ts`. The `S4-AC1B` acceptance-engine baseline is now implemented; remaining funded-contract UX work stays under `S4-AC1C`.
+`2026-03-13 update:` the funded-contract UX/handoff baseline is now implemented. `src/routes/e2e/service-harness.html/+page.svelte` now seeds a deterministic completable funded service contract and waits for the highlighted drawer to open before reporting ready, while `tests/e2e/service-quotes-contracts.spec.ts` now proves the real shared contracts surface can open the service-aware completion flow end to end: highlighted drawer continuity, quoted-service badge, agreement scope, `Mark Service Complete`, and the real completion modal copy/schedule path. The shared-contract component/integration assertions in `src/lib/tests/components/contract/TaskCompletionModal.service-context.test.ts`, `src/lib/tests/components/contract/ContractDrawer.service-context.test.ts`, and `src/lib/tests/integration/contracts/service-contract-notifications.integration.test.ts` are also green, so the Phase `4B` runtime baseline is now implemented and remaining work moves to broader `S4-T*` / `S4-CI1` coverage closure rather than missing contracts UX behavior.
 
 Scope:
 
@@ -1553,9 +1606,12 @@ Gate criteria:
 
 ### Phase 4C: Instant buy for eligible fixed/tiered services
 
-Current status (as of `2026-03-10`): **remaining**.
+Current status (as of `2026-03-12`): **implemented for the runtime path**.
 
 Execution note: listing-plan implementation slices for this phase are `S4-IB1A` (schema/authoring/eligibility), `S4-IB1B` (CTA/confirmation UX), and `S4-IB1C` (shared create/redirect/push handoff).
+
+`2026-03-11 update:` service detail pages now expose `Buy Now` alongside `Request Quote` for eligible listings, the confirmation modal is live, the final confirm path uses the shared `createServiceContract(...)` runtime helper, and latest-version revalidation now runs before modal open and again before create with stale listings failing closed in-context. Listing authoring round-trip is also wired through the create/edit service flow via the shared `instantBuyLeadHours` authoring helpers, including Nostr content serialization/parsing coverage for the new field. The instant-buy handoff now reaches the exact service-contract destination through `waitForContractCreationByTransactionHash(...)` when escrow confirmation resolves promptly, with pending-navigation + dashboard consumption preserving deterministic `highlight=<escrowId>` continuity when confirmation arrives later. Provider push uses the shared contract-created notification foundation, provider-side service management now exposes the deterministic `View Active Contracts` continuity shortcut backed by the shared active-contract selector/tie-breaker, and the tasker/provider quote panels now expose the matching load-error/retry/action-locking UX needed for the dashboard handoff states to stay in-context. Focused regression coverage now includes `ServiceDetailsView.instant-buy`, `await-contract-creation`, `pending-navigation`, the active-service-contract selector/panel shortcut, and the quote store/panel retry surfaces, and the focused Chromium browser slice at `tests/e2e/service-instant-buy.spec.ts` passes.
+`2026-03-12 update:` the remaining `S4-IB1B` confirmation-work gaps are now closed. Eligible fixed-price service detail pages explicitly keep `Buy Now` and `Request Quote` side-by-side, ineligible listings fall back to `Request Quote` only, tiered listings keep `Buy Now` disabled until a tier is selected, and the confirmation surface now reuses the shared `ServiceAgreementSummary` contract snapshot renderer rather than maintaining a second bespoke summary structure. The bounded wallet/preflight UX branch is also now live for instant buy: `src/lib/components/service/ServiceDetailsView.svelte` no longer duplicates wallet checks ahead of the shared contract-creation path, and `src/lib/utils/service-contract/preflight-feedback.ts` now feeds deterministic inline recovery guidance for `wallet_not_connected`, `wallet_not_ready`, `wrong_network`, `insufficient_funds`, and `preflight_failed` back through `ServiceInstantBuyModal.svelte` while keeping the confirmation surface open and retryable. Focused regression now also pins fixed/tiered/ineligible CTA behavior, shared confirmation rendering, structured preflight feedback, and stable retry identity across the instant-buy component slice.
 
 Scope:
 
@@ -1616,6 +1672,8 @@ Gate commands:
 - `npm run test:ci`
 - `CI=1 npx playwright test tests/e2e/service-quotes-*.spec.ts --project=chromium --workers=1 --retries=0 --reporter=line`
 - `CI=1 npx playwright test tests/e2e/service-quotes-*.spec.ts --project='Mobile Safari' --workers=1 --retries=0 --reporter=line`
+- `CI=1 npx playwright test tests/e2e/service-ux-hardening*.spec.ts --project=chromium --workers=1 --retries=0 --reporter=line`
+- `CI=1 npx playwright test tests/e2e/service-ux-hardening*.spec.ts --project='Mobile Safari' --workers=1 --retries=0 --reporter=line`
 - `CI=1 npx playwright test tests/e2e/service-instant-buy*.spec.ts --project=chromium --workers=1 --retries=0 --reporter=line`
 - `CI=1 npx playwright test tests/e2e/service-instant-buy*.spec.ts --project='Mobile Safari' --workers=1 --retries=0 --reporter=line`
 - `npm run test:unit -- --run src/lib/tests/unit/utils/escrow/escrowBid.test.ts`
@@ -1925,10 +1983,12 @@ Current implementation status: **partial**.
 4. `service-quote-e2e` job must execute:
    - `CI=1 npx playwright test tests/e2e/service-quotes-*.spec.ts --project=chromium --workers=1 --retries=0 --reporter=line`
    - `CI=1 npx playwright test tests/e2e/service-quotes-*.spec.ts --project='Mobile Safari' --workers=1 --retries=0 --reporter=line`
+   - `CI=1 npx playwright test tests/e2e/service-ux-hardening*.spec.ts --project=chromium --workers=1 --retries=0 --reporter=line`
+   - `CI=1 npx playwright test tests/e2e/service-ux-hardening*.spec.ts --project='Mobile Safari' --workers=1 --retries=0 --reporter=line`
    - when `S4-H1` is in scope, also execute `tests/e2e/homepage-featured-services*.spec.ts` for Chromium + Mobile Safari under the same required job
 5. CI must fail when any required phase-gate suite is missing, or when either required job is not configured as merge-required.
-6. Current `.gitlab-ci.yml` Playwright job is commented out in baseline; Phase 5 gate remains blocked until Playwright is enabled and required.
-7. When enabling Playwright in CI, run `npx playwright test ...` directly in CI jobs (do not use `npm run test:e2e`, which clears `CI` for child Playwright execution).
+6. `2026-03-12 update:` `.gitlab-ci.yml` now includes active `service-quote-gates` and `service-quote-e2e` jobs derived from the existing CI patterns, and `service-quote-e2e` runs service quotes, service UX hardening, instant-buy, and homepage featured-services suites for Chromium + Mobile Safari with `--retries=0`. The route-backed harness at `src/routes/e2e/service-harness.html/+page.svelte` is now the single owner for the browser slices after removing the old static harness, and the `service-quotes-contracts` plus `service-ux-hardening` slices are green in built preview mode on Chromium + Mobile Safari, including tasker/provider quote-route handoff into highlighted service contracts, pending-navigation handoff into highlighted service contracts, and fail-closed preservation when a contracts highlight already exists.
+7. Playwright CI commands must run `npx playwright test ...` directly in CI jobs (do not use `npm run test:e2e`, which clears `CI` for child Playwright execution).
 8. Add telemetry events:
    - `service_quote_invalid_event_dropped`
    - `service_quote_accept_race_blocked`
@@ -1937,9 +1997,10 @@ Current implementation status: **partial**.
    - `service_quote_publish_quorum_failed`
 9. Phase completion requires telemetry assertions for expected event emission.
 10. Telemetry assertion minimums per phase:
-   - at least 1 positive-path assertion (event emitted with required payload keys)
-   - at least 1 negative-path assertion (event emitted with error reason code)
-   - CI fails if telemetry assertion tests are missing for modified phase scope.
+
+- at least 1 positive-path assertion (event emitted with required payload keys)
+- at least 1 negative-path assertion (event emitted with error reason code)
+- CI fails if telemetry assertion tests are missing for modified phase scope.
 
 ---
 

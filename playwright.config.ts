@@ -6,8 +6,8 @@ import { defineConfig, devices } from '@playwright/test';
  * E2E config: where the app runs and where it calls the API
  *
  * - Local (CI not set): dev server (port 3000) for faster iteration.
- * - CI with build/ present (e.g. from pipeline artifact): preview only (port 4173), no second build.
- * - CI without build/ (e.g. local `CI=1 npm run test:e2e`): build + preview (port 4173).
+ * - Managed CI with pipeline build artifacts present: preview only (port 4173), no second build.
+ * - Local `CI=1` runs: build + preview (port 4173) unless preview artifact reuse is explicitly enabled.
  *
  * Set VITE_API_URL in the environment so the app can reach the backend (signup/onboarding, passkey).
  * See docs/testing/e2e-testing.md for required environment variables.
@@ -20,13 +20,33 @@ import { defineConfig, devices } from '@playwright/test';
  */
 const PREVIEW_PORT = 4173;
 const DEV_PORT = 3000;
-const PREVIEW_URL = `http://localhost:${PREVIEW_PORT}`;
+const PREVIEW_HOST = '127.0.0.1';
+const PREVIEW_URL = `http://${PREVIEW_HOST}:${PREVIEW_PORT}`;
 const DEV_URL = `http://localhost:${DEV_PORT}`;
+const PREVIEW_START_TIMEOUT_MS = 60 * 1000;
+const isManagedCi =
+	process.env.GITLAB_CI === 'true' ||
+	process.env.CI_SERVER === 'yes' ||
+	typeof process.env.CI_PIPELINE_ID === 'string';
+const allowPreviewArtifactReuse = process.env.PW_E2E_USE_PREVIEW_ARTIFACTS === 'true';
+const overrideBaseURL = process.env.PW_E2E_BASE_URL?.trim() || null;
+
+function hasPreviewArtifacts(cwd = process.cwd()) {
+	return (
+		existsSync(join(cwd, 'build/index.html')) &&
+		existsSync(join(cwd, '.svelte-kit/output/client')) &&
+		existsSync(join(cwd, '.svelte-kit/output/server/manifest.js'))
+	);
+}
 
 const useDevServer = !process.env.CI;
-/** In CI, if build/ already exists (pipeline artifact), run preview only to avoid a second build. */
-const previewOnly = !!process.env.CI && existsSync(join(process.cwd(), 'build'));
-const baseURL = useDevServer ? DEV_URL : PREVIEW_URL;
+/**
+ * Only reuse prebuilt preview artifacts when we are inside managed CI (for example GitLab)
+ * or when explicitly requested. Local `CI=1` runs should rebuild so they do not serve stale
+ * output from a previous frontend state.
+ */
+const previewOnly = (isManagedCi || allowPreviewArtifactReuse) && hasPreviewArtifacts();
+const baseURL = overrideBaseURL ?? (useDevServer ? DEV_URL : PREVIEW_URL);
 
 export default defineConfig({
 	testDir: './tests/e2e',
@@ -82,8 +102,10 @@ export default defineConfig({
 		// },
 	],
 
-	/* Local: dev server. CI with build/ present: preview only. CI without build/: build + preview. */
-	webServer: useDevServer
+	/* Local: dev server. Managed CI artifact reuse: preview only. Otherwise: build + preview. */
+	webServer: overrideBaseURL
+		? undefined
+		: useDevServer
 		? {
 				command: 'npm run dev',
 				url: DEV_URL,
@@ -96,20 +118,20 @@ export default defineConfig({
 			}
 		: previewOnly
 			? {
-					command: 'npm run preview',
+					command: `npm run preview -- --host ${PREVIEW_HOST} --port ${PREVIEW_PORT}`,
 					url: PREVIEW_URL,
 					reuseExistingServer: false,
-					timeout: 15 * 1000,
+					timeout: PREVIEW_START_TIMEOUT_MS,
 					env: {
 						VITE_E2E_TURNSTILE_BYPASS: 'true',
 						...process.env
 					}
 				}
 			: {
-					command: 'npm run build && npm run preview',
+					command: `npm run build && npm run preview -- --host ${PREVIEW_HOST} --port ${PREVIEW_PORT}`,
 					url: PREVIEW_URL,
 					reuseExistingServer: !process.env.CI,
-					timeout: 300 * 1000, // 5 min: build can be slow in CI
+					timeout: 600 * 1000, // 10 min: full SvelteKit preview build is slow in CI/local CI-shaped runs
 					env: {
 						VITE_E2E_TURNSTILE_BYPASS: 'true',
 						...process.env

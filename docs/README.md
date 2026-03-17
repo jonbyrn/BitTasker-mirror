@@ -38,6 +38,15 @@ Project documentation lives here. Long-term and canonical docs are in **`docs/`*
 | -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
 | [task-status.md](tasks/task-status.md) | Task status: ownership, lifecycle, call chains, stale display bug, resilience, contracts loading, debug visibility, reviewer checklist. |
 
+### Services (`docs/services/`)
+
+| Document                                      | Purpose                                                                                                                                              |
+| --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [README.md](services/README.md)               | **Services overview:** entry point for service-listing, quotes, instant-buy, and troubleshooting documentation.                                     |
+| [service-quotes.md](services/service-quotes.md) | Negotiated service flow: request, provider proposal, tasker review, quote deep links, and contracts handoff expectations.                           |
+| [instant-buy.md](services/instant-buy.md)     | Instant-buy eligibility, buyer flow, route expectations, and the fallback back to `Request Quote` when direct purchase is no longer available.     |
+| [troubleshooting.md](services/troubleshooting.md) | Recovery paths for wallet/preflight failures, offline and partial-data states, contracts handoff, and route normalization across service workflows. |
+
 ### Other (`docs/`)
 
 | Document                                                     | Purpose                                 |
