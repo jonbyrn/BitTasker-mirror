@@ -461,7 +461,6 @@ body {
 .app-shell__footer {
 	grid-area: footer;
 	min-height: 0;
-	padding-bottom: env(safe-area-inset-bottom, constant(safe-area-inset-bottom, 0px));
 	background-color: hsl(var(--p) / 0.95);
 }
 

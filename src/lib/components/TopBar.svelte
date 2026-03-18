@@ -257,7 +257,7 @@
 
 <!-- Main TopBar component: fixed content row height so left (logo/language) and right (icons/avatar) align on one line (iOS PWA) -->
 <div
-	class="navbar navbar-fixed-row bg-base-100/80 border-base-300 pt-safe sticky top-0 z-50 w-full border-b backdrop-blur-sm"
+	class="navbar navbar-fixed-row bg-base-100/80 border-base-300 pt-safe z-50 w-full border-b backdrop-blur-sm"
 	onclickcapture={handleTopNavTap}
 >
 	<!-- Navbar start -->
