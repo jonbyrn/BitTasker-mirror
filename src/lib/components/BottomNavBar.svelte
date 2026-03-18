@@ -908,11 +908,10 @@
 	/* Dock positioning - flex layout with safe area insets */
 	.dock {
 		display: flex;
-		/* Align to the top so the action zone stays within the first 64px */
-		align-items: flex-start;
+		/* Fixed iOS tab-bar action area thickness */
+		align-items: center;
 		justify-content: space-around;
-		/* Total dock height = base dock + home indicator safe-area */
-		height: calc(64px + env(safe-area-inset-bottom, constant(safe-area-inset-bottom, 0)));
+		height: 64px;
 		width: 100%;
 	}
 
