@@ -908,10 +908,11 @@
 	/* Dock positioning - flex layout with safe area insets */
 	.dock {
 		display: flex;
-		/* Fixed iOS tab-bar action area thickness */
-		align-items: center;
+		/* Visual thickness includes safe-area; content stays within the first 64px */
+		align-items: flex-start;
 		justify-content: space-around;
-		height: 64px;
+		/* Total dock height = action zone + safe-area */
+		height: calc(64px + env(safe-area-inset-bottom, constant(safe-area-inset-bottom, 0)));
 		width: 100%;
 	}
 
@@ -921,11 +922,12 @@
 		height: 64px;
 		min-height: 64px;
 		justify-content: center;
+		align-items: center;
 	}
 
 	/* Tight label spacing to avoid visual “float” */
 	.dock-label {
-		font-size: 0.7rem;
+		font-size: 0.65rem;
 		line-height: 1;
 		margin-top: 2px;
 	}
