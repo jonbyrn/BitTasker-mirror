@@ -1,172 +1,29 @@
-name = "bittasker-dev-worker"
-main = "workers-site/index.js"
-compatibility_date = "2025-10-07"
+name = "bittasker"
 pages_build_output_dir = "build"
-account_id = "0e47af3ee55b77b43b150879938ebbec"
-#account_id = "3fa48b084b262faa8a164ab089d702b6"
+compatibility_date = "2025-10-07"
 
 # ============================================
-# OBSERVABILITY CONFIGURATION
+# PREVIEW Environment (Pages equivalent of dev)
 # ============================================
-# Workers Logs: Automatically collects invocation logs, custom logs, errors, and uncaught exceptions
-# Available in Cloudflare Dashboard > Workers & Pages > Your Worker > Logs
-# 
-# head_sampling_rate: Percentage of requests to log (0.0 to 1.0)
-# - 1.0 = 100% of requests logged (recommended for dev/staging)
-# - 0.1 = 10% of requests logged (recommended for production to reduce costs)
-# - 0.01 = 1% of requests logged (for high-traffic production)
-[observability.logs]
-enabled = true
-head_sampling_rate = 1.0  # 100% sampling for dev/staging (full visibility)
+[env.preview]
+name = "preview"
 
-# ============================================
-# PERFORMANCE LIMITS
-# ============================================
-# CPU Time Limits:
-# - Free Plan: 10ms per request
-# - Paid Plan: 30s default, configurable up to 5 minutes (300,000ms)
-# - Wall-clock time (including network I/O) is unlimited
-# 
-# For static site serving, default limits are sufficient
-# Setting to 30 seconds (default for paid plan) - sufficient for static file serving
-# Increase only if doing compute-intensive operations
-# [limits]
-# cpu_ms = 30_000  # 30 seconds (default for paid plan)
-
-# ============================================
-# SITE CONFIGURATION
-# ============================================
-[site]
-bucket = "./build"
-
-# ============================================
-# DEV Environment (default)
-# ============================================
-# Worker: bittasker-dev-worker
-# Deploy with: npm run deploy:workers:dev or pipeline (deploy-development)
-# Route required so wrangler deploy works in CI (no workers.dev prompt).
-# Use zone_id (from Cloudflare Dashboard → bittasker.com → Overview → Zone ID) to avoid
-# "Could not find zone for bittasker.com" when the zone is in a different account or token lacks Zone read.
-[env.dev]
-name = "bittasker-dev-worker"
-workers_dev = false
-
-[env.dev.route]
-pattern = "worker.dev.bittasker.com/*"
-# Replace with your Zone ID: Cloudflare Dashboard → bittasker.com → Overview → Zone ID (right sidebar)
-zone_id = "2f577970e10b49266dbfc1ff6c5c8dc4"
-
-# Dev Observability: Full logging for debugging
-[env.dev.observability.logs]
-enabled = true
-head_sampling_rate = 1.0  # 100% - full visibility for dev
-
-[env.dev.vars]
-VITE_CLIENT_URL = "https://worker.dev.bittasker.com/"
+[env.preview.vars]
+VITE_CLIENT_URL = "https://preview.bittasker.pages.dev/"
 VITE_NOSTR_RELAY_URL = "wss://relay.bittasker.hedgehackers.finance"
 VITE_NOSTR_RELAY_NESTJS = "https://relay.bittasker.com"
 VITE_RSK_NETWORK = "mainnet"
 VITE_BSC_NETWORK = "mainnet"
 
 # ============================================
-# STAGING Environment
-# ============================================
-# Worker: bittasker-staging-worker
-# Deploy with: npm run deploy:workers or pipeline (deploy-staging)
-[env.staging]
-name = "staging"
-workers_dev = false
-
-[env.staging.route]
-pattern = "staging.bittasker.com/*"
-zone_id = "REPLACE_WITH_BITTASKER_ZONE_ID"
-
-# Staging Observability: Full logging for debugging
-[env.staging.observability.logs]
-enabled = true
-head_sampling_rate = 1.0  # 100% - full visibility for staging
-
-[env.staging.vars]
-VITE_CLIENT_URL = "https://staging.bittasker.com/"
-VITE_NOSTR_RELAY_URL = "wss://relay1.bittasker.com"
-VITE_NOSTR_RELAY_NESTJS = "https://relay2.bittasker.com"
-VITE_RSK_NETWORK = "mainnet"
-VITE_BSC_NETWORK = "mainnet"
-
-# ============================================
 # PRODUCTION Environment
 # ============================================
-# Worker: bittasker-prod-worker
-# Deploy with: npm run deploy:workers:production
 [env.production]
-name = "bittasker-prod-worker"
-workers_dev = false
-
-[env.production.route]
-pattern = "worker.prod.bittasker.com/*"
-zone_id = "REPLACE_WITH_BITTASKER_ZONE_ID"
-
-# Production Observability: Optimized sampling for cost efficiency
-# 10% sampling provides good coverage while managing costs
-# Adjust based on traffic volume and budget
-[env.production.observability.logs]
-enabled = true
-head_sampling_rate = 0.1  # 10% - balanced visibility and cost
+name = "production"
 
 [env.production.vars]
-VITE_CLIENT_URL = "https://worker.prod.bittasker.com/"
+VITE_CLIENT_URL = "https://bittasker.pages.dev/"
 VITE_NOSTR_RELAY_URL = "wss://relay1.bittasker.com"
 VITE_NOSTR_RELAY_NESTJS = "https://relay2.bittasker.com"
 VITE_RSK_NETWORK = "mainnet"
 VITE_BSC_NETWORK = "mainnet"
-
-# ============================================
-# METRICS & ANALYTICS
-# ============================================
-# Metrics are automatically collected and available in:
-# Cloudflare Dashboard > Workers & Pages > Your Worker > Metrics
-#
-# Available Metrics:
-# - Request success/error rates
-# - Invocation statuses (ok, exception, exceeded_cpu, etc.)
-# - Wall time per execution (elapsed time from start to completion)
-# - Subrequests (cached vs uncached responses from fetch() calls)
-# - CPU time per execution
-# - Error rates grouped by invocation status
-#
-# No additional configuration needed - metrics are collected automatically
-# Use the dashboard to view graphs, histograms, and version comparisons
-
-# ============================================
-# LOGPUSH CONFIGURATION (Optional)
-# ============================================
-# To send logs to external destinations (R2, S3, Datadog, etc.):
-# 1. Configure via Cloudflare Dashboard: Logpush > Create Logpush job
-# 2. Select "Workers trace events" dataset
-# 3. Choose destination (R2, S3, or supported logging provider)
-#
-# Or use Wrangler CLI:
-# wrangler logpush create --dataset=workers_trace_events --destination=<destination>
-#
-# Useful for:
-# - Long-term log retention
-# - Integration with external monitoring tools
-# - Compliance and audit requirements
-# - Custom log analysis pipelines
-
-# ============================================
-# TAIL WORKERS (Optional - Beta)
-# ============================================
-# Tail Workers allow custom filtering, sampling, and transformation of telemetry data
-# Available on Workers Paid and Enterprise tiers
-# 
-# To configure:
-# 1. Create a Worker to serve as the Tail Worker
-# 2. Add a tail() handler that processes producer Worker execution data
-# 3. Configure in wrangler.toml or via dashboard
-#
-# Useful for:
-# - Custom alerting logic
-# - Real-time log processing
-# - Sending filtered events to external systems
-# - Advanced analytics and debugging
