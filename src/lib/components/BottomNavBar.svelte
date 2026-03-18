@@ -102,16 +102,46 @@
 		const updateVar = () => {
 			const measured = Math.ceil(dockEl?.getBoundingClientRect().height ?? 0);
 			if (measured <= 0) return;
+			// Keep menu padding in sync with the real dock height.
 			document.documentElement.style.setProperty('--app-dock-height', `${measured}px`);
+		};
+
+		const updateVarRaf = () => {
+			// VisualViewport/keyboard transitions can be a bit racey on iOS.
+			// rAF ensures we write after layout has settled for the current frame.
+			if (typeof window !== 'undefined' && 'requestAnimationFrame' in window) {
+				window.requestAnimationFrame(() => updateVar());
+				return;
+			}
+			updateVar();
 		};
 
 		updateVar();
 		dockObserver = new ResizeObserver(() => updateVar());
 		dockObserver.observe(dockEl);
 
+		// Additional refresh triggers for iOS Safari (keyboard/orientation can affect visual viewport).
+		if (typeof window !== 'undefined') {
+			window.addEventListener('resize', updateVarRaf);
+			window.addEventListener('orientationchange', updateVarRaf);
+
+			// Safari iOS supports VisualViewport resize events during UI chrome changes.
+			if (window.visualViewport?.addEventListener) {
+				window.visualViewport.addEventListener('resize', updateVarRaf);
+			}
+		}
+
 		return () => {
 			dockObserver?.disconnect();
 			dockObserver = null;
+
+			if (typeof window !== 'undefined') {
+				window.removeEventListener('resize', updateVarRaf);
+				window.removeEventListener('orientationchange', updateVarRaf);
+				if (window.visualViewport?.removeEventListener) {
+					window.visualViewport.removeEventListener('resize', updateVarRaf);
+				}
+			}
 		};
 	});
 
@@ -239,18 +269,12 @@
 			aria-modal="true"
 			tabindex="-1"
 			class="bottom-nav-menu bg-base-100/80 border-base-300 w-full rounded-t-2xl border-t shadow-lg backdrop-blur-sm"
-			style="
-				/* Panel extends behind the dock so it appears to slide from behind it */
-				max-height: calc(52rem + var(--app-footer-height, var(--bottom-nav-height-safe)));
-				/* Reserve space for the dock, but don't include the safe-area padding */
-				padding-bottom: max(
-					0px,
-					calc(
-						var(--app-dock-height, var(--app-footer-height, var(--bottom-nav-height-safe))) - env(safe-area-inset-bottom, constant(safe-area-inset-bottom, 0px))
-					)
-				);
-				overflow: hidden;
-			"
+		style="
+			/* Keep menu behind dock, but avoid double safe-area gaps on iPhone */
+			max-height: 80vh;
+			padding-bottom: var(--app-dock-height, 80px);
+			overflow: hidden;
+		"
 			class:menu-expand={isMenuExpanding && !isMenuClosing}
 			class:menu-collapse={isMenuClosing || (!isMenuExpanding && !isMenuClosing)}
 		>
@@ -713,7 +737,7 @@
 	<!-- Dock is fixed at bottom of screen and animates in/out based on scroll -->
 	<div
 		bind:this={dockEl}
-		class="dock pb-safe touch-none bg-primary/95 border-base-300/70 z-80 border-t text-black backdrop-blur-sm"
+		class="dock touch-none bg-primary/95 border-base-300/70 z-80 border-t text-black backdrop-blur-sm"
 		onclickcapture={handleBottomNavTap}
 	>
 		<!-- Home -->
@@ -797,7 +821,7 @@
 {:else}
 	<div
 		bind:this={dockEl}
-		class="dock pb-safe touch-none bg-primary/95 border-base-300/70 z-80 border-t text-black backdrop-blur-sm"
+		class="dock touch-none bg-primary/95 border-base-300/70 z-80 border-t text-black backdrop-blur-sm"
 		onclickcapture={handleBottomNavTap}
 	>
 		<!-- Home -->
@@ -881,22 +905,31 @@
 {/if}
 
 <style>
-	.pb-safe {
-		padding-bottom: env(safe-area-inset-bottom, constant(safe-area-inset-bottom, 0));
-	}
-
 	/* Dock positioning - flex layout with safe area insets */
 	.dock {
 		display: flex;
-		/* Align towards bottom so labels/icons don't float with extra space beneath */
-		align-items: flex-end;
+		align-items: center;
 		justify-content: space-around;
-		padding: 0.35rem 0;
-		/* Keep safe-area reservation, but avoid large constant bottom padding */
-		padding-bottom: calc(0.15rem + env(safe-area-inset-bottom, constant(safe-area-inset-bottom, 0)));
-		min-height: 54px;
-		height: auto;
+		/* Total dock height = base dock + home indicator safe-area */
+		height: calc(64px + env(safe-area-inset-bottom, constant(safe-area-inset-bottom, 0)));
+		/* Reserve home-indicator space inside the dock */
+		padding: 0.5rem 0;
+		padding-bottom: env(safe-area-inset-bottom, constant(safe-area-inset-bottom, 0));
 		width: 100%;
+	}
+
+	/* Make items fill the dock height so they can be vertically centered */
+	.dock a,
+	.dock button {
+		height: 100%;
+		min-height: 0;
+		justify-content: center;
+	}
+
+	/* Tight label spacing to avoid visual “float” */
+	.dock-label {
+		line-height: 1;
+		margin-top: 1px;
 	}
 
 	/* Backdrop fade for seamless open/close */
@@ -911,15 +944,22 @@
 
 	/* Menu starts collapsed, expands upward using transform instead of max-height */
 	.bottom-nav-menu {
-		transform: translateY(100%);
-		transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+		/* Slightly overshoot when closed to fully hide any border/shadow on iOS Safari */
+		transform: translateY(110%);
+		transition: transform 0.4s cubic-bezier(0.3, 0, 0.2, 1);
 		will-change: transform;
+		-webkit-backface-visibility: hidden;
 	}
 	.menu-expand {
 		transform: translateY(0);
 	}
 	.menu-collapse {
-		transform: translateY(100%);
+		transform: translateY(110%);
+	}
+
+	/* Improve momentum scrolling on iOS */
+	.bottom-nav-scroll {
+		-webkit-overflow-scrolling: touch;
 	}
 
 	/* Simplified scrollbar styling - removed problematic scrollbar-color */
