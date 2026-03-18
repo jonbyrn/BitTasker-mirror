@@ -164,7 +164,11 @@
 			tabindex="-1"
 		>
 			<!-- Modal Header -->
-			<div class="card-body flex min-h-0 flex-col overflow-hidden">
+			<div
+				class="card-body flex min-h-0 flex-col {props.isScrollable
+					? 'overflow-y-auto'
+					: 'overflow-hidden'}"
+			>
 				{#if !props.hideHeader}
 					<div class="mb-4 flex items-center justify-between">
 						<span id="modal-title" class="card-title">{props.title}</span>
