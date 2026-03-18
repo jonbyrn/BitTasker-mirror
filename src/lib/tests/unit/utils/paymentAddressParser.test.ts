@@ -11,10 +11,7 @@ vi.mock('liquidjs-lib', () => ({
 	address: { toOutputScript: vi.fn() }
 }));
 
-import {
-	parsePaymentAddress,
-	AMBIGUOUS_EVM_ADDRESS_ERROR
-} from '$lib/utils/helpers/paymentAddressParser';
+import { parsePaymentAddress } from '$lib/utils/helpers/paymentAddressParser';
 
 describe('parsePaymentAddress', () => {
 	describe('Empty and invalid inputs', () => {
@@ -107,7 +104,7 @@ describe('parsePaymentAddress', () => {
 			expect(result.isValid).toBe(false);
 			expect(result.network).toBeNull();
 			expect(result.errorCode).toBe('ambiguous-evm-address');
-			expect(result.errorMessage).toBe(AMBIGUOUS_EVM_ADDRESS_ERROR);
+			expect(result.errorMessage).toBeUndefined();
 		});
 
 		it('should parse plain checksummed RSK addresses when the network is provable', () => {

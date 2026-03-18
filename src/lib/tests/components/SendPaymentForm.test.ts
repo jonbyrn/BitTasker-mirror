@@ -11,7 +11,6 @@ import {
 } from '$lib/stores/wallet.store';
 import cryptoPriceService from '$lib/api/services/crypto-price.service';
 import {
-	AMBIGUOUS_EVM_ADDRESS_ERROR,
 	parsePaymentAddress,
 	qualifyEvmPaymentAddress
 } from '$lib/utils/helpers/paymentAddressParser';
@@ -170,8 +169,6 @@ vi.mock('$lib/api/services/crypto-price.service', () => ({
 
 // Mock payment address parser (synchronous)
 vi.mock('$lib/utils/helpers/paymentAddressParser', () => ({
-	AMBIGUOUS_EVM_ADDRESS_ERROR:
-		'The network could not be detected safely from this address. Choose rBTC on Rootstock or USDT on BSC before paying.',
 	parsePaymentAddress: vi.fn().mockReturnValue({
 		isValid: true,
 		address: '0x1234567890123456789012345678901234567890',
@@ -333,8 +330,7 @@ describe('SendPaymentForm Component', () => {
 					network: null,
 					amount: null,
 					memo: null,
-					errorCode: 'ambiguous-evm-address',
-					errorMessage: AMBIGUOUS_EVM_ADDRESS_ERROR
+					errorCode: 'ambiguous-evm-address'
 				} as any)
 				.mockReturnValueOnce({
 					isValid: true,
@@ -357,13 +353,14 @@ describe('SendPaymentForm Component', () => {
 			fireEvent.input(addressInput, {
 				target: { value: '0x1234567890123456789012345678901234567890' }
 			});
-			await tick();
+				await tick();
 
-			await waitFor(() => {
-				expect(screen.getAllByText(/network could not be detected safely/i).length).toBeGreaterThan(
-					0
-				);
-			});
+				await waitFor(() => {
+					expect(screen.getByTestId('ambiguous-address-warning')).toBeInTheDocument();
+					expect(
+						screen.getAllByText(/choose the payment rail before continuing/i).length
+					).toBeGreaterThan(0);
+				});
 
 			const chooseBscButton = screen.getAllByRole('button', { name: /usdt on bsc/i })[0];
 			await fireEvent.click(chooseBscButton);
@@ -545,8 +542,7 @@ describe('SendPaymentForm Component', () => {
 					network: null,
 					amount: null,
 					memo: null,
-					errorCode: 'ambiguous-evm-address',
-					errorMessage: AMBIGUOUS_EVM_ADDRESS_ERROR
+					errorCode: 'ambiguous-evm-address'
 				} as any)
 				.mockReturnValueOnce({
 					isValid: true,
@@ -580,14 +576,15 @@ describe('SendPaymentForm Component', () => {
 			await fireEvent.click(screen.getByTestId('simulate-web-scan-ambiguous'));
 			await tick();
 
-			await waitFor(() => {
-				expect(parsePaymentAddress).toHaveBeenCalledWith(
-					'0x1234567890123456789012345678901234567890'
-				);
-				expect(screen.getAllByText(/network could not be detected safely/i).length).toBeGreaterThan(
-					0
-				);
-			});
+				await waitFor(() => {
+					expect(parsePaymentAddress).toHaveBeenCalledWith(
+						'0x1234567890123456789012345678901234567890'
+					);
+					expect(screen.getByTestId('ambiguous-address-warning')).toBeInTheDocument();
+					expect(
+						screen.getAllByText(/choose the payment rail before continuing/i).length
+					).toBeGreaterThan(0);
+				});
 
 			expect(preflightBSCDirectSend).not.toHaveBeenCalled();
 
@@ -1285,8 +1282,7 @@ describe('SendPaymentForm Component', () => {
 					network: null,
 					amount: null,
 					memo: null,
-					errorCode: 'ambiguous-evm-address',
-					errorMessage: AMBIGUOUS_EVM_ADDRESS_ERROR
+					errorCode: 'ambiguous-evm-address'
 				} as any)
 				.mockReturnValueOnce({
 					isValid: true,
@@ -1311,13 +1307,14 @@ describe('SendPaymentForm Component', () => {
 			fireEvent.input(addressInput, {
 				target: { value: '0x1234567890123456789012345678901234567890' }
 			});
-			await tick();
+				await tick();
 
-			await waitFor(() => {
-				expect(screen.getAllByText(/network could not be detected safely/i).length).toBeGreaterThan(
-					0
-				);
-			});
+				await waitFor(() => {
+					expect(screen.getByTestId('ambiguous-address-warning')).toBeInTheDocument();
+					expect(
+						screen.getAllByText(/choose the payment rail before continuing/i).length
+					).toBeGreaterThan(0);
+				});
 
 			// User has sats selected by default - now resolve to rBTC
 			// The unit should NOT change (should stay as sats)
@@ -1539,8 +1536,7 @@ describe('SendPaymentForm Component', () => {
 					network: null,
 					amount: null,
 					memo: null,
-					errorCode: 'ambiguous-evm-address',
-					errorMessage: AMBIGUOUS_EVM_ADDRESS_ERROR
+					errorCode: 'ambiguous-evm-address'
 				} as any)
 				.mockReturnValueOnce({
 					isValid: true,
@@ -1565,13 +1561,14 @@ describe('SendPaymentForm Component', () => {
 			fireEvent.input(addressInput, {
 				target: { value: '0x1234567890123456789012345678901234567890' }
 			});
-			await tick();
+				await tick();
 
-			await waitFor(() => {
-				expect(screen.getAllByText(/network could not be detected safely/i).length).toBeGreaterThan(
-					0
-				);
-			});
+				await waitFor(() => {
+					expect(screen.getByTestId('ambiguous-address-warning')).toBeInTheDocument();
+					expect(
+						screen.getAllByText(/choose the payment rail before continuing/i).length
+					).toBeGreaterThan(0);
+				});
 
 			// Now resolve to BSC - should switch to USD since sats is not supported
 			const chooseBscButton = screen.getAllByRole('button', { name: /usdt on bsc/i })[0];

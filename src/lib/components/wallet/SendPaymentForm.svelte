@@ -17,7 +17,6 @@
 	} from '$lib/stores/wallet.store';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import {
-		AMBIGUOUS_EVM_ADDRESS_ERROR,
 		parsePaymentAddress,
 		qualifyEvmPaymentAddress,
 		type ParsedPaymentAddress
@@ -752,7 +751,7 @@
 			source
 		};
 		resetParsedPaymentState();
-		parsedPayment.addressError = AMBIGUOUS_EVM_ADDRESS_ERROR;
+		parsedPayment.addressError = null;
 		formInput.addressInput = rawInput.trim();
 		uiState.activeTab = 'enter';
 		uiState.showConfirmation = false;
