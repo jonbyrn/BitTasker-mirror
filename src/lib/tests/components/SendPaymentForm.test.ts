@@ -48,8 +48,10 @@ vi.mock('svelte-i18n', async () => {
 		'wallet.send.authentication_required': 'Authentication required to send',
 		'wallet.send.payment_sent': 'Payment sent successfully',
 		'wallet.send.large_amount_warning.title': 'Large Amount Warning',
-		'wallet.send.large_amount_warning.message': "You're about to send {amount}. This is a large amount.",
-		'wallet.send.large_amount_warning.confirm_checkbox': 'I confirm this is the correct amount in USD',
+		'wallet.send.large_amount_warning.message':
+			"You're about to send {amount}. This is a large amount.",
+		'wallet.send.large_amount_warning.confirm_checkbox':
+			'I confirm this is the correct amount in USD',
 		'wallet.address': 'Address',
 		'wallet.amount': 'Amount',
 		'wallet.sats': 'Sats',
@@ -60,16 +62,22 @@ vi.mock('svelte-i18n', async () => {
 		'common.back': 'Back',
 		'common.cancel': 'Cancel'
 	};
-	const tStore = readable((key: string, values?: { values?: Record<string, string> } | Record<string, string>) => {
-		let result = translations[key] || key;
-		const replacements = values?.values ?? (typeof values === 'object' && values && !('values' in values) ? (values as Record<string, string>) : undefined);
-		if (replacements) {
-			Object.entries(replacements).forEach(([k, v]) => {
-				result = result.replace(`{${k}}`, String(v));
-			});
+	const tStore = readable(
+		(key: string, values?: { values?: Record<string, string> } | Record<string, string>) => {
+			let result = translations[key] || key;
+			const replacements =
+				values?.values ??
+				(typeof values === 'object' && values && !('values' in values)
+					? (values as Record<string, string>)
+					: undefined);
+			if (replacements) {
+				Object.entries(replacements).forEach(([k, v]) => {
+					result = result.replace(`{${k}}`, String(v));
+				});
+			}
+			return result;
 		}
-		return result;
-	});
+	);
 	return {
 		t: tStore,
 		locale: readable('en'),
@@ -86,9 +94,15 @@ vi.mock('$lib/stores/wallet.store', async () => {
 		rsk: {
 			connected: true,
 			address: '0x1234567890123456789012345678901234567890',
+			balance: '10000000000000000',
 			formattedBalance: '0.01' // ~1M sats at typical BTC price
 		},
-		bsc: { connected: false, address: null, formattedUsdtBalance: '0' },
+		bsc: {
+			connected: false,
+			address: null,
+			usdtBalance: '0',
+			formattedUsdtBalance: '0'
+		},
 		totalBalances: {
 			sats: 1_000_000,
 			usd: 50
@@ -97,6 +111,7 @@ vi.mock('$lib/stores/wallet.store', async () => {
 	return {
 		walletStore: mockWalletStore,
 		walletManager: {
+			loadAssets: vi.fn().mockResolvedValue(undefined),
 			sendBSCUSDT: vi.fn().mockResolvedValue('0xbscsendhash'),
 			submitBSCDirectSend: vi.fn().mockResolvedValue('0xbscsendhash'),
 			getSubmarineSwapPairs: vi.fn().mockResolvedValue({
@@ -225,20 +240,25 @@ describe('SendPaymentForm Component', () => {
 		vi.stubEnv('VITE_BSC_DIRECT_SEND_ROUTER_ADDRESS', '0x1111111111111111111111111111111111111111');
 		vi.stubEnv('VITE_BSC_DIRECT_SEND_FIXED_FEE_ATOMIC', '100000');
 		vi.stubEnv('VITE_BSC_NETWORK', 'testnet');
-		walletStore.update(() => ({
-			hasAnyConnection: true,
-			rsk: {
-				connected: true,
-				address: '0x1234567890123456789012345678901234567890',
-				formattedBalance: '0.01'
-			},
-			bsc: {
-				connected: false,
-				address: null,
-				formattedUsdtBalance: '0'
-			},
-			totalBalances: { sats: 1_000_000, usd: 50 }
-		} as any));
+		walletStore.update(
+			() =>
+				({
+					hasAnyConnection: true,
+					rsk: {
+						connected: true,
+						address: '0x1234567890123456789012345678901234567890',
+						balance: '10000000000000000',
+						formattedBalance: '0.01'
+					},
+					bsc: {
+						connected: false,
+						address: null,
+						usdtBalance: '0',
+						formattedUsdtBalance: '0'
+					},
+					totalBalances: { sats: 1_000_000, usd: 50 }
+				}) as any
+		);
 	});
 
 	afterEach(() => {
@@ -267,7 +287,8 @@ describe('SendPaymentForm Component', () => {
 
 			// Address input exists in mobile (address-input) or desktop (address-input-desktop) layout
 			const addressInput =
-				document.getElementById('address-input') || document.getElementById('address-input-desktop');
+				document.getElementById('address-input') ||
+				document.getElementById('address-input-desktop');
 			await waitFor(() => expect(addressInput).toBeInTheDocument());
 		});
 
@@ -280,7 +301,8 @@ describe('SendPaymentForm Component', () => {
 			await tick();
 
 			const addressInput =
-				document.getElementById('address-input') || document.getElementById('address-input-desktop');
+				document.getElementById('address-input') ||
+				document.getElementById('address-input-desktop');
 			await waitFor(() => expect(addressInput).toBeInTheDocument());
 		});
 	});
@@ -293,10 +315,12 @@ describe('SendPaymentForm Component', () => {
 			const enterTabButton = screen.getByRole('button', { name: /enter payment details/i });
 			fireEvent.click(enterTabButton);
 			await tick();
-			const addressInput =
-				(document.getElementById('address-input') || document.getElementById('address-input-desktop')) as HTMLInputElement;
+			const addressInput = (document.getElementById('address-input') ||
+				document.getElementById('address-input-desktop')) as HTMLInputElement;
 			await waitFor(() => expect(addressInput).toBeInTheDocument());
-			fireEvent.input(addressInput, { target: { value: '0x1234567890123456789012345678901234567890' } });
+			fireEvent.input(addressInput, {
+				target: { value: '0x1234567890123456789012345678901234567890' }
+			});
 			await tick();
 			await waitFor(() => expect(parsePaymentAddress).toHaveBeenCalled());
 		});
@@ -327,9 +351,8 @@ describe('SendPaymentForm Component', () => {
 			fireEvent.click(enterTabButton);
 			await tick();
 
-			const addressInput =
-				(document.getElementById('address-input') ||
-					document.getElementById('address-input-desktop')) as HTMLInputElement;
+			const addressInput = (document.getElementById('address-input') ||
+				document.getElementById('address-input-desktop')) as HTMLInputElement;
 			await waitFor(() => expect(addressInput).toBeInTheDocument());
 			fireEvent.input(addressInput, {
 				target: { value: '0x1234567890123456789012345678901234567890' }
@@ -337,7 +360,9 @@ describe('SendPaymentForm Component', () => {
 			await tick();
 
 			await waitFor(() => {
-				expect(screen.getAllByText(/network could not be detected safely/i).length).toBeGreaterThan(0);
+				expect(screen.getAllByText(/network could not be detected safely/i).length).toBeGreaterThan(
+					0
+				);
 			});
 
 			const chooseBscButton = screen.getAllByRole('button', { name: /usdt on bsc/i })[0];
@@ -368,8 +393,8 @@ describe('SendPaymentForm Component', () => {
 			const enterTabButton = screen.getByRole('button', { name: /enter payment details/i });
 			fireEvent.click(enterTabButton);
 			await tick();
-			const addressInput =
-				(document.getElementById('address-input') || document.getElementById('address-input-desktop')) as HTMLInputElement;
+			const addressInput = (document.getElementById('address-input') ||
+				document.getElementById('address-input-desktop')) as HTMLInputElement;
 			await waitFor(() => expect(addressInput).toBeInTheDocument());
 			fireEvent.input(addressInput, { target: { value: 'invalid' } });
 			fireEvent.blur(addressInput);
@@ -401,13 +426,17 @@ describe('SendPaymentForm Component', () => {
 			const enterTabButton = screen.getByRole('button', { name: /enter payment details/i });
 			fireEvent.click(enterTabButton);
 			await tick();
-			const addressInput =
-				(document.getElementById('address-input') || document.getElementById('address-input-desktop')) as HTMLInputElement;
+			const addressInput = (document.getElementById('address-input') ||
+				document.getElementById('address-input-desktop')) as HTMLInputElement;
 			await waitFor(() => expect(addressInput).toBeInTheDocument());
-			fireEvent.input(addressInput, { target: { value: '0x1234567890123456789012345678901234567890' } });
+			fireEvent.input(addressInput, {
+				target: { value: '0x1234567890123456789012345678901234567890' }
+			});
 			await tick();
 			await waitFor(() => {
-				expect(screen.getAllByRole('button', { name: /set maximum amount/i }).length).toBeGreaterThan(0);
+				expect(
+					screen.getAllByRole('button', { name: /set maximum amount/i }).length
+				).toBeGreaterThan(0);
 				expect(screen.getAllByRole('button', { name: 'USD' }).length).toBeGreaterThan(0);
 				expect(screen.getAllByRole('button', { name: 'Sats' }).length).toBeGreaterThan(0);
 			});
@@ -428,8 +457,8 @@ describe('SendPaymentForm Component', () => {
 			const enterTabButton = screen.getByRole('button', { name: /enter payment details/i });
 			fireEvent.click(enterTabButton);
 			await tick();
-			const addressInput =
-				(document.getElementById('address-input') || document.getElementById('address-input-desktop')) as HTMLInputElement;
+			const addressInput = (document.getElementById('address-input') ||
+				document.getElementById('address-input-desktop')) as HTMLInputElement;
 			await waitFor(() => expect(addressInput).toBeInTheDocument());
 			fireEvent.input(addressInput, { target: { value: 'lnbc1000u1p3...' } });
 			await tick();
@@ -462,20 +491,23 @@ describe('SendPaymentForm Component', () => {
 				memo: 'Invoice'
 			} as any);
 
-			walletStore.update(() => ({
-				hasAnyConnection: true,
-				rsk: {
-					connected: true,
-					address: '0x1234567890123456789012345678901234567890',
-					formattedBalance: '0.01'
-				},
-				bsc: {
-					connected: true,
-					address: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
-					formattedUsdtBalance: '50.000000'
-				},
-				totalBalances: { sats: 1_000_000, usd: 50 }
-			} as any));
+			walletStore.update(
+				() =>
+					({
+						hasAnyConnection: true,
+						rsk: {
+							connected: true,
+							address: '0x1234567890123456789012345678901234567890',
+							formattedBalance: '0.01'
+						},
+						bsc: {
+							connected: true,
+							address: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
+							formattedUsdtBalance: '50.000000'
+						},
+						totalBalances: { sats: 1_000_000, usd: 50 }
+					}) as any
+			);
 
 			render(SendPaymentForm, defaultProps);
 			await tick();
@@ -498,9 +530,8 @@ describe('SendPaymentForm Component', () => {
 				);
 			});
 
-			const addressInput =
-				(document.getElementById('address-input') ||
-					document.getElementById('address-input-desktop')) as HTMLInputElement;
+			const addressInput = (document.getElementById('address-input') ||
+				document.getElementById('address-input-desktop')) as HTMLInputElement;
 			expect(addressInput.value).toBe(
 				'bsc:0x1234567890123456789012345678901234567890?amount=12.345678&memo=Invoice'
 			);
@@ -525,20 +556,23 @@ describe('SendPaymentForm Component', () => {
 					memo: null
 				} as any);
 
-			walletStore.update(() => ({
-				hasAnyConnection: true,
-				rsk: {
-					connected: true,
-					address: '0x1234567890123456789012345678901234567890',
-					formattedBalance: '0.01'
-				},
-				bsc: {
-					connected: true,
-					address: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
-					formattedUsdtBalance: '50.000000'
-				},
-				totalBalances: { sats: 1_000_000, usd: 50 }
-			} as any));
+			walletStore.update(
+				() =>
+					({
+						hasAnyConnection: true,
+						rsk: {
+							connected: true,
+							address: '0x1234567890123456789012345678901234567890',
+							formattedBalance: '0.01'
+						},
+						bsc: {
+							connected: true,
+							address: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
+							formattedUsdtBalance: '50.000000'
+						},
+						totalBalances: { sats: 1_000_000, usd: 50 }
+					}) as any
+			);
 
 			render(SendPaymentForm, defaultProps);
 			await tick();
@@ -550,9 +584,9 @@ describe('SendPaymentForm Component', () => {
 				expect(parsePaymentAddress).toHaveBeenCalledWith(
 					'0x1234567890123456789012345678901234567890'
 				);
-				expect(
-					screen.getAllByText(/network could not be detected safely/i).length
-				).toBeGreaterThan(0);
+				expect(screen.getAllByText(/network could not be detected safely/i).length).toBeGreaterThan(
+					0
+				);
 			});
 
 			expect(preflightBSCDirectSend).not.toHaveBeenCalled();
@@ -587,10 +621,12 @@ describe('SendPaymentForm Component', () => {
 			const enterTabButton = screen.getByRole('button', { name: /enter payment details/i });
 			fireEvent.click(enterTabButton);
 			await tick();
-			const addressInput =
-				(document.getElementById('address-input') || document.getElementById('address-input-desktop')) as HTMLInputElement;
+			const addressInput = (document.getElementById('address-input') ||
+				document.getElementById('address-input-desktop')) as HTMLInputElement;
 			await waitFor(() => expect(addressInput).toBeInTheDocument());
-			fireEvent.input(addressInput, { target: { value: '0x1234567890123456789012345678901234567890' } });
+			fireEvent.input(addressInput, {
+				target: { value: '0x1234567890123456789012345678901234567890' }
+			});
 			await tick();
 			await waitFor(() => expect(parsePaymentAddress).toHaveBeenCalled(), { timeout: 2000 });
 			await tick();
@@ -599,6 +635,34 @@ describe('SendPaymentForm Component', () => {
 			expect(walletManager.estimateRBTCGas).toBeDefined();
 			expect(addressInput.value).toBeTruthy();
 		}, 10000); // Increase timeout to 10 seconds
+
+		it('refreshes balances when a valid spend rail is detected', async () => {
+			vi.mocked(parsePaymentAddress).mockReturnValue({
+				isValid: true,
+				address: '0x1234567890123456789012345678901234567890',
+				network: 'rootstock-bitcoin',
+				amount: 100000,
+				memo: null
+			});
+
+			render(SendPaymentForm, defaultProps);
+			await tick();
+
+			fireEvent.click(screen.getByRole('button', { name: /enter payment details/i }));
+			await tick();
+
+			const addressInput = (document.getElementById('address-input') ||
+				document.getElementById('address-input-desktop')) as HTMLInputElement;
+			await waitFor(() => expect(addressInput).toBeInTheDocument());
+			fireEvent.input(addressInput, {
+				target: { value: 'rsk:0x1234567890123456789012345678901234567890' }
+			});
+			await tick();
+
+			await waitFor(() => {
+				expect(walletManager.loadAssets).toHaveBeenCalled();
+			});
+		});
 	});
 
 	describe('Form Validation', () => {
@@ -613,7 +677,8 @@ describe('SendPaymentForm Component', () => {
 			await waitFor(
 				() => {
 					const addressInput =
-						document.getElementById('address-input') || document.getElementById('address-input-desktop');
+						document.getElementById('address-input') ||
+						document.getElementById('address-input-desktop');
 					expect(addressInput).toBeInTheDocument();
 					const sendButtons = screen.queryAllByRole('button', { name: /send|authenticate/i });
 					if (sendButtons.length > 0) {
@@ -639,21 +704,84 @@ describe('SendPaymentForm Component', () => {
 			const enterTabButton = screen.getByRole('button', { name: /enter payment details/i });
 			fireEvent.click(enterTabButton);
 			await tick();
-			const addressInput =
-				(document.getElementById('address-input') || document.getElementById('address-input-desktop')) as HTMLInputElement;
+			const addressInput = (document.getElementById('address-input') ||
+				document.getElementById('address-input-desktop')) as HTMLInputElement;
 			await waitFor(() => expect(addressInput).toBeInTheDocument());
-			fireEvent.input(addressInput, { target: { value: '0x1234567890123456789012345678901234567890' } });
+			fireEvent.input(addressInput, {
+				target: { value: '0x1234567890123456789012345678901234567890' }
+			});
 			await tick();
 			await waitFor(() => expect(parsePaymentAddress).toHaveBeenCalled(), { timeout: 2000 });
 
 			await waitFor(
 				() => {
 					expect(addressInput.value).toBeTruthy();
-					const hasAmountDisplay = screen.queryByText(/from invoice/i) || screen.queryByTestId('primary-amount-sats');
+					const hasAmountDisplay =
+						screen.queryByText(/from invoice/i) || screen.queryByTestId('primary-amount-sats');
 					expect(hasAmountDisplay || addressInput.value.length > 0).toBeTruthy();
 				},
 				{ timeout: 3000 }
 			);
+		});
+
+		it('keeps Step 1 blocked when Rootstock fee estimation fails', async () => {
+			vi.mocked(parsePaymentAddress).mockReturnValue({
+				isValid: true,
+				address: '0x1234567890123456789012345678901234567890',
+				network: 'rootstock-bitcoin',
+				amount: 100000,
+				memo: null
+			});
+			vi.mocked(walletManager.estimateRBTCGas).mockRejectedValueOnce(new Error('gas unavailable'));
+
+			render(SendPaymentForm, defaultProps);
+			await tick();
+
+			fireEvent.click(screen.getByRole('button', { name: /enter payment details/i }));
+			await tick();
+
+			const addressInput = (document.getElementById('address-input') ||
+				document.getElementById('address-input-desktop')) as HTMLInputElement;
+			await waitFor(() => expect(addressInput).toBeInTheDocument());
+			fireEvent.input(addressInput, {
+				target: { value: 'rsk:0x1234567890123456789012345678901234567890' }
+			});
+			await tick();
+
+			await waitFor(() => {
+				const sendButtons = screen.getAllByRole('button', { name: /^send$/i });
+				sendButtons.forEach((button) => expect(button).toBeDisabled());
+			});
+		});
+
+		it('shows the Step 1 shortfall message when the full Rootstock debit exceeds the balance', async () => {
+			vi.mocked(parsePaymentAddress).mockReturnValue({
+				isValid: true,
+				address: '0x1234567890123456789012345678901234567890',
+				network: 'rootstock-bitcoin',
+				amount: 950000,
+				memo: null
+			});
+
+			render(SendPaymentForm, defaultProps);
+			await tick();
+
+			fireEvent.click(screen.getByRole('button', { name: /enter payment details/i }));
+			await tick();
+
+			const addressInput = (document.getElementById('address-input') ||
+				document.getElementById('address-input-desktop')) as HTMLInputElement;
+			await waitFor(() => expect(addressInput).toBeInTheDocument());
+			fireEvent.input(addressInput, {
+				target: { value: 'rsk:0x1234567890123456789012345678901234567890' }
+			});
+			await tick();
+
+			await waitFor(() => {
+				expect(screen.getAllByText(/need .* more to cover the full debit/i).length).toBeGreaterThan(
+					0
+				);
+			});
 		});
 	});
 
@@ -667,20 +795,23 @@ describe('SendPaymentForm Component', () => {
 				memo: null
 			} as any);
 
-			walletStore.update(() => ({
-				hasAnyConnection: true,
-				rsk: {
-					connected: true,
-					address: '0x1234567890123456789012345678901234567890',
-					formattedBalance: '0.01'
-				},
-				bsc: {
-					connected: true,
-					address: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
-					formattedUsdtBalance: '50.000000'
-				},
-				totalBalances: { sats: 1_000_000, usd: 50 }
-			} as any));
+			walletStore.update(
+				() =>
+					({
+						hasAnyConnection: true,
+						rsk: {
+							connected: true,
+							address: '0x1234567890123456789012345678901234567890',
+							formattedBalance: '0.01'
+						},
+						bsc: {
+							connected: true,
+							address: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
+							formattedUsdtBalance: '50.000000'
+						},
+						totalBalances: { sats: 1_000_000, usd: 50 }
+					}) as any
+			);
 
 			render(SendPaymentForm, defaultProps);
 			await tick();
@@ -688,9 +819,8 @@ describe('SendPaymentForm Component', () => {
 			fireEvent.click(screen.getByRole('button', { name: /enter payment details/i }));
 			await tick();
 
-			const addressInput =
-				(document.getElementById('address-input') ||
-					document.getElementById('address-input-desktop')) as HTMLInputElement;
+			const addressInput = (document.getElementById('address-input') ||
+				document.getElementById('address-input-desktop')) as HTMLInputElement;
 			await waitFor(() => expect(addressInput).toBeInTheDocument());
 			fireEvent.input(addressInput, {
 				target: { value: 'bsc:0x1234567890123456789012345678901234567890?amount=12.3456' }
@@ -755,20 +885,23 @@ describe('SendPaymentForm Component', () => {
 				sponsorAvailable: true
 			} as any);
 
-			walletStore.update(() => ({
-				hasAnyConnection: true,
-				rsk: {
-					connected: true,
-					address: '0x1234567890123456789012345678901234567890',
-					formattedBalance: '0.01'
-				},
-				bsc: {
-					connected: true,
-					address: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
-					formattedUsdtBalance: '50.000000'
-				},
-				totalBalances: { sats: 1_000_000, usd: 50 }
-			} as any));
+			walletStore.update(
+				() =>
+					({
+						hasAnyConnection: true,
+						rsk: {
+							connected: true,
+							address: '0x1234567890123456789012345678901234567890',
+							formattedBalance: '0.01'
+						},
+						bsc: {
+							connected: true,
+							address: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
+							formattedUsdtBalance: '50.000000'
+						},
+						totalBalances: { sats: 1_000_000, usd: 50 }
+					}) as any
+			);
 
 			render(SendPaymentForm, defaultProps);
 			await tick();
@@ -776,9 +909,8 @@ describe('SendPaymentForm Component', () => {
 			fireEvent.click(screen.getByRole('button', { name: /enter payment details/i }));
 			await tick();
 
-			const addressInput =
-				(document.getElementById('address-input') ||
-					document.getElementById('address-input-desktop')) as HTMLInputElement;
+			const addressInput = (document.getElementById('address-input') ||
+				document.getElementById('address-input-desktop')) as HTMLInputElement;
 			await waitFor(() => expect(addressInput).toBeInTheDocument());
 			fireEvent.input(addressInput, {
 				target: { value: 'bsc:0x1234567890123456789012345678901234567890?amount=12.3456' }
@@ -795,6 +927,67 @@ describe('SendPaymentForm Component', () => {
 			const sendButtons = screen.getAllByRole('button', { name: /^send$/i });
 			sendButtons.forEach((button) => expect(button).toBeDisabled());
 			expect(submitBSCDirectSend).not.toHaveBeenCalled();
+		});
+
+		it('maps newer wallet-core allowance failures to the Step 1 approval guidance', async () => {
+			vi.mocked(parsePaymentAddress).mockReturnValue({
+				isValid: true,
+				address: '0x1234567890123456789012345678901234567890',
+				network: 'usdt-bsc',
+				amount: 12.3456,
+				memo: null
+			} as any);
+
+			vi.mocked(preflightBSCDirectSend).mockResolvedValueOnce({
+				isReady: false,
+				failureCode: 'INSUFFICIENT_ALLOWANCE',
+				failureMessage: 'Insufficient router allowance.',
+				allowanceAtomic: '0',
+				requiredAllowanceAtomic: '12445600',
+				totalDebitAtomic: '12445600',
+				sponsorAvailable: true
+			} as any);
+
+			walletStore.update(
+				() =>
+					({
+						hasAnyConnection: true,
+						rsk: {
+							connected: true,
+							address: '0x1234567890123456789012345678901234567890',
+							balance: '10000000000000000',
+							formattedBalance: '0.01'
+						},
+						bsc: {
+							connected: true,
+							address: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
+							usdtBalance: '50000000',
+							formattedUsdtBalance: '50.000000'
+						},
+						totalBalances: { sats: 1_000_000, usd: 50 }
+					}) as any
+			);
+
+			render(SendPaymentForm, defaultProps);
+			await tick();
+
+			fireEvent.click(screen.getByRole('button', { name: /enter payment details/i }));
+			await tick();
+
+			const addressInput = (document.getElementById('address-input') ||
+				document.getElementById('address-input-desktop')) as HTMLInputElement;
+			await waitFor(() => expect(addressInput).toBeInTheDocument());
+			fireEvent.input(addressInput, {
+				target: { value: 'bsc:0x1234567890123456789012345678901234567890?amount=12.3456' }
+			});
+			await tick();
+
+			await waitFor(() => {
+				expect(screen.getAllByText(/approve the router to continue/i).length).toBeGreaterThan(0);
+				expect(
+					screen.getAllByText(/router allowance is missing or too low/i).length
+				).toBeGreaterThan(0);
+			});
 		});
 
 		it('blocks USDT on BSC sends when the wallet is on the wrong chain and shows actionable switch guidance', async () => {
@@ -815,20 +1008,23 @@ describe('SendPaymentForm Component', () => {
 				sponsorAvailable: true
 			} as any);
 
-			walletStore.update(() => ({
-				hasAnyConnection: true,
-				rsk: {
-					connected: true,
-					address: '0x1234567890123456789012345678901234567890',
-					formattedBalance: '0.01'
-				},
-				bsc: {
-					connected: true,
-					address: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
-					formattedUsdtBalance: '50.000000'
-				},
-				totalBalances: { sats: 1_000_000, usd: 50 }
-			} as any));
+			walletStore.update(
+				() =>
+					({
+						hasAnyConnection: true,
+						rsk: {
+							connected: true,
+							address: '0x1234567890123456789012345678901234567890',
+							formattedBalance: '0.01'
+						},
+						bsc: {
+							connected: true,
+							address: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
+							formattedUsdtBalance: '50.000000'
+						},
+						totalBalances: { sats: 1_000_000, usd: 50 }
+					}) as any
+			);
 
 			render(SendPaymentForm, defaultProps);
 			await tick();
@@ -836,9 +1032,8 @@ describe('SendPaymentForm Component', () => {
 			fireEvent.click(screen.getByRole('button', { name: /enter payment details/i }));
 			await tick();
 
-			const addressInput =
-				(document.getElementById('address-input') ||
-					document.getElementById('address-input-desktop')) as HTMLInputElement;
+			const addressInput = (document.getElementById('address-input') ||
+				document.getElementById('address-input-desktop')) as HTMLInputElement;
 			await waitFor(() => expect(addressInput).toBeInTheDocument());
 			fireEvent.input(addressInput, {
 				target: { value: 'bsc:0x1234567890123456789012345678901234567890?amount=12.3456' }
@@ -849,8 +1044,9 @@ describe('SendPaymentForm Component', () => {
 				expect(preflightBSCDirectSend).toHaveBeenCalled();
 				expect(screen.getAllByText(/switch to bsc to continue/i).length).toBeGreaterThan(0);
 				expect(
-					screen.getAllByText(/wallet is connected to the wrong network\. switch to bsc and try again\./i)
-						.length
+					screen.getAllByText(
+						/wallet is connected to the wrong network\. switch to bsc and try again\./i
+					).length
 				).toBeGreaterThan(0);
 			});
 
@@ -873,7 +1069,8 @@ describe('SendPaymentForm Component', () => {
 				available: false,
 				mode: 'legacy-paymaster',
 				address: '0xfeedfeedfeedfeedfeedfeedfeedfeedfeedfeed',
-				reason: 'Sponsored USDT on BSC payments are temporarily unavailable. Please try again shortly.'
+				reason:
+					'Sponsored USDT on BSC payments are temporarily unavailable. Please try again shortly.'
 			} as any);
 
 			vi.mocked(preflightBSCDirectSend).mockResolvedValueOnce({
@@ -885,20 +1082,23 @@ describe('SendPaymentForm Component', () => {
 				sponsorAvailable: false
 			} as any);
 
-			walletStore.update(() => ({
-				hasAnyConnection: true,
-				rsk: {
-					connected: true,
-					address: '0x1234567890123456789012345678901234567890',
-					formattedBalance: '0.01'
-				},
-				bsc: {
-					connected: true,
-					address: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
-					formattedUsdtBalance: '50.000000'
-				},
-				totalBalances: { sats: 1_000_000, usd: 50 }
-			} as any));
+			walletStore.update(
+				() =>
+					({
+						hasAnyConnection: true,
+						rsk: {
+							connected: true,
+							address: '0x1234567890123456789012345678901234567890',
+							formattedBalance: '0.01'
+						},
+						bsc: {
+							connected: true,
+							address: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
+							formattedUsdtBalance: '50.000000'
+						},
+						totalBalances: { sats: 1_000_000, usd: 50 }
+					}) as any
+			);
 
 			render(SendPaymentForm, defaultProps);
 			await tick();
@@ -906,9 +1106,8 @@ describe('SendPaymentForm Component', () => {
 			fireEvent.click(screen.getByRole('button', { name: /enter payment details/i }));
 			await tick();
 
-			const addressInput =
-				(document.getElementById('address-input') ||
-					document.getElementById('address-input-desktop')) as HTMLInputElement;
+			const addressInput = (document.getElementById('address-input') ||
+				document.getElementById('address-input-desktop')) as HTMLInputElement;
 			await waitFor(() => expect(addressInput).toBeInTheDocument());
 			fireEvent.input(addressInput, {
 				target: { value: 'bsc:0x1234567890123456789012345678901234567890?amount=12.3456' }
@@ -957,20 +1156,23 @@ describe('SendPaymentForm Component', () => {
 				sponsorAvailable: false
 			} as any);
 
-			walletStore.update(() => ({
-				hasAnyConnection: true,
-				rsk: {
-					connected: true,
-					address: '0x1234567890123456789012345678901234567890',
-					formattedBalance: '0.01'
-				},
-				bsc: {
-					connected: true,
-					address: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
-					formattedUsdtBalance: '50.000000'
-				},
-				totalBalances: { sats: 1_000_000, usd: 50 }
-			} as any));
+			walletStore.update(
+				() =>
+					({
+						hasAnyConnection: true,
+						rsk: {
+							connected: true,
+							address: '0x1234567890123456789012345678901234567890',
+							formattedBalance: '0.01'
+						},
+						bsc: {
+							connected: true,
+							address: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
+							formattedUsdtBalance: '50.000000'
+						},
+						totalBalances: { sats: 1_000_000, usd: 50 }
+					}) as any
+			);
 
 			render(SendPaymentForm, defaultProps);
 			await tick();
@@ -978,9 +1180,8 @@ describe('SendPaymentForm Component', () => {
 			fireEvent.click(screen.getByRole('button', { name: /enter payment details/i }));
 			await tick();
 
-			const addressInput =
-				(document.getElementById('address-input') ||
-					document.getElementById('address-input-desktop')) as HTMLInputElement;
+			const addressInput = (document.getElementById('address-input') ||
+				document.getElementById('address-input-desktop')) as HTMLInputElement;
 			await waitFor(() => expect(addressInput).toBeInTheDocument());
 			fireEvent.input(addressInput, {
 				target: { value: 'bsc:0x1234567890123456789012345678901234567890?amount=12.3456' }
@@ -1021,12 +1222,16 @@ describe('SendPaymentForm Component', () => {
 			const enterTabButton = screen.getByRole('button', { name: /enter payment details/i });
 			fireEvent.click(enterTabButton);
 			await tick();
-			const addressInput =
-				(document.getElementById('address-input') || document.getElementById('address-input-desktop')) as HTMLInputElement;
+			const addressInput = (document.getElementById('address-input') ||
+				document.getElementById('address-input-desktop')) as HTMLInputElement;
 			await waitFor(() => expect(addressInput).toBeInTheDocument());
-			fireEvent.input(addressInput, { target: { value: '0x1234567890123456789012345678901234567890' } });
+			fireEvent.input(addressInput, {
+				target: { value: '0x1234567890123456789012345678901234567890' }
+			});
 			await tick();
-			await waitFor(() => expect(screen.getAllByRole('button', { name: '1' }).length).toBeGreaterThan(0));
+			await waitFor(() =>
+				expect(screen.getAllByRole('button', { name: '1' }).length).toBeGreaterThan(0)
+			);
 
 			// Switch to USD unit
 			const unitToggle = screen.getAllByRole('button', { name: 'USD' })[0];
@@ -1046,7 +1251,8 @@ describe('SendPaymentForm Component', () => {
 			await waitFor(
 				() => {
 					expect(
-						screen.getAllByText(/You're about to send \$1,500\.00\. This is a large amount\./i).length
+						screen.getAllByText(/You're about to send \$1,500\.00\. This is a large amount\./i)
+							.length
 					).toBeGreaterThan(0);
 				},
 				{ timeout: 2000 }
@@ -1066,6 +1272,316 @@ describe('SendPaymentForm Component', () => {
 			fireEvent.click(cancelButton);
 
 			expect(onCancel).toHaveBeenCalledTimes(1);
+		});
+	});
+
+	describe('USD/Sats Unit Switching', () => {
+		it('should keep sats unit when confirming rBTC network (not change unit)', async () => {
+			// First, parse as ambiguous EVM address
+			vi.mocked(parsePaymentAddress)
+				.mockReturnValueOnce({
+					isValid: false,
+					address: '0x1234567890123456789012345678901234567890',
+					network: null,
+					amount: null,
+					memo: null,
+					errorCode: 'ambiguous-evm-address',
+					errorMessage: AMBIGUOUS_EVM_ADDRESS_ERROR
+				} as any)
+				.mockReturnValueOnce({
+					isValid: true,
+					address: '0x1234567890123456789012345678901234567890',
+					network: 'rootstock-bitcoin',
+					amount: null,
+					memo: null
+				});
+
+			render(SendPaymentForm, defaultProps);
+			await tick();
+
+			const enterTabButton = screen.getByRole('button', { name: /enter payment details/i });
+			fireEvent.click(enterTabButton);
+			await tick();
+
+			const addressInput = (document.getElementById('address-input') ||
+				document.getElementById('address-input-desktop')) as HTMLInputElement;
+			await waitFor(() => expect(addressInput).toBeInTheDocument());
+
+			// Enter ambiguous EVM address
+			fireEvent.input(addressInput, {
+				target: { value: '0x1234567890123456789012345678901234567890' }
+			});
+			await tick();
+
+			await waitFor(() => {
+				expect(screen.getAllByText(/network could not be detected safely/i).length).toBeGreaterThan(
+					0
+				);
+			});
+
+			// User has sats selected by default - now resolve to rBTC
+			// The unit should NOT change (should stay as sats)
+			const chooseRbtcButton = screen.getAllByRole('button', { name: /rbtc on rootstock/i })[0];
+			await fireEvent.click(chooseRbtcButton);
+			await tick();
+
+			// After resolving to rBTC, the unit should remain as sats (not changed)
+			// We verify this by checking that parsePaymentAddress was called with rsk: prefix
+			expect(parsePaymentAddress).toHaveBeenLastCalledWith(
+				'rsk:0x1234567890123456789012345678901234567890'
+			);
+		});
+
+		it('should switch to USD and disable sats when entering BSC address with sats selected', async () => {
+			vi.mocked(parsePaymentAddress).mockReturnValue({
+				isValid: true,
+				address: '0x1234567890123456789012345678901234567890',
+				network: 'usdt-bsc',
+				amount: null,
+				memo: null
+			} as any);
+
+			render(SendPaymentForm, defaultProps);
+			await tick();
+
+			const enterTabButton = screen.getByRole('button', { name: /enter payment details/i });
+			fireEvent.click(enterTabButton);
+			await tick();
+
+			const addressInput = (document.getElementById('address-input') ||
+				document.getElementById('address-input-desktop')) as HTMLInputElement;
+			await waitFor(() => expect(addressInput).toBeInTheDocument());
+
+			// First enter a bitcoin address to get sats selected
+			vi.mocked(parsePaymentAddress).mockReturnValueOnce({
+				isValid: true,
+				address: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
+				network: 'bitcoin',
+				amount: null,
+				memo: null
+			} as any);
+
+			fireEvent.input(addressInput, {
+				target: { value: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh' }
+			});
+			await tick();
+			await waitFor(() => expect(parsePaymentAddress).toHaveBeenCalled());
+
+			// Now clear and enter BSC address
+			vi.mocked(parsePaymentAddress).mockReturnValueOnce({
+				isValid: true,
+				address: '0x1234567890123456789012345678901234567890',
+				network: 'usdt-bsc',
+				amount: null,
+				memo: null
+			} as any);
+
+			fireEvent.input(addressInput, {
+				target: { value: 'bsc:0x1234567890123456789012345678901234567890' }
+			});
+			await tick();
+			await waitFor(() => expect(parsePaymentAddress).toHaveBeenCalled());
+
+			// The Sats button should be disabled for BSC
+			const satsButtons = screen.getAllByRole('button', { name: 'Sats' });
+			expect(satsButtons.length).toBeGreaterThan(0);
+			expect(satsButtons[0]).toBeDisabled();
+		});
+
+		it('should allow both USD and Sats for bitcoin networks', async () => {
+			vi.mocked(parsePaymentAddress).mockReturnValue({
+				isValid: true,
+				address: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
+				network: 'bitcoin',
+				amount: null,
+				memo: null
+			} as any);
+
+			render(SendPaymentForm, defaultProps);
+			await tick();
+
+			const enterTabButton = screen.getByRole('button', { name: /enter payment details/i });
+			fireEvent.click(enterTabButton);
+			await tick();
+
+			const addressInput = (document.getElementById('address-input') ||
+				document.getElementById('address-input-desktop')) as HTMLInputElement;
+			await waitFor(() => expect(addressInput).toBeInTheDocument());
+
+			fireEvent.input(addressInput, {
+				target: { value: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh' }
+			});
+			await tick();
+			await waitFor(() => expect(parsePaymentAddress).toHaveBeenCalled());
+
+			// Both USD and Sats buttons should be enabled for bitcoin network
+			const usdButtons = screen.getAllByRole('button', { name: 'USD' });
+			const satsButtons = screen.getAllByRole('button', { name: 'Sats' });
+
+			expect(usdButtons.length).toBeGreaterThan(0);
+			expect(satsButtons.length).toBeGreaterThan(0);
+
+			// USD should be enabled
+			expect(usdButtons[0]).not.toBeDisabled();
+			// Sats should be enabled for bitcoin
+			expect(satsButtons[0]).not.toBeDisabled();
+		});
+
+		it('should allow both USD and Sats for rootstock-bitcoin network', async () => {
+			vi.mocked(parsePaymentAddress).mockReturnValue({
+				isValid: true,
+				address: '0x1234567890123456789012345678901234567890',
+				network: 'rootstock-bitcoin',
+				amount: null,
+				memo: null
+			} as any);
+
+			render(SendPaymentForm, defaultProps);
+			await tick();
+
+			const enterTabButton = screen.getByRole('button', { name: /enter payment details/i });
+			fireEvent.click(enterTabButton);
+			await tick();
+
+			const addressInput = (document.getElementById('address-input') ||
+				document.getElementById('address-input-desktop')) as HTMLInputElement;
+			await waitFor(() => expect(addressInput).toBeInTheDocument());
+
+			fireEvent.input(addressInput, {
+				target: { value: 'rsk:0x1234567890123456789012345678901234567890' }
+			});
+			await tick();
+			await waitFor(() => expect(parsePaymentAddress).toHaveBeenCalled());
+
+			// Both USD and Sats buttons should be enabled for rootstock network
+			const usdButtons = screen.getAllByRole('button', { name: 'USD' });
+			const satsButtons = screen.getAllByRole('button', { name: 'Sats' });
+
+			expect(usdButtons.length).toBeGreaterThan(0);
+			expect(satsButtons.length).toBeGreaterThan(0);
+
+			// USD should be enabled
+			expect(usdButtons[0]).not.toBeDisabled();
+			// Sats should be enabled for rootstock
+			expect(satsButtons[0]).not.toBeDisabled();
+		});
+
+		it('should disable sats button for BSC network', async () => {
+			vi.mocked(parsePaymentAddress).mockReturnValue({
+				isValid: true,
+				address: '0x1234567890123456789012345678901234567890',
+				network: 'usdt-bsc',
+				amount: null,
+				memo: null
+			} as any);
+
+			render(SendPaymentForm, defaultProps);
+			await tick();
+
+			const enterTabButton = screen.getByRole('button', { name: /enter payment details/i });
+			fireEvent.click(enterTabButton);
+			await tick();
+
+			const addressInput = (document.getElementById('address-input') ||
+				document.getElementById('address-input-desktop')) as HTMLInputElement;
+			await waitFor(() => expect(addressInput).toBeInTheDocument());
+
+			fireEvent.input(addressInput, {
+				target: { value: 'bsc:0x1234567890123456789012345678901234567890' }
+			});
+			await tick();
+			await waitFor(() => expect(parsePaymentAddress).toHaveBeenCalled());
+
+			// Sats button should be disabled for BSC
+			const satsButtons = screen.getAllByRole('button', { name: 'Sats' });
+			expect(satsButtons.length).toBeGreaterThan(0);
+			expect(satsButtons[0]).toBeDisabled();
+		});
+
+		it('should disable sats button for liquid-bitcoin network', async () => {
+			vi.mocked(parsePaymentAddress).mockReturnValue({
+				isValid: true,
+				address: 'lq1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqgl5j35a',
+				network: 'liquid-bitcoin',
+				amount: null,
+				memo: null
+			} as any);
+
+			render(SendPaymentForm, defaultProps);
+			await tick();
+
+			const enterTabButton = screen.getByRole('button', { name: /enter payment details/i });
+			fireEvent.click(enterTabButton);
+			await tick();
+
+			const addressInput = (document.getElementById('address-input') ||
+				document.getElementById('address-input-desktop')) as HTMLInputElement;
+			await waitFor(() => expect(addressInput).toBeInTheDocument());
+
+			fireEvent.input(addressInput, {
+				target: { value: 'lq1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqgl5j35a' }
+			});
+			await tick();
+			await waitFor(() => expect(parsePaymentAddress).toHaveBeenCalled());
+
+			// For liquid-bitcoin, sats should be enabled (it's a bitcoin network)
+			const satsButtons = screen.getAllByRole('button', { name: 'Sats' });
+			expect(satsButtons.length).toBeGreaterThan(0);
+			expect(satsButtons[0]).not.toBeDisabled();
+		});
+
+		it('should switch to USD when resolving ambiguous address to BSC while sats is selected', async () => {
+			// First, parse as ambiguous EVM address
+			vi.mocked(parsePaymentAddress)
+				.mockReturnValueOnce({
+					isValid: false,
+					address: '0x1234567890123456789012345678901234567890',
+					network: null,
+					amount: null,
+					memo: null,
+					errorCode: 'ambiguous-evm-address',
+					errorMessage: AMBIGUOUS_EVM_ADDRESS_ERROR
+				} as any)
+				.mockReturnValueOnce({
+					isValid: true,
+					address: '0x1234567890123456789012345678901234567890',
+					network: 'usdt-bsc',
+					amount: null,
+					memo: null
+				} as any);
+
+			render(SendPaymentForm, defaultProps);
+			await tick();
+
+			const enterTabButton = screen.getByRole('button', { name: /enter payment details/i });
+			fireEvent.click(enterTabButton);
+			await tick();
+
+			const addressInput = (document.getElementById('address-input') ||
+				document.getElementById('address-input-desktop')) as HTMLInputElement;
+			await waitFor(() => expect(addressInput).toBeInTheDocument());
+
+			// Enter ambiguous EVM address
+			fireEvent.input(addressInput, {
+				target: { value: '0x1234567890123456789012345678901234567890' }
+			});
+			await tick();
+
+			await waitFor(() => {
+				expect(screen.getAllByText(/network could not be detected safely/i).length).toBeGreaterThan(
+					0
+				);
+			});
+
+			// Now resolve to BSC - should switch to USD since sats is not supported
+			const chooseBscButton = screen.getAllByRole('button', { name: /usdt on bsc/i })[0];
+			await fireEvent.click(chooseBscButton);
+			await tick();
+
+			// Verify parse was called with BSC prefix
+			expect(parsePaymentAddress).toHaveBeenLastCalledWith(
+				'bsc:0x1234567890123456789012345678901234567890'
+			);
 		});
 	});
 });

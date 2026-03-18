@@ -294,8 +294,35 @@ describe('Wallet Store Functions', () => {
 				fixedFeeAtomic: '100000',
 				routerAddress: '0x1111111111111111111111111111111111111111',
 				chainId: 97,
+				tokenAddress: '0x337610d27c682E347C9cD60BD4b3b107C9d34dDd',
+				recipientAddress: '0x1234567890123456789012345678901234567890',
+				amountUSDT: '1',
+				fixedFeeUSDT: '0.1',
+				usdtContractAddress: '0x337610d27c682E347C9cD60BD4b3b107C9d34dDd'
+			});
+		});
+
+		it('should normalize newer wallet-core direct-send failure codes for the app', async () => {
+			mockWalletManager.preflightBscDirectSend.mockResolvedValueOnce({
+				isReady: false,
+				failureCode: 'INSUFFICIENT_ALLOWANCE',
+				failureMessage: 'Insufficient router allowance',
+				allowanceAtomic: '0',
+				requiredAllowanceAtomic: '1100000',
+				totalDebitAtomic: '1100000',
+				sponsorAvailable: true
+			});
+
+			const result = await preflightBSCDirectSend({
+				recipient: '0x1234567890123456789012345678901234567890',
+				recipientAmountAtomic: '1000000',
+				fixedFeeAtomic: '100000',
+				routerAddress: '0x1111111111111111111111111111111111111111',
+				chainId: 97,
 				tokenAddress: '0x337610d27c682E347C9cD60BD4b3b107C9d34dDd'
 			});
+
+			expect(result.failureCode).toBe('ROUTER_ALLOWANCE_MISSING');
 		});
 	});
 

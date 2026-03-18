@@ -86,6 +86,9 @@
 	};
 
 	const BSC_USDT_DECIMALS = 6;
+	const BSC_USDT_ATOMIC_FACTOR = 10 ** BSC_USDT_DECIMALS;
+	const RSK_WEI_PER_SAT = 10n ** 10n;
+	const BALANCE_REFRESH_TTL_MS = 15_000;
 	const BSC_CHAIN_ID = (import.meta.env.VITE_BSC_NETWORK || 'testnet') === 'mainnet' ? 56 : 97;
 	const BSC_DIRECT_SEND_CONFIG = {
 		tokenAddress: (import.meta.env.VITE_BSC_USDT_TOKEN_ADDRESS || '').trim(),
@@ -101,6 +104,9 @@
 		mathExpression: '',
 		memo: ''
 	});
+
+	// Track if user has manually selected a unit (vs auto-detected from network)
+	let userHasManuallySelectedUnit = $state(false);
 
 	// Grouped State: Parsed Payment Data
 	let parsedPayment = $state<{
@@ -209,6 +215,20 @@
 		blockedMessage: null
 	});
 
+	let balanceRefreshState = $state<{
+		isRefreshing: boolean;
+		error: string | null;
+		refreshedNetwork: string | null;
+		refreshedAt: number;
+		requestId: number;
+	}>({
+		isRefreshing: false,
+		error: null,
+		refreshedNetwork: null,
+		refreshedAt: 0,
+		requestId: 0
+	});
+
 	// Cached Data
 	let btcPrice = $state<number>(0);
 	let recentAddresses = $state<Array<{ address: string; network: string; label?: string }>>([]);
@@ -237,9 +257,97 @@
 		if (!value) return 0;
 
 		try {
-			return Number(value) / 10 ** BSC_USDT_DECIMALS;
+			return Number(value) / BSC_USDT_ATOMIC_FACTOR;
 		} catch {
 			return 0;
+		}
+	}
+
+	function weiToSatsAmount(value: string | null | undefined): number {
+		if (!value) return 0;
+
+		try {
+			return Number(BigInt(value) / RSK_WEI_PER_SAT);
+		} catch {
+			return 0;
+		}
+	}
+
+	function requiresWalletBalance(network: string | null): boolean {
+		return (
+			network === 'rootstock-bitcoin' || network === 'lightning-bitcoin' || network === 'usdt-bsc'
+		);
+	}
+
+	function hasConnectedBalanceRail(network: string | null): boolean {
+		if (network === 'usdt-bsc') return $walletStore.bsc.connected;
+		if (network === 'rootstock-bitcoin' || network === 'lightning-bitcoin') {
+			return $walletStore.rsk.connected;
+		}
+		return true;
+	}
+
+	function formatNetworkAmount(
+		amount: number,
+		network: string | null,
+		options: { includeApproxUsd?: boolean } = {}
+	): string {
+		if (network === 'usdt-bsc') {
+			return `${formatUsdtAmount(amount)} USDT`;
+		}
+
+		const satsLabel = `${formatSats(Math.max(0, Math.floor(amount)))} ${$t('wallet.sats')}`;
+		if (!options.includeApproxUsd || btcPrice <= 0 || amount <= 0) {
+			return satsLabel;
+		}
+
+		const approxUsd = formatUsd((amount / 100_000_000) * btcPrice);
+		return `${satsLabel} (${approxUsd})`;
+	}
+
+	function getBalanceRailName(network: string | null): string {
+		if (network === 'usdt-bsc') return 'BSC';
+		if (network === 'rootstock-bitcoin' || network === 'lightning-bitcoin') return 'Rootstock';
+		return 'wallet';
+	}
+
+	async function refreshDetectedNetworkBalance(force = false): Promise<void> {
+		const network = parsedPayment.detectedNetwork;
+		if (!requiresWalletBalance(network) || !hasConnectedBalanceRail(network)) {
+			balanceRefreshState.error = null;
+			return;
+		}
+
+		const now = Date.now();
+		if (
+			!force &&
+			balanceRefreshState.refreshedNetwork === network &&
+			now - balanceRefreshState.refreshedAt < BALANCE_REFRESH_TTL_MS
+		) {
+			return;
+		}
+
+		const requestId = balanceRefreshState.requestId + 1;
+		balanceRefreshState.requestId = requestId;
+		balanceRefreshState.isRefreshing = true;
+		balanceRefreshState.error = null;
+
+		try {
+			await walletManager.loadAssets();
+
+			if (balanceRefreshState.requestId !== requestId) return;
+
+			balanceRefreshState.refreshedNetwork = network;
+			balanceRefreshState.refreshedAt = Date.now();
+		} catch (error) {
+			console.error('Failed to refresh send-flow balances:', error);
+			if (balanceRefreshState.requestId !== requestId) return;
+
+			balanceRefreshState.error = `Couldn't refresh your ${getBalanceRailName(network)} balance. Using the last known amount.`;
+		} finally {
+			if (balanceRefreshState.requestId === requestId) {
+				balanceRefreshState.isRefreshing = false;
+			}
 		}
 	}
 
@@ -262,14 +370,50 @@
 		switch (result.failureCode) {
 			case 'WRONG_CHAIN':
 				return 'USDT on BSC is blocked because the wallet is connected to the wrong network. Switch to BSC and try again.';
+			case 'UNSUPPORTED_CHAIN':
+				return (
+					result.failureMessage ||
+					'USDT on BSC is blocked because this build is not configured for the selected BSC chain.'
+				);
 			case 'ROUTER_ALLOWANCE_MISSING':
+			case 'INSUFFICIENT_ALLOWANCE':
 				return 'USDT on BSC is blocked because the router allowance is missing or too low for the requested amount plus fixed fee.';
 			case 'INSUFFICIENT_USDT_BALANCE':
+			case 'INSUFFICIENT_BALANCE':
 				return 'USDT on BSC is blocked because the wallet balance is below the requested amount plus fixed fee.';
 			case 'TOKEN_CONFIG_MISMATCH':
+			case 'INVALID_ADDRESS':
 				return 'USDT on BSC is blocked because the configured token does not match the accepted BSC token configuration.';
+			case 'SPONSOR_TREASURY_LOW':
+				return (
+					result.failureMessage ||
+					'USDT on BSC is temporarily unavailable because sponsor treasury capacity is too low right now.'
+				);
+			case 'ROUTER_NOT_FOUND':
+			case 'ROUTER_PAUSED':
+				return (
+					result.failureMessage ||
+					'USDT on BSC is temporarily unavailable because the direct-send router is not ready.'
+				);
+			case 'REQUEST_EXPIRED':
+			case 'DUPLICATE_REQUEST':
+			case 'SUBMISSION_FAILED':
+			case 'RATE_LIMITED':
+			case 'INTERNAL_ERROR':
+				return (
+					result.failureMessage ||
+					'USDT on BSC is temporarily unavailable because the sponsored send request failed.'
+				);
+			case 'NETWORK_ERROR':
+				return (
+					result.failureMessage ||
+					'USDT on BSC is temporarily unavailable because the direct-send checks could not be completed.'
+				);
 			case 'POLICY_REJECTED':
-				return result.failureMessage || 'USDT on BSC is temporarily unavailable because sponsor policy rejected this payment.';
+				return (
+					result.failureMessage ||
+					'USDT on BSC is temporarily unavailable because sponsor policy rejected this payment.'
+				);
 			case 'LEGACY_ONLY':
 				return (
 					result.failureMessage ||
@@ -294,6 +438,12 @@
 		switch (bscDirectSendState.lastPreflight?.failureCode) {
 			case 'WRONG_CHAIN':
 				return 'Switch to BSC to continue';
+			case 'ROUTER_ALLOWANCE_MISSING':
+			case 'INSUFFICIENT_ALLOWANCE':
+				return 'Approve the router to continue';
+			case 'INSUFFICIENT_USDT_BALANCE':
+			case 'INSUFFICIENT_BALANCE':
+				return 'Not enough USDT to continue';
 			default:
 				return 'USDT on BSC is temporarily unavailable';
 		}
@@ -314,7 +464,8 @@
 
 	const amountInUsdt = $derived.by(() => {
 		if (parsedPayment.detectedNetwork !== 'usdt-bsc') return 0;
-		if (parsedPayment.detectedAmount !== null) return sanitizeTokenAmount(parsedPayment.detectedAmount);
+		if (parsedPayment.detectedAmount !== null)
+			return sanitizeTokenAmount(parsedPayment.detectedAmount);
 
 		if (formInput.unit === 'usd') {
 			return sanitizeTokenAmount(Number.parseFloat(formInput.amount));
@@ -360,34 +511,105 @@
 		switch (parsedPayment.detectedNetwork) {
 			case 'rootstock-bitcoin':
 			case 'lightning-bitcoin':
-				// Use formatted balance directly from wallet store
 				if (!$walletStore.rsk.connected) return 0;
-				const rbtc = parseFloat($walletStore.rsk.formattedBalance);
-				return Math.floor(rbtc * 100_000_000);
+				{
+					const rawSats = weiToSatsAmount($walletStore.rsk.balance);
+					if (rawSats > 0) return rawSats;
+					const formattedRbtc = Number.parseFloat($walletStore.rsk.formattedBalance || '0');
+					return Number.isFinite(formattedRbtc) && formattedRbtc > 0
+						? Math.floor(formattedRbtc * 100_000_000)
+						: 0;
+				}
 			case 'usdt-bsc':
 				if (!$walletStore.bsc.connected) return 0;
-				return parseFloat($walletStore.bsc.formattedUsdtBalance || '0');
+				{
+					const rawUsdt = atomicToUsdtAmount($walletStore.bsc.usdtBalance);
+					if (rawUsdt > 0) return rawUsdt;
+					const formattedUsdt = Number.parseFloat($walletStore.bsc.formattedUsdtBalance || '0');
+					return Number.isFinite(formattedUsdt) && formattedUsdt > 0 ? formattedUsdt : 0;
+				}
 			default:
 				return $walletStore.totalBalances.sats;
 		}
 	});
 
+	const needsConnectedRail = $derived(requiresWalletBalance(parsedPayment.detectedNetwork));
+	const hasRequiredConnectedRail = $derived(hasConnectedBalanceRail(parsedPayment.detectedNetwork));
+
 	// Check if balance is insufficient
 	const hasInsufficientBalance = $derived(
-		totalToSend > availableBalance &&
-			availableBalance > 0 &&
+		!balanceRefreshState.isRefreshing &&
+			totalToSend > availableBalance &&
 			totalToSend > 0 &&
 			feeState.estimated !== null
 	);
 
-	const hasPayableAmount = $derived.by(() =>
-		parsedPayment.detectedNetwork === 'usdt-bsc' ? amountInUsdt > 0 : amountInSats > 0
+	const balanceShortfall = $derived.by(() =>
+		hasInsufficientBalance ? Math.max(0, totalToSend - availableBalance) : 0
 	);
+
+	const hasPayableAmount = $derived.by(() => {
+		// For BSC: validate USD amount directly without requiring btcPrice
+		// (amountInUsdt requires btcPrice when unit is sats)
+		if (parsedPayment.detectedNetwork === 'usdt-bsc') {
+			const usdAmount = parseFloat(formInput.amount);
+			return !isNaN(usdAmount) && usdAmount > 0;
+		}
+
+		// For sats unit: check sats amount directly
+		if (formInput.unit === 'sats') {
+			return amountInSats > 0;
+		}
+
+		// For USD unit: validate the USD amount directly without requiring btcPrice conversion
+		const usdAmount = parseFloat(formInput.amount);
+		return !isNaN(usdAmount) && usdAmount > 0;
+	});
 
 	const hasBlockedBscSend = $derived(
 		parsedPayment.detectedNetwork === 'usdt-bsc' &&
 			hasPayableAmount &&
 			!!bscDirectSendState.blockedMessage
+	);
+
+	const requiresResolvedFeeEstimate = $derived(
+		!!parsedPayment.detectedNetwork && hasPayableAmount && feeState.estimated === null
+	);
+
+	const isStepOneBalanceRefreshing = $derived(
+		balanceRefreshState.isRefreshing &&
+			requiresWalletBalance(parsedPayment.detectedNetwork) &&
+			hasConnectedBalanceRail(parsedPayment.detectedNetwork)
+	);
+
+	const availableBalanceSummary = $derived.by(() => {
+		if (!parsedPayment.detectedNetwork || !parsedPayment.data?.isValid) return null;
+		if (needsConnectedRail && !hasRequiredConnectedRail) {
+			return `Connect your ${getBalanceRailName(parsedPayment.detectedNetwork)} wallet to check your available balance.`;
+		}
+		if (isStepOneBalanceRefreshing) {
+			return `Refreshing your ${getBalanceRailName(parsedPayment.detectedNetwork)} balance...`;
+		}
+		if (hasInsufficientBalance && feeState.estimated) {
+			return `Need ${formatNetworkAmount(balanceShortfall, parsedPayment.detectedNetwork, {
+				includeApproxUsd: parsedPayment.detectedNetwork !== 'usdt-bsc'
+			})} more to cover the full debit.`;
+		}
+		return `Available balance: ${formatNetworkAmount(
+			availableBalance,
+			parsedPayment.detectedNetwork,
+			{
+				includeApproxUsd: parsedPayment.detectedNetwork !== 'usdt-bsc'
+			}
+		)}.`;
+	});
+
+	const areStepOneActionsDisabled = $derived(
+		!isFormValid ||
+			feeState.isLoading ||
+			hasBlockedBscSend ||
+			bscDirectSendState.isChecking ||
+			isStepOneBalanceRefreshing
 	);
 
 	const isFormValid = $derived.by(() => {
@@ -407,11 +629,23 @@
 			return false;
 		}
 
+		if (needsConnectedRail && !hasRequiredConnectedRail) {
+			return false;
+		}
+
+		if (isStepOneBalanceRefreshing) {
+			return false;
+		}
+
+		if (requiresResolvedFeeEstimate) {
+			return false;
+		}
+
 		// Note: Authentication is handled in handleSend(), not here
 		// The button should be enabled so the user can click it and authenticate then
 
 		// Balance check: total (including fees) must not exceed available balance
-		if (totalToSend > availableBalance && availableBalance > 0) {
+		if (totalToSend > availableBalance) {
 			return false;
 		}
 
@@ -438,6 +672,7 @@
 		bscDirectSendState.sponsorStatus = null;
 		bscDirectSendState.lastPreflight = null;
 		bscDirectSendState.blockedMessage = null;
+		balanceRefreshState.error = null;
 	}
 
 	async function applyParsedPayment(parsed: ParsedPaymentAddress, inputValue: string) {
@@ -450,20 +685,50 @@
 		parsedPayment.amountRequired = parsed.amount === null;
 		parsedPayment.addressError = null;
 
+		// Determine the appropriate unit based on network and user selection
+		const isBscNetwork = parsed.network === 'usdt-bsc';
+		const isBitcoinNetwork = !isBscNetwork && parsed.network !== null;
+
 		if (parsed.amount !== null) {
 			formInput.amount =
 				parsed.network === 'usdt-bsc'
 					? parsed.amount.toFixed(6).replace(/\.?0+$/, '')
 					: parsed.amount.toString();
-			formInput.unit = parsed.network === 'usdt-bsc' ? 'usd' : 'sats';
+
+			// For addresses with embedded amount:
+			// - BSC: always use USD (sats not supported)
+			// - Bitcoin networks: keep user's manual selection, or default to sats for first time
+			if (isBscNetwork) {
+				formInput.unit = 'usd';
+				userHasManuallySelectedUnit = false;
+			} else if (!userHasManuallySelectedUnit) {
+				// First time or user hasn't manually selected - default to sats for bitcoin networks
+				formInput.unit = 'sats';
+			}
+			// If userHasManuallySelectedUnit is true, keep current unit (don't change)
 		} else {
-			formInput.unit = 'usd';
+			// For addresses without embedded amount:
+			// - BSC: always use USD
+			// - Bitcoin networks: keep user's selection if manually chosen, otherwise default to sats
+			if (isBscNetwork) {
+				// If user had sats selected and switches to BSC, switch to USD
+				if (formInput.unit === 'sats') {
+					formInput.unit = 'usd';
+				}
+				userHasManuallySelectedUnit = false;
+			} else if (isBitcoinNetwork && !userHasManuallySelectedUnit) {
+				// Default to sats only if user hasn't manually selected yet
+				formInput.unit = 'sats';
+			}
+			// If userHasManuallySelectedUnit is true, keep current unit
 		}
 
 		if (parsed.memo) {
 			formInput.memo = parsed.memo;
 			uiState.descriptionExpanded = true;
 		}
+
+		await refreshDetectedNetworkBalance();
 
 		const { tick } = await import('svelte');
 		await tick();
@@ -503,6 +768,20 @@
 		if (!parsed.isValid) {
 			resetParsedPaymentState();
 			parsedPayment.addressError = parsed.errorMessage || $t('wallet.send.invalid_address');
+			return;
+		}
+
+		// For BSC, always use USD since sats is not supported
+		if (network === 'usdt-bsc') {
+			formInput.unit = 'usd';
+			userHasManuallySelectedUnit = false;
+		} else {
+			// For RSK: preserve the current unit when resolving ambiguous address
+			// The user has already selected a unit (or is using the default) - don't change it
+			const previousUnit = formInput.unit;
+			await applyParsedPayment(parsed, qualifiedInput);
+			// Restore the unit that was selected before disambiguation
+			formInput.unit = previousUnit;
 			return;
 		}
 
@@ -668,6 +947,7 @@
 							networkFee,
 							totalFees: networkFee
 						};
+						break;
 					}
 					const amountRBTC = (amountToUse / 100_000_000).toFixed(8);
 					// Use parsed address from parsedPayment, or extract address from addressInput
@@ -911,25 +1191,27 @@
 	// Handle calculation change from calculator
 	function handleCalculationChange(expression: string, result: number) {
 		formInput.mathExpression = expression;
-			if (result > 0 || expression === '') {
-				if (formInput.unit === 'sats') {
-					formInput.amount = Math.floor(result).toString();
-				} else {
-					formInput.amount = formatEditableAmount(result);
-				}
+		if (result > 0 || expression === '') {
+			if (formInput.unit === 'sats') {
+				formInput.amount = Math.floor(result).toString();
+			} else {
+				formInput.amount = formatEditableAmount(result);
 			}
+		}
 		// Explicitly trigger amount change handler
 		handleAmountChange();
 	}
 
 	// Handle max amount click (simplified - single-pass calculation)
 	async function handleMaxAmount() {
-		if (!parsedPayment.detectedNetwork || !availableBalance || availableBalance <= 0) return;
+		if (!parsedPayment.detectedNetwork) return;
 
 		feeState.maxCalculation.isLoading = true;
 		triggerHaptic(ImpactStyle.Light);
 
 		try {
+			await refreshDetectedNetworkBalance(true);
+			if (!availableBalance || availableBalance <= 0) return;
 			formInput.mathExpression = '';
 
 			if (parsedPayment.detectedNetwork === 'usdt-bsc') {
@@ -979,6 +1261,8 @@
 	function handleUnitChange(newUnit: 'sats' | 'usd') {
 		triggerHaptic(ImpactStyle.Light);
 		formInput.unit = parsedPayment.detectedNetwork === 'usdt-bsc' ? 'usd' : newUnit;
+		// Mark that user has manually selected a unit
+		userHasManuallySelectedUnit = true;
 		// Keep amount when switching units - user may have entered amount before selecting unit
 		formInput.mathExpression = '';
 		// Don't increment calculatorKey - preserve calculator state and amount
@@ -1185,13 +1469,15 @@
 	}
 </script>
 
-<div class="flex flex-1 flex-col min-h-0">
+<div class="flex min-h-0 flex-1 flex-col">
 	<!-- Pending Transaction Screen (highest priority) -->
 	{#if sendState.pendingTxHash && sendState.pendingNetwork && sendState.pendingAmount !== null && sendState.pendingAddress}
 		<PendingTransactionScreen
 			amountSats={sendState.pendingAmount}
 			amountUSD={amountInUSD}
-			serviceFee={sendState.pendingNetwork === 'usdt-bsc' ? feeState.estimated?.serviceFee ?? 0 : 0}
+			serviceFee={sendState.pendingNetwork === 'usdt-bsc'
+				? (feeState.estimated?.serviceFee ?? 0)
+				: 0}
 			address={sendState.pendingAddress}
 			network={sendState.pendingNetwork}
 			txHash={sendState.pendingTxHash}
@@ -1216,7 +1502,9 @@
 				txHash={sendState.successTxHash}
 				network={sendState.successNetwork}
 				amount={sendState.successNetwork === 'usdt-bsc' ? amountInUsdt : amountInSats}
-				serviceFee={sendState.successNetwork === 'usdt-bsc' ? feeState.estimated?.serviceFee ?? 0 : 0}
+				serviceFee={sendState.successNetwork === 'usdt-bsc'
+					? (feeState.estimated?.serviceFee ?? 0)
+					: 0}
 				recipient={parsedPayment.data?.address || formInput.addressInput}
 				onClose={() => {
 					uiState.showSuccessScreen = false;
@@ -1260,7 +1548,7 @@
 		</div>
 
 		<!-- Scrollable Content Area -->
-		<div class="flex-1 overflow-y-auto min-h-0 space-y-3 sm:space-y-4">
+		<div class="min-h-0 flex-1 space-y-3 overflow-y-auto sm:space-y-4">
 			{#if uiState.activeTab === 'scan'}
 				{#if !uiState.showConfirmation}
 					<!-- QR Code Scanner -->
@@ -1437,7 +1725,7 @@
 							<button
 								class="btn btn-primary flex-1"
 								onclick={handleSend}
-								disabled={!isFormValid || feeState.isLoading || hasBlockedBscSend || bscDirectSendState.isChecking}
+								disabled={areStepOneActionsDisabled}
 							>
 								{$t('wallet.send.send')}
 							</button>
@@ -1449,7 +1737,7 @@
 			{#if uiState.activeTab === 'enter'}
 				<!-- Enter Payment Details Tab -->
 				<!-- Mobile Step 1: Address Input and Amount Input -->
-				<div class="block sm:hidden space-y-2">
+				<div class="block space-y-2 sm:hidden">
 					{#if uiState.currentStep === 1}
 						<!-- Address Input -->
 						<div class="form-control">
@@ -1464,11 +1752,11 @@
 								>
 									<!-- Input field with validation icons -->
 									<div class="bg-base-200 relative flex flex-1 items-center p-2">
-										<div class="relative flex-1 min-w-0 pr-10 sm:pr-11">
+										<div class="relative min-w-0 flex-1 pr-10 sm:pr-11">
 											<input
 												id="address-input"
 												type="text"
-												class="w-full bg-transparent pl-6 text-base focus:outline-none placeholder:text-base-content/50"
+												class="placeholder:text-base-content/50 w-full bg-transparent pl-6 text-base focus:outline-none"
 												placeholder={$t('wallet.send.address_placeholder')}
 												bind:value={formInput.addressInput}
 												oninput={handleAddressInput}
@@ -1492,7 +1780,7 @@
 										{#if formInput.addressInput.trim()}
 											<button
 												type="button"
-												class="absolute right-2 sm:right-2 btn btn-ghost btn-sm btn-circle text-error hover:bg-error/20 flex h-9 min-h-[40px] w-9 min-w-[40px] touch-manipulation items-center justify-center p-0 select-none sm:h-11 sm:min-h-[44px] sm:w-11 sm:min-w-[44px]"
+												class="btn btn-ghost btn-sm btn-circle text-error hover:bg-error/20 absolute right-2 flex h-9 min-h-[40px] w-9 min-w-[40px] touch-manipulation items-center justify-center p-0 select-none sm:right-2 sm:h-11 sm:min-h-[44px] sm:w-11 sm:min-w-[44px]"
 												style="-webkit-tap-highlight-color: transparent;"
 												onclick={() => {
 													formInput.addressInput = '';
@@ -1536,14 +1824,19 @@
 							</div>
 							{#if parsedPayment.addressError}
 								<div class="label">
-									<span class="label-text-alt text-error">{parsedPayment.addressError}</span>
+									<span class="label-text-alt text-error break-words"
+										>{parsedPayment.addressError}</span
+									>
 								</div>
 							{/if}
 							{#if ambiguousAddress}
-								<div class="bg-warning/10 border-warning/30 mt-2 rounded-lg border p-3" data-testid="ambiguous-address-warning">
-									<p class="text-sm font-medium">Network could not be detected safely.</p>
-									<p class="text-base-content/70 mt-1 text-xs">
-										Choose the payment rail before continuing. The form stays blocked until you pick one.
+								<div
+									class="bg-warning/10 border-warning/30 mt-2 rounded-lg border p-3"
+									data-testid="ambiguous-address-warning"
+								>
+									<p class="text-base-content/70 text-xs">
+										Choose the payment rail before continuing. The form stays blocked until you pick
+										one.
 									</p>
 									<div class="mt-3 grid grid-cols-1 gap-2">
 										<button
@@ -1589,17 +1882,50 @@
 									})}
 								</p>
 							{/if}
-							{#if hasInsufficientBalance && feeState.estimated}
-								<p class="text-error text-center text-md pt-1">
-									{$t('wallet.validation.insufficient_balance')}
-								</p>
-							{/if}
-						</div>
+							</div>
+
+						{#if availableBalanceSummary}
+							<div
+								class="rounded-lg border p-3"
+								class:border-error={hasInsufficientBalance}
+								class:border-warning={!!balanceRefreshState.error && !hasInsufficientBalance}
+								class:border-base-300={!hasInsufficientBalance && !balanceRefreshState.error}
+							>
+								<div class="flex items-start justify-between gap-3">
+									<div class="space-y-1">
+										<div class="text-xs font-medium tracking-[0.12em] uppercase opacity-60">
+											Available Balance
+										</div>
+										<p
+											class="text-sm"
+											class:text-error={hasInsufficientBalance}
+											class:text-warning={!!balanceRefreshState.error && !hasInsufficientBalance}
+										>
+											{availableBalanceSummary}
+										</p>
+									</div>
+									{#if isStepOneBalanceRefreshing}
+										<span class="loading loading-spinner loading-sm shrink-0"></span>
+									{/if}
+								</div>
+								{#if balanceRefreshState.error}
+									<div class="mt-3">
+										<button
+											type="button"
+											class="btn btn-ghost btn-xs"
+											onclick={() => refreshDetectedNetworkBalance(true)}
+										>
+											Retry balance refresh
+										</button>
+									</div>
+								{/if}
+							</div>
+						{/if}
 					{/if}
 				</div>
 
 				<!-- Mobile Step 2: Read-only amount display, network, description, fees, total -->
-				<div class="block sm:hidden space-y-2">
+				<div class="block space-y-2 sm:hidden">
 					{#if uiState.currentStep === 2}
 						<!-- Amount Display (Read-only) -->
 						<div
@@ -1709,7 +2035,7 @@
 									<div class="flex w-full items-center gap-1.5">
 										<span>{$t('wallet.network_fee')}:</span>
 										{#if feeState.isLoading}
-											<span class="font-semibold inline-flex items-center gap-1.5 min-w-20">
+											<span class="inline-flex min-w-20 items-center gap-1.5 font-semibold">
 												<span class="loading loading-spinner loading-xs"></span>
 											</span>
 										{:else if feeState.estimated}
@@ -1735,9 +2061,11 @@
 										{#if feeState.estimated && feeState.estimated.serviceFee > 0}
 											<div class="flex items-center justify-between text-xs opacity-70">
 												<span>{$t('wallet.swap.swap_fee')}:</span>
-												<span>{parsedPayment.detectedNetwork === 'usdt-bsc'
-													? `${formatUsdtAmount(feeState.estimated.serviceFee)} USDT`
-													: `${formatSats(feeState.estimated.serviceFee)} ${$t('wallet.sats')}`}</span>
+												<span
+													>{parsedPayment.detectedNetwork === 'usdt-bsc'
+														? `${formatUsdtAmount(feeState.estimated.serviceFee)} USDT`
+														: `${formatSats(feeState.estimated.serviceFee)} ${$t('wallet.sats')}`}</span
+												>
 											</div>
 										{/if}
 										{#if feeState.estimated && feeState.estimated.networkFee > 0}
@@ -1799,13 +2127,7 @@
 									{$t('wallet.send.enter_address_and_amount_to_estimate')}
 								</div>
 							{/if}
-							<!-- Insufficient Balance Error Text -->
-							{#if hasInsufficientBalance}
-								<div class="text-error mt-0.5 text-center text-xs">
-									{$t('wallet.validation.insufficient_balance')}
-								</div>
-							{/if}
-						</div>
+							</div>
 
 						{#if hasBlockedBscSend}
 							<div class="alert alert-outline alert-warning">
@@ -1819,7 +2141,7 @@
 				</div>
 
 				<!-- Desktop: Always show all fields -->
-				<div class="hidden sm:block space-y-3 sm:space-y-4">
+				<div class="hidden space-y-3 sm:block sm:space-y-4">
 					<!-- Address Input -->
 					<div class="form-control">
 						<div class="relative">
@@ -1833,11 +2155,11 @@
 							>
 								<!-- Input field with validation icons -->
 								<div class="bg-base-200 relative flex flex-1 items-center p-2">
-									<div class="relative flex-1 min-w-0 pr-10 sm:pr-11">
+									<div class="relative min-w-0 flex-1 pr-10 sm:pr-11">
 										<input
 											id="address-input-desktop"
 											type="text"
-											class="w-full bg-transparent pl-6 text-base focus:outline-none placeholder:text-base-content/50"
+											class="placeholder:text-base-content/50 w-full bg-transparent pl-6 text-base focus:outline-none"
 											placeholder={$t('wallet.send.address_placeholder')}
 											bind:value={formInput.addressInput}
 											oninput={handleAddressInput}
@@ -1860,7 +2182,7 @@
 									{#if formInput.addressInput.trim()}
 										<button
 											type="button"
-											class="absolute right-2 sm:right-2 btn btn-ghost btn-sm btn-circle text-error hover:bg-error/20 flex h-9 min-h-[40px] w-9 min-w-[40px] touch-manipulation items-center justify-center p-0 select-none sm:h-11 sm:min-h-[44px] sm:w-11 sm:min-w-[44px]"
+											class="btn btn-ghost btn-sm btn-circle text-error hover:bg-error/20 absolute right-2 flex h-9 min-h-[40px] w-9 min-w-[40px] touch-manipulation items-center justify-center p-0 select-none sm:right-2 sm:h-11 sm:min-h-[44px] sm:w-11 sm:min-w-[44px]"
 											style="-webkit-tap-highlight-color: transparent;"
 											onclick={() => {
 												formInput.addressInput = '';
@@ -1903,14 +2225,19 @@
 						</div>
 						{#if parsedPayment.addressError}
 							<div class="label">
-								<span class="label-text-alt text-error">{parsedPayment.addressError}</span>
+								<span class="label-text-alt text-error break-words"
+									>{parsedPayment.addressError}</span
+								>
 							</div>
 						{/if}
 						{#if ambiguousAddress}
-							<div class="bg-warning/10 border-warning/30 mt-2 rounded-lg border p-3" data-testid="ambiguous-address-warning-desktop">
-								<p class="text-sm font-medium">Network could not be detected safely.</p>
-								<p class="text-base-content/70 mt-1 text-xs">
-									Choose the payment rail before continuing. The form stays blocked until you pick one.
+							<div
+								class="bg-warning/10 border-warning/30 mt-2 rounded-lg border p-3"
+								data-testid="ambiguous-address-warning-desktop"
+							>
+								<p class="text-base-content/70 text-xs">
+									Choose the payment rail before continuing. The form stays blocked until you pick
+									one.
 								</p>
 								<div class="mt-3 flex flex-wrap gap-2">
 									<button
@@ -2000,6 +2327,44 @@
 						{/if}
 					</div>
 
+					{#if availableBalanceSummary}
+						<div
+							class="rounded-lg border p-3 sm:p-4"
+							class:border-error={hasInsufficientBalance}
+							class:border-warning={!!balanceRefreshState.error && !hasInsufficientBalance}
+							class:border-base-300={!hasInsufficientBalance && !balanceRefreshState.error}
+						>
+							<div class="flex items-start justify-between gap-3">
+								<div class="space-y-1">
+									<div class="text-xs font-medium tracking-[0.12em] uppercase opacity-60">
+										Available Balance
+									</div>
+									<p
+										class="text-sm sm:text-base"
+										class:text-error={hasInsufficientBalance}
+										class:text-warning={!!balanceRefreshState.error && !hasInsufficientBalance}
+									>
+										{availableBalanceSummary}
+									</p>
+									</div>
+								{#if isStepOneBalanceRefreshing}
+									<span class="loading loading-spinner loading-sm shrink-0"></span>
+								{/if}
+							</div>
+							{#if balanceRefreshState.error}
+								<div class="mt-3">
+									<button
+										type="button"
+										class="btn btn-ghost btn-xs sm:btn-sm"
+										onclick={() => refreshDetectedNetworkBalance(true)}
+									>
+										Retry balance refresh
+									</button>
+								</div>
+							{/if}
+						</div>
+					{/if}
+
 					<!-- Network Fee Accordion -->
 					{#if feeState.error}
 						<div class="alert alert-outline alert-error py-2 text-sm sm:py-4 sm:text-base">
@@ -2022,7 +2387,7 @@
 								<div class="flex w-full items-center gap-1.5 sm:gap-2">
 									<span>{$t('wallet.network_fee')}:</span>
 									{#if feeState.isLoading}
-										<span class="font-semibold inline-flex items-center gap-1.5 min-w-20 sm:gap-2">
+										<span class="inline-flex min-w-20 items-center gap-1.5 font-semibold sm:gap-2">
 											<span class="loading loading-spinner loading-xs"></span>
 										</span>
 									{:else if feeState.estimated}
@@ -2048,9 +2413,11 @@
 									{#if feeState.estimated && feeState.estimated.serviceFee > 0}
 										<div class="flex items-center justify-between text-xs opacity-70">
 											<span>{$t('wallet.swap.swap_fee')}:</span>
-											<span>{parsedPayment.detectedNetwork === 'usdt-bsc'
-												? `${formatUsdtAmount(feeState.estimated.serviceFee)} USDT`
-												: `${formatSats(feeState.estimated.serviceFee)} ${$t('wallet.sats')}`}</span>
+											<span
+												>{parsedPayment.detectedNetwork === 'usdt-bsc'
+													? `${formatUsdtAmount(feeState.estimated.serviceFee)} USDT`
+													: `${formatSats(feeState.estimated.serviceFee)} ${$t('wallet.sats')}`}</span
+											>
 										</div>
 									{/if}
 									{#if feeState.estimated && feeState.estimated.networkFee > 0}
@@ -2114,13 +2481,7 @@
 								{$t('wallet.send.enter_address_and_amount_to_estimate')}
 							</div>
 						{/if}
-						<!-- Insufficient Balance Error Text -->
-						{#if hasInsufficientBalance}
-							<div class="text-error mt-0.5 text-center text-xs sm:mt-1 sm:text-sm">
-								{$t('wallet.validation.insufficient_balance')}
-							</div>
-						{/if}
-					</div>
+						</div>
 
 					<!-- Transaction Error Display -->
 					{#if sendState.error}
@@ -2160,7 +2521,7 @@
 		<!-- Action Buttons -->
 		{#if uiState.activeTab === 'enter'}
 			<div
-				class="bg-base-100 sticky bottom-0 z-10 mt-auto shrink-0 flex gap-2 pt-3 pb-3 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] sm:gap-3 sm:pt-4 sm:pb-4 md:static md:mb-4 md:pt-0 md:pb-0 md:shadow-none"
+				class="bg-base-100 sticky bottom-0 z-10 mt-auto flex shrink-0 gap-2 pt-3 pb-3 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] sm:gap-3 sm:pt-4 sm:pb-4 md:static md:mb-4 md:pt-0 md:pb-0 md:shadow-none"
 			>
 				<!-- Mobile Step 1: Cancel and Next -->
 				{#if uiState.currentStep === 1}
@@ -2179,7 +2540,7 @@
 						class="btn btn-primary min-h-[44px] flex-1 touch-manipulation transition-transform duration-100 select-none active:scale-95 sm:hidden"
 						style="-webkit-tap-highlight-color: transparent;"
 						onclick={handleNextStep}
-						disabled={!isFormValid || feeState.isLoading || hasBlockedBscSend || bscDirectSendState.isChecking}
+						disabled={areStepOneActionsDisabled}
 					>
 						{#if feeState.isLoading}
 							<span class="loading loading-spinner loading-sm"></span>
@@ -2204,7 +2565,7 @@
 						class="btn btn-primary min-h-[44px] flex-1 touch-manipulation transition-transform duration-100 select-none active:scale-95 sm:hidden"
 						style="-webkit-tap-highlight-color: transparent;"
 						onclick={showSendConfirmationModal}
-						disabled={!isFormValid || feeState.isLoading || hasBlockedBscSend || bscDirectSendState.isChecking}
+						disabled={areStepOneActionsDisabled}
 					>
 						<IconSend class="h-4 w-4" />
 						<span class="text-sm">{$t('wallet.send.send')}</span>
@@ -2213,7 +2574,7 @@
 
 				<!-- Desktop: Always show Cancel and Send -->
 				<button
-					class="btn btn-error min-h-[44px] hidden flex-1 touch-manipulation transition-transform duration-100 select-none active:scale-95 sm:flex sm:min-h-[48px] md:min-h-[56px]"
+					class="btn btn-error hidden min-h-[44px] flex-1 touch-manipulation transition-transform duration-100 select-none active:scale-95 sm:flex sm:min-h-[48px] md:min-h-[56px]"
 					style="-webkit-tap-highlight-color: transparent;"
 					onclick={() => {
 						triggerHaptic(ImpactStyle.Light);
@@ -2224,10 +2585,10 @@
 					<span class="text-sm sm:text-base">{$t('common.cancel')}</span>
 				</button>
 				<button
-					class="btn btn-primary min-h-[44px] hidden flex-1 touch-manipulation transition-transform duration-100 select-none active:scale-95 sm:flex sm:min-h-[48px] md:min-h-[56px]"
+					class="btn btn-primary hidden min-h-[44px] flex-1 touch-manipulation transition-transform duration-100 select-none active:scale-95 sm:flex sm:min-h-[48px] md:min-h-[56px]"
 					style="-webkit-tap-highlight-color: transparent;"
 					onclick={showSendConfirmationModal}
-					disabled={!isFormValid || feeState.isLoading || hasBlockedBscSend || bscDirectSendState.isChecking}
+					disabled={areStepOneActionsDisabled}
 				>
 					<IconSend class="h-4 w-4 sm:h-5 sm:w-5" />
 					<span class="text-sm sm:text-base">{$t('wallet.send.send')}</span>
@@ -2344,16 +2705,7 @@
 						</div>
 					</div>
 
-					<!-- Insufficient Balance Error -->
-					{#if hasInsufficientBalance && feeState.estimated}
-						<div class="space-y-1 pt-1">
-							<p class="text-error text-md">
-								{$t('wallet.validation.insufficient_balance')}
-							</p>
-						</div>
-					{/if}
-
-					<!-- Warning -->
+						<!-- Warning -->
 					<div class="alert alert-outline alert-warning mt-4">
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
@@ -2378,7 +2730,9 @@
 					<button
 						class="btn btn-primary"
 						onclick={handleConfirmedSend}
-						disabled={(hasInsufficientBalance && feeState.estimated !== null) || hasBlockedBscSend || bscDirectSendState.isChecking}
+						disabled={(hasInsufficientBalance && feeState.estimated !== null) ||
+							hasBlockedBscSend ||
+							bscDirectSendState.isChecking}
 					>
 						{$t('wallet.send.send')}
 					</button>
