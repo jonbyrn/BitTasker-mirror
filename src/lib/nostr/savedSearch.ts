@@ -90,7 +90,7 @@ export async function saveSearch(
                 isActive: options.isActive ?? true,
                 notificationFrequency: options.notificationFrequency ?? NotificationFrequency.WEEKLY
             })
-            .catch((err) => console.warn('Saved search backend sync (register) failed:', err));
+            .catch(() => {});
 
         appStore.showSuccessToast(get(t)('profile_task.success.save_search'));
 
@@ -211,7 +211,7 @@ export async function updateSavedSearch(
                 isActive: updates.isActive ?? existingIsActive,
                 notificationFrequency: updates.notificationFrequency || existingNotificationFrequency
             })
-            .catch((err) => console.warn('Saved search backend sync (update) failed:', err));
+            .catch(() => {});
 
         return {
             id: eventId,
@@ -275,9 +275,7 @@ export async function deleteSavedSearch(eventId: string): Promise<void> {
         await Promise.any(pool.publish(RELAYS, deletionEvent));
 
         // Remove from backend
-        savedSearchService.deleteSavedSearchInBackend(eventId).catch((err) => {
-            console.warn('Saved search backend sync (delete) failed:', err);
-        });
+        savedSearchService.deleteSavedSearchInBackend(eventId).catch(() => {});
     } catch (error) {
         console.error('Error deleting saved search:', error);
         throw error;

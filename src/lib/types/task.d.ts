@@ -126,9 +126,9 @@ export interface SearchTasksParams {
 	};
 
 	// Enhanced search options
-	search?: string; // Búsqueda general (título + descripción + skills)
-	searchFields?: string[]; // ['title', 'description', 'skills'] - campos específicos
-	searchMode?: 'exact' | 'partial' | 'fuzzy'; // Modo de búsqueda
+	search?: string; // General search (title + description + skills)
+	searchFields?: string[]; // ['title', 'description', 'skills'] - specific fields
+	searchMode?: 'exact' | 'partial' | 'fuzzy'; // Search mode
 
 	// Advanced filters
 	minBudget?: number; // Presupuesto mínimo

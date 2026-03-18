@@ -76,35 +76,21 @@
 
 			const result = await savedSearchService.triggerSavedSearchCheck(taskBodyDto);
 
-			// Debug: see what the backend returned (Network tab + Console)
-			console.log('📋 Saved search check result:', {
-				success: result.success,
-				matchCount: result.matchCount,
-				npubsCount: result.npubs?.length ?? 0,
-				npubs: result.npubs
-			});
-
 			if (result.success && result.npubs?.length) {
 				const title = get(t)('notifications.service_messages.saved_search_match_title');
 				const body = get(t)('notifications.service_messages.saved_search_match_body', {
 					values: { searchName: taskData.title }
 				});
-				console.log('📤 Sending saved search notification to npubs:', result.npubs);
-				const sendResult = await pushNotificationService.sendNotificationToNpubs({
+				await pushNotificationService.sendNotificationToNpubs({
 					npubs: result.npubs,
 					title,
 					body,
 					type: 'saved_search_match',
 					clickAction: `${import.meta.env.VITE_CLIENT_URL}/tasks`
 				});
-				console.log('📧 sendNotificationToNpubs result:', sendResult);
-			} else if (result.success && (result.matchCount ?? 0) > 0 && !result.npubs?.length) {
-				console.warn(
-					'⚠️ Backend returned matchCount > 0 but no npubs. The API must return { npubs: string[] } so the frontend can send the notification (same as messages).'
-				);
 			}
-		} catch (error) {
-			console.warn('⚠️ Background saved search check failed:', error);
+		} catch {
+			// Background operation: do not interrupt user flow
 		}
 	};
 
@@ -113,8 +99,8 @@
 		try {
 			// Reload the first page of My Tasks to show the new task
 			await findMyTasks({ page: 1, limit: 20, refresh: true });
-		} catch (error) {
-			console.error('Error refreshing My Tasks:', error);
+		} catch {
+			// Ignore refresh errors
 		}
 	}
 
@@ -162,8 +148,7 @@
 
 				window.addEventListener('beforeunload', beforeUnloadHandler);
 			}
-		} catch (error) {
-			console.error('Error loading draft:', error);
+		} catch {
 		} finally {
 			isLoading = false;
 		}
@@ -189,7 +174,7 @@
 				if ($store.task.title && $store.task.title.length > 200)
 					errors.title = $t('task.errors.title_too_long');
 				if ($store.task.dateRange) {
-					// Validar que ambos campos de fecha sean requeridos
+					// Both date range fields are required
 					if (
 						!$store.task.dateRange.start ||
 						!$store.task.dateRange.end ||
@@ -199,7 +184,7 @@
 						errors.deadline = $t('task.errors.date_range_required');
 					}
 
-					// Validar que las fechas estén en el futuro (comparando solo fechas, no horas)
+					// Dates must be in the future (compare date only, not time)
 					const today = new Date();
 					const todayDateStr = today.toISOString().split('T')[0];
 
@@ -324,7 +309,7 @@
 			if (taskBudgetRef && taskBudgetRef.uploadPendingFiles) {
 				try {
 					const uploadedAttachments = await taskBudgetRef.uploadPendingFiles();
-					// Solo mostrar mensajes si realmente se subieron archivos
+					// Only show toasts when files were actually uploaded
 					if (uploadedAttachments.length > 0) {
 						appStore.showInfoToast($t('task.upload.uploading_files'));
 						appStore.showSuccessToast($t('task.upload.files_uploaded'));
