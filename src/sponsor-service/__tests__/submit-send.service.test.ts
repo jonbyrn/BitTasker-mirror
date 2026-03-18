@@ -4,6 +4,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { ethers } from 'ethers';
 import * as submitSendService from '../services/submit-send.service.js';
 import * as submissionsRepo from '../db/submissions.repository.js';
 import * as treasuryRepo from '../db/treasury-events.repository.js';
@@ -18,6 +19,28 @@ vi.mock('../utils/signature-verification.js', () => ({
   verifyTransferSignature: vi.fn(() => true),
   verifySignedTransactionHash: vi.fn(() => true),
   validateTransactionStructure: vi.fn(() => true)
+}));
+
+// Mock rate limiter - return allowed to avoid triggering fail-closed behavior
+vi.mock('../middleware/rate-limiter.js', () => ({
+  checkRateLimit: vi.fn(() => Promise.resolve({ allowed: true }))
+}));
+
+// Mock network config
+vi.mock('../config/networks.js', () => ({
+  getNetworkConfig: vi.fn((chainId: number) => {
+    if (chainId !== 56 && chainId !== 97) {
+      return null;
+    }
+    return {
+      name: chainId === 56 ? 'BSC Mainnet' : 'BSC Testnet',
+      chainId,
+      rpcUrl: chainId === 56 ? 'https://bsc-dataseed.binance.org' : 'https://data-seed-prebsc-1-s1.binance.org:8545',
+      routerAddress: '0x1234567890123456789012345678901234567890',
+      sponsorAddress: '0x0987654321098765432109876543210987654321'
+    };
+  }),
+  isValidChainId: vi.fn((chainId: number) => chainId === 56 || chainId === 97)
 }));
 
 describe('submitSendService', () => {
@@ -163,8 +186,13 @@ describe('submitSendService', () => {
     it('should skip polling for already confirmed submission', async () => {
       const submission = {
         id: 'sub-123',
-        lifecycleState: 'confirmed',
-        chainId: 56
+        correlationId: 'corr-123',
+        signedRawTransactionHash: '0xabc',
+        chainId: 56,
+        status: 'accepted' as const,
+        lifecycleState: 'confirmed' as const,
+        requestExpiry: Math.floor(Date.now() / 1000) + 3600,
+        txHash: '0x' + 'a'.repeat(64) // Required for the check to pass
       };
 
       vi.mocked(submissionsRepo.getSubmissionById).mockResolvedValueOnce(submission as any);

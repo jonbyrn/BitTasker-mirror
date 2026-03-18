@@ -3,10 +3,12 @@
  * Core business logic for direct-send sponsorship
  */
 
+import { ethers } from 'ethers';
 import { getNetworkConfig, isValidChainId } from '../config/networks.js';
 import { blockchainService } from './blockchain.service.js';
 import * as submissionsRepo from '../db/submissions.repository.js';
 import * as treasuryRepo from '../db/treasury-events.repository.js';
+import { checkRateLimit } from '../middleware/rate-limiter.js';
 import { verifyTransferSignature } from '../utils/signature-verification.js';
 import type {
   BscDirectSendRequest,
@@ -16,16 +18,20 @@ import type {
   SubmissionLifecycleState
 } from '../models/types.js';
 
-export interface SubmitSendOptions {
-  skipSignatureVerification?: boolean;
-}
+// REMOVED: skipSignatureVerification option - signature verification is now mandatory
+// This was a critical security risk that could allow signature bypass
+
+// Buffer to prevent TOCTOU on deadline (seconds)
+const DEADLINE_BUFFER_SECONDS = 60;
+
+// Minimum sponsor BNB balance threshold (in BNB)
+const MIN_SPONSOR_BALANCE_BNB = '0.005';
 
 /**
  * Submit a signed direct-send request (EIP-712 meta-transaction)
  */
 export async function submitDirectSend(
-  request: BscDirectSendRequest,
-  options: SubmitSendOptions = {}
+  request: BscDirectSendRequest
 ): Promise<SubmissionResponse> {
   const correlationId = request.correlationId;
   const chainId = request.chainId;
@@ -43,14 +49,31 @@ export async function submitDirectSend(
 
     const config = getNetworkConfig(chainId)!;
 
-    // Check if request is not expired
+    // Rate limiting check - use user address from request
+    // IP limiting would need to be handled at API layer (Express/CF Workers)
+    const rateLimitCheck = await checkRateLimit(
+      undefined, // Default config
+      request.user, // Rate limit per user address
+      undefined // IP limiting not available at service layer
+    );
+    if (!rateLimitCheck.allowed) {
+      return {
+        status: 'rejected',
+        correlationId,
+        failureCode: 'RATE_LIMITED' as BscDirectSendFailureCode,
+        errorMessage: `Rate limit exceeded. Retry after ${rateLimitCheck.retryAfter} seconds`
+      };
+    }
+
+    // Check if request is not expired (with buffer to prevent TOCTOU)
     const now = Math.floor(Date.now() / 1000);
-    if (request.deadline < now) {
+    const bufferDeadline = now + DEADLINE_BUFFER_SECONDS;
+    if (request.deadline < bufferDeadline) {
       return {
         status: 'rejected',
         correlationId,
         failureCode: 'REQUEST_EXPIRED' as BscDirectSendFailureCode,
-        errorMessage: 'Request has expired'
+        errorMessage: 'Request has expired or will expire soon'
       };
     }
 
@@ -79,27 +102,25 @@ export async function submitDirectSend(
       }
     }
 
-    // Verify EIP-712 signature
-    if (!options.skipSignatureVerification) {
-      const isValid = await verifyTransferSignature(
-        chainId,
-        config.routerAddress,
-        request.user,
-        request.recipient,
-        request.amount,
-        request.nonce,
-        request.deadline,
-        request.signature
-      );
+    // Verify EIP-712 signature (ALWAYS required - skipSignatureVerification removed)
+    const isValid = await verifyTransferSignature(
+      chainId,
+      config.routerAddress,
+      request.user,
+      request.recipient,
+      request.amount,
+      request.nonce,
+      request.deadline,
+      request.signature
+    );
 
-      if (!isValid) {
-        return {
-          status: 'rejected',
-          correlationId,
-          failureCode: 'POLICY_REJECTED' as BscDirectSendFailureCode,
-          errorMessage: 'EIP-712 signature verification failed'
-        };
-      }
+    if (!isValid) {
+      return {
+        status: 'rejected',
+        correlationId,
+        failureCode: 'POLICY_REJECTED' as BscDirectSendFailureCode,
+        errorMessage: 'EIP-712 signature verification failed'
+      };
     }
 
     // Check sponsor availability and balance (BNB for gas)
@@ -110,7 +131,7 @@ export async function submitDirectSend(
       );
 
       // Sponsor needs BNB for gas
-      if (BigInt(sponsorBalance) < ethers.parseEther("0.005")) {
+      if (BigInt(sponsorBalance) < ethers.parseEther(MIN_SPONSOR_BALANCE_BNB)) {
         return {
           status: 'rejected',
           correlationId,
@@ -129,6 +150,17 @@ export async function submitDirectSend(
     }
 
     // Submit meta-transaction to blockchain via router contract
+    // Re-check deadline immediately before submission to prevent TOCTOU
+    const nowBeforeSubmit = Math.floor(Date.now() / 1000);
+    if (request.deadline < nowBeforeSubmit) {
+      return {
+        status: 'rejected',
+        correlationId,
+        failureCode: 'REQUEST_EXPIRED' as BscDirectSendFailureCode,
+        errorMessage: 'Request expired before submission'
+      };
+    }
+
     let txHash: string;
     try {
       txHash = await blockchainService.submitMetaTransaction(

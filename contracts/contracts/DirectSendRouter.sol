@@ -174,8 +174,12 @@ contract DirectSendRouter is IDirectSendRouter, ReentrancyGuard, Ownable {
       s := calldataload(add(signature.offset, 32))
       v := byte(0, calldataload(add(signature.offset, 64)))
     }
-    // Validate v value: must be 27, 28 (ETH standard) or 0, 1 (EIP-155 legacy)
-    // EIP-155 transforms: v = chainId * 2 + 35 or v = chainId * 2 + 36
+    // Validate v value: must be 27, 28 (ETH standard) or 0, 1 (legacy)
+    // NOTE: This is a defensive check for signature compatibility - this contract
+    // uses EIP-712 for meta-transactions, NOT EIP-155 for raw transaction signing.
+    // The chainId is already enforced via the EIP-712 domain separator, so cross-chain
+    // replay is prevented by design. This v-check just accepts any valid signature format.
+    // If v is invalid, ecrecover returns address(0) which fails the signer check below.
     if (v != 27 && v != 28 && v != 0 && v != 1) revert InvalidSignature();
 
     address signer = ecrecover(digest, v, r, s);
