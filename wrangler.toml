@@ -8,22 +8,8 @@ compatibility_date = "2025-10-07"
 [env.preview]
 name = "preview"
 
-[env.preview.vars]
-VITE_CLIENT_URL = "https://preview.bittasker.pages.dev/"
-VITE_NOSTR_RELAY_URL = "wss://relay.bittasker.hedgehackers.finance"
-VITE_NOSTR_RELAY_NESTJS = "https://relay.bittasker.com"
-VITE_RSK_NETWORK = "mainnet"
-VITE_BSC_NETWORK = "mainnet"
-
 # ============================================
 # PRODUCTION Environment
 # ============================================
 [env.production]
 name = "production"
-
-[env.production.vars]
-VITE_CLIENT_URL = "https://bittasker.pages.dev/"
-VITE_NOSTR_RELAY_URL = "wss://relay1.bittasker.com"
-VITE_NOSTR_RELAY_NESTJS = "https://relay2.bittasker.com"
-VITE_RSK_NETWORK = "mainnet"
-VITE_BSC_NETWORK = "mainnet"
