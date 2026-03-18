@@ -126,13 +126,19 @@
 
 	const loadFeaturedServices = async () => {
 		try {
-			const services = await FeaturedServicesService.getFeaturedServices(FEATURED_HOMEPAGE_LIMIT, {
+			const result = await FeaturedServicesService.getFeaturedServices(FEATURED_HOMEPAGE_LIMIT, {
 				locale: currentLocale,
 				labels: featuredServiceLabels
 			});
-			featuredServicesState = completeFeaturedSectionState(services, null, {
-				hideWhenEmpty: true
-			});
+			if (result.success) {
+				featuredServicesState = completeFeaturedSectionState(result.services, null, {
+					hideWhenEmpty: true
+				});
+			} else {
+				featuredServicesState = completeFeaturedSectionState([], result.error || 'Failed to load featured services', {
+					hideWhenEmpty: true
+				});
+			}
 		} catch (error) {
 			console.error('Error loading featured services:', error);
 			featuredServicesState = completeFeaturedSectionState([], 'Failed to load featured services', {

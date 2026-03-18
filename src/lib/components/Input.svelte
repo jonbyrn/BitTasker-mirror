@@ -13,6 +13,7 @@
 		autoComplete = 'off',
 		required = false,
 		type = 'text',
+		inputmode = undefined,
 		min = undefined,
 		max = undefined,
 		step = undefined,
@@ -117,6 +118,7 @@
 				{max}
 				{step}
 				{value}
+				{inputmode}
 				autocomplete={autoComplete === 'on' ? 'on' : 'off'}
 				class="input input-bordered w-full {error ? 'input-error' : ''} {className}"
 				oninput={handleInput}
