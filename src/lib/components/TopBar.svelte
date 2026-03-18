@@ -255,18 +255,18 @@
 	</li>
 {/snippet}
 
-<!-- Main TopBar component -->
+<!-- Main TopBar component: fixed content row height so left (logo/language) and right (icons/avatar) align on one line (iOS PWA) -->
 <div
-	class="navbar bg-base-100/80 border-base-300 pt-safe sticky top-0 z-50 w-full border-b backdrop-blur-sm"
+	class="navbar navbar-fixed-row bg-base-100/80 border-base-300 pt-safe sticky top-0 z-50 w-full border-b backdrop-blur-sm"
 	onclickcapture={handleTopNavTap}
 >
 	<!-- Navbar start -->
-	<div class="navbar-start ml-2 flex-1 sm:flex">
-		<a href={isLoggedIn ? '/dashboard' : '/'} class="block">
+	<div class="navbar-start ml-2 flex min-h-[44px] flex-1 items-center sm:flex">
+		<a href={isLoggedIn ? '/dashboard' : '/'} class="flex items-center">
 			<img
 				src="/images/Logos/BitTasker-square-logo.svg"
 				alt={$t('common.components.topbar.logo_alt')}
-				class="mx-auto block max-h-10"
+				class="block max-h-10"
 				width="40"
 				height="40"
 				style="aspect-ratio: 1/1;"
@@ -302,9 +302,9 @@
 	</div>
 
 	<!-- Navbar End -->
-	<div class="navbar-end mr-2 flex w-full flex-1 gap-1">
+	<div class="navbar-end mr-2 flex min-h-[44px] w-full flex-1 items-center gap-1">
 		<!-- Dark mode toggle and language dropdown -->
-		<div class="mr-1 items-center md:flex">
+		<div class="mr-1 flex items-center md:flex">
 			<DarkModeToggle />
 		</div>
 		<!-- login/signup or notification + avatar -->
@@ -448,6 +448,11 @@
 	 */
 	.pt-safe {
 		padding-top: var(--safe-area-inset-top, env(safe-area-inset-top, constant(safe-area-inset-top, 0px)));
+	}
+
+	/* Fixed min height for content row so logo/language (left) and icons/avatar (right) align on one line (iOS PWA) */
+	.navbar-fixed-row {
+		min-height: calc(var(--safe-area-inset-top, env(safe-area-inset-top, constant(safe-area-inset-top, 0px))) + 2.75rem);
 	}
 	/* Add bottom spacing when bottom nav is present */
 	:global(body) {

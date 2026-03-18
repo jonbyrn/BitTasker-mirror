@@ -443,10 +443,10 @@ body {
 	overflow: hidden;
 }
 
+/* No padding here: navbar extends into top safe area; TopBar uses pt-safe so content stays below notch */
 .app-shell__header {
 	grid-area: header;
 	min-height: 0;
-	padding-top: env(safe-area-inset-top, constant(safe-area-inset-top, 0px));
 }
 
 .app-shell__content {
@@ -457,9 +457,12 @@ body {
 	overscroll-behavior-y: contain;
 }
 
+/* Extend footer into bottom safe area; match dock exactly (primary/95) to avoid visible seam */
 .app-shell__footer {
 	grid-area: footer;
 	min-height: 0;
+	padding-bottom: env(safe-area-inset-bottom, constant(safe-area-inset-bottom, 0px));
+	background-color: hsl(var(--p) / 0.95);
 }
 
 /*
