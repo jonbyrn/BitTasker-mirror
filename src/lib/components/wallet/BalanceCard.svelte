@@ -15,6 +15,7 @@
 	import IconRefresh from '~icons/mdi/refresh';
 	import IconEye from '~icons/mdi/eye';
 	import IconEyeOff from '~icons/mdi/eye-off';
+	import IconCurrencyUsd from '~icons/mdi/currency-usd';
 	import BalanceHistory from '$lib/components/wallet/BalanceHistory.svelte';
 	import { triggerHaptic, ImpactStyle } from '$lib/utils/helpers/haptics';
 	import balanceHistoryService from '$lib/api/services/balanceHistory.service';
@@ -293,7 +294,7 @@
 				</div>
 			</button>
 			<div class="collapse-content">
-				<div class="space-y-1.5 px-3 pb-1.5 sm:space-y-2 sm:px-4 sm:pb-2">
+				<div class="space-y-1.5 px-3 sm:space-y-2 sm:px-4">
 					<!-- L2 BTC Entry with Lightning Bolt Icon -->
 					<div class="flex items-center justify-between">
 						<div class="flex items-center gap-1.5 sm:gap-2">
@@ -365,11 +366,16 @@
 				}}
 			>
 				<div class="flex min-w-0 flex-1 items-center gap-2">
-					<img src="/images/chains/Tether-USD.svg" alt="USDT on BSC" class="h-5 w-5 shrink-0 sm:h-6 sm:w-6" />
-					<span>USDT on BSC</span>
+					<IconCurrencyUsd class="h-5 w-5 shrink-0 text-green-600 sm:h-6 sm:w-6" />
+					<span>USD</span>
 				</div>
 				<div class="ml-2 shrink-0 text-right">
-					{#if balancesHidden}
+					{#if isLoading || isRefreshing}
+						<!-- Loading state - single spinner matching two-line height to prevent layout shift -->
+						<div class="flex flex-col items-end gap-0.5 h-9 w-9 justify-center">
+							<span class="loading loading-spinner loading-md"></span>
+						</div>
+					{:else if balancesHidden}
 						<div class="text-sm font-semibold sm:text-base">$••••</div>
 					{:else if usdtAsset}
 						<div class="text-sm font-semibold sm:text-base">${usdtAsset.usdValue.toFixed(2)}</div>
@@ -381,16 +387,16 @@
 				</div>
 			</button>
 			<div class="collapse-content">
-				<div class="space-y-1.5 px-2 pb-1.5 sm:space-y-2 sm:pb-2">
+				<div class="space-y-1.5 px-3 sm:space-y-2 sm:px-4">
 					<!-- USDT (Binance Chain) - show actual balance if available -->
 					<div class="flex items-center gap-1.5 sm:gap-2">
 						<img
 							src="/images/chains/Binance-logo.svg"
 							alt="USDT on BSC"
-							class="h-4 w-4 opacity-50 sm:h-5 sm:w-5"
+							class="h-4 w-4 sm:h-5 sm:w-5"
 						/>
-						<span class="text-base-content/50 text-sm font-medium sm:text-base">USDT on BSC</span>
-						<div class="text-base-content/50 ml-auto text-xs">
+						<span class="text-sm font-medium sm:text-base">USDT on BSC</span>
+						<div class="ml-auto text-xs">
 							{#if balancesHidden}
 								$••••
 							{:else if usdtAsset}
@@ -400,20 +406,6 @@
 							{/if}
 						</div>
 					</div>
-
-					<!-- USDT (Liquid) - Coming Soon -->
-					<div class="flex items-center gap-1.5 sm:gap-2">
-						<img src="/images/chains/Tether-USD.svg" alt="USDT" class="h-4 w-4 opacity-50 sm:h-5 sm:w-5" />
-						<span class="text-base-content/50 text-sm font-medium sm:text-base">{$t('wallet.usdt_liquid')}</span>
-						<div class="text-base-content/50 ml-auto text-xs">
-							{#if balancesHidden}
-								$••••
-							{:else}
-								$0.00
-							{/if}
-						</div>
-					</div>
-
 				</div>
 			</div>
 		</div>

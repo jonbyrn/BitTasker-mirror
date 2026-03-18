@@ -58,7 +58,7 @@
 		},
 		{
 			id: 'bsc' as const,
-			label: 'BSC',
+			label: 'USDT on BSC',
 			icon: '/images/chains/Binance-logo.svg',
 			isImage: true
 		}
@@ -241,7 +241,7 @@
 
 	function getNetworkBadgeLabel(tx: { networkDisplayName?: string; network: 'rsk' | 'bsc' | 'lightning' }): string {
 		if (tx.network === 'bsc') {
-			return 'BSC';
+			return 'USDT on BSC';
 		}
 
 		if (tx.network === 'rsk') {

@@ -197,7 +197,7 @@
 		aria-disabled={disabled}
 	>
 		<IconCurrencyUsd class="h-6 w-6 sm:h-8 sm:w-8" />
-		<span>{network === 'usdt-bsc' ? 'USDT' : 'USD'}</span>
+		<span>USD</span>
 	</button>
 	<button
 		type="button"
@@ -208,6 +208,7 @@
 		class:active:bg-base-300={!disabled}
 		class:cursor-not-allowed={disabled || network === 'usdt-bsc'}
 		class:pointer-events-none={disabled || network === 'usdt-bsc'}
+		class:opacity-30={network === 'usdt-bsc'}
 		style="-webkit-tap-highlight-color: transparent;"
 		onclick={() => !disabled && network !== 'usdt-bsc' && handleUnitToggle('sats')}
 		disabled={disabled || network === 'usdt-bsc'}
