@@ -247,6 +247,52 @@ router.get('/health', async (req: Request, res: Response) => {
 });
 
 /**
+ * GET /stats
+ * Submission statistics for monitoring dashboards
+ * Returns counts by status - useful for uptime monitors
+ */
+router.get('/stats', async (req: Request, res: Response) => {
+  try {
+    const { query } = await import('../db/connection.js');
+
+    // Get submission counts by status
+    const statusResult = await query(`
+      SELECT status, lifecycle_state, COUNT(*) as count
+      FROM submissions
+      WHERE created_at > NOW() - INTERVAL '24 hours'
+      GROUP BY status, lifecycle_state
+    `);
+
+    // Get recent failure rate
+    const failureResult = await query(`
+      SELECT
+        COUNT(*) FILTER (WHERE status = 'accepted') as accepted,
+        COUNT(*) FILTER (WHERE status = 'rejected') as rejected
+      FROM submissions
+      WHERE created_at > NOW() - INTERVAL '1 hour'
+    `);
+
+    const stats = {
+      last24Hours: statusResult.rows.reduce((acc: Record<string, number>, row: any) => {
+        const key = `${row.status}_${row.lifecycle_state}`;
+        acc[key] = parseInt(row.count);
+        return acc;
+      }, {}),
+      last1Hour: {
+        accepted: parseInt(failureResult.rows[0]?.accepted || 0),
+        rejected: parseInt(failureResult.rows[0]?.rejected || 0)
+      },
+      timestamp: new Date().toISOString()
+    };
+
+    res.status(200).json(stats);
+  } catch (error) {
+    console.error('Error getting stats:', error);
+    res.status(500).json({ error: 'Failed to retrieve stats' });
+  }
+});
+
+/**
  * GET /ready
  * Readiness check endpoint (for Kubernetes)
  */
