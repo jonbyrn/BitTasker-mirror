@@ -735,11 +735,12 @@
 <!-- Bottom Navigation Bar -->
 {#if isLoggedIn}
 	<!-- Dock is fixed at bottom of screen and animates in/out based on scroll -->
-	<div
-		bind:this={dockEl}
-		class="dock touch-none bg-primary/95 border-base-300/70 z-80 border-t text-black backdrop-blur-sm"
-		onclickcapture={handleBottomNavTap}
-	>
+	<div class="dock-wrapper">
+		<div
+			bind:this={dockEl}
+			class="dock touch-none bg-primary/95 border-base-300/70 z-80 border-t text-black backdrop-blur-sm"
+			onclickcapture={handleBottomNavTap}
+		>
 		<!-- Home -->
 		<a
 			href="/dashboard"
@@ -817,13 +818,15 @@
 			<IconChatOutline class="text-primary-content" />
 			<span class="dock-label font-medium">{$t('navbar.messages')}</span>
 		</a>
+		</div>
 	</div>
 {:else}
-	<div
-		bind:this={dockEl}
-		class="dock touch-none bg-primary/95 border-base-300/70 z-80 border-t text-black backdrop-blur-sm"
-		onclickcapture={handleBottomNavTap}
-	>
+	<div class="dock-wrapper">
+		<div
+			bind:this={dockEl}
+			class="dock touch-none bg-primary/95 border-base-300/70 z-80 border-t text-black backdrop-blur-sm"
+			onclickcapture={handleBottomNavTap}
+		>
 		<!-- Home -->
 		<a
 			href="/tasks"
@@ -901,18 +904,26 @@
 			<IconAccountPlus class="text-primary-content" />
 			<span class="dock-label font-medium">{$t('navbar.signup')}</span>
 		</a>
+		</div>
 	</div>
 {/if}
 
 <style>
+	/* Dock safe-area background wrapper (iOS home bar) */
+	.dock-wrapper {
+		width: 100%;
+		background-color: hsl(var(--p) / 0.95);
+		padding-bottom: env(safe-area-inset-bottom, constant(safe-area-inset-bottom, 0px));
+		touch-action: none;
+	}
+
 	/* Dock positioning - flex layout with safe area insets */
 	.dock {
 		display: flex;
-		/* Visual thickness includes safe-area; content stays within the first 64px */
-		align-items: flex-start;
+		/* Content stays within the dock; safe-area is handled by the wrapper below */
+		align-items: center;
 		justify-content: space-around;
-		/* Total dock height = action zone + safe-area */
-		height: calc(64px + env(safe-area-inset-bottom, constant(safe-area-inset-bottom, 0)));
+		height: 64px;
 		width: 100%;
 	}
 
@@ -949,6 +960,7 @@
 		transition: transform 0.4s cubic-bezier(0.3, 0, 0.2, 1);
 		will-change: transform;
 		-webkit-backface-visibility: hidden;
+		backface-visibility: hidden;
 	}
 	.menu-expand {
 		transform: translateY(0);
