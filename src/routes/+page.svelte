@@ -22,6 +22,11 @@
 
 	let { data: seo }: { data: PageData } = $props();
 
+	// JSON-LD script for structured data (moved from template to fix eslint parser bug)
+	const jsonLdScript = seo.jsonLd
+		? '<script type="application/ld+json">' + JSON.stringify(seo.jsonLd) + '</script>'
+		: '';
+
 	// Define feature types for type safety
 	type FeatureId = 'nostr' | 'bitcoin' | 'payments' | 'escrow';
 
@@ -212,7 +217,9 @@
 	<meta name="twitter:creator" content="@BitTaskerdotcom" />
 
 	<!-- Structured Data -->
-	{@html `<script type="application/ld+json">${JSON.stringify(seo.jsonLd)}</script>`}
+	{#if jsonLdScript}
+		{@html jsonLdScript}
+	{/if}
 
 	<link rel="preload" href={featureImages['bitcoin']} as="image" />
 </svelte:head>
