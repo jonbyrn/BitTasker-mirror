@@ -19,7 +19,38 @@ export interface UploadOptions {
 	useCloudflare?: boolean;
 	enableCompression?: boolean;
 	generateVariants?: boolean;
-	metadata?: Record<string, any>;
+	metadata?: Record<string, unknown>;
+}
+
+/**
+ * Validates and sanitizes the folder parameter to prevent path traversal.
+ * Only allows safe characters: alphanumeric, hyphens, underscores, forward slashes.
+ */
+function validateFolderParam(folder: string): string {
+	if (!folder || typeof folder !== 'string') {
+		return 'uploads';
+	}
+
+	// Check for path traversal patterns
+	const dangerousPatterns = [
+		/\.\./, // Parent directory traversal
+		/^\//, // Absolute path
+		/%2e%2e/i, // URL-encoded parent directory
+		/\0/ // Null byte injection
+	];
+
+	for (const pattern of dangerousPatterns) {
+		if (pattern.test(folder)) {
+			console.warn('Path traversal attempt detected in folder parameter:', folder);
+			return 'uploads';
+		}
+	}
+
+	// Sanitize: only allow safe characters
+	const sanitized = folder.replace(/[^a-zA-Z0-9\-_/.]/g, '');
+
+	// Limit length to prevent DoS
+	return sanitized.slice(0, 100) || 'uploads';
 }
 
 /**
@@ -34,10 +65,7 @@ class UploadService extends BaseApiService {
 	 * @returns Promise containing the upload result
 	 * @throws Error if upload fails
 	 */
-	async uploadSingleFile(
-		file: File, 
-		options: UploadOptions = {}
-	): Promise<UploadResult> {
+	async uploadSingleFile(file: File, options: UploadOptions = {}): Promise<UploadResult> {
 		const {
 			folder = 'uploads',
 			useCloudflare = true,
@@ -46,6 +74,9 @@ class UploadService extends BaseApiService {
 			metadata = {}
 		} = options;
 
+		// Validate and sanitize folder parameter to prevent path traversal
+		const safeFolder = validateFolderParam(folder);
+
 		let processedFile = file;
 		let compressed = false;
 		const originalSize = file.size;
@@ -53,7 +84,11 @@ class UploadService extends BaseApiService {
 		// Determine file type
 		const isImage = file.type.startsWith('image/');
 		const isVideo = file.type.startsWith('video/');
-		const fileType: 'image' | 'video' | 'document' = isImage ? 'image' : isVideo ? 'video' : 'document';
+		const fileType: 'image' | 'video' | 'document' = isImage
+			? 'image'
+			: isVideo
+				? 'video'
+				: 'document';
 
 		// Compress images if enabled and file is an image
 		if (isImage && enableCompression) {
@@ -82,7 +117,7 @@ class UploadService extends BaseApiService {
 			try {
 				if (isImage) {
 					const cloudflareResult = await cloudflareMediaService.uploadImage(processedFile, {
-						folder,
+						folder: safeFolder,
 						...metadata,
 						originalName: file.name,
 						uploadedAt: new Date().toISOString(),
@@ -106,7 +141,7 @@ class UploadService extends BaseApiService {
 					};
 				} else if (isVideo) {
 					const cloudflareResult = await cloudflareMediaService.uploadVideo(processedFile, {
-						folder,
+						folder: safeFolder,
 						...metadata,
 						originalName: file.name,
 						uploadedAt: new Date().toISOString()
@@ -128,7 +163,7 @@ class UploadService extends BaseApiService {
 		}
 
 		// Fallback to default upload service
-		return this.uploadToDefaultService(processedFile, folder, {
+		return this.uploadToDefaultService(processedFile, safeFolder, {
 			type: fileType,
 			size: processedFile.size,
 			originalSize: compressed ? originalSize : undefined,
@@ -144,7 +179,7 @@ class UploadService extends BaseApiService {
 	 * @returns Upload result
 	 */
 	private async uploadToDefaultService(
-		file: File, 
+		file: File,
 		folder: string,
 		metadata: {
 			type: 'image' | 'video' | 'document';
@@ -191,10 +226,10 @@ class UploadService extends BaseApiService {
 		onProgress?: (completed: number, total: number, currentFile: string) => void
 	): Promise<UploadResult[]> {
 		const results: UploadResult[] = [];
-		
+
 		for (let i = 0; i < files.length; i++) {
 			const file = files[i];
-			
+
 			// Update progress if callback provided
 			if (onProgress) {
 				onProgress(i, files.length, file.name);
@@ -253,7 +288,10 @@ class UploadService extends BaseApiService {
 	 * @param size The desired size variant
 	 * @returns Optimized image URL
 	 */
-	getImageUrl(uploadResult: UploadResult, size: keyof ReturnType<typeof cloudflareMediaService.generateResponsiveImageUrls> = 'medium'): string {
+	getImageUrl(
+		uploadResult: UploadResult,
+		size: keyof ReturnType<typeof cloudflareMediaService.generateResponsiveImageUrls> = 'medium'
+	): string {
 		if (uploadResult.type !== 'image') {
 			return uploadResult.url;
 		}
@@ -273,7 +311,11 @@ class UploadService extends BaseApiService {
 	 * @returns Object with responsive URLs or null if not a Cloudflare image
 	 */
 	generateResponsiveUrls(uploadResult: UploadResult): Record<string, string> | null {
-		if (uploadResult.type !== 'image' || !uploadResult.cloudflareId || !cloudflareMediaService.isConfigured()) {
+		if (
+			uploadResult.type !== 'image' ||
+			!uploadResult.cloudflareId ||
+			!cloudflareMediaService.isConfigured()
+		) {
 			return null;
 		}
 

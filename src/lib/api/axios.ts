@@ -1,6 +1,8 @@
 import axios, { type AxiosRequestConfig } from 'axios';
 import { Preferences } from '@capacitor/preferences';
 import { StorageKeys } from '$lib/utils/constants/storage';
+import { goto } from '$app/navigation';
+import { authState } from '$lib/stores/auth.store';
 
 interface RequestConfig extends AxiosRequestConfig {
 	baseURL?: string;
@@ -37,7 +39,15 @@ const createAxiosInstance = async (config: RequestConfig = {}) => {
 		(response) => response,
 		async (error) => {
 			if (error.response?.status === 401) {
-				// TODO: Handle failed requests
+				// Clear stored tokens
+				await Preferences.remove({ key: StorageKeys.ACCESS_TOKEN });
+				await Preferences.remove({ key: StorageKeys.REFRESH_TOKEN });
+
+				// Sign out from auth store to clear in-memory state
+				authState.logout();
+
+				// Redirect to login page
+				await goto('/auth/login?reason=session_expired');
 			}
 			return Promise.reject(error);
 		}
