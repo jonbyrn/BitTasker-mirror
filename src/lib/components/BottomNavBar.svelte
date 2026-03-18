@@ -908,28 +908,27 @@
 	/* Dock positioning - flex layout with safe area insets */
 	.dock {
 		display: flex;
-		align-items: center;
+		/* Align to the top so the action zone stays within the first 64px */
+		align-items: flex-start;
 		justify-content: space-around;
 		/* Total dock height = base dock + home indicator safe-area */
 		height: calc(64px + env(safe-area-inset-bottom, constant(safe-area-inset-bottom, 0)));
-		/* Reserve home-indicator space inside the dock */
-		padding: 0.5rem 0;
-		padding-bottom: env(safe-area-inset-bottom, constant(safe-area-inset-bottom, 0));
 		width: 100%;
 	}
 
-	/* Make items fill the dock height so they can be vertically centered */
+	/* Action zone: keep icons/labels centered only within the first 64px */
 	.dock a,
 	.dock button {
-		height: 100%;
-		min-height: 0;
+		height: 64px;
+		min-height: 64px;
 		justify-content: center;
 	}
 
 	/* Tight label spacing to avoid visual “float” */
 	.dock-label {
+		font-size: 0.7rem;
 		line-height: 1;
-		margin-top: 1px;
+		margin-top: 2px;
 	}
 
 	/* Backdrop fade for seamless open/close */
