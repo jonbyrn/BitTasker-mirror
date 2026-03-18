@@ -1,8 +1,6 @@
 import axios, { type AxiosRequestConfig } from 'axios';
 import { Preferences } from '@capacitor/preferences';
 import { StorageKeys } from '$lib/utils/constants/storage';
-import { goto } from '$app/navigation';
-import { authState } from '$lib/stores/auth.store';
 
 interface RequestConfig extends AxiosRequestConfig {
 	baseURL?: string;
@@ -42,6 +40,11 @@ const createAxiosInstance = async (config: RequestConfig = {}) => {
 				// Clear stored tokens
 				await Preferences.remove({ key: StorageKeys.ACCESS_TOKEN });
 				await Preferences.remove({ key: StorageKeys.REFRESH_TOKEN });
+
+				// Lazy import to avoid circular dependency
+				// (axios -> auth.store -> ... -> auth.service -> apiService -> axios)
+				const { authState } = await import('$lib/stores/auth.store');
+				const { goto } = await import('$app/navigation');
 
 				// Sign out from auth store to clear in-memory state
 				authState.logout();
