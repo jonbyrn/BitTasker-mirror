@@ -103,14 +103,20 @@ async function checkKeyRateLimit(
     }
   } catch (error) {
     console.error('Rate limit check error:', error);
-    // Allow request on error to prevent cascading failures
-    return { allowed: true };
+    // Fail closed: deny on error to prevent abuse during outages
+    // This is a security measure - better to block temporarily than allow unlimited access
+    return { allowed: false, retryAfter: 60 };
   }
 }
 
 export async function cleanupExpiredRateLimits(): Promise<number> {
-  const result = await query(
-    'DELETE FROM rate_limits WHERE window_end < NOW()'
-  );
-  return result.rowCount || 0;
+  try {
+    const result = await query(
+      'DELETE FROM rate_limits WHERE window_end < NOW()'
+    );
+    return result.rowCount || 0;
+  } catch (error) {
+    console.error('Error cleaning up expired rate limits:', error);
+    return 0;
+  }
 }

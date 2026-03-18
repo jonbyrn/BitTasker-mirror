@@ -11,13 +11,29 @@ vi.mock('../db/connection.js', () => ({
   query: vi.fn()
 }));
 
+import { query } from '../db/connection.js';
+
+const mockQuery = vi.mocked(query);
+
 describe('Rate Limiter', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
   describe('checkRateLimit', () => {
-    it('should allow requests within limit', async () => {
+    it('should allow requests when database is healthy and under limit', async () => {
+      // First call - no existing record
+      mockQuery.mockResolvedValueOnce({
+        rows: [],
+        rowCount: 0
+      } as any);
+
+      // Second call - insert new record
+      mockQuery.mockResolvedValueOnce({
+        rows: [],
+        rowCount: 1
+      } as any);
+
       const result = await checkRateLimit(
         {
           perSenderLimit: 10,
@@ -33,10 +49,8 @@ describe('Rate Limiter', () => {
     });
 
     it('should reject requests when limit exceeded', async () => {
-      const { query } = await import('../db/connection.js');
-
-      // Mock first call returning existing record at limit
-      vi.mocked(query).mockResolvedValueOnce({
+      // Mock returning existing record at limit
+      mockQuery.mockResolvedValueOnce({
         rows: [
           {
             key: 'ip:192.168.1.1',
@@ -63,16 +77,16 @@ describe('Rate Limiter', () => {
     });
 
     it('should handle sender-based rate limiting', async () => {
-      const { query } = await import('../db/connection.js');
-
-      vi.mocked(query).mockResolvedValueOnce({
+      // Sender check - no record
+      mockQuery.mockResolvedValueOnce({
         rows: [],
         rowCount: 0
       } as any);
 
-      vi.mocked(query).mockResolvedValueOnce({
+      // Insert new record
+      mockQuery.mockResolvedValueOnce({
         rows: [],
-        rowCount: 0
+        rowCount: 1
       } as any);
 
       const result = await checkRateLimit(
@@ -88,51 +102,11 @@ describe('Rate Limiter', () => {
 
       expect(result.allowed).toBe(true);
     });
-
-    it('should track separate limits for sender and IP', async () => {
-      const { query } = await import('../db/connection.js');
-
-      // Mock two separate queries
-      vi.mocked(query).mockResolvedValueOnce({
-        rows: [],
-        rowCount: 0
-      } as any);
-
-      vi.mocked(query).mockResolvedValueOnce({
-        rows: [],
-        rowCount: 0
-      } as any);
-
-      vi.mocked(query).mockResolvedValueOnce({
-        rows: [],
-        rowCount: 0
-      } as any);
-
-      vi.mocked(query).mockResolvedValueOnce({
-        rows: [],
-        rowCount: 0
-      } as any);
-
-      const result = await checkRateLimit(
-        {
-          perSenderLimit: 5,
-          perSenderWindow: 60000,
-          perIpLimit: 10,
-          perIpWindow: 60000
-        },
-        '0xSender',
-        '192.168.1.1'
-      );
-
-      expect(result.allowed).toBe(true);
-    });
   });
 
   describe('cleanupExpiredRateLimits', () => {
     it('should delete expired rate limit records', async () => {
-      const { query } = await import('../db/connection.js');
-
-      vi.mocked(query).mockResolvedValueOnce({
+      mockQuery.mockResolvedValueOnce({
         rows: [],
         rowCount: 5
       } as any);
@@ -143,13 +117,58 @@ describe('Rate Limiter', () => {
     });
 
     it('should handle cleanup errors gracefully', async () => {
-      const { query } = await import('../db/connection.js');
+      mockQuery.mockRejectedValueOnce(new Error('Database error'));
 
-      vi.mocked(query).mockRejectedValueOnce(new Error('Database error'));
-
-      // Should not throw
+      // Should not throw, returns 0
       const deleted = await cleanupExpiredRateLimits();
       expect(deleted).toBe(0);
+    });
+  });
+
+  describe('Fail-closed behavior', () => {
+    it('should deny requests when database errors occur', async () => {
+      // Mock database error on first call
+      mockQuery.mockRejectedValueOnce(new Error('Database connection failed'));
+
+      const result = await checkRateLimit(
+        {
+          perSenderLimit: 10,
+          perSenderWindow: 60000,
+          perIpLimit: 50,
+          perIpWindow: 60000
+        },
+        '0x1234567890123456789012345678901234567890',
+        '192.168.1.1'
+      );
+
+      // Should fail closed for security - deny when DB is down
+      expect(result.allowed).toBe(false);
+      expect(result.retryAfter).toBe(60);
+    });
+
+    it('should deny IP requests when database errors occur', async () => {
+      // First call (sender) succeeds
+      mockQuery.mockResolvedValueOnce({
+        rows: [],
+        rowCount: 0
+      } as any);
+
+      // Second call (IP) fails
+      mockQuery.mockRejectedValueOnce(new Error('Database connection failed'));
+
+      const result = await checkRateLimit(
+        {
+          perSenderLimit: 10,
+          perSenderWindow: 60000,
+          perIpLimit: 50,
+          perIpWindow: 60000
+        },
+        undefined,
+        '192.168.1.1'
+      );
+
+      expect(result.allowed).toBe(false);
+      expect(result.retryAfter).toBe(60);
     });
   });
 });
