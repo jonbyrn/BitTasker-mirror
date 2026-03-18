@@ -286,6 +286,9 @@ export interface Service {
 		rating?: number; // May be added from profile lookup
 	}; // From content (added during creation)
 	translations?: ServiceTranslations; // From content (auto-generated during creation)
+	// Deletion tracking (added by findServices when parsing events with deletion tags)
+	isDeleted?: boolean;
+	deletedAt?: number;
 }
 
 /**

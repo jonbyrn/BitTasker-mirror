@@ -27,6 +27,16 @@ export interface FeaturedService {
 	ctaLabel: string;
 }
 
+/**
+ * Result type for featured services fetch - allows UI to distinguish between
+ * "no services available" and "fetch failed"
+ */
+export interface FeaturedServicesResult {
+	success: boolean;
+	services: FeaturedService[];
+	error?: string;
+}
+
 export interface FeaturedServiceLabels {
 	untitledServiceLabel: string;
 	noDescriptionLabel: string;
@@ -82,7 +92,7 @@ export class FeaturedServicesService {
 			locale?: string;
 			labels?: Partial<FeaturedServiceLabels>;
 		} = {}
-	): Promise<FeaturedService[]> {
+	): Promise<FeaturedServicesResult> {
 		const locale = options.locale || 'en';
 		const labels = resolveFeaturedServiceLabels(options.labels);
 
@@ -112,12 +122,20 @@ export class FeaturedServicesService {
 				}
 			});
 
-			return featuredServices.map((service) =>
-				this.convertToFeaturedService(service, locale, labels)
-			);
+			return {
+				success: true,
+				services: featuredServices.map((service) =>
+					this.convertToFeaturedService(service, locale, labels)
+				)
+			};
 		} catch (error) {
+			const errorMessage = error instanceof Error ? error.message : 'Failed to fetch featured services';
 			console.error('Error fetching featured services:', error);
-			return [];
+			return {
+				success: false,
+				services: [],
+				error: errorMessage
+			};
 		}
 	}
 

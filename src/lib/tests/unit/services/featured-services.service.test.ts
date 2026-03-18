@@ -63,7 +63,8 @@ describe('FeaturedServicesService', () => {
 			page: 1,
 			sortBy: 'date'
 		});
-		expect(result).toEqual([
+		expect(result.success).toBe(true);
+		expect(result.services).toEqual([
 			expect.objectContaining({
 				id: 'service-event-1',
 				href: '/services/featured-service-1',
@@ -100,7 +101,8 @@ describe('FeaturedServicesService', () => {
 			}
 		});
 
-		expect(result[0]).toEqual(
+		expect(result.success).toBe(true);
+		expect(result.services[0]).toEqual(
 			expect.objectContaining({
 				href: '/services/brand%20sprint%20%2F%20premium',
 				ctaLabel: 'Ver Servicio',
@@ -127,8 +129,9 @@ describe('FeaturedServicesService', () => {
 
 		const result = await FeaturedServicesService.getFeaturedServices(1);
 
-		expect(result).toHaveLength(1);
-		expect(result[0].href).toBe('/services/service-2');
+		expect(result.success).toBe(true);
+		expect(result.services).toHaveLength(1);
+		expect(result.services[0].href).toBe('/services/service-2');
 	});
 
 	it('filters deleted services and keeps the best homepage candidate per route identity', async () => {
@@ -176,15 +179,16 @@ describe('FeaturedServicesService', () => {
 
 		const result = await FeaturedServicesService.getFeaturedServices(8);
 
-		expect(result).toHaveLength(2);
-		expect(result[0]).toEqual(
+		expect(result.success).toBe(true);
+		expect(result.services).toHaveLength(2);
+		expect(result.services[0]).toEqual(
 			expect.objectContaining({
 				id: 'newer-duplicate',
 				href: '/services/shared-service',
 				image: 'https://cdn.example.com/preferred.jpg'
 			})
 		);
-		expect(result[1]).toEqual(
+		expect(result.services[1]).toEqual(
 			expect.objectContaining({
 				id: 'fallback-id-service',
 				href: '/services/fallback-id-service'
@@ -228,7 +232,8 @@ describe('FeaturedServicesService', () => {
 
 		const result = await FeaturedServicesService.getFeaturedServices(3);
 
-		expect(result.map((service) => service.priceLabel)).toEqual(['$99.5', '$75/hr', 'Request Quote']);
+		expect(result.success).toBe(true);
+		expect(result.services.map((service) => service.priceLabel)).toEqual(['$99.5', '$75/hr', 'Request Quote']);
 	});
 
 	it('falls back to location-specific labels and service-listing meta when needed', async () => {
@@ -270,15 +275,20 @@ describe('FeaturedServicesService', () => {
 
 		const result = await FeaturedServicesService.getFeaturedServices(3);
 
-		expect(result[0].meta).toEqual(['Downtown Studio']);
-		expect(result[1].meta).toEqual(['Travels across Austin']);
-		expect(result[2].meta).toEqual(['Service listing']);
-		expect(result[2].priceLabel).toBe('Request Quote');
+		expect(result.success).toBe(true);
+		expect(result.services[0].meta).toEqual(['Downtown Studio']);
+		expect(result.services[1].meta).toEqual(['Travels across Austin']);
+		expect(result.services[2].meta).toEqual(['Service listing']);
+		expect(result.services[2].priceLabel).toBe('Request Quote');
 	});
 
-	it('fails closed to an empty list when discovery throws', async () => {
+	it('fails gracefully with error info when discovery throws', async () => {
 		vi.mocked(findServices).mockRejectedValue(new Error('relay unavailable'));
 
-		await expect(FeaturedServicesService.getFeaturedServices(8)).resolves.toEqual([]);
+		const result = await FeaturedServicesService.getFeaturedServices(8);
+
+		expect(result.success).toBe(false);
+		expect(result.error).toBe('relay unavailable');
+		expect(result.services).toEqual([]);
 	});
 });
