@@ -888,12 +888,13 @@
 	/* Dock positioning - flex layout with safe area insets */
 	.dock {
 		display: flex;
-		align-items: center;
+		/* Align towards bottom so labels/icons don't float with extra space beneath */
+		align-items: flex-end;
 		justify-content: space-around;
-		padding: 0.5rem 0;
-		/* Reduce extra breathing room below icons while still reserving home-indicator safe area */
-		padding-bottom: calc(0.25rem + env(safe-area-inset-bottom, constant(safe-area-inset-bottom, 0)));
-		min-height: 56px;
+		padding: 0.35rem 0;
+		/* Keep safe-area reservation, but avoid large constant bottom padding */
+		padding-bottom: calc(0.15rem + env(safe-area-inset-bottom, constant(safe-area-inset-bottom, 0)));
+		min-height: 54px;
 		height: auto;
 		width: 100%;
 	}
