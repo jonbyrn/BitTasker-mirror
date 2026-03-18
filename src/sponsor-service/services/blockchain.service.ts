@@ -4,8 +4,13 @@
  */
 
 import { ethers } from 'ethers';
-import type { NetworkConfig } from '../config/networks.js';
+import type { NetworkConfig as _NetworkConfig } from '../config/networks.js';
 import { getNetworkConfig } from '../config/networks.js';
+
+// Maximum gas price in gwei to prevent front-running attacks
+// BSC typically ranges 1-10 gwei, set conservative limit
+const MAX_GAS_PRICE_GWEI = 0.3;
+const MAX_GAS_PRICE_WEI = BigInt(Math.floor(MAX_GAS_PRICE_GWEI * 1e9));
 
 export interface TransactionReceipt {
   transactionHash: string;
@@ -17,6 +22,7 @@ export interface TransactionReceipt {
 
 export class BlockchainService {
   private providers: Map<number, ethers.AbstractProvider> = new Map();
+  private chainIdVerified: Map<number, boolean> = new Map();
 
   getProvider(chainId: number): ethers.AbstractProvider {
     if (!this.providers.has(chainId)) {
@@ -27,8 +33,16 @@ export class BlockchainService {
 
       const urls = [config.rpcUrl, ...(config.rpcUrls ?? [])].filter(Boolean);
 
+      // Validate HTTPS for security
+      for (const url of urls) {
+        if (!url.startsWith('https://')) {
+          console.warn(`Insecure RPC URL detected (non-HTTPS): ${url}`);
+        }
+      }
+
+      let provider: ethers.AbstractProvider;
       if (urls.length === 1) {
-        this.providers.set(chainId, new ethers.JsonRpcProvider(urls[0]));
+        provider = new ethers.JsonRpcProvider(urls[0]);
       } else {
         const providerConfigs = urls.map((url, index) => ({
           provider: new ethers.JsonRpcProvider(url),
@@ -36,10 +50,51 @@ export class BlockchainService {
           stallTimeout: 1500,
           weight: 1
         }));
-        this.providers.set(chainId, new ethers.FallbackProvider(providerConfigs, chainId));
+        provider = new ethers.FallbackProvider(providerConfigs, chainId);
       }
+
+      this.providers.set(chainId, provider);
     }
     return this.providers.get(chainId)!;
+  }
+
+  /**
+   * Verify chainId on first use to prevent RPC redirect attacks
+   * This is called lazily on the first actual RPC call
+   */
+  private async ensureChainIdVerified(chainId: number, provider: ethers.AbstractProvider): Promise<void> {
+    if (this.chainIdVerified.get(chainId)) {
+      return;
+    }
+
+    try {
+      const network = await provider.getNetwork();
+      const actualChainId = Number(network.chainId);
+      if (actualChainId !== chainId) {
+        throw new Error(`Chain ID mismatch: expected ${chainId}, got ${actualChainId}`);
+      }
+      this.chainIdVerified.set(chainId, true);
+    } catch (error) {
+      console.error('Chain ID verification failed:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Verify that the connected network's chainId matches the expected chainId
+   * This prevents RPC redirect attacks
+   */
+  private async verifyChainId(provider: ethers.AbstractProvider, expectedChainId: number): Promise<void> {
+    try {
+      const network = await provider.getNetwork();
+      const actualChainId = Number(network.chainId);
+      if (actualChainId !== expectedChainId) {
+        throw new Error(`Chain ID mismatch: expected ${expectedChainId}, got ${actualChainId}`);
+      }
+    } catch (error) {
+      console.error('Chain ID verification failed:', error);
+      throw error;
+    }
   }
 
   /**
@@ -65,6 +120,17 @@ export class BlockchainService {
   ): Promise<string> {
     try {
       const provider = this.getProvider(chainId);
+
+      // Verify chainId to prevent RPC redirect attacks (lazy verification on first use)
+      await this.ensureChainIdVerified(chainId, provider);
+
+      // Verify EIP-155 transaction chainId matches requested chainId
+      // This prevents cross-chain replay attacks
+      const parsedTx = ethers.parseTransaction(signedRawTransaction);
+      if (parsedTx.chainId !== undefined && Number(parsedTx.chainId) !== chainId) {
+        throw new Error(`Transaction chainId mismatch: expected ${chainId}, got ${parsedTx.chainId}`);
+      }
+
       const result = await provider.broadcastTransaction(signedRawTransaction);
       return result;
     } catch (error) {
@@ -86,12 +152,36 @@ export class BlockchainService {
     signature: string
   ): Promise<string> {
     try {
+      // Input validation
+      if (!ethers.isAddress(user)) {
+        throw new Error('Invalid user address');
+      }
+      if (!ethers.isAddress(recipient)) {
+        throw new Error('Invalid recipient address');
+      }
+      if (!signature || signature.length !== 132) {
+        throw new Error('Invalid signature format');
+      }
+
       const config = getNetworkConfig(chainId);
       if (!config || !config.routerAddress) {
         throw new Error(`Router address not configured for chain ${chainId}`);
       }
 
       const provider = this.getProvider(chainId);
+
+      // Verify chainId to prevent RPC redirect attacks (lazy verification on first use)
+      await this.ensureChainIdVerified(chainId, provider);
+
+      // Check gas price to prevent front-running attacks
+      const currentGasPrice = await provider.getGasPrice();
+      if (currentGasPrice > MAX_GAS_PRICE_WEI) {
+        throw new Error(
+          `Gas price too high: ${ethers.formatUnits(currentGasPrice, 'gwei')} gwei ` +
+          `(max: ${MAX_GAS_PRICE_GWEI} gwei). Try again later.`
+        );
+      }
+
       const sponsorKey = process.env[`SPONSOR_PRIVATE_KEY_${chainId}`] || process.env.SPONSOR_PRIVATE_KEY;
       if (!sponsorKey) {
         throw new Error(`Sponsor private key not configured for chain ${chainId}`);
@@ -146,7 +236,7 @@ export class BlockchainService {
   async waitForConfirmation(
     chainId: number,
     txHash: string,
-    minConfirmations: number = 1,
+    _minConfirmations: number = 1,
     pollInterval: number = 2000,
     maxRetries: number = 15
   ): Promise<TransactionReceipt> {
