@@ -31,7 +31,8 @@ const config = {
 		},
 
 		alias: {
-			$houdini: ".houdini/"
+			$houdini: ".houdini/",
+			'@bittasker/wallet-core': "./wallet-core/src/index.ts"
 		},
 
 		experimental: {
