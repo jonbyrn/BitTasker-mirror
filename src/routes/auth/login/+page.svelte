@@ -61,6 +61,34 @@
 	let qrScannerModal: LoginQrCodeScannerModal | null = $state(null);
 	let isQrScannerError = $state(false);
 
+	function describeNostrEventPayload(payload: {
+		kind: number;
+		created_at: number;
+		content: unknown;
+		tags: unknown;
+	}) {
+		return {
+			kindType: typeof payload.kind,
+			createdAtType: typeof payload.created_at,
+			contentType: typeof payload.content,
+			contentPreview:
+				typeof payload.content === 'string' ? payload.content.slice(0, 120) : payload.content,
+			tagsAreArray: Array.isArray(payload.tags),
+			tags: Array.isArray(payload.tags)
+				? payload.tags.map((tag, index) => ({
+						index,
+						isArray: Array.isArray(tag),
+						values: Array.isArray(tag)
+							? tag.map((value) => ({
+									type: typeof value,
+									valuePreview: typeof value === 'string' ? value.slice(0, 120) : value
+								}))
+							: tag
+					}))
+				: payload.tags
+		};
+	}
+
 	onMount(async () => {
 		try {
 			// Check available authentication methods
@@ -219,7 +247,14 @@
 				throw new Error('Buffer is not defined');
 			}
 
-			const { challenge } = await authService.getChallenge();
+			const challengeResponse = await authService.getChallenge();
+			const { challenge } = challengeResponse;
+			console.log('[NSEC login] Challenge response received', {
+				hasChallenge: Object.hasOwn(challengeResponse, 'challenge'),
+				challengeType: typeof challenge,
+				challengePreview: typeof challenge === 'string' ? challenge.slice(0, 120) : challenge,
+				messageType: typeof challengeResponse.message
+			});
 
 			// decode nsec includes validation of nsec
 			const privateKey = decodeNsec(nsec);
@@ -230,18 +265,29 @@
 				return;
 			}
 
-			const signedEvent = finalizeEvent(
-				{
-					kind: 22242,
-					created_at: Math.floor(Date.now() / 1000),
-					content: challenge,
-					tags: [
-						['relay', window.location.origin],
-						['challenge', challenge]
-					]
-				},
-				privateKey
+			const initialEventPayload = {
+				kind: 22242,
+				created_at: Math.floor(Date.now() / 1000),
+				content: challenge,
+				tags: [
+					['relay', window.location.origin],
+					['challenge', challenge]
+				]
+			};
+			console.log(
+				'[NSEC login] Preparing initial finalizeEvent payload',
+				describeNostrEventPayload(initialEventPayload)
 			);
+			let signedEvent;
+			try {
+				signedEvent = finalizeEvent(initialEventPayload, privateKey);
+			} catch (error) {
+				console.error(
+					'[NSEC login] Initial finalizeEvent failed',
+					describeNostrEventPayload(initialEventPayload)
+				);
+				throw error;
+			}
 
 			const deviceId = await getDeviceIdentifier();
 			const deviceName = await createUserDeviceShortName(npub);
@@ -328,20 +374,44 @@
 					});
 				}
 			}
+			console.log('[NSEC login] Credential data prepared', {
+				isTestEnvironment,
+				isBiometricsAvailable,
+				credentialIdPresent: credentialData.credentialId.length > 0,
+				passkeyPubkeyPresent: credentialData.passkeyPubkey.length > 0,
+				clientDataJSONPresent: credentialData.clientDataJSON.length > 0,
+				attestationObjectPresent: credentialData.attestationObject.length > 0,
+				challengeType: typeof credentialData.challenge,
+				challengePreview:
+					typeof credentialData.challenge === 'string'
+						? credentialData.challenge.slice(0, 120)
+						: credentialData.challenge
+			});
 
 			// sign a new event with the new challenge
-			const newSignedEvent = finalizeEvent(
-				{
-					kind: 22242,
-					created_at: Math.floor(Date.now() / 1000),
-					content: challenge,
-					tags: [
-						['relay', window.location.origin],
-						['challenge', credentialData.challenge]
-					]
-				},
-				privateKey
+			const loginEventPayload = {
+				kind: 22242,
+				created_at: Math.floor(Date.now() / 1000),
+				content: challenge,
+				tags: [
+					['relay', window.location.origin],
+					['challenge', credentialData.challenge]
+				]
+			};
+			console.log(
+				'[NSEC login] Preparing login finalizeEvent payload',
+				describeNostrEventPayload(loginEventPayload)
 			);
+			let newSignedEvent;
+			try {
+				newSignedEvent = finalizeEvent(loginEventPayload, privateKey);
+			} catch (error) {
+				console.error(
+					'[NSEC login] Login finalizeEvent failed',
+					describeNostrEventPayload(loginEventPayload)
+				);
+				throw error;
+			}
 
 			// Login with nostr, register user if it does not exist
 			const res = await authService.nostrLogin({
