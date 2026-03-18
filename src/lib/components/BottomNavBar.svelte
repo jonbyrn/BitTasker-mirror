@@ -713,7 +713,7 @@
 	<!-- Dock is fixed at bottom of screen and animates in/out based on scroll -->
 	<div
 		bind:this={dockEl}
-		class="dock pb-safe bg-primary/95 border-base-300/70 z-80 border-t text-black backdrop-blur-sm"
+		class="dock pb-safe touch-none bg-primary/95 border-base-300/70 z-80 border-t text-black backdrop-blur-sm"
 		onclickcapture={handleBottomNavTap}
 	>
 		<!-- Home -->
@@ -797,7 +797,7 @@
 {:else}
 	<div
 		bind:this={dockEl}
-		class="dock pb-safe bg-primary/95 border-base-300/70 z-80 border-t text-black backdrop-blur-sm"
+		class="dock pb-safe touch-none bg-primary/95 border-base-300/70 z-80 border-t text-black backdrop-blur-sm"
 		onclickcapture={handleBottomNavTap}
 	>
 		<!-- Home -->
@@ -891,8 +891,9 @@
 		align-items: center;
 		justify-content: space-around;
 		padding: 0.5rem 0;
-		padding-bottom: calc(0.5rem + env(safe-area-inset-bottom, constant(safe-area-inset-bottom, 0)));
-		min-height: 64px;
+		/* Reduce extra breathing room below icons while still reserving home-indicator safe area */
+		padding-bottom: calc(0.25rem + env(safe-area-inset-bottom, constant(safe-area-inset-bottom, 0)));
+		min-height: 56px;
 		height: auto;
 		width: 100%;
 	}
