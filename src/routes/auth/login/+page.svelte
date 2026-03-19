@@ -31,7 +31,7 @@
 	import { fly } from 'svelte/transition';
 	import { linear } from 'svelte/easing';
 	import { Buffer } from 'buffer';
-	import { bytesToHex } from 'nostr-tools/utils';
+	import { bytesToHex } from '@noble/hashes/utils';
 	import { decodeNsec } from '$lib/utils/nostr';
 	import authService from '$lib/api/services/auth.service';
 	import QrCodeScanner from '$lib/components/QrCodeScanner.svelte';
