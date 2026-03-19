@@ -14,6 +14,7 @@
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import nostrEventsService from '$lib/api/services/nostr/events';
 	import BidAcceptanceForm from '$lib/components/bidding/BidAcceptanceForm.svelte';
+	import BidCardSkeleton from '$lib/components/bidding/BidCardSkeleton.svelte';
 	import CounterOfferForm from '$lib/components/bidding/CounterOfferForm.svelte';
 	import Drawer from '$lib/components/Drawer.svelte';
 	import Modal from '$lib/components/Modal.svelte';
@@ -21,6 +22,8 @@
 	import UserInfoDisplay from '$lib/components/user/UserInfoDisplay.svelte';
 	import ActionsMenu from '$lib/components/moderation/ActionsMenu.svelte';
 	import KINDS from '$lib/utils/constants/kinds';
+	import { ndk } from '$lib/nostr/ndk';
+	import { createDebug } from '$lib/utils/debug';
 
 	// State
 	let task = $state<NostrEvent | null>(null);
@@ -30,6 +33,24 @@
 	let showCounterOfferForm = $state(false);
 	let bidToAccept = $state<NostrEventWithFollowup | null>(null);
 	let selectedBid = $state<NostrBidContent | null>(null);
+
+	const d = createDebug('BidsPage');
+
+	// Create a reactive subscription - note the callback function () => ({ ... })
+	const bidsSubscription = ndk.$subscribe(() => ({
+		filters: ndk.$currentPubkey
+			? [{ kinds: [KINDS.BIDS], limit: 50, '#p': [ndk.$currentPubkey], '#t': [page.params.taskId] }]
+			: [],
+		onEvent(event) {
+			d.log('onEvent', event);
+			console.log('onEvent', event);
+		},
+		wrap: true
+	}));
+
+	$effect(() => {
+		d.log('bidsSubscription', bidsSubscription);
+	});
 
 	// Derived state from bid store
 	let bids = $derived($bidStore.bids[page.params.taskId] || []);
@@ -157,8 +178,8 @@
 	}
 
 	async function submitCounterOffer(
-		bidId: string,
-		counterOffer: Omit<CounterOffer, 'id' | 'bidId' | 'createdAt' | 'status'>
+		_bidId: string,
+		_counterOffer: Omit<CounterOffer, 'id' | 'bidId' | 'createdAt' | 'status'>
 	) {
 		// TODO: Implement counter offer with nostr
 		// Params are reserved for future implementation
@@ -299,52 +320,7 @@
 	</div>
 	{#if $bidStore.isLoading}
 		<div class="space-y-4">
-			{#each [0] as i (i)}
-				<div class="bg-base-100 border-base-200 rounded-2xl border shadow-sm">
-					<div class="p-4 md:p-6">
-						<!-- Header skeleton -->
-						<div class="mb-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-							<div class="flex items-center gap-4">
-								<div class="bg-base-300 h-14 w-14 animate-pulse rounded-full"></div>
-								<div class="flex-1 space-y-2">
-									<div class="bg-base-300 h-5 w-32 animate-pulse rounded"></div>
-									<div class="flex items-center gap-4">
-										<div class="bg-base-300 h-4 w-24 animate-pulse rounded"></div>
-										<div class="flex gap-1">
-											{#each [0, 1, 2, 3, 4] as j (j)}
-												<div class="bg-base-300 h-4 w-4 animate-pulse rounded"></div>
-											{/each}
-										</div>
-									</div>
-								</div>
-							</div>
-							<div class="text-right">
-								<div class="bg-base-300 mb-1 h-8 w-20 animate-pulse rounded"></div>
-								<div class="bg-base-300 mb-1 h-6 w-16 animate-pulse rounded"></div>
-								<div class="bg-base-300 h-4 w-24 animate-pulse rounded"></div>
-							</div>
-						</div>
-
-						<!-- Description skeleton -->
-						<div class="mb-4">
-							<div class="bg-base-300 mb-2 h-4 w-full animate-pulse rounded"></div>
-							<div class="bg-base-300 h-4 w-3/4 animate-pulse rounded"></div>
-						</div>
-
-						<!-- Action buttons skeleton -->
-						<div
-							class="border-base-200 flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between"
-						>
-							<div class="bg-base-300 h-8 w-24 animate-pulse rounded"></div>
-							<div class="flex gap-2">
-								<div class="bg-base-300 h-8 w-16 animate-pulse rounded"></div>
-								<div class="bg-base-300 h-8 w-16 animate-pulse rounded"></div>
-								<div class="bg-base-300 h-8 w-16 animate-pulse rounded"></div>
-							</div>
-						</div>
-					</div>
-				</div>
-			{/each}
+			<BidCardSkeleton />
 		</div>
 	{:else if $bidStore.error}
 		<div class="py-12 text-center">

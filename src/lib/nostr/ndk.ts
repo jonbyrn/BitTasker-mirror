@@ -1,19 +1,20 @@
 // lib/ndk.ts
 import { createNDK } from '@nostr-dev-kit/svelte';
-import { NDKPrivateKeySigner } from '@nostr-dev-kit/ndk';
+import { NDKPrivateKeySigner, registerEventClass } from '@nostr-dev-kit/ndk';
 import NDKCacheDexie from '@nostr-dev-kit/cache-dexie';
 import { createDebug } from '$lib/utils/debug';
+import { NDKBid } from './events/bid';
 
 const d = createDebug('ndk:signer');
 
 export const ndk = createNDK({
-	explicitRelayUrls: ['wss://relay.bittasker.hedgehackers.finance'],
+	explicitRelayUrls: [import.meta.env.VITE_NOSTR_RELAY_URL],
 	cacheAdapter: new NDKCacheDexie({ dbName: 'bittasker-ndk' }),
 	// Enable sessions for wallet, follows, mutes, and WoT
 	session: true,
 	enableOutboxModel: false
 });
-
+registerEventClass(NDKBid);
 ndk.connect();
 
 /**
