@@ -477,6 +477,15 @@ body {
 	bottom: auto !important;
 	left: auto !important;
 	right: auto !important;
+	/* Remove DaisyUI's safe-area height expansion (we handle no safe-area ourselves) */
+	height: 64px !important;
+	padding-bottom: 0 !important;
+}
+
+/* DaisyUI adds margin-bottom: 0.5rem to dock children to push content above safe area.
+   Since we removed safe-area handling, reset this so icons are perfectly centered. */
+.app-shell__footer .dock > * {
+	margin-bottom: 0 !important;
 }
 
 /*
