@@ -64,6 +64,17 @@ export class AuthService extends BaseApiService {
 	 * @returns Promise with login challenge data
 	 */
 	async getChallenge(): Promise<{ challenge: string; message: string }> {
+		const apiBase = import.meta.env.VITE_API_URL;
+		const originFallback =
+			typeof window !== 'undefined' ? window.location.origin : 'http://localhost';
+		const requestUrl = new URL(
+			ENDPOINTS.AUTH.NOSTR_CHALLENGE,
+			apiBase || originFallback
+		).toString();
+		console.log('[AuthService.getChallenge] Requesting challenge', {
+			apiBase: apiBase || null,
+			requestUrl
+		});
 		const response = await this.get<{ challenge: string; message: string }>(
 			ENDPOINTS.AUTH.NOSTR_CHALLENGE
 		);
