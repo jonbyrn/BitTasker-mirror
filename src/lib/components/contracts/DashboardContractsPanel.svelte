@@ -24,6 +24,8 @@
 	import IconChevronDown from '~icons/mdi/chevron-down';
 	import IconAccountOutline from '~icons/mdi/account-outline';
 	import IconAccountTieOutline from '~icons/mdi/account-tie-outline';
+	// import { ndk } from '$lib/nostr/ndk';
+	// import { NDKEscrowContract } from '$lib/nostr/events/contract';
 
 	// Filters
 	let statusFilter = $state<EscrowStatus | 'all'>('all');
@@ -31,6 +33,14 @@
 	let isStatusDropdownOpen = $state(false);
 
 	let btcPrice = $state<number>(0);
+
+	// // Create a reactive subscription - note the callback function () => ({ ... })
+	// const rawContracts = ndk.$subscribe(() => ({
+	// 	filters: ndk.$currentPubkey ? [{ kinds: [30006], limit: 50, '#p': [ndk.$currentPubkey], '#v': ['v2'] }] : [],
+	// 	eventClass: NDKEscrowContract
+	// }));
+
+	// const contracts = $derived(rawContracts.events.map((event) => NDKEscrowContract.from(event)));
 
 	// Status filter options - using EscrowStatus enum
 	const statusFilterOptions = $derived([
