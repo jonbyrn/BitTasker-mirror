@@ -364,6 +364,7 @@ function keccak256(data: Uint8Array | string): Uint8Array {
   return keccak_256(bytes);
 }
 
+/**
  * Verify EIP-712 signature for a meta-transaction
  * This is the main verification function
  */
