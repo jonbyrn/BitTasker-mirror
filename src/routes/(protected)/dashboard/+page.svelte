@@ -156,7 +156,10 @@
 		if (!taskToDelete) return;
 		try {
 			isDeleting = true;
-			const eventId = 'eventId' in taskToDelete ? (taskToDelete as Task & { eventId?: string }).eventId : undefined;
+			const eventId =
+				'eventId' in taskToDelete
+					? (taskToDelete as Task & { eventId?: string }).eventId
+					: undefined;
 			await deleteTask(taskToDelete.id, eventId);
 			$myTasksStore.items = $myTasksStore.items.filter((t) => t.id !== taskToDelete.id);
 			activeTaskModal = null;
@@ -288,7 +291,7 @@
 
 <!-- Edit Task Confirmation Modal (outside drawer context) -->
 {#if activeTaskModal === 'edit' && selectedTask}
-	<div class="modal modal-open modal-middle" transition:fade={{ duration: 200 }}>
+	<div class="modal modal-open modal-middle z-[80]" transition:fade={{ duration: 200 }}>
 		<div class="modal-box max-w-md" transition:scale={{ duration: 200, start: 0.9 }}>
 			<!-- Modal Header -->
 			<div class="mb-6">
@@ -315,10 +318,10 @@
 			<div class="space-y-4">
 				<!-- Main Warning Box -->
 				<div class="bg-error/10 rounded-lg p-4">
-					<p class="text-sm text-error font-semibold mb-2">
+					<p class="text-error mb-2 text-sm font-semibold">
 						{$t('dashboard.task_details_by_task.edit_task_confirmation.warning')}
 					</p>
-					<p class="text-sm text-error">
+					<p class="text-error text-sm">
 						{$t('dashboard.task_details_by_task.edit_task_confirmation.details')}
 					</p>
 				</div>
@@ -367,7 +370,7 @@
 
 <!-- Delete Task Confirmation Modal (outside drawer context) -->
 {#if activeTaskModal === 'delete' && selectedTask}
-	<div class="modal modal-open modal-middle" transition:fade={{ duration: 200 }}>
+	<div class="modal modal-open modal-middle z-[80]" transition:fade={{ duration: 200 }}>
 		<div class="modal-box max-w-md" transition:scale={{ duration: 200, start: 0.9 }}>
 			<!-- Modal Header -->
 			<div class="mb-6">
@@ -394,7 +397,7 @@
 			<div class="space-y-4">
 				<!-- Main Warning Box -->
 				<div class="bg-error/10 rounded-lg p-4">
-					<p class="text-sm text-error font-semibold">
+					<p class="text-error text-sm font-semibold">
 						{$t('dashboard.task_details_by_task.delete_task_confirm_message')}
 					</p>
 				</div>
