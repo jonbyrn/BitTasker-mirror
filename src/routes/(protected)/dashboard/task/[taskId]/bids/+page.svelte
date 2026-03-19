@@ -15,7 +15,9 @@
 	import nostrEventsService from '$lib/api/services/nostr/events';
 	import BidAcceptanceForm from '$lib/components/bidding/BidAcceptanceForm.svelte';
 	import BidCardSkeleton from '$lib/components/bidding/BidCardSkeleton.svelte';
+	import BidLoadingError from '$lib/components/bidding/BidLoadingError.svelte';
 	import CounterOfferForm from '$lib/components/bidding/CounterOfferForm.svelte';
+	import NoBids from '$lib/components/bidding/NoBids.svelte';
 	import Drawer from '$lib/components/Drawer.svelte';
 	import Modal from '$lib/components/Modal.svelte';
 	import MessageModal from '$lib/components/messages/MessageModal.svelte';
@@ -323,52 +325,9 @@
 			<BidCardSkeleton />
 		</div>
 	{:else if $bidStore.error}
-		<div class="py-12 text-center">
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				class="text-error mx-auto h-16 w-16"
-				fill="none"
-				viewBox="0 0 24 24"
-				stroke="currentColor"
-			>
-				<path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					stroke-width="1.5"
-					d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"
-				/>
-			</svg>
-			<h3 class="text-error mt-4 text-xl font-semibold">
-				{$t('dashboard.bids.bid_acceptance.error_loading_bids')}
-			</h3>
-			<p class="text-base-content/60 mt-2 mb-4">
-				{$bidStore.error}
-			</p>
-			<div class="text-base-content/60 text-sm">
-				{$t('dashboard.bids.bid_acceptance.retry')}
-			</div>
-		</div>
+		<BidLoadingError error={$bidStore.error} onRetry={retryLoadingData} />
 	{:else if bids.length === 0}
-		<div class="py-12 text-center">
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				class="text-base-content/30 mx-auto h-16 w-16"
-				fill="none"
-				viewBox="0 0 24 24"
-				stroke="currentColor"
-			>
-				<path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					stroke-width="1.5"
-					d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-				/>
-			</svg>
-			<h3 class="mt-4 text-xl font-semibold">{$t('task.drawer.no_bids')}</h3>
-			<button class="btn btn-primary mt-4" onclick={retryLoadingData}>
-				{$t('dashboard.bids.bid_acceptance.retry')}
-			</button>
-		</div>
+		<NoBids onRetry={retryLoadingData} />
 	{:else}
 		<div class="space-y-4">
 			{#each bids as bid (bid.id)}
