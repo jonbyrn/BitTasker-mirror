@@ -2,13 +2,20 @@
 	import type { Service } from '$lib/types/service.d';
 	import { t, locale } from 'svelte-i18n';
 	import { get } from 'svelte/store';
-	import { getServiceDisplayTitle, getServiceDisplayDescription } from '$lib/utils/serviceDisplayTranslation';
+	import {
+		getServiceDisplayTitle,
+		getServiceDisplayDescription
+	} from '$lib/utils/serviceDisplayTranslation';
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';
 	import EntityShareButton from '$lib/components/shared/EntityShareButton.svelte';
 	import type { EntitySharePayload } from '$lib/components/shared/entity-share';
 
-	let { service, variant = 'circle', class: className = '' } = $props<{
+	let {
+		service,
+		variant = 'circle',
+		class: className = ''
+	} = $props<{
 		service: Service | null;
 		variant?: 'default' | 'circle' | 'icon-only';
 		class?: string;
@@ -28,7 +35,9 @@
 			case ServicePricingTypeEnum.FIXED:
 				return svc.pricing.amount ? `$${formatNumberWithTwoDecimals(svc.pricing.amount)}` : '';
 			case ServicePricingTypeEnum.HOURLY:
-				return svc.pricing.hourlyRate ? `$${formatNumberWithTwoDecimals(svc.pricing.hourlyRate)}/hr` : '';
+				return svc.pricing.hourlyRate
+					? `$${formatNumberWithTwoDecimals(svc.pricing.hourlyRate)}/hr`
+					: '';
 			case ServicePricingTypeEnum.TIERED:
 				return 'Tiered pricing';
 			default:
@@ -49,17 +58,21 @@
 		// Add pricing info
 		const priceDisplay = getPriceDisplay(svc);
 		if (priceDisplay) {
-			details.push(`💰 Price:\n${priceDisplay}`);
+			details.push(`💰 Price: ${priceDisplay}`);
 		}
 
 		// Add location info
 		if (svc.serviceLocationTypes && svc.serviceLocationTypes.length > 0) {
 			const locations = svc.serviceLocationTypes
 				.map((type) =>
-					type === 'remote' ? 'Remote' : type === 'tasker_location' ? 'Tasker Location' : 'Taskee Location'
+					type === 'remote'
+						? 'Remote'
+						: type === 'tasker_location'
+							? 'Tasker Location'
+							: 'Taskee Location'
 				)
 				.join(', ');
-			details.push(`📍 Location:\n${locations}`);
+			details.push(`📍 Location: ${locations}`);
 		}
 
 		if (details.length > 0) text += '\n\n' + details.join('\n\n');
