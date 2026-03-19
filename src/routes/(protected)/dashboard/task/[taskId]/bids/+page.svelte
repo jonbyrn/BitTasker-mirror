@@ -11,8 +11,8 @@
 	import { BidStatusEnum } from '$lib/utils/enums/bid.enum';
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { formatStandardDateTime, parseDateWithLocalTime } from '$lib/utils/helpers/dateFormatter';
-	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import nostrEventsService from '$lib/api/services/nostr/events';
+	import { btcUsd } from '$lib/stores/market-price.store';
 	import BidAcceptanceForm from '$lib/components/bidding/BidAcceptanceForm.svelte';
 	import CounterOfferForm from '$lib/components/bidding/CounterOfferForm.svelte';
 	import Drawer from '$lib/components/Drawer.svelte';
@@ -23,7 +23,7 @@
 
 	// State
 	let task = $state<NostrEvent | null>(null);
-	let btcPrice = $state(0);
+	const btcPrice = $derived($btcUsd);
 	let expandedBidId = $state<string | null>(null);
 	let showAcceptanceForm = $state(false);
 	let showCounterOfferForm = $state(false);
@@ -236,21 +236,13 @@
 		}
 	}
 
-	async function fetchBtcPrice(): Promise<void> {
-		try {
-			btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
-		} catch (error) {
-			console.error('Failed to fetch BTC price:', error);
-		}
-	}
-
 	async function retryLoadingData() {
 		await loadTaskDetails();
-		await Promise.all([loadBids(), fetchBtcPrice()]);
+		await loadBids();
 	}
 
 	onMount(async () => {
-		await Promise.all([loadTaskDetails(), loadBids(), fetchBtcPrice()]);
+		await Promise.all([loadTaskDetails(), loadBids()]);
 	});
 
 	onDestroy(() => {

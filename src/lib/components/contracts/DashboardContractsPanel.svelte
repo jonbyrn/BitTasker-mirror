@@ -11,7 +11,7 @@
 	import ContractCard from './ContractCard.svelte';
 	import ContractDrawer from './ContractDrawer.svelte';
 	import InfiniteScroll from '$lib/components/InfiniteScroll.svelte';
-	import cryptoPriceService from '$lib/api/services/crypto-price.service';
+	import { btcUsd } from '$lib/stores/market-price.store';
 	import {
 		getPaymentRailLabel,
 		normalizePaymentAsset,
@@ -35,7 +35,7 @@
 	let roleFilter = $state<string>('all'); // 'all', 'client', 'freelancer'
 	let isStatusDropdownOpen = $state(false);
 
-	let btcPrice = $state<number>(0);
+	const btcPrice = $derived($btcUsd);
 
 	// Status filter options - using EscrowStatus enum
 	const statusFilterOptions = $derived([
@@ -146,17 +146,6 @@
 			: ''
 	);
 
-	// Load contracts on mount
-	async function fetchBtcPrice(): Promise<void> {
-		try {
-			btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
-		} catch (error) {
-			console.error('Error fetching BTC price:', error);
-			// Set fallback price to 0 so UI shows RBTC amount instead
-			btcPrice = 0;
-		}
-	}
-
 	function getTaskStatusFromStores(taskId: string): string | undefined {
 		const tasks = get(tasksStore).items;
 		const myTasks = get(myTasksStore).items;
@@ -195,7 +184,7 @@
 			// Continue anyway - contracts will handle wallet initialization individually
 		}
 
-		await Promise.all([contractStore.loadContracts(), fetchBtcPrice()]);
+		await contractStore.loadContracts();
 
 		// Self-heal: sync Nostr task status for FundsReleased contracts (docs/tasks/task-status.md)
 		runTaskStatusReconciliation();

@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
 	import { onMount, untrack } from 'svelte';
-	import { walletStore, walletManager, formatSats, formatUsd } from '$lib/stores/wallet.store';
-	import { appStore } from '$lib/stores/app.store';
-	import { triggerHaptic, ImpactStyle } from '$lib/utils/helpers/haptics';
-	import { debounce } from '$lib/utils/helpers/common';
-	import cryptoPriceService from '$lib/api/services/crypto-price.service';
+import { walletStore, walletManager, formatSats, formatUsd } from '$lib/stores/wallet.store';
+import { appStore } from '$lib/stores/app.store';
+import { triggerHaptic, ImpactStyle } from '$lib/utils/helpers/haptics';
+import { debounce } from '$lib/utils/helpers/common';
+import { btcUsd, marketPrice, marketPriceMeta } from '$lib/stores/market-price.store';
 	import AmountInputSection from '$lib/components/wallet/AmountInputSection.svelte';
 	import IconCashMultiple from '~icons/mdi/cash-multiple';
 	import IconClose from '~icons/mdi/close';
@@ -93,8 +93,19 @@
 	// Invoice generation state (simplified)
 	let isGenerating = $state(false);
 
-	// Cached data (fetched once on mount)
-	let btcPrice = $state<number>(0);
+// Cached data (fetched once on mount)
+	let btcPrice = $state(0);
+	$effect(() => {
+		btcPrice = $btcUsd;
+	});
+	const isBitcoinPriceLoading = $derived.by(() => {
+		if (btcPrice > 0) return false;
+		return $marketPriceMeta.isRefreshing || (!$marketPriceMeta.error && $marketPriceMeta.lastFetched === 0);
+	});
+	const hasBitcoinPriceRefreshFailure = $derived.by(() => {
+		if (btcPrice > 0) return false;
+		return !$marketPriceMeta.isRefreshing && !!$marketPriceMeta.error;
+	});
 	let swapPairsInfo = $state<{
 		lightning: any;
 		liquid: any;
@@ -147,6 +158,28 @@
 	const totalReceivedUSD = $derived.by(() => {
 		if (totalReceived === 0 || btcPrice === 0) return 0;
 		return (totalReceived / 100_000_000) * btcPrice;
+	});
+
+	const hasEnteredBitcoinUsdAmount = $derived.by(() => {
+		if (formInput.selectedNetwork === 'usdt-bsc') return false;
+		if (formInput.unit !== 'usd') return false;
+		const parsed = Number.parseFloat(formInput.amount);
+		return Number.isFinite(parsed) && parsed > 0;
+	});
+
+	const isAwaitingBitcoinPriceForUsdRequest = $derived.by(
+		() => hasEnteredBitcoinUsdAmount && btcPrice <= 0
+	);
+
+	const bitcoinPriceStatusMessage = $derived.by(() => {
+		if (!isAwaitingBitcoinPriceForUsdRequest) return null;
+		if (hasBitcoinPriceRefreshFailure) {
+			return 'BTC price refresh failed. Enter the request in sats or retry the BTC price refresh to continue.';
+		}
+		if (isBitcoinPriceLoading) {
+			return 'Fetching the current BTC price to validate your USD amount.';
+		}
+		return 'Waiting for the current BTC price to validate your USD amount.';
 	});
 
 	const requestedUsdtAmount = $derived.by(() => {
@@ -293,9 +326,6 @@
 	// Fetch BTC price and initialize swap pairs info
 	onMount(async () => {
 		try {
-			// Fetch BTC price
-			btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
-
 			// Fetch and cache swap pairs for dropdown display
 			// These are cached with 1-hour TTL, so subsequent calls are fast
 			const [lightning, liquid] = await Promise.all([
@@ -525,10 +555,15 @@
 
 	// Validate form
 	const isFormValid = $derived.by(() => {
-		if (formInput.selectedNetwork === 'rootstock-bitcoin') return true;
+		if (formInput.selectedNetwork === 'rootstock-bitcoin') {
+			if (!formInput.amount.trim()) return true;
+			if (isAwaitingBitcoinPriceForUsdRequest) return false;
+			return amountInSats > 0;
+		}
 		if (formInput.selectedNetwork === 'usdt-bsc') {
 			return hasValidUsdtPrecision(formInput.amount) && !!$walletStore.bsc.address;
 		}
+		if (isAwaitingBitcoinPriceForUsdRequest) return false;
 		return amountInSats > 0;
 	});
 
@@ -538,6 +573,12 @@
 
 		isGenerating = true;
 		try {
+			if (isAwaitingBitcoinPriceForUsdRequest) {
+				return appStore.showErrorToast(
+					'Enter the request in sats or retry the BTC price refresh first.'
+				);
+			}
+
 			// Calculate invoice amount: use amountPayerPays when charging fees to payer, otherwise use amountInSats
 			const invoiceAmount = formInput.chargeFeesToPayer && feeState.estimated
 				? amountPayerPays
@@ -671,6 +712,14 @@
 		triggerHaptic(ImpactStyle.Light);
 		uiState.currentStep = 1;
 	}
+
+	async function retryBitcoinPriceRefresh() {
+		try {
+			await marketPrice.refresh();
+		} catch (error) {
+			console.error('Failed to retry BTC price refresh:', error);
+		}
+	}
 </script>
 
 <div class="flex flex-1 flex-col min-h-0">
@@ -700,6 +749,33 @@
 				onCalculationChange={handleCalculationChange}
 				onClear={handleClearCalculator}
 			/>
+			{#if bitcoinPriceStatusMessage}
+				<div
+					class="rounded-lg border p-3 text-sm"
+					class:border-warning={hasBitcoinPriceRefreshFailure}
+					class:border-base-300={!hasBitcoinPriceRefreshFailure}
+					class:text-warning={hasBitcoinPriceRefreshFailure}
+					data-testid="receive-bitcoin-price-status"
+				>
+					<div class="flex items-start gap-2">
+						{#if isBitcoinPriceLoading}
+							<span class="loading loading-spinner loading-sm mt-0.5 shrink-0"></span>
+						{/if}
+						<p>{bitcoinPriceStatusMessage}</p>
+					</div>
+					{#if hasBitcoinPriceRefreshFailure}
+						<div class="mt-3">
+							<button
+								type="button"
+								class="btn btn-ghost btn-xs"
+								onclick={retryBitcoinPriceRefresh}
+							>
+								Retry BTC price refresh
+							</button>
+						</div>
+					{/if}
+				</div>
+			{/if}
 		{/if}
 	</div>
 
@@ -725,6 +801,33 @@
 			onCalculationChange={handleCalculationChange}
 			onClear={handleClearCalculator}
 		/>
+		{#if bitcoinPriceStatusMessage}
+			<div
+				class="mt-2 rounded-lg border p-3 text-sm"
+				class:border-warning={hasBitcoinPriceRefreshFailure}
+				class:border-base-300={!hasBitcoinPriceRefreshFailure}
+				class:text-warning={hasBitcoinPriceRefreshFailure}
+				data-testid="receive-bitcoin-price-status"
+			>
+				<div class="flex items-start gap-2">
+					{#if isBitcoinPriceLoading}
+						<span class="loading loading-spinner loading-sm mt-0.5 shrink-0"></span>
+					{/if}
+					<p>{bitcoinPriceStatusMessage}</p>
+				</div>
+				{#if hasBitcoinPriceRefreshFailure}
+					<div class="mt-3">
+						<button
+							type="button"
+							class="btn btn-ghost btn-xs sm:btn-sm"
+							onclick={retryBitcoinPriceRefresh}
+						>
+							Retry BTC price refresh
+						</button>
+					</div>
+				{/if}
+			</div>
+		{/if}
 	</div>
 
 	<!-- Step 2 Content (Mobile Only) - All fields except amount -->

@@ -7,7 +7,7 @@
 	import { debounce } from '$lib/utils/helpers/common';
 	import { rskConnection, walletManager } from '$lib/stores/wallet.store';
 	import PendingSwap from '$lib/components/wallet/PendingSwap.svelte';
-	import cryptoPriceService from '$lib/api/services/crypto-price.service';
+	import { btcUsd } from '$lib/stores/market-price.store';
 
 	// Form state
 	let amount = $state('');
@@ -29,7 +29,8 @@
 		claimFee: number;
 		lockupFee: number;
 	} | null>(null);
-	let btcPrice = $state<number>(0);
+	const btcPrice = $derived.by(() => ($btcUsd > 0 ? $btcUsd : null));
+	const priceUnavailableText = 'USD conversion unavailable while live BTC price is unavailable.';
 
 	// Derived values
 	let amountSats = $derived(parseFloat(amount) || 0);
@@ -66,14 +67,6 @@
 					claimFee: pair.fees.minerFees.claim,
 					lockupFee: pair.fees.minerFees.lockup
 				};
-			}
-
-			// Fetch BTC price for USD conversion
-			try {
-				btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
-			} catch (err) {
-				console.error('Failed to fetch BTC price:', err);
-				btcPrice = 60000; // Fallback price
 			}
 
 			// Recover pending swaps
@@ -361,13 +354,16 @@
 		<!-- Fee Breakdown -->
 		{#if amount && parseFloat(amount) > 0 && fees}
 			<div class="border-base-300 bg-base-200 rounded-lg border p-3">
+				{#if btcPrice === null}
+					<div class="mb-2 text-xs opacity-60">{priceUnavailableText}</div>
+				{/if}
 				<div class="space-y-1.5 text-xs">
 					<!-- Swap Fee -->
 					<div class="flex items-center justify-between">
 						<span class="opacity-70">{$t('wallet.swap.swap_fee')}:</span>
 						<div class="text-right">
 							<span>{swapFee.toLocaleString()} {$t('wallet.sats')}</span>
-							{#if btcPrice > 0}
+							{#if btcPrice !== null}
 								<span class="ml-2 opacity-60"
 									>${((swapFee / 100_000_000) * btcPrice).toFixed(2)}</span
 								>
@@ -380,7 +376,7 @@
 						<span class="opacity-70">{$t('wallet.swap.network_transaction_fee')}:</span>
 						<div class="text-right">
 							<span>{networkFee.toLocaleString()} {$t('wallet.sats')}</span>
-							{#if btcPrice > 0}
+							{#if btcPrice !== null}
 								<span class="ml-2 opacity-60"
 									>${((networkFee / 100_000_000) * btcPrice).toFixed(2)}</span
 								>
@@ -395,7 +391,7 @@
 						<span>{$t('wallet.swap.total_fees')}:</span>
 						<div class="text-right">
 							<span>{totalFees.toLocaleString()} {$t('wallet.sats')}</span>
-							{#if btcPrice > 0}
+							{#if btcPrice !== null}
 								<span class="ml-2 opacity-60"
 									>${((totalFees / 100_000_000) * btcPrice).toFixed(2)}</span
 								>
@@ -410,7 +406,7 @@
 						<span>{$t('wallet.swap.total_received_est')}:</span>
 						<div class="text-right">
 							<span>{totalReceived.toLocaleString()} {$t('wallet.sats')}</span>
-							{#if btcPrice > 0}
+							{#if btcPrice !== null}
 								<span class="ml-2 opacity-70"
 									>${((totalReceived / 100_000_000) * btcPrice).toFixed(2)}</span
 								>

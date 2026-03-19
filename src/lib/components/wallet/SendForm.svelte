@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
-	import { onMount } from 'svelte';
 	import { appStore } from '$lib/stores/app.store';
 	import { allAssets, walletManager } from '$lib/stores/wallet.store';
 	import {
@@ -10,7 +9,7 @@
 		type ValidationResult
 	} from '$lib/utils/helpers/validators';
 	import SubmarineSend from './SubmarineSend.svelte';
-	import cryptoPriceService from '$lib/api/services/crypto-price.service';
+	import { btcUsd } from '$lib/stores/market-price.store';
 
 	type ExtendedAsset = {
 		assetId: string;
@@ -49,17 +48,10 @@
 	let errorMessage = $state<string | null>(null);
 	let dropdownKey = $state(0);
 	let addressValidation = $state<ValidationResult>({ isValid: true });
-	let btcPrice = $state<number>(0);
+	const btcPrice = $derived.by(() => ($btcUsd > 0 ? $btcUsd : null));
+	const priceUnavailableText = 'USD conversion unavailable while live BTC price is unavailable.';
 
-	// Fetch BTC price for USD conversion
-	onMount(async () => {
-		try {
-			btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
-		} catch (err) {
-			console.error('Failed to fetch BTC price:', err);
-			btcPrice = 60000; // Fallback price
-		}
-	});
+	// Price updates are handled by the shared market price store.
 
 	// Convert sats to RBTC
 	let amountInRBTC = $derived(() => {
@@ -570,13 +562,18 @@
 					{@const gasFeeInSats = Math.floor(gasFee * 100_000_000)}
 					{@const totalSats = amountSats + gasFeeInSats}
 					<div class="border-base-300 bg-base-200 rounded-lg border p-3">
+						{#if btcPrice === null}
+							<div class="mb-2 text-xs opacity-60">{priceUnavailableText}</div>
+						{/if}
 						<div class="space-y-1.5 text-xs">
 							<!-- Send Amount -->
 							<div class="flex items-center justify-between">
 								<span class="opacity-70">{$t('wallet.amount')}:</span>
 								<div class="text-right">
-									<span class="font-semibold">{amountSats.toLocaleString()} {$t('wallet.sats')}</span>
-									{#if btcPrice > 0}
+									<span class="font-semibold"
+										>{amountSats.toLocaleString()} {$t('wallet.sats')}</span
+									>
+									{#if btcPrice !== null}
 										<span class="ml-2 opacity-60">
 											${((amountSats / 100_000_000) * btcPrice).toFixed(2)}
 										</span>
@@ -589,7 +586,7 @@
 								<span class="opacity-70">{$t('wallet.network_fee')}:</span>
 								<div class="text-right">
 									<span>{gasFeeInSats.toLocaleString()} {$t('wallet.sats')}</span>
-									{#if btcPrice > 0}
+									{#if btcPrice !== null}
 										<span class="ml-2 opacity-60">
 											${((gasFeeInSats / 100_000_000) * btcPrice).toFixed(2)}
 										</span>
@@ -604,7 +601,7 @@
 								<span>{$t('wallet.swap.submarine.total_required')}:</span>
 								<div class="text-right">
 									<span>{totalSats.toLocaleString()} {$t('wallet.sats')}</span>
-									{#if btcPrice > 0}
+									{#if btcPrice !== null}
 										<span class="ml-2 opacity-70">
 											${((totalSats / 100_000_000) * btcPrice).toFixed(2)}
 										</span>

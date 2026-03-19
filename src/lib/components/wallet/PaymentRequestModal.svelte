@@ -1,13 +1,12 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
-	import { onMount } from 'svelte';
 	import { fly, scale } from 'svelte/transition';
 	import { Capacitor } from '@capacitor/core';
-	import { appStore } from '$lib/stores/app.store';
-	import { walletManager, transactions } from '$lib/stores/wallet.store';
-	import { triggerHaptic, ImpactStyle } from '$lib/utils/helpers/haptics';
-	import generateQrCodeUrl from '$lib/utils/helpers/generateQrCodeUrl';
-	import cryptoPriceService from '$lib/api/services/crypto-price.service';
+import { appStore } from '$lib/stores/app.store';
+import { walletManager, transactions } from '$lib/stores/wallet.store';
+import { triggerHaptic, ImpactStyle } from '$lib/utils/helpers/haptics';
+import generateQrCodeUrl from '$lib/utils/helpers/generateQrCodeUrl';
+import { btcUsd, marketPriceMeta } from '$lib/stores/market-price.store';
 	import { buildDirectPaymentUri } from '$lib/utils/helpers/evmPaymentIntents';
 	import IconClose from '~icons/mdi/close';
 	import IconCheck from '~icons/mdi/check';
@@ -31,36 +30,46 @@
 		totalFees?: number; // Total fees in sats (if chargeFeesToPayer is true)
 	}
 
-	const props: Props = $props();
+	let {
+		isOpen,
+		onClose,
+		onEdit,
+		swapId,
+		address: directAddress,
+		network: directNetwork,
+		amount: directAmount,
+		memo,
+		chargeFeesToPayer,
+		totalFees
+	}: Props = $props();
 
-	let qrCodeDataUrl = $state('');
-	let isLoadingQR = $state(true);
-	let btcPrice = $state<number>(0);
+let qrCodeDataUrl = $state('');
+let isLoadingQR = $state(true);
 	let isTransactionConfirmed = $state(false);
 	let directRequestOpenedAt = $state(0);
 
 	// Determine if this is a swap-based payment or direct address payment
-	const isSwapBased = $derived(!!props.swapId);
+const isSwapBased = $derived.by(() => !!swapId);
 
 	// Find the swap transaction from transactions store (reactive via WebSocket updates)
 	const swapTransaction = $derived.by(() => {
-		if (!props.swapId) return null;
-		return $transactions.find((tx) => tx.swap?.id === props.swapId);
+		if (!swapId) return null;
+		return $transactions.find((tx) => tx.swap?.id === swapId);
 	});
 
 	// Get swap data from swap services for static data (invoice/address)
 	// This doesn't need to be reactive since invoice/address don't change
 	const currentSwap = $derived.by(() => {
-		if (!props.swapId) return undefined;
+		if (!swapId) return undefined;
 
 		// Try to find swap in all swap services
-		const reverseSwap = walletManager.reverseSwapService?.getSwap(props.swapId);
+		const reverseSwap = walletManager.reverseSwapService?.getSwap(swapId);
 		if (reverseSwap) return { data: reverseSwap, type: 'reverse' as const };
 
-		const chainSwap = walletManager.chainSwapService?.getSwap(props.swapId);
+		const chainSwap = walletManager.chainSwapService?.getSwap(swapId);
 		if (chainSwap) return { data: chainSwap, type: 'chain' as const };
 
-		const submarineSwap = walletManager.submarineSwapService?.getSwap(props.swapId);
+		const submarineSwap = walletManager.submarineSwapService?.getSwap(swapId);
 		if (submarineSwap) return { data: submarineSwap, type: 'submarine' as const };
 
 		return undefined;
@@ -74,10 +83,10 @@
 			return 'lightning-bitcoin'; // Both reverse and submarine use Lightning
 		}
 		// Direct payment: use provided network
-		return props.network || 'rootstock-bitcoin';
+		return directNetwork || 'rootstock-bitcoin';
 	});
 
-	const isBscDirectNetwork = $derived(network === 'usdt-bsc' || network === 'bsc');
+const isBscDirectNetwork = $derived.by(() => network === 'usdt-bsc' || network === 'bsc');
 
 	function getSwapStringValue(swapData: unknown, key: string): string {
 		if (typeof swapData !== 'object' || swapData === null) return '';
@@ -107,7 +116,7 @@
 			return '';
 		}
 		// Direct payment: use provided address
-		return props.address || '';
+		return directAddress || '';
 	});
 
 	// Derive amount - from swap data OR from props
@@ -126,7 +135,7 @@
 			return 0;
 		}
 		// Direct payment: use provided amount
-		return props.amount || 0;
+		return directAmount || 0;
 	});
 
 	const paymentRequestValue = $derived.by(() => {
@@ -134,12 +143,12 @@
 			return address;
 		}
 
-		if ((network === 'rootstock-bitcoin' || isBscDirectNetwork) && props.address) {
+		if ((network === 'rootstock-bitcoin' || isBscDirectNetwork) && directAddress) {
 			return buildDirectPaymentUri({
-				address: props.address,
+				address: directAddress,
 				network: isBscDirectNetwork ? 'usdt-bsc' : network,
 				amount,
-				memo: props.memo
+				memo
 			});
 		}
 
@@ -148,7 +157,7 @@
 
 	const matchingDirectTransaction = $derived.by(() => {
 		if (
-			!props.isOpen ||
+			!isOpen ||
 			isSwapBased ||
 			!isBscDirectNetwork ||
 			!Number.isFinite(amount) ||
@@ -205,8 +214,8 @@
 	// For swap-based payments: use the amount from swap
 	// For direct payments: include fees if chargeFeesToPayer is true
 	const payerTotalAmount = $derived.by(() => {
-		if (!isSwapBased && props.chargeFeesToPayer && props.totalFees) {
-			return amount + props.totalFees;
+		if (!isSwapBased && chargeFeesToPayer && totalFees) {
+			return amount + totalFees;
 		}
 		return amount;
 	});
@@ -233,16 +242,25 @@
 	// Calculate USD for the amount the payer will pay (consistent with payerTotalAmount)
 	const payerTotalAmountUSD = $derived.by(() => {
 		if (isBscDirectNetwork) return payerTotalAmount;
-		if (btcPrice === 0) return 0;
-		return (payerTotalAmount / 100_000_000) * btcPrice;
+		if ($btcUsd === 0) return 0;
+		return (payerTotalAmount / 100_000_000) * $btcUsd;
 	});
 
 	const amountInUSD = $derived.by(() => {
 		if (isBscDirectNetwork) return displayAmount;
-		if (btcPrice === 0) return 0;
+		if ($btcUsd === 0) return 0;
 		// Use actual received amount for USD calculation
-		return (displayAmount / 100_000_000) * btcPrice;
+		return (displayAmount / 100_000_000) * $btcUsd;
 	});
+
+	const isBitcoinPriceLoading = $derived.by(() => {
+		if (isBscDirectNetwork || $btcUsd > 0) return false;
+		return $marketPriceMeta.isRefreshing || (!$marketPriceMeta.error && $marketPriceMeta.lastFetched === 0);
+	});
+
+	const showBitcoinPriceUnavailable = $derived.by(
+		() => !isBscDirectNetwork && displayAmount > 0 && !isBitcoinPriceLoading && amountInUSD <= 0
+	);
 
 	// Access locale to make this reactive to translation changes
 	const networkOptions = [
@@ -292,7 +310,7 @@
 	// Reactive effect: Monitor swap status changes (triggered by SDK's WebSocket updates via transactions store)
 	// Only runs for swap-based payments
 	$effect(() => {
-		if (props.isOpen) {
+		if (isOpen) {
 			if (directRequestOpenedAt === 0) {
 				directRequestOpenedAt = Date.now();
 			}
@@ -305,7 +323,7 @@
 
 	$effect(() => {
 		// Only check for completion when modal is open and we have a swap transaction
-		if (!props.isOpen || !isSwapBased || !swapTransaction) return;
+		if (!isOpen || !isSwapBased || !swapTransaction) return;
 
 		const status = swapTransaction.status.label;
 
@@ -322,7 +340,7 @@
 	});
 
 	$effect(() => {
-		if (!props.isOpen || isSwapBased || !matchingDirectTransaction || isTransactionConfirmed) {
+		if (!isOpen || isSwapBased || !matchingDirectTransaction || isTransactionConfirmed) {
 			return;
 		}
 
@@ -351,29 +369,23 @@
 		}
 	}
 
-	// Initialize component
-	onMount(async () => {
-		// Fetch BTC price and generate QR code in parallel
-		await Promise.allSettled([
-			cryptoPriceService.getCurrentPrice('BTC').then((price) => {
-				btcPrice = price;
-			}),
-			generateQRCode()
-		]);
+	$effect(() => {
+		if (!isOpen) return;
+		void generateQRCode();
 	});
 
 	// Check for reduced motion preference
-	const prefersReducedMotion = $derived(
-		typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
-	);
+const prefersReducedMotion = $derived.by(() =>
+	typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+);
 </script>
 
-{#if props.isOpen}
+{#if isOpen}
 	<!-- Backdrop -->
 	<div
 		class="bg-base-content/50 fixed inset-0 z-100 backdrop-blur-sm"
 		transition:fly={prefersReducedMotion ? undefined : { y: 0, duration: 200 }}
-		onclick={props.onClose}
+		onclick={onClose}
 		role="presentation"
 		aria-hidden="true"
 	></div>
@@ -412,7 +424,12 @@
 									{displayAmount.toFixed(6).replace(/\.?0+$/, '')} USDT ({formatUSD(amountInUSD)})
 								{:else}
 									{formatSats(displayAmount)}
-									{$t('wallet.sats')} ({formatUSD(amountInUSD)})
+									{$t('wallet.sats')}
+									{#if amountInUSD > 0}
+										({formatUSD(amountInUSD)})
+									{:else if showBitcoinPriceUnavailable}
+										(Exchange rate unavailable)
+									{/if}
 								{/if}
 							</p>
 							<!-- Network Display -->
@@ -448,7 +465,7 @@
 								// Refresh balance before closing
 								await walletManager.loadAssets();
 								// Close both modals and return to wallet balance screen
-								props.onClose();
+								onClose();
 							}}
 						>
 							{$t('common.done')}
@@ -475,6 +492,12 @@
 								{#if payerTotalAmountUSD > 0}
 									<div class="text-base-content/70 text-lg font-semibold md:text-xl">
 										≈ {formatUSD(payerTotalAmountUSD)}
+									</div>
+								{:else if !isBscDirectNetwork && payerTotalAmount > 0}
+									<div class="text-base-content/60 text-sm md:text-base">
+										{isBitcoinPriceLoading
+											? 'Loading price...'
+											: 'Exchange rate unavailable'}
 									</div>
 								{/if}
 							</div>
@@ -542,6 +565,12 @@
 									</span>
 									{#if payerTotalAmountUSD > 0}
 										<span class="text-xs opacity-60">≈ {formatUSD(payerTotalAmountUSD)}</span>
+									{:else if !isBscDirectNetwork}
+										<span class="text-xs opacity-60">
+											{isBitcoinPriceLoading
+												? 'Loading price...'
+												: 'Exchange rate unavailable'}
+										</span>
 									{/if}
 								</div>
 							</div>
@@ -582,12 +611,12 @@
 						{/if}
 
 						<!-- Transaction Description (if provided) -->
-						{#if props.memo}
+						{#if memo}
 							<div class="space-y-1">
 								<div class="label">
 									<span class="label-text text-xs font-semibold">{$t('wallet.description')}</span>
 								</div>
-								<div class="bg-base-200 rounded-lg p-1 text-base">{props.memo}</div>
+								<div class="bg-base-200 rounded-lg p-1 text-base">{memo}</div>
 							</div>
 						{/if}
 					</div>
@@ -600,13 +629,13 @@
 			>
 				{#if !isTransactionConfirmed}
 					<!-- Back Button (show if onEdit callback exists) -->
-					{#if props.onEdit}
+					{#if onEdit}
 						<button
 							class="btn btn-outline min-h-[44px] flex-1 touch-manipulation transition-transform duration-100 select-none active:scale-95 sm:min-h-[48px] md:min-h-[56px]"
 							style="-webkit-tap-highlight-color: transparent;"
 							onclick={() => {
 								triggerHaptic(ImpactStyle.Light);
-								props.onEdit?.();
+								onEdit?.();
 							}}
 						>
 							<IconChevronLeft class="h-4 w-4 sm:h-5 sm:w-5" />
@@ -619,7 +648,7 @@
 						style="-webkit-tap-highlight-color: transparent;"
 						onclick={() => {
 							triggerHaptic(ImpactStyle.Light);
-							props.onClose();
+							onClose();
 						}}
 					>
 						<IconClose class="h-4 w-4 sm:h-5 sm:w-5" />

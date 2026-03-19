@@ -9,7 +9,7 @@
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 	import IconOpenInNew from '~icons/mdi/open-in-new';
 	import { escrow } from '$lib/utils/escrow/v1/escrow';
-	import cryptoPriceService from '$lib/api/services/crypto-price.service';
+	import { btcUsd } from '$lib/stores/market-price.store';
 	import { onMount, onDestroy } from 'svelte';
 	import { ethers } from 'ethers';
 	import { getRSKConfig } from '@bittasker/wallet-core';
@@ -56,7 +56,7 @@
 	let proposedFreelancerAmount = $state('');
 
 	// Gas estimation state
-	let btcPrice = $state<number>(0);
+	const btcPrice = $derived($btcUsd);
 	let gasEstimates = $state<Map<string, number>>(new Map()); // Map of functionName -> USD cost
 	let blockedFunctions = $state<Set<string>>(new Set()); // Functions that are blocked (contract revert)
 	let unpredictableFunctions = $state<Set<string>>(new Set()); // Functions with unpredictable gas (UNPREDICTABLE_GAS_LIMIT)
@@ -407,17 +407,12 @@
 		}
 	}
 
-	// Fetch BTC price on mount and estimate gas once
+	// Check for payment transactions on mount.
 	onMount(async () => {
 		try {
 			if (isBscReadOnly) {
 				checkingPayment = false;
 				return;
-			}
-
-			// Only fetch BTC price if not already set (service has caching, but avoid redundant calls)
-			if (btcPrice === 0) {
-				btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
 			}
 
 			// Check for payment transactions
@@ -431,14 +426,19 @@
 				checkingPayment = false;
 			}
 
-			// Estimate gas for all functions once
-			if (!hasEstimatedGas && btcPrice > 0) {
-				await estimateAllGasFees();
-				hasEstimatedGas = true;
-			}
 		} catch (error) {
-			console.error('Failed to fetch BTC price:', error);
+			console.error('Failed to initialize debug contract card:', error);
 		}
+	});
+
+	$effect(() => {
+		if (isBscReadOnly || btcPrice <= 0 || hasEstimatedGas) {
+			return;
+		}
+
+		void estimateAllGasFees().then(() => {
+			hasEstimatedGas = true;
+		});
 	});
 
 	// Cleanup on unmount

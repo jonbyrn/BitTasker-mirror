@@ -8,7 +8,7 @@
 	import { goto } from '$app/navigation';
 	import { getMyBids, getBidStatus, cachedSatsFromUsd } from '$lib/utils/nostr-bid';
 	import { formatStandardDateTimeShort } from '$lib/utils/helpers/dateFormatter';
-	import cryptoPriceService from '$lib/api/services/crypto-price.service';
+	import { btcUsd } from '$lib/stores/market-price.store';
 	import { BidStatusEnum } from '$lib/utils/enums/bid.enum';
 	import TaskDeadlineDisplay from '$lib/components/task/TaskDeadlineDisplay.svelte';
 	import TaskLocationDisplay from '$lib/components/task/TaskLocationDisplay.svelte';
@@ -80,26 +80,11 @@
 	let myBids = $state<NostrEvent[]>([]);
 	let loading = $state(true);
 	let error = $state<string>('');
-	let btcPrice = $state<number>(0); // Default fallback price
+	const btcPrice = $derived($btcUsd);
 	let expandedBids = new SvelteSet<string>(); // Track expanded bids (SvelteSet is already reactive)
-
-	/**
-	 * Fetch current BTC price
-	 */
-	async function fetchBtcPrice(): Promise<void> {
-		try {
-			btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
-		} catch (error) {
-			console.error('Error fetching BTC price:', error);
-			// Keep using fallback price
-		}
-	}
 
 	onMount(async () => {
 		try {
-			// Fetch BTC price for USDT conversion
-			fetchBtcPrice();
-
 			// Load user's bids
 			await loadMyBids();
 		} catch (err) {

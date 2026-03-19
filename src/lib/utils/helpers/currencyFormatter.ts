@@ -1,4 +1,10 @@
+import { get } from 'svelte/store';
 import cryptoPriceService from '$lib/api/services/crypto-price.service';
+import { btcUsd } from '$lib/stores/market-price.store';
+
+function getSharedBtcPrice(): number {
+	return Math.max(get(btcUsd), 0);
+}
 
 /**
  * Format a currency amount based on the currency type
@@ -104,7 +110,7 @@ export async function convertCurrency(
  */
 export async function usdToSats(usdAmount: number): Promise<number> {
 	try {
-		const btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
+		const btcPrice = getSharedBtcPrice();
 		if (btcPrice <= 0) return 0;
 		
 		const btcAmount = usdAmount / btcPrice;
@@ -122,7 +128,7 @@ export async function usdToSats(usdAmount: number): Promise<number> {
  */
 export async function satsToUsd(sats: number): Promise<number> {
 	try {
-		const btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
+		const btcPrice = getSharedBtcPrice();
 		const btcAmount = sats / 100_000_000; // Convert sats to BTC
 		return btcAmount * btcPrice;
 	} catch (error) {
@@ -145,8 +151,7 @@ export async function formatUSDWithSats(
 	if (isNaN(rbtc)) return '$0.00 (0 Sats)';
 	
 	try {
-		// Get BTC price if not provided
-		const price = btcPrice || await cryptoPriceService.getCurrentPrice('BTC');
+		const price = btcPrice || getSharedBtcPrice();
 		if (price <= 0) return `${rbtc.toFixed(4)} RBTC`;
 		
 		// Convert RBTC to USD (assuming RBTC ≈ BTC)

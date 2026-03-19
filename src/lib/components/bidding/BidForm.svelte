@@ -1,7 +1,6 @@
 <script lang="ts">
 	import type { Task } from '$lib/types/task';
 	import { t, locale } from 'svelte-i18n';
-	import { onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
 	import { user } from '$lib/stores/user.store';
 	import { publishNostrEvent } from '$lib/utils/nostr';
@@ -12,7 +11,7 @@
 	import { formatNumberForInput } from '$lib/utils/helpers/crypto';
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { pushNotificationService } from '$lib/api/services/push-notification.service';
-	import cryptoPriceService from '$lib/api/services/crypto-price.service';
+	import { btcUsd } from '$lib/stores/market-price.store';
 	import DateInput from '$lib/components/date/DateInput.svelte';
 	import KINDS from '$lib/utils/constants/kinds';
 	import { serializeDateWithLocalTime } from '$lib/utils/helpers/dateFormatter';
@@ -74,22 +73,11 @@
 	const MS_PER_HOUR = 60 * 60 * 1000;
 
 	// BTC conversion state
-	let btcPrice = $state<number>(0);
+	const btcPrice = $derived($btcUsd);
 	let paymentContext = $derived(resolvePaymentContext(task.paymentAsset, task.paymentNetwork));
 	let paymentAsset = $derived(paymentContext.paymentAsset);
 	let paymentNetwork = $derived(paymentContext.paymentNetwork);
 	let bidderWalletNetwork = $derived(paymentNetwork);
-
-	// Fetch BTC price on mount
-	async function fetchBtcPrice(): Promise<void> {
-		try {
-			const newPrice = await cryptoPriceService.getCurrentPrice('BTC');
-			btcPrice = newPrice;
-		} catch (error) {
-			console.error('Error fetching BTC price:', error);
-			throw new Error('Unable to fetch Bitcoin price. Please try again later.');
-		}
-	}
 
 	// Handle USD amount changes for FIXED type
 	function handleUsdChange(event: Event) {
@@ -467,10 +455,6 @@
 		}
 	}
 
-	// Initialize BTC price and user data on mount
-	onMount(() => {
-		fetchBtcPrice();
-	});
 </script>
 
 <div class="bid-form-container relative mx-auto flex min-h-0 min-w-0 flex-1 flex-col">

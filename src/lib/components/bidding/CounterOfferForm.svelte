@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { CounterOffer, Currency, PaymentType, NostrBidContent } from '$lib/types/bid';
 	import { formatNumberForInput, satsFromUsd, usdFromSats } from '$lib/utils/helpers/crypto';
-	import cryptoPriceService from '$lib/api/services/crypto-price.service';
+	import { btcUsd } from '$lib/stores/market-price.store';
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { t } from 'svelte-i18n';
 	import DateInput from '$lib/components/date/DateInput.svelte';
@@ -40,16 +40,7 @@
 
 	// USDT conversion state
 	let hourlyRateUsd = $state<number>(0);
-	let btcPrice = $state<number>(0);
-
-	// Fetch BTC price on mount
-	async function fetchBtcPrice(): Promise<void> {
-		try {
-			btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
-		} catch (error) {
-			console.error('Error fetching BTC price:', error);
-		}
-	}
+	const btcPrice = $derived($btcUsd);
 
 	function roundDateToInterval(
 		date: Date,
@@ -289,10 +280,6 @@
 		}
 	}
 
-	// Initialize BTC price on mount
-	$effect(() => {
-		fetchBtcPrice();
-	});
 </script>
 
 <div class="bg-base-100 mx-auto max-h-[80vh] max-w-2xl overflow-y-auto rounded-lg shadow-lg">

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
-	import cryptoPriceService from '$lib/api/services/crypto-price.service';
-	
+	import { btcUsd } from '$lib/stores/market-price.store';
+
 	// State management
 	let action = $state<'buy' | 'sell'>('buy');
 	let selectedCrypto = $state<'rbtc' | 'usdt-bsc'>('rbtc');
@@ -12,16 +12,22 @@
 	let showKycWarning = $state<boolean>(false);
 	let isLoading = $state<boolean>(false);
 	let quoteData = $state<any>(null);
-	
+	const btcPrice = $derived.by(() => ($btcUsd > 0 ? $btcUsd : null));
+	const priceUnavailableMessage =
+		'Live BTC price unavailable. Estimated conversion is unavailable right now.';
+
 	// Hardcoded to USD only
 	const selectedFiatCurrency = { code: 'USD', name: 'US Dollar', symbol: '$' };
-	
+
 	const digitalAssetOptions = [
-		{ id: 'rbtc', name: 'rBTC (Rootstock Bitcoin)', icon: '/images/chains/Bitcoin-Rootstock-logo.webp' },
+		{
+			id: 'rbtc',
+			name: 'rBTC (Rootstock Bitcoin)',
+			icon: '/images/chains/Bitcoin-Rootstock-logo.webp'
+		},
 		{ id: 'usdt-bsc', name: 'USDT (Binance Smart Chain)', icon: '/currency-symbols/USDt.svg' }
 	];
-	
-	
+
 	// Convert to sats for display
 	function convertToSats(amount: string, tokenId: string): string {
 		if (!amount) return '0';
@@ -35,19 +41,24 @@
 		}
 		return amount;
 	}
-	
+
 	let estimatedReceive = $derived(() => {
 		if (!amount || !selectedCrypto || !quoteData) return '0.00';
 		// Use real quote data from Changelly API
 		return quoteData.estimatedAmount || '0.00';
 	});
-	
+
 	let estimatedSend = $derived(() => {
 		if (!amount || !selectedCrypto || !quoteData) return '0.00';
 		// Use real quote data from Changelly API
 		return quoteData.estimatedAmount || '0.00';
 	});
-	
+
+	let requiresBtcPrice = $derived.by(() => selectedCrypto === 'rbtc');
+	let isPriceUnavailable = $derived.by(
+		() => Boolean(amount) && requiresBtcPrice && btcPrice === null
+	);
+
 	// Methods
 	function handleActionChange(newAction: 'buy' | 'sell') {
 		action = newAction;
@@ -57,7 +68,7 @@
 		showKycWarning = false;
 		quoteData = null;
 	}
-	
+
 	function handleCryptoChange(cryptoId: string) {
 		if (cryptoId === 'rbtc' || cryptoId === 'usdt-bsc') {
 			selectedCrypto = cryptoId;
@@ -65,7 +76,7 @@
 			quoteData = null;
 		}
 	}
-	
+
 	async function handleAmountChange() {
 		// Trigger KYC warning for amounts over $1000
 		if (parseFloat(amount) > 1000) {
@@ -73,7 +84,7 @@
 		} else {
 			showKycWarning = false;
 		}
-		
+
 		// Fetch quote from Changelly API when amount changes
 		if (amount && parseFloat(amount) > 0) {
 			await fetchQuote();
@@ -81,42 +92,63 @@
 			quoteData = null;
 		}
 	}
-	
+
 	function handleKeyPress(event: KeyboardEvent) {
 		// Only allow numbers, decimal point, and control keys
-		const allowedKeys = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '.', 'Backspace', 'Delete', 'Tab', 'Enter', 'ArrowLeft', 'ArrowRight'];
+		const allowedKeys = [
+			'0',
+			'1',
+			'2',
+			'3',
+			'4',
+			'5',
+			'6',
+			'7',
+			'8',
+			'9',
+			'.',
+			'Backspace',
+			'Delete',
+			'Tab',
+			'Enter',
+			'ArrowLeft',
+			'ArrowRight'
+		];
 		const isControlKey = event.ctrlKey || event.metaKey || event.altKey;
-		
+
 		if (!allowedKeys.includes(event.key) && !isControlKey) {
 			event.preventDefault();
 		}
-		
+
 		// Prevent multiple decimal points
 		if (event.key === '.' && amount.includes('.')) {
 			event.preventDefault();
 		}
 	}
-	
+
 	async function fetchQuote() {
 		try {
-			// Get real BTC price from API
-			const btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
-			
 			// Mock API call - replace with real Changelly integration
-			await new Promise(resolve => setTimeout(resolve, 500));
-			
+			await new Promise((resolve) => setTimeout(resolve, 500));
+
 			// Calculate real conversion rates based on current BTC price
 			let estimatedAmount: string;
 			let rate: number;
-			
+
 			if (selectedCrypto === 'rbtc') {
+				const liveBtcPrice = btcPrice;
+				if (liveBtcPrice === null) {
+					quoteData = null;
+					return;
+				}
+
 				if (action === 'buy') {
 					// Buying rBTC with USD: USD amount / BTC price = rBTC amount
-					rate = 1 / btcPrice;
+					rate = 1 / liveBtcPrice;
 					estimatedAmount = (parseFloat(amount) * rate).toFixed(6);
 				} else {
 					// Selling rBTC for USD: rBTC amount * BTC price = USD amount
-					rate = btcPrice;
+					rate = liveBtcPrice;
 					estimatedAmount = (parseFloat(amount) * rate).toFixed(2);
 				}
 			} else {
@@ -124,33 +156,33 @@
 				rate = 1.0;
 				estimatedAmount = amount;
 			}
-			
+
 			quoteData = {
 				estimatedAmount,
 				rate,
 				fee: '0.5',
 				totalCost: amount,
-				btcPrice
+				btcPrice: btcPrice
 			};
 		} catch (error) {
 			console.error('Failed to fetch quote:', error);
 			quoteData = null;
 		}
 	}
-	
+
 	async function handleSubmit(event: Event) {
 		event.preventDefault();
-		
+
 		if (!amount || (action === 'sell' && !bankDetails && !cardDetails)) {
 			return;
 		}
-		
+
 		isLoading = true;
-		
+
 		try {
 			// Mock API call - replace with real Changelly integration
-			await new Promise(resolve => setTimeout(resolve, 2000));
-			
+			await new Promise((resolve) => setTimeout(resolve, 2000));
+
 			// Show success message or redirect to Changelly
 			console.log('Transaction initiated:', {
 				action,
@@ -174,24 +206,30 @@
 	<div class="card bg-base-100 shadow-xl">
 		<div class="card-body p-4 md:p-6">
 			<h3 class="card-title text-lg md:text-xl">{$t('wallet.buy_sell.select_action')}</h3>
-			
-			<div class="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
+
+			<div class="grid grid-cols-1 gap-3 sm:grid-cols-2 md:gap-4">
 				<button
 					class="btn btn-outline min-h-[48px] {action === 'buy' ? 'btn-primary' : ''}"
 					onclick={() => handleActionChange('buy')}
 				>
-					<svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+					<svg class="mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+						></path>
 					</svg>
 					<span class="text-sm md:text-base">{$t('wallet.buy_sell.buy')}</span>
 				</button>
-				
+
 				<button
 					class="btn btn-outline min-h-[48px] {action === 'sell' ? 'btn-primary' : ''}"
 					onclick={() => handleActionChange('sell')}
 				>
-					<svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path>
+					<svg class="mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"
+						></path>
 					</svg>
 					<span class="text-sm md:text-base">{$t('wallet.buy_sell.sell')}</span>
 				</button>
@@ -203,15 +241,17 @@
 	<div class="card bg-base-100 shadow-xl">
 		<div class="card-body p-4 md:p-6">
 			<h3 class="card-title text-lg md:text-xl">{$t('wallet.buy_sell.select_digital_asset')}</h3>
-			
+
 			<div class="grid grid-cols-1 gap-3">
 				{#each digitalAssetOptions as asset}
 					<button
-						class="btn btn-outline justify-start min-h-[48px] {selectedCrypto === asset.id ? 'btn-primary' : ''}"
+						class="btn btn-outline min-h-[48px] justify-start {selectedCrypto === asset.id
+							? 'btn-primary'
+							: ''}"
 						onclick={() => handleCryptoChange(asset.id)}
 					>
-						<img src={asset.icon} alt={asset.name} class="w-6 h-6 mr-3 shrink-0" />
-						<span class="text-sm md:text-base truncate">{asset.name}</span>
+						<img src={asset.icon} alt={asset.name} class="mr-3 h-6 w-6 shrink-0" />
+						<span class="truncate text-sm md:text-base">{asset.name}</span>
 					</button>
 				{/each}
 			</div>
@@ -222,22 +262,26 @@
 	<div class="card bg-base-100 shadow-xl">
 		<div class="card-body p-4 md:p-6">
 			<h3 class="card-title text-lg md:text-xl">
-				{action === 'buy' ? $t('wallet.buy_sell.buy_with_fiat') : $t('wallet.buy_sell.sell_to_fiat')}
+				{action === 'buy'
+					? $t('wallet.buy_sell.buy_with_fiat')
+					: $t('wallet.buy_sell.sell_to_fiat')}
 			</h3>
-			
+
 			<form onsubmit={handleSubmit} class="space-y-4">
 				<!-- Amount Input -->
 				<div class="form-control">
 					<label for="amount-input" class="label">
 						<span class="label-text text-sm md:text-base">
-							{action === 'buy' ? $t('wallet.buy_sell.amount_to_buy') : $t('wallet.buy_sell.amount_to_sell')}
+							{action === 'buy'
+								? $t('wallet.buy_sell.amount_to_buy')
+								: $t('wallet.buy_sell.amount_to_sell')}
 						</span>
 					</label>
 					<div class="relative">
 						<input
 							id="amount-input"
 							type="number"
-							class="input input-bordered w-full pr-16 min-h-[48px] text-base"
+							class="input input-bordered min-h-[48px] w-full pr-16 text-base"
 							placeholder={$t('wallet.buy_sell.enter_amount')}
 							bind:value={amount}
 							oninput={handleAmountChange}
@@ -248,32 +292,64 @@
 							inputmode="numeric"
 						/>
 						<div class="absolute inset-y-0 right-0 flex items-center pr-3">
-							<span class="text-sm text-base-content/70">{selectedFiatCurrency.symbol}</span>
+							<span class="text-base-content/70 text-sm">{selectedFiatCurrency.symbol}</span>
 						</div>
 					</div>
 				</div>
 
 				<!-- Estimated Amount Display -->
-				{#if amount}
+				{#if amount && quoteData}
 					<div class="alert alert-outline alert-info">
 						<div class="flex items-start">
-							<svg class="w-5 h-5 mr-2 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+							<svg
+								class="mt-0.5 mr-2 h-5 w-5 shrink-0"
+								fill="none"
+								stroke="currentColor"
+								viewBox="0 0 24 24"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+								></path>
 							</svg>
 							<div class="text-sm md:text-base">
 								<div>
-									{action === 'buy' ? $t('wallet.buy_sell.estimated_receive') : $t('wallet.buy_sell.estimated_send')}: 
+									{action === 'buy'
+										? $t('wallet.buy_sell.estimated_receive')
+										: $t('wallet.buy_sell.estimated_send')}:
 									<strong>
-										{action === 'buy' ? estimatedReceive() : estimatedSend()} 
+										{action === 'buy' ? estimatedReceive() : estimatedSend()}
 										{action === 'buy' ? selectedCrypto.toUpperCase() : selectedFiatCurrency.symbol}
 									</strong>
 								</div>
 								{#if action === 'buy'}
-									<div class="text-xs text-base-content/70 mt-1">
-										{convertToSats(estimatedReceive(), selectedCrypto)} {$t('wallet.sats')}
+									<div class="text-base-content/70 mt-1 text-xs">
+										{convertToSats(estimatedReceive(), selectedCrypto)}
+										{$t('wallet.sats')}
 									</div>
 								{/if}
 							</div>
+						</div>
+					</div>
+				{:else if isPriceUnavailable}
+					<div class="alert alert-outline alert-warning">
+						<div class="flex items-start">
+							<svg
+								class="mt-0.5 mr-2 h-5 w-5 shrink-0"
+								fill="none"
+								stroke="currentColor"
+								viewBox="0 0 24 24"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
+								></path>
+							</svg>
+							<div class="text-sm md:text-base">{priceUnavailableMessage}</div>
 						</div>
 					</div>
 				{/if}
@@ -285,7 +361,9 @@
 				{#if action === 'sell'}
 					<div class="form-control">
 						<label for="bank-details" class="label">
-							<span class="label-text text-sm md:text-base">{$t('wallet.buy_sell.bank_details')}</span>
+							<span class="label-text text-sm md:text-base"
+								>{$t('wallet.buy_sell.bank_details')}</span
+							>
 						</label>
 						<input
 							id="bank-details"
@@ -301,11 +379,23 @@
 				{#if showKycWarning}
 					<div class="alert alert-outline alert-warning">
 						<div class="flex items-start">
-							<svg class="w-5 h-5 mr-2 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+							<svg
+								class="mt-0.5 mr-2 h-5 w-5 shrink-0"
+								fill="none"
+								stroke="currentColor"
+								viewBox="0 0 24 24"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
+								></path>
 							</svg>
 							<div>
-								<div class="font-semibold text-sm md:text-base">{$t('wallet.buy_sell.kyc_required')}</div>
+								<div class="text-sm font-semibold md:text-base">
+									{$t('wallet.buy_sell.kyc_required')}
+								</div>
 								<div class="text-xs md:text-sm">{$t('wallet.buy_sell.kyc_description')}</div>
 							</div>
 						</div>
@@ -316,8 +406,11 @@
 				<div class="card-actions justify-stretch sm:justify-end">
 					<button
 						type="submit"
-						class="btn btn-primary w-full sm:w-auto min-h-[48px]"
-						disabled={isLoading || !amount || (action === 'sell' && !bankDetails)}
+						class="btn btn-primary min-h-[48px] w-full sm:w-auto"
+						disabled={isLoading ||
+							!amount ||
+							(action === 'sell' && !bankDetails) ||
+							(requiresBtcPrice && !quoteData)}
 					>
 						{#if isLoading}
 							<span class="loading loading-spinner loading-sm mr-2"></span>
@@ -335,8 +428,12 @@
 	<div class="card bg-base-100 shadow-xl">
 		<div class="card-body p-4 md:p-6">
 			<h3 class="card-title text-lg md:text-xl">{$t('wallet.information.buy_sell_info_title')}</h3>
-			<div class="text-xs md:text-sm text-base-content/70 space-y-2">
-				<p>• {action === 'buy' ? $t('wallet.information.buy_sell_info_1') : $t('wallet.information.buy_sell_info_2')}</p>
+			<div class="text-base-content/70 space-y-2 text-xs md:text-sm">
+				<p>
+					• {action === 'buy'
+						? $t('wallet.information.buy_sell_info_1')
+						: $t('wallet.information.buy_sell_info_2')}
+				</p>
 				<p>• {$t('wallet.information.buy_sell_info_3')}</p>
 				<p>• {$t('wallet.information.buy_sell_info_4')}</p>
 				<p>• {$t('wallet.information.buy_sell_info_5')}</p>

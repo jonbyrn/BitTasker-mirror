@@ -2,9 +2,9 @@
 	import type { Task } from '$lib/types/task';
 	import { t } from 'svelte-i18n';
 	import { onMount } from 'svelte';
-	import { myTasksStore, TASKS_PER_PAGE } from '$lib/stores/task.store';
-	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
-	import cryptoPriceService from '$lib/api/services/crypto-price.service';
+import { myTasksStore, TASKS_PER_PAGE } from '$lib/stores/task.store';
+import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
+import { btcUsd } from '$lib/stores/market-price.store';
 	import { findMyTasks } from '$lib/nostr/findMyTasks';
 	import { goto } from '$app/navigation';
 	import { appStore } from '$lib/stores/app.store';
@@ -33,8 +33,8 @@
 		| 'tasks_completed' // Terminal states
 		| 'tasks_disputed'; // Dispute states
 
-	let activeFilter = $state<TaskFilterCategory>('waiting_for_bids');
-	let btcPrice = $state<number>(0);
+let activeFilter = $state<TaskFilterCategory>('waiting_for_bids');
+const btcPrice = btcUsd;
 	let isDropdownOpen = $state<boolean>(false);
 	let isLoading = $state(true);
 	let error = $state<string | null>(null);
@@ -78,17 +78,6 @@
 			icon: IconAlertCircleOutline
 		}
 	] as const);
-
-	/**
-	 * Fetch current BTC price
-	 */
-	async function fetchBtcPrice(): Promise<void> {
-		try {
-			btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
-		} catch (error) {
-			console.error('Error fetching BTC price:', error);
-		}
-	}
 
 	/**
 	 * TODO: Implement later in seperate file to avoid accidental use
@@ -582,7 +571,7 @@
 				{#each paginatedTasks as task (task.id)}
 					<DashboardTaskCard
 						{task}
-						{btcPrice}
+						{$btcPrice}
 						{activeFilter}
 						{getActionButtons}
 					/>

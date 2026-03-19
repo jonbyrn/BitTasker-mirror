@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
 	import { walletStore } from '$lib/stores/wallet.store';
-	import cryptoPriceService from '$lib/api/services/crypto-price.service';
+	import { btcUsd } from '$lib/stores/market-price.store';
 
 	// State management
 	let fromToken = $state<'usdt-bsc' | 'rbtc'>('usdt-bsc');
@@ -12,6 +12,9 @@
 	let isLoading = $state<boolean>(false);
 	let showPreview = $state<boolean>(false);
 	let quoteData = $state<any>(null);
+	const btcPrice = $derived.by(() => ($btcUsd > 0 ? $btcUsd : null));
+	const priceUnavailableMessage =
+		'Live BTC price unavailable. Swap quote is unavailable right now.';
 
 	// Token options
 	const tokenOptions = $derived([
@@ -34,7 +37,7 @@
 	]);
 
 	// Computed values
-	let swapRate = $derived(fromToken === 'usdt-bsc' ? 0.000025 : 40000);
+	let swapRate = $derived.by(() => quoteData?.rate ?? null);
 
 	let estimatedToAmount = $derived(() => {
 		if (!fromAmount || !swapRate || !quoteData) return '0.00';
@@ -43,6 +46,9 @@
 	});
 
 	let networkFee = $derived(fromToken === 'usdt-bsc' ? '0.50' : '0.001');
+	let isQuoteUnavailable = $derived.by(
+		() => Boolean(fromAmount) && fromToken !== toToken && btcPrice === null
+	);
 
 	let isInsufficientBalance = $derived(() => {
 		const fromTokenData = tokenOptions.find((t) => t.id === fromToken);
@@ -75,7 +81,7 @@
 	}
 
 	async function handleFromAmountChange() {
-		toAmount = estimatedToAmount();
+		toAmount = '';
 		showPreview = false;
 
 		// Fetch quote from API when amount changes
@@ -88,9 +94,6 @@
 
 	async function fetchQuote() {
 		try {
-			// Get real BTC price from API
-			const btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
-
 			// Mock API call - replace with real Changelly integration
 			await new Promise((resolve) => setTimeout(resolve, 500));
 
@@ -99,13 +102,20 @@
 			let estimatedAmount: string;
 			let rate: number;
 
+			const liveBtcPrice = btcPrice;
+			if (fromToken !== toToken && liveBtcPrice === null) {
+				quoteData = null;
+				toAmount = '';
+				return;
+			}
+
 			if (fromToken === 'usdt-bsc' && toToken === 'rbtc') {
 				// USDT to rBTC: USDT amount / BTC price = rBTC amount
-				rate = 1 / btcPrice;
+				rate = 1 / liveBtcPrice;
 				estimatedAmount = (amount * rate).toFixed(6);
 			} else if (fromToken === 'rbtc' && toToken === 'usdt-bsc') {
 				// rBTC to USDT: rBTC amount * BTC price = USDT amount
-				rate = btcPrice;
+				rate = liveBtcPrice;
 				estimatedAmount = (amount * rate).toFixed(2);
 			} else {
 				// Same token swap (shouldn't happen in current UI)
@@ -117,7 +127,7 @@
 				estimatedAmount,
 				rate,
 				fee: networkFee,
-				btcPrice
+				btcPrice: btcPrice
 			};
 
 			toAmount = quoteData.estimatedAmount;
@@ -172,7 +182,12 @@
 	async function handleSwap(event: Event) {
 		event.preventDefault();
 
-		if (!fromAmount || !toAmount || isInsufficientBalance()) {
+		if (
+			!fromAmount ||
+			!toAmount ||
+			isInsufficientBalance() ||
+			(fromToken !== toToken && !quoteData)
+		) {
 			return;
 		}
 
@@ -374,6 +389,25 @@
 								</span>
 							</div>
 						</div>
+					{:else if isQuoteUnavailable}
+						<div class="alert alert-outline alert-warning">
+							<div class="flex items-start">
+								<svg
+									class="mt-0.5 mr-2 h-5 w-5 shrink-0"
+									fill="none"
+									stroke="currentColor"
+									viewBox="0 0 24 24"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
+									></path>
+								</svg>
+								<span class="text-xs md:text-sm">{priceUnavailableMessage}</span>
+							</div>
+						</div>
 					{/if}
 
 					<!-- Error Messages -->
@@ -403,7 +437,7 @@
 						<button
 							type="submit"
 							class="btn btn-primary min-h-[48px] w-full sm:w-auto"
-							disabled={!fromAmount || !toAmount || isInsufficientBalance()}
+							disabled={!fromAmount || !toAmount || isInsufficientBalance() || isQuoteUnavailable}
 						>
 							<span class="text-sm md:text-base">{$t('wallet.swap.swap_now')}</span>
 						</button>
@@ -440,8 +474,7 @@
 						<div class="flex items-center justify-between">
 							<span class="text-sm md:text-base">{$t('wallet.swap.swap_rate')}:</span>
 							<span class="text-xs md:text-sm"
-								>1 {tokenOptions.find((t) => t.id === fromToken)?.symbol || ''} = {quoteData?.rate ||
-									swapRate}
+								>1 {tokenOptions.find((t) => t.id === fromToken)?.symbol || ''} = {quoteData?.rate}
 								{tokenOptions.find((t) => t.id === toToken)?.symbol || ''}</span
 							>
 						</div>

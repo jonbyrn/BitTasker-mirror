@@ -1,7 +1,6 @@
 <script lang="ts">
 	import type { Attachment } from '$lib/types/task';
 	import type { PaymentAsset, PaymentNetwork } from '$lib/utils/helpers/paymentContext';
-	import { onMount } from 'svelte';
 	import { linear } from 'svelte/easing';
 	import { fly } from 'svelte/transition';
 	import { taskStore as store } from '$lib/stores/task.store';
@@ -9,7 +8,7 @@
 	import { formatNumberForInput, SATS_PER_BTC } from '$lib/utils/helpers/crypto';
 	import { compressImage, validateImageFile } from '$lib/utils/imageCompression';
 	import { t } from 'svelte-i18n';
-	import cryptoPriceService from '$lib/api/services/crypto-price.service';
+	import { btcUsd } from '$lib/stores/market-price.store';
 	import uploadService from '$lib/api/services/upload.service';
 	import {
 		getDefaultPaymentNetwork,
@@ -18,7 +17,7 @@
 
 	// BTC to USD conversion state
 	let usdAmount = $state<number>(0);
-	let btcPrice = $state<number>(0);
+	const btcPrice = $derived($btcUsd);
 
 	// Reactive calculation of sats from usdAmount and btcPrice
 	let sats = $derived(
@@ -35,30 +34,6 @@
 		{ asset: 'RBTC', network: getDefaultPaymentNetwork('RBTC') },
 		{ asset: 'USDT', network: getDefaultPaymentNetwork('USDT') }
 	];
-
-	async function fetchBtcPrice(): Promise<void> {
-		try {
-			btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
-
-			// Si ya existe un valor en amount, interpretarlo según la moneda
-			if ($store.task.budget.amount) {
-				if ($store.task.budget.currency === 'USD') {
-					usdAmount = $store.task.budget.amount;
-				} else {
-					usdAmount = ($store.task.budget.amount / SATS_PER_BTC) * btcPrice;
-					store.updateTask({
-						budget: {
-							...$store.task.budget,
-							currency: 'USD',
-							amount: usdAmount
-						}
-					});
-				}
-			}
-		} catch (error) {
-			console.error('Error fetching BTC price:', error);
-		}
-	}
 
 	function handleUsdChange(event: Event) {
 		const rawValue = (event.target as HTMLInputElement).value;
@@ -396,13 +371,30 @@
 
 	// Sync usdAmount with store when component loads
 	$effect(() => {
+		if (btcPrice <= 0 || !$store.task.budget.amount) {
+			return;
+		}
+
+		if ($store.task.budget.currency === 'USD') {
+			usdAmount = $store.task.budget.amount;
+			return;
+		}
+
+		const nextUsdAmount = ($store.task.budget.amount / SATS_PER_BTC) * btcPrice;
+		usdAmount = nextUsdAmount;
+		store.updateTask({
+			budget: {
+				...$store.task.budget,
+				currency: 'USD',
+				amount: nextUsdAmount
+			}
+		});
+	});
+
+	$effect(() => {
 		if ($store.task.budget.amount) {
 			usdAmount = $store.task.budget.amount;
 		}
-	});
-
-	onMount(() => {
-		fetchBtcPrice();
 	});
 </script>
 
@@ -417,11 +409,11 @@
 >
 	<h4 class="text-lg font-semibold">{$t('task.budget_question')}</h4>
 
-	<div class="w-full">
-		<label class="label">
-			<span class="label-text">Payment rail</span>
-		</label>
-		<div class="grid gap-2 sm:grid-cols-2">
+		<div class="w-full">
+			<div class="label">
+				<span class="label-text">Payment rail</span>
+			</div>
+			<div class="grid gap-2 sm:grid-cols-2">
 			{#each paymentRailOptions as option}
 				<button
 					type="button"

@@ -1,11 +1,10 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
-	import { onMount } from 'svelte';
 	import { Capacitor } from '@capacitor/core';
 	import { appStore } from '$lib/stores/app.store';
+	import { btcUsd } from '$lib/stores/market-price.store';
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 	import generateQrCodeUrl from '$lib/utils/helpers/generateQrCodeUrl';
-	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 
 	interface Props {
 		address: string;
@@ -20,8 +19,8 @@
 	let qrCodeDataUrl = $state('');
 	let addressCopied = $state(false);
 	let isLoadingQR = $state(true);
-	let btcPrice = $state<number>(0);
 	let previousAddress = $state('');
+	const btcPrice = $derived($btcUsd);
 
 	// Create formatters once to avoid recreating on every call
 	const satsFormatter = new Intl.NumberFormat('en-US');
@@ -45,7 +44,7 @@
 	// Generate QR code for a given address
 	async function generateQrCode(address: string): Promise<void> {
 		if (!address) return;
-		
+
 		isLoadingQR = true;
 		try {
 			qrCodeDataUrl = await generateQrCodeUrl(address);
@@ -64,21 +63,12 @@
 		return (props.amount / 100_000_000) * btcPrice;
 	});
 
-	// Fetch BTC price on mount
-	onMount(async () => {
-		try {
-			btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
-		} catch (error) {
-			console.error('Failed to fetch BTC price:', error);
-		}
-	});
-
 	// Reactively generate QR code when address changes
 	// This is the appropriate use of $effect for async side effects
 	$effect(() => {
 		// Track the address reactively
 		const currentAddress = props.address;
-		
+
 		// Only regenerate if address actually changed
 		if (currentAddress && currentAddress !== previousAddress) {
 			generateQrCode(currentAddress);
@@ -279,4 +269,3 @@
 		</button>
 	{/if}
 </div>
-

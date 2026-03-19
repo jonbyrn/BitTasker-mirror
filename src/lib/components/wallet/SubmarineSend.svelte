@@ -6,7 +6,7 @@
 	import { walletManager, allAssets } from '$lib/stores/wallet.store';
 	import { appStore } from '$lib/stores/app.store';
 	import { parseLightningInvoice } from '$lib/utils/helpers/lightningInvoice';
-	import cryptoPriceService from '$lib/api/services/crypto-price.service';
+	import { btcUsd } from '$lib/stores/market-price.store';
 	import QrCodeScanner from '$lib/components/QrCodeScanner.svelte';
 
 	// Extended swap data with gas estimation
@@ -41,7 +41,8 @@
 	// Invoice breakdown state
 	let invoiceBreakdown = $state<InvoiceBreakdown | null>(null);
 	let isLoadingBreakdown = $state(false);
-	let btcPrice = $state<number>(0);
+	const btcPrice = $derived.by(() => ($btcUsd > 0 ? $btcUsd : null));
+	const priceUnavailableText = 'USD conversion unavailable while live BTC price is unavailable.';
 
 	// Get available RBTC balance
 	let availableBalance = $derived(() => {
@@ -77,19 +78,11 @@
 			isLoadingLimits = true;
 			swapLimits = await walletManager.getSubmarineSwapLimits();
 
-			// Fetch BTC price for USD display
-			try {
-				btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
-			} catch (err) {
-				console.error('Failed to fetch BTC price:', err);
-				btcPrice = 60000; // Fallback price
-			}
-
 			// Recover pending swaps from wallet manager
 			const recovered = await walletManager.submarineSwapService.recoverPendingSwaps();
 			if (recovered && recovered.length > 0) {
 				pendingSwaps = recovered;
-				
+
 				// Monitor all recovered swaps
 				for (const swap of recovered) {
 					monitorSwapStatus(swap.id);
@@ -110,7 +103,7 @@
 		if (!inv || inv.trim() === '') {
 			return { isValid: false, error: $t('wallet.validation.invoice_required') };
 		}
-		
+
 		// Basic format check
 		if (!inv.toLowerCase().startsWith('ln')) {
 			return { isValid: false, error: $t('wallet.validation.invoice_invalid') };
@@ -118,7 +111,7 @@
 
 		// Parse invoice to extract amount
 		const parsed = parseLightningInvoice(inv);
-		
+
 		if (!parsed.isValid) {
 			return { isValid: false, error: $t('wallet.validation.invoice_invalid') };
 		}
@@ -176,10 +169,10 @@
 
 			// Get submarine swap pairs from wallet manager
 			const pairsData = await walletManager.getSubmarineSwapPairs();
-			
+
 			// For submarine swaps from RBTC to Lightning (BTC), we need the RBTC/BTC pair
 			const pair = pairsData?.['RBTC']?.['BTC'];
-			
+
 			if (!pair || !pair.fees) {
 				throw new Error('Unable to fetch fee information from Boltz for RBTC/BTC pair');
 			}
@@ -188,10 +181,10 @@
 			// Service fee is a percentage of the amount
 			const serviceFeePercentage = pair.fees.percentage; // e.g., 0.1 means 0.1%
 			const serviceFee = Math.ceil((invoiceAmount * serviceFeePercentage) / 100);
-			
+
 			// Miner fee (network fee for the on-chain transaction)
 			const minerFee = pair.fees.minerFees; // e.g., 32 sats for RBTC
-			
+
 			// Total required = invoice amount + service fee + miner fee
 			const totalRequired = invoiceAmount + serviceFee + minerFee;
 
@@ -219,7 +212,8 @@
 			};
 		} catch (error) {
 			console.error('Failed to fetch invoice breakdown:', error);
-			invoiceError = error instanceof Error ? error.message : $t('wallet.swap.error.fee_fetch_failed');
+			invoiceError =
+				error instanceof Error ? error.message : $t('wallet.swap.error.fee_fetch_failed');
 			invoiceBreakdown = null;
 		} finally {
 			isLoadingBreakdown = false;
@@ -413,12 +407,12 @@
 			const gasAmount = result.estimatedGas?.costSats || 0;
 			const totalRequired = result.estimatedGas?.totalRequired || swapAmount;
 			const totalRequiredRBTC = totalRequired / 100000000;
-			
+
 			const availableRBTC = availableBalance();
-			
+
 			if (totalRequiredRBTC > availableRBTC) {
 				const shortfallSats = totalRequired - Math.floor(availableRBTC * 100000000);
-				
+
 				if (result.estimatedGas) {
 					// Show detailed error with gas breakdown
 					throw new Error(
@@ -681,20 +675,27 @@
 
 		<!-- Invoice Breakdown Card -->
 		{#if isLoadingBreakdown}
-			<div class="flex items-center justify-center gap-2 rounded-lg border border-base-300 bg-base-200 p-4">
+			<div
+				class="border-base-300 bg-base-200 flex items-center justify-center gap-2 rounded-lg border p-4"
+			>
 				<span class="loading loading-spinner loading-sm"></span>
 				<span class="text-sm">{$t('wallet.swap.loading_fees')}</span>
 			</div>
 		{:else if invoiceBreakdown}
-			<div class="rounded-lg border border-base-300 bg-base-200 p-4">
+			<div class="border-base-300 bg-base-200 rounded-lg border p-4">
 				<h4 class="mb-3 text-sm font-semibold">{$t('wallet.swap.submarine.invoice_breakdown')}</h4>
+				{#if btcPrice === null}
+					<div class="mb-2 text-xs opacity-60">{priceUnavailableText}</div>
+				{/if}
 				<div class="space-y-2 text-xs">
 					<!-- Invoice Amount -->
 					<div class="flex items-center justify-between">
 						<span class="opacity-70">{$t('wallet.swap.submarine.invoice_amount')}:</span>
 						<div class="text-right font-mono">
-							<span class="font-semibold">{invoiceBreakdown.invoiceAmount.toLocaleString()} {$t('wallet.sats')}</span>
-							{#if btcPrice > 0}
+							<span class="font-semibold"
+								>{invoiceBreakdown.invoiceAmount.toLocaleString()} {$t('wallet.sats')}</span
+							>
+							{#if btcPrice !== null}
 								<span class="ml-2 opacity-60">
 									${((invoiceBreakdown.invoiceAmount / 100_000_000) * btcPrice).toFixed(2)}
 								</span>
@@ -707,7 +708,7 @@
 						<span class="opacity-70">{$t('wallet.swap.service_fee')}:</span>
 						<div class="text-right font-mono">
 							<span>{invoiceBreakdown.serviceFee.toLocaleString()} {$t('wallet.sats')}</span>
-							{#if btcPrice > 0}
+							{#if btcPrice !== null}
 								<span class="ml-2 opacity-60">
 									${((invoiceBreakdown.serviceFee / 100_000_000) * btcPrice).toFixed(2)}
 								</span>
@@ -720,7 +721,7 @@
 						<span class="opacity-70">{$t('wallet.swap.miner_fee')}:</span>
 						<div class="text-right font-mono">
 							<span>{invoiceBreakdown.minerFee.toLocaleString()} {$t('wallet.sats')}</span>
-							{#if btcPrice > 0}
+							{#if btcPrice !== null}
 								<span class="ml-2 opacity-60">
 									${((invoiceBreakdown.minerFee / 100_000_000) * btcPrice).toFixed(2)}
 								</span>
@@ -731,11 +732,11 @@
 					<div class="divider my-1.5"></div>
 
 					<!-- Total Required -->
-					<div class="flex items-center justify-between text-sm font-bold text-primary">
+					<div class="text-primary flex items-center justify-between text-sm font-bold">
 						<span>{$t('wallet.swap.submarine.total_required')}:</span>
 						<div class="text-right font-mono">
 							<span>{invoiceBreakdown.totalRequired.toLocaleString()} {$t('wallet.sats')}</span>
-							{#if btcPrice > 0}
+							{#if btcPrice !== null}
 								<span class="ml-2 opacity-70">
 									${((invoiceBreakdown.totalRequired / 100_000_000) * btcPrice).toFixed(2)}
 								</span>
@@ -750,7 +751,11 @@
 		<button
 			class="btn btn-primary w-full"
 			onclick={handleCreateSwap}
-			disabled={!invoiceBreakdown || !!invoiceError || isCreatingSwap || isLoadingLimits || isLoadingBreakdown}
+			disabled={!invoiceBreakdown ||
+				!!invoiceError ||
+				isCreatingSwap ||
+				isLoadingLimits ||
+				isLoadingBreakdown}
 		>
 			{#if isCreatingSwap}
 				<span class="loading loading-spinner loading-sm"></span>
@@ -803,8 +808,10 @@
 							<!-- Total Required -->
 							<div class="divider my-1"></div>
 							<div class="flex flex-col items-start justify-between sm:flex-row">
-								<span class="text-sm font-semibold">{$t('wallet.swap.submarine.total_required')}:</span>
-								<span class="font-bold text-primary">
+								<span class="text-sm font-semibold"
+									>{$t('wallet.swap.submarine.total_required')}:</span
+								>
+								<span class="text-primary font-bold">
 									{(currentSwap.estimatedGas.totalRequired / 100000000).toFixed(8)} RBTC
 									<span class="text-sm opacity-70">
 										({currentSwap.estimatedGas.totalRequired.toLocaleString()} sats)
@@ -814,7 +821,7 @@
 						{/if}
 
 						<!-- Invoice (truncated) -->
-						<div class="flex flex-col items-start justify-between gap-2 sm:flex-row mt-2">
+						<div class="mt-2 flex flex-col items-start justify-between gap-2 sm:flex-row">
 							<span class="text-sm opacity-70">{$t('wallet.swap.submarine.invoice_label')}:</span>
 							<button
 								class="btn btn-ghost btn-xs"

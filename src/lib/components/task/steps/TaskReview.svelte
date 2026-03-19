@@ -1,10 +1,9 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import { linear } from 'svelte/easing';
 	import { fly } from 'svelte/transition';
 	import { taskStore as store } from '$lib/stores/task.store';
 	import { BudgetTypeEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
-	import cryptoPriceService from '$lib/api/services/crypto-price.service';
+	import { btcUsd } from '$lib/stores/market-price.store';
 	import TaskReviewLocation from '../TaskReviewLocation.svelte';
 	import {
 		satsFromUsd
@@ -48,19 +47,7 @@
 		paymentContext.paymentAsset === 'USDT' && paymentContext.paymentNetwork.startsWith('bsc')
 	);
 
-	// TODO: Refactor by adding to app store global state
-	/**
-	 * Fetch current BTC price
-	 */
-	let btcPrice = $state<number>(0); // Default fallback price
-
-	async function fetchBtcPrice(): Promise<void> {
-		try {
-			btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
-		} catch (error) {}
-	}
-
-	onMount(fetchBtcPrice);
+	const btcPrice = $derived($btcUsd);
 
 	// Helper function to format date without year for start dates in date ranges
 	function formatDateWithoutYear(date: Date): string {

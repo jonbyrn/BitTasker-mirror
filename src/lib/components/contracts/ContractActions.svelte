@@ -12,7 +12,7 @@
 	import { pushNotificationService } from '$lib/api/services/push-notification.service';
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 	import TaskCompletionModal from './TaskCompletionModal.svelte';
-	import cryptoPriceService from '$lib/api/services/crypto-price.service';
+	import { btcUsd } from '$lib/stores/market-price.store';
 	import {
 		ContractModalAction,
 		CONTRACT_MODAL_CONFIGS
@@ -78,7 +78,7 @@
 	// Resolution form state
 	let proposedClientAmountUSD = $state('');
 	let proposedFreelancerAmountUSD = $state('');
-	let btcPrice = $state<number>(0); // No fallback price
+	const btcPrice = $derived($btcUsd);
 
 	// Blockchain check cache (KEEP - performance optimization)
 	let isCheckingBlockchain = $state(false);
@@ -662,19 +662,6 @@
 		loadNamespace($locale as SupportedLanguage, 'dashboard/contracts/actions').catch((error) => {
 			console.warn('Failed to load contract actions translations:', error);
 		});
-	}
-
-	// Fetch BTC price on mount using currency formatter utility
-	$effect(() => {
-		fetchBtcPrice();
-	});
-
-	async function fetchBtcPrice() {
-		try {
-			btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
-		} catch (error) {
-			console.error('Error fetching BTC price:', error);
-		}
 	}
 
 	// Derived state for button disabled logic (simplified - rely on contract.isPending and permissions)

@@ -3,7 +3,6 @@
 	import type { ContractWithEvents } from '$lib/types/contract';
 	import { TaskTypeEnum } from '$lib/utils/enums/task.enum';
 	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
-	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import { onMount, onDestroy } from 'svelte';
 	import { t } from 'svelte-i18n';
 	import { locale } from 'svelte-i18n';
@@ -27,6 +26,7 @@
 		normalizePaymentNetwork,
 		resolvePaymentContext
 	} from '$lib/utils/helpers/paymentContext';
+	import { btcUsd } from '$lib/stores/market-price.store';
 	// Icon imports for unplugin-icons
 	import IconPlus from '~icons/mdi/plus';
 
@@ -39,7 +39,7 @@
 		onBid?: () => void;
 	}>();
 
-	let btcPrice = $state<number>(63000); // Default fallback price
+	const btcPrice = $derived($btcUsd);
 	let canDelete = $state(true); // Default to true, will be checked
 	let isCheckingDelete = $state(false);
 	let canEdit = $state(true); // Default to true, will be checked
@@ -316,15 +316,6 @@
 		onRequestDeleteConfirm();
 	}
 
-	async function fetchBtcPrice(): Promise<void> {
-		try {
-			btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
-		} catch (error) {
-			console.error('Error fetching BTC price:', error);
-			throw new Error('Unable to fetch Bitcoin price. Please try again later.');
-		}
-	}
-
 	// Re-check edit permission when task or isOwner changes
 	$effect(() => {
 		if (task && isOwner !== undefined) {
@@ -333,7 +324,6 @@
 	});
 
 	onMount(() => {
-		fetchBtcPrice();
 		checkCanEditTask();
 		checkCanDeleteTask();
 	});

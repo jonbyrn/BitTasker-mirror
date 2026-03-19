@@ -11,10 +11,10 @@
 	import { t } from 'svelte-i18n';
 	import { goto } from '$app/navigation';
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
+	import { btcUsd } from '$lib/stores/market-price.store';
 	import TranslatableTask from '$lib/components/task/TranslatableTask.svelte';
 	import TaskDeadlineDisplay from '$lib/components/task/TaskDeadlineDisplay.svelte';
 	import TaskLocationDisplay from '$lib/components/task/TaskLocationDisplay.svelte';
-	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import Drawer from '$lib/components/Drawer.svelte';
 	import { TASKS_PER_PAGE } from '$lib/stores/task.store';
 	import { getStatusBadge } from '$lib/utils/helpers/taskStatusBadge';
@@ -58,8 +58,8 @@
 	// Scroll to top button state
 	let showScrollToTop = $state(false);
 
-	// BTC price for USDT conversion
-	let btcPrice = $state<number>(120000); // Default fallback price
+	// BTC price for task budget conversions comes from the global market price store.
+	const btcPrice = $derived($btcUsd);
 
 	// View mode state - Airbnb style toggle
 	let viewMode = $state<'list' | 'map'>('list');
@@ -151,18 +151,6 @@
 			mapLoaded = true;
 		} catch (error) {
 			console.error('Error loading map component:', error);
-		}
-	}
-
-	/**
-	 * Fetch current BTC price (deferred)
-	 */
-	async function fetchBtcPrice(): Promise<void> {
-		try {
-			btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
-		} catch (error) {
-			console.error('Error fetching BTC price:', error);
-			// Keep using fallback price
 		}
 	}
 
@@ -484,7 +472,6 @@
 		// Defer non-critical operations
 		if (window.requestIdleCallback) {
 			window.requestIdleCallback(() => {
-				fetchBtcPrice();
 				loadDrawerComponents();
 				// Load map on desktop (always visible) or defer on mobile
 				const isDesktop = window.innerWidth >= 1024;
@@ -494,7 +481,6 @@
 			});
 		} else {
 			setTimeout(() => {
-				fetchBtcPrice();
 				loadDrawerComponents();
 				const isDesktop = window.innerWidth >= 1024;
 				if (isDesktop) {

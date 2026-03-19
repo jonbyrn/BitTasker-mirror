@@ -5,8 +5,8 @@
 	import { appStore } from '$lib/stores/app.store';
 	import { publishStandardServices, subscribeToProfileUpdates } from '$lib/nostr/profile';
 	import Input from '$lib/components/Input.svelte';
-	import { SATS_PER_BTC } from '$lib/utils/helpers/crypto';
-	import cryptoPriceService from '$lib/api/services/crypto-price.service';
+import { SATS_PER_BTC } from '$lib/utils/helpers/crypto';
+import { btcUsd } from '$lib/stores/market-price.store';
 	import KINDS from '$lib/utils/constants/kinds';
 
 	let { onComplete } = $props<{
@@ -25,7 +25,7 @@
 	let servicesForm = $state<HTMLDivElement | null>(null);
 	let currentEventId = $state<string | null>(null); // Track the current event ID
 	let isInitialLoading = $state(false);
-	let btcPrice = $state<number>(0); // No fallback price
+	const btcPrice = btcUsd;
 
 	// New service form state
 	let newService = $state<Partial<StandardService>>({
@@ -57,8 +57,7 @@
 	let cleanup: (() => void) | null = null;
 
 	onMount(async () => {
-		// Fetch BTC price on mount
-		await fetchBtcPrice();
+		// Subscribe to services updates after init
 		
 		cleanup = await subscribeToProfileUpdates(
 			async (event) => {
@@ -229,18 +228,10 @@
 		}).format(price);
 	}
 
-	// Fetch BTC price on mount
-	async function fetchBtcPrice(): Promise<void> {
-		try {
-			btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
-		} catch (error) {
-			console.error('Error fetching BTC price:', error);
-		}
-	}
-
 	// Convert Satoshis to USD using real-time BTC price
 	function satsToUsd(sats: number): number {
-		return (sats / SATS_PER_BTC) * btcPrice;
+		if ($btcPrice <= 0) return 0;
+		return (sats / SATS_PER_BTC) * $btcPrice;
 	}
 
 	// Get price placeholder based on currency

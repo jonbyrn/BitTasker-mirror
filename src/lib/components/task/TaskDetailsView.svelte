@@ -17,8 +17,8 @@
 	} from '$lib/utils/helpers/dateFormatter';
 	import KINDS from '$lib/utils/constants/kinds';
 	import Gallery from '$lib/components/Gallery.svelte';
-	import nostrEventsService from '$lib/api/services/nostr/events';
-	import cryptoPriceService from '$lib/api/services/crypto-price.service';
+import nostrEventsService from '$lib/api/services/nostr/events';
+import { btcUsd } from '$lib/stores/market-price.store';
 	import TaskLocationMap from '$lib/components/maps/TaskLocationMap.svelte';
 	import TranslatableTask from '$lib/components/task/TranslatableTask.svelte';
 	import BidForm from '$lib/components/bidding/BidForm.svelte';
@@ -37,10 +37,10 @@
 	let { taskId } = $props<{ taskId: string }>();
 
 	// State
-	let task = $state<Task | null>(null);
-	let loading = $state(true);
-	let errorMessage = $state('');
-	let btcPrice = $state<number>(0); // Default fallback price
+let task = $state<Task | null>(null);
+let loading = $state(true);
+let errorMessage = $state('');
+const btcPrice = btcUsd;
 	// TranslatedTask component now handles translations and show more/less automatically
 
 	// Bid drawer state
@@ -315,14 +315,6 @@
 		isSidebarOpen = true;
 	};
 
-	async function fetchBtcPrice(): Promise<void> {
-		try {
-			btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
-		} catch (error) {
-			console.error('Failed to fetch BTC price:', error);
-		}
-	}
-
 	// Translation is now handled automatically by TranslatableTask component
 
 	// Track previous taskId to detect changes
@@ -348,10 +340,6 @@
 		}
 	});
 
-	// Fetch BTC price on mount
-	onMount(() => {
-		fetchBtcPrice();
-	});
 </script>
 
 <svelte:head>
@@ -486,7 +474,7 @@
 													${formatNumberWithTwoDecimals(task.budget.amount)}
 												</p>
 											{:else}
-												<UsdSatsDisplay amount={task.budget.amount} {btcPrice} size="large" />
+												<UsdSatsDisplay amount={task.budget.amount} btcPrice={$btcPrice} size="large" />
 											{/if}
 										</div>
 									</div>

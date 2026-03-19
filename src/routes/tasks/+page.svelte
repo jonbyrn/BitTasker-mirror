@@ -7,7 +7,7 @@
 	import { appStore } from '$lib/stores/app.store';
 	import { findTasks, cleanup } from '$lib/nostr/findTasks';
 	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
-	import cryptoPriceService from '$lib/api/services/crypto-price.service';
+	import { btcUsd } from '$lib/stores/market-price.store';
 	import Drawer from '$lib/components/Drawer.svelte';
 	import { t } from 'svelte-i18n';
 	import { goto } from '$app/navigation';
@@ -58,7 +58,6 @@
 
 	// Data loading constants
 	const DOM_QUERY_MAX_RETRIES = 10; // Maximum retries for DOM element queries
-	const BTC_PRICE_FALLBACK = 120000; // Default fallback BTC price in USD
 	const LOADING_TIMEOUT_MS = 10000; // 10 seconds timeout for loading
 
 	// Map preload timing constants
@@ -126,8 +125,8 @@
 	// Scroll to top button state
 	let showScrollToTop = $state(false);
 
-	// BTC price for USDT conversion
-	let btcPrice = $state<number>(BTC_PRICE_FALLBACK);
+	// BTC price for public task budget conversions comes from the global market price store.
+	const btcPrice = $derived($btcUsd);
 
 	// View mode state - Airbnb style toggle
 	let viewMode = $state<'list' | 'map'>('list');
@@ -460,18 +459,6 @@
 		}
 
 		return parts.join('|');
-	}
-
-	/**
-	 * Fetch current BTC price (deferred)
-	 */
-	async function fetchBtcPrice(): Promise<void> {
-		try {
-			btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
-		} catch (error) {
-			console.error('Error fetching BTC price:', error);
-			// Keep using fallback price
-		}
 	}
 
 	/**
@@ -819,7 +806,6 @@
 		// Defer non-critical operations
 		if (browser) {
 			const deferredOperations = () => {
-				fetchBtcPrice();
 				loadDrawerComponents();
 				// Use reactive windowWidth instead of window.innerWidth
 				// Attempt map preload for desktop (mount reason)
