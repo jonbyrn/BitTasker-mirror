@@ -39,7 +39,10 @@
 	import LoginQrCodeScannerModal from '$lib/components/LoginQrCodeScannerModal.svelte';
 	import ErrorAlertWithModal from '$lib/components/ErrorAlertWithModal.svelte';
 	import Logo from '$lib/components/Logo.svelte';
-	import migratePasskey, { passkeyMigration } from '$lib/utils/helpers/migratePasskey';
+	import migratePasskey, {
+		passkeyMigration,
+		resetMigration
+	} from '$lib/utils/helpers/migratePasskey';
 	import MigratePasskey from '$lib/components/MigratePasskey.svelte';
 
 	// Polyfill Buffer
@@ -261,35 +264,45 @@
 			});
 
 			if (response && response.encryptedData) {
-				// Account exists, decrypt wallet mnemonic
-				const masterSalt = base64ToBytes(response.encryptedData.masterSalt);
-				try {
-					// try decryption with nsec hex format (...64 characters)
-					let _nsec = nsec;
-					if (nsec.startsWith('nsec1')) {
-						_nsec = bytesToHex(privateKey);
-					}
-					const exportedMasterKey = await deriveKeyFromPassword(_nsec, masterSalt, 100000);
-					const _exportedKey = await exportKey(exportedMasterKey);
-
+				// @ts-expect-error - Legacy format to be removed in the future
+				const exportedMasterKey = response.encryptedData.exportedMasterKey;
+				if (exportedMasterKey) {
 					const decryptedData = await decryptMasterKeyDataFromBiometrics(
 						response.encryptedData,
-						_exportedKey
+						exportedMasterKey
 					);
 					mnemonic = decryptedData.mnemonic;
-				} catch {
-					console.warn('Error decrypting in bech32 format, trying hex format');
+				} else {
+					// Account exists, decrypt wallet mnemonic
+					const masterSalt = base64ToBytes(response.encryptedData.masterSalt);
 					try {
-						// try direct decryption with nsec bech32 format (nsec1...)
-						const exportedMasterKey = await deriveKeyFromPassword(nsec, masterSalt, 100000);
+						// try decryption with nsec hex format (...64 characters)
+						let _nsec = nsec;
+						if (nsec.startsWith('nsec1')) {
+							_nsec = bytesToHex(privateKey);
+						}
+						const exportedMasterKey = await deriveKeyFromPassword(_nsec, masterSalt, 100000);
 						const _exportedKey = await exportKey(exportedMasterKey);
+
 						const decryptedData = await decryptMasterKeyDataFromBiometrics(
 							response.encryptedData,
 							_exportedKey
 						);
 						mnemonic = decryptedData.mnemonic;
-					} catch (error) {
-						throw new Error(error instanceof Error ? error.message : 'Unknown error');
+					} catch {
+						console.warn('Error decrypting in bech32 format, trying hex format');
+						try {
+							// try direct decryption with nsec bech32 format (nsec1...)
+							const exportedMasterKey = await deriveKeyFromPassword(nsec, masterSalt, 100000);
+							const _exportedKey = await exportKey(exportedMasterKey);
+							const decryptedData = await decryptMasterKeyDataFromBiometrics(
+								response.encryptedData,
+								_exportedKey
+							);
+							mnemonic = decryptedData.mnemonic;
+						} catch (error) {
+							throw new Error(error instanceof Error ? error.message : 'Unknown error');
+						}
 					}
 				}
 			} else {
@@ -406,6 +419,9 @@
 						}
 						if (res.isNewUser) await goto('/auth/onboarding');
 						else await goto('/dashboard');
+						if ($passkeyMigration.isOpen) {
+							resetMigration();
+						}
 					});
 			}
 		} catch (err) {
