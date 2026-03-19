@@ -172,6 +172,15 @@
 		<h4>{$t('terms.ugc.action_title')}</h4>
 		<p>{$t('terms.ugc.action_intro')}</p>
 		<div class="bg-base-100 rounded-box border-base-300 mb-4 border p-4">
+			<h5 class="mb-2 font-semibold">{$t('terms.ugc.action_sla_title')}</h5>
+			<p class="mb-2">{$t('terms.ugc.action_sla_intro')}</p>
+			<ul>
+				<li>{$t('terms.ugc.action_sla1')}</li>
+				<li>{$t('terms.ugc.action_sla2')}</li>
+				<li>{$t('terms.ugc.action_sla3')}</li>
+				<li>{$t('terms.ugc.action_sla4')}</li>
+			</ul>
+			<div class="divider my-2"></div>
 			<ul>
 				<li>{$t('terms.ugc.action1')}</li>
 				<li>{$t('terms.ugc.action2')}</li>

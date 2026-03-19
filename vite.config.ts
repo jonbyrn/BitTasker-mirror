@@ -154,14 +154,14 @@ export default defineConfig({
 			'@capacitor/preferences',
 			'@capacitor/haptics'
 			/* 'liquidjs-lib',
-            'boltz-core',
-            '@vulpemventures/secp256k1-zkp' */
+			'boltz-core',
+			'@vulpemventures/secp256k1-zkp' */
 		]
 		/* esbuildOptions: {
-            define: {
-                global: 'globalThis'
-            }
-        } */
+			define: {
+				global: 'globalThis'
+			}
+		} */
 	},
 	server: {
 		// For mobile live-reload (Capacitor on device) we typically load the dev server via:
