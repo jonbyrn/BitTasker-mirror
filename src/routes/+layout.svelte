@@ -3,6 +3,8 @@
 	import { t } from 'svelte-i18n';
 	import '$lib/i18n/i18n';
 	import { page } from '$app/state';
+	import { browser } from '$app/environment';
+	import { App } from '@capacitor/app';
 	import { darkMode, initializeTheme } from '$lib/stores/theme.store';
 	import { devicePlatform } from '$lib/stores/device.store';
 	import { authState } from '$lib/stores/auth.store';
@@ -19,6 +21,8 @@
 	import InfiniteScroll from '$lib/components/InfiniteScroll.svelte';
 	import BitTaskerFooter from '$lib/components/BitTaskerFooter.svelte';
 	import '../app.css';
+	import { isPageVisible } from '$lib/utils/helpers/pageVisibility';
+	import { marketPrice } from '$lib/stores/market-price.store';
 
 	const { children } = $props();
 
@@ -155,6 +159,35 @@
 	onMount(() => {
 		appScrollContainer.set(scrollEl);
 		return () => appScrollContainer.set(null);
+	});
+
+	let marketPriceListener: ReturnType<typeof App.addListener> | null = null;
+	let visibilityUnsub: (() => void) | null = null;
+
+	onMount(() => {
+		if (!browser) return;
+
+		marketPrice.startPolling();
+
+		visibilityUnsub = isPageVisible.subscribe((visible) => {
+			if (visible) {
+				marketPrice.startPolling();
+			} else {
+				marketPrice.stopPolling();
+			}
+		});
+
+		marketPriceListener = App.addListener('appStateChange', ({ isActive }) => {
+			if (isActive) {
+				marketPrice.refresh();
+			}
+		});
+
+		return () => {
+			visibilityUnsub?.();
+			marketPriceListener?.remove();
+			marketPrice.stopPolling();
+		};
 	});
 
 	$effect(() => {

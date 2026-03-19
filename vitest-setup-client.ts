@@ -103,17 +103,32 @@ if (typeof global !== 'undefined') {
 
 // Mock localStorage (required for some tests)
 if (typeof window !== 'undefined') {
+	const storage: Record<string, string> = {};
+
 	const localStorageMock = {
 		getItem: vi.fn((key: string) => {
-			return null;
+			return storage[key] ?? null;
 		}),
-		setItem: vi.fn((key: string, value: string) => {}),
-		removeItem: vi.fn((key: string) => {}),
-		clear: vi.fn(),
-		length: 0,
-		key: vi.fn((index: number) => null)
+		setItem: vi.fn((key: string, value: string) => {
+			storage[key] = value;
+		}),
+		removeItem: vi.fn((key: string) => {
+			delete storage[key];
+		}),
+		clear: vi.fn(() => {
+			for (const key of Object.keys(storage)) {
+				delete storage[key];
+			}
+		}),
+		key: vi.fn((index: number) => {
+			const keys = Object.keys(storage);
+			return keys[index] ?? null;
+		}),
+		get length() {
+			return Object.keys(storage).length;
+		}
 	};
-	
+
 	Object.defineProperty(window, 'localStorage', {
 		value: localStorageMock,
 		writable: true
