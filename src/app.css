@@ -439,6 +439,8 @@ body {
 	width: 100%;
 	height: 100vh;
 	height: 100dvh;
+	/* Use JS-measured visualViewport height when available (fixes iOS keyboard gap) */
+	height: var(--app-height, 100dvh);
 	overflow: hidden;
 }
 

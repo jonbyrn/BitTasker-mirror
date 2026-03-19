@@ -154,6 +154,23 @@
 	let scrollEl = $state<HTMLElement | null>(null);
 	onMount(() => {
 		appScrollContainer.set(scrollEl);
+
+		// Fix iOS keyboard gap: use visualViewport.height so the app-shell always
+		// matches the real visible area. Without this, 100dvh doesn't update when
+		// the virtual keyboard opens/closes on iOS, leaving an empty space below the dock.
+		const vp = window.visualViewport;
+		if (vp) {
+			const updateHeight = () => {
+				document.documentElement.style.setProperty('--app-height', `${Math.round(vp.height)}px`);
+			};
+			updateHeight();
+			vp.addEventListener('resize', updateHeight);
+			return () => {
+				appScrollContainer.set(null);
+				vp.removeEventListener('resize', updateHeight);
+			};
+		}
+
 		return () => appScrollContainer.set(null);
 	});
 
