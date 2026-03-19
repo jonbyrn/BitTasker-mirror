@@ -1,8 +1,8 @@
 @import 'tailwindcss';
-@plugin "@tailwindcss/typography";
+@plugin '@tailwindcss/typography';
 
 /* DaisyUI configuration with optimized component inclusion */
-@plugin "daisyui" {
+@plugin 'daisyui' {
 	/* include: alert, avatar, badge, btn, card, carousel, checkbox, collapse, divider, dropdown, file-input, form, hero, indicator, input, join, label, link, loading, mask, menu, modal, navbar, radio, range, rating, select, stats, steps, swap, table, tabs, textarea, toggle, tooltip; */
 	themes:
 		light --default,
@@ -16,7 +16,7 @@
 	/* exclude: accordion, breadcrumbs, browser, calendar, chat, code, countdown, diff, drawer, fieldset, filter, footer, indicator, kbd, list, pagination, radialprogress, skeleton, status, themecontroller, timeline, validator, glass, typography, phone, window; */
 }
 
-@plugin "daisyui/theme" {
+@plugin 'daisyui/theme' {
 	name: 'dark';
 	default: true;
 	prefersdark: true;
@@ -52,7 +52,7 @@
 	--noise: 0;
 }
 
-@plugin "daisyui/theme" {
+@plugin 'daisyui/theme' {
 	name: 'light';
 	default: false;
 	prefersdark: false;
@@ -133,30 +133,30 @@
 @source inline("w-[100%]"); */
 
 /* Font utility classes */
-@source inline("font-heading");
-@source inline("font-display");
+@source inline('font-heading');
+@source inline('font-display');
 
 /* Transition classes */
-@source inline("transition-colors");
-@source inline("transition-all");
-@source inline("duration-300");
-@source inline("ease-in-out");
+@source inline('transition-colors');
+@source inline('transition-all');
+@source inline('duration-300');
+@source inline('ease-in-out');
 
 /* Custom utilities */
 
-	.scrollbar-hide {
-		-ms-overflow-style: none;
-		scrollbar-width: none;
-	}
-	.scrollbar-hide::-webkit-scrollbar {
-		display: none;
-	}
-	.font-heading {
-		font-family: var(--font-heading);
-	}
-	.font-display {
-		font-family: var(--font-display);
-	}
+.scrollbar-hide {
+	-ms-overflow-style: none;
+	scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+	display: none;
+}
+.font-heading {
+	font-family: var(--font-heading);
+}
+.font-display {
+	font-family: var(--font-display);
+}
 
 * {
 	box-sizing: border-box;
@@ -402,12 +402,11 @@ body {
 
 /* CSS Custom Properties for bottom navigation */
 :root {
-	--bottom-nav-height: 80px;
-	--bottom-nav-height-safe: calc(80px + env(safe-area-inset-bottom, constant(safe-area-inset-bottom, 0px)));
+	--bottom-nav-height: 64px;
 	/* Updated at runtime via ResizeObserver */
-	--app-footer-height: var(--bottom-nav-height-safe);
+	--app-footer-height: var(--bottom-nav-height);
 	/* Standard bottom offset for floating UI above the dock */
-	--app-bottom-fab: calc(var(--app-footer-height, var(--bottom-nav-height-safe)) + 1rem);
+	--app-bottom-fab: calc(var(--app-footer-height, var(--bottom-nav-height)) + 1rem);
 }
 
 /*
@@ -457,11 +456,10 @@ body {
 	overscroll-behavior-y: contain;
 }
 
-/* Extend footer into bottom safe area; match dock exactly (primary/95) to avoid visible seam */
+/* Footer sits flush with the phone edge — no safe-area extension */
 .app-shell__footer {
 	grid-area: footer;
 	min-height: 0;
-	background-color: hsl(var(--p) / 0.95);
 }
 
 /*
@@ -646,7 +644,8 @@ body {
 }
 
 @keyframes highlight-pulse {
-	0%, 100% {
+	0%,
+	100% {
 		background-color: transparent;
 	}
 	50% {
