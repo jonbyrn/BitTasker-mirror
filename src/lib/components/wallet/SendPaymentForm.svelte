@@ -4,23 +4,23 @@
 	import { onMount } from 'svelte';
 	import { Capacitor } from '@capacitor/core';
 	import { appStore } from '$lib/stores/app.store';
-	import {
-		walletStore,
-		walletManager,
-		formatSats,
-		formatUsd,
-		getBSCSponsorStatus,
-		preflightBSCDirectSend,
-		submitBSCDirectSend,
-		type BscDirectSendPreflightResult,
-		type BscSponsorStatus
-	} from '$lib/stores/wallet.store';
-	import cryptoPriceService from '$lib/api/services/crypto-price.service';
-	import {
-		parsePaymentAddress,
-		qualifyEvmPaymentAddress,
-		type ParsedPaymentAddress
-	} from '$lib/utils/helpers/paymentAddressParser';
+import {
+	walletStore,
+	walletManager,
+	formatSats,
+	formatUsd,
+	getBSCSponsorStatus,
+	preflightBSCDirectSend,
+	submitBSCDirectSend,
+	type BscDirectSendPreflightResult,
+	type BscSponsorStatus
+} from '$lib/stores/wallet.store';
+import {
+	parsePaymentAddress,
+	qualifyEvmPaymentAddress,
+	type ParsedPaymentAddress
+} from '$lib/utils/helpers/paymentAddressParser';
+import { btcUsd, marketPrice, marketPriceMeta } from '$lib/stores/market-price.store';
 	import { triggerHaptic, ImpactStyle } from '$lib/utils/helpers/haptics';
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 	import QrCodeScanner from '$lib/components/QrCodeScanner.svelte';
@@ -87,7 +87,6 @@
 	const BSC_USDT_DECIMALS = 6;
 	const BSC_USDT_ATOMIC_FACTOR = 10 ** BSC_USDT_DECIMALS;
 	const RSK_WEI_PER_SAT = 10n ** 10n;
-	const BALANCE_REFRESH_TTL_MS = 15_000;
 	const BSC_CHAIN_ID = (import.meta.env.VITE_BSC_NETWORK || 'testnet') === 'mainnet' ? 56 : 97;
 	const BSC_DIRECT_SEND_CONFIG = {
 		tokenAddress: (import.meta.env.VITE_BSC_USDT_TOKEN_ADDRESS || '').trim(),
@@ -103,9 +102,6 @@
 		mathExpression: '',
 		memo: ''
 	});
-
-	// Track if user has manually selected a unit (vs auto-detected from network)
-	let userHasManuallySelectedUnit = $state(false);
 
 	// Grouped State: Parsed Payment Data
 	let parsedPayment = $state<{
@@ -214,22 +210,30 @@
 		blockedMessage: null
 	});
 
-	let balanceRefreshState = $state<{
-		isRefreshing: boolean;
-		error: string | null;
-		refreshedNetwork: string | null;
-		refreshedAt: number;
-		requestId: number;
-	}>({
-		isRefreshing: false,
-		error: null,
-		refreshedNetwork: null,
-		refreshedAt: 0,
-		requestId: 0
+	// Global BTC price from shared market store
+	const btcPrice = $derived.by(() => $btcUsd);
+	const isBitcoinPriceLoading = $derived.by(() => {
+		if (btcPrice > 0) return false;
+		return $marketPriceMeta.isRefreshing || (!$marketPriceMeta.error && $marketPriceMeta.lastFetched === 0);
 	});
-
-	// Cached Data
-	let btcPrice = $state<number>(0);
+	const hasBitcoinPriceRefreshFailure = $derived.by(() => {
+		if (btcPrice > 0) return false;
+		return !$marketPriceMeta.isRefreshing && !!$marketPriceMeta.error;
+	});
+	const detectedBalanceRail = $derived.by(() => {
+		if (parsedPayment.detectedNetwork === 'rootstock-bitcoin' || parsedPayment.detectedNetwork === 'lightning-bitcoin') {
+			return 'rsk';
+		}
+		if (parsedPayment.detectedNetwork === 'usdt-bsc') {
+			return 'bsc';
+		}
+		return null;
+	});
+	const currentBalanceFreshness = $derived.by(() =>
+		detectedBalanceRail ? $walletStore.balanceFreshness?.[detectedBalanceRail] ?? null : null
+	);
+	const hasStepOneWarning = $derived(!!currentBalanceFreshness?.error || hasBitcoinPriceRefreshFailure);
+	let lastUsdValidationBtcPrice = $state(0);
 	let recentAddresses = $state<Array<{ address: string; network: string; label?: string }>>([]);
 
 	function formatUsdtAmount(amount: number, maximumFractionDigits = BSC_USDT_DECIMALS): string {
@@ -289,7 +293,7 @@
 	function formatNetworkAmount(
 		amount: number,
 		network: string | null,
-		options: { includeApproxUsd?: boolean } = {}
+		options: { includeApproxUsd?: boolean; preferredUnit?: 'sats' | 'usd' } = {}
 	): string {
 		if (network === 'usdt-bsc') {
 			return `${formatUsdtAmount(amount)} USDT`;
@@ -301,6 +305,10 @@
 		}
 
 		const approxUsd = formatUsd((amount / 100_000_000) * btcPrice);
+		if (options.preferredUnit === 'usd') {
+			return `${approxUsd} (${satsLabel})`;
+		}
+
 		return `${satsLabel} (${approxUsd})`;
 	}
 
@@ -313,41 +321,18 @@
 	async function refreshDetectedNetworkBalance(force = false): Promise<void> {
 		const network = parsedPayment.detectedNetwork;
 		if (!requiresWalletBalance(network) || !hasConnectedBalanceRail(network)) {
-			balanceRefreshState.error = null;
 			return;
 		}
 
-		const now = Date.now();
-		if (
-			!force &&
-			balanceRefreshState.refreshedNetwork === network &&
-			now - balanceRefreshState.refreshedAt < BALANCE_REFRESH_TTL_MS
-		) {
-			return;
-		}
-
-		const requestId = balanceRefreshState.requestId + 1;
-		balanceRefreshState.requestId = requestId;
-		balanceRefreshState.isRefreshing = true;
-		balanceRefreshState.error = null;
-
-		try {
-			await walletManager.loadAssets();
-
-			if (balanceRefreshState.requestId !== requestId) return;
-
-			balanceRefreshState.refreshedNetwork = network;
-			balanceRefreshState.refreshedAt = Date.now();
-		} catch (error) {
-			console.error('Failed to refresh send-flow balances:', error);
-			if (balanceRefreshState.requestId !== requestId) return;
-
-			balanceRefreshState.error = `Couldn't refresh your ${getBalanceRailName(network)} balance. Using the last known amount.`;
-		} finally {
-			if (balanceRefreshState.requestId === requestId) {
-				balanceRefreshState.isRefreshing = false;
-			}
-		}
+		await walletManager.ensureFreshBalances({
+			rails:
+				network === 'usdt-bsc'
+					? ['bsc']
+					: network === 'rootstock-bitcoin' || network === 'lightning-bitcoin'
+						? ['rsk']
+						: undefined,
+			force
+		});
 	}
 
 	function getBscConfigError(): string | null {
@@ -537,7 +522,7 @@
 
 	// Check if balance is insufficient
 	const hasInsufficientBalance = $derived(
-		!balanceRefreshState.isRefreshing &&
+		!isStepOneBalanceRefreshing &&
 			totalToSend > availableBalance &&
 			totalToSend > 0 &&
 			feeState.estimated !== null
@@ -565,6 +550,13 @@
 		return !isNaN(usdAmount) && usdAmount > 0;
 	});
 
+	const isAwaitingBitcoinPriceForUsdValidation = $derived.by(() => {
+		if (parsedPayment.detectedNetwork === 'usdt-bsc') return false;
+		if (!parsedPayment.detectedNetwork) return false;
+		if (formInput.unit !== 'usd') return false;
+		return hasPayableAmount && btcPrice <= 0;
+	});
+
 	const hasBlockedBscSend = $derived(
 		parsedPayment.detectedNetwork === 'usdt-bsc' &&
 			hasPayableAmount &&
@@ -576,7 +568,8 @@
 	);
 
 	const isStepOneBalanceRefreshing = $derived(
-		balanceRefreshState.isRefreshing &&
+		!!currentBalanceFreshness?.isRefreshing &&
+			currentBalanceFreshness.lastLoadedAt === 0 &&
 			requiresWalletBalance(parsedPayment.detectedNetwork) &&
 			hasConnectedBalanceRail(parsedPayment.detectedNetwork)
 	);
@@ -589,16 +582,38 @@
 		if (isStepOneBalanceRefreshing) {
 			return `Refreshing your ${getBalanceRailName(parsedPayment.detectedNetwork)} balance...`;
 		}
+		if (isAwaitingBitcoinPriceForUsdValidation && hasBitcoinPriceRefreshFailure) {
+			return `Available balance: ${formatNetworkAmount(
+				availableBalance,
+				parsedPayment.detectedNetwork,
+				{
+					includeApproxUsd: true,
+					preferredUnit: formInput.unit
+				}
+			)}. BTC price refresh failed, so switch to sats or retry the BTC price refresh to continue.`;
+		}
+		if (isAwaitingBitcoinPriceForUsdValidation) {
+			return `Available balance: ${formatNetworkAmount(
+				availableBalance,
+				parsedPayment.detectedNetwork,
+				{
+					includeApproxUsd: true,
+					preferredUnit: formInput.unit
+				}
+			)}. ${isBitcoinPriceLoading ? 'Fetching the current BTC price to validate your USD amount.' : 'Waiting for the current BTC price to validate your USD amount.'}`;
+		}
 		if (hasInsufficientBalance && feeState.estimated) {
 			return `Need ${formatNetworkAmount(balanceShortfall, parsedPayment.detectedNetwork, {
-				includeApproxUsd: parsedPayment.detectedNetwork !== 'usdt-bsc'
+				includeApproxUsd: parsedPayment.detectedNetwork !== 'usdt-bsc',
+				preferredUnit: formInput.unit
 			})} more to cover the full debit.`;
 		}
 		return `Available balance: ${formatNetworkAmount(
 			availableBalance,
 			parsedPayment.detectedNetwork,
 			{
-				includeApproxUsd: parsedPayment.detectedNetwork !== 'usdt-bsc'
+				includeApproxUsd: parsedPayment.detectedNetwork !== 'usdt-bsc',
+				preferredUnit: formInput.unit
 			}
 		)}.`;
 	});
@@ -654,10 +669,39 @@
 	// Initialize
 	onMount(async () => {
 		try {
-			btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
+			// Ensure we rerun validation once the global price store is ready.
+			if (
+				parsedPayment.detectedNetwork &&
+				parsedPayment.detectedNetwork !== 'usdt-bsc' &&
+				formInput.unit === 'usd' &&
+				hasPayableAmount
+			) {
+				const { tick } = await import('svelte');
+				await tick();
+				await handleAmountChange();
+			}
 		} catch (error) {
-			console.error('Failed to fetch BTC price:', error);
+			console.error('Initialization error while syncing price-driven validation:', error);
 		}
+	});
+
+	$effect(() => {
+		if (!parsedPayment.detectedNetwork || parsedPayment.detectedNetwork === 'usdt-bsc') {
+			lastUsdValidationBtcPrice = 0;
+			return;
+		}
+
+		if (formInput.unit !== 'usd' || !hasPayableAmount) {
+			lastUsdValidationBtcPrice = 0;
+			return;
+		}
+
+		if (btcPrice <= 0 || btcPrice === lastUsdValidationBtcPrice) {
+			return;
+		}
+
+		lastUsdValidationBtcPrice = btcPrice;
+		void handleAmountChange();
 	});
 
 	function resetParsedPaymentState() {
@@ -671,7 +715,6 @@
 		bscDirectSendState.sponsorStatus = null;
 		bscDirectSendState.lastPreflight = null;
 		bscDirectSendState.blockedMessage = null;
-		balanceRefreshState.error = null;
 	}
 
 	async function applyParsedPayment(parsed: ParsedPaymentAddress, inputValue: string) {
@@ -684,42 +727,18 @@
 		parsedPayment.amountRequired = parsed.amount === null;
 		parsedPayment.addressError = null;
 
-		// Determine the appropriate unit based on network and user selection
+		// Only BSC constrains the unit selector. Other rails preserve the current selection.
 		const isBscNetwork = parsed.network === 'usdt-bsc';
-		const isBitcoinNetwork = !isBscNetwork && parsed.network !== null;
 
 		if (parsed.amount !== null) {
 			formInput.amount =
 				parsed.network === 'usdt-bsc'
 					? parsed.amount.toFixed(6).replace(/\.?0+$/, '')
 					: parsed.amount.toString();
+		}
 
-			// For addresses with embedded amount:
-			// - BSC: always use USD (sats not supported)
-			// - Bitcoin networks: keep user's manual selection, or default to sats for first time
-			if (isBscNetwork) {
-				formInput.unit = 'usd';
-				userHasManuallySelectedUnit = false;
-			} else if (!userHasManuallySelectedUnit) {
-				// First time or user hasn't manually selected - default to sats for bitcoin networks
-				formInput.unit = 'sats';
-			}
-			// If userHasManuallySelectedUnit is true, keep current unit (don't change)
-		} else {
-			// For addresses without embedded amount:
-			// - BSC: always use USD
-			// - Bitcoin networks: keep user's selection if manually chosen, otherwise default to sats
-			if (isBscNetwork) {
-				// If user had sats selected and switches to BSC, switch to USD
-				if (formInput.unit === 'sats') {
-					formInput.unit = 'usd';
-				}
-				userHasManuallySelectedUnit = false;
-			} else if (isBitcoinNetwork && !userHasManuallySelectedUnit) {
-				// Default to sats only if user hasn't manually selected yet
-				formInput.unit = 'sats';
-			}
-			// If userHasManuallySelectedUnit is true, keep current unit
+		if (isBscNetwork && formInput.unit === 'sats') {
+			formInput.unit = 'usd';
 		}
 
 		if (parsed.memo) {
@@ -727,7 +746,7 @@
 			uiState.descriptionExpanded = true;
 		}
 
-		await refreshDetectedNetworkBalance();
+		void refreshDetectedNetworkBalance();
 
 		const { tick } = await import('svelte');
 		await tick();
@@ -767,20 +786,6 @@
 		if (!parsed.isValid) {
 			resetParsedPaymentState();
 			parsedPayment.addressError = parsed.errorMessage || $t('wallet.send.invalid_address');
-			return;
-		}
-
-		// For BSC, always use USD since sats is not supported
-		if (network === 'usdt-bsc') {
-			formInput.unit = 'usd';
-			userHasManuallySelectedUnit = false;
-		} else {
-			// For RSK: preserve the current unit when resolving ambiguous address
-			// The user has already selected a unit (or is using the default) - don't change it
-			const previousUnit = formInput.unit;
-			await applyParsedPayment(parsed, qualifiedInput);
-			// Restore the unit that was selected before disambiguation
-			formInput.unit = previousUnit;
 			return;
 		}
 
@@ -841,8 +846,6 @@
 		ambiguousAddress = null;
 		if (!formInput.addressInput.trim()) {
 			resetParsedPaymentState();
-			// Reset to USD when address is cleared
-			formInput.unit = 'usd';
 			return;
 		}
 
@@ -856,8 +859,6 @@
 				// Use specific error message if available, otherwise use generic message
 				resetParsedPaymentState();
 				parsedPayment.addressError = parsed.errorMessage || $t('wallet.send.invalid_address');
-				// Reset to USD when address is invalid
-				formInput.unit = 'usd';
 			}
 		} catch (error) {
 			console.error('Failed to parse address:', error);
@@ -1260,8 +1261,6 @@
 	function handleUnitChange(newUnit: 'sats' | 'usd') {
 		triggerHaptic(ImpactStyle.Light);
 		formInput.unit = parsedPayment.detectedNetwork === 'usdt-bsc' ? 'usd' : newUnit;
-		// Mark that user has manually selected a unit
-		userHasManuallySelectedUnit = true;
 		// Keep amount when switching units - user may have entered amount before selecting unit
 		formInput.mathExpression = '';
 		// Don't increment calculatorKey - preserve calculator state and amount
@@ -1279,6 +1278,14 @@
 	// Handle unit toggle (for AmountDisplay compatibility)
 	function handleUnitToggle() {
 		handleUnitChange(formInput.unit === 'sats' ? 'usd' : 'sats');
+	}
+
+	async function retryBitcoinPriceRefresh() {
+		try {
+			await marketPrice.refresh();
+		} catch (error) {
+			console.error('Failed to retry BTC price refresh:', error);
+		}
 	}
 
 	// Handle send
@@ -1887,8 +1894,8 @@
 							<div
 								class="rounded-lg border p-3"
 								class:border-error={hasInsufficientBalance}
-								class:border-warning={!!balanceRefreshState.error && !hasInsufficientBalance}
-								class:border-base-300={!hasInsufficientBalance && !balanceRefreshState.error}
+								class:border-warning={hasStepOneWarning && !hasInsufficientBalance}
+								class:border-base-300={!hasInsufficientBalance && !hasStepOneWarning}
 							>
 								<div class="flex items-start justify-between gap-3">
 									<div class="space-y-1">
@@ -1898,7 +1905,7 @@
 										<p
 											class="text-sm"
 											class:text-error={hasInsufficientBalance}
-											class:text-warning={!!balanceRefreshState.error && !hasInsufficientBalance}
+											class:text-warning={hasStepOneWarning && !hasInsufficientBalance}
 										>
 											{availableBalanceSummary}
 										</p>
@@ -1907,7 +1914,7 @@
 										<span class="loading loading-spinner loading-sm shrink-0"></span>
 									{/if}
 								</div>
-								{#if balanceRefreshState.error}
+								{#if currentBalanceFreshness?.error}
 									<div class="mt-3">
 										<button
 											type="button"
@@ -1915,6 +1922,17 @@
 											onclick={() => refreshDetectedNetworkBalance(true)}
 										>
 											Retry balance refresh
+										</button>
+									</div>
+								{/if}
+								{#if hasBitcoinPriceRefreshFailure}
+									<div class="mt-3">
+										<button
+											type="button"
+											class="btn btn-ghost btn-xs"
+											onclick={retryBitcoinPriceRefresh}
+										>
+											Retry BTC price refresh
 										</button>
 									</div>
 								{/if}
@@ -2330,8 +2348,8 @@
 						<div
 							class="rounded-lg border p-3 sm:p-4"
 							class:border-error={hasInsufficientBalance}
-							class:border-warning={!!balanceRefreshState.error && !hasInsufficientBalance}
-							class:border-base-300={!hasInsufficientBalance && !balanceRefreshState.error}
+							class:border-warning={hasStepOneWarning && !hasInsufficientBalance}
+							class:border-base-300={!hasInsufficientBalance && !hasStepOneWarning}
 						>
 							<div class="flex items-start justify-between gap-3">
 								<div class="space-y-1">
@@ -2341,7 +2359,7 @@
 									<p
 										class="text-sm sm:text-base"
 										class:text-error={hasInsufficientBalance}
-										class:text-warning={!!balanceRefreshState.error && !hasInsufficientBalance}
+										class:text-warning={hasStepOneWarning && !hasInsufficientBalance}
 									>
 										{availableBalanceSummary}
 									</p>
@@ -2350,7 +2368,7 @@
 									<span class="loading loading-spinner loading-sm shrink-0"></span>
 								{/if}
 							</div>
-							{#if balanceRefreshState.error}
+							{#if currentBalanceFreshness?.error}
 								<div class="mt-3">
 									<button
 										type="button"
@@ -2358,6 +2376,17 @@
 										onclick={() => refreshDetectedNetworkBalance(true)}
 									>
 										Retry balance refresh
+									</button>
+								</div>
+							{/if}
+							{#if hasBitcoinPriceRefreshFailure}
+								<div class="mt-3">
+									<button
+										type="button"
+										class="btn btn-ghost btn-xs sm:btn-sm"
+										onclick={retryBitcoinPriceRefresh}
+									>
+										Retry BTC price refresh
 									</button>
 								</div>
 							{/if}

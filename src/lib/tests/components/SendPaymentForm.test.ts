@@ -17,6 +17,53 @@ import {
 import { getBiometricData } from '$lib/utils/helpers/biometrics';
 import { getWebBiometricData } from '$lib/utils/helpers/webBiometrics';
 
+const { marketPriceTestControl } = vi.hoisted(() => ({
+	marketPriceTestControl: {
+		setPrice: (
+			_next: Partial<{
+				btcUsd: number;
+				rbtcUsd: number;
+				lastFetched: number;
+				isRefreshing: boolean;
+				error: string | null;
+			}>
+		) => {},
+		refresh: vi.fn().mockResolvedValue(undefined)
+	}
+}));
+
+vi.mock('$lib/stores/market-price.store', async () => {
+	const { writable, derived } = await import('svelte/store');
+	const state = writable({
+		btcUsd: 50_000,
+		rbtcUsd: 50_000,
+		lastFetched: Date.now(),
+		isRefreshing: false,
+		error: null as string | null
+	});
+
+	marketPriceTestControl.setPrice = (next) => {
+		state.update((current) => ({ ...current, ...next }));
+	};
+
+	return {
+		marketPrice: {
+			subscribe: state.subscribe,
+			refresh: marketPriceTestControl.refresh,
+			startPolling: vi.fn(),
+			stopPolling: vi.fn(),
+			hydrateFromCache: vi.fn()
+		},
+		btcUsd: derived(state, ($state) => $state.btcUsd),
+		rbtcUsd: derived(state, ($state) => $state.rbtcUsd),
+		marketPriceMeta: derived(state, ($state) => ({
+			lastFetched: $state.lastFetched,
+			isRefreshing: $state.isRefreshing,
+			error: $state.error
+		}))
+	};
+});
+
 // Mock svelte-i18n
 vi.mock('svelte-i18n', async () => {
 	const { readable } = await import('svelte/store');
@@ -105,12 +152,25 @@ vi.mock('$lib/stores/wallet.store', async () => {
 		totalBalances: {
 			sats: 1_000_000,
 			usd: 50
+		},
+		balanceFreshness: {
+			rsk: {
+				lastLoadedAt: Date.now(),
+				isRefreshing: false,
+				error: null
+			},
+			bsc: {
+				lastLoadedAt: 0,
+				isRefreshing: false,
+				error: null
+			}
 		}
 	});
 	return {
 		walletStore: mockWalletStore,
 		walletManager: {
 			loadAssets: vi.fn().mockResolvedValue(undefined),
+			ensureFreshBalances: vi.fn().mockResolvedValue(undefined),
 			sendBSCUSDT: vi.fn().mockResolvedValue('0xbscsendhash'),
 			submitBSCDirectSend: vi.fn().mockResolvedValue('0xbscsendhash'),
 			getSubmarineSwapPairs: vi.fn().mockResolvedValue({
@@ -231,8 +291,35 @@ describe('SendPaymentForm Component', () => {
 		onCancel: vi.fn()
 	};
 
+	function getUnitButtons() {
+		return {
+			usd: screen.getAllByRole('button', { name: 'USD' })[0],
+			sats: screen.getAllByRole('button', { name: 'Sats' })[0]
+		};
+	}
+
+	function expectSelectedUnit(unit: 'usd' | 'sats') {
+		const { usd, sats } = getUnitButtons();
+
+		if (unit === 'usd') {
+			expect(usd.className).toContain('bg-primary');
+			expect(sats.className).not.toContain('bg-primary');
+			return;
+		}
+
+		expect(sats.className).toContain('bg-primary');
+		expect(usd.className).not.toContain('bg-primary');
+	}
+
 	beforeEach(() => {
 		vi.clearAllMocks();
+		marketPriceTestControl.setPrice({
+			btcUsd: 50_000,
+			rbtcUsd: 50_000,
+			lastFetched: Date.now(),
+			isRefreshing: false,
+			error: null
+		});
 		vi.stubEnv('VITE_BSC_USDT_TOKEN_ADDRESS', '0x337610d27c682E347C9cD60BD4b3b107C9d34dDd');
 		vi.stubEnv('VITE_BSC_DIRECT_SEND_ROUTER_ADDRESS', '0x1111111111111111111111111111111111111111');
 		vi.stubEnv('VITE_BSC_DIRECT_SEND_FIXED_FEE_ATOMIC', '100000');
@@ -253,7 +340,19 @@ describe('SendPaymentForm Component', () => {
 						usdtBalance: '0',
 						formattedUsdtBalance: '0'
 					},
-					totalBalances: { sats: 1_000_000, usd: 50 }
+					totalBalances: { sats: 1_000_000, usd: 50 },
+					balanceFreshness: {
+						rsk: {
+							lastLoadedAt: Date.now(),
+							isRefreshing: false,
+							error: null
+						},
+						bsc: {
+							lastLoadedAt: 0,
+							isRefreshing: false,
+							error: null
+						}
+					}
 				}) as any
 		);
 	});
@@ -633,7 +732,7 @@ describe('SendPaymentForm Component', () => {
 			expect(addressInput.value).toBeTruthy();
 		}, 10000); // Increase timeout to 10 seconds
 
-		it('refreshes balances when a valid spend rail is detected', async () => {
+		it('requests fresh balances from the wallet store when a valid spend rail is detected', async () => {
 			vi.mocked(parsePaymentAddress).mockReturnValue({
 				isValid: true,
 				address: '0x1234567890123456789012345678901234567890',
@@ -657,7 +756,10 @@ describe('SendPaymentForm Component', () => {
 			await tick();
 
 			await waitFor(() => {
-				expect(walletManager.loadAssets).toHaveBeenCalled();
+				expect(walletManager.ensureFreshBalances).toHaveBeenCalledWith({
+					rails: ['rsk'],
+					force: false
+				});
 			});
 		});
 	});
@@ -778,6 +880,191 @@ describe('SendPaymentForm Component', () => {
 				expect(screen.getAllByText(/need .* more to cover the full debit/i).length).toBeGreaterThan(
 					0
 				);
+			});
+		});
+
+			it('shows the Rootstock available balance in both USD and sats when USD is selected', async () => {
+			vi.mocked(parsePaymentAddress).mockReturnValue({
+				isValid: true,
+				address: '0x1234567890123456789012345678901234567890',
+				network: 'rootstock-bitcoin',
+				amount: null,
+				memo: null
+			});
+
+			render(SendPaymentForm, defaultProps);
+			await tick();
+
+			fireEvent.click(screen.getByRole('button', { name: /enter payment details/i }));
+			await tick();
+
+			const addressInput = (document.getElementById('address-input') ||
+				document.getElementById('address-input-desktop')) as HTMLInputElement;
+			await waitFor(() => expect(addressInput).toBeInTheDocument());
+			fireEvent.input(addressInput, {
+				target: { value: 'rsk:0x1234567890123456789012345678901234567890' }
+			});
+			await tick();
+
+			const usdButtons = screen.getAllByRole('button', { name: 'USD' });
+			await fireEvent.click(usdButtons[0]);
+			await tick();
+
+				await waitFor(() => {
+					expect(
+						screen.getAllByText(/available balance: \$500\.00 \(1,000,000 Sats\)\./i).length
+					).toBeGreaterThan(0);
+				});
+			});
+
+			it('clears the BTC price waiting state when the global price store updates', async () => {
+				marketPriceTestControl.setPrice({
+					btcUsd: 0,
+					rbtcUsd: 0,
+					lastFetched: 0
+				});
+
+				vi.mocked(parsePaymentAddress).mockReturnValue({
+					isValid: true,
+					address: '0x1234567890123456789012345678901234567890',
+					network: 'rootstock-bitcoin',
+					amount: null,
+					memo: null
+				});
+
+				render(SendPaymentForm, defaultProps);
+				await tick();
+
+				fireEvent.click(screen.getByRole('button', { name: /enter payment details/i }));
+				await tick();
+
+				const addressInput = (document.getElementById('address-input') ||
+					document.getElementById('address-input-desktop')) as HTMLInputElement;
+				await waitFor(() => expect(addressInput).toBeInTheDocument());
+				fireEvent.input(addressInput, {
+					target: { value: 'rsk:0x1234567890123456789012345678901234567890' }
+				});
+				await tick();
+
+				const usdButtons = screen.getAllByRole('button', { name: 'USD' });
+				await fireEvent.click(usdButtons[0]);
+				await tick();
+
+				await fireEvent.click(screen.getAllByRole('button', { name: '1' })[0]);
+				await fireEvent.click(screen.getAllByRole('button', { name: '0' })[0]);
+				await fireEvent.click(screen.getAllByRole('button', { name: '0' })[0]);
+				await tick();
+
+				await waitFor(() => {
+					expect(screen.getAllByText(/fetching the current btc price/i).length).toBeGreaterThan(0);
+				});
+
+				marketPriceTestControl.setPrice({
+					btcUsd: 50_000,
+					rbtcUsd: 50_000,
+					lastFetched: Date.now()
+				});
+				await tick();
+
+			await waitFor(() => {
+				expect(screen.queryByText(/fetching the current btc price/i)).toBeNull();
+			});
+		});
+
+		it('shows a failed BTC price refresh state instead of staying in the waiting copy', async () => {
+			marketPriceTestControl.setPrice({
+				btcUsd: 0,
+				rbtcUsd: 0,
+				lastFetched: Date.now(),
+				isRefreshing: false,
+				error: 'Failed to refresh BTC and RBTC prices'
+			});
+
+			vi.mocked(parsePaymentAddress).mockReturnValue({
+				isValid: true,
+				address: '0x1234567890123456789012345678901234567890',
+				network: 'rootstock-bitcoin',
+				amount: null,
+				memo: null
+			});
+
+			render(SendPaymentForm, defaultProps);
+			await tick();
+
+			fireEvent.click(screen.getByRole('button', { name: /enter payment details/i }));
+			await tick();
+
+			const addressInput = (document.getElementById('address-input') ||
+				document.getElementById('address-input-desktop')) as HTMLInputElement;
+			await waitFor(() => expect(addressInput).toBeInTheDocument());
+			fireEvent.input(addressInput, {
+				target: { value: 'rsk:0x1234567890123456789012345678901234567890' }
+			});
+			await tick();
+
+			const usdButtons = screen.getAllByRole('button', { name: 'USD' });
+			await fireEvent.click(usdButtons[0]);
+			await tick();
+
+			await fireEvent.click(screen.getAllByRole('button', { name: '1' })[0]);
+			await fireEvent.click(screen.getAllByRole('button', { name: '0' })[0]);
+			await fireEvent.click(screen.getAllByRole('button', { name: '0' })[0]);
+			await tick();
+
+			await waitFor(() => {
+				expect(
+					screen.getAllByText(/btc price refresh failed, so switch to sats or retry/i).length
+				).toBeGreaterThan(0);
+			});
+			expect(screen.queryByText(/fetching the current btc price/i)).toBeNull();
+
+			await fireEvent.click(screen.getAllByRole('button', { name: /retry btc price refresh/i })[0]);
+
+			expect(marketPriceTestControl.refresh).toHaveBeenCalledTimes(1);
+		});
+
+		it('blocks Rootstock sends when the entered USD amount exceeds the available balance', async () => {
+			vi.mocked(parsePaymentAddress).mockReturnValue({
+				isValid: true,
+				address: '0x1234567890123456789012345678901234567890',
+				network: 'rootstock-bitcoin',
+				amount: null,
+				memo: null
+			});
+
+			render(SendPaymentForm, defaultProps);
+			await tick();
+
+			fireEvent.click(screen.getByRole('button', { name: /enter payment details/i }));
+			await tick();
+
+			const addressInput = (document.getElementById('address-input') ||
+				document.getElementById('address-input-desktop')) as HTMLInputElement;
+			await waitFor(() => expect(addressInput).toBeInTheDocument());
+			fireEvent.input(addressInput, {
+				target: { value: 'rsk:0x1234567890123456789012345678901234567890' }
+			});
+			await tick();
+
+			const usdButtons = screen.getAllByRole('button', { name: 'USD' });
+			await fireEvent.click(usdButtons[0]);
+			await tick();
+
+			await fireEvent.click(screen.getAllByRole('button', { name: '6' })[0]);
+			await fireEvent.click(screen.getAllByRole('button', { name: '0' })[0]);
+			await fireEvent.click(screen.getAllByRole('button', { name: '0' })[0]);
+			await tick();
+
+			await waitFor(() => {
+				expect(
+					screen.getAllByText(/need \$151\.50 \(303,000 Sats\) more to cover the full debit\./i)
+						.length
+				).toBeGreaterThan(0);
+			});
+
+			await waitFor(() => {
+				const sendButtons = screen.getAllByRole('button', { name: /^send$/i });
+				sendButtons.forEach((button) => expect(button).toBeDisabled());
 			});
 		});
 	});
@@ -1273,7 +1560,7 @@ describe('SendPaymentForm Component', () => {
 	});
 
 	describe('USD/Sats Unit Switching', () => {
-		it('should keep sats unit when confirming rBTC network (not change unit)', async () => {
+		it('should preserve USD when confirming rBTC network on first load', async () => {
 			// First, parse as ambiguous EVM address
 			vi.mocked(parsePaymentAddress)
 				.mockReturnValueOnce({
@@ -1303,6 +1590,9 @@ describe('SendPaymentForm Component', () => {
 				document.getElementById('address-input-desktop')) as HTMLInputElement;
 			await waitFor(() => expect(addressInput).toBeInTheDocument());
 
+			expectSelectedUnit('usd');
+			expect(getUnitButtons().sats).not.toBeDisabled();
+
 			// Enter ambiguous EVM address
 			fireEvent.input(addressInput, {
 				target: { value: '0x1234567890123456789012345678901234567890' }
@@ -1313,20 +1603,20 @@ describe('SendPaymentForm Component', () => {
 					expect(screen.getByTestId('ambiguous-address-warning')).toBeInTheDocument();
 					expect(
 						screen.getAllByText(/choose the payment rail before continuing/i).length
-					).toBeGreaterThan(0);
-				});
+						).toBeGreaterThan(0);
+					});
 
-			// User has sats selected by default - now resolve to rBTC
-			// The unit should NOT change (should stay as sats)
+			// Resolve to rBTC without altering the currently selected unit.
 			const chooseRbtcButton = screen.getAllByRole('button', { name: /rbtc on rootstock/i })[0];
 			await fireEvent.click(chooseRbtcButton);
 			await tick();
 
-			// After resolving to rBTC, the unit should remain as sats (not changed)
-			// We verify this by checking that parsePaymentAddress was called with rsk: prefix
 			expect(parsePaymentAddress).toHaveBeenLastCalledWith(
 				'rsk:0x1234567890123456789012345678901234567890'
 			);
+
+			expectSelectedUnit('usd');
+			expect(getUnitButtons().sats).not.toBeDisabled();
 		});
 
 		it('should switch to USD and disable sats when entering BSC address with sats selected', async () => {
@@ -1349,29 +1639,9 @@ describe('SendPaymentForm Component', () => {
 				document.getElementById('address-input-desktop')) as HTMLInputElement;
 			await waitFor(() => expect(addressInput).toBeInTheDocument());
 
-			// First enter a bitcoin address to get sats selected
-			vi.mocked(parsePaymentAddress).mockReturnValueOnce({
-				isValid: true,
-				address: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
-				network: 'bitcoin',
-				amount: null,
-				memo: null
-			} as any);
-
-			fireEvent.input(addressInput, {
-				target: { value: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh' }
-			});
+			await fireEvent.click(getUnitButtons().sats);
 			await tick();
-			await waitFor(() => expect(parsePaymentAddress).toHaveBeenCalled());
-
-			// Now clear and enter BSC address
-			vi.mocked(parsePaymentAddress).mockReturnValueOnce({
-				isValid: true,
-				address: '0x1234567890123456789012345678901234567890',
-				network: 'usdt-bsc',
-				amount: null,
-				memo: null
-			} as any);
+			expectSelectedUnit('sats');
 
 			fireEvent.input(addressInput, {
 				target: { value: 'bsc:0x1234567890123456789012345678901234567890' }
@@ -1379,10 +1649,8 @@ describe('SendPaymentForm Component', () => {
 			await tick();
 			await waitFor(() => expect(parsePaymentAddress).toHaveBeenCalled());
 
-			// The Sats button should be disabled for BSC
-			const satsButtons = screen.getAllByRole('button', { name: 'Sats' });
-			expect(satsButtons.length).toBeGreaterThan(0);
-			expect(satsButtons[0]).toBeDisabled();
+			expectSelectedUnit('usd');
+			expect(getUnitButtons().sats).toBeDisabled();
 		});
 
 		it('should allow both USD and Sats for bitcoin networks', async () => {
@@ -1411,20 +1679,13 @@ describe('SendPaymentForm Component', () => {
 			await tick();
 			await waitFor(() => expect(parsePaymentAddress).toHaveBeenCalled());
 
-			// Both USD and Sats buttons should be enabled for bitcoin network
-			const usdButtons = screen.getAllByRole('button', { name: 'USD' });
-			const satsButtons = screen.getAllByRole('button', { name: 'Sats' });
-
-			expect(usdButtons.length).toBeGreaterThan(0);
-			expect(satsButtons.length).toBeGreaterThan(0);
-
-			// USD should be enabled
-			expect(usdButtons[0]).not.toBeDisabled();
-			// Sats should be enabled for bitcoin
-			expect(satsButtons[0]).not.toBeDisabled();
+			const { usd, sats } = getUnitButtons();
+			expectSelectedUnit('usd');
+			expect(usd).not.toBeDisabled();
+			expect(sats).not.toBeDisabled();
 		});
 
-		it('should allow both USD and Sats for rootstock-bitcoin network', async () => {
+		it('should preserve sats and keep both unit buttons enabled for rootstock-bitcoin network', async () => {
 			vi.mocked(parsePaymentAddress).mockReturnValue({
 				isValid: true,
 				address: '0x1234567890123456789012345678901234567890',
@@ -1443,6 +1704,9 @@ describe('SendPaymentForm Component', () => {
 			const addressInput = (document.getElementById('address-input') ||
 				document.getElementById('address-input-desktop')) as HTMLInputElement;
 			await waitFor(() => expect(addressInput).toBeInTheDocument());
+			await fireEvent.click(getUnitButtons().sats);
+			await tick();
+			expectSelectedUnit('sats');
 
 			fireEvent.input(addressInput, {
 				target: { value: 'rsk:0x1234567890123456789012345678901234567890' }
@@ -1450,17 +1714,10 @@ describe('SendPaymentForm Component', () => {
 			await tick();
 			await waitFor(() => expect(parsePaymentAddress).toHaveBeenCalled());
 
-			// Both USD and Sats buttons should be enabled for rootstock network
-			const usdButtons = screen.getAllByRole('button', { name: 'USD' });
-			const satsButtons = screen.getAllByRole('button', { name: 'Sats' });
-
-			expect(usdButtons.length).toBeGreaterThan(0);
-			expect(satsButtons.length).toBeGreaterThan(0);
-
-			// USD should be enabled
-			expect(usdButtons[0]).not.toBeDisabled();
-			// Sats should be enabled for rootstock
-			expect(satsButtons[0]).not.toBeDisabled();
+			const { usd, sats } = getUnitButtons();
+			expectSelectedUnit('sats');
+			expect(usd).not.toBeDisabled();
+			expect(sats).not.toBeDisabled();
 		});
 
 		it('should disable sats button for BSC network', async () => {
@@ -1557,6 +1814,10 @@ describe('SendPaymentForm Component', () => {
 				document.getElementById('address-input-desktop')) as HTMLInputElement;
 			await waitFor(() => expect(addressInput).toBeInTheDocument());
 
+			await fireEvent.click(getUnitButtons().sats);
+			await tick();
+			expectSelectedUnit('sats');
+
 			// Enter ambiguous EVM address
 			fireEvent.input(addressInput, {
 				target: { value: '0x1234567890123456789012345678901234567890' }
@@ -1579,6 +1840,9 @@ describe('SendPaymentForm Component', () => {
 			expect(parsePaymentAddress).toHaveBeenLastCalledWith(
 				'bsc:0x1234567890123456789012345678901234567890'
 			);
+
+			expectSelectedUnit('usd');
+			expect(getUnitButtons().sats).toBeDisabled();
 		});
 	});
 });

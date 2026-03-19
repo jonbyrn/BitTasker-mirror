@@ -37,6 +37,12 @@ import {
 import { ERROR_MESSAGES } from '$lib/utils/constants/wallet.constants';
 import tokenBalanceService from '$lib/api/services/token-balance.service';
 import cryptoPriceService from '$lib/api/services/crypto-price.service';
+import {
+	btcUsd,
+	rbtcUsd,
+	marketPrice,
+	MARKET_PRICE_POLL_INTERVAL
+} from '$lib/stores/market-price.store';
 
 export type BscDirectSendFailureCode =
 	| 'WRONG_CHAIN'
@@ -100,7 +106,44 @@ export interface BscDirectSendSubmissionResult {
 // Extended wallet state with processed transactions
 type WalletStateExtended = Omit<WalletState, 'transactions'> & {
 	transactions: ProcessedTransaction[];
+	balanceFreshness: Record<BalanceRail, BalanceFreshnessState>;
 };
+
+type BalanceRail = 'rsk' | 'bsc';
+
+type BalanceFreshnessState = {
+	lastLoadedAt: number;
+	isRefreshing: boolean;
+	error: string | null;
+};
+
+type MarketPriceSnapshot = {
+	btcUsd: number;
+	rbtcUsd: number;
+	lastFetched: number;
+	isRefreshing: boolean;
+	error: string | null;
+	isStale: boolean;
+	hasPositivePrices: boolean;
+};
+
+const MARKET_PRICE_MAX_AGE_MS = MARKET_PRICE_POLL_INTERVAL * 2;
+const BALANCE_FRESHNESS_MAX_AGE_MS = 15_000;
+
+function createInitialBalanceFreshness(): Record<BalanceRail, BalanceFreshnessState> {
+	return {
+		rsk: {
+			lastLoadedAt: 0,
+			isRefreshing: false,
+			error: null
+		},
+		bsc: {
+			lastLoadedAt: 0,
+			isRefreshing: false,
+			error: null
+		}
+	};
+}
 
 function atomicToDecimalAmount(value: string, decimals: number): string {
 	const normalizedValue = value.trim();
@@ -115,6 +158,37 @@ function atomicToDecimalAmount(value: string, decimals: number): string {
 	} catch {
 		return '0';
 	}
+}
+
+function getMarketPriceSnapshot(): MarketPriceSnapshot {
+	const state = get(marketPrice);
+	const lastFetched = Number.isFinite(state.lastFetched) ? state.lastFetched : 0;
+	const btcQuote = Math.max(state.btcUsd, 0);
+	const rbtcQuote = Math.max(state.rbtcUsd, btcQuote);
+	const hasPositivePrices = btcQuote > 0 && rbtcQuote > 0;
+	const isStale =
+		lastFetched <= 0 || Date.now() - lastFetched > MARKET_PRICE_MAX_AGE_MS || !!state.error;
+
+	return {
+		btcUsd: btcQuote,
+		rbtcUsd: rbtcQuote,
+		lastFetched,
+		isRefreshing: state.isRefreshing,
+		error: state.error,
+		isStale,
+		hasPositivePrices
+	};
+}
+
+async function ensureRecentMarketPrices(force = false): Promise<MarketPriceSnapshot> {
+	let snapshot = getMarketPriceSnapshot();
+	if (!force && snapshot.hasPositivePrices && !snapshot.isStale) {
+		return snapshot;
+	}
+
+	await marketPrice.refresh().catch(() => undefined);
+	snapshot = getMarketPriceSnapshot();
+	return snapshot;
 }
 
 function normalizeBscFailureCode(
@@ -218,6 +292,7 @@ const initialState: WalletStateExtended = {
 
 	rbtcToBtcRate: 1.0,
 	rbtcRateError: false,
+	balanceFreshness: createInitialBalanceFreshness(),
 
 	activeNetwork: 'rsk',
 	selectedAsset: 'rBTC'
@@ -246,6 +321,7 @@ let cachedSwapPairs: {
 	reverse: null,
 	chain: null
 };
+let activeAssetLoadPromise: Promise<void> | null = null;
 
 // Cache TTL: 1 hour (swap pair data rarely changes)
 const SWAP_PAIRS_CACHE_TTL = 3600000; // 1 hour in milliseconds
@@ -279,6 +355,71 @@ function getBscDirectSendCapableManager(): WalletManager & {
 			params: BscDirectSendSubmissionParams
 		) => Promise<BscDirectSendSubmissionResult>;
 	};
+}
+
+function getConnectedBalanceRails(state: WalletStateExtended): BalanceRail[] {
+	const rails: BalanceRail[] = [];
+
+	if (state.rsk.connected) {
+		rails.push('rsk');
+	}
+
+	if (state.bsc.connected) {
+		rails.push('bsc');
+	}
+
+	return rails;
+}
+
+function resolveTargetBalanceRails(
+	state: WalletStateExtended,
+	rails?: BalanceRail[]
+): BalanceRail[] {
+	if (!rails?.length) {
+		return getConnectedBalanceRails(state);
+	}
+
+	return rails.filter((rail) => (rail === 'rsk' ? state.rsk.connected : state.bsc.connected));
+}
+
+function updateBalanceFreshness(
+	rails: BalanceRail[],
+	patch: Partial<BalanceFreshnessState>
+): void {
+	if (!rails.length) return;
+
+	walletStore.update((state) => {
+		const balanceFreshness = { ...state.balanceFreshness };
+
+		for (const rail of rails) {
+			balanceFreshness[rail] = {
+				...balanceFreshness[rail],
+				...patch
+			};
+		}
+
+		return {
+			...state,
+			balanceFreshness
+		};
+	});
+}
+
+function areBalanceRailsFresh(
+	state: WalletStateExtended,
+	rails: BalanceRail[],
+	maxAgeMs: number
+): boolean {
+	const now = Date.now();
+
+	return rails.every((rail) => {
+		const freshness = state.balanceFreshness[rail];
+		return (
+			freshness.lastLoadedAt > 0 &&
+			now - freshness.lastLoadedAt <= maxAgeMs &&
+			!freshness.error
+		);
+	});
 }
 
 async function ensureBscDirectSendCapableManager(): Promise<
@@ -567,130 +708,186 @@ function disconnectWallet(): void {
  * @throws {Error} If wallet manager is not initialized
  */
 async function loadAssets(): Promise<void> {
-	try {
-		const manager = getWalletManager();
-		const state = get(walletStore);
-		const assets: WalletAsset[] = [];
+	if (activeAssetLoadPromise) {
+		await activeAssetLoadPromise;
+		return;
+	}
 
-		// Initialize totals
-		let totalRbtc = 0;
-		let totalBnb = 0;
-		let totalUsdt = 0;
-		let totalUsd = 0;
+	activeAssetLoadPromise = (async () => {
+		const refreshStartedAt = Date.now();
 
-		// Fetch ALL data in parallel: prices and balances
-		// Note: For debug wallet, we'll load all tokens separately via loadRSKTokenBalances()
-		// This keeps the existing loadAssets() working for main wallet page
-		const [rbtcPrice, bnbPrice, rskBalanceData, bscBalances] = await Promise.all([
-			cryptoPriceService.getCurrentPrice('RBTC').catch(() => 0),
-			cryptoPriceService.getCurrentPrice('BNB').catch(() => 0),
-			state.rsk.connected && manager.rskWallet
-				? manager.rskWallet.getBalance()
-				: Promise.resolve(null),
-			state.bsc.connected && manager.bscWallet
-				? manager.bscWallet.getBalances()
-				: Promise.resolve(null)
-		]);
+		try {
+			const manager = getWalletManager();
+			const state = get(walletStore);
+			const refreshingRails = getConnectedBalanceRails(state);
+			const assets: WalletAsset[] = [];
 
-		// Process RSK assets
-		if (rskBalanceData) {
-			// Keep formatted balance for display and USD calculations
-			const rbtcBalance = parseFloat(rskBalanceData.formatted);
-			totalRbtc += rbtcBalance;
-			const rbtcUsdValue = rbtcBalance * rbtcPrice;
-			totalUsd += rbtcUsdValue;
-
-			// Update store with fresh balance
-			walletStore.update((s) => ({
-				...s,
-				rsk: {
-					...s.rsk,
-					balance: rskBalanceData.balance.toString(),
-					formattedBalance: rskBalanceData.formatted
-				}
-			}));
-
-			assets.push({
-				assetId: 'rbtc',
-				name: 'Rootstock Bitcoin',
-				ticker: 'RBTC',
-				precision: 8,
-				icon: '₿',
-				balance: rbtcBalance,
-				formattedBalance: rskBalanceData.formatted,
-				network: 'RSK',
-				usdValue: rbtcUsdValue
-			});
-		}
-
-		// Process BSC assets
-		if (bscBalances) {
-			const bnbBalance = parseFloat(bscBalances.bnb.formatted);
-			totalBnb += bnbBalance;
-			const bnbUsdValue = bnbBalance * bnbPrice;
-			totalUsd += bnbUsdValue;
-
-			// Update store with fresh balances
-			walletStore.update((s) => ({
-				...s,
-				bsc: {
-					...s.bsc,
-					bnbBalance: bscBalances.bnb.balance.toString(),
-					usdtBalance: bscBalances.usdt.balance.toString(),
-					formattedBnbBalance: bscBalances.bnb.formatted,
-					formattedUsdtBalance: bscBalances.usdt.formatted
-				}
-			}));
-
-			assets.push({
-				assetId: 'bnb',
-				name: 'BNB',
-				ticker: 'BNB',
-				precision: 8,
-				icon: 'BNB',
-				balance: bnbBalance,
-				formattedBalance: bscBalances.bnb.formatted,
-				network: 'BSC',
-				usdValue: bnbUsdValue
+			updateBalanceFreshness(refreshingRails, {
+				isRefreshing: true,
+				error: null
 			});
 
-			if (bscBalances.usdt.balance > BigInt(0)) {
-				const usdtBalance = parseFloat(bscBalances.usdt.formatted);
-				totalUsdt += usdtBalance;
-				totalUsd += usdtBalance; // USDT is 1:1 with USD
+			// Initialize totals
+			let totalRbtc = 0;
+			let totalBnb = 0;
+			let totalUsdt = 0;
+			let totalUsd = 0;
+
+			const priceSnapshot = await ensureRecentMarketPrices();
+
+			// Fetch ALL data in parallel: prices and balances
+			// Note: For debug wallet, we'll load all tokens separately via loadRSKTokenBalances()
+			// This keeps the existing loadAssets() working for main wallet page
+			const safeGetPrice = (symbol: string) =>
+				cryptoPriceService?.getCurrentPrice?.(symbol)?.catch?.(() => 0) ?? Promise.resolve(0);
+
+			const [bnbPrice, rskBalanceData, bscBalances] = await Promise.all([
+				safeGetPrice('BNB'),
+				state.rsk.connected && manager.rskWallet
+					? manager.rskWallet.getBalance()
+					: Promise.resolve(null),
+				state.bsc.connected && manager.bscWallet
+					? manager.bscWallet.getBalances()
+					: Promise.resolve(null)
+			]);
+			const latestBtcUsd = priceSnapshot.btcUsd;
+			const latestRbtcUsd = priceSnapshot.rbtcUsd;
+
+			// Process RSK assets
+			if (rskBalanceData) {
+				// Keep formatted balance for display and USD calculations
+				const rbtcBalance = parseFloat(rskBalanceData.formatted);
+				totalRbtc += rbtcBalance;
+				const rbtcUsdValue = rbtcBalance * latestRbtcUsd;
+				totalUsd += rbtcUsdValue;
+
+				// Update store with fresh balance
+				walletStore.update((s) => ({
+					...s,
+					rsk: {
+						...s.rsk,
+						balance: rskBalanceData.balance.toString(),
+						formattedBalance: rskBalanceData.formatted
+					}
+				}));
 
 				assets.push({
-					assetId: 'usdt',
-					name: 'Tether USD',
-					ticker: 'USDT',
-					precision: 6,
-					icon: '₮',
-					balance: usdtBalance,
-					formattedBalance: bscBalances.usdt.formatted,
-					network: 'BSC',
-					usdValue: usdtBalance
+					assetId: 'rbtc',
+					name: 'Rootstock Bitcoin',
+					ticker: 'RBTC',
+					precision: 8,
+					icon: '₿',
+					balance: rbtcBalance,
+					formattedBalance: rskBalanceData.formatted,
+					network: 'RSK',
+					usdValue: rbtcUsdValue
 				});
 			}
-		}
 
-		// Calculate total sats (RBTC to sats)
-		const totalSats = Math.floor(totalRbtc * 100_000_000);
+			// Process BSC assets
+			if (bscBalances) {
+				const bnbBalance = parseFloat(bscBalances.bnb.formatted);
+				totalBnb += bnbBalance;
+				const bnbUsdValue = bnbBalance * bnbPrice;
+				totalUsd += bnbUsdValue;
 
-		// Update store with assets and totals
-		walletStore.update((s) => ({
-			...s,
-			assets,
-			totalBalances: {
-				usd: totalUsd,
-				sats: totalSats,
-				rbtc: totalRbtc,
-				usdt: totalUsdt,
-				bnb: totalBnb
+				// Update store with fresh balances
+				walletStore.update((s) => ({
+					...s,
+					bsc: {
+						...s.bsc,
+						bnbBalance: bscBalances.bnb.balance.toString(),
+						usdtBalance: bscBalances.usdt.balance.toString(),
+						formattedBnbBalance: bscBalances.bnb.formatted,
+						formattedUsdtBalance: bscBalances.usdt.formatted
+					}
+				}));
+
+				assets.push({
+					assetId: 'bnb',
+					name: 'BNB',
+					ticker: 'BNB',
+					precision: 8,
+					icon: 'BNB',
+					balance: bnbBalance,
+					formattedBalance: bscBalances.bnb.formatted,
+					network: 'BSC',
+					usdValue: bnbUsdValue
+				});
+
+				if (bscBalances.usdt.balance > BigInt(0)) {
+					const usdtBalance = parseFloat(bscBalances.usdt.formatted);
+					totalUsdt += usdtBalance;
+					totalUsd += usdtBalance; // USDT is 1:1 with USD
+
+					assets.push({
+						assetId: 'usdt',
+						name: 'Tether USD',
+						ticker: 'USDT',
+						precision: 6,
+						icon: '₮',
+						balance: usdtBalance,
+						formattedBalance: bscBalances.usdt.formatted,
+						network: 'BSC',
+						usdValue: usdtBalance
+					});
+				}
 			}
-		}));
-	} catch (error) {
-		console.error('Failed to load assets:', error);
+
+			// Calculate total sats (RBTC to sats)
+			const totalSats = Math.floor(totalRbtc * 100_000_000);
+
+			// Update store with assets and totals
+			walletStore.update((s) => ({
+				...s,
+				assets,
+				totalBalances: {
+					usd: totalUsd,
+					sats: totalSats,
+					rbtc: totalRbtc,
+					usdt: totalUsdt,
+					bnb: totalBnb
+				}
+			}));
+
+			updateBalanceFreshness(refreshingRails, {
+				lastLoadedAt: refreshStartedAt,
+				isRefreshing: false,
+				error: null
+			});
+		} catch (error) {
+			console.error('Failed to load assets:', error);
+			const refreshingRails = getConnectedBalanceRails(get(walletStore));
+		updateBalanceFreshness(refreshingRails, {
+			isRefreshing: false,
+			error: 'Failed to refresh wallet balances'
+		});
+	} finally {
+		activeAssetLoadPromise = null;
 	}
+	})();
+
+	await activeAssetLoadPromise;
+}
+
+async function ensureFreshBalances(options: {
+	rails?: BalanceRail[];
+	force?: boolean;
+	maxAgeMs?: number;
+} = {}): Promise<void> {
+	const { rails, force = false, maxAgeMs = BALANCE_FRESHNESS_MAX_AGE_MS } = options;
+	const state = get(walletStore);
+	const targetRails = resolveTargetBalanceRails(state, rails);
+
+	if (!targetRails.length) {
+		return;
+	}
+
+	if (!force && areBalanceRailsFresh(state, targetRails, maxAgeMs)) {
+		return;
+	}
+
+	await loadAssets();
 }
 
 /**
@@ -874,7 +1071,12 @@ export function updateSwapTransaction(
  */
 async function loadRbtcExchangeRate(): Promise<void> {
 	try {
-		const rate = await cryptoPriceService.getExchangeRate('RBTC', 'BTC');
+		const priceSnapshot = await ensureRecentMarketPrices();
+		if (priceSnapshot.btcUsd <= 0 || priceSnapshot.rbtcUsd <= 0) {
+			throw new Error('BTC and RBTC prices are unavailable');
+		}
+
+		const rate = priceSnapshot.rbtcUsd / priceSnapshot.btcUsd;
 		walletStore.update((s) => ({
 			...s,
 			rbtcToBtcRate: rate,
@@ -1508,6 +1710,8 @@ export const allAssets = derived(walletStore, ($w) => $w.assets);
 export const totalBalances = derived(walletStore, ($w) => $w.totalBalances);
 export const rbtcToBtcRate = derived(walletStore, ($w) => $w.rbtcToBtcRate);
 export const transactions = derived(walletStore, ($w) => $w.transactions);
+export const walletBtcUsd = btcUsd;
+export const walletRbtcUsd = rbtcUsd;
 
 // Wallet manager compatibility object
 /**
@@ -1582,6 +1786,7 @@ export const walletManager = {
 	submitBSCDirectSend,
 	setActiveTab,
 	loadAssets,
+	ensureFreshBalances,
 	loadTransactions,
 	loadRbtcExchangeRate,
 	sendRBTC,

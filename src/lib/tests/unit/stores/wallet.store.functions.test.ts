@@ -8,6 +8,8 @@ import {
 	walletStore,
 	walletManager
 } from '$lib/stores/wallet.store';
+import cryptoPriceService from '$lib/api/services/crypto-price.service';
+import { marketPrice } from '$lib/stores/market-price.store';
 // Import will be used inside hoisted function
 
 // Prevent profile.ts -> upload.service -> BaseApiService load failure in test env
@@ -63,6 +65,11 @@ vi.mock('$lib/api/services/crypto-price.service', () => ({
 		getCurrentPrice: vi.fn().mockResolvedValue(65000)
 	}
 }));
+
+afterEach(() => {
+	marketPrice.stopPolling();
+	vi.mocked(cryptoPriceService.getCurrentPrice).mockReset();
+});
 
 // Mock the SDK WalletManager - create mock inline to avoid import hoisting issues
 const mockWalletManager = vi.hoisted(() => {
@@ -183,6 +190,18 @@ describe('Wallet Store Functions', () => {
 			},
 			rbtcToBtcRate: 1.0,
 			rbtcRateError: false,
+			balanceFreshness: {
+				rsk: {
+					lastLoadedAt: 0,
+					isRefreshing: false,
+					error: null
+				},
+				bsc: {
+					lastLoadedAt: 0,
+					isRefreshing: false,
+					error: null
+				}
+			},
 			activeNetwork: 'rsk',
 			activeTab: 'balance',
 			selectedAsset: 'rBTC'
@@ -377,30 +396,78 @@ describe('Wallet Store Functions', () => {
 
 			const state = get(walletStore);
 			expect(state.assets.length).toBeGreaterThan(0);
+			expect(state.balanceFreshness.rsk.lastLoadedAt).toBeGreaterThan(0);
+			expect(state.balanceFreshness.rsk.error).toBeNull();
+			expect(state.balanceFreshness.rsk.isRefreshing).toBe(false);
 		});
 
-		it('should update total balances', async () => {
-			await walletManager.initialize();
-			await walletManager.loadAssets();
+	it('should update total balances', async () => {
+		await walletManager.initialize();
+		await walletManager.loadAssets();
 
-			const state = get(walletStore);
-			expect(state.totalBalances.usd).toBeGreaterThanOrEqual(0);
-		});
+		const state = get(walletStore);
+		expect(state.totalBalances.usd).toBeGreaterThanOrEqual(0);
+	});
+
+	it('uses shared BTC price for RBTC valuation', async () => {
+		vi.mocked(cryptoPriceService.getCurrentPrice)
+			.mockResolvedValueOnce(60_000)
+			.mockResolvedValueOnce(60_000)
+			.mockResolvedValueOnce(2);
+
+		await marketPrice.refresh();
+		await walletManager.initialize();
+		await walletManager.loadAssets();
+
+		const state = get(walletStore);
+		const rbtcAsset = state.assets.find((asset) => asset.assetId === 'rbtc');
+		expect(rbtcAsset).toBeDefined();
+		expect(rbtcAsset?.usdValue).toBeCloseTo((rbtcAsset?.balance ?? 0) * 60_000);
+	});
 
 		it('should handle load errors gracefully', async () => {
 			await walletManager.initialize();
 
-			// Mock crypto price service to throw error
-			const cryptoPriceService = await import('$lib/api/services/crypto-price.service');
-			vi.mocked(cryptoPriceService.default.getCurrentPrice).mockRejectedValueOnce(
-				new Error('Price fetch failed')
-			);
+		// Mock crypto price service to throw error once and recover
+		vi.mocked(cryptoPriceService.getCurrentPrice)
+			.mockRejectedValueOnce(new Error('Price fetch failed'))
+			.mockResolvedValue(0);
 
-			// loadAssets catches errors internally, so it shouldn't throw
-			await walletManager.loadAssets();
+		// loadAssets catches errors internally, so it shouldn't throw
+		await walletManager.loadAssets();
 
 			// Should have completed without throwing
 			await expect(walletManager.loadAssets()).resolves.not.toThrow();
+		});
+
+		it('skips refreshing balances when the requested rail is already fresh', async () => {
+			await walletManager.initialize();
+			await walletManager.loadAssets();
+
+			const rskBalanceCallsBefore = mockWalletManager.rskWallet.getBalance.mock.calls.length;
+			const bscBalanceCallsBefore = mockWalletManager.bscWallet.getBalances.mock.calls.length;
+
+			await walletManager.ensureFreshBalances({ rails: ['rsk'] });
+
+			expect(mockWalletManager.rskWallet.getBalance.mock.calls.length).toBe(rskBalanceCallsBefore);
+			expect(mockWalletManager.bscWallet.getBalances.mock.calls.length).toBe(bscBalanceCallsBefore);
+		});
+
+		it('forces a balance refresh when requested even if the rail is fresh', async () => {
+			await walletManager.initialize();
+			await walletManager.loadAssets();
+
+			const rskBalanceCallsBefore = mockWalletManager.rskWallet.getBalance.mock.calls.length;
+			const bscBalanceCallsBefore = mockWalletManager.bscWallet.getBalances.mock.calls.length;
+
+			await walletManager.ensureFreshBalances({ rails: ['rsk'], force: true });
+
+			expect(mockWalletManager.rskWallet.getBalance.mock.calls.length).toBeGreaterThan(
+				rskBalanceCallsBefore
+			);
+			expect(mockWalletManager.bscWallet.getBalances.mock.calls.length).toBeGreaterThan(
+				bscBalanceCallsBefore
+			);
 		});
 	});
 
