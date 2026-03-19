@@ -1,15 +1,119 @@
-name = "bittasker"
-pages_build_output_dir = "build"
+name = "bittasker-dev-worker"
+main = "workers-site/index.js"
 compatibility_date = "2025-10-07"
+account_id = "0e47af3ee55b77b43b150879938ebbec"
+#account_id = "3fa48b084b262faa8a164ab089d702b6"
 
 # ============================================
-# PREVIEW Environment (Pages equivalent of dev)
+# OBSERVABILITY CONFIGURATION
 # ============================================
-[env.preview]
-name = "preview"
+# Workers Logs: Automatically collects invocation logs, custom logs, errors, and uncaught exceptions
+# Available in Cloudflare Dashboard > Workers & Pages > Your Worker > Logs
+# 
+# head_sampling_rate: Percentage of requests to log (0.0 to 1.0)
+# - 1.0 = 100% sampling (recommended for dev/staging)
+# - 0.1 = 10% sampling (recommended for production to reduce cost)
+# - 0.01 = 1% sampling (high-traffic production)
+[observability.logs]
+enabled = true
+head_sampling_rate = 1.0  # 100% sampling for dev/staging (full visibility)
+
+# ============================================
+# PERFORMANCE LIMITS
+# ============================================
+# CPU Time Limits:
+# - Free Plan: 10ms per request
+# - Paid Plan: 30s default (configurable up to 5 min)
+# - Wall-clock time is unlimited
+#
+# Defaults are sufficient for static content. Raise only if needed.
+# [limits]
+# cpu_ms = 30_000  # 30 seconds
+
+# ============================================
+# SITE CONFIGURATION
+# ============================================
+[site]
+bucket = "./build"
+
+# ============================================
+# DEV Environment (default)
+# ============================================
+[env.dev]
+name = "bittasker-dev-worker"
+workers_dev = false
+
+[env.dev.route]
+pattern = "worker.dev.bittasker.com/*"
+# Replace with actual zone ID if needed
+zone_id = "2f577970e10b49266dbfc1ff6c5c8dc4"
+
+[env.dev.observability.logs]
+enabled = true
+head_sampling_rate = 1.0
+
+[env.dev.vars]
+VITE_CLIENT_URL = "https://worker.dev.bittasker.com/"
+VITE_NOSTR_RELAY_URL = "wss://relay.bittasker.hedgehackers.finance"
+VITE_NOSTR_RELAY_NESTJS = "https://relay.bittasker.com"
+VITE_RSK_NETWORK = "mainnet"
+VITE_BSC_NETWORK = "mainnet"
+
+# ============================================
+# STAGING Environment
+# ============================================
+[env.staging]
+name = "staging"
+workers_dev = false
+
+[env.staging.route]
+pattern = "staging.bittasker.com/*"
+zone_id = "REPLACE_WITH_BITTASKER_ZONE_ID"
+
+[env.staging.observability.logs]
+enabled = true
+head_sampling_rate = 1.0
+
+[env.staging.vars]
+VITE_CLIENT_URL = "https://staging.bittasker.com/"
+VITE_NOSTR_RELAY_URL = "wss://relay1.bittasker.com"
+VITE_NOSTR_RELAY_NESTJS = "https://relay2.bittasker.com"
+VITE_RSK_NETWORK = "mainnet"
+VITE_BSC_NETWORK = "mainnet"
 
 # ============================================
 # PRODUCTION Environment
 # ============================================
 [env.production]
-name = "production"
+name = "bittasker-prod-worker"
+workers_dev = false
+
+[env.production.route]
+pattern = "worker.prod.bittasker.com/*"
+zone_id = "REPLACE_WITH_BITTASKER_ZONE_ID"
+
+[env.production.observability.logs]
+enabled = true
+head_sampling_rate = 0.1
+
+[env.production.vars]
+VITE_CLIENT_URL = "https://worker.prod.bittasker.com/"
+VITE_NOSTR_RELAY_URL = "wss://relay1.bittasker.com"
+VITE_NOSTR_RELAY_NESTJS = "https://relay2.bittasker.com"
+VITE_RSK_NETWORK = "mainnet"
+VITE_BSC_NETWORK = "mainnet"
+
+# ============================================
+# METRICS & ANALYTICS
+# ============================================
+# Metrics are automatically collected via Cloudflare; review logs/graphs in dashboard.
+
+# ============================================
+# LOGPUSH CONFIGURATION (Optional)
+# ============================================
+# Use wrangler logpush create to export telemetry to S3, R2, or another sink.
+
+# ============================================
+# TAIL WORKERS (Optional - Beta)
+# ============================================
+# Configure tail workers for filtered telemetry/alerting if needed.
