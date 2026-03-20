@@ -154,6 +154,10 @@ export default defineConfig(({ mode }) => {
 			sourcemap: 'hidden', // Generate source maps for Sentry without exposing them publicly
 			cssCodeSplit: true, // Enable CSS code splitting
 			cssMinify: true, // Explicitly enable CSS minification (default but explicit)
+			// Raise threshold to suppress warnings for intentionally large vendor chunks
+			// (bip39, firebase). Aggressive manualChunks splitting breaks
+			// SvelteKit's internal chunk ordering and causes "kit.start is not a function".
+			chunkSizeWarningLimit: 1000,
 			rollupOptions: {
 				output: {
 					manualChunks: (id) => {
@@ -166,22 +170,6 @@ export default defineConfig(({ mode }) => {
 						// fully evaluated before any subclass chunk executes.
 						if (id.includes('src/lib/api/apiService')) {
 							return 'api-base';
-						}
-
-						// Split heavy libraries into their own chunks so they
-						// can be loaded on-demand and don't bloat the initial bundle.
-						if (id.includes('liquidjs-lib')) {
-							return 'vendor-liquid';
-						}
-
-						if (id.includes('firebase')) {
-							return 'vendor-firebase';
-						}
-
-						// Group remaining large node_modules into a shared vendor chunk
-						// to avoid them being inlined into every route chunk.
-						if (id.includes('node_modules')) {
-							return 'vendor';
 						}
 					}
 				}
