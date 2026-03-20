@@ -1,17 +1,11 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { t } from 'svelte-i18n';
 	import DashboardQuoteCard from './DashboardQuoteCard.svelte';
-	import ServiceAgreementSummary from '$lib/components/contracts/ServiceAgreementSummary.svelte';
-	import { buildServiceQuoteAgreementSummary } from '$lib/utils/service-quote/agreement-summary';
 	import { createDashboardUrl } from '$lib/utils/service-quote/dashboard-route';
-	import { buildServiceQuoteReentryUrl } from '$lib/utils/service-quote/reentry';
-	import { describeServiceContractPreflightFailure } from '$lib/utils/service-contract/preflight-feedback';
 	import { browserNetworkStatus } from '$lib/utils/network-status';
 	import type { ServiceQuoteTimelineEntry } from '$lib/types/service-quote';
-	import {
-		getTaskerDataFreshness,
-		serviceQuoteUiStore
-	} from '$lib/stores/service-quote-ui.store';
+	import { getTaskerDataFreshness, serviceQuoteUiStore } from '$lib/stores/service-quote-ui.store';
 
 	let {
 		timelines = [],
@@ -38,16 +32,27 @@
 		class: string;
 		onclick: (e: MouseEvent) => void;
 		icon: string;
+		disabled?: boolean;
 	}
 
-	let actionError = $state<string | null>(null);
-	let actionHint = $state<string | null>(null);
-	let actionMessage = $state<string | null>(null);
 	let actionPending = $state<'accept' | 'decline' | null>(null);
+
+	function translateOrFallback(key: string, fallback: string): string {
+		try {
+			const translated = $t(key);
+			return translated === key ? fallback : translated;
+		} catch {
+			return fallback;
+		}
+	}
 
 	const selectedTimeline = $derived.by(() => {
 		if (focusedRequestId) {
-			return timelines.find((timeline) => timeline.request.content.quoteRequestId === focusedRequestId) ?? null;
+			return (
+				timelines.find(
+					(timeline) => timeline.request.content.quoteRequestId === focusedRequestId
+				) ?? null
+			);
 		}
 		return timelines[0] ?? null;
 	});
@@ -72,35 +77,12 @@
 	const actionsUnavailable = $derived(
 		isSyncing || Boolean(loadError) || isOffline || taskerDataIsStale || showPartialSyncAlert
 	);
-	const selectedProposalSummary = $derived(buildServiceQuoteAgreementSummary(selectedTimeline));
-
-	function describeStatus(timeline: ServiceQuoteTimelineEntry): string {
-		switch (timeline.resolvedStatus) {
-			case 'accepted':
-				return 'Contract created';
-			case 'declined':
-				return 'Declined';
-			case 'withdrawn':
-				return 'Withdrawn';
-			case 'expired':
-				return 'Expired';
-			case 'accepting':
-				return 'Accepting';
-			case 'accept_failed':
-				return 'Accept failed';
-			case 'accept_unknown':
-				return 'Accept unknown';
-			default:
-				return timeline.latestProposal ? 'Proposal received' : 'Awaiting proposal';
-		}
-	}
-
 	function getQuoteActionButtons(timeline: ServiceQuoteTimelineEntry): ActionButton[] {
 		const buttons: ActionButton[] = [];
 
 		// View button - always available
 		buttons.push({
-			label: 'View',
+			label: translateOrFallback('dashboard.service_requests.actions.view', 'View'),
 			class: 'btn-ghost',
 			onclick: (e) => {
 				e.stopPropagation();
@@ -112,35 +94,40 @@
 		// Accept button - only if proposal exists and not yet accepted
 		if (timeline.latestProposal && !timeline.linkedEscrowId && showAcceptActions) {
 			buttons.push({
-				label: 'Accept',
+				label: translateOrFallback('dashboard.service_requests.actions.accept', 'Accept'),
 				class: 'btn-success',
 				onclick: (e) => {
 					e.stopPropagation();
 					selectTimeline(timeline.request.content.quoteRequestId);
 					acceptProposal();
 				},
-				icon: 'accept'
+				icon: 'accept',
+				disabled: actionsUnavailable
 			});
 		}
 
 		// Decline button - only if proposal exists and not yet accepted
 		if (timeline.latestProposal && !timeline.linkedEscrowId && showAcceptActions) {
 			buttons.push({
-				label: 'Decline',
+				label: translateOrFallback('dashboard.service_requests.actions.decline', 'Decline'),
 				class: 'btn-ghost',
 				onclick: (e) => {
 					e.stopPropagation();
 					selectTimeline(timeline.request.content.quoteRequestId);
 					applyStatus('declined');
 				},
-				icon: 'decline'
+				icon: 'decline',
+				disabled: actionsUnavailable
 			});
 		}
 
 		// View Contract button - only if contract exists
 		if (timeline.linkedEscrowId) {
 			buttons.push({
-				label: 'View Contract',
+				label: translateOrFallback(
+					'dashboard.service_requests.actions.view_contract',
+					'View Contract'
+				),
 				class: 'btn-primary',
 				onclick: (e) => {
 					e.stopPropagation();
@@ -154,27 +141,18 @@
 	}
 
 	function selectTimeline(requestId: string) {
-		actionError = null;
-		actionHint = null;
-		actionMessage = null;
 		onRequestFocusChange?.(requestId);
 	}
 
 	async function applyStatus(status: 'declined') {
 		if (!selectedTimeline?.latestProposal || actionPending || actionsUnavailable) return;
-		actionError = null;
-		actionHint = null;
-		actionMessage = null;
 		actionPending = 'decline';
 		try {
-			const result = await serviceQuoteUiStore.applyTaskerStatus({
+			await serviceQuoteUiStore.applyTaskerStatus({
 				quoteRequestId: selectedTimeline.request.content.quoteRequestId,
 				proposalId: selectedTimeline.latestProposal.content.proposalId,
 				status
 			});
-			if (!result.success) {
-				actionError = result.error || 'Unable to update quote status.';
-			}
 		} finally {
 			actionPending = null;
 		}
@@ -182,38 +160,15 @@
 
 	async function acceptProposal() {
 		if (!selectedTimeline?.latestProposal || actionPending || actionsUnavailable) return;
-		actionError = null;
-		actionHint = null;
-		actionMessage = null;
 		actionPending = 'accept';
 		try {
-			const result = await serviceQuoteUiStore.acceptTaskerProposal({
+			await serviceQuoteUiStore.acceptTaskerProposal({
 				quoteRequestId: selectedTimeline.request.content.quoteRequestId,
 				proposalId: selectedTimeline.latestProposal.content.proposalId
 			});
-			if (!result.success) {
-				const feedback = describeServiceContractPreflightFailure(result.errorCode, result.error);
-				actionError = feedback.message;
-				actionHint = feedback.hint;
-				return;
-			}
-
-			actionMessage =
-				'Acceptance submitted. The funded contract will appear here once escrow creation is confirmed.';
 		} finally {
 			actionPending = null;
 		}
-	}
-
-	async function returnToService() {
-		if (!selectedTimeline) return;
-		await goto(
-			buildServiceQuoteReentryUrl(selectedTimeline.request.content.serviceAddress, {
-				openRequestQuote: true,
-				tierId: selectedTimeline.request.content.tierId,
-				selectedAddOnIds: selectedTimeline.request.content.selectedAddOns ?? []
-			})
-		);
 	}
 
 	async function viewContract(escrowId: string) {
@@ -239,33 +194,43 @@
 </script>
 
 <section data-testid="my-quotes-panel" class="space-y-4">
-	{#if isSyncing}
-		<div class="alert alert-info text-sm">
-			<span>Syncing your latest quote request…</span>
-		</div>
-	{/if}
-
 	{#if showPartialSyncAlert}
 		<div class="alert alert-warning text-sm" data-testid="my-quotes-partial-alert">
 			<span>
-				Latest quote thread data is still propagating across relays. Showing partial results until the thread finishes syncing.
+				{translateOrFallback(
+					'dashboard.service_requests.alerts.partial_sync',
+					'Latest quote thread data is still propagating across relays. Showing partial results until the thread finishes syncing.'
+				)}
 			</span>
 		</div>
 	{:else if taskerDataIsStale}
 		<div class="alert alert-warning text-sm" data-testid="my-quotes-stale-alert">
 			<span>
-				Showing your last known quote data. Refresh before acting on proposals because the latest relay sync did not complete.
+				{translateOrFallback(
+					'dashboard.service_requests.alerts.stale',
+					'Showing your last known quote data. Refresh before acting on proposals because the latest relay sync did not complete.'
+				)}
 			</span>
 		</div>
 	{/if}
 
 	{#if isOffline}
 		<div class="alert alert-warning text-sm" data-testid="my-quotes-offline-alert">
-			<span>You are offline. Reconnect before reviewing or acting on quote proposals.</span>
+			<span>
+				{translateOrFallback(
+					'dashboard.service_requests.alerts.offline',
+					'You are offline. Reconnect before reviewing or acting on quote proposals.'
+				)}
+			</span>
 		</div>
 	{:else if showReconnectNotice}
 		<div class="alert alert-info text-sm" data-testid="my-quotes-reconnect-alert">
-			<span>Back online. Retry if the latest quote status has not refreshed yet.</span>
+			<span>
+				{translateOrFallback(
+					'dashboard.service_requests.alerts.reconnect',
+					'Back online. Retry if the latest quote status has not refreshed yet.'
+				)}
+			</span>
 		</div>
 	{/if}
 
@@ -281,15 +246,31 @@
 	{/if}
 
 	{#if timelines.length === 0}
-		<div class="rounded-xl border border-dashed border-base-300 p-6 text-sm text-base-content/70">
+		<div class="border-base-300 text-base-content/70 rounded-xl border border-dashed p-6 text-sm">
 			{#if !hasLoaded && isSyncing}
-				Loading your quote requests...
+				{translateOrFallback(
+					'dashboard.service_requests.loading',
+					'Loading your service requests...'
+				)}
 			{:else if loadError}
-				Retry to load your quote requests.
+				{translateOrFallback(
+					'dashboard.service_requests.retry_loading',
+					'Retry to load your service requests.'
+				)}
 			{:else}
-				No quote requests have been submitted yet.
+				{translateOrFallback(
+					'dashboard.service_requests.empty',
+					'No service requests have been submitted yet.'
+				)}
 			{/if}
 		</div>
+		{#if hasLoaded && !loadError}
+			<div class="flex justify-center">
+				<a href="/services" class="btn btn-primary">
+					{translateOrFallback('dashboard.find_services', 'Find Services')}
+				</a>
+			</div>
+		{/if}
 	{:else}
 		<div class="grid grid-cols-1 gap-5">
 			{#each timelines as timeline (timeline.request.id)}

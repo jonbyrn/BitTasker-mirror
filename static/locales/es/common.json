@@ -927,6 +927,7 @@
 				},
 				"location_viewer": {
 					"loading_map": "Cargando mapa...",
+					"error_loading_map": "Error al cargar el mapa",
 					"pickup_location": "Ubicación de Recogida",
 					"task_location": "Ubicación de la Tarea",
 					"dropoff_location": "Ubicación de Entrega",

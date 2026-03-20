@@ -4,8 +4,6 @@
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import IconCheckCircleOutline from '~icons/mdi/check-circle-outline';
 	import IconCloseCircleOutline from '~icons/mdi/close-circle-outline';
-	import IconAlertCircleOutline from '~icons/mdi/alert-circle-outline';
-	import IconClockOutline from '~icons/mdi/clock-outline';
 	import IconInformationOutline from '~icons/mdi/information-outline';
 
 	interface ActionButton {
@@ -13,6 +11,7 @@
 		class: string;
 		onclick: (e: MouseEvent) => void;
 		icon: string;
+		disabled?: boolean;
 	}
 
 	const { timeline, getActionButtons } = $props<{
@@ -20,24 +19,53 @@
 		getActionButtons: (timeline: ServiceQuoteTimelineEntry) => ActionButton[];
 	}>();
 
+	function translateOrFallback(key: string, fallback: string): string {
+		try {
+			const translated = $t(key);
+			return translated === key ? fallback : translated;
+		} catch {
+			return fallback;
+		}
+	}
+
 	function describeStatus(timeline: ServiceQuoteTimelineEntry): string {
 		switch (timeline.resolvedStatus) {
 			case 'accepted':
-				return 'Contract created';
+				return translateOrFallback(
+					'dashboard.service_requests.statuses.contract_created',
+					'Contract created'
+				);
 			case 'declined':
-				return 'Declined';
+				return translateOrFallback('dashboard.service_requests.statuses.declined', 'Declined');
 			case 'withdrawn':
-				return 'Withdrawn';
+				return translateOrFallback('dashboard.service_requests.statuses.withdrawn', 'Withdrawn');
 			case 'expired':
-				return 'Expired';
+				return translateOrFallback('dashboard.service_requests.statuses.expired', 'Expired');
 			case 'accepting':
-				return 'Accepting...';
+				return translateOrFallback(
+					'dashboard.service_requests.statuses.accepting_progress',
+					'Accepting...'
+				);
 			case 'accept_failed':
-				return 'Accept failed';
+				return translateOrFallback(
+					'dashboard.service_requests.statuses.accept_failed',
+					'Accept failed'
+				);
 			case 'accept_unknown':
-				return 'Accept unknown';
+				return translateOrFallback(
+					'dashboard.service_requests.statuses.accept_unknown',
+					'Accept unknown'
+				);
 			default:
-				return timeline.latestProposal ? 'Proposal received' : 'Awaiting proposal';
+				return timeline.latestProposal
+					? translateOrFallback(
+							'dashboard.service_requests.statuses.proposal_received',
+							'Proposal received'
+						)
+					: translateOrFallback(
+							'dashboard.service_requests.statuses.awaiting_proposal',
+							'Awaiting proposal'
+						);
 		}
 	}
 
@@ -63,23 +91,7 @@
 		if (timeline.latestProposal?.content.pricingSnapshot?.amount !== undefined) {
 			return `$${formatNumberWithTwoDecimals(timeline.latestProposal.content.pricingSnapshot.amount)}`;
 		}
-		return 'Quote pending';
-	}
-
-	function getStatusIcon(timeline: ServiceQuoteTimelineEntry) {
-		switch (timeline.resolvedStatus) {
-			case 'accepted':
-				return 'accepted';
-			case 'declined':
-				return 'declined';
-			case 'accepting':
-				return 'accepting';
-			case 'accept_failed':
-			case 'accept_unknown':
-				return 'error';
-			default:
-				return timeline.latestProposal ? 'proposal' : 'pending';
-		}
+		return translateOrFallback('dashboard.service_requests.quote_pending', 'Quote pending');
 	}
 </script>
 
@@ -92,15 +104,14 @@
 				<h3 class="card-title line-clamp-2 text-lg font-semibold">
 					{timeline.request.content.inquiry.title}
 				</h3>
-				<p class="text-sm text-base-content/60 line-clamp-1 mt-1">
-					{timeline.request.content.serviceAddress || 'Service'}
+				<p class="text-base-content/60 mt-1 line-clamp-1 text-sm">
+					{timeline.request.content.serviceAddress ||
+						translateOrFallback('dashboard.service_requests.service_label', 'Service')}
 				</p>
 			</div>
 			<!-- Right: Status Badge + Price (aligned right) -->
 			<div class="flex shrink-0 flex-col items-end gap-2">
-				<div
-					class="badge {getStatusColor(timeline)} badge-sm max-w-[120px] truncate text-center"
-				>
+				<div class="badge {getStatusColor(timeline)} badge-sm max-w-[120px] truncate text-center">
 					{describeStatus(timeline)}
 				</div>
 				<div class="text-right text-xl font-bold">
@@ -110,7 +121,7 @@
 		</div>
 
 		<!-- Second Row: Quote Details -->
-		<div class="mb-3 flex flex-col gap-2 text-sm text-base-content/70">
+		<div class="text-base-content/70 mb-3 flex flex-col gap-2 text-sm">
 			<!-- Description snippet -->
 			<p class="line-clamp-2 text-sm">
 				{timeline.request.content.inquiry.description || '—'}
@@ -120,11 +131,15 @@
 			{#if timeline.latestProposal?.content.pricingSnapshot}
 				<div class="flex flex-wrap gap-2 text-xs">
 					<span class="badge badge-outline badge-sm">
-						{timeline.latestProposal.content.pricingSnapshot.label || 'Standard'}
+						{timeline.latestProposal.content.pricingSnapshot.label ||
+							translateOrFallback('dashboard.service_requests.standard_tier', 'Standard')}
 					</span>
 					{#if timeline.latestProposal.content.pricingSnapshot.estimatedDeliveryDays}
 						<span class="badge badge-outline badge-sm">
-							{timeline.latestProposal.content.pricingSnapshot.estimatedDeliveryDays} days
+							{`${timeline.latestProposal.content.pricingSnapshot.estimatedDeliveryDays} ${translateOrFallback(
+								'dashboard.service_requests.days',
+								'days'
+							)}`}
 						</span>
 					{/if}
 				</div>
@@ -141,6 +156,7 @@
 				{#each getActionButtons(timeline) as action (action.label)}
 					<button
 						class="btn {action.class} flex-1 md:flex-none"
+						disabled={action.disabled === true}
 						onclick={(e) => {
 							e.stopPropagation();
 							action.onclick(e);

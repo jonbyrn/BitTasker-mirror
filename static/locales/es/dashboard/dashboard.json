@@ -30,12 +30,52 @@
 			"contracts": "Contratos",
 			"recurring": "Tareas Recurrentes",
 			"saved_searches": "Búsquedas Guardadas",
-			"my_services": "Mis Servicios"
+			"my_services": "Mis Servicios",
+			"quotes": "Solicitudes de servicios"
 		},
 		"saved_searches": {
 			"filter_label": "Filtrar por tipo",
 			"tasks": "Tareas",
 			"services": "Servicios"
+		},
+		"service_requests": {
+			"loading": "Cargando tus solicitudes de servicio...",
+			"retry_loading": "Vuelve a intentar cargar tus solicitudes de servicio.",
+			"empty": "Todavía no se han enviado solicitudes de servicio.",
+			"quote_pending": "Cotización pendiente",
+			"service_label": "Servicio",
+			"standard_tier": "Estándar",
+			"days": "días",
+			"actions": {
+				"view": "Ver",
+				"accept": "Aceptar",
+				"decline": "Rechazar",
+				"view_contract": "Ver contrato"
+			},
+			"statuses": {
+				"contract_created": "Contrato creado",
+				"declined": "Rechazada",
+				"withdrawn": "Retirada",
+				"expired": "Expirada",
+				"accepting": "Aceptando",
+				"accepting_progress": "Aceptando...",
+				"accept_failed": "Error al aceptar",
+				"accept_unknown": "Aceptación desconocida",
+				"proposal_received": "Propuesta recibida",
+				"awaiting_proposal": "Esperando propuesta"
+			},
+			"alerts": {
+				"partial_sync": "Los datos más recientes del hilo de cotización aún se están propagando entre relés. Se muestran resultados parciales hasta que el hilo termine de sincronizarse.",
+				"stale": "Se muestran tus últimos datos conocidos de cotizaciones. Actualiza antes de actuar sobre las propuestas porque no se completó la sincronización más reciente con los relés.",
+				"offline": "Estás sin conexión. Vuelve a conectarte antes de revisar o actuar sobre las propuestas de servicio.",
+				"reconnect": "De nuevo en línea. Reintenta si el estado más reciente de la cotización aún no se ha actualizado."
+			},
+			"errors": {
+				"update_status": "No se pudo actualizar el estado de la cotización."
+			},
+			"messages": {
+				"acceptance_submitted": "Aceptación enviada. El contrato financiado aparecerá aquí una vez que se confirme la creación del escrow."
+			}
 		},
 		"task_details_by_task": {
 			"title": "Detalles de la Tarea",
@@ -720,4 +760,3 @@
 		}
 	}
 }
-

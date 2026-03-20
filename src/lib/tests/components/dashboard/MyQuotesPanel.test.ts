@@ -1,12 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, fireEvent, waitFor, screen } from '@testing-library/svelte';
+import { render, fireEvent } from '@testing-library/svelte';
 import MyQuotesPanel from '$lib/components/dashboard/quotes/MyQuotesPanel.svelte';
 import type { ServiceQuoteTimelineEntry } from '$lib/types/service-quote';
 import { ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';
 
 const { applyTaskerStatus, acceptTaskerProposal, goto, quoteUiStoreMock } = vi.hoisted(() => ({
 	applyTaskerStatus: vi.fn().mockResolvedValue({ success: true }),
-	acceptTaskerProposal: vi.fn().mockResolvedValue({ success: true, transactionHash: '0xservicehash' }),
+	acceptTaskerProposal: vi
+		.fn()
+		.mockResolvedValue({ success: true, transactionHash: '0xservicehash' }),
 	goto: vi.fn(),
 	quoteUiStoreMock: {
 		value: {
@@ -180,7 +182,7 @@ describe('MyQuotesPanel', () => {
 
 		await fireEvent.click(getByText('Retry'));
 		expect(onRetry).toHaveBeenCalledTimes(1);
-		expect(getByText('Retry to load your quote requests.')).toBeTruthy();
+		expect(getByText('Retry to load your service requests.')).toBeTruthy();
 	});
 
 	it('shows a stale-data warning', () => {
@@ -220,19 +222,32 @@ describe('MyQuotesPanel', () => {
 			hasLoaded: false
 		});
 
-		expect(getByText('Loading your quote requests...')).toBeTruthy();
-		expect(queryByText('No quote requests have been submitted yet.')).toBeNull();
+		expect(getByText('Loading your service requests...')).toBeTruthy();
+		expect(queryByText('No service requests have been submitted yet.')).toBeNull();
 	});
 
 	it('renders an empty state when no quote requests exist', () => {
-		const { getByText } = render(MyQuotesPanel, {
+		const { getByText, getByRole, queryByRole } = render(MyQuotesPanel, {
 			timelines: [],
 			focusedRequestId: null,
 			isSyncing: false,
 			hasLoaded: true
 		});
 
-		expect(getByText('No quote requests have been submitted yet.')).toBeTruthy();
+		expect(getByText('No service requests have been submitted yet.')).toBeTruthy();
+		expect(getByRole('link', { name: 'Find Services' })).toHaveAttribute('href', '/services');
+		expect(queryByRole('button', { name: 'Find Services' })).toBeNull();
+	});
+
+	it('hides the find services CTA when service requests are present', () => {
+		const { queryByRole } = render(MyQuotesPanel, {
+			timelines: [timeline],
+			focusedRequestId: 'qr_valid123',
+			isSyncing: false,
+			hasLoaded: true
+		});
+
+		expect(queryByRole('link', { name: 'Find Services' })).toBeNull();
 	});
 
 	it('renders a waiting state when no provider proposal exists yet', () => {
@@ -251,15 +266,15 @@ describe('MyQuotesPanel', () => {
 		expect(getByText('Awaiting proposal')).toBeTruthy();
 	});
 
-	it('shows a syncing warning while data is syncing', () => {
-		const { getByText } = render(MyQuotesPanel, {
+	it('does not render the standalone syncing alert while data is syncing', () => {
+		const { queryByText } = render(MyQuotesPanel, {
 			timelines: [timeline],
 			focusedRequestId: 'qr_valid123',
 			isSyncing: true,
 			hasLoaded: true
 		});
 
-		expect(getByText('Syncing your latest quote request…')).toBeTruthy();
+		expect(queryByText('Syncing your latest quote request…')).toBeNull();
 	});
 
 	it('shows a partial-data alert while the exact tasker thread is still syncing', () => {
