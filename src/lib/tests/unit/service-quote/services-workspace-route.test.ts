@@ -25,19 +25,38 @@ function createContext(
 }
 
 describe('services workspace route helpers', () => {
-	it('canonicalizes quote routes without a valid service back to listings', () => {
+	it('keeps quote routes without a service in all-services mode', () => {
 		const parsed = parseServicesWorkspaceRouteQuery(
 			new URLSearchParams('tab=quotes&request=qr_valid123'),
 			createContext()
 		);
 
 		expect(parsed.state).toEqual({
-			tab: 'listings',
+			tab: 'quotes',
+			serviceAddress: null,
+			requestId: 'qr_valid123'
+		});
+		expect(parsed.changed).toBe(false);
+		expect(parsed.searchParams.toString()).toBe('tab=quotes&request=qr_valid123');
+	});
+
+	it('clears stale focused requests in all-services mode after provider timelines are loaded', () => {
+		const parsed = parseServicesWorkspaceRouteQuery(
+			new URLSearchParams('tab=quotes&request=qr_valid123'),
+			createContext({
+				providerLoadedByService: {
+					[serviceAddress]: true
+				}
+			})
+		);
+
+		expect(parsed.state).toEqual({
+			tab: 'quotes',
 			serviceAddress: null,
 			requestId: null
 		});
-		expect(parsed.changed).toBe(true);
-		expect(parsed.searchParams.toString()).toBe('tab=listings');
+		expect(parsed.messageCode).toBe('service_quotes_request_not_found');
+		expect(parsed.searchParams.toString()).toBe('tab=quotes');
 	});
 
 	it('clears stale focused requests after provider timelines are loaded', () => {
@@ -88,6 +107,19 @@ describe('services workspace route helpers', () => {
 	});
 
 	it('builds services workspace URLs and redirects legacy dashboard provider links', () => {
+		const allServicesWorkspaceUrl = createServicesWorkspaceUrl(
+			new URL('https://bittasker.test/services/manage?tab=listings'),
+			{
+				tab: 'quotes',
+				serviceAddress: null,
+				requestId: null
+			}
+		);
+
+		expect(allServicesWorkspaceUrl.toString()).toBe(
+			'https://bittasker.test/services/manage?tab=quotes'
+		);
+
 		const workspaceUrl = createServicesWorkspaceUrl(
 			new URL('https://bittasker.test/services/manage?tab=listings'),
 			{

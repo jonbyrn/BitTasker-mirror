@@ -10,6 +10,7 @@
 	import { findMyServices } from '$lib/nostr/findServices';
 	import {
 		buildServiceAddress,
+		isRequestSyncActive,
 		getProviderTimelines,
 		isProviderTimelineSyncing,
 		serviceQuoteUiStore
@@ -72,6 +73,80 @@
 	const selectedService = $derived(
 		services.find((service) => buildServiceAddress(service) === selectedServiceAddress) ?? null
 	);
+	const serviceAddresses = $derived(sortedServices.map((service) => buildServiceAddress(service)));
+	const serviceTitleByAddress = $derived(
+		Object.fromEntries(
+			sortedServices.map((service) => [
+				buildServiceAddress(service),
+				getServiceDisplayTitle(service, $locale || 'en')
+			])
+		) as Record<string, string>
+	);
+
+	function sortTimelinesByNewest(
+		left: (typeof providerTimelines)[number],
+		right: (typeof providerTimelines)[number]
+	): number {
+		return (right.request.created_at ?? 0) - (left.request.created_at ?? 0);
+	}
+
+	function getVisibleProviderTimelines(
+		state: Parameters<Parameters<typeof serviceQuoteUiStore.subscribe>[0]>[0]
+	) {
+		if (selectedServiceAddress) {
+			return getProviderTimelines(state, selectedServiceAddress);
+		}
+
+		return serviceAddresses
+			.flatMap((serviceAddress) => getProviderTimelines(state, serviceAddress))
+			.sort(sortTimelinesByNewest);
+	}
+
+	function getProviderQuotesSyncing(
+		state: Parameters<Parameters<typeof serviceQuoteUiStore.subscribe>[0]>[0]
+	): boolean {
+		if (selectedServiceAddress) {
+			return isProviderTimelineSyncing(state, selectedServiceAddress, focusedRequestId);
+		}
+
+		return (
+			serviceAddresses.some(
+				(serviceAddress) => state.loadingProviderByService[serviceAddress] === true
+			) || isRequestSyncActive(state, focusedRequestId, null)
+		);
+	}
+
+	function getProviderQuotesError(
+		state: Parameters<Parameters<typeof serviceQuoteUiStore.subscribe>[0]>[0]
+	): string | null {
+		if (selectedServiceAddress) {
+			return state.providerLoadErrorByService?.[selectedServiceAddress] ?? null;
+		}
+
+		return serviceAddresses.find(
+			(serviceAddress) => state.providerLoadErrorByService?.[serviceAddress] != null
+		)
+			? (state.providerLoadErrorByService[
+					serviceAddresses.find(
+						(serviceAddress) => state.providerLoadErrorByService?.[serviceAddress] != null
+					) ?? ''
+				] ?? null)
+			: null;
+	}
+
+	function getProviderQuotesLoaded(
+		state: Parameters<Parameters<typeof serviceQuoteUiStore.subscribe>[0]>[0]
+	): boolean {
+		if (selectedServiceAddress) {
+			return state.providerLoadedByService?.[selectedServiceAddress] === true;
+		}
+
+		return serviceAddresses.length > 0
+			? serviceAddresses.every(
+					(serviceAddress) => state.providerLoadedByService?.[serviceAddress] === true
+				)
+			: false;
+	}
 
 	async function loadServices() {
 		loading = true;
@@ -114,12 +189,9 @@
 
 	function handleTabChange(tabId: string) {
 		if (tabId === 'quotes') {
-			const defaultServiceAddress =
-				selectedServiceAddress ??
-				(sortedServices.length > 0 ? buildServiceAddress(sortedServices[0]) : null);
 			navigateToWorkspace({
 				tab: 'quotes',
-				serviceAddress: defaultServiceAddress,
+				serviceAddress: selectedServiceAddress,
 				requestId: null
 			});
 			return;
@@ -146,7 +218,7 @@
 		nonBlockingMessageCode = null;
 		navigateToWorkspace({
 			tab: 'quotes',
-			serviceAddress,
+			serviceAddress: serviceAddress || null,
 			requestId: null
 		});
 	}
@@ -178,18 +250,10 @@
 				providerLoadErrorByService: state.providerLoadErrorByService,
 				focusSync: state.focusSync
 			};
-			providerTimelines = getProviderTimelines(state, selectedServiceAddress);
-			providerQuotesSyncing = isProviderTimelineSyncing(
-				state,
-				selectedServiceAddress,
-				focusedRequestId
-			);
-			providerQuotesError = selectedServiceAddress
-				? (state.providerLoadErrorByService?.[selectedServiceAddress] ?? null)
-				: null;
-			providerQuotesLoaded = selectedServiceAddress
-				? state.providerLoadedByService?.[selectedServiceAddress] === true
-				: false;
+			providerTimelines = getVisibleProviderTimelines(state);
+			providerQuotesSyncing = getProviderQuotesSyncing(state);
+			providerQuotesError = getProviderQuotesError(state);
+			providerQuotesLoaded = getProviderQuotesLoaded(state);
 		});
 
 		return unsubscribe;
@@ -201,22 +265,24 @@
 			return;
 		}
 
-		if (!selectedServiceAddress) {
-			if (!loading && sortedServices.length > 0) {
-				navigateToWorkspace({
-					tab: 'quotes',
-					serviceAddress: buildServiceAddress(sortedServices[0]),
-					requestId: null
-				});
-			}
+		if (serviceAddresses.length === 0) {
 			return;
 		}
 
-		void serviceQuoteUiStore
-			.loadProviderTimelines(selectedServiceAddress, focusedRequestId)
-			.catch(() => {
-				// Error state is exposed by the store.
-			});
+		if (selectedServiceAddress) {
+			void serviceQuoteUiStore
+				.loadProviderTimelines(selectedServiceAddress, focusedRequestId)
+				.catch(() => {
+					// Error state is exposed by the store.
+				});
+			return;
+		}
+
+		void Promise.allSettled(
+			serviceAddresses.map((serviceAddress) =>
+				serviceQuoteUiStore.loadProviderTimelines(serviceAddress)
+			)
+		);
 	});
 
 	$effect(() => {
@@ -319,23 +385,31 @@
 					</a>
 				</div>
 			{:else}
-				<div class="flex flex-wrap gap-2">
-					{#each sortedServices as service (service.id)}
-						{@const serviceAddress = buildServiceAddress(service)}
-						<button
-							type="button"
-							class={`btn btn-sm ${
-								serviceAddress === selectedServiceAddress ? 'btn-primary' : 'btn-outline'
-							}`}
-							onclick={() => handleServiceSelection(serviceAddress)}
-						>
-							{getServiceDisplayTitle(service, $locale || 'en')}
-						</button>
-					{/each}
-				</div>
+				<label class="form-control w-full max-w-md">
+					<div class="label">
+						<span class="label-text font-medium">Filter by service</span>
+					</div>
+					<select
+						class="select select-bordered w-full"
+						value={selectedServiceAddress ?? ''}
+						onchange={(event) =>
+							handleServiceSelection((event.currentTarget as HTMLSelectElement).value)}
+					>
+						<option value="">All Services</option>
+						{#each sortedServices as service (service.id)}
+							<option value={buildServiceAddress(service)}>
+								{getServiceDisplayTitle(service, $locale || 'en')}
+							</option>
+						{/each}
+					</select>
+				</label>
 
 				<ServiceQuotesInbox
-					service={selectedService}
+					serviceLabel={selectedService
+						? getServiceDisplayTitle(selectedService, $locale || 'en')
+						: 'All Services'}
+					showServiceTitles={selectedServiceAddress === null}
+					{serviceTitleByAddress}
 					timelines={providerTimelines}
 					{focusedRequestId}
 					isSyncing={providerQuotesSyncing}
@@ -344,24 +418,46 @@
 					{walletReady}
 					{feeTierReady}
 					onRetry={async () => {
-						if (!selectedServiceAddress) {
+						if (serviceAddresses.length === 0) {
 							return;
 						}
-						await serviceQuoteUiStore
-							.loadProviderTimelines(selectedServiceAddress, focusedRequestId, {
-								force: true
-							})
-							.catch(() => {});
+
+						if (selectedServiceAddress) {
+							await serviceQuoteUiStore
+								.loadProviderTimelines(selectedServiceAddress, focusedRequestId, {
+									force: true
+								})
+								.catch(() => {});
+							return;
+						}
+
+						await Promise.allSettled(
+							serviceAddresses.map((serviceAddress) =>
+								serviceQuoteUiStore.loadProviderTimelines(serviceAddress, null, {
+									force: true
+								})
+							)
+						);
 					}}
 					onRequestFocusChange={handleRequestFocus}
 					onInvalidFocusedRequest={() => handleRequestFocus(null)}
 					onSendProposal={async (requestId, payload) => {
-						if (!selectedService || !selectedServiceAddress) {
+						const timeline = providerTimelines.find(
+							(entry) => entry.request.content.quoteRequestId === requestId
+						);
+						const resolvedServiceAddress =
+							selectedServiceAddress ?? timeline?.request.content.serviceAddress ?? null;
+						const resolvedService =
+							selectedService ??
+							services.find((service) => buildServiceAddress(service) === resolvedServiceAddress) ??
+							null;
+
+						if (!resolvedService || !resolvedServiceAddress) {
 							return { success: false, error: 'Select a service first.' };
 						}
 						return serviceQuoteUiStore.sendLocalProposal({
-							service: selectedService,
-							serviceAddress: selectedServiceAddress,
+							service: resolvedService,
+							serviceAddress: resolvedServiceAddress,
 							quoteRequestId: requestId,
 							...payload
 						});

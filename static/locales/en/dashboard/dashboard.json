@@ -30,12 +30,52 @@
 			"contracts": "Contracts",
 			"recurring": "Recurring Tasks",
 			"saved_searches": "Saved Searches",
-			"my_services": "My Services"
+			"my_services": "My Services",
+			"quotes": "Service Requests"
 		},
 		"saved_searches": {
 			"filter_label": "Filter by type",
 			"tasks": "Tasks",
 			"services": "Services"
+		},
+		"service_requests": {
+			"loading": "Loading your service requests...",
+			"retry_loading": "Retry to load your service requests.",
+			"empty": "No service requests have been submitted yet.",
+			"quote_pending": "Quote pending",
+			"service_label": "Service",
+			"standard_tier": "Standard",
+			"days": "days",
+			"actions": {
+				"view": "View",
+				"accept": "Accept",
+				"decline": "Decline",
+				"view_contract": "View Contract"
+			},
+			"statuses": {
+				"contract_created": "Contract created",
+				"declined": "Declined",
+				"withdrawn": "Withdrawn",
+				"expired": "Expired",
+				"accepting": "Accepting",
+				"accepting_progress": "Accepting...",
+				"accept_failed": "Accept failed",
+				"accept_unknown": "Accept unknown",
+				"proposal_received": "Proposal received",
+				"awaiting_proposal": "Awaiting proposal"
+			},
+			"alerts": {
+				"partial_sync": "Latest quote thread data is still propagating across relays. Showing partial results until the thread finishes syncing.",
+				"stale": "Showing your last known quote data. Refresh before acting on proposals because the latest relay sync did not complete.",
+				"offline": "You are offline. Reconnect before reviewing or acting on quote proposals.",
+				"reconnect": "Back online. Retry if the latest quote status has not refreshed yet."
+			},
+			"errors": {
+				"update_status": "Unable to update quote status."
+			},
+			"messages": {
+				"acceptance_submitted": "Acceptance submitted. The funded contract will appear here once escrow creation is confirmed."
+			}
 		},
 		"task_details_by_task": {
 			"title": "Task Details",
@@ -720,4 +760,3 @@
 		}
 	}
 }
-

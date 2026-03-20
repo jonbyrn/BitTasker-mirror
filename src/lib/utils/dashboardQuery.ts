@@ -148,8 +148,10 @@ export function buildServicesWorkspaceQueryUrl(
 	url.search = '';
 	url.searchParams.set('tab', state.tab);
 
-	if (state.tab === 'quotes' && state.service) {
-		url.searchParams.set('service', state.service);
+	if (state.tab === 'quotes') {
+		if (state.service) {
+			url.searchParams.set('service', state.service);
+		}
 		if (state.request) {
 			url.searchParams.set('request', state.request);
 		}

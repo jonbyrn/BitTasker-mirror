@@ -15,8 +15,11 @@
 	import { currentUserLanguage } from '$lib/stores/translation.store';
 	import { locale } from 'svelte-i18n';
 	import { get } from 'svelte/store';
-	import { SvelteSet } from 'svelte/reactivity';
-	import { getServiceDisplayTitle, getServiceDisplayDescription } from '$lib/utils/serviceDisplayTranslation';
+	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
+	import {
+		getServiceDisplayTitle,
+		getServiceDisplayDescription
+	} from '$lib/utils/serviceDisplayTranslation';
 	import { goto } from '$app/navigation';
 
 	let {
@@ -55,6 +58,20 @@
 
 	const isServicesMode = $derived(services?.length > 0);
 
+	function translateMapText(primaryKey: string, secondaryKey: string, fallback: string): string {
+		try {
+			const primary = $t(primaryKey);
+			if (primary !== primaryKey) {
+				return primary;
+			}
+
+			const secondary = $t(secondaryKey);
+			return secondary !== secondaryKey ? secondary : fallback;
+		} catch {
+			return fallback;
+		}
+	}
+
 	// State
 	let map: google.maps.Map | null = null;
 	let mapElement: HTMLElement | null = null;
@@ -67,7 +84,7 @@
 	let lastTaskIds = $state('');
 	let lastSelectedTaskId = $state<string | null>(null);
 	let lastSelectedServiceId = $state<string | null>(null);
-	let serviceMarkerByPosition = new Map<string, google.maps.marker.AdvancedMarkerElement>();
+	let serviceMarkerByPosition = new SvelteMap<string, google.maps.marker.AdvancedMarkerElement>();
 	let serviceRadius = $state(5); // Default to 5 km
 	let isLoading = $state(true);
 	let userLocation: Location | null = $state(null);
@@ -1174,7 +1191,7 @@
 
 	function groupServicesByLocation(svc: Service[]) {
 		const groups: Array<{ latitude: number; longitude: number; services: Service[] }> = [];
-		const processed = new Set<string>();
+		const processed = new SvelteSet<string>();
 		for (const service of svc) {
 			const loc = getServiceLocation(service);
 			if (!loc?.latitude || loc.longitude == null) continue;
@@ -1183,9 +1200,12 @@
 			processed.add(key);
 			const nearby = svc.filter((s) => {
 				const l = getServiceLocation(s);
-				return l?.latitude != null && l?.longitude != null &&
+				return (
+					l?.latitude != null &&
+					l?.longitude != null &&
 					Math.abs(l.latitude - loc.latitude!) < 0.001 &&
-					Math.abs(l.longitude - loc.longitude!) < 0.001;
+					Math.abs(l.longitude - loc.longitude!) < 0.001
+				);
 			});
 			groups.push({
 				latitude: loc.latitude,
@@ -1197,16 +1217,17 @@
 	}
 
 	function getServicePricingDisplay(service: Service): string {
-		if (!service.pricing) return $t('dashboard.services.browse.pricing.inquiry_required') || 'Request Quote';
+		if (!service.pricing)
+			return $t('dashboard.services.browse.pricing.inquiry_required') || 'Request Quote';
 		switch (service.pricing.type) {
 			case ServicePricingTypeEnum.FIXED:
 				return service.pricing.amount != null
 					? `$${formatNumberWithTwoDecimals(service.pricing.amount)}`
-					: ($t('dashboard.services.browse.pricing.not_set') || 'Price not set');
+					: $t('dashboard.services.browse.pricing.not_set') || 'Price not set';
 			case ServicePricingTypeEnum.HOURLY:
 				return service.pricing.hourlyRate != null
 					? `$${formatNumberWithTwoDecimals(service.pricing.hourlyRate)}/hr`
-					: ($t('dashboard.services.browse.pricing.not_set') || 'Price not set');
+					: $t('dashboard.services.browse.pricing.not_set') || 'Price not set';
 			case ServicePricingTypeEnum.TIERED:
 				if (service.pricing.tiers?.length) {
 					const prices = service.pricing.tiers
@@ -1224,9 +1245,12 @@
 
 	function getServiceLocationDisplay(service: Service): string {
 		const locLabels: Record<ServiceLocationTypeEnum, string> = {
-			[ServiceLocationTypeEnum.REMOTE]: $t('dashboard.services.create.location.remote_title') || 'Remote',
-			[ServiceLocationTypeEnum.TASKER_LOCATION]: $t('dashboard.services.create.location.tasker_title') || 'At My Location',
-			[ServiceLocationTypeEnum.TASKEE_LOCATION]: $t('dashboard.services.create.location.taskee_title') || 'At Tasker Location'
+			[ServiceLocationTypeEnum.REMOTE]:
+				$t('dashboard.services.create.location.remote_title') || 'Remote',
+			[ServiceLocationTypeEnum.TASKER_LOCATION]:
+				$t('dashboard.services.create.location.tasker_title') || 'At My Location',
+			[ServiceLocationTypeEnum.TASKEE_LOCATION]:
+				$t('dashboard.services.create.location.taskee_title') || 'At Tasker Location'
 		};
 		const base =
 			service.locationDetails?.taskerLocation?.serviceLocation?.displayName ||
@@ -1250,13 +1274,20 @@
 			return div.innerHTML;
 		};
 		const escapeAttr = (text: string): string =>
-			text.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+			text
+				.replace(/&/g, '&amp;')
+				.replace(/"/g, '&quot;')
+				.replace(/'/g, '&#39;')
+				.replace(/</g, '&lt;')
+				.replace(/>/g, '&gt;');
 
 		const currentLocale = get(locale) || 'en';
 		const displayTitle = getServiceDisplayTitle(service, currentLocale) || 'Service';
 		const displayDescription = getServiceDisplayDescription(service, currentLocale) || '';
 		const desc = (displayDescription || '').substring(0, 150);
-		const escapedDesc = escapeHtml(desc + (displayDescription && displayDescription.length > 150 ? '...' : ''));
+		const escapedDesc = escapeHtml(
+			desc + (displayDescription && displayDescription.length > 150 ? '...' : '')
+		);
 		const escapedTitle = escapeHtml(displayTitle);
 		const price = getServicePricingDisplay(service);
 		const locationText = escapeHtml(getServiceLocationDisplay(service));
@@ -1339,7 +1370,10 @@
 		`;
 	}
 
-	function showServiceInfoWindow(service: Service, marker: google.maps.marker.AdvancedMarkerElement) {
+	function showServiceInfoWindow(
+		service: Service,
+		marker: google.maps.marker.AdvancedMarkerElement
+	) {
 		if (!map) return;
 		if (!service) return;
 		closeInfoWindow();
@@ -1437,7 +1471,11 @@
 		try {
 			const groups = groupServicesByLocation(services);
 			for (const group of groups) {
-				const marker = await createServiceMarker(group.latitude, group.longitude, group.services[0]);
+				const marker = await createServiceMarker(
+					group.latitude,
+					group.longitude,
+					group.services[0]
+				);
 				if (marker) markers.push(marker);
 			}
 		} catch (error) {
@@ -2004,7 +2042,11 @@
 				<div class="text-center">
 					<span class="loading loading-spinner loading-lg mb-2"></span>
 					<p class="text-base-content/70 text-sm">
-						{$t('dashboard.bids.components.maps.task_location_map.loading_map')}
+						{translateMapText(
+							'dashboard.bids.components.maps.task_location_map.loading_map',
+							'common.components.task.location_viewer.loading_map',
+							'Loading map...'
+						)}
 					</p>
 				</div>
 			</div>
@@ -2026,7 +2068,11 @@
 						/>
 					</svg>
 					<p class="text-error text-sm">
-						{$t('dashboard.bids.components.maps.task_location_map.error_loading_map')}
+						{translateMapText(
+							'dashboard.bids.components.maps.task_location_map.error_loading_map',
+							'common.components.task.location_viewer.error_loading_map',
+							'Error loading map'
+						)}
 					</p>
 				</div>
 			</div>

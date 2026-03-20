@@ -927,6 +927,7 @@
 				},
 				"location_viewer": {
 					"loading_map": "Loading map...",
+					"error_loading_map": "Error loading map",
 					"pickup_location": "Pickup Location",
 					"task_location": "Task Location",
 					"dropoff_location": "Drop-off Location",

@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import ServiceAgreementSummary from '$lib/components/contracts/ServiceAgreementSummary.svelte';
-	import type { Service } from '$lib/types/service.d';
 	import type { ServiceQuoteTimelineEntry } from '$lib/types/service-quote';
 	import { buildServiceQuoteAgreementSummary } from '$lib/utils/service-quote/agreement-summary';
 	import { createDashboardUrl } from '$lib/utils/service-quote/dashboard-route';
@@ -15,7 +14,9 @@
 	} from './ServiceProposalComposer.svelte';
 
 	let {
-		service = null,
+		serviceLabel = null,
+		showServiceTitles = false,
+		serviceTitleByAddress = {},
 		timelines = [],
 		focusedRequestId = null,
 		isSyncing = false,
@@ -28,7 +29,9 @@
 		onInvalidFocusedRequest,
 		onSendProposal
 	}: {
-		service?: Service | null;
+		serviceLabel?: string | null;
+		showServiceTitles?: boolean;
+		serviceTitleByAddress?: Record<string, string>;
 		timelines?: ServiceQuoteTimelineEntry[];
 		focusedRequestId?: string | null;
 		isSyncing?: boolean;
@@ -42,12 +45,19 @@
 		onSendProposal?: (
 			requestId: string,
 			payload: ServiceProposalComposerSubmitPayload
-		) => Promise<{ success: boolean; error?: string } | void> | { success: boolean; error?: string } | void;
+		) =>
+			| Promise<{ success: boolean; error?: string } | void>
+			| { success: boolean; error?: string }
+			| void;
 	} = $props();
 
 	const selectedTimeline = $derived.by(() => {
 		if (focusedRequestId) {
-			return timelines.find((timeline) => timeline.request.content.quoteRequestId === focusedRequestId) ?? null;
+			return (
+				timelines.find(
+					(timeline) => timeline.request.content.quoteRequestId === focusedRequestId
+				) ?? null
+			);
 		}
 		return timelines[0] ?? null;
 	});
@@ -63,7 +73,9 @@
 		$browserNetworkStatus.online && $browserNetworkStatus.lastTransition === 'online'
 	);
 	const freshnessServiceAddress = $derived(
-		selectedTimeline?.request.content.serviceAddress ?? timelines[0]?.request.content.serviceAddress ?? null
+		selectedTimeline?.request.content.serviceAddress ??
+			timelines[0]?.request.content.serviceAddress ??
+			null
 	);
 	const providerDataFreshness = $derived(
 		getProviderDataFreshness($serviceQuoteUiStore, freshnessServiceAddress)
@@ -139,12 +151,14 @@
 	}
 </script>
 
-<section class="grid gap-4 lg:grid-cols-[minmax(280px,320px)_1fr]" data-testid="service-quotes-inbox">
-	<div class="rounded-2xl border border-base-300 bg-base-100 p-4 shadow-sm">
+<section class="space-y-4" data-testid="service-quotes-inbox">
+	<div class="border-base-300 bg-base-100 rounded-2xl border p-4 shadow-sm">
 		<div class="mb-4">
 			<h4 class="text-sm font-semibold">Quotes Inbox</h4>
-			<p class="mt-1 text-sm text-base-content/70">
-				{service ? `Service: ${service.title}` : 'Select a service to review incoming requests.'}
+			<p class="text-base-content/70 mt-1 text-sm">
+				{serviceLabel
+					? `Service: ${serviceLabel}`
+					: 'Select a service to review incoming requests.'}
 			</p>
 		</div>
 
@@ -157,13 +171,15 @@
 		{#if showPartialSyncAlert}
 			<div class="alert alert-warning mb-4 text-sm" data-testid="service-quotes-partial-alert">
 				<span>
-					Latest request-thread data is still propagating across relays. Showing partial results until the sync completes.
+					Latest request-thread data is still propagating across relays. Showing partial results
+					until the sync completes.
 				</span>
 			</div>
 		{:else if providerDataIsStale}
 			<div class="alert alert-warning mb-4 text-sm" data-testid="service-quotes-stale-alert">
 				<span>
-					Showing the last known quote data for this service. Refresh before sending a proposal because the latest relay sync did not complete.
+					Showing the last known quote data for this service. Refresh before sending a proposal
+					because the latest relay sync did not complete.
 				</span>
 			</div>
 		{/if}
@@ -190,7 +206,7 @@
 		{/if}
 
 		{#if timelines.length === 0}
-			<div class="rounded-xl border border-dashed border-base-300 p-6 text-sm text-base-content/70">
+			<div class="border-base-300 text-base-content/70 rounded-xl border border-dashed p-6 text-sm">
 				{#if !hasLoaded && isSyncing}
 					Loading quote requests for this service...
 				{:else if loadError}
@@ -214,7 +230,13 @@
 						<div class="flex items-start justify-between gap-3">
 							<div>
 								<p class="font-medium">{timeline.request.content.inquiry.title}</p>
-								<p class="mt-1 line-clamp-2 text-sm text-base-content/70">
+								{#if showServiceTitles}
+									<p class="text-base-content/50 mt-1 text-xs tracking-wide uppercase">
+										{serviceTitleByAddress[timeline.request.content.serviceAddress] ??
+											timeline.request.content.serviceAddress}
+									</p>
+								{/if}
+								<p class="text-base-content/70 mt-1 line-clamp-2 text-sm">
 									{timeline.request.content.inquiry.description}
 								</p>
 							</div>
@@ -228,13 +250,19 @@
 
 	<div class="space-y-4">
 		{#if selectedTimeline}
-			<section class="rounded-2xl border border-base-300 bg-base-100 p-4 shadow-sm">
+			<section class="border-base-300 bg-base-100 rounded-2xl border p-4 shadow-sm">
 				<div class="flex flex-wrap items-center justify-between gap-3">
 					<div>
 						<h4 class="text-sm font-semibold">{selectedTimeline.request.content.inquiry.title}</h4>
-						<p class="mt-1 text-sm text-base-content/70">
+						<p class="text-base-content/70 mt-1 text-sm">
 							Request ID: {selectedTimeline.request.content.quoteRequestId}
 						</p>
+						{#if showServiceTitles}
+							<p class="text-base-content/70 mt-1 text-sm">
+								Service: {serviceTitleByAddress[selectedTimeline.request.content.serviceAddress] ??
+									selectedTimeline.request.content.serviceAddress}
+							</p>
+						{/if}
 					</div>
 					<span class="badge badge-outline">{describeStatus(selectedTimeline)}</span>
 				</div>
@@ -255,9 +283,9 @@
 			</section>
 
 			{#if selectedTimeline.linkedEscrowId}
-				<section class="rounded-2xl border border-success/20 bg-success/10 p-4 shadow-sm">
+				<section class="border-success/20 bg-success/10 rounded-2xl border p-4 shadow-sm">
 					<h4 class="text-sm font-semibold">Contract created</h4>
-					<p class="mt-1 text-sm text-base-content/70">
+					<p class="text-base-content/70 mt-1 text-sm">
 						This quote request has already been converted into an active service contract.
 					</p>
 					<button
@@ -268,15 +296,16 @@
 					</button>
 				</section>
 			{:else if selectedTimelineExpired}
-				<section class="rounded-2xl border border-warning/20 bg-warning/10 p-4 shadow-sm">
+				<section class="border-warning/20 bg-warning/10 rounded-2xl border p-4 shadow-sm">
 					<h4 class="text-sm font-semibold">Request expired</h4>
-					<p class="mt-1 text-sm text-base-content/70">
-						This quote request is now read-only. Wait for the buyer to send a new request before replying again.
+					<p class="text-base-content/70 mt-1 text-sm">
+						This quote request is now read-only. Wait for the buyer to send a new request before
+						replying again.
 					</p>
 				</section>
 			{:else}
 				{#if selectedProposalSummary}
-					<section class="rounded-2xl border border-base-300 bg-base-100 p-4 shadow-sm">
+					<section class="border-base-300 bg-base-100 rounded-2xl border p-4 shadow-sm">
 						<h4 class="text-sm font-semibold">Latest Proposal</h4>
 						<div class="mt-3">
 							<ServiceAgreementSummary
@@ -288,7 +317,7 @@
 								estimatedStartTime={selectedProposalSummary.estimatedStartTime}
 								estimatedCompletionTime={selectedProposalSummary.estimatedCompletionTime}
 							/>
-							<p class="mt-3 text-sm text-base-content/70">
+							<p class="text-base-content/70 mt-3 text-sm">
 								Estimated duration: {selectedProposalSummary.estimatedDuration}
 							</p>
 						</div>
@@ -296,13 +325,11 @@
 				{/if}
 				<ServiceProposalComposer
 					requestTitle={selectedTimeline.request.content.inquiry.title}
-					disabled={
-						isSyncing ||
+					disabled={isSyncing ||
 						Boolean(loadError) ||
 						isOffline ||
 						providerDataIsStale ||
-						showPartialSyncAlert
-					}
+						showPartialSyncAlert}
 					blockedReason={composerBlockedReason}
 					{walletReady}
 					{feeTierReady}
@@ -310,7 +337,9 @@
 				/>
 			{/if}
 		{:else}
-			<div class="rounded-2xl border border-dashed border-base-300 p-6 text-sm text-base-content/70">
+			<div
+				class="border-base-300 text-base-content/70 rounded-2xl border border-dashed p-6 text-sm"
+			>
 				{#if showPartialSyncAlert}
 					Waiting for the selected quote thread to finish syncing.
 				{:else}

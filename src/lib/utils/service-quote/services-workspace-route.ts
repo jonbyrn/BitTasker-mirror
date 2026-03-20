@@ -58,6 +58,16 @@ function hasMatchingTimeline(
 	return timelines.some((timeline) => timeline.request.content.quoteRequestId === requestId);
 }
 
+function getContextServiceAddresses(context: ServicesWorkspaceRouteContext): string[] {
+	return [
+		...new Set([
+			...Object.keys(context.providerTimelinesByService),
+			...Object.keys(context.providerLoadedByService),
+			...Object.keys(context.providerLoadErrorByService)
+		])
+	];
+}
+
 function isRequestSyncActive(
 	context: Pick<ServicesWorkspaceRouteContext, 'focusSync'>,
 	requestId: string | null | undefined,
@@ -100,8 +110,6 @@ export function parseServicesWorkspaceRouteQuery(
 
 	if (parsed.tab === 'quotes' && parsed.service && isValidServiceAddress(parsed.service)) {
 		normalized.serviceAddress = parsed.service;
-	} else if (parsed.tab === 'quotes') {
-		normalized.tab = 'listings';
 	}
 
 	if (normalized.tab === 'quotes' && parsed.request) {
@@ -112,13 +120,24 @@ export function parseServicesWorkspaceRouteQuery(
 		}
 	}
 
-	if (normalized.tab === 'quotes' && normalized.serviceAddress && normalized.requestId) {
-		const providerTimelines = context.providerTimelinesByService[normalized.serviceAddress] ?? [];
-		const providerLoaded = context.providerLoadedByService[normalized.serviceAddress] === true;
-		const providerLoadError = context.providerLoadErrorByService[normalized.serviceAddress] ?? null;
+	if (normalized.tab === 'quotes' && normalized.requestId) {
+		const serviceAddresses = normalized.serviceAddress
+			? [normalized.serviceAddress]
+			: getContextServiceAddresses(context);
+		const providerTimelines = serviceAddresses.flatMap(
+			(serviceAddress) => context.providerTimelinesByService[serviceAddress] ?? []
+		);
+		const providerLoaded =
+			serviceAddresses.length > 0 &&
+			serviceAddresses.every(
+				(serviceAddress) => context.providerLoadedByService[serviceAddress] === true
+			);
+		const providerLoadError = serviceAddresses.some(
+			(serviceAddress) => context.providerLoadErrorByService[serviceAddress] != null
+		);
 		const keepFocusedRequest =
 			!providerLoaded ||
-			providerLoadError !== null ||
+			providerLoadError ||
 			isRequestSyncActive(context, normalized.requestId, normalized.serviceAddress, now) ||
 			hasMatchingTimeline(providerTimelines, normalized.requestId);
 
