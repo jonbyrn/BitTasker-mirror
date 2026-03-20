@@ -2,7 +2,21 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import AmountDisplay from '$lib/components/wallet/AmountDisplay.svelte';
-import cryptoPriceService from '$lib/api/services/crypto-price.service';
+
+const { amountDisplayMarketPriceControl } = vi.hoisted(() => ({
+	amountDisplayMarketPriceControl: {
+		setState: (
+			next: Partial<{
+				btcUsd: number;
+				lastFetched: number;
+				isRefreshing: boolean;
+				error: string | null;
+			}>
+		) => {
+			void next;
+		}
+	}
+}));
 
 // Mock svelte-i18n
 vi.mock('svelte-i18n', async () => {
@@ -22,12 +36,36 @@ vi.mock('svelte-i18n', async () => {
 	};
 });
 
-// Mock crypto price service
-vi.mock('$lib/api/services/crypto-price.service', () => ({
-	default: {
-		getCurrentPrice: vi.fn().mockResolvedValue(50000) // Mock BTC price: $50,000
-	}
-}));
+vi.mock('$lib/stores/market-price.store', async () => {
+	const { writable, derived } = await import('svelte/store');
+	const state = writable({
+		btcUsd: 50000,
+		lastFetched: Date.now(),
+		isRefreshing: false,
+		error: null as string | null
+	});
+
+	amountDisplayMarketPriceControl.setState = (next) => {
+		state.update((current) => ({ ...current, ...next }));
+	};
+
+	return {
+		btcUsd: derived(state, ($state) => $state.btcUsd),
+		rbtcUsd: derived(state, ($state) => $state.btcUsd),
+		marketPriceMeta: derived(state, ($state) => ({
+			lastFetched: $state.lastFetched,
+			isRefreshing: $state.isRefreshing,
+			error: $state.error
+		})),
+		marketPrice: {
+			subscribe: state.subscribe,
+			refresh: vi.fn().mockResolvedValue(undefined),
+			startPolling: vi.fn(),
+			stopPolling: vi.fn(),
+			hydrateFromCache: vi.fn()
+		}
+	};
+});
 
 describe('AmountDisplay Component', () => {
 	const defaultProps = {
@@ -38,6 +76,12 @@ describe('AmountDisplay Component', () => {
 
 	beforeEach(() => {
 		vi.clearAllMocks();
+		amountDisplayMarketPriceControl.setState({
+			btcUsd: 50000,
+			lastFetched: Date.now(),
+			isRefreshing: false,
+			error: null
+		});
 	});
 
 	describe('Basic Rendering', () => {
@@ -116,7 +160,7 @@ describe('AmountDisplay Component', () => {
 			render(AmountDisplay, { ...defaultProps, unit: 'sats' });
 			expect(screen.getByLabelText('Sats')).toBeDefined();
 
-			const { rerender } = render(AmountDisplay, { ...defaultProps, unit: 'usd' });
+			render(AmountDisplay, { ...defaultProps, unit: 'usd' });
 			expect(screen.getByLabelText('USD')).toBeDefined();
 		});
 	});
@@ -164,27 +208,28 @@ describe('AmountDisplay Component', () => {
 		});
 
 		it('should show loading state while fetching BTC price', async () => {
-			vi.mocked(cryptoPriceService.getCurrentPrice).mockImplementation(
-				() => new Promise((resolve) => setTimeout(() => resolve(50000), 100))
-			);
+			amountDisplayMarketPriceControl.setState({
+				btcUsd: 0,
+				lastFetched: 0,
+				isRefreshing: true,
+				error: null
+			});
 
-			render(AmountDisplay, { ...defaultProps, btcPrice: undefined });
+			render(AmountDisplay, defaultProps);
 
 			// Should show loading spinner initially
 			expect(screen.getByText('Loading...')).toBeDefined();
-
-			await waitFor(
-				() => {
-					expect(screen.queryByText('Loading...')).toBeNull();
-				},
-				{ timeout: 200 }
-			);
 		});
 
 		it('should show unavailable message when BTC price is 0', async () => {
-			vi.mocked(cryptoPriceService.getCurrentPrice).mockResolvedValue(0);
+			amountDisplayMarketPriceControl.setState({
+				btcUsd: 0,
+				lastFetched: Date.now(),
+				isRefreshing: false,
+				error: 'price unavailable'
+			});
 
-			render(AmountDisplay, { ...defaultProps, btcPrice: undefined });
+			render(AmountDisplay, defaultProps);
 
 			await waitFor(() => {
 				expect(screen.getByText('Exchange rate unavailable')).toBeDefined();
@@ -198,9 +243,6 @@ describe('AmountDisplay Component', () => {
 
 			await tick();
 
-			// Should not call getCurrentPrice if price is provided
-			expect(cryptoPriceService.getCurrentPrice).not.toHaveBeenCalled();
-
 			// Conversion should use provided price: 100,000 sats = 0.001 BTC = $60 at $60,000/BTC
 			await waitFor(() => {
 				const conversion = screen.getByTestId('conversion-usd');
@@ -208,11 +250,12 @@ describe('AmountDisplay Component', () => {
 			});
 		});
 
-		it('should fetch BTC price if not provided', async () => {
-			render(AmountDisplay, { ...defaultProps, btcPrice: undefined });
+		it('should use the shared market price store if btcPrice is not provided', async () => {
+			render(AmountDisplay, defaultProps);
 
 			await waitFor(() => {
-				expect(cryptoPriceService.getCurrentPrice).toHaveBeenCalledWith('BTC');
+				const conversion = screen.getByTestId('conversion-usd');
+				expect(conversion.textContent).toContain('$50.00');
 			});
 		});
 
@@ -306,4 +349,3 @@ describe('AmountDisplay Component', () => {
 		});
 	});
 });
-

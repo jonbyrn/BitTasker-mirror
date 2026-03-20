@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // Mock the SDK before importing anything that uses it
@@ -41,15 +42,19 @@ vi.mock('$lib/stores/wallet.store', async () => {
 
 	const mockTransactions = [
 		ProcessedTransactionFactory.create({ displayType: 'send', network: 'rsk' }),
-		ProcessedTransactionFactory.create({ displayType: 'receive', network: 'rsk', borderColor: 'success' }),
+		ProcessedTransactionFactory.create({
+			displayType: 'receive',
+			network: 'rsk',
+			borderColor: 'success'
+		}),
 		ProcessedTransactionFactory.create({ displayType: 'send', network: 'rsk' })
 	];
-	
+
 	const mockWalletManager = {
 		loadTransactions: vi.fn().mockResolvedValue(undefined),
 		initialize: vi.fn().mockResolvedValue(undefined)
 	};
-	
+
 	return {
 		walletStore: writable({
 			isConnected: true,
@@ -86,18 +91,16 @@ describe('TransactionHistory Component', () => {
 		it('should render transaction history', async () => {
 			render(TransactionHistory);
 			await tick();
-			
+
 			// Use getAllByText since there might be multiple matches
 			const elements = screen.getAllByText(/transaction|history/i);
 			expect(elements.length).toBeGreaterThan(0);
 		});
 
 		it('should load transactions on mount', async () => {
-			const { walletManager } = await import('$lib/stores/wallet.store');
-			
 			render(TransactionHistory);
 			await tick();
-			
+
 			// Component might load transactions on mount or might not
 			// Just verify the component rendered without errors
 			await waitFor(() => {
@@ -108,11 +111,11 @@ describe('TransactionHistory Component', () => {
 
 		it('should display loading state', async () => {
 			const { walletStore } = await import('$lib/stores/wallet.store');
-			walletStore.update(s => ({ ...s, isLoadingTransactions: true }));
-			
+			walletStore.update((s) => ({ ...s, isLoadingTransactions: true }));
+
 			render(TransactionHistory);
 			await tick();
-			
+
 			// Loading state might be shown or might not be implemented
 			// Just verify component renders without errors
 			const loadingElement = screen.queryByText(/loading|spinner/i);
@@ -130,13 +133,13 @@ describe('TransactionHistory Component', () => {
 		it('should filter by transaction type', async () => {
 			render(TransactionHistory);
 			await tick();
-			
+
 			// Find type filter buttons - use getAllByRole since there might be multiple
 			const sendFilters = screen.queryAllByRole('button', { name: /send|sent/i });
 			if (sendFilters.length > 0) {
 				await fireEvent.click(sendFilters[0]);
 				await tick();
-				
+
 				// Should show only send transactions
 				await waitFor(() => {
 					const transactions = screen.queryAllByText(/send|sent/i);
@@ -148,13 +151,13 @@ describe('TransactionHistory Component', () => {
 		it('should filter by network', async () => {
 			render(TransactionHistory);
 			await tick();
-			
+
 			// Find network filter - use getAllByRole since there might be multiple
 			const networkFilters = screen.queryAllByRole('button', { name: /network|rsk|bsc/i });
 			if (networkFilters.length > 0) {
 				await fireEvent.click(networkFilters[0]);
 				await tick();
-				
+
 				// Network filter should be applied
 				await waitFor(() => {
 					expect(networkFilters[0]).toBeInTheDocument();
@@ -165,13 +168,13 @@ describe('TransactionHistory Component', () => {
 		it('should show all transactions when all filter is selected', async () => {
 			render(TransactionHistory);
 			await tick();
-			
+
 			// Use getAllByRole since there might be multiple "all" buttons
 			const allFilters = screen.queryAllByRole('button', { name: /all/i });
 			if (allFilters.length > 0) {
 				await fireEvent.click(allFilters[0]);
 				await tick();
-				
+
 				// Should show all transactions
 				await waitFor(() => {
 					const transactions = screen.queryAllByText(/transaction|hash/i);
@@ -216,16 +219,16 @@ describe('TransactionHistory Component', () => {
 				expect(container.textContent).toContain('1.25 USDT');
 			});
 
-			expect(screen.getByText('BSC')).toBeInTheDocument();
+			expect(screen.getByText('USDT on BSC')).toBeInTheDocument();
 			expect(container.textContent).toContain('0.025 USDT');
 			expect(container.textContent).toContain('99.5 USDT');
-			expect(screen.getByAltText('BSC')).toBeInTheDocument();
+			expect(screen.getByAltText('USDT on BSC')).toBeInTheDocument();
 		});
 
 		it('should display transaction details', async () => {
 			render(TransactionHistory);
 			await tick();
-			
+
 			// Should show transaction information
 			await waitFor(() => {
 				const transactionElements = screen.queryAllByText(/0x|hash|address/i);
@@ -236,7 +239,7 @@ describe('TransactionHistory Component', () => {
 		it('should show transaction status', async () => {
 			render(TransactionHistory);
 			await tick();
-			
+
 			// Should show status indicators
 			const statusElements = screen.queryAllByText(/confirmed|pending|failed/i);
 			expect(statusElements.length).toBeGreaterThanOrEqual(0);
@@ -245,13 +248,13 @@ describe('TransactionHistory Component', () => {
 		it('should expand transaction details when clicked', async () => {
 			render(TransactionHistory);
 			await tick();
-			
+
 			// Find transaction item
 			const transactionItem = screen.queryByRole('button', { name: /expand|details/i });
 			if (transactionItem) {
 				await fireEvent.click(transactionItem);
 				await tick();
-				
+
 				// Details should be visible
 				await waitFor(() => {
 					expect(transactionItem.getAttribute('aria-expanded')).toBe('true');
@@ -264,10 +267,10 @@ describe('TransactionHistory Component', () => {
 		it('should show empty state when no transactions', async () => {
 			const { transactions } = await import('$lib/stores/wallet.store');
 			transactions.set([]);
-			
+
 			render(TransactionHistory);
 			await tick();
-			
+
 			await waitFor(() => {
 				const emptyState = screen.queryByText(/no transactions|empty/i);
 				if (emptyState) {
@@ -281,13 +284,15 @@ describe('TransactionHistory Component', () => {
 		it('should paginate transactions', async () => {
 			// Create many ProcessedTransactions (component expects iconConfig, displayType, network)
 			const { ProcessedTransactionFactory } = await import('../utils/test-data-factories');
-			const manyTransactions = Array.from({ length: 25 }, () => ProcessedTransactionFactory.create());
+			const manyTransactions = Array.from({ length: 25 }, () =>
+				ProcessedTransactionFactory.create()
+			);
 			const { transactions } = await import('$lib/stores/wallet.store');
 			transactions.set(manyTransactions);
-			
+
 			render(TransactionHistory);
 			await tick();
-			
+
 			// Should show pagination controls if implemented
 			const pagination = screen.queryByRole('navigation', { name: /pagination/i });
 			if (pagination) {

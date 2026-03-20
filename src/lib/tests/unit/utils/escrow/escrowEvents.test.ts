@@ -13,6 +13,7 @@ import { contractStore } from '$lib/stores/contract.store';
 import { appStore } from '$lib/stores/app.store';
 import { getStatusMessages } from '$lib/utils/helpers/contractStatusFormatter';
 import { pushNotificationService } from '$lib/api/services/push-notification.service';
+import { BidStatusEnum } from '$lib/utils/enums/bid.enum';
 
 // Mock @bittasker/wallet-core to avoid EventBus import issues (normalizeRskAddress used by escrow)
 vi.mock('@bittasker/wallet-core', () => ({

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
 	createEscrowOnBsc,
@@ -8,6 +9,30 @@ import {
 import { ethers } from 'ethers';
 import type { BscEscrowCreationParams } from '$lib/types/escrow';
 
+const { mockEthersModule, mockGetWallet } = vi.hoisted(() => ({
+	mockEthersModule: {
+		Contract: vi.fn(),
+		parseUnits: vi.fn((value: string, decimals: number) => {
+			const [whole, fraction = ''] = value.split('.');
+			const normalizedFraction = `${fraction}${'0'.repeat(decimals)}`.slice(0, decimals);
+			return BigInt(`${whole}${normalizedFraction}`);
+		}),
+		isAddress: vi.fn((value: string) => /^0x[a-fA-F0-9]{40}$/.test(value)),
+		MaxUint256: BigInt('0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff')
+	},
+	mockGetWallet: vi.fn()
+}));
+
+vi.mock('ethers', () => ({
+	ethers: {
+		Contract: mockEthersModule.Contract,
+		parseUnits: mockEthersModule.parseUnits,
+		isAddress: mockEthersModule.isAddress,
+		MaxUint256: mockEthersModule.MaxUint256
+	},
+	parseUnits: mockEthersModule.parseUnits
+}));
+
 // Mock wallet store
 const mockWallet = {
 	getAddress: vi.fn(),
@@ -15,12 +40,7 @@ const mockWallet = {
 };
 
 vi.mock('$lib/stores/wallet.store', () => ({
-	getWallet: vi.fn((network: string) => {
-		if (network === 'bsc') {
-			return mockWallet;
-		}
-		return null;
-	})
+	getWallet: mockGetWallet
 }));
 
 vi.mock('$lib/utils/debug', () => ({
@@ -48,6 +68,20 @@ describe('createBscEscrow', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		mockWallet.getAddress.mockResolvedValue(mockSenderAddress);
+		mockGetWallet.mockImplementation((network: string) => {
+			if (network === 'bsc') {
+				return mockWallet;
+			}
+			return null;
+		});
+		mockEthersModule.isAddress.mockImplementation((value: string) =>
+			/^0x[a-fA-F0-9]{40}$/.test(value)
+		);
+		mockEthersModule.parseUnits.mockImplementation((value: string, decimals: number) => {
+			const [whole, fraction = ''] = value.split('.');
+			const normalizedFraction = `${fraction}${'0'.repeat(decimals)}`.slice(0, decimals);
+			return BigInt(`${whole}${normalizedFraction}`);
+		});
 	});
 
 	describe('createEscrowOnBsc', () => {
@@ -96,7 +130,7 @@ describe('createBscEscrow', () => {
 				})
 			};
 
-			vi.spyOn(ethers, 'Contract').mockReturnValue(mockContractInstance as any);
+			vi.mocked(ethers.Contract).mockReturnValue(mockContractInstance as any);
 
 			const params = {
 				...validParams,
@@ -110,11 +144,7 @@ describe('createBscEscrow', () => {
 		});
 
 		it('should fail if no wallet available and no signer provided', async () => {
-			vi.resetModules();
-			// Mock wallet store to return null
-			vi.doMock('$lib/stores/wallet.store', () => ({
-				getWallet: vi.fn(() => null)
-			}));
+			mockGetWallet.mockReturnValue(null);
 
 			const params = {
 				...validParams,
@@ -142,11 +172,11 @@ describe('createBscEscrow', () => {
 				})
 			});
 
-			vi.spyOn(ethers, 'Contract').mockReturnValue({
+			vi.mocked(ethers.Contract).mockReturnValue({
 				createEscrow: createEscrowSpy
 			} as any);
 
-			vi.spyOn(ethers, 'parseUnits').mockReturnValue(BigInt('100500000')); // 100.5 USDT
+			mockEthersModule.parseUnits.mockReturnValue(BigInt('100500000')); // 100.5 USDT
 
 			mockWallet.getAddress.mockResolvedValue(mockSenderAddress);
 
@@ -158,17 +188,14 @@ describe('createBscEscrow', () => {
 
 			await createEscrowOnBsc(params);
 
-			expect(createEscrowSpy).toHaveBeenCalledWith(
-				mockRecipientAddress,
-				BigInt('100500000')
-			);
+			expect(createEscrowSpy).toHaveBeenCalledWith(mockRecipientAddress, BigInt('100500000'));
 		});
 
 		it('should handle contract creation errors', async () => {
 			const mockAbi = [];
 
 			const mockError = new Error('Transaction failed');
-			vi.spyOn(ethers, 'Contract').mockReturnValue({
+			vi.mocked(ethers.Contract).mockReturnValue({
 				createEscrow: vi.fn().mockRejectedValue(mockError)
 			} as any);
 
@@ -184,7 +211,7 @@ describe('createBscEscrow', () => {
 			const expectedHash = '0x' + 'b'.repeat(64);
 			const mockAbi = [];
 
-			vi.spyOn(ethers, 'Contract').mockReturnValue({
+			vi.mocked(ethers.Contract).mockReturnValue({
 				createEscrow: vi.fn().mockResolvedValue({
 					wait: vi.fn().mockResolvedValue({
 						hash: expectedHash,
@@ -208,8 +235,7 @@ describe('createBscEscrow', () => {
 		it('should include metadata in logs if provided', async () => {
 			const mockAbi = [];
 
-			const debugSpy = vi.fn();
-			vi.spyOn(ethers, 'Contract').mockReturnValue({
+			vi.mocked(ethers.Contract).mockReturnValue({
 				createEscrow: vi.fn().mockResolvedValue({
 					wait: vi.fn().mockResolvedValue({
 						hash: '0x' + 'a'.repeat(64)

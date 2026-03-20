@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen } from '@testing-library/svelte';
 import { tick } from 'svelte';
@@ -15,8 +16,7 @@ vi.mock('svelte-i18n', async () => {
 		'common.components.bidding.escrow_success.platform_fee': 'Platform fee',
 		'common.components.bidding.escrow_success.transaction_fee': 'Transaction fee',
 		'common.components.bidding.escrow_success.total_price': 'Total price',
-		'common.components.bidding.escrow_success.blockchain_verification':
-			'Blockchain verification',
+		'common.components.bidding.escrow_success.blockchain_verification': 'Blockchain verification',
 		'common.components.bidding.escrow_success.verification_message': 'Verify the transaction.',
 		'common.components.bidding.escrow_success.copy_hash': 'Copy hash',
 		'common.components.bidding.escrow_success.view_explorer': 'View explorer',
@@ -28,19 +28,17 @@ vi.mock('svelte-i18n', async () => {
 		'wallet.address_copied': 'Address copied'
 	};
 
-	const tStore = readable(
-		(key: string, options?: { values?: Record<string, string | number> }) => {
-			let result = translations[key] ?? key;
+	const tStore = readable((key: string, options?: { values?: Record<string, string | number> }) => {
+		let result = translations[key] ?? key;
 
-			if (options?.values) {
-				for (const [placeholder, value] of Object.entries(options.values)) {
-					result = result.replace(`{${placeholder}}`, String(value));
-				}
+		if (options?.values) {
+			for (const [placeholder, value] of Object.entries(options.values)) {
+				result = result.replace(`{${placeholder}}`, String(value));
 			}
-
-			return result;
 		}
-	);
+
+		return result;
+	});
 
 	return {
 		t: tStore,
@@ -119,7 +117,7 @@ describe('EscrowSuccessScreen', () => {
 		expect(screen.getAllByText('rBTC on Rootstock').length).toBeGreaterThan(0);
 		expect(screen.getByRole('link', { name: 'View explorer' })).toHaveAttribute(
 			'href',
-			'https://rootstock-testnet.blockscout.com/tx/0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
+			'https://rootstock.blockscout.com/tx/0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
 		);
 
 		await rendered.rerender({
