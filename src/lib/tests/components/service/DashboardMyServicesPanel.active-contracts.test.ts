@@ -1,9 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, waitFor } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, waitFor, within } from '@testing-library/svelte';
 import type { Service } from '$lib/types/service.d';
 import type { ContractWithEvents } from '$lib/types/contract';
 import { EscrowStatus } from '$lib/utils/escrow';
 import type { ServiceQuoteTimelineEntry } from '$lib/types/service-quote';
+import { createServicesWorkspaceUrl } from '$lib/utils/service-quote/services-workspace-route';
+import { ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';
 
 const hoisted = vi.hoisted(() => {
 	function createStore<T>(initialValue: T) {
@@ -32,18 +34,34 @@ const hoisted = vi.hoisted(() => {
 		mockQueryTaskeeThreads: vi.fn().mockResolvedValue([]),
 		mockLoadContracts: vi.fn().mockResolvedValue(undefined),
 		mockLoadProviderTimelines: vi.fn().mockResolvedValue([]),
+		mockGetCurrentPrice: vi.fn().mockResolvedValue(63_000),
 		contractStoreState: createStore({
 			contracts: [] as ContractWithEvents[]
 		}),
 		serviceQuoteUiState: createStore({
 			providerTimelinesByService: {} as Record<string, ServiceQuoteTimelineEntry[]>,
 			loadingProviderByService: {} as Record<string, boolean>,
-			providerLoadErrorByService: {} as Record<string, string | null>
+			providerLoadErrorByService: {} as Record<string, string | null>,
+			providerDataFreshnessByService: {} as Record<string, 'fresh' | 'stale' | 'partial'>
 		}),
 		walletStore: createStore({
 			rsk: {
-				address: '0x1111111111111111111111111111111111111111'
+				address: '0x1111111111111111111111111111111111111111' as string | null
 			}
+		}),
+		appStoreState: createStore({
+			nostrKeys: {
+				nsec: null,
+				npub: 'a'.repeat(64),
+				mnemonic: null
+			},
+			isLoading: false,
+			error: null,
+			toasts: [],
+			biometricData: null,
+			network: 'testnet',
+			pool: null,
+			relays: []
 		})
 	};
 });
@@ -71,6 +89,13 @@ vi.mock('$lib/nostr/service', () => ({
 		hoisted.mockDeleteService(...args)
 }));
 
+vi.mock('$lib/api/services/crypto-price.service', () => ({
+	default: {
+		getCurrentPrice: (...args: Parameters<typeof hoisted.mockGetCurrentPrice>) =>
+			hoisted.mockGetCurrentPrice(...args)
+	}
+}));
+
 vi.mock('$lib/utils/service-quote/query', () => ({
 	queryTaskeeServiceQuoteThreads: (
 		...args: Parameters<typeof hoisted.mockQueryTaskeeThreads>
@@ -95,7 +120,8 @@ vi.mock('$lib/stores/service-quote-ui.store', async () => ({
 		subscribe: hoisted.serviceQuoteUiState.subscribe,
 		loadProviderTimelines: (...args: Parameters<typeof hoisted.mockLoadProviderTimelines>) =>
 			hoisted.mockLoadProviderTimelines(...args),
-		setNonBlockingMessage: vi.fn()
+		setNonBlockingMessage: vi.fn(),
+		sendLocalProposal: vi.fn()
 	}
 }));
 
@@ -131,9 +157,16 @@ vi.mock('$lib/stores/task.store', async () => {
 
 vi.mock('$lib/stores/app.store', () => ({
 	appStore: {
+		subscribe: hoisted.appStoreState.subscribe,
+		set: vi.fn(),
+		update: vi.fn(),
 		showSuccessToast: vi.fn(),
 		showErrorToast: vi.fn()
 	}
+}));
+
+vi.mock('$lib/utils/nostrKeys', () => ({
+	getNpub: vi.fn().mockResolvedValue('a'.repeat(64))
 }));
 
 function createService(): Service {
@@ -171,7 +204,7 @@ function createTimeline(service: Service): ServiceQuoteTimelineEntry {
 				quoteRequestId: 'qr_valid123',
 				serviceId: serviceAddress,
 				serviceAddress,
-				pricingType: 'FIXED',
+				pricingType: ServicePricingTypeEnum.FIXED,
 				inquiry: {
 					title: 'Need a brand refresh',
 					description: 'Please send a proposal for a full design pass.'
@@ -267,6 +300,25 @@ describe('DashboardMyServicesPanel active contracts shortcut', () => {
 			providerLoadErrorByService: {},
 			providerDataFreshnessByService: {}
 		});
+		hoisted.walletStore.set({
+			rsk: {
+				address: '0x1111111111111111111111111111111111111111'
+			}
+		});
+		hoisted.appStoreState.set({
+			nostrKeys: {
+				nsec: null,
+				npub: 'a'.repeat(64),
+				mnemonic: null
+			},
+			isLoading: false,
+			error: null,
+			toasts: [],
+			biometricData: null,
+			network: 'testnet',
+			pool: null,
+			relays: []
+		});
 		hoisted.mockDeleteService.mockResolvedValue('deleted');
 		hoisted.mockQueryTaskeeThreads.mockResolvedValue([]);
 	});
@@ -298,6 +350,35 @@ describe('DashboardMyServicesPanel active contracts shortcut', () => {
 		expect(hoisted.mockGoto).toHaveBeenCalledWith(
 			'http://localhost:3000/dashboard?tab=contracts&context=services&highlight=escrow-new'
 		);
+		},
+		45_000
+	);
+
+	it(
+		'routes the service card quotes action to the services workspace quote inbox',
+		async () => {
+			const service = createService();
+			const serviceAddress = `30402:${service.npub}:${service.uniqueId ?? service.id}`;
+			const expectedUrl = createServicesWorkspaceUrl(
+				new URL('http://localhost:3000/services/manage'),
+				{
+					tab: 'quotes',
+					serviceAddress,
+					requestId: null
+				}
+			).toString();
+
+			const { default: DashboardMyServicesPanel } = await import(
+				'$lib/components/service/DashboardMyServicesPanel.svelte'
+			);
+			const { getByText } = render(DashboardMyServicesPanel, {
+				view: 'default'
+			});
+
+			await waitFor(() => expect(hoisted.mockFindMyServices).toHaveBeenCalled());
+			await fireEvent.click(getByText('Quotes'));
+
+			expect(hoisted.mockGoto).toHaveBeenCalledWith(expectedUrl);
 		},
 		45_000
 	);
@@ -351,7 +432,9 @@ describe('DashboardMyServicesPanel active contracts shortcut', () => {
 		await waitFor(() => expect(hoisted.mockFindMyServices).toHaveBeenCalled());
 		await waitFor(() => expect(hoisted.mockLoadProviderTimelines).toHaveBeenCalled());
 		expect(queryByText('Choose a freelancer fee tier before sending a proposal.')).toBeNull();
-		expect(getByRole('button', { name: 'Send Proposal' })).not.toBeDisabled();
+		expect((getByRole('button', { name: 'Send Proposal' }) as HTMLButtonElement).disabled).toBe(
+			false
+		);
 	});
 
 	it('keeps provider quote review in-context when the wallet prerequisite is missing', async () => {
@@ -409,33 +492,51 @@ describe('DashboardMyServicesPanel active contracts shortcut', () => {
 			}
 		]);
 
-		const { default: DashboardMyServicesPanel } = await import(
-			'$lib/components/service/DashboardMyServicesPanel.svelte'
-		);
-		const { getByText, findByText } = render(DashboardMyServicesPanel, {
-			view: 'default'
-		});
+	const { default: DashboardMyServicesPanel } = await import(
+		'$lib/components/service/DashboardMyServicesPanel.svelte'
+	);
+	const { getByRole, findByText, findByRole } = render(DashboardMyServicesPanel, {
+		view: 'default'
+	});
 
-		await waitFor(() => expect(hoisted.mockFindMyServices).toHaveBeenCalled());
-		await fireEvent.click(getByText('Delete'));
+	await waitFor(() => expect(hoisted.mockFindMyServices).toHaveBeenCalled());
+	await fireEvent.click(getByRole('button', { name: 'task.actions.view_details' }));
+	await fireEvent.click(await findByRole('button', { name: 'dashboard.services.detail.delete_service' }));
+	const confirmDeleteModal = await findByRole('heading', {
+		name: 'dashboard.services.detail.delete_service_confirm_title'
+	});
+	await fireEvent.click(
+		within(confirmDeleteModal.closest('.modal-box') as HTMLElement).getByRole('button', {
+			name: 'dashboard.services.detail.delete_service'
+		})
+	);
 
-		expect(await findByText('Cannot delete service')).toBeTruthy();
-		expect(await findByText(/Open quotes are still attached to this service/)).toBeTruthy();
-		expect(hoisted.mockDeleteService).not.toHaveBeenCalled();
+	expect(await findByText('Cannot delete service')).toBeTruthy();
+	expect(await findByText(/Open quotes are still attached to this service/)).toBeTruthy();
+	expect(hoisted.mockDeleteService).not.toHaveBeenCalled();
 	});
 
 	it('confirms deletion when no blockers remain and refreshes the list', async () => {
-		const { default: DashboardMyServicesPanel } = await import(
-			'$lib/components/service/DashboardMyServicesPanel.svelte'
-		);
-		const { getByText, findByText } = render(DashboardMyServicesPanel, {
-			view: 'default'
-		});
+	const { default: DashboardMyServicesPanel } = await import(
+		'$lib/components/service/DashboardMyServicesPanel.svelte'
+	);
+	const { getByRole, findByText, findByRole } = render(DashboardMyServicesPanel, {
+		view: 'default'
+	});
 
-		await waitFor(() => expect(hoisted.mockFindMyServices).toHaveBeenCalledTimes(1));
-		await fireEvent.click(getByText('Delete'));
-		expect(await findByText('Delete service')).toBeTruthy();
-		await fireEvent.click(getByText('Confirm Delete'));
+	await waitFor(() => expect(hoisted.mockFindMyServices).toHaveBeenCalledTimes(1));
+	await fireEvent.click(getByRole('button', { name: 'task.actions.view_details' }));
+	await fireEvent.click(await findByRole('button', { name: 'dashboard.services.detail.delete_service' }));
+	const confirmDeleteModal = await findByRole('heading', {
+		name: 'dashboard.services.detail.delete_service_confirm_title'
+	});
+	await fireEvent.click(
+		within(confirmDeleteModal.closest('.modal-box') as HTMLElement).getByRole('button', {
+			name: 'dashboard.services.detail.delete_service'
+		})
+	);
+	expect(await findByText('Delete service')).toBeTruthy();
+	await fireEvent.click(getByRole('button', { name: 'Confirm Delete' }));
 
 		await waitFor(() => expect(hoisted.mockDeleteService).toHaveBeenCalledTimes(1));
 		expect(hoisted.mockDeleteService).toHaveBeenCalledWith('service-event-1', {

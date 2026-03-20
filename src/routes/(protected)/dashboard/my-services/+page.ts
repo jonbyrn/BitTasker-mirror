@@ -1,5 +1,5 @@
 import { redirect } from '@sveltejs/kit';
 
 export function load() {
-	redirect(302, '/dashboard?tab=my-services');
+	throw redirect(302, '/services/manage?tab=listings');
 }

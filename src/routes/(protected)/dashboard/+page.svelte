@@ -16,7 +16,6 @@
 	import DashboardSavedSearchesPanel from '$lib/components/task/DashboardSavedSearchesPanel.svelte';
 	import DashboardBidsPanel from '$lib/components/bidding/DashboardBidsPanel.svelte';
 	import DashboardContractsPanel from '$lib/components/contracts/DashboardContractsPanel.svelte';
-	import DashboardMyServicesPanel from '$lib/components/service/DashboardMyServicesPanel.svelte';
 	import MyQuotesPanel from '$lib/components/dashboard/quotes/MyQuotesPanel.svelte';
 	import {
 		contractCreationStore,
@@ -36,9 +35,12 @@
 		isRequestSyncActive,
 		serviceQuoteUiStore,
 		type DashboardContractsContext,
-		type DashboardTab,
-		type DashboardView
+		type DashboardTab
 	} from '$lib/stores/service-quote-ui.store';
+	import {
+		createServicesWorkspaceRedirectUrlFromLegacyDashboard,
+		createServicesWorkspaceUrl
+	} from '$lib/utils/service-quote/services-workspace-route';
 
 	function translateOrFallback(key: string, fallback: string): string {
 		const translated = $t(key);
@@ -58,7 +60,7 @@
 			id: 'my-services',
 			label: $t('dashboard.tabs.my_services'),
 			buttonLabel: $t('dashboard.services.my_services.create_service'),
-			buttonHref: '/dashboard/create-service',
+			buttonHref: '/services/manage?tab=listings',
 			icon: 'plus'
 		},
 		{
@@ -84,7 +86,7 @@
 		},
 		{
 			id: 'quotes',
-			label: translateOrFallback('dashboard.tabs.quotes', 'Quotes'),
+			label: translateOrFallback('dashboard.tabs.quotes', 'Service Requests'),
 			buttonLabel: translateOrFallback('dashboard.find_services', 'Browse Services'),
 			buttonHref: '/services',
 			icon: 'search'
@@ -93,7 +95,6 @@
 
 	let activeTabId = $state('tasks');
 	const activeTab = $derived(tabs.find((t) => t.id === activeTabId) || tabs[0]);
-	let activeView = $state<DashboardView>('default');
 	let contractsContext = $state<DashboardContractsContext>('all');
 	let selectedServiceAddress = $state<string | null>(null);
 	let focusedRequestId = $state<string | null>(null);
@@ -118,7 +119,6 @@
 	function syncRouteState() {
 		const parsed = serviceQuoteUiStore.parseDashboardQuery(page.url.searchParams);
 		activeTabId = parsed.state.tab;
-		activeView = parsed.state.view;
 		contractsContext = parsed.state.context;
 		selectedServiceAddress = parsed.state.serviceAddress;
 		focusedRequestId = parsed.state.requestId;
@@ -280,6 +280,21 @@
 	});
 
 	$effect(() => {
+		if (activeTabId !== 'my-services' || typeof window === 'undefined') {
+			return;
+		}
+
+		const redirectUrl =
+			createServicesWorkspaceRedirectUrlFromLegacyDashboard(page.url) ??
+			createServicesWorkspaceUrl(new URL('/services/manage', window.location.origin), {
+				tab: 'listings',
+				serviceAddress: null,
+				requestId: null
+			});
+		goto(redirectUrl.toString(), { replaceState: true, keepFocus: true, noScroll: true });
+	});
+
+	$effect(() => {
 		if (activeTabId !== 'quotes') {
 			taskerQuotesError = null;
 			return;
@@ -292,58 +307,27 @@
 
 	// Handle tab change
 	function handleTabChange(tabId: string) {
-		if (tabs.some((t) => t.id === tabId)) {
-			serviceQuoteUiStore.setNonBlockingMessage(null);
-			const nextUrl = createDashboardUrl(page.url, {
-				tab: tabId as DashboardTab,
-				view: tabId === 'quotes' ? 'tasker' : tabId === 'my-services' ? 'default' : 'default',
-				context: tabId === 'contracts' ? contractsContext : 'all',
-				serviceAddress: null,
-				requestId: null,
-				highlight: null
-			});
-			goto(nextUrl.toString(), { replaceState: true, keepFocus: true, noScroll: true });
-		}
-	}
-
-	function handleMyServicesRouteResolve(
-		update:
-			| { type: 'service'; serviceAddress: string; requestId?: string | null }
-			| { type: 'reset' }
-			| { type: 'request'; requestId: string | null }
-	) {
-		if (update.type === 'reset') {
-			serviceQuoteUiStore.setNonBlockingMessage(null);
-			const nextUrl = createDashboardUrl(page.url, {
-				tab: 'my-services',
-				view: 'default',
-				serviceAddress: null,
-				requestId: null
-			});
-			goto(nextUrl.toString(), { replaceState: true, keepFocus: true, noScroll: true });
+		if (!tabs.some((t) => t.id === tabId)) {
 			return;
 		}
 
-		if (update.type === 'request') {
-			serviceQuoteUiStore.setNonBlockingMessage(
-				update.requestId === null ? 'service_quotes_request_not_found' : null
-			);
-			const nextUrl = createDashboardUrl(page.url, {
-				tab: 'my-services',
-				view: 'quotes',
-				serviceAddress: selectedServiceAddress,
-				requestId: update.requestId
+		if (tabId === 'my-services') {
+			goto('/services/manage?tab=listings', {
+				replaceState: true,
+				keepFocus: true,
+				noScroll: true
 			});
-			goto(nextUrl.toString(), { replaceState: true, keepFocus: true, noScroll: true });
 			return;
 		}
 
 		serviceQuoteUiStore.setNonBlockingMessage(null);
 		const nextUrl = createDashboardUrl(page.url, {
-			tab: 'my-services',
-			view: 'quotes',
-			serviceAddress: update.serviceAddress,
-			requestId: update.requestId ?? null
+			tab: tabId as DashboardTab,
+			view: tabId === 'quotes' ? 'tasker' : 'default',
+			context: tabId === 'contracts' ? contractsContext : 'all',
+			serviceAddress: null,
+			requestId: null,
+			highlight: null
 		});
 		goto(nextUrl.toString(), { replaceState: true, keepFocus: true, noScroll: true });
 	}
@@ -601,20 +585,6 @@
 				highlightEscrowId={page.url.searchParams.get('highlight')}
 				onHighlightConsumed={handleContractsHighlightConsumed}
 				onHighlightMissing={handleContractsHighlightMissing}
-			/>
-		</div>
-	{:else if activeTabId === 'my-services'}
-		<div
-			id="panel-my-services"
-			role="tabpanel"
-			aria-labelledby="tab-my-services"
-			transition:slide={{ duration: 300 }}
-		>
-			<DashboardMyServicesPanel
-				view={activeView === 'quotes' ? 'quotes' : 'default'}
-				{selectedServiceAddress}
-				focusedRequestId={focusedRequestId}
-				onResolveQuotesRoute={handleMyServicesRouteResolve}
 			/>
 		</div>
 	{:else if activeTabId === 'quotes'}
