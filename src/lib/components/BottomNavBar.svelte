@@ -275,7 +275,7 @@
 			style="
 			/* Keep menu behind dock, but avoid double safe-area gaps on iPhone */
 			max-height: 80vh;
-			padding-bottom: var(--app-dock-height, 80px);
+			padding-bottom: var(--app-dock-height, 64px);
 			overflow: hidden;
 		"
 			class:menu-expand={isMenuExpanding && !isMenuClosing}
