@@ -4,23 +4,23 @@
 	import { onMount } from 'svelte';
 	import { Capacitor } from '@capacitor/core';
 	import { appStore } from '$lib/stores/app.store';
-import {
-	walletStore,
-	walletManager,
-	formatSats,
-	formatUsd,
-	getBSCSponsorStatus,
-	preflightBSCDirectSend,
-	submitBSCDirectSend,
-	type BscDirectSendPreflightResult,
-	type BscSponsorStatus
-} from '$lib/stores/wallet.store';
-import {
-	parsePaymentAddress,
-	qualifyEvmPaymentAddress,
-	type ParsedPaymentAddress
-} from '$lib/utils/helpers/paymentAddressParser';
-import { btcUsd, marketPrice, marketPriceMeta } from '$lib/stores/market-price.store';
+	import {
+		walletStore,
+		walletManager,
+		formatSats,
+		formatUsd,
+		getBSCSponsorStatus,
+		preflightBSCDirectSend,
+		submitBSCDirectSend,
+		type BscDirectSendPreflightResult,
+		type BscSponsorStatus
+	} from '$lib/stores/wallet.store';
+	import {
+		parsePaymentAddress,
+		qualifyEvmPaymentAddress,
+		type ParsedPaymentAddress
+	} from '$lib/utils/helpers/paymentAddressParser';
+	import { btcUsd, marketPrice, marketPriceMeta } from '$lib/stores/market-price.store';
 	import { triggerHaptic, ImpactStyle } from '$lib/utils/helpers/haptics';
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 	import QrCodeScanner from '$lib/components/QrCodeScanner.svelte';
@@ -215,14 +215,20 @@ import { btcUsd, marketPrice, marketPriceMeta } from '$lib/stores/market-price.s
 	const btcPrice = $derived.by(() => $btcUsd);
 	const isBitcoinPriceLoading = $derived.by(() => {
 		if (btcPrice > 0) return false;
-		return $marketPriceMeta.isRefreshing || (!$marketPriceMeta.error && $marketPriceMeta.lastFetched === 0);
+		return (
+			$marketPriceMeta.isRefreshing ||
+			(!$marketPriceMeta.error && $marketPriceMeta.lastFetched === 0)
+		);
 	});
 	const hasBitcoinPriceRefreshFailure = $derived.by(() => {
 		if (btcPrice > 0) return false;
 		return !$marketPriceMeta.isRefreshing && !!$marketPriceMeta.error;
 	});
 	const detectedBalanceRail = $derived.by(() => {
-		if (parsedPayment.detectedNetwork === 'rootstock-bitcoin' || parsedPayment.detectedNetwork === 'lightning-bitcoin') {
+		if (
+			parsedPayment.detectedNetwork === 'rootstock-bitcoin' ||
+			parsedPayment.detectedNetwork === 'lightning-bitcoin'
+		) {
 			return 'rsk';
 		}
 		if (parsedPayment.detectedNetwork === 'usdt-bsc') {
@@ -231,15 +237,13 @@ import { btcUsd, marketPrice, marketPriceMeta } from '$lib/stores/market-price.s
 		return null;
 	});
 	const currentBalanceFreshness = $derived.by(() =>
-		detectedBalanceRail ? $walletStore.balanceFreshness?.[detectedBalanceRail] ?? null : null
+		detectedBalanceRail ? ($walletStore.balanceFreshness?.[detectedBalanceRail] ?? null) : null
 	);
 	let isRetryingBitcoinPrice = $state(false);
 	const hasBitcoinPriceRetryState = $derived(
 		hasBitcoinPriceRefreshFailure || isRetryingBitcoinPrice
 	);
-	const hasStepOneWarning = $derived(
-		!!currentBalanceFreshness?.error || hasBitcoinPriceRetryState
-	);
+	const hasStepOneWarning = $derived(!!currentBalanceFreshness?.error || hasBitcoinPriceRetryState);
 	let lastUsdValidationBtcPrice = $state(0);
 	let recentAddresses = $state<Array<{ address: string; network: string; label?: string }>>([]);
 
@@ -329,9 +333,11 @@ import { btcUsd, marketPrice, marketPriceMeta } from '$lib/stores/market-price.s
 	}
 
 	function getBalanceRailName(network: string | null): string {
-		if (network === 'usdt-bsc') return 'BSC';
-		if (network === 'rootstock-bitcoin' || network === 'lightning-bitcoin') return 'Rootstock';
-		return 'wallet';
+		if (network === 'usdt-bsc') return $t('wallet.send.balance.rail.bsc');
+		if (network === 'rootstock-bitcoin' || network === 'lightning-bitcoin') {
+			return $t('wallet.send.balance.rail.rootstock');
+		}
+		return $t('wallet.send.balance.rail.wallet');
 	}
 
 	async function refreshDetectedNetworkBalance(force = false): Promise<void> {
@@ -353,11 +359,11 @@ import { btcUsd, marketPrice, marketPriceMeta } from '$lib/stores/market-price.s
 
 	function getBscConfigError(): string | null {
 		if (!BSC_DIRECT_SEND_CONFIG.tokenAddress) {
-			return 'BSC direct send is unavailable because the USDT token address is not configured.';
+			return $t('wallet.send.bsc.config.token_missing');
 		}
 
 		if (!BSC_DIRECT_SEND_CONFIG.routerAddress) {
-			return 'BSC direct send is unavailable because the direct-send router address is not configured.';
+			return $t('wallet.send.bsc.config.router_missing');
 		}
 
 		return null;
@@ -369,67 +375,43 @@ import { btcUsd, marketPrice, marketPriceMeta } from '$lib/stores/market-price.s
 	): string {
 		switch (result.failureCode) {
 			case 'WRONG_CHAIN':
-				return 'USDT on BSC is blocked because the wallet is connected to the wrong network. Switch to BSC and try again.';
+				return $t('wallet.send.bsc.failure.wrong_chain');
 			case 'UNSUPPORTED_CHAIN':
-				return (
-					result.failureMessage ||
-					'USDT on BSC is blocked because this build is not configured for the selected BSC chain.'
-				);
+				return result.failureMessage || $t('wallet.send.bsc.failure.unsupported_chain');
 			case 'ROUTER_ALLOWANCE_MISSING':
 			case 'INSUFFICIENT_ALLOWANCE':
-				return 'USDT on BSC is blocked because the router allowance is missing or too low for the requested amount plus fixed fee.';
+				return $t('wallet.send.bsc.failure.router_allowance_missing');
 			case 'INSUFFICIENT_USDT_BALANCE':
 			case 'INSUFFICIENT_BALANCE':
-				return 'USDT on BSC is blocked because the wallet balance is below the requested amount plus fixed fee.';
+				return $t('wallet.send.bsc.failure.insufficient_balance');
 			case 'TOKEN_CONFIG_MISMATCH':
 			case 'INVALID_ADDRESS':
-				return 'USDT on BSC is blocked because the configured token does not match the accepted BSC token configuration.';
+				return $t('wallet.send.bsc.failure.token_config_mismatch');
 			case 'SPONSOR_TREASURY_LOW':
-				return (
-					result.failureMessage ||
-					'USDT on BSC is temporarily unavailable because sponsor treasury capacity is too low right now.'
-				);
+				return result.failureMessage || $t('wallet.send.bsc.failure.sponsor_treasury_low');
 			case 'ROUTER_NOT_FOUND':
 			case 'ROUTER_PAUSED':
-				return (
-					result.failureMessage ||
-					'USDT on BSC is temporarily unavailable because the direct-send router is not ready.'
-				);
+				return result.failureMessage || $t('wallet.send.bsc.failure.router_not_ready');
 			case 'REQUEST_EXPIRED':
 			case 'DUPLICATE_REQUEST':
 			case 'SUBMISSION_FAILED':
 			case 'RATE_LIMITED':
 			case 'INTERNAL_ERROR':
-				return (
-					result.failureMessage ||
-					'USDT on BSC is temporarily unavailable because the sponsored send request failed.'
-				);
+				return result.failureMessage || $t('wallet.send.bsc.failure.submission_failed');
 			case 'NETWORK_ERROR':
-				return (
-					result.failureMessage ||
-					'USDT on BSC is temporarily unavailable because the direct-send checks could not be completed.'
-				);
+				return result.failureMessage || $t('wallet.send.bsc.failure.network_error');
 			case 'POLICY_REJECTED':
-				return (
-					result.failureMessage ||
-					'USDT on BSC is temporarily unavailable because sponsor policy rejected this payment.'
-				);
+				return result.failureMessage || $t('wallet.send.bsc.failure.policy_rejected');
 			case 'LEGACY_ONLY':
-				return (
-					result.failureMessage ||
-					'USDT on BSC is blocked because this build still only has the legacy paymaster boundary. The sponsored router submission path is not enabled yet.'
-				);
+				return result.failureMessage || $t('wallet.send.bsc.failure.legacy_only');
 			case 'SUBMISSION_UNSUPPORTED':
-				return (
-					result.failureMessage ||
-					'USDT on BSC is blocked because direct-send submission is not available in this wallet-core build yet.'
-				);
+				return result.failureMessage || $t('wallet.send.bsc.failure.submission_unsupported');
 			case 'SPONSOR_UNAVAILABLE':
 			default:
 				return (
 					result.failureMessage ||
 					sponsorStatus?.reason ||
-					'USDT on BSC is temporarily unavailable because the sponsored send path is not ready.'
+					$t('wallet.send.bsc.failure.sponsor_unavailable')
 				);
 		}
 	}
@@ -437,15 +419,15 @@ import { btcUsd, marketPrice, marketPriceMeta } from '$lib/stores/market-price.s
 	function getBscBlockedHeading(): string {
 		switch (bscDirectSendState.lastPreflight?.failureCode) {
 			case 'WRONG_CHAIN':
-				return 'Switch to BSC to continue';
+				return $t('wallet.send.bsc.blocked.heading.wrong_chain');
 			case 'ROUTER_ALLOWANCE_MISSING':
 			case 'INSUFFICIENT_ALLOWANCE':
-				return 'Approve the router to continue';
+				return $t('wallet.send.bsc.blocked.heading.approve_router');
 			case 'INSUFFICIENT_USDT_BALANCE':
 			case 'INSUFFICIENT_BALANCE':
-				return 'Not enough USDT to continue';
+				return $t('wallet.send.bsc.blocked.heading.insufficient_usdt');
 			default:
-				return 'USDT on BSC is temporarily unavailable';
+				return $t('wallet.send.bsc.blocked.heading.unavailable');
 		}
 	}
 
@@ -549,9 +531,7 @@ import { btcUsd, marketPrice, marketPriceMeta } from '$lib/stores/market-price.s
 			hasRequiredConnectedRail &&
 			availableBalance <= 0
 	);
-	const hasAvailableBalanceErrorState = $derived(
-		hasInsufficientBalance || hasZeroAvailableBalance
-	);
+	const hasAvailableBalanceErrorState = $derived(hasInsufficientBalance || hasZeroAvailableBalance);
 
 	const balanceShortfall = $derived.by(() =>
 		hasInsufficientBalance ? Math.max(0, totalToSend - availableBalance) : 0
@@ -601,45 +581,58 @@ import { btcUsd, marketPrice, marketPriceMeta } from '$lib/stores/market-price.s
 	const availableBalanceSummary = $derived.by(() => {
 		if (!parsedPayment.detectedNetwork || !parsedPayment.data?.isValid) return null;
 		if (needsConnectedRail && !hasRequiredConnectedRail) {
-			return `Connect your ${getBalanceRailName(parsedPayment.detectedNetwork)} wallet to check your available balance.`;
+			return $t('wallet.send.balance.connect_wallet', {
+				values: { rail: getBalanceRailName(parsedPayment.detectedNetwork) }
+			});
 		}
 		if (isStepOneBalanceRefreshing) {
-			return `Refreshing your ${getBalanceRailName(parsedPayment.detectedNetwork)} balance...`;
+			return $t('wallet.send.balance.refreshing', {
+				values: { rail: getBalanceRailName(parsedPayment.detectedNetwork) }
+			});
 		}
 		if (isAwaitingBitcoinPriceForUsdValidation && hasBitcoinPriceRefreshFailure) {
-			return `Available balance: ${formatNetworkAmount(
-				availableBalance,
-				parsedPayment.detectedNetwork,
-				{
-					includeApproxUsd: true,
-					preferredUnit: formInput.unit
+			return $t('wallet.send.balance.btc_price_refresh_failed', {
+				values: {
+					amount: formatNetworkAmount(availableBalance, parsedPayment.detectedNetwork, {
+						includeApproxUsd: true,
+						preferredUnit: formInput.unit
+					})
 				}
-			)}. BTC price refresh failed, so switch to sats or retry the BTC price refresh to continue.`;
+			});
 		}
 		if (isAwaitingBitcoinPriceForUsdValidation) {
-			return `Available balance: ${formatNetworkAmount(
-				availableBalance,
-				parsedPayment.detectedNetwork,
+			return $t(
+				isBitcoinPriceLoading
+					? 'wallet.send.balance.awaiting_price_fetching'
+					: 'wallet.send.balance.awaiting_price_waiting',
 				{
-					includeApproxUsd: true,
-					preferredUnit: formInput.unit
+					values: {
+						amount: formatNetworkAmount(availableBalance, parsedPayment.detectedNetwork, {
+							includeApproxUsd: true,
+							preferredUnit: formInput.unit
+						})
+					}
 				}
-			)}. ${isBitcoinPriceLoading ? 'Fetching the current BTC price to validate your USD amount.' : 'Waiting for the current BTC price to validate your USD amount.'}`;
+			);
 		}
 		if (hasInsufficientBalance && feeState.estimated) {
-			return `Need ${formatNetworkAmount(balanceShortfall, parsedPayment.detectedNetwork, {
-				includeApproxUsd: parsedPayment.detectedNetwork !== 'usdt-bsc',
-				preferredUnit: formInput.unit
-			})} more to cover the full debit.`;
+			return $t('wallet.send.balance.shortfall', {
+				values: {
+					amount: formatNetworkAmount(balanceShortfall, parsedPayment.detectedNetwork, {
+						includeApproxUsd: parsedPayment.detectedNetwork !== 'usdt-bsc',
+						preferredUnit: formInput.unit
+					})
+				}
+			});
 		}
-		return `Available balance: ${formatNetworkAmount(
-			availableBalance,
-			parsedPayment.detectedNetwork,
-			{
-				includeApproxUsd: parsedPayment.detectedNetwork !== 'usdt-bsc',
-				preferredUnit: formInput.unit
+		return $t('wallet.send.balance.available', {
+			values: {
+				amount: formatNetworkAmount(availableBalance, parsedPayment.detectedNetwork, {
+					includeApproxUsd: parsedPayment.detectedNetwork !== 'usdt-bsc',
+					preferredUnit: formInput.unit
+				})
 			}
-		)}.`;
+		});
 	});
 
 	const areStepOneActionsDisabled = $derived(
@@ -915,7 +908,7 @@ import { btcUsd, marketPrice, marketPriceMeta } from '$lib/stores/market-price.s
 		feeState.error = null;
 		try {
 			switch (parsedPayment.detectedNetwork) {
-				case 'lightning-bitcoin':
+				case 'lightning-bitcoin': {
 					// Use submarine swap fee estimation (cached)
 					// For lightning invoices, amountToUse is the invoice amount (what receiver gets)
 					const pairsData = await walletManager.getCachedSubmarineSwapPairs();
@@ -964,7 +957,8 @@ import { btcUsd, marketPrice, marketPriceMeta } from '$lib/stores/market-price.s
 						};
 					}
 					break;
-				case 'rootstock-bitcoin':
+				}
+				case 'rootstock-bitcoin': {
 					if (!$walletStore.rsk.connected || !$walletStore.rsk.address) {
 						const networkFee = 3000; // Fallback
 						feeState.estimated = {
@@ -993,6 +987,7 @@ import { btcUsd, marketPrice, marketPriceMeta } from '$lib/stores/market-price.s
 						totalFees: networkFee
 					};
 					break;
+				}
 				case 'usdt-bsc':
 					feeState.estimated = {
 						serviceFee: bscFixedFeeAmount,
@@ -1066,7 +1061,7 @@ import { btcUsd, marketPrice, marketPriceMeta } from '$lib/stores/market-price.s
 
 		try {
 			switch (parsedPayment.detectedNetwork) {
-				case 'lightning-bitcoin':
+				case 'lightning-bitcoin': {
 					// Fetch submarine swap pairs to get fee percentage (use cached)
 					const pairsData = await walletManager.getCachedSubmarineSwapPairs();
 					const pair = pairsData?.['RBTC']?.['BTC'];
@@ -1088,7 +1083,7 @@ import { btcUsd, marketPrice, marketPriceMeta } from '$lib/stores/market-price.s
 								estimatedGasFee = Math.floor(
 									parseFloat(gasEstimation.totalCostFormatted) * 100_000_000
 								);
-							} catch (error) {
+							} catch {
 								estimatedGasFee = 3000; // Conservative fallback (100 sats)
 							}
 						} else {
@@ -1107,7 +1102,8 @@ import { btcUsd, marketPrice, marketPriceMeta } from '$lib/stores/market-price.s
 						};
 					}
 					break;
-				case 'rootstock-bitcoin':
+				}
+				case 'rootstock-bitcoin': {
 					// For Rootstock, fees are mostly fixed (gas), but we need to estimate
 					// We'll estimate with a high amount to get approximate gas fee
 					if ($walletStore.rsk.connected && $walletStore.rsk.address) {
@@ -1125,7 +1121,7 @@ import { btcUsd, marketPrice, marketPriceMeta } from '$lib/stores/market-price.s
 							feeState.parameters = {
 								fixedFee: estimatedGasFee
 							};
-						} catch (error) {
+						} catch {
 							feeState.parameters = {
 								fixedFee: 3000 // Conservative fallback
 							};
@@ -1136,6 +1132,7 @@ import { btcUsd, marketPrice, marketPriceMeta } from '$lib/stores/market-price.s
 						};
 					}
 					break;
+				}
 				case 'usdt-bsc':
 					feeState.parameters = {
 						fixedFee: bscFixedFeeAmount
@@ -1393,14 +1390,14 @@ import { btcUsd, marketPrice, marketPriceMeta } from '$lib/stores/market-price.s
 			} else if (network === 'usdt-bsc') {
 				const recipientAmountAtomic = toAtomicAmountString(amountInUsdt, 'USDT');
 				if (!recipientAmountAtomic) {
-					throw new Error('Enter a valid USDT amount before sending on BSC.');
+					throw new Error($t('wallet.send.error.invalid_bsc_amount'));
 				}
 
 				const preflightResult = await runBscDirectSendPreflight();
 				if (!preflightResult || !preflightResult.isReady) {
 					throw new Error(
 						bscDirectSendState.blockedMessage ||
-							'USDT on BSC is temporarily unavailable. Try again after the sponsored send path is ready.'
+							$t('wallet.send.bsc.failure.sponsor_unavailable_retry')
 					);
 				}
 
@@ -1807,7 +1804,9 @@ import { btcUsd, marketPrice, marketPriceMeta } from '$lib/stores/market-price.s
 													{#if parsedPayment.data?.isValid && !parsedPayment.addressError}
 														{#if parsedPayment.detectedNetwork && netwokrOption[parsedPayment.detectedNetwork as keyof typeof netwokrOption]}
 															<img
-																src={netwokrOption[parsedPayment.detectedNetwork as keyof typeof netwokrOption].icon}
+																src={netwokrOption[
+																	parsedPayment.detectedNetwork as keyof typeof netwokrOption
+																].icon}
 																alt=""
 																aria-hidden="true"
 																class="h-5 w-5 rounded-full object-contain"
@@ -1847,7 +1846,7 @@ import { btcUsd, marketPrice, marketPriceMeta } from '$lib/stores/market-price.s
 									<div
 										class="border-base-300 bg-base-100 absolute z-10 mt-1 max-h-60 w-full overflow-y-auto rounded-lg border shadow-lg"
 									>
-										{#each recentAddresses as recentAddress}
+										{#each recentAddresses as recentAddress (recentAddress.address)}
 											<button
 												class="hover:bg-base-200 flex w-full items-center justify-between px-4 py-2 text-left"
 												onclick={() => {
@@ -1880,15 +1879,15 @@ import { btcUsd, marketPrice, marketPriceMeta } from '$lib/stores/market-price.s
 									data-testid="ambiguous-address-warning"
 								>
 									<p class="text-base-content/70 text-xs">
-										Payment network not detected from address. Confirm correct payment network.
+										{$t('wallet.send.ambiguous_network_warning')}
 									</p>
 									<p class="text-error mt-1 text-xs font-medium">
-										Warning: Using the wrong network can cause permanent loss of funds.
+										{$t('wallet.send.ambiguous_network_loss_warning')}
 									</p>
 									<div class="mt-3 grid grid-cols-2 gap-2">
 										<button
 											type="button"
-											class="btn btn-primary btn-sm min-h-[44px] touch-manipulation flex w-full items-center justify-center gap-2"
+											class="btn btn-primary btn-sm flex min-h-[44px] w-full touch-manipulation items-center justify-center gap-2"
 											onclick={() => resolveAmbiguousAddress('rootstock-bitcoin')}
 										>
 											<img
@@ -1897,15 +1896,15 @@ import { btcUsd, marketPrice, marketPriceMeta } from '$lib/stores/market-price.s
 												aria-hidden="true"
 												class="h-5 w-5 shrink-0 object-contain"
 											/>
-											<span>rBTC</span>
+											<span>{$t('wallet.send.network_option_rootstock')}</span>
 										</button>
 										<button
 											type="button"
-											class="btn btn-success btn-sm text-primary-content min-h-[44px] touch-manipulation flex w-full items-center justify-center gap-2"
+											class="btn btn-success btn-sm text-primary-content flex min-h-[44px] w-full touch-manipulation items-center justify-center gap-2"
 											onclick={() => resolveAmbiguousAddress('usdt-bsc')}
 										>
 											<IconCurrencyUsd class="h-5 w-5 shrink-0" />
-											<span>USDT on BSC</span>
+											<span>{$t('wallet.send.network_option_bsc')}</span>
 										</button>
 									</div>
 								</div>
@@ -1936,7 +1935,7 @@ import { btcUsd, marketPrice, marketPriceMeta } from '$lib/stores/market-price.s
 									})}
 								</p>
 							{/if}
-							</div>
+						</div>
 
 						{#if availableBalanceSummary}
 							<div
@@ -1948,7 +1947,7 @@ import { btcUsd, marketPrice, marketPriceMeta } from '$lib/stores/market-price.s
 								<div class="flex items-start justify-between gap-3">
 									<div class="space-y-1">
 										<div class="text-xs font-medium tracking-[0.12em] uppercase opacity-60">
-											Available Balance
+											{$t('wallet.available_balance')}
 										</div>
 										<p
 											class="text-sm"
@@ -1967,13 +1966,11 @@ import { btcUsd, marketPrice, marketPriceMeta } from '$lib/stores/market-price.s
 												type="button"
 												class="btn btn-ghost btn-xs btn-circle"
 												onclick={retryBitcoinPriceRefresh}
-												aria-label="Retry BTC price refresh"
+												aria-label={$t('wallet.send.retry_btc_price_refresh')}
 												aria-disabled={isRetryingBitcoinPrice}
 											>
 												<IconRefresh
-													class={isRetryingBitcoinPrice
-														? 'h-4 w-4 animate-spin'
-														: 'h-4 w-4'}
+													class={isRetryingBitcoinPrice ? 'h-4 w-4 animate-spin' : 'h-4 w-4'}
 												/>
 											</button>
 										{/if}
@@ -2198,7 +2195,7 @@ import { btcUsd, marketPrice, marketPriceMeta } from '$lib/stores/market-price.s
 									{$t('wallet.send.enter_address_and_amount_to_estimate')}
 								</div>
 							{/if}
-							</div>
+						</div>
 
 						{#if hasBlockedBscSend}
 							<div class="alert alert-outline alert-warning">
@@ -2244,7 +2241,9 @@ import { btcUsd, marketPrice, marketPriceMeta } from '$lib/stores/market-price.s
 												{#if parsedPayment.data?.isValid && !parsedPayment.addressError}
 													{#if parsedPayment.detectedNetwork && netwokrOption[parsedPayment.detectedNetwork as keyof typeof netwokrOption]}
 														<img
-															src={netwokrOption[parsedPayment.detectedNetwork as keyof typeof netwokrOption].icon}
+															src={netwokrOption[
+																parsedPayment.detectedNetwork as keyof typeof netwokrOption
+															].icon}
 															alt=""
 															aria-hidden="true"
 															class="h-5 w-5 rounded-full object-contain"
@@ -2283,7 +2282,7 @@ import { btcUsd, marketPrice, marketPriceMeta } from '$lib/stores/market-price.s
 								<div
 									class="border-base-300 bg-base-100 absolute z-10 mt-1 max-h-60 w-full overflow-y-auto rounded-lg border shadow-lg"
 								>
-									{#each recentAddresses as recentAddress}
+									{#each recentAddresses as recentAddress (recentAddress.address)}
 										<button
 											class="hover:bg-base-200 flex w-full items-center justify-between px-4 py-2 text-left"
 											onclick={() => {
@@ -2316,15 +2315,15 @@ import { btcUsd, marketPrice, marketPriceMeta } from '$lib/stores/market-price.s
 								data-testid="ambiguous-address-warning-desktop"
 							>
 								<p class="text-base-content/70 text-xs">
-									Payment network not detected from address. Confirm correct payment network.
+									{$t('wallet.send.ambiguous_network_warning')}
 								</p>
 								<p class="text-error mt-1 text-xs font-medium">
-									Warning: Using the wrong network can cause permanent loss of funds.
+									{$t('wallet.send.ambiguous_network_loss_warning')}
 								</p>
 								<div class="mt-3 grid grid-cols-2 gap-2">
 									<button
 										type="button"
-										class="btn btn-primary btn-sm min-h-[44px] touch-manipulation flex w-full items-center justify-center gap-2"
+										class="btn btn-primary btn-sm flex min-h-[44px] w-full touch-manipulation items-center justify-center gap-2"
 										onclick={() => resolveAmbiguousAddress('rootstock-bitcoin')}
 									>
 										<img
@@ -2333,15 +2332,15 @@ import { btcUsd, marketPrice, marketPriceMeta } from '$lib/stores/market-price.s
 											aria-hidden="true"
 											class="h-5 w-5 shrink-0 object-contain"
 										/>
-										<span>rBTC</span>
+										<span>{$t('wallet.send.network_option_rootstock')}</span>
 									</button>
 									<button
 										type="button"
-										class="btn btn-success btn-sm text-primary-content min-h-[44px] touch-manipulation flex w-full items-center justify-center gap-2"
+										class="btn btn-success btn-sm text-primary-content flex min-h-[44px] w-full touch-manipulation items-center justify-center gap-2"
 										onclick={() => resolveAmbiguousAddress('usdt-bsc')}
 									>
 										<IconCurrencyUsd class="h-5 w-5 shrink-0" />
-										<span>USDT on BSC</span>
+										<span>{$t('wallet.send.network_option_bsc')}</span>
 									</button>
 								</div>
 							</div>
@@ -2426,7 +2425,7 @@ import { btcUsd, marketPrice, marketPriceMeta } from '$lib/stores/market-price.s
 							<div class="flex items-start justify-between gap-3">
 								<div class="space-y-1">
 									<div class="text-xs font-medium tracking-[0.12em] uppercase opacity-60">
-										Available Balance
+										{$t('wallet.available_balance')}
 									</div>
 									<p
 										class="text-sm sm:text-base"
@@ -2435,7 +2434,7 @@ import { btcUsd, marketPrice, marketPriceMeta } from '$lib/stores/market-price.s
 									>
 										{availableBalanceSummary}
 									</p>
-									</div>
+								</div>
 								<div class="flex shrink-0 items-center gap-1">
 									{#if isStepOneBalanceRefreshing}
 										<span class="loading loading-spinner loading-sm"></span>
@@ -2445,13 +2444,11 @@ import { btcUsd, marketPrice, marketPriceMeta } from '$lib/stores/market-price.s
 											type="button"
 											class="btn btn-ghost btn-xs btn-circle sm:btn-sm"
 											onclick={retryBitcoinPriceRefresh}
-											aria-label="Retry BTC price refresh"
+											aria-label={$t('wallet.send.retry_btc_price_refresh')}
 											aria-disabled={isRetryingBitcoinPrice}
 										>
 											<IconRefresh
-												class={isRetryingBitcoinPrice
-													? 'h-4 w-4 animate-spin'
-													: 'h-4 w-4'}
+												class={isRetryingBitcoinPrice ? 'h-4 w-4 animate-spin' : 'h-4 w-4'}
 											/>
 										</button>
 									{/if}
@@ -2587,7 +2584,7 @@ import { btcUsd, marketPrice, marketPriceMeta } from '$lib/stores/market-price.s
 								{$t('wallet.send.enter_address_and_amount_to_estimate')}
 							</div>
 						{/if}
-						</div>
+					</div>
 
 					<!-- Transaction Error Display -->
 					{#if sendState.error}
@@ -2811,7 +2808,7 @@ import { btcUsd, marketPrice, marketPriceMeta } from '$lib/stores/market-price.s
 						</div>
 					</div>
 
-						<!-- Warning -->
+					<!-- Warning -->
 					<div class="alert alert-outline alert-warning mt-4">
 						<svg
 							xmlns="http://www.w3.org/2000/svg"

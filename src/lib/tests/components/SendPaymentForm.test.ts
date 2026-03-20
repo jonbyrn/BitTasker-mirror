@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/svelte';
 import { tick } from 'svelte';
@@ -9,25 +10,24 @@ import {
 	preflightBSCDirectSend,
 	submitBSCDirectSend
 } from '$lib/stores/wallet.store';
-import cryptoPriceService from '$lib/api/services/crypto-price.service';
 import {
 	parsePaymentAddress,
 	qualifyEvmPaymentAddress
 } from '$lib/utils/helpers/paymentAddressParser';
-import { getBiometricData } from '$lib/utils/helpers/biometrics';
-import { getWebBiometricData } from '$lib/utils/helpers/webBiometrics';
 
 const { marketPriceTestControl } = vi.hoisted(() => ({
 	marketPriceTestControl: {
 		setPrice: (
-			_next: Partial<{
+			next: Partial<{
 				btcUsd: number;
 				rbtcUsd: number;
 				lastFetched: number;
 				isRefreshing: boolean;
 				error: string | null;
 			}>
-		) => {},
+		) => {
+			void next;
+		},
 		refresh: vi.fn().mockResolvedValue(undefined)
 	}
 }));
@@ -88,11 +88,69 @@ vi.mock('svelte-i18n', async () => {
 		'wallet.send.failed_to_parse_qr': 'Failed to parse QR code',
 		'wallet.send.invalid_address': 'Invalid address format',
 		'wallet.send.failed_to_parse_address': 'Failed to parse address',
+		'wallet.send.error.invalid_bsc_amount': 'Enter a valid USDT amount before sending on BSC.',
 		'wallet.send.from_invoice': 'from invoice',
 		'wallet.send.amount_in_sats': 'Amount in Sats',
 		'wallet.send.amount_in_usd': 'Amount in USD',
 		'wallet.send.authentication_required': 'Authentication required to send',
 		'wallet.send.payment_sent': 'Payment sent successfully',
+		'wallet.send.ambiguous_network_warning':
+			'Payment network not detected from address. Confirm correct payment network.',
+		'wallet.send.ambiguous_network_loss_warning':
+			'Warning: Using the wrong network can cause permanent loss of funds.',
+		'wallet.send.network_option_rootstock': 'rBTC',
+		'wallet.send.network_option_bsc': 'USDT on BSC',
+		'wallet.send.retry_btc_price_refresh': 'Retry BTC price refresh',
+		'wallet.send.balance.rail.rootstock': 'Rootstock',
+		'wallet.send.balance.rail.bsc': 'BSC',
+		'wallet.send.balance.rail.wallet': 'wallet',
+		'wallet.send.balance.connect_wallet':
+			'Connect your {rail} wallet to check your available balance.',
+		'wallet.send.balance.refreshing': 'Refreshing your {rail} balance...',
+		'wallet.send.balance.available': 'Available balance: {amount}.',
+		'wallet.send.balance.awaiting_price_fetching':
+			'Available balance: {amount}. Fetching the current BTC price to validate your USD amount.',
+		'wallet.send.balance.awaiting_price_waiting':
+			'Available balance: {amount}. Waiting for the current BTC price to validate your USD amount.',
+		'wallet.send.balance.btc_price_refresh_failed':
+			'Available balance: {amount}. BTC price refresh failed, so switch to sats or retry the BTC price refresh to continue.',
+		'wallet.send.balance.shortfall': 'Need {amount} more to cover the full debit.',
+		'wallet.send.bsc.config.token_missing':
+			'BSC direct send is unavailable because the USDT token address is not configured.',
+		'wallet.send.bsc.config.router_missing':
+			'BSC direct send is unavailable because the direct-send router address is not configured.',
+		'wallet.send.bsc.blocked.heading.wrong_chain': 'Switch to BSC to continue',
+		'wallet.send.bsc.blocked.heading.approve_router': 'Approve the router to continue',
+		'wallet.send.bsc.blocked.heading.insufficient_usdt': 'Not enough USDT to continue',
+		'wallet.send.bsc.blocked.heading.unavailable': 'USDT on BSC is temporarily unavailable',
+		'wallet.send.bsc.failure.wrong_chain':
+			'USDT on BSC is blocked because the wallet is connected to the wrong network. Switch to BSC and try again.',
+		'wallet.send.bsc.failure.unsupported_chain':
+			'USDT on BSC is blocked because this build is not configured for the selected BSC chain.',
+		'wallet.send.bsc.failure.router_allowance_missing':
+			'USDT on BSC is blocked because the router allowance is missing or too low for the requested amount plus fixed fee.',
+		'wallet.send.bsc.failure.insufficient_balance':
+			'USDT on BSC is blocked because the wallet balance is below the requested amount plus fixed fee.',
+		'wallet.send.bsc.failure.token_config_mismatch':
+			'USDT on BSC is blocked because the configured token does not match the accepted BSC token configuration.',
+		'wallet.send.bsc.failure.sponsor_treasury_low':
+			'USDT on BSC is temporarily unavailable because sponsor treasury capacity is too low right now.',
+		'wallet.send.bsc.failure.router_not_ready':
+			'USDT on BSC is temporarily unavailable because the direct-send router is not ready.',
+		'wallet.send.bsc.failure.submission_failed':
+			'USDT on BSC is temporarily unavailable because the sponsored send request failed.',
+		'wallet.send.bsc.failure.network_error':
+			'USDT on BSC is temporarily unavailable because the direct-send checks could not be completed.',
+		'wallet.send.bsc.failure.policy_rejected':
+			'USDT on BSC is temporarily unavailable because sponsor policy rejected this payment.',
+		'wallet.send.bsc.failure.legacy_only':
+			'USDT on BSC is blocked because this build still only has the legacy paymaster boundary. The sponsored router submission path is not enabled yet.',
+		'wallet.send.bsc.failure.submission_unsupported':
+			'USDT on BSC is blocked because direct-send submission is not available in this wallet-core build yet.',
+		'wallet.send.bsc.failure.sponsor_unavailable':
+			'USDT on BSC is temporarily unavailable because the sponsored send path is not ready.',
+		'wallet.send.bsc.failure.sponsor_unavailable_retry':
+			'USDT on BSC is temporarily unavailable. Try again after the sponsored send path is ready.',
 		'wallet.send.large_amount_warning.title': 'Large Amount Warning',
 		'wallet.send.large_amount_warning.message':
 			"You're about to send {amount}. This is a large amount.",
@@ -452,14 +510,14 @@ describe('SendPaymentForm Component', () => {
 			fireEvent.input(addressInput, {
 				target: { value: '0x1234567890123456789012345678901234567890' }
 			});
-				await tick();
+			await tick();
 
-				await waitFor(() => {
-					expect(screen.getByTestId('ambiguous-address-warning')).toBeInTheDocument();
-					expect(
-						screen.getAllByText(/payment network not detected from address/i).length
-					).toBeGreaterThan(0);
-				});
+			await waitFor(() => {
+				expect(screen.getByTestId('ambiguous-address-warning')).toBeInTheDocument();
+				expect(
+					screen.getAllByText(/payment network not detected from address/i).length
+				).toBeGreaterThan(0);
+			});
 
 			const chooseBscButton = screen.getAllByRole('button', { name: /usdt on bsc/i })[0];
 			await fireEvent.click(chooseBscButton);
@@ -675,15 +733,15 @@ describe('SendPaymentForm Component', () => {
 			await fireEvent.click(screen.getByTestId('simulate-web-scan-ambiguous'));
 			await tick();
 
-				await waitFor(() => {
-					expect(parsePaymentAddress).toHaveBeenCalledWith(
-						'0x1234567890123456789012345678901234567890'
-					);
-					expect(screen.getByTestId('ambiguous-address-warning')).toBeInTheDocument();
-					expect(
-						screen.getAllByText(/payment network not detected from address/i).length
-					).toBeGreaterThan(0);
-				});
+			await waitFor(() => {
+				expect(parsePaymentAddress).toHaveBeenCalledWith(
+					'0x1234567890123456789012345678901234567890'
+				);
+				expect(screen.getByTestId('ambiguous-address-warning')).toBeInTheDocument();
+				expect(
+					screen.getAllByText(/payment network not detected from address/i).length
+				).toBeGreaterThan(0);
+			});
 
 			expect(preflightBSCDirectSend).not.toHaveBeenCalled();
 
@@ -883,7 +941,7 @@ describe('SendPaymentForm Component', () => {
 			});
 		});
 
-			it('shows the Rootstock available balance in both USD and sats when USD is selected', async () => {
+		it('shows the Rootstock available balance in both USD and sats when USD is selected', async () => {
 			vi.mocked(parsePaymentAddress).mockReturnValue({
 				isValid: true,
 				address: '0x1234567890123456789012345678901234567890',
@@ -910,195 +968,195 @@ describe('SendPaymentForm Component', () => {
 			await fireEvent.click(usdButtons[0]);
 			await tick();
 
-				await waitFor(() => {
-					expect(
-						screen.getAllByText(/available balance: 1,000,000 Sats \(\$500\.00\)\./i).length
-					).toBeGreaterThan(0);
-				});
+			await waitFor(() => {
+				expect(
+					screen.getAllByText(/available balance: 1,000,000 Sats \(\$500\.00\)\./i).length
+				).toBeGreaterThan(0);
 			});
+		});
 
-			it('shows a zero BSC available balance as $0.00 and marks the balance card as an error state', async () => {
-				vi.mocked(parsePaymentAddress).mockReturnValue({
-					isValid: true,
-					address: '0x1234567890123456789012345678901234567890',
-					network: 'usdt-bsc',
-					amount: null,
-					memo: null
-				} as any);
+		it('shows a zero BSC available balance as $0.00 and marks the balance card as an error state', async () => {
+			vi.mocked(parsePaymentAddress).mockReturnValue({
+				isValid: true,
+				address: '0x1234567890123456789012345678901234567890',
+				network: 'usdt-bsc',
+				amount: null,
+				memo: null
+			} as any);
 
-				walletStore.update(
-					() =>
-						({
-							hasAnyConnection: true,
+			walletStore.update(
+				() =>
+					({
+						hasAnyConnection: true,
+						rsk: {
+							connected: true,
+							address: '0x1234567890123456789012345678901234567890',
+							balance: '10000000000000000',
+							formattedBalance: '0.01'
+						},
+						bsc: {
+							connected: true,
+							address: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
+							usdtBalance: '0',
+							formattedUsdtBalance: '0'
+						},
+						totalBalances: {
+							sats: 1_000_000,
+							usd: 50
+						},
+						balanceFreshness: {
 							rsk: {
-								connected: true,
-								address: '0x1234567890123456789012345678901234567890',
-								balance: '10000000000000000',
-								formattedBalance: '0.01'
+								lastLoadedAt: Date.now(),
+								isRefreshing: false,
+								error: null
 							},
 							bsc: {
-								connected: true,
-								address: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
-								usdtBalance: '0',
-								formattedUsdtBalance: '0'
-							},
-							totalBalances: {
-								sats: 1_000_000,
-								usd: 50
-							},
-							balanceFreshness: {
-								rsk: {
-									lastLoadedAt: Date.now(),
-									isRefreshing: false,
-									error: null
-								},
-								bsc: {
-									lastLoadedAt: Date.now(),
-									isRefreshing: false,
-									error: null
-								}
+								lastLoadedAt: Date.now(),
+								isRefreshing: false,
+								error: null
 							}
-						}) as any
-				);
+						}
+					}) as any
+			);
 
-				render(SendPaymentForm, defaultProps);
-				await tick();
+			render(SendPaymentForm, defaultProps);
+			await tick();
 
-				fireEvent.click(screen.getByRole('button', { name: /enter payment details/i }));
-				await tick();
+			fireEvent.click(screen.getByRole('button', { name: /enter payment details/i }));
+			await tick();
 
-				const addressInput = (document.getElementById('address-input') ||
-					document.getElementById('address-input-desktop')) as HTMLInputElement;
-				await waitFor(() => expect(addressInput).toBeInTheDocument());
-				fireEvent.input(addressInput, {
-					target: { value: 'bsc:0x1234567890123456789012345678901234567890' }
-				});
-				await tick();
-
-				await waitFor(() => {
-					const balanceSummaries = screen.getAllByText(/available balance: \$0\.00\./i);
-					expect(balanceSummaries.length).toBeGreaterThan(0);
-
-					for (const summary of balanceSummaries) {
-						expect(summary.className).toContain('text-error');
-						const balanceCard = summary.closest('.rounded-lg.border');
-						expect(balanceCard).not.toBeNull();
-						expect(balanceCard?.className).toContain('border-error');
-					}
-				});
+			const addressInput = (document.getElementById('address-input') ||
+				document.getElementById('address-input-desktop')) as HTMLInputElement;
+			await waitFor(() => expect(addressInput).toBeInTheDocument());
+			fireEvent.input(addressInput, {
+				target: { value: 'bsc:0x1234567890123456789012345678901234567890' }
 			});
+			await tick();
 
-			it('shows BSC available balance with two decimal places', async () => {
-				vi.mocked(parsePaymentAddress).mockReturnValue({
-					isValid: true,
-					address: '0x1234567890123456789012345678901234567890',
-					network: 'usdt-bsc',
-					amount: null,
-					memo: null
-				} as any);
+			await waitFor(() => {
+				const balanceSummaries = screen.getAllByText(/available balance: \$0\.00\./i);
+				expect(balanceSummaries.length).toBeGreaterThan(0);
 
-				walletStore.update(
-					() =>
-						({
-							hasAnyConnection: true,
+				for (const summary of balanceSummaries) {
+					expect(summary.className).toContain('text-error');
+					const balanceCard = summary.closest('.rounded-lg.border');
+					expect(balanceCard).not.toBeNull();
+					expect(balanceCard?.className).toContain('border-error');
+				}
+			});
+		});
+
+		it('shows BSC available balance with two decimal places', async () => {
+			vi.mocked(parsePaymentAddress).mockReturnValue({
+				isValid: true,
+				address: '0x1234567890123456789012345678901234567890',
+				network: 'usdt-bsc',
+				amount: null,
+				memo: null
+			} as any);
+
+			walletStore.update(
+				() =>
+					({
+						hasAnyConnection: true,
+						rsk: {
+							connected: true,
+							address: '0x1234567890123456789012345678901234567890',
+							balance: '10000000000000000',
+							formattedBalance: '0.01'
+						},
+						bsc: {
+							connected: true,
+							address: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
+							usdtBalance: '50000000',
+							formattedUsdtBalance: '50'
+						},
+						totalBalances: {
+							sats: 1_000_000,
+							usd: 50
+						},
+						balanceFreshness: {
 							rsk: {
-								connected: true,
-								address: '0x1234567890123456789012345678901234567890',
-								balance: '10000000000000000',
-								formattedBalance: '0.01'
+								lastLoadedAt: Date.now(),
+								isRefreshing: false,
+								error: null
 							},
 							bsc: {
-								connected: true,
-								address: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
-								usdtBalance: '50000000',
-								formattedUsdtBalance: '50'
-							},
-							totalBalances: {
-								sats: 1_000_000,
-								usd: 50
-							},
-							balanceFreshness: {
-								rsk: {
-									lastLoadedAt: Date.now(),
-									isRefreshing: false,
-									error: null
-								},
-								bsc: {
-									lastLoadedAt: Date.now(),
-									isRefreshing: false,
-									error: null
-								}
+								lastLoadedAt: Date.now(),
+								isRefreshing: false,
+								error: null
 							}
-						}) as any
-				);
+						}
+					}) as any
+			);
 
-				render(SendPaymentForm, defaultProps);
-				await tick();
+			render(SendPaymentForm, defaultProps);
+			await tick();
 
-				fireEvent.click(screen.getByRole('button', { name: /enter payment details/i }));
-				await tick();
+			fireEvent.click(screen.getByRole('button', { name: /enter payment details/i }));
+			await tick();
 
-				const addressInput = (document.getElementById('address-input') ||
-					document.getElementById('address-input-desktop')) as HTMLInputElement;
-				await waitFor(() => expect(addressInput).toBeInTheDocument());
-				fireEvent.input(addressInput, {
-					target: { value: 'bsc:0x1234567890123456789012345678901234567890' }
-				});
-				await tick();
+			const addressInput = (document.getElementById('address-input') ||
+				document.getElementById('address-input-desktop')) as HTMLInputElement;
+			await waitFor(() => expect(addressInput).toBeInTheDocument());
+			fireEvent.input(addressInput, {
+				target: { value: 'bsc:0x1234567890123456789012345678901234567890' }
+			});
+			await tick();
 
-				await waitFor(() => {
-					expect(screen.getAllByText(/50\.00 USDT/i).length).toBeGreaterThan(0);
-				});
+			await waitFor(() => {
+				expect(screen.getAllByText(/50\.00 USDT/i).length).toBeGreaterThan(0);
+			});
+		});
+
+		it('clears the BTC price waiting state when the global price store updates', async () => {
+			marketPriceTestControl.setPrice({
+				btcUsd: 0,
+				rbtcUsd: 0,
+				lastFetched: 0
 			});
 
-			it('clears the BTC price waiting state when the global price store updates', async () => {
-				marketPriceTestControl.setPrice({
-					btcUsd: 0,
-					rbtcUsd: 0,
-					lastFetched: 0
-				});
+			vi.mocked(parsePaymentAddress).mockReturnValue({
+				isValid: true,
+				address: '0x1234567890123456789012345678901234567890',
+				network: 'rootstock-bitcoin',
+				amount: null,
+				memo: null
+			});
 
-				vi.mocked(parsePaymentAddress).mockReturnValue({
-					isValid: true,
-					address: '0x1234567890123456789012345678901234567890',
-					network: 'rootstock-bitcoin',
-					amount: null,
-					memo: null
-				});
+			render(SendPaymentForm, defaultProps);
+			await tick();
 
-				render(SendPaymentForm, defaultProps);
-				await tick();
+			fireEvent.click(screen.getByRole('button', { name: /enter payment details/i }));
+			await tick();
 
-				fireEvent.click(screen.getByRole('button', { name: /enter payment details/i }));
-				await tick();
+			const addressInput = (document.getElementById('address-input') ||
+				document.getElementById('address-input-desktop')) as HTMLInputElement;
+			await waitFor(() => expect(addressInput).toBeInTheDocument());
+			fireEvent.input(addressInput, {
+				target: { value: 'rsk:0x1234567890123456789012345678901234567890' }
+			});
+			await tick();
 
-				const addressInput = (document.getElementById('address-input') ||
-					document.getElementById('address-input-desktop')) as HTMLInputElement;
-				await waitFor(() => expect(addressInput).toBeInTheDocument());
-				fireEvent.input(addressInput, {
-					target: { value: 'rsk:0x1234567890123456789012345678901234567890' }
-				});
-				await tick();
+			const usdButtons = screen.getAllByRole('button', { name: 'USD' });
+			await fireEvent.click(usdButtons[0]);
+			await tick();
 
-				const usdButtons = screen.getAllByRole('button', { name: 'USD' });
-				await fireEvent.click(usdButtons[0]);
-				await tick();
+			await fireEvent.click(screen.getAllByRole('button', { name: '1' })[0]);
+			await fireEvent.click(screen.getAllByRole('button', { name: '0' })[0]);
+			await fireEvent.click(screen.getAllByRole('button', { name: '0' })[0]);
+			await tick();
 
-				await fireEvent.click(screen.getAllByRole('button', { name: '1' })[0]);
-				await fireEvent.click(screen.getAllByRole('button', { name: '0' })[0]);
-				await fireEvent.click(screen.getAllByRole('button', { name: '0' })[0]);
-				await tick();
+			await waitFor(() => {
+				expect(screen.getAllByText(/fetching the current btc price/i).length).toBeGreaterThan(0);
+			});
 
-				await waitFor(() => {
-					expect(screen.getAllByText(/fetching the current btc price/i).length).toBeGreaterThan(0);
-				});
-
-				marketPriceTestControl.setPrice({
-					btcUsd: 50_000,
-					rbtcUsd: 50_000,
-					lastFetched: Date.now()
-				});
-				await tick();
+			marketPriceTestControl.setPrice({
+				btcUsd: 50_000,
+				rbtcUsd: 50_000,
+				lastFetched: Date.now()
+			});
+			await tick();
 
 			await waitFor(() => {
 				expect(screen.queryByText(/fetching the current btc price/i)).toBeNull();
@@ -1731,14 +1789,14 @@ describe('SendPaymentForm Component', () => {
 			fireEvent.input(addressInput, {
 				target: { value: '0x1234567890123456789012345678901234567890' }
 			});
-				await tick();
+			await tick();
 
-				await waitFor(() => {
-					expect(screen.getByTestId('ambiguous-address-warning')).toBeInTheDocument();
-					expect(
-						screen.getAllByText(/payment network not detected from address/i).length
-						).toBeGreaterThan(0);
-					});
+			await waitFor(() => {
+				expect(screen.getByTestId('ambiguous-address-warning')).toBeInTheDocument();
+				expect(
+					screen.getAllByText(/payment network not detected from address/i).length
+				).toBeGreaterThan(0);
+			});
 
 			// Resolve to rBTC without altering the currently selected unit.
 			const chooseRbtcButton = screen.getAllByRole('button', { name: /^rbtc$/i })[0];
@@ -1956,14 +2014,14 @@ describe('SendPaymentForm Component', () => {
 			fireEvent.input(addressInput, {
 				target: { value: '0x1234567890123456789012345678901234567890' }
 			});
-				await tick();
+			await tick();
 
-				await waitFor(() => {
-					expect(screen.getByTestId('ambiguous-address-warning')).toBeInTheDocument();
-					expect(
-						screen.getAllByText(/payment network not detected from address/i).length
-					).toBeGreaterThan(0);
-				});
+			await waitFor(() => {
+				expect(screen.getByTestId('ambiguous-address-warning')).toBeInTheDocument();
+				expect(
+					screen.getAllByText(/payment network not detected from address/i).length
+				).toBeGreaterThan(0);
+			});
 
 			// Now resolve to BSC - should switch to USD since sats is not supported
 			const chooseBscButton = screen.getAllByRole('button', { name: /usdt on bsc/i })[0];
