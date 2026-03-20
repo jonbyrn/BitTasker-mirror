@@ -4,6 +4,7 @@
 			"detail": {
 				"title": "Detalles del Servicio",
 				"description": "Consulta los detalles del servicio y contacta al Taskee.",
+				"back_to_services": "Volver a Servicios",
 				"not_found": "Servicio no encontrado",
 				"not_found_message": "El servicio que buscas no existe o ya no está disponible.",
 				"browse_services": "Explorar Servicios",

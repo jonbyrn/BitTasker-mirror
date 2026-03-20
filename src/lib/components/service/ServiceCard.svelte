@@ -3,7 +3,10 @@
 	import type { Attachment } from '$lib/types/task.d';
 	import { t, locale } from 'svelte-i18n';
 	import { goto } from '$app/navigation';
-	import { getServiceDisplayTitle, getServiceDisplayDescription } from '$lib/utils/serviceDisplayTranslation';
+	import {
+		getServiceDisplayTitle,
+		getServiceDisplayDescription
+	} from '$lib/utils/serviceDisplayTranslation';
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { satsFromUsd } from '$lib/utils/helpers/crypto';
 	import { ServicePricingTypeEnum, ServiceLocationTypeEnum } from '$lib/utils/enums/service.enum';
@@ -12,7 +15,15 @@
 	import IconEye from '~icons/mdi/eye';
 	import IconPlus from '~icons/mdi/plus';
 
-	const { service, btcPrice, onclick, selectedService, onSelectServiceForMap, isMapVisible, onRequestQuote } = $props<{
+	const {
+		service,
+		btcPrice,
+		onclick,
+		selectedService,
+		onSelectServiceForMap,
+		isMapVisible,
+		onRequestQuote
+	} = $props<{
 		service: Service;
 		btcPrice: number;
 		onclick?: () => void;
@@ -56,7 +67,9 @@
 				if (service.pricing.tiers && service.pricing.tiers.length > 0) {
 					const prices = service.pricing.tiers
 						.map((tier: ServiceTier) => tier.price)
-						.filter((price: number | undefined): price is number => typeof price === 'number' && price > 0);
+						.filter(
+							(price: number | undefined): price is number => typeof price === 'number' && price > 0
+						);
 					if (prices.length > 0) {
 						const minPrice = Math.min(...prices);
 						return `From $${formatNumberWithTwoDecimals(minPrice)}`;
@@ -78,7 +91,9 @@
 			return '';
 		}
 
-		const hasTaskerLocation = service.serviceLocationTypes?.includes(ServiceLocationTypeEnum.TASKER_LOCATION);
+		const hasTaskerLocation = service.serviceLocationTypes?.includes(
+			ServiceLocationTypeEnum.TASKER_LOCATION
+		);
 		const baseAddress =
 			service.locationDetails?.taskerLocation?.serviceLocation?.displayName ||
 			service.locationDetails?.taskerLocation?.serviceLocation?.formattedAddress;
@@ -91,9 +106,12 @@
 		}
 
 		const locationLabels: Record<ServiceLocationTypeEnum, string> = {
-			[ServiceLocationTypeEnum.REMOTE]: $t('dashboard.services.create.location.remote_title') || 'Remote',
-			[ServiceLocationTypeEnum.TASKER_LOCATION]: $t('dashboard.services.create.location.tasker_title') || 'At My Location',
-			[ServiceLocationTypeEnum.TASKEE_LOCATION]: $t('dashboard.services.create.location.taskee_title') || 'At Tasker Location'
+			[ServiceLocationTypeEnum.REMOTE]:
+				$t('dashboard.services.create.location.remote_title') || 'Remote',
+			[ServiceLocationTypeEnum.TASKER_LOCATION]:
+				$t('dashboard.services.create.location.tasker_title') || 'At My Location',
+			[ServiceLocationTypeEnum.TASKEE_LOCATION]:
+				$t('dashboard.services.create.location.taskee_title') || 'At Tasker Location'
 		};
 
 		return service.serviceLocationTypes
@@ -133,7 +151,12 @@
 			return service.portfolio.filter((item: Attachment) => {
 				if (!item?.url) return false;
 				const url = item.url.toLowerCase();
-				return !url.endsWith('.mp4') && !url.endsWith('.webm') && !url.endsWith('.ogg') && !url.endsWith('.mov');
+				return (
+					!url.endsWith('.mp4') &&
+					!url.endsWith('.webm') &&
+					!url.endsWith('.ogg') &&
+					!url.endsWith('.mov')
+				);
 			});
 		}
 		return [];
@@ -151,17 +174,20 @@
 </script>
 
 <div
-	class="card bg-base-100 rounded-xl shadow-md hover:shadow-xl transition-all cursor-pointer overflow-hidden h-full flex flex-col gap-0 p-0"
-	class:bg-base-300={selectedService && (service.uniqueId || service.id) === (selectedService.uniqueId || selectedService.id)}
-	class:border-primary={selectedService && (service.uniqueId || service.id) === (selectedService.uniqueId || selectedService.id)}
-	class:border-2={selectedService && (service.uniqueId || service.id) === (selectedService.uniqueId || selectedService.id)}
+	class="card bg-base-100 flex h-full cursor-pointer flex-col gap-0 overflow-hidden rounded-xl p-0 shadow-md transition-all hover:shadow-xl"
+	class:bg-base-300={selectedService &&
+		(service.uniqueId || service.id) === (selectedService.uniqueId || selectedService.id)}
+	class:border-primary={selectedService &&
+		(service.uniqueId || service.id) === (selectedService.uniqueId || selectedService.id)}
+	class:border-2={selectedService &&
+		(service.uniqueId || service.id) === (selectedService.uniqueId || selectedService.id)}
 	role="button"
 	tabindex="0"
 	onclick={handleCardClick}
 	onkeydown={handleCardClick}
 >
 	<!-- Portfolio Image - Compact (50% smaller) -->
-	<figure class="relative w-full h-[88px] overflow-hidden bg-base-200 shrink-0 rounded-t-xl mt-0">
+	<figure class="bg-base-200 relative mt-0 h-[88px] w-full shrink-0 overflow-hidden rounded-t-xl">
 		{#if portfolioImages.length > 0}
 			<div class="relative h-full w-full">
 				<img
@@ -175,7 +201,7 @@
 					<!-- Previous Button -->
 					{#if currentImageIndex > 0}
 						<button
-							class="absolute left-2 top-1/2 -translate-y-1/2 btn btn-circle btn-sm btn-ghost bg-base-100/80 hover:bg-base-100 backdrop-blur-sm border-0 shadow-sm"
+							class="btn btn-circle btn-sm btn-ghost bg-base-100/80 hover:bg-base-100 absolute top-1/2 left-2 -translate-y-1/2 border-0 shadow-sm backdrop-blur-sm"
 							onclick={(e) => {
 								e.stopPropagation();
 								currentImageIndex = Math.max(0, currentImageIndex - 1);
@@ -197,7 +223,7 @@
 					<!-- Next Button -->
 					{#if currentImageIndex < portfolioImages.length - 1}
 						<button
-							class="absolute right-2 top-1/2 -translate-y-1/2 btn btn-circle btn-sm btn-ghost bg-base-100/80 hover:bg-base-100 backdrop-blur-sm border-0 shadow-sm"
+							class="btn btn-circle btn-sm btn-ghost bg-base-100/80 hover:bg-base-100 absolute top-1/2 right-2 -translate-y-1/2 border-0 shadow-sm backdrop-blur-sm"
 							onclick={(e) => {
 								e.stopPropagation();
 								currentImageIndex = Math.min(portfolioImages.length - 1, currentImageIndex + 1);
@@ -217,12 +243,12 @@
 						</button>
 					{/if}
 					<!-- Image Indicators -->
-					<div class="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
+					<div class="absolute bottom-2 left-1/2 flex -translate-x-1/2 gap-1">
 						{#each portfolioImages.slice(0, 5) as img, idx (img?.url ?? idx)}
 							<button
 								class="h-1.5 rounded-full transition-all {idx === currentImageIndex
-									? 'w-4 bg-base-100'
-									: 'w-1.5 bg-base-100/50'}"
+									? 'bg-base-100 w-4'
+									: 'bg-base-100/50 w-1.5'}"
 								onclick={(e) => {
 									e.stopPropagation();
 									currentImageIndex = idx;
@@ -234,10 +260,12 @@
 				{/if}
 			</div>
 		{:else}
-			<div class="h-full w-full bg-linear-to-br from-primary/20 to-secondary/20 flex items-center justify-center">
+			<div
+				class="from-primary/20 to-secondary/20 flex h-full w-full items-center justify-center bg-linear-to-br"
+			>
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
-					class="h-16 w-16 text-base-content/30"
+					class="text-base-content/30 h-16 w-16"
 					fill="none"
 					viewBox="0 0 24 24"
 					stroke="currentColor"
@@ -254,14 +282,14 @@
 	</figure>
 
 	<!-- Card Body - Same layout as TaskCard: Title+Price+Share | Location (arriba) | Description | Provider+Ver (abajo) -->
-	<div class="card-body rounded-b-xl p-4 flex-1 flex flex-col">
+	<div class="card-body flex flex-1 flex-col rounded-b-xl p-4">
 		<!-- Top Row: Title + Share + Price (matches TaskCard: Title + Status+Share+Price) -->
 		<div class="mb-3 flex flex-row items-stretch justify-between gap-2">
 			<div class="min-w-0 flex-1 pr-2 md:pr-4">
-				<span class="card-title line-clamp-2 text-lg font-semibold text-base-content">
+				<span class="card-title text-base-content line-clamp-2 text-lg font-semibold">
 					{displayTitle}
 				</span>
-				<p class="text-sm text-base-content/80 whitespace-pre-line line-clamp-2 mt-1">
+				<p class="text-base-content/80 mt-1 line-clamp-2 text-sm whitespace-pre-line">
 					{displayDescription}
 				</p>
 			</div>
@@ -275,17 +303,17 @@
 					<ServiceShareButton {service} variant="circle" class="btn-xs" />
 				</span>
 				<div class="text-right">
-					<div class="text-base font-bold leading-tight">{getPricingDisplay()}</div>
+					<div class="text-base leading-tight font-bold">{getPricingDisplay()}</div>
 					{#if service.pricing?.type === ServicePricingTypeEnum.FIXED && service.pricing.amount}
 						<div class="text-base-content/60 text-sm">
 							{satsFromUsd(service.pricing.amount, btcPrice)}
 						</div>
 					{:else if service.pricing?.type === ServicePricingTypeEnum.HOURLY && service.pricing.hourlyRate}
-						<div class="text-xs text-base-content/60 leading-tight">
+						<div class="text-base-content/60 text-xs leading-tight">
 							{satsFromUsd(service.pricing.hourlyRate, btcPrice)}/hr
 						</div>
 					{:else if service.pricing?.type === ServicePricingTypeEnum.TIERED && service.pricing.tiers && service.pricing.tiers.length > 0}
-						<div class="text-xs text-base-content/60 leading-tight">
+						<div class="text-base-content/60 text-xs leading-tight">
 							{satsFromUsd(
 								Math.min(
 									...service.pricing.tiers
@@ -305,7 +333,7 @@
 			<div class="mb-3 flex items-center gap-2">
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
-					class="h-5 w-5 shrink-0 text-primary"
+					class="text-primary h-5 w-5 shrink-0"
 					fill="none"
 					viewBox="0 0 24 24"
 					stroke="currentColor"
@@ -323,7 +351,9 @@
 						d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
 					/>
 				</svg>
-				<span class="text-sm text-base-content/80 truncate flex-1 min-w-0">{getLocationTypesDisplay()}</span>
+				<span class="text-base-content/80 min-w-0 flex-1 truncate text-sm"
+					>{getLocationTypesDisplay()}</span
+				>
 			</div>
 		{/if}
 
@@ -333,8 +363,8 @@
 			{@const totalSkills = service.skills?.length || 0}
 			{@const shownCategories = service.categories?.slice(0, 2) || []}
 			{@const shownSkills = service.skills?.slice(0, 2) || []}
-			{@const remainingCount = Math.max(0, (totalCategories - 2) + (totalSkills - 2))}
-			<div class="flex flex-wrap gap-1.5 mb-3 max-h-11.5 overflow-hidden">
+			{@const remainingCount = Math.max(0, totalCategories - 2 + (totalSkills - 2))}
+			<div class="mb-3 flex max-h-11.5 flex-wrap gap-1.5 overflow-hidden">
 				{#if shownCategories.length > 0}
 					{#each shownCategories as category, i (`cat-${i}-${typeof category === 'string' ? category : category.name}`)}
 						<span class="badge badge-sm badge-info badge-outline">
@@ -354,7 +384,7 @@
 		{/if}
 
 		<!-- Bottom Row: Avatar + Ver (abajo - matches TaskCard) -->
-		<div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between mt-auto">
+		<div class="mt-auto flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
 			{#if service.creator}
 				<div class="flex min-w-0 flex-1 items-center gap-3">
 					{#if service.creator.avatar}
@@ -363,23 +393,26 @@
 						<Avatar name={service.creator.username} size="md" />
 					{/if}
 					<div class="min-w-0 flex-1">
-						<div class="text-sm font-medium text-base-content truncate">
+						<div class="text-base-content truncate text-sm font-medium">
 							{service.creator.username}
 						</div>
 						{#if service.createdAt}
-							<div class="text-xs text-base-content/60">
-								{$t('common.profile.member_since')} {formatMemberSince(service.createdAt)}
+							<div class="text-base-content/60 text-xs">
+								{$t('common.profile.member_since')}
+								{formatMemberSince(service.createdAt)}
 							</div>
 						{/if}
 						<div class="flex items-center gap-1.5">
 							{#each [0, 1, 2, 3, 4] as idx (idx)}
 								<svg
 									xmlns="http://www.w3.org/2000/svg"
-									class="h-3 w-3 text-base-content/40"
+									class="text-base-content/40 h-3 w-3"
 									fill="currentColor"
 									viewBox="0 0 24 24"
 								>
-									<path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+									<path
+										d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+									/>
 								</svg>
 							{/each}
 							<span class="text-base-content/60 text-xs">{rating.toFixed(1)}</span>
@@ -404,7 +437,7 @@
 					</button>
 				{/if}
 				<button
-					class="btn btn-secondary btn-sm flex-1 md:flex-none"
+					class="btn btn-primary btn-sm flex-1 md:flex-none"
 					onclick={(e) => {
 						e.stopPropagation();
 						const serviceIdentifier = service.uniqueId || service.id;

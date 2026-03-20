@@ -28,6 +28,7 @@
 	import Modal from '$lib/components/Modal.svelte';
 	import RequestQuoteModal from '$lib/components/service/RequestQuoteModal.svelte';
 	import ServiceInstantBuyModal from '$lib/components/service/ServiceInstantBuyModal.svelte';
+	import IconArrowLeft from '~icons/mdi/arrow-left';
 	import type { QuoteRequestPayload } from '$lib/types/service.d';
 	import { serviceQuoteUiStore } from '$lib/stores/service-quote-ui.store';
 	import { getInstantBuyEligibility } from '$lib/utils/service-instant-buy/eligibility';
@@ -180,12 +181,21 @@
 	const isInstantBuyDisabled = $derived(!instantBuyEligibility.eligible);
 	const instantBuyDisabledReason = $derived.by(() => {
 		if (instantBuyEligibility.code === 'missing_selected_tier') {
-			return $t('dashboard.services.detail.instant_buy.select_tier_required') || 'Select a tier above to use Buy Now';
+			return (
+				$t('dashboard.services.detail.instant_buy.select_tier_required') ||
+				'Select a tier above to use Buy Now'
+			);
 		}
 		if (instantBuyEligibility.code === 'invalid_selected_tier') {
-			return $t('dashboard.services.detail.instant_buy.invalid_tier') || 'The selected tier is no longer available';
+			return (
+				$t('dashboard.services.detail.instant_buy.invalid_tier') ||
+				'The selected tier is no longer available'
+			);
 		}
-		return $t('dashboard.services.detail.instant_buy.not_eligible') || 'This service is not eligible for instant purchase';
+		return (
+			$t('dashboard.services.detail.instant_buy.not_eligible') ||
+			'This service is not eligible for instant purchase'
+		);
 	});
 	const requestQuoteContextSummary = $derived.by(() => {
 		const summary: string[] = [];
@@ -303,7 +313,8 @@
 		}
 
 		return (
-			runtimeService.pricing.tiers?.find((tier: ServiceTier) => tier.id === selectedTierId)?.price ?? null
+			runtimeService.pricing.tiers?.find((tier: ServiceTier) => tier.id === selectedTierId)
+				?.price ?? null
 		);
 	}
 
@@ -318,10 +329,11 @@
 	): ServiceContractAgreementSnapshot {
 		const selectedTierDescription =
 			runtimeService.pricing?.type === ServicePricingTypeEnum.TIERED && selectedTierId
-				? runtimeService.pricing.tiers?.find((tier: ServiceTier) => tier.id === selectedTierId)
-						?.description ?? ''
+				? (runtimeService.pricing.tiers?.find((tier: ServiceTier) => tier.id === selectedTierId)
+						?.description ?? '')
 				: '';
-		const includedScope = selectedTierDescription.trim() || displayDescriptionFull || runtimeService.description;
+		const includedScope =
+			selectedTierDescription.trim() || displayDescriptionFull || runtimeService.description;
 
 		return {
 			selectedTierId: selectedTierId ?? undefined,
@@ -350,7 +362,10 @@
 			serviceVersionRef: runtimeService.id,
 			tierId: snapshot.selectedTierId
 		};
-		const agreementSnapshot = buildInstantBuyAgreementSnapshot(runtimeService, snapshot.purchaseKey);
+		const agreementSnapshot = buildInstantBuyAgreementSnapshot(
+			runtimeService,
+			snapshot.purchaseKey
+		);
 
 		return {
 			snapshot,
@@ -364,7 +379,9 @@
 		};
 	}
 
-	async function revalidateInstantBuyDraft(existingInstantOrderId?: string): Promise<InstantBuyDraft> {
+	async function revalidateInstantBuyDraft(
+		existingInstantOrderId?: string
+	): Promise<InstantBuyDraft> {
 		if (!service) {
 			throw new Error('Service is unavailable.');
 		}
@@ -438,7 +455,9 @@
 			return;
 		}
 		if (!instantBuyEligibility.eligible) {
-			appStore.showErrorToast(instantBuyDisabledReason || 'This service is not ready for instant buy.');
+			appStore.showErrorToast(
+				instantBuyDisabledReason || 'This service is not ready for instant buy.'
+			);
 			return;
 		}
 
@@ -456,7 +475,8 @@
 			return;
 		}
 		if (!instantBuyDraft) {
-			instantBuyErrorMessage = 'The latest service snapshot is still loading. Retry before buying now.';
+			instantBuyErrorMessage =
+				'The latest service snapshot is still loading. Retry before buying now.';
 			instantBuyErrorHint = '';
 			return;
 		}
@@ -559,7 +579,9 @@
 		}
 
 		// Show success toast before navigation
-		$appStore.addSuccessToast($t('dashboard.services.detail.quote_submitted') || 'Quote request submitted successfully!');
+		$appStore.addSuccessToast(
+			$t('dashboard.services.detail.quote_submitted') || 'Quote request submitted successfully!'
+		);
 
 		await goto(
 			`/dashboard?tab=quotes&view=tasker&request=${encodeURIComponent(result.quoteRequestId)}`
@@ -609,7 +631,9 @@
 		const reentryState = parseServiceQuoteReentryState(new URL(window.location.href));
 
 		if (service.pricing?.type === ServicePricingTypeEnum.TIERED && reentryState.tierId) {
-			const matchingTier = tiersWithPrice.find((tier: ServiceTier) => tier.id === reentryState.tierId);
+			const matchingTier = tiersWithPrice.find(
+				(tier: ServiceTier) => tier.id === reentryState.tierId
+			);
 			if (matchingTier) {
 				selectedTierId = matchingTier.id;
 			}
@@ -617,7 +641,9 @@
 
 		if (displayAddOns.length > 0 && reentryState.selectedAddOnIds.length > 0) {
 			const validAddOnIds = new Set(displayAddOns.map((addOn) => addOn.id));
-			selectedAddOnIds = reentryState.selectedAddOnIds.filter((addOnId) => validAddOnIds.has(addOnId));
+			selectedAddOnIds = reentryState.selectedAddOnIds.filter((addOnId) =>
+				validAddOnIds.has(addOnId)
+			);
 		}
 
 		if (
@@ -735,6 +761,12 @@
 		{:else}
 			<div class="mb-6 flex items-center gap-3">
 				<div class="flex-1 text-left">
+					<div class="mb-3">
+						<a href="/services" class="btn btn-ghost btn-sm gap-2">
+							<IconArrowLeft class="h-4 w-4" aria-hidden="true" />
+							{$t('dashboard.services.detail.back_to_services') || 'Back to Services'}
+						</a>
+					</div>
 					<h3 class="">{$t('dashboard.services.detail.title')}</h3>
 					<p class="text-base-content/70">{$t('dashboard.services.detail.description')}</p>
 				</div>
@@ -765,7 +797,7 @@
 									{$t('dashboard.services.create.review.categories_label')}
 								</h4>
 								<div class="flex flex-wrap gap-2">
-									{#each service.categories as category}
+									{#each service.categories as category (typeof category === 'string' ? category : category.id)}
 										<span class="badge badge-primary badge-outline badge-sm">
 											{translateCategory(category)}
 										</span>
@@ -780,7 +812,7 @@
 									{$t('dashboard.services.create.review.skills_label')}
 								</h4>
 								<div class="flex flex-wrap gap-2">
-									{#each service.skills as skill}
+									{#each service.skills as skill (skill)}
 										<span class="badge badge-secondary badge-sm">{skill}</span>
 									{/each}
 								</div>
@@ -794,7 +826,7 @@
 									{$t('dashboard.services.create.review.location_types_label')}
 								</h4>
 								<div class="flex flex-wrap gap-2">
-									{#each service.serviceLocationTypes as locationType}
+									{#each service.serviceLocationTypes as locationType (locationType)}
 										<span class="badge badge-accent badge-sm">
 											{#if locationType === ServiceLocationTypeEnum.REMOTE}
 												{$t('dashboard.services.create.location.remote_title')}
@@ -863,7 +895,7 @@
 									{$t('dashboard.services.create.review.addons_title')}
 								</h4>
 								<div class="flex flex-wrap gap-2">
-									{#each displayAddOns as addOn}
+									{#each displayAddOns as addOn (addOn.id)}
 										<div class="badge badge-outline gap-1">
 											{addOn.name} · ${formatNumberWithTwoDecimals(addOn.price)}
 										</div>
@@ -898,7 +930,8 @@
 								<span>{$t('dashboard.services.detail.you_are_provider')}</span>
 							</div>
 							<a
-								href="/dashboard/create-service?edit=true&serviceId={service.uniqueId || service.id}"
+								href="/dashboard/create-service?edit=true&serviceId={service.uniqueId ||
+									service.id}"
 								class="btn btn-primary btn-sm mt-4 w-full"
 							>
 								{$t('dashboard.services.detail.edit_service')}
@@ -1024,7 +1057,7 @@
 							<div class="border-base-300 mt-4 border-t pt-4">
 								<h4 class="mb-3 font-semibold">{$t('dashboard.services.detail.price_levels')}</h4>
 								<div class="space-y-3">
-									{#each tiersWithPrice as tier}
+									{#each tiersWithPrice as tier (tier.id)}
 										<div class="bg-base-200 rounded-lg p-3">
 											<div class="flex items-start justify-between gap-2">
 												<div class="min-w-0 flex-1">
@@ -1074,7 +1107,7 @@
 							<div class="border-base-300 mt-4 border-t pt-4">
 								<h4 class="mb-3 font-semibold">{$t('dashboard.services.detail.faqs')}</h4>
 								<div class="space-y-3">
-									{#each displayFaqs as faq}
+									{#each displayFaqs as faq (faq.question)}
 										<div class="collapse-arrow bg-base-200 collapse">
 											<input type="checkbox" />
 											<div class="collapse-title text-sm font-medium">{faq.question}</div>
@@ -1111,8 +1144,8 @@
 		estimatedCompletionTime={instantBuyDraft?.snapshot.estimatedEndTime ?? null}
 		isPreparing={instantBuyPreparing}
 		isSubmitting={instantBuySubmitting}
-		isOffline={isOffline}
-		showReconnectNotice={showReconnectNotice}
+		{isOffline}
+		{showReconnectNotice}
 		errorMessage={instantBuyErrorMessage}
 		errorHint={instantBuyErrorHint}
 		canConfirm={instantBuyDraft !== null}
@@ -1131,7 +1164,7 @@
 		size="md"
 	>
 		{#if deleteModalState}
-			<p class="text-sm text-base-content/80">
+			<p class="text-base-content/80 text-sm">
 				{#if deleteModalState.mode === 'blocked'}
 					This service cannot be deleted yet.
 				{:else}
@@ -1144,14 +1177,16 @@
 					{#if deleteModalState.openQuoteCount > 0}
 						<div class="alert alert-warning">
 							<span>
-								Open quotes are still attached to this service (`{deleteModalState.openQuoteCount}` blocking thread{deleteModalState.openQuoteCount === 1 ? '' : 's'}).
+								Open quotes are still attached to this service (`{deleteModalState.openQuoteCount}`
+								blocking thread{deleteModalState.openQuoteCount === 1 ? '' : 's'}).
 							</span>
 						</div>
 					{/if}
 					{#if deleteModalState.activeContractCount > 0}
 						<div class="alert alert-error">
 							<span>
-								Active service contracts are still attached to this service (`{deleteModalState.activeContractCount}` active contract{deleteModalState.activeContractCount === 1 ? '' : 's'}).
+								Active service contracts are still attached to this service (`{deleteModalState.activeContractCount}`
+								active contract{deleteModalState.activeContractCount === 1 ? '' : 's'}).
 							</span>
 						</div>
 					{/if}
@@ -1160,18 +1195,29 @@
 					<button type="button" class="btn btn-primary" onclick={closeDeleteModal}>Close</button>
 				</div>
 			{:else}
-				<p class="mt-4 text-sm text-base-content/70">
+				<p class="text-base-content/70 mt-4 text-sm">
 					{#if deleteModalState.totalQuoteCount > 0}
-						Historical quote threads will remain as records, but no open quotes or active contracts were found.
+						Historical quote threads will remain as records, but no open quotes or active contracts
+						were found.
 					{:else}
 						No open quotes or active contracts were found for this service.
 					{/if}
 				</p>
 				<div class="mt-6 flex justify-end gap-2">
-					<button type="button" class="btn btn-ghost" onclick={closeDeleteModal} disabled={deleteSubmitting}>
+					<button
+						type="button"
+						class="btn btn-ghost"
+						onclick={closeDeleteModal}
+						disabled={deleteSubmitting}
+					>
 						Cancel
 					</button>
-					<button type="button" class="btn btn-error" onclick={confirmDeleteService} disabled={deleteSubmitting}>
+					<button
+						type="button"
+						class="btn btn-error"
+						onclick={confirmDeleteService}
+						disabled={deleteSubmitting}
+					>
 						{#if deleteSubmitting}
 							<span class="loading loading-spinner loading-xs"></span>
 						{/if}
