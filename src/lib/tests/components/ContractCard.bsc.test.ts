@@ -263,7 +263,8 @@ describe('ContractCard BSC fail-closed rendering', () => {
 			btcPrice: 65000
 		});
 
-		expect(screen.getByText(/BSC escrow|Read-only/)).toBeInTheDocument();
+		expect(screen.getByText('BSC escrow')).toBeInTheDocument();
+		expect(screen.getAllByText('Read-only').length).toBeGreaterThan(0);
 	});
 
 	it('correctly identifies BSC testnet vs mainnet from paymentNetwork field', () => {

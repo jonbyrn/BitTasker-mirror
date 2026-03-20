@@ -37,6 +37,7 @@
 	let isPermissionGranted = $state(false);
 	let disabled = $state(false);
 	let showScanner = $state(false);
+	let barcodeListener: { remove: () => void | Promise<void> } | null = null;
 
 	onMount(async () => {
 		const { supported } = await BarcodeScanner.isSupported();
@@ -46,10 +47,14 @@
 		isPermissionGranted = camera === 'granted';
 
 		// Auto-start if no scanBtn is provided (used in SendPaymentForm)
-		if (!scanBtn) {
+		if (!scanBtn && isSupported) {
 			// Wait a bit for parent component to be ready and DOM to be stable
-			await new Promise(resolve => setTimeout(resolve, 800));
-			await startScan();
+			await new Promise((resolve) => setTimeout(resolve, 800));
+			try {
+				await startScan();
+			} catch (error) {
+				console.error('Failed to start QR scan:', error);
+			}
 		}
 	});
 
@@ -64,6 +69,8 @@
 	}
 
 	async function startScan() {
+		if (!isSupported) return;
+
 		// Check if permissions are granted
 		if (!isPermissionGranted) await requestPermissions();
 
@@ -105,6 +112,11 @@
 			: undefined;
 
 		// Listen for barcode detection
+		if (barcodeListener) {
+			await barcodeListener.remove();
+			barcodeListener = null;
+		}
+
 		const listener = await BarcodeScanner.addListener('barcodesScanned', async (event) => {
 			const firstBarcode = event.barcodes[0];
 			if (!firstBarcode) return;
@@ -127,10 +139,12 @@
 			}
 
 			// Remove listener and call handler
-			listener.remove();
+			await listener.remove();
+			barcodeListener = null;
 			onScan(firstBarcode);
 			closeModal();
 		});
+		barcodeListener = listener;
 
 		await BarcodeScanner.startScan(options);
 
@@ -150,6 +164,11 @@
 	}
 
 	async function stopScan() {
+		if (barcodeListener) {
+			await barcodeListener.remove();
+			barcodeListener = null;
+		}
+
 		showScanner = false;
 		document.querySelector('body')?.classList.remove('barcode-scanning-active');
 
@@ -181,7 +200,9 @@
 {#if showScanner}
 	<div class="barcode-scanning-modal fixed inset-0 z-[9999]">
 		<header class="relative z-[1001] flex items-center justify-between bg-black/70 p-4">
-			<div class="text-lg font-semibold text-white">{$t('common.components.qr_scanner.scan_qr_code')}</div>
+			<div class="text-lg font-semibold text-white">
+				{$t('common.components.qr_scanner.scan_qr_code')}
+			</div>
 			<button
 				aria-label={$t('common.components.qr_scanner.close')}
 				class="btn btn-circle cursor-pointer rounded-full p-2 text-white"

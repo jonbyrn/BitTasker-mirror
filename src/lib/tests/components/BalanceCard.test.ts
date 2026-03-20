@@ -35,7 +35,7 @@ vi.mock('svelte-i18n', async () => {
 });
 
 vi.mock('$lib/stores/wallet.store', async () => {
-	const { derived, writable } = await import('svelte/store');
+	const { writable } = await import('svelte/store');
 
 	const walletStore = writable({
 		bsc: {
@@ -95,10 +95,19 @@ vi.mock(
 	async () => await import('$lib/tests/components/stubs/EmptyStub.svelte')
 );
 
-vi.mock('~icons/mdi/help-circle', async () => await import('$lib/tests/components/stubs/EmptyStub.svelte'));
-vi.mock('~icons/mdi/refresh', async () => await import('$lib/tests/components/stubs/EmptyStub.svelte'));
+vi.mock(
+	'~icons/mdi/help-circle',
+	async () => await import('$lib/tests/components/stubs/EmptyStub.svelte')
+);
+vi.mock(
+	'~icons/mdi/refresh',
+	async () => await import('$lib/tests/components/stubs/EmptyStub.svelte')
+);
 vi.mock('~icons/mdi/eye', async () => await import('$lib/tests/components/stubs/EmptyStub.svelte'));
-vi.mock('~icons/mdi/eye-off', async () => await import('$lib/tests/components/stubs/EmptyStub.svelte'));
+vi.mock(
+	'~icons/mdi/eye-off',
+	async () => await import('$lib/tests/components/stubs/EmptyStub.svelte')
+);
 
 describe('BalanceCard', () => {
 	beforeEach(() => {
@@ -115,7 +124,7 @@ describe('BalanceCard', () => {
 	it('selects the BSC USDT history rail when the USD accordion is opened', async () => {
 		render(BalanceCard, { isLoading: false });
 
-		const usdRailButton = screen.getByRole('button', { name: /USDT on BSC/i });
+		const usdRailButton = screen.getByRole('button', { name: /^USD/i });
 		await fireEvent.click(usdRailButton);
 
 		expect(mocks.setActiveNetwork).toHaveBeenCalledWith('bsc');

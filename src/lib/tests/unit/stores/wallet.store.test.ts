@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { get } from 'svelte/store';
 
 // Mock the SDK before importing wallet.store
 vi.mock('@bittasker/wallet-core', () => ({
@@ -90,227 +91,196 @@ describe('Wallet Store Utilities', () => {
 	describe('Wallet Store - BSC Support', () => {
 		beforeEach(() => {
 			vi.clearAllMocks();
-		});
-
-		it('should initialize with separate BSC state from RSK', (done) => {
-			const unsubscribe = walletStore.subscribe((state) => {
-				if (state.rsk && state.bsc) {
-					expect(state.rsk).toBeDefined();
-					expect(state.bsc).toBeDefined();
-					expect(state.rsk.connected).toBe(false);
-					expect(state.bsc.connected).toBe(false);
-					unsubscribe();
-					done();
-				}
+			walletStore.set({
+				isInitializing: false,
+				isConnected: false,
+				error: null,
+				rsk: {
+					connected: false,
+					connecting: false,
+					error: null,
+					address: null,
+					balance: '0',
+					formattedBalance: '0.00',
+					blockNumber: null,
+					provider: null,
+					wallet: null
+				},
+				bsc: {
+					connected: false,
+					connecting: false,
+					error: null,
+					address: null,
+					bnbBalance: '0',
+					formattedBnbBalance: '0.00',
+					usdtBalance: '0',
+					formattedUsdtBalance: '0.00',
+					blockNumber: null,
+					provider: null,
+					wallet: null,
+					usdtContract: null,
+					paymasterContract: null,
+					paymasterConnected: false,
+					paymasterAddress: null,
+					canPayFeesInUsdt: false
+				},
+				assets: [],
+				transactions: [],
+				totalBalances: {
+					usd: 0,
+					sats: 0,
+					rbtc: 0,
+					usdt: 0,
+					bnb: 0
+				},
+				rbtcToBtcRate: 1,
+				rbtcRateError: false,
+				balanceFreshness: {
+					rsk: {
+						lastLoadedAt: 0,
+						isRefreshing: false,
+						error: null
+					},
+					bsc: {
+						lastLoadedAt: 0,
+						isRefreshing: false,
+						error: null
+					}
+				},
+				activeNetwork: 'rsk',
+				selectedAsset: 'rBTC'
 			});
 		});
 
-		it('should maintain separate addresses for RSK and BSC', (done) => {
-			const unsubscribe = walletStore.subscribe((state) => {
-				if (state.rsk?.address && state.bsc?.address) {
-					expect(state.rsk.address).not.toBe(state.bsc.address);
-					unsubscribe();
-					done();
-				}
-			});
-			// Simulate updating addresses
+		it('should initialize with separate BSC state from RSK', () => {
+			const state = get(walletStore);
+			expect(state.rsk).toBeDefined();
+			expect(state.bsc).toBeDefined();
+			expect(state.rsk.connected).toBe(false);
+			expect(state.bsc.connected).toBe(false);
+		});
+
+		it('should maintain separate addresses for RSK and BSC', () => {
 			walletStore.update((s) => ({
 				...s,
 				rsk: { ...s.rsk, address: '0x1111111111111111111111111111111111111111' },
 				bsc: { ...s.bsc, address: '0x2222222222222222222222222222222222222222' }
 			}));
+			const state = get(walletStore);
+			expect(state.rsk.address).not.toBe(state.bsc.address);
 		});
 
-		it('should track separate balance for RSK and BSC', (done) => {
-			const unsubscribe = walletStore.subscribe((state) => {
-				if (state.rsk?.balance && state.bsc?.balance) {
-					expect(state.rsk.balance).toBeDefined();
-					expect(state.bsc.balance).toBeDefined();
-					unsubscribe();
-					done();
-				}
-			});
+		it('should track separate balance for RSK and BSC', () => {
 			walletStore.update((s) => ({
 				...s,
 				rsk: { ...s.rsk, balance: '1000000000000000000' },
 				bsc: { ...s.bsc, balance: '100000000' }
 			}));
+			const state = get(walletStore);
+			expect(state.rsk.balance).toBeDefined();
+			expect(state.bsc.balance).toBeDefined();
 		});
 
-		it('should update activeNetwork when switching networks', (done) => {
-			const unsubscribe = walletStore.subscribe((state) => {
-				if (state.activeNetwork) {
-					expect(['rsk', 'bsc']).toContain(state.activeNetwork);
-					unsubscribe();
-					done();
-				}
-			});
+		it('should update activeNetwork when switching networks', () => {
 			walletStore.update((s) => ({ ...s, activeNetwork: 'bsc' }));
+			expect(get(walletStore).activeNetwork).toBe('bsc');
 		});
 
-		it('should format USDT balance for BSC (6 decimals)', (done) => {
-			const unsubscribe = walletStore.subscribe((state) => {
-				if (state.bsc?.formattedUsdtBalance) {
-					expect(state.bsc.formattedUsdtBalance).toMatch(/^\d+\.\d{0,6}$/);
-					unsubscribe();
-					done();
-				}
-			});
+		it('should format USDT balance for BSC (6 decimals)', () => {
 			walletStore.update((s) => ({
 				...s,
 				bsc: { ...s.bsc, formattedUsdtBalance: '25.500000' }
 			}));
+			expect(get(walletStore).bsc.formattedUsdtBalance).toMatch(/^\d+\.\d{0,6}$/);
 		});
 
-		it('should maintain separate connection status for each network', (done) => {
-			const unsubscribe = walletStore.subscribe((state) => {
-				if (state.rsk?.connected !== state.bsc?.connected) {
-					expect(state.rsk.connected).toBe(true);
-					expect(state.bsc.connected).toBe(false);
-					unsubscribe();
-					done();
-				}
-			});
+		it('should maintain separate connection status for each network', () => {
 			walletStore.update((s) => ({
 				...s,
 				rsk: { ...s.rsk, connected: true },
 				bsc: { ...s.bsc, connected: false }
 			}));
+			const state = get(walletStore);
+			expect(state.rsk.connected).toBe(true);
+			expect(state.bsc.connected).toBe(false);
 		});
 
-		it('should handle disconnection from BSC while RSK remains connected', (done) => {
-			const unsubscribe = walletStore.subscribe((state) => {
-				if (state.rsk?.connected && !state.bsc?.connected) {
-					expect(state.rsk.connected).toBe(true);
-					expect(state.bsc.connected).toBe(false);
-					expect(state.bsc.address).toBeNull();
-					unsubscribe();
-					done();
-				}
-			});
+		it('should handle disconnection from BSC while RSK remains connected', () => {
 			walletStore.update((s) => ({
 				...s,
 				rsk: { ...s.rsk, connected: true, address: '0x1111111111111111111111111111111111111111' },
 				bsc: { ...s.bsc, connected: false, address: null }
 			}));
+			const state = get(walletStore);
+			expect(state.rsk.connected).toBe(true);
+			expect(state.bsc.connected).toBe(false);
+			expect(state.bsc.address).toBeNull();
 		});
 
-		it('should track total USDT balance across BSC', (done) => {
-			const unsubscribe = walletStore.subscribe((state) => {
-				if (state.totalBalances?.usdt !== undefined) {
-					expect(typeof state.totalBalances.usdt).toBe('number');
-					unsubscribe();
-					done();
-				}
-			});
+		it('should track total USDT balance across BSC', () => {
 			walletStore.update((s) => ({
 				...s,
 				totalBalances: { ...s.totalBalances, usdt: 125.5 }
 			}));
+			expect(typeof get(walletStore).totalBalances.usdt).toBe('number');
 		});
 
-		it('should maintain selectedAsset for payment context', (done) => {
-			const unsubscribe = walletStore.subscribe((state) => {
-				if (state.selectedAsset) {
-					expect(['RBTC', 'USDT']).toContain(state.selectedAsset);
-					unsubscribe();
-					done();
-				}
-			});
+		it('should maintain selectedAsset for payment context', () => {
 			walletStore.update((s) => ({ ...s, selectedAsset: 'USDT' }));
+			expect(['rBTC', 'USDT']).toContain(get(walletStore).selectedAsset);
 		});
 
-		it('should switch between RBTC and USDT assets', (done) => {
-			let callCount = 0;
-			const unsubscribe = walletStore.subscribe((state) => {
-				if (state.selectedAsset && callCount < 2) {
-					callCount++;
-					if (callCount === 2) {
-						expect(state.selectedAsset).toBe('RBTC');
-						unsubscribe();
-						done();
-					}
-				}
-			});
+		it('should switch between RBTC and USDT assets', () => {
 			walletStore.update((s) => ({ ...s, selectedAsset: 'USDT' }));
-			setTimeout(() => {
-				walletStore.update((s) => ({ ...s, selectedAsset: 'RBTC' }));
-			}, 10);
+			expect(get(walletStore).selectedAsset).toBe('USDT');
+			walletStore.update((s) => ({ ...s, selectedAsset: 'rBTC' }));
+			expect(get(walletStore).selectedAsset).toBe('rBTC');
 		});
 
-		it('should handle wallet address storage for BSC', (done) => {
+		it('should handle wallet address storage for BSC', () => {
 			const bscAddress = '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd';
-			const unsubscribe = walletStore.subscribe((state) => {
-				if (state.bsc?.address === bscAddress) {
-					expect(state.bsc.address).toBe(bscAddress);
-					unsubscribe();
-					done();
-				}
-			});
 			walletStore.update((s) => ({
 				...s,
 				bsc: { ...s.bsc, address: bscAddress }
 			}));
+			expect(get(walletStore).bsc.address).toBe(bscAddress);
 		});
 
-		it('should handle total balance updates for multiple networks', (done) => {
-			const unsubscribe = walletStore.subscribe((state) => {
-				if (state.totalBalances?.sats && state.totalBalances?.usdt) {
-					expect(state.totalBalances.sats).toBeGreaterThanOrEqual(0);
-					expect(state.totalBalances.usdt).toBeGreaterThanOrEqual(0);
-					unsubscribe();
-					done();
-				}
-			});
+		it('should handle total balance updates for multiple networks', () => {
 			walletStore.update((s) => ({
 				...s,
 				totalBalances: { sats: 100000000, usd: 50000, usdt: 125.5 }
 			}));
+			const state = get(walletStore);
+			expect(state.totalBalances.sats).toBeGreaterThanOrEqual(0);
+			expect(state.totalBalances.usdt).toBeGreaterThanOrEqual(0);
 		});
 
-		it('should maintain hasAnyConnection status when networks connect/disconnect', (done) => {
-			const unsubscribe = walletStore.subscribe((state) => {
-				if (state.hasAnyConnection !== undefined) {
-					const hasConnection = state.rsk?.connected || state.bsc?.connected;
-					expect(state.hasAnyConnection).toBe(hasConnection);
-					unsubscribe();
-					done();
-				}
-			});
+		it('should maintain hasAnyConnection status when networks connect/disconnect', () => {
 			walletStore.update((s) => ({
 				...s,
 				rsk: { ...s.rsk, connected: true },
 				hasAnyConnection: true
 			}));
+			const state = get(walletStore);
+			const hasConnection = state.rsk?.connected || state.bsc?.connected;
+			expect(state.hasAnyConnection).toBe(hasConnection);
 		});
 
-		it('should format network-specific balance for display', (done) => {
-			const unsubscribe = walletStore.subscribe((state) => {
-				if (state.bsc?.formattedUsdtBalance) {
-					const balance = state.bsc.formattedUsdtBalance;
-					expect(balance).toMatch(/^\d+(\.\d+)?$/);
-					unsubscribe();
-					done();
-				}
-			});
+		it('should format network-specific balance for display', () => {
 			walletStore.update((s) => ({
 				...s,
 				bsc: { ...s.bsc, formattedUsdtBalance: '1234.567890' }
 			}));
+			expect(get(walletStore).bsc.formattedUsdtBalance).toMatch(/^\d+(\.\d+)?$/);
 		});
 
-		it('should handle provider initialization for BSC', (done) => {
-			const unsubscribe = walletStore.subscribe((state) => {
-				if (state.bsc?.provider) {
-					expect(state.bsc.provider).toBeDefined();
-					unsubscribe();
-					done();
-				}
-			});
+		it('should handle provider initialization for BSC', () => {
 			walletStore.update((s) => ({
 				...s,
 				bsc: { ...s.bsc, provider: {} }
 			}));
+			expect(get(walletStore).bsc.provider).toBeDefined();
 		});
 	});
 });
