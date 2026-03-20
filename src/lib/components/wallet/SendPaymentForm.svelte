@@ -843,6 +843,7 @@ import { btcUsd, marketPrice, marketPriceMeta } from '$lib/stores/market-price.s
 
 			await applyParsedPayment(parsed, qrValue);
 			uiState.activeTab = 'enter';
+			uiState.currentStep = 1;
 			uiState.showConfirmation = false;
 		} catch (error) {
 			console.error('Failed to parse QR code:', error);
