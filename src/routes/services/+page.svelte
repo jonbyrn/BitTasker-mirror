@@ -19,8 +19,9 @@
 	import type RequestQuoteModalComponent from '$lib/components/service/RequestQuoteModal.svelte';
 	import type SaveServiceSearchFormComponent from '$lib/components/service/SaveServiceSearchForm.svelte';
 	import { serviceQuoteUiStore } from '$lib/stores/service-quote-ui.store';
-import { appStore } from '$lib/stores/app.store';
-import { persistServiceSearchFilters, loadPersistedServiceSearchFilters } from '$lib/utils/service-search-persistence';
+	import { appStore } from '$lib/stores/app.store';
+	import { persistServiceSearchFilters } from '$lib/utils/service-search-persistence';
+	import { DEFAULT_API_HOST } from '$lib/api/apiService';
 
 	const DESKTOP_MIN_WIDTH = 1024;
 	const MAP_PRELOAD_TIMEOUT_MS = 2000;
@@ -58,7 +59,6 @@ import { persistServiceSearchFilters, loadPersistedServiceSearchFilters } from '
 
 	// Loading states
 	let loadingTimeout = $state(false);
-	let isInitialLoad = $state(true);
 	let dataLoaded = $state(false);
 	let showSkeleton = $state(true);
 
@@ -105,7 +105,7 @@ import { persistServiceSearchFilters, loadPersistedServiceSearchFilters } from '
 
 	// BTC price for USDT conversion
 	let btcPrice = $state<number>(120000); // Default fallback price
-	
+
 	// View mode state
 	let viewMode = $state<'list' | 'map'>('list');
 
@@ -129,7 +129,8 @@ import { persistServiceSearchFilters, loadPersistedServiceSearchFilters } from '
 	async function loadRequestQuoteModal(): Promise<void> {
 		if (modalLoaded) return;
 		try {
-			RequestQuoteModal = (await import('$lib/components/service/RequestQuoteModal.svelte')).default;
+			RequestQuoteModal = (await import('$lib/components/service/RequestQuoteModal.svelte'))
+				.default;
 			modalLoaded = true;
 		} catch (error) {
 			console.error('Error loading request quote modal:', error);
@@ -150,11 +151,14 @@ import { persistServiceSearchFilters, loadPersistedServiceSearchFilters } from '
 		let timeoutId: ReturnType<typeof setTimeout> | undefined;
 
 		if (window.requestIdleCallback) {
-			idleCallbackId = window.requestIdleCallback(() => {
-				if (!mapLoaded) {
-					void loadMapComponent();
-				}
-			}, { timeout: MAP_PRELOAD_TIMEOUT_MS });
+			idleCallbackId = window.requestIdleCallback(
+				() => {
+					if (!mapLoaded) {
+						void loadMapComponent();
+					}
+				},
+				{ timeout: MAP_PRELOAD_TIMEOUT_MS }
+			);
 		} else {
 			timeoutId = setTimeout(() => {
 				if (!mapLoaded) {
@@ -202,7 +206,9 @@ import { persistServiceSearchFilters, loadPersistedServiceSearchFilters } from '
 		}
 
 		// Show success toast before navigation
-		$appStore.addSuccessToast($t('dashboard.services.detail.quote_submitted') || 'Quote request submitted successfully!');
+		$appStore.addSuccessToast(
+			$t('dashboard.services.detail.quote_submitted') || 'Quote request submitted successfully!'
+		);
 
 		await goto(
 			`/dashboard?tab=quotes&view=tasker&request=${encodeURIComponent(result.quoteRequestId)}`
@@ -238,7 +244,9 @@ import { persistServiceSearchFilters, loadPersistedServiceSearchFilters } from '
 
 		if (!serviceListRef) return;
 
-		const cardElement = serviceListRef.querySelector<HTMLElement>(`[data-service-id="${serviceId}"]`);
+		const cardElement = serviceListRef.querySelector<HTMLElement>(
+			`[data-service-id="${serviceId}"]`
+		);
 
 		if (cardElement) {
 			cardElement.scrollIntoView({
@@ -336,9 +344,11 @@ import { persistServiceSearchFilters, loadPersistedServiceSearchFilters } from '
 			}));
 
 			await findServices(searchParams);
-			servicesStore.update((state) => ({ ...state, searchParamsKey: hashSearchParams(searchParams) }));
+			servicesStore.update((state) => ({
+				...state,
+				searchParamsKey: hashSearchParams(searchParams)
+			}));
 			dataLoaded = true;
-			isInitialLoad = false;
 			showSkeleton = false;
 
 			if (serviceListRef) {
@@ -364,46 +374,17 @@ import { persistServiceSearchFilters, loadPersistedServiceSearchFilters } from '
 		}
 	}
 
-	/**
-	 * Setup lazy loading with intersection observer and fallback
-	 */
-	function setupLazyLoading(): void {
-		if (!browser || dataLoaded) return;
-
-		intersectionObserver = new IntersectionObserver(
-			(entries) => {
-				if (entries[0].isIntersecting && !dataLoaded) {
-					loadNostrData();
-				}
-			},
-			{
-				threshold: 0.1,
-				rootMargin: '200px'
-			}
-		);
-
-		if (serviceListRef) {
-			intersectionObserver.observe(serviceListRef);
-		}
-
-		fallbackTimer = setTimeout(() => {
-			if (!dataLoaded) {
-				loadNostrData();
-			}
-		}, 3000);
-	}
-
 	// Debounce function
-	function debounce<T extends (...args: any[]) => void>(fn: T, delay: number) {
+	function debounce<TArgs extends unknown[]>(fn: (...args: TArgs) => void, delay: number) {
 		let timeoutId: ReturnType<typeof setTimeout>;
-		return function (...args: Parameters<T>) {
+		return function (...args: TArgs) {
 			clearTimeout(timeoutId);
 			timeoutId = setTimeout(() => fn.apply(null, args), delay);
 		};
 	}
 
 	// Debounced function to update searchParams
-		const debouncedSearch = debounce(async () => {
+	const debouncedSearch = debounce(async () => {
 		if (searchQuery.trim().length < 3) {
 			servicesStore.update((state) => ({
 				...state,
@@ -423,7 +404,10 @@ import { persistServiceSearchFilters, loadPersistedServiceSearchFilters } from '
 
 			try {
 				await findServices(searchParams);
-				servicesStore.update((state) => ({ ...state, searchParamsKey: hashSearchParams(searchParams) }));
+				servicesStore.update((state) => ({
+					...state,
+					searchParamsKey: hashSearchParams(searchParams)
+				}));
 			} catch (err) {
 				console.error('[FindServices] Search fetch error:', err);
 			}
@@ -449,7 +433,10 @@ import { persistServiceSearchFilters, loadPersistedServiceSearchFilters } from '
 
 		try {
 			await findServices(searchParams);
-			servicesStore.update((state) => ({ ...state, searchParamsKey: hashSearchParams(searchParams) }));
+			servicesStore.update((state) => ({
+				...state,
+				searchParamsKey: hashSearchParams(searchParams)
+			}));
 		} catch (err) {
 			console.error('[FindServices] Search fetch error:', err);
 		}
@@ -479,7 +466,10 @@ import { persistServiceSearchFilters, loadPersistedServiceSearchFilters } from '
 		persistServiceSearchFilters(searchParams);
 
 		findServices(searchParams).then(() => {
-			servicesStore.update((state) => ({ ...state, searchParamsKey: hashSearchParams(searchParams) }));
+			servicesStore.update((state) => ({
+				...state,
+				searchParamsKey: hashSearchParams(searchParams)
+			}));
 		});
 	}
 
@@ -591,9 +581,30 @@ import { persistServiceSearchFilters, loadPersistedServiceSearchFilters } from '
 		serviceListRef.addEventListener('scroll', scrollHandler, { passive: true });
 	}
 
+	function logServicesApiConfiguration(): void {
+		if (!browser) return;
+
+		const viteApiUrl = import.meta.env.VITE_API_URL || null;
+		const viteNostrRelayNestjs = import.meta.env.VITE_NOSTR_RELAY_NESTJS || null;
+		const resolvedApiBase = viteApiUrl || DEFAULT_API_HOST;
+		const resolvedEventsBase = viteNostrRelayNestjs || resolvedApiBase;
+		const eventsGetUrl = new URL('/api/v1/events', resolvedEventsBase).toString();
+
+		console.log('[ServicesPage] API configuration', {
+			pathname: window.location.pathname,
+			origin: window.location.origin,
+			viteApiUrl,
+			viteNostrRelayNestjs,
+			resolvedApiBase,
+			resolvedEventsBase,
+			eventsGetUrl
+		});
+	}
+
 	// Initial data fetch and setup - apply saved service search from dashboard if present (same pattern as Find Tasks)
 	onMount(() => {
 		if (browser) {
+			logServicesApiConfiguration();
 			windowWidth = window.innerWidth;
 
 			const savedParamsRaw = sessionStorage.getItem('savedServiceSearchParams');
@@ -731,7 +742,7 @@ import { persistServiceSearchFilters, loadPersistedServiceSearchFilters } from '
 			onToggleViewMode={toggleViewMode}
 			user={$user}
 			{drawersLoaded}
-			loadDrawerComponents={loadDrawerComponents}
+			{loadDrawerComponents}
 			translationNamespace="dashboard.services.browse"
 			filterLabelKey="filters_button"
 			{activeFilterCount}
@@ -758,8 +769,10 @@ import { persistServiceSearchFilters, loadPersistedServiceSearchFilters } from '
 									/>
 								</svg>
 								<span>
-									{$t('dashboard.services.browse.error_loading')?.replace('{error}', $servicesStore.error) ||
-										`Error loading services: ${$servicesStore.error}`}
+									{$t('dashboard.services.browse.error_loading')?.replace(
+										'{error}',
+										$servicesStore.error
+									) || `Error loading services: ${$servicesStore.error}`}
 								</span>
 							</div>
 						</div>
@@ -768,12 +781,7 @@ import { persistServiceSearchFilters, loadPersistedServiceSearchFilters } from '
 					<!-- Services List Column (same as tasks list column) -->
 					<div class="min-h-0" data-services-list-column>
 						<!-- Accessibility: Announce search results updates -->
-						<div
-							role="status"
-							aria-live="polite"
-							aria-atomic="true"
-							class="sr-only"
-						>
+						<div role="status" aria-live="polite" aria-atomic="true" class="sr-only">
 							{#if dataLoaded && !showSkeleton}
 								{$servicesStore.items?.length || 0} services found
 								{hasActiveParams ? 'matching your filters' : 'available'}
@@ -783,20 +791,24 @@ import { persistServiceSearchFilters, loadPersistedServiceSearchFilters } from '
 						</div>
 
 						<div
-							class="task-list-scroll-container box-border h-full w-full overflow-y-auto max-h-[65vh] lg:max-h-none"
+							class="task-list-scroll-container box-border h-full max-h-[65vh] w-full overflow-y-auto lg:max-h-none"
 							bind:this={serviceListRef}
 						>
 							<!-- Skeleton Loading -->
 							{#if showSkeleton && !dataLoaded}
-								<div class="grid grid-cols-1 gap-4 mb-12">
-									{#each Array(4) as _}
-										<div class="card bg-base-100 shadow-md overflow-hidden h-full flex flex-col">
+								<div class="mb-12 grid grid-cols-1 gap-4">
+									{#each Array.from({ length: 4 }, (_, index) => index) as index (index)}
+										<div class="card bg-base-100 flex h-full flex-col overflow-hidden shadow-md">
 											<!-- Image placeholder - same as ServiceCard (gradient + icon), with pulse -->
-											<figure class="relative w-full h-[88px] overflow-hidden bg-base-200 shrink-0 animate-pulse">
-												<div class="h-full w-full bg-linear-to-br from-primary/20 to-secondary/20 flex items-center justify-center">
+											<figure
+												class="bg-base-200 relative h-[88px] w-full shrink-0 animate-pulse overflow-hidden"
+											>
+												<div
+													class="from-primary/20 to-secondary/20 flex h-full w-full items-center justify-center bg-linear-to-br"
+												>
 													<svg
 														xmlns="http://www.w3.org/2000/svg"
-														class="h-16 w-16 text-base-content/30"
+														class="text-base-content/30 h-16 w-16"
 														fill="none"
 														viewBox="0 0 24 24"
 														stroke="currentColor"
@@ -811,41 +823,41 @@ import { persistServiceSearchFilters, loadPersistedServiceSearchFilters } from '
 												</div>
 											</figure>
 											<!-- Card Body - same as ServiceCard -->
-											<div class="card-body p-4 flex-1 flex flex-col animate-pulse">
+											<div class="card-body flex flex-1 animate-pulse flex-col p-4">
 												<!-- Provider Info Skeleton -->
-												<div class="flex items-center gap-2 mb-2">
-													<div class="w-7 h-7 rounded-full bg-base-300 shrink-0"></div>
-													<div class="flex items-center gap-1.5 flex-1">
+												<div class="mb-2 flex items-center gap-2">
+													<div class="bg-base-300 h-7 w-7 shrink-0 rounded-full"></div>
+													<div class="flex flex-1 items-center gap-1.5">
 														<div class="bg-base-300 h-4 w-24 rounded"></div>
-														<div class="flex items-center gap-0.5 shrink-0">
+														<div class="flex shrink-0 items-center gap-0.5">
 															<div class="bg-base-300 h-3.5 w-3.5 rounded"></div>
 															<div class="bg-base-300 h-3.5 w-3.5 rounded"></div>
 															<div class="bg-base-300 h-3.5 w-3.5 rounded"></div>
 															<div class="bg-base-300 h-3.5 w-3.5 rounded"></div>
 															<div class="bg-base-300 h-3.5 w-3.5 rounded"></div>
-															<div class="bg-base-300 h-3 w-8 rounded ml-0.5"></div>
+															<div class="bg-base-300 ml-0.5 h-3 w-8 rounded"></div>
 														</div>
 													</div>
 												</div>
 												<!-- Title and Price Skeleton -->
-												<div class="flex items-start justify-between gap-2 mb-1.5">
-													<div class="bg-base-300 h-6 w-3/4 rounded flex-1"></div>
-													<div class="text-right shrink-0">
-														<div class="bg-base-300 h-5 w-16 rounded mb-1"></div>
+												<div class="mb-1.5 flex items-start justify-between gap-2">
+													<div class="bg-base-300 h-6 w-3/4 flex-1 rounded"></div>
+													<div class="shrink-0 text-right">
+														<div class="bg-base-300 mb-1 h-5 w-16 rounded"></div>
 														<div class="bg-base-300 h-3 w-20 rounded"></div>
 													</div>
 												</div>
 												<!-- Description Skeleton -->
-												<div class="bg-base-300 h-4 w-full rounded mb-1"></div>
-												<div class="bg-base-300 h-4 w-5/6 rounded mb-2"></div>
+												<div class="bg-base-300 mb-1 h-4 w-full rounded"></div>
+												<div class="bg-base-300 mb-2 h-4 w-5/6 rounded"></div>
 												<!-- Tags Skeleton -->
-												<div class="flex flex-wrap gap-1.5 mb-2">
+												<div class="mb-2 flex flex-wrap gap-1.5">
 													<div class="bg-base-300 h-5 w-20 rounded"></div>
 													<div class="bg-base-300 h-5 w-16 rounded"></div>
 												</div>
 												<!-- Location Skeleton -->
-												<div class="flex items-center gap-1.5 mt-auto">
-													<div class="bg-base-300 h-4 w-4 rounded shrink-0"></div>
+												<div class="mt-auto flex items-center gap-1.5">
+													<div class="bg-base-300 h-4 w-4 shrink-0 rounded"></div>
 													<div class="bg-base-300 h-3 w-32 rounded"></div>
 												</div>
 											</div>
@@ -881,7 +893,7 @@ import { persistServiceSearchFilters, loadPersistedServiceSearchFilters } from '
 									</button>
 								</div>
 							{:else if $servicesStore.items && $servicesStore.items.length > 0}
-								<div class="grid grid-cols-1 gap-4 mb-12">
+								<div class="mb-12 grid grid-cols-1 gap-4">
 									{#each $servicesStore.items as service (service.id)}
 										<div data-service-id={service.id}>
 											<ServiceCard
@@ -905,7 +917,7 @@ import { persistServiceSearchFilters, loadPersistedServiceSearchFilters } from '
 
 								<!-- End of Results -->
 								{#if !$servicesStore.hasMore && $servicesStore.items.length > 0}
-									<div class="mt-4 mb-12 text-center text-sm text-base-content/60">
+									<div class="text-base-content/60 mt-4 mb-12 text-center text-sm">
 										{$t('dashboard.services.browse.no_more_services') || 'No more services to load'}
 									</div>
 								{/if}
@@ -944,28 +956,28 @@ import { persistServiceSearchFilters, loadPersistedServiceSearchFilters } from '
 					</div>
 
 					<!-- Desktop Map Sidebar - same as Find Tasks (map-container-wrapper, hidden on mobile) -->
-						<aside
-							class="map-container-wrapper hidden min-h-0 lg:block overflow-hidden"
-							data-services-map-column
-							aria-label={$t('dashboard.services.browse.map') || 'Services map'}
-						>
-							{#if mapLoaded && TaskLocationMap}
-								<TaskLocationMap
-									services={$servicesStore.items}
-									height="100%"
-									selectedService={selectedServiceForMap}
-									onServiceSelected={(event: { service: Service }) => {
-										selectedServiceForMap = event.service;
-										scrollToServiceCard(event.service.id);
-									}}
-									btcPrice={btcPrice}
-								/>
-							{:else}
-								<div class="bg-base-200 flex h-full w-full items-center justify-center rounded-lg">
-									<span class="loading loading-spinner loading-lg"></span>
-								</div>
-							{/if}
-						</aside>
+					<aside
+						class="map-container-wrapper hidden min-h-0 overflow-hidden lg:block"
+						data-services-map-column
+						aria-label={$t('dashboard.services.browse.map') || 'Services map'}
+					>
+						{#if mapLoaded && TaskLocationMap}
+							<TaskLocationMap
+								services={$servicesStore.items}
+								height="100%"
+								selectedService={selectedServiceForMap}
+								onServiceSelected={(event: { service: Service }) => {
+									selectedServiceForMap = event.service;
+									scrollToServiceCard(event.service.id);
+								}}
+								{btcPrice}
+							/>
+						{:else}
+							<div class="bg-base-200 flex h-full w-full items-center justify-center rounded-lg">
+								<span class="loading loading-spinner loading-lg"></span>
+							</div>
+						{/if}
+					</aside>
 				</div>
 
 				<!-- Mobile Floating Button - Scroll to Top (same as Find Tasks) -->
@@ -980,66 +992,64 @@ import { persistServiceSearchFilters, loadPersistedServiceSearchFilters } from '
 						<IconChevronUp class="h-5 w-5" />
 					</button>
 				{/if}
-				{:else}
-					<!-- Map View - Full width on mobile/tablet, same as Find Tasks -->
-					<section
-						class="map-container-wrapper relative min-h-0 w-full lg:hidden"
-					>
-						{#if mapLoaded && TaskLocationMap}
-							<TaskLocationMap
-								services={$servicesStore.items}
-								height="100%"
-								selectedService={selectedServiceForMap}
-								onServiceSelected={(event: { service: Service }) => {
-									selectedServiceForMap = event.service;
-									// Keep map view and show popup on pin click (same as tasks) — do not switch to list
-									if (viewMode === 'list') {
-										scrollToServiceCard(event.service.id);
-									}
-								}}
-								btcPrice={btcPrice}
-							/>
-						{:else}
-							<div class="bg-base-200 flex h-full w-full items-center justify-center rounded-lg">
-								<span class="loading loading-spinner loading-lg"></span>
-							</div>
-						{/if}
-					</section>
-				{/if}
-			</section>
-		</div>
-	</main>
+			{:else}
+				<!-- Map View - Full width on mobile/tablet, same as Find Tasks -->
+				<section class="map-container-wrapper relative min-h-0 w-full lg:hidden">
+					{#if mapLoaded && TaskLocationMap}
+						<TaskLocationMap
+							services={$servicesStore.items}
+							height="100%"
+							selectedService={selectedServiceForMap}
+							onServiceSelected={(event: { service: Service }) => {
+								selectedServiceForMap = event.service;
+								// Keep map view and show popup on pin click (same as tasks) — do not switch to list
+								if (viewMode === 'list') {
+									scrollToServiceCard(event.service.id);
+								}
+							}}
+							{btcPrice}
+						/>
+					{:else}
+						<div class="bg-base-200 flex h-full w-full items-center justify-center rounded-lg">
+							<span class="loading loading-spinner loading-lg"></span>
+						</div>
+					{/if}
+				</section>
+			{/if}
+		</section>
+	</div>
+</main>
 
-	{#if modalLoaded && RequestQuoteModal}
-		<!-- Request Quote Modal -->
-		<RequestQuoteModal
-			bind:open={requestQuoteModalOpen}
-			service={serviceForQuote}
-			onConfirm={handleQuoteRequestConfirm}
-			onClose={() => {
-				requestQuoteModalOpen = false;
-				serviceForQuote = null;
-			}}
-		/>
-	{/if}
-
-	<!-- Filter Drawer -->
-	<ServiceSearchFilters
-		isOpen={isFilterDrawerOpen}
-		onClose={() => (isFilterDrawerOpen = false)}
-		onApply={handleFilterApply}
-		initialFilters={searchParams}
+{#if modalLoaded && RequestQuoteModal}
+	<!-- Request Quote Modal -->
+	<RequestQuoteModal
+		bind:open={requestQuoteModalOpen}
+		service={serviceForQuote}
+		onConfirm={handleQuoteRequestConfirm}
+		onClose={() => {
+			requestQuoteModalOpen = false;
+			serviceForQuote = null;
+		}}
 	/>
+{/if}
 
-	<!-- Save Search Form (same pattern as Find Tasks) -->
-	{#if drawersLoaded && SaveServiceSearchForm}
-		<SaveServiceSearchForm
-			isOpen={isSaveSearchOpen}
-			searchParams={searchParams}
-			onClose={() => (isSaveSearchOpen = false)}
-			onSaved={() => {}}
-		/>
-	{/if}
+<!-- Filter Drawer -->
+<ServiceSearchFilters
+	isOpen={isFilterDrawerOpen}
+	onClose={() => (isFilterDrawerOpen = false)}
+	onApply={handleFilterApply}
+	initialFilters={searchParams}
+/>
+
+<!-- Save Search Form (same pattern as Find Tasks) -->
+{#if drawersLoaded && SaveServiceSearchForm}
+	<SaveServiceSearchForm
+		isOpen={isSaveSearchOpen}
+		{searchParams}
+		onClose={() => (isSaveSearchOpen = false)}
+		onSaved={() => {}}
+	/>
+{/if}
 
 <style>
 	/* Prevent app-shell__content from scrolling on mobile (same as Find Tasks) */
