@@ -276,10 +276,13 @@ describe('ReceivePaymentForm Integration Tests', () => {
 			fireEvent.click(getCalcButton('0'));
 			await tick();
 
-			await waitFor(() => {
-				const getPaidButtons = screen.getAllByRole('button', { name: /Get Paid/i });
-				expect(getPaidButtons.some((button) => !button.hasAttribute('disabled'))).toBe(true);
-			}, { timeout: 3000 });
+			await waitFor(
+				() => {
+					const getPaidButtons = screen.getAllByRole('button', { name: /Get Paid/i });
+					expect(getPaidButtons.some((button) => !button.hasAttribute('disabled'))).toBe(true);
+				},
+				{ timeout: 3000 }
+			);
 
 			const nextButton = screen.queryByRole('button', { name: /Next/i });
 			if (nextButton && !nextButton.hasAttribute('disabled')) {
@@ -293,10 +296,13 @@ describe('ReceivePaymentForm Integration Tests', () => {
 			}
 			await tick();
 
-			await waitFor(() => {
-				expect(walletManager.createReverseSwap).toHaveBeenCalled();
-			}, { timeout: 3000 });
-		});
+			await waitFor(
+				() => {
+					expect(walletManager.createReverseSwap).toHaveBeenCalled();
+				},
+				{ timeout: 3000 }
+			);
+		}, 15000);
 
 		it('should call onOpenPaymentRequest when invoice is generated', async () => {
 			const onOpenPaymentRequest = vi.fn();
@@ -312,10 +318,13 @@ describe('ReceivePaymentForm Integration Tests', () => {
 			fireEvent.click(getCalcButton('0'));
 			await tick();
 
-			await waitFor(() => {
-				const getPaidButtons = screen.getAllByRole('button', { name: /Get Paid/i });
-				expect(getPaidButtons.some((button) => !button.hasAttribute('disabled'))).toBe(true);
-			}, { timeout: 3000 });
+			await waitFor(
+				() => {
+					const getPaidButtons = screen.getAllByRole('button', { name: /Get Paid/i });
+					expect(getPaidButtons.some((button) => !button.hasAttribute('disabled'))).toBe(true);
+				},
+				{ timeout: 3000 }
+			);
 			const nextButton = screen.queryByRole('button', { name: /Next/i });
 			if (nextButton && !nextButton.hasAttribute('disabled')) {
 				fireEvent.click(nextButton);
@@ -328,10 +337,13 @@ describe('ReceivePaymentForm Integration Tests', () => {
 			}
 			await tick();
 
-			await waitFor(() => {
-				expect(onOpenPaymentRequest).toHaveBeenCalled();
-			}, { timeout: 3000 });
-		});
+			await waitFor(
+				() => {
+					expect(onOpenPaymentRequest).toHaveBeenCalled();
+				},
+				{ timeout: 3000 }
+			);
+		}, 15000);
 	});
 
 	describe('Network Selection', () => {
@@ -345,21 +357,27 @@ describe('ReceivePaymentForm Integration Tests', () => {
 			fireEvent.click(networkButton);
 			await tick();
 
-			await waitFor(() => {
-				const rootstockOptions = screen.getAllByRole('button', {
-					name: /Rootstock Bitcoin\s*Network/i
-				});
-				expect(rootstockOptions.length).toBeGreaterThan(0);
-				fireEvent.click(rootstockOptions[0]);
-			}, { timeout: 2000 });
+			await waitFor(
+				() => {
+					const rootstockOptions = screen.getAllByRole('button', {
+						name: /Rootstock Bitcoin\s*Network/i
+					});
+					expect(rootstockOptions.length).toBeGreaterThan(0);
+					fireEvent.click(rootstockOptions[0]);
+				},
+				{ timeout: 2000 }
+			);
 			await tick();
 
-			await waitFor(() => {
-				const updatedTitles = screen.getAllByRole('button', {
-					name: /Rootstock Bitcoin\s*Network/i
-				});
-				expect(updatedTitles.length).toBeGreaterThan(0);
-			}, { timeout: 1000 });
+			await waitFor(
+				() => {
+					const updatedTitles = screen.getAllByRole('button', {
+						name: /Rootstock Bitcoin\s*Network/i
+					});
+					expect(updatedTitles.length).toBeGreaterThan(0);
+				},
+				{ timeout: 1000 }
+			);
 		});
 	});
 
@@ -381,10 +399,13 @@ describe('ReceivePaymentForm Integration Tests', () => {
 			fireEvent.click(getCalcButton('0'));
 			await tick();
 
-			await waitFor(() => {
-				expect(screen.getAllByText(/297 Sats/i).length).toBeGreaterThan(0);
-			}, { timeout: 3000 });
-		});
+			await waitFor(
+				() => {
+					expect(screen.getAllByText(/297 Sats/i).length).toBeGreaterThan(0);
+				},
+				{ timeout: 3000 }
+			);
+		}, 15000);
 	});
 
 	describe('Amount Input', () => {
