@@ -78,9 +78,6 @@ export default defineConfig(({ mode }) => {
 				buffer: 'buffer',
 				crypto: 'crypto-browserify',
 				stream: 'stream-browserify',
-				// Do NOT alias 'path' as it breaks WASM loading in @vulpemventures/secp256k1-zkp
-				// path: 'path-browserify',
-				path: 'path-browserify',
 				process: 'process/browser',
 				'$app/environment': new URL('./src/lib/mocks/app-environment.ts', import.meta.url).pathname
 			}
@@ -170,26 +167,29 @@ export default defineConfig(({ mode }) => {
 						if (id.includes('src/lib/api/apiService')) {
 							return 'api-base';
 						}
+
+						// Split heavy libraries into their own chunks so they
+						// can be loaded on-demand and don't bloat the initial bundle.
+						if (id.includes('liquidjs-lib')) {
+							return 'vendor-liquid';
+						}
+
+						if (id.includes('firebase')) {
+							return 'vendor-firebase';
+						}
+
+						// Group remaining large node_modules into a shared vendor chunk
+						// to avoid them being inlined into every route chunk.
+						if (id.includes('node_modules')) {
+							return 'vendor';
+						}
 					}
 				}
 			}
 		},
 		optimizeDeps: {
-			include: ['date-fns', 'axios', 'swiper', 'buffer', 'bitcoinjs-lib', 'bip32', 'bip39'],
-			exclude: [
-				'firebase',
-				'@capacitor/device',
-				'@capacitor/preferences',
-				'@capacitor/haptics'
-				/* 'liquidjs-lib',
-				'boltz-core',
-				'@vulpemventures/secp256k1-zkp' */
-			]
-			/* esbuildOptions: {
-				define: {
-					global: 'globalThis'
-				}
-			} */
+			include: ['date-fns', 'axios', 'swiper', 'buffer', 'bip39'],
+			exclude: ['firebase', '@capacitor/device', '@capacitor/preferences', '@capacitor/haptics']
 		},
 		server: {
 			// For mobile live-reload (Capacitor on device) we typically load the dev server via:
