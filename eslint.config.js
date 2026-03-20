@@ -21,7 +21,8 @@ export default ts.config(
 				...globals.browser,
 				...globals.node,
 				__APP_VERSION__: 'readonly',
-				__BUILD_VERSION__: 'readonly'
+				__BUILD_VERSION__: 'readonly',
+				google: 'readonly'
 			}
 		}
 	},

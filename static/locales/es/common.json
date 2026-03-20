@@ -496,7 +496,11 @@
 				"close": "Cerrar",
 				"toggle_torch": "Alternar Linterna",
 				"no_camera_found": "No se encontró cámara. Por favor, asegúrese de que su dispositivo tenga una cámara.",
-				"camera_permission_denied": "Permiso de cámara denegado. Por favor, habilite el acceso a la cámara en la configuración de su navegador."
+				"camera_permission_denied": "Permiso de cámara denegado. Por favor, habilite el acceso a la cámara en la configuración de su navegador.",
+				"permission_title": "Permitir Acceso a la Cámara",
+				"permission_description": "BitTasker necesita acceso a la cámara para escanear códigos QR en pagos Bitcoin.",
+				"permission_allow": "Permitir",
+				"permission_cancel": "Cancelar"
 			},
 			"tags": {
 				"select_tags": "Seleccionar etiquetas...",
