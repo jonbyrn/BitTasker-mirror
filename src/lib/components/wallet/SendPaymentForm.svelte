@@ -36,6 +36,7 @@ import { btcUsd, marketPrice, marketPriceMeta } from '$lib/stores/market-price.s
 	import IconChevronLeft from '~icons/mdi/chevron-left';
 	import IconChevronRight from '~icons/mdi/chevron-right';
 	import IconOpenInNew from '~icons/mdi/open-in-new';
+	import IconRefresh from '~icons/mdi/refresh';
 	import IconCurrencyUsd from '~icons/mdi/currency-usd';
 	import AddressAccordion from '$lib/components/wallet/AddressAccordion.svelte';
 	import { toAtomicAmountString } from '$lib/utils/helpers/paymentContext';
@@ -232,17 +233,25 @@ import { btcUsd, marketPrice, marketPriceMeta } from '$lib/stores/market-price.s
 	const currentBalanceFreshness = $derived.by(() =>
 		detectedBalanceRail ? $walletStore.balanceFreshness?.[detectedBalanceRail] ?? null : null
 	);
+	let isRetryingBitcoinPrice = $state(false);
+	const hasBitcoinPriceRetryState = $derived(
+		hasBitcoinPriceRefreshFailure || isRetryingBitcoinPrice
+	);
 	const hasStepOneWarning = $derived(
-		!!currentBalanceFreshness?.error || hasBitcoinPriceRefreshFailure
+		!!currentBalanceFreshness?.error || hasBitcoinPriceRetryState
 	);
 	let lastUsdValidationBtcPrice = $state(0);
 	let recentAddresses = $state<Array<{ address: string; network: string; label?: string }>>([]);
 
-	function formatUsdtAmount(amount: number, maximumFractionDigits = BSC_USDT_DECIMALS): string {
+	function formatUsdtAmount(
+		amount: number,
+		maximumFractionDigits = BSC_USDT_DECIMALS,
+		minimumFractionDigits = 0
+	): string {
 		if (!Number.isFinite(amount)) return '0';
 
 		return new Intl.NumberFormat('en-US', {
-			minimumFractionDigits: 0,
+			minimumFractionDigits,
 			maximumFractionDigits
 		}).format(amount);
 	}
@@ -298,19 +307,24 @@ import { btcUsd, marketPrice, marketPriceMeta } from '$lib/stores/market-price.s
 		options: { includeApproxUsd?: boolean; preferredUnit?: 'sats' | 'usd' } = {}
 	): string {
 		if (network === 'usdt-bsc') {
-			return `${formatUsdtAmount(amount)} USDT`;
+			if (amount <= 0) return '$0.00';
+			return `${formatUsdtAmount(amount, 2, 2)} USDT`;
 		}
 
 		const satsLabel = `${formatSats(Math.max(0, Math.floor(amount)))} ${$t('wallet.sats')}`;
-		if (!options.includeApproxUsd || btcPrice <= 0 || amount <= 0) {
+		if (!options.includeApproxUsd) {
+			return satsLabel;
+		}
+
+		if (amount <= 0) {
+			return `${satsLabel} ($0.00)`;
+		}
+
+		if (btcPrice <= 0) {
 			return satsLabel;
 		}
 
 		const approxUsd = formatUsd((amount / 100_000_000) * btcPrice);
-		if (options.preferredUnit === 'usd') {
-			return `${approxUsd} (${satsLabel})`;
-		}
-
 		return `${satsLabel} (${approxUsd})`;
 	}
 
@@ -528,6 +542,15 @@ import { btcUsd, marketPrice, marketPriceMeta } from '$lib/stores/market-price.s
 			totalToSend > availableBalance &&
 			totalToSend > 0 &&
 			feeState.estimated !== null
+	);
+	const hasZeroAvailableBalance = $derived(
+		!isStepOneBalanceRefreshing &&
+			needsConnectedRail &&
+			hasRequiredConnectedRail &&
+			availableBalance <= 0
+	);
+	const hasAvailableBalanceErrorState = $derived(
+		hasInsufficientBalance || hasZeroAvailableBalance
 	);
 
 	const balanceShortfall = $derived.by(() =>
@@ -1282,10 +1305,15 @@ import { btcUsd, marketPrice, marketPriceMeta } from '$lib/stores/market-price.s
 	}
 
 	async function retryBitcoinPriceRefresh() {
+		if (isRetryingBitcoinPrice) return;
+
+		isRetryingBitcoinPrice = true;
 		try {
 			await marketPrice.refresh();
 		} catch (error) {
 			console.error('Failed to retry BTC price refresh:', error);
+		} finally {
+			isRetryingBitcoinPrice = false;
 		}
 	}
 
@@ -1912,9 +1940,9 @@ import { btcUsd, marketPrice, marketPriceMeta } from '$lib/stores/market-price.s
 						{#if availableBalanceSummary}
 							<div
 								class="rounded-lg border p-3"
-								class:border-error={hasInsufficientBalance}
-								class:border-warning={hasStepOneWarning && !hasInsufficientBalance}
-								class:border-base-300={!hasInsufficientBalance && !hasStepOneWarning}
+								class:border-error={hasAvailableBalanceErrorState}
+								class:border-warning={hasStepOneWarning && !hasAvailableBalanceErrorState}
+								class:border-base-300={!hasAvailableBalanceErrorState && !hasStepOneWarning}
 							>
 								<div class="flex items-start justify-between gap-3">
 									<div class="space-y-1">
@@ -1923,15 +1951,32 @@ import { btcUsd, marketPrice, marketPriceMeta } from '$lib/stores/market-price.s
 										</div>
 										<p
 											class="text-sm"
-											class:text-error={hasInsufficientBalance}
-											class:text-warning={hasStepOneWarning && !hasInsufficientBalance}
+											class:text-error={hasAvailableBalanceErrorState}
+											class:text-warning={hasStepOneWarning && !hasAvailableBalanceErrorState}
 										>
 											{availableBalanceSummary}
 										</p>
 									</div>
-									{#if isStepOneBalanceRefreshing}
-										<span class="loading loading-spinner loading-sm shrink-0"></span>
-									{/if}
+									<div class="flex shrink-0 items-center gap-1">
+										{#if isStepOneBalanceRefreshing}
+											<span class="loading loading-spinner loading-sm"></span>
+										{/if}
+										{#if hasBitcoinPriceRetryState}
+											<button
+												type="button"
+												class="btn btn-ghost btn-xs btn-circle"
+												onclick={retryBitcoinPriceRefresh}
+												aria-label="Retry BTC price refresh"
+												aria-disabled={isRetryingBitcoinPrice}
+											>
+												<IconRefresh
+													class={isRetryingBitcoinPrice
+														? 'h-4 w-4 animate-spin'
+														: 'h-4 w-4'}
+												/>
+											</button>
+										{/if}
+									</div>
 								</div>
 								{#if currentBalanceFreshness?.error}
 									<div class="mt-3">
@@ -1941,17 +1986,6 @@ import { btcUsd, marketPrice, marketPriceMeta } from '$lib/stores/market-price.s
 											onclick={() => refreshDetectedNetworkBalance(true)}
 										>
 											Retry balance refresh
-										</button>
-									</div>
-								{/if}
-								{#if hasBitcoinPriceRefreshFailure}
-									<div class="mt-3">
-										<button
-											type="button"
-											class="btn btn-ghost btn-xs"
-											onclick={retryBitcoinPriceRefresh}
-										>
-											Retry BTC price refresh
 										</button>
 									</div>
 								{/if}
@@ -2384,9 +2418,9 @@ import { btcUsd, marketPrice, marketPriceMeta } from '$lib/stores/market-price.s
 					{#if availableBalanceSummary}
 						<div
 							class="rounded-lg border p-3 sm:p-4"
-							class:border-error={hasInsufficientBalance}
-							class:border-warning={hasStepOneWarning && !hasInsufficientBalance}
-							class:border-base-300={!hasInsufficientBalance && !hasStepOneWarning}
+							class:border-error={hasAvailableBalanceErrorState}
+							class:border-warning={hasStepOneWarning && !hasAvailableBalanceErrorState}
+							class:border-base-300={!hasAvailableBalanceErrorState && !hasStepOneWarning}
 						>
 							<div class="flex items-start justify-between gap-3">
 								<div class="space-y-1">
@@ -2395,15 +2429,32 @@ import { btcUsd, marketPrice, marketPriceMeta } from '$lib/stores/market-price.s
 									</div>
 									<p
 										class="text-sm sm:text-base"
-										class:text-error={hasInsufficientBalance}
-										class:text-warning={hasStepOneWarning && !hasInsufficientBalance}
+										class:text-error={hasAvailableBalanceErrorState}
+										class:text-warning={hasStepOneWarning && !hasAvailableBalanceErrorState}
 									>
 										{availableBalanceSummary}
 									</p>
 									</div>
-								{#if isStepOneBalanceRefreshing}
-									<span class="loading loading-spinner loading-sm shrink-0"></span>
-								{/if}
+								<div class="flex shrink-0 items-center gap-1">
+									{#if isStepOneBalanceRefreshing}
+										<span class="loading loading-spinner loading-sm"></span>
+									{/if}
+									{#if hasBitcoinPriceRetryState}
+										<button
+											type="button"
+											class="btn btn-ghost btn-xs btn-circle sm:btn-sm"
+											onclick={retryBitcoinPriceRefresh}
+											aria-label="Retry BTC price refresh"
+											aria-disabled={isRetryingBitcoinPrice}
+										>
+											<IconRefresh
+												class={isRetryingBitcoinPrice
+													? 'h-4 w-4 animate-spin'
+													: 'h-4 w-4'}
+											/>
+										</button>
+									{/if}
+								</div>
 							</div>
 							{#if currentBalanceFreshness?.error}
 								<div class="mt-3">
@@ -2413,17 +2464,6 @@ import { btcUsd, marketPrice, marketPriceMeta } from '$lib/stores/market-price.s
 										onclick={() => refreshDetectedNetworkBalance(true)}
 									>
 										Retry balance refresh
-									</button>
-								</div>
-							{/if}
-							{#if hasBitcoinPriceRefreshFailure}
-								<div class="mt-3">
-									<button
-										type="button"
-										class="btn btn-ghost btn-xs sm:btn-sm"
-										onclick={retryBitcoinPriceRefresh}
-									>
-										Retry BTC price refresh
 									</button>
 								</div>
 							{/if}

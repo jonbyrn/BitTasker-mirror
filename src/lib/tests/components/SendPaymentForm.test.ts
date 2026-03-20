@@ -912,8 +912,142 @@ describe('SendPaymentForm Component', () => {
 
 				await waitFor(() => {
 					expect(
-						screen.getAllByText(/available balance: \$500\.00 \(1,000,000 Sats\)\./i).length
+						screen.getAllByText(/available balance: 1,000,000 Sats \(\$500\.00\)\./i).length
 					).toBeGreaterThan(0);
+				});
+			});
+
+			it('shows a zero BSC available balance as $0.00 and marks the balance card as an error state', async () => {
+				vi.mocked(parsePaymentAddress).mockReturnValue({
+					isValid: true,
+					address: '0x1234567890123456789012345678901234567890',
+					network: 'usdt-bsc',
+					amount: null,
+					memo: null
+				} as any);
+
+				walletStore.update(
+					() =>
+						({
+							hasAnyConnection: true,
+							rsk: {
+								connected: true,
+								address: '0x1234567890123456789012345678901234567890',
+								balance: '10000000000000000',
+								formattedBalance: '0.01'
+							},
+							bsc: {
+								connected: true,
+								address: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
+								usdtBalance: '0',
+								formattedUsdtBalance: '0'
+							},
+							totalBalances: {
+								sats: 1_000_000,
+								usd: 50
+							},
+							balanceFreshness: {
+								rsk: {
+									lastLoadedAt: Date.now(),
+									isRefreshing: false,
+									error: null
+								},
+								bsc: {
+									lastLoadedAt: Date.now(),
+									isRefreshing: false,
+									error: null
+								}
+							}
+						}) as any
+				);
+
+				render(SendPaymentForm, defaultProps);
+				await tick();
+
+				fireEvent.click(screen.getByRole('button', { name: /enter payment details/i }));
+				await tick();
+
+				const addressInput = (document.getElementById('address-input') ||
+					document.getElementById('address-input-desktop')) as HTMLInputElement;
+				await waitFor(() => expect(addressInput).toBeInTheDocument());
+				fireEvent.input(addressInput, {
+					target: { value: 'bsc:0x1234567890123456789012345678901234567890' }
+				});
+				await tick();
+
+				await waitFor(() => {
+					const balanceSummaries = screen.getAllByText(/available balance: \$0\.00\./i);
+					expect(balanceSummaries.length).toBeGreaterThan(0);
+
+					for (const summary of balanceSummaries) {
+						expect(summary.className).toContain('text-error');
+						const balanceCard = summary.closest('.rounded-lg.border');
+						expect(balanceCard).not.toBeNull();
+						expect(balanceCard?.className).toContain('border-error');
+					}
+				});
+			});
+
+			it('shows BSC available balance with two decimal places', async () => {
+				vi.mocked(parsePaymentAddress).mockReturnValue({
+					isValid: true,
+					address: '0x1234567890123456789012345678901234567890',
+					network: 'usdt-bsc',
+					amount: null,
+					memo: null
+				} as any);
+
+				walletStore.update(
+					() =>
+						({
+							hasAnyConnection: true,
+							rsk: {
+								connected: true,
+								address: '0x1234567890123456789012345678901234567890',
+								balance: '10000000000000000',
+								formattedBalance: '0.01'
+							},
+							bsc: {
+								connected: true,
+								address: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
+								usdtBalance: '50000000',
+								formattedUsdtBalance: '50'
+							},
+							totalBalances: {
+								sats: 1_000_000,
+								usd: 50
+							},
+							balanceFreshness: {
+								rsk: {
+									lastLoadedAt: Date.now(),
+									isRefreshing: false,
+									error: null
+								},
+								bsc: {
+									lastLoadedAt: Date.now(),
+									isRefreshing: false,
+									error: null
+								}
+							}
+						}) as any
+				);
+
+				render(SendPaymentForm, defaultProps);
+				await tick();
+
+				fireEvent.click(screen.getByRole('button', { name: /enter payment details/i }));
+				await tick();
+
+				const addressInput = (document.getElementById('address-input') ||
+					document.getElementById('address-input-desktop')) as HTMLInputElement;
+				await waitFor(() => expect(addressInput).toBeInTheDocument());
+				fireEvent.input(addressInput, {
+					target: { value: 'bsc:0x1234567890123456789012345678901234567890' }
+				});
+				await tick();
+
+				await waitFor(() => {
+					expect(screen.getAllByText(/50\.00 USDT/i).length).toBeGreaterThan(0);
 				});
 			});
 
@@ -1057,7 +1191,7 @@ describe('SendPaymentForm Component', () => {
 
 			await waitFor(() => {
 				expect(
-					screen.getAllByText(/need \$151\.50 \(303,000 Sats\) more to cover the full debit\./i)
+					screen.getAllByText(/need 303,000 Sats \(\$151\.50\) more to cover the full debit\./i)
 						.length
 				).toBeGreaterThan(0);
 			});
