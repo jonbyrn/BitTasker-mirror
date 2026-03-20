@@ -1409,13 +1409,20 @@
 		display: none !important;
 	}
 
-	/* Prevent app-shell__content from scrolling on find-tasks page only */
+	/* Prevent app-shell__content from scrolling on tasks page */
 	/* This page handles its own internal scrolling */
-	/* Use data attribute for simpler, more stable targeting */
 	:global(.app-shell__content[data-find-tasks-page]) {
+		overflow-y: hidden !important;
+		height: 100%;
 		display: flex;
 		flex-direction: column;
+	}
+
+	/* Propagate height through the intermediate wrapper div in layout.svelte */
+	:global(.app-shell__content[data-find-tasks-page] > div) {
 		flex: 1;
+		display: flex;
+		flex-direction: column;
 		min-height: 0;
 	}
 
@@ -1424,19 +1431,7 @@
 		:global(.app-shell__content[data-find-tasks-page]) {
 			overflow-y: auto;
 			height: auto;
-			min-height: 100%;
 		}
-	}
-
-	/* ============================================================================
-	 * CSS Variables for Height Calculations
-	 * Consolidates repeated calc() expressions
-	 * ============================================================================ */
-	.find-tasks-container {
-		--tasks-content-height-mobile: calc(
-			100vh - var(--app-dock-height, var(--app-footer-height, 64px)) -
-				var(--header-controls-height, 10rem)
-		);
 	}
 
 	/* ============================================================================
@@ -1466,19 +1461,14 @@
 	/* Mobile Layout (< 1024px) */
 	@media (max-width: 1023px) {
 		.task-list-scroll-container {
-			max-height: var(--tasks-content-height-mobile);
-			height: var(--tasks-content-height-mobile);
-		}
-
-		.task-list-scroll-container .task-list-items {
-			padding-bottom: 0;
-			margin-bottom: 0;
+			max-height: calc(var(--app-height, 100dvh) - var(--app-footer-height, 64px) - 10rem);
+			height: calc(var(--app-height, 100dvh) - var(--app-footer-height, 64px) - 10rem);
 		}
 
 		.map-container-wrapper {
-			max-height: var(--tasks-content-height-mobile);
-			height: var(--tasks-content-height-mobile);
-			min-height: var(--tasks-content-height-mobile);
+			max-height: calc(var(--app-height, 100dvh) - var(--app-footer-height, 64px) - 10rem);
+			height: calc(var(--app-height, 100dvh) - var(--app-footer-height, 64px) - 10rem);
+			min-height: calc(var(--app-height, 100dvh) - var(--app-footer-height, 64px) - 10rem);
 		}
 
 		.map-container-wrapper > * {

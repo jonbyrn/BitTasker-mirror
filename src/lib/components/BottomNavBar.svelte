@@ -273,15 +273,16 @@
 			tabindex="-1"
 			class="bottom-nav-menu bg-base-100/80 border-base-300 w-full rounded-t-2xl border-t shadow-lg backdrop-blur-sm"
 			style="
-			/* Keep menu behind dock, but avoid double safe-area gaps on iPhone */
 			max-height: 80vh;
 			padding-bottom: var(--app-dock-height, 64px);
+			display: flex;
+			flex-direction: column;
 			overflow: hidden;
 		"
 			class:menu-expand={isMenuExpanding && !isMenuClosing}
 			class:menu-collapse={isMenuClosing || (!isMenuExpanding && !isMenuClosing)}
 		>
-			<div class="bottom-nav-scroll max-h-208 overflow-y-auto pt-2">
+			<div class="bottom-nav-scroll flex-1 overflow-y-auto pt-2" style="min-height: 0;">
 				<div class="p-2">
 					{#if isLoggedIn}
 						<!-- Logged-in user menu -->
@@ -824,9 +825,10 @@
 			</div>
 
 			{#if isLoggedIn}
-				<!-- Quick actions pinned above the dock -->
+				<!-- Quick actions pinned above the dock — flex-shrink:0 ensures it is always visible -->
 				<div
 					class="bottom-nav-quick border-base-300/70 bg-base-100/70 border-t px-2 py-2 backdrop-blur-sm"
+					style="flex-shrink: 0;"
 				>
 					<div class="flex gap-2">
 						<a

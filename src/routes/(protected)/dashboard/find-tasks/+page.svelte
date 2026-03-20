@@ -1146,7 +1146,6 @@
 
 	/* Prevent app-shell__content from scrolling on find-tasks page only */
 	/* This page handles its own internal scrolling */
-	/* Use class-based selector instead of :has() to avoid flickering */
 	:global(.app-shell__content.find-tasks-no-scroll) {
 		overflow-y: hidden !important;
 		height: 100%;
@@ -1154,34 +1153,12 @@
 		flex-direction: column;
 	}
 
-	/* On mobile/tablet, ensure app-shell__content extends to bottom nav without gap */
-	@media (max-width: 1023px) {
-		:global(.app-shell__content.find-tasks-no-scroll) {
-			/* Grid already handles height via 1fr, ensure no padding/margin creates gap */
-			flex: 1;
-			min-height: 0;
-			padding-bottom: 0 !important;
-			margin-bottom: 0 !important;
-		}
-
-		/* Remove justify-between from inner wrapper that creates spacing */
-		:global(.app-shell__content.find-tasks-no-scroll > div.bg-base-200.overflow-x-hidden) {
-			padding-bottom: 0 !important;
-			margin-bottom: 0 !important;
-			justify-content: flex-start !important;
-		}
-
-		/* Target the nested div with justify-between class - be very specific */
-		:global(
-			.app-shell__content.find-tasks-no-scroll[data-find-tasks-page]
-				> div
-				> div.flex.flex-col.justify-between
-		),
-		:global(.app-shell__content.find-tasks-no-scroll > div > div.flex.flex-col.justify-between) {
-			justify-content: flex-start !important;
-			padding-bottom: 0 !important;
-			margin-bottom: 0 !important;
-		}
+	/* Propagate height through the intermediate wrapper div in layout.svelte */
+	:global(.app-shell__content.find-tasks-no-scroll > div) {
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+		min-height: 0;
 	}
 
 	/* Desktop: constrain to viewport height with padding */
@@ -1202,27 +1179,11 @@
 		max-height: 100%;
 	}
 
-	/* Mobile: constrain scroll container to viewport height minus header/controls and bottom nav */
-	/* Height calculation: 100vh - bottom nav - top header/controls (12rem) */
-	/* Remove any padding/margin that creates gap at bottom */
+	/* Mobile: constrain scroll container using the JS-measured viewport height */
 	@media (max-width: 1023px) {
 		.task-list-scroll-container {
-			max-height: calc(100vh - var(--app-dock-height, var(--app-footer-height, 64px)) - 9rem);
-			height: calc(100vh - var(--app-dock-height, var(--app-footer-height, 64px)) - 9rem);
-			width: 100%;
-			padding-bottom: 0;
-			margin-bottom: 0;
-		}
-
-		/* Remove bottom spacing from task cards container */
-		.task-list-scroll-container .task-list-items {
-			padding-bottom: 0;
-			margin-bottom: 0;
-		}
-
-		/* Ensure the scroll container extends all the way to bottom nav */
-		.task-list-scroll-container {
-			box-sizing: border-box;
+			max-height: calc(var(--app-height, 100dvh) - var(--app-footer-height, 64px) - 9rem);
+			height: calc(var(--app-height, 100dvh) - var(--app-footer-height, 64px) - 9rem);
 		}
 	}
 

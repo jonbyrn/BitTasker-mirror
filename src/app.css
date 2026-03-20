@@ -535,8 +535,9 @@ body {
 	position: relative;
 }
 
-/* Neutralize DaisyUI's own ::after indicator on dock children (we use our own below) */
-.app-shell__footer .dock > *::after {
+/* Neutralize DaisyUI's own ::after indicator on dock button children only.
+   We keep ::after on <a> elements for our own custom active indicator below. */
+.app-shell__footer .dock > button::after {
 	display: none !important;
 }
 

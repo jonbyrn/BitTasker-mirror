@@ -567,7 +567,7 @@
 			</div>
 		</div>
 	{:else}
-		<div class="bg-base-200 max-w-6xl mx-auto px-2 md:px-0 {$authState.isAuthenticated ? 'pb-24' : 'pb-8'}">
+		<div class="bg-base-200 max-w-6xl mx-auto px-2 md:px-0 pb-8">
 			<!-- Botón de regresar -->
 			<div class="mb-4">
 				<button

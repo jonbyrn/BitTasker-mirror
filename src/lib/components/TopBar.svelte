@@ -450,9 +450,10 @@
 		padding-top: var(--safe-area-inset-top, env(safe-area-inset-top, constant(safe-area-inset-top, 0px)));
 	}
 
-	/* Fixed min height for content row so logo/language (left) and icons/avatar (right) align on one line (iOS PWA) */
+	/* Fixed min height = DaisyUI's 4rem navbar baseline + top safe-area (notch/status bar).
+	   Matches the dev branch navbar height on all iPhone models. */
 	.navbar-fixed-row {
-		min-height: calc(var(--safe-area-inset-top, env(safe-area-inset-top, constant(safe-area-inset-top, 0px))) + 2.75rem);
+		min-height: calc(var(--safe-area-inset-top, env(safe-area-inset-top, constant(safe-area-inset-top, 0px))) + 4rem);
 	}
 	/* Add bottom spacing when bottom nav is present */
 	:global(body) {
