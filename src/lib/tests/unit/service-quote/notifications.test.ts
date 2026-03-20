@@ -1,3 +1,4 @@
+import type { ServiceProposalEvent, ServiceQuoteRequestEvent } from '$lib/types/service-quote';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const sendNotificationToNpubs = vi.fn();
@@ -60,7 +61,7 @@ describe('service quote notification helpers', () => {
 				serviceAddress: `30402:${'a'.repeat(64)}:service-123`,
 				quoteRequestId: 'qr_valid123'
 			}
-		} as any;
+		} as ServiceQuoteRequestEvent;
 
 		dispatchQuoteRequestPublishedSideEffects(requestEvent, { title: 'Premium logo package' });
 		dispatchQuoteRequestPublishedSideEffects(requestEvent, { title: 'Premium logo package' });
@@ -75,15 +76,15 @@ describe('service quote notification helpers', () => {
 		const url = new URL(call.clickAction);
 		expect(url.pathname).toBe('/services/manage');
 		expect(url.searchParams.get('tab')).toBe('quotes');
-		expect(url.searchParams.get('service')).toBe(
-			requestEvent.content.serviceAddress
-		);
+		expect(url.searchParams.get('service')).toBe(requestEvent.content.serviceAddress);
 		expect(url.searchParams.get('request')).toBe('qr_valid123');
 	});
 
 	it('sends optional proposal DM mirrors with canonical tags and keeps push non-blocking on failure', async () => {
 		const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-		publishToMultipleRelays.mockResolvedValueOnce([{ relay: 'wss://relay.example', success: false }]);
+		publishToMultipleRelays.mockResolvedValueOnce([
+			{ relay: 'wss://relay.example', success: false }
+		]);
 
 		const { dispatchProposalPublishedSideEffects } = await import(
 			'$lib/utils/service-quote/notifications'
@@ -97,7 +98,7 @@ describe('service quote notification helpers', () => {
 				quoteRequestId: 'qr_valid123',
 				serviceAddress: `30402:${'a'.repeat(64)}:service-123`
 			}
-		} as any;
+		} as ServiceProposalEvent;
 
 		dispatchProposalPublishedSideEffects(proposalEvent, { dmMirror: true });
 

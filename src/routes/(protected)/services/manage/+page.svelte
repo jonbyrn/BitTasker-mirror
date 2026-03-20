@@ -95,8 +95,8 @@
 		nonBlockingMessageCode = parsed.messageCode;
 
 		if (parsed.changed) {
-			const nextUrl = new URL(page.url.toString());
-			nextUrl.search = parsed.searchParams.toString();
+			const nextSearch = parsed.searchParams.toString();
+			const nextUrl = `${page.url.pathname}${nextSearch ? `?${nextSearch}` : ''}${page.url.hash}`;
 			goto(nextUrl.toString(), { replaceState: true, keepFocus: true, noScroll: true });
 		}
 	}
@@ -185,7 +185,7 @@
 				focusedRequestId
 			);
 			providerQuotesError = selectedServiceAddress
-				? state.providerLoadErrorByService?.[selectedServiceAddress] ?? null
+				? (state.providerLoadErrorByService?.[selectedServiceAddress] ?? null)
 				: null;
 			providerQuotesLoaded = selectedServiceAddress
 				? state.providerLoadedByService?.[selectedServiceAddress] === true
@@ -212,11 +212,11 @@
 			return;
 		}
 
-		void serviceQuoteUiStore.loadProviderTimelines(selectedServiceAddress, focusedRequestId).catch(
-			() => {
+		void serviceQuoteUiStore
+			.loadProviderTimelines(selectedServiceAddress, focusedRequestId)
+			.catch(() => {
 				// Error state is exposed by the store.
-			}
-		);
+			});
 	});
 
 	$effect(() => {
@@ -274,7 +274,7 @@
 		</a>
 	</div>
 
-	<Tabs tabs={tabs} activeTab={activeTabId} onTabChange={handleTabChange} />
+	<Tabs {tabs} activeTab={activeTabId} onTabChange={handleTabChange} />
 
 	{#if nonBlockingMessageCode}
 		<div class="alert alert-info my-4 text-sm">
