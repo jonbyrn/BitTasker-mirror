@@ -112,7 +112,7 @@ describe('BidForm', () => {
 			username: 'task-owner',
 			avatar: 'https://example.com/task-owner.png'
 		}
-	} as any;
+	};
 
 	beforeEach(() => {
 		vi.clearAllMocks();
@@ -234,7 +234,9 @@ describe('BidForm', () => {
 			const descriptionInput = screen.getByPlaceholderText('Describe your offer');
 
 			await fireEvent.input(usdInput, { target: { value: '25.00' } });
-			await fireEvent.input(descriptionInput, { target: { value: 'Valid description text here.' } });
+			await fireEvent.input(descriptionInput, {
+				target: { value: 'Valid description text here.' }
+			});
 
 			await fireEvent.click(screen.getByRole('button', { name: 'Submit Bid' }));
 
@@ -377,8 +379,7 @@ describe('BidForm', () => {
 
 			await tick();
 
-			// Check if USDT is displayed somewhere in the component
-			expect(screen.getByText(/USDT|bsc/i)).toBeDefined();
+			expect(screen.getByText('USDT on BSC')).toBeInTheDocument();
 		});
 	});
 });

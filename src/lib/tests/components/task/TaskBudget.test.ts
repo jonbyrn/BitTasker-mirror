@@ -39,6 +39,32 @@ vi.mock('$lib/api/services/crypto-price.service', () => ({
 	}
 }));
 
+vi.mock('$lib/stores/market-price.store', async () => {
+	const { readable } = await import('svelte/store');
+	return {
+		btcUsd: readable(65000),
+		rbtcUsd: readable(65000),
+		marketPriceMeta: readable({
+			lastFetched: Date.now(),
+			isRefreshing: false,
+			error: null
+		}),
+		marketPrice: {
+			subscribe: readable({
+				btcUsd: 65000,
+				rbtcUsd: 65000,
+				lastFetched: Date.now(),
+				isRefreshing: false,
+				error: null
+			}).subscribe,
+			refresh: vi.fn().mockResolvedValue(undefined),
+			startPolling: vi.fn(),
+			stopPolling: vi.fn(),
+			hydrateFromCache: vi.fn()
+		}
+	};
+});
+
 vi.mock('$lib/api/services/upload.service', () => ({
 	default: {
 		uploadMultipleFiles: vi.fn().mockResolvedValue([])
@@ -54,6 +80,13 @@ import TaskBudget from '$lib/components/task/steps/TaskBudget.svelte';
 import { taskStore } from '$lib/stores/task.store';
 import { getDefaultPaymentNetwork } from '$lib/utils/helpers/paymentContext';
 import { validateUsdtAmount } from '$lib/utils/helpers/validators';
+
+function getBudgetInputs() {
+	return {
+		usd: document.getElementById('budget-usd') as HTMLInputElement,
+		sats: document.getElementById('budget-btc') as HTMLInputElement
+	};
+}
 
 describe('TaskBudget', () => {
 	beforeEach(async () => {
@@ -111,20 +144,20 @@ describe('TaskBudget', () => {
 	});
 
 	describe('Budget Amount Input', () => {
-		it('accepts RBTC budget in satoshis on Rootstock rail', async () => {
+		it('converts RBTC sats input into the shared USD task budget on Rootstock rail', async () => {
 			render(TaskBudget, {
 				errors: {},
 				direction: 'forward',
 				attachmentsToRemove: []
 			});
 
-			const budgetInput = screen.getByPlaceholderText(/budget|amount/i) as HTMLInputElement;
-			await fireEvent.change(budgetInput, { target: { value: '500000' } });
+			const { sats: budgetInput } = getBudgetInputs();
+			await fireEvent.input(budgetInput, { target: { value: '500000' } });
 
-			expect(get(taskStore).task.budgetAmountSats).toBe(500000);
+			expect(get(taskStore).task.budget.amount).toBe(325);
 		});
 
-		it('accepts USDT budget in token units on BSC rail', async () => {
+		it('stores the entered USD budget amount on the BSC rail', async () => {
 			render(TaskBudget, {
 				errors: {},
 				direction: 'forward',
@@ -136,10 +169,10 @@ describe('TaskBudget', () => {
 				expect(get(taskStore).task.paymentAsset).toBe('USDT');
 			});
 
-			const budgetInput = screen.getByPlaceholderText(/budget|amount/i) as HTMLInputElement;
-			await fireEvent.change(budgetInput, { target: { value: '100.50' } });
+			const { usd: budgetInput } = getBudgetInputs();
+			await fireEvent.input(budgetInput, { target: { value: '100.50' } });
 
-			expect(get(taskStore).task.budgetAmount).toBe('100.50');
+			expect(get(taskStore).task.budget.amount).toBe(100.5);
 		});
 
 		it('rejects USDT with more than 6 decimal places', async () => {
@@ -154,8 +187,8 @@ describe('TaskBudget', () => {
 				expect(get(taskStore).task.paymentAsset).toBe('USDT');
 			});
 
-			const budgetInput = screen.getByPlaceholderText(/budget|amount/i) as HTMLInputElement;
-			await fireEvent.change(budgetInput, { target: { value: '100.1234567' } });
+			const { usd: budgetInput } = getBudgetInputs();
+			await fireEvent.input(budgetInput, { target: { value: '100.1234567' } });
 			await fireEvent.blur(budgetInput);
 
 			const validation = validateUsdtAmount('100.1234567');
@@ -174,8 +207,8 @@ describe('TaskBudget', () => {
 				expect(get(taskStore).task.paymentAsset).toBe('USDT');
 			});
 
-			const budgetInput = screen.getByPlaceholderText(/budget|amount/i) as HTMLInputElement;
-			await fireEvent.change(budgetInput, { target: { value: '0' } });
+			const { usd: budgetInput } = getBudgetInputs();
+			await fireEvent.input(budgetInput, { target: { value: '0' } });
 
 			const validation = validateUsdtAmount('0');
 			expect(validation.isValid).toBe(false);
@@ -193,8 +226,8 @@ describe('TaskBudget', () => {
 				expect(get(taskStore).task.paymentAsset).toBe('USDT');
 			});
 
-			const budgetInput = screen.getByPlaceholderText(/budget|amount/i) as HTMLInputElement;
-			await fireEvent.change(budgetInput, { target: { value: '0.000001' } });
+			const { usd: budgetInput } = getBudgetInputs();
+			await fireEvent.input(budgetInput, { target: { value: '0.000001' } });
 
 			const validation = validateUsdtAmount('0.000001');
 			expect(validation.isValid).toBe(true);
@@ -242,36 +275,31 @@ describe('TaskBudget', () => {
 	});
 
 	describe('Budget Persistence Across Networks', () => {
-		it('maintains separate budgets for RBTC and USDT when switching networks', async () => {
+		it('keeps the shared USD budget amount when switching networks', async () => {
 			render(TaskBudget, {
 				errors: {},
 				direction: 'forward',
 				attachmentsToRemove: []
 			});
 
-			// Set RBTC budget
-			const budgetInput = screen.getByPlaceholderText(/budget|amount/i) as HTMLInputElement;
-			await fireEvent.change(budgetInput, { target: { value: '500000' } });
-			expect(get(taskStore).task.budgetAmountSats).toBe(500000);
+			const { sats: satsBudgetInput, usd: usdBudgetInput } = getBudgetInputs();
+			await fireEvent.input(satsBudgetInput, { target: { value: '500000' } });
+			expect(get(taskStore).task.budget.amount).toBe(325);
 
-			// Switch to USDT
 			await fireEvent.click(screen.getByRole('button', { name: /USDT on BSC/i }));
 			await waitFor(() => {
 				expect(get(taskStore).task.paymentAsset).toBe('USDT');
 			});
 
-			// Set USDT budget
-			await fireEvent.change(budgetInput, { target: { value: '100.50' } });
-			expect(get(taskStore).task.budgetAmount).toBe('100.50');
+			await fireEvent.input(usdBudgetInput, { target: { value: '100.50' } });
+			expect(get(taskStore).task.budget.amount).toBe(100.5);
 
-			// Switch back to RBTC
 			await fireEvent.click(screen.getByRole('button', { name: /rBTC on Rootstock/i }));
 			await waitFor(() => {
 				expect(get(taskStore).task.paymentAsset).toBe('RBTC');
 			});
 
-			// Previous RBTC budget should be preserved
-			expect(get(taskStore).task.budgetAmountSats).toBe(500000);
+			expect(get(taskStore).task.budget.amount).toBe(100.5);
 		});
 	});
 

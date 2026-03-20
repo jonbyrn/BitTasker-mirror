@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render } from '@testing-library/svelte';
 import { waitFor } from '@testing-library/svelte';
@@ -13,8 +14,8 @@ vi.mock('$lib/api/services/balanceHistory.service', () => ({
 }));
 
 // Mock wallet store - component imports walletStore, totalBalances, formatSats
-vi.mock('$lib/stores/wallet.store', () => {
-	const { writable, derived } = require('svelte/store');
+vi.mock('$lib/stores/wallet.store', async () => {
+	const { writable, derived } = await import('svelte/store');
 	const mockWalletStore = writable({
 		rsk: {
 			provider: {},
@@ -46,8 +47,8 @@ vi.mock('$lib/stores/wallet.store', () => {
 });
 
 // Mock svelte-i18n
-vi.mock('svelte-i18n', () => {
-	const { readable } = require('svelte/store');
+vi.mock('svelte-i18n', async () => {
+	const { readable } = await import('svelte/store');
 	const t = readable((key: string) =>
 		key === 'wallet.balance_history.error' ? 'Failed to load balance history' : key
 	);
@@ -597,7 +598,7 @@ describe('BalanceHistory', () => {
 			expect(successElements.length).toBeGreaterThan(0);
 		});
 
-		it('should apply percentage formatting to USDT changes', async () => {
+		it('should format USDT changes without percentage text', async () => {
 			vi.mocked(balanceHistoryService.getBalanceChanges).mockResolvedValue([
 				{
 					label: '30d',
@@ -633,7 +634,9 @@ describe('BalanceHistory', () => {
 				expect(container.textContent).toContain('30d');
 			});
 
-			expect(container.textContent).toMatch(/18\.5%/);
+			expect(container.textContent).toContain('+25.75 USDT');
+			expect(container.textContent).toContain('+$25.75');
+			expect(container.textContent).not.toMatch(/18\.5%/);
 		});
 	});
 });
