@@ -1,20 +1,20 @@
 import type { BidStatusEnum } from './enums/bid.enum';
 import type { Filter, NostrEvent } from 'nostr-tools';
-import type { NostrBidStatus } from '$lib/types/bid';
+import type { NostrBidStatus, NostrEventWithFollowup } from '$lib/types/bid';
 import { getNpub, getNostrKeyPair } from '$lib/utils/nostrKeys';
 import { queryNostrEvents, publishNostrEvent } from '$lib/utils/nostr';
 import { TAG_FILTERS, TAG_PATTERNS } from '$lib/utils/constants/tags';
 import { smartCache, currencyCache } from '$lib/utils/cache/bid-cache';
 import { appStore } from '$lib/stores/app.store';
-import { pushNotificationService } from '$lib/api/services/push-notification.service';
+import { muteStore } from '$lib/stores/mute.store';
+import { get } from 'svelte/store';
 import { nip19, nip44 } from 'nostr-tools';
 import { bidStore } from '$lib/stores/bid.store';
 import KINDS from '$lib/utils/constants/kinds';
 
-
 /**
  * Clear bid cache (call this when bids are created, updated, or deleted)
- * 
+ *
  * @param taskId - Optional task ID to clear only that task's bid cache
  */
 export function clearBidCache(taskId?: string): void {
@@ -89,22 +89,25 @@ async function filterNip09DeletedEvents(events: NostrEvent[]): Promise<NostrEven
 
 /**
  * Get all bids for a specific task using optimized tag-based filtering
- * 
+ *
  * This function uses custom event kinds (KINDS.BIDS) and tag-based relay filtering
  * to efficiently retrieve bids without fetching all conversations.
- * 
+ *
  * Performance optimizations:
  * - Fetches ONLY bid events (~100 events)
  * - NO calls to getMessagedPeople()
  * - NO fetching of regular chat messages
  * - Relay-side filtering by task ID
  * - Single-pass status attachment during decryption (no separate iterations)
- * 
+ *
  * @param taskId - Task ID to get bids for
  * @param includeStatus - Whether to query and attach the latest bid status events (default: true)
  * @returns Array of bid messages with their associated status data attached
  */
-export async function getBidsForTask(taskId: string, includeStatus: boolean = true): Promise<NostrEvent[]> {
+export async function getBidsForTask(
+	taskId: string,
+	includeStatus: boolean = true
+): Promise<NostrEvent[]> {
 	try {
 		// Check smartCache first
 		const cachedBids = smartCache.getBidsForTask(taskId);
@@ -130,25 +133,35 @@ export async function getBidsForTask(taskId: string, includeStatus: boolean = tr
 		};
 
 		// Prepare followup filter for bid status events if requested
-		const followupFilter = includeStatus ? {
-			kinds: [KINDS.BID_STATUS],
-			...TAG_FILTERS.byTask(taskId),
-			limit: 500 // Allow multiple status updates per bid
-		} : undefined;
+		const followupFilter = includeStatus
+			? {
+					kinds: [KINDS.BID_STATUS],
+					...TAG_FILTERS.byTask(taskId),
+					limit: 500 // Allow multiple status updates per bid
+				}
+			: undefined;
 
 		// Query bids with optional status followup
 		// Status events are automatically linked by parent bid event ID via #e tag
 		let bids = await queryNostrEvents(
 			filter,
 			followupFilter,
-			followupFilter ? {
-				attachAs: 'latestStatus', // Attach as 'latestStatus' property
-				keepLatest: true          // Only keep the most recent status per bid
-			} : undefined
+			followupFilter
+				? {
+						attachAs: 'latestStatus', // Attach as 'latestStatus' property
+						keepLatest: true // Only keep the most recent status per bid
+					}
+				: undefined
 		);
 
 		// Filter out NIP-09 deleted bids (client-side filtering; relays may not honor deletion)
 		bids = await filterNip09DeletedEvents(bids);
+
+		// Filter out bids from muted users — applied before caching so cache stays clean.
+		const currentMutes = get(muteStore);
+		if (currentMutes.mutedPubkeys.size > 0) {
+			bids = bids.filter((bid) => !currentMutes.mutedPubkeys.has(bid.pubkey));
+		}
 
 		// Cache the results
 		smartCache.setBidsForTask(taskId, bids, 5);
@@ -160,13 +173,12 @@ export async function getBidsForTask(taskId: string, includeStatus: boolean = tr
 	}
 }
 
-
 /**
  * Get all bids sent by the current user using optimized tag-based filtering
- * 
+ *
  * Uses KINDS.BIDS with author filter for efficient retrieval.
  * Status events are automatically attached during the decryption loop for better performance.
- * 
+ *
  * @param includeStatus - Whether to query and attach the latest bid status events (default: true)
  * @returns Array of bid messages with their associated status data attached
  */
@@ -195,21 +207,25 @@ export async function getMyBids(includeStatus: boolean = true): Promise<NostrEve
 		};
 
 		// Prepare followup filter for bid status events if requested
-		const followupFilter = includeStatus ? {
-			kinds: [KINDS.BID_STATUS],
-			...TAG_FILTERS.byNpub(npub), // Status events sent to the bidder (current user)
-			limit: 500
-		} : undefined;
+		const followupFilter = includeStatus
+			? {
+					kinds: [KINDS.BID_STATUS],
+					...TAG_FILTERS.byNpub(npub), // Status events sent to the bidder (current user)
+					limit: 500
+				}
+			: undefined;
 
 		// Query bids with optional status followup
 		// Status events are automatically linked by parent bid event ID via #e tag
 		let bids = await queryNostrEvents(
 			filter,
 			followupFilter,
-			followupFilter ? {
-				attachAs: 'latestStatus', // Attach as 'latestStatus' property
-				keepLatest: true          // Only keep the most recent status per bid
-			} : undefined
+			followupFilter
+				? {
+						attachAs: 'latestStatus', // Attach as 'latestStatus' property
+						keepLatest: true // Only keep the most recent status per bid
+					}
+				: undefined
 		);
 
 		// Filter out NIP-09 deleted bids (client-side filtering; relays may not honor deletion)
@@ -227,12 +243,12 @@ export async function getMyBids(includeStatus: boolean = true): Promise<NostrEve
 
 /**
  * Extract the latest bid status from a bid event
- * 
+ *
  * @param bidEvent - Bid event that may have a latestStatus property attached
  * @returns The bid status or null if no status exists
  */
-export function getBidStatus(bidEvent: NostrEvent): NostrBidStatus | null {
-	const latestStatus = (bidEvent as any).latestStatus;
+export function getBidStatus(bidEvent: NostrEventWithFollowup): NostrBidStatus | null {
+	const latestStatus = bidEvent.latestStatus;
 
 	if (!latestStatus) {
 		return null;
@@ -249,13 +265,15 @@ export function getBidStatus(bidEvent: NostrEvent): NostrBidStatus | null {
 /**
  * Decrypt a single bid event
  * Used for real-time subscription updates to avoid re-fetching all bids
- * 
+ *
  * @param event - The encrypted bid event from subscription
  * @returns Decrypted bid event or null if decryption fails
  */
 export async function decryptBidEvent(event: NostrEvent): Promise<NostrEvent | null> {
 	try {
-		let { npub, nsec } = await getNostrKeyPair();
+		const keyPair = await getNostrKeyPair();
+		const { nsec } = keyPair;
+		let { npub } = keyPair;
 		if (!npub || !nsec) {
 			throw new Error('No keys found');
 		}
@@ -328,7 +346,7 @@ export async function sendBidStatusUpdate(
 		// Clear bid cache for this specific task and bidder to ensure fresh data
 		// This is more efficient than clearing all caches
 		clearBidCache(taskId);
-		
+
 		bidStore.removeProcessingBid(bidEventId);
 		appStore.showInfoToast(`Bid status updated to ${status}`);
 	} catch (error) {

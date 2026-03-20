@@ -31,6 +31,10 @@ const createAuthStore = () => {
 		const { user } = await import('./user.store');
 		user.reset();
 
+		// Reset mute store
+		const { muteStore } = await import('./mute.store');
+		muteStore.reset();
+
 		// Reset auth state
 		set(initialAuthState);
 	};

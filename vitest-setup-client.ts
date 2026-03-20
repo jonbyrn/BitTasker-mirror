@@ -1,6 +1,32 @@
 import '@testing-library/jest-dom/vitest';
 import { vi } from 'vitest';
 
+// Mock $houdini to prevent Houdini-generated GraphQL store constructors from
+// failing in the test environment (they require a live GraphQL runtime).
+// push-notification.service.ts instantiates these at module load time, which
+// causes any test that transitively imports escrowEvents.ts to blow up.
+vi.mock('$houdini', () => {
+	const makeStore = () =>
+		vi.fn().mockImplementation(() => ({
+			mutate: vi.fn().mockResolvedValue({ data: null, errors: null }),
+			fetch: vi.fn().mockResolvedValue({ data: null, errors: null }),
+			subscribe: vi.fn(() => () => {}),
+			store: { subscribe: vi.fn(() => () => {}) }
+		}));
+	return {
+		RegisterDeviceStore: makeStore(),
+		RevokeDeviceStore: makeStore(),
+		MyDevicesStore: makeStore(),
+		MyNotificationPreferencesStore: makeStore(),
+		SendNotificationStore: makeStore(),
+		SendNotificationToDeviceStore: makeStore(),
+		SendNotificationToNpubsStore: makeStore(),
+		SubscribeToTopicStore: makeStore(),
+		UnsubscribeFromTopicStore: makeStore(),
+		UpdateDeviceActivityStore: makeStore()
+	};
+});
+
 // Mock @bittasker/wallet-core to avoid EventBus import failure in test env
 // (wallet-core dist/index.js imports ./core/EventBus which may not resolve)
 // Individual tests can override with their own vi.mock if needed
@@ -69,7 +95,7 @@ if (typeof window !== 'undefined' && !window.Element.prototype.animate) {
 		play: vi.fn(),
 		reverse: vi.fn(),
 		updatePlaybackRate: vi.fn()
-	}));
+	})) as unknown as typeof window.Element.prototype.animate;
 }
 
 // Mock MediaStreamTrack (required for QR scanner tests)
@@ -81,7 +107,7 @@ if (typeof global !== 'undefined') {
 		label = 'Mock Camera Track';
 		enabled = true;
 		readyState = 'live' as MediaStreamTrackState;
-	} as any;
+	} as unknown as typeof MediaStreamTrack;
 
 	// Mock crypto.getRandomValues if not already available
 	if (!global.crypto || !global.crypto.getRandomValues) {
@@ -104,16 +130,14 @@ if (typeof global !== 'undefined') {
 // Mock localStorage (required for some tests)
 if (typeof window !== 'undefined') {
 	const localStorageMock = {
-		getItem: vi.fn((key: string) => {
-			return null;
-		}),
-		setItem: vi.fn((key: string, value: string) => {}),
-		removeItem: vi.fn((key: string) => {}),
+		getItem: vi.fn(() => null),
+		setItem: vi.fn(),
+		removeItem: vi.fn(),
 		clear: vi.fn(),
 		length: 0,
-		key: vi.fn((index: number) => null)
+		key: vi.fn(() => null)
 	};
-	
+
 	Object.defineProperty(window, 'localStorage', {
 		value: localStorageMock,
 		writable: true

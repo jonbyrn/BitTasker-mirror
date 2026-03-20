@@ -35,7 +35,8 @@
 	<meta property="twitter:creator" content="@BitTaskerdotcom" />
 
 	<!-- Structured Data -->
-	{@html `<script type="application/ld+json">${JSON.stringify(seo.jsonLd)}</script>`}
+	<!-- eslint-disable svelte/no-at-html-tags -->
+	{@html `<\u{73}script type="application/ld+json">${JSON.stringify(seo.jsonLd)}</script>`}
 </svelte:head>
 
 <div class="w-full">
@@ -128,6 +129,66 @@
 				<li>{$t('terms.user.subpoint7')}</li>
 			</ul>
 		</div>
+		<h3>{$t('terms.ugc.title')}</h3>
+		<p>{$t('terms.ugc.intro')}</p>
+
+		<h4>{$t('terms.ugc.objectionable_title')}</h4>
+		<p>{$t('terms.ugc.objectionable_intro')}</p>
+		<div class="bg-base-100 rounded-box border-base-300 mb-4 border p-4">
+			<ul>
+				<li>{$t('terms.ugc.objectionable1')}</li>
+				<li>{$t('terms.ugc.objectionable2')}</li>
+				<li>{$t('terms.ugc.objectionable3')}</li>
+				<li>{$t('terms.ugc.objectionable4')}</li>
+				<li>{$t('terms.ugc.objectionable5')}</li>
+				<li>{$t('terms.ugc.objectionable6')}</li>
+				<li>{$t('terms.ugc.objectionable7')}</li>
+				<li>{$t('terms.ugc.objectionable8')}</li>
+			</ul>
+		</div>
+
+		<h4>{$t('terms.ugc.reporting_title')}</h4>
+		<p>{$t('terms.ugc.reporting_intro')}</p>
+		<div class="bg-base-100 rounded-box border-base-300 mb-4 border p-4">
+			<ul>
+				<li>{$t('terms.ugc.reporting1')}</li>
+				<li>{$t('terms.ugc.reporting2')}</li>
+				<li>{$t('terms.ugc.reporting3')}</li>
+				<li>{$t('terms.ugc.reporting4')}</li>
+			</ul>
+			<p class="mt-3 mb-0">{$t('terms.ugc.reporting_types')}</p>
+		</div>
+
+		<h4>{$t('terms.ugc.blocking_title')}</h4>
+		<p>{$t('terms.ugc.blocking_intro')}</p>
+		<div class="bg-base-100 rounded-box border-base-300 mb-4 border p-4">
+			<ul>
+				<li>{$t('terms.ugc.blocking1')}</li>
+				<li>{$t('terms.ugc.blocking2')}</li>
+				<li>{$t('terms.ugc.blocking3')}</li>
+			</ul>
+		</div>
+
+		<h4>{$t('terms.ugc.action_title')}</h4>
+		<p>{$t('terms.ugc.action_intro')}</p>
+		<div class="bg-base-100 rounded-box border-base-300 mb-4 border p-4">
+			<h5 class="mb-2 font-semibold">{$t('terms.ugc.action_sla_title')}</h5>
+			<p class="mb-2">{$t('terms.ugc.action_sla_intro')}</p>
+			<ul>
+				<li>{$t('terms.ugc.action_sla1')}</li>
+				<li>{$t('terms.ugc.action_sla2')}</li>
+				<li>{$t('terms.ugc.action_sla3')}</li>
+				<li>{$t('terms.ugc.action_sla4')}</li>
+			</ul>
+			<div class="divider my-2"></div>
+			<ul>
+				<li>{$t('terms.ugc.action1')}</li>
+				<li>{$t('terms.ugc.action2')}</li>
+				<li>{$t('terms.ugc.action3')}</li>
+			</ul>
+			<p class="mt-3 mb-0 text-sm opacity-70">{$t('terms.ugc.decentralized_note')}</p>
+		</div>
+
 		<h3>{$t('terms.bitcoin.title')}</h3>
 		<div class="bg-base-100 rounded-box border-base-300 mb-4 border p-4">
 			<ul>
@@ -184,7 +245,8 @@
 				<li>{$t('terms.disputes.point4')}</li>
 				<li>
 					{$t('terms.disputes.point5')}
-					<a href="/secure-payments" class="link link-primary">{$t('terms.disputes.escrow_link')}</a>.
+					<a href="/secure-payments" class="link link-primary">{$t('terms.disputes.escrow_link')}</a
+					>.
 				</li>
 			</ul>
 		</div>
