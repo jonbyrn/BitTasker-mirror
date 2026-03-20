@@ -33,6 +33,7 @@
 	import { Buffer } from 'buffer';
 	import { bytesToHex } from 'nostr-tools/utils';
 	import { decodeNsec } from '$lib/utils/nostr';
+	import { appStore } from '$lib/stores/app.store';
 	import authService from '$lib/api/services/auth.service';
 	import QrCodeScanner from '$lib/components/QrCodeScanner.svelte';
 	import LoginQrCodeScannerModal from '$lib/components/LoginQrCodeScannerModal.svelte';
@@ -159,6 +160,12 @@
 				encryptedData: response.encryptedData,
 				credentialId
 			};
+
+			// If the account was pending deletion and the user just logged in,
+			// the backend automatically cancels the deletion. Show a welcome-back toast.
+			if (response.accountRestored) {
+				appStore.showSuccessToast($t('login.account_restored_message'));
+			}
 
 			await authState.setupAuthData(
 				response.access_token,
@@ -405,6 +412,11 @@
 				authState
 					.setupAuthData(res.access_token, 'passkey', npub, res.user, biometricData, false)
 					.then(async () => {
+						// If the account was pending deletion and the user just logged in,
+						// the backend automatically cancels the deletion. Show a welcome-back toast.
+						if (res.accountRestored) {
+							appStore.showSuccessToast($t('login.account_restored_message'));
+						}
 						if (res.isNewUser) await goto('/auth/onboarding');
 						else await goto('/dashboard');
 						if ($passkeyMigration.isOpen) {

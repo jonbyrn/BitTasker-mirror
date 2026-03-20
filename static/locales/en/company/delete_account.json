@@ -1,0 +1,45 @@
+{
+	"delete_account": {
+		"title": "Delete Your Account",
+		"subtitle": "We respect your right to control your data. If you'd like to delete your BitTasker account, follow the steps below.",
+		"how_it_works": {
+			"title": "How Account Deletion Works",
+			"step1_title": "Log In to BitTasker",
+			"step1_description": "Since BitTasker is a non-custodial platform, we need to verify your identity before deleting your account. Log in using your Nostr private key (nsec), recovery password, or passkey.",
+			"step2_title": "Go to Settings",
+			"step2_description": "Once logged in, navigate to Settings → Account Actions and click the \"Delete Account\" button.",
+			"step3_title": "Confirm Deletion",
+			"step3_description": "Review the consequences and confirm. Your account will enter a 30-day grace period during which you can cancel by simply logging in again.",
+			"step4_title": "Permanent Deletion",
+			"step4_description": "If no login occurs within 30 days, your account and associated data will be permanently and irrecoverably deleted from BitTasker's systems."
+		},
+		"lost_access": {
+			"title": "Lost Access to Your Account?",
+			"description": "BitTasker is a non-custodial platform — your identity is your Nostr keypair, not a username and password stored on our servers. If you have lost access to your account, you have the following recovery options:",
+			"option1_title": "Recovery Password",
+			"option1_description": "If you previously set up a recovery email and password in Settings, you can use those to log back in.",
+			"option2_title": "Nostr Private Key (nsec)",
+			"option2_description": "Your nsec is the master key to your identity. If you have it stored safely, you can always log in with it.",
+			"option3_title": "Passkey",
+			"option3_description": "If you set up a WebAuthn passkey, you can use it to authenticate from any supported device.",
+			"no_access_title": "Still Can't Access Your Account?",
+			"no_access_description": "If you have exhausted all recovery options and cannot log in, please contact us. We will do our best to assist you, though our ability to act on accounts we cannot verify is limited by our non-custodial design."
+		},
+		"what_gets_deleted": {
+			"title": "What Gets Deleted",
+			"item1": "Your BitTasker profile and account data",
+			"item2": "Your locally stored wallet keys and transaction history",
+			"item3": "Any personal information associated with your account in BitTasker's systems",
+			"nostr_note_title": "Note on Nostr Data",
+			"nostr_note_description": "BitTasker is built on the Nostr protocol. Events you have published (tasks, bids, messages) are broadcast to decentralized relays outside of BitTasker's control. We will broadcast a deletion request (NIP-09) on your behalf, but complete removal from all third-party relays cannot be guaranteed due to the decentralized nature of the protocol."
+		},
+		"cta": {
+			"logged_in_title": "Ready to Delete Your Account?",
+			"logged_in_description": "Log in to BitTasker and go to Settings to initiate the deletion process.",
+			"go_to_settings": "Go to Settings",
+			"contact_title": "Need Help?",
+			"contact_description": "If you have questions about account deletion or need assistance, our team is here to help.",
+			"contact_button": "Contact Support"
+		}
+	}
+}

@@ -1,21 +1,40 @@
-# Add project specific ProGuard rules here.
-# You can control the set of applied configuration files using the
-# proguardFiles setting in build.gradle.
-#
-# For more details, see
-#   http://developer.android.com/guide/developing/tools/proguard.html
+# BitTasker ProGuard / R8 rules
 
-# If your project uses WebView with JS, uncomment the following
-# and specify the fully qualified class name to the JavaScript interface
-# class:
-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
-#}
+# ---------------------------------------------------------------------------
+# Crash reporting — preserve source file names and line numbers for Sentry
+# ---------------------------------------------------------------------------
+-keepattributes SourceFile,LineNumberTable
+-renamesourcefileattribute SourceFile
 
-# Uncomment this to preserve the line number information for
-# debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
+# ---------------------------------------------------------------------------
+# WebView JavaScript interface
+# Capacitor bridges JS to native via annotated methods — must not be stripped
+# ---------------------------------------------------------------------------
+-keepclassmembers class * {
+    @android.webkit.JavascriptInterface <methods>;
+}
 
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
+# ---------------------------------------------------------------------------
+# Capacitor core and app package
+# ---------------------------------------------------------------------------
+-keep class com.getcapacitor.** { *; }
+-keep class com.bittasker.** { *; }
+
+# ---------------------------------------------------------------------------
+# Firebase / Google Play Services
+# ---------------------------------------------------------------------------
+-keep class com.google.firebase.** { *; }
+-keep class com.google.android.gms.** { *; }
+
+# ---------------------------------------------------------------------------
+# AndroidX
+# ---------------------------------------------------------------------------
+-keep class androidx.** { *; }
+-dontwarn androidx.**
+
+# ---------------------------------------------------------------------------
+# Kotlin (keep metadata for reflection)
+# ---------------------------------------------------------------------------
+-keepattributes *Annotation*
+-keepattributes Signature
+-keepattributes Exceptions

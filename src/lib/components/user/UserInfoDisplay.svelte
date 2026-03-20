@@ -65,12 +65,13 @@
 	 */
 	function formatMemberSinceDate(date: Date | number | string): string {
 		try {
-			const dateObj = typeof date === 'number' 
-				? new Date(date * 1000) // If timestamp in seconds
-				: typeof date === 'string'
-					? new Date(date)
-					: date;
-			
+			const dateObj =
+				typeof date === 'number'
+					? new Date(date * 1000) // If timestamp in seconds
+					: typeof date === 'string'
+						? new Date(date)
+						: date;
+
 			return dateObj.toLocaleDateString('en-US', {
 				month: 'short',
 				year: 'numeric'
@@ -98,12 +99,12 @@
 		// Use profileLink if provided, otherwise fall back to pubkey
 		const pubkeyToUse = profileLink || pubkey;
 		if (!pubkeyToUse) return null;
-		
+
 		// If it's already an npub, use it directly
 		if (pubkeyToUse.startsWith('npub1')) {
 			return `/npub/${pubkeyToUse}`;
 		}
-		
+
 		// If it's hex, convert to npub for the URL
 		if (/^[a-fA-F0-9]{64}$/.test(pubkeyToUse)) {
 			try {
@@ -115,7 +116,7 @@
 				return `/npub/${pubkeyToUse}`;
 			}
 		}
-		
+
 		// Fallback: use as-is (route should handle it)
 		// If it's an npub format, it will be handled by the route
 		return `/npub/${pubkeyToUse}`;
@@ -126,10 +127,10 @@
 	 */
 	function isInvalidUsername(value: unknown): boolean {
 		if (!value) return true;
-		
+
 		// Convert to string if it's not already
 		const str = typeof value === 'string' ? value : String(value);
-		
+
 		// Check for common invalid patterns:
 		// 1. Starts with "npub" (npub format)
 		if (str.startsWith('npub')) return true;
@@ -141,7 +142,7 @@
 		if (str.startsWith('[object')) return true;
 		// 5. Is just numbers
 		if (/^\d+$/.test(str) && str.length > 3) return true; // Just numbers (but allow short numbers like "123")
-		
+
 		return false;
 	}
 
@@ -150,15 +151,15 @@
 	 */
 	const normalizedUsername = $derived.by(() => {
 		if (!username) return null;
-		
+
 		// Convert to string if needed
 		const str = typeof username === 'string' ? username : String(username);
-		
+
 		// Check if it's invalid
 		if (isInvalidUsername(str)) {
 			return null;
 		}
-		
+
 		return str.trim() || null;
 	});
 
@@ -182,14 +183,6 @@
 	const displayAvatar = $derived.by(() => {
 		// Priority: fetched profile picture > provided avatar
 		return fetchedProfile?.picture || avatar;
-	});
-
-	/**
-	 * Check if avatar is missing or empty (checks displayAvatar for consistency)
-	 */
-	const isAvatarMissing = $derived.by(() => {
-		const avatarToCheck = displayAvatar;
-		return !avatarToCheck || (typeof avatarToCheck === 'string' && avatarToCheck.trim() === '');
 	});
 
 	/**
@@ -250,31 +243,16 @@
 		// Set loading state and track pubkey immediately to prevent race conditions
 		isLoadingProfile = true;
 		lastLoadedPubkey = normalizedHexPubkey;
-		
+
 		try {
-			console.debug('[UserInfoDisplay] loadUserProfile: starting fetch', { 
-				username, 
-				normalizedUsername, 
-				avatar,
-				isAvatarMissing,
-				pubkey,
-				normalizedHexPubkey 
-			});
-			
 			// Convert hex to npub for fetchProfileMetadata (it handles both, but npub ensures cache consistency)
 			// The cache key will be npub format, which is consistent across calls
 			const npubToFetch = nip19.npubEncode(normalizedHexPubkey);
-			
+
 			const profile = await fetchProfileMetadata(npubToFetch);
-			console.debug('[UserInfoDisplay] loadUserProfile: received profile', { 
-				profile, 
-				hasName: !!profile?.name,
-				hasPicture: !!profile?.picture 
-			});
-			
+
 			// Update fetched profile even if empty (to avoid re-fetching)
 			fetchedProfile = profile;
-			console.debug('[UserInfoDisplay] loadUserProfile: updated fetchedProfile', { fetchedProfile });
 		} catch (error) {
 			console.error('[UserInfoDisplay] loadUserProfile: error', error);
 			fetchedProfile = null;
@@ -309,20 +287,13 @@
 			username: displayUsername,
 			display: displayUsername
 		};
-		
+
 		// Only log if values actually changed
-		if (!lastLoggedValues || 
-			lastLoggedValues.username !== current.username || 
-			lastLoggedValues.display !== current.display) {
-			console.debug('[UserInfoDisplay] Display values:', {
-				displayUsername,
-				displayAvatar: !!displayAvatar,
-				normalizedUsername,
-				hasFetchedProfile: !!fetchedProfile,
-				fetchedProfileName: fetchedProfile?.name,
-				username,
-				pubkey
-			});
+		if (
+			!lastLoggedValues ||
+			lastLoggedValues.username !== current.username ||
+			lastLoggedValues.display !== current.display
+		) {
 			lastLoggedValues = current;
 		}
 	});
@@ -331,10 +302,7 @@
 <div class="flex min-w-0 flex-1 items-center gap-4">
 	<!-- Avatar -->
 	{#if profileUrl}
-		<a
-			href={profileUrl}
-			class="avatar shrink-0 cursor-pointer transition-opacity hover:opacity-80"
-		>
+		<a href={profileUrl} class="avatar shrink-0 cursor-pointer transition-opacity hover:opacity-80">
 			<div class="bg-base-300 flex {config.avatar} items-center justify-center rounded-full">
 				{#if displayAvatar}
 					<img
@@ -355,7 +323,13 @@
 								{displayUsername.charAt(0).toUpperCase()}
 							</span>
 						{:else}
-							<IconAccount class="text-base-content/60 {size === 'sm' ? 'h-4 w-4' : size === 'md' ? 'h-6 w-6' : 'h-8 w-8'}" />
+							<IconAccount
+								class="text-base-content/60 {size === 'sm'
+									? 'h-4 w-4'
+									: size === 'md'
+										? 'h-6 w-6'
+										: 'h-8 w-8'}"
+							/>
 						{/if}
 					</div>
 				{/if}
@@ -383,7 +357,13 @@
 								{displayUsername.charAt(0).toUpperCase()}
 							</span>
 						{:else}
-							<IconAccount class="text-base-content/60 {size === 'sm' ? 'h-4 w-4' : size === 'md' ? 'h-6 w-6' : 'h-8 w-8'}" />
+							<IconAccount
+								class="text-base-content/60 {size === 'sm'
+									? 'h-4 w-4'
+									: size === 'md'
+										? 'h-6 w-6'
+										: 'h-8 w-8'}"
+							/>
 						{/if}
 					</div>
 				{/if}
@@ -406,22 +386,21 @@
 				{displayUsername}
 			</p>
 		{/if}
-		
+
 		<!-- Member since -->
 		{#if formattedMemberSince}
 			<span class="text-base-content/60 {config.memberSince}">
-				{$t('task.drawer.member_since')} {formattedMemberSince}
+				{$t('task.drawer.member_since')}
+				{formattedMemberSince}
 			</span>
 		{/if}
-		
+
 		<!-- Rating -->
 		<div class="flex items-center gap-1">
-			{#each Array(5) as _, i}
+			{#each [0, 1, 2, 3, 4] as i (i)}
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
-					class="{config.star} {i < (rating || 0)
-						? 'text-yellow-400'
-						: 'text-base-content/30'}"
+					class="{config.star} {i < (rating || 0) ? 'text-yellow-400' : 'text-base-content/30'}"
 					fill="currentColor"
 					viewBox="0 0 24 24"
 				>

@@ -28,9 +28,9 @@ export const ENDPOINTS = {
 		NOSTR_RECOVERY_INITIATE: `${API_PATH}/${API_VERSION}/${AUTH}/recover/nostr/initiate`,
 		EMAIL_VERIFICATION: `${API_PATH}/${API_VERSION}/${AUTH}/verification/verify-email`,
 		VERIFY_TURNSTILE: `${API_PATH}/${API_VERSION}/${AUTH}/verify-turnstile`,
-		ONBOARDING_STATUS: `${API_PATH}/${API_VERSION}/${AUTH}/onboarding/status`,
 		CHECK_USERNAME: `${API_PATH}/${API_VERSION}/${AUTH}/username/check`,
 		MIGRATE_AUTH: `${API_PATH}/${API_VERSION}/${AUTH}/migrate`,
+		DELETE_ACCOUNT: `${API_PATH}/${API_VERSION}/${AUTH}/account`
 	},
 
 	// Upload endpoints
@@ -62,6 +62,6 @@ export const ENDPOINTS = {
 	},
 
 	SAVED_SEARCHES: {
-		TRIGGER_CHECK: `${API_PATH}/${API_VERSION}/saved-searches/check-task`,
+		TRIGGER_CHECK: `${API_PATH}/${API_VERSION}/saved-searches/check-task`
 	}
 };
