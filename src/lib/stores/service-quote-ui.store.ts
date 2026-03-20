@@ -50,6 +50,7 @@ import {
 import { resolveProviderProposalAuthoring } from '$lib/utils/service-quote/provider-authoring';
 
 const REQUEST_SYNC_WINDOW_MS = 15_000;
+const PROVIDER_CACHE_TTL_MS = 30_000;
 
 export { buildServiceAddress };
 export { createDashboardUrl };
@@ -126,6 +127,7 @@ type ServiceQuoteUiState = {
 	providerLoadErrorByService: Record<string, string | null>;
 	taskerDataFreshness: ServiceQuoteDataFreshness;
 	providerDataFreshnessByService: Record<string, ServiceQuoteDataFreshness>;
+	providerLastLoadedAtByService: Record<string, number>;
 	focusSync: FocusSyncState;
 	nonBlockingMessageCode: DashboardMessageCode | null;
 };
@@ -141,6 +143,7 @@ const initialState: ServiceQuoteUiState = {
 	providerLoadErrorByService: {},
 	taskerDataFreshness: 'fresh',
 	providerDataFreshnessByService: {},
+	providerLastLoadedAtByService: {},
 	focusSync: {
 		requestId: null,
 		serviceAddress: null,
@@ -238,6 +241,30 @@ function hasTimelineForRequest(
 	}
 
 	return timelines.some((timeline) => timeline.request.content.quoteRequestId === requestId);
+}
+
+function reconcileProviderRequestFocus(
+	state: ServiceQuoteUiState,
+	serviceAddress: string,
+	requestId: string | null | undefined,
+	timelines: ServiceQuoteTimelineEntry[]
+): ServiceQuoteUiState {
+	if (!requestId || state.providerLoadErrorByService[serviceAddress]) {
+		return state;
+	}
+
+	const partialSync =
+		isRequestSyncActive(state, requestId, serviceAddress) &&
+		!hasTimelineForRequest(timelines, requestId);
+	const nextState = {
+		...state,
+		providerDataFreshnessByService: {
+			...state.providerDataFreshnessByService,
+			[serviceAddress]: partialSync ? 'partial' : 'fresh'
+		}
+	};
+
+	return partialSync ? nextState : clearFocusSyncIfVisible(nextState, requestId);
 }
 
 function createSyntheticStatusEvent(
@@ -371,6 +398,38 @@ function getAcceptanceUnknownMessage(reasonCode: ServiceAcceptanceUnknownReasonC
 function createServiceQuoteUiStore() {
 	const store = writable<ServiceQuoteUiState>(initialState);
 	const { subscribe, set, update } = store;
+	const providerLoadPromisesByService = new Map<string, Promise<ServiceQuoteTimelineEntry[]>>();
+	const providerLoadSequenceByService = new Map<string, number>();
+
+	function shouldUseProviderCache(
+		state: ServiceQuoteUiState,
+		serviceAddress: string,
+		requestId?: string | null,
+		force = false,
+		now = Date.now()
+	): boolean {
+		if (force) {
+			return false;
+		}
+
+		if (state.providerLoadedByService[serviceAddress] !== true) {
+			return false;
+		}
+
+		const lastLoadedAt = state.providerLastLoadedAtByService[serviceAddress];
+		if (!lastLoadedAt || now - lastLoadedAt > PROVIDER_CACHE_TTL_MS) {
+			return false;
+		}
+
+		if (
+			requestId &&
+			!hasTimelineForRequest(state.providerTimelinesByService[serviceAddress] ?? [], requestId)
+		) {
+			return false;
+		}
+
+		return true;
+	}
 
 	async function monitorPendingTaskerAcceptance(params: {
 		timeline: ServiceQuoteTimelineEntry;
@@ -399,8 +458,7 @@ function createServiceQuoteUiStore() {
 								acceptedInput,
 								buildStatusContent(params.timeline, acceptedInput, params.actorPubkey, {
 									escrowId: contractCreationEvent.escrowId,
-									transactionHash:
-										contractCreationEvent.transactionHash ?? params.transactionHash
+									transactionHash: contractCreationEvent.transactionHash ?? params.transactionHash
 								})
 							)
 						: entry
@@ -423,20 +481,11 @@ function createServiceQuoteUiStore() {
 				message,
 				reasonCode
 			};
-			const unknownContent = buildStatusContent(
-				params.timeline,
-				unknownInput,
-				params.actorPubkey,
-				{
-					transactionHash: params.transactionHash
-				}
-			);
+			const unknownContent = buildStatusContent(params.timeline, unknownInput, params.actorPubkey, {
+				transactionHash: params.transactionHash
+			});
 
-			markServiceProposalAcceptanceUnknown(
-				params.proposalId,
-				reasonCode,
-				params.transactionHash
-			);
+			markServiceProposalAcceptanceUnknown(params.proposalId, reasonCode, params.transactionHash);
 
 			try {
 				await publishServiceProposalStatus({
@@ -463,12 +512,14 @@ function createServiceQuoteUiStore() {
 
 	return {
 		subscribe,
-			reset() {
-				set(initialState);
-			},
-			parseDashboardQuery(searchParams: URLSearchParams): DashboardRouteParseResult {
-				return parseServiceQuoteDashboardQuery(searchParams, get(store));
-			},
+		reset() {
+			providerLoadPromisesByService.clear();
+			providerLoadSequenceByService.clear();
+			set(initialState);
+		},
+		parseDashboardQuery(searchParams: URLSearchParams): DashboardRouteParseResult {
+			return parseServiceQuoteDashboardQuery(searchParams, get(store));
+		},
 		setNonBlockingMessage(messageCode: DashboardMessageCode | null) {
 			update((state) => ({
 				...state,
@@ -492,24 +543,27 @@ function createServiceQuoteUiStore() {
 				taskerLoadError: null
 			}));
 
-			try {
-				const taskerPubkey = await getNpub();
-				const result = await queryServiceQuotesForTasker(taskerPubkey);
+				try {
+					const taskerPubkey = await getNpub();
+					const result = await queryServiceQuotesForTasker(taskerPubkey);
 
-				update((state) => {
+					update((state) => {
 					const partialSync =
-						Boolean(requestId) &&
-						isRequestSyncActive(state, requestId, null) &&
-						!hasTimelineForRequest(result.timelines, requestId);
+							Boolean(requestId) &&
+							isRequestSyncActive(state, requestId, null) &&
+							!hasTimelineForRequest(result.timelines, requestId);
+						const taskerDataFreshness: ServiceQuoteDataFreshness = partialSync
+							? 'partial'
+							: 'fresh';
 
-					const nextState = {
-						...state,
-						taskerTimelines: result.timelines,
-						taskerLoaded: true,
-						loadingTasker: false,
-						taskerLoadError: null,
-						taskerDataFreshness: partialSync ? 'partial' : 'fresh'
-					};
+						const nextState = {
+							...state,
+							taskerTimelines: result.timelines,
+							taskerLoaded: true,
+							loadingTasker: false,
+							taskerLoadError: null,
+							taskerDataFreshness
+						};
 
 					return partialSync ? nextState : clearFocusSyncIfVisible(nextState, requestId);
 				});
@@ -529,7 +583,29 @@ function createServiceQuoteUiStore() {
 				throw error;
 			}
 		},
-		async loadProviderTimelines(serviceAddress: string, requestId?: string | null) {
+		async loadProviderTimelines(
+			serviceAddress: string,
+			requestId?: string | null,
+			options: { force?: boolean } = {}
+		) {
+			const currentState = get(store);
+			if (shouldUseProviderCache(currentState, serviceAddress, requestId, options.force)) {
+				return currentState.providerTimelinesByService[serviceAddress] ?? [];
+			}
+
+			const existingPromise = providerLoadPromisesByService.get(serviceAddress);
+			if (existingPromise) {
+				return existingPromise.then((timelines) => {
+					update((state) =>
+						reconcileProviderRequestFocus(state, serviceAddress, requestId, timelines)
+					);
+					return timelines;
+				});
+			}
+
+			const sequence = (providerLoadSequenceByService.get(serviceAddress) ?? 0) + 1;
+			providerLoadSequenceByService.set(serviceAddress, sequence);
+
 			update((state) => ({
 				...state,
 				loadingProviderByService: {
@@ -542,72 +618,101 @@ function createServiceQuoteUiStore() {
 				}
 			}));
 
-			try {
-				const taskeePubkey = await getNpub();
-				const result = await queryServiceQuotesForTaskee(serviceAddress, taskeePubkey);
+			let providerPromise: Promise<ServiceQuoteTimelineEntry[]> | null = null;
+			providerPromise = (async () => {
+				try {
+					const taskeePubkey = await getNpub();
+					const result = await queryServiceQuotesForTaskee(serviceAddress, taskeePubkey);
 
-				update((state) => {
-					const partialSync =
-						Boolean(requestId) &&
-						isRequestSyncActive(state, requestId, serviceAddress) &&
-						!hasTimelineForRequest(result.timelines, requestId);
-
-					const nextState = {
-						...state,
-						providerTimelinesByService: {
-							...state.providerTimelinesByService,
-							[serviceAddress]: result.timelines
-						},
-						providerLoadedByService: {
-							...state.providerLoadedByService,
-							[serviceAddress]: true
-						},
-						providerLoadErrorByService: {
-							...state.providerLoadErrorByService,
-							[serviceAddress]: null
-						},
-						providerDataFreshnessByService: {
-							...state.providerDataFreshnessByService,
-							[serviceAddress]: partialSync ? 'partial' : 'fresh'
-						},
-						loadingProviderByService: {
-							...state.loadingProviderByService,
-							[serviceAddress]: false
+					update((state) => {
+						if (providerLoadSequenceByService.get(serviceAddress) !== sequence) {
+							return state;
 						}
-					};
 
-					return partialSync ? nextState : clearFocusSyncIfVisible(nextState, requestId);
-				});
+						const nextState = {
+							...state,
+							providerTimelinesByService: {
+								...state.providerTimelinesByService,
+								[serviceAddress]: result.timelines
+							},
+							providerLoadedByService: {
+								...state.providerLoadedByService,
+								[serviceAddress]: true
+							},
+							providerLoadErrorByService: {
+								...state.providerLoadErrorByService,
+								[serviceAddress]: null
+							},
+							providerDataFreshnessByService: {
+								...state.providerDataFreshnessByService,
+								[serviceAddress]: 'fresh'
+							},
+							providerLastLoadedAtByService: {
+								...state.providerLastLoadedAtByService,
+								[serviceAddress]: Date.now()
+							},
+							loadingProviderByService: {
+								...state.loadingProviderByService,
+								[serviceAddress]: false
+							}
+						};
 
-				return result.timelines;
-			} catch (error) {
-				update((state) => ({
-					...state,
-					providerLoadedByService: {
-						...state.providerLoadedByService,
-						[serviceAddress]: true
-					},
-					providerLoadErrorByService: {
-						...state.providerLoadErrorByService,
-						[serviceAddress]: getErrorMessage(
-							error,
-							'Unable to load service quote requests for this service right now.'
-						)
-					},
-					providerDataFreshnessByService: {
-						...state.providerDataFreshnessByService,
-						[serviceAddress]:
+						return reconcileProviderRequestFocus(
+							nextState,
+							serviceAddress,
+							requestId,
+							result.timelines
+						);
+					});
+
+					return result.timelines;
+				} catch (error) {
+					update((state) => {
+						if (providerLoadSequenceByService.get(serviceAddress) !== sequence) {
+							return state;
+						}
+
+						const providerDataFreshness: ServiceQuoteDataFreshness =
 							(state.providerTimelinesByService[serviceAddress]?.length ?? 0) > 0
 								? 'stale'
-								: 'fresh'
-					},
-					loadingProviderByService: {
-						...state.loadingProviderByService,
-						[serviceAddress]: false
+								: 'fresh';
+
+						return {
+							...state,
+							providerLoadedByService: {
+								...state.providerLoadedByService,
+								[serviceAddress]: true
+							},
+							providerLoadErrorByService: {
+								...state.providerLoadErrorByService,
+								[serviceAddress]: getErrorMessage(
+									error,
+									'Unable to load service quote requests for this service right now.'
+								)
+							},
+								providerDataFreshnessByService: {
+									...state.providerDataFreshnessByService,
+									[serviceAddress]: providerDataFreshness
+								},
+							loadingProviderByService: {
+								...state.loadingProviderByService,
+								[serviceAddress]: false
+							}
+						};
+					});
+					throw error;
+				} finally {
+					if (
+						providerPromise &&
+						providerLoadPromisesByService.get(serviceAddress) === providerPromise
+					) {
+						providerLoadPromisesByService.delete(serviceAddress);
 					}
-				}));
-				throw error;
-			}
+				}
+			})();
+
+			providerLoadPromisesByService.set(serviceAddress, providerPromise);
+			return providerPromise;
 		},
 		async submitQuoteRequest(input: {
 			service: Service;
@@ -659,89 +764,89 @@ function createServiceQuoteUiStore() {
 				};
 			}
 		},
-			async sendLocalProposal(input: ServiceProposalComposerInput) {
-				let timeline = getProviderTimelines(get(store), input.serviceAddress).find(
+		async sendLocalProposal(input: ServiceProposalComposerInput) {
+			let timeline = getProviderTimelines(get(store), input.serviceAddress).find(
+				(entry) => entry.request.content.quoteRequestId === input.quoteRequestId
+			);
+
+			if (!timeline) {
+				await this.loadProviderTimelines(input.serviceAddress, input.quoteRequestId);
+				timeline = getProviderTimelines(get(store), input.serviceAddress).find(
 					(entry) => entry.request.content.quoteRequestId === input.quoteRequestId
 				);
+			}
 
-				if (!timeline) {
-					await this.loadProviderTimelines(input.serviceAddress, input.quoteRequestId);
-					timeline = getProviderTimelines(get(store), input.serviceAddress).find(
-						(entry) => entry.request.content.quoteRequestId === input.quoteRequestId
-					);
-				}
+			if (!timeline) {
+				return {
+					success: false,
+					error: 'Unable to locate the selected quote request.'
+				};
+			}
+			if (timeline.linkedEscrowId) {
+				return {
+					success: false,
+					error: 'This quote request has already been converted into an active service contract.'
+				};
+			}
+			if (timeline.isExpired || timeline.resolvedStatus === 'expired') {
+				return {
+					success: false,
+					error: 'This quote request has already expired.'
+				};
+			}
 
-				if (!timeline) {
-					return {
-						success: false,
-						error: 'Unable to locate the selected quote request.'
-					};
-				}
-				if (timeline.linkedEscrowId) {
-					return {
-						success: false,
-						error: 'This quote request has already been converted into an active service contract.'
-					};
-				}
-				if (timeline.isExpired || timeline.resolvedStatus === 'expired') {
-					return {
-						success: false,
-						error: 'This quote request has already expired.'
-					};
-				}
+			const providerAuthoring = resolveProviderProposalAuthoring(get(walletStore).rsk.address);
+			if (!providerAuthoring.ok) {
+				return {
+					success: false,
+					error: providerAuthoring.error
+				};
+			}
 
-				const providerAuthoring = resolveProviderProposalAuthoring(get(walletStore).rsk.address);
-				if (!providerAuthoring.ok) {
-					return {
-						success: false,
-						error: providerAuthoring.error
-					};
-				}
-
-				try {
-					await publishServiceProposal({
-						content: {
-							type: SERVICE_QUOTE_MESSAGE_TYPES.PROPOSAL,
-							proposalId: generateServiceQuoteEntityId('pr'),
-							quoteRequestId: input.quoteRequestId,
-							serviceId: timeline.request.content.serviceId,
-							serviceAddress: timeline.request.content.serviceAddress,
-							paymentType: resolveProposalPaymentType(input.service),
-							amountUsdt: input.amountUsdt,
-							description: input.description,
-							estimatedDuration: input.estimatedDuration,
-							estimatedStartTime: input.estimatedStartTime,
-							estimatedEndTime: input.estimatedEndTime,
-							coverLetter: input.coverLetter,
-							expirationDays: input.expirationDays,
-							expirationHours: input.expirationHours,
-							expirationTimestamp: 0,
-							freelancerRskAddress: providerAuthoring.walletAddress,
-							freelancerFeeTier: providerAuthoring.freelancerFeeTier,
-							pricingSnapshot: buildProposalPricingSnapshot(input.service, timeline),
-							timestamp: Math.floor(Date.now() / 1000),
-							version: 'v1'
+			try {
+				await publishServiceProposal({
+					content: {
+						type: SERVICE_QUOTE_MESSAGE_TYPES.PROPOSAL,
+						proposalId: generateServiceQuoteEntityId('pr'),
+						quoteRequestId: input.quoteRequestId,
+						serviceId: timeline.request.content.serviceId,
+						serviceAddress: timeline.request.content.serviceAddress,
+						paymentType: resolveProposalPaymentType(input.service),
+						amountUsdt: input.amountUsdt,
+						description: input.description,
+						estimatedDuration: input.estimatedDuration,
+						estimatedStartTime: input.estimatedStartTime,
+						estimatedEndTime: input.estimatedEndTime,
+						coverLetter: input.coverLetter,
+						expirationDays: input.expirationDays,
+						expirationHours: input.expirationHours,
+						expirationTimestamp: 0,
+						freelancerRskAddress: providerAuthoring.walletAddress,
+						freelancerFeeTier: providerAuthoring.freelancerFeeTier,
+						pricingSnapshot: buildProposalPricingSnapshot(input.service, timeline),
+						timestamp: Math.floor(Date.now() / 1000),
+						version: 'v1'
 					},
-						requestEventId: timeline.request.id,
-						taskerPubkey: timeline.request.pubkey,
-						sideEffects: {
-							dmMirror: input.dmMirror
-						}
-					});
+					requestEventId: timeline.request.id,
+					taskerPubkey: timeline.request.pubkey,
+					sideEffects: {
+						dmMirror: input.dmMirror
+					}
+				});
 
-					await this.loadProviderTimelines(input.serviceAddress, input.quoteRequestId);
+				await this.loadProviderTimelines(input.serviceAddress, input.quoteRequestId);
 
-					return {
-						success: true
-					};
-				} catch (error) {
-					return {
-						success: false,
-						error:
-							error instanceof Error ? error.message : 'Unable to publish the proposal right now.'
-					};
-				}
-			},
+				return {
+					success: true
+				};
+			} catch (error) {
+				return {
+					success: false,
+					error:
+						error instanceof Error ? error.message : 'Unable to publish the proposal right now.'
+				};
+			}
+		},
 		async applyTaskerStatus(input: TaskerStatusActionInput) {
 			const currentState = get(store);
 			const timeline = currentState.taskerTimelines.find(
@@ -943,8 +1048,7 @@ function createServiceQuoteUiStore() {
 			} catch (error) {
 				return {
 					success: false,
-					error:
-						error instanceof Error ? error.message : 'Unable to create the service contract.'
+					error: error instanceof Error ? error.message : 'Unable to create the service contract.'
 				};
 			}
 		}

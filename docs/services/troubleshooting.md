@@ -7,7 +7,7 @@ This guide covers the recovery paths that should remain available when quote, in
 - Public discovery starts on `/services`.
 - Service detail routes use `/services/[serviceId]`.
 - Tasker quote inbox routes normalize to `/dashboard?tab=quotes&view=tasker`.
-- Provider quote triage routes normalize to `/dashboard?tab=my-services&view=quotes&service=<encodedServiceAddress>`.
+- Provider quote triage routes normalize to `/services/manage?tab=quotes&service=<encodedServiceAddress>`.
 - Service contracts routes normalize to `/dashboard?tab=contracts&context=services&highlight=<escrowId>`.
 
 ## Wallet and preflight recovery

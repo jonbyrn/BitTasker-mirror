@@ -40,12 +40,14 @@
 	import { summarizeDeleteGuardForThreads } from '$lib/utils/service-quote/resolver';
 	import Modal from '$lib/components/Modal.svelte';
 	import ServiceDrawer from './ServiceDrawer.svelte';
+	import { createServicesWorkspaceUrl } from '$lib/utils/service-quote/services-workspace-route';
 
 	let {
 		view = 'default',
 		selectedServiceAddress = null,
 		focusedRequestId = null,
-		onResolveQuotesRoute
+		onResolveQuotesRoute,
+		onOpenServiceQuotes
 	}: {
 		view?: 'default' | 'quotes';
 		selectedServiceAddress?: string | null;
@@ -56,6 +58,7 @@
 				| { type: 'reset' }
 				| { type: 'request'; requestId: string | null }
 		) => void;
+		onOpenServiceQuotes?: (service: Service) => void;
 	} = $props();
 
 	let services = $state<Service[]>([]);
@@ -220,11 +223,20 @@
 	}
 
 	function handleOpenQuotes(service: Service) {
-		onResolveQuotesRoute?.({
-			type: 'service',
-			serviceAddress: buildServiceAddress(service),
-			requestId: null
-		});
+		if (onOpenServiceQuotes) {
+			onOpenServiceQuotes(service);
+			return;
+		}
+
+		const nextUrl = createServicesWorkspaceUrl(
+			new URL('/services/manage', window.location.origin),
+			{
+				tab: 'quotes',
+				serviceAddress: buildServiceAddress(service),
+				requestId: null
+			}
+		);
+		goto(nextUrl.toString());
 	}
 
 	// Service drawer functions
@@ -421,7 +433,7 @@
 			icon: 'view_details'
 		});
 
-		// Quotes button - opens quotes view
+		// Quotes button - opens the dedicated services workspace quote inbox
 		actions.push({
 			label: 'Quotes',
 			class: 'btn-primary btn-sm',

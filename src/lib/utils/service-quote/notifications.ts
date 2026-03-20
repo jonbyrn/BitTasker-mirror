@@ -14,6 +14,7 @@ import { TAG_PATTERNS } from '$lib/utils/constants/tags';
 import nip44 from '$lib/nostr/nip44';
 import { bytesToHex } from '@noble/hashes/utils';
 import { buildDashboardQueryUrl } from '$lib/utils/dashboardQuery';
+import { createServicesWorkspaceUrl } from '$lib/utils/service-quote/services-workspace-route';
 
 const SERVICE_QUOTE_SIDE_EFFECT_LEDGER_KEY = 'bittasker.serviceQuote.sideEffects';
 const SERVICE_QUOTE_NOTIFICATION_ICON =
@@ -40,6 +41,10 @@ function getDashboardBaseUrl(): URL {
 	return new URL('/dashboard', getClientBaseUrl());
 }
 
+function getServicesManageBaseUrl(): URL {
+	return new URL('/services/manage', getClientBaseUrl());
+}
+
 function buildTaskerQuoteClickAction(quoteRequestId: string): string {
 	return buildDashboardQueryUrl(getDashboardBaseUrl(), {
 		tab: 'quotes',
@@ -49,12 +54,11 @@ function buildTaskerQuoteClickAction(quoteRequestId: string): string {
 }
 
 function buildProviderQuoteClickAction(serviceAddress: string, quoteRequestId: string): string {
-	return buildDashboardQueryUrl(getDashboardBaseUrl(), {
-		tab: 'my-services',
-		view: 'quotes',
-		service: serviceAddress,
-		request: quoteRequestId
-	});
+	return createServicesWorkspaceUrl(getServicesManageBaseUrl(), {
+		tab: 'quotes',
+		serviceAddress,
+		requestId: quoteRequestId
+	}).toString();
 }
 
 function buildContractsClickAction(escrowId?: string): string {

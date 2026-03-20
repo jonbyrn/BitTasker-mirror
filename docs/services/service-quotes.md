@@ -6,8 +6,8 @@ This guide covers the negotiated service flow for listings that use `Request Quo
 
 - Service discovery starts on `/services` and service detail pages live at `/services/[serviceId]`.
 - Quote requests begin from the service detail page and stay tied to that service listing.
-- Providers review incoming quote requests from `Dashboard -> My Services -> Quotes`.
-- Taskers review their own requests and provider replies from `Dashboard -> Quotes -> My Quotes`.
+- Providers review incoming quote requests from `Services -> Quote Inbox`.
+- Taskers review their own requests and provider replies from `Dashboard -> Service Requests`.
 
 ## Tasker flow
 
@@ -18,14 +18,14 @@ This guide covers the negotiated service flow for listings that use `Request Quo
 
 ## Provider flow
 
-1. Open `Dashboard -> My Services`.
-2. Select the relevant service and open its quotes view.
+1. Open `Services -> Quote Inbox`.
+2. Select the relevant service from the service filter buttons.
 3. Review the exact request thread before drafting a proposal.
 4. Reply with scope, delivery, and pricing details from the proposal composer.
 
 ## Statuses and acceptance
 
-- After a provider replies, the tasker reviews the proposal from `Dashboard -> Quotes -> My Quotes`.
+- After a provider replies, the tasker reviews the proposal from `Dashboard -> Service Requests`.
 - Proposal threads can remain visible even after the listing changes so users can recover historical context.
 - When the tasker accepts a funded proposal successfully, the next active state moves into the service contracts experience.
 - Converted or historical quote rows should be treated as read-only context; use the follow-up contract link instead of trying to restart the same request thread.
@@ -39,14 +39,14 @@ This guide covers the negotiated service flow for listings that use `Request Quo
 ## Deep links and routing
 
 - Tasker quote deep links normalize to `tab=quotes&view=tasker`.
-- Provider deep links normalize to the matching `my-services` quotes context for the selected service.
+- Provider deep links normalize to `/services/manage?tab=quotes&service=<encodedServiceAddress>`.
 - Exact-focus links should only highlight an existing request or proposal; invalid focus targets are cleared instead of leaving stale state in the URL.
 
 ## FAQ
 
 ### What happens after a provider replies?
 
-The tasker reviews the proposal in `My Quotes`, then either continues the negotiation or accepts the funded proposal and moves into contracts.
+The tasker reviews the proposal in `Service Requests`, then either continues the negotiation or accepts the funded proposal and moves into contracts.
 
 ### Why is an old quote row still visible?
 

@@ -222,6 +222,15 @@ function createTimelineWithRequestId(quoteRequestId: string): ServiceQuoteTimeli
 	};
 }
 
+function createDeferred<T>() {
+	let resolve!: (value: T | PromiseLike<T>) => void;
+	const promise = new Promise<T>((res) => {
+		resolve = res;
+	});
+
+	return { promise, resolve };
+}
+
 describe('serviceQuoteUiStore', () => {
 	beforeEach(async () => {
 		vi.resetModules();
@@ -690,6 +699,38 @@ describe('serviceQuoteUiStore', () => {
 		const requestId = get(serviceQuoteUiStore).focusSync.requestId as string;
 		await serviceQuoteUiStore.loadProviderTimelines(serviceAddress, requestId);
 
+		expect(getProviderDataFreshness(get(serviceQuoteUiStore), serviceAddress)).toBe('partial');
+		expect(get(serviceQuoteUiStore).focusSync.requestId).toBe(requestId);
+	});
+
+	it('reconciles exact request focus when a same-service provider load is already in flight', async () => {
+		const { buildServiceAddress, getProviderDataFreshness, serviceQuoteUiStore } = await import(
+			'$lib/stores/service-quote-ui.store'
+		);
+		const serviceAddress = buildServiceAddress(service);
+		const deferred = createDeferred<{ timelines: ServiceQuoteTimelineEntry[] }>();
+
+		await serviceQuoteUiStore.submitQuoteRequest({
+			service,
+			payload: {
+				title: 'Need a logo refresh',
+				description: 'Please redesign our logo.'
+			}
+		});
+
+		const requestId = get(serviceQuoteUiStore).focusSync.requestId as string;
+		queryServiceQuotesForTaskee.mockImplementationOnce(() => deferred.promise);
+
+		const baseLoad = serviceQuoteUiStore.loadProviderTimelines(serviceAddress, null);
+		const focusedLoad = serviceQuoteUiStore.loadProviderTimelines(serviceAddress, requestId);
+
+		deferred.resolve({
+			timelines: [createTimelineWithRequestId('qr_other123')]
+		});
+
+		await Promise.all([baseLoad, focusedLoad]);
+
+		expect(queryServiceQuotesForTaskee).toHaveBeenCalledTimes(1);
 		expect(getProviderDataFreshness(get(serviceQuoteUiStore), serviceAddress)).toBe('partial');
 		expect(get(serviceQuoteUiStore).focusSync.requestId).toBe(requestId);
 	});

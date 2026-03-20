@@ -1,1 +1,1 @@
-<!-- Redirect is handled in +page.ts to /dashboard?tab=my-services -->
+<!-- Redirect is handled in +page.ts to /services/manage?tab=listings -->

@@ -1,0 +1,116 @@
+import { describe, expect, it } from 'vitest';
+import {
+	createServicesWorkspaceRedirectUrlFromLegacyDashboard,
+	createServicesWorkspaceUrl,
+	parseServicesWorkspaceRouteQuery,
+	type ServicesWorkspaceRouteContext
+} from '$lib/utils/service-quote/services-workspace-route';
+
+const serviceAddress = `30402:${'a'.repeat(64)}:service-123`;
+
+function createContext(
+	overrides: Partial<ServicesWorkspaceRouteContext> = {}
+): ServicesWorkspaceRouteContext {
+	return {
+		providerTimelinesByService: {},
+		providerLoadedByService: {},
+		providerLoadErrorByService: {},
+		focusSync: {
+			requestId: null,
+			serviceAddress: null,
+			expiresAt: null
+		},
+		...overrides
+	};
+}
+
+describe('services workspace route helpers', () => {
+	it('canonicalizes quote routes without a valid service back to listings', () => {
+		const parsed = parseServicesWorkspaceRouteQuery(
+			new URLSearchParams('tab=quotes&request=qr_valid123'),
+			createContext()
+		);
+
+		expect(parsed.state).toEqual({
+			tab: 'listings',
+			serviceAddress: null,
+			requestId: null
+		});
+		expect(parsed.changed).toBe(true);
+		expect(parsed.searchParams.toString()).toBe('tab=listings');
+	});
+
+	it('clears stale focused requests after provider timelines are loaded', () => {
+		const parsed = parseServicesWorkspaceRouteQuery(
+			new URLSearchParams(
+				`tab=quotes&service=${encodeURIComponent(serviceAddress)}&request=qr_valid123`
+			),
+			createContext({
+				providerLoadedByService: {
+					[serviceAddress]: true
+				}
+			})
+		);
+
+		expect(parsed.state).toEqual({
+			tab: 'quotes',
+			serviceAddress,
+			requestId: null
+		});
+		expect(parsed.messageCode).toBe('service_quotes_request_not_found');
+		expect(parsed.searchParams.toString()).toBe(
+			`tab=quotes&service=${encodeURIComponent(serviceAddress)}`
+		);
+	});
+
+	it('preserves focused requests while provider quote loading is in an error state', () => {
+		const parsed = parseServicesWorkspaceRouteQuery(
+			new URLSearchParams(
+				`tab=quotes&service=${encodeURIComponent(serviceAddress)}&request=qr_valid123`
+			),
+			createContext({
+				providerLoadedByService: {
+					[serviceAddress]: true
+				},
+				providerLoadErrorByService: {
+					[serviceAddress]: 'provider query failed'
+				}
+			})
+		);
+
+		expect(parsed.state).toEqual({
+			tab: 'quotes',
+			serviceAddress,
+			requestId: 'qr_valid123'
+		});
+		expect(parsed.messageCode).toBeNull();
+		expect(parsed.changed).toBe(false);
+	});
+
+	it('builds services workspace URLs and redirects legacy dashboard provider links', () => {
+		const workspaceUrl = createServicesWorkspaceUrl(
+			new URL('https://bittasker.test/services/manage?tab=listings'),
+			{
+				tab: 'quotes',
+				serviceAddress,
+				requestId: 'qr_valid123'
+			}
+		);
+
+		expect(workspaceUrl.toString()).toBe(
+			`https://bittasker.test/services/manage?tab=quotes&service=${encodeURIComponent(
+				serviceAddress
+			)}&request=qr_valid123`
+		);
+
+		const redirected = createServicesWorkspaceRedirectUrlFromLegacyDashboard(
+			new URL(
+				`https://bittasker.test/dashboard?tab=my-services&view=quotes&service=${encodeURIComponent(
+					serviceAddress
+				)}&request=qr_valid123`
+			)
+		);
+
+		expect(redirected?.toString()).toBe(workspaceUrl.toString());
+	});
+});
