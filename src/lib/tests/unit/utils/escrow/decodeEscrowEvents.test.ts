@@ -1,11 +1,12 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { describe, it, expect, vi } from 'vitest';
 import {
 	decodeBscEscrowEvent,
 	decodeBscEscrowEvents,
 	filterEscrowEventsByType,
 	filterEscrowEventsByEscrowId
 } from '$lib/utils/escrow/v1/decodeEscrowEvents';
-import { ethers, type Log, type ContractInterface } from 'ethers';
+import { ethers, type Log } from 'ethers';
 
 vi.mock('$lib/utils/debug', () => ({
 	createDebug: () => ({
@@ -338,7 +339,12 @@ describe('decodeEscrowEvents', () => {
 				name: 'EscrowCreated',
 				signature: 'EscrowCreated(...)',
 				topic: '0x' + 'b'.repeat(64),
-				args: { escrowId: BigInt(1) }
+				args: {
+					escrowId: BigInt(1),
+					client: '0x' + '1'.repeat(40),
+					freelancer: '0x' + '2'.repeat(40),
+					amount: BigInt('100500000')
+				}
 			};
 
 			let callCount = 0;

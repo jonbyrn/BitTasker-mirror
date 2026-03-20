@@ -182,7 +182,9 @@ describe('PaymentRequestModal', () => {
 		]);
 
 		await waitFor(() => {
-			expect(mocks.showSuccessToast).toHaveBeenCalledWith('wallet.payment_request.payment_received');
+			expect(mocks.showSuccessToast).toHaveBeenCalledWith(
+				'wallet.payment_request.payment_received'
+			);
 			expect(mocks.loadAssets).toHaveBeenCalled();
 		});
 	});
@@ -203,9 +205,7 @@ describe('PaymentRequestModal', () => {
 		});
 
 		expect(screen.getByText('USDT on BSC')).toBeInTheDocument();
-		expect(
-			screen.getByText('Only send USDT on BSC to this payment request.')
-		).toBeInTheDocument();
+		expect(screen.getByText('Only send USDT on BSC to this payment request.')).toBeInTheDocument();
 	});
 
 	it('normalizes the plain bsc alias onto the canonical USDT on BSC request payload and label', async () => {
@@ -228,9 +228,7 @@ describe('PaymentRequestModal', () => {
 		});
 
 		expect(screen.getByText('USDT on BSC')).toBeInTheDocument();
-		expect(
-			screen.getByText('Only send USDT on BSC to this payment request.')
-		).toBeInTheDocument();
+		expect(screen.getByText('Only send USDT on BSC to this payment request.')).toBeInTheDocument();
 	});
 
 	describe('URI Generation with chain qualifiers', () => {
@@ -277,9 +275,7 @@ describe('PaymentRequestModal', () => {
 			});
 
 			await waitFor(() => {
-				expect(mocks.generateQrCodeUrl).toHaveBeenCalledWith(
-					expect.stringContaining('rsk:')
-				);
+				expect(mocks.generateQrCodeUrl).toHaveBeenCalledWith(expect.stringContaining('rsk:'));
 			});
 		});
 	});
@@ -296,7 +292,8 @@ describe('PaymentRequestModal', () => {
 			});
 
 			await waitFor(() => {
-				const qrPayload = 'bsc:0x1234567890123456789012345678901234567890?amount=25.75&memo=Testing';
+				const qrPayload =
+					'bsc:0x1234567890123456789012345678901234567890?amount=25.75&memo=Testing';
 				expect(mocks.generateQrCodeUrl).toHaveBeenCalledWith(qrPayload);
 				expect(screen.getByTestId('address-accordion-stub')).toHaveTextContent(qrPayload);
 			});
@@ -317,7 +314,7 @@ describe('PaymentRequestModal', () => {
 				);
 			});
 
-			await rerender(PaymentRequestModal, {
+			await rerender({
 				isOpen: true,
 				onClose: vi.fn(),
 				address: '0x1234567890123456789012345678901234567890',
@@ -358,7 +355,9 @@ describe('PaymentRequestModal', () => {
 			});
 
 			await waitFor(() => {
-				expect(screen.getByText('Only send USDT on BSC to this payment request.')).toBeInTheDocument();
+				expect(
+					screen.getByText('Only send USDT on BSC to this payment request.')
+				).toBeInTheDocument();
 			});
 		});
 
@@ -420,7 +419,9 @@ describe('PaymentRequestModal', () => {
 			]);
 
 			await waitFor(() => {
-				expect(mocks.showSuccessToast).toHaveBeenCalledWith('wallet.payment_request.payment_received');
+				expect(mocks.showSuccessToast).toHaveBeenCalledWith(
+					'wallet.payment_request.payment_received'
+				);
 			});
 		});
 	});

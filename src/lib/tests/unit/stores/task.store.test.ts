@@ -1,8 +1,9 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { get } from 'svelte/store';
 import { myTasksStore, taskStore, tasksStore, TASKS_PER_PAGE } from '$lib/stores/task.store';
-import type { Task } from '$lib/types/task.d';
+import type { Task, TaskBody } from '$lib/types/task.d';
 import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
+import { getDefaultPaymentNetwork } from '$lib/utils/helpers/paymentContext';
 
 vi.mock('@capacitor/preferences', () => ({
 	Preferences: {
@@ -196,31 +197,27 @@ describe('task.store', () => {
 
 			const state = get(taskStore);
 			expect(state.task.paymentAsset).toBe('USDT');
-			expect(state.task.paymentNetwork).toBe('bsc-testnet');
+			expect(state.task.paymentNetwork).toBe(getDefaultPaymentNetwork('USDT'));
 		});
 
 		it('normalizes edit drafts before persisting them when only the BSC network is present', async () => {
 			const { Preferences } = await import('@capacitor/preferences');
 
-			await taskStore.saveEditTaskDraft(
-				'task-123',
-				'task:task-123',
-				{
-					title: 'Legacy task',
-					description: 'Needs the BSC rail preserved',
-					taskType: 'remote',
-					budget: {
-						amount: 25,
-						currency: 'USD',
-						type: 'fixed',
-						estimatedHours: 0
-					},
-					paymentNetwork: 'bsc-testnet',
-					categories: [],
-					skills: [],
-					attachments: []
-				} as any
-			);
+			await taskStore.saveEditTaskDraft('task-123', 'task:task-123', {
+				title: 'Legacy task',
+				description: 'Needs the BSC rail preserved',
+				taskType: 'remote',
+				budget: {
+					amount: 25,
+					currency: 'USD',
+					type: 'fixed',
+					estimatedHours: 0
+				},
+				paymentNetwork: 'bsc-testnet',
+				categories: [],
+				skills: [],
+				attachments: []
+			} as TaskBody);
 
 			const state = get(taskStore);
 			expect(state.task.paymentAsset).toBe('USDT');
