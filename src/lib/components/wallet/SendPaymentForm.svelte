@@ -32,11 +32,11 @@ import { btcUsd, marketPrice, marketPriceMeta } from '$lib/stores/market-price.s
 	import PendingTransactionScreen from '$lib/components/wallet/PendingTransactionScreen.svelte';
 	import IconClose from '~icons/mdi/close';
 	import IconSend from '~icons/mdi/send';
-	import IconCheck from '~icons/mdi/check';
 	import IconContentCopy from '~icons/mdi/content-copy';
 	import IconChevronLeft from '~icons/mdi/chevron-left';
 	import IconChevronRight from '~icons/mdi/chevron-right';
 	import IconOpenInNew from '~icons/mdi/open-in-new';
+	import IconCurrencyUsd from '~icons/mdi/currency-usd';
 	import AddressAccordion from '$lib/components/wallet/AddressAccordion.svelte';
 	import { toAtomicAmountString } from '$lib/utils/helpers/paymentContext';
 
@@ -232,7 +232,9 @@ import { btcUsd, marketPrice, marketPriceMeta } from '$lib/stores/market-price.s
 	const currentBalanceFreshness = $derived.by(() =>
 		detectedBalanceRail ? $walletStore.balanceFreshness?.[detectedBalanceRail] ?? null : null
 	);
-	const hasStepOneWarning = $derived(!!currentBalanceFreshness?.error || hasBitcoinPriceRefreshFailure);
+	const hasStepOneWarning = $derived(
+		!!currentBalanceFreshness?.error || hasBitcoinPriceRefreshFailure
+	);
 	let lastUsdValidationBtcPrice = $state(0);
 	let recentAddresses = $state<Array<{ address: string; network: string; label?: string }>>([]);
 
@@ -556,7 +558,6 @@ import { btcUsd, marketPrice, marketPriceMeta } from '$lib/stores/market-price.s
 		if (formInput.unit !== 'usd') return false;
 		return hasPayableAmount && btcPrice <= 0;
 	});
-
 	const hasBlockedBscSend = $derived(
 		parsedPayment.detectedNetwork === 'usdt-bsc' &&
 			hasPayableAmount &&
@@ -1775,7 +1776,16 @@ import { btcUsd, marketPrice, marketPriceMeta } from '$lib/stores/market-price.s
 													class="pointer-events-none absolute top-1/2 left-0 flex -translate-y-1/2 items-center gap-1"
 												>
 													{#if parsedPayment.data?.isValid && !parsedPayment.addressError}
-														<IconCheck class="text-success h-5 w-5" />
+														{#if parsedPayment.detectedNetwork && netwokrOption[parsedPayment.detectedNetwork as keyof typeof netwokrOption]}
+															<img
+																src={netwokrOption[parsedPayment.detectedNetwork as keyof typeof netwokrOption].icon}
+																alt=""
+																aria-hidden="true"
+																class="h-5 w-5 rounded-full object-contain"
+															/>
+														{:else}
+															<div class="bg-success h-2.5 w-2.5 rounded-full"></div>
+														{/if}
 													{:else if parsedPayment.addressError}
 														<IconClose class="text-error h-5 w-5" />
 													{/if}
@@ -1841,23 +1851,32 @@ import { btcUsd, marketPrice, marketPriceMeta } from '$lib/stores/market-price.s
 									data-testid="ambiguous-address-warning"
 								>
 									<p class="text-base-content/70 text-xs">
-										Choose the payment rail before continuing. The form stays blocked until you pick
-										one.
+										Payment network not detected from address. Confirm correct payment network.
 									</p>
-									<div class="mt-3 grid grid-cols-1 gap-2">
+									<p class="text-error mt-1 text-xs font-medium">
+										Warning: Using the wrong network can cause permanent loss of funds.
+									</p>
+									<div class="mt-3 grid grid-cols-2 gap-2">
 										<button
 											type="button"
-											class="btn btn-outline btn-sm"
+											class="btn btn-primary btn-sm min-h-[44px] touch-manipulation flex w-full items-center justify-center gap-2"
 											onclick={() => resolveAmbiguousAddress('rootstock-bitcoin')}
 										>
-											rBTC on Rootstock
+											<img
+												src="/images/chains/Bitcoin-Rootstock-logo.webp"
+												alt=""
+												aria-hidden="true"
+												class="h-5 w-5 shrink-0 object-contain"
+											/>
+											<span>rBTC</span>
 										</button>
 										<button
 											type="button"
-											class="btn btn-outline btn-sm"
+											class="btn btn-success btn-sm text-primary-content min-h-[44px] touch-manipulation flex w-full items-center justify-center gap-2"
 											onclick={() => resolveAmbiguousAddress('usdt-bsc')}
 										>
-											USDT on BSC
+											<IconCurrencyUsd class="h-5 w-5 shrink-0" />
+											<span>USDT on BSC</span>
 										</button>
 									</div>
 								</div>
@@ -2188,7 +2207,16 @@ import { btcUsd, marketPrice, marketPriceMeta } from '$lib/stores/market-price.s
 												class="pointer-events-none absolute top-1/2 left-0 flex -translate-y-1/2 items-center gap-1"
 											>
 												{#if parsedPayment.data?.isValid && !parsedPayment.addressError}
-													<IconCheck class="text-success h-5 w-5" />
+													{#if parsedPayment.detectedNetwork && netwokrOption[parsedPayment.detectedNetwork as keyof typeof netwokrOption]}
+														<img
+															src={netwokrOption[parsedPayment.detectedNetwork as keyof typeof netwokrOption].icon}
+															alt=""
+															aria-hidden="true"
+															class="h-5 w-5 rounded-full object-contain"
+														/>
+													{:else}
+														<div class="bg-success h-2.5 w-2.5 rounded-full"></div>
+													{/if}
 												{:else if parsedPayment.addressError}
 													<IconClose class="text-error h-5 w-5" />
 												{/if}
@@ -2253,23 +2281,32 @@ import { btcUsd, marketPrice, marketPriceMeta } from '$lib/stores/market-price.s
 								data-testid="ambiguous-address-warning-desktop"
 							>
 								<p class="text-base-content/70 text-xs">
-									Choose the payment rail before continuing. The form stays blocked until you pick
-									one.
+									Payment network not detected from address. Confirm correct payment network.
 								</p>
-								<div class="mt-3 flex flex-wrap gap-2">
+								<p class="text-error mt-1 text-xs font-medium">
+									Warning: Using the wrong network can cause permanent loss of funds.
+								</p>
+								<div class="mt-3 grid grid-cols-2 gap-2">
 									<button
 										type="button"
-										class="btn btn-outline btn-sm"
+										class="btn btn-primary btn-sm min-h-[44px] touch-manipulation flex w-full items-center justify-center gap-2"
 										onclick={() => resolveAmbiguousAddress('rootstock-bitcoin')}
 									>
-										rBTC on Rootstock
+										<img
+											src="/images/chains/Bitcoin-Rootstock-logo.webp"
+											alt=""
+											aria-hidden="true"
+											class="h-5 w-5 shrink-0 object-contain"
+										/>
+										<span>rBTC</span>
 									</button>
 									<button
 										type="button"
-										class="btn btn-outline btn-sm"
+										class="btn btn-success btn-sm text-primary-content min-h-[44px] touch-manipulation flex w-full items-center justify-center gap-2"
 										onclick={() => resolveAmbiguousAddress('usdt-bsc')}
 									>
-										USDT on BSC
+										<IconCurrencyUsd class="h-5 w-5 shrink-0" />
+										<span>USDT on BSC</span>
 									</button>
 								</div>
 							</div>

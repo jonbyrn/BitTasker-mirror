@@ -457,7 +457,7 @@ describe('SendPaymentForm Component', () => {
 				await waitFor(() => {
 					expect(screen.getByTestId('ambiguous-address-warning')).toBeInTheDocument();
 					expect(
-						screen.getAllByText(/choose the payment rail before continuing/i).length
+						screen.getAllByText(/payment network not detected from address/i).length
 					).toBeGreaterThan(0);
 				});
 
@@ -681,7 +681,7 @@ describe('SendPaymentForm Component', () => {
 					);
 					expect(screen.getByTestId('ambiguous-address-warning')).toBeInTheDocument();
 					expect(
-						screen.getAllByText(/choose the payment rail before continuing/i).length
+						screen.getAllByText(/payment network not detected from address/i).length
 					).toBeGreaterThan(0);
 				});
 
@@ -1602,12 +1602,12 @@ describe('SendPaymentForm Component', () => {
 				await waitFor(() => {
 					expect(screen.getByTestId('ambiguous-address-warning')).toBeInTheDocument();
 					expect(
-						screen.getAllByText(/choose the payment rail before continuing/i).length
+						screen.getAllByText(/payment network not detected from address/i).length
 						).toBeGreaterThan(0);
 					});
 
 			// Resolve to rBTC without altering the currently selected unit.
-			const chooseRbtcButton = screen.getAllByRole('button', { name: /rbtc on rootstock/i })[0];
+			const chooseRbtcButton = screen.getAllByRole('button', { name: /^rbtc$/i })[0];
 			await fireEvent.click(chooseRbtcButton);
 			await tick();
 
@@ -1827,7 +1827,7 @@ describe('SendPaymentForm Component', () => {
 				await waitFor(() => {
 					expect(screen.getByTestId('ambiguous-address-warning')).toBeInTheDocument();
 					expect(
-						screen.getAllByText(/choose the payment rail before continuing/i).length
+						screen.getAllByText(/payment network not detected from address/i).length
 					).toBeGreaterThan(0);
 				});
 
