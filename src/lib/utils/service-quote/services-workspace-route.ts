@@ -115,8 +115,7 @@ export function parseServicesWorkspaceRouteQuery(
 	if (normalized.tab === 'quotes' && normalized.serviceAddress && normalized.requestId) {
 		const providerTimelines = context.providerTimelinesByService[normalized.serviceAddress] ?? [];
 		const providerLoaded = context.providerLoadedByService[normalized.serviceAddress] === true;
-		const providerLoadError =
-			context.providerLoadErrorByService[normalized.serviceAddress] ?? null;
+		const providerLoadError = context.providerLoadErrorByService[normalized.serviceAddress] ?? null;
 		const keepFocusedRequest =
 			!providerLoaded ||
 			providerLoadError !== null ||

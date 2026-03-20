@@ -257,9 +257,7 @@ describe('serviceQuoteUiStore', () => {
 			success: true,
 			transactionHash: '0xservicehash'
 		});
-		waitForContractCreationByTransactionHash.mockImplementation(
-			() => new Promise(() => undefined)
-		);
+		waitForContractCreationByTransactionHash.mockImplementation(() => new Promise(() => undefined));
 		getContractCreationTimeoutReason.mockReturnValue('pending_timeout');
 		walletStore.set({
 			rsk: {
@@ -736,8 +734,9 @@ describe('serviceQuoteUiStore', () => {
 	});
 
 	it('clears quote timeline load errors after a successful retry', async () => {
-		const { getProviderDataFreshness, getTaskerDataFreshness, serviceQuoteUiStore } =
-			await import('$lib/stores/service-quote-ui.store');
+		const { getProviderDataFreshness, getTaskerDataFreshness, serviceQuoteUiStore } = await import(
+			'$lib/stores/service-quote-ui.store'
+		);
 		const serviceAddress = '30402:' + 'a'.repeat(64) + ':service-1234';
 
 		queryServiceQuotesForTasker.mockRejectedValueOnce(new Error('tasker query failed'));
@@ -748,9 +747,9 @@ describe('serviceQuoteUiStore', () => {
 		await serviceQuoteUiStore.loadTaskerTimelines('qr_12345678');
 
 		queryServiceQuotesForTaskee.mockRejectedValueOnce(new Error('provider query failed'));
-		await expect(serviceQuoteUiStore.loadProviderTimelines(serviceAddress, 'qr_12345678')).rejects.toThrow(
-			'provider query failed'
-		);
+		await expect(
+			serviceQuoteUiStore.loadProviderTimelines(serviceAddress, 'qr_12345678')
+		).rejects.toThrow('provider query failed');
 		queryServiceQuotesForTaskee.mockResolvedValueOnce({ timelines: [createTimeline()] });
 		await serviceQuoteUiStore.loadProviderTimelines(serviceAddress, 'qr_12345678');
 
@@ -799,10 +798,10 @@ describe('serviceQuoteUiStore', () => {
 				expirationDays: 3,
 				expirationHours: 0
 			})
-			).resolves.toEqual({
-				success: false,
-				error: 'Unable to locate the selected quote request.'
-			});
+		).resolves.toEqual({
+			success: false,
+			error: 'Unable to locate the selected quote request.'
+		});
 	});
 
 	it('fails provider proposal publishing for expired quote requests', async () => {
@@ -982,7 +981,10 @@ describe('serviceQuoteUiStore', () => {
 		queryServiceQuotesForTaskee.mockResolvedValueOnce({
 			timelines: [createTimelineWithRequestId(providerRequestId)]
 		});
-		await serviceQuoteUiStore.loadProviderTimelines(buildServiceAddress(service), providerRequestId);
+		await serviceQuoteUiStore.loadProviderTimelines(
+			buildServiceAddress(service),
+			providerRequestId
+		);
 		expect(get(serviceQuoteUiStore).focusSync.requestId).toBeNull();
 	});
 
@@ -996,14 +998,11 @@ describe('serviceQuoteUiStore', () => {
 			serviceQuoteUiStore
 		} = await import('$lib/stores/service-quote-ui.store');
 
-		const nextUrl = createDashboardUrl(
-			new URL('https://bittasker.test/dashboard?tab=tasks'),
-			{
-				tab: 'contracts',
-				context: 'services',
-				highlight: 'escrow_123'
-			}
-		);
+		const nextUrl = createDashboardUrl(new URL('https://bittasker.test/dashboard?tab=tasks'), {
+			tab: 'contracts',
+			context: 'services',
+			highlight: 'escrow_123'
+		});
 
 		expect(nextUrl.toString()).toBe(
 			'https://bittasker.test/dashboard?tab=contracts&context=services&highlight=escrow_123'
@@ -1022,15 +1021,15 @@ describe('serviceQuoteUiStore', () => {
 			}
 		};
 
-		expect(isRequestSyncActive(state, 'qr_syncing12', '30402:' + 'a'.repeat(64) + ':service-1234')).toBe(true);
-		expect(isRequestSyncActive(state, 'qr_syncing12', '30402:' + 'b'.repeat(64) + ':service-1234')).toBe(false);
+		expect(
+			isRequestSyncActive(state, 'qr_syncing12', '30402:' + 'a'.repeat(64) + ':service-1234')
+		).toBe(true);
+		expect(
+			isRequestSyncActive(state, 'qr_syncing12', '30402:' + 'b'.repeat(64) + ':service-1234')
+		).toBe(false);
 		expect(isTaskerTimelineSyncing(state, 'qr_syncing12')).toBe(true);
 		expect(
-			isProviderTimelineSyncing(
-				state,
-				'30402:' + 'a'.repeat(64) + ':service-1234',
-				'qr_syncing12'
-			)
+			isProviderTimelineSyncing(state, '30402:' + 'a'.repeat(64) + ':service-1234', 'qr_syncing12')
 		).toBe(true);
 		expect(isProviderTimelineSyncing(state, null, 'qr_syncing12')).toBe(false);
 	});

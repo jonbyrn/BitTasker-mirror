@@ -6,20 +6,12 @@
 	import { t, locale } from 'svelte-i18n';
 	import { findMyServices } from '$lib/nostr/findServices';
 	import { deleteService, updateService } from '$lib/nostr/service';
-	import {
-		getServiceDisplayTitle,
-		getServiceDisplayDescription
-	} from '$lib/utils/serviceDisplayTranslation';
-	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
-	import { ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';
-	import type { ServiceTier } from '$lib/types/service.d';
+	import { getServiceDisplayTitle } from '$lib/utils/serviceDisplayTranslation';
 	import { appStore } from '$lib/stores/app.store';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import IconPlus from '~icons/mdi/plus';
-	import IconEyeOutline from '~icons/mdi/eye-outline';
 	import IconPencilOutline from '~icons/mdi/pencil-outline';
 	import IconBriefcaseOutline from '~icons/mdi/briefcase-outline';
-	import IconDeleteOutline from '~icons/mdi/delete-outline';
 	import DashboardServiceCard from './DashboardServiceCard.svelte';
 	import ServiceQuotesInbox from '$lib/components/service/quotes/ServiceQuotesInbox.svelte';
 	import { contractStore } from '$lib/stores/contract.store';
@@ -70,7 +62,6 @@
 	let providerQuotesSyncing = $state(false);
 	let providerQuotesError = $state<string | null>(null);
 	let providerQuotesLoaded = $state(false);
-	let deleteCheckServiceId = $state<string | null>(null);
 	let deleteSubmitServiceId = $state<string | null>(null);
 	let deleteModalState = $state<{
 		mode: 'blocked' | 'confirm';
@@ -83,7 +74,6 @@
 	// Service drawer state
 	let selectedServiceForDrawer = $state<Service | null>(null);
 	let drawerOpen = $state(false);
-	let drawerInitialTab = $state('details');
 	let activeServiceModal = $state<'edit' | 'delete' | null>(null);
 	let isDeletingService = $state(false);
 
@@ -149,7 +139,7 @@
 				focusedRequestId
 			);
 			providerQuotesError = selectedServiceAddress
-				? state.providerLoadErrorByService?.[selectedServiceAddress] ?? null
+				? (state.providerLoadErrorByService?.[selectedServiceAddress] ?? null)
 				: null;
 			providerQuotesLoaded = selectedServiceAddress
 				? state.providerLoadedByService?.[selectedServiceAddress] === true
@@ -165,9 +155,11 @@
 			return;
 		}
 
-		void serviceQuoteUiStore.loadProviderTimelines(selectedServiceAddress, focusedRequestId).catch(() => {
-			// The store exposes the current providerQuotesError state for inline retry UX.
-		});
+		void serviceQuoteUiStore
+			.loadProviderTimelines(selectedServiceAddress, focusedRequestId)
+			.catch(() => {
+				// The store exposes the current providerQuotesError state for inline retry UX.
+			});
 	});
 
 	$effect(() => {
@@ -187,41 +179,6 @@
 		}
 	});
 
-	function getPriceLabel(service: Service): string {
-		const p = service.pricing;
-		if (!p) return $t('dashboard.services.browse.pricing.request_quote') || 'Request Quote';
-		switch (p.type) {
-			case ServicePricingTypeEnum.FIXED:
-				return p.amount != null ? `$${formatNumberWithTwoDecimals(p.amount)}` : '—';
-			case ServicePricingTypeEnum.HOURLY:
-				return p.hourlyRate != null ? `$${formatNumberWithTwoDecimals(p.hourlyRate)}/hr` : '—';
-			case ServicePricingTypeEnum.TIERED:
-				if (p.tiers?.length) {
-					const prices = p.tiers.map((t: ServiceTier) => t.price).filter((n: number) => n > 0);
-					return prices.length ? `From $${formatNumberWithTwoDecimals(Math.min(...prices))}` : '—';
-				}
-				return '—';
-			case ServicePricingTypeEnum.INQUIRY_REQUIRED:
-				return $t('dashboard.services.browse.pricing.request_quote') || 'Request Quote';
-			default:
-				return '—';
-		}
-	}
-
-	function handleView(service: Service, e: MouseEvent) {
-		e.preventDefault();
-		e.stopPropagation();
-		const id = service.uniqueId || service.id;
-		goto(`/services/${id}`);
-	}
-
-	function handleEdit(service: Service, e: MouseEvent) {
-		e.preventDefault();
-		e.stopPropagation();
-		const id = service.uniqueId || service.id;
-		goto(`/dashboard/create-service?edit=true&serviceId=${encodeURIComponent(id)}`);
-	}
-
 	function handleOpenQuotes(service: Service) {
 		if (onOpenServiceQuotes) {
 			onOpenServiceQuotes(service);
@@ -240,10 +197,9 @@
 	}
 
 	// Service drawer functions
-	function openServiceDrawer(service: Service, tab: string = 'details') {
+	function openServiceDrawer(service: Service) {
 		selectedServiceForDrawer = service;
 		drawerOpen = true;
-		drawerInitialTab = tab;
 	}
 
 	function closeServiceDrawer() {
@@ -298,7 +254,7 @@
 		goto(nextUrl.toString());
 	}
 
-	async function handleStatusToggle(service: Service, _e?: Event) {
+	async function handleStatusToggle(service: Service) {
 		const id = service.uniqueId || service.id;
 		if (!id) return;
 		if (service.status === 'sold') return;
@@ -311,7 +267,7 @@
 			);
 			await updateService(id, { status: nextStatus });
 			appStore.showSuccessToast($t('dashboard.services.my_services.status_updated'));
-		} catch (err) {
+		} catch {
 			// Rollback on error
 			services = services.map((s) =>
 				(s.uniqueId || s.id) === id ? { ...s, status: service.status } : s
@@ -345,8 +301,6 @@
 		e?.preventDefault();
 		e?.stopPropagation();
 
-		const serviceKey = service.uniqueId || service.id;
-		deleteCheckServiceId = serviceKey;
 		try {
 			const guard = await inspectDeleteGuards(service);
 			deleteModalState = {
@@ -362,8 +316,6 @@
 					? error.message
 					: 'Unable to verify whether this service can be deleted right now.'
 			);
-		} finally {
-			deleteCheckServiceId = null;
 		}
 	}
 
@@ -428,7 +380,7 @@
 			class: 'btn-outline btn-sm',
 			onclick: (e: MouseEvent) => {
 				e.stopPropagation();
-				openServiceDrawer(service, 'details');
+				openServiceDrawer(service);
 			},
 			icon: 'view_details'
 		});
@@ -537,12 +489,11 @@
 				if (!selectedServiceAddress) {
 					return;
 				}
-				return serviceQuoteUiStore.loadProviderTimelines(selectedServiceAddress, focusedRequestId).catch(
-					() => {}
-				);
+				return serviceQuoteUiStore
+					.loadProviderTimelines(selectedServiceAddress, focusedRequestId)
+					.catch(() => {});
 			}}
-			onRequestFocusChange={(requestId) =>
-				onResolveQuotesRoute?.({ type: 'request', requestId })}
+			onRequestFocusChange={(requestId) => onResolveQuotesRoute?.({ type: 'request', requestId })}
 			onInvalidFocusedRequest={() => {
 				serviceQuoteUiStore.setNonBlockingMessage('service_quotes_request_not_found');
 				onResolveQuotesRoute?.({ type: 'request', requestId: null });
@@ -569,7 +520,7 @@
 	size="md"
 >
 	{#if deleteModalState}
-		<p class="text-sm text-base-content/80">
+		<p class="text-base-content/80 text-sm">
 			{#if deleteModalState.mode === 'blocked'}
 				This service cannot be deleted yet.
 			{:else}
@@ -582,14 +533,16 @@
 				{#if deleteModalState.openQuoteCount > 0}
 					<div class="alert alert-warning">
 						<span>
-							Open quotes are still attached to this service (`{deleteModalState.openQuoteCount}` blocking thread{deleteModalState.openQuoteCount === 1 ? '' : 's'}).
+							Open quotes are still attached to this service (`{deleteModalState.openQuoteCount}`
+							blocking thread{deleteModalState.openQuoteCount === 1 ? '' : 's'}).
 						</span>
 					</div>
 				{/if}
 				{#if deleteModalState.activeContractCount > 0}
 					<div class="alert alert-error">
 						<span>
-							Active service contracts are still attached to this service (`{deleteModalState.activeContractCount}` active contract{deleteModalState.activeContractCount === 1 ? '' : 's'}).
+							Active service contracts are still attached to this service (`{deleteModalState.activeContractCount}`
+							active contract{deleteModalState.activeContractCount === 1 ? '' : 's'}).
 						</span>
 					</div>
 				{/if}
@@ -598,9 +551,10 @@
 				<button type="button" class="btn btn-primary" onclick={closeDeleteModal}>Close</button>
 			</div>
 		{:else}
-			<p class="mt-4 text-sm text-base-content/70">
+			<p class="text-base-content/70 mt-4 text-sm">
 				{#if deleteModalState.totalQuoteCount > 0}
-					Historical quote threads will remain as records, but no open quotes or active contracts were found.
+					Historical quote threads will remain as records, but no open quotes or active contracts
+					were found.
 				{:else}
 					No open quotes or active contracts were found for this service.
 				{/if}
@@ -610,7 +564,8 @@
 					type="button"
 					class="btn btn-ghost"
 					onclick={closeDeleteModal}
-					disabled={deleteSubmitServiceId === (deleteModalState.service.uniqueId || deleteModalState.service.id)}
+					disabled={deleteSubmitServiceId ===
+						(deleteModalState.service.uniqueId || deleteModalState.service.id)}
 				>
 					Cancel
 				</button>
@@ -618,7 +573,8 @@
 					type="button"
 					class="btn btn-error"
 					onclick={confirmDeleteService}
-					disabled={deleteSubmitServiceId === (deleteModalState.service.uniqueId || deleteModalState.service.id)}
+					disabled={deleteSubmitServiceId ===
+						(deleteModalState.service.uniqueId || deleteModalState.service.id)}
 				>
 					{#if deleteSubmitServiceId === (deleteModalState.service.uniqueId || deleteModalState.service.id)}
 						<span class="loading loading-spinner loading-xs"></span>
@@ -654,7 +610,12 @@
 				<div class="mb-2 flex items-center gap-3">
 					<div class="bg-warning/10 flex h-10 w-10 items-center justify-center rounded-full">
 						<svg class="text-warning h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
+							/>
 						</svg>
 					</div>
 					<div>
@@ -668,10 +629,12 @@
 			<div class="space-y-4">
 				<div class="bg-warning/10 rounded-lg p-4">
 					<p class="text-warning mb-2 text-sm font-semibold">
-						{$t('dashboard.services.detail.edit_service_confirmation.warning') || 'Editing will update your service listing'}
+						{$t('dashboard.services.detail.edit_service_confirmation.warning') ||
+							'Editing will update your service listing'}
 					</p>
 					<p class="text-warning text-sm">
-						{$t('dashboard.services.detail.edit_service_confirmation.details') || 'Any quotes already received will remain attached to your service.'}
+						{$t('dashboard.services.detail.edit_service_confirmation.details') ||
+							'Any quotes already received will remain attached to your service.'}
 					</p>
 				</div>
 			</div>
@@ -686,7 +649,8 @@
 				</button>
 			</div>
 		</div>
-		<button class="modal-backdrop" onclick={() => setServiceModal(null)} aria-label="Close"></button>
+		<button class="modal-backdrop" onclick={() => setServiceModal(null)} aria-label="Close"
+		></button>
 	</div>
 {/if}
 
@@ -698,7 +662,12 @@
 				<div class="mb-2 flex items-center gap-3">
 					<div class="bg-error/10 flex h-10 w-10 items-center justify-center rounded-full">
 						<svg class="text-error h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+							/>
 						</svg>
 					</div>
 					<div>
@@ -712,27 +681,44 @@
 			<div class="space-y-4">
 				<div class="bg-error/10 rounded-lg p-4">
 					<p class="text-error text-sm font-semibold">
-						{$t('dashboard.services.detail.delete_service_confirm_message') || 'This permanently removes the service listing from your dashboard.'}
+						{$t('dashboard.services.detail.delete_service_confirm_message') ||
+							'This permanently removes the service listing from your dashboard.'}
 					</p>
 				</div>
 			</div>
 
 			<div class="border-base-300 flex gap-3 pt-6">
-				<button type="button" class="btn btn-ghost flex-1" onclick={() => setServiceModal(null)} disabled={isDeletingService}>
+				<button
+					type="button"
+					class="btn btn-ghost flex-1"
+					onclick={() => setServiceModal(null)}
+					disabled={isDeletingService}
+				>
 					{$t('common.cancel') || 'Cancel'}
 				</button>
-				<button type="button" class="btn btn-error flex-1 whitespace-nowrap" onclick={confirmDeleteServiceFromDrawer} disabled={isDeletingService}>
+				<button
+					type="button"
+					class="btn btn-error flex-1 whitespace-nowrap"
+					onclick={confirmDeleteServiceFromDrawer}
+					disabled={isDeletingService}
+				>
 					{#if isDeletingService}
 						<span class="loading loading-spinner loading-sm"></span>
 					{:else}
 						<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+							/>
 						</svg>
 					{/if}
 					{$t('dashboard.services.detail.delete_service') || 'Delete Service'}
 				</button>
 			</div>
 		</div>
-		<button class="modal-backdrop" onclick={() => setServiceModal(null)} aria-label="Close"></button>
+		<button class="modal-backdrop" onclick={() => setServiceModal(null)} aria-label="Close"
+		></button>
 	</div>
 {/if}

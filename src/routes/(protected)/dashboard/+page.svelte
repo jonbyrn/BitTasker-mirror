@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Task, TaskBody } from '$lib/types/task';
 	import { onMount } from 'svelte';
+	import { SvelteSet } from 'svelte/reactivity';
 	import { fade, scale, slide } from 'svelte/transition';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
@@ -106,8 +107,8 @@
 	let taskerQuotesError = $state<string | null>(null);
 	let taskerQuotesLoaded = $state(false);
 	let currentContractsHighlight = $state<string | null>(null);
-	const attemptedServiceAcceptanceReplays = new Set<string>();
-	const inFlightServiceAcceptanceReplays = new Set<string>();
+	const attemptedServiceAcceptanceReplays = new SvelteSet<string>();
+	const inFlightServiceAcceptanceReplays = new SvelteSet<string>();
 
 	// Task drawer state
 	let selectedTask = $state<Task | null>(null);
@@ -126,8 +127,8 @@
 		currentContractsHighlight = parsed.state.highlight;
 
 		if (parsed.changed) {
-			const nextUrl = new URL(page.url.toString());
-			nextUrl.search = parsed.searchParams.toString();
+			const nextSearch = parsed.searchParams.toString();
+			const nextUrl = `${page.url.pathname}${nextSearch ? `?${nextSearch}` : ''}${page.url.hash}`;
 			goto(nextUrl.toString(), { replaceState: true, keepFocus: true, noScroll: true });
 		}
 	}
@@ -149,7 +150,7 @@
 			}
 
 			const dueReplayEntries = getAcceptanceReplayEntriesDueForRetry(window.localStorage);
-			const replayTargets = new Set<string>(
+			const replayTargets = new SvelteSet<string>(
 				dueReplayEntries
 					.map((entry) => entry.escrowId)
 					.filter((escrowId) => !inFlightServiceAcceptanceReplays.has(escrowId))
@@ -256,13 +257,16 @@
 			runServiceAcceptanceReplayCycle({ syncing: true }),
 			runServiceAcceptanceReverifyCycle()
 		]);
-		replayIntervalId = window.setInterval(() => {
-			void runServiceAcceptanceReplayCycle();
-			void runServiceAcceptanceReverifyCycle();
-		}, Math.min(
-			SERVICE_ACCEPTANCE_REPLAY_RETRY_INTERVAL_MS,
-			SERVICE_ACCEPTANCE_CONFIRMED_MONITOR_REVERIFY_INTERVAL_MS
-		));
+		replayIntervalId = window.setInterval(
+			() => {
+				void runServiceAcceptanceReplayCycle();
+				void runServiceAcceptanceReverifyCycle();
+			},
+			Math.min(
+				SERVICE_ACCEPTANCE_REPLAY_RETRY_INTERVAL_MS,
+				SERVICE_ACCEPTANCE_CONFIRMED_MONITOR_REVERIFY_INTERVAL_MS
+			)
+		);
 
 		return () => {
 			unsubscribeServiceQuotes();
@@ -594,16 +598,16 @@
 			aria-labelledby="tab-quotes"
 			transition:slide={{ duration: 300 }}
 		>
-				<MyQuotesPanel
-					timelines={taskerTimelines}
-					focusedRequestId={focusedRequestId}
-					isSyncing={taskerQuotesSyncing}
-					hasLoaded={taskerQuotesLoaded}
-					loadError={taskerQuotesError}
-					onRetry={() => serviceQuoteUiStore.loadTaskerTimelines(focusedRequestId).catch(() => {})}
-					onRequestFocusChange={handleTaskerRequestFocus}
-					onInvalidFocusedRequest={() => handleTaskerRequestFocus(null)}
-				/>
+			<MyQuotesPanel
+				timelines={taskerTimelines}
+				{focusedRequestId}
+				isSyncing={taskerQuotesSyncing}
+				hasLoaded={taskerQuotesLoaded}
+				loadError={taskerQuotesError}
+				onRetry={() => serviceQuoteUiStore.loadTaskerTimelines(focusedRequestId).catch(() => {})}
+				onRequestFocusChange={handleTaskerRequestFocus}
+				onInvalidFocusedRequest={() => handleTaskerRequestFocus(null)}
+			/>
 		</div>
 	{/if}
 </div>

@@ -543,27 +543,25 @@ function createServiceQuoteUiStore() {
 				taskerLoadError: null
 			}));
 
-				try {
-					const taskerPubkey = await getNpub();
-					const result = await queryServiceQuotesForTasker(taskerPubkey);
+			try {
+				const taskerPubkey = await getNpub();
+				const result = await queryServiceQuotesForTasker(taskerPubkey);
 
-					update((state) => {
+				update((state) => {
 					const partialSync =
-							Boolean(requestId) &&
-							isRequestSyncActive(state, requestId, null) &&
-							!hasTimelineForRequest(result.timelines, requestId);
-						const taskerDataFreshness: ServiceQuoteDataFreshness = partialSync
-							? 'partial'
-							: 'fresh';
+						Boolean(requestId) &&
+						isRequestSyncActive(state, requestId, null) &&
+						!hasTimelineForRequest(result.timelines, requestId);
+					const taskerDataFreshness: ServiceQuoteDataFreshness = partialSync ? 'partial' : 'fresh';
 
-						const nextState = {
-							...state,
-							taskerTimelines: result.timelines,
-							taskerLoaded: true,
-							loadingTasker: false,
-							taskerLoadError: null,
-							taskerDataFreshness
-						};
+					const nextState = {
+						...state,
+						taskerTimelines: result.timelines,
+						taskerLoaded: true,
+						loadingTasker: false,
+						taskerLoadError: null,
+						taskerDataFreshness
+					};
 
 					return partialSync ? nextState : clearFocusSyncIfVisible(nextState, requestId);
 				});
@@ -690,10 +688,10 @@ function createServiceQuoteUiStore() {
 									'Unable to load service quote requests for this service right now.'
 								)
 							},
-								providerDataFreshnessByService: {
-									...state.providerDataFreshnessByService,
-									[serviceAddress]: providerDataFreshness
-								},
+							providerDataFreshnessByService: {
+								...state.providerDataFreshnessByService,
+								[serviceAddress]: providerDataFreshness
+							},
 							loadingProviderByService: {
 								...state.loadingProviderByService,
 								[serviceAddress]: false

@@ -97,21 +97,22 @@ vi.mock('$lib/api/services/crypto-price.service', () => ({
 }));
 
 vi.mock('$lib/utils/service-quote/query', () => ({
-	queryTaskeeServiceQuoteThreads: (
-		...args: Parameters<typeof hoisted.mockQueryTaskeeThreads>
-	) => hoisted.mockQueryTaskeeThreads(...args)
+	queryTaskeeServiceQuoteThreads: (...args: Parameters<typeof hoisted.mockQueryTaskeeThreads>) =>
+		hoisted.mockQueryTaskeeThreads(...args)
 }));
 
 vi.mock('$lib/stores/service-quote-ui.store', async () => ({
-	buildServiceAddress: (service: Service) => `30402:${service.npub}:${service.uniqueId ?? service.id}`,
+	buildServiceAddress: (service: Service) =>
+		`30402:${service.npub}:${service.uniqueId ?? service.id}`,
 	getProviderTimelines: (
 		state: { providerTimelinesByService: Record<string, ServiceQuoteTimelineEntry[]> },
 		serviceAddress: string | null | undefined
-	) => (serviceAddress ? state.providerTimelinesByService[serviceAddress] ?? [] : []),
+	) => (serviceAddress ? (state.providerTimelinesByService[serviceAddress] ?? []) : []),
 	getProviderDataFreshness: (
 		state: { providerDataFreshnessByService?: Record<string, 'fresh' | 'stale' | 'partial'> },
 		serviceAddress: string | null | undefined
-	) => (serviceAddress ? state.providerDataFreshnessByService?.[serviceAddress] ?? 'fresh' : 'fresh'),
+	) =>
+		serviceAddress ? (state.providerDataFreshnessByService?.[serviceAddress] ?? 'fresh') : 'fresh',
 	isProviderTimelineSyncing: (
 		state: { loadingProviderByService: Record<string, boolean> },
 		serviceAddress: string | null | undefined
@@ -327,9 +328,7 @@ describe('DashboardMyServicesPanel active contracts shortcut', () => {
 		cleanup();
 	});
 
-	it(
-		'opens the deterministically selected active service contract from the service card',
-		async () => {
+	it('opens the deterministically selected active service contract from the service card', async () => {
 		hoisted.contractStoreState.set({
 			contracts: [
 				createContract('escrow-old', EscrowStatus.Funded, 1_700_000_010),
@@ -350,38 +349,32 @@ describe('DashboardMyServicesPanel active contracts shortcut', () => {
 		expect(hoisted.mockGoto).toHaveBeenCalledWith(
 			'http://localhost:3000/dashboard?tab=contracts&context=services&highlight=escrow-new'
 		);
-		},
-		45_000
-	);
+	}, 45_000);
 
-	it(
-		'routes the service card quotes action to the services workspace quote inbox',
-		async () => {
-			const service = createService();
-			const serviceAddress = `30402:${service.npub}:${service.uniqueId ?? service.id}`;
-			const expectedUrl = createServicesWorkspaceUrl(
-				new URL('http://localhost:3000/services/manage'),
-				{
-					tab: 'quotes',
-					serviceAddress,
-					requestId: null
-				}
-			).toString();
+	it('routes the service card quotes action to the services workspace quote inbox', async () => {
+		const service = createService();
+		const serviceAddress = `30402:${service.npub}:${service.uniqueId ?? service.id}`;
+		const expectedUrl = createServicesWorkspaceUrl(
+			new URL('http://localhost:3000/services/manage'),
+			{
+				tab: 'quotes',
+				serviceAddress,
+				requestId: null
+			}
+		).toString();
 
-			const { default: DashboardMyServicesPanel } = await import(
-				'$lib/components/service/DashboardMyServicesPanel.svelte'
-			);
-			const { getByText } = render(DashboardMyServicesPanel, {
-				view: 'default'
-			});
+		const { default: DashboardMyServicesPanel } = await import(
+			'$lib/components/service/DashboardMyServicesPanel.svelte'
+		);
+		const { getByText } = render(DashboardMyServicesPanel, {
+			view: 'default'
+		});
 
-			await waitFor(() => expect(hoisted.mockFindMyServices).toHaveBeenCalled());
-			await fireEvent.click(getByText('Quotes'));
+		await waitFor(() => expect(hoisted.mockFindMyServices).toHaveBeenCalled());
+		await fireEvent.click(getByText('Quotes'));
 
-			expect(hoisted.mockGoto).toHaveBeenCalledWith(expectedUrl);
-		},
-		45_000
-	);
+		expect(hoisted.mockGoto).toHaveBeenCalledWith(expectedUrl);
+	}, 45_000);
 
 	it('hides the shortcut when only terminal service contracts exist', async () => {
 		hoisted.contractStoreState.set({
@@ -492,51 +485,55 @@ describe('DashboardMyServicesPanel active contracts shortcut', () => {
 			}
 		]);
 
-	const { default: DashboardMyServicesPanel } = await import(
-		'$lib/components/service/DashboardMyServicesPanel.svelte'
-	);
-	const { getByRole, findByText, findByRole } = render(DashboardMyServicesPanel, {
-		view: 'default'
-	});
+		const { default: DashboardMyServicesPanel } = await import(
+			'$lib/components/service/DashboardMyServicesPanel.svelte'
+		);
+		const { getByRole, findByText, findByRole } = render(DashboardMyServicesPanel, {
+			view: 'default'
+		});
 
-	await waitFor(() => expect(hoisted.mockFindMyServices).toHaveBeenCalled());
-	await fireEvent.click(getByRole('button', { name: 'task.actions.view_details' }));
-	await fireEvent.click(await findByRole('button', { name: 'dashboard.services.detail.delete_service' }));
-	const confirmDeleteModal = await findByRole('heading', {
-		name: 'dashboard.services.detail.delete_service_confirm_title'
-	});
-	await fireEvent.click(
-		within(confirmDeleteModal.closest('.modal-box') as HTMLElement).getByRole('button', {
-			name: 'dashboard.services.detail.delete_service'
-		})
-	);
+		await waitFor(() => expect(hoisted.mockFindMyServices).toHaveBeenCalled());
+		await fireEvent.click(getByRole('button', { name: 'task.actions.view_details' }));
+		await fireEvent.click(
+			await findByRole('button', { name: 'dashboard.services.detail.delete_service' })
+		);
+		const confirmDeleteModal = await findByRole('heading', {
+			name: 'dashboard.services.detail.delete_service_confirm_title'
+		});
+		await fireEvent.click(
+			within(confirmDeleteModal.closest('.modal-box') as HTMLElement).getByRole('button', {
+				name: 'dashboard.services.detail.delete_service'
+			})
+		);
 
-	expect(await findByText('Cannot delete service')).toBeTruthy();
-	expect(await findByText(/Open quotes are still attached to this service/)).toBeTruthy();
-	expect(hoisted.mockDeleteService).not.toHaveBeenCalled();
+		expect(await findByText('Cannot delete service')).toBeTruthy();
+		expect(await findByText(/Open quotes are still attached to this service/)).toBeTruthy();
+		expect(hoisted.mockDeleteService).not.toHaveBeenCalled();
 	});
 
 	it('confirms deletion when no blockers remain and refreshes the list', async () => {
-	const { default: DashboardMyServicesPanel } = await import(
-		'$lib/components/service/DashboardMyServicesPanel.svelte'
-	);
-	const { getByRole, findByText, findByRole } = render(DashboardMyServicesPanel, {
-		view: 'default'
-	});
+		const { default: DashboardMyServicesPanel } = await import(
+			'$lib/components/service/DashboardMyServicesPanel.svelte'
+		);
+		const { getByRole, findByText, findByRole } = render(DashboardMyServicesPanel, {
+			view: 'default'
+		});
 
-	await waitFor(() => expect(hoisted.mockFindMyServices).toHaveBeenCalledTimes(1));
-	await fireEvent.click(getByRole('button', { name: 'task.actions.view_details' }));
-	await fireEvent.click(await findByRole('button', { name: 'dashboard.services.detail.delete_service' }));
-	const confirmDeleteModal = await findByRole('heading', {
-		name: 'dashboard.services.detail.delete_service_confirm_title'
-	});
-	await fireEvent.click(
-		within(confirmDeleteModal.closest('.modal-box') as HTMLElement).getByRole('button', {
-			name: 'dashboard.services.detail.delete_service'
-		})
-	);
-	expect(await findByText('Delete service')).toBeTruthy();
-	await fireEvent.click(getByRole('button', { name: 'Confirm Delete' }));
+		await waitFor(() => expect(hoisted.mockFindMyServices).toHaveBeenCalledTimes(1));
+		await fireEvent.click(getByRole('button', { name: 'task.actions.view_details' }));
+		await fireEvent.click(
+			await findByRole('button', { name: 'dashboard.services.detail.delete_service' })
+		);
+		const confirmDeleteModal = await findByRole('heading', {
+			name: 'dashboard.services.detail.delete_service_confirm_title'
+		});
+		await fireEvent.click(
+			within(confirmDeleteModal.closest('.modal-box') as HTMLElement).getByRole('button', {
+				name: 'dashboard.services.detail.delete_service'
+			})
+		);
+		expect(await findByText('Delete service')).toBeTruthy();
+		await fireEvent.click(getByRole('button', { name: 'Confirm Delete' }));
 
 		await waitFor(() => expect(hoisted.mockDeleteService).toHaveBeenCalledTimes(1));
 		expect(hoisted.mockDeleteService).toHaveBeenCalledWith('service-event-1', {
