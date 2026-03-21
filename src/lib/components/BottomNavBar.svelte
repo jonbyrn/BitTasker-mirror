@@ -1039,6 +1039,11 @@
 {/if}
 
 <style>
+	/* Prevent touch events on the menu overlay from scroll-chaining to the background */
+	.bottom-nav-overlay {
+		touch-action: none;
+	}
+
 	/* Dock wrapper — no safe-area padding; bar sits flush with the phone edge */
 	.dock-wrapper {
 		width: 100%;

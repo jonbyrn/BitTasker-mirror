@@ -115,7 +115,7 @@
 {#if props.isOpen}
 	<!-- Modal Backdrop/Overlay -->
 	<div
-		class="fixed inset-0 z-40 bg-black/50 transition-opacity duration-300 ease-in-out"
+		class="fixed inset-0 z-40 touch-none bg-black/50 transition-opacity duration-300 ease-in-out"
 		style={`bottom: ${effectiveBottomOffset};`}
 		onclick={showCloseButton ? props.onClose : undefined}
 		role="presentation"
@@ -125,8 +125,8 @@
 	<!-- Modal Container -->
 	<div
 		class="fixed inset-0 z-50 flex items-center justify-center p-4 {props.isScrollable
-			? 'overflow-y-auto'
-			: ''}"
+			? 'overflow-y-auto touch-pan-y'
+			: 'touch-none'}"
 		style={`bottom: ${effectiveBottomOffset};`}
 		onclick={(event) => event.stopPropagation()}
 		onkeydown={(event) => event.stopPropagation()}

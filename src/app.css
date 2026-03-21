@@ -532,9 +532,15 @@ body {
  * We also add margin-bottom for the home indicator safe area.
  * constant() fallback covers iOS 11.0–11.1.
  */
+.modal {
+	/* Prevent touch events on the backdrop from scroll-chaining to the background viewport */
+	touch-action: none;
+}
 .modal .modal-box {
 	margin-top: env(safe-area-inset-top, constant(safe-area-inset-top, 0px));
 	margin-bottom: env(safe-area-inset-bottom, constant(safe-area-inset-bottom, 0px));
+	/* Allow vertical scrolling within the modal box itself */
+	touch-action: pan-y;
 }
 
 /* Bottom navigation dock styles - common styles shared across app */

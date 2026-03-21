@@ -144,7 +144,7 @@
 
 <!-- Drawer Overlay -->
 <div
-	class="fixed inset-0 z-60 bg-black/50 transition-opacity duration-300 ease-in-out"
+	class="fixed inset-0 z-60 touch-none bg-black/50 transition-opacity duration-300 ease-in-out"
 	style={`bottom: ${effectiveBottomOffset};`}
 	class:opacity-0={!visualOpenState}
 	class:pointer-events-none={!visualOpenState || !props.isOpen}

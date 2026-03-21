@@ -285,7 +285,7 @@
 {#if props.isOpen}
 	<!-- Backdrop -->
 	<div
-		class="bg-base-content/50 fixed inset-0 z-100 backdrop-blur-sm"
+		class="bg-base-content/50 fixed inset-0 z-100 touch-none backdrop-blur-sm"
 		transition:fly={prefersReducedMotion ? undefined : { y: 0, duration: 200 }}
 		onclick={props.onClose}
 		role="presentation"
@@ -294,7 +294,7 @@
 
 	<!-- Modal Container - Full screen on mobile/tablet -->
 	<div
-		class="bg-base-100 pb-safe fixed inset-0 z-101 flex flex-col overflow-y-auto py-1 shadow-2xl lg:inset-x-0 lg:bottom-0 lg:rounded-t-3xl lg:pb-0"
+		class="bg-base-100 pb-safe fixed inset-0 z-101 flex flex-col touch-pan-y overflow-y-auto py-1 shadow-2xl lg:inset-x-0 lg:bottom-0 lg:rounded-t-3xl lg:pb-0"
 		transition:fly={prefersReducedMotion
 			? undefined
 			: {
