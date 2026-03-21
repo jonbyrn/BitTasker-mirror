@@ -34,8 +34,8 @@ const isTaskDetailsRoute = $derived(
 <svelte:window bind:innerWidth={width} />
 
 <!-- Mismas dimensiones que Mi Panel: px-2 md:py-4, gap-8, sidebar w-60 -->
-<div class="tasks-layout bg-base-200 mx-auto flex h-full min-h-0 w-full flex-col overflow-hidden px-2 md:py-4">
-	<div class="flex min-h-0 flex-1 flex-row gap-8 overflow-hidden">
+<div class="tasks-layout bg-base-200 mx-auto flex min-h-0 w-full flex-col px-2 md:py-4">
+	<div class="flex min-h-0 flex-row gap-8">
 		{#if $user?.npub && $devicePlatform !== 'ios' && $devicePlatform !== 'android' && width >= 1200 && !isTaskDetailsRoute}
 			<!-- Fixed Sidebar - Only on desktop when logged in -->
 			<div class="w-full shrink-0 md:w-64">
@@ -84,19 +84,15 @@ const isTaskDetailsRoute = $derived(
 		{/if}
 
 		<!-- Main Content with left margin for fixed sidebar -->
-		<div class="w-full min-h-0 flex-1 overflow-hidden">
+		<div class="w-full min-h-0 flex-1">
 			{@render children()}
 		</div>
 	</div>
 </div>
 
 <style>
-	/* Ensure tasks layout fills available space without causing scroll */
+	/* tasks-layout hugs its content; app-shell__content handles page-level scrolling */
 	.tasks-layout {
-		height: 100%;
-		max-height: 100%;
-		overflow: hidden;
-		flex: 1;
 		min-height: 0;
 	}
 </style>
