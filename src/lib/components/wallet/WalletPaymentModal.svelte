@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
+	import { lockViewport, unlockViewport } from '$lib/utils/helpers/viewportLock';
 	import { fly, scale } from 'svelte/transition';
 	import { t } from 'svelte-i18n';
 	import { Capacitor } from '@capacitor/core';
@@ -54,8 +55,9 @@
 			// Store previous active element for focus return
 			previousActiveElement = (document.activeElement as HTMLElement) || null;
 
-			// Lock scroll when modal is open
+			// Lock scroll and viewport rubber-banding when modal is open
 			disableBodyScroll();
+			lockViewport();
 
 			// Focus modal after a short delay to allow transition
 			setTimeout(() => {
@@ -66,6 +68,7 @@
 		} else {
 			// Restore scrolling when modal is closed
 			enableBodyScroll();
+			unlockViewport();
 
 			// Return focus to previous element
 			if (previousActiveElement && typeof previousActiveElement.focus === 'function') {
@@ -74,7 +77,10 @@
 		}
 
 		// Cleanup on unmount
-		return enableBodyScroll;
+		return () => {
+			enableBodyScroll();
+			unlockViewport();
+		};
 	});
 
 	// Escape key handler

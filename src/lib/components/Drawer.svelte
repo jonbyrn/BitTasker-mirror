@@ -9,6 +9,7 @@
 	import { appScrollContainer } from '$lib/stores/scrollContainer.store';
 	import { onMount, tick } from 'svelte';
 	import { browser } from '$app/environment';
+	import { lockViewport, unlockViewport } from '$lib/utils/helpers/viewportLock';
 
 	// Props
 	const props = $props<{
@@ -76,16 +77,19 @@
 			// Lock scroll when drawer is open
 			disableBodyScroll();
 			lockAppScroll();
+			lockViewport();
 		} else {
 			// Restore scrolling when drawer is closed
 			enableBodyScroll();
 			unlockAppScroll();
+			unlockViewport();
 		}
 
 		// Handle cleanup when component is unmounted
 		return () => {
 			enableBodyScroll();
 			unlockAppScroll();
+			unlockViewport();
 		};
 	});
 

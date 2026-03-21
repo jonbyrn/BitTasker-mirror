@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
 	import { onMount } from 'svelte';
+	import { lockViewport, unlockViewport } from '$lib/utils/helpers/viewportLock';
 	import { fly, scale } from 'svelte/transition';
 	import { Capacitor } from '@capacitor/core';
 	import { appStore } from '$lib/stores/app.store';
@@ -224,6 +225,21 @@
 				icon: null
 			}
 		);
+	});
+
+	// Prevent iOS viewport rubber-banding while modal is open
+	$effect(() => {
+		if (props.isOpen) {
+			document.body.style.overflow = 'hidden';
+			lockViewport();
+		} else {
+			document.body.style.overflow = '';
+			unlockViewport();
+		}
+		return () => {
+			document.body.style.overflow = '';
+			unlockViewport();
+		};
 	});
 
 	// Reactive effect: Monitor swap status changes (triggered by SDK's WebSocket updates via transactions store)

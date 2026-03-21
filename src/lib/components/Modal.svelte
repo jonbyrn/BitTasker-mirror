@@ -7,6 +7,7 @@
 	 */
 	import { t } from 'svelte-i18n';
 	import { appScrollContainer } from '$lib/stores/scrollContainer.store';
+	import { lockViewport, unlockViewport } from '$lib/utils/helpers/viewportLock';
 
 	// Props
 	const props = $props<{
@@ -89,16 +90,19 @@
 			// Lock scroll when modal is open
 			disableBodyScroll();
 			lockAppScroll();
+			lockViewport();
 		} else {
 			// Restore scrolling when modal is closed
 			enableBodyScroll();
 			unlockAppScroll();
+			unlockViewport();
 		}
 
 		// Handle cleanup when component is unmounted
 		return () => {
 			enableBodyScroll();
 			unlockAppScroll();
+			unlockViewport();
 		};
 	});
 

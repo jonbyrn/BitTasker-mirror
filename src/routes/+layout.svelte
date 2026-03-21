@@ -9,6 +9,7 @@
 	import { user } from '$lib/stores/user.store';
 	import { appScrollContainer } from '$lib/stores/scrollContainer.store';
 	import { hideSplashScreenWhenReady } from '$lib/utils/helpers/splashScreen';
+	import { lockViewport, unlockViewport } from '$lib/utils/helpers/viewportLock';
 	import {
 		BITTASKER_ORG_JSONLD,
 		BITTASKER_SITE_NAVIGATION_JSONLD
@@ -143,10 +144,43 @@
 		window.addEventListener('error', handleError);
 		window.addEventListener('unhandledrejection', handleError);
 
+		// DaisyUI old-pattern modals add .modal-open to their root div.
+		// Watch for that class so we can apply the viewport rubber-band lock
+		// even for modals that don't go through Drawer.svelte or Modal.svelte.
+		let modalOpenCount = 0;
+		const modalObserver =
+			typeof MutationObserver !== 'undefined'
+				? new MutationObserver((mutations) => {
+						for (const mutation of mutations) {
+							if (mutation.type !== 'attributes' || mutation.attributeName !== 'class') continue;
+							const el = mutation.target as Element;
+							const isNowOpen = el.classList.contains('modal-open');
+							const wasOpen = (mutation.oldValue ?? '').split(' ').includes('modal-open');
+							if (isNowOpen && !wasOpen) {
+								modalOpenCount++;
+								lockViewport();
+							} else if (!isNowOpen && wasOpen) {
+								modalOpenCount = Math.max(0, modalOpenCount - 1);
+								unlockViewport();
+							}
+						}
+					})
+				: null;
+
+		modalObserver?.observe(document.body, {
+			attributes: true,
+			attributeFilter: ['class'],
+			subtree: true,
+			attributeOldValue: true
+		});
+
 		return () => {
 			window.removeEventListener('vite:preloadError', handlePreloadError);
 			window.removeEventListener('error', handleError);
 			window.removeEventListener('unhandledrejection', handleError);
+			modalObserver?.disconnect();
+			// Release any locks held by modals that were open at unmount time
+			for (let i = 0; i < modalOpenCount; i++) unlockViewport();
 		};
 	});
 
