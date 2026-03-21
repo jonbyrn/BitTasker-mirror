@@ -423,6 +423,8 @@ body {
 html,
 body {
 	height: 100%;
+	/* Prevent iOS rubber-banding / overscroll bounce propagating past the app shell */
+	overscroll-behavior: none;
 }
 
 body {
