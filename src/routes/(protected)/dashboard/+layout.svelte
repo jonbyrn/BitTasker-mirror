@@ -14,10 +14,17 @@
 	import IconCog from '~icons/mdi/cog';
 	import WarningPopup from '$lib/components/WarningPopup.svelte';
 	import NotificationPermissionBanner from '$lib/components/notifications/NotificationPermissionBanner.svelte';
+	import { onMount } from 'svelte';
+	import { setNDKSigner } from '$lib/nostr/ndk';
 
 	let { children } = $props();
 
 	let width = $state(375);
+
+	onMount(async () => {
+		// If nsec is not in memory yet, lets get it
+		setNDKSigner();
+	});
 </script>
 
 <svelte:head>

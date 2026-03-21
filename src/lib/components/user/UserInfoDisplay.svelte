@@ -185,6 +185,14 @@
 		return fetchedProfile?.picture || avatar;
 	});
 
+	// /**
+	//  * Check if avatar is missing or empty (checks displayAvatar for consistency)
+	//  */
+	// const isAvatarMissing = $derived.by(() => {
+	// 	const avatarToCheck = displayAvatar;
+	// 	return !avatarToCheck || (typeof avatarToCheck === 'string' && avatarToCheck.trim() === '');
+	// });
+
 	/**
 	 * Normalize pubkey to hex format (like profile page does)
 	 * This ensures consistent cache keys and proper filtering
@@ -245,14 +253,29 @@
 		lastLoadedPubkey = normalizedHexPubkey;
 
 		try {
+			//console.debug('[UserInfoDisplay] loadUserProfile: starting fetch', {
+			// 	username,
+			// 	normalizedUsername,
+			// 	avatar,
+			// 	isAvatarMissing,
+			// 	pubkey,
+			// 	normalizedHexPubkey
+			// });
+
 			// Convert hex to npub for fetchProfileMetadata (it handles both, but npub ensures cache consistency)
 			// The cache key will be npub format, which is consistent across calls
 			const npubToFetch = nip19.npubEncode(normalizedHexPubkey);
 
 			const profile = await fetchProfileMetadata(npubToFetch);
+			//console.debug('[UserInfoDisplay] loadUserProfile: received profile', {
+			// 	profile,
+			// 	hasName: !!profile?.name,
+			// 	hasPicture: !!profile?.picture
+			// });
 
 			// Update fetched profile even if empty (to avoid re-fetching)
 			fetchedProfile = profile;
+			//console.debug('[UserInfoDisplay] loadUserProfile: updated fetchedProfile', { fetchedProfile });
 		} catch (error) {
 			console.error('[UserInfoDisplay] loadUserProfile: error', error);
 			fetchedProfile = null;
@@ -397,7 +420,7 @@
 
 		<!-- Rating -->
 		<div class="flex items-center gap-1">
-			{#each [0, 1, 2, 3, 4] as i (i)}
+			{#each Array(5) as _, i (i)}
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
 					class="{config.star} {i < (rating || 0) ? 'text-yellow-400' : 'text-base-content/30'}"
