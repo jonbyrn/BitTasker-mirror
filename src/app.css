@@ -521,6 +521,17 @@ body {
 	}
 }
 
+/*
+ * DaisyUI modals use position: fixed; inset: 0 — they span the full screen including
+ * the iOS status bar (notch / Dynamic Island). Adding padding-top pushes the flex
+ * container down so the modal-box never overlaps the battery/time indicators.
+ * The backdrop still covers the full screen; only the interactive content moves down.
+ * constant() fallback covers iOS 11.0–11.1.
+ */
+.modal {
+	padding-top: env(safe-area-inset-top, constant(safe-area-inset-top, 0px));
+}
+
 /* Bottom navigation dock styles - common styles shared across app */
 .menu-active {
 	@apply bg-primary/10 text-primary font-semibold;
