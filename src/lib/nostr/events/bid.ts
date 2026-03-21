@@ -13,18 +13,23 @@ export class NDKBid extends NDKEvent {
 	constructor(ndk?: NDK, event?: NostrEvent | NDKEvent) {
 		super(ndk, event);
 		this.kind ??= 30007;
+
+		// Workaround to register published relay to ndk cache adapter
+		this.on('relay:published', (relay) => {
+			this.emit('published', relay);
+		});
 	}
 
-	static async from(event: NDKEvent): Promise<NDKEvent | undefined> {
+	static async from(event: NDKEvent): Promise<NDKBid | undefined> {
 		const bid = new NDKBid(event.ndk, event);
 
 		const prevContent = bid.content;
 		const sender = bid.author;
 		try {
 			await bid.decrypt(sender);
-			d.log('decrypted bid', {
-				bid
-			});
+			// d.log('decrypted bid', {
+			// 	bid
+			// });
 		} catch (_e) {
 			d.error('decrypt error', { _e });
 			bid.content ??= prevContent;
@@ -35,14 +40,20 @@ export class NDKBid extends NDKEvent {
 
 			// // Convert other fields to tags
 			// bid.tags = [...contentTags, ...bid.tags];
-
-			// // Set the actual message content
-			// message.content = message.tagValue('content') || 'no content :(';
-			// message.removeTag('content');
 		} catch {
 			return undefined;
 		}
 
 		return bid;
+	}
+
+	async toNostrEvent(pubkey?: string): Promise<NostrEvent> {
+		// return event content to string
+		this.content = JSON.stringify(this.content);
+
+		const user = await this.ndk?.signer?.user();
+		await this.encrypt(user, undefined, 'nip44');
+
+		return super.toNostrEvent(pubkey) as unknown as NostrEvent;
 	}
 }

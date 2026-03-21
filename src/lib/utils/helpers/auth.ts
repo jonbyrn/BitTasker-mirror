@@ -1,7 +1,6 @@
 import type { EncryptedData, ContextEncryption } from '$lib/types/auth';
 import { randomBytes } from '@noble/hashes/utils';
 import { base64ToBytes, bytesToBase64 } from '$lib/utils/helpers/encoding';
-import { setNDKSigner } from '$lib/nostr/ndk';
 import {
 	encrypt,
 	decrypt,
@@ -131,9 +130,6 @@ export async function decryptNsecFromMasterKey(
 
 		// Decrypt Nostr nsec
 		const nsec = await decrypt(masterKeyData.nostr.encrypted, nostrKey);
-
-		// Set NDK signer so NDK subscriptions can sign events (login + post-refresh)
-		setNDKSigner(nsec);
 
 		return nsec;
 	} catch (err) {

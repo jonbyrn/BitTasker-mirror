@@ -1,72 +1,63 @@
 <script lang="ts">
-	import type { NostrEvent } from 'nostr-tools';
-	import type { CounterOffer, NostrBidContent, NostrEventWithFollowup } from '$lib/types/bid';
+	import type { NostrBidContent } from '$lib/types/bid';
 	import { t, locale } from 'svelte-i18n';
-	import { appStore } from '$lib/stores/app.store';
 	import { bidStore } from '$lib/stores/bid.store';
-	import { sendBidStatusUpdate, cachedSatsFromUsd } from '$lib/utils/nostr-bid';
-	import { onMount, onDestroy } from 'svelte';
+	import { cachedSatsFromUsd } from '$lib/utils/nostr-bid';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
-	import { BidStatusEnum } from '$lib/utils/enums/bid.enum';
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { formatStandardDateTime, parseDateWithLocalTime } from '$lib/utils/helpers/dateFormatter';
-	import cryptoPriceService from '$lib/api/services/crypto-price.service';
-	import nostrEventsService from '$lib/api/services/nostr/events';
+	import { btcPrice } from '$lib/runes/btcPrice.svelte';
 	import BidAcceptanceForm from '$lib/components/bidding/BidAcceptanceForm.svelte';
 	import BidCardSkeleton from '$lib/components/bidding/BidCardSkeleton.svelte';
 	import BidLoadingError from '$lib/components/bidding/BidLoadingError.svelte';
-	import CounterOfferForm from '$lib/components/bidding/CounterOfferForm.svelte';
+	// import CounterOfferForm from '$lib/components/bidding/CounterOfferForm.svelte';
 	import NoBids from '$lib/components/bidding/NoBids.svelte';
 	import Drawer from '$lib/components/Drawer.svelte';
-	import Modal from '$lib/components/Modal.svelte';
+	// import Modal from '$lib/components/Modal.svelte';
 	import MessageModal from '$lib/components/messages/MessageModal.svelte';
 	import UserInfoDisplay from '$lib/components/user/UserInfoDisplay.svelte';
 	import ActionsMenu from '$lib/components/moderation/ActionsMenu.svelte';
 	import KINDS from '$lib/utils/constants/kinds';
-	import { ndk } from '$lib/nostr/ndk';
+	import { getTaskRelay, ndk } from '$lib/nostr/ndk';
 	import { createDebug } from '$lib/utils/debug';
+	import type { NDKBid } from '$lib/nostr/events/bid';
+	import { NDKTask } from '$lib/nostr/events/task';
 
 	// State
-	let task = $state<NostrEvent | null>(null);
-	let btcPrice = $state(0);
 	let expandedBidId = $state<string | null>(null);
 	let showAcceptanceForm = $state(false);
-	let showCounterOfferForm = $state(false);
-	let bidToAccept = $state<NostrEventWithFollowup | null>(null);
-	let selectedBid = $state<NostrBidContent | null>(null);
+	// let showCounterOfferForm = $state(false);
+	let bidToAccept = $state<NDKBid | null>(null);
+	// let selectedBid = $state<NDKBid | null>(null);
 
 	const d = createDebug('BidsPage');
 
-	// Create a reactive subscription - note the callback function () => ({ ... })
-	const bidsSubscription = ndk.$subscribe(() => ({
-		filters: ndk.$currentPubkey
-			? [{ kinds: [KINDS.BIDS], limit: 50, '#p': [ndk.$currentPubkey], '#t': [page.params.taskId] }]
-			: [],
-		onEvent(event) {
-			d.log('onEvent', event);
-			console.log('onEvent', event);
-		},
-		wrap: true
-	}));
-
-	$effect(() => {
-		d.log('bidsSubscription', bidsSubscription);
+	const taskSub = ndk.$subscribe(() => {
+		// No subscription until we have the users pubkey
+		if (!ndk.$currentPubkey) return undefined;
+		return {
+			filters: [
+				{ kinds: [KINDS.TASK_CREATION], authors: [ndk.$currentPubkey], '#d': [page.params.taskId] }
+			],
+			wrap: true, // Wrap the event in a NDKTask object
+			relaySet: getTaskRelay(), // Only pull from task relay
+			noDedupe: true // No deduplication to ensure we get the latest task
+		};
 	});
 
-	// Derived state from bid store
-	let bids = $derived($bidStore.bids[page.params.taskId] || []);
+	let task = $derived(taskSub.events[0] as NDKTask);
 
-	// Check if any bid has been accepted - disable all accept/decline buttons if true
-	let hasAcceptedBid = $derived(
-		bids.some(
-			(bid) =>
-				bid?.latestStatus?.content?.status?.toLowerCase() === BidStatusEnum.ACCEPTED.toLowerCase()
-		)
-	);
-
-	// Check if any bid is currently being processed - prevents race condition during acceptance
-	let hasProcessingBid = $derived(bids.some((bid) => $bidStore.processingBidIds.has(bid.id)));
+	const bidsSub = ndk.$subscribe(() => {
+		// No subscription until we have the users pubkey
+		if (!ndk.$currentPubkey) return undefined;
+		return {
+			filters: [
+				{ kinds: [KINDS.BIDS], limit: 50, '#p': [ndk.$currentPubkey], '#t': [page.params.taskId] }
+			],
+			wrap: true
+		};
+	});
 
 	// Message modal state
 	let showMessageModal = $state(false);
@@ -102,148 +93,43 @@
 		return originalText;
 	}
 
-	async function loadTaskDetails() {
-		try {
-			$bidStore.error = '';
-
-			// Event ID (64 hex) → find by id; otherwise id is d-tag (readable or legacy task-uuid)
-			const id = page.params.taskId;
-			const isEventId = /^[0-9a-fA-F]{64}$/.test(id);
-
-			if (isEventId) {
-				try {
-					const result = await nostrEventsService.findEventById(id);
-					task = result.data;
-				} catch {
-					$bidStore.error = $t('task.drawer.error.load');
-					return;
-				}
-			} else {
-				const filter = {
-					kinds: [KINDS.TASK_CREATION],
-					'#d': [id],
-					limit: 1
-				};
-				const response = await nostrEventsService.requestEvents({
-					filters: [filter]
-				});
-				if (response.data && response.data.length > 0) {
-					task = response.data[0];
-				}
-			}
-
-			if (!task) {
-				$bidStore.error = $t('task.drawer.error.load');
-				return;
-			}
-		} catch (error) {
-			console.error('Failed to load task details:', error);
-			$bidStore.error = $t('task.drawer.error.load');
-		}
-	}
-
-	async function loadBids() {
-		const taskId = page.params.taskId;
-		const legacyTaskId = task?.id ?? taskId;
-		await bidStore.loadBidsForTask(taskId);
-		// Subscribe to real-time updates
-		await bidStore.subscribeToUpdates(taskId, legacyTaskId);
-	}
-
 	function toggleBidDetails(bidId: string) {
 		expandedBidId = expandedBidId === bidId ? null : bidId;
 	}
 
-	function handleAcceptBid(bid: NostrEventWithFollowup) {
-		// Check if any bid has already been accepted
-		if (hasAcceptedBid) {
-			appStore.showInfoToast($t('dashboard.bids.bid_acceptance.bid_already_accepted'));
-			return;
-		}
-
-		// Check if any bid is currently being processed (prevents race condition)
-		if (hasProcessingBid) {
-			appStore.showInfoToast($t('dashboard.bids.bid_acceptance.bid_already_accepted'));
-			return;
-		}
-
-		// Check if this specific bid is already accepted
-		if (
-			bid?.latestStatus?.content?.status?.toLowerCase() === BidStatusEnum.ACCEPTED.toLowerCase()
-		) {
-			appStore.showInfoToast($t('dashboard.bids.bid_acceptance.bid_already_accepted'));
-			return;
-		}
-
+	async function handleAcceptBid(bid: NDKBid) {
+		//task.acceptedBid = bid.id;
+		// publish only to relay 2
+		//await task.publishReplaceable(getTaskRelay());
+		d.log('accepting bid', bid);
 		bidToAccept = bid;
 		showAcceptanceForm = true;
 	}
 
-	async function submitCounterOffer(
-		_bidId: string,
-		_counterOffer: Omit<CounterOffer, 'id' | 'bidId' | 'createdAt' | 'status'>
-	) {
-		// TODO: Implement counter offer with nostr
-		// Params are reserved for future implementation
-		void bidId;
-		void counterOffer;
+	// async function submitCounterOffer(
+	// 	_bidId: string,
+	// 	_counterOffer: Omit<CounterOffer, 'id' | 'bidId' | 'createdAt' | 'status'>
+	// ) {
+	// 	try {
+	// 		// TODO: Implement counter offer with nostr
+	// 		/* // API call to create counter offer
+	// 		await bidService.createCounterOffer(bidId, counterOffer);
+	// 		// Clear bid cache to ensure fresh data
+	// 		clearBidCache();
+	// 		// Reset state
+	// 		showCounterOfferForm = false;
+	// 		selectedBid = null;
+	// 		// Reload task to update bids with counter offer
+	// 		await loadTaskDetails(); */
+	// 	} catch (error) {
+	// 		console.error($t('task.drawer.error.counter_offer'), error);
+	// 	}
+	// }
+
+	async function handleRejectBid(bid: NDKBid) {
+		d.log('rejecting bid', bid);
+		return;
 	}
-
-	async function handleRejectBid(eventId: string, bidContent: NostrBidContent) {
-		// Prevent rejecting bids if any bid has been accepted
-		if (hasAcceptedBid) {
-			appStore.showInfoToast($t('dashboard.bids.bid_acceptance.bid_already_accepted'));
-			return;
-		}
-
-		// Prevent rejecting bids if any bid is currently being processed (prevents race condition)
-		if (hasProcessingBid) {
-			appStore.showInfoToast($t('dashboard.bids.bid_acceptance.bid_already_accepted'));
-			return;
-		}
-
-		// Prevent rejecting bids that are already accepted or rejected
-		if (bidContent.status === 'ACCEPTED' || bidContent.status === 'REJECTED') {
-			appStore.showInfoToast($t('dashboard.bids.bid_acceptance.bid_already_rejected'));
-			return;
-		}
-
-		try {
-			// Send bid rejection status via encrypted DM to the bidder
-			await sendBidStatusUpdate(
-				eventId, // bidEventId
-				bidContent.taskId,
-				bidContent.bidderId || '', // bidder's pubkey
-				BidStatusEnum.REJECTED,
-				$t('dashboard.bids.bid_acceptance.bid_rejected_message') // Optional rejection message
-			);
-		} catch (error) {
-			console.error('Error rejecting bid:', error);
-			appStore.showErrorToast($t('dashboard.bids.bid_acceptance.bid_rejected_error'));
-		}
-	}
-
-	async function fetchBtcPrice(): Promise<void> {
-		try {
-			btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
-		} catch (error) {
-			console.error('Failed to fetch BTC price:', error);
-		}
-	}
-
-	async function retryLoadingData() {
-		await loadTaskDetails();
-		await Promise.all([loadBids(), fetchBtcPrice()]);
-	}
-
-	onMount(async () => {
-		await Promise.all([loadTaskDetails(), loadBids(), fetchBtcPrice()]);
-	});
-
-	onDestroy(() => {
-		// Clean up subscriptions when leaving the page
-		bidStore.unsubscribeFromUpdates();
-	});
 
 	function handleCloseBid() {
 		showAcceptanceForm = false;
@@ -269,6 +155,7 @@
 <div class="mx-auto h-full max-w-6xl px-2 py-6 md:px-0 md:py-0">
 	<div class="mb-4 sm:mb-6">
 		<h3 class="text-xl font-bold sm:text-2xl">{$t('task.drawer.bids_received')}</h3>
+		<h3>{task?.acceptedBid}</h3>
 		<p class="text-base-content/70 mt-2 text-sm sm:text-base">
 			{$t('task.drawer.bids_description')}
 		</p>
@@ -291,9 +178,9 @@
 				{$t('common.back')}
 			</button>
 
-			<button
+			<!-- <button
 				class="btn btn-secondary btn-sm gap-2"
-				onclick={retryLoadingData}
+				onclick={() => {}}
 				disabled={$bidStore.isLoading}
 				aria-label={$t('dashboard.tasks.refresh')}
 			>
@@ -317,7 +204,7 @@
 					</svg>
 					<span>{$t('dashboard.tasks.refresh')}</span>
 				{/if}
-			</button>
+			</button> -->
 		</div>
 	</div>
 	{#if $bidStore.isLoading}
@@ -325,12 +212,12 @@
 			<BidCardSkeleton />
 		</div>
 	{:else if $bidStore.error}
-		<BidLoadingError error={$bidStore.error} onRetry={retryLoadingData} />
-	{:else if bids.length === 0}
-		<NoBids onRetry={retryLoadingData} />
+		<BidLoadingError error={$bidStore.error} onRetry={() => {}} />
+	{:else if bidsSub.events.length === 0}
+		<NoBids onRetry={() => {}} />
 	{:else}
 		<div class="space-y-4">
-			{#each bids as bid (bid.id)}
+			{#each bidsSub.events as bid (bid.id)}
 				{@const bidContent = bid.content as unknown as NostrBidContent}
 				<div
 					class="bg-base-100 border-base-200 rounded-2xl border shadow-sm transition-all duration-200 hover:shadow-md"
@@ -354,26 +241,32 @@
 							<!-- Right side: Status badge, profile link, and actions menu (right-aligned) -->
 							<div class="flex shrink-0 flex-col items-end gap-2">
 								<!-- Top row: status badge -->
-								{#if bidContent.status === 'ACCEPTED'}
+								<!-- Bid Status Badge -->
+								{#if ( task?.acceptedBid === bid.id || bidContent.status === 'ACCEPTED')}
 									<div class="badge badge-success badge-sm text-primary-content">
 										{$t('dashboard.bids.bid_acceptance.accepted')}
 									</div>
-								{:else if bidContent.status === 'REJECTED'}
+									<!-- {:else if bidContent.status === 'REJECTED'}
 									<div class="badge badge-error badge-sm text-primary-content">
 										{$t('dashboard.bids.bid_acceptance.rejected')}
 									</div>
 								{:else if bidContent.status === 'PENDING'}
 									<div class="badge badge-warning badge-sm text-primary-content">
 										{$t('dashboard.bids.bid_acceptance.pending')}
-									</div>
+									</div> -->
 								{/if}
-
-								<!-- See Profile link + actions menu (right-aligned) -->
-								<div class="flex items-end gap-1">
-									{#if bidContent.bidderId}
-										<button
-											class="btn btn-ghost btn-xs text-primary hover:bg-primary/10 cursor-pointer"
-											onclick={() => goto(`/npub/${bidContent.bidderId}`)}
+								<!-- See Profile link -->
+								{#if bidContent.bidderId}
+									<button
+										class="btn btn-ghost btn-xs text-primary hover:bg-primary/10 cursor-pointer"
+										onclick={() => goto(`/npub/${bid.author.npub}`)}
+									>
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											class="h-3 w-3"
+											fill="none"
+											viewBox="0 0 24 24"
+											stroke="currentColor"
 										>
 											<svg
 												xmlns="http://www.w3.org/2000/svg"
@@ -462,7 +355,7 @@
 										${formatNumberWithTwoDecimals(bidContent.amount)}
 									</div>
 									<div class="sm:text-md text-base-content/60 text-sm font-bold">
-										{cachedSatsFromUsd(bidContent.amount, btcPrice)} Sats
+										{cachedSatsFromUsd(bidContent.amount, btcPrice.price)} Sats
 									</div>
 								</div>
 							</div>
@@ -555,14 +448,8 @@
 								<!-- Reject Button -->
 								<button
 									class="btn btn-error btn-outline btn-sm flex-1 py-1 sm:flex-none"
-									onclick={() => handleRejectBid(bid.id, bidContent)}
-									disabled={hasAcceptedBid ||
-										hasProcessingBid ||
-										bid?.latestStatus?.content?.status?.toLowerCase() ===
-											BidStatusEnum.ACCEPTED.toLowerCase() ||
-										bid?.latestStatus?.content?.status?.toLowerCase() ===
-											BidStatusEnum.REJECTED.toLowerCase() ||
-										$bidStore.processingBidIds.has(bid.id)}
+									onclick={() => handleRejectBid(bid)}
+									disabled={false}
 								>
 									<svg
 										xmlns="http://www.w3.org/2000/svg"
@@ -631,7 +518,7 @@
                                 </button> -->
 
 								<!-- Accept Button -->
-								{#if bid?.latestStatus?.content?.status?.toLowerCase() === BidStatusEnum.ACCEPTED.toLowerCase()}
+								{#if bid.id === task?.id}
 									<button class="btn btn-success btn-sm flex-1 py-1 sm:flex-none" disabled={true}>
 										<svg
 											xmlns="http://www.w3.org/2000/svg"
@@ -653,11 +540,7 @@
 									<button
 										class="btn btn-success btn-sm flex-1 py-1 sm:flex-none"
 										onclick={() => handleAcceptBid(bid)}
-										disabled={hasAcceptedBid ||
-											hasProcessingBid ||
-											bid?.latestStatus?.content?.status?.toLowerCase() ===
-												BidStatusEnum.REJECTED.toLowerCase() ||
-											$bidStore.processingBidIds.has(bid.id)}
+										disabled={false}
 									>
 										{#if $bidStore.processingBidIds.has(bid.id)}
 											<span class="loading loading-spinner loading-xs"></span>
@@ -700,7 +583,7 @@
 </div>
 
 <!-- Modals -->
-<Modal
+<!-- <Modal
 	isOpen={!!(showCounterOfferForm && selectedBid)}
 	title={$t('dashboard.bids.counter_offer.title')}
 	size="lg"
@@ -720,7 +603,7 @@
 			}}
 		/>
 	{/if}
-</Modal>
+</Modal> -->
 
 <Drawer
 	isOpen={showAcceptanceForm}
@@ -730,7 +613,7 @@
 	isScrollable={true}
 >
 	{#if showAcceptanceForm && bidToAccept && task}
-		<BidAcceptanceForm bid={bidToAccept} {task} {btcPrice} onCancel={handleCloseBid} />
+		<BidAcceptanceForm bid={bidToAccept} {task} onCancel={handleCloseBid} />
 	{/if}
 </Drawer>
 

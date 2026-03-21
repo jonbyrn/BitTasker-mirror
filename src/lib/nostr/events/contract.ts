@@ -13,6 +13,11 @@ export class NDKEscrowContract extends NDKEvent {
 	constructor(ndk?: NDK, event?: NostrEvent | NDKEvent) {
 		super(ndk, event);
 		this.kind ??= 30006;
+
+		// Workaround to register published relay to ndk cache adapter
+		this.on('relay:published', (relay) => {
+			this.emit('published', relay);
+		});
 	}
 
 	static async from(event: NDKEvent): Promise<NDKEscrowContract | undefined> {
