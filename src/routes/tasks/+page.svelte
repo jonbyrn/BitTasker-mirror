@@ -1023,14 +1023,14 @@
 
 <!-- Mismas dimensiones que Mi Panel -->
 <main
-	class="find-tasks-container find-tasks-page mx-auto min-h-0 w-full max-w-6xl px-2 py-6 md:px-0 md:py-0"
+	class="find-tasks-container find-tasks-page mx-auto h-full min-h-0 w-full max-w-6xl flex-1 px-2 py-6 md:px-0 md:py-0"
 	data-find-tasks-page="true"
 >
 	<div
 		id="panel-find-tasks"
 		role="tabpanel"
 		aria-labelledby="tab-find-tasks"
-		class="flex min-h-0 flex-col"
+		class="grid h-full min-h-0 grid-rows-[auto_1fr] overflow-hidden"
 	>
 		<!-- Search and Filter Controls -->
 		<TaskListControls
@@ -1057,7 +1057,7 @@
 		/>
 
 		<!-- Main Content Area - Flattened structure with grid layout -->
-		<section class="min-h-0" data-tasks-content-area>
+		<section class="min-h-0 flex-1" data-tasks-content-area>
 			<!-- Main Content - Dynamic Layout based on view mode -->
 			{#if viewMode === 'list'}
 				<!-- List View - Simplified grid layout -->
@@ -1409,14 +1409,35 @@
 		display: none !important;
 	}
 
-	/* Mobile only: prevent app-shell__content from scrolling — inner scroll container handles it.
-	   Desktop lets app-shell__content scroll naturally (no inner bounded container). */
-	@media (max-width: 1023px) {
+	/* Prevent app-shell__content from scrolling on find-tasks page only */
+	/* This page handles its own internal scrolling */
+	/* Use data attribute for simpler, more stable targeting */
+	:global(.app-shell__content[data-find-tasks-page]) {
+		display: flex;
+		flex-direction: column;
+		flex: 1;
+		min-height: 0;
+	}
+
+	/* On desktop, allow page to scroll normally when content exceeds viewport */
+	@media (min-width: 1024px) {
 		:global(.app-shell__content[data-find-tasks-page]) {
-			overflow-y: hidden !important;
+			overflow-y: auto;
+			height: auto;
+			min-height: 100%;
 		}
 	}
 
+	/* ============================================================================
+	 * CSS Variables for Height Calculations
+	 * Consolidates repeated calc() expressions
+	 * ============================================================================ */
+	.find-tasks-container {
+		--tasks-content-height-mobile: calc(
+			var(--app-height, 100dvh) - var(--app-dock-height, var(--app-footer-height, 64px)) -
+				var(--header-controls-height, 10rem)
+		);
+	}
 
 	/* ============================================================================
 	 * Tasks Content Area - Flattened Structure
@@ -1444,21 +1465,27 @@
 
 	/* Mobile Layout (< 1024px) */
 	@media (max-width: 1023px) {
-		/* Content-sized: shrinks to fit few tasks, scrolls when there are many */
 		.task-list-scroll-container {
-			max-height: calc(var(--app-height, 100dvh) - var(--app-footer-height, 64px) - 10rem);
+			max-height: var(--tasks-content-height-mobile);
+			height: var(--tasks-content-height-mobile);
+		}
+
+		.task-list-scroll-container .task-list-items {
+			padding-bottom: 0;
+			margin-bottom: 0;
 		}
 
 		.map-container-wrapper {
-			max-height: calc(var(--app-height, 100dvh) - var(--app-footer-height, 64px) - 10rem);
-			height: calc(var(--app-height, 100dvh) - var(--app-footer-height, 64px) - 10rem);
-			min-height: calc(var(--app-height, 100dvh) - var(--app-footer-height, 64px) - 10rem);
+			max-height: var(--tasks-content-height-mobile);
+			height: var(--tasks-content-height-mobile);
+			min-height: var(--tasks-content-height-mobile);
 		}
 
 		.map-container-wrapper > * {
 			height: 100%;
 		}
 
+		[data-tasks-list-column],
 		[data-tasks-map-column] {
 			height: 100%;
 			min-height: 0;
@@ -1467,25 +1494,26 @@
 
 	/* Desktop Layout (>= 1024px) */
 	@media (min-width: 1024px) {
-		/* Explicit height (not 100%) so children's height: 100% resolves correctly
-		   even though the parent chain is now content-sized. The map requires a
-		   definite pixel height on its container or it collapses to 0. */
 		[data-tasks-list-view] {
-			height: 80vh;
+			height: 100%;
+			max-height: 80vh;
 		}
 
 		[data-tasks-list-column],
 		[data-tasks-map-column] {
 			height: 100%;
 			min-height: 0;
+			max-height: 100%;
 		}
 
 		.map-container-wrapper {
 			height: 100%;
+			max-height: 100%;
 		}
 
 		.task-list-scroll-container {
 			height: 100%;
+			max-height: 100%;
 		}
 	}
 
