@@ -522,14 +522,17 @@ body {
 }
 
 /*
- * DaisyUI modals use position: fixed; inset: 0 — they span the full screen including
- * the iOS status bar (notch / Dynamic Island). Adding padding-top pushes the flex
- * container down so the modal-box never overlaps the battery/time indicators.
- * The backdrop still covers the full screen; only the interactive content moves down.
+ * DaisyUI v5 modals: position:fixed; inset:0 + overflow:clip spans the full screen.
+ * padding-top on .modal is clipped by overflow:clip so it has no effect.
+ *
+ * Correct fix: use margin-top on .modal-box to push it below the notch/Dynamic Island.
+ * margin is outside the box model and is not affected by the parent's overflow:clip.
+ * We also add margin-bottom for the home indicator safe area.
  * constant() fallback covers iOS 11.0–11.1.
  */
-.modal {
-	padding-top: env(safe-area-inset-top, constant(safe-area-inset-top, 0px));
+.modal .modal-box {
+	margin-top: env(safe-area-inset-top, constant(safe-area-inset-top, 0px));
+	margin-bottom: env(safe-area-inset-bottom, constant(safe-area-inset-bottom, 0px));
 }
 
 /* Bottom navigation dock styles - common styles shared across app */
