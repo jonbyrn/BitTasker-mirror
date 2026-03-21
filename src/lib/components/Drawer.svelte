@@ -157,10 +157,10 @@
 <!-- Drawer Panel -->
 <div
 	bind:this={drawerPanelRef}
-	class="bg-base-100 fixed top-0 {position === 'left'
+	class="bg-base-100 fixed top-0 pt-safe {position === 'left'
 		? 'left-0'
-		: 'right-0'} z-70 {drawerWidthClass} 
-		{props.isScrollable ? 'overflow-y-auto' : 'overflow-auto'} 
+		: 'right-0'} z-70 {drawerWidthClass}
+		{props.isScrollable ? 'overflow-y-auto' : 'overflow-auto'}
 		transform shadow-xl transition-transform duration-300 ease-in-out"
 	class:translate-x-0={visualOpenState}
 	class:-translate-x-full={!visualOpenState && position === 'left'}
