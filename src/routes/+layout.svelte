@@ -318,7 +318,7 @@
 
 	<!-- Scrollable middle content. This is the ONLY app-level scroll container. -->
 	<div bind:this={scrollEl} class="app-shell__content bg-base-200">
-		<div class="bg-base-200 h-full flex flex-col overflow-x-hidden">
+		<div class="bg-base-200 overflow-x-hidden">
 			{#if $devicePlatform === 'web' && !isLandingPage}
 				<!-- Ensure web routes can use full-height (no unintended outer scrolling) -->
 				<div class="bg-base-200 flex h-full min-h-0 flex-col overflow-x-hidden">

@@ -1434,7 +1434,7 @@
 	 * ============================================================================ */
 	.find-tasks-container {
 		--tasks-content-height-mobile: calc(
-			var(--app-height, 100dvh) - var(--app-dock-height, var(--app-footer-height, 64px)) -
+			100vh - var(--app-dock-height, var(--app-footer-height, 64px)) -
 				var(--header-controls-height, 10rem)
 		);
 	}
