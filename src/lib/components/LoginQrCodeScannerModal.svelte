@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount, onDestroy, tick } from 'svelte';
 	import { t } from 'svelte-i18n';
+	import { lockViewport, unlockViewport } from '$lib/utils/helpers/viewportLock';
 	import { Html5Qrcode, type Html5QrcodeCameraScanConfig } from 'html5-qrcode';
 	import { Capacitor } from '@capacitor/core';
 	import {
@@ -38,6 +39,7 @@
 		try {
 			scanning = true;
 			showModal = true;
+			lockViewport();
 
 			// Wait for DOM to update so the qr-reader element is available
 			await tick();
@@ -245,6 +247,7 @@
 	async function stopScan() {
 		scanning = false;
 		showModal = false;
+		unlockViewport();
 		document.querySelector('body')?.classList.remove('barcode-scanning-active');
 
 		// Restore original theme variables

@@ -2,6 +2,7 @@
 	import { onMount, onDestroy } from 'svelte';
 	import type { Task } from '$lib/types/task.d';
 	import TaskLocationMap from '$lib/components/maps/TaskLocationMap.svelte';
+	import { lockViewport, unlockViewport } from '$lib/utils/helpers/viewportLock';
 	import { t } from 'svelte-i18n';
 	import TranslatableTask from '$lib/components/task/TranslatableTask.svelte';
 
@@ -100,6 +101,7 @@
 	onMount(() => {
 		const prevOverflow = document.body.style.overflow;
 		document.body.style.overflow = '';
+		lockViewport();
 
 		window.addEventListener('resize', handleResize);
 
@@ -109,6 +111,7 @@
 
 		return () => {
 			document.body.style.overflow = prevOverflow;
+			unlockViewport();
 		};
 	});
 

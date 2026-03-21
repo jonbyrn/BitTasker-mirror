@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
 	import { t } from 'svelte-i18n';
+	import { lockViewport, unlockViewport } from '$lib/utils/helpers/viewportLock';
 	import {
 		BarcodeScanner,
 		type Barcode,
@@ -68,6 +69,7 @@
 		if (!isPermissionGranted) await requestPermissions();
 
 		showScanner = true;
+		lockViewport();
 		// Add class to hide background
 		document.querySelector('body')?.classList.add('barcode-scanning-active');
 
@@ -151,6 +153,7 @@
 
 	async function stopScan() {
 		showScanner = false;
+		unlockViewport();
 		document.querySelector('body')?.classList.remove('barcode-scanning-active');
 
 		// Restore original theme variables
