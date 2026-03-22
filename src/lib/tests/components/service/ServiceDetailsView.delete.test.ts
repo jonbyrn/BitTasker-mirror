@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, waitFor } from '@testing-library/svelte';
 import type { Service } from '$lib/types/service.d';
 import type { ContractWithEvents } from '$lib/types/contract';
 import { EscrowStatus } from '$lib/utils/escrow';
+import { resetServiceDeleteUiState } from '$lib/stores/service-delete-ui.store';
 
 const hoisted = vi.hoisted(() => {
 	function createStore<T>(initialValue: T) {
@@ -35,8 +36,23 @@ const hoisted = vi.hoisted(() => {
 		mockQueryTaskeeThreads: vi.fn().mockResolvedValue([]),
 		mockGetActiveContractsForService: vi.fn().mockReturnValue([]),
 		mockDeleteService: vi.fn().mockResolvedValue('deleted'),
+		mockDeleteFile: vi.fn().mockResolvedValue(undefined),
 		mockShowSuccessToast: vi.fn(),
 		mockShowErrorToast: vi.fn(),
+		appStoreState: createStore({
+			nostrKeys: {
+				nsec: null,
+				npub: 'a'.repeat(64),
+				mnemonic: null
+			},
+			isLoading: false,
+			error: null,
+			toasts: [],
+			biometricData: null,
+			network: 'testnet',
+			pool: null,
+			relays: []
+		}),
 		walletStoreMock: createStore({
 			isConnected: true,
 			rsk: {
@@ -133,6 +149,7 @@ vi.mock('$lib/components/service/ServiceInstantBuyModal.svelte', () => ({
 
 vi.mock('$lib/stores/app.store', () => ({
 	appStore: {
+		subscribe: hoisted.appStoreState.subscribe,
 		showSuccessToast: hoisted.mockShowSuccessToast,
 		showErrorToast: hoisted.mockShowErrorToast,
 		showInfoToast: vi.fn()
@@ -140,15 +157,21 @@ vi.mock('$lib/stores/app.store', () => ({
 }));
 
 vi.mock('$lib/utils/service-quote/query', () => ({
-	queryTaskeeServiceQuoteThreads: (
-		...args: Parameters<typeof hoisted.mockQueryTaskeeThreads>
-	) => hoisted.mockQueryTaskeeThreads(...args)
+	queryTaskeeServiceQuoteThreads: (...args: Parameters<typeof hoisted.mockQueryTaskeeThreads>) =>
+		hoisted.mockQueryTaskeeThreads(...args)
 }));
 
 vi.mock('$lib/nostr/service', () => ({
 	findServiceByUniqueId: vi.fn(),
 	deleteService: (...args: Parameters<typeof hoisted.mockDeleteService>) =>
 		hoisted.mockDeleteService(...args)
+}));
+
+vi.mock('$lib/api/services/upload.service', () => ({
+	default: {
+		deleteFile: (...args: Parameters<typeof hoisted.mockDeleteFile>) =>
+			hoisted.mockDeleteFile(...args)
+	}
 }));
 
 vi.mock('$lib/utils/service-contract/create', () => ({
@@ -172,6 +195,15 @@ function createService(): Service {
 		status: 'active',
 		title: 'Brand Identity Sprint',
 		description: 'Logo, color palette, and social avatar pack.',
+		portfolio: [
+			{
+				url: 'https://cdn.example.com/service-image.webp',
+				key: 'service-image-key',
+				type: 'image/*',
+				alt: 'Service image',
+				size: 1234
+			}
+		],
 		serviceLocationTypes: [],
 		pricing: {
 			type: 'FIXED',
@@ -244,6 +276,21 @@ describe('ServiceDetailsView delete workflow', () => {
 
 	beforeEach(() => {
 		vi.clearAllMocks();
+		resetServiceDeleteUiState();
+		hoisted.appStoreState.set({
+			nostrKeys: {
+				nsec: null,
+				npub: 'a'.repeat(64),
+				mnemonic: null
+			},
+			isLoading: false,
+			error: null,
+			toasts: [],
+			biometricData: null,
+			network: 'testnet',
+			pool: null,
+			relays: []
+		});
 		hoisted.contractStoreState.set({
 			contracts: []
 		});
@@ -256,9 +303,7 @@ describe('ServiceDetailsView delete workflow', () => {
 		cleanup();
 	});
 
-	it(
-		'blocks owner deletion when active contracts still exist',
-		async () => {
+	it('blocks owner deletion when active contracts still exist', async () => {
 		hoisted.contractStoreState.set({
 			contracts: [createContract()]
 		});
@@ -269,15 +314,70 @@ describe('ServiceDetailsView delete workflow', () => {
 		await fireEvent.click(getByText('Delete Service'));
 
 		expect(await findByText('Cannot delete service')).toBeTruthy();
-		expect(await findByText(/Active service contracts are still attached to this service/)).toBeTruthy();
+		expect(
+			await findByText(/Active service contracts are still attached to this service/)
+		).toBeTruthy();
 		expect(hoisted.mockDeleteService).not.toHaveBeenCalled();
-		},
-		20_000
-	);
+	}, 20_000);
 
-	it(
-		'confirms owner deletion and returns to my services when no blockers remain',
-		async () => {
+	it('warns about open requests but still allows deletion', async () => {
+		hoisted.mockQueryTaskeeThreads.mockResolvedValue([
+			{
+				request: {
+					id: 'request-event-1',
+					kind: 6420,
+					pubkey: 'b'.repeat(64),
+					created_at: 1,
+					tags: [],
+					content: {
+						type: 'service-quote-request',
+						quoteRequestId: 'qr_valid123',
+						serviceId: `30402:${'a'.repeat(64)}:service-123`,
+						serviceAddress: `30402:${'a'.repeat(64)}:service-123`,
+						pricingType: 'FIXED',
+						inquiry: {
+							title: 'Need a brand refresh',
+							description: 'Please send a proposal for a full design pass.'
+						},
+						timestamp: 1,
+						version: 'v1'
+					}
+				},
+				proposals: [],
+				taskerPubkey: 'b'.repeat(64),
+				taskeePubkey: 'a'.repeat(64),
+				serviceAddress: `30402:${'a'.repeat(64)}:service-123`,
+				serviceId: `30402:${'a'.repeat(64)}:service-123`
+			}
+		]);
+
+		const { getAllByText, findByText } = await renderView(createService());
+
+		await fireEvent.click(getAllByText('Delete Service')[0]);
+		expect(await findByText(/open request/i)).toBeTruthy();
+		await fireEvent.click(getAllByText('Confirm Delete')[0]);
+
+		await waitFor(() => expect(hoisted.mockDeleteService).toHaveBeenCalledTimes(1));
+		expect(hoisted.mockDeleteService).toHaveBeenCalledWith(
+			'service-event-1',
+			{
+				hasOpenQuotes: true,
+				hasActiveContracts: false
+			},
+			{
+				uniqueId: 'service-123'
+			}
+		);
+		expect(hoisted.mockDeleteFile).toHaveBeenCalledWith(
+			expect.objectContaining({
+				key: 'service-image-key',
+				cloudflareId: 'service-image-key',
+				type: 'image'
+			})
+		);
+	}, 10_000);
+
+	it('confirms owner deletion and returns to my services when no blockers remain', async () => {
 		const { getAllByText, findByText } = await renderView(createService());
 
 		await fireEvent.click(getAllByText('Delete Service')[0]);
@@ -285,12 +385,16 @@ describe('ServiceDetailsView delete workflow', () => {
 		await fireEvent.click(getAllByText('Confirm Delete')[0]);
 
 		await waitFor(() => expect(hoisted.mockDeleteService).toHaveBeenCalledTimes(1));
-		expect(hoisted.mockDeleteService).toHaveBeenCalledWith('service-event-1', {
-			hasOpenQuotes: false,
-			hasActiveContracts: false
-		});
+		expect(hoisted.mockDeleteService).toHaveBeenCalledWith(
+			'service-event-1',
+			{
+				hasOpenQuotes: false,
+				hasActiveContracts: false
+			},
+			{
+				uniqueId: 'service-123'
+			}
+		);
 		expect(hoisted.mockGoto).toHaveBeenCalledWith('/dashboard?tab=my-services');
-		},
-		10_000
-	);
+	}, 10_000);
 });

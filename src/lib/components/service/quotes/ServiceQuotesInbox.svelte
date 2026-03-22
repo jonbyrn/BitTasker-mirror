@@ -15,6 +15,7 @@
 	} from './ServiceProposalComposer.svelte';
 
 	let {
+		serviceUnavailable = false,
 		serviceLabel = null,
 		showServiceTitles = false,
 		serviceTitleByAddress = {},
@@ -30,6 +31,7 @@
 		onInvalidFocusedRequest,
 		onSendProposal
 	}: {
+		serviceUnavailable?: boolean;
 		serviceLabel?: string | null;
 		showServiceTitles?: boolean;
 		serviceTitleByAddress?: Record<string, string>;
@@ -88,6 +90,12 @@
 			(Boolean(focusedRequestId) && hasLoaded && isSyncing && !selectedTimeline)
 	);
 	const composerBlockedReason = $derived.by(() => {
+		if (serviceUnavailable) {
+			return tr(
+				'dashboard.services.my_services.quote_inbox.blocked_reason.service_unavailable',
+				'This service was deleted by the provider. Existing requests are now read-only.'
+			);
+		}
 		if (isOffline) {
 			return tr(
 				'dashboard.services.my_services.quote_inbox.blocked_reason.offline',
@@ -215,10 +223,15 @@
 							`Service: ${serviceLabel}`,
 							{ service: serviceLabel }
 						)
-					: tr(
-							'dashboard.services.my_services.quote_inbox.select_service_prompt',
-							'Select a service to review incoming requests.'
-						)}
+					: serviceUnavailable
+						? tr(
+								'dashboard.services.my_services.quote_inbox.deleted_service_prefix',
+								'Service: Deleted service'
+							)
+						: tr(
+								'dashboard.services.my_services.quote_inbox.select_service_prompt',
+								'Select a service to review incoming requests.'
+							)}
 			</p>
 		</div>
 
@@ -371,6 +384,24 @@
 						{tr('dashboard.services.my_services.quote_inbox.view_contract', 'View Contract')}
 					</button>
 				</section>
+			{:else if serviceUnavailable}
+				<section
+					class="border-warning/20 bg-warning/10 rounded-2xl border p-4 shadow-sm"
+					data-testid="service-quotes-unavailable-alert"
+				>
+					<h4 class="text-sm font-semibold">
+						{tr(
+							'dashboard.services.my_services.quote_inbox.service_unavailable_title',
+							'Service unavailable'
+						)}
+					</h4>
+					<p class="text-base-content/70 mt-1 text-sm">
+						{tr(
+							'dashboard.services.my_services.quote_inbox.service_unavailable_body',
+							'This service was deleted by the provider. Keep this request for reference, but no new proposals can be sent.'
+						)}
+					</p>
+				</section>
 			{:else if selectedTimelineExpired}
 				<section class="border-warning/20 bg-warning/10 rounded-2xl border p-4 shadow-sm">
 					<h4 class="text-sm font-semibold">
@@ -412,6 +443,7 @@
 				<ServiceProposalComposer
 					requestTitle={selectedTimeline.request.content.inquiry.title}
 					disabled={isSyncing ||
+						serviceUnavailable ||
 						Boolean(loadError) ||
 						isOffline ||
 						providerDataIsStale ||

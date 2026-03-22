@@ -1,4 +1,9 @@
-import type { ServiceBody, Service, ServiceTranslations, ServicePricing } from '$lib/types/service.d';
+import type {
+	ServiceBody,
+	Service,
+	ServiceTranslations,
+	ServicePricing
+} from '$lib/types/service.d';
 import { getSignedEvent } from '$lib/utils/nostr';
 import { user } from '$lib/stores/user.store';
 import { get } from 'svelte/store';
@@ -20,12 +25,13 @@ const translationService = new TranslationService();
  * Format: service-{slug}-{createdAt}-{suffix} for SEO and stable identification.
  */
 function getReadableServiceDTag(title: string, createdAt: number, npub?: string): string {
-	const slug = title
-		.trim()
-		.toLowerCase()
-		.replace(/\s+/g, '-')
-		.replace(/[^a-z0-9-]/g, '')
-		.slice(0, 50) || 'service';
+	const slug =
+		title
+			.trim()
+			.toLowerCase()
+			.replace(/\s+/g, '-')
+			.replace(/[^a-z0-9-]/g, '')
+			.slice(0, 50) || 'service';
 	const fromNpub = npub ? npub.replace(/[^a-z0-9]/gi, '').slice(0, 6) : '';
 	const suffix =
 		fromNpub.length >= 6
@@ -155,7 +161,6 @@ async function generateServiceTranslations(
 
 			// Check if basic translations failed
 			if ('code' in titleResult || 'code' in descResult) {
-				
 				return null;
 			}
 
@@ -172,9 +177,10 @@ async function generateServiceTranslations(
 				return {
 					id: tier.id,
 					name: 'translatedText' in nameResult ? nameResult.translatedText : tier.name,
-					description: 'translatedText' in descResult ? descResult.translatedText : tier.description,
-					features: featureResults.map(
-						(r, i) => ('translatedText' in r ? r.translatedText : tier.features[i])
+					description:
+						'translatedText' in descResult ? descResult.translatedText : tier.description,
+					features: featureResults.map((r, i) =>
+						'translatedText' in r ? r.translatedText : tier.features[i]
 					),
 					...(tier.deliveryTime
 						? {
@@ -436,7 +442,11 @@ async function generateServiceTags(
 	tags.push(['summary', serviceData.description.substring(0, 200)]); // NIP-99: Brief summary/tagline
 	tags.push(['published_at', serviceData.createdAt.toString()]); // NIP-99: Publication timestamp
 	tags.push(['location', getLocationDisplayName(serviceData)]); // NIP-99: Service location
-	tags.push(['price', getPriceForTag(serviceData.pricing).toString(), serviceData.pricing.currency]); // NIP-99: Price array
+	tags.push([
+		'price',
+		getPriceForTag(serviceData.pricing).toString(),
+		serviceData.pricing.currency
+	]); // NIP-99: Price array
 	tags.push([TAGS.S, serviceData.status]); // NIP-99: Status (single-char for filtering)
 
 	// BITTASKER EXTENSIONS (advanced features - human-readable tags)
@@ -518,6 +528,26 @@ async function generateServiceTags(
 	}
 
 	return tags;
+}
+
+function getCreateServiceEventKind(status: ServiceBody['status']): number {
+	return status === 'active' ? KINDS.SERVICE_ACTIVE : KINDS.SERVICE_DRAFT;
+}
+
+function getUpdatedServiceEventKind(
+	originalEventKind: number,
+	updatedStatus: ServiceBody['status']
+): number {
+	if (updatedStatus === 'active') {
+		return KINDS.SERVICE_ACTIVE;
+	}
+
+	// Preserve published service identity on kind 30402 when toggling inactive/sold.
+	if (originalEventKind === KINDS.SERVICE_ACTIVE) {
+		return KINDS.SERVICE_ACTIVE;
+	}
+
+	return KINDS.SERVICE_DRAFT;
 }
 
 /**
@@ -602,8 +632,7 @@ export async function createService(serviceData: ServiceBody): Promise<string> {
 		};
 
 		// Determine event kind based on status
-		const eventKind =
-			serviceData.status === 'active' ? KINDS.SERVICE_ACTIVE : KINDS.SERVICE_DRAFT;
+		const eventKind = getCreateServiceEventKind(serviceData.status);
 
 		// Generate tags (d-tag is the human-readable identifier)
 		const tags = await generateServiceTags(serviceDataWithMeta, dTagValue);
@@ -673,10 +702,7 @@ export async function updateService(
 			current.created_at > latest.created_at ? current : latest
 		);
 
-		if (
-			options.expectedServiceEventId &&
-			originalService.id !== options.expectedServiceEventId
-		) {
+		if (options.expectedServiceEventId && originalService.id !== options.expectedServiceEventId) {
 			throw createServiceEditConflictError({
 				dTag,
 				expectedServiceEventId: options.expectedServiceEventId,
@@ -718,8 +744,7 @@ export async function updateService(
 
 		// Determine event kind based on status (use updated status if provided, otherwise keep original)
 		const updatedStatus = updates.status || originalServiceData.status;
-		const eventKind =
-			updatedStatus === 'active' ? KINDS.SERVICE_ACTIVE : KINDS.SERVICE_DRAFT;
+		const eventKind = getUpdatedServiceEventKind(originalService.kind, updatedStatus);
 
 		// Merge updates with original service data
 		const updatedServiceData: ServiceBody = {
@@ -761,28 +786,73 @@ export interface DeleteServiceGuardInput {
 	hasActiveContracts: boolean;
 }
 
-export function assertServiceDeletionAllowed(guard: DeleteServiceGuardInput): void {
-	if (guard.hasOpenQuotes) {
-		throw new Error('Cannot delete a service with open quotes.');
-	}
+interface DeleteServiceOptions {
+	uniqueId?: string | null;
+}
 
+export function assertServiceDeletionAllowed(guard: DeleteServiceGuardInput): void {
 	if (guard.hasActiveContracts) {
 		throw new Error('Cannot delete a service with active contracts.');
 	}
 }
 
+async function resolveDeleteTargetEventIds(
+	eventId: string,
+	options: DeleteServiceOptions = {}
+): Promise<string[]> {
+	const uniqueId = options.uniqueId?.trim();
+	if (!uniqueId) {
+		return [eventId];
+	}
+
+	try {
+		const npub = await getNpub();
+		if (!npub) {
+			return [eventId];
+		}
+
+		let authorHex = npub;
+		if (npub.startsWith('npub')) {
+			const decoded = nip19.decode(npub);
+			if (decoded.type !== 'npub') {
+				return [eventId];
+			}
+			authorHex = decoded.data as string;
+		}
+
+		const response = await nostrEventsService.requestEvents({
+			filters: [
+				{
+					kinds: [KINDS.SERVICE_ACTIVE, KINDS.SERVICE_DRAFT],
+					'#d': [uniqueId],
+					authors: [authorHex],
+					limit: 20
+				}
+			]
+		});
+
+		const resolvedIds = response.data?.map((event) => event.id) ?? [];
+		return Array.from(new Set([eventId, ...resolvedIds]));
+	} catch (error) {
+		console.error('Failed to resolve all service versions before delete:', error);
+		return [eventId];
+	}
+}
+
 export async function deleteService(
 	eventId: string,
-	guard: DeleteServiceGuardInput
+	guard: DeleteServiceGuardInput,
+	options: DeleteServiceOptions = {}
 ): Promise<string> {
 	try {
 		assertServiceDeletionAllowed(guard);
+		const targetEventIds = await resolveDeleteTargetEventIds(eventId, options);
 
 		const event = {
 			kind: 5, // NIP-09 deletion event
 			created_at: Math.floor(Date.now() / 1000),
 			content: 'Service deleted',
-			tags: [['e', eventId]] // Reference to event being deleted (kind is event key, no need for k tag)
+			tags: targetEventIds.map((targetEventId) => ['e', targetEventId]) // Delete every known version of the same service identity.
 		};
 
 		// Sign and publish
@@ -819,12 +889,31 @@ export async function findServiceByUniqueId(dTag: string): Promise<Service | nul
 				current.created_at > latest.created_at ? current : latest
 			);
 
+			const deletionResponse = await nostrEventsService.requestEvents({
+				filters: [
+					{
+						kinds: [5],
+						'#e': [latestEvent.id],
+						limit: 20
+					}
+				]
+			});
+
+			if (
+				deletionResponse.data?.some((event) =>
+					event.tags.some((tag) => tag[0] === 'e' && tag[1] === latestEvent.id)
+				)
+			) {
+				return null;
+			}
+
 			// Parse service data
 			const contentData = JSON.parse(latestEvent.content) as ServiceBody;
 			const service: Service = {
 				...contentData,
 				id: latestEvent.id,
-				npub: latestEvent.pubkey
+				npub: latestEvent.pubkey,
+				eventKind: latestEvent.kind
 			};
 
 			return service;

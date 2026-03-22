@@ -2,10 +2,12 @@
 	import { goto } from '$app/navigation';
 	import { t } from 'svelte-i18n';
 	import DashboardQuoteCard from './DashboardQuoteCard.svelte';
+	import { findServiceByUniqueId } from '$lib/nostr/service';
 	import { createDashboardUrl } from '$lib/utils/service-quote/dashboard-route';
 	import { browserNetworkStatus } from '$lib/utils/network-status';
 	import type { ServiceQuoteTimelineEntry } from '$lib/types/service-quote';
 	import { getTaskerDataFreshness, serviceQuoteUiStore } from '$lib/stores/service-quote-ui.store';
+	import { parseServiceAddress } from '$lib/utils/service-quote/protocol';
 
 	let {
 		timelines = [],
@@ -36,6 +38,7 @@
 	}
 
 	let actionPending = $state<'accept' | 'decline' | null>(null);
+	let serviceUnavailableByAddress = $state<Record<string, boolean>>({});
 
 	function translateOrFallback(key: string, fallback: string): string {
 		try {
@@ -74,9 +77,53 @@
 		taskerDataIsPartial ||
 			(Boolean(focusedRequestId) && hasLoaded && isSyncing && !selectedTimeline)
 	);
-	const actionsUnavailable = $derived(
-		isSyncing || Boolean(loadError) || isOffline || taskerDataIsStale || showPartialSyncAlert
+	const selectedTimelineServiceUnavailable = $derived(
+		selectedTimeline
+			? serviceUnavailableByAddress[selectedTimeline.request.content.serviceAddress] === true
+			: false
 	);
+	const actionsUnavailable = $derived(
+		isSyncing ||
+			Boolean(loadError) ||
+			isOffline ||
+			taskerDataIsStale ||
+			showPartialSyncAlert ||
+			selectedTimelineServiceUnavailable
+	);
+
+	$effect(() => {
+		const serviceAddresses = [
+			...new Set(timelines.map((timeline) => timeline.request.content.serviceAddress))
+		];
+		let cancelled = false;
+
+		if (serviceAddresses.length === 0) {
+			serviceUnavailableByAddress = {};
+			return;
+		}
+
+		void (async () => {
+			const entries = await Promise.all(
+				serviceAddresses.map(async (serviceAddress) => {
+					try {
+						const { dTag } = parseServiceAddress(serviceAddress);
+						const service = await findServiceByUniqueId(dTag);
+						return [serviceAddress, service === null] as const;
+					} catch {
+						return [serviceAddress, true] as const;
+					}
+				})
+			);
+
+			if (!cancelled) {
+				serviceUnavailableByAddress = Object.fromEntries(entries);
+			}
+		})();
+
+		return () => {
+			cancelled = true;
+		};
+	});
 	function getQuoteActionButtons(timeline: ServiceQuoteTimelineEntry): ActionButton[] {
 		const buttons: ActionButton[] = [];
 
@@ -92,7 +139,12 @@
 		});
 
 		// Accept button - only if proposal exists and not yet accepted
-		if (timeline.latestProposal && !timeline.linkedEscrowId && showAcceptActions) {
+		if (
+			timeline.latestProposal &&
+			!timeline.linkedEscrowId &&
+			showAcceptActions &&
+			serviceUnavailableByAddress[timeline.request.content.serviceAddress] !== true
+		) {
 			buttons.push({
 				label: translateOrFallback('dashboard.service_requests.actions.accept', 'Accept'),
 				class: 'btn-success',
@@ -107,7 +159,12 @@
 		}
 
 		// Decline button - only if proposal exists and not yet accepted
-		if (timeline.latestProposal && !timeline.linkedEscrowId && showAcceptActions) {
+		if (
+			timeline.latestProposal &&
+			!timeline.linkedEscrowId &&
+			showAcceptActions &&
+			serviceUnavailableByAddress[timeline.request.content.serviceAddress] !== true
+		) {
 			buttons.push({
 				label: translateOrFallback('dashboard.service_requests.actions.decline', 'Decline'),
 				class: 'btn-ghost',
@@ -194,6 +251,17 @@
 </script>
 
 <section data-testid="my-quotes-panel" class="space-y-4">
+	{#if timelines.some((timeline) => serviceUnavailableByAddress[timeline.request.content.serviceAddress] === true)}
+		<div class="alert alert-warning text-sm" data-testid="my-quotes-unavailable-alert">
+			<span>
+				{translateOrFallback(
+					'dashboard.service_requests.alerts.service_unavailable',
+					'Some services were deleted by the provider. Those requests remain visible as read-only history unless a contract was already created.'
+				)}
+			</span>
+		</div>
+	{/if}
+
 	{#if showPartialSyncAlert}
 		<div class="alert alert-warning text-sm" data-testid="my-quotes-partial-alert">
 			<span>
@@ -274,7 +342,13 @@
 	{:else}
 		<div class="grid grid-cols-1 gap-5">
 			{#each timelines as timeline (timeline.request.id)}
-				<DashboardQuoteCard {timeline} getActionButtons={getQuoteActionButtons} />
+				<DashboardQuoteCard
+					{timeline}
+					getActionButtons={getQuoteActionButtons}
+					serviceUnavailable={serviceUnavailableByAddress[
+						timeline.request.content.serviceAddress
+					] === true}
+				/>
 			{/each}
 		</div>
 	{/if}

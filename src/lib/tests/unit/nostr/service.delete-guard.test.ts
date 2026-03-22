@@ -3,7 +3,8 @@ import { assertServiceDeletionAllowed, deleteService } from '$lib/nostr/service'
 
 const hoisted = vi.hoisted(() => ({
 	mockDeleteEvent: vi.fn(),
-	mockGetSignedEvent: vi.fn()
+	mockGetSignedEvent: vi.fn(),
+	mockRequestEvents: vi.fn()
 }));
 
 vi.mock('$lib/utils/nostr', () => ({
@@ -15,7 +16,8 @@ vi.mock('$lib/api/services/nostr/events', () => ({
 	default: {
 		deleteEvent: (...args: Parameters<typeof hoisted.mockDeleteEvent>) =>
 			hoisted.mockDeleteEvent(...args),
-		requestEvents: vi.fn(),
+		requestEvents: (...args: Parameters<typeof hoisted.mockRequestEvents>) =>
+			hoisted.mockRequestEvents(...args),
 		publishEvent: vi.fn()
 	}
 }));
@@ -45,6 +47,9 @@ vi.mock('$lib/stores/user.store', async () => {
 describe('deleteService guard enforcement', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		hoisted.mockRequestEvents.mockResolvedValue({
+			data: []
+		});
 		hoisted.mockGetSignedEvent.mockResolvedValue({
 			id: 'signed-delete',
 			kind: 5,
@@ -59,21 +64,21 @@ describe('deleteService guard enforcement', () => {
 		});
 	});
 
-	it('rejects deletion when open quotes remain', async () => {
+	it('allows deletion when only open quotes remain', async () => {
 		expect(() =>
 			assertServiceDeletionAllowed({
 				hasOpenQuotes: true,
 				hasActiveContracts: false
 			})
-		).toThrow('Cannot delete a service with open quotes.');
+		).not.toThrow();
 
 		await expect(
 			deleteService('service-event-1', {
 				hasOpenQuotes: true,
 				hasActiveContracts: false
 			})
-		).rejects.toThrow('Cannot delete a service with open quotes.');
-		expect(hoisted.mockDeleteEvent).not.toHaveBeenCalled();
+		).resolves.toBe('deleted');
+		expect(hoisted.mockDeleteEvent).toHaveBeenCalledTimes(1);
 	});
 
 	it('rejects deletion when active contracts remain', async () => {
@@ -99,6 +104,62 @@ describe('deleteService guard enforcement', () => {
 			expect.objectContaining({
 				kind: 5,
 				tags: [['e', 'service-event-1']]
+			})
+		);
+	});
+
+	it('deletes every known version for the same service unique id', async () => {
+		hoisted.mockRequestEvents.mockResolvedValueOnce({
+			data: [
+				{
+					id: 'service-event-1',
+					pubkey: 'a'.repeat(64),
+					created_at: 1_700_000_200,
+					kind: 30402,
+					tags: [['d', 'service-123']],
+					content: '{}'
+				},
+				{
+					id: 'service-event-old-draft',
+					pubkey: 'a'.repeat(64),
+					created_at: 1_700_000_100,
+					kind: 30403,
+					tags: [['d', 'service-123']],
+					content: '{}'
+				}
+			]
+		});
+
+		await expect(
+			deleteService(
+				'service-event-1',
+				{
+					hasOpenQuotes: false,
+					hasActiveContracts: false
+				},
+				{
+					uniqueId: 'service-123'
+				}
+			)
+		).resolves.toBe('deleted');
+
+		expect(hoisted.mockRequestEvents).toHaveBeenCalledWith({
+			filters: [
+				expect.objectContaining({
+					kinds: [30402, 30403],
+					'#d': ['service-123'],
+					authors: ['a'.repeat(64)],
+					limit: 20
+				})
+			]
+		});
+		expect(hoisted.mockGetSignedEvent).toHaveBeenCalledWith(
+			expect.objectContaining({
+				kind: 5,
+				tags: [
+					['e', 'service-event-1'],
+					['e', 'service-event-old-draft']
+				]
 			})
 		);
 	});
