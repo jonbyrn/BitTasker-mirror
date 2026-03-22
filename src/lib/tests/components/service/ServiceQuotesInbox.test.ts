@@ -27,9 +27,7 @@ const { goto, quoteUiStoreMock } = vi.hoisted(() => ({
 			this.subscribers.add(run);
 			return () => this.subscribers.delete(run);
 		},
-		set(next: {
-			providerDataFreshnessByService: Record<string, 'fresh' | 'stale' | 'partial'>;
-		}) {
+		set(next: { providerDataFreshnessByService: Record<string, 'fresh' | 'stale' | 'partial'> }) {
 			this.value = next;
 			this.subscribers.forEach((run) => run(this.value));
 		}
@@ -46,7 +44,8 @@ vi.mock('$lib/stores/service-quote-ui.store', () => ({
 			providerDataFreshnessByService: Record<string, 'fresh' | 'stale' | 'partial'>;
 		},
 		serviceAddress: string | null | undefined
-	) => (serviceAddress ? state.providerDataFreshnessByService[serviceAddress] ?? 'fresh' : 'fresh'),
+	) =>
+		serviceAddress ? (state.providerDataFreshnessByService[serviceAddress] ?? 'fresh') : 'fresh',
 	serviceQuoteUiStore: {
 		subscribe: (
 			run: (value: {
@@ -337,14 +336,14 @@ describe('ServiceQuotesInbox', () => {
 		expect(getByText('provider query failed')).toBeTruthy();
 	});
 
-	it('shows a stale-data warning and disables proposal authoring while cached provider data is stale', () => {
+	it('keeps stale provider data blocked in-context while cached provider data is stale', () => {
 		quoteUiStoreMock.set({
 			providerDataFreshnessByService: {
 				[baseTimeline.request.content.serviceAddress]: 'stale'
 			}
 		});
 
-		const { getByTestId, getByText, getByRole } = render(ServiceQuotesInbox, {
+		const { getByText, getByRole, queryByTestId } = render(ServiceQuotesInbox, {
 			service: mockService,
 			timelines: [baseTimeline],
 			focusedRequestId: 'qr_valid123',
@@ -353,19 +352,19 @@ describe('ServiceQuotesInbox', () => {
 			feeTierReady: true
 		});
 
-		expect(getByTestId('service-quotes-stale-alert')).toBeTruthy();
+		expect(queryByTestId('service-quotes-stale-alert')).toBeNull();
 		expect(getByText('Showing stale quote data. Refresh before sending a proposal.')).toBeTruthy();
 		expect(getByRole('button', { name: 'Send Proposal' })).toBeDisabled();
 	});
 
-	it('shows a partial-sync warning and disables proposal authoring while thread data is incomplete', () => {
+	it('keeps partial-sync blocking in-context while thread data is incomplete', () => {
 		quoteUiStoreMock.set({
 			providerDataFreshnessByService: {
 				[baseTimeline.request.content.serviceAddress]: 'partial'
 			}
 		});
 
-		const { getByTestId, getByText, getByRole } = render(ServiceQuotesInbox, {
+		const { getByText, getByRole, queryByTestId } = render(ServiceQuotesInbox, {
 			service: mockService,
 			timelines: [baseTimeline],
 			focusedRequestId: 'qr_valid123',
@@ -374,7 +373,7 @@ describe('ServiceQuotesInbox', () => {
 			feeTierReady: true
 		});
 
-		expect(getByTestId('service-quotes-partial-alert')).toBeTruthy();
+		expect(queryByTestId('service-quotes-partial-alert')).toBeNull();
 		expect(
 			getByText(
 				'Quote data is still propagating across relays. Sending is disabled until the latest request thread is fully synced.'
@@ -384,7 +383,7 @@ describe('ServiceQuotesInbox', () => {
 	});
 
 	it('keeps the provider composer blocked in-context while offline', () => {
-		const { getByRole, getByTestId, getByText } = render(ServiceQuotesInbox, {
+		const { getByRole, getByText, queryByTestId } = render(ServiceQuotesInbox, {
 			service: mockService,
 			timelines: [baseTimeline],
 			focusedRequestId: 'qr_valid123',
@@ -397,7 +396,7 @@ describe('ServiceQuotesInbox', () => {
 		window.dispatchEvent(new Event('offline'));
 
 		return waitFor(() => {
-			expect(getByTestId('service-quotes-offline-alert')).toBeTruthy();
+			expect(queryByTestId('service-quotes-offline-alert')).toBeNull();
 			expect(getByRole('button', { name: 'Send Proposal' })).toBeDisabled();
 			expect(getByText('You are offline. Reconnect before sending a proposal.')).toBeTruthy();
 		});
@@ -550,7 +549,7 @@ describe('ServiceQuotesInbox', () => {
 		expect(queryByText('No quote requests are available for this service yet.')).toBeNull();
 	});
 
-	it('renders a partial-data alert while the exact provider thread is still syncing', () => {
+	it('renders the waiting-state message while the exact provider thread is still syncing', () => {
 		const { getByText, queryByRole } = render(ServiceQuotesInbox, {
 			service: mockService,
 			timelines: [],
@@ -561,11 +560,6 @@ describe('ServiceQuotesInbox', () => {
 			feeTierReady: true
 		});
 
-		expect(
-			getByText(
-				'Latest request-thread data is still propagating across relays. Showing partial results until the sync completes.'
-			)
-		).toBeTruthy();
 		expect(getByText('Waiting for the selected quote thread to finish syncing.')).toBeTruthy();
 		expect(queryByRole('button', { name: 'Send Proposal' })).toBeNull();
 	});

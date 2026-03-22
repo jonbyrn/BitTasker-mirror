@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { t } from 'svelte-i18n';
 	import ServiceAgreementSummary from '$lib/components/contracts/ServiceAgreementSummary.svelte';
 	import type { ServiceQuoteTimelineEntry } from '$lib/types/service-quote';
 	import { buildServiceQuoteAgreementSummary } from '$lib/utils/service-quote/agreement-summary';
@@ -88,19 +89,34 @@
 	);
 	const composerBlockedReason = $derived.by(() => {
 		if (isOffline) {
-			return 'You are offline. Reconnect before sending a proposal.';
+			return tr(
+				'dashboard.services.my_services.quote_inbox.blocked_reason.offline',
+				'You are offline. Reconnect before sending a proposal.'
+			);
 		}
 		if (providerDataIsStale) {
-			return 'Showing stale quote data. Refresh before sending a proposal.';
+			return tr(
+				'dashboard.services.my_services.quote_inbox.blocked_reason.stale',
+				'Showing stale quote data. Refresh before sending a proposal.'
+			);
 		}
 		if (showPartialSyncAlert) {
-			return 'Quote data is still propagating across relays. Sending is disabled until the latest request thread is fully synced.';
+			return tr(
+				'dashboard.services.my_services.quote_inbox.blocked_reason.partial',
+				'Quote data is still propagating across relays. Sending is disabled until the latest request thread is fully synced.'
+			);
 		}
 		if (loadError) {
-			return 'Quote data is unavailable right now. Retry before sending a proposal.';
+			return tr(
+				'dashboard.services.my_services.quote_inbox.blocked_reason.unavailable',
+				'Quote data is unavailable right now. Retry before sending a proposal.'
+			);
 		}
 		if (isSyncing) {
-			return 'Quote data is still syncing. Sending is disabled until the latest request state loads.';
+			return tr(
+				'dashboard.services.my_services.quote_inbox.blocked_reason.syncing',
+				'Quote data is still syncing. Sending is disabled until the latest request state loads.'
+			);
 		}
 		return null;
 	});
@@ -109,6 +125,24 @@
 		selectedTimeline?.isExpired === true || selectedTimeline?.resolvedStatus === 'expired'
 	);
 
+	function tr(key: string, fallback: string): string {
+		try {
+			const value = $t(key);
+			return typeof value === 'string' && value !== key ? value : fallback;
+		} catch {
+			return fallback;
+		}
+	}
+
+	function trv(key: string, fallback: string, values: Record<string, string | number>): string {
+		try {
+			const value = $t(key, { values });
+			return typeof value === 'string' && value !== key ? value : fallback;
+		} catch {
+			return fallback;
+		}
+	}
+
 	function selectTimeline(requestId: string) {
 		onRequestFocusChange?.(requestId);
 	}
@@ -116,27 +150,44 @@
 	function describeStatus(timeline: ServiceQuoteTimelineEntry): string {
 		switch (timeline.resolvedStatus) {
 			case 'accepted':
-				return 'Contract created';
+				return tr(
+					'dashboard.services.my_services.quote_inbox.statuses.accepted',
+					'Contract created'
+				);
 			case 'declined':
-				return 'Declined';
+				return tr('dashboard.services.my_services.quote_inbox.statuses.declined', 'Declined');
 			case 'withdrawn':
-				return 'Withdrawn';
+				return tr('dashboard.services.my_services.quote_inbox.statuses.withdrawn', 'Withdrawn');
 			case 'expired':
-				return 'Expired';
+				return tr('dashboard.services.my_services.quote_inbox.statuses.expired', 'Expired');
 			case 'accepting':
-				return 'Accepting';
+				return tr('dashboard.services.my_services.quote_inbox.statuses.accepting', 'Accepting');
 			case 'accept_failed':
-				return 'Accept failed';
+				return tr(
+					'dashboard.services.my_services.quote_inbox.statuses.accept_failed',
+					'Accept failed'
+				);
 			case 'accept_unknown':
-				return 'Accept unknown';
+				return tr(
+					'dashboard.services.my_services.quote_inbox.statuses.accept_unknown',
+					'Accept unknown'
+				);
 			default:
-				return timeline.latestProposal ? 'Proposal sent' : 'Pending';
+				return timeline.latestProposal
+					? tr('dashboard.services.my_services.quote_inbox.statuses.proposal_sent', 'Proposal sent')
+					: tr('dashboard.services.my_services.quote_inbox.statuses.pending', 'Pending');
 		}
 	}
 
 	async function handleProposalSubmit(payload: ServiceProposalComposerSubmitPayload) {
 		if (!selectedTimeline || !onSendProposal) {
-			return { success: false, error: 'Select a request before sending a proposal.' };
+			return {
+				success: false,
+				error: tr(
+					'dashboard.services.my_services.quote_inbox.blocked_reason.select_request',
+					'Select a request before sending a proposal.'
+				)
+			};
 		}
 		return onSendProposal(selectedTimeline.request.content.quoteRequestId, payload);
 	}
@@ -154,65 +205,60 @@
 <section class="space-y-4" data-testid="service-quotes-inbox">
 	<div class="border-base-300 bg-base-100 rounded-2xl border p-4 shadow-sm">
 		<div class="mb-4">
-			<h4 class="text-sm font-semibold">Quotes Inbox</h4>
+			<h4 class="text-sm font-semibold">
+				{tr('dashboard.services.my_services.quote_inbox.title', 'Quote Inbox')}
+			</h4>
 			<p class="text-base-content/70 mt-1 text-sm">
 				{serviceLabel
-					? `Service: ${serviceLabel}`
-					: 'Select a service to review incoming requests.'}
+					? trv(
+							'dashboard.services.my_services.quote_inbox.service_prefix',
+							`Service: ${serviceLabel}`,
+							{ service: serviceLabel }
+						)
+					: tr(
+							'dashboard.services.my_services.quote_inbox.select_service_prompt',
+							'Select a service to review incoming requests.'
+						)}
 			</p>
 		</div>
-
-		{#if isSyncing}
-			<div class="alert alert-info mb-4 text-sm">
-				<span>Syncing the requested thread…</span>
-			</div>
-		{/if}
-
-		{#if showPartialSyncAlert}
-			<div class="alert alert-warning mb-4 text-sm" data-testid="service-quotes-partial-alert">
-				<span>
-					Latest request-thread data is still propagating across relays. Showing partial results
-					until the sync completes.
-				</span>
-			</div>
-		{:else if providerDataIsStale}
-			<div class="alert alert-warning mb-4 text-sm" data-testid="service-quotes-stale-alert">
-				<span>
-					Showing the last known quote data for this service. Refresh before sending a proposal
-					because the latest relay sync did not complete.
-				</span>
-			</div>
-		{/if}
-
-		{#if isOffline}
-			<div class="alert alert-warning mb-4 text-sm" data-testid="service-quotes-offline-alert">
-				<span>You are offline. Reconnect before replying to quote requests.</span>
-			</div>
-		{:else if showReconnectNotice}
-			<div class="alert alert-info mb-4 text-sm" data-testid="service-quotes-reconnect-alert">
-				<span>Back online. Retry if the latest request thread has not refreshed yet.</span>
-			</div>
-		{/if}
 
 		{#if loadError}
 			<div class="alert alert-error mb-4 flex items-center justify-between gap-3 text-sm">
 				<span>{loadError}</span>
 				{#if onRetry}
 					<button type="button" class="btn btn-ghost btn-xs" onclick={onRetry} disabled={isSyncing}>
-						Retry
+						{tr('common.buttons.retry', 'Retry')}
 					</button>
 				{/if}
+			</div>
+		{:else if showReconnectNotice}
+			<div class="alert alert-info mb-4 text-sm" data-testid="service-quotes-reconnect-alert">
+				<span>
+					{tr(
+						'dashboard.services.my_services.quote_inbox.reconnect_alert',
+						'Back online. Retry if the latest request thread has not refreshed yet.'
+					)}
+				</span>
 			</div>
 		{/if}
 
 		{#if timelines.length === 0}
 			<div class="border-base-300 text-base-content/70 rounded-xl border border-dashed p-6 text-sm">
 				{#if !hasLoaded && isSyncing}
-					Loading quote requests for this service...
+					{tr(
+						'dashboard.services.my_services.quote_inbox.loading_service_quotes',
+						'Loading quote requests for this service...'
+					)}
 				{:else if loadError}
-					Retry to load quote requests for this service.
+					{tr(
+						'dashboard.services.my_services.quote_inbox.retry_service_quotes',
+						'Retry to load quote requests for this service.'
+					)}
 				{:else}
-					No quote requests are available for this service yet.
+					{tr(
+						'dashboard.services.my_services.quote_inbox.no_service_quotes',
+						'No quote requests are available for this service yet.'
+					)}
 				{/if}
 			</div>
 		{:else}
@@ -255,12 +301,26 @@
 					<div>
 						<h4 class="text-sm font-semibold">{selectedTimeline.request.content.inquiry.title}</h4>
 						<p class="text-base-content/70 mt-1 text-sm">
-							Request ID: {selectedTimeline.request.content.quoteRequestId}
+							{trv(
+								'dashboard.services.my_services.quote_inbox.request_id',
+								`Request ID: ${selectedTimeline.request.content.quoteRequestId}`,
+								{ requestId: selectedTimeline.request.content.quoteRequestId }
+							)}
 						</p>
 						{#if showServiceTitles}
 							<p class="text-base-content/70 mt-1 text-sm">
-								Service: {serviceTitleByAddress[selectedTimeline.request.content.serviceAddress] ??
-									selectedTimeline.request.content.serviceAddress}
+								{trv(
+									'dashboard.services.my_services.quote_inbox.service',
+									`Service: ${
+										serviceTitleByAddress[selectedTimeline.request.content.serviceAddress] ??
+										selectedTimeline.request.content.serviceAddress
+									}`,
+									{
+										service:
+											serviceTitleByAddress[selectedTimeline.request.content.serviceAddress] ??
+											selectedTimeline.request.content.serviceAddress
+									}
+								)}
 							</p>
 						{/if}
 					</div>
@@ -271,12 +331,20 @@
 					<p>{selectedTimeline.request.content.inquiry.description}</p>
 					{#if selectedTimeline.request.content.tierId}
 						<p class="text-base-content/70">
-							Selected tier: {selectedTimeline.request.content.tierId}
+							{trv(
+								'dashboard.services.my_services.quote_inbox.selected_tier',
+								`Selected tier: ${selectedTimeline.request.content.tierId}`,
+								{ tier: selectedTimeline.request.content.tierId }
+							)}
 						</p>
 					{/if}
 					{#if selectedTimeline.request.content.selectedAddOns?.length}
 						<p class="text-base-content/70">
-							Add-ons: {selectedTimeline.request.content.selectedAddOns.join(', ')}
+							{trv(
+								'dashboard.services.my_services.quote_inbox.addons',
+								`Add-ons: ${selectedTimeline.request.content.selectedAddOns.join(', ')}`,
+								{ addons: selectedTimeline.request.content.selectedAddOns.join(', ') }
+							)}
 						</p>
 					{/if}
 				</div>
@@ -284,29 +352,43 @@
 
 			{#if selectedTimeline.linkedEscrowId}
 				<section class="border-success/20 bg-success/10 rounded-2xl border p-4 shadow-sm">
-					<h4 class="text-sm font-semibold">Contract created</h4>
+					<h4 class="text-sm font-semibold">
+						{tr(
+							'dashboard.services.my_services.quote_inbox.contract_created_title',
+							'Contract created'
+						)}
+					</h4>
 					<p class="text-base-content/70 mt-1 text-sm">
-						This quote request has already been converted into an active service contract.
+						{tr(
+							'dashboard.services.my_services.quote_inbox.contract_created_body',
+							'This quote request has already been converted into an active service contract.'
+						)}
 					</p>
 					<button
 						class="btn btn-primary btn-sm mt-3"
 						onclick={() => viewContract(selectedTimeline.linkedEscrowId)}
 					>
-						View Contract
+						{tr('dashboard.services.my_services.quote_inbox.view_contract', 'View Contract')}
 					</button>
 				</section>
 			{:else if selectedTimelineExpired}
 				<section class="border-warning/20 bg-warning/10 rounded-2xl border p-4 shadow-sm">
-					<h4 class="text-sm font-semibold">Request expired</h4>
+					<h4 class="text-sm font-semibold">
+						{tr('dashboard.services.my_services.quote_inbox.expired_title', 'Request expired')}
+					</h4>
 					<p class="text-base-content/70 mt-1 text-sm">
-						This quote request is now read-only. Wait for the buyer to send a new request before
-						replying again.
+						{tr(
+							'dashboard.services.my_services.quote_inbox.expired_body',
+							'This quote request is now read-only. Wait for the buyer to send a new request before replying again.'
+						)}
 					</p>
 				</section>
 			{:else}
 				{#if selectedProposalSummary}
 					<section class="border-base-300 bg-base-100 rounded-2xl border p-4 shadow-sm">
-						<h4 class="text-sm font-semibold">Latest Proposal</h4>
+						<h4 class="text-sm font-semibold">
+							{tr('dashboard.services.my_services.quote_inbox.latest_proposal', 'Latest Proposal')}
+						</h4>
 						<div class="mt-3">
 							<ServiceAgreementSummary
 								quoteRequestId={selectedProposalSummary.quoteRequestId}
@@ -318,7 +400,11 @@
 								estimatedCompletionTime={selectedProposalSummary.estimatedCompletionTime}
 							/>
 							<p class="text-base-content/70 mt-3 text-sm">
-								Estimated duration: {selectedProposalSummary.estimatedDuration}
+								{trv(
+									'dashboard.services.my_services.quote_inbox.estimated_duration',
+									`Estimated duration: ${selectedProposalSummary.estimatedDuration}`,
+									{ duration: selectedProposalSummary.estimatedDuration }
+								)}
 							</p>
 						</div>
 					</section>
@@ -341,9 +427,15 @@
 				class="border-base-300 text-base-content/70 rounded-2xl border border-dashed p-6 text-sm"
 			>
 				{#if showPartialSyncAlert}
-					Waiting for the selected quote thread to finish syncing.
+					{tr(
+						'dashboard.services.my_services.quote_inbox.waiting_sync',
+						'Waiting for the selected quote thread to finish syncing.'
+					)}
 				{:else}
-					Select a request to review the full inquiry and compose a proposal.
+					{tr(
+						'dashboard.services.my_services.quote_inbox.select_request',
+						'Select a request to review the full inquiry and compose a proposal.'
+					)}
 				{/if}
 			</div>
 		{/if}
