@@ -1,11 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, waitFor, within } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, waitFor } from '@testing-library/svelte';
 import type { Service } from '$lib/types/service.d';
 import type { ContractWithEvents } from '$lib/types/contract';
 import { EscrowStatus } from '$lib/utils/escrow';
 import type { ServiceQuoteTimelineEntry } from '$lib/types/service-quote';
 import { createServicesWorkspaceUrl } from '$lib/utils/service-quote/services-workspace-route';
 import { ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';
+import { resetServiceDeleteUiState } from '$lib/stores/service-delete-ui.store';
 
 const hoisted = vi.hoisted(() => {
 	function createStore<T>(initialValue: T) {
@@ -31,6 +32,7 @@ const hoisted = vi.hoisted(() => {
 		mockGoto: vi.fn(),
 		mockFindMyServices: vi.fn(),
 		mockDeleteService: vi.fn().mockResolvedValue('deleted'),
+		mockDeleteFile: vi.fn().mockResolvedValue(undefined),
 		mockQueryTaskeeThreads: vi.fn().mockResolvedValue([]),
 		mockLoadContracts: vi.fn().mockResolvedValue(undefined),
 		mockLoadProviderTimelines: vi.fn().mockResolvedValue([]),
@@ -87,6 +89,13 @@ vi.mock('$lib/nostr/service', () => ({
 	updateService: vi.fn(),
 	deleteService: (...args: Parameters<typeof hoisted.mockDeleteService>) =>
 		hoisted.mockDeleteService(...args)
+}));
+
+vi.mock('$lib/api/services/upload.service', () => ({
+	default: {
+		deleteFile: (...args: Parameters<typeof hoisted.mockDeleteFile>) =>
+			hoisted.mockDeleteFile(...args)
+	}
 }));
 
 vi.mock('$lib/api/services/crypto-price.service', () => ({
@@ -178,6 +187,15 @@ function createService(): Service {
 		status: 'active',
 		title: 'Brand Identity Sprint',
 		description: 'Logo, color palette, and social avatar pack.',
+		portfolio: [
+			{
+				url: 'https://cdn.example.com/service-image.webp',
+				key: 'service-image-key',
+				type: 'image/*',
+				alt: 'Service image',
+				size: 1234
+			}
+		],
 		serviceLocationTypes: [],
 		pricing: {
 			type: 'FIXED',
@@ -288,6 +306,7 @@ function createContract(
 describe('DashboardMyServicesPanel active contracts shortcut', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		resetServiceDeleteUiState();
 		const service = createService();
 		hoisted.mockFindMyServices.mockResolvedValue({
 			services: [service]
@@ -471,7 +490,7 @@ describe('DashboardMyServicesPanel active contracts shortcut', () => {
 		expect(getByRole('button', { name: 'Send Proposal' })).toBeTruthy();
 	});
 
-	it('blocks deletion when open quote threads remain', async () => {
+	it('warns about open quote threads but still allows deletion', async () => {
 		const service = createService();
 		const serviceAddress = `30402:${service.npub}:${service.uniqueId ?? service.id}`;
 		hoisted.mockQueryTaskeeThreads.mockResolvedValue([
@@ -488,58 +507,85 @@ describe('DashboardMyServicesPanel active contracts shortcut', () => {
 		const { default: DashboardMyServicesPanel } = await import(
 			'$lib/components/service/DashboardMyServicesPanel.svelte'
 		);
-		const { getByRole, findByText, findByRole } = render(DashboardMyServicesPanel, {
+		const { getByRole, findByText, findByRole, queryByText } = render(DashboardMyServicesPanel, {
 			view: 'default'
 		});
 
 		await waitFor(() => expect(hoisted.mockFindMyServices).toHaveBeenCalled());
-		await fireEvent.click(getByRole('button', { name: 'task.actions.view_details' }));
-		await fireEvent.click(
-			await findByRole('button', { name: 'dashboard.services.detail.delete_service' })
-		);
-		const confirmDeleteModal = await findByRole('heading', {
-			name: 'dashboard.services.detail.delete_service_confirm_title'
-		});
-		await fireEvent.click(
-			within(confirmDeleteModal.closest('.modal-box') as HTMLElement).getByRole('button', {
-				name: 'dashboard.services.detail.delete_service'
-			})
-		);
-
-		expect(await findByText('Cannot delete service')).toBeTruthy();
-		expect(await findByText(/Open quotes are still attached to this service/)).toBeTruthy();
-		expect(hoisted.mockDeleteService).not.toHaveBeenCalled();
+		await fireEvent.click(getByRole('button', { name: 'Details' }));
+		await fireEvent.click(await findByRole('button', { name: 'Delete Service' }));
+		expect(await findByText(/This service still has 1 open request/i)).toBeTruthy();
+		expect(queryByText(/Active service contracts are still attached to this service/i)).toBeNull();
 	});
 
 	it('confirms deletion when no blockers remain and refreshes the list', async () => {
 		const { default: DashboardMyServicesPanel } = await import(
 			'$lib/components/service/DashboardMyServicesPanel.svelte'
 		);
-		const { getByRole, findByText, findByRole } = render(DashboardMyServicesPanel, {
+		const { getByRole, findByRole } = render(DashboardMyServicesPanel, {
 			view: 'default'
 		});
 
 		await waitFor(() => expect(hoisted.mockFindMyServices).toHaveBeenCalledTimes(1));
-		await fireEvent.click(getByRole('button', { name: 'task.actions.view_details' }));
-		await fireEvent.click(
-			await findByRole('button', { name: 'dashboard.services.detail.delete_service' })
-		);
-		const confirmDeleteModal = await findByRole('heading', {
-			name: 'dashboard.services.detail.delete_service_confirm_title'
+		await fireEvent.click(getByRole('button', { name: 'Details' }));
+		await fireEvent.click(await findByRole('button', { name: 'Delete Service' }));
+		const confirmDeleteButton = await findByRole('button', {
+			name: /Confirm Delete|dashboard\.services\.my_services\.delete_modal\.confirm_delete/
 		});
-		await fireEvent.click(
-			within(confirmDeleteModal.closest('.modal-box') as HTMLElement).getByRole('button', {
-				name: 'dashboard.services.detail.delete_service'
-			})
-		);
-		expect(await findByText('Delete service')).toBeTruthy();
-		await fireEvent.click(getByRole('button', { name: 'Confirm Delete' }));
+		expect(confirmDeleteButton).toBeTruthy();
+		await fireEvent.click(confirmDeleteButton);
 
 		await waitFor(() => expect(hoisted.mockDeleteService).toHaveBeenCalledTimes(1));
-		expect(hoisted.mockDeleteService).toHaveBeenCalledWith('service-event-1', {
-			hasOpenQuotes: false,
-			hasActiveContracts: false
-		});
+		expect(hoisted.mockDeleteService).toHaveBeenCalledWith(
+			'service-event-1',
+			{
+				hasOpenQuotes: false,
+				hasActiveContracts: false
+			},
+			{
+				uniqueId: 'service-123'
+			}
+		);
+		expect(hoisted.mockDeleteFile).toHaveBeenCalledWith(
+			expect.objectContaining({
+				key: 'service-image-key',
+				cloudflareId: 'service-image-key',
+				type: 'image'
+			})
+		);
 		await waitFor(() => expect(hoisted.mockFindMyServices).toHaveBeenCalledTimes(2));
+	});
+
+	it('keeps a just-deleted service hidden while stale refetches catch up', async () => {
+		const service = createService();
+		hoisted.mockFindMyServices
+			.mockResolvedValueOnce({
+				services: [service]
+			})
+			.mockResolvedValueOnce({
+				services: [service]
+			});
+
+		const { default: DashboardMyServicesPanel } = await import(
+			'$lib/components/service/DashboardMyServicesPanel.svelte'
+		);
+		const { getByRole, findByRole, queryByRole, queryByTestId, queryByText } = render(
+			DashboardMyServicesPanel,
+			{
+				view: 'default'
+			}
+		);
+
+		await waitFor(() => expect(hoisted.mockFindMyServices).toHaveBeenCalledTimes(1));
+		await fireEvent.click(getByRole('button', { name: 'Details' }));
+		await fireEvent.click(await findByRole('button', { name: 'Delete Service' }));
+		await fireEvent.click(await findByRole('button', { name: 'Confirm Delete' }));
+
+		await waitFor(() => expect(hoisted.mockDeleteService).toHaveBeenCalledTimes(1));
+		await waitFor(() => expect(hoisted.mockFindMyServices).toHaveBeenCalledTimes(2));
+
+		expect(queryByTestId('pending-service-delete-alert')).toBeNull();
+		expect(queryByRole('button', { name: 'Details' })).toBeNull();
+		expect(queryByText('Brand Identity Sprint')).toBeNull();
 	});
 });

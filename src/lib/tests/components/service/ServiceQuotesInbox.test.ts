@@ -317,6 +317,26 @@ describe('ServiceQuotesInbox', () => {
 		expect(queryByRole('button', { name: 'Send Proposal' })).toBeNull();
 	});
 
+	it('keeps deleted-service requests visible as read-only rows and hides the proposal composer', () => {
+		const { getByTestId, getByText, queryByRole } = render(ServiceQuotesInbox, {
+			service: null,
+			serviceUnavailable: true,
+			timelines: [baseTimeline],
+			focusedRequestId: 'qr_valid123',
+			isSyncing: false,
+			walletReady: true,
+			feeTierReady: true
+		});
+
+		expect(getByTestId('service-quotes-unavailable-alert')).toBeTruthy();
+		expect(
+			getByText(
+				'This service was deleted by the provider. Keep this request for reference, but no new proposals can be sent.'
+			)
+		).toBeTruthy();
+		expect(queryByRole('button', { name: 'Send Proposal' })).toBeNull();
+	});
+
 	it('renders retry UI and disables the composer when provider timeline loading fails', async () => {
 		const onRetry = vi.fn();
 		const { getByRole, getByText } = render(ServiceQuotesInbox, {

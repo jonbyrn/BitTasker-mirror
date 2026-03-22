@@ -16,6 +16,10 @@
 		serviceQuoteUiStore
 	} from '$lib/stores/service-quote-ui.store';
 	import { resolveProviderProposalAuthoring } from '$lib/utils/service-quote/provider-authoring';
+	import {
+		getPendingServiceDeleteKey,
+		pendingServiceDeleteStore
+	} from '$lib/stores/service-delete-ui.store';
 	import { walletStore } from '$lib/stores/wallet.store';
 	import { getServiceDisplayTitle } from '$lib/utils/serviceDisplayTranslation';
 	import {
@@ -53,8 +57,20 @@
 
 	const tabs = $derived([
 		{ id: 'listings', label: $t('dashboard.tabs.my_services') || 'Listings' },
-		{ id: 'quotes', label: 'Quote Inbox' }
+		{
+			id: 'quotes',
+			label: $t('dashboard.services.my_services.workspace.quote_inbox_tab') || 'Quote Inbox'
+		}
 	]);
+
+	function tr(key: string, fallback: string): string {
+		try {
+			const value = $t(key);
+			return typeof value === 'string' && value !== key ? value : fallback;
+		} catch {
+			return fallback;
+		}
+	}
 
 	const providerAuthoring = $derived(resolveProviderProposalAuthoring($walletStore.rsk.address));
 	const walletReady = $derived(providerAuthoring.ok);
@@ -70,13 +86,24 @@
 			return (b.createdAt ?? 0) - (a.createdAt ?? 0);
 		})
 	);
+	const visibleSortedServices = $derived.by(() => {
+		const pendingKeys = new Set($pendingServiceDeleteStore.map((entry) => entry.key));
+		const pendingIds = new Set($pendingServiceDeleteStore.map((entry) => entry.serviceId));
+
+		return sortedServices.filter((service) => {
+			const key = getPendingServiceDeleteKey(service);
+			return !pendingKeys.has(key) && !pendingIds.has(service.id);
+		});
+	});
 	const selectedService = $derived(
 		services.find((service) => buildServiceAddress(service) === selectedServiceAddress) ?? null
 	);
-	const serviceAddresses = $derived(sortedServices.map((service) => buildServiceAddress(service)));
+	const serviceAddresses = $derived(
+		visibleSortedServices.map((service) => buildServiceAddress(service))
+	);
 	const serviceTitleByAddress = $derived(
 		Object.fromEntries(
-			sortedServices.map((service) => [
+			visibleSortedServices.map((service) => [
 				buildServiceAddress(service),
 				getServiceDisplayTitle(service, $locale || 'en')
 			])
@@ -155,7 +182,13 @@
 			const result = await findMyServices({ limit: 100 });
 			services = result.services;
 		} catch (error) {
-			loadError = error instanceof Error ? error.message : 'Failed to load your services.';
+			loadError =
+				error instanceof Error
+					? error.message
+					: tr(
+							'dashboard.services.my_services.workspace.load_failed',
+							'Failed to load your services.'
+						);
 			services = [];
 		} finally {
 			loading = false;
@@ -313,10 +346,13 @@
 </script>
 
 <svelte:head>
-	<title>Services | BitTasker</title>
+	<title>{tr('dashboard.services.my_services.workspace.title', 'Services')} | BitTasker</title>
 	<meta
 		name="description"
-		content="Manage your service listings and incoming quote requests on BitTasker."
+		content={tr(
+			'dashboard.services.my_services.workspace.description',
+			'Manage your listings and respond to incoming service requests.'
+		)}
 	/>
 </svelte:head>
 
@@ -329,9 +365,14 @@
 					<span>{$t('navbar.panel') || 'Dashboard'}</span>
 				</a>
 			</div>
-			<h3 class="font-bold">Services</h3>
+			<h3 class="font-bold">
+				{tr('dashboard.services.my_services.workspace.title', 'Services')}
+			</h3>
 			<p class="text-base-content/70">
-				Manage your listings and respond to incoming service requests.
+				{tr(
+					'dashboard.services.my_services.workspace.description',
+					'Manage your listings and respond to incoming service requests.'
+				)}
 			</p>
 		</div>
 		<a href="/dashboard/create-service" class="btn btn-primary btn-sm sm:btn-md whitespace-nowrap">
@@ -346,7 +387,10 @@
 		<div class="alert alert-info my-4 text-sm">
 			<span>
 				{#if nonBlockingMessageCode === 'service_quotes_request_not_found'}
-					The selected service quote thread could not be found.
+					{tr(
+						'dashboard.services.my_services.workspace.selected_thread_not_found',
+						'The selected service quote thread could not be found.'
+					)}
 				{/if}
 			</span>
 		</div>
@@ -361,23 +405,31 @@
 			{#if loading}
 				<div class="flex flex-col items-center justify-center py-16">
 					<span class="loading loading-spinner loading-lg text-primary"></span>
-					<p class="text-base-content/70 mt-4">Loading your services...</p>
+					<p class="text-base-content/70 mt-4">
+						{tr(
+							'dashboard.services.my_services.workspace.loading_quotes',
+							'Loading your services...'
+						)}
+					</p>
 				</div>
 			{:else if loadError}
 				<div class="alert alert-error alert-outline">
 					<span>{loadError}</span>
 				</div>
 				<button type="button" class="btn btn-primary btn-sm mt-4" onclick={loadServices}>
-					Retry
+					{tr('common.buttons.retry', 'Retry')}
 				</button>
-			{:else if sortedServices.length === 0}
+			{:else if visibleSortedServices.length === 0 && $pendingServiceDeleteStore.length === 0 && !selectedServiceAddress}
 				<div
 					class="border-base-300 bg-base-200/50 flex flex-col items-center justify-center rounded-2xl border border-dashed px-6 py-16 text-center"
 				>
 					<IconBriefcaseOutline class="text-base-content/30 h-16 w-16" aria-hidden="true" />
-					<h4 class="mt-4 text-lg font-semibold">No services yet</h4>
+					<h4 class="mt-4 text-lg font-semibold">
+						{$t('dashboard.services.my_services.empty_title') || 'No services yet'}
+					</h4>
 					<p class="text-base-content/70 mt-2 max-w-md">
-						Create a service to start receiving quote requests in your inbox.
+						{$t('dashboard.services.my_services.empty_message') ||
+							'Create a service to start receiving quote requests in your inbox.'}
 					</p>
 					<a href="/dashboard/create-service" class="btn btn-primary mt-6">
 						<IconPlus class="mr-2 h-5 w-5" aria-hidden="true" />
@@ -387,7 +439,9 @@
 			{:else}
 				<label class="form-control w-full max-w-md">
 					<div class="label">
-						<span class="label-text font-medium">Filter by service</span>
+						<span class="label-text font-medium">
+							{tr('dashboard.services.my_services.workspace.filter_label', 'Filter by service')}
+						</span>
 					</div>
 					<select
 						class="select select-bordered w-full"
@@ -395,8 +449,10 @@
 						onchange={(event) =>
 							handleServiceSelection((event.currentTarget as HTMLSelectElement).value)}
 					>
-						<option value="">All Services</option>
-						{#each sortedServices as service (service.id)}
+						<option value="">
+							{tr('dashboard.services.my_services.workspace.all_services', 'All Services')}
+						</option>
+						{#each visibleSortedServices as service (service.id)}
 							<option value={buildServiceAddress(service)}>
 								{getServiceDisplayTitle(service, $locale || 'en')}
 							</option>
@@ -405,9 +461,12 @@
 				</label>
 
 				<ServiceQuotesInbox
-					serviceLabel={selectedService
-						? getServiceDisplayTitle(selectedService, $locale || 'en')
-						: 'All Services'}
+					serviceLabel={selectedServiceAddress
+						? selectedService
+							? getServiceDisplayTitle(selectedService, $locale || 'en')
+							: tr('dashboard.services.my_services.workspace.deleted_service', 'Deleted service')
+						: tr('dashboard.services.my_services.workspace.all_services', 'All Services')}
+					serviceUnavailable={selectedServiceAddress !== null && selectedService === null}
 					showServiceTitles={selectedServiceAddress === null}
 					{serviceTitleByAddress}
 					timelines={providerTimelines}
@@ -453,7 +512,13 @@
 							null;
 
 						if (!resolvedService || !resolvedServiceAddress) {
-							return { success: false, error: 'Select a service first.' };
+							return {
+								success: false,
+								error: tr(
+									'dashboard.services.my_services.workspace.select_service_first',
+									'Select a service first.'
+								)
+							};
 						}
 						return serviceQuoteUiStore.sendLocalProposal({
 							service: resolvedService,

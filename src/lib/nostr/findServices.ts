@@ -139,6 +139,7 @@ async function convertEventToService(event: Event): Promise<Service> {
 			...contentData,
 			id: event.id,
 			npub: event.pubkey,
+			eventKind: event.kind,
 			createdAt: event.created_at
 		} as Service;
 
@@ -161,6 +162,23 @@ async function convertEventToService(event: Event): Promise<Service> {
 	}
 }
 
+function dedupeServicesByUniqueId(services: Service[]): Service[] {
+	const latestByUniqueId = new Map<string, Service>();
+
+	for (const service of services) {
+		const key = service.uniqueId?.trim() || service.id;
+		const existing = latestByUniqueId.get(key);
+		const candidateTimestamp = service.updatedAt ?? service.createdAt ?? 0;
+		const existingTimestamp = existing?.updatedAt ?? existing?.createdAt ?? 0;
+
+		if (!existing || candidateTimestamp > existingTimestamp) {
+			latestByUniqueId.set(key, service);
+		}
+	}
+
+	return Array.from(latestByUniqueId.values());
+}
+
 /**
  * Fetch deletion events and cache deleted service IDs
  */
@@ -177,7 +195,6 @@ async function getDeletedServiceIds(): Promise<Set<string>> {
 		// Query for deletion events (kind 5) that reference service events
 		const filter: Filter = {
 			kinds: [5], // NIP-09 deletion events
-			'#k': [KINDS.SERVICE_ACTIVE.toString(), KINDS.SERVICE_DRAFT.toString()],
 			limit: 1000 // Get up to 1000 deletion events
 		};
 
@@ -301,10 +318,18 @@ export async function findServices(
 		}
 
 		// Convert events to services (with async profile data fetching)
-		const rawServices = await Promise.all(events.map((event: Event) => convertEventToService(event)));
+		const rawServices = await Promise.all(
+			events.map((event: Event) => convertEventToService(event))
+		);
+
+		// Keep only the latest version per logical listing before applying visibility rules.
+		const latestServices = dedupeServicesByUniqueId(rawServices);
 
 		// Filter out deleted services
-		const activeServices = await filterDeletedServices(rawServices);
+		const visibleServices = await filterDeletedServices(latestServices);
+
+		// Public browse only surfaces active published listings.
+		const activeServices = visibleServices.filter((service) => service.status === 'active');
 
 		// For public users, exclude own services (if npub available and valid Bech32)
 		let filteredServices = activeServices;
@@ -442,7 +467,9 @@ export async function findMyServices(
 		const events = response.data || [];
 
 		// Convert events to services (with async profile data fetching)
-		const rawServices = await Promise.all(events.map((event: Event) => convertEventToService(event)));
+		const rawServices = await Promise.all(
+			events.map((event: Event) => convertEventToService(event))
+		);
 
 		// NIP-33: keep only the latest version per service (same uniqueId = same logical service)
 		const latestByUniqueId = new Map<string, Service>();
@@ -491,12 +518,16 @@ export async function findMyServices(
  */
 export { findServiceByUniqueId };
 
+export function invalidateServiceDiscoveryCaches(): void {
+	cache.clear();
+	deletionCache.clear();
+}
+
 /**
  * Cleanup function to handle cleanup tasks
  */
 export function cleanup(): void {
-	cache.clear();
-	deletionCache.clear();
+	invalidateServiceDiscoveryCaches();
 	performanceMetrics.length = 0;
 }
 
@@ -508,8 +539,7 @@ export function getFilterPerformanceReport() {
 		metrics: performanceMetrics,
 		averageFilterTime:
 			performanceMetrics.length > 0
-				? performanceMetrics.reduce((sum, m) => sum + m.filterTime, 0) /
-				  performanceMetrics.length
+				? performanceMetrics.reduce((sum, m) => sum + m.filterTime, 0) / performanceMetrics.length
 				: 0,
 		totalQueries: performanceMetrics.length,
 		cacheHits: performanceMetrics.filter((m) => m.cacheHit).length
@@ -519,7 +549,6 @@ export function getFilterPerformanceReport() {
 // Cleanup cache when browser closes
 if (browser) {
 	window.addEventListener('beforeunload', () => {
-		cache.clear();
-		deletionCache.clear();
+		invalidateServiceDiscoveryCaches();
 	});
 }

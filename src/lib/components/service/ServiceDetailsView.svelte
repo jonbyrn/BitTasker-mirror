@@ -53,6 +53,12 @@
 	import { summarizeDeleteGuardForThreads } from '$lib/utils/service-quote/resolver';
 	import { deleteService } from '$lib/nostr/service';
 	import { browserNetworkStatus } from '$lib/utils/network-status';
+	import { buildEarningQueryUrl } from '$lib/utils/dashboardQuery';
+	import { deleteServicePortfolioMedia } from '$lib/utils/service/media-cleanup';
+	import {
+		clearPendingServiceDelete,
+		markServiceDeletePending
+	} from '$lib/stores/service-delete-ui.store';
 	import {
 		clearServiceQuoteReentryState,
 		parseServiceQuoteReentryState
@@ -425,6 +431,14 @@
 	}
 
 	function buildContractsHighlightUrl(escrowId: string): string {
+		if (typeof window !== 'undefined' && window.location.pathname.startsWith('/earning')) {
+			return buildEarningQueryUrl(new URL('/earning', window.location.origin), {
+				tab: 'contracts',
+				context: 'services',
+				highlight: escrowId
+			});
+		}
+
 		return `/dashboard?tab=contracts&context=services&highlight=${encodeURIComponent(escrowId)}`;
 	}
 
@@ -579,7 +593,7 @@
 		}
 
 		// Show success toast before navigation
-		$appStore.addSuccessToast(
+		appStore.showSuccessToast(
 			$t('dashboard.services.detail.quote_submitted') || 'Quote request submitted successfully!'
 		);
 
@@ -672,7 +686,7 @@
 		try {
 			const guard = await inspectDeleteGuards();
 			deleteModalState = {
-				mode: guard.hasOpenQuotes || guard.hasActiveContracts ? 'blocked' : 'confirm',
+				mode: guard.hasActiveContracts ? 'blocked' : 'confirm',
 				openQuoteCount: guard.openQuoteCount,
 				activeContractCount: guard.activeContractCount,
 				totalQuoteCount: guard.totalQuoteCount
@@ -694,23 +708,33 @@
 		}
 
 		deleteSubmitting = true;
+		markServiceDeletePending(service);
 		try {
 			const guard = await inspectDeleteGuards();
-			await deleteService(service.id, {
-				hasOpenQuotes: guard.hasOpenQuotes,
-				hasActiveContracts: guard.hasActiveContracts
-			});
+			await deleteService(
+				service.id,
+				{
+					hasOpenQuotes: guard.hasOpenQuotes,
+					hasActiveContracts: guard.hasActiveContracts
+				},
+				{
+					uniqueId: service.uniqueId ?? null
+				}
+			);
+			await deleteServicePortfolioMedia(service.portfolio);
 			appStore.showSuccessToast('Service deleted successfully.');
 			deleteModalState = null;
-			await goto('/dashboard?tab=my-services');
+			if (typeof window !== 'undefined' && window.location.pathname.startsWith('/earning')) {
+				await goto('/earning?tab=my-services');
+			} else {
+				await goto('/dashboard?tab=my-services');
+			}
 		} catch (error) {
+			clearPendingServiceDelete(service);
 			const message =
 				error instanceof Error ? error.message : 'Unable to delete this service right now.';
 			appStore.showErrorToast(message);
-			if (
-				message === 'Cannot delete a service with open quotes.' ||
-				message === 'Cannot delete a service with active contracts.'
-			) {
+			if (message === 'Cannot delete a service with active contracts.') {
 				try {
 					const guard = await inspectDeleteGuards();
 					deleteModalState = {
@@ -1167,6 +1191,9 @@
 			<p class="text-base-content/80 text-sm">
 				{#if deleteModalState.mode === 'blocked'}
 					This service cannot be deleted yet.
+				{:else if deleteModalState.openQuoteCount > 0}
+					This permanently removes the current service listing from your dashboard. Existing service
+					requests will remain visible as read-only history.
 				{:else}
 					This permanently removes the current service listing from your dashboard.
 				{/if}
@@ -1174,14 +1201,6 @@
 
 			{#if deleteModalState.mode === 'blocked'}
 				<div class="mt-4 space-y-3">
-					{#if deleteModalState.openQuoteCount > 0}
-						<div class="alert alert-warning">
-							<span>
-								Open quotes are still attached to this service (`{deleteModalState.openQuoteCount}`
-								blocking thread{deleteModalState.openQuoteCount === 1 ? '' : 's'}).
-							</span>
-						</div>
-					{/if}
 					{#if deleteModalState.activeContractCount > 0}
 						<div class="alert alert-error">
 							<span>
@@ -1195,14 +1214,22 @@
 					<button type="button" class="btn btn-primary" onclick={closeDeleteModal}>Close</button>
 				</div>
 			{:else}
-				<p class="text-base-content/70 mt-4 text-sm">
-					{#if deleteModalState.totalQuoteCount > 0}
-						Historical quote threads will remain as records, but no open quotes or active contracts
-						were found.
+				<div class="mt-4 space-y-3">
+					{#if deleteModalState.openQuoteCount > 0}
+						<div class="alert alert-warning">
+							<span>
+								This service still has {deleteModalState.openQuoteCount} open request{deleteModalState.openQuoteCount ===
+								1
+									? ''
+									: 's'}. After deletion, those threads will remain visible as read-only history.
+							</span>
+						</div>
 					{:else}
-						No open quotes or active contracts were found for this service.
+						<p class="text-base-content/70 text-sm">
+							No open quotes or active contracts were found for this service.
+						</p>
 					{/if}
-				</p>
+				</div>
 				<div class="mt-6 flex justify-end gap-2">
 					<button
 						type="button"

@@ -30,6 +30,14 @@
 	import { resolveProviderProposalAuthoring } from '$lib/utils/service-quote/provider-authoring';
 	import { queryTaskeeServiceQuoteThreads } from '$lib/utils/service-quote/query';
 	import { summarizeDeleteGuardForThreads } from '$lib/utils/service-quote/resolver';
+	import { buildEarningQueryUrl } from '$lib/utils/dashboardQuery';
+	import { deleteServicePortfolioMedia } from '$lib/utils/service/media-cleanup';
+	import {
+		clearPendingServiceDelete,
+		getPendingServiceDeleteKey,
+		markServiceDeletePending,
+		pendingServiceDeleteStore
+	} from '$lib/stores/service-delete-ui.store';
 	import Modal from '$lib/components/Modal.svelte';
 	import ServiceDrawer from './ServiceDrawer.svelte';
 	import { createServicesWorkspaceUrl } from '$lib/utils/service-quote/services-workspace-route';
@@ -74,8 +82,7 @@
 	// Service drawer state
 	let selectedServiceForDrawer = $state<Service | null>(null);
 	let drawerOpen = $state(false);
-	let activeServiceModal = $state<'edit' | 'delete' | null>(null);
-	let isDeletingService = $state(false);
+	let activeServiceModal = $state<'edit' | null>(null);
 
 	const selectedService = $derived(
 		services.find((service) => buildServiceAddress(service) === selectedServiceAddress) ?? null
@@ -83,6 +90,24 @@
 	const providerAuthoring = $derived(resolveProviderProposalAuthoring($walletStore.rsk.address));
 	const walletReady = $derived(providerAuthoring.ok);
 	const feeTierReady = $derived(true);
+
+	function tr(key: string, fallback: string): string {
+		try {
+			const value = $t(key);
+			return typeof value === 'string' && value !== key ? value : fallback;
+		} catch {
+			return fallback;
+		}
+	}
+
+	function trv(key: string, fallback: string, values: Record<string, string | number>): string {
+		try {
+			const value = $t(key, { values });
+			return typeof value === 'string' && value !== key ? value : fallback;
+		} catch {
+			return fallback;
+		}
+	}
 
 	// Sort services: active first (newest to oldest), then inactive (newest to oldest)
 	const sortedServices = $derived(
@@ -98,6 +123,15 @@
 			return (b.createdAt ?? 0) - (a.createdAt ?? 0);
 		})
 	);
+	const visibleServices = $derived.by(() => {
+		const pendingKeys = new Set($pendingServiceDeleteStore.map((entry) => entry.key));
+		const pendingIds = new Set($pendingServiceDeleteStore.map((entry) => entry.serviceId));
+
+		return sortedServices.filter((service) => {
+			const key = getPendingServiceDeleteKey(service);
+			return !pendingKeys.has(key) && !pendingIds.has(service.id);
+		});
+	});
 
 	async function loadServices() {
 		loading = true;
@@ -165,15 +199,15 @@
 	$effect(() => {
 		if (view !== 'quotes' || loading) return;
 
-		if (services.length === 0) {
+		if (visibleServices.length === 0 && !selectedServiceAddress) {
 			onResolveQuotesRoute?.({ type: 'reset' });
 			return;
 		}
 
-		if (!selectedService) {
+		if (!selectedServiceAddress && !selectedService) {
 			onResolveQuotesRoute?.({
 				type: 'service',
-				serviceAddress: buildServiceAddress(services[0]),
+				serviceAddress: buildServiceAddress(visibleServices[0]),
 				requestId: null
 			});
 		}
@@ -208,7 +242,7 @@
 		activeServiceModal = null;
 	}
 
-	function setServiceModal(type: 'edit' | 'delete' | null) {
+	function setServiceModal(type: 'edit' | null) {
 		if (type && !selectedServiceForDrawer) return;
 		activeServiceModal = type;
 	}
@@ -221,11 +255,11 @@
 		goto(`/dashboard/create-service?edit=true&serviceId=${encodeURIComponent(id)}`);
 	}
 
-	function confirmDeleteServiceFromDrawer() {
+	async function requestDeleteServiceFromDrawer() {
 		const serviceToDelete = selectedServiceForDrawer;
 		if (!serviceToDelete) return;
-		handleDeleteClick(serviceToDelete);
 		closeServiceDrawer();
+		await handleDeleteClick(serviceToDelete);
 	}
 
 	function getPrimaryActiveContract(service: Service) {
@@ -246,11 +280,21 @@
 			return;
 		}
 
-		const nextUrl = createDashboardUrl(new URL('/dashboard', window.location.origin), {
-			tab: 'contracts',
-			context: 'services',
-			highlight: primaryContract.escrowData?.id ?? primaryContract.contractEvent.content.escrowId
-		});
+		const highlightEscrowId =
+			primaryContract.escrowData?.id ?? primaryContract.contractEvent.content.escrowId;
+		const nextUrl = window.location.pathname.startsWith('/earning')
+			? new URL(
+					buildEarningQueryUrl(new URL('/earning', window.location.origin), {
+						tab: 'contracts',
+						context: 'services',
+						highlight: highlightEscrowId
+					})
+				)
+			: createDashboardUrl(new URL('/dashboard', window.location.origin), {
+					tab: 'contracts',
+					context: 'services',
+					highlight: highlightEscrowId
+				});
 		goto(nextUrl.toString());
 	}
 
@@ -304,7 +348,7 @@
 		try {
 			const guard = await inspectDeleteGuards(service);
 			deleteModalState = {
-				mode: guard.hasOpenQuotes || guard.hasActiveContracts ? 'blocked' : 'confirm',
+				mode: guard.hasActiveContracts ? 'blocked' : 'confirm',
 				service,
 				openQuoteCount: guard.openQuoteCount,
 				activeContractCount: guard.activeContractCount,
@@ -314,7 +358,10 @@
 			appStore.showErrorToast(
 				error instanceof Error
 					? error.message
-					: 'Unable to verify whether this service can be deleted right now.'
+					: tr(
+							'dashboard.services.my_services.delete_modal.verify_failed',
+							'Unable to verify whether this service can be deleted right now.'
+						)
 			);
 		}
 	}
@@ -327,23 +374,39 @@
 		const service = deleteModalState.service;
 		const serviceKey = service.uniqueId || service.id;
 		deleteSubmitServiceId = serviceKey;
+		markServiceDeletePending(service);
 		try {
 			const guard = await inspectDeleteGuards(service);
-			await deleteService(service.id, {
-				hasOpenQuotes: guard.hasOpenQuotes,
-				hasActiveContracts: guard.hasActiveContracts
-			});
-			appStore.showSuccessToast('Service deleted successfully.');
+			await deleteService(
+				service.id,
+				{
+					hasOpenQuotes: guard.hasOpenQuotes,
+					hasActiveContracts: guard.hasActiveContracts
+				},
+				{
+					uniqueId: service.uniqueId ?? null
+				}
+			);
+			await deleteServicePortfolioMedia(service.portfolio);
+			appStore.showSuccessToast(
+				tr(
+					'dashboard.services.my_services.delete_modal.delete_success',
+					'Service deleted successfully.'
+				)
+			);
 			deleteModalState = null;
 			await loadServices();
 		} catch (error) {
+			clearPendingServiceDelete(service);
 			const message =
-				error instanceof Error ? error.message : 'Unable to delete this service right now.';
+				error instanceof Error
+					? error.message
+					: tr(
+							'dashboard.services.my_services.delete_modal.delete_failed',
+							'Unable to delete this service right now.'
+						);
 			appStore.showErrorToast(message);
-			if (
-				message === 'Cannot delete a service with open quotes.' ||
-				message === 'Cannot delete a service with active contracts.'
-			) {
+			if (message === 'Cannot delete a service with active contracts.') {
 				try {
 					const guard = await inspectDeleteGuards(service);
 					deleteModalState = {
@@ -376,7 +439,7 @@
 
 		// Details button - opens the service drawer (like task cards)
 		actions.push({
-			label: $t('task.actions.view_details') || 'Details',
+			label: tr('dashboard.services.my_services.view_details', 'Details'),
 			class: 'btn-outline btn-sm',
 			onclick: (e: MouseEvent) => {
 				e.stopPropagation();
@@ -387,7 +450,7 @@
 
 		// Quotes button - opens the dedicated services workspace quote inbox
 		actions.push({
-			label: 'Quotes',
+			label: tr('dashboard.services.my_services.actions.quotes', 'Quotes'),
 			class: 'btn-primary btn-sm',
 			onclick: (e: MouseEvent) => {
 				e.stopPropagation();
@@ -399,7 +462,7 @@
 		// View Active Contracts button (only if there are active contracts)
 		if (getPrimaryActiveContract(service)) {
 			actions.push({
-				label: 'Contracts',
+				label: tr('dashboard.services.my_services.actions.contracts', 'Contracts'),
 				class: 'btn-success btn-outline btn-sm',
 				onclick: (e: MouseEvent) => {
 					e.stopPropagation();
@@ -425,7 +488,7 @@
 	<button type="button" class="btn btn-primary btn-sm mt-4" onclick={loadServices}>
 		{$t('dashboard.services.my_services.retry')}
 	</button>
-{:else if services.length === 0}
+{:else if visibleServices.length === 0 && !(view === 'quotes' && selectedServiceAddress)}
 	<div
 		class="border-base-300 bg-base-200/50 flex flex-col items-center justify-center rounded-2xl border border-dashed px-6 py-16 text-center"
 	>
@@ -441,7 +504,7 @@
 	</div>
 {:else if view === 'default'}
 	<div class="grid grid-cols-1 gap-5">
-		{#each sortedServices as service (service.id)}
+		{#each visibleServices as service (service.id)}
 			<DashboardServiceCard
 				{service}
 				getActionButtons={getServiceActionButtons}
@@ -478,6 +541,7 @@
 
 		<ServiceQuotesInbox
 			service={selectedService}
+			serviceUnavailable={selectedServiceAddress !== null && selectedService === null}
 			timelines={providerTimelines}
 			{focusedRequestId}
 			isSyncing={providerQuotesSyncing}
@@ -500,7 +564,13 @@
 			}}
 			onSendProposal={async (requestId, payload) => {
 				if (!selectedService || !selectedServiceAddress) {
-					return { success: false, error: 'Select a service first.' };
+					return {
+						success: false,
+						error: tr(
+							'dashboard.services.my_services.workspace.select_service_first',
+							'Select a service first.'
+						)
+					};
 				}
 				return serviceQuoteUiStore.sendLocalProposal({
 					service: selectedService,
@@ -515,50 +585,84 @@
 
 <Modal
 	isOpen={deleteModalState !== null}
-	title={deleteModalState?.mode === 'blocked' ? 'Cannot delete service' : 'Delete service'}
+	title={deleteModalState?.mode === 'blocked'
+		? tr('dashboard.services.my_services.delete_modal.blocked_title', 'Cannot delete service')
+		: tr('dashboard.services.my_services.delete_modal.confirm_title', 'Delete service')}
 	onClose={closeDeleteModal}
 	size="md"
 >
 	{#if deleteModalState}
 		<p class="text-base-content/80 text-sm">
 			{#if deleteModalState.mode === 'blocked'}
-				This service cannot be deleted yet.
+				{tr(
+					'dashboard.services.my_services.delete_modal.blocked_intro',
+					'This service cannot be deleted yet.'
+				)}
+			{:else if deleteModalState.openQuoteCount > 0}
+				{tr(
+					'dashboard.services.my_services.delete_modal.confirm_intro_warning',
+					'This permanently removes the current service listing from your dashboard. Existing service requests will remain visible as read-only history.'
+				)}
 			{:else}
-				This permanently removes the current service listing from your dashboard.
+				{tr(
+					'dashboard.services.my_services.delete_modal.confirm_intro',
+					'This permanently removes the current service listing from your dashboard.'
+				)}
 			{/if}
 		</p>
 
 		{#if deleteModalState.mode === 'blocked'}
 			<div class="mt-4 space-y-3">
-				{#if deleteModalState.openQuoteCount > 0}
-					<div class="alert alert-warning">
-						<span>
-							Open quotes are still attached to this service (`{deleteModalState.openQuoteCount}`
-							blocking thread{deleteModalState.openQuoteCount === 1 ? '' : 's'}).
-						</span>
-					</div>
-				{/if}
 				{#if deleteModalState.activeContractCount > 0}
 					<div class="alert alert-error">
 						<span>
-							Active service contracts are still attached to this service (`{deleteModalState.activeContractCount}`
-							active contract{deleteModalState.activeContractCount === 1 ? '' : 's'}).
+							{deleteModalState.activeContractCount === 1
+								? trv(
+										'dashboard.services.my_services.delete_modal.active_contracts_one',
+										`Active service contracts are still attached to this service (${deleteModalState.activeContractCount} active contract).`,
+										{ count: deleteModalState.activeContractCount }
+									)
+								: trv(
+										'dashboard.services.my_services.delete_modal.active_contracts_other',
+										`Active service contracts are still attached to this service (${deleteModalState.activeContractCount} active contracts).`,
+										{ count: deleteModalState.activeContractCount }
+									)}
 						</span>
 					</div>
 				{/if}
 			</div>
 			<div class="mt-6 flex justify-end">
-				<button type="button" class="btn btn-primary" onclick={closeDeleteModal}>Close</button>
+				<button type="button" class="btn btn-primary" onclick={closeDeleteModal}>
+					{tr('common.buttons.close', 'Close')}
+				</button>
 			</div>
 		{:else}
-			<p class="text-base-content/70 mt-4 text-sm">
-				{#if deleteModalState.totalQuoteCount > 0}
-					Historical quote threads will remain as records, but no open quotes or active contracts
-					were found.
+			<div class="mt-4 space-y-3">
+				{#if deleteModalState.openQuoteCount > 0}
+					<div class="alert alert-warning">
+						<span>
+							{deleteModalState.openQuoteCount === 1
+								? trv(
+										'dashboard.services.my_services.delete_modal.open_quotes_read_only_one',
+										`This service still has ${deleteModalState.openQuoteCount} open request. After deletion, that thread will remain visible as read-only history.`,
+										{ count: deleteModalState.openQuoteCount }
+									)
+								: trv(
+										'dashboard.services.my_services.delete_modal.open_quotes_read_only_other',
+										`This service still has ${deleteModalState.openQuoteCount} open requests. After deletion, those threads will remain visible as read-only history.`,
+										{ count: deleteModalState.openQuoteCount }
+									)}
+						</span>
+					</div>
 				{:else}
-					No open quotes or active contracts were found for this service.
+					<p class="text-base-content/70 text-sm">
+						{tr(
+							'dashboard.services.my_services.delete_modal.no_open_items',
+							'No open quotes or active contracts were found for this service.'
+						)}
+					</p>
 				{/if}
-			</p>
+			</div>
 			<div class="mt-6 flex justify-end gap-2">
 				<button
 					type="button"
@@ -567,7 +671,7 @@
 					disabled={deleteSubmitServiceId ===
 						(deleteModalState.service.uniqueId || deleteModalState.service.id)}
 				>
-					Cancel
+					{tr('common.cancel', 'Cancel')}
 				</button>
 				<button
 					type="button"
@@ -579,7 +683,7 @@
 					{#if deleteSubmitServiceId === (deleteModalState.service.uniqueId || deleteModalState.service.id)}
 						<span class="loading loading-spinner loading-xs"></span>
 					{/if}
-					Confirm Delete
+					{tr('dashboard.services.my_services.delete_modal.confirm_delete', 'Confirm Delete')}
 				</button>
 			</div>
 		{/if}
@@ -592,8 +696,9 @@
 	isOpen={drawerOpen}
 	onClose={closeServiceDrawer}
 	onRequestEditConfirm={() => setServiceModal('edit')}
-	onRequestDeleteConfirm={() => setServiceModal('delete')}
-	isDeleting={isDeletingService}
+	onRequestDeleteConfirm={requestDeleteServiceFromDrawer}
+	isDeleting={deleteSubmitServiceId ===
+		(selectedServiceForDrawer?.uniqueId || selectedServiceForDrawer?.id || null)}
 	onQuotes={() => {
 		if (selectedServiceForDrawer) {
 			handleOpenQuotes(selectedServiceForDrawer);
@@ -649,76 +754,10 @@
 				</button>
 			</div>
 		</div>
-		<button class="modal-backdrop" onclick={() => setServiceModal(null)} aria-label="Close"
-		></button>
-	</div>
-{/if}
-
-<!-- Delete Service Confirmation Modal -->
-{#if activeServiceModal === 'delete' && selectedServiceForDrawer}
-	<div class="modal modal-open modal-middle" transition:fade={{ duration: 200 }}>
-		<div class="modal-box max-w-md" transition:scale={{ duration: 200, start: 0.9 }}>
-			<div class="mb-6">
-				<div class="mb-2 flex items-center gap-3">
-					<div class="bg-error/10 flex h-10 w-10 items-center justify-center rounded-full">
-						<svg class="text-error h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-							/>
-						</svg>
-					</div>
-					<div>
-						<h4 class="text-sm font-semibold">
-							{$t('dashboard.services.detail.delete_service_confirm_title') || 'Delete Service'}
-						</h4>
-					</div>
-				</div>
-			</div>
-
-			<div class="space-y-4">
-				<div class="bg-error/10 rounded-lg p-4">
-					<p class="text-error text-sm font-semibold">
-						{$t('dashboard.services.detail.delete_service_confirm_message') ||
-							'This permanently removes the service listing from your dashboard.'}
-					</p>
-				</div>
-			</div>
-
-			<div class="border-base-300 flex gap-3 pt-6">
-				<button
-					type="button"
-					class="btn btn-ghost flex-1"
-					onclick={() => setServiceModal(null)}
-					disabled={isDeletingService}
-				>
-					{$t('common.cancel') || 'Cancel'}
-				</button>
-				<button
-					type="button"
-					class="btn btn-error flex-1 whitespace-nowrap"
-					onclick={confirmDeleteServiceFromDrawer}
-					disabled={isDeletingService}
-				>
-					{#if isDeletingService}
-						<span class="loading loading-spinner loading-sm"></span>
-					{:else}
-						<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-							/>
-						</svg>
-					{/if}
-					{$t('dashboard.services.detail.delete_service') || 'Delete Service'}
-				</button>
-			</div>
-		</div>
-		<button class="modal-backdrop" onclick={() => setServiceModal(null)} aria-label="Close"
+		<button
+			class="modal-backdrop"
+			onclick={() => setServiceModal(null)}
+			aria-label={tr('common.buttons.close', 'Close')}
 		></button>
 	</div>
 {/if}

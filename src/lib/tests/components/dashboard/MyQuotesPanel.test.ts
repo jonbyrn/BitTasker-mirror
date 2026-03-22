@@ -1,34 +1,45 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, fireEvent } from '@testing-library/svelte';
+import { render, fireEvent, waitFor } from '@testing-library/svelte';
 import MyQuotesPanel from '$lib/components/dashboard/quotes/MyQuotesPanel.svelte';
 import type { ServiceQuoteTimelineEntry } from '$lib/types/service-quote';
 import { ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';
 
-const { applyTaskerStatus, acceptTaskerProposal, goto, quoteUiStoreMock } = vi.hoisted(() => ({
-	applyTaskerStatus: vi.fn().mockResolvedValue({ success: true }),
-	acceptTaskerProposal: vi
-		.fn()
-		.mockResolvedValue({ success: true, transactionHash: '0xservicehash' }),
-	goto: vi.fn(),
-	quoteUiStoreMock: {
-		value: {
-			taskerDataFreshness: 'fresh'
-		},
-		subscribers: new Set<(value: { taskerDataFreshness: 'fresh' | 'stale' | 'partial' }) => void>(),
-		subscribe(run: (value: { taskerDataFreshness: 'fresh' | 'stale' | 'partial' }) => void) {
-			run(this.value);
-			this.subscribers.add(run);
-			return () => this.subscribers.delete(run);
-		},
-		set(next: { taskerDataFreshness: 'fresh' | 'stale' | 'partial' }) {
-			this.value = next;
-			this.subscribers.forEach((run) => run(this.value));
+const { applyTaskerStatus, acceptTaskerProposal, goto, findServiceByUniqueId, quoteUiStoreMock } =
+	vi.hoisted(() => ({
+		applyTaskerStatus: vi.fn().mockResolvedValue({ success: true }),
+		acceptTaskerProposal: vi
+			.fn()
+			.mockResolvedValue({ success: true, transactionHash: '0xservicehash' }),
+		goto: vi.fn(),
+		findServiceByUniqueId: vi.fn().mockResolvedValue({
+			id: 'service-event-1',
+			uniqueId: 'service-unique-id'
+		}),
+		quoteUiStoreMock: {
+			value: {
+				taskerDataFreshness: 'fresh'
+			},
+			subscribers: new Set<
+				(value: { taskerDataFreshness: 'fresh' | 'stale' | 'partial' }) => void
+			>(),
+			subscribe(run: (value: { taskerDataFreshness: 'fresh' | 'stale' | 'partial' }) => void) {
+				run(this.value);
+				this.subscribers.add(run);
+				return () => this.subscribers.delete(run);
+			},
+			set(next: { taskerDataFreshness: 'fresh' | 'stale' | 'partial' }) {
+				this.value = next;
+				this.subscribers.forEach((run) => run(this.value));
+			}
 		}
-	}
-}));
+	}));
 
 vi.mock('$app/navigation', () => ({
 	goto
+}));
+
+vi.mock('$lib/nostr/service', () => ({
+	findServiceByUniqueId
 }));
 
 vi.mock('$lib/stores/service-quote-ui.store', () => ({
@@ -141,6 +152,10 @@ const timeline: ServiceQuoteTimelineEntry = {
 describe('MyQuotesPanel', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		findServiceByUniqueId.mockResolvedValue({
+			id: 'service-event-1',
+			uniqueId: 'service-unique-id'
+		});
 		quoteUiStoreMock.set({ taskerDataFreshness: 'fresh' });
 		window.history.replaceState({}, '', '/dashboard?tab=quotes&view=tasker');
 	});
@@ -305,5 +320,23 @@ describe('MyQuotesPanel', () => {
 		expect(queryByText('Accept')).toBeNull();
 		// But should have View Contract button
 		expect(queryByText('View Contract')).toBeTruthy();
+	});
+
+	it('keeps deleted-service requests visible as read-only history', async () => {
+		findServiceByUniqueId.mockResolvedValue(null);
+
+		const { getByTestId, queryByText } = render(MyQuotesPanel, {
+			timelines: [timeline],
+			focusedRequestId: 'qr_valid123',
+			isSyncing: false
+		});
+
+		await waitFor(() => {
+			expect(findServiceByUniqueId).toHaveBeenCalled();
+			expect(getByTestId('my-quotes-unavailable-alert')).toBeTruthy();
+			expect(queryByText('Accept')).toBeNull();
+			expect(queryByText('Decline')).toBeNull();
+			expect(queryByText('Deleted service')).toBeTruthy();
+		});
 	});
 });

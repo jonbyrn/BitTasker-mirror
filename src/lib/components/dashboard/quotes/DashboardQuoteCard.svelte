@@ -14,9 +14,14 @@
 		disabled?: boolean;
 	}
 
-	const { timeline, getActionButtons } = $props<{
+	const {
+		timeline,
+		getActionButtons,
+		serviceUnavailable = false
+	} = $props<{
 		timeline: ServiceQuoteTimelineEntry;
 		getActionButtons: (timeline: ServiceQuoteTimelineEntry) => ActionButton[];
+		serviceUnavailable?: boolean;
 	}>();
 
 	function translateOrFallback(key: string, fallback: string): string {
@@ -105,8 +110,13 @@
 					{timeline.request.content.inquiry.title}
 				</h3>
 				<p class="text-base-content/60 mt-1 line-clamp-1 text-sm">
-					{timeline.request.content.serviceAddress ||
-						translateOrFallback('dashboard.service_requests.service_label', 'Service')}
+					{serviceUnavailable
+						? translateOrFallback(
+								'dashboard.service_requests.service_unavailable',
+								'Deleted service'
+							)
+						: timeline.request.content.serviceAddress ||
+							translateOrFallback('dashboard.service_requests.service_label', 'Service')}
 				</p>
 			</div>
 			<!-- Right: Status Badge + Price (aligned right) -->
@@ -126,6 +136,17 @@
 			<p class="line-clamp-2 text-sm">
 				{timeline.request.content.inquiry.description || '—'}
 			</p>
+
+			{#if serviceUnavailable && !timeline.linkedEscrowId}
+				<div class="alert alert-warning py-2 text-xs">
+					<span>
+						{translateOrFallback(
+							'dashboard.service_requests.service_unavailable_read_only',
+							'This service was deleted by the provider. The request is now read-only.'
+						)}
+					</span>
+				</div>
+			{/if}
 
 			<!-- Quote details -->
 			{#if timeline.latestProposal?.content.pricingSnapshot}
