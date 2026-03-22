@@ -230,6 +230,9 @@
 				"fund_contract_title": "Fund Contract",
 				"fund": "Fund",
 				"fund_confirm_warning": "This will send your payment into the secure payment contract. Please verify all details before confirming.",
+				"warning": {
+					"past_start_time": "The estimated start time was {timeText}. You may need to contact the Taskee to arrange a new start time."
+				},
 				"contract_information": "Contract Information",
 				"day": "day",
 				"days": "days",

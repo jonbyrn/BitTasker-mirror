@@ -33,7 +33,7 @@
 
 	const d = createDebug('BidsPage');
 
-	const taskSub = ndk.$subscribe(() => {
+	const taskSub = ndk.$subscribe<NDKTask>(() => {
 		// No subscription until we have the users pubkey
 		if (!ndk.$currentPubkey) return undefined;
 		return {
@@ -46,9 +46,9 @@
 		};
 	});
 
-	let task = $derived(taskSub.events[0] as NDKTask);
+	let task = $derived(taskSub.events[0]);
 
-	const bidsSub = ndk.$subscribe(() => {
+	const bidsSub = ndk.$subscribe<NDKBid>(() => {
 		// No subscription until we have the users pubkey
 		if (!ndk.$currentPubkey) return undefined;
 		return {
@@ -218,7 +218,7 @@
 	{:else}
 		<div class="space-y-4">
 			{#each bidsSub.events as bid (bid.id)}
-				{@const bidContent = bid.content as unknown as NostrBidContent}
+				{@const bidContent = bid.bidContent}
 				<div
 					class="bg-base-100 border-base-200 rounded-2xl border shadow-sm transition-all duration-200 hover:shadow-md"
 				>

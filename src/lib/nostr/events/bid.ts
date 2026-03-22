@@ -1,3 +1,4 @@
+import type { NostrBidContent } from '$lib/types/bid';
 import { createDebug } from '$lib/utils/debug';
 import NDK, { NDKEvent, type NostrEvent } from '@nostr-dev-kit/ndk';
 
@@ -55,5 +56,9 @@ export class NDKBid extends NDKEvent {
 		await this.encrypt(user, undefined, 'nip44');
 
 		return super.toNostrEvent(pubkey) as unknown as NostrEvent;
+	}
+
+	get bidContent(): NostrBidContent {
+		return this.content as unknown as NostrBidContent;
 	}
 }

@@ -27,12 +27,12 @@ export class NDKTask extends NDKEvent {
 
 		d.log('Creating task from event with wrap:', task);
 
-		// task.content = JSON.parse(task.content);
+		task.content = JSON.parse(task.content);
 		return task;
 	}
 
 	get taskContent(): Task {
-		return JSON.parse(this.content) as unknown as Task;
+		return this.content as unknown as Task;
 	}
 
 	set status(status: TaskStatusEnum) {

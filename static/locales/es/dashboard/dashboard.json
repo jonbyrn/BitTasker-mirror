@@ -230,6 +230,9 @@
 				"fund_contract_title": "Financiar contrato",
 				"fund": "Financiar",
 				"fund_confirm_warning": "Esto enviará tu pago al contrato de pago seguro. Verifica todos los detalles antes de confirmar.",
+				"warning": {
+					"past_start_time": "La hora de inicio estimada fue {timeText}. Es posible que necesites contactar al Taskee para acordar una nueva hora de inicio."
+				},
 				"contract_information": "Información del Contrato",
 				"day": "día",
 				"days": "días",
