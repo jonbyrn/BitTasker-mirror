@@ -8,7 +8,6 @@
 	import { tick } from 'svelte';
 
 	let {
-		label = '',
 		placeholder = $t('common.components.location_picker.enter_address'),
 		location = {
 			displayName: '',
@@ -18,7 +17,6 @@
 			locationLoaded: false
 		},
 		onLocationSelect,
-		showMap = true,
 		mapHeight = '300px',
 		showFullscreen = true,
 		showGeolocation = true,
@@ -62,7 +60,6 @@
 	let error = $state('');
 	let predictions = $state<(google.maps.places.PlacePrediction | null)[]>([]);
 	let showOptions = $state(false);
-	let scriptLoaded = $state(false);
 	let googleMapsReady = $state(false);
 	let isFullscreen = $state(false);
 	let mapContainerDiv: HTMLElement | null = $state(null);
@@ -112,7 +109,7 @@
 
 	// Helper function to extract address components from Google Maps address components
 	function extractAddressComponents(
-		components: google.maps.GeocoderAddressComponent[] 
+		components: google.maps.GeocoderAddressComponent[]
 	): Location['addressComponents'] {
 		const addressComponents: Location['addressComponents'] = {};
 
@@ -149,7 +146,6 @@
 			try {
 				// Check if script is already loaded and API is available
 				if (window.google?.maps?.Map) {
-					scriptLoaded = true;
 					googleMapsReady = true;
 					resolve();
 					return;
@@ -162,7 +158,6 @@
 				script.defer = true;
 
 				script.onload = () => {
-					scriptLoaded = true;
 					// Add a small delay to ensure Google Maps API is fully initialized
 					setTimeout(() => {
 						// Check if the API is actually available
@@ -211,7 +206,7 @@
 
 		try {
 			const safeCoords = getSafeCoordinates();
-			
+
 			// Initialize Google Maps with zoom restrictions
 			map = new google.maps.Map(mapElement, {
 				center: safeCoords,
@@ -241,9 +236,12 @@
 
 			// Create initial marker with safe coordinates
 			await createMarkerAndCircle(safeCoords.lat, safeCoords.lng);
-			
+
 			// If we have a valid existing location, update the search input with complete address
-			if (isValidCoordinate(currentLocation.latitude, currentLocation.longitude) && currentLocation.displayName) {
+			if (
+				isValidCoordinate(currentLocation.latitude, currentLocation.longitude) &&
+				currentLocation.displayName
+			) {
 				if (searchInput) {
 					searchInput.value = currentLocation.formattedAddress || currentLocation.displayName;
 				}
@@ -330,7 +328,10 @@
 			isMapLoaded = true;
 
 			// Only try to get user's geolocation if no valid location is already provided
-			if (!isValidCoordinate(currentLocation.latitude, currentLocation.longitude) || !currentLocation.locationLoaded) {
+			if (
+				!isValidCoordinate(currentLocation.latitude, currentLocation.longitude) ||
+				!currentLocation.locationLoaded
+			) {
 				getUserLocation();
 			} else {
 				// If we have a valid existing location, update the marker to that location
@@ -601,7 +602,7 @@
 	}
 
 	// Debounce function for search input
-	function debounce<T extends (...args: any[]) => void>(fn: T, delay: number) {
+	function debounce<T extends (...args: unknown[]) => void>(fn: T, delay: number) {
 		let timeoutId: ReturnType<typeof setTimeout>;
 		return function (...args: Parameters<T>) {
 			clearTimeout(timeoutId);
@@ -628,13 +629,13 @@
 		// Extract address components
 		const addressComponents = place.addressComponents;
 		const extractedComponents = addressComponents
-			? extractAddressComponents(addressComponents as any)
+			? extractAddressComponents(addressComponents as google.maps.GeocoderAddressComponent[])
 			: undefined;
 
 		// Extract postal code
 		const zipCode =
-			addressComponents?.find((component) => component.types.includes('postal_code'))
-				?.longText || '';
+			addressComponents?.find((component) => component.types.includes('postal_code'))?.longText ||
+			'';
 
 		// Update location state with full address details
 		const newLocation: Location = {
@@ -677,8 +678,8 @@
 		}
 	}
 
-	let fullscreenResizeHandler: ((this: Window, ev: UIEvent) => any) | null = null;
-	let escKeyHandler: ((this: Window, ev: KeyboardEvent) => any) | null = null;
+	let fullscreenResizeHandler: ((this: Window, ev: UIEvent) => void) | null = null;
+	let escKeyHandler: ((this: Window, ev: KeyboardEvent) => void) | null = null;
 
 	async function enterFullscreen() {
 		isFullscreen = true;
@@ -686,18 +687,19 @@
 		try {
 			// Try to use Capacitor's native fullscreen if available
 			await ScreenOrientation.lock({ orientation: 'portrait' });
-		} catch (error) {
+		} catch {
 			console.log('Using fallback fullscreen method - Capacitor ScreenOrientation not available');
 		}
 
 		// Calculate navigation bar heights
 		const headerEl = document.querySelector('.app-shell__header') as HTMLElement;
 		const headerHeight = headerEl ? Math.ceil(headerEl.getBoundingClientRect().height) : 0;
-		
+
 		// Get footer height from CSS variable (set dynamically by layout)
-		const footerHeightStr = getComputedStyle(document.documentElement).getPropertyValue('--app-footer-height') || '0px';
+		const footerHeightStr =
+			getComputedStyle(document.documentElement).getPropertyValue('--app-footer-height') || '0px';
 		const footerHeight = parseFloat(footerHeightStr.replace('px', '')) || 0;
-		
+
 		// Calculate available height (viewport minus navigation bars)
 		const viewportHeight = window.innerHeight;
 		const availableHeight = viewportHeight - headerHeight - footerHeight;
@@ -759,17 +761,18 @@
 		fullscreenResizeHandler = () => {
 			// Only handle resize if still in fullscreen
 			if (!isFullscreen) return;
-			
+
 			// Recalculate navigation bar heights on resize
 			const headerEl = document.querySelector('.app-shell__header') as HTMLElement;
 			const headerHeight = headerEl ? Math.ceil(headerEl.getBoundingClientRect().height) : 0;
-			
-			const footerHeightStr = getComputedStyle(document.documentElement).getPropertyValue('--app-footer-height') || '0px';
+
+			const footerHeightStr =
+				getComputedStyle(document.documentElement).getPropertyValue('--app-footer-height') || '0px';
 			const footerHeight = parseFloat(footerHeightStr.replace('px', '')) || 0;
-			
+
 			const viewportHeight = window.innerHeight;
 			const availableHeight = viewportHeight - headerHeight - footerHeight;
-			
+
 			if (mapContainerDiv) {
 				mapContainerDiv.style.top = `${headerHeight}px`;
 				mapContainerDiv.style.bottom = `${footerHeight}px`;
@@ -777,7 +780,7 @@
 				mapContainerDiv.style.maxHeight = `${availableHeight}px`;
 				mapContainerDiv.style.minHeight = `${availableHeight}px`;
 			}
-			
+
 			if (mapElement) {
 				mapElement.style.height = '100%';
 				mapElement.style.minHeight = '100%';
@@ -804,7 +807,7 @@
 		try {
 			// Release orientation lock if we used Capacitor
 			await ScreenOrientation.unlock();
-		} catch (error) {
+		} catch {
 			console.log('Capacitor ScreenOrientation not available');
 		}
 
@@ -938,7 +941,7 @@
 						class="predictions-dropdown bg-base-100 border-base-300 absolute z-1000 mt-2 max-h-60 w-full overflow-y-auto rounded-lg border shadow-lg"
 					>
 						{#if predictions.length > 0}
-							{#each predictions as prediction}
+							{#each predictions as prediction (prediction?.placeId ?? prediction?.text?.text)}
 								<button
 									class="hover:bg-base-200 border-base-200 w-full cursor-pointer border-b px-4 py-3 text-left last:border-b-0"
 									onclick={() => selectPrediction(prediction!)}
@@ -973,7 +976,7 @@
 		{#if showFullscreen}
 			<button
 				onclick={toggleFullscreen}
-				class="absolute top-4 right-4 z-20 btn btn-circle btn-lg bg-base-100/90 hover:bg-base-100 shadow-md"
+				class="btn btn-circle btn-lg bg-base-100/90 hover:bg-base-100 absolute top-4 right-4 z-20 shadow-md"
 				class:z-1000={isFullscreen}
 				aria-label={isFullscreen
 					? $t('task.location_picker.exit_fullscreen')
@@ -1068,7 +1071,10 @@
 					d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
 				/></svg
 			>
-			<span>{$t('task.location_picker.location_set')}: {currentLocation.formattedAddress || currentLocation.displayName}</span>
+			<span
+				>{$t('task.location_picker.location_set')}: {currentLocation.formattedAddress ||
+					currentLocation.displayName}</span
+			>
 		</div>
 	{/if}
 

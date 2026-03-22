@@ -500,7 +500,8 @@
 				"permission_title": "Allow Camera Access",
 				"permission_description": "BitTasker needs camera access to scan QR codes for Bitcoin payments.",
 				"permission_allow": "Allow",
-				"permission_cancel": "Cancel"
+				"permission_cancel": "Cancel",
+				"point_camera_at_qr": "Point your camera at a QR code to scan it"
 			},
 			"tags": {
 				"select_tags": "Select tags...",
