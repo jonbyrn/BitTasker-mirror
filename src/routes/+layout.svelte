@@ -144,33 +144,64 @@
 		window.addEventListener('error', handleError);
 		window.addEventListener('unhandledrejection', handleError);
 
-		// DaisyUI old-pattern modals add .modal-open to their root div.
-		// Watch for that class so we can apply the viewport rubber-band lock
-		// even for modals that don't go through Drawer.svelte or Modal.svelte.
+		// DaisyUI old-pattern modals use `{#if isOpen}` — the entire node with
+		// class="modal modal-open" is added/removed from the DOM, so we need to
+		// watch both childList (node added/removed) AND attribute changes (class toggled
+		// on an already-mounted node). Both paths adjust the same reference counter.
 		let modalOpenCount = 0;
+
+		function countModalOpen(el: Element): number {
+			// Count all .modal-open descendants (including el itself)
+			let n = el.classList.contains('modal-open') ? 1 : 0;
+			n += el.querySelectorAll('.modal-open').length;
+			return n;
+		}
+
 		const modalObserver =
 			typeof MutationObserver !== 'undefined'
 				? new MutationObserver((mutations) => {
 						for (const mutation of mutations) {
-							if (mutation.type !== 'attributes' || mutation.attributeName !== 'class') continue;
-							const el = mutation.target as Element;
-							const isNowOpen = el.classList.contains('modal-open');
-							const wasOpen = (mutation.oldValue ?? '').split(' ').includes('modal-open');
-							if (isNowOpen && !wasOpen) {
-								modalOpenCount++;
-								lockViewport();
-							} else if (!isNowOpen && wasOpen) {
-								modalOpenCount = Math.max(0, modalOpenCount - 1);
-								unlockViewport();
+							if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+								// Class toggled on an already-mounted element
+								const el = mutation.target as Element;
+								const isNowOpen = el.classList.contains('modal-open');
+								const wasOpen = (mutation.oldValue ?? '').split(' ').includes('modal-open');
+								if (isNowOpen && !wasOpen) {
+									modalOpenCount++;
+									lockViewport();
+								} else if (!isNowOpen && wasOpen) {
+									modalOpenCount = Math.max(0, modalOpenCount - 1);
+									unlockViewport();
+								}
+							} else if (mutation.type === 'childList') {
+								// Nodes added: check if any carry .modal-open
+								for (const node of mutation.addedNodes) {
+									if (!(node instanceof Element)) continue;
+									const added = countModalOpen(node);
+									for (let i = 0; i < added; i++) {
+										modalOpenCount++;
+										lockViewport();
+									}
+								}
+								// Nodes removed: release locks for any that had .modal-open
+								for (const node of mutation.removedNodes) {
+									if (!(node instanceof Element)) continue;
+									const removed = countModalOpen(node);
+									for (let i = 0; i < removed; i++) {
+										modalOpenCount = Math.max(0, modalOpenCount - 1);
+										unlockViewport();
+									}
+								}
 							}
 						}
 					})
 				: null;
 
 		modalObserver?.observe(document.body, {
+			childList: true,
+			subtree: true,
 			attributes: true,
 			attributeFilter: ['class'],
-			subtree: true,
 			attributeOldValue: true
 		});
 
