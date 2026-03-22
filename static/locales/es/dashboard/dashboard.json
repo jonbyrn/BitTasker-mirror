@@ -18,6 +18,7 @@
 		},
 		"create_task": "Crear Tarea",
 		"find_task": "Buscar Tareas",
+		"find_services": "Buscar Servicios",
 		"manage_wallet": "Gestionar Billetera",
 		"client": "Tasker",
 		"freelancer": "Taskee",
@@ -27,11 +28,20 @@
 		"tabs": {
 			"tasks": "Mis Tareas",
 			"bids": "Ofertas Enviadas",
+			"requests": "Solicitudes",
 			"contracts": "Contratos",
 			"recurring": "Tareas Recurrentes",
 			"saved_searches": "Búsquedas Guardadas",
 			"my_services": "Mis Servicios",
 			"quotes": "Solicitudes de servicios"
+		},
+		"hiring": {
+			"title": "Contratación",
+			"description": "Gestiona tus tareas, solicitudes de servicio y contratos."
+		},
+		"earning": {
+			"title": "Ganancias",
+			"description": "Sigue tus ofertas, solicitudes entrantes, contratos y servicios."
 		},
 		"saved_searches": {
 			"filter_label": "Filtrar por tipo",

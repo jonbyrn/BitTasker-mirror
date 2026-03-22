@@ -4,11 +4,10 @@
 	import { sections } from '$lib/utils/consts';
 	import { t } from 'svelte-i18n';
 	import IconChartBoxOutline from '~icons/mdi/chart-box-outline';
+	import IconBriefcaseOutline from '~icons/mdi/briefcase-outline';
 	import IconPlusCircleOutline from '~icons/mdi/plus-circle-outline';
 	import IconMagnify from '~icons/mdi/magnify';
 	import IconBriefcaseSearch from '~icons/mdi/briefcase-search';
-	import IconInvoiceTextSendOutline from '~icons/mdi/invoice-text-send-outline';
-	import IconFileSign from '~icons/mdi/file-sign';
 	import IconWalletOutline from '~icons/mdi/wallet-outline';
 	import IconAccount from '~icons/mdi/account';
 	import IconChatOutline from '~icons/mdi/chat-outline';
@@ -21,10 +20,10 @@
 </script>
 
 <svelte:head>
-	<title>Dashboard | BitTasker</title>
+	<title>Hiring | BitTasker</title>
 	<meta
 		name="description"
-		content="Manage your tasks, bids, and wallet on BitTasker's dashboard."
+		content="Manage your hiring activity, tasks, and service requests on BitTasker."
 	/>
 </svelte:head>
 
@@ -41,17 +40,18 @@
 					<div class="card bg-base-100 rounded-xl shadow-xl">
 						<div class="card-body p-4">
 							<ul class="menu bg-base-100 rounded-box w-full">
-								{#each sections as section}
+								{#each sections as section (section.id)}
 									<li class="my-1">
 										<a
 											data-sveltekit-reload="off"
 											href={section.path}
-											class:menu-active={section.id === 'panel'
-												? page.url.pathname === '/dashboard'
-												: page.url.pathname + page.url.search === section.path}
+											class:menu-active={page.url.pathname + page.url.search === section.path ||
+												page.url.pathname === section.path}
 											class="flex items-center gap-3"
 										>
-											{#if section.icon === 'mdi:chart-box-outline'}
+											{#if section.icon === 'mdi:briefcase-outline'}
+												<IconBriefcaseOutline class="text-primary" />
+											{:else if section.icon === 'mdi:chart-box-outline'}
 												<IconChartBoxOutline class="text-primary" />
 											{:else if section.icon === 'mdi:plus-circle-outline'}
 												<IconPlusCircleOutline class="text-primary" />
@@ -59,10 +59,6 @@
 												<IconMagnify class="text-primary" />
 											{:else if section.icon === 'mdi:briefcase-search'}
 												<IconBriefcaseSearch class="text-primary" />
-											{:else if section.icon === 'mdi:invoice-text-send-outline'}
-												<IconInvoiceTextSendOutline class="text-primary" />
-											{:else if section.icon === 'mdi:file-sign'}
-												<IconFileSign class="text-primary" />
 											{:else if section.icon === 'mdi:wallet-outline'}
 												<IconWalletOutline class="text-primary" />
 											{:else if section.icon === 'mdi:account'}

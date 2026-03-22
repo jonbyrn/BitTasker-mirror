@@ -48,6 +48,8 @@
 		"wallet": "Wallet",
 		"messages": "Messages",
 		"support_help": "Support & Help",
+		"hiring": "Hiring",
+		"earning": "Earning",
 		"task_management": "Task Management",
 		"my_account": "My Account",
 		"profile": "Profile",
@@ -88,7 +90,10 @@
 		"feedback": "Feedback",
 		"bids": "My Bids",
 		"bids_sent": "Bids Sent",
-		"contracts": "Contracts"
+		"contracts": "Contracts",
+		"service_requests": "Service Requests",
+		"requests": "Requests",
+		"saved_searches": "Saved Searches"
 	},
 	"homepage": {
 		"title": "Hello, World!",

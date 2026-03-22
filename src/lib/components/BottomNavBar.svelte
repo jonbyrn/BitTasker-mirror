@@ -57,7 +57,7 @@
 	$effect(() => {
 		const path = page.url.pathname;
 		// More specific route detection for active states
-		if (path === '/dashboard') {
+		if (path === '/dashboard' || path === '/earning') {
 			currentSection = 'home';
 		} else if (path === '/tasks' || path.startsWith('/tasks/')) {
 			currentSection = 'find-tasks';
