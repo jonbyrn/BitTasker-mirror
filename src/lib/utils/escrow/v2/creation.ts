@@ -73,9 +73,10 @@ export function deriveV2CreationParams(
 	const cancellationFee = CANCELLATION_FEE_MVP;
 	const upfrontDeposit = UPFRONT_DEPOSIT_MVP;
 
-	// Total value = base + taskerFee + taskeeFee + upfrontDeposit + (2 × GAS_REIMBURSEMENT_PER_OP)
-	const totalValueWei =
-		baseAmountWei + taskerFeeWei + taskeeFeeWei + upfrontDeposit + 2n * GAS_REIMBURSEMENT_PER_OP;
+	// Total value = base + taskerFee + (2 × GAS_REIMBURSEMENT_PER_OP)
+	// Taskee fee is deducted from base inside the contract; we only add tasker fee on top.
+	const gasReimbursementWei = 2n * GAS_REIMBURSEMENT_PER_OP;
+	const totalValueWei = baseAmountWei + taskerFeeWei + gasReimbursementWei;
 
 	// Timing
 	let startTime: number;
@@ -140,6 +141,7 @@ export function deriveV2CreationParams(
 		totalAmount: ethers.formatEther(totalValueWei),
 		taskerFee: ethers.formatEther(taskerFeeWei),
 		taskeeFee: ethers.formatEther(taskeeFeeWei),
+		gasReimbursementAmount: ethers.formatEther(gasReimbursementWei),
 		estimatedStartTime: startTime,
 		estimatedCompletionTime: completionTime,
 		wasTimeAdjusted,

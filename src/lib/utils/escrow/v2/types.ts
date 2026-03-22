@@ -27,7 +27,7 @@ export interface CreatePaymentContractParams {
 	taskeeFeeTier: number;
 	cancellationFee: bigint;
 	upfrontDeposit: bigint;
-	/** Total value to send (msg.value): base + taskerFee + taskeeFee + upfrontDeposit + (2 × GAS_REIMBURSEMENT_PER_OP) */
+	/** Total value to send (msg.value): base + taskerFee + (2 × GAS_REIMBURSEMENT_PER_OP). Taskee fee is deducted from base inside contract. */
 	totalValueWei: bigint;
 	/** Base amount in wei (before fees) */
 	baseAmountWei: bigint;
@@ -46,6 +46,8 @@ export interface V2CreationDisplay {
 	totalAmount: string;
 	taskerFee: string;
 	taskeeFee: string;
+	/** Gas reimbursement (2 × GAS_REIMBURSEMENT) in RBTC — used for gasless ops; shown with estimated network fee in UI */
+	gasReimbursementAmount: string;
 	estimatedStartTime: number;
 	estimatedCompletionTime: number;
 	wasTimeAdjusted: boolean;

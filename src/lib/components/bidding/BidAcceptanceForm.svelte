@@ -140,20 +140,40 @@
 	};
 
 	// Derived formatted amounts (memoized, reactive)
-	const baseAmountUsdFormatted = $derived(
+	// Contract amount = base (escrow for the task; taskee fee deducted from it inside contract)
+	const contractAmountUsdFormatted = $derived(
 		bidEscrowDetails ? formatRbtcToUsd(bidEscrowDetails.baseAmount) : '$0.00'
 	);
+	// BitTasker fee = tasker fee (platform fee)
 	const taskerFeeUsdFormatted = $derived(
 		bidEscrowDetails ? formatRbtcToUsd(bidEscrowDetails.taskerFee) : '$0.00'
 	);
-	const totalPaymentUsd = $derived(
-		bidEscrowDetails && btcPrice.price > 0
-			? parseFloat(bidEscrowDetails.totalAmount) * btcPrice.price
-			: 0
-	);
+	// Estimated network fee = creation tx gas + gas reimbursement (for gasless ops)
+	const estimatedNetworkFeeUsd = $derived.by(() => {
+		if (!bidEscrowDetails || !btcPrice.price) return 0;
+		const gasReimbursementRbtc = parseFloat(bidEscrowDetails.gasReimbursementAmount) || 0;
+		let creationGasRbtc = 0;
+		if (successDetails?.dryRun?.estimatedCostFormatted) {
+			creationGasRbtc = parseFloat(successDetails.dryRun.estimatedCostFormatted) || 0;
+		} else if (estimatedGasPreview?.estimatedCostFormatted) {
+			creationGasRbtc = parseFloat(estimatedGasPreview.estimatedCostFormatted) || 0;
+		} else {
+			creationGasRbtc = 0.5 / btcPrice.price; // ~$0.50 placeholder
+		}
+		return (gasReimbursementRbtc + creationGasRbtc) * btcPrice.price;
+	});
+	const estimatedNetworkFeeFormatted = $derived(`$${estimatedNetworkFeeUsd.toFixed(2)}`);
+	// Total payment = contract (base) + BitTasker fee + estimated network fee (creation gas + gas reimbursement)
+	const totalPaymentUsd = $derived.by(() => {
+		if (!bidEscrowDetails || !btcPrice.price) return 0;
+		const baseUsd = parseFloat(bidEscrowDetails.baseAmount) * btcPrice.price;
+		const taskerFeeUsd = parseFloat(bidEscrowDetails.taskerFee) * btcPrice.price;
+		return baseUsd + taskerFeeUsd + estimatedNetworkFeeUsd;
+	});
 	const totalPaymentSatsFormatted = $derived.by(() => {
-		if (!bidEscrowDetails) return '0';
-		const sats = Math.round(parseFloat(bidEscrowDetails.totalAmount) * 100_000_000);
+		if (!bidEscrowDetails || !btcPrice.price) return '0';
+		const totalRbtc = totalPaymentUsd / btcPrice.price;
+		const sats = Math.round(totalRbtc * 100_000_000);
 		return new Intl.NumberFormat('en-US').format(sats);
 	});
 	const btcPriceFormatted = $derived(
@@ -164,20 +184,19 @@
 			maximumFractionDigits: 0
 		}).format(btcPrice.price)
 	);
-	const estimatedGasFeeFormatted = $derived.by(() => {
-		if (successDetails?.dryRun?.estimatedCostFormatted) {
-			const usd = parseFloat(successDetails.dryRun.estimatedCostFormatted) * btcPrice.price;
-			return `$${usd.toFixed(2)}`;
-		}
-		if (estimatedGasPreview?.estimatedCostFormatted) {
-			const usd = parseFloat(estimatedGasPreview.estimatedCostFormatted) * btcPrice.price;
-			return `$${usd.toFixed(2)}`;
-		}
-		return '~$0.50';
-	});
 	const feePercentageLabel = $derived(
 		bidEscrowDetails ? getFeePercentageDisplay(bidEscrowDetails.taskerFeeTier) : '0%'
 	);
+
+	// Success screen: estimated network fee in RBTC (creation gas + gas reimbursement)
+	const estimatedNetworkFeeRbtcFormatted = $derived.by(() => {
+		const dryRun = successDetails?.dryRun;
+		const display = successDetails?.display;
+		if (!dryRun || !display?.gasReimbursementAmount) return null;
+		const creationGas = parseFloat(dryRun.estimatedCostFormatted) || 0;
+		const gasReimb = parseFloat(display.gasReimbursementAmount) || 0;
+		return formatRBTCAmount(String(creationGas + gasReimb));
+	});
 
 	// Open message modal for the taskee
 	function openMessageModal() {
@@ -482,7 +501,7 @@
 											</div>
 										</div>
 										<span class="shrink-0 text-xs font-bold">
-											{baseAmountUsdFormatted}
+											{contractAmountUsdFormatted}
 										</span>
 									</div>
 
@@ -546,7 +565,7 @@
 											</div>
 										</div>
 										<span class="shrink-0 text-xs font-bold italic">
-											{estimatedGasFeeFormatted}
+											{estimatedNetworkFeeFormatted}
 										</span>
 									</div>
 
@@ -1170,9 +1189,14 @@
 			<p class="text-base-content/70">
 				{$t('dashboard.bids.bid_acceptance.success_message', {
 					values: {
-						amount: successDetails?.display?.totalAmount
-							? formatRBTCAmount(successDetails.display.totalAmount)
-							: '0'
+						amount: (() => {
+							if (!successDetails?.display) return '0';
+							const contractTotal = parseFloat(successDetails.display.totalAmount);
+							const creationGas = successDetails.dryRun?.estimatedCostFormatted
+								? parseFloat(successDetails.dryRun.estimatedCostFormatted)
+								: 0;
+							return formatRBTCAmount(String(contractTotal + creationGas));
+						})()
 					}
 				})}
 			</p>
@@ -1186,10 +1210,12 @@
 				</h4>
 				<div class="space-y-2 text-sm">
 					<div class="flex justify-between">
-						<span class="text-base-content/70"
-							>{$t('dashboard.bids.bid_acceptance.estimated_gas_fee')}</span
-						>
-						<span>~{successDetails.dryRun.estimatedCostFormatted} RBTC</span>
+						<span class="text-base-content/70">
+							{$t('dashboard.bids.bid_acceptance.estimated_network_fee')}
+						</span>
+						<span>
+							~{estimatedNetworkFeeRbtcFormatted ?? '—'} RBTC
+						</span>
 					</div>
 					<div class="flex justify-between">
 						<span class="text-base-content/70"
