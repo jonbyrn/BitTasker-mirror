@@ -59,16 +59,13 @@ describe('deriveV2CreationParams', () => {
 		expect(params.taskerFeeWei).toBe(expectedTaskerFee);
 		expect(params.taskeeFeeWei).toBe(expectedTaskeeFee);
 
-		const expectedTotal =
-			baseAmountWei +
-			params.taskerFeeWei +
-			params.taskeeFeeWei +
-			UPFRONT_DEPOSIT_MVP +
-			2n * GAS_REIMBURSEMENT_PER_OP;
+		// Total = base + taskerFee + gasReimbursement (taskee fee deducted from base inside contract)
+		const expectedTotal = baseAmountWei + params.taskerFeeWei + 2n * GAS_REIMBURSEMENT_PER_OP;
 		expect(params.totalValueWei).toBe(expectedTotal);
 
 		expect(display.baseAmount).toBeDefined();
 		expect(display.totalAmount).toBeDefined();
+		expect(display.gasReimbursementAmount).toBeDefined();
 		expect(display.estimatedStartTime).toBeGreaterThan(0);
 		expect(display.estimatedCompletionTime).toBeGreaterThan(display.estimatedStartTime);
 	});
