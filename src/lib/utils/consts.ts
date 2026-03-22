@@ -3,10 +3,10 @@
  */
 export const sections = [
 	{
-		id: 'panel',
+		id: 'hiring',
 		path: '/dashboard',
-		label: 'navbar.panel',
-		icon: 'mdi:chart-box-outline',
+		label: 'navbar.hiring',
+		icon: 'mdi:briefcase-outline',
 		mobile: true
 	},
 	{
@@ -17,13 +17,6 @@ export const sections = [
 		mobile: true
 	},
 	{
-		id: 'find-tasks',
-		path: '/tasks',
-		label: 'navbar.find_tasks',
-		icon: 'mdi:magnify',
-		mobile: true
-	},
-	{
 		id: 'find-services',
 		path: '/services',
 		label: 'navbar.find_services',
@@ -31,17 +24,17 @@ export const sections = [
 		mobile: true
 	},
 	{
-		id: 'bids-sent',
-		path: '/dashboard?tab=bids',
-		label: 'navbar.bids_sent',
-		icon: 'mdi:invoice-text-send-outline',
+		id: 'earning',
+		path: '/earning',
+		label: 'navbar.earning',
+		icon: 'mdi:chart-box-outline',
 		mobile: true
 	},
 	{
-		id: 'contracts',
-		path: '/dashboard?tab=contracts',
-		label: 'navbar.contracts',
-		icon: 'mdi:file-sign',
+		id: 'find-tasks',
+		path: '/tasks',
+		label: 'navbar.find_tasks',
+		icon: 'mdi:magnify',
 		mobile: true
 	},
 	{

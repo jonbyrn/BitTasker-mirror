@@ -14,8 +14,6 @@
 	import Tabs from '$lib/components/Tabs.svelte';
 	import TaskDrawer from '$lib/components/task/TaskDrawer.svelte';
 	import DashboardTasksPanel from '$lib/components/task/DashboardTasksPanel.svelte';
-	import DashboardSavedSearchesPanel from '$lib/components/task/DashboardSavedSearchesPanel.svelte';
-	import DashboardBidsPanel from '$lib/components/bidding/DashboardBidsPanel.svelte';
 	import DashboardContractsPanel from '$lib/components/contracts/DashboardContractsPanel.svelte';
 	import MyQuotesPanel from '$lib/components/dashboard/quotes/MyQuotesPanel.svelte';
 	import {
@@ -38,15 +36,14 @@
 		type DashboardContractsContext,
 		type DashboardTab
 	} from '$lib/stores/service-quote-ui.store';
-	import {
-		createServicesWorkspaceRedirectUrlFromLegacyDashboard,
-		createServicesWorkspaceUrl
-	} from '$lib/utils/service-quote/services-workspace-route';
+	import { buildEarningQueryUrl } from '$lib/utils/dashboardQuery';
 
 	function translateOrFallback(key: string, fallback: string): string {
 		const translated = $t(key);
 		return translated === key ? fallback : translated;
 	}
+
+	const HIRING_TABS = new Set<DashboardTab>(['tasks', 'quotes', 'contracts']);
 
 	// Tab configuration - reactive to language changes
 	const tabs = $derived([
@@ -58,20 +55,6 @@
 			icon: 'plus'
 		},
 		{
-			id: 'my-services',
-			label: $t('dashboard.tabs.my_services'),
-			buttonLabel: $t('dashboard.services.my_services.create_service'),
-			buttonHref: '/services/manage?tab=listings',
-			icon: 'plus'
-		},
-		{
-			id: 'bids',
-			label: $t('dashboard.tabs.bids'),
-			buttonLabel: $t('dashboard.find_task'),
-			buttonHref: '/tasks',
-			icon: 'search'
-		},
-		{
 			id: 'contracts',
 			label: $t('dashboard.tabs.contracts'),
 			buttonLabel: $t('dashboard.manage_wallet'),
@@ -79,16 +62,9 @@
 			icon: 'wallet'
 		},
 		{
-			id: 'saved-searches',
-			label: $t('dashboard.tabs.saved_searches'),
-			buttonLabel: $t('dashboard.find_task'),
-			buttonHref: '/tasks',
-			icon: 'search'
-		},
-		{
 			id: 'quotes',
 			label: translateOrFallback('dashboard.tabs.quotes', 'Service Requests'),
-			buttonLabel: translateOrFallback('dashboard.find_services', 'Browse Services'),
+			buttonLabel: translateOrFallback('dashboard.find_services', 'Find Services'),
 			buttonHref: '/services',
 			icon: 'search'
 		}
@@ -97,7 +73,6 @@
 	let activeTabId = $state('tasks');
 	const activeTab = $derived(tabs.find((t) => t.id === activeTabId) || tabs[0]);
 	let contractsContext = $state<DashboardContractsContext>('all');
-	let selectedServiceAddress = $state<string | null>(null);
 	let focusedRequestId = $state<string | null>(null);
 	let taskerTimelines = $state<ReturnType<typeof getTaskerTimelines>>([]);
 	let nonBlockingMessageCode = $state<string | null>(null);
@@ -117,11 +92,83 @@
 	let activeTaskModal = $state<'edit' | 'delete' | null>(null);
 	let isDeleting = $state(false);
 
+	function decodeLegacySearchParam(value: string | null): string | null {
+		if (!value) {
+			return null;
+		}
+
+		try {
+			return decodeURIComponent(value);
+		} catch {
+			return value;
+		}
+	}
+
+	function getLegacyEarningRedirectUrl(currentUrl: URL): URL | null {
+		const rawTab = currentUrl.searchParams.get('tab');
+		if (!rawTab) {
+			return null;
+		}
+
+		const nextUrl = new URL('/earning', currentUrl.origin);
+
+		if (rawTab === 'bids' || rawTab === 'saved-searches') {
+			return new URL(
+				buildEarningQueryUrl(nextUrl, {
+					tab: rawTab
+				})
+			);
+		}
+
+		if (rawTab === 'my-services') {
+			const view = currentUrl.searchParams.get('view');
+			const service = currentUrl.searchParams.get('service');
+			const request = currentUrl.searchParams.get('request');
+
+			if (view === 'quotes' || service || request) {
+				return new URL(
+					buildEarningQueryUrl(nextUrl, {
+						tab: 'requests',
+						service: decodeLegacySearchParam(service),
+						request
+					})
+				);
+			}
+
+			return new URL(
+				buildEarningQueryUrl(nextUrl, {
+					tab: 'my-services'
+				})
+			);
+		}
+
+		if (rawTab === 'requests') {
+			return new URL(
+				buildEarningQueryUrl(nextUrl, {
+					tab: 'requests',
+					service: decodeLegacySearchParam(currentUrl.searchParams.get('service')),
+					request: currentUrl.searchParams.get('request')
+				})
+			);
+		}
+
+		return null;
+	}
+
 	function syncRouteState() {
+		const earningRedirectUrl = getLegacyEarningRedirectUrl(page.url);
+		if (earningRedirectUrl) {
+			goto(earningRedirectUrl.toString(), {
+				replaceState: true,
+				keepFocus: true,
+				noScroll: true
+			});
+			return;
+		}
+
 		const parsed = serviceQuoteUiStore.parseDashboardQuery(page.url.searchParams);
-		activeTabId = parsed.state.tab;
+		activeTabId = HIRING_TABS.has(parsed.state.tab) ? parsed.state.tab : 'tasks';
 		contractsContext = parsed.state.context;
-		selectedServiceAddress = parsed.state.serviceAddress;
 		focusedRequestId = parsed.state.requestId;
 		nonBlockingMessageCode = parsed.messageCode;
 		currentContractsHighlight = parsed.state.highlight;
@@ -223,7 +270,7 @@
 			taskerQuotesError = state.taskerLoadError;
 			taskerQuotesLoaded = state.taskerLoaded;
 			taskerQuotesStoreSyncing =
-				state.loadingTasker || isRequestSyncActive(state, focusedRequestId, selectedServiceAddress);
+				state.loadingTasker || isRequestSyncActive(state, focusedRequestId, null);
 			syncRouteState();
 		});
 
@@ -284,21 +331,6 @@
 	});
 
 	$effect(() => {
-		if (activeTabId !== 'my-services' || typeof window === 'undefined') {
-			return;
-		}
-
-		const redirectUrl =
-			createServicesWorkspaceRedirectUrlFromLegacyDashboard(page.url) ??
-			createServicesWorkspaceUrl(new URL('/services/manage', window.location.origin), {
-				tab: 'listings',
-				serviceAddress: null,
-				requestId: null
-			});
-		goto(redirectUrl.toString(), { replaceState: true, keepFocus: true, noScroll: true });
-	});
-
-	$effect(() => {
 		if (activeTabId !== 'quotes') {
 			taskerQuotesError = null;
 			return;
@@ -312,15 +344,6 @@
 	// Handle tab change
 	function handleTabChange(tabId: string) {
 		if (!tabs.some((t) => t.id === tabId)) {
-			return;
-		}
-
-		if (tabId === 'my-services') {
-			goto('/services/manage?tab=listings', {
-				replaceState: true,
-				keepFocus: true,
-				noScroll: true
-			});
 			return;
 		}
 
@@ -471,8 +494,13 @@
 	<!-- Dashboard Header -->
 	<div class="mb-6 flex items-center justify-between">
 		<div>
-			<h3 class="font-bold">{$t('dashboard.title')}</h3>
-			<p class="text-base-content/70">{$t('dashboard.description')}</p>
+			<h3 class="font-bold">{translateOrFallback('dashboard.hiring.title', 'Hiring')}</h3>
+			<p class="text-base-content/70">
+				{translateOrFallback(
+					'dashboard.hiring.description',
+					'Manage your tasks, service requests, and contracts.'
+				)}
+			</p>
 		</div>
 		<a href={activeTab.buttonHref} class="btn btn-primary btn-sm sm:btn-md whitespace-nowrap">
 			{#if activeTab.icon === 'search'}
@@ -558,24 +586,6 @@
 			<DashboardTasksPanel
 				openTaskDrawer={(task, tab = 'details') => setDrawerState(true, task, tab)}
 			/>
-		</div>
-	{:else if activeTabId === 'saved-searches'}
-		<div
-			id="panel-saved-searches"
-			role="tabpanel"
-			aria-labelledby="tab-saved-searches"
-			transition:slide={{ duration: 300 }}
-		>
-			<DashboardSavedSearchesPanel />
-		</div>
-	{:else if activeTabId === 'bids'}
-		<div
-			id="panel-bids"
-			role="tabpanel"
-			aria-labelledby="tab-bids"
-			transition:slide={{ duration: 300 }}
-		>
-			<DashboardBidsPanel />
 		</div>
 	{:else if activeTabId === 'contracts'}
 		<div

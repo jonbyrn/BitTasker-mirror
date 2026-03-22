@@ -117,14 +117,18 @@ export function getNamespacesForRoute(route: string): string[] {
 		// Include categories and recommendations for task discovery
 		namespaces.push('dashboard/recomendations', 'categories');
 	}
-	// Dashboard routes
-	if (route.includes('/dashboard')) {
+	// Protected workspace routes
+	if (route.includes('/dashboard') || route.includes('/earning')) {
 		namespaces.push('dashboard/dashboard', 'dashboard/tasks/info');
 		namespaces.push('dashboard/bids');
 		// Always load wallet namespace for bid-related components that use wallet translations
 		namespaces.push('dashboard/wallet');
-		// Panel tab "Mis Servicios" is shown at /dashboard?tab=my-services (pathname is /dashboard)
-		namespaces.push('dashboard/services/my-services', 'dashboard/services/browse', 'dashboard/services/detail');
+		// Service workspaces are surfaced from both protected workspace routes.
+		namespaces.push(
+			'dashboard/services/my-services',
+			'dashboard/services/browse',
+			'dashboard/services/detail'
+		);
 
 		// Load notifications namespace for notification components
 		namespaces.push('notifications');
@@ -169,6 +173,14 @@ export function getNamespacesForRoute(route: string): string[] {
 	}
 
 	// Services routes (public)
+	if (route.includes('/services/manage')) {
+		namespaces.push(
+			'dashboard/dashboard',
+			'dashboard/services/my-services',
+			'dashboard/services/detail'
+		);
+	}
+
 	if (route.includes('/services') && !route.includes('/services/[')) {
 		namespaces.push(
 			'dashboard/services/browse',

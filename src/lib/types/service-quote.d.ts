@@ -22,10 +22,7 @@ export type ServiceAcceptanceUnknownReasonCode =
 	| 'nonce_conflict'
 	| 'reconciliation_deferred';
 
-export type ResolvedServiceProposalState =
-	| 'pending'
-	| ServiceProposalStatus
-	| 'expired';
+export type ResolvedServiceProposalState = 'pending' | ServiceProposalStatus | 'expired';
 
 export type ServiceQuoteFeatureKey = 'read' | 'write' | 'accept' | 'contractsFilter';
 
@@ -238,7 +235,7 @@ export interface ServiceQuoteRelayCapability {
 }
 
 export interface ServiceQuoteDeepLinkState {
-	tab: 'tasks' | 'my-services' | 'bids' | 'contracts' | 'saved-searches' | 'quotes';
+	tab: 'tasks' | 'my-services' | 'bids' | 'contracts' | 'saved-searches' | 'quotes' | 'requests';
 	view?: 'default' | 'quotes' | 'tasker';
 	context?: 'all' | 'tasks' | 'services';
 	service?: string;

@@ -4,7 +4,10 @@ export type DashboardTab =
 	| 'bids'
 	| 'contracts'
 	| 'saved-searches'
-	| 'quotes';
+	| 'quotes'
+	| 'requests';
+
+export type EarningTab = 'bids' | 'requests' | 'contracts' | 'my-services' | 'saved-searches';
 
 export type DashboardView = 'default' | 'quotes' | 'tasker';
 export type DashboardContractsContext = 'all' | 'tasks' | 'services';
@@ -25,13 +28,29 @@ export interface ServicesWorkspaceQueryState {
 	request?: string | null;
 }
 
+export interface EarningQueryState {
+	tab: EarningTab;
+	context?: DashboardContractsContext;
+	service?: string | null;
+	request?: string | null;
+	highlight?: string | null;
+}
+
 const VALID_TABS = new Set<DashboardTab>([
 	'tasks',
 	'my-services',
 	'bids',
 	'contracts',
 	'saved-searches',
-	'quotes'
+	'quotes',
+	'requests'
+]);
+const VALID_EARNING_TABS = new Set<EarningTab>([
+	'bids',
+	'requests',
+	'contracts',
+	'my-services',
+	'saved-searches'
 ]);
 const SERVICE_ADDRESS_PATTERN = /^(30402|30403):[0-9a-f]{64}:[^:]+$/i;
 const REQUEST_ID_PATTERN = /^[A-Za-z0-9_-]{8,64}$/;
@@ -90,6 +109,43 @@ export function parseDashboardQuery(url: URL): DashboardQueryState {
 	return state;
 }
 
+export function parseEarningQuery(url: URL): EarningQueryState {
+	const rawTab = url.searchParams.get('tab');
+	const rawView = url.searchParams.get('view');
+	const decodedService = decodeSearchParam(url.searchParams.get('service'));
+	const rawRequest = url.searchParams.get('request');
+
+	let tab: EarningTab = VALID_EARNING_TABS.has(rawTab as EarningTab)
+		? (rawTab as EarningTab)
+		: 'bids';
+
+	// Preserve legacy inbox deep links that previously lived under my-services/quotes.
+	if (
+		rawTab === 'my-services' &&
+		(rawView === 'quotes' || decodedService !== null || rawRequest !== null)
+	) {
+		tab = 'requests';
+	} else if (rawTab === 'quotes') {
+		tab = 'requests';
+	}
+
+	const state: EarningQueryState = { tab };
+
+	if (tab === 'contracts') {
+		const context = url.searchParams.get('context');
+		state.context = context === 'tasks' || context === 'services' ? context : 'all';
+		state.highlight = url.searchParams.get('highlight') || null;
+		return state;
+	}
+
+	if (tab === 'requests') {
+		state.service = decodedService;
+		state.request = rawRequest || null;
+	}
+
+	return state;
+}
+
 export function parseServicesWorkspaceQuery(url: URL): ServicesWorkspaceQueryState {
 	const rawTab = url.searchParams.get('tab');
 	const tab = VALID_SERVICES_WORKSPACE_TABS.has(rawTab as ServicesWorkspaceTab)
@@ -131,6 +187,31 @@ export function buildDashboardQueryUrl(baseUrl: URL, state: DashboardQueryState)
 		url.searchParams.set('view', 'quotes');
 		if (state.service) {
 			url.searchParams.set('service', encodeURIComponent(state.service));
+		}
+		if (state.request) {
+			url.searchParams.set('request', state.request);
+		}
+	}
+
+	return url.toString();
+}
+
+export function buildEarningQueryUrl(baseUrl: URL, state: EarningQueryState): string {
+	const url = new URL(baseUrl.toString());
+	url.search = '';
+	url.searchParams.set('tab', state.tab);
+
+	if (state.tab === 'contracts') {
+		url.searchParams.set('context', state.context ?? 'all');
+		if (state.highlight) {
+			url.searchParams.set('highlight', state.highlight);
+		}
+		return url.toString();
+	}
+
+	if (state.tab === 'requests') {
+		if (state.service) {
+			url.searchParams.set('service', state.service);
 		}
 		if (state.request) {
 			url.searchParams.set('request', state.request);

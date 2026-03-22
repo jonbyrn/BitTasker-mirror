@@ -48,6 +48,8 @@
 		"wallet": "Billetera",
 		"messages": "Mensajes",
 		"support_help": "Soporte y Ayuda",
+		"hiring": "Contratación",
+		"earning": "Ganancias",
 		"task_management": "Gestión de Tareas",
 		"my_account": "Mi Cuenta",
 		"profile": "Perfil",
@@ -88,7 +90,10 @@
 		"feedback": "Comentarios",
 		"bids": "Mis Ofertas",
 		"bids_sent": "Ofertas Enviadas",
-		"contracts": "Contratos"
+		"contracts": "Contratos",
+		"service_requests": "Solicitudes de Servicio",
+		"requests": "Solicitudes",
+		"saved_searches": "Búsquedas Guardadas"
 	},
 	"homepage": {
 		"title": "¡Hola Mundo!",

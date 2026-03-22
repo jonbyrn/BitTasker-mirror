@@ -35,11 +35,13 @@ import IconShieldCheck from '~icons/mdi/shield-check';
 import IconShieldCheckOutline from '~icons/mdi/shield-check-outline';
 import IconWalletOutline from '~icons/mdi/wallet-outline';
 
+type IconComponent = typeof IconAccountCircle;
+
 export interface MenuItem {
 	/** Translation key */
 	label: string;
 	/** Icon component from MDI */
-	icon: any;
+	icon: IconComponent;
 	/** URL path */
 	href?: string;
 	/** Submenu items */
@@ -58,7 +60,7 @@ export interface MenuSection {
 	/** Translation key for section title */
 	label: string;
 	/** Icon component for section */
-	icon: any;
+	icon: IconComponent;
 	/** Menu items in this section */
 	items: MenuItem[];
 }
@@ -101,12 +103,12 @@ export const LOGGED_IN_MENU_SECTIONS: MenuSection[] = [
 		]
 	},
 	{
-		id: 'task-management',
-		label: 'navbar.task_management',
+		id: 'hiring',
+		label: 'navbar.hiring',
 		icon: IconBriefcaseOutline,
 		items: [
 			{
-				label: 'navbar.panel',
+				label: 'navbar.hiring',
 				icon: IconChartBoxOutline,
 				href: '/dashboard'
 			},
@@ -116,24 +118,61 @@ export const LOGGED_IN_MENU_SECTIONS: MenuSection[] = [
 				href: '/dashboard/create-task'
 			},
 			{
-				label: 'navbar.find_tasks',
-				icon: IconMagnify,
-				getDynamicHref: () => '/tasks'
-			},
-			{
 				label: 'navbar.find_services',
 				icon: IconBriefcaseSearch,
 				href: '/services'
 			},
 			{
-				label: 'navbar.bids_sent',
-				icon: IconInvoiceTextSendOutline,
-				href: '/dashboard?tab=bids'
+				label: 'navbar.service_requests',
+				icon: IconCommentTextOutline,
+				href: '/dashboard?tab=quotes'
 			},
 			{
 				label: 'navbar.contracts',
 				icon: IconFileSign,
 				href: '/dashboard?tab=contracts'
+			}
+		]
+	},
+	{
+		id: 'earning',
+		label: 'navbar.earning',
+		icon: IconInvoiceTextSendOutline,
+		items: [
+			{
+				label: 'navbar.earning',
+				icon: IconInvoiceTextSendOutline,
+				href: '/earning'
+			},
+			{
+				label: 'navbar.find_tasks',
+				icon: IconMagnify,
+				getDynamicHref: () => '/tasks'
+			},
+			{
+				label: 'navbar.bids_sent',
+				icon: IconInvoiceTextSendOutline,
+				href: '/earning?tab=bids'
+			},
+			{
+				label: 'navbar.requests',
+				icon: IconCommentTextOutline,
+				href: '/earning?tab=requests'
+			},
+			{
+				label: 'navbar.contracts',
+				icon: IconFileSign,
+				href: '/earning?tab=contracts'
+			},
+			{
+				label: 'navbar.my_services',
+				icon: IconBriefcaseSearch,
+				href: '/earning?tab=my-services'
+			},
+			{
+				label: 'navbar.saved_searches',
+				icon: IconMagnify,
+				href: '/earning?tab=saved-searches'
 			}
 		]
 	},

@@ -52,7 +52,9 @@
 		currentPath === '/' || currentPath === '/how-it-works' || currentPath.startsWith('/auth')
 	);
 	const showTopBar = $derived(!isOnboardingPage);
-	const showFooterSection = $derived(currentPath.includes('/dashboard'));
+	const showFooterSection = $derived(
+		currentPath.includes('/dashboard') || currentPath.includes('/earning')
+	);
 	const shouldHideFooterForLoggedInTaskPage = $derived(
 		($authState.isAuthenticated || $user?.npub) && currentPath.match(/^\/tasks\/[^/]+$/)
 	);
@@ -86,6 +88,7 @@
 	async function initializeProtectedRouteHelpers() {
 		const isProtected =
 			currentPath.includes('/dashboard') ||
+			currentPath.includes('/earning') ||
 			currentPath.includes('/profile') ||
 			currentPath.includes('/settings');
 
