@@ -15,7 +15,6 @@ import {
 	validateEmail,
 	validateName,
 	validatePassword,
-	validateNostrPrivateKey,
 	validateUsername
 } from '$lib/utils/helpers/validators';
 
@@ -121,43 +120,6 @@ describe('Validators', () => {
 		});
 	});
 
-	describe('validateNostrPrivateKey', () => {
-		it('should return valid result for valid nsec format', () => {
-			const validKey = 'nsec1' + 'a'.repeat(55); // nsec1 + 55 = 60 chars, bech32 chars only
-			const result = validateNostrPrivateKey(validKey);
-			expect(result.isValid).toBe(true);
-			expect(result.error).toBeUndefined();
-		});
-
-		it('should return error for empty key', () => {
-			const result = validateNostrPrivateKey('   ');
-			expect(result.isValid).toBe(false);
-			expect(result.error).toBe('Nostr private key cannot be empty');
-		});
-
-		it('should return error for key not starting with nsec1', () => {
-			const result = validateNostrPrivateKey('private1abcdefghijklmnopqrstuvwxyz');
-			expect(result.isValid).toBe(false);
-			expect(result.error).toContain('Nostr private key must start with "nsec1"');
-		});
-
-		it('should return error for invalid length key', () => {
-			const shortKey = 'nsec1abc';
-			const result = validateNostrPrivateKey(shortKey);
-			expect(result.isValid).toBe(false);
-			expect(result.error).toContain('Invalid Nostr private key length');
-		});
-
-		it('should return error for invalid characters', () => {
-			// Invalid bech32 char 'I' in an otherwise valid-length key (length check runs first)
-			const invalidKey = 'nsec1' + 'a'.repeat(54) + 'I'; // 60 chars, 'I' not in bech32
-			const result = validateNostrPrivateKey(invalidKey);
-			expect(result.isValid).toBe(false);
-			expect(result.error).toContain('Invalid character');
-			expect(result.error).toContain('in Nostr private key');
-		});
-	});
-
 	describe('validateUsername', () => {
 		it('should return valid result for valid usernames', () => {
 			const result = validateUsername('john');
@@ -235,7 +197,7 @@ describe('Validators', () => {
 
 		it('should return valid result for single character username (if length check passes)', () => {
 			// Note: This will fail length check, but we're testing character validation
-			const result = validateUsername('a'); 
+			const result = validateUsername('a');
 			expect(result.isValid).toBe(false);
 			expect(result.error).toBe('onboarding_auth.form.username_setup.errors.too_short');
 		});
