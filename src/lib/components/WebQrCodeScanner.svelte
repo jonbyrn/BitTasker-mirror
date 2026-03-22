@@ -1,92 +1,127 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
 	import { t } from 'svelte-i18n';
-	import { Html5Qrcode, type Html5QrcodeResult } from 'html5-qrcode';
-	import { Capacitor } from '@capacitor/core';
+	import { Html5Qrcode } from 'html5-qrcode';
 
+	/**
+	 * WebQrCodeScanner
+	 *
+	 * mode="inline"      — camera fills its parent container (caller sizes the parent).
+	 * mode="fullscreen"  — fixed overlay covering the full viewport, with header & close btn.
+	 * mode="modal"       — centered dialog card over a blurred backdrop.
+	 * mode="auto"        — fullscreen on mobile web (<768 px), modal on desktop (≥768 px). [default]
+	 *
+	 * scanBtn snippet — when provided, renders a trigger button; scanner starts on click.
+	 *                   When omitted the scanner starts automatically on mount.
+	 */
 	let {
 		onScan = () => {},
 		onClose = () => {},
-		onError = () => {}
+		onError = () => {},
+		scanBtn,
+		mode = 'auto',
+		qrboxSize = undefined
 	}: {
 		onScan?: (result: string) => void;
 		onClose?: () => void;
 		onError?: (error: string) => void;
+		scanBtn?: import('svelte').Snippet<[{ onStartScan: () => void }]>;
+		mode?: 'inline' | 'fullscreen' | 'modal' | 'auto';
+		qrboxSize?: number;
 	} = $props();
 
-	let scannerContainer: HTMLDivElement = $state() as HTMLDivElement;
 	let html5QrCode: Html5Qrcode | null = $state(null);
 	let isScanning = $state(false);
 	let errorMessage = $state<string | null>(null);
-	let cameraPermissionGranted = $state(false);
-	let scanCompleted = $state(false); // Track if scan was completed to prevent restart
-	let isLoading = $state(false);
+	let scanCompleted = $state(false);
+	let activeMode = $state<'inline' | 'fullscreen' | 'modal'>('inline');
 
-	const config = {
-		fps: 10,
-		qrbox: { width: 300, height: 300 },
-		aspectRatio: 1.0,
-		disableFlip: false,
-		supportedScanTypes: ['qr_code'] as const
-	};
+	const isDesktop = () =>
+		typeof window !== 'undefined' && window.matchMedia('(min-width: 768px)').matches;
+
+	function resolvedMode(): 'inline' | 'fullscreen' | 'modal' {
+		if (mode !== 'auto') return mode;
+		return isDesktop() ? 'modal' : 'fullscreen';
+	}
+
+	// Use stable, mode-specific IDs so CSS :global() selectors work reliably.
+	// The library injects video/canvas into these elements by ID — scoped CSS
+	// (.scanner-el :global(video)) never matches injected children in Svelte.
+	function readerId(): string {
+		if (activeMode === 'inline') return 'qr-reader-inline';
+		if (activeMode === 'fullscreen') return 'qr-reader-fullscreen';
+		return 'qr-reader-modal';
+	}
+
+	/**
+	 * Compute a static qrbox object from the container element's real dimensions.
+	 * We pass this as a plain { width, height } — NOT as a callback function —
+	 * because the library calls a qrbox function inside an async "playing" event
+	 * that fires after start() resolves, meaning any error thrown there becomes an
+	 * unhandled rejection that bypasses our try/catch. A plain object is always safe.
+	 *
+	 * For inline mode we measure the actual container element so we respect whatever
+	 * space the parent gives us, rather than relying on viewport dimensions.
+	 */
+	function computeQrbox(el: HTMLElement): { width: number; height: number } {
+		if (qrboxSize !== undefined) return { width: qrboxSize, height: qrboxSize };
+		if (activeMode === 'modal') return { width: 260, height: 260 };
+
+		// For inline mode the wrapper is a 1:1 square, so clientWidth == clientHeight.
+		// For fullscreen the wrapper fills the viewport.
+		// Use clientWidth as the reference; fall back to innerWidth if layout not ready.
+		const ref = el.clientWidth || el.offsetWidth || window.innerWidth;
+		const size = Math.min(Math.max(Math.floor(ref * 0.7), 100), 350);
+		return { width: size, height: size };
+	}
 
 	onMount(async () => {
-		// Only initialize on web platform
-		if (Capacitor.getPlatform() !== 'web') {
-			console.warn('WebQrCodeScanner should only be used on web platform');
-			return;
-		}
-
-		try {
-			isLoading = true;
-			html5QrCode = new Html5Qrcode('qr-reader');
-			await startScanning();
-		} catch (error) {
-			console.error('Failed to initialize QR scanner:', error);
-			errorMessage = error instanceof Error ? error.message : String(error);
-			onError(errorMessage);
-		} finally {
-			isLoading = false;
+		if (!scanBtn) {
+			await startScan();
 		}
 	});
 
 	onDestroy(async () => {
-		await stopScanning();
+		await stopScan();
 		onClose();
 	});
 
-	async function startScanning() {
-		if (!html5QrCode) return;
+	async function startScan() {
+		if (isScanning) return;
 
-		// Don't start if scan was already completed
-		if (scanCompleted) return;
+		activeMode = resolvedMode();
+		isScanning = true;
+		errorMessage = null;
+
+		// Give Svelte one tick to render the container div before we look it up.
+		await new Promise((resolve) => setTimeout(resolve, 300));
 
 		try {
-			// Start scanning with back camera (environment facing mode)
-			// This matches the login QR scanner behavior
+			const elementId = readerId();
+			const el = document.getElementById(elementId);
+			if (!el) throw new Error('QR reader element not found');
+
+			html5QrCode = new Html5Qrcode(elementId, { verbose: false });
+			if (scanCompleted) return;
+
 			await html5QrCode.start(
 				{ facingMode: 'environment' },
-				config,
-				async (qrCodeMessage: string, result: Html5QrcodeResult) => {
-					// Successfully scanned QR code - stop scanning immediately
+				{
+					fps: 10,
+					qrbox: computeQrbox(el),
+					disableFlip: false
+				},
+				async (qrCodeMessage: string /* result: Html5QrcodeResult */) => {
 					scanCompleted = true;
-					await stopScanning();
+					await stopScan();
 					onScan(qrCodeMessage);
 				},
-				(errorMessage: string) => {
-					// Scan error (usually just means no QR code detected yet)
-					// Don't show error for normal scanning process
-				}
+				() => {}
 			);
-
-			isScanning = true;
-			cameraPermissionGranted = true;
-			errorMessage = null;
 		} catch (error) {
 			console.error('Failed to start scanning:', error);
 			const errorMsg = error instanceof Error ? error.message : String(error);
 
-			// Check if it's a permission error
 			if (errorMsg.includes('Permission denied') || errorMsg.includes('NotAllowedError')) {
 				errorMessage = $t('common.components.qr_scanner.camera_permission_denied');
 			} else if (errorMsg.includes('NotFoundError') || errorMsg.includes('no camera')) {
@@ -100,30 +135,23 @@
 		}
 	}
 
-	async function stopScanning() {
+	async function stopScan() {
 		if (!html5QrCode) return;
-
 		try {
-			// Always try to stop the scanner to ensure camera is released
-			// The library will handle cases where it's already stopped
 			try {
 				await html5QrCode.stop();
 			} catch (stopError) {
-				// Ignore "already stopped" errors - this is expected if scanner was already stopped
 				if (stopError instanceof Error) {
-					const errorMsg = stopError.message.toLowerCase();
-					if (!errorMsg.includes('already stopped') && !errorMsg.includes('not started')) {
+					const msg = stopError.message.toLowerCase();
+					if (!msg.includes('already stopped') && !msg.includes('not started')) {
 						console.warn('Error stopping scanner:', stopError);
 					}
 				}
 			}
-
-			// Always clear to ensure camera is fully released
 			try {
 				await html5QrCode.clear();
-			} catch (clearError) {
-				// Ignore clear errors - they're usually harmless
-				console.warn('Error clearing scanner:', clearError);
+			} catch {
+				// harmless
 			}
 		} catch (error) {
 			console.error('Unexpected error stopping scanner:', error);
@@ -132,57 +160,304 @@
 		}
 	}
 
+	async function handleClose() {
+		scanCompleted = false;
+		await stopScan();
+		onClose();
+	}
+
 	async function handleRetry() {
 		errorMessage = null;
 		scanCompleted = false;
-		await startScanning();
+		await startScan();
 	}
 </script>
 
-<div class="web-qr-scanner flex min-h-full w-full flex-col items-center justify-center gap-4">
-	{#if isLoading}
-		<div class="loading loading-spinner loading-lg"></div>
-	{/if}
-	<div id="qr-reader" bind:this={scannerContainer} class="w-full max-w-md"></div>
+{@render scanBtn?.({ onStartScan: startScan })}
 
-	{#if errorMessage}
-		<div class="alert alert-error alert-outline w-full max-w-md">
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				class="h-6 w-6 shrink-0 stroke-current"
-				fill="none"
-				viewBox="0 0 24 24"
-			>
-				<path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					stroke-width="2"
-					d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-				/>
-			</svg>
-			<span class="text-sm">{errorMessage}</span>
+{#if isScanning}
+	{#if activeMode === 'inline'}
+		<!-- ── INLINE ─────────────────────────────────────────────────────── -->
+		<div
+			class="web-scanner-inline relative mx-auto w-full max-w-lg overflow-hidden bg-black"
+			style="aspect-ratio: 1 / 1;"
+		>
+			<div id="qr-reader-inline"></div>
+			{#if errorMessage}
+				<div class="absolute bottom-4 left-1/2 z-10 w-11/12 -translate-x-1/2">
+					<div class="alert alert-error alert-outline">
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="h-6 w-6 shrink-0 stroke-current"
+							fill="none"
+							viewBox="0 0 24 24"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+							/>
+						</svg>
+						<span class="text-sm">{errorMessage}</span>
+						<button class="btn btn-primary btn-sm" onclick={handleRetry}
+							>{$t('common.buttons.retry')}</button
+						>
+					</div>
+				</div>
+			{/if}
 		</div>
-		<button class="btn btn-primary" onclick={handleRetry}>
-			{$t('common.buttons.retry')}
-		</button>
+	{:else if activeMode === 'fullscreen'}
+		<!-- ── FULLSCREEN ─────────────────────────────────────────────────── -->
+		<div class="web-scanner-overlay fixed inset-0 z-9999 flex flex-col">
+			<header class="relative z-10 flex shrink-0 items-center justify-between bg-black/70 p-4">
+				<span class="text-lg font-semibold text-white">
+					{$t('common.components.qr_scanner.scan_qr_code')}
+				</span>
+				<button
+					aria-label={$t('common.components.qr_scanner.close')}
+					class="btn btn-circle rounded-full p-2 text-white"
+					onclick={handleClose}
+				>
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						width="20"
+						height="20"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+					>
+						<line x1="18" y1="6" x2="6" y2="18"></line>
+						<line x1="6" y1="6" x2="18" y2="18"></line>
+					</svg>
+				</button>
+			</header>
+
+			<div class="fullscreen-scanner-area relative flex-1 overflow-hidden">
+				<div id="qr-reader-fullscreen"></div>
+				{#if errorMessage}
+					<div class="absolute bottom-6 left-1/2 z-10 w-11/12 -translate-x-1/2">
+						<div class="alert alert-error alert-outline">
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								class="h-6 w-6 shrink-0 stroke-current"
+								fill="none"
+								viewBox="0 0 24 24"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+								/>
+							</svg>
+							<span class="text-sm">{errorMessage}</span>
+							<button class="btn btn-primary btn-sm" onclick={handleRetry}
+								>{$t('common.buttons.retry')}</button
+							>
+						</div>
+					</div>
+				{/if}
+			</div>
+		</div>
+	{:else}
+		<!-- ── MODAL ──────────────────────────────────────────────────────── -->
+		<div
+			class="fixed inset-0 z-9999 flex items-center justify-center"
+			role="dialog"
+			aria-modal="true"
+			aria-label={$t('common.components.qr_scanner.scan_qr_code')}
+		>
+			<!-- Backdrop -->
+			<div
+				class="absolute inset-0 bg-black/60 backdrop-blur-sm"
+				onclick={handleClose}
+				aria-hidden="true"
+			></div>
+
+			<!-- Card -->
+			<div
+				class="bg-base-100 relative z-10 flex w-full max-w-xl flex-col overflow-hidden rounded-2xl shadow-2xl"
+			>
+				<!-- Header -->
+				<div class="border-base-300 flex items-center justify-between border-b px-5 py-4">
+					<div class="flex items-center gap-2">
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="text-primary h-5 w-5"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+							stroke-width="1.8"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
+							/>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
+							/>
+						</svg>
+						<span class="font-semibold">{$t('common.components.qr_scanner.scan_qr_code')}</span>
+					</div>
+					<button
+						aria-label={$t('common.components.qr_scanner.close')}
+						class="btn btn-circle btn-ghost btn-sm"
+						onclick={handleClose}
+					>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							width="18"
+							height="18"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+						>
+							<line x1="18" y1="6" x2="6" y2="18"></line>
+							<line x1="6" y1="6" x2="18" y2="18"></line>
+						</svg>
+					</button>
+				</div>
+
+				<!-- Camera viewport — 1:1 square so the modal stays compact -->
+				<div class="modal-scanner-area relative w-full" style="aspect-ratio: 1 / 1;">
+					<div id="qr-reader-modal"></div>
+				</div>
+
+				<!-- Footer hint -->
+				<div class="border-base-300 border-t px-5 py-3 text-center">
+					<p class="text-base-content/60 text-xs">
+						{$t('common.components.qr_scanner.point_camera_at_qr')}
+					</p>
+				</div>
+
+				{#if errorMessage}
+					<div class="px-4 pb-4">
+						<div class="alert alert-error alert-outline">
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								class="h-6 w-6 shrink-0 stroke-current"
+								fill="none"
+								viewBox="0 0 24 24"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+								/>
+							</svg>
+							<span class="text-sm">{errorMessage}</span>
+							<button class="btn btn-primary btn-sm" onclick={handleRetry}
+								>{$t('common.buttons.retry')}</button
+							>
+						</div>
+					</div>
+				{/if}
+			</div>
+		</div>
 	{/if}
-</div>
+{/if}
 
 <style>
-	:global(#qr-reader) {
-		width: 100%;
-	}
-
-	:global(#qr-reader__dashboard_section_csr) {
+	/* ── Shared: hide library chrome we don't need ── */
+	:global(#qr-reader-inline__dashboard),
+	:global(#qr-reader-fullscreen__dashboard),
+	:global(#qr-reader-modal__dashboard),
+	:global(#qr-reader-inline__scan_region img),
+	:global(#qr-reader-fullscreen__scan_region img),
+	:global(#qr-reader-modal__scan_region img) {
 		display: none !important;
 	}
 
-	:global(#qr-reader__scan_region) {
-		border: 2px solid hsl(var(--p)) !important;
-		border-radius: 0.5rem;
+	/* ── INLINE layout ── */
+	:global(#qr-reader-inline) {
+		position: absolute !important;
+		inset: 0 !important;
+		width: 100% !important;
+		height: 100% !important;
+		background: #000 !important;
+		border: none !important;
 	}
 
-	:global(#qr-reader__dashboard_section_swaplink) {
-		display: none !important;
+	:global(#qr-reader-inline > div) {
+		width: 100% !important;
+		height: 100% !important;
+	}
+
+	:global(#qr-reader-inline video) {
+		position: absolute !important;
+		inset: 0 !important;
+		width: 100% !important;
+		height: 100% !important;
+		object-fit: cover !important;
+		display: block !important;
+	}
+
+	:global(#qr-shaded-region) {
+		position: absolute !important;
+		inset: 0 !important;
+		box-sizing: border-box !important;
+	}
+
+	:global(#qr-shaded-region > div) {
+		background-color: #fff !important;
+	}
+
+	/* ── FULLSCREEN layout ── */
+	:global(#qr-reader-fullscreen) {
+		position: absolute !important;
+		inset: 0 !important;
+		width: 100% !important;
+		height: 100% !important;
+		background: #000 !important;
+		border: none !important;
+	}
+
+	:global(#qr-reader-fullscreen > div) {
+		width: 100% !important;
+		height: 100% !important;
+	}
+
+	:global(#qr-reader-fullscreen video) {
+		position: absolute !important;
+		inset: 0 !important;
+		width: 100% !important;
+		height: 100% !important;
+		object-fit: cover !important;
+		display: block !important;
+	}
+
+	/* ── MODAL layout ── */
+	:global(#qr-reader-modal) {
+		position: absolute !important;
+		inset: 0 !important;
+		width: 100% !important;
+		height: 100% !important;
+		background: #000 !important;
+		border: none !important;
+	}
+
+	:global(#qr-reader-modal > div) {
+		width: 100% !important;
+		height: 100% !important;
+	}
+
+	:global(#qr-reader-modal video) {
+		position: absolute !important;
+		inset: 0 !important;
+		width: 100% !important;
+		height: 100% !important;
+		object-fit: cover !important;
+		display: block !important;
 	}
 </style>

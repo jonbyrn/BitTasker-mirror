@@ -8,17 +8,15 @@
 	import { tick } from 'svelte';
 
 	let {
-		label = '',
 		placeholder = $t('common.components.location_picker.enter_address'),
 		location = {
 			displayName: '',
-			longitude: -122.4194,
-			latitude: 37.7749,
+			longitude: -88.5311,
+			latitude: 13.4971,
 			zipCode: '',
 			locationLoaded: false
 		},
 		onLocationSelect,
-		showMap = true,
 		mapHeight = '300px',
 		showFullscreen = true,
 		showGeolocation = true,
@@ -41,18 +39,21 @@
 		showRadiusCircle?: boolean;
 	}>();
 
-	// State
+	// Map and DOM element references
 	let map: google.maps.Map | null = null;
 	let mapElement: HTMLElement;
 	let searchInput: HTMLInputElement;
 	let marker: google.maps.marker.AdvancedMarkerElement | null = null;
 	let circle: google.maps.Circle | null = null;
-	// Initialize with default values to avoid capturing initial prop values
+	let markerLibrary: google.maps.MarkerLibrary | null = $state(null);
+	let mapContainerDiv: HTMLElement | null = $state(null);
+
+	// Component state
 	let currentServiceRadius = $state(1.6);
 	let currentLocation = $state<Location>({
 		displayName: '',
-		longitude: -122.4194,
-		latitude: 37.7749,
+		longitude: -88.5311,
+		latitude: 13.4971,
 		zipCode: '',
 		locationLoaded: false
 	});
@@ -62,15 +63,19 @@
 	let error = $state('');
 	let predictions = $state<(google.maps.places.PlacePrediction | null)[]>([]);
 	let showOptions = $state(false);
-	let scriptLoaded = $state(false);
 	let googleMapsReady = $state(false);
 	let isFullscreen = $state(false);
-	let mapContainerDiv: HTMLElement | null = $state(null);
 	let initRetryCount = $state(0);
-	let maxRetries = 3;
-	let markerLibrary: google.maps.MarkerLibrary | null = $state(null);
+	const maxRetries = 3;
 
-	// Update currentLocation and currentServiceRadius when props change
+	// Event handler references for cleanup
+	let fullscreenResizeHandler: ((this: Window, ev: UIEvent) => void) | null = null;
+	let escKeyHandler: ((this: Window, ev: KeyboardEvent) => void) | null = null;
+
+	// Default fallback coordinates (Berlín, El Salvador)
+	const DEFAULT_COORDINATES = { lat: 13.4971, lng: -88.5311 };
+
+	// Sync props into local state when they change
 	$effect(() => {
 		// Explicitly track props to ensure reactivity
 		const propLocation = location;
@@ -79,13 +84,7 @@
 		currentServiceRadius = propServiceRadius;
 	});
 
-	// Default fallback coordinates (San Francisco)
-	const DEFAULT_COORDINATES = {
-		lat: 37.7749,
-		lng: -122.4194
-	};
-
-	// Function to validate coordinates
+	// ─── Coordinate helpers ────────────────────────────────────────────────────
 	function isValidCoordinate(lat: number | null, lng: number | null): boolean {
 		return (
 			lat !== null &&
@@ -99,57 +98,72 @@
 		);
 	}
 
-	// Function to get safe coordinates
 	function getSafeCoordinates(): { lat: number; lng: number } {
 		if (isValidCoordinate(currentLocation.latitude, currentLocation.longitude)) {
-			return {
-				lat: currentLocation.latitude!,
-				lng: currentLocation.longitude!
-			};
+			return { lat: currentLocation.latitude!, lng: currentLocation.longitude! };
 		}
 		return DEFAULT_COORDINATES;
 	}
 
-	// Helper function to extract address components from Google Maps address components
-	function extractAddressComponents(
-		components: google.maps.GeocoderAddressComponent[] 
-	): Location['addressComponents'] {
-		const addressComponents: Location['addressComponents'] = {};
+	// ─── Address component extraction ─────────────────────────────────────────
 
-		components.forEach((component) => {
-			const types = component.types;
-			const longName = component.long_name;
-			const shortName = component.short_name;
-
-			if (types.includes('street_number')) {
-				addressComponents.streetNumber = longName;
-			} else if (types.includes('route')) {
-				addressComponents.street = longName;
-			} else if (types.includes('neighborhood')) {
-				addressComponents.neighborhood = longName;
-			} else if (types.includes('sublocality') || types.includes('sublocality_level_1')) {
-				addressComponents.sublocality = longName;
-			} else if (types.includes('locality')) {
-				addressComponents.city = longName;
-			} else if (types.includes('administrative_area_level_1')) {
-				addressComponents.state = longName;
-			} else if (types.includes('country')) {
-				addressComponents.country = longName;
-			} else if (types.includes('postal_code')) {
-				addressComponents.postalCode = shortName || longName;
-			}
-		});
-
-		return addressComponents;
+	/**
+	 * Normalised address component that works with both the Geocoder API
+	 * (long_name / short_name) and the Places New API (longText / shortText).
+	 */
+	interface NormalisedAddressComponent {
+		types: string[];
+		longName: string;
+		shortName: string;
 	}
 
-	// Function to dynamically load Google Maps script
+	function normaliseGeocoderComponents(
+		components: google.maps.GeocoderAddressComponent[]
+	): NormalisedAddressComponent[] {
+		return components.map((c) => ({
+			types: c.types,
+			longName: c.long_name,
+			shortName: c.short_name
+		}));
+	}
+
+	function normalisePlacesComponents(
+		components: google.maps.places.AddressComponent[]
+	): NormalisedAddressComponent[] {
+		return components.map((c) => ({
+			types: c.types,
+			longName: c.longText ?? '',
+			shortName: c.shortText ?? ''
+		}));
+	}
+
+	function extractAddressFields(
+		components: NormalisedAddressComponent[]
+	): Location['addressComponents'] {
+		const result: Location['addressComponents'] = {};
+
+		for (const { types, longName, shortName } of components) {
+			if (types.includes('street_number')) result.streetNumber = longName;
+			else if (types.includes('route')) result.street = longName;
+			else if (types.includes('neighborhood')) result.neighborhood = longName;
+			else if (types.includes('sublocality') || types.includes('sublocality_level_1'))
+				result.sublocality = longName;
+			else if (types.includes('locality')) result.city = longName;
+			else if (types.includes('administrative_area_level_1')) result.state = longName;
+			else if (types.includes('country')) result.country = longName;
+			else if (types.includes('postal_code')) result.postalCode = shortName || longName;
+		}
+
+		return result;
+	}
+
+	// ─── Google Maps script loading ────────────────────────────────────────────
+
 	async function loadGoogleMapsScript() {
 		return new Promise<void>((resolve, reject) => {
 			try {
 				// Check if script is already loaded and API is available
 				if (window.google?.maps?.Map) {
-					scriptLoaded = true;
 					googleMapsReady = true;
 					resolve();
 					return;
@@ -162,10 +176,8 @@
 				script.defer = true;
 
 				script.onload = () => {
-					scriptLoaded = true;
-					// Add a small delay to ensure Google Maps API is fully initialized
+					// Small delay to ensure the API is fully initialised after the script executes
 					setTimeout(() => {
-						// Check if the API is actually available
 						if (window.google?.maps?.Map) {
 							googleMapsReady = true;
 							resolve();
@@ -186,10 +198,9 @@
 		});
 	}
 
-	// Function to load marker library
+	// ─── Marker library ────────────────────────────────────────────────────────
 	async function loadMarkerLibrary() {
 		if (markerLibrary) return markerLibrary;
-
 		try {
 			markerLibrary = (await google.maps.importLibrary('marker')) as google.maps.MarkerLibrary;
 			return markerLibrary;
@@ -199,25 +210,23 @@
 		}
 	}
 
+	// ─── Map initialisation ────────────────────────────────────────────────────
 	async function initMap() {
 		if (!googleMapsReady || !window.google?.maps?.Map) {
 			throw new Error($t('task.location_picker.google_maps_not_fully_loaded'));
 		}
-
-		// Check if mapElement is available
 		if (!mapElement) {
 			throw new Error('Map element not available');
 		}
 
 		try {
 			const safeCoords = getSafeCoordinates();
-			
-			// Initialize Google Maps with zoom restrictions
+
 			map = new google.maps.Map(mapElement, {
 				center: safeCoords,
 				zoom: 12,
 				minZoom: 8, // City level minimum zoom
-				maxZoom: 18, // Reducir el zoom máximo para evitar nivel de calle
+				maxZoom: 18, // Reduce the maximum zoom level to avoid street view
 				mapTypeId: google.maps.MapTypeId.ROADMAP,
 				mapTypeControl: false,
 				fullscreenControl: false,
@@ -235,109 +244,64 @@
 				const clickedLat = event.latLng?.lat();
 				const clickedLng = event.latLng?.lng();
 				if (clickedLat && clickedLng) {
-					updateLocationWithCoordinates(clickedLat, clickedLng);
+					reverseGeocodeAndUpdate(clickedLat, clickedLng);
 				}
 			});
 
-			// Create initial marker with safe coordinates
-			await createMarkerAndCircle(safeCoords.lat, safeCoords.lng);
-			
-			// If we have a valid existing location, update the search input with complete address
-			if (isValidCoordinate(currentLocation.latitude, currentLocation.longitude) && currentLocation.displayName) {
+			// Place initial marker at current (or default) coordinates
+			await placeMarker(safeCoords.lat, safeCoords.lng);
+
+			// Restore the address input if we already have a valid location
+			if (
+				isValidCoordinate(currentLocation.latitude, currentLocation.longitude) &&
+				currentLocation.displayName
+			) {
 				if (searchInput) {
 					searchInput.value = currentLocation.formattedAddress || currentLocation.displayName;
 				}
 			}
 		} catch (error) {
-			console.error('Error initializing Google Maps:', error);
+			console.error('Error initialising Google Maps:', error);
 			throw error;
 		}
 	}
 
-	async function getUserLocation() {
-		try {
-			isLoading = true;
-			const isNative = Capacitor.isNativePlatform();
-
-			let lat: number | null = null;
-			let lng: number | null = null;
-
-			if (isNative) {
-				// Native (iOS/Android): manage permissions explicitly
-				const permissionStatus = await Geolocation.checkPermissions();
-				if (permissionStatus.location !== 'granted') {
-					await Geolocation.requestPermissions();
-				}
-
-				const position = await Geolocation.getCurrentPosition({
-					enableHighAccuracy: true,
-					timeout: 10000
-				});
-				lat = position.coords.latitude;
-				lng = position.coords.longitude;
-			} else if (typeof navigator !== 'undefined' && 'geolocation' in navigator) {
-				// Web: browsers prompt implicitly on first call
-				const position = await new Promise<GeolocationPosition>((resolve, reject) =>
-					navigator.geolocation.getCurrentPosition(resolve, reject, {
-						enableHighAccuracy: true,
-						timeout: 10000
-					})
-				);
-				lat = position.coords.latitude;
-				lng = position.coords.longitude;
-			} else {
-				throw new Error('Geolocation is not supported in this environment');
-			}
-
-			// Update map and marker only if we have valid coordinates
-			if (isValidCoordinate(lat, lng)) {
-				updateLocationWithCoordinates(lat!, lng!);
-			} else {
-				throw new Error('Invalid geolocation coordinates received');
-			}
-		} catch (error) {
-			console.warn('Geolocation failed, using default location:', error);
-			// Use safe default coordinates instead of potentially invalid ones
-			const safeCoords = getSafeCoordinates();
-			createMarkerAndCircle(safeCoords.lat, safeCoords.lng);
-		} finally {
-			isLoading = false;
-		}
-	}
-
-	async function tryInitMap() {
+	async function initMapWithRetry() {
 		try {
 			if (initRetryCount >= maxRetries) {
 				throw new Error($t('task.location_picker.failed_initialize_map_after_multiple_attempts'));
 			}
 
-			// Only proceed if Google Maps is ready
 			if (!googleMapsReady) {
 				initRetryCount++;
-				// Wait a bit and try again
-				setTimeout(tryInitMap, 1000);
+				setTimeout(initMapWithRetry, 1000);
 				return;
 			}
 
-			// Wait for DOM element to be available
 			if (!mapElement) {
 				initRetryCount++;
-				setTimeout(tryInitMap, 500);
+				setTimeout(initMapWithRetry, 500);
 				return;
 			}
 
 			await initMap();
 			isMapLoaded = true;
 
-			// Only try to get user's geolocation if no valid location is already provided
-			if (!isValidCoordinate(currentLocation.latitude, currentLocation.longitude) || !currentLocation.locationLoaded) {
-				getUserLocation();
+			// If a valid, user-confirmed location was passed in, restore it on the map.
+			// Otherwise just show the map at its default coordinates — the user can tap
+			// "Use my location" to request GPS access (Google Play policy compliance).
+			if (
+				isValidCoordinate(currentLocation.latitude, currentLocation.longitude) &&
+				currentLocation.locationLoaded
+			) {
+				reverseGeocodeAndUpdate(currentLocation.latitude!, currentLocation.longitude!);
 			} else {
-				// If we have a valid existing location, update the marker to that location
-				updateLocationWithCoordinates(currentLocation.latitude!, currentLocation.longitude!);
+				// Show map at default coordinates without triggering a geocode or GPS request
+				const defaultCoords = getSafeCoordinates();
+				placeMarker(defaultCoords.lat, defaultCoords.lng);
 			}
 		} catch (err) {
-			console.error('Error initializing map:', err);
+			console.error('Error initialising map:', err);
 			error =
 				err instanceof Error ? err.message : $t('task.location_picker.error_initializing_map');
 			hasError = true;
@@ -347,15 +311,9 @@
 	onMount(async () => {
 		try {
 			isLoading = true;
-
-			// Load Google Maps API dynamically if not already loaded
 			await loadGoogleMapsScript();
-
-			// Wait for DOM to be ready
 			await tick();
-
-			// Try to initialize the map
-			await tryInitMap();
+			await initMapWithRetry();
 		} catch (err) {
 			console.error('Error loading Google Maps:', err);
 			error =
@@ -365,80 +323,43 @@
 		}
 	});
 
-	async function updateLocationWithCoordinates(lat: number, lng: number) {
-		// Validate coordinates before proceeding
+	// ─── Location update ───────────────────────────────────────────────────────
+
+	/** Reverse-geocodes the given coordinates, updates the marker, and notifies the parent. */
+	async function reverseGeocodeAndUpdate(lat: number, lng: number) {
 		if (!isValidCoordinate(lat, lng)) {
 			console.error('Invalid coordinates provided:', { lat, lng });
 			return;
 		}
 
 		try {
-			// Update marker and circle
-			createMarkerAndCircle(lat, lng);
+			placeMarker(lat, lng);
 
-			// Reverse geocode to get address
 			if (googleMapsReady && window.google?.maps) {
 				const { Geocoder } = (await google.maps.importLibrary(
 					'geocoding'
 				)) as google.maps.GeocodingLibrary;
 				const geocoder = new Geocoder();
 
-				const result = await geocoder.geocode({
-					location: { lat, lng },
-					// Agregar opciones para mejorar la precisión
-					language: 'es', // Usar español para mejor resultados en El Salvador
-					region: 'SV' // Especificar El Salvador como región
-				});
+				const result = await geocoder.geocode({ location: { lat, lng } });
 
 				if (result.results[0]) {
 					const geocodeResult = result.results[0];
-					const addressComponents = geocodeResult.address_components;
+					const rawComponents = geocodeResult.address_components;
+					const normalisedComponents = normaliseGeocoderComponents(rawComponents);
+
 					const zipCode =
-						addressComponents.find((component) => component.types.includes('postal_code'))
-							?.short_name || '';
+						normalisedComponents.find((c) => c.types.includes('postal_code'))?.shortName || '';
+					const extractedComponents = extractAddressFields(normalisedComponents);
 
-					// Extract all address components
-					const extractedComponents = extractAddressComponents(addressComponents);
+					const displayName = buildDisplayName(
+						extractedComponents,
+						geocodeResult.formatted_address
+					);
 
-					// Extraer ciudad y estado para displayName
-					const city = extractedComponents?.city || '';
-					const stateRegion = extractedComponents?.state || '';
-					const country = extractedComponents?.country || '';
-					const neighborhood = extractedComponents?.neighborhood || '';
-					const sublocality = extractedComponents?.sublocality || '';
-
-					let displayName = '';
-
-					// Construir displayName de manera más robusta con más opciones
-					if (neighborhood && stateRegion) {
-						displayName = `${neighborhood}, ${stateRegion}`;
-					} else if (sublocality && stateRegion) {
-						displayName = `${sublocality}, ${stateRegion}`;
-					} else if (city && stateRegion) {
-						displayName = `${city}, ${stateRegion}`;
-					} else if (city && country) {
-						displayName = `${city}, ${country}`;
-					} else if (stateRegion && country) {
-						displayName = `${stateRegion}, ${country}`;
-					} else if (neighborhood) {
-						displayName = neighborhood;
-					} else if (sublocality) {
-						displayName = sublocality;
-					} else if (city) {
-						displayName = city;
-					} else if (stateRegion) {
-						displayName = stateRegion;
-					} else if (country) {
-						displayName = country;
-					} else {
-						// Fallback: usar la dirección formateada completa
-						displayName = geocodeResult.formatted_address;
-					}
-
-					// Update location state with full address details
 					const newLocation: Location = {
 						...currentLocation,
-						displayName: displayName,
+						displayName,
 						latitude: lat,
 						longitude: lng,
 						zipCode,
@@ -450,15 +371,11 @@
 
 					currentLocation = newLocation;
 
-					// Update input value with complete address (formattedAddress from Google Maps)
 					if (searchInput) {
 						searchInput.value = newLocation.formattedAddress || newLocation.displayName;
 					}
 
-					// Call callback
-					if (onLocationSelect) {
-						onLocationSelect(newLocation);
-					}
+					onLocationSelect?.(newLocation);
 				}
 			}
 		} catch (err: unknown) {
@@ -468,12 +385,40 @@
 		}
 	}
 
-	async function createMarkerAndCircle(lat: number, lng: number) {
-		if (!map || !googleMapsReady || !window.google?.maps || !markerLibrary) return;
+	/** Builds a human-readable display name from extracted address fields, falling back to the
+	 *  full formatted address when individual parts are unavailable. */
+	function buildDisplayName(
+		components: Location['addressComponents'],
+		formattedAddress: string
+	): string {
+		const {
+			city = '',
+			state = '',
+			country = '',
+			neighborhood = '',
+			sublocality = ''
+		} = components ?? {};
 
-		// Validate coordinates before creating marker
+		if (neighborhood && state) return `${neighborhood}, ${state}`;
+		if (sublocality && state) return `${sublocality}, ${state}`;
+		if (city && state) return `${city}, ${state}`;
+		if (city && country) return `${city}, ${country}`;
+		if (state && country) return `${state}, ${country}`;
+		if (neighborhood) return neighborhood;
+		if (sublocality) return sublocality;
+		if (city) return city;
+		if (state) return state;
+		if (country) return country;
+		return formattedAddress;
+	}
+
+	// ─── Marker and circle ─────────────────────────────────────────────────────
+
+	/** Places (or replaces) the marker and service-radius circle at the given coordinates. */
+	async function placeMarker(lat: number, lng: number) {
+		if (!map || !googleMapsReady || !window.google?.maps || !markerLibrary) return;
 		if (!isValidCoordinate(lat, lng)) {
-			console.error('Cannot create marker with invalid coordinates:', { lat, lng });
+			console.error('Cannot place marker at invalid coordinates:', { lat, lng });
 			return;
 		}
 
@@ -486,24 +431,20 @@
 		try {
 			const { AdvancedMarkerElement } = markerLibrary;
 
-			// Create custom marker if enabled
 			if (useCustomPin) {
-				// Crear un contenedor personalizado para el marcador
 				const markerContainer = document.createElement('div');
 				markerContainer.style.position = 'relative';
 				markerContainer.style.cursor = 'pointer';
 
-				// Usar imagen personalizada
 				const img = document.createElement('img');
 				img.src = '/map-pin.png';
-				img.style.width = '3rem'; // Tamaño optimizado para el picker
+				img.style.width = '3rem';
 				img.style.height = '3rem';
 				img.style.display = 'block';
-				img.style.borderRadius = '50%'; // Hacer la imagen redonda
+				img.style.borderRadius = '50%';
 
 				markerContainer.appendChild(img);
 
-				// Create new advanced marker with custom content
 				marker = new AdvancedMarkerElement({
 					position,
 					map,
@@ -511,59 +452,108 @@
 					gmpDraggable: true
 				});
 			} else {
-				// Create standard marker
-				marker = new AdvancedMarkerElement({
-					position,
-					map,
-					gmpDraggable: true
-				});
+				marker = new AdvancedMarkerElement({ position, map, gmpDraggable: true });
 			}
 
-			// Create circle for service radius if enabled
 			if (showServiceRadius || showRadiusCircle) {
 				circle = new google.maps.Circle({
-					strokeColor: '#F59E0B', // Color anaranjado como en TaskLocationMap
+					strokeColor: '#F59E0B',
 					strokeOpacity: 0.8,
 					strokeWeight: 2,
 					fillColor: '#F59E0B',
 					fillOpacity: 0.1,
 					map,
 					center: position,
-					radius: currentServiceRadius * 1000 // Convert km to meters
+					radius: currentServiceRadius * 1000 // km → metres
 				});
 			}
 
-			// Add drag event to marker
 			marker.addListener('dragend', () => {
-				const position = marker?.position;
-				if (position) {
-					const newLat = typeof position.lat === 'function' ? position.lat() : position.lat;
-					const newLng = typeof position.lng === 'function' ? position.lng() : position.lng;
+				const pos = marker?.position;
+				if (pos) {
+					const newLat = typeof pos.lat === 'function' ? pos.lat() : pos.lat;
+					const newLng = typeof pos.lng === 'function' ? pos.lng() : pos.lng;
 					if (isValidCoordinate(newLat, newLng)) {
-						// Update circle position
 						if (circle) circle.setCenter({ lat: newLat!, lng: newLng! });
-						// Update location data
-						updateLocationWithCoordinates(newLat!, newLng!);
+						reverseGeocodeAndUpdate(newLat!, newLng!);
 					}
 				}
 			});
 
-			// Pan map to new location
 			map.panTo(position);
 		} catch (error) {
 			console.error('Error creating advanced marker:', error);
 		}
 	}
 
-	// Handle service radius change
+	// ─── Service radius ────────────────────────────────────────────────────────
+
 	function updateServiceRadius() {
 		if (circle) {
-			circle.setRadius(currentServiceRadius * 1000); // Convert km to meters
+			circle.setRadius(currentServiceRadius * 1000); // km → metres
 		}
 	}
 
-	// Place search functionality
-	async function getPredictions() {
+	// ─── GPS location (user-initiated only) ───────────────────────────────────
+	async function requestUserLocation() {
+		try {
+			isLoading = true;
+			const isNative = Capacitor.isNativePlatform();
+
+			let lat: number | null = null;
+			let lng: number | null = null;
+
+			if (isNative) {
+				// Native (iOS/Android): check and request permission explicitly
+				const permissionStatus = await Geolocation.checkPermissions();
+				if (permissionStatus.location !== 'granted') {
+					await Geolocation.requestPermissions();
+				}
+				const position = await Geolocation.getCurrentPosition({
+					enableHighAccuracy: true,
+					timeout: 10000
+				});
+				lat = position.coords.latitude;
+				lng = position.coords.longitude;
+			} else if (typeof navigator !== 'undefined' && 'geolocation' in navigator) {
+				// Web: browser prompts the user implicitly on first call
+				const position = await new Promise<GeolocationPosition>((resolve, reject) =>
+					navigator.geolocation.getCurrentPosition(resolve, reject, {
+						enableHighAccuracy: true,
+						timeout: 10000
+					})
+				);
+				lat = position.coords.latitude;
+				lng = position.coords.longitude;
+			} else {
+				throw new Error('Geolocation is not supported in this environment');
+			}
+
+			if (isValidCoordinate(lat, lng)) {
+				reverseGeocodeAndUpdate(lat!, lng!);
+			} else {
+				throw new Error('Invalid geolocation coordinates received');
+			}
+		} catch (error) {
+			console.warn('Geolocation failed, falling back to default coordinates:', error);
+			const safeCoords = getSafeCoordinates();
+			placeMarker(safeCoords.lat, safeCoords.lng);
+		} finally {
+			isLoading = false;
+		}
+	}
+
+	// ─── Place search / autocomplete ───────────────────────────────────────────
+
+	function debounce<T extends (...args: unknown[]) => void>(fn: T, delay: number) {
+		let timeoutId: ReturnType<typeof setTimeout>;
+		return function (...args: Parameters<T>) {
+			clearTimeout(timeoutId);
+			timeoutId = setTimeout(() => fn.apply(null, args), delay);
+		};
+	}
+
+	async function fetchPlacePredictions() {
 		if (!googleMapsReady || !window.google?.maps) {
 			hasError = true;
 			return;
@@ -581,38 +571,23 @@
 			)) as google.maps.PlacesLibrary;
 
 			const token = new AutocompleteSessionToken();
-
-			const request = {
-				input: searchInput.value,
-				language: 'es', // Usar español para mejor resultados en El Salvador
-				sessionToken: token
-				// Removemos la restricción de país que estaba causando problemas
-			};
+			const request = { input: searchInput.value, sessionToken: token };
 
 			const { suggestions } = await AutocompleteSuggestion.fetchAutocompleteSuggestions(request);
 			predictions = suggestions.map((suggestion) => suggestion.placePrediction);
 			showOptions = true;
 		} catch (error) {
 			hasError = true;
-			console.error('Failed to get predictions:', error);
+			console.error('Failed to fetch place predictions:', error);
 		} finally {
 			isLoading = false;
 		}
 	}
 
-	// Debounce function for search input
-	function debounce<T extends (...args: any[]) => void>(fn: T, delay: number) {
-		let timeoutId: ReturnType<typeof setTimeout>;
-		return function (...args: Parameters<T>) {
-			clearTimeout(timeoutId);
-			timeoutId = setTimeout(() => fn.apply(null, args), delay);
-		};
-	}
-
-	async function selectPrediction(prediction: google.maps.places.PlacePrediction) {
+	async function selectPlacePrediction(prediction: google.maps.places.PlacePrediction) {
 		if (!googleMapsReady || !window.google?.maps) return;
 
-		let place = prediction.toPlace();
+		const place = prediction.toPlace();
 		await place.fetchFields({
 			fields: ['displayName', 'formattedAddress', 'location', 'addressComponents', 'id']
 		});
@@ -622,26 +597,23 @@
 
 		if (!isValidCoordinate(lat!, lng!)) return;
 
-		// Usar directamente el texto de la predicción seleccionada
+		// Use the prediction's text directly as the display name
 		const displayName = prediction.text.text.toString();
 
-		// Extract address components
-		const addressComponents = place.addressComponents;
-		const extractedComponents = addressComponents
-			? extractAddressComponents(addressComponents as any)
+		const rawComponents = place.addressComponents;
+		const normalisedComponents = rawComponents ? normalisePlacesComponents(rawComponents) : [];
+		const extractedComponents = rawComponents
+			? extractAddressFields(normalisedComponents)
 			: undefined;
 
-		// Extract postal code
 		const zipCode =
-			addressComponents?.find((component) => component.types.includes('postal_code'))
-				?.longText || '';
+			normalisedComponents.find((c) => c.types.includes('postal_code'))?.shortName || '';
 
-		// Update location state with full address details
 		const newLocation: Location = {
 			...currentLocation,
-			displayName: displayName,
-			latitude: lat || null,
-			longitude: lng || null,
+			displayName,
+			latitude: lat ?? null,
+			longitude: lng ?? null,
 			zipCode,
 			locationLoaded: true,
 			formattedAddress: place.formattedAddress || displayName,
@@ -651,24 +623,17 @@
 
 		currentLocation = newLocation;
 
-		// Update input value with complete address (formattedAddress from Google Maps)
 		if (searchInput) {
 			searchInput.value = newLocation.formattedAddress || newLocation.displayName;
 		}
 
-		// Call callback
-		if (onLocationSelect) {
-			onLocationSelect(newLocation);
-		}
-
-		// Update marker and circle
-		createMarkerAndCircle(lat!, lng!);
-
-		// Clear predictions
+		onLocationSelect?.(newLocation);
+		placeMarker(lat!, lng!);
 		showOptions = false;
 	}
 
-	// Fullscreen functionality
+	// ─── Fullscreen ────────────────────────────────────────────────────────────
+
 	async function toggleFullscreen() {
 		if (isFullscreen) {
 			await exitFullscreen();
@@ -677,35 +642,26 @@
 		}
 	}
 
-	let fullscreenResizeHandler: ((this: Window, ev: UIEvent) => any) | null = null;
-	let escKeyHandler: ((this: Window, ev: KeyboardEvent) => any) | null = null;
-
 	async function enterFullscreen() {
 		isFullscreen = true;
 
 		try {
-			// Try to use Capacitor's native fullscreen if available
 			await ScreenOrientation.lock({ orientation: 'portrait' });
-		} catch (error) {
+		} catch {
 			console.log('Using fallback fullscreen method - Capacitor ScreenOrientation not available');
 		}
 
-		// Calculate navigation bar heights
 		const headerEl = document.querySelector('.app-shell__header') as HTMLElement;
 		const headerHeight = headerEl ? Math.ceil(headerEl.getBoundingClientRect().height) : 0;
-		
-		// Get footer height from CSS variable (set dynamically by layout)
-		const footerHeightStr = getComputedStyle(document.documentElement).getPropertyValue('--app-footer-height') || '0px';
+
+		const footerHeightStr =
+			getComputedStyle(document.documentElement).getPropertyValue('--app-footer-height') || '0px';
 		const footerHeight = parseFloat(footerHeightStr.replace('px', '')) || 0;
-		
-		// Calculate available height (viewport minus navigation bars)
+
 		const viewportHeight = window.innerHeight;
 		const availableHeight = viewportHeight - headerHeight - footerHeight;
 
-		// Store original dimensions for restoring later
 		if (mapContainerDiv) {
-			// Apply fullscreen styles - position below header, above footer
-			// Remove all height-related classes that might interfere
 			mapContainerDiv.className = 'map-container';
 			mapContainerDiv.style.position = 'fixed';
 			mapContainerDiv.style.top = `${headerHeight}px`;
@@ -716,15 +672,13 @@
 			mapContainerDiv.style.height = `${availableHeight}px`;
 			mapContainerDiv.style.maxHeight = `${availableHeight}px`;
 			mapContainerDiv.style.minHeight = `${availableHeight}px`;
-			mapContainerDiv.style.zIndex = '1000'; // High z-index to be above content but below modals
+			mapContainerDiv.style.zIndex = '1000';
 			mapContainerDiv.style.backgroundColor = 'white';
 			mapContainerDiv.style.overflow = 'hidden';
 			mapContainerDiv.style.margin = '0';
 			mapContainerDiv.style.padding = '0';
 		}
 
-		// Ensure inner map element fills the fullscreen container
-		// Remove height-related classes
 		if (mapElement) {
 			mapElement.className = 'w-full overflow-hidden';
 			mapElement.style.width = '100%';
@@ -736,40 +690,32 @@
 			mapElement.style.padding = '0';
 		}
 
-		// Await DOM flush, then trigger Google Maps resize and re-center
 		await tick();
 		if (map) {
 			google.maps.event.trigger(map, 'resize');
-			if (marker && marker.position) {
-				const position = marker.position;
-				const lat = typeof position.lat === 'function' ? position.lat() : position.lat;
-				const lng = typeof position.lng === 'function' ? position.lng() : position.lng;
+			if (marker?.position) {
+				const pos = marker.position;
+				const lat = typeof pos.lat === 'function' ? pos.lat() : pos.lat;
+				const lng = typeof pos.lng === 'function' ? pos.lng() : pos.lng;
 				if (isValidCoordinate(lat, lng)) {
 					map.setCenter({ lat: lat!, lng: lng! });
 				}
 			}
-			// Force a redraw by toggling zoom
 			const currentZoom = map.getZoom();
-			if (typeof currentZoom === 'number') {
-				map.setZoom(currentZoom);
-			}
+			if (typeof currentZoom === 'number') map.setZoom(currentZoom);
 		}
 
-		// Keep size in sync when device UI chrome changes (mobile) or orientation changes
+		// Keep size in sync when the mobile browser chrome changes or orientation changes
 		fullscreenResizeHandler = () => {
-			// Only handle resize if still in fullscreen
 			if (!isFullscreen) return;
-			
-			// Recalculate navigation bar heights on resize
+
 			const headerEl = document.querySelector('.app-shell__header') as HTMLElement;
 			const headerHeight = headerEl ? Math.ceil(headerEl.getBoundingClientRect().height) : 0;
-			
-			const footerHeightStr = getComputedStyle(document.documentElement).getPropertyValue('--app-footer-height') || '0px';
+			const footerHeightStr =
+				getComputedStyle(document.documentElement).getPropertyValue('--app-footer-height') || '0px';
 			const footerHeight = parseFloat(footerHeightStr.replace('px', '')) || 0;
-			
-			const viewportHeight = window.innerHeight;
-			const availableHeight = viewportHeight - headerHeight - footerHeight;
-			
+			const availableHeight = window.innerHeight - headerHeight - footerHeight;
+
 			if (mapContainerDiv) {
 				mapContainerDiv.style.top = `${headerHeight}px`;
 				mapContainerDiv.style.bottom = `${footerHeight}px`;
@@ -777,23 +723,17 @@
 				mapContainerDiv.style.maxHeight = `${availableHeight}px`;
 				mapContainerDiv.style.minHeight = `${availableHeight}px`;
 			}
-			
 			if (mapElement) {
 				mapElement.style.height = '100%';
 				mapElement.style.minHeight = '100%';
 				mapElement.style.maxHeight = '100%';
 			}
-			if (map) {
-				google.maps.event.trigger(map, 'resize');
-			}
+			if (map) google.maps.event.trigger(map, 'resize');
 		};
 		window.addEventListener('resize', fullscreenResizeHandler);
 
-		// Enable ESC to exit fullscreen
 		escKeyHandler = (e: KeyboardEvent) => {
-			if (e.key === 'Escape') {
-				exitFullscreen();
-			}
+			if (e.key === 'Escape') exitFullscreen();
 		};
 		window.addEventListener('keydown', escKeyHandler);
 	}
@@ -802,15 +742,12 @@
 		isFullscreen = false;
 
 		try {
-			// Release orientation lock if we used Capacitor
 			await ScreenOrientation.unlock();
-		} catch (error) {
+		} catch {
 			console.log('Capacitor ScreenOrientation not available');
 		}
 
-		// Restore original CSS styles
 		if (mapContainerDiv) {
-			// Restore original classes
 			mapContainerDiv.className = 'map-container relative w-full';
 			mapContainerDiv.style.position = 'relative';
 			mapContainerDiv.style.top = 'auto';
@@ -828,46 +765,39 @@
 			mapContainerDiv.style.padding = '';
 		}
 
-		// Restore map element size
 		if (mapElement) {
-			// Restore original classes
 			mapElement.className = 'h-full w-full overflow-hidden rounded-lg';
 			mapElement.style.width = '100%';
 			mapElement.style.height = '';
 			mapElement.style.minHeight = mapHeight;
 			mapElement.style.maxHeight = '';
-			mapElement.style.borderRadius = '0.5rem'; // rounded-lg
+			mapElement.style.borderRadius = '0.5rem';
 			mapElement.style.margin = '';
 			mapElement.style.padding = '';
 		}
 
-		// Remove resize listener if present
 		if (fullscreenResizeHandler) {
 			window.removeEventListener('resize', fullscreenResizeHandler);
 			fullscreenResizeHandler = null;
 		}
-
 		if (escKeyHandler) {
 			window.removeEventListener('keydown', escKeyHandler);
 			escKeyHandler = null;
 		}
 
-		// Trigger resize to update map
 		await tick();
 		if (map) {
 			google.maps.event.trigger(map, 'resize');
-			if (marker && marker.position) {
-				const position = marker.position;
-				const lat = typeof position.lat === 'function' ? position.lat() : position.lat;
-				const lng = typeof position.lng === 'function' ? position.lng() : position.lng;
+			if (marker?.position) {
+				const pos = marker.position;
+				const lat = typeof pos.lat === 'function' ? pos.lat() : pos.lat;
+				const lng = typeof pos.lng === 'function' ? pos.lng() : pos.lng;
 				if (isValidCoordinate(lat, lng)) {
 					map.setCenter({ lat: lat!, lng: lng! });
 				}
 			}
 			const currentZoom = map.getZoom();
-			if (typeof currentZoom === 'number') {
-				map.setZoom(currentZoom);
-			}
+			if (typeof currentZoom === 'number') map.setZoom(currentZoom);
 		}
 	}
 </script>
@@ -875,7 +805,7 @@
 <div class="enhanced-location-picker w-full">
 	<!-- Map Container -->
 	<div class="map-container relative w-full">
-		<!-- Search bar - using fixed positioning when in fullscreen mode -->
+		<!-- Search bar — uses fixed positioning when in fullscreen mode -->
 		<div
 			class={isFullscreen
 				? 'fixed top-6 right-6 left-6 z-1000'
@@ -897,7 +827,7 @@
 						bind:this={searchInput}
 						type="text"
 						{placeholder}
-						oninput={debounce(() => getPredictions(), 300)}
+						oninput={debounce(() => fetchPlacePredictions(), 300)}
 						onfocus={() => (showOptions = true)}
 						class="input input-bordered mb-2 flex-1"
 						value={currentLocation.displayName}
@@ -905,7 +835,7 @@
 					{#if showGeolocation}
 						<button
 							aria-label={$t('task.location_picker.use_my_location')}
-							onclick={getUserLocation}
+							onclick={requestUserLocation}
 							class="btn btn-square btn-secondary"
 							disabled={isLoading}
 							title={$t('task.location_picker.use_my_location')}
@@ -938,10 +868,10 @@
 						class="predictions-dropdown bg-base-100 border-base-300 absolute z-1000 mt-2 max-h-60 w-full overflow-y-auto rounded-lg border shadow-lg"
 					>
 						{#if predictions.length > 0}
-							{#each predictions as prediction}
+							{#each predictions as prediction (prediction?.placeId ?? prediction?.text?.text)}
 								<button
 									class="hover:bg-base-200 border-base-200 w-full cursor-pointer border-b px-4 py-3 text-left last:border-b-0"
-									onclick={() => selectPrediction(prediction!)}
+									onclick={() => selectPlacePrediction(prediction!)}
 								>
 									{prediction?.text}
 								</button>
@@ -954,7 +884,7 @@
 			</div>
 		</div>
 
-		<!-- Map Container -->
+		<!-- Map element -->
 		<div bind:this={mapContainerDiv} class="map-container relative w-full">
 			<div
 				bind:this={mapElement}
@@ -969,11 +899,11 @@
 			</div>
 		</div>
 
-		<!-- Fullscreen Button - positioned relative to map container -->
+		<!-- Fullscreen toggle -->
 		{#if showFullscreen}
 			<button
 				onclick={toggleFullscreen}
-				class="absolute top-4 right-4 z-20 btn btn-circle btn-lg bg-base-100/90 hover:bg-base-100 shadow-md"
+				class="btn btn-circle btn-lg bg-base-100/90 hover:bg-base-100 absolute top-4 right-4 z-20 shadow-md"
 				class:z-1000={isFullscreen}
 				aria-label={isFullscreen
 					? $t('task.location_picker.exit_fullscreen')
@@ -1010,7 +940,7 @@
 			</button>
 		{/if}
 
-		<!-- Service Radius Panel - mejor posicionado y espaciado -->
+		<!-- Service radius panel -->
 		{#if showServiceRadius}
 			<div class={isFullscreen ? 'fixed top-32 right-6 z-1000' : 'absolute top-16 right-4 z-20'}>
 				<div class="bg-base-100/95 border-base-300 rounded-lg border p-4 shadow-lg">
@@ -1068,11 +998,14 @@
 					d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
 				/></svg
 			>
-			<span>{$t('task.location_picker.location_set')}: {currentLocation.formattedAddress || currentLocation.displayName}</span>
+			<span
+				>{$t('task.location_picker.location_set')}: {currentLocation.formattedAddress ||
+					currentLocation.displayName}</span
+			>
 		</div>
 	{/if}
 
-	<!-- Retry button for map loading issues -->
+	<!-- Retry button shown when map failed to load -->
 	{#if hasError && !isMapLoaded}
 		<div class="alert alert-warning alert-outline mx-4 mt-4">
 			<svg
@@ -1095,7 +1028,7 @@
 				class="btn btn-sm"
 				onclick={() => {
 					hasError = false;
-					loadGoogleMapsScript().then(() => tryInitMap());
+					loadGoogleMapsScript().then(() => initMapWithRetry());
 				}}
 			>
 				{$t('task.location_picker.retry')}
