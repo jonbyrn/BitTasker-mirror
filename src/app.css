@@ -427,23 +427,6 @@ body {
 	overscroll-behavior: none;
 }
 
-html {
-	/*
-	 * iOS Safari compositor-level rubber-band prevention.
-	 *
-	 * `overscroll-behavior` and non-passive touchmove/preventDefault() both run on
-	 * the JS thread, which fires AFTER the compositor has already begun the elastic
-	 * bounce animation. Setting `position: fixed` on the root element anchors it to
-	 * the viewport at the compositor level — iOS Safari cannot elastic-scroll an
-	 * element that is fixed, so the bounce never starts.
-	 *
-	 * Safe for this app because all scrolling is delegated to .app-shell__content;
-	 * nothing scrolls at the html/body level.
-	 */
-	position: fixed;
-	width: 100%;
-}
-
 body {
 	overflow: hidden;
 }
