@@ -5,7 +5,6 @@ export interface ValidationResult {
 	error?: string;
 }
 
-
 // Import liquidjs-lib for Liquid address validation
 import { address as liquidAddress } from 'liquidjs-lib';
 
@@ -64,45 +63,6 @@ export function validatePassword(password: string): ValidationResult {
 	return { isValid: true };
 }
 
-export function validateNostrPrivateKey(nsec: string): { isValid: boolean; error?: string } {
-	// Trim whitespace before validation
-	const trimmed = nsec.trim();
-
-	// Check if empty after trimming
-	if (!trimmed) {
-		return { isValid: false, error: 'Nostr private key cannot be empty' };
-	}
-
-	// Check if it's a valid bech32 nsec format
-	if (!trimmed.startsWith('nsec1')) {
-		return { 
-			isValid: false, 
-			error: `Nostr private key must start with "nsec1". Found: "${trimmed.substring(0, 10)}..."` 
-		};
-	}
-
-	// Bech32 nsec keys are typically around 63 characters
-	if (trimmed.length < 60 || trimmed.length > 65) {
-		return { 
-			isValid: false, 
-			error: `Invalid Nostr private key length: ${trimmed.length} characters (expected 60-65)` 
-		};
-	}
-
-	// Only allow valid bech32 characters
-	if (!/^nsec1[023456789acdefghjklmnpqrstuvwxyz]+$/i.test(trimmed)) {
-		// Find the first invalid character for better error reporting
-		const invalidCharMatch = trimmed.match(/[^023456789acdefghjklmnpqrstuvwxyz]/i);
-		const invalidChar = invalidCharMatch ? invalidCharMatch[0] : 'unknown';
-		return { 
-			isValid: false, 
-			error: `Invalid character "${invalidChar}" in Nostr private key. Only bech32 characters are allowed.` 
-		};
-	}
-
-	return { isValid: true };
-}
-
 export function validateUsername(username: string): ValidationResult {
 	if (!username) {
 		return { isValid: false, error: 'onboarding_auth.form.username_setup.errors.required' };
@@ -118,7 +78,10 @@ export function validateUsername(username: string): ValidationResult {
 
 	// check for spaces
 	if (username.includes(' ')) {
-		return { isValid: false, error: 'onboarding_auth.form.username_setup.errors.invalid_characters' };
+		return {
+			isValid: false,
+			error: 'onboarding_auth.form.username_setup.errors.invalid_characters'
+		};
 	}
 
 	// Validate allowed characters: letters, numbers, and hyphens only
@@ -126,7 +89,10 @@ export function validateUsername(username: string): ValidationResult {
 	// Cannot contain spaces or other special characters
 	const usernameRegex = /^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?$/;
 	if (!usernameRegex.test(username)) {
-		return { isValid: false, error: 'onboarding_auth.form.username_setup.errors.invalid_characters' };
+		return {
+			isValid: false,
+			error: 'onboarding_auth.form.username_setup.errors.invalid_characters'
+		};
 	}
 
 	return { isValid: true };
@@ -139,7 +105,10 @@ export function validateUsername(username: string): ValidationResult {
 export function validateRSKAddress(address: string): ValidationResult {
 	// Ensure address is a string
 	if (typeof address !== 'string') {
-		return { isValid: false, error: `Invalid address type: expected string, got ${typeof address}` };
+		return {
+			isValid: false,
+			error: `Invalid address type: expected string, got ${typeof address}`
+		};
 	}
 
 	if (!address) {
@@ -166,11 +135,10 @@ export function validateRSKAddress(address: string): ValidationResult {
 	try {
 		normalizeRskAddress(address);
 		return { isValid: true };
-	} catch (error) {
+	} catch {
 		return { isValid: false, error: 'Invalid RSK address checksum' };
 	}
 }
-
 
 /**
  * Validate Lightning invoice or Lightning address
@@ -214,7 +182,11 @@ export function validateBitcoinAddress(address: string): ValidationResult {
 	const segwitP2SHRegex = /^[3][a-km-zA-HJ-NP-Z1-9]{25,34}$/;
 	const nativeSegwitRegex = /^bc1[a-z0-9]{39,59}$/;
 
-	if (legacyRegex.test(address) || segwitP2SHRegex.test(address) || nativeSegwitRegex.test(address)) {
+	if (
+		legacyRegex.test(address) ||
+		segwitP2SHRegex.test(address) ||
+		nativeSegwitRegex.test(address)
+	) {
 		return { isValid: true };
 	}
 
@@ -235,11 +207,11 @@ export function validateLiquidAddress(address: string): ValidationResult {
 		// toOutputScript will throw if address is invalid
 		liquidAddress.toOutputScript(address);
 		return { isValid: true };
-	} catch (error) {
+	} catch {
 		// Address is invalid (wrong format, bad checksum, or wrong network)
-		return { 
-			isValid: false, 
-			error: 'Invalid Liquid address format or checksum' 
+		return {
+			isValid: false,
+			error: 'Invalid Liquid address format or checksum'
 		};
 	}
 }

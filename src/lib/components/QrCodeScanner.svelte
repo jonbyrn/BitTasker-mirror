@@ -37,6 +37,7 @@
 	let isPermissionGranted = $state(false);
 	let disabled = $state(false);
 	let showScanner = $state(false);
+	let showDisclosure = $state(false);
 
 	onMount(async () => {
 		const { supported } = await BarcodeScanner.isSupported();
@@ -48,7 +49,7 @@
 		// Auto-start if no scanBtn is provided (used in SendPaymentForm)
 		if (!scanBtn) {
 			// Wait a bit for parent component to be ready and DOM to be stable
-			await new Promise(resolve => setTimeout(resolve, 800));
+			await new Promise((resolve) => setTimeout(resolve, 800));
 			await startScan();
 		}
 	});
@@ -65,7 +66,11 @@
 
 	async function startScan() {
 		// Check if permissions are granted
-		if (!isPermissionGranted) await requestPermissions();
+		// If not, show the disclosure modal to ask for permission
+		if (!isPermissionGranted) {
+			showDisclosure = true;
+			return;
+		}
 
 		showScanner = true;
 		// Add class to hide background
@@ -173,15 +178,90 @@
 	function toggleTorch() {
 		BarcodeScanner.toggleTorch();
 	}
+
+	/**
+	 * Called when the user taps "Scan QR Code" in the disclosure modal.
+	 * Requests the system camera permission first, then starts scanning if granted.
+	 * If the user denies the system dialog, the disclosure stays closed and we call
+	 * onClose() so the parent can restore its UI cleanly.
+	 */
+	async function grantAndStart() {
+		showDisclosure = false;
+		await requestPermissions();
+		if (isPermissionGranted) {
+			await startScan();
+		} else {
+			onClose();
+		}
+	}
 </script>
 
 {@render scanBtn?.({ disabled, onStartScan: startScan })}
 {@render permissionsBtn?.({ disabled, onRequest: requestPermissions, isPermissionGranted })}
 
-{#if showScanner}
-	<div class="barcode-scanning-modal fixed inset-0 z-[9999]">
-		<header class="relative z-[1001] flex items-center justify-between bg-black/70 p-4">
-			<div class="text-lg font-semibold text-white">{$t('common.components.qr_scanner.scan_qr_code')}</div>
+<!-- Camera permission disclosure modal.
+     Shown before the system permission dialog fires, as required by Google Play's
+     "prominent disclosure right before requesting a sensitive permission" policy. -->
+{#if showDisclosure}
+	<div
+		class="modal modal-open"
+		role="dialog"
+		aria-modal="true"
+		aria-labelledby="camera-disclosure-title"
+	>
+		<div class="modal-box flex flex-col items-center gap-5 text-center">
+			<!-- Camera icon -->
+			<div class="bg-primary/10 flex h-16 w-16 items-center justify-center rounded-full">
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					class="text-primary h-8 w-8"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke="currentColor"
+					stroke-width="1.5"
+					aria-hidden="true"
+				>
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25
+						   2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0
+						   00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0
+						   00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z"
+					/>
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0zM18.75 10.5h.008v.008h-.008V10.5z"
+					/>
+				</svg>
+			</div>
+
+			<div class="space-y-2">
+				<h3 id="camera-disclosure-title" class="text-lg font-semibold">
+					{$t('common.components.qr_scanner.permission_title')}
+				</h3>
+				<p class="text-base-content/70 text-sm leading-relaxed">
+					{$t('common.components.qr_scanner.permission_description')}
+				</p>
+			</div>
+
+			<div class="modal-action mt-1 w-full flex-col gap-2 sm:flex-row sm:justify-center">
+				<button onclick={grantAndStart} class="btn btn-primary w-full sm:w-auto">
+					{$t('common.components.qr_scanner.permission_allow')}
+				</button>
+				<button onclick={() => (showDisclosure = false)} class="btn btn-ghost w-full sm:w-auto">
+					{$t('common.components.qr_scanner.permission_cancel')}
+				</button>
+			</div>
+		</div>
+	</div>
+{:else if showScanner}
+	<div class="barcode-scanning-modal fixed inset-0 z-9999">
+		<header class="relative z-1001 flex items-center justify-between bg-black/70 p-4">
+			<div class="text-lg font-semibold text-white">
+				{$t('common.components.qr_scanner.scan_qr_code')}
+			</div>
 			<button
 				aria-label={$t('common.components.qr_scanner.close')}
 				class="btn btn-circle cursor-pointer rounded-full p-2 text-white"
@@ -288,13 +368,4 @@
 		height: 100% !important;
 		background: transparent !important;
 	}
-
-	/* Override any DaisyUI styles that might affect the scanner */
-	/* :global(body.barcode-scanning-active *) {
-		--background: transparent;
-	}
-
-	:global(body.barcode-scanning-active .barcode-scanning-modal *) {
-		visibility: visible !important;
-	} */
 </style>
