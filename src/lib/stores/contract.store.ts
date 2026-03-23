@@ -436,8 +436,7 @@ function createContractStore() {
 				content.contextId ??
 				content.serviceId ??
 				content.taskId;
-			const contextDescription =
-				content.contextDescription ?? content.taskDescription ?? '';
+			const contextDescription = content.contextDescription ?? content.taskDescription ?? '';
 
 			// Handle special computed cases first
 			if (key === 'contractEventId') {
@@ -446,7 +445,7 @@ function createContractStore() {
 
 			if (key === 'contextLabel') {
 				if (contextType === 'service') {
-					return content.purchaseMode === 'instant_buy' ? 'Instant Buy' : 'Quoted Service';
+					return content.purchaseMode === 'instant_buy' ? 'Book Now' : 'Quoted Service';
 				}
 				return 'Task Contract';
 			}

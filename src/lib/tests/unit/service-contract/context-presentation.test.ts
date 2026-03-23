@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { ContractWithEvents, NostrContract } from '$lib/types/contract';
 import {
 	buildContractContextPresentation,
 	getContractCompletionPresentation,
@@ -6,7 +7,7 @@ import {
 	type ContractContextKeyReader
 } from '$lib/utils/service-contract/context-presentation';
 
-function buildContract(content: Record<string, unknown> = {}) {
+function buildContract(content: Record<string, unknown> = {}): ContractWithEvents {
 	return {
 		contractEvent: {
 			content: {
@@ -16,11 +17,14 @@ function buildContract(content: Record<string, unknown> = {}) {
 				...content
 			}
 		}
-	} as any;
+	} as unknown as ContractWithEvents;
 }
 
 const readContractValue: ContractContextKeyReader = (contract, key) => {
-	return contract.contractEvent.content[key];
+	const value = (contract.contractEvent.content as NostrContract & Record<string, unknown>)[key];
+	return typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean'
+		? value
+		: undefined;
 };
 
 describe('context-presentation', () => {
@@ -57,13 +61,15 @@ describe('context-presentation', () => {
 			contextTitle: 'Broken contract context'
 		});
 
-		expect(buildContractContextPresentation(instantBuyContract, readContractValue).summaryLabel).toBe(
-			'Instant Buy'
-		);
+		expect(
+			buildContractContextPresentation(instantBuyContract, readContractValue).summaryLabel
+		).toBe('Book Now');
 		expect(buildContractContextPresentation(instantBuyContract, readContractValue).cardLabel).toBe(
-			'Instant Buy'
+			'Book Now'
 		);
-		expect(buildContractContextPresentation(unknownContextContract, readContractValue)).toMatchObject({
+		expect(
+			buildContractContextPresentation(unknownContextContract, readContractValue)
+		).toMatchObject({
 			contextType: 'alien-context',
 			isServiceContract: false,
 			isUnknownContext: true,

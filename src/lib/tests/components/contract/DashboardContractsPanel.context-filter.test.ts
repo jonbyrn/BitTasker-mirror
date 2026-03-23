@@ -1,13 +1,24 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/svelte';
-import { writable, get } from 'svelte/store';
+import { get } from 'svelte/store';
 import DashboardContractsPanel from '$lib/components/contracts/DashboardContractsPanel.svelte';
+import type { ContractWithEvents, NostrContract } from '$lib/types/contract';
 import { EscrowStatus } from '$lib/utils/escrow';
 
+type MockContractStoreState = {
+	contracts: ContractWithEvents[];
+	contract: ContractWithEvents | null;
+	isDrawerOpen: boolean;
+	isLoading: boolean;
+	error: string | null;
+	hasMore: boolean;
+	isLoadingMore: boolean;
+};
+
 const { contractStoreState, contractStore, scrollStore } = vi.hoisted(() => {
-	let value = {
-		contracts: [] as any[],
-		contract: null as any,
+	let value: MockContractStoreState = {
+		contracts: [],
+		contract: null,
 		isDrawerOpen: false,
 		isLoading: false,
 		error: null,
@@ -36,13 +47,18 @@ const { contractStoreState, contractStore, scrollStore } = vi.hoisted(() => {
 			subscribe: state.subscribe,
 			set: state.set,
 			update: state.update,
-			getContractKey: vi.fn((contract: any, key: string) => {
+			getContractKey: vi.fn((contract: ContractWithEvents, key: string) => {
+				const content = contract.contractEvent.content as NostrContract & Record<string, unknown>;
 				if (key === 'otherPartyNpub') return 'npub1counterparty';
-				if (key === 'estimatedCompletionTime') return contract.contractEvent.content.estimatedCompletionTime;
-				if (key === 'amount') return contract.contractEvent.content.amount;
-				if (key === 'taskTitle' || key === 'contextTitle') return contract.contractEvent.content.contextTitle;
-				if (key === 'taskDescription' || key === 'contextDescription') return contract.contractEvent.content.contextDescription;
-				return contract.contractEvent.content[key];
+				if (key === 'estimatedCompletionTime') return content.estimatedCompletionTime;
+				if (key === 'amount') return content.amount;
+				if (key === 'taskTitle' || key === 'contextTitle') return content.contextTitle;
+				if (key === 'taskDescription' || key === 'contextDescription')
+					return content.contextDescription;
+				const value = content[key];
+				return typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean'
+					? value
+					: undefined;
 			}),
 			loadContracts: vi.fn().mockResolvedValue(undefined),
 			loadMoreContracts: vi.fn().mockResolvedValue(undefined),
@@ -148,11 +164,19 @@ vi.mock('$lib/stores/wallet.store', async () => {
 	};
 });
 
-function buildContract(id: string, contextType?: 'task' | 'service') {
+function buildContract(
+	id: string,
+	contextType?: 'task' | 'service',
+	options: {
+		isClient?: boolean;
+		title?: string;
+		description?: string;
+	} = {}
+): ContractWithEvents {
 	return {
 		escrowData: { id },
 		status: EscrowStatus.Funded,
-		isClient: true,
+		isClient: options.isClient ?? true,
 		isPending: false,
 		blockchainStatus: EscrowStatus.Funded,
 		permissions: {
@@ -170,12 +194,30 @@ function buildContract(id: string, contextType?: 'task' | 'service') {
 				escrowId: id,
 				amount: '0.01',
 				contextType,
-				contextTitle: contextType === 'service' ? 'Service Contract' : 'Task Contract',
-				contextDescription: contextType === 'service' ? 'Service description' : 'Task description',
+				contextTitle:
+					options.title ?? (contextType === 'service' ? 'Service Contract' : 'Task Contract'),
+				contextDescription:
+					options.description ??
+					(contextType === 'service' ? 'Service description' : 'Task description'),
 				estimatedCompletionTime: 1_700_000_000
 			}
 		}
-	} as any;
+	} as unknown as ContractWithEvents;
+}
+
+function buildUnknownContextContract(): ContractWithEvents {
+	const contract = buildContract('alien-1', 'task');
+	return {
+		...contract,
+		contractEvent: {
+			...contract.contractEvent,
+			content: {
+				...contract.contractEvent.content,
+				contextType: 'alien-context' as NostrContract['contextType'] | 'alien-context',
+				contextTitle: 'Alien Contract'
+			}
+		}
+	} as unknown as ContractWithEvents;
 }
 
 describe('DashboardContractsPanel context filter', () => {
@@ -237,6 +279,53 @@ describe('DashboardContractsPanel context filter', () => {
 		await fireEvent.click(screen.getByText('Services'));
 		expect(screen.queryAllByText('Task Contract')).toHaveLength(0);
 		expect(screen.getAllByText('Service Contract').length).toBeGreaterThan(0);
+	});
+
+	it('keeps status filters while hiding role filters for the earnings contracts tab', async () => {
+		render(DashboardContractsPanel, {
+			initialContext: 'all',
+			showRoleFilters: false,
+			fixedRole: 'freelancer'
+		});
+
+		expect(screen.queryByText('dashboard.contracts.filter_by_status_and_role')).toBeNull();
+		expect(screen.queryByText('dashboard.contracts.filter_description')).toBeNull();
+		expect(screen.getAllByText('dashboard.contracts.all_statuses').length).toBeGreaterThan(0);
+		expect(screen.queryByText('dashboard.contracts.all_roles')).toBeNull();
+		expect(screen.getByText('Contract filters')).toBeInTheDocument();
+		expect(screen.getByText('All')).toBeInTheDocument();
+		expect(screen.getByText('Tasks')).toBeInTheDocument();
+		expect(screen.getByText('Services')).toBeInTheDocument();
+	});
+
+	it('locks the earnings contracts tab to taskee-side contracts', async () => {
+		contractStoreState.set({
+			contracts: [
+				buildContract('tasker-side', 'service', {
+					isClient: true,
+					title: 'Tasker-side Service Contract'
+				}),
+				buildContract('taskee-side', 'service', {
+					isClient: false,
+					title: 'Taskee-side Service Contract'
+				})
+			],
+			contract: null,
+			isDrawerOpen: false,
+			isLoading: false,
+			error: null,
+			hasMore: false,
+			isLoadingMore: false
+		});
+
+		render(DashboardContractsPanel, {
+			initialContext: 'services',
+			showRoleFilters: false,
+			fixedRole: 'freelancer'
+		});
+
+		expect(screen.getAllByText('Taskee-side Service Contract').length).toBeGreaterThan(0);
+		expect(screen.queryByText('Tasker-side Service Contract')).toBeNull();
 	});
 
 	it('retries highlight recovery once before reporting a missing contract', async () => {
@@ -335,18 +424,7 @@ describe('DashboardContractsPanel context filter', () => {
 	it('warns once and keeps unknown contract contexts read-only', async () => {
 		const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 		contractStoreState.set({
-			contracts: [
-				{
-					...buildContract('alien-1', 'task'),
-					contractEvent: {
-						content: {
-							...buildContract('alien-1', 'task').contractEvent.content,
-							contextType: 'alien-context',
-							contextTitle: 'Alien Contract'
-						}
-					}
-				} as any
-			],
+			contracts: [buildUnknownContextContract()],
 			contract: null,
 			isDrawerOpen: false,
 			isLoading: false,
@@ -391,7 +469,9 @@ describe('DashboardContractsPanel context filter', () => {
 			expect(contractStore.loadContracts).toHaveBeenCalled();
 		});
 		vi.mocked(contractStore.loadContracts).mockClear();
-		expect(screen.getByText('Showing last known contract data. contracts query failed')).toBeTruthy();
+		expect(
+			screen.getByText('Showing last known contract data. contracts query failed')
+		).toBeTruthy();
 		expect(screen.getByTestId('contracts-panel-stale-alert')).toBeInTheDocument();
 		expect(screen.getAllByText('Service Contract').length).toBeGreaterThan(0);
 		await fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
