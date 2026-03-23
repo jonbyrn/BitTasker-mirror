@@ -1,6 +1,6 @@
 # Service Troubleshooting
 
-This guide covers the recovery paths that should remain available when quote, instant-buy, wallet, or contracts handoff flows cannot complete on the first attempt.
+This guide covers the recovery paths that should remain available when quote, Book Now, wallet, or contracts handoff flows cannot complete on the first attempt.
 
 ## Route conventions
 
@@ -12,7 +12,7 @@ This guide covers the recovery paths that should remain available when quote, in
 
 ## Wallet and preflight recovery
 
-- If a quote accept or instant-buy create action fails preflight, stay on the same surface and resolve the wallet/network issue before retrying.
+- If a quote accept or Book Now create action fails preflight, stay on the same surface and resolve the wallet/network issue before retrying.
 - Treat missing wallet readiness, wrong network, balance failures, or invalid listing snapshots as fail-closed conditions.
 - Do not leave the quotes or service-detail context just because preflight failed.
 - If direct purchase is blocked, keep `Request Quote` visible as the negotiated fallback.
@@ -26,7 +26,7 @@ This guide covers the recovery paths that should remain available when quote, in
 
 ## Contracts handoff recovery
 
-- Successful funded quote accepts and instant-buy orders should end in the service contracts view, not in the quote inbox.
+- Successful funded quote accepts and Book Now orders should end in the service contracts view, not in the quote inbox.
 - If the redirect lands without the expected contract highlighted, reload the contracts dashboard once and keep the `context=services` filter intact.
 - If escrow confirmation resolves after the initial redirect window, reopen the contracts dashboard with the same `highlight=<escrowId>` target instead of restarting the purchase flow.
 - Converted or historical quote rows should stay visible read-only and expose `View Contract` when a contract already exists.
@@ -39,13 +39,13 @@ This guide covers the recovery paths that should remain available when quote, in
 
 ## FAQ
 
-### Why did `Buy Now` disappear after I opened the service?
+### Why did `Book Now` disappear after I opened the service?
 
-The listing was revalidated and the latest version is no longer instant-buy eligible. Use `Request Quote` if custom work is still possible.
+The listing was revalidated and the latest version is no longer Book Now eligible. Use `Request Quote` if custom work is still possible.
 
 ### Why am I on contracts instead of quotes after purchase?
 
-Funded quote accepts and instant-buy purchases become service contracts immediately, so the follow-up state belongs in the contracts experience.
+Funded quote accepts and Book Now purchases become service contracts immediately, so the follow-up state belongs in the contracts experience.
 
 ### Why is my old quote row still visible after the contract exists?
 
