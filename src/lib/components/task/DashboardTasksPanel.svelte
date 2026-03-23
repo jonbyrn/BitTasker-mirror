@@ -2,6 +2,7 @@
 	import type { Task } from '$lib/types/task';
 	import { t } from 'svelte-i18n';
 	import { onMount } from 'svelte';
+	import { SvelteSet } from 'svelte/reactivity';
 	import { myTasksStore, TASKS_PER_PAGE } from '$lib/stores/task.store';
 	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
@@ -9,14 +10,17 @@
 	import { goto } from '$app/navigation';
 	import { appStore } from '$lib/stores/app.store';
 	import DashboardTaskCard from './DashboardTaskCard.svelte';
+	import DashboardEmptyState from '$lib/components/shared/DashboardEmptyState.svelte';
 
 	// MDI Icons for filters
 	import IconClockOutline from '~icons/mdi/clock-outline';
 	import IconLightningBolt from '~icons/mdi/lightning-bolt';
 	import IconCheckCircle from '~icons/mdi/check-circle';
 	import IconAlertCircleOutline from '~icons/mdi/alert-circle-outline';
+	import IconClipboardTextOutline from '~icons/mdi/clipboard-text-outline';
 	import IconChevronDown from '~icons/mdi/chevron-down';
 	import IconCheck from '~icons/mdi/check';
+	import IconPlus from '~icons/mdi/plus';
 	import IconRefresh from '~icons/mdi/refresh';
 	// import { getBidsForTask } from '$lib/utils/nostr-bid';
 
@@ -43,7 +47,7 @@
 	let bidStatusMap = $state<Map<string, boolean>>(new Map());
 	let isCheckingBids = $state(false);
 	let lastBidCheckTime = $state<number>(0);
-	let lastCheckedTaskIds = $state<Set<string>>(new Set());
+	let lastCheckedTaskIds = new SvelteSet<string>();
 	const BID_CHECK_INTERVAL = 5000; // 5 seconds minimum between checks (reduced from 30s)
 
 	// Pagination state
@@ -110,7 +114,7 @@
 		}
 
 		// Get current task IDs
-		const currentTaskIds = new Set(openTasks.map((t) => t.id));
+		const currentTaskIds = new SvelteSet(openTasks.map((t) => t.id));
 
 		// Check if task IDs have actually changed (unless forced)
 		if (!force) {
@@ -127,7 +131,7 @@
 
 		isCheckingBids = true;
 		lastBidCheckTime = now;
-		lastCheckedTaskIds = new Set(currentTaskIds);
+		lastCheckedTaskIds = new SvelteSet(currentTaskIds);
 
 		try {
 			// Batch check all bids
@@ -161,12 +165,10 @@
 		}
 	}
 
-	// Simple synchronous filtering
-	let filteredTasks = $derived.by(() => {
-		let filtered = $myTasksStore.items;
+	function getTasksForFilter(filter: TaskFilterCategory): Task[] {
+		const filtered = $myTasksStore.items;
 
-		// Filter by status category (synchronous)
-		switch (activeFilter) {
+		switch (filter) {
 			case 'waiting_for_bids':
 				// Filter OPEN tasks - "waiting for bids" means all OPEN tasks regardless of bid status
 				// This filter shows tasks that are open and waiting to receive bids
@@ -205,7 +207,10 @@
 			default:
 				return filtered;
 		}
-	});
+	}
+
+	// Simple synchronous filtering
+	let filteredTasks = $derived.by(() => getTasksForFilter(activeFilter));
 
 	// Paginated tasks
 	let totalTasks = $derived(filteredTasks.length);
@@ -237,10 +242,19 @@
 		}
 	}
 
+	function clearTaskFilters() {
+		const nextFilter =
+			filterOptions.find((option) => getTasksForFilter(option.id).length > 0)?.id ??
+			'waiting_for_bids';
+		activeFilter = nextFilter;
+		currentPage = 1;
+	}
+
 	// Reset to page 1 when filter changes
 	$effect(() => {
-		activeFilter; // Watch filter changes
-		currentPage = 1;
+		if (activeFilter) {
+			currentPage = 1;
+		}
 	});
 
 	/**
@@ -329,7 +343,7 @@
 					{
 						label: $t('task.actions.view_details'),
 						class: 'btn-outline btn-sm',
-						onclick: (e: any) => {
+						onclick: (e: MouseEvent) => {
 							e.stopPropagation();
 							openTaskDrawer(task, 'details');
 						},
@@ -338,7 +352,7 @@
 					{
 						label: $t('task.actions.view_bids'),
 						class: 'btn-primary btn-sm',
-						onclick: (e: any) => {
+						onclick: (e: MouseEvent) => {
 							e.stopPropagation();
 							goto(`/dashboard/task/${task.id}/bids`);
 						},
@@ -351,7 +365,7 @@
 					{
 						label: $t('task.actions.mark_as_done'),
 						class: 'btn-success btn-sm',
-						onclick: (e: any) => {
+						onclick: (e: MouseEvent) => {
 							e.stopPropagation();
 							// TODO: Implement mark as done functionality
 						},
@@ -360,7 +374,7 @@
 					{
 						label: $t('task.actions.rescope'),
 						class: 'btn-info btn-outline btn-sm',
-						onclick: (e: any) => {
+						onclick: (e: MouseEvent) => {
 							e.stopPropagation();
 							// TODO: Implement rescope functionality
 						},
@@ -374,7 +388,7 @@
 					{
 						label: $t('task.actions.view_details'),
 						class: 'btn-primary btn-sm',
-						onclick: (e: any) => {
+						onclick: (e: MouseEvent) => {
 							e.stopPropagation();
 							openTaskDrawer(task, 'details');
 						},
@@ -386,6 +400,10 @@
 				return [];
 		}
 	}
+
+	const pageNumbers = $derived.by(() =>
+		Array.from({ length: totalPages }, (_, index) => index + 1)
+	);
 
 	onMount(() => {
 		document.addEventListener('click', handleClickOutside);
@@ -404,7 +422,7 @@
 
 <div class="space-y-6">
 	<!-- Status filter + refresh -->
-	<div class="border-base-300/60 bg-base-100/40 rounded-3xl border p-4 mt-2 shadow-sm">
+	<div class="border-base-300/60 bg-base-100/40 mt-2 rounded-3xl border p-4 shadow-sm">
 		<!-- Header with title and refresh button -->
 		<div class="mb-3 flex items-center justify-between gap-2">
 			<div class="space-y-1">
@@ -418,7 +436,7 @@
 
 			<!-- Refresh button: icon only on mobile, with text on desktop -->
 			<button
-				class="btn btn-ghost btn-sm sm:btn-outline  gap-2"
+				class="btn btn-ghost btn-sm sm:btn-outline gap-2"
 				onclick={handleRefresh}
 				disabled={isLoading}
 				aria-label={$t('dashboard.tasks.refresh')}
@@ -429,7 +447,6 @@
 				{:else}
 					<IconRefresh class="h-5 w-5" />
 					<span class="hidden sm:inline">{$t('dashboard.tasks.refresh')}</span>
-					{' '}
 				{/if}
 			</button>
 		</div>
@@ -445,7 +462,7 @@
 					onclick={toggleDropdown}
 				>
 					<div class="flex items-center gap-2">
-						{#each filterOptions as option}
+						{#each filterOptions as option (option.id)}
 							{#if activeFilter === option.id}
 								{@const IconComponent = option.icon}
 								<IconComponent class="h-5 w-5" />
@@ -464,7 +481,7 @@
 					<div
 						class="border-base-300 bg-base-100 absolute top-full right-0 left-0 z-50 mt-2 rounded-xl border shadow-lg"
 					>
-						{#each filterOptions as option}
+						{#each filterOptions as option (option.id)}
 							{@const IconComponent = option.icon}
 							<button
 								class="hover:bg-base-200 flex w-full items-center gap-2 px-4 py-2 text-left transition-colors duration-200 first:rounded-t-xl last:rounded-b-xl {activeFilter ===
@@ -492,10 +509,10 @@
 		<!-- Desktop filters -->
 		<div class="mt-4 hidden sm:block">
 			<div class="flex flex-col gap-3 sm:flex-row">
-				{#each filterOptions as option}
+				{#each filterOptions as option (option.id)}
 					{@const IconComponent = option.icon}
 					<button
-						class="flex btn btn-sm py-4 flex-1 cursor-pointer items-center justify-center gap-2 rounded-3xl text-center transition-all duration-200 {activeFilter ===
+						class="btn btn-sm flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-3xl py-4 text-center transition-all duration-200 {activeFilter ===
 						option.id
 							? 'text-primary bg-primary/10 border-primary/30 border'
 							: 'bg-base-100/40 hover:bg-base-100/60 text-base-content/70'}"
@@ -540,7 +557,7 @@
 				<h3 class="font-bold">{$t('dashboard.tasks.error_title')}</h3>
 				<div class="text-xs">{error}</div>
 			</div>
-			<button class="btn btn-sm  btn-outline" onclick={loadTasks}>
+			<button class="btn btn-sm btn-outline" onclick={loadTasks}>
 				{$t('dashboard.tasks.retry')}
 			</button>
 		</div>
@@ -549,43 +566,28 @@
 	<!-- Tasks List -->
 	{#if !isLoading && !error}
 		{#if filteredTasks.length === 0}
-			<div class="py-12 text-center">
-				<div class="mb-4">
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="text-base-content/30 mx-auto h-12 w-12"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-						/>
-					</svg>
-				</div>
-				<h3 class="mb-2 text-lg font-semibold">
-					{$myTasksStore.items.length === 0
+			<div class="card bg-base-100 rounded-xl p-4">
+				<DashboardEmptyState
+					icon={IconClipboardTextOutline}
+					title={$myTasksStore.items.length === 0
 						? $t('dashboard.tasks.no_tasks')
 						: $t('dashboard.tasks.no_filtered_tasks')}
-				</h3>
-				<p class="text-base-content/70">
-					{$myTasksStore.items.length === 0
+					description={$myTasksStore.items.length === 0
 						? $t('dashboard.tasks.no_tasks_description')
 						: $t('dashboard.tasks.try_different_filters')}
-				</p>
+					actionLabel={$myTasksStore.items.length === 0
+						? $t('dashboard.create_task')
+						: $t('find_tasks.clear_filters')}
+					actionHref={$myTasksStore.items.length === 0 ? '/dashboard/create-task' : null}
+					actionIcon={$myTasksStore.items.length === 0 ? IconPlus : IconRefresh}
+					onAction={$myTasksStore.items.length === 0 ? undefined : clearTaskFilters}
+					testId="dashboard-tasks-empty-state"
+				/>
 			</div>
 		{:else}
 			<div class="grid grid-cols-1 gap-5">
 				{#each paginatedTasks as task (task.id)}
-					<DashboardTaskCard
-						{task}
-						{btcPrice}
-						{activeFilter}
-						{getActionButtons}
-					/>
+					<DashboardTaskCard {task} {btcPrice} {activeFilter} {getActionButtons} />
 				{/each}
 			</div>
 
@@ -597,8 +599,7 @@
 					</button>
 
 					<div class="flex gap-1">
-						{#each Array(totalPages) as _, i}
-							{@const page = i + 1}
+						{#each pageNumbers as page (page)}
 							<button
 								class="btn btn-sm {currentPage === page ? 'btn-primary' : 'btn-ghost'}"
 								onclick={() => goToPage(page)}

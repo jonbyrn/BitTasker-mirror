@@ -41,8 +41,8 @@ function getDashboardBaseUrl(): URL {
 	return new URL('/dashboard', getClientBaseUrl());
 }
 
-function getServicesManageBaseUrl(): URL {
-	return new URL('/services/manage', getClientBaseUrl());
+function getEarningBaseUrl(): URL {
+	return new URL('/earning', getClientBaseUrl());
 }
 
 function buildTaskerQuoteClickAction(quoteRequestId: string): string {
@@ -54,7 +54,7 @@ function buildTaskerQuoteClickAction(quoteRequestId: string): string {
 }
 
 function buildProviderQuoteClickAction(serviceAddress: string, quoteRequestId: string): string {
-	return createServicesWorkspaceUrl(getServicesManageBaseUrl(), {
+	return createServicesWorkspaceUrl(getEarningBaseUrl(), {
 		tab: 'quotes',
 		serviceAddress,
 		requestId: quoteRequestId

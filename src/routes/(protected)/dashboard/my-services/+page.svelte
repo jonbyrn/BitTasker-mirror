@@ -1,1 +1,1 @@
-<!-- Redirect is handled in +page.ts to /services/manage?tab=listings -->
+<!-- Redirect is handled in +page.ts to /earning?tab=my-services -->

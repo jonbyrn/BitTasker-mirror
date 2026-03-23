@@ -192,5 +192,11 @@ describe('create-service instant-buy submit payload', () => {
 				})
 			);
 		});
-	});
+
+		await waitFor(() => {
+			expect(hoisted.goto).toHaveBeenCalledWith(
+				expect.stringMatching(/\/earning\?tab=my-services$/)
+			);
+		});
+	}, 10_000);
 });

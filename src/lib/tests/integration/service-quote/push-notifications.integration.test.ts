@@ -156,8 +156,8 @@ describe('service quote publish integration notifications', () => {
 		const requestNotification = sendNotificationToNpubs.mock.calls[0][0];
 		expect(requestNotification.type).toBe('service_quote_request_received');
 		const requestUrl = new URL(requestNotification.clickAction);
-		expect(requestUrl.pathname).toBe('/services/manage');
-		expect(requestUrl.searchParams.get('tab')).toBe('quotes');
+		expect(requestUrl.pathname).toBe('/earning');
+		expect(requestUrl.searchParams.get('tab')).toBe('requests');
 		expect(requestUrl.searchParams.get('service')).toBe(
 			`30402:${service.npub}:${service.uniqueId}`
 		);

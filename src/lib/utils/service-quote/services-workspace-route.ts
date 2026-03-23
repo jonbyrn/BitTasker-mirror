@@ -1,5 +1,6 @@
 import type { ServiceQuoteTimelineEntry } from '$lib/types/service-quote';
 import {
+	buildEarningQueryUrl,
 	buildServicesWorkspaceQueryUrl,
 	isValidQuoteRequestId,
 	isValidServiceAddress,
@@ -165,6 +166,21 @@ export function parseServicesWorkspaceRouteQuery(
 	};
 }
 
+export function createServicesWorkspaceRedirectUrl(baseUrl: URL): URL {
+	const parsed = parseServicesWorkspaceRouteQuery(
+		baseUrl.searchParams,
+		emptyServicesWorkspaceRouteContext
+	).state;
+	const targetTab = parsed.tab === 'quotes' ? 'requests' : 'my-services';
+	const nextUrl = buildEarningQueryUrl(new URL('/earning', baseUrl), {
+		tab: targetTab,
+		service: parsed.tab === 'quotes' ? (parsed.serviceAddress ?? undefined) : undefined,
+		request: parsed.tab === 'quotes' ? (parsed.requestId ?? undefined) : undefined
+	});
+
+	return new URL(nextUrl);
+}
+
 export function createServicesWorkspaceUrl(
 	baseUrl: URL,
 	updates: Partial<ServicesWorkspaceRouteState>
@@ -177,14 +193,15 @@ export function createServicesWorkspaceUrl(
 		...current,
 		...updates
 	};
+	const legacyWorkspaceUrl = new URL(
+		buildServicesWorkspaceQueryUrl(new URL('/services/manage', baseUrl), {
+			tab: next.tab,
+			service: next.tab === 'quotes' ? (next.serviceAddress ?? undefined) : undefined,
+			request: next.requestId ?? undefined
+		})
+	);
 
-	const nextUrl = buildServicesWorkspaceQueryUrl(baseUrl, {
-		tab: next.tab,
-		service: next.tab === 'quotes' ? (next.serviceAddress ?? undefined) : undefined,
-		request: next.requestId ?? undefined
-	});
-
-	return new URL(nextUrl);
+	return createServicesWorkspaceRedirectUrl(legacyWorkspaceUrl);
 }
 
 export function createServicesWorkspaceRedirectUrlFromLegacyDashboard(baseUrl: URL): URL | null {
@@ -193,7 +210,7 @@ export function createServicesWorkspaceRedirectUrlFromLegacyDashboard(baseUrl: U
 		return null;
 	}
 
-	return createServicesWorkspaceUrl(new URL('/services/manage', baseUrl), {
+	return createServicesWorkspaceUrl(new URL('/earning', baseUrl), {
 		tab: 'quotes',
 		serviceAddress: parsed.service,
 		requestId: parsed.request ?? null

@@ -172,15 +172,6 @@ export function getNamespacesForRoute(route: string): string[] {
 		}
 	}
 
-	// Services routes (public)
-	if (route.includes('/services/manage')) {
-		namespaces.push(
-			'dashboard/dashboard',
-			'dashboard/services/my-services',
-			'dashboard/services/detail'
-		);
-	}
-
 	if (route.includes('/services') && !route.includes('/services/[')) {
 		namespaces.push(
 			'dashboard/services/browse',

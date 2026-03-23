@@ -4,6 +4,7 @@ import type { Service } from '$lib/types/service.d';
 import type { ServiceQuoteTimelineEntry } from '$lib/types/service-quote';
 
 const publishServiceQuoteRequest = vi.fn();
+const publishServiceQuoteRequestDeletion = vi.fn();
 const publishServiceProposal = vi.fn();
 const publishServiceProposalStatus = vi.fn();
 const queryServiceQuotesForTasker = vi.fn();
@@ -20,6 +21,8 @@ const walletStore = writable({
 
 vi.mock('$lib/utils/service-quote/publish', () => ({
 	publishServiceQuoteRequest: (...args: unknown[]) => publishServiceQuoteRequest(...args),
+	publishServiceQuoteRequestDeletion: (...args: unknown[]) =>
+		publishServiceQuoteRequestDeletion(...args),
 	publishServiceProposal: (...args: unknown[]) => publishServiceProposal(...args),
 	publishServiceProposalStatus: (...args: unknown[]) => publishServiceProposalStatus(...args)
 }));
@@ -243,6 +246,11 @@ describe('serviceQuoteUiStore', () => {
 			relayResults: [],
 			publishedRelaySet: []
 		});
+		publishServiceQuoteRequestDeletion.mockResolvedValue({
+			event: { id: 'delete-event-id' },
+			relayResults: [],
+			publishedRelaySet: []
+		});
 		publishServiceProposal.mockResolvedValue({
 			event: { id: 'proposal-event-id' },
 			relayResults: [],
@@ -426,6 +434,22 @@ describe('serviceQuoteUiStore', () => {
 				})
 			})
 		);
+	});
+
+	it('deletes a tasker quote request and removes it from local timelines', async () => {
+		const { serviceQuoteUiStore } = await import('$lib/stores/service-quote-ui.store');
+
+		await serviceQuoteUiStore.loadTaskerTimelines('qr_12345678');
+		const result = await serviceQuoteUiStore.deleteTaskerRequest({
+			quoteRequestId: 'qr_12345678'
+		});
+
+		expect(result).toEqual({ success: true });
+		expect(publishServiceQuoteRequestDeletion).toHaveBeenCalledWith({
+			requestEventId: 'request-event-id',
+			taskerPubkey: 'b'.repeat(64)
+		});
+		expect(get(serviceQuoteUiStore).taskerTimelines).toEqual([]);
 	});
 
 	it('creates a funded service contract when the tasker accepts a proposal', async () => {

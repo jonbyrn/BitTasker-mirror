@@ -22,9 +22,6 @@
 	import IconPlus from '~icons/mdi/plus';
 	import { formatStandardDateTime } from '$lib/utils/helpers/dateFormatter';
 	import { locale } from 'svelte-i18n';
-	import IconChevronDown from '~icons/mdi/chevron-down';
-	import IconChevronUp from '~icons/mdi/chevron-up';
-	import { SvelteSet } from 'svelte/reactivity';
 	import type { Attachment } from '$lib/types/task.d';
 
 	let { service, isOwner, onRequestEditConfirm, onRequestDeleteConfirm, isDeleting, onQuotes } =
@@ -43,24 +40,12 @@
 	let canEdit = $state(true);
 	let isCheckingEdit = $state(false);
 
-	// FAQ expansion state
-	let expandedFaqs = new SvelteSet<number>();
-
 	function tr(key: string, fallback: string): string {
 		try {
 			const value = $t(key);
 			return typeof value === 'string' && value !== key ? value : fallback;
 		} catch {
 			return fallback;
-		}
-	}
-
-	// Toggle FAQ expansion
-	function toggleFaq(index: number) {
-		if (expandedFaqs.has(index)) {
-			expandedFaqs.delete(index);
-		} else {
-			expandedFaqs.add(index);
 		}
 	}
 
@@ -464,26 +449,15 @@
 				</h3>
 				<div class="space-y-2">
 					{#each displayFaqs as faq, index (index)}
-						<div class="bg-base-100 rounded-lg">
-							<button
-								class="flex w-full items-center justify-between p-3 text-left"
-								onclick={() => toggleFaq(index)}
-							>
-								<span class="font-medium">
-									{faq.question ||
-										`${tr('dashboard.services.detail.question', 'Question')} ${index + 1}`}
-								</span>
-								{#if expandedFaqs.has(index)}
-									<IconChevronUp class="h-5 w-5 shrink-0" />
-								{:else}
-									<IconChevronDown class="h-5 w-5 shrink-0" />
-								{/if}
-							</button>
-							{#if expandedFaqs.has(index)}
-								<div class="border-base-200 border-t px-3 pb-3">
-									<p class="text-base-content/70 text-sm">{faq.answer}</p>
-								</div>
-							{/if}
+						<div class="collapse-arrow bg-base-200 collapse">
+							<input type="checkbox" />
+							<div class="collapse-title text-sm font-medium">
+								{faq.question ||
+									`${tr('dashboard.services.detail.question', 'Question')} ${index + 1}`}
+							</div>
+							<div class="collapse-content text-base-content/70 text-xs">
+								<p>{faq.answer}</p>
+							</div>
 						</div>
 					{/each}
 				</div>

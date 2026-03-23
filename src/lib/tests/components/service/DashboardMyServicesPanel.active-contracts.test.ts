@@ -373,14 +373,11 @@ describe('DashboardMyServicesPanel active contracts shortcut', () => {
 	it('routes the service card quotes action to the services workspace quote inbox', async () => {
 		const service = createService();
 		const serviceAddress = `30402:${service.npub}:${service.uniqueId ?? service.id}`;
-		const expectedUrl = createServicesWorkspaceUrl(
-			new URL('http://localhost:3000/services/manage'),
-			{
-				tab: 'quotes',
-				serviceAddress,
-				requestId: null
-			}
-		).toString();
+		const expectedUrl = createServicesWorkspaceUrl(new URL('http://localhost:3000/earning'), {
+			tab: 'quotes',
+			serviceAddress,
+			requestId: null
+		}).toString();
 
 		const { default: DashboardMyServicesPanel } = await import(
 			'$lib/components/service/DashboardMyServicesPanel.svelte'
@@ -394,6 +391,25 @@ describe('DashboardMyServicesPanel active contracts shortcut', () => {
 
 		expect(hoisted.mockGoto).toHaveBeenCalledWith(expectedUrl);
 	}, 45_000);
+
+	it('shows the shared empty state with a create-service CTA when no services exist', async () => {
+		hoisted.mockFindMyServices.mockResolvedValueOnce({
+			services: []
+		});
+
+		const { default: DashboardMyServicesPanel } = await import(
+			'$lib/components/service/DashboardMyServicesPanel.svelte'
+		);
+		const { getByTestId, getByRole } = render(DashboardMyServicesPanel, {
+			view: 'default'
+		});
+
+		await waitFor(() => expect(hoisted.mockFindMyServices).toHaveBeenCalled());
+		expect(getByTestId('dashboard-my-services-empty-state')).toBeTruthy();
+		expect(
+			getByRole('link', { name: 'dashboard.services.my_services.create_service' })
+		).toHaveAttribute('href', '/dashboard/create-service');
+	});
 
 	it('hides the shortcut when only terminal service contracts exist', async () => {
 		hoisted.contractStoreState.set({

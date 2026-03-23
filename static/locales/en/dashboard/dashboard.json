@@ -52,7 +52,15 @@
 			"loading": "Loading your service requests...",
 			"retry_loading": "Retry to load your service requests.",
 			"empty": "No service requests have been submitted yet.",
-			"quote_pending": "Quote pending",
+			"quote_pending": "Pending",
+			"requested": "Requested",
+			"request_id": "Request ID",
+			"estimated_duration": "Estimated duration",
+			"selected_tier": "Tier",
+			"add_ons_one": "1 add-on",
+			"add_ons_other": "{count} add-ons",
+			"rush_delivery": "Rush delivery",
+			"expires": "Expires",
 			"service_label": "Service",
 			"standard_tier": "Standard",
 			"days": "days",
@@ -60,7 +68,20 @@
 				"view": "View",
 				"accept": "Accept",
 				"decline": "Decline",
-				"view_contract": "View Contract"
+				"view_contract": "View Contract",
+				"delete": "Delete"
+			},
+			"delete_modal": {
+				"title": "Delete service request",
+				"intro": "This will permanently remove this service request from your dashboard history.",
+				"confirm": "Confirm Delete"
+			},
+			"drawer": {
+				"title": "Service request",
+				"loading": "Loading service details...",
+				"inquiry_title": "Your Inquiry",
+				"custom_answers": "Submitted answers",
+				"attachments": "Attachments"
 			},
 			"statuses": {
 				"contract_created": "Contract created",
@@ -81,7 +102,8 @@
 				"reconnect": "Back online. Retry if the latest quote status has not refreshed yet."
 			},
 			"errors": {
-				"update_status": "Unable to update quote status."
+				"update_status": "Unable to update quote status.",
+				"delete_request": "Unable to delete this service request right now."
 			},
 			"messages": {
 				"acceptance_submitted": "Acceptance submitted. The funded contract will appear here once escrow creation is confirmed."

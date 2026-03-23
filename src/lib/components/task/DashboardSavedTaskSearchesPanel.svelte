@@ -7,10 +7,12 @@
 	} from '$lib/nostr/savedSearch';
 	import SaveSearchForm from '$lib/components/task/SaveSearchForm.svelte';
 	import Modal from '$lib/components/Modal.svelte';
+	import DashboardEmptyState from '$lib/components/shared/DashboardEmptyState.svelte';
 	import { onMount } from 'svelte';
 	import { t, locale } from 'svelte-i18n';
 	import { goto } from '$app/navigation';
 	import { TASK_CATEGORIES } from '$lib/utils/constants/categories';
+	import IconMagnify from '~icons/mdi/magnify';
 
 	let savedSearches = $state<SavedSearch[]>([]);
 	let isLoading = $state(true);
@@ -151,17 +153,17 @@
 	{/if}
 
 	{#if isLoading}
-		<div class="mt-4 grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-3 animate-pulse">
-			{#each Array(3) as _}
+		<div class="mt-4 grid animate-pulse grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-3">
+			{#each Array.from({ length: 3 }, (_, index) => index) as index (index)}
 				<div class="card bg-base-200 border-base-content/10 rounded-xl border shadow-sm">
 					<div class="card-body p-3">
-						<div class="bg-base-300 h-5 w-32 rounded flex-1"></div>
+						<div class="bg-base-300 h-5 w-32 flex-1 rounded"></div>
 						<div class="mt-1 flex flex-wrap gap-1">
 							<div class="bg-base-300 h-4 w-16 rounded-full"></div>
 							<div class="bg-base-300 h-4 w-20 rounded-full"></div>
 							<div class="bg-base-300 h-4 w-24 rounded-full"></div>
 						</div>
-						<div class="mt-1 bg-base-300 h-3 w-24 rounded"></div>
+						<div class="bg-base-300 mt-1 h-3 w-24 rounded"></div>
 						<div class="card-actions mt-2 justify-end">
 							<div class="flex gap-1">
 								<div class="bg-base-300 h-6 w-6 rounded"></div>
@@ -173,46 +175,19 @@
 			{/each}
 		</div>
 	{:else if savedSearches.length === 0}
-		<div class="py-8 text-center">
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				class="text-primary mx-auto mb-3 h-12 w-12"
-				fill="none"
-				viewBox="0 0 24 24"
-				stroke="currentColor"
-			>
-				<path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					stroke-width="2"
-					d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-				/>
-			</svg>
-			<p class="text-lg font-medium">{$t('profile_task.no_saved_searches')}</p>
-			<p class="mb-4 text-base-content/60">{$t('profile_task.saved_searches_info')}</p>
-			<button class="btn btn-primary gap-2" onclick={() => goto('/tasks')}>
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					class="h-5 w-5"
-					fill="none"
-					viewBox="0 0 24 24"
-					stroke="currentColor"
-				>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="2"
-						d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-					/>
-				</svg>
-				{$t('profile_task.start_new_search')}
-			</button>
-		</div>
+		<DashboardEmptyState
+			icon={IconMagnify}
+			title={$t('profile_task.no_saved_searches')}
+			description={$t('profile_task.saved_searches_info')}
+			actionLabel={$t('profile_task.start_new_search')}
+			onAction={() => goto('/tasks')}
+			testId="saved-task-searches-empty-state"
+		/>
 	{:else}
 		<div class="mt-4 grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-3">
-			{#each savedSearches as search}
+			{#each savedSearches as search (search.id)}
 				<div
-					class="card bg-base-200 border-base-content/10 rounded-xl border shadow-sm cursor-pointer transition-all hover:shadow-md hover:border-primary"
+					class="card bg-base-200 border-base-content/10 hover:border-primary cursor-pointer rounded-xl border shadow-sm transition-all hover:shadow-md"
 					onclick={() => applySavedSearch(search)}
 					onkeydown={(e) => handleKeydown(e, search)}
 					role="button"
@@ -221,7 +196,7 @@
 				>
 					<div class="card-body p-3">
 						<div class="flex items-start justify-between gap-2">
-							<span class="text-sm line-clamp-1">{search.name}</span>
+							<span class="line-clamp-1 text-sm">{search.name}</span>
 							{#if (search.unreadNotifications ?? 0) > 0}
 								<button
 									class="badge badge-primary badge-sm tooltip shrink-0"
@@ -239,35 +214,55 @@
 						<div class="mt-1">
 							<div class="flex flex-wrap gap-1">
 								{#if search.params.categories && search.params.categories.length > 0}
-									{#each search.params.categories as category}
-										{@const categoryId = typeof category === 'string' ? category : (category as { id: string }).id}
+									{#each search.params.categories as category (typeof category === 'string' ? category : category.id)}
+										{@const categoryId =
+											typeof category === 'string' ? category : (category as { id: string }).id}
 										{@const categoryName = getCategoryName(categoryId)}
-										<div class="badge badge-primary badge-sm max-w-[120px] truncate" title={categoryName}>{categoryName}</div>
+										<div
+											class="badge badge-primary badge-sm max-w-[120px] truncate"
+											title={categoryName}
+										>
+											{categoryName}
+										</div>
 									{/each}
 								{/if}
 								{#if search.params.skills && search.params.skills.length > 0}
-									{#each search.params.skills as skill}
-										<div class="badge badge-secondary badge-sm max-w-[120px] truncate" title={skill}>{skill}</div>
+									{#each search.params.skills as skill (skill)}
+										<div
+											class="badge badge-secondary badge-sm max-w-[120px] truncate"
+											title={skill}
+										>
+											{skill}
+										</div>
 									{/each}
 								{/if}
 								{#if search.params.taskType}
-									<div class="badge badge-accent badge-sm">{getTaskTypeName(search.params.taskType)}</div>
+									<div class="badge badge-accent badge-sm">
+										{getTaskTypeName(search.params.taskType)}
+									</div>
 								{/if}
 								{#if search.params.location}
-									<div class="badge badge-info badge-sm max-w-[120px] truncate" title={search.params.location}>{search.params.location}</div>
+									<div
+										class="badge badge-info badge-sm max-w-[120px] truncate"
+										title={search.params.location}
+									>
+										{search.params.location}
+									</div>
 								{/if}
 								{#if search.params.budget?.tier}
 									<div class="badge badge-success badge-sm">
-										{$t('profile_task.budget_tier_label')}: {getBudgetTierName(search.params.budget.tier)}
+										{$t('profile_task.budget_tier_label')}: {getBudgetTierName(
+											search.params.budget.tier
+										)}
 									</div>
 								{/if}
 							</div>
 						</div>
 						<div class="mt-2 flex items-center justify-between gap-2">
-							<div class="text-xs text-base-content/70 flex-1 min-w-0">
+							<div class="text-base-content/70 min-w-0 flex-1 text-xs">
 								{$t('profile_task.created_label')}: {formatDate(search.createdAt)}
 							</div>
-							<div class="flex gap-1 shrink-0">
+							<div class="flex shrink-0 gap-1">
 								<button
 									aria-label={$t('profile_task.actions.edit_saved_search')}
 									class="btn btn-xs btn-ghost btn-square"
@@ -276,8 +271,19 @@
 										openEditForm(search);
 									}}
 								>
-									<svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										class="h-3.5 w-3.5"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+										/>
 									</svg>
 								</button>
 								<button
@@ -288,8 +294,19 @@
 										confirmDeleteId = search.id;
 									}}
 								>
-									<svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										class="h-3.5 w-3.5"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+										/>
 									</svg>
 								</button>
 							</div>
@@ -316,11 +333,11 @@
 	size="sm"
 	isScrollable={false}
 >
-	{#snippet children()}
-		<p>{$t('profile_task.confirm_delete.message')}</p>
-	{/snippet}
+	<p>{$t('profile_task.confirm_delete.message')}</p>
 	{#snippet footer()}
-		<button class="btn" onclick={() => (confirmDeleteId = null)}>{$t('profile_task.confirm_delete.cancel')}</button>
+		<button class="btn" onclick={() => (confirmDeleteId = null)}
+			>{$t('profile_task.confirm_delete.cancel')}</button
+		>
 		<button class="btn btn-error" onclick={() => confirmDeleteId && deleteSearch(confirmDeleteId)}>
 			{$t('profile_task.confirm_delete.delete')}
 		</button>

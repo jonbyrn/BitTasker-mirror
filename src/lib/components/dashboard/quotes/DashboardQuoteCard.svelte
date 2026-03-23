@@ -1,10 +1,15 @@
 <script lang="ts">
 	import type { ServiceQuoteTimelineEntry } from '$lib/types/service-quote';
-	import { t } from 'svelte-i18n';
+	import { locale, t } from 'svelte-i18n';
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
+	import { formatStandardDateTimeShort } from '$lib/utils/helpers/dateFormatter';
+	import UserInfoDisplay from '$lib/components/user/UserInfoDisplay.svelte';
 	import IconCheckCircleOutline from '~icons/mdi/check-circle-outline';
 	import IconCloseCircleOutline from '~icons/mdi/close-circle-outline';
-	import IconInformationOutline from '~icons/mdi/information-outline';
+	import IconClockOutline from '~icons/mdi/clock-outline';
+	import IconDeleteOutline from '~icons/mdi/delete-outline';
+	import IconEmailFastOutline from '~icons/mdi/email-fast-outline';
+	import IconEyeOutline from '~icons/mdi/eye-outline';
 
 	interface ActionButton {
 		label: string;
@@ -96,32 +101,50 @@
 		if (timeline.latestProposal?.content.pricingSnapshot?.amount !== undefined) {
 			return `$${formatNumberWithTwoDecimals(timeline.latestProposal.content.pricingSnapshot.amount)}`;
 		}
-		return translateOrFallback('dashboard.service_requests.quote_pending', 'Quote pending');
+		return translateOrFallback('dashboard.service_requests.quote_pending', 'Pending');
 	}
+
+	function formatTimestamp(timestampSeconds: number | undefined): string {
+		if (!timestampSeconds) return '—';
+		return formatStandardDateTimeShort(new Date(timestampSeconds * 1000), $locale || 'en');
+	}
+
+	const selectedTierLabel = $derived(
+		timeline.latestProposal?.content.pricingSnapshot?.tierId ?? timeline.request.content.tierId
+	);
+	const selectedAddOns = $derived(
+		timeline.latestProposal?.content.pricingSnapshot?.selectedAddOns ??
+			timeline.request.content.selectedAddOns ??
+			[]
+	);
+	const rushDeliverySelected = $derived(
+		timeline.latestProposal?.content.pricingSnapshot?.rushDelivery === true ||
+			timeline.request.content.rushDelivery === true
+	);
+	const formattedRequestedAt = $derived(formatTimestamp(timeline.request.created_at));
+	const formattedExpiresAt = $derived(
+		formatTimestamp(
+			timeline.latestProposal?.content.expirationTimestamp ?? timeline.expirationTimestamp
+		)
+	);
 </script>
 
 <div class="card bg-base-100 rounded-xl shadow-md transition-shadow hover:shadow-lg">
 	<div class="card-body rounded-xl p-4 md:p-4">
 		<!-- Top Row: Title + Status Badge + Price -->
 		<div class="mb-3 flex flex-row items-stretch justify-between gap-2">
-			<!-- Left: Title + Service Name (flexible, takes available space) -->
+			<!-- Left: Title + Description (flexible, takes available space) -->
 			<div class="min-w-0 flex-1 pr-2 md:pr-4">
-				<h3 class="card-title line-clamp-2 text-lg font-semibold">
+				<span class="card-title line-clamp-2 text-lg font-semibold">
 					{timeline.request.content.inquiry.title}
-				</h3>
-				<p class="text-base-content/60 mt-1 line-clamp-1 text-sm">
-					{serviceUnavailable
-						? translateOrFallback(
-								'dashboard.service_requests.service_unavailable',
-								'Deleted service'
-							)
-						: timeline.request.content.serviceAddress ||
-							translateOrFallback('dashboard.service_requests.service_label', 'Service')}
+				</span>
+				<p class="text-base-content/80 mt-1 line-clamp-2 text-sm whitespace-pre-line">
+					{timeline.request.content.inquiry.description || '—'}
 				</p>
 			</div>
 			<!-- Right: Status Badge + Price (aligned right) -->
 			<div class="flex shrink-0 flex-col items-end gap-2">
-				<div class="badge {getStatusColor(timeline)} badge-sm max-w-[120px] truncate text-center">
+				<div class="badge {getStatusColor(timeline)} badge-sm max-w-[100px] truncate text-center">
 					{describeStatus(timeline)}
 				</div>
 				<div class="text-right text-xl font-bold">
@@ -130,15 +153,35 @@
 			</div>
 		</div>
 
-		<!-- Second Row: Quote Details -->
-		<div class="text-base-content/70 mb-3 flex flex-col gap-2 text-sm">
-			<!-- Description snippet -->
-			<p class="line-clamp-2 text-sm">
-				{timeline.request.content.inquiry.description || '—'}
-			</p>
+		<!-- Second Row: Request Details -->
+		<div class="mb-3 flex flex-col gap-3">
+			<div class="flex items-center gap-2">
+				<IconEmailFastOutline class="text-primary h-8 w-8 shrink-0" />
+				<span class="line-clamp-2 text-sm font-medium">
+					{formattedRequestedAt}
+				</span>
+			</div>
+
+			<div class="flex items-center gap-2">
+				<IconClockOutline class="text-primary h-8 w-8 shrink-0" />
+				<span class="line-clamp-2 text-sm font-medium">
+					{#if timeline.latestProposal?.content.estimatedDuration}
+						{translateOrFallback(
+							'dashboard.service_requests.estimated_duration',
+							'Estimated duration'
+						)}:
+						{timeline.latestProposal.content.estimatedDuration}
+					{:else}
+						{translateOrFallback(
+							'dashboard.service_requests.statuses.awaiting_proposal',
+							'Awaiting proposal'
+						)}
+					{/if}
+				</span>
+			</div>
 
 			{#if serviceUnavailable && !timeline.linkedEscrowId}
-				<div class="alert alert-warning py-2 text-xs">
+				<div class="alert alert-outline alert-warning py-2 text-xs">
 					<span>
 						{translateOrFallback(
 							'dashboard.service_requests.service_unavailable_read_only',
@@ -148,23 +191,47 @@
 				</div>
 			{/if}
 
-			<!-- Quote details -->
-			{#if timeline.latestProposal?.content.pricingSnapshot}
+			{#if selectedTierLabel || selectedAddOns.length > 0 || rushDeliverySelected || timeline.latestProposal?.content.expirationTimestamp}
 				<div class="flex flex-wrap gap-2 text-xs">
-					<span class="badge badge-outline badge-sm">
-						{timeline.latestProposal.content.pricingSnapshot.label ||
-							translateOrFallback('dashboard.service_requests.standard_tier', 'Standard')}
-					</span>
-					{#if timeline.latestProposal.content.pricingSnapshot.estimatedDeliveryDays}
+					{#if selectedTierLabel}
 						<span class="badge badge-outline badge-sm">
-							{`${timeline.latestProposal.content.pricingSnapshot.estimatedDeliveryDays} ${translateOrFallback(
-								'dashboard.service_requests.days',
-								'days'
-							)}`}
+							{translateOrFallback('dashboard.service_requests.selected_tier', 'Tier')}:
+							{selectedTierLabel}
+						</span>
+					{/if}
+					{#if selectedAddOns.length > 0}
+						<span class="badge badge-outline badge-sm">
+							{selectedAddOns.length === 1
+								? translateOrFallback('dashboard.service_requests.add_ons_one', '1 add-on')
+								: translateOrFallback(
+										'dashboard.service_requests.add_ons_other',
+										`${selectedAddOns.length} add-ons`
+									).replace('{count}', String(selectedAddOns.length))}
+						</span>
+					{/if}
+					{#if rushDeliverySelected}
+						<span class="badge badge-outline badge-sm">
+							{translateOrFallback('dashboard.service_requests.rush_delivery', 'Rush delivery')}
+						</span>
+					{/if}
+					{#if timeline.latestProposal?.content.expirationTimestamp}
+						<span class="badge badge-outline badge-sm">
+							{translateOrFallback('dashboard.service_requests.expires', 'Expires')}:
+							{formattedExpiresAt}
 						</span>
 					{/if}
 				</div>
 			{/if}
+		</div>
+
+		<div class="mb-3">
+			<UserInfoDisplay
+				pubkey={timeline.request.pubkey}
+				rating={0}
+				size="md"
+				memberSince={timeline.request.created_at}
+				avatarAlt={translateOrFallback('dashboard.find_tasks.avatar_alt', 'Avatar')}
+			/>
 		</div>
 
 		<!-- Bottom Row: Action Buttons -->
@@ -184,13 +251,15 @@
 						}}
 					>
 						{#if action.icon === 'view'}
-							<IconInformationOutline class="h-4 w-4" />
+							<IconEyeOutline class="h-4 w-4" />
 						{:else if action.icon === 'accept'}
 							<IconCheckCircleOutline class="h-4 w-4" />
 						{:else if action.icon === 'decline'}
 							<IconCloseCircleOutline class="h-4 w-4" />
 						{:else if action.icon === 'contract'}
 							<IconCheckCircleOutline class="h-4 w-4" />
+						{:else if action.icon === 'delete'}
+							<IconDeleteOutline class="h-4 w-4" />
 						{/if}
 						{action.label}
 					</button>

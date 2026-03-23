@@ -93,6 +93,28 @@
 			locationLoaded: false
 		};
 	}
+
+	function updateTaskerLocationRadius(event: Event) {
+		const target = event.currentTarget as HTMLInputElement;
+		const nextRadius = Number(target.value);
+		const currentTaskerLocation = $store.service.locationDetails?.taskerLocation;
+
+		if (!currentTaskerLocation) {
+			return;
+		}
+
+		store.updateService({
+			locationDetails: {
+				...$store.service.locationDetails,
+				taskerLocation: {
+					...currentTaskerLocation,
+					serviceRadius: Number.isFinite(nextRadius)
+						? nextRadius
+						: currentTaskerLocation.serviceRadius
+				}
+			}
+		});
+	}
 </script>
 
 <div
@@ -229,6 +251,33 @@
 				/>
 			</div>
 
+			<div class="w-full">
+				<label class="label" for="service-radius">
+					<span class="label-text">
+						{$t('dashboard.services.create.location.service_radius_label')}
+					</span>
+					<span class="label-text-alt">
+						{$store.service.locationDetails?.taskerLocation?.serviceRadius || 10} km
+					</span>
+				</label>
+				<input
+					id="service-radius"
+					type="range"
+					min="1"
+					max="100"
+					step="1"
+					class="range range-primary w-full"
+					value={$store.service.locationDetails?.taskerLocation?.serviceRadius || 10}
+					oninput={updateTaskerLocationRadius}
+					data-testid="service-location-radius"
+				/>
+				<div class="text-base-content/60 mt-1 flex justify-between px-2 text-xs">
+					<span>1 km</span>
+					<span>{$store.service.locationDetails?.taskerLocation?.serviceRadius || 10} km</span>
+					<span>100 km</span>
+				</div>
+			</div>
+
 			<!-- Per-Distance Charge (Optional) -->
 			<div class="w-full">
 				<label class="label cursor-pointer" id="perDistanceCharge-label">
@@ -252,7 +301,7 @@
 											perDistanceCharge: enabled
 												? {
 														amount: 0,
-														currency: $store.service.pricing?.currency || 'USDt',
+														currency: $store.service.pricing?.currency || 'USD',
 														unit: 'km'
 													}
 												: undefined
@@ -356,11 +405,6 @@
 
 			<!-- Service Location Picker with Service Radius -->
 			<div class="w-full">
-				<div class="label">
-					<span class="label-text"
-						>{$t('dashboard.services.create.location.taskee_specific_location_label')}</span
-					>
-				</div>
 				<EnhancedLocationPicker
 					label={$t('dashboard.services.create.location.taskee_location_picker_label')}
 					placeholder={$t('dashboard.services.create.location.taskee_location_placeholder')}

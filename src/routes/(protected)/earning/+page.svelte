@@ -221,15 +221,9 @@
 </script>
 
 <div class="mx-auto h-full max-w-6xl px-2 py-6 md:px-0 md:py-0">
-	<div class="mb-6 flex items-center justify-between">
-		<div>
+	<div class="mb-6 flex items-center justify-between gap-3">
+		<div class="min-w-0">
 			<h3 class="font-bold">{translateOrFallback('dashboard.earning.title', 'Earning')}</h3>
-			<p class="text-base-content/70">
-				{translateOrFallback(
-					'dashboard.earning.description',
-					'Track your bids, requests, contracts, and service listings.'
-				)}
-			</p>
 		</div>
 		<a href={activeTab.buttonHref} class="btn btn-primary btn-sm sm:btn-md whitespace-nowrap">
 			{#if activeTab.icon === 'search'}
@@ -354,7 +348,7 @@
 			aria-labelledby="tab-saved-searches"
 			transition:slide={{ duration: 300 }}
 		>
-			<DashboardSavedSearchesPanel />
+			<DashboardSavedSearchesPanel fixedFilter="tasks" />
 		</div>
 	{/if}
 </div>
