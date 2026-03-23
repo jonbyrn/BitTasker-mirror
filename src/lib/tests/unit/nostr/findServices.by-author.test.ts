@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { nip19 } from 'nostr-tools';
+import { nip19, type Event as NostrEvent } from 'nostr-tools';
 import KINDS from '$lib/utils/constants/kinds';
 
 const mockRequestEvents = vi.fn();
@@ -21,11 +21,12 @@ function createServiceEvent(overrides: {
 	uniqueId: string;
 	status?: 'active' | 'inactive' | 'sold';
 	title?: string;
-}): any {
+}): NostrEvent {
 	return {
 		id: overrides.id,
 		pubkey: overrides.pubkey,
 		created_at: overrides.created_at,
+		kind: KINDS.SERVICE_ACTIVE,
 		tags: [],
 		content: JSON.stringify({
 			uniqueId: overrides.uniqueId,
@@ -55,9 +56,7 @@ describe('findProfileServicesByAuthor', () => {
 		vi.clearAllMocks();
 	});
 
-	it(
-		'decodes npub authors, filters deleted and inactive events, and keeps the newest unique service',
-		async () => {
+	it('decodes npub authors, filters deleted and inactive events, and keeps the newest unique service', async () => {
 		const hexPubkey = '11'.repeat(32);
 		const npub = nip19.npubEncode(hexPubkey);
 
@@ -119,9 +118,7 @@ describe('findProfileServicesByAuthor', () => {
 			uniqueId: 'service-a',
 			title: 'Newer service'
 		});
-		},
-		15000
-	);
+	}, 15000);
 
 	it('uses the default limit for raw hex pubkeys, falls back to event timestamps, and reuses cached deletion ids', async () => {
 		const hexPubkey = '22'.repeat(32);
@@ -133,6 +130,7 @@ describe('findProfileServicesByAuthor', () => {
 						id: 'service-raw-1',
 						pubkey: hexPubkey,
 						created_at: 1_710_000_000,
+						kind: KINDS.SERVICE_ACTIVE,
 						tags: [],
 						content: JSON.stringify({
 							uniqueId: 'service-raw-1',
@@ -158,6 +156,7 @@ describe('findProfileServicesByAuthor', () => {
 						id: 'service-raw-2',
 						pubkey: hexPubkey,
 						created_at: 1_710_000_100,
+						kind: KINDS.SERVICE_ACTIVE,
 						tags: [],
 						content: JSON.stringify({
 							uniqueId: 'service-raw-2',

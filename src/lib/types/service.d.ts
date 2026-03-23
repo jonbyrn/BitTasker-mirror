@@ -9,8 +9,8 @@ import { ServiceLocationTypeEnum, ServicePricingTypeEnum } from '$lib/utils/enum
 export type ServiceLocationType = ServiceLocationTypeEnum;
 
 /**
- * Service Status (NIP-99 compatible)
- * Uses NIP-99 status values directly
+ * Service Status
+ * `inactive` is used for hidden listings and local drafts in BitTasker.
  */
 export type ServiceStatus = 'active' | 'inactive' | 'sold';
 
@@ -134,7 +134,6 @@ export interface ServiceLocationDetails {
 		useGlobalLocation: boolean; // Deprecated transitional flag while global location is phased out
 		serviceLocation?: Location; // Preferred explicit location for discovery/filtering/search radius checks
 		locationDisplayName?: string; // Human-readable location name for display
-		serviceRadius?: number; // Service radius in km/miles - distance from Taskee's location for service delivery
 	};
 	// Discovery rule: match results using explicit taskee/freelancer service coordinates
 	// (and serviceRadius where applicable), not profile-level global location.
@@ -245,7 +244,7 @@ export interface ServiceBody {
 	categories: Category[];
 	portfolio?: Attachment[]; // Portfolio items stored via direct file uploads
 	faqs?: ServiceFAQ[]; // Frequently asked questions (optional)
-	status: ServiceStatus; // NIP-99 status values: 'active' | 'inactive' | 'sold'
+	status: ServiceStatus; // Listing lifecycle status
 	uniqueId: string; // UUID for stable URLs (generated during creation)
 	createdAt: number; // Timestamp (added during creation)
 	creator: {
@@ -265,8 +264,9 @@ export interface ServiceBody {
 export interface Service {
 	id: string; // Nostr event ID (from event.id, not in content)
 	npub: string; // Creator's Nostr public key (from event.pubkey, not in content)
+	eventKind?: number; // Nostr event kind backing this service version
 	uniqueId: string; // UUID for stable URLs (from content)
-	status: ServiceStatus; // NIP-99 status values (from content)
+	status: ServiceStatus; // Listing lifecycle status (from content)
 	title: string; // From content
 	description: string; // From content
 	serviceLocationTypes: ServiceLocationTypeEnum[]; // From content
