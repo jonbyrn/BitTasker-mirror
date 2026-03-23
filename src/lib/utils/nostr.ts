@@ -336,7 +336,8 @@ export async function publishNostrEvent(
     content: string,
     recipientNpub: string,
     tags: string[][],
-    relays: string[] = DEFAULT_RELAYS
+    relays: string[] = DEFAULT_RELAYS,
+    createdAt?: number
 ): Promise<{
     event: NostrEvent;
     results: { relay: string; success: boolean; error?: string }[];
@@ -358,7 +359,8 @@ export async function publishNostrEvent(
         const eventMetadata: Partial<NostrEvent> = {
             kind,
             content: eventContent,
-            tags
+            tags,
+            created_at: createdAt
         };
 
         // Sign the event

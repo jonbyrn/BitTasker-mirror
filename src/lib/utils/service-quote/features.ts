@@ -27,16 +27,12 @@ export function supportsServicePurchaseKeyCapability(): boolean {
 }
 
 export function getServiceQuoteFeatures(): ServiceQuoteFeatureState {
-	const read = getBooleanEnv(import.meta.env.VITE_FEATURE_SERVICE_QUOTES_READ);
-	const write = getBooleanEnv(import.meta.env.VITE_FEATURE_SERVICE_QUOTES_WRITE);
-	const contractsFilter = getBooleanEnv(import.meta.env.VITE_FEATURE_SERVICE_QUOTES_CONTRACTS_FILTER);
-	const acceptRequested = getBooleanEnv(import.meta.env.VITE_FEATURE_SERVICE_QUOTES_ACCEPT);
-	const accept = acceptRequested && read && write && contractsFilter && supportsServicePurchaseKeyCapability();
+	const accept = supportsServicePurchaseKeyCapability();
 
 	return {
-		read,
-		write: write && read,
-		contractsFilter: contractsFilter && read,
+		read: true,
+		write: true,
+		contractsFilter: true,
 		accept
 	};
 }
