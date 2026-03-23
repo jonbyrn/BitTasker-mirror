@@ -1,7 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, fireEvent, waitFor } from '@testing-library/svelte';
 import { readable } from 'svelte/store';
-import { createServiceEditConflictError, SERVICE_EDIT_CONFLICT_CODE } from '$lib/utils/service-edit-conflict';
+import {
+	createServiceEditConflictError,
+	SERVICE_EDIT_CONFLICT_CODE
+} from '$lib/utils/service-edit-conflict';
 
 const hoisted = vi.hoisted(() => {
 	let value = {
@@ -92,14 +95,17 @@ vi.mock('$lib/i18n/routeTranslations', () => ({
 }));
 
 vi.mock('$lib/nostr/service', () => ({
-	createService: (...args: Parameters<typeof hoisted.createService>) => hoisted.createService(...args),
-	updateService: (...args: Parameters<typeof hoisted.updateService>) => hoisted.updateService(...args),
+	createService: (...args: Parameters<typeof hoisted.createService>) =>
+		hoisted.createService(...args),
+	updateService: (...args: Parameters<typeof hoisted.updateService>) =>
+		hoisted.updateService(...args),
 	findServiceByUniqueId: (...args: Parameters<typeof hoisted.findServiceByUniqueId>) =>
 		hoisted.findServiceByUniqueId(...args)
 }));
 
 vi.mock('$lib/nostr/findServices', () => ({
-	findMyServices: (...args: Parameters<typeof hoisted.findMyServices>) => hoisted.findMyServices(...args)
+	findMyServices: (...args: Parameters<typeof hoisted.findMyServices>) =>
+		hoisted.findMyServices(...args)
 }));
 
 vi.mock('$lib/stores/service.store', () => ({
@@ -180,8 +186,7 @@ describe('create-service edit conflict handling', () => {
 		);
 
 		const { findByText } = render(
-			(await import('../../../../routes/(protected)/dashboard/create-service/+page.svelte'))
-				.default
+			(await import('../../../../routes/(protected)/dashboard/create-service/+page.svelte')).default
 		);
 
 		await fireEvent.click(await findByText('dashboard.services.create.publish'));
