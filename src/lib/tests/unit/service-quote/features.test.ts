@@ -4,31 +4,22 @@ import {
 	supportsServicePurchaseKeyCapability
 } from '$lib/utils/service-quote/features';
 
-describe('service-quote feature flags', () => {
+describe('service-quote features', () => {
 	afterEach(() => {
 		vi.unstubAllEnvs();
 	});
 
-	it('fails closed when dependent flags are missing', () => {
-		vi.stubEnv('VITE_FEATURE_SERVICE_QUOTES_READ', 'true');
-		vi.stubEnv('VITE_FEATURE_SERVICE_QUOTES_WRITE', 'true');
-		vi.stubEnv('VITE_FEATURE_SERVICE_QUOTES_CONTRACTS_FILTER', 'false');
-		vi.stubEnv('VITE_FEATURE_SERVICE_QUOTES_ACCEPT', 'true');
-
+	it('keeps quote browsing and writing enabled by default', () => {
 		expect(getServiceQuoteFeatures()).toEqual({
 			read: true,
 			write: true,
-			contractsFilter: false,
-			accept: false
+			contractsFilter: true,
+			accept: supportsServicePurchaseKeyCapability()
 		});
 	});
 
-	it('enables purchase-key capability and accepted status only when all dependencies are present', () => {
+	it('enables purchase-key capability and accepted status when explicitly forced on', () => {
 		vi.stubEnv('VITE_SERVICE_QUOTES_PURCHASE_KEY_ENABLED', 'true');
-		vi.stubEnv('VITE_FEATURE_SERVICE_QUOTES_READ', 'true');
-		vi.stubEnv('VITE_FEATURE_SERVICE_QUOTES_WRITE', 'true');
-		vi.stubEnv('VITE_FEATURE_SERVICE_QUOTES_CONTRACTS_FILTER', 'true');
-		vi.stubEnv('VITE_FEATURE_SERVICE_QUOTES_ACCEPT', 'true');
 
 		expect(supportsServicePurchaseKeyCapability()).toBe(true);
 		expect(getServiceQuoteFeatures()).toEqual({

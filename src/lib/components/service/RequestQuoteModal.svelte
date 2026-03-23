@@ -40,12 +40,25 @@
 	let errors = $state<Record<string, string>>({});
 	let isSubmitting = $state(false);
 	let submitError = $state<string | null>(null);
+	let previousInputSignature = '';
 
 	// Clear submit error when user modifies form
 	$effect(() => {
-		if (submitError && (title || description || Object.keys(customFormValues).length > 0)) {
+		const nextInputSignature = JSON.stringify({
+			title,
+			description,
+			customFormValues
+		});
+
+		if (
+			submitError &&
+			previousInputSignature !== '' &&
+			previousInputSignature !== nextInputSignature
+		) {
 			submitError = null;
 		}
+
+		previousInputSignature = nextInputSignature;
 	});
 
 	const inquiryFields = $derived(service?.pricing?.inquiryForm?.fields ?? []);

@@ -206,7 +206,7 @@
 		}
 
 		// Show success toast before navigation
-		$appStore.addSuccessToast(
+		appStore.showSuccessToast(
 			$t('dashboard.services.detail.quote_submitted') || 'Quote request submitted successfully!'
 		);
 

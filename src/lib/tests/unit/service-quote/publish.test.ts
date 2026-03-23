@@ -246,7 +246,21 @@ describe('service-quote publishing helpers', () => {
 			expect.arrayContaining([
 				['p', service.npub],
 				['m', 'service-quote-request']
-			])
+			]),
+			expect.any(Array),
+			expect.any(Number)
+		);
+		const requestPublishCall = publishNostrEvent.mock.calls.at(-1);
+		const requestPayload = JSON.parse(requestPublishCall?.[1] as string);
+		expect(requestPublishCall?.[5]).toBe(requestPayload.timestamp);
+		expect(validateServiceQuoteRequestEvent).toHaveBeenCalledWith(
+			expect.objectContaining({
+				id: 'request-event-id',
+				content: expect.objectContaining({
+					quoteRequestId: 'qr_valid123',
+					type: 'service-quote-request'
+				})
+			})
 		);
 	expect(result.publishedRelaySet).toEqual(['wss://relay-1.example']);
 	expect(getPublishedRelaySet('request-event-id')).toEqual(['wss://relay-1.example']);
@@ -294,7 +308,8 @@ it('publishes encrypted proposals once relay quorum is reached', async () => {
 		expect(getSignedEvent).toHaveBeenCalledWith(
 			expect.objectContaining({
 				kind: KINDS.SERVICE_PROPOSAL,
-				content: 'encrypted-content'
+				content: 'encrypted-content',
+				created_at: 1_700_000_100
 			})
 		);
 		expect(publishToMultipleRelays).toHaveBeenCalledWith(
@@ -302,6 +317,15 @@ it('publishes encrypted proposals once relay quorum is reached', async () => {
 				kind: KINDS.SERVICE_PROPOSAL
 			}),
 			['wss://relay.example']
+		);
+		expect(validateServiceProposalEvent).toHaveBeenCalledWith(
+			expect.objectContaining({
+				id: 'proposal-event-id',
+				content: expect.objectContaining({
+					proposalId: 'pr_valid123',
+					type: 'service-proposal'
+				})
+			})
 		);
 		expect(result.publishedRelaySet).toEqual(['wss://relay.example']);
 		expect(getPublishedRelaySet('proposal-event-id')).toEqual(['wss://relay.example']);
@@ -348,7 +372,20 @@ it('publishes encrypted proposals once relay quorum is reached', async () => {
 			expect.arrayContaining([
 				['s', 'accepted']
 			]),
-			['wss://relay.example']
+			['wss://relay.example'],
+			1_700_000_200
+		);
+		const statusPublishCall = publishNostrEvent.mock.calls.at(-1);
+		const statusPayload = JSON.parse(statusPublishCall?.[1] as string);
+		expect(statusPublishCall?.[5]).toBe(statusPayload.timestamp);
+		expect(validateServiceProposalStatusEvent).toHaveBeenCalledWith(
+			expect.objectContaining({
+				id: 'status-event-id',
+				content: expect.objectContaining({
+					status: 'accepted',
+					type: 'service-proposal-status'
+				})
+			})
 		);
 		expect(result.publishedRelaySet).toEqual(['wss://relay.example']);
 		expect(getPublishedRelaySet('status-event-id')).toEqual(['wss://relay.example']);

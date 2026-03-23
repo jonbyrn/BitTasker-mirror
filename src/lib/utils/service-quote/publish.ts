@@ -44,6 +44,17 @@ const PUBLISHED_RELAY_SET_KEY = 'bittasker.serviceQuote.publishedRelays';
 const FALLBACK_DUPLICATE_LOOKBACK_SECONDS = 60 * 60 * 24 * 30;
 const publishedRelaySetCache = new Map<string, string[]>();
 
+function validatePublishedEvent<TContent, TEvent extends NostrEvent>(
+	event: NostrEvent,
+	content: TContent,
+	validator: (event: NostrEvent) => TEvent
+): TEvent {
+	return validator({
+		...event,
+		content
+	} as NostrEvent);
+}
+
 export interface CreateServiceQuoteRequestParams {
 	service: Service;
 	payload: QuoteRequestPayload;
@@ -86,6 +97,7 @@ export async function publishServiceQuoteRequest(
 	}
 
 	const serviceAddress = buildServiceAddress(params.service);
+	const createdAt = unixNow();
 	const content: ServiceQuoteRequestContent = {
 		type: getServiceQuoteMessageType(KINDS.SERVICE_QUOTE_REQUEST),
 		quoteRequestId: params.quoteRequestId,
@@ -103,7 +115,7 @@ export async function publishServiceQuoteRequest(
 			attachments: params.payload.attachments
 		},
 		quoteAmountUsdt: params.quoteAmountUsdt ?? params.payload.quoteAmountUsdt,
-		timestamp: unixNow(),
+		timestamp: createdAt,
 		version: 'v1'
 	};
 
@@ -134,10 +146,12 @@ export async function publishServiceQuoteRequest(
 		KINDS.SERVICE_QUOTE_REQUEST,
 		JSON.stringify(content),
 		recipientPubkey,
-		tags
+		tags,
+		getDefaultRelays(),
+		createdAt
 	);
 
-	const validated = validateServiceQuoteRequestEvent(event);
+	const validated = validatePublishedEvent(event, content, validateServiceQuoteRequestEvent);
 	const publishedRelaySet = results.filter((result) => result.success).map((result) => result.relay);
 	persistPublishedRelaySet(validated.id, publishedRelaySet);
 	dispatchQuoteRequestPublishedSideEffects(validated, params.service, params.sideEffects);
@@ -203,14 +217,15 @@ export async function publishServiceProposal(
 		JSON.stringify(content),
 		params.taskerPubkey,
 		tags,
-		targetRelays
+		targetRelays,
+		content.timestamp
 	);
 	const successfulRelays = relayResults.filter((result) => result.success).map((result) => result.relay);
 	if (successfulRelays.length < (targetRelays.length >= 2 ? 2 : 1)) {
 		throw new Error('Service proposal publish quorum was not reached');
 	}
 
-	const validated = validateServiceProposalEvent(event);
+	const validated = validatePublishedEvent(event, content, validateServiceProposalEvent);
 	persistPublishedRelaySet(validated.id, successfulRelays);
 	dispatchProposalPublishedSideEffects(validated, params.sideEffects);
 
@@ -280,10 +295,15 @@ export async function publishServiceProposalStatus(
 		JSON.stringify(params.content),
 		params.counterpartyPubkey,
 		tags,
-		getDefaultRelays(params.relays)
+		getDefaultRelays(params.relays),
+		params.content.timestamp
 	);
 
-	const validated = validateServiceProposalStatusEvent(event);
+	const validated = validatePublishedEvent(
+		event,
+		params.content,
+		validateServiceProposalStatusEvent
+	);
 	const publishedRelaySet = results.filter((result) => result.success).map((result) => result.relay);
 	persistPublishedRelaySet(validated.id, publishedRelaySet);
 
@@ -366,7 +386,8 @@ async function publishEncryptedEvent(
 	content: string,
 	recipientPubkey: string,
 	tags: string[][],
-	relays: string[]
+	relays: string[],
+	createdAt?: number
 ): Promise<{
 	event: NostrEvent;
 	relayResults: { relay: string; success: boolean; error?: string }[];
@@ -381,7 +402,8 @@ async function publishEncryptedEvent(
 	const event = await getSignedEvent({
 		kind,
 		content: encryptedContent,
-		tags
+		tags,
+		created_at: createdAt
 	});
 	const relayResults = await publishToMultipleRelays(event, relays);
 
