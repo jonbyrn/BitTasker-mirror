@@ -129,7 +129,7 @@ describe('services accessibility smoke', () => {
 
 		window.dispatchEvent(new Event('offline'));
 
-		expect(screen.getByRole('heading', { name: 'Quotes Inbox' })).toBeTruthy();
+		expect(screen.getByRole('heading', { name: 'Quote Inbox' })).toBeTruthy();
 		return waitFor(() => {
 			expect(screen.getByTestId('service-quotes-offline-alert')).toBeTruthy();
 			expect(screen.getByRole('button', { name: 'Send Proposal' })).toBeDisabled();
@@ -151,9 +151,9 @@ describe('services accessibility smoke', () => {
 			}
 		});
 
-		expect(screen.getByRole('heading', { name: 'Confirm Instant Buy' })).toBeTruthy();
+		expect(screen.getByRole('heading', { name: 'Confirm Book Now' })).toBeTruthy();
 		expect(screen.getByTestId('service-instant-buy-offline-alert')).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Cancel' })).toBeEnabled();
-		expect(screen.getByRole('button', { name: 'Buy Now' })).toBeDisabled();
+		expect(screen.getByRole('button', { name: 'Book Now' })).toBeDisabled();
 	});
 });

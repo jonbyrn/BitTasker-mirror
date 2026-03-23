@@ -163,7 +163,7 @@ describe('service instant-buy snapshot creation', () => {
 				expectedServiceEventId: 'service-event-1'
 			})
 		).rejects.toThrow(
-			'This service was updated. Refresh the page to review the latest details before using Buy Now.'
+			'This service was updated. Refresh the page to review the latest details before using Book Now.'
 		);
 
 		hoisted.mockFindServiceByUniqueId.mockResolvedValueOnce({
@@ -183,6 +183,6 @@ describe('service instant-buy snapshot creation', () => {
 				serviceId: 'service-123',
 				expectedServiceEventId: 'service-event-1'
 			})
-		).rejects.toThrow('This service is no longer eligible for instant buy.');
+		).rejects.toThrow('This service is no longer eligible for Book Now.');
 	});
 });

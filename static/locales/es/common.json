@@ -54,6 +54,7 @@
 			"link_copy_failed": "Error al copiar enlace"
 		},
 		"share": {
+			"price": "Precio",
 			"budget": "Presupuesto",
 			"deadline": "Fecha Límite",
 			"location": "Ubicación",

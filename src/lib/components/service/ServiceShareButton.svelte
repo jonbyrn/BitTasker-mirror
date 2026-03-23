@@ -21,6 +21,15 @@
 		class?: string;
 	}>();
 
+	function tr(key: string, fallback: string): string {
+		try {
+			const value = get(t)(key);
+			return typeof value === 'string' && value !== key ? value : fallback;
+		} catch {
+			return fallback;
+		}
+	}
+
 	function truncateText(text: string, maxLength = 200): string {
 		if (!text || text.length <= maxLength) return text;
 		const truncated = text.substring(0, maxLength);
@@ -39,26 +48,28 @@
 					? `$${formatNumberWithTwoDecimals(svc.pricing.hourlyRate)}/hr`
 					: '';
 			case ServicePricingTypeEnum.TIERED:
-				return 'Tiered pricing';
+				return tr('dashboard.services.detail.pricing_type.tiered_pricing', 'Tiered pricing');
 			default:
 				return '';
 		}
 	}
 
 	function formatShareText(svc: Service): string {
-		if (!svc) return get(t)('common.share.check_out_task');
+		if (!svc) return tr('common.share.check_out_task', 'Check out this task');
 		const currentLocale = get(locale) || 'en';
 		const title = getServiceDisplayTitle(svc, currentLocale) || '';
 		const description = getServiceDisplayDescription(svc, currentLocale) || '';
 		// Start with title, then description
 		let text = title ? `${title}\n\n` : '';
-		text += description ? truncateText(description, 200) : get(t)('common.share.check_out_task');
+		text += description
+			? truncateText(description, 200)
+			: tr('common.share.check_out_task', 'Check out this task');
 		const details: string[] = [];
 
 		// Add pricing info
 		const priceDisplay = getPriceDisplay(svc);
 		if (priceDisplay) {
-			details.push(`💰 Price: ${priceDisplay}`);
+			details.push(`💰 ${tr('common.share.price', 'Price')}: ${priceDisplay}`);
 		}
 
 		// Add location info
@@ -66,13 +77,13 @@
 			const locations = svc.serviceLocationTypes
 				.map((type) =>
 					type === 'remote'
-						? 'Remote'
+						? tr('dashboard.services.detail.location.remote', 'Remote')
 						: type === 'tasker_location'
-							? 'Tasker Location'
-							: 'Taskee Location'
+							? tr('dashboard.services.detail.location.tasker_location', 'Tasker Location')
+							: tr('dashboard.services.create.location.taskee_title', 'At Tasker Location')
 				)
 				.join(', ');
-			details.push(`📍 Location: ${locations}`);
+			details.push(`📍 ${tr('common.share.location', 'Location')}: ${locations}`);
 		}
 
 		if (details.length > 0) text += '\n\n' + details.join('\n\n');
@@ -96,7 +107,7 @@
 		return {
 			title:
 				getServiceDisplayTitle(svc, currentLocale) ||
-				get(t)('dashboard.services.browse.view_service'),
+				tr('dashboard.services.browse.view_service', 'View Service'),
 			text: formatShareText(svc),
 			url: link
 		};
@@ -108,9 +119,9 @@
 	class={className}
 	presentation="task"
 	getSharePayload={getServiceSharePayload}
-	title={$t('dashboard.services.detail.share_service') || 'Share service'}
-	ariaLabel={$t('dashboard.services.detail.share_service') || 'Share service'}
-	buttonText={variant === 'default' ? $t('dashboard.services.detail.share') : null}
-	successToast={$t('common.toast.link_copied')}
-	errorToast={$t('common.toast.link_copy_failed')}
+	title={tr('dashboard.services.detail.share_service', 'Share service')}
+	ariaLabel={tr('dashboard.services.detail.share_service', 'Share service')}
+	buttonText={variant === 'default' ? tr('dashboard.services.detail.share', 'Share') : null}
+	successToast={tr('common.toast.link_copied', 'Link copied')}
+	errorToast={tr('common.toast.link_copy_failed', 'Unable to copy link')}
 />

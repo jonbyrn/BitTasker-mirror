@@ -11,8 +11,35 @@
 				"portfolio": "Portfolio",
 				"faqs": "Frequently Asked Questions",
 				"attachment": "Attachment",
+				"image_alt": "Service image",
 				"taskee": "Taskee",
 				"avatar_alt": "Taskee avatar",
+				"skills": "Skills",
+				"categories": "Categories",
+				"posted": "Posted",
+				"no_description": "No description",
+				"pricing_tiers": "Pricing Tiers",
+				"tier": "Tier",
+				"addon": "Add-on",
+				"question": "Question",
+				"status": {
+					"active": "Active",
+					"inactive": "Inactive",
+					"sold": "Sold"
+				},
+				"location": {
+					"remote": "Remote",
+					"my_location": "My Location",
+					"tasker_location": "Tasker Location"
+				},
+				"pricing_type": {
+					"fixed": "Fixed",
+					"hourly": "Hourly",
+					"tiered": "Tiered",
+					"quote": "Quote",
+					"tiered_pricing": "Tiered pricing",
+					"quote_required": "Quote required"
+				},
 				"interested": "Interested in this service?",
 				"contact_taskee": "Contact Taskee",
 				"request_quote": "Request Quote",
@@ -38,7 +65,9 @@
 				"price_levels": "Price Levels",
 				"select_tier": "Choose a package",
 				"instant_buy": {
-					"select_tier_required": "Select a tier to continue with Buy Now."
+					"select_tier_required": "Select a tier to continue with Book Now.",
+					"invalid_tier": "The selected tier is no longer available.",
+					"not_eligible": "This service is not eligible for Book Now."
 				},
 				"addons_title": "Add-ons",
 				"base_price": "Base price",

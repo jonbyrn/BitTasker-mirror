@@ -40,9 +40,7 @@ function generateInstantOrderId(): string {
 /**
  * Produces the immutable purchase snapshot used by instant-buy confirmation and contract creation.
  */
-export function createInstantBuySnapshot(
-	input: InstantBuyCreateInput
-): InstantBuyCreateSnapshot {
+export function createInstantBuySnapshot(input: InstantBuyCreateInput): InstantBuyCreateSnapshot {
 	const eligibility = getInstantBuyEligibility(input.service, input.selectedTierId);
 	if (!eligibility.eligible) {
 		throw new Error(`Instant buy not eligible: ${eligibility.code}`);
@@ -77,13 +75,13 @@ export async function revalidateLatestInstantBuyService(
 
 	if (input.expectedServiceEventId && latestService.id !== input.expectedServiceEventId) {
 		throw new Error(
-			'This service was updated. Refresh the page to review the latest details before using Buy Now.'
+			'This service was updated. Refresh the page to review the latest details before using Book Now.'
 		);
 	}
 
 	const eligibility = getInstantBuyEligibility(latestService, input.selectedTierId);
 	if (!eligibility.eligible) {
-		throw new Error('This service is no longer eligible for instant buy.');
+		throw new Error('This service is no longer eligible for Book Now.');
 	}
 
 	return latestService;

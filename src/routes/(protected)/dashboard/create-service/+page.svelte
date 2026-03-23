@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { ServiceBody } from '$lib/types/service.d';
+	import type { Attachment } from '$lib/types/task';
 	import { onMount, onDestroy } from 'svelte';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
@@ -8,7 +9,11 @@
 	import { createService, updateService, findServiceByUniqueId } from '$lib/nostr/service';
 	import { findMyServices } from '$lib/nostr/findServices';
 	import { myServicesStore } from '$lib/stores/service.store';
-	import { ServiceStepEnum, ServicePricingTypeEnum, ServiceLocationTypeEnum } from '$lib/utils/enums/service.enum';
+	import {
+		ServiceStepEnum,
+		ServicePricingTypeEnum,
+		ServiceLocationTypeEnum
+	} from '$lib/utils/enums/service.enum';
 	import { t } from 'svelte-i18n';
 	import { browser } from '$app/environment';
 	import { user } from '$lib/stores/user.store';
@@ -39,8 +44,7 @@
 	let isLoading = $state(false);
 	let isEditDataLoaded = $state(false);
 	let direction: 'forward' | 'backward' = $state('forward');
-	let attachmentsToRemove = $state<any[]>([]);
-	let servicePortfolioRef = $state<any>(); // Reference to ServicePortfolio component
+	let attachmentsToRemove = $state<Attachment[]>([]);
 
 	// Function to refresh My Services list after creating/updating a service
 	async function refreshMyServices() {
@@ -62,7 +66,6 @@
 	function handleCancel() {
 		// Check if we're in edit or duplicate mode
 		const isEditing = $page.url.searchParams.get('edit') === 'true';
-		const isDuplicating = $page.url.searchParams.get('duplicate') === 'true';
 		// Clear the appropriate draft (creation or edit)
 		store.clearDraft(isEditing);
 		// Navigate back to My Services
@@ -71,7 +74,6 @@
 
 	// Save draft before leaving the page
 	let isEditingMode = $state(false);
-	let isDuplicatingMode = $state(false);
 	let beforeUnloadHandler: (() => void) | null = null;
 
 	// Load the draft when the page is loaded
@@ -87,7 +89,6 @@
 			const serviceIdParam = $page.url.searchParams.get('serviceId');
 
 			isEditingMode = isEditing;
-			isDuplicatingMode = isDuplicating;
 
 			if (isEditing && serviceIdParam) {
 				// Load service for edit mode
@@ -154,7 +155,8 @@
 
 		switch ($store.currentStep) {
 			case ServiceStepEnum.BASICS:
-				if (!service?.title?.trim()) errors.title = $t('dashboard.services.create.errors.title_required');
+				if (!service?.title?.trim())
+					errors.title = $t('dashboard.services.create.errors.title_required');
 				if (service?.title && service.title.length > 200)
 					errors.title = $t('dashboard.services.create.errors.title_too_long');
 				if (!service?.description?.trim())
@@ -171,20 +173,24 @@
 					errors.location = $t('dashboard.services.create.errors.location_type_required');
 				// Validate location details based on selected types
 				if (service?.serviceLocationTypes?.includes(ServiceLocationTypeEnum.TASKER_LOCATION)) {
-					if (!service.locationDetails?.taskerLocation?.serviceLocation?.latitude ||
-						!service.locationDetails?.taskerLocation?.serviceLocation?.longitude) {
+					if (
+						!service.locationDetails?.taskerLocation?.serviceLocation?.latitude ||
+						!service.locationDetails?.taskerLocation?.serviceLocation?.longitude
+					) {
 						errors.location = $t('dashboard.services.create.errors.service_location_required');
 					}
 				}
 				if (service?.serviceLocationTypes?.includes(ServiceLocationTypeEnum.TASKEE_LOCATION)) {
-					if (!service.locationDetails?.taskeeLocation?.useGlobalLocation &&
+					if (
+						!service.locationDetails?.taskeeLocation?.useGlobalLocation &&
 						(!service.locationDetails?.taskeeLocation?.serviceLocation?.latitude ||
-							!service.locationDetails?.taskeeLocation?.serviceLocation?.longitude)) {
+							!service.locationDetails?.taskeeLocation?.serviceLocation?.longitude)
+					) {
 						errors.location = $t('dashboard.services.create.errors.taskee_location_required');
 					}
 				}
 				break;
-			case ServiceStepEnum.PRICING:
+			case ServiceStepEnum.PRICING: {
 				if (!service?.pricing?.type) {
 					errors.pricing = $t('dashboard.services.create.errors.pricing_required');
 				} else if (service.pricing.type === ServicePricingTypeEnum.FIXED) {
@@ -198,26 +204,31 @@
 					service?.instantBuyLeadHours
 				);
 				if (!instantBuyLeadHoursValidation.valid) {
-					errors.instantBuyLeadHours = 'Instant buy lead time must be a whole number from 0 to 720 hours.';
+					errors.instantBuyLeadHours =
+						'Instant buy lead time must be a whole number from 0 to 720 hours.';
 				}
 				if (
 					service?.instantBuyLeadHours != null &&
 					!supportsInstantBuyAuthoring(service.pricing?.type)
 				) {
-					errors.instantBuyLeadHours = 'Instant buy is available only for fixed and tiered services.';
+					errors.instantBuyLeadHours =
+						'Instant buy is available only for fixed and tiered services.';
 				}
 				// TIERED and INQUIRY_REQUIRED: no amount/tiers required here
 				break;
+			}
 			case ServiceStepEnum.TIERS:
 				if (service?.pricing?.type === ServicePricingTypeEnum.TIERED) {
 					if (!service.pricing.tiers || service.pricing.tiers.length < 2) {
 						errors.pricing = $t('dashboard.services.create.errors.tiers_required');
 					} else {
 						const invalidTier = service.pricing.tiers.some(
-							(t) => !(t.description?.trim()) || t.price == null || t.price <= 0
+							(t) => !t.description?.trim() || t.price == null || t.price <= 0
 						);
 						if (invalidTier) {
-							errors.tiers = $t('dashboard.services.create.errors.tiers_description_price_required');
+							errors.tiers = $t(
+								'dashboard.services.create.errors.tiers_description_price_required'
+							);
 						}
 					}
 				}
@@ -277,8 +288,6 @@
 	async function handleSubmit() {
 		if (!validateCurrentStep()) return;
 
-		let signedEventId: string | null = null;
-
 		try {
 			isSubmitting = true;
 
@@ -287,11 +296,13 @@
 			const serviceData: ServiceBody = {
 				uniqueId: $store.service.uniqueId || '',
 				createdAt: $store.service.createdAt || 0,
-				creator: $store.service.creator || {
-					username: '',
-					avatar: '',
-					name: $user?.name || ''
-				} as { username: string; avatar: string; name: string },
+				creator:
+					$store.service.creator ||
+					({
+						username: '',
+						avatar: '',
+						name: $user?.name || ''
+					} as { username: string; avatar: string; name: string }),
 				title: $store.service.title || '',
 				description: $store.service.description || '',
 				serviceLocationTypes: $store.service.serviceLocationTypes || [],
@@ -309,6 +320,7 @@
 					$store.service.pricing?.type,
 					$store.service.instantBuyLeadHours
 				),
+				instantBuyDeliveryHours: $store.service.instantBuyDeliveryHours,
 				status: 'active' // Set to active when publishing
 			};
 
@@ -318,7 +330,7 @@
 
 			if (isUpdating && dTag) {
 				// updateService uses #d tag (human-readable identifier)
-				signedEventId = await updateService(dTag, serviceData, {
+				await updateService(dTag, serviceData, {
 					expectedServiceEventId: $store.id || undefined
 				});
 				appStore.showSuccessToast($t('dashboard.services.create.success.updated'));
@@ -328,7 +340,7 @@
 
 				await goto('/dashboard/my-services');
 			} else {
-				signedEventId = await createService(serviceData);
+				await createService(serviceData);
 				appStore.showSuccessToast($t('dashboard.services.create.success.created'));
 
 				// Clear the draft (creation or duplicate)
@@ -408,7 +420,7 @@
 					{:else if $store.currentStep === ServiceStepEnum.INQUIRY_FORM}
 						<InquiryFormBuilder {errors} {direction} />
 					{:else if $store.currentStep === ServiceStepEnum.PORTFOLIO}
-						<ServicePortfolio {errors} {direction} bind:attachmentsToRemove bind:this={servicePortfolioRef} />
+						<ServicePortfolio {errors} {direction} bind:attachmentsToRemove />
 					{:else if $store.currentStep === ServiceStepEnum.REVIEW}
 						<ServiceReview {errors} {direction} />
 					{/if}
@@ -416,10 +428,7 @@
 					<!-- Control buttons -->
 					<div class="mt-6 flex justify-between">
 						{#if $store.currentStep !== ServiceStepEnum.BASICS}
-							<button
-								class="btn btn-secondary"
-								onclick={handleBack}
-							>
+							<button class="btn btn-secondary" onclick={handleBack}>
 								{$t('dashboard.services.create.back')}
 							</button>
 						{:else}

@@ -1,7 +1,8 @@
 <script lang="ts">
 	import type { Service } from '$lib/types/service';
-	import { t } from 'svelte-i18n';
+	import { t, locale } from 'svelte-i18n';
 	import { getNpub } from '$lib/utils/nostrKeys';
+	import { getServiceDisplayTitle } from '$lib/utils/serviceDisplayTranslation';
 	import Drawer from '$lib/components/Drawer.svelte';
 	import ServiceTab from './ServiceTab.svelte';
 
@@ -18,14 +19,25 @@
 
 	let isOwner = $state(false);
 
+	function tr(key: string, fallback: string): string {
+		try {
+			const value = $t(key);
+			return typeof value === 'string' && value !== key ? value : fallback;
+		} catch {
+			return fallback;
+		}
+	}
+
 	// Get translated title for drawer
 	const drawerTitle = $derived.by(() => {
 		if (!props.service) {
-			return $t('dashboard.services.detail.title') || 'Service Details';
+			return tr('dashboard.services.detail.title', 'Service Details');
 		}
 
-		// Use the service title from the service
-		return (props.service.title ?? $t('dashboard.services.detail.title')) || 'Service Details';
+		return (
+			getServiceDisplayTitle(props.service, $locale || 'en') ||
+			tr('dashboard.services.detail.title', 'Service Details')
+		);
 	});
 
 	// Handle drawer state changes
@@ -79,10 +91,13 @@
 				/>
 			</svg>
 			<h3 class="mt-4 text-lg font-semibold">
-				{$t('dashboard.services.detail.service_not_found') || 'Service not found'}
+				{tr('dashboard.services.detail.not_found', 'Service not found')}
 			</h3>
 			<p class="text-base-content/60 mt-1">
-				{$t('dashboard.services.detail.service_not_found_message') || 'The requested service could not be found.'}
+				{tr(
+					'dashboard.services.detail.not_found_message',
+					'The requested service could not be found.'
+				)}
 			</p>
 		</div>
 	{/if}
