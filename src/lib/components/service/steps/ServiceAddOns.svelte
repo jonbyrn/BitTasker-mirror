@@ -54,7 +54,9 @@
 		store.updateService({
 			pricing: {
 				...$store.service.pricing!,
-				addOns: currentAddOns.map((addOn) => (addOn.id === addOnId ? { ...addOn, ...updates } : addOn))
+				addOns: currentAddOns.map((addOn) =>
+					addOn.id === addOnId ? { ...addOn, ...updates } : addOn
+				)
 			}
 		});
 	}
@@ -81,10 +83,14 @@
 		</div>
 	{/if}
 
-	{#each ($store.service.pricing?.addOns || []) as addOn}
-		<div class="card bg-base-200 p-4 space-y-4">
+	{#each $store.service.pricing?.addOns || [] as addOn (addOn.id)}
+		<div class="card bg-base-200 space-y-4 p-4">
 			<div class="flex items-center justify-between">
-				<h4 class="font-semibold">{$t('dashboard.services.create.addons.addon')} #{($store.service.pricing?.addOns || []).indexOf(addOn) + 1}</h4>
+				<h4 class="font-semibold">
+					{$t('dashboard.services.create.addons.addon')} #{(
+						$store.service.pricing?.addOns || []
+					).indexOf(addOn) + 1}
+				</h4>
 				<button
 					class="btn btn-sm btn-error"
 					onclick={() => removeAddOn(addOn.id)}
@@ -113,12 +119,15 @@
 			<div class="w-full">
 				<label for="addon-description-{addOn.id}" class="label">
 					<span class="label-text">{$t('dashboard.services.create.addons.description_label')}</span>
-					<span class="label-text-alt">{$t('dashboard.services.create.addons.description_hint')}</span>
+					<span class="label-text-alt"
+						>{$t('dashboard.services.create.addons.description_hint')}</span
+					>
 				</label>
 				<textarea
 					id="addon-description-{addOn.id}"
 					value={addOn.description || ''}
-					onchange={(e) => updateAddOn(addOn.id, { description: (e.target as HTMLTextAreaElement).value })}
+					onchange={(e) =>
+						updateAddOn(addOn.id, { description: (e.target as HTMLTextAreaElement).value })}
 					class="textarea textarea-bordered w-full"
 					placeholder={$t('dashboard.services.create.addons.description_placeholder')}
 					rows="2"
@@ -137,11 +146,12 @@
 						min="0"
 						step="0.01"
 						value={addOn.price}
-						onchange={(e) => updateAddOn(addOn.id, { price: Number((e.target as HTMLInputElement).value) })}
+						onchange={(e) =>
+							updateAddOn(addOn.id, { price: Number((e.target as HTMLInputElement).value) })}
 						class="input input-bordered flex-1"
 					/>
 					<span class="flex items-center px-4 text-sm font-semibold">
-						{$store.service.pricing?.currency || 'USDt'}
+						{$store.service.pricing?.currency || 'USD'}
 					</span>
 				</div>
 			</div>
@@ -157,4 +167,3 @@
 		<span class="label-text-alt text-error block">{errors.addOns}</span>
 	{/if}
 </div>
-
