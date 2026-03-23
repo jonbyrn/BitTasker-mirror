@@ -45,7 +45,6 @@ export type InstantBuyEligibilityCode =
 	| 'invalid_pricing_type'
 	| 'missing_lead_hours'
 	| 'invalid_lead_hours'
-	| 'unsupported_add_ons'
 	| 'unsupported_rush_delivery'
 	| 'unsupported_distance_fee'
 	| 'missing_delivery_time'
@@ -105,10 +104,6 @@ export function getInstantBuyEligibility(
 
 	if (!isValidLeadHours(service.instantBuyLeadHours)) {
 		return { eligible: false, code: 'invalid_lead_hours', purchaseMode: 'instant_buy' };
-	}
-
-	if ((pricing.addOns?.length ?? 0) > 0) {
-		return { eligible: false, code: 'unsupported_add_ons', purchaseMode: 'instant_buy' };
 	}
 
 	if (hasDistanceFee(service)) {

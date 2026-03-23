@@ -47,7 +47,7 @@ describe('service instant-buy eligibility', () => {
 		});
 	});
 
-	it('rejects unsupported add-ons, rush delivery, and distance fees', () => {
+	it('allows add-ons but still rejects rush delivery and distance fees', () => {
 		expect(
 			getInstantBuyEligibility({
 				...baseService,
@@ -55,8 +55,12 @@ describe('service instant-buy eligibility', () => {
 					...baseService.pricing,
 					addOns: [{ id: 'source-files' }]
 				}
-			}).code
-		).toBe('unsupported_add_ons');
+			})
+		).toEqual({
+			eligible: true,
+			code: 'eligible',
+			purchaseMode: 'instant_buy'
+		});
 
 		expect(
 			getInstantBuyEligibility({
