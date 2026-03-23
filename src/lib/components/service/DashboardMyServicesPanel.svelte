@@ -71,6 +71,8 @@
 	let providerQuotesError = $state<string | null>(null);
 	let providerQuotesLoaded = $state(false);
 	let deleteSubmitServiceId = $state<string | null>(null);
+	let lastProviderLoadKey = $state<string | null>(null);
+	let lastQuotesRouteResolutionKey = $state<string | null>(null);
 	let deleteModalState = $state<{
 		mode: 'blocked' | 'confirm';
 		service: Service;
@@ -186,8 +188,16 @@
 	$effect(() => {
 		if (view !== 'quotes' || !selectedServiceAddress) {
 			providerQuotesError = null;
+			lastProviderLoadKey = null;
 			return;
 		}
+
+		const nextLoadKey = `${selectedServiceAddress}::${focusedRequestId ?? ''}`;
+		if (lastProviderLoadKey === nextLoadKey) {
+			return;
+		}
+
+		lastProviderLoadKey = nextLoadKey;
 
 		void serviceQuoteUiStore
 			.loadProviderTimelines(selectedServiceAddress, focusedRequestId)
@@ -200,17 +210,30 @@
 		if (view !== 'quotes' || loading) return;
 
 		if (visibleServices.length === 0 && !selectedServiceAddress) {
+			if (lastQuotesRouteResolutionKey === 'reset') {
+				return;
+			}
+			lastQuotesRouteResolutionKey = 'reset';
 			onResolveQuotesRoute?.({ type: 'reset' });
 			return;
 		}
 
 		if (!selectedServiceAddress && !selectedService) {
+			const fallbackServiceAddress = buildServiceAddress(visibleServices[0]);
+			const nextResolutionKey = `service:${fallbackServiceAddress}`;
+			if (lastQuotesRouteResolutionKey === nextResolutionKey) {
+				return;
+			}
+			lastQuotesRouteResolutionKey = nextResolutionKey;
 			onResolveQuotesRoute?.({
 				type: 'service',
-				serviceAddress: buildServiceAddress(visibleServices[0]),
+				serviceAddress: fallbackServiceAddress,
 				requestId: null
 			});
+			return;
 		}
+
+		lastQuotesRouteResolutionKey = null;
 	});
 
 	function handleOpenQuotes(service: Service) {

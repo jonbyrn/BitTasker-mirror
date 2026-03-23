@@ -449,6 +449,85 @@ describe('DashboardMyServicesPanel active contracts shortcut', () => {
 		);
 	});
 
+	it('does not reload provider timelines when the selected quotes route stays the same', async () => {
+		const service = createService();
+		const serviceAddress = `30402:${service.npub}:${service.uniqueId ?? service.id}`;
+		hoisted.mockFindMyServices.mockResolvedValueOnce({
+			services: [service]
+		});
+		hoisted.serviceQuoteUiState.set({
+			providerTimelinesByService: {
+				[serviceAddress]: [createTimeline(service)]
+			},
+			loadingProviderByService: {
+				[serviceAddress]: false
+			},
+			providerLoadErrorByService: {
+				[serviceAddress]: null
+			},
+			providerDataFreshnessByService: {
+				[serviceAddress]: 'fresh'
+			}
+		});
+
+		const { default: DashboardMyServicesPanel } = await import(
+			'$lib/components/service/DashboardMyServicesPanel.svelte'
+		);
+		const { rerender } = render(DashboardMyServicesPanel, {
+			view: 'quotes',
+			selectedServiceAddress: serviceAddress,
+			focusedRequestId: 'qr_valid123'
+		});
+
+		await waitFor(() => expect(hoisted.mockLoadProviderTimelines).toHaveBeenCalledTimes(1));
+
+		await rerender({
+			view: 'quotes',
+			selectedServiceAddress: serviceAddress,
+			focusedRequestId: 'qr_valid123'
+		});
+
+		await waitFor(() => expect(hoisted.mockLoadProviderTimelines).toHaveBeenCalledTimes(1));
+	});
+
+	it('auto-selects the first service only once while the quotes route remains unresolved', async () => {
+		const service = createService();
+		const serviceAddress = `30402:${service.npub}:${service.uniqueId ?? service.id}`;
+		const onResolveQuotesRoute = vi.fn();
+
+		hoisted.mockFindMyServices.mockResolvedValueOnce({
+			services: [service]
+		});
+
+		const { default: DashboardMyServicesPanel } = await import(
+			'$lib/components/service/DashboardMyServicesPanel.svelte'
+		);
+		const { rerender } = render(DashboardMyServicesPanel, {
+			view: 'quotes',
+			selectedServiceAddress: null,
+			focusedRequestId: null,
+			onResolveQuotesRoute
+		});
+
+		await waitFor(() =>
+			expect(onResolveQuotesRoute).toHaveBeenCalledWith({
+				type: 'service',
+				serviceAddress,
+				requestId: null
+			})
+		);
+		expect(onResolveQuotesRoute).toHaveBeenCalledTimes(1);
+
+		await rerender({
+			view: 'quotes',
+			selectedServiceAddress: null,
+			focusedRequestId: null,
+			onResolveQuotesRoute
+		});
+
+		await waitFor(() => expect(onResolveQuotesRoute).toHaveBeenCalledTimes(1));
+	});
+
 	it('keeps provider quote review in-context when the wallet prerequisite is missing', async () => {
 		const service = createService();
 		const serviceAddress = `30402:${service.npub}:${service.uniqueId ?? service.id}`;
