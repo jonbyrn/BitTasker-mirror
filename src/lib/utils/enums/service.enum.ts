@@ -37,9 +37,7 @@ export enum ServiceStepEnum {
 }
 
 /**
- * Service Status (NIP-99 compatible)
- * Uses NIP-99 status values directly
- * Note: Deletion handled via NIP-09 deletion events (kind 5), not status
+ * Service Status
+ * Note: deletion is handled via NIP-09 deletion events (kind 5), not status.
  */
 export type ServiceStatus = 'active' | 'inactive' | 'sold';
-

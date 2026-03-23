@@ -26,16 +26,21 @@ vi.mock('$lib/utils/nostrKeys', () => ({
 	getNpub: vi.fn(() => new Promise(() => {}))
 }));
 
-function createServiceEvent(eventId: string, pubkey: string, uniqueId: string): Event {
+function createServiceEvent(
+	eventId: string,
+	pubkey: string,
+	uniqueId: string,
+	overrides: { createdAt?: number; status?: 'active' | 'inactive' | 'sold' } = {}
+): Event {
 	return {
 		id: eventId,
 		pubkey,
-		created_at: 1_700_000_000,
+		created_at: overrides.createdAt ?? 1_700_000_000,
 		kind: KINDS.SERVICE_ACTIVE,
 		tags: [['d', uniqueId]],
 		content: JSON.stringify({
 			uniqueId,
-			status: 'active',
+			status: overrides.status ?? 'active',
 			title: `Service ${uniqueId}`,
 			description: 'Service description',
 			serviceLocationTypes: [ServiceLocationTypeEnum.REMOTE],
@@ -47,7 +52,7 @@ function createServiceEvent(eventId: string, pubkey: string, uniqueId: string): 
 			},
 			skills: ['Design'],
 			categories: [{ id: 'design', name: 'Design', slug: 'design' }],
-			createdAt: 1_700_000_000,
+			createdAt: overrides.createdAt ?? 1_700_000_000,
 			creator: {
 				username: 'provider',
 				avatar: ''
@@ -157,5 +162,25 @@ describe('findServices public discovery', () => {
 		} finally {
 			vi.useRealTimers();
 		}
+	});
+
+	it('hides a listing when the latest published version is inactive', async () => {
+		mockFindEvents.mockResolvedValue({
+			data: [
+				createServiceEvent('a'.repeat(64), 'b'.repeat(64), 'stale-service', {
+					createdAt: 1_700_000_000,
+					status: 'active'
+				}),
+				createServiceEvent('c'.repeat(64), 'b'.repeat(64), 'stale-service', {
+					createdAt: 1_700_000_100,
+					status: 'inactive'
+				})
+			]
+		});
+
+		const result = await findServices({ page: 1, limit: 8 });
+
+		expect(result.services).toHaveLength(0);
+		expect(get(servicesStore).items).toHaveLength(0);
 	});
 });

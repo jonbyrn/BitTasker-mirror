@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { updateService } from '$lib/nostr/service';
+import KINDS from '$lib/utils/constants/kinds';
 import { ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';
 import { SERVICE_EDIT_CONFLICT_CODE } from '$lib/utils/service-edit-conflict';
 
@@ -46,11 +47,15 @@ vi.mock('$lib/stores/user.store', async () => {
 	};
 });
 
-function createServiceEvent(eventId: string) {
+function createServiceEvent(
+	eventId: string,
+	overrides: { kind?: number; status?: 'active' | 'inactive' | 'sold' } = {}
+) {
 	return {
 		id: eventId,
 		pubkey: 'a'.repeat(64),
 		created_at: 1_700_000_000,
+		kind: overrides.kind ?? KINDS.SERVICE_ACTIVE,
 		tags: [['d', 'service-123']],
 		content: JSON.stringify({
 			uniqueId: 'service-123',
@@ -66,7 +71,7 @@ function createServiceEvent(eventId: string) {
 			skills: ['Branding'],
 			portfolio: [],
 			faqs: [],
-			status: 'active',
+			status: overrides.status ?? 'active',
 			createdAt: 1_700_000_000,
 			creator: {
 				username: 'Provider',
@@ -129,5 +134,47 @@ describe('updateService edit conflict handling', () => {
 			)
 		).resolves.toBe('signed-event-id');
 		expect(hoisted.mockPublishEvent).toHaveBeenCalledTimes(1);
+	});
+
+	it('keeps published services on the active listing kind when marking them inactive', async () => {
+		hoisted.mockRequestEvents.mockResolvedValue({
+			data: [createServiceEvent('event-current')]
+		});
+
+		await expect(
+			updateService('service-123', {
+				status: 'inactive'
+			})
+		).resolves.toBe('signed-event-id');
+
+		expect(hoisted.mockPublishEvent).toHaveBeenCalledTimes(1);
+		const publishedEvent = hoisted.mockPublishEvent.mock.calls[0][0];
+		expect(publishedEvent.kind).toBe(KINDS.SERVICE_ACTIVE);
+		expect(JSON.parse(publishedEvent.content)).toMatchObject({
+			uniqueId: 'service-123',
+			status: 'inactive'
+		});
+	});
+
+	it('keeps draft listings on the draft kind until they are published', async () => {
+		hoisted.mockRequestEvents.mockResolvedValue({
+			data: [createServiceEvent('event-draft', { kind: KINDS.SERVICE_DRAFT, status: 'inactive' })]
+		});
+
+		await expect(
+			updateService('service-123', {
+				title: 'Revised draft copy',
+				status: 'inactive'
+			})
+		).resolves.toBe('signed-event-id');
+
+		expect(hoisted.mockPublishEvent).toHaveBeenCalledTimes(1);
+		const publishedEvent = hoisted.mockPublishEvent.mock.calls[0][0];
+		expect(publishedEvent.kind).toBe(KINDS.SERVICE_DRAFT);
+		expect(JSON.parse(publishedEvent.content)).toMatchObject({
+			uniqueId: 'service-123',
+			status: 'inactive',
+			title: 'Revised draft copy'
+		});
 	});
 });

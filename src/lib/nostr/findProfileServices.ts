@@ -29,6 +29,7 @@ function parseProfileServiceEvent(event: {
 	id: string;
 	pubkey: string;
 	created_at: number;
+	kind: number;
 	content: string;
 }): Service {
 	const contentData = JSON.parse(event.content);
@@ -36,6 +37,7 @@ function parseProfileServiceEvent(event: {
 		...contentData,
 		id: event.id,
 		npub: event.pubkey,
+		eventKind: event.kind,
 		createdAt: contentData.createdAt ?? event.created_at
 	} as Service;
 }
@@ -117,10 +119,11 @@ export async function findProfileServicesByAuthor(
 	});
 
 	const deletedIds = await getDeletedServiceIds();
-	const services = (response.data ?? [])
-		.map((event) => parseProfileServiceEvent(event))
-		.filter((service) => service.status === 'active')
-		.filter((service) => !deletedIds.has(service.id));
+	const services = dedupeServicesByUniqueId(
+		(response.data ?? []).map((event) => parseProfileServiceEvent(event))
+	)
+		.filter((service) => !deletedIds.has(service.id))
+		.filter((service) => service.status === 'active');
 
-	return dedupeServicesByUniqueId(services);
+	return services;
 }

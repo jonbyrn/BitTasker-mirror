@@ -4,7 +4,6 @@ import { TAGS } from '$lib/utils/constants/tags';
 import type {
 	ResolvedServiceProposal,
 	ResolvedServiceProposalState,
-	ServiceAcceptanceSnapshot,
 	ServiceProposalContent,
 	ServiceProposalEvent,
 	ServiceProposalStatus,
@@ -91,7 +90,12 @@ function nowSeconds(): number {
 	return Math.floor(Date.now() / 1000);
 }
 
-function assert(condition: unknown, code: string, message: string, details?: Record<string, unknown>): asserts condition {
+function assert(
+	condition: unknown,
+	code: string,
+	message: string,
+	details?: Record<string, unknown>
+): asserts condition {
 	if (!condition) {
 		throw new ServiceQuoteProtocolError(code, message, details);
 	}
@@ -106,21 +110,30 @@ function getEventContent<T>(event: NostrEvent): T {
 }
 
 export function getServiceEventKindFromStatus(status: ServiceStatus): number {
-	return status === 'active' ? KINDS.SERVICE_ACTIVE : KINDS.SERVICE_DRAFT;
+	return status === 'active' || status === 'inactive' || status === 'sold'
+		? KINDS.SERVICE_ACTIVE
+		: KINDS.SERVICE_DRAFT;
 }
 
 export function buildServiceAddressFromParts(kind: number, pubkey: string, dTag: string): string {
 	assert(kind > 0, 'SERVICE_QUOTE_INVALID_SERVICE_KIND', 'Service kind is required');
-	assert(HEX_PUBKEY_RE.test(pubkey), 'SERVICE_QUOTE_INVALID_SERVICE_PUBKEY', 'Service pubkey must be a 64-char hex key', {
-		pubkey
-	});
+	assert(
+		HEX_PUBKEY_RE.test(pubkey),
+		'SERVICE_QUOTE_INVALID_SERVICE_PUBKEY',
+		'Service pubkey must be a 64-char hex key',
+		{
+			pubkey
+		}
+	);
 	assert(Boolean(dTag), 'SERVICE_QUOTE_INVALID_SERVICE_DTAG', 'Service d-tag is required');
 	return `${kind}:${pubkey}:${dTag}`;
 }
 
-export function buildServiceAddress(service: Pick<Service, 'npub' | 'uniqueId' | 'status'>): string {
+export function buildServiceAddress(
+	service: Pick<Service, 'npub' | 'uniqueId' | 'status' | 'eventKind'>
+): string {
 	return buildServiceAddressFromParts(
-		getServiceEventKindFromStatus(service.status),
+		service.eventKind ?? getServiceEventKindFromStatus(service.status),
 		service.npub,
 		service.uniqueId
 	);
@@ -134,23 +147,43 @@ export function parseServiceAddress(serviceAddress: string): {
 	const firstColon = serviceAddress.indexOf(':');
 	const secondColon = serviceAddress.indexOf(':', firstColon + 1);
 
-	assert(firstColon > 0 && secondColon > firstColon, 'SERVICE_QUOTE_INVALID_SERVICE_ADDRESS', 'Service address must match <kind>:<pubkey>:<dTag>', {
-		serviceAddress
-	});
+	assert(
+		firstColon > 0 && secondColon > firstColon,
+		'SERVICE_QUOTE_INVALID_SERVICE_ADDRESS',
+		'Service address must match <kind>:<pubkey>:<dTag>',
+		{
+			serviceAddress
+		}
+	);
 
 	const kindValue = Number(serviceAddress.slice(0, firstColon));
 	const pubkey = serviceAddress.slice(firstColon + 1, secondColon);
 	const dTag = serviceAddress.slice(secondColon + 1);
 
-	assert(Number.isInteger(kindValue), 'SERVICE_QUOTE_INVALID_SERVICE_KIND', 'Service address kind must be an integer', {
-		serviceAddress
-	});
-	assert(HEX_PUBKEY_RE.test(pubkey), 'SERVICE_QUOTE_INVALID_SERVICE_PUBKEY', 'Service address pubkey must be a 64-char hex key', {
-		serviceAddress
-	});
-	assert(Boolean(dTag), 'SERVICE_QUOTE_INVALID_SERVICE_DTAG', 'Service address d-tag must be present', {
-		serviceAddress
-	});
+	assert(
+		Number.isInteger(kindValue),
+		'SERVICE_QUOTE_INVALID_SERVICE_KIND',
+		'Service address kind must be an integer',
+		{
+			serviceAddress
+		}
+	);
+	assert(
+		HEX_PUBKEY_RE.test(pubkey),
+		'SERVICE_QUOTE_INVALID_SERVICE_PUBKEY',
+		'Service address pubkey must be a 64-char hex key',
+		{
+			serviceAddress
+		}
+	);
+	assert(
+		Boolean(dTag),
+		'SERVICE_QUOTE_INVALID_SERVICE_DTAG',
+		'Service address d-tag must be present',
+		{
+			serviceAddress
+		}
+	);
 
 	return { kind: kindValue, pubkey, dTag };
 }
@@ -160,19 +193,34 @@ export function generateServiceQuoteEntityId(prefix: 'qr' | 'pr' | 'io' = 'qr'):
 }
 
 export function buildQuoteRequestD(serviceAddress: string, quoteRequestId: string): string {
-	assert(SERVICE_QUOTE_REQUEST_ID_RE.test(quoteRequestId), 'SERVICE_QUOTE_INVALID_REQUEST_ID', 'Quote request id is invalid', {
-		quoteRequestId
-	});
+	assert(
+		SERVICE_QUOTE_REQUEST_ID_RE.test(quoteRequestId),
+		'SERVICE_QUOTE_INVALID_REQUEST_ID',
+		'Quote request id is invalid',
+		{
+			quoteRequestId
+		}
+	);
 	return `sqr:sa=${encodeURIComponent(serviceAddress)}:qr=${quoteRequestId}`;
 }
 
 export function buildProposalD(quoteRequestId: string, proposalId: string): string {
-	assert(SERVICE_QUOTE_REQUEST_ID_RE.test(quoteRequestId), 'SERVICE_QUOTE_INVALID_REQUEST_ID', 'Quote request id is invalid', {
-		quoteRequestId
-	});
-	assert(SERVICE_PROPOSAL_ID_RE.test(proposalId), 'SERVICE_QUOTE_INVALID_PROPOSAL_ID', 'Proposal id is invalid', {
-		proposalId
-	});
+	assert(
+		SERVICE_QUOTE_REQUEST_ID_RE.test(quoteRequestId),
+		'SERVICE_QUOTE_INVALID_REQUEST_ID',
+		'Quote request id is invalid',
+		{
+			quoteRequestId
+		}
+	);
+	assert(
+		SERVICE_PROPOSAL_ID_RE.test(proposalId),
+		'SERVICE_QUOTE_INVALID_PROPOSAL_ID',
+		'Proposal id is invalid',
+		{
+			proposalId
+		}
+	);
 	return `sqp:${quoteRequestId}:${proposalId}`;
 }
 
@@ -181,19 +229,37 @@ export function buildProposalStatusD(
 	status: ServiceProposalStatus,
 	actorPubkey: string
 ): string {
-	assert(SERVICE_PROPOSAL_ID_RE.test(proposalId), 'SERVICE_QUOTE_INVALID_PROPOSAL_ID', 'Proposal id is invalid', {
-		proposalId
-	});
-	assert(HEX_PUBKEY_RE.test(actorPubkey), 'SERVICE_QUOTE_INVALID_ACTOR', 'Status actor pubkey must be hex', {
-		actorPubkey
-	});
+	assert(
+		SERVICE_PROPOSAL_ID_RE.test(proposalId),
+		'SERVICE_QUOTE_INVALID_PROPOSAL_ID',
+		'Proposal id is invalid',
+		{
+			proposalId
+		}
+	);
+	assert(
+		HEX_PUBKEY_RE.test(actorPubkey),
+		'SERVICE_QUOTE_INVALID_ACTOR',
+		'Status actor pubkey must be hex',
+		{
+			actorPubkey
+		}
+	);
 	return `sqs:${proposalId}:${status}:${actorPubkey}`;
 }
 
-export function parseQuoteRequestD(value: string): { serviceAddress: string; quoteRequestId: string } {
-	assert(value.startsWith('sqr:'), 'SERVICE_QUOTE_INVALID_D', 'Quote request d-tag must start with sqr:', {
-		value
-	});
+export function parseQuoteRequestD(value: string): {
+	serviceAddress: string;
+	quoteRequestId: string;
+} {
+	assert(
+		value.startsWith('sqr:'),
+		'SERVICE_QUOTE_INVALID_D',
+		'Quote request d-tag must start with sqr:',
+		{
+			value
+		}
+	);
 	const segments = value.split(':');
 	assert(
 		segments.length === 3 && segments[1].startsWith('sa=') && segments[2].startsWith('qr='),
@@ -204,9 +270,14 @@ export function parseQuoteRequestD(value: string): { serviceAddress: string; quo
 
 	const serviceAddress = decodeURIComponent(segments[1].slice(3));
 	const quoteRequestId = segments[2].slice(3);
-	assert(SERVICE_QUOTE_REQUEST_ID_RE.test(quoteRequestId), 'SERVICE_QUOTE_INVALID_REQUEST_ID', 'Quote request id is invalid', {
-		value
-	});
+	assert(
+		SERVICE_QUOTE_REQUEST_ID_RE.test(quoteRequestId),
+		'SERVICE_QUOTE_INVALID_REQUEST_ID',
+		'Quote request id is invalid',
+		{
+			value
+		}
+	);
 
 	return { serviceAddress, quoteRequestId };
 }
@@ -220,12 +291,22 @@ export function parseProposalD(value: string): { quoteRequestId: string; proposa
 		{ value }
 	);
 	const [, quoteRequestId, proposalId] = segments;
-	assert(SERVICE_QUOTE_REQUEST_ID_RE.test(quoteRequestId), 'SERVICE_QUOTE_INVALID_REQUEST_ID', 'Quote request id is invalid', {
-		value
-	});
-	assert(SERVICE_PROPOSAL_ID_RE.test(proposalId), 'SERVICE_QUOTE_INVALID_PROPOSAL_ID', 'Proposal id is invalid', {
-		value
-	});
+	assert(
+		SERVICE_QUOTE_REQUEST_ID_RE.test(quoteRequestId),
+		'SERVICE_QUOTE_INVALID_REQUEST_ID',
+		'Quote request id is invalid',
+		{
+			value
+		}
+	);
+	assert(
+		SERVICE_PROPOSAL_ID_RE.test(proposalId),
+		'SERVICE_QUOTE_INVALID_PROPOSAL_ID',
+		'Proposal id is invalid',
+		{
+			value
+		}
+	);
 
 	return { quoteRequestId, proposalId };
 }
@@ -243,15 +324,30 @@ export function parseProposalStatusD(value: string): {
 		{ value }
 	);
 	const [, proposalId, status, actorPubkey] = segments;
-	assert(SERVICE_PROPOSAL_ID_RE.test(proposalId), 'SERVICE_QUOTE_INVALID_PROPOSAL_ID', 'Proposal id is invalid', {
-		value
-	});
-	assert(status in STATUS_ROLE_MAP, 'SERVICE_QUOTE_INVALID_STATUS', 'Status d-tag has an invalid status', {
-		value
-	});
-	assert(HEX_PUBKEY_RE.test(actorPubkey), 'SERVICE_QUOTE_INVALID_ACTOR', 'Status d-tag actor pubkey must be hex', {
-		value
-	});
+	assert(
+		SERVICE_PROPOSAL_ID_RE.test(proposalId),
+		'SERVICE_QUOTE_INVALID_PROPOSAL_ID',
+		'Proposal id is invalid',
+		{
+			value
+		}
+	);
+	assert(
+		status in STATUS_ROLE_MAP,
+		'SERVICE_QUOTE_INVALID_STATUS',
+		'Status d-tag has an invalid status',
+		{
+			value
+		}
+	);
+	assert(
+		HEX_PUBKEY_RE.test(actorPubkey),
+		'SERVICE_QUOTE_INVALID_ACTOR',
+		'Status d-tag actor pubkey must be hex',
+		{
+			value
+		}
+	);
 
 	return {
 		proposalId,
@@ -261,21 +357,38 @@ export function parseProposalStatusD(value: string): {
 }
 
 function getTagValues(tags: string[][], key: string): string[] {
-	return tags.filter((tag) => tag[0] === key).map((tag) => tag[1]).filter(Boolean);
+	return tags
+		.filter((tag) => tag[0] === key)
+		.map((tag) => tag[1])
+		.filter(Boolean);
 }
 
-function getSingleTagValue(tags: string[][], key: string, required: boolean = true): string | undefined {
+function getSingleTagValue(
+	tags: string[][],
+	key: string,
+	required: boolean = true
+): string | undefined {
 	const values = getTagValues(tags, key);
 	if (required) {
-		assert(values.length === 1, 'SERVICE_QUOTE_INVALID_TAG_CARDINALITY', `Expected exactly one ${key} tag`, {
-			key,
-			count: values.length
-		});
+		assert(
+			values.length === 1,
+			'SERVICE_QUOTE_INVALID_TAG_CARDINALITY',
+			`Expected exactly one ${key} tag`,
+			{
+				key,
+				count: values.length
+			}
+		);
 	} else {
-		assert(values.length <= 1, 'SERVICE_QUOTE_INVALID_TAG_CARDINALITY', `Expected at most one ${key} tag`, {
-			key,
-			count: values.length
-		});
+		assert(
+			values.length <= 1,
+			'SERVICE_QUOTE_INVALID_TAG_CARDINALITY',
+			`Expected at most one ${key} tag`,
+			{
+				key,
+				count: values.length
+			}
+		);
 	}
 
 	return values[0];
@@ -283,19 +396,29 @@ function getSingleTagValue(tags: string[][], key: string, required: boolean = tr
 
 function assertForbiddenTags(tags: string[][], keys: string[]): void {
 	for (const key of keys) {
-		assert(getTagValues(tags, key).length === 0, 'SERVICE_QUOTE_FORBIDDEN_TAG', `Tag ${key} is not allowed for this event`, {
-			key
-		});
+		assert(
+			getTagValues(tags, key).length === 0,
+			'SERVICE_QUOTE_FORBIDDEN_TAG',
+			`Tag ${key} is not allowed for this event`,
+			{
+				key
+			}
+		);
 	}
 }
 
 function assertOptionalMirrorTag(tags: string[][], serviceAddress: string): void {
 	const mirror = getSingleTagValue(tags, TAGS.T, false);
 	if (mirror) {
-		assert(mirror === serviceAddress, 'SERVICE_QUOTE_INVALID_MIRROR_TAG', 'Optional t tag must equal service address', {
-			mirror,
-			serviceAddress
-		});
+		assert(
+			mirror === serviceAddress,
+			'SERVICE_QUOTE_INVALID_MIRROR_TAG',
+			'Optional t tag must equal service address',
+			{
+				mirror,
+				serviceAddress
+			}
+		);
 	}
 }
 
@@ -305,14 +428,24 @@ function assertCanonicalMessageType(
 	contentType: string,
 	tagType: string | undefined
 ): void {
-	assert(contentType === type, 'SERVICE_QUOTE_INVALID_CONTENT_TYPE', 'Payload type does not match event kind', {
-		contentType,
-		expected: type
-	});
-	assert(tagType === type, 'SERVICE_QUOTE_INVALID_MESSAGE_TAG', 'Message tag does not match event kind', {
-		tagType,
-		expected: type
-	});
+	assert(
+		contentType === type,
+		'SERVICE_QUOTE_INVALID_CONTENT_TYPE',
+		'Payload type does not match event kind',
+		{
+			contentType,
+			expected: type
+		}
+	);
+	assert(
+		tagType === type,
+		'SERVICE_QUOTE_INVALID_MESSAGE_TAG',
+		'Message tag does not match event kind',
+		{
+			tagType,
+			expected: type
+		}
+	);
 }
 
 function assertTimestampEqual(timestamp: number, createdAt: number, code: string): void {
@@ -322,11 +455,20 @@ function assertTimestampEqual(timestamp: number, createdAt: number, code: string
 	});
 }
 
-function assertStatusTimestamp(content: ServiceProposalStatusContent, event: NostrEvent, now: number): void {
-	assert(content.timestamp <= event.created_at, 'SERVICE_QUOTE_INVALID_STATUS_TIMESTAMP', 'Status timestamp must be <= created_at', {
-		timestamp: content.timestamp,
-		createdAt: event.created_at
-	});
+function assertStatusTimestamp(
+	content: ServiceProposalStatusContent,
+	event: NostrEvent,
+	now: number
+): void {
+	assert(
+		content.timestamp <= event.created_at,
+		'SERVICE_QUOTE_INVALID_STATUS_TIMESTAMP',
+		'Status timestamp must be <= created_at',
+		{
+			timestamp: content.timestamp,
+			createdAt: event.created_at
+		}
+	);
 	assert(
 		event.created_at - content.timestamp <= 120,
 		'SERVICE_QUOTE_INVALID_STATUS_TIMESTAMP',
@@ -336,18 +478,31 @@ function assertStatusTimestamp(content: ServiceProposalStatusContent, event: Nos
 			createdAt: event.created_at
 		}
 	);
-	assert(event.created_at <= now + 120, 'SERVICE_QUOTE_INVALID_STATUS_TIMESTAMP', 'Status created_at exceeds allowed clock skew', {
-		createdAt: event.created_at,
-		now
-	});
-	assert(content.timestamp <= now + 120, 'SERVICE_QUOTE_INVALID_STATUS_TIMESTAMP', 'Status timestamp exceeds allowed clock skew', {
-		timestamp: content.timestamp,
-		now
-	});
+	assert(
+		event.created_at <= now + 120,
+		'SERVICE_QUOTE_INVALID_STATUS_TIMESTAMP',
+		'Status created_at exceeds allowed clock skew',
+		{
+			createdAt: event.created_at,
+			now
+		}
+	);
+	assert(
+		content.timestamp <= now + 120,
+		'SERVICE_QUOTE_INVALID_STATUS_TIMESTAMP',
+		'Status timestamp exceeds allowed clock skew',
+		{
+			timestamp: content.timestamp,
+			now
+		}
+	);
 }
 
 function hasPublishableAcceptedSnapshot(
-	content: Pick<ServiceProposalStatusContent, 'status' | 'escrowId' | 'transactionHash' | 'acceptanceSnapshot'>
+	content: Pick<
+		ServiceProposalStatusContent,
+		'status' | 'escrowId' | 'transactionHash' | 'acceptanceSnapshot'
+	>
 ): boolean {
 	if (content.status !== 'accepted') {
 		return true;
@@ -408,9 +563,14 @@ export function computeProposalExpiration(createdAt: number, days: number, hours
 
 export function getServiceQuoteMessageType(kind: number): ServiceQuoteMessageType {
 	const messageType = KIND_TO_MESSAGE_TYPE[kind];
-	assert(Boolean(messageType), 'SERVICE_QUOTE_INVALID_KIND', 'Unsupported service quote event kind', {
-		kind
-	});
+	assert(
+		Boolean(messageType),
+		'SERVICE_QUOTE_INVALID_KIND',
+		'Unsupported service quote event kind',
+		{
+			kind
+		}
+	);
 	return messageType;
 }
 
@@ -423,45 +583,101 @@ export function validateServiceQuoteRequestEvent(event: NostrEvent): ServiceQuot
 	const network = getSingleTagValue(event.tags, TAGS.N);
 	const schemaVersion = getSingleTagValue(event.tags, TAGS.Z);
 
-	assert(event.kind === KINDS.SERVICE_QUOTE_REQUEST, 'SERVICE_QUOTE_INVALID_KIND', 'Quote request event kind is invalid', {
-		kind: event.kind
-	});
+	assert(
+		event.kind === KINDS.SERVICE_QUOTE_REQUEST,
+		'SERVICE_QUOTE_INVALID_KIND',
+		'Quote request event kind is invalid',
+		{
+			kind: event.kind
+		}
+	);
 	assertCanonicalMessageType(event, SERVICE_QUOTE_MESSAGE_TYPES.REQUEST, content.type, messageType);
-	assert(schemaVersion === SERVICE_QUOTE_SCHEMA_VERSION, 'SERVICE_QUOTE_INVALID_SCHEMA_VERSION', 'Schema version must be v1', {
-		schemaVersion
-	});
-	assert(Boolean(network), 'SERVICE_QUOTE_INVALID_NETWORK', 'Quote request network tag is required');
+	assert(
+		schemaVersion === SERVICE_QUOTE_SCHEMA_VERSION,
+		'SERVICE_QUOTE_INVALID_SCHEMA_VERSION',
+		'Schema version must be v1',
+		{
+			schemaVersion
+		}
+	);
+	assert(
+		Boolean(network),
+		'SERVICE_QUOTE_INVALID_NETWORK',
+		'Quote request network tag is required'
+	);
 	assertForbiddenTags(event.tags, [TAGS.E, 'expiration']);
 
 	const parsedD = parseQuoteRequestD(dTag!);
-	assert(serviceAddress === content.serviceAddress, 'SERVICE_QUOTE_INVALID_SERVICE_ADDRESS', 'a tag must equal payload serviceAddress', {
-		serviceAddress,
-		payload: content.serviceAddress
-	});
-	assert(parsedD.serviceAddress === content.serviceAddress, 'SERVICE_QUOTE_INVALID_SERVICE_ADDRESS', 'd tag service address must equal payload serviceAddress', {
-		dTag,
-		payload: content.serviceAddress
-	});
-	assert(content.serviceId === content.serviceAddress, 'SERVICE_QUOTE_INVALID_SERVICE_ID', 'serviceId must equal serviceAddress', {
-		serviceId: content.serviceId,
-		serviceAddress: content.serviceAddress
-	});
-	assert(parsedD.quoteRequestId === content.quoteRequestId, 'SERVICE_QUOTE_INVALID_REQUEST_ID', 'd tag quoteRequestId must equal payload quoteRequestId', {
-		dTag,
-		payload: content.quoteRequestId
-	});
-	assert(SERVICE_QUOTE_REQUEST_ID_RE.test(content.quoteRequestId), 'SERVICE_QUOTE_INVALID_REQUEST_ID', 'Quote request id is invalid', {
-		quoteRequestId: content.quoteRequestId
-	});
-	assert(recipient === parseServiceAddress(content.serviceAddress).pubkey, 'SERVICE_QUOTE_INVALID_RECIPIENT', 'Quote request p tag must equal service owner pubkey', {
-		recipient,
-		serviceAddress: content.serviceAddress
-	});
+	assert(
+		serviceAddress === content.serviceAddress,
+		'SERVICE_QUOTE_INVALID_SERVICE_ADDRESS',
+		'a tag must equal payload serviceAddress',
+		{
+			serviceAddress,
+			payload: content.serviceAddress
+		}
+	);
+	assert(
+		parsedD.serviceAddress === content.serviceAddress,
+		'SERVICE_QUOTE_INVALID_SERVICE_ADDRESS',
+		'd tag service address must equal payload serviceAddress',
+		{
+			dTag,
+			payload: content.serviceAddress
+		}
+	);
+	assert(
+		content.serviceId === content.serviceAddress,
+		'SERVICE_QUOTE_INVALID_SERVICE_ID',
+		'serviceId must equal serviceAddress',
+		{
+			serviceId: content.serviceId,
+			serviceAddress: content.serviceAddress
+		}
+	);
+	assert(
+		parsedD.quoteRequestId === content.quoteRequestId,
+		'SERVICE_QUOTE_INVALID_REQUEST_ID',
+		'd tag quoteRequestId must equal payload quoteRequestId',
+		{
+			dTag,
+			payload: content.quoteRequestId
+		}
+	);
+	assert(
+		SERVICE_QUOTE_REQUEST_ID_RE.test(content.quoteRequestId),
+		'SERVICE_QUOTE_INVALID_REQUEST_ID',
+		'Quote request id is invalid',
+		{
+			quoteRequestId: content.quoteRequestId
+		}
+	);
+	assert(
+		recipient === parseServiceAddress(content.serviceAddress).pubkey,
+		'SERVICE_QUOTE_INVALID_RECIPIENT',
+		'Quote request p tag must equal service owner pubkey',
+		{
+			recipient,
+			serviceAddress: content.serviceAddress
+		}
+	);
 	assertOptionalMirrorTag(event.tags, content.serviceAddress);
 	assertTimestampEqual(content.timestamp, event.created_at, 'SERVICE_QUOTE_INVALID_TIMESTAMP');
-	assert(Boolean(content.inquiry?.title?.trim()), 'SERVICE_QUOTE_INVALID_INQUIRY', 'Inquiry title is required');
-	assert(Boolean(content.inquiry?.description?.trim()), 'SERVICE_QUOTE_INVALID_INQUIRY', 'Inquiry description is required');
-	assert((content.inquiry.attachments?.length ?? 0) <= 10, 'SERVICE_QUOTE_INVALID_ATTACHMENTS', 'Inquiry attachments may not exceed 10');
+	assert(
+		Boolean(content.inquiry?.title?.trim()),
+		'SERVICE_QUOTE_INVALID_INQUIRY',
+		'Inquiry title is required'
+	);
+	assert(
+		Boolean(content.inquiry?.description?.trim()),
+		'SERVICE_QUOTE_INVALID_INQUIRY',
+		'Inquiry description is required'
+	);
+	assert(
+		(content.inquiry.attachments?.length ?? 0) <= 10,
+		'SERVICE_QUOTE_INVALID_ATTACHMENTS',
+		'Inquiry attachments may not exceed 10'
+	);
 
 	return {
 		...event,
@@ -481,62 +697,131 @@ export function validateServiceProposalEvent(event: NostrEvent): ServiceProposal
 	const schemaVersion = getSingleTagValue(event.tags, TAGS.Z);
 	const expirationTag = getSingleTagValue(event.tags, 'expiration');
 
-	assert(event.kind === KINDS.SERVICE_PROPOSAL, 'SERVICE_QUOTE_INVALID_KIND', 'Proposal event kind is invalid', {
-		kind: event.kind
-	});
-	assertCanonicalMessageType(event, SERVICE_QUOTE_MESSAGE_TYPES.PROPOSAL, content.type, messageType);
-	assert(schemaVersion === SERVICE_QUOTE_SCHEMA_VERSION, 'SERVICE_QUOTE_INVALID_SCHEMA_VERSION', 'Schema version must be v1', {
-		schemaVersion
-	});
+	assert(
+		event.kind === KINDS.SERVICE_PROPOSAL,
+		'SERVICE_QUOTE_INVALID_KIND',
+		'Proposal event kind is invalid',
+		{
+			kind: event.kind
+		}
+	);
+	assertCanonicalMessageType(
+		event,
+		SERVICE_QUOTE_MESSAGE_TYPES.PROPOSAL,
+		content.type,
+		messageType
+	);
+	assert(
+		schemaVersion === SERVICE_QUOTE_SCHEMA_VERSION,
+		'SERVICE_QUOTE_INVALID_SCHEMA_VERSION',
+		'Schema version must be v1',
+		{
+			schemaVersion
+		}
+	);
 	assert(Boolean(network), 'SERVICE_QUOTE_INVALID_NETWORK', 'Proposal network tag is required');
-	assert(Boolean(parentEventId), 'SERVICE_QUOTE_INVALID_PARENT', 'Proposal must reference exactly one quote request via e tag');
+	assert(
+		Boolean(parentEventId),
+		'SERVICE_QUOTE_INVALID_PARENT',
+		'Proposal must reference exactly one quote request via e tag'
+	);
 
 	const parsedD = parseProposalD(dTag!);
-	assert(serviceAddress === content.serviceAddress, 'SERVICE_QUOTE_INVALID_SERVICE_ADDRESS', 'a tag must equal payload serviceAddress', {
-		serviceAddress,
-		payload: content.serviceAddress
-	});
-	assert(content.serviceId === content.serviceAddress, 'SERVICE_QUOTE_INVALID_SERVICE_ID', 'serviceId must equal serviceAddress', {
-		serviceId: content.serviceId,
-		serviceAddress: content.serviceAddress
-	});
-	assert(parsedD.quoteRequestId === content.quoteRequestId, 'SERVICE_QUOTE_INVALID_REQUEST_ID', 'Proposal d-tag request id must equal payload request id', {
-		dTag,
-		payload: content.quoteRequestId
-	});
-	assert(parsedD.proposalId === content.proposalId, 'SERVICE_QUOTE_INVALID_PROPOSAL_ID', 'Proposal d-tag proposal id must equal payload proposal id', {
-		dTag,
-		payload: content.proposalId
-	});
-	assert(SERVICE_PROPOSAL_ID_RE.test(content.proposalId), 'SERVICE_QUOTE_INVALID_PROPOSAL_ID', 'Proposal id is invalid', {
-		proposalId: content.proposalId
-	});
-	assert(SERVICE_QUOTE_REQUEST_ID_RE.test(content.quoteRequestId), 'SERVICE_QUOTE_INVALID_REQUEST_ID', 'Quote request id is invalid', {
-		quoteRequestId: content.quoteRequestId
-	});
-	assert(recipient !== event.pubkey, 'SERVICE_QUOTE_INVALID_RECIPIENT', 'Proposal recipient must be the tasker, not the author', {
-		recipient,
-		author: event.pubkey
-	});
+	assert(
+		serviceAddress === content.serviceAddress,
+		'SERVICE_QUOTE_INVALID_SERVICE_ADDRESS',
+		'a tag must equal payload serviceAddress',
+		{
+			serviceAddress,
+			payload: content.serviceAddress
+		}
+	);
+	assert(
+		content.serviceId === content.serviceAddress,
+		'SERVICE_QUOTE_INVALID_SERVICE_ID',
+		'serviceId must equal serviceAddress',
+		{
+			serviceId: content.serviceId,
+			serviceAddress: content.serviceAddress
+		}
+	);
+	assert(
+		parsedD.quoteRequestId === content.quoteRequestId,
+		'SERVICE_QUOTE_INVALID_REQUEST_ID',
+		'Proposal d-tag request id must equal payload request id',
+		{
+			dTag,
+			payload: content.quoteRequestId
+		}
+	);
+	assert(
+		parsedD.proposalId === content.proposalId,
+		'SERVICE_QUOTE_INVALID_PROPOSAL_ID',
+		'Proposal d-tag proposal id must equal payload proposal id',
+		{
+			dTag,
+			payload: content.proposalId
+		}
+	);
+	assert(
+		SERVICE_PROPOSAL_ID_RE.test(content.proposalId),
+		'SERVICE_QUOTE_INVALID_PROPOSAL_ID',
+		'Proposal id is invalid',
+		{
+			proposalId: content.proposalId
+		}
+	);
+	assert(
+		SERVICE_QUOTE_REQUEST_ID_RE.test(content.quoteRequestId),
+		'SERVICE_QUOTE_INVALID_REQUEST_ID',
+		'Quote request id is invalid',
+		{
+			quoteRequestId: content.quoteRequestId
+		}
+	);
+	assert(
+		recipient !== event.pubkey,
+		'SERVICE_QUOTE_INVALID_RECIPIENT',
+		'Proposal recipient must be the tasker, not the author',
+		{
+			recipient,
+			author: event.pubkey
+		}
+	);
 	assertOptionalMirrorTag(event.tags, content.serviceAddress);
 	assertTimestampEqual(content.timestamp, event.created_at, 'SERVICE_QUOTE_INVALID_TIMESTAMP');
-	assert(SERVICE_QUOTE_DECIMAL_RE.test(content.amountUsdt), 'SERVICE_QUOTE_INVALID_AMOUNT', 'Proposal amount must be decimal(2)', {
-		amountUsdt: content.amountUsdt
-	});
-	assert(content.estimatedEndTime > content.estimatedStartTime, 'SERVICE_QUOTE_INVALID_TIMING', 'Proposal estimated end time must be after start time', {
-		start: content.estimatedStartTime,
-		end: content.estimatedEndTime
-	});
+	assert(
+		SERVICE_QUOTE_DECIMAL_RE.test(content.amountUsdt),
+		'SERVICE_QUOTE_INVALID_AMOUNT',
+		'Proposal amount must be decimal(2)',
+		{
+			amountUsdt: content.amountUsdt
+		}
+	);
+	assert(
+		content.estimatedEndTime > content.estimatedStartTime,
+		'SERVICE_QUOTE_INVALID_TIMING',
+		'Proposal estimated end time must be after start time',
+		{
+			start: content.estimatedStartTime,
+			end: content.estimatedEndTime
+		}
+	);
 
 	const computedExpiration = computeProposalExpiration(
 		event.created_at,
 		content.expirationDays,
 		content.expirationHours
 	);
-	assert(content.expirationTimestamp === computedExpiration, 'SERVICE_QUOTE_INVALID_EXPIRATION', 'Proposal expirationTimestamp must match computed expiration', {
-		expirationTimestamp: content.expirationTimestamp,
-		computedExpiration
-	});
+	assert(
+		content.expirationTimestamp === computedExpiration,
+		'SERVICE_QUOTE_INVALID_EXPIRATION',
+		'Proposal expirationTimestamp must match computed expiration',
+		{
+			expirationTimestamp: content.expirationTimestamp,
+			computedExpiration
+		}
+	);
 	assert(
 		expirationTag === String(computedExpiration),
 		'SERVICE_QUOTE_INVALID_EXPIRATION',
@@ -568,61 +853,120 @@ export function validateServiceProposalStatusEvent(
 	const schemaVersion = getSingleTagValue(event.tags, TAGS.Z);
 	const statusTag = getSingleTagValue(event.tags, TAGS.S);
 
-	assert(event.kind === KINDS.SERVICE_PROPOSAL_STATUS, 'SERVICE_QUOTE_INVALID_KIND', 'Proposal status event kind is invalid', {
-		kind: event.kind
-	});
+	assert(
+		event.kind === KINDS.SERVICE_PROPOSAL_STATUS,
+		'SERVICE_QUOTE_INVALID_KIND',
+		'Proposal status event kind is invalid',
+		{
+			kind: event.kind
+		}
+	);
 	assertCanonicalMessageType(event, SERVICE_QUOTE_MESSAGE_TYPES.STATUS, content.type, messageType);
-	assert(schemaVersion === SERVICE_QUOTE_SCHEMA_VERSION, 'SERVICE_QUOTE_INVALID_SCHEMA_VERSION', 'Schema version must be v1', {
-		schemaVersion
-	});
+	assert(
+		schemaVersion === SERVICE_QUOTE_SCHEMA_VERSION,
+		'SERVICE_QUOTE_INVALID_SCHEMA_VERSION',
+		'Schema version must be v1',
+		{
+			schemaVersion
+		}
+	);
 	assert(Boolean(network), 'SERVICE_QUOTE_INVALID_NETWORK', 'Status network tag is required');
-	assert(Boolean(parentEventId), 'SERVICE_QUOTE_INVALID_PARENT', 'Status must reference exactly one proposal via e tag');
+	assert(
+		Boolean(parentEventId),
+		'SERVICE_QUOTE_INVALID_PARENT',
+		'Status must reference exactly one proposal via e tag'
+	);
 	assertForbiddenTags(event.tags, ['expiration']);
 
 	const parsedD = parseProposalStatusD(dTag!);
-	assert(serviceAddress === content.serviceAddress, 'SERVICE_QUOTE_INVALID_SERVICE_ADDRESS', 'a tag must equal payload serviceAddress', {
-		serviceAddress,
-		payload: content.serviceAddress
-	});
-	assert(content.serviceId === content.serviceAddress, 'SERVICE_QUOTE_INVALID_SERVICE_ID', 'serviceId must equal serviceAddress', {
-		serviceId: content.serviceId,
-		serviceAddress: content.serviceAddress
-	});
-	assert(statusTag === content.status, 'SERVICE_QUOTE_INVALID_STATUS', 's tag must equal payload status', {
-		statusTag,
-		payload: content.status
-	});
-	assert(parsedD.status === content.status, 'SERVICE_QUOTE_INVALID_STATUS', 'd tag status must equal payload status', {
-		dTag,
-		payload: content.status
-	});
-	assert(parsedD.proposalId === content.proposalId, 'SERVICE_QUOTE_INVALID_PROPOSAL_ID', 'd tag proposal id must equal payload proposal id', {
-		dTag,
-		payload: content.proposalId
-	});
-	assert(parsedD.actorPubkey === content.actorPubkey, 'SERVICE_QUOTE_INVALID_ACTOR', 'd tag actor pubkey must equal payload actor pubkey', {
-		dTag,
-		payload: content.actorPubkey
-	});
-	assert(event.pubkey === content.actorPubkey, 'SERVICE_QUOTE_INVALID_ACTOR', 'Status author must equal payload actorPubkey', {
-		author: event.pubkey,
-		payload: content.actorPubkey
-	});
+	assert(
+		serviceAddress === content.serviceAddress,
+		'SERVICE_QUOTE_INVALID_SERVICE_ADDRESS',
+		'a tag must equal payload serviceAddress',
+		{
+			serviceAddress,
+			payload: content.serviceAddress
+		}
+	);
+	assert(
+		content.serviceId === content.serviceAddress,
+		'SERVICE_QUOTE_INVALID_SERVICE_ID',
+		'serviceId must equal serviceAddress',
+		{
+			serviceId: content.serviceId,
+			serviceAddress: content.serviceAddress
+		}
+	);
+	assert(
+		statusTag === content.status,
+		'SERVICE_QUOTE_INVALID_STATUS',
+		's tag must equal payload status',
+		{
+			statusTag,
+			payload: content.status
+		}
+	);
+	assert(
+		parsedD.status === content.status,
+		'SERVICE_QUOTE_INVALID_STATUS',
+		'd tag status must equal payload status',
+		{
+			dTag,
+			payload: content.status
+		}
+	);
+	assert(
+		parsedD.proposalId === content.proposalId,
+		'SERVICE_QUOTE_INVALID_PROPOSAL_ID',
+		'd tag proposal id must equal payload proposal id',
+		{
+			dTag,
+			payload: content.proposalId
+		}
+	);
+	assert(
+		parsedD.actorPubkey === content.actorPubkey,
+		'SERVICE_QUOTE_INVALID_ACTOR',
+		'd tag actor pubkey must equal payload actor pubkey',
+		{
+			dTag,
+			payload: content.actorPubkey
+		}
+	);
+	assert(
+		event.pubkey === content.actorPubkey,
+		'SERVICE_QUOTE_INVALID_ACTOR',
+		'Status author must equal payload actorPubkey',
+		{
+			author: event.pubkey,
+			payload: content.actorPubkey
+		}
+	);
 	assertOptionalMirrorTag(event.tags, content.serviceAddress);
 	assertStatusTimestamp(content, event, now);
 	assertPublishableAcceptedSnapshot(content);
 
 	const expectedRole = STATUS_ROLE_MAP[content.status];
 	if (expectedRole === 'tasker') {
-		assert(recipient !== event.pubkey, 'SERVICE_QUOTE_INVALID_RECIPIENT', 'Tasker-authored status recipient must be taskee', {
-			recipient,
-			author: event.pubkey
-		});
+		assert(
+			recipient !== event.pubkey,
+			'SERVICE_QUOTE_INVALID_RECIPIENT',
+			'Tasker-authored status recipient must be taskee',
+			{
+				recipient,
+				author: event.pubkey
+			}
+		);
 	} else {
-		assert(recipient !== event.pubkey, 'SERVICE_QUOTE_INVALID_RECIPIENT', 'Taskee-authored status recipient must be tasker', {
-			recipient,
-			author: event.pubkey
-		});
+		assert(
+			recipient !== event.pubkey,
+			'SERVICE_QUOTE_INVALID_RECIPIENT',
+			'Taskee-authored status recipient must be tasker',
+			{
+				recipient,
+				author: event.pubkey
+			}
+		);
 	}
 
 	return {
@@ -632,7 +976,9 @@ export function validateServiceProposalStatusEvent(
 	};
 }
 
-export function validateServiceQuoteEvent(event: NostrEvent): ServiceQuoteRequestEvent | ServiceProposalEvent | ServiceProposalStatusEvent {
+export function validateServiceQuoteEvent(
+	event: NostrEvent
+): ServiceQuoteRequestEvent | ServiceProposalEvent | ServiceProposalStatusEvent {
 	switch (event.kind) {
 		case KINDS.SERVICE_QUOTE_REQUEST:
 			return validateServiceQuoteRequestEvent(event);
@@ -641,9 +987,13 @@ export function validateServiceQuoteEvent(event: NostrEvent): ServiceQuoteReques
 		case KINDS.SERVICE_PROPOSAL_STATUS:
 			return validateServiceProposalStatusEvent(event);
 		default:
-			throw new ServiceQuoteProtocolError('SERVICE_QUOTE_INVALID_KIND', 'Unsupported service quote event kind', {
-				kind: event.kind
-			});
+			throw new ServiceQuoteProtocolError(
+				'SERVICE_QUOTE_INVALID_KIND',
+				'Unsupported service quote event kind',
+				{
+					kind: event.kind
+				}
+			);
 	}
 }
 
@@ -655,7 +1005,11 @@ export function canPublishAcceptedStatus(enabled: boolean, status?: ServicePropo
 	if (status && status !== 'accepted') {
 		return;
 	}
-	assert(enabled, 'SERVICE_QUOTE_ACCEPT_DISABLED', 'Service proposal acceptance is disabled until the purchase-key escrow capability is available');
+	assert(
+		enabled,
+		'SERVICE_QUOTE_ACCEPT_DISABLED',
+		'Service proposal acceptance is disabled until the purchase-key escrow capability is available'
+	);
 }
 
 export function assertPublishableServiceProposalStatusContent(
@@ -716,8 +1070,7 @@ export async function detectRelayCapability(relay: string): Promise<ServiceQuote
 
 export function selectProposalPublishRelays(capabilities: ServiceQuoteRelayCapability[]): string[] {
 	const compatible = capabilities.filter(
-		(capability) =>
-			capability.state === 'supports_40' || capability.state === 'unknown'
+		(capability) => capability.state === 'supports_40' || capability.state === 'unknown'
 	);
 	assert(
 		compatible.length > 0,
@@ -778,10 +1131,11 @@ export function resolveProposalState(
 	} else {
 		const transient = [...acceptedTransitionStatuses]
 			.reverse()
-			.find((event) =>
-				event.content.status === 'accepting' ||
-				event.content.status === 'accept_failed' ||
-				event.content.status === 'accept_unknown'
+			.find(
+				(event) =>
+					event.content.status === 'accepting' ||
+					event.content.status === 'accept_failed' ||
+					event.content.status === 'accept_unknown'
 			);
 		state = transient?.content.status || 'pending';
 	}

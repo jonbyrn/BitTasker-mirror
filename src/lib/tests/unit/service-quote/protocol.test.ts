@@ -4,6 +4,7 @@ import {
 	buildProposalD,
 	buildProposalStatusD,
 	buildQuoteRequestD,
+	buildServiceAddress,
 	buildServiceAddressFromParts,
 	canPublishAcceptedStatus,
 	parseProposalD,
@@ -162,6 +163,17 @@ describe('service-quote protocol', () => {
 			status: 'accepting',
 			actorPubkey: taskerPubkey
 		});
+	});
+
+	it('uses the backing event kind when building service addresses for inactive published listings', () => {
+		expect(
+			buildServiceAddress({
+				npub: servicePubkey,
+				uniqueId: 'service-1234',
+				status: 'inactive',
+				eventKind: KINDS.SERVICE_ACTIVE
+			})
+		).toBe(serviceAddress);
 	});
 
 	it('validates canonical quote request events and rejects recipient drift', () => {
