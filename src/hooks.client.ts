@@ -26,9 +26,9 @@ if (process.env.NODE_ENV !== 'development') {
 		// If you don't want to use Session Replay, just remove the line below:
 		integrations: [replayIntegration()],
 
-		// Enable sending user PII (Personally Identifiable Information)
+		// Disable sending user PII (IP address, cookies, user info) to Sentry.
 		// https://docs.sentry.io/platforms/javascript/guides/sveltekit/configuration/options/#sendDefaultPii
-		sendDefaultPii: true
+		sendDefaultPii: false
 	});
 }
 
