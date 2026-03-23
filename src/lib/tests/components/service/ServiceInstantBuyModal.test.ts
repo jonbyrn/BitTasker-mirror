@@ -21,7 +21,7 @@ describe('ServiceInstantBuyModal', () => {
 			estimatedCompletionTime: 1_700_345_600
 		});
 
-		expect(getByText('Confirm Instant Buy')).toBeTruthy();
+		expect(getByText('Confirm Book Now')).toBeTruthy();
 		expect(getByText('Brand Identity Sprint')).toBeTruthy();
 		expect(getByTestId('service-agreement-provider').textContent).toContain('Designer');
 		expect(getByTestId('service-agreement-price').textContent).toContain('$250.00');
@@ -46,7 +46,7 @@ describe('ServiceInstantBuyModal', () => {
 			},
 			estimatedStartTime: 1_700_086_400,
 			estimatedCompletionTime: 1_700_259_200,
-			errorMessage: 'Provider wallet is unavailable for instant buy.',
+			errorMessage: 'Provider wallet is unavailable for Book Now.',
 			errorHint: 'Retry after the provider updates the wallet address.',
 			isSubmitting: true,
 			onClose,
@@ -62,9 +62,11 @@ describe('ServiceInstantBuyModal', () => {
 
 		const confirmButton = getByTestId('service-instant-buy-confirm') as HTMLButtonElement;
 		expect(confirmButton.disabled).toBe(true);
-		expect(queryByText('Buy Now')).toBeTruthy();
+		expect(queryByText('Book Now')).toBeTruthy();
 
-		const cancelButton = document.querySelector('.modal-action .btn-ghost') as HTMLButtonElement | null;
+		const cancelButton = document.querySelector(
+			'.modal-action .btn-ghost'
+		) as HTMLButtonElement | null;
 		expect(cancelButton?.disabled).toBe(true);
 
 		expect(onConfirm).not.toHaveBeenCalled();
@@ -76,13 +78,13 @@ describe('ServiceInstantBuyModal', () => {
 		const { getByTestId, getByText } = render(ServiceInstantBuyModal, {
 			open: true,
 			serviceTitle: 'Landing Page Build',
-			errorMessage: 'Unable to prepare instant buy right now.',
+			errorMessage: 'Unable to prepare Book Now right now.',
 			canConfirm: false,
 			onRetry
 		});
 
 		expect(getByTestId('service-instant-buy-error').textContent).toContain(
-			'Unable to prepare instant buy right now.'
+			'Unable to prepare Book Now right now.'
 		);
 		expect(getByText('Retry')).toBeTruthy();
 		await fireEvent.click(getByTestId('service-instant-buy-retry'));

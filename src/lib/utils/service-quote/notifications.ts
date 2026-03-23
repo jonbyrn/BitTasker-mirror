@@ -320,7 +320,7 @@ export function dispatchServiceContractCreatedNotification(
 			title: `New service contract created for ${contextTitle}`,
 			body:
 				input.purchaseMode === 'instant_buy'
-					? `A buyer placed an instant-buy order for ${contextTitle}.`
+					? `A buyer placed a Book Now order for ${contextTitle}.`
 					: `Your service proposal for ${contextTitle} has been accepted.`,
 			type: 'contract_created',
 			clickAction: buildContractsClickAction(input.escrowId)

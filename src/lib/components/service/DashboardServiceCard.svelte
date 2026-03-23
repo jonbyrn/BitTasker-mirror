@@ -20,7 +20,13 @@
 		icon: string;
 	}
 
-	const { service, getActionButtons, onStatusToggle, isTogglingStatus, btcPrice = 0 } = $props<{
+	const {
+		service,
+		getActionButtons,
+		onStatusToggle,
+		isTogglingStatus,
+		btcPrice = 0
+	} = $props<{
 		service: Service;
 		getActionButtons: (service: Service) => ActionButton[];
 		onStatusToggle?: (e: MouseEvent) => void;
@@ -28,15 +34,24 @@
 		btcPrice?: number;
 	}>();
 
+	function tr(key: string, fallback: string): string {
+		try {
+			const value = $t(key);
+			return typeof value === 'string' && value !== key ? value : fallback;
+		} catch {
+			return fallback;
+		}
+	}
+
 	function getPriceDisplay(): string {
 		if (service.pricing?.type === ServicePricingTypeEnum.FIXED) {
 			return `$${formatNumberWithTwoDecimals(service.pricing.amount || 0)}`;
 		} else if (service.pricing?.type === ServicePricingTypeEnum.HOURLY) {
 			return `$${formatNumberWithTwoDecimals(service.pricing.hourlyRate || 0)}/hr`;
 		} else if (service.pricing?.type === ServicePricingTypeEnum.TIERED) {
-			return 'Tiered pricing';
+			return tr('dashboard.services.my_services.pricing_type.tiered_pricing', 'Tiered pricing');
 		}
-		return 'Quote required';
+		return tr('dashboard.services.my_services.pricing_type.quote_required', 'Quote required');
 	}
 
 	function getStatusColor(status: string): string {
@@ -55,11 +70,11 @@
 	function getStatusLabel(status: string): string {
 		switch (status) {
 			case 'active':
-				return $t('dashboard.services.my_services.status_active') || 'Active';
+				return tr('dashboard.services.my_services.status_active', 'Active');
 			case 'inactive':
-				return $t('dashboard.services.my_services.status_inactive') || 'Inactive';
+				return tr('dashboard.services.my_services.status_inactive', 'Inactive');
 			case 'sold':
-				return $t('dashboard.services.my_services.status_sold') || 'Sold';
+				return tr('dashboard.services.my_services.status_sold', 'Sold');
 			default:
 				return status;
 		}
@@ -80,7 +95,7 @@
 
 		// Check if service has remote location type
 		if (locationDetails?.types?.includes('remote')) {
-			return 'Remote';
+			return tr('dashboard.services.my_services.location.remote', 'Remote');
 		}
 
 		return '';
@@ -108,11 +123,14 @@
 		<!-- Top Row: Title + Status Badge + Share Button + Price -->
 		<div class="mb-3 flex flex-row items-stretch justify-between gap-2">
 			<!-- Left: Title + Description (flexible, takes available space) -->
-			<div class="min-w-0 flex-1 pr-2 md:pr-4 transition-opacity duration-300" class:opacity-50={service.status !== 'active'}>
+			<div
+				class="min-w-0 flex-1 pr-2 transition-opacity duration-300 md:pr-4"
+				class:opacity-50={service.status !== 'active'}
+			>
 				<span class="card-title line-clamp-2 text-lg font-semibold">
 					{getServiceDisplayTitle(service, $locale || 'en')}
 				</span>
-				<p class="text-sm text-base-content/80 line-clamp-2 mt-1">
+				<p class="text-base-content/80 mt-1 line-clamp-2 text-sm">
 					{getServiceDisplayDescription(service, $locale || 'en') || '—'}
 				</p>
 			</div>
@@ -120,7 +138,11 @@
 			<div class="flex shrink-0 flex-col items-end gap-2">
 				<!-- Row 1: Badge + Share Button -->
 				<div class="flex items-center gap-2">
-					<div class="badge {getStatusColor(service.status)} badge-sm max-w-[100px] truncate text-center">
+					<div
+						class="badge {getStatusColor(
+							service.status
+						)} badge-sm max-w-[100px] truncate text-center"
+					>
 						{getStatusLabel(service.status)}
 					</div>
 					<span
@@ -133,11 +155,14 @@
 							}
 						}}
 					>
-						<ServiceShareButton service={service} variant="circle" class="btn-xs" />
+						<ServiceShareButton {service} variant="circle" class="btn-xs" />
 					</span>
 				</div>
 				<!-- Row 2: Price -->
-				<div class="text-right text-xl font-bold transition-opacity duration-300" class:opacity-50={service.status !== 'active'}>
+				<div
+					class="text-right text-xl font-bold transition-opacity duration-300"
+					class:opacity-50={service.status !== 'active'}
+				>
 					{getPriceDisplay()}
 
 					<div class="text-base-content/60 text-sm">
@@ -153,14 +178,17 @@
 
 		<!-- Second Row: Service Location -->
 		{#if getLocationDisplay()}
-			<div class="mb-3 flex items-center gap-2 transition-opacity duration-300" class:opacity-50={service.status !== 'active'}>
+			<div
+				class="mb-3 flex items-center gap-2 transition-opacity duration-300"
+				class:opacity-50={service.status !== 'active'}
+			>
 				<IconMapMarker class="text-primary h-8 w-8 shrink-0" />
 				<div class="flex min-w-0 flex-1 flex-wrap items-center gap-1">
 					<span class="line-clamp-2 text-sm font-medium">
 						{getLocationDisplay()}
 					</span>
 					{#if getServiceRadiusDisplay()}
-						<span class="text-sm text-base-content/60">
+						<span class="text-base-content/60 text-sm">
 							{getServiceRadiusDisplay()}
 						</span>
 					{/if}
@@ -173,29 +201,40 @@
 			<!-- Location badges display -->
 			{#if service.locationDetails?.types && service.locationDetails.types.length > 0}
 				<div class="flex flex-wrap gap-1">
-					{#each service.locationDetails.types as locationType}
+					{#each service.locationDetails.types as locationType (locationType)}
 						<span class="badge badge-outline badge-sm">
 							{locationType === 'remote'
-								? 'Remote'
+								? tr('dashboard.services.my_services.location.remote', 'Remote')
 								: locationType === 'tasker_location'
-									? 'My Location'
-									: 'Tasker Location'}
+									? tr('dashboard.services.my_services.location.my_location', 'My Location')
+									: tr(
+											'dashboard.services.my_services.location.tasker_location',
+											'Tasker Location'
+										)}
 						</span>
 					{/each}
 				</div>
 			{/if}
 
 			<!-- Pricing type info + Toggle -->
-			<div class="flex items-center justify-between gap-2 text-xs text-base-content/70">
+			<div class="text-base-content/70 flex items-center justify-between gap-2 text-xs">
 				<div class="flex items-center gap-2">
 					{#if service.pricing?.type === ServicePricingTypeEnum.FIXED}
-						<span class="badge badge-outline badge-sm">Fixed</span>
+						<span class="badge badge-outline badge-sm">
+							{tr('dashboard.services.my_services.pricing_type.fixed', 'Fixed')}
+						</span>
 					{:else if service.pricing?.type === ServicePricingTypeEnum.HOURLY}
-						<span class="badge badge-outline badge-sm">Hourly</span>
+						<span class="badge badge-outline badge-sm">
+							{tr('dashboard.services.my_services.pricing_type.hourly', 'Hourly')}
+						</span>
 					{:else if service.pricing?.type === ServicePricingTypeEnum.TIERED}
-						<span class="badge badge-outline badge-sm">Tiered</span>
+						<span class="badge badge-outline badge-sm">
+							{tr('dashboard.services.my_services.pricing_type.tiered', 'Tiered')}
+						</span>
 					{:else}
-						<span class="badge badge-outline badge-sm">Quote</span>
+						<span class="badge badge-outline badge-sm">
+							{tr('dashboard.services.my_services.pricing_type.quote', 'Quote')}
+						</span>
 					{/if}
 				</div>
 				{#if onStatusToggle && service.status !== 'sold'}
@@ -207,7 +246,11 @@
 							onchange={onStatusToggle}
 							disabled={isTogglingStatus}
 						/>
-						<span class="label-text text-sm transition-opacity duration-200">{service.status === 'active' ? 'Active' : 'Inactive'}</span>
+						<span class="label-text text-sm transition-opacity duration-200">
+							{service.status === 'active'
+								? tr('dashboard.services.my_services.status_active', 'Active')
+								: tr('dashboard.services.my_services.status_inactive', 'Inactive')}
+						</span>
 					</label>
 				{/if}
 			</div>

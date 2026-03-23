@@ -148,7 +148,7 @@ describe('service quote notification helpers', () => {
 			expect.objectContaining({
 				type: 'contract_created',
 				title: 'New service contract created for Migration audit',
-				body: 'A buyer placed an instant-buy order for Migration audit.',
+				body: 'A buyer placed a Book Now order for Migration audit.',
 				clickAction:
 					'https://bittasker.test/dashboard?tab=contracts&context=services&highlight=svc-123'
 			})

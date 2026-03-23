@@ -54,6 +54,7 @@
 			"link_copy_failed": "Failed to copy link"
 		},
 		"share": {
+			"price": "Price",
 			"budget": "Budget",
 			"deadline": "Deadline",
 			"location": "Location",

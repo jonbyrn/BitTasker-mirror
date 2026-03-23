@@ -189,7 +189,7 @@
 		if (instantBuyEligibility.code === 'missing_selected_tier') {
 			return (
 				$t('dashboard.services.detail.instant_buy.select_tier_required') ||
-				'Select a tier above to use Buy Now'
+				'Select a tier above to use Book Now'
 			);
 		}
 		if (instantBuyEligibility.code === 'invalid_selected_tier') {
@@ -452,7 +452,7 @@
 		} catch (error) {
 			instantBuyDraft = existingDraft ?? null;
 			instantBuyErrorMessage =
-				error instanceof Error ? error.message : 'Unable to prepare instant buy right now.';
+				error instanceof Error ? error.message : 'Unable to prepare Book Now right now.';
 		} finally {
 			instantBuyPreparing = false;
 		}
@@ -470,7 +470,7 @@
 		}
 		if (!instantBuyEligibility.eligible) {
 			appStore.showErrorToast(
-				instantBuyDisabledReason || 'This service is not ready for instant buy.'
+				instantBuyDisabledReason || 'This service is not ready for Book Now.'
 			);
 			return;
 		}
@@ -524,7 +524,7 @@
 			if (!contractResult.success) {
 				const feedback = describeServiceContractPreflightFailure(
 					contractResult.errorCode,
-					contractResult.error || 'Unable to complete instant buy right now.'
+					contractResult.error || 'Unable to complete Book Now right now.'
 				);
 				instantBuyErrorMessage = feedback.message;
 				instantBuyErrorHint = feedback.hint ?? '';
@@ -543,13 +543,13 @@
 			clearPendingServiceContractNavigation(
 				typeof window === 'undefined' ? null : window.sessionStorage
 			);
-			appStore.showSuccessToast('Instant-buy order confirmed. Opening your service contract.');
+			appStore.showSuccessToast('Book Now order confirmed. Opening your service contract.');
 			instantBuyModalOpen = false;
 			resetInstantBuyState();
 			await goto(buildContractsHighlightUrl(contractCreationEvent.escrowId));
 		} catch (error) {
 			const errorMessage =
-				error instanceof Error ? error.message : 'Unable to complete instant buy right now.';
+				error instanceof Error ? error.message : 'Unable to complete Book Now right now.';
 
 			if (
 				errorMessage ===
@@ -1157,7 +1157,7 @@
 
 	<ServiceInstantBuyModal
 		open={instantBuyModalOpen}
-		title="Confirm Instant Buy"
+		title="Confirm Book Now"
 		serviceTitle={displayTitle}
 		providerName={instantBuyDraft?.providerName ?? service?.creator?.username ?? null}
 		selectedTierLabel={instantBuyDraft?.selectedTierLabel ?? null}

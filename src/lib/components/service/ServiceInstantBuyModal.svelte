@@ -7,7 +7,7 @@
 
 	let {
 		open = false,
-		title = 'Confirm Instant Buy',
+		title = 'Confirm Book Now',
 		serviceTitle = '',
 		providerName = null,
 		selectedTierLabel = null,
@@ -69,7 +69,8 @@
 						data-testid="service-instant-buy-offline-alert"
 					>
 						<span>
-							You are offline. Reconnect before funding this service contract. Your current review stays open here.
+							You are offline. Reconnect before funding this service contract. Your current review
+							stays open here.
 						</span>
 					</div>
 				{:else if showReconnectNotice}
@@ -82,7 +83,7 @@
 				{/if}
 
 				{#if isPreparing}
-					<div class="rounded-xl border border-base-300 bg-base-100 p-4 text-sm">
+					<div class="border-base-300 bg-base-100 rounded-xl border p-4 text-sm">
 						<div class="flex items-center gap-2" data-testid="service-instant-buy-preparing">
 							<span class="loading loading-spinner loading-sm"></span>
 							<span>Loading the latest service snapshot…</span>
@@ -96,7 +97,7 @@
 						{pricingSnapshot}
 						{instantOrderId}
 						{estimatedStartTime}
-						estimatedCompletionTime={estimatedCompletionTime}
+						{estimatedCompletionTime}
 					/>
 				{/if}
 			</div>
@@ -115,9 +116,7 @@
 			{/if}
 
 			<div class="modal-action">
-				<button class="btn btn-ghost" onclick={onClose} disabled={isSubmitting}>
-					Cancel
-				</button>
+				<button class="btn btn-ghost" onclick={onClose} disabled={isSubmitting}> Cancel </button>
 				{#if errorMessage && !isSubmitting && !isPreparing}
 					<button class="btn btn-outline" onclick={onRetry} data-testid="service-instant-buy-retry">
 						Retry
@@ -132,7 +131,7 @@
 					{#if isSubmitting}
 						<span class="loading loading-spinner loading-xs"></span>
 					{/if}
-					Buy Now
+					Book Now
 				</button>
 			</div>
 		</div>

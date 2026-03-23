@@ -278,6 +278,50 @@ describe('ServiceDetailsView instant buy flow', () => {
 		expect(getByText('dashboard.services.detail.request_quote')).toBeTruthy();
 	}, 40_000);
 
+	it('shows Buy Now when fixed-price services rely on instantBuyDeliveryHours instead of pricing.deliveryTime', async () => {
+		const instantBuyDeliveryHoursService = {
+			...baseService,
+			pricing: {
+				type: ServicePricingTypeEnum.FIXED,
+				currency: 'USDt',
+				amount: 200
+			},
+			instantBuyDeliveryHours: 48
+		} as Service;
+
+		mockFindServiceByUniqueId.mockResolvedValue(instantBuyDeliveryHoursService);
+
+		const { getByTestId, getByText } = renderView(
+			instantBuyDeliveryHoursService,
+			instantBuyDeliveryHoursService.uniqueId
+		);
+
+		expect(getByTestId('service-detail-buy-now')).toBeTruthy();
+		expect(getByText('dashboard.services.detail.request_quote')).toBeTruthy();
+	});
+
+	it('falls back to Request Quote only when a saved fixed-price service is missing both delivery fields', async () => {
+		const missingDeliveryTimeService = {
+			...baseService,
+			pricing: {
+				type: ServicePricingTypeEnum.FIXED,
+				currency: 'USDt',
+				amount: 200
+			},
+			instantBuyDeliveryHours: undefined
+		} as Service;
+
+		mockFindServiceByUniqueId.mockResolvedValue(missingDeliveryTimeService);
+
+		const { queryByTestId, getByText } = renderView(
+			missingDeliveryTimeService,
+			missingDeliveryTimeService.uniqueId
+		);
+
+		expect(queryByTestId('service-detail-buy-now')).toBeNull();
+		expect(getByText('dashboard.services.detail.request_quote')).toBeTruthy();
+	});
+
 	it('falls back to Request Quote only when the listing is not instant-buy eligible', async () => {
 		const inquiryOnlyService = {
 			...baseService,
@@ -506,7 +550,7 @@ describe('ServiceDetailsView instant buy flow', () => {
 		});
 		await waitFor(() => {
 			expect(mockShowSuccessToast).toHaveBeenCalledWith(
-				'Instant-buy order confirmed. Opening your service contract.'
+				'Book Now order confirmed. Opening your service contract.'
 			);
 		});
 		await waitFor(() => {
@@ -528,7 +572,7 @@ describe('ServiceDetailsView instant buy flow', () => {
 
 		expect(await findByTestId('service-instant-buy-modal')).toBeTruthy();
 		expect((await findByTestId('service-instant-buy-error')).textContent).toContain(
-			'This service was updated. Refresh the page to review the latest details before using Buy Now.'
+			'This service was updated. Refresh the page to review the latest details before using Book Now.'
 		);
 		expect(mockShowErrorToast).not.toHaveBeenCalled();
 		expect(mockCreateServiceContract).not.toHaveBeenCalled();
@@ -548,7 +592,7 @@ describe('ServiceDetailsView instant buy flow', () => {
 
 		expect(mockCreateServiceContract).not.toHaveBeenCalled();
 		expect((await findByTestId('service-instant-buy-error')).textContent).toContain(
-			'This service was updated. Refresh the page to review the latest details before using Buy Now.'
+			'This service was updated. Refresh the page to review the latest details before using Book Now.'
 		);
 	}, 20_000);
 
@@ -563,7 +607,7 @@ describe('ServiceDetailsView instant buy flow', () => {
 		mockFindServiceByUniqueId.mockResolvedValue(serviceWithoutWallet);
 		mockCreateServiceContract.mockResolvedValueOnce({
 			success: false,
-			error: 'Provider wallet is unavailable for instant buy.',
+			error: 'Provider wallet is unavailable for Book Now.',
 			errorCode: 'invalid_provider_wallet'
 		});
 
@@ -578,7 +622,7 @@ describe('ServiceDetailsView instant buy flow', () => {
 
 		expect(mockCreateServiceContract).toHaveBeenCalledTimes(1);
 		expect((await findByTestId('service-instant-buy-error')).textContent).toContain(
-			'Provider wallet is unavailable for instant buy.'
+			'Provider wallet is unavailable for Book Now.'
 		);
 	});
 

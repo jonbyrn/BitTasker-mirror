@@ -11,8 +11,35 @@
 				"portfolio": "Portafolio",
 				"faqs": "Preguntas Frecuentes",
 				"attachment": "Adjunto",
+				"image_alt": "Imagen del servicio",
 				"taskee": "Taskee",
 				"avatar_alt": "Avatar del Taskee",
+				"skills": "Habilidades",
+				"categories": "Categorías",
+				"posted": "Publicado",
+				"no_description": "Sin descripción",
+				"pricing_tiers": "Niveles de precio",
+				"tier": "Nivel",
+				"addon": "Complemento",
+				"question": "Pregunta",
+				"status": {
+					"active": "Activo",
+					"inactive": "Inactivo",
+					"sold": "Vendido"
+				},
+				"location": {
+					"remote": "Remoto",
+					"my_location": "Mi ubicación",
+					"tasker_location": "Ubicación del tasker"
+				},
+				"pricing_type": {
+					"fixed": "Fijo",
+					"hourly": "Por hora",
+					"tiered": "Por niveles",
+					"quote": "Cotización",
+					"tiered_pricing": "Precios por niveles",
+					"quote_required": "Cotización requerida"
+				},
 				"interested": "¿Te interesa este servicio?",
 				"contact_taskee": "Contactar Taskee",
 				"request_quote": "Solicitar Cotización",
@@ -38,7 +65,9 @@
 				"price_levels": "Niveles de Precio",
 				"select_tier": "Elige un paquete",
 				"instant_buy": {
-					"select_tier_required": "Selecciona un paquete para continuar con Comprar Ahora."
+					"select_tier_required": "Selecciona un paquete para continuar con Reservar ahora.",
+					"invalid_tier": "El paquete seleccionado ya no está disponible.",
+					"not_eligible": "Este servicio no es elegible para Reservar ahora."
 				},
 				"addons_title": "Complementos",
 				"base_price": "Precio base",

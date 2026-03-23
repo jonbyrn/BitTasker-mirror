@@ -109,8 +109,8 @@
 					"tiered_note": "Configure your service tiers in the next step",
 					"inquiry_note": "Taskers will be able to request a quote for this service.",
 					"instant_buy": {
-						"enable_label": "Enable instant buy",
-						"enable_description": "Allow buyers to purchase this service immediately from your service listing page.",
+						"enable_label": "Enable Book Now",
+						"enable_description": "Allow buyers to book this service immediately from your service listing page.",
 						"lead_time_label": "Lead time before the service starts (hours)",
 						"delivery_time_label": "Delivery time (hours)",
 						"delivery_time_hint": "Estimated time to complete and deliver the service to the buyer"
