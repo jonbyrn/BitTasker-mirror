@@ -94,7 +94,7 @@ vi.mock('$lib/utils/serviceDisplayTranslation', () => ({
 	getServiceDisplayTitle: vi.fn((service: Service) => service.title),
 	getServiceDisplayDescription: vi.fn((service: Service) => service.description),
 	getServiceDisplayTiers: vi.fn((service: Service) => service.pricing?.tiers ?? []),
-	getServiceDisplayAddOns: vi.fn(() => []),
+	getServiceDisplayAddOns: vi.fn((service: Service) => service.pricing?.addOns ?? []),
 	getServiceDisplayFaqs: vi.fn(() => []),
 	getServiceDeliveryTimeDisplay: vi.fn(() => '2-3 days')
 }));
@@ -272,10 +272,11 @@ describe('ServiceDetailsView instant buy flow', () => {
 	});
 
 	it('shows Buy Now and Request Quote together for eligible fixed-price services', async () => {
-		const { getByTestId, getByText } = renderView(baseService, baseService.uniqueId);
+		const { getByTestId, getByText, queryByText } = renderView(baseService, baseService.uniqueId);
 
 		expect(getByTestId('service-detail-buy-now')).toBeTruthy();
 		expect(getByText('dashboard.services.detail.request_quote')).toBeTruthy();
+		expect(queryByText('dashboard.services.detail.instant_buy.not_eligible')).toBeNull();
 	}, 40_000);
 
 	it('shows Buy Now when fixed-price services rely on instantBuyDeliveryHours instead of pricing.deliveryTime', async () => {
@@ -294,6 +295,36 @@ describe('ServiceDetailsView instant buy flow', () => {
 		const { getByTestId, getByText } = renderView(
 			instantBuyDeliveryHoursService,
 			instantBuyDeliveryHoursService.uniqueId
+		);
+
+		expect(getByTestId('service-detail-buy-now')).toBeTruthy();
+		expect(getByText('dashboard.services.detail.request_quote')).toBeTruthy();
+	});
+
+	it('keeps Book Now available for fixed-price services that offer add-ons', async () => {
+		const addOnEligibleService = {
+			...baseService,
+			pricing: {
+				type: ServicePricingTypeEnum.FIXED,
+				currency: 'USDt',
+				amount: 200,
+				addOns: [
+					{
+						id: 'source-files',
+						name: 'Source files',
+						price: 25,
+						description: 'Editable export package.'
+					}
+				]
+			},
+			instantBuyDeliveryHours: 48
+		} as Service;
+
+		mockFindServiceByUniqueId.mockResolvedValue(addOnEligibleService);
+
+		const { getByTestId, getByText } = renderView(
+			addOnEligibleService,
+			addOnEligibleService.uniqueId
 		);
 
 		expect(getByTestId('service-detail-buy-now')).toBeTruthy();
@@ -559,6 +590,70 @@ describe('ServiceDetailsView instant buy flow', () => {
 			);
 		});
 	}, 35_000);
+
+	it('includes selected add-ons in the Book Now total and contract snapshots', async () => {
+		const addOnService = {
+			...baseService,
+			pricing: {
+				type: ServicePricingTypeEnum.FIXED,
+				currency: 'USDt',
+				amount: 200,
+				addOns: [
+					{
+						id: 'source-files',
+						name: 'Source files',
+						price: 25,
+						description: 'Editable export package.'
+					}
+				]
+			},
+			instantBuyDeliveryHours: 48
+		} as Service;
+
+		mockFindServiceByUniqueId.mockResolvedValue(addOnService);
+
+		const { getByLabelText, getByTestId, findByTestId } = renderView(
+			addOnService,
+			addOnService.uniqueId
+		);
+
+		await fireEvent.click(getByLabelText('Source files'));
+		await fireEvent.click(getByTestId('service-detail-buy-now'));
+
+		expect(await findByTestId('service-instant-buy-modal')).toBeTruthy();
+		expect((await findByTestId('service-agreement-price')).textContent).toContain('$225');
+
+		await fireEvent.click(getByTestId('service-instant-buy-confirm'));
+
+		await waitFor(() => expect(mockCreateServiceContract).toHaveBeenCalledTimes(1));
+		expect(mockCreateServiceContract).toHaveBeenCalledWith({
+			freelancerPubkey: 'a'.repeat(64),
+			freelancerAddress: '0x2222222222222222222222222222222222222222',
+			amountUsdt: '225.00',
+			estimatedStartTime: 1_700_086_400,
+			estimatedCompletionTime: 1_700_259_200,
+			serviceId: 'service-123',
+			serviceAddress: `30402:${'a'.repeat(64)}:service-123`,
+			serviceTitle: 'Brand Identity Sprint',
+			serviceDescription: 'Logo, color palette, and social avatar pack.',
+			contextVersionRef: 'service-event-1',
+			purchaseMode: 'instant_buy',
+			instantOrderId: 'sib_123e4567e89b12d3',
+			selectedTierId: undefined,
+			pricingSnapshot: {
+				serviceVersionRef: 'service-event-1',
+				tierId: undefined,
+				selectedAddOns: ['source-files']
+			},
+			agreementSnapshot: {
+				deliverables: 'Logo, color palette, and social avatar pack.',
+				selectedTierId: undefined,
+				selectedAddOns: ['Source files'],
+				priceSnapshotRef: '3c4f154d30c3b678787c2d8068e0a5784e4112c17450c6d54c00ab61916dc7ad',
+				priceSnapshotLabel: '$225'
+			}
+		});
+	});
 
 	it('keeps prepare failures local to the instant-buy modal when the listing changed on the relay', async () => {
 		mockFindServiceByUniqueId.mockResolvedValue({

@@ -186,6 +186,9 @@
 	);
 	const isInstantBuyDisabled = $derived(!instantBuyEligibility.eligible);
 	const instantBuyDisabledReason = $derived.by(() => {
+		if (instantBuyEligibility.code === 'eligible') {
+			return '';
+		}
 		if (instantBuyEligibility.code === 'missing_selected_tier') {
 			return (
 				$t('dashboard.services.detail.instant_buy.select_tier_required') ||
@@ -310,18 +313,22 @@
 			return null;
 		}
 
+		const selectedAddOnsTotal = selectedAddOns.reduce((sum, addOn) => sum + (addOn.price ?? 0), 0);
+
 		if (runtimeService.pricing.type === ServicePricingTypeEnum.FIXED) {
-			return runtimeService.pricing.amount ?? null;
+			return runtimeService.pricing.amount != null
+				? runtimeService.pricing.amount + selectedAddOnsTotal
+				: null;
 		}
 
 		if (runtimeService.pricing.type !== ServicePricingTypeEnum.TIERED || !selectedTierId) {
 			return null;
 		}
 
-		return (
+		const tierPrice =
 			runtimeService.pricing.tiers?.find((tier: ServiceTier) => tier.id === selectedTierId)
-				?.price ?? null
-		);
+				?.price ?? null;
+		return tierPrice != null ? tierPrice + selectedAddOnsTotal : null;
 	}
 
 	function resolveProviderDisplayName(runtimeService: ServiceRuntimeFields): string | null {
@@ -343,6 +350,8 @@
 
 		return {
 			selectedTierId: selectedTierId ?? undefined,
+			selectedAddOns:
+				selectedAddOns.length > 0 ? selectedAddOns.map((addOn) => addOn.name) : undefined,
 			deliverables: includedScope,
 			priceSnapshotRef: purchaseKey,
 			priceSnapshotLabel: `$${formatNumberWithTwoDecimals(resolveInstantBuyAmountUsd(runtimeService) ?? 0)}`
@@ -366,7 +375,8 @@
 
 		const pricingSnapshot: ServiceContractPricingSnapshot = {
 			serviceVersionRef: runtimeService.id,
-			tierId: snapshot.selectedTierId
+			tierId: snapshot.selectedTierId,
+			selectedAddOns: selectedAddOnIds.length > 0 ? [...selectedAddOnIds] : undefined
 		};
 		const agreementSnapshot = buildInstantBuyAgreementSnapshot(
 			runtimeService,
