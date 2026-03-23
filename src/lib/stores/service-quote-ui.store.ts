@@ -29,7 +29,8 @@ import {
 import {
 	publishServiceProposal,
 	publishServiceProposalStatus,
-	publishServiceQuoteRequest
+	publishServiceQuoteRequest,
+	publishServiceQuoteRequestDeletion
 } from '$lib/utils/service-quote/publish';
 import {
 	beginServiceProposalAcceptance,
@@ -106,6 +107,15 @@ export interface TaskerProposalAcceptanceResult {
 	transactionHash?: string;
 	error?: string;
 	errorCode?: ServiceContractPreflightErrorCode;
+}
+
+export interface TaskerRequestDeletionInput {
+	quoteRequestId: string;
+}
+
+export interface TaskerRequestDeletionResult {
+	success: boolean;
+	error?: string;
 }
 
 type FocusSyncState = {
@@ -888,6 +898,69 @@ function createServiceQuoteUiStore() {
 				return {
 					success: false,
 					error: error instanceof Error ? error.message : 'Unable to update quote status.'
+				};
+			}
+		},
+		async deleteTaskerRequest(
+			input: TaskerRequestDeletionInput
+		): Promise<TaskerRequestDeletionResult> {
+			const currentState = get(store);
+			const timeline = currentState.taskerTimelines.find(
+				(entry) => entry.request.content.quoteRequestId === input.quoteRequestId
+			);
+
+			if (!timeline) {
+				return {
+					success: false,
+					error: 'Unable to locate the selected service request.'
+				};
+			}
+
+			if (timeline.linkedEscrowId) {
+				return {
+					success: false,
+					error: 'This service request is already linked to a contract and cannot be deleted.'
+				};
+			}
+
+			try {
+				await publishServiceQuoteRequestDeletion({
+					requestEventId: timeline.request.id,
+					taskerPubkey: timeline.request.pubkey
+				});
+
+				update((state) => ({
+					...state,
+					taskerTimelines: state.taskerTimelines.filter(
+						(entry) => entry.request.content.quoteRequestId !== input.quoteRequestId
+					),
+					providerTimelinesByService: Object.fromEntries(
+						Object.entries(state.providerTimelinesByService).map(([serviceAddress, timelines]) => [
+							serviceAddress,
+							timelines.filter(
+								(entry) => entry.request.content.quoteRequestId !== input.quoteRequestId
+							)
+						])
+					),
+					focusSync:
+						state.focusSync.requestId === input.quoteRequestId
+							? {
+									requestId: null,
+									serviceAddress: null,
+									expiresAt: null
+								}
+							: state.focusSync,
+					nonBlockingMessageCode: null
+				}));
+
+				return { success: true };
+			} catch (error) {
+				return {
+					success: false,
+					error:
+						error instanceof Error
+							? error.message
+							: 'Unable to delete this service request right now.'
 				};
 			}
 		},

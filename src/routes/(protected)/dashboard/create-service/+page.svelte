@@ -18,6 +18,7 @@
 	import { browser } from '$app/environment';
 	import { user } from '$lib/stores/user.store';
 	import { loadPageTranslations } from '$lib/i18n/routeTranslations';
+	import { buildEarningQueryUrl } from '$lib/utils/dashboardQuery';
 	import {
 		sanitizeInstantBuyLeadHours,
 		supportsInstantBuyAuthoring,
@@ -69,12 +70,19 @@
 		// Clear the appropriate draft (creation or edit)
 		store.clearDraft(isEditing);
 		// Navigate back to My Services
-		goto('/dashboard/my-services');
+		goto(getMyServicesUrl());
 	}
 
 	// Save draft before leaving the page
 	let isEditingMode = $state(false);
 	let beforeUnloadHandler: (() => void) | null = null;
+
+	function getMyServicesUrl(): string {
+		const baseUrl = browser ? new URL(window.location.origin) : new URL('https://bittasker.local');
+		return buildEarningQueryUrl(new URL('/earning', baseUrl), {
+			tab: 'my-services'
+		});
+	}
 
 	// Load the draft when the page is loaded
 	onMount(async () => {
@@ -97,7 +105,7 @@
 
 					if (!service) {
 						appStore.showErrorToast($t('dashboard.services.create.errors.service_not_found'));
-						goto('/dashboard/my-services');
+						goto(getMyServicesUrl());
 						return;
 					}
 
@@ -108,7 +116,7 @@
 				} catch (error) {
 					console.error('Error loading service for edit:', error);
 					appStore.showErrorToast($t('dashboard.services.create.errors.load_failed'));
-					goto('/dashboard/my-services');
+					goto(getMyServicesUrl());
 					return;
 				}
 			} else if (isDuplicating && serviceIdParam) {
@@ -291,6 +299,20 @@
 		try {
 			isSubmitting = true;
 
+			const normalizedPricing = $store.service.pricing
+				? {
+						...$store.service.pricing,
+						currency:
+							$store.service.pricing.currency === 'USDt'
+								? 'USD'
+								: ($store.service.pricing.currency ?? 'USD')
+					}
+				: {
+						type: ServicePricingTypeEnum.FIXED,
+						currency: 'USD',
+						amount: 0
+					};
+
 			// Files are uploaded immediately when selected, no need to upload here
 
 			const serviceData: ServiceBody = {
@@ -307,11 +329,7 @@
 				description: $store.service.description || '',
 				serviceLocationTypes: $store.service.serviceLocationTypes || [],
 				locationDetails: $store.service.locationDetails,
-				pricing: $store.service.pricing || {
-					type: ServicePricingTypeEnum.FIXED,
-					currency: 'USDt',
-					amount: 0
-				},
+				pricing: normalizedPricing,
 				skills: $store.service.skills || [],
 				categories: $store.service.categories || [],
 				portfolio: $store.service.portfolio,
@@ -338,7 +356,7 @@
 				await store.clearDraft(true);
 				await refreshMyServices();
 
-				await goto('/dashboard/my-services');
+				await goto(getMyServicesUrl());
 			} else {
 				await createService(serviceData);
 				appStore.showSuccessToast($t('dashboard.services.create.success.created'));
@@ -351,7 +369,7 @@
 				// Refresh My Services list and update store so the list is ready when we navigate
 				await refreshMyServices();
 
-				await goto('/dashboard/my-services');
+				await goto(getMyServicesUrl());
 			}
 		} catch (error) {
 			const errorMessage = isServiceEditConflictError(error)

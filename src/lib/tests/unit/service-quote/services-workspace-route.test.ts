@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+	createServicesWorkspaceRedirectUrl,
 	createServicesWorkspaceRedirectUrlFromLegacyDashboard,
 	createServicesWorkspaceUrl,
 	parseServicesWorkspaceRouteQuery,
@@ -116,9 +117,7 @@ describe('services workspace route helpers', () => {
 			}
 		);
 
-		expect(allServicesWorkspaceUrl.toString()).toBe(
-			'https://bittasker.test/services/manage?tab=quotes'
-		);
+		expect(allServicesWorkspaceUrl.toString()).toBe('https://bittasker.test/earning?tab=requests');
 
 		const workspaceUrl = createServicesWorkspaceUrl(
 			new URL('https://bittasker.test/services/manage?tab=listings'),
@@ -130,7 +129,7 @@ describe('services workspace route helpers', () => {
 		);
 
 		expect(workspaceUrl.toString()).toBe(
-			`https://bittasker.test/services/manage?tab=quotes&service=${encodeURIComponent(
+			`https://bittasker.test/earning?tab=requests&service=${encodeURIComponent(
 				serviceAddress
 			)}&request=qr_valid123`
 		);
@@ -144,5 +143,21 @@ describe('services workspace route helpers', () => {
 		);
 
 		expect(redirected?.toString()).toBe(workspaceUrl.toString());
+	});
+
+	it('redirects the legacy services workspace route to earnings', () => {
+		const redirected = createServicesWorkspaceRedirectUrl(
+			new URL(
+				`https://bittasker.test/services/manage?tab=quotes&service=${encodeURIComponent(
+					serviceAddress
+				)}&request=qr_valid123`
+			)
+		);
+
+		expect(redirected.toString()).toBe(
+			`https://bittasker.test/earning?tab=requests&service=${encodeURIComponent(
+				serviceAddress
+			)}&request=qr_valid123`
+		);
 	});
 });

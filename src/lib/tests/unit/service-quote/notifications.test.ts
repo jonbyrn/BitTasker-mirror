@@ -74,8 +74,8 @@ describe('service quote notification helpers', () => {
 		expect(call.title).toBe('New service inquiry received');
 		expect(call.body).toContain('Premium logo package');
 		const url = new URL(call.clickAction);
-		expect(url.pathname).toBe('/services/manage');
-		expect(url.searchParams.get('tab')).toBe('quotes');
+		expect(url.pathname).toBe('/earning');
+		expect(url.searchParams.get('tab')).toBe('requests');
 		expect(url.searchParams.get('service')).toBe(requestEvent.content.serviceAddress);
 		expect(url.searchParams.get('request')).toBe('qr_valid123');
 	});

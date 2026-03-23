@@ -492,15 +492,9 @@
 
 <div class="mx-auto h-full max-w-6xl px-2 py-6 md:px-0 md:py-0">
 	<!-- Dashboard Header -->
-	<div class="mb-6 flex items-center justify-between">
-		<div>
+	<div class="mb-6 flex items-center justify-between gap-3">
+		<div class="min-w-0">
 			<h3 class="font-bold">{translateOrFallback('dashboard.hiring.title', 'Hiring')}</h3>
-			<p class="text-base-content/70">
-				{translateOrFallback(
-					'dashboard.hiring.description',
-					'Manage your tasks, service requests, and contracts.'
-				)}
-			</p>
 		</div>
 		<a href={activeTab.buttonHref} class="btn btn-primary btn-sm sm:btn-md whitespace-nowrap">
 			{#if activeTab.icon === 'search'}
@@ -596,6 +590,8 @@
 		>
 			<DashboardContractsPanel
 				initialContext={contractsContext}
+				showRoleFilters={false}
+				fixedRole="client"
 				highlightEscrowId={page.url.searchParams.get('highlight')}
 				onHighlightConsumed={handleContractsHighlightConsumed}
 				onHighlightMissing={handleContractsHighlightMissing}

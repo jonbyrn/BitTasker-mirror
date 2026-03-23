@@ -2,14 +2,6 @@ import { describe, expect, it } from 'vitest';
 import { getNamespacesForRoute } from '$lib/i18n/i18n';
 
 describe('getNamespacesForRoute', () => {
-	it('loads protected services workspace namespaces for /services/manage', () => {
-		const namespaces = getNamespacesForRoute('/services/manage');
-
-		expect(namespaces).toContain('dashboard/dashboard');
-		expect(namespaces).toContain('dashboard/services/my-services');
-		expect(namespaces).toContain('dashboard/services/detail');
-	});
-
 	it('loads protected workspace namespaces for /earning', () => {
 		const namespaces = getNamespacesForRoute('/earning');
 

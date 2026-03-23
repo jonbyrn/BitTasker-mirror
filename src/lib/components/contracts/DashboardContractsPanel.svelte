@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import { tick } from 'svelte';
 	import { onMount, onDestroy } from 'svelte';
 	import { SvelteSet } from 'svelte/reactivity';
@@ -30,6 +31,9 @@
 	import IconLayersTripleOutline from '~icons/mdi/layers-triple-outline';
 	import IconClipboardTextOutline from '~icons/mdi/clipboard-text-outline';
 	import IconBriefcaseOutline from '~icons/mdi/briefcase-outline';
+	import IconFileDocumentOutline from '~icons/mdi/file-document-outline';
+	import IconWalletOutline from '~icons/mdi/wallet-outline';
+	import DashboardEmptyState from '$lib/components/shared/DashboardEmptyState.svelte';
 
 	const {
 		initialContext = 'all',
@@ -271,6 +275,12 @@
 		isStatusDropdownOpen = !isStatusDropdownOpen;
 	}
 
+	function clearFilters() {
+		statusFilter = 'all';
+		roleFilter = 'all';
+		contextFilter = 'all';
+	}
+
 	function handleClickOutside(event: MouseEvent) {
 		// Only handle clicks when dropdown is open
 		if (!isStatusDropdownOpen) return;
@@ -428,24 +438,41 @@
 			</div>
 		{/if}
 
-		<!-- Header with title and refresh button -->
+		<!-- Header with refresh button and top-level filters -->
 		<div class="mb-3 flex items-center justify-between gap-2">
-			<div class="space-y-1">
+			<div class="flex flex-wrap gap-2">
 				{#if showRoleFilters}
-					<p class="text-base-content/70 text-xs font-semibold tracking-wide uppercase">
-						{$t('dashboard.contracts.filter_by_status_and_role')}
-					</p>
-					<p class="text-base-content/70 hidden text-sm sm:block">
-						{$t('dashboard.contracts.filter_description')}
-					</p>
-				{:else}
-					<p class="text-base-content/70 text-xs font-semibold tracking-wide uppercase">
-						Contract filters
-					</p>
-					<p class="text-base-content/70 hidden text-sm sm:block">
-						Filter by status and contract context in this earnings view.
-					</p>
+					{#each roleFilterOptions as option (option.id)}
+						{@const IconComponent = option.icon}
+						<button
+							class="btn {roleFilter === option.id
+								? 'btn-primary'
+								: 'btn-secondary'} btn-sm flex items-center gap-2"
+							onclick={() => selectRoleFilter(option.id)}
+							aria-label={option.label}
+						>
+							{#if roleFilter === option.id}
+								<IconCheck class="h-4 w-4" />
+							{:else}
+								<IconComponent class="h-4 w-4" />
+							{/if}
+							<span>{option.label}</span>
+						</button>
+					{/each}
 				{/if}
+
+				{#each contextFilterOptions as option (option.id)}
+					{@const IconComponent = option.icon}
+					<button
+						class="btn btn-sm flex items-center gap-2 {contextFilter === option.id
+							? 'btn-primary'
+							: 'btn-secondary'}"
+						onclick={() => selectContextFilter(option.id)}
+					>
+						<IconComponent class="h-4 w-4" />
+						<span>{option.label}</span>
+					</button>
+				{/each}
 			</div>
 
 			<!-- Refresh button: icon only on mobile, with text on desktop -->
@@ -463,50 +490,6 @@
 					<span class="hidden sm:inline">{$t('dashboard.contracts.refresh')}</span>
 				{/if}
 			</button>
-		</div>
-
-		{#if showRoleFilters}
-			<div class="mb-4 flex flex-wrap gap-2">
-				{#each roleFilterOptions as option (option.id)}
-					{@const IconComponent = option.icon}
-					<button
-						class="btn {roleFilter === option.id
-							? 'btn-primary'
-							: 'btn-secondary'} btn-sm flex items-center gap-2"
-						onclick={() => selectRoleFilter(option.id)}
-						aria-label={option.label}
-					>
-						{#if roleFilter === option.id}
-							<IconCheck class="h-4 w-4" />
-						{:else}
-							<IconComponent class="h-4 w-4" />
-						{/if}
-						<span>{option.label}</span>
-					</button>
-				{/each}
-			</div>
-		{/if}
-
-		<div class="mt-4">
-			{#if showRoleFilters}
-				<p class="text-base-content/70 mb-2 text-xs font-semibold tracking-wide uppercase">
-					Contract context
-				</p>
-			{/if}
-			<div class="flex flex-wrap gap-2">
-				{#each contextFilterOptions as option (option.id)}
-					{@const IconComponent = option.icon}
-					<button
-						class="btn btn-sm flex items-center gap-2 {contextFilter === option.id
-							? 'btn-primary'
-							: 'btn-secondary'}"
-						onclick={() => selectContextFilter(option.id)}
-					>
-						<IconComponent class="h-4 w-4" />
-						<span>{option.label}</span>
-					</button>
-				{/each}
-			</div>
 		</div>
 
 		<!-- Mobile: Status Filter Dropdown -->
@@ -630,33 +613,28 @@
 	<!-- Contracts List -->
 	{#if !showBlockingLoadingState && !showBlockingErrorState}
 		{#if filteredContracts.length === 0}
-			<div class="py-12 text-center">
-				<div class="mb-4">
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="text-base-content/30 mx-auto h-12 w-12"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-						/>
-					</svg>
-				</div>
-				<h3 class="mb-2 text-lg font-semibold">
-					{$contractStore.contracts.length === 0
+			<div class="card bg-base-100 rounded-xl p-4">
+				<DashboardEmptyState
+					icon={IconFileDocumentOutline}
+					title={$contractStore.contracts.length === 0
 						? $t('dashboard.contracts.no_contracts')
 						: $t('dashboard.contracts.no_filtered_contracts')}
-				</h3>
-				<p class="text-base-content/70">
-					{$contractStore.contracts.length === 0
+					description={$contractStore.contracts.length === 0
 						? $t('dashboard.contracts.no_contracts_description')
 						: $t('dashboard.contracts.try_different_filters')}
-				</p>
+					actionLabel={$contractStore.contracts.length === 0
+						? $t('dashboard.manage_wallet')
+						: $t('find_tasks.clear_filters')}
+					actionIcon={$contractStore.contracts.length === 0 ? IconWalletOutline : IconRefresh}
+					onAction={() => {
+						if ($contractStore.contracts.length === 0) {
+							void goto('/dashboard/wallet');
+							return;
+						}
+						clearFilters();
+					}}
+					testId="dashboard-contracts-empty-state"
+				/>
 			</div>
 		{:else}
 			{#each filteredContracts as contract (contract.escrowData?.id ?? contract.contractEvent.content.escrowId)}

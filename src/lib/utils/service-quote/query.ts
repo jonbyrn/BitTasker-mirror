@@ -8,7 +8,11 @@ import type {
 import { queryNostrEvents } from '$lib/utils/nostr';
 import KINDS from '$lib/utils/constants/kinds';
 import { TAG_FILTERS } from '$lib/utils/constants/tags';
-import { validateServiceProposalEvent, validateServiceProposalStatusEvent, validateServiceQuoteRequestEvent } from './protocol';
+import {
+	validateServiceProposalEvent,
+	validateServiceProposalStatusEvent,
+	validateServiceQuoteRequestEvent
+} from './protocol';
 import { resolveServiceQuoteThreads } from './resolver';
 import { getPublishedRelaySet } from './publish';
 
@@ -38,10 +42,7 @@ export async function queryTaskerServiceQuoteThreads(
 
 	const proposals = await queryServiceProposalsForTasker(params.taskerPubkey, params.limit);
 	const statuses = await queryStatusesForProposals(proposals, [
-		...new Set([
-			params.taskerPubkey,
-			...proposals.map((proposal) => proposal.pubkey)
-		])
+		...new Set([params.taskerPubkey, ...proposals.map((proposal) => proposal.pubkey)])
 	]);
 
 	return resolveServiceQuoteThreads({
@@ -94,10 +95,17 @@ export async function queryServiceQuoteRequestsByAuthor(
 		await getReadRelays()
 	);
 
-	return dedupeById(events)
+	const requests = dedupeById(events)
 		.map(safelyValidateRequest)
 		.filter((event): event is ServiceQuoteRequestEvent => Boolean(event))
 		.sort((left, right) => right.created_at - left.created_at);
+	const deletedRequestIds = await queryDeletedEventIds(
+		requests.map((request) => request.id),
+		[taskerPubkey],
+		await getReadRelays(requests)
+	);
+
+	return requests.filter((request) => !deletedRequestIds.has(request.id));
 }
 
 export async function queryServiceQuoteRequestsForService(
@@ -117,10 +125,17 @@ export async function queryServiceQuoteRequestsForService(
 		await getReadRelays()
 	);
 
-	return dedupeById(events)
+	const requests = dedupeById(events)
 		.map(safelyValidateRequest)
 		.filter((event): event is ServiceQuoteRequestEvent => Boolean(event))
 		.sort((left, right) => right.created_at - left.created_at);
+	const deletedRequestIds = await queryDeletedEventIds(
+		requests.map((request) => request.id),
+		[...new Set(requests.map((request) => request.pubkey))],
+		await getReadRelays(requests)
+	);
+
+	return requests.filter((request) => !deletedRequestIds.has(request.id));
 }
 
 export async function queryServiceProposalsForTasker(
@@ -187,7 +202,12 @@ export async function queryStatusesForProposals(
 		filter.authors = [...new Set(authors)];
 	}
 
-	const events = await queryNostrEvents(filter, undefined, undefined, await getReadRelays(proposals));
+	const events = await queryNostrEvents(
+		filter,
+		undefined,
+		undefined,
+		await getReadRelays(proposals)
+	);
 	return dedupeById(events)
 		.map(safelyValidateStatus)
 		.filter((event): event is ServiceProposalStatusEvent => Boolean(event))
@@ -257,12 +277,12 @@ export async function findServiceQuoteTimelineByRequestId(
 	return toQueryResult(threads);
 }
 
-async function getReadRelays(proposals: ServiceProposalEvent[] = []): Promise<string[]> {
+async function getReadRelays(events: Array<{ id: string }> = []): Promise<string[]> {
 	const defaultRelay = import.meta.env.VITE_NOSTR_RELAY_URL;
 	const relays = new Set<string>(defaultRelay ? [defaultRelay] : []);
 
-	for (const proposal of proposals) {
-		for (const relay of getPublishedRelaySet(proposal.id)) {
+	for (const event of events) {
+		for (const relay of getPublishedRelaySet(event.id)) {
 			relays.add(relay);
 		}
 	}
@@ -270,7 +290,35 @@ async function getReadRelays(proposals: ServiceProposalEvent[] = []): Promise<st
 	return [...relays];
 }
 
-function safelyValidateRequest(event: any): ServiceQuoteRequestEvent | null {
+async function queryDeletedEventIds(
+	eventIds: string[],
+	authors: string[],
+	relays: string[]
+): Promise<Set<string>> {
+	if (eventIds.length === 0) {
+		return new Set<string>();
+	}
+
+	const deleteEvents = await queryNostrEvents(
+		{
+			kinds: [5],
+			authors,
+			'#e': eventIds,
+			limit: Math.max(DEFAULT_LIMIT, eventIds.length * 2)
+		},
+		undefined,
+		undefined,
+		relays
+	);
+
+	return new Set(
+		deleteEvents.flatMap((event) =>
+			event.tags.filter((tag) => tag[0] === 'e' && eventIds.includes(tag[1])).map((tag) => tag[1])
+		)
+	);
+}
+
+function safelyValidateRequest(event: unknown): ServiceQuoteRequestEvent | null {
 	try {
 		return validateServiceQuoteRequestEvent(event);
 	} catch {
@@ -278,7 +326,7 @@ function safelyValidateRequest(event: any): ServiceQuoteRequestEvent | null {
 	}
 }
 
-function safelyValidateProposal(event: any): ServiceProposalEvent | null {
+function safelyValidateProposal(event: unknown): ServiceProposalEvent | null {
 	try {
 		return validateServiceProposalEvent(event);
 	} catch {
@@ -286,7 +334,7 @@ function safelyValidateProposal(event: any): ServiceProposalEvent | null {
 	}
 }
 
-function safelyValidateStatus(event: any): ServiceProposalStatusEvent | null {
+function safelyValidateStatus(event: unknown): ServiceProposalStatusEvent | null {
 	try {
 		return validateServiceProposalStatusEvent(event);
 	} catch {

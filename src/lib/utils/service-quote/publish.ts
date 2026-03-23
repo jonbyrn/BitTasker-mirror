@@ -1,5 +1,10 @@
 import { browser } from '$app/environment';
-import { getSignedEvent, publishNostrEvent, publishToMultipleRelays, queryNostrEvents } from '$lib/utils/nostr';
+import {
+	getSignedEvent,
+	publishNostrEvent,
+	publishToMultipleRelays,
+	queryNostrEvents
+} from '$lib/utils/nostr';
 import { getNpub, getNostrKeyPair } from '$lib/utils/nostrKeys';
 import type {
 	ServiceProposalContent,
@@ -81,6 +86,12 @@ export interface PublishServiceProposalStatusParams {
 	relays?: string[];
 }
 
+export interface PublishServiceQuoteRequestDeletionParams {
+	requestEventId: string;
+	taskerPubkey: string;
+	relays?: string[];
+}
+
 /**
  * Publishes the canonical `6420` quote-request event for a service listing.
  * This is the only request-publish path used by service detail and browse surfaces.
@@ -121,9 +132,17 @@ export async function publishServiceQuoteRequest(
 
 	const recipientPubkey = parseServiceAddress(serviceAddress).pubkey;
 	const dTag = buildQuoteRequestD(serviceAddress, content.quoteRequestId);
-	const duplicate = await findExistingDuplicate(KINDS.SERVICE_QUOTE_REQUEST, await getAuthorPubkey(), dTag);
+	const duplicate = await findExistingDuplicate(
+		KINDS.SERVICE_QUOTE_REQUEST,
+		await getAuthorPubkey(),
+		dTag
+	);
 	if (duplicate) {
-		dispatchQuoteRequestPublishedSideEffects(duplicate as ServiceQuoteRequestEvent, params.service, params.sideEffects);
+		dispatchQuoteRequestPublishedSideEffects(
+			duplicate as ServiceQuoteRequestEvent,
+			params.service,
+			params.sideEffects
+		);
 		return {
 			event: duplicate as ServiceQuoteRequestEvent,
 			relayResults: [],
@@ -152,7 +171,9 @@ export async function publishServiceQuoteRequest(
 	);
 
 	const validated = validatePublishedEvent(event, content, validateServiceQuoteRequestEvent);
-	const publishedRelaySet = results.filter((result) => result.success).map((result) => result.relay);
+	const publishedRelaySet = results
+		.filter((result) => result.success)
+		.map((result) => result.relay);
 	persistPublishedRelaySet(validated.id, publishedRelaySet);
 	dispatchQuoteRequestPublishedSideEffects(validated, params.service, params.sideEffects);
 
@@ -189,7 +210,9 @@ export async function publishServiceProposal(
 	}
 	await assertProposalRequestLinkage(params);
 
-	const relayCapabilities = await Promise.all(getDefaultRelays(params.relays).map(detectRelayCapability));
+	const relayCapabilities = await Promise.all(
+		getDefaultRelays(params.relays).map(detectRelayCapability)
+	);
 	const targetRelays = selectProposalPublishRelays(relayCapabilities);
 	const expirationTimestamp = computeProposalExpiration(
 		params.content.timestamp,
@@ -220,7 +243,9 @@ export async function publishServiceProposal(
 		targetRelays,
 		content.timestamp
 	);
-	const successfulRelays = relayResults.filter((result) => result.success).map((result) => result.relay);
+	const successfulRelays = relayResults
+		.filter((result) => result.success)
+		.map((result) => result.relay);
 	if (successfulRelays.length < (targetRelays.length >= 2 ? 2 : 1)) {
 		throw new Error('Service proposal publish quorum was not reached');
 	}
@@ -304,13 +329,45 @@ export async function publishServiceProposalStatus(
 		params.content,
 		validateServiceProposalStatusEvent
 	);
-	const publishedRelaySet = results.filter((result) => result.success).map((result) => result.relay);
+	const publishedRelaySet = results
+		.filter((result) => result.success)
+		.map((result) => result.relay);
 	persistPublishedRelaySet(validated.id, publishedRelaySet);
 
 	return {
 		event: validated,
 		relayResults: results,
 		publishedRelaySet
+	};
+}
+
+export async function publishServiceQuoteRequestDeletion(
+	params: PublishServiceQuoteRequestDeletionParams
+): Promise<ServiceQuotePublishResult<NostrEvent>> {
+	const relays = [
+		...new Set([...getPublishedRelaySet(params.requestEventId), ...getDefaultRelays(params.relays)])
+	];
+	const targetRelays = relays.length > 0 ? relays : getDefaultRelays(params.relays);
+	const deletionEvent = await getSignedEvent({
+		kind: 5,
+		created_at: unixNow(),
+		content: 'Deleted service quote request',
+		tags: [
+			['e', params.requestEventId],
+			['k', String(KINDS.SERVICE_QUOTE_REQUEST)],
+			['p', params.taskerPubkey]
+		]
+	});
+	const relayResults = await publishToMultipleRelays(deletionEvent, targetRelays);
+
+	if (!relayResults.some((result) => result.success)) {
+		throw new Error('Failed to publish service quote request deletion to any relay');
+	}
+
+	return {
+		event: deletionEvent,
+		relayResults,
+		publishedRelaySet: relayResults.filter((result) => result.success).map((result) => result.relay)
 	};
 }
 
@@ -438,9 +495,7 @@ function unixNow(): number {
 	return Math.floor(Date.now() / 1000);
 }
 
-async function assertProposalRequestLinkage(
-	params: PublishServiceProposalParams
-): Promise<void> {
+async function assertProposalRequestLinkage(params: PublishServiceProposalParams): Promise<void> {
 	const requestEvents = await queryNostrEvents(
 		{
 			kinds: [KINDS.SERVICE_QUOTE_REQUEST],

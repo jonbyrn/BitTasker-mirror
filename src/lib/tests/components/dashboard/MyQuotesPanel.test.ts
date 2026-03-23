@@ -1,42 +1,56 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, fireEvent, waitFor } from '@testing-library/svelte';
+import { render, fireEvent, waitFor, within } from '@testing-library/svelte';
 import MyQuotesPanel from '$lib/components/dashboard/quotes/MyQuotesPanel.svelte';
 import type { ServiceQuoteTimelineEntry } from '$lib/types/service-quote';
 import { ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';
 
-const { applyTaskerStatus, acceptTaskerProposal, goto, findServiceByUniqueId, quoteUiStoreMock } =
-	vi.hoisted(() => ({
-		applyTaskerStatus: vi.fn().mockResolvedValue({ success: true }),
-		acceptTaskerProposal: vi
-			.fn()
-			.mockResolvedValue({ success: true, transactionHash: '0xservicehash' }),
-		goto: vi.fn(),
-		findServiceByUniqueId: vi.fn().mockResolvedValue({
-			id: 'service-event-1',
-			uniqueId: 'service-unique-id'
-		}),
-		quoteUiStoreMock: {
-			value: {
-				taskerDataFreshness: 'fresh'
-			},
-			subscribers: new Set<
-				(value: { taskerDataFreshness: 'fresh' | 'stale' | 'partial' }) => void
-			>(),
-			subscribe(run: (value: { taskerDataFreshness: 'fresh' | 'stale' | 'partial' }) => void) {
-				run(this.value);
-				this.subscribers.add(run);
-				return () => this.subscribers.delete(run);
-			},
-			set(next: { taskerDataFreshness: 'fresh' | 'stale' | 'partial' }) {
-				this.value = next;
-				this.subscribers.forEach((run) => run(this.value));
-			}
+const {
+	applyTaskerStatus,
+	acceptTaskerProposal,
+	deleteTaskerRequest,
+	goto,
+	findServiceByUniqueId,
+	quoteUiStoreMock
+} = vi.hoisted(() => ({
+	applyTaskerStatus: vi.fn().mockResolvedValue({ success: true }),
+	acceptTaskerProposal: vi
+		.fn()
+		.mockResolvedValue({ success: true, transactionHash: '0xservicehash' }),
+	deleteTaskerRequest: vi.fn().mockResolvedValue({ success: true }),
+	goto: vi.fn(),
+	findServiceByUniqueId: vi.fn().mockResolvedValue({
+		id: 'service-event-1',
+		uniqueId: 'service-unique-id',
+		title: 'Managed Migration Service'
+	}),
+	quoteUiStoreMock: {
+		value: {
+			taskerDataFreshness: 'fresh'
+		},
+		subscribers: new Set<(value: { taskerDataFreshness: 'fresh' | 'stale' | 'partial' }) => void>(),
+		subscribe(run: (value: { taskerDataFreshness: 'fresh' | 'stale' | 'partial' }) => void) {
+			run(this.value);
+			this.subscribers.add(run);
+			return () => this.subscribers.delete(run);
+		},
+		set(next: { taskerDataFreshness: 'fresh' | 'stale' | 'partial' }) {
+			this.value = next;
+			this.subscribers.forEach((run) => run(this.value));
 		}
-	}));
+	}
+}));
 
 vi.mock('$app/navigation', () => ({
 	goto
 }));
+
+vi.mock('svelte-i18n', async () => {
+	const { readable } = await import('svelte/store');
+	return {
+		t: readable((key: string) => key),
+		locale: readable('en')
+	};
+});
 
 vi.mock('$lib/nostr/service', () => ({
 	findServiceByUniqueId
@@ -49,8 +63,22 @@ vi.mock('$lib/stores/service-quote-ui.store', () => ({
 		subscribe: (run: (value: { taskerDataFreshness: 'fresh' | 'stale' | 'partial' }) => void) =>
 			quoteUiStoreMock.subscribe(run),
 		applyTaskerStatus,
+		deleteTaskerRequest,
 		acceptTaskerProposal
 	}
+}));
+
+vi.mock('$lib/components/user/UserInfoDisplay.svelte', () => ({
+	default: () => ({
+		$$render: () => '<div data-testid="quote-card-user">User info</div>'
+	})
+}));
+
+vi.mock('$lib/components/service/ServiceTab.svelte', () => ({
+	default: () => ({
+		$$render: (_result: unknown, props: { service?: { title?: string } | null }) =>
+			`<div data-testid="service-tab-mock">${props.service?.title ?? 'No service'}</div>`
+	})
 }));
 
 const serviceAddress = `30402:${'d'.repeat(64)}:service-unique-id`;
@@ -154,21 +182,33 @@ describe('MyQuotesPanel', () => {
 		vi.clearAllMocks();
 		findServiceByUniqueId.mockResolvedValue({
 			id: 'service-event-1',
-			uniqueId: 'service-unique-id'
+			uniqueId: 'service-unique-id',
+			title: 'Managed Migration Service'
 		});
 		quoteUiStoreMock.set({ taskerDataFreshness: 'fresh' });
 		window.history.replaceState({}, '', '/dashboard?tab=quotes&view=tasker');
 	});
 
 	it('renders quote cards in a grid layout', () => {
-		const { container, getByText } = render(MyQuotesPanel, {
+		const { container, getByText, queryByText } = render(MyQuotesPanel, {
 			timelines: [timeline],
 			focusedRequestId: 'qr_valid123',
 			isSyncing: false
 		});
 
-		expect(getByText('Need a migration')).toBeTruthy();
+		const title = getByText('Need a migration');
+		expect(title).toBeTruthy();
+		expect(title.tagName).toBe('SPAN');
+		expect(title.className).toContain('card-title');
+		expect(title.className).toContain('text-lg');
+		expect(title.className).toContain('font-semibold');
 		expect(getByText('Move our docs and preserve redirects.')).toBeTruthy();
+		expect(getByText(/1970/)).toBeTruthy();
+		expect(getByText(/Estimated duration: 3 days/)).toBeTruthy();
+		expect(getByText('Pending')).toBeTruthy();
+		expect(queryByText(/Requested:/)).toBeNull();
+		expect(queryByText(/Request ID:/)).toBeNull();
+		expect(queryByText(/Service:/)).toBeNull();
 		expect(container.querySelector('.grid')).toBeTruthy();
 	});
 
@@ -179,10 +219,57 @@ describe('MyQuotesPanel', () => {
 			isSyncing: false
 		});
 
-		// Cards should have View, Accept, and Decline buttons
+		// Cards should have View, Accept, Decline, and Delete buttons
 		expect(getByText('View')).toBeTruthy();
 		expect(getByText('Accept')).toBeTruthy();
 		expect(getByText('Decline')).toBeTruthy();
+		expect(getByText('Delete')).toBeTruthy();
+	});
+
+	it('confirms and submits request deletion from the card actions', async () => {
+		const { getByRole, getByText, queryByText } = render(MyQuotesPanel, {
+			timelines: [timeline],
+			focusedRequestId: 'qr_valid123',
+			isSyncing: false
+		});
+
+		await fireEvent.click(getByRole('button', { name: 'Delete' }));
+
+		expect(getByText('Delete service request')).toBeTruthy();
+		expect(
+			getByText('This will permanently remove this service request from your dashboard history.')
+		).toBeTruthy();
+
+		await fireEvent.click(getByRole('button', { name: 'Confirm Delete' }));
+
+		expect(deleteTaskerRequest).toHaveBeenCalledWith({
+			quoteRequestId: 'qr_valid123'
+		});
+		await waitFor(() => {
+			expect(queryByText('Delete service request')).toBeNull();
+		});
+	});
+
+	it('opens the primary view button in a local request drawer', async () => {
+		const { getByRole, getByTestId, queryByText } = render(MyQuotesPanel, {
+			timelines: [timeline],
+			focusedRequestId: 'qr_valid123',
+			isSyncing: false
+		});
+
+		await fireEvent.click(getByRole('button', { name: 'View' }));
+
+		const drawer = getByTestId('service-request-drawer');
+		const dialog = getByRole('dialog');
+		expect(goto).not.toHaveBeenCalled();
+		expect(drawer).toBeTruthy();
+		expect(within(drawer).getByText(/Your Inquiry/)).toBeTruthy();
+		expect(within(drawer).getAllByText(/Need a migration/).length).toBeGreaterThan(0);
+		await waitFor(() => {
+			expect(findServiceByUniqueId).toHaveBeenCalledWith('service-unique-id');
+			expect(within(dialog).getByText(/Managed Migration Service/)).toBeTruthy();
+			expect(queryByText('Loading service details...')).toBeNull();
+		});
 	});
 
 	it('renders a retry action when timeline loading fails', async () => {
@@ -242,13 +329,14 @@ describe('MyQuotesPanel', () => {
 	});
 
 	it('renders an empty state when no quote requests exist', () => {
-		const { getByText, getByRole, queryByRole } = render(MyQuotesPanel, {
+		const { getByTestId, getByText, getByRole, queryByRole } = render(MyQuotesPanel, {
 			timelines: [],
 			focusedRequestId: null,
 			isSyncing: false,
 			hasLoaded: true
 		});
 
+		expect(getByTestId('my-quotes-empty-state')).toBeTruthy();
 		expect(getByText('No service requests have been submitted yet.')).toBeTruthy();
 		expect(getByRole('link', { name: 'Find Services' })).toHaveAttribute('href', '/services');
 		expect(queryByRole('button', { name: 'Find Services' })).toBeNull();
@@ -272,13 +360,13 @@ describe('MyQuotesPanel', () => {
 			latestProposal: undefined
 		};
 
-		const { getByText } = render(MyQuotesPanel, {
+		const { getAllByText } = render(MyQuotesPanel, {
 			timelines: [pendingTimeline],
 			focusedRequestId: 'qr_valid123',
 			isSyncing: false
 		});
 
-		expect(getByText('Awaiting proposal')).toBeTruthy();
+		expect(getAllByText('Awaiting proposal').length).toBeGreaterThan(0);
 	});
 
 	it('does not render the standalone syncing alert while data is syncing', () => {
@@ -336,7 +424,7 @@ describe('MyQuotesPanel', () => {
 			expect(getByTestId('my-quotes-unavailable-alert')).toBeTruthy();
 			expect(queryByText('Accept')).toBeNull();
 			expect(queryByText('Decline')).toBeNull();
-			expect(queryByText('Deleted service')).toBeTruthy();
+			expect(queryByText(/Service:/)).toBeNull();
 		});
 	});
 });

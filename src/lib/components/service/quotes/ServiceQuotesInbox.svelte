@@ -13,6 +13,9 @@
 	import ServiceProposalComposer, {
 		type ServiceProposalComposerSubmitPayload
 	} from './ServiceProposalComposer.svelte';
+	import DashboardEmptyState from '$lib/components/shared/DashboardEmptyState.svelte';
+	import IconBriefcaseOutline from '~icons/mdi/briefcase-outline';
+	import IconPlus from '~icons/mdi/plus';
 
 	let {
 		serviceUnavailable = false,
@@ -256,24 +259,37 @@
 		{/if}
 
 		{#if timelines.length === 0}
-			<div class="border-base-300 text-base-content/70 rounded-xl border border-dashed p-6 text-sm">
-				{#if !hasLoaded && isSyncing}
+			{#if !hasLoaded && isSyncing}
+				<div
+					class="border-base-300 text-base-content/70 rounded-xl border border-dashed p-6 text-sm"
+				>
 					{tr(
 						'dashboard.services.my_services.quote_inbox.loading_service_quotes',
 						'Loading quote requests for this service...'
 					)}
-				{:else if loadError}
+				</div>
+			{:else if loadError}
+				<div
+					class="border-base-300 text-base-content/70 rounded-xl border border-dashed p-6 text-sm"
+				>
 					{tr(
 						'dashboard.services.my_services.quote_inbox.retry_service_quotes',
 						'Retry to load quote requests for this service.'
 					)}
-				{:else}
-					{tr(
+				</div>
+			{:else}
+				<DashboardEmptyState
+					icon={IconBriefcaseOutline}
+					title={tr(
 						'dashboard.services.my_services.quote_inbox.no_service_quotes',
 						'No quote requests are available for this service yet.'
 					)}
-				{/if}
-			</div>
+					actionLabel={tr('dashboard.services.my_services.create_service', 'Create Service')}
+					actionHref="/dashboard/create-service"
+					actionIcon={IconPlus}
+					testId="service-quotes-empty-state"
+				/>
+			{/if}
 		{:else}
 			<div class="space-y-3">
 				{#each timelines as timeline (timeline.request.id)}

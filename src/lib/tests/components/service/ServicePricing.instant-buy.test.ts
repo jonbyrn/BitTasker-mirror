@@ -33,7 +33,8 @@ const hoisted = vi.hoisted(() => {
 					currency: 'USDt',
 					amount: 125
 				},
-				instantBuyLeadHours: undefined as number | undefined
+				instantBuyLeadHours: undefined as number | undefined,
+				instantBuyDeliveryHours: undefined as number | undefined
 			}
 		}),
 		mockGetCurrentPrice: vi.fn()
@@ -84,7 +85,8 @@ describe('ServicePricing instant-buy authoring controls', () => {
 					currency: 'USDt',
 					amount: 125
 				},
-				instantBuyLeadHours: undefined
+				instantBuyLeadHours: undefined,
+				instantBuyDeliveryHours: undefined
 			}
 		});
 	});
@@ -98,6 +100,7 @@ describe('ServicePricing instant-buy authoring controls', () => {
 					amount?: number;
 				};
 				instantBuyLeadHours?: number;
+				instantBuyDeliveryHours?: number;
 			};
 		} | null = null;
 		const unsubscribe = hoisted.storeState.subscribe((value) => {
@@ -122,11 +125,18 @@ describe('ServicePricing instant-buy authoring controls', () => {
 		await fireEvent.input(getByTestId('service-pricing-instant-buy-lead-hours'), {
 			target: { value: '48' }
 		});
+		await fireEvent.input(getByTestId('service-pricing-instant-buy-delivery-hours'), {
+			target: { value: '72' }
+		});
 
 		await waitFor(() =>
 			expect(getByTestId('service-pricing-instant-buy-lead-hours')).toHaveValue(48)
 		);
+		await waitFor(() =>
+			expect(getByTestId('service-pricing-instant-buy-delivery-hours')).toHaveValue(72)
+		);
 		expect(readStoreState()?.service.instantBuyLeadHours).toBe(48);
+		expect(readStoreState()?.service.instantBuyDeliveryHours).toBe(72);
 	});
 
 	it('clears instant-buy lead hours when pricing changes to inquiry required', async () => {
@@ -142,9 +152,7 @@ describe('ServicePricing instant-buy authoring controls', () => {
 
 		await fireEvent.click(getByText('dashboard.services.create.pricing.inquiry_title'));
 
-		await waitFor(() =>
-			expect(queryByTestId('service-pricing-instant-buy-toggle')).toBeNull()
-		);
+		await waitFor(() => expect(queryByTestId('service-pricing-instant-buy-toggle')).toBeNull());
 		expect(readStoreState()?.service.instantBuyLeadHours).toBeUndefined();
 		expect(readStoreState()?.service.pricing.type).toBe('INQUIRY_REQUIRED');
 	});
@@ -164,6 +172,7 @@ describe('ServicePricing instant-buy authoring controls', () => {
 			target: { value: '500000' }
 		});
 		await waitFor(() => expect(readStoreState()?.service.pricing.amount).toBe(500));
+		expect(readStoreState()?.service.pricing.currency).toBe('USD');
 	});
 
 	it('keeps zeroed sats input deterministic', async () => {
@@ -213,5 +222,14 @@ describe('ServicePricing instant-buy authoring controls', () => {
 		});
 
 		await waitFor(() => expect(hoisted.mockGetCurrentPrice).toHaveBeenCalledWith('BTC'));
+	});
+
+	it('normalizes legacy USDt pricing to USD on mount', async () => {
+		render(ServicePricing, {
+			errors: {},
+			direction: 'forward'
+		});
+
+		await waitFor(() => expect(readStoreState()?.service.pricing.currency).toBe('USD'));
 	});
 });

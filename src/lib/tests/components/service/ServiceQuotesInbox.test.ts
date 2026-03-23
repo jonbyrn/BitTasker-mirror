@@ -356,6 +356,24 @@ describe('ServiceQuotesInbox', () => {
 		expect(getByText('provider query failed')).toBeTruthy();
 	});
 
+	it('shows the shared empty state and create-service CTA when no quote requests exist', () => {
+		const { getByTestId, getByRole } = render(ServiceQuotesInbox, {
+			service: mockService,
+			timelines: [],
+			focusedRequestId: null,
+			isSyncing: false,
+			hasLoaded: true,
+			walletReady: false,
+			feeTierReady: false
+		});
+
+		expect(getByTestId('service-quotes-empty-state')).toBeTruthy();
+		expect(getByRole('link', { name: 'Create Service' })).toHaveAttribute(
+			'href',
+			'/dashboard/create-service'
+		);
+	});
+
 	it('keeps stale provider data blocked in-context while cached provider data is stale', () => {
 		quoteUiStoreMock.set({
 			providerDataFreshnessByService: {

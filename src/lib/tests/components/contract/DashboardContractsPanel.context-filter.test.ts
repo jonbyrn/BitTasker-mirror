@@ -15,7 +15,7 @@ type MockContractStoreState = {
 	isLoadingMore: boolean;
 };
 
-const { contractStoreState, contractStore, scrollStore } = vi.hoisted(() => {
+const { contractStoreState, contractStore, scrollStore, goto } = vi.hoisted(() => {
 	let value: MockContractStoreState = {
 		contracts: [],
 		contract: null,
@@ -68,9 +68,14 @@ const { contractStoreState, contractStore, scrollStore } = vi.hoisted(() => {
 		},
 		scrollStore: {
 			update: vi.fn()
-		}
+		},
+		goto: vi.fn()
 	};
 });
+
+vi.mock('$app/navigation', () => ({
+	goto
+}));
 
 vi.mock('$lib/stores/contract.store', () => ({
 	contractStore
@@ -292,10 +297,10 @@ describe('DashboardContractsPanel context filter', () => {
 		expect(screen.queryByText('dashboard.contracts.filter_description')).toBeNull();
 		expect(screen.getAllByText('dashboard.contracts.all_statuses').length).toBeGreaterThan(0);
 		expect(screen.queryByText('dashboard.contracts.all_roles')).toBeNull();
-		expect(screen.getByText('Contract filters')).toBeInTheDocument();
-		expect(screen.getByText('All')).toBeInTheDocument();
-		expect(screen.getByText('Tasks')).toBeInTheDocument();
-		expect(screen.getByText('Services')).toBeInTheDocument();
+		expect(screen.queryByText('Contract filters')).toBeNull();
+		expect(screen.getAllByText('All').length).toBeGreaterThan(0);
+		expect(screen.getAllByText('Tasks').length).toBeGreaterThan(0);
+		expect(screen.getAllByText('Services').length).toBeGreaterThan(0);
 	});
 
 	it('locks the earnings contracts tab to taskee-side contracts', async () => {
@@ -326,6 +331,83 @@ describe('DashboardContractsPanel context filter', () => {
 
 		expect(screen.getAllByText('Taskee-side Service Contract').length).toBeGreaterThan(0);
 		expect(screen.queryByText('Tasker-side Service Contract')).toBeNull();
+	});
+
+	it('locks the hiring contracts tab to tasker-side contracts while hiding role text and buttons', async () => {
+		contractStoreState.set({
+			contracts: [
+				buildContract('tasker-side', 'service', {
+					isClient: true,
+					title: 'Tasker-side Service Contract'
+				}),
+				buildContract('taskee-side', 'service', {
+					isClient: false,
+					title: 'Taskee-side Service Contract'
+				})
+			],
+			contract: null,
+			isDrawerOpen: false,
+			isLoading: false,
+			error: null,
+			hasMore: false,
+			isLoadingMore: false
+		});
+
+		render(DashboardContractsPanel, {
+			initialContext: 'services',
+			showRoleFilters: false,
+			fixedRole: 'client'
+		});
+
+		expect(screen.getAllByText('Tasker-side Service Contract').length).toBeGreaterThan(0);
+		expect(screen.queryByText('Taskee-side Service Contract')).toBeNull();
+		expect(screen.queryByText('dashboard.contracts.filter_by_status_and_role')).toBeNull();
+		expect(screen.queryByText('dashboard.contracts.all_roles')).toBeNull();
+		expect(screen.queryByText('Contract context')).toBeNull();
+		expect(screen.getAllByText('All').length).toBeGreaterThan(0);
+		expect(screen.getAllByText('Tasks').length).toBeGreaterThan(0);
+		expect(screen.getAllByText('Services').length).toBeGreaterThan(0);
+	});
+
+	it('shows a manage wallet CTA when no contracts exist', async () => {
+		contractStoreState.set({
+			contracts: [],
+			contract: null,
+			isDrawerOpen: false,
+			isLoading: false,
+			error: null,
+			hasMore: false,
+			isLoadingMore: false
+		});
+
+		render(DashboardContractsPanel, {
+			initialContext: 'all'
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'dashboard.manage_wallet' }));
+
+		expect(goto).toHaveBeenCalledWith('/dashboard/wallet');
+	});
+
+	it('offers a clear-filters CTA when filters hide the available contracts', async () => {
+		contractStoreState.set({
+			contracts: [buildContract('task-only', 'task')],
+			contract: null,
+			isDrawerOpen: false,
+			isLoading: false,
+			error: null,
+			hasMore: false,
+			isLoadingMore: false
+		});
+
+		render(DashboardContractsPanel, {
+			initialContext: 'services'
+		});
+
+		expect(screen.getByText('dashboard.contracts.no_filtered_contracts')).toBeInTheDocument();
+		await fireEvent.click(screen.getByRole('button', { name: 'find_tasks.clear_filters' }));
+
+		expect(screen.getAllByText('Task Contract').length).toBeGreaterThan(0);
 	});
 
 	it('retries highlight recovery once before reporting a missing contract', async () => {

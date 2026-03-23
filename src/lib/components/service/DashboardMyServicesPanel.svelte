@@ -41,6 +41,7 @@
 	import Modal from '$lib/components/Modal.svelte';
 	import ServiceDrawer from './ServiceDrawer.svelte';
 	import { createServicesWorkspaceUrl } from '$lib/utils/service-quote/services-workspace-route';
+	import DashboardEmptyState from '$lib/components/shared/DashboardEmptyState.svelte';
 
 	let {
 		view = 'default',
@@ -242,14 +243,11 @@
 			return;
 		}
 
-		const nextUrl = createServicesWorkspaceUrl(
-			new URL('/services/manage', window.location.origin),
-			{
-				tab: 'quotes',
-				serviceAddress: buildServiceAddress(service),
-				requestId: null
-			}
-		);
+		const nextUrl = createServicesWorkspaceUrl(new URL('/earning', window.location.origin), {
+			tab: 'quotes',
+			serviceAddress: buildServiceAddress(service),
+			requestId: null
+		});
 		goto(nextUrl.toString());
 	}
 
@@ -512,18 +510,16 @@
 		{$t('dashboard.services.my_services.retry')}
 	</button>
 {:else if visibleServices.length === 0 && !(view === 'quotes' && selectedServiceAddress)}
-	<div
-		class="border-base-300 bg-base-200/50 flex flex-col items-center justify-center rounded-2xl border border-dashed px-6 py-16 text-center"
-	>
-		<IconBriefcaseOutline class="text-base-content/30 h-16 w-16" aria-hidden="true" />
-		<h4 class="mt-4 text-lg font-semibold">{$t('dashboard.services.my_services.empty_title')}</h4>
-		<p class="text-base-content/70 mt-2 max-w-md">
-			{$t('dashboard.services.my_services.empty_message')}
-		</p>
-		<a href="/dashboard/create-service" class="btn btn-primary mt-6">
-			<IconPlus class="mr-2 h-5 w-5" aria-hidden="true" />
-			{$t('dashboard.services.my_services.create_service')}
-		</a>
+	<div class="card bg-base-100 rounded-xl p-4">
+		<DashboardEmptyState
+			icon={IconBriefcaseOutline}
+			title={$t('dashboard.services.my_services.empty_title')}
+			description={$t('dashboard.services.my_services.empty_message')}
+			actionLabel={$t('dashboard.services.my_services.create_service')}
+			actionHref="/dashboard/create-service"
+			actionIcon={IconPlus}
+			testId="dashboard-my-services-empty-state"
+		/>
 	</div>
 {:else if view === 'default'}
 	<div class="grid grid-cols-1 gap-5">

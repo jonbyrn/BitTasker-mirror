@@ -18,12 +18,11 @@
 	let { errors, direction } = $props();
 
 	let btcPrice = $state<number>(0);
-	let usdAmount = $derived.by(
-		() =>
-			$store.service.pricing?.type === ServicePricingTypeEnum.FIXED &&
-			$store.service.pricing?.amount != null
-				? $store.service.pricing.amount
-				: 0
+	let usdAmount = $derived.by(() =>
+		$store.service.pricing?.type === ServicePricingTypeEnum.FIXED &&
+		$store.service.pricing?.amount != null
+			? $store.service.pricing.amount
+			: 0
 	);
 	async function fetchBtcPrice(): Promise<void> {
 		try {
@@ -39,7 +38,7 @@
 				...$store.service.pricing!,
 				type: ServicePricingTypeEnum.FIXED,
 				amount: nextUsdValue,
-				currency: 'USDt'
+				currency: 'USD'
 			}
 		});
 	}
@@ -47,7 +46,7 @@
 	function updatePricingType(type: ServicePricingTypeEnum) {
 		const currentPricing = $store.service.pricing || {
 			type: ServicePricingTypeEnum.TIERED,
-			currency: 'USDt',
+			currency: 'USD',
 			amount: 0
 		};
 		const nextInstantBuyLeadHours = sanitizeInstantBuyLeadHours(
@@ -63,14 +62,30 @@
 			pricing: {
 				...currentPricing,
 				type,
+				currency: currentPricing.currency === 'USDt' ? 'USD' : (currentPricing.currency ?? 'USD'),
 				...(type === ServicePricingTypeEnum.FIXED
-					? { hourlyRate: undefined, estimatedHours: undefined, tiers: undefined, inquiryForm: undefined }
+					? {
+							hourlyRate: undefined,
+							estimatedHours: undefined,
+							tiers: undefined,
+							inquiryForm: undefined
+						}
 					: {}),
 				...(type === ServicePricingTypeEnum.TIERED
-					? { amount: undefined, hourlyRate: undefined, estimatedHours: undefined, inquiryForm: undefined }
+					? {
+							amount: undefined,
+							hourlyRate: undefined,
+							estimatedHours: undefined,
+							inquiryForm: undefined
+						}
 					: {}),
 				...(type === ServicePricingTypeEnum.INQUIRY_REQUIRED
-					? { amount: undefined, hourlyRate: undefined, estimatedHours: undefined, tiers: undefined }
+					? {
+							amount: undefined,
+							hourlyRate: undefined,
+							estimatedHours: undefined,
+							tiers: undefined
+						}
 					: {})
 			},
 			instantBuyLeadHours: nextInstantBuyLeadHours,
@@ -113,6 +128,14 @@
 
 	onMount(() => {
 		fetchBtcPrice();
+		if ($store.service.pricing?.currency === 'USDt') {
+			store.updateService({
+				pricing: {
+					...$store.service.pricing,
+					currency: 'USD'
+				}
+			});
+		}
 	});
 </script>
 
@@ -131,21 +154,27 @@
 	<div class="flex flex-wrap gap-4">
 		<button
 			type="button"
-			class="btn {$store.service.pricing?.type === ServicePricingTypeEnum.FIXED ? 'btn-primary' : 'btn-outline'}"
+			class="btn {$store.service.pricing?.type === ServicePricingTypeEnum.FIXED
+				? 'btn-primary'
+				: 'btn-outline'}"
 			onclick={() => updatePricingType(ServicePricingTypeEnum.FIXED)}
 		>
 			{$t('dashboard.services.create.pricing.fixed_title')}
 		</button>
 		<button
 			type="button"
-			class="btn {$store.service.pricing?.type === ServicePricingTypeEnum.TIERED ? 'btn-primary' : 'btn-outline'}"
+			class="btn {$store.service.pricing?.type === ServicePricingTypeEnum.TIERED
+				? 'btn-primary'
+				: 'btn-outline'}"
 			onclick={() => updatePricingType(ServicePricingTypeEnum.TIERED)}
 		>
 			{$t('dashboard.services.create.pricing.tiered_title')}
 		</button>
 		<button
 			type="button"
-			class="btn {$store.service.pricing?.type === ServicePricingTypeEnum.INQUIRY_REQUIRED ? 'btn-primary' : 'btn-outline'}"
+			class="btn {$store.service.pricing?.type === ServicePricingTypeEnum.INQUIRY_REQUIRED
+				? 'btn-primary'
+				: 'btn-outline'}"
 			onclick={() => updatePricingType(ServicePricingTypeEnum.INQUIRY_REQUIRED)}
 		>
 			{$t('dashboard.services.create.pricing.inquiry_title')}
@@ -157,11 +186,13 @@
 	{/if}
 
 	{#if supportsInstantBuyAuthoring($store.service.pricing?.type)}
-		<div class="rounded-2xl border border-base-300 bg-base-100 p-4">
+		<div class="border-base-300 bg-base-100 rounded-2xl border p-4">
 			<div class="flex flex-wrap items-start justify-between gap-3">
 				<div>
-					<p class="font-medium">{$t('dashboard.services.create.pricing.instant_buy.enable_label')}</p>
-					<p class="mt-1 text-sm text-base-content/70">
+					<p class="font-medium">
+						{$t('dashboard.services.create.pricing.instant_buy.enable_label')}
+					</p>
+					<p class="text-base-content/70 mt-1 text-sm">
 						{$t('dashboard.services.create.pricing.instant_buy.enable_description')}
 					</p>
 				</div>
@@ -175,9 +206,11 @@
 			</div>
 
 			{#if $store.service.instantBuyLeadHours != null}
-				<div class="mt-4">
+				<div class="mt-4 space-y-2">
 					<label for="instant-buy-lead-hours" class="label">
-						<span class="label-text">{$t('dashboard.services.create.pricing.instant_buy.lead_time_label')}</span>
+						<span class="label-text"
+							>{$t('dashboard.services.create.pricing.instant_buy.lead_time_label')}</span
+						>
 					</label>
 					<input
 						id="instant-buy-lead-hours"
@@ -187,7 +220,9 @@
 						step="1"
 						value={$store.service.instantBuyLeadHours}
 						oninput={handleInstantBuyLeadHoursChange}
-						class="input input-bordered w-full max-w-xs {errors.instantBuyLeadHours ? 'input-error' : ''}"
+						class="input input-bordered w-full max-w-xs {errors.instantBuyLeadHours
+							? 'input-error'
+							: ''}"
 						data-testid="service-pricing-instant-buy-lead-hours"
 					/>
 					{#if errors.instantBuyLeadHours}
@@ -195,15 +230,24 @@
 					{/if}
 				</div>
 
-				<div class="mt-4">
+				<div class="mt-4 space-y-2">
 					<label for="instant-buy-delivery-hours" class="label">
-						<span class="label-text">{$t('dashboard.services.create.pricing.instant_buy.delivery_time_label')}</span>
+						<span class="label-text"
+							>{$t('dashboard.services.create.pricing.instant_buy.delivery_time_label')}</span
+						>
 					</label>
-					<input id="instant-buy-delivery-hours" type="number" min="1" step="1"
+					<input
+						id="instant-buy-delivery-hours"
+						type="number"
+						min="1"
+						step="1"
 						value={$store.service.instantBuyDeliveryHours}
 						oninput={handleInstantBuyDeliveryHoursChange}
-						class="input input-bordered w-full max-w-xs {errors.instantBuyDeliveryHours ? 'input-error' : ''}"
-						data-testid="service-pricing-instant-buy-delivery-hours" />
+						class="input input-bordered w-full max-w-xs {errors.instantBuyDeliveryHours
+							? 'input-error'
+							: ''}"
+						data-testid="service-pricing-instant-buy-delivery-hours"
+					/>
 					{#if errors.instantBuyDeliveryHours}
 						<span class="label-text-alt text-error">{errors.instantBuyDeliveryHours}</span>
 					{/if}
@@ -219,7 +263,7 @@
 				<span class="label-text">{$t('dashboard.services.create.pricing.budget_label')}</span>
 			</label>
 			<UsdSatsInput
-				usdAmount={usdAmount}
+				{usdAmount}
 				{btcPrice}
 				error={errors.amount}
 				showFieldLabels={false}

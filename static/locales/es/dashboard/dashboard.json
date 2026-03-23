@@ -52,7 +52,15 @@
 			"loading": "Cargando tus solicitudes de servicio...",
 			"retry_loading": "Vuelve a intentar cargar tus solicitudes de servicio.",
 			"empty": "Todavía no se han enviado solicitudes de servicio.",
-			"quote_pending": "Cotización pendiente",
+			"quote_pending": "Pendiente",
+			"requested": "Solicitada",
+			"request_id": "ID de solicitud",
+			"estimated_duration": "Duración estimada",
+			"selected_tier": "Nivel",
+			"add_ons_one": "1 extra",
+			"add_ons_other": "{count} extras",
+			"rush_delivery": "Entrega urgente",
+			"expires": "Vence",
 			"service_label": "Servicio",
 			"standard_tier": "Estándar",
 			"days": "días",
@@ -60,7 +68,20 @@
 				"view": "Ver",
 				"accept": "Aceptar",
 				"decline": "Rechazar",
-				"view_contract": "Ver contrato"
+				"view_contract": "Ver contrato",
+				"delete": "Eliminar"
+			},
+			"delete_modal": {
+				"title": "Eliminar solicitud de servicio",
+				"intro": "Esto eliminará permanentemente esta solicitud de servicio del historial de tu panel.",
+				"confirm": "Confirmar eliminación"
+			},
+			"drawer": {
+				"title": "Solicitud de servicio",
+				"loading": "Cargando detalles del servicio...",
+				"inquiry_title": "Tu consulta",
+				"custom_answers": "Respuestas enviadas",
+				"attachments": "Archivos adjuntos"
 			},
 			"statuses": {
 				"contract_created": "Contrato creado",
@@ -81,7 +102,8 @@
 				"reconnect": "De nuevo en línea. Reintenta si el estado más reciente de la cotización aún no se ha actualizado."
 			},
 			"errors": {
-				"update_status": "No se pudo actualizar el estado de la cotización."
+				"update_status": "No se pudo actualizar el estado de la cotización.",
+				"delete_request": "No se puede eliminar esta solicitud de servicio en este momento."
 			},
 			"messages": {
 				"acceptance_submitted": "Aceptación enviada. El contrato financiado aparecerá aquí una vez que se confirme la creación del escrow."

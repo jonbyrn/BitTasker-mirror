@@ -25,6 +25,8 @@
 	import KINDS from '$lib/utils/constants/kinds';
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { taskTranslationService } from '$lib/services/task-translation.service';
+	import DashboardEmptyState from '$lib/components/shared/DashboardEmptyState.svelte';
+	import IconMagnify from '~icons/mdi/magnify';
 
 	/** Build a task-like object from bid for TranslatableTask (title + description) */
 	function taskFromBid(bid: NostrBidContent): Task {
@@ -335,25 +337,15 @@
 		</div>
 	{:else if myBids.length === 0}
 		<!-- Empty State -->
-		<div class="bg-base-100 rounded-xl py-12 text-center shadow-md">
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				class="text-primary mx-auto mb-3 h-12 w-12"
-				fill="none"
-				viewBox="0 0 24 24"
-				stroke="currentColor"
-			>
-				<path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					stroke-width="2"
-					d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-				/>
-			</svg>
-			<span class="text-xl font-medium">{$t('bids.no_bids_yet')}</span>
-			<p class="mb-4 text-gray-500">
-				{$t('bids.no_bids_description')}
-			</p>
+		<div class="card bg-base-100 rounded-xl p-4">
+			<DashboardEmptyState
+				icon={IconMagnify}
+				title={$t('bids.no_bids_yet')}
+				description={$t('bids.no_bids_description')}
+				actionLabel={$t('dashboard.find_task')}
+				onAction={() => goto('/tasks')}
+				testId="dashboard-bids-empty-state"
+			/>
 		</div>
 	{:else}
 		<!-- Bids List -->

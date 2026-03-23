@@ -48,7 +48,7 @@ describe('service-quote query helpers', () => {
 		resolveServiceQuoteThreads.mockImplementation(({ requests, proposals, statuses }) => [
 			{
 				request: requests[0],
-				proposals: proposals.map((proposal: any) => ({
+				proposals: proposals.map((proposal: { content?: { expirationTimestamp?: number } }) => ({
 					proposal,
 					statusEvents: statuses,
 					state: 'pending',
@@ -89,6 +89,7 @@ describe('service-quote query helpers', () => {
 			validEvent,
 			{ id: 'invalid-event', created_at: 3, tags: [], content: {} }
 		]);
+		queryNostrEvents.mockResolvedValueOnce([]);
 
 		const result = await queryServiceQuoteRequestsForService(serviceAddress, taskeePubkey, 25);
 
@@ -104,6 +105,50 @@ describe('service-quote query helpers', () => {
 			expect.any(Array)
 		);
 		expect(result).toEqual([validEvent, { id: 'request-1', created_at: 1, tags: [], content: {} }]);
+	});
+
+	it('filters quote requests that have been deleted with NIP-09 events', async () => {
+		const { queryServiceQuoteRequestsByAuthor } = await import('$lib/utils/service-quote/query');
+		const taskerPubkey = 'b'.repeat(64);
+		const keepEvent = {
+			id: 'request-keep',
+			pubkey: taskerPubkey,
+			created_at: 2,
+			tags: [],
+			content: {}
+		};
+		const deletedEvent = {
+			id: 'request-deleted',
+			pubkey: taskerPubkey,
+			created_at: 3,
+			tags: [],
+			content: {}
+		};
+
+		queryNostrEvents.mockResolvedValueOnce([keepEvent, deletedEvent]).mockResolvedValueOnce([
+			{
+				id: 'delete-event-1',
+				created_at: 4,
+				tags: [['e', 'request-deleted']],
+				content: 'deleted'
+			}
+		]);
+
+		const result = await queryServiceQuoteRequestsByAuthor(taskerPubkey, 25);
+
+		expect(queryNostrEvents).toHaveBeenNthCalledWith(
+			2,
+			expect.objectContaining({
+				kinds: [5],
+				authors: [taskerPubkey],
+				'#e': expect.arrayContaining(['request-keep', 'request-deleted']),
+				limit: 100
+			}),
+			undefined,
+			undefined,
+			expect.any(Array)
+		);
+		expect(result).toEqual([keepEvent]);
 	});
 
 	it('queries proposal statuses with proposal ids, author filters, and published relay hints', async () => {
@@ -178,12 +223,15 @@ describe('service-quote query helpers', () => {
 
 		queryNostrEvents
 			.mockResolvedValueOnce([request])
+			.mockResolvedValueOnce([])
 			.mockResolvedValueOnce([proposal])
 			.mockResolvedValueOnce([status])
 			.mockResolvedValueOnce([request])
+			.mockResolvedValueOnce([])
 			.mockResolvedValueOnce([proposal])
 			.mockResolvedValueOnce([status])
 			.mockResolvedValueOnce([request])
+			.mockResolvedValueOnce([])
 			.mockResolvedValueOnce([proposal])
 			.mockResolvedValueOnce([status]);
 
