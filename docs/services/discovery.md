@@ -22,5 +22,5 @@
 ## Quote And Purchase Entry Points
 
 - Buyers can use `Request Quote` from the public service detail page.
-- Eligible listings can also expose `Buy Now` on the public service detail page.
+- Eligible listings can also expose `Book Now` on the public service detail page.
 - Homepage cards do not open quote or purchase flows directly; they always route through `View Service` first.
