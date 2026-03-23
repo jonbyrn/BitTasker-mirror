@@ -2,10 +2,7 @@ import type { ContractWithEvents } from '$lib/types/contract';
 
 type ContractValue = string | number | boolean | undefined;
 
-export type ContractContextKeyReader = (
-	contract: ContractWithEvents,
-	key: string
-) => ContractValue;
+export type ContractContextKeyReader = (contract: ContractWithEvents, key: string) => ContractValue;
 
 export interface ContractContextPresentation {
 	contextType: string;
@@ -45,7 +42,7 @@ function normalizeString(value: ContractValue): string | null {
 }
 
 function resolveServiceContractLabel(purchaseMode: string | null): string {
-	return purchaseMode === 'instant_buy' ? 'Instant Buy' : 'Quoted Service';
+	return purchaseMode === 'instant_buy' ? 'Book Now' : 'Quoted Service';
 }
 
 export function buildContractContextPresentation(

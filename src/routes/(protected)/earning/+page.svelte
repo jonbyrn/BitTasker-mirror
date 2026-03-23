@@ -25,7 +25,7 @@
 	const tabs = $derived([
 		{
 			id: 'bids',
-			label: translateOrFallback('dashboard.tabs.bids', 'Bids Sent'),
+			label: translateOrFallback('dashboard.tabs.bids', 'Bids'),
 			buttonLabel: translateOrFallback('dashboard.find_task', 'Find Tasks'),
 			buttonHref: '/tasks',
 			icon: 'search'
@@ -59,7 +59,7 @@
 		},
 		{
 			id: 'saved-searches',
-			label: translateOrFallback('dashboard.tabs.saved_searches', 'Saved Searches'),
+			label: translateOrFallback('dashboard.tabs.saved_searches', 'Alerts'),
 			buttonLabel: translateOrFallback('dashboard.find_task', 'Find Tasks'),
 			buttonHref: '/tasks',
 			icon: 'search'
@@ -331,6 +331,8 @@
 		>
 			<DashboardContractsPanel
 				initialContext={contractsContext}
+				showRoleFilters={false}
+				fixedRole="freelancer"
 				highlightEscrowId={currentContractsHighlight}
 				onHighlightConsumed={handleContractsHighlightConsumed}
 				onHighlightMissing={handleContractsHighlightMissing}

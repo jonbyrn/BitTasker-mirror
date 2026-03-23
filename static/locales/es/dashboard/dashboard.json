@@ -27,11 +27,11 @@
 		"no_data_available": "No hay datos disponibles",
 		"tabs": {
 			"tasks": "Mis Tareas",
-			"bids": "Ofertas Enviadas",
+			"bids": "Ofertas",
 			"requests": "Solicitudes",
 			"contracts": "Contratos",
 			"recurring": "Tareas Recurrentes",
-			"saved_searches": "Búsquedas Guardadas",
+			"saved_searches": "Alertas",
 			"my_services": "Mis Servicios",
 			"quotes": "Solicitudes de servicios"
 		},

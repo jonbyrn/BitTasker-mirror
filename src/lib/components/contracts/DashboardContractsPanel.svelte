@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { tick } from 'svelte';
 	import { onMount, onDestroy } from 'svelte';
+	import { SvelteSet } from 'svelte/reactivity';
 	import { t } from 'svelte-i18n';
 	import { get } from 'svelte/store';
 	import { createPortal } from '$lib/utils/portal';
@@ -32,11 +33,15 @@
 
 	const {
 		initialContext = 'all',
+		showRoleFilters = true,
+		fixedRole = 'all',
 		highlightEscrowId = null,
 		onHighlightConsumed,
 		onHighlightMissing
 	} = $props<{
 		initialContext?: 'all' | 'tasks' | 'services';
+		showRoleFilters?: boolean;
+		fixedRole?: 'all' | 'client' | 'freelancer';
 		highlightEscrowId?: string | null;
 		onHighlightConsumed?: (escrowId: string) => void;
 		onHighlightMissing?: (escrowId: string) => void;
@@ -50,7 +55,7 @@
 	let highlightRecoveryAttempted = $state(false);
 	let lastHandledHighlight = $state<string | null>(null);
 	let highlightRecoveryInFlightFor = $state<string | null>(null);
-	const warnedUnknownContextEscrowIds = new Set<string>();
+	const warnedUnknownContextEscrowIds = new SvelteSet<string>();
 
 	let btcPrice = $state<number>(0);
 	const isOffline = $derived(!$browserNetworkStatus.online);
@@ -122,15 +127,21 @@
 	const filteredContracts = $derived.by(() => {
 		let filtered = $contractStore.contracts;
 
+		if (fixedRole === 'client') {
+			filtered = filtered.filter((c) => c.isClient);
+		} else if (fixedRole === 'freelancer') {
+			filtered = filtered.filter((c) => !c.isClient);
+		}
+
 		// Filter by status (using unified status enum)
 		if (statusFilter !== 'all') {
 			filtered = filtered.filter((c) => c.status === statusFilter);
 		}
 
 		// Filter by role
-		if (roleFilter === 'client') {
+		if (showRoleFilters && fixedRole === 'all' && roleFilter === 'client') {
 			filtered = filtered.filter((c) => c.isClient);
-		} else if (roleFilter === 'freelancer') {
+		} else if (showRoleFilters && fixedRole === 'all' && roleFilter === 'freelancer') {
 			filtered = filtered.filter((c) => !c.isClient);
 		}
 
@@ -140,7 +151,9 @@
 				return contextType == null || contextType === 'task';
 			});
 		} else if (contextFilter === 'services') {
-			filtered = filtered.filter((contract) => contract.contractEvent.content.contextType === 'service');
+			filtered = filtered.filter(
+				(contract) => contract.contractEvent.content.contextType === 'service'
+			);
 		}
 
 		return filtered;
@@ -371,22 +384,28 @@
 		{/if}
 
 		{#if highlightRecoveryPending}
-			<div class="alert alert-info mb-4 text-sm" data-testid="contracts-panel-highlight-syncing-alert">
-				<span>Opening the highlighted contract. Waiting for the latest service contract data to sync.</span>
+			<div
+				class="alert alert-info mb-4 text-sm"
+				data-testid="contracts-panel-highlight-syncing-alert"
+			>
+				<span
+					>Opening the highlighted contract. Waiting for the latest service contract data to sync.</span
+				>
 			</div>
 		{/if}
 
 		{#if contractsRefreshPartial}
 			<div class="alert alert-info mb-4 text-sm" data-testid="contracts-panel-partial-alert">
 				<span>
-					Refreshing contracts. Showing last known contract data until the latest relay and chain state finish syncing.
+					Refreshing contracts. Showing last known contract data until the latest relay and chain
+					state finish syncing.
 				</span>
 			</div>
 		{/if}
 
 		{#if $contractStore.error}
 			<div
-				class={`mb-4 flex items-center justify-between gap-3 text-sm alert ${
+				class={`alert mb-4 flex items-center justify-between gap-3 text-sm ${
 					contractsStaleData ? 'alert-warning' : 'alert-error'
 				}`}
 				data-testid={contractsStaleData ? 'contracts-panel-stale-alert' : undefined}
@@ -412,12 +431,21 @@
 		<!-- Header with title and refresh button -->
 		<div class="mb-3 flex items-center justify-between gap-2">
 			<div class="space-y-1">
-				<p class="text-base-content/70 text-xs font-semibold tracking-wide uppercase">
-					{$t('dashboard.contracts.filter_by_status_and_role')}
-				</p>
-				<p class="text-base-content/70 hidden text-sm sm:block">
-					{$t('dashboard.contracts.filter_description')}
-				</p>
+				{#if showRoleFilters}
+					<p class="text-base-content/70 text-xs font-semibold tracking-wide uppercase">
+						{$t('dashboard.contracts.filter_by_status_and_role')}
+					</p>
+					<p class="text-base-content/70 hidden text-sm sm:block">
+						{$t('dashboard.contracts.filter_description')}
+					</p>
+				{:else}
+					<p class="text-base-content/70 text-xs font-semibold tracking-wide uppercase">
+						Contract filters
+					</p>
+					<p class="text-base-content/70 hidden text-sm sm:block">
+						Filter by status and contract context in this earnings view.
+					</p>
+				{/if}
 			</div>
 
 			<!-- Refresh button: icon only on mobile, with text on desktop -->
@@ -437,14 +465,8 @@
 			</button>
 		</div>
 
-		<!-- Mobile: Subheading and dropdowns -->
-		<div class="mb-3 sm:hidden">
-			<p class="text-base-content/70 mb-3 text-sm">
-				{$t('dashboard.contracts.filter_description')}
-			</p>
-
-			<!-- Role Filter Buttons (Mobile) -->
-			<div class="mb-3 flex gap-2">
+		{#if showRoleFilters}
+			<div class="mb-4 flex flex-wrap gap-2">
 				{#each roleFilterOptions as option (option.id)}
 					{@const IconComponent = option.icon}
 					<button
@@ -463,90 +485,89 @@
 					</button>
 				{/each}
 			</div>
+		{/if}
 
-			<!-- Status Filter Dropdown (Mobile) -->
-			<div class="status-dropdown-container relative">
-				<button
-					class="border-primary bg-primary/10 text-primary hover:bg-primary/20 flex w-full items-center justify-between rounded-3xl border px-4 py-2 transition-all duration-200"
-					onclick={toggleStatusDropdown}
-					aria-expanded={isStatusDropdownOpen}
-					aria-haspopup="true"
-					aria-controls="status-dropdown-menu"
-					aria-label={$t('dashboard.contracts.filter_by_status')}
-				>
-					<div class="flex items-center gap-2">
-						{#each statusFilterOptions as option (String(option.id))}
-							{#if statusFilter === option.id}
-								{@const IconComponent = option.icon}
-								<IconComponent class="h-5 w-5" />
-							{/if}
-						{/each}
-						<span class="font-medium">
-							{statusFilterOptions.find((opt) => opt.id === statusFilter)?.label}
-						</span>
-					</div>
-					<IconChevronDown
-						class="h-5 w-5 transition-transform duration-200 {isStatusDropdownOpen
-							? 'rotate-180'
-							: ''}"
-					/>
-				</button>
-
-				{#if isStatusDropdownOpen}
-					<div
-						id="status-dropdown-menu"
-						role="menu"
-						aria-label={$t('dashboard.contracts.status_filter_menu')}
-						class="border-base-300 bg-base-100 absolute top-full right-0 left-0 z-50 mt-2 rounded-xl border shadow-lg"
+		<div class="mt-4">
+			{#if showRoleFilters}
+				<p class="text-base-content/70 mb-2 text-xs font-semibold tracking-wide uppercase">
+					Contract context
+				</p>
+			{/if}
+			<div class="flex flex-wrap gap-2">
+				{#each contextFilterOptions as option (option.id)}
+					{@const IconComponent = option.icon}
+					<button
+						class="btn btn-sm flex items-center gap-2 {contextFilter === option.id
+							? 'btn-primary'
+							: 'btn-secondary'}"
+						onclick={() => selectContextFilter(option.id)}
 					>
-						{#each statusFilterOptions as option (String(option.id))}
-							{@const IconComponent = option.icon}
-							<button
-								role="menuitemradio"
-								aria-checked={statusFilter === option.id}
-								class="hover:bg-base-200 flex w-full items-center gap-2 px-4 py-2 text-left transition-colors duration-200 first:rounded-t-xl last:rounded-b-xl {statusFilter ===
-								option.id
-									? 'bg-primary/10 text-primary'
-									: 'text-base-content'}"
-								onclick={() => selectStatusFilter(option.id)}
-							>
-								<IconComponent
-									class="h-5 w-5 {statusFilter === option.id
-										? 'text-primary'
-										: 'text-base-content/60'}"
-								/>
-								<span class="font-medium">{option.label}</span>
-								{#if statusFilter === option.id}
-									<IconCheck class="text-primary ml-auto h-5 w-5" />
-								{/if}
-							</button>
-						{/each}
-					</div>
-				{/if}
+						<IconComponent class="h-4 w-4" />
+						<span>{option.label}</span>
+					</button>
+				{/each}
 			</div>
 		</div>
 
-		<!-- Desktop: Role Filter Buttons -->
-		<div class="mb-4 hidden sm:block">
-			<div class="flex gap-2">
-				{#each roleFilterOptions as option (option.id)}
-					{@const IconComponent = option.icon}
-					<button
-						class="btn {roleFilter === option.id
-							? 'btn-primary'
-							: 'btn-secondary'} btn-sm flex items-center gap-2"
-						onclick={() => selectRoleFilter(option.id)}
-						aria-label={option.label}
-					>
-						{#if roleFilter === option.id}
-							<IconCheck class="h-4 w-4" />
-						{:else}
-							<IconComponent class="h-4 w-4" />
+		<!-- Mobile: Status Filter Dropdown -->
+		<div class="status-dropdown-container relative mt-4 sm:hidden">
+			<button
+				class="border-primary bg-primary/10 text-primary hover:bg-primary/20 flex w-full items-center justify-between rounded-3xl border px-4 py-2 transition-all duration-200"
+				onclick={toggleStatusDropdown}
+				aria-expanded={isStatusDropdownOpen}
+				aria-haspopup="true"
+				aria-controls="status-dropdown-menu"
+				aria-label={$t('dashboard.contracts.filter_by_status')}
+			>
+				<div class="flex items-center gap-2">
+					{#each statusFilterOptions as option (String(option.id))}
+						{#if statusFilter === option.id}
+							{@const IconComponent = option.icon}
+							<IconComponent class="h-5 w-5" />
 						{/if}
-						<span>{option.label}</span>
-					</button>
-				{/each}
-			</div>
+					{/each}
+					<span class="font-medium">
+						{statusFilterOptions.find((opt) => opt.id === statusFilter)?.label}
+					</span>
+				</div>
+				<IconChevronDown
+					class="h-5 w-5 transition-transform duration-200 {isStatusDropdownOpen
+						? 'rotate-180'
+						: ''}"
+				/>
+			</button>
+
+			{#if isStatusDropdownOpen}
+				<div
+					id="status-dropdown-menu"
+					role="menu"
+					aria-label={$t('dashboard.contracts.status_filter_menu')}
+					class="border-base-300 bg-base-100 absolute top-full right-0 left-0 z-50 mt-2 rounded-xl border shadow-lg"
+				>
+					{#each statusFilterOptions as option (String(option.id))}
+						{@const IconComponent = option.icon}
+						<button
+							role="menuitemradio"
+							aria-checked={statusFilter === option.id}
+							class="hover:bg-base-200 flex w-full items-center gap-2 px-4 py-2 text-left transition-colors duration-200 first:rounded-t-xl last:rounded-b-xl {statusFilter ===
+							option.id
+								? 'bg-primary/10 text-primary'
+								: 'text-base-content'}"
+							onclick={() => selectStatusFilter(option.id)}
+						>
+							<IconComponent
+								class="h-5 w-5 {statusFilter === option.id
+									? 'text-primary'
+									: 'text-base-content/60'}"
+							/>
+							<span class="font-medium">{option.label}</span>
+							{#if statusFilter === option.id}
+								<IconCheck class="text-primary ml-auto h-5 w-5" />
+							{/if}
+						</button>
+					{/each}
+				</div>
+			{/if}
 		</div>
 
 		<!-- Desktop: Status Filter Buttons -->
@@ -564,26 +585,6 @@
 					>
 						<IconComponent class="h-5 w-5 {statusFilter === option.id ? 'text-primary' : ''}" />
 						<span class="font-medium">{option.label}</span>
-					</button>
-				{/each}
-			</div>
-		</div>
-
-		<div class="mt-4">
-			<p class="text-base-content/70 mb-2 text-xs font-semibold tracking-wide uppercase">
-				Contract context
-			</p>
-			<div class="flex flex-wrap gap-2">
-				{#each contextFilterOptions as option (option.id)}
-					{@const IconComponent = option.icon}
-					<button
-						class="btn btn-sm flex items-center gap-2 {contextFilter === option.id
-							? 'btn-primary'
-							: 'btn-secondary'}"
-						onclick={() => selectContextFilter(option.id)}
-					>
-						<IconComponent class="h-4 w-4" />
-						<span>{option.label}</span>
 					</button>
 				{/each}
 			</div>
