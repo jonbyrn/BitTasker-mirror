@@ -91,7 +91,10 @@
 	});
 
 	function getTimelineFilterCategory(
-		timeline: Pick<ServiceQuoteTimelineEntry, 'resolvedStatus' | 'latestProposal' | 'linkedEscrowId'>
+		timeline: Pick<
+			ServiceQuoteTimelineEntry,
+			'resolvedStatus' | 'latestProposal' | 'linkedEscrowId'
+		>
 	): ServiceRequestFilterCategory {
 		if (timeline.linkedEscrowId || timeline.resolvedStatus === 'accepted') {
 			return 'contract_created';
