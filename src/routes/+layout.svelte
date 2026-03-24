@@ -358,12 +358,3 @@
 <!-- Global portal target — overlays (dropdowns, modals) teleport here to escape
      overflow:hidden/overflow-x:hidden ancestors that break fixed positioning -->
 <div id="portal-root" style="position:relative;z-index:9999;"></div>
-
-<style>
-	/* Hide footer on mobile/tablet for tasks page */
-	@media (max-width: 1023px) {
-		.tasks-page-footer {
-			display: none !important;
-		}
-	}
-</style>
