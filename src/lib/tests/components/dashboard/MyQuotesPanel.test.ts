@@ -297,7 +297,9 @@ describe('MyQuotesPanel', () => {
 		});
 
 		expect(getByText('Filter by request status')).toBeTruthy();
-		expect(getAllByText('Focus on the service requests that need your next action.').length).toBe(2);
+		expect(getAllByText('Focus on the service requests that need your next action.').length).toBe(
+			2
+		);
 
 		await fireEvent.click(getByRole('button', { name: 'Refresh' }));
 		expect(onRetry).toHaveBeenCalledTimes(1);
