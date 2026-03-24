@@ -32,10 +32,8 @@ import v2Abi from './abi.json';
 import type { NDKBid } from '$lib/nostr/events/bid';
 import type { NDKTask } from '$lib/nostr/events/task';
 import { sendLocationsToTaskee } from '$lib/utils/location/sendLocation';
-import { updateTask } from '$lib/nostr/task';
 import { pushNotificationService } from '$lib/api/services/push-notification.service';
-import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
-import { TaskTypeEnum } from '$lib/utils/enums/task.enum';
+import { TaskStatusEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
 
 const d = createDebug('escrow:v2:creation');
 
@@ -306,22 +304,44 @@ export async function estimateGasForCreatePaymentContract(
 	}
 }
 
-/** Artificial delay (ms) to simulate tx confirmation in simulation mode */
-const SIMULATION_DELAY_MS = 10_000;
-
-/** Generate a fake tx hash for simulation (0x + 64 hex chars) */
-function generateFakeTxHash(): string {
-	const hex = '0123456789abcdef';
-	let out = '0x';
-	for (let i = 0; i < 64; i++) {
-		out += hex[Math.floor(Math.random() * 16)];
+/**
+ * Read `paymentId` from mined tx logs (authoritative — not from staticCall).
+ */
+function parsePaymentContractCreatedPaymentId(
+	receipt: ethers.TransactionReceipt,
+	v2ContractAddress: string
+): number {
+	const iface = new ethers.Interface(v2Abi as ethers.InterfaceAbi);
+	const expected = v2ContractAddress.toLowerCase();
+	for (const log of receipt.logs) {
+		if (!log.address || log.address.toLowerCase() !== expected) continue;
+		try {
+			const parsed = iface.parseLog({
+				topics: log.topics as string[],
+				data: log.data
+			});
+			if (parsed?.name === 'PaymentContractCreated') {
+				const raw = parsed.args.paymentContractId;
+				return typeof raw === 'bigint' ? Number(raw) : Number(raw);
+			}
+		} catch {
+			continue;
+		}
 	}
-	return out;
+	throw new Error('PaymentContractCreated event not found in transaction receipt');
 }
 
-/** Sleep for ms */
-function sleep(ms: number): Promise<void> {
-	return new Promise((resolve) => setTimeout(resolve, ms));
+/**
+ * Mark task as bid-accepted + IN_PROGRESS and publish replaceable (kind 31000).
+ * Uses NDKTask setters so tags/body stay aligned with the loaded event.
+ */
+async function publishTaskAcceptedBid(task: NDKTask, bidEventId: string): Promise<void> {
+	if (!task.ndk) {
+		throw new Error('NDK is required to publish task update');
+	}
+	task.acceptedBid = bidEventId;
+	task.status = TaskStatusEnum.IN_PROGRESS;
+	await task.publishReplaceable();
 }
 
 /**
@@ -380,18 +400,16 @@ async function publishV2ContractEvent(params: {
 
 	d.log('publishV2ContractEvent: NDKPaymentContract BEFORE publish', contract);
 
-	// await contract.publish();
+	await contract.publish();
 
 	d.log('publishV2ContractEvent: NDKPaymentContract AFTER publish', contract);
 }
 
 /**
  * Escrow creation orchestrator.
- * Runs: validate → gas → staticCall → [simulate: fake hash + delay | real: broadcast]
- * Returns immediately with tx hash and sideEffects promise (publish contract, DM, update task, push).
+ * Runs: validate → gas → staticCall (revert check only) → broadcast → onConfirmed (receipt + paymentId) → sideEffects (Nostr, DM, task, push).
  */
 export interface CreateEscrowOrchestratorOptions {
-	simulate?: boolean;
 	/** Additional notes for the taskee DM (locations/congrats message) */
 	additionalNotes?: string;
 }
@@ -402,13 +420,12 @@ export async function createEscrowFromBidOrchestrator(
 	btcPrice: number,
 	options?: CreateEscrowOrchestratorOptions
 ): Promise<V2OrchestratorResult> {
-	const simulate = options?.simulate ?? false;
 	const additionalNotes = options?.additionalNotes ?? '';
 	const bidContent = bid.bidContent;
 	const taskContent = task.taskContent;
 	const taskId = task.tagValue('d') ?? task.id ?? '';
 
-	d.log('createEscrowFromBidOrchestrator start', { taskId, bidId: bid.id, simulate });
+	d.log('createEscrowFromBidOrchestrator start', { taskId, bidId: bid.id });
 
 	try {
 		d.log('orchestrator: step 1 — deriveV2CreationParams');
@@ -466,8 +483,8 @@ export async function createEscrowFromBidOrchestrator(
 			estimatedCostFormatted
 		});
 
-		d.log('orchestrator: step 6 — staticCall (dry-run simulation)');
-		const simulatedPaymentId = await createPaymentContract.staticCall(
+		d.log('orchestrator: step 6 — staticCall (revert check only; paymentId not used)');
+		await createPaymentContract.staticCall(
 			taskeeEip55,
 			params.estimatedStartTime,
 			params.estimatedCompletionTime,
@@ -477,35 +494,9 @@ export async function createEscrowFromBidOrchestrator(
 			params.upfrontDeposit,
 			{ value: params.totalValueWei, gasPrice }
 		);
-		const paymentId = Number(simulatedPaymentId);
-		d.log('orchestrator: staticCall done', { paymentId });
+		d.log('orchestrator: staticCall ok');
 
-		let transactionHash: string;
-
-		let tx: Awaited<ReturnType<typeof createPaymentContract>> | undefined;
-
-		if (simulate) {
-			d.log('orchestrator: step 7a — simulate mode: generate fake tx hash');
-			transactionHash = generateFakeTxHash();
-		} else {
-			d.log('orchestrator: step 7b — real mode: broadcast createPaymentContract');
-			tx = await createPaymentContract(
-				taskeeEip55,
-				params.estimatedStartTime,
-				params.estimatedCompletionTime,
-				params.taskerFeeTier,
-				params.taskeeFeeTier,
-				params.cancellationFee,
-				params.upfrontDeposit,
-				{ value: params.totalValueWei, gasPrice }
-			);
-			transactionHash = tx.hash;
-			d.log('orchestrator: broadcast success — tx hash received, tx pending confirmation', {
-				transactionHash: transactionHash.slice(0, 18) + '…'
-			});
-		}
-
-		const status: 'simulated' | 'pending' = simulate ? 'simulated' : 'pending';
+		d.log('orchestrator: step 6b — Nostr prerequisites before broadcast');
 		const taskeePubkey = bid.author?.pubkey;
 		if (!taskeePubkey) {
 			return {
@@ -522,88 +513,114 @@ export async function createEscrowFromBidOrchestrator(
 			};
 		}
 
+		const v2ContractAddress = ethers.getAddress(getV2ContractAddress().toLowerCase());
+
+		d.log('orchestrator: step 7 — broadcast createPaymentContract');
+		const tx = await createPaymentContract(
+			taskeeEip55,
+			params.estimatedStartTime,
+			params.estimatedCompletionTime,
+			params.taskerFeeTier,
+			params.taskeeFeeTier,
+			params.cancellationFee,
+			params.upfrontDeposit,
+			{ value: params.totalValueWei, gasPrice }
+		);
+		const transactionHash = tx.hash;
+		d.log('orchestrator: broadcast success — tx hash (pending confirmation)', { transactionHash });
+
 		const taskeeNpub = bid.author?.npub;
 		const isRemote = taskContent.taskType === TaskTypeEnum.REMOTE;
 
+		let resolveOnConfirmed!: (value: { paymentId: number }) => void;
+		let rejectOnConfirmed!: (reason?: unknown) => void;
+		const onConfirmed = new Promise<{ paymentId: number }>((resolve, reject) => {
+			resolveOnConfirmed = resolve;
+			rejectOnConfirmed = reject;
+		});
+
 		const sideEffects = (async () => {
-			if (simulate) {
-				d.log('orchestrator: simulate mode: delay before side effects');
-				await sleep(SIMULATION_DELAY_MS);
-				d.log('orchestrator: simulation delay complete');
-			}
+			try {
+				d.log('orchestrator: awaiting tx confirmation for receipt + paymentId', {
+					transactionHash
+				});
+				const receipt = await tx.wait();
+				if (!receipt) {
+					throw new Error('Transaction receipt not available');
+				}
+				const paymentId = parsePaymentContractCreatedPaymentId(receipt, v2ContractAddress);
+				d.log('orchestrator: tx confirmed', { transactionHash, paymentId });
+				resolveOnConfirmed({ paymentId });
 
-			d.log('orchestrator: running side effects (publish, DM, update task, push)');
+				d.log('orchestrator: running side effects (publish, DM, update task, push)', {
+					paymentId
+				});
 
-			// Run side effects; log errors but don't fail the overall flow
-			const publishPromise = publishV2ContractEvent({
-				escrowId: String(paymentId),
-				taskId,
-				taskeePubkey,
-				taskTitle: taskContent.title ?? '',
-				taskDescription: taskContent.description ?? '',
-				amount: display.totalAmount,
-				estimatedStartTime: params.estimatedStartTime,
-				estimatedCompletionTime: params.estimatedCompletionTime,
-				transactionHash,
-				taskerPubkey
-			});
-
-			const dmPromise = sendLocationsToTaskee(
-				taskContent.pickupLocation ?? null,
-				taskContent.dropOffLocation ?? null,
-				taskeePubkey,
-				{
+				const publishPromise = publishV2ContractEvent({
+					escrowId: String(paymentId),
 					taskId,
+					taskeePubkey,
 					taskTitle: taskContent.title ?? '',
 					taskDescription: taskContent.description ?? '',
-					isRemote,
-					additionalNotes: additionalNotes.trim() || undefined
-				}
-			);
+					amount: display.totalAmount,
+					estimatedStartTime: params.estimatedStartTime,
+					estimatedCompletionTime: params.estimatedCompletionTime,
+					transactionHash,
+					taskerPubkey
+				});
 
-			const updateTaskPromise = updateTask(taskId, {
-				acceptedBid: bid.id,
-				status: TaskStatusEnum.IN_PROGRESS
-			});
+				const dmPromise = sendLocationsToTaskee(
+					taskContent.pickupLocation ?? null,
+					taskContent.dropOffLocation ?? null,
+					taskeePubkey,
+					{
+						taskId,
+						taskTitle: taskContent.title ?? '',
+						taskDescription: taskContent.description ?? '',
+						isRemote,
+						additionalNotes: additionalNotes.trim() || undefined
+					}
+				);
 
-			const pushPromise = taskeeNpub
-				? pushNotificationService.sendNotificationToNpubs({
-						npubs: [taskeeNpub],
-						title: 'Bid Accepted',
-						body: `Your bid on "${taskContent.title ?? 'Task'}" has been accepted`,
-						type: 'bid_accepted',
-						clickAction: `${import.meta.env.VITE_CLIENT_URL}/dashboard?tab=contracts`,
-						icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
-					})
-				: Promise.resolve();
+				const taskUpdatePromise = publishTaskAcceptedBid(task, bid.id);
 
-			const results = await Promise.allSettled([
-				publishPromise,
-				dmPromise,
-				updateTaskPromise,
-				pushPromise
-			]);
-			results.forEach((r, i) => {
-				const names = ['publish', 'sendLocations', 'updateTask', 'push'];
-				if (r.status === 'rejected') {
-					d.warn(`orchestrator: ${names[i]} failed`, r.reason);
-				}
-			});
-			d.log('orchestrator: side effects complete');
+				const pushPromise = taskeeNpub
+					? pushNotificationService.sendNotificationToNpubs({
+							npubs: [taskeeNpub],
+							title: 'Bid Accepted',
+							body: `Your bid on "${taskContent.title ?? 'Task'}" has been accepted`,
+							type: 'bid_accepted',
+							clickAction: `${import.meta.env.VITE_CLIENT_URL}/dashboard?tab=contracts`,
+							icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
+						})
+					: Promise.resolve();
+
+				const results = await Promise.allSettled([
+					publishPromise,
+					dmPromise,
+					taskUpdatePromise,
+					pushPromise
+				]);
+				results.forEach((r, i) => {
+					const names = ['publish', 'sendLocations', 'taskPublishReplaceable', 'push'];
+					if (r.status === 'rejected') {
+						d.warn(`orchestrator: ${names[i]} failed`, r.reason);
+					}
+				});
+				d.log('orchestrator: side effects complete', { transactionHash, paymentId });
+			} catch (err) {
+				rejectOnConfirmed(err);
+				throw err;
+			}
 		})();
 
-		d.log('orchestrator: returning immediately', {
-			transactionHash: transactionHash.slice(0, 18) + '…',
-			paymentId,
-			status: simulate ? 'simulated' : 'pending'
-		});
+		d.log('orchestrator: returning after broadcast', { transactionHash });
 		return {
 			success: true,
 			transactionHash,
-			paymentId,
-			status,
 			estimatedCostFormatted,
 			tx,
+			onConfirmed,
 			sideEffects
 		};
 	} catch (error) {

@@ -110,12 +110,15 @@ export type V2OrchestratorResult =
 	| {
 			success: true;
 			transactionHash: string;
-			paymentId: number;
-			status: 'simulated' | 'pending';
 			estimatedCostFormatted?: string;
-			/** Real broadcast only — use tx.wait() to await confirmation */
-			tx?: TransactionWithWait;
-			/** Resolves when all post-hash side effects complete (publish contract, DM, update task, push) */
+			/** Broadcast tx — wait for receipt inside orchestrator to obtain paymentId */
+			tx: TransactionWithWait;
+			/**
+			 * Resolves when the tx is mined and `PaymentContractCreated` is parsed from logs.
+			 * `paymentId` is only defined after confirmation (not from staticCall).
+			 */
+			onConfirmed: Promise<{ paymentId: number }>;
+			/** Resolves when Nostr + DM + task + push complete (after onConfirmed) */
 			sideEffects: Promise<void>;
 	  }
 	| {
