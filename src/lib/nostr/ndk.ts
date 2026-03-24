@@ -11,6 +11,7 @@ import { createDebug } from '$lib/utils/debug';
 import { NDKBid } from './events/bid';
 import { NDKTask } from './events/task';
 import { getNostrKeyPair } from '$lib/utils/nostrKeys';
+import { NDKPaymentContract } from './events/contract';
 
 const d = createDebug('ndk:signer');
 
@@ -23,6 +24,7 @@ export const ndk = createNDK({
 });
 registerEventClass(NDKBid);
 registerEventClass(NDKTask);
+registerEventClass(NDKPaymentContract);
 ndk.connect();
 
 /**

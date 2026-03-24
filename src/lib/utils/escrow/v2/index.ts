@@ -9,8 +9,9 @@ import { FEE_TIERS } from '@bittasker/wallet-core';
 
 export {
 	deriveV2CreationParams,
-	createEscrowFromBid,
-	estimateGasForCreatePaymentContract
+	createEscrowFromBidOrchestrator,
+	estimateGasForCreatePaymentContract,
+	type CreateEscrowOrchestratorOptions
 } from './creation';
 
 /** Fee percentage display (e.g. "2.5%") — for UI */
@@ -33,6 +34,7 @@ export type {
 	V2DerivationResult,
 	V2DryRunResult,
 	V2GasEstimateResult,
+	V2OrchestratorResult,
 	DeriveInput
 } from './types';
 

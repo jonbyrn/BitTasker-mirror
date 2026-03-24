@@ -98,3 +98,28 @@ export type V2GasEstimateResult =
 			estimatedCostFormatted: string;
 	  }
 	| { success: false; error: string };
+
+/** Tx object from ethers broadcast — has .wait() to await confirmation */
+export interface TransactionWithWait {
+	hash: string;
+	wait(confirmations?: number): Promise<unknown>;
+}
+
+/** Result of createEscrowFromBidOrchestrator */
+export type V2OrchestratorResult =
+	| {
+			success: true;
+			transactionHash: string;
+			paymentId: number;
+			status: 'simulated' | 'pending';
+			estimatedCostFormatted?: string;
+			/** Real broadcast only — use tx.wait() to await confirmation */
+			tx?: TransactionWithWait;
+			/** Resolves when all post-hash side effects complete (publish contract, DM, update task, push) */
+			sideEffects: Promise<void>;
+	  }
+	| {
+			success: false;
+			error: string;
+			validationErrors?: string[];
+	  };
