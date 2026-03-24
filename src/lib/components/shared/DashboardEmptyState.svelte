@@ -24,6 +24,7 @@
 	} = $props();
 
 	const ctaIcon = $derived(actionIcon ?? icon ?? null);
+	const actionSpacingClass = $derived(description ? '' : 'mt-4');
 </script>
 
 <div class="py-8 text-center" data-testid={testId ?? undefined}>
@@ -40,7 +41,7 @@
 
 	{#if actionLabel}
 		{#if actionHref}
-			<a href={actionHref} class="btn btn-primary gap-2">
+			<a href={actionHref} class={`btn btn-primary gap-2 ${actionSpacingClass}`}>
 				{#if ctaIcon}
 					{@const ActionIcon = ctaIcon}
 					<ActionIcon class="h-5 w-5" aria-hidden="true" />
@@ -48,7 +49,11 @@
 				{actionLabel}
 			</a>
 		{:else if onAction}
-			<button type="button" class="btn btn-primary gap-2" onclick={onAction}>
+			<button
+				type="button"
+				class={`btn btn-primary gap-2 ${actionSpacingClass}`}
+				onclick={onAction}
+			>
 				{#if ctaIcon}
 					{@const ActionIcon = ctaIcon}
 					<ActionIcon class="h-5 w-5" aria-hidden="true" />

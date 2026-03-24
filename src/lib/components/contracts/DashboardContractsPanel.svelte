@@ -39,6 +39,9 @@
 		initialContext = 'all',
 		showRoleFilters = true,
 		fixedRole = 'all',
+		emptyStateActionLabel = null,
+		emptyStateActionHref = null,
+		emptyStateActionIcon = null,
 		highlightEscrowId = null,
 		onHighlightConsumed,
 		onHighlightMissing
@@ -46,6 +49,9 @@
 		initialContext?: 'all' | 'tasks' | 'services';
 		showRoleFilters?: boolean;
 		fixedRole?: 'all' | 'client' | 'freelancer';
+		emptyStateActionLabel?: string | null;
+		emptyStateActionHref?: string | null;
+		emptyStateActionIcon?: typeof IconWalletOutline | typeof IconRefresh | null;
 		highlightEscrowId?: string | null;
 		onHighlightConsumed?: (escrowId: string) => void;
 		onHighlightMissing?: (escrowId: string) => void;
@@ -623,12 +629,17 @@
 						? $t('dashboard.contracts.no_contracts_description')
 						: $t('dashboard.contracts.try_different_filters')}
 					actionLabel={$contractStore.contracts.length === 0
-						? $t('dashboard.manage_wallet')
+						? (emptyStateActionLabel ?? $t('dashboard.manage_wallet'))
 						: $t('find_tasks.clear_filters')}
-					actionIcon={$contractStore.contracts.length === 0 ? IconWalletOutline : IconRefresh}
+					actionIcon={$contractStore.contracts.length === 0
+						? (emptyStateActionIcon ?? IconWalletOutline)
+						: IconRefresh}
+					actionHref={$contractStore.contracts.length === 0 ? emptyStateActionHref : null}
 					onAction={() => {
 						if ($contractStore.contracts.length === 0) {
-							void goto('/dashboard/wallet');
+							if (!emptyStateActionHref) {
+								void goto('/dashboard/wallet');
+							}
 							return;
 						}
 						clearFilters();

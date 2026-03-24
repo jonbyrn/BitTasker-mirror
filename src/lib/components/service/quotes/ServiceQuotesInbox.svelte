@@ -3,6 +3,7 @@
 	import { t } from 'svelte-i18n';
 	import ServiceAgreementSummary from '$lib/components/contracts/ServiceAgreementSummary.svelte';
 	import type { ServiceQuoteTimelineEntry } from '$lib/types/service-quote';
+	import type { ServiceQuoteDataFreshness } from '$lib/types/service-quote';
 	import { buildServiceQuoteAgreementSummary } from '$lib/utils/service-quote/agreement-summary';
 	import { createDashboardUrl } from '$lib/utils/service-quote/dashboard-route';
 	import { browserNetworkStatus } from '$lib/utils/network-status';
@@ -19,9 +20,9 @@
 
 	let {
 		serviceUnavailable = false,
-		serviceLabel = null,
 		showServiceTitles = false,
 		serviceTitleByAddress = {},
+		dataFreshness = null,
 		timelines = [],
 		focusedRequestId = null,
 		isSyncing = false,
@@ -35,9 +36,9 @@
 		onSendProposal
 	}: {
 		serviceUnavailable?: boolean;
-		serviceLabel?: string | null;
 		showServiceTitles?: boolean;
 		serviceTitleByAddress?: Record<string, string>;
+		dataFreshness?: ServiceQuoteDataFreshness | null;
 		timelines?: ServiceQuoteTimelineEntry[];
 		focusedRequestId?: string | null;
 		isSyncing?: boolean;
@@ -84,7 +85,7 @@
 			null
 	);
 	const providerDataFreshness = $derived(
-		getProviderDataFreshness($serviceQuoteUiStore, freshnessServiceAddress)
+		dataFreshness ?? getProviderDataFreshness($serviceQuoteUiStore, freshnessServiceAddress)
 	);
 	const providerDataIsStale = $derived(providerDataFreshness === 'stale');
 	const providerDataIsPartial = $derived(providerDataFreshness === 'partial');
@@ -215,29 +216,6 @@
 
 <section class="space-y-4" data-testid="service-quotes-inbox">
 	<div class="border-base-300 bg-base-100 rounded-2xl border p-4 shadow-sm">
-		<div class="mb-4">
-			<h4 class="text-sm font-semibold">
-				{tr('dashboard.services.my_services.quote_inbox.title', 'Quote Inbox')}
-			</h4>
-			<p class="text-base-content/70 mt-1 text-sm">
-				{serviceLabel
-					? trv(
-							'dashboard.services.my_services.quote_inbox.service_prefix',
-							`Service: ${serviceLabel}`,
-							{ service: serviceLabel }
-						)
-					: serviceUnavailable
-						? tr(
-								'dashboard.services.my_services.quote_inbox.deleted_service_prefix',
-								'Service: Deleted service'
-							)
-						: tr(
-								'dashboard.services.my_services.quote_inbox.select_service_prompt',
-								'Select a service to review incoming requests.'
-							)}
-			</p>
-		</div>
-
 		{#if loadError}
 			<div class="alert alert-error mb-4 flex items-center justify-between gap-3 text-sm">
 				<span>{loadError}</span>
@@ -282,7 +260,7 @@
 					icon={IconBriefcaseOutline}
 					title={tr(
 						'dashboard.services.my_services.quote_inbox.no_service_quotes',
-						'No quote requests are available for this service yet.'
+						'No service requests yet.'
 					)}
 					actionLabel={tr('dashboard.services.my_services.create_service', 'Create Service')}
 					actionHref="/dashboard/create-service"
@@ -323,8 +301,8 @@
 		{/if}
 	</div>
 
-	<div class="space-y-4">
-		{#if selectedTimeline}
+	{#if selectedTimeline}
+		<div class="space-y-4">
 			<section class="border-base-300 bg-base-100 rounded-2xl border p-4 shadow-sm">
 				<div class="flex flex-wrap items-center justify-between gap-3">
 					<div>
@@ -470,22 +448,6 @@
 					onSubmit={handleProposalSubmit}
 				/>
 			{/if}
-		{:else}
-			<div
-				class="border-base-300 text-base-content/70 rounded-2xl border border-dashed p-6 text-sm"
-			>
-				{#if showPartialSyncAlert}
-					{tr(
-						'dashboard.services.my_services.quote_inbox.waiting_sync',
-						'Waiting for the selected quote thread to finish syncing.'
-					)}
-				{:else}
-					{tr(
-						'dashboard.services.my_services.quote_inbox.select_request',
-						'Select a request to review the full inquiry and compose a proposal.'
-					)}
-				{/if}
-			</div>
-		{/if}
-	</div>
+		</div>
+	{/if}
 </section>

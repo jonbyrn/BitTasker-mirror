@@ -389,6 +389,30 @@ describe('DashboardContractsPanel context filter', () => {
 		expect(goto).toHaveBeenCalledWith('/dashboard/wallet');
 	});
 
+	it('supports a custom empty-state CTA for the earnings contracts tab', () => {
+		contractStoreState.set({
+			contracts: [],
+			contract: null,
+			isDrawerOpen: false,
+			isLoading: false,
+			error: null,
+			hasMore: false,
+			isLoadingMore: false
+		});
+
+		render(DashboardContractsPanel, {
+			initialContext: 'all',
+			showRoleFilters: false,
+			fixedRole: 'freelancer',
+			emptyStateActionLabel: 'Find Tasks',
+			emptyStateActionHref: '/tasks'
+		});
+
+		const findTasksLink = screen.getByRole('link', { name: 'Find Tasks' });
+		expect(findTasksLink).toHaveAttribute('href', '/tasks');
+		expect(screen.queryByRole('button', { name: 'Find Tasks' })).toBeNull();
+	});
+
 	it('offers a clear-filters CTA when filters hide the available contracts', async () => {
 		contractStoreState.set({
 			contracts: [buildContract('task-only', 'task')],

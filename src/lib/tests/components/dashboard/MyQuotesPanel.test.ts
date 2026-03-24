@@ -177,6 +177,67 @@ const timeline: ServiceQuoteTimelineEntry = {
 	linkedEscrowId: undefined
 };
 
+function createTimeline(
+	overrides: Partial<ServiceQuoteTimelineEntry> & {
+		title?: string;
+		description?: string;
+		requestId?: string;
+		resolvedStatus?: ServiceQuoteTimelineEntry['resolvedStatus'];
+		hasProposal?: boolean;
+		linkedEscrowId?: string;
+	} = {}
+): ServiceQuoteTimelineEntry {
+	const requestId = overrides.requestId ?? `qr_${Math.random().toString(36).slice(2, 10)}`;
+	const title = overrides.title ?? 'Request';
+	const description = overrides.description ?? 'Description';
+	const hasProposal = overrides.hasProposal ?? true;
+	const proposalId = `pr_${requestId}`;
+
+	return {
+		...timeline,
+		request: {
+			...timeline.request,
+			id: `${requestId}_event`,
+			content: {
+				...timeline.request.content,
+				quoteRequestId: requestId,
+				inquiry: {
+					...timeline.request.content.inquiry,
+					title,
+					description
+				}
+			}
+		},
+		proposals: hasProposal
+			? [
+					{
+						...timeline.proposals[0],
+						id: `${proposalId}_event`,
+						content: {
+							...timeline.proposals[0].content,
+							proposalId,
+							quoteRequestId: requestId
+						}
+					}
+				]
+			: [],
+		latestProposal: hasProposal
+			? {
+					...timeline.latestProposal!,
+					id: `${proposalId}_event`,
+					content: {
+						...timeline.latestProposal!.content,
+						proposalId,
+						quoteRequestId: requestId
+					}
+				}
+			: undefined,
+		resolvedStatus: overrides.resolvedStatus ?? 'pending',
+		linkedEscrowId: overrides.linkedEscrowId,
+		...overrides
+	};
+}
+
 describe('MyQuotesPanel', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
@@ -224,6 +285,111 @@ describe('MyQuotesPanel', () => {
 		expect(getByText('Accept')).toBeTruthy();
 		expect(getByText('Decline')).toBeTruthy();
 		expect(getByText('Delete')).toBeTruthy();
+	});
+
+	it('renders a task-style request status filter card and refresh control', async () => {
+		const onRetry = vi.fn().mockResolvedValue(undefined);
+		const { getByText, getAllByText, getByRole } = render(MyQuotesPanel, {
+			timelines: [timeline],
+			focusedRequestId: 'qr_valid123',
+			isSyncing: false,
+			onRetry
+		});
+
+		expect(getByText('Filter by request status')).toBeTruthy();
+		expect(getAllByText('Focus on the service requests that need your next action.').length).toBe(2);
+
+		await fireEvent.click(getByRole('button', { name: 'Refresh' }));
+		expect(onRetry).toHaveBeenCalledTimes(1);
+	});
+
+	it('filters service requests across every supported status bucket', async () => {
+		const timelines = [
+			createTimeline({
+				requestId: 'qr_awaiting',
+				title: 'Awaiting request',
+				hasProposal: false,
+				resolvedStatus: 'pending'
+			}),
+			createTimeline({
+				requestId: 'qr_contract',
+				title: 'Contract request',
+				hasProposal: true,
+				resolvedStatus: 'accepted',
+				linkedEscrowId: 'escrow_456'
+			}),
+			createTimeline({
+				requestId: 'qr_declined',
+				title: 'Declined request',
+				hasProposal: true,
+				resolvedStatus: 'declined'
+			}),
+			createTimeline({
+				requestId: 'qr_withdrawn',
+				title: 'Withdrawn request',
+				hasProposal: true,
+				resolvedStatus: 'withdrawn'
+			}),
+			createTimeline({
+				requestId: 'qr_expired',
+				title: 'Expired request',
+				hasProposal: true,
+				resolvedStatus: 'expired'
+			}),
+			createTimeline({
+				requestId: 'qr_failed',
+				title: 'Failed request',
+				hasProposal: true,
+				resolvedStatus: 'accept_failed'
+			}),
+			createTimeline({
+				requestId: 'qr_unknown',
+				title: 'Unknown request',
+				hasProposal: true,
+				resolvedStatus: 'accept_unknown'
+			})
+		];
+
+		const { getByRole, queryByText } = render(MyQuotesPanel, {
+			timelines,
+			focusedRequestId: 'qr_awaiting',
+			isSyncing: false
+		});
+
+		expect(queryByText('Awaiting request')).toBeTruthy();
+		expect(queryByText('Failed request')).toBeTruthy();
+		expect(queryByText('Unknown request')).toBeTruthy();
+		expect(queryByText('Contract request')).toBeNull();
+
+		const filterAssertions: Array<{ label: string; visible: string; hidden: string }> = [
+			{ label: 'Contract created', visible: 'Contract request', hidden: 'Awaiting request' },
+			{ label: 'Declined', visible: 'Declined request', hidden: 'Contract request' },
+			{ label: 'Withdrawn', visible: 'Withdrawn request', hidden: 'Declined request' },
+			{ label: 'Expired', visible: 'Expired request', hidden: 'Withdrawn request' }
+		];
+
+		for (const assertion of filterAssertions) {
+			await fireEvent.click(getByRole('button', { name: assertion.label }));
+			expect(queryByText(assertion.visible)).toBeTruthy();
+			expect(queryByText(assertion.hidden)).toBeNull();
+		}
+	});
+
+	it('shows a clear-filters empty state when the active request status has no results', async () => {
+		const { getByRole, getByTestId, getByText, queryByText } = render(MyQuotesPanel, {
+			timelines: [timeline],
+			focusedRequestId: 'qr_valid123',
+			isSyncing: false
+		});
+
+		await fireEvent.click(getByRole('button', { name: 'Declined' }));
+
+		expect(getByTestId('my-quotes-filtered-empty-state')).toBeTruthy();
+		expect(getByText('No service requests match this status yet.')).toBeTruthy();
+		expect(getByRole('button', { name: 'Clear Filters' })).toBeTruthy();
+
+		await fireEvent.click(getByRole('button', { name: 'Clear Filters' }));
+		expect(queryByText('Need a migration')).toBeTruthy();
 	});
 
 	it('confirms and submits request deletion from the card actions', async () => {

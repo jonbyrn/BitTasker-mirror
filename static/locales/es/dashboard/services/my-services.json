@@ -61,7 +61,7 @@
 					"reconnect_alert": "Conexión restablecida. Reintenta si el hilo de solicitud más reciente aún no se ha actualizado.",
 					"loading_service_quotes": "Cargando solicitudes de cotización para este servicio...",
 					"retry_service_quotes": "Vuelve a intentar cargar las solicitudes de cotización para este servicio.",
-					"no_service_quotes": "Todavía no hay solicitudes de cotización disponibles para este servicio.",
+					"no_service_quotes": "Todavía no hay solicitudes de servicio.",
 					"request_id": "ID de solicitud: {requestId}",
 					"service": "Servicio: {service}",
 					"selected_tier": "Paquete seleccionado: {tier}",
