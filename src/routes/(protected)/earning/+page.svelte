@@ -43,9 +43,9 @@
 		{
 			id: 'contracts',
 			label: translateOrFallback('dashboard.tabs.contracts', 'Contracts'),
-			buttonLabel: translateOrFallback('dashboard.manage_wallet', 'Manage Wallet'),
-			buttonHref: '/dashboard/wallet',
-			icon: 'wallet'
+			buttonLabel: translateOrFallback('dashboard.find_task', 'Find Tasks'),
+			buttonHref: '/tasks',
+			icon: 'search'
 		},
 		{
 			id: 'my-services',
@@ -327,6 +327,8 @@
 				initialContext={contractsContext}
 				showRoleFilters={false}
 				fixedRole="freelancer"
+				emptyStateActionLabel={translateOrFallback('dashboard.find_task', 'Find Tasks')}
+				emptyStateActionHref="/tasks"
 				highlightEscrowId={currentContractsHighlight}
 				onHighlightConsumed={handleContractsHighlightConsumed}
 				onHighlightMissing={handleContractsHighlightMissing}

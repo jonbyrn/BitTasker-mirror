@@ -357,7 +357,7 @@ describe('ServiceQuotesInbox', () => {
 	});
 
 	it('shows the shared empty state and create-service CTA when no quote requests exist', () => {
-		const { getByTestId, getByRole } = render(ServiceQuotesInbox, {
+		const { getByTestId, getByRole, getByText, queryByText } = render(ServiceQuotesInbox, {
 			service: mockService,
 			timelines: [],
 			focusedRequestId: null,
@@ -368,6 +368,9 @@ describe('ServiceQuotesInbox', () => {
 		});
 
 		expect(getByTestId('service-quotes-empty-state')).toBeTruthy();
+		expect(getByText('No service requests yet.')).toBeTruthy();
+		expect(queryByText('Quote Inbox')).toBeNull();
+		expect(queryByText('Select a service to review incoming requests.')).toBeNull();
 		expect(getByRole('link', { name: 'Create Service' })).toHaveAttribute(
 			'href',
 			'/dashboard/create-service'
@@ -584,11 +587,11 @@ describe('ServiceQuotesInbox', () => {
 		});
 
 		expect(getByText('Loading quote requests for this service...')).toBeTruthy();
-		expect(queryByText('No quote requests are available for this service yet.')).toBeNull();
+		expect(queryByText('No service requests yet.')).toBeNull();
 	});
 
-	it('renders the waiting-state message while the exact provider thread is still syncing', () => {
-		const { getByText, queryByRole } = render(ServiceQuotesInbox, {
+	it('does not render the request placeholder card while the exact provider thread is still syncing', () => {
+		const { queryByText, queryByRole } = render(ServiceQuotesInbox, {
 			service: mockService,
 			timelines: [],
 			focusedRequestId: 'qr_valid123',
@@ -598,7 +601,10 @@ describe('ServiceQuotesInbox', () => {
 			feeTierReady: true
 		});
 
-		expect(getByText('Waiting for the selected quote thread to finish syncing.')).toBeTruthy();
+		expect(queryByText('Waiting for the selected quote thread to finish syncing.')).toBeNull();
+		expect(
+			queryByText('Select a request to review the full inquiry and compose a proposal.')
+		).toBeNull();
 		expect(queryByRole('button', { name: 'Send Proposal' })).toBeNull();
 	});
 });

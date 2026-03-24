@@ -49,9 +49,15 @@
 			"services": "Services"
 		},
 		"service_requests": {
+			"status_heading": "Filter by request status",
+			"status_subheading": "Focus on the service requests that need your next action.",
+			"refresh": "Refresh",
+			"refreshing": "Refreshing",
 			"loading": "Loading your service requests...",
 			"retry_loading": "Retry to load your service requests.",
 			"empty": "No service requests have been submitted yet.",
+			"empty_filtered": "No service requests match this status yet.",
+			"empty_filtered_description": "Try a different status filter to review the rest of your service requests.",
 			"quote_pending": "Pending",
 			"requested": "Requested",
 			"request_id": "Request ID",
@@ -94,6 +100,13 @@
 				"accept_unknown": "Accept unknown",
 				"proposal_received": "Proposal received",
 				"awaiting_proposal": "Awaiting proposal"
+			},
+			"filters": {
+				"awaiting_proposal": "Awaiting proposal",
+				"contract_created": "Contract created",
+				"declined": "Declined",
+				"withdrawn": "Withdrawn",
+				"expired": "Expired"
 			},
 			"alerts": {
 				"partial_sync": "Latest quote thread data is still propagating across relays. Showing partial results until the thread finishes syncing.",

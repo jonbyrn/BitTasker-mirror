@@ -129,9 +129,10 @@ describe('services accessibility smoke', () => {
 
 		window.dispatchEvent(new Event('offline'));
 
-		expect(screen.getByRole('heading', { name: 'Quote Inbox' })).toBeTruthy();
 		return waitFor(() => {
-			expect(screen.getByTestId('service-quotes-offline-alert')).toBeTruthy();
+			expect(
+				screen.getByText('You are offline. Reconnect before sending a proposal.')
+			).toBeTruthy();
 			expect(screen.getByRole('button', { name: 'Send Proposal' })).toBeDisabled();
 		});
 	});

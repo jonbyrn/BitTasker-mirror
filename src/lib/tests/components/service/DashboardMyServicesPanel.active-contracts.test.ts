@@ -44,7 +44,13 @@ const hoisted = vi.hoisted(() => {
 			providerTimelinesByService: {} as Record<string, ServiceQuoteTimelineEntry[]>,
 			loadingProviderByService: {} as Record<string, boolean>,
 			providerLoadErrorByService: {} as Record<string, string | null>,
-			providerDataFreshnessByService: {} as Record<string, 'fresh' | 'stale' | 'partial'>
+			providerLoadedByService: {} as Record<string, boolean>,
+			providerDataFreshnessByService: {} as Record<string, 'fresh' | 'stale' | 'partial'>,
+			focusSync: {
+				requestId: null as string | null,
+				serviceAddress: null as string | null,
+				expiresAt: null as number | null
+			}
 		}),
 		walletStore: createStore({
 			rsk: {
@@ -113,15 +119,27 @@ vi.mock('$lib/utils/service-quote/query', () => ({
 vi.mock('$lib/stores/service-quote-ui.store', async () => ({
 	buildServiceAddress: (service: Service) =>
 		`30402:${service.npub}:${service.uniqueId ?? service.id}`,
-	getProviderTimelines: (
-		state: { providerTimelinesByService: Record<string, ServiceQuoteTimelineEntry[]> },
+	isRequestSyncActive: (
+		state: {
+			focusSync?: {
+				requestId: string | null;
+				serviceAddress: string | null;
+				expiresAt: number | null;
+			};
+		},
+		requestId: string | null | undefined,
 		serviceAddress: string | null | undefined
-	) => (serviceAddress ? (state.providerTimelinesByService[serviceAddress] ?? []) : []),
-	getProviderDataFreshness: (
-		state: { providerDataFreshnessByService?: Record<string, 'fresh' | 'stale' | 'partial'> },
-		serviceAddress: string | null | undefined
-	) =>
-		serviceAddress ? (state.providerDataFreshnessByService?.[serviceAddress] ?? 'fresh') : 'fresh',
+	) => {
+		if (!requestId || !state.focusSync?.requestId || state.focusSync.requestId !== requestId) {
+			return false;
+		}
+
+		if (serviceAddress && state.focusSync.serviceAddress !== serviceAddress) {
+			return false;
+		}
+
+		return true;
+	},
 	isProviderTimelineSyncing: (
 		state: { loadingProviderByService: Record<string, boolean> },
 		serviceAddress: string | null | undefined
@@ -179,7 +197,7 @@ vi.mock('$lib/utils/nostrKeys', () => ({
 	getNpub: vi.fn().mockResolvedValue('a'.repeat(64))
 }));
 
-function createService(): Service {
+function createService(overrides: Partial<Service> = {}): Service {
 	return {
 		id: 'service-event-1',
 		uniqueId: 'service-123',
@@ -204,7 +222,8 @@ function createService(): Service {
 		},
 		skills: [],
 		categories: [],
-		createdAt: 1_700_000_000
+		createdAt: 1_700_000_000,
+		...overrides
 	} as Service;
 }
 
@@ -318,7 +337,13 @@ describe('DashboardMyServicesPanel active contracts shortcut', () => {
 			providerTimelinesByService: {},
 			loadingProviderByService: {},
 			providerLoadErrorByService: {},
-			providerDataFreshnessByService: {}
+			providerLoadedByService: {},
+			providerDataFreshnessByService: {},
+			focusSync: {
+				requestId: null,
+				serviceAddress: null,
+				expiresAt: null
+			}
 		});
 		hoisted.walletStore.set({
 			rsk: {
@@ -443,8 +468,16 @@ describe('DashboardMyServicesPanel active contracts shortcut', () => {
 			providerLoadErrorByService: {
 				[serviceAddress]: null
 			},
+			providerLoadedByService: {
+				[serviceAddress]: true
+			},
 			providerDataFreshnessByService: {
 				[serviceAddress]: 'fresh'
+			},
+			focusSync: {
+				requestId: null,
+				serviceAddress: null,
+				expiresAt: null
 			}
 		});
 
@@ -481,8 +514,16 @@ describe('DashboardMyServicesPanel active contracts shortcut', () => {
 			providerLoadErrorByService: {
 				[serviceAddress]: null
 			},
+			providerLoadedByService: {
+				[serviceAddress]: true
+			},
 			providerDataFreshnessByService: {
 				[serviceAddress]: 'fresh'
+			},
+			focusSync: {
+				requestId: null,
+				serviceAddress: null,
+				expiresAt: null
 			}
 		});
 
@@ -506,7 +547,67 @@ describe('DashboardMyServicesPanel active contracts shortcut', () => {
 		await waitFor(() => expect(hoisted.mockLoadProviderTimelines).toHaveBeenCalledTimes(1));
 	});
 
-	it('auto-selects the first service only once while the quotes route remains unresolved', async () => {
+	it('defaults the quotes workspace to all services without forcing a route update', async () => {
+		const onResolveQuotesRoute = vi.fn();
+
+		hoisted.mockFindMyServices.mockResolvedValueOnce({
+			services: [createService()]
+		});
+
+		const { default: DashboardMyServicesPanel } = await import(
+			'$lib/components/service/DashboardMyServicesPanel.svelte'
+		);
+		const { getByRole } = render(DashboardMyServicesPanel, {
+			view: 'quotes',
+			selectedServiceAddress: null,
+			focusedRequestId: null,
+			onResolveQuotesRoute
+		});
+
+		await waitFor(() => expect(hoisted.mockFindMyServices).toHaveBeenCalled());
+		expect(getByRole('combobox', { name: 'Filter by service' })).toHaveValue('');
+		expect(onResolveQuotesRoute).not.toHaveBeenCalled();
+	});
+
+	it('filters the quotes workspace by the selected service from the dropdown', async () => {
+		const primaryService = createService();
+		const secondaryService = createService({
+			id: 'service-event-2',
+			uniqueId: 'service-456',
+			title: 'Accessibility Review'
+		});
+		const secondaryServiceAddress = `30402:${secondaryService.npub}:${
+			secondaryService.uniqueId ?? secondaryService.id
+		}`;
+		const onResolveQuotesRoute = vi.fn();
+
+		hoisted.mockFindMyServices.mockResolvedValueOnce({
+			services: [primaryService, secondaryService]
+		});
+
+		const { default: DashboardMyServicesPanel } = await import(
+			'$lib/components/service/DashboardMyServicesPanel.svelte'
+		);
+		const { getByRole } = render(DashboardMyServicesPanel, {
+			view: 'quotes',
+			selectedServiceAddress: null,
+			focusedRequestId: null,
+			onResolveQuotesRoute
+		});
+
+		await waitFor(() => expect(hoisted.mockFindMyServices).toHaveBeenCalled());
+		await fireEvent.change(getByRole('combobox', { name: 'Filter by service' }), {
+			target: { value: secondaryServiceAddress }
+		});
+
+		expect(onResolveQuotesRoute).toHaveBeenCalledWith({
+			type: 'service',
+			serviceAddress: secondaryServiceAddress,
+			requestId: null
+		});
+	});
+
+	it('clears the service filter when the dropdown switches back to all services', async () => {
 		const service = createService();
 		const serviceAddress = `30402:${service.npub}:${service.uniqueId ?? service.id}`;
 		const onResolveQuotesRoute = vi.fn();
@@ -518,30 +619,19 @@ describe('DashboardMyServicesPanel active contracts shortcut', () => {
 		const { default: DashboardMyServicesPanel } = await import(
 			'$lib/components/service/DashboardMyServicesPanel.svelte'
 		);
-		const { rerender } = render(DashboardMyServicesPanel, {
+		const { getByRole } = render(DashboardMyServicesPanel, {
 			view: 'quotes',
-			selectedServiceAddress: null,
-			focusedRequestId: null,
+			selectedServiceAddress: serviceAddress,
+			focusedRequestId: 'qr_valid123',
 			onResolveQuotesRoute
 		});
 
-		await waitFor(() =>
-			expect(onResolveQuotesRoute).toHaveBeenCalledWith({
-				type: 'service',
-				serviceAddress,
-				requestId: null
-			})
-		);
-		expect(onResolveQuotesRoute).toHaveBeenCalledTimes(1);
-
-		await rerender({
-			view: 'quotes',
-			selectedServiceAddress: null,
-			focusedRequestId: null,
-			onResolveQuotesRoute
+		await waitFor(() => expect(hoisted.mockFindMyServices).toHaveBeenCalled());
+		await fireEvent.change(getByRole('combobox', { name: 'Filter by service' }), {
+			target: { value: '' }
 		});
 
-		await waitFor(() => expect(onResolveQuotesRoute).toHaveBeenCalledTimes(1));
+		expect(onResolveQuotesRoute).toHaveBeenCalledWith({ type: 'reset' });
 	});
 
 	it('keeps provider quote review in-context when the wallet prerequisite is missing', async () => {
@@ -560,8 +650,16 @@ describe('DashboardMyServicesPanel active contracts shortcut', () => {
 			providerLoadErrorByService: {
 				[serviceAddress]: null
 			},
+			providerLoadedByService: {
+				[serviceAddress]: true
+			},
 			providerDataFreshnessByService: {
 				[serviceAddress]: 'fresh'
+			},
+			focusSync: {
+				requestId: null,
+				serviceAddress: null,
+				expiresAt: null
 			}
 		});
 		hoisted.walletStore.set({

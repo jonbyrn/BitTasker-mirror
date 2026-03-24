@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { onMount } from 'svelte';
 	import { t } from 'svelte-i18n';
 	import DashboardQuoteCard from './DashboardQuoteCard.svelte';
 	import ServiceRequestDrawer from './ServiceRequestDrawer.svelte';
@@ -13,6 +14,14 @@
 	import DashboardEmptyState from '$lib/components/shared/DashboardEmptyState.svelte';
 	import Modal from '$lib/components/Modal.svelte';
 	import IconBriefcaseOutline from '~icons/mdi/briefcase-outline';
+	import IconCheck from '~icons/mdi/check';
+	import IconCheckCircleOutline from '~icons/mdi/check-circle-outline';
+	import IconChevronDown from '~icons/mdi/chevron-down';
+	import IconClockOutline from '~icons/mdi/clock-outline';
+	import IconCloseCircleOutline from '~icons/mdi/close-circle-outline';
+	import IconRefresh from '~icons/mdi/refresh';
+	import IconTimerSand from '~icons/mdi/timer-sand';
+	import IconUndoVariant from '~icons/mdi/undo-variant';
 
 	let {
 		timelines = [],
@@ -42,10 +51,20 @@
 		disabled?: boolean;
 	}
 
+	type ServiceRequestFilterCategory =
+		| 'awaiting_proposal'
+		| 'contract_created'
+		| 'declined'
+		| 'withdrawn'
+		| 'expired';
+
 	let actionPending = $state<'accept' | 'decline' | null>(null);
+	let activeFilter = $state<ServiceRequestFilterCategory>('awaiting_proposal');
+	let hasUserSelectedFilter = $state(false);
 	let deletePendingRequestId = $state<string | null>(null);
 	let deleteModalTimeline = $state<ServiceQuoteTimelineEntry | null>(null);
 	let deleteError = $state<string | null>(null);
+	let isDropdownOpen = $state(false);
 	let requestDrawerTimeline = $state<ServiceQuoteTimelineEntry | null>(null);
 	let serviceByAddress = $state<Record<string, Service | null>>({});
 	let serviceLoadedByAddress = $state<Record<string, boolean>>({});
@@ -69,6 +88,86 @@
 			);
 		}
 		return timelines[0] ?? null;
+	});
+
+	function getTimelineFilterCategory(
+		timeline: Pick<ServiceQuoteTimelineEntry, 'resolvedStatus' | 'latestProposal' | 'linkedEscrowId'>
+	): ServiceRequestFilterCategory {
+		if (timeline.linkedEscrowId || timeline.resolvedStatus === 'accepted') {
+			return 'contract_created';
+		}
+
+		switch (timeline.resolvedStatus) {
+			case 'declined':
+				return 'declined';
+			case 'withdrawn':
+				return 'withdrawn';
+			case 'expired':
+				return 'expired';
+			default:
+				return 'awaiting_proposal';
+		}
+	}
+
+	const filterOptions = $derived.by(() => [
+		{
+			id: 'awaiting_proposal' as const,
+			label: translateOrFallback(
+				'dashboard.service_requests.filters.awaiting_proposal',
+				'Awaiting proposal'
+			),
+			icon: IconClockOutline
+		},
+		{
+			id: 'contract_created' as const,
+			label: translateOrFallback(
+				'dashboard.service_requests.filters.contract_created',
+				'Contract created'
+			),
+			icon: IconCheckCircleOutline
+		},
+		{
+			id: 'declined' as const,
+			label: translateOrFallback('dashboard.service_requests.filters.declined', 'Declined'),
+			icon: IconCloseCircleOutline
+		},
+		{
+			id: 'withdrawn' as const,
+			label: translateOrFallback('dashboard.service_requests.filters.withdrawn', 'Withdrawn'),
+			icon: IconUndoVariant
+		},
+		{
+			id: 'expired' as const,
+			label: translateOrFallback('dashboard.service_requests.filters.expired', 'Expired'),
+			icon: IconTimerSand
+		}
+	]);
+
+	const filteredTimelines = $derived.by(() =>
+		timelines.filter((timeline) => getTimelineFilterCategory(timeline) === activeFilter)
+	);
+
+	function getPreferredFilter(): ServiceRequestFilterCategory {
+		const focusedTimelineEntry =
+			(focusedRequestId
+				? timelines.find((timeline) => timeline.request.content.quoteRequestId === focusedRequestId)
+				: null) ?? selectedTimeline;
+
+		if (focusedTimelineEntry) {
+			return getTimelineFilterCategory(focusedTimelineEntry);
+		}
+
+		return (
+			filterOptions.find((option) =>
+				timelines.some((timeline) => getTimelineFilterCategory(timeline) === option.id)
+			)?.id ?? 'awaiting_proposal'
+		);
+	}
+
+	$effect(() => {
+		if (!hasUserSelectedFilter && timelines.length > 0) {
+			activeFilter = getPreferredFilter();
+		}
 	});
 
 	$effect(() => {
@@ -104,6 +203,34 @@
 	const deleteUnavailable = $derived(
 		isSyncing || Boolean(loadError) || isOffline || taskerDataIsStale || showPartialSyncAlert
 	);
+
+	function selectFilter(nextFilter: ServiceRequestFilterCategory) {
+		activeFilter = nextFilter;
+		hasUserSelectedFilter = true;
+		isDropdownOpen = false;
+	}
+
+	function clearFilters() {
+		hasUserSelectedFilter = false;
+		activeFilter = getPreferredFilter();
+		isDropdownOpen = false;
+	}
+
+	function toggleDropdown() {
+		isDropdownOpen = !isDropdownOpen;
+	}
+
+	function handleClickOutside(event: MouseEvent) {
+		const target = event.target as HTMLElement;
+		const dropdownContainer = target.closest('.status-dropdown-container');
+		if (!dropdownContainer && isDropdownOpen) {
+			isDropdownOpen = false;
+		}
+	}
+
+	async function handleRefresh() {
+		await onRetry?.();
+	}
 
 	$effect(() => {
 		const serviceAddresses = [
@@ -144,6 +271,13 @@
 
 		return () => {
 			cancelled = true;
+		};
+	});
+
+	onMount(() => {
+		document.addEventListener('click', handleClickOutside);
+		return () => {
+			document.removeEventListener('click', handleClickOutside);
 		};
 	});
 	function getQuoteActionButtons(timeline: ServiceQuoteTimelineEntry): ActionButton[] {
@@ -330,6 +464,124 @@
 </script>
 
 <section data-testid="my-quotes-panel" class="space-y-4">
+	<div class="border-base-300/60 bg-base-100/40 mt-2 rounded-3xl border p-4 shadow-sm">
+		<div class="mb-3 flex items-center justify-between gap-2">
+			<div class="space-y-1">
+				<p class="text-base-content/70 text-xs font-semibold tracking-wide uppercase">
+					{translateOrFallback(
+						'dashboard.service_requests.status_heading',
+						'Filter by request status'
+					)}
+				</p>
+				<p class="text-base-content/70 hidden text-sm sm:block">
+					{translateOrFallback(
+						'dashboard.service_requests.status_subheading',
+						'Focus on the service requests that need your next action.'
+					)}
+				</p>
+			</div>
+
+			<button
+				class="btn btn-ghost btn-sm sm:btn-outline gap-2"
+				type="button"
+				onclick={handleRefresh}
+				disabled={isSyncing || !onRetry}
+				aria-label={translateOrFallback('dashboard.service_requests.refresh', 'Refresh')}
+			>
+				{#if isSyncing}
+					<span class="loading loading-spinner loading-xs"></span>
+					<span class="hidden sm:inline">
+						{translateOrFallback('dashboard.service_requests.refreshing', 'Refreshing')}
+					</span>
+				{:else}
+					<IconRefresh class="h-5 w-5" />
+					<span class="hidden sm:inline">
+						{translateOrFallback('dashboard.service_requests.refresh', 'Refresh')}
+					</span>
+				{/if}
+			</button>
+		</div>
+
+		<div class="mb-3 sm:hidden">
+			<p class="text-base-content/70 mb-3 text-sm">
+				{translateOrFallback(
+					'dashboard.service_requests.status_subheading',
+					'Focus on the service requests that need your next action.'
+				)}
+			</p>
+			<div class="status-dropdown-container relative">
+				<button
+					type="button"
+					class="border-primary bg-primary/10 text-primary hover:bg-primary/20 flex w-full items-center justify-between rounded-3xl border px-4 py-2 transition-all duration-200"
+					onclick={toggleDropdown}
+				>
+					<div class="flex items-center gap-2">
+						{#each filterOptions as option (option.id)}
+							{#if activeFilter === option.id}
+								{@const IconComponent = option.icon}
+								<IconComponent class="h-5 w-5" />
+							{/if}
+						{/each}
+						<span class="font-medium">
+							{filterOptions.find((option) => option.id === activeFilter)?.label}
+						</span>
+					</div>
+					<IconChevronDown
+						class="h-5 w-5 transition-transform duration-200 {isDropdownOpen ? 'rotate-180' : ''}"
+					/>
+				</button>
+
+				{#if isDropdownOpen}
+					<div
+						class="border-base-300 bg-base-100 absolute top-full right-0 left-0 z-50 mt-2 rounded-xl border shadow-lg"
+					>
+						{#each filterOptions as option (option.id)}
+							{@const IconComponent = option.icon}
+							<button
+								type="button"
+								class="hover:bg-base-200 flex w-full items-center gap-2 px-4 py-2 text-left transition-colors duration-200 first:rounded-t-xl last:rounded-b-xl {activeFilter ===
+								option.id
+									? 'bg-primary/10 text-primary'
+									: 'text-base-content'}"
+								onclick={() => selectFilter(option.id)}
+							>
+								<IconComponent
+									class="h-5 w-5 {activeFilter === option.id
+										? 'text-primary'
+										: 'text-base-content/60'}"
+								/>
+								<span class="font-medium">{option.label}</span>
+								{#if activeFilter === option.id}
+									<IconCheck class="text-primary ml-auto h-5 w-5" />
+								{/if}
+							</button>
+						{/each}
+					</div>
+				{/if}
+			</div>
+		</div>
+
+		<div class="mt-4 hidden sm:block">
+			<div class="flex flex-wrap gap-3">
+				{#each filterOptions as option (option.id)}
+					{@const IconComponent = option.icon}
+					<button
+						type="button"
+						class="btn btn-sm flex cursor-pointer items-center justify-center gap-2 rounded-3xl px-4 py-4 text-center transition-all duration-200 {activeFilter ===
+						option.id
+							? 'text-primary bg-primary/10 border-primary/30 border'
+							: 'bg-base-100/40 hover:bg-base-100/60 text-base-content/70'}"
+						onclick={() => selectFilter(option.id)}
+						aria-label={option.label}
+					>
+						<IconComponent class="h-5 w-5 {activeFilter === option.id ? 'text-primary' : ''}" />
+						<span class="font-medium">{option.label}</span>
+					</button>
+				{/each}
+			</div>
+		</div>
+	</div>
+
 	{#if timelines.some((timeline) => serviceUnavailableByAddress[timeline.request.content.serviceAddress] === true)}
 		<div
 			class="alert alert-outline alert-warning text-sm"
@@ -424,9 +676,27 @@
 				/>
 			</div>
 		{/if}
+	{:else if filteredTimelines.length === 0}
+		<div class="card bg-base-100 rounded-xl p-4">
+			<DashboardEmptyState
+				icon={IconBriefcaseOutline}
+				title={translateOrFallback(
+					'dashboard.service_requests.empty_filtered',
+					'No service requests match this status yet.'
+				)}
+				description={translateOrFallback(
+					'dashboard.service_requests.empty_filtered_description',
+					'Try a different status filter to review the rest of your service requests.'
+				)}
+				actionLabel={translateOrFallback('find_tasks.clear_filters', 'Clear Filters')}
+				actionIcon={IconRefresh}
+				onAction={clearFilters}
+				testId="my-quotes-filtered-empty-state"
+			/>
+		</div>
 	{:else}
 		<div class="grid grid-cols-1 gap-5">
-			{#each timelines as timeline (timeline.request.id)}
+			{#each filteredTimelines as timeline (timeline.request.id)}
 				<DashboardQuoteCard
 					{timeline}
 					getActionButtons={getQuoteActionButtons}

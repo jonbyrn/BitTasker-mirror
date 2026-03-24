@@ -61,7 +61,7 @@
 					"reconnect_alert": "Back online. Retry if the latest request thread has not refreshed yet.",
 					"loading_service_quotes": "Loading quote requests for this service...",
 					"retry_service_quotes": "Retry to load quote requests for this service.",
-					"no_service_quotes": "No quote requests are available for this service yet.",
+					"no_service_quotes": "No service requests yet.",
 					"request_id": "Request ID: {requestId}",
 					"service": "Service: {service}",
 					"selected_tier": "Selected tier: {tier}",
