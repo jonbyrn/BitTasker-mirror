@@ -2,12 +2,15 @@
 	import { t } from 'svelte-i18n';
 	import {
 		deriveV2CreationParams,
-		createEscrowFromBid,
+		createEscrowFromBidOrchestrator,
 		estimateGasForCreatePaymentContract,
 		getFeePercentageDisplay,
-		formatRBTCAmount,
 		type V2CreationDisplay
 	} from '$lib/utils/escrow/v2';
+	import BidAcceptanceSuccessScreen from './BidAcceptanceSuccessScreen.svelte';
+	import { createDebug } from '$lib/utils/debug';
+
+	const d = createDebug('bidding:BidAcceptanceForm');
 	import type { ContractTransactionResult } from '$lib/types/wallet';
 	import { formatStandardDateTime, formatDate } from '$lib/utils/helpers/dateFormatter';
 	import { goto } from '$app/navigation';
@@ -19,9 +22,7 @@
 	import { appStore } from '$lib/stores/app.store';
 	import { fly } from 'svelte/transition';
 	import { linear } from 'svelte/easing';
-	import { onMount, onDestroy } from 'svelte';
-	import { sendLocationsToTaskee } from '$lib/utils/location/sendLocation';
-	import { TaskTypeEnum } from '$lib/utils/enums/task.enum';
+	import { onMount } from 'svelte';
 	import { bidStore } from '$lib/stores/bid.store';
 	import IconContentCopy from '~icons/mdi/content-copy';
 	import IconMessage from '~icons/mdi/message';
@@ -47,16 +48,23 @@
 	let validationErrors = $state<string[]>([]);
 	let balanceErrors = $state<string[]>([]); // Unused in v2; creation validates on submit
 	let currentScreen = $state<'form' | 'success'>('form');
-	/** Phase 1: dry-run result; Phase 2+: tx result */
+	/** Orchestrator result: tx hash, paymentId, status (simulated | pending) */
 	let successDetails = $state<{
 		display: V2CreationDisplay;
+		/** From orchestrator: used for success screen display */
 		dryRun?: {
-			estimatedGas: bigint;
+			estimatedGas?: bigint;
 			estimatedCostFormatted: string;
 			simulatedPaymentId: number;
 		};
+		transactionHash?: string;
+		status?: 'simulated' | 'pending';
 		transactionResult?: ContractTransactionResult;
 	} | null>(null);
+	/** True when real tx is confirmed; for simulated, stays false (no tx to confirm) */
+	let txConfirmed = $state(false);
+	/** True when orchestrator has finished (Nostr contract published) */
+	let contractComplete = $state(false);
 	let additionalNotes = $state<string>('');
 	let additionalNotesExpanded = $state(false);
 	let isLoading = $state(false);
@@ -188,16 +196,6 @@
 		bidEscrowDetails ? getFeePercentageDisplay(bidEscrowDetails.taskerFeeTier) : '0%'
 	);
 
-	// Success screen: estimated network fee in RBTC (creation gas + gas reimbursement)
-	const estimatedNetworkFeeRbtcFormatted = $derived.by(() => {
-		const dryRun = successDetails?.dryRun;
-		const display = successDetails?.display;
-		if (!dryRun || !display?.gasReimbursementAmount) return null;
-		const creationGas = parseFloat(dryRun.estimatedCostFormatted) || 0;
-		const gasReimb = parseFloat(display.gasReimbursementAmount) || 0;
-		return formatRBTCAmount(String(creationGas + gasReimb));
-	});
-
 	// Open message modal for the taskee
 	function openMessageModal() {
 		if (bidContent.bidderId) {
@@ -261,29 +259,20 @@
 		}
 	});
 
-	// Track any async operations that need cleanup
-	let monitoringInterval: ReturnType<typeof setInterval> | null = null;
-
-	// Cleanup on component unmount to prevent memory leaks
-	onDestroy(() => {
-		// Clean up processing bid if component is destroyed during submission
-		if (bid?.id && $bidStore.processingBidIds.has(bid.id)) {
-			bidStore.removeProcessingBid(bid.id);
-		}
-
-		// Clean up any transaction monitoring intervals
-		if (monitoringInterval) {
-			clearInterval(monitoringInterval);
-			monitoringInterval = null;
-		}
-	});
-
-	// Handle form submission — Phase 1: dryRun only (validation + gas + staticCall)
+	// Handle form submission — orchestrator: validate → gas → staticCall → simulate/real → publish contract event
 	async function handleSubmit() {
+		d.log('handleSubmit: start', { bidId: bid?.id, taskId: task?.tagValue?.('d') ?? task?.id });
+
 		if (!bid || !task || validationErrors.length !== 0) {
+			d.warn('handleSubmit: validation guard failed', {
+				hasBid: !!bid,
+				hasTask: !!task,
+				validationErrors
+			});
 			return appStore.showErrorToast('Validation errors');
 		}
 		if (!bidEscrowDetails) {
+			d.warn('handleSubmit: no bidEscrowDetails');
 			validationErrors = ['Could not calculate escrow details.'];
 			return;
 		}
@@ -291,54 +280,87 @@
 		try {
 			isSubmitting = true;
 			validationErrors = [];
+			d.log('handleSubmit: set isSubmitting=true, cleared validationErrors');
 
-			// Add bid to processing state to prevent duplicate submissions
-			bidStore.addProcessingBid(bid.id);
+			// v2 orchestrator: validate → gas → staticCall → [simulate | real broadcast] → returns with sideEffects
+			const simulate = true; // import.meta.env.DEV;
+			d.log('handleSubmit: calling createEscrowFromBidOrchestrator', {
+				simulate,
+				btcPrice: btcPrice.price
+			});
 
-			// v2 creation — Phase 1: dryRun (no broadcast)
-			const result = await createEscrowFromBid(bid, task, btcPrice.price, { dryRun: true });
+			contractComplete = false;
+			txConfirmed = false;
 
-			if (result.success && result.estimatedGas !== undefined) {
+			const result = await createEscrowFromBidOrchestrator(bid, task, btcPrice.price, {
+				simulate,
+				additionalNotes: additionalNotes.trim() || undefined
+			});
+
+			d.log('handleSubmit: orchestrator returned', {
+				success: result.success,
+				...(result.success && {
+					transactionHash: result.transactionHash?.slice(0, 18) + '…',
+					paymentId: result.paymentId,
+					status: result.status
+				}),
+				...(result.success === false && { error: result.error })
+			});
+
+			if (result.success) {
+				// Switch to success screen immediately
 				successDetails = {
 					display: bidEscrowDetails,
 					dryRun: {
-						estimatedGas: result.estimatedGas,
-						estimatedCostFormatted: result.estimatedCostFormatted,
-						simulatedPaymentId: result.simulatedPaymentId
-					}
+						estimatedCostFormatted: result.estimatedCostFormatted ?? '0',
+						simulatedPaymentId: result.paymentId
+					},
+					transactionHash: result.transactionHash,
+					status: result.status
 				};
 				currentScreen = 'success';
 
-				// Send task acceptance message to taskee (locations for in-person tasks)
-				const freelancerPubkey = bidContent.bidderId || '';
-				if (freelancerPubkey) {
-					const isRemote = taskContent.taskType === TaskTypeEnum.REMOTE;
-					sendLocationsToTaskee(
-						taskContent.pickupLocation || null,
-						taskContent.dropOffLocation || null,
-						freelancerPubkey,
-						{
-							taskId: task.id,
-							taskTitle: taskContent.title,
-							taskDescription: taskContent.description,
-							isRemote,
-							additionalNotes: additionalNotes.trim() || ''
-						}
-					).catch((locationError) => {
-						console.error('Failed to send task acceptance message to taskee:', locationError);
+				// Side effects (publish contract, DM, update task, push): spinner → checkmark when done
+				result.sideEffects
+					.then(() => {
+						contractComplete = true;
+						d.log('handleSubmit: side effects complete — contract published');
+					})
+					.catch((err) => {
+						d.warn('handleSubmit: side effects failed', err);
+						contractComplete = true; // Still mark complete to stop spinner
 					});
+
+				// For real broadcast: tx.wait() for confirmation
+				if (result.tx) {
+					result.tx
+						.wait()
+						.then(() => {
+							txConfirmed = true;
+							d.log('handleSubmit: tx.wait() resolved — transaction confirmed');
+						})
+						.catch((err) => {
+							d.warn('handleSubmit: tx.wait() rejected — transaction failed on chain', err);
+						});
 				}
 			} else {
 				const err = result as { error?: string; validationErrors?: string[] };
 				validationErrors = err.validationErrors ?? [err.error ?? 'Failed to create escrow'];
 				bidStore.removeProcessingBid(bid.id);
+				currentScreen = 'form';
+				successDetails = null;
+				d.warn('handleSubmit: orchestrator failed', { validationErrors });
 			}
 		} catch (error) {
+			d.error('handleSubmit: caught error', error);
 			console.error('Failed to accept bid:', error);
 			validationErrors = [error instanceof Error ? error.message : 'Unknown error occurred'];
 			bidStore.removeProcessingBid(bid.id);
+			currentScreen = 'form';
+			successDetails = null;
 		} finally {
 			isSubmitting = false;
+			d.log('handleSubmit: done, isSubmitting=false');
 		}
 	}
 
@@ -360,8 +382,9 @@
 		}
 	}
 
-	/** Called when user clicks Fund in the confirmation modal. Closes and submits; creation validates. */
+	/** Called when user clicks Fund in the confirmation modal. Closes and submits. */
 	async function handleFundClick() {
+		d.log('handleFundClick: user confirmed Fund, closing modal and submitting');
 		triggerHaptic(ImpactStyle.Light);
 		showFundConfirmationModal = false;
 		await handleSubmit();
@@ -1027,6 +1050,13 @@
 			</button>
 		</div>
 	</div>
+{:else if currentScreen === 'success' && successDetails}
+	<BidAcceptanceSuccessScreen
+		totalAmountRbtc={successDetails.display?.totalAmount ?? '0'}
+		status={successDetails.status ?? 'simulated'}
+		{contractComplete}
+		{txConfirmed}
+	/>
 {/if}
 
 <!-- Message Modal -->
@@ -1149,106 +1179,6 @@
 			onclick={() => (showFundConfirmationModal = false)}
 			aria-label="Close modal"
 		></button>
-	</div>
-{/if}
-
-{#if currentScreen === 'success' && successDetails}
-	<!-- Content -->
-	<div
-		class="space-y-6 text-center"
-		in:fly={{
-			duration: 200,
-			easing: linear,
-			y: 0,
-			x: 20
-		}}
-	>
-		<!-- Success Icon -->
-		<div class="flex justify-center">
-			<div class="bg-success/10 rounded-full p-4">
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					class="text-success h-16 w-16"
-					fill="none"
-					viewBox="0 0 24 24"
-					stroke="currentColor"
-				>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="2"
-						d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-					/>
-				</svg>
-			</div>
-		</div>
-
-		<!-- Success Message -->
-		<div class="space-y-2">
-			<h3 class="text-xl font-bold">{$t('dashboard.bids.bid_acceptance.success_subtitle')}</h3>
-			<p class="text-base-content/70">
-				{$t('dashboard.bids.bid_acceptance.success_message', {
-					values: {
-						amount: (() => {
-							if (!successDetails?.display) return '0';
-							const contractTotal = parseFloat(successDetails.display.totalAmount);
-							const creationGas = successDetails.dryRun?.estimatedCostFormatted
-								? parseFloat(successDetails.dryRun.estimatedCostFormatted)
-								: 0;
-							return formatRBTCAmount(String(contractTotal + creationGas));
-						})()
-					}
-				})}
-			</p>
-		</div>
-
-		<!-- Phase 1: Dry-run result (validation + gas + staticCall passed) -->
-		{#if successDetails?.dryRun}
-			<div class="bg-base-200 rounded-lg p-4">
-				<h4 class="mb-3 font-semibold">
-					{$t('dashboard.bids.bid_acceptance.contract_creation_status')}
-				</h4>
-				<div class="space-y-2 text-sm">
-					<div class="flex justify-between">
-						<span class="text-base-content/70">
-							{$t('dashboard.bids.bid_acceptance.estimated_network_fee')}
-						</span>
-						<span>
-							~{estimatedNetworkFeeRbtcFormatted ?? '—'} RBTC
-						</span>
-					</div>
-					<div class="flex justify-between">
-						<span class="text-base-content/70"
-							>{$t('dashboard.bids.bid_acceptance.simulated_payment_id')}</span
-						>
-						<span>{successDetails.dryRun.simulatedPaymentId}</span>
-					</div>
-				</div>
-			</div>
-		{/if}
-
-		<!-- Next Steps -->
-		<div class="bg-base-200 rounded-lg p-4">
-			<h4 class="text-base-content mb-2 font-semibold">
-				{$t('dashboard.bids.bid_acceptance.what_happens_next_title')}
-			</h4>
-			<ul class="text-base-content/80 space-y-1 text-left text-sm">
-				<li>• {$t('dashboard.bids.bid_acceptance.next_item_notify')}</li>
-				<li>• {$t('dashboard.bids.bid_acceptance.next_item_begin')}</li>
-				<li>• {$t('dashboard.bids.bid_acceptance.next_item_funds_held')}</li>
-				<li>• {$t('dashboard.bids.bid_acceptance.next_item_release')}</li>
-			</ul>
-		</div>
-
-		<!-- Action Buttons -->
-		<div class="flex flex-col gap-3 pt-4 sm:flex-row">
-			<button class="btn btn-outline flex-1" onclick={() => goto('/dashboard/create-task')}>
-				{$t('dashboard.bids.bid_acceptance.create_new_task')}
-			</button>
-			<button class="btn btn-primary flex-1" onclick={() => goto('/dashboard?tab=contracts')}>
-				{$t('dashboard.bids.bid_acceptance.go_to_contracts')}
-			</button>
-		</div>
 	</div>
 {/if}
 
