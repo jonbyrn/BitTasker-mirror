@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { get } from 'svelte/store';
 	import { t } from 'svelte-i18n';
 	import {
 		deriveV2CreationParams,
@@ -48,23 +49,24 @@
 	let validationErrors = $state<string[]>([]);
 	let balanceErrors = $state<string[]>([]); // Unused in v2; creation validates on submit
 	let currentScreen = $state<'form' | 'success'>('form');
-	/** Orchestrator result: tx hash, paymentId, status (simulated | pending) */
+	/** Orchestrator result: tx hash; paymentId after chain confirms */
 	let successDetails = $state<{
 		display: V2CreationDisplay;
-		/** From orchestrator: used for success screen display */
 		dryRun?: {
 			estimatedGas?: bigint;
 			estimatedCostFormatted: string;
-			simulatedPaymentId: number;
 		};
 		transactionHash?: string;
-		status?: 'simulated' | 'pending';
+		/** Set when receipt is mined and PaymentContractCreated is parsed */
+		paymentId?: number;
 		transactionResult?: ContractTransactionResult;
 	} | null>(null);
-	/** True when real tx is confirmed; for simulated, stays false (no tx to confirm) */
+	/** True when tx is mined and paymentId is known */
 	let txConfirmed = $state(false);
 	/** True when orchestrator has finished (Nostr contract published) */
 	let contractComplete = $state(false);
+	/** Chain confirmation or receipt parsing failed (unblocks UI from waiting spinner) */
+	let confirmationErrored = $state(false);
 	let additionalNotes = $state<string>('');
 	let additionalNotesExpanded = $state(false);
 	let isLoading = $state(false);
@@ -259,7 +261,7 @@
 		}
 	});
 
-	// Handle form submission — orchestrator: validate → gas → staticCall → simulate/real → publish contract event
+	// Handle form submission — orchestrator: validate → gas → staticCall → broadcast → confirm → Nostr side effects
 	async function handleSubmit() {
 		d.log('handleSubmit: start', { bidId: bid?.id, taskId: task?.tagValue?.('d') ?? task?.id });
 
@@ -282,67 +284,72 @@
 			validationErrors = [];
 			d.log('handleSubmit: set isSubmitting=true, cleared validationErrors');
 
-			// v2 orchestrator: validate → gas → staticCall → [simulate | real broadcast] → returns with sideEffects
-			const simulate = true; // import.meta.env.DEV;
 			d.log('handleSubmit: calling createEscrowFromBidOrchestrator', {
-				simulate,
 				btcPrice: btcPrice.price
 			});
 
 			contractComplete = false;
 			txConfirmed = false;
+			confirmationErrored = false;
 
 			const result = await createEscrowFromBidOrchestrator(bid, task, btcPrice.price, {
-				simulate,
 				additionalNotes: additionalNotes.trim() || undefined
 			});
 
 			d.log('handleSubmit: orchestrator returned', {
 				success: result.success,
 				...(result.success && {
-					transactionHash: result.transactionHash?.slice(0, 18) + '…',
-					paymentId: result.paymentId,
-					status: result.status
+					transactionHash: result.transactionHash
 				}),
 				...(result.success === false && { error: result.error })
 			});
 
 			if (result.success) {
-				// Switch to success screen immediately
 				successDetails = {
 					display: bidEscrowDetails,
 					dryRun: {
-						estimatedCostFormatted: result.estimatedCostFormatted ?? '0',
-						simulatedPaymentId: result.paymentId
+						estimatedCostFormatted: result.estimatedCostFormatted ?? '0'
 					},
-					transactionHash: result.transactionHash,
-					status: result.status
+					transactionHash: result.transactionHash
 				};
 				currentScreen = 'success';
 
-				// Side effects (publish contract, DM, update task, push): spinner → checkmark when done
+				result.onConfirmed
+					.then(({ paymentId }) => {
+						txConfirmed = true;
+						if (successDetails) {
+							successDetails = { ...successDetails, paymentId };
+						}
+						d.log('handleSubmit: onConfirmed — paymentId from receipt', { paymentId });
+					})
+					.catch((err) => {
+						d.warn('handleSubmit: onConfirmed failed (tx or receipt)', err);
+						confirmationErrored = true;
+						const _ = get(t);
+						appStore.showErrorToast(
+							err instanceof Error
+								? err.message
+								: _('dashboard.bids.bid_acceptance.funding_confirm_failed')
+						);
+					});
+
 				result.sideEffects
 					.then(() => {
 						contractComplete = true;
-						d.log('handleSubmit: side effects complete — contract published');
+						d.log('handleSubmit: side effects complete — Nostr + notifications done');
 					})
 					.catch((err) => {
 						d.warn('handleSubmit: side effects failed', err);
-						contractComplete = true; // Still mark complete to stop spinner
+						contractComplete = true;
+						if (txConfirmed) {
+							const _ = get(t);
+							appStore.showErrorToast(
+								err instanceof Error
+									? err.message
+									: _('dashboard.bids.bid_acceptance.nostr_contract_failed')
+							);
+						}
 					});
-
-				// For real broadcast: tx.wait() for confirmation
-				if (result.tx) {
-					result.tx
-						.wait()
-						.then(() => {
-							txConfirmed = true;
-							d.log('handleSubmit: tx.wait() resolved — transaction confirmed');
-						})
-						.catch((err) => {
-							d.warn('handleSubmit: tx.wait() rejected — transaction failed on chain', err);
-						});
-				}
 			} else {
 				const err = result as { error?: string; validationErrors?: string[] };
 				validationErrors = err.validationErrors ?? [err.error ?? 'Failed to create escrow'];
@@ -1053,9 +1060,9 @@
 {:else if currentScreen === 'success' && successDetails}
 	<BidAcceptanceSuccessScreen
 		totalAmountRbtc={successDetails.display?.totalAmount ?? '0'}
-		status={successDetails.status ?? 'simulated'}
 		{contractComplete}
 		{txConfirmed}
+		{confirmationErrored}
 	/>
 {/if}
 

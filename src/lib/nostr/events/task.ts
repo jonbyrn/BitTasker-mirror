@@ -1,6 +1,6 @@
-import type { Task, TaskBody } from '$lib/types/task';
+import type { TaskBody } from '$lib/types/task';
 import { createDebug } from '$lib/utils/debug';
-import type { TaskStatusEnum } from '$lib/utils/enums/task.enum';
+import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 import NDK, { NDKEvent, type NostrEvent } from '@nostr-dev-kit/ndk';
 
 const d = createDebug('ndk:events:task');
@@ -27,12 +27,11 @@ export class NDKTask extends NDKEvent {
 
 		d.log('Creating task from event with wrap:', task);
 
-		task.content = JSON.parse(task.content);
 		return task;
 	}
 
-	get taskContent(): Task {
-		return this.content as unknown as Task;
+	get taskContent(): TaskBody {
+		return JSON.parse(this.content) as unknown as TaskBody;
 	}
 
 	set status(status: TaskStatusEnum) {
@@ -40,7 +39,7 @@ export class NDKTask extends NDKEvent {
 		this.removeTag('S');
 		this.tags.push(['S', status]);
 		//update content
-		const body = JSON.parse(this.content) as unknown as TaskBody;
+		const body = this.taskContent;
 		body.status = status;
 		this.content = JSON.stringify(body);
 	}

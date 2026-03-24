@@ -8,17 +8,17 @@
 	let {
 		/** Total amount funded (RBTC string) for success message */
 		totalAmountRbtc,
-		/** Orchestrator status: simulated (no tx) or pending (awaiting confirmation) */
-		status,
 		/** True when Nostr contract published and side effects complete */
 		contractComplete,
-		/** True when real tx is confirmed (simulated: always false) */
-		txConfirmed
+		/** True when tx is mined and paymentId is known */
+		txConfirmed,
+		/** Chain confirmation or receipt parsing failed */
+		confirmationErrored
 	}: {
 		totalAmountRbtc: string;
-		status: 'simulated' | 'pending';
 		contractComplete: boolean;
 		txConfirmed: boolean;
+		confirmationErrored: boolean;
 	} = $props();
 
 	function goToContracts() {
@@ -77,13 +77,15 @@
 			{$t('dashboard.bids.bid_acceptance.contract_creation_status')}
 		</h4>
 		<div class="flex items-center gap-3">
-			{#if !contractComplete}
-				<span class="loading loading-spinner loading-sm text-info"></span>
-				<span class="text-info">{$t('dashboard.bids.bid_acceptance.creating_nostr_contract')}</span>
-			{:else if status === 'pending' && !txConfirmed}
+			{#if confirmationErrored}
+				<span class="text-error">{$t('dashboard.bids.bid_acceptance.funding_confirm_failed')}</span>
+			{:else if !txConfirmed}
 				<span class="loading loading-spinner loading-sm text-info"></span>
 				<span class="text-info">{$t('dashboard.bids.bid_acceptance.waiting_for_confirmation')}</span
 				>
+			{:else if !contractComplete}
+				<span class="loading loading-spinner loading-sm text-info"></span>
+				<span class="text-info">{$t('dashboard.bids.bid_acceptance.creating_nostr_contract')}</span>
 			{:else}
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
