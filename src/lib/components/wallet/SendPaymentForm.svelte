@@ -10,8 +10,8 @@
 		parsePaymentAddress,
 		type ParsedPaymentAddress
 	} from '$lib/utils/helpers/paymentAddressParser';
-	import { triggerHaptic, ImpactStyle } from '$lib/utils/helpers/haptics';
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
+	import { triggerHaptic, ImpactStyle } from '$lib/utils/helpers/haptics';
 	import QrCodeScanner from '$lib/components/QrCodeScanner.svelte';
 	import WebQrCodeScanner from '$lib/components/WebQrCodeScanner.svelte';
 	import AmountDisplay from '$lib/components/wallet/AmountDisplay.svelte';
@@ -651,7 +651,6 @@
 	function handleNextStep() {
 		// Validate that we have address and amount before proceeding
 		if (parsedPayment.data?.isValid && !parsedPayment.addressError && amountInSats > 0) {
-			triggerHaptic(ImpactStyle.Light);
 			uiState.currentStep = 2;
 		} else if (
 			parsedPayment.data?.isValid &&
@@ -660,13 +659,11 @@
 			parsedPayment.detectedAmount > 0
 		) {
 			// Lightning invoice with amount - can proceed without user entering amount
-			triggerHaptic(ImpactStyle.Light);
 			uiState.currentStep = 2;
 		}
 	}
 
 	function handleBackStep() {
-		triggerHaptic(ImpactStyle.Light);
 		uiState.currentStep = 1;
 	}
 
@@ -689,7 +686,6 @@
 		if (!parsedPayment.detectedNetwork || !availableBalance || availableBalance <= 0) return;
 
 		feeState.maxCalculation.isLoading = true;
-		triggerHaptic(ImpactStyle.Light);
 
 		try {
 			formInput.mathExpression = '';
@@ -731,7 +727,6 @@
 
 	// Handle unit change
 	function handleUnitChange(newUnit: 'sats' | 'usd') {
-		triggerHaptic(ImpactStyle.Light);
 		formInput.unit = newUnit;
 		// Keep amount when switching units - user may have entered amount before selecting unit
 		formInput.mathExpression = '';
@@ -794,7 +789,6 @@
 
 					// Show pending transaction screen
 					appStore.showSuccessToast($t('wallet.send.transaction_sending'));
-					triggerHaptic(ImpactStyle.Medium);
 
 					// Return early - pending screen will monitor swap status
 					return;
@@ -814,7 +808,6 @@
 
 				// Show pending transaction screen
 				appStore.showSuccessToast($t('wallet.send.transaction_sending'));
-				triggerHaptic(ImpactStyle.Medium);
 
 				// Return early - pending screen will be shown
 				return;
@@ -853,7 +846,6 @@
 				sendState.isSending = false; // Set to false immediately to skip loading screen
 
 				// Show pending transaction screen
-				triggerHaptic(ImpactStyle.Medium);
 				appStore.showSuccessToast($t('wallet.send.transaction_sent'));
 
 				// Call onSuccess callback
@@ -867,7 +859,6 @@
 			console.error('Send failed:', err);
 			sendState.error = err instanceof Error ? err.message : $t('wallet.send.transaction_failed');
 			appStore.showErrorToast(sendState.error);
-			triggerHaptic(ImpactStyle.Heavy);
 		} finally {
 			sendState.isSending = false;
 		}
@@ -907,7 +898,6 @@
 	// Handle showing send confirmation
 	function showSendConfirmationModal() {
 		uiState.showSendConfirmation = true;
-		triggerHaptic(ImpactStyle.Light);
 	}
 
 	// Handle confirmed send
@@ -925,9 +915,7 @@
 			amountUSD={amountInUSD}
 			address={sendState.pendingAddress}
 			network={sendState.pendingNetwork}
-			txHash={sendState.pendingTxHash}
 			networkOptions={netwokrOption}
-			swapId={sendState.pendingSwapId}
 			onClose={() => {
 				// Clear pending state
 				sendState.pendingTxHash = null;
@@ -967,7 +955,6 @@
 				class:text-primary-content={uiState.activeTab === 'scan'}
 				class:tab-active={uiState.activeTab === 'scan'}
 				onclick={() => {
-					triggerHaptic(ImpactStyle.Light);
 					uiState.activeTab = 'scan';
 					uiState.showConfirmation = false;
 				}}
@@ -980,7 +967,6 @@
 				class:text-primary-content={uiState.activeTab === 'enter'}
 				class:tab-active={uiState.activeTab === 'enter'}
 				onclick={() => {
-					triggerHaptic(ImpactStyle.Light);
 					uiState.activeTab = 'enter';
 					uiState.showConfirmation = false;
 				}}
@@ -1123,7 +1109,6 @@
 											class="btn btn-ghost btn-sm btn-circle shrink-0 touch-manipulation transition-transform duration-100 select-none active:scale-95"
 											style="-webkit-tap-highlight-color: transparent;"
 											aria-label={$t('wallet.view_explorer')}
-											onclick={() => triggerHaptic(ImpactStyle.Light)}
 										>
 											<IconOpenInNew class="h-5 w-5" />
 										</a>
@@ -1235,7 +1220,6 @@
 													feeState.estimated = null;
 													feeState.error = null;
 													uiState.showRecentAddresses = false;
-													triggerHaptic(ImpactStyle.Light);
 												}}
 												aria-label="Clear address"
 											>
@@ -1367,7 +1351,6 @@
 											class="btn btn-ghost btn-sm btn-circle shrink-0 touch-manipulation transition-transform duration-100 select-none active:scale-95"
 											style="-webkit-tap-highlight-color: transparent;"
 											aria-label={$t('wallet.view_explorer')}
-											onclick={() => triggerHaptic(ImpactStyle.Light)}
 										>
 											<IconOpenInNew class="h-4 w-4 sm:h-5 sm:w-5" />
 										</a>
@@ -1401,10 +1384,7 @@
 								<button
 									type="button"
 									class="collapse-title min-h-0 px-3 py-2 text-left text-sm font-medium"
-									onclick={() => {
-										triggerHaptic(ImpactStyle.Light);
-										uiState.networkFeeExpanded = !uiState.networkFeeExpanded;
-									}}
+									onclick={() => (uiState.networkFeeExpanded = !uiState.networkFeeExpanded)}
 									disabled={feeState.isLoading}
 								>
 									<div class="flex w-full items-center gap-1.5">
@@ -1552,7 +1532,6 @@
 												feeState.estimated = null;
 												feeState.error = null;
 												uiState.showRecentAddresses = false;
-												triggerHaptic(ImpactStyle.Light);
 											}}
 											aria-label="Clear address"
 										>
@@ -1617,7 +1596,6 @@
 										class="btn btn-ghost btn-sm btn-circle shrink-0 touch-manipulation transition-transform duration-100 select-none active:scale-95"
 										style="-webkit-tap-highlight-color: transparent;"
 										aria-label={$t('wallet.view_explorer')}
-										onclick={() => triggerHaptic(ImpactStyle.Light)}
 									>
 										<IconOpenInNew class="h-4 w-4 sm:h-5 sm:w-5" />
 									</a>
@@ -1673,10 +1651,7 @@
 							<button
 								type="button"
 								class="collapse-title min-h-0 px-3 py-2 text-left text-sm font-medium sm:px-4 sm:text-base"
-								onclick={() => {
-									triggerHaptic(ImpactStyle.Light);
-									uiState.networkFeeExpanded = !uiState.networkFeeExpanded;
-								}}
+								onclick={() => (uiState.networkFeeExpanded = !uiState.networkFeeExpanded)}
 								disabled={feeState.isLoading}
 							>
 								<div class="flex w-full items-center gap-1.5 sm:gap-2">
@@ -1805,10 +1780,7 @@
 					<button
 						class="btn btn-error min-h-[44px] flex-1 touch-manipulation transition-transform duration-100 select-none active:scale-95 sm:hidden"
 						style="-webkit-tap-highlight-color: transparent;"
-						onclick={() => {
-							triggerHaptic(ImpactStyle.Light);
-							onCancel();
-						}}
+						onclick={onCancel}
 					>
 						<IconClose class="h-4 w-4" />
 						<span class="text-sm">{$t('common.cancel')}</span>
@@ -1853,10 +1825,7 @@
 				<button
 					class="btn btn-error hidden min-h-[44px] flex-1 touch-manipulation transition-transform duration-100 select-none active:scale-95 sm:flex sm:min-h-[48px] md:min-h-[56px]"
 					style="-webkit-tap-highlight-color: transparent;"
-					onclick={() => {
-						triggerHaptic(ImpactStyle.Light);
-						onCancel();
-					}}
+					onclick={onCancel}
 				>
 					<IconClose class="h-4 w-4 sm:h-5 sm:w-5" />
 					<span class="text-sm sm:text-base">{$t('common.cancel')}</span>
@@ -1879,10 +1848,7 @@
 				<button
 					class="btn btn-error min-h-[48px] touch-manipulation transition-transform duration-100 select-none active:scale-95 md:min-h-[56px]"
 					style="-webkit-tap-highlight-color: transparent;"
-					onclick={() => {
-						triggerHaptic(ImpactStyle.Light);
-						onCancel();
-					}}
+					onclick={onCancel}
 				>
 					<IconClose class="mr-2 h-5 w-5" />
 					{$t('common.cancel')}
