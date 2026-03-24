@@ -1,9 +1,11 @@
 <script lang="ts">
+	import { t } from 'svelte-i18n';
+
 	const {
 		disabled = false,
 		loading = false,
 		compact = false,
-		label = 'Raise Dispute',
+		label = '',
 		onclick
 	} = $props<{
 		disabled?: boolean;
@@ -17,10 +19,10 @@
 <button
 	class={`btn btn-warning btn-sm ${compact ? 'w-fit' : 'w-full sm:w-fit'}`}
 	{disabled}
-	onclick={onclick}
+	{onclick}
 >
 	{#if loading}
 		<span class="loading loading-spinner loading-xs"></span>
 	{/if}
-	{label}
+	{label || ($t('dashboard.contracts.actions.dispute_work') as string) || 'Raise Dispute'}
 </button>
