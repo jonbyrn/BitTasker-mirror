@@ -19,7 +19,6 @@
 	import IconShieldAccount from '~icons/mdi/shield-account';
 	import IconBriefcaseOutline from '~icons/mdi/briefcase-outline';
 	import IconMagnify from '~icons/mdi/magnify';
-	import IconChartBoxOutline from '~icons/mdi/chart-box-outline';
 	import IconPlusCircleOutline from '~icons/mdi/plus-circle-outline';
 	import IconAccountCircle from '~icons/mdi/account-circle';
 	import IconChatOutline from '~icons/mdi/chat-outline';
@@ -266,83 +265,20 @@
 			<div class="bottom-nav-scroll max-h-208 overflow-y-auto pt-2">
 				<div class="p-2">
 					{#if isLoggedIn}
-						<!-- Logged-in user menu: Panel, Mi Cuenta, Soporte y Ayuda, Cerrar -->
+						<!-- Logged-in user menu -->
 						<ul class="menu w-full">
-							<!-- Panel (first option) -->
+							<!-- Logout -->
 							<li>
-								<a
-									href="/dashboard"
-									onclick={(e) => handleNavWithMenuClose(e, '/dashboard')}
-									class="min-h-[44px] py-2"
+								<button
+									onclick={() => {
+										closeMenu(); /* Add logout logic here */
+									}}
+									class="min-h-[48px] w-full py-3 text-left"
 								>
-									<IconChartBoxOutline class="text-primary" />
-									<span class="font-medium">{$t('navbar.panel')}</span>
-								</a>
-							</li>
-
-							<!-- My Account -->
-							<li>
-								<button onclick={toggleTaskers} class="min-h-[48px] py-3">
-									<IconAccountCircle class="text-primary" />
-									<span class="font-medium">{$t('navbar.my_account')}</span>
-									<svg
-										class="dropdown-arrow ml-auto h-4 w-4"
-										class:dropdown-open={isTaskersOpen}
-										fill="currentColor"
-										viewBox="0 0 20 20"
-										stroke="currentColor"
-										stroke-width="1"
-									>
-										<path
-											fill-rule="evenodd"
-											d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-											clip-rule="evenodd"
-										/>
-									</svg>
+									<IconLogout class="text-error" />
+									<span class="text-error font-medium">{$t('navbar.logout')}</span>
 								</button>
 							</li>
-							{#if isTaskersOpen}
-								<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
-									<a
-										href="/dashboard/messages"
-										onclick={(e) => handleNavWithMenuClose(e, '/dashboard/messages')}
-										class="min-h-[44px] py-2 pl-6"
-									>
-										<IconChatOutline class="text-primary" />
-										<span class="font-medium">{$t('navbar.messages')}</span>
-									</a>
-								</li>
-								<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
-									<a
-										href="/dashboard/wallet"
-										onclick={(e) => handleNavWithMenuClose(e, '/dashboard/wallet')}
-										class="min-h-[44px] py-2 pl-6"
-									>
-										<IconWalletOutline class="text-primary" />
-										<span class="font-medium">{$t('navbar.wallet')}</span>
-									</a>
-								</li>
-								<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
-									<a
-										href="/dashboard/profile"
-										onclick={(e) => handleNavWithMenuClose(e, '/dashboard/profile')}
-										class="min-h-[44px] py-2 pl-6"
-									>
-										<IconAccount class="text-primary" />
-										<span class="font-medium">{$t('navbar.profile')}</span>
-									</a>
-								</li>
-								<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
-									<a
-										href="/dashboard/settings"
-										onclick={(e) => handleNavWithMenuClose(e, '/dashboard/settings')}
-										class="min-h-[44px] py-2 pl-6"
-									>
-										<IconCog class="text-primary" />
-										<span class="font-medium">{$t('navbar.settings')}</span>
-									</a>
-								</li>
-							{/if}
 
 							<!-- Support & Help -->
 							<li>
@@ -448,17 +384,28 @@
 								</li>
 							{/if}
 
-							<!-- Logout -->
+							<!-- Earning -->
 							<li>
-								<button
-									onclick={() => {
-										closeMenu(); /* Add logout logic here */
-									}}
-									class="min-h-[48px] w-full py-3 text-left"
+								<a
+									href="/earning"
+									onclick={(e) => handleNavWithMenuClose(e, '/earning')}
+									class="min-h-[48px] py-3"
 								>
-									<IconLogout class="text-error" />
-									<span class="text-error font-medium">{$t('navbar.logout')}</span>
-								</button>
+									<IconInvoiceTextSendOutline class="text-primary" />
+									<span class="font-medium">{$t('navbar.earning')}</span>
+								</a>
+							</li>
+
+							<!-- Hiring -->
+							<li>
+								<a
+									href="/dashboard"
+									onclick={(e) => handleNavWithMenuClose(e, '/dashboard')}
+									class="min-h-[48px] py-3"
+								>
+									<IconBriefcaseOutline class="text-primary" />
+									<span class="font-medium">{$t('navbar.hiring')}</span>
+								</a>
 							</li>
 						</ul>
 					{:else}
@@ -806,7 +753,7 @@
 			<span class="dock-label font-medium">{$t('navbar.home')}</span>
 		</a>
 
-		<!-- Create Task -->
+		<!-- New Task -->
 		<a
 			href="/dashboard/create-task"
 			class="hover:bg-primary-content/10 flex min-h-[48px] min-w-[48px] flex-col items-center gap-1 rounded-lg transition-colors {currentSection ===
@@ -816,7 +763,7 @@
 			data-sveltekit-reload="off"
 		>
 			<IconPlusCircleOutline class="text-primary-content" />
-			<span class="dock-label font-medium">{$t('navbar.create_task')}</span>
+			<span class="dock-label font-medium">{$t('navbar.new_task')}</span>
 		</a>
 
 		<!-- Center Menu Button (Hamburger/X) -->
