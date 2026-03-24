@@ -9,6 +9,7 @@
 	import { triggerHaptic, ImpactStyle } from '$lib/utils/helpers/haptics';
 	import { appStore } from '$lib/stores/app.store';
 	import { getSwapType } from '$lib/utils/wallet/swapTransaction';
+	import type { PendingSwapData } from '$lib/utils/swapAdapter';
 	import {
 		walletManager,
 		rskConnection,
@@ -27,6 +28,11 @@
 	import IconFormatListBulleted from '~icons/mdi/format-list-bulleted';
 	import IconChevronRight from '~icons/mdi/chevron-right';
 	import PaymentRequestModal from '$lib/components/wallet/PaymentRequestModal.svelte';
+
+	interface SwapUpdateEvent {
+		swapId: string;
+		swapData: PendingSwapData;
+	}
 
 	let isLoading = $state(false);
 	let unsubscribeFromSwaps: (() => void) | null = null;
@@ -47,7 +53,7 @@
 		await initializeWallet();
 		// Subscribe to real-time swap updates via WebSocket
 		try {
-			unsubscribeFromSwaps = walletManager.onSwapUpdate((event: any) => {
+			unsubscribeFromSwaps = walletManager.onSwapUpdate((event: SwapUpdateEvent) => {
 				// Determine swap type from swap data
 				const swapType = getSwapType(event.swapData);
 
@@ -162,7 +168,10 @@
 
 <!-- Mismas dimensiones que Mi Panel (padding); max-w-4xl para wallet -->
 <div class="bg-base-100 mx-auto h-full max-w-4xl rounded-lg px-2 py-6 shadow-lg md:px-0 md:py-0">
-	<div transition:fly={{ y: 20, duration: 300, easing: linear }} class="flex h-full flex-col p-3 sm:p-6">
+	<div
+		transition:fly={{ y: 20, duration: 300, easing: linear }}
+		class="flex h-full flex-col p-3 sm:p-6"
+	>
 		{#if $rskConnection.connecting}
 			<div class="alert alert-outline alert-info mb-3 py-2 sm:mb-6 sm:py-4">
 				<div class="flex items-center">
@@ -198,10 +207,12 @@
 							</div>
 						</div>
 					</div>
-					<button class="btn btn-outline btn-sm ml-4" onclick={async () => {
-						triggerHaptic(ImpactStyle.Light);
-						await initializeWallet();
-					}}>
+					<button
+						class="btn btn-outline btn-sm ml-4"
+						onclick={async () => {
+							await initializeWallet();
+						}}
+					>
 						{$t('wallet.page.retry_connection')}
 					</button>
 				</div>
@@ -289,10 +300,7 @@
 					<button
 						type="button"
 						class="collapse-title border-primary bg-base-100 hover:bg-base-200 flex min-h-0 w-full items-center justify-between rounded-lg border-2 px-3 py-2 pr-10 text-left text-sm font-medium transition-colors sm:px-4 sm:py-3 sm:pr-12 sm:text-base"
-						onclick={() => {
-							triggerHaptic(ImpactStyle.Light);
-							showTransactionsModal = true;
-						}}
+						onclick={() => (showTransactionsModal = true)}
 					>
 						<div class="flex min-w-0 flex-1 items-center gap-2">
 							<IconFormatListBulleted class="h-4 w-4 shrink-0 sm:h-5 sm:w-5" />
@@ -308,20 +316,14 @@
 				<div class="flex flex-row gap-2 sm:gap-4">
 					<button
 						class="btn btn-primary order-1 min-h-[44px] flex-1 py-2 text-sm sm:order-1 sm:py-3 sm:text-base"
-						onclick={() => {
-							triggerHaptic(ImpactStyle.Light);
-							showReceiveModal = true;
-						}}
+						onclick={() => (showReceiveModal = true)}
 					>
 						<IconDownload class="mr-1 h-4 w-4 sm:mr-2 sm:h-5 sm:w-5" />
 						{$t('wallet.tab_receive')}
 					</button>
 					<button
 						class="btn btn-secondary order-2 min-h-[44px] flex-1 py-2 text-sm sm:order-2 sm:py-3 sm:text-base"
-						onclick={() => {
-							triggerHaptic(ImpactStyle.Light);
-							showSendModal = true;
-						}}
+						onclick={() => (showSendModal = true)}
 					>
 						<IconUpload class="mr-1 h-4 w-4 sm:mr-2 sm:h-5 sm:w-5" />
 						{$t('wallet.send_button')}
@@ -359,10 +361,7 @@
 					{$t('wallet.error.no_mnemonic.message')}
 				</p>
 				<div class="flex justify-center gap-4">
-					<button class="btn btn-primary" onclick={async () => {
-						triggerHaptic(ImpactStyle.Light);
-						await initializeWallet();
-					}}>
+					<button class="btn btn-primary" onclick={async () => await initializeWallet()}>
 						{$t('wallet.error.no_mnemonic.try_again')}
 					</button>
 				</div>
@@ -372,11 +371,7 @@
 </div>
 
 <!-- New UX Modals -->
-<WalletPaymentModal
-	isOpen={showReceiveModal}
-	mode="receive"
-	onClose={() => (showReceiveModal = false)}
->
+<WalletPaymentModal isOpen={showReceiveModal} onClose={() => (showReceiveModal = false)}>
 	<ReceivePaymentForm
 		onCancel={() => {
 			showReceiveModal = false;
@@ -390,15 +385,17 @@
 			showReceiveModal = false; // Close receive form
 			openPaymentRequestModal(data); // Open payment request modal
 		}}
-		initialFormState={receiveFormState ? {
-			...receiveFormState,
-			// For Rootstock, go to step 1 (network selector); for others, go to step 2 (details)
-			currentStep: (receiveFormState.selectedNetwork === 'rootstock-bitcoin' ? 1 : 2) as 1 | 2
-		} : undefined}
+		initialFormState={receiveFormState
+			? {
+					...receiveFormState,
+					// For Rootstock, go to step 1 (network selector); for others, go to step 2 (details)
+					currentStep: (receiveFormState.selectedNetwork === 'rootstock-bitcoin' ? 1 : 2) as 1 | 2
+				}
+			: undefined}
 	/>
 </WalletPaymentModal>
 
-<WalletPaymentModal isOpen={showSendModal} mode="send" onClose={() => (showSendModal = false)}>
+<WalletPaymentModal isOpen={showSendModal} onClose={() => (showSendModal = false)}>
 	<SendPaymentForm
 		onCancel={() => (showSendModal = false)}
 		onSuccess={(txHash, network) => {
@@ -409,19 +406,12 @@
 	/>
 </WalletPaymentModal>
 
-<WalletPaymentModal
-	isOpen={showTransactionsModal}
-	mode="send"
-	onClose={() => (showTransactionsModal = false)}
->
+<WalletPaymentModal isOpen={showTransactionsModal} onClose={() => (showTransactionsModal = false)}>
 	<div class="mb-4 hidden items-center justify-between lg:flex">
 		<h2 class="text-2xl font-bold">{$t('wallet.tab_transactions')}</h2>
 		<button
 			class="btn btn-ghost btn-sm btn-circle"
-			onclick={() => {
-				triggerHaptic(ImpactStyle.Light);
-				showTransactionsModal = false;
-			}}
+			onclick={() => (showTransactionsModal = false)}
 			aria-label="Close transactions modal"
 		>
 			<svg
@@ -451,11 +441,7 @@
 
 <!-- Centralized Payment Request Modal -->
 {#if paymentRequestModal.isOpen && (paymentRequestModal.swapId || paymentRequestModal.address)}
-	<WalletPaymentModal
-		isOpen={paymentRequestModal.isOpen}
-		mode="receive"
-		onClose={closePaymentRequestModal}
-	>
+	<WalletPaymentModal isOpen={paymentRequestModal.isOpen} onClose={closePaymentRequestModal}>
 		<PaymentRequestModal
 			isOpen={paymentRequestModal.isOpen}
 			swapId={paymentRequestModal.swapId ?? undefined}

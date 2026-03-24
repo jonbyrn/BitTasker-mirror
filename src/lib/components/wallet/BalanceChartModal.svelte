@@ -13,17 +13,35 @@
 		PointElement,
 		Tooltip,
 		Legend,
-		Filler
+		Filler,
+		type ChartData
 	} from 'chart.js';
 	import 'chartjs-adapter-date-fns';
 	import { walletStore, totalBalances } from '$lib/stores/wallet.store';
-	import balanceHistoryService from '$lib/api/services/balanceHistory.service';
 	import { formatSats } from '$lib/stores/wallet.store';
-	import { triggerHaptic, ImpactStyle } from '$lib/utils/helpers/haptics';
-	import IconClose from '~icons/mdi/close';
-	import { startOfDay, endOfDay, subDays, startOfMonth, endOfMonth, startOfYear, subYears, endOfYear, format } from 'date-fns';
+	import {
+		startOfDay,
+		endOfDay,
+		subDays,
+		startOfMonth,
+		endOfMonth,
+		startOfYear,
+		subYears,
+		endOfYear
+	} from 'date-fns';
 	import { formatStandardDate } from '$lib/utils/helpers/dateFormatter';
 	import { darkMode } from '$lib/stores/theme.store';
+	import balanceHistoryService from '$lib/api/services/balanceHistory.service';
+	import IconClose from '~icons/mdi/close';
+
+	type ChartScales = Record<
+		string,
+		{
+			title?: Record<string, unknown>;
+			ticks?: { color?: string };
+			grid?: { color?: string };
+		}
+	>;
 
 	// Register Chart.js components
 	Chart.register(
@@ -47,14 +65,13 @@
 
 	let { isOpen, onClose }: Props = $props();
 
-
 	let chartCanvas: HTMLCanvasElement | null = $state(null);
 	let chartInstance: Chart | null = $state(null);
 	let isLoading = $state(false);
 	let error = $state<string | null>(null);
 
 	// Date range options
-	type DateRangeOption = 
+	type DateRangeOption =
 		| 'last_7_days'
 		| 'last_30_days'
 		| 'this_month'
@@ -77,7 +94,6 @@
 	// Get date range based on selection
 	function getDateRange(option: DateRangeOption): { start: Date; end: Date } {
 		const now = new Date();
-		const today = startOfDay(now);
 
 		switch (option) {
 			case 'last_7_days':
@@ -95,12 +111,13 @@
 					start: startOfMonth(now),
 					end: endOfDay(now)
 				};
-			case 'last_month':
+			case 'last_month': {
 				const lastMonth = subDays(startOfMonth(now), 1);
 				return {
 					start: startOfMonth(lastMonth),
 					end: endOfMonth(lastMonth)
 				};
+			}
 			case 'last_90_days':
 				return {
 					start: startOfDay(subDays(now, 90)),
@@ -116,12 +133,13 @@
 					start: startOfDay(subDays(now, 365)),
 					end: endOfDay(now)
 				};
-			case 'last_year':
+			case 'last_year': {
 				const lastYear = subYears(now, 1);
 				return {
 					start: startOfYear(lastYear),
 					end: endOfYear(lastYear)
 				};
+			}
 			default:
 				return {
 					start: startOfDay(subDays(now, 7)),
@@ -151,7 +169,7 @@
 
 		try {
 			const { start, end } = getDateRange(selectedRange);
-			
+
 			const balances = await balanceHistoryService.getDailyBalances(
 				start,
 				end,
@@ -175,18 +193,14 @@
 		}
 	}
 
-	// Track if this is the first load
-	let isFirstLoad = $state(true);
-
 	// Initialize chart when modal opens and canvas is ready
 	$effect(() => {
 		// Track isOpen and chartCanvas to trigger effect
 		const open = isOpen;
 		const canvas = chartCanvas;
-				
+
 		if (open && canvas && !chartInstance) {
 			initializeChart();
-			isFirstLoad = true;
 		}
 	});
 
@@ -196,15 +210,13 @@
 		const range = selectedRange;
 		const open = isOpen;
 		const instance = chartInstance;
-		
+
 		if (open && instance && range) {
 			// Use a small delay to ensure chart is fully initialized
 			const timeoutId = setTimeout(() => {
 				// Re-check conditions in case they changed
 				if (chartInstance && isOpen && selectedRange === range) {
 					fetchDailyBalances();
-					isFirstLoad = false;
-				} else {
 				}
 			}, 150);
 
@@ -218,7 +230,7 @@
 	$effect(() => {
 		// Track locale to update chart when language changes
 		const currentLocale = $locale;
-		
+
 		if (chartInstance && dailyBalances.length > 0 && !isLoading) {
 			updateChart();
 		} else if (chartInstance && currentLocale) {
@@ -226,52 +238,50 @@
 			updateChartLabels();
 		}
 	});
-	
+
 	// React to theme changes to update chart colors
 	$effect(() => {
-		$darkMode; // Track theme changes
-		if (chartInstance) {
+		const isDark = $darkMode; // Track theme changes as reactive dependency
+		if (chartInstance && isDark !== undefined) {
 			updateChartLabels();
 			chartInstance.update('none');
 		}
 	});
-	
+
 	// Helper function to get theme-aware colors
 	function getThemeColors() {
 		// Get the actual computed color from CSS variable
 		// This will automatically adapt to the current theme
 		const computedStyle = getComputedStyle(document.documentElement);
 		let textColor = computedStyle.getPropertyValue('--color-base-content').trim();
-		
+
 		// If CSS variable is empty or invalid, use fallback based on theme
 		if (!textColor || textColor === '') {
 			textColor = $darkMode ? '#ffffff' : '#1a1a1a';
 		}
-		
+
 		// For axis labels, use the same color as text (it will adapt to theme)
 		const axisTextColor = textColor;
-		
+
 		// Grid color should be subtle and theme-aware
-		const gridColor = $darkMode 
-			? 'rgba(255, 255, 255, 0.1)'
-			: 'rgba(0, 0, 0, 0.1)';
-		
+		const gridColor = $darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
+
 		return { textColor, axisTextColor, gridColor };
 	}
-	
+
 	function updateChartLabels() {
 		if (!chartInstance) return;
-		
+
 		// Get theme-aware text colors
 		const { textColor, axisTextColor, gridColor } = getThemeColors();
-		
+
 		// Update axis labels
 		const dateAxisLabel = $t('wallet.balance_chart.chart.date_axis');
 		const usdAxisLabel = $t('wallet.balance_chart.chart.usd_axis');
 		const satsAxisLabel = $t('wallet.balance_chart.chart.sats_axis');
-		
+
 		// Use type assertion to update scale titles
-		const scales = chartInstance.options.scales as any;
+		const scales = chartInstance.options.scales as ChartScales;
 		if (scales?.x) {
 			scales.x.title = {
 				display: true,
@@ -314,7 +324,7 @@
 				scales.y1.ticks.color = axisTextColor;
 			}
 		}
-		
+
 		// Update grid colors
 		if (scales?.x?.grid) {
 			scales.x.grid.color = gridColor;
@@ -322,23 +332,23 @@
 		if (scales?.y?.grid) {
 			scales.y.grid.color = gridColor;
 		}
-		
+
 		// Update legend colors
 		if (chartInstance.options.plugins?.legend?.labels) {
-			(chartInstance.options.plugins.legend.labels as any).color = textColor;
+			(chartInstance.options.plugins.legend.labels as Record<string, unknown>).color = textColor;
 		}
-		
+
 		// Update dataset labels
 		const bitcoinBalanceLabel = $t('wallet.balance_chart.chart.bitcoin_balance_label');
 		const totalUsdLabel = $t('wallet.balance_chart.chart.total_usd_label');
-		
+
 		if (chartInstance.data.datasets[0]) {
 			chartInstance.data.datasets[0].label = bitcoinBalanceLabel;
 		}
 		if (chartInstance.data.datasets[1]) {
 			chartInstance.data.datasets[1].label = totalUsdLabel;
 		}
-		
+
 		chartInstance.update('none');
 	}
 
@@ -349,12 +359,12 @@
 
 		// Get theme-aware text colors
 		const { textColor, axisTextColor, gridColor } = getThemeColors();
-		
+
 		// Get translations for chart labels
 		const dateAxisLabel = $t('wallet.balance_chart.chart.date_axis');
 		const usdAxisLabel = $t('wallet.balance_chart.chart.usd_axis');
 		const satsAxisLabel = $t('wallet.balance_chart.chart.sats_axis');
-		
+
 		chartInstance = new Chart(chartCanvas, {
 			type: 'bar',
 			data: {
@@ -388,7 +398,7 @@
 						padding: 12,
 						displayColors: true,
 						callbacks: {
-							title: function(context) {
+							title: function (context) {
 								// Format date without time
 								if (context.length > 0 && context[0].parsed.x) {
 									const date = new Date(context[0].parsed.x);
@@ -397,16 +407,16 @@
 								}
 								return '';
 							},
-							label: function(context) {
+							label: function (context) {
 								const datasetLabel = context.dataset.label || '';
 								const value = context.parsed.y;
 								const tooltipNA = $t('wallet.balance_chart.chart.tooltip_na');
 								const tooltipSats = $t('wallet.balance_chart.chart.tooltip_sats');
-								
+
 								if (value === null || value === undefined) {
 									return `${datasetLabel}: ${tooltipNA}`;
 								}
-								
+
 								if (datasetLabel.includes('sats') || datasetLabel.includes('Sats')) {
 									return `${datasetLabel}: ${formatSats(Number(value))} ${tooltipSats}`;
 								} else if (datasetLabel.includes('USD')) {
@@ -462,7 +472,7 @@
 							font: {
 								size: 11
 							},
-							callback: function(value) {
+							callback: function (value) {
 								return `$${Number(value).toFixed(2)}`;
 							}
 						},
@@ -487,7 +497,7 @@
 							font: {
 								size: 11
 							},
-							callback: function(value) {
+							callback: function (value) {
 								return formatSats(Number(value));
 							}
 						},
@@ -509,12 +519,12 @@
 		}
 
 		// Prepare data - Chart.js time scale expects {x: Date, y: number} format
-		const chartData = dailyBalances.map(b => ({
+		const chartData = dailyBalances.map((b) => ({
 			x: b.date, // Date object for time scale
 			y: b.sats
 		}));
 
-		const usdChartData = dailyBalances.map(b => ({
+		const usdChartData = dailyBalances.map((b) => ({
 			x: b.date, // Date object for time scale
 			y: b.usd
 		}));
@@ -522,13 +532,13 @@
 		// Get translations for dataset labels
 		const bitcoinBalanceLabel = $t('wallet.balance_chart.chart.bitcoin_balance_label');
 		const totalUsdLabel = $t('wallet.balance_chart.chart.total_usd_label');
-		
+
 		chartInstance.data = {
 			datasets: [
 				{
 					type: 'bar',
 					label: bitcoinBalanceLabel,
-					data: chartData as any, // Type assertion for Chart.js time scale
+					data: chartData,
 					backgroundColor: '#FF9315', // Bitcoin orange
 					yAxisID: 'y1',
 					order: 2
@@ -536,7 +546,7 @@
 				{
 					type: 'line',
 					label: totalUsdLabel,
-					data: usdChartData as any, // Type assertion for Chart.js time scale
+					data: usdChartData,
 					borderColor: '#10b981', // Green
 					backgroundColor: 'rgba(16, 185, 129, 0.1)', // Green with opacity for fill
 					fill: true,
@@ -547,7 +557,7 @@
 					pointHoverRadius: 5
 				}
 			]
-		};
+		} as unknown as ChartData;
 
 		chartInstance.update('none'); // Use 'none' mode for smoother updates
 	}
@@ -570,7 +580,6 @@
 			dailyBalances = [];
 			error = null;
 			isLoading = false;
-			isFirstLoad = true; // Reset first load flag when modal closes
 		}
 	});
 </script>
@@ -578,19 +587,14 @@
 {#if isOpen}
 	<!-- BalanceChartModal: isOpen={isOpen} -->
 	<div class="modal modal-open">
-		<div
-			class="modal-box max-w-4xl max-h-[85vh] p-0 bg-base-100 flex flex-col"
-		>
-			<div class="flex flex-col flex-1 min-h-0">
+		<div class="modal-box bg-base-100 flex max-h-[85vh] max-w-4xl flex-col p-0">
+			<div class="flex min-h-0 flex-1 flex-col">
 				<!-- Header -->
-				<div class="flex items-center justify-between p-4 border-b border-base-300 shrink-0">
+				<div class="border-base-300 flex shrink-0 items-center justify-between border-b p-4">
 					<h3 class="text-lg font-bold">{$t('wallet.balance_chart.title')}</h3>
 					<button
 						class="btn btn-sm btn-circle btn-ghost"
-						onclick={() => {
-							triggerHaptic(ImpactStyle.Light);
-							onClose();
-						}}
+						onclick={onClose}
 						aria-label={$t('common.close')}
 					>
 						<IconClose class="h-5 w-5" />
@@ -598,7 +602,7 @@
 				</div>
 
 				<!-- Content -->
-				<div class="flex-1 flex flex-col p-6 min-h-0 overflow-auto">
+				<div class="flex min-h-0 flex-1 flex-col overflow-auto p-6">
 					<!-- Date Range Selector -->
 					<div class="mb-4">
 						<label for="date-range-select" class="label">
@@ -612,12 +616,12 @@
 								const newValue = (e.target as HTMLSelectElement).value as DateRangeOption;
 								// bind:value should update selectedRange, but ensure it's set
 								selectedRange = newValue;
-								
+
 								// If chart isn't initialized yet, try to initialize it first
 								if (!chartInstance && chartCanvas && isOpen) {
 									initializeChart();
 								}
-								
+
 								// Fetch data if chart is ready
 								if (chartInstance && isOpen) {
 									fetchDailyBalances();
@@ -636,22 +640,22 @@
 					</div>
 
 					<!-- Chart Container -->
-					<div class="flex-1 min-h-0 relative">
+					<div class="relative min-h-0 flex-1">
 						{#if isLoading}
-							<div class="absolute inset-0 flex items-center justify-center bg-base-100 z-10">
+							<div class="bg-base-100 absolute inset-0 z-10 flex items-center justify-center">
 								<div class="flex flex-col items-center gap-4">
 									<span class="loading loading-spinner loading-lg"></span>
 									<p class="text-base-content/70">{$t('common.loading')}</p>
 								</div>
 							</div>
 						{:else if error}
-							<div class="absolute inset-0 flex items-center justify-center bg-base-100 z-10">
+							<div class="bg-base-100 absolute inset-0 z-10 flex items-center justify-center">
 								<div class="alert alert-error">
 									<span>{error}</span>
 								</div>
 							</div>
 						{:else if dailyBalances.length === 0}
-							<div class="absolute inset-0 flex items-center justify-center bg-base-100 z-10">
+							<div class="bg-base-100 absolute inset-0 z-10 flex items-center justify-center">
 								<div class="text-base-content/70">{$t('wallet.balance_chart.no_data')}</div>
 							</div>
 						{/if}
@@ -665,11 +669,7 @@
 		</div>
 		<!-- Modal backdrop -->
 		<form method="dialog" class="modal-backdrop">
-			<button onclick={() => {
-				triggerHaptic(ImpactStyle.Light);
-				onClose();
-			}}>close</button>
+			<button onclick={onClose}>close</button>
 		</form>
 	</div>
 {/if}
-

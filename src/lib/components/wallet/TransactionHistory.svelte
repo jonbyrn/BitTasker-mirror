@@ -1,8 +1,8 @@
 <script lang="ts">
+	import type { ProcessedTransaction, SwapAction } from '$lib/types/wallet';
 	import { t } from 'svelte-i18n';
 	import { onMount } from 'svelte';
 	import { transactions, walletManager } from '$lib/stores/wallet.store';
-	import { triggerHaptic, ImpactStyle } from '$lib/utils/helpers/haptics';
 	import IconArrowUpBold from '~icons/mdi/arrow-up-bold';
 	import IconArrowDownBold from '~icons/mdi/arrow-down-bold';
 	import IconFileDocumentOutline from '~icons/mdi/file-document-outline';
@@ -117,20 +117,17 @@
 	};
 
 	function selectTypeFilter(typeId: 'all' | 'send' | 'receive' | 'contract-function') {
-		triggerHaptic(ImpactStyle.Light);
 		typeFilter = typeId;
 		currentPage = 0;
 	}
 
 	function selectNetworkFilter(networkId: 'all' | 'rsk' | 'bsc' | 'lightning') {
-		triggerHaptic(ImpactStyle.Light);
 		networkFilter = networkId;
 		isNetworkDropdownOpen = false;
 		currentPage = 0;
 	}
 
 	function toggleNetworkDropdown() {
-		triggerHaptic(ImpactStyle.Light);
 		isNetworkDropdownOpen = !isNetworkDropdownOpen;
 	}
 
@@ -164,8 +161,8 @@
 					// Wait for initialization to complete (max 10 seconds)
 					const maxWaitTime = 10000;
 					const startTime = Date.now();
-					while (state.isInitializing && (Date.now() - startTime) < maxWaitTime) {
-						await new Promise(resolve => setTimeout(resolve, 100));
+					while (state.isInitializing && Date.now() - startTime < maxWaitTime) {
+						await new Promise((resolve) => setTimeout(resolve, 100));
 						const currentState = get(walletStore);
 						if (currentState.isConnected && !currentState.isInitializing) {
 							break;
@@ -227,21 +224,18 @@
 	}
 
 	function nextPage() {
-		triggerHaptic(ImpactStyle.Light);
 		if (currentPage < totalPages - 1) {
 			currentPage++;
 		}
 	}
 
 	function prevPage() {
-		triggerHaptic(ImpactStyle.Light);
 		if (currentPage > 0) {
 			currentPage--;
 		}
 	}
 
 	function goToPage(page: number) {
-		triggerHaptic(ImpactStyle.Light);
 		if (page >= 0 && page < totalPages) {
 			currentPage = page;
 		}
@@ -251,11 +245,12 @@
 	 * Handle transaction click
 	 * Opens swap QR modal for pending swaps (via callback), otherwise opens explorer URL
 	 */
-	async function handleTransactionClick(tx: any) {
-		triggerHaptic(ImpactStyle.Light);
+	async function handleTransactionClick(tx: ProcessedTransaction) {
 		// Check if this is a swap with a viewQR action
 		if (tx.swap && tx.swap.actions) {
-			const hasViewQRAction = tx.swap.actions.some((action: any) => action.type === 'viewQR');
+			const hasViewQRAction = tx.swap.actions.some(
+				(action: SwapAction) => action.type === 'viewQR'
+			);
 
 			if (hasViewQRAction && tx.swap.id) {
 				// Call parent callback to open the modal
@@ -273,20 +268,22 @@
 	/**
 	 * Handle viewQR action button click
 	 */
-	async function handleViewQRAction(tx: any, event: Event) {
+	async function handleViewQRAction(tx: ProcessedTransaction, event: Event) {
 		event.stopPropagation(); // Prevent transaction click handler
 		await handleTransactionClick(tx);
 	}
 </script>
 
-<div class="flex flex-col flex-1 min-h-0 -m-3 sm:-m-4 lg:-m-6">
+<div class="-m-3 flex min-h-0 flex-1 flex-col sm:-m-4 lg:-m-6">
 	<!-- Filters container matching contracts screen design -->
-	<div class="border-base-300/60 bg-base-100/40 rounded-3xl border p-2 shadow-sm shrink-0 mx-3 mt-3 sm:mx-4 sm:mt-4 lg:mx-6 lg:mt-6">
+	<div
+		class="border-base-300/60 bg-base-100/40 mx-3 mt-3 shrink-0 rounded-3xl border p-2 shadow-sm sm:mx-4 sm:mt-4 lg:mx-6 lg:mt-6"
+	>
 		<!-- Type Filter Buttons -->
 		<div class="mb-4">
 			<!-- Mobile: 2x2 Grid -->
 			<div class="mb-3 grid grid-cols-2 gap-2 sm:hidden">
-				{#each typeFilterOptions as option}
+				{#each typeFilterOptions as option (option.id)}
 					{@const IconComponent = option.icon}
 					<button
 						class="btn {typeFilter === option.id
@@ -306,7 +303,7 @@
 			</div>
 			<!-- Desktop: Horizontal Row -->
 			<div class="hidden sm:flex sm:items-center sm:gap-2">
-				{#each typeFilterOptions as option}
+				{#each typeFilterOptions as option (option.id)}
 					{@const IconComponent = option.icon}
 					<button
 						class="btn {typeFilter === option.id
@@ -324,29 +321,25 @@
 					</button>
 				{/each}
 			</div>
-			</div>
+		</div>
 
 		<!-- Network Filter Dropdown (All Screen Sizes) -->
-			<div class="network-dropdown-container relative">
-			{#each [networkFilterOptions.find((opt) => opt.id === networkFilter)] as selectedOption}
+		<div class="network-dropdown-container relative">
+			{#each [networkFilterOptions.find((opt) => opt.id === networkFilter)] as selectedOption (selectedOption?.id ?? networkFilter)}
 				<button
 					class="border-primary bg-primary/10 text-primary hover:bg-primary/20 flex w-full items-center justify-between rounded-3xl border px-4 py-2 transition-all duration-200"
 					onclick={toggleNetworkDropdown}
 				>
 					<div class="flex items-center gap-2">
-							{#if selectedOption?.isImage}
-								<img
-									src={selectedOption.icon as string}
-									alt={selectedOption.label}
-									class="h-5 w-5"
-								/>
-							{:else if selectedOption && typeof selectedOption.icon !== 'string'}
-								{@const IconComponent = selectedOption.icon}
-								<IconComponent class="h-5 w-5" />
-							{/if}
-							<span class="font-medium">
-								{selectedOption?.label}
-							</span>
+						{#if selectedOption?.isImage}
+							<img src={selectedOption.icon as string} alt={selectedOption.label} class="h-5 w-5" />
+						{:else if selectedOption && typeof selectedOption.icon !== 'string'}
+							{@const IconComponent = selectedOption.icon}
+							<IconComponent class="h-5 w-5" />
+						{/if}
+						<span class="font-medium">
+							{selectedOption?.label}
+						</span>
 					</div>
 					<IconChevronDown
 						class="h-5 w-5 transition-transform duration-200 {isNetworkDropdownOpen
@@ -356,256 +349,261 @@
 				</button>
 			{/each}
 
-				{#if isNetworkDropdownOpen}
-					<div
-						class="border-base-300 bg-base-100 absolute top-full right-0 left-0 z-50 mt-2 rounded-xl border shadow-lg"
-					>
-						{#each networkFilterOptions as option}
-							<button
-								class="hover:bg-base-200 flex w-full items-center gap-2 px-4 py-2 text-left transition-colors duration-200 first:rounded-t-xl last:rounded-b-xl {networkFilter ===
-								option.id
-									? 'bg-primary/10 text-primary'
-									: 'text-base-content'}"
-								onclick={() => selectNetworkFilter(option.id)}
-							>
-								{#if option.isImage}
-									<img src={option.icon as string} alt={option.label} class="h-5 w-5" />
-								{:else if typeof option.icon !== 'string'}
-									{@const IconComponent = option.icon}
-									<IconComponent
-										class="h-5 w-5 {networkFilter === option.id
-											? 'text-primary'
-											: 'text-base-content/60'}"
-									/>
-								{/if}
-								<span class="font-medium">{option.label}</span>
-								{#if networkFilter === option.id}
-									<IconCheck class="text-primary ml-auto h-5 w-5" />
-								{/if}
-							</button>
-						{/each}
-					</div>
-				{/if}
-			</div>
+			{#if isNetworkDropdownOpen}
+				<div
+					class="border-base-300 bg-base-100 absolute top-full right-0 left-0 z-50 mt-2 rounded-xl border shadow-lg"
+				>
+					{#each networkFilterOptions as option (option.id)}
+						<button
+							class="hover:bg-base-200 flex w-full items-center gap-2 px-4 py-2 text-left transition-colors duration-200 first:rounded-t-xl last:rounded-b-xl {networkFilter ===
+							option.id
+								? 'bg-primary/10 text-primary'
+								: 'text-base-content'}"
+							onclick={() => selectNetworkFilter(option.id)}
+						>
+							{#if option.isImage}
+								<img src={option.icon as string} alt={option.label} class="h-5 w-5" />
+							{:else if typeof option.icon !== 'string'}
+								{@const IconComponent = option.icon}
+								<IconComponent
+									class="h-5 w-5 {networkFilter === option.id
+										? 'text-primary'
+										: 'text-base-content/60'}"
+								/>
+							{/if}
+							<span class="font-medium">{option.label}</span>
+							{#if networkFilter === option.id}
+								<IconCheck class="text-primary ml-auto h-5 w-5" />
+							{/if}
+						</button>
+					{/each}
+				</div>
+			{/if}
 		</div>
+	</div>
 
 	<!-- Total transactions count (above scrollable area) -->
 	{#if !isLoading && filteredTransactions.length > 0}
-		<div class="text-center text-lg p-2 font-bold shrink-0 mx-3 sm:mx-4 lg:mx-6">
-			{filteredTransactions.length} {$t('wallet.total_transactions')}
-		</div>
-						{/if}
-
-	<!-- Scrollable transactions area -->
-	<div class="flex-1 overflow-y-auto min-h-0 mx-3 sm:mx-4 lg:mx-6">
-		<div class="space-y-3">
-	{#if error}
-		<div class="alert alert-error alert-outline">
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				class="h-6 w-6 shrink-0 stroke-current"
-				fill="none"
-				viewBox="0 0 24 24"
-			>
-				<path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					stroke-width="2"
-					d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-				/>
-			</svg>
-			<span>{error}</span>
+		<div class="mx-3 shrink-0 p-2 text-center text-lg font-bold sm:mx-4 lg:mx-6">
+			{filteredTransactions.length}
+			{$t('wallet.total_transactions')}
 		</div>
 	{/if}
 
-	{#if isLoading}
+	<!-- Scrollable transactions area -->
+	<div class="mx-3 min-h-0 flex-1 overflow-y-auto sm:mx-4 lg:mx-6">
 		<div class="space-y-3">
-			{#each Array(10) as _}
-				<div class="card bg-base-200 animate-pulse rounded-lg">
-					<div class="card-body p-4">
-						<div class="flex flex-col gap-1">
-							<!-- Top Row: Icon, Text, Checkmark, Amount, Fee -->
-							<div class="flex items-center justify-between gap-2 sm:gap-4">
-								<div class="flex items-center gap-3">
-									<!-- Type Icon -->
-									<div class="bg-base-300 h-10 w-10 rounded-full"></div>
-									<div class="flex items-center gap-2">
-										<div class="bg-base-300 h-5 w-24 rounded"></div>
-										<div class="bg-base-300 h-5 w-5 rounded-full"></div>
-									</div>
-								</div>
-								<div class="flex flex-col items-end">
-									<div class="bg-base-300 h-5 w-20 rounded"></div>
-									<div class="bg-base-300 mt-1 h-3 w-16 rounded"></div>
-								</div>
-							</div>
-							<!-- Bottom Row: Network Icon, Date/Time, Running Balance -->
-							<div class="flex items-center justify-between gap-2 sm:gap-4">
-								<div class="flex items-center gap-3">
-									<!-- Network Icon -->
-									<div class="bg-base-300 h-10 w-10 rounded-full"></div>
-									<div class="space-y-1">
-										<div class="bg-base-300 h-4 w-24 rounded"></div>
-										<div class="bg-base-300 h-3 w-20 rounded"></div>
-									</div>
-								</div>
-								<div class="bg-base-300 h-4 w-32 rounded"></div>
-							</div>
-						</div>
-					</div>
+			{#if error}
+				<div class="alert alert-error alert-outline">
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="h-6 w-6 shrink-0 stroke-current"
+						fill="none"
+						viewBox="0 0 24 24"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+						/>
+					</svg>
+					<span>{error}</span>
 				</div>
-			{/each}
-		</div>
-	{:else if paginatedTransactions.length === 0}
-		<div class="py-12 text-center">
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				class="text-base-content/30 mx-auto mb-4 h-16 w-16"
-				fill="none"
-				viewBox="0 0 24 24"
-				stroke="currentColor"
-			>
-				<path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					stroke-width="1"
-					d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-				/>
-			</svg>
-			<h3 class="mb-2 text-lg font-semibold">{$t('wallet.no_transactions')}</h3>
-			<p class="text-base-content/70">
-				{typeFilter === 'all' && networkFilter === 'all'
-					? $t('wallet.no_transactions_yet')
-					: $t('wallet.no_transactions_filter')}
-			</p>
-		</div>
-	{:else}
-		<!-- Transaction List -->
-		<div class="space-y-3">
-			{#each paginatedTransactions as tx}
-				{@const valueSats = Number(tx.value)}
-				{@const transactionClasses = transactionUI[tx.borderColor]}
-				<div
-					role="button"
-					tabindex="0"
-					onclick={() => handleTransactionClick(tx)}
-					onkeydown={(e) => {
-						if (e.key === 'Enter' || e.key === ' ') {
-							e.preventDefault();
-							handleTransactionClick(tx);
-						}
-					}}
-					class="card bg-base-200 hover:bg-base-300 cursor-pointer rounded-lg border-2 transition-colors {transactionClasses.border}"
-				>
-					<div class="card-body p-4">
-						<div class="flex flex-col gap-1">
-							<!-- Top Row: Icon, Text, Checkmark, Amount, Fee -->
-							<div class="flex items-center justify-between gap-2 sm:gap-4">
-								<div class="flex items-center gap-3">
-									<!-- Type Icon with Overlay -->
-									<div class="relative inline-block">
-										<div
-											class="flex h-10 w-10 items-center justify-center rounded-full {transactionClasses.background} {transactionClasses.text}"
-										>
-											<tx.iconConfig.base class="h-6 w-6" />
-										</div>
-										<!-- Status Badge on top-left -->
-										<div
-											class="bg-base-100 absolute top-0 left-0 rounded-full p-0.5 shadow-sm"
-											title={tx.status.label}
-										>
-											<tx.status.icon class="h-4 w-4 {tx.status.color}" />
-										</div>
-										{#if tx.iconConfig.overlay}
-											<div class="bg-base-100 absolute top-0 right-0 rounded-full p-0.5 shadow-sm">
-												<tx.iconConfig.overlay
-													class="h-4 w-4 {tx.borderColor === 'success'
-														? 'text-success'
-														: 'text-warning'}"
-												/>
-											</div>
-										{/if}
-									</div>
-									<div class="flex items-center gap-2">
-										<span class="font-semibold">
-											{$t(tx.title)}
-										</span>
-									</div>
-								</div>
-								<div class="flex flex-col items-end">
-									<div class="{transactionClasses.text} font-semibold">
-										{#if tx.displayType === 'receive' || tx.displayType === 'swap-claim'}
-											{#if valueSats > 0}+{/if}
-										{:else if tx.displayType === 'send'}
-											{#if valueSats > 0}-{/if}
-										{/if}
-										{valueSats.toLocaleString()}
-										{$t('wallet.sats')}
-									</div>
-									<div class="text-xs opacity-70">
-										{$t('wallet.tx_fee')}: {formatFee(tx.feeSats)}
-									</div>
-								</div>
-							</div>
+			{/if}
 
-							<!-- Bottom Row: Network Icon, Date/Time, Running Balance -->
-							<div class="flex items-center justify-between gap-2 sm:gap-4">
-								<div class="flex items-center gap-3">
-									<!-- Network Icon -->
-									<div
-										class="bg-base-300/20 flex h-10 w-10 items-center justify-center rounded-full"
-									>
-										<img src={tx.networkIcon} alt={tx.networkDisplayName} class="h-10 w-10" />
-									</div>
-									<div class="text-sm opacity-70">
-										<div>{formatDate(tx.timestamp)}</div>
-										<div>{formatTime(tx.timestamp)}</div>
-									</div>
-								</div>
-								<div class="text-right">
-									<div class="text-xs opacity-70">
-										{$t('wallet.balance_after')}:
-									</div>
-									<div class="text-sm font-semibold md:text-base">
-										{Math.floor(tx.balanceAfter)?.toLocaleString() || '0'} {$t('wallet.sats')}
-									</div>
-									<!-- Swap Action Buttons - Thin, directly below balance -->
-									{#if tx.swap?.actions && tx.swap.actions.length > 0}
-										<div class="flex flex-wrap gap-1.5 justify-end">
-											{#each tx.swap.actions as action}
-												<button
-													class="btn btn-xs"
-													class:btn-warning={action.type === 'refund'}
-													class:btn-primary={action.type === 'renegotiate' ||
-														action.type === 'viewQR'}
-													class:btn-success={action.type === 'claim'}
-													onclick={(e) => {
-														triggerHaptic(ImpactStyle.Light);
-														if (action.type === 'viewQR') {
-															handleViewQRAction(tx, e);
-														} else {
-															action.handler();
-														}
-													}}
-												>
-													{$t(action.label)}
-												</button>
-											{/each}
+			{#if isLoading}
+				<div class="space-y-3">
+					{#each Array.from({ length: 10 }, (_, i) => i) as skeletonIndex (skeletonIndex)}
+						<div class="card bg-base-200 animate-pulse rounded-lg">
+							<div class="card-body p-4">
+								<div class="flex flex-col gap-1">
+									<!-- Top Row: Icon, Text, Checkmark, Amount, Fee -->
+									<div class="flex items-center justify-between gap-2 sm:gap-4">
+										<div class="flex items-center gap-3">
+											<!-- Type Icon -->
+											<div class="bg-base-300 h-10 w-10 rounded-full"></div>
+											<div class="flex items-center gap-2">
+												<div class="bg-base-300 h-5 w-24 rounded"></div>
+												<div class="bg-base-300 h-5 w-5 rounded-full"></div>
+											</div>
 										</div>
-									{/if}
+										<div class="flex flex-col items-end">
+											<div class="bg-base-300 h-5 w-20 rounded"></div>
+											<div class="bg-base-300 mt-1 h-3 w-16 rounded"></div>
+										</div>
+									</div>
+									<!-- Bottom Row: Network Icon, Date/Time, Running Balance -->
+									<div class="flex items-center justify-between gap-2 sm:gap-4">
+										<div class="flex items-center gap-3">
+											<!-- Network Icon -->
+											<div class="bg-base-300 h-10 w-10 rounded-full"></div>
+											<div class="space-y-1">
+												<div class="bg-base-300 h-4 w-24 rounded"></div>
+												<div class="bg-base-300 h-3 w-20 rounded"></div>
+											</div>
+										</div>
+										<div class="bg-base-300 h-4 w-32 rounded"></div>
+									</div>
 								</div>
 							</div>
 						</div>
-					</div>
+					{/each}
 				</div>
-			{/each}
+			{:else if paginatedTransactions.length === 0}
+				<div class="py-12 text-center">
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="text-base-content/30 mx-auto mb-4 h-16 w-16"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="1"
+							d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+						/>
+					</svg>
+					<h3 class="mb-2 text-lg font-semibold">{$t('wallet.no_transactions')}</h3>
+					<p class="text-base-content/70">
+						{typeFilter === 'all' && networkFilter === 'all'
+							? $t('wallet.no_transactions_yet')
+							: $t('wallet.no_transactions_filter')}
+					</p>
+				</div>
+			{:else}
+				<!-- Transaction List -->
+				<div class="space-y-3">
+					{#each paginatedTransactions as tx (tx.hash)}
+						{@const valueSats = Number(tx.value)}
+						{@const transactionClasses = transactionUI[tx.borderColor]}
+						<div
+							role="button"
+							tabindex="0"
+							onclick={() => handleTransactionClick(tx)}
+							onkeydown={(e) => {
+								if (e.key === 'Enter' || e.key === ' ') {
+									e.preventDefault();
+									handleTransactionClick(tx);
+								}
+							}}
+							class="card bg-base-200 hover:bg-base-300 cursor-pointer rounded-lg border-2 transition-colors {transactionClasses.border}"
+						>
+							<div class="card-body p-4">
+								<div class="flex flex-col gap-1">
+									<!-- Top Row: Icon, Text, Checkmark, Amount, Fee -->
+									<div class="flex items-center justify-between gap-2 sm:gap-4">
+										<div class="flex items-center gap-3">
+											<!-- Type Icon with Overlay -->
+											<div class="relative inline-block">
+												<div
+													class="flex h-10 w-10 items-center justify-center rounded-full {transactionClasses.background} {transactionClasses.text}"
+												>
+													<tx.iconConfig.base class="h-6 w-6" />
+												</div>
+												<!-- Status Badge on top-left -->
+												<div
+													class="bg-base-100 absolute top-0 left-0 rounded-full p-0.5 shadow-sm"
+													title={tx.status.label}
+												>
+													<tx.status.icon class="h-4 w-4 {tx.status.color}" />
+												</div>
+												{#if tx.iconConfig.overlay}
+													<div
+														class="bg-base-100 absolute top-0 right-0 rounded-full p-0.5 shadow-sm"
+													>
+														<tx.iconConfig.overlay
+															class="h-4 w-4 {tx.borderColor === 'success'
+																? 'text-success'
+																: 'text-warning'}"
+														/>
+													</div>
+												{/if}
+											</div>
+											<div class="flex items-center gap-2">
+												<span class="font-semibold">
+													{$t(tx.title)}
+												</span>
+											</div>
+										</div>
+										<div class="flex flex-col items-end">
+											<div class="{transactionClasses.text} font-semibold">
+												{#if tx.displayType === 'receive' || tx.displayType === 'swap-claim'}
+													{#if valueSats > 0}+{/if}
+												{:else if tx.displayType === 'send'}
+													{#if valueSats > 0}-{/if}
+												{/if}
+												{valueSats.toLocaleString()}
+												{$t('wallet.sats')}
+											</div>
+											<div class="text-xs opacity-70">
+												{$t('wallet.tx_fee')}: {formatFee(tx.feeSats)}
+											</div>
+										</div>
+									</div>
+
+									<!-- Bottom Row: Network Icon, Date/Time, Running Balance -->
+									<div class="flex items-center justify-between gap-2 sm:gap-4">
+										<div class="flex items-center gap-3">
+											<!-- Network Icon -->
+											<div
+												class="bg-base-300/20 flex h-10 w-10 items-center justify-center rounded-full"
+											>
+												<img src={tx.networkIcon} alt={tx.networkDisplayName} class="h-10 w-10" />
+											</div>
+											<div class="text-sm opacity-70">
+												<div>{formatDate(tx.timestamp)}</div>
+												<div>{formatTime(tx.timestamp)}</div>
+											</div>
+										</div>
+										<div class="text-right">
+											<div class="text-xs opacity-70">
+												{$t('wallet.balance_after')}:
+											</div>
+											<div class="text-sm font-semibold md:text-base">
+												{Math.floor(tx.balanceAfter)?.toLocaleString() || '0'}
+												{$t('wallet.sats')}
+											</div>
+											<!-- Swap Action Buttons - Thin, directly below balance -->
+											{#if tx.swap?.actions && tx.swap.actions.length > 0}
+												<div class="flex flex-wrap justify-end gap-1.5">
+													{#each tx.swap.actions as action (action.type)}
+														<button
+															class="btn btn-xs"
+															class:btn-warning={action.type === 'refund'}
+															class:btn-primary={action.type === 'renegotiate' ||
+																action.type === 'viewQR'}
+															class:btn-success={action.type === 'claim'}
+															onclick={(e) => {
+																if (action.type === 'viewQR') {
+																	handleViewQRAction(tx, e);
+																} else {
+																	action.handler();
+																}
+															}}
+														>
+															{$t(action.label)}
+														</button>
+													{/each}
+												</div>
+											{/if}
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+					{/each}
+				</div>
+			{/if}
 		</div>
-		{/if}
-		</div>
-		</div>
+	</div>
 
 	<!-- Bottom section with pagination and buttons -->
-	<div class="shrink-0 space-y-4 border-t border-base-300 pt-4 lg:pt-6 mt-auto mx-3 mb-3 sm:mx-4 sm:mb-4 lg:mx-6 lg:mb-6">
+	<div
+		class="border-base-300 mx-3 mt-auto mb-3 shrink-0 space-y-4 border-t pt-4 sm:mx-4 sm:mb-4 lg:mx-6 lg:mb-6 lg:pt-6"
+	>
 		<!-- Pagination controls -->
 		{#if totalPages > 1 && !isLoading && paginatedTransactions.length > 0}
 			<div class="flex justify-center">
@@ -614,7 +612,7 @@
 						«
 					</button>
 
-					{#each Array(Math.min(5, totalPages)) as _, i}
+					{#each Array.from({ length: Math.min(5, totalPages) }, (_, i) => i) as i (i)}
 						{@const pageNum = Math.max(0, Math.min(totalPages - 5, currentPage - 2)) + i}
 						{#if pageNum < totalPages}
 							<button
@@ -643,10 +641,7 @@
 				<button
 					class="btn btn-error min-h-[44px] flex-1 touch-manipulation transition-transform duration-100 select-none active:scale-95 sm:min-h-[48px]"
 					style="-webkit-tap-highlight-color: transparent;"
-					onclick={() => {
-						triggerHaptic(ImpactStyle.Light);
-						onClose();
-					}}
+					onclick={onClose}
 					aria-label={$t('common.close')}
 				>
 					<IconClose class="h-4 w-4 sm:h-5 sm:w-5" />
@@ -654,11 +649,8 @@
 				</button>
 			{/if}
 			<button
-				class="btn btn-primary flex-1 min-h-[44px] flex items-center justify-center gap-2"
-				onclick={() => {
-					triggerHaptic(ImpactStyle.Light);
-					loadTransactions();
-				}}
+				class="btn btn-primary flex min-h-[44px] flex-1 items-center justify-center gap-2"
+				onclick={loadTransactions}
 				disabled={isLoading}
 				aria-label={$t('wallet.refresh')}
 			>
@@ -679,7 +671,7 @@
 							d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
 						/>
 					</svg>
-	{/if}
+				{/if}
 				<span>{$t('wallet.refresh')}</span>
 			</button>
 		</div>
