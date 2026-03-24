@@ -644,7 +644,7 @@
 			<span>{loadError}</span>
 			{#if onRetry}
 				<button type="button" class="btn btn-ghost btn-xs" onclick={onRetry} disabled={isSyncing}>
-					Retry
+					{translateOrFallback('common.buttons.retry', 'Retry')}
 				</button>
 			{/if}
 		</div>

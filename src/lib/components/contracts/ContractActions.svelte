@@ -5,10 +5,7 @@
 	import { t, locale } from 'svelte-i18n';
 	import { escrow, EscrowStatus } from '$lib/utils/escrow';
 	import { appStore } from '$lib/stores/app.store';
-	import {
-		extractContractError,
-		getErrorMessage
-	} from '$lib/utils/wallet/contractErrorHandler';
+	import { extractContractError, getErrorMessage } from '$lib/utils/wallet/contractErrorHandler';
 	import { loadNamespace, type SupportedLanguage } from '$lib/i18n/i18n';
 	import { browser } from '$app/environment';
 	import { contractStore } from '$lib/stores/contract.store';
@@ -138,10 +135,26 @@
 		isLoading = { ...isLoading, [action]: loading };
 	}
 
+	function tr(key: string, fallback: string): string {
+		const value = $t(key);
+		return typeof value === 'string' && value !== key ? value : fallback;
+	}
+
+	function trv(key: string, fallback: string, values: Record<string, string | number>): string {
+		const value = $t(key, { values });
+		return typeof value === 'string' && value !== key ? value : fallback;
+	}
+
 	function buildStaleActionNotice(): string {
 		return isServiceContract
-			? 'This service contract changed or the action is no longer available. Refreshing the latest contract state.'
-			: 'This contract changed or the action is no longer available. Refreshing the latest contract state.';
+			? tr(
+					'dashboard.contracts.actions.stale_action_notice_service',
+					'This service contract changed or the action is no longer available. Refreshing the latest contract state.'
+				)
+			: tr(
+					'dashboard.contracts.actions.stale_action_notice_task',
+					'This contract changed or the action is no longer available. Refreshing the latest contract state.'
+				);
 	}
 
 	async function handleRecoverableActionError(error: unknown): Promise<boolean> {
@@ -269,9 +282,18 @@
 
 			pushNotificationService.sendNotificationToNpubs({
 				npubs: [contractStore.getContractKey(contract, 'otherPartyNpub') as string],
-				title: isServiceContract ? 'Service completed' : 'Task Completed',
+				title: isServiceContract
+					? tr(
+							'dashboard.contracts.actions.notification_service_completed_title',
+							'Service completed'
+						)
+					: 'Task Completed',
 				body: isServiceContract
-					? `Service ${subjectTitle} has been marked as completed.`
+					? trv(
+							'dashboard.contracts.actions.notification_service_completed_body',
+							'Service {title} has been marked as completed.',
+							{ title: subjectTitle }
+						)
 					: `Task ${contractStore.getContractKey(contract, 'taskTitle')} has been marked as completed`,
 				type: 'task_completed',
 				clickAction: contractsClickAction,
@@ -326,10 +348,17 @@
 			pushNotificationService.sendNotificationToNpubs({
 				npubs: [taskeeNpub],
 				title: isServiceContract
-					? 'Service payment released'
+					? tr(
+							'dashboard.contracts.actions.notification_service_payment_released_title',
+							'Service payment released'
+						)
 					: ($t('dashboard.contracts.actions.notification_payment_released_title') as string),
 				body: isServiceContract
-					? `Payment was released for ${subjectTitle}.`
+					? trv(
+							'dashboard.contracts.actions.notification_service_payment_released_body',
+							'Payment was released for {title}.',
+							{ title: subjectTitle }
+						)
 					: ($t('dashboard.contracts.actions.notification_payment_released_body', {
 							values: { taskTitle: taskTitle || '' }
 						}) as string),
@@ -382,9 +411,18 @@
 
 			pushNotificationService.sendNotificationToNpubs({
 				npubs: [contractStore.getContractKey(contract, 'otherPartyNpub') as string],
-				title: isServiceContract ? 'Service dispute raised' : 'Dispute Raised',
+				title: isServiceContract
+					? tr(
+							'dashboard.contracts.actions.notification_service_dispute_title',
+							'Service dispute raised'
+						)
+					: 'Dispute Raised',
 				body: isServiceContract
-					? `A dispute has been raised for ${subjectTitle}.`
+					? trv(
+							'dashboard.contracts.actions.notification_service_dispute_body',
+							'A dispute has been raised for {title}.',
+							{ title: subjectTitle }
+						)
 					: `A dispute has been raised for task ${contractStore.getContractKey(contract, 'taskTitle')}`,
 				type: 'dispute_raised',
 				clickAction: contractsClickAction,
@@ -443,9 +481,18 @@
 
 			pushNotificationService.sendNotificationToNpubs({
 				npubs: [contractStore.getContractKey(contract, 'otherPartyNpub') as string],
-				title: isServiceContract ? 'Service resolution proposed' : 'Resolution Proposed',
+				title: isServiceContract
+					? tr(
+							'dashboard.contracts.actions.notification_service_resolution_proposed_title',
+							'Service resolution proposed'
+						)
+					: 'Resolution Proposed',
 				body: isServiceContract
-					? `A resolution has been proposed for ${subjectTitle}.`
+					? trv(
+							'dashboard.contracts.actions.notification_service_resolution_proposed_body',
+							'A resolution has been proposed for {title}.',
+							{ title: subjectTitle }
+						)
 					: `A resolution has been proposed for task ${contractStore.getContractKey(contract, 'taskTitle')}`,
 				type: 'resolution_proposed',
 				clickAction: contractsClickAction,
@@ -482,9 +529,18 @@
 
 			pushNotificationService.sendNotificationToNpubs({
 				npubs: [contractStore.getContractKey(contract, 'otherPartyNpub') as string],
-				title: isServiceContract ? 'Service resolution accepted' : 'Proposal Accepted',
+				title: isServiceContract
+					? tr(
+							'dashboard.contracts.actions.notification_service_resolution_accepted_title',
+							'Service resolution accepted'
+						)
+					: 'Proposal Accepted',
 				body: isServiceContract
-					? `A proposal has been accepted for ${subjectTitle}.`
+					? trv(
+							'dashboard.contracts.actions.notification_service_resolution_accepted_body',
+							'A proposal has been accepted for {title}.',
+							{ title: subjectTitle }
+						)
 					: `A proposal has been accepted for task ${contractStore.getContractKey(contract, 'taskTitle')}`,
 				type: 'proposal_accepted',
 				clickAction: contractsClickAction,
@@ -525,9 +581,18 @@
 
 			pushNotificationService.sendNotificationToNpubs({
 				npubs: [contractStore.getContractKey(contract, 'otherPartyNpub') as string],
-				title: isServiceContract ? 'Service contract cancelled' : 'Escrow Cancelled',
+				title: isServiceContract
+					? tr(
+							'dashboard.contracts.actions.notification_service_cancelled_title',
+							'Service contract cancelled'
+						)
+					: 'Escrow Cancelled',
 				body: isServiceContract
-					? `A service contract has been cancelled for ${subjectTitle}.`
+					? trv(
+							'dashboard.contracts.actions.notification_service_cancelled_body',
+							'A service contract has been cancelled for {title}.',
+							{ title: subjectTitle }
+						)
 					: `An escrow has been cancelled for task ${contractStore.getContractKey(contract, 'taskTitle')}`,
 				type: 'escrow_cancelled',
 				clickAction: contractsClickAction,
@@ -564,9 +629,18 @@
 
 			pushNotificationService.sendNotificationToNpubs({
 				npubs: [contractStore.getContractKey(contract, 'otherPartyNpub') as string],
-				title: isServiceContract ? 'Service contract resolved' : 'Timelock Resolved',
+				title: isServiceContract
+					? tr(
+							'dashboard.contracts.actions.notification_service_resolved_title',
+							'Service contract resolved'
+						)
+					: 'Timelock Resolved',
 				body: isServiceContract
-					? `A service contract has been resolved for ${subjectTitle}.`
+					? trv(
+							'dashboard.contracts.actions.notification_service_resolved_body',
+							'A service contract has been resolved for {title}.',
+							{ title: subjectTitle }
+						)
 					: `A timelock has been resolved for task ${contractStore.getContractKey(contract, 'taskTitle')}`,
 				type: 'timelock_resolved',
 				clickAction: contractsClickAction,
@@ -720,297 +794,357 @@
 
 	{#if isOffline}
 		<div class="alert alert-warning text-sm" data-testid="contract-actions-offline-alert">
-			<span>You are offline. Reconnect before submitting contract actions.</span>
+			<span>
+				{tr(
+					'dashboard.contracts.actions.offline_notice',
+					'You are offline. Reconnect before submitting contract actions.'
+				)}
+			</span>
 		</div>
 	{:else if showReconnectNotice}
 		<div class="alert alert-info text-sm" data-testid="contract-actions-reconnect-alert">
-			<span>Back online. Retry any contract action that did not submit before reconnecting.</span>
+			<span>
+				{tr(
+					'dashboard.contracts.actions.reconnect_notice',
+					'Back online. Retry any contract action that did not submit before reconnecting.'
+				)}
+			</span>
 		</div>
 	{/if}
 
-<ContractActionBar containerClass={`${containerClass} ${containerClass.includes('grid') ? 'w-full' : ''}`}>
-	<!-- Complete Task (Freelancer) -->
-	{#if contract.permissions.canComplete && !isCompleteDisabled && !isDisabledDueToPending}
-		<CompleteContractButton
-			compact={compactActionButtons}
-			disabled={isOffline}
-			loading={isLoading.complete || isCheckingBlockchain}
-			label={isServiceContract
-				? 'Mark Service Complete'
-				: ($t('dashboard.contracts.actions.complete_task') as string)}
-			onclick={() => (activeModal = ContractModalAction.Complete)}
-		/>
-	{/if}
+	<ContractActionBar
+		containerClass={`${containerClass} ${containerClass.includes('grid') ? 'w-full' : ''}`}
+	>
+		<!-- Complete Task (Freelancer) -->
+		{#if contract.permissions.canComplete && !isCompleteDisabled && !isDisabledDueToPending}
+			<CompleteContractButton
+				compact={compactActionButtons}
+				disabled={isOffline}
+				loading={isLoading.complete || isCheckingBlockchain}
+				label={isServiceContract
+					? tr('dashboard.contracts.actions.service_complete', 'Mark Service Complete')
+					: ($t('dashboard.contracts.actions.complete_task') as string)}
+				onclick={() => (activeModal = ContractModalAction.Complete)}
+			/>
+		{/if}
 
-	<!-- Accept Task (Client) -->
-	{#if contract.permissions.canAccept && !isAcceptDisabled && !isDisabledDueToPending}
-		<AcceptContractButton
-			compact={compactActionButtons}
-			disabled={isOffline}
-			loading={isLoading.accept}
-			label={isServiceContract ? 'Accept Service' : ($t('dashboard.contracts.actions.accept_work') as string)}
-			onclick={() => openModal(ContractModalAction.Accept)}
-		/>
-	{/if}
+		<!-- Accept Task (Client) -->
+		{#if contract.permissions.canAccept && !isAcceptDisabled && !isDisabledDueToPending}
+			<AcceptContractButton
+				compact={compactActionButtons}
+				disabled={isOffline}
+				loading={isLoading.accept}
+				label={isServiceContract
+					? tr('dashboard.contracts.actions.accept_service', 'Accept Service')
+					: ($t('dashboard.contracts.actions.accept_work') as string)}
+				onclick={() => openModal(ContractModalAction.Accept)}
+			/>
+		{/if}
 
-	<!-- Dispute Task (Client) -->
-	{#if contract.permissions.canDispute && !isDisputeDisabled}
-		<DisputeContractButton
-			compact={compactActionButtons}
-			disabled={isOffline}
-			loading={isLoading.dispute}
-			label={isServiceContract
-				? 'Dispute Service'
-				: ($t('dashboard.contracts.actions.dispute_work') as string)}
-			onclick={() => openModal(ContractModalAction.Dispute)}
-		/>
-	{/if}
+		<!-- Dispute Task (Client) -->
+		{#if contract.permissions.canDispute && !isDisputeDisabled}
+			<DisputeContractButton
+				compact={compactActionButtons}
+				disabled={isOffline}
+				loading={isLoading.dispute}
+				label={isServiceContract
+					? tr('dashboard.contracts.actions.dispute_service', 'Dispute Service')
+					: ($t('dashboard.contracts.actions.dispute_work') as string)}
+				onclick={() => openModal(ContractModalAction.Dispute)}
+			/>
+		{/if}
 
-	<!-- Accept Proposal -->
-	{#if !isInline && contract.permissions.canAcceptProposal}
-		<div class="bg-base-300 col-span-2 w-full min-w-0 space-y-3 rounded-lg p-3">
-			<h5 class="text-sm font-medium">
-				{$t('dashboard.contracts.actions.current_proposal')}
-			</h5>
-
-			{#if contract.disputeProposal}
-				<div class="flex flex-col gap-2 space-y-2 text-xs sm:flex-row">
-					<div class="w-full">
-						<span class="text-base-content/70">
-							{contract.isClient
-								? $t('dashboard.contracts.actions.your_amount')
-								: $t('dashboard.contracts.actions.client_amount')}:
-						</span>
-						<div class="font-semibold">
-							${(parseFloat(contract.disputeProposal.clientAmount) * btcPrice).toFixed(2)}
-							({Math.round(
-								parseFloat(contract.disputeProposal.clientAmount) * 100_000_000
-							).toLocaleString()}
-							Sats)
-						</div>
-					</div>
-					<div class="w-full">
-						<span class="text-base-content/70">
-							{contract.isClient
-								? $t('dashboard.contracts.actions.freelancer_amount')
-								: $t('dashboard.contracts.actions.your_amount')}:
-						</span>
-						<div class="font-semibold">
-							${(parseFloat(contract.disputeProposal.freelancerAmount) * btcPrice).toFixed(2)}
-							({Math.round(
-								parseFloat(contract.disputeProposal.freelancerAmount) * 100_000_000
-							).toLocaleString()} Sats)
-						</div>
-					</div>
-				</div>
-
-				<div class="text-base-content/60 text-xs">
-					{$t('dashboard.contracts.actions.proposed_by')}:
-					{contract.disputeProposal.proposer.slice(0, 8)}
-					...
-					{contract.disputeProposal.proposer.slice(-6)}
-				</div>
-			{:else}
-				<div class="text-base-content/60 text-xs">
-					{$t('dashboard.contracts.actions.loading_proposal')}
-				</div>
-			{/if}
-
-			<!-- Action buttons -->
-			<ContractActionBar containerClass="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-				<!-- Accept Proposal Button - hidden when disabled (loading or no proposal) -->
-				{#if isLoading.acceptProposal}
-					<AcceptContractButton
-						compact={compactButtons}
-						loading={true}
-						label={$t('dashboard.contracts.actions.accept_proposal') as string}
-					/>
-				{:else if contract.disputeProposal}
-					<AcceptContractButton
-						compact={compactButtons}
-						disabled={isOffline}
-						label={$t('dashboard.contracts.actions.accept_proposal') as string}
-						onclick={acceptProposal}
-					/>
-				{/if}
-
-				<!-- Counter Proposal Button (if user has proposals left) -->
-				{#if contract.permissions.canPropose && hasProposalsLeft}
-					<ResolutionProposalButton
-						compact={compactButtons}
-						disabled={isOffline}
-						label={`${$t('dashboard.contracts.actions.counter_proposal')} (${currentUserProposalCount}/2)`}
-						onclick={openDrawerForResolution}
-					/>
-				{/if}
-			</ContractActionBar>
-
-			<!-- Show message if user has no proposals left -->
-			{#if !hasProposalsLeft}
-				<div class="alert alert-outline alert-warning text-xs">
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="h-4 w-4"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16c-.77.833.192 2.5 1.732 2.5z"
-						/>
-					</svg>
-					<span>{$t('dashboard.contracts.actions.no_proposals_left')}</span>
-				</div>
-			{/if}
-		</div>
-	{/if}
-
-	<!-- Propose Resolution -->
-	{#if contract.permissions.canPropose}
-		{#if isInline || !$contractStore.isResolutionFormOpen}
-			<div class:hidden={!isInline && contract.permissions.canAcceptProposal}>
-				<ResolutionProposalButton
-					compact={compactActionButtons}
-					disabled={isOffline}
-					label={`${contract.disputeProposal
-						? ($t('dashboard.contracts.actions.counter_proposal') as string)
-						: ($t('dashboard.contracts.actions.propose_resolution') as string)} (${currentUserProposalCount}/2)`}
-					onclick={openDrawerForResolution}
-				/>
-			</div>
-		{:else if !isInline}
-			<div class="bg-base-300 col-span-2 w-full space-y-3 rounded-lg p-3">
+		<!-- Accept Proposal -->
+		{#if !isInline && contract.permissions.canAcceptProposal}
+			<div class="bg-base-300 col-span-2 w-full min-w-0 space-y-3 rounded-lg p-3">
 				<h5 class="text-sm font-medium">
-					{$t('dashboard.contracts.actions.resolution_form_title')}
+					{$t('dashboard.contracts.actions.current_proposal')}
 				</h5>
 
-				<div class="flex w-full flex-col gap-2 space-y-3 sm:flex-row">
-					<div class="w-full">
-						<label for="freelancer amount" class="label label-text text-xs">
-							{contract.isClient
-								? $t('dashboard.contracts.actions.freelancer_amount')
-								: $t('dashboard.contracts.actions.your_amount')}
-						</label>
-						<div class="flex gap-2">
-							<div class="relative flex-1">
-								<span class="text-base-content/70 absolute top-1/2 left-3 z-9 -translate-y-1/2"
-									>$</span
-								>
-								<input
-									type="number"
-									step="0.01"
-									bind:value={proposedFreelancerAmountUSD}
-									class="input input-bordered w-full pl-7"
-									placeholder="0.00"
-								/>
-							</div>
-							<div class="text-base-content/60 flex items-center text-xs">
+				{#if contract.disputeProposal}
+					<div class="flex flex-col gap-2 space-y-2 text-xs sm:flex-row">
+						<div class="w-full">
+							<span class="text-base-content/70">
+								{contract.isClient
+									? $t('dashboard.contracts.actions.your_amount')
+									: $t('dashboard.contracts.actions.client_amount')}:
+							</span>
+							<div class="font-semibold">
+								${(parseFloat(contract.disputeProposal.clientAmount) * btcPrice).toFixed(2)}
 								({Math.round(
-									((parseFloat(proposedFreelancerAmountUSD) || 0) / btcPrice) * 100_000_000
+									parseFloat(contract.disputeProposal.clientAmount) * 100_000_000
+								).toLocaleString()}
+								Sats)
+							</div>
+						</div>
+						<div class="w-full">
+							<span class="text-base-content/70">
+								{contract.isClient
+									? $t('dashboard.contracts.actions.freelancer_amount')
+									: $t('dashboard.contracts.actions.your_amount')}:
+							</span>
+							<div class="font-semibold">
+								${(parseFloat(contract.disputeProposal.freelancerAmount) * btcPrice).toFixed(2)}
+								({Math.round(
+									parseFloat(contract.disputeProposal.freelancerAmount) * 100_000_000
 								).toLocaleString()} Sats)
 							</div>
 						</div>
 					</div>
 
-					<div class="w-full">
-						<label for="client amount" class="label label-text text-xs">
-							{contract.isClient
-								? $t('dashboard.contracts.actions.your_amount')
-								: $t('dashboard.contracts.actions.client_amount')} (Auto-calculated)
-						</label>
-						<div class="flex gap-2">
-							<div class="relative flex-1">
-								<span class="text-base-content/70 absolute top-1/2 left-3 z-9 -translate-y-1/2"
-									>$</span
-								>
-								<input
-									type="text"
-									value={proposedClientAmountUSD}
-									class="input input-bordered bg-base-200 w-full pl-7"
-									placeholder="0.00"
-									readonly
-								/>
-							</div>
-							<div class="text-base-content/60 flex items-center text-xs">
-								({Math.round(
-									((parseFloat(proposedClientAmountUSD) || 0) / btcPrice) * 100_000_000
-								).toLocaleString()} Sats)
-							</div>
-						</div>
+					<div class="text-base-content/60 text-xs">
+						{$t('dashboard.contracts.actions.proposed_by')}:
+						{contract.disputeProposal.proposer.slice(0, 8)}
+						...
+						{contract.disputeProposal.proposer.slice(-6)}
 					</div>
-				</div>
+				{:else}
+					<div class="text-base-content/60 text-xs">
+						{$t('dashboard.contracts.actions.loading_proposal')}
+					</div>
+				{/if}
 
-				<div class="text-base-content/60 text-xs">
-					{$t('dashboard.contracts.actions.total_amount')}: ${(
-						parseFloat(contractStore.getContractKey(contract, 'amount') as string) * btcPrice
-					).toFixed(2)} ({Math.round(
-						parseFloat(contractStore.getContractKey(contract, 'amount') as string) * 100_000_000
-					).toLocaleString()} Sats)
-				</div>
-
-				<ContractActionBar containerClass="flex flex-row-reverse gap-2 place-self-end">
-					{#if isLoading.propose}
-						<ResolutionProposalButton
-							compact={true}
+				<!-- Action buttons -->
+				<ContractActionBar containerClass="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+					<!-- Accept Proposal Button - hidden when disabled (loading or no proposal) -->
+					{#if isLoading.acceptProposal}
+						<AcceptContractButton
+							compact={compactButtons}
 							loading={true}
-							label={$t('dashboard.contracts.actions.propose') as string}
+							label={$t('dashboard.contracts.actions.accept_proposal') as string}
 						/>
-					{:else}
-						<ResolutionProposalButton
-							compact={true}
+					{:else if contract.disputeProposal}
+						<AcceptContractButton
+							compact={compactButtons}
 							disabled={isOffline}
-							label={$t('dashboard.contracts.actions.propose') as string}
-							onclick={proposeResolution}
+							label={$t('dashboard.contracts.actions.accept_proposal') as string}
+							onclick={acceptProposal}
 						/>
 					{/if}
-					<CancelContractButton
-						compact={true}
-						label={$t('dashboard.contracts.actions.cancel') as string}
-						onclick={() => ($contractStore.isResolutionFormOpen = false)}
-					/>
+
+					<!-- Counter Proposal Button (if user has proposals left) -->
+					{#if contract.permissions.canPropose && hasProposalsLeft}
+						<ResolutionProposalButton
+							compact={compactButtons}
+							disabled={isOffline}
+							label={`${$t('dashboard.contracts.actions.counter_proposal')} (${currentUserProposalCount}/2)`}
+							onclick={openDrawerForResolution}
+						/>
+					{/if}
 				</ContractActionBar>
+
+				<!-- Show message if user has no proposals left -->
+				{#if !hasProposalsLeft}
+					<div class="alert alert-outline alert-warning text-xs">
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="h-4 w-4"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16c-.77.833.192 2.5 1.732 2.5z"
+							/>
+						</svg>
+						<span>{$t('dashboard.contracts.actions.no_proposals_left')}</span>
+					</div>
+				{/if}
 			</div>
 		{/if}
-	{/if}
 
-	<!-- Cancel Escrow -->
-	{#if contract.permissions.canCancel && !isCancelDisabled}
-		<CancelContractButton
-			compact={compactActionButtons}
-			disabled={isOffline}
-			loading={isLoading.cancel}
-			label={isServiceContract
-				? 'Cancel Service Contract'
-				: ($t('dashboard.contracts.actions.cancel_contract') as string)}
-			onclick={() => openModal(ContractModalAction.Cancel)}
-		/>
-	{/if}
+		<!-- Propose Resolution -->
+		{#if contract.permissions.canPropose}
+			{#if isInline || !$contractStore.isResolutionFormOpen}
+				<div class:hidden={!isInline && contract.permissions.canAcceptProposal}>
+					<ResolutionProposalButton
+						compact={compactActionButtons}
+						disabled={isOffline}
+						label={`${
+							contract.disputeProposal
+								? ($t('dashboard.contracts.actions.counter_proposal') as string)
+								: ($t('dashboard.contracts.actions.propose_resolution') as string)
+						} (${currentUserProposalCount}/2)`}
+						onclick={openDrawerForResolution}
+					/>
+				</div>
+			{:else if !isInline}
+				<div class="bg-base-300 col-span-2 w-full space-y-3 rounded-lg p-3">
+					<h5 class="text-sm font-medium">
+						{$t('dashboard.contracts.actions.resolution_form_title')}
+					</h5>
 
-	<!-- Resolve After Timelock -->
-	{#if contract.permissions.canResolveTimelock}
-		<div
-			class="flex flex-col gap-2 {compactButtons
-				? 'w-fit'
-				: isInline
-					? 'w-full sm:w-fit'
-					: 'w-full min-w-0'}"
-		>
-			{#if !isInline}
-				<h5 class="text-sm font-medium">
-					{$t('dashboard.contracts.actions.timelock_resolution')}
-				</h5>
+					<div class="flex w-full flex-col gap-2 space-y-3 sm:flex-row">
+						<div class="w-full">
+							<label for="freelancer amount" class="label label-text text-xs">
+								{contract.isClient
+									? $t('dashboard.contracts.actions.freelancer_amount')
+									: $t('dashboard.contracts.actions.your_amount')}
+							</label>
+							<div class="flex gap-2">
+								<div class="relative flex-1">
+									<span class="text-base-content/70 absolute top-1/2 left-3 z-9 -translate-y-1/2"
+										>$</span
+									>
+									<input
+										type="number"
+										step="0.01"
+										bind:value={proposedFreelancerAmountUSD}
+										class="input input-bordered w-full pl-7"
+										placeholder="0.00"
+									/>
+								</div>
+								<div class="text-base-content/60 flex items-center text-xs">
+									({Math.round(
+										((parseFloat(proposedFreelancerAmountUSD) || 0) / btcPrice) * 100_000_000
+									).toLocaleString()} Sats)
+								</div>
+							</div>
+						</div>
 
-				<div class="text-base-content/60 text-xs">
-					{$t('dashboard.contracts.actions.timelock_expired_message')}
+						<div class="w-full">
+							<label for="client amount" class="label label-text text-xs">
+								{contract.isClient
+									? $t('dashboard.contracts.actions.your_amount')
+									: $t('dashboard.contracts.actions.client_amount')} (Auto-calculated)
+							</label>
+							<div class="flex gap-2">
+								<div class="relative flex-1">
+									<span class="text-base-content/70 absolute top-1/2 left-3 z-9 -translate-y-1/2"
+										>$</span
+									>
+									<input
+										type="text"
+										value={proposedClientAmountUSD}
+										class="input input-bordered bg-base-200 w-full pl-7"
+										placeholder="0.00"
+										readonly
+									/>
+								</div>
+								<div class="text-base-content/60 flex items-center text-xs">
+									({Math.round(
+										((parseFloat(proposedClientAmountUSD) || 0) / btcPrice) * 100_000_000
+									).toLocaleString()} Sats)
+								</div>
+							</div>
+						</div>
+					</div>
+
+					<div class="text-base-content/60 text-xs">
+						{$t('dashboard.contracts.actions.total_amount')}: ${(
+							parseFloat(contractStore.getContractKey(contract, 'amount') as string) * btcPrice
+						).toFixed(2)} ({Math.round(
+							parseFloat(contractStore.getContractKey(contract, 'amount') as string) * 100_000_000
+						).toLocaleString()} Sats)
+					</div>
+
+					<ContractActionBar containerClass="flex flex-row-reverse gap-2 place-self-end">
+						{#if isLoading.propose}
+							<ResolutionProposalButton
+								compact={true}
+								loading={true}
+								label={$t('dashboard.contracts.actions.propose') as string}
+							/>
+						{:else}
+							<ResolutionProposalButton
+								compact={true}
+								disabled={isOffline}
+								label={$t('dashboard.contracts.actions.propose') as string}
+								onclick={proposeResolution}
+							/>
+						{/if}
+						<CancelContractButton
+							compact={true}
+							label={$t('dashboard.contracts.actions.cancel') as string}
+							onclick={() => ($contractStore.isResolutionFormOpen = false)}
+						/>
+					</ContractActionBar>
 				</div>
 			{/if}
+		{/if}
 
-			{#if isLoading.resolveTimelock}
+		<!-- Cancel Escrow -->
+		{#if contract.permissions.canCancel && !isCancelDisabled}
+			<CancelContractButton
+				compact={compactActionButtons}
+				disabled={isOffline}
+				loading={isLoading.cancel}
+				label={isServiceContract
+					? tr('dashboard.contracts.actions.cancel_service_contract', 'Cancel Service Contract')
+					: ($t('dashboard.contracts.actions.cancel_contract') as string)}
+				onclick={() => openModal(ContractModalAction.Cancel)}
+			/>
+		{/if}
+
+		<!-- Resolve After Timelock -->
+		{#if contract.permissions.canResolveTimelock}
+			<div
+				class="flex flex-col gap-2 {compactButtons
+					? 'w-fit'
+					: isInline
+						? 'w-full sm:w-fit'
+						: 'w-full min-w-0'}"
+			>
+				{#if !isInline}
+					<h5 class="text-sm font-medium">
+						{$t('dashboard.contracts.actions.timelock_resolution')}
+					</h5>
+
+					<div class="text-base-content/60 text-xs">
+						{$t('dashboard.contracts.actions.timelock_expired_message')}
+					</div>
+				{/if}
+
+				{#if isLoading.resolveTimelock}
+					<div
+						class="btn btn-info btn-sm gap-2 {compactButtons
+							? 'w-fit'
+							: isInline
+								? 'w-full sm:w-fit'
+								: 'w-full min-w-0'}"
+						aria-busy="true"
+					>
+						<span class="loading loading-spinner loading-xs"></span>
+						{$t('dashboard.contracts.actions.resolve_timelock')}
+					</div>
+				{:else}
+					<button
+						class="btn btn-info btn-sm {compactButtons
+							? 'w-fit'
+							: isInline
+								? 'w-full sm:w-fit'
+								: 'w-full min-w-0'}"
+						disabled={isOffline}
+						onclick={resolveAfterTimelock}
+					>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="h-4 w-4"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+							/>
+						</svg>
+						{$t('dashboard.contracts.actions.resolve_timelock')}
+					</button>
+				{/if}
+			</div>
+		{/if}
+
+		<!-- Delete Contract (only visible when can delete) -->
+		{#if contract.permissions.canDelete}
+			{#if isLoading.delete}
 				<div
-					class="btn btn-info btn-sm gap-2 {compactButtons
+					class="btn btn-error btn-sm gap-2 {compactButtons
 						? 'w-fit'
 						: isInline
 							? 'w-full sm:w-fit'
@@ -1018,17 +1152,17 @@
 					aria-busy="true"
 				>
 					<span class="loading loading-spinner loading-xs"></span>
-					{$t('dashboard.contracts.actions.resolve_timelock')}
+					{$t('dashboard.contracts.actions.delete_contract')}
 				</div>
 			{:else}
 				<button
-					class="btn btn-info btn-sm {compactButtons
+					class="btn btn-error btn-sm {compactButtons
 						? 'w-fit'
 						: isInline
 							? 'w-full sm:w-fit'
 							: 'w-full min-w-0'}"
 					disabled={isOffline}
-					onclick={resolveAfterTimelock}
+					onclick={() => openModal(ContractModalAction.Delete)}
 				>
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
@@ -1041,58 +1175,14 @@
 							stroke-linecap="round"
 							stroke-linejoin="round"
 							stroke-width="2"
-							d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+							d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
 						/>
 					</svg>
-					{$t('dashboard.contracts.actions.resolve_timelock')}
+					{$t('dashboard.contracts.actions.delete_contract')}
 				</button>
 			{/if}
-		</div>
-	{/if}
-
-	<!-- Delete Contract (only visible when can delete) -->
-	{#if contract.permissions.canDelete}
-		{#if isLoading.delete}
-			<div
-				class="btn btn-error btn-sm gap-2 {compactButtons
-					? 'w-fit'
-					: isInline
-						? 'w-full sm:w-fit'
-						: 'w-full min-w-0'}"
-				aria-busy="true"
-			>
-				<span class="loading loading-spinner loading-xs"></span>
-				{$t('dashboard.contracts.actions.delete_contract')}
-			</div>
-		{:else}
-			<button
-				class="btn btn-error btn-sm {compactButtons
-					? 'w-fit'
-					: isInline
-						? 'w-full sm:w-fit'
-						: 'w-full min-w-0'}"
-				disabled={isOffline}
-				onclick={() => openModal(ContractModalAction.Delete)}
-			>
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					class="h-4 w-4"
-					fill="none"
-					viewBox="0 0 24 24"
-					stroke="currentColor"
-				>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="2"
-						d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-					/>
-				</svg>
-				{$t('dashboard.contracts.actions.delete_contract')}
-			</button>
 		{/if}
-	{/if}
-</ContractActionBar>
+	</ContractActionBar>
 </div>
 
 <!-- Modals -->
@@ -1113,33 +1203,54 @@
 	{@const config = CONTRACT_MODAL_CONFIGS[activeModal]}
 	{@const customTitle =
 		isServiceContract && activeModal === ContractModalAction.Accept
-			? 'Accept this service?'
+			? tr('dashboard.contracts.actions.confirm_service_accept_title', 'Accept this service?')
 			: isServiceContract && activeModal === ContractModalAction.Dispute
-				? 'Raise a dispute for this service?'
+				? tr(
+						'dashboard.contracts.actions.confirm_service_dispute_title',
+						'Raise a dispute for this service?'
+					)
 				: isServiceContract && activeModal === ContractModalAction.Cancel
-					? 'Cancel this service contract?'
+					? tr(
+							'dashboard.contracts.actions.confirm_service_cancel_title',
+							'Cancel this service contract?'
+						)
 					: isServiceContract && activeModal === ContractModalAction.Delete
-						? 'Delete this service contract?'
+						? tr(
+								'dashboard.contracts.actions.confirm_service_delete_title',
+								'Delete this service contract?'
+							)
 						: null}
 	{@const customMessage =
 		isServiceContract && activeModal === ContractModalAction.Accept
-			? 'This releases funds for the completed service and keeps the service contract history intact.'
+			? tr(
+					'dashboard.contracts.actions.confirm_service_accept_message',
+					'This releases funds for the completed service and keeps the service contract history intact.'
+				)
 			: isServiceContract && activeModal === ContractModalAction.Dispute
-				? 'This opens a dispute on the service contract and pauses the normal payout path.'
+				? tr(
+						'dashboard.contracts.actions.confirm_service_dispute_message',
+						'This opens a dispute on the service contract and pauses the normal payout path.'
+					)
 				: isServiceContract && activeModal === ContractModalAction.Cancel
-					? 'This cancels the service contract and starts the refund path defined by the escrow rules.'
+					? tr(
+							'dashboard.contracts.actions.confirm_service_cancel_message',
+							'This cancels the service contract and starts the refund path defined by the escrow rules.'
+						)
 					: isServiceContract && activeModal === ContractModalAction.Delete
-						? 'Delete this unfunded service contract from your Nostr contract history?'
+						? tr(
+								'dashboard.contracts.actions.confirm_service_delete_message',
+								'Delete this unfunded service contract from your Nostr contract history?'
+							)
 						: null}
 	{@const customConfirmText =
 		isServiceContract && activeModal === ContractModalAction.Accept
-			? 'Accept Service'
+			? tr('dashboard.contracts.actions.accept_service', 'Accept Service')
 			: isServiceContract && activeModal === ContractModalAction.Dispute
-				? 'Dispute Service'
+				? tr('dashboard.contracts.actions.dispute_service', 'Dispute Service')
 				: isServiceContract && activeModal === ContractModalAction.Cancel
-					? 'Cancel Service Contract'
+					? tr('dashboard.contracts.actions.cancel_service_contract', 'Cancel Service Contract')
 					: isServiceContract && activeModal === ContractModalAction.Delete
-						? 'Delete Service Contract'
+						? tr('dashboard.contracts.actions.delete_service_contract', 'Delete Service Contract')
 						: null}
 	{#if config}
 		<div use:portal={'modals'}>
