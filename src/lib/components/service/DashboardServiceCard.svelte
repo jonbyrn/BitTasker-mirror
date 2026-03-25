@@ -2,16 +2,24 @@
 	import type { Service } from '$lib/types/service';
 	import { t, locale } from 'svelte-i18n';
 	import {
-		getServiceDisplayTitle,
-		getServiceDisplayDescription
+		getServiceDisplayDescription,
+		getServiceDisplayTiers,
+		getServiceDisplayTitle
 	} from '$lib/utils/serviceDisplayTranslation';
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { satsFromUsd } from '$lib/utils/helpers/crypto';
 	import { ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';
+	import { getInstantBuyEligibility } from '$lib/utils/service-instant-buy/eligibility';
+	import {
+		formatInstantBuyDurationInput,
+		inferInstantBuyTimeUnit
+	} from '$lib/utils/service-instant-buy/authoring';
 	import ServiceShareButton from './ServiceShareButton.svelte';
 	import IconEyeOutline from '~icons/mdi/eye-outline';
 	import IconMapMarker from '~icons/mdi/map-marker';
 	import IconInformationOutline from '~icons/mdi/information-outline';
+	import IconClockOutline from '~icons/mdi/clock-outline';
+	import IconTruckDeliveryOutline from '~icons/mdi/truck-delivery-outline';
 
 	interface ActionButton {
 		label: string;
@@ -49,6 +57,11 @@
 		} else if (service.pricing?.type === ServicePricingTypeEnum.HOURLY) {
 			return `$${formatNumberWithTwoDecimals(service.pricing.hourlyRate || 0)}/hr`;
 		} else if (service.pricing?.type === ServicePricingTypeEnum.TIERED) {
+			const lowestTierPrice = getLowestTierPrice();
+			if (lowestTierPrice != null) {
+				return `${tr('dashboard.services.my_services.pricing_type.from', 'From')} $${formatNumberWithTwoDecimals(lowestTierPrice)}`;
+			}
+
 			return tr('dashboard.services.my_services.pricing_type.tiered_pricing', 'Tiered pricing');
 		}
 		return tr('dashboard.services.my_services.pricing_type.quote_required', 'Quote required');
@@ -105,16 +118,96 @@
 		const locationDetails = service.locationDetails;
 		const serviceLocationTypes = service.serviceLocationTypes;
 
-		// Only show radius for TASKER_LOCATION (taskee travels to tasker's location)
-		if (!serviceLocationTypes?.includes('tasker_location')) {
+		// Only show radius for TASKEE_LOCATION ("At Tasker Location")
+		if (!serviceLocationTypes?.includes('taskee_location')) {
 			return '';
 		}
 
-		const radius = locationDetails?.taskerLocation?.serviceRadius;
+		const radius = locationDetails?.taskeeLocation?.serviceRadius;
 		if (!radius) return '';
 		// Convert km to miles (1 km = 0.621371 miles)
 		const miles = Math.round(radius * 0.621371 * 10) / 10;
 		return `(${radius} km/${miles} mi)`;
+	}
+
+	function getLowestTier() {
+		const tiers = getServiceDisplayTiers(service, $locale || 'en');
+		if (!tiers.length) return null;
+
+		return [...tiers].sort((left, right) => left.price - right.price)[0] ?? null;
+	}
+
+	function getLowestTierPrice(): number | null {
+		return getLowestTier()?.price ?? null;
+	}
+
+	function formatDurationFromHours(hours: number | undefined): string {
+		if (!Number.isFinite(hours) || hours == null) {
+			return '';
+		}
+
+		const unit = inferInstantBuyTimeUnit(hours);
+		const value = formatInstantBuyDurationInput(hours, unit);
+		const singularKey = `dashboard.services.my_services.duration.${unit}`;
+		const pluralKey = `dashboard.services.my_services.duration.${unit}s`;
+		const numericValue = Number(value);
+		const unitLabel = tr(
+			numericValue === 1 ? singularKey : pluralKey,
+			numericValue === 1 ? unit : `${unit}s`
+		);
+
+		return `${value} ${unitLabel}`;
+	}
+
+	function getLeadTimeDisplay(): string {
+		return formatDurationFromHours(service.instantBuyLeadHours);
+	}
+
+	function getDeliveryTimeDisplay(): string {
+		if (service.pricing?.type === ServicePricingTypeEnum.TIERED) {
+			return getLowestTier()?.deliveryTime?.display ?? '';
+		}
+
+		if (service.instantBuyDeliveryHours != null) {
+			return formatDurationFromHours(service.instantBuyDeliveryHours);
+		}
+
+		return service.pricing?.deliveryTime?.display ?? '';
+	}
+
+	function hasProviderWalletAddress(): boolean {
+		const candidate = service.providerWalletAddress?.trim();
+		return Boolean(candidate && /^0x[a-fA-F0-9]{40}$/.test(candidate));
+	}
+
+	function isBookNowAvailable(): boolean {
+		if (!hasProviderWalletAddress()) {
+			return false;
+		}
+
+		if (service.pricing?.type === ServicePricingTypeEnum.TIERED) {
+			return (service.pricing.tiers ?? []).some(
+				(tier) => getInstantBuyEligibility(service, tier.id).eligible
+			);
+		}
+
+		return getInstantBuyEligibility(service).eligible;
+	}
+
+	function getPricingBadgeLabel(): string {
+		if (service.pricing?.type === ServicePricingTypeEnum.FIXED) {
+			return tr('dashboard.services.my_services.pricing_type.fixed', 'Fixed');
+		}
+
+		if (service.pricing?.type === ServicePricingTypeEnum.HOURLY) {
+			return tr('dashboard.services.my_services.pricing_type.hourly', 'Hourly');
+		}
+
+		if (service.pricing?.type === ServicePricingTypeEnum.TIERED) {
+			return tr('dashboard.services.my_services.pricing_type.tiered', 'Tiered');
+		}
+
+		return tr('dashboard.services.my_services.pricing_type.quote', 'Quote');
 	}
 </script>
 
@@ -176,23 +269,85 @@
 			</div>
 		</div>
 
-		<!-- Second Row: Service Location -->
-		{#if getLocationDisplay()}
+		<!-- Second Row: Service Location + Toggle -->
+		{#if getLocationDisplay() || (onStatusToggle && service.status !== 'sold')}
 			<div
-				class="mb-3 flex items-center gap-2 transition-opacity duration-300"
+				class="mb-3 flex items-center justify-between gap-3 transition-opacity duration-300"
 				class:opacity-50={service.status !== 'active'}
 			>
-				<IconMapMarker class="text-primary h-8 w-8 shrink-0" />
-				<div class="flex min-w-0 flex-1 flex-wrap items-center gap-1">
-					<span class="line-clamp-2 text-sm font-medium">
-						{getLocationDisplay()}
-					</span>
-					{#if getServiceRadiusDisplay()}
-						<span class="text-base-content/60 text-sm">
-							{getServiceRadiusDisplay()}
-						</span>
+				<div class="flex min-w-0 flex-1 items-center gap-2">
+					{#if getLocationDisplay()}
+						<IconMapMarker class="text-primary h-8 w-8 shrink-0" />
+						<div class="flex min-w-0 flex-1 flex-wrap items-center gap-1">
+							<span class="line-clamp-2 text-sm font-medium">
+								{getLocationDisplay()}
+							</span>
+							{#if getServiceRadiusDisplay()}
+								<span class="text-base-content/60 text-sm">
+									{getServiceRadiusDisplay()}
+								</span>
+							{/if}
+						</div>
 					{/if}
 				</div>
+				{#if onStatusToggle && service.status !== 'sold'}
+					<label
+						class="flex shrink-0 cursor-pointer items-center gap-2 transition-opacity duration-300"
+					>
+						<input
+							type="checkbox"
+							class="toggle toggle-primary toggle-sm transition-all duration-200"
+							checked={service.status === 'active'}
+							onchange={onStatusToggle}
+							disabled={isTogglingStatus}
+						/>
+						<span class="label-text text-sm transition-opacity duration-200">
+							{service.status === 'active'
+								? tr('dashboard.services.my_services.status_active', 'Active')
+								: tr('dashboard.services.my_services.status_inactive', 'Inactive')}
+						</span>
+					</label>
+				{/if}
+			</div>
+		{/if}
+
+		{#if getLeadTimeDisplay() || getDeliveryTimeDisplay()}
+			<div
+				class="mb-3 space-y-2 transition-opacity duration-300"
+				class:opacity-50={service.status !== 'active'}
+			>
+				{#if getLeadTimeDisplay()}
+					<div class="flex items-center justify-between gap-2">
+						<div class="flex min-w-0 items-center gap-2">
+							<IconClockOutline class="text-primary h-8 w-8 shrink-0" />
+							<div class="flex min-w-0 flex-wrap items-center gap-1 text-sm">
+								<span class="font-medium">
+									{tr('dashboard.services.my_services.timing.lead_time', 'Lead Time')}:
+								</span>
+								<span class="text-base-content/80 break-words">{getLeadTimeDisplay()}</span>
+							</div>
+						</div>
+						{#if isBookNowAvailable()}
+							<span class="badge badge-primary badge-sm shrink-0">
+								{tr('dashboard.services.my_services.book_now', 'Book Now')}
+							</span>
+						{/if}
+					</div>
+				{/if}
+				{#if getDeliveryTimeDisplay()}
+					<div class="flex items-center justify-between gap-2">
+						<div class="flex min-w-0 items-center gap-2">
+							<IconTruckDeliveryOutline class="text-primary h-8 w-8 shrink-0" />
+							<div class="flex min-w-0 flex-wrap items-center gap-1 text-sm">
+								<span class="font-medium">
+									{tr('dashboard.services.my_services.timing.delivery_time', 'Delivery Time')}:
+								</span>
+								<span class="text-base-content/80 break-words">{getDeliveryTimeDisplay()}</span>
+							</div>
+						</div>
+						<span class="badge badge-outline badge-sm shrink-0">{getPricingBadgeLabel()}</span>
+					</div>
+				{/if}
 			</div>
 		{/if}
 
@@ -215,45 +370,6 @@
 					{/each}
 				</div>
 			{/if}
-
-			<!-- Pricing type info + Toggle -->
-			<div class="text-base-content/70 flex items-center justify-between gap-2 text-xs">
-				<div class="flex items-center gap-2">
-					{#if service.pricing?.type === ServicePricingTypeEnum.FIXED}
-						<span class="badge badge-outline badge-sm">
-							{tr('dashboard.services.my_services.pricing_type.fixed', 'Fixed')}
-						</span>
-					{:else if service.pricing?.type === ServicePricingTypeEnum.HOURLY}
-						<span class="badge badge-outline badge-sm">
-							{tr('dashboard.services.my_services.pricing_type.hourly', 'Hourly')}
-						</span>
-					{:else if service.pricing?.type === ServicePricingTypeEnum.TIERED}
-						<span class="badge badge-outline badge-sm">
-							{tr('dashboard.services.my_services.pricing_type.tiered', 'Tiered')}
-						</span>
-					{:else}
-						<span class="badge badge-outline badge-sm">
-							{tr('dashboard.services.my_services.pricing_type.quote', 'Quote')}
-						</span>
-					{/if}
-				</div>
-				{#if onStatusToggle && service.status !== 'sold'}
-					<label class="flex cursor-pointer items-center gap-2 transition-opacity duration-300">
-						<input
-							type="checkbox"
-							class="toggle toggle-primary toggle-sm transition-all duration-200"
-							checked={service.status === 'active'}
-							onchange={onStatusToggle}
-							disabled={isTogglingStatus}
-						/>
-						<span class="label-text text-sm transition-opacity duration-200">
-							{service.status === 'active'
-								? tr('dashboard.services.my_services.status_active', 'Active')
-								: tr('dashboard.services.my_services.status_inactive', 'Inactive')}
-						</span>
-					</label>
-				{/if}
-			</div>
 		</div>
 
 		<!-- Fourth Row: Action Buttons -->
