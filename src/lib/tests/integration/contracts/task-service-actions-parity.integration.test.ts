@@ -3,9 +3,17 @@ import { render, screen, waitFor, within } from '@testing-library/svelte';
 import ContractActions from '$lib/components/contracts/ContractActions.svelte';
 import { EscrowStatus } from '$lib/utils/escrow';
 
+type MockContractStoreState = {
+	contract: unknown;
+	isDrawerOpen: boolean;
+	isResolutionFormOpen: boolean;
+};
+
+type MockContractContent = Record<string, unknown>;
+
 const hoisted = vi.hoisted(() => {
-	let value = {
-		contract: null as any,
+	let value: MockContractStoreState = {
+		contract: null,
 		isDrawerOpen: false,
 		isResolutionFormOpen: false
 	};
@@ -26,14 +34,16 @@ const hoisted = vi.hoisted(() => {
 		contractStoreState: state,
 		contractStore: {
 			subscribe: state.subscribe,
-			getContractKey: vi.fn((contract: any, key: string) => {
-				if (key === 'otherPartyNpub') return 'npub1counterparty';
-				if (key === 'amount') return contract.contractEvent.content.amount;
-				if (key === 'taskTitle' || key === 'contextTitle') {
-					return contract.contractEvent.content.contextTitle;
+			getContractKey: vi.fn(
+				(contract: { contractEvent: { content: MockContractContent } }, key: string) => {
+					if (key === 'otherPartyNpub') return 'npub1counterparty';
+					if (key === 'amount') return contract.contractEvent.content.amount;
+					if (key === 'taskTitle' || key === 'contextTitle') {
+						return contract.contractEvent.content.contextTitle;
+					}
+					return contract.contractEvent.content[key];
 				}
-				return contract.contractEvent.content[key];
-			})
+			)
 		},
 		sendNotificationToNpubs: vi.fn(),
 		showErrorToast: vi.fn()
@@ -137,8 +147,7 @@ function buildContract(
 			id: `${contextType}-event-1`,
 			content: {
 				contextType,
-				contextTitle:
-					contextType === 'service' ? 'Premium logo package' : 'Landing page redesign',
+				contextTitle: contextType === 'service' ? 'Premium logo package' : 'Landing page redesign',
 				taskTitle: 'Landing page redesign',
 				amount: '0.01',
 				estimatedStartTime: 1_700_000_000,
@@ -146,7 +155,7 @@ function buildContract(
 			}
 		},
 		disputeProposal: null
-	} as any;
+	} as unknown;
 }
 
 function setNavigatorOnline(online: boolean) {
@@ -188,12 +197,24 @@ describe('task/service contract action parity integration', () => {
 		const serviceButtons = within(serviceView.container).getAllByRole('button');
 
 		expect(taskButtons).toHaveLength(serviceButtons.length);
-		expect(screen.getByRole('button', { name: 'dashboard.contracts.actions.complete_task' })).toBeInTheDocument();
+		expect(
+			screen.getByRole('button', { name: 'dashboard.contracts.actions.complete_task' })
+		).toBeInTheDocument();
 		expect(screen.getByRole('button', { name: 'Mark Service Complete' })).toBeInTheDocument();
-		expect(screen.getByRole('button', { name: 'dashboard.contracts.actions.dispute_work' })).toBeInTheDocument();
+		expect(
+			screen.getByRole('button', { name: 'dashboard.contracts.actions.dispute_work' })
+		).toBeInTheDocument();
 		expect(screen.getByRole('button', { name: 'Dispute Service' })).toBeInTheDocument();
-		expect(screen.getByRole('button', { name: 'dashboard.contracts.actions.cancel_contract' })).toBeInTheDocument();
-		expect(screen.getByRole('button', { name: 'Cancel Service Contract' })).toBeInTheDocument();
+		expect(
+			within(taskView.container).getByRole('button', {
+				name: 'dashboard.contracts.actions.cancel_contract'
+			})
+		).toBeInTheDocument();
+		expect(
+			within(serviceView.container).getByRole('button', {
+				name: 'dashboard.contracts.actions.cancel_contract'
+			})
+		).toBeInTheDocument();
 	});
 
 	it('keeps disabled offline semantics parity-preserving across task and service contracts', async () => {

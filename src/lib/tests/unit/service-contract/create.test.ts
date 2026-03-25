@@ -64,6 +64,9 @@ vi.mock('$lib/utils/service-contract/acceptance-snapshot', () => ({
 }));
 
 describe('service contract creation', () => {
+	const buyerWalletAddress = '0xAbCdEf1234567890aBCdef1234567890AbCdEf12';
+	const buyerWalletAddressLowercase = buyerWalletAddress.toLowerCase();
+
 	beforeEach(() => {
 		vi.clearAllMocks();
 		getCurrentPrice.mockResolvedValue(100000);
@@ -72,7 +75,7 @@ describe('service contract creation', () => {
 			amount: '0.00125000',
 			gasCost: '0.00001000',
 			totalRequired: '0.00126000',
-			walletAddress: '0x3333333333333333333333333333333333333333'
+			walletAddress: buyerWalletAddress
 		});
 		createEscrow.mockResolvedValue({
 			hash: '0xservicehash',
@@ -124,13 +127,16 @@ describe('service contract creation', () => {
 
 		expect(result).toEqual({
 			success: true,
+			state: 'funding_submitted',
 			transactionHash: '0xservicehash',
-			amount: '0.00125000'
+			amount: '0.00125000',
+			clientRskAddress: buyerWalletAddressLowercase
 		});
 		expect(getCurrentPrice).toHaveBeenCalledWith('BTC');
 		expect(preflightServiceContractCreation).toHaveBeenCalledWith(
 			expect.objectContaining({
 				freelancerAddress: '0x1111111111111111111111111111111111111111',
+				freelancerPubkey: 'f'.repeat(64),
 				amountUsdt: '125.00'
 			}),
 			100000
@@ -148,10 +154,11 @@ describe('service contract creation', () => {
 				bidEventId: 'proposal-event-id',
 				transactionHash: '0xservicehash',
 				contextType: 'service',
+				clientRskAddress: buyerWalletAddressLowercase,
 				purchaseMode: 'quote',
 				proposalId: 'pr_12345678',
 				acceptanceSnapshot: expect.objectContaining({
-					clientRskAddress: '0x3333333333333333333333333333333333333333',
+					clientRskAddress: buyerWalletAddressLowercase,
 					clientFeeTier: 1,
 					freelancerRskAddress: '0x1111111111111111111111111111111111111111',
 					freelancerFeeTier: 1,
@@ -164,6 +171,11 @@ describe('service contract creation', () => {
 					conversionSnapshotId: expect.any(String),
 					verificationRpc: expect.any(String)
 				})
+			})
+		);
+		expect(createServiceAcceptanceSnapshot).toHaveBeenCalledWith(
+			expect.objectContaining({
+				clientRskAddress: buyerWalletAddressLowercase
 			})
 		);
 	});
@@ -190,6 +202,7 @@ describe('service contract creation', () => {
 
 		expect(result).toEqual({
 			success: false,
+			state: 'funding_failed',
 			error: 'wallet rejected'
 		});
 		expect(registerPendingContractByTxHash).not.toHaveBeenCalled();
@@ -220,6 +233,7 @@ describe('service contract creation', () => {
 
 		expect(result).toEqual({
 			success: false,
+			state: 'funding_failed',
 			error: 'Transaction failed: Missing transaction hash. Please try again.'
 		});
 	});
@@ -250,6 +264,7 @@ describe('service contract creation', () => {
 
 		expect(result).toEqual({
 			success: false,
+			state: 'preflight_failed',
 			error: 'Insufficient RBTC balance.',
 			errorCode: 'insufficient_funds'
 		});
@@ -284,6 +299,7 @@ describe('service contract creation', () => {
 
 		expect(result).toEqual({
 			success: false,
+			state: 'funding_failed',
 			error: 'register failed'
 		});
 		expect(cleanupPendingContractByTxHash).toHaveBeenCalledWith('0xservicehash');

@@ -30,7 +30,7 @@ describe('contract action primitives', () => {
 			onclick: accept
 		});
 		render(CancelContractButton, {
-			label: 'Cancel Service Contract',
+			label: 'Cancel Contract',
 			onclick: cancel
 		});
 		render(CompleteContractButton, {
@@ -47,7 +47,7 @@ describe('contract action primitives', () => {
 		});
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Accept Service' }));
-		await fireEvent.click(screen.getByRole('button', { name: 'Cancel Service Contract' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Cancel Contract' }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Mark Service Complete' }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Dispute Service' }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Counter Proposal (1/2)' }));

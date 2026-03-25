@@ -12,7 +12,7 @@
 				"counter_proposal": "Counter Proposal",
 				"accept_proposal": "Accept Proposal",
 				"cancel_contract": "Cancel Contract",
-				"cancel_service_contract": "Cancel Service Contract",
+				"cancel_service_contract": "Cancel Contract",
 				"delete_service_contract": "Delete Service Contract",
 				"resolve_timelock": "Claim Funds",
 				"delete_contract": "Delete Contract",
@@ -92,10 +92,22 @@
 				"confirm_service_accept_message": "This releases funds for the completed service and keeps the service contract history intact.",
 				"confirm_service_dispute_title": "Raise a dispute for this service?",
 				"confirm_service_dispute_message": "This opens a dispute on the service contract and pauses the normal payout path.",
+				"accept_proposal_confirm_title": "Accept Proposal",
+				"accept_proposal_confirm_message": "Are you sure you want to accept this proposal? This will finalize the proposed contract resolution.",
+				"propose_resolution_confirm_title": "Propose Resolution",
+				"propose_resolution_confirm_message": "Are you sure you want to send this resolution proposal? This will submit your proposed payout split to the contract.",
 				"confirm_service_cancel_title": "Cancel this service contract?",
-				"confirm_service_cancel_message": "This cancels the service contract and starts the refund path defined by the escrow rules.",
+				"confirm_service_cancel_message": "This will cancel the contract and refund the Tasker.",
+				"resolve_timelock_confirm_title": "Claim Funds",
+				"resolve_timelock_confirm_message": "Are you sure you want to claim funds through the timelock resolution path? This action cannot be undone.",
 				"confirm_service_delete_title": "Delete this service contract?",
-				"confirm_service_delete_message": "Delete this unfunded service contract from your Nostr contract history?"
+				"confirm_service_delete_message": "Delete this unfunded service contract from your Nostr contract history?",
+				"confirm_service_accept_proposal_title": "Accept this service proposal?",
+				"confirm_service_accept_proposal_message": "This accepts the current service resolution proposal and applies it to the secure payment contract.",
+				"confirm_service_propose_resolution_title": "Propose this service resolution?",
+				"confirm_service_propose_resolution_message": "This sends your proposed service resolution amounts to the secure payment contract for review.",
+				"confirm_service_resolve_timelock_title": "Claim funds for this service contract?",
+				"confirm_service_resolve_timelock_message": "This claims funds using the expired timelock resolution path for the service contract."
 			}
 		}
 	}

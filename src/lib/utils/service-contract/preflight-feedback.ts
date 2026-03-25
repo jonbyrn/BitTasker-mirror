@@ -15,12 +15,18 @@ function fallbackMessage(errorCode?: ServiceContractPreflightErrorCode): string 
 			return 'Switch your wallet to the required Rootstock network before continuing.';
 		case 'invalid_provider_wallet':
 			return 'Provider wallet is unavailable for this service.';
+		case 'invalid_provider_pubkey':
+			return 'Provider public key is unavailable for this service.';
 		case 'invalid_service_amount':
 			return 'Unable to determine the service price.';
 		case 'price_unavailable':
 			return 'Unable to determine the current BTC price.';
 		case 'insufficient_funds':
 			return 'Insufficient RBTC balance for the escrow amount and gas.';
+		case 'relay_unavailable':
+			return 'Contract relays are unavailable right now.';
+		case 'nostr_not_ready':
+			return 'Unlock Nostr signing before continuing.';
 		case 'preflight_failed':
 			return 'Unable to prepare the escrow transaction right now.';
 		default:
@@ -38,6 +44,10 @@ function resolveHint(errorCode?: ServiceContractPreflightErrorCode): string | nu
 			return 'Switch to the required Rootstock network in your wallet, then retry.';
 		case 'insufficient_funds':
 			return 'Add enough RBTC to cover the escrow amount and gas, then retry.';
+		case 'relay_unavailable':
+			return 'Reconnect and retry once relay connectivity is available again.';
+		case 'nostr_not_ready':
+			return 'Unlock the account that can sign Nostr events, then retry.';
 		case 'preflight_failed':
 			return 'Retry after your wallet finishes estimating the transaction. If the problem persists, reopen the flow.';
 		default:

@@ -12,6 +12,8 @@
 		isSubmitting = false,
 		errorMessage = '',
 		errorHint = '',
+		hideFooter = false,
+		allowCloseWhileSubmitting = false,
 		drawerTestId = 'contract-initiation-drawer',
 		confirmTestId = 'contract-initiation-confirm',
 		retryTestId = 'contract-initiation-retry',
@@ -31,6 +33,8 @@
 		isSubmitting?: boolean;
 		errorMessage?: string;
 		errorHint?: string;
+		hideFooter?: boolean;
+		allowCloseWhileSubmitting?: boolean;
 		drawerTestId?: string;
 		confirmTestId?: string;
 		retryTestId?: string;
@@ -49,7 +53,7 @@
 	const showRetry = $derived(Boolean(errorMessage?.trim()) && !isSubmitting);
 
 	function handleClose() {
-		if (isSubmitting) {
+		if (isSubmitting && !allowCloseWhileSubmitting) {
 			return;
 		}
 
@@ -82,26 +86,28 @@
 	</div>
 
 	{#snippet footer()}
-		<div class="flex flex-col gap-3 sm:flex-row sm:justify-end">
-			<button class="btn btn-ghost" onclick={handleClose} disabled={isSubmitting}>
-				{resolvedCancelLabel}
-			</button>
-			{#if showRetry}
-				<button class="btn btn-outline" onclick={onRetry} data-testid={retryTestId}>
-					{$t('common.buttons.retry') || 'Retry'}
+		{#if !hideFooter}
+			<div class="flex flex-col gap-3 sm:flex-row sm:justify-end">
+				<button class="btn btn-ghost" onclick={handleClose} disabled={isSubmitting}>
+					{resolvedCancelLabel}
 				</button>
-			{/if}
-			<button
-				class="btn btn-primary"
-				onclick={onConfirm}
-				disabled={isSubmitting || !canConfirm}
-				data-testid={confirmTestId}
-			>
-				{#if isSubmitting}
-					<span class="loading loading-spinner loading-xs"></span>
+				{#if showRetry}
+					<button class="btn btn-outline" onclick={onRetry} data-testid={retryTestId}>
+						{$t('common.buttons.retry') || 'Retry'}
+					</button>
 				{/if}
-				{resolvedConfirmLabel}
-			</button>
-		</div>
+				<button
+					class="btn btn-primary"
+					onclick={onConfirm}
+					disabled={isSubmitting || !canConfirm}
+					data-testid={confirmTestId}
+				>
+					{#if isSubmitting}
+						<span class="loading loading-spinner loading-xs"></span>
+					{/if}
+					{resolvedConfirmLabel}
+				</button>
+			</div>
+		{/if}
 	{/snippet}
 </Drawer>
