@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { get } from 'svelte/store';
 	import { onMount, tick } from 'svelte';
 	import type { ContractWithEvents } from '$lib/types/contract';
 
@@ -10,6 +9,19 @@
 	let ready = $state(false);
 	let surfaceComponent = $state<unknown>(null);
 	let surfaceProps = $state<Record<string, unknown>>({});
+
+	function createStorageMock() {
+		const values: Record<string, string> = {};
+		return {
+			getItem: (key: string) => values[key] ?? null,
+			setItem: (key: string, value: string) => {
+				values[key] = value;
+			},
+			removeItem: (key: string) => {
+				delete values[key];
+			}
+		};
+	}
 
 	function createHarnessServiceContract(
 		overrides: Partial<ContractWithEvents> & {
@@ -93,7 +105,10 @@
 		} as ContractWithEvents;
 	}
 
-	async function waitForSurfaceReady(predicate: () => boolean, timeoutMs = 4_000): Promise<boolean> {
+	async function waitForSurfaceReady(
+		predicate: () => boolean,
+		timeoutMs = 4_000
+	): Promise<boolean> {
 		const deadline = Date.now() + timeoutMs;
 
 		while (Date.now() < deadline) {
@@ -120,8 +135,8 @@
 						'$lib/utils/service-quote/dashboard-route'
 					);
 					const parsed = parseServiceQuoteDashboardQuery(
-						new URLSearchParams('tab=quotes&view=default&request=bad!')
-						, emptyDashboardRouteContext
+						new URLSearchParams('tab=quotes&view=default&request=bad!'),
+						emptyDashboardRouteContext
 					);
 					result = {
 						state: parsed.state,
@@ -132,17 +147,12 @@
 					break;
 				}
 				case 'tasker-expired-reentry': {
-					const { buildServiceQuoteReentryUrl } = await import(
-						'$lib/utils/service-quote/reentry'
-					);
-					const nextPath = buildServiceQuoteReentryUrl(
-						`30402:${'a'.repeat(64)}:service-1234`,
-						{
-							openRequestQuote: true,
-							tierId: 'standard',
-							selectedAddOnIds: ['source-files']
-						}
-					);
+					const { buildServiceQuoteReentryUrl } = await import('$lib/utils/service-quote/reentry');
+					const nextPath = buildServiceQuoteReentryUrl(`30402:${'a'.repeat(64)}:service-1234`, {
+						openRequestQuote: true,
+						tierId: 'standard',
+						selectedAddOnIds: ['source-files']
+					});
 					const nextUrl = new URL(`https://bittasker.test${nextPath}`);
 					result = {
 						pathname: nextUrl.pathname,
@@ -347,21 +357,16 @@
 						createDashboardUrl,
 						emptyDashboardRouteContext,
 						parseServiceQuoteDashboardQuery
-					} = await import(
-						'$lib/utils/service-quote/dashboard-route'
-					);
+					} = await import('$lib/utils/service-quote/dashboard-route');
 					const parsed = parseServiceQuoteDashboardQuery(
-						new URLSearchParams('tab=contracts&context=services&highlight=%25%25%25')
-						, emptyDashboardRouteContext
+						new URLSearchParams('tab=contracts&context=services&highlight=%25%25%25'),
+						emptyDashboardRouteContext
 					);
-					const url = createDashboardUrl(
-						new URL('https://bittasker.test/dashboard?tab=tasks'),
-						{
-							tab: 'contracts',
-							context: 'services',
-							highlight: null
-						}
-					);
+					const url = createDashboardUrl(new URL('https://bittasker.test/dashboard?tab=tasks'), {
+						tab: 'contracts',
+						context: 'services',
+						highlight: null
+					});
 					result = {
 						state: parsed.state,
 						search: parsed.searchParams.toString(),
@@ -375,8 +380,8 @@
 						'$lib/utils/service-quote/dashboard-route'
 					);
 					const parsed = parseServiceQuoteDashboardQuery(
-						new URLSearchParams('tab=contracts&context=services&highlight=svc-escrow_123')
-						, emptyDashboardRouteContext
+						new URLSearchParams('tab=contracts&context=services&highlight=svc-escrow_123'),
+						emptyDashboardRouteContext
 					);
 					result = {
 						state: parsed.state,
@@ -391,9 +396,7 @@
 						createDashboardUrl,
 						emptyDashboardRouteContext,
 						parseServiceQuoteDashboardQuery
-					} = await import(
-						'$lib/utils/service-quote/dashboard-route'
-					);
+					} = await import('$lib/utils/service-quote/dashboard-route');
 					const serviceAddress = `30402:${'a'.repeat(64)}:service-1234`;
 					const nextUrl = createDashboardUrl(
 						new URL(
@@ -455,14 +458,7 @@
 						writePendingServiceContractNavigation
 					} = await import('$lib/utils/service-contract/pending-navigation');
 
-					const storage = (() => {
-						const values = new Map<string, string>();
-						return {
-							getItem: (key: string) => values.get(key) ?? null,
-							setItem: (key: string, value: string) => values.set(key, value),
-							removeItem: (key: string) => values.delete(key)
-						};
-					})();
+					const storage = createStorageMock();
 
 					writePendingServiceContractNavigation(storage, '0xAbC123', 1_700_000_000_000);
 					const highlightEscrowId = consumePendingServiceContractNavigationForContractsPage(
@@ -501,14 +497,7 @@
 						writePendingServiceContractNavigation
 					} = await import('$lib/utils/service-contract/pending-navigation');
 
-					const storage = (() => {
-						const values = new Map<string, string>();
-						return {
-							getItem: (key: string) => values.get(key) ?? null,
-							setItem: (key: string, value: string) => values.set(key, value),
-							removeItem: (key: string) => values.delete(key)
-						};
-					})();
+					const storage = createStorageMock();
 
 					writePendingServiceContractNavigation(storage, '0xAbC123', 1_700_000_000_000);
 					const highlightEscrowId = consumePendingServiceContractNavigationForContractsPage(
@@ -579,7 +568,8 @@
 						),
 						serviceScopePresent:
 							document.body.textContent?.includes('Logo system and brand guide') ?? false,
-						quotedServiceBadgePresent: document.body.textContent?.includes('Quoted Service') ?? false,
+						quotedServiceBadgePresent:
+							document.body.textContent?.includes('Quoted Service') ?? false,
 						actionLabelPresent: document.body.textContent?.includes('Accept Service') ?? false
 					};
 					break;
@@ -700,10 +690,12 @@
 						),
 						serviceScopePresent:
 							document.body.textContent?.includes('Logo system and brand guide') ?? false,
-						quotedServiceBadgePresent: document.body.textContent?.includes('Quoted Service') ?? false,
+						quotedServiceBadgePresent:
+							document.body.textContent?.includes('Quoted Service') ?? false,
 						completeActionPresent:
 							document.body.textContent?.includes('Mark Service Complete') ?? false,
-						agreementSchedulePresent: document.body.textContent?.includes('Agreement schedule') ?? false
+						agreementSchedulePresent:
+							document.body.textContent?.includes('Agreement schedule') ?? false
 					};
 					break;
 				}
@@ -724,7 +716,7 @@
 						pricing: {
 							type: 'FIXED',
 							amount: 150,
-							deliveryTime: { min: 2, max: 3, unit: 'day' }
+							deliveryTime: { value: 3, unit: 'day' }
 						}
 					} as const;
 
@@ -762,7 +754,7 @@
 						pricing: {
 							type: 'FIXED',
 							amount: 150,
-							deliveryTime: { min: 2, max: 3, unit: 'day' }
+							deliveryTime: { value: 3, unit: 'day' }
 						}
 					} as const;
 
@@ -803,14 +795,7 @@
 						consumePendingServiceContractNavigation
 					} = await import('$lib/utils/service-contract/pending-navigation');
 
-					const storage = (() => {
-						const values = new Map<string, string>();
-						return {
-							getItem: (key: string) => values.get(key) ?? null,
-							setItem: (key: string, value: string) => values.set(key, value),
-							removeItem: (key: string) => values.delete(key)
-						};
-					})();
+					const storage = createStorageMock();
 
 					writePendingServiceContractNavigation(storage, '0xAbC123', 1_700_000_000_000);
 					const pending = readPendingServiceContractNavigation(storage, 1_700_000_000_500);
