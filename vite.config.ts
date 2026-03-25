@@ -162,9 +162,7 @@ export default defineConfig(({ mode }) => {
 
 			// OXC minification is fast but significantly heavier in this repo's local/CI preview builds.
 			// Keep the lighter esbuild path unless a real Sentry upload build is configured.
-			minify: sentryEnabled
-				? ('oxc' as boolean | 'esbuild' | 'terser' | undefined)
-				: 'esbuild',
+			minify: sentryEnabled ? ('oxc' as boolean | 'esbuild' | 'terser' | undefined) : 'esbuild',
 			// Hidden source maps are only needed for Sentry uploads; skip them when no upload is configured.
 			sourcemap: sentryEnabled ? 'hidden' : false,
 			cssCodeSplit: true, // Enable CSS code splitting
@@ -208,7 +206,19 @@ export default defineConfig(({ mode }) => {
 			// - http://<laptop-lan-ip>:3000 (same Wi‑Fi), or
 			// - http://localhost:3000 with `adb reverse`
 			// Allowing all hosts prevents Vite from blocking these.
-			allowedHosts: true
+			allowedHosts: true,
+			watch: {
+				ignored: [
+					'**/src/lib/tests/**',
+					'**/tests/**',
+					'**/*.test.ts',
+					'**/*.test.tsx',
+					'**/*.spec.ts',
+					'**/*.spec.tsx',
+					'**/coverage/**',
+					'**/test-results/**'
+				]
+			}
 		}
 	};
 });
