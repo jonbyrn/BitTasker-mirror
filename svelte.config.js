@@ -30,10 +30,6 @@ const config = {
 			relative: false
 		},
 
-		alias: {
-			$houdini: ".houdini/"
-		},
-
 		experimental: {
 			tracing: {
 				server: true
