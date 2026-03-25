@@ -8,7 +8,7 @@
  */
 
 import type { NostrBidContent } from '$lib/types/bid';
-import type { Task } from '$lib/types/task';
+import type { TaskBody } from '$lib/types/task';
 import { FEE_TIERS } from '@bittasker/wallet-core';
 import { ethers } from 'ethers';
 import { parseDateWithLocalTime } from '$lib/utils/helpers/dateFormatter';
@@ -46,7 +46,7 @@ const DEFAULT_FEE_TIER = 1;
  */
 export function deriveV2CreationParams(
 	bid: NostrBidContent,
-	task: Task,
+	task: TaskBody,
 	btcPrice: number
 ): V2DerivationResult {
 	if (bid.amount <= 0) {
@@ -345,22 +345,25 @@ async function publishTaskAcceptedBid(task: NDKTask, bidEventId: string): Promis
 }
 
 /**
- * Publish contract event (Kind 30006) to Taskee using NDKPaymentContract.
- * Encrypts to taskee and publishes via NDK.
+ * Configure Kind 30006 on an existing `NDKPaymentContract` instance (same object for `publish()` then later `publishReplaceable()`).
+ * `d` tag = task d-tag (NIP-33 replaceable identity). Omit `paymentId` until receipt is known.
  */
-async function publishV2ContractEvent(params: {
-	escrowId: string;
-	taskId: string;
-	taskeePubkey: string;
-	taskTitle: string;
-	taskDescription: string;
-	amount: string;
-	estimatedStartTime: number;
-	estimatedCompletionTime: number;
-	transactionHash: string;
-	taskerPubkey: string;
-}): Promise<void> {
-	d.log('publishV2ContractEvent: start', { escrowId: params.escrowId, taskId: params.taskId });
+function prepareV2NostrPaymentContract(
+	ndkPaymentContract: NDKPaymentContract,
+	params: {
+		taskDTag: string;
+		taskeePubkey: string;
+		taskTitle: string;
+		taskDescription: string;
+		amount: string;
+		estimatedStartTime: number;
+		estimatedCompletionTime: number;
+		transactionHash: string;
+		taskerPubkey: string;
+		/** Set after `tx.wait()` before republish */
+		paymentId?: string;
+	}
+): void {
 	const network = import.meta.env.VITE_RSK_NETWORK || 'testnet';
 	const contractAddress =
 		network === 'mainnet'
@@ -373,41 +376,43 @@ async function publishV2ContractEvent(params: {
 		);
 	}
 
-	const contract = new NDKPaymentContract(ndk);
-	d.log('publishV2ContractEvent: created NDKPaymentContract, setting tags');
+	d.log('prepareV2NostrPaymentContract', {
+		taskDTag: params.taskDTag,
+		transactionHash: params.transactionHash,
+		paymentId: params.paymentId ?? '(pending)'
+	});
 
-	// Set pubkey so taskeePubkey setter can distinguish tasker vs taskee
-	(contract as { pubkey?: string }).pubkey = params.taskerPubkey;
+	(ndkPaymentContract as { pubkey?: string }).pubkey = params.taskerPubkey;
 
-	// Public wire tags
-	contract.escrowId = params.escrowId;
-	contract.taskId = params.taskId;
-	contract.taskeePubkey = params.taskeePubkey;
-	contract.network = network;
-	contract.version = 'v2';
-	contract.status = String(EscrowStatus.Funded);
-	contract.messageType = 'contract';
+	ndkPaymentContract.dTag = params.taskDTag;
+	ndkPaymentContract.taskId = params.taskDTag;
+	ndkPaymentContract.taskeePubkey = params.taskeePubkey;
+	ndkPaymentContract.network = network;
+	ndkPaymentContract.version = 'v2';
+	ndkPaymentContract.status = String(EscrowStatus.Funded);
+	ndkPaymentContract.messageType = 'contract';
 
-	// Encrypted-side tags
-	contract.taskTitle = params.taskTitle;
-	contract.taskDescription = params.taskDescription;
-	contract.amount = params.amount;
-	contract.currency = 'RBTC';
-	contract.estimatedStartTime = params.estimatedStartTime;
-	contract.estimatedCompletionTime = params.estimatedCompletionTime;
-	contract.transactionHash = params.transactionHash;
-	contract.contractAddress = contractAddress;
+	ndkPaymentContract.taskTitle = params.taskTitle;
+	ndkPaymentContract.taskDescription = params.taskDescription;
+	ndkPaymentContract.amount = params.amount;
+	ndkPaymentContract.currency = 'RBTC';
+	ndkPaymentContract.estimatedStartTime = params.estimatedStartTime;
+	ndkPaymentContract.estimatedCompletionTime = params.estimatedCompletionTime;
+	ndkPaymentContract.transactionHash = params.transactionHash;
+	ndkPaymentContract.contractAddress = contractAddress;
 
-	d.log('publishV2ContractEvent: NDKPaymentContract BEFORE publish', contract);
-
-	await contract.publish();
-
-	d.log('publishV2ContractEvent: NDKPaymentContract AFTER publish', contract);
+	if (params.paymentId !== undefined) {
+		ndkPaymentContract.paymentId = params.paymentId;
+	} else {
+		ndkPaymentContract.removeTag('paymentId');
+	}
 }
 
 /**
  * Escrow creation orchestrator.
- * Runs: validate → gas → staticCall (revert check only) → broadcast → onConfirmed (receipt + paymentId) → sideEffects (Nostr, DM, task, push).
+ * Runs: validate → gas → staticCall (revert check only) → broadcast → sideEffects in parallel:
+ * Nostr contract publish (tx hash only), DMs, task update, push, and tx.wait + republish with paymentId;
+ * `onConfirmed` resolves when the chain receipt yields `paymentId` (same promise as the confirm branch).
  */
 export interface CreateEscrowOrchestratorOptions {
 	/** Additional notes for the taskee DM (locations/congrats message) */
@@ -429,7 +434,7 @@ export async function createEscrowFromBidOrchestrator(
 
 	try {
 		d.log('orchestrator: step 1 — deriveV2CreationParams');
-		const { params, display } = deriveV2CreationParams(bidContent, taskContent, btcPrice);
+		const { params } = deriveV2CreationParams(bidContent, taskContent, btcPrice);
 		d.log('orchestrator: params derived', {
 			taskee: params.taskee.slice(0, 10) + '…',
 			totalWei: params.totalValueWei.toString().slice(0, 16) + '…',
@@ -541,33 +546,28 @@ export async function createEscrowFromBidOrchestrator(
 
 		const sideEffects = (async () => {
 			try {
-				d.log('orchestrator: awaiting tx confirmation for receipt + paymentId', {
-					transactionHash
-				});
-				const receipt = await tx.wait();
-				if (!receipt) {
-					throw new Error('Transaction receipt not available');
-				}
-				const paymentId = parsePaymentContractCreatedPaymentId(receipt, v2ContractAddress);
-				d.log('orchestrator: tx confirmed', { transactionHash, paymentId });
-				resolveOnConfirmed({ paymentId });
-
-				d.log('orchestrator: running side effects (publish, DM, update task, push)', {
-					paymentId
-				});
-
-				const publishPromise = publishV2ContractEvent({
-					escrowId: String(paymentId),
-					taskId,
+				const ndkPaymentContract = new NDKPaymentContract(ndk);
+				prepareV2NostrPaymentContract(ndkPaymentContract, {
+					taskDTag: taskId,
 					taskeePubkey,
 					taskTitle: taskContent.title ?? '',
 					taskDescription: taskContent.description ?? '',
-					amount: display.totalAmount,
+					amount: bid.bidContent.amount,
 					estimatedStartTime: params.estimatedStartTime,
 					estimatedCompletionTime: params.estimatedCompletionTime,
 					transactionHash,
 					taskerPubkey
 				});
+
+				d.log(
+					'orchestrator: side effects starting (parallel: publish, DM, task, push, confirm+republish)',
+					{
+						transactionHash,
+						taskDTag: taskId
+					}
+				);
+
+				const publishPromise = ndkPaymentContract.publish();
 
 				const dmPromise = sendLocationsToTaskee(
 					taskContent.pickupLocation ?? null,
@@ -595,19 +595,53 @@ export async function createEscrowFromBidOrchestrator(
 						})
 					: Promise.resolve();
 
+				const confirmRepublishPromise = (async () => {
+					try {
+						const receipt = await tx.wait();
+						if (!receipt) {
+							throw new Error('Transaction receipt not available');
+						}
+						const paymentId = parsePaymentContractCreatedPaymentId(receipt, v2ContractAddress);
+						d.log('orchestrator: tx confirmed', { transactionHash, paymentId });
+						resolveOnConfirmed({ paymentId });
+						// Avoid mutating tags while the initial `publish()` may still be serializing the same instance.
+						try {
+							await publishPromise;
+						} catch (e) {
+							d.warn('orchestrator: initial contract publish failed; continuing to republish', e);
+						}
+						ndkPaymentContract.paymentId = String(paymentId);
+						await ndkPaymentContract.publishReplaceable();
+						d.log('orchestrator: contract event republished with paymentId', {
+							transactionHash,
+							paymentId
+						});
+					} catch (e) {
+						rejectOnConfirmed(e);
+						throw e;
+					}
+				})();
+
 				const results = await Promise.allSettled([
 					publishPromise,
 					dmPromise,
 					taskUpdatePromise,
-					pushPromise
+					pushPromise,
+					confirmRepublishPromise
 				]);
 				results.forEach((r, i) => {
-					const names = ['publish', 'sendLocations', 'taskPublishReplaceable', 'push'];
+					const names = [
+						'publish',
+						'sendLocations',
+						'taskPublishReplaceable',
+						'push',
+						'confirmRepublish'
+					];
 					if (r.status === 'rejected') {
 						d.warn(`orchestrator: ${names[i]} failed`, r.reason);
 					}
 				});
-				d.log('orchestrator: side effects complete', { transactionHash, paymentId });
+				d.log('orchestrator: side effects settled', { transactionHash });
 			} catch (err) {
 				rejectOnConfirmed(err);
 				throw err;
