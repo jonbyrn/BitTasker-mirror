@@ -43,21 +43,25 @@
 
 	const seo = $derived(
 		data.seo ?? {
-			title: 'Service Details - BitTasker',
-			description: '',
+			title: $t('dashboard.services.detail.seo.page_title'),
+			description: $t('dashboard.services.detail.seo.page_description'),
 			keywords: '',
 			canonical: '',
 			robots: 'noindex, follow',
 			ogType: 'website',
-			ogTitle: '',
-			ogDescription: '',
+			ogTitle: $t('dashboard.services.detail.seo.page_title'),
+			ogDescription: $t('dashboard.services.detail.seo.page_description'),
 			ogImage: '',
-			ogImageAlt: '',
+			ogImageAlt: $t('dashboard.services.detail.seo.image_alt', {
+				values: { title: 'BitTasker' }
+			}),
 			twitterCard: 'summary_large_image',
-			twitterTitle: '',
-			twitterDescription: '',
+			twitterTitle: $t('dashboard.services.detail.seo.page_title'),
+			twitterDescription: $t('dashboard.services.detail.seo.page_description'),
 			twitterImage: '',
-			twitterImageAlt: '',
+			twitterImageAlt: $t('dashboard.services.detail.seo.image_alt', {
+				values: { title: 'BitTasker' }
+			}),
 			jsonLd: null
 		}
 	);
@@ -94,7 +98,9 @@
 
 	<!-- Structured Data -->
 	{#if seo.jsonLd}
-		{@html `<script type="application/ld+json">${JSON.stringify(seo.jsonLd)}</script>`}
+		<script type="application/ld+json">
+{JSON.stringify(seo.jsonLd)}
+		</script>
 	{/if}
 </svelte:head>
 
@@ -102,22 +108,25 @@
 
 {#if $authState.isAuthenticated}
 	<!-- Mismas dimensiones que Mi Panel -->
-	<div class="dashboard-layout bg-base-200 mx-auto flex h-full w-full flex-row gap-8 overflow-hidden px-2 md:py-4">
+	<div
+		class="dashboard-layout bg-base-200 mx-auto flex h-full w-full flex-row gap-8 overflow-hidden px-2 md:py-4"
+	>
 		{#if $devicePlatform !== 'ios' && $devicePlatform !== 'android' && width >= 1200}
 			<!-- Fixed Sidebar - Only on desktop; max-h + overflow para que no se desborde -->
 			<div class="w-full shrink-0 md:w-64">
-				<div class="fixed top-24 left-8 z-10 w-56 max-h-[calc(100dvh-6rem)] overflow-y-auto">
+				<div class="fixed top-24 left-8 z-10 max-h-[calc(100dvh-6rem)] w-56 overflow-y-auto">
 					<div class="card bg-base-100 rounded-xl shadow-xl">
 						<div class="card-body p-4">
 							<ul class="menu bg-base-100 rounded-box w-full">
-								{#each sections as section}
+								{#each sections as section (section.href)}
 									<li class="my-1">
 										<a
 											data-sveltekit-reload="off"
 											href={section.path}
 											class:menu-active={page.url.pathname + page.url.search === section.path ||
 												(section.id === 'find-tasks' && page.url.pathname.startsWith('/tasks')) ||
-												(section.id === 'find-services' && page.url.pathname.startsWith('/services'))}
+												(section.id === 'find-services' &&
+													page.url.pathname.startsWith('/services'))}
 											class="flex items-center gap-3"
 										>
 											{#if section.icon === 'mdi:format-list-bulleted'}
@@ -157,7 +166,10 @@
 		<!-- Main Content - mismas dimensiones que Mi Panel -->
 		<div class="min-h-0 w-full flex-1 overflow-hidden">
 			<div class="mx-auto h-full max-w-6xl px-2 py-6 md:px-0 md:py-0">
-				<ServiceDetailsView service={data.service ?? null} serviceId={data.serviceId ?? serviceId} />
+				<ServiceDetailsView
+					service={data.service ?? null}
+					serviceId={data.serviceId ?? serviceId}
+				/>
 			</div>
 		</div>
 	</div>

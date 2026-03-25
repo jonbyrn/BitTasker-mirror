@@ -18,6 +18,7 @@ import { appStore } from '$lib/stores/app.store';
 import { servicesStore } from '$lib/stores/service.store';
 import { get } from 'svelte/store';
 import { fetchComprehensiveProfile } from '$lib/utils/nostr-message';
+import { normalizeServiceTierDeliveryTimes } from '$lib/utils/serviceTierDelivery';
 
 // Constants
 const SERVICES_PER_PAGE = 20; // Default services limit per page
@@ -134,7 +135,7 @@ function createServiceFilter(params: SearchServicesParams): Filter {
  */
 async function convertEventToService(event: Event): Promise<Service> {
 	try {
-		const contentData = JSON.parse(event.content);
+		const contentData = normalizeServiceTierDeliveryTimes(JSON.parse(event.content));
 		const service: Service = {
 			...contentData,
 			id: event.id,

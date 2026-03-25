@@ -1,4 +1,4 @@
-import type { Service, ServiceTier, AddOn, ServiceFAQ, ServiceTranslations } from '$lib/types/service.d';
+import type { Service, ServiceTier, AddOn, ServiceFAQ } from '$lib/types/service.d';
 
 /**
  * Get the display title for a service in the given locale.
@@ -48,7 +48,7 @@ export function getServiceDisplayTiers(service: Service, locale: string): Servic
 			...(tr.deliveryTime?.display != null
 				? {
 						deliveryTime: {
-							...(tier.deliveryTime ?? { min: 0, max: 0, unit: 'day', display: '' }),
+							...(tier.deliveryTime ?? { value: 0, unit: 'day', display: '' }),
 							display: tr.deliveryTime.display
 						}
 					}
@@ -121,7 +121,10 @@ export function getServiceDisplayFaqs(service: Service, locale: string): Service
 /**
  * Get the main pricing delivery time display string in the given locale (for fixed/hourly).
  */
-export function getServiceDeliveryTimeDisplay(service: Service, locale: string): string | undefined {
+export function getServiceDeliveryTimeDisplay(
+	service: Service,
+	locale: string
+): string | undefined {
 	const display = service.pricing?.deliveryTime?.display;
 	if (!display) return undefined;
 
@@ -135,7 +138,10 @@ export function getServiceDeliveryTimeDisplay(service: Service, locale: string):
 /**
  * Get the rush delivery time display string in the given locale.
  */
-export function getServiceRushDeliveryDisplay(service: Service, locale: string): string | undefined {
+export function getServiceRushDeliveryDisplay(
+	service: Service,
+	locale: string
+): string | undefined {
 	const display = service.pricing?.rushDelivery?.deliveryTime?.display;
 	if (!display) return undefined;
 

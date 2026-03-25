@@ -3,6 +3,10 @@ import type { Service } from '$lib/types/service.d';
 import { findServiceByUniqueId } from '$lib/nostr/service';
 import { ServiceLocationTypeEnum, ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';
 import { BITTASKER_CANONICAL_BASE } from '$lib/utils/constants/seo.constants';
+import { loadNamespace, type SupportedLanguage } from '$lib/i18n/i18n';
+import { locale, t } from 'svelte-i18n';
+import { get } from 'svelte/store';
+import { browser } from '$app/environment';
 
 const baseUrl = BITTASKER_CANONICAL_BASE.replace(/\/$/, '');
 
@@ -27,6 +31,12 @@ type ServiceSeoPayload = {
 	jsonLd: Record<string, unknown> | null;
 };
 
+type Translate = (
+	key: string,
+	fallback: string,
+	values?: Record<string, string | number>
+) => string;
+
 function normalizeServiceId(serviceId: string | null | undefined, fallback: string): string {
 	const trimmed = serviceId?.trim();
 	return trimmed && trimmed.length > 0 ? trimmed : fallback;
@@ -48,9 +58,33 @@ function toAbsoluteUrl(value: string | null | undefined): string | null {
 	}
 }
 
-function buildServiceDescription(service: Service): string {
+function applyValues(template: string, values?: Record<string, string | number>): string {
+	if (!values) {
+		return template;
+	}
+
+	return Object.entries(values).reduce(
+		(result, [key, value]) => result.replaceAll(`{${key}}`, String(value)),
+		template
+	);
+}
+
+function createTranslator(): Translate {
+	const translate = get(t);
+
+	return (key, fallback, values) => {
+		try {
+			const value = translate(key, values ? { values } : undefined);
+			return typeof value === 'string' && value !== key ? value : applyValues(fallback, values);
+		} catch {
+			return applyValues(fallback, values);
+		}
+	};
+}
+
+function buildServiceDescription(service: Service, tr: Translate): string {
 	if (!service.description) {
-		return 'No description available';
+		return tr('dashboard.services.detail.seo.no_description_available', 'No description available');
 	}
 
 	const normalized = service.description.replace(/\s+/g, ' ').trim();
@@ -117,20 +151,20 @@ function getServiceOffer(service: Service) {
 	}
 }
 
-function getServiceAreaServed(service: Service): string | undefined {
+function getServiceAreaServed(service: Service, tr: Translate): string | undefined {
 	if (!service.serviceLocationTypes?.length) {
 		return undefined;
 	}
 
 	if (service.serviceLocationTypes.includes(ServiceLocationTypeEnum.REMOTE)) {
-		return 'Remote';
+		return tr('dashboard.services.detail.location.remote', 'Remote');
 	}
 
 	if (service.serviceLocationTypes.includes(ServiceLocationTypeEnum.TASKER_LOCATION)) {
 		return (
 			service.locationDetails?.taskerLocation?.serviceLocation?.displayName ||
 			service.locationDetails?.taskerLocation?.serviceLocation?.formattedAddress ||
-			'At provider location'
+			tr('dashboard.services.detail.seo.at_provider_location', 'At provider location')
 		);
 	}
 
@@ -139,29 +173,33 @@ function getServiceAreaServed(service: Service): string | undefined {
 			service.locationDetails?.taskeeLocation?.locationDisplayName ||
 			service.locationDetails?.taskeeLocation?.serviceLocation?.displayName ||
 			service.locationDetails?.taskeeLocation?.serviceLocation?.formattedAddress ||
-			'Travels to you'
+			tr('dashboard.services.detail.seo.travels_to_you', 'Travels to you')
 		);
 	}
 
 	return undefined;
 }
 
-function generateServiceJsonLd(service: Service, canonicalUrl: string) {
+function generateServiceJsonLd(service: Service, canonicalUrl: string, tr: Translate) {
 	const offer = getServiceOffer(service);
-	const areaServed = getServiceAreaServed(service);
+	const areaServed = getServiceAreaServed(service, tr);
 	const image = getServiceImage(service);
-	const providerName = service.creator?.username || 'BitTasker provider';
+	const providerName =
+		service.creator?.username ||
+		tr('dashboard.services.detail.seo.provider_fallback', 'BitTasker provider');
 
 	return {
 		'@context': 'https://schema.org',
 		'@type': 'Service',
 		'@id': `${canonicalUrl}#service`,
-		name: service.title || 'Untitled Service',
-		description: buildServiceDescription(service),
+		name: service.title || tr('dashboard.services.detail.seo.untitled_service', 'Untitled Service'),
+		description: buildServiceDescription(service, tr),
 		url: canonicalUrl,
 		mainEntityOfPage: canonicalUrl,
 		image,
-		serviceType: service.categories?.[0]?.name || 'Professional service',
+		serviceType:
+			service.categories?.[0]?.name ||
+			tr('dashboard.services.detail.seo.professional_service', 'Professional service'),
 		provider: {
 			'@type': 'Organization',
 			name: providerName
@@ -191,11 +229,16 @@ function buildServiceKeywords(service: Service | null): string {
 		.join(', ');
 }
 
-function buildDefaultSeo(canonicalUrl: string): ServiceSeoPayload {
-	const title = 'Service Details - BitTasker';
-	const description =
-		'View service details on BitTasker, the Bitcoin-powered task and service marketplace.';
+function buildDefaultSeo(canonicalUrl: string, tr: Translate): ServiceSeoPayload {
+	const title = tr('dashboard.services.detail.seo.page_title', 'Service Details - BitTasker');
+	const description = tr(
+		'dashboard.services.detail.seo.page_description',
+		'View service details on BitTasker, the Bitcoin-powered task and service marketplace.'
+	);
 	const image = `${baseUrl}/images/og-task-default.jpg`;
+	const imageAlt = tr('dashboard.services.detail.seo.image_alt', '{title} service preview', {
+		title: 'BitTasker'
+	});
 
 	return {
 		title,
@@ -207,37 +250,43 @@ function buildDefaultSeo(canonicalUrl: string): ServiceSeoPayload {
 		ogTitle: title,
 		ogDescription: description,
 		ogImage: image,
-		ogImageAlt: 'BitTasker service preview',
+		ogImageAlt: imageAlt,
 		twitterCard: 'summary_large_image',
 		twitterTitle: title,
 		twitterDescription: description,
 		twitterImage: image,
-		twitterImageAlt: 'BitTasker service preview',
+		twitterImageAlt: imageAlt,
 		jsonLd: null
 	};
 }
 
 export const load: PageLoad = async ({ params }) => {
+	const currentLocale = (get(locale) as SupportedLanguage) || 'en';
+	if (browser) {
+		await loadNamespace(currentLocale, 'dashboard/services/detail');
+	}
+	const tr = createTranslator();
 	const requestedServiceId = normalizeServiceId(params.serviceId, params.serviceId);
 	const service: Service | null = await findServiceByUniqueId(requestedServiceId);
 	const canonicalId = normalizeServiceId(service?.uniqueId, requestedServiceId);
 	const canonicalUrl = buildCanonicalUrl(canonicalId);
-	const seo = buildDefaultSeo(canonicalUrl);
+	const seo = buildDefaultSeo(canonicalUrl, tr);
 
 	if (service) {
-		const title = service.title || 'Untitled Service';
-		const desc = buildServiceDescription(service);
+		const title =
+			service.title || tr('dashboard.services.detail.seo.untitled_service', 'Untitled Service');
+		const desc = buildServiceDescription(service, tr);
 		const image = getServiceImage(service);
 		const titleWithSite = `${title} - BitTasker`;
-		const imageAlt = `${title} service preview`;
+		const imageAlt = tr('dashboard.services.detail.seo.image_alt', '{title} service preview', {
+			title
+		});
 
 		seo.title = titleWithSite;
 		seo.description = desc;
 		seo.keywords = buildServiceKeywords(service);
 		seo.robots =
-			service.status === 'active'
-				? 'index, follow, max-image-preview:large'
-				: 'noindex, follow';
+			service.status === 'active' ? 'index, follow, max-image-preview:large' : 'noindex, follow';
 		seo.ogTitle = titleWithSite;
 		seo.ogDescription = desc;
 		seo.ogImage = image;
@@ -246,7 +295,7 @@ export const load: PageLoad = async ({ params }) => {
 		seo.twitterDescription = desc;
 		seo.twitterImage = image;
 		seo.twitterImageAlt = imageAlt;
-		seo.jsonLd = generateServiceJsonLd(service, canonicalUrl);
+		seo.jsonLd = generateServiceJsonLd(service, canonicalUrl, tr);
 
 		return {
 			service,

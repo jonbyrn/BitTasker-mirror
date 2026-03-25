@@ -176,11 +176,11 @@
 		const locationDetails = service.locationDetails;
 		const serviceLocationTypes = service.serviceLocationTypes;
 
-		if (!serviceLocationTypes?.includes('tasker_location')) {
+		if (!serviceLocationTypes?.includes('taskee_location')) {
 			return '';
 		}
 
-		const radius = locationDetails?.taskerLocation?.serviceRadius;
+		const radius = locationDetails?.taskeeLocation?.serviceRadius;
 		if (!radius) return '';
 		const miles = Math.round(radius * 0.621371 * 10) / 10;
 		return `(${radius} km/${miles} mi)`;

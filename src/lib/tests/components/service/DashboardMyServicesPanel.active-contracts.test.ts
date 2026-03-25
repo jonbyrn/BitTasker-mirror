@@ -373,6 +373,8 @@ describe('DashboardMyServicesPanel active contracts shortcut', () => {
 	});
 
 	it('opens the deterministically selected active service contract from the service card', async () => {
+		window.history.replaceState({}, '', 'http://localhost:3000/earning');
+
 		hoisted.contractStoreState.set({
 			contracts: [
 				createContract('escrow-old', EscrowStatus.Funded, 1_700_000_010),
@@ -391,11 +393,13 @@ describe('DashboardMyServicesPanel active contracts shortcut', () => {
 		await fireEvent.click(getByText('Contracts'));
 
 		expect(hoisted.mockGoto).toHaveBeenCalledWith(
-			'http://localhost:3000/dashboard?tab=contracts&context=services&highlight=escrow-new'
+			`http://localhost:3000/earning?tab=contracts&context=services&highlight=escrow-new&service=${encodeURIComponent(
+				`30402:${'a'.repeat(64)}:service-123`
+			)}`
 		);
 	}, 45_000);
 
-	it('routes the service card quotes action to the services workspace quote inbox', async () => {
+	it('routes the service card requests action to the services workspace quote inbox', async () => {
 		const service = createService();
 		const serviceAddress = `30402:${service.npub}:${service.uniqueId ?? service.id}`;
 		const expectedUrl = createServicesWorkspaceUrl(new URL('http://localhost:3000/earning'), {
@@ -412,7 +416,7 @@ describe('DashboardMyServicesPanel active contracts shortcut', () => {
 		});
 
 		await waitFor(() => expect(hoisted.mockFindMyServices).toHaveBeenCalled());
-		await fireEvent.click(getByText('Quotes'));
+		await fireEvent.click(getByText('Requests'));
 
 		expect(hoisted.mockGoto).toHaveBeenCalledWith(expectedUrl);
 	}, 45_000);

@@ -80,7 +80,9 @@
 	function getPricingTypeName(pricingType: ServicePricingTypeEnum | undefined): string {
 		if (!pricingType) return '';
 		const slug =
-			pricingType === ServicePricingTypeEnum.INQUIRY_REQUIRED ? 'inquiry_required' : pricingType.toLowerCase();
+			pricingType === ServicePricingTypeEnum.INQUIRY_REQUIRED
+				? 'inquiry_required'
+				: pricingType.toLowerCase();
 		const key = `dashboard.services.browse.pricing.${slug}`;
 		const translated = $t(key);
 		return translated.startsWith('dashboard.') ? pricingType : translated;
@@ -136,16 +138,16 @@
 	{/if}
 
 	{#if isLoading}
-		<div class="mt-4 grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-3 animate-pulse">
-			{#each Array(3) as _}
+		<div class="mt-4 grid animate-pulse grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-3">
+			{#each Array.from({ length: 3 }, (_, index) => index) as index (index)}
 				<div class="card bg-base-200 border-base-content/10 rounded-xl border shadow-sm">
 					<div class="card-body p-3">
-						<div class="bg-base-300 h-5 w-32 rounded flex-1"></div>
+						<div class="bg-base-300 h-5 w-32 flex-1 rounded"></div>
 						<div class="mt-1 flex flex-wrap gap-1">
 							<div class="bg-base-300 h-4 w-16 rounded-full"></div>
 							<div class="bg-base-300 h-4 w-20 rounded-full"></div>
 						</div>
-						<div class="mt-1 bg-base-300 h-3 w-24 rounded"></div>
+						<div class="bg-base-300 mt-1 h-3 w-24 rounded"></div>
 					</div>
 				</div>
 			{/each}
@@ -166,7 +168,9 @@
 					d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
 				/>
 			</svg>
-			<p class="text-lg font-medium">{$t('dashboard.services.browse.saved_service_searches.no_saved_searches')}</p>
+			<p class="text-lg font-medium">
+				{$t('dashboard.services.browse.saved_service_searches.no_saved_searches')}
+			</p>
 			<p class="text-base-content/70 mt-1 text-sm">
 				{$t('dashboard.services.browse.saved_service_searches.saved_searches_info')}
 			</p>
@@ -176,56 +180,71 @@
 		</div>
 	{:else}
 		<div class="mt-4 grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-3">
-			{#each savedSearches as search}
+			{#each savedSearches as search (search.id)}
 				<div
-					class="card bg-base-200 border-base-content/10 rounded-xl border shadow-sm cursor-pointer transition-all hover:shadow-md hover:border-primary"
+					class="card bg-base-200 border-base-content/10 hover:border-primary cursor-pointer rounded-xl border shadow-sm transition-all hover:shadow-md"
 					onclick={() => applySavedSearch(search)}
 					onkeydown={(e) => handleKeydown(e, search)}
 					role="button"
 					tabindex="0"
-					aria-label="Apply search: {search.name}"
+					aria-label={$t('dashboard.saved_searches.apply_search', {
+						values: { name: search.name }
+					})}
 				>
 					<div class="card-body p-3">
 						<div class="flex items-start justify-between gap-2">
-							<span class="text-sm line-clamp-1">{search.name}</span>
+							<span class="line-clamp-1 text-sm">{search.name}</span>
 						</div>
 						<div class="mt-1">
 							<div class="flex flex-wrap gap-1">
 								{#if search.params.categories?.length}
-									{#each search.params.categories as category}
-										{@const id = typeof category === 'string' ? category : (category as { id: string }).id}
-										<div class="badge badge-primary badge-sm max-w-[120px] truncate" title={getCategoryName(id)}>
+									{#each search.params.categories as category, categoryIndex (`${typeof category === 'string' ? category : category.id}-${categoryIndex}`)}
+										{@const id =
+											typeof category === 'string' ? category : (category as { id: string }).id}
+										<div
+											class="badge badge-primary badge-sm max-w-[120px] truncate"
+											title={getCategoryName(id)}
+										>
 											{getCategoryName(id)}
 										</div>
 									{/each}
 								{/if}
 								{#if search.params.skills?.length}
-									{#each search.params.skills as skill}
-										<div class="badge badge-secondary badge-sm max-w-[120px] truncate" title={skill}>{skill}</div>
+									{#each search.params.skills as skill, skillIndex (`${skill}-${skillIndex}`)}
+										<div
+											class="badge badge-secondary badge-sm max-w-[120px] truncate"
+											title={skill}
+										>
+											{skill}
+										</div>
 									{/each}
 								{/if}
 								{#if search.params.serviceLocationTypes?.length}
-									{#each search.params.serviceLocationTypes as loc}
+									{#each search.params.serviceLocationTypes as loc, locationIndex (`${loc}-${locationIndex}`)}
 										<div class="badge badge-accent badge-sm">{getLocationTypeName(loc)}</div>
 									{/each}
 								{/if}
 								{#if search.params.pricingType}
-									<div class="badge badge-info badge-sm">{getPricingTypeName(search.params.pricingType)}</div>
+									<div class="badge badge-info badge-sm">
+										{getPricingTypeName(search.params.pricingType)}
+									</div>
 								{/if}
 								{#if search.params.minPrice !== undefined || search.params.maxPrice !== undefined}
 									<div class="badge badge-success badge-sm">
 										{#if search.params.minPrice !== undefined}{search.params.minPrice}{/if}
-										{#if search.params.minPrice !== undefined && search.params.maxPrice !== undefined} - {/if}
+										{#if search.params.minPrice !== undefined && search.params.maxPrice !== undefined}
+											-
+										{/if}
 										{#if search.params.maxPrice !== undefined}{search.params.maxPrice}{/if}
 									</div>
 								{/if}
 							</div>
 						</div>
 						<div class="mt-2 flex items-center justify-between gap-2">
-							<div class="text-xs text-base-content/70 flex-1 min-w-0">
+							<div class="text-base-content/70 min-w-0 flex-1 text-xs">
 								{$t('profile_task.created_label')}: {formatDate(search.createdAt)}
 							</div>
-							<div class="flex gap-1 shrink-0">
+							<div class="flex shrink-0 gap-1">
 								<button
 									aria-label={$t('profile_task.actions.edit_saved_search')}
 									class="btn btn-xs btn-ghost btn-square"
@@ -296,9 +315,7 @@
 	size="sm"
 	isScrollable={false}
 >
-	{#snippet children()}
-		<p>{$t('profile_task.confirm_delete.message')}</p>
-	{/snippet}
+	<p>{$t('profile_task.confirm_delete.message')}</p>
 
 	{#snippet footer()}
 		<button class="btn" onclick={() => (confirmDeleteId = null)}>
