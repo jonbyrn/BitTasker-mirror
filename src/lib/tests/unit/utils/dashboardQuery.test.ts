@@ -53,4 +53,36 @@ describe('dashboard query helpers', () => {
 			)}&request=qr_valid123`
 		);
 	});
+
+	it('parses service-filtered earning contracts routes', () => {
+		const parsed = parseEarningQuery(
+			new URL(
+				`https://bittasker.test/earning?tab=contracts&context=services&service=${encodeURIComponent(
+					serviceAddress
+				)}&highlight=escrow-123`
+			)
+		);
+
+		expect(parsed).toEqual({
+			tab: 'contracts',
+			context: 'services',
+			service: serviceAddress,
+			highlight: 'escrow-123'
+		});
+	});
+
+	it('builds canonical earning contracts URLs with a selected service filter', () => {
+		const url = buildEarningQueryUrl(new URL('https://bittasker.test/earning'), {
+			tab: 'contracts',
+			context: 'services',
+			service: serviceAddress,
+			highlight: 'escrow-123'
+		});
+
+		expect(url).toBe(
+			`https://bittasker.test/earning?tab=contracts&context=services&highlight=escrow-123&service=${encodeURIComponent(
+				serviceAddress
+			)}`
+		);
+	});
 });

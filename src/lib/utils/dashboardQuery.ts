@@ -135,6 +135,7 @@ export function parseEarningQuery(url: URL): EarningQueryState {
 		const context = url.searchParams.get('context');
 		state.context = context === 'tasks' || context === 'services' ? context : 'all';
 		state.highlight = url.searchParams.get('highlight') || null;
+		state.service = decodeSearchParam(url.searchParams.get('service'));
 		return state;
 	}
 
@@ -172,6 +173,9 @@ export function buildDashboardQueryUrl(baseUrl: URL, state: DashboardQueryState)
 		if (state.highlight) {
 			url.searchParams.set('highlight', state.highlight);
 		}
+		if (state.service) {
+			url.searchParams.set('service', state.service);
+		}
 		return url.toString();
 	}
 
@@ -205,6 +209,9 @@ export function buildEarningQueryUrl(baseUrl: URL, state: EarningQueryState): st
 		url.searchParams.set('context', state.context ?? 'all');
 		if (state.highlight) {
 			url.searchParams.set('highlight', state.highlight);
+		}
+		if (state.service) {
+			url.searchParams.set('service', state.service);
 		}
 		return url.toString();
 	}
