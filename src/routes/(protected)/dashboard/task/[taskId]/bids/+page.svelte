@@ -1,16 +1,13 @@
 <script lang="ts">
 	import type { NostrBidContent } from '$lib/types/bid';
 	import { t, locale } from 'svelte-i18n';
-	import { bidStore } from '$lib/stores/bid.store';
-	import { cachedSatsFromUsd } from '$lib/utils/nostr-bid';
+	import { satsFromUsd } from '$lib/utils/helpers/crypto';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { formatStandardDateTime, parseDateWithLocalTime } from '$lib/utils/helpers/dateFormatter';
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
 	import BidAcceptanceForm from '$lib/components/bidding/BidAcceptanceForm.svelte';
-	import BidCardSkeleton from '$lib/components/bidding/BidCardSkeleton.svelte';
-	import BidLoadingError from '$lib/components/bidding/BidLoadingError.svelte';
 	// import CounterOfferForm from '$lib/components/bidding/CounterOfferForm.svelte';
 	import NoBids from '$lib/components/bidding/NoBids.svelte';
 	import Drawer from '$lib/components/Drawer.svelte';
@@ -179,13 +176,7 @@
 			</button>
 		</div>
 	</div>
-	{#if $bidStore.isLoading}
-		<div class="space-y-4">
-			<BidCardSkeleton />
-		</div>
-	{:else if $bidStore.error}
-		<BidLoadingError error={$bidStore.error} onRetry={() => {}} />
-	{:else if bidsSub.events.length === 0}
+	{#if bidsSub.events.length === 0}
 		<NoBids onRetry={() => {}} />
 	{:else}
 		<div class="space-y-4">
@@ -327,7 +318,7 @@
 										${formatNumberWithTwoDecimals(bidContent.amount)}
 									</div>
 									<div class="sm:text-md text-base-content/60 text-sm font-bold">
-										{cachedSatsFromUsd(bidContent.amount, btcPrice.price)} Sats
+										{satsFromUsd(bidContent.amount, btcPrice.price)}
 									</div>
 								</div>
 							</div>
@@ -490,7 +481,7 @@
                                 </button> -->
 
 								<!-- Accept Button -->
-								{#if bid.id === task?.id}
+								{#if bid.id === task?.acceptedBid}
 									<button class="btn btn-success btn-sm flex-1 py-1 sm:flex-none" disabled={true}>
 										<svg
 											xmlns="http://www.w3.org/2000/svg"
@@ -514,24 +505,20 @@
 										onclick={() => handleAcceptBid(bid)}
 										disabled={false}
 									>
-										{#if $bidStore.processingBidIds.has(bid.id)}
-											<span class="loading loading-spinner loading-xs"></span>
-										{:else}
-											<svg
-												xmlns="http://www.w3.org/2000/svg"
-												class="h-4 w-4"
-												fill="none"
-												viewBox="0 0 24 24"
-												stroke="currentColor"
-											>
-												<path
-													stroke-linecap="round"
-													stroke-linejoin="round"
-													stroke-width="2"
-													d="M5 13l4 4L19 7"
-												/>
-											</svg>
-										{/if}
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											class="h-4 w-4"
+											fill="none"
+											viewBox="0 0 24 24"
+											stroke="currentColor"
+										>
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												stroke-width="2"
+												d="M5 13l4 4L19 7"
+											/>
+										</svg>
 										{$t('dashboard.bids.bid_acceptance.accept')}
 									</button>
 								{/if}
