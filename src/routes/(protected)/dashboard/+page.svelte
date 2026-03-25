@@ -291,7 +291,7 @@
 
 <!-- Edit Task Confirmation Modal (outside drawer context) -->
 {#if activeTaskModal === 'edit' && selectedTask}
-	<div class="modal modal-open modal-middle z-80" transition:fade={{ duration: 200 }}>
+	<div class="modal modal-open modal-middle" transition:fade={{ duration: 200 }}>
 		<div class="modal-box max-w-md" transition:scale={{ duration: 200, start: 0.9 }}>
 			<!-- Modal Header -->
 			<div class="mb-6">
@@ -370,7 +370,7 @@
 
 <!-- Delete Task Confirmation Modal (outside drawer context) -->
 {#if activeTaskModal === 'delete' && selectedTask}
-	<div class="modal modal-open modal-middle z-80" transition:fade={{ duration: 200 }}>
+	<div class="modal modal-open modal-middle" transition:fade={{ duration: 200 }}>
 		<div class="modal-box max-w-md" transition:scale={{ duration: 200, start: 0.9 }}>
 			<!-- Modal Header -->
 			<div class="mb-6">
