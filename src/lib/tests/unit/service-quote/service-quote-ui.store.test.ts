@@ -71,7 +71,7 @@ const service: Service = {
 				description: 'Standard package',
 				price: 125,
 				features: ['Logo concepts'],
-				deliveryTime: { min: 2, max: 3, unit: 'day', display: '2-3 days' }
+				deliveryTime: { value: 3, unit: 'day', display: '3 days' }
 			}
 		],
 		addOns: [{ id: 'source-files', name: 'Source files', price: 15 }]
