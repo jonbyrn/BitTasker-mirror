@@ -1,11 +1,16 @@
 import type { Event as NostrEvent } from 'nostr-tools';
 import type { DisputeProposal, EscrowData } from '$lib/types/wallet';
-import type { Attachment } from '$lib/types/task';
+import type { Attachment, Location } from '$lib/types/task';
 import type { EscrowStatus } from '$lib/utils/escrow';
 import type { ServiceAcceptanceSnapshot } from './service-quote';
 
 export type ContractContextType = 'task' | 'service';
 export type ContractPurchaseMode = 'quote' | 'instant_buy';
+export type ContractCreationState =
+	| 'funding_submitted'
+	| 'contract_sync_pending'
+	| 'contract_ready'
+	| 'failed';
 
 export interface ServiceContractPricingSnapshot {
 	serviceVersionRef: string;
@@ -15,8 +20,16 @@ export interface ServiceContractPricingSnapshot {
 	travelFeeUsdt?: string;
 }
 
+export interface ServiceContractLocationSnapshot {
+	mode: 'tasker_location' | 'taskee_location';
+	label: string;
+	location?: Location;
+}
+
 export interface ServiceContractAgreementSnapshot {
 	selectedTierId?: string;
+	selectedTierLabel?: string;
+	serviceLocation?: ServiceContractLocationSnapshot;
 	selectedAddOns?: string[];
 	rushDelivery?: boolean;
 	deliverables?: string;
@@ -27,14 +40,14 @@ export interface ServiceContractAgreementSnapshot {
 
 // Contract permissions - grouped for better organization
 export interface ContractPermissions {
-	canComplete: boolean;         // freelancer can mark as complete
-	canAccept: boolean;           // client can accept completed work
-	canDispute: boolean;          // client can dispute
-	canPropose: boolean;          // either party can propose resolution
-	canAcceptProposal: boolean;   // other party can accept proposal
-	canCancel: boolean;           // either party can cancel
-	canResolveTimelock: boolean;  // either party can resolve after timelock
-	canDelete: boolean;           // ONLY if contract was never funded (no blockchain state, no tx hash)
+	canComplete: boolean; // freelancer can mark as complete
+	canAccept: boolean; // client can accept completed work
+	canDispute: boolean; // client can dispute
+	canPropose: boolean; // either party can propose resolution
+	canAcceptProposal: boolean; // other party can accept proposal
+	canCancel: boolean; // either party can cancel
+	canResolveTimelock: boolean; // either party can resolve after timelock
+	canDelete: boolean; // ONLY if contract was never funded (no blockchain state, no tx hash)
 }
 
 // Main contract event data (content of KINDS.CONTRACT NostrEvent)
@@ -45,6 +58,7 @@ export interface NostrContract {
 	taskDescription?: string;
 	freelancerPubkey: string;
 	clientPubkey: string;
+	clientRskAddress?: string;
 	amount: string; // RBTC amount
 	currency: string; // 'RBTC'
 	status: EscrowStatus; // Use enum instead of string
@@ -95,7 +109,7 @@ export interface ContractEvent extends NostrEvent {
 	statusEvents?: ContractStatusEvent[]; // Attached by queryNostrEvents
 }
 
-// NostrEvent with typed content for CONTRACT_STATUS events  
+// NostrEvent with typed content for CONTRACT_STATUS events
 export interface ContractStatusEvent extends NostrEvent {
 	content: NostrContractStatus;
 }
@@ -128,6 +142,7 @@ export interface CreateContractParams {
 	taskTitle?: string;
 	taskDescription?: string;
 	freelancerPubkey: string;
+	clientRskAddress?: string;
 	amount: string;
 	estimatedStartTime: number;
 	estimatedCompletionTime: number;
@@ -183,8 +198,8 @@ export interface PublishContractStatusParams {
 	proposedFreelancerAmount?: string;
 }
 
-
 export interface ContractCreationEvent {
+	state?: ContractCreationState;
 	escrowId?: string;
 	contractEventId?: string;
 	transactionHash?: string;
@@ -200,6 +215,7 @@ export interface PendingContractCreation {
 	taskTitle?: string;
 	taskDescription?: string;
 	freelancerPubkey: string;
+	clientRskAddress?: string;
 	amount: string;
 	estimatedStartTime: number;
 	estimatedCompletionTime: number;
