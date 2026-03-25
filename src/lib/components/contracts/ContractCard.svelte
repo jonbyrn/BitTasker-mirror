@@ -32,7 +32,10 @@
 		return num.toFixed(4);
 	}
 
-	function formatPriceStacked(amount: string, currentBtcPrice: number): { usd: string; sats: string } {
+	function formatPriceStacked(
+		amount: string,
+		currentBtcPrice: number
+	): { usd: string; sats: string } {
 		const rbtc = parseFloat(amount);
 		if (isNaN(rbtc) || currentBtcPrice <= 0) {
 			return { usd: '$0.00', sats: '0 Sats' };
@@ -45,10 +48,6 @@
 			usd: `$${usdAmount.toFixed(2)}`,
 			sats: `${sats.toLocaleString('en-US')} Sats`
 		};
-	}
-
-	function getRoleBadgeClass(isClient: boolean): string {
-		return isClient ? 'badge-primary' : 'badge-secondary';
 	}
 
 	function getAvailableActionsCount(): number {
@@ -100,9 +99,6 @@
 					>
 						{presentation.cardLabel}
 					</div>
-					<div class="badge {getRoleBadgeClass(contract.isClient)} badge-sm">
-						{contract.isClient ? $t('dashboard.client') : $t('dashboard.freelancer')}
-					</div>
 					{#if import.meta.env.DEV}
 						<div class="badge badge-error badge-sm">
 							{contract.escrowData?.id}
@@ -147,7 +143,7 @@
 
 			<div class="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
 				{#if presentation.isUnknownContext}
-					<div class="text-xs text-base-content/60 sm:mr-2">Read-only contract context</div>
+					<div class="text-base-content/60 text-xs sm:mr-2">Read-only contract context</div>
 				{/if}
 				{#if getAvailableActionsCount() > 0}
 					<ContractActions

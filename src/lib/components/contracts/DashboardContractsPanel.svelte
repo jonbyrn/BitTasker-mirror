@@ -1,4 +1,6 @@
 <script lang="ts">
+	import type { Service } from '$lib/types/service.d';
+	import type { ContractWithEvents } from '$lib/types/contract';
 	import { goto } from '$app/navigation';
 	import { tick } from 'svelte';
 	import { onMount, onDestroy } from 'svelte';
@@ -16,6 +18,9 @@
 	import InfiniteScroll from '$lib/components/InfiniteScroll.svelte';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import { browserNetworkStatus } from '$lib/utils/network-status';
+	import { findMyServices } from '$lib/nostr/findServices';
+	import ServiceFilterSelect from '$lib/components/service/ServiceFilterSelect.svelte';
+	import { parseServiceAddress } from '$lib/utils/service-quote/protocol';
 
 	// MDI Icons for filters
 	import IconCheckAll from '~icons/mdi/check-all';
@@ -42,6 +47,10 @@
 		emptyStateActionLabel = null,
 		emptyStateActionHref = null,
 		emptyStateActionIcon = null,
+		showServiceFilter = false,
+		selectedServiceAddress = null,
+		onServiceFilterChange,
+		onClearFilters,
 		highlightEscrowId = null,
 		onHighlightConsumed,
 		onHighlightMissing
@@ -52,6 +61,10 @@
 		emptyStateActionLabel?: string | null;
 		emptyStateActionHref?: string | null;
 		emptyStateActionIcon?: typeof IconWalletOutline | typeof IconRefresh | null;
+		showServiceFilter?: boolean;
+		selectedServiceAddress?: string | null;
+		onServiceFilterChange?: (serviceAddress: string | null) => void;
+		onClearFilters?: () => void;
 		highlightEscrowId?: string | null;
 		onHighlightConsumed?: (escrowId: string) => void;
 		onHighlightMissing?: (escrowId: string) => void;
@@ -68,18 +81,19 @@
 	const warnedUnknownContextEscrowIds = new SvelteSet<string>();
 
 	let btcPrice = $state<number>(0);
+	let services = $state<Service[]>([]);
 	const isOffline = $derived(!$browserNetworkStatus.online);
-	const showReconnectNotice = $derived(
-		$browserNetworkStatus.online && $browserNetworkStatus.lastTransition === 'online'
-	);
 	const highlightRecoveryPending = $derived(
 		Boolean(highlightEscrowId) && highlightRecoveryInFlightFor === highlightEscrowId
 	);
 	const hasCachedContracts = $derived($contractStore.contracts.length > 0);
-	const contractsRefreshPartial = $derived($contractStore.isLoading && hasCachedContracts);
-	const contractsStaleData = $derived(Boolean($contractStore.error) && hasCachedContracts);
 	const showBlockingLoadingState = $derived($contractStore.isLoading && !hasCachedContracts);
 	const showBlockingErrorState = $derived(Boolean($contractStore.error) && !hasCachedContracts);
+
+	function tr(key: string, fallback: string): string {
+		const value = $t(key);
+		return typeof value === 'string' && value !== key ? value : fallback;
+	}
 
 	// Status filter options - using EscrowStatus enum
 	const statusFilterOptions = $derived([
@@ -166,13 +180,29 @@
 			);
 		}
 
+		if (selectedServiceAddress && contextFilter === 'services') {
+			filtered = filtered.filter((contract) => contractMatchesSelectedService(contract));
+		}
+
 		return filtered;
 	});
 
 	const contextFilterOptions = $derived([
-		{ id: 'all' as const, label: 'All', icon: IconLayersTripleOutline },
-		{ id: 'tasks' as const, label: 'Tasks', icon: IconClipboardTextOutline },
-		{ id: 'services' as const, label: 'Services', icon: IconBriefcaseOutline }
+		{
+			id: 'all' as const,
+			label: tr('dashboard.contracts.context_filters.all', 'All'),
+			icon: IconLayersTripleOutline
+		},
+		{
+			id: 'tasks' as const,
+			label: tr('dashboard.contracts.context_filters.tasks', 'Tasks'),
+			icon: IconClipboardTextOutline
+		},
+		{
+			id: 'services' as const,
+			label: tr('dashboard.contracts.context_filters.services', 'Services'),
+			icon: IconBriefcaseOutline
+		}
 	]);
 
 	// Load contracts on mount
@@ -184,6 +214,63 @@
 			// Set fallback price to 0 so UI shows RBTC amount instead
 			btcPrice = 0;
 		}
+	}
+
+	async function loadServices(): Promise<void> {
+		if (!showServiceFilter) {
+			services = [];
+			return;
+		}
+
+		try {
+			const result = await findMyServices({ limit: 100 });
+			services = result.services;
+		} catch (error) {
+			console.error('Failed to load services for contracts filter:', error);
+			services = [];
+		}
+	}
+
+	function getSelectedServiceStableId(): string | null {
+		if (!selectedServiceAddress) {
+			return null;
+		}
+
+		try {
+			return parseServiceAddress(selectedServiceAddress).dTag;
+		} catch {
+			return null;
+		}
+	}
+
+	function contractMatchesSelectedService(contract: ContractWithEvents): boolean {
+		const content = contract.contractEvent.content as Record<string, unknown>;
+		const contractServiceAddress =
+			typeof content.serviceAddress === 'string' ? content.serviceAddress : null;
+		if (contractServiceAddress && contractServiceAddress === selectedServiceAddress) {
+			return true;
+		}
+
+		const selectedServiceStableId = getSelectedServiceStableId();
+		if (!selectedServiceStableId) {
+			return false;
+		}
+
+		const contractServiceStableId =
+			(typeof content.serviceId === 'string' && content.serviceId) ||
+			(typeof content.contextId === 'string' && content.contextId) ||
+			(() => {
+				if (!contractServiceAddress) {
+					return null;
+				}
+				try {
+					return parseServiceAddress(contractServiceAddress).dTag;
+				} catch {
+					return null;
+				}
+			})();
+
+		return contractServiceStableId === selectedServiceStableId;
 	}
 
 	function getTaskStatusFromStores(taskId: string): string | undefined {
@@ -231,7 +318,7 @@
 			// Continue anyway - contracts will handle wallet initialization individually
 		}
 
-		await Promise.all([contractStore.loadContracts(), fetchBtcPrice()]);
+		await Promise.all([contractStore.loadContracts(), fetchBtcPrice(), loadServices()]);
 
 		// Self-heal: sync Nostr task status for FundsReleased contracts (docs/tasks/task-status.md)
 		runTaskStatusReconciliation();
@@ -285,6 +372,8 @@
 		statusFilter = 'all';
 		roleFilter = 'all';
 		contextFilter = 'all';
+		onServiceFilterChange?.(null);
+		onClearFilters?.();
 	}
 
 	function handleClickOutside(event: MouseEvent) {
@@ -359,8 +448,6 @@
 					`[data-contract-escrow-id="${highlightEscrowId}"]`
 				);
 				element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-				$contractStore.contract = matchingContract;
-				$contractStore.isDrawerOpen = true;
 				lastHandledHighlight = highlightEscrowId;
 				onHighlightConsumed?.(highlightEscrowId);
 			})();
@@ -389,61 +476,6 @@
 <div class="space-y-6">
 	<!-- Filters container with same design as TasksPanel -->
 	<div class="border-base-300/60 bg-base-100/40 mt-2 rounded-3xl border p-4 shadow-sm">
-		{#if isOffline}
-			<div class="alert alert-warning mb-4 text-sm" data-testid="contracts-panel-offline-alert">
-				<span>You are offline. Reconnect before refreshing or opening updated contract state.</span>
-			</div>
-		{:else if showReconnectNotice}
-			<div class="alert alert-info mb-4 text-sm" data-testid="contracts-panel-reconnect-alert">
-				<span>Back online. Refresh contracts if the latest status has not appeared yet.</span>
-			</div>
-		{/if}
-
-		{#if highlightRecoveryPending}
-			<div
-				class="alert alert-info mb-4 text-sm"
-				data-testid="contracts-panel-highlight-syncing-alert"
-			>
-				<span
-					>Opening the highlighted contract. Waiting for the latest service contract data to sync.</span
-				>
-			</div>
-		{/if}
-
-		{#if contractsRefreshPartial}
-			<div class="alert alert-info mb-4 text-sm" data-testid="contracts-panel-partial-alert">
-				<span>
-					Refreshing contracts. Showing last known contract data until the latest relay and chain
-					state finish syncing.
-				</span>
-			</div>
-		{/if}
-
-		{#if $contractStore.error}
-			<div
-				class={`alert mb-4 flex items-center justify-between gap-3 text-sm ${
-					contractsStaleData ? 'alert-warning' : 'alert-error'
-				}`}
-				data-testid={contractsStaleData ? 'contracts-panel-stale-alert' : undefined}
-			>
-				<span>
-					{#if contractsStaleData}
-						Showing last known contract data. {$contractStore.error}
-					{:else}
-						{$contractStore.error}
-					{/if}
-				</span>
-				<button
-					type="button"
-					class="btn btn-ghost btn-xs"
-					onclick={() => refreshContracts()}
-					disabled={$contractStore.isLoading || isOffline || highlightRecoveryPending}
-				>
-					Retry
-				</button>
-			</div>
-		{/if}
-
 		<!-- Header with refresh button and top-level filters -->
 		<div class="mb-3 flex items-center justify-between gap-2">
 			<div class="flex flex-wrap gap-2">
@@ -497,6 +529,23 @@
 				{/if}
 			</button>
 		</div>
+
+		{#if showServiceFilter && (contextFilter === 'services' || selectedServiceAddress)}
+			<div class="mb-4">
+				<ServiceFilterSelect
+					{services}
+					{selectedServiceAddress}
+					filterLabel={tr('dashboard.contracts.filter_by_service', 'Filter by service')}
+					allServicesLabel={tr('dashboard.contracts.all_services', 'All Services')}
+					deletedServiceLabel={tr(
+						'dashboard.services.my_services.quote_inbox.deleted_service_prefix',
+						'Deleted service'
+					)}
+					testId="contracts-service-filter"
+					onChange={(serviceAddress) => onServiceFilterChange?.(serviceAddress)}
+				/>
+			</div>
+		{/if}
 
 		<!-- Mobile: Status Filter Dropdown -->
 		<div class="status-dropdown-container relative mt-4 sm:hidden">
@@ -630,7 +679,7 @@
 						: $t('dashboard.contracts.try_different_filters')}
 					actionLabel={$contractStore.contracts.length === 0
 						? (emptyStateActionLabel ?? $t('dashboard.manage_wallet'))
-						: $t('find_tasks.clear_filters')}
+						: $t('dashboard.contracts.clear_filters')}
 					actionIcon={$contractStore.contracts.length === 0
 						? (emptyStateActionIcon ?? IconWalletOutline)
 						: IconRefresh}

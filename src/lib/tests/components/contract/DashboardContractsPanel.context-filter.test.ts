@@ -3,6 +3,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/svelte';
 import { get } from 'svelte/store';
 import DashboardContractsPanel from '$lib/components/contracts/DashboardContractsPanel.svelte';
 import type { ContractWithEvents, NostrContract } from '$lib/types/contract';
+import type { Service } from '$lib/types/service.d';
 import { EscrowStatus } from '$lib/utils/escrow';
 
 type MockContractStoreState = {
@@ -15,66 +16,75 @@ type MockContractStoreState = {
 	isLoadingMore: boolean;
 };
 
-const { contractStoreState, contractStore, scrollStore, goto } = vi.hoisted(() => {
-	let value: MockContractStoreState = {
-		contracts: [],
-		contract: null,
-		isDrawerOpen: false,
-		isLoading: false,
-		error: null,
-		hasMore: false,
-		isLoadingMore: false
-	};
-	const subscribers = new Set<(value: typeof value) => void>();
-	const state = {
-		subscribe(run: (value: typeof value) => void) {
-			run(value);
-			subscribers.add(run);
-			return () => subscribers.delete(run);
-		},
-		set(next: typeof value) {
-			value = next;
-			subscribers.forEach((run) => run(value));
-		},
-		update(updater: (value: typeof value) => typeof value) {
-			state.set(updater(value));
-		}
-	};
+const { contractStoreState, contractStore, scrollStore, goto, mockFindMyServices } = vi.hoisted(
+	() => {
+		let value: MockContractStoreState = {
+			contracts: [],
+			contract: null,
+			isDrawerOpen: false,
+			isLoading: false,
+			error: null,
+			hasMore: false,
+			isLoadingMore: false
+		};
+		const subscribers = new Set<(value: typeof value) => void>();
+		const state = {
+			subscribe(run: (value: typeof value) => void) {
+				run(value);
+				subscribers.add(run);
+				return () => subscribers.delete(run);
+			},
+			set(next: typeof value) {
+				value = next;
+				subscribers.forEach((run) => run(value));
+			},
+			update(updater: (value: typeof value) => typeof value) {
+				state.set(updater(value));
+			}
+		};
 
-	return {
-		contractStoreState: state,
-		contractStore: {
-			subscribe: state.subscribe,
-			set: state.set,
-			update: state.update,
-			getContractKey: vi.fn((contract: ContractWithEvents, key: string) => {
-				const content = contract.contractEvent.content as NostrContract & Record<string, unknown>;
-				if (key === 'otherPartyNpub') return 'npub1counterparty';
-				if (key === 'estimatedCompletionTime') return content.estimatedCompletionTime;
-				if (key === 'amount') return content.amount;
-				if (key === 'taskTitle' || key === 'contextTitle') return content.contextTitle;
-				if (key === 'taskDescription' || key === 'contextDescription')
-					return content.contextDescription;
-				const value = content[key];
-				return typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean'
-					? value
-					: undefined;
-			}),
-			loadContracts: vi.fn().mockResolvedValue(undefined),
-			loadMoreContracts: vi.fn().mockResolvedValue(undefined),
-			loadContractByEscrowId: vi.fn().mockResolvedValue(undefined),
-			unsubscribeFromStatusUpdates: vi.fn(),
-			unsubscribeFromNewContracts: vi.fn()
-		},
-		scrollStore: {
-			update: vi.fn()
-		},
-		goto: vi.fn()
-	};
-});
+		return {
+			contractStoreState: state,
+			contractStore: {
+				subscribe: state.subscribe,
+				set: state.set,
+				update: state.update,
+				getContractKey: vi.fn((contract: ContractWithEvents, key: string) => {
+					const content = contract.contractEvent.content as NostrContract & Record<string, unknown>;
+					if (key === 'otherPartyNpub') return 'npub1counterparty';
+					if (key === 'estimatedCompletionTime') return content.estimatedCompletionTime;
+					if (key === 'amount') return content.amount;
+					if (key === 'taskTitle' || key === 'contextTitle') return content.contextTitle;
+					if (key === 'taskDescription' || key === 'contextDescription')
+						return content.contextDescription;
+					const value = content[key];
+					return typeof value === 'string' ||
+						typeof value === 'number' ||
+						typeof value === 'boolean'
+						? value
+						: undefined;
+				}),
+				loadContracts: vi.fn().mockResolvedValue(undefined),
+				loadMoreContracts: vi.fn().mockResolvedValue(undefined),
+				loadContractByEscrowId: vi.fn().mockResolvedValue(undefined),
+				unsubscribeFromStatusUpdates: vi.fn(),
+				unsubscribeFromNewContracts: vi.fn()
+			},
+			scrollStore: {
+				update: vi.fn()
+			},
+			goto: vi.fn(),
+			mockFindMyServices: vi.fn()
+		};
+	}
+);
 
 vi.mock('$app/navigation', () => ({
 	goto
+}));
+
+vi.mock('$lib/nostr/findServices', () => ({
+	findMyServices: (...args: Parameters<typeof mockFindMyServices>) => mockFindMyServices(...args)
 }));
 
 vi.mock('$lib/stores/contract.store', () => ({
@@ -176,6 +186,7 @@ function buildContract(
 		isClient?: boolean;
 		title?: string;
 		description?: string;
+		purchaseMode?: 'instant_buy' | 'quote';
 	} = {}
 ): ContractWithEvents {
 	return {
@@ -199,6 +210,7 @@ function buildContract(
 				escrowId: id,
 				amount: '0.01',
 				contextType,
+				purchaseMode: options.purchaseMode,
 				contextTitle:
 					options.title ?? (contextType === 'service' ? 'Service Contract' : 'Task Contract'),
 				contextDescription:
@@ -208,6 +220,29 @@ function buildContract(
 			}
 		}
 	} as unknown as ContractWithEvents;
+}
+
+function buildService(overrides: Partial<Service> = {}): Service {
+	return {
+		id: 'service-event-1',
+		uniqueId: 'service-123',
+		npub: 'a'.repeat(64),
+		status: 'active',
+		title: 'Brand Identity Sprint',
+		description: 'Logo, color palette, and social avatar pack.',
+		portfolio: [],
+		serviceLocationTypes: [],
+		pricing: {
+			type: 'FIXED',
+			currency: 'USDt',
+			amount: 200
+		},
+		skills: [],
+		categories: [],
+		createdAt: 1_700_000_000,
+		eventKind: 30402,
+		...overrides
+	} as Service;
 }
 
 function buildUnknownContextContract(): ContractWithEvents {
@@ -235,6 +270,9 @@ describe('DashboardContractsPanel context filter', () => {
 
 	beforeEach(() => {
 		vi.clearAllMocks();
+		mockFindMyServices.mockResolvedValue({
+			services: [buildService()]
+		});
 		setNavigatorOnline(true);
 		Element.prototype.scrollIntoView = vi.fn();
 		contractStoreState.set({
@@ -265,8 +303,50 @@ describe('DashboardContractsPanel context filter', () => {
 		});
 
 		const state = get(contractStoreState);
-		expect(state.isDrawerOpen).toBe(true);
-		expect(state.contract.escrowData.id).toBe('svc-1');
+		expect(state.isDrawerOpen).toBe(false);
+		expect(state.contract).toBeNull();
+	});
+
+	it('renders service contracts with a single Book Now badge, no role badge, and a non-heading title', async () => {
+		contractStoreState.set({
+			contracts: [
+				buildContract('svc-book-now', 'service', {
+					isClient: false,
+					title: 'Brand Identity Sprint',
+					description: 'Logo system and social avatar pack.',
+					purchaseMode: 'instant_buy'
+				})
+			],
+			contract: null,
+			isDrawerOpen: false,
+			isLoading: false,
+			error: null,
+			hasMore: false,
+			isLoadingMore: false
+		});
+
+		const { container } = render(DashboardContractsPanel, {
+			initialContext: 'services',
+			showRoleFilters: false,
+			fixedRole: 'freelancer'
+		});
+
+		expect(await screen.findByText('Brand Identity Sprint')).toBeTruthy();
+		expect(screen.getAllByText('Book Now')).toHaveLength(1);
+		expect(screen.queryByText('dashboard.client')).toBeNull();
+		expect(screen.queryByText('dashboard.freelancer')).toBeNull();
+		expect(
+			screen.queryByRole('heading', {
+				name: 'Brand Identity Sprint'
+			})
+		).toBeNull();
+
+		const titleNode = container.querySelector('.card-title');
+		expect(titleNode?.tagName).not.toBe('H1');
+		expect(titleNode?.tagName).not.toBe('H2');
+		expect(titleNode?.tagName).not.toBe('H3');
+		expect(titleNode?.tagName).not.toBe('H4');
+		expect(titleNode?.textContent).toContain('Brand Identity Sprint');
 	});
 
 	it('switches between task and service context filters', async () => {
@@ -429,9 +509,72 @@ describe('DashboardContractsPanel context filter', () => {
 		});
 
 		expect(screen.getByText('dashboard.contracts.no_filtered_contracts')).toBeInTheDocument();
-		await fireEvent.click(screen.getByRole('button', { name: 'find_tasks.clear_filters' }));
+		await fireEvent.click(
+			screen.getByRole('button', { name: 'dashboard.contracts.clear_filters' })
+		);
 
 		expect(screen.getAllByText('Task Contract').length).toBeGreaterThan(0);
+	});
+
+	it('filters service contracts by the selected service address in the earnings view', async () => {
+		const matchingService = buildService();
+		const selectedServiceAddress = `30402:${matchingService.npub}:${matchingService.uniqueId}`;
+		const matchingContract = buildContract('svc-match', 'service', {
+			isClient: false,
+			title: 'Matching Service Contract'
+		});
+		const otherContract = buildContract('svc-other', 'service', {
+			isClient: false,
+			title: 'Other Service Contract'
+		});
+
+		contractStoreState.set({
+			contracts: [
+				{
+					...matchingContract,
+					contractEvent: {
+						content: {
+							...matchingContract.contractEvent.content,
+							serviceId: 'service-123',
+							contextId: 'service-123',
+							serviceAddress: selectedServiceAddress
+						}
+					}
+				} as ContractWithEvents,
+				{
+					...otherContract,
+					contractEvent: {
+						content: {
+							...otherContract.contractEvent.content,
+							serviceId: 'service-456',
+							contextId: 'service-456',
+							serviceAddress: `30402:${'b'.repeat(64)}:service-456`
+						}
+					}
+				} as ContractWithEvents
+			],
+			contract: null,
+			isDrawerOpen: false,
+			isLoading: false,
+			error: null,
+			hasMore: false,
+			isLoadingMore: false
+		});
+
+		render(DashboardContractsPanel, {
+			initialContext: 'services',
+			showRoleFilters: false,
+			fixedRole: 'freelancer',
+			showServiceFilter: true,
+			selectedServiceAddress
+		});
+
+		await waitFor(() => {
+			expect(mockFindMyServices).toHaveBeenCalled();
+		});
+		expect(screen.getByTestId('contracts-service-filter')).toBeInTheDocument();
+		expect(screen.getByText('Matching Service Contract')).toBeInTheDocument();
+		expect(screen.queryByText('Other Service Contract')).toBeNull();
 	});
 
 	it('retries highlight recovery once before reporting a missing contract', async () => {
@@ -453,7 +596,7 @@ describe('DashboardContractsPanel context filter', () => {
 		expect(contractStore.loadContractByEscrowId).toHaveBeenCalledTimes(1);
 	});
 
-	it('shows a syncing notice while highlighted-contract recovery is in flight', async () => {
+	it('keeps highlighted-contract recovery silent while it is in flight', async () => {
 		let resolveRecovery: (() => void) | null = null;
 		vi.mocked(contractStore.loadContractByEscrowId).mockImplementationOnce(
 			() =>
@@ -472,7 +615,7 @@ describe('DashboardContractsPanel context filter', () => {
 		await waitFor(() => {
 			expect(contractStore.loadContractByEscrowId).toHaveBeenCalledWith('svc-recovering');
 		});
-		expect(screen.getByTestId('contracts-panel-highlight-syncing-alert')).toBeInTheDocument();
+		expect(screen.queryByTestId('contracts-panel-highlight-syncing-alert')).toBeNull();
 		expect(onHighlightMissing).not.toHaveBeenCalled();
 
 		resolveRecovery?.();
@@ -497,18 +640,20 @@ describe('DashboardContractsPanel context filter', () => {
 		});
 
 		await waitFor(() => {
-			expect(screen.getByTestId('contracts-panel-highlight-syncing-alert')).toBeInTheDocument();
+			expect(contractStore.loadContractByEscrowId).toHaveBeenCalledWith('svc-recovering');
 		});
 		expect(screen.getByRole('button', { name: 'dashboard.contracts.refresh' })).toBeDisabled();
 
 		resolveRecovery?.();
 
 		await waitFor(() => {
-			expect(screen.queryByTestId('contracts-panel-highlight-syncing-alert')).toBeNull();
+			expect(
+				screen.getByRole('button', { name: 'dashboard.contracts.refresh' })
+			).not.toBeDisabled();
 		});
 	});
 
-	it('keeps cached contracts visible while a refresh is in flight and shows a partial-sync alert', () => {
+	it('keeps cached contracts visible while a refresh is in flight without showing a filter-card alert', () => {
 		contractStoreState.set({
 			contracts: [buildContract('svc-1', 'service')],
 			contract: null,
@@ -523,7 +668,7 @@ describe('DashboardContractsPanel context filter', () => {
 			initialContext: 'services'
 		});
 
-		expect(screen.getByTestId('contracts-panel-partial-alert')).toBeInTheDocument();
+		expect(screen.queryByTestId('contracts-panel-partial-alert')).toBeNull();
 		expect(screen.getAllByText('Service Contract').length).toBeGreaterThan(0);
 	});
 
@@ -556,7 +701,7 @@ describe('DashboardContractsPanel context filter', () => {
 		warnSpy.mockRestore();
 	});
 
-	it('surfaces contract load errors with an inline retry action', async () => {
+	it('keeps cached contracts visible without a filter-card error alert when refresh fails', async () => {
 		contractStoreState.set({
 			contracts: [buildContract('svc-1', 'service')],
 			contract: null,
@@ -574,17 +719,14 @@ describe('DashboardContractsPanel context filter', () => {
 		await waitFor(() => {
 			expect(contractStore.loadContracts).toHaveBeenCalled();
 		});
-		vi.mocked(contractStore.loadContracts).mockClear();
 		expect(
-			screen.getByText('Showing last known contract data. contracts query failed')
-		).toBeTruthy();
-		expect(screen.getByTestId('contracts-panel-stale-alert')).toBeInTheDocument();
+			screen.queryByText('Showing last known contract data. contracts query failed')
+		).toBeNull();
+		expect(screen.queryByTestId('contracts-panel-stale-alert')).toBeNull();
 		expect(screen.getAllByText('Service Contract').length).toBeGreaterThan(0);
-		await fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
-		expect(contractStore.loadContracts).toHaveBeenCalledTimes(1);
 	});
 
-	it('keeps refresh and retry disabled in-context while offline', async () => {
+	it('keeps refresh disabled while offline without showing a filter-card alert', async () => {
 		contractStoreState.set({
 			contracts: [buildContract('svc-1', 'service')],
 			contract: null,
@@ -603,13 +745,36 @@ describe('DashboardContractsPanel context filter', () => {
 		window.dispatchEvent(new Event('offline'));
 
 		await waitFor(() => {
-			expect(screen.getByTestId('contracts-panel-offline-alert')).toBeInTheDocument();
+			expect(screen.getByRole('button', { name: 'dashboard.contracts.refresh' })).toBeDisabled();
 		});
-		expect(screen.getByRole('button', { name: 'dashboard.contracts.refresh' })).toBeDisabled();
-		expect(screen.getByRole('button', { name: 'Retry' })).toBeDisabled();
+		expect(screen.queryByTestId('contracts-panel-offline-alert')).toBeNull();
 	});
 
-	it('shows reconnect guidance after the contracts panel returns online', async () => {
+	it('shows only the lower blocking error state when contracts fail before any data loads', async () => {
+		contractStoreState.set({
+			contracts: [],
+			contract: null,
+			isDrawerOpen: false,
+			isLoading: false,
+			error: 'passkey lookup failed',
+			hasMore: false,
+			isLoadingMore: false
+		});
+
+		render(DashboardContractsPanel, {
+			initialContext: 'services'
+		});
+
+		await waitFor(() => {
+			expect(screen.getByText('dashboard.contracts.error_title')).toBeInTheDocument();
+		});
+
+		expect(screen.getByText('passkey lookup failed')).toBeInTheDocument();
+		expect(screen.queryByTestId('contracts-panel-stale-alert')).toBeNull();
+		expect(screen.getAllByRole('button', { name: 'dashboard.contracts.retry' })).toHaveLength(1);
+	});
+
+	it('does not show a filter-card reconnect alert after the contracts panel returns online', async () => {
 		render(DashboardContractsPanel, {
 			initialContext: 'services'
 		});
@@ -620,7 +785,10 @@ describe('DashboardContractsPanel context filter', () => {
 		window.dispatchEvent(new Event('online'));
 
 		await waitFor(() => {
-			expect(screen.getByTestId('contracts-panel-reconnect-alert')).toBeInTheDocument();
+			expect(
+				screen.getByRole('button', { name: 'dashboard.contracts.refresh' })
+			).not.toBeDisabled();
 		});
+		expect(screen.queryByTestId('contracts-panel-reconnect-alert')).toBeNull();
 	});
 });
