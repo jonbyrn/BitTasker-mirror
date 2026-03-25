@@ -149,7 +149,8 @@
 			navigateToEarning({
 				tab: 'contracts',
 				context: contractsContext,
-				highlight: null
+				highlight: null,
+				service: selectedServiceAddress
 			});
 			return;
 		}
@@ -210,13 +211,34 @@
 		navigateToEarning({
 			tab: 'contracts',
 			context: contractsContext,
-			highlight: null
+			highlight: null,
+			service: selectedServiceAddress
 		});
 	}
 
 	function handleContractsHighlightMissing() {
 		nonBlockingMessageCode = 'contracts_highlight_not_found';
 		handleContractsHighlightConsumed();
+	}
+
+	function handleContractsServiceFilterChange(serviceAddress: string | null) {
+		nonBlockingMessageCode = null;
+		navigateToEarning({
+			tab: 'contracts',
+			context: serviceAddress ? 'services' : contractsContext,
+			highlight: null,
+			service: serviceAddress
+		});
+	}
+
+	function handleContractsFiltersReset() {
+		nonBlockingMessageCode = null;
+		navigateToEarning({
+			tab: 'contracts',
+			context: 'all',
+			highlight: null,
+			service: null
+		});
 	}
 </script>
 
@@ -249,7 +271,7 @@
 					fill="none"
 					viewBox="0 0 24 24"
 					stroke="currentColor"
-					aria-label="Wallet icon"
+					aria-label={$t('dashboard.page.wallet_icon_alt')}
 				>
 					<path
 						stroke-linecap="round"
@@ -285,9 +307,15 @@
 		<div class="alert alert-info my-4 text-sm">
 			<span>
 				{#if nonBlockingMessageCode === 'service_quotes_request_not_found'}
-					The selected service quote thread could not be found.
+					{translateOrFallback(
+						'dashboard.earning.messages.service_quotes_request_not_found',
+						'The selected service quote thread could not be found.'
+					)}
 				{:else if nonBlockingMessageCode === 'contracts_highlight_not_found'}
-					The requested contract highlight could not be found.
+					{translateOrFallback(
+						'dashboard.earning.messages.contracts_highlight_not_found',
+						'The requested contract highlight could not be found.'
+					)}
 				{/if}
 			</span>
 		</div>
@@ -327,6 +355,10 @@
 				initialContext={contractsContext}
 				showRoleFilters={false}
 				fixedRole="freelancer"
+				showServiceFilter={true}
+				{selectedServiceAddress}
+				onServiceFilterChange={handleContractsServiceFilterChange}
+				onClearFilters={handleContractsFiltersReset}
 				emptyStateActionLabel={translateOrFallback('dashboard.find_task', 'Find Tasks')}
 				emptyStateActionHref="/tasks"
 				highlightEscrowId={currentContractsHighlight}

@@ -192,7 +192,7 @@
 			>
 				<span>
 					{tr(
-						'dashboard.service_requests.service_unavailable_read_only',
+						'dashboard.service_requests.alerts.service_unavailable_read_only',
 						'This service was deleted by the provider. The request is now read-only.'
 					)}
 				</span>

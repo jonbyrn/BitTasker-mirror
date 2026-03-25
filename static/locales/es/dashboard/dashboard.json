@@ -37,16 +37,31 @@
 		},
 		"hiring": {
 			"title": "Contratación",
-			"description": "Gestiona tus tareas, solicitudes de servicio y contratos."
+			"description": "Gestiona tus tareas, solicitudes de servicio y contratos.",
+			"page_title": "Contratación | BitTasker",
+			"page_description": "Gestiona tu actividad de contratación, tareas y solicitudes de servicio en BitTasker.",
+			"messages": {
+				"quotes_request_not_found": "No se pudo encontrar el hilo de cotización solicitado.",
+				"service_quotes_request_not_found": "No se pudo encontrar el hilo de cotización del servicio seleccionado.",
+				"contracts_highlight_not_found": "No se pudo encontrar el contrato resaltado solicitado.",
+				"service_quote_protocol_pending": "La integración del protocolo de cotizaciones de servicios sigue pendiente; por ahora se muestra el estado local de la interfaz."
+			}
 		},
 		"earning": {
 			"title": "Ganancias",
-			"description": "Sigue tus ofertas, solicitudes entrantes, contratos y servicios."
+			"description": "Sigue tus ofertas, solicitudes entrantes, contratos y servicios.",
+			"page_title": "Ganancias | BitTasker",
+			"page_description": "Gestiona tu actividad de ganancias, ofertas, servicios y contratos en BitTasker.",
+			"messages": {
+				"service_quotes_request_not_found": "No se pudo encontrar el hilo de cotización del servicio seleccionado.",
+				"contracts_highlight_not_found": "No se pudo encontrar el contrato solicitado."
+			}
 		},
 		"saved_searches": {
 			"filter_label": "Filtrar por tipo",
 			"tasks": "Tareas",
-			"services": "Servicios"
+			"services": "Servicios",
+			"apply_search": "Aplicar búsqueda: {name}"
 		},
 		"service_requests": {
 			"status_heading": "Filtrar por estado de la solicitud",
@@ -109,6 +124,8 @@
 				"expired": "Expirada"
 			},
 			"alerts": {
+				"service_unavailable_read_only": "Este servicio fue eliminado por el proveedor. La solicitud ahora es de solo lectura.",
+				"service_unavailable": "Algunos servicios fueron eliminados por el proveedor. Esas solicitudes siguen visibles como historial de solo lectura, salvo que ya exista un contrato.",
 				"partial_sync": "Los datos más recientes del hilo de cotización aún se están propagando entre relés. Se muestran resultados parciales hasta que el hilo termine de sincronizarse.",
 				"stale": "Se muestran tus últimos datos conocidos de cotizaciones. Actualiza antes de actuar sobre las propuestas porque no se completó la sincronización más reciente con los relés.",
 				"offline": "Estás sin conexión. Vuelve a conectarte antes de revisar o actuar sobre las propuestas de servicio.",
@@ -230,7 +247,8 @@
 		},
 		"page": {
 			"search_icon_alt": "Icono de búsqueda",
-			"plus_icon_alt": "Icono de más"
+			"plus_icon_alt": "Icono de más",
+			"wallet_icon_alt": "Icono de billetera"
 		},
 		"find_tasks": {
 			"sign_up_to_bid": "Ofertar",
@@ -605,6 +623,7 @@
 			"error_title": "Error al cargar contratos",
 			"retry": "Reintentar",
 			"refresh": "Actualizar",
+			"clear_filters": "Limpiar filtros",
 			"no_contracts": "No se encontraron contratos",
 			"no_contracts_description": "Aún no tienes contratos. Crea una tarea o haz ofertas en tareas existentes para comenzar.",
 			"no_filtered_contracts": "Ningún contrato coincide con tus filtros",
@@ -613,6 +632,8 @@
 			"filter_by_status": "Filtrar por estado",
 			"filter_by_status_and_role": "Filtrar por estado y rol",
 			"filter_description": "Elige el estado del contrato y tu rol para revisar.",
+			"filter_by_service": "Filtrar por servicio",
+			"all_services": "Todos los servicios",
 			"all_roles": "Todos",
 			"all_statuses": "Todos los estados",
 			"as_client": "Tasker",
@@ -649,6 +670,45 @@
 			"bid_info_not_available": "La información de la oferta original no está disponible para este contrato.",
 			"available_actions": "Acciones Disponibles",
 			"no_actions_available": "No hay acciones disponibles",
+			"context_filters": {
+				"all": "Todos",
+				"tasks": "Tareas",
+				"services": "Servicios"
+			},
+			"alerts": {
+				"offline": "Estás sin conexión. Vuelve a conectarte antes de actualizar o abrir el estado más reciente del contrato.",
+				"reconnect": "Conexión restablecida. Actualiza los contratos si el estado más reciente aún no aparece.",
+				"highlight_syncing": "Abriendo el contrato resaltado. Esperando a que se sincronicen los últimos datos del contrato de servicio.",
+				"partial_refresh": "Actualizando contratos. Se muestran los últimos datos conocidos hasta que terminen de sincronizarse el relay y la cadena.",
+				"stale_prefix": "Se muestran los últimos datos conocidos del contrato. "
+			},
+			"context_summary": {
+				"task_contract": "Contrato de tarea",
+				"tier_prefix": "Nivel"
+			},
+			"wallet_card": {
+				"title": "Saldo de la billetera",
+				"icon_alt": "Bitcoin",
+				"sats_label": "sats",
+				"not_connected": "Billetera no conectada",
+				"available_balance": "Saldo disponible",
+				"required_balance": "Requerido para este contrato"
+			},
+			"service_agreement": {
+				"provider": "Proveedor",
+				"quote_request": "Solicitud de cotización",
+				"proposal": "Propuesta",
+				"instant_order": "Orden instantánea",
+				"selected_tier": "Nivel seleccionado",
+				"included_scope": "Alcance incluido",
+				"add_ons": "Complementos",
+				"rush_delivery": "Entrega urgente",
+				"included": "Incluido",
+				"inquiry_answers": "Respuestas de la consulta",
+				"price_snapshot": "Resumen del precio",
+				"estimated_start": "Inicio estimado",
+				"estimated_end": "Fin estimado"
+			},
 			"status": {
 				"label": "Estado",
 				"active": "Activo",

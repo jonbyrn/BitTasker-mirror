@@ -37,16 +37,31 @@
 		},
 		"hiring": {
 			"title": "Hiring",
-			"description": "Manage your tasks, service requests, and contracts."
+			"description": "Manage your tasks, service requests, and contracts.",
+			"page_title": "Hiring | BitTasker",
+			"page_description": "Manage your hiring activity, tasks, and service requests on BitTasker.",
+			"messages": {
+				"quotes_request_not_found": "The requested quote thread could not be found.",
+				"service_quotes_request_not_found": "The selected service quote thread could not be found.",
+				"contracts_highlight_not_found": "The requested contract highlight could not be found.",
+				"service_quote_protocol_pending": "Service quote protocol wiring is pending; local UI state is being shown for now."
+			}
 		},
 		"earning": {
 			"title": "Earning",
-			"description": "Track your bids, incoming requests, contracts, and service listings."
+			"description": "Track your bids, incoming requests, contracts, and service listings.",
+			"page_title": "Earning | BitTasker",
+			"page_description": "Manage your earning activity, bids, services, and contracts on BitTasker.",
+			"messages": {
+				"service_quotes_request_not_found": "The selected service quote thread could not be found.",
+				"contracts_highlight_not_found": "The requested contract highlight could not be found."
+			}
 		},
 		"saved_searches": {
 			"filter_label": "Filter by type",
 			"tasks": "Tasks",
-			"services": "Services"
+			"services": "Services",
+			"apply_search": "Apply search: {name}"
 		},
 		"service_requests": {
 			"status_heading": "Filter by request status",
@@ -109,6 +124,8 @@
 				"expired": "Expired"
 			},
 			"alerts": {
+				"service_unavailable_read_only": "This service was deleted by the provider. The request is now read-only.",
+				"service_unavailable": "Some services were deleted by the provider. Those requests remain visible as read-only history unless a contract was already created.",
 				"partial_sync": "Latest quote thread data is still propagating across relays. Showing partial results until the thread finishes syncing.",
 				"stale": "Showing your last known quote data. Refresh before acting on proposals because the latest relay sync did not complete.",
 				"offline": "You are offline. Reconnect before reviewing or acting on quote proposals.",
@@ -230,7 +247,8 @@
 		},
 		"page": {
 			"search_icon_alt": "Search icon",
-			"plus_icon_alt": "Plus icon"
+			"plus_icon_alt": "Plus icon",
+			"wallet_icon_alt": "Wallet icon"
 		},
 		"find_tasks": {
 			"sign_up_to_bid": "Bid",
@@ -605,6 +623,7 @@
 			"error_title": "Failed to load contracts",
 			"retry": "Retry",
 			"refresh": "Refresh",
+			"clear_filters": "Clear Filters",
 			"no_contracts": "No contracts found",
 			"no_contracts_description": "You don't have any contracts yet. Create a task or bid on existing tasks to get started.",
 			"no_filtered_contracts": "No contracts match your filters",
@@ -613,6 +632,8 @@
 			"filter_by_status": "Filter by status",
 			"filter_by_status_and_role": "Filter by status & role",
 			"filter_description": "Choose the contract status and your role to review.",
+			"filter_by_service": "Filter by service",
+			"all_services": "All Services",
 			"all_roles": "All",
 			"all_statuses": "All statuses",
 			"as_client": "Tasker",
@@ -649,6 +670,45 @@
 			"bid_info_not_available": "Original bid information is not available for this contract.",
 			"available_actions": "Available Actions",
 			"no_actions_available": "No actions available",
+			"context_filters": {
+				"all": "All",
+				"tasks": "Tasks",
+				"services": "Services"
+			},
+			"alerts": {
+				"offline": "You are offline. Reconnect before refreshing or opening updated contract state.",
+				"reconnect": "Back online. Refresh contracts if the latest status has not appeared yet.",
+				"highlight_syncing": "Opening the highlighted contract. Waiting for the latest service contract data to sync.",
+				"partial_refresh": "Refreshing contracts. Showing last known contract data until the latest relay and chain state finish syncing.",
+				"stale_prefix": "Showing last known contract data. "
+			},
+			"context_summary": {
+				"task_contract": "Task Contract",
+				"tier_prefix": "Tier"
+			},
+			"wallet_card": {
+				"title": "Wallet balance",
+				"icon_alt": "Bitcoin",
+				"sats_label": "sats",
+				"not_connected": "Wallet not connected",
+				"available_balance": "Available balance",
+				"required_balance": "Required for this contract"
+			},
+			"service_agreement": {
+				"provider": "Provider",
+				"quote_request": "Quote request",
+				"proposal": "Proposal",
+				"instant_order": "Instant order",
+				"selected_tier": "Selected tier",
+				"included_scope": "Included scope",
+				"add_ons": "Add-ons",
+				"rush_delivery": "Rush delivery",
+				"included": "Included",
+				"inquiry_answers": "Inquiry answers",
+				"price_snapshot": "Price snapshot",
+				"estimated_start": "Estimated start",
+				"estimated_end": "Estimated end"
+			},
 			"status": {
 				"label": "Status",
 				"active": "Active",

@@ -20,11 +20,8 @@
 </script>
 
 <svelte:head>
-	<title>Hiring | BitTasker</title>
-	<meta
-		name="description"
-		content="Manage your hiring activity, tasks, and service requests on BitTasker."
-	/>
+	<title>{$t('dashboard.hiring.page_title')}</title>
+	<meta name="description" content={$t('dashboard.hiring.page_description')} />
 </svelte:head>
 
 <svelte:window bind:innerWidth={width} />

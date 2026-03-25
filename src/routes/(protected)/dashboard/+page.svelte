@@ -70,18 +70,33 @@
 		}
 	]);
 
-	let activeTabId = $state('tasks');
+	function getInitialRouteState(currentUrl: URL) {
+		const parsed = serviceQuoteUiStore.parseDashboardQuery(currentUrl.searchParams);
+		return {
+			activeTabId: HIRING_TABS.has(parsed.state.tab) ? parsed.state.tab : 'tasks',
+			contractsContext: parsed.state.context,
+			focusedRequestId: parsed.state.requestId,
+			nonBlockingMessageCode: parsed.messageCode,
+			currentContractsHighlight: parsed.state.highlight
+		};
+	}
+
+	const initialRouteState = getInitialRouteState(page.url);
+
+	let activeTabId = $state<DashboardTab>(initialRouteState.activeTabId);
 	const activeTab = $derived(tabs.find((t) => t.id === activeTabId) || tabs[0]);
-	let contractsContext = $state<DashboardContractsContext>('all');
-	let focusedRequestId = $state<string | null>(null);
+	let contractsContext = $state<DashboardContractsContext>(initialRouteState.contractsContext);
+	let focusedRequestId = $state<string | null>(initialRouteState.focusedRequestId);
 	let taskerTimelines = $state<ReturnType<typeof getTaskerTimelines>>([]);
-	let nonBlockingMessageCode = $state<string | null>(null);
+	let nonBlockingMessageCode = $state<string | null>(initialRouteState.nonBlockingMessageCode);
 	let taskerQuotesStoreSyncing = $state(false);
 	let serviceAcceptanceReplaySyncing = $state(false);
 	const taskerQuotesSyncing = $derived(taskerQuotesStoreSyncing || serviceAcceptanceReplaySyncing);
 	let taskerQuotesError = $state<string | null>(null);
 	let taskerQuotesLoaded = $state(false);
-	let currentContractsHighlight = $state<string | null>(null);
+	let currentContractsHighlight = $state<string | null>(
+		initialRouteState.currentContractsHighlight
+	);
 	const attemptedServiceAcceptanceReplays = new SvelteSet<string>();
 	const inFlightServiceAcceptanceReplays = new SvelteSet<string>();
 
@@ -520,7 +535,7 @@
 					fill="none"
 					viewBox="0 0 24 24"
 					stroke="currentColor"
-					aria-label="Wallet icon"
+					aria-label={$t('dashboard.page.wallet_icon_alt')}
 				>
 					<path
 						stroke-linecap="round"
@@ -557,13 +572,25 @@
 		<div class="alert alert-info my-4 text-sm">
 			<span>
 				{#if nonBlockingMessageCode === 'quotes_request_not_found'}
-					The requested quote thread could not be found.
+					{translateOrFallback(
+						'dashboard.hiring.messages.quotes_request_not_found',
+						'The requested quote thread could not be found.'
+					)}
 				{:else if nonBlockingMessageCode === 'service_quotes_request_not_found'}
-					The selected service quote thread could not be found.
+					{translateOrFallback(
+						'dashboard.hiring.messages.service_quotes_request_not_found',
+						'The selected service quote thread could not be found.'
+					)}
 				{:else if nonBlockingMessageCode === 'contracts_highlight_not_found'}
-					The requested contract highlight could not be found.
+					{translateOrFallback(
+						'dashboard.hiring.messages.contracts_highlight_not_found',
+						'The requested contract highlight could not be found.'
+					)}
 				{:else}
-					Service quote protocol wiring is pending; local UI state is being shown for now.
+					{translateOrFallback(
+						'dashboard.hiring.messages.service_quote_protocol_pending',
+						'Service quote protocol wiring is pending; local UI state is being shown for now.'
+					)}
 				{/if}
 			</span>
 		</div>

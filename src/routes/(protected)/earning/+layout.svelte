@@ -20,11 +20,8 @@
 </script>
 
 <svelte:head>
-	<title>Earning | BitTasker</title>
-	<meta
-		name="description"
-		content="Manage your earning activity, bids, services, and contracts on BitTasker."
-	/>
+	<title>{$t('dashboard.earning.page_title')}</title>
+	<meta name="description" content={$t('dashboard.earning.page_description')} />
 </svelte:head>
 
 <svelte:window bind:innerWidth={width} />
