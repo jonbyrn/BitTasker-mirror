@@ -7,6 +7,31 @@ import type { Service } from '$lib/types/service.d';
 import type { ServiceQuoteTimelineEntry } from '$lib/types/service-quote';
 import { ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';
 
+vi.mock('svelte-i18n', async () => {
+	const { readable } = await import('svelte/store');
+	return {
+		t: readable((key: string) => {
+			if (key === 'common.cancel') return 'Cancel';
+			if (key === 'common.components.drawer.close') return 'Close';
+			if (key === 'dashboard.find_tasks.avatar_alt') return 'Avatar';
+			if (key === 'common.profile.member_since') return 'Member since';
+			if (key === 'dashboard.services.detail.book_now_drawer.title') return 'Confirm Book Now';
+			if (key === 'dashboard.services.detail.book_now_drawer.confirm_cta') return 'Book Now';
+			if (key === 'dashboard.services.detail.book_now_drawer.day') return 'day';
+			if (key === 'dashboard.services.detail.book_now_drawer.days') return 'days';
+			if (key === 'dashboard.services.detail.book_now_drawer.hour') return 'hour';
+			if (key === 'dashboard.services.detail.book_now_drawer.hours') return 'hours';
+			if (key === 'dashboard.services.detail.book_now_drawer.minute') return 'minute';
+			if (key === 'dashboard.services.detail.book_now_drawer.minutes') return 'minutes';
+			if (key === 'dashboard.services.detail.book_now_drawer.unavailable') return 'N/A';
+			return key;
+		}),
+		locale: readable('en'),
+		locales: readable(['en', 'es']),
+		isLoading: readable(false)
+	};
+});
+
 const service: Service = {
 	id: 'service-event-1',
 	npub: 'b'.repeat(64),
@@ -109,7 +134,7 @@ describe('services accessibility smoke', () => {
 
 		window.dispatchEvent(new Event('offline'));
 
-		expect(screen.getByRole('heading', { name: 'Need a logo refresh' })).toBeTruthy();
+		expect(screen.getByText('Need a logo refresh')).toBeTruthy();
 		return waitFor(() => {
 			expect(screen.getByTestId('my-quotes-offline-alert')).toBeTruthy();
 			expect(screen.getByRole('button', { name: 'Accept' })).toBeDisabled();
@@ -142,6 +167,7 @@ describe('services accessibility smoke', () => {
 			open: true,
 			serviceTitle: 'Premium Logo Package',
 			providerName: 'Designer',
+			amountUsd: 250,
 			isOffline: true,
 			agreementSnapshot: {
 				deliverables: 'Logo system and brand guide',
