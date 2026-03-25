@@ -190,7 +190,10 @@
 
 	async function handleQuoteRequestConfirm(payload: QuoteRequestPayload) {
 		if (!serviceForQuote) {
-			return { success: false, error: 'Service is unavailable.' };
+			return {
+				success: false,
+				error: $t('dashboard.services.browse.quote_request_unavailable')
+			};
 		}
 
 		const result = await serviceQuoteUiStore.submitQuoteRequest({
@@ -201,14 +204,11 @@
 		if (!result.success || !result.quoteRequestId) {
 			return {
 				success: false,
-				error: result.error || 'Unable to submit quote request right now.'
+				error: result.error || $t('dashboard.services.browse.quote_request_submit_error')
 			};
 		}
 
-		// Show success toast before navigation
-		appStore.showSuccessToast(
-			$t('dashboard.services.detail.quote_submitted') || 'Quote request submitted successfully!'
-		);
+		appStore.showSuccessToast($t('dashboard.services.browse.quote_request_submitted'));
 
 		await goto(
 			`/dashboard?tab=quotes&view=tasker&request=${encodeURIComponent(result.quoteRequestId)}`
@@ -699,9 +699,9 @@
 
 	function getSearchPlaceholder(): string {
 		if (searchQuery.length > 0 && searchQuery.length < 3) {
-			return $t('dashboard.services.browse.search_minimum_chars') || 'Type at least 3 characters';
+			return $t('dashboard.services.browse.search_minimum_chars');
 		}
-		return $t('dashboard.services.browse.search_placeholder') || 'Search services...';
+		return $t('dashboard.services.browse.search_placeholder');
 	}
 
 	function getSearchInputClass(): string {
@@ -783,10 +783,17 @@
 						<!-- Accessibility: Announce search results updates -->
 						<div role="status" aria-live="polite" aria-atomic="true" class="sr-only">
 							{#if dataLoaded && !showSkeleton}
-								{$servicesStore.items?.length || 0} services found
-								{hasActiveParams ? 'matching your filters' : 'available'}
+								{#if hasActiveParams}
+									{$t('dashboard.services.browse.live_results_filtered', {
+										values: { count: $servicesStore.items?.length || 0 }
+									})}
+								{:else}
+									{$t('dashboard.services.browse.live_results_available', {
+										values: { count: $servicesStore.items?.length || 0 }
+									})}
+								{/if}
 							{:else if $servicesStore.loading}
-								Loading services...
+								{$t('dashboard.services.browse.live_loading')}
 							{/if}
 						</div>
 
@@ -881,15 +888,14 @@
 									</svg>
 									<div>
 										<h3 class="font-bold">
-											{$t('dashboard.services.browse.loading_timeout_title') || 'Loading Timeout'}
+											{$t('dashboard.services.browse.loading_timeout_title')}
 										</h3>
 										<div class="text-xs">
-											{$t('dashboard.services.browse.loading_timeout_message') ||
-												'Services are taking longer than expected to load.'}
+											{$t('dashboard.services.browse.loading_timeout_message')}
 										</div>
 									</div>
 									<button class="btn btn-sm" onclick={() => window.location.reload()}>
-										{$t('dashboard.services.browse.refresh') || 'Refresh'}
+										{$t('dashboard.services.browse.refresh')}
 									</button>
 								</div>
 							{:else if $servicesStore.items && $servicesStore.items.length > 0}
@@ -918,7 +924,7 @@
 								<!-- End of Results -->
 								{#if !$servicesStore.hasMore && $servicesStore.items.length > 0}
 									<div class="text-base-content/60 mt-4 mb-12 text-center text-sm">
-										{$t('dashboard.services.browse.no_more_services') || 'No more services to load'}
+										{$t('dashboard.services.browse.no_more_services')}
 									</div>
 								{/if}
 							{:else if dataLoaded && $servicesStore.items.length === 0}
@@ -939,15 +945,14 @@
 										/>
 									</svg>
 									<h3 class="mb-2 text-lg font-semibold">
-										{$t('dashboard.services.browse.no_services_found') || 'No services found'}
+										{$t('dashboard.services.browse.no_services_found')}
 									</h3>
 									<p class="text-base-content/60 text-center text-sm">
-										{$t('dashboard.services.browse.no_services_message') ||
-											'Try adjusting your search or filters to find more services.'}
+										{$t('dashboard.services.browse.no_services_message')}
 									</p>
 									{#if hasActiveParams}
 										<button class="btn btn-primary btn-sm mt-4" onclick={clearFilters}>
-											{$t('dashboard.services.browse.clear_filters') || 'Clear Filters'}
+											{$t('dashboard.services.browse.clear_filters')}
 										</button>
 									{/if}
 								</div>
@@ -959,7 +964,7 @@
 					<aside
 						class="map-container-wrapper hidden min-h-0 overflow-hidden lg:block"
 						data-services-map-column
-						aria-label={$t('dashboard.services.browse.map') || 'Services map'}
+						aria-label={$t('dashboard.services.browse.map')}
 					>
 						{#if mapLoaded && TaskLocationMap}
 							<TaskLocationMap
@@ -986,8 +991,8 @@
 						class="scroll-to-top-button inverted-colors fixed right-4 z-50 flex translate-y-[10px] scale-90 items-center justify-center rounded-4xl p-3 opacity-0 transition-all duration-300 hover:scale-110 hover:opacity-100 hover:brightness-110 active:scale-95 active:opacity-90 lg:hidden"
 						style="bottom: var(--app-bottom-fab);"
 						onclick={scrollToTop}
-						title={$t('dashboard.services.browse.scroll_to_top') || 'Scroll to top'}
-						aria-label={$t('dashboard.services.browse.scroll_to_top') || 'Scroll to top'}
+						title={$t('dashboard.services.browse.scroll_to_top')}
+						aria-label={$t('dashboard.services.browse.scroll_to_top')}
 					>
 						<IconChevronUp class="h-5 w-5" />
 					</button>

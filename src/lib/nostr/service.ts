@@ -15,6 +15,10 @@ import { TranslationService } from '$lib/services/translation.service';
 import { SUPPORTED_LANGUAGES, type SupportedLanguage } from '$lib/i18n/i18n';
 import { ServiceLocationTypeEnum, ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';
 import { createServiceEditConflictError } from '$lib/utils/service-edit-conflict';
+import {
+	normalizeServiceTierDeliveryTimes,
+	tierDeliveryTimeToHours
+} from '$lib/utils/serviceTierDelivery';
 import { nip19 } from 'nostr-tools';
 
 // Translation service instance
@@ -384,23 +388,17 @@ function getLocationDisplayName(serviceData: ServiceBody): string {
  */
 function getDeliveryTimeInHours(pricing: ServicePricing): number | undefined {
 	// Helper to convert delivery time to hours
-	const convertToHours = (deliveryTime: { min: number; max: number; unit: string }): number => {
-		const hoursPerUnit: Record<string, number> = {
-			hour: 1,
-			day: 24,
-			week: 168,
-			month: 720
-		};
-		const multiplier = hoursPerUnit[deliveryTime.unit] || 1;
-		// Use max value for filtering (ensures all services that can deliver within the specified time are included)
-		return deliveryTime.max * multiplier;
-	};
-
 	switch (pricing.type) {
 		case ServicePricingTypeEnum.FIXED:
 		case ServicePricingTypeEnum.HOURLY:
 			if (pricing.deliveryTime) {
-				return convertToHours(pricing.deliveryTime);
+				const hoursPerUnit: Record<string, number> = {
+					hour: 1,
+					day: 24,
+					week: 168,
+					month: 720
+				};
+				return pricing.deliveryTime.max * (hoursPerUnit[pricing.deliveryTime.unit] || 1);
 			}
 			return undefined;
 		case ServicePricingTypeEnum.TIERED:
@@ -408,15 +406,14 @@ function getDeliveryTimeInHours(pricing: ServicePricing): number | undefined {
 			if (pricing.tiers && pricing.tiers.length > 0) {
 				const tierDeliveryTimes = pricing.tiers
 					.map((tier) => tier.deliveryTime)
-					.filter((dt) => dt !== undefined) as Array<{ min: number; max: number; unit: string }>;
+					.filter((dt) => dt !== undefined);
 				if (tierDeliveryTimes.length > 0) {
-					// Find the fastest (lowest max hours)
-					const fastestTier = tierDeliveryTimes.reduce((fastest, current) => {
-						const fastestHours = convertToHours(fastest);
-						const currentHours = convertToHours(current);
-						return currentHours < fastestHours ? current : fastest;
-					});
-					return convertToHours(fastestTier);
+					const tierHours = tierDeliveryTimes
+						.map((deliveryTime) => tierDeliveryTimeToHours(deliveryTime))
+						.filter((hours): hours is number => typeof hours === 'number');
+					if (tierHours.length > 0) {
+						return Math.min(...tierHours);
+					}
 				}
 			}
 			return undefined;
@@ -482,23 +479,23 @@ async function generateServiceTags(
 		tags.push(['location_display_name', locationDisplayName]);
 	}
 
-	// Service radius (if tasker_location)
+	// Service radius (if taskee_location / provider travels to the buyer)
 	if (
-		serviceData.serviceLocationTypes.includes(ServiceLocationTypeEnum.TASKER_LOCATION) &&
-		serviceData.locationDetails?.taskerLocation?.serviceRadius
+		serviceData.serviceLocationTypes.includes(ServiceLocationTypeEnum.TASKEE_LOCATION) &&
+		serviceData.locationDetails?.taskeeLocation?.serviceRadius
 	) {
 		tags.push([
 			'service_radius',
-			serviceData.locationDetails.taskerLocation.serviceRadius.toString()
+			serviceData.locationDetails.taskeeLocation.serviceRadius.toString()
 		]);
 	}
 
-	// Per-distance charge (if tasker_location with travel charge)
+	// Per-distance charge (if taskee_location with provider travel charge)
 	if (
-		serviceData.serviceLocationTypes.includes(ServiceLocationTypeEnum.TASKER_LOCATION) &&
-		serviceData.locationDetails?.taskerLocation?.perDistanceCharge
+		serviceData.serviceLocationTypes.includes(ServiceLocationTypeEnum.TASKEE_LOCATION) &&
+		serviceData.locationDetails?.taskeeLocation?.perDistanceCharge
 	) {
-		const charge = serviceData.locationDetails.taskerLocation.perDistanceCharge;
+		const charge = serviceData.locationDetails.taskeeLocation.perDistanceCharge;
 		tags.push(['per_distance_charge', charge.amount.toString(), charge.currency, charge.unit]);
 	}
 
@@ -908,7 +905,9 @@ export async function findServiceByUniqueId(dTag: string): Promise<Service | nul
 			}
 
 			// Parse service data
-			const contentData = JSON.parse(latestEvent.content) as ServiceBody;
+			const contentData = normalizeServiceTierDeliveryTimes(
+				JSON.parse(latestEvent.content) as ServiceBody
+			);
 			const service: Service = {
 				...contentData,
 				id: latestEvent.id,

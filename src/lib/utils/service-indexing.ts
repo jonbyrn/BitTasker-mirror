@@ -51,8 +51,7 @@ export function indexServiceData(services: Service[]): IndexedService[] {
 		if (typeof value === 'string') return normalizeText(value);
 		if (value && typeof value === 'object') {
 			const v = value as Record<string, unknown>;
-			if (typeof v.id === 'string' || typeof v.id === 'number')
-				return normalizeText(String(v.id));
+			if (typeof v.id === 'string' || typeof v.id === 'number') return normalizeText(String(v.id));
 			if (typeof v.name === 'string') return normalizeText(v.name);
 			if (typeof v.title === 'string') return normalizeText(v.title);
 		}
@@ -112,7 +111,10 @@ export function indexServiceData(services: Service[]): IndexedService[] {
 		} else if (service.pricing?.type === ServicePricingTypeEnum.FIXED && service.pricing.amount) {
 			minPrice = service.pricing.amount;
 			maxPrice = service.pricing.amount;
-		} else if (service.pricing?.type === ServicePricingTypeEnum.HOURLY && service.pricing.hourlyRate) {
+		} else if (
+			service.pricing?.type === ServicePricingTypeEnum.HOURLY &&
+			service.pricing.hourlyRate
+		) {
 			minPrice = service.pricing.hourlyRate;
 			maxPrice = service.pricing.hourlyRate;
 		}
@@ -123,14 +125,14 @@ export function indexServiceData(services: Service[]): IndexedService[] {
 			// For tiered pricing, use the maximum delivery time from all tiers
 			const deliveryTimes = service.pricing.tiers
 				.map((tier) => {
-					if (tier.deliveryTime?.max && tier.deliveryTime?.unit) {
+					if (tier.deliveryTime?.value && tier.deliveryTime?.unit) {
 						const hoursPerUnit: Record<string, number> = {
 							hour: 1,
 							day: 24,
 							week: 168,
 							month: 720
 						};
-						return tier.deliveryTime.max * (hoursPerUnit[tier.deliveryTime.unit] || 1);
+						return tier.deliveryTime.value * (hoursPerUnit[tier.deliveryTime.unit] || 1);
 					}
 					return undefined;
 				})
@@ -164,7 +166,9 @@ export function indexServiceData(services: Service[]): IndexedService[] {
 	});
 
 	const indexTime = performance.now() - startTime;
-	console.debug(`[ServiceIndexing] Indexed ${services.length} services in ${indexTime.toFixed(2)}ms`);
+	console.debug(
+		`[ServiceIndexing] Indexed ${services.length} services in ${indexTime.toFixed(2)}ms`
+	);
 
 	return indexedServices;
 }
@@ -215,8 +219,7 @@ export function filterIndexedServices(
 		if (typeof value === 'string') return normalizeText(value);
 		if (value && typeof value === 'object') {
 			const v = value as Record<string, unknown>;
-			if (typeof v.id === 'string' || typeof v.id === 'number')
-				return normalizeText(String(v.id));
+			if (typeof v.id === 'string' || typeof v.id === 'number') return normalizeText(String(v.id));
 			if (typeof v.name === 'string') return normalizeText(v.name);
 			if (typeof v.title === 'string') return normalizeText(v.title);
 		}
@@ -341,7 +344,7 @@ export function filterIndexedServices(
 				const taskerLocation = service.locationDetails?.taskerLocation?.serviceLocation;
 				const taskeeLocation = service.locationDetails?.taskeeLocation?.serviceLocation;
 
-				// For tasker location type, check if within radius
+				// For tasker location type ("At My Location"), match the provider's fixed location
 				if (
 					taskerLocation?.latitude &&
 					taskerLocation?.longitude &&
@@ -353,11 +356,10 @@ export function filterIndexedServices(
 						taskerLocation.latitude,
 						taskerLocation.longitude
 					);
-					const serviceRadius = service.locationDetails?.taskerLocation?.serviceRadius || 0;
-					return distance <= params.radius! + serviceRadius;
+					return distance <= params.radius!;
 				}
 
-				// For taskee location type, check if within radius
+				// For taskee location type ("At Tasker Location"), include the provider travel radius
 				if (
 					taskeeLocation?.latitude &&
 					taskeeLocation?.longitude &&
@@ -369,7 +371,8 @@ export function filterIndexedServices(
 						taskeeLocation.latitude,
 						taskeeLocation.longitude
 					);
-					return distance <= params.radius!;
+					const serviceRadius = service.locationDetails?.taskeeLocation?.serviceRadius || 0;
+					return distance <= params.radius! + serviceRadius;
 				}
 
 				// Remote services are always included
@@ -456,5 +459,3 @@ function sortServices(
 export function cleanupIndexedServices(services: IndexedService[]): Service[] {
 	return services.map(({ ...service }) => service);
 }
-
-

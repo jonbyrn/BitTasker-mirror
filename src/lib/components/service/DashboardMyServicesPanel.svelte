@@ -43,6 +43,7 @@
 	import ServiceDrawer from './ServiceDrawer.svelte';
 	import { createServicesWorkspaceUrl } from '$lib/utils/service-quote/services-workspace-route';
 	import DashboardEmptyState from '$lib/components/shared/DashboardEmptyState.svelte';
+	import ServiceFilterSelect from '$lib/components/service/ServiceFilterSelect.svelte';
 
 	let {
 		view = 'default',
@@ -166,17 +167,6 @@
 			])
 		)
 	);
-	const selectedServiceFilterValue = $derived(selectedServiceAddress ?? '');
-	const selectedServiceLabel = $derived.by(() => {
-		if (!selectedServiceAddress) {
-			return tr('dashboard.services.my_services.workspace.all_services', 'All Services');
-		}
-
-		return (
-			serviceTitleByAddress[selectedServiceAddress] ??
-			tr('dashboard.services.my_services.quote_inbox.deleted_service_prefix', 'Deleted service')
-		);
-	});
 	const activeQuoteServiceAddresses = $derived.by(() =>
 		selectedServiceAddress ? [selectedServiceAddress] : visibleServiceAddresses
 	);
@@ -357,20 +347,6 @@
 		goto(nextUrl.toString());
 	}
 
-	function handleServiceFilterChange(event: Event) {
-		const selectedAddress = (event.currentTarget as HTMLSelectElement).value || null;
-		if (!selectedAddress) {
-			onResolveQuotesRoute?.({ type: 'reset' });
-			return;
-		}
-
-		onResolveQuotesRoute?.({
-			type: 'service',
-			serviceAddress: selectedAddress,
-			requestId: null
-		});
-	}
-
 	function resolveProposalServiceContext(requestId: string) {
 		const matchingTimeline = providerTimelines.find(
 			(entry) => entry.request.content.quoteRequestId === requestId
@@ -440,7 +416,8 @@
 					buildEarningQueryUrl(new URL('/earning', window.location.origin), {
 						tab: 'contracts',
 						context: 'services',
-						highlight: highlightEscrowId
+						highlight: highlightEscrowId,
+						service: buildServiceAddress(service)
 					})
 				)
 			: createDashboardUrl(new URL('/dashboard', window.location.origin), {
@@ -603,7 +580,7 @@
 
 		// Quotes button - opens the dedicated services workspace quote inbox
 		actions.push({
-			label: tr('dashboard.services.my_services.actions.quotes', 'Quotes'),
+			label: tr('dashboard.services.my_services.actions.quotes', 'Requests'),
 			class: 'btn-primary btn-sm',
 			onclick: (e: MouseEvent) => {
 				e.stopPropagation();
@@ -670,38 +647,29 @@
 	</div>
 {:else}
 	<div class="space-y-4">
-		<div class="max-w-md" data-testid="service-request-filter">
-			<label class="form-control w-full">
-				<select
-					class="select select-bordered w-full truncate"
-					value={selectedServiceFilterValue}
-					onchange={handleServiceFilterChange}
-					aria-label={tr(
-						'dashboard.services.my_services.workspace.filter_label',
-						'Filter by service'
-					)}
-					title={selectedServiceLabel}
-				>
-					<option value="">
-						{tr('dashboard.services.my_services.workspace.all_services', 'All Services')}
-					</option>
-					{#each visibleServices as service (service.id)}
-						{@const serviceAddress = buildServiceAddress(service)}
-						<option value={serviceAddress}>
-							{getServiceDisplayTitle(service, $locale || 'en')}
-						</option>
-					{/each}
-					{#if selectedServiceAddress && !visibleServiceAddresses.includes(selectedServiceAddress)}
-						<option value={selectedServiceAddress}>
-							{tr(
-								'dashboard.services.my_services.quote_inbox.deleted_service_prefix',
-								'Deleted service'
-							)}
-						</option>
-					{/if}
-				</select>
-			</label>
-		</div>
+		<ServiceFilterSelect
+			services={visibleServices}
+			{selectedServiceAddress}
+			filterLabel={tr('dashboard.services.my_services.workspace.filter_label', 'Filter by service')}
+			allServicesLabel={tr('dashboard.services.my_services.workspace.all_services', 'All Services')}
+			deletedServiceLabel={tr(
+				'dashboard.services.my_services.quote_inbox.deleted_service_prefix',
+				'Deleted service'
+			)}
+			testId="service-request-filter"
+			onChange={(serviceAddress) => {
+				if (!serviceAddress) {
+					onResolveQuotesRoute?.({ type: 'reset' });
+					return;
+				}
+
+				onResolveQuotesRoute?.({
+					type: 'service',
+					serviceAddress,
+					requestId: null
+				});
+			}}
+		/>
 
 		<ServiceQuotesInbox
 			service={selectedService}
