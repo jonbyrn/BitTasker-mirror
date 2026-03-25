@@ -3,6 +3,7 @@ import { writable } from 'svelte/store';
 
 const mockInitialize = vi.fn();
 const mockEnsureEscrowReady = vi.fn();
+const mockGetNostrKeyPair = vi.fn();
 const mockExtractContractError = vi.fn((error: unknown) => ({
 	userMessage: error instanceof Error ? error.message : 'unknown error'
 }));
@@ -27,12 +28,27 @@ vi.mock('$lib/stores/wallet.store', () => ({
 
 vi.mock('$lib/utils/escrow/v1/escrow', () => ({
 	ensureEscrowReady: (...args: unknown[]) => mockEnsureEscrowReady(...args),
-	calculateTotalPayment: (baseAmount: bigint, _clientFeeTier: number) =>
-		baseAmount + baseAmount / 40n
+	calculateTotalPayment: (baseAmount: bigint) => baseAmount + baseAmount / 40n
 }));
 
 vi.mock('$lib/utils/wallet/contractErrorHandler', () => ({
 	extractContractError: (...args: unknown[]) => mockExtractContractError(...args)
+}));
+
+vi.mock('$lib/utils/nostrKeys', () => ({
+	getNostrKeyPair: (...args: unknown[]) => mockGetNostrKeyPair(...args)
+}));
+
+vi.mock('$lib/stores/app.store', () => ({
+	appStore: {
+		subscribe: (run: (value: { pool: object; relays: string[] }) => void) => {
+			run({
+				pool: {},
+				relays: ['wss://relay.example.com']
+			});
+			return () => {};
+		}
+	}
 }));
 
 describe('service contract preflight', () => {
@@ -64,6 +80,10 @@ describe('service contract preflight', () => {
 				}
 			}
 		});
+		mockGetNostrKeyPair.mockResolvedValue({
+			npub: 'a'.repeat(64),
+			nsec: new Uint8Array([1, 2, 3])
+		});
 	});
 
 	afterEach(() => {
@@ -78,6 +98,7 @@ describe('service contract preflight', () => {
 		const result = await preflightServiceContractCreation(
 			{
 				freelancerAddress: '0x2222222222222222222222222222222222222222',
+				freelancerPubkey: 'b'.repeat(64),
 				amountUsdt: '125.00',
 				estimatedStartTime: 1_800_000_000,
 				estimatedCompletionTime: 1_800_086_400,
@@ -116,6 +137,7 @@ describe('service contract preflight', () => {
 			preflightServiceContractCreation(
 				{
 					freelancerAddress: '0x2222222222222222222222222222222222222222',
+					freelancerPubkey: 'b'.repeat(64),
 					amountUsdt: '125.00',
 					estimatedStartTime: 1_800_000_000,
 					estimatedCompletionTime: 1_800_086_400
@@ -147,6 +169,7 @@ describe('service contract preflight', () => {
 			preflightServiceContractCreation(
 				{
 					freelancerAddress: '0x2222222222222222222222222222222222222222',
+					freelancerPubkey: 'b'.repeat(64),
 					amountUsdt: '125.00',
 					estimatedStartTime: 1_800_000_000,
 					estimatedCompletionTime: 1_800_086_400
@@ -169,6 +192,7 @@ describe('service contract preflight', () => {
 			preflightServiceContractCreation(
 				{
 					freelancerAddress: 'not-an-address',
+					freelancerPubkey: 'b'.repeat(64),
 					amountUsdt: '125.00',
 					estimatedStartTime: 1_800_000_000,
 					estimatedCompletionTime: 1_800_086_400
@@ -191,6 +215,7 @@ describe('service contract preflight', () => {
 			preflightServiceContractCreation(
 				{
 					freelancerAddress: '0x2222222222222222222222222222222222222222',
+					freelancerPubkey: 'b'.repeat(64),
 					amountUsdt: '0',
 					estimatedStartTime: 1_800_000_000,
 					estimatedCompletionTime: 1_800_086_400
@@ -213,6 +238,7 @@ describe('service contract preflight', () => {
 			preflightServiceContractCreation(
 				{
 					freelancerAddress: '0x2222222222222222222222222222222222222222',
+					freelancerPubkey: 'b'.repeat(64),
 					amountUsdt: '125.00',
 					estimatedStartTime: 1_800_000_000,
 					estimatedCompletionTime: 1_800_086_400
@@ -250,6 +276,7 @@ describe('service contract preflight', () => {
 			preflightServiceContractCreation(
 				{
 					freelancerAddress: '0x2222222222222222222222222222222222222222',
+					freelancerPubkey: 'b'.repeat(64),
 					amountUsdt: '125.00',
 					estimatedStartTime: 1_800_000_000,
 					estimatedCompletionTime: 1_800_086_400
@@ -286,6 +313,7 @@ describe('service contract preflight', () => {
 		const result = await preflightServiceContractCreation(
 			{
 				freelancerAddress: '0x2222222222222222222222222222222222222222',
+				freelancerPubkey: 'b'.repeat(64),
 				amountUsdt: '125.00',
 				estimatedStartTime: 1_800_000_000,
 				estimatedCompletionTime: 1_800_086_400
@@ -311,6 +339,7 @@ describe('service contract preflight', () => {
 			preflightServiceContractCreation(
 				{
 					freelancerAddress: '0x2222222222222222222222222222222222222222',
+					freelancerPubkey: 'b'.repeat(64),
 					amountUsdt: '125.00',
 					estimatedStartTime: 1_800_000_000,
 					estimatedCompletionTime: 1_800_086_400
@@ -323,5 +352,53 @@ describe('service contract preflight', () => {
 			error: 'provider unavailable'
 		});
 		expect(mockExtractContractError).toHaveBeenCalled();
+	});
+
+	it('fails closed when the provider pubkey is invalid', async () => {
+		const { preflightServiceContractCreation } = await import(
+			'$lib/utils/service-contract/preflight'
+		);
+
+		await expect(
+			preflightServiceContractCreation(
+				{
+					freelancerAddress: '0x2222222222222222222222222222222222222222',
+					freelancerPubkey: 'not-a-pubkey',
+					amountUsdt: '125.00',
+					estimatedStartTime: 1_800_000_000,
+					estimatedCompletionTime: 1_800_086_400
+				},
+				100000
+			)
+		).resolves.toEqual({
+			ok: false,
+			errorCode: 'invalid_provider_pubkey',
+			error: 'Provider public key is unavailable for this service.'
+		});
+	});
+
+	it('fails closed when Nostr signing is unavailable before funding', async () => {
+		const { preflightServiceContractCreation } = await import(
+			'$lib/utils/service-contract/preflight'
+		);
+		mockGetNostrKeyPair.mockRejectedValueOnce(new Error('No biometric data found'));
+
+		await expect(
+			preflightServiceContractCreation(
+				{
+					freelancerAddress: '0x2222222222222222222222222222222222222222',
+					freelancerPubkey: 'b'.repeat(64),
+					amountUsdt: '125.00',
+					estimatedStartTime: 1_800_000_000,
+					estimatedCompletionTime: 1_800_086_400
+				},
+				100000
+			)
+		).resolves.toEqual({
+			ok: false,
+			errorCode: 'nostr_not_ready',
+			error: 'No biometric data found'
+		});
+		expect(mockEnsureEscrowReady).not.toHaveBeenCalled();
 	});
 });

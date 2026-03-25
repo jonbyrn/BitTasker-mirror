@@ -28,7 +28,6 @@ import type {
 } from '$lib/types/service-quote';
 import { dispatchServiceContractCreatedNotification } from '$lib/utils/service-quote/notifications';
 import {
-	clearAcceptanceConfirmedMonitorEntry,
 	clearAcceptanceReplayEntry,
 	getAcceptanceConfirmedMonitorEntry,
 	getAcceptanceReplayEntry,
@@ -188,7 +187,9 @@ function normalizeTransactionHash(transactionHash: string | null | undefined): s
 	return normalizedValue.length > 0 ? normalizedValue : null;
 }
 
-function getTransactionHashCandidates(event: Pick<EscrowCreatedEvent, 'transactionHash' | 'transactionHashes'>): string[] {
+function getTransactionHashCandidates(
+	event: Pick<EscrowCreatedEvent, 'transactionHash' | 'transactionHashes'>
+): string[] {
 	return Array.from(
 		new Set(
 			[event.transactionHash, ...(event.transactionHashes ?? [])]
@@ -212,6 +213,11 @@ export function registerPendingContractByTxHash(
 	pendingContractsByTxHash.set(normalizedTransactionHash, {
 		...(params as PendingContractCreation),
 		transactionHash: normalizedTransactionHash
+	});
+	contractCreationStore.set({
+		state: 'funding_submitted',
+		transactionHash: normalizedTransactionHash,
+		transactionHashes: [normalizedTransactionHash]
 	});
 	d.log('registerPendingContractByTxHash', {
 		txHash: normalizedTransactionHash.slice(0, 10),
@@ -240,7 +246,9 @@ export function cleanupPendingContractByTxHash(transactionHash: string): void {
 	// Atomic check-and-delete to prevent race conditions
 	const removed = pendingContractsByTxHash.delete(normalizedTransactionHash);
 	if (removed) {
-		d.log('cleanupPendingContractByTxHash', { transactionHash: normalizedTransactionHash.slice(0, 10) });
+		d.log('cleanupPendingContractByTxHash', {
+			transactionHash: normalizedTransactionHash.slice(0, 10)
+		});
 	}
 }
 
@@ -274,6 +282,7 @@ export function replacePendingContractByTxHash(
 	}
 
 	contractCreationStore.set({
+		state: 'funding_submitted',
 		transactionHash: previousHash,
 		transactionHashes: [previousHash, nextHash]
 	});
@@ -302,7 +311,9 @@ export function findPendingServiceContractByTransactionHashes(
 	return null;
 }
 
-function getServiceAcceptanceUnknownMessage(reasonCode: ServiceAcceptanceUnknownReasonCode): string {
+function getServiceAcceptanceUnknownMessage(
+	reasonCode: ServiceAcceptanceUnknownReasonCode
+): string {
 	switch (reasonCode) {
 		case 'tx_replaced':
 			return 'The wallet replaced the original escrow transaction. Contract confirmation is still syncing.';
@@ -723,6 +734,7 @@ export async function handleEscrowCreated(event: EscrowCreatedEvent): Promise<vo
 				taskTitle: pendingContract.taskTitle,
 				taskDescription: pendingContract.taskDescription,
 				freelancerPubkey: pendingContract.freelancerPubkey,
+				clientRskAddress: pendingContract.clientRskAddress,
 				amount: pendingContract.amount,
 				estimatedStartTime: pendingContract.estimatedStartTime,
 				estimatedCompletionTime: pendingContract.estimatedCompletionTime,
@@ -765,14 +777,6 @@ export async function handleEscrowCreated(event: EscrowCreatedEvent): Promise<vo
 				dispatchTaskContractCreatedNotification(pendingContract);
 			}
 
-			// Update contract creation store
-			contractCreationStore.set({
-				escrowId: event.escrowId,
-				contractEventId: `contract-${event.escrowId}`, // Use escrow ID as reference
-				transactionHash: event.transactionHash,
-				transactionHashes: getTransactionHashCandidates(event)
-			});
-
 			if (
 				isServicePendingContract(pendingContract) &&
 				pendingContract.quoteRequestId &&
@@ -794,8 +798,7 @@ export async function handleEscrowCreated(event: EscrowCreatedEvent): Promise<vo
 							timestamp: Math.floor(Date.now() / 1000),
 							escrowId: event.escrowId,
 							transactionHash: event.transactionHash,
-							acceptanceSnapshot:
-								event.acceptanceSnapshot ?? pendingContract.acceptanceSnapshot,
+							acceptanceSnapshot: event.acceptanceSnapshot ?? pendingContract.acceptanceSnapshot,
 							version: 'v1'
 						},
 						proposalEventId: pendingContract.proposalEventId,
@@ -810,18 +813,20 @@ export async function handleEscrowCreated(event: EscrowCreatedEvent): Promise<vo
 						undefined,
 						event.transactionHash
 					);
-					persistConfirmedServiceAcceptanceMonitor({
-						escrowId: event.escrowId,
-						proposalId: pendingContract.proposalId,
-						proposalEventId: pendingContract.proposalEventId,
-						quoteRequestId: pendingContract.quoteRequestId,
-						serviceId: pendingContract.serviceId,
-						serviceAddress: pendingContract.serviceAddress,
-						counterpartyPubkey: pendingContract.freelancerPubkey,
-						transactionHash: event.transactionHash,
-						acceptanceSnapshot:
-							event.acceptanceSnapshot ?? pendingContract.acceptanceSnapshot
-					}, 'accepted');
+					persistConfirmedServiceAcceptanceMonitor(
+						{
+							escrowId: event.escrowId,
+							proposalId: pendingContract.proposalId,
+							proposalEventId: pendingContract.proposalEventId,
+							quoteRequestId: pendingContract.quoteRequestId,
+							serviceId: pendingContract.serviceId,
+							serviceAddress: pendingContract.serviceAddress,
+							counterpartyPubkey: pendingContract.freelancerPubkey,
+							transactionHash: event.transactionHash,
+							acceptanceSnapshot: event.acceptanceSnapshot ?? pendingContract.acceptanceSnapshot
+						},
+						'accepted'
+					);
 					clearAcceptanceReplayEntry(event.escrowId);
 				} catch (statusUpdateError) {
 					const replayTarget = createServiceAcceptanceReplayTarget(
@@ -832,8 +837,7 @@ export async function handleEscrowCreated(event: EscrowCreatedEvent): Promise<vo
 					if (replayTarget) {
 						upsertAcceptanceReplayEntry({
 							...replayTarget,
-							acceptanceSnapshot:
-								event.acceptanceSnapshot ?? replayTarget.acceptanceSnapshot
+							acceptanceSnapshot: event.acceptanceSnapshot ?? replayTarget.acceptanceSnapshot
 						});
 					}
 					completeServiceProposalAcceptance(
@@ -848,8 +852,7 @@ export async function handleEscrowCreated(event: EscrowCreatedEvent): Promise<vo
 						...pendingContract,
 						escrowId: event.escrowId,
 						transactionHash: event.transactionHash,
-						acceptanceSnapshot:
-							event.acceptanceSnapshot ?? pendingContract.acceptanceSnapshot
+						acceptanceSnapshot: event.acceptanceSnapshot ?? pendingContract.acceptanceSnapshot
 					});
 					d.error(
 						'handleEscrowCreated: failed to publish service accepted status',
@@ -906,17 +909,45 @@ export async function handleEscrowCreated(event: EscrowCreatedEvent): Promise<vo
 			// Success toast is shown in BidAcceptanceForm.svelte success screen
 			// No need to show duplicate toast here to avoid double notifications
 
-			// Reload the newly created contract from Nostr to populate the store
-			await contractStore.loadContractByEscrowId(event.escrowId);
-
-			// Note: Task acceptance message (locations/congratulations) is now sent from BidAcceptanceForm.svelte
-				// after successful acceptBidAndCreateEscrow, not from here. This keeps the flow cleaner and avoids
-				// redundant task fetching since we already have task data in the form.
-
-				// Clean up pending contract
+			// Reload the newly created contract from Nostr to populate the store.
+			// Contract creation is only considered successful once the event is queryable.
+			const contractLoaded = await contractStore.loadContractByEscrowId(event.escrowId);
+			if (!contractLoaded) {
 				if (!retainServiceAcceptanceForRetry) {
 					pendingContracts.delete(event.escrowId);
 				}
+				for (const txHash of getTransactionHashCandidates(event)) {
+					processingContracts.delete(txHash);
+				}
+				contractCreationStore.set({
+					state: 'contract_sync_pending',
+					escrowId: event.escrowId,
+					transactionHash: event.transactionHash,
+					transactionHashes: getTransactionHashCandidates(event)
+				});
+				d.warn('handleEscrowCreated: contract publish succeeded but reload is still syncing', {
+					escrowId: event.escrowId
+				});
+				return;
+			}
+
+			// Update contract creation store
+			contractCreationStore.set({
+				state: 'contract_ready',
+				escrowId: event.escrowId,
+				contractEventId: `contract-${event.escrowId}`, // Use escrow ID as reference
+				transactionHash: event.transactionHash,
+				transactionHashes: getTransactionHashCandidates(event)
+			});
+
+			// Note: Task acceptance message (locations/congratulations) is now sent from BidAcceptanceForm.svelte
+			// after successful acceptBidAndCreateEscrow, not from here. This keeps the flow cleaner and avoids
+			// redundant task fetching since we already have task data in the form.
+
+			// Clean up pending contract
+			if (!retainServiceAcceptanceForRetry) {
+				pendingContracts.delete(event.escrowId);
+			}
 			// Also remove from processing set if it was there
 			for (const txHash of getTransactionHashCandidates(event)) {
 				processingContracts.delete(txHash);
@@ -939,6 +970,7 @@ export async function handleEscrowCreated(event: EscrowCreatedEvent): Promise<vo
 
 			// Update contract creation store with error
 			contractCreationStore.set({
+				state: 'failed',
 				escrowId: event.escrowId,
 				transactionHash: event.transactionHash,
 				transactionHashes: getTransactionHashCandidates(event),

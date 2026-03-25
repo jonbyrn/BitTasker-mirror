@@ -26,6 +26,7 @@
 	import { portal } from '$lib/utils/portal';
 	import { buildContractsDashboardLink } from '$lib/utils/service-contract/dashboard-link';
 	import { browserNetworkStatus } from '$lib/utils/network-status';
+	import { detectErrorType } from '$lib/utils/helpers/errorTypeDetector';
 	import {
 		sendTaskCompletionMessageToTasker,
 		sendPaymentReleasedMessageToTaskee
@@ -71,7 +72,7 @@
 	const showReconnectNotice = $derived(
 		$browserNetworkStatus.online && $browserNetworkStatus.lastTransition === 'online'
 	);
-	const compactActionButtons = $derived(compactButtons || isInline);
+	const compactActionButtons = $derived(compactButtons);
 	let staleActionNotice = $state<string | null>(null);
 
 	const STALE_ACTION_ERROR_CODES = new Set([
@@ -155,6 +156,14 @@
 					'dashboard.contracts.actions.stale_action_notice_task',
 					'This contract changed or the action is no longer available. Refreshing the latest contract state.'
 				);
+	}
+
+	function maybeShowActionErrorToast(message: string): void {
+		if (detectErrorType(message) === 'biometric') {
+			return;
+		}
+
+		appStore.showErrorToast(message);
 	}
 
 	async function handleRecoverableActionError(error: unknown): Promise<boolean> {
@@ -319,7 +328,7 @@
 					? getErrorMessage(error)
 					: $t('dashboard.contracts.actions.task_completed_error');
 			if (!recoveredInPlace) {
-				appStore.showErrorToast(errorMessage);
+				maybeShowActionErrorToast(errorMessage);
 			}
 
 			setLoading('complete', false);
@@ -385,7 +394,7 @@
 					? getErrorMessage(error)
 					: $t('dashboard.contracts.actions.payment_released_error');
 			if (!recoveredInPlace) {
-				appStore.showErrorToast(errorMessage);
+				maybeShowActionErrorToast(errorMessage);
 			}
 
 			setLoading('accept', false);
@@ -437,7 +446,7 @@
 					? getErrorMessage(error)
 					: $t('dashboard.contracts.actions.dispute_raised_error');
 			if (!recoveredInPlace) {
-				appStore.showErrorToast(errorMessage);
+				maybeShowActionErrorToast(errorMessage);
 			}
 
 			setLoading('dispute', false);
@@ -510,7 +519,7 @@
 					? getErrorMessage(error)
 					: $t('dashboard.contracts.actions.resolution_proposed_error');
 			if (!recoveredInPlace) {
-				appStore.showErrorToast(errorMessage);
+				maybeShowActionErrorToast(errorMessage);
 			}
 		} finally {
 			setLoading('propose', false);
@@ -554,11 +563,30 @@
 					? getErrorMessage(error)
 					: $t('dashboard.contracts.actions.proposal_accepted_error');
 			if (!recoveredInPlace) {
-				appStore.showErrorToast(errorMessage);
+				maybeShowActionErrorToast(errorMessage);
 			}
 		} finally {
 			setLoading('acceptProposal', false);
 		}
+	}
+
+	function openModalForProposal() {
+		if (!contract.permissions.canPropose) return;
+		if (!proposedFreelancerAmountUSD) {
+			appStore.showErrorToast($t('dashboard.contracts.actions.resolution_amounts_required'));
+			return;
+		}
+
+		const freelancerAmountUSD = parseFloat(proposedFreelancerAmountUSD);
+		const totalAmountRBTC = parseFloat(contractStore.getContractKey(contract, 'amount') as string);
+		const totalAmountUSD = totalAmountRBTC * btcPrice;
+
+		if (freelancerAmountUSD > totalAmountUSD) {
+			appStore.showErrorToast($t('dashboard.contracts.actions.resolution_amounts_invalid'));
+			return;
+		}
+
+		activeModal = ContractModalAction.ProposeResolution;
 	}
 
 	// Cancel escrow
@@ -607,7 +635,7 @@
 					? getErrorMessage(error)
 					: $t('dashboard.contracts.actions.escrow_cancelled_error');
 			if (!recoveredInPlace) {
-				appStore.showErrorToast(errorMessage);
+				maybeShowActionErrorToast(errorMessage);
 			}
 
 			setLoading('cancel', false);
@@ -654,7 +682,7 @@
 					? getErrorMessage(error)
 					: $t('dashboard.contracts.actions.timelock_resolved_error');
 			if (!recoveredInPlace) {
-				appStore.showErrorToast(errorMessage);
+				maybeShowActionErrorToast(errorMessage);
 			}
 		} finally {
 			setLoading('resolveTimelock', false);
@@ -677,7 +705,7 @@
 				: error instanceof Error
 					? error.message
 					: $t('dashboard.contracts.actions.delete_contract_error');
-			appStore.showErrorToast(errorMessage);
+			maybeShowActionErrorToast(errorMessage);
 		} finally {
 			setLoading('delete', false);
 		}
@@ -685,8 +713,8 @@
 
 	// Modal action handlers - these will be called by the modal configurations
 	function openModal(action: ContractModalAction) {
-		// Special handling for cancel action - check time restrictions
-		if (action === ContractModalAction.Cancel) {
+		// Special handling for cancel action - taskers/clients are time-restricted, taskees/providers are not
+		if (action === ContractModalAction.Cancel && contract.isClient) {
 			const timeCheck = canCancelBasedOnTime();
 			if (!timeCheck.allowed) {
 				appStore.showErrorToast(
@@ -712,8 +740,17 @@
 			case ContractModalAction.Dispute:
 				await disputeTask();
 				break;
+			case ContractModalAction.AcceptProposal:
+				await acceptProposal();
+				break;
+			case ContractModalAction.ProposeResolution:
+				await proposeResolution();
+				break;
 			case ContractModalAction.Cancel:
 				await cancelEscrow();
+				break;
+			case ContractModalAction.ResolveTimelock:
+				await resolveAfterTimelock();
 				break;
 			case ContractModalAction.Delete:
 				await onDeleteContract();
@@ -762,7 +799,7 @@
 		isLoading.cancel ||
 			contract.isPending ||
 			blockchainCompletionStatus === EscrowStatus.Cancelled ||
-			blockchainCompletionStatus === EscrowStatus.Completed
+			(contract.isClient && blockchainCompletionStatus === EscrowStatus.Completed)
 	);
 
 	// Auto-calculate client amount from freelancer amount in USD
@@ -918,7 +955,7 @@
 							compact={compactButtons}
 							disabled={isOffline}
 							label={$t('dashboard.contracts.actions.accept_proposal') as string}
-							onclick={acceptProposal}
+							onclick={() => openModal(ContractModalAction.AcceptProposal)}
 						/>
 					{/if}
 
@@ -1053,7 +1090,7 @@
 								compact={true}
 								disabled={isOffline}
 								label={$t('dashboard.contracts.actions.propose') as string}
-								onclick={proposeResolution}
+								onclick={openModalForProposal}
 							/>
 						{/if}
 						<CancelContractButton
@@ -1072,9 +1109,7 @@
 				compact={compactActionButtons}
 				disabled={isOffline}
 				loading={isLoading.cancel}
-				label={isServiceContract
-					? tr('dashboard.contracts.actions.cancel_service_contract', 'Cancel Service Contract')
-					: ($t('dashboard.contracts.actions.cancel_contract') as string)}
+				label={$t('dashboard.contracts.actions.cancel_contract') as string}
 				onclick={() => openModal(ContractModalAction.Cancel)}
 			/>
 		{/if}
@@ -1118,7 +1153,7 @@
 								? 'w-full sm:w-fit'
 								: 'w-full min-w-0'}"
 						disabled={isOffline}
-						onclick={resolveAfterTimelock}
+						onclick={() => openModal(ContractModalAction.ResolveTimelock)}
 					>
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
@@ -1214,12 +1249,27 @@
 							'dashboard.contracts.actions.confirm_service_cancel_title',
 							'Cancel this service contract?'
 						)
-					: isServiceContract && activeModal === ContractModalAction.Delete
+					: isServiceContract && activeModal === ContractModalAction.AcceptProposal
 						? tr(
-								'dashboard.contracts.actions.confirm_service_delete_title',
-								'Delete this service contract?'
+								'dashboard.contracts.actions.confirm_service_accept_proposal_title',
+								'Accept this service proposal?'
 							)
-						: null}
+						: isServiceContract && activeModal === ContractModalAction.ProposeResolution
+							? tr(
+									'dashboard.contracts.actions.confirm_service_propose_resolution_title',
+									'Propose this service resolution?'
+								)
+							: isServiceContract && activeModal === ContractModalAction.ResolveTimelock
+								? tr(
+										'dashboard.contracts.actions.confirm_service_resolve_timelock_title',
+										'Claim funds for this service contract?'
+									)
+								: isServiceContract && activeModal === ContractModalAction.Delete
+									? tr(
+											'dashboard.contracts.actions.confirm_service_delete_title',
+											'Delete this service contract?'
+										)
+									: null}
 	{@const customMessage =
 		isServiceContract && activeModal === ContractModalAction.Accept
 			? tr(
@@ -1234,24 +1284,48 @@
 				: isServiceContract && activeModal === ContractModalAction.Cancel
 					? tr(
 							'dashboard.contracts.actions.confirm_service_cancel_message',
-							'This cancels the service contract and starts the refund path defined by the escrow rules.'
+							'This will cancel the contract and refund the Tasker.'
 						)
-					: isServiceContract && activeModal === ContractModalAction.Delete
+					: isServiceContract && activeModal === ContractModalAction.AcceptProposal
 						? tr(
-								'dashboard.contracts.actions.confirm_service_delete_message',
-								'Delete this unfunded service contract from your Nostr contract history?'
+								'dashboard.contracts.actions.confirm_service_accept_proposal_message',
+								'This accepts the current service resolution proposal and applies it to the secure payment contract.'
 							)
-						: null}
+						: isServiceContract && activeModal === ContractModalAction.ProposeResolution
+							? tr(
+									'dashboard.contracts.actions.confirm_service_propose_resolution_message',
+									'This sends your proposed service resolution amounts to the secure payment contract for review.'
+								)
+							: isServiceContract && activeModal === ContractModalAction.ResolveTimelock
+								? tr(
+										'dashboard.contracts.actions.confirm_service_resolve_timelock_message',
+										'This claims funds using the expired timelock resolution path for the service contract.'
+									)
+								: isServiceContract && activeModal === ContractModalAction.Delete
+									? tr(
+											'dashboard.contracts.actions.confirm_service_delete_message',
+											'Delete this unfunded service contract from your Nostr contract history?'
+										)
+									: null}
 	{@const customConfirmText =
 		isServiceContract && activeModal === ContractModalAction.Accept
 			? tr('dashboard.contracts.actions.accept_service', 'Accept Service')
 			: isServiceContract && activeModal === ContractModalAction.Dispute
 				? tr('dashboard.contracts.actions.dispute_service', 'Dispute Service')
 				: isServiceContract && activeModal === ContractModalAction.Cancel
-					? tr('dashboard.contracts.actions.cancel_service_contract', 'Cancel Service Contract')
-					: isServiceContract && activeModal === ContractModalAction.Delete
-						? tr('dashboard.contracts.actions.delete_service_contract', 'Delete Service Contract')
-						: null}
+					? ($t('dashboard.contracts.actions.cancel_contract') as string)
+					: isServiceContract && activeModal === ContractModalAction.AcceptProposal
+						? tr('dashboard.contracts.actions.accept_proposal', 'Accept Proposal')
+						: isServiceContract && activeModal === ContractModalAction.ProposeResolution
+							? tr('dashboard.contracts.actions.propose', 'Propose')
+							: isServiceContract && activeModal === ContractModalAction.ResolveTimelock
+								? tr('dashboard.contracts.actions.resolve_timelock', 'Claim Funds')
+								: isServiceContract && activeModal === ContractModalAction.Delete
+									? tr(
+											'dashboard.contracts.actions.delete_service_contract',
+											'Delete Service Contract'
+										)
+									: null}
 	{#if config}
 		<div use:portal={'modals'}>
 			<ConfirmModal

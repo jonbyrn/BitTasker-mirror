@@ -4,7 +4,10 @@ export enum ContractModalAction {
 	Complete = 'complete',
 	Accept = 'accept',
 	Dispute = 'dispute',
+	AcceptProposal = 'acceptProposal',
+	ProposeResolution = 'proposeResolution',
 	Cancel = 'cancel',
+	ResolveTimelock = 'resolveTimelock',
 	Delete = 'delete'
 }
 
@@ -35,12 +38,33 @@ export const CONTRACT_MODAL_CONFIGS: Record<ContractModalAction, ContractModalCo
 		cancelTextKey: 'dashboard.contracts.actions.cancel',
 		confirmButtonClass: 'btn-error'
 	},
+	[ContractModalAction.AcceptProposal]: {
+		titleKey: 'dashboard.contracts.actions.accept_proposal_confirm_title',
+		messageKey: 'dashboard.contracts.actions.accept_proposal_confirm_message',
+		confirmTextKey: 'dashboard.contracts.actions.accept_proposal',
+		cancelTextKey: 'dashboard.contracts.actions.cancel',
+		confirmButtonClass: 'btn-success'
+	},
+	[ContractModalAction.ProposeResolution]: {
+		titleKey: 'dashboard.contracts.actions.propose_resolution_confirm_title',
+		messageKey: 'dashboard.contracts.actions.propose_resolution_confirm_message',
+		confirmTextKey: 'dashboard.contracts.actions.propose',
+		cancelTextKey: 'dashboard.contracts.actions.cancel',
+		confirmButtonClass: 'btn-warning'
+	},
 	[ContractModalAction.Cancel]: {
 		titleKey: 'dashboard.contracts.actions.cancel_contract_confirm_title',
 		messageKey: 'dashboard.contracts.actions.cancel_contract_confirm_message',
 		confirmTextKey: 'dashboard.contracts.actions.cancel_contract',
 		cancelTextKey: 'dashboard.contracts.actions.cancel',
 		confirmButtonClass: 'btn-error'
+	},
+	[ContractModalAction.ResolveTimelock]: {
+		titleKey: 'dashboard.contracts.actions.resolve_timelock_confirm_title',
+		messageKey: 'dashboard.contracts.actions.resolve_timelock_confirm_message',
+		confirmTextKey: 'dashboard.contracts.actions.resolve_timelock',
+		cancelTextKey: 'dashboard.contracts.actions.cancel',
+		confirmButtonClass: 'btn-info'
 	},
 	[ContractModalAction.Delete]: {
 		titleKey: 'dashboard.contracts.actions.delete_contract_confirm_title',
@@ -50,4 +74,3 @@ export const CONTRACT_MODAL_CONFIGS: Record<ContractModalAction, ContractModalCo
 		confirmButtonClass: 'btn-error'
 	}
 };
-

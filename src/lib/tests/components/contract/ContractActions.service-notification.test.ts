@@ -3,17 +3,29 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import ContractActions from '$lib/components/contracts/ContractActions.svelte';
 import { EscrowStatus } from '$lib/utils/escrow';
 
+type MockContractStoreState = {
+	contract: unknown;
+	isDrawerOpen: boolean;
+	isResolutionFormOpen: boolean;
+};
+
+type MockContractContent = Record<string, unknown>;
+
 const {
 	contractStoreState,
 	contractStore,
 	acceptTask,
+	acceptProposal,
+	cancelEscrow,
 	disputeTask,
+	loadEscrowDetails,
+	proposeResolution,
 	resolveAfterTimelock,
 	sendNotificationToNpubs,
 	showErrorToast
 } = vi.hoisted(() => {
-	let value = {
-		contract: null as any,
+	let value: MockContractStoreState = {
+		contract: null,
 		isDrawerOpen: false,
 		isResolutionFormOpen: false
 	};
@@ -40,17 +52,23 @@ const {
 			set: state.set,
 			update: state.update,
 			loadContractByEscrowId: vi.fn().mockResolvedValue(true),
-			getContractKey: vi.fn((contract: any, key: string) => {
-				if (key === 'otherPartyNpub') return 'npub1counterparty';
-				if (key === 'amount') return contract.contractEvent.content.amount;
-				if (key === 'taskTitle' || key === 'contextTitle') {
-					return contract.contractEvent.content.contextTitle;
+			getContractKey: vi.fn(
+				(contract: { contractEvent: { content: MockContractContent } }, key: string) => {
+					if (key === 'otherPartyNpub') return 'npub1counterparty';
+					if (key === 'amount') return contract.contractEvent.content.amount;
+					if (key === 'taskTitle' || key === 'contextTitle') {
+						return contract.contractEvent.content.contextTitle;
+					}
+					return contract.contractEvent.content[key];
 				}
-				return contract.contractEvent.content[key];
-			})
+			)
 		},
 		acceptTask: vi.fn().mockResolvedValue(undefined),
+		acceptProposal: vi.fn().mockResolvedValue(undefined),
+		cancelEscrow: vi.fn().mockResolvedValue(undefined),
 		disputeTask: vi.fn().mockResolvedValue(undefined),
+		loadEscrowDetails: vi.fn().mockResolvedValue({ status: 'FUNDED' }),
+		proposeResolution: vi.fn().mockResolvedValue(undefined),
 		resolveAfterTimelock: vi.fn().mockResolvedValue(undefined),
 		sendNotificationToNpubs: vi.fn(),
 		showErrorToast: vi.fn()
@@ -71,12 +89,12 @@ vi.mock('$lib/utils/escrow', () => ({
 		escrowOps: {
 			acceptTask,
 			resolveAfterTimelock,
-			loadEscrowDetails: vi.fn().mockResolvedValue({ status: 'FUNDED' }),
+			loadEscrowDetails,
 			completeTask: vi.fn(),
 			disputeTask,
-			proposeResolution: vi.fn(),
-			acceptProposal: vi.fn(),
-			cancelEscrow: vi.fn()
+			proposeResolution,
+			acceptProposal,
+			cancelEscrow
 		},
 		contractOps: {
 			deleteContract: vi.fn()
@@ -166,7 +184,7 @@ function buildContract({
 			}
 		},
 		disputeProposal: null
-	} as any;
+	} as unknown;
 }
 
 function buildTaskContract(overrides: { permissions?: Partial<Record<string, boolean>> } = {}) {
@@ -183,6 +201,11 @@ function buildTaskContract(overrides: { permissions?: Partial<Record<string, boo
 describe('ContractActions service notification continuity', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		loadEscrowDetails.mockResolvedValue({ status: 'FUNDED' });
+		Object.defineProperty(window.navigator, 'onLine', {
+			value: true,
+			configurable: true
+		});
 		contractStoreState.set({
 			contract: null,
 			isDrawerOpen: false,
@@ -227,6 +250,8 @@ describe('ContractActions service notification continuity', () => {
 		await fireEvent.click(
 			screen.getByRole('button', { name: 'dashboard.contracts.actions.resolve_timelock' })
 		);
+		expect(resolveAfterTimelock).not.toHaveBeenCalled();
+		await fireEvent.click(screen.getByRole('button', { name: 'Claim Funds' }));
 
 		await waitFor(() => {
 			expect(resolveAfterTimelock).toHaveBeenCalledTimes(1);
@@ -257,7 +282,95 @@ describe('ContractActions service notification continuity', () => {
 		expect(screen.getByRole('button', { name: 'Mark Service Complete' })).toBeInTheDocument();
 		expect(screen.getByRole('button', { name: 'Accept Service' })).toBeInTheDocument();
 		expect(screen.getByRole('button', { name: 'Dispute Service' })).toBeInTheDocument();
-		expect(screen.getByRole('button', { name: 'Cancel Service Contract' })).toBeInTheDocument();
+		expect(
+			screen.getByRole('button', { name: 'dashboard.contracts.actions.cancel_contract' })
+		).toBeInTheDocument();
+	});
+
+	it('requires confirmation before accepting a proposal', async () => {
+		const contract = buildContract({
+			permissions: {
+				canAccept: false,
+				canAcceptProposal: true
+			},
+			content: {
+				proposalId: 'proposal-1'
+			}
+		});
+		contract.disputeProposal = {
+			clientAmount: '0.004',
+			freelancerAmount: '0.006',
+			proposer: 'npub1counterparty'
+		};
+
+		render(ContractActions, {
+			contract,
+			isInline: false
+		});
+
+		await fireEvent.click(
+			screen.getByRole('button', { name: 'dashboard.contracts.actions.accept_proposal' })
+		);
+		expect(acceptProposal).not.toHaveBeenCalled();
+		await fireEvent.click(screen.getByRole('button', { name: 'Accept Proposal' }));
+
+		await waitFor(() => {
+			expect(acceptProposal).toHaveBeenCalledTimes(1);
+		});
+	});
+
+	it('requires confirmation before submitting a resolution proposal', async () => {
+		render(ContractActions, {
+			contract: buildContract({
+				permissions: {
+					canAccept: false,
+					canPropose: true
+				}
+			}),
+			isInline: false
+		});
+
+		await fireEvent.click(
+			screen.getByRole('button', {
+				name: /dashboard\.contracts\.actions\.propose_resolution/
+			})
+		);
+		await fireEvent.input(screen.getAllByPlaceholderText('0.00')[0], {
+			target: { value: '400' }
+		});
+		await fireEvent.click(
+			screen.getByRole('button', { name: 'dashboard.contracts.actions.propose' })
+		);
+		expect(proposeResolution).not.toHaveBeenCalled();
+		await fireEvent.click(screen.getByRole('button', { name: 'Propose' }));
+
+		await waitFor(() => {
+			expect(proposeResolution).toHaveBeenCalledTimes(1);
+		});
+	});
+
+	it('keeps inline mobile contract action buttons full width', () => {
+		render(ContractActions, {
+			contract: buildContract({
+				permissions: {
+					canComplete: true,
+					canAccept: true,
+					canDispute: true,
+					canCancel: true
+				}
+			}),
+			isInline: true
+		});
+
+		for (const label of [
+			'Mark Service Complete',
+			'Accept Service',
+			'Dispute Service',
+			'dashboard.contracts.actions.cancel_contract'
+		]) {
+			const button = screen.getByRole('button', { name: label });
+			expect(button.className).toContain('w-full');
+		}
 	});
 
 	it('preserves task-context labels through the same shared action button path', () => {
@@ -309,7 +422,107 @@ describe('ContractActions service notification continuity', () => {
 		expect(screen.getByRole('button', { name: 'Mark Service Complete' })).toBeDisabled();
 		expect(screen.getByRole('button', { name: 'Accept Service' })).toBeDisabled();
 		expect(screen.getByRole('button', { name: 'Dispute Service' })).toBeDisabled();
-		expect(screen.getByRole('button', { name: 'Cancel Service Contract' })).toBeDisabled();
+		expect(
+			screen.getByRole('button', { name: 'dashboard.contracts.actions.cancel_contract' })
+		).toBeDisabled();
+	});
+
+	it('shows a time restriction error for tasker-side cancellation when cancel is no longer allowed', async () => {
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date('2024-05-01T12:30:00Z'));
+
+		render(ContractActions, {
+			contract: buildContract({
+				permissions: {
+					canAccept: false,
+					canCancel: true
+				},
+				content: {
+					estimatedStartTime: Math.floor(new Date('2024-05-02T00:00:00Z').getTime() / 1000)
+				}
+			}),
+			isInline: false
+		});
+
+		await fireEvent.click(
+			screen.getByRole('button', { name: 'dashboard.contracts.actions.cancel_contract' })
+		);
+
+		expect(showErrorToast).toHaveBeenCalledWith(
+			'dashboard.contracts.actions.cancel_time_restriction_grace_period_expired'
+		);
+		expect(cancelEscrow).not.toHaveBeenCalled();
+
+		vi.useRealTimers();
+	});
+
+	it('allows taskee-side cancellation to open confirmation without applying tasker time restrictions', async () => {
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date('2024-05-01T12:30:00Z'));
+
+		render(ContractActions, {
+			contract: {
+				...buildContract({
+					permissions: {
+						canAccept: false,
+						canCancel: true
+					},
+					content: {
+						estimatedStartTime: Math.floor(new Date('2024-05-02T00:00:00Z').getTime() / 1000)
+					}
+				}),
+				isClient: false
+			},
+			isInline: false
+		});
+
+		await fireEvent.click(
+			screen.getByRole('button', { name: 'dashboard.contracts.actions.cancel_contract' })
+		);
+
+		expect(showErrorToast).not.toHaveBeenCalled();
+		expect(
+			screen.getAllByRole('button', { name: 'dashboard.contracts.actions.cancel_contract' })
+		).toHaveLength(2);
+
+		await fireEvent.click(
+			screen.getAllByRole('button', { name: 'dashboard.contracts.actions.cancel_contract' })[1]
+		);
+
+		await waitFor(() => {
+			expect(cancelEscrow).toHaveBeenCalledTimes(1);
+		});
+
+		vi.useRealTimers();
+	});
+
+	it('keeps taskee-side cancellation available after completion', async () => {
+		loadEscrowDetails.mockResolvedValueOnce({ status: 'COMPLETED' });
+		Object.defineProperty(window.navigator, 'onLine', {
+			value: true,
+			configurable: true
+		});
+
+		render(ContractActions, {
+			contract: {
+				...buildContract({
+					permissions: {
+						canAccept: false,
+						canCancel: true
+					}
+				}),
+				isClient: false,
+				blockchainStatus: EscrowStatus.Completed
+			},
+			isInline: false
+		});
+		window.dispatchEvent(new Event('online'));
+
+		await waitFor(() => {
+			expect(
+				screen.getByRole('button', { name: 'dashboard.contracts.actions.cancel_contract' })
+			).toBeEnabled();
+		});
 	});
 
 	it('shows reconnect guidance after contract actions recover from an offline state', async () => {

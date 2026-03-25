@@ -1,8 +1,11 @@
+import { appStore } from '$lib/stores/app.store';
 import { walletManager, walletStore } from '$lib/stores/wallet.store';
 import { ensureEscrowReady, calculateTotalPayment } from '$lib/utils/escrow/v1/escrow';
 import { extractContractError } from '$lib/utils/wallet/contractErrorHandler';
 import { ethers } from 'ethers';
+import { nip19 } from 'nostr-tools';
 import { get } from 'svelte/store';
+import { getNostrKeyPair } from '$lib/utils/nostrKeys';
 
 const DEFAULT_CLIENT_FEE_TIER = 1;
 const GAS_BUFFER_DIVISOR = 10n;
@@ -12,13 +15,17 @@ export type ServiceContractPreflightErrorCode =
 	| 'wallet_not_ready'
 	| 'wrong_network'
 	| 'invalid_provider_wallet'
+	| 'invalid_provider_pubkey'
 	| 'invalid_service_amount'
 	| 'price_unavailable'
 	| 'insufficient_funds'
+	| 'relay_unavailable'
+	| 'nostr_not_ready'
 	| 'preflight_failed';
 
 export interface ServiceContractPreflightInput {
 	freelancerAddress: string;
+	freelancerPubkey: string;
 	amountUsdt: string;
 	estimatedStartTime: number;
 	estimatedCompletionTime: number;
@@ -101,21 +108,81 @@ async function ensureServiceWalletReady(): Promise<
 		try {
 			await walletManager.initialize();
 		} catch {
-			return fail(
-				'wallet_not_connected',
-				'Connect your wallet before continuing.'
-			);
+			return fail('wallet_not_connected', 'Connect your wallet before continuing.');
 		}
 
 		walletState = get(walletStore);
 	}
 
 	if (!walletState.rsk?.address || !walletState.rsk?.wallet || !walletState.rsk?.provider) {
-		return fail('wallet_not_ready', 'Your wallet is not ready yet. Retry after it finishes connecting.');
+		return fail(
+			'wallet_not_ready',
+			'Your wallet is not ready yet. Retry after it finishes connecting.'
+		);
 	}
 
 	return {
 		walletAddress: walletState.rsk.address
+	};
+}
+
+function normalizeRecipientPubkey(
+	pubkey: string
+): ServiceContractPreflightFailure | { pubkey: string } {
+	const trimmedPubkey = pubkey.trim();
+	if (!trimmedPubkey) {
+		return fail('invalid_provider_pubkey', 'Provider public key is unavailable for this service.');
+	}
+
+	try {
+		if (trimmedPubkey.startsWith('npub')) {
+			return {
+				pubkey: nip19.decode(trimmedPubkey).data as string
+			};
+		}
+
+		return {
+			pubkey: ethers.hexlify(ethers.getBytes(`0x${trimmedPubkey.replace(/^0x/i, '')}`)).slice(2)
+		};
+	} catch {
+		return fail('invalid_provider_pubkey', 'Provider public key is unavailable for this service.');
+	}
+}
+
+async function ensureContractPublishReady(
+	input: Pick<ServiceContractPreflightInput, 'freelancerPubkey'>
+): Promise<ServiceContractPreflightFailure | { recipientPubkey: string }> {
+	const normalizedRecipient = normalizeRecipientPubkey(input.freelancerPubkey);
+	if ('ok' in normalizedRecipient && normalizedRecipient.ok === false) {
+		return normalizedRecipient;
+	}
+
+	const appState = get(appStore);
+	if (!appState?.pool || !Array.isArray(appState.relays) || appState.relays.length === 0) {
+		return fail(
+			'relay_unavailable',
+			'Contract relays are unavailable right now. Retry in a moment.'
+		);
+	}
+
+	try {
+		const { npub, nsec } = await getNostrKeyPair();
+		if (!npub || !nsec) {
+			return fail(
+				'nostr_not_ready',
+				'Your signing keys are not ready yet. Unlock Nostr signing before continuing.'
+			);
+		}
+	} catch (error) {
+		return fail(
+			'nostr_not_ready',
+			extractContractError(error).userMessage ||
+				'Your signing keys are not ready yet. Unlock Nostr signing before continuing.'
+		);
+	}
+
+	return {
+		recipientPubkey: normalizedRecipient.pubkey
 	};
 }
 
@@ -138,13 +205,24 @@ export async function preflightServiceContractCreation(
 	try {
 		amount = convertUsdAmountToRbtc(input.amountUsdt, btcPrice);
 	} catch (error) {
-		const message = error instanceof Error ? error.message : 'Unable to determine the service price.';
-		return fail(message.includes('BTC price') ? 'price_unavailable' : 'invalid_service_amount', message);
+		const message =
+			error instanceof Error ? error.message : 'Unable to determine the service price.';
+		return fail(
+			message.includes('BTC price') ? 'price_unavailable' : 'invalid_service_amount',
+			message
+		);
 	}
 
 	const walletReady = await ensureServiceWalletReady();
 	if ('ok' in walletReady && walletReady.ok === false) {
 		return walletReady;
+	}
+
+	const publishReady = await ensureContractPublishReady({
+		freelancerPubkey: input.freelancerPubkey
+	});
+	if ('ok' in publishReady && publishReady.ok === false) {
+		return publishReady;
 	}
 
 	try {

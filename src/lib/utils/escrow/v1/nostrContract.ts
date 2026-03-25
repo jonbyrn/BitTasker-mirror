@@ -53,64 +53,61 @@ function getReadonlyPermissions() {
  * Create a new contract event after escrow creation (as encrypted DM)
  */
 export async function publishContractEvent(params: CreateContractParams): Promise<void> {
-	try {
-		const npub = await getNpub();
-		const clientPubkey = npub.startsWith('npub') ? (nip19.decode(npub).data as string) : npub;
+	const npub = await getNpub();
+	const clientPubkey = npub.startsWith('npub') ? (nip19.decode(npub).data as string) : npub;
 
-		const network = import.meta.env.VITE_RSK_NETWORK;
-		const contractAddress =
-			network === 'mainnet'
-				? import.meta.env.VITE_RSK_CONTRACT_ADDRESS_MAINNET
-				: import.meta.env.VITE_RSK_CONTRACT_ADDRESS_TESTNET;
+	const network = import.meta.env.VITE_RSK_NETWORK;
+	const contractAddress =
+		network === 'mainnet'
+			? import.meta.env.VITE_RSK_CONTRACT_ADDRESS_MAINNET
+			: import.meta.env.VITE_RSK_CONTRACT_ADDRESS_TESTNET;
 
-		const contractData: NostrContract = {
-			escrowId: params.escrowId,
-			taskId: params.taskId,
-			taskTitle: params.taskTitle,
-			taskDescription: params.taskDescription,
-			freelancerPubkey: params.freelancerPubkey,
-			clientPubkey,
-			amount: params.amount,
-			currency: 'RBTC',
-			status: EscrowStatus.Funded, // Contract is created when escrow is funded
-			estimatedStartTime: params.estimatedStartTime,
-			estimatedCompletionTime: params.estimatedCompletionTime,
-			contextType: params.contextType,
-			contextId: params.contextId,
-			contextTitle: params.contextTitle,
-			contextDescription: params.contextDescription,
-			contextVersionRef: params.contextVersionRef,
-			serviceId: params.serviceId,
-			serviceAddress: params.serviceAddress,
-			serviceTitle: params.serviceTitle,
-			quoteRequestId: params.quoteRequestId,
-			proposalId: params.proposalId,
-			proposalEventId: params.proposalEventId,
-			purchaseMode: params.purchaseMode,
-			instantOrderId: params.instantOrderId,
-			selectedTierId: params.selectedTierId,
-			pricingSnapshot: params.pricingSnapshot,
-			agreementSnapshot: params.agreementSnapshot,
-			transactionHash: params.transactionHash, // Include transaction hash if provided
-			type: 'contract', // Identify as contract message
-			contractAddress
-		};
+	const contractData: NostrContract = {
+		escrowId: params.escrowId,
+		taskId: params.taskId,
+		taskTitle: params.taskTitle,
+		taskDescription: params.taskDescription,
+		freelancerPubkey: params.freelancerPubkey,
+		clientPubkey,
+		clientRskAddress: params.clientRskAddress,
+		amount: params.amount,
+		currency: 'RBTC',
+		status: EscrowStatus.Funded, // Contract is created when escrow is funded
+		estimatedStartTime: params.estimatedStartTime,
+		estimatedCompletionTime: params.estimatedCompletionTime,
+		contextType: params.contextType,
+		contextId: params.contextId,
+		contextTitle: params.contextTitle,
+		contextDescription: params.contextDescription,
+		contextVersionRef: params.contextVersionRef,
+		serviceId: params.serviceId,
+		serviceAddress: params.serviceAddress,
+		serviceTitle: params.serviceTitle,
+		quoteRequestId: params.quoteRequestId,
+		proposalId: params.proposalId,
+		proposalEventId: params.proposalEventId,
+		purchaseMode: params.purchaseMode,
+		instantOrderId: params.instantOrderId,
+		selectedTierId: params.selectedTierId,
+		pricingSnapshot: params.pricingSnapshot,
+		agreementSnapshot: params.agreementSnapshot,
+		transactionHash: params.transactionHash, // Include transaction hash if provided
+		type: 'contract', // Identify as contract message
+		contractAddress
+	};
 
-		// Send as encrypted contract event
-		const contractMessage = JSON.stringify(contractData);
-		const tags = TAG_PATTERNS.contract(
-			params.escrowId,
-			params.taskId,
-			params.freelancerPubkey,
-			clientPubkey,
-			network,
-			'v1'
-		);
+	// Send as encrypted contract event
+	const contractMessage = JSON.stringify(contractData);
+	const tags = TAG_PATTERNS.contract(
+		params.escrowId,
+		params.taskId,
+		params.freelancerPubkey,
+		clientPubkey,
+		network,
+		'v1'
+	);
 
-		await publishNostrEvent(KINDS.CONTRACT, contractMessage, params.freelancerPubkey, tags);
-	} catch (error) {
-		console.warn('Error creating contract:', error);
-	}
+	await publishNostrEvent(KINDS.CONTRACT, contractMessage, params.freelancerPubkey, tags);
 }
 
 /**

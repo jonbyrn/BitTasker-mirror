@@ -3,9 +3,17 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import ContractActions from '$lib/components/contracts/ContractActions.svelte';
 import { EscrowStatus } from '$lib/utils/escrow';
 
+type MockContractStoreState = {
+	contract: unknown;
+	isDrawerOpen: boolean;
+	isResolutionFormOpen: boolean;
+};
+
+type MockContractContent = Record<string, unknown>;
+
 const hoisted = vi.hoisted(() => {
-	let value = {
-		contract: null as any,
+	let value: MockContractStoreState = {
+		contract: null,
 		isDrawerOpen: false,
 		isResolutionFormOpen: false
 	};
@@ -31,14 +39,16 @@ const hoisted = vi.hoisted(() => {
 			subscribe: state.subscribe,
 			set: state.set,
 			update: state.update,
-			getContractKey: vi.fn((contract: any, key: string) => {
-				if (key === 'otherPartyNpub') return 'npub1counterparty';
-				if (key === 'amount') return contract.contractEvent.content.amount;
-				if (key === 'taskTitle' || key === 'contextTitle') {
-					return contract.contractEvent.content.contextTitle;
+			getContractKey: vi.fn(
+				(contract: { contractEvent: { content: MockContractContent } }, key: string) => {
+					if (key === 'otherPartyNpub') return 'npub1counterparty';
+					if (key === 'amount') return contract.contractEvent.content.amount;
+					if (key === 'taskTitle' || key === 'contextTitle') {
+						return contract.contractEvent.content.contextTitle;
+					}
+					return contract.contractEvent.content[key];
 				}
-				return contract.contractEvent.content[key];
-			})
+			)
 		},
 		completeTask: vi.fn().mockResolvedValue(undefined),
 		disputeTask: vi.fn().mockResolvedValue(undefined),
@@ -52,7 +62,6 @@ const hoisted = vi.hoisted(() => {
 
 const {
 	contractStoreState,
-	contractStore,
 	completeTask,
 	disputeTask,
 	proposeResolution,
@@ -139,7 +148,7 @@ function buildServiceContract({
 	content = {}
 }: {
 	permissions?: Partial<Record<string, boolean>>;
-	disputeProposal?: any;
+	disputeProposal?: unknown;
 	content?: Record<string, unknown>;
 } = {}) {
 	return {
@@ -173,7 +182,7 @@ function buildServiceContract({
 			}
 		},
 		disputeProposal: disputeProposalOverride
-	} as any;
+	} as unknown;
 }
 
 describe('service contract notification parity integration', () => {
@@ -247,8 +256,12 @@ describe('service contract notification parity integration', () => {
 			isInline: false
 		});
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Cancel Service Contract' }));
-		await fireEvent.click(screen.getAllByRole('button', { name: 'Cancel Service Contract' }).at(-1)!);
+		await fireEvent.click(
+			screen.getByRole('button', { name: 'dashboard.contracts.actions.cancel_contract' })
+		);
+		await fireEvent.click(
+			screen.getAllByRole('button', { name: 'dashboard.contracts.actions.cancel_contract' }).at(-1)!
+		);
 		await waitFor(() => expect(cancelEscrow).toHaveBeenCalledTimes(1));
 
 		expect(sendNotificationToNpubs).toHaveBeenLastCalledWith(
@@ -286,7 +299,10 @@ describe('service contract notification parity integration', () => {
 			throw new Error('Expected resolution amount input to be present.');
 		}
 		await fireEvent.input(amountInput, { target: { value: '400.00' } });
-		await fireEvent.click(screen.getByRole('button', { name: 'dashboard.contracts.actions.propose' }));
+		await fireEvent.click(
+			screen.getByRole('button', { name: 'dashboard.contracts.actions.propose' })
+		);
+		await fireEvent.click(screen.getByRole('button', { name: 'Propose' }));
 
 		await waitFor(() => expect(proposeResolution).toHaveBeenCalledTimes(1));
 		expect(sendNotificationToNpubs).toHaveBeenLastCalledWith(
@@ -300,6 +316,7 @@ describe('service contract notification parity integration', () => {
 		await fireEvent.click(
 			screen.getByRole('button', { name: 'dashboard.contracts.actions.accept_proposal' })
 		);
+		await fireEvent.click(screen.getByRole('button', { name: 'Accept Proposal' }));
 		await waitFor(() => expect(acceptProposal).toHaveBeenCalledTimes(1));
 		expect(sendNotificationToNpubs).toHaveBeenLastCalledWith(
 			expect.objectContaining({

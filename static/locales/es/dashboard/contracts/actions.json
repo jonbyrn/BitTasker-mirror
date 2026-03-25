@@ -12,7 +12,7 @@
 				"counter_proposal": "Contrapropuesta",
 				"accept_proposal": "Aceptar Propuesta",
 				"cancel_contract": "Cancelar Contrato",
-				"cancel_service_contract": "Cancelar contrato de servicio",
+				"cancel_service_contract": "Cancelar contrato",
 				"delete_service_contract": "Eliminar contrato de servicio",
 				"resolve_timelock": "Reclamar Fondos",
 				"delete_contract": "Eliminar Contrato",
@@ -92,10 +92,22 @@
 				"confirm_service_accept_message": "Esto libera los fondos del servicio completado y mantiene intacto el historial del contrato de servicio.",
 				"confirm_service_dispute_title": "¿Iniciar una disputa para este servicio?",
 				"confirm_service_dispute_message": "Esto abre una disputa sobre el contrato de servicio y pausa la ruta normal de pago.",
+				"accept_proposal_confirm_title": "Aceptar propuesta",
+				"accept_proposal_confirm_message": "¿Seguro que deseas aceptar esta propuesta? Esto finalizará la resolución propuesta del contrato.",
+				"propose_resolution_confirm_title": "Proponer resolución",
+				"propose_resolution_confirm_message": "¿Seguro que deseas enviar esta propuesta de resolución? Esto enviará tu reparto de pago propuesto al contrato.",
 				"confirm_service_cancel_title": "¿Cancelar este contrato de servicio?",
-				"confirm_service_cancel_message": "Esto cancela el contrato de servicio e inicia la ruta de reembolso definida por las reglas del escrow.",
+				"confirm_service_cancel_message": "Esto cancelará el contrato y reembolsará al tasker.",
+				"resolve_timelock_confirm_title": "Reclamar fondos",
+				"resolve_timelock_confirm_message": "¿Seguro que deseas reclamar los fondos mediante la ruta de resolución por timelock? Esta acción no se puede deshacer.",
 				"confirm_service_delete_title": "¿Eliminar este contrato de servicio?",
-				"confirm_service_delete_message": "¿Eliminar este contrato de servicio sin fondos de tu historial de contratos de Nostr?"
+				"confirm_service_delete_message": "¿Eliminar este contrato de servicio sin fondos de tu historial de contratos de Nostr?",
+				"confirm_service_accept_proposal_title": "¿Aceptar esta propuesta de servicio?",
+				"confirm_service_accept_proposal_message": "Esto acepta la propuesta actual de resolución del servicio y la aplica al contrato de pago seguro.",
+				"confirm_service_propose_resolution_title": "¿Proponer esta resolución de servicio?",
+				"confirm_service_propose_resolution_message": "Esto envía tus montos propuestos de resolución del servicio al contrato de pago seguro para revisión.",
+				"confirm_service_resolve_timelock_title": "¿Reclamar fondos para este contrato de servicio?",
+				"confirm_service_resolve_timelock_message": "Esto reclama fondos usando la ruta de resolución por timelock vencido para el contrato de servicio."
 			}
 		}
 	}

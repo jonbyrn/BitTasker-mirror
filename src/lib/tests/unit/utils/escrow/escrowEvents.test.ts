@@ -293,7 +293,7 @@ describe('escrowEvents', () => {
 			});
 			replacePendingContractByTxHash('0xabc123', '0xdef456');
 			vi.mocked(publishContractEvent).mockResolvedValue(undefined);
-			vi.mocked(contractStore.loadContractByEscrowId).mockResolvedValue(undefined);
+			vi.mocked(contractStore.loadContractByEscrowId).mockResolvedValue(true);
 			vi.mocked(pushNotificationService.sendNotificationToNpubs).mockResolvedValue(undefined);
 
 			await handleEscrowCreated({
@@ -306,9 +306,10 @@ describe('escrowEvents', () => {
 			});
 
 			expect(vi.mocked(publishContractEvent)).toHaveBeenCalled();
-			expect(vi.mocked(contractCreationStore.set)).toHaveBeenCalledWith({
+			expect(vi.mocked(contractCreationStore.set)).toHaveBeenLastCalledWith({
 				escrowId: 'svc-123',
 				contractEventId: 'contract-svc-123',
+				state: 'contract_ready',
 				transactionHash: '0xdef456',
 				transactionHashes: ['0xdef456', '0xabc123']
 			});
@@ -558,7 +559,7 @@ describe('escrowEvents', () => {
 			});
 
 			vi.mocked(publishContractEvent).mockResolvedValue(undefined);
-			vi.mocked(contractStore.loadContractByEscrowId).mockResolvedValue(undefined);
+			vi.mocked(contractStore.loadContractByEscrowId).mockResolvedValue(true);
 			vi.mocked(pushNotificationService.sendNotificationToNpubs).mockResolvedValue(undefined);
 
 			await handleEscrowCreated(event);
@@ -591,7 +592,7 @@ describe('escrowEvents', () => {
 			});
 
 			vi.mocked(publishContractEvent).mockResolvedValue(undefined);
-			vi.mocked(contractStore.loadContractByEscrowId).mockResolvedValue(undefined);
+			vi.mocked(contractStore.loadContractByEscrowId).mockResolvedValue(true);
 			vi.mocked(pushNotificationService.sendNotificationToNpubs).mockResolvedValue(undefined);
 
 			await handleEscrowCreated(event);
@@ -617,6 +618,7 @@ describe('escrowEvents', () => {
 				bidEventId: 'proposal-123',
 				escrowId: 'svc-123',
 				freelancerPubkey: 'npub1freelancer',
+				clientRskAddress: '0xabcdef1234567890abcdef1234567890abcdef12',
 				amount: '1.0',
 				estimatedStartTime: Math.floor(Date.now() / 1000) + 3600,
 				estimatedCompletionTime: Math.floor(Date.now() / 1000) + 7200,
@@ -646,7 +648,7 @@ describe('escrowEvents', () => {
 			});
 
 			vi.mocked(publishContractEvent).mockResolvedValue(undefined);
-			vi.mocked(contractStore.loadContractByEscrowId).mockResolvedValue(undefined);
+			vi.mocked(contractStore.loadContractByEscrowId).mockResolvedValue(true);
 			vi.mocked(pushNotificationService.sendNotificationToNpubs).mockResolvedValue(undefined);
 
 			await handleEscrowCreated(event);
@@ -656,6 +658,7 @@ describe('escrowEvents', () => {
 					contextType: 'service',
 					serviceId: '30402:pub:dtag',
 					serviceTitle: 'Logo Design',
+					clientRskAddress: '0xabcdef1234567890abcdef1234567890abcdef12',
 					purchaseMode: 'quote',
 					proposalId: 'proposal-123',
 					agreementSnapshot: expect.objectContaining({
@@ -734,7 +737,7 @@ describe('escrowEvents', () => {
 			});
 
 			vi.mocked(publishContractEvent).mockResolvedValue(undefined);
-			vi.mocked(contractStore.loadContractByEscrowId).mockResolvedValue(undefined);
+			vi.mocked(contractStore.loadContractByEscrowId).mockResolvedValue(true);
 			vi.mocked(pushNotificationService.sendNotificationToNpubs).mockResolvedValue(undefined);
 			vi.mocked(publishServiceProposalStatus)
 				.mockRejectedValueOnce(new Error('status publish failed'))
@@ -878,7 +881,7 @@ describe('escrowEvents', () => {
 			});
 
 			vi.mocked(publishContractEvent).mockResolvedValue(undefined);
-			vi.mocked(contractStore.loadContractByEscrowId).mockResolvedValue(undefined);
+			vi.mocked(contractStore.loadContractByEscrowId).mockResolvedValue(true);
 			vi.mocked(pushNotificationService.sendNotificationToNpubs).mockResolvedValue(undefined);
 			vi.mocked(publishServiceProposalStatus).mockRejectedValueOnce(
 				new Error('status publish failed')
@@ -1159,7 +1162,7 @@ describe('escrowEvents', () => {
 			});
 
 			vi.mocked(publishContractEvent).mockResolvedValue(undefined);
-			vi.mocked(contractStore.loadContractByEscrowId).mockResolvedValue(undefined);
+			vi.mocked(contractStore.loadContractByEscrowId).mockResolvedValue(true);
 			vi.mocked(pushNotificationService.sendNotificationToNpubs).mockResolvedValue(undefined);
 
 			await handleEscrowCreated(event);
@@ -1174,10 +1177,11 @@ describe('escrowEvents', () => {
 			);
 			expect(vi.mocked(sendBidStatusUpdate)).not.toHaveBeenCalled();
 			expect(vi.mocked(publishServiceProposalStatus)).not.toHaveBeenCalled();
-			expect(vi.mocked(contractCreationStore.set)).toHaveBeenCalledWith(
+			expect(vi.mocked(contractCreationStore.set)).toHaveBeenLastCalledWith(
 				expect.objectContaining({
 					escrowId: 'svc-ib-123',
 					contractEventId: 'contract-svc-ib-123',
+					state: 'contract_ready',
 					transactionHash: '0xinstantbuy123',
 					transactionHashes: ['0xinstantbuy123']
 				})

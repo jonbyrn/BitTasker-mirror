@@ -7,6 +7,7 @@ import type {
 export interface CreateServiceContractFromSnapshotInput {
 	escrowId: string;
 	freelancerPubkey: string;
+	clientRskAddress?: string;
 	amount: string;
 	estimatedStartTime: number;
 	estimatedCompletionTime: number;
@@ -35,6 +36,7 @@ export function createServiceContractFromSnapshot(
 		taskTitle: input.serviceTitle,
 		taskDescription: input.serviceDescription,
 		freelancerPubkey: input.freelancerPubkey,
+		clientRskAddress: input.clientRskAddress,
 		amount: input.amount,
 		estimatedStartTime: input.estimatedStartTime,
 		estimatedCompletionTime: input.estimatedCompletionTime,

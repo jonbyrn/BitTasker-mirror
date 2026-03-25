@@ -456,6 +456,26 @@ describe('contractPermissions', () => {
 
 				expect(result.permissions.canDispute).toBe(true);
 			});
+
+			it('should allow freelancer cancellation after completion', () => {
+				const escrowData = {
+					...mockEscrowData,
+					status: EscrowStatus.Completed
+				};
+
+				const result = determineContractState(
+					EscrowStatus.Completed,
+					[],
+					mockContract,
+					escrowData,
+					null,
+					false,
+					false,
+					true
+				);
+
+				expect(result.permissions.canCancel).toBe(true);
+			});
 		});
 
 		describe('InDispute State', () => {
@@ -610,6 +630,26 @@ describe('contractPermissions', () => {
 				);
 
 				expect(result.permissions.canResolveTimelock).toBe(true);
+			});
+
+			it('should allow freelancer cancellation while in dispute', () => {
+				const escrowData = {
+					...mockEscrowData,
+					status: EscrowStatus.InDispute
+				};
+
+				const result = determineContractState(
+					EscrowStatus.InDispute,
+					[],
+					mockContract,
+					escrowData,
+					null,
+					false,
+					false,
+					true
+				);
+
+				expect(result.permissions.canCancel).toBe(true);
 			});
 		});
 
