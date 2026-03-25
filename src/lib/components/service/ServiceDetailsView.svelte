@@ -8,6 +8,7 @@
 	import type { Attachment } from '$lib/types/task.d';
 	import { t, locale } from 'svelte-i18n';
 	import { goto } from '$app/navigation';
+	import { browser, dev } from '$app/environment';
 	import {
 		getServiceDisplayTitle,
 		getServiceDisplayDescription,
@@ -16,7 +17,6 @@
 		getServiceDisplayFaqs,
 		getServiceDeliveryTimeDisplay
 	} from '$lib/utils/serviceDisplayTranslation';
-	import { format } from 'date-fns';
 	import { authState } from '$lib/stores/auth.store';
 	import { user } from '$lib/stores/user.store';
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
@@ -38,16 +38,30 @@
 		type InstantBuyCreateSnapshot
 	} from '$lib/utils/service-instant-buy/create';
 	import { buildServiceAddress } from '$lib/utils/service-quote/protocol';
+	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import { createServiceContract } from '$lib/utils/service-contract/create';
 	import { waitForContractCreationByTransactionHash } from '$lib/utils/service-contract/await-contract-creation';
 	import { describeServiceContractPreflightFailure } from '$lib/utils/service-contract/preflight-feedback';
+	import {
+		preflightServiceContractCreation,
+		type ServiceContractPreflightErrorCode
+	} from '$lib/utils/service-contract/preflight';
 	import {
 		clearPendingServiceContractNavigation,
 		writePendingServiceContractNavigation
 	} from '$lib/utils/service-contract/pending-navigation';
 	import { appStore } from '$lib/stores/app.store';
 	import { ethers } from 'ethers';
+	import { escrow } from '$lib/utils/escrow';
+	import {
+		allAssets,
+		formatSats,
+		totalBalances,
+		walletManager,
+		walletStore
+	} from '$lib/stores/wallet.store';
 	import { contractStore } from '$lib/stores/contract.store';
+	import type { ContractCreationEvent } from '$lib/types/contract';
 	import { getActiveServiceContractsForService } from '$lib/utils/service-contract/active-contracts';
 	import { queryTaskeeServiceQuoteThreads } from '$lib/utils/service-quote/query';
 	import { summarizeDeleteGuardForThreads } from '$lib/utils/service-quote/resolver';
@@ -63,6 +77,16 @@
 		clearServiceQuoteReentryState,
 		parseServiceQuoteReentryState
 	} from '$lib/utils/service-quote/reentry';
+	import {
+		acquireBookNowSubmissionLock,
+		clearBookNowOutboxEntry,
+		clearTerminalOrStaleBookNowOutboxEntries,
+		readRecoverableBookNowOutboxEntry,
+		updateBookNowOutboxEntry,
+		type BookNowOutboxEntry
+	} from '$lib/utils/service-contract/book-now-outbox';
+	import { recoverBookNowContract } from '$lib/utils/service-contract/recover';
+	import { buildServiceContractLocationSnapshot } from '$lib/utils/service-contract/location';
 
 	let { service, serviceId } = $props<{
 		service: Service | null;
@@ -108,8 +132,16 @@
 	let instantBuyErrorMessage = $state('');
 	let instantBuyErrorHint = $state('');
 	let instantBuyDraft = $state<InstantBuyDraft | null>(null);
+	let instantBuyFundingCheck = $state<InstantBuyFundingCheck | null>(null);
+	let instantBuyFundingCheckInFlight = $state(false);
+	let instantBuyPendingTransactionHash = $state('');
+	let instantBuyPendingAmountRbtc = $state('');
+	let instantBuyPostSubmitErrorMessage = $state('');
+	let instantBuyBackgrounded = $state(false);
 	let deleteCheckInFlight = $state(false);
 	let deleteSubmitting = $state(false);
+	let lastInstantBuyDebugSignature = $state('');
+	let bookNowSubmissionOwnerId = $state('');
 	let deleteModalState = $state<{
 		mode: 'blocked' | 'confirm';
 		openQuoteCount: number;
@@ -120,16 +152,6 @@
 	type ServiceRuntimeFields = Service & {
 		instantBuyLeadHours?: number;
 		serviceAddress?: string;
-		providerWalletAddress?: string;
-		freelancerAddress?: string;
-		rskAddress?: string;
-		walletAddress?: string;
-		creator?: Service['creator'] & {
-			rskAddress?: string;
-			walletAddress?: string;
-			address?: string;
-			providerWalletAddress?: string;
-		};
 	};
 
 	type InstantBuyDraft = {
@@ -142,6 +164,37 @@
 		pricingSnapshot: ServiceContractPricingSnapshot;
 		agreementSnapshot: ServiceContractAgreementSnapshot;
 	};
+
+	type InstantBuyFundingCheck = {
+		status: 'ready' | 'error';
+		errorCode?: ServiceContractPreflightErrorCode;
+		message: string;
+		hint: string | null;
+		btcPrice: number | null;
+		totalRequiredUsd: number | null;
+		totalRequiredSats: string;
+	};
+
+	const bitcoinAsset = $derived($allAssets.find((asset) => asset.assetId === 'rbtc'));
+	const walletBalanceSatsLabel = $derived(formatSats($totalBalances.sats));
+	const walletBalanceUsdLabel = $derived.by(() => {
+		if (bitcoinAsset?.usdValue != null && Number.isFinite(bitcoinAsset.usdValue)) {
+			return `$${formatNumberWithTwoDecimals(bitcoinAsset.usdValue)}`;
+		}
+
+		if (instantBuyFundingCheck?.btcPrice && Number.isFinite($totalBalances.rbtc)) {
+			return `$${formatNumberWithTwoDecimals($totalBalances.rbtc * instantBuyFundingCheck.btcPrice)}`;
+		}
+
+		return '';
+	});
+	const instantBuyRequiredUsdLabel = $derived.by(() => {
+		if (instantBuyFundingCheck?.totalRequiredUsd == null) {
+			return '';
+		}
+
+		return `$${formatNumberWithTwoDecimals(instantBuyFundingCheck.totalRequiredUsd)}`;
+	});
 
 	const basePriceForAddOns = $derived.by(() => {
 		if (!service?.pricing) return 0;
@@ -172,13 +225,51 @@
 		displayAddOns.filter((addOn) => selectedAddOnIds.includes(addOn.id))
 	);
 	const instantBuyService = $derived(service as ServiceRuntimeFields | null);
+	const contractCreationStore = escrow.eventOps.getContractCreationStore();
+	const instantBuyProviderWalletAddress = $derived.by(() =>
+		instantBuyService ? resolveProviderWalletAddress(instantBuyService) : null
+	);
+	const instantBuyContractCreationEvent = $derived.by(() => {
+		if (!instantBuyPendingTransactionHash) {
+			return null;
+		}
+
+		return matchesContractCreationTransaction(
+			$contractCreationStore,
+			instantBuyPendingTransactionHash
+		)
+			? $contractCreationStore
+			: null;
+	});
+	const showInstantBuyContractCreationProgress = $derived(
+		Boolean(instantBuyPendingTransactionHash)
+	);
+	const instantBuyContractCreationStatus = $derived.by(() => {
+		if (!instantBuyPendingTransactionHash) {
+			return 'idle' as const;
+		}
+		if (instantBuyPostSubmitErrorMessage || instantBuyContractCreationEvent?.error) {
+			return 'error' as const;
+		}
+		if (
+			instantBuyContractCreationEvent?.contractEventId ||
+			instantBuyContractCreationEvent?.escrowId
+		) {
+			return 'success' as const;
+		}
+		return 'creating' as const;
+	});
+	const instantBuyContractCreationMessage = $derived.by(
+		() => instantBuyPostSubmitErrorMessage || instantBuyContractCreationEvent?.error || ''
+	);
 	const instantBuyEligibility = $derived(
 		getInstantBuyEligibility(instantBuyService, selectedTierId ?? undefined)
 	);
 	const showInstantBuyCta = $derived(
-		instantBuyEligibility.code === 'eligible' ||
-			instantBuyEligibility.code === 'missing_selected_tier' ||
-			instantBuyEligibility.code === 'invalid_selected_tier'
+		Boolean(instantBuyProviderWalletAddress) &&
+			(instantBuyEligibility.code === 'eligible' ||
+				instantBuyEligibility.code === 'missing_selected_tier' ||
+				instantBuyEligibility.code === 'invalid_selected_tier')
 	);
 	const isOffline = $derived(!$browserNetworkStatus.online);
 	const showReconnectNotice = $derived(
@@ -190,32 +281,23 @@
 			return '';
 		}
 		if (instantBuyEligibility.code === 'missing_selected_tier') {
-			return (
-				$t('dashboard.services.detail.instant_buy.select_tier_required') ||
-				'Select a tier above to use Book Now'
-			);
+			return $t('dashboard.services.detail.instant_buy.select_tier_required');
 		}
 		if (instantBuyEligibility.code === 'invalid_selected_tier') {
-			return (
-				$t('dashboard.services.detail.instant_buy.invalid_tier') ||
-				'The selected tier is no longer available'
-			);
+			return $t('dashboard.services.detail.instant_buy.invalid_tier');
 		}
-		return (
-			$t('dashboard.services.detail.instant_buy.not_eligible') ||
-			'This service is not eligible for instant purchase'
-		);
+		return $t('dashboard.services.detail.instant_buy.not_eligible');
 	});
 	const requestQuoteContextSummary = $derived.by(() => {
 		const summary: string[] = [];
 		if (selectedTier) {
 			summary.push(
-				`${$t('dashboard.services.create.tiers.section_title') || 'Tier'}: ${selectedTier.name} ($${formatNumberWithTwoDecimals(selectedTier.price)})`
+				`${$t('dashboard.services.detail.request_quote_summary.tier')}: ${selectedTier.name} ($${formatNumberWithTwoDecimals(selectedTier.price)})`
 			);
 		}
 		if (selectedAddOns.length > 0) {
 			summary.push(
-				`${$t('dashboard.services.create.review.addons_title') || 'Add-ons'}: ${selectedAddOns
+				`${$t('dashboard.services.detail.request_quote_summary.add_ons')}: ${selectedAddOns
 					.map((addOn) => addOn.name)
 					.join(', ')}`
 			);
@@ -225,10 +307,54 @@
 			service.pricing.deliveryTime?.display
 		) {
 			summary.push(
-				`${$t('dashboard.services.create.review.pricing_title') || 'Pricing'}: ${service.pricing.deliveryTime.display}`
+				`${$t('dashboard.services.detail.request_quote_summary.pricing')}: ${service.pricing.deliveryTime.display}`
 			);
 		}
 		return summary;
+	});
+
+	$effect(() => {
+		if (!browser || !dev || !service || isOwner) {
+			return;
+		}
+
+		const taskerLocation = service.locationDetails?.taskerLocation;
+		const debugSnapshot = {
+			serviceId: service.uniqueId || service.id,
+			status: service.status,
+			pricingType: service.pricing?.type ?? null,
+			showInstantBuyCta,
+			instantBuyEligibilityCode: instantBuyEligibility.code,
+			instantBuyEligible: instantBuyEligibility.eligible,
+			providerWalletResolved: instantBuyProviderWalletAddress,
+			providerWalletPresent: Boolean(instantBuyProviderWalletAddress),
+			rootCause: !instantBuyProviderWalletAddress
+				? 'missing_provider_wallet'
+				: instantBuyEligibility.code,
+			instantBuyLeadHours: instantBuyService?.instantBuyLeadHours ?? null,
+			instantBuyDeliveryHours: instantBuyService?.instantBuyDeliveryHours ?? null,
+			pricingDeliveryTime: service.pricing?.deliveryTime
+				? {
+						min: service.pricing.deliveryTime.min,
+						max: service.pricing.deliveryTime.max,
+						unit: service.pricing.deliveryTime.unit
+					}
+				: null,
+			rushDeliveryEnabled:
+				service.pricing?.type === ServicePricingTypeEnum.TIERED
+					? (selectedTier?.rushDelivery?.enabled ?? null)
+					: (service.pricing?.rushDelivery?.enabled ?? null),
+			perDistanceChargeAmount: taskerLocation?.perDistanceCharge?.amount ?? null,
+			providerWalletAddress: instantBuyService?.providerWalletAddress ?? null
+		};
+		const nextSignature = JSON.stringify(debugSnapshot);
+
+		if (lastInstantBuyDebugSignature === nextSignature) {
+			return;
+		}
+
+		lastInstantBuyDebugSignature = nextSignature;
+		console.debug('[ServiceDetailsView] Book Now diagnostics', debugSnapshot);
 	});
 
 	function translateCategory(category: { id: string; name: string } | string): string {
@@ -243,6 +369,11 @@
 
 	function isVideoFile(url: string): boolean {
 		return /\.(mp4|webm|ogg|mov)$/i.test(url);
+	}
+
+	function detailText(key: string, fallback: string): string {
+		const translated = $t(key) as string;
+		return !translated || translated === key ? fallback : translated;
 	}
 
 	async function prepareGalleryImages(attachments: Attachment[]) {
@@ -278,7 +409,10 @@
 
 	function formatDateString(date: string | number): string {
 		const dateObj = typeof date === 'string' ? new Date(date) : new Date(date * 1000);
-		return format(dateObj, 'MMM yyyy');
+		return new Intl.DateTimeFormat(currentLocale, {
+			month: 'short',
+			year: 'numeric'
+		}).format(dateObj);
 	}
 
 	function normalizeAddressCandidate(candidate: unknown): string | null {
@@ -287,25 +421,116 @@
 		}
 
 		try {
-			return ethers.getAddress(candidate.trim());
+			return ethers.getAddress(candidate.trim().toLowerCase());
 		} catch {
 			return null;
 		}
 	}
 
 	function resolveProviderWalletAddress(runtimeService: ServiceRuntimeFields): string | null {
-		const creator = runtimeService.creator as Record<string, unknown> | undefined;
+		return normalizeAddressCandidate(runtimeService.providerWalletAddress);
+	}
 
-		return (
-			normalizeAddressCandidate(runtimeService.providerWalletAddress) ??
-			normalizeAddressCandidate(runtimeService.freelancerAddress) ??
-			normalizeAddressCandidate(runtimeService.rskAddress) ??
-			normalizeAddressCandidate(runtimeService.walletAddress) ??
-			normalizeAddressCandidate(creator?.providerWalletAddress) ??
-			normalizeAddressCandidate(creator?.rskAddress) ??
-			normalizeAddressCandidate(creator?.walletAddress) ??
-			normalizeAddressCandidate(creator?.address)
+	function normalizeTransactionHash(transactionHash: string): string {
+		return transactionHash.trim().toLowerCase();
+	}
+
+	function getBookNowOutboxStorage(): Storage | null {
+		return browser ? window.localStorage : null;
+	}
+
+	function getBookNowSubmissionOwner(): string {
+		if (!browser) {
+			return 'server';
+		}
+
+		const storageKey = 'bittasker.book-now-submission-owner.v1';
+		const existingOwnerId = window.sessionStorage.getItem(storageKey)?.trim();
+		if (existingOwnerId) {
+			return existingOwnerId;
+		}
+
+		const nextOwnerId = globalThis.crypto?.randomUUID?.() ?? `book-now-${Date.now()}`;
+		window.sessionStorage.setItem(storageKey, nextOwnerId);
+		return nextOwnerId;
+	}
+
+	function ensureBookNowSubmissionOwnerId(): string {
+		if (bookNowSubmissionOwnerId) {
+			return bookNowSubmissionOwnerId;
+		}
+
+		bookNowSubmissionOwnerId = getBookNowSubmissionOwner();
+		return bookNowSubmissionOwnerId;
+	}
+
+	function buildBookNowFingerprint(draft: InstantBuyDraft): string {
+		const addOnIds = [...(draft.pricingSnapshot.selectedAddOns ?? [])].sort().join(',');
+		return [
+			serviceId,
+			draft.serviceAddress,
+			draft.pricingSnapshot.serviceVersionRef,
+			draft.snapshot.selectedTierId ?? '',
+			addOnIds,
+			$user?.npub ?? '',
+			service?.npub ?? ''
+		]
+			.map((value) => value.trim().toLowerCase())
+			.join('|');
+	}
+
+	function readBookNowOutboxEntryForDraft(draft: InstantBuyDraft): BookNowOutboxEntry | null {
+		return readRecoverableBookNowOutboxEntry(
+			getBookNowOutboxStorage(),
+			buildBookNowFingerprint(draft)
 		);
+	}
+
+	function clearBookNowOutboxForDraft(draft: InstantBuyDraft): void {
+		clearBookNowOutboxEntry(getBookNowOutboxStorage(), buildBookNowFingerprint(draft));
+	}
+
+	function updateBookNowOutboxForDraft(
+		draft: InstantBuyDraft,
+		state: BookNowOutboxEntry['state'],
+		overrides: Partial<
+			Pick<BookNowOutboxEntry, 'instantOrderId' | 'amountRbtc' | 'transactionHash' | 'escrowId'>
+		> = {},
+		expectedLockOwnerId: string | undefined = undefined
+	): BookNowOutboxEntry {
+		const resolvedExpectedLockOwnerId =
+			expectedLockOwnerId ??
+			(state === 'submission_locked' ? ensureBookNowSubmissionOwnerId() : undefined);
+		return updateBookNowOutboxEntry(getBookNowOutboxStorage(), {
+			fingerprint: buildBookNowFingerprint(draft),
+			state,
+			instantOrderId: overrides.instantOrderId ?? draft.snapshot.instantOrderId,
+			amountRbtc: overrides.amountRbtc ?? null,
+			transactionHash: overrides.transactionHash ?? null,
+			escrowId: overrides.escrowId ?? null,
+			expectedLockOwnerId: resolvedExpectedLockOwnerId,
+			lockOwnerId: state === 'submission_locked' ? resolvedExpectedLockOwnerId : undefined
+		});
+	}
+
+	function matchesContractCreationTransaction(
+		event: ContractCreationEvent | null,
+		transactionHash: string
+	): event is ContractCreationEvent {
+		if (!event) {
+			return false;
+		}
+
+		const expectedHash = normalizeTransactionHash(transactionHash);
+		if (!expectedHash) {
+			return false;
+		}
+
+		const candidateHashes = [event.transactionHash, ...(event.transactionHashes ?? [])]
+			.map((value) => (typeof value === 'string' ? normalizeTransactionHash(value) : null))
+			.filter((value): value is string => Boolean(value));
+
+		return candidateHashes.includes(expectedHash);
 	}
 
 	function resolveInstantBuyAmountUsd(runtimeService: ServiceRuntimeFields): number | null {
@@ -350,6 +575,8 @@
 
 		return {
 			selectedTierId: selectedTierId ?? undefined,
+			selectedTierLabel: selectedTier?.name ?? undefined,
+			serviceLocation: buildServiceContractLocationSnapshot(runtimeService),
 			selectedAddOns:
 				selectedAddOns.length > 0 ? selectedAddOns.map((addOn) => addOn.name) : undefined,
 			deliverables: includedScope,
@@ -370,7 +597,7 @@
 		const amountUsd = resolveInstantBuyAmountUsd(runtimeService);
 
 		if (amountUsd == null || !Number.isFinite(amountUsd) || amountUsd <= 0) {
-			throw new Error('Instant-buy pricing is unavailable for this service.');
+			throw new Error($t('dashboard.services.detail.instant_buy.pricing_unavailable'));
 		}
 
 		const pricingSnapshot: ServiceContractPricingSnapshot = {
@@ -399,7 +626,12 @@
 		existingInstantOrderId?: string
 	): Promise<InstantBuyDraft> {
 		if (!service) {
-			throw new Error('Service is unavailable.');
+			throw new Error(
+				detailText(
+					'dashboard.services.detail.service_runtime_unavailable',
+					'Service is unavailable.'
+				)
+			);
 		}
 
 		const latestService = (await revalidateLatestInstantBuyService({
@@ -411,10 +643,33 @@
 		return buildInstantBuyDraft(latestService, existingInstantOrderId);
 	}
 
+	async function syncInstantBuyDraftWithRecoverableEntry(
+		draft: InstantBuyDraft
+	): Promise<{ draft: InstantBuyDraft; entry: BookNowOutboxEntry | null }> {
+		const existingEntry = readBookNowOutboxEntryForDraft(draft);
+		if (
+			existingEntry?.instantOrderId &&
+			existingEntry.instantOrderId !== draft.snapshot.instantOrderId
+		) {
+			const recoveredDraft = await revalidateInstantBuyDraft(existingEntry.instantOrderId);
+			return {
+				draft: recoveredDraft,
+				entry: readBookNowOutboxEntryForDraft(recoveredDraft)
+			};
+		}
+
+		return { draft, entry: existingEntry };
+	}
+
 	function handleOpenRequestQuote() {
 		if (!service?.npub) return;
 		if (isOffline) {
-			appStore.showErrorToast('You are offline. Reconnect before requesting a quote.');
+			appStore.showErrorToast(
+				detailText(
+					'dashboard.services.detail.quote_request_offline',
+					'You are offline. Reconnect before requesting a quote.'
+				)
+			);
 			return;
 		}
 		if (!$authState.isAuthenticated) {
@@ -430,6 +685,23 @@
 		instantBuyErrorMessage = '';
 		instantBuyErrorHint = '';
 		instantBuyDraft = null;
+		instantBuyFundingCheck = null;
+		instantBuyFundingCheckInFlight = false;
+		instantBuyPendingTransactionHash = '';
+		instantBuyPendingAmountRbtc = '';
+		instantBuyPostSubmitErrorMessage = '';
+		instantBuyBackgrounded = false;
+	}
+
+	function handleCloseInstantBuyDrawer() {
+		if (showInstantBuyContractCreationProgress) {
+			instantBuyBackgrounded = true;
+			instantBuyModalOpen = false;
+			return;
+		}
+
+		instantBuyModalOpen = false;
+		resetInstantBuyState();
 	}
 
 	function closeDeleteModal() {
@@ -456,42 +728,268 @@
 		instantBuyPreparing = true;
 		instantBuyErrorMessage = '';
 		instantBuyErrorHint = '';
+		instantBuyFundingCheck = null;
+		instantBuyPostSubmitErrorMessage = '';
 
 		try {
-			instantBuyDraft = await revalidateInstantBuyDraft(existingDraft?.snapshot.instantOrderId);
+			const nextDraft = await revalidateInstantBuyDraft(existingDraft?.snapshot.instantOrderId);
+			const syncedDraft = await syncInstantBuyDraftWithRecoverableEntry(nextDraft);
+			instantBuyDraft = syncedDraft.draft;
+			instantBuyPreparing = false;
+			await refreshInstantBuyFundingCheck(instantBuyDraft);
 		} catch (error) {
 			instantBuyDraft = existingDraft ?? null;
 			instantBuyErrorMessage =
-				error instanceof Error ? error.message : 'Unable to prepare Book Now right now.';
+				error instanceof Error
+					? error.message
+					: detailText(
+							'dashboard.services.detail.instant_buy.prepare_error',
+							'Unable to prepare Book Now right now.'
+						);
 		} finally {
 			instantBuyPreparing = false;
 		}
 	}
 
-	async function handleOpenInstantBuy() {
-		if (!service) return;
+	async function refreshInstantBuyFundingCheck(draft: InstantBuyDraft) {
+		instantBuyFundingCheckInFlight = true;
+		instantBuyFundingCheck = null;
+		instantBuyErrorMessage = '';
+		instantBuyErrorHint = '';
+
+		try {
+			try {
+				await walletManager.initialize();
+			} catch {
+				// Preflight handles disconnected wallets and returns stable recovery copy.
+			}
+
+			try {
+				await walletManager.loadAssets();
+			} catch {
+				// Balance display is best-effort; preflight still gates confirmation.
+			}
+
+			const btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
+			const preflight = await preflightServiceContractCreation(
+				{
+					freelancerAddress: draft.providerAddress ?? '',
+					freelancerPubkey: service?.npub ?? '',
+					amountUsdt: draft.amountUsd.toFixed(2),
+					estimatedStartTime: draft.snapshot.estimatedStartTime,
+					estimatedCompletionTime: draft.snapshot.estimatedEndTime
+				},
+				btcPrice
+			);
+
+			if (!preflight.ok) {
+				const feedback = describeServiceContractPreflightFailure(
+					preflight.errorCode,
+					preflight.error
+				);
+				instantBuyErrorMessage = feedback.message;
+				instantBuyErrorHint = feedback.hint ?? '';
+				instantBuyFundingCheck = {
+					status: 'error',
+					errorCode: preflight.errorCode,
+					message: feedback.message,
+					hint: feedback.hint,
+					btcPrice,
+					totalRequiredUsd: null,
+					totalRequiredSats: ''
+				};
+				return;
+			}
+
+			instantBuyFundingCheck = {
+				status: 'ready',
+				message: detailText(
+					'dashboard.services.detail.book_now_drawer.balance_verified',
+					'Your available balance covers this service contract.'
+				),
+				hint: null,
+				btcPrice,
+				totalRequiredUsd: Number.parseFloat(preflight.totalRequired) * btcPrice,
+				totalRequiredSats: formatSats(
+					Math.round(Number.parseFloat(preflight.totalRequired) * 100_000_000)
+				)
+			};
+		} catch (error) {
+			const feedback = describeServiceContractPreflightFailure(
+				'preflight_failed',
+				error instanceof Error
+					? error.message
+					: detailText(
+							'dashboard.services.detail.instant_buy.prepare_error',
+							'Unable to prepare Book Now right now.'
+						)
+			);
+			instantBuyErrorMessage = feedback.message;
+			instantBuyErrorHint = feedback.hint ?? '';
+			instantBuyFundingCheck = {
+				status: 'error',
+				errorCode: 'preflight_failed',
+				message: feedback.message,
+				hint: feedback.hint,
+				btcPrice: null,
+				totalRequiredUsd: null,
+				totalRequiredSats: ''
+			};
+		} finally {
+			instantBuyFundingCheckInFlight = false;
+		}
+	}
+
+	function canBeginInstantBuyReview(): boolean {
+		if (!service) return false;
 		if (isOffline) {
-			appStore.showErrorToast('You are offline. Reconnect before funding this service contract.');
+			appStore.showErrorToast(
+				detailText(
+					'dashboard.services.detail.instant_buy.offline',
+					'You are offline. Reconnect before funding this service contract.'
+				)
+			);
 			return;
 		}
 		if (!$authState.isAuthenticated) {
 			goto(`/auth/login?returnTo=${encodeURIComponent(window.location.pathname)}`);
-			return;
+			return false;
 		}
 		if (!instantBuyEligibility.eligible) {
 			appStore.showErrorToast(
-				instantBuyDisabledReason || 'This service is not ready for Book Now.'
+				instantBuyDisabledReason ||
+					detailText(
+						'dashboard.services.detail.instant_buy.not_ready',
+						'This service is not ready for Book Now.'
+					)
 			);
+			return false;
+		}
+
+		return true;
+	}
+
+	function handleOpenInstantBuy() {
+		if (!canBeginInstantBuyReview()) {
 			return;
 		}
 
+		if (showInstantBuyContractCreationProgress && instantBuyPendingTransactionHash) {
+			instantBuyBackgrounded = false;
+			instantBuyModalOpen = true;
+			return;
+		}
+
+		instantBuyBackgrounded = false;
 		instantBuyModalOpen = true;
-		await prepareInstantBuyDraft(null);
+		void prepareInstantBuyDraft(null);
+	}
+
+	async function completeBookNowSuccess(escrowId: string): Promise<void> {
+		const backgrounded = instantBuyBackgrounded && !instantBuyModalOpen;
+		clearPendingServiceContractNavigation(
+			typeof window === 'undefined' ? null : window.sessionStorage
+		);
+		appStore.showSuccessToast(
+			backgrounded
+				? detailText(
+						'dashboard.services.detail.instant_buy.success_background',
+						'Book Now order confirmed. Your service contract is ready in Contracts.'
+					)
+				: detailText(
+						'dashboard.services.detail.instant_buy.success',
+						'Book Now order confirmed. Opening your service contract.'
+					)
+		);
+		instantBuyModalOpen = false;
+		resetInstantBuyState();
+		if (!backgrounded) {
+			await goto(buildContractsHighlightUrl(escrowId));
+		}
+	}
+
+	async function handleBookNowRecoveryResult(
+		draft: InstantBuyDraft,
+		result: Awaited<ReturnType<typeof recoverBookNowContract>>
+	): Promise<boolean> {
+		if (result.status === 'contract_ready') {
+			clearBookNowOutboxForDraft(draft);
+			await completeBookNowSuccess(result.escrowId);
+			return true;
+		}
+
+		if (result.status === 'funding_pending' || result.status === 'contract_sync_pending') {
+			updateBookNowOutboxForDraft(
+				draft,
+				result.status === 'funding_pending' ? 'funding_submitted' : 'contract_sync_pending',
+				{
+					transactionHash: result.transactionHash,
+					escrowId: result.escrowId ?? null
+				},
+				undefined
+			);
+			instantBuyPendingTransactionHash = result.transactionHash;
+			const syncMessage = detailText(
+				'dashboard.services.detail.instant_buy.pending_contract_sync',
+				'The secure payment contract transaction was submitted, but the contract confirmation is still syncing. Open Contracts to monitor it.'
+			);
+			appStore.showInfoToast(syncMessage);
+			if (!instantBuyBackgrounded) {
+				instantBuyModalOpen = false;
+				resetInstantBuyState();
+				await goto('/dashboard?tab=contracts&context=services');
+			}
+			return true;
+		}
+
+		clearBookNowOutboxForDraft(draft);
+		instantBuyPostSubmitErrorMessage =
+			result.error ||
+			detailText(
+				'dashboard.services.detail.instant_buy.complete_error',
+				'Unable to complete Book Now right now.'
+			);
+		return false;
+	}
+
+	async function recoverExistingBookNowContract(
+		draft: InstantBuyDraft,
+		entry: BookNowOutboxEntry
+	): Promise<boolean> {
+		const transactionHash = entry.transactionHash?.trim();
+		const amountRbtc = entry.amountRbtc?.trim();
+		if (!service || !transactionHash || !amountRbtc) {
+			return false;
+		}
+
+		const recoveryResult = await recoverBookNowContract({
+			transactionHash,
+			escrowId: entry.escrowId,
+			freelancerPubkey: service.npub,
+			clientRskAddress: $walletStore.rsk.address ?? undefined,
+			amountRbtc,
+			estimatedStartTime: draft.snapshot.estimatedStartTime,
+			estimatedCompletionTime: draft.snapshot.estimatedEndTime,
+			serviceId: service.uniqueId || service.id,
+			serviceAddress: draft.serviceAddress,
+			serviceTitle: displayTitle,
+			serviceDescription: displayDescriptionFull,
+			contextVersionRef: draft.pricingSnapshot.serviceVersionRef,
+			instantOrderId: entry.instantOrderId ?? draft.snapshot.instantOrderId,
+			selectedTierId: draft.snapshot.selectedTierId,
+			pricingSnapshot: draft.pricingSnapshot,
+			agreementSnapshot: draft.agreementSnapshot
+		});
+
+		return await handleBookNowRecoveryResult(draft, recoveryResult);
 	}
 
 	async function handleConfirmInstantBuy() {
 		if (!service) {
-			instantBuyErrorMessage = 'Service is unavailable.';
+			instantBuyErrorMessage = detailText(
+				'dashboard.services.detail.service_runtime_unavailable',
+				'Service is unavailable.'
+			);
 			instantBuyErrorHint = '';
 			return;
 		}
@@ -499,19 +997,67 @@
 			return;
 		}
 		if (!instantBuyDraft) {
-			instantBuyErrorMessage =
-				'The latest service snapshot is still loading. Retry before buying now.';
+			instantBuyErrorMessage = detailText(
+				'dashboard.services.detail.instant_buy.loading_snapshot_retry',
+				'The latest service snapshot is still loading. Retry before buying now.'
+			);
 			instantBuyErrorHint = '';
 			return;
+		}
+		if (instantBuyFundingCheck?.status !== 'ready') {
+			await refreshInstantBuyFundingCheck(instantBuyDraft);
+			if (instantBuyFundingCheck?.status !== 'ready') {
+				return;
+			}
 		}
 
 		instantBuySubmitting = true;
 		instantBuyErrorMessage = '';
 		instantBuyErrorHint = '';
+		instantBuyPostSubmitErrorMessage = '';
 
 		try {
-			const draft = await revalidateInstantBuyDraft(instantBuyDraft.snapshot.instantOrderId);
+			let draft = await revalidateInstantBuyDraft(instantBuyDraft.snapshot.instantOrderId);
+			const syncedDraft = await syncInstantBuyDraftWithRecoverableEntry(draft);
+			draft = syncedDraft.draft;
 			instantBuyDraft = draft;
+			await refreshInstantBuyFundingCheck(draft);
+			if (instantBuyFundingCheck?.status !== 'ready') {
+				return;
+			}
+
+			const existingEntry = syncedDraft.entry ?? readBookNowOutboxEntryForDraft(draft);
+			if (existingEntry?.transactionHash) {
+				await recoverExistingBookNowContract(draft, existingEntry);
+				return;
+			}
+
+			const submissionOwnerId = ensureBookNowSubmissionOwnerId();
+			const lockResult = acquireBookNowSubmissionLock(
+				getBookNowOutboxStorage(),
+				buildBookNowFingerprint(draft),
+				submissionOwnerId
+			);
+			if (!lockResult.acquired) {
+				if (lockResult.reason === 'recoverable_exists' && lockResult.entry.transactionHash) {
+					await recoverExistingBookNowContract(draft, lockResult.entry);
+					return;
+				}
+
+				instantBuyErrorMessage = detailText(
+					'dashboard.services.detail.instant_buy.submission_in_progress',
+					'Book Now is already being processed in another tab. Return to that tab or wait a moment before retrying.'
+				);
+				instantBuyErrorHint = '';
+				return;
+			}
+
+			updateBookNowOutboxForDraft(
+				draft,
+				'submission_locked',
+				{ instantOrderId: draft.snapshot.instantOrderId },
+				submissionOwnerId
+			);
 
 			const contractResult = await createServiceContract({
 				freelancerPubkey: service.npub,
@@ -532,15 +1078,32 @@
 			});
 
 			if (!contractResult.success) {
+				clearBookNowOutboxForDraft(draft);
 				const feedback = describeServiceContractPreflightFailure(
 					contractResult.errorCode,
-					contractResult.error || 'Unable to complete Book Now right now.'
+					contractResult.error ||
+						detailText(
+							'dashboard.services.detail.instant_buy.complete_error',
+							'Unable to complete Book Now right now.'
+						)
 				);
 				instantBuyErrorMessage = feedback.message;
 				instantBuyErrorHint = feedback.hint ?? '';
 				return;
 			}
 
+			instantBuyPendingTransactionHash = contractResult.transactionHash ?? '';
+			instantBuyPendingAmountRbtc = contractResult.amount ?? '';
+			updateBookNowOutboxForDraft(
+				draft,
+				'funding_submitted',
+				{
+					instantOrderId: draft.snapshot.instantOrderId,
+					amountRbtc: contractResult.amount ?? null,
+					transactionHash: contractResult.transactionHash ?? null
+				},
+				submissionOwnerId
+			);
 			writePendingServiceContractNavigation(
 				typeof window === 'undefined' ? null : window.sessionStorage,
 				contractResult.transactionHash ?? ''
@@ -550,33 +1113,41 @@
 				contractResult.transactionHash ?? ''
 			);
 
-			clearPendingServiceContractNavigation(
-				typeof window === 'undefined' ? null : window.sessionStorage
-			);
-			appStore.showSuccessToast('Book Now order confirmed. Opening your service contract.');
-			instantBuyModalOpen = false;
-			resetInstantBuyState();
-			await goto(buildContractsHighlightUrl(contractCreationEvent.escrowId));
+			clearBookNowOutboxForDraft(draft);
+			await completeBookNowSuccess(contractCreationEvent.escrowId);
 		} catch (error) {
 			const errorMessage =
-				error instanceof Error ? error.message : 'Unable to complete Book Now right now.';
+				error instanceof Error
+					? error.message
+					: detailText(
+							'dashboard.services.detail.instant_buy.complete_error',
+							'Unable to complete Book Now right now.'
+						);
 
-			if (
-				errorMessage ===
-				'The escrow transaction was submitted, but the contract confirmation is still syncing. Open Contracts to monitor it.'
-			) {
-				appStore.showInfoToast(errorMessage);
-				instantBuyModalOpen = false;
-				resetInstantBuyState();
-				await goto('/dashboard?tab=contracts&context=services');
-				return;
+			if (instantBuyDraft && instantBuyPendingTransactionHash) {
+				const recovered = await recoverExistingBookNowContract(instantBuyDraft, {
+					fingerprint: buildBookNowFingerprint(instantBuyDraft),
+					state: 'funding_submitted',
+					createdAtMs: Date.now(),
+					updatedAtMs: Date.now(),
+					instantOrderId: instantBuyDraft.snapshot.instantOrderId,
+					amountRbtc: instantBuyPendingAmountRbtc,
+					transactionHash: instantBuyPendingTransactionHash
+				});
+				if (recovered) {
+					return;
+				}
 			}
 
 			clearPendingServiceContractNavigation(
 				typeof window === 'undefined' ? null : window.sessionStorage
 			);
-			instantBuyErrorMessage = errorMessage;
-			instantBuyErrorHint = '';
+			if (instantBuyPendingTransactionHash) {
+				instantBuyPostSubmitErrorMessage = errorMessage;
+			} else {
+				instantBuyErrorMessage = errorMessage;
+				instantBuyErrorHint = '';
+			}
 		} finally {
 			instantBuySubmitting = false;
 		}
@@ -584,7 +1155,13 @@
 
 	async function handleQuoteRequestConfirm(payload: QuoteRequestPayload) {
 		if (!service) {
-			return { success: false, error: 'Service is unavailable.' };
+			return {
+				success: false,
+				error: detailText(
+					'dashboard.services.detail.service_runtime_unavailable',
+					'Service is unavailable.'
+				)
+			};
 		}
 
 		const result = await serviceQuoteUiStore.submitQuoteRequest({
@@ -598,13 +1175,20 @@
 		if (!result.success || !result.quoteRequestId) {
 			return {
 				success: false,
-				error: result.error || 'Unable to submit quote request right now.'
+				error:
+					result.error ||
+					detailText(
+						'dashboard.services.detail.quote_request_submit_error',
+						'Unable to submit quote request right now.'
+					)
 			};
 		}
 
-		// Show success toast before navigation
 		appStore.showSuccessToast(
-			$t('dashboard.services.detail.quote_submitted') || 'Quote request submitted successfully!'
+			detailText(
+				'dashboard.services.detail.quote_submitted',
+				'Quote request submitted successfully!'
+			)
 		);
 
 		await goto(
@@ -626,7 +1210,12 @@
 
 	async function inspectDeleteGuards() {
 		if (!service) {
-			throw new Error('Service is unavailable.');
+			throw new Error(
+				detailText(
+					'dashboard.services.detail.service_runtime_unavailable',
+					'Service is unavailable.'
+				)
+			);
 		}
 
 		await contractStore.loadContracts();
@@ -684,7 +1273,31 @@
 	}
 
 	onMount(() => {
+		bookNowSubmissionOwnerId = getBookNowSubmissionOwner();
+		clearTerminalOrStaleBookNowOutboxEntries(getBookNowOutboxStorage());
 		applyReentryState();
+	});
+
+	$effect(() => {
+		if (!instantBuyBackgrounded || instantBuyModalOpen) {
+			return;
+		}
+
+		if (
+			instantBuyContractCreationStatus === 'success' &&
+			instantBuyContractCreationEvent?.escrowId
+		) {
+			void completeBookNowSuccess(instantBuyContractCreationEvent.escrowId);
+			return;
+		}
+
+		if (instantBuyContractCreationStatus === 'error' && instantBuyContractCreationMessage) {
+			clearPendingServiceContractNavigation(
+				typeof window === 'undefined' ? null : window.sessionStorage
+			);
+			appStore.showErrorToast(instantBuyContractCreationMessage);
+			resetInstantBuyState();
+		}
 	});
 
 	async function handleDeleteService() {
@@ -705,7 +1318,10 @@
 			appStore.showErrorToast(
 				error instanceof Error
 					? error.message
-					: 'Unable to verify whether this service can be deleted right now.'
+					: detailText(
+							'dashboard.services.detail.delete_service_messages.verify_error',
+							'Unable to verify whether this service can be deleted right now.'
+						)
 			);
 		} finally {
 			deleteCheckInFlight = false;
@@ -732,7 +1348,12 @@
 				}
 			);
 			await deleteServicePortfolioMedia(service.portfolio);
-			appStore.showSuccessToast('Service deleted successfully.');
+			appStore.showSuccessToast(
+				detailText(
+					'dashboard.services.detail.delete_service_messages.success',
+					'Service deleted successfully.'
+				)
+			);
 			deleteModalState = null;
 			if (typeof window !== 'undefined' && window.location.pathname.startsWith('/earning')) {
 				await goto('/earning?tab=my-services');
@@ -742,9 +1363,20 @@
 		} catch (error) {
 			clearPendingServiceDelete(service);
 			const message =
-				error instanceof Error ? error.message : 'Unable to delete this service right now.';
-			appStore.showErrorToast(message);
-			if (message === 'Cannot delete a service with active contracts.') {
+				error instanceof Error
+					? error.message
+					: detailText(
+							'dashboard.services.detail.delete_service_messages.delete_error',
+							'Unable to delete this service right now.'
+						);
+			const activeContractsBlockedMessage = $t(
+				'dashboard.services.detail.delete_service_messages.active_contracts_blocked'
+			);
+			const isActiveContractsBlocked =
+				message === 'Cannot delete a service with active contracts.' ||
+				message === activeContractsBlockedMessage;
+			appStore.showErrorToast(isActiveContractsBlocked ? activeContractsBlockedMessage : message);
+			if (isActiveContractsBlocked) {
 				try {
 					const guard = await inspectDeleteGuards();
 					deleteModalState = {
@@ -798,7 +1430,7 @@
 					<div class="mb-3">
 						<a href="/services" class="btn btn-ghost btn-sm gap-2">
 							<IconArrowLeft class="h-4 w-4" aria-hidden="true" />
-							{$t('dashboard.services.detail.back_to_services') || 'Back to Services'}
+							{$t('dashboard.services.detail.back_to_services')}
 						</a>
 					</div>
 					<h3 class="">{$t('dashboard.services.detail.title')}</h3>
@@ -979,7 +1611,7 @@
 								{#if deleteCheckInFlight || deleteSubmitting}
 									<span class="loading loading-spinner loading-xs"></span>
 								{/if}
-								Delete Service
+								{$t('dashboard.services.detail.delete_service')}
 							</button>
 						{:else if service.status === 'active'}
 							<div class="mb-6">
@@ -990,7 +1622,7 @@
 										data-testid="service-detail-offline-alert"
 									>
 										<span>
-											You are offline. Reconnect before requesting a quote or funding this service.
+											{$t('dashboard.services.detail.public_cta.offline_notice')}
 										</span>
 									</div>
 								{:else if showReconnectNotice}
@@ -999,7 +1631,7 @@
 										data-testid="service-detail-reconnect-alert"
 									>
 										<span>
-											Back online. Retry if the latest service details are still syncing.
+											{$t('dashboard.services.detail.public_cta.reconnect_notice')}
 										</span>
 									</div>
 								{/if}
@@ -1013,7 +1645,7 @@
 										{#if instantBuyPreparing}
 											<span class="loading loading-spinner loading-xs"></span>
 										{/if}
-										{$t('dashboard.services.detail.book_now') || 'Book Now'}
+										{$t('dashboard.services.detail.book_now')}
 									</button>
 									{#if instantBuyDisabledReason}
 										<p class="text-base-content/60 mt-2 text-xs">
@@ -1167,45 +1799,62 @@
 
 	<ServiceInstantBuyModal
 		open={instantBuyModalOpen}
-		title="Confirm Book Now"
 		serviceTitle={displayTitle}
 		providerName={instantBuyDraft?.providerName ?? service?.creator?.username ?? null}
+		providerAvatar={service?.creator?.avatar ?? null}
+		providerRating={service?.creator?.rating ?? 0}
+		providerPubkey={service?.npub ?? null}
+		providerMemberSince={service?.createdAt ?? null}
+		amountUsd={instantBuyDraft?.amountUsd ?? null}
 		selectedTierLabel={instantBuyDraft?.selectedTierLabel ?? null}
 		agreementSnapshot={instantBuyDraft?.agreementSnapshot ?? null}
 		pricingSnapshot={instantBuyDraft?.pricingSnapshot ?? null}
 		instantOrderId={instantBuyDraft?.snapshot.instantOrderId ?? null}
 		estimatedStartTime={instantBuyDraft?.snapshot.estimatedStartTime ?? null}
 		estimatedCompletionTime={instantBuyDraft?.snapshot.estimatedEndTime ?? null}
+		walletLoading={instantBuyFundingCheckInFlight}
+		walletConnected={$walletStore.rsk.connected}
+		walletBalanceSats={walletBalanceSatsLabel}
+		walletBalanceUsd={walletBalanceUsdLabel}
+		requiredBalanceSats={instantBuyFundingCheck?.totalRequiredSats ?? ''}
+		requiredBalanceUsd={instantBuyRequiredUsdLabel}
+		walletVerificationStatus={instantBuyFundingCheckInFlight
+			? 'verifying'
+			: (instantBuyFundingCheck?.status ?? 'idle')}
+		walletVerificationMessage={instantBuyFundingCheckInFlight
+			? $t('dashboard.services.detail.book_now_drawer.verifying_wallet')
+			: (instantBuyFundingCheck?.message ?? '')}
 		isPreparing={instantBuyPreparing}
 		isSubmitting={instantBuySubmitting}
 		{isOffline}
 		{showReconnectNotice}
 		errorMessage={instantBuyErrorMessage}
 		errorHint={instantBuyErrorHint}
-		canConfirm={instantBuyDraft !== null}
+		showContractCreationProgress={showInstantBuyContractCreationProgress}
+		contractCreationStatus={instantBuyContractCreationStatus}
+		contractCreationMessage={instantBuyContractCreationMessage}
+		canConfirm={instantBuyDraft !== null && instantBuyFundingCheck?.status === 'ready'}
 		onConfirm={handleConfirmInstantBuy}
 		onRetry={() => prepareInstantBuyDraft(instantBuyDraft)}
-		onClose={() => {
-			instantBuyModalOpen = false;
-			resetInstantBuyState();
-		}}
+		onClose={handleCloseInstantBuyDrawer}
 	/>
 
 	<Modal
 		isOpen={deleteModalState !== null}
-		title={deleteModalState?.mode === 'blocked' ? 'Cannot delete service' : 'Delete service'}
+		title={deleteModalState?.mode === 'blocked'
+			? $t('dashboard.services.detail.delete_service_modal.blocked_title')
+			: $t('dashboard.services.detail.delete_service_modal.confirm_title')}
 		onClose={closeDeleteModal}
 		size="md"
 	>
 		{#if deleteModalState}
 			<p class="text-base-content/80 text-sm">
 				{#if deleteModalState.mode === 'blocked'}
-					This service cannot be deleted yet.
+					{$t('dashboard.services.detail.delete_service_modal.blocked_body')}
 				{:else if deleteModalState.openQuoteCount > 0}
-					This permanently removes the current service listing from your dashboard. Existing service
-					requests will remain visible as read-only history.
+					{$t('dashboard.services.detail.delete_service_modal.confirm_with_requests')}
 				{:else}
-					This permanently removes the current service listing from your dashboard.
+					{$t('dashboard.services.detail.delete_service_modal.confirm_without_requests')}
 				{/if}
 			</p>
 
@@ -1214,29 +1863,31 @@
 					{#if deleteModalState.activeContractCount > 0}
 						<div class="alert alert-error">
 							<span>
-								Active service contracts are still attached to this service (`{deleteModalState.activeContractCount}`
-								active contract{deleteModalState.activeContractCount === 1 ? '' : 's'}).
+								{$t('dashboard.services.detail.delete_service_modal.active_contracts', {
+									values: { count: deleteModalState.activeContractCount }
+								})}
 							</span>
 						</div>
 					{/if}
 				</div>
 				<div class="mt-6 flex justify-end">
-					<button type="button" class="btn btn-primary" onclick={closeDeleteModal}>Close</button>
+					<button type="button" class="btn btn-primary" onclick={closeDeleteModal}>
+						{$t('dashboard.services.detail.delete_service_modal.close')}
+					</button>
 				</div>
 			{:else}
 				<div class="mt-4 space-y-3">
 					{#if deleteModalState.openQuoteCount > 0}
 						<div class="alert alert-warning">
 							<span>
-								This service still has {deleteModalState.openQuoteCount} open request{deleteModalState.openQuoteCount ===
-								1
-									? ''
-									: 's'}. After deletion, those threads will remain visible as read-only history.
+								{$t('dashboard.services.detail.delete_service_modal.open_requests_notice', {
+									values: { count: deleteModalState.openQuoteCount }
+								})}
 							</span>
 						</div>
 					{:else}
 						<p class="text-base-content/70 text-sm">
-							No open quotes or active contracts were found for this service.
+							{$t('dashboard.services.detail.delete_service_modal.no_dependents')}
 						</p>
 					{/if}
 				</div>
@@ -1247,7 +1898,7 @@
 						onclick={closeDeleteModal}
 						disabled={deleteSubmitting}
 					>
-						Cancel
+						{$t('dashboard.services.detail.delete_service_modal.cancel')}
 					</button>
 					<button
 						type="button"
@@ -1258,7 +1909,7 @@
 						{#if deleteSubmitting}
 							<span class="loading loading-spinner loading-xs"></span>
 						{/if}
-						Confirm Delete
+						{$t('dashboard.services.detail.delete_service_modal.confirm')}
 					</button>
 				</div>
 			{/if}

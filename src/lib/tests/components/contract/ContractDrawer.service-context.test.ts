@@ -1,15 +1,30 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/svelte';
+import { render, screen } from '@testing-library/svelte';
 import ContractDrawer from '$lib/components/contracts/ContractDrawer.svelte';
 import { EscrowStatus } from '$lib/utils/escrow';
 
 const { contractStoreState, getContractKey } = vi.hoisted(() => {
+	type MockContractRecord = {
+		contractEvent: {
+			content: Record<string, unknown>;
+		};
+		escrowData: {
+			id: string;
+		};
+	};
+	type MockStoreState = {
+		contract: unknown;
+		contracts: unknown[];
+		isDrawerOpen: boolean;
+		isResolutionFormOpen: boolean;
+	};
+
 	let value = {
-		contract: null as any,
-		contracts: [] as any[],
+		contract: null as unknown,
+		contracts: [] as unknown[],
 		isDrawerOpen: true,
 		isResolutionFormOpen: false
-	};
+	} satisfies MockStoreState;
 	const subscribers = new Set<(nextValue: typeof value) => void>();
 	const state = {
 		subscribe(run: (nextValue: typeof value) => void) {
@@ -28,11 +43,12 @@ const { contractStoreState, getContractKey } = vi.hoisted(() => {
 
 	return {
 		contractStoreState: state,
-		getContractKey: vi.fn((contract: any, key: string) => {
+		getContractKey: vi.fn((contract: MockContractRecord, key: string) => {
 			if (key === 'otherPartyNpub') return 'npub1counterparty';
 			if (key === 'clientPubkey') return 'npub1client';
 			if (key === 'amount') return contract.contractEvent.content.amount;
-			if (key === 'taskTitle' || key === 'contextTitle') return contract.contractEvent.content.contextTitle;
+			if (key === 'taskTitle' || key === 'contextTitle')
+				return contract.contractEvent.content.contextTitle;
 			if (key === 'taskDescription' || key === 'contextDescription') {
 				return contract.contractEvent.content.contextDescription;
 			}
@@ -83,7 +99,10 @@ vi.mock('$lib/components/contracts/ContractTimeline.svelte', () => ({
 
 vi.mock('$lib/components/contracts/ContractActions.svelte', () => ({
 	default: () => ({
-		$$render: (_result: unknown, props: { contract: any }) =>
+		$$render: (
+			_result: unknown,
+			props: { contract: { contractEvent: { content: { contextType?: string } } } }
+		) =>
 			`<div data-testid="drawer-actions">${
 				props.contract.contractEvent.content.contextType === 'service'
 					? 'Accept Service'
@@ -142,14 +161,27 @@ function buildServiceContract() {
 				contextDescription: 'Logo system and brand guide',
 				taskTitle: 'Premium Logo Package',
 				taskDescription: 'Logo system and brand guide',
+				serviceId: 'premium-logo-package',
 				amount: '0.01',
-				purchaseMode: 'quote',
+				purchaseMode: 'instant_buy',
 				quoteRequestId: 'qr_valid123',
 				proposalId: 'proposal_valid123',
-				selectedTierId: 'Tier 1',
+				selectedTierId: '26226ebd-121c-493a-af08-4f8b8e59306d',
 				estimatedStartTime: 1_700_086_400,
 				estimatedCompletionTime: 1_700_345_600,
 				agreementSnapshot: {
+					selectedTierLabel: 'Premium',
+					serviceLocation: {
+						mode: 'taskee_location',
+						label: '123 Main St, San Salvador, El Salvador',
+						location: {
+							displayName: '123 Main St, San Salvador, El Salvador',
+							formattedAddress: '123 Main St, San Salvador, El Salvador',
+							latitude: 13.6929,
+							longitude: -89.2182,
+							locationLoaded: true
+						}
+					},
 					deliverables: 'Logo system and brand guide',
 					priceSnapshotLabel: '$250.00',
 					selectedAddOns: ['Source files'],
@@ -163,7 +195,7 @@ function buildServiceContract() {
 			}
 		},
 		disputeProposal: null
-	} as any;
+	} as unknown;
 }
 
 describe('ContractDrawer service context', () => {
@@ -184,16 +216,37 @@ describe('ContractDrawer service context', () => {
 
 		expect(screen.getByRole('dialog')).toBeInTheDocument();
 		expect(screen.getAllByText('Premium Logo Package').length).toBeGreaterThan(0);
-		expect(screen.getByText('Quoted Service')).toBeInTheDocument();
+		expect(screen.getAllByText('Book Now')).toHaveLength(1);
+		expect(screen.queryByText('dashboard.client')).toBeNull();
+		expect(screen.queryByText('dashboard.freelancer')).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Service agreement' })).toBeNull();
+		expect(screen.queryByTestId('service-agreement-summary')).toBeNull();
+		expect(screen.queryByTestId('drawer-deadline')).toBeNull();
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Service agreement' }));
-
-		expect(screen.getByTestId('service-agreement-summary')).toBeInTheDocument();
-		expect(screen.getByTestId('service-agreement-scope')).toHaveTextContent(
+		const serviceLink = screen.getByRole('link', { name: 'Premium Logo Package' });
+		expect(serviceLink).toHaveAttribute('href', '/services/premium-logo-package');
+		expect(serviceLink.className).toContain('card-title');
+		expect(screen.getByTestId('service-contract-title-price-row')).toHaveTextContent(
+			'Premium Logo Package'
+		);
+		expect(screen.getByText('Premium')).toBeInTheDocument();
+		expect(screen.queryByText(/Tier:/)).toBeNull();
+		expect(screen.queryByText('26226ebd-121c-493a-af08-4f8b8e59306d')).toBeNull();
+		expect(screen.getByTestId('service-contract-usd-price')).toHaveTextContent('$1000.00');
+		expect(screen.getByTestId('service-contract-description-sats-row')).toHaveTextContent(
 			'Logo system and brand guide'
 		);
-		expect(screen.getByTestId('service-agreement-tier')).toHaveTextContent('Tier 1');
-		expect(screen.getByTestId('service-agreement-start')).not.toHaveTextContent('');
-		expect(screen.getByTestId('service-agreement-end')).not.toHaveTextContent('');
+		expect(screen.getByTestId('service-contract-sats-price')).toHaveTextContent('1,000,000 Sats');
+		expect(screen.getByTestId('service-contract-location')).toHaveTextContent(
+			'123 Main St, San Salvador, El Salvador'
+		);
+		expect(screen.getByTestId('service-contract-location-link')).toHaveAttribute(
+			'href',
+			expect.stringContaining('google.com/maps/search')
+		);
+		expect(screen.getByTestId('service-contract-location-link')).toHaveTextContent('Open Map');
+
+		expect(screen.getByTestId('service-contract-start-datetime')).toHaveTextContent('Start Date');
+		expect(screen.getByTestId('service-contract-end-datetime')).toHaveTextContent('End Date');
 	});
 });

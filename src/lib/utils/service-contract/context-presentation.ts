@@ -11,6 +11,7 @@ export interface ContractContextPresentation {
 	purchaseMode: string | null;
 	title: string;
 	description: string;
+	selectedTierLabel: string | null;
 	selectedTierId: string | null;
 	summaryLabel: string;
 	cardLabel: string;
@@ -45,6 +46,14 @@ function resolveServiceContractLabel(purchaseMode: string | null): string {
 	return purchaseMode === 'instant_buy' ? 'Book Now' : 'Quoted Service';
 }
 
+function looksLikeOpaqueTierId(value: string | null): boolean {
+	if (!value) {
+		return false;
+	}
+
+	return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+}
+
 export function buildContractContextPresentation(
 	contract: ContractWithEvents,
 	getContractKey: ContractContextKeyReader
@@ -76,6 +85,9 @@ export function buildContractContextPresentation(
 	const selectedTierId =
 		normalizeString(getContractKey(contract, 'selectedTierId')) ??
 		normalizeString(contract.contractEvent.content.selectedTierId);
+	const selectedTierLabel =
+		normalizeString(contract.contractEvent.content.agreementSnapshot?.selectedTierLabel) ??
+		(looksLikeOpaqueTierId(selectedTierId) ? null : selectedTierId);
 
 	return {
 		contextType: rawContextType,
@@ -84,6 +96,7 @@ export function buildContractContextPresentation(
 		purchaseMode,
 		title,
 		description,
+		selectedTierLabel,
 		selectedTierId,
 		summaryLabel: isServiceContract ? serviceLabel : 'Task Contract',
 		cardLabel: isServiceContract

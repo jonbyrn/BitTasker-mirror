@@ -44,10 +44,35 @@ describe('context-presentation', () => {
 			purchaseMode: 'quote',
 			title: 'Premium logo package',
 			description: 'Logo system and brand guide',
+			selectedTierLabel: 'Tier 1',
 			selectedTierId: 'Tier 1',
 			summaryLabel: 'Quoted Service',
 			cardLabel: 'Quoted Service'
 		});
+	});
+
+	it('prefers the persisted tier label and suppresses opaque UUID tier ids', () => {
+		const contractWithLabel = buildContract({
+			contextType: 'service',
+			contextTitle: 'Premium logo package',
+			selectedTierId: '26226ebd-121c-493a-af08-4f8b8e59306d',
+			agreementSnapshot: {
+				selectedTierLabel: 'Premium'
+			}
+		});
+		const contractWithoutLabel = buildContract({
+			contextType: 'service',
+			contextTitle: 'Premium logo package',
+			selectedTierId: '26226ebd-121c-493a-af08-4f8b8e59306d'
+		});
+
+		expect(buildContractContextPresentation(contractWithLabel, readContractValue)).toMatchObject({
+			selectedTierLabel: 'Premium',
+			selectedTierId: '26226ebd-121c-493a-af08-4f8b8e59306d'
+		});
+		expect(
+			buildContractContextPresentation(contractWithoutLabel, readContractValue).selectedTierLabel
+		).toBeNull();
 	});
 
 	it('derives instant-buy and unknown-context labels without changing task fallbacks', () => {

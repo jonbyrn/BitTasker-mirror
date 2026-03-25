@@ -1,7 +1,7 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, waitFor } from '@testing-library/svelte';
 import type { Service } from '$lib/types/service.d';
-import { ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';
+import { ServiceLocationTypeEnum, ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';
 
 const hoisted = vi.hoisted(() => {
 	function createStore<T>(initialValue: T) {
@@ -28,22 +28,41 @@ const hoisted = vi.hoisted(() => {
 		authStateStore: createStore({ isAuthenticated: true }),
 		userStore: createStore({ npub: 'buyer-npub' }),
 		mockFindServiceByUniqueId: vi.fn(),
+		allAssetsStore: createStore([
+			{
+				assetId: 'rbtc',
+				usdValue: 250,
+				balance: 0.005
+			}
+		]),
+		totalBalancesStore: createStore({
+			sats: 500_000,
+			rbtc: 0.005
+		}),
 		walletStoreMock: createStore({
 			isConnected: true,
 			rsk: {
+				connected: true,
+				connecting: false,
+				error: null,
 				address: '0x1111111111111111111111111111111111111111',
 				wallet: {},
 				provider: {}
 			}
 		}),
 		_mockInitializeWallet: vi.fn(),
+		_mockLoadAssets: vi.fn(),
+		mockPreflightServiceContractCreation: vi.fn(),
+		mockGetCurrentPrice: vi.fn(),
 		mockCreateServiceContract: vi.fn(),
+		contractCreationStore: createStore(null),
 		mockShowSuccessToast: vi.fn(),
 		mockShowErrorToast: vi.fn(),
 		mockShowInfoToast: vi.fn(),
 		mockWaitForContractCreation: vi.fn(),
 		mockWritePendingNavigation: vi.fn(),
-		mockClearPendingNavigation: vi.fn()
+		mockClearPendingNavigation: vi.fn(),
+		mockRecoverBookNowContract: vi.fn()
 	};
 });
 
@@ -52,21 +71,36 @@ const {
 	authStateStore,
 	userStore,
 	mockFindServiceByUniqueId,
+	allAssetsStore,
+	totalBalancesStore,
 	walletStoreMock,
 	_mockInitializeWallet,
+	_mockLoadAssets,
+	mockPreflightServiceContractCreation,
+	mockGetCurrentPrice,
 	mockCreateServiceContract,
+	contractCreationStore,
 	mockShowSuccessToast,
 	mockShowErrorToast,
 	mockShowInfoToast,
 	mockWaitForContractCreation,
 	mockWritePendingNavigation,
-	mockClearPendingNavigation
+	mockClearPendingNavigation,
+	mockRecoverBookNowContract
 } = hoisted;
 
 vi.mock('svelte-i18n', async () => {
 	const { readable } = await import('svelte/store');
 	return {
-		t: readable((key: string) => key),
+		t: readable((key: string) => {
+			if (key === 'dashboard.services.detail.book_now_drawer.balance_verified') {
+				return 'Your available balance covers this service contract.';
+			}
+			if (key === 'dashboard.services.detail.book_now_drawer.verifying_wallet') {
+				return 'Checking your wallet balance for this contract...';
+			}
+			return key;
+		}),
 		locale: readable('en')
 	};
 });
@@ -85,8 +119,12 @@ vi.mock('$lib/stores/user.store', () => ({
 
 vi.mock('$lib/stores/wallet.store', () => ({
 	walletStore: hoisted.walletStoreMock,
+	allAssets: hoisted.allAssetsStore,
+	totalBalances: hoisted.totalBalancesStore,
+	formatSats: (value: number) => new Intl.NumberFormat('en-US').format(value),
 	walletManager: {
-		initialize: hoisted._mockInitializeWallet
+		initialize: hoisted._mockInitializeWallet,
+		loadAssets: hoisted._mockLoadAssets
 	}
 }));
 
@@ -138,6 +176,19 @@ vi.mock('$lib/utils/service-contract/create', () => ({
 		hoisted.mockCreateServiceContract(...args)
 }));
 
+vi.mock('$lib/utils/service-contract/preflight', () => ({
+	preflightServiceContractCreation: (
+		...args: Parameters<typeof hoisted.mockPreflightServiceContractCreation>
+	) => hoisted.mockPreflightServiceContractCreation(...args)
+}));
+
+vi.mock('$lib/api/services/crypto-price.service', () => ({
+	default: {
+		getCurrentPrice: (...args: Parameters<typeof hoisted.mockGetCurrentPrice>) =>
+			hoisted.mockGetCurrentPrice(...args)
+	}
+}));
+
 vi.mock('$lib/utils/service-contract/await-contract-creation', () => ({
 	waitForContractCreationByTransactionHash: (
 		...args: Parameters<typeof hoisted.mockWaitForContractCreation>
@@ -153,6 +204,11 @@ vi.mock('$lib/utils/service-contract/pending-navigation', () => ({
 	) => hoisted.mockClearPendingNavigation(...args)
 }));
 
+vi.mock('$lib/utils/service-contract/recover', () => ({
+	recoverBookNowContract: (...args: Parameters<typeof hoisted.mockRecoverBookNowContract>) =>
+		hoisted.mockRecoverBookNowContract(...args)
+}));
+
 vi.mock('$lib/utils/escrow', () => ({
 	EscrowStatus: {
 		Funded: 'FUNDED',
@@ -164,7 +220,8 @@ vi.mock('$lib/utils/escrow', () => ({
 			createEscrow: vi.fn()
 		},
 		eventOps: {
-			registerPendingContractByTxHash: vi.fn()
+			registerPendingContractByTxHash: vi.fn(),
+			getContractCreationStore: () => hoisted.contractCreationStore
 		}
 	}
 }));
@@ -193,14 +250,11 @@ const baseService = {
 	createdAt: 1_700_000_000,
 	creator: {
 		username: 'Designer',
-		avatar: '',
-		providerWalletAddress: '0x2222222222222222222222222222222222222222'
+		avatar: ''
 	},
+	providerWalletAddress: '0x45aFd3dAdc7CeFcc6c4B6bAf66299da085583361',
 	instantBuyLeadHours: 24
-} as Service & {
-	instantBuyLeadHours: number;
-	creator: Service['creator'] & { providerWalletAddress?: string };
-};
+} as Service & { instantBuyLeadHours: number };
 
 describe('ServiceDetailsView instant buy flow', () => {
 	let ServiceDetailsView: Awaited<
@@ -222,6 +276,35 @@ describe('ServiceDetailsView instant buy flow', () => {
 		});
 	}
 
+	async function openBookNowDrawer(getByTestId: (id: string) => HTMLElement) {
+		await fireEvent.click(getByTestId('service-detail-buy-now'));
+	}
+
+	async function confirmBookNowEscrow(
+		getByTestId: (id: string) => HTMLElement,
+		findByText: (text: string) => Promise<HTMLElement>
+	) {
+		await waitFor(() => {
+			expect(getByTestId('service-instant-buy-confirm')).not.toBeDisabled();
+		});
+		await fireEvent.click(getByTestId('service-instant-buy-confirm'));
+		expect(await findByText('dashboard.services.detail.book_now_confirm_modal.title')).toBeTruthy();
+		await fireEvent.click(
+			await findByText('dashboard.services.detail.book_now_confirm_modal.confirm')
+		);
+	}
+
+	async function openBookNowConfirmation(
+		getByTestId: (id: string) => HTMLElement,
+		findByText: (text: string) => Promise<HTMLElement>
+	) {
+		await waitFor(() => {
+			expect(getByTestId('service-instant-buy-confirm')).not.toBeDisabled();
+		});
+		await fireEvent.click(getByTestId('service-instant-buy-confirm'));
+		return await findByText('dashboard.services.detail.book_now_confirm_modal.title');
+	}
+
 	function setNavigatorOnline(online: boolean) {
 		Object.defineProperty(window.navigator, 'onLine', {
 			value: online,
@@ -237,18 +320,48 @@ describe('ServiceDetailsView instant buy flow', () => {
 		setNavigatorOnline(true);
 		authStateStore.set({ isAuthenticated: true });
 		userStore.set({ npub: 'buyer-npub' });
+		allAssetsStore.set([
+			{
+				assetId: 'rbtc',
+				usdValue: 250,
+				balance: 0.005
+			}
+		]);
+		totalBalancesStore.set({
+			sats: 500_000,
+			rbtc: 0.005
+		});
 		walletStoreMock.set({
 			isConnected: true,
 			rsk: {
+				connected: true,
+				connecting: false,
+				error: null,
 				address: '0x1111111111111111111111111111111111111111',
 				wallet: {},
 				provider: {}
 			}
 		});
+		_mockLoadAssets.mockResolvedValue(undefined);
+		mockGetCurrentPrice.mockResolvedValue(50_000);
+		mockPreflightServiceContractCreation.mockResolvedValue({
+			ok: true,
+			amount: '0.00400000',
+			gasCost: '0.00001000',
+			totalRequired: '0.00411000',
+			walletAddress: '0x1111111111111111111111111111111111111111'
+		});
 		mockCreateServiceContract.mockResolvedValue({
 			success: true,
+			state: 'funding_submitted',
+			transactionHash: '0xtxhash',
+			amount: '0.00400000'
+		});
+		mockRecoverBookNowContract.mockResolvedValue({
+			status: 'contract_sync_pending',
 			transactionHash: '0xtxhash'
 		});
+		contractCreationStore.set(null);
 		mockWaitForContractCreation.mockResolvedValue({
 			escrowId: 'escrow-123',
 			transactionHash: '0xtxhash',
@@ -263,6 +376,8 @@ describe('ServiceDetailsView instant buy flow', () => {
 			configurable: true
 		});
 		vi.spyOn(Date, 'now').mockReturnValue(1_700_000_000_000);
+		window.localStorage.clear();
+		window.sessionStorage.clear();
 	});
 
 	afterEach(() => {
@@ -278,6 +393,120 @@ describe('ServiceDetailsView instant buy flow', () => {
 		expect(getByText('dashboard.services.detail.request_quote')).toBeTruthy();
 		expect(queryByText('dashboard.services.detail.instant_buy.not_eligible')).toBeNull();
 	}, 40_000);
+
+	it('shows a confirmation modal when the drawer Book Now button is clicked', async () => {
+		const { getByTestId, findByTestId, findByText, queryByText } = renderView(
+			baseService,
+			baseService.uniqueId
+		);
+
+		await openBookNowDrawer(getByTestId);
+		expect(await findByTestId('service-instant-buy-modal')).toBeTruthy();
+
+		expect(await openBookNowConfirmation(getByTestId, findByText)).toBeTruthy();
+		await fireEvent.click(
+			await findByText('dashboard.services.detail.book_now_confirm_modal.cancel')
+		);
+		expect(queryByText('dashboard.services.detail.book_now_confirm_modal.title')).toBeNull();
+		expect(mockCreateServiceContract).not.toHaveBeenCalled();
+	});
+
+	it('switches the drawer into contract-creation progress after Book Now is confirmed', async () => {
+		mockWaitForContractCreation.mockImplementation(() => new Promise(() => {}));
+
+		const { getByTestId, findByTestId } = renderView(baseService, baseService.uniqueId);
+
+		await openBookNowDrawer(getByTestId);
+		expect(await findByTestId('service-instant-buy-modal')).toBeTruthy();
+		expect(await openBookNowConfirmation(getByTestId, findByText)).toBeTruthy();
+		await fireEvent.click(
+			await findByText('dashboard.services.detail.book_now_confirm_modal.confirm')
+		);
+
+		expect(await findByTestId('service-contract-creation-progress')).toBeTruthy();
+		expect((await findByTestId('service-contract-creation-status')).textContent).toContain(
+			'dashboard.services.detail.book_now_drawer.creating_contract'
+		);
+		expect(queryByTestId('service-instant-buy-confirm')).toBeNull();
+	});
+
+	it('allows closing the drawer while the contract is being created and finishes in the background', async () => {
+		let resolveContractCreation:
+			| ((value: { escrowId: string; transactionHash: string; contractEventId: string }) => void)
+			| null = null;
+		mockWaitForContractCreation.mockImplementation(
+			() =>
+				new Promise((resolve) => {
+					resolveContractCreation = resolve;
+				})
+		);
+
+		const { getByLabelText, getByTestId, findByTestId, findByText, queryByTestId } = renderView(
+			baseService,
+			baseService.uniqueId
+		);
+
+		await openBookNowDrawer(getByTestId);
+		expect(await findByTestId('service-instant-buy-modal')).toBeTruthy();
+		await confirmBookNowEscrow(getByTestId, findByText);
+
+		expect(await findByTestId('service-contract-creation-progress')).toBeTruthy();
+		await fireEvent.click(getByLabelText('common.components.drawer.close'));
+		await waitFor(() => expect(queryByTestId('service-instant-buy-modal')).toBeNull());
+
+		resolveContractCreation?.({
+			escrowId: 'escrow-123',
+			transactionHash: '0xtxhash',
+			contractEventId: 'contract-escrow-123'
+		});
+
+		await waitFor(() => {
+			expect(mockShowSuccessToast).toHaveBeenCalledWith(
+				'Book Now order confirmed. Your service contract is ready in Contracts.'
+			);
+		});
+		expect(mockGoto).not.toHaveBeenCalled();
+	});
+
+	it('allows dismissing the progress drawer by clicking outside while Book Now continues in the background', async () => {
+		let resolveContractCreation:
+			| ((value: { escrowId: string; transactionHash: string; contractEventId: string }) => void)
+			| null = null;
+		mockWaitForContractCreation.mockImplementation(
+			() =>
+				new Promise((resolve) => {
+					resolveContractCreation = resolve;
+				})
+		);
+
+		const { container, getByTestId, findByTestId, findByText, queryByTestId } = renderView(
+			baseService,
+			baseService.uniqueId
+		);
+
+		await openBookNowDrawer(getByTestId);
+		expect(await findByTestId('service-instant-buy-modal')).toBeTruthy();
+		await confirmBookNowEscrow(getByTestId, findByText);
+
+		expect(await findByTestId('service-contract-creation-progress')).toBeTruthy();
+		const overlay = container.querySelector('[role="presentation"]');
+		expect(overlay).toBeTruthy();
+		await fireEvent.click(overlay as Element);
+		await waitFor(() => expect(queryByTestId('service-instant-buy-modal')).toBeNull());
+
+		resolveContractCreation?.({
+			escrowId: 'escrow-123',
+			transactionHash: '0xtxhash',
+			contractEventId: 'contract-escrow-123'
+		});
+
+		await waitFor(() => {
+			expect(mockShowSuccessToast).toHaveBeenCalledWith(
+				'Book Now order confirmed. Your service contract is ready in Contracts.'
+			);
+		});
+		expect(mockGoto).not.toHaveBeenCalled();
+	});
 
 	it('shows Buy Now when fixed-price services rely on instantBuyDeliveryHours instead of pricing.deliveryTime', async () => {
 		const instantBuyDeliveryHoursService = {
@@ -398,7 +627,7 @@ describe('ServiceDetailsView instant buy flow', () => {
 	it('keeps the instant-buy modal open with offline guidance if the browser disconnects after review opens', async () => {
 		const { getByTestId, findByTestId } = renderView(baseService, baseService.uniqueId);
 
-		await fireEvent.click(getByTestId('service-detail-buy-now'));
+		await openBookNowDrawer(getByTestId);
 		expect(await findByTestId('service-instant-buy-modal')).toBeTruthy();
 
 		setNavigatorOnline(false);
@@ -452,12 +681,12 @@ describe('ServiceDetailsView instant buy flow', () => {
 			}
 		} as Service & {
 			instantBuyLeadHours: number;
-			creator: Service['creator'] & { providerWalletAddress?: string };
+			providerWalletAddress: string;
 		};
 
 		mockFindServiceByUniqueId.mockResolvedValue(tieredService);
 
-		const { getByTestId, getByText, findByTestId } = renderView(
+		const { getByTestId, getByText, findByTestId, findByText } = renderView(
 			tieredService,
 			tieredService.uniqueId
 		);
@@ -470,12 +699,28 @@ describe('ServiceDetailsView instant buy flow', () => {
 		await fireEvent.click(getByText('Premium'));
 
 		expect(buyNowButton.disabled).toBe(false);
-		await fireEvent.click(buyNowButton);
+		await openBookNowDrawer(getByTestId);
 
 		expect(await findByTestId('service-instant-buy-modal')).toBeTruthy();
 		expect((await findByTestId('service-agreement-tier')).textContent).toContain('Premium');
 		expect((await findByTestId('service-agreement-scope')).textContent).toContain(
 			'Three logo concepts plus brand guide.'
+		);
+
+		await confirmBookNowEscrow(getByTestId, findByText);
+
+		await waitFor(() => expect(mockCreateServiceContract).toHaveBeenCalledTimes(1));
+		expect(mockCreateServiceContract).toHaveBeenCalledWith(
+			expect.objectContaining({
+				selectedTierId: 'premium',
+				pricingSnapshot: expect.objectContaining({
+					tierId: 'premium'
+				}),
+				agreementSnapshot: expect.objectContaining({
+					selectedTierId: 'premium',
+					selectedTierLabel: 'Premium'
+				})
+			})
 		);
 	});
 
@@ -514,7 +759,7 @@ describe('ServiceDetailsView instant buy flow', () => {
 			}
 		} as Service & {
 			instantBuyLeadHours: number;
-			creator: Service['creator'] & { providerWalletAddress?: string };
+			providerWalletAddress: string;
 		};
 
 		mockFindServiceByUniqueId.mockResolvedValue(tieredService);
@@ -534,7 +779,7 @@ describe('ServiceDetailsView instant buy flow', () => {
 	it('waits for escrow confirmation and opens the exact service contract', async () => {
 		const { getByTestId, findByTestId } = renderView(baseService, baseService.uniqueId);
 
-		await fireEvent.click(getByTestId('service-detail-buy-now'));
+		await openBookNowDrawer(getByTestId);
 		expect(await findByTestId('service-instant-buy-modal')).toBeTruthy();
 		expect((await findByTestId('service-agreement-provider')).textContent).toContain('Designer');
 		expect((await findByTestId('service-agreement-scope')).textContent).toContain(
@@ -542,7 +787,7 @@ describe('ServiceDetailsView instant buy flow', () => {
 		);
 		expect(await findByTestId('service-instant-buy-confirm')).toBeTruthy();
 
-		await fireEvent.click(getByTestId('service-instant-buy-confirm'));
+		await confirmBookNowEscrow(getByTestId, findByText);
 
 		await waitFor(() => expect(mockCreateServiceContract).toHaveBeenCalledTimes(1));
 		expect(mockFindServiceByUniqueId).toHaveBeenCalledTimes(2);
@@ -556,7 +801,7 @@ describe('ServiceDetailsView instant buy flow', () => {
 		});
 		expect(mockCreateServiceContract).toHaveBeenCalledWith({
 			freelancerPubkey: 'a'.repeat(64),
-			freelancerAddress: '0x2222222222222222222222222222222222222222',
+			freelancerAddress: '0x45aFD3daDc7CEfCC6C4B6bAF66299da085583361',
 			amountUsdt: '200.00',
 			estimatedStartTime: 1_700_086_400,
 			estimatedCompletionTime: 1_700_345_600,
@@ -570,11 +815,14 @@ describe('ServiceDetailsView instant buy flow', () => {
 			selectedTierId: undefined,
 			pricingSnapshot: {
 				serviceVersionRef: 'service-event-1',
-				tierId: undefined
+				tierId: undefined,
+				selectedAddOns: undefined
 			},
 			agreementSnapshot: {
 				deliverables: 'Logo, color palette, and social avatar pack.',
 				selectedTierId: undefined,
+				selectedTierLabel: undefined,
+				selectedAddOns: undefined,
 				priceSnapshotRef: '3c4f154d30c3b678787c2d8068e0a5784e4112c17450c6d54c00ab61916dc7ad',
 				priceSnapshotLabel: '$200'
 			}
@@ -612,23 +860,26 @@ describe('ServiceDetailsView instant buy flow', () => {
 
 		mockFindServiceByUniqueId.mockResolvedValue(addOnService);
 
-		const { getByLabelText, getByTestId, findByTestId } = renderView(
+		const { getByLabelText, getByTestId, findByTestId, findByText } = renderView(
 			addOnService,
 			addOnService.uniqueId
 		);
 
 		await fireEvent.click(getByLabelText('Source files'));
-		await fireEvent.click(getByTestId('service-detail-buy-now'));
+		await openBookNowDrawer(getByTestId);
 
 		expect(await findByTestId('service-instant-buy-modal')).toBeTruthy();
-		expect((await findByTestId('service-agreement-price')).textContent).toContain('$225');
+		expect((await findByTestId('service-agreement-base-amount')).textContent).toContain('$225.00');
+		expect((await findByTestId('service-agreement-platform-fee')).textContent).toContain('$5.63');
+		expect((await findByTestId('service-agreement-gas-fee')).textContent).toContain('$0.50');
+		expect((await findByTestId('service-agreement-price')).textContent).toContain('$231.13');
 
-		await fireEvent.click(getByTestId('service-instant-buy-confirm'));
+		await confirmBookNowEscrow(getByTestId, findByText);
 
 		await waitFor(() => expect(mockCreateServiceContract).toHaveBeenCalledTimes(1));
 		expect(mockCreateServiceContract).toHaveBeenCalledWith({
 			freelancerPubkey: 'a'.repeat(64),
-			freelancerAddress: '0x2222222222222222222222222222222222222222',
+			freelancerAddress: '0x45aFD3daDc7CEfCC6C4B6bAF66299da085583361',
 			amountUsdt: '225.00',
 			estimatedStartTime: 1_700_086_400,
 			estimatedCompletionTime: 1_700_259_200,
@@ -648,11 +899,71 @@ describe('ServiceDetailsView instant buy flow', () => {
 			agreementSnapshot: {
 				deliverables: 'Logo, color palette, and social avatar pack.',
 				selectedTierId: undefined,
+				selectedTierLabel: undefined,
 				selectedAddOns: ['Source files'],
 				priceSnapshotRef: '3c4f154d30c3b678787c2d8068e0a5784e4112c17450c6d54c00ab61916dc7ad',
 				priceSnapshotLabel: '$225'
 			}
 		});
+	});
+
+	it('captures the physical service location in the Book Now contract snapshot', async () => {
+		const physicalService = {
+			...baseService,
+			serviceLocationTypes: [ServiceLocationTypeEnum.TASKEE_LOCATION],
+			locationDetails: {
+				taskeeLocation: {
+					useGlobalLocation: false,
+					locationDisplayName: '123 Main St, San Salvador, El Salvador',
+					serviceLocation: {
+						displayName: '123 Main St, San Salvador, El Salvador',
+						formattedAddress: '123 Main St, San Salvador, El Salvador',
+						latitude: 13.6929,
+						longitude: -89.2182,
+						locationLoaded: true
+					}
+				}
+			}
+		} as Service & { instantBuyLeadHours: number };
+
+		mockFindServiceByUniqueId.mockResolvedValue(physicalService);
+
+		const { getByTestId, findByTestId, findByText } = renderView(
+			physicalService,
+			physicalService.uniqueId
+		);
+
+		await openBookNowDrawer(getByTestId);
+		expect(await findByTestId('service-instant-buy-modal')).toBeTruthy();
+
+		await confirmBookNowEscrow(getByTestId, findByText);
+
+		await waitFor(() => expect(mockCreateServiceContract).toHaveBeenCalledTimes(1));
+		expect(mockCreateServiceContract).toHaveBeenCalledWith(
+			expect.objectContaining({
+				agreementSnapshot: expect.objectContaining({
+					serviceLocation: expect.objectContaining({
+						mode: 'taskee_location',
+						label: '123 Main St, San Salvador, El Salvador',
+						location: expect.objectContaining({
+							formattedAddress: '123 Main St, San Salvador, El Salvador',
+							latitude: 13.6929,
+							longitude: -89.2182
+						})
+					})
+				})
+			})
+		);
+	});
+
+	it('verifies wallet balance before enabling Book Now confirmation', async () => {
+		const { getByTestId, findByTestId } = renderView(baseService, baseService.uniqueId);
+
+		await openBookNowDrawer(getByTestId);
+
+		expect(await findByTestId('service-instant-buy-modal')).toBeTruthy();
+		await waitFor(() => expect(mockPreflightServiceContractCreation).toHaveBeenCalledTimes(1));
+		expect(await findByTestId('service-instant-buy-confirm')).not.toBeDisabled();
 	});
 
 	it('keeps prepare failures local to the instant-buy modal when the listing changed on the relay', async () => {
@@ -663,7 +974,7 @@ describe('ServiceDetailsView instant buy flow', () => {
 
 		const { getByTestId, findByTestId } = renderView(baseService, baseService.uniqueId);
 
-		await fireEvent.click(getByTestId('service-detail-buy-now'));
+		await openBookNowDrawer(getByTestId);
 
 		expect(await findByTestId('service-instant-buy-modal')).toBeTruthy();
 		expect((await findByTestId('service-instant-buy-error')).textContent).toContain(
@@ -679,11 +990,11 @@ describe('ServiceDetailsView instant buy flow', () => {
 			id: 'service-event-2'
 		});
 
-		const { getByTestId, findByTestId } = renderView(baseService, baseService.uniqueId);
+		const { getByTestId, findByTestId, findByText } = renderView(baseService, baseService.uniqueId);
 
-		await fireEvent.click(getByTestId('service-detail-buy-now'));
+		await openBookNowDrawer(getByTestId);
 		expect(await findByTestId('service-instant-buy-modal')).toBeTruthy();
-		await fireEvent.click(getByTestId('service-instant-buy-confirm'));
+		await confirmBookNowEscrow(getByTestId, findByText);
 
 		expect(mockCreateServiceContract).not.toHaveBeenCalled();
 		expect((await findByTestId('service-instant-buy-error')).textContent).toContain(
@@ -691,97 +1002,81 @@ describe('ServiceDetailsView instant buy flow', () => {
 		);
 	}, 20_000);
 
-	it('shows an inline error when the provider wallet is unavailable', async () => {
+	it('hides Book Now when the provider wallet is unavailable on the listing', async () => {
 		const serviceWithoutWallet = {
 			...baseService,
+			providerWalletAddress: undefined,
 			creator: {
 				username: 'Designer',
 				avatar: ''
 			}
 		} as Service & { instantBuyLeadHours: number };
 		mockFindServiceByUniqueId.mockResolvedValue(serviceWithoutWallet);
-		mockCreateServiceContract.mockResolvedValueOnce({
-			success: false,
-			error: 'Provider wallet is unavailable for Book Now.',
-			errorCode: 'invalid_provider_wallet'
-		});
 
-		const { getByTestId, findByTestId } = renderView(
+		const { queryByTestId, getByText } = renderView(
 			serviceWithoutWallet,
 			serviceWithoutWallet.uniqueId
 		);
 
-		await fireEvent.click(getByTestId('service-detail-buy-now'));
-		expect(await findByTestId('service-instant-buy-modal')).toBeTruthy();
-		await fireEvent.click(getByTestId('service-instant-buy-confirm'));
-
-		expect(mockCreateServiceContract).toHaveBeenCalledTimes(1);
-		expect((await findByTestId('service-instant-buy-error')).textContent).toContain(
-			'Provider wallet is unavailable for Book Now.'
-		);
+		expect(queryByTestId('service-detail-buy-now')).toBeNull();
+		expect(getByText('dashboard.services.detail.request_quote')).toBeTruthy();
+		expect(mockPreflightServiceContractCreation).not.toHaveBeenCalled();
+		expect(mockCreateServiceContract).not.toHaveBeenCalled();
 	});
 
 	it('keeps the modal open on insufficient-funds preflight failures', async () => {
-		mockCreateServiceContract.mockResolvedValueOnce({
-			success: false,
+		mockPreflightServiceContractCreation.mockResolvedValueOnce({
+			ok: false,
 			error: 'Insufficient RBTC balance.',
 			errorCode: 'insufficient_funds'
 		});
 
 		const { getByTestId, findByTestId } = renderView(baseService, baseService.uniqueId);
 
-		await fireEvent.click(getByTestId('service-detail-buy-now'));
+		await openBookNowDrawer(getByTestId);
 		expect(await findByTestId('service-instant-buy-modal')).toBeTruthy();
-		await fireEvent.click(getByTestId('service-instant-buy-confirm'));
 
+		expect(await findByTestId('service-instant-buy-confirm')).toBeDisabled();
+		expect(mockCreateServiceContract).not.toHaveBeenCalled();
 		expect((await findByTestId('service-instant-buy-error')).textContent).toContain(
 			'Insufficient RBTC balance.'
-		);
-		expect((await findByTestId('service-instant-buy-error-hint')).textContent).toContain(
-			'Add enough RBTC to cover the escrow amount and gas, then retry.'
 		);
 		expect(mockGoto).not.toHaveBeenCalledWith('/dashboard?tab=contracts&context=services');
 	});
 
 	it('shows a wallet connection recovery hint when preflight reports the wallet is disconnected', async () => {
-		mockCreateServiceContract.mockResolvedValueOnce({
-			success: false,
+		mockPreflightServiceContractCreation.mockResolvedValueOnce({
+			ok: false,
 			error: 'Connect your wallet before continuing.',
 			errorCode: 'wallet_not_connected'
 		});
 
 		const { getByTestId, findByTestId } = renderView(baseService, baseService.uniqueId);
 
-		await fireEvent.click(getByTestId('service-detail-buy-now'));
+		await openBookNowDrawer(getByTestId);
 		expect(await findByTestId('service-instant-buy-modal')).toBeTruthy();
-		await fireEvent.click(getByTestId('service-instant-buy-confirm'));
 
+		expect(await findByTestId('service-instant-buy-confirm')).toBeDisabled();
 		expect((await findByTestId('service-instant-buy-error')).textContent).toContain(
 			'Connect your wallet before continuing.'
-		);
-		expect((await findByTestId('service-instant-buy-error-hint')).textContent).toContain(
-			'Connect your wallet, then retry the contract creation.'
 		);
 	});
 
 	it('shows a network recovery hint when preflight reports the wrong Rootstock network', async () => {
-		mockCreateServiceContract.mockResolvedValueOnce({
-			success: false,
+		mockPreflightServiceContractCreation.mockResolvedValueOnce({
+			ok: false,
 			error: 'Switch your wallet to Rootstock Testnet before continuing.',
 			errorCode: 'wrong_network'
 		});
 
 		const { getByTestId, findByTestId } = renderView(baseService, baseService.uniqueId);
 
-		await fireEvent.click(getByTestId('service-detail-buy-now'));
+		await openBookNowDrawer(getByTestId);
 		expect(await findByTestId('service-instant-buy-modal')).toBeTruthy();
-		await fireEvent.click(getByTestId('service-instant-buy-confirm'));
 
+		expect(await findByTestId('service-instant-buy-confirm')).toBeDisabled();
 		expect((await findByTestId('service-instant-buy-error')).textContent).toContain(
 			'Switch your wallet to Rootstock Testnet before continuing.'
-		);
-		expect((await findByTestId('service-instant-buy-error-hint')).textContent).toContain(
-			'Switch to the required Rootstock network in your wallet, then retry.'
 		);
 	});
 
@@ -789,25 +1084,27 @@ describe('ServiceDetailsView instant buy flow', () => {
 		mockCreateServiceContract
 			.mockResolvedValueOnce({
 				success: false,
+				state: 'funding_failed',
 				error: 'Insufficient RBTC balance.',
 				errorCode: 'insufficient_funds'
 			})
 			.mockResolvedValueOnce({
 				success: true,
+				state: 'funding_submitted',
 				transactionHash: '0xtxhash'
 			});
 
-		const { getByTestId, findByTestId } = renderView(baseService, baseService.uniqueId);
+		const { getByTestId, findByTestId, findByText } = renderView(baseService, baseService.uniqueId);
 
-		await fireEvent.click(getByTestId('service-detail-buy-now'));
+		await openBookNowDrawer(getByTestId);
 		expect(await findByTestId('service-instant-buy-modal')).toBeTruthy();
-		await fireEvent.click(getByTestId('service-instant-buy-confirm'));
+		await confirmBookNowEscrow(getByTestId, findByText);
 		expect((await findByTestId('service-instant-buy-error')).textContent).toContain(
 			'Insufficient RBTC balance.'
 		);
 
 		await fireEvent.click(getByTestId('service-instant-buy-retry'));
-		await fireEvent.click(getByTestId('service-instant-buy-confirm'));
+		await confirmBookNowEscrow(getByTestId, findByText);
 
 		await waitFor(() => expect(mockCreateServiceContract).toHaveBeenCalledTimes(2));
 		expect(mockCreateServiceContract.mock.calls[0]?.[0].instantOrderId).toBe(
@@ -829,20 +1126,32 @@ describe('ServiceDetailsView instant buy flow', () => {
 	it('falls back to the service contracts tab when contract confirmation is still syncing', async () => {
 		mockWaitForContractCreation.mockRejectedValueOnce(
 			new Error(
-				'The escrow transaction was submitted, but the contract confirmation is still syncing. Open Contracts to monitor it.'
+				'The secure payment contract transaction was submitted, but the contract confirmation is still syncing. Open Contracts to monitor it.'
 			)
 		);
+		mockRecoverBookNowContract.mockResolvedValueOnce({
+			status: 'contract_sync_pending',
+			transactionHash: '0xtxhash',
+			escrowId: 'escrow-123'
+		});
 
-		const { getByTestId, findByTestId } = renderView(baseService, baseService.uniqueId);
+		const { getByTestId, findByTestId, findByText } = renderView(baseService, baseService.uniqueId);
 
-		await fireEvent.click(getByTestId('service-detail-buy-now'));
+		await openBookNowDrawer(getByTestId);
 		expect(await findByTestId('service-instant-buy-modal')).toBeTruthy();
-		await fireEvent.click(getByTestId('service-instant-buy-confirm'));
+		await confirmBookNowEscrow(getByTestId, findByText);
 
 		await waitFor(() =>
 			expect(mockShowInfoToast).toHaveBeenCalledWith(
-				'The escrow transaction was submitted, but the contract confirmation is still syncing. Open Contracts to monitor it.'
+				'The secure payment contract transaction was submitted, but the contract confirmation is still syncing. Open Contracts to monitor it.'
 			)
+		);
+		expect(mockRecoverBookNowContract).toHaveBeenCalledWith(
+			expect.objectContaining({
+				transactionHash: '0xtxhash',
+				instantOrderId: 'sib_123e4567e89b12d3',
+				amountRbtc: '0.00400000'
+			})
 		);
 		expect(mockWritePendingNavigation).toHaveBeenCalledWith(expect.anything(), '0xtxhash');
 		expect(mockClearPendingNavigation).not.toHaveBeenCalled();
