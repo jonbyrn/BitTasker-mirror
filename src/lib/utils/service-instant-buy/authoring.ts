@@ -7,11 +7,65 @@ export const MAX_INSTANT_BUY_LEAD_HOURS = 720;
 export const DEFAULT_INSTANT_BUY_DELIVERY_HOURS = 24;
 export const MIN_INSTANT_BUY_DELIVERY_HOURS = 1;
 
-export function supportsInstantBuyAuthoring(pricingType: ServicePricingTypeEnum | undefined): boolean {
+export type InstantBuyTimeUnit = 'hour' | 'day' | 'week';
+
+export const INSTANT_BUY_TIME_UNIT_HOURS: Record<InstantBuyTimeUnit, number> = {
+	hour: 1,
+	day: 24,
+	week: 24 * 7
+};
+
+export function supportsInstantBuyAuthoring(
+	pricingType: ServicePricingTypeEnum | undefined
+): boolean {
 	return (
-		pricingType === ServicePricingTypeEnum.FIXED ||
-		pricingType === ServicePricingTypeEnum.TIERED
+		pricingType === ServicePricingTypeEnum.FIXED || pricingType === ServicePricingTypeEnum.TIERED
 	);
+}
+
+export function inferInstantBuyTimeUnit(hours: number | null | undefined): InstantBuyTimeUnit {
+	if (hours != null && hours > 0 && hours % INSTANT_BUY_TIME_UNIT_HOURS.week === 0) {
+		return 'week';
+	}
+
+	if (hours != null && hours > 0 && hours % INSTANT_BUY_TIME_UNIT_HOURS.day === 0) {
+		return 'day';
+	}
+
+	return 'hour';
+}
+
+export function formatInstantBuyDurationInput(
+	hours: number | null | undefined,
+	unit: InstantBuyTimeUnit
+): string {
+	if (hours == null) {
+		return '';
+	}
+
+	const rawValue = hours / INSTANT_BUY_TIME_UNIT_HOURS[unit];
+	if (Number.isInteger(rawValue)) {
+		return rawValue.toString();
+	}
+
+	return rawValue.toFixed(2).replace(/\.?0+$/, '');
+}
+
+export function convertInstantBuyDurationToHours(
+	rawValue: string,
+	unit: InstantBuyTimeUnit
+): number | undefined {
+	const trimmedValue = rawValue.trim();
+	if (!trimmedValue) {
+		return undefined;
+	}
+
+	const parsedValue = Number.parseFloat(trimmedValue);
+	if (!Number.isFinite(parsedValue) || parsedValue < 0) {
+		return undefined;
+	}
+
+	return Math.round(parsedValue * INSTANT_BUY_TIME_UNIT_HOURS[unit]);
 }
 
 export function sanitizeInstantBuyLeadHours(
@@ -26,10 +80,7 @@ export function sanitizeInstantBuyLeadHours(
 		return undefined;
 	}
 
-	if (
-		leadHours < MIN_INSTANT_BUY_LEAD_HOURS ||
-		leadHours > MAX_INSTANT_BUY_LEAD_HOURS
-	) {
+	if (leadHours < MIN_INSTANT_BUY_LEAD_HOURS || leadHours > MAX_INSTANT_BUY_LEAD_HOURS) {
 		return undefined;
 	}
 

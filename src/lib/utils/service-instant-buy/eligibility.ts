@@ -4,8 +4,9 @@ export type InstantBuyPricingType = 'FIXED' | 'HOURLY' | 'TIERED' | 'INQUIRY_REQ
 export type DeliveryUnit = 'hour' | 'day' | 'week' | 'month';
 
 export interface DeliveryTimeLike {
-	min: number;
-	max: number;
+	min?: number;
+	max?: number;
+	value?: number;
 	unit: DeliveryUnit;
 }
 
@@ -33,6 +34,9 @@ export interface InstantBuyServiceLike {
 	};
 	locationDetails?: {
 		taskerLocation?: {
+			perDistanceCharge?: { amount: number };
+		};
+		taskeeLocation?: {
 			perDistanceCharge?: { amount: number };
 		};
 	};
@@ -63,7 +67,10 @@ function isValidLeadHours(value: number | undefined): value is number {
 }
 
 function hasDistanceFee(service: InstantBuyServiceLike): boolean {
-	return Boolean(service.locationDetails?.taskerLocation?.perDistanceCharge?.amount);
+	return Boolean(
+		service.locationDetails?.taskeeLocation?.perDistanceCharge?.amount ||
+			service.locationDetails?.taskerLocation?.perDistanceCharge?.amount
+	);
 }
 
 export function resolveInstantBuyTier(

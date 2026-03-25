@@ -6,13 +6,15 @@
 	import CategoryMultiselect from '$lib/components/CategoryMultiselect.svelte';
 	import SkillsMultiselect from '$lib/components/SkillsMultiselect.svelte';
 	import { TASK_CATEGORIES } from '$lib/utils/constants/categories';
+	import type { Category } from '$lib/types/task.d';
 	import { t } from 'svelte-i18n';
 
 	let { errors, direction } = $props();
 
 	// Use category IDs directly - CategoryMultiselect now handles translation internally
 	let selectedCategoryIds = $state([] as string[]);
-	let skillsMultiselectRef: any = $state(null);
+	type SkillsMultiselectHandle = { saveInputAsSkill: () => void };
+	let skillsMultiselectRef = $state<SkillsMultiselectHandle | null>(null);
 
 	// Initialize selectedCategoryIds from store once on mount; CategoryMultiselect onChange updates store
 	onMount(() => {
@@ -43,11 +45,11 @@
 					}
 					return null;
 				})
-				.filter(Boolean);
+				.filter((category): category is Category => category !== null);
 
 			// Update the service with the full category objects
 			store.updateService({
-				categories: categoryObjects as any
+				categories: categoryObjects
 			});
 		} catch (error) {
 			console.error('Error handling category change:', error);
@@ -63,7 +65,7 @@
 </script>
 
 <div
-	class="space-y-6"
+	class="min-w-0 space-y-6 overflow-x-clip"
 	in:fly={{
 		duration: 200,
 		easing: linear,
@@ -73,7 +75,9 @@
 >
 	<div class="w-full">
 		<label for="title" class="label">
-			<span class="label-text">{$t('dashboard.services.create.basics.title_label')}</span>
+			<span class="label-text break-words"
+				>{$t('dashboard.services.create.basics.title_label')}</span
+			>
 		</label>
 		<input
 			type="text"
@@ -91,13 +95,18 @@
 
 	<div class="w-full">
 		<label for="description" class="label">
-			<span class="label-text">{$t('dashboard.services.create.basics.description_label')}</span>
+			<span class="label-text break-words"
+				>{$t('dashboard.services.create.basics.description_label')}</span
+			>
 		</label>
 		<textarea
 			id="description"
 			value={$store.service.description || ''}
-			onchange={(e) => store.updateService({ description: (e.target as HTMLTextAreaElement).value })}
-			class="textarea textarea-bordered w-full rounded-lg {errors.description ? 'textarea-error' : ''}"
+			onchange={(e) =>
+				store.updateService({ description: (e.target as HTMLTextAreaElement).value })}
+			class="textarea textarea-bordered w-full rounded-lg {errors.description
+				? 'textarea-error'
+				: ''}"
 			placeholder={$t('dashboard.services.create.basics.description_placeholder')}
 			rows="6"
 			maxlength="5000"
@@ -114,7 +123,9 @@
 
 	<div class="w-full">
 		<label for="category" class="label">
-			<span class="label-text">{$t('dashboard.services.create.basics.category_label')}</span>
+			<span class="label-text break-words"
+				>{$t('dashboard.services.create.basics.category_label')}</span
+			>
 		</label>
 		<CategoryMultiselect
 			bind:externalCategoryIds={selectedCategoryIds}
@@ -131,7 +142,9 @@
 
 	<div class="form-control w-full">
 		<label class="label" for="skills">
-			<span class="label-text">{$t('dashboard.services.create.basics.skills_label')}</span>
+			<span class="label-text break-words"
+				>{$t('dashboard.services.create.basics.skills_label')}</span
+			>
 		</label>
 		<SkillsMultiselect
 			bind:selectedSkills={$store.service.skills}
@@ -145,4 +158,3 @@
 		{/if}
 	</div>
 </div>
-

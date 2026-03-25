@@ -52,6 +52,7 @@ const hoisted = vi.hoisted(() => {
 		serviceState,
 		updateService: vi.fn(),
 		createService: vi.fn(),
+		getRSKAddress: vi.fn().mockResolvedValue('0x2222222222222222222222222222222222222222'),
 		findServiceByUniqueId: vi.fn(),
 		goto: vi.fn(),
 		showErrorToast: vi.fn(),
@@ -87,6 +88,16 @@ vi.mock('$lib/stores/user.store', () => ({
 	user: readable({
 		name: 'Provider'
 	})
+}));
+
+vi.mock('$lib/stores/wallet.store', () => ({
+	walletStore: readable({
+		rsk: {
+			address: '0x2222222222222222222222222222222222222222'
+		}
+	}),
+	getRSKAddress: (...args: Parameters<typeof hoisted.getRSKAddress>) =>
+		hoisted.getRSKAddress(...args)
 }));
 
 vi.mock('$lib/i18n/routeTranslations', () => ({
@@ -195,7 +206,8 @@ describe('create-service edit conflict handling', () => {
 			expect(hoisted.updateService).toHaveBeenCalledWith(
 				'service-123',
 				expect.objectContaining({
-					title: 'Logo Sprint'
+					title: 'Logo Sprint',
+					providerWalletAddress: '0x2222222222222222222222222222222222222222'
 				}),
 				{
 					expectedServiceEventId: 'event-old'
@@ -207,6 +219,7 @@ describe('create-service edit conflict handling', () => {
 		expect(hoisted.showErrorToast).toHaveBeenCalledWith(
 			expect.stringContaining(SERVICE_EDIT_CONFLICT_CODE)
 		);
+		expect(hoisted.getRSKAddress).not.toHaveBeenCalled();
 		expect(hoisted.goto).not.toHaveBeenCalled();
 		expect(hoisted.clearDraft).not.toHaveBeenCalled();
 	});

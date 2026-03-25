@@ -63,7 +63,7 @@
 </script>
 
 <div
-	class="space-y-6"
+	class="min-w-0 space-y-6 overflow-x-clip"
 	in:fly={{
 		duration: 200,
 		easing: linear,
@@ -84,14 +84,15 @@
 	{/if}
 
 	{#each $store.service.pricing?.addOns || [] as addOn (addOn.id)}
-		<div class="card bg-base-200 space-y-4 p-4">
-			<div class="flex items-center justify-between">
-				<h4 class="font-semibold">
+		<div class="card bg-base-200 min-w-0 space-y-4 overflow-hidden p-4">
+			<div class="flex min-w-0 items-center justify-between gap-3">
+				<h4 class="min-w-0 font-semibold break-words">
 					{$t('dashboard.services.create.addons.addon')} #{(
 						$store.service.pricing?.addOns || []
 					).indexOf(addOn) + 1}
 				</h4>
 				<button
+					type="button"
 					class="btn btn-sm btn-error"
 					onclick={() => removeAddOn(addOn.id)}
 					title={$t('dashboard.services.create.addons.remove')}
@@ -139,7 +140,7 @@
 				<label for="addon-price-{addOn.id}" class="label">
 					<span class="label-text">{$t('dashboard.services.create.addons.price_label')}</span>
 				</label>
-				<div class="flex gap-2">
+				<div class="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-2">
 					<input
 						type="number"
 						id="addon-price-{addOn.id}"
@@ -159,7 +160,7 @@
 	{/each}
 
 	<!-- Add Add-On Button -->
-	<button class="btn btn-outline w-full" onclick={addAddOn}>
+	<button type="button" class="btn btn-outline w-full" onclick={addAddOn}>
 		+ {$t('dashboard.services.create.addons.add')}
 	</button>
 

@@ -31,13 +31,23 @@ export interface DeliveryTime {
 }
 
 /**
+ * Tier Delivery Time Interface
+ * Represents a single turnaround value for service tiers and rush options
+ */
+export interface TierDeliveryTime {
+	value: number;
+	unit: 'hour' | 'day' | 'week' | 'month';
+	display: string;
+}
+
+/**
  * Rush Delivery Interface
  * Dedicated rush delivery option with fixed amount and required rush delivery time range
  */
 export interface RushDelivery {
 	enabled: boolean; // Whether rush delivery is available
 	price: number; // Fixed amount for rush delivery
-	deliveryTime: DeliveryTime; // Required: Rush delivery time range (e.g., "1-2 days" instead of standard "3-5 days")
+	deliveryTime: TierDeliveryTime; // Required: Rush delivery turnaround (e.g., "2 days")
 }
 
 /**
@@ -49,7 +59,7 @@ export interface ServiceTier {
 	name: string; // e.g., "Basic", "Standard", "Premium"
 	description: string;
 	price: number;
-	deliveryTime?: DeliveryTime; // Delivery time/turnaround time for this tier (optional)
+	deliveryTime?: TierDeliveryTime; // Delivery time/turnaround time for this tier (optional)
 	rushDelivery?: RushDelivery; // Dedicated rush delivery option for this tier (optional)
 	features: string[]; // List of features included in this tier (bullet points)
 	isPopular?: boolean; // Highlight as popular/recommended
@@ -115,12 +125,11 @@ export interface QuoteRequestPayload {
  * Location-specific configurations for services
  */
 export interface ServiceLocationDetails {
-	// For TASKER_LOCATION offer mode (taskee/freelancer travels to the tasker/client).
-	// Note: despite the property name, this stores the taskee/freelancer base location
-	// and travel radius used for discovery and distance-fee calculations.
+	// For TASKER_LOCATION offer mode ("At My Location").
+	// The buyer travels to the provider's fixed location.
 	taskerLocation?: {
-		serviceLocation: Location; // Taskee's service location (where they operate from - office, studio, base location)
-		serviceRadius?: number; // Service radius in km/miles - distance from Taskee's service location that they're willing to travel
+		serviceLocation: Location; // Provider's fixed location (office, studio, base location)
+		serviceRadius?: number; // Legacy radius retained for older listings
 		perDistanceCharge?: {
 			amount: number;
 			currency: string; // 'BTC' | 'USDt'
@@ -128,12 +137,18 @@ export interface ServiceLocationDetails {
 		};
 	};
 
-	// For TASKEE_LOCATION offer mode (tasker/client travels to the taskee/freelancer location).
-	// Global location fallback is being phased out; search should use explicit service location data.
+	// For TASKEE_LOCATION offer mode ("At Tasker Location").
+	// The provider travels to the buyer and can constrain how far they are willing to travel.
 	taskeeLocation?: {
 		useGlobalLocation: boolean; // Deprecated transitional flag while global location is phased out
 		serviceLocation?: Location; // Preferred explicit location for discovery/filtering/search radius checks
 		locationDisplayName?: string; // Human-readable location name for display
+		serviceRadius?: number; // Travel radius in km
+		perDistanceCharge?: {
+			amount: number;
+			currency: string; // 'BTC' | 'USDt'
+			unit: 'km' | 'mile'; // Distance unit
+		};
 	};
 	// Discovery rule: match results using explicit taskee/freelancer service coordinates
 	// (and serviceRadius where applicable), not profile-level global location.
@@ -240,6 +255,7 @@ export interface ServiceBody {
 	pricing: ServicePricing; // Includes tiers, simple add-ons, inquiry forms, delivery times
 	instantBuyLeadHours?: number; // Optional lead time for instant-buy listings (hours)
 	instantBuyDeliveryHours?: number; // Optional delivery time for instant-buy fixed pricing (hours)
+	providerWalletAddress?: string; // Provider Rootstock wallet used for Book Now / service contracts
 	skills: string[];
 	categories: Category[];
 	portfolio?: Attachment[]; // Portfolio items stored via direct file uploads
@@ -274,6 +290,7 @@ export interface Service {
 	pricing: ServicePricing; // From content (includes tiers, add-ons, inquiry forms, delivery times)
 	instantBuyLeadHours?: number; // From content when instant-buy is enabled
 	instantBuyDeliveryHours?: number; // From content for instant-buy fixed pricing delivery time
+	providerWalletAddress?: string; // From content when Book Now funding should pay the provider wallet
 	skills: string[]; // From content
 	categories: Category[]; // From content
 	portfolio?: Attachment[]; // From content

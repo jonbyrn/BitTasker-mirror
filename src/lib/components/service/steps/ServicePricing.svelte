@@ -8,8 +8,12 @@
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import UsdSatsInput from '$lib/components/shared/UsdSatsInput.svelte';
 	import {
+		type InstantBuyTimeUnit,
+		convertInstantBuyDurationToHours,
 		DEFAULT_INSTANT_BUY_LEAD_HOURS,
 		DEFAULT_INSTANT_BUY_DELIVERY_HOURS,
+		formatInstantBuyDurationInput,
+		inferInstantBuyTimeUnit,
 		sanitizeInstantBuyLeadHours,
 		sanitizeInstantBuyDeliveryHours,
 		supportsInstantBuyAuthoring
@@ -18,12 +22,19 @@
 	let { errors, direction } = $props();
 
 	let btcPrice = $state<number>(0);
+	let leadTimeUnit = $state<InstantBuyTimeUnit>(
+		inferInstantBuyTimeUnit($store.service.instantBuyLeadHours)
+	);
+	let deliveryTimeUnit = $state<InstantBuyTimeUnit>(
+		inferInstantBuyTimeUnit($store.service.instantBuyDeliveryHours)
+	);
 	let usdAmount = $derived.by(() =>
 		$store.service.pricing?.type === ServicePricingTypeEnum.FIXED &&
 		$store.service.pricing?.amount != null
 			? $store.service.pricing.amount
 			: 0
 	);
+
 	async function fetchBtcPrice(): Promise<void> {
 		try {
 			btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
@@ -94,6 +105,11 @@
 	}
 
 	function toggleInstantBuy(enabled: boolean) {
+		if (enabled) {
+			leadTimeUnit = inferInstantBuyTimeUnit(DEFAULT_INSTANT_BUY_LEAD_HOURS);
+			deliveryTimeUnit = inferInstantBuyTimeUnit(DEFAULT_INSTANT_BUY_DELIVERY_HOURS);
+		}
+
 		store.updateService({
 			instantBuyLeadHours: enabled ? DEFAULT_INSTANT_BUY_LEAD_HOURS : undefined,
 			instantBuyDeliveryHours: enabled ? DEFAULT_INSTANT_BUY_DELIVERY_HOURS : undefined
@@ -101,28 +117,20 @@
 	}
 
 	function handleInstantBuyLeadHoursChange(event: Event) {
-		const rawValue = (event.target as HTMLInputElement).value.trim();
-		if (!rawValue) {
-			store.updateService({ instantBuyLeadHours: undefined });
-			return;
-		}
-
-		const parsedValue = Number.parseInt(rawValue, 10);
 		store.updateService({
-			instantBuyLeadHours: Number.isNaN(parsedValue) ? undefined : parsedValue
+			instantBuyLeadHours: convertInstantBuyDurationToHours(
+				(event.target as HTMLInputElement).value,
+				leadTimeUnit
+			)
 		});
 	}
 
 	function handleInstantBuyDeliveryHoursChange(event: Event) {
-		const rawValue = (event.target as HTMLInputElement).value.trim();
-		if (!rawValue) {
-			store.updateService({ instantBuyDeliveryHours: undefined });
-			return;
-		}
-
-		const parsedValue = Number.parseInt(rawValue, 10);
 		store.updateService({
-			instantBuyDeliveryHours: Number.isNaN(parsedValue) ? undefined : parsedValue
+			instantBuyDeliveryHours: convertInstantBuyDurationToHours(
+				(event.target as HTMLInputElement).value,
+				deliveryTimeUnit
+			)
 		});
 	}
 
@@ -140,7 +148,7 @@
 </script>
 
 <div
-	class="space-y-4"
+	class="min-w-0 space-y-4 overflow-x-hidden"
 	in:fly={{
 		duration: 200,
 		easing: linear,
@@ -148,7 +156,9 @@
 		x: direction === 'forward' ? 20 : -20
 	}}
 >
-	<h4 class="text-lg font-semibold">{$t('dashboard.services.create.pricing.budget_question')}</h4>
+	<h4 class="text-lg font-semibold break-words">
+		{$t('dashboard.services.create.pricing.budget_question')}
+	</h4>
 
 	<!-- Pricing type: FIXED, TIERED, or INQUIRY_REQUIRED -->
 	<div class="flex flex-wrap gap-4">
@@ -186,13 +196,13 @@
 	{/if}
 
 	{#if supportsInstantBuyAuthoring($store.service.pricing?.type)}
-		<div class="border-base-300 bg-base-100 rounded-2xl border p-4">
+		<div class="border-base-300 bg-base-100 min-w-0 rounded-2xl border p-4">
 			<div class="flex flex-wrap items-start justify-between gap-3">
-				<div>
-					<p class="font-medium">
+				<div class="min-w-0">
+					<p class="font-medium break-words">
 						{$t('dashboard.services.create.pricing.instant_buy.enable_label')}
 					</p>
-					<p class="text-base-content/70 mt-1 text-sm">
+					<p class="text-base-content/70 mt-1 text-sm break-words">
 						{$t('dashboard.services.create.pricing.instant_buy.enable_description')}
 					</p>
 				</div>
@@ -212,19 +222,39 @@
 							>{$t('dashboard.services.create.pricing.instant_buy.lead_time_label')}</span
 						>
 					</label>
-					<input
-						id="instant-buy-lead-hours"
-						type="number"
-						min="0"
-						max="720"
-						step="1"
-						value={$store.service.instantBuyLeadHours}
-						oninput={handleInstantBuyLeadHoursChange}
-						class="input input-bordered w-full max-w-xs {errors.instantBuyLeadHours
-							? 'input-error'
-							: ''}"
-						data-testid="service-pricing-instant-buy-lead-hours"
-					/>
+					<div class="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(8.5rem,10rem)] items-end gap-3">
+						<input
+							id="instant-buy-lead-hours"
+							type="number"
+							min="0"
+							max={leadTimeUnit === 'hour' ? '720' : undefined}
+							step={leadTimeUnit === 'hour' ? '1' : '0.5'}
+							value={formatInstantBuyDurationInput(
+								$store.service.instantBuyLeadHours,
+								leadTimeUnit
+							)}
+							oninput={handleInstantBuyLeadHoursChange}
+							class="input input-bordered w-full min-w-0 {errors.instantBuyLeadHours
+								? 'input-error'
+								: ''}"
+							data-testid="service-pricing-instant-buy-lead-hours"
+						/>
+						<select
+							class="select select-bordered w-full min-w-0"
+							bind:value={leadTimeUnit}
+							data-testid="service-pricing-instant-buy-lead-unit"
+						>
+							<option value="hour">
+								{$t('dashboard.services.create.pricing.instant_buy.unit_hour')}
+							</option>
+							<option value="day">
+								{$t('dashboard.services.create.pricing.instant_buy.unit_day')}
+							</option>
+							<option value="week">
+								{$t('dashboard.services.create.pricing.instant_buy.unit_week')}
+							</option>
+						</select>
+					</div>
 					{#if errors.instantBuyLeadHours}
 						<span class="label-text-alt text-error">{errors.instantBuyLeadHours}</span>
 					{/if}
@@ -236,18 +266,38 @@
 							>{$t('dashboard.services.create.pricing.instant_buy.delivery_time_label')}</span
 						>
 					</label>
-					<input
-						id="instant-buy-delivery-hours"
-						type="number"
-						min="1"
-						step="1"
-						value={$store.service.instantBuyDeliveryHours}
-						oninput={handleInstantBuyDeliveryHoursChange}
-						class="input input-bordered w-full max-w-xs {errors.instantBuyDeliveryHours
-							? 'input-error'
-							: ''}"
-						data-testid="service-pricing-instant-buy-delivery-hours"
-					/>
+					<div class="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(8.5rem,10rem)] items-end gap-3">
+						<input
+							id="instant-buy-delivery-hours"
+							type="number"
+							min="1"
+							step={deliveryTimeUnit === 'hour' ? '1' : '0.5'}
+							value={formatInstantBuyDurationInput(
+								$store.service.instantBuyDeliveryHours,
+								deliveryTimeUnit
+							)}
+							oninput={handleInstantBuyDeliveryHoursChange}
+							class="input input-bordered w-full min-w-0 {errors.instantBuyDeliveryHours
+								? 'input-error'
+								: ''}"
+							data-testid="service-pricing-instant-buy-delivery-hours"
+						/>
+						<select
+							class="select select-bordered w-full min-w-0"
+							bind:value={deliveryTimeUnit}
+							data-testid="service-pricing-instant-buy-delivery-unit"
+						>
+							<option value="hour">
+								{$t('dashboard.services.create.pricing.instant_buy.unit_hour')}
+							</option>
+							<option value="day">
+								{$t('dashboard.services.create.pricing.instant_buy.unit_day')}
+							</option>
+							<option value="week">
+								{$t('dashboard.services.create.pricing.instant_buy.unit_week')}
+							</option>
+						</select>
+					</div>
 					{#if errors.instantBuyDeliveryHours}
 						<span class="label-text-alt text-error">{errors.instantBuyDeliveryHours}</span>
 					{/if}

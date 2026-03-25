@@ -19,7 +19,11 @@ export interface InstantBuyTimingResult {
 }
 
 export function deliveryTimeToSeconds(deliveryTime: DeliveryTimeLike): number {
-	return deliveryTime.max * DELIVERY_UNIT_SECONDS[deliveryTime.unit];
+	const deliveryValue = deliveryTime.value ?? deliveryTime.max ?? deliveryTime.min;
+	if (!deliveryValue) {
+		throw new Error('Missing delivery time value');
+	}
+	return deliveryValue * DELIVERY_UNIT_SECONDS[deliveryTime.unit];
 }
 
 export function deriveInstantBuySchedule(
@@ -49,7 +53,7 @@ export function deriveServiceInstantBuySchedule(
 	if (service.pricing.type === 'FIXED') {
 		// Use instantBuyDeliveryHours if set, otherwise fall back to pricing.deliveryTime
 		const deliveryTime = service.instantBuyDeliveryHours
-			? { min: service.instantBuyDeliveryHours, max: service.instantBuyDeliveryHours, unit: 'hour' as const }
+			? { value: service.instantBuyDeliveryHours, unit: 'hour' as const }
 			: service.pricing.deliveryTime!;
 		return deriveInstantBuySchedule(nowSeconds, service.instantBuyLeadHours, deliveryTime);
 	}

@@ -3,7 +3,7 @@
 	import { linear } from 'svelte/easing';
 	import { fly } from 'svelte/transition';
 	import { serviceStore as store } from '$lib/stores/service.store';
-	import type { InquiryFormField, InquiryForm } from '$lib/types/service.d';
+	import type { InquiryFormField } from '$lib/types/service.d';
 	import { t } from 'svelte-i18n';
 
 	let { errors, direction } = $props();
@@ -64,7 +64,9 @@
 			pricing: {
 				...$store.service.pricing!,
 				inquiryForm: {
-					fields: currentForm.fields.map((field) => (field.id === fieldId ? { ...field, ...updates } : field))
+					fields: currentForm.fields.map((field) =>
+						field.id === fieldId ? { ...field, ...updates } : field
+					)
 				}
 			}
 		});
@@ -118,7 +120,7 @@
 </script>
 
 <div
-	class="space-y-6"
+	class="min-w-0 space-y-6 overflow-x-clip"
 	in:fly={{
 		duration: 200,
 		easing: linear,
@@ -128,7 +130,9 @@
 >
 	<div class="w-full">
 		<label class="label" for="inquiry-form-title" id="inquiry-form-title">
-			<span class="label-text-alt">{$t('dashboard.services.create.inquiry_form.hint')}</span>
+			<span class="label-text-alt break-words">
+				{$t('dashboard.services.create.inquiry_form.hint')}
+			</span>
 		</label>
 	</div>
 
@@ -138,13 +142,16 @@
 		</div>
 	{/if}
 
-	{#each ($store.service.pricing?.inquiryForm?.fields || []) as field}
-		<div class="card bg-base-200 p-4 space-y-4">
-			<div class="flex items-center justify-between">
-				<h4 class="font-semibold">
-					{$t('dashboard.services.create.inquiry_form.field')} #{($store.service.pricing?.inquiryForm?.fields || []).indexOf(field) + 1}
+	{#each $store.service.pricing?.inquiryForm?.fields || [] as field (field.id)}
+		<div class="card bg-base-200 min-w-0 space-y-4 overflow-hidden p-4">
+			<div class="flex min-w-0 items-center justify-between gap-3">
+				<h4 class="min-w-0 font-semibold break-words">
+					{$t('dashboard.services.create.inquiry_form.field')} #{(
+						$store.service.pricing?.inquiryForm?.fields || []
+					).indexOf(field) + 1}
 				</h4>
 				<button
+					type="button"
 					class="btn btn-sm btn-error"
 					onclick={() => removeField(field.id)}
 					title={$t('dashboard.services.create.inquiry_form.remove')}
@@ -162,13 +169,19 @@
 					id="field-type-{field.id}"
 					class="select select-bordered w-full"
 					value={field.type}
-					onchange={(e) => handleFieldTypeChange(field.id, (e.target as HTMLSelectElement).value as InquiryFormField['type'])}
+					onchange={(e) =>
+						handleFieldTypeChange(
+							field.id,
+							(e.target as HTMLSelectElement).value as InquiryFormField['type']
+						)}
 				>
 					<option value="text">{$t('dashboard.services.create.inquiry_form.type_text')}</option>
 					<!-- textarea and file not offered: description/images are in the quote request modal -->
 					<option value="number">{$t('dashboard.services.create.inquiry_form.type_number')}</option>
 					<option value="select">{$t('dashboard.services.create.inquiry_form.type_select')}</option>
-					<option value="checkbox">{$t('dashboard.services.create.inquiry_form.type_checkbox')}</option>
+					<option value="checkbox"
+						>{$t('dashboard.services.create.inquiry_form.type_checkbox')}</option
+					>
 					<option value="date">{$t('dashboard.services.create.inquiry_form.type_date')}</option>
 					<option value="time">{$t('dashboard.services.create.inquiry_form.type_time')}</option>
 				</select>
@@ -193,13 +206,16 @@
 			{#if field.type === 'text' || field.type === 'number'}
 				<div class="w-full">
 					<label for="field-placeholder-{field.id}" class="label">
-						<span class="label-text">{$t('dashboard.services.create.inquiry_form.placeholder_label')}</span>
+						<span class="label-text"
+							>{$t('dashboard.services.create.inquiry_form.placeholder_label')}</span
+						>
 					</label>
 					<input
 						type="text"
 						id="field-placeholder-{field.id}"
 						value={field.placeholder || ''}
-						onchange={(e) => updateField(field.id, { placeholder: (e.target as HTMLInputElement).value })}
+						onchange={(e) =>
+							updateField(field.id, { placeholder: (e.target as HTMLInputElement).value })}
 						class="input input-bordered w-full"
 						placeholder={$t('dashboard.services.create.inquiry_form.placeholder_placeholder')}
 					/>
@@ -210,15 +226,18 @@
 			{#if field.type === 'select' || field.type === 'checkbox'}
 				<div class="w-full">
 					<label class="label" for="field-options-{field.id}">
-						<span class="label-text">{$t('dashboard.services.create.inquiry_form.options_label')}</span>
+						<span class="label-text"
+							>{$t('dashboard.services.create.inquiry_form.options_label')}</span
+						>
 					</label>
 					<div class="space-y-2">
-						{#each (field.options || []) as option, optionIndex}
-							<div class="flex gap-2">
+						{#each field.options || [] as option, optionIndex (`${field.id}-${optionIndex}`)}
+							<div class="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-2">
 								<input
 									type="text"
 									value={option}
-									onchange={(e) => updateOption(field.id, optionIndex, (e.target as HTMLInputElement).value)}
+									onchange={(e) =>
+										updateOption(field.id, optionIndex, (e.target as HTMLInputElement).value)}
 									class="input input-bordered flex-1"
 									placeholder={$t('dashboard.services.create.inquiry_form.option_placeholder')}
 								/>
@@ -231,10 +250,7 @@
 								</button>
 							</div>
 						{/each}
-						<button
-							class="btn btn-sm btn-outline w-full"
-							onclick={() => addOption(field.id)}
-						>
+						<button class="btn btn-sm btn-outline w-full" onclick={() => addOption(field.id)}>
 							+ {$t('dashboard.services.create.inquiry_form.add_option')}
 						</button>
 					</div>
@@ -245,12 +261,16 @@
 			{#if field.type === 'number'}
 				<div class="w-full">
 					<label class="label" for="field-validation-{field.id}">
-						<span class="label-text">{$t('dashboard.services.create.inquiry_form.validation_label')}</span>
+						<span class="label-text"
+							>{$t('dashboard.services.create.inquiry_form.validation_label')}</span
+						>
 					</label>
 					<div class="grid grid-cols-2 gap-2">
 						<div>
 							<label for="validation-min-{field.id}" class="label">
-								<span class="label-text-alt">{$t('dashboard.services.create.inquiry_form.validation_min')}</span>
+								<span class="label-text-alt"
+									>{$t('dashboard.services.create.inquiry_form.validation_min')}</span
+								>
 							</label>
 							<input
 								type="number"
@@ -272,7 +292,9 @@
 						</div>
 						<div>
 							<label for="validation-max-{field.id}" class="label">
-								<span class="label-text-alt">{$t('dashboard.services.create.inquiry_form.validation_max')}</span>
+								<span class="label-text-alt"
+									>{$t('dashboard.services.create.inquiry_form.validation_max')}</span
+								>
 							</label>
 							<input
 								type="number"
@@ -299,12 +321,15 @@
 			<!-- Required Toggle -->
 			<div class="w-full">
 				<label class="label cursor-pointer">
-					<span class="label-text">{$t('dashboard.services.create.inquiry_form.required_label')}</span>
+					<span class="label-text"
+						>{$t('dashboard.services.create.inquiry_form.required_label')}</span
+					>
 					<input
 						type="checkbox"
 						class="checkbox checkbox-primary"
 						checked={field.required}
-						onchange={(e) => updateField(field.id, { required: (e.target as HTMLInputElement).checked })}
+						onchange={(e) =>
+							updateField(field.id, { required: (e.target as HTMLInputElement).checked })}
 					/>
 				</label>
 			</div>
@@ -320,4 +345,3 @@
 		<span class="label-text-alt text-error block">{errors.inquiryForm}</span>
 	{/if}
 </div>
-

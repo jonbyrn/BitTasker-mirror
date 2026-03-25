@@ -19,6 +19,7 @@
 		disabled = false,
 		error = null,
 		showFieldLabels = true,
+		showBtcPrice = true,
 		usdLabel = 'USD',
 		satsLabel = 'Sats',
 		btcPriceLabel = 'BTC Price',
@@ -37,6 +38,7 @@
 		disabled?: boolean;
 		error?: string | null;
 		showFieldLabels?: boolean;
+		showBtcPrice?: boolean;
 		usdLabel?: string;
 		satsLabel?: string;
 		btcPriceLabel?: string;
@@ -56,8 +58,7 @@
 		const decimalIndex = sanitized.indexOf('.');
 		if (decimalIndex !== -1) {
 			sanitized =
-				sanitized.slice(0, decimalIndex + 1) +
-				sanitized.slice(decimalIndex + 1).replace(/\./g, '');
+				sanitized.slice(0, decimalIndex + 1) + sanitized.slice(decimalIndex + 1).replace(/\./g, '');
 		}
 
 		if (!sanitized) {
@@ -164,22 +165,41 @@
 	const satsDisplayValue = $derived(toDisplaySats(normalizedUsdAmount, btcPrice));
 	const hasError = $derived(Boolean(error));
 	const adornmentTopClass = $derived(showFieldLabels ? 'top-[3.15rem]' : 'top-1/2');
+	const normalizedBtcPriceLabel = $derived(btcPriceLabel.replace(/^current\s+/i, ''));
 	const btcPriceCopy = $derived(
 		btcPrice > 0
-			? `${btcPriceLabel} $${Math.round(btcPrice).toLocaleString()}`
-			: `${btcPriceLabel} unavailable`
+			? `${normalizedBtcPriceLabel} $${Math.round(btcPrice).toLocaleString()}`
+			: `${normalizedBtcPriceLabel} unavailable`
 	);
 </script>
 
 <div class={`w-full ${className}`} data-testid="usd-sats-input">
+	{#if showFieldLabels}
+		<div class="mb-2 grid grid-cols-2 gap-2">
+			<label for={usdInputId} class="label py-0">
+				<span class="label-text">{usdLabel}</span>
+			</label>
+			<div class="flex min-w-0 items-center justify-between gap-2">
+				<label for={satsInputId} class="label min-w-0 py-0">
+					<span class="label-text">{satsLabel}</span>
+				</label>
+				{#if showBtcPrice}
+					<span
+						class={`${btcPriceClassName} mt-0 ml-auto min-w-0 text-right`.trim()}
+						data-testid="usd-sats-input-btc-price"
+					>
+						{btcPriceCopy}
+					</span>
+				{/if}
+			</div>
+		</div>
+	{/if}
+
 	<div class="flex gap-2">
 		<div class="relative flex-1">
-			{#if showFieldLabels}
-				<label for={usdInputId} class="label">
-					<span class="label-text">{usdLabel}</span>
-				</label>
-			{/if}
-			<span class={`text-base-content/70 absolute left-3 z-10 -translate-y-1/2 ${adornmentTopClass}`.trim()}>
+			<span
+				class={`text-base-content/70 absolute left-3 z-10 -translate-y-1/2 ${adornmentTopClass}`.trim()}
+			>
 				$
 			</span>
 			<input
@@ -189,18 +209,13 @@
 				oninput={handleUsdInput}
 				class={`input input-bordered w-full pl-7 ${hasError ? 'input-error' : ''}`}
 				placeholder={usdPlaceholder}
-				disabled={disabled}
+				{disabled}
 				inputmode="decimal"
 				data-testid="usd-sats-input-usd"
 			/>
 		</div>
 
 		<div class="relative flex-1">
-			{#if showFieldLabels}
-				<label for={satsInputId} class="label">
-					<span class="label-text">{satsLabel}</span>
-				</label>
-			{/if}
 			<span
 				class={`text-base-content/70 absolute right-3 z-10 -translate-y-1/2 ${adornmentTopClass}`.trim()}
 			>
@@ -213,7 +228,7 @@
 				oninput={handleSatsInput}
 				class={`input input-bordered w-full pr-16 ${hasError ? 'input-error' : ''}`}
 				placeholder={satsPlaceholder}
-				disabled={disabled}
+				{disabled}
 				inputmode="numeric"
 				data-testid="usd-sats-input-sats"
 			/>
@@ -226,7 +241,9 @@
 		</span>
 	{/if}
 
-	<span class={btcPriceClassName} data-testid="usd-sats-input-btc-price">
-		{btcPriceCopy}
-	</span>
+	{#if !showFieldLabels && showBtcPrice}
+		<span class={btcPriceClassName} data-testid="usd-sats-input-btc-price">
+			{btcPriceCopy}
+		</span>
+	{/if}
 </div>

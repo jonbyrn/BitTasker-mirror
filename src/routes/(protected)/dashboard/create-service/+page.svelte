@@ -17,11 +17,14 @@
 	import { t } from 'svelte-i18n';
 	import { browser } from '$app/environment';
 	import { user } from '$lib/stores/user.store';
+	import { getRSKAddress, walletStore } from '$lib/stores/wallet.store';
 	import { loadPageTranslations } from '$lib/i18n/routeTranslations';
 	import { buildEarningQueryUrl } from '$lib/utils/dashboardQuery';
 	import {
+		sanitizeInstantBuyDeliveryHours,
 		sanitizeInstantBuyLeadHours,
 		supportsInstantBuyAuthoring,
+		validateInstantBuyDeliveryHours,
 		validateInstantBuyLeadHours
 	} from '$lib/utils/service-instant-buy/authoring';
 	import {
@@ -211,9 +214,16 @@
 					service?.pricing?.type,
 					service?.instantBuyLeadHours
 				);
+				const instantBuyDeliveryHoursValidation = validateInstantBuyDeliveryHours(
+					service?.pricing?.type,
+					service?.instantBuyDeliveryHours
+				);
 				if (!instantBuyLeadHoursValidation.valid) {
 					errors.instantBuyLeadHours =
 						'Instant buy lead time must be a whole number from 0 to 720 hours.';
+				}
+				if (!instantBuyDeliveryHoursValidation.valid) {
+					errors.instantBuyDeliveryHours = 'Book Now delivery time must be at least 1 hour.';
 				}
 				if (
 					service?.instantBuyLeadHours != null &&
@@ -315,6 +325,31 @@
 
 			// Files are uploaded immediately when selected, no need to upload here
 
+			const instantBuyLeadHours = sanitizeInstantBuyLeadHours(
+				$store.service.pricing?.type,
+				$store.service.instantBuyLeadHours
+			);
+			const instantBuyDeliveryHours = sanitizeInstantBuyDeliveryHours(
+				$store.service.pricing?.type,
+				$store.service.instantBuyDeliveryHours
+			);
+			const requiresProviderWallet =
+				supportsInstantBuyAuthoring($store.service.pricing?.type) && instantBuyLeadHours != null;
+			let providerWalletAddress =
+				$store.service.providerWalletAddress || $walletStore.rsk?.address || undefined;
+
+			if (requiresProviderWallet && !providerWalletAddress) {
+				try {
+					providerWalletAddress = await getRSKAddress();
+				} catch {
+					throw new Error('Connect your wallet before publishing a Book Now service.');
+				}
+			}
+
+			if (requiresProviderWallet && !providerWalletAddress) {
+				throw new Error('Connect your wallet before publishing a Book Now service.');
+			}
+
 			const serviceData: ServiceBody = {
 				uniqueId: $store.service.uniqueId || '',
 				createdAt: $store.service.createdAt || 0,
@@ -330,15 +365,13 @@
 				serviceLocationTypes: $store.service.serviceLocationTypes || [],
 				locationDetails: $store.service.locationDetails,
 				pricing: normalizedPricing,
+				providerWalletAddress,
 				skills: $store.service.skills || [],
 				categories: $store.service.categories || [],
 				portfolio: $store.service.portfolio,
 				faqs: $store.service.faqs,
-				instantBuyLeadHours: sanitizeInstantBuyLeadHours(
-					$store.service.pricing?.type,
-					$store.service.instantBuyLeadHours
-				),
-				instantBuyDeliveryHours: $store.service.instantBuyDeliveryHours,
+				instantBuyLeadHours,
+				instantBuyDeliveryHours,
 				status: 'active' // Set to active when publishing
 			};
 
@@ -386,7 +419,9 @@
 </script>
 
 <!-- Mismas dimensiones que Create Task: max-w-6xl, px-2 py-6 md:px-0 md:py-0 -->
-<div class="mx-auto h-full max-w-6xl px-2 py-6 md:px-0 md:py-0">
+<div
+	class="service-create-flow mx-auto h-full max-w-6xl min-w-0 overflow-x-clip px-2 py-6 md:px-0 md:py-0"
+>
 	<!-- Page Header -->
 	<div class="mb-6">
 		<h3 class="">
@@ -405,7 +440,7 @@
 		</p>
 	</div>
 	<div class="bg-base-100 rounded-xl">
-		<div class="card-body">
+		<div class="card-body min-w-0 overflow-x-clip">
 			<!-- Step counter (igual que Create Task) -->
 			<div class="mb-4 flex items-center justify-between">
 				<div class="text-sm">
@@ -421,7 +456,7 @@
 					<span class="loading loading-spinner loading-lg"></span>
 				</div>
 			{:else}
-				<div class="space-y-6">
+				<div class="service-create-step-content min-w-0 space-y-6 overflow-x-clip">
 					<!-- Step Components -->
 					{#if $store.currentStep === ServiceStepEnum.BASICS}
 						<ServiceBasics {errors} {direction} />
@@ -444,13 +479,13 @@
 					{/if}
 
 					<!-- Control buttons -->
-					<div class="mt-6 flex justify-between">
+					<div class="mt-6 flex justify-between gap-3">
 						{#if $store.currentStep !== ServiceStepEnum.BASICS}
-							<button class="btn btn-secondary" onclick={handleBack}>
+							<button type="button" class="btn btn-secondary" onclick={handleBack}>
 								{$t('dashboard.services.create.back')}
 							</button>
 						{:else}
-							<button class="btn btn-secondary" onclick={handleCancel}>
+							<button type="button" class="btn btn-secondary" onclick={handleCancel}>
 								<svg
 									xmlns="http://www.w3.org/2000/svg"
 									class="mr-1 h-4 w-4"
@@ -471,6 +506,7 @@
 
 						{#if $STEPS.indexOf($store.currentStep) === $STEPS.length - 1}
 							<button
+								type="button"
 								class="btn btn-primary {isSubmitting ? 'loading' : ''}"
 								onclick={handleSubmit}
 								disabled={isSubmitting}
@@ -484,7 +520,7 @@
 								{/if}
 							</button>
 						{:else}
-							<button class="btn btn-primary" onclick={handleNext}>
+							<button type="button" class="btn btn-primary" onclick={handleNext}>
 								{$t('dashboard.services.create.next')}
 							</button>
 						{/if}
@@ -513,3 +549,48 @@
 		</div>
 	</div>
 </div>
+
+<style>
+	.service-create-flow {
+		scrollbar-gutter: stable both-edges;
+	}
+
+	.service-create-step-content :global(.card),
+	.service-create-step-content :global(.collapse),
+	.service-create-step-content :global(.alert),
+	.service-create-step-content :global(.form-control),
+	.service-create-step-content :global(.label),
+	.service-create-step-content :global(.join),
+	.service-create-step-content :global(.mockup-window),
+	.service-create-step-content :global(.collapse-title),
+	.service-create-step-content :global(.card-title),
+	.service-create-step-content :global(.badge) {
+		min-width: 0;
+		max-width: 100%;
+	}
+
+	.service-create-step-content :global(label),
+	.service-create-step-content :global(.label-text),
+	.service-create-step-content :global(.label-text-alt),
+	.service-create-step-content :global(h1),
+	.service-create-step-content :global(h2),
+	.service-create-step-content :global(h3),
+	.service-create-step-content :global(h4),
+	.service-create-step-content :global(h5),
+	.service-create-step-content :global(h6),
+	.service-create-step-content :global(p),
+	.service-create-step-content :global(span),
+	.service-create-step-content :global(button),
+	.service-create-step-content :global(div),
+	.service-create-step-content :global(li),
+	.service-create-step-content :global(a) {
+		overflow-wrap: anywhere;
+		word-break: break-word;
+	}
+
+	.service-create-step-content :global(input),
+	.service-create-step-content :global(textarea),
+	.service-create-step-content :global(select) {
+		max-width: 100%;
+	}
+</style>

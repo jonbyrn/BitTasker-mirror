@@ -107,6 +107,17 @@
 		return get(t)('dashboard.services.create.review.not_set');
 	}
 
+	function formatTierDeliveryDisplay(deliveryTime: {
+		value: number;
+		unit: string;
+		display?: string;
+	}): string {
+		return (
+			deliveryTime.display ||
+			`${deliveryTime.value} ${deliveryTime.unit}${deliveryTime.value > 1 ? 's' : ''}`
+		);
+	}
+
 	function hasBookNowInfo(): boolean {
 		return (
 			$store.service.instantBuyLeadHours != null || $store.service.instantBuyDeliveryHours != null
@@ -119,7 +130,7 @@
 </script>
 
 <div
-	class="space-y-6"
+	class="min-w-0 space-y-6 overflow-x-hidden"
 	in:fly={{
 		duration: 200,
 		easing: linear,
@@ -132,9 +143,9 @@
 	</div>
 
 	<!-- Service Details -->
-	<div class="card bg-base-200 p-6">
+	<div class="card bg-base-200 min-w-0 overflow-hidden p-6">
 		<div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-			<h4 class="text-lg font-semibold">Service Details</h4>
+			<h4 class="text-lg font-semibold break-words">Service Details</h4>
 			<div class="bg-base-100 rounded-xl px-4 py-3 text-left sm:min-w-48 sm:text-right">
 				<div class="text-base-content/70 text-sm font-semibold">
 					{getPricingTypeLabel($store.service.pricing?.type)}
@@ -177,6 +188,7 @@
 						</div>
 						{#if needsTruncation($store.service.description || $t('dashboard.services.create.review.not_set'))}
 							<button
+								type="button"
 								class="btn btn-sm bg-secondary text-secondary-content mt-2"
 								onclick={() => toggleText('service-description')}
 							>
@@ -238,16 +250,6 @@
 							>
 						</div>
 					{/if}
-					{#if $store.service.locationDetails?.taskerLocation?.serviceRadius}
-						<div>
-							<span class="font-semibold"
-								>{$t('dashboard.services.create.location.service_radius_label')}:</span
-							>
-							<span class="ml-2"
-								>{$store.service.locationDetails.taskerLocation.serviceRadius} km</span
-							>
-						</div>
-					{/if}
 				{/if}
 				{#if ($store.service.serviceLocationTypes || []).includes(ServiceLocationTypeEnum.TASKEE_LOCATION) && $store.service.locationDetails?.taskeeLocation?.serviceLocation?.displayName}
 					<div>
@@ -256,6 +258,16 @@
 						>
 						<span class="ml-2"
 							>{$store.service.locationDetails.taskeeLocation.serviceLocation.displayName}</span
+						>
+					</div>
+				{/if}
+				{#if ($store.service.serviceLocationTypes || []).includes(ServiceLocationTypeEnum.TASKEE_LOCATION) && $store.service.locationDetails?.taskeeLocation?.serviceRadius}
+					<div>
+						<span class="font-semibold"
+							>{$t('dashboard.services.create.location.service_radius_label')}:</span
+						>
+						<span class="ml-2"
+							>{$store.service.locationDetails.taskeeLocation.serviceRadius} km</span
 						>
 					</div>
 				{/if}
@@ -293,16 +305,24 @@
 			</div>
 			<div class="space-y-2">
 				{#each $store.service.pricing.tiers as tier (tier.id || `${tier.name}-${tier.price}`)}
-					<div class="collapse-arrow bg-base-100 border-base-300 collapse border">
+					<div
+						class={`collapse-arrow collapse min-w-0 overflow-hidden border ${
+							tier.isPopular
+								? 'border-primary bg-primary/5 border-2'
+								: 'border-base-300 bg-base-100'
+						}`}
+					>
 						<input type="checkbox" />
-						<div class="collapse-title flex items-center gap-2 text-base font-medium">
-							<span>{tier.name || $t('dashboard.services.create.review.tier_no_name')}</span>
+						<div class="collapse-title flex min-w-0 items-center gap-2 text-base font-medium">
+							<span class="min-w-0 break-words">
+								{tier.name || $t('dashboard.services.create.review.tier_no_name')}
+							</span>
 							{#if tier.isPopular}
 								<span class="badge badge-primary badge-sm"
 									>{$t('dashboard.services.create.tiers.popular')}</span
 								>
 							{/if}
-							<span class="ml-auto text-right font-bold text-white">
+							<span class="ml-auto min-w-0 text-right font-bold text-white">
 								$ {Number(tier.price).toLocaleString()}
 								<span class="text-base-content/70 text-sm font-normal"
 									>({priceToSats(tier.price)}
@@ -335,6 +355,7 @@
 											</div>
 											{#if needsTruncation(tier.description)}
 												<button
+													type="button"
 													class="btn btn-sm bg-secondary text-secondary-content mt-2"
 													onclick={() => toggleText(`tier-desc-${tier.id}`)}
 												>
@@ -348,27 +369,25 @@
 								{/if}
 								{#if tier.deliveryTime}
 									<div>
-										<span class="text-sm font-semibold"
-											>{$t('dashboard.services.create.tiers.delivery_time_label')}:</span
-										>
+										<span class="text-sm font-semibold">
+											{$t('dashboard.services.create.tiers.delivery_time_label')}:
+										</span>
 										<p class="text-base-content/70 mt-1 text-sm">
-											{tier.deliveryTime.display ||
-												`${tier.deliveryTime.min}-${tier.deliveryTime.max} ${tier.deliveryTime.unit}${tier.deliveryTime.max > 1 ? 's' : ''}`}
+											{formatTierDeliveryDisplay(tier.deliveryTime)}
 										</p>
 									</div>
 								{/if}
 								{#if tier.rushDelivery?.enabled}
 									<div>
-										<span class="text-sm font-semibold"
-											>{$t('dashboard.services.create.tiers.rush_delivery_label')}:</span
-										>
+										<span class="text-sm font-semibold">
+											{$t('dashboard.services.create.tiers.rush_delivery_label')}:
+										</span>
 										<p class="text-base-content/70 mt-1 text-sm">
 											$ {Number(tier.rushDelivery.price).toLocaleString()} ({priceToSats(
 												tier.rushDelivery.price
 											)}
-											{$t('dashboard.services.create.pricing.sats_label')}) - {tier.rushDelivery
-												.deliveryTime.display ||
-												`${tier.rushDelivery.deliveryTime.min}-${tier.rushDelivery.deliveryTime.max} ${tier.rushDelivery.deliveryTime.unit}${tier.rushDelivery.deliveryTime.max > 1 ? 's' : ''}`}
+											{$t('dashboard.services.create.pricing.sats_label')}) -
+											{formatTierDeliveryDisplay(tier.rushDelivery.deliveryTime)}
 										</p>
 									</div>
 								{/if}
@@ -443,6 +462,7 @@
 									</div>
 									{#if needsTruncation(addOn.description)}
 										<button
+											type="button"
 											class="btn btn-sm bg-secondary text-secondary-content mt-2"
 											onclick={() => toggleText(`addon-desc-${addOn.id}`)}
 										>
@@ -508,6 +528,7 @@
 								</div>
 								{#if needsTruncation(faq.answer || $t('dashboard.services.create.review.faq_no_answer'))}
 									<button
+										type="button"
 										class="btn btn-sm bg-secondary text-secondary-content mt-2"
 										onclick={() => toggleText(`faq-answer-${faq.id}`)}
 									>
