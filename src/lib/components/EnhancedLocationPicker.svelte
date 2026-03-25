@@ -1,4 +1,5 @@
 <script lang="ts">
+	/* global google */
 	import type { Location } from '$lib/types/task';
 	import { onMount } from 'svelte';
 	import { Geolocation } from '@capacitor/geolocation';
@@ -6,6 +7,8 @@
 	import { t } from 'svelte-i18n';
 	import { Capacitor } from '@capacitor/core';
 	import { tick } from 'svelte';
+
+	declare const google: NonNullable<typeof window.google>;
 
 	// Helper function to get location_picker translations from either namespace
 	function getLocationPickerTranslation(key: string): string {
@@ -20,17 +23,15 @@
 	}
 
 	let {
-		label = '',
 		placeholder = $t('common.components.location_picker.enter_address'),
 		location = {
 			displayName: '',
-			longitude: -122.4194,
-			latitude: 37.7749,
+			longitude: -89.2182,
+			latitude: 13.6929,
 			zipCode: '',
 			locationLoaded: false
 		},
 		onLocationSelect,
-		showMap = true,
 		mapHeight = '300px',
 		showFullscreen = true,
 		showGeolocation = true,
@@ -63,8 +64,8 @@
 	let currentServiceRadius = $state(1.6);
 	let currentLocation = $state<Location>({
 		displayName: '',
-		longitude: -122.4194,
-		latitude: 37.7749,
+		longitude: -89.2182,
+		latitude: 13.6929,
 		zipCode: '',
 		locationLoaded: false
 	});
@@ -74,7 +75,6 @@
 	let error = $state('');
 	let predictions = $state<(google.maps.places.PlacePrediction | null)[]>([]);
 	let showOptions = $state(false);
-	let scriptLoaded = $state(false);
 	let googleMapsReady = $state(false);
 	let isFullscreen = $state(false);
 	let mapContainerDiv: HTMLElement | null = $state(null);
@@ -91,10 +91,16 @@
 		currentServiceRadius = propServiceRadius;
 	});
 
-	// Default fallback coordinates (San Francisco)
+	$effect(() => {
+		const nextRadius = currentServiceRadius;
+		if (!circle || !Number.isFinite(nextRadius)) return;
+		circle.setRadius(nextRadius * 1000);
+	});
+
+	// Default fallback coordinates (San Salvador, El Salvador)
 	const DEFAULT_COORDINATES = {
-		lat: 37.7749,
-		lng: -122.4194
+		lat: 13.6929,
+		lng: -89.2182
 	};
 
 	// Function to validate coordinates
@@ -124,7 +130,7 @@
 
 	// Helper function to extract address components from Google Maps address components
 	function extractAddressComponents(
-		components: google.maps.GeocoderAddressComponent[] 
+		components: google.maps.GeocoderAddressComponent[]
 	): Location['addressComponents'] {
 		const addressComponents: Location['addressComponents'] = {};
 
@@ -161,7 +167,6 @@
 			try {
 				// Check if script is already loaded and API is available
 				if (window.google?.maps?.Map) {
-					scriptLoaded = true;
 					googleMapsReady = true;
 					resolve();
 					return;
@@ -174,7 +179,6 @@
 				script.defer = true;
 
 				script.onload = () => {
-					scriptLoaded = true;
 					// Add a small delay to ensure Google Maps API is fully initialized
 					setTimeout(() => {
 						// Check if the API is actually available
@@ -192,8 +196,8 @@
 				};
 
 				document.head.appendChild(script);
-			} catch (error) {
-				reject(error);
+			} catch (caughtError) {
+				reject(caughtError);
 			}
 		});
 	}
@@ -223,7 +227,7 @@
 
 		try {
 			const safeCoords = getSafeCoordinates();
-			
+
 			// Initialize Google Maps with zoom restrictions
 			map = new google.maps.Map(mapElement, {
 				center: safeCoords,
@@ -253,9 +257,12 @@
 
 			// Create initial marker with safe coordinates
 			await createMarkerAndCircle(safeCoords.lat, safeCoords.lng);
-			
+
 			// If we have a valid existing location, update the search input with complete address
-			if (isValidCoordinate(currentLocation.latitude, currentLocation.longitude) && currentLocation.displayName) {
+			if (
+				isValidCoordinate(currentLocation.latitude, currentLocation.longitude) &&
+				currentLocation.displayName
+			) {
 				if (searchInput) {
 					searchInput.value = currentLocation.formattedAddress || currentLocation.displayName;
 				}
@@ -320,7 +327,9 @@
 	async function tryInitMap() {
 		try {
 			if (initRetryCount >= maxRetries) {
-				throw new Error(getLocationPickerTranslation('failed_initialize_map_after_multiple_attempts'));
+				throw new Error(
+					getLocationPickerTranslation('failed_initialize_map_after_multiple_attempts')
+				);
 			}
 
 			// Only proceed if Google Maps is ready
@@ -342,7 +351,10 @@
 			isMapLoaded = true;
 
 			// Only try to get user's geolocation if no valid location is already provided
-			if (!isValidCoordinate(currentLocation.latitude, currentLocation.longitude) || !currentLocation.locationLoaded) {
+			if (
+				!isValidCoordinate(currentLocation.latitude, currentLocation.longitude) ||
+				!currentLocation.locationLoaded
+			) {
 				getUserLocation();
 			} else {
 				// If we have a valid existing location, update the marker to that location
@@ -371,7 +383,9 @@
 		} catch (err) {
 			console.error('Error loading Google Maps:', err);
 			error =
-				err instanceof Error ? err.message : getLocationPickerTranslation('error_loading_google_maps');
+				err instanceof Error
+					? err.message
+					: getLocationPickerTranslation('error_loading_google_maps');
 		} finally {
 			isLoading = false;
 		}
@@ -476,7 +490,9 @@
 		} catch (err: unknown) {
 			console.error('Error updating location:', err);
 			error =
-				err instanceof Error ? err.message : getLocationPickerTranslation('error_updating_location');
+				err instanceof Error
+					? err.message
+					: getLocationPickerTranslation('error_updating_location');
 		}
 	}
 
@@ -562,8 +578,8 @@
 
 			// Pan map to new location
 			map.panTo(position);
-		} catch (error) {
-			console.error('Error creating advanced marker:', error);
+		} catch (caughtError) {
+			console.error('Error creating advanced marker:', caughtError);
 		}
 	}
 
@@ -613,7 +629,7 @@
 	}
 
 	// Debounce function for search input
-	function debounce<T extends (...args: any[]) => void>(fn: T, delay: number) {
+	function debounce<T extends (...args: unknown[]) => void>(fn: T, delay: number) {
 		let timeoutId: ReturnType<typeof setTimeout>;
 		return function (...args: Parameters<T>) {
 			clearTimeout(timeoutId);
@@ -640,13 +656,15 @@
 		// Extract address components
 		const addressComponents = place.addressComponents;
 		const extractedComponents = addressComponents
-			? extractAddressComponents(addressComponents as any)
+			? extractAddressComponents(
+					addressComponents as unknown as google.maps.GeocoderAddressComponent[]
+				)
 			: undefined;
 
 		// Extract postal code
 		const zipCode =
-			addressComponents?.find((component) => component.types.includes('postal_code'))
-				?.longText || '';
+			addressComponents?.find((component) => component.types.includes('postal_code'))?.longText ||
+			'';
 
 		// Update location state with full address details
 		const newLocation: Location = {
@@ -689,8 +707,8 @@
 		}
 	}
 
-	let fullscreenResizeHandler: ((this: Window, ev: UIEvent) => any) | null = null;
-	let escKeyHandler: ((this: Window, ev: KeyboardEvent) => any) | null = null;
+	let fullscreenResizeHandler: ((this: Window, ev: UIEvent) => void) | null = null;
+	let escKeyHandler: ((this: Window, ev: KeyboardEvent) => void) | null = null;
 
 	async function enterFullscreen() {
 		isFullscreen = true;
@@ -698,18 +716,19 @@
 		try {
 			// Try to use Capacitor's native fullscreen if available
 			await ScreenOrientation.lock({ orientation: 'portrait' });
-		} catch (error) {
+		} catch {
 			console.log('Using fallback fullscreen method - Capacitor ScreenOrientation not available');
 		}
 
 		// Calculate navigation bar heights
 		const headerEl = document.querySelector('.app-shell__header') as HTMLElement;
 		const headerHeight = headerEl ? Math.ceil(headerEl.getBoundingClientRect().height) : 0;
-		
+
 		// Get footer height from CSS variable (set dynamically by layout)
-		const footerHeightStr = getComputedStyle(document.documentElement).getPropertyValue('--app-footer-height') || '0px';
+		const footerHeightStr =
+			getComputedStyle(document.documentElement).getPropertyValue('--app-footer-height') || '0px';
 		const footerHeight = parseFloat(footerHeightStr.replace('px', '')) || 0;
-		
+
 		// Calculate available height (viewport minus navigation bars)
 		const viewportHeight = window.innerHeight;
 		const availableHeight = viewportHeight - headerHeight - footerHeight;
@@ -771,17 +790,18 @@
 		fullscreenResizeHandler = () => {
 			// Only handle resize if still in fullscreen
 			if (!isFullscreen) return;
-			
+
 			// Recalculate navigation bar heights on resize
 			const headerEl = document.querySelector('.app-shell__header') as HTMLElement;
 			const headerHeight = headerEl ? Math.ceil(headerEl.getBoundingClientRect().height) : 0;
-			
-			const footerHeightStr = getComputedStyle(document.documentElement).getPropertyValue('--app-footer-height') || '0px';
+
+			const footerHeightStr =
+				getComputedStyle(document.documentElement).getPropertyValue('--app-footer-height') || '0px';
 			const footerHeight = parseFloat(footerHeightStr.replace('px', '')) || 0;
-			
+
 			const viewportHeight = window.innerHeight;
 			const availableHeight = viewportHeight - headerHeight - footerHeight;
-			
+
 			if (mapContainerDiv) {
 				mapContainerDiv.style.top = `${headerHeight}px`;
 				mapContainerDiv.style.bottom = `${footerHeight}px`;
@@ -789,7 +809,7 @@
 				mapContainerDiv.style.maxHeight = `${availableHeight}px`;
 				mapContainerDiv.style.minHeight = `${availableHeight}px`;
 			}
-			
+
 			if (mapElement) {
 				mapElement.style.height = '100%';
 				mapElement.style.minHeight = '100%';
@@ -816,7 +836,7 @@
 		try {
 			// Release orientation lock if we used Capacitor
 			await ScreenOrientation.unlock();
-		} catch (error) {
+		} catch {
 			console.log('Capacitor ScreenOrientation not available');
 		}
 
@@ -950,7 +970,7 @@
 						class="predictions-dropdown bg-base-100 border-base-300 absolute z-1000 mt-2 max-h-60 w-full overflow-y-auto rounded-lg border shadow-lg"
 					>
 						{#if predictions.length > 0}
-							{#each predictions as prediction}
+							{#each predictions as prediction, index (prediction?.placeId ?? prediction?.text?.text ?? index)}
 								<button
 									class="hover:bg-base-200 border-base-200 w-full cursor-pointer border-b px-4 py-3 text-left last:border-b-0"
 									onclick={() => selectPrediction(prediction!)}
@@ -959,7 +979,9 @@
 								</button>
 							{/each}
 						{:else}
-							<div class="text-error px-4 py-3">{getLocationPickerTranslation('no_places_found')}</div>
+							<div class="text-error px-4 py-3">
+								{getLocationPickerTranslation('no_places_found')}
+							</div>
 						{/if}
 					</div>
 				{/if}
@@ -971,7 +993,8 @@
 			<div
 				bind:this={mapElement}
 				class="h-full w-full overflow-hidden rounded-lg"
-				style="height: {mapHeight}; min-height: {mapHeight};"
+				style:height={mapHeight}
+				style:min-height={mapHeight}
 			>
 				{#if !isMapLoaded}
 					<div class="bg-base-200 flex h-full w-full items-center justify-center">
@@ -985,7 +1008,7 @@
 		{#if showFullscreen}
 			<button
 				onclick={toggleFullscreen}
-				class="absolute top-4 right-4 z-20 btn btn-circle btn-lg bg-base-100/90 hover:bg-base-100 shadow-md"
+				class="btn btn-circle btn-lg bg-base-100/90 hover:bg-base-100 absolute top-4 right-4 z-20 shadow-md"
 				class:z-1000={isFullscreen}
 				aria-label={isFullscreen
 					? getLocationPickerTranslation('exit_fullscreen')
@@ -1027,8 +1050,8 @@
 			<div class={isFullscreen ? 'fixed top-32 right-6 z-1000' : 'absolute top-16 right-4 z-20'}>
 				<div class="bg-base-100/95 border-base-300 rounded-lg border p-4 shadow-lg">
 					<div class="text-base-content mb-3 text-sm font-medium">
-						{getLocationPickerTranslation('service_radius')}: {currentServiceRadius}{' '}
-						{getLocationPickerTranslation('miles')}
+						{getLocationPickerTranslation('service_radius')}: {currentServiceRadius}
+						{` ${getLocationPickerTranslation('miles')}`}
 					</div>
 					<input
 						type="range"
@@ -1080,7 +1103,10 @@
 					d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
 				/></svg
 			>
-			<span>{getLocationPickerTranslation('location_set')}: {currentLocation.formattedAddress || currentLocation.displayName}</span>
+			<span
+				>{getLocationPickerTranslation('location_set')}: {currentLocation.formattedAddress ||
+					currentLocation.displayName}</span
+			>
 		</div>
 	{/if}
 

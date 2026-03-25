@@ -11,9 +11,21 @@ describe('UsdSatsInput', () => {
 
 		expect(screen.getByLabelText('USD')).toHaveValue('125');
 		expect(screen.getByLabelText('Sats')).toHaveValue('250,000');
-		expect(screen.getByTestId('usd-sats-input-btc-price')).toHaveTextContent(
-			'BTC Price $50,000'
-		);
+		expect(screen.getByTestId('usd-sats-input-btc-price')).toHaveTextContent('BTC Price $50,000');
+	});
+
+	it('renders the BTC price beside the sats label and strips a leading Current prefix', () => {
+		render(UsdSatsInput, {
+			usdAmount: 125,
+			btcPrice: 50_000,
+			btcPriceLabel: 'Current BTC Price'
+		});
+
+		const btcPrice = screen.getByTestId('usd-sats-input-btc-price');
+
+		expect(btcPrice).toHaveTextContent('BTC Price $50,000');
+		expect(btcPrice).not.toHaveTextContent('Current BTC Price');
+		expect(btcPrice.parentElement?.textContent).toContain('Sats');
 	});
 
 	it('sanitizes USD input, normalizes leading zeros, and emits the derived sats callback payload', async () => {
@@ -101,9 +113,7 @@ describe('UsdSatsInput', () => {
 		expect(screen.getByLabelText('Sats')).toBeDisabled();
 		expect(screen.getByLabelText('USD')).toHaveClass('input-error');
 		expect(screen.getByLabelText('Sats')).toHaveClass('input-error');
-		expect(screen.getByTestId('usd-sats-input-error')).toHaveTextContent(
-			'Amount is required.'
-		);
+		expect(screen.getByTestId('usd-sats-input-error')).toHaveTextContent('Amount is required.');
 		expect(screen.getByLabelText('USD')).toHaveValue('99.5');
 		expect(screen.getByLabelText('Sats')).toHaveValue('248,750');
 	});

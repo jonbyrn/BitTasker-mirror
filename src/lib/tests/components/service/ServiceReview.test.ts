@@ -5,6 +5,10 @@ import ServiceReview from '$lib/components/service/steps/ServiceReview.svelte';
 const translations: Record<string, string> = {
 	'dashboard.services.create.review.description': 'Review your service before publishing.',
 	'dashboard.services.create.review.basics_title': 'Service Details',
+	'dashboard.services.create.review.tiers_title': 'Pricing Tiers',
+	'dashboard.services.create.review.tiers_label': 'Tiers',
+	'dashboard.services.create.review.tiers_count': 'tiers',
+	'dashboard.services.create.review.tier_no_name': 'Unnamed tier',
 	'dashboard.services.create.review.title_label': 'Title',
 	'dashboard.services.create.review.description_label': 'Description',
 	'dashboard.services.create.review.categories_label': 'Categories',
@@ -17,7 +21,8 @@ const translations: Record<string, string> = {
 	'dashboard.services.create.review.not_set': 'Not set',
 	'dashboard.services.create.pricing.fixed_title': 'Fixed Price',
 	'dashboard.services.create.pricing.hour': 'hour',
-	'dashboard.services.create.location.tasker_title': 'At Tasker location'
+	'dashboard.services.create.location.taskee_title': 'At Tasker location',
+	'dashboard.services.create.tiers.popular': 'Popular'
 };
 
 const hoisted = vi.hoisted(() => {
@@ -47,9 +52,9 @@ const hoisted = vi.hoisted(() => {
 				description: 'Review deployment setup and go-live checklist.',
 				categories: [{ id: 'devops', name: 'DevOps', slug: 'devops' }],
 				skills: ['CI/CD'],
-				serviceLocationTypes: ['tasker_location'],
+				serviceLocationTypes: ['taskee_location'],
 				locationDetails: {
-					taskerLocation: {
+					taskeeLocation: {
 						serviceLocation: {
 							displayName: 'Austin, TX',
 							latitude: 30.2672,
@@ -101,6 +106,36 @@ vi.mock('$lib/api/services/crypto-price.service', () => ({
 describe('ServiceReview', () => {
 	beforeEach(() => {
 		hoisted.mockGetCurrentPrice.mockResolvedValue(100_000);
+		hoisted.storeState.set({
+			service: {
+				title: 'Launch audit',
+				description: 'Review deployment setup and go-live checklist.',
+				categories: [{ id: 'devops', name: 'DevOps', slug: 'devops' }],
+				skills: ['CI/CD'],
+				serviceLocationTypes: ['taskee_location'],
+				locationDetails: {
+					taskeeLocation: {
+						serviceLocation: {
+							displayName: 'Austin, TX',
+							latitude: 30.2672,
+							longitude: -97.7431,
+							zipCode: '78701',
+							locationLoaded: true
+						},
+						serviceRadius: 25
+					}
+				},
+				pricing: {
+					type: 'FIXED',
+					currency: 'USD',
+					amount: 100
+				},
+				instantBuyLeadHours: 24,
+				instantBuyDeliveryHours: 48,
+				portfolio: [],
+				faqs: []
+			}
+		});
 	});
 
 	it('renders service details pricing and book now information in the primary details card', () => {
@@ -121,5 +156,53 @@ describe('ServiceReview', () => {
 		expect(getByText('Delivery time: 48 hours')).toBeTruthy();
 		expect(queryByText('Pricing Type')).toBeNull();
 		expect(queryByText('Amount')).toBeNull();
+	});
+
+	it('uses a primary border for popular tiers in the review step', () => {
+		hoisted.storeState.set({
+			service: {
+				title: 'Launch audit',
+				description: 'Review deployment setup and go-live checklist.',
+				categories: [],
+				skills: [],
+				serviceLocationTypes: [],
+				locationDetails: {},
+				pricing: {
+					type: 'TIERED',
+					currency: 'USD',
+					tiers: [
+						{
+							id: 'tier-basic',
+							name: 'Basic',
+							description: 'Basic tier',
+							price: 100,
+							features: []
+						},
+						{
+							id: 'tier-pro',
+							name: 'Pro',
+							description: 'Pro tier',
+							price: 250,
+							features: [],
+							isPopular: true
+						}
+					]
+				},
+				portfolio: [],
+				faqs: []
+			}
+		});
+
+		const { getByText } = render(ServiceReview, {
+			errors: {},
+			direction: 'forward'
+		});
+
+		const popularBadge = getByText('Popular');
+		const popularCard = popularBadge.closest('.collapse');
+
+		expect(popularCard?.className).toContain('border-primary');
+		expect(popularCard?.className).toContain('border-2');
+		expect(popularCard?.className).not.toContain('border-base-300');
 	});
 });

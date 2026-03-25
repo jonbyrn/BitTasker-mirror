@@ -50,6 +50,7 @@ const hoisted = vi.hoisted(() => {
 		serviceState,
 		updateService: vi.fn(),
 		createService: vi.fn().mockResolvedValue('event-new'),
+		getRSKAddress: vi.fn().mockResolvedValue('0x2222222222222222222222222222222222222222'),
 		findServiceByUniqueId: vi.fn(),
 		goto: vi.fn(),
 		showErrorToast: vi.fn(),
@@ -85,6 +86,16 @@ vi.mock('$lib/stores/user.store', () => ({
 	user: readable({
 		name: 'Provider'
 	})
+}));
+
+vi.mock('$lib/stores/wallet.store', () => ({
+	walletStore: readable({
+		rsk: {
+			address: null
+		}
+	}),
+	getRSKAddress: (...args: Parameters<typeof hoisted.getRSKAddress>) =>
+		hoisted.getRSKAddress(...args)
 }));
 
 vi.mock('$lib/i18n/routeTranslations', () => ({
@@ -188,10 +199,12 @@ describe('create-service instant-buy submit payload', () => {
 				expect.objectContaining({
 					title: 'Rush Logo Package',
 					instantBuyLeadHours: 24,
-					instantBuyDeliveryHours: 48
+					instantBuyDeliveryHours: 48,
+					providerWalletAddress: '0x2222222222222222222222222222222222222222'
 				})
 			);
 		});
+		expect(hoisted.getRSKAddress).toHaveBeenCalledTimes(1);
 
 		await waitFor(() => {
 			expect(hoisted.goto).toHaveBeenCalledWith(

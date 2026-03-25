@@ -51,7 +51,7 @@
 </script>
 
 <div
-	class="space-y-6"
+	class="min-w-0 space-y-6 overflow-x-clip"
 	in:fly={{
 		duration: 200,
 		easing: linear,
@@ -75,13 +75,14 @@
 		</div>
 	{/if}
 
-	{#each $store.service.faqs || [] as faq}
-		<div class="card bg-base-200 space-y-4 p-4">
-			<div class="flex items-center justify-between">
-				<h4 class="font-semibold">
+	{#each $store.service.faqs || [] as faq (faq.id)}
+		<div class="card bg-base-200 min-w-0 space-y-4 overflow-hidden p-4">
+			<div class="flex min-w-0 items-center justify-between gap-3">
+				<h4 class="min-w-0 font-semibold break-words">
 					{$t('dashboard.services.create.faqs.faq')} #{($store.service.faqs || []).indexOf(faq) + 1}
 				</h4>
 				<button
+					type="button"
 					class="btn btn-sm btn-error"
 					onclick={() => removeFAQ(faq.id)}
 					title={$t('dashboard.services.create.faqs.remove')}

@@ -35,7 +35,7 @@ describe('service instant-buy eligibility', () => {
 						{
 							id: 'standard',
 							price: 200,
-							deliveryTime: { min: 1, max: 2, unit: 'week' as const }
+							deliveryTime: { value: 2, unit: 'week' as const }
 						}
 					]
 				}
@@ -130,7 +130,7 @@ describe('service instant-buy eligibility', () => {
 							{
 								id: 'premium',
 								price: 200,
-								deliveryTime: { min: 1, max: 2, unit: 'week' as const }
+								deliveryTime: { value: 2, unit: 'week' as const }
 							}
 						]
 					}

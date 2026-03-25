@@ -64,7 +64,7 @@
 					...$store.service.locationDetails,
 					taskerLocation: {
 						serviceLocation: defaultLocation,
-						serviceRadius: 10, // Default 10 km
+						serviceRadius: undefined,
 						perDistanceCharge: undefined
 					}
 				}
@@ -76,7 +76,9 @@
 					taskeeLocation: {
 						useGlobalLocation: false,
 						serviceLocation: undefined,
-						locationDisplayName: undefined
+						locationDisplayName: undefined,
+						serviceRadius: 5,
+						perDistanceCharge: undefined
 					}
 				}
 			});
@@ -94,23 +96,23 @@
 		};
 	}
 
-	function updateTaskerLocationRadius(event: Event) {
+	function updateTaskeeLocationRadius(event: Event) {
 		const target = event.currentTarget as HTMLInputElement;
 		const nextRadius = Number(target.value);
-		const currentTaskerLocation = $store.service.locationDetails?.taskerLocation;
+		const currentTaskeeLocation = $store.service.locationDetails?.taskeeLocation;
 
-		if (!currentTaskerLocation) {
+		if (!currentTaskeeLocation) {
 			return;
 		}
 
 		store.updateService({
 			locationDetails: {
 				...$store.service.locationDetails,
-				taskerLocation: {
-					...currentTaskerLocation,
+				taskeeLocation: {
+					...currentTaskeeLocation,
 					serviceRadius: Number.isFinite(nextRadius)
 						? nextRadius
-						: currentTaskerLocation.serviceRadius
+						: currentTaskeeLocation.serviceRadius
 				}
 			}
 		});
@@ -118,7 +120,7 @@
 </script>
 
 <div
-	class="space-y-6"
+	class="min-w-0 space-y-6 overflow-x-hidden"
 	in:fly={{
 		duration: 200,
 		easing: linear,
@@ -128,7 +130,9 @@
 >
 	<div class="w-full">
 		<div class="label">
-			<span class="label-text-alt">{$t('dashboard.services.create.location.types_hint')}</span>
+			<span class="label-text-alt break-words">
+				{$t('dashboard.services.create.location.types_hint')}
+			</span>
 		</div>
 
 		<div class="space-y-3">
@@ -209,19 +213,16 @@
 
 	<!-- Tasker Location Configuration -->
 	{#if ($store.service.serviceLocationTypes || []).includes(ServiceLocationTypeEnum.TASKER_LOCATION)}
-		<div class="card bg-base-200 space-y-4 p-4">
-			<h4 class="text-lg font-semibold">
+		<div class="card bg-base-200 min-w-0 space-y-4 overflow-hidden p-4">
+			<h4 class="text-lg font-semibold break-words">
 				{$t('dashboard.services.create.location.tasker_config_title')}
 			</h4>
 
-			<!-- Service Location (Base Location) -->
-			<div class="w-full">
+			<!-- Service Location -->
+			<div class="w-full min-w-0">
 				<div class="label">
-					<span class="label-text"
+					<span class="label-text break-words"
 						>{$t('dashboard.services.create.location.service_location_label')}</span
-					>
-					<span class="label-text-alt"
-						>{$t('dashboard.services.create.location.service_location_hint')}</span
 					>
 				</div>
 				<EnhancedLocationPicker
@@ -248,163 +249,20 @@
 					showFullscreen={true}
 					showGeolocation={true}
 					showServiceRadius={false}
+					showRadiusCircle={false}
 				/>
-			</div>
-
-			<div class="w-full">
-				<label class="label" for="service-radius">
-					<span class="label-text">
-						{$t('dashboard.services.create.location.service_radius_label')}
-					</span>
-					<span class="label-text-alt">
-						{$store.service.locationDetails?.taskerLocation?.serviceRadius || 10} km
-					</span>
-				</label>
-				<input
-					id="service-radius"
-					type="range"
-					min="1"
-					max="100"
-					step="1"
-					class="range range-primary w-full"
-					value={$store.service.locationDetails?.taskerLocation?.serviceRadius || 10}
-					oninput={updateTaskerLocationRadius}
-					data-testid="service-location-radius"
-				/>
-				<div class="text-base-content/60 mt-1 flex justify-between px-2 text-xs">
-					<span>1 km</span>
-					<span>{$store.service.locationDetails?.taskerLocation?.serviceRadius || 10} km</span>
-					<span>100 km</span>
-				</div>
-			</div>
-
-			<!-- Per-Distance Charge (Optional) -->
-			<div class="w-full">
-				<label class="label cursor-pointer" id="perDistanceCharge-label">
-					<span class="label-text"
-						>{$t('dashboard.services.create.location.per_distance_charge_label')}</span
-					>
-					<input
-						type="checkbox"
-						class="checkbox checkbox-primary"
-						checked={!!$store.service.locationDetails?.taskerLocation?.perDistanceCharge}
-						onchange={(e) => {
-							const enabled = (e.target as HTMLInputElement).checked;
-							const currentTaskerLocation = $store.service.locationDetails?.taskerLocation;
-							if (currentTaskerLocation?.serviceLocation) {
-								store.updateService({
-									locationDetails: {
-										...$store.service.locationDetails,
-										taskerLocation: {
-											serviceLocation: currentTaskerLocation.serviceLocation,
-											serviceRadius: currentTaskerLocation.serviceRadius,
-											perDistanceCharge: enabled
-												? {
-														amount: 0,
-														currency: $store.service.pricing?.currency || 'USD',
-														unit: 'km'
-													}
-												: undefined
-										}
-									}
-								});
-							}
-						}}
-					/>
-				</label>
-				{#if $store.service.locationDetails?.taskerLocation?.perDistanceCharge}
-					<div class="mt-2 flex gap-4">
-						<div class="flex-1">
-							<label for="perDistanceAmount" class="label" id="perDistanceAmount-label">
-								<span class="label-text"
-									>{$t('dashboard.services.create.location.per_distance_amount_label')}</span
-								>
-							</label>
-							<input
-								type="number"
-								id="perDistanceAmount"
-								min="0"
-								step="0.01"
-								value={$store.service.locationDetails?.taskerLocation?.perDistanceCharge?.amount ||
-									0}
-								onchange={(e) => {
-									const amount = Number((e.target as HTMLInputElement).value);
-									const currentTaskerLocation = $store.service.locationDetails?.taskerLocation;
-									if (
-										currentTaskerLocation?.serviceLocation &&
-										currentTaskerLocation?.perDistanceCharge
-									) {
-										store.updateService({
-											locationDetails: {
-												...$store.service.locationDetails,
-												taskerLocation: {
-													serviceLocation: currentTaskerLocation.serviceLocation,
-													serviceRadius: currentTaskerLocation.serviceRadius,
-													perDistanceCharge: {
-														...currentTaskerLocation.perDistanceCharge,
-														amount
-													}
-												}
-											}
-										});
-									}
-								}}
-								class="input input-bordered w-full"
-							/>
-						</div>
-						<div class="w-32">
-							<label for="perDistanceUnit" class="label" id="perDistanceUnit-label">
-								<span class="label-text"
-									>{$t('dashboard.services.create.location.per_distance_unit_label')}</span
-								>
-							</label>
-							<select
-								id="perDistanceUnit"
-								class="select select-bordered w-full"
-								value={$store.service.locationDetails?.taskerLocation?.perDistanceCharge?.unit ||
-									'km'}
-								onchange={(e) => {
-									const unit = (e.target as HTMLSelectElement).value as 'km' | 'mile';
-									const currentTaskerLocation = $store.service.locationDetails?.taskerLocation;
-									if (
-										currentTaskerLocation?.serviceLocation &&
-										currentTaskerLocation?.perDistanceCharge
-									) {
-										store.updateService({
-											locationDetails: {
-												...$store.service.locationDetails,
-												taskerLocation: {
-													serviceLocation: currentTaskerLocation.serviceLocation,
-													serviceRadius: currentTaskerLocation.serviceRadius,
-													perDistanceCharge: {
-														...currentTaskerLocation.perDistanceCharge,
-														unit
-													}
-												}
-											}
-										});
-									}
-								}}
-							>
-								<option value="km">{$t('dashboard.services.create.location.unit_km')}</option>
-								<option value="mile">{$t('dashboard.services.create.location.unit_mile')}</option>
-							</select>
-						</div>
-					</div>
-				{/if}
 			</div>
 		</div>
 	{/if}
 
 	<!-- Taskee Location Configuration -->
 	{#if ($store.service.serviceLocationTypes || []).includes(ServiceLocationTypeEnum.TASKEE_LOCATION)}
-		<div class="card bg-base-200 space-y-4 p-4">
-			<h4 class="text-lg font-semibold">
+		<div class="card bg-base-200 min-w-0 space-y-4 overflow-hidden p-4">
+			<h4 class="text-lg font-semibold break-words">
 				{$t('dashboard.services.create.location.taskee_config_title')}
 			</h4>
 
-			<!-- Service Location Picker with Service Radius -->
-			<div class="w-full">
+			<div class="w-full min-w-0">
 				<EnhancedLocationPicker
 					label={$t('dashboard.services.create.location.taskee_location_picker_label')}
 					placeholder={$t('dashboard.services.create.location.taskee_location_placeholder')}
@@ -431,7 +289,148 @@
 					showFullscreen={true}
 					showGeolocation={true}
 					showServiceRadius={false}
+					serviceRadius={$store.service.locationDetails?.taskeeLocation?.serviceRadius || 5}
+					showRadiusCircle={true}
 				/>
+			</div>
+
+			<div class="w-full min-w-0">
+				<label class="label" for="service-radius">
+					<span class="label-text break-words">
+						{$t('dashboard.services.create.location.service_radius_label')}
+					</span>
+					<span class="label-text-alt">
+						{$store.service.locationDetails?.taskeeLocation?.serviceRadius || 5} km
+					</span>
+				</label>
+				<input
+					id="service-radius"
+					type="range"
+					min="1"
+					max="100"
+					step="1"
+					class="range range-primary w-full"
+					value={$store.service.locationDetails?.taskeeLocation?.serviceRadius || 5}
+					oninput={updateTaskeeLocationRadius}
+					data-testid="service-location-radius"
+				/>
+				<div class="text-base-content/60 mt-1 flex justify-between px-2 text-xs">
+					<span>1 km</span>
+					<span>{$store.service.locationDetails?.taskeeLocation?.serviceRadius || 5} km</span>
+					<span>100 km</span>
+				</div>
+			</div>
+
+			<div class="w-full min-w-0">
+				<label class="label cursor-pointer" id="perDistanceCharge-label">
+					<span class="label-text break-words"
+						>{$t('dashboard.services.create.location.per_distance_charge_label')}</span
+					>
+					<input
+						type="checkbox"
+						class="checkbox checkbox-primary"
+						checked={!!$store.service.locationDetails?.taskeeLocation?.perDistanceCharge}
+						onchange={(e) => {
+							const enabled = (e.target as HTMLInputElement).checked;
+							const currentTaskeeLocation = $store.service.locationDetails?.taskeeLocation;
+							if (currentTaskeeLocation?.serviceLocation) {
+								store.updateService({
+									locationDetails: {
+										...$store.service.locationDetails,
+										taskeeLocation: {
+											...currentTaskeeLocation,
+											perDistanceCharge: enabled
+												? {
+														amount: 0,
+														currency: $store.service.pricing?.currency || 'USD',
+														unit: 'km'
+													}
+												: undefined
+										}
+									}
+								});
+							}
+						}}
+					/>
+				</label>
+				{#if $store.service.locationDetails?.taskeeLocation?.perDistanceCharge}
+					<div class="mt-2 grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(8rem,10rem)] gap-3">
+						<div class="min-w-0">
+							<label for="perDistanceAmount" class="label" id="perDistanceAmount-label">
+								<span class="label-text break-words"
+									>{$t('dashboard.services.create.location.per_distance_amount_label')}</span
+								>
+							</label>
+							<input
+								type="number"
+								id="perDistanceAmount"
+								min="0"
+								step="0.01"
+								value={$store.service.locationDetails?.taskeeLocation?.perDistanceCharge?.amount ||
+									0}
+								onchange={(e) => {
+									const amount = Number((e.target as HTMLInputElement).value);
+									const currentTaskeeLocation = $store.service.locationDetails?.taskeeLocation;
+									if (
+										currentTaskeeLocation?.serviceLocation &&
+										currentTaskeeLocation?.perDistanceCharge
+									) {
+										store.updateService({
+											locationDetails: {
+												...$store.service.locationDetails,
+												taskeeLocation: {
+													...currentTaskeeLocation,
+													perDistanceCharge: {
+														...currentTaskeeLocation.perDistanceCharge,
+														amount
+													}
+												}
+											}
+										});
+									}
+								}}
+								class="input input-bordered w-full"
+							/>
+						</div>
+						<div class="min-w-0">
+							<label for="perDistanceUnit" class="label" id="perDistanceUnit-label">
+								<span class="label-text break-words"
+									>{$t('dashboard.services.create.location.per_distance_unit_label')}</span
+								>
+							</label>
+							<select
+								id="perDistanceUnit"
+								class="select select-bordered w-full"
+								value={$store.service.locationDetails?.taskeeLocation?.perDistanceCharge?.unit ||
+									'km'}
+								onchange={(e) => {
+									const unit = (e.target as HTMLSelectElement).value as 'km' | 'mile';
+									const currentTaskeeLocation = $store.service.locationDetails?.taskeeLocation;
+									if (
+										currentTaskeeLocation?.serviceLocation &&
+										currentTaskeeLocation?.perDistanceCharge
+									) {
+										store.updateService({
+											locationDetails: {
+												...$store.service.locationDetails,
+												taskeeLocation: {
+													...currentTaskeeLocation,
+													perDistanceCharge: {
+														...currentTaskeeLocation.perDistanceCharge,
+														unit
+													}
+												}
+											}
+										});
+									}
+								}}
+							>
+								<option value="km">{$t('dashboard.services.create.location.unit_km')}</option>
+								<option value="mile">{$t('dashboard.services.create.location.unit_mile')}</option>
+							</select>
+						</div>
+					</div>
+				{/if}
 			</div>
 		</div>
 	{/if}

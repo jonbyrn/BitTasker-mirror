@@ -90,6 +90,9 @@ describe('ServiceLocation', () => {
 					taskerLocation?: {
 						serviceRadius?: number;
 					};
+					taskeeLocation?: {
+						serviceRadius?: number;
+					};
 				};
 			};
 		} | null = null;
@@ -100,8 +103,34 @@ describe('ServiceLocation', () => {
 		return currentValue;
 	}
 
-	it('adds and updates the tasker location service radius slider', async () => {
-		const { getByRole, getByTestId } = render(ServiceLocation, {
+	it('adds and updates the tasker-location service radius slider and map radius', async () => {
+		const { getByRole, getByTestId, getAllByTestId } = render(ServiceLocation, {
+			errors: {},
+			direction: 'forward'
+		});
+
+		await fireEvent.click(
+			getByRole('radio', { name: /dashboard\.services\.create\.location\.taskee_title/i })
+		);
+
+		await waitFor(() => expect(getByTestId('service-location-radius')).toHaveValue('5'));
+		expect(getAllByTestId('mock-enhanced-location-picker-radius')[0]).toHaveTextContent('5');
+
+		await fireEvent.input(getByTestId('service-location-radius'), {
+			currentTarget: { value: '42' },
+			target: { value: '42' }
+		});
+
+		await waitFor(() =>
+			expect(readStoreState()?.service.locationDetails?.taskeeLocation?.serviceRadius).toBe(42)
+		);
+		await waitFor(() =>
+			expect(getAllByTestId('mock-enhanced-location-picker-radius')[0]).toHaveTextContent('42')
+		);
+	});
+
+	it('does not render a service radius slider for at-my-location services', async () => {
+		const { getByRole, queryByTestId, getAllByTestId } = render(ServiceLocation, {
 			errors: {},
 			direction: 'forward'
 		});
@@ -110,15 +139,9 @@ describe('ServiceLocation', () => {
 			getByRole('radio', { name: /dashboard\.services\.create\.location\.tasker_title/i })
 		);
 
-		await waitFor(() => expect(getByTestId('service-location-radius')).toHaveValue('10'));
-
-		await fireEvent.input(getByTestId('service-location-radius'), {
-			currentTarget: { value: '42' },
-			target: { value: '42' }
-		});
-
-		await waitFor(() =>
-			expect(readStoreState()?.service.locationDetails?.taskerLocation?.serviceRadius).toBe(42)
+		expect(queryByTestId('service-location-radius')).toBeNull();
+		expect(getAllByTestId('mock-enhanced-location-picker-show-radius-circle')[0]).toHaveTextContent(
+			'false'
 		);
 	});
 

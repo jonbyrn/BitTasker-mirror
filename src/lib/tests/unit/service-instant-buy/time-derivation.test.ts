@@ -39,7 +39,7 @@ describe('service instant-buy time derivation', () => {
 							{
 								id: 'premium',
 								price: 300,
-								deliveryTime: { min: 1, max: 2, unit: 'week' }
+								deliveryTime: { value: 2, unit: 'week' }
 							}
 						]
 					}

@@ -15,7 +15,7 @@
 	let isUploading = $state(false);
 	let uploadProgress = $state({ completed: 0, total: 0, currentFile: '' });
 	let error = $state('');
-	
+
 	// Store object URLs for immediate preview (will be cleaned up)
 	let filePreviewUrls = $state<Map<File, string>>(new Map());
 
@@ -75,9 +75,12 @@
 		const selectedFiles = input.files;
 		if (!selectedFiles) return;
 
-		const totalFiles = ($store.service.portfolio?.length || 0) + (get(store).pendingFiles?.length || 0);
+		const totalFiles =
+			($store.service.portfolio?.length || 0) + (get(store).pendingFiles?.length || 0);
 		if (totalFiles + selectedFiles.length > 10) {
-			error = $t('dashboard.services.create.portfolio.max_files_limit', { values: { maxFiles: 10 } });
+			error = $t('dashboard.services.create.portfolio.max_files_limit', {
+				values: { maxFiles: 10 }
+			});
 			return;
 		}
 
@@ -93,7 +96,7 @@
 				break;
 			}
 			validFiles.push(file);
-			
+
 			// Create object URL for immediate preview
 			if (file.type.startsWith('image/')) {
 				const objectUrl = URL.createObjectURL(file);
@@ -108,7 +111,7 @@
 		// Add files to pending (they will be shown immediately with object URLs)
 		store.updateStore({ pendingFiles: [...(get(store).pendingFiles || []), ...validFiles] });
 		error = '';
-		
+
 		// Reset file input
 		input.value = '';
 
@@ -140,7 +143,7 @@
 				const removedFile = newPendingFiles[pendingIndex];
 				newPendingFiles.splice(pendingIndex, 1);
 				store.updateStore({ pendingFiles: newPendingFiles });
-				
+
 				// Cleanup object URL
 				const objectUrl = filePreviewUrls.get(removedFile);
 				if (objectUrl) {
@@ -213,11 +216,12 @@
 			const attachments: Attachment[] = results.map((result, index) => {
 				const originalFile = get(store).pendingFiles[index];
 				const fileName = originalFile?.name || result.url.split('/').pop() || 'file';
-				
+
 				return {
 					url: result.url,
 					key: result.key,
-					type: result.type === 'image' ? 'image/*' : result.type === 'video' ? 'video/*' : 'document',
+					type:
+						result.type === 'image' ? 'image/*' : result.type === 'video' ? 'video/*' : 'document',
 					alt: fileName,
 					size: result.size
 				};
@@ -254,7 +258,7 @@
 </script>
 
 <div
-	class="space-y-6"
+	class="min-w-0 space-y-6 overflow-x-clip"
 	in:fly={{
 		duration: 200,
 		easing: linear,
@@ -267,7 +271,7 @@
 		<label for="portfolio-upload" class="label block text-lg font-semibold">
 			{$t('dashboard.services.create.portfolio.title_media')}
 		</label>
-		<label for="portfolio-upload" class="label-text-alt block text-base-content/70">
+		<label for="portfolio-upload" class="label-text-alt text-base-content/70 block">
 			{$t('dashboard.services.create.portfolio.description_media')}
 		</label>
 	</div>
@@ -276,91 +280,104 @@
 		<div
 			class="grid grid-cols-2 justify-start gap-6 sm:grid-cols-4 sm:gap-8 md:grid-cols-6 lg:grid-cols-8"
 		>
-			{#each [...($store.service.portfolio || []), ...(get(store).pendingFiles || [])] as file, index}
+			{#each [...($store.service.portfolio || []), ...(get(store).pendingFiles || [])] as file, index (`${'id' in file ? file.id : file.name}-${index}`)}
 				<div class="relative h-24 w-24 sm:h-28 sm:w-28 md:h-32 md:w-32">
-					<div class="h-full w-full overflow-hidden rounded-lg border border-base-300">
-					{#if file && typeof file === 'object' && 'url' in file}
-						<!-- Already uploaded - show from URL -->
-						{@const fileType = file.type || ''}
-						{#if fileType === 'image/*' || fileType.startsWith('image/')}
-							<img
-								src={file.url}
-								alt={file.alt || $t('dashboard.services.create.portfolio.item_alt')}
-								class="h-full w-full object-cover"
-								loading="lazy"
-							/>
-						{:else if fileType === 'video/*' || fileType.startsWith('video/')}
-							<div class="flex h-full w-full flex-col items-center justify-center bg-base-200 p-2">
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									class="h-12 w-12 text-base-content/50 mb-2"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke="currentColor"
-									stroke-width="2"
-								>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
-									/>
-								</svg>
-								<span class="text-xs text-base-content/70 text-center line-clamp-2">{file.alt || 'Video'}</span>
-							</div>
-						{:else}
-							<div class="flex h-full w-full items-center justify-center bg-base-200">
-								<span class="text-xs text-base-content/70">{file.alt || 'File'}</span>
-							</div>
-						{/if}
-					{:else if file instanceof File}
-						<!-- Pending file - show preview with object URL -->
-						{#if file.type.startsWith('image/')}
-							{@const previewUrl = filePreviewUrls.get(file)}
-							{#if previewUrl}
+					<div class="border-base-300 h-full w-full overflow-hidden rounded-lg border">
+						{#if file && typeof file === 'object' && 'url' in file}
+							<!-- Already uploaded - show from URL -->
+							{@const fileType = file.type || ''}
+							{#if fileType === 'image/*' || fileType.startsWith('image/')}
 								<img
-									src={previewUrl}
-									alt={file.name}
+									src={file.url}
+									alt={file.alt || $t('dashboard.services.create.portfolio.item_alt')}
 									class="h-full w-full object-cover"
 									loading="lazy"
 								/>
+							{:else if fileType === 'video/*' || fileType.startsWith('video/')}
+								<div
+									class="bg-base-200 flex h-full w-full flex-col items-center justify-center p-2"
+								>
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										class="text-base-content/50 mb-2 h-12 w-12"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+										stroke-width="2"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+										/>
+									</svg>
+									<span class="text-base-content/70 line-clamp-2 text-center text-xs"
+										>{file.alt || 'Video'}</span
+									>
+								</div>
 							{:else}
-								<div class="flex h-full w-full items-center justify-center bg-base-200">
-									<span class="loading loading-spinner loading-md"></span>
+								<div class="bg-base-200 flex h-full w-full items-center justify-center">
+									<span class="text-base-content/70 text-xs">{file.alt || 'File'}</span>
 								</div>
 							{/if}
-						{:else if file.type.startsWith('video/')}
-							<div class="flex h-full w-full flex-col items-center justify-center bg-base-200 p-2">
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									class="h-12 w-12 text-base-content/50 mb-2"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke="currentColor"
-									stroke-width="2"
-								>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+						{:else if file instanceof File}
+							<!-- Pending file - show preview with object URL -->
+							{#if file.type.startsWith('image/')}
+								{@const previewUrl = filePreviewUrls.get(file)}
+								{#if previewUrl}
+									<img
+										src={previewUrl}
+										alt={file.name}
+										class="h-full w-full object-cover"
+										loading="lazy"
 									/>
-								</svg>
-								<span class="text-xs text-base-content/70 text-center line-clamp-2">{file.name}</span>
-							</div>
-						{:else}
-							<div class="flex h-full w-full items-center justify-center bg-base-200">
-								<span class="text-xs text-base-content/70">{file.name}</span>
-							</div>
+								{:else}
+									<div class="bg-base-200 flex h-full w-full items-center justify-center">
+										<span class="loading loading-spinner loading-md"></span>
+									</div>
+								{/if}
+							{:else if file.type.startsWith('video/')}
+								<div
+									class="bg-base-200 flex h-full w-full flex-col items-center justify-center p-2"
+								>
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										class="text-base-content/50 mb-2 h-12 w-12"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+										stroke-width="2"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+										/>
+									</svg>
+									<span class="text-base-content/70 line-clamp-2 text-center text-xs"
+										>{file.name}</span
+									>
+								</div>
+							{:else}
+								<div class="bg-base-200 flex h-full w-full items-center justify-center">
+									<span class="text-base-content/70 text-xs">{file.name}</span>
+								</div>
+							{/if}
 						{/if}
-					{/if}
 					</div>
 					<button
 						type="button"
-						class="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-error p-1 text-error-content shadow-md hover:opacity-90"
+						class="bg-error text-error-content absolute -top-2 -right-2 h-6 w-6 rounded-full p-1 shadow-md hover:opacity-90"
 						onclick={() => removeFile(index)}
 						title={$t('dashboard.services.create.portfolio.remove')}
 						aria-label={$t('dashboard.services.create.portfolio.remove')}
 					>
-						<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="h-4 w-4"
+							viewBox="0 0 20 20"
+							fill="currentColor"
+						>
 							<path
 								fill-rule="evenodd"
 								d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
@@ -371,14 +388,14 @@
 				</div>
 			{/each}
 
-			{#if (($store.service.portfolio || []).length + (get(store).pendingFiles || []).length) < 10 && !isUploading}
+			{#if ($store.service.portfolio || []).length + (get(store).pendingFiles || []).length < 10 && !isUploading}
 				<div class="relative h-24 w-24 sm:h-28 sm:w-28 md:h-32 md:w-32">
 					<label
 						for="portfolio-upload"
-						class="flex h-full w-full cursor-pointer flex-col items-center justify-center rounded-lg border border-base-300 bg-base-200 p-2 text-center transition hover:bg-base-300"
+						class="border-base-300 bg-base-200 hover:bg-base-300 flex h-full w-full cursor-pointer flex-col items-center justify-center rounded-lg border p-2 text-center transition"
 					>
 						<svg
-							class="mb-1 h-6 w-6 sm:mb-2 sm:h-8 sm:w-8 text-base-content/70"
+							class="text-base-content/70 mb-1 h-6 w-6 sm:mb-2 sm:h-8 sm:w-8"
 							aria-hidden="true"
 							xmlns="http://www.w3.org/2000/svg"
 							fill="none"
@@ -392,11 +409,16 @@
 								d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"
 							/>
 						</svg>
-						<p class="mb-1 text-xs font-semibold sm:text-sm">{$t('dashboard.services.create.portfolio.upload_label')}</p>
-						<p class="text-[8px] sm:text-xs text-base-content/70">
-							{$t('dashboard.services.create.portfolio.file_types')} {$t('dashboard.services.create.portfolio.max_duration')}
+						<p class="mb-1 text-xs font-semibold sm:text-sm">
+							{$t('dashboard.services.create.portfolio.upload_label')}
 						</p>
-						<p class="text-center text-[8px] whitespace-normal sm:px-1 sm:text-xs text-base-content/70">
+						<p class="text-base-content/70 text-[8px] sm:text-xs">
+							{$t('dashboard.services.create.portfolio.file_types')}
+							{$t('dashboard.services.create.portfolio.max_duration')}
+						</p>
+						<p
+							class="text-base-content/70 text-center text-[8px] whitespace-normal sm:px-1 sm:text-xs"
+						>
 							{$t('dashboard.services.create.portfolio.max_size')}
 						</p>
 						<input
@@ -415,15 +437,18 @@
 		{#if isUploading}
 			<div class="space-y-2">
 				<div class="text-info text-sm">
-					{$t('dashboard.services.create.portfolio.uploading')} {uploadProgress.currentFile}
+					{$t('dashboard.services.create.portfolio.uploading')}
+					{uploadProgress.currentFile}
 				</div>
-				<div class="h-2 w-full rounded-full bg-base-300">
+				<div class="bg-base-300 h-2 w-full rounded-full">
 					<div
 						class="bg-info h-2 rounded-full transition-all duration-300"
-						style="width: {uploadProgress.total > 0 ? (uploadProgress.completed / uploadProgress.total) * 100 : 0}%"
+						style="width: {uploadProgress.total > 0
+							? (uploadProgress.completed / uploadProgress.total) * 100
+							: 0}%"
 					></div>
 				</div>
-				<div class="text-xs text-base-content/60">
+				<div class="text-base-content/60 text-xs">
 					{uploadProgress.completed} / {uploadProgress.total}
 				</div>
 			</div>
@@ -438,4 +463,3 @@
 		<span class="label-text-alt text-error block">{errors.portfolio}</span>
 	{/if}
 </div>
-

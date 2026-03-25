@@ -119,24 +119,26 @@ describe('ServicePricing instant-buy authoring controls', () => {
 		await fireEvent.click(getByTestId('service-pricing-instant-buy-toggle'));
 
 		await waitFor(() =>
-			expect(getByTestId('service-pricing-instant-buy-lead-hours')).toHaveValue(24)
+			expect(getByTestId('service-pricing-instant-buy-lead-hours')).toHaveValue(1)
 		);
+		expect(getByTestId('service-pricing-instant-buy-lead-unit')).toHaveValue('day');
 
 		await fireEvent.input(getByTestId('service-pricing-instant-buy-lead-hours'), {
-			target: { value: '48' }
+			target: { value: '2' }
+		});
+		await fireEvent.change(getByTestId('service-pricing-instant-buy-delivery-unit'), {
+			target: { value: 'week' }
 		});
 		await fireEvent.input(getByTestId('service-pricing-instant-buy-delivery-hours'), {
-			target: { value: '72' }
+			target: { value: '1' }
 		});
 
 		await waitFor(() =>
-			expect(getByTestId('service-pricing-instant-buy-lead-hours')).toHaveValue(48)
+			expect(getByTestId('service-pricing-instant-buy-lead-hours')).toHaveValue(2)
 		);
-		await waitFor(() =>
-			expect(getByTestId('service-pricing-instant-buy-delivery-hours')).toHaveValue(72)
-		);
+		expect(getByTestId('service-pricing-instant-buy-delivery-unit')).toHaveValue('week');
 		expect(readStoreState()?.service.instantBuyLeadHours).toBe(48);
-		expect(readStoreState()?.service.instantBuyDeliveryHours).toBe(72);
+		expect(readStoreState()?.service.instantBuyDeliveryHours).toBe(168);
 	});
 
 	it('clears instant-buy lead hours when pricing changes to inquiry required', async () => {
@@ -147,7 +149,7 @@ describe('ServicePricing instant-buy authoring controls', () => {
 
 		await fireEvent.click(getByTestId('service-pricing-instant-buy-toggle'));
 		await waitFor(() =>
-			expect(getByTestId('service-pricing-instant-buy-lead-hours')).toHaveValue(24)
+			expect(getByTestId('service-pricing-instant-buy-lead-hours')).toHaveValue(1)
 		);
 
 		await fireEvent.click(getByText('dashboard.services.create.pricing.inquiry_title'));
@@ -231,5 +233,65 @@ describe('ServicePricing instant-buy authoring controls', () => {
 		});
 
 		await waitFor(() => expect(readStoreState()?.service.pricing.currency).toBe('USD'));
+	});
+
+	it('converts the displayed Book Now duration when the author changes units', async () => {
+		hoisted.storeState.set({
+			service: {
+				pricing: {
+					type: 'FIXED',
+					currency: 'USD',
+					amount: 125
+				},
+				instantBuyLeadHours: 48,
+				instantBuyDeliveryHours: 168
+			}
+		});
+
+		const { getByTestId } = render(ServicePricing, {
+			errors: {},
+			direction: 'forward'
+		});
+
+		expect(getByTestId('service-pricing-instant-buy-lead-unit')).toHaveValue('day');
+		expect(getByTestId('service-pricing-instant-buy-lead-hours')).toHaveValue(2);
+		expect(getByTestId('service-pricing-instant-buy-delivery-unit')).toHaveValue('week');
+		expect(getByTestId('service-pricing-instant-buy-delivery-hours')).toHaveValue(1);
+		expect(getByTestId('service-pricing-instant-buy-lead-hours').parentElement).toBe(
+			getByTestId('service-pricing-instant-buy-lead-unit').parentElement
+		);
+		expect(getByTestId('service-pricing-instant-buy-delivery-hours').parentElement).toBe(
+			getByTestId('service-pricing-instant-buy-delivery-unit').parentElement
+		);
+
+		await fireEvent.change(getByTestId('service-pricing-instant-buy-lead-unit'), {
+			target: { value: 'hour' }
+		});
+
+		expect(getByTestId('service-pricing-instant-buy-lead-hours')).toHaveValue(48);
+		expect(readStoreState()?.service.instantBuyLeadHours).toBe(48);
+	});
+
+	it('keeps each Book Now unit dropdown on the same row as its paired input', async () => {
+		const { getByTestId } = render(ServicePricing, {
+			errors: {},
+			direction: 'forward'
+		});
+
+		await fireEvent.click(getByTestId('service-pricing-instant-buy-toggle'));
+
+		const leadInput = getByTestId('service-pricing-instant-buy-lead-hours');
+		const leadUnit = getByTestId('service-pricing-instant-buy-lead-unit');
+		const deliveryInput = getByTestId('service-pricing-instant-buy-delivery-hours');
+		const deliveryUnit = getByTestId('service-pricing-instant-buy-delivery-unit');
+
+		expect(leadInput.parentElement?.className).toContain(
+			'grid-cols-[minmax(0,1fr)_minmax(8.5rem,10rem)]'
+		);
+		expect(leadInput.parentElement).toBe(leadUnit.parentElement);
+		expect(deliveryInput.parentElement?.className).toContain(
+			'grid-cols-[minmax(0,1fr)_minmax(8.5rem,10rem)]'
+		);
+		expect(deliveryInput.parentElement).toBe(deliveryUnit.parentElement);
 	});
 });
