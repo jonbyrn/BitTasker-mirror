@@ -205,13 +205,13 @@ export class NDKPaymentContract extends NDKEvent {
 
 	// --- Public wire tags (ergonomic names) ---
 
-	get escrowId(): string {
-		return this.tagValue('d') ?? '';
+	get paymentId(): string {
+		return this.tagValue('paymentId') ?? '';
 	}
 
-	set escrowId(id: string) {
-		this.removeTag('d');
-		this.tags.push(['d', id]);
+	set paymentId(id: string) {
+		this.removeTag('paymentId');
+		this.tags.push(['paymentId', id]);
 	}
 
 	get taskId(): string {
