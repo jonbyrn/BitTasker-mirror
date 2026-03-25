@@ -23,7 +23,7 @@
 				"status_updated": "Estado actualizado",
 				"status_update_failed": "Error al actualizar el estado",
 				"actions": {
-					"quotes": "Cotizaciones",
+					"quotes": "Solicitudes",
 					"contracts": "Contratos"
 				},
 				"location": {
@@ -36,9 +36,25 @@
 					"hourly": "Por hora",
 					"tiered": "Por niveles",
 					"quote": "Cotización",
+					"from": "Desde",
 					"tiered_pricing": "Precios por niveles",
 					"quote_required": "Cotización requerida"
 				},
+				"timing": {
+					"lead_time": "Tiempo de anticipación",
+					"delivery_time": "Tiempo de entrega"
+				},
+				"duration": {
+					"hour": "hora",
+					"hours": "horas",
+					"day": "día",
+					"days": "días",
+					"week": "semana",
+					"weeks": "semanas",
+					"month": "mes",
+					"months": "meses"
+				},
+				"book_now": "Reservar ahora",
 				"workspace": {
 					"title": "Servicios",
 					"description": "Gestiona tus publicaciones y responde a las solicitudes de servicio entrantes.",
@@ -52,6 +68,7 @@
 				},
 				"quote_inbox": {
 					"title": "Bandeja de cotizaciones",
+					"deleted_service_prefix": "Servicio eliminado",
 					"service_prefix": "Servicio: {service}",
 					"select_service_prompt": "Selecciona un servicio para revisar las solicitudes entrantes.",
 					"syncing_requested_thread": "Sincronizando el hilo solicitado...",
@@ -103,6 +120,9 @@
 					"confirm_title": "Eliminar servicio",
 					"blocked_intro": "Este servicio todavía no se puede eliminar.",
 					"confirm_intro": "Esto elimina permanentemente la publicación actual del servicio de tu panel.",
+					"confirm_intro_warning": "Esto elimina permanentemente la publicación actual del servicio de tu panel. Las solicitudes de servicio existentes seguirán visibles como historial de solo lectura.",
+					"open_quotes_read_only_one": "Este servicio todavía tiene {count} solicitud abierta. Después de eliminarlo, ese hilo seguirá visible como historial de solo lectura.",
+					"open_quotes_read_only_other": "Este servicio todavía tiene {count} solicitudes abiertas. Después de eliminarlo, esos hilos seguirán visibles como historial de solo lectura.",
 					"open_quotes_one": "Todavía hay cotizaciones abiertas vinculadas a este servicio ({count} hilo bloqueante).",
 					"open_quotes_other": "Todavía hay cotizaciones abiertas vinculadas a este servicio ({count} hilos bloqueantes).",
 					"active_contracts_one": "Todavía hay contratos de servicio activos vinculados a este servicio ({count} contrato activo).",
