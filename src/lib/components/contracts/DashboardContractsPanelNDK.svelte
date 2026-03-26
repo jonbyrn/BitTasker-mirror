@@ -1,14 +1,7 @@
 <script lang="ts">
-	import { onMount, onDestroy } from 'svelte';
 	import { t } from 'svelte-i18n';
-	import { get } from 'svelte/store';
 	import { createPortal } from '$lib/utils/portal';
 	import { EscrowStatus } from '$lib/utils/escrow';
-	import { contractStore } from '$lib/stores/contract.store';
-	import { tasksStore, myTasksStore } from '$lib/stores/task.store';
-	import { reconcileTaskStatusWithContracts } from '$lib/utils/helpers/task-status-reconciliation';
-	import { scroll } from '$lib/stores/infiniteScroll.store';
-	import ContractCard from './ContractCard.svelte';
 	import ContractDrawer from './ContractDrawer.svelte';
 	import InfiniteScroll from '$lib/components/InfiniteScroll.svelte';
 
@@ -19,7 +12,6 @@
 	import IconAlertCircleOutline from '~icons/mdi/alert-circle-outline';
 	import IconCheck from '~icons/mdi/check';
 	import IconCancel from '~icons/mdi/cancel';
-	import IconRefresh from '~icons/mdi/refresh';
 	import IconChevronDown from '~icons/mdi/chevron-down';
 	import IconAccountOutline from '~icons/mdi/account-outline';
 	import IconAccountTieOutline from '~icons/mdi/account-tie-outline';
@@ -27,6 +19,7 @@
 	import type { NDKPaymentContract } from '$lib/nostr/events/contract';
 	import KINDS from '$lib/utils/constants/kinds';
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
+	import ContractCardNDK from './ContractCardNDK.svelte';
 	// import { ndk } from '$lib/nostr/ndk';
 	// import { NDKEscrowContract } from '$lib/nostr/events/contract';
 
@@ -102,95 +95,6 @@
 		}
 	] as const);
 
-	const filteredContracts = $derived.by(() => {
-		let filtered = $contractStore.contracts;
-
-		// Filter by status (using unified status enum)
-		if (statusFilter !== 'all') {
-			filtered = filtered.filter((c) => c.status === statusFilter);
-		}
-
-		// Filter by role
-		if (roleFilter === 'client') {
-			filtered = filtered.filter((c) => c.isClient);
-		} else if (roleFilter === 'freelancer') {
-			filtered = filtered.filter((c) => !c.isClient);
-		}
-
-		return filtered;
-	});
-
-	function getTaskStatusFromStores(taskId: string): string | undefined {
-		const tasks = get(tasksStore).items;
-		const myTasks = get(myTasksStore).items;
-		const task = tasks.find((t) => t.id === taskId) ?? myTasks.find((t) => t.id === taskId);
-		return task?.status;
-	}
-
-	async function runTaskStatusReconciliation(): Promise<void> {
-		const contracts = get(contractStore).contracts;
-		// Only reconcile contracts where current user is the Tasker (client).
-		// The task event is owned by the Tasker; only they can call updateTask.
-		// Running reconciliation on Taskee contracts causes "Task author mismatch" errors.
-		const taskerContracts = contracts.filter((c) => c.isClient);
-		if (taskerContracts.length === 0) return;
-		await reconcileTaskStatusWithContracts(taskerContracts, getTaskStatusFromStores);
-	}
-
-	async function refreshContracts(): Promise<void> {
-		await contractStore.loadContracts();
-		await runTaskStatusReconciliation();
-	}
-
-	onMount(async () => {
-		// Ensure wallet is initialized BEFORE loading contracts
-		try {
-			const { walletStore, walletManager } = await import('$lib/stores/wallet.store');
-			const { get } = await import('svelte/store');
-			let walletState = get(walletStore);
-
-			// Wait for wallet initialization if not already initialized
-			if (!walletState.isConnected || !walletState.rsk?.wallet || !walletState.rsk?.provider) {
-				await walletManager.initialize();
-				walletState = get(walletStore);
-			}
-		} catch {
-			// Continue anyway - contracts will handle wallet initialization individually
-		}
-
-		await Promise.all([contractStore.loadContracts()]);
-
-		// Self-heal: sync Nostr task status for FundsReleased contracts (docs/tasks/task-status.md)
-		runTaskStatusReconciliation();
-
-		// Configure infinite scroll
-		scroll.update((state) => ({
-			...state,
-			hasMore: $contractStore.hasMore,
-			loadMore: async () => {
-				if ($contractStore.hasMore && !$contractStore.isLoadingMore) {
-					await contractStore.loadMoreContracts();
-					// Update hasMore state after loading
-					scroll.update((state) => ({ ...state, hasMore: $contractStore.hasMore }));
-				}
-			}
-		}));
-	});
-
-	// Keep infinite scroll state in sync reactively
-	$effect(() => {
-		scroll.update((state) => ({
-			...state,
-			hasMore: $contractStore.hasMore
-		}));
-	});
-
-	onDestroy(() => {
-		// Cleanup subscriptions when leaving contracts panel
-		contractStore.unsubscribeFromStatusUpdates();
-		contractStore.unsubscribeFromNewContracts();
-	});
-
 	function selectStatusFilter(statusId: EscrowStatus | 'all') {
 		statusFilter = statusId;
 		isStatusDropdownOpen = false;
@@ -241,22 +145,6 @@
 					{$t('dashboard.contracts.filter_description')}
 				</p>
 			</div>
-
-			<!-- Refresh button: icon only on mobile, with text on desktop -->
-			<button
-				class="btn btn-ghost btn-sm sm:btn-outline gap-2"
-				onclick={() => refreshContracts()}
-				disabled={$contractStore.isLoading}
-				aria-label={$t('dashboard.contracts.refresh')}
-			>
-				{#if $contractStore.isLoading}
-					<span class="loading loading-spinner loading-xs"></span>
-					<span class="hidden sm:inline">{$t('dashboard.contracts.refresh')}</span>
-				{:else}
-					<IconRefresh class="h-5 w-5" />
-					<span class="hidden sm:inline">{$t('dashboard.contracts.refresh')}</span>
-				{/if}
-			</button>
 		</div>
 
 		<!-- Mobile: Subheading and dropdowns -->
@@ -393,7 +281,7 @@
 	</div>
 
 	<!-- Contracts List -->
-	{#if filteredContracts.length === 0}
+	{#if contractsSub.events.length === 0}
 		<div class="py-12 text-center">
 			<div class="mb-4">
 				<svg
@@ -411,7 +299,7 @@
 					/>
 				</svg>
 			</div>
-			<h3 class="mb-2 text-lg font-semibold">
+			<!-- <h3 class="mb-2 text-lg font-semibold">
 				{$contractStore.contracts.length === 0
 					? $t('dashboard.contracts.no_contracts')
 					: $t('dashboard.contracts.no_filtered_contracts')}
@@ -420,21 +308,21 @@
 				{$contractStore.contracts.length === 0
 					? $t('dashboard.contracts.no_contracts_description')
 					: $t('dashboard.contracts.try_different_filters')}
-			</p>
+			</p> -->
 		</div>
 	{:else}
-		{#each filteredContracts as contract (contract.escrowData?.id ?? contract.contractEvent.content.escrowId)}
-			<ContractCard {contract} btcPrice={btcPrice.price} />
+		{#each contractsSub.events as contract (contract.id)}
+			<ContractCardNDK {contract} />
 		{/each}
 
 		<!-- End of list indicator -->
-		{#if !$contractStore.hasMore && filteredContracts.length > 0}
+		<!-- {#if !$contractStore.hasMore && filteredContracts.length > 0}
 			<div class="text-center">
 				<p class="text-base-content/50 text-sm">
 					{$t('dashboard.contracts.no_more_contracts')}
 				</p>
 			</div>
-		{/if}
+		{/if} -->
 	{/if}
 
 	<!-- Infinite Scroll Component -->
