@@ -253,6 +253,15 @@ export class NDKPaymentContract extends NDKEvent {
 		return new NDKUser({ pubkey: this.taskeePubkey });
 	}
 
+	get otherPartyNpub(): string | undefined {
+		// lets check the author of the contract and compare with the ndk user
+		if (this.author.pubkey === this.ndk?.activeUser?.pubkey) {
+			return this.taskeePubkey;
+		} else {
+			return this.taskerPubkey;
+		}
+	}
+
 	get network(): string | undefined {
 		return this.tagValue('n');
 	}

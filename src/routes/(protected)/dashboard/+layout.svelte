@@ -22,6 +22,21 @@
 	let width = $state(375);
 
 	onMount(async () => {
+		try {
+			// Ensure wallet is initialized BEFORE loading dashboard
+			const { walletStore, walletManager } = await import('$lib/stores/wallet.store');
+			const { get } = await import('svelte/store');
+			let walletState = get(walletStore);
+
+			// Wait for wallet initialization if not already initialized
+			if (!walletState.isConnected || !walletState.rsk?.wallet || !walletState.rsk?.provider) {
+				await walletManager.initialize();
+				walletState = get(walletStore);
+			}
+		} catch {
+			// Continue anyway - contracts will handle wallet initialization individually
+		}
+
 		// If nsec is not in memory yet, lets get it
 		setNDKSigner();
 	});
