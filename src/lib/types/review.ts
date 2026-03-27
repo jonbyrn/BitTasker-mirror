@@ -2,7 +2,7 @@
  * Review types for the secure Merkle tree verified review system
  */
 
-import type { VerifiedReview, ReviewContent } from '@bittasker/merkle-review-sdk';
+import type { VerifiedReview } from '@bittasker/merkle-review-sdk';
 
 /**
  * Review rating categories for Taskee
@@ -15,7 +15,7 @@ export interface TaskeeCategoryRatings {
 }
 
 /**
- * Review rating categories for Tasker 
+ * Review rating categories for Tasker
  * These categories evaluate behavior and communication
  */
 export interface TaskerCategoryRatings {
@@ -38,12 +38,17 @@ export interface LegacyCategoryRatings {
 	timeliness: number; // 1-5
 }
 
+export type CategoryRatings = LegacyCategoryRatings | RoleSpecificCategoryRatings;
+
+export type RevieweeRole = 'tasker' | 'taskee';
+
 /**
  * Review content with ratings
  */
 export interface ReviewContentWithRatings {
 	overallRating: number; // 1-5
 	categoryRatings: CategoryRatings;
+	revieweeRole?: RevieweeRole;
 	comment?: string;
 	photos?: string[]; // URLs or Nostr event IDs for photos
 }
@@ -114,4 +119,3 @@ export interface ReviewReply {
 	createdAt: number;
 	nostrEventId?: string;
 }
-

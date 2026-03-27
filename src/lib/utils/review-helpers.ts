@@ -1,6 +1,6 @@
 /**
  * Review Helper Utilities
- * 
+ *
  * Functions to help with review management, finding pending reviews, etc.
  */
 
@@ -9,12 +9,29 @@ import { getReviewsForEscrow } from './nostr-review';
 import { getNpub } from './nostrKeys';
 import type { ContractWithEvents } from '$lib/types/contract';
 
+function isCompletedContractStatus(status: string | number | undefined): boolean {
+	return (
+		status === 'completed' || status === 'resolved' || status === 4 || status === 2 || status === 10
+	);
+}
+
+function isCompletionAction(action: string | number | undefined): boolean {
+	return (
+		action === 'task-completed' ||
+		action === 'payment-released' ||
+		action === 8 ||
+		action === 10 ||
+		action === 11
+	);
+}
+
 /**
  * Pending review information
  */
 export interface PendingReview {
 	contract: ContractWithEvents;
 	escrowId: string;
+	escrowTxHash?: string;
 	revieweePubkey: string;
 	revieweeName?: string;
 	completedAt: number;
@@ -33,43 +50,48 @@ export async function findPendingReviews(): Promise<PendingReview[]> {
 
 		// Get all user contracts
 		const contracts = await getUserContracts({ limit: 100 });
-		
+
 		// Filter to completed contracts
-		const completedContracts = contracts.filter(contract => {
-			const status = contract.status;
-			return status === 'completed' || status === 'resolved';
+		const completedContracts = contracts.filter((contract) => {
+			return isCompletedContractStatus(contract.status);
 		});
 
 		// Find contracts without reviews
 		const pending: PendingReview[] = [];
-		
+
 		for (const contract of completedContracts) {
 			// Check if user has already reviewed this escrow
 			const escrowReviews = await getReviewsForEscrow(contract.escrowData.id);
-			const userReviewed = escrowReviews.some(r => r.reviewerPubkey === currentUserPubkey);
-			
+			const userReviewed = escrowReviews.some((r) => r.reviewerPubkey === currentUserPubkey);
+
 			if (!userReviewed) {
 				// Determine who the reviewee is (the other party)
 				// If current user is client, review Taskee; if current user is Taskee, review client
 				const content = contract.contractEvent.content;
 				const isClient = content.clientPubkey === currentUserPubkey;
 				const revieweePubkey = isClient ? content.freelancerPubkey : content.clientPubkey;
-				
+
 				// Get completion date (use latest status event or contract creation)
 				let completedAt = (contract.contractEvent.created_at || 0) * 1000 || Date.now();
+				let escrowTxHash = contract.contractEvent.content.transactionHash;
 				if (contract.statusEvents && contract.statusEvents.length > 0) {
-					const completionEvent = contract.statusEvents.find((e) => {
-						const action = e.status.action;
-						return action === 'task-completed' || action === 'payment-released';
+					const completionEvent = [...contract.statusEvents].reverse().find((event) => {
+						return isCompletionAction(event.content?.action);
 					});
 					if (completionEvent) {
-						completedAt = completionEvent.status.timestamp * 1000;
+						if (completionEvent.content?.timestamp) {
+							completedAt = completionEvent.content.timestamp * 1000;
+						}
+						if (completionEvent.content?.transactionHash) {
+							escrowTxHash = completionEvent.content.transactionHash;
+						}
 					}
 				}
 
 				pending.push({
 					contract,
 					escrowId: contract.escrowData.id,
+					escrowTxHash,
 					revieweePubkey,
 					revieweeName: undefined, // Will need to get from profile
 					completedAt,
@@ -82,7 +104,7 @@ export async function findPendingReviews(): Promise<PendingReview[]> {
 		return pending.sort((a, b) => b.completedAt - a.completedAt);
 	} catch (error) {
 		console.error('Failed to find pending reviews:', error);
-		return [];
+		throw error instanceof Error ? error : new Error('Failed to find pending reviews');
 	}
 }
 
@@ -97,10 +119,10 @@ export async function hasUserReviewedContract(escrowId: string): Promise<boolean
 		}
 
 		const reviews = await getReviewsForEscrow(escrowId);
-		return reviews.some(r => r.reviewerPubkey === currentUserPubkey);
+		return reviews.some((r) => r.reviewerPubkey === currentUserPubkey);
 	} catch (error) {
 		console.error('Failed to check if contract reviewed:', error);
-		return false;
+		throw error instanceof Error ? error : new Error('Failed to check if contract reviewed');
 	}
 }
 
@@ -112,10 +134,10 @@ export function getOtherPartyPubkey(
 	contract: ContractWithEvents,
 	currentUserPubkey: string
 ): string | null {
-	if (contract.contract.clientPubkey === currentUserPubkey) {
-		return contract.contract.freelancerPubkey;
-	} else if (contract.contract.freelancerPubkey === currentUserPubkey) {
-		return contract.contract.clientPubkey;
+	if (contract.contractEvent.content.clientPubkey === currentUserPubkey) {
+		return contract.contractEvent.content.freelancerPubkey;
+	} else if (contract.contractEvent.content.freelancerPubkey === currentUserPubkey) {
+		return contract.contractEvent.content.clientPubkey;
 	}
 	return null;
 }
@@ -140,13 +162,13 @@ export async function getRevieweeRole(
 ): Promise<'tasker' | 'taskee' | null> {
 	try {
 		const contracts = await getUserContracts({ escrowIds: [escrowId] });
-		
+
 		if (contracts.length === 0) {
 			return null;
 		}
 
 		const contract = contracts[0].contractEvent.content;
-		
+
 		// Normalize pubkeys for comparison (handle both hex and npub formats)
 		const normalizePubkey = async (pubkey: string): Promise<string> => {
 			// If it's an npub, decode it to hex
@@ -180,4 +202,3 @@ export async function getRevieweeRole(
 		return null;
 	}
 }
-

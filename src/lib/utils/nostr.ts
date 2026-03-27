@@ -1,6 +1,6 @@
 import { type Event as NostrEvent, type Filter, nip19, nip44 } from 'nostr-tools';
 import { getNostrKeyPair, getNpub } from '$lib/utils/nostrKeys';
-import { finalizeEvent, validateEvent } from 'nostr-tools/pure';
+import { finalizeEvent, getPublicKey, validateEvent } from 'nostr-tools/pure';
 import { Preferences } from '@capacitor/preferences';
 import { StorageKeys } from '$lib/utils/constants/storage';
 import { appStore } from '$lib/stores/app.store';
@@ -13,11 +13,11 @@ const DEFAULT_RELAYS = [import.meta.env.VITE_NOSTR_RELAY_URL].filter(Boolean);
 
 // Determine if events need decryption based on event kinds
 const encryptedKinds = [
-    KINDS.DIRECT_MESSAGES,
-    KINDS.BIDS,
-    KINDS.CONTRACT,
-    KINDS.CONTRACT_STATUS,
-    KINDS.BID_STATUS
+	KINDS.DIRECT_MESSAGES,
+	KINDS.BIDS,
+	KINDS.CONTRACT,
+	KINDS.CONTRACT_STATUS,
+	KINDS.BID_STATUS
 ];
 
 /**
@@ -25,11 +25,11 @@ const encryptedKinds = [
  * This ensures we use a single pool across the entire application
  */
 function getPool() {
-    const pool = get(appStore)?.pool;
-    if (!pool) {
-        throw new Error('Pool not found');
-    }
-    return pool;
+	const pool = get(appStore)?.pool;
+	if (!pool) {
+		throw new Error('Pool not found');
+	}
+	return pool;
 }
 
 /**
@@ -38,59 +38,67 @@ function getPool() {
  * @returns The signed event
  */
 export async function getSignedEvent(metadata: Partial<NostrEvent>): Promise<NostrEvent> {
-    const initialEvent = {
-        created_at: metadata.created_at || Math.floor(Date.now() / 1000),
-        kind: metadata.kind!,
-        tags: [...(metadata.tags || []), ['v', __APP_VERSION__]],
-        content: metadata.content || ''
-    };
+	const initialEvent = {
+		created_at: metadata.created_at || Math.floor(Date.now() / 1000),
+		kind: metadata.kind!,
+		tags: [...(metadata.tags || []), ['v', __APP_VERSION__]],
+		content: metadata.content || ''
+	};
 
-    const { value: authMethod } = await Preferences.get({ key: StorageKeys.AUTH_METHOD });
+	const { value: authMethod } = await Preferences.get({ key: StorageKeys.AUTH_METHOD });
 
-    // TODO: To be improved by getting auth method from the server
-    if (authMethod === 'alby') {
-        if (!window || !window.nostr) {
-            throw new Error('Nostr extension not available');
-        }
+	// TODO: To be improved by getting auth method from the server
+	if (authMethod === 'alby') {
+		if (!window || !window.nostr) {
+			throw new Error('Nostr extension not available');
+		}
 
-        let { value: npub } = await Preferences.get({ key: StorageKeys.NPUB });
+		let { value: npub } = await Preferences.get({ key: StorageKeys.NPUB });
 
-        if (!npub) {
-            const pubkey = await window.nostr.getPublicKey();
-            if (!pubkey) {
-                throw new Error('No public key returned from Nostr extension');
-            }
-            npub = pubkey;
-        }
+		if (!npub) {
+			const pubkey = await window.nostr.getPublicKey();
+			if (!pubkey) {
+				throw new Error('No public key returned from Nostr extension');
+			}
+			npub = pubkey;
+		}
 
-        const signedEvent = await window.nostr.signEvent({
-            ...initialEvent,
-            pubkey: npub
-        });
-        return signedEvent;
-    } else {
-        const { npub, nsec } = await getNostrKeyPair();
+		const signedEvent = await window.nostr.signEvent({
+			...initialEvent,
+			pubkey: npub
+		});
+		return signedEvent;
+	} else {
+		const { npub, nsec } = await getNostrKeyPair();
 
-        if (!npub || !nsec) {
-            throw new Error('No pubkey or private key found');
-        }
+		if (!npub || !nsec) {
+			throw new Error('No pubkey or private key found');
+		}
 
-        // Create the event with required properties in correct order
-        const event = {
-            ...initialEvent,
-            pubkey: npub
-        };
+		// Create the event with required properties in correct order
+		const event = {
+			...initialEvent,
+			pubkey: npub
+		};
 
-        // Finalize the event (calculate id and sign)
-        const signedEvent = finalizeEvent(event, nsec);
+		// Finalize the event (calculate id and sign)
+		const signedEvent = finalizeEvent(event, nsec);
 
-        // Validate the event
-        if (!validateEvent(signedEvent)) {
-            throw new Error('Invalid event');
-        }
+		// Validate the event
+		if (!validateEvent(signedEvent)) {
+			throw new Error('Invalid event');
+		}
 
-        return signedEvent;
-    }
+		return signedEvent;
+	}
+}
+
+function isSignedEvent(event: Partial<NostrEvent>): event is NostrEvent {
+	return (
+		typeof event.id === 'string' &&
+		typeof event.pubkey === 'string' &&
+		typeof event.sig === 'string'
+	);
 }
 
 /**
@@ -98,23 +106,27 @@ export async function getSignedEvent(metadata: Partial<NostrEvent>): Promise<Nos
  * @param event - The event to publish
  * @param relayUrl - The URL of the relay to publish to
  */
-export async function publishEvent(event: Partial<NostrEvent>, relayUrl: string = import.meta.env.VITE_NOSTR_RELAY_URL): Promise<void> {
-    try {
-        const signedEvent = await getSignedEvent(event);
-        const pool = getPool();
+export async function publishEvent(
+	event: Partial<NostrEvent>,
+	relayUrl: string = import.meta.env.VITE_NOSTR_RELAY_URL
+): Promise<NostrEvent> {
+	try {
+		const signedEvent = isSignedEvent(event) ? event : await getSignedEvent(event);
+		const pool = getPool();
 
-        // Publish the event using the pool
-        const pub = pool.publish([relayUrl], signedEvent);
+		// Publish the event using the pool
+		const pub = pool.publish([relayUrl], signedEvent);
 
-        // Wait for the publish to complete
-        await Promise.race([
-            Promise.all(pub),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('Publish timeout')), 5000))
-        ]);
-    } catch (error) {
-        console.error('Failed to publish event:', error);
-        throw error;
-    }
+		// Wait for the publish to complete
+		await Promise.race([
+			Promise.all(pub),
+			new Promise((_, reject) => setTimeout(() => reject(new Error('Publish timeout')), 5000))
+		]);
+		return signedEvent;
+	} catch (error) {
+		console.error('Failed to publish event:', error);
+		throw error;
+	}
 }
 
 /**
@@ -155,39 +167,37 @@ export function subscribeToEvents(
  * @returns The decoded nsec as a Uint8Array
  */
 export function decodeNsec(nsec: string): Uint8Array<ArrayBufferLike> {
-    try {
-        if (!nsec.startsWith('nsec1')) {
-            return hexToBytes(nsec);
-        }
-        const { data, type } = nip19.decode(nsec);
-        if (type !== 'nsec') {
-            throw new Error('Invalid nsec format');
-        }
-        return data as Uint8Array<ArrayBufferLike>;
-    } catch (err) {
-        throw new Error('Invalid private key')
-    }
+	try {
+		if (!nsec.startsWith('nsec1')) {
+			return hexToBytes(nsec);
+		}
+		const { data, type } = nip19.decode(nsec);
+		if (type !== 'nsec') {
+			throw new Error('Invalid nsec format');
+		}
+		return data as Uint8Array<ArrayBufferLike>;
+	} catch {
+		throw new Error('Invalid private key');
+	}
 }
 
 /**
  * Get the npub from an encoded nsec
  * When the nsec is encoded, it's in bech32 format (nsec1...), so we need to decode it first
- * @param encodedNsec 
- * @returns 
+ * @param encodedNsec
+ * @returns
  */
 export function getNpubFromEncodedNsec(encodedNsec: string): string {
-    const { nip19 } = require('nostr-tools');
-    const { getPublicKey } = require('nostr-tools/pure');
-    // Decode the nsec
-    const { data: privateKeyHex } = nip19.decode(encodedNsec);
+	// Decode the nsec
+	const { data: privateKeyHex } = nip19.decode(encodedNsec);
 
-    // Convert hex to bytes and then get public key
-    const publicKeyHex = getPublicKey(privateKeyHex as Uint8Array);
+	// Convert hex to bytes and then get public key
+	const publicKeyHex = getPublicKey(privateKeyHex as Uint8Array);
 
-    // Encode as npub
-    const encodedNpub = nip19.npubEncode(publicKeyHex);
+	// Encode as npub
+	const encodedNpub = nip19.npubEncode(publicKeyHex);
 
-    return encodedNpub;
+	return encodedNpub;
 }
 
 // --- Internal helpers ---
@@ -198,22 +208,22 @@ export function getNpubFromEncodedNsec(encodedNsec: string): string {
  * @returns The encrypted message
  */
 async function encryptDM(
-    nsec: Uint8Array,
-    plaintext: string,
-    recipientNpub: string,
+	nsec: Uint8Array,
+	plaintext: string,
+	recipientNpub: string
 ): Promise<string> {
-    if (!nsec) {
-        throw new Error('No private key found');
-    }
+	if (!nsec) {
+		throw new Error('No private key found');
+	}
 
-    // Generate 32-byte nonce
-    const nonce = crypto.getRandomValues(new Uint8Array(32));
+	// Generate 32-byte nonce
+	const nonce = crypto.getRandomValues(new Uint8Array(32));
 
-    // Get conversation key
-    const conversationKey = await nip44.getConversationKey(nsec, recipientNpub);
+	// Get conversation key
+	const conversationKey = await nip44.getConversationKey(nsec, recipientNpub);
 
-    // Encrypt with NIP-44
-    return nip44.encrypt(plaintext, conversationKey, nonce);
+	// Encrypt with NIP-44
+	return nip44.encrypt(plaintext, conversationKey, nonce);
 }
 
 /**
@@ -223,19 +233,19 @@ async function encryptDM(
  * @returns The decrypted message
  */
 async function decryptDM(
-    nsec: Uint8Array,
-    ciphertext: string,
-    senderNpub: string,
+	nsec: Uint8Array,
+	ciphertext: string,
+	senderNpub: string
 ): Promise<string> {
-    if (!nsec) {
-        throw new Error('No private key found');
-    }
+	if (!nsec) {
+		throw new Error('No private key found');
+	}
 
-    // Get conversation key
-    const conversationKey = await nip44.getConversationKey(nsec, senderNpub);
+	// Get conversation key
+	const conversationKey = await nip44.getConversationKey(nsec, senderNpub);
 
-    // Decrypt with NIP-44
-    return nip44.decrypt(ciphertext, conversationKey);
+	// Decrypt with NIP-44
+	return nip44.decrypt(ciphertext, conversationKey);
 }
 
 /**
@@ -245,36 +255,36 @@ async function decryptDM(
  * @returns The parsed event
  */
 export async function parseDMEvent(
-    event: NostrEvent,
-    npub: string
+	event: NostrEvent,
+	npub: string
 ): Promise<{ plaintext: string; senderPubkey: string }> {
-    try {
-        if (event.kind !== 4) throw new Error('Not a DM event');
+	try {
+		if (event.kind !== 4) throw new Error('Not a DM event');
 
-        const senderNpub = event.pubkey;
+		const senderNpub = event.pubkey;
 
-        let plaintext: string;
+		let plaintext: string;
 
-        const { nsec } = await getNostrKeyPair();
+		const { nsec } = await getNostrKeyPair();
 
-        if (senderNpub === npub) {
-            // We are the sender, so we need to decrypt using the recipient's pubkey
-            const recipientTag = event.tags.find((tag) => tag[0] === 'p');
-            if (!recipientTag || !recipientTag[1]) {
-                throw new Error('No recipient found in message tags');
-            }
-            const recipientNpub = recipientTag[1];
-            plaintext = await decryptDM(nsec, event.content, recipientNpub);
-        } else {
-            // We are the recipient, decrypt using the sender's pubkey
-            plaintext = await decryptDM(nsec, event.content, senderNpub);
-        }
+		if (senderNpub === npub) {
+			// We are the sender, so we need to decrypt using the recipient's pubkey
+			const recipientTag = event.tags.find((tag) => tag[0] === 'p');
+			if (!recipientTag || !recipientTag[1]) {
+				throw new Error('No recipient found in message tags');
+			}
+			const recipientNpub = recipientTag[1];
+			plaintext = await decryptDM(nsec, event.content, recipientNpub);
+		} else {
+			// We are the recipient, decrypt using the sender's pubkey
+			plaintext = await decryptDM(nsec, event.content, senderNpub);
+		}
 
-        return { plaintext, senderPubkey: senderNpub };
-    } catch (error) {
-        console.error('Failed to parse DM event:', error);
-        throw error;
-    }
+		return { plaintext, senderPubkey: senderNpub };
+	} catch (error) {
+		console.error('Failed to parse DM event:', error);
+		throw error;
+	}
 }
 
 /**
@@ -284,53 +294,52 @@ export async function parseDMEvent(
  * @returns The results of the publication
  */
 export async function publishToMultipleRelays(
-    event: NostrEvent,
-    relays: string[] = DEFAULT_RELAYS
-): Promise<{ relay: string; success: boolean; error?: string; }[]> {
-    const pool = getPool();
+	event: NostrEvent,
+	relays: string[] = DEFAULT_RELAYS
+): Promise<{ relay: string; success: boolean; error?: string }[]> {
+	const pool = getPool();
 
-    const publishPromises = relays.map(async (relay) => {
-        try {
-            pool.publish([relay], event);
-            return { relay, success: true };
-        } catch (error) {
-            return {
-                relay,
-                success: false,
-                error: (error as Error).message
-            };
-        }
-    });
+	const publishPromises = relays.map(async (relay) => {
+		try {
+			pool.publish([relay], event);
+			return { relay, success: true };
+		} catch (error) {
+			return {
+				relay,
+				success: false,
+				error: (error as Error).message
+			};
+		}
+	});
 
-    const results = await Promise.allSettled(publishPromises);
+	const results = await Promise.allSettled(publishPromises);
 
-    return results.map((result, index) => {
-        if (result.status === 'fulfilled') {
-            return result.value;
-        } else {
-            return {
-                relay: relays[index],
-                success: false,
-                error: result.reason?.message || 'Unknown error'
-            };
-        }
-    });
+	return results.map((result, index) => {
+		if (result.status === 'fulfilled') {
+			return result.value;
+		} else {
+			return {
+				relay: relays[index],
+				success: false,
+				error: result.reason?.message || 'Unknown error'
+			};
+		}
+	});
 }
-
 
 /**
  * Generic function to publish any Nostr event with encryption support
- * 
+ *
  * This function provides a unified interface for publishing all types of Nostr events,
  * including bids, contracts, and regular messages. It handles encryption, signing,
  * and relay publishing automatically.
- * 
+ *
  * @param kind - Nostr event kind (from KINDS constant)
  * @param content - Event content (will be encrypted if kind requires it)
  * @param recipientNpub - Recipient's public key (in npub or hex format)
  * @param tags - Array of tags to include in the event
  * @returns Promise<void>
- * 
+ *
  * @example
  * // Publish a bid event
  * await publishNostrEvent(
@@ -339,7 +348,7 @@ export async function publishToMultipleRelays(
  *   taskCreatorPubkey,
  *   [['d', bidId], ['t', taskId], ['p', taskCreatorPubkey]]
  * );
- * 
+ *
  * @example
  * // Publish a contract event
  * await publishNostrEvent(
@@ -350,78 +359,78 @@ export async function publishToMultipleRelays(
  * );
  */
 export async function publishNostrEvent(
-    kind: number,
-    content: string,
-    recipientNpub: string,
-    tags: string[][],
-    relays: string[] = DEFAULT_RELAYS
+	kind: number,
+	content: string,
+	recipientNpub: string,
+	tags: string[][],
+	relays: string[] = DEFAULT_RELAYS
 ): Promise<void> {
-    try {
-        // Convert recipient pubkey to hex if it's in npub format
-        const recipientPubkeyHex = recipientNpub.startsWith('npub')
-            ? (nip19.decode(recipientNpub).data as string)
-            : recipientNpub;
+	try {
+		// Convert recipient pubkey to hex if it's in npub format
+		const recipientPubkeyHex = recipientNpub.startsWith('npub')
+			? (nip19.decode(recipientNpub).data as string)
+			: recipientNpub;
 
-        const { nsec } = await getNostrKeyPair();
+		const { nsec } = await getNostrKeyPair();
 
-        // Encrypt content if needed
-        const eventContent = encryptedKinds.includes(kind)
-            ? await encryptDM(nsec, content, recipientPubkeyHex)
-            : content;
+		// Encrypt content if needed
+		const eventContent = encryptedKinds.includes(kind)
+			? await encryptDM(nsec, content, recipientPubkeyHex)
+			: content;
 
-        // Create event metadata for signing
-        const eventMetadata: Partial<NostrEvent> = {
-            kind,
-            content: eventContent,
-            tags
-        };
+		// Create event metadata for signing
+		const eventMetadata: Partial<NostrEvent> = {
+			kind,
+			content: eventContent,
+			tags
+		};
 
-        // Sign the event
-        const signedEvent = await getSignedEvent(eventMetadata);
+		// Sign the event
+		const signedEvent = await getSignedEvent(eventMetadata);
 
-        console.log({ signedEvent })
+		console.log({ signedEvent });
 
-        // Publish to relays
-        const results = await publishToMultipleRelays(signedEvent, relays);
+		// Publish to relays
+		const results = await publishToMultipleRelays(signedEvent, relays);
 
-        // Check if at least one relay succeeded
-        const successfulRelays = results.filter((r) => r.success);
-        if (successfulRelays.length === 0) {
-            const errors = results.map((r) => `${r.relay}: ${r.error}`).join(', ');
-            throw new Error(`Failed to publish to any relay: ${errors}`);
-        }
+		// Check if at least one relay succeeded
+		const successfulRelays = results.filter((r) => r.success);
+		if (successfulRelays.length === 0) {
+			const errors = results.map((r) => `${r.relay}: ${r.error}`).join(', ');
+			throw new Error(`Failed to publish to any relay: ${errors}`);
+		}
 
-        // Log any failed relays for monitoring
-        const failedRelays = results.filter((r) => !r.success);
-        if (failedRelays.length > 0) {
-            console.warn('Some relays failed:', failedRelays);
-        }
-    } catch (err: unknown) {
-        const errorMessage = (err as Error)?.message || 'Failed to publish event';
-        appStore.showErrorToast(errorMessage);
-        throw err;
-    }
+		// Log any failed relays for monitoring
+		const failedRelays = results.filter((r) => !r.success);
+		if (failedRelays.length > 0) {
+			console.warn('Some relays failed:', failedRelays);
+		}
+	} catch (err: unknown) {
+		const errorMessage = (err as Error)?.message || 'Failed to publish event';
+		appStore.showErrorToast(errorMessage);
+		throw err;
+	}
 }
 
 /**
  * Generic function to query Nostr events with automatic decryption and optional followup queries
- * 
+ *
  * This function provides a unified interface for querying all types of Nostr events,
  * with automatic decryption for encrypted event kinds (DMs, bids, contracts).
- * 
+ *
  * It also supports followup queries (e.g., fetching status events for contracts) which are
  * executed in a single batch. Followup events are automatically linked to their parent events
  * by event ID (followup events reference parent event IDs in their #e tags).
- * 
+ *
  * @param filter - Nostr filter object (supports kinds, authors, tags, limit, since, until)
- * @param followupFilter - Optional base filter for followup events (kinds, limit, other tags). 
+ * @param followupFilter - Optional base filter for followup events (kinds, limit, other tags).
  *                         The #e tag will be automatically populated with parent event IDs.
  * @param followupConfig - Configuration for how to attach followup events to main events
  *   - attachAs: Property name to attach followup data to parent event (e.g., 'statusEvents')
  *   - keepLatest: If true, only keep most recent followup; if false, keep all as array
  * @param relays - Array of relay URLs to query from
  * @returns Promise<Array> - Array of decrypted events with attached followup events
- * 
+ *
  * @example
  * // Query contracts with their status events
  * const contractEvents = await queryNostrEvents({
@@ -435,7 +444,7 @@ export async function publishNostrEvent(
  *   attachAs: 'statusEvents',        // Attach as array property
  *   keepLatest: false                // Keep all status events
  * });
- * 
+ *
  * @example
  * // Query bids with their latest status
  * const bidEvents = await queryNostrEvents({
@@ -452,196 +461,197 @@ export async function publishNostrEvent(
  * });
  */
 export async function queryNostrEvents(
-    filter: Filter,
-    followupFilter?: Filter,
-    followupConfig?: {
-        attachAs: string;         // Property name to attach followup to (e.g., 'statusEvents')
-        keepLatest?: boolean;     // If true, only keep the most recent followup event
-    },
-    relays: string[] = DEFAULT_RELAYS
+	filter: Filter,
+	followupFilter?: Filter,
+	followupConfig?: {
+		attachAs: string; // Property name to attach followup to (e.g., 'statusEvents')
+		keepLatest?: boolean; // If true, only keep the most recent followup event
+	},
+	relays: string[] = DEFAULT_RELAYS
 ): Promise<NostrEvent[]> {
-    try {
-        const pool = getPool();
-        const npub = await getNpub();
-        const userPubkeyHex = npub.startsWith('npub') ? (nip19.decode(npub).data as string) : npub;
+	try {
+		const pool = getPool();
+		const npub = await getNpub();
+		const userPubkeyHex = npub.startsWith('npub') ? (nip19.decode(npub).data as string) : npub;
 
-        // Query main events from relays
-        const events = await pool.querySync(relays, filter);
+		// Query main events from relays
+		const events = await pool.querySync(relays, filter);
 
-        // Query followup events if followupFilter is provided
-        let followupMap: Map<string, NostrEvent | NostrEvent[]> | null = null;
+		// Query followup events if followupFilter is provided
+		let followupMap: Map<string, NostrEvent | NostrEvent[]> | null = null;
 
-        if (followupFilter && followupConfig && events.length > 0) {
-            // Extract parent event IDs from main events
-            const parentEventId = events.map(e => e.id);
+		if (followupFilter && followupConfig && events.length > 0) {
+			// Extract parent event IDs from main events
+			const parentEventId = events.map((e) => e.id);
 
-            // Build followup filter with parent event IDs in #e tag
-            const completeFollowupFilter: Filter = {
-                ...followupFilter,
-                '#e': parentEventId  // Link followup events to parent event by ID
-            };
+			// Build followup filter with parent event IDs in #e tag
+			const completeFollowupFilter: Filter = {
+				...followupFilter,
+				'#e': parentEventId // Link followup events to parent event by ID
+			};
 
-            // Query followup events
-            let followupEvents = await pool.querySync(relays, completeFollowupFilter);
+			// Query followup events
+			let followupEvents = await pool.querySync(relays, completeFollowupFilter);
 
-            const followupNeedsDecryption =
-                followupFilter.kinds?.some((kind) => encryptedKinds.includes(kind)) ?? false;
+			const followupNeedsDecryption =
+				followupFilter.kinds?.some((kind) => encryptedKinds.includes(kind)) ?? false;
 
-            // Decrypt followup events if needed
-            if (followupNeedsDecryption) {
-                const { nsec } = await getNostrKeyPair();
+			// Decrypt followup events if needed
+			if (followupNeedsDecryption) {
+				const { nsec } = await getNostrKeyPair();
 
-                const decryptedFollowupEvents: NostrEvent[] = [];
+				const decryptedFollowupEvents: NostrEvent[] = [];
 
-                for (const event of followupEvents) {
-                    try {
-                        let otherPubkey: string;
+				for (const event of followupEvents) {
+					try {
+						let otherPubkey: string;
 
-                        if (event.pubkey === userPubkeyHex) {
-                            const recipientTag = event.tags.find((tag) => tag[0] === 'p');
-                            if (!recipientTag || !recipientTag[1]) {
-                                continue;
-                            }
-                            otherPubkey = recipientTag[1];
-                        } else {
-                            otherPubkey = event.pubkey;
-                        }
+						if (event.pubkey === userPubkeyHex) {
+							const recipientTag = event.tags.find((tag) => tag[0] === 'p');
+							if (!recipientTag || !recipientTag[1]) {
+								continue;
+							}
+							otherPubkey = recipientTag[1];
+						} else {
+							otherPubkey = event.pubkey;
+						}
 
-                        const decryptedContent = await decryptDM(nsec, event.content, otherPubkey);
-                        decryptedFollowupEvents.push({
-                            ...event,
-                            content: JSON.parse(decryptedContent)
-                        });
-                    } catch (error) {
-                        // Skip failed decryption
-                        if (error instanceof Error && !error.message.includes('Invalid MAC')) {
-                            console.error('Failed to decrypt followup event:', event.id, error);
-                        }
-                    }
-                }
+						const decryptedContent = await decryptDM(nsec, event.content, otherPubkey);
+						decryptedFollowupEvents.push({
+							...event,
+							content: JSON.parse(decryptedContent)
+						});
+					} catch (error) {
+						// Skip failed decryption
+						if (error instanceof Error && !error.message.includes('Invalid MAC')) {
+							console.error('Failed to decrypt followup event:', event.id, error);
+						}
+					}
+				}
 
-                followupEvents = decryptedFollowupEvents;
-            }
+				followupEvents = decryptedFollowupEvents;
+			}
 
-            // Build a map of followup events keyed by parent event ID (from #e tag)
-            // When keepLatest is false, store arrays of events; when true, store single event
-            followupMap = new Map<string, NostrEvent | NostrEvent[]>();
+			// Build a map of followup events keyed by parent event ID (from #e tag)
+			// When keepLatest is false, store arrays of events; when true, store single event
+			followupMap = new Map<string, NostrEvent | NostrEvent[]>();
 
-            for (const followupEvent of followupEvents) {
-                try {
-                    // Get the parent event ID from the #e tag
-                    const parentEventIdTag = followupEvent.tags.find(tag => tag[0] === 'e');
-                    const parentEventId = parentEventIdTag?.[1];
+			for (const followupEvent of followupEvents) {
+				try {
+					// Get the parent event ID from the #e tag
+					const parentEventIdTag = followupEvent.tags.find((tag) => tag[0] === 'e');
+					const parentEventId = parentEventIdTag?.[1];
 
-                    if (parentEventId) {
-                        if (followupConfig.keepLatest) {
-                            // Keep only the most recent event
-                            const existing = followupMap.get(parentEventId) as NostrEvent | undefined;
-                            if (!existing || followupEvent.created_at > existing.created_at) {
-                                followupMap.set(parentEventId, followupEvent);
-                            }
-                        } else {
-                            // Store all events in an array
-                            const existing = followupMap.get(parentEventId) as NostrEvent[] | undefined;
-                            if (existing) {
-                                existing.push(followupEvent);
-                            } else {
-                                followupMap.set(parentEventId, [followupEvent]);
-                            }
-                        }
-                    }
-                } catch (error) {
-                    console.warn('Failed to process followup event:', error);
-                }
-            }
-        }
+					if (parentEventId) {
+						if (followupConfig.keepLatest) {
+							// Keep only the most recent event
+							const existing = followupMap.get(parentEventId) as NostrEvent | undefined;
+							if (!existing || followupEvent.created_at > existing.created_at) {
+								followupMap.set(parentEventId, followupEvent);
+							}
+						} else {
+							// Store all events in an array
+							const existing = followupMap.get(parentEventId) as NostrEvent[] | undefined;
+							if (existing) {
+								existing.push(followupEvent);
+							} else {
+								followupMap.set(parentEventId, [followupEvent]);
+							}
+						}
+					}
+				} catch (error) {
+					console.warn('Failed to process followup event:', error);
+				}
+			}
+		}
 
-        // Check if any of the queried kinds need decryption
-        const needsDecryption =
-            filter.kinds?.some((kind) => encryptedKinds.includes(kind)) ?? false;
+		// Check if any of the queried kinds need decryption
+		const needsDecryption = filter.kinds?.some((kind) => encryptedKinds.includes(kind)) ?? false;
 
-        // If decryption is not needed, return events as-is (but still attach followup if available)
-        if (!needsDecryption) {
-            if (followupMap && followupConfig) {
-                // Attach followup events to main events even if not encrypted
-                return events.map(event => {
-                    // Lookup followup events by parent event ID
-                    const followupData = followupMap.get(event.id);
+		// If decryption is not needed, return events as-is (but still attach followup if available)
+		if (!needsDecryption) {
+			if (followupMap && followupConfig) {
+				// Attach followup events to main events even if not encrypted
+				return events.map((event) => {
+					// Lookup followup events by parent event ID
+					const followupData = followupMap.get(event.id);
 
-                    if (followupData) {
-                        return {
-                            ...event,
-                            [followupConfig.attachAs]: followupData
-                        };
-                    }
+					if (followupData) {
+						return {
+							...event,
+							[followupConfig.attachAs]: followupData
+						};
+					}
 
-                    return event;
-                });
-            }
-            return events;
-        }
+					return event;
+				});
+			}
+			return events;
+		}
 
-        // Decrypt events - use for...of to skip failed decryptions without filtering nulls
-        const decryptedEvents: NostrEvent[] = [];
+		// Decrypt events - use for...of to skip failed decryptions without filtering nulls
+		const decryptedEvents: NostrEvent[] = [];
 
-        for (const event of events) {
-            const { nsec } = await getNostrKeyPair();
-            if (!nsec) {
-                throw new Error('No private key found');
-            }
+		for (const event of events) {
+			const { nsec } = await getNostrKeyPair();
+			if (!nsec) {
+				throw new Error('No private key found');
+			}
 
-            try {
-                // Determine the other party's pubkey for decryption
-                let otherPubkey: string;
+			try {
+				// Determine the other party's pubkey for decryption
+				let otherPubkey: string;
 
-                if (event.pubkey === userPubkeyHex) {
-                    // We are the sender, decrypt with recipient's key
-                    const recipientTag = event.tags.find((tag) => tag[0] === 'p');
-                    if (!recipientTag || !recipientTag[1]) {
-                        console.warn('No recipient found in event tags:', event.id);
-                        continue; // Skip this event
-                    }
-                    otherPubkey = recipientTag[1];
-                } else {
-                    // We are the recipient, decrypt with sender's key
-                    otherPubkey = event.pubkey;
-                }
+				if (event.pubkey === userPubkeyHex) {
+					// We are the sender, decrypt with recipient's key
+					const recipientTag = event.tags.find((tag) => tag[0] === 'p');
+					if (!recipientTag || !recipientTag[1]) {
+						console.warn('No recipient found in event tags:', event.id);
+						continue; // Skip this event
+					}
+					otherPubkey = recipientTag[1];
+				} else {
+					// We are the recipient, decrypt with sender's key
+					otherPubkey = event.pubkey;
+				}
 
-                // Decrypt content
-                const decryptedContent = await decryptDM(nsec, event.content, otherPubkey);
-                const parsedContent = JSON.parse(decryptedContent);
+				// Decrypt content
+				const decryptedContent = await decryptDM(nsec, event.content, otherPubkey);
+				const parsedContent = JSON.parse(decryptedContent);
 
-                // Attach followup event if available
-                const decryptedEvent: NostrEvent = {
-                    ...event,
-                    content: parsedContent
-                };
+				// Attach followup event if available
+				const decryptedEvent: NostrEvent = {
+					...event,
+					content: parsedContent
+				};
 
-                // Attach followup event(s) during decryption loop
-                if (followupMap && followupConfig) {
-                    // Lookup followup events by parent event ID
-                    const followupData = followupMap.get(event.id);
+				// Attach followup event(s) during decryption loop
+				if (followupMap && followupConfig) {
+					// Lookup followup events by parent event ID
+					const followupData = followupMap.get(event.id);
 
-                    if (followupData) {
-                        (decryptedEvent as any)[followupConfig.attachAs] = followupData;
-                    }
-                }
+					if (followupData) {
+						Object.assign(decryptedEvent as NostrEvent & Record<string, unknown>, {
+							[followupConfig.attachAs]: followupData
+						});
+					}
+				}
 
-                // Add successfully decrypted event
-                decryptedEvents.push(decryptedEvent);
-            } catch (error) {
-                // Skip events that fail to decrypt (not meant for us or corrupted)
-                if (error instanceof Error && !error.message.includes('Invalid MAC')) {
-                    console.error('Failed to decrypt event:', event.id, error);
-                }
-                // Continue to next event without adding to results
-            }
-        }
+				// Add successfully decrypted event
+				decryptedEvents.push(decryptedEvent);
+			} catch (error) {
+				// Skip events that fail to decrypt (not meant for us or corrupted)
+				if (error instanceof Error && !error.message.includes('Invalid MAC')) {
+					console.error('Failed to decrypt event:', event.id, error);
+				}
+				// Continue to next event without adding to results
+			}
+		}
 
-        return decryptedEvents;
-    } catch (err: unknown) {
-        const errorMessage = (err as Error)?.message || 'Failed to query events';
-        console.error('Query error:', errorMessage);
-        throw err;
-    }
+		return decryptedEvents;
+	} catch (err: unknown) {
+		const errorMessage = (err as Error)?.message || 'Failed to query events';
+		console.error('Query error:', errorMessage);
+		throw err;
+	}
 }
