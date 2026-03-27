@@ -1479,7 +1479,10 @@
 								</h4>
 								<div class="flex flex-wrap gap-2">
 									{#each service.skills as skill (skill)}
-										<span class="badge badge-secondary badge-sm">{skill}</span>
+										<span
+											class="badge badge-secondary inline-flex h-auto min-h-0 max-w-full items-start justify-start rounded-lg px-3 py-2 text-left text-sm leading-snug wrap-break-word whitespace-normal"
+											>{skill}</span
+										>
 									{/each}
 								</div>
 							</div>

@@ -3,6 +3,7 @@
 		"services": {
 			"detail": {
 				"title": "Service Details",
+				"drawer_heading": "Service details",
 				"description": "View full service details and contact the Taskee.",
 				"back_to_services": "Back to Services",
 				"not_found": "Service Not Found",

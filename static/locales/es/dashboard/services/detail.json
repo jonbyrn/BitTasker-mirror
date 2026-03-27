@@ -3,6 +3,7 @@
 		"services": {
 			"detail": {
 				"title": "Detalles del Servicio",
+				"drawer_heading": "Detalles del servicio",
 				"description": "Consulta los detalles del servicio y contacta al Taskee.",
 				"back_to_services": "Volver a Servicios",
 				"not_found": "Servicio no encontrado",

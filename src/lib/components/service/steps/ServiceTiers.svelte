@@ -198,7 +198,7 @@
 >
 	<div class="w-full">
 		<label class="label" for="tiers-title">
-			<span class="label-text-alt break-words">
+			<span class="label-text-alt wrap-break-words">
 				{$t('dashboard.services.create.tiers.hint')} ({($store.service.pricing?.tiers || [])
 					.length}/4)
 			</span>
@@ -213,7 +213,7 @@
 		>
 			<div class="flex items-start justify-between gap-3">
 				<div class="flex min-w-0 items-center gap-2">
-					<h4 class="min-w-0 text-lg font-semibold break-words">{tier.name}</h4>
+					<h4 class="wrap-break-words min-w-0 text-lg font-semibold">{tier.name}</h4>
 					{#if tier.isPopular}
 						<span class="badge badge-primary">{$t('dashboard.services.create.tiers.popular')}</span>
 					{/if}
@@ -286,12 +286,12 @@
 						{$t('dashboard.services.create.tiers.price_label')}
 						<span class="text-error">*</span>
 					</span>
-					<span class="label-text-alt min-w-0 text-right break-words">
+					<span class="label-text-alt wrap-break-words min-w-0 text-right">
 						{$t('dashboard.services.create.pricing.btc_price')}
 						{#if btcPrice > 0}
 							${Math.round(btcPrice).toLocaleString()}
 						{:else}
-							unavailable
+							{$t('dashboard.services.create.pricing.btc_price_unavailable')}
 						{/if}
 					</span>
 				</label>
@@ -342,7 +342,7 @@
 									class="label"
 									id="delivery-value-label-{tier.id}"
 								>
-									<span class="label-text-alt break-words">
+									<span class="label-text-alt wrap-break-words">
 										{$t('dashboard.services.create.tiers.delivery_time_label')}
 									</span>
 								</label>
@@ -368,7 +368,7 @@
 									class="label"
 									id="delivery-unit-label-{tier.id}"
 								>
-									<span class="label-text-alt break-words">
+									<span class="label-text-alt wrap-break-words">
 										{$t('dashboard.services.create.tiers.delivery_unit')}
 									</span>
 								</label>
@@ -413,7 +413,7 @@
 					<div class="mt-2 space-y-2">
 						<div>
 							<label for="rush-price-{tier.id}" class="label" id="rush-price-label-{tier.id}">
-								<span class="label-text-alt break-words">
+								<span class="label-text-alt wrap-break-words">
 									{$t('dashboard.services.create.tiers.rush_price_label')}
 								</span>
 							</label>
@@ -438,7 +438,7 @@
 						>
 							<div class="min-w-0">
 								<label for="rush-value-{tier.id}" class="label" id="rush-value-label-{tier.id}">
-									<span class="label-text-alt break-words">
+									<span class="label-text-alt wrap-break-words">
 										{$t('dashboard.services.create.tiers.delivery_time_label')}
 									</span>
 								</label>
@@ -466,7 +466,7 @@
 							</div>
 							<div class="min-w-0">
 								<label for="rush-unit-{tier.id}" class="label" id="rush-unit-label-{tier.id}">
-									<span class="label-text-alt break-words">
+									<span class="label-text-alt wrap-break-words">
 										{$t('dashboard.services.create.tiers.delivery_unit')}
 									</span>
 								</label>

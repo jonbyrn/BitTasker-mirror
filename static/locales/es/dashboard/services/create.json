@@ -90,6 +90,7 @@
 					"budget_question": "¿Cómo quieres definir el precio de tu servicio?",
 					"budget_label": "Precio",
 					"btc_price": "Precio de BTC:",
+					"btc_price_unavailable": "no disponible",
 					"fixed_title": "Precio Fijo",
 					"fixed_description": "Establece un precio fijo para tu servicio",
 					"hourly_title": "Tarifa por Hora",
@@ -220,6 +221,8 @@
 					"max_size": "Máx. 200 MB",
 					"hint": "Muestra tu trabajo con imágenes y videos (hasta 10 elementos)",
 					"item_alt": "Elemento del portafolio",
+					"media_video_fallback": "Video",
+					"media_file_fallback": "Archivo",
 					"upload_button": "Subir Elementos del Portafolio",
 					"compressing": "Comprimiendo",
 					"uploading": "Subiendo",
@@ -230,6 +233,10 @@
 				"review": {
 					"title": "Revisa tu Servicio",
 					"description": "Por favor revisa toda la información antes de publicar tu servicio.",
+					"service_details_title": "Detalles del servicio",
+					"book_now_label": "Reservar ahora",
+					"book_now_lead_time": "Tiempo de antelación antes de iniciar el servicio: {hours} horas",
+					"book_now_delivery_time": "Tiempo de entrega: {hours} horas",
 					"basics_title": "Información Básica",
 					"title_label": "Título",
 					"description_label": "Descripción",
@@ -284,7 +291,11 @@
 					"tiers_description_price_required": "La descripción y el precio son obligatorios en cada nivel",
 					"create_failed": "Error al crear el servicio. Por favor intenta de nuevo.",
 					"service_not_found": "Servicio no encontrado",
-					"load_failed": "Error al cargar el servicio. Por favor intenta de nuevo."
+					"load_failed": "Error al cargar el servicio. Por favor intenta de nuevo.",
+					"instant_buy_lead_hours_invalid": "El tiempo de antelación de Reservar ahora debe ser un número entero entre 0 y 720 horas.",
+					"instant_buy_delivery_hours_invalid": "El tiempo de entrega de Reservar ahora debe ser de al menos 1 hora.",
+					"instant_buy_pricing_only_fixed_tiered": "Reservar ahora solo está disponible para precio fijo y precios por niveles.",
+					"wallet_connect_book_now": "Conecta tu billetera antes de publicar un servicio con Reservar ahora."
 				},
 				"upload": {
 					"uploading_files": "Subiendo archivos...",

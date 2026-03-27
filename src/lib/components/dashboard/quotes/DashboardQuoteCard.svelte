@@ -72,10 +72,7 @@
 							'dashboard.service_requests.statuses.proposal_received',
 							'Proposal received'
 						)
-					: translateOrFallback(
-							'dashboard.service_requests.statuses.awaiting_proposal',
-							'Awaiting proposal'
-						);
+					: translateOrFallback('dashboard.service_requests.quote_pending', 'Pending');
 		}
 	}
 
@@ -101,7 +98,7 @@
 		if (timeline.latestProposal?.content.pricingSnapshot?.amount !== undefined) {
 			return `$${formatNumberWithTwoDecimals(timeline.latestProposal.content.pricingSnapshot.amount)}`;
 		}
-		return translateOrFallback('dashboard.service_requests.quote_pending', 'Pending');
+		return '';
 	}
 
 	function formatTimestamp(timestampSeconds: number | undefined): string {
@@ -127,6 +124,10 @@
 			timeline.latestProposal?.content.expirationTimestamp ?? timeline.expirationTimestamp
 		)
 	);
+
+	const hasProposalAmount = $derived(
+		timeline.latestProposal?.content.pricingSnapshot?.amount !== undefined
+	);
 </script>
 
 <div class="card bg-base-100 rounded-xl shadow-md transition-shadow hover:shadow-lg">
@@ -144,12 +145,14 @@
 			</div>
 			<!-- Right: Status Badge + Price (aligned right) -->
 			<div class="flex shrink-0 flex-col items-end gap-2">
-				<div class="badge {getStatusColor(timeline)} badge-sm max-w-[100px] truncate text-center">
+				<div class="badge {getStatusColor(timeline)} badge-sm text-center whitespace-nowrap">
 					{describeStatus(timeline)}
 				</div>
-				<div class="text-right text-xl font-bold">
-					{getPriceDisplay()}
-				</div>
+				{#if hasProposalAmount}
+					<div class="text-right text-xl font-bold">
+						{getPriceDisplay()}
+					</div>
+				{/if}
 			</div>
 		</div>
 

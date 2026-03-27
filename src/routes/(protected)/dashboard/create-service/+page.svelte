@@ -219,18 +219,22 @@
 					service?.instantBuyDeliveryHours
 				);
 				if (!instantBuyLeadHoursValidation.valid) {
-					errors.instantBuyLeadHours =
-						'Instant buy lead time must be a whole number from 0 to 720 hours.';
+					errors.instantBuyLeadHours = $t(
+						'dashboard.services.create.errors.instant_buy_lead_hours_invalid'
+					);
 				}
 				if (!instantBuyDeliveryHoursValidation.valid) {
-					errors.instantBuyDeliveryHours = 'Book Now delivery time must be at least 1 hour.';
+					errors.instantBuyDeliveryHours = $t(
+						'dashboard.services.create.errors.instant_buy_delivery_hours_invalid'
+					);
 				}
 				if (
 					service?.instantBuyLeadHours != null &&
 					!supportsInstantBuyAuthoring(service.pricing?.type)
 				) {
-					errors.instantBuyLeadHours =
-						'Instant buy is available only for fixed and tiered services.';
+					errors.instantBuyLeadHours = $t(
+						'dashboard.services.create.errors.instant_buy_pricing_only_fixed_tiered'
+					);
 				}
 				// TIERED and INQUIRY_REQUIRED: no amount/tiers required here
 				break;
@@ -342,12 +346,12 @@
 				try {
 					providerWalletAddress = await getRSKAddress();
 				} catch {
-					throw new Error('Connect your wallet before publishing a Book Now service.');
+					throw new Error($t('dashboard.services.create.errors.wallet_connect_book_now'));
 				}
 			}
 
 			if (requiresProviderWallet && !providerWalletAddress) {
-				throw new Error('Connect your wallet before publishing a Book Now service.');
+				throw new Error($t('dashboard.services.create.errors.wallet_connect_book_now'));
 			}
 
 			const serviceData: ServiceBody = {

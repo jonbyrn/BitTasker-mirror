@@ -216,25 +216,27 @@
 				</div>
 			</div>
 
-			<!-- Row 2: Description | Price -->
+			<!-- Row 2: Description | Price (hide big price column for quote-only — badge row already shows it) -->
 			<div class="mb-4 flex flex-row flex-nowrap items-start justify-between gap-4">
 				<div class="min-w-0 flex-1">
 					<p class="line-clamp-3 text-sm whitespace-pre-line">
 						{displayDescription || tr('dashboard.services.detail.no_description', 'No description')}
 					</p>
 				</div>
-				<div class="flex shrink-0 flex-col items-end pl-4">
-					<div class="text-right text-xl font-bold">
-						{getPriceDisplay()}
-						<div class="text-base-content/60 text-sm">
-							{#if service.pricing?.type === ServicePricingTypeEnum.FIXED && service.pricing.amount}
-								{satsFromUsd(service.pricing.amount, btcPrice)}
-							{:else if service.pricing?.type === ServicePricingTypeEnum.HOURLY && service.pricing.hourlyRate}
-								{satsFromUsd(service.pricing.hourlyRate, btcPrice)}/hr
-							{/if}
+				{#if service.pricing?.type !== ServicePricingTypeEnum.INQUIRY_REQUIRED}
+					<div class="flex shrink-0 flex-col items-end pl-4">
+						<div class="text-right text-xl font-bold">
+							{getPriceDisplay()}
+							<div class="text-base-content/60 text-sm">
+								{#if service.pricing?.type === ServicePricingTypeEnum.FIXED && service.pricing.amount}
+									{satsFromUsd(service.pricing.amount, btcPrice)}
+								{:else if service.pricing?.type === ServicePricingTypeEnum.HOURLY && service.pricing.hourlyRate}
+									{satsFromUsd(service.pricing.hourlyRate, btcPrice)}/hr
+								{/if}
+							</div>
 						</div>
 					</div>
-				</div>
+				{/if}
 			</div>
 
 			<!-- Row 3: Location -->
@@ -306,7 +308,10 @@
 						</small>
 						<div class="flex flex-wrap gap-1">
 							{#each service.skills as skill (skill)}
-								<span class="badge badge-primary badge-outline pb-[2px]">{skill}</span>
+								<span
+									class="badge badge-primary badge-outline inline-flex h-auto min-h-0 max-w-full items-start justify-start rounded-lg px-3 py-2 text-left text-sm leading-snug wrap-break-word whitespace-normal"
+									>{skill}</span
+								>
 							{/each}
 						</div>
 					</div>
