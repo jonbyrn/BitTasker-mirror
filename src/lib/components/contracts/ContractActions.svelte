@@ -29,6 +29,7 @@ This file will be removed in a future release.
 	import DisputeContractButton from './actions/DisputeContractButton.svelte';
 	import ResolutionProposalButton from './actions/ResolutionProposalButton.svelte';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
+	import { SvelteMap } from 'svelte/reactivity';
 	import {
 		ContractModalAction,
 		CONTRACT_MODAL_CONFIGS
@@ -46,8 +47,8 @@ This file will be removed in a future release.
 		sendTaskCompletionMessageToTasker,
 		sendPaymentReleasedMessageToTaskee
 	} from '$lib/utils/location/sendLocation';
-	import { SvelteMap } from 'svelte/reactivity';
 	import ReviewPromptModal from '../reviews/ReviewPromptModal.svelte';
+	import IconSwapHorizontal from '~icons/mdi/swap-horizontal';
 
 	const {
 		contract,
@@ -209,6 +210,12 @@ This file will be removed in a future release.
 		await contractStore.loadContractByEscrowId(contract.escrowData.id);
 		return true;
 	}
+	function openReviewPrompt(escrowTxHash?: string, delayMs: number = 1000): void {
+		reviewEscrowTxHash = escrowTxHash;
+		setTimeout(() => {
+			showReviewModal = true;
+		}, delayMs);
+	}
 
 	// Check if cancel is allowed based on time restrictions
 	function canCancelBasedOnTime(): { allowed: boolean; reason?: string } {
@@ -292,23 +299,6 @@ This file will be removed in a future release.
 		} finally {
 			isCheckingBlockchain = false;
 		}
-	}
-
-	const openReviewPrompt = (tx: string) => {
-// get tx hash from escrow
-// Store transaction hash for review prompt
-			// if (result.hash) {
-			// 	reviewEscrowTxHash = result.hash;
-			// }
-			
-			// showCompletionModal = false;
-			
-			// // Show review prompt after successful completion
-			// setTimeout(() => {
-			// 	showReviewModal = true;
-			// }, 2000);
-			
-			// onActionComplete?.();
 	}
 
 	// Complete task with attachments (freelancer only)
@@ -581,7 +571,7 @@ This file will be removed in a future release.
 		try {
 			staleActionNotice = null;
 			// Call RSK escrow acceptProposal with contract event ID for proper nostr event publishing
-			await escrow.escrowOps.acceptProposal(contract);
+			const result = await escrow.escrowOps.acceptProposal(contract);
 
 			pushNotificationService.sendNotificationToNpubs({
 				npubs: [contractStore.getContractKey(contract, 'otherPartyNpub') as string],

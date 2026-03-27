@@ -1,20 +1,31 @@
 /**
  * Nostr Review Utilities
- * 
+ *
  * Functions for publishing and retrieving verified reviews via Nostr
  */
 
-import type { Event as NostrEvent, Filter } from 'nostr-tools';
-import { getSignedEvent, publishEvent, subscribeToEvents } from './nostr';
+import { nip19, type Event as NostrEvent, type Filter } from 'nostr-tools';
+import { publishEvent, subscribeToEvents } from './nostr';
 import KINDS from './constants/kinds';
-import { 
-	createEscrowCommitment, 
-	getCommitmentProof, 
+import {
+	createEscrowCommitment,
+	getCommitmentProof,
 	verifyReview,
 	getLatestTreeVersion,
 	retrieveMerkleTree
 } from '$lib/services/review-verification.service';
-import type { NostrVerifiedReview, ReviewContentWithRatings, TaskeeCategoryRatings, TaskerCategoryRatings } from '$lib/types/review';
+import type { VerifiedReview } from '@bittasker/merkle-review-sdk';
+import { EscrowStatus } from '$lib/utils/escrow';
+import { escrow } from '$lib/utils/wallet/escrow';
+import { getUserContracts } from './nostr-bid';
+import { getNpub } from '$lib/utils/nostrKeys';
+import type {
+	NostrVerifiedReview,
+	ReviewContentWithRatings,
+	RevieweeRole,
+	TaskeeCategoryRatings,
+	TaskerCategoryRatings
+} from '$lib/types/review';
 
 /**
  * Extended review format stored in Nostr events
@@ -24,25 +35,222 @@ interface ExtendedVerifiedReview extends VerifiedReview {
 	fullContent?: ReviewContentWithRatings;
 }
 
+function normalizePubkey(pubkey: string | null | undefined): string | null {
+	if (!pubkey) {
+		return null;
+	}
+
+	try {
+		if (pubkey.startsWith('npub')) {
+			const decoded = nip19.decode(pubkey);
+			if (decoded.type === 'npub' && typeof decoded.data === 'string') {
+				return decoded.data.toLowerCase();
+			}
+		}
+	} catch {
+		// Fall through to lowercase fallback below.
+	}
+
+	return pubkey.toLowerCase();
+}
+
+function pubkeysMatch(left: string | null | undefined, right: string | null | undefined): boolean {
+	const normalizedLeft = normalizePubkey(left);
+	const normalizedRight = normalizePubkey(right);
+
+	return normalizedLeft !== null && normalizedRight !== null && normalizedLeft === normalizedRight;
+}
+
+function toReviewMapKey(
+	review: Pick<NostrVerifiedReview, 'commitment' | 'reviewerPubkey'>
+): string {
+	return `${review.commitment}:${normalizePubkey(review.reviewerPubkey) ?? review.reviewerPubkey}`;
+}
+
+function getTagValue(event: NostrEvent, tagName: string): string | undefined {
+	return event.tags.find((tag) => tag[0] === tagName)?.[1];
+}
+
+interface AuthorizedReviewContext {
+	reviewerPubkey: string;
+	revieweePubkey: string;
+	escrowTxHash: string;
+}
+
+async function resolveAuthorizedReviewContext(
+	escrowId: string,
+	requestedRevieweePubkey: string,
+	escrowTxHash?: string
+): Promise<AuthorizedReviewContext> {
+	const reviewerPubkey = await getNpub();
+	if (!reviewerPubkey) {
+		throw new Error('Failed to get reviewer pubkey');
+	}
+
+	const contracts = await getUserContracts({ escrowIds: [escrowId], limit: 1 });
+	const contractContent = contracts[0]?.contractEvent?.content;
+	if (!contractContent) {
+		throw new Error('Contract not found for escrow');
+	}
+
+	const normalizedReviewer = normalizePubkey(reviewerPubkey);
+	const normalizedClient = normalizePubkey(contractContent.clientPubkey);
+	const normalizedFreelancer = normalizePubkey(contractContent.freelancerPubkey);
+
+	if (!normalizedReviewer || !normalizedClient || !normalizedFreelancer) {
+		throw new Error('Contract participants are missing valid pubkeys');
+	}
+
+	let expectedRevieweePubkey: string;
+	if (normalizedReviewer === normalizedClient) {
+		expectedRevieweePubkey = contractContent.freelancerPubkey;
+	} else if (normalizedReviewer === normalizedFreelancer) {
+		expectedRevieweePubkey = contractContent.clientPubkey;
+	} else {
+		throw new Error('Reviewer is not a participant in this contract');
+	}
+
+	if (!pubkeysMatch(requestedRevieweePubkey, expectedRevieweePubkey)) {
+		throw new Error('Reviewee is not the counterparty for this contract');
+	}
+
+	const resolvedEscrowTxHash = escrowTxHash ?? contractContent.transactionHash;
+	if (!resolvedEscrowTxHash) {
+		throw new Error('Escrow transaction hash is required to publish a verified review');
+	}
+
+	return {
+		reviewerPubkey,
+		revieweePubkey: expectedRevieweePubkey,
+		escrowTxHash: resolvedEscrowTxHash
+	};
+}
+
+function toSdkCategoryRatings(
+	content: ReviewContentWithRatings
+): VerifiedReview['content']['categoryRatings'] {
+	if ('workQuality' in content.categoryRatings) {
+		return {
+			quality: content.categoryRatings.workQuality,
+			professionalism: content.categoryRatings.experience,
+			timeliness: content.categoryRatings.deliverySpeed
+		};
+	}
+
+	if ('communication' in content.categoryRatings) {
+		return {
+			quality: content.categoryRatings.communication,
+			professionalism: content.categoryRatings.clarity,
+			timeliness: content.categoryRatings.paymentTimeliness
+		};
+	}
+
+	return content.categoryRatings;
+}
+
+function toSdkVerifiedReview(review: NostrVerifiedReview): VerifiedReview {
+	return {
+		commitment: review.commitment,
+		merkleProof: review.merkleProof,
+		reviewerPubkey: review.reviewerPubkey,
+		revieweePubkey: review.revieweePubkey,
+		content: {
+			overallRating: review.content.overallRating,
+			categoryRatings: toSdkCategoryRatings(review.content),
+			comment: review.content.comment || '',
+			photos: review.content.photos || []
+		},
+		createdAt: review.createdAt,
+		eventId: review.eventId
+	};
+}
+
+function getReviewTimestamp(review: NostrVerifiedReview): number {
+	return review.createdAt;
+}
+
+function selectLatestReview(
+	existing: NostrVerifiedReview | undefined,
+	candidate: NostrVerifiedReview
+): NostrVerifiedReview {
+	if (!existing) {
+		return candidate;
+	}
+
+	if (getReviewTimestamp(candidate) !== getReviewTimestamp(existing)) {
+		return getReviewTimestamp(candidate) > getReviewTimestamp(existing) ? candidate : existing;
+	}
+
+	return candidate.nostrEventId > existing.nostrEventId ? candidate : existing;
+}
+
+function upsertLatestReview(
+	reviewsByCommitment: Map<string, NostrVerifiedReview>,
+	candidate: NostrVerifiedReview
+): void {
+	reviewsByCommitment.set(
+		toReviewMapKey(candidate),
+		selectLatestReview(reviewsByCommitment.get(toReviewMapKey(candidate)), candidate)
+	);
+}
+
+function getSortedReviews(
+	reviewsByCommitment: Map<string, NostrVerifiedReview>,
+	limit: number
+): NostrVerifiedReview[] {
+	return [...reviewsByCommitment.values()]
+		.sort((a, b) => {
+			if (a.createdAt !== b.createdAt) {
+				return b.createdAt - a.createdAt;
+			}
+
+			return b.nostrEventId.localeCompare(a.nostrEventId);
+		})
+		.slice(0, limit);
+}
+
 /**
  * Parse a review event and extract role-specific categories if available
  */
 function parseReviewEvent(event: NostrEvent, relayUrl: string): NostrVerifiedReview | null {
 	try {
 		const reviewData = JSON.parse(event.content) as ExtendedVerifiedReview;
-		
+		const signedReviewerPubkey = event.pubkey;
+		const taggedRevieweePubkey = getTagValue(event, 'p');
+
+		if (
+			reviewData.reviewerPubkey &&
+			!pubkeysMatch(reviewData.reviewerPubkey, signedReviewerPubkey)
+		) {
+			console.warn('Ignoring review event with mismatched reviewer identity', {
+				eventId: event.id
+			});
+			return null;
+		}
+
+		if (
+			taggedRevieweePubkey &&
+			reviewData.revieweePubkey &&
+			!pubkeysMatch(reviewData.revieweePubkey, taggedRevieweePubkey)
+		) {
+			console.warn('Ignoring review event with mismatched reviewee identity', {
+				eventId: event.id
+			});
+			return null;
+		}
+
 		// If fullContent exists, use it; otherwise use the SDK format
 		let content: ReviewContentWithRatings;
-		
+
 		if (reviewData.fullContent) {
 			// Use role-specific categories from fullContent
 			content = reviewData.fullContent;
 		} else {
 			// Legacy format: convert SDK format to ReviewContentWithRatings
 			// Try to determine role from tags
-			const roleTag = event.tags.find(t => t[0] === 'role');
-			const revieweeRole = roleTag ? (roleTag[1] as 'tasker' | 'taskee') : undefined;
-			
+			const roleTag = event.tags.find((t) => t[0] === 'role');
+			const revieweeRole = roleTag ? (roleTag[1] as RevieweeRole) : undefined;
+
 			// Convert SDK format to role-specific if we know the role
 			if (revieweeRole === 'taskee') {
 				content = {
@@ -83,8 +291,8 @@ function parseReviewEvent(event: NostrEvent, relayUrl: string): NostrVerifiedRev
 		const nostrReview: NostrVerifiedReview = {
 			commitment: reviewData.commitment,
 			merkleProof: reviewData.merkleProof,
-			reviewerPubkey: reviewData.reviewerPubkey,
-			revieweePubkey: reviewData.revieweePubkey,
+			reviewerPubkey: signedReviewerPubkey,
+			revieweePubkey: taggedRevieweePubkey || reviewData.revieweePubkey,
 			content: content,
 			createdAt: reviewData.createdAt,
 			eventId: reviewData.eventId,
@@ -98,9 +306,6 @@ function parseReviewEvent(event: NostrEvent, relayUrl: string): NostrVerifiedRev
 		return null;
 	}
 }
-import type { VerifiedReview } from '@bittasker/merkle-review-sdk';
-import { escrow } from '$lib/utils/wallet/escrow';
-import { EscrowStatus } from '$lib/utils/escrow';
 
 const DEFAULT_RELAYS = [import.meta.env.VITE_NOSTR_RELAY_URL].filter(Boolean);
 
@@ -121,22 +326,22 @@ export async function publishVerifiedReview(
 		}
 
 		// Verify escrow is in a completed state
-		const completedStates = [
-			EscrowStatus.Completed,
-			EscrowStatus.DisputeResolved
-		];
-		
+		const completedStates = [EscrowStatus.Completed, EscrowStatus.DisputeResolved];
+
 		if (!completedStates.includes(escrowData.status)) {
 			throw new Error(`Escrow is not in a completed state. Current status: ${escrowData.status}`);
 		}
 
-		// Get transaction hash if not provided
-		const txHash = escrowTxHash || escrowData.id; // Use escrow ID as fallback
-		
+		const authorization = await resolveAuthorizedReviewContext(
+			escrowId,
+			revieweePubkey,
+			escrowTxHash
+		);
+
 		// Create commitment
 		const commitment = await createEscrowCommitment(
 			escrowId,
-			txHash,
+			authorization.escrowTxHash,
 			escrowData.client,
 			escrowData.freelancer
 		);
@@ -156,47 +361,15 @@ export async function publishVerifiedReview(
 
 		const merkleProof = JSON.parse(proofJson);
 
-		// Get reviewer pubkey
-		const { getNpub } = await import('$lib/utils/nostrKeys');
-		const reviewerPubkey = await getNpub();
-		if (!reviewerPubkey) {
-			throw new Error('Failed to get reviewer pubkey');
-		}
-
-		// Map role-specific categories to SDK format for verification
-		// The SDK requires: quality, professionalism, timeliness
-		let sdkCategoryRatings: { quality: number; professionalism: number; timeliness: number };
-		
-		if ('workQuality' in content.categoryRatings) {
-			// Taskee categories: map to SDK format
-			const taskeeRatings = content.categoryRatings as { workQuality: number; experience: number; deliverySpeed: number };
-			sdkCategoryRatings = {
-				quality: taskeeRatings.workQuality,
-				professionalism: taskeeRatings.experience,
-				timeliness: taskeeRatings.deliverySpeed
-			};
-		} else if ('communication' in content.categoryRatings) {
-			// Tasker categories: map to SDK format
-			const taskerRatings = content.categoryRatings as { communication: number; clarity: number; paymentTimeliness: number };
-			sdkCategoryRatings = {
-				quality: taskerRatings.communication,
-				professionalism: taskerRatings.clarity,
-				timeliness: taskerRatings.paymentTimeliness
-			};
-		} else {
-			// Legacy format (already in SDK format)
-			sdkCategoryRatings = content.categoryRatings as { quality: number; professionalism: number; timeliness: number };
-		}
-
 		// Create verified review with SDK format for verification
 		const verifiedReview: VerifiedReview = {
 			commitment,
 			merkleProof,
-			reviewerPubkey,
-			revieweePubkey,
+			reviewerPubkey: authorization.reviewerPubkey,
+			revieweePubkey: authorization.revieweePubkey,
 			content: {
 				overallRating: content.overallRating,
-				categoryRatings: sdkCategoryRatings,
+				categoryRatings: toSdkCategoryRatings(content),
 				comment: content.comment || '',
 				photos: content.photos || []
 			},
@@ -232,7 +405,7 @@ export async function publishVerifiedReview(
 			content: JSON.stringify(extendedReview),
 			tags: [
 				['e', escrowId], // Escrow ID reference
-				['p', revieweePubkey], // Reviewee pubkey
+				['p', authorization.revieweePubkey], // Reviewee pubkey
 				['commitment', commitment], // Commitment hash
 				['root', merkleProof.root], // Merkle root
 				['version', latestVersion || ''], // Tree version
@@ -240,11 +413,9 @@ export async function publishVerifiedReview(
 			]
 		};
 
-		// Sign and publish
-		const signedEvent = await getSignedEvent(event);
-		await publishEvent(signedEvent);
+		const publishedEvent = await publishEvent(event);
 
-		return signedEvent.id;
+		return publishedEvent.id;
 	} catch (error) {
 		console.error('Failed to publish verified review:', error);
 		throw error;
@@ -268,17 +439,79 @@ export async function updateVerifiedReview(
 	}
 
 	// Verify it's the same escrow
-	if (existingReview.commitment !== await createEscrowCommitment(
+	const escrowData = await escrow.getEscrow(escrowId);
+	if (!escrowData) {
+		throw new Error('Escrow not found');
+	}
+
+	const authorization = await resolveAuthorizedReviewContext(
 		escrowId,
-		escrowTxHash || escrowId,
-		(await escrow.getEscrow(escrowId))?.client || '',
-		(await escrow.getEscrow(escrowId))?.freelancer || ''
-	)) {
+		revieweePubkey,
+		escrowTxHash
+	);
+
+	if (
+		existingReview.commitment !==
+		(await createEscrowCommitment(
+			escrowId,
+			authorization.escrowTxHash,
+			escrowData.client,
+			escrowData.freelancer
+		))
+	) {
 		throw new Error('Cannot update review for different escrow');
 	}
 
 	// Publish new review (replaces old one)
-	return await publishVerifiedReview(escrowId, revieweePubkey, content, escrowTxHash);
+	return await publishVerifiedReview(
+		escrowId,
+		authorization.revieweePubkey,
+		content,
+		authorization.escrowTxHash
+	);
+}
+
+function collectReviews(
+	filter: Filter,
+	limit: number,
+	timeoutMs: number = 10000
+): Promise<NostrVerifiedReview[]> {
+	return new Promise((resolve) => {
+		const reviewsByCommitment = new Map<string, NostrVerifiedReview>();
+		const relayUrl = DEFAULT_RELAYS[0] || '';
+		if (!relayUrl) {
+			resolve([]);
+			return;
+		}
+
+		let settled = false;
+		const timeoutId = setTimeout(finalize, timeoutMs);
+		let unsubscribe = () => {};
+
+		const finalize = () => {
+			if (settled) {
+				return;
+			}
+
+			settled = true;
+			if (timeoutId) {
+				clearTimeout(timeoutId);
+			}
+			unsubscribe();
+			resolve(getSortedReviews(reviewsByCommitment, limit));
+		};
+
+		unsubscribe = subscribeToEvents(
+			relayUrl,
+			[filter],
+			(event: NostrEvent) => {
+				const nostrReview = parseReviewEvent(event, relayUrl);
+				if (!nostrReview) return;
+				upsertLatestReview(reviewsByCommitment, nostrReview);
+			},
+			finalize
+		);
+	});
 }
 
 /**
@@ -288,50 +521,13 @@ export async function getReviewsByReviewer(
 	reviewerPubkey: string,
 	limit: number = 50
 ): Promise<NostrVerifiedReview[]> {
-	return new Promise((resolve) => {
-		const reviews: NostrVerifiedReview[] = [];
-		const seenCommitments = new Set<string>();
+	const filter: Filter = {
+		kinds: [KINDS.REVIEW_VERIFIED],
+		authors: [normalizePubkey(reviewerPubkey) ?? reviewerPubkey],
+		limit
+	};
 
-		const filter: Filter = {
-			kinds: [KINDS.REVIEW_VERIFIED],
-			authors: [reviewerPubkey],
-			limit
-		};
-
-		const relayUrl = DEFAULT_RELAYS[0] || '';
-		if (!relayUrl) {
-			resolve([]);
-			return;
-		}
-
-		const unsubscribe = subscribeToEvents(
-			relayUrl,
-			[filter],
-			(event: NostrEvent) => {
-				const nostrReview = parseReviewEvent(event, relayUrl);
-				if (!nostrReview) return;
-				
-				// Deduplicate by commitment
-				if (seenCommitments.has(nostrReview.commitment)) {
-					return;
-				}
-				seenCommitments.add(nostrReview.commitment);
-
-				reviews.push(nostrReview);
-
-				if (reviews.length >= limit) {
-					unsubscribe();
-					resolve(reviews);
-				}
-			}
-		);
-
-		// Timeout after 10 seconds
-		setTimeout(() => {
-			unsubscribe();
-			resolve(reviews);
-		}, 10000);
-	});
+	return collectReviews(filter, limit);
 }
 
 /**
@@ -341,50 +537,13 @@ export async function getReviewsForUser(
 	revieweePubkey: string,
 	limit: number = 50
 ): Promise<NostrVerifiedReview[]> {
-	return new Promise((resolve) => {
-		const reviews: NostrVerifiedReview[] = [];
-		const seenCommitments = new Set<string>();
+	const filter: Filter = {
+		kinds: [KINDS.REVIEW_VERIFIED],
+		'#p': [normalizePubkey(revieweePubkey) ?? revieweePubkey],
+		limit
+	};
 
-		const filter: Filter = {
-			kinds: [KINDS.REVIEW_VERIFIED],
-			'#p': [revieweePubkey],
-			limit
-		};
-
-		const relayUrl = DEFAULT_RELAYS[0] || '';
-		if (!relayUrl) {
-			resolve([]);
-			return;
-		}
-
-		const unsubscribe = subscribeToEvents(
-			relayUrl,
-			[filter],
-			(event: NostrEvent) => {
-				const nostrReview = parseReviewEvent(event, relayUrl);
-				if (!nostrReview) return;
-				
-				// Deduplicate by commitment
-				if (seenCommitments.has(nostrReview.commitment)) {
-					return;
-				}
-				seenCommitments.add(nostrReview.commitment);
-
-				reviews.push(nostrReview);
-
-				if (reviews.length >= limit) {
-					unsubscribe();
-					resolve(reviews);
-				}
-			}
-		);
-
-		// Timeout after 10 seconds
-		setTimeout(() => {
-			unsubscribe();
-			resolve(reviews);
-		}, 10000);
-	});
+	return collectReviews(filter, limit);
 }
 
 /**
@@ -403,27 +562,33 @@ export async function getReviewByEventId(eventId: string): Promise<NostrVerified
 			return;
 		}
 
+		let settled = false;
+		const timeoutId = setTimeout(() => finalize(null), 5000);
 		let found = false;
-		const unsubscribe = subscribeToEvents(
+		let unsubscribe = () => {};
+		const finalize = (review: NostrVerifiedReview | null) => {
+			if (settled) {
+				return;
+			}
+
+			settled = true;
+			if (timeoutId) {
+				clearTimeout(timeoutId);
+			}
+			unsubscribe();
+			resolve(review);
+		};
+		unsubscribe = subscribeToEvents(
 			relayUrl,
 			[filter],
 			(event: NostrEvent) => {
 				if (!found) {
 					found = true;
-					const nostrReview = parseReviewEvent(event, relayUrl);
-					unsubscribe();
-					resolve(nostrReview);
+					finalize(parseReviewEvent(event, relayUrl));
 				}
-			}
+			},
+			() => finalize(null)
 		);
-
-		// Timeout after 5 seconds
-		setTimeout(() => {
-			if (!found) {
-				unsubscribe();
-				resolve(null);
-			}
-		}, 5000);
 	});
 }
 
@@ -431,61 +596,20 @@ export async function getReviewByEventId(eventId: string): Promise<NostrVerified
  * Get reviews for an escrow
  */
 export async function getReviewsForEscrow(escrowId: string): Promise<NostrVerifiedReview[]> {
-	return new Promise((resolve) => {
-		const reviews: NostrVerifiedReview[] = [];
-		const seenCommitments = new Set<string>();
+	const filter: Filter = {
+		kinds: [KINDS.REVIEW_VERIFIED],
+		'#e': [escrowId],
+		limit: 10 // Maximum one review per escrow (with updates)
+	};
 
-		const filter: Filter = {
-			kinds: [KINDS.REVIEW_VERIFIED],
-			'#e': [escrowId],
-			limit: 10 // Maximum one review per escrow (with updates)
-		};
-
-		const relayUrl = DEFAULT_RELAYS[0] || '';
-		if (!relayUrl) {
-			resolve([]);
-			return;
-		}
-
-		const unsubscribe = subscribeToEvents(
-			relayUrl,
-			[filter],
-			(event: NostrEvent) => {
-				try {
-					const reviewData = JSON.parse(event.content) as VerifiedReview;
-					
-					// Deduplicate by commitment
-					if (seenCommitments.has(reviewData.commitment)) {
-						return;
-					}
-					seenCommitments.add(reviewData.commitment);
-
-					const nostrReview: NostrVerifiedReview = {
-						...reviewData,
-						nostrEventId: event.id,
-						nostrRelay: relayUrl
-					};
-
-					reviews.push(nostrReview);
-				} catch (error) {
-					console.error('Failed to parse review event:', error);
-				}
-			}
-		);
-
-		// Timeout after 10 seconds
-		setTimeout(() => {
-			unsubscribe();
-			resolve(reviews);
-		}, 10000);
-	});
+	return collectReviews(filter, 10);
 }
 
 /**
  * Verify a review retrieved from Nostr
  */
 export async function verifyNostrReview(review: NostrVerifiedReview): Promise<boolean> {
-	const verification = await verifyReview(review, review.merkleProof.root);
+	const verification = await verifyReview(toSdkVerifiedReview(review), review.merkleProof.root);
 	return verification.valid;
 }
 
@@ -497,6 +621,5 @@ export async function hasUserReviewedEscrow(
 	reviewerPubkey: string
 ): Promise<boolean> {
 	const reviews = await getReviewsForEscrow(escrowId);
-	return reviews.some(review => review.reviewerPubkey === reviewerPubkey);
+	return reviews.some((review) => pubkeysMatch(review.reviewerPubkey, reviewerPubkey));
 }
-
