@@ -485,7 +485,8 @@ function collectReviews(
 		}
 
 		let settled = false;
-		let unsubscribe = () => {};
+		let unsubscribe: (() => void) | undefined;
+		let timeoutId: ReturnType<typeof setTimeout> | undefined;
 
 		const finalize = () => {
 			if (settled) {
@@ -495,11 +496,14 @@ function collectReviews(
 			settled = true;
 			if (timeoutId) {
 				clearTimeout(timeoutId);
+				timeoutId = undefined;
 			}
-			unsubscribe();
+			const closeSubscription = unsubscribe;
+			unsubscribe = undefined;
+			closeSubscription?.();
 			resolve(getSortedReviews(reviewsByCommitment, limit));
 		};
-		const timeoutId = setTimeout(finalize, timeoutMs);
+		timeoutId = setTimeout(finalize, timeoutMs);
 
 		unsubscribe = subscribeToEvents(
 			relayUrl,
@@ -511,6 +515,12 @@ function collectReviews(
 			},
 			finalize
 		);
+
+		if (settled) {
+			const closeSubscription = unsubscribe;
+			unsubscribe = undefined;
+			closeSubscription?.();
+		}
 	});
 }
 
@@ -564,7 +574,8 @@ export async function getReviewByEventId(eventId: string): Promise<NostrVerified
 
 		let settled = false;
 		let found = false;
-		let unsubscribe = () => {};
+		let unsubscribe: (() => void) | undefined;
+		let timeoutId: ReturnType<typeof setTimeout> | undefined;
 		const finalize = (review: NostrVerifiedReview | null) => {
 			if (settled) {
 				return;
@@ -573,11 +584,14 @@ export async function getReviewByEventId(eventId: string): Promise<NostrVerified
 			settled = true;
 			if (timeoutId) {
 				clearTimeout(timeoutId);
+				timeoutId = undefined;
 			}
-			unsubscribe();
+			const closeSubscription = unsubscribe;
+			unsubscribe = undefined;
+			closeSubscription?.();
 			resolve(review);
 		};
-		const timeoutId = setTimeout(() => finalize(null), 5000);
+		timeoutId = setTimeout(() => finalize(null), 5000);
 		unsubscribe = subscribeToEvents(
 			relayUrl,
 			[filter],
@@ -589,6 +603,12 @@ export async function getReviewByEventId(eventId: string): Promise<NostrVerified
 			},
 			() => finalize(null)
 		);
+
+		if (settled) {
+			const closeSubscription = unsubscribe;
+			unsubscribe = undefined;
+			closeSubscription?.();
+		}
 	});
 }
 
