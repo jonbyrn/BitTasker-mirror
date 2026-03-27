@@ -1,6 +1,6 @@
 /**
  * Review System Store
- * 
+ *
  * Manages state for review system including Merkle tree update status
  */
 
@@ -37,11 +37,18 @@ const initialStatus: TreeUpdateStatus = {
 export const treeUpdateStatus = writable<TreeUpdateStatus>(initialStatus);
 export const treeUpdateQueue = writable<TreeUpdateQueueItem[]>([]);
 
+function syncPendingUpdates(pendingUpdates: number): void {
+	treeUpdateStatus.update((status) => ({
+		...status,
+		pendingUpdates
+	}));
+}
+
 /**
  * Update tree update status
  */
 export function updateTreeStatus(updates: Partial<TreeUpdateStatus>): void {
-	treeUpdateStatus.update(status => ({
+	treeUpdateStatus.update((status) => ({
 		...status,
 		...updates
 	}));
@@ -61,15 +68,14 @@ export function startTreeUpdate(): void {
  * Mark tree update as completed
  */
 export function completeTreeUpdate(version: string, root: string): void {
-	treeUpdateStatus.update(status => ({
+	treeUpdateStatus.update((status) => ({
 		...status,
 		isUpdating: false,
 		lastUpdateTime: Date.now(),
 		lastUpdateVersion: version,
 		lastUpdateRoot: root,
 		error: null,
-		updateCount: status.updateCount + 1,
-		pendingUpdates: Math.max(0, status.pendingUpdates - 1)
+		updateCount: status.updateCount + 1
 	}));
 }
 
@@ -77,11 +83,10 @@ export function completeTreeUpdate(version: string, root: string): void {
  * Mark tree update as failed
  */
 export function failTreeUpdate(error: string): void {
-	treeUpdateStatus.update(status => ({
+	treeUpdateStatus.update((status) => ({
 		...status,
 		isUpdating: false,
-		error,
-		pendingUpdates: Math.max(0, status.pendingUpdates - 1)
+		error
 	}));
 }
 
@@ -96,13 +101,13 @@ export function queueTreeUpdate(context: string): string {
 		timestamp: Date.now(),
 		retryCount: 0
 	};
-	
-	treeUpdateQueue.update(queue => [...queue, item]);
-	treeUpdateStatus.update(status => ({
-		...status,
-		pendingUpdates: status.pendingUpdates + 1
-	}));
-	
+
+	treeUpdateQueue.update((queue) => {
+		const updatedQueue = [...queue, item];
+		syncPendingUpdates(updatedQueue.length);
+		return updatedQueue;
+	});
+
 	return id;
 }
 
@@ -110,17 +115,24 @@ export function queueTreeUpdate(context: string): string {
  * Remove item from queue
  */
 export function dequeueTreeUpdate(id: string): void {
-	treeUpdateQueue.update(queue => queue.filter(item => item.id !== id));
+	treeUpdateQueue.update((queue) => {
+		const updatedQueue = queue.filter((item) => item.id !== id);
+		syncPendingUpdates(updatedQueue.length);
+		return updatedQueue;
+	});
+}
+
+export function replaceTreeUpdateQueue(queue: TreeUpdateQueueItem[]): void {
+	treeUpdateQueue.set(queue);
+	syncPendingUpdates(queue.length);
 }
 
 /**
  * Update queue item retry count
  */
 export function updateQueueItem(id: string, updates: Partial<TreeUpdateQueueItem>): void {
-	treeUpdateQueue.update(queue =>
-		queue.map(item =>
-			item.id === id ? { ...item, ...updates } : item
-		)
+	treeUpdateQueue.update((queue) =>
+		queue.map((item) => (item.id === id ? { ...item, ...updates } : item))
 	);
 }
 
@@ -129,7 +141,7 @@ export function updateQueueItem(id: string, updates: Partial<TreeUpdateQueueItem
  */
 export function getOldestPendingUpdate(): TreeUpdateQueueItem | null {
 	let oldest: TreeUpdateQueueItem | null = null;
-	treeUpdateQueue.subscribe(queue => {
+	treeUpdateQueue.subscribe((queue) => {
 		if (queue.length > 0) {
 			oldest = queue.reduce((prev, current) =>
 				current.timestamp < prev.timestamp ? current : prev
@@ -146,4 +158,3 @@ export function resetTreeStatus(): void {
 	treeUpdateStatus.set(initialStatus);
 	treeUpdateQueue.set([]);
 }
-
