@@ -20,6 +20,8 @@
 	import IconContentCopy from '~icons/mdi/content-copy';
 	import IconOpenInNew from '~icons/mdi/open-in-new';
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
+	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
+	import type { NostrContract } from '$lib/types/contract';
 
 	interface ContractWithPermissions extends EscrowData {
 		permissions: ContractPermissions;
@@ -38,10 +40,10 @@
 	}
 
 	// State
-	let contractsByAddress = $state<Map<string, WalletAddressGroup>>(new Map());
+	let contractsByAddress = new SvelteMap<string, WalletAddressGroup>();
 	let safetyOverride = $state(false);
-	let executingActions = $state<Map<string, boolean>>(new Map());
-	let expandedContracts = $state<Set<string>>(new Set());
+	let executingActions = new SvelteMap<string, boolean>();
+	let expandedContracts = new SvelteSet<string>();
 	let showOverrideConfirm = $state(false);
 	let initialLoadComplete = $state(false);
 
@@ -106,27 +108,27 @@
 
 		// Use determineContractState with minimal Nostr contract data
 		// Create a minimal contract object that satisfies the NostrContract interface
-		const minimalContract = {
+		const minimalContract: NostrContract = {
 			escrowId: contract.id,
-			transactionHash: null,
-			createdAt: contract.createdAt,
-			content: {
-				escrowId: contract.id,
-				taskId: '',
-				taskTitle: '',
-				taskDescription: '',
-				taskeePubkey: contract.freelancer,
-				amount: contract.baseAmount,
-				estimatedStartTime: contract.estimatedStartTime,
-				estimatedCompletionTime: contract.estimatedCompletionTime
-			}
+			taskId: '',
+			taskTitle: '',
+			taskDescription: '',
+			freelancerPubkey: contract.freelancer,
+			clientPubkey: contract.client,
+			amount: contract.baseAmount,
+			currency: 'RBTC',
+			status: contract.status,
+			estimatedStartTime: contract.estimatedStartTime,
+			estimatedCompletionTime: contract.estimatedCompletionTime,
+			type: 'contract',
+			contractAddress: contract.contractAddress
 		};
 
 		const determineStartTime = performance.now();
 		const { permissions } = determineContractState(
 			contract.status,
 			[], // No status events for debug view
-			minimalContract as any,
+			minimalContract,
 			contract,
 			disputeProposal,
 			false, // Not pending
@@ -162,7 +164,7 @@
 				error: null
 			});
 			// Reassign Map to trigger reactivity
-			contractsByAddress = new Map(contractsByAddress);
+			contractsByAddress = new SvelteMap(contractsByAddress);
 		} else {
 			contractsByAddress.set(key, {
 				address,
@@ -173,7 +175,7 @@
 				error: null
 			});
 			// Reassign Map to trigger reactivity
-			contractsByAddress = new Map(contractsByAddress);
+			contractsByAddress = new SvelteMap(contractsByAddress);
 		}
 
 		try {
@@ -240,7 +242,7 @@
 					error: null
 				});
 				// Reassign Map to trigger reactivity
-				contractsByAddress = new Map(contractsByAddress);
+				contractsByAddress = new SvelteMap(contractsByAddress);
 				const functionEndTime = performance.now();
 				const totalFunctionTime = functionEndTime - functionStartTime;
 				console.log('[DEBUG] Updated group with contracts', {
@@ -266,7 +268,7 @@
 					error: error instanceof Error ? error.message : 'Failed to load contracts'
 				});
 				// Reassign Map to trigger reactivity
-				contractsByAddress = new Map(contractsByAddress);
+				contractsByAddress = new SvelteMap(contractsByAddress);
 			}
 			console.error('[DEBUG] Error loading contracts for address', {
 				address,
@@ -338,7 +340,7 @@
 				isExpanded: !group.isExpanded
 			});
 			// Reassign Map to trigger reactivity
-			contractsByAddress = new Map(contractsByAddress);
+			contractsByAddress = new SvelteMap(contractsByAddress);
 		}
 	}
 
@@ -349,14 +351,21 @@
 		} else {
 			expandedContracts.add(contractId);
 		}
-		expandedContracts = new Set(expandedContracts);
+		expandedContracts = new SvelteSet(expandedContracts);
 	}
 
 	// Execute contract function
-	async function executeContractFunction(contractId: string, functionName: string, ...args: any[]) {
+	async function executeContractFunction(
+		contractId: string,
+		functionName: string,
+		...args: unknown[]
+	) {
 		const actionKey = `${contractId}-${functionName}`;
 		executingActions.set(actionKey, true);
-		executingActions = new Map(executingActions);
+		executingActions = new SvelteMap(executingActions);
+		const contract = Array.from(contractsByAddress.values())
+			.flatMap((group) => group.contracts)
+			.find((candidate) => candidate.id === contractId);
 
 		try {
 			switch (functionName) {
@@ -380,7 +389,10 @@
 					await escrow.acceptProposal(contractId);
 					break;
 				case 'resolveAfterTimelock':
-					await escrow.resolveAfterTimelock(contractId);
+					if (!contract) {
+						throw new Error(`Contract ${contractId} not found`);
+					}
+					await escrow.resolveAfterTimelock(contractId, contract.status);
 					break;
 				default:
 					throw new Error(`Unknown function: ${functionName}`);
@@ -398,7 +410,7 @@
 			);
 		} finally {
 			executingActions.delete(actionKey);
-			executingActions = new Map(executingActions);
+			executingActions = new SvelteMap(executingActions);
 		}
 	}
 
@@ -414,7 +426,6 @@
 
 	// Get network name
 	function getNetworkName(network: 'RSK' | 'BSC'): string {
-		const state = get(walletStore);
 		const rskNetwork = import.meta.env.VITE_RSK_NETWORK || 'testnet';
 		if (network === 'RSK') {
 			return `RSK ${rskNetwork === 'mainnet' ? 'Mainnet' : 'Testnet'}`;
@@ -577,7 +588,7 @@
 				</button>
 			</div>
 		{:else if hasAnyContracts}
-			{#each Array.from(contractsByAddress.entries()) as [key, group]}
+			{#each Array.from(contractsByAddress.entries()) as [key, group] (key)}
 				<div class="card bg-base-100 shadow-xl">
 					<div class="card-body">
 						<!-- Wallet Address Header -->
@@ -601,7 +612,7 @@
 										>
 											{formatAddress(group.address)}
 										</a>
-										<IconOpenInNew class="ml-1 inline h-4 w-4 text-base-content/60" />
+										<IconOpenInNew class="text-base-content/60 ml-1 inline h-4 w-4" />
 									</div>
 									<div class="text-base-content/60 text-sm">
 										{getNetworkName(group.network)} • {$t('debug.smart_contract.contract_count', {
@@ -636,7 +647,7 @@
 									</button>
 								</div>
 							{:else if group.contracts.length === 0}
-								<div class="py-8 text-center text-base-content/60">
+								<div class="text-base-content/60 py-8 text-center">
 									{$t('debug.smart_contract.no_contracts')}
 								</div>
 							{:else}
@@ -673,7 +684,7 @@
 	{/if}
 
 	<!-- Safety Override Toggle -->
-	<div class="mt-8 border-t border-base-300 bg-base-100 p-4">
+	<div class="border-base-300 bg-base-100 mt-8 border-t p-4">
 		<div class="container mx-auto">
 			<div class="flex flex-col gap-4">
 				<!-- Toggle Row (fixed layout, never changes) -->

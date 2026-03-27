@@ -1,14 +1,9 @@
 <script lang="ts">
-	import { onMount, onDestroy, tick } from 'svelte';
+	import { onDestroy, tick } from 'svelte';
 	import { t } from 'svelte-i18n';
 	import { Html5Qrcode, type Html5QrcodeCameraScanConfig } from 'html5-qrcode';
 	import { Capacitor } from '@capacitor/core';
-	import {
-		BarcodeScanner,
-		type Barcode,
-		BarcodeFormat,
-		LensFacing
-	} from '@capacitor-mlkit/barcode-scanning';
+	import { BarcodeScanner, BarcodeFormat, LensFacing } from '@capacitor-mlkit/barcode-scanning';
 
 	let {
 		onScan = () => {},
@@ -43,7 +38,7 @@
 			await tick();
 
 			// Wait a bit for parent component to be ready and DOM to be stable
-			await new Promise(resolve => setTimeout(resolve, 800));
+			await new Promise((resolve) => setTimeout(resolve, 800));
 
 			if (isWeb) {
 				await startWebScan();
@@ -66,7 +61,7 @@
 			}
 
 			html5QrCode = new Html5Qrcode('qr-reader');
-			
+
 			// Use a function-based qrbox that receives viewfinder dimensions
 			// This ensures the qrbox is calculated based on the actual camera viewfinder size
 			// Set to 80% of the viewfinder for better scanning area
@@ -74,23 +69,21 @@
 				// Calculate 80% of the smaller dimension
 				const minEdgeSize = Math.min(viewfinderWidth, viewfinderHeight);
 				const qrboxSize = Math.max(Math.floor(minEdgeSize * 0.8), 50); // Minimum 50px required
-				
+
 				console.log('[QR Scanner] Viewfinder dimensions:', { viewfinderWidth, viewfinderHeight });
 				console.log('[QR Scanner] Calculated qrbox size:', qrboxSize);
-				
+
 				return {
 					width: qrboxSize,
 					height: qrboxSize
 				};
 			};
-			
+
 			const config: Html5QrcodeCameraScanConfig = {
 				fps: 20, // Higher FPS for faster detection and better reliability
 				qrbox: qrboxFunction, // Use function to calculate based on viewfinder dimensions
 				aspectRatio: 1.0,
-				disableFlip: false, // Allow flipping for better detection
-				showTorchButtonIfSupported: false, // Hide torch button (we have our own)
-				showZoomSliderIfSupported: false // Hide zoom slider
+				disableFlip: false // Allow flipping for better detection
 			};
 
 			// html5-qrcode will request camera permissions automatically when start() is called
@@ -230,10 +223,10 @@
 		await BarcodeScanner.startScan(options);
 
 		// Get zoom ratio limits for the camera
-		BarcodeScanner.getMinZoomRatio().then((result) => {
+		BarcodeScanner.getMinZoomRatio().then(() => {
 			// minZoomRatio = result.zoomRatio;
 		});
-		BarcodeScanner.getMaxZoomRatio().then((result) => {
+		BarcodeScanner.getMaxZoomRatio().then(() => {
 			// maxZoomRatio = result.zoomRatio;
 		});
 
@@ -296,7 +289,9 @@
 	<div class="barcode-scanning-modal fixed inset-0 z-[9999]">
 		<!-- Header - same style as QrCodeScanner -->
 		<header class="relative z-[1001] flex items-center justify-between bg-black/70 p-4">
-			<div class="text-lg font-semibold text-white">{$t('common.components.qr_scanner.scan_qr_code')}</div>
+			<div class="text-lg font-semibold text-white">
+				{$t('common.components.qr_scanner.scan_qr_code')}
+			</div>
 			<button
 				aria-label={$t('common.components.qr_scanner.close')}
 				class="btn btn-circle cursor-pointer rounded-full p-2 text-white"
@@ -323,7 +318,7 @@
 		<div class="relative h-full">
 			{#if isWeb}
 				<!-- Web: html5-qrcode -->
-				<div id="qr-reader" class="w-full h-full"></div>
+				<div id="qr-reader" class="h-full w-full"></div>
 			{/if}
 			<div
 				bind:this={squareElement}
@@ -331,7 +326,7 @@
 			></div>
 
 			<!-- Info Alert - positioned at bottom -->
-			<div class="absolute bottom-20 left-1/2 -translate-x-1/2 z-[1002] px-4 w-full max-w-md">
+			<div class="absolute bottom-20 left-1/2 z-[1002] w-full max-w-md -translate-x-1/2 px-4">
 				<div class="alert alert-outline alert-info">
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
@@ -346,7 +341,7 @@
 							d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
 						/>
 					</svg>
-					<span class="text-sm">{@html $t('common.components.qr_scanner.get_qr_from_settings')}</span>
+					<span class="text-sm">{$t('common.components.qr_scanner.get_qr_from_settings')}</span>
 				</div>
 			</div>
 

@@ -10,6 +10,23 @@ const SITE_URL = 'https://bittasker.com';
 
 export const prerender = false;
 
+type TaskEventContent = Task & { uniqueId?: string };
+
+type SeoData = {
+	title: string;
+	description: string;
+	keywords: string;
+	canonical: string;
+	ogTitle: string;
+	ogDescription: string;
+	ogImage: string;
+	twitterTitle: string;
+	twitterDescription: string;
+	twitterImage: string;
+	jsonLd: ReturnType<typeof generateTaskJsonLd> | null;
+	task: Task | null;
+};
+
 /**
  * Check if a string is a Nostr event ID (64-character hex string)
  */
@@ -43,7 +60,9 @@ function npubToHex(npub: string): string {
 		}
 		throw new Error('Invalid npub format');
 	} catch (error) {
-		throw new Error(`Failed to decode npub: ${error instanceof Error ? error.message : 'Unknown error'}`);
+		throw new Error(
+			`Failed to decode npub: ${error instanceof Error ? error.message : 'Unknown error'}`
+		);
 	}
 }
 
@@ -58,7 +77,7 @@ async function findTaskByAuthor(pubkey: string): Promise<{ data: NostrEvent } | 
 			authors: [pubkey],
 			limit: 1
 		});
-		
+
 		if (response.data && response.data.length > 0) {
 			// Return the most recent task
 			return { data: response.data[0] };
@@ -102,20 +121,20 @@ export const load: PageLoad = async ({ params }) => {
 	const taskId = params.taskId;
 	let uniqueId = taskId; // Default to using taskId as uniqueId
 	let shouldRedirect = false;
-	
+
 	// Determine if taskId is an event ID, UUID, or npub/pubkey
 	let event = null;
-	
+
 	if (isEventId(taskId)) {
 		// It's an event ID, load the event and extract uniqueId for redirect
 		try {
 			const result = await nostrEventsService.findEventById(taskId);
 			event = result.data;
-			
+
 			if (event) {
 				// Extract uniqueId from the event content
 				try {
-					const taskData = JSON.parse(event.content) as Task;
+					const taskData = JSON.parse(event.content) as TaskEventContent;
 					if (taskData.uniqueId) {
 						uniqueId = taskData.uniqueId;
 						shouldRedirect = true; // Redirect to UUID URL for stability
@@ -146,7 +165,7 @@ export const load: PageLoad = async ({ params }) => {
 				event = result.data;
 				// Extract uniqueId for redirect
 				try {
-					const taskData = JSON.parse(event.content) as Task;
+					const taskData = JSON.parse(event.content) as TaskEventContent;
 					if (taskData.uniqueId) {
 						uniqueId = taskData.uniqueId;
 						shouldRedirect = true; // Redirect to UUID URL for stability
@@ -166,7 +185,7 @@ export const load: PageLoad = async ({ params }) => {
 				event = result.data;
 				// Extract uniqueId for redirect
 				try {
-					const taskData = JSON.parse(event.content) as Task;
+					const taskData = JSON.parse(event.content) as TaskEventContent;
 					if (taskData.uniqueId) {
 						uniqueId = taskData.uniqueId;
 						shouldRedirect = true; // Redirect to UUID URL for stability
@@ -204,36 +223,48 @@ export const load: PageLoad = async ({ params }) => {
 			}
 		}
 	}
-	
+
 	// Redirect to UUID URL if we accessed via event ID, npub, or pubkey
 	if (shouldRedirect && uniqueId !== taskId && uniqueId) {
 		throw redirect(301, `/tasks/${uniqueId}`);
 	}
-	
+
 	const canonicalUrl = `${SITE_URL}/tasks/${uniqueId}`;
-	
+
 	// Default SEO data
-	let seo = {
+	let seo: SeoData = {
 		title: 'Task Details - BitTasker',
-		description: 'View task details and submit your bid on BitTasker, the Bitcoin-powered task marketplace.',
+		description:
+			'View task details and submit your bid on BitTasker, the Bitcoin-powered task marketplace.',
 		keywords: 'bitcoin tasks, freelance work, gig economy, task marketplace, bitcoin payments',
 		canonical: canonicalUrl,
 		ogTitle: 'Task Details - BitTasker',
-		ogDescription: 'View task details and submit your bid on BitTasker, the Bitcoin-powered task marketplace.',
+		ogDescription:
+			'View task details and submit your bid on BitTasker, the Bitcoin-powered task marketplace.',
 		ogImage: `${SITE_URL}/images/og-task-default.jpg`,
 		twitterTitle: 'Task Details - BitTasker',
-		twitterDescription: 'View task details and submit your bid on BitTasker, the Bitcoin-powered task marketplace.',
+		twitterDescription:
+			'View task details and submit your bid on BitTasker, the Bitcoin-powered task marketplace.',
 		twitterImage: `${SITE_URL}/images/og-task-default.jpg`,
 		jsonLd: null,
 		task: null as Task | null
 	};
 
 	if (event) {
-		const taskData = JSON.parse(event.content) as Task;
+		const taskData = JSON.parse(event.content) as TaskEventContent;
 		const dTag = event.tags?.find((tag: string[]) => tag[0] === 'd')?.[1];
-		const task = {
+		const resolvedTaskId = dTag ?? event.id;
+
+		if (!resolvedTaskId) {
+			return {
+				seo,
+				taskId: uniqueId
+			};
+		}
+
+		const task: Task = {
 			...taskData,
-			id: dTag || event.id,
+			id: resolvedTaskId,
 			npub: event.pubkey
 		};
 
@@ -245,20 +276,20 @@ export const load: PageLoad = async ({ params }) => {
 		}
 
 		// Get first image attachment (not video) for meta tags
-		const firstImage = task.attachments?.find(att => !isVideoFile(att.url));
+		const firstImage = task.attachments?.find((att) => !isVideoFile(att.url));
 		const taskImage = firstImage?.url || `${SITE_URL}/images/og-task-default.jpg`;
 
 		// Generate dynamic SEO data based on task content
 		const taskTitle = task.title || 'Untitled Task';
 		const taskDescription = task.description || 'No description available';
 		const taskBudget = task.budget?.amount ? `$${task.budget.amount}` : 'Price not specified';
-		const taskLocation = task.pickupLocation?.displayName || task.dropOffLocation?.displayName || 'Remote';
+		const taskLocation =
+			task.pickupLocation?.displayName || task.dropOffLocation?.displayName || 'Remote';
 		const taskSkills = task.skills?.join(', ') || '';
-		
+
 		// Truncate description for meta tags (keep under 160 characters)
-		const truncatedDescription = taskDescription.length > 150 
-			? taskDescription.substring(0, 147) + '...' 
-			: taskDescription;
+		const truncatedDescription =
+			taskDescription.length > 150 ? taskDescription.substring(0, 147) + '...' : taskDescription;
 
 		seo = {
 			title: `${taskTitle} - ${taskBudget} - BitTasker`,
@@ -275,7 +306,7 @@ export const load: PageLoad = async ({ params }) => {
 			task
 		};
 	}
-	
+
 	return {
 		seo,
 		taskId: uniqueId // Always use uniqueId for the component (stable identifier)
@@ -284,14 +315,14 @@ export const load: PageLoad = async ({ params }) => {
 
 function generateTaskJsonLd(task: Task, canonicalUrl: string) {
 	const baseUrl = SITE_URL;
-	
+
 	return {
 		'@context': 'https://schema.org',
 		'@type': 'JobPosting',
 		title: task.title,
 		description: task.description,
 		datePosted: task.createdAt,
-		validThrough: task.deadline || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), 
+		validThrough: task.deadline || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
 		employmentType: 'CONTRACTOR',
 		hiringOrganization: {
 			'@type': 'Organization',
@@ -299,26 +330,31 @@ function generateTaskJsonLd(task: Task, canonicalUrl: string) {
 			url: baseUrl,
 			logo: `${baseUrl}/images/Logos/BitTasker-Logo-Icon-light-mode.svg`
 		},
-		jobLocation: task.pickupLocation?.displayName || task.dropOffLocation?.displayName ? {
-			'@type': 'Place',
-			name: task.pickupLocation?.displayName || task.dropOffLocation?.displayName,
-			address: {
-				'@type': 'PostalAddress',
-				addressLocality: task.pickupLocation?.displayName || task.dropOffLocation?.displayName
-			}
-		} : {
-			'@type': 'Place',
-			name: 'Remote',
-			address: {
-				'@type': 'PostalAddress',
-				addressLocality: 'Remote'
-			}
-		},
-		baseSalary: task.budget?.amount ? {
-			'@type': 'MonetaryAmount',
-			currency: 'USD',
-			value: task.budget.amount
-		} : undefined,
+		jobLocation:
+			task.pickupLocation?.displayName || task.dropOffLocation?.displayName
+				? {
+						'@type': 'Place',
+						name: task.pickupLocation?.displayName || task.dropOffLocation?.displayName,
+						address: {
+							'@type': 'PostalAddress',
+							addressLocality: task.pickupLocation?.displayName || task.dropOffLocation?.displayName
+						}
+					}
+				: {
+						'@type': 'Place',
+						name: 'Remote',
+						address: {
+							'@type': 'PostalAddress',
+							addressLocality: 'Remote'
+						}
+					},
+		baseSalary: task.budget?.amount
+			? {
+					'@type': 'MonetaryAmount',
+					currency: 'USD',
+					value: task.budget.amount
+				}
+			: undefined,
 		skills: task.skills || [],
 		url: canonicalUrl,
 		identifier: {
@@ -335,4 +371,3 @@ function generateTaskJsonLd(task: Task, canonicalUrl: string) {
 		]
 	};
 }
-

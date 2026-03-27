@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { bidTranslationService } from '$lib/services/bid-translation.service';
 	import { currentUserLanguage } from '$lib/stores/translation.store';
-	import type { BidTranslations } from '$lib/types/bid';
+	import type { BidTranslations } from '$lib/nostr/bid';
 
 	type BidWithTranslations = {
 		translations?: BidTranslations;
@@ -29,12 +29,12 @@
 	// Obtener el contenido a mostrar (traducido o original)
 	const displayContent = $derived.by(() => {
 		const userLang = $currentUserLanguage;
-		
+
 		// Si tenemos el objeto bid completo con traducciones, usar el servicio
 		if (bid && userLang) {
 			return bidTranslationService.getDisplayContent(bid, contentType, userLang, content);
 		}
-		
+
 		// Fallback al contenido original
 		return content;
 	});
@@ -71,7 +71,7 @@
 		<p class={displayClass}>{displayContent}</p>
 		{#if showToggle}
 			<button
-				class="text-xs text-blue-500 hover:text-blue-700 transition-colors mt-1"
+				class="mt-1 text-xs text-blue-500 transition-colors hover:text-blue-700"
 				onclick={toggleTranslation}
 			>
 				{$currentUserLanguage === 'es' ? 'Ver original' : 'View original'}
@@ -82,7 +82,7 @@
 		<p class={displayClass}>{content}</p>
 		{#if hasTranslation && showToggle}
 			<button
-				class="text-xs text-blue-500 hover:text-blue-700 transition-colors mt-1"
+				class="mt-1 text-xs text-blue-500 transition-colors hover:text-blue-700"
 				onclick={toggleTranslation}
 			>
 				{$currentUserLanguage === 'es' ? 'Ver traducido' : 'View translated'}
@@ -90,4 +90,3 @@
 		{/if}
 	{/if}
 </div>
-

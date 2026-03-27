@@ -19,8 +19,8 @@
 		website?: string;
 	}>();
 
-	// Set defaults
-	const size = props.size || 'md';
+	// Set defaults reactively from props
+	let size = $derived(props.size ?? 'md');
 
 	// State for image loading and user data
 	let imageError = $state(false);

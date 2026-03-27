@@ -18,19 +18,30 @@
 		showFullscreen?: boolean;
 	}>();
 
+	void taskees;
+	void onTaskeeSelected;
+
+	type MapInstance = object;
+	type MarkerInstance = { map: unknown | null };
+
 	// State
-	let map: google.maps.Map | null = null;
+	let map: MapInstance | null = null;
 	let mapElement: HTMLElement | null = $state(null);
-	let markers: google.maps.marker.AdvancedMarkerElement[] = $state([]);
+	let markers: MarkerInstance[] = $state([]);
 	let isMapLoaded = $state(false);
 	let hasError = $state(false);
-	let error = $state('');
-	let scriptLoaded = $state(false);
 	let googleMapsReady = $state(false);
-	let isComponentMounted = $state(false);
 	let isLoading = $state(true);
 	let userLocation: Location | null = $state(null);
-	let markerLibrary: google.maps.MarkerLibrary | null = $state(null);
+	let markerLibrary: unknown | null = $state(null);
+
+	function getGoogleMaps() {
+		if (!window.google?.maps) {
+			throw new Error('Google Maps API not available');
+		}
+
+		return window.google.maps;
+	}
 
 	// Function to get user's location
 	async function getUserLocation(): Promise<Location | null> {
@@ -69,7 +80,6 @@
 			try {
 				// Check if script is already loaded and API is available
 				if (window.google?.maps?.Map) {
-					scriptLoaded = true;
 					googleMapsReady = true;
 					resolve();
 					return;
@@ -82,7 +92,6 @@
 					existingScript.addEventListener('load', () => {
 						setTimeout(() => {
 							if (window.google?.maps?.Map) {
-								scriptLoaded = true;
 								googleMapsReady = true;
 								resolve();
 							} else {
@@ -100,7 +109,6 @@
 				script.defer = true;
 
 				script.onload = () => {
-					scriptLoaded = true;
 					setTimeout(() => {
 						if (window.google?.maps?.Map) {
 							googleMapsReady = true;
@@ -113,7 +121,6 @@
 
 				script.onerror = () => {
 					hasError = true;
-					error = 'Failed to load Google Maps';
 					reject(new Error('Failed to load Google Maps'));
 				};
 
@@ -127,13 +134,9 @@
 	// Initialize map
 	async function initMap(): Promise<void> {
 		if (!mapElement || !googleMapsReady) return;
-		
-		// Double-check that Google Maps API is actually available
-		if (!window.google?.maps?.Map) {
-			throw new Error('Google Maps API not available');
-		}
 
 		try {
+			const googleMaps = getGoogleMaps();
 			// Get user location for map center
 			userLocation = await getUserLocation();
 
@@ -147,7 +150,7 @@
 			};
 
 			// Initialize map
-			map = new google.maps.Map(mapElement, {
+			map = new googleMaps.Map(mapElement, {
 				center: { lat: centerLocation.latitude!, lng: centerLocation.longitude! },
 				zoom: 6,
 				mapId: 'TASKEES_MAP',
@@ -161,8 +164,8 @@
 			});
 
 			// Load marker library
-			const { AdvancedMarkerElement, PinElement } = await google.maps.importLibrary('marker');
-			markerLibrary = { AdvancedMarkerElement, PinElement } as google.maps.MarkerLibrary;
+			const markerLibraryImport = await googleMaps.importLibrary('marker');
+			markerLibrary = markerLibraryImport;
 
 			isMapLoaded = true;
 			isLoading = false;
@@ -172,7 +175,6 @@
 		} catch (err) {
 			console.error('Error initializing map:', err);
 			hasError = true;
-			error = err instanceof Error ? err.message : 'Failed to initialize map';
 			isLoading = false;
 		}
 	}
@@ -201,15 +203,12 @@
 
 	// Initialize on mount
 	onMount(async () => {
-		isComponentMounted = true;
-
 		try {
 			await loadGoogleMapsScript();
 			await initMap();
 		} catch (err) {
 			console.error('Error setting up map:', err);
 			hasError = true;
-			error = err instanceof Error ? err.message : 'Failed to setup map';
 			isLoading = false;
 		}
 	});
@@ -222,7 +221,7 @@
 			});
 		}
 		if (map) {
-			google.maps.event.clearInstanceListeners(map);
+			getGoogleMaps().event.clearInstanceListeners(map as object);
 		}
 	});
 </script>
@@ -266,4 +265,3 @@
 		</div>
 	</div>
 </div>
-

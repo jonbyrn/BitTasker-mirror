@@ -1,6 +1,5 @@
 <script lang="ts">
 	import Multiselect from 'svelte-multiselect';
-	import { tick } from 'svelte';
 
 	let {
 		selectedSkills = $bindable([]),
@@ -11,7 +10,6 @@
 		onBlur = () => {}
 	} = $props();
 
-	let multiselectRef: any = $state(null);
 	let currentInputValue = $state('');
 	let forceRerender = $state(0);
 
@@ -25,15 +23,16 @@
 		if (currentInputValue.trim()) {
 			const newSkill = currentInputValue.trim();
 			// Check if skill already exists
-			const skillExists = selectedSkills.some(skill => 
-				(typeof skill === 'string' && skill === newSkill) ||
-				(skill && typeof skill === 'object' && skill.value === newSkill)
+			const skillExists = selectedSkills.some(
+				(skill) =>
+					(typeof skill === 'string' && skill === newSkill) ||
+					(skill && typeof skill === 'object' && skill.value === newSkill)
 			);
-			
+
 			if (!skillExists && selectedSkills.length < maxSelections) {
 				selectedSkills = [...selectedSkills, newSkill];
 				currentInputValue = '';
-				
+
 				// Force component re-render to clear input field
 				forceRerender++;
 			}
@@ -63,7 +62,7 @@
 		<Multiselect
 			allowUserOptions="append"
 			bind:selected={selectedSkills}
-			max={maxSelections}
+			maxSelect={maxSelections}
 			{placeholder}
 			noMatchingOptionsMsg="No matching skills found"
 			createOptionMsg="Add new skill"
@@ -77,7 +76,6 @@
 			options={[]}
 			onblur={handleBlur}
 			oninput={handleInput}
-			bind:this={multiselectRef}
 		/>
 	{/key}
 </div>
@@ -124,7 +122,7 @@
 	:global(.skills-multiselect:focus-within) {
 		border: 2px solid var(--color-primary) !important;
 	}
-	
+
 	/* Wrapper styling now handled by Tailwind classes */
 	:global(.skills-multiselect-wrapper:focus-within) {
 		border: var(--sms-focus-border);
