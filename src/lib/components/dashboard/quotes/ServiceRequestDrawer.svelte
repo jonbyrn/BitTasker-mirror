@@ -91,18 +91,18 @@
 			>
 				<div class="mb-4 flex flex-wrap items-start justify-between gap-3">
 					<div class="min-w-0 flex-1">
-						<h3
+						<span
 							id="service-request-inquiry-heading"
-							class="text-info text-xl leading-snug font-bold tracking-tight"
+							class="text-info text-sm leading-snug font-semibold"
 						>
 							{tr('dashboard.service_requests.drawer.inquiry_heading', 'Your request details')}
-						</h3>
-						<p class="text-base-content mt-2 text-sm font-bold">
+						</span>
+						<p class="text-base-content mt-1.5 text-sm font-medium">
 							{timeline.request.content.inquiry.title}
 						</p>
 					</div>
-					<div class="text-info flex shrink-0 items-center gap-2 text-sm font-medium">
-						<IconClockOutline class="h-5 w-5 shrink-0 opacity-90" />
+					<div class="text-info/90 flex shrink-0 items-center gap-1.5 text-xs font-medium">
+						<IconClockOutline class="h-4 w-4 shrink-0 opacity-90" />
 						<span>{formatTimestamp(timeline.request.created_at)}</span>
 					</div>
 				</div>
@@ -214,16 +214,18 @@
 			</div>
 		{:else if service}
 			<div
-				class="collapse-arrow collapse overflow-hidden rounded-xl border-0 shadow-md"
+				class="collapse-arrow border-primary/20 collapse overflow-hidden rounded-xl border shadow-sm"
 				data-testid="service-request-drawer-service-collapse"
 			>
 				<input type="checkbox" aria-expanded="false" />
 				<div
-					class="collapse-title bg-primary text-primary-content after:text-primary-content min-h-14 py-4 pr-12 pl-4 text-lg font-bold"
+					class="collapse-title bg-primary/10 text-primary after:text-primary hover:bg-primary/15 min-h-10! border-0 py-2! pr-12 pl-4 text-sm leading-tight font-semibold"
 				>
 					{tr('dashboard.service_requests.drawer.service_to_hire', 'Service to hire')}
 				</div>
-				<div class="collapse-content bg-base-100 border-base-300 border-t p-0">
+				<div
+					class="collapse-content service-collapse-content bg-base-100 border-base-300 border-t p-0"
+				>
 					<div class="p-4 pb-6">
 						<ServiceTab {service} isOwner={false} />
 					</div>
@@ -244,3 +246,11 @@
 		{/if}
 	</div>
 </Drawer>
+
+<style>
+	/* In this drawer, render ServiceTab without the heavy gray card blocks */
+	.service-collapse-content :global(.card.bg-base-200) {
+		background-color: transparent;
+		box-shadow: none;
+	}
+</style>
