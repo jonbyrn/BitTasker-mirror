@@ -1,5 +1,6 @@
 import '@testing-library/jest-dom/vitest';
 import { vi } from 'vitest';
+import { addMessages, init } from 'svelte-i18n';
 
 // Mock @bittasker/wallet-core to avoid EventBus import failure in test env
 // (wallet-core dist/index.js imports ./core/EventBus which may not resolve)
@@ -17,12 +18,6 @@ vi.mock('@bittasker/wallet-core', () => ({
 	EventBus: { on: vi.fn(), emit: vi.fn(), off: vi.fn() },
 	WalletManager: vi.fn()
 }));
-
-// Set up browser environment
-Object.defineProperty(globalThis, 'window', {
-	value: globalThis,
-	writable: true
-});
 
 // Ensure we're in browser mode, not SSR mode
 if (typeof process !== 'undefined') {
@@ -52,16 +47,6 @@ if (typeof window !== 'undefined') {
 	}
 }
 
-// Mock SvelteKit's $app/environment to indicate browser mode
-vi.mock('$app/environment', () => ({
-	browser: true,
-	dev: true,
-	building: false,
-	version: '0.0.1'
-}));
-
-// Force Svelte to use client-side compiler
-// This prevents SSR mode in tests
 if (typeof process !== 'undefined') {
 	process.env.VITEST = 'true';
 }
@@ -97,6 +82,55 @@ vi.mock('@capacitor/core', () => ({
 	}
 }));
 
+addMessages('en', {
+	common: {
+		cancel: 'Cancel'
+	},
+	reviews: {
+		form: {
+			title: 'Write a Review',
+			overall_rating: 'Overall Rating',
+			work_quality: 'Work Quality',
+			experience: 'Experience',
+			delivery_speed: 'Delivery Speed',
+			communication: 'Communication',
+			clarity: 'Clarity',
+			payment_timeliness: 'Payment Timeliness',
+			quality: 'Quality',
+			professionalism: 'Professionalism',
+			timeliness: 'Timeliness',
+			comment: 'Comment (Optional)',
+			comment_placeholder: 'Share your experience...',
+			submit: 'Submit Review',
+			submitting: 'Submitting...',
+			success: 'Review submitted successfully!',
+			already_reviewed:
+				'You have already reviewed this escrow. You can update your review by submitting a new one.',
+			role_unknown: 'Unable to determine role. Please ensure contract information is available.',
+			errors: {
+				overall_rating_required: 'Please provide an overall rating',
+				work_quality_required: 'Please rate the work quality',
+				experience_required: 'Please rate the experience',
+				delivery_speed_required: 'Please rate the delivery speed',
+				communication_required: 'Please rate the communication',
+				clarity_required: 'Please rate the clarity',
+				payment_timeliness_required: 'Please rate the payment timeliness',
+				category_rating_required: 'Please rate all categories',
+				comment_too_long: 'Comment cannot exceed 1000 characters',
+				submit_failed: 'Unable to submit review. Please try again.'
+			}
+		},
+		verified: 'Verified',
+		unverified: 'Unverified',
+		reply: 'Reply'
+	}
+});
+
+init({
+	fallbackLocale: 'en',
+	initialLocale: 'en'
+});
+
 // Mock Web Animations API (not available in jsdom)
 if (typeof window !== 'undefined' && !window.Element.prototype.animate) {
 	window.Element.prototype.animate = vi.fn(() => ({
@@ -111,14 +145,20 @@ if (typeof window !== 'undefined' && !window.Element.prototype.animate) {
 
 // Mock MediaStreamTrack (required for QR scanner tests)
 if (typeof global !== 'undefined') {
-	global.MediaStreamTrack = class MediaStreamTrack {
-		stop() {}
-		kind = 'video';
+	class MockMediaStreamTrack {
+		stop(): void {}
+		kind: MediaStreamTrack['kind'] = 'video';
 		id = 'mock-track-id';
 		label = 'Mock Camera Track';
 		enabled = true;
-		readyState = 'live' as MediaStreamTrackState;
-	} as any;
+		readyState: MediaStreamTrackState = 'live';
+	}
+
+	Object.defineProperty(global, 'MediaStreamTrack', {
+		value: MockMediaStreamTrack,
+		writable: true,
+		configurable: true
+	});
 
 	// Mock crypto.getRandomValues if not already available
 	if (!global.crypto || !global.crypto.getRandomValues) {
@@ -141,16 +181,14 @@ if (typeof global !== 'undefined') {
 // Mock localStorage (required for some tests)
 if (typeof window !== 'undefined') {
 	const localStorageMock = {
-		getItem: vi.fn((key: string) => {
-			return null;
-		}),
-		setItem: vi.fn((key: string, value: string) => {}),
-		removeItem: vi.fn((key: string) => {}),
+		getItem: vi.fn(() => null),
+		setItem: vi.fn(),
+		removeItem: vi.fn(),
 		clear: vi.fn(),
 		length: 0,
-		key: vi.fn((index: number) => null)
+		key: vi.fn(() => null)
 	};
-	
+
 	Object.defineProperty(window, 'localStorage', {
 		value: localStorageMock,
 		writable: true

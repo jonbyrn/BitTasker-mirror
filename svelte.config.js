@@ -8,11 +8,7 @@ const config = {
 	preprocess: vitePreprocess(),
 
 	compilerOptions: {
-		runes: true,
-		// Disable SSR in test environment
-		...(process.env.VITEST && {
-			generate: 'dom' // Force DOM generation instead of SSR
-		})
+		runes: true
 	},
 
 	kit: {
@@ -35,7 +31,7 @@ const config = {
 		},
 
 		alias: {
-			$houdini: ".houdini/"
+			$houdini: '.houdini/'
 		},
 
 		experimental: {

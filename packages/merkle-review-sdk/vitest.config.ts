@@ -12,9 +12,8 @@ export default defineConfig({
 			exclude: ['node_modules/', 'tests/', 'dist/']
 		},
 		// Run tests without watch mode
-		watch: false,
+		watch: false
 		// Exit after tests complete
-		passWithNoTests: true
 	},
 	resolve: {
 		extensions: ['.ts', '.js', '.json'],

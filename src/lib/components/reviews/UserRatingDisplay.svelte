@@ -3,7 +3,6 @@
 	import { getReviewsForUser } from '$lib/utils/nostr-review';
 	import { calculateReviewStats } from '$lib/utils/review-aggregation';
 	import type { NostrVerifiedReview } from '$lib/types/review';
-	// @ts-ignore - nostr-tools type definitions issue
 	import { nip19 } from 'nostr-tools';
 
 	let {
@@ -25,12 +24,12 @@
 	// Convert pubkey to npub format if needed
 	function normalizePubkey(pubkey: string): string {
 		if (!pubkey) return '';
-		
+
 		// If already npub, return as is
 		if (pubkey.startsWith('npub')) {
 			return pubkey;
 		}
-		
+
 		// Try to convert hex to npub
 		try {
 			return nip19.npubEncode(pubkey);
@@ -45,7 +44,8 @@
 		sm: { star: 'h-3 w-3', text: 'text-xs' },
 		md: { star: 'h-4 w-4', text: 'text-sm' },
 		lg: { star: 'h-5 w-5', text: 'text-base' }
-	};
+	} as const;
+	const currentSizeClasses = $derived(sizeClasses[size as keyof typeof sizeClasses]);
 
 	onMount(async () => {
 		await loadUserRating();
@@ -63,7 +63,7 @@
 			isLoading = true;
 			const normalizedPubkey = normalizePubkey(userPubkey);
 			const reviews: NostrVerifiedReview[] = await getReviewsForUser(normalizedPubkey, 100);
-			
+
 			if (reviews.length > 0) {
 				const stats = calculateReviewStats(reviews);
 				averageRating = Math.round(stats.averageRating * 10) / 10; // Round to 1 decimal
@@ -82,7 +82,7 @@
 	}
 
 	// Round rating for star display (0-5)
-	const roundedRating = Math.round(averageRating);
+	const roundedRating = $derived(Math.round(averageRating));
 </script>
 
 {#if isLoading}
@@ -92,10 +92,10 @@
 {:else if showStars}
 	<div class="flex items-center gap-1">
 		{#if showStars}
-			{#each Array(5) as _, i}
+			{#each [0, 1, 2, 3, 4] as i (i)}
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
-					class="{sizeClasses[size].star} {i < roundedRating
+					class="{currentSizeClasses.star} {i < roundedRating
 						? 'text-warning fill-warning'
 						: 'text-base-content/30'}"
 					fill="currentColor"
@@ -108,25 +108,24 @@
 			{/each}
 		{/if}
 		{#if showCount}
-			<span class="text-base-content/60 ml-1 {sizeClasses[size].text}">
+			<span class="text-base-content/60 ml-1 {currentSizeClasses.text}">
 				{reviewCount > 0 ? averageRating.toFixed(1) : '0'}
 				{#if reviewCount > 0}
 					<span class="text-base-content/40">({reviewCount})</span>
 				{/if}
 			</span>
 		{:else}
-			<span class="text-base-content/60 ml-1 {sizeClasses[size].text}">
+			<span class="text-base-content/60 ml-1 {currentSizeClasses.text}">
 				{reviewCount > 0 ? averageRating.toFixed(1) : '0'}
 			</span>
 		{/if}
 	</div>
 {:else}
 	<!-- Just show number if stars disabled -->
-	<span class="text-base-content/60 {sizeClasses[size].text}">
+	<span class="text-base-content/60 {currentSizeClasses.text}">
 		{reviewCount > 0 ? averageRating.toFixed(1) : '0'}
 		{#if showCount && reviewCount > 0}
 			<span class="text-base-content/40">({reviewCount})</span>
 		{/if}
 	</span>
 {/if}
-
