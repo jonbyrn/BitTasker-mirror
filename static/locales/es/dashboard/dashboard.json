@@ -460,17 +460,6 @@
 						"they": "Ellos",
 						"unknown": "desconocido"
 					},
-					"chat_view": {
-						"failed_load_messages": "Error al cargar los mensajes",
-						"chat_messages_aria": "Escribe un mensaje...",
-						"loading_messages": "Cargando mensajes...",
-						"loading_older_messages": "Cargando mensajes antiguos...",
-						"no_messages": "Sin Mensajes",
-						"start_conversation": "Inicia una conversación con alguien",
-						"type_message_placeholder": "Escribe un mensaje...",
-						"send_message": "Enviar mensaje",
-						"characters": "caracteres"
-					},
 					"message_search": {
 						"failed_load_messages": "Error al cargar los mensajes",
 						"chat_messages_aria": "Escribe un mensaje...",

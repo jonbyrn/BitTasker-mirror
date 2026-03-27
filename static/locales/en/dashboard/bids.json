@@ -523,19 +523,6 @@
 			}
 		},
 		"messages": {
-			"chat_view": {
-				"loading_messages": "Loading messages...",
-				"failed_load_messages": "Failed to load messages",
-				"failed_send_message": "Failed to send message",
-				"loading_older_messages": "Loading older messages...",
-				"load_older_messages": "Load older messages",
-				"no_messages": "No messages yet.",
-				"start_conversation": "Start the conversation!",
-				"type_message_placeholder": "Type a message...",
-				"send_message": "Send message",
-				"characters": "characters",
-				"chat_messages_aria": "Chat messages"
-			},
 			"message_search": {
 				"search_messages": "Search messages...",
 				"clear_search_aria": "Clear search",
