@@ -2,7 +2,6 @@
 	import { t } from 'svelte-i18n';
 	import { onMount, onDestroy } from 'svelte';
 	import { formatSats, formatUsd } from '$lib/stores/wallet.store';
-	import { triggerHaptic, ImpactStyle } from '$lib/utils/helpers/haptics';
 	// COMMENTED OUT: Unused imports for transaction monitoring
 	// import { getBlockscoutApiUrl, fetchTransactionStatus as fetchTxStatus, calculateEstimatedTime } from '$lib/utils/wallet/blockscoutTransactionStatus';
 	// import { walletManager } from '$lib/stores/wallet.store';
@@ -20,13 +19,11 @@
 		amountUSD: number;
 		address: string;
 		network: string;
-		txHash: string | null;
-		swapId: string | null; // For lightning swaps
 		networkOptions: Record<string, { icon: string; name: string; confirmationTime: number }>;
 		onClose: () => void;
 	}
 
-	let { amountSats, amountUSD, address, network, txHash, swapId, networkOptions, onClose }: Props = $props();
+	let { amountSats, amountUSD, address, network, networkOptions, onClose }: Props = $props();
 
 	// Transaction status
 	type TransactionStatus = 'sending' | 'confirming' | 'success' | 'error';
@@ -37,7 +34,6 @@
 	// let pollingInterval: ReturnType<typeof setInterval> | null = null;
 	// let isPolling = $state(false);
 	// let errorMessage = $state<string | null>(null);
-
 
 	// Get network info
 	const networkInfo = $derived.by(() => {
@@ -82,7 +78,6 @@
 		if (address.length <= 20) return address;
 		return `${address.slice(0, 10)}...${address.slice(-8)}`;
 	}
-
 
 	// COMMENTED OUT: Transaction monitoring code
 	// Update swap status for lightning transactions
@@ -414,10 +409,10 @@
 			if (status === 'success') {
 				return;
 			}
-			
+
 			if (estimatedTimeRemaining !== null && estimatedTimeRemaining > 0) {
 				estimatedTimeRemaining = Math.max(0, estimatedTimeRemaining - 1);
-				
+
 				// When countdown reaches 0, show success
 				if (estimatedTimeRemaining === 0) {
 					status = 'success';
@@ -443,17 +438,19 @@
 	});
 </script>
 
-<div class="flex flex-1 flex-col min-h-0 bg-base-100 w-full h-full">
+<div class="bg-base-100 flex h-full min-h-0 w-full flex-1 flex-col">
 	<!-- Pending Transaction Content -->
-	<div class="flex flex-1 flex-col items-center justify-center gap-6 py-8 px-4 overflow-y-auto min-h-0 w-full">
+	<div
+		class="flex min-h-0 w-full flex-1 flex-col items-center justify-center gap-6 overflow-y-auto px-4 py-8"
+	>
 		<!-- Transaction Status -->
 		<div class="flex flex-col items-center gap-4" transition:fade={{ duration: 300 }}>
 			<div
-				class="flex h-24 w-24 items-center justify-center rounded-full sm:h-32 sm:w-32 transition-all duration-500 {statusConfig.bgColor} {statusConfig.textColor}"
+				class="flex h-24 w-24 items-center justify-center rounded-full transition-all duration-500 sm:h-32 sm:w-32 {statusConfig.bgColor} {statusConfig.textColor}"
 				transition:scale={{ duration: 300 }}
 			>
 				{#if status === 'confirming'}
-					<IconLoading class="h-[77px] w-[77px] sm:h-[102px] sm:w-[102px] animate-spin" />
+					<IconLoading class="h-[77px] w-[77px] animate-spin sm:h-[102px] sm:w-[102px]" />
 				{:else if status === 'sending'}
 					<IconClockOutline class="h-[77px] w-[77px] sm:h-[102px] sm:w-[102px]" />
 				{:else if status === 'success'}
@@ -464,17 +461,25 @@
 					<IconAlertCircle class="h-[77px] w-[77px] sm:h-[102px] sm:w-[102px]" />
 				-->
 			</div>
-			<div class="text-center space-y-2">
-				<h3 class="text-xl font-bold sm:text-2xl transition-colors duration-500 {statusConfig.textColor}">
+			<div class="space-y-2 text-center">
+				<h3
+					class="text-xl font-bold transition-colors duration-500 sm:text-2xl {statusConfig.textColor}"
+				>
 					{statusConfig.title}
 				</h3>
 				{#if displayTimeRemaining !== null && displayTimeRemaining > 0}
-					<p class="text-base-content/70 text-xs sm:text-sm">{$t('wallet.debug_wallet.send_form.estimated_time_remaining')}</p>
+					<p class="text-base-content/70 text-xs sm:text-sm">
+						{$t('wallet.debug_wallet.send_form.estimated_time_remaining')}
+					</p>
 					<p class="text-base-content/70 text-sm sm:text-base">
-						<span class="font-semibold {statusConfig.textColor} text-2xl sm:text-3xl">{displayTimeRemaining}s</span>
+						<span class="font-semibold {statusConfig.textColor} text-2xl sm:text-3xl"
+							>{displayTimeRemaining}s</span
+						>
 					</p>
 				{:else if status === 'success'}
-					<p class="text-base-content/70 text-xs sm:text-sm">{$t('wallet.send.status.confirmed')}</p>
+					<p class="text-base-content/70 text-xs sm:text-sm">
+						{$t('wallet.send.status.confirmed')}
+					</p>
 				{/if}
 				<!-- COMMENTED OUT: Error message and confirmations display (no longer monitoring) -->
 			</div>
@@ -482,19 +487,20 @@
 
 		<!-- Safe to Close Note -->
 		{#if status === 'sending' || status === 'confirming'}
-			<p class="text-base-content/70 text-center text-sm max-w-md">
+			<p class="text-base-content/70 max-w-md text-center text-sm">
 				{$t('wallet.send.can_close_safely')}
 			</p>
 		{/if}
 
 		<!-- Transaction Details Card -->
-		<div class="card bg-base-200 w-full max-w-md p-4 space-y-4">
+		<div class="card bg-base-200 w-full max-w-md space-y-4 p-4">
 			<!-- Amount Display -->
 			<div class="space-y-2">
 				<div class="text-sm font-medium opacity-70">{$t('wallet.send.amount')}</div>
 				<div class="space-y-1">
-					<div class="font-semibold text-lg">
-						{formatSats(amountSats)} {$t('wallet.sats')}
+					<div class="text-lg font-semibold">
+						{formatSats(amountSats)}
+						{$t('wallet.sats')}
 					</div>
 					<div class="text-sm opacity-70">
 						≈ {formatUsd(amountUSD)}
@@ -510,7 +516,11 @@
 						<div class="flex items-center justify-between gap-1.5 pl-1.5 sm:gap-2 sm:pl-2">
 							<div class="flex items-center gap-1.5 sm:gap-2">
 								{#if networkInfo.icon}
-									<img src={networkInfo.icon} alt={networkInfo.name} class="h-4 w-4 sm:h-5 sm:w-5" />
+									<img
+										src={networkInfo.icon}
+										alt={networkInfo.name}
+										class="h-4 w-4 sm:h-5 sm:w-5"
+									/>
 								{/if}
 								<span class="text-sm font-medium sm:text-base">{networkInfo.name}</span>
 							</div>
@@ -522,7 +532,6 @@
 									class="btn btn-ghost btn-sm btn-circle shrink-0 touch-manipulation transition-transform duration-100 select-none active:scale-95"
 									style="-webkit-tap-highlight-color: transparent;"
 									aria-label={$t('wallet.view_explorer')}
-									onclick={() => triggerHaptic(ImpactStyle.Light)}
 								>
 									<IconOpenInNew class="h-4 w-4 sm:h-5 sm:w-5" />
 								</a>
@@ -543,10 +552,9 @@
 	<!-- Close Button -->
 	<div class="shrink-0 p-4 pt-0">
 		<button
-			class="btn btn-error w-full min-h-[48px] touch-manipulation transition-transform duration-100 select-none active:scale-95 md:min-h-[56px]"
+			class="btn btn-error min-h-[48px] w-full touch-manipulation transition-transform duration-100 select-none active:scale-95 md:min-h-[56px]"
 			style="-webkit-tap-highlight-color: transparent;"
 			onclick={() => {
-				triggerHaptic(ImpactStyle.Light);
 				onClose();
 			}}
 		>
