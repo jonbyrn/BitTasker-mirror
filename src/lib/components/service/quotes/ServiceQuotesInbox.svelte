@@ -1,13 +1,14 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import type { Component } from 'svelte';
 	import { t } from 'svelte-i18n';
 	import ServiceAgreementSummary from '$lib/components/contracts/ServiceAgreementSummary.svelte';
 	import type { ServiceQuoteTimelineEntry } from '$lib/types/service-quote';
-	import type { ServiceQuoteDataFreshness } from '$lib/types/service-quote';
 	import { buildServiceQuoteAgreementSummary } from '$lib/utils/service-quote/agreement-summary';
 	import { createDashboardUrl } from '$lib/utils/service-quote/dashboard-route';
 	import { browserNetworkStatus } from '$lib/utils/network-status';
 	import {
+		type ServiceQuoteDataFreshness,
 		getProviderDataFreshness,
 		serviceQuoteUiStore
 	} from '$lib/stores/service-quote-ui.store';
@@ -17,6 +18,10 @@
 	import DashboardEmptyState from '$lib/components/shared/DashboardEmptyState.svelte';
 	import IconBriefcaseOutline from '~icons/mdi/briefcase-outline';
 	import IconPlus from '~icons/mdi/plus';
+
+	type EmptyStateIcon = Component<{ class?: string; 'aria-hidden'?: string }>;
+	const briefcaseEmptyStateIcon = IconBriefcaseOutline as unknown as EmptyStateIcon;
+	const plusEmptyStateIcon = IconPlus as unknown as EmptyStateIcon;
 
 	let {
 		serviceUnavailable = false,
@@ -215,7 +220,7 @@
 </script>
 
 <section class="space-y-4" data-testid="service-quotes-inbox">
-	<div class="border-base-300 bg-base-100 rounded-2xl border p-4 shadow-sm">
+	<div class="rounded-2xl">
 		{#if loadError}
 			<div class="alert alert-error mb-4 flex items-center justify-between gap-3 text-sm">
 				<span>{loadError}</span>
@@ -257,14 +262,14 @@
 				</div>
 			{:else}
 				<DashboardEmptyState
-					icon={IconBriefcaseOutline}
+					icon={briefcaseEmptyStateIcon}
 					title={tr(
 						'dashboard.services.my_services.quote_inbox.no_service_quotes',
 						'No service requests yet.'
 					)}
 					actionLabel={tr('dashboard.services.my_services.create_service', 'Create Service')}
 					actionHref="/dashboard/create-service"
-					actionIcon={IconPlus}
+					actionIcon={plusEmptyStateIcon}
 					testId="service-quotes-empty-state"
 				/>
 			{/if}
@@ -276,7 +281,7 @@
 						class={`w-full rounded-xl border p-4 text-left transition ${
 							selectedTimeline?.request.id === timeline.request.id
 								? 'border-primary bg-primary/5'
-								: 'border-base-300 bg-base-100'
+								: 'border-base-300 bg-transparent'
 						}`}
 						onclick={() => selectTimeline(timeline.request.content.quoteRequestId)}
 					>
@@ -303,60 +308,6 @@
 
 	{#if selectedTimeline}
 		<div class="space-y-4">
-			<section class="border-base-300 bg-base-100 rounded-2xl border p-4 shadow-sm">
-				<div class="flex flex-wrap items-center justify-between gap-3">
-					<div>
-						<h4 class="text-sm font-semibold">{selectedTimeline.request.content.inquiry.title}</h4>
-						<p class="text-base-content/70 mt-1 text-sm">
-							{trv(
-								'dashboard.services.my_services.quote_inbox.request_id',
-								`Request ID: ${selectedTimeline.request.content.quoteRequestId}`,
-								{ requestId: selectedTimeline.request.content.quoteRequestId }
-							)}
-						</p>
-						{#if showServiceTitles}
-							<p class="text-base-content/70 mt-1 text-sm">
-								{trv(
-									'dashboard.services.my_services.quote_inbox.service',
-									`Service: ${
-										serviceTitleByAddress[selectedTimeline.request.content.serviceAddress] ??
-										selectedTimeline.request.content.serviceAddress
-									}`,
-									{
-										service:
-											serviceTitleByAddress[selectedTimeline.request.content.serviceAddress] ??
-											selectedTimeline.request.content.serviceAddress
-									}
-								)}
-							</p>
-						{/if}
-					</div>
-					<span class="badge badge-outline">{describeStatus(selectedTimeline)}</span>
-				</div>
-
-				<div class="mt-4 space-y-3 text-sm">
-					<p>{selectedTimeline.request.content.inquiry.description}</p>
-					{#if selectedTimeline.request.content.tierId}
-						<p class="text-base-content/70">
-							{trv(
-								'dashboard.services.my_services.quote_inbox.selected_tier',
-								`Selected tier: ${selectedTimeline.request.content.tierId}`,
-								{ tier: selectedTimeline.request.content.tierId }
-							)}
-						</p>
-					{/if}
-					{#if selectedTimeline.request.content.selectedAddOns?.length}
-						<p class="text-base-content/70">
-							{trv(
-								'dashboard.services.my_services.quote_inbox.addons',
-								`Add-ons: ${selectedTimeline.request.content.selectedAddOns.join(', ')}`,
-								{ addons: selectedTimeline.request.content.selectedAddOns.join(', ') }
-							)}
-						</p>
-					{/if}
-				</div>
-			</section>
-
 			{#if selectedTimeline.linkedEscrowId}
 				<section class="border-success/20 bg-success/10 rounded-2xl border p-4 shadow-sm">
 					<h4 class="text-sm font-semibold">
@@ -373,7 +324,11 @@
 					</p>
 					<button
 						class="btn btn-primary btn-sm mt-3"
-						onclick={() => viewContract(selectedTimeline.linkedEscrowId)}
+						onclick={() => {
+							const escrowId = selectedTimeline.linkedEscrowId;
+							if (!escrowId) return;
+							viewContract(escrowId);
+						}}
 					>
 						{tr('dashboard.services.my_services.quote_inbox.view_contract', 'View Contract')}
 					</button>
@@ -435,7 +390,6 @@
 					</section>
 				{/if}
 				<ServiceProposalComposer
-					requestTitle={selectedTimeline.request.content.inquiry.title}
 					disabled={isSyncing ||
 						serviceUnavailable ||
 						Boolean(loadError) ||

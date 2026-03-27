@@ -110,6 +110,41 @@
 						"unavailable": "Quote data is unavailable right now. Retry before sending a proposal.",
 						"syncing": "Quote data is still syncing. Sending is disabled until the latest request state loads.",
 						"select_request": "Select a request before sending a proposal."
+					},
+					"proposal_composer": {
+						"title": "Send Proposal",
+						"fields": {
+							"scope": "Scope",
+							"amount_usdt": "Amount (USDT)",
+							"estimated_duration": "Estimated Duration",
+							"estimated_start": "Estimated Start",
+							"estimated_end": "Estimated End",
+							"expiration_days": "Expiration Days",
+							"expiration_hours": "Expiration Hours",
+							"cover_letter": "Cover Letter"
+						},
+						"placeholders": {
+							"scope": "Describe what you will deliver.",
+							"estimated_duration": "3 business days",
+							"cover_letter": "Optional message to the buyer."
+						},
+						"warnings": {
+							"wallet_not_connected": "Connect your wallet before sending a proposal.",
+							"fee_tier_missing": "Choose a taskee fee tier before sending a proposal."
+						},
+						"errors": {
+							"required_fields": "Scope, amount, and estimated duration are required.",
+							"amount_invalid": "Enter a valid amount greater than 0.",
+							"expiration_days_invalid": "Expiration days must be between 0 and 30.",
+							"expiration_hours_invalid": "Expiration hours must be between 0 and 23.",
+							"time_required": "Start and end time are required.",
+							"time_invalid": "Provide valid start and end times.",
+							"time_order_invalid": "End time must be after start time.",
+							"submit_failed": "Unable to send the proposal right now."
+						},
+						"actions": {
+							"send": "Send Proposal"
+						}
 					}
 				},
 				"delete_modal": {
