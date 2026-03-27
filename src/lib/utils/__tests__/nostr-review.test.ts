@@ -384,6 +384,81 @@ describe('nostr-review', () => {
 		expect(reviews[0].nostrEventId).toBe('event-eose');
 	});
 
+	it('closes review subscriptions when EOSE fires before unsubscribe is returned', async () => {
+		const unsubscribe = vi.fn();
+		mockNostr.subscribeToEvents.mockImplementation(
+			(
+				_relayUrl: string,
+				_filters: unknown[],
+				onEvent: (event: ReturnType<typeof createReviewEvent>) => void,
+				onEose?: () => void
+			) => {
+				onEvent(
+					createReviewEvent({
+						id: 'event-sync-eose',
+						createdAt: 1_700_000_000_000,
+						comment: 'EOSE review'
+					})
+				);
+				onEose?.();
+				return unsubscribe;
+			}
+		);
+
+		const { getReviewsForUser } = await loadReviewModule();
+		const reviews = await getReviewsForUser('npub-reviewee', 10);
+
+		expect(reviews).toHaveLength(1);
+		expect(unsubscribe).toHaveBeenCalledTimes(1);
+	});
+
+	it('closes event-id subscriptions when a synchronous EOSE returns no review', async () => {
+		const unsubscribe = vi.fn();
+		mockNostr.subscribeToEvents.mockImplementation(
+			(
+				_relayUrl: string,
+				_filters: unknown[],
+				_onEvent: (event: ReturnType<typeof createReviewEvent>) => void,
+				onEose?: () => void
+			) => {
+				onEose?.();
+				return unsubscribe;
+			}
+		);
+
+		const { getReviewByEventId } = await loadReviewModule();
+		const review = await getReviewByEventId('missing-event');
+
+		expect(review).toBeNull();
+		expect(unsubscribe).toHaveBeenCalledTimes(1);
+	});
+
+	it('closes event-id subscriptions when a synchronous event resolves before unsubscribe is returned', async () => {
+		const unsubscribe = vi.fn();
+		mockNostr.subscribeToEvents.mockImplementation(
+			(
+				_relayUrl: string,
+				_filters: unknown[],
+				onEvent: (event: ReturnType<typeof createReviewEvent>) => void
+			) => {
+				onEvent(
+					createReviewEvent({
+						id: 'event-direct-hit',
+						createdAt: 1_700_000_000_000,
+						comment: 'Direct match'
+					})
+				);
+				return unsubscribe;
+			}
+		);
+
+		const { getReviewByEventId } = await loadReviewModule();
+		const review = await getReviewByEventId('event-direct-hit');
+
+		expect(review?.nostrEventId).toBe('event-direct-hit');
+		expect(unsubscribe).toHaveBeenCalledTimes(1);
+	});
+
 	it('reports that a user reviewed an escrow when the latest review matches the reviewer', async () => {
 		mockNostr.subscribeToEvents.mockImplementation(
 			(
