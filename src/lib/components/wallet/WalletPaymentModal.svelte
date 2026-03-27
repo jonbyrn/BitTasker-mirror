@@ -1,17 +1,13 @@
 <script lang="ts">
-	import { onMount, onDestroy } from 'svelte';
+	import type { Snippet } from 'svelte';
 	import { fly, scale } from 'svelte/transition';
 	import { t } from 'svelte-i18n';
 	import { Capacitor } from '@capacitor/core';
 	import { walletStore } from '$lib/stores/wallet.store';
-	import { triggerHaptic, ImpactStyle } from '$lib/utils/helpers/haptics';
-	import type { Snippet } from 'svelte';
 
 	interface Props {
 		isOpen: boolean;
-		mode: 'receive' | 'send';
 		onClose: () => void;
-		onSuccess?: () => void;
 		children?: Snippet;
 	}
 
@@ -23,8 +19,6 @@
 
 	// Swipe gesture state
 	let touchStartY = $state(0);
-	let touchStartTime = $state(0);
-	let modalTranslateY = $state(0);
 	let isDragging = $state(false);
 	const SWIPE_THRESHOLD = 100; // pixels
 	const SWIPE_THRESHOLD_PERCENT = 0.3; // 30% of screen height
@@ -115,7 +109,6 @@
 	// Handle backdrop click
 	function handleBackdropClick(e: MouseEvent) {
 		if (e.target === e.currentTarget) {
-			triggerHaptic(ImpactStyle.Light);
 			props.onClose();
 		}
 	}
@@ -124,7 +117,6 @@
 	function handleTouchStart(e: TouchEvent) {
 		if (!isMobile || !modalElement) return;
 		touchStartY = e.touches[0].clientY;
-		touchStartTime = Date.now();
 		isDragging = true;
 	}
 
@@ -136,7 +128,6 @@
 
 		// Only allow downward swipes
 		if (deltaY > 0) {
-			modalTranslateY = deltaY;
 			// Apply transform to modal
 			if (modalElement) {
 				modalElement.style.transform = `translateY(${deltaY}px)`;
@@ -162,12 +153,10 @@
 
 		// Check if swipe threshold is met
 		if (deltaY > threshold) {
-			// Close modal with haptic feedback
-			triggerHaptic(ImpactStyle.Medium);
+			// Close modal
 			props.onClose();
 		} else {
 			// Snap back
-			modalTranslateY = 0;
 			if (modalElement) {
 				modalElement.style.transform = '';
 			}
@@ -177,7 +166,6 @@
 	// Reset modal position when closed
 	$effect(() => {
 		if (!props.isOpen && modalElement) {
-			modalTranslateY = 0;
 			modalElement.style.transform = '';
 			modalElement.style.transition = '';
 		}
@@ -189,7 +177,7 @@
 {#if props.isOpen}
 	<!-- Modal Backdrop -->
 	<div
-		class="fixed inset-0 z-[99] bg-black/80 lg:bg-black/50 backdrop-blur-sm lg:backdrop-blur transition-opacity duration-300"
+		class="fixed inset-0 z-99 bg-black/80 backdrop-blur-sm transition-opacity duration-300 lg:bg-black/50 lg:backdrop-blur"
 		onclick={handleBackdropClick}
 		role="presentation"
 		transition:fly={{ y: prefersReducedMotion ? 0 : 20, duration: prefersReducedMotion ? 0 : 300 }}
@@ -197,13 +185,13 @@
 
 	<!-- Modal Container -->
 	<div
-		class="fixed inset-0 z-[100] flex items-center justify-center lg:p-4 pointer-events-none"
+		class="pointer-events-none fixed inset-0 z-100 flex items-center justify-center lg:p-4"
 		role="presentation"
 	>
 		<!-- Modal Content -->
 		<div
 			bind:this={modalElement}
-			class="fixed inset-0 lg:relative w-full h-full lg:w-[90%] lg:max-w-4xl lg:max-h-[90vh] rounded-none lg:rounded-2xl bg-base-100 shadow-2xl flex flex-col overflow-hidden touch-manipulation pointer-events-auto isolate"
+			class="bg-base-100 pointer-events-auto fixed inset-0 isolate flex h-full w-full touch-manipulation flex-col overflow-hidden rounded-none shadow-2xl lg:relative lg:max-h-[90vh] lg:w-[90%] lg:max-w-4xl lg:rounded-2xl"
 			style="will-change: transform; transform: translateZ(0);"
 			role="dialog"
 			aria-modal="true"
@@ -216,10 +204,9 @@
 			onclick={(e) => e.stopPropagation()}
 			transition:scale={{ duration: prefersReducedMotion ? 0 : 300, start: 0.95 }}
 		>
-
 			<!-- Content Area -->
 			<div
-				class="flex-1 overflow-hidden flex flex-col p-3 space-y-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:space-y-6 sm:p-4 lg:p-6 min-h-0"
+				class="flex min-h-0 flex-1 flex-col space-y-4 overflow-hidden p-3 pt-[max(0.75rem,env(safe-area-inset-top))] pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:space-y-6 sm:p-4 lg:p-6"
 			>
 				<!-- Wallet Error States (only show errors, not initialization) -->
 				{#if $walletStore.error}
@@ -266,4 +253,3 @@
 		</div>
 	</div>
 {/if}
-
