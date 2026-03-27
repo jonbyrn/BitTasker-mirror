@@ -60,10 +60,10 @@
 	<title>{$t('wallet.debug_wallet.title')} - BitTasker</title>
 </svelte:head>
 
-<div class="container mx-auto px-3 py-4 sm:px-4 sm:py-6 max-w-4xl">
+<div class="container mx-auto max-w-4xl px-3 py-4 sm:px-4 sm:py-6">
 	<!-- Page Header -->
 	<div class="mb-4 sm:mb-6">
-		<h1 class="text-xl font-bold mb-1.5 sm:text-2xl sm:mb-2">{$t('wallet.debug_wallet.title')}</h1>
+		<h1 class="mb-1.5 text-xl font-bold sm:mb-2 sm:text-2xl">{$t('wallet.debug_wallet.title')}</h1>
 		<p class="text-xs opacity-70 sm:text-sm">{$t('wallet.debug_wallet.description')}</p>
 	</div>
 
@@ -75,7 +75,7 @@
 				<span>{$t('wallet.connecting')}</span>
 			</div>
 		</div>
-	<!-- Error State (only show after attempting initialization) -->
+		<!-- Error State (only show after attempting initialization) -->
 	{:else if hasErrors && !$walletStore.isConnected}
 		<div class="alert alert-outline alert-error mb-3 py-2 sm:mb-6 sm:py-4">
 			<svg
@@ -93,7 +93,7 @@
 			</svg>
 			<div class="flex-1">
 				<div class="font-bold">{$t('wallet.page.connection_error')}</div>
-				<div class="text-sm mt-1">
+				<div class="mt-1 text-sm">
 					{#if $walletStore.error?.includes('No mnemonic found') || $walletStore.error?.includes('no mnemonic')}
 						{$t('wallet.error.no_mnemonic_found')}
 					{:else if $walletStore.error}
@@ -105,17 +105,13 @@
 					{/if}
 				</div>
 				<div class="mt-3">
-					<button
-						class="btn btn-primary btn-sm"
-						onclick={initializeWallet}
-						disabled={isLoading}
-					>
+					<button class="btn btn-primary btn-sm" onclick={initializeWallet} disabled={isLoading}>
 						{$t('wallet.page.retry_connection')}
 					</button>
 				</div>
 			</div>
 		</div>
-	<!-- Asset List (only show when connected AND not initializing, same as main wallet page) -->
+		<!-- Asset List (only show when connected AND not initializing, same as main wallet page) -->
 	{:else if $walletStore.isConnected && !$walletStore.isInitializing && !isLoading}
 		<DebugWalletAssetList onSendToken={handleSendToken} {refreshTrigger} />
 	{/if}
@@ -123,13 +119,11 @@
 	<!-- Send Modal -->
 	{#if selectedToken}
 		<WalletPaymentModal isOpen={isSendModalOpen} mode="send" onClose={handleCloseModal}>
-			{#snippet children()}
-				<DebugWalletSendForm
-					token={selectedToken}
-					onClose={handleCloseModal}
-					onSuccess={handleSendSuccess}
-				/>
-			{/snippet}
+			<DebugWalletSendForm
+				token={selectedToken}
+				onClose={handleCloseModal}
+				onSuccess={handleSendSuccess}
+			/>
 		</WalletPaymentModal>
 	{/if}
 </div>

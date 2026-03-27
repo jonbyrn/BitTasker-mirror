@@ -24,6 +24,7 @@
 	import TranslatableTask from '$lib/components/task/TranslatableTask.svelte';
 	import BidForm from '$lib/components/bidding/BidForm.svelte';
 	import Drawer from '$lib/components/Drawer.svelte';
+	import UsdSatsDisplay from '$lib/components/shared/UsdSatsDisplay.svelte';
 	import IconAlertCircle from '~icons/mdi/alert-circle';
 	import IconCalendarClock from '~icons/mdi/calendar-clock';
 	import IconMapMarker from '~icons/mdi/map-marker';
@@ -31,7 +32,6 @@
 	import { taskTranslationService } from '$lib/services/task-translation.service';
 	import { currentUserLanguage } from '$lib/stores/translation.store';
 	import { TASK_CATEGORIES } from '$lib/utils/constants/categories';
-	import UsdSatsDisplay from '../shared/UsdSatsDisplay.svelte';
 	import UserRatingDisplay from '$lib/components/reviews/UserRatingDisplay.svelte';
 
 	// Props
