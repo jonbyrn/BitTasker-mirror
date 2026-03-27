@@ -485,7 +485,6 @@ function collectReviews(
 		}
 
 		let settled = false;
-		const timeoutId = setTimeout(finalize, timeoutMs);
 		let unsubscribe = () => {};
 
 		const finalize = () => {
@@ -500,6 +499,7 @@ function collectReviews(
 			unsubscribe();
 			resolve(getSortedReviews(reviewsByCommitment, limit));
 		};
+		const timeoutId = setTimeout(finalize, timeoutMs);
 
 		unsubscribe = subscribeToEvents(
 			relayUrl,
@@ -563,7 +563,6 @@ export async function getReviewByEventId(eventId: string): Promise<NostrVerified
 		}
 
 		let settled = false;
-		const timeoutId = setTimeout(() => finalize(null), 5000);
 		let found = false;
 		let unsubscribe = () => {};
 		const finalize = (review: NostrVerifiedReview | null) => {
@@ -578,6 +577,7 @@ export async function getReviewByEventId(eventId: string): Promise<NostrVerified
 			unsubscribe();
 			resolve(review);
 		};
+		const timeoutId = setTimeout(() => finalize(null), 5000);
 		unsubscribe = subscribeToEvents(
 			relayUrl,
 			[filter],
