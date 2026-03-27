@@ -522,19 +522,6 @@
 			}
 		},
 		"messages": {
-			"chat_view": {
-				"loading_messages": "Cargando mensajes...",
-				"failed_load_messages": "Error al cargar mensajes",
-				"failed_send_message": "Error al enviar mensaje",
-				"loading_older_messages": "Cargando mensajes anteriores...",
-				"load_older_messages": "Cargar mensajes anteriores",
-				"no_messages": "Aún no hay mensajes.",
-				"start_conversation": "¡Inicia la conversación!",
-				"type_message_placeholder": "Escribe un mensaje...",
-				"send_message": "Enviar mensaje",
-				"characters": "caracteres",
-				"chat_messages_aria": "Mensajes del chat"
-			},
 			"message_search": {
 				"search_messages": "Buscar mensajes...",
 				"clear_search_aria": "Limpiar búsqueda",
