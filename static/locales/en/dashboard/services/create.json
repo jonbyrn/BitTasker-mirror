@@ -90,6 +90,7 @@
 					"budget_question": "How do you want to price your service?",
 					"budget_label": "Price",
 					"btc_price": "BTC Price:",
+					"btc_price_unavailable": "unavailable",
 					"fixed_title": "Fixed Price",
 					"fixed_description": "Set a fixed price for your service",
 					"hourly_title": "Hourly Rate",
@@ -220,6 +221,8 @@
 					"max_size": "Max. 200 MB",
 					"hint": "Showcase your work with images and videos (up to 10 items)",
 					"item_alt": "Portfolio item",
+					"media_video_fallback": "Video",
+					"media_file_fallback": "File",
 					"upload_button": "Upload Portfolio Items",
 					"compressing": "Compressing",
 					"uploading": "Uploading",
@@ -230,6 +233,10 @@
 				"review": {
 					"title": "Review Your Service",
 					"description": "Please review all the information before publishing your service.",
+					"service_details_title": "Service Details",
+					"book_now_label": "Book Now",
+					"book_now_lead_time": "Lead time before service starts: {hours} hours",
+					"book_now_delivery_time": "Delivery time: {hours} hours",
 					"basics_title": "Basic Information",
 					"title_label": "Title",
 					"description_label": "Description",
@@ -284,7 +291,11 @@
 					"tiers_description_price_required": "Description and price are required for each tier",
 					"create_failed": "Failed to create service. Please try again.",
 					"service_not_found": "Service not found",
-					"load_failed": "Failed to load service. Please try again."
+					"load_failed": "Failed to load service. Please try again.",
+					"instant_buy_lead_hours_invalid": "Book Now lead time must be a whole number from 0 to 720 hours.",
+					"instant_buy_delivery_hours_invalid": "Book Now delivery time must be at least 1 hour.",
+					"instant_buy_pricing_only_fixed_tiered": "Book Now is available only for fixed price and tiered services.",
+					"wallet_connect_book_now": "Connect your wallet before publishing a Book Now service."
 				},
 				"upload": {
 					"uploading_files": "Uploading files...",

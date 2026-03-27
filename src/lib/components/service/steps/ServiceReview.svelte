@@ -1,10 +1,12 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
+	import { browser } from '$app/environment';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { linear } from 'svelte/easing';
 	import { fly } from 'svelte/transition';
 	import { serviceStore as store } from '$lib/stores/service.store';
 	import { ServiceLocationTypeEnum, ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';
+	import { TASK_CATEGORIES } from '$lib/utils/constants/categories';
 	import { t } from 'svelte-i18n';
 	import { get } from 'svelte/store';
 	import { formatNumberForInput, SATS_PER_BTC } from '$lib/utils/helpers/crypto';
@@ -41,11 +43,46 @@
 		return expandedTexts.has(id);
 	}
 
-	// Helper to check if text is long enough to need truncation
+	// Line-clamp overflow (scrollHeight vs clientHeight), not character count — matches real UI
+	let serviceDescriptionEl = $state<HTMLDivElement | null>(null);
+	let serviceDescriptionOverflows = $state(false);
+
 	function needsTruncation(text: string | undefined | null): boolean {
 		if (!text) return false;
 		return text.length > 200;
 	}
+
+	$effect(() => {
+		const raw = $store.service.description;
+		const expanded = isExpanded('service-description');
+		void raw;
+		void expanded;
+
+		if (!browser) return;
+
+		const scheduleMeasure = () => {
+			tick().then(() => {
+				requestAnimationFrame(() => {
+					const el = serviceDescriptionEl;
+					if (!el) {
+						serviceDescriptionOverflows = false;
+						return;
+					}
+					if (expanded) return;
+					serviceDescriptionOverflows = el.scrollHeight > el.clientHeight + 1;
+				});
+			});
+		};
+
+		scheduleMeasure();
+
+		const el = serviceDescriptionEl;
+		if (!el || typeof ResizeObserver === 'undefined') return;
+
+		const ro = new ResizeObserver(() => scheduleMeasure());
+		ro.observe(el);
+		return () => ro.disconnect();
+	});
 
 	function isImageAttachment(type: string | undefined): boolean {
 		return !!(type && (type === 'image/*' || type.startsWith('image/')));
@@ -66,6 +103,22 @@
 			return get(t)('dashboard.services.create.location.taskee_title');
 		}
 		return locationType;
+	}
+
+	function translateCategory(
+		category: string | { id: string; name: string; slug?: string }
+	): string {
+		try {
+			const categoryId = typeof category === 'string' ? category : category.id;
+			const categoryObj = TASK_CATEGORIES.find((cat) => cat.id === categoryId);
+			if (categoryObj) {
+				const translatedName = get(t)(`categories.${categoryObj.slug}.name`);
+				return translatedName.startsWith('categories.') ? categoryObj.name : translatedName;
+			}
+			return typeof category === 'string' ? category : category.name;
+		} catch {
+			return typeof category === 'string' ? category : category.name;
+		}
 	}
 
 	function getPricingTypeLabel(pricingType: ServicePricingTypeEnum | undefined): string {
@@ -145,12 +198,20 @@
 	<!-- Service Details -->
 	<div class="card bg-base-200 min-w-0 overflow-hidden p-6">
 		<div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-			<h4 class="text-lg font-semibold break-words">Service Details</h4>
+			<h4 class="wrap-break-words text-lg font-semibold">
+				{$t('dashboard.services.create.review.service_details_title')}
+			</h4>
 			<div class="bg-base-100 rounded-xl px-4 py-3 text-left sm:min-w-48 sm:text-right">
-				<div class="text-base-content/70 text-sm font-semibold">
-					{getPricingTypeLabel($store.service.pricing?.type)}
-				</div>
-				<div class="mt-1 text-2xl font-semibold">{getPricingSummaryValue()}</div>
+				{#if $store.service.pricing?.type === ServicePricingTypeEnum.INQUIRY_REQUIRED}
+					<div class="text-2xl font-semibold">
+						{getPricingTypeLabel($store.service.pricing?.type)}
+					</div>
+				{:else}
+					<div class="text-base-content/70 text-sm font-semibold">
+						{getPricingTypeLabel($store.service.pricing?.type)}
+					</div>
+					<div class="mt-1 text-2xl font-semibold">{getPricingSummaryValue()}</div>
+				{/if}
 			</div>
 		</div>
 		<div class="space-y-2">
@@ -167,26 +228,13 @@
 				<div class="ml-2">
 					<div>
 						<div
-							class="text-base-content/70 cursor-pointer text-sm"
-							class:line-clamp-4={needsTruncation(
-								$store.service.description || $t('dashboard.services.create.review.not_set')
-							) && !isExpanded('service-description')}
-							role="button"
-							tabindex="0"
-							onclick={() =>
-								needsTruncation(
-									$store.service.description || $t('dashboard.services.create.review.not_set')
-								) && toggleText('service-description')}
-							onkeydown={(e) =>
-								e.key === 'Enter' &&
-								needsTruncation(
-									$store.service.description || $t('dashboard.services.create.review.not_set')
-								) &&
-								toggleText('service-description')}
+							bind:this={serviceDescriptionEl}
+							class="text-base-content/70 text-sm"
+							class:line-clamp-4={!isExpanded('service-description')}
 						>
 							{$store.service.description || $t('dashboard.services.create.review.not_set')}
 						</div>
-						{#if needsTruncation($store.service.description || $t('dashboard.services.create.review.not_set'))}
+						{#if serviceDescriptionOverflows || isExpanded('service-description')}
 							<button
 								type="button"
 								class="btn btn-sm bg-secondary text-secondary-content mt-2"
@@ -206,7 +254,7 @@
 				<div class="mt-1 ml-2 flex flex-wrap gap-2">
 					{#each $store.service.categories || [] as category (typeof category === 'string' ? category : category.id)}
 						<span class="badge badge-primary">
-							{typeof category === 'string' ? category : category.name}
+							{translateCategory(category)}
 						</span>
 					{:else}
 						<span class="text-sm text-base-content/70"
@@ -219,7 +267,10 @@
 				<span class="font-semibold">{$t('dashboard.services.create.review.skills_label')}:</span>
 				<div class="mt-1 ml-2 flex flex-wrap gap-2">
 					{#each $store.service.skills || [] as skill (skill)}
-						<span class="badge badge-secondary">{skill}</span>
+						<span
+							class="badge badge-secondary inline-flex h-auto min-h-0 max-w-full items-start justify-start rounded-lg px-3 py-2 text-left text-sm leading-snug wrap-break-word whitespace-normal"
+							>{skill}</span
+						>
 					{:else}
 						<span class="text-sm text-base-content/70"
 							>{$t('dashboard.services.create.review.not_set')}</span
@@ -274,15 +325,22 @@
 			{/if}
 			{#if hasBookNowInfo()}
 				<div>
-					<span class="font-semibold">Book Now:</span>
+					<span class="font-semibold">{$t('dashboard.services.create.review.book_now_label')}:</span
+					>
 					<div class="text-base-content/70 mt-1 ml-2 space-y-1 text-sm">
 						{#if $store.service.instantBuyLeadHours != null}
 							<div>
-								Lead time before service starts: {$store.service.instantBuyLeadHours} hours
+								{$t('dashboard.services.create.review.book_now_lead_time', {
+									values: { hours: $store.service.instantBuyLeadHours }
+								})}
 							</div>
 						{/if}
 						{#if $store.service.instantBuyDeliveryHours != null}
-							<div>Delivery time: {$store.service.instantBuyDeliveryHours} hours</div>
+							<div>
+								{$t('dashboard.services.create.review.book_now_delivery_time', {
+									values: { hours: $store.service.instantBuyDeliveryHours }
+								})}
+							</div>
 						{/if}
 					</div>
 				</div>
@@ -294,7 +352,7 @@
 	{#if $store.service.pricing && ($store.service.pricing.tiers || []).length > 0}
 		<div class="card bg-base-200 p-6">
 			<h4 class="mb-4 text-lg font-semibold">
-				{$t('dashboard.services.create.review.tiers_title') || 'Niveles de Precio'}
+				{$t('dashboard.services.create.review.tiers_title')}
 			</h4>
 			<div class="mb-4">
 				<span class="font-semibold">{$t('dashboard.services.create.review.tiers_label')}:</span>
@@ -314,7 +372,7 @@
 					>
 						<input type="checkbox" />
 						<div class="collapse-title flex min-w-0 items-center gap-2 text-base font-medium">
-							<span class="min-w-0 break-words">
+							<span class="wrap-break-words min-w-0">
 								{tier.name || $t('dashboard.services.create.review.tier_no_name')}
 							</span>
 							{#if tier.isPopular}
@@ -417,15 +475,15 @@
 	{#if $store.service.pricing && ($store.service.pricing.addOns || []).length > 0}
 		<div class="card bg-base-200 p-6">
 			<h4 class="mb-4 text-lg font-semibold">
-				{$t('dashboard.services.create.review.addons_title') || 'Complementos y Extras'}
+				{$t('dashboard.services.create.review.addons_title')}
 			</h4>
 			<div class="mb-4">
 				<span class="font-semibold"
-					>{$t('dashboard.services.create.review.addons_count_label') || 'Complementos'}:</span
+					>{$t('dashboard.services.create.review.addons_count_label')}:</span
 				>
 				<span class="ml-2"
 					>{($store.service.pricing.addOns || []).length}
-					{$t('dashboard.services.create.review.addons') || 'complementos'}</span
+					{$t('dashboard.services.create.review.addons')}</span
 				>
 			</div>
 			<div class="space-y-2">
@@ -605,12 +663,15 @@
 									/>
 								</svg>
 								<span class="text-base-content/70 line-clamp-2 text-center text-xs"
-									>{item.alt || 'Video'}</span
+									>{item.alt ||
+										$t('dashboard.services.create.portfolio.media_video_fallback')}</span
 								>
 							</div>
 						{:else}
 							<div class="flex h-full w-full items-center justify-center">
-								<span class="text-base-content/70 text-xs">{item.alt || 'File'}</span>
+								<span class="text-base-content/70 text-xs"
+									>{item.alt || $t('dashboard.services.create.portfolio.media_file_fallback')}</span
+								>
 							</div>
 						{/if}
 					</div>

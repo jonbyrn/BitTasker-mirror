@@ -297,7 +297,7 @@ describe('MyQuotesPanel', () => {
 		});
 
 		expect(getByText('Filter by request status')).toBeTruthy();
-		expect(getAllByText('Focus on the service requests that need your next action.').length).toBe(
+		expect(getAllByText('Filter the requests you sent to services you want to hire.').length).toBe(
 			2
 		);
 
@@ -431,7 +431,7 @@ describe('MyQuotesPanel', () => {
 		const dialog = getByRole('dialog');
 		expect(goto).not.toHaveBeenCalled();
 		expect(drawer).toBeTruthy();
-		expect(within(drawer).getByText(/Your Inquiry/)).toBeTruthy();
+		expect(within(drawer).getByText(/Your request details/)).toBeTruthy();
 		expect(within(drawer).getAllByText(/Need a migration/).length).toBeGreaterThan(0);
 		await waitFor(() => {
 			expect(findServiceByUniqueId).toHaveBeenCalledWith('service-unique-id');

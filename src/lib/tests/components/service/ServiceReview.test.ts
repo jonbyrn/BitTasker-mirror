@@ -4,7 +4,8 @@ import ServiceReview from '$lib/components/service/steps/ServiceReview.svelte';
 
 const translations: Record<string, string> = {
 	'dashboard.services.create.review.description': 'Review your service before publishing.',
-	'dashboard.services.create.review.basics_title': 'Service Details',
+	'dashboard.services.create.review.service_details_title': 'Service Details',
+	'dashboard.services.create.review.basics_title': 'Basic Information',
 	'dashboard.services.create.review.tiers_title': 'Pricing Tiers',
 	'dashboard.services.create.review.tiers_label': 'Tiers',
 	'dashboard.services.create.review.tiers_count': 'tiers',

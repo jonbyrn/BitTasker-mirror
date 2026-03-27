@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
+	import type { Component } from 'svelte';
 	import { t } from 'svelte-i18n';
 	import DashboardQuoteCard from './DashboardQuoteCard.svelte';
 	import ServiceRequestDrawer from './ServiceRequestDrawer.svelte';
@@ -51,6 +52,8 @@
 		disabled?: boolean;
 	}
 
+	type EmptyStateIcon = Component<{ class?: string; 'aria-hidden'?: string }>;
+
 	type ServiceRequestFilterCategory =
 		| 'awaiting_proposal'
 		| 'contract_created'
@@ -69,6 +72,8 @@
 	let serviceByAddress = $state<Record<string, Service | null>>({});
 	let serviceLoadedByAddress = $state<Record<string, boolean>>({});
 	let serviceUnavailableByAddress = $state<Record<string, boolean>>({});
+	const briefcaseEmptyStateIcon = IconBriefcaseOutline as unknown as EmptyStateIcon;
+	const refreshEmptyStateIcon = IconRefresh as unknown as EmptyStateIcon;
 
 	function translateOrFallback(key: string, fallback: string): string {
 		try {
@@ -336,7 +341,9 @@
 				class: 'btn-outline btn-sm',
 				onclick: (e) => {
 					e.stopPropagation();
-					viewContract(timeline.linkedEscrowId);
+					const escrowId = timeline.linkedEscrowId;
+					if (!escrowId) return;
+					viewContract(escrowId);
 				},
 				icon: 'contract'
 			});
@@ -479,7 +486,7 @@
 				<p class="text-base-content/70 hidden text-sm sm:block">
 					{translateOrFallback(
 						'dashboard.service_requests.status_subheading',
-						'Focus on the service requests that need your next action.'
+						'Filter the requests you sent to services you want to hire.'
 					)}
 				</p>
 			</div>
@@ -509,7 +516,7 @@
 			<p class="text-base-content/70 mb-3 text-sm">
 				{translateOrFallback(
 					'dashboard.service_requests.status_subheading',
-					'Focus on the service requests that need your next action.'
+					'Filter the requests you sent to services you want to hire.'
 				)}
 			</p>
 			<div class="status-dropdown-container relative">
@@ -668,7 +675,7 @@
 		{:else}
 			<div class="card bg-base-100 rounded-xl p-4">
 				<DashboardEmptyState
-					icon={IconBriefcaseOutline}
+					icon={briefcaseEmptyStateIcon}
 					title={translateOrFallback(
 						'dashboard.service_requests.empty',
 						'No service requests have been submitted yet.'
@@ -682,7 +689,7 @@
 	{:else if filteredTimelines.length === 0}
 		<div class="card bg-base-100 rounded-xl p-4">
 			<DashboardEmptyState
-				icon={IconBriefcaseOutline}
+				icon={briefcaseEmptyStateIcon}
 				title={translateOrFallback(
 					'dashboard.service_requests.empty_filtered',
 					'No service requests match this status yet.'
@@ -692,7 +699,7 @@
 					'Try a different status filter to review the rest of your service requests.'
 				)}
 				actionLabel={translateOrFallback('find_tasks.clear_filters', 'Clear Filters')}
-				actionIcon={IconRefresh}
+				actionIcon={refreshEmptyStateIcon}
 				onAction={clearFilters}
 				testId="my-quotes-filtered-empty-state"
 			/>

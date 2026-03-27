@@ -65,7 +65,7 @@
 		},
 		"service_requests": {
 			"status_heading": "Filter by request status",
-			"status_subheading": "Focus on the service requests that need your next action.",
+			"status_subheading": "Filter the requests you sent to services you want to hire.",
 			"refresh": "Refresh",
 			"refreshing": "Refreshing",
 			"loading": "Loading your service requests...",
@@ -83,6 +83,8 @@
 			"rush_delivery": "Rush delivery",
 			"expires": "Expires",
 			"service_label": "Service",
+			"boolean_yes": "Yes",
+			"boolean_no": "No",
 			"standard_tier": "Standard",
 			"days": "days",
 			"actions": {
@@ -99,8 +101,13 @@
 			},
 			"drawer": {
 				"title": "Service request",
+				"heading": "General information",
 				"loading": "Loading service details...",
 				"inquiry_title": "Your Inquiry",
+				"inquiry_heading": "Your request details",
+				"service_to_hire": "Service to hire",
+				"show_more": "Show more",
+				"show_less": "Show less",
 				"custom_answers": "Submitted answers",
 				"attachments": "Attachments"
 			},
