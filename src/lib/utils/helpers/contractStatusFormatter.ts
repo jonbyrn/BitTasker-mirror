@@ -218,8 +218,6 @@ export function getStatusTranslationKey(
 				: 'dashboard.contracts.status.cancelled';
 
 		// Nostr states (6+) - Pending & Custom
-		case EscrowStatus.PendingFunding:
-			return 'dashboard.contracts.status.pending_funding';
 		case EscrowStatus.InProgress:
 			return 'dashboard.contracts.status.in_progress';
 		case EscrowStatus.PendingCompletion:
@@ -230,18 +228,8 @@ export function getStatusTranslationKey(
 				: 'dashboard.contracts.status.pending_cancellation';
 		case EscrowStatus.FundsReleased:
 			return 'dashboard.contracts.status.funds_released';
-		case EscrowStatus.PendingAcceptance:
-			return 'dashboard.contracts.status.pending_acceptance';
 		case EscrowStatus.DisputeResolutionProposed:
 			return 'dashboard.contracts.status.dispute_resolution_proposed';
-		case EscrowStatus.PendingDispute:
-			return 'dashboard.contracts.status.pending_dispute';
-		case EscrowStatus.PendingResolutionProposal:
-			return 'dashboard.contracts.status.pending_resolution_proposal';
-		case EscrowStatus.PendingProposalAcceptance:
-			return 'dashboard.contracts.status.pending_proposal_acceptance';
-		case EscrowStatus.PendingTimelockResolution:
-			return 'dashboard.contracts.status.pending_timelock_resolution';
 
 		default:
 			return 'dashboard.contracts.status.funded';
@@ -255,7 +243,6 @@ export function getStatusColorClass(status: EscrowStatus): string {
 	switch (status) {
 		// Active/In-Progress states - Primary (Bitcoin orange)
 		case EscrowStatus.InProgress:
-		case EscrowStatus.PendingFunding:
 			return 'badge-primary';
 
 		// Completed/Success states - Success (Green)
@@ -266,23 +253,15 @@ export function getStatusColorClass(status: EscrowStatus): string {
 
 		// Pending states - Info (Blue)
 		case EscrowStatus.Funded:
-		case EscrowStatus.PendingCompletion:
-		case EscrowStatus.PendingAcceptance:
 		case EscrowStatus.DisputeUnresolved:
-		case EscrowStatus.PendingProposalAcceptance:
-		case EscrowStatus.PendingTimelockResolution:
 			return 'badge-info';
 
 		// Dispute states - Warning (Yellow)
 		case EscrowStatus.InDispute:
-		case EscrowStatus.PendingDispute:
-		case EscrowStatus.DisputeResolutionProposed:
-		case EscrowStatus.PendingResolutionProposal:
 			return 'badge-warning';
 
 		// Cancelled states - Error (Red)
 		case EscrowStatus.Cancelled:
-		case EscrowStatus.PendingCancellation:
 			return 'badge-error';
 
 		default:

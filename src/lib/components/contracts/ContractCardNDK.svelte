@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { EscrowStatus } from '$lib/utils/escrow';
 	import {
 		getStatusTranslationKey,
 		getStatusColorClass
@@ -9,17 +8,32 @@
 	import TaskLocationDisplay from '../task/TaskLocationDisplay.svelte';
 	import UserNostrBadge from '../UserNostrBadge.svelte';
 	import type { NDKPaymentContract } from '$lib/nostr/events/contract';
+	import { formatConvertedAmount } from '$lib/utils/helpers/currencyFormatter';
+	import { btcPrice } from '$lib/runes/btcPrice.svelte';
+	import { PaymentContractRune } from '$lib/runes/contractRune.svelte';
 
 	const { contract }: { contract: NDKPaymentContract } = $props();
 
+	const contractRune = new PaymentContractRune(contract);
+	contractRune.start();
+
+	// $inspect(contractRune.blockchainData, 'contractRune');
+
 	/** Layout preview only — wire to real contract data later */
-	const staticDeadline = Date.parse('2026-06-15T12:00:00');
-	const staticDemoStatus = EscrowStatus.InProgress;
-	/** Mirrors `btcPrice > 0` branch in ContractCard; flip to preview RBTC-only layout */
-	const previewUsdPrice = true;
-	/** Bech32-shaped placeholder; profile fetch is non-blocking */
 
 	const isTasker = $derived(contract.author.pubkey === contract.ndk?.activeUser?.pubkey);
+	const amountSats = $derived(
+		formatConvertedAmount(contract.amount, contract.currency, {
+			btcPrice: btcPrice.price,
+			toCurrency: 'SATS'
+		})
+	);
+	const amountUsd = $derived(
+		formatConvertedAmount(contract.amount, contract.currency, {
+			btcPrice: btcPrice.price,
+			toCurrency: 'USD'
+		})
+	);
 </script>
 
 <div class="card bg-base-100 rounded-xl shadow-md transition-shadow hover:shadow-lg">
@@ -54,8 +68,8 @@
 					{/if}
 				</div>
 				<!-- Bottom row: Status badge (with min gap from top badges) -->
-				<div class="badge {getStatusColorClass(staticDemoStatus)} badge-sm mt-2">
-					{$t(getStatusTranslationKey(staticDemoStatus))}
+				<div class="badge {getStatusColorClass(contractRune.displayStatus)} badge-sm mt-2">
+					{$t(getStatusTranslationKey(contractRune.displayStatus))}
 				</div>
 			</div>
 		</div>
@@ -65,7 +79,7 @@
 			<!-- Left: Deadline + Location -->
 			<div class="flex min-w-0 flex-1 flex-col gap-2">
 				<!-- Deadline -->
-				<TaskDeadlineDisplay deadline={staticDeadline} />
+				<TaskDeadlineDisplay deadline={contract.estimatedCompletionTime} />
 
 				<!-- Location (contracts don't have location data, default to Remote) -->
 				<TaskLocationDisplay />
@@ -73,21 +87,17 @@
 
 			<!-- Right: Price -->
 			<div class="shrink-0 text-right">
-				{#if previewUsdPrice}
-					<div class="text-2xl font-bold">{$t('dashboard.contracts.ndk_preview.price_usd')}</div>
-					<div class="text-base-content/60 text-base">
-						{$t('dashboard.contracts.ndk_preview.price_sats')}
-					</div>
-				{:else}
-					<div class="text-2xl font-bold">{$t('dashboard.contracts.ndk_preview.price_rbtc')}</div>
-				{/if}
+				<div class="text-2xl font-bold">{amountUsd}</div>
+				<div class="text-base-content/60 text-base">
+					{amountSats}
+				</div>
 			</div>
 		</div>
 
 		<!-- Bottom Row: User Info + Action Buttons -->
 		<div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
 			<!-- Left: User Info (without role headline) -->
-			<UserNostrBadge npub={contract.otherPartyNpub} />
+			<UserNostrBadge npub={contract.otherPartyNpub ?? ''} />
 
 			<!-- Right: Action Buttons -->
 			<div class="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">

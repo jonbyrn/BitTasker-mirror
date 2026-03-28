@@ -88,6 +88,7 @@ function legacyContentToAdditionalTags(
 	};
 
 	// Encrypted-side / ergonomic names only (no duplicate of public single-char keys)
+	pushNamed('paymentId', parsed.escrowId);
 	pushNamed('taskTitle', parsed.taskTitle);
 	pushNamed('taskDescription', parsed.taskDescription);
 	pushNamed('amount', parsed.amount);
@@ -318,17 +319,20 @@ export class NDKPaymentContract extends NDKEvent {
 		this.tags.push(['taskDescription', value]);
 	}
 
-	get amount(): string | undefined {
-		return this.tagValue('amount');
+	get amount(): number {
+		return parseFloat(this.tagValue('amount') ?? '0');
 	}
 
-	set amount(value: string) {
+	set amount(value: string | number) {
 		this.removeTag('amount');
+		if (typeof value === 'number') {
+			value = value.toString();
+		}
 		this.tags.push(['amount', value]);
 	}
 
-	get currency(): string | undefined {
-		return this.tagValue('currency');
+	get currency(): string {
+		return this.tagValue('currency') ?? 'RBTC';
 	}
 
 	set currency(value: string) {
