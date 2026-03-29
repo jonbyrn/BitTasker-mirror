@@ -154,19 +154,51 @@
 		return tr('dashboard.services.detail.pricing_type.quote_required', 'Quote required');
 	}
 
+	function getServiceLocationTypes(): string[] {
+		if (service.serviceLocationTypes?.length) {
+			return service.serviceLocationTypes;
+		}
+
+		return (service.locationDetails as { types?: string[] } | undefined)?.types ?? [];
+	}
+
+	function getLocationTypeLabel(locationType: string): string {
+		if (locationType === 'remote') {
+			return tr('dashboard.services.detail.location.remote', 'Remote');
+		}
+
+		if (locationType === 'tasker_location') {
+			return tr('dashboard.services.detail.location.my_location', 'My Location');
+		}
+
+		return tr('dashboard.services.detail.location.tasker_location', 'Tasker Location');
+	}
+
 	function getLocationDisplay(): string {
 		const locationDetails = service.locationDetails;
+		const locationTypes = getServiceLocationTypes();
+		const taskeeLocation = locationDetails?.taskeeLocation?.serviceLocation;
+		const taskerLocation = locationDetails?.taskerLocation?.serviceLocation;
 
-		if (locationDetails?.taskeeLocation?.locationDisplayName) {
-			return locationDetails.taskeeLocation.locationDisplayName;
+		if (locationTypes.includes('taskee_location')) {
+			return (
+				locationDetails?.taskeeLocation?.locationDisplayName ||
+				taskeeLocation?.displayName ||
+				taskeeLocation?.formattedAddress ||
+				getLocationTypeLabel('taskee_location')
+			);
 		}
 
-		if (locationDetails?.taskerLocation?.serviceLocation?.displayName) {
-			return locationDetails.taskerLocation.serviceLocation.displayName;
+		if (locationTypes.includes('tasker_location')) {
+			return (
+				taskerLocation?.displayName ||
+				taskerLocation?.formattedAddress ||
+				getLocationTypeLabel('tasker_location')
+			);
 		}
 
-		if (locationDetails?.types?.includes('remote')) {
-			return tr('dashboard.services.detail.location.remote', 'Remote');
+		if (locationTypes.includes('remote')) {
+			return getLocationTypeLabel('remote');
 		}
 
 		return '';
@@ -174,7 +206,7 @@
 
 	function getServiceRadiusDisplay(): string {
 		const locationDetails = service.locationDetails;
-		const serviceLocationTypes = service.serviceLocationTypes;
+		const serviceLocationTypes = getServiceLocationTypes();
 
 		if (!serviceLocationTypes?.includes('taskee_location')) {
 			return '';

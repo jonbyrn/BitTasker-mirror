@@ -1,34 +1,25 @@
 <script lang="ts">
+	import type { Component } from 'svelte';
+	import type { ContractWithEvents } from '$lib/types/contract';
 	import type { Service } from '$lib/types/service.d';
-	import type { ServiceQuoteTimelineEntry } from '$lib/types/service-quote';
 	import { onMount } from 'svelte';
 	import { fade, scale } from 'svelte/transition';
 	import { goto } from '$app/navigation';
-	import { t, locale } from 'svelte-i18n';
+	import { t } from 'svelte-i18n';
 	import { findMyServices } from '$lib/nostr/findServices';
 	import { deleteService, updateService } from '$lib/nostr/service';
-	import { getServiceDisplayTitle } from '$lib/utils/serviceDisplayTranslation';
 	import { appStore } from '$lib/stores/app.store';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import IconPlus from '~icons/mdi/plus';
 	import IconPencilOutline from '~icons/mdi/pencil-outline';
 	import IconBriefcaseOutline from '~icons/mdi/briefcase-outline';
 	import DashboardServiceCard from './DashboardServiceCard.svelte';
-	import ServiceQuotesInbox from '$lib/components/service/quotes/ServiceQuotesInbox.svelte';
 	import { contractStore } from '$lib/stores/contract.store';
-	import { createDashboardUrl } from '$lib/utils/service-quote/dashboard-route';
 	import {
 		getActiveServiceContractsForService,
 		selectPrimaryActiveServiceContract
 	} from '$lib/utils/service-contract/active-contracts';
-	import {
-		buildServiceAddress,
-		isRequestSyncActive,
-		isProviderTimelineSyncing,
-		serviceQuoteUiStore
-	} from '$lib/stores/service-quote-ui.store';
-	import { walletStore } from '$lib/stores/wallet.store';
-	import { resolveProviderProposalAuthoring } from '$lib/utils/service-quote/provider-authoring';
+	import { buildServiceAddress } from '$lib/stores/service-quote-ui.store';
 	import { queryTaskeeServiceQuoteThreads } from '$lib/utils/service-quote/query';
 	import { summarizeDeleteGuardForThreads } from '$lib/utils/service-quote/resolver';
 	import { buildEarningQueryUrl } from '$lib/utils/dashboardQuery';
@@ -37,31 +28,39 @@
 		clearPendingServiceDelete,
 		getPendingServiceDeleteKey,
 		markServiceDeletePending,
-		pendingServiceDeleteStore
+		pendingServiceDeleteStore,
+		reconcilePendingServiceDeletes
 	} from '$lib/stores/service-delete-ui.store';
 	import Modal from '$lib/components/Modal.svelte';
 	import ServiceDrawer from './ServiceDrawer.svelte';
-	import { createServicesWorkspaceUrl } from '$lib/utils/service-quote/services-workspace-route';
 	import DashboardEmptyState from '$lib/components/shared/DashboardEmptyState.svelte';
-	import ServiceFilterSelect from '$lib/components/service/ServiceFilterSelect.svelte';
+	import ErrorAlertWithModal from '$lib/components/ErrorAlertWithModal.svelte';
+	import { detectErrorType } from '$lib/utils/helpers/errorTypeDetector';
+	import { escrow } from '$lib/utils/escrow';
+
+	const PAGE_SIZE = 12;
+	const MY_SERVICES_FETCH_LIMIT = 1000;
+	const CONTRACTS_SNAPSHOT_LIMIT = 50;
+	const MAX_CONTRACTS_SNAPSHOT_PAGES = 20;
 
 	let {
-		view = 'default',
-		selectedServiceAddress = null,
-		focusedRequestId = null,
-		onResolveQuotesRoute,
-		onOpenServiceQuotes
+		onOpenServiceQuotes,
+		loadMyServices = findMyServices,
+		updateMyService = updateService,
+		deleteMyService = deleteService,
+		loadContractsContinuity = () => contractStore.loadContracts(),
+		loadContractsSnapshot,
+		queryProviderQuoteThreads = queryTaskeeServiceQuoteThreads,
+		deletePortfolioMedia = deleteServicePortfolioMedia
 	}: {
-		view?: 'default' | 'quotes';
-		selectedServiceAddress?: string | null;
-		focusedRequestId?: string | null;
-		onResolveQuotesRoute?: (
-			update:
-				| { type: 'service'; serviceAddress: string; requestId?: string | null }
-				| { type: 'reset' }
-				| { type: 'request'; requestId: string | null }
-		) => void;
 		onOpenServiceQuotes?: (service: Service) => void;
+		loadMyServices?: typeof findMyServices;
+		updateMyService?: typeof updateService;
+		deleteMyService?: typeof deleteService;
+		loadContractsContinuity?: () => Promise<void>;
+		loadContractsSnapshot?: () => Promise<ContractWithEvents[]>;
+		queryProviderQuoteThreads?: typeof queryTaskeeServiceQuoteThreads;
+		deletePortfolioMedia?: typeof deleteServicePortfolioMedia;
 	} = $props();
 
 	let services = $state<Service[]>([]);
@@ -70,8 +69,7 @@
 	let togglingServiceId = $state<string | null>(null);
 	let btcPrice = $state<number>(0);
 	let deleteSubmitServiceId = $state<string | null>(null);
-	let lastProviderLoadKey = $state<string | null>(null);
-	let lastQuotesRouteResolutionKey = $state<string | null>(null);
+	let currentPage = $state(1);
 	let deleteModalState = $state<{
 		mode: 'blocked' | 'confirm';
 		service: Service;
@@ -80,40 +78,24 @@
 		totalQuoteCount: number;
 	} | null>(null);
 
-	// Service drawer state
 	let selectedServiceForDrawer = $state<Service | null>(null);
 	let drawerOpen = $state(false);
 	let activeServiceModal = $state<'edit' | null>(null);
-	let quoteWorkspaceState = $state<{
-		providerTimelinesByService: Record<string, ServiceQuoteTimelineEntry[]>;
-		loadingProviderByService: Record<string, boolean>;
-		providerLoadErrorByService: Record<string, string | null>;
-		providerLoadedByService: Record<string, boolean>;
-		providerDataFreshnessByService: Record<string, 'fresh' | 'stale' | 'partial'>;
-		focusSync: {
-			requestId: string | null;
-			serviceAddress: string | null;
-			expiresAt: number | null;
-		};
-	}>({
-		providerTimelinesByService: {},
-		loadingProviderByService: {},
-		providerLoadErrorByService: {},
-		providerLoadedByService: {},
-		providerDataFreshnessByService: {},
-		focusSync: {
-			requestId: null,
-			serviceAddress: null,
-			expiresAt: null
-		}
-	});
+	let fullContractsSnapshot = $state<ContractWithEvents[]>([]);
+	let contractsSnapshotLoaded = $state(false);
+	let contractsSnapshotPromise: Promise<ContractWithEvents[]> | null = null;
+	const emptyStateIcon = IconBriefcaseOutline as unknown as Component<{
+		class?: string;
+		'aria-hidden'?: string;
+	}>;
+	const emptyStateActionIcon = IconPlus as unknown as Component<{
+		class?: string;
+		'aria-hidden'?: string;
+	}>;
 
-	const selectedService = $derived(
-		services.find((service) => buildServiceAddress(service) === selectedServiceAddress) ?? null
+	const isPasskeyLoadError = $derived.by(
+		() => Boolean(error) && detectErrorType(error ?? '') === 'biometric'
 	);
-	const providerAuthoring = $derived(resolveProviderProposalAuthoring($walletStore.rsk.address));
-	const walletReady = $derived(providerAuthoring.ok);
-	const feeTierReady = $derived(true);
 
 	function tr(key: string, fallback: string): string {
 		try {
@@ -133,20 +115,18 @@
 		}
 	}
 
-	// Sort services: active first (newest to oldest), then inactive (newest to oldest)
 	const sortedServices = $derived(
 		[...services].sort((a, b) => {
-			// First sort by status (active before inactive/sold)
 			const statusOrder = { active: 0, inactive: 1, sold: 2 };
 			const statusA = statusOrder[a.status] ?? 3;
 			const statusB = statusOrder[b.status] ?? 3;
 			if (statusA !== statusB) {
 				return statusA - statusB;
 			}
-			// Then sort by createdAt descending (newest first)
 			return (b.createdAt ?? 0) - (a.createdAt ?? 0);
 		})
 	);
+
 	const visibleServices = $derived.by(() => {
 		const pendingKeys = new Set($pendingServiceDeleteStore.map((entry) => entry.key));
 		const pendingIds = new Set($pendingServiceDeleteStore.map((entry) => entry.serviceId));
@@ -156,100 +136,23 @@
 			return !pendingKeys.has(key) && !pendingIds.has(service.id);
 		});
 	});
-	const visibleServiceAddresses = $derived(
-		visibleServices.map((service) => buildServiceAddress(service))
+
+	const totalServices = $derived(visibleServices.length);
+	const totalPages = $derived(Math.max(1, Math.ceil(totalServices / PAGE_SIZE)));
+	const paginatedServices = $derived.by(() => {
+		const start = (currentPage - 1) * PAGE_SIZE;
+		return visibleServices.slice(start, start + PAGE_SIZE);
+	});
+	const pageNumbers = $derived.by(() =>
+		Array.from({ length: totalPages }, (_, index) => index + 1)
 	);
-	const serviceTitleByAddress = $derived.by(() =>
-		Object.fromEntries(
-			visibleServices.map((service) => [
-				buildServiceAddress(service),
-				getServiceDisplayTitle(service, $locale || 'en')
-			])
-		)
-	);
-	const activeQuoteServiceAddresses = $derived.by(() =>
-		selectedServiceAddress ? [selectedServiceAddress] : visibleServiceAddresses
-	);
-	const providerTimelines = $derived.by(() => {
-		if (selectedServiceAddress) {
-			return quoteWorkspaceState.providerTimelinesByService[selectedServiceAddress] ?? [];
-		}
-
-		return activeQuoteServiceAddresses
-			.flatMap(
-				(serviceAddress) => quoteWorkspaceState.providerTimelinesByService[serviceAddress] ?? []
-			)
-			.sort((left, right) => right.request.created_at - left.request.created_at);
-	});
-	const providerQuotesSyncing = $derived.by(() => {
-		if (selectedServiceAddress) {
-			return isProviderTimelineSyncing(
-				quoteWorkspaceState,
-				selectedServiceAddress,
-				focusedRequestId
-			);
-		}
-
-		if (activeQuoteServiceAddresses.length === 0) {
-			return false;
-		}
-
-		return (
-			activeQuoteServiceAddresses.some(
-				(serviceAddress) => quoteWorkspaceState.loadingProviderByService[serviceAddress] === true
-			) || isRequestSyncActive(quoteWorkspaceState, focusedRequestId, null)
-		);
-	});
-	const providerQuotesError = $derived.by(() => {
-		if (selectedServiceAddress) {
-			return quoteWorkspaceState.providerLoadErrorByService[selectedServiceAddress] ?? null;
-		}
-
-		return (
-			activeQuoteServiceAddresses
-				.map(
-					(serviceAddress) => quoteWorkspaceState.providerLoadErrorByService[serviceAddress] ?? null
-				)
-				.find((message) => message !== null) ?? null
-		);
-	});
-	const providerQuotesLoaded = $derived.by(() => {
-		if (selectedServiceAddress) {
-			return quoteWorkspaceState.providerLoadedByService[selectedServiceAddress] === true;
-		}
-
-		if (activeQuoteServiceAddresses.length === 0) {
-			return false;
-		}
-
-		return activeQuoteServiceAddresses.every(
-			(serviceAddress) => quoteWorkspaceState.providerLoadedByService[serviceAddress] === true
-		);
-	});
-	const providerDataFreshness = $derived.by(() => {
-		if (selectedServiceAddress) {
-			return quoteWorkspaceState.providerDataFreshnessByService[selectedServiceAddress] ?? 'fresh';
-		}
-
-		const statuses = activeQuoteServiceAddresses.map(
-			(serviceAddress) =>
-				quoteWorkspaceState.providerDataFreshnessByService[serviceAddress] ?? 'fresh'
-		);
-
-		if (statuses.includes('partial')) {
-			return 'partial';
-		}
-		if (statuses.includes('stale')) {
-			return 'stale';
-		}
-		return 'fresh';
-	});
 
 	async function loadServices() {
 		loading = true;
 		error = null;
 		try {
-			const result = await findMyServices({ limit: 100 });
+			const result = await loadMyServices({ limit: MY_SERVICES_FETCH_LIMIT });
+			reconcilePendingServiceDeletes(result.services);
 			services = result.services;
 		} catch (e) {
 			console.error('Failed to load my services:', e);
@@ -263,103 +166,122 @@
 	async function fetchBtcPrice(): Promise<void> {
 		try {
 			btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
-		} catch (error) {
-			console.error('Error fetching BTC price:', error);
+		} catch (priceError) {
+			console.error('Error fetching BTC price:', priceError);
 		}
 	}
 
 	onMount(() => {
 		loadServices();
 		fetchBtcPrice();
-		void contractStore.loadContracts().catch((contractError) => {
+		void loadContractsContinuity().catch((contractError) => {
 			console.error('Failed to load contracts for my services continuity:', contractError);
 		});
-	});
-
-	$effect(() => {
-		const unsubscribe = serviceQuoteUiStore.subscribe((state) => {
-			quoteWorkspaceState = {
-				providerTimelinesByService: state.providerTimelinesByService,
-				loadingProviderByService: state.loadingProviderByService,
-				providerLoadErrorByService: state.providerLoadErrorByService,
-				providerLoadedByService: state.providerLoadedByService,
-				providerDataFreshnessByService: state.providerDataFreshnessByService,
-				focusSync: state.focusSync
-			};
+		void refreshContractsSnapshot().catch((contractError) => {
+			console.error('Failed to load full contracts snapshot for my services:', contractError);
 		});
-
-		return unsubscribe;
 	});
 
 	$effect(() => {
-		if (view !== 'quotes') {
-			lastProviderLoadKey = null;
-			return;
+		if (currentPage > totalPages) {
+			currentPage = totalPages;
 		}
-
-		if (activeQuoteServiceAddresses.length === 0) {
-			lastProviderLoadKey = null;
-			return;
-		}
-
-		const nextLoadKey = `${selectedServiceAddress ?? 'all'}::${activeQuoteServiceAddresses.join('|')}::${
-			focusedRequestId ?? ''
-		}`;
-		if (lastProviderLoadKey === nextLoadKey) {
-			return;
-		}
-
-		lastProviderLoadKey = nextLoadKey;
-
-		void Promise.allSettled(
-			activeQuoteServiceAddresses.map((serviceAddress) =>
-				serviceQuoteUiStore.loadProviderTimelines(serviceAddress, focusedRequestId)
-			)
-		);
 	});
 
-	$effect(() => {
-		if (view !== 'quotes' || loading) return;
+	function getContractsForServiceChecks(): ContractWithEvents[] {
+		if (contractsSnapshotLoaded) {
+			return fullContractsSnapshot;
+		}
 
-		if (visibleServices.length === 0 && !selectedServiceAddress) {
-			if (lastQuotesRouteResolutionKey === 'reset') {
-				return;
+		return $contractStore.contracts;
+	}
+
+	async function fetchContractsSnapshot(): Promise<ContractWithEvents[]> {
+		if (loadContractsSnapshot) {
+			return await loadContractsSnapshot();
+		}
+
+		const contractsByEscrowId: Record<string, ContractWithEvents> = {};
+		let until: number | null = null;
+		let previousBoundary: number | null = null;
+
+		for (let pageIndex = 0; pageIndex < MAX_CONTRACTS_SNAPSHOT_PAGES; pageIndex += 1) {
+			const batch = await escrow.contractOps.getContracts({
+				limit: CONTRACTS_SNAPSHOT_LIMIT,
+				...(typeof until === 'number' ? { until } : {})
+			});
+
+			if (batch.length === 0) {
+				break;
 			}
-			lastQuotesRouteResolutionKey = 'reset';
-			onResolveQuotesRoute?.({ type: 'reset' });
+
+			for (const contract of batch) {
+				const escrowId = contract.escrowData?.id ?? contract.contractEvent.content.escrowId;
+				contractsByEscrowId[escrowId] = contract;
+			}
+
+			if (batch.length < CONTRACTS_SNAPSHOT_LIMIT) {
+				break;
+			}
+
+			const oldestTimestamp = batch[batch.length - 1]?.contractEvent.created_at ?? null;
+			if (oldestTimestamp === null) {
+				break;
+			}
+
+			const nextBoundary =
+				previousBoundary !== null && oldestTimestamp >= previousBoundary
+					? previousBoundary - 1
+					: oldestTimestamp - 1;
+			if (nextBoundary < 0) {
+				break;
+			}
+
+			previousBoundary = oldestTimestamp;
+			until = nextBoundary;
+		}
+
+		return Object.values(contractsByEscrowId);
+	}
+
+	async function refreshContractsSnapshot(
+		options: { force?: boolean } = {}
+	): Promise<ContractWithEvents[]> {
+		if (contractsSnapshotLoaded && !options.force) {
+			return fullContractsSnapshot;
+		}
+
+		if (contractsSnapshotPromise) {
+			return contractsSnapshotPromise;
+		}
+
+		contractsSnapshotPromise = (async () => {
+			const contracts = await fetchContractsSnapshot();
+			fullContractsSnapshot = contracts;
+			contractsSnapshotLoaded = true;
+			return contracts;
+		})();
+
+		try {
+			return await contractsSnapshotPromise;
+		} finally {
+			contractsSnapshotPromise = null;
+		}
+	}
+
+	function goToPage(page: number) {
+		if (page < 1 || page > totalPages) {
 			return;
 		}
 
-		lastQuotesRouteResolutionKey = null;
-	});
-
-	function handleOpenQuotes(service: Service) {
-		if (onOpenServiceQuotes) {
-			onOpenServiceQuotes(service);
-			return;
+		currentPage = page;
+		try {
+			window.scrollTo({ top: 0, behavior: 'smooth' });
+		} catch {
+			// jsdom does not implement window.scrollTo
 		}
-
-		const nextUrl = createServicesWorkspaceUrl(new URL('/earning', window.location.origin), {
-			tab: 'quotes',
-			serviceAddress: buildServiceAddress(service),
-			requestId: null
-		});
-		goto(nextUrl.toString());
 	}
 
-	function resolveProposalServiceContext(requestId: string) {
-		const matchingTimeline = providerTimelines.find(
-			(entry) => entry.request.content.quoteRequestId === requestId
-		);
-		const serviceAddress =
-			matchingTimeline?.request.content.serviceAddress ?? selectedServiceAddress;
-		const service =
-			services.find((entry) => buildServiceAddress(entry) === serviceAddress) ?? selectedService;
-
-		return { service, serviceAddress };
-	}
-
-	// Service drawer functions
 	function openServiceDrawer(service: Service) {
 		selectedServiceForDrawer = service;
 		drawerOpen = true;
@@ -392,7 +314,7 @@
 	}
 
 	function getPrimaryActiveContract(service: Service) {
-		return selectPrimaryActiveServiceContract($contractStore.contracts, service);
+		return selectPrimaryActiveServiceContract(getContractsForServiceChecks(), service);
 	}
 
 	function closeDeleteModal() {
@@ -403,46 +325,53 @@
 		deleteModalState = null;
 	}
 
-	function handleViewActiveContracts(service: Service) {
-		const primaryContract = getPrimaryActiveContract(service);
+	function handleOpenQuotes(service: Service) {
+		if (onOpenServiceQuotes) {
+			onOpenServiceQuotes(service);
+			return;
+		}
+
+		const nextUrl = new URL(
+			buildEarningQueryUrl(new URL('/earning', window.location.origin), {
+				tab: 'requests',
+				service: buildServiceAddress(service)
+			})
+		);
+		goto(`${nextUrl.pathname}${nextUrl.search}`);
+	}
+
+	async function handleViewActiveContracts(service: Service) {
+		const contracts = await refreshContractsSnapshot();
+		const primaryContract = selectPrimaryActiveServiceContract(contracts, service);
 		if (!primaryContract) {
 			return;
 		}
 
 		const highlightEscrowId =
 			primaryContract.escrowData?.id ?? primaryContract.contractEvent.content.escrowId;
-		const nextUrl = window.location.pathname.startsWith('/earning')
-			? new URL(
-					buildEarningQueryUrl(new URL('/earning', window.location.origin), {
-						tab: 'contracts',
-						context: 'services',
-						highlight: highlightEscrowId,
-						service: buildServiceAddress(service)
-					})
-				)
-			: createDashboardUrl(new URL('/dashboard', window.location.origin), {
-					tab: 'contracts',
-					context: 'services',
-					highlight: highlightEscrowId
-				});
-		goto(nextUrl.toString());
+		const nextUrl = new URL(
+			buildEarningQueryUrl(new URL('/earning', window.location.origin), {
+				tab: 'contracts',
+				context: 'services',
+				highlight: highlightEscrowId,
+				service: buildServiceAddress(service)
+			})
+		);
+		goto(`${nextUrl.pathname}${nextUrl.search}`);
 	}
 
 	async function handleStatusToggle(service: Service) {
 		const id = service.uniqueId || service.id;
-		if (!id) return;
-		if (service.status === 'sold') return;
+		if (!id || service.status === 'sold') return;
 		togglingServiceId = id;
 		try {
 			const nextStatus = service.status === 'active' ? 'inactive' : 'active';
-			// Update local state immediately to avoid stale data
 			services = services.map((s) =>
 				(s.uniqueId || s.id) === id ? { ...s, status: nextStatus } : s
 			);
-			await updateService(id, { status: nextStatus });
+			await updateMyService(id, { status: nextStatus });
 			appStore.showSuccessToast($t('dashboard.services.my_services.status_updated'));
 		} catch {
-			// Rollback on error
 			services = services.map((s) =>
 				(s.uniqueId || s.id) === id ? { ...s, status: service.status } : s
 			);
@@ -453,14 +382,14 @@
 	}
 
 	async function inspectDeleteGuards(service: Service) {
-		await contractStore.loadContracts();
-		const quoteThreads = await queryTaskeeServiceQuoteThreads({
+		const contracts = await refreshContractsSnapshot({ force: true });
+		const quoteThreads = await queryProviderQuoteThreads({
 			serviceAddress: buildServiceAddress(service),
 			taskeePubkey: service.npub,
 			limit: 100
 		});
 		const quoteGuard = summarizeDeleteGuardForThreads(quoteThreads);
-		const activeContracts = getActiveServiceContractsForService($contractStore.contracts, service);
+		const activeContracts = getActiveServiceContractsForService(contracts, service);
 
 		return {
 			hasOpenQuotes: quoteGuard.hasBlockingThreads,
@@ -484,10 +413,10 @@
 				activeContractCount: guard.activeContractCount,
 				totalQuoteCount: guard.totalQuoteCount
 			};
-		} catch (error) {
+		} catch (deleteError) {
 			appStore.showErrorToast(
-				error instanceof Error
-					? error.message
+				deleteError instanceof Error
+					? deleteError.message
 					: tr(
 							'dashboard.services.my_services.delete_modal.verify_failed',
 							'Unable to verify whether this service can be deleted right now.'
@@ -507,7 +436,7 @@
 		markServiceDeletePending(service);
 		try {
 			const guard = await inspectDeleteGuards(service);
-			await deleteService(
+			await deleteMyService(
 				service.id,
 				{
 					hasOpenQuotes: guard.hasOpenQuotes,
@@ -517,7 +446,7 @@
 					uniqueId: service.uniqueId ?? null
 				}
 			);
-			await deleteServicePortfolioMedia(service.portfolio);
+			await deletePortfolioMedia(service.portfolio);
 			appStore.showSuccessToast(
 				tr(
 					'dashboard.services.my_services.delete_modal.delete_success',
@@ -526,11 +455,11 @@
 			);
 			deleteModalState = null;
 			await loadServices();
-		} catch (error) {
+		} catch (deleteError) {
 			clearPendingServiceDelete(service);
 			const message =
-				error instanceof Error
-					? error.message
+				deleteError instanceof Error
+					? deleteError.message
 					: tr(
 							'dashboard.services.my_services.delete_modal.delete_failed',
 							'Unable to delete this service right now.'
@@ -555,10 +484,6 @@
 		}
 	}
 
-	/**
-	 * Get action buttons for each service - matching My Tasks card pattern
-	 * Details button opens drawer, Quotes button opens quotes view
-	 */
 	function getServiceActionButtons(service: Service) {
 		const actions: Array<{
 			label: string;
@@ -567,7 +492,6 @@
 			icon: string;
 		}> = [];
 
-		// Details button - opens the service drawer (like task cards)
 		actions.push({
 			label: tr('dashboard.services.my_services.view_details', 'Details'),
 			class: 'btn-outline btn-sm',
@@ -578,7 +502,6 @@
 			icon: 'view_details'
 		});
 
-		// Quotes button - opens the dedicated services workspace quote inbox
 		actions.push({
 			label: tr('dashboard.services.my_services.actions.quotes', 'Requests'),
 			class: 'btn-primary btn-sm',
@@ -589,14 +512,13 @@
 			icon: 'view_quotes'
 		});
 
-		// View Active Contracts button (only if there are active contracts)
 		if (getPrimaryActiveContract(service)) {
 			actions.push({
 				label: tr('dashboard.services.my_services.actions.contracts', 'Contracts'),
 				class: 'btn-success btn-outline btn-sm',
-				onclick: (e: MouseEvent) => {
+				onclick: async (e: MouseEvent) => {
 					e.stopPropagation();
-					handleViewActiveContracts(service);
+					await handleViewActiveContracts(service);
 				},
 				icon: 'contracts'
 			});
@@ -612,114 +534,84 @@
 		<p class="text-base-content/70 mt-4">{$t('dashboard.services.my_services.loading')}</p>
 	</div>
 {:else if error}
-	<div class="alert alert-error alert-outline">
-		<span>{$t('dashboard.services.my_services.error_loading')}: {error}</span>
-	</div>
+	{#if isPasskeyLoadError}
+		<ErrorAlertWithModal
+			{error}
+			isPasskeyError
+			autoOpenModal={false}
+			onRetry={loadServices}
+			class="w-full"
+		/>
+	{:else}
+		<div class="alert alert-error alert-outline">
+			<span>{$t('dashboard.services.my_services.error_loading')}: {error}</span>
+		</div>
+	{/if}
 	<button type="button" class="btn btn-primary btn-sm mt-4" onclick={loadServices}>
 		{$t('dashboard.services.my_services.retry')}
 	</button>
-{:else if visibleServices.length === 0 && !(view === 'quotes' && selectedServiceAddress)}
+{:else if visibleServices.length === 0}
 	<div class="card bg-base-100 rounded-xl p-4">
 		<DashboardEmptyState
-			icon={IconBriefcaseOutline}
+			icon={emptyStateIcon}
 			title={$t('dashboard.services.my_services.empty_title')}
 			description={$t('dashboard.services.my_services.empty_message')}
 			actionLabel={$t('dashboard.services.my_services.create_service')}
 			actionHref="/dashboard/create-service"
-			actionIcon={IconPlus}
+			actionIcon={emptyStateActionIcon}
 			testId="dashboard-my-services-empty-state"
 		/>
 	</div>
-{:else if view === 'default'}
-	<div class="grid grid-cols-1 gap-5">
-		{#each visibleServices as service (service.id)}
-			<DashboardServiceCard
-				{service}
-				getActionButtons={getServiceActionButtons}
-				onStatusToggle={(e) => {
-					e.stopPropagation();
-					handleStatusToggle(service);
-				}}
-				isTogglingStatus={togglingServiceId === (service.uniqueId || service.id)}
-				{btcPrice}
-			/>
-		{/each}
-	</div>
 {:else}
-	<div class="space-y-4">
-		<ServiceFilterSelect
-			services={visibleServices}
-			{selectedServiceAddress}
-			filterLabel={tr('dashboard.services.my_services.workspace.filter_label', 'Filter by service')}
-			allServicesLabel={tr('dashboard.services.my_services.workspace.all_services', 'All Services')}
-			deletedServiceLabel={tr(
-				'dashboard.services.my_services.quote_inbox.deleted_service_prefix',
-				'Deleted service'
-			)}
-			testId="service-request-filter"
-			onChange={(serviceAddress) => {
-				if (!serviceAddress) {
-					onResolveQuotesRoute?.({ type: 'reset' });
-					return;
-				}
+	<div class="space-y-6">
+		<div class="grid grid-cols-1 gap-5">
+			{#each paginatedServices as service (service.id)}
+				<DashboardServiceCard
+					{service}
+					getActionButtons={getServiceActionButtons}
+					onStatusToggle={(e) => {
+						e.stopPropagation();
+						handleStatusToggle(service);
+					}}
+					isTogglingStatus={togglingServiceId === (service.uniqueId || service.id)}
+					{btcPrice}
+				/>
+			{/each}
+		</div>
 
-				onResolveQuotesRoute?.({
-					type: 'service',
-					serviceAddress,
-					requestId: null
-				});
-			}}
-		/>
+		{#if totalPages > 1}
+			<div class="flex items-center justify-center gap-2 py-2">
+				<button
+					type="button"
+					class="btn btn-sm btn-ghost"
+					onclick={() => goToPage(currentPage - 1)}
+					disabled={currentPage === 1}
+				>
+					{tr('common.pagination.previous', 'Previous')}
+				</button>
 
-		<ServiceQuotesInbox
-			service={selectedService}
-			serviceUnavailable={selectedServiceAddress !== null && selectedService === null}
-			showServiceTitles={selectedServiceAddress === null}
-			{serviceTitleByAddress}
-			dataFreshness={providerDataFreshness}
-			timelines={providerTimelines}
-			{focusedRequestId}
-			isSyncing={providerQuotesSyncing}
-			hasLoaded={providerQuotesLoaded}
-			loadError={providerQuotesError}
-			{walletReady}
-			{feeTierReady}
-			onRetry={() => {
-				if (activeQuoteServiceAddresses.length === 0) {
-					return;
-				}
-				return Promise.allSettled(
-					activeQuoteServiceAddresses.map((serviceAddress) =>
-						serviceQuoteUiStore.loadProviderTimelines(serviceAddress, focusedRequestId, {
-							force: true
-						})
-					)
-				);
-			}}
-			onRequestFocusChange={(requestId) => onResolveQuotesRoute?.({ type: 'request', requestId })}
-			onInvalidFocusedRequest={() => {
-				serviceQuoteUiStore.setNonBlockingMessage('service_quotes_request_not_found');
-				onResolveQuotesRoute?.({ type: 'request', requestId: null });
-			}}
-			onSendProposal={async (requestId, payload) => {
-				const { service, serviceAddress } = resolveProposalServiceContext(requestId);
-				if (!service || !serviceAddress) {
-					return {
-						success: false,
-						error: tr(
-							'dashboard.services.my_services.workspace.select_service_first',
-							'Select a service first.'
-						)
-					};
-				}
-				return serviceQuoteUiStore.sendLocalProposal({
-					service,
-					serviceAddress,
-					quoteRequestId: requestId,
-					...payload
-				});
-			}}
-		/>
+				<div class="flex gap-1">
+					{#each pageNumbers as page (page)}
+						<button
+							type="button"
+							class="btn btn-sm {currentPage === page ? 'btn-primary' : 'btn-ghost'}"
+							onclick={() => goToPage(page)}
+						>
+							{page}
+						</button>
+					{/each}
+				</div>
+
+				<button
+					type="button"
+					class="btn btn-sm btn-ghost"
+					onclick={() => goToPage(currentPage + 1)}
+					disabled={currentPage === totalPages}
+				>
+					{tr('common.pagination.next', 'Next')}
+				</button>
+			</div>
+		{/if}
 	</div>
 {/if}
 
@@ -830,7 +722,6 @@
 	{/if}
 </Modal>
 
-<!-- Service Drawer -->
 <ServiceDrawer
 	service={selectedServiceForDrawer}
 	isOpen={drawerOpen}
@@ -847,7 +738,6 @@
 	}}
 />
 
-<!-- Edit Service Confirmation Modal -->
 {#if activeServiceModal === 'edit' && selectedServiceForDrawer}
 	<div class="modal modal-open modal-middle" transition:fade={{ duration: 200 }}>
 		<div class="modal-box max-w-md" transition:scale={{ duration: 200, start: 0.9 }}>

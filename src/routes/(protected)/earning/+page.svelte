@@ -1,6 +1,8 @@
 <script lang="ts">
+	import { browser, dev } from '$app/environment';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
+	import { get } from 'svelte/store';
 	import { slide } from 'svelte/transition';
 	import { t } from 'svelte-i18n';
 	import Tabs from '$lib/components/Tabs.svelte';
@@ -8,8 +10,9 @@
 	import DashboardContractsPanel from '$lib/components/contracts/DashboardContractsPanel.svelte';
 	import DashboardSavedSearchesPanel from '$lib/components/task/DashboardSavedSearchesPanel.svelte';
 	import DashboardMyServicesPanel from '$lib/components/service/DashboardMyServicesPanel.svelte';
+	import DashboardServiceRequestsPanel from '$lib/components/service/DashboardServiceRequestsPanel.svelte';
 	import type { Service } from '$lib/types/service.d';
-	import { buildServiceAddress } from '$lib/stores/service-quote-ui.store';
+	import { buildServiceAddress, serviceQuoteUiStore } from '$lib/stores/service-quote-ui.store';
 	import {
 		buildEarningQueryUrl,
 		parseEarningQuery,
@@ -17,62 +20,86 @@
 		type EarningTab
 	} from '$lib/utils/dashboardQuery';
 
-	function translateOrFallback(key: string, fallback: string): string {
-		const translated = $t(key);
+	function translateOrFallback(
+		translate: (key: string) => string,
+		key: string,
+		fallback: string
+	): string {
+		const translated = translate(key);
 		return translated === key ? fallback : translated;
 	}
 
-	const tabs = $derived([
-		{
-			id: 'bids',
-			label: translateOrFallback('dashboard.tabs.bids', 'Bids'),
-			buttonLabel: translateOrFallback('dashboard.find_task', 'Find Tasks'),
-			buttonHref: '/tasks',
-			icon: 'search'
-		},
-		{
-			id: 'requests',
-			label: translateOrFallback('dashboard.tabs.requests', 'Requests'),
-			buttonLabel: translateOrFallback(
-				'dashboard.services.my_services.create_service',
-				'Create Service'
-			),
-			buttonHref: '/dashboard/create-service',
-			icon: 'plus'
-		},
-		{
-			id: 'contracts',
-			label: translateOrFallback('dashboard.tabs.contracts', 'Contracts'),
-			buttonLabel: translateOrFallback('dashboard.find_task', 'Find Tasks'),
-			buttonHref: '/tasks',
-			icon: 'search'
-		},
-		{
-			id: 'my-services',
-			label: translateOrFallback('dashboard.tabs.my_services', 'My Services'),
-			buttonLabel: translateOrFallback(
-				'dashboard.services.my_services.create_service',
-				'Create Service'
-			),
-			buttonHref: '/dashboard/create-service',
-			icon: 'plus'
-		},
-		{
-			id: 'saved-searches',
-			label: translateOrFallback('dashboard.tabs.saved_searches', 'Alerts'),
-			buttonLabel: translateOrFallback('dashboard.find_task', 'Find Tasks'),
-			buttonHref: '/tasks',
-			icon: 'search'
-		}
-	]);
+	const tabs = $derived.by(() => {
+		const translate = $t;
+
+		return [
+			{
+				id: 'bids',
+				label: translateOrFallback(translate, 'dashboard.tabs.bids', 'Bids'),
+				buttonLabel: translateOrFallback(translate, 'dashboard.find_task', 'Find Tasks'),
+				buttonHref: '/tasks',
+				icon: 'search'
+			},
+			{
+				id: 'requests',
+				label: translateOrFallback(translate, 'dashboard.tabs.requests', 'Requests'),
+				buttonLabel: translateOrFallback(
+					translate,
+					'dashboard.services.my_services.create_service',
+					'Create Service'
+				),
+				buttonHref: '/dashboard/create-service',
+				icon: 'plus'
+			},
+			{
+				id: 'contracts',
+				label: translateOrFallback(translate, 'dashboard.tabs.contracts', 'Contracts'),
+				buttonLabel: translateOrFallback(translate, 'dashboard.find_task', 'Find Tasks'),
+				buttonHref: '/tasks',
+				icon: 'search'
+			},
+			{
+				id: 'my-services',
+				label: translateOrFallback(translate, 'dashboard.tabs.my_services', 'My Services'),
+				buttonLabel: translateOrFallback(
+					translate,
+					'dashboard.services.my_services.create_service',
+					'Create Service'
+				),
+				buttonHref: '/dashboard/create-service',
+				icon: 'plus'
+			},
+			{
+				id: 'saved-searches',
+				label: translateOrFallback(translate, 'dashboard.tabs.saved_searches', 'Alerts'),
+				buttonLabel: translateOrFallback(translate, 'dashboard.find_task', 'Find Tasks'),
+				buttonHref: '/tasks',
+				icon: 'search'
+			}
+		];
+	});
 
 	let activeTabId = $state<EarningTab>('bids');
-	const activeTab = $derived(tabs.find((tab) => tab.id === activeTabId) || tabs[0]);
+	const activeTab = $derived.by(() => tabs.find((tab) => tab.id === activeTabId) || tabs[0]);
 	let contractsContext = $state<DashboardContractsContext>('all');
 	let currentContractsHighlight = $state<string | null>(null);
 	let selectedServiceAddress = $state<string | null>(null);
 	let focusedRequestId = $state<string | null>(null);
 	let nonBlockingMessageCode = $state<string | null>(null);
+
+	function logRequestsDebug(event: string, details: Record<string, unknown>) {
+		if (!browser || !dev) {
+			return;
+		}
+
+		console.info('[Earning Requests]', event, details);
+	}
+
+	function clearRequestsRouteMessage() {
+		if (get(serviceQuoteUiStore).nonBlockingMessageCode !== null) {
+			serviceQuoteUiStore.setNonBlockingMessage(null);
+		}
+	}
 
 	function syncRouteState() {
 		const parsed = parseEarningQuery(page.url);
@@ -81,6 +108,7 @@
 		currentContractsHighlight = parsed.highlight ?? null;
 		selectedServiceAddress = parsed.service ?? null;
 		focusedRequestId = parsed.request ?? null;
+		nonBlockingMessageCode = null;
 
 		const canonicalUrl = new URL(
 			buildEarningQueryUrl(page.url, {
@@ -91,6 +119,16 @@
 				request: parsed.request
 			})
 		);
+
+		if (parsed.tab === 'requests') {
+			logRequestsDebug('route-sync', {
+				url: `${page.url.pathname}${page.url.search}`,
+				tab: parsed.tab,
+				service: parsed.service ?? null,
+				request: parsed.request ?? null,
+				canonicalSearch: canonicalUrl.search
+			});
+		}
 
 		if (canonicalUrl.search !== page.url.search) {
 			goto(canonicalUrl.toString(), {
@@ -135,8 +173,15 @@
 		}
 
 		nonBlockingMessageCode = null;
+		clearRequestsRouteMessage();
 
 		if (nextTab === 'requests') {
+			logRequestsDebug('tab-change', {
+				fromTab: activeTabId,
+				toTab: nextTab,
+				preservedService: selectedServiceAddress,
+				clearedRequest: true
+			});
 			navigateToEarning({
 				tab: 'requests',
 				service: selectedServiceAddress,
@@ -169,8 +214,15 @@
 			| { type: 'reset' }
 			| { type: 'request'; requestId: string | null }
 	) {
+		logRequestsDebug('provider-route-update', {
+			update,
+			currentService: selectedServiceAddress,
+			currentRequest: focusedRequestId
+		});
+
 		if (update.type === 'reset') {
 			nonBlockingMessageCode = null;
+			clearRequestsRouteMessage();
 			navigateToEarning({
 				tab: 'requests',
 				service: null,
@@ -180,8 +232,14 @@
 		}
 
 		if (update.type === 'request') {
+			const pendingMessageCode = get(serviceQuoteUiStore).nonBlockingMessageCode;
 			nonBlockingMessageCode =
-				update.requestId === null ? 'service_quotes_request_not_found' : null;
+				update.requestId === null && pendingMessageCode === 'service_quotes_request_not_found'
+					? 'service_quotes_request_not_found'
+					: null;
+			if (pendingMessageCode !== null) {
+				serviceQuoteUiStore.setNonBlockingMessage(null);
+			}
 			navigateToEarning({
 				tab: 'requests',
 				service: selectedServiceAddress,
@@ -191,6 +249,7 @@
 		}
 
 		nonBlockingMessageCode = null;
+		clearRequestsRouteMessage();
 		navigateToEarning({
 			tab: 'requests',
 			service: update.serviceAddress,
@@ -200,6 +259,7 @@
 
 	function handleOpenServiceQuotes(service: Service) {
 		nonBlockingMessageCode = null;
+		clearRequestsRouteMessage();
 		handleProviderRouteUpdate({
 			type: 'service',
 			serviceAddress: buildServiceAddress(service),
@@ -245,7 +305,7 @@
 <div class="mx-auto h-full max-w-6xl px-2 py-6 md:px-0 md:py-0">
 	<div class="mb-6 flex items-center justify-between gap-3">
 		<div class="min-w-0">
-			<h3 class="font-bold">{translateOrFallback('dashboard.earning.title', 'Earning')}</h3>
+			<h3 class="font-bold">{translateOrFallback($t, 'dashboard.earning.title', 'Earning')}</h3>
 		</div>
 		<a href={activeTab.buttonHref} class="btn btn-primary btn-sm sm:btn-md whitespace-nowrap">
 			{#if activeTab.icon === 'search'}
@@ -303,20 +363,24 @@
 
 	<Tabs {tabs} activeTab={activeTabId} onTabChange={handleTabChange} />
 
-	{#if nonBlockingMessageCode}
+	{#if nonBlockingMessageCode === 'contracts_highlight_not_found'}
 		<div class="alert alert-info my-4 text-sm">
 			<span>
-				{#if nonBlockingMessageCode === 'service_quotes_request_not_found'}
-					{translateOrFallback(
-						'dashboard.earning.messages.service_quotes_request_not_found',
-						'The selected service quote thread could not be found.'
-					)}
-				{:else if nonBlockingMessageCode === 'contracts_highlight_not_found'}
-					{translateOrFallback(
-						'dashboard.earning.messages.contracts_highlight_not_found',
-						'The requested contract highlight could not be found.'
-					)}
-				{/if}
+				{translateOrFallback(
+					$t,
+					'dashboard.earning.messages.contracts_highlight_not_found',
+					'The requested contract highlight could not be found.'
+				)}
+			</span>
+		</div>
+	{:else if nonBlockingMessageCode === 'service_quotes_request_not_found'}
+		<div class="alert alert-info my-4 text-sm">
+			<span>
+				{translateOrFallback(
+					$t,
+					'dashboard.earning.messages.service_quotes_request_not_found',
+					'The selected service quote thread could not be found.'
+				)}
 			</span>
 		</div>
 	{/if}
@@ -337,8 +401,7 @@
 			aria-labelledby="tab-requests"
 			transition:slide={{ duration: 300 }}
 		>
-			<DashboardMyServicesPanel
-				view="quotes"
+			<DashboardServiceRequestsPanel
 				{selectedServiceAddress}
 				{focusedRequestId}
 				onResolveQuotesRoute={handleProviderRouteUpdate}
@@ -359,7 +422,7 @@
 				{selectedServiceAddress}
 				onServiceFilterChange={handleContractsServiceFilterChange}
 				onClearFilters={handleContractsFiltersReset}
-				emptyStateActionLabel={translateOrFallback('dashboard.find_task', 'Find Tasks')}
+				emptyStateActionLabel={translateOrFallback($t, 'dashboard.find_task', 'Find Tasks')}
 				emptyStateActionHref="/tasks"
 				highlightEscrowId={currentContractsHighlight}
 				onHighlightConsumed={handleContractsHighlightConsumed}
@@ -373,7 +436,7 @@
 			aria-labelledby="tab-my-services"
 			transition:slide={{ duration: 300 }}
 		>
-			<DashboardMyServicesPanel view="default" onOpenServiceQuotes={handleOpenServiceQuotes} />
+			<DashboardMyServicesPanel onOpenServiceQuotes={handleOpenServiceQuotes} />
 		</div>
 	{:else if activeTabId === 'saved-searches'}
 		<div
