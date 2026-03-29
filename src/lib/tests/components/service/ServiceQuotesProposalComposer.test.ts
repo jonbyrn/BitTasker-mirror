@@ -3,21 +3,36 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import ServiceProposalComposer from '$lib/components/service/quotes/ServiceProposalComposer.svelte';
 
 describe('ServiceProposalComposer', () => {
-	it('blocks submission when wallet or fee-tier prerequisites are missing', async () => {
-		const onSubmit = vi.fn();
+	it('does not render a persistent wallet warning and surfaces send errors inline', async () => {
+		const onSubmit = vi.fn().mockResolvedValue({
+			success: false,
+			error: 'Connect your wallet before sending a proposal.'
+		});
 
 		render(ServiceProposalComposer, {
 			props: {
-				requestTitle: 'Need a proposal',
-				walletReady: false,
-				feeTierReady: true,
 				onSubmit
 			}
 		});
 
+		expect(screen.queryByText('Connect your wallet before sending a proposal.')).toBeNull();
+
+		await fireEvent.input(screen.getByLabelText('Scope of work'), {
+			target: { value: 'Detailed migration plan.' }
+		});
+		await fireEvent.input(screen.getByLabelText('Amount (USD)'), {
+			target: { value: '180.00' }
+		});
+		await fireEvent.input(screen.getByLabelText('Estimated Start'), {
+			target: { value: '2026-03-20T09:30' }
+		});
+		await fireEvent.input(screen.getByLabelText('Estimated End'), {
+			target: { value: '2026-03-22T18:45' }
+		});
+
 		await fireEvent.click(screen.getByRole('button', { name: 'Send Proposal' }));
 
-		expect(onSubmit).not.toHaveBeenCalled();
+		await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
 		expect(screen.getByTestId('service-proposal-composer-error')).toHaveTextContent(
 			'Connect your wallet before sending a proposal.'
 		);
@@ -31,16 +46,12 @@ describe('ServiceProposalComposer', () => {
 
 		render(ServiceProposalComposer, {
 			props: {
-				requestTitle: 'Need a proposal',
-				walletReady: true,
-				feeTierReady: true,
 				onSubmit
 			}
 		});
 
-		const scope = screen.getByLabelText('Scope');
-		const amount = screen.getByLabelText('Amount (USDT)');
-		const duration = screen.getByLabelText('Estimated Duration');
+		const scope = screen.getByLabelText('Scope of work');
+		const amount = screen.getByLabelText('Amount (USD)');
 		const start = screen.getByLabelText('Estimated Start');
 		const end = screen.getByLabelText('Estimated End');
 
@@ -49,9 +60,6 @@ describe('ServiceProposalComposer', () => {
 		});
 		await fireEvent.input(amount, {
 			target: { value: '180.00' }
-		});
-		await fireEvent.input(duration, {
-			target: { value: '3 business days' }
 		});
 		await fireEvent.input(start, {
 			target: { value: '2026-03-20T09:30' }
@@ -75,7 +83,6 @@ describe('ServiceProposalComposer', () => {
 		expect(screen.queryByTestId('service-proposal-composer-error')).toBeNull();
 		expect(scope).toHaveValue('');
 		expect(amount).toHaveValue('');
-		expect(duration).toHaveValue('');
 		expect(start).toHaveValue('');
 		expect(end).toHaveValue('');
 	});
@@ -85,9 +92,7 @@ describe('ServiceProposalComposer', () => {
 
 		render(ServiceProposalComposer, {
 			props: {
-				requestTitle: 'Need a proposal',
-				walletReady: true,
-				feeTierReady: true,
+				disabled: true,
 				blockedReason:
 					'Quote data is still syncing. Sending is disabled until the latest request state loads.',
 				onSubmit
@@ -107,21 +112,15 @@ describe('ServiceProposalComposer', () => {
 
 		render(ServiceProposalComposer, {
 			props: {
-				requestTitle: 'Need a proposal',
-				walletReady: true,
-				feeTierReady: true,
 				onSubmit
 			}
 		});
 
-		await fireEvent.input(screen.getByLabelText('Scope'), {
+		await fireEvent.input(screen.getByLabelText('Scope of work'), {
 			target: { value: 'Detailed migration plan.' }
 		});
-		await fireEvent.input(screen.getByLabelText('Amount (USDT)'), {
+		await fireEvent.input(screen.getByLabelText('Amount (USD)'), {
 			target: { value: '180.00' }
-		});
-		await fireEvent.input(screen.getByLabelText('Estimated Duration'), {
-			target: { value: '3 business days' }
 		});
 		await fireEvent.input(screen.getByLabelText('Estimated Start'), {
 			target: { value: '2026-03-22T18:45' }
@@ -135,6 +134,38 @@ describe('ServiceProposalComposer', () => {
 		expect(onSubmit).not.toHaveBeenCalled();
 		expect(screen.getByTestId('service-proposal-composer-error')).toHaveTextContent(
 			'End time must be after start time.'
+		);
+	});
+
+	it('accepts integer USD amounts without requiring decimal places', async () => {
+		const onSubmit = vi.fn().mockResolvedValue({ success: true });
+
+		render(ServiceProposalComposer, {
+			props: {
+				onSubmit
+			}
+		});
+
+		await fireEvent.input(screen.getByLabelText('Scope of work'), {
+			target: { value: 'Detailed migration plan.' }
+		});
+		await fireEvent.input(screen.getByLabelText('Amount (USD)'), {
+			target: { value: '180' }
+		});
+		await fireEvent.input(screen.getByLabelText('Estimated Start'), {
+			target: { value: '2026-03-20T09:30' }
+		});
+		await fireEvent.input(screen.getByLabelText('Estimated End'), {
+			target: { value: '2026-03-22T18:45' }
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Send Proposal' }));
+
+		await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+		expect(onSubmit).toHaveBeenCalledWith(
+			expect.objectContaining({
+				amountUsdt: '180'
+			})
 		);
 	});
 });

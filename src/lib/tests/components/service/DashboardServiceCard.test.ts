@@ -1,10 +1,15 @@
 import { describe, expect, it, vi } from 'vitest';
-import { render } from '@testing-library/svelte';
+import { fireEvent, render } from '@testing-library/svelte';
 import DashboardServiceCard from '$lib/components/service/DashboardServiceCard.svelte';
 
 const translations: Record<string, string> = {
 	'dashboard.services.my_services.pricing_type.from': 'From',
+	'dashboard.services.my_services.pricing_type.quote_required': 'Quote required',
+	'dashboard.services.my_services.pricing_type.fixed': 'Fixed',
+	'dashboard.services.my_services.pricing_type.tiered': 'Tiered',
 	'dashboard.services.my_services.status_active': 'Active',
+	'dashboard.services.my_services.location.remote': 'Remote',
+	'dashboard.services.my_services.location.my_location': 'My Location',
 	'dashboard.services.my_services.location.tasker_location': 'Tasker Location',
 	'dashboard.services.my_services.timing.lead_time': 'Lead Time',
 	'dashboard.services.my_services.timing.delivery_time': 'Delivery Time',
@@ -90,5 +95,146 @@ describe('DashboardServiceCard', () => {
 		expect(getByText('Delivery Time:')).toBeTruthy();
 		expect(getByText('3 days')).toBeTruthy();
 		expect(getByText('Book Now')).toBeTruthy();
+	});
+
+	it('shows a fallback location label for inquiry-only services that only define serviceLocationTypes', () => {
+		const service = {
+			id: 'service-2',
+			uniqueId: 'service-2',
+			title: 'On-site troubleshooting',
+			description: 'Send details and I will quote the visit.',
+			status: 'active',
+			serviceLocationTypes: ['taskee_location'],
+			locationDetails: {
+				taskeeLocation: {
+					useGlobalLocation: false
+				}
+			},
+			pricing: {
+				type: 'INQUIRY_REQUIRED',
+				currency: 'USD'
+			}
+		};
+
+		const { getAllByText, queryByText } = render(DashboardServiceCard, {
+			service,
+			getActionButtons: () => [],
+			btcPrice: 100000
+		});
+
+		expect(getAllByText('Tasker Location')).toHaveLength(1);
+		expect(queryByText('My Location')).toBeNull();
+	});
+
+	it('renders the top-level serviceLocationTypes through the main location line when locationDetails.types is absent', () => {
+		const service = {
+			id: 'service-3',
+			uniqueId: 'service-3',
+			title: 'Remote audit',
+			description: 'Remote accessibility review.',
+			status: 'active',
+			serviceLocationTypes: ['remote', 'tasker_location'],
+			locationDetails: {
+				taskerLocation: {
+					serviceLocation: {
+						displayName: 'San Salvador, El Salvador'
+					}
+				}
+			},
+			pricing: {
+				type: 'INQUIRY_REQUIRED',
+				currency: 'USD'
+			}
+		};
+
+		const { getByText, queryByText } = render(DashboardServiceCard, {
+			service,
+			getActionButtons: () => [],
+			btcPrice: 100000
+		});
+
+		expect(getByText('San Salvador, El Salvador')).toBeTruthy();
+		expect(queryByText('My Location')).toBeNull();
+	});
+
+	it('renders the contracts action with a clickable icon path', async () => {
+		const actionSpy = vi.fn();
+		const service = {
+			id: 'service-4',
+			uniqueId: 'service-4',
+			title: 'Brand sprint',
+			description: 'Fast identity package.',
+			status: 'active',
+			serviceLocationTypes: ['remote'],
+			locationDetails: {},
+			pricing: {
+				type: 'INQUIRY_REQUIRED',
+				currency: 'USD'
+			}
+		};
+
+		const { getByRole } = render(DashboardServiceCard, {
+			service,
+			getActionButtons: () => [
+				{
+					label: 'Contracts',
+					class: 'btn-outline btn-sm',
+					onclick: actionSpy,
+					icon: 'contracts'
+				}
+			],
+			btcPrice: 100000
+		});
+
+		const contractsButton = getByRole('button', { name: 'Contracts' });
+		await fireEvent.click(contractsButton);
+
+		expect(actionSpy).toHaveBeenCalledTimes(1);
+		expect(contractsButton.querySelector('svg')).not.toBeNull();
+	});
+
+	it('shows the Book Now badge for eligible fixed-price services and hides it when the provider wallet is missing', () => {
+		const eligibleService = {
+			id: 'service-5',
+			uniqueId: 'service-5',
+			title: 'Resume review',
+			description: 'Fixed-price resume review.',
+			status: 'active',
+			providerWalletAddress: '0x45aFd3dAdc7CeFcc6c4B6bAf66299da085583361',
+			serviceLocationTypes: ['remote'],
+			instantBuyLeadHours: 24,
+			instantBuyDeliveryHours: 72,
+			pricing: {
+				type: 'FIXED',
+				currency: 'USD',
+				amount: 125
+			}
+		};
+
+		const { getByText, unmount } = render(DashboardServiceCard, {
+			service: eligibleService,
+			getActionButtons: () => [],
+			btcPrice: 100000
+		});
+
+		expect(getByText('Book Now')).toBeTruthy();
+		expect(getByText('Fixed')).toBeTruthy();
+		unmount();
+
+		const missingWalletService = {
+			...eligibleService,
+			id: 'service-6',
+			uniqueId: 'service-6',
+			providerWalletAddress: undefined
+		};
+
+		const withoutWallet = render(DashboardServiceCard, {
+			service: missingWalletService,
+			getActionButtons: () => [],
+			btcPrice: 100000
+		});
+
+		expect(withoutWallet.queryByText('Book Now')).toBeNull();
+		expect(withoutWallet.getByText('Fixed')).toBeTruthy();
 	});
 });
