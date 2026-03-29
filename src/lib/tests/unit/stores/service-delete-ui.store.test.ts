@@ -5,6 +5,7 @@ import {
 	filterPendingDeletedServices,
 	markServiceDeletePending,
 	pendingServiceDeleteStore,
+	reconcilePendingServiceDeletes,
 	resetServiceDeleteUiState
 } from '$lib/stores/service-delete-ui.store';
 import { get } from 'svelte/store';
@@ -63,5 +64,37 @@ describe('service delete ui store', () => {
 
 		expect(get(pendingServiceDeleteStore)).toEqual([]);
 		expect(filterPendingDeletedServices([deletedService])).toEqual([deletedService]);
+	});
+
+	it('clears a pending deletion once the service is absent from a fresh result set', () => {
+		const deletedService = createService();
+
+		markServiceDeletePending(deletedService);
+		reconcilePendingServiceDeletes([]);
+
+		expect(get(pendingServiceDeleteStore)).toEqual([]);
+	});
+
+	it('clears a pending deletion when a recreated service with the same unique id appears', () => {
+		const deletedService = createService();
+		const recreatedService = createService({
+			id: 'service-event-2'
+		});
+
+		markServiceDeletePending(deletedService);
+		reconcilePendingServiceDeletes([recreatedService]);
+
+		expect(get(pendingServiceDeleteStore)).toEqual([]);
+		expect(filterPendingDeletedServices([recreatedService])).toEqual([recreatedService]);
+	});
+
+	it('keeps the pending deletion when a stale refetch still returns the same service event', () => {
+		const deletedService = createService();
+
+		markServiceDeletePending(deletedService);
+		reconcilePendingServiceDeletes([deletedService]);
+
+		expect(get(pendingServiceDeleteStore)).toHaveLength(1);
+		expect(filterPendingDeletedServices([deletedService])).toEqual([]);
 	});
 });

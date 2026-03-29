@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import KINDS from '$lib/utils/constants/kinds';
 
-const publishNostrEvent = vi.fn();
 const queryNostrEvents = vi.fn();
 const getSignedEvent = vi.fn();
 const publishToMultipleRelays = vi.fn();
@@ -19,7 +18,6 @@ const sendNotificationToNpubs = vi.fn();
 
 vi.mock('$lib/utils/nostr', () => ({
 	getSignedEvent,
-	publishNostrEvent,
 	publishToMultipleRelays,
 	queryNostrEvents
 }));
@@ -39,12 +37,21 @@ vi.mock('$lib/api/services/push-notification.service', () => ({
 	}
 }));
 
-vi.mock('$lib/nostr/nip44', () => ({
-	default: {
-		encrypt: vi.fn().mockResolvedValue('encrypted-content'),
-		getConversationKey: vi.fn().mockResolvedValue(new Uint8Array([1, 2, 3]))
-	}
-}));
+const encrypt = vi.fn().mockResolvedValue('encrypted-content');
+const getConversationKey = vi.fn().mockResolvedValue(new Uint8Array([1, 2, 3]));
+
+vi.mock('nostr-tools', async () => {
+	const actual = await vi.importActual<typeof import('nostr-tools')>('nostr-tools');
+
+	return {
+		...actual,
+		nip44: {
+			...actual.nip44,
+			encrypt,
+			getConversationKey
+		}
+	};
+});
 
 vi.mock('$lib/utils/service-quote/protocol', async () => {
 	const actual = await vi.importActual<typeof import('$lib/utils/service-quote/protocol')>(
@@ -123,10 +130,13 @@ describe('service quote publish integration notifications', () => {
 		};
 
 		queryNostrEvents.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
-		publishNostrEvent.mockResolvedValue({
-			event: requestEvent,
-			results: [{ relay: 'wss://relay.example', success: true }]
+		getSignedEvent.mockResolvedValueOnce({
+			...requestEvent,
+			content: 'encrypted-content'
 		});
+		publishToMultipleRelays.mockResolvedValueOnce([
+			{ relay: 'wss://relay.example', success: true }
+		]);
 
 		await publishServiceQuoteRequest({
 			service: service as never,

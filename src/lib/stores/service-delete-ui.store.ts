@@ -50,6 +50,24 @@ export function clearPendingServiceDelete(
 	);
 }
 
+export function reconcilePendingServiceDeletes<T extends Pick<Service, 'id' | 'uniqueId'>>(
+	services: T[]
+): void {
+	pendingServiceDeleteStore.update((entries) =>
+		entries.filter((entry) => {
+			const matchingService = services.find(
+				(service) => getPendingServiceDeleteKey(service) === entry.key
+			);
+
+			if (!matchingService) {
+				return false;
+			}
+
+			return matchingService.id === entry.serviceId;
+		})
+	);
+}
+
 export function filterPendingDeletedServices<T extends Pick<Service, 'id' | 'uniqueId'>>(
 	services: T[]
 ): T[] {

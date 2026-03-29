@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { normalizeServiceContractSchedule } from '$lib/utils/service-contract/schedule';
 
 const getCurrentPrice = vi.fn();
 const createEscrow = vi.fn();
@@ -270,6 +271,56 @@ describe('service contract creation', () => {
 		});
 		expect(createEscrow).not.toHaveBeenCalled();
 		expect(registerPendingContractByTxHash).not.toHaveBeenCalled();
+	});
+
+	it('adjusts past start times forward before preflight and escrow creation', async () => {
+		const { createServiceContract } = await import('$lib/utils/service-contract/create');
+		const nowSeconds = Math.floor(Date.now() / 1000);
+		const originalStartTime = nowSeconds - 7200;
+		const originalCompletionTime = originalStartTime + 172800;
+		const normalizedSchedule = normalizeServiceContractSchedule(
+			originalStartTime,
+			originalCompletionTime,
+			nowSeconds
+		);
+
+		await createServiceContract({
+			freelancerPubkey: 'f'.repeat(64),
+			freelancerAddress: '0x1111111111111111111111111111111111111111',
+			amountUsdt: '125.00',
+			estimatedStartTime: originalStartTime,
+			estimatedCompletionTime: originalCompletionTime,
+			serviceId: '30402:' + 'a'.repeat(64) + ':service-1234',
+			serviceAddress: '30402:' + 'a'.repeat(64) + ':service-1234',
+			serviceTitle: 'Logo refresh',
+			contextVersionRef: 'service-event-1',
+			purchaseMode: 'quote',
+			pricingSnapshot: {
+				serviceVersionRef: 'service-event-1'
+			}
+		});
+
+		expect(preflightServiceContractCreation).toHaveBeenCalledWith(
+			expect.objectContaining({
+				estimatedStartTime: normalizedSchedule.estimatedStartTime,
+				estimatedCompletionTime: normalizedSchedule.estimatedCompletionTime
+			}),
+			100000
+		);
+		expect(createEscrow).toHaveBeenCalledWith(
+			'0x1111111111111111111111111111111111111111',
+			'0.00125000',
+			normalizedSchedule.estimatedStartTime,
+			normalizedSchedule.estimatedCompletionTime,
+			1,
+			1
+		);
+		expect(registerPendingContractByTxHash).toHaveBeenCalledWith(
+			expect.objectContaining({
+				estimatedStartTime: normalizedSchedule.estimatedStartTime,
+				estimatedCompletionTime: normalizedSchedule.estimatedCompletionTime
+			})
+		);
 	});
 
 	it('best-effort cleans up pending state when a post-transaction registration step fails', async () => {
