@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Drawer from '$lib/components/Drawer.svelte';
+	import { onMount } from 'svelte';
 	import { locale, t } from 'svelte-i18n';
 	import type { ServiceProposalEvent, ServiceQuoteTimelineEntry } from '$lib/types/service-quote';
 	import UserInfoDisplay from '$lib/components/user/UserInfoDisplay.svelte';
@@ -193,6 +194,66 @@
 			? `$${formatNumberWithTwoDecimals(numericAmount)}`
 			: `$${amount}`;
 	});
+	const inquiryDescription = $derived(timeline?.request.content.inquiry.description?.trim() ?? '');
+
+	let inquiryDescriptionElement: HTMLParagraphElement | null = $state(null);
+	let showFullInquiryDescription = $state(false);
+	let isInquiryDescriptionTruncated = $state(false);
+
+	function checkIfInquiryDescriptionTruncated() {
+		if (!inquiryDescriptionElement || !inquiryDescription) {
+			isInquiryDescriptionTruncated = false;
+			return;
+		}
+
+		const clone = inquiryDescriptionElement.cloneNode(true) as HTMLElement;
+		clone.className = inquiryDescriptionElement.className.replace(/line-clamp-\d+/g, '').trim();
+		clone.style.position = 'absolute';
+		clone.style.visibility = 'hidden';
+		clone.style.pointerEvents = 'none';
+		clone.style.height = 'auto';
+		clone.style.maxHeight = 'none';
+		clone.style.overflow = 'visible';
+		clone.style.width = `${inquiryDescriptionElement.offsetWidth}px`;
+		document.body.appendChild(clone);
+
+		const fullHeight = clone.scrollHeight;
+		const lineHeight = parseFloat(getComputedStyle(inquiryDescriptionElement).lineHeight) || 24;
+		const maxHeight = lineHeight * 3;
+
+		document.body.removeChild(clone);
+
+		isInquiryDescriptionTruncated = fullHeight > maxHeight + 1;
+	}
+
+	onMount(() => {
+		const handleResize = () => {
+			if (isOpen) {
+				checkIfInquiryDescriptionTruncated();
+			}
+		};
+
+		window.addEventListener('resize', handleResize);
+		return () => window.removeEventListener('resize', handleResize);
+	});
+
+	$effect(() => {
+		const requestId = timeline?.request.id ?? null;
+		const currentDescription = inquiryDescription;
+
+		showFullInquiryDescription = false;
+		isInquiryDescriptionTruncated = false;
+
+		if (!isOpen || !requestId || !currentDescription || !inquiryDescriptionElement) {
+			return;
+		}
+
+		requestAnimationFrame(() => {
+			setTimeout(() => {
+				checkIfInquiryDescriptionTruncated();
+			}, 0);
+		});
+	});
 </script>
 
 <Drawer {isOpen} title={drawerTitle} {onClose} isScrollable={true} respectBottomNav={true}>
@@ -211,9 +272,34 @@
 				{#if serviceTitle}
 					<p class="text-base-content/60 text-sm">{serviceTitle}</p>
 				{/if}
-				<p class="text-base-content/80 text-sm whitespace-pre-line">
-					{timeline.request.content.inquiry.description}
-				</p>
+				<div>
+					<p
+						bind:this={inquiryDescriptionElement}
+						class={`text-base-content/80 text-sm leading-6 whitespace-pre-line ${
+							showFullInquiryDescription ? '' : 'line-clamp-3'
+						}`}
+						id="service-proposal-drawer-inquiry-description"
+						data-testid="service-proposal-drawer-inquiry-description"
+					>
+						{timeline.request.content.inquiry.description}
+					</p>
+
+					{#if isInquiryDescriptionTruncated}
+						<button
+							type="button"
+							class="btn btn-ghost btn-xs mt-2 h-auto min-h-0 px-0 text-[0.75rem] font-semibold tracking-wide uppercase"
+							aria-controls="service-proposal-drawer-inquiry-description"
+							aria-expanded={showFullInquiryDescription}
+							onclick={() => {
+								showFullInquiryDescription = !showFullInquiryDescription;
+							}}
+						>
+							{showFullInquiryDescription
+								? tr('dashboard.service_requests.show_less', 'See Less')
+								: tr('dashboard.service_requests.show_more', 'See More')}
+						</button>
+					{/if}
+				</div>
 				{#if timeline.request.content.tierId || timeline.request.content.selectedAddOns?.length || timeline.request.content.rushDelivery}
 					<div class="flex flex-wrap gap-2 pt-1 text-xs">
 						{#if timeline.request.content.tierId}
@@ -265,10 +351,7 @@
 					<div class="grid gap-3 md:grid-cols-2">
 						<div class="bg-base-200/60 rounded-xl p-3">
 							<p class="text-base-content/60 text-xs font-medium">
-								{tr(
-									'dashboard.services.my_services.quote_inbox.estimated_start',
-									'Estimated Start'
-								)}
+								{tr('dashboard.services.my_services.quote_inbox.estimated_start', 'Start Date')}
 							</p>
 							<p class="mt-1 text-sm font-medium">
 								{formatDateTime(proposal.content.estimatedStartTime)}
@@ -276,7 +359,7 @@
 						</div>
 						<div class="bg-base-200/60 rounded-xl p-3">
 							<p class="text-base-content/60 text-xs font-medium">
-								{tr('dashboard.services.my_services.quote_inbox.estimated_end', 'Estimated End')}
+								{tr('dashboard.services.my_services.quote_inbox.estimated_end', 'End Date')}
 							</p>
 							<p class="mt-1 text-sm font-medium">
 								{formatDateTime(proposal.content.estimatedEndTime)}

@@ -166,12 +166,12 @@
 		</label>
 
 		<label class="form-control">
-			<span class="label-text mb-1 text-sm font-medium">Estimated Start</span>
+			<span class="label-text mb-1 text-sm font-medium">Start Date</span>
 			<input class="input input-bordered w-full" type="datetime-local" bind:value={startDateTime} />
 		</label>
 
 		<label class="form-control">
-			<span class="label-text mb-1 text-sm font-medium">Estimated End</span>
+			<span class="label-text mb-1 text-sm font-medium">End Date</span>
 			<input class="input input-bordered w-full" type="datetime-local" bind:value={endDateTime} />
 		</label>
 

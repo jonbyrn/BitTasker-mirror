@@ -23,10 +23,10 @@ describe('ServiceProposalComposer', () => {
 		await fireEvent.input(screen.getByLabelText('Amount (USD)'), {
 			target: { value: '180.00' }
 		});
-		await fireEvent.input(screen.getByLabelText('Estimated Start'), {
+		await fireEvent.input(screen.getByLabelText('Start Date'), {
 			target: { value: '2026-03-20T09:30' }
 		});
-		await fireEvent.input(screen.getByLabelText('Estimated End'), {
+		await fireEvent.input(screen.getByLabelText('End Date'), {
 			target: { value: '2026-03-22T18:45' }
 		});
 
@@ -52,8 +52,8 @@ describe('ServiceProposalComposer', () => {
 
 		const scope = screen.getByLabelText('Scope of work');
 		const amount = screen.getByLabelText('Amount (USD)');
-		const start = screen.getByLabelText('Estimated Start');
-		const end = screen.getByLabelText('Estimated End');
+		const start = screen.getByLabelText('Start Date');
+		const end = screen.getByLabelText('End Date');
 
 		await fireEvent.input(scope, {
 			target: { value: 'Detailed migration plan.' }
@@ -122,10 +122,10 @@ describe('ServiceProposalComposer', () => {
 		await fireEvent.input(screen.getByLabelText('Amount (USD)'), {
 			target: { value: '180.00' }
 		});
-		await fireEvent.input(screen.getByLabelText('Estimated Start'), {
+		await fireEvent.input(screen.getByLabelText('Start Date'), {
 			target: { value: '2026-03-22T18:45' }
 		});
-		await fireEvent.input(screen.getByLabelText('Estimated End'), {
+		await fireEvent.input(screen.getByLabelText('End Date'), {
 			target: { value: '2026-03-20T09:30' }
 		});
 
@@ -152,10 +152,10 @@ describe('ServiceProposalComposer', () => {
 		await fireEvent.input(screen.getByLabelText('Amount (USD)'), {
 			target: { value: '180' }
 		});
-		await fireEvent.input(screen.getByLabelText('Estimated Start'), {
+		await fireEvent.input(screen.getByLabelText('Start Date'), {
 			target: { value: '2026-03-20T09:30' }
 		});
-		await fireEvent.input(screen.getByLabelText('Estimated End'), {
+		await fireEvent.input(screen.getByLabelText('End Date'), {
 			target: { value: '2026-03-22T18:45' }
 		});
 
