@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, fireEvent, waitFor, within } from '@testing-library/svelte';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -392,8 +392,22 @@ function getNestedValue(source: Record<string, unknown>, path: string): unknown 
 }
 
 describe('MyQuotesPanel', () => {
+	const originalRequestAnimationFrame = window.requestAnimationFrame;
+	const scrollHeightDescriptor = Object.getOwnPropertyDescriptor(
+		HTMLElement.prototype,
+		'scrollHeight'
+	);
+	const offsetWidthDescriptor = Object.getOwnPropertyDescriptor(
+		HTMLElement.prototype,
+		'offsetWidth'
+	);
+
 	beforeEach(() => {
 		vi.clearAllMocks();
+		window.requestAnimationFrame = ((callback: FrameRequestCallback) => {
+			callback(0);
+			return 0;
+		}) as typeof window.requestAnimationFrame;
 		findServiceByUniqueId.mockResolvedValue({
 			id: 'service-event-1',
 			uniqueId: 'service-unique-id',
@@ -426,6 +440,18 @@ describe('MyQuotesPanel', () => {
 		});
 		quoteUiStoreMock.set({ taskerDataFreshness: 'fresh' });
 		window.history.replaceState({}, '', '/dashboard?tab=quotes&view=tasker');
+	});
+
+	afterEach(() => {
+		window.requestAnimationFrame = originalRequestAnimationFrame;
+
+		if (scrollHeightDescriptor) {
+			Object.defineProperty(HTMLElement.prototype, 'scrollHeight', scrollHeightDescriptor);
+		}
+
+		if (offsetWidthDescriptor) {
+			Object.defineProperty(HTMLElement.prototype, 'offsetWidth', offsetWidthDescriptor);
+		}
 	});
 
 	it('renders quote cards in a grid layout', () => {
@@ -557,6 +583,62 @@ describe('MyQuotesPanel', () => {
 		await waitFor(() => {
 			expect(getByTestId('service-request-drawer')).toBeTruthy();
 		});
+	});
+
+	it('truncates long inquiry descriptions in the request drawer and expands them on demand', async () => {
+		Object.defineProperty(HTMLElement.prototype, 'scrollHeight', {
+			configurable: true,
+			get() {
+				if (
+					this instanceof HTMLElement &&
+					this.dataset.testid === 'service-request-drawer-inquiry-description'
+				) {
+					return 120;
+				}
+
+				return scrollHeightDescriptor?.get?.call(this) ?? 0;
+			}
+		});
+
+		Object.defineProperty(HTMLElement.prototype, 'offsetWidth', {
+			configurable: true,
+			get() {
+				if (
+					this instanceof HTMLElement &&
+					this.dataset.testid === 'service-request-drawer-inquiry-description'
+				) {
+					return 320;
+				}
+
+				return offsetWidthDescriptor?.get?.call(this) ?? 320;
+			}
+		});
+
+		const longDescription =
+			'We need a full migration plan with redirect mapping, analytics preservation, stakeholder review, and launch support. ' +
+			'Please include rollback planning, QA checkpoints, and post-launch verification steps for the handoff.';
+
+		const { getByRole, getByTestId } = render(MyQuotesPanel, {
+			timelines: [
+				createTimeline({
+					requestId: 'qr_long_inquiry',
+					description: longDescription
+				})
+			],
+			focusedRequestId: 'qr_long_inquiry',
+			restoreFocusedRequest: true,
+			isSyncing: false
+		});
+
+		const description = await waitFor(() =>
+			getByTestId('service-request-drawer-inquiry-description')
+		);
+		const toggle = await waitFor(() => getByRole('button', { name: 'See More' }));
+
+		expect(description.className).toContain('line-clamp-3');
+		await fireEvent.click(toggle);
+		expect(description.className).not.toContain('line-clamp-3');
+		expect(getByRole('button', { name: 'See Less' })).toBeTruthy();
 	});
 
 	it('clears invalid focused requests after loading completes', async () => {
