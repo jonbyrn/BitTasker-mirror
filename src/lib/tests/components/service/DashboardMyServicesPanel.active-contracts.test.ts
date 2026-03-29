@@ -652,6 +652,80 @@ describe('DashboardMyServicesPanel active contracts shortcut', () => {
 		).toHaveAttribute('href', '/dashboard/create-service');
 	});
 
+	it('defaults the status filter to all and lets you switch between active and inactive services', async () => {
+		hoisted.mockFindMyServices.mockResolvedValueOnce({
+			services: [
+				createService({
+					id: 'service-event-active',
+					uniqueId: 'service-active',
+					title: 'Active service',
+					status: 'active'
+				}),
+				createService({
+					id: 'service-event-inactive',
+					uniqueId: 'service-inactive',
+					title: 'Inactive service',
+					status: 'inactive'
+				})
+			]
+		});
+
+		const { default: DashboardMyServicesPanel } = await import(
+			'$lib/components/service/DashboardMyServicesPanel.svelte'
+		);
+		const { getByRole, queryByText } = render(DashboardMyServicesPanel, {});
+
+		await waitFor(() => expect(hoisted.mockFindMyServices).toHaveBeenCalled());
+		const statusFilter = getByRole('button', { name: 'Filter by status' });
+		expect(statusFilter).toHaveTextContent('All');
+		expect(queryByText('Active service')).toBeTruthy();
+		expect(queryByText('Inactive service')).toBeTruthy();
+
+		await fireEvent.click(statusFilter);
+		await fireEvent.click(getByRole('option', { name: 'Active' }));
+		expect(queryByText('Active service')).toBeTruthy();
+		expect(queryByText('Inactive service')).toBeNull();
+
+		await fireEvent.click(statusFilter);
+		await fireEvent.click(getByRole('option', { name: 'Inactive' }));
+		expect(queryByText('Active service')).toBeNull();
+		expect(queryByText('Inactive service')).toBeTruthy();
+
+		await fireEvent.click(statusFilter);
+		await fireEvent.click(getByRole('option', { name: 'All' }));
+		expect(queryByText('Active service')).toBeTruthy();
+		expect(queryByText('Inactive service')).toBeTruthy();
+	});
+
+	it('shows a filtered empty state when the selected status has no matching services', async () => {
+		hoisted.mockFindMyServices.mockResolvedValueOnce({
+			services: [
+				createService({
+					id: 'service-event-active-only',
+					uniqueId: 'service-active-only',
+					title: 'Only active service',
+					status: 'active'
+				})
+			]
+		});
+
+		const { default: DashboardMyServicesPanel } = await import(
+			'$lib/components/service/DashboardMyServicesPanel.svelte'
+		);
+		const { getByRole, getByTestId, getByText, queryByText } = render(DashboardMyServicesPanel, {});
+
+		await waitFor(() => expect(hoisted.mockFindMyServices).toHaveBeenCalled());
+		await fireEvent.click(getByRole('button', { name: 'Filter by status' }));
+		await fireEvent.click(getByRole('option', { name: 'Inactive' }));
+
+		expect(getByTestId('dashboard-my-services-filtered-empty-state')).toBeTruthy();
+		expect(getByText('No services match this filter.')).toBeTruthy();
+		expect(queryByText('Only active service')).toBeNull();
+
+		await fireEvent.click(getByRole('button', { name: 'Show all services' }));
+		expect(queryByText('Only active service')).toBeTruthy();
+	});
+
 	it('paginates the my services list with numbered controls', async () => {
 		hoisted.mockFindMyServices.mockResolvedValueOnce({
 			services: Array.from({ length: 13 }, (_, index) =>
@@ -1213,7 +1287,7 @@ describe('DashboardMyServicesPanel active contracts shortcut', () => {
 		expect(onResolveQuotesRoute).toHaveBeenCalledWith({ type: 'reset' });
 	});
 
-	it('surfaces the wallet prerequisite in the requests workspace and disables proposal sending', async () => {
+	it('keeps proposal entry available in the requests workspace when wallet information is missing', async () => {
 		const service = createService();
 		const serviceAddress = `30402:${service.npub}:${service.uniqueId ?? service.id}`;
 		hoisted.mockFindMyServices.mockResolvedValueOnce({
@@ -1250,19 +1324,17 @@ describe('DashboardMyServicesPanel active contracts shortcut', () => {
 		const { default: DashboardServiceRequestsPanel } = await import(
 			'$lib/components/service/DashboardServiceRequestsPanel.svelte'
 		);
-		const { getAllByRole, getByText } = render(DashboardServiceRequestsPanel, {
+		const { getAllByRole, queryByText } = render(DashboardServiceRequestsPanel, {
 			selectedServiceAddress: serviceAddress,
 			focusedRequestId: 'qr_valid123'
 		});
 
 		await waitFor(() => expect(hoisted.mockFindMyServices).toHaveBeenCalled());
 		await waitFor(() => expect(hoisted.mockLoadProviderTimelines).toHaveBeenCalled());
-		expect(getByText('Connect your wallet before sending a proposal.')).toBeTruthy();
+		expect(queryByText('Connect your wallet before sending a proposal.')).toBeNull();
 		expect(getAllByRole('button', { name: 'Send Proposal' }).length).toBeGreaterThan(0);
 		expect(
-			getAllByRole('button', { name: 'Send Proposal' }).every((button) =>
-				button.hasAttribute('disabled')
-			)
+			getAllByRole('button', { name: 'Send Proposal' }).some((button) => !button.disabled)
 		).toBe(true);
 	});
 
