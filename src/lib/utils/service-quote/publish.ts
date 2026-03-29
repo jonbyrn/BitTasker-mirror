@@ -1,10 +1,5 @@
 import { browser } from '$app/environment';
-import {
-	getSignedEvent,
-	publishNostrEvent,
-	publishToMultipleRelays,
-	queryNostrEvents
-} from '$lib/utils/nostr';
+import { getSignedEvent, publishToMultipleRelays, queryNostrEvents } from '$lib/utils/nostr';
 import { getNpub, getNostrKeyPair } from '$lib/utils/nostrKeys';
 import type {
 	ServiceProposalContent,
@@ -38,8 +33,7 @@ import {
 	validateStatusAuthorRole
 } from './protocol';
 import { getServiceQuoteFeatureFlags } from '$lib/utils/features/serviceQuotes';
-import nip44 from '$lib/nostr/nip44';
-import { nip19, type Event as NostrEvent } from 'nostr-tools';
+import { nip19, nip44, type Event as NostrEvent } from 'nostr-tools';
 import {
 	dispatchProposalPublishedSideEffects,
 	dispatchQuoteRequestPublishedSideEffects
@@ -92,8 +86,14 @@ export interface PublishServiceQuoteRequestDeletionParams {
 	relays?: string[];
 }
 
+export interface PublishServiceProposalDeletionParams {
+	proposalEventId: string;
+	taskerPubkey: string;
+	relays?: string[];
+}
+
 /**
- * Publishes the canonical `6420` quote-request event for a service listing.
+ * Publishes the canonical encrypted `6420` quote-request event for a service listing.
  * This is the only request-publish path used by service detail and browse surfaces.
  */
 export async function publishServiceQuoteRequest(
@@ -161,7 +161,7 @@ export async function publishServiceQuoteRequest(
 		['t', content.serviceAddress]
 	];
 
-	const { event, results } = await publishNostrEvent(
+	const { event, relayResults } = await publishEncryptedEvent(
 		KINDS.SERVICE_QUOTE_REQUEST,
 		JSON.stringify(content),
 		recipientPubkey,
@@ -171,7 +171,7 @@ export async function publishServiceQuoteRequest(
 	);
 
 	const validated = validatePublishedEvent(event, content, validateServiceQuoteRequestEvent);
-	const publishedRelaySet = results
+	const publishedRelaySet = relayResults
 		.filter((result) => result.success)
 		.map((result) => result.relay);
 	persistPublishedRelaySet(validated.id, publishedRelaySet);
@@ -179,7 +179,7 @@ export async function publishServiceQuoteRequest(
 
 	return {
 		event: validated,
-		relayResults: results,
+		relayResults,
 		publishedRelaySet
 	};
 }
@@ -262,7 +262,7 @@ export async function publishServiceProposal(
 }
 
 /**
- * Publishes the canonical `6422` proposal-status event after actor-role validation.
+ * Publishes the canonical encrypted `6422` proposal-status event after actor-role validation.
  * Accepted-status publication remains feature-gated and duplicate status writes are suppressed.
  */
 export async function publishServiceProposalStatus(
@@ -315,7 +315,7 @@ export async function publishServiceProposalStatus(
 		['t', params.content.serviceAddress]
 	];
 
-	const { event, results } = await publishNostrEvent(
+	const { event, relayResults } = await publishEncryptedEvent(
 		KINDS.SERVICE_PROPOSAL_STATUS,
 		JSON.stringify(params.content),
 		params.counterpartyPubkey,
@@ -329,14 +329,14 @@ export async function publishServiceProposalStatus(
 		params.content,
 		validateServiceProposalStatusEvent
 	);
-	const publishedRelaySet = results
+	const publishedRelaySet = relayResults
 		.filter((result) => result.success)
 		.map((result) => result.relay);
 	persistPublishedRelaySet(validated.id, publishedRelaySet);
 
 	return {
 		event: validated,
-		relayResults: results,
+		relayResults,
 		publishedRelaySet
 	};
 }
@@ -362,6 +362,39 @@ export async function publishServiceQuoteRequestDeletion(
 
 	if (!relayResults.some((result) => result.success)) {
 		throw new Error('Failed to publish service quote request deletion to any relay');
+	}
+
+	return {
+		event: deletionEvent,
+		relayResults,
+		publishedRelaySet: relayResults.filter((result) => result.success).map((result) => result.relay)
+	};
+}
+
+export async function publishServiceProposalDeletion(
+	params: PublishServiceProposalDeletionParams
+): Promise<ServiceQuotePublishResult<NostrEvent>> {
+	const relays = [
+		...new Set([
+			...getPublishedRelaySet(params.proposalEventId),
+			...getDefaultRelays(params.relays)
+		])
+	];
+	const targetRelays = relays.length > 0 ? relays : getDefaultRelays(params.relays);
+	const deletionEvent = await getSignedEvent({
+		kind: 5,
+		created_at: unixNow(),
+		content: 'Deleted service proposal',
+		tags: [
+			['e', params.proposalEventId],
+			['k', String(KINDS.SERVICE_PROPOSAL)],
+			['p', params.taskerPubkey]
+		]
+	});
+	const relayResults = await publishToMultipleRelays(deletionEvent, targetRelays);
+
+	if (!relayResults.some((result) => result.success)) {
+		throw new Error('Failed to publish service proposal deletion to any relay');
 	}
 
 	return {

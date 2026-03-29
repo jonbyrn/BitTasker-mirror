@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import KINDS from '$lib/utils/constants/kinds';
 
-const publishNostrEvent = vi.fn();
 const queryNostrEvents = vi.fn();
 const getSignedEvent = vi.fn();
 const publishToMultipleRelays = vi.fn();
@@ -44,7 +43,6 @@ function createAcceptanceSnapshot(overrides: Record<string, unknown> = {}) {
 
 vi.mock('$lib/utils/nostr', () => ({
 	getSignedEvent,
-	publishNostrEvent,
 	publishToMultipleRelays,
 	queryNostrEvents
 }));
@@ -58,12 +56,18 @@ vi.mock('$lib/utils/features/serviceQuotes', () => ({
 	getServiceQuoteFeatureFlags
 }));
 
-vi.mock('$lib/nostr/nip44', () => ({
-	default: {
-		encrypt,
-		getConversationKey
-	}
-}));
+vi.mock('nostr-tools', async () => {
+	const actual = await vi.importActual<typeof import('nostr-tools')>('nostr-tools');
+
+	return {
+		...actual,
+		nip44: {
+			...actual.nip44,
+			encrypt,
+			getConversationKey
+		}
+	};
+});
 
 vi.mock('$lib/utils/service-quote/notifications', () => ({
 	dispatchQuoteRequestPublishedSideEffects,
@@ -169,9 +173,7 @@ describe('service-quote publishing helpers', () => {
 			...proposalEvent,
 			content: 'encrypted-content'
 		});
-		publishToMultipleRelays.mockResolvedValue([
-			{ relay: 'wss://relay.example', success: true }
-		]);
+		publishToMultipleRelays.mockResolvedValue([{ relay: 'wss://relay.example', success: true }]);
 		canPublishAcceptedStatus.mockImplementation(() => undefined);
 	});
 
@@ -184,10 +186,7 @@ describe('service-quote publishing helpers', () => {
 		persistPublishedRelaySet('request-event-id', ['wss://relay.example']);
 		expect(getPublishedRelaySet('request-event-id')).toEqual(['wss://relay.example']);
 
-		window.localStorage.setItem(
-			'bittasker.serviceQuote.publishedRelays',
-			'{not-json'
-		);
+		window.localStorage.setItem('bittasker.serviceQuote.publishedRelays', '{not-json');
 		expect(getPublishedRelaySet('missing-event-id')).toEqual([]);
 	});
 
@@ -199,14 +198,12 @@ describe('service-quote publishing helpers', () => {
 			findExistingDuplicate(KINDS.SERVICE_QUOTE_REQUEST, 'b'.repeat(64), 'd-tag')
 		).resolves.toEqual(quoteRequestEvent);
 
-		queryNostrEvents
-			.mockResolvedValueOnce([])
-			.mockResolvedValueOnce([
-				{
-					id: 'fallback-event-id',
-					tags: [['d', 'd-tag']]
-				}
-			]);
+		queryNostrEvents.mockResolvedValueOnce([]).mockResolvedValueOnce([
+			{
+				id: 'fallback-event-id',
+				tags: [['d', 'd-tag']]
+			}
+		]);
 
 		await expect(
 			findExistingDuplicate(KINDS.SERVICE_QUOTE_REQUEST, 'b'.repeat(64), 'd-tag')
@@ -216,19 +213,20 @@ describe('service-quote publishing helpers', () => {
 		});
 	});
 
-	it('publishes quote requests and persists successful relay sets', async () => {
+	it('publishes encrypted quote requests and persists successful relay sets', async () => {
 		const { publishServiceQuoteRequest, getPublishedRelaySet } = await import(
 			'$lib/utils/service-quote/publish'
 		);
 
 		queryNostrEvents.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
-		publishNostrEvent.mockResolvedValue({
-			event: quoteRequestEvent,
-			results: [
-				{ relay: 'wss://relay-1.example', success: true },
-				{ relay: 'wss://relay-2.example', success: false, error: 'timeout' }
-			]
+		getSignedEvent.mockResolvedValueOnce({
+			...quoteRequestEvent,
+			content: 'encrypted-content'
 		});
+		publishToMultipleRelays.mockResolvedValueOnce([
+			{ relay: 'wss://relay-1.example', success: true },
+			{ relay: 'wss://relay-2.example', success: false, error: 'timeout' }
+		]);
 
 		const result = await publishServiceQuoteRequest({
 			service: service as never,
@@ -239,20 +237,31 @@ describe('service-quote publishing helpers', () => {
 			quoteRequestId: 'qr_valid123'
 		});
 
-		expect(publishNostrEvent).toHaveBeenCalledWith(
-			KINDS.SERVICE_QUOTE_REQUEST,
-			expect.stringContaining('"quoteRequestId":"qr_valid123"'),
-			service.npub,
-			expect.arrayContaining([
-				['p', service.npub],
-				['m', 'service-quote-request']
-			]),
-			expect.any(Array),
-			expect.any(Number)
+		expect(getSignedEvent).toHaveBeenCalledWith(
+			expect.objectContaining({
+				kind: KINDS.SERVICE_QUOTE_REQUEST,
+				content: 'encrypted-content',
+				created_at: expect.any(Number),
+				tags: expect.arrayContaining([
+					['p', service.npub],
+					['m', 'service-quote-request']
+				])
+			})
 		);
-		const requestPublishCall = publishNostrEvent.mock.calls.at(-1);
-		const requestPayload = JSON.parse(requestPublishCall?.[1] as string);
-		expect(requestPublishCall?.[5]).toBe(requestPayload.timestamp);
+		const requestSignCall = getSignedEvent.mock.calls[0]?.[0];
+		const requestPayload = JSON.parse(encrypt.mock.calls[0]?.[0] as string);
+		expect(requestSignCall?.created_at).toBe(requestPayload.timestamp);
+		expect(encrypt).toHaveBeenCalledWith(
+			expect.stringContaining('"quoteRequestId":"qr_valid123"'),
+			expect.any(Uint8Array),
+			expect.any(Uint8Array)
+		);
+		expect(publishToMultipleRelays).toHaveBeenCalledWith(
+			expect.objectContaining({
+				kind: KINDS.SERVICE_QUOTE_REQUEST
+			}),
+			expect.any(Array)
+		);
 		expect(validateServiceQuoteRequestEvent).toHaveBeenCalledWith(
 			expect.objectContaining({
 				id: 'request-event-id',
@@ -262,11 +271,11 @@ describe('service-quote publishing helpers', () => {
 				})
 			})
 		);
-	expect(result.publishedRelaySet).toEqual(['wss://relay-1.example']);
-	expect(getPublishedRelaySet('request-event-id')).toEqual(['wss://relay-1.example']);
-});
+		expect(result.publishedRelaySet).toEqual(['wss://relay-1.example']);
+		expect(getPublishedRelaySet('request-event-id')).toEqual(['wss://relay-1.example']);
+	});
 
-it('publishes encrypted proposals once relay quorum is reached', async () => {
+	it('publishes encrypted proposals once relay quorum is reached', async () => {
 		const { publishServiceProposal, getPublishedRelaySet } = await import(
 			'$lib/utils/service-quote/publish'
 		);
@@ -337,10 +346,13 @@ it('publishes encrypted proposals once relay quorum is reached', async () => {
 		);
 
 		queryNostrEvents.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
-		publishNostrEvent.mockResolvedValue({
-			event: statusEvent,
-			results: [{ relay: 'wss://relay.example', success: true }]
+		getSignedEvent.mockResolvedValueOnce({
+			...statusEvent,
+			content: 'encrypted-content'
 		});
+		publishToMultipleRelays.mockResolvedValueOnce([
+			{ relay: 'wss://relay.example', success: true }
+		]);
 
 		const result = await publishServiceProposalStatus({
 			content: {
@@ -365,19 +377,22 @@ it('publishes encrypted proposals once relay quorum is reached', async () => {
 		});
 
 		expect(canPublishAcceptedStatus).toHaveBeenCalledWith(true, 'accepted');
-		expect(publishNostrEvent).toHaveBeenCalledWith(
-			KINDS.SERVICE_PROPOSAL_STATUS,
-			expect.stringContaining('"status":"accepted"'),
-			service.npub,
-			expect.arrayContaining([
-				['s', 'accepted']
-			]),
-			['wss://relay.example'],
-			1_700_000_200
+		expect(getSignedEvent).toHaveBeenCalledWith(
+			expect.objectContaining({
+				kind: KINDS.SERVICE_PROPOSAL_STATUS,
+				content: 'encrypted-content',
+				created_at: 1_700_000_200,
+				tags: expect.arrayContaining([['s', 'accepted']])
+			})
 		);
-		const statusPublishCall = publishNostrEvent.mock.calls.at(-1);
-		const statusPayload = JSON.parse(statusPublishCall?.[1] as string);
-		expect(statusPublishCall?.[5]).toBe(statusPayload.timestamp);
+		const statusPayload = JSON.parse(encrypt.mock.calls.at(-1)?.[0] as string);
+		expect(statusPayload.timestamp).toBe(1_700_000_200);
+		expect(publishToMultipleRelays).toHaveBeenCalledWith(
+			expect.objectContaining({
+				kind: KINDS.SERVICE_PROPOSAL_STATUS
+			}),
+			['wss://relay.example']
+		);
 		expect(validateServiceProposalStatusEvent).toHaveBeenCalledWith(
 			expect.objectContaining({
 				id: 'status-event-id',
@@ -443,7 +458,7 @@ it('publishes encrypted proposals once relay quorum is reached', async () => {
 			})
 		).rejects.toThrow(/acceptance snapshot/);
 
-		expect(publishNostrEvent).not.toHaveBeenCalled();
+		expect(getSignedEvent).not.toHaveBeenCalled();
 	});
 
 	it('rejects proposal publish when the linked request does not match the supplied linkage context', async () => {
@@ -558,7 +573,7 @@ it('publishes encrypted proposals once relay quorum is reached', async () => {
 		});
 
 		expect(duplicateStatus.duplicateOf).toBe('status-event-id');
-		expect(publishNostrEvent).not.toHaveBeenCalled();
+		expect(getSignedEvent).not.toHaveBeenCalled();
 	});
 
 	it('rejects status publish when the actor role does not match the canonical tasker/taskee mapping', async () => {
@@ -585,6 +600,6 @@ it('publishes encrypted proposals once relay quorum is reached', async () => {
 			})
 		).rejects.toThrow(/must be authored by the taskee|canonical counterparty/);
 
-		expect(publishNostrEvent).not.toHaveBeenCalled();
+		expect(getSignedEvent).not.toHaveBeenCalled();
 	});
 });

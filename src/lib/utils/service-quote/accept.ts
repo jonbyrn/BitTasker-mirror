@@ -19,7 +19,7 @@ export interface ServiceProposalAcceptValidationInput {
 
 export interface ServiceProposalAcceptValidationResult {
 	ok: boolean;
-	errorCode?: 'expired' | 'invalid_time_bounds' | 'start_in_past';
+	errorCode?: 'expired' | 'invalid_time_bounds';
 }
 
 export function validateServiceProposalAcceptance(
@@ -29,10 +29,6 @@ export function validateServiceProposalAcceptance(
 
 	if (input.estimatedEndTime <= input.estimatedStartTime) {
 		return { ok: false, errorCode: 'invalid_time_bounds' };
-	}
-
-	if (input.estimatedStartTime < nowSeconds) {
-		return { ok: false, errorCode: 'start_in_past' };
 	}
 
 	if (nowSeconds >= input.expirationTimestamp) {

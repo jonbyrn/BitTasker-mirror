@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import KINDS from '$lib/utils/constants/kinds';
 
-const publishNostrEvent = vi.fn();
 const queryNostrEvents = vi.fn();
 const getSignedEvent = vi.fn();
 const publishToMultipleRelays = vi.fn();
@@ -16,7 +15,6 @@ const getConversationKey = vi.fn();
 
 vi.mock('$lib/utils/nostr', () => ({
 	getSignedEvent,
-	publishNostrEvent,
 	publishToMultipleRelays,
 	queryNostrEvents
 }));
@@ -36,12 +34,18 @@ vi.mock('$lib/api/services/push-notification.service', () => ({
 	}
 }));
 
-vi.mock('$lib/nostr/nip44', () => ({
-	default: {
-		encrypt,
-		getConversationKey
-	}
-}));
+vi.mock('nostr-tools', async () => {
+	const actual = await vi.importActual<typeof import('nostr-tools')>('nostr-tools');
+
+	return {
+		...actual,
+		nip44: {
+			...actual.nip44,
+			encrypt,
+			getConversationKey
+		}
+	};
+});
 
 vi.mock('$lib/utils/service-quote/protocol', async () => {
 	const actual = await vi.importActual<typeof import('$lib/utils/service-quote/protocol')>(
@@ -115,10 +119,15 @@ describe('service quote messaging mirror integration', () => {
 		};
 
 		queryNostrEvents.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
-		publishNostrEvent.mockResolvedValue({
-			event: requestEvent,
-			results: [{ relay: 'wss://relay.example', success: true }]
-		});
+		getSignedEvent
+			.mockResolvedValueOnce({
+				...requestEvent,
+				content: 'encrypted-content'
+			})
+			.mockResolvedValueOnce({ id: 'mirror-dm-id' });
+		publishToMultipleRelays
+			.mockResolvedValueOnce([{ relay: 'wss://relay.example', success: true }])
+			.mockResolvedValueOnce([{ relay: 'wss://relay.example', success: false }]);
 
 		const result = await publishServiceQuoteRequest({
 			service: service as never,
@@ -132,9 +141,20 @@ describe('service quote messaging mirror integration', () => {
 			}
 		});
 
-		expect(result.event).toEqual(requestEvent);
+		expect(result.event).toEqual(
+			expect.objectContaining({
+				id: 'request-event-id',
+				kind: KINDS.SERVICE_QUOTE_REQUEST,
+				pubkey: 'b'.repeat(64),
+				content: expect.objectContaining({
+					quoteRequestId: 'qr_valid123',
+					serviceAddress: `30402:${service.npub}:${service.uniqueId}`,
+					type: 'service-quote-request'
+				})
+			})
+		);
 		await vi.waitFor(() => {
-			expect(getSignedEvent).toHaveBeenCalledTimes(1);
+			expect(getSignedEvent).toHaveBeenCalledTimes(2);
 			expect(sendNotificationToNpubs).toHaveBeenCalledTimes(1);
 			expect(warnSpy).toHaveBeenCalled();
 		});

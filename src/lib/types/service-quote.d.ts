@@ -192,6 +192,7 @@ export interface ServiceQuoteQueryResult {
 	proposals: ServiceProposalEvent[];
 	statusEvents: ServiceProposalStatusEvent[];
 	timelines: ServiceQuoteTimelineEntry[];
+	isPartial?: boolean;
 }
 
 export interface ServiceQuoteStoreState extends ServiceQuoteQueryResult {

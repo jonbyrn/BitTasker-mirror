@@ -37,7 +37,7 @@ const KIND_TO_MESSAGE_TYPE: Record<number, ServiceQuoteMessageType> = {
 
 export const SERVICE_QUOTE_REQUEST_ID_RE = /^[A-Za-z0-9_-]{8,64}$/;
 export const SERVICE_PROPOSAL_ID_RE = /^[A-Za-z0-9_-]{8,64}$/;
-export const SERVICE_QUOTE_DECIMAL_RE = /^[0-9]+\.[0-9]{2}$/;
+export const SERVICE_QUOTE_DECIMAL_RE = /^[0-9]+(?:\.[0-9]{1,2})?$/;
 
 const HEX_PUBKEY_RE = /^[0-9a-f]{64}$/i;
 const EVM_ADDRESS_RE = /^0x[0-9a-f]{40}$/i;
@@ -793,7 +793,7 @@ export function validateServiceProposalEvent(event: NostrEvent): ServiceProposal
 	assert(
 		SERVICE_QUOTE_DECIMAL_RE.test(content.amountUsdt),
 		'SERVICE_QUOTE_INVALID_AMOUNT',
-		'Proposal amount must be decimal(2)',
+		'Proposal amount must be numeric with up to 2 decimal places',
 		{
 			amountUsdt: content.amountUsdt
 		}

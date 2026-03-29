@@ -17,6 +17,7 @@ import {
 	getConfiguredRskContractAddress,
 	getConfiguredVerificationRpcLabel
 } from '$lib/utils/service-contract/acceptance-snapshot';
+import { normalizeServiceContractSchedule } from '$lib/utils/service-contract/schedule';
 
 const DEFAULT_CLIENT_FEE_TIER = 1;
 
@@ -86,6 +87,10 @@ export async function createServiceContract(
 	input: ServiceContractCreationInput
 ): Promise<ServiceContractCreationResult> {
 	let transactionHash: string | null = null;
+	const schedule = normalizeServiceContractSchedule(
+		input.estimatedStartTime,
+		input.estimatedCompletionTime
+	);
 
 	try {
 		const btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
@@ -94,8 +99,8 @@ export async function createServiceContract(
 				freelancerAddress: input.freelancerAddress,
 				freelancerPubkey: input.freelancerPubkey,
 				amountUsdt: input.amountUsdt,
-				estimatedStartTime: input.estimatedStartTime,
-				estimatedCompletionTime: input.estimatedCompletionTime,
+				estimatedStartTime: schedule.estimatedStartTime,
+				estimatedCompletionTime: schedule.estimatedCompletionTime,
 				freelancerFeeTier: input.freelancerFeeTier
 			},
 			btcPrice
@@ -114,8 +119,8 @@ export async function createServiceContract(
 		const transactionResult = await escrow.escrowOps.createEscrow(
 			input.freelancerAddress,
 			amount,
-			input.estimatedStartTime,
-			input.estimatedCompletionTime,
+			schedule.estimatedStartTime,
+			schedule.estimatedCompletionTime,
 			DEFAULT_CLIENT_FEE_TIER,
 			input.freelancerFeeTier ?? 1
 		);
@@ -134,8 +139,8 @@ export async function createServiceContract(
 			freelancerPubkey: input.freelancerPubkey,
 			clientRskAddress,
 			amount,
-			estimatedStartTime: input.estimatedStartTime,
-			estimatedCompletionTime: input.estimatedCompletionTime,
+			estimatedStartTime: schedule.estimatedStartTime,
+			estimatedCompletionTime: schedule.estimatedCompletionTime,
 			serviceId: input.serviceId,
 			serviceAddress: input.serviceAddress,
 			serviceTitle: input.serviceTitle,

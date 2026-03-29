@@ -272,7 +272,19 @@ describe('service-quote protocol', () => {
 			})
 		};
 
-		expect(() => validateServiceProposalEvent(invalidAmountEvent)).toThrow(/decimal\(2\)/);
+		expect(validateServiceProposalEvent(invalidAmountEvent).content.amountUsdt).toBe('125');
+
+		const tooPreciseAmountEvent = {
+			...proposalEvent,
+			content: JSON.stringify({
+				...JSON.parse(proposalEvent.content),
+				amountUsdt: '125.999'
+			})
+		};
+
+		expect(() => validateServiceProposalEvent(tooPreciseAmountEvent)).toThrow(
+			/up to 2 decimal places/
+		);
 	});
 
 	it('validates status events and gates accepted status publishing behind the feature flag', () => {

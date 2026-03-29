@@ -6,6 +6,7 @@ import type { ServiceQuoteTimelineEntry } from '$lib/types/service-quote';
 const publishServiceQuoteRequest = vi.fn();
 const publishServiceQuoteRequestDeletion = vi.fn();
 const publishServiceProposal = vi.fn();
+const publishServiceProposalDeletion = vi.fn();
 const publishServiceProposalStatus = vi.fn();
 const queryServiceQuotesForTasker = vi.fn();
 const queryServiceQuotesForTaskee = vi.fn();
@@ -13,6 +14,7 @@ const getNpub = vi.fn();
 const createServiceContract = vi.fn();
 const waitForContractCreationByTransactionHash = vi.fn();
 const getContractCreationTimeoutReason = vi.fn();
+const getRSKAddress = vi.fn();
 const walletStore = writable({
 	rsk: {
 		address: '0x1234567890123456789012345678901234567890'
@@ -24,6 +26,7 @@ vi.mock('$lib/utils/service-quote/publish', () => ({
 	publishServiceQuoteRequestDeletion: (...args: unknown[]) =>
 		publishServiceQuoteRequestDeletion(...args),
 	publishServiceProposal: (...args: unknown[]) => publishServiceProposal(...args),
+	publishServiceProposalDeletion: (...args: unknown[]) => publishServiceProposalDeletion(...args),
 	publishServiceProposalStatus: (...args: unknown[]) => publishServiceProposalStatus(...args)
 }));
 
@@ -37,7 +40,8 @@ vi.mock('$lib/utils/nostrKeys', () => ({
 }));
 
 vi.mock('$lib/stores/wallet.store', () => ({
-	walletStore
+	walletStore,
+	getRSKAddress: (...args: unknown[]) => getRSKAddress(...args)
 }));
 
 vi.mock('$lib/utils/service-contract/create', () => ({
@@ -236,8 +240,8 @@ function createDeferred<T>() {
 
 describe('serviceQuoteUiStore', () => {
 	beforeEach(async () => {
-		vi.resetModules();
 		vi.clearAllMocks();
+		getRSKAddress.mockResolvedValue('0x1234567890123456789012345678901234567890');
 		getNpub.mockResolvedValue('b'.repeat(64));
 		queryServiceQuotesForTasker.mockResolvedValue({ timelines: [createTimeline()] });
 		queryServiceQuotesForTaskee.mockResolvedValue({ timelines: [createTimeline()] });
@@ -253,6 +257,11 @@ describe('serviceQuoteUiStore', () => {
 		});
 		publishServiceProposal.mockResolvedValue({
 			event: { id: 'proposal-event-id' },
+			relayResults: [],
+			publishedRelaySet: []
+		});
+		publishServiceProposalDeletion.mockResolvedValue({
+			event: { id: 'proposal-delete-event-id' },
 			relayResults: [],
 			publishedRelaySet: []
 		});
@@ -381,13 +390,114 @@ describe('serviceQuoteUiStore', () => {
 		);
 	});
 
-	it('fails closed when provider proposal authoring cannot normalize the wallet', async () => {
+	it('passes focused provider request ids into the taskee query path', async () => {
+		const { serviceQuoteUiStore } = await import('$lib/stores/service-quote-ui.store');
+		const serviceAddress = '30402:' + 'a'.repeat(64) + ':service-1234';
+
+		await serviceQuoteUiStore.loadProviderTimelines(serviceAddress, 'qr_12345678');
+
+		expect(queryServiceQuotesForTaskee).toHaveBeenCalledWith(
+			serviceAddress,
+			'b'.repeat(64),
+			undefined,
+			'qr_12345678'
+		);
+	});
+
+	it('does not reuse a request-scoped provider cache when hydrating the full service inbox', async () => {
+		const { serviceQuoteUiStore } = await import('$lib/stores/service-quote-ui.store');
+		const serviceAddress = '30402:' + 'a'.repeat(64) + ':service-1234';
+
+		queryServiceQuotesForTaskee
+			.mockResolvedValueOnce({
+				timelines: [createTimelineWithRequestId('qr_12345678')]
+			})
+			.mockResolvedValueOnce({
+				timelines: [
+					createTimelineWithRequestId('qr_12345678'),
+					createTimelineWithRequestId('qr_other123')
+				]
+			});
+
+		await serviceQuoteUiStore.loadProviderTimelines(serviceAddress, 'qr_12345678');
+		await serviceQuoteUiStore.loadProviderTimelines(serviceAddress, null);
+
+		expect(queryServiceQuotesForTaskee).toHaveBeenNthCalledWith(
+			1,
+			serviceAddress,
+			'b'.repeat(64),
+			undefined,
+			'qr_12345678'
+		);
+		expect(queryServiceQuotesForTaskee).toHaveBeenNthCalledWith(
+			2,
+			serviceAddress,
+			'b'.repeat(64),
+			undefined,
+			undefined
+		);
+		expect(get(serviceQuoteUiStore).providerTimelinesByService[serviceAddress]).toHaveLength(2);
+	});
+
+	it('reuses a full provider cache for request focus changes when the request is already present', async () => {
+		const { serviceQuoteUiStore } = await import('$lib/stores/service-quote-ui.store');
+		const serviceAddress = '30402:' + 'a'.repeat(64) + ':service-1234';
+
+		queryServiceQuotesForTaskee.mockResolvedValueOnce({
+			timelines: [
+				createTimelineWithRequestId('qr_12345678'),
+				createTimelineWithRequestId('qr_other123')
+			]
+		});
+
+		await serviceQuoteUiStore.loadProviderTimelines(serviceAddress, null);
+		queryServiceQuotesForTaskee.mockClear();
+
+		await serviceQuoteUiStore.loadProviderTimelines(serviceAddress, 'qr_12345678');
+
+		expect(queryServiceQuotesForTaskee).not.toHaveBeenCalled();
+		expect(get(serviceQuoteUiStore).providerTimelinesByService[serviceAddress]).toHaveLength(2);
+	});
+
+	it('deletes a provider proposal and refreshes the provider timelines', async () => {
+		const { serviceQuoteUiStore } = await import('$lib/stores/service-quote-ui.store');
+		const serviceAddress = '30402:' + 'a'.repeat(64) + ':service-1234';
+
+		await serviceQuoteUiStore.loadProviderTimelines(serviceAddress, 'qr_12345678');
+		queryServiceQuotesForTaskee.mockResolvedValueOnce({
+			timelines: [
+				{
+					...createTimeline(),
+					proposals: [],
+					latestProposal: undefined
+				}
+			]
+		});
+
+		const result = await serviceQuoteUiStore.deleteLocalProposal({
+			serviceAddress,
+			quoteRequestId: 'qr_12345678',
+			proposalId: 'pr_12345678'
+		});
+
+		expect(result).toEqual({ success: true });
+		expect(publishServiceProposalDeletion).toHaveBeenCalledWith({
+			proposalEventId: 'proposal-event-id',
+			taskerPubkey: 'b'.repeat(64)
+		});
+		expect(
+			get(serviceQuoteUiStore).providerTimelinesByService[serviceAddress][0]?.latestProposal
+		).toBe(undefined);
+	});
+
+	it('falls back to resolving the provider wallet before sending a proposal', async () => {
 		const { serviceQuoteUiStore } = await import('$lib/stores/service-quote-ui.store');
 		walletStore.set({
 			rsk: {
-				address: 'not-an-address'
+				address: ''
 			}
 		});
+		getRSKAddress.mockResolvedValueOnce('0x9999999999999999999999999999999999999999');
 
 		await serviceQuoteUiStore.loadProviderTimelines(
 			'30402:' + 'a'.repeat(64) + ':service-1234',
@@ -408,10 +518,16 @@ describe('serviceQuoteUiStore', () => {
 		});
 
 		expect(result).toEqual({
-			success: false,
-			error: 'Connect your wallet before sending a proposal.'
+			success: true
 		});
-		expect(publishServiceProposal).not.toHaveBeenCalled();
+		expect(getRSKAddress).toHaveBeenCalledTimes(1);
+		expect(publishServiceProposal).toHaveBeenCalledWith(
+			expect.objectContaining({
+				content: expect.objectContaining({
+					freelancerRskAddress: '0x9999999999999999999999999999999999999999'
+				})
+			})
+		);
 	});
 
 	it('publishes tasker status updates against the selected proposal', async () => {
@@ -452,6 +568,56 @@ describe('serviceQuoteUiStore', () => {
 		expect(get(serviceQuoteUiStore).taskerTimelines).toEqual([]);
 	});
 
+	it('blocks tasker request deletion while contract acceptance is still resolving', async () => {
+		const { serviceQuoteUiStore } = await import('$lib/stores/service-quote-ui.store');
+
+		queryServiceQuotesForTasker.mockResolvedValueOnce({
+			timelines: [
+				{
+					...createTimeline(),
+					resolvedStatus: 'accept_unknown'
+				}
+			]
+		});
+		await serviceQuoteUiStore.loadTaskerTimelines('qr_12345678');
+
+		const result = await serviceQuoteUiStore.deleteTaskerRequest({
+			quoteRequestId: 'qr_12345678'
+		});
+
+		expect(result).toEqual({
+			success: false,
+			error:
+				'This service request is currently resolving a contract acceptance and cannot be deleted.'
+		});
+		expect(publishServiceQuoteRequestDeletion).not.toHaveBeenCalled();
+	});
+
+	it('blocks tasker request deletion while contract acceptance is actively pending', async () => {
+		const { serviceQuoteUiStore } = await import('$lib/stores/service-quote-ui.store');
+
+		queryServiceQuotesForTasker.mockResolvedValueOnce({
+			timelines: [
+				{
+					...createTimeline(),
+					resolvedStatus: 'accepting'
+				}
+			]
+		});
+		await serviceQuoteUiStore.loadTaskerTimelines('qr_12345678');
+
+		const result = await serviceQuoteUiStore.deleteTaskerRequest({
+			quoteRequestId: 'qr_12345678'
+		});
+
+		expect(result).toEqual({
+			success: false,
+			error:
+				'This service request is currently resolving a contract acceptance and cannot be deleted.'
+		});
+		expect(publishServiceQuoteRequestDeletion).not.toHaveBeenCalled();
+	});
+
 	it('creates a funded service contract when the tasker accepts a proposal', async () => {
 		const { serviceQuoteUiStore } = await import('$lib/stores/service-quote-ui.store');
 
@@ -484,6 +650,127 @@ describe('serviceQuoteUiStore', () => {
 			})
 		);
 		expect(get(serviceQuoteUiStore).taskerTimelines[0]?.resolvedStatus).toBe('accepting');
+	});
+
+	it('rejects tasker acceptance when the proposal has already expired', async () => {
+		const { serviceQuoteUiStore } = await import('$lib/stores/service-quote-ui.store');
+		const expiredTimestamp = Math.floor(Date.now() / 1000) - 1;
+		const expiredTimeline = createTimeline();
+
+		queryServiceQuotesForTasker.mockResolvedValueOnce({
+			timelines: [
+				{
+					...expiredTimeline,
+					proposals: expiredTimeline.proposals.map((proposal) => ({
+						...proposal,
+						content: {
+							...proposal.content,
+							expirationTimestamp: expiredTimestamp
+						}
+					})),
+					latestProposal: {
+						...expiredTimeline.latestProposal,
+						content: {
+							...expiredTimeline.latestProposal.content,
+							expirationTimestamp: expiredTimestamp
+						}
+					},
+					expirationTimestamp: expiredTimestamp
+				}
+			]
+		});
+		await serviceQuoteUiStore.loadTaskerTimelines('qr_12345678');
+
+		const result = await serviceQuoteUiStore.acceptTaskerProposal({
+			quoteRequestId: 'qr_12345678',
+			proposalId: 'pr_12345678'
+		});
+
+		expect(result).toEqual({
+			success: false,
+			error: 'This proposal has already expired.'
+		});
+		expect(publishServiceProposalStatus).not.toHaveBeenCalled();
+		expect(createServiceContract).not.toHaveBeenCalled();
+	});
+
+	it('rejects duplicate tasker acceptance when the proposal is already accepting', async () => {
+		const { serviceQuoteUiStore } = await import('$lib/stores/service-quote-ui.store');
+
+		queryServiceQuotesForTasker.mockResolvedValueOnce({
+			timelines: [
+				{
+					...createTimeline(),
+					resolvedStatus: 'accepting'
+				}
+			]
+		});
+		await serviceQuoteUiStore.loadTaskerTimelines('qr_12345678');
+
+		const result = await serviceQuoteUiStore.acceptTaskerProposal({
+			quoteRequestId: 'qr_12345678',
+			proposalId: 'pr_12345678'
+		});
+
+		expect(result).toEqual({
+			success: false,
+			error:
+				'This proposal acceptance is already in progress or still syncing. Open Contracts to monitor the service contract.'
+		});
+		expect(publishServiceProposalStatus).not.toHaveBeenCalled();
+		expect(createServiceContract).not.toHaveBeenCalled();
+	});
+
+	it('rejects tasker acceptance when the proposal is already accepted', async () => {
+		const { serviceQuoteUiStore } = await import('$lib/stores/service-quote-ui.store');
+
+		queryServiceQuotesForTasker.mockResolvedValueOnce({
+			timelines: [
+				{
+					...createTimeline(),
+					resolvedStatus: 'accepted'
+				}
+			]
+		});
+		await serviceQuoteUiStore.loadTaskerTimelines('qr_12345678');
+
+		const result = await serviceQuoteUiStore.acceptTaskerProposal({
+			quoteRequestId: 'qr_12345678',
+			proposalId: 'pr_12345678'
+		});
+
+		expect(result).toEqual({
+			success: false,
+			error: 'This proposal is already linked to an active service contract.'
+		});
+		expect(publishServiceProposalStatus).not.toHaveBeenCalled();
+		expect(createServiceContract).not.toHaveBeenCalled();
+	});
+
+	it('rejects tasker acceptance when the proposal already has a linked escrow', async () => {
+		const { serviceQuoteUiStore } = await import('$lib/stores/service-quote-ui.store');
+
+		queryServiceQuotesForTasker.mockResolvedValueOnce({
+			timelines: [
+				{
+					...createTimeline(),
+					linkedEscrowId: 'escrow-123'
+				}
+			]
+		});
+		await serviceQuoteUiStore.loadTaskerTimelines('qr_12345678');
+
+		const result = await serviceQuoteUiStore.acceptTaskerProposal({
+			quoteRequestId: 'qr_12345678',
+			proposalId: 'pr_12345678'
+		});
+
+		expect(result).toEqual({
+			success: false,
+			error: 'This proposal is already linked to an active service contract.'
+		});
+		expect(publishServiceProposalStatus).not.toHaveBeenCalled();
+		expect(createServiceContract).not.toHaveBeenCalled();
 	});
 
 	it('marks acceptance as unknown when escrow confirmation times out', async () => {
@@ -600,6 +887,59 @@ describe('serviceQuoteUiStore', () => {
 		expect(get(serviceQuoteUiStore).taskerTimelines[0]?.resolvedStatus).toBe('accept_failed');
 	});
 
+	it('marks acceptance as failed when contract creation throws after publishing accepting', async () => {
+		const { serviceQuoteUiStore } = await import('$lib/stores/service-quote-ui.store');
+		createServiceContract.mockRejectedValueOnce(new Error('rpc exploded'));
+
+		await serviceQuoteUiStore.loadTaskerTimelines('qr_12345678');
+		const result = await serviceQuoteUiStore.acceptTaskerProposal({
+			quoteRequestId: 'qr_12345678',
+			proposalId: 'pr_12345678'
+		});
+
+		expect(result).toEqual({
+			success: false,
+			error: 'rpc exploded'
+		});
+		expect(publishServiceProposalStatus).toHaveBeenNthCalledWith(
+			2,
+			expect.objectContaining({
+				content: expect.objectContaining({
+					status: 'accept_failed',
+					message: 'rpc exploded'
+				})
+			})
+		);
+		expect(get(serviceQuoteUiStore).taskerTimelines[0]?.resolvedStatus).toBe('accept_failed');
+	});
+
+	it('rolls thrown contract creation errors into accept_failed recovery state', async () => {
+		const { serviceQuoteUiStore } = await import('$lib/stores/service-quote-ui.store');
+
+		createServiceContract.mockRejectedValueOnce(new Error('rpc unavailable'));
+		await serviceQuoteUiStore.loadTaskerTimelines('qr_12345678');
+
+		const result = await serviceQuoteUiStore.acceptTaskerProposal({
+			quoteRequestId: 'qr_12345678',
+			proposalId: 'pr_12345678'
+		});
+
+		expect(result).toEqual({
+			success: false,
+			error: 'rpc unavailable'
+		});
+		expect(publishServiceProposalStatus).toHaveBeenNthCalledWith(
+			2,
+			expect.objectContaining({
+				content: expect.objectContaining({
+					status: 'accept_failed',
+					message: 'rpc unavailable'
+				})
+			})
+		);
+		expect(get(serviceQuoteUiStore).taskerTimelines[0]?.resolvedStatus).toBe('accept_failed');
+	});
+
 	it('updates non-blocking messages and clears recent submit focus state', async () => {
 		const { serviceQuoteUiStore } = await import('$lib/stores/service-quote-ui.store');
 
@@ -692,7 +1032,7 @@ describe('serviceQuoteUiStore', () => {
 				['30402:' + 'a'.repeat(64) + ':service-1234']: false
 			},
 			providerLoadedByService: {
-				['30402:' + 'a'.repeat(64) + ':service-1234']: true
+				['30402:' + 'a'.repeat(64) + ':service-1234']: false
 			},
 			providerLoadErrorByService: {
 				['30402:' + 'a'.repeat(64) + ':service-1234']: 'provider query failed'
@@ -725,6 +1065,60 @@ describe('serviceQuoteUiStore', () => {
 		expect(get(serviceQuoteUiStore).focusSync.requestId).toBe(requestId);
 	});
 
+	it('does not treat an exact-request provider cache entry as a full-service cache hit', async () => {
+		const { buildServiceAddress, serviceQuoteUiStore } = await import(
+			'$lib/stores/service-quote-ui.store'
+		);
+		const serviceAddress = buildServiceAddress(service);
+
+		queryServiceQuotesForTaskee
+			.mockResolvedValueOnce({
+				timelines: [createTimelineWithRequestId('qr_12345678')]
+			})
+			.mockResolvedValueOnce({
+				timelines: [
+					createTimelineWithRequestId('qr_12345678'),
+					createTimelineWithRequestId('qr_87654321')
+				]
+			});
+
+		await serviceQuoteUiStore.loadProviderTimelines(serviceAddress, 'qr_12345678');
+		await serviceQuoteUiStore.loadProviderTimelines(serviceAddress, null);
+
+		expect(queryServiceQuotesForTaskee).toHaveBeenNthCalledWith(
+			1,
+			serviceAddress,
+			'b'.repeat(64),
+			undefined,
+			'qr_12345678'
+		);
+		expect(queryServiceQuotesForTaskee).toHaveBeenNthCalledWith(
+			2,
+			serviceAddress,
+			'b'.repeat(64),
+			undefined,
+			undefined
+		);
+		expect(get(serviceQuoteUiStore).providerTimelinesByService[serviceAddress]).toHaveLength(2);
+		expect(get(serviceQuoteUiStore).providerCacheKeyByService[serviceAddress]).toBe('*');
+	});
+
+	it('marks provider quote freshness as partial when the relay response reports truncation', async () => {
+		const { buildServiceAddress, getProviderDataFreshness, serviceQuoteUiStore } = await import(
+			'$lib/stores/service-quote-ui.store'
+		);
+		const serviceAddress = buildServiceAddress(service);
+
+		queryServiceQuotesForTaskee.mockResolvedValueOnce({
+			timelines: [createTimeline()],
+			isPartial: true
+		});
+
+		await serviceQuoteUiStore.loadProviderTimelines(serviceAddress, null);
+
+		expect(getProviderDataFreshness(get(serviceQuoteUiStore), serviceAddress)).toBe('partial');
+	});
+
 	it('reconciles exact request focus when a same-service provider load is already in flight', async () => {
 		const { buildServiceAddress, getProviderDataFreshness, serviceQuoteUiStore } = await import(
 			'$lib/stores/service-quote-ui.store'
@@ -752,9 +1146,121 @@ describe('serviceQuoteUiStore', () => {
 
 		await Promise.all([baseLoad, focusedLoad]);
 
-		expect(queryServiceQuotesForTaskee).toHaveBeenCalledTimes(1);
+		expect(queryServiceQuotesForTaskee).toHaveBeenCalledTimes(2);
 		expect(getProviderDataFreshness(get(serviceQuoteUiStore), serviceAddress)).toBe('partial');
 		expect(get(serviceQuoteUiStore).focusSync.requestId).toBe(requestId);
+	});
+
+	it('treats exact-request provider cache entries as incomplete once the request filter clears', async () => {
+		const { buildServiceAddress, serviceQuoteUiStore } = await import(
+			'$lib/stores/service-quote-ui.store'
+		);
+		const serviceAddress = buildServiceAddress(service);
+
+		queryServiceQuotesForTaskee
+			.mockResolvedValueOnce({
+				timelines: [createTimelineWithRequestId('qr_12345678')]
+			})
+			.mockResolvedValueOnce({
+				timelines: [
+					createTimelineWithRequestId('qr_12345678'),
+					createTimelineWithRequestId('qr_87654321')
+				]
+			});
+
+		await serviceQuoteUiStore.loadProviderTimelines(serviceAddress, 'qr_12345678');
+		await serviceQuoteUiStore.loadProviderTimelines(serviceAddress, null);
+
+		expect(queryServiceQuotesForTaskee).toHaveBeenNthCalledWith(
+			1,
+			serviceAddress,
+			'b'.repeat(64),
+			undefined,
+			'qr_12345678'
+		);
+		expect(queryServiceQuotesForTaskee).toHaveBeenNthCalledWith(
+			2,
+			serviceAddress,
+			'b'.repeat(64),
+			undefined,
+			undefined
+		);
+		expect(get(serviceQuoteUiStore).providerTimelinesByService[serviceAddress]).toHaveLength(2);
+	});
+
+	it('marks provider quote data as partial when the taskee query reports truncation', async () => {
+		const { buildServiceAddress, getProviderDataFreshness, serviceQuoteUiStore } = await import(
+			'$lib/stores/service-quote-ui.store'
+		);
+		const serviceAddress = buildServiceAddress(service);
+
+		queryServiceQuotesForTaskee.mockResolvedValueOnce({
+			timelines: [createTimeline()],
+			isPartial: true
+		});
+
+		await serviceQuoteUiStore.loadProviderTimelines(serviceAddress, null);
+
+		expect(getProviderDataFreshness(get(serviceQuoteUiStore), serviceAddress)).toBe('partial');
+	});
+
+	it('starts a fresh provider query when force refresh is requested during an in-flight load', async () => {
+		const { buildServiceAddress, serviceQuoteUiStore } = await import(
+			'$lib/stores/service-quote-ui.store'
+		);
+		const serviceAddress = buildServiceAddress(service);
+		const firstLoad = createDeferred<{ timelines: ServiceQuoteTimelineEntry[] }>();
+		const forcedLoad = createDeferred<{ timelines: ServiceQuoteTimelineEntry[] }>();
+
+		queryServiceQuotesForTaskee
+			.mockImplementationOnce(() => firstLoad.promise)
+			.mockImplementationOnce(() => forcedLoad.promise);
+
+		const initialPromise = serviceQuoteUiStore.loadProviderTimelines(serviceAddress, 'qr_12345678');
+		const forcedPromise = serviceQuoteUiStore.loadProviderTimelines(serviceAddress, 'qr_12345678', {
+			force: true
+		});
+
+		await vi.waitFor(() => {
+			expect(queryServiceQuotesForTaskee).toHaveBeenCalledTimes(2);
+		});
+
+		firstLoad.resolve({
+			timelines: [createTimelineWithRequestId('qr_stale123')]
+		});
+		forcedLoad.resolve({
+			timelines: [createTimelineWithRequestId('qr_12345678')]
+		});
+
+		await Promise.all([initialPromise, forcedPromise]);
+
+		expect(
+			get(serviceQuoteUiStore).providerTimelinesByService[serviceAddress][0]?.request.content
+				.quoteRequestId
+		).toBe('qr_12345678');
+	});
+
+	it('keeps provider timelines marked as loaded when a refresh fails after prior success', async () => {
+		const { buildServiceAddress, serviceQuoteUiStore } = await import(
+			'$lib/stores/service-quote-ui.store'
+		);
+		const serviceAddress = buildServiceAddress(service);
+
+		await serviceQuoteUiStore.loadProviderTimelines(serviceAddress, 'qr_12345678');
+		queryServiceQuotesForTaskee.mockRejectedValueOnce(new Error('provider query failed'));
+
+		await expect(
+			serviceQuoteUiStore.loadProviderTimelines(serviceAddress, 'qr_12345678', { force: true })
+		).rejects.toThrow('provider query failed');
+
+		expect(get(serviceQuoteUiStore)).toMatchObject({
+			providerLoadedByService: {
+				[serviceAddress]: true
+			},
+			providerLoadErrorByService: {
+				[serviceAddress]: 'provider query failed'
+			}
+		});
 	});
 
 	it('clears quote timeline load errors after a successful retry', async () => {
@@ -774,7 +1280,8 @@ describe('serviceQuoteUiStore', () => {
 		await expect(
 			serviceQuoteUiStore.loadProviderTimelines(serviceAddress, 'qr_12345678')
 		).rejects.toThrow('provider query failed');
-		queryServiceQuotesForTaskee.mockResolvedValueOnce({ timelines: [createTimeline()] });
+		queryServiceQuotesForTaskee.mockReset();
+		queryServiceQuotesForTaskee.mockResolvedValue({ timelines: [createTimeline()] });
 		await serviceQuoteUiStore.loadProviderTimelines(serviceAddress, 'qr_12345678');
 
 		expect(get(serviceQuoteUiStore)).toMatchObject({
@@ -902,13 +1409,14 @@ describe('serviceQuoteUiStore', () => {
 		expect(publishServiceProposal).not.toHaveBeenCalled();
 	});
 
-	it('requires a wallet before sending a provider proposal', async () => {
+	it('returns a wallet error when provider proposal wallet resolution still fails', async () => {
 		const { serviceQuoteUiStore } = await import('$lib/stores/service-quote-ui.store');
 		walletStore.set({
 			rsk: {
 				address: ''
 			}
 		});
+		getRSKAddress.mockResolvedValueOnce('');
 
 		await serviceQuoteUiStore.loadProviderTimelines(
 			'30402:' + 'a'.repeat(64) + ':service-1234',
@@ -1101,6 +1609,7 @@ describe('serviceQuoteUiStore', () => {
 				address: 'not-an-address'
 			}
 		});
+		getRSKAddress.mockResolvedValueOnce('still-not-an-address');
 		await expect(
 			serviceQuoteUiStore.sendLocalProposal({
 				service,
