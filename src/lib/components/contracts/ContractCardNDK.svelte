@@ -18,6 +18,7 @@
 	contractRune.start();
 
 	// $inspect(contractRune.blockchainData, 'contractRune');
+	// $inspect(contractRune.statusEvents, 'statusEvents');
 
 	/** Layout preview only — wire to real contract data later */
 
