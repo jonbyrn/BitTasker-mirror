@@ -8,6 +8,7 @@
 	import { formatStandardDateTimeShort } from '$lib/utils/helpers/dateFormatter';
 	import { normalizeServiceContractSchedule } from '$lib/utils/service-contract/schedule';
 	import { locale, t } from 'svelte-i18n';
+	import { onMount } from 'svelte';
 	import IconCheckCircleOutline from '~icons/mdi/check-circle-outline';
 	import IconCloseCircleOutline from '~icons/mdi/close-circle-outline';
 	import IconClockOutline from '~icons/mdi/clock-outline';
@@ -130,6 +131,66 @@
 				)
 			: ''
 	);
+	const inquiryDescription = $derived(timeline?.request.content.inquiry.description?.trim() ?? '');
+
+	let inquiryDescriptionElement: HTMLParagraphElement | null = $state(null);
+	let showFullInquiryDescription = $state(false);
+	let isInquiryDescriptionTruncated = $state(false);
+
+	function checkIfInquiryDescriptionTruncated() {
+		if (!inquiryDescriptionElement || !inquiryDescription) {
+			isInquiryDescriptionTruncated = false;
+			return;
+		}
+
+		const clone = inquiryDescriptionElement.cloneNode(true) as HTMLElement;
+		clone.className = inquiryDescriptionElement.className.replace(/line-clamp-\d+/g, '').trim();
+		clone.style.position = 'absolute';
+		clone.style.visibility = 'hidden';
+		clone.style.pointerEvents = 'none';
+		clone.style.height = 'auto';
+		clone.style.maxHeight = 'none';
+		clone.style.overflow = 'visible';
+		clone.style.width = `${inquiryDescriptionElement.offsetWidth}px`;
+		document.body.appendChild(clone);
+
+		const fullHeight = clone.scrollHeight;
+		const lineHeight = parseFloat(getComputedStyle(inquiryDescriptionElement).lineHeight) || 24;
+		const maxHeight = lineHeight * 3;
+
+		document.body.removeChild(clone);
+
+		isInquiryDescriptionTruncated = fullHeight > maxHeight + 1;
+	}
+
+	onMount(() => {
+		const handleResize = () => {
+			if (isOpen) {
+				checkIfInquiryDescriptionTruncated();
+			}
+		};
+
+		window.addEventListener('resize', handleResize);
+		return () => window.removeEventListener('resize', handleResize);
+	});
+
+	$effect(() => {
+		const requestId = timeline?.request.id ?? null;
+		const currentDescription = inquiryDescription;
+
+		showFullInquiryDescription = false;
+		isInquiryDescriptionTruncated = false;
+
+		if (!isOpen || !requestId || !currentDescription || !inquiryDescriptionElement) {
+			return;
+		}
+
+		requestAnimationFrame(() => {
+			setTimeout(() => {
+				checkIfInquiryDescriptionTruncated();
+			}, 0);
+		});
+	});
 </script>
 
 <Drawer {isOpen} title={drawerTitle} {onClose} position="right" isScrollable={true}>
@@ -236,9 +297,34 @@
 				</div>
 
 				<div class="space-y-4 text-sm">
-					<p class="text-base-content/80 whitespace-pre-line">
-						{timeline.request.content.inquiry.description || '—'}
-					</p>
+					<div>
+						<p
+							bind:this={inquiryDescriptionElement}
+							class={`text-base-content/80 leading-6 whitespace-pre-line ${
+								showFullInquiryDescription ? '' : 'line-clamp-3'
+							}`}
+							id="service-request-drawer-inquiry-description"
+							data-testid="service-request-drawer-inquiry-description"
+						>
+							{timeline.request.content.inquiry.description || '—'}
+						</p>
+
+						{#if isInquiryDescriptionTruncated}
+							<button
+								type="button"
+								class="btn btn-ghost btn-xs mt-2 h-auto min-h-0 px-0 text-[0.75rem] font-semibold tracking-wide uppercase"
+								aria-controls="service-request-drawer-inquiry-description"
+								aria-expanded={showFullInquiryDescription}
+								onclick={() => {
+									showFullInquiryDescription = !showFullInquiryDescription;
+								}}
+							>
+								{showFullInquiryDescription
+									? tr('dashboard.service_requests.show_less', 'See Less')
+									: tr('dashboard.service_requests.show_more', 'See More')}
+							</button>
+						{/if}
+					</div>
 
 					{#if timeline.request.content.tierId || timeline.request.content.selectedAddOns?.length || timeline.request.content.rushDelivery}
 						<div class="flex flex-wrap gap-2 text-xs">
