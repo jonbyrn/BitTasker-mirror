@@ -47,7 +47,8 @@
 		"buttons": {
 			"cancel": "Cancel",
 			"retry": "Retry",
-			"close": "Close"
+			"close": "Close",
+			"refresh": "Refresh"
 		},
 		"toast": {
 			"link_copied": "Link copied to clipboard",

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { t } from 'svelte-i18n';
 	import IconAccount from '~icons/mdi/account';
 	import { fetchProfileMetadata } from '$lib/utils/nostr-message';
@@ -27,8 +28,7 @@
 	// State for fetched profile data (fetchProfileMetadata returns name, picture, createdAt)
 	let fetchedProfile = $state<{ name?: string; picture?: string; createdAt?: string } | null>(null);
 	let isLoadingProfile = $state(false);
-	let normalizedHexPubkey = $state<string | null>(null); // Normalized hex pubkey for consistent caching
-	let lastLoadedPubkey = $state<string | null>(null); // Track which pubkey we last loaded to prevent duplicate loads
+	let lastLoadedPubkey: string | null = null; // Track which pubkey we last loaded to prevent duplicate loads
 
 	// Size configurations - matching bids page styling
 	const sizeConfig = {
@@ -193,6 +193,8 @@
 		return !avatarToCheck || (typeof avatarToCheck === 'string' && avatarToCheck.trim() === '');
 	});
 
+	const normalizedHexPubkey = $derived.by(() => normalizePubkeyToHex(pubkey));
+
 	/**
 	 * Normalize pubkey to hex format (like profile page does)
 	 * This ensures consistent cache keys and proper filtering
@@ -239,18 +241,19 @@
 	 * Always fetches fresh data when pubkey is provided
 	 */
 	async function loadUserProfile() {
-		if (!normalizedHexPubkey) {
+		const currentPubkey = normalizedHexPubkey;
+		if (!currentPubkey) {
 			return;
 		}
 
 		// Prevent duplicate loads for the same pubkey or if already loading
-		if (normalizedHexPubkey === lastLoadedPubkey || isLoadingProfile) {
+		if (currentPubkey === lastLoadedPubkey || isLoadingProfile) {
 			return;
 		}
 
 		// Set loading state and track pubkey immediately to prevent race conditions
 		isLoadingProfile = true;
-		lastLoadedPubkey = normalizedHexPubkey;
+		lastLoadedPubkey = currentPubkey;
 
 		try {
 			console.debug('[UserInfoDisplay] loadUserProfile: starting fetch', {
@@ -259,12 +262,12 @@
 				avatar,
 				isAvatarMissing,
 				pubkey,
-				normalizedHexPubkey
+				normalizedHexPubkey: currentPubkey
 			});
 
 			// Convert hex to npub for fetchProfileMetadata (it handles both, but npub ensures cache consistency)
 			// The cache key will be npub format, which is consistent across calls
-			const npubToFetch = nip19.npubEncode(normalizedHexPubkey);
+			const npubToFetch = nip19.npubEncode(currentPubkey);
 
 			const profile = await fetchProfileMetadata(npubToFetch);
 			console.debug('[UserInfoDisplay] loadUserProfile: received profile', {
@@ -286,27 +289,18 @@
 		}
 	}
 
-	// Normalize pubkey to hex format when it changes (like profile page)
 	$effect(() => {
-		const newHexPubkey = normalizePubkeyToHex(pubkey);
-		// Reset loaded pubkey when pubkey changes to allow fresh fetch
-		if (newHexPubkey !== normalizedHexPubkey) {
-			lastLoadedPubkey = null;
+		const currentPubkey = normalizedHexPubkey;
+		if (currentPubkey !== lastLoadedPubkey) {
 			fetchedProfile = null;
 		}
-		normalizedHexPubkey = newHexPubkey;
-	});
-
-	// Load profile when normalized pubkey is available (like profile page)
-	// Use $effect to handle both initial mount and reactive updates
-	$effect(() => {
-		if (normalizedHexPubkey && normalizedHexPubkey !== lastLoadedPubkey && !isLoadingProfile) {
+		if (currentPubkey) {
 			loadUserProfile();
 		}
 	});
 
 	// Debug: Log final values (only when they actually change, not on every render)
-	let lastLoggedValues = $state<{ username?: string; display?: string } | null>(null);
+	let lastLoggedValues: { username?: string; display?: string } | null = null;
 	$effect(() => {
 		const current = {
 			username: displayUsername,
@@ -336,7 +330,10 @@
 <div class="flex min-w-0 flex-1 items-center gap-4">
 	<!-- Avatar -->
 	{#if profileUrl}
-		<a href={profileUrl} class="avatar shrink-0 cursor-pointer transition-opacity hover:opacity-80">
+		<a
+			href={resolve(profileUrl)}
+			class="avatar shrink-0 cursor-pointer transition-opacity hover:opacity-80"
+		>
 			<div class="bg-base-300 flex {config.avatar} items-center justify-center rounded-full">
 				{#if displayAvatar}
 					<img
@@ -410,7 +407,7 @@
 		<!-- Display name -->
 		{#if profileUrl}
 			<a
-				href={profileUrl}
+				href={resolve(profileUrl)}
 				class="w-full cursor-pointer truncate {config.name} transition-opacity hover:opacity-80"
 			>
 				{displayUsername}

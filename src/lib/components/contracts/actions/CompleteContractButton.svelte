@@ -17,7 +17,7 @@
 </script>
 
 <button
-	class={`btn btn-primary btn-sm ${compact ? 'w-fit' : 'w-full sm:w-fit'}`}
+	class={`btn btn-success btn-sm ${compact ? 'w-fit' : 'w-full sm:w-fit'}`}
 	{disabled}
 	{onclick}
 >

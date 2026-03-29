@@ -11,6 +11,8 @@
 	import { appStore } from '$lib/stores/app.store';
 	import DashboardTaskCard from './DashboardTaskCard.svelte';
 	import DashboardEmptyState from '$lib/components/shared/DashboardEmptyState.svelte';
+	import ErrorAlertWithModal from '$lib/components/ErrorAlertWithModal.svelte';
+	import { detectErrorType } from '$lib/utils/helpers/errorTypeDetector';
 
 	// MDI Icons for filters
 	import IconClockOutline from '~icons/mdi/clock-outline';
@@ -211,6 +213,9 @@
 
 	// Simple synchronous filtering
 	let filteredTasks = $derived.by(() => getTasksForFilter(activeFilter));
+	const isPasskeyLoadError = $derived.by(
+		() => Boolean(error) && detectErrorType(error ?? '') === 'biometric'
+	);
 
 	// Paginated tasks
 	let totalTasks = $derived(filteredTasks.length);
@@ -539,28 +544,38 @@
 
 	<!-- Error State -->
 	{#if error}
-		<div class="alert alert-outline alert-error">
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				class="h-6 w-6 shrink-0 stroke-current"
-				fill="none"
-				viewBox="0 0 24 24"
-			>
-				<path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					stroke-width="2"
-					d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-				/>
-			</svg>
-			<div>
-				<h3 class="font-bold">{$t('dashboard.tasks.error_title')}</h3>
-				<div class="text-xs">{error}</div>
+		{#if isPasskeyLoadError}
+			<ErrorAlertWithModal
+				{error}
+				isPasskeyError
+				autoOpenModal={false}
+				onRetry={loadTasks}
+				class="w-full"
+			/>
+		{:else}
+			<div class="alert alert-outline alert-error">
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					class="h-6 w-6 shrink-0 stroke-current"
+					fill="none"
+					viewBox="0 0 24 24"
+				>
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+					/>
+				</svg>
+				<div>
+					<h3 class="font-bold">{$t('dashboard.tasks.error_title')}</h3>
+					<div class="text-xs">{error}</div>
+				</div>
+				<button class="btn btn-sm btn-outline" onclick={loadTasks}>
+					{$t('dashboard.tasks.retry')}
+				</button>
 			</div>
-			<button class="btn btn-sm btn-outline" onclick={loadTasks}>
-				{$t('dashboard.tasks.retry')}
-			</button>
-		</div>
+		{/if}
 	{/if}
 
 	<!-- Tasks List -->
