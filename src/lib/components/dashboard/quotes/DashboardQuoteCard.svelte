@@ -1,8 +1,10 @@
 <script lang="ts">
 	import type { ServiceQuoteTimelineEntry } from '$lib/types/service-quote';
+	import type { Service } from '$lib/types/service';
 	import { locale, t } from 'svelte-i18n';
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { formatStandardDateTimeShort } from '$lib/utils/helpers/dateFormatter';
+	import { parseServiceAddress } from '$lib/utils/service-quote/protocol';
 	import UserInfoDisplay from '$lib/components/user/UserInfoDisplay.svelte';
 	import IconCheckCircleOutline from '~icons/mdi/check-circle-outline';
 	import IconCloseCircleOutline from '~icons/mdi/close-circle-outline';
@@ -22,11 +24,15 @@
 	const {
 		timeline,
 		getActionButtons,
-		serviceUnavailable = false
+		service = null,
+		serviceUnavailable = false,
+		serviceLookupFailed = false
 	} = $props<{
 		timeline: ServiceQuoteTimelineEntry;
 		getActionButtons: (timeline: ServiceQuoteTimelineEntry) => ActionButton[];
+		service?: Service | null;
 		serviceUnavailable?: boolean;
+		serviceLookupFailed?: boolean;
 	}>();
 
 	function translateOrFallback(key: string, fallback: string): string {
@@ -93,14 +99,21 @@
 			case 'accept_unknown':
 				return 'badge-error';
 			default:
-				return 'badge-warning';
+				return timeline.latestProposal ? 'badge-info' : 'badge-warning';
 		}
 	}
 
 	function getPriceDisplay(): string {
-		if (timeline.latestProposal?.content.pricingSnapshot?.amount !== undefined) {
-			return `$${formatNumberWithTwoDecimals(timeline.latestProposal.content.pricingSnapshot.amount)}`;
+		const amount = timeline.latestProposal?.content.amountUsdt;
+		if (amount) {
+			const numericAmount = Number(amount);
+			if (Number.isFinite(numericAmount)) {
+				return `$${formatNumberWithTwoDecimals(numericAmount)}`;
+			}
+
+			return `$${amount}`;
 		}
+
 		return translateOrFallback('dashboard.service_requests.quote_pending', 'Pending');
 	}
 
@@ -127,6 +140,24 @@
 			timeline.latestProposal?.content.expirationTimestamp ?? timeline.expirationTimestamp
 		)
 	);
+	const providerPubkey = $derived.by(() => {
+		if (timeline.latestProposal?.pubkey) {
+			return timeline.latestProposal.pubkey;
+		}
+
+		if (service?.npub) {
+			return service.npub;
+		}
+
+		try {
+			return parseServiceAddress(timeline.request.content.serviceAddress).pubkey;
+		} catch {
+			return timeline.request.pubkey;
+		}
+	});
+	const providerUsername = $derived(service?.creator?.username ?? null);
+	const providerAvatar = $derived(service?.creator?.avatar ?? null);
+	const providerRating = $derived(service?.creator?.rating ?? 0);
 </script>
 
 <div class="card bg-base-100 rounded-xl shadow-md transition-shadow hover:shadow-lg">
@@ -144,7 +175,11 @@
 			</div>
 			<!-- Right: Status Badge + Price (aligned right) -->
 			<div class="flex shrink-0 flex-col items-end gap-2">
-				<div class="badge {getStatusColor(timeline)} badge-sm max-w-[100px] truncate text-center">
+				<div
+					class="badge {getStatusColor(
+						timeline
+					)} badge-sm h-auto min-h-6 max-w-[180px] px-3 py-1 text-center leading-tight break-words whitespace-normal"
+				>
 					{describeStatus(timeline)}
 				</div>
 				<div class="text-right text-xl font-bold">
@@ -158,6 +193,7 @@
 			<div class="flex items-center gap-2">
 				<IconEmailFastOutline class="text-primary h-8 w-8 shrink-0" />
 				<span class="line-clamp-2 text-sm font-medium">
+					{translateOrFallback('dashboard.service_requests.requested', 'Requested')}:
 					{formattedRequestedAt}
 				</span>
 			</div>
@@ -189,9 +225,18 @@
 						)}
 					</span>
 				</div>
+			{:else if serviceLookupFailed}
+				<div class="alert alert-outline alert-warning py-2 text-xs">
+					<span>
+						{translateOrFallback(
+							'dashboard.service_requests.alerts.service_lookup_failed',
+							'Some service details could not be refreshed. Retry before acting on those requests.'
+						)}
+					</span>
+				</div>
 			{/if}
 
-			{#if selectedTierLabel || selectedAddOns.length > 0 || rushDeliverySelected || timeline.latestProposal?.content.expirationTimestamp}
+			{#if selectedTierLabel || selectedAddOns.length > 0 || rushDeliverySelected}
 				<div class="flex flex-wrap gap-2 text-xs">
 					{#if selectedTierLabel}
 						<span class="badge badge-outline badge-sm">
@@ -214,22 +259,31 @@
 							{translateOrFallback('dashboard.service_requests.rush_delivery', 'Rush delivery')}
 						</span>
 					{/if}
-					{#if timeline.latestProposal?.content.expirationTimestamp}
-						<span class="badge badge-outline badge-sm">
-							{translateOrFallback('dashboard.service_requests.expires', 'Expires')}:
-							{formattedExpiresAt}
-						</span>
-					{/if}
+				</div>
+			{/if}
+
+			{#if timeline.latestProposal?.content.expirationTimestamp}
+				<div class="bg-primary/10 rounded-lg px-3 py-2 text-sm">
+					<span class="font-medium">
+						{translateOrFallback('dashboard.service_requests.expires', 'Expires')}:
+					</span>
+					<span class="text-base-content/80 ml-1">
+						{formattedExpiresAt}
+					</span>
 				</div>
 			{/if}
 		</div>
 
 		<div class="mb-3">
 			<UserInfoDisplay
-				pubkey={timeline.request.pubkey}
-				rating={0}
+				avatar={providerAvatar}
+				username={providerUsername}
+				pubkey={providerPubkey}
+				rating={providerRating}
 				size="md"
-				memberSince={timeline.request.created_at}
+				memberSince={service?.createdAt ??
+					timeline.latestProposal?.created_at ??
+					timeline.request.created_at}
 				avatarAlt={translateOrFallback('dashboard.find_tasks.avatar_alt', 'Avatar')}
 			/>
 		</div>

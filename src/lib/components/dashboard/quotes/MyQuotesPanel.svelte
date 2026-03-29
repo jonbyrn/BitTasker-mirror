@@ -1,9 +1,12 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { goto } from '$app/navigation';
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import { t } from 'svelte-i18n';
 	import DashboardQuoteCard from './DashboardQuoteCard.svelte';
 	import ServiceRequestDrawer from './ServiceRequestDrawer.svelte';
+	import ServiceRequestAcceptanceDrawer from './ServiceRequestAcceptanceDrawer.svelte';
+	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 	import { findServiceByUniqueId } from '$lib/nostr/service';
 	import { createDashboardUrl } from '$lib/utils/service-quote/dashboard-route';
 	import { browserNetworkStatus } from '$lib/utils/network-status';
@@ -11,8 +14,25 @@
 	import type { Service } from '$lib/types/service';
 	import { getTaskerDataFreshness, serviceQuoteUiStore } from '$lib/stores/service-quote-ui.store';
 	import { parseServiceAddress } from '$lib/utils/service-quote/protocol';
+	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import DashboardEmptyState from '$lib/components/shared/DashboardEmptyState.svelte';
-	import Modal from '$lib/components/Modal.svelte';
+	import ErrorAlertWithModal from '$lib/components/ErrorAlertWithModal.svelte';
+	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
+	import { detectErrorType } from '$lib/utils/helpers/errorTypeDetector';
+	import { createPortal, portal } from '$lib/utils/portal';
+	import { describeServiceContractPreflightFailure } from '$lib/utils/service-contract/preflight-feedback';
+	import {
+		preflightServiceContractCreation,
+		type ServiceContractPreflightErrorCode
+	} from '$lib/utils/service-contract/preflight';
+	import { normalizeServiceContractSchedule } from '$lib/utils/service-contract/schedule';
+	import {
+		allAssets,
+		formatSats,
+		totalBalances,
+		walletManager,
+		walletStore
+	} from '$lib/stores/wallet.store';
 	import IconBriefcaseOutline from '~icons/mdi/briefcase-outline';
 	import IconCheck from '~icons/mdi/check';
 	import IconCheckCircleOutline from '~icons/mdi/check-circle-outline';
@@ -26,20 +46,24 @@
 	let {
 		timelines = [],
 		focusedRequestId = null,
+		restoreFocusedRequest = false,
 		isSyncing = false,
 		hasLoaded = true,
 		loadError = null,
 		onRetry,
 		onRequestFocusChange,
+		onRequestClear,
 		onInvalidFocusedRequest
 	}: {
 		timelines?: ServiceQuoteTimelineEntry[];
 		focusedRequestId?: string | null;
+		restoreFocusedRequest?: boolean;
 		isSyncing?: boolean;
 		hasLoaded?: boolean;
 		loadError?: string | null;
 		onRetry?: (() => void | Promise<void>) | undefined;
 		onRequestFocusChange?: (requestId: string | null) => void;
+		onRequestClear?: (() => void | Promise<void>) | undefined;
 		onInvalidFocusedRequest?: () => void;
 	} = $props();
 
@@ -51,24 +75,50 @@
 		disabled?: boolean;
 	}
 
+	type AcceptProposalFundingCheck = {
+		status: 'ready' | 'error';
+		errorCode?: ServiceContractPreflightErrorCode;
+		message: string;
+		hint: string | null;
+		btcPrice: number | null;
+		totalRequiredUsd: number | null;
+		totalRequiredSats: string;
+	};
+
 	type ServiceRequestFilterCategory =
 		| 'awaiting_proposal'
+		| 'needs_attention'
 		| 'contract_created'
 		| 'declined'
 		| 'withdrawn'
 		| 'expired';
+	type RequestConfirmationAction = 'decline' | 'delete';
 
 	let actionPending = $state<'accept' | 'decline' | null>(null);
+	let actionPendingRequestId = $state<string | null>(null);
 	let activeFilter = $state<ServiceRequestFilterCategory>('awaiting_proposal');
+	let acceptDrawerRequestId = $state<string | null>(null);
+	let acceptFundingCheck = $state<AcceptProposalFundingCheck | null>(null);
+	let acceptFundingCheckInFlight = $state(false);
+	let acceptFundingCheckRunId = 0;
+	let acceptPreflightErrorHint = $state('');
+	let acceptPreflightErrorMessage = $state('');
 	let hasUserSelectedFilter = $state(false);
 	let deletePendingRequestId = $state<string | null>(null);
-	let deleteModalTimeline = $state<ServiceQuoteTimelineEntry | null>(null);
-	let deleteError = $state<string | null>(null);
+	let dismissedFocusedRequestId = $state<string | null>(null);
 	let isDropdownOpen = $state(false);
-	let requestDrawerTimeline = $state<ServiceQuoteTimelineEntry | null>(null);
+	let requestDrawerRequestId = $state<string | null>(null);
+	let statusDropdownButton = $state<HTMLButtonElement | null>(null);
+	let statusDropdownContainer = $state<HTMLDivElement | null>(null);
 	let serviceByAddress = $state<Record<string, Service | null>>({});
+	let serviceLookupErrorByAddress = $state<Record<string, boolean>>({});
 	let serviceLoadedByAddress = $state<Record<string, boolean>>({});
 	let serviceUnavailableByAddress = $state<Record<string, boolean>>({});
+	let requestActionError = $state<string | null>(null);
+	let confirmationModalState = $state<{
+		action: RequestConfirmationAction;
+		requestId: string;
+	} | null>(null);
 
 	function translateOrFallback(key: string, fallback: string): string {
 		try {
@@ -89,6 +139,21 @@
 		}
 		return timelines[0] ?? null;
 	});
+	const activeRequestDrawerRequestId = $derived(requestDrawerRequestId);
+	const requestDrawerTimeline = $derived.by(() =>
+		activeRequestDrawerRequestId
+			? (timelines.find(
+					(timeline) => timeline.request.content.quoteRequestId === activeRequestDrawerRequestId
+				) ?? null)
+			: null
+	);
+	const acceptDrawerTimeline = $derived.by(() =>
+		acceptDrawerRequestId
+			? (timelines.find(
+					(timeline) => timeline.request.content.quoteRequestId === acceptDrawerRequestId
+				) ?? null)
+			: null
+	);
 
 	function getTimelineFilterCategory(
 		timeline: Pick<
@@ -101,6 +166,9 @@
 		}
 
 		switch (timeline.resolvedStatus) {
+			case 'accept_failed':
+			case 'accept_unknown':
+				return 'needs_attention';
 			case 'declined':
 				return 'declined';
 			case 'withdrawn':
@@ -120,6 +188,14 @@
 				'Awaiting proposal'
 			),
 			icon: IconClockOutline
+		},
+		{
+			id: 'needs_attention' as const,
+			label: translateOrFallback(
+				'dashboard.service_requests.filters.needs_attention',
+				'Needs attention'
+			),
+			icon: IconCloseCircleOutline
 		},
 		{
 			id: 'contract_created' as const,
@@ -179,10 +255,82 @@
 		}
 	});
 
+	$effect(() => {
+		if (!focusedRequestId) {
+			dismissedFocusedRequestId = null;
+			return;
+		}
+
+		if (dismissedFocusedRequestId !== null && dismissedFocusedRequestId !== focusedRequestId) {
+			dismissedFocusedRequestId = null;
+		}
+	});
+
+	$effect(() => {
+		if (
+			!restoreFocusedRequest ||
+			!focusedRequestId ||
+			hasPendingMutation ||
+			acceptDrawerRequestId ||
+			dismissedFocusedRequestId === focusedRequestId
+		) {
+			return;
+		}
+
+		if (requestDrawerRequestId === focusedRequestId) {
+			return;
+		}
+
+		const focusedTimelineMatch =
+			timelines.find((timeline) => timeline.request.content.quoteRequestId === focusedRequestId) ??
+			null;
+		if (!focusedTimelineMatch) {
+			return;
+		}
+
+		requestActionError = null;
+		requestDrawerRequestId = focusedRequestId;
+	});
+
 	const isOffline = $derived(!$browserNetworkStatus.online);
 	const showReconnectNotice = $derived(
 		$browserNetworkStatus.online && $browserNetworkStatus.lastTransition === 'online'
 	);
+	const bitcoinAsset = $derived($allAssets.find((asset) => asset.assetId === 'rbtc'));
+	const walletBalanceSatsLabel = $derived(formatSats($totalBalances.sats));
+	const walletBalanceUsdLabel = $derived.by(() => {
+		if (bitcoinAsset?.usdValue != null && Number.isFinite(bitcoinAsset.usdValue)) {
+			return `$${formatNumberWithTwoDecimals(bitcoinAsset.usdValue)}`;
+		}
+
+		if (acceptFundingCheck?.btcPrice && Number.isFinite($totalBalances.rbtc)) {
+			return `$${formatNumberWithTwoDecimals($totalBalances.rbtc * acceptFundingCheck.btcPrice)}`;
+		}
+
+		return '';
+	});
+	const acceptRequiredUsdLabel = $derived.by(() => {
+		if (acceptFundingCheck?.totalRequiredUsd == null) {
+			return '';
+		}
+
+		return `$${formatNumberWithTwoDecimals(acceptFundingCheck.totalRequiredUsd)}`;
+	});
+	const acceptWalletVerificationStatus = $derived.by(() =>
+		acceptFundingCheckInFlight ? 'verifying' : (acceptFundingCheck?.status ?? 'idle')
+	);
+	const acceptWalletVerificationMessage = $derived.by(() => {
+		if (acceptFundingCheckInFlight) {
+			return translateOrFallback(
+				'dashboard.services.detail.book_now_drawer.verifying_wallet',
+				'Checking your wallet balance for this contract...'
+			);
+		}
+
+		return acceptFundingCheck?.message ?? '';
+	});
+	const acceptDrawerErrorMessage = $derived(requestActionError ?? acceptPreflightErrorMessage);
+	const acceptDrawerErrorHint = $derived(requestActionError ? '' : acceptPreflightErrorHint);
 	const taskerDataFreshness = $derived(getTaskerDataFreshness($serviceQuoteUiStore));
 	const taskerDataIsStale = $derived(taskerDataFreshness === 'stale');
 	const taskerDataIsPartial = $derived(taskerDataFreshness === 'partial');
@@ -190,48 +338,192 @@
 		taskerDataIsPartial ||
 			(Boolean(focusedRequestId) && hasLoaded && isSyncing && !selectedTimeline)
 	);
-	const selectedTimelineServiceUnavailable = $derived(
-		selectedTimeline
-			? serviceUnavailableByAddress[selectedTimeline.request.content.serviceAddress] === true
-			: false
-	);
-	const actionsUnavailable = $derived(
-		isSyncing ||
-			Boolean(loadError) ||
-			isOffline ||
-			taskerDataIsStale ||
-			showPartialSyncAlert ||
-			selectedTimelineServiceUnavailable
-	);
-	const deleteUnavailable = $derived(
+	const activeMutationRequestId = $derived(actionPendingRequestId ?? deletePendingRequestId);
+	const hasPendingMutation = $derived(Boolean(activeMutationRequestId));
+	const globalActionsUnavailable = $derived(
 		isSyncing || Boolean(loadError) || isOffline || taskerDataIsStale || showPartialSyncAlert
 	);
+	const isPasskeyLoadError = $derived.by(
+		() => Boolean(loadError) && detectErrorType(loadError ?? '') === 'biometric'
+	);
+	const hasServiceLookupErrors = $derived(
+		timelines.some(
+			(timeline) => serviceLookupErrorByAddress[timeline.request.content.serviceAddress]
+		)
+	);
+
+	function isServiceLookupPending(timeline: ServiceQuoteTimelineEntry | null): boolean {
+		return timeline
+			? serviceLoadedByAddress[timeline.request.content.serviceAddress] !== true
+			: false;
+	}
+
+	function hasServiceLookupError(timeline: ServiceQuoteTimelineEntry | null): boolean {
+		return timeline
+			? serviceLookupErrorByAddress[timeline.request.content.serviceAddress] === true
+			: false;
+	}
+
+	function isServiceUnavailable(timeline: ServiceQuoteTimelineEntry | null): boolean {
+		return timeline
+			? serviceUnavailableByAddress[timeline.request.content.serviceAddress] === true
+			: false;
+	}
+
+	function isContextLockedToAnotherRequest(timeline: ServiceQuoteTimelineEntry | null): boolean {
+		return timeline
+			? Boolean(activeMutationRequestId) &&
+					activeMutationRequestId !== timeline.request.content.quoteRequestId
+			: Boolean(activeMutationRequestId);
+	}
+
+	function isActionUnavailableForTimeline(timeline: ServiceQuoteTimelineEntry | null): boolean {
+		return (
+			globalActionsUnavailable ||
+			hasPendingMutation ||
+			isContextLockedToAnotherRequest(timeline) ||
+			isServiceLookupPending(timeline) ||
+			hasServiceLookupError(timeline) ||
+			isServiceUnavailable(timeline)
+		);
+	}
+
+	const actionsUnavailable = $derived(isActionUnavailableForTimeline(requestDrawerTimeline));
+	const deleteUnavailable = $derived(isActionUnavailableForTimeline(requestDrawerTimeline));
 
 	function selectFilter(nextFilter: ServiceRequestFilterCategory) {
+		if (hasPendingMutation) {
+			return;
+		}
+
 		activeFilter = nextFilter;
 		hasUserSelectedFilter = true;
 		isDropdownOpen = false;
 	}
 
 	function clearFilters() {
+		if (hasPendingMutation) {
+			return;
+		}
+
 		hasUserSelectedFilter = false;
 		activeFilter = getPreferredFilter();
 		isDropdownOpen = false;
 	}
 
 	function toggleDropdown() {
+		if (hasPendingMutation) {
+			return;
+		}
+
 		isDropdownOpen = !isDropdownOpen;
 	}
 
+	function focusStatusOption(index: number) {
+		const options = Array.from(
+			statusDropdownContainer?.querySelectorAll<HTMLButtonElement>(
+				'[data-status-filter-option="true"]'
+			) ?? []
+		);
+		if (options.length === 0) {
+			return;
+		}
+
+		const normalizedIndex = ((index % options.length) + options.length) % options.length;
+		options[normalizedIndex]?.focus();
+	}
+
 	function handleClickOutside(event: MouseEvent) {
-		const target = event.target as HTMLElement;
-		const dropdownContainer = target.closest('.status-dropdown-container');
-		if (!dropdownContainer && isDropdownOpen) {
+		const target = event.target as Node | null;
+		if (
+			isDropdownOpen &&
+			statusDropdownContainer &&
+			target &&
+			!statusDropdownContainer.contains(target)
+		) {
 			isDropdownOpen = false;
 		}
 	}
 
+	function handleStatusTriggerKeydown(event: KeyboardEvent) {
+		if (hasPendingMutation) {
+			return;
+		}
+
+		if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+			event.preventDefault();
+			isDropdownOpen = true;
+			queueMicrotask(() =>
+				focusStatusOption(event.key === 'ArrowDown' ? 0 : filterOptions.length - 1)
+			);
+			return;
+		}
+
+		if (event.key === 'Enter' || event.key === ' ') {
+			event.preventDefault();
+			const willOpen = !isDropdownOpen;
+			toggleDropdown();
+			if (willOpen) {
+				queueMicrotask(() => focusStatusOption(0));
+			}
+			return;
+		}
+
+		if (event.key === 'Escape') {
+			event.preventDefault();
+			isDropdownOpen = false;
+			statusDropdownButton?.focus();
+		}
+	}
+
+	function handleStatusOptionKeydown(
+		event: KeyboardEvent,
+		index: number,
+		optionId: ServiceRequestFilterCategory
+	) {
+		if (event.key === 'Enter' || event.key === ' ') {
+			event.preventDefault();
+			selectFilter(optionId);
+			statusDropdownButton?.focus();
+			return;
+		}
+
+		if (event.key === 'Escape') {
+			event.preventDefault();
+			isDropdownOpen = false;
+			statusDropdownButton?.focus();
+			return;
+		}
+
+		if (event.key === 'ArrowDown') {
+			event.preventDefault();
+			focusStatusOption(index + 1);
+			return;
+		}
+
+		if (event.key === 'ArrowUp') {
+			event.preventDefault();
+			focusStatusOption(index - 1);
+			return;
+		}
+
+		if (event.key === 'Home') {
+			event.preventDefault();
+			focusStatusOption(0);
+			return;
+		}
+
+		if (event.key === 'End') {
+			event.preventDefault();
+			focusStatusOption(filterOptions.length - 1);
+		}
+	}
+
 	async function handleRefresh() {
+		if (hasPendingMutation) {
+			return;
+		}
+
 		await onRetry?.();
 	}
 
@@ -243,10 +535,41 @@
 
 		if (serviceAddresses.length === 0) {
 			serviceByAddress = {};
+			serviceLookupErrorByAddress = {};
 			serviceLoadedByAddress = {};
 			serviceUnavailableByAddress = {};
 			return;
 		}
+
+		const existingServiceByAddress = untrack(() => serviceByAddress);
+		const existingServiceLookupErrorByAddress = untrack(() => serviceLookupErrorByAddress);
+		const existingServiceLoadedByAddress = untrack(() => serviceLoadedByAddress);
+		const existingServiceUnavailableByAddress = untrack(() => serviceUnavailableByAddress);
+
+		serviceByAddress = Object.fromEntries(
+			serviceAddresses.map((serviceAddress) => [
+				serviceAddress,
+				existingServiceByAddress[serviceAddress] ?? null
+			])
+		);
+		serviceLookupErrorByAddress = Object.fromEntries(
+			serviceAddresses.map((serviceAddress) => [
+				serviceAddress,
+				existingServiceLookupErrorByAddress[serviceAddress] ?? false
+			])
+		);
+		serviceLoadedByAddress = Object.fromEntries(
+			serviceAddresses.map((serviceAddress) => [
+				serviceAddress,
+				existingServiceLoadedByAddress[serviceAddress] ?? false
+			])
+		);
+		serviceUnavailableByAddress = Object.fromEntries(
+			serviceAddresses.map((serviceAddress) => [
+				serviceAddress,
+				existingServiceUnavailableByAddress[serviceAddress] ?? false
+			])
+		);
 
 		void (async () => {
 			const entries = await Promise.all(
@@ -254,20 +577,36 @@
 					try {
 						const { dTag } = parseServiceAddress(serviceAddress);
 						const service = await findServiceByUniqueId(dTag);
-						return [serviceAddress, service] as const;
+						return {
+							serviceAddress,
+							service,
+							lookupError: false
+						} as const;
 					} catch {
-						return [serviceAddress, null] as const;
+						return {
+							serviceAddress,
+							service: null,
+							lookupError: true
+						} as const;
 					}
 				})
 			);
 
 			if (!cancelled) {
-				serviceByAddress = Object.fromEntries(entries);
+				serviceByAddress = Object.fromEntries(
+					entries.map(({ serviceAddress, service }) => [serviceAddress, service] as const)
+				);
+				serviceLookupErrorByAddress = Object.fromEntries(
+					entries.map(({ serviceAddress, lookupError }) => [serviceAddress, lookupError] as const)
+				);
 				serviceLoadedByAddress = Object.fromEntries(
-					entries.map(([serviceAddress]) => [serviceAddress, true] as const)
+					entries.map(({ serviceAddress }) => [serviceAddress, true] as const)
 				);
 				serviceUnavailableByAddress = Object.fromEntries(
-					entries.map(([serviceAddress, service]) => [serviceAddress, service === null] as const)
+					entries.map(
+						({ serviceAddress, service, lookupError }) =>
+							[serviceAddress, service === null && !lookupError] as const
+					)
 				);
 			}
 		})();
@@ -283,47 +622,82 @@
 			document.removeEventListener('click', handleClickOutside);
 		};
 	});
+
+	function getRequestActionErrorMessage(
+		action: 'accept' | RequestConfirmationAction,
+		fallback: string
+	): string {
+		return translateOrFallback(`dashboard.service_requests.errors.${action}`, fallback);
+	}
+
+	function canShowAcceptActions(timeline: ServiceQuoteTimelineEntry | null): boolean {
+		if (!timeline?.latestProposal || timeline.linkedEscrowId) {
+			return false;
+		}
+
+		if (hasServiceLookupError(timeline) || isServiceUnavailable(timeline)) {
+			return false;
+		}
+
+		return timeline.resolvedStatus === 'pending' || timeline.resolvedStatus === 'accept_failed';
+	}
+
+	function canShowDeclineAction(timeline: ServiceQuoteTimelineEntry | null): boolean {
+		if (!timeline?.latestProposal || timeline.linkedEscrowId) {
+			return false;
+		}
+
+		if (hasServiceLookupError(timeline) || isServiceUnavailable(timeline)) {
+			return false;
+		}
+
+		return timeline.resolvedStatus === 'pending';
+	}
+
+	function canShowDeleteAction(timeline: ServiceQuoteTimelineEntry | null): boolean {
+		if (!timeline || timeline.linkedEscrowId) {
+			return false;
+		}
+
+		if (hasServiceLookupError(timeline) || isServiceUnavailable(timeline)) {
+			return false;
+		}
+
+		return (
+			timeline.resolvedStatus !== 'accepting' &&
+			timeline.resolvedStatus !== 'accept_unknown' &&
+			timeline.resolvedStatus !== 'accepted'
+		);
+	}
 	function getQuoteActionButtons(timeline: ServiceQuoteTimelineEntry): ActionButton[] {
 		const buttons: ActionButton[] = [];
 
-		// Accept button - only if proposal exists and not yet accepted
-		if (
-			timeline.latestProposal &&
-			!timeline.linkedEscrowId &&
-			showAcceptActions &&
-			serviceUnavailableByAddress[timeline.request.content.serviceAddress] !== true
-		) {
+		if (canShowAcceptActions(timeline)) {
 			buttons.push({
 				label: translateOrFallback('dashboard.service_requests.actions.accept', 'Accept'),
 				class: 'btn-success btn-outline btn-sm',
 				onclick: (e) => {
 					e.stopPropagation();
 					selectTimeline(timeline.request.content.quoteRequestId);
-					acceptProposal();
+					openAcceptDrawer(timeline);
 				},
 				icon: 'accept',
-				disabled: actionsUnavailable
+				disabled: isActionUnavailableForTimeline(timeline)
 			});
-		}
 
-		// Decline button - only if proposal exists and not yet accepted
-		if (
-			timeline.latestProposal &&
-			!timeline.linkedEscrowId &&
-			showAcceptActions &&
-			serviceUnavailableByAddress[timeline.request.content.serviceAddress] !== true
-		) {
-			buttons.push({
-				label: translateOrFallback('dashboard.service_requests.actions.decline', 'Decline'),
-				class: 'btn-outline btn-sm',
-				onclick: (e) => {
-					e.stopPropagation();
-					selectTimeline(timeline.request.content.quoteRequestId);
-					applyStatus('declined');
-				},
-				icon: 'decline',
-				disabled: actionsUnavailable
-			});
+			if (canShowDeclineAction(timeline)) {
+				buttons.push({
+					label: translateOrFallback('dashboard.service_requests.actions.decline', 'Decline'),
+					class: 'btn-outline btn-sm',
+					onclick: (e) => {
+						e.stopPropagation();
+						selectTimeline(timeline.request.content.quoteRequestId);
+						openConfirmationModal('decline', timeline);
+					},
+					icon: 'decline',
+					disabled: isActionUnavailableForTimeline(timeline)
+				});
+			}
 		}
 
 		// View Contract button - only if contract exists
@@ -338,22 +712,8 @@
 					e.stopPropagation();
 					viewContract(timeline.linkedEscrowId);
 				},
-				icon: 'contract'
-			});
-		}
-
-		if (!timeline.linkedEscrowId) {
-			buttons.push({
-				label: translateOrFallback('dashboard.service_requests.actions.delete', 'Delete'),
-				class: 'btn-error btn-outline btn-sm',
-				onclick: (e) => {
-					e.stopPropagation();
-					deleteError = null;
-					deleteModalTimeline = timeline;
-				},
-				icon: 'delete',
-				disabled:
-					deleteUnavailable || deletePendingRequestId === timeline.request.content.quoteRequestId
+				icon: 'contract',
+				disabled: hasPendingMutation
 			});
 		}
 
@@ -363,10 +723,10 @@
 			class: 'btn-primary btn-sm',
 			onclick: (e) => {
 				e.stopPropagation();
-				requestDrawerTimeline = timeline;
-				selectTimeline(timeline.request.content.quoteRequestId);
+				openRequestDrawer(timeline);
 			},
-			icon: 'view'
+			icon: 'view',
+			disabled: hasPendingMutation
 		});
 
 		return buttons;
@@ -376,30 +736,269 @@
 		onRequestFocusChange?.(requestId);
 	}
 
-	async function applyStatus(status: 'declined') {
-		if (!selectedTimeline?.latestProposal || actionPending || actionsUnavailable) return;
-		actionPending = 'decline';
-		try {
-			await serviceQuoteUiStore.applyTaskerStatus({
-				quoteRequestId: selectedTimeline.request.content.quoteRequestId,
-				proposalId: selectedTimeline.latestProposal.content.proposalId,
-				status
-			});
-		} finally {
-			actionPending = null;
+	function dismissFocusedRequest(requestId: string | null) {
+		if (requestId && focusedRequestId === requestId) {
+			dismissedFocusedRequestId = requestId;
 		}
 	}
 
-	async function acceptProposal() {
-		if (!selectedTimeline?.latestProposal || actionPending || actionsUnavailable) return;
-		actionPending = 'accept';
+	function clearFocusedRequestDismissal(requestId: string | null) {
+		if (!requestId || focusedRequestId === requestId) {
+			dismissedFocusedRequestId = null;
+		}
+	}
+
+	function openRequestDrawer(timeline: ServiceQuoteTimelineEntry) {
+		if (hasPendingMutation || isContextLockedToAnotherRequest(timeline)) {
+			return;
+		}
+
+		clearFocusedRequestDismissal(timeline.request.content.quoteRequestId);
+		requestActionError = null;
+		requestDrawerRequestId = timeline.request.content.quoteRequestId;
+		selectTimeline(timeline.request.content.quoteRequestId);
+	}
+
+	function closeRequestDrawer() {
+		dismissFocusedRequest(requestDrawerRequestId);
+		requestActionError = null;
+		requestDrawerRequestId = null;
+		if (onRequestClear) {
+			void onRequestClear();
+			return;
+		}
+		onRequestFocusChange?.(null);
+	}
+
+	function openAcceptDrawer(timeline: ServiceQuoteTimelineEntry | null) {
+		if (!timeline || hasPendingMutation || isActionUnavailableForTimeline(timeline)) {
+			return;
+		}
+
+		clearFocusedRequestDismissal(timeline.request.content.quoteRequestId);
+		clearAcceptFundingCheckState();
+		requestActionError = null;
+		acceptDrawerRequestId = timeline.request.content.quoteRequestId;
+		requestDrawerRequestId = null;
+		selectTimeline(timeline.request.content.quoteRequestId);
+	}
+
+	function closeAcceptDrawer(force = false) {
+		if (!force && actionPending === 'accept') {
+			return;
+		}
+
+		dismissFocusedRequest(acceptDrawerRequestId);
+		clearAcceptFundingCheckState();
+		requestActionError = null;
+		acceptDrawerRequestId = null;
+		if (onRequestClear) {
+			void onRequestClear();
+			return;
+		}
+		onRequestFocusChange?.(null);
+	}
+
+	function finalizeAcceptedRequest() {
+		closeAcceptDrawer(true);
+		requestDrawerRequestId = null;
+	}
+
+	function openConfirmationModal(
+		action: RequestConfirmationAction,
+		timeline: ServiceQuoteTimelineEntry | null
+	) {
+		if (!timeline || hasPendingMutation || isActionUnavailableForTimeline(timeline)) {
+			return;
+		}
+
+		requestActionError = null;
+		confirmationModalState = {
+			action,
+			requestId: timeline.request.content.quoteRequestId
+		};
+	}
+
+	function closeConfirmationModal() {
+		if (actionPending || deletePendingRequestId) {
+			return;
+		}
+
+		confirmationModalState = null;
+	}
+
+	async function applyStatus(timeline: ServiceQuoteTimelineEntry, status: 'declined') {
+		if (!timeline.latestProposal || actionPending || isActionUnavailableForTimeline(timeline)) {
+			return false;
+		}
+
+		actionPendingRequestId = timeline.request.content.quoteRequestId;
+		actionPending = 'decline';
 		try {
-			await serviceQuoteUiStore.acceptTaskerProposal({
-				quoteRequestId: selectedTimeline.request.content.quoteRequestId,
-				proposalId: selectedTimeline.latestProposal.content.proposalId
+			const result = await serviceQuoteUiStore.applyTaskerStatus({
+				quoteRequestId: timeline.request.content.quoteRequestId,
+				proposalId: timeline.latestProposal.content.proposalId,
+				status
 			});
+			if (!result.success) {
+				requestActionError =
+					result.error ??
+					getRequestActionErrorMessage('decline', 'Unable to decline this proposal right now.');
+				return false;
+			}
+
+			return true;
 		} finally {
 			actionPending = null;
+			actionPendingRequestId = null;
+		}
+	}
+
+	async function acceptProposal(timeline: ServiceQuoteTimelineEntry) {
+		if (!timeline.latestProposal || actionPending || isActionUnavailableForTimeline(timeline)) {
+			return false;
+		}
+
+		requestActionError = null;
+		actionPendingRequestId = timeline.request.content.quoteRequestId;
+		actionPending = 'accept';
+		try {
+			const result = await serviceQuoteUiStore.acceptTaskerProposal({
+				quoteRequestId: timeline.request.content.quoteRequestId,
+				proposalId: timeline.latestProposal.content.proposalId
+			});
+			if (!result.success) {
+				requestActionError =
+					result.error ??
+					getRequestActionErrorMessage('accept', 'Unable to accept this proposal right now.');
+				return false;
+			}
+
+			finalizeAcceptedRequest();
+			return true;
+		} finally {
+			actionPending = null;
+			actionPendingRequestId = null;
+		}
+	}
+
+	function clearAcceptFundingCheckState() {
+		acceptFundingCheckRunId += 1;
+		acceptFundingCheck = null;
+		acceptFundingCheckInFlight = false;
+		acceptPreflightErrorMessage = '';
+		acceptPreflightErrorHint = '';
+	}
+
+	async function refreshAcceptFundingCheck(timeline: ServiceQuoteTimelineEntry | null) {
+		if (!timeline?.latestProposal) {
+			clearAcceptFundingCheckState();
+			return;
+		}
+
+		const latestProposal = timeline.latestProposal;
+		const schedule = normalizeServiceContractSchedule(
+			latestProposal.content.estimatedStartTime,
+			latestProposal.content.estimatedEndTime
+		);
+		const runId = ++acceptFundingCheckRunId;
+		acceptFundingCheckInFlight = true;
+		acceptFundingCheck = null;
+		acceptPreflightErrorMessage = '';
+		acceptPreflightErrorHint = '';
+
+		try {
+			try {
+				await walletManager.initialize();
+			} catch {
+				// Preflight handles disconnected wallets and returns stable recovery copy.
+			}
+
+			try {
+				await walletManager.loadAssets();
+			} catch {
+				// Balance display is best-effort; preflight still gates confirmation.
+			}
+
+			const btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
+			const preflight = await preflightServiceContractCreation(
+				{
+					freelancerAddress: latestProposal.content.freelancerRskAddress,
+					freelancerPubkey: latestProposal.pubkey,
+					amountUsdt: latestProposal.content.amountUsdt,
+					estimatedStartTime: schedule.estimatedStartTime,
+					estimatedCompletionTime: schedule.estimatedCompletionTime,
+					freelancerFeeTier: latestProposal.content.freelancerFeeTier
+				},
+				btcPrice
+			);
+
+			if (acceptFundingCheckRunId !== runId) {
+				return;
+			}
+
+			if (!preflight.ok) {
+				const feedback = describeServiceContractPreflightFailure(
+					preflight.errorCode,
+					preflight.error
+				);
+				acceptPreflightErrorMessage = feedback.message;
+				acceptPreflightErrorHint = feedback.hint ?? '';
+				acceptFundingCheck = {
+					status: 'error',
+					errorCode: preflight.errorCode,
+					message: feedback.message,
+					hint: feedback.hint,
+					btcPrice,
+					totalRequiredUsd: null,
+					totalRequiredSats: ''
+				};
+				return;
+			}
+
+			acceptFundingCheck = {
+				status: 'ready',
+				message: translateOrFallback(
+					'dashboard.services.detail.book_now_drawer.balance_verified',
+					'Your available balance covers this service contract.'
+				),
+				hint: null,
+				btcPrice,
+				totalRequiredUsd: Number.parseFloat(preflight.totalRequired) * btcPrice,
+				totalRequiredSats: formatSats(
+					Math.round(Number.parseFloat(preflight.totalRequired) * 100_000_000)
+				)
+			};
+		} catch (error) {
+			if (acceptFundingCheckRunId !== runId) {
+				return;
+			}
+
+			const feedback = describeServiceContractPreflightFailure(
+				'preflight_failed',
+				error instanceof Error
+					? error.message
+					: translateOrFallback(
+							'dashboard.service_requests.accept_drawer.prepare_error',
+							'Unable to prepare this proposal acceptance right now.'
+						)
+			);
+
+			acceptPreflightErrorMessage = feedback.message;
+			acceptPreflightErrorHint = feedback.hint ?? '';
+			acceptFundingCheck = {
+				status: 'error',
+				errorCode: 'preflight_failed',
+				message: feedback.message,
+				hint: feedback.hint,
+				btcPrice: null,
+				totalRequiredUsd: null,
+				totalRequiredSats: ''
+			};
+		} finally {
+			if (acceptFundingCheckRunId === runId) {
+				acceptFundingCheckInFlight = false;
+			}
 		}
 	}
 
@@ -409,77 +1008,135 @@
 			context: 'services',
 			highlight: escrowId
 		});
-		await goto(`${nextUrl.pathname}${nextUrl.search}`);
+		await goto(resolve(`${nextUrl.pathname}${nextUrl.search}`));
 	}
 
-	function closeRequestDrawer() {
-		requestDrawerTimeline = null;
-	}
-
-	function closeDeleteModal() {
+	async function deleteRequest(timeline: ServiceQuoteTimelineEntry) {
 		if (deletePendingRequestId) {
-			return;
+			return false;
 		}
 
-		deleteError = null;
-		deleteModalTimeline = null;
-	}
-
-	async function confirmDeleteRequest() {
-		if (!deleteModalTimeline || deletePendingRequestId) {
-			return;
-		}
-
-		deleteError = null;
-		deletePendingRequestId = deleteModalTimeline.request.content.quoteRequestId;
+		deletePendingRequestId = timeline.request.content.quoteRequestId;
 		try {
 			const result = await serviceQuoteUiStore.deleteTaskerRequest({
-				quoteRequestId: deleteModalTimeline.request.content.quoteRequestId
+				quoteRequestId: timeline.request.content.quoteRequestId
 			});
 
 			if (!result.success) {
-				deleteError =
+				requestActionError =
 					result.error ??
-					translateOrFallback(
-						'dashboard.service_requests.errors.delete_request',
+					getRequestActionErrorMessage(
+						'delete',
 						'Unable to delete this service request right now.'
 					);
-				return;
+				return false;
 			}
 
-			deleteModalTimeline = null;
+			if (requestDrawerRequestId === timeline.request.content.quoteRequestId) {
+				closeRequestDrawer();
+			}
+
+			return true;
 		} finally {
 			deletePendingRequestId = null;
 		}
 	}
 
-	const showAcceptActions = $derived.by(() => {
-		if (!selectedTimeline?.latestProposal || selectedTimeline.linkedEscrowId) {
-			return false;
+	const showDrawerAcceptActions = $derived(canShowAcceptActions(requestDrawerTimeline));
+	const showDrawerDeclineAction = $derived(canShowDeclineAction(requestDrawerTimeline));
+	const showDrawerDeleteAction = $derived(canShowDeleteAction(requestDrawerTimeline));
+	const acceptDrawerCanConfirm = $derived.by(
+		() =>
+			Boolean(acceptDrawerTimeline?.latestProposal) &&
+			canShowAcceptActions(acceptDrawerTimeline) &&
+			!isActionUnavailableForTimeline(acceptDrawerTimeline) &&
+			acceptWalletVerificationStatus === 'ready'
+	);
+
+	const confirmationModalConfig = $derived.by(() => {
+		if (!confirmationModalState) {
+			return null;
 		}
 
-		return (
-			selectedTimeline.resolvedStatus === 'pending' ||
-			selectedTimeline.resolvedStatus === 'accept_failed' ||
-			selectedTimeline.resolvedStatus === 'accept_unknown'
-		);
+		switch (confirmationModalState.action) {
+			case 'decline':
+				return {
+					title: translateOrFallback(
+						'dashboard.service_requests.confirm.decline_title',
+						'Decline proposal'
+					),
+					message: translateOrFallback(
+						'dashboard.service_requests.confirm.decline_message',
+						'This will mark the current proposal as declined.'
+					),
+					confirmText: translateOrFallback(
+						'dashboard.service_requests.confirm.decline_confirm',
+						'Confirm Decline'
+					),
+					confirmButtonClass: 'btn-warning'
+				};
+			case 'delete':
+				return {
+					title: translateOrFallback(
+						'dashboard.service_requests.delete_modal.title',
+						'Delete service request'
+					),
+					message: translateOrFallback(
+						'dashboard.service_requests.delete_modal.intro',
+						'This will permanently remove this service request from your dashboard history.'
+					),
+					confirmText: translateOrFallback(
+						'dashboard.service_requests.delete_modal.confirm',
+						'Confirm Delete'
+					),
+					confirmButtonClass: 'btn-error'
+				};
+		}
+	});
+
+	async function handleConfirmedAction() {
+		if (!confirmationModalState) {
+			return;
+		}
+
+		const { action, requestId } = confirmationModalState;
+		const timeline =
+			timelines.find((entry) => entry.request.content.quoteRequestId === requestId) ?? null;
+
+		if (!timeline) {
+			confirmationModalState = null;
+			return;
+		}
+
+		const success =
+			action === 'decline'
+				? await applyStatus(timeline, 'declined')
+				: await deleteRequest(timeline);
+
+		if (success) {
+			confirmationModalState = null;
+		}
+	}
+
+	$effect(() => {
+		const timeline = acceptDrawerTimeline;
+		if (!timeline?.latestProposal) {
+			clearAcceptFundingCheckState();
+			return;
+		}
+
+		void refreshAcceptFundingCheck(timeline);
 	});
 </script>
 
 <section data-testid="my-quotes-panel" class="space-y-4">
 	<div class="border-base-300/60 bg-base-100/40 mt-2 rounded-3xl border p-4 shadow-sm">
 		<div class="mb-3 flex items-center justify-between gap-2">
-			<div class="space-y-1">
+			<div>
 				<p class="text-base-content/70 text-xs font-semibold tracking-wide uppercase">
 					{translateOrFallback(
 						'dashboard.service_requests.status_heading',
 						'Filter by request status'
-					)}
-				</p>
-				<p class="text-base-content/70 hidden text-sm sm:block">
-					{translateOrFallback(
-						'dashboard.service_requests.status_subheading',
-						'Focus on the service requests that need your next action.'
 					)}
 				</p>
 			</div>
@@ -488,7 +1145,7 @@
 				class="btn btn-ghost btn-sm sm:btn-outline gap-2"
 				type="button"
 				onclick={handleRefresh}
-				disabled={isSyncing || !onRetry}
+				disabled={isSyncing || !onRetry || hasPendingMutation}
 				aria-label={translateOrFallback('dashboard.service_requests.refresh', 'Refresh')}
 			>
 				{#if isSyncing}
@@ -506,17 +1163,17 @@
 		</div>
 
 		<div class="mb-3 sm:hidden">
-			<p class="text-base-content/70 mb-3 text-sm">
-				{translateOrFallback(
-					'dashboard.service_requests.status_subheading',
-					'Focus on the service requests that need your next action.'
-				)}
-			</p>
-			<div class="status-dropdown-container relative">
+			<div class="status-dropdown-container relative" bind:this={statusDropdownContainer}>
 				<button
+					bind:this={statusDropdownButton}
 					type="button"
 					class="border-primary bg-primary/10 text-primary hover:bg-primary/20 flex w-full items-center justify-between rounded-3xl border px-4 py-2 transition-all duration-200"
 					onclick={toggleDropdown}
+					onkeydown={handleStatusTriggerKeydown}
+					disabled={hasPendingMutation}
+					aria-expanded={isDropdownOpen}
+					aria-controls="service-requests-filter-listbox"
+					aria-haspopup="listbox"
 				>
 					<div class="flex items-center gap-2">
 						{#each filterOptions as option (option.id)}
@@ -536,17 +1193,31 @@
 
 				{#if isDropdownOpen}
 					<div
+						id="service-requests-filter-listbox"
+						role="listbox"
+						aria-label={translateOrFallback(
+							'dashboard.service_requests.status_heading',
+							'Filter by request status'
+						)}
 						class="border-base-300 bg-base-100 absolute top-full right-0 left-0 z-50 mt-2 rounded-xl border shadow-lg"
 					>
-						{#each filterOptions as option (option.id)}
+						{#each filterOptions as option, index (option.id)}
 							{@const IconComponent = option.icon}
 							<button
 								type="button"
+								data-status-filter-option="true"
+								role="option"
+								aria-selected={activeFilter === option.id}
 								class="hover:bg-base-200 flex w-full items-center gap-2 px-4 py-2 text-left transition-colors duration-200 first:rounded-t-xl last:rounded-b-xl {activeFilter ===
 								option.id
 									? 'bg-primary/10 text-primary'
 									: 'text-base-content'}"
-								onclick={() => selectFilter(option.id)}
+								onclick={() => {
+									selectFilter(option.id);
+									statusDropdownButton?.focus();
+								}}
+								onkeydown={(event) => handleStatusOptionKeydown(event, index, option.id)}
+								disabled={hasPendingMutation}
 							>
 								<IconComponent
 									class="h-5 w-5 {activeFilter === option.id
@@ -565,7 +1236,14 @@
 		</div>
 
 		<div class="mt-4 hidden sm:block">
-			<div class="flex flex-wrap gap-3">
+			<div
+				class="flex flex-wrap gap-3"
+				role="group"
+				aria-label={translateOrFallback(
+					'dashboard.service_requests.status_heading',
+					'Filter by request status'
+				)}
+			>
 				{#each filterOptions as option (option.id)}
 					{@const IconComponent = option.icon}
 					<button
@@ -576,6 +1254,8 @@
 							: 'bg-base-100/40 hover:bg-base-100/60 text-base-content/70'}"
 						onclick={() => selectFilter(option.id)}
 						aria-label={option.label}
+						aria-pressed={activeFilter === option.id}
+						disabled={hasPendingMutation}
 					>
 						<IconComponent class="h-5 w-5 {activeFilter === option.id ? 'text-primary' : ''}" />
 						<span class="font-medium">{option.label}</span>
@@ -594,6 +1274,20 @@
 				{translateOrFallback(
 					'dashboard.service_requests.alerts.service_unavailable',
 					'Some services were deleted by the provider. Those requests remain visible as read-only history unless a contract was already created.'
+				)}
+			</span>
+		</div>
+	{/if}
+
+	{#if hasServiceLookupErrors}
+		<div
+			class="alert alert-outline alert-warning text-sm"
+			data-testid="my-quotes-service-lookup-alert"
+		>
+			<span>
+				{translateOrFallback(
+					'dashboard.service_requests.alerts.service_lookup_failed',
+					'Some service details could not be refreshed. Retry before acting on those requests.'
 				)}
 			</span>
 		</div>
@@ -640,14 +1334,38 @@
 	{/if}
 
 	{#if loadError}
-		<div class="alert alert-outline alert-error flex items-center justify-between gap-3 text-sm">
-			<span>{loadError}</span>
-			{#if onRetry}
-				<button type="button" class="btn btn-ghost btn-xs" onclick={onRetry} disabled={isSyncing}>
-					{translateOrFallback('common.buttons.retry', 'Retry')}
-				</button>
-			{/if}
-		</div>
+		{#if isPasskeyLoadError}
+			<div class="space-y-2">
+				<ErrorAlertWithModal
+					error={loadError}
+					isPasskeyError
+					autoOpenModal={false}
+					{onRetry}
+					class="text-sm"
+				/>
+				{#if onRetry}
+					<div class="flex justify-end">
+						<button
+							type="button"
+							class="btn btn-ghost btn-xs"
+							onclick={onRetry}
+							disabled={isSyncing}
+						>
+							{translateOrFallback('common.buttons.retry', 'Retry')}
+						</button>
+					</div>
+				{/if}
+			</div>
+		{:else}
+			<div class="alert alert-outline alert-error flex items-center justify-between gap-3 text-sm">
+				<span>{loadError}</span>
+				{#if onRetry}
+					<button type="button" class="btn btn-ghost btn-xs" onclick={onRetry} disabled={isSyncing}>
+						{translateOrFallback('common.buttons.retry', 'Retry')}
+					</button>
+				{/if}
+			</div>
+		{/if}
 	{/if}
 
 	{#if timelines.length === 0}
@@ -703,6 +1421,10 @@
 				<DashboardQuoteCard
 					{timeline}
 					getActionButtons={getQuoteActionButtons}
+					service={serviceByAddress[timeline.request.content.serviceAddress] ?? null}
+					serviceLookupFailed={serviceLookupErrorByAddress[
+						timeline.request.content.serviceAddress
+					] === true}
 					serviceUnavailable={serviceUnavailableByAddress[
 						timeline.request.content.serviceAddress
 					] === true}
@@ -713,61 +1435,84 @@
 </section>
 
 <ServiceRequestDrawer
-	isOpen={requestDrawerTimeline !== null}
+	isOpen={requestDrawerTimeline !== null && acceptDrawerTimeline === null}
 	timeline={requestDrawerTimeline}
 	service={requestDrawerTimeline
 		? (serviceByAddress[requestDrawerTimeline.request.content.serviceAddress] ?? null)
 		: null}
+	serviceLookupFailed={requestDrawerTimeline
+		? serviceLookupErrorByAddress[requestDrawerTimeline.request.content.serviceAddress] === true
+		: false}
 	serviceUnavailable={requestDrawerTimeline
 		? serviceUnavailableByAddress[requestDrawerTimeline.request.content.serviceAddress] === true
 		: false}
 	loading={requestDrawerTimeline
 		? serviceLoadedByAddress[requestDrawerTimeline.request.content.serviceAddress] !== true
 		: false}
+	showAcceptActions={showDrawerAcceptActions}
+	showDeclineAction={showDrawerDeclineAction}
+	showDeleteAction={showDrawerDeleteAction}
+	actionsDisabled={actionsUnavailable}
+	deleteDisabled={deleteUnavailable ||
+		(requestDrawerTimeline
+			? deletePendingRequestId === requestDrawerTimeline.request.content.quoteRequestId
+			: false)}
+	{actionPending}
+	deletePending={requestDrawerTimeline
+		? deletePendingRequestId === requestDrawerTimeline.request.content.quoteRequestId
+		: false}
+	actionError={requestActionError}
+	onAccept={() => openAcceptDrawer(requestDrawerTimeline)}
+	onDecline={() => openConfirmationModal('decline', requestDrawerTimeline)}
+	onDelete={() => openConfirmationModal('delete', requestDrawerTimeline)}
 	onClose={closeRequestDrawer}
 />
 
-<Modal
-	isOpen={deleteModalTimeline !== null}
-	title={translateOrFallback(
-		'dashboard.service_requests.delete_modal.title',
-		'Delete service request'
-	)}
-	onClose={closeDeleteModal}
-	size="md"
->
-	{#if deleteModalTimeline}
-		<p class="text-base-content/80 text-sm">
-			{translateOrFallback(
-				'dashboard.service_requests.delete_modal.intro',
-				'This will permanently remove this service request from your dashboard history.'
-			)}
-		</p>
-		{#if deleteError}
-			<div class="alert alert-outline alert-error mt-4 text-sm">
-				<span>{deleteError}</span>
-			</div>
-		{/if}
-		<div class="mt-6 flex justify-end gap-2">
-			<button
-				type="button"
-				class="btn btn-ghost"
-				onclick={closeDeleteModal}
-				disabled={deletePendingRequestId === deleteModalTimeline.request.content.quoteRequestId}
-			>
-				{translateOrFallback('common.cancel', 'Cancel')}
-			</button>
-			<button
-				type="button"
-				class="btn btn-error"
-				onclick={confirmDeleteRequest}
-				disabled={deletePendingRequestId === deleteModalTimeline.request.content.quoteRequestId}
-			>
-				{#if deletePendingRequestId === deleteModalTimeline.request.content.quoteRequestId}
-					<span class="loading loading-spinner loading-xs"></span>
-				{/if}
-				{translateOrFallback('dashboard.service_requests.delete_modal.confirm', 'Confirm Delete')}
-			</button>
-		</div>
-	{/if}
-</Modal>
+{#if acceptDrawerTimeline}
+	<ServiceRequestAcceptanceDrawer
+		open={true}
+		timeline={acceptDrawerTimeline}
+		service={serviceByAddress[acceptDrawerTimeline.request.content.serviceAddress] ?? null}
+		isSubmitting={actionPending === 'accept'}
+		disabled={!acceptDrawerCanConfirm}
+		errorMessage={acceptDrawerErrorMessage}
+		errorHint={acceptDrawerErrorHint}
+		walletLoading={acceptFundingCheckInFlight}
+		walletConnected={$walletStore.rsk.connected}
+		walletBalanceSats={walletBalanceSatsLabel}
+		walletBalanceUsd={walletBalanceUsdLabel}
+		requiredBalanceSats={acceptFundingCheck?.totalRequiredSats ?? ''}
+		requiredBalanceUsd={acceptRequiredUsdLabel}
+		walletVerificationStatus={acceptWalletVerificationStatus}
+		walletVerificationMessage={acceptWalletVerificationMessage}
+		onRetry={() => {
+			if (requestActionError && acceptDrawerTimeline) {
+				void acceptProposal(acceptDrawerTimeline);
+				return;
+			}
+
+			void refreshAcceptFundingCheck(acceptDrawerTimeline);
+		}}
+		onConfirm={() => {
+			void acceptProposal(acceptDrawerTimeline);
+		}}
+		onClose={closeAcceptDrawer}
+	/>
+{/if}
+
+<div use:createPortal={'modals'} style="position: relative; z-index: 9999;"></div>
+
+{#if confirmationModalConfig}
+	<div use:portal={'modals'}>
+		<ConfirmModal
+			isOpen={true}
+			title={confirmationModalConfig.title}
+			message={confirmationModalConfig.message}
+			confirmText={confirmationModalConfig.confirmText}
+			cancelText={translateOrFallback('common.cancel', 'Cancel')}
+			confirmButtonClass={confirmationModalConfig.confirmButtonClass}
+			onConfirm={handleConfirmedAction}
+			onCancel={closeConfirmationModal}
+		/>
+	</div>
+{/if}

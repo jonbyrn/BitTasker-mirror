@@ -4,25 +4,54 @@
 	import Drawer from '$lib/components/Drawer.svelte';
 	import ServiceTab from '$lib/components/service/ServiceTab.svelte';
 	import { getServiceDisplayTitle } from '$lib/utils/serviceDisplayTranslation';
+	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { formatStandardDateTimeShort } from '$lib/utils/helpers/dateFormatter';
+	import { normalizeServiceContractSchedule } from '$lib/utils/service-contract/schedule';
 	import { locale, t } from 'svelte-i18n';
+	import IconCheckCircleOutline from '~icons/mdi/check-circle-outline';
+	import IconCloseCircleOutline from '~icons/mdi/close-circle-outline';
 	import IconClockOutline from '~icons/mdi/clock-outline';
 	import IconFileDocumentOutline from '~icons/mdi/file-document-outline';
 	import IconFormTextbox from '~icons/mdi/form-textbox';
+	import IconTrashCanOutline from '~icons/mdi/trash-can-outline';
 
 	const {
 		isOpen,
 		timeline = null,
 		service = null,
 		serviceUnavailable = false,
+		serviceLookupFailed = false,
 		loading = false,
+		showAcceptActions = false,
+		showDeclineAction = false,
+		showDeleteAction = false,
+		actionsDisabled = false,
+		deleteDisabled = false,
+		actionPending = null,
+		deletePending = false,
+		actionError = null,
+		onAccept,
+		onDecline,
+		onDelete,
 		onClose
 	} = $props<{
 		isOpen: boolean;
 		timeline: ServiceQuoteTimelineEntry | null;
 		service: Service | null;
 		serviceUnavailable?: boolean;
+		serviceLookupFailed?: boolean;
 		loading?: boolean;
+		showAcceptActions?: boolean;
+		showDeclineAction?: boolean;
+		showDeleteAction?: boolean;
+		actionsDisabled?: boolean;
+		deleteDisabled?: boolean;
+		actionPending?: 'accept' | 'decline' | null;
+		deletePending?: boolean;
+		actionError?: string | null;
+		onAccept?: () => void;
+		onDecline?: () => void;
+		onDelete?: () => void;
 		onClose: () => void;
 	}>();
 
@@ -38,6 +67,17 @@
 	function formatTimestamp(timestampSeconds: number | undefined): string {
 		if (!timestampSeconds) return '—';
 		return formatStandardDateTimeShort(new Date(timestampSeconds * 1000), $locale || 'en');
+	}
+
+	function formatProposalAmount(amountUsdt: string | undefined): string {
+		if (!amountUsdt) {
+			return '—';
+		}
+
+		const numericAmount = Number(amountUsdt);
+		return Number.isFinite(numericAmount)
+			? `$${formatNumberWithTwoDecimals(numericAmount)}`
+			: `$${amountUsdt}`;
 	}
 
 	function stringifyInquiryValue(value: string | number | boolean | string[] | undefined): string {
@@ -73,11 +113,112 @@
 	const customFormEntries = $derived.by(() =>
 		Object.entries(timeline?.request.content.inquiry.customFormResponses ?? {})
 	);
+	const latestProposal = $derived(timeline?.latestProposal ?? null);
+	const normalizedSchedule = $derived.by(() =>
+		normalizeServiceContractSchedule(
+			latestProposal?.content.estimatedStartTime ?? 0,
+			latestProposal?.content.estimatedEndTime ?? 0
+		)
+	);
+	const proposalStartLabel = $derived(formatTimestamp(normalizedSchedule.estimatedStartTime));
+	const proposalEndLabel = $derived(formatTimestamp(normalizedSchedule.estimatedCompletionTime));
+	const proposalTimingWarning = $derived.by(() =>
+		normalizedSchedule.startWasAdjusted
+			? tr(
+					'dashboard.service_requests.accept_drawer.start_time_adjusted_warning',
+					'The quoted start time has already passed. The contract will use a start time about one hour from now and keep the quoted duration.'
+				)
+			: ''
+	);
 </script>
 
 <Drawer {isOpen} title={drawerTitle} {onClose} position="right" isScrollable={true}>
 	<div class="space-y-6" data-testid="service-request-drawer">
 		{#if timeline}
+			{#if latestProposal}
+				<section
+					class="border-base-300 bg-base-100 rounded-2xl border p-4 shadow-sm"
+					data-testid="service-request-drawer-proposal"
+				>
+					<div class="mb-4 flex flex-wrap items-start justify-between gap-3">
+						<div>
+							<span class="text-base font-semibold">
+								{tr('dashboard.service_requests.drawer.proposal_title', 'Received Proposal')}
+							</span>
+							<p class="text-base-content mt-1 text-2xl font-semibold">
+								{formatProposalAmount(latestProposal.content.amountUsdt)}
+							</p>
+						</div>
+						<div class="text-base-content/70 flex items-center gap-2 text-sm">
+							<IconClockOutline class="text-primary h-5 w-5 shrink-0" />
+							<span>
+								{tr('dashboard.service_requests.expires', 'Expires')}:
+								{formatTimestamp(latestProposal.content.expirationTimestamp)}
+							</span>
+						</div>
+					</div>
+
+					<div class="grid gap-3 md:grid-cols-2">
+						<div class="bg-base-200/60 rounded-xl p-3">
+							<p class="text-base-content/60 text-xs font-medium">
+								{tr('dashboard.service_requests.estimated_duration', 'Estimated duration')}
+							</p>
+							<p class="mt-1 text-sm font-medium">
+								{latestProposal.content.estimatedDuration || '—'}
+							</p>
+						</div>
+						<div class="bg-base-200/60 rounded-xl p-3">
+							<p class="text-base-content/60 text-xs font-medium">
+								{tr('dashboard.service_requests.drawer.proposal_start', 'Estimated Start')}
+							</p>
+							<p class="mt-1 text-sm font-medium">
+								{proposalStartLabel}
+							</p>
+						</div>
+						<div class="bg-base-200/60 rounded-xl p-3">
+							<p class="text-base-content/60 text-xs font-medium">
+								{tr('dashboard.service_requests.drawer.proposal_end', 'Estimated End')}
+							</p>
+							<p class="mt-1 text-sm font-medium">
+								{proposalEndLabel}
+							</p>
+						</div>
+					</div>
+
+					{#if proposalTimingWarning}
+						<div
+							class="alert alert-outline alert-warning mt-4 text-sm"
+							role="alert"
+							aria-live="polite"
+						>
+							<span>{proposalTimingWarning}</span>
+						</div>
+					{/if}
+
+					<div class="mt-4 space-y-3 text-sm">
+						<div>
+							<p class="text-base-content/60 text-xs font-semibold tracking-wide uppercase">
+								{tr('dashboard.service_requests.drawer.scope_of_work', 'Scope of work')}
+							</p>
+							<p class="text-base-content mt-1 whitespace-pre-line">
+								{latestProposal.content.description || '—'}
+							</p>
+						</div>
+
+						{#if latestProposal.content.coverLetter}
+							<div>
+								<p class="text-base-content/60 text-xs font-semibold tracking-wide uppercase">
+									{tr('dashboard.service_requests.drawer.cover_letter', 'Cover letter')}
+								</p>
+								<p class="text-base-content mt-1 whitespace-pre-line">
+									{latestProposal.content.coverLetter}
+								</p>
+							</div>
+						{/if}
+					</div>
+				</section>
+			{/if}
+
 			<section class="border-primary bg-base-100 rounded-2xl border p-4 shadow-sm">
 				<div class="mb-4 flex flex-wrap items-start justify-between gap-3">
 					<div>
@@ -177,6 +318,73 @@
 					{/if}
 				</div>
 			</section>
+
+			{#if actionError}
+				<div class="alert alert-outline alert-error text-sm" role="alert" aria-live="assertive">
+					<span>{actionError}</span>
+				</div>
+			{:else if serviceLookupFailed}
+				<div class="alert alert-outline alert-warning text-sm" role="alert" aria-live="polite">
+					<span>
+						{tr(
+							'dashboard.service_requests.alerts.service_lookup_failed',
+							'Some service details could not be refreshed. Retry before acting on those requests.'
+						)}
+					</span>
+				</div>
+			{/if}
+
+			{#if showAcceptActions || showDeclineAction || showDeleteAction}
+				<section class="border-base-300 bg-base-100 rounded-2xl border p-4 shadow-sm">
+					<div class="flex flex-col gap-2 sm:flex-row sm:justify-end">
+						{#if showDeleteAction}
+							<button
+								type="button"
+								class="btn btn-error btn-outline min-h-[40px] flex-1 sm:flex-none"
+								disabled={deleteDisabled}
+								onclick={() => onDelete?.()}
+							>
+								{#if deletePending}
+									<span class="loading loading-spinner loading-sm"></span>
+								{:else}
+									<IconTrashCanOutline class="h-4 w-4 shrink-0" />
+								{/if}
+								{tr('dashboard.service_requests.actions.delete', 'Delete')}
+							</button>
+						{/if}
+						{#if showDeclineAction}
+							<button
+								type="button"
+								class="btn btn-outline min-h-[40px] flex-1 sm:flex-none"
+								disabled={actionsDisabled}
+								onclick={() => onDecline?.()}
+							>
+								{#if actionPending === 'decline'}
+									<span class="loading loading-spinner loading-sm"></span>
+								{:else}
+									<IconCloseCircleOutline class="h-4 w-4 shrink-0" />
+								{/if}
+								{tr('dashboard.service_requests.actions.decline', 'Decline')}
+							</button>
+						{/if}
+						{#if showAcceptActions}
+							<button
+								type="button"
+								class="btn btn-success btn-outline min-h-[40px] flex-1 sm:flex-none"
+								disabled={actionsDisabled}
+								onclick={() => onAccept?.()}
+							>
+								{#if actionPending === 'accept'}
+									<span class="loading loading-spinner loading-sm"></span>
+								{:else}
+									<IconCheckCircleOutline class="h-4 w-4 shrink-0" />
+								{/if}
+								{tr('dashboard.service_requests.actions.accept', 'Accept')}
+							</button>
+						{/if}
+					</div>
+				</section>
+			{/if}
 		{/if}
 
 		{#if loading}
