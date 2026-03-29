@@ -365,7 +365,6 @@
 				serviceLocationTypes: $store.service.serviceLocationTypes || [],
 				locationDetails: $store.service.locationDetails,
 				pricing: normalizedPricing,
-				providerWalletAddress,
 				skills: $store.service.skills || [],
 				categories: $store.service.categories || [],
 				portfolio: $store.service.portfolio,
@@ -374,6 +373,10 @@
 				instantBuyDeliveryHours,
 				status: 'active' // Set to active when publishing
 			};
+
+			if (requiresProviderWallet) {
+				serviceData.providerWalletAddress = providerWalletAddress;
+			}
 
 			// Use store state so we update even if URL lost edit=true (e.g. after navigation)
 			const dTag = $store.uniqueId || $store.service.uniqueId;
