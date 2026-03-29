@@ -766,12 +766,13 @@ describe('DashboardContractsPanel context filter', () => {
 		});
 
 		await waitFor(() => {
-			expect(screen.getByText('dashboard.contracts.error_title')).toBeInTheDocument();
+			expect(screen.getByText('passkey lookup failed')).toBeInTheDocument();
+			expect(screen.getByTestId('error-alert-help-button')).toBeInTheDocument();
 		});
 
 		expect(screen.getByText('passkey lookup failed')).toBeInTheDocument();
 		expect(screen.queryByTestId('contracts-panel-stale-alert')).toBeNull();
-		expect(screen.getAllByRole('button', { name: 'dashboard.contracts.retry' })).toHaveLength(1);
+		expect(screen.queryByRole('button', { name: 'dashboard.contracts.retry' })).toBeNull();
 	});
 
 	it('does not show a filter-card reconnect alert after the contracts panel returns online', async () => {

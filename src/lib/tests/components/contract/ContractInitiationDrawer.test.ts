@@ -75,4 +75,26 @@ describe('ContractInitiationDrawer', () => {
 		await fireEvent.click(cancelButton as HTMLButtonElement);
 		expect(onClose).not.toHaveBeenCalled();
 	});
+
+	it('renders warnings in the shared alert slot when no error is present', () => {
+		const { getByTestId, queryByTestId } = render(ContractInitiationDrawer, {
+			props: {
+				open: true,
+				title: 'Fund Contract',
+				confirmLabel: 'Fund',
+				warningMessage: 'The quoted start time has already passed.',
+				warningHint: 'The contract will keep the quoted duration.'
+			}
+		});
+
+		expect(getByTestId('contract-initiation-warning').textContent).toContain(
+			'The quoted start time has already passed.'
+		);
+		expect(getByTestId('contract-initiation-warning')).toHaveAttribute('role', 'alert');
+		expect(getByTestId('contract-initiation-warning')).toHaveAttribute('aria-live', 'polite');
+		expect(getByTestId('contract-initiation-warning-hint').textContent).toContain(
+			'The contract will keep the quoted duration.'
+		);
+		expect(queryByTestId('contract-initiation-error')).toBeNull();
+	});
 });

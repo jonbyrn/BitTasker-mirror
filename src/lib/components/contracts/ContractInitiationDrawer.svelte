@@ -12,6 +12,8 @@
 		isSubmitting = false,
 		errorMessage = '',
 		errorHint = '',
+		warningMessage = '',
+		warningHint = '',
 		hideFooter = false,
 		allowCloseWhileSubmitting = false,
 		drawerTestId = 'contract-initiation-drawer',
@@ -19,6 +21,8 @@
 		retryTestId = 'contract-initiation-retry',
 		errorTestId = 'contract-initiation-error',
 		errorHintTestId = 'contract-initiation-error-hint',
+		warningTestId = 'contract-initiation-warning',
+		warningHintTestId = 'contract-initiation-warning-hint',
 		onConfirm = () => {},
 		onRetry = () => {},
 		onClose = () => {},
@@ -33,6 +37,8 @@
 		isSubmitting?: boolean;
 		errorMessage?: string;
 		errorHint?: string;
+		warningMessage?: string;
+		warningHint?: string;
 		hideFooter?: boolean;
 		allowCloseWhileSubmitting?: boolean;
 		drawerTestId?: string;
@@ -40,6 +46,8 @@
 		retryTestId?: string;
 		errorTestId?: string;
 		errorHintTestId?: string;
+		warningTestId?: string;
+		warningHintTestId?: string;
 		onConfirm?: () => void;
 		onRetry?: () => void;
 		onClose?: () => void;
@@ -72,12 +80,33 @@
 		{@render content?.()}
 
 		{#if errorMessage}
-			<div class="alert alert-error alert-outline" data-testid={errorTestId}>
+			<div
+				class="alert alert-error alert-outline"
+				data-testid={errorTestId}
+				role="alert"
+				aria-live="assertive"
+			>
 				<div class="space-y-1">
 					<p>{errorMessage}</p>
 					{#if errorHint}
 						<p class="text-xs opacity-80" data-testid={errorHintTestId}>
 							{errorHint}
+						</p>
+					{/if}
+				</div>
+			</div>
+		{:else if warningMessage}
+			<div
+				class="alert alert-warning alert-outline"
+				data-testid={warningTestId}
+				role="alert"
+				aria-live="polite"
+			>
+				<div class="space-y-1">
+					<p>{warningMessage}</p>
+					{#if warningHint}
+						<p class="text-xs opacity-80" data-testid={warningHintTestId}>
+							{warningHint}
 						</p>
 					{/if}
 				</div>

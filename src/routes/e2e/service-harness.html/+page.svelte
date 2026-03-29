@@ -1,14 +1,27 @@
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
+	import type { Component } from 'svelte';
+	import type { Service } from '$lib/types/service.d';
 	import type { ContractWithEvents } from '$lib/types/contract';
+	import type { ServiceQuoteTimelineEntry } from '$lib/types/service-quote';
+	import { ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';
+	import { EscrowStatus } from '$lib/utils/escrow/v1/escrow.enum';
 
 	type HarnessResult = Record<string, unknown>;
 
 	let output = $state('');
 	let error = $state<string | null>(null);
 	let ready = $state(false);
-	let surfaceComponent = $state<unknown>(null);
+	let surfaceComponent = $state<Component<Record<string, unknown>> | null>(null);
 	let surfaceProps = $state<Record<string, unknown>>({});
+	let requestsHarnessState = $state<{
+		services: Service[];
+		timelinesByService: Record<string, ServiceQuoteTimelineEntry[]>;
+		selectedServiceAddress: string | null;
+		focusedRequestId: string | null;
+		partialFailure: boolean;
+		loadedServiceAddress: string;
+	} | null>(null);
 
 	function createStorageMock() {
 		const values: Record<string, string> = {};
@@ -24,20 +37,21 @@
 	}
 
 	function createHarnessServiceContract(
-		overrides: Partial<ContractWithEvents> & {
+		overrides: Omit<Partial<ContractWithEvents>, 'permissions' | 'contractEvent'> & {
 			permissions?: Partial<ContractWithEvents['permissions']>;
+			contractEvent?: Partial<ContractWithEvents['contractEvent']>;
 			content?: Partial<ContractWithEvents['contractEvent']['content']>;
 		} = {}
 	): ContractWithEvents {
-		const baseContract: ContractWithEvents = {
+		const baseContract = {
 			escrowData: {
 				id: 'svc-escrow_123',
-				status: 'FUNDED'
-			},
-			status: 'FUNDED',
+				status: EscrowStatus.Funded
+			} as unknown as ContractWithEvents['escrowData'],
+			status: EscrowStatus.Funded,
 			isClient: true,
 			isPending: false,
-			blockchainStatus: 'FUNDED',
+			blockchainStatus: EscrowStatus.Funded,
 			statusEvents: [],
 			completionAttachments: [],
 			disputeProposal: null,
@@ -53,8 +67,11 @@
 			},
 			contractEvent: {
 				id: 'service-contract-event-1',
+				kind: 3000,
 				pubkey: 'f'.repeat(64),
 				created_at: 1_700_000_000,
+				tags: [],
+				sig: '',
 				content: {
 					escrowId: 'svc-escrow_123',
 					contextType: 'service',
@@ -81,10 +98,16 @@
 					},
 					pricingSnapshot: {
 						serviceVersionRef: 'service-event-1'
-					}
+					},
+					status: EscrowStatus.Funded,
+					type: 'contract',
+					currency: 'RBTC'
 				}
-			}
-		} as ContractWithEvents;
+			} as unknown as ContractWithEvents['contractEvent']
+		} satisfies Omit<ContractWithEvents, 'contractEvent' | 'escrowData'> & {
+			contractEvent: ContractWithEvents['contractEvent'];
+			escrowData: ContractWithEvents['escrowData'];
+		};
 
 		return {
 			...baseContract,
@@ -103,6 +126,221 @@
 				}
 			}
 		} as ContractWithEvents;
+	}
+
+	function createHarnessService(overrides: Partial<Service> = {}): Service {
+		return {
+			id: 'service-event-1',
+			npub: 'a'.repeat(64),
+			uniqueId: 'service-1234',
+			status: 'active',
+			title: 'Premium Logo Package',
+			description: 'Logo system and brand guide',
+			serviceLocationTypes: [],
+			pricing: {
+				type: ServicePricingTypeEnum.INQUIRY_REQUIRED,
+				currency: 'USD'
+			},
+			skills: [],
+			categories: [],
+			createdAt: 1_700_000_000,
+			...overrides
+		} as Service;
+	}
+
+	type HarnessQuoteTimelineOptions = {
+		requestId?: string;
+		requestEventId?: string;
+		inquiryTitle?: string;
+		inquiryDescription?: string;
+		requestTitle?: string;
+		requestDescription?: string;
+		createdAt?: number;
+		withProposal?: boolean;
+	};
+
+	function createHarnessQuoteTimeline(
+		service: Service,
+		options: HarnessQuoteTimelineOptions = {}
+	): ServiceQuoteTimelineEntry {
+		const serviceAddress = `30402:${service.npub}:${service.uniqueId ?? service.id}`;
+		const requestId = options.requestId ?? 'qr_valid123';
+		const requestEventId = options.requestEventId ?? `request-event-${requestId}`;
+		const inquiryTitle = options.inquiryTitle ?? options.requestTitle ?? 'Need a brand refresh';
+		const createdAt = options.createdAt ?? 1_700_000_000;
+		const proposalEvent = options.withProposal
+			? {
+					id: `proposal-${requestEventId}`,
+					kind: 6421 as const,
+					pubkey: service.npub,
+					created_at: createdAt + 60,
+					tags: [
+						['e', requestEventId],
+						['p', 'b'.repeat(64)]
+					],
+					content: {
+						type: 'service-proposal' as const,
+						proposalId: `pr_${requestId}`,
+						quoteRequestId: requestId,
+						serviceId: serviceAddress,
+						serviceAddress,
+						paymentType: 'FIXED' as const,
+						amountUsdt: '225.00',
+						description: `${inquiryTitle} proposal`,
+						estimatedDuration: '4 days',
+						estimatedStartTime: createdAt,
+						estimatedEndTime: createdAt + 259_200,
+						expirationDays: 5,
+						expirationHours: 0,
+						expirationTimestamp: createdAt + 300_000,
+						freelancerRskAddress: '0x1111111111111111111111111111111111111111',
+						freelancerFeeTier: 1 as const,
+						pricingSnapshot: {
+							serviceVersionRef: service.id
+						},
+						timestamp: createdAt + 60,
+						version: 'v1' as const
+					},
+					sig: ''
+				}
+			: undefined;
+
+		return {
+			request: {
+				id: requestEventId,
+				kind: 6420,
+				pubkey: 'b'.repeat(64),
+				created_at: createdAt,
+				tags: [],
+				content: {
+					type: 'service-quote-request',
+					quoteRequestId: requestId,
+					serviceId: serviceAddress,
+					serviceAddress,
+					pricingType: ServicePricingTypeEnum.INQUIRY_REQUIRED,
+					tierId: 'premium',
+					selectedAddOns: [],
+					rushDelivery: false,
+					inquiry: {
+						title: inquiryTitle,
+						description:
+							options.inquiryDescription ?? options.requestDescription ?? `${inquiryTitle} details.`
+					},
+					timestamp: createdAt,
+					version: 'v1'
+				},
+				sig: ''
+			},
+			proposals: proposalEvent ? [proposalEvent] : [],
+			statusEventsByProposalId: {},
+			latestProposal: proposalEvent,
+			resolvedStatus: 'pending',
+			resolvedTerminalEvent: undefined,
+			expirationTimestamp: proposalEvent?.content.expirationTimestamp,
+			isExpired: false,
+			linkedEscrowId: undefined
+		};
+	}
+
+	function buildRequestsHarnessStateSnapshot() {
+		if (!requestsHarnessState) {
+			return '';
+		}
+
+		const visibleTimelines = requestsHarnessState.selectedServiceAddress
+			? (requestsHarnessState.timelinesByService[requestsHarnessState.selectedServiceAddress] ?? [])
+			: requestsHarnessState.partialFailure
+				? (requestsHarnessState.timelinesByService[requestsHarnessState.loadedServiceAddress] ?? [])
+				: Object.values(requestsHarnessState.timelinesByService).flat();
+
+		return JSON.stringify({
+			selectedServiceAddress: requestsHarnessState.selectedServiceAddress,
+			focusedRequestId: requestsHarnessState.focusedRequestId,
+			loadError: requestsHarnessState.partialFailure ? 'provider query failed' : null,
+			visibleRequestIds: visibleTimelines.map((timeline) => timeline.request.content.quoteRequestId)
+		});
+	}
+
+	function syncRequestsHarnessSurface() {
+		const harnessState = requestsHarnessState;
+		if (!harnessState || !surfaceComponent) {
+			return;
+		}
+
+		const serviceTitleByAddress = Object.fromEntries(
+			harnessState.services.map((service) => [
+				`30402:${service.npub}:${service.uniqueId ?? service.id}`,
+				service.title
+			])
+		);
+		const visibleTimelines = harnessState.selectedServiceAddress
+			? (harnessState.timelinesByService[harnessState.selectedServiceAddress] ?? [])
+			: harnessState.partialFailure
+				? (harnessState.timelinesByService[harnessState.loadedServiceAddress] ?? [])
+				: Object.values(harnessState.timelinesByService).flat();
+
+		surfaceProps = {
+			service:
+				harnessState.services.find(
+					(entry) =>
+						`30402:${entry.npub}:${entry.uniqueId ?? entry.id}` ===
+						harnessState.selectedServiceAddress
+				) ?? null,
+			services: harnessState.services,
+			selectedServiceAddress: harnessState.selectedServiceAddress,
+			showServiceTitles: harnessState.selectedServiceAddress === null,
+			serviceTitleByAddress,
+			timelines: visibleTimelines,
+			focusedRequestId: harnessState.focusedRequestId,
+			isSyncing: false,
+			hasLoaded: true,
+			loadError: harnessState.partialFailure ? 'provider query failed' : null,
+			walletReady: true,
+			feeTierReady: true,
+			totalPendingRequestCount: visibleTimelines.filter(
+				(timeline) => timeline.resolvedStatus === 'pending' && !timeline.latestProposal
+			).length,
+			selectedServiceRequestCount:
+				harnessState.selectedServiceAddress !== null ? visibleTimelines.length : null,
+			onServiceFilterChange: (serviceAddress: string | null) => {
+				requestsHarnessState = {
+					...harnessState,
+					selectedServiceAddress: serviceAddress,
+					partialFailure: false
+				};
+				syncRequestsHarnessSurface();
+			},
+			onRequestFocusChange: (requestId: string | null) => {
+				requestsHarnessState = {
+					...harnessState,
+					focusedRequestId: requestId
+				};
+				syncRequestsHarnessSurface();
+			},
+			onRequestClear: () => {
+				requestsHarnessState = {
+					...harnessState,
+					focusedRequestId: null
+				};
+				syncRequestsHarnessSurface();
+			},
+			onSendProposal: async () => ({ success: true }),
+			onDeleteProposal: async () => ({ success: true })
+		};
+	}
+
+	function activateRequestsHarnessPartialFailure() {
+		if (!requestsHarnessState) {
+			return;
+		}
+
+		requestsHarnessState = {
+			...requestsHarnessState,
+			selectedServiceAddress: null,
+			partialFailure: true,
+			focusedRequestId: null
+		};
+		syncRequestsHarnessSurface();
 	}
 
 	async function waitForSurfaceReady(
@@ -349,6 +587,164 @@
 							document.body.textContent?.includes(
 								'Latest request-thread data is still propagating across relays.'
 							) ?? false
+					};
+					break;
+				}
+				case 'my-services-panel-requests': {
+					const { default: DashboardMyServicesPanel } = await import(
+						'$lib/components/service/DashboardMyServicesPanel.svelte'
+					);
+					const service = createHarnessService({
+						uniqueId: 'service-123',
+						title: 'Brand Identity Sprint',
+						description: 'Logo, color palette, and social avatar pack.'
+					});
+
+					surfaceComponent = DashboardMyServicesPanel;
+					surfaceProps = {
+						loadMyServices: async () => ({
+							services: [service],
+							total: 1,
+							hasMore: false
+						}),
+						loadContractsContinuity: async () => undefined,
+						loadContractsSnapshot: async () => [],
+						queryProviderQuoteThreads: async () => [],
+						deletePortfolioMedia: async () => undefined
+					};
+
+					await waitForSurfaceReady(() =>
+						Boolean(
+							document
+								.querySelector('[data-testid="service-harness-surface"]')
+								?.textContent?.includes('Brand Identity Sprint')
+						)
+					);
+
+					result = {
+						mounted: true,
+						serviceAddress: `30402:${service.npub}:${service.uniqueId}`
+					};
+					break;
+				}
+				case 'my-services-panel-contracts': {
+					const { default: DashboardMyServicesPanel } = await import(
+						'$lib/components/service/DashboardMyServicesPanel.svelte'
+					);
+					const service = createHarnessService({
+						uniqueId: 'service-123',
+						title: 'Brand Identity Sprint',
+						description: 'Logo, color palette, and social avatar pack.'
+					});
+					const serviceAddress = `30402:${service.npub}:${service.uniqueId}`;
+					const contract = createHarnessServiceContract({
+						escrowData: {
+							id: 'svc-escrow-live',
+							status: EscrowStatus.Funded
+						} as unknown as ContractWithEvents['escrowData'],
+						status: EscrowStatus.Funded,
+						blockchainStatus: EscrowStatus.Funded,
+						content: {
+							contextId: service.uniqueId,
+							serviceId: service.uniqueId,
+							serviceAddress,
+							serviceTitle: service.title
+						}
+					});
+
+					surfaceComponent = DashboardMyServicesPanel;
+					surfaceProps = {
+						loadMyServices: async () => ({
+							services: [service],
+							total: 1,
+							hasMore: false
+						}),
+						loadContractsContinuity: async () => undefined,
+						loadContractsSnapshot: async () => [contract],
+						queryProviderQuoteThreads: async () => [],
+						deletePortfolioMedia: async () => undefined
+					};
+
+					await waitForSurfaceReady(() =>
+						Boolean(
+							Array.from(
+								document.querySelectorAll('[data-testid="service-harness-surface"] button')
+							).some((button) => button.textContent?.includes('Contracts'))
+						)
+					);
+
+					result = {
+						mounted: true,
+						serviceAddress,
+						escrowId: 'svc-escrow-live'
+					};
+					break;
+				}
+				case 'earning-requests-regression': {
+					const { default: ServiceQuotesInbox } = await import(
+						'$lib/components/service/quotes/ServiceQuotesInbox.svelte'
+					);
+					const primaryService = createHarnessService();
+					const secondaryService = createHarnessService({
+						id: 'service-event-2',
+						uniqueId: 'service-456',
+						title: 'Accessibility Review',
+						description: 'Accessibility audit and remediation guidance'
+					});
+					const primaryServiceAddress = `30402:${primaryService.npub}:${
+						primaryService.uniqueId ?? primaryService.id
+					}`;
+					const secondaryServiceAddress = `30402:${secondaryService.npub}:${
+						secondaryService.uniqueId ?? secondaryService.id
+					}`;
+
+					requestsHarnessState = {
+						services: [primaryService, secondaryService],
+						timelinesByService: {
+							[primaryServiceAddress]: [
+								createHarnessQuoteTimeline(primaryService, {
+									requestId: 'qr_focus_1',
+									requestEventId: 'request-focus-1',
+									inquiryTitle: 'Need a logo refresh',
+									createdAt: 10,
+									withProposal: true
+								}),
+								createHarnessQuoteTimeline(primaryService, {
+									requestId: 'qr_focus_2',
+									requestEventId: 'request-focus-2',
+									inquiryTitle: 'Need a landing page refresh',
+									createdAt: 9
+								})
+							],
+							[secondaryServiceAddress]: [
+								createHarnessQuoteTimeline(secondaryService, {
+									requestId: 'qr_focus_3',
+									requestEventId: 'request-focus-3',
+									inquiryTitle: 'Need an accessibility audit',
+									createdAt: 8
+								})
+							]
+						},
+						selectedServiceAddress: primaryServiceAddress,
+						focusedRequestId: 'qr_focus_1',
+						partialFailure: false,
+						loadedServiceAddress: primaryServiceAddress
+					};
+
+					surfaceComponent = ServiceQuotesInbox;
+					syncRequestsHarnessSurface();
+
+					await waitForSurfaceReady(() =>
+						Boolean(
+							document.querySelector(
+								'[data-testid="service-harness-surface"] [data-testid="service-request-card-qr_focus_1"]'
+							)
+						)
+					);
+
+					result = {
+						ready: true,
+						state: buildRequestsHarnessStateSnapshot()
 					};
 					break;
 				}
@@ -647,7 +1043,13 @@
 								isClient: false,
 								permissions: {
 									canComplete: true,
-									canAccept: false
+									canAccept: false,
+									canDispute: false,
+									canPropose: false,
+									canAcceptProposal: false,
+									canCancel: false,
+									canResolveTimelock: false,
+									canDelete: false
 								}
 							})
 						],
@@ -835,6 +1237,19 @@
 {#if surfaceComponent}
 	{@const SurfaceComponent = surfaceComponent}
 	<div data-testid="service-harness-surface" class="min-h-screen p-4">
+		{#if requestsHarnessState}
+			<div class="mb-4 flex flex-wrap gap-2">
+				<button
+					type="button"
+					class="btn btn-sm btn-outline"
+					data-testid="requests-harness-partial-failure"
+					onclick={activateRequestsHarnessPartialFailure}
+				>
+					Simulate partial provider failure
+				</button>
+			</div>
+			<pre data-testid="requests-harness-state">{buildRequestsHarnessStateSnapshot()}</pre>
+		{/if}
 		<SurfaceComponent {...surfaceProps} />
 	</div>
 {/if}

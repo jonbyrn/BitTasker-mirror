@@ -66,6 +66,8 @@
 		"service_requests": {
 			"status_heading": "Filter by request status",
 			"status_subheading": "Focus on the service requests that need your next action.",
+			"showing_all": "Showing {count} requests",
+			"showing_filtered": "Showing {visible} of {total} requests",
 			"refresh": "Refresh",
 			"refreshing": "Refreshing",
 			"loading": "Loading your service requests...",
@@ -82,6 +84,14 @@
 			"add_ons_other": "{count} add-ons",
 			"rush_delivery": "Rush delivery",
 			"expires": "Expires",
+			"filters": {
+				"all": "All",
+				"awaiting_proposal": "Awaiting proposal",
+				"contract_created": "Contract created",
+				"declined": "Declined",
+				"withdrawn": "Withdrawn",
+				"expired": "Expired"
+			},
 			"service_label": "Service",
 			"standard_tier": "Standard",
 			"days": "days",
@@ -101,8 +111,27 @@
 				"title": "Service request",
 				"loading": "Loading service details...",
 				"inquiry_title": "Your Inquiry",
+				"proposal_title": "Received Proposal",
+				"proposal_start": "Estimated Start",
+				"proposal_end": "Estimated End",
+				"scope_of_work": "Scope of work",
+				"cover_letter": "Cover letter",
 				"custom_answers": "Submitted answers",
 				"attachments": "Attachments"
+			},
+			"accept_drawer": {
+				"title": "Accept proposal",
+				"subtitle": "Review the quote details before creating the service contract.",
+				"confirm": "Accept Proposal",
+				"expires": "Proposal expires",
+				"warning": "Accepting this proposal will create a service contract using the received quote details.",
+				"start_time_adjusted_warning": "The quoted start time has already passed. The contract will use a start time about one hour from now and keep the quoted duration.",
+				"prepare_error": "Unable to prepare this proposal acceptance right now."
+			},
+			"confirm": {
+				"decline_title": "Decline proposal",
+				"decline_message": "This will mark the current proposal as declined.",
+				"decline_confirm": "Confirm Decline"
 			},
 			"statuses": {
 				"contract_created": "Contract created",
@@ -118,6 +147,7 @@
 			},
 			"filters": {
 				"awaiting_proposal": "Awaiting proposal",
+				"needs_attention": "Needs attention",
 				"contract_created": "Contract created",
 				"declined": "Declined",
 				"withdrawn": "Withdrawn",
@@ -126,12 +156,16 @@
 			"alerts": {
 				"service_unavailable_read_only": "This service was deleted by the provider. The request is now read-only.",
 				"service_unavailable": "Some services were deleted by the provider. Those requests remain visible as read-only history unless a contract was already created.",
+				"service_lookup_failed": "Some service details could not be refreshed. Retry before acting on those requests.",
 				"partial_sync": "Latest quote thread data is still propagating across relays. Showing partial results until the thread finishes syncing.",
 				"stale": "Showing your last known quote data. Refresh before acting on proposals because the latest relay sync did not complete.",
 				"offline": "You are offline. Reconnect before reviewing or acting on quote proposals.",
 				"reconnect": "Back online. Retry if the latest quote status has not refreshed yet."
 			},
 			"errors": {
+				"accept": "Unable to accept this proposal right now.",
+				"decline": "Unable to decline this proposal right now.",
+				"delete": "Unable to delete this service request right now.",
 				"update_status": "Unable to update quote status.",
 				"delete_request": "Unable to delete this service request right now."
 			},

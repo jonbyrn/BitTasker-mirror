@@ -47,7 +47,8 @@
 		"buttons": {
 			"cancel": "Cancelar",
 			"retry": "Reintentar",
-			"close": "Cerrar"
+			"close": "Cerrar",
+			"refresh": "Actualizar"
 		},
 		"toast": {
 			"link_copied": "Enlace copiado al portapapeles",
