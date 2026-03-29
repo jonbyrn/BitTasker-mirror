@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, fireEvent, waitFor, within } from '@testing-library/svelte';
 import ServiceQuotesInbox from '$lib/components/service/quotes/ServiceQuotesInbox.svelte';
 import type { Service } from '$lib/types/service.d';
@@ -149,6 +149,16 @@ function createTimeline(
 }
 
 describe('ServiceQuotesInbox', () => {
+	const originalRequestAnimationFrame = window.requestAnimationFrame;
+	const scrollHeightDescriptor = Object.getOwnPropertyDescriptor(
+		HTMLElement.prototype,
+		'scrollHeight'
+	);
+	const offsetWidthDescriptor = Object.getOwnPropertyDescriptor(
+		HTMLElement.prototype,
+		'offsetWidth'
+	);
+
 	function setNavigatorOnline(online: boolean) {
 		Object.defineProperty(window.navigator, 'onLine', {
 			value: online,
@@ -158,10 +168,26 @@ describe('ServiceQuotesInbox', () => {
 
 	beforeEach(() => {
 		vi.clearAllMocks();
+		window.requestAnimationFrame = ((callback: FrameRequestCallback) => {
+			callback(0);
+			return 0;
+		}) as typeof window.requestAnimationFrame;
 		quoteUiStoreMock.set({ providerDataFreshnessByService: {} });
 		setNavigatorOnline(true);
 		init({ fallbackLocale: 'en', initialLocale: 'en' });
 		window.history.replaceState({}, '', '/dashboard?tab=my-services&view=quotes');
+	});
+
+	afterEach(() => {
+		window.requestAnimationFrame = originalRequestAnimationFrame;
+
+		if (scrollHeightDescriptor) {
+			Object.defineProperty(HTMLElement.prototype, 'scrollHeight', scrollHeightDescriptor);
+		}
+
+		if (offsetWidthDescriptor) {
+			Object.defineProperty(HTMLElement.prototype, 'offsetWidth', offsetWidthDescriptor);
+		}
 	});
 
 	it('clears invalid exact-focus requests after syncing completes', async () => {
@@ -219,8 +245,8 @@ describe('ServiceQuotesInbox', () => {
 		expect(getByText('Pending requests')).toBeTruthy();
 	});
 
-	it('shows an inline wallet prerequisite alert and disables proposal actions until a wallet is connected', () => {
-		const { getByTestId, getByRole } = render(ServiceQuotesInbox, {
+	it('does not block proposal entry when wallet information is missing', async () => {
+		const { queryByTestId, getAllByRole, getByRole, queryByText } = render(ServiceQuotesInbox, {
 			service: mockService,
 			timelines: [baseTimeline],
 			focusedRequestId: null,
@@ -230,8 +256,13 @@ describe('ServiceQuotesInbox', () => {
 			totalPendingRequestCount: 1
 		});
 
-		expect(getByTestId('service-quotes-prerequisite-alert')).toBeTruthy();
-		expect(getByRole('button', { name: 'Send Proposal' })).toBeDisabled();
+		expect(queryByTestId('service-quotes-prerequisite-alert')).toBeNull();
+		expect(getByRole('button', { name: 'Send Proposal' })).toBeEnabled();
+
+		await fireEvent.click(getAllByRole('button', { name: 'Send Proposal' })[0]);
+		await waitFor(() => expect(getByRole('dialog')).toBeTruthy());
+		expect(getAllByRole('button', { name: 'Send Proposal' })[1]).toBeEnabled();
+		expect(queryByText('Connect your wallet before sending a proposal.')).toBeNull();
 	});
 
 	it('shows an inline fee-tier prerequisite alert and disables proposal actions until a fee tier is available', () => {
@@ -442,6 +473,74 @@ describe('ServiceQuotesInbox', () => {
 		expect(getByText('Technical SEO audit with prioritized fixes.')).toBeTruthy();
 	});
 
+	it('truncates long inquiry descriptions in the proposal drawer and expands them on demand', async () => {
+		Object.defineProperty(HTMLElement.prototype, 'scrollHeight', {
+			configurable: true,
+			get() {
+				if (
+					this instanceof HTMLElement &&
+					this.dataset.testid === 'service-proposal-drawer-inquiry-description'
+				) {
+					return 120;
+				}
+
+				return scrollHeightDescriptor?.get?.call(this) ?? 0;
+			}
+		});
+
+		Object.defineProperty(HTMLElement.prototype, 'offsetWidth', {
+			configurable: true,
+			get() {
+				if (
+					this instanceof HTMLElement &&
+					this.dataset.testid === 'service-proposal-drawer-inquiry-description'
+				) {
+					return 320;
+				}
+
+				return offsetWidthDescriptor?.get?.call(this) ?? 320;
+			}
+		});
+
+		const { getAllByRole, getByRole, getByTestId } = render(ServiceQuotesInbox, {
+			service: mockService,
+			timelines: [
+				{
+					...baseTimeline,
+					request: {
+						...baseTimeline.request,
+						content: {
+							...baseTimeline.request.content,
+							inquiry: {
+								...baseTimeline.request.content.inquiry,
+								description:
+									'Please review search visibility, technical debt, competitor gaps, conversion blockers, and analytics attribution. Include a rollout plan, implementation sequencing, success metrics, and stakeholder-ready recommendations.'
+							}
+						}
+					}
+				}
+			],
+			focusedRequestId: null,
+			isSyncing: false,
+			walletReady: true,
+			feeTierReady: true,
+			totalPendingRequestCount: 1
+		});
+
+		await fireEvent.click(getAllByRole('button', { name: 'Send Proposal' })[0]);
+		await waitFor(() => expect(getByRole('dialog')).toBeTruthy());
+
+		const description = await waitFor(() =>
+			getByTestId('service-proposal-drawer-inquiry-description')
+		);
+		const toggle = await waitFor(() => getByRole('button', { name: 'See More' }));
+
+		expect(description.className).toContain('line-clamp-3');
+		await fireEvent.click(toggle);
+		expect(description.className).not.toContain('line-clamp-3');
+		expect(getByRole('button', { name: 'See Less' })).toBeTruthy();
+	});
+
 	it('forwards proposal submissions through the selected request context', async () => {
 		const onSendProposal = vi.fn().mockResolvedValue({ success: true });
 		const { getByLabelText, getAllByRole, getByRole, queryByTestId } = render(ServiceQuotesInbox, {
@@ -464,10 +563,10 @@ describe('ServiceQuotesInbox', () => {
 		await fireEvent.input(getByLabelText('Amount (USD)'), {
 			target: { value: '225.00' }
 		});
-		await fireEvent.input(getByLabelText('Estimated Start'), {
+		await fireEvent.input(getByLabelText('Start Date'), {
 			target: { value: '2026-03-20T09:00' }
 		});
-		await fireEvent.input(getByLabelText('Estimated End'), {
+		await fireEvent.input(getByLabelText('End Date'), {
 			target: { value: '2026-03-24T18:00' }
 		});
 		await fireEvent.input(getByLabelText('Expiration Days'), {

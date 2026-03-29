@@ -165,10 +165,8 @@
 	);
 	const proposalAuthoringBlockedReason = $derived.by(() => {
 		if (!walletReady) {
-			return tr(
-				'dashboard.services.my_services.quote_inbox.blocked_reason.wallet',
-				'Connect your wallet before sending a proposal.'
-			);
+			// Wallet initialization is deferred until proposal submission so re-auth can happen on demand.
+			return null;
 		}
 		if (!feeTierReady) {
 			return tr(
@@ -1048,7 +1046,6 @@
 		serviceTitle={selectedServiceTitle}
 		disabled={isSyncing ||
 			serviceUnavailable ||
-			!walletReady ||
 			!feeTierReady ||
 			Boolean(loadError) ||
 			isOffline ||
