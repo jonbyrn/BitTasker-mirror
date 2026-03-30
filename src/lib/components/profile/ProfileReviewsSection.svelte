@@ -1,10 +1,9 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import { t } from 'svelte-i18n';
 	import { getNpub } from '$lib/utils/nostrKeys';
 	import { getReviewsForUser, getReviewsByReviewer } from '$lib/utils/nostr-review';
 	import { calculateReviewStats } from '$lib/utils/review-aggregation';
-	import { getPendingReviewsCount } from '$lib/utils/review-helpers';
+	import { findPendingReviews, type PendingReview } from '$lib/utils/review-helpers';
 	import type { NostrVerifiedReview, ReviewStats } from '$lib/types/review';
 	import ReviewSummaryCard from './ReviewSummaryCard.svelte';
 	import ReviewManagementTabs from '../reviews/ReviewManagementTabs.svelte';
@@ -12,98 +11,344 @@
 	import VerifiedReviewCard from '../reviews/VerifiedReviewCard.svelte';
 	import PendingReviewsList from '../reviews/PendingReviewsList.svelte';
 
-	let {
-		userPubkey,
-		isCurrentUser = false
-	} = $props<{
+	const ALL_REVIEWS_LIMIT = Number.MAX_SAFE_INTEGER;
+
+	type ReviewMetaLoadError = Error & {
+		givenReviews?: NostrVerifiedReview[];
+		pendingReviews?: PendingReview[];
+	};
+
+	let { userPubkey, isCurrentUser = false } = $props<{
 		userPubkey?: string;
 		isCurrentUser?: boolean;
 	}>();
 
 	let currentUserPubkey = $state<string | null>(null);
+	let hasResolvedCurrentUser = $state(false);
 	let targetPubkey = $derived(userPubkey || currentUserPubkey || '');
 	let receivedReviews = $state<NostrVerifiedReview[]>([]);
 	let givenReviews = $state<NostrVerifiedReview[]>([]);
+	let pendingReviews = $state<PendingReview[]>([]);
 	let stats = $state<ReviewStats | null>(null);
 	let isLoading = $state(true);
 	let error = $state<string | null>(null);
+	let metaError = $state<string | null>(null);
 	let activeTab = $state<'received' | 'given' | 'pending'>('received');
 	let pendingCount = $state(0);
+	let lastLoadedTargetPubkey = $state<string | null>(null);
+	let activeRequestId = 0;
+	let hasManuallyChangedTab = $state(false);
+	let summaryRole = $derived.by<'tasker' | 'taskee' | null>(() => {
+		const roleSet = new Set(
+			receivedReviews
+				.map((review) => review.content?.revieweeRole)
+				.filter((role): role is 'tasker' | 'taskee' => role === 'tasker' || role === 'taskee')
+		);
 
-	// Get current user pubkey if viewing own profile
-	onMount(async () => {
-		if (isCurrentUser && !userPubkey) {
+		return roleSet.size === 1 ? [...roleSet][0] : null;
+	});
+
+	function extractPartialReviewMeta(error: unknown): {
+		givenReviews?: NostrVerifiedReview[];
+		pendingReviews?: PendingReview[];
+	} {
+		if (!error || typeof error !== 'object') {
+			return {};
+		}
+
+		const maybeError = error as {
+			givenReviews?: unknown;
+			pendingReviews?: unknown;
+		};
+
+		return {
+			givenReviews: Array.isArray(maybeError.givenReviews)
+				? (maybeError.givenReviews as NostrVerifiedReview[])
+				: undefined,
+			pendingReviews: Array.isArray(maybeError.pendingReviews)
+				? (maybeError.pendingReviews as PendingReview[])
+				: undefined
+		};
+	}
+
+	function createReviewMetaLoadError(
+		reason: unknown,
+		partialMeta: {
+			givenReviews?: NostrVerifiedReview[];
+			pendingReviews?: PendingReview[];
+		}
+	): ReviewMetaLoadError {
+		const error =
+			reason instanceof Error ? reason : new Error($t('reviews.management.partial_load_warning'));
+		const reviewMetaError = error as ReviewMetaLoadError;
+		if (partialMeta.givenReviews) {
+			reviewMetaError.givenReviews = partialMeta.givenReviews;
+		}
+		if (partialMeta.pendingReviews) {
+			reviewMetaError.pendingReviews = partialMeta.pendingReviews;
+		}
+		return reviewMetaError;
+	}
+
+	function applyPartialReviewMeta(error: unknown) {
+		const { givenReviews: partialGivenReviews, pendingReviews: partialPendingReviews } =
+			extractPartialReviewMeta(error);
+
+		givenReviews = partialGivenReviews ?? [];
+		pendingReviews = partialPendingReviews ?? [];
+		pendingCount = pendingReviews.length;
+
+		if (!hasManuallyChangedTab) {
+			activeTab = isCurrentUser && pendingReviews.length > 0 ? 'pending' : 'received';
+		}
+	}
+
+	async function loadReviewMeta(nextPendingReviews?: PendingReview[]) {
+		if (!isCurrentUser || !currentUserPubkey) {
+			return {
+				given: [],
+				pending: []
+			};
+		}
+
+		const [givenResult, pendingResult] = await Promise.allSettled([
+			getReviewsByReviewer(currentUserPubkey, ALL_REVIEWS_LIMIT),
+			nextPendingReviews ? Promise.resolve(nextPendingReviews) : findPendingReviews()
+		]);
+
+		const givenReviews =
+			givenResult.status === 'fulfilled'
+				? givenResult.value
+				: extractPartialReviewMeta(givenResult.reason).givenReviews;
+		const pendingReviews =
+			pendingResult.status === 'fulfilled'
+				? pendingResult.value
+				: extractPartialReviewMeta(pendingResult.reason).pendingReviews;
+
+		if (givenResult.status === 'rejected') {
+			throw createReviewMetaLoadError(givenResult.reason, { givenReviews, pendingReviews });
+		}
+
+		if (pendingResult.status === 'rejected') {
+			throw createReviewMetaLoadError(pendingResult.reason, { givenReviews, pendingReviews });
+		}
+
+		return {
+			given: givenResult.value,
+			pending: pendingResult.value
+		};
+	}
+
+	function applyReviewMeta(reviewMeta: { given: NostrVerifiedReview[]; pending: PendingReview[] }) {
+		givenReviews = reviewMeta.given;
+		pendingReviews = reviewMeta.pending;
+		pendingCount = reviewMeta.pending.length;
+		if (!hasManuallyChangedTab) {
+			activeTab = isCurrentUser && reviewMeta.pending.length > 0 ? 'pending' : 'received';
+		}
+	}
+
+	async function loadReviewData(pubkey: string) {
+		const requestId = ++activeRequestId;
+		isLoading = true;
+		error = null;
+		metaError = null;
+
+		try {
+			const [receivedResult, metaResult] = await Promise.allSettled([
+				getReviewsForUser(pubkey, ALL_REVIEWS_LIMIT),
+				loadReviewMeta()
+			]);
+
+			if (requestId !== activeRequestId) {
+				return;
+			}
+
+			if (receivedResult.status === 'rejected') {
+				throw receivedResult.reason;
+			}
+
+			receivedReviews = receivedResult.value;
+			stats = calculateReviewStats(receivedResult.value);
+
+			if (metaResult.status === 'fulfilled') {
+				applyReviewMeta(metaResult.value);
+			} else {
+				console.error('Failed to load review management metadata:', metaResult.reason);
+				applyPartialReviewMeta(metaResult.reason);
+				metaError =
+					metaResult.reason instanceof Error
+						? metaResult.reason.message
+						: $t('reviews.management.partial_load_warning');
+			}
+		} catch (err) {
+			console.error('Failed to load reviews:', err);
+			if (requestId === activeRequestId) {
+				error = err instanceof Error ? err.message : $t('reviews.list.load_error');
+			}
+		} finally {
+			if (requestId === activeRequestId) {
+				isLoading = false;
+			}
+		}
+	}
+
+	$effect(() => {
+		if (!isCurrentUser || userPubkey) {
+			hasResolvedCurrentUser = true;
+			return;
+		}
+
+		let cancelled = false;
+
+		hasResolvedCurrentUser = false;
+		currentUserPubkey = null;
+
+		(async () => {
 			try {
 				currentUserPubkey = await getNpub();
 			} catch (err) {
 				console.error('Failed to get current user pubkey:', err);
-				error = 'Failed to load user information';
+				error = $t('reviews.profile.load_user_error');
+			} finally {
+				if (!cancelled) {
+					hasResolvedCurrentUser = true;
+				}
 			}
-		}
+		})();
+
+		return () => {
+			cancelled = true;
+		};
 	});
 
-	// Load reviews when pubkey is available
 	$effect(() => {
+		if (!hasResolvedCurrentUser) {
+			return;
+		}
+
 		if (!targetPubkey) {
+			receivedReviews = [];
+			givenReviews = [];
+			pendingReviews = [];
+			pendingCount = 0;
+			stats = null;
+			lastLoadedTargetPubkey = null;
 			isLoading = false;
 			return;
 		}
 
-		isLoading = true;
-		error = null;
+		if (lastLoadedTargetPubkey === targetPubkey) {
+			return;
+		}
 
-		(async () => {
-			try {
-				// Load reviews where user is reviewee (received)
-				const received = await getReviewsForUser(targetPubkey, 100);
-				receivedReviews = received;
-				stats = calculateReviewStats(received);
+		lastLoadedTargetPubkey = targetPubkey;
+		loadReviewData(targetPubkey);
+	});
 
-				// Load reviews where current user is reviewer (given) - only if viewing own profile
-				if (isCurrentUser && currentUserPubkey) {
-					const given = await getReviewsByReviewer(currentUserPubkey, 100);
-					givenReviews = given;
-					
-					// Get pending reviews count
-					pendingCount = await getPendingReviewsCount();
-				}
-			} catch (err) {
-				console.error('Failed to load reviews:', err);
-				error = err instanceof Error ? err.message : 'Failed to load reviews';
-			} finally {
-				isLoading = false;
-			}
-		})();
+	$effect(() => {
+		if (!isCurrentUser && activeTab !== 'received') {
+			activeTab = 'received';
+		}
 	});
 
 	function handleTabChange(tab: 'received' | 'given' | 'pending') {
+		hasManuallyChangedTab = true;
 		activeTab = tab;
+	}
+
+	async function retryLoadReviewData() {
+		if (!targetPubkey) {
+			return;
+		}
+
+		hasManuallyChangedTab = false;
+		lastLoadedTargetPubkey = targetPubkey;
+		await loadReviewData(targetPubkey);
+	}
+
+	async function retryLoadReviewMeta(nextPendingReviews?: PendingReview[]) {
+		if (!currentUserPubkey) {
+			return;
+		}
+
+		if (nextPendingReviews) {
+			pendingReviews = nextPendingReviews;
+			pendingCount = nextPendingReviews.length;
+		}
+
+		try {
+			metaError = null;
+			const reviewMeta = await loadReviewMeta(nextPendingReviews);
+			applyReviewMeta(reviewMeta);
+		} catch (err) {
+			console.error('Failed to refresh review metadata:', err);
+			applyPartialReviewMeta(err);
+			metaError =
+				err instanceof Error ? err.message : $t('reviews.management.partial_load_warning');
+		}
+	}
+
+	async function handlePendingReviewSubmitted(nextPendingReviews?: PendingReview[]) {
+		if (!targetPubkey) {
+			return;
+		}
+
+		await retryLoadReviewMeta(nextPendingReviews);
 	}
 </script>
 
 <div class="space-y-6">
 	{#if isLoading}
-		<div class="flex justify-center items-center py-12">
+		<div class="flex items-center justify-center py-12" role="status" aria-live="polite">
 			<span class="loading loading-spinner loading-lg"></span>
+			<span class="sr-only">{$t('reviews.management.loading')}</span>
 		</div>
 	{:else if error}
-		<div class="alert alert-outline alert-error">
-			<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 shrink-0 stroke-current" fill="none" viewBox="0 0 24 24">
-				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-			</svg>
-			<span>{error}</span>
+		<div class="space-y-3">
+			<div class="alert alert-outline alert-error">
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					class="h-6 w-6 shrink-0 stroke-current"
+					fill="none"
+					viewBox="0 0 24 24"
+				>
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+					/>
+				</svg>
+				<span>{error}</span>
+			</div>
+			<div class="flex justify-end">
+				<button class="btn btn-outline btn-sm" type="button" onclick={retryLoadReviewData}>
+					{$t('reviews.actions.retry')}
+				</button>
+			</div>
 		</div>
 	{:else if !targetPubkey}
 		<div class="alert alert-outline alert-warning">
-			<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 shrink-0 stroke-current" fill="none" viewBox="0 0 24 24">
-				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				class="h-6 w-6 shrink-0 stroke-current"
+				fill="none"
+				viewBox="0 0 24 24"
+			>
+				<path
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					stroke-width="2"
+					d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+				/>
 			</svg>
 			<span>{$t('reviews.profile.no_user')}</span>
 		</div>
 	{:else}
 		<!-- Review Summary Section -->
 		{#if stats}
-			<ReviewSummaryCard {stats} />
+			<ReviewSummaryCard {stats} revieweeRole={summaryRole} />
 		{/if}
 
 		<!-- Review Management Tabs -->
@@ -114,40 +359,85 @@
 			givenCount={givenReviews.length}
 			{pendingCount}
 			{isCurrentUser}
+			idPrefix="profile-reviews"
 		/>
 
-		<!-- Review List Section -->
-		{#if activeTab === 'pending'}
-			{#if isCurrentUser}
-				<PendingReviewsList />
-			{:else}
-				<div class="text-center py-8 text-base-content/70">
-					<p>{$t('reviews.pending.only_current_user')}</p>
+		{#if metaError}
+			<div class="space-y-3">
+				<div class="alert alert-outline alert-warning">
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="h-5 w-5 shrink-0 stroke-current"
+						fill="none"
+						viewBox="0 0 24 24"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+						/>
+					</svg>
+					<span>{metaError}</span>
 				</div>
-			{/if}
-		{:else if activeTab === 'given'}
-			<!-- Show given reviews -->
-			<div class="space-y-4">
-				{#if givenReviews.length === 0}
-					<div class="text-center py-8 text-base-content/70">
-						<p>{$t('reviews.list.no_reviews')}</p>
-					</div>
-				{:else}
-					{#each givenReviews as review (review.nostrEventId)}
-						<div class="cursor-pointer transition-opacity hover:opacity-80">
-							<VerifiedReviewCard {review} />
+				<div class="flex justify-end">
+					<button
+						class="btn btn-outline btn-sm"
+						type="button"
+						onclick={() => retryLoadReviewMeta()}
+					>
+						{$t('reviews.actions.retry')}
+					</button>
+				</div>
+			</div>
+		{/if}
+
+		<!-- Review List Section -->
+		{#if isCurrentUser && activeTab === 'pending'}
+			<div
+				id="profile-reviews-panel-pending"
+				role="tabpanel"
+				aria-labelledby="profile-reviews-tab-pending"
+				tabindex="0"
+			>
+				<PendingReviewsList
+					initialPendingReviews={pendingReviews}
+					onReviewSubmitted={handlePendingReviewSubmitted}
+				/>
+			</div>
+		{:else if isCurrentUser && activeTab === 'given'}
+			<div
+				id="profile-reviews-panel-given"
+				role="tabpanel"
+				aria-labelledby="profile-reviews-tab-given"
+				tabindex="0"
+			>
+				<div class="space-y-4">
+					{#if givenReviews.length === 0}
+						<div class="text-base-content/70 py-8 text-center">
+							<p>{$t('reviews.list.no_given_reviews')}</p>
 						</div>
-					{/each}
-				{/if}
+					{:else}
+						{#each givenReviews as review (review.nostrEventId)}
+							<VerifiedReviewCard {review} showRevieweeContext={true} />
+						{/each}
+					{/if}
+				</div>
 			</div>
 		{:else}
-			<!-- Show received reviews -->
-			<ReviewList
-				revieweePubkey={targetPubkey}
-				sort="newest"
-				limit={50}
-			/>
+			<div
+				id="profile-reviews-panel-received"
+				role="tabpanel"
+				aria-labelledby="profile-reviews-tab-received"
+				tabindex="0"
+			>
+				<ReviewList
+					reviews={receivedReviews}
+					revieweePubkey={targetPubkey}
+					sort="newest"
+					limit={50}
+				/>
+			</div>
 		{/if}
 	{/if}
 </div>
-

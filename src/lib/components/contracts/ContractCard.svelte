@@ -24,7 +24,11 @@ This file will be removed in a future release.
 	import { getVisibleContractQuickActions } from '$lib/utils/helpers/contractQuickActions';
 	import { EscrowStatus } from '$lib/utils/escrow';
 	import ReviewPromptModal from '$lib/components/reviews/ReviewPromptModal.svelte';
-	import { hasUserReviewedContract, getOtherPartyPubkey } from '$lib/utils/review-helpers';
+	import {
+		getOtherPartyPubkey,
+		hasUserReviewedContract,
+		isReviewableContractStatus
+	} from '$lib/utils/review-helpers';
 	import { getReviewsForEscrow } from '$lib/utils/nostr-review';
 	import { getNpub } from '$lib/utils/nostrKeys';
 	import { nip19 } from 'nostr-tools';
@@ -102,16 +106,18 @@ This file will be removed in a future release.
 				// Check if other party has reviewed
 				const reviews = await getReviewsForEscrow(contract.contract.escrowId);
 				const otherPartyPubkeyHex = getOtherPartyPubkey(contract, currentUserPubkey);
-				
+
 				// Convert other party's hex pubkey to npub for comparison with reviews
 				const otherPartyPubkeyNpub = otherPartyPubkeyHex ? hexToNpub(otherPartyPubkeyHex) : null;
 				const otherPartyReviewed = otherPartyPubkeyNpub
-					? reviews.some(r => {
+					? reviews.some((r) => {
 							// Reviews may have npub or hex format, so check both
-							const reviewerHex = r.reviewerPubkey.startsWith('npub') 
-								? npubToHex(r.reviewerPubkey) 
+							const reviewerHex = r.reviewerPubkey.startsWith('npub')
+								? npubToHex(r.reviewerPubkey)
 								: r.reviewerPubkey;
-							return reviewerHex === otherPartyPubkeyHex || r.reviewerPubkey === otherPartyPubkeyNpub;
+							return (
+								reviewerHex === otherPartyPubkeyHex || r.reviewerPubkey === otherPartyPubkeyNpub
+							);
 						})
 					: false;
 
@@ -139,7 +145,7 @@ This file will be removed in a future release.
 		}
 	}
 
-	function handleReviewSubmit(eventId: string) {
+	function handleReviewSubmit() {
 		reviewStatus.userReviewed = true;
 		isReviewModalOpen = false;
 		onActionComplete?.();
@@ -213,7 +219,25 @@ This file will be removed in a future release.
 		);
 	});
 
-	function openDrawer() {
+	// Get role badge class
+	function getRoleBadgeClass(isClient: boolean): string {
+		return isClient ? 'badge-primary' : 'badge-secondary';
+	}
+
+	// Get available actions count
+	function getAvailableActionsCount(): number {
+		let count = 0;
+		if (contract.permissions.canComplete) count++;
+		if (contract.permissions.canAccept) count++;
+		if (contract.permissions.canDispute) count++;
+		if (contract.permissions.canPropose) count++;
+		if (contract.permissions.canAcceptProposal) count++;
+		if (contract.permissions.canCancel) count++;
+		if (contract.permissions.canResolveTimelock) count++;
+		return count;
+	}
+
+	const openDrawer = () => {
 		$contractStore.contract = contract;
 		$contractStore.isDrawerOpen = true;
 	}
@@ -336,6 +360,72 @@ This file will be removed in a future release.
 						<div class="badge badge-error badge-sm">
 							{contract.escrowData?.id}
 						</div>
+					{/if}
+					<!-- Review Status Badges -->
+					{#if isReviewableContractStatus(contract.status) && !reviewStatus.isLoading}
+						{#if reviewStatus.userReviewed}
+							<div class="badge badge-success badge-sm gap-1" title={$t('reviews.you_reviewed')}>
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									class="h-3 w-3"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke="currentColor"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+									/>
+								</svg>
+								{$t('reviews.reviewed')}
+							</div>
+						{:else if revieweePubkey}
+							<button
+								class="badge badge-warning badge-sm hover:badge-warning/80 cursor-pointer gap-1 transition-colors"
+								title={$t('reviews.review_pending')}
+								onclick={handleReviewClick}
+							>
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									class="h-3 w-3"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke="currentColor"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"
+									/>
+								</svg>
+								{$t('reviews.review_pending')}
+							</button>
+						{/if}
+						{#if reviewStatus.otherPartyReviewed}
+							<div class="badge badge-info badge-sm gap-1" title={$t('reviews.review_received')}>
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									class="h-3 w-3"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke="currentColor"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
+									/>
+								</svg>
+								{$t('reviews.review_received')}
+							</div>
+						{/if}
+					{/if}
+					{#if reviewStatus.isLoading}
+						<span class="loading loading-spinner loading-xs"></span>
 					{/if}
 				</div>
 				<div class="badge {getStatusColorClass(contract.status)} badge-sm mt-2">
