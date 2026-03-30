@@ -13,6 +13,25 @@ vi.mock('$lib/components/Avatar.svelte', () => ({
 	default: vi.fn(() => ({ $$: { ctx: [] } }))
 }));
 
+// Mock ActionsMenu — added to ChatMessage in the moderation feature; requires svelte-i18n locale
+vi.mock('$lib/components/moderation/ActionsMenu.svelte', () => ({
+	default: vi.fn(() => ({ $$: { ctx: [] } }))
+}));
+
+// Mock svelte-i18n so components that use $t don't throw "locale not set"
+vi.mock('svelte-i18n', async (importOriginal) => {
+	const actual = await importOriginal<typeof import('svelte-i18n')>();
+	return {
+		...actual,
+		t: {
+			subscribe: vi.fn((cb: (fn: (key: string) => string) => void) => {
+				cb((key: string) => key);
+				return () => {};
+			})
+		}
+	};
+});
+
 describe('ChatMessage Component', () => {
 	const mockEvent: NostrEvent = {
 		id: 'test-event-id',
@@ -95,7 +114,12 @@ describe('ChatMessage Component', () => {
 			});
 
 			// Component preserves newlines via whitespace-pre-wrap; use flexible matcher
-			expect(screen.getByText((content) => content.includes('Line 1') && content.includes('Line 2') && content.includes('Line 3'))).toBeDefined();
+			expect(
+				screen.getByText(
+					(content) =>
+						content.includes('Line 1') && content.includes('Line 2') && content.includes('Line 3')
+				)
+			).toBeDefined();
 		});
 
 		it('should handle empty messages', () => {
@@ -153,7 +177,7 @@ describe('ChatMessage Component', () => {
 	describe('Profile handling', () => {
 		it('should handle missing profile name', () => {
 			const profileWithoutName = {
-				picture: 'https://example.com/avatar.jpg'
+				name: undefined
 			};
 
 			expect(() => {

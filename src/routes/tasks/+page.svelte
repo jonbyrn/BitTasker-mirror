@@ -1,5 +1,10 @@
 <script lang="ts">
 	import type { Task, SearchTasksParams } from '$lib/types/task.d';
+	import type FilterDrawerComponent from '$lib/components/filters/FilterDrawer.svelte';
+	import type BidFormComponent from '$lib/components/bidding/BidForm.svelte';
+	import type SaveSearchFormComponent from '$lib/components/task/SaveSearchForm.svelte';
+	import type TaskDrawerComponent from '$lib/components/task/TaskDrawer.svelte';
+	import type TaskLocationMapComponent from '$lib/components/maps/TaskLocationMap.svelte';
 	import { onMount, onDestroy, tick } from 'svelte';
 	import { browser, dev } from '$app/environment';
 	import { tasksStore } from '$lib/stores/task.store';
@@ -7,8 +12,6 @@
 	import { appStore } from '$lib/stores/app.store';
 	import { findTasks, cleanup } from '$lib/nostr/findTasks';
 	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
-	import cryptoPriceService from '$lib/api/services/crypto-price.service';
-	import Drawer from '$lib/components/Drawer.svelte';
 	import { t } from 'svelte-i18n';
 	import { goto } from '$app/navigation';
 	import {
@@ -21,12 +24,9 @@
 	import { taskTranslationService } from '$lib/services/task-translation.service';
 	import { currentUserLanguage } from '$lib/stores/translation.store';
 	import { LRUCache } from '$lib/utils/helpers/lru-cache';
-	import type FilterDrawerComponent from '$lib/components/filters/FilterDrawer.svelte';
-	import type BidFormComponent from '$lib/components/bidding/BidForm.svelte';
-	import type SaveSearchFormComponent from '$lib/components/task/SaveSearchForm.svelte';
-	import type TaskDrawerComponent from '$lib/components/task/TaskDrawer.svelte';
-	import type TaskLocationMapComponent from '$lib/components/maps/TaskLocationMap.svelte';
 	import TaskCard from '$lib/components/task/TaskCard.svelte';
+	import cryptoPriceService from '$lib/api/services/crypto-price.service';
+	import Drawer from '$lib/components/Drawer.svelte';
 	import TaskListSkeleton from '$lib/components/task/TaskListSkeleton.svelte';
 	import TaskListControls from '$lib/components/task/TaskListControls.svelte';
 
@@ -604,7 +604,7 @@
 	}
 
 	// Load more tasks
-	async function loadMoreTasks() {
+	async function loadMoreTasks(minCount?: number) {
 		// Prevent multiple simultaneous loads - check and set atomically
 		if (!$tasksStore.hasMore || $tasksStore.loading || isLoadingMore) {
 			return;
@@ -615,22 +615,28 @@
 
 		try {
 			const nextPage = $tasksStore.currentPage + 1;
-			const lastItem = $tasksStore.items[$tasksStore.items.length - 1];
 
-			if (!lastItem) {
-				console.warn('[FindTasks] No last item found, cannot load more');
+			// Use lastRelayTimestamp as the cursor — this tracks the oldest relay event
+			// received regardless of how many were muted, preventing pagination drift.
+			// Fall back to the last visible item's timestamp if not yet set.
+			const lastRelayTs = $tasksStore.lastRelayTimestamp;
+			const lastItem = $tasksStore.items[$tasksStore.items.length - 1];
+			const cursorTimestamp = lastRelayTs ?? lastItem?.createdAt;
+
+			if (!cursorTimestamp) {
+				console.warn('[FindTasks] No cursor timestamp found, cannot load more');
 				isLoadingMore = false;
 				return;
 			}
 
-			// Subtract 1 second from the last item's timestamp to exclude it from the next batch
-			const untilTimestamp = lastItem.createdAt - 1;
+			const untilTimestamp = cursorTimestamp - 1;
+			const limit = minCount ? Math.max(minCount, TASKS_PER_PAGE) : TASKS_PER_PAGE;
 
 			searchParams = {
 				...searchParams,
 				page: nextPage,
 				until: untilTimestamp,
-				limit: TASKS_PER_PAGE
+				limit
 			};
 
 			await findTasks(searchParams);
@@ -1106,7 +1112,7 @@
 										{$t('find_tasks.refresh') || 'Refresh'}
 									</button>
 								</div>
-							{:else if $tasksStore.items && $tasksStore.items.length > 0}
+							{:else if $tasksStore.items.length > 0}
 								<ul class="task-list-items mb-0 space-y-4 pb-0" role="list">
 									{#each $tasksStore.items as task (task.id)}
 										<li role="listitem">
@@ -1121,6 +1127,9 @@
 												onSelectTaskForMap={selectTaskForMap}
 												{isMapVisible}
 												hasBid={false}
+												onMuted={(removedCount) => {
+													if (removedCount > 0) loadMoreTasks(removedCount);
+												}}
 											/>
 										</li>
 									{/each}

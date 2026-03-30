@@ -7,6 +7,7 @@
 	import UsdSatsDisplay from '$lib/components/shared/UsdSatsDisplay.svelte';
 	import { getTaskId } from '$lib/utils/helpers/task-id';
 	import TaskShareButton from '$lib/components/task/TaskShareButton.svelte';
+	import ActionsMenu from '$lib/components/moderation/ActionsMenu.svelte';
 
 	// Icon imports
 	import IconPlus from '~icons/mdi/plus';
@@ -27,7 +28,8 @@
 		loadDrawerComponents,
 		onSelectTaskForMap,
 		isMapVisible,
-		hasBid = false
+		hasBid = false,
+		onMuted
 	} = $props<{
 		task: Task;
 		selectedTask: Task | null;
@@ -39,6 +41,7 @@
 		onSelectTaskForMap?: (task: Task) => void;
 		isMapVisible?: boolean;
 		hasBid?: boolean;
+		onMuted?: (removedCount: number) => void;
 	}>();
 
 	const statusBadge = $derived(getStatusBadge(task.status));
@@ -94,7 +97,7 @@
 					</div>
 					<span
 						role="presentation"
-						class="ml-2 shrink-0"
+						class="ml-2 flex shrink-0 items-center gap-1"
 						onclick={(e) => e.stopPropagation()}
 						onkeydown={(e) => {
 							if (e.key === 'Enter' || e.key === ' ') {
@@ -103,6 +106,15 @@
 						}}
 					>
 						<TaskShareButton {task} variant="circle" class="btn-xs" />
+						{#if task.npub}
+							<ActionsMenu
+								contentType="task"
+								reportedPubkey={task.npub}
+								reportedEventId={taskId}
+								username={task.creator?.username}
+								{onMuted}
+							/>
+						{/if}
 					</span>
 				</div>
 				<div class="text-right">

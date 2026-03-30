@@ -1,0 +1,47 @@
+{
+	"moderation": {
+		"menu": {
+			"report": "Report",
+			"report_task": "Report task",
+			"report_bid": "Report bid",
+			"report_message": "Report message",
+			"report_user": "Report user",
+			"mute_user": "Mute {username}",
+			"mute_user_generic": "Mute user",
+			"block_user": "Block user",
+			"muted_toast": "{username} muted",
+			"muted_toast_generic": "User muted",
+			"mute_error": "Failed to mute user. Please try again."
+		},
+		"report_modal": {
+			"title_task": "Report this task",
+			"title_bid": "Report this bid",
+			"title_message": "Report this message",
+			"title_user": "Report this user",
+			"description": "Help us understand what's wrong with this content.",
+			"type_label": "Reason",
+			"types": {
+				"spam": "Spam",
+				"illegal": "Illegal content",
+				"profanity": "Profanity or hateful speech",
+				"nudity": "Nudity or explicit content",
+				"impersonation": "Impersonation",
+				"other": "Other"
+			},
+			"details_label": "Additional details (optional)",
+			"details_placeholder": "Describe the issue...",
+			"details_required_placeholder": "Please describe the issue...",
+			"submit": "Submit Report",
+			"submitting": "Submitting...",
+			"cancel": "Cancel",
+			"success_toast": "Report submitted. Thank you.",
+			"error_toast": "Failed to submit report. Please try again.",
+			"select_type": "Please select a reason",
+			"submitted_title": "Report submitted",
+			"submitted_description": "Your report has been received. Would you also like to hide content from this user?",
+			"also_mute_label": "Hide this user's content",
+			"also_mute_description": "Their tasks, bids, and messages will no longer appear for you.",
+			"done": "Done"
+		}
+	}
+}

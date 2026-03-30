@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
-	import { triggerHaptic, ImpactStyle } from '$lib/utils/helpers/haptics';
 
 	interface Props {
 		unit: 'sats' | 'usd';
@@ -143,12 +142,10 @@
 
 	// Focused handler functions
 	function handleClear(): void {
-		triggerHaptic(ImpactStyle.Light);
 		resetCalculatorState();
 	}
 
 	function handleDelete(): void {
-		triggerHaptic(ImpactStyle.Light);
 		calculatorValue = calculatorValue.slice(0, -1);
 		onInput(calculatorValue);
 		updateMathExpression();
@@ -158,15 +155,12 @@
 		if (unit === 'sats') return; // No decimals for sats - don't trigger haptic
 		if (calculatorValue.includes('.')) return; // Already has decimal
 
-		triggerHaptic(ImpactStyle.Light);
 		calculatorValue += '.';
 		onInput(calculatorValue);
 		updateMathExpression();
 	}
 
 	function handleOperator(value: OperatorSymbol): void {
-		triggerHaptic(ImpactStyle.Light);
-
 		// Auto-calculate if we have a previous value and operator
 		if (previousValue !== null && operator && calculatorValue) {
 			const currentValue = parseFloat(calculatorValue) || 0;
@@ -184,8 +178,6 @@
 	}
 
 	function handleEquals(): void {
-		triggerHaptic(ImpactStyle.Light);
-
 		if (previousValue === null || !operator || !calculatorValue) return;
 
 		const currentValue = parseFloat(calculatorValue) || 0;
@@ -206,8 +198,6 @@
 		if (!waitingForOperand && unit === 'sats' && calculatorValue.includes('.')) {
 			return;
 		}
-
-		triggerHaptic(ImpactStyle.Light);
 
 		// If starting fresh input (no calculator value) and we have stale operator state,
 		// it means the parent cleared the display (e.g., unit change), so reset our state
@@ -272,8 +262,8 @@
 	class="calculator-keypad border-base-300 bg-base-100 grid grid-cols-4 overflow-hidden rounded-lg border"
 	class:opacity-50={disabled}
 >
-	{#each KEYPAD_LAYOUT as row}
-		{#each row as key}
+	{#each KEYPAD_LAYOUT as row, rowIndex (rowIndex)}
+		{#each row as key (key.value)}
 			{@const keyDisabled = disabled || (key.type === 'decimal' && unit === 'sats')}
 			<button
 				class="border-base-300 flex min-h-[52px] cursor-pointer touch-manipulation items-center justify-center border-r border-b font-semibold transition-colors select-none {key.isOperator

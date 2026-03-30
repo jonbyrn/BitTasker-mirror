@@ -13,6 +13,7 @@
 	import IconChatOutline from '~icons/mdi/chat-outline';
 	import IconCog from '~icons/mdi/cog';
 	import WarningPopup from '$lib/components/WarningPopup.svelte';
+	import NotificationPermissionBanner from '$lib/components/notifications/NotificationPermissionBanner.svelte';
 
 	let { children } = $props();
 
@@ -20,8 +21,8 @@
 </script>
 
 <svelte:head>
-	<title>{$t('dashboard.hiring.page_title')}</title>
-	<meta name="description" content={$t('dashboard.hiring.page_description')} />
+	<title>{$t('dashboard.dashboard.page_title')}</title>
+	<meta name="description" content={$t('dashboard.dashboard.page_description')} />
 </svelte:head>
 
 <svelte:window bind:innerWidth={width} />
@@ -81,6 +82,7 @@
 		<!-- Main Content with left margin for fixed sidebar -->
 		<div class="min-h-0 w-full flex-1 overflow-hidden">
 			{@render children()}
+			<NotificationPermissionBanner />
 			<WarningPopup />
 		</div>
 	</div>
