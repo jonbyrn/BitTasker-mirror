@@ -61,6 +61,7 @@ export interface NostrVerifiedReview extends Omit<VerifiedReview, 'content'> {
 	content: ReviewContentWithRatings; // Use our extended content type
 	nostrEventId: string;
 	nostrRelay?: string;
+	escrowId?: string;
 }
 
 /**
@@ -69,6 +70,7 @@ export interface NostrVerifiedReview extends Omit<VerifiedReview, 'content'> {
  */
 export interface ReviewStats {
 	totalReviews: number;
+	recentReviewsCount: number;
 	averageRating: number;
 	// Legacy categories (for backward compatibility)
 	averageQuality: number;

@@ -5,25 +5,18 @@
  */
 
 import { getUserContracts } from './nostr-bid';
-import { getReviewsForEscrow } from './nostr-review';
+import { hasUserReviewedEscrow } from './nostr-review';
 import { getNpub } from './nostrKeys';
+import { fetchProfileMetadata } from './nostr-message';
+import { normalizeNostrPubkey, nostrPubkeysMatch } from './nostr-pubkey';
+import { isConfirmedReviewCompletionAction, isReviewableContractStatus } from './review-status';
 import type { ContractWithEvents } from '$lib/types/contract';
+import type { ContractFilter } from '$lib/types/contract';
+import { nip19 } from 'nostr-tools';
 
-function isCompletedContractStatus(status: string | number | undefined): boolean {
-	return (
-		status === 'completed' || status === 'resolved' || status === 4 || status === 2 || status === 10
-	);
-}
+export { isReviewableContractStatus };
 
-function isCompletionAction(action: string | number | undefined): boolean {
-	return (
-		action === 'task-completed' ||
-		action === 'payment-released' ||
-		action === 8 ||
-		action === 10 ||
-		action === 11
-	);
-}
+const PENDING_REVIEW_CONTRACT_PAGE_SIZE = 100;
 
 /**
  * Pending review information
@@ -38,6 +31,201 @@ export interface PendingReview {
 	canReview: boolean; // Whether current user can review this contract
 }
 
+export class PartialPendingReviewsError extends Error {
+	readonly pendingReviews: PendingReview[];
+
+	constructor(message: string, pendingReviews: PendingReview[]) {
+		super(message);
+		this.name = 'PartialPendingReviewsError';
+		this.pendingReviews = pendingReviews;
+	}
+}
+
+function toProfileLookupPubkey(pubkey: string): string {
+	if (pubkey.startsWith('npub')) {
+		return pubkey;
+	}
+
+	try {
+		return nip19.npubEncode(pubkey);
+	} catch {
+		return pubkey;
+	}
+}
+
+async function resolveRevieweeName(revieweePubkey: string): Promise<string | undefined> {
+	try {
+		const profile = await fetchProfileMetadata(toProfileLookupPubkey(revieweePubkey));
+		return profile.name || undefined;
+	} catch (error) {
+		console.error('Failed to load pending reviewee profile:', error);
+		return undefined;
+	}
+}
+
+function getCompletionEventTimestampSeconds(
+	event: ContractWithEvents['statusEvents'][number]
+): number {
+	if (!event || typeof event !== 'object') {
+		return 0;
+	}
+
+	const contentTimestamp = event.content?.timestamp;
+	if (
+		typeof contentTimestamp === 'number' &&
+		Number.isFinite(contentTimestamp) &&
+		contentTimestamp > 0
+	) {
+		return contentTimestamp;
+	}
+
+	const createdAt = event.created_at;
+	if (typeof createdAt === 'number' && Number.isFinite(createdAt) && createdAt > 0) {
+		return createdAt;
+	}
+
+	return 0;
+}
+
+function getLatestConfirmedCompletionEvent(
+	statusEvents: ContractWithEvents['statusEvents'] | undefined
+): ContractWithEvents['statusEvents'][number] | null {
+	if (!Array.isArray(statusEvents) || statusEvents.length === 0) {
+		return null;
+	}
+
+	let latestEvent: ContractWithEvents['statusEvents'][number] | null = null;
+	let latestTimestamp = 0;
+
+	for (const event of statusEvents) {
+		if (!isConfirmedReviewCompletionAction(event.content?.action)) {
+			continue;
+		}
+
+		const eventTimestamp = getCompletionEventTimestampSeconds(event);
+		if (latestEvent === null || eventTimestamp > latestTimestamp) {
+			latestEvent = event;
+			latestTimestamp = eventTimestamp;
+		}
+	}
+
+	return latestEvent;
+}
+
+async function buildPendingReview(
+	contract: ContractWithEvents,
+	currentUserPubkey: string
+): Promise<PendingReview | null> {
+	const revieweePubkey = getOtherPartyPubkey(contract, currentUserPubkey);
+	if (!revieweePubkey) {
+		return null;
+	}
+
+	let completedAt = (contract.contractEvent.created_at || 0) * 1000 || Date.now();
+	let escrowTxHash = contract.contractEvent.content.transactionHash;
+
+	if (contract.statusEvents && contract.statusEvents.length > 0) {
+		const completionEvent = getLatestConfirmedCompletionEvent(contract.statusEvents);
+
+		if (completionEvent) {
+			if (
+				typeof completionEvent.content?.timestamp === 'number' &&
+				Number.isFinite(completionEvent.content.timestamp) &&
+				completionEvent.content.timestamp > 0
+			) {
+				completedAt = completionEvent.content.timestamp * 1000;
+			} else if (
+				typeof completionEvent.created_at === 'number' &&
+				Number.isFinite(completionEvent.created_at) &&
+				completionEvent.created_at > 0
+			) {
+				completedAt = completionEvent.created_at * 1000;
+			}
+
+			if (completionEvent.content?.transactionHash) {
+				escrowTxHash = completionEvent.content.transactionHash;
+			}
+		}
+	}
+
+	return {
+		contract,
+		escrowId: contract.escrowData.id,
+		escrowTxHash,
+		revieweePubkey,
+		revieweeName: await resolveRevieweeName(revieweePubkey),
+		completedAt,
+		canReview: true
+	};
+}
+
+function getNextContractUntil(contracts: ContractWithEvents[]): number | null {
+	if (contracts.length === 0) {
+		return null;
+	}
+
+	const oldestCreatedAt = contracts.reduce((oldest, contract) => {
+		return Math.min(oldest, contract.contractEvent.created_at ?? Infinity);
+	}, Infinity);
+
+	if (!Number.isFinite(oldestCreatedAt)) {
+		return null;
+	}
+
+	return oldestCreatedAt > 0 ? oldestCreatedAt : null;
+}
+
+function getPendingReviewContractKey(contract: ContractWithEvents): string {
+	const escrowId = contract.escrowData?.id;
+	if (escrowId) {
+		return `escrow:${escrowId}`;
+	}
+
+	const txHash = contract.contractEvent?.content?.transactionHash;
+	if (txHash) {
+		return `tx:${txHash}`;
+	}
+
+	return `created:${contract.contractEvent?.created_at ?? 0}`;
+}
+
+async function getContractsForPendingReviewDiscovery(): Promise<ContractWithEvents[]> {
+	const contractsByKey = new Map<string, ContractWithEvents>();
+	let nextUntil: number | undefined;
+	let currentPageLimit = PENDING_REVIEW_CONTRACT_PAGE_SIZE;
+
+	while (true) {
+		const filter: ContractFilter = {
+			limit: currentPageLimit,
+			...(nextUntil !== undefined ? { until: nextUntil } : {})
+		};
+		const page = await getUserContracts(filter);
+
+		for (const contract of page) {
+			contractsByKey.set(getPendingReviewContractKey(contract), contract);
+		}
+
+		if (page.length < currentPageLimit) {
+			break;
+		}
+
+		const pageUntil = getNextContractUntil(page);
+		if (pageUntil === null) {
+			break;
+		}
+
+		if (nextUntil !== undefined && pageUntil === nextUntil) {
+			currentPageLimit *= 2;
+			continue;
+		}
+
+		nextUntil = pageUntil;
+		currentPageLimit = PENDING_REVIEW_CONTRACT_PAGE_SIZE;
+	}
+
+	return [...contractsByKey.values()];
+}
+
 /**
  * Find all contracts that need reviews from the current user
  */
@@ -48,60 +236,52 @@ export async function findPendingReviews(): Promise<PendingReview[]> {
 			return [];
 		}
 
-		// Get all user contracts
-		const contracts = await getUserContracts({ limit: 100 });
+		// Page through user contracts so older completed escrows remain discoverable.
+		const contracts = await getContractsForPendingReviewDiscovery();
 
 		// Filter to completed contracts
 		const completedContracts = contracts.filter((contract) => {
-			return isCompletedContractStatus(contract.status);
+			return isReviewableContractStatus(contract.status);
 		});
 
-		// Find contracts without reviews
-		const pending: PendingReview[] = [];
+		let hadPartialFailure = false;
+		const pending = (
+			await Promise.all(
+				completedContracts.map(async (contract) => {
+					try {
+						const userReviewed = await hasUserReviewedEscrow(
+							contract.escrowData.id,
+							currentUserPubkey
+						);
 
-		for (const contract of completedContracts) {
-			// Check if user has already reviewed this escrow
-			const escrowReviews = await getReviewsForEscrow(contract.escrowData.id);
-			const userReviewed = escrowReviews.some((r) => r.reviewerPubkey === currentUserPubkey);
-
-			if (!userReviewed) {
-				// Determine who the reviewee is (the other party)
-				// If current user is client, review Taskee; if current user is Taskee, review client
-				const content = contract.contractEvent.content;
-				const isClient = content.clientPubkey === currentUserPubkey;
-				const revieweePubkey = isClient ? content.freelancerPubkey : content.clientPubkey;
-
-				// Get completion date (use latest status event or contract creation)
-				let completedAt = (contract.contractEvent.created_at || 0) * 1000 || Date.now();
-				let escrowTxHash = contract.contractEvent.content.transactionHash;
-				if (contract.statusEvents && contract.statusEvents.length > 0) {
-					const completionEvent = [...contract.statusEvents].reverse().find((event) => {
-						return isCompletionAction(event.content?.action);
-					});
-					if (completionEvent) {
-						if (completionEvent.content?.timestamp) {
-							completedAt = completionEvent.content.timestamp * 1000;
+						if (userReviewed) {
+							return null;
 						}
-						if (completionEvent.content?.transactionHash) {
-							escrowTxHash = completionEvent.content.transactionHash;
-						}
+
+						return buildPendingReview(contract, currentUserPubkey);
+					} catch (error) {
+						hadPartialFailure = true;
+						console.error('Failed to inspect pending review contract:', {
+							escrowId: contract.escrowData.id,
+							error
+						});
+						return null;
 					}
-				}
-
-				pending.push({
-					contract,
-					escrowId: contract.escrowData.id,
-					escrowTxHash,
-					revieweePubkey,
-					revieweeName: undefined, // Will need to get from profile
-					completedAt,
-					canReview: true
-				});
-			}
-		}
+				})
+			)
+		).filter((review): review is PendingReview => review !== null);
 
 		// Sort by completion date (newest first)
-		return pending.sort((a, b) => b.completedAt - a.completedAt);
+		const sortedPending = pending.sort((a, b) => b.completedAt - a.completedAt);
+
+		if (hadPartialFailure) {
+			throw new PartialPendingReviewsError(
+				'Some pending reviews could not be refreshed.',
+				sortedPending
+			);
+		}
+
+		return sortedPending;
 	} catch (error) {
 		console.error('Failed to find pending reviews:', error);
 		throw error instanceof Error ? error : new Error('Failed to find pending reviews');
@@ -118,8 +298,7 @@ export async function hasUserReviewedContract(escrowId: string): Promise<boolean
 			return false;
 		}
 
-		const reviews = await getReviewsForEscrow(escrowId);
-		return reviews.some((r) => r.reviewerPubkey === currentUserPubkey);
+		return hasUserReviewedEscrow(escrowId, currentUserPubkey);
 	} catch (error) {
 		console.error('Failed to check if contract reviewed:', error);
 		throw error instanceof Error ? error : new Error('Failed to check if contract reviewed');
@@ -134,9 +313,11 @@ export function getOtherPartyPubkey(
 	contract: ContractWithEvents,
 	currentUserPubkey: string
 ): string | null {
-	if (contract.contractEvent.content.clientPubkey === currentUserPubkey) {
+	if (nostrPubkeysMatch(contract.contractEvent.content.clientPubkey, currentUserPubkey)) {
 		return contract.contractEvent.content.freelancerPubkey;
-	} else if (contract.contractEvent.content.freelancerPubkey === currentUserPubkey) {
+	} else if (
+		nostrPubkeysMatch(contract.contractEvent.content.freelancerPubkey, currentUserPubkey)
+	) {
 		return contract.contractEvent.content.clientPubkey;
 	}
 	return null;
@@ -167,38 +348,33 @@ export async function getRevieweeRole(
 			return null;
 		}
 
-		const contract = contracts[0].contractEvent.content;
-
-		// Normalize pubkeys for comparison (handle both hex and npub formats)
-		const normalizePubkey = async (pubkey: string): Promise<string> => {
-			// If it's an npub, decode it to hex
-			if (pubkey.startsWith('npub')) {
-				try {
-					// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-					// @ts-ignore nostr-tools type definitions issue
-					const { nip19 } = await import('nostr-tools');
-					const decoded = nip19.decode(pubkey);
-					return (decoded.data as string).toLowerCase();
-				} catch {
-					return pubkey.toLowerCase();
-				}
-			}
-			return pubkey.toLowerCase();
-		};
-
-		const normalizedReviewee = await normalizePubkey(revieweePubkey);
-		const normalizedClient = await normalizePubkey(contract.clientPubkey);
-		const normalizedFreelancer = await normalizePubkey(contract.freelancerPubkey);
-
-		if (normalizedReviewee === normalizedClient) {
-			return 'tasker'; // Reviewee is the client (Tasker)
-		} else if (normalizedReviewee === normalizedFreelancer) {
-			return 'taskee'; // Reviewee is the freelancer (Taskee)
-		}
-
-		return null;
+		return getRevieweeRoleFromContractParticipants(
+			contracts[0].contractEvent.content.clientPubkey,
+			contracts[0].contractEvent.content.freelancerPubkey,
+			revieweePubkey
+		);
 	} catch (error) {
 		console.error('Failed to determine reviewee role:', error);
 		return null;
 	}
+}
+
+export function getRevieweeRoleFromContractParticipants(
+	clientPubkey: string,
+	freelancerPubkey: string,
+	revieweePubkey: string
+): 'tasker' | 'taskee' | null {
+	const normalizedReviewee = normalizeNostrPubkey(revieweePubkey);
+	const normalizedClient = normalizeNostrPubkey(clientPubkey);
+	const normalizedFreelancer = normalizeNostrPubkey(freelancerPubkey);
+
+	if (normalizedReviewee === normalizedClient) {
+		return 'tasker';
+	}
+
+	if (normalizedReviewee === normalizedFreelancer) {
+		return 'taskee';
+	}
+
+	return null;
 }
