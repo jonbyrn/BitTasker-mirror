@@ -1,10 +1,113 @@
 /**
  * Review Aggregation Utilities
- * 
+ *
  * Functions for calculating review statistics and aggregations
  */
 
 import type { NostrVerifiedReview, ReviewStats } from '$lib/types/review';
+
+type ReviewContentLike = {
+	overallRating?: unknown;
+	categoryRatings?: unknown;
+	revieweeRole?: unknown;
+	comment?: unknown;
+	photos?: unknown;
+};
+
+function isValidRating(value: unknown): value is number {
+	return typeof value === 'number' && Number.isFinite(value) && value >= 1 && value <= 5;
+}
+
+function isValidLegacyCategoryRatings(
+	categoryRatings: unknown
+): categoryRatings is { quality: number; professionalism: number; timeliness: number } {
+	if (!categoryRatings || typeof categoryRatings !== 'object') {
+		return false;
+	}
+
+	return (
+		isValidRating((categoryRatings as { quality?: unknown }).quality) &&
+		isValidRating((categoryRatings as { professionalism?: unknown }).professionalism) &&
+		isValidRating((categoryRatings as { timeliness?: unknown }).timeliness)
+	);
+}
+
+function isValidTaskeeCategoryRatings(
+	categoryRatings: unknown
+): categoryRatings is { workQuality: number; experience: number; deliverySpeed: number } {
+	if (!categoryRatings || typeof categoryRatings !== 'object') {
+		return false;
+	}
+
+	return (
+		isValidRating((categoryRatings as { workQuality?: unknown }).workQuality) &&
+		isValidRating((categoryRatings as { experience?: unknown }).experience) &&
+		isValidRating((categoryRatings as { deliverySpeed?: unknown }).deliverySpeed)
+	);
+}
+
+function isValidTaskerCategoryRatings(
+	categoryRatings: unknown
+): categoryRatings is { communication: number; clarity: number; paymentTimeliness: number } {
+	if (!categoryRatings || typeof categoryRatings !== 'object') {
+		return false;
+	}
+
+	return (
+		isValidRating((categoryRatings as { communication?: unknown }).communication) &&
+		isValidRating((categoryRatings as { clarity?: unknown }).clarity) &&
+		isValidRating((categoryRatings as { paymentTimeliness?: unknown }).paymentTimeliness)
+	);
+}
+
+function getEmptyStats(): ReviewStats {
+	return {
+		totalReviews: 0,
+		recentReviewsCount: 0,
+		averageRating: 0,
+		averageQuality: 0,
+		averageProfessionalism: 0,
+		averageTimeliness: 0,
+		ratingDistribution: {
+			1: 0,
+			2: 0,
+			3: 0,
+			4: 0,
+			5: 0
+		}
+	};
+}
+
+function getReviewContent(review: NostrVerifiedReview): ReviewContentLike | null {
+	if (!review || typeof review !== 'object') {
+		return null;
+	}
+
+	const content = (review as { content?: unknown }).content;
+	if (!content || typeof content !== 'object') {
+		return null;
+	}
+
+	return content as ReviewContentLike;
+}
+
+function isNonEmptyComment(value: unknown): boolean {
+	return typeof value === 'string' && value.trim().length > 0;
+}
+
+function hasPhotoAttachments(value: unknown): boolean {
+	return Array.isArray(value) && value.length > 0;
+}
+
+function getSortableTimestamp(review: NostrVerifiedReview): number {
+	const createdAt = review?.createdAt;
+	return typeof createdAt === 'number' && Number.isFinite(createdAt) ? createdAt : 0;
+}
+
+function getSortableRating(review: NostrVerifiedReview): number | null {
+	const overallRating = getReviewContent(review)?.overallRating;
+	return isValidRating(overallRating) ? overallRating : null;
+}
 
 /**
  * Calculate review statistics from a list of reviews
@@ -12,80 +115,94 @@ import type { NostrVerifiedReview, ReviewStats } from '$lib/types/review';
  */
 export function calculateReviewStats(reviews: NostrVerifiedReview[]): ReviewStats {
 	if (reviews.length === 0) {
-		return {
-			totalReviews: 0,
-			averageRating: 0,
-			averageQuality: 0,
-			averageProfessionalism: 0,
-			averageTimeliness: 0,
-			ratingDistribution: {
-				1: 0,
-				2: 0,
-				3: 0,
-				4: 0,
-				5: 0
-			}
-		};
+		return getEmptyStats();
 	}
 
-	const totalReviews = reviews.length;
+	const recentThreshold = Date.now() - 30 * 24 * 60 * 60 * 1000;
+	let recentReviewsCount = 0;
 	let totalOverall = 0;
-	
+	let validReviewsCount = 0;
+	let qualityCount = 0;
+	let professionalismCount = 0;
+	let timelinessCount = 0;
+
 	// Legacy categories (for backward compatibility)
 	let totalQuality = 0;
 	let totalProfessionalism = 0;
 	let totalTimeliness = 0;
-	
+
 	// Taskee-specific categories
 	let totalWorkQuality = 0;
 	let totalExperience = 0;
 	let totalDeliverySpeed = 0;
 	let taskeeCount = 0;
-	
+
 	// Tasker-specific categories
 	let totalCommunication = 0;
 	let totalClarity = 0;
 	let totalPaymentTimeliness = 0;
 	let taskerCount = 0;
-	
+
 	const ratingDistribution = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
 
 	for (const review of reviews) {
-		const overall = review.content.overallRating;
-		totalOverall += overall;
+		const content = getReviewContent(review);
+		if (!content) {
+			continue;
+		}
 
-		const categoryRatings = review.content.categoryRatings;
-		const revieweeRole = review.content.revieweeRole;
+		const overall = content.overallRating;
+		if (!isValidRating(overall)) {
+			continue;
+		}
+
+		totalOverall += overall;
+		validReviewsCount++;
+		if (review.createdAt >= recentThreshold) {
+			recentReviewsCount++;
+		}
+
+		const categoryRatings = content.categoryRatings;
+		const revieweeRole = content.revieweeRole;
 
 		// Handle role-specific categories
-		if (revieweeRole === 'taskee' && 'workQuality' in categoryRatings) {
-			const taskeeRatings = categoryRatings as { workQuality: number; experience: number; deliverySpeed: number };
+		if (revieweeRole === 'taskee' && isValidTaskeeCategoryRatings(categoryRatings)) {
+			const taskeeRatings = categoryRatings;
 			totalWorkQuality += taskeeRatings.workQuality;
 			totalExperience += taskeeRatings.experience;
 			totalDeliverySpeed += taskeeRatings.deliverySpeed;
 			taskeeCount++;
-			
+
 			// Also map to legacy for compatibility
 			totalQuality += taskeeRatings.workQuality;
 			totalProfessionalism += taskeeRatings.experience;
 			totalTimeliness += taskeeRatings.deliverySpeed;
-		} else if (revieweeRole === 'tasker' && 'communication' in categoryRatings) {
-			const taskerRatings = categoryRatings as { communication: number; clarity: number; paymentTimeliness: number };
+			qualityCount++;
+			professionalismCount++;
+			timelinessCount++;
+		} else if (revieweeRole === 'tasker' && isValidTaskerCategoryRatings(categoryRatings)) {
+			const taskerRatings = categoryRatings;
 			totalCommunication += taskerRatings.communication;
 			totalClarity += taskerRatings.clarity;
 			totalPaymentTimeliness += taskerRatings.paymentTimeliness;
 			taskerCount++;
-			
+
 			// Also map to legacy for compatibility
 			totalQuality += taskerRatings.communication;
 			totalProfessionalism += taskerRatings.clarity;
 			totalTimeliness += taskerRatings.paymentTimeliness;
-		} else if ('quality' in categoryRatings) {
+			qualityCount++;
+			professionalismCount++;
+			timelinessCount++;
+		} else if (isValidLegacyCategoryRatings(categoryRatings)) {
 			// Legacy format
-			const legacyRatings = categoryRatings as { quality: number; professionalism: number; timeliness: number };
+			const legacyRatings = categoryRatings;
 			totalQuality += legacyRatings.quality;
 			totalProfessionalism += legacyRatings.professionalism;
 			totalTimeliness += legacyRatings.timeliness;
+			qualityCount++;
+			professionalismCount++;
+			timelinessCount++;
 		}
 
 		// Round to nearest integer for distribution
@@ -95,12 +212,18 @@ export function calculateReviewStats(reviews: NostrVerifiedReview[]): ReviewStat
 		}
 	}
 
+	if (validReviewsCount === 0) {
+		return getEmptyStats();
+	}
+
 	const stats: ReviewStats = {
-		totalReviews,
-		averageRating: totalOverall / totalReviews,
-		averageQuality: totalQuality / totalReviews,
-		averageProfessionalism: totalProfessionalism / totalReviews,
-		averageTimeliness: totalTimeliness / totalReviews,
+		totalReviews: validReviewsCount,
+		recentReviewsCount,
+		averageRating: totalOverall / validReviewsCount,
+		averageQuality: qualityCount > 0 ? totalQuality / qualityCount : 0,
+		averageProfessionalism:
+			professionalismCount > 0 ? totalProfessionalism / professionalismCount : 0,
+		averageTimeliness: timelinessCount > 0 ? totalTimeliness / timelinessCount : 0,
 		ratingDistribution
 	};
 
@@ -134,23 +257,33 @@ export function filterReviews(
 		dateTo?: number;
 	}
 ): NostrVerifiedReview[] {
-	return reviews.filter(review => {
-		if (filter.minRating !== undefined && review.content.overallRating < filter.minRating) {
+	return reviews.filter((review) => {
+		const content = getReviewContent(review);
+		const overallRating = content?.overallRating;
+		const createdAt = review.createdAt;
+
+		if (
+			filter.minRating !== undefined &&
+			(typeof overallRating !== 'number' || overallRating < filter.minRating)
+		) {
 			return false;
 		}
-		if (filter.maxRating !== undefined && review.content.overallRating > filter.maxRating) {
+		if (
+			filter.maxRating !== undefined &&
+			(typeof overallRating !== 'number' || overallRating > filter.maxRating)
+		) {
 			return false;
 		}
-		if (filter.hasComment && (!review.content.comment || review.content.comment.trim().length === 0)) {
+		if (filter.hasComment && !isNonEmptyComment(content?.comment)) {
 			return false;
 		}
-		if (filter.hasPhotos && (!review.content.photos || review.content.photos.length === 0)) {
+		if (filter.hasPhotos && !hasPhotoAttachments(content?.photos)) {
 			return false;
 		}
-		if (filter.dateFrom && review.createdAt < filter.dateFrom) {
+		if (filter.dateFrom !== undefined && createdAt < filter.dateFrom) {
 			return false;
 		}
-		if (filter.dateTo && review.createdAt > filter.dateTo) {
+		if (filter.dateTo !== undefined && createdAt > filter.dateTo) {
 			return false;
 		}
 		return true;
@@ -168,13 +301,51 @@ export function sortReviews(
 
 	switch (sortBy) {
 		case 'newest':
-			return sorted.sort((a, b) => b.createdAt - a.createdAt);
+			return sorted.sort((a, b) => getSortableTimestamp(b) - getSortableTimestamp(a));
 		case 'oldest':
-			return sorted.sort((a, b) => a.createdAt - b.createdAt);
-		case 'highest_rating':
-			return sorted.sort((a, b) => b.content.overallRating - a.content.overallRating);
-		case 'lowest_rating':
-			return sorted.sort((a, b) => a.content.overallRating - b.content.overallRating);
+			return sorted.sort((a, b) => getSortableTimestamp(a) - getSortableTimestamp(b));
+		case 'highest_rating': {
+			return sorted.sort((a, b) => {
+				const leftRating = getSortableRating(a);
+				const rightRating = getSortableRating(b);
+
+				if (leftRating === null && rightRating === null) {
+					return getSortableTimestamp(b) - getSortableTimestamp(a);
+				}
+				if (leftRating === null) {
+					return 1;
+				}
+				if (rightRating === null) {
+					return -1;
+				}
+				if (rightRating !== leftRating) {
+					return rightRating - leftRating;
+				}
+
+				return getSortableTimestamp(b) - getSortableTimestamp(a);
+			});
+		}
+		case 'lowest_rating': {
+			return sorted.sort((a, b) => {
+				const leftRating = getSortableRating(a);
+				const rightRating = getSortableRating(b);
+
+				if (leftRating === null && rightRating === null) {
+					return getSortableTimestamp(b) - getSortableTimestamp(a);
+				}
+				if (leftRating === null) {
+					return 1;
+				}
+				if (rightRating === null) {
+					return -1;
+				}
+				if (leftRating !== rightRating) {
+					return leftRating - rightRating;
+				}
+
+				return getSortableTimestamp(b) - getSortableTimestamp(a);
+			});
+		}
 		default:
 			return sorted;
 	}
@@ -187,5 +358,3 @@ export function getRatingPercentage(stats: ReviewStats, rating: 1 | 2 | 3 | 4 | 
 	if (stats.totalReviews === 0) return 0;
 	return (stats.ratingDistribution[rating] / stats.totalReviews) * 100;
 }
-
-
