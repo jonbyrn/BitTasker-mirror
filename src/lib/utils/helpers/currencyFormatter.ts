@@ -212,6 +212,21 @@ export type FormatConvertedAmountOptions = {
 	suffix?: string;
 	/** BCP 47 locale for number grouping and decimals. */
 	locale?: string;
+	/**
+	 * Fixed fraction digits for USD/RBTC (`Intl` min and max both set to this value).
+	 * Takes precedence over `minimumFractionDigits` / `maximumFractionDigits`. Ignored for SATS.
+	 */
+	fractionDigits?: number;
+	/**
+	 * Minimum fraction digits for USD/RBTC (not used when `fractionDigits` is set). Ignored for SATS.
+	 * Defaults: USD 2, RBTC 0.
+	 */
+	minimumFractionDigits?: number;
+	/**
+	 * Maximum fraction digits for USD/RBTC (not used when `fractionDigits` is set). Ignored for SATS.
+	 * Defaults: USD 2, RBTC 8 (trailing zeros stripped unless min/max are set).
+	 */
+	maximumFractionDigits?: number;
 };
 
 const SATS_PER_BTC = 100_000_000;
@@ -236,6 +251,13 @@ function stripTrailingZerosFromDecimal(formatted: string): string {
 	return formatted.replace(/\.?0+$/, '');
 }
 
+const MAX_INTL_FRACTION_DIGITS = 20;
+
+function clampFractionDigits(n: number): number {
+	if (!Number.isFinite(n) || n < 0) return 0;
+	return Math.min(MAX_INTL_FRACTION_DIGITS, Math.floor(n));
+}
+
 /**
  * Convert `amount` in `fromCurrency` to an equivalent value expressed in `toCurrency`,
  * then format for display with locale-aware grouping and default or custom prefix/suffix.
@@ -244,7 +266,7 @@ function stripTrailingZerosFromDecimal(formatted: string): string {
  *
  * @param amount - Value in the source unit (e.g. `10.53`, `"123400"`).
  * @param fromCurrency - `USD`, `RBTC`, or `SATS` (case-insensitive).
- * @param options - `toCurrency` (default: same as from), `btcPrice` for USD ↔ BTC/Sats, `prefix`, `suffix`, `locale`.
+ * @param options - `toCurrency` (default: same as from), `btcPrice` for USD ↔ BTC/Sats, `prefix`, `suffix`, `locale`, optional `fractionDigits` / `minimumFractionDigits` / `maximumFractionDigits` for USD and RBTC display.
  */
 export function formatConvertedAmount(
 	amount: number | string,
@@ -316,21 +338,43 @@ function buildFormattedOutput(
 	const suffix = options.suffix !== undefined ? options.suffix : defaultSuffix;
 
 	let numberPart: string;
-	if (displayAs === 'USD') {
-		numberPart = new Intl.NumberFormat(locale, {
-			minimumFractionDigits: 2,
-			maximumFractionDigits: 2
-		}).format(value);
-	} else if (displayAs === 'SATS') {
+	if (displayAs === 'SATS') {
 		numberPart = new Intl.NumberFormat(locale, {
 			maximumFractionDigits: 0
 		}).format(Math.round(value));
-	} else {
-		const raw = new Intl.NumberFormat(locale, {
-			minimumFractionDigits: 0,
-			maximumFractionDigits: 8
+	} else if (options.fractionDigits !== undefined && Number.isFinite(options.fractionDigits)) {
+		const n = clampFractionDigits(options.fractionDigits);
+		numberPart = new Intl.NumberFormat(locale, {
+			minimumFractionDigits: n,
+			maximumFractionDigits: n
 		}).format(value);
-		numberPart = stripTrailingZerosFromDecimal(raw);
+	} else if (displayAs === 'USD') {
+		const min =
+			options.minimumFractionDigits !== undefined
+				? clampFractionDigits(options.minimumFractionDigits)
+				: 2;
+		const max =
+			options.maximumFractionDigits !== undefined
+				? clampFractionDigits(options.maximumFractionDigits)
+				: 2;
+		const safeMin = Math.min(min, max);
+		const safeMax = Math.max(min, max);
+		numberPart = new Intl.NumberFormat(locale, {
+			minimumFractionDigits: safeMin,
+			maximumFractionDigits: safeMax
+		}).format(value);
+	} else {
+		const explicitMin = options.minimumFractionDigits !== undefined;
+		const explicitMax = options.maximumFractionDigits !== undefined;
+		const min = explicitMin ? clampFractionDigits(options.minimumFractionDigits!) : 0;
+		const max = explicitMax ? clampFractionDigits(options.maximumFractionDigits!) : 8;
+		const safeMin = Math.min(min, max);
+		const safeMax = Math.max(min, max);
+		const raw = new Intl.NumberFormat(locale, {
+			minimumFractionDigits: safeMin,
+			maximumFractionDigits: safeMax
+		}).format(value);
+		numberPart = !explicitMin && !explicitMax ? stripTrailingZerosFromDecimal(raw) : raw;
 	}
 
 	return `${prefix}${numberPart}${suffix}`;

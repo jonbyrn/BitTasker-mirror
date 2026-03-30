@@ -1,3 +1,5 @@
+import type { ethers } from 'ethers';
+
 export type ContractChain = 'rsk' | 'bsc';
 
 // Return values from contract call
@@ -39,3 +41,9 @@ export enum DisplayOnlyStatus {
 }
 
 export type ContractDisplayStatus = ContractStatus | DisplayOnlyStatus;
+
+export type InitializedContract = {
+	contract: ethers.Contract;
+	wallet: ethers.Wallet;
+	provider: ethers.JsonRpcProvider;
+};

@@ -28,30 +28,16 @@ export class NDKBid extends NDKEvent {
 		const sender = bid.author;
 		try {
 			await bid.decrypt(sender);
-			// d.log('decrypted bid', {
-			// 	bid
-			// });
 		} catch (_e) {
 			d.error('decrypt error', { _e });
 			bid.content ??= prevContent;
-		}
-
-		try {
-			bid.content = JSON.parse(bid.content);
-
-			// // Convert other fields to tags
-			// bid.tags = [...contentTags, ...bid.tags];
-		} catch {
-			return undefined;
 		}
 
 		return bid;
 	}
 
 	async toNostrEvent(pubkey?: string): Promise<NostrEvent> {
-		// return event content to string
-		this.content = JSON.stringify(this.content);
-
+		// encrypt content before signing
 		const user = await this.ndk?.signer?.user();
 		await this.encrypt(user, undefined, 'nip44');
 
@@ -59,6 +45,6 @@ export class NDKBid extends NDKEvent {
 	}
 
 	get bidContent(): NostrBidContent {
-		return this.content as unknown as NostrBidContent;
+		return JSON.parse(this.content) as unknown as NostrBidContent;
 	}
 }
