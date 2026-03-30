@@ -46,6 +46,9 @@
 				"quote_submitted": "Quote request submitted successfully!",
 				"quote_request_offline": "You are offline. Reconnect before requesting a quote.",
 				"quote_request_submit_error": "Unable to submit quote request right now.",
+				"self_quote_blocked": "You can't request a quote on your own service.",
+				"self_book_now_blocked": "You can't book your own service.",
+				"self_contact_blocked": "You can't contact yourself from your own service listing.",
 				"book_now": "Book Now",
 				"service_runtime_unavailable": "Service is unavailable.",
 				"seo": {

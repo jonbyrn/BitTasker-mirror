@@ -65,6 +65,16 @@ import { ensureProviderProposalAuthoring } from '$lib/utils/service-quote/provid
 
 const REQUEST_SYNC_WINDOW_MS = 15_000;
 const PROVIDER_CACHE_TTL_MS = 30_000;
+const OWN_SERVICE_QUOTE_ERROR = "You can't request a quote on your own service.";
+
+function normalizePubkey(value: string | null | undefined): string | null {
+	if (!value) {
+		return null;
+	}
+
+	const normalized = value.trim().toLowerCase();
+	return normalized.length > 0 ? normalized : null;
+}
 
 function logProviderTimelineDebug(event: string, details: Record<string, unknown>) {
 	if (!browser || !dev) {
@@ -1318,6 +1328,15 @@ function createServiceQuoteUiStore() {
 			dmMirror?: boolean;
 		}): Promise<QuoteRequestSubmitResult> {
 			try {
+				const currentUserNpub = normalizePubkey(await getNpub().catch(() => null));
+				const ownerNpub = normalizePubkey(input.service?.npub);
+				if (currentUserNpub && ownerNpub && currentUserNpub === ownerNpub) {
+					return {
+						success: false,
+						error: OWN_SERVICE_QUOTE_ERROR
+					};
+				}
+
 				const quoteRequestId = generateServiceQuoteEntityId('qr');
 				const payload: QuoteRequestPayload = {
 					...input.payload,
