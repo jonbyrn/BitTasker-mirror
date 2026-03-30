@@ -475,6 +475,25 @@ describe('serviceQuoteUiStore', () => {
 		);
 	});
 
+	it("rejects quote requests on the user's own service", async () => {
+		const { serviceQuoteUiStore } = await import('$lib/stores/service-quote-ui.store');
+		getNpub.mockResolvedValue('a'.repeat(64));
+
+		const result = await serviceQuoteUiStore.submitQuoteRequest({
+			service,
+			payload: {
+				title: 'Need a logo refresh',
+				description: 'Please redesign our logo.'
+			}
+		});
+
+		expect(result).toEqual({
+			success: false,
+			error: "You can't request a quote on your own service."
+		});
+		expect(publishServiceQuoteRequest).not.toHaveBeenCalled();
+	});
+
 	it('publishes provider proposals using the selected request context', async () => {
 		const { serviceQuoteUiStore } = await import('$lib/stores/service-quote-ui.store');
 

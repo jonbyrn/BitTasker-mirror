@@ -8,6 +8,7 @@
 	import type { Attachment } from '$lib/types/task.d';
 	import { t, locale } from 'svelte-i18n';
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { browser, dev } from '$app/environment';
 	import {
 		getServiceDisplayTitle,
@@ -662,6 +663,16 @@
 	}
 
 	function handleOpenRequestQuote() {
+		if (isOwner) {
+			appStore.showErrorToast(
+				detailText(
+					'dashboard.services.detail.self_quote_blocked',
+					"You can't request a quote on your own service."
+				)
+			);
+			return;
+		}
+
 		if (!service?.npub) return;
 		if (isOffline) {
 			appStore.showErrorToast(
@@ -673,7 +684,7 @@
 			return;
 		}
 		if (!$authState.isAuthenticated) {
-			goto(`/auth/login?returnTo=${encodeURIComponent(window.location.pathname)}`);
+			goto(resolve(`/auth/login?returnTo=${encodeURIComponent(window.location.pathname)}`));
 			return;
 		}
 		requestQuoteModalOpen = true;
@@ -852,7 +863,7 @@
 			return;
 		}
 		if (!$authState.isAuthenticated) {
-			goto(`/auth/login?returnTo=${encodeURIComponent(window.location.pathname)}`);
+			goto(resolve(`/auth/login?returnTo=${encodeURIComponent(window.location.pathname)}`));
 			return false;
 		}
 		if (!instantBuyEligibility.eligible) {
@@ -870,6 +881,16 @@
 	}
 
 	function handleOpenInstantBuy() {
+		if (isOwner) {
+			appStore.showErrorToast(
+				detailText(
+					'dashboard.services.detail.self_book_now_blocked',
+					"You can't book your own service."
+				)
+			);
+			return;
+		}
+
 		if (!canBeginInstantBuyReview()) {
 			return;
 		}
@@ -937,7 +958,7 @@
 			if (!instantBuyBackgrounded) {
 				instantBuyModalOpen = false;
 				resetInstantBuyState();
-				await goto('/dashboard?tab=contracts&context=services');
+				await goto(resolve('/dashboard?tab=contracts&context=services'));
 			}
 			return true;
 		}
@@ -1200,12 +1221,22 @@
 	}
 
 	function handleContactTaskee() {
-		if (!service?.npub) return;
-		if (!$authState.isAuthenticated) {
-			goto(`/auth/login?returnTo=${encodeURIComponent(window.location.pathname)}`);
+		if (isOwner) {
+			appStore.showErrorToast(
+				detailText(
+					'dashboard.services.detail.self_contact_blocked',
+					"You can't contact yourself from your own service listing."
+				)
+			);
 			return;
 		}
-		goto(`/dashboard/messages/to/${service.npub}`);
+
+		if (!service?.npub) return;
+		if (!$authState.isAuthenticated) {
+			goto(resolve(`/auth/login?returnTo=${encodeURIComponent(window.location.pathname)}`));
+			return;
+		}
+		goto(resolve(`/dashboard/messages/to/${service.npub}`));
 	}
 
 	async function inspectDeleteGuards() {
@@ -1356,9 +1387,9 @@
 			);
 			deleteModalState = null;
 			if (typeof window !== 'undefined' && window.location.pathname.startsWith('/earning')) {
-				await goto('/earning?tab=my-services');
+				await goto(resolve('/earning?tab=my-services'));
 			} else {
-				await goto('/dashboard?tab=my-services');
+				await goto(resolve('/dashboard?tab=my-services'));
 			}
 		} catch (error) {
 			clearPendingServiceDelete(service);

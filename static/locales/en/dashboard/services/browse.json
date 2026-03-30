@@ -37,6 +37,7 @@
 				"quote_request_unavailable": "Service is unavailable.",
 				"quote_request_submit_error": "Unable to submit quote request right now.",
 				"quote_request_submitted": "Quote request submitted successfully!",
+				"self_quote_blocked": "You can't request a quote on your own service.",
 				"error_loading": "Error loading services: {error}",
 				"loading_timeout_title": "Loading Timeout",
 				"loading_timeout_message": "Services are taking longer than expected to load.",
