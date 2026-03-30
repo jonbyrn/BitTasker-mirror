@@ -27,8 +27,7 @@
 
 	// State for fetched profile data (fetchProfileMetadata returns name, picture, createdAt)
 	let fetchedProfile = $state<{ name?: string; picture?: string; createdAt?: string } | null>(null);
-	let isLoadingProfile = $state(false);
-	let lastLoadedPubkey: string | null = null; // Track which pubkey we last loaded to prevent duplicate loads
+	let activeProfileRequestId = 0;
 
 	// Size configurations - matching bids page styling
 	const sizeConfig = {
@@ -146,35 +145,49 @@
 		return false;
 	}
 
+	function sanitizeDisplayName(value: unknown): string | null {
+		if (typeof value !== 'string') return null;
+
+		const trimmedValue = value.trim();
+		if (!trimmedValue || isInvalidUsername(trimmedValue)) {
+			return null;
+		}
+
+		return trimmedValue;
+	}
+
 	/**
 	 * Normalize username - ensure it's a string and not invalid
 	 */
 	const normalizedUsername = $derived.by(() => {
-		if (!username) return null;
+		return sanitizeDisplayName(username);
+	});
 
-		// Convert to string if needed
-		const str = typeof username === 'string' ? username : String(username);
+	const normalizedFetchedProfileName = $derived.by(() => sanitizeDisplayName(fetchedProfile?.name));
 
-		// Check if it's invalid
-		if (isInvalidUsername(str)) {
-			return null;
+	const fallbackDisplayName = $derived.by(() => {
+		try {
+			const value = $t('messages.unknown_user');
+			return typeof value === 'string' && value !== 'messages.unknown_user'
+				? value
+				: 'Unknown User';
+		} catch {
+			return 'Unknown User';
 		}
-
-		return str.trim() || null;
 	});
 
 	/**
-	 * Get the display username - use fetched profile if available, otherwise use normalized username.
-	 * Username is always present (not optional); no anonymous fallback.
+	 * Get the display username - prefer a valid fetched profile name, then a valid caller-provided
+	 * username, then a deterministic generic fallback.
 	 */
 	const displayUsername = $derived.by(() => {
-		if (fetchedProfile?.name) {
-			return fetchedProfile.name;
+		if (normalizedFetchedProfileName) {
+			return normalizedFetchedProfileName;
 		}
 		if (normalizedUsername) {
 			return normalizedUsername;
 		}
-		return '';
+		return fallbackDisplayName;
 	});
 
 	/**
@@ -183,14 +196,6 @@
 	const displayAvatar = $derived.by(() => {
 		// Priority: fetched profile picture > provided avatar
 		return fetchedProfile?.picture || avatar;
-	});
-
-	/**
-	 * Check if avatar is missing or empty (checks displayAvatar for consistency)
-	 */
-	const isAvatarMissing = $derived.by(() => {
-		const avatarToCheck = displayAvatar;
-		return !avatarToCheck || (typeof avatarToCheck === 'string' && avatarToCheck.trim() === '');
 	});
 
 	const normalizedHexPubkey = $derived.by(() => normalizePubkeyToHex(pubkey));
@@ -240,90 +245,43 @@
 	 * Load user profile (like profile page does)
 	 * Always fetches fresh data when pubkey is provided
 	 */
-	async function loadUserProfile() {
-		const currentPubkey = normalizedHexPubkey;
-		if (!currentPubkey) {
-			return;
-		}
-
-		// Prevent duplicate loads for the same pubkey or if already loading
-		if (currentPubkey === lastLoadedPubkey || isLoadingProfile) {
-			return;
-		}
-
-		// Set loading state and track pubkey immediately to prevent race conditions
-		isLoadingProfile = true;
-		lastLoadedPubkey = currentPubkey;
-
+	async function loadUserProfile(currentPubkey: string, requestId: number) {
 		try {
-			console.debug('[UserInfoDisplay] loadUserProfile: starting fetch', {
-				username,
-				normalizedUsername,
-				avatar,
-				isAvatarMissing,
-				pubkey,
-				normalizedHexPubkey: currentPubkey
-			});
-
 			// Convert hex to npub for fetchProfileMetadata (it handles both, but npub ensures cache consistency)
 			// The cache key will be npub format, which is consistent across calls
 			const npubToFetch = nip19.npubEncode(currentPubkey);
-
 			const profile = await fetchProfileMetadata(npubToFetch);
-			console.debug('[UserInfoDisplay] loadUserProfile: received profile', {
-				profile,
-				hasName: !!profile?.name,
-				hasPicture: !!profile?.picture
-			});
 
-			// Update fetched profile even if empty (to avoid re-fetching)
-			fetchedProfile = profile;
-			console.debug('[UserInfoDisplay] loadUserProfile: updated fetchedProfile', {
-				fetchedProfile
-			});
+			if (requestId !== activeProfileRequestId) {
+				return;
+			}
+
+			const hasMeaningfulProfileData = Boolean(
+				sanitizeDisplayName(profile?.name) || profile?.picture?.trim() || profile?.createdAt?.trim()
+			);
+			fetchedProfile = hasMeaningfulProfileData ? profile : null;
 		} catch (error) {
-			console.error('[UserInfoDisplay] loadUserProfile: error', error);
+			if (requestId !== activeProfileRequestId) {
+				return;
+			}
+
+			console.error('[UserInfoDisplay] Failed to load user profile metadata:', error);
 			fetchedProfile = null;
-		} finally {
-			isLoadingProfile = false;
 		}
 	}
 
 	$effect(() => {
 		const currentPubkey = normalizedHexPubkey;
-		if (currentPubkey !== lastLoadedPubkey) {
-			fetchedProfile = null;
-		}
-		if (currentPubkey) {
-			loadUserProfile();
-		}
-	});
+		activeProfileRequestId += 1;
+		const requestId = activeProfileRequestId;
 
-	// Debug: Log final values (only when they actually change, not on every render)
-	let lastLoggedValues: { username?: string; display?: string } | null = null;
-	$effect(() => {
-		const current = {
-			username: displayUsername,
-			display: displayUsername
-		};
+		fetchedProfile = null;
 
-		// Only log if values actually changed
-		if (
-			!lastLoggedValues ||
-			lastLoggedValues.username !== current.username ||
-			lastLoggedValues.display !== current.display
-		) {
-			console.debug('[UserInfoDisplay] Display values:', {
-				displayUsername,
-				displayAvatar: !!displayAvatar,
-				normalizedUsername,
-				hasFetchedProfile: !!fetchedProfile,
-				fetchedProfileName: fetchedProfile?.name,
-				username,
-				pubkey
-			});
-			lastLoggedValues = current;
+		if (!currentPubkey) {
+			return;
 		}
+
+		void loadUserProfile(currentPubkey, requestId);
 	});
 </script>
 
