@@ -36,6 +36,8 @@
 			"dispute_task": "Disputar Tarea"
 		},
 		"filters": {
+			"open": "Abiertas",
+			"cancelled": "Canceladas",
 			"waiting_for_bids": "Esperando",
 			"bids_received": "Ofertas",
 			"in_progress": "En Progreso",

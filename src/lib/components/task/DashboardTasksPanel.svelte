@@ -2,7 +2,6 @@
 	import type { Task } from '$lib/types/task';
 	import { t } from 'svelte-i18n';
 	import { onMount } from 'svelte';
-	import { SvelteSet } from 'svelte/reactivity';
 	import { myTasksStore, TASKS_PER_PAGE } from '$lib/stores/task.store';
 	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
@@ -24,7 +23,6 @@
 	import IconCheck from '~icons/mdi/check';
 	import IconPlus from '~icons/mdi/plus';
 	import IconRefresh from '~icons/mdi/refresh';
-	// import { getBidsForTask } from '$lib/utils/nostr-bid';
 
 	// Props
 	const { openTaskDrawer } = $props<{
@@ -33,24 +31,17 @@
 
 	// Task filter categories
 	type TaskFilterCategory =
-		| 'waiting_for_bids' // OPEN with no bids
-		| 'bids_received' // OPEN with bids
-		| 'tasks_in_progress' // Active work
-		| 'tasks_completed' // Terminal states
-		| 'tasks_disputed'; // Dispute states
+		| 'open'
+		| 'tasks_in_progress'
+		| 'tasks_completed'
+		| 'tasks_disputed'
+		| 'tasks_cancelled';
 
-	let activeFilter = $state<TaskFilterCategory>('waiting_for_bids');
+	let activeFilter = $state<TaskFilterCategory>('open');
 	let btcPrice = $state<number>(0);
 	let isDropdownOpen = $state<boolean>(false);
 	let isLoading = $state(true);
 	let error = $state<string | null>(null);
-
-	// Background bid checking state
-	let bidStatusMap = $state<Map<string, boolean>>(new Map());
-	let isCheckingBids = $state(false);
-	let lastBidCheckTime = $state<number>(0);
-	let lastCheckedTaskIds = new SvelteSet<string>();
-	const BID_CHECK_INTERVAL = 5000; // 5 seconds minimum between checks (reduced from 30s)
 
 	// Pagination state
 	let currentPage = $state(1);
@@ -59,15 +50,10 @@
 	// Filter options - reactive to language changes
 	const filterOptions = $derived([
 		{
-			id: 'waiting_for_bids',
-			label: $t('task.filters.waiting_for_bids'),
+			id: 'open',
+			label: $t('task.filters.open'),
 			icon: IconClockOutline
 		},
-		// {
-		// 	id: 'bids_received',
-		// 	label: $t('task.filters.bids_received'),
-		// 	icon: IconClockCheckOutline
-		// },
 		{
 			id: 'tasks_in_progress',
 			label: $t('task.filters.in_progress'),
@@ -82,6 +68,11 @@
 			id: 'tasks_disputed',
 			label: $t('task.filters.disputed'),
 			icon: IconAlertCircleOutline
+		},
+		{
+			id: 'tasks_cancelled',
+			label: $t('task.filters.cancelled'),
+			icon: IconClipboardTextOutline
 		}
 	] as const);
 
@@ -96,91 +87,12 @@
 		}
 	}
 
-	/**
-	 * TODO: Implement later in seperate file to avoid accidental use
-	 * IMPORTATN: Func calls for nostr-bid which requires passkey prompts
-	 * Background bid checking (non-blocking)
-	 * Smart debouncing: only checks when task IDs actually change
-	 */
-	async function checkBidsInBackground(force: boolean = false) {
-		const now = Date.now();
-
-		// Prevent rapid successive calls (unless forced)
-		if (isCheckingBids) return;
-		if (!force && now - lastBidCheckTime < BID_CHECK_INTERVAL) return;
-
-		const openTasks = $myTasksStore.items.filter((t) => t.status === TaskStatusEnum.OPEN);
-		if (openTasks.length === 0) {
-			lastCheckedTaskIds.clear();
-			return;
-		}
-
-		// Get current task IDs
-		const currentTaskIds = new SvelteSet(openTasks.map((t) => t.id));
-
-		// Check if task IDs have actually changed (unless forced)
-		if (!force) {
-			const taskIdsChanged =
-				currentTaskIds.size !== lastCheckedTaskIds.size ||
-				Array.from(currentTaskIds).some((id) => !lastCheckedTaskIds.has(id)) ||
-				Array.from(lastCheckedTaskIds).some((id) => !currentTaskIds.has(id));
-
-			// If no meaningful change and we've checked recently, skip
-			if (!taskIdsChanged && lastBidCheckTime > 0) {
-				return;
-			}
-		}
-
-		isCheckingBids = true;
-		lastBidCheckTime = now;
-		lastCheckedTaskIds = new SvelteSet(currentTaskIds);
-
-		try {
-			// Batch check all bids
-			/* const { getBidsForTask } = await import('$lib/utils/nostr-bid');
-			const allBids = await getBidsForTask(taskId);
-
-			// Create map of task IDs with bids
-			const tasksWithBids = new Set<string>();
-			for (const bid of allBids) {
-				if (bid?.taskId) {
-					tasksWithBids.add(bid.taskId);
-				}
-			}
-
-			// Update bid status map - only for current task IDs
-			// First, remove entries for tasks that no longer exist
-			for (const [taskId] of bidStatusMap) {
-				if (!currentTaskIds.has(taskId)) {
-					bidStatusMap.delete(taskId);
-				}
-			}
-			
-			// Then, update entries for current tasks
-			for (const taskId of currentTaskIds) {
-				bidStatusMap.set(taskId, tasksWithBids.has(taskId));
-			} */
-		} catch (error) {
-			console.error('Error checking bids in background:', error);
-		} finally {
-			isCheckingBids = false;
-		}
-	}
-
 	function getTasksForFilter(filter: TaskFilterCategory): Task[] {
 		const filtered = $myTasksStore.items;
 
 		switch (filter) {
-			case 'waiting_for_bids':
-				// Filter OPEN tasks - "waiting for bids" means all OPEN tasks regardless of bid status
-				// This filter shows tasks that are open and waiting to receive bids
+			case 'open':
 				return filtered.filter((t) => t.status === TaskStatusEnum.OPEN);
-
-			case 'bids_received':
-				// Filter OPEN tasks with bids
-				return filtered.filter(
-					(t) => t.status === TaskStatusEnum.OPEN && bidStatusMap.get(t.id) === true // Has bids
-				);
 
 			case 'tasks_in_progress':
 				return filtered.filter(
@@ -193,17 +105,17 @@
 				);
 
 			case 'tasks_completed':
-				return filtered.filter(
-					(t) =>
-						t.status === TaskStatusEnum.COMPLETED ||
-						t.status === TaskStatusEnum.CANCELLED ||
-						t.status === TaskStatusEnum.REFUNDED
-				);
+				return filtered.filter((t) => t.status === TaskStatusEnum.COMPLETED);
 
 			case 'tasks_disputed':
 				return filtered.filter(
 					(t) =>
 						t.status === TaskStatusEnum.DISPUTED || t.status === TaskStatusEnum.DISPUTE_PROPOSAL
+				);
+
+			case 'tasks_cancelled':
+				return filtered.filter(
+					(t) => t.status === TaskStatusEnum.CANCELLED || t.status === TaskStatusEnum.REFUNDED
 				);
 
 			default:
@@ -249,8 +161,7 @@
 
 	function clearTaskFilters() {
 		const nextFilter =
-			filterOptions.find((option) => getTasksForFilter(option.id).length > 0)?.id ??
-			'waiting_for_bids';
+			filterOptions.find((option) => getTasksForFilter(option.id).length > 0)?.id ?? 'open';
 		activeFilter = nextFilter;
 		currentPage = 1;
 	}
@@ -295,14 +206,7 @@
 		try {
 			isLoading = true;
 			error = null;
-
-			// Clear bid status map before loading to avoid stale data
-			bidStatusMap.clear();
-			lastCheckedTaskIds.clear();
-
 			await findMyTasks({ page: 1, limit: TASKS_PER_PAGE });
-			// Check bids in background after loading tasks
-			await checkBidsInBackground(true);
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Failed to load tasks';
 			console.error('Error loading tasks:', err);
@@ -315,13 +219,7 @@
 		try {
 			isLoading = true;
 			error = null;
-
-			// Clear bid status map before reloading to avoid stale data
-			bidStatusMap.clear();
-			lastCheckedTaskIds.clear();
-
 			await findMyTasks({ page: 1, limit: TASKS_PER_PAGE });
-			await checkBidsInBackground(true);
 			// Show success message only if no error occurred
 			if (!error) {
 				appStore.showSuccessToast($t('dashboard.tasks.refresh_success'), 3000);
@@ -342,8 +240,7 @@
 	 */
 	function getActionButtons(task: Task, category: TaskFilterCategory) {
 		switch (category) {
-			case 'waiting_for_bids':
-			case 'bids_received':
+			case 'open':
 				return [
 					{
 						label: $t('task.actions.view_details'),
@@ -389,6 +286,7 @@
 
 			case 'tasks_completed':
 			case 'tasks_disputed':
+			case 'tasks_cancelled':
 				return [
 					{
 						label: $t('task.actions.view_details'),
