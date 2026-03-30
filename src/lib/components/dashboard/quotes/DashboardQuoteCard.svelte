@@ -62,6 +62,11 @@
 					'dashboard.service_requests.statuses.accepting_progress',
 					'Accepting...'
 				);
+			case 'contract_sync_pending':
+				return translateOrFallback(
+					'dashboard.service_requests.statuses.contract_sync_pending',
+					'Contract syncing'
+				);
 			case 'accept_failed':
 				return translateOrFallback(
 					'dashboard.service_requests.statuses.accept_failed',
@@ -94,6 +99,7 @@
 			case 'expired':
 				return 'badge-ghost';
 			case 'accepting':
+			case 'contract_sync_pending':
 				return 'badge-info';
 			case 'accept_failed':
 			case 'accept_unknown':

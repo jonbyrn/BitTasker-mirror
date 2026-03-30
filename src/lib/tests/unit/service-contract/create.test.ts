@@ -131,7 +131,13 @@ describe('service contract creation', () => {
 			state: 'funding_submitted',
 			transactionHash: '0xservicehash',
 			amount: '0.00125000',
-			clientRskAddress: buyerWalletAddressLowercase
+			clientRskAddress: buyerWalletAddressLowercase,
+			acceptanceSnapshot: expect.objectContaining({
+				clientRskAddress: buyerWalletAddressLowercase,
+				freelancerRskAddress: '0x1111111111111111111111111111111111111111',
+				confirmationsAtVerification: 0,
+				weiAmount: '1250000000000000'
+			})
 		});
 		expect(getCurrentPrice).toHaveBeenCalledWith('BTC');
 		expect(preflightServiceContractCreation).toHaveBeenCalledWith(
@@ -323,13 +329,10 @@ describe('service contract creation', () => {
 		);
 	});
 
-	it('best-effort cleans up pending state when a post-transaction registration step fails', async () => {
+	it('keeps the funding submission recoverable when pending-contract registration fails', async () => {
 		const { createServiceContract } = await import('$lib/utils/service-contract/create');
 		registerPendingContractByTxHash.mockImplementationOnce(() => {
 			throw new Error('register failed');
-		});
-		cleanupPendingContractByTxHash.mockImplementationOnce(() => {
-			throw new Error('cleanup failed');
 		});
 
 		const result = await createServiceContract({
@@ -349,10 +352,16 @@ describe('service contract creation', () => {
 		});
 
 		expect(result).toEqual({
-			success: false,
-			state: 'funding_failed',
-			error: 'register failed'
+			success: true,
+			state: 'funding_submitted',
+			transactionHash: '0xservicehash',
+			amount: '0.00125000',
+			clientRskAddress: buyerWalletAddressLowercase,
+			acceptanceSnapshot: expect.objectContaining({
+				clientRskAddress: buyerWalletAddressLowercase,
+				weiAmount: '1250000000000000'
+			})
 		});
-		expect(cleanupPendingContractByTxHash).toHaveBeenCalledWith('0xservicehash');
+		expect(cleanupPendingContractByTxHash).not.toHaveBeenCalled();
 	});
 });

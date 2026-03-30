@@ -26,12 +26,7 @@ export interface ServiceDeleteQuoteGuard {
 	totalThreadCount: number;
 }
 
-const TERMINAL_DELETE_SAFE_STATES = new Set([
-	'accepted',
-	'declined',
-	'withdrawn',
-	'expired'
-]);
+const TERMINAL_DELETE_SAFE_STATES = new Set(['accepted', 'declined', 'withdrawn', 'expired']);
 
 export function resolveServiceQuoteThreads(
 	params: ResolveServiceQuoteThreadsParams
@@ -91,7 +86,8 @@ export function resolveServiceQuoteThreads(
 			const serviceAddress = request.content.serviceAddress;
 			const taskeePubkey = parseServiceAddress(serviceAddress).pubkey;
 			const linkedEscrowId =
-				proposals.find((proposal) => proposal.state === 'accepted')?.linkedEscrowId ?? undefined;
+				proposals.find((proposal) => typeof proposal.linkedEscrowId === 'string')?.linkedEscrowId ??
+				undefined;
 
 			return {
 				request,
@@ -161,23 +157,19 @@ export function isStatusLinkedToProposal(
 	}
 
 	const counterpartyPubkey = status.tags.find((tag) => tag[0] === 'p')?.[1];
-	if (
-		status.content.status === 'withdrawn' &&
-		counterpartyPubkey !== request.pubkey
-	) {
+	if (status.content.status === 'withdrawn' && counterpartyPubkey !== request.pubkey) {
 		return false;
 	}
-	if (
-		status.content.status !== 'withdrawn' &&
-		counterpartyPubkey !== proposal.pubkey
-	) {
+	if (status.content.status !== 'withdrawn' && counterpartyPubkey !== proposal.pubkey) {
 		return false;
 	}
 
 	return true;
 }
 
-export function isDeleteBlockingTimelineEntry(timeline: Pick<ServiceQuoteTimelineEntry, 'proposals' | 'resolvedStatus'>): boolean {
+export function isDeleteBlockingTimelineEntry(
+	timeline: Pick<ServiceQuoteTimelineEntry, 'proposals' | 'resolvedStatus'>
+): boolean {
 	if (timeline.proposals.length === 0) {
 		return true;
 	}

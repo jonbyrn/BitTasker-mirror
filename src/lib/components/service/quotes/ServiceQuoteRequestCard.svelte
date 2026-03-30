@@ -67,6 +67,11 @@
 				return tr('dashboard.services.my_services.quote_inbox.statuses.expired', 'Expired');
 			case 'accepting':
 				return tr('dashboard.services.my_services.quote_inbox.statuses.accepting', 'Accepting');
+			case 'contract_sync_pending':
+				return tr(
+					'dashboard.services.my_services.quote_inbox.statuses.contract_sync_pending',
+					'Contract syncing'
+				);
 			case 'accept_failed':
 				return tr(
 					'dashboard.services.my_services.quote_inbox.statuses.accept_failed',
@@ -93,6 +98,7 @@
 			case 'expired':
 				return 'badge-ghost';
 			case 'accepting':
+			case 'contract_sync_pending':
 				return 'badge-info';
 			case 'accept_failed':
 			case 'accept_unknown':

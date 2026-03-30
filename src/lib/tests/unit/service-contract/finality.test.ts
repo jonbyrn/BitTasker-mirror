@@ -68,6 +68,29 @@ describe('service contract finality policy', () => {
 		expect(receipt.logs).toHaveLength(1);
 	});
 
+	it('preserves initial receipt logs when the confirmed receipt omits them', async () => {
+		vi.useFakeTimers();
+		const provider = {
+			getTransactionReceipt: vi.fn().mockResolvedValueOnce({
+				confirmations: 3,
+				hash: '0xconfirmed-without-logs',
+				logs: undefined
+			})
+		} as never;
+
+		const promise = waitForServiceAcceptanceFinality(provider, '0xconfirmed-without-logs', {
+			hash: '0xconfirmed-without-logs',
+			confirmations: 1,
+			gasUsed: BigInt(100000),
+			logs: [{ data: '0xdeadbeef', topics: [] }]
+		} as never);
+
+		await vi.runOnlyPendingTimersAsync();
+		const receipt = await promise;
+
+		expect(receipt.logs).toEqual([{ data: '0xdeadbeef', topics: [] }]);
+	});
+
 	it('fails closed with rpc_unavailable when polling stays broken', async () => {
 		vi.useFakeTimers();
 		const provider = {

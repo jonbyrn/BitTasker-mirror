@@ -40,8 +40,6 @@
 		serviceFilterLabel = 'Filter by service',
 		allServicesLabel = 'All Services',
 		deletedServiceLabel = 'Deleted service',
-		totalPendingRequestCount = 0,
-		selectedServiceRequestCount = null,
 		dataFreshness = null,
 		timelines = [],
 		focusedRequestId = null,
@@ -67,8 +65,6 @@
 		serviceFilterLabel?: string;
 		allServicesLabel?: string;
 		deletedServiceLabel?: string;
-		totalPendingRequestCount?: number;
-		selectedServiceRequestCount?: number | null;
 		dataFreshness?: ServiceQuoteDataFreshness | null;
 		timelines?: ServiceQuoteTimelineEntry[];
 		focusedRequestId?: string | null;
@@ -233,6 +229,7 @@
 			serviceUnavailable ||
 			selectedTimelineExpired ||
 			drawerTimeline.resolvedStatus === 'accepting' ||
+			drawerTimeline.resolvedStatus === 'contract_sync_pending' ||
 			drawerTimeline.resolvedStatus === 'accept_failed' ||
 			drawerTimeline.resolvedStatus === 'accept_unknown' ||
 			drawerTimeline.resolvedStatus === 'declined' ||
@@ -289,22 +286,6 @@
 		activeFilter === 'all'
 			? sortedTimelines
 			: sortedTimelines.filter((timeline) => getTimelineFilterCategory(timeline) === activeFilter)
-	);
-	const totalTimelineCount = $derived(sortedTimelines.length);
-	const filteredTimelineCount = $derived(filteredTimelines.length);
-	const showingSummary = $derived.by(() =>
-		activeFilter === 'all'
-			? trv('dashboard.service_requests.showing_all', 'Showing {count} requests', {
-					count: filteredTimelineCount
-				})
-			: trv(
-					'dashboard.service_requests.showing_filtered',
-					'Showing {visible} of {total} requests',
-					{
-						visible: filteredTimelineCount,
-						total: totalTimelineCount
-					}
-				)
 	);
 	const focusedTimelinePage = $derived.by(() => {
 		const requestId = activeProposalRequestId ?? focusedRequestId;
@@ -411,26 +392,6 @@
 			} catch {
 				// jsdom does not implement scrollTo
 			}
-		}
-	}
-
-	function trv(key: string, fallback: string, values: Record<string, string | number>): string {
-		try {
-			const value = $t(key, { values });
-			if (typeof value === 'string' && value !== key) {
-				return value;
-			}
-			return Object.entries(values).reduce(
-				(result, [placeholder, replacement]) =>
-					result.replaceAll(`{${placeholder}}`, String(replacement)),
-				fallback
-			);
-		} catch {
-			return Object.entries(values).reduce(
-				(result, [placeholder, replacement]) =>
-					result.replaceAll(`{${placeholder}}`, String(replacement)),
-				fallback
-			);
 		}
 	}
 
@@ -596,7 +557,7 @@
 
 	function getActionButtons(timeline: ServiceQuoteTimelineEntry) {
 		if (timeline.linkedEscrowId) {
-			return [
+			const actions = [
 				{
 					label: tr('dashboard.services.my_services.quote_inbox.view_contract', 'View Contract'),
 					class: 'btn-primary btn-sm',
@@ -604,6 +565,17 @@
 					onclick: () => viewContract(timeline.linkedEscrowId!)
 				}
 			];
+
+			if (timeline.latestProposal) {
+				actions.push({
+					label: tr('dashboard.services.my_services.quote_inbox.view_proposal', 'View Proposal'),
+					class: 'btn-outline btn-sm',
+					icon: 'view' as const,
+					onclick: () => openProposalDrawer(timeline.request.content.quoteRequestId, 'view')
+				});
+			}
+
+			return actions;
 		}
 
 		if (timeline.latestProposal) {
@@ -889,60 +861,6 @@
 			</div>
 		</div>
 
-		<section
-			class="border-base-300/60 bg-base-100/40 rounded-3xl border p-3 shadow-sm md:p-4"
-			data-testid="service-quotes-summary-card"
-		>
-			<div class="grid grid-cols-2 gap-3">
-				<div class="border-base-300 bg-base-100 rounded-2xl border p-3 shadow-sm">
-					<div class="flex items-center gap-2.5">
-						<div
-							class="bg-primary/10 text-primary flex h-10 w-10 items-center justify-center rounded-full"
-						>
-							<IconClockOutline class="h-5 w-5" />
-						</div>
-						<div class="min-w-0">
-							<p class="text-base-content/70 text-xs leading-tight sm:text-sm">
-								{tr(
-									'dashboard.services.my_services.quote_inbox.total_pending_requests',
-									'Pending requests'
-								)}
-							</p>
-							<p class="text-lg font-semibold sm:text-2xl">{totalPendingRequestCount}</p>
-						</div>
-					</div>
-				</div>
-
-				{#if selectedServiceRequestCount !== null}
-					<div class="border-base-300 bg-base-100 rounded-2xl border p-3 shadow-sm">
-						<div class="flex items-center gap-2.5">
-							<div
-								class="bg-secondary/10 text-secondary flex h-10 w-10 items-center justify-center rounded-full"
-							>
-								<IconBriefcaseOutline class="h-5 w-5" />
-							</div>
-							<div class="min-w-0">
-								<p class="text-base-content/70 text-xs leading-tight sm:text-sm">
-									{tr(
-										'dashboard.services.my_services.quote_inbox.selected_service_total',
-										'Requests for selected service'
-									)}
-								</p>
-								<p class="text-lg font-semibold sm:text-2xl">{selectedServiceRequestCount}</p>
-							</div>
-						</div>
-					</div>
-				{/if}
-			</div>
-
-			<p
-				class="text-base-content/70 mt-3 text-xs sm:text-sm"
-				data-testid="service-quotes-showing-summary"
-			>
-				{showingSummary}
-			</p>
-		</section>
-
 		{#if filteredTimelines.length === 0}
 			<div class="card bg-base-100 rounded-xl p-4">
 				<DashboardEmptyState
@@ -1038,8 +956,8 @@
 	<ServiceProposalDrawer
 		isOpen={drawerTimeline !== null &&
 			activeProposalDrawerMode !== null &&
-			!drawerTimeline.linkedEscrowId &&
-			(activeProposalDrawerMode === 'view' || (!serviceUnavailable && !selectedTimelineExpired))}
+			(activeProposalDrawerMode === 'view' ||
+				(!drawerTimeline.linkedEscrowId && !serviceUnavailable && !selectedTimelineExpired))}
 		mode={activeProposalDrawerMode ?? 'compose'}
 		timeline={drawerTimeline}
 		proposal={selectedProposal}

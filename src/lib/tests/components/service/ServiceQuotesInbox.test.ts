@@ -226,15 +226,14 @@ describe('ServiceQuotesInbox', () => {
 
 	it('opens the proposal drawer for the selected request thread', async () => {
 		const onRequestFocusChange = vi.fn();
-		const { getAllByRole, getByText, getByRole } = render(ServiceQuotesInbox, {
+		const { getAllByRole, queryByText, getByRole } = render(ServiceQuotesInbox, {
 			service: mockService,
 			timelines: [baseTimeline],
 			focusedRequestId: null,
 			isSyncing: false,
 			walletReady: true,
 			feeTierReady: true,
-			onRequestFocusChange,
-			totalPendingRequestCount: 1
+			onRequestFocusChange
 		});
 
 		await fireEvent.click(getAllByRole('button', { name: 'Send Proposal' })[0]);
@@ -242,7 +241,7 @@ describe('ServiceQuotesInbox', () => {
 		await waitFor(() => expect(getByRole('dialog')).toBeTruthy());
 		expect(within(getByRole('dialog')).queryByText('Need a site audit')).toBeNull();
 		expect(within(getByRole('dialog')).queryByText('12 reviews')).toBeNull();
-		expect(getByText('Pending requests')).toBeTruthy();
+		expect(queryByText('Pending requests')).toBeNull();
 	});
 
 	it('does not block proposal entry when wallet information is missing', async () => {
@@ -596,14 +595,50 @@ describe('ServiceQuotesInbox', () => {
 		await waitFor(() => expect(queryByTestId('service-proposal-composer')).toBeNull());
 	});
 
-	it('routes converted threads to the linked service contract and hides the proposal action', async () => {
-		const { getByRole, queryByRole } = render(ServiceQuotesInbox, {
+	it('routes converted threads to the linked service contract while keeping the proposal viewer available', async () => {
+		const proposalEvent = {
+			id: 'proposal-event-contract-view',
+			kind: 6421 as const,
+			pubkey: 'a'.repeat(64),
+			created_at: 2,
+			tags: [
+				['e', 'request-event-1'],
+				['p', 'c'.repeat(64)]
+			],
+			content: {
+				type: 'service-proposal' as const,
+				proposalId: 'pr_contract_view123',
+				quoteRequestId: 'qr_valid123',
+				serviceId: baseTimeline.request.content.serviceId,
+				serviceAddress: baseTimeline.request.content.serviceAddress,
+				paymentType: 'FIXED' as const,
+				amountUsdt: '225.00',
+				description: 'Technical SEO audit with prioritized fixes.',
+				estimatedDuration: '4 days and 9 hours',
+				estimatedStartTime: 1_700_000_000,
+				estimatedEndTime: 1_700_259_200,
+				expirationDays: 5,
+				expirationHours: 0,
+				expirationTimestamp: 1_700_300_000,
+				freelancerRskAddress: '0x1111111111111111111111111111111111111111',
+				freelancerFeeTier: 1 as const,
+				pricingSnapshot: {
+					serviceVersionRef: 'service-event-1'
+				},
+				timestamp: 2,
+				version: 'v1' as const
+			},
+			sig: ''
+		};
+		const { getByRole, findByRole, queryByRole } = render(ServiceQuotesInbox, {
 			service: mockService,
 			timelines: [
 				{
 					...baseTimeline,
 					resolvedStatus: 'accepted',
-					linkedEscrowId: 'escrow_987'
+					linkedEscrowId: 'escrow_987',
+					proposals: [proposalEvent],
+					latestProposal: proposalEvent
 				}
 			],
 			focusedRequestId: 'qr_valid123',
@@ -614,12 +649,16 @@ describe('ServiceQuotesInbox', () => {
 		});
 
 		expect(queryByRole('button', { name: 'Send Proposal' })).toBeNull();
+		expect(getByRole('button', { name: 'View Proposal' })).toBeTruthy();
 
 		await fireEvent.click(getByRole('button', { name: 'View Contract' }));
 
 		expect(goto).toHaveBeenCalledWith(
 			'/dashboard?tab=contracts&context=services&highlight=escrow_987'
 		);
+
+		await fireEvent.click(getByRole('button', { name: 'View Proposal' }));
+		expect(await findByRole('dialog')).toBeTruthy();
 	});
 
 	it('upgrades provider continuity from accept_unknown back to the linked service contract view', async () => {
@@ -662,6 +701,32 @@ describe('ServiceQuotesInbox', () => {
 
 		expect(queryAllByRole('button', { name: 'Send Proposal' })).toHaveLength(0);
 		expect(getByRole('button', { name: 'View Contract' })).toBeTruthy();
+	});
+
+	it('shows contract syncing as a neutral state while still exposing the linked contract', async () => {
+		const { getByRole, getByText, queryAllByRole } = render(ServiceQuotesInbox, {
+			service: mockService,
+			timelines: [
+				{
+					...baseTimeline,
+					resolvedStatus: 'contract_sync_pending',
+					linkedEscrowId: 'escrow_syncing'
+				}
+			],
+			focusedRequestId: 'qr_valid123',
+			isSyncing: false,
+			walletReady: true,
+			feeTierReady: true,
+			totalPendingRequestCount: 0
+		});
+
+		expect(queryAllByRole('button', { name: 'Send Proposal' })).toHaveLength(0);
+		expect(getByText('Contract syncing')).toBeTruthy();
+		await fireEvent.click(getByRole('button', { name: 'View Contract' }));
+
+		expect(goto).toHaveBeenCalledWith(
+			'/dashboard?tab=contracts&context=services&highlight=escrow_syncing'
+		);
 	});
 
 	it('keeps expired quote requests visible as read-only rows and hides the proposal action', () => {
@@ -742,7 +807,6 @@ describe('ServiceQuotesInbox', () => {
 			feeTierReady: false
 		});
 
-		expect(getByTestId('service-quotes-summary-card')).toBeTruthy();
 		expect(getByTestId('service-quotes-filtered-empty-state')).toBeTruthy();
 		expect(getByText('No service requests yet.')).toBeTruthy();
 		expect(queryByText('Quote Inbox')).toBeNull();
@@ -1036,24 +1100,18 @@ describe('ServiceQuotesInbox', () => {
 		expect(getAllByText('Declined').length).toBeGreaterThan(0);
 	});
 
-	it('renders the provider request summary metrics', () => {
-		const { getByTestId } = render(ServiceQuotesInbox, {
+	it('does not render the removed provider request summary card', () => {
+		const { queryByTestId } = render(ServiceQuotesInbox, {
 			service: mockService,
 			timelines: [baseTimeline],
 			focusedRequestId: null,
 			isSyncing: false,
 			walletReady: true,
 			feeTierReady: true,
-			totalPendingRequestCount: 3,
-			selectedServiceRequestCount: 1
+			totalPendingRequestCount: 3
 		});
 
-		const summaryCard = within(getByTestId('service-quotes-summary-card'));
-		expect(summaryCard.getByText('Pending requests')).toBeTruthy();
-		expect(summaryCard.getByText('3')).toBeTruthy();
-		expect(summaryCard.getByText('Requests for selected service')).toBeTruthy();
-		expect(summaryCard.getByText('1')).toBeTruthy();
-		expect(summaryCard.getByText('Showing 1 requests')).toBeTruthy();
+		expect(queryByTestId('service-quotes-summary-card')).toBeNull();
 	});
 
 	it('shows all same-service requests by default even when they span multiple statuses', () => {
@@ -1090,7 +1148,7 @@ describe('ServiceQuotesInbox', () => {
 			},
 			resolvedStatus: 'pending' as const
 		};
-		const { getByTestId, getByText } = render(ServiceQuotesInbox, {
+		const { getByText } = render(ServiceQuotesInbox, {
 			services: [mockService],
 			selectedServiceAddress: baseTimeline.request.content.serviceAddress,
 			service: mockService,
@@ -1099,15 +1157,11 @@ describe('ServiceQuotesInbox', () => {
 			isSyncing: false,
 			walletReady: true,
 			feeTierReady: true,
-			totalPendingRequestCount: 1,
-			selectedServiceRequestCount: 2
+			totalPendingRequestCount: 1
 		});
 
 		expect(getByText('Need a site audit')).toBeTruthy();
 		expect(getByText('Need a site audit 2')).toBeTruthy();
-		expect(
-			within(getByTestId('service-quotes-summary-card')).getByText('Showing 2 requests')
-		).toBeTruthy();
 	});
 
 	it('keeps the chosen status filter stable when focus changes', async () => {
@@ -1144,7 +1198,7 @@ describe('ServiceQuotesInbox', () => {
 			},
 			resolvedStatus: 'pending' as const
 		};
-		const { getByRole, queryByText, rerender, getByTestId } = render(ServiceQuotesInbox, {
+		const { getByRole, queryByText, rerender, queryByTestId } = render(ServiceQuotesInbox, {
 			services: [mockService],
 			selectedServiceAddress: baseTimeline.request.content.serviceAddress,
 			service: mockService,
@@ -1153,17 +1207,14 @@ describe('ServiceQuotesInbox', () => {
 			isSyncing: false,
 			walletReady: true,
 			feeTierReady: true,
-			totalPendingRequestCount: 1,
-			selectedServiceRequestCount: 2
+			totalPendingRequestCount: 1
 		});
 
 		await fireEvent.click(getByRole('button', { name: 'Awaiting proposal' }));
 
 		expect(queryByText('Need a site audit')).toBeTruthy();
 		expect(queryByText('Need a site audit 2')).toBeNull();
-		expect(
-			within(getByTestId('service-quotes-summary-card')).getByText('Showing 1 of 2 requests')
-		).toBeTruthy();
+		expect(queryByTestId('service-quotes-summary-card')).toBeNull();
 
 		await rerender({
 			services: [mockService],
@@ -1174,15 +1225,12 @@ describe('ServiceQuotesInbox', () => {
 			isSyncing: false,
 			walletReady: true,
 			feeTierReady: true,
-			totalPendingRequestCount: 1,
-			selectedServiceRequestCount: 2
+			totalPendingRequestCount: 1
 		});
 
 		expect(queryByText('Need a site audit')).toBeTruthy();
 		expect(queryByText('Need a site audit 2')).toBeNull();
-		expect(
-			within(getByTestId('service-quotes-summary-card')).getByText('Showing 1 of 2 requests')
-		).toBeTruthy();
+		expect(queryByTestId('service-quotes-summary-card')).toBeNull();
 	});
 
 	it('shows a filtered empty state and clears the filter back to all requests', async () => {
@@ -1195,8 +1243,7 @@ describe('ServiceQuotesInbox', () => {
 			isSyncing: false,
 			walletReady: true,
 			feeTierReady: true,
-			totalPendingRequestCount: 1,
-			selectedServiceRequestCount: 1
+			totalPendingRequestCount: 1
 		});
 
 		await fireEvent.click(getByRole('button', { name: 'Contract created' }));
@@ -1208,7 +1255,7 @@ describe('ServiceQuotesInbox', () => {
 
 		await waitFor(() => {
 			expect(queryByText('Need a site audit')).toBeTruthy();
-			expect(getByTestId('service-quotes-summary-card')).toHaveTextContent('Showing 1 requests');
+			expect(queryByText('No requests match that status right now.')).toBeNull();
 		});
 	});
 
@@ -1223,8 +1270,7 @@ describe('ServiceQuotesInbox', () => {
 			isSyncing: false,
 			walletReady: true,
 			feeTierReady: true,
-			totalPendingRequestCount: 11,
-			selectedServiceRequestCount: 11
+			totalPendingRequestCount: 11
 		});
 
 		expect(container.querySelectorAll('[data-testid^="service-request-card-"]')).toHaveLength(10);
@@ -1250,8 +1296,7 @@ describe('ServiceQuotesInbox', () => {
 			isSyncing: false,
 			walletReady: true,
 			feeTierReady: true,
-			totalPendingRequestCount: 11,
-			selectedServiceRequestCount: 11
+			totalPendingRequestCount: 11
 		});
 
 		await waitFor(() => {

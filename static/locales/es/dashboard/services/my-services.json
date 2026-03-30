@@ -117,6 +117,7 @@
 						"withdrawn": "Retirada",
 						"expired": "Vencida",
 						"accepting": "Aceptando",
+						"contract_sync_pending": "Sincronizando contrato",
 						"accept_failed": "Error al aceptar",
 						"accept_unknown": "Aceptación desconocida",
 						"proposal_sent": "Propuesta enviada",

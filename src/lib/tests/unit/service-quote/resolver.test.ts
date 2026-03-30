@@ -120,6 +120,7 @@ function createProposal() {
 function createStatus(
 	status:
 		| 'accepting'
+		| 'contract_sync_pending'
 		| 'accepted'
 		| 'withdrawn'
 		| 'declined'
@@ -130,7 +131,7 @@ function createStatus(
 	const actorPubkey = status === 'withdrawn' ? taskeePubkey : taskerPubkey;
 	const recipientPubkey = status === 'withdrawn' ? taskerPubkey : taskeePubkey;
 	const acceptedDefaults =
-		status === 'accepted'
+		status === 'accepted' || status === 'contract_sync_pending'
 			? {
 					escrowId: 'escrow-123',
 					transactionHash: '0x' + 'c'.repeat(64),
@@ -200,6 +201,33 @@ describe('service-quote resolver', () => {
 		expect(thread.latestProposal?.linkedTransactionHash).toBe('0x' + 'a'.repeat(64));
 	});
 
+	it('keeps the escrow link visible while contract creation is still syncing', () => {
+		const [thread] = resolveServiceQuoteThreads({
+			requests: [createRequest()],
+			proposals: [createProposal()],
+			statuses: [
+				createStatus('accepted', {
+					escrowId: 'escrow-123',
+					transactionHash: '0x' + 'a'.repeat(64)
+				}),
+				createStatus('contract_sync_pending', {
+					id: 'syncing-event-id',
+					created_at: 1_700_000_210,
+					timestamp: 1_700_000_210,
+					escrowId: 'escrow-123',
+					transactionHash: '0x' + 'a'.repeat(64),
+					message: 'Contract syncing'
+				})
+			],
+			now: 1_700_000_250
+		});
+
+		expect(thread.latestProposal?.state).toBe('accepted');
+		expect(thread.linkedEscrowId).toBe('escrow-123');
+		expect(thread.latestProposal?.linkedEscrowId).toBe('escrow-123');
+		expect(thread.latestProposal?.linkedTransactionHash).toBe('0x' + 'a'.repeat(64));
+	});
+
 	it('drops mismatched proposals and invalid status authors', () => {
 		const request = createRequest();
 		const proposal = {
@@ -220,7 +248,9 @@ describe('service-quote resolver', () => {
 		};
 
 		expect(isProposalLinkedToRequest(request, proposal as never)).toBe(false);
-		expect(isStatusLinkedToProposal(request, createProposal(), invalidStatus as never, 1_700_000_250)).toBe(false);
+		expect(
+			isStatusLinkedToProposal(request, createProposal(), invalidStatus as never, 1_700_000_250)
+		).toBe(false);
 
 		const [thread] = resolveServiceQuoteThreads({
 			requests: [request],
@@ -365,8 +395,8 @@ describe('service-quote resolver', () => {
 
 		expect(thread.latestProposal?.state).toBe('accept_unknown');
 		expect(thread.latestProposal?.winningStatus).toBeUndefined();
-		expect(thread.linkedEscrowId).toBeUndefined();
-		expect(thread.latestProposal?.linkedEscrowId).toBeUndefined();
+		expect(thread.linkedEscrowId).toBe('escrow-123');
+		expect(thread.latestProposal?.linkedEscrowId).toBe('escrow-123');
 	});
 
 	it('ignores unrelated late ambiguity after accepted when the lineage does not match', () => {

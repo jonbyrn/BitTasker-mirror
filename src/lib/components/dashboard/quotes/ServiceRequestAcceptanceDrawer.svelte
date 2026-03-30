@@ -18,6 +18,8 @@
 		service = null,
 		isSubmitting = false,
 		disabled = false,
+		showContractCreationProgress = false,
+		contractCreationStatus = 'creating',
 		errorMessage = '',
 		errorHint = '',
 		walletLoading = false,
@@ -37,6 +39,8 @@
 		service?: Service | null;
 		isSubmitting?: boolean;
 		disabled?: boolean;
+		showContractCreationProgress?: boolean;
+		contractCreationStatus?: 'creating' | 'success';
 		errorMessage?: string;
 		errorHint?: string;
 		walletLoading?: boolean;
@@ -167,6 +171,7 @@
 		formatTimestamp(latestProposal?.content.expirationTimestamp)
 	);
 	const canConfirm = $derived.by(() => Boolean(latestProposal) && !disabled);
+	const showingContractCreationProgress = $derived(showContractCreationProgress);
 	const timingWarningMessage = $derived.by(() =>
 		normalizedSchedule.startWasAdjusted
 			? tr(
@@ -180,12 +185,10 @@
 <ContractInitiationDrawer
 	{open}
 	title={tr('dashboard.service_requests.accept_drawer.title', 'Accept proposal')}
-	subtitle={tr(
-		'dashboard.service_requests.accept_drawer.subtitle',
-		'Review the quote details before creating the service contract.'
-	)}
 	confirmLabel={tr('dashboard.service_requests.accept_drawer.confirm', 'Accept Proposal')}
 	{canConfirm}
+	hideFooter={showingContractCreationProgress}
+	allowCloseWhileSubmitting={showingContractCreationProgress}
 	{isSubmitting}
 	{errorMessage}
 	{errorHint}
@@ -198,7 +201,133 @@
 	{onClose}
 >
 	<div class="space-y-6 py-1">
-		{#if latestProposal}
+		{#if showingContractCreationProgress}
+			<div
+				class="space-y-6 py-2 text-center"
+				data-testid="service-request-acceptance-contract-progress"
+			>
+				<div class="flex justify-center">
+					<div class="bg-success/10 rounded-full p-4">
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="text-success h-16 w-16"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+							/>
+						</svg>
+					</div>
+				</div>
+
+				<div class="space-y-2">
+					<h3 class="text-xl font-bold">
+						{tr(
+							'dashboard.services.detail.book_now_drawer.processing_title',
+							'Creating your secure payment contract'
+						)}
+					</h3>
+					<p class="text-base-content/70 text-sm">
+						{tr(
+							'dashboard.services.detail.book_now_drawer.processing_message',
+							'You can close this drawer. We will keep preparing the contract in the background.'
+						)}
+					</p>
+				</div>
+
+				<div
+					class="bg-base-200 rounded-lg p-4"
+					data-testid="service-request-acceptance-contract-status"
+				>
+					<h4 class="mb-3 font-semibold">
+						{tr(
+							'dashboard.services.detail.book_now_drawer.contract_creation_status',
+							'Contract creation status'
+						)}
+					</h4>
+					<div class="flex items-center gap-3 text-left">
+						{#if contractCreationStatus === 'success'}
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								class="text-success h-5 w-5 shrink-0"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke="currentColor"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+								/>
+							</svg>
+							<p class="text-success font-medium">
+								{tr(
+									'dashboard.services.detail.book_now_drawer.contract_created',
+									'Contract created'
+								)}
+							</p>
+						{:else}
+							<span class="loading loading-spinner loading-sm text-info shrink-0"></span>
+							<p class="text-info font-medium">
+								{tr(
+									'dashboard.services.detail.book_now_drawer.creating_contract',
+									'Creating contract'
+								)}
+							</p>
+						{/if}
+					</div>
+				</div>
+
+				<div class="bg-base-200 rounded-lg p-4 text-left">
+					<h4 class="mb-2 font-semibold">
+						{tr(
+							'dashboard.services.detail.book_now_drawer.what_happens_next_title',
+							'What happens next'
+						)}
+					</h4>
+					<ul class="text-base-content/80 space-y-1 text-sm">
+						<li>
+							• {tr(
+								'dashboard.services.detail.book_now_drawer.next_item_notify',
+								'The provider will be notified once the contract is ready.'
+							)}
+						</li>
+						<li>
+							• {tr(
+								'dashboard.services.detail.book_now_drawer.next_item_begin',
+								'Work can begin after the contract is confirmed.'
+							)}
+						</li>
+						<li>
+							• {tr(
+								'dashboard.services.detail.book_now_drawer.next_item_funds_held',
+								'Your funds remain secured in the contract until completion.'
+							)}
+						</li>
+						<li>
+							• {tr(
+								'dashboard.services.detail.book_now_drawer.next_item_release',
+								'Funds are released only after the service is completed.'
+							)}
+						</li>
+						{#if contractCreationStatus === 'success'}
+							<li>
+								• {tr(
+									'dashboard.services.detail.book_now_drawer.next_item_contract_details',
+									'You can review the full contract details in Contracts.'
+								)}
+							</li>
+						{/if}
+					</ul>
+				</div>
+			</div>
+		{:else if latestProposal}
 			<div class="bg-base-300 rounded-2xl">
 				<div class="w-full min-w-0 px-6 pt-3">
 					<h5 class="wrap-break-words line-clamp-2 text-lg font-semibold">

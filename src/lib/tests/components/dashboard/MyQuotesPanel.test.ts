@@ -17,6 +17,9 @@ const {
 	mockInitializeWallet,
 	mockLoadAssets,
 	mockPreflightServiceContractCreation,
+	showErrorToast,
+	showInfoToast,
+	showSuccessToast,
 	quoteUiStoreMock
 } = vi.hoisted(() => ({
 	applyTaskerStatus: vi.fn().mockResolvedValue({ success: true }),
@@ -37,6 +40,9 @@ const {
 		ok: true,
 		totalRequired: '0.00257250'
 	}),
+	showErrorToast: vi.fn(),
+	showInfoToast: vi.fn(),
+	showSuccessToast: vi.fn(),
 	quoteUiStoreMock: {
 		value: {
 			taskerDataFreshness: 'fresh'
@@ -146,6 +152,14 @@ const mockWalletStore = vi.hoisted(() => ({
 
 vi.mock('$app/navigation', () => ({
 	goto
+}));
+
+vi.mock('$lib/stores/app.store', () => ({
+	appStore: {
+		showErrorToast,
+		showInfoToast,
+		showSuccessToast
+	}
 }));
 
 vi.mock('svelte-i18n', async () => {
@@ -702,6 +716,12 @@ describe('MyQuotesPanel', () => {
 				resolvedStatus: 'pending'
 			}),
 			createTimeline({
+				requestId: 'qr_proposal_received',
+				title: 'Proposal received request',
+				hasProposal: true,
+				resolvedStatus: 'pending'
+			}),
+			createTimeline({
 				requestId: 'qr_contract',
 				title: 'Contract request',
 				hasProposal: true,
@@ -747,9 +767,18 @@ describe('MyQuotesPanel', () => {
 		});
 
 		expect(queryByText('Awaiting request')).toBeTruthy();
+		expect(queryByText('Proposal received request')).toBeNull();
 		expect(queryByText('Failed request')).toBeNull();
 		expect(queryByText('Unknown request')).toBeNull();
 		expect(queryByText('Contract request')).toBeNull();
+
+		await fireEvent.click(getByRole('button', { name: 'Proposal received' }));
+		expect(queryByText('Proposal received request')).toBeTruthy();
+		expect(queryByText('Awaiting request')).toBeNull();
+
+		await fireEvent.click(getByRole('button', { name: 'All' }));
+		expect(queryByText('Awaiting request')).toBeTruthy();
+		expect(queryByText('Proposal received request')).toBeTruthy();
 
 		const filterAssertions: Array<{ label: string; visible: string; hidden: string }> = [
 			{ label: 'Needs attention', visible: 'Failed request', hidden: 'Awaiting request' },
@@ -896,11 +925,11 @@ describe('MyQuotesPanel', () => {
 		});
 	});
 
-	it('prevents duplicate accept submissions and closes the drawer after success', async () => {
+	it('prevents duplicate accept submissions and switches into contract progress after success', async () => {
 		const deferredAccept = createDeferred<{ success: boolean; transactionHash: string }>();
 		acceptTaskerProposal.mockImplementationOnce(() => deferredAccept.promise);
 
-		const { getByRole, queryByRole, queryByTestId } = render(MyQuotesPanel, {
+		const { getByRole, getByTestId, queryByRole } = render(MyQuotesPanel, {
 			timelines: [timeline],
 			focusedRequestId: 'qr_valid123',
 			isSyncing: false
@@ -924,9 +953,135 @@ describe('MyQuotesPanel', () => {
 		deferredAccept.resolve({ success: true, transactionHash: '0xservicehash' });
 
 		await waitFor(() => {
-			expect(queryByTestId('service-request-acceptance-drawer')).toBeNull();
+			expect(getByTestId('service-request-acceptance-contract-progress')).toBeTruthy();
 		});
 		expect(queryByRole('button', { name: 'Accept Proposal' })).toBeNull();
+		expect(getByTestId('service-request-acceptance-contract-status')).toBeTruthy();
+	});
+
+	it('allows closing acceptance progress and completes in the background with a toast', async () => {
+		acceptTaskerProposal.mockResolvedValueOnce({
+			success: true,
+			transactionHash: '0xservicehash'
+		});
+
+		const { getByRole, queryByTestId, rerender } = render(MyQuotesPanel, {
+			timelines: [timeline],
+			focusedRequestId: 'qr_valid123',
+			isSyncing: false
+		});
+
+		await waitFor(() => {
+			expect(getByRole('button', { name: 'Accept' })).toBeEnabled();
+		});
+		await fireEvent.click(getByRole('button', { name: 'Accept' }));
+		await fireEvent.click(getByRole('button', { name: 'Accept Proposal' }));
+
+		await waitFor(() => {
+			expect(getByRole('heading', { name: 'Creating your secure payment contract' })).toBeTruthy();
+		});
+
+		await fireEvent.click(getByRole('button', { name: 'common.components.drawer.close' }));
+
+		await waitFor(() => {
+			expect(queryByTestId('service-request-acceptance-drawer')).toBeNull();
+		});
+
+		await rerender({
+			timelines: [
+				createTimeline({
+					requestId: 'qr_valid123',
+					resolvedStatus: 'accepted',
+					linkedEscrowId: 'escrow_456'
+				})
+			],
+			focusedRequestId: 'qr_valid123',
+			isSyncing: false
+		});
+
+		await waitFor(() => {
+			expect(showSuccessToast).toHaveBeenCalledWith(
+				'Proposal accepted. Your service contract is ready in Contracts.'
+			);
+		});
+		expect(goto).not.toHaveBeenCalled();
+	});
+
+	it('opens the contract without racing the request-clear navigation when acceptance finishes in-place', async () => {
+		acceptTaskerProposal.mockResolvedValueOnce({
+			success: true,
+			transactionHash: '0xservicehash'
+		});
+		const onRequestClear = vi.fn().mockResolvedValue(undefined);
+
+		const { getByRole, rerender } = render(MyQuotesPanel, {
+			timelines: [timeline],
+			focusedRequestId: 'qr_valid123',
+			isSyncing: false,
+			onRequestClear
+		});
+
+		await waitFor(() => {
+			expect(getByRole('button', { name: 'Accept' })).toBeEnabled();
+		});
+		await fireEvent.click(getByRole('button', { name: 'Accept' }));
+		await fireEvent.click(getByRole('button', { name: 'Accept Proposal' }));
+
+		await waitFor(() => {
+			expect(getByRole('heading', { name: 'Creating your secure payment contract' })).toBeTruthy();
+		});
+
+		await rerender({
+			timelines: [
+				createTimeline({
+					requestId: 'qr_valid123',
+					resolvedStatus: 'accepted',
+					linkedEscrowId: 'escrow_789'
+				})
+			],
+			focusedRequestId: 'qr_valid123',
+			isSyncing: false
+		});
+
+		await waitFor(() => {
+			expect(showSuccessToast).toHaveBeenCalledWith(
+				'Proposal accepted. Opening your service contract.'
+			);
+		});
+		expect(goto).toHaveBeenCalledTimes(1);
+		expect(onRequestClear).not.toHaveBeenCalled();
+	});
+
+	it('keeps the acceptance progress drawer mounted during a partial timeline refresh', async () => {
+		acceptTaskerProposal.mockResolvedValueOnce({
+			success: true,
+			transactionHash: '0xservicehash'
+		});
+
+		const { getByRole, getByTestId, rerender } = render(MyQuotesPanel, {
+			timelines: [timeline],
+			focusedRequestId: 'qr_valid123',
+			isSyncing: false
+		});
+
+		await waitFor(() => {
+			expect(getByRole('button', { name: 'Accept' })).toBeEnabled();
+		});
+		await fireEvent.click(getByRole('button', { name: 'Accept' }));
+		await fireEvent.click(getByRole('button', { name: 'Accept Proposal' }));
+
+		await waitFor(() => {
+			expect(getByTestId('service-request-acceptance-contract-progress')).toBeTruthy();
+		});
+
+		await rerender({
+			timelines: [],
+			focusedRequestId: 'qr_valid123',
+			isSyncing: true
+		});
+
+		expect(getByTestId('service-request-acceptance-drawer')).toBeTruthy();
+		expect(getByTestId('service-request-acceptance-contract-progress')).toBeTruthy();
 	});
 
 	it('opens an acceptance drawer before accepting a proposal', async () => {
@@ -1389,7 +1544,7 @@ describe('MyQuotesPanel', () => {
 			isSyncing: false
 		});
 
-		const filterTrigger = getAllByRole('button', { name: 'Awaiting proposal' })[0];
+		const filterTrigger = getAllByRole('button', { name: 'Proposal received' })[0];
 		expect(filterTrigger.getAttribute('aria-haspopup')).toBe('listbox');
 		expect(filterTrigger.getAttribute('aria-expanded')).toBe('false');
 
@@ -1410,7 +1565,7 @@ describe('MyQuotesPanel', () => {
 			isSyncing: false
 		});
 
-		const filterTrigger = getAllByRole('button', { name: 'Awaiting proposal' })[0];
+		const filterTrigger = getAllByRole('button', { name: 'Proposal received' })[0];
 		filterTrigger.focus();
 
 		await fireEvent.keyDown(filterTrigger, { key: ' ' });
@@ -1434,7 +1589,7 @@ describe('MyQuotesPanel', () => {
 			isSyncing: false
 		});
 
-		const filterTrigger = getAllByRole('button', { name: 'Awaiting proposal' })[0];
+		const filterTrigger = getAllByRole('button', { name: 'Proposal received' })[0];
 		await fireEvent.click(filterTrigger);
 		expect(getByRole('listbox', { name: 'Filter by request status' })).toBeTruthy();
 
@@ -1452,7 +1607,7 @@ describe('MyQuotesPanel', () => {
 			isSyncing: false
 		});
 
-		const filterTrigger = getAllByRole('button', { name: 'Awaiting proposal' })[0];
+		const filterTrigger = getAllByRole('button', { name: 'Proposal received' })[0];
 		await fireEvent.click(filterTrigger);
 
 		const declinedOption = getByRole('option', { name: 'Declined' });
@@ -1473,8 +1628,10 @@ describe('MyQuotesPanel', () => {
 			isSyncing: false
 		});
 
-		const desktopAwaitingFilter = getAllByRole('button', { name: 'Awaiting proposal' }).at(-1);
-		expect(desktopAwaitingFilter?.getAttribute('aria-pressed')).toBe('true');
+		const desktopProposalReceivedFilter = getAllByRole('button', {
+			name: 'Proposal received'
+		}).at(-1);
+		expect(desktopProposalReceivedFilter?.getAttribute('aria-pressed')).toBe('true');
 	});
 
 	it('hides delete for requests with acceptance in progress or ambiguous acceptance', () => {
@@ -1541,17 +1698,20 @@ describe('MyQuotesPanel', () => {
 			'dashboard.service_requests.errors.decline',
 			'dashboard.service_requests.errors.delete',
 			'dashboard.service_requests.accept_drawer.title',
-			'dashboard.service_requests.accept_drawer.subtitle',
 			'dashboard.service_requests.accept_drawer.confirm',
 			'dashboard.service_requests.accept_drawer.expires',
 			'dashboard.service_requests.accept_drawer.warning',
 			'dashboard.service_requests.accept_drawer.start_time_adjusted_warning',
 			'dashboard.service_requests.accept_drawer.prepare_error',
+			'dashboard.service_requests.messages.acceptance_complete',
+			'dashboard.service_requests.messages.acceptance_complete_background',
 			'dashboard.service_requests.drawer.proposal_title',
 			'dashboard.service_requests.drawer.proposal_start',
 			'dashboard.service_requests.drawer.proposal_end',
 			'dashboard.service_requests.drawer.scope_of_work',
 			'dashboard.service_requests.drawer.cover_letter',
+			'dashboard.service_requests.filters.all',
+			'dashboard.service_requests.filters.proposal_received',
 			'dashboard.service_requests.filters.needs_attention',
 			'dashboard.service_requests.alerts.service_lookup_failed'
 		];
