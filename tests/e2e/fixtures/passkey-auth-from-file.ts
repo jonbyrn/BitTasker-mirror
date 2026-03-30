@@ -5,6 +5,10 @@ import {
 	webauthnCredentialsFileExists,
 	getCredentialSetLabels
 } from '../utils/webauthn-credentials';
+import {
+	dismissBetaWarningIfPresent,
+	WEBAUTHN_CHROMIUM_ONLY_MESSAGE
+} from '../utils/onboarding-helpers';
 
 /** Re-export so specs can skip when file is missing or pick a user */
 export { webauthnCredentialsFileExists, getCredentialSetLabels };
@@ -96,12 +100,7 @@ const test = base.extend<PasskeyAuthFromFileFixtures>({
 			await page.getByTestId('login-continue-passkey').click();
 			await page.waitForURL(/\/dashboard/, { timeout: PASSKEY_DASHBOARD_TIMEOUT_MS });
 
-			// Dismiss Beta Warning modal so it doesn't block navigations (e.g. messages, wallet)
-			const understandBtn = page.getByRole('button', {
-				name: 'I understand',
-				exact: true
-			});
-			await understandBtn.click({ timeout: 5_000 }).catch(() => {});
+			await dismissBetaWarningIfPresent(page);
 
 			await use(page);
 		} finally {
