@@ -9,6 +9,7 @@
 	import { get } from 'svelte/store';
 	import { createPortal } from '$lib/utils/portal';
 	import { EscrowStatus } from '$lib/utils/escrow';
+	import { getStatusTranslationKey } from '$lib/utils/helpers/contractStatusFormatter';
 	import { contractStore } from '$lib/stores/contract.store';
 	import { tasksStore, myTasksStore } from '$lib/stores/task.store';
 	import { reconcileTaskStatusWithContracts } from '$lib/utils/helpers/task-status-reconciliation';
@@ -101,39 +102,101 @@
 		return typeof value === 'string' && value !== key ? value : fallback;
 	}
 
-	// Status filter options - using EscrowStatus enum
-	const statusFilterOptions = $derived([
-		{
-			id: 'all' as const,
-			label: $t('dashboard.contracts.all_statuses'),
-			icon: IconCheckAll
-		},
-		{
-			id: EscrowStatus.Funded,
-			label: $t('dashboard.contracts.status.funded'),
-			icon: IconLightningBolt
-		},
-		{
-			id: EscrowStatus.Completed,
-			label: $t('dashboard.contracts.status.completed'),
-			icon: IconCheckCircle
-		},
-		{
-			id: EscrowStatus.InDispute,
-			label: $t('dashboard.contracts.status.in_dispute'),
-			icon: IconAlertCircleOutline
-		},
-		{
-			id: EscrowStatus.DisputeResolved,
-			label: $t('dashboard.contracts.status.dispute_resolved'),
-			icon: IconCheck
-		},
-		{
-			id: EscrowStatus.Cancelled,
-			label: $t('dashboard.contracts.status.cancelled'),
-			icon: IconCancel
+	const STATUS_FILTER_ORDER: EscrowStatus[] = [
+		EscrowStatus.PendingFunding,
+		EscrowStatus.Funded,
+		EscrowStatus.InProgress,
+		EscrowStatus.PendingCompletion,
+		EscrowStatus.Completed,
+		EscrowStatus.PendingAcceptance,
+		EscrowStatus.FundsReleased,
+		EscrowStatus.PendingDispute,
+		EscrowStatus.InDispute,
+		EscrowStatus.PendingResolutionProposal,
+		EscrowStatus.DisputeResolutionProposed,
+		EscrowStatus.PendingProposalAcceptance,
+		EscrowStatus.DisputeResolved,
+		EscrowStatus.PendingTimelockResolution,
+		EscrowStatus.DisputeUnresolved,
+		EscrowStatus.PendingCancellation,
+		EscrowStatus.Cancelled
+	];
+
+	function getStatusFallbackLabel(status: EscrowStatus): string {
+		switch (status) {
+			case EscrowStatus.PendingFunding:
+				return 'Pending Funding';
+			case EscrowStatus.Funded:
+				return 'Funded';
+			case EscrowStatus.InProgress:
+				return 'In Progress';
+			case EscrowStatus.PendingCompletion:
+				return 'Pending Completion';
+			case EscrowStatus.Completed:
+				return 'Completed';
+			case EscrowStatus.PendingAcceptance:
+				return 'Pending Acceptance';
+			case EscrowStatus.FundsReleased:
+				return 'Funds Released';
+			case EscrowStatus.PendingDispute:
+				return 'Pending Dispute';
+			case EscrowStatus.InDispute:
+				return 'In Dispute';
+			case EscrowStatus.DisputeResolutionProposed:
+				return 'Dispute Resolution Proposed';
+			case EscrowStatus.PendingResolutionProposal:
+				return 'Pending Resolution Proposal';
+			case EscrowStatus.PendingProposalAcceptance:
+				return 'Pending Proposal Acceptance';
+			case EscrowStatus.DisputeResolved:
+				return 'Dispute Resolved';
+			case EscrowStatus.PendingTimelockResolution:
+				return 'Pending Timelock Resolution';
+			case EscrowStatus.DisputeUnresolved:
+				return 'Dispute Unresolved';
+			case EscrowStatus.PendingCancellation:
+				return 'Pending Cancellation';
+			case EscrowStatus.Cancelled:
+				return 'Cancelled';
 		}
-	] as const);
+
+		return 'Unknown Status';
+	}
+
+	function getStatusFilterLabel(status: EscrowStatus): string {
+		return tr(getStatusTranslationKey(status), getStatusFallbackLabel(status));
+	}
+
+	function getStatusFilterIcon(status: EscrowStatus | 'all') {
+		switch (status) {
+			case 'all':
+				return IconCheckAll;
+			case EscrowStatus.PendingFunding:
+			case EscrowStatus.Funded:
+				return IconLightningBolt;
+			case EscrowStatus.InProgress:
+				return IconBriefcaseOutline;
+			case EscrowStatus.PendingCompletion:
+			case EscrowStatus.Completed:
+			case EscrowStatus.PendingAcceptance:
+			case EscrowStatus.FundsReleased:
+			case EscrowStatus.PendingProposalAcceptance:
+			case EscrowStatus.DisputeResolved:
+				return IconCheckCircle;
+			case EscrowStatus.PendingDispute:
+			case EscrowStatus.InDispute:
+			case EscrowStatus.DisputeResolutionProposed:
+			case EscrowStatus.PendingResolutionProposal:
+			case EscrowStatus.PendingTimelockResolution:
+			case EscrowStatus.DisputeUnresolved:
+				return IconAlertCircleOutline;
+			case EscrowStatus.PendingCancellation:
+			case EscrowStatus.Cancelled:
+				return IconCancel;
+		}
+
+		return IconCheckAll;
+	}
 
 	// Role filter options
 	const roleFilterOptions = $derived([
@@ -154,18 +217,13 @@
 		}
 	] as const);
 
-	const filteredContracts = $derived.by(() => {
-		let filtered = $contractStore.contracts;
+	function applyNonStatusFilters(contracts: ContractWithEvents[]): ContractWithEvents[] {
+		let filtered = contracts;
 
 		if (fixedRole === 'client') {
 			filtered = filtered.filter((c) => c.isClient);
 		} else if (fixedRole === 'freelancer') {
 			filtered = filtered.filter((c) => !c.isClient);
-		}
-
-		// Filter by status (using unified status enum)
-		if (statusFilter !== 'all') {
-			filtered = filtered.filter((c) => c.status === statusFilter);
 		}
 
 		// Filter by role
@@ -191,6 +249,44 @@
 		}
 
 		return filtered;
+	}
+
+	const contractsMatchingNonStatusFilters = $derived.by(() =>
+		applyNonStatusFilters($contractStore.contracts)
+	);
+
+	const statusFilterOptions = $derived.by(() => {
+		const availableStatuses = Array.from(
+			new Set(contractsMatchingNonStatusFilters.map((contract) => contract.status))
+		).sort((left, right) => {
+			const leftIndex = STATUS_FILTER_ORDER.indexOf(left);
+			const rightIndex = STATUS_FILTER_ORDER.indexOf(right);
+			return (
+				(leftIndex === -1 ? Number.MAX_SAFE_INTEGER : leftIndex) -
+				(rightIndex === -1 ? Number.MAX_SAFE_INTEGER : rightIndex)
+			);
+		});
+
+		return [
+			{
+				id: 'all' as const,
+				label: $t('dashboard.contracts.all_statuses'),
+				icon: IconCheckAll
+			},
+			...availableStatuses.map((status) => ({
+				id: status,
+				label: getStatusFilterLabel(status),
+				icon: getStatusFilterIcon(status)
+			}))
+		];
+	});
+
+	const filteredContracts = $derived.by(() => {
+		if (statusFilter === 'all') {
+			return contractsMatchingNonStatusFilters;
+		}
+
+		return contractsMatchingNonStatusFilters.filter((contract) => contract.status === statusFilter);
 	});
 
 	const contextFilterOptions = $derived([
@@ -349,6 +445,15 @@
 			...state,
 			hasMore: $contractStore.hasMore
 		}));
+	});
+
+	$effect(() => {
+		if (
+			statusFilter !== 'all' &&
+			!statusFilterOptions.some((option) => option.id === statusFilter)
+		) {
+			statusFilter = 'all';
+		}
 	});
 
 	onDestroy(() => {
@@ -616,11 +721,11 @@
 
 		<!-- Desktop: Status Filter Buttons -->
 		<div class="mt-4 hidden sm:block">
-			<div class="flex flex-col gap-3 sm:flex-row">
+			<div class="flex flex-wrap gap-3">
 				{#each statusFilterOptions as option (String(option.id))}
 					{@const IconComponent = option.icon}
 					<button
-						class="btn btn-sm flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-3xl py-4 text-center transition-all duration-200 {statusFilter ===
+						class="btn btn-sm flex cursor-pointer items-center justify-center gap-2 rounded-3xl px-4 py-4 text-center transition-all duration-200 {statusFilter ===
 						option.id
 							? 'text-primary bg-primary/10 border-primary/30 border'
 							: 'bg-base-100/40 hover:bg-base-100/60 text-base-content/70'}"
