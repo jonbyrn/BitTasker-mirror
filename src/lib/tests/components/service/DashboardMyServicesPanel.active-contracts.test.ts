@@ -40,6 +40,10 @@ const hoisted = vi.hoisted(() => {
 		mockLoadContracts: vi.fn().mockResolvedValue(undefined),
 		mockEscrowGetContracts: vi.fn().mockResolvedValue([]),
 		mockLoadProviderTimelines: vi.fn().mockResolvedValue([]),
+		mockGetAcceptanceReplayEntriesDueForRetry: vi.fn().mockReturnValue([]),
+		mockGetAcceptanceConfirmedMonitorEntriesDueForReverify: vi.fn().mockReturnValue([]),
+		mockRetryPendingServiceAcceptanceByEscrowId: vi.fn().mockResolvedValue(undefined),
+		mockReverifyPublishedServiceAcceptanceByEscrowId: vi.fn().mockResolvedValue(undefined),
 		mockGetCurrentPrice: vi.fn().mockResolvedValue(63_000),
 		mockShowSuccessToast: vi.fn(),
 		mockShowErrorToast: vi.fn(),
@@ -198,6 +202,30 @@ vi.mock('$lib/utils/escrow', async (importOriginal) => {
 vi.mock('$lib/stores/wallet.store', () => ({
 	walletStore: hoisted.walletStore
 }));
+
+vi.mock('$lib/utils/service-quote/acceptance-ledger', () => ({
+	getAcceptanceReplayEntriesDueForRetry: (
+		...args: Parameters<typeof hoisted.mockGetAcceptanceReplayEntriesDueForRetry>
+	) => hoisted.mockGetAcceptanceReplayEntriesDueForRetry(...args),
+	getAcceptanceConfirmedMonitorEntriesDueForReverify: (
+		...args: Parameters<typeof hoisted.mockGetAcceptanceConfirmedMonitorEntriesDueForReverify>
+	) => hoisted.mockGetAcceptanceConfirmedMonitorEntriesDueForReverify(...args),
+	SERVICE_ACCEPTANCE_REPLAY_RETRY_INTERVAL_MS: 30_000,
+	SERVICE_ACCEPTANCE_CONFIRMED_MONITOR_REVERIFY_INTERVAL_MS: 30_000
+}));
+
+vi.mock('$lib/utils/escrow/v1/escrowEvents', async (importOriginal) => {
+	const actual = await importOriginal<typeof import('$lib/utils/escrow/v1/escrowEvents')>();
+	return {
+		...actual,
+		retryPendingServiceAcceptanceByEscrowId: (
+			...args: Parameters<typeof hoisted.mockRetryPendingServiceAcceptanceByEscrowId>
+		) => hoisted.mockRetryPendingServiceAcceptanceByEscrowId(...args),
+		reverifyPublishedServiceAcceptanceByEscrowId: (
+			...args: Parameters<typeof hoisted.mockReverifyPublishedServiceAcceptanceByEscrowId>
+		) => hoisted.mockReverifyPublishedServiceAcceptanceByEscrowId(...args)
+	};
+});
 
 vi.mock('$lib/stores/task.store', async () => {
 	const { writable } = await import('svelte/store');
@@ -421,6 +449,10 @@ describe('DashboardMyServicesPanel active contracts shortcut', () => {
 		hoisted.mockUpdateService.mockResolvedValue(undefined);
 		hoisted.mockDeleteService.mockResolvedValue('deleted');
 		hoisted.mockQueryTaskeeThreads.mockResolvedValue([]);
+		hoisted.mockGetAcceptanceReplayEntriesDueForRetry.mockReturnValue([]);
+		hoisted.mockGetAcceptanceConfirmedMonitorEntriesDueForReverify.mockReturnValue([]);
+		hoisted.mockRetryPendingServiceAcceptanceByEscrowId.mockResolvedValue(undefined);
+		hoisted.mockReverifyPublishedServiceAcceptanceByEscrowId.mockResolvedValue(undefined);
 	});
 
 	afterEach(() => {
@@ -813,6 +845,79 @@ describe('DashboardMyServicesPanel active contracts shortcut', () => {
 		).toBe(false);
 	}, 20_000);
 
+	it('replays and reverifies service quote acceptances from the Requests workspace and refreshes the affected inbox', async () => {
+		const service = createService();
+		const serviceAddress = `30402:${service.npub}:${service.uniqueId ?? service.id}`;
+		hoisted.mockFindMyServices.mockResolvedValueOnce({
+			services: [service]
+		});
+		hoisted.serviceQuoteUiState.set({
+			providerTimelinesByService: {
+				[serviceAddress]: [createTimeline(service)]
+			},
+			loadingProviderByService: {
+				[serviceAddress]: false
+			},
+			providerLoadErrorByService: {
+				[serviceAddress]: null
+			},
+			providerLoadedByService: {
+				[serviceAddress]: true
+			},
+			providerDataFreshnessByService: {
+				[serviceAddress]: 'fresh'
+			},
+			focusSync: {
+				requestId: null,
+				serviceAddress: null,
+				expiresAt: null
+			}
+		});
+		hoisted.mockGetAcceptanceReplayEntriesDueForRetry.mockReturnValue([
+			{
+				escrowId: 'escrow-replay',
+				serviceAddress
+			}
+		]);
+		hoisted.mockGetAcceptanceConfirmedMonitorEntriesDueForReverify.mockReturnValue([
+			{
+				escrowId: 'escrow-reverify',
+				serviceAddress
+			}
+		]);
+
+		const { default: DashboardServiceRequestsPanel } = await import(
+			'$lib/components/service/DashboardServiceRequestsPanel.svelte'
+		);
+		render(DashboardServiceRequestsPanel, {
+			selectedServiceAddress: serviceAddress,
+			focusedRequestId: 'qr_valid123'
+		});
+
+		await waitFor(() =>
+			expect(hoisted.mockRetryPendingServiceAcceptanceByEscrowId).toHaveBeenCalledWith(
+				'escrow-replay'
+			)
+		);
+		await waitFor(() =>
+			expect(hoisted.mockReverifyPublishedServiceAcceptanceByEscrowId).toHaveBeenCalledWith(
+				'escrow-reverify'
+			)
+		);
+		await waitFor(() =>
+			expect(hoisted.mockLoadProviderTimelines).toHaveBeenCalledWith(
+				serviceAddress,
+				'qr_valid123',
+				{ force: true }
+			)
+		);
+		await waitFor(() =>
+			expect(hoisted.mockLoadProviderTimelines).toHaveBeenCalledWith(serviceAddress, null, {
+				force: true
+			})
+		);
+	}, 20_000);
+
 	it('does not reload provider timelines when the selected quotes route stays the same', async () => {
 		const service = createService();
 		const serviceAddress = `30402:${service.npub}:${service.uniqueId ?? service.id}`;
@@ -992,7 +1097,7 @@ describe('DashboardMyServicesPanel active contracts shortcut', () => {
 		const { default: DashboardServiceRequestsPanel } = await import(
 			'$lib/components/service/DashboardServiceRequestsPanel.svelte'
 		);
-		const { getByTestId, getByText } = render(DashboardServiceRequestsPanel, {
+		const { queryByTestId, getByText } = render(DashboardServiceRequestsPanel, {
 			selectedServiceAddress: serviceAddress,
 			focusedRequestId: 'qr_valid123'
 		});
@@ -1002,7 +1107,7 @@ describe('DashboardMyServicesPanel active contracts shortcut', () => {
 			expect(hoisted.mockLoadProviderTimelines).toHaveBeenCalledWith(serviceAddress, 'qr_valid123')
 		);
 		expect(getByText(/service lookup failed/i)).toBeTruthy();
-		expect(getByTestId('service-quotes-summary-card')).toBeTruthy();
+		expect(queryByTestId('service-quotes-summary-card')).toBeNull();
 	}, 20_000);
 
 	it('reloads a selected deleted-service timeline even when it is not returned by findMyServices', async () => {
@@ -1143,13 +1248,13 @@ describe('DashboardMyServicesPanel active contracts shortcut', () => {
 		const { default: DashboardServiceRequestsPanel } = await import(
 			'$lib/components/service/DashboardServiceRequestsPanel.svelte'
 		);
-		const { getByTestId, getByText, queryByText } = render(DashboardServiceRequestsPanel, {
+		const { queryByTestId, getByText, queryByText } = render(DashboardServiceRequestsPanel, {
 			selectedServiceAddress: null,
 			focusedRequestId: null
 		});
 
 		await waitFor(() => expect(hoisted.mockFindMyServices).toHaveBeenCalled());
-		expect(getByTestId('service-quotes-summary-card')).toBeTruthy();
+		expect(queryByTestId('service-quotes-summary-card')).toBeNull();
 		expect(getByText('provider query failed')).toBeTruthy();
 		expect(queryByText('Retry to load quote requests for this service.')).toBeNull();
 	}, 20_000);

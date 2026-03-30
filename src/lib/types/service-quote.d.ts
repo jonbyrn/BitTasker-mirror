@@ -9,6 +9,7 @@ export type ServiceQuoteMessageType =
 
 export type ServiceProposalStatus =
 	| 'accepting'
+	| 'contract_sync_pending'
 	| 'accepted'
 	| 'accept_failed'
 	| 'accept_unknown'

@@ -121,7 +121,6 @@
 			},
 			"accept_drawer": {
 				"title": "Accept proposal",
-				"subtitle": "Review the quote details before creating the service contract.",
 				"confirm": "Accept Proposal",
 				"expires": "Proposal expires",
 				"warning": "Accepting this proposal will create a service contract using the received quote details.",
@@ -140,13 +139,16 @@
 				"expired": "Expired",
 				"accepting": "Accepting",
 				"accepting_progress": "Accepting...",
+				"contract_sync_pending": "Contract syncing",
 				"accept_failed": "Accept failed",
 				"accept_unknown": "Accept unknown",
 				"proposal_received": "Proposal received",
 				"awaiting_proposal": "Awaiting proposal"
 			},
 			"filters": {
+				"all": "All",
 				"awaiting_proposal": "Awaiting proposal",
+				"proposal_received": "Proposal received",
 				"needs_attention": "Needs attention",
 				"contract_created": "Contract created",
 				"declined": "Declined",
@@ -170,7 +172,10 @@
 				"delete_request": "Unable to delete this service request right now."
 			},
 			"messages": {
-				"acceptance_submitted": "Acceptance submitted. The funded contract will appear here once escrow creation is confirmed."
+				"acceptance_submitted": "Acceptance submitted. The funded contract will appear here once escrow creation is confirmed.",
+				"contract_sync_pending": "The funded service contract is still syncing across relays. Open Contracts to monitor it.",
+				"acceptance_complete": "Proposal accepted. Opening your service contract.",
+				"acceptance_complete_background": "Proposal accepted. Your service contract is ready in Contracts."
 			}
 		},
 		"task_details_by_task": {

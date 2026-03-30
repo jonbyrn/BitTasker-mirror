@@ -59,6 +59,7 @@ export type ServiceContractCreationResult =
 			transactionHash: string;
 			amount: string;
 			clientRskAddress: string;
+			acceptanceSnapshot: ReturnType<typeof createServiceAcceptanceSnapshot>;
 	  }
 	| {
 			success: false;
@@ -66,6 +67,7 @@ export type ServiceContractCreationResult =
 			transactionHash?: string;
 			amount?: string;
 			clientRskAddress?: string;
+			acceptanceSnapshot?: ReturnType<typeof createServiceAcceptanceSnapshot>;
 			error?: string;
 			errorCode?: ServiceContractPreflightErrorCode;
 	  };
@@ -87,6 +89,9 @@ export async function createServiceContract(
 	input: ServiceContractCreationInput
 ): Promise<ServiceContractCreationResult> {
 	let transactionHash: string | null = null;
+	let amount: string | undefined;
+	let clientRskAddress: string | undefined;
+	let acceptanceSnapshot: ReturnType<typeof createServiceAcceptanceSnapshot> | undefined;
 	const schedule = normalizeServiceContractSchedule(
 		input.estimatedStartTime,
 		input.estimatedCompletionTime
@@ -114,8 +119,23 @@ export async function createServiceContract(
 			};
 		}
 
-		const amount = preflight.amount;
-		const clientRskAddress = normalizePlainRskAddress(preflight.walletAddress);
+		amount = preflight.amount;
+		clientRskAddress = normalizePlainRskAddress(preflight.walletAddress);
+		acceptanceSnapshot = createServiceAcceptanceSnapshot({
+			clientRskAddress,
+			clientFeeTier: DEFAULT_CLIENT_FEE_TIER,
+			freelancerRskAddress: input.freelancerAddress,
+			freelancerFeeTier: input.freelancerFeeTier ?? 1,
+			chainId: getConfiguredRskChainId(),
+			contractAddress: getConfiguredRskContractAddress(),
+			purchaseMode: input.purchaseMode,
+			proposalId: input.proposalId,
+			instantOrderId: input.instantOrderId,
+			btcUsdRateMicros: Math.round(btcPrice * 1_000_000),
+			weiAmount: ethers.parseEther(amount).toString(),
+			confirmationsAtVerification: 0,
+			verificationRpc: getConfiguredVerificationRpcLabel()
+		});
 		const transactionResult = await escrow.escrowOps.createEscrow(
 			input.freelancerAddress,
 			amount,
@@ -158,43 +178,38 @@ export async function createServiceContract(
 		});
 		const pendingContractWithoutEscrowId = { ...pendingContract };
 		delete pendingContractWithoutEscrowId.escrowId;
-		const acceptanceSnapshot = createServiceAcceptanceSnapshot({
-			clientRskAddress,
-			clientFeeTier: DEFAULT_CLIENT_FEE_TIER,
-			freelancerRskAddress: input.freelancerAddress,
-			freelancerFeeTier: input.freelancerFeeTier ?? 1,
-			chainId: getConfiguredRskChainId(),
-			contractAddress: getConfiguredRskContractAddress(),
-			purchaseMode: input.purchaseMode,
-			proposalId: input.proposalId,
-			instantOrderId: input.instantOrderId,
-			btcUsdRateMicros: Math.round(btcPrice * 1_000_000),
-			weiAmount: ethers.parseEther(amount).toString(),
-			confirmationsAtVerification: 0,
-			verificationRpc: getConfiguredVerificationRpcLabel()
-		});
-
-		escrow.eventOps.registerPendingContractByTxHash({
-			bidEventId: input.proposalEventId ?? input.instantOrderId ?? input.serviceId,
-			...pendingContractWithoutEscrowId,
-			transactionHash,
-			acceptanceSnapshot
-		});
+		try {
+			escrow.eventOps.registerPendingContractByTxHash({
+				bidEventId: input.proposalEventId ?? input.instantOrderId ?? input.serviceId,
+				...pendingContractWithoutEscrowId,
+				transactionHash,
+				acceptanceSnapshot
+			});
+		} catch (registrationError) {
+			console.error(
+				'Failed to register pending service contract after funding submission:',
+				registrationError
+			);
+		}
 
 		return {
 			success: true,
 			state: 'funding_submitted',
 			transactionHash,
 			amount,
-			clientRskAddress
+			clientRskAddress,
+			acceptanceSnapshot
 		};
 	} catch (error) {
-		if (transactionHash) {
-			try {
-				escrow.eventOps.cleanupPendingContractByTxHash(transactionHash);
-			} catch {
-				// Cleanup is best-effort; preserve the original failure for the caller.
-			}
+		if (transactionHash && amount && clientRskAddress && acceptanceSnapshot) {
+			return {
+				success: true,
+				state: 'funding_submitted',
+				transactionHash,
+				amount,
+				clientRskAddress,
+				acceptanceSnapshot
+			};
 		}
 
 		return {

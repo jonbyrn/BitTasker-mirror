@@ -26,6 +26,7 @@
 		type ServiceContractPreflightErrorCode
 	} from '$lib/utils/service-contract/preflight';
 	import { normalizeServiceContractSchedule } from '$lib/utils/service-contract/schedule';
+	import { appStore } from '$lib/stores/app.store';
 	import {
 		allAssets,
 		formatSats,
@@ -86,7 +87,9 @@
 	};
 
 	type ServiceRequestFilterCategory =
+		| 'all'
 		| 'awaiting_proposal'
+		| 'proposal_received'
 		| 'needs_attention'
 		| 'contract_created'
 		| 'declined'
@@ -97,7 +100,11 @@
 	let actionPending = $state<'accept' | 'decline' | null>(null);
 	let actionPendingRequestId = $state<string | null>(null);
 	let activeFilter = $state<ServiceRequestFilterCategory>('awaiting_proposal');
+	let acceptContractCreationBackgrounded = $state(false);
+	let acceptContractCreationRequestId = $state<string | null>(null);
+	let acceptContractCreationTimelineSnapshot = $state<ServiceQuoteTimelineEntry | null>(null);
 	let acceptDrawerRequestId = $state<string | null>(null);
+	let acceptDrawerTimelineSnapshot = $state<ServiceQuoteTimelineEntry | null>(null);
 	let acceptFundingCheck = $state<AcceptProposalFundingCheck | null>(null);
 	let acceptFundingCheckInFlight = $state(false);
 	let acceptFundingCheckRunId = 0;
@@ -151,9 +158,53 @@
 		acceptDrawerRequestId
 			? (timelines.find(
 					(timeline) => timeline.request.content.quoteRequestId === acceptDrawerRequestId
-				) ?? null)
+				) ??
+				(acceptDrawerTimelineSnapshot?.request.content.quoteRequestId === acceptDrawerRequestId
+					? acceptDrawerTimelineSnapshot
+					: null))
 			: null
 	);
+	const acceptContractCreationTimeline = $derived.by(() =>
+		acceptContractCreationRequestId
+			? (timelines.find(
+					(timeline) => timeline.request.content.quoteRequestId === acceptContractCreationRequestId
+				) ??
+				(acceptContractCreationTimelineSnapshot?.request.content.quoteRequestId ===
+				acceptContractCreationRequestId
+					? acceptContractCreationTimelineSnapshot
+					: null))
+			: null
+	);
+
+	$effect(() => {
+		if (!acceptDrawerRequestId) {
+			acceptDrawerTimelineSnapshot = null;
+			return;
+		}
+
+		const currentTimeline =
+			timelines.find(
+				(timeline) => timeline.request.content.quoteRequestId === acceptDrawerRequestId
+			) ?? null;
+		if (currentTimeline) {
+			acceptDrawerTimelineSnapshot = currentTimeline;
+		}
+	});
+
+	$effect(() => {
+		if (!acceptContractCreationRequestId) {
+			acceptContractCreationTimelineSnapshot = null;
+			return;
+		}
+
+		const currentTimeline =
+			timelines.find(
+				(timeline) => timeline.request.content.quoteRequestId === acceptContractCreationRequestId
+			) ?? null;
+		if (currentTimeline) {
+			acceptContractCreationTimelineSnapshot = currentTimeline;
+		}
+	});
 
 	function getTimelineFilterCategory(
 		timeline: Pick<
@@ -166,6 +217,8 @@
 		}
 
 		switch (timeline.resolvedStatus) {
+			case 'contract_sync_pending':
+				return 'contract_created';
 			case 'accept_failed':
 			case 'accept_unknown':
 				return 'needs_attention';
@@ -176,11 +229,16 @@
 			case 'expired':
 				return 'expired';
 			default:
-				return 'awaiting_proposal';
+				return timeline.latestProposal ? 'proposal_received' : 'awaiting_proposal';
 		}
 	}
 
 	const filterOptions = $derived.by(() => [
+		{
+			id: 'all' as const,
+			label: translateOrFallback('dashboard.service_requests.filters.all', 'All'),
+			icon: IconBriefcaseOutline
+		},
 		{
 			id: 'awaiting_proposal' as const,
 			label: translateOrFallback(
@@ -188,6 +246,14 @@
 				'Awaiting proposal'
 			),
 			icon: IconClockOutline
+		},
+		{
+			id: 'proposal_received' as const,
+			label: translateOrFallback(
+				'dashboard.service_requests.filters.proposal_received',
+				'Proposal received'
+			),
+			icon: IconCheck
 		},
 		{
 			id: 'needs_attention' as const,
@@ -223,7 +289,9 @@
 	]);
 
 	const filteredTimelines = $derived.by(() =>
-		timelines.filter((timeline) => getTimelineFilterCategory(timeline) === activeFilter)
+		activeFilter === 'all'
+			? timelines
+			: timelines.filter((timeline) => getTimelineFilterCategory(timeline) === activeFilter)
 	);
 
 	function getPreferredFilter(): ServiceRequestFilterCategory {
@@ -237,8 +305,10 @@
 		}
 
 		return (
-			filterOptions.find((option) =>
-				timelines.some((timeline) => getTimelineFilterCategory(timeline) === option.id)
+			filterOptions.find(
+				(option) =>
+					option.id !== 'all' &&
+					timelines.some((timeline) => getTimelineFilterCategory(timeline) === option.id)
 			)?.id ?? 'awaiting_proposal'
 		);
 	}
@@ -406,8 +476,8 @@
 			return;
 		}
 
-		hasUserSelectedFilter = false;
-		activeFilter = getPreferredFilter();
+		hasUserSelectedFilter = true;
+		activeFilter = 'all';
 		isDropdownOpen = false;
 	}
 
@@ -665,6 +735,7 @@
 
 		return (
 			timeline.resolvedStatus !== 'accepting' &&
+			timeline.resolvedStatus !== 'contract_sync_pending' &&
 			timeline.resolvedStatus !== 'accept_unknown' &&
 			timeline.resolvedStatus !== 'accepted'
 		);
@@ -778,30 +849,75 @@
 		clearFocusedRequestDismissal(timeline.request.content.quoteRequestId);
 		clearAcceptFundingCheckState();
 		requestActionError = null;
+		acceptDrawerTimelineSnapshot = timeline;
 		acceptDrawerRequestId = timeline.request.content.quoteRequestId;
 		requestDrawerRequestId = null;
 		selectTimeline(timeline.request.content.quoteRequestId);
 	}
 
-	function closeAcceptDrawer(force = false) {
+	function closeAcceptDrawer(force = false, options: { clearRequestFocus?: boolean } = {}) {
 		if (!force && actionPending === 'accept') {
 			return;
+		}
+
+		const shouldBackgroundProgress =
+			!force &&
+			acceptContractCreationRequestId === acceptDrawerRequestId &&
+			acceptContractCreationStatus === 'creating';
+		if (shouldBackgroundProgress) {
+			acceptContractCreationBackgrounded = true;
 		}
 
 		dismissFocusedRequest(acceptDrawerRequestId);
 		clearAcceptFundingCheckState();
 		requestActionError = null;
 		acceptDrawerRequestId = null;
-		if (onRequestClear) {
+		acceptDrawerTimelineSnapshot = null;
+		const clearRequestFocus = options.clearRequestFocus ?? true;
+		if (clearRequestFocus && onRequestClear) {
 			void onRequestClear();
 			return;
 		}
-		onRequestFocusChange?.(null);
+		if (clearRequestFocus) {
+			onRequestFocusChange?.(null);
+		}
 	}
 
-	function finalizeAcceptedRequest() {
+	function clearAcceptContractCreationState() {
+		acceptContractCreationBackgrounded = false;
+		acceptContractCreationRequestId = null;
+		acceptContractCreationTimelineSnapshot = null;
+	}
+
+	async function completeAcceptedRequest(escrowId: string) {
+		const backgrounded = acceptContractCreationBackgrounded || !acceptDrawerRequestId;
+		clearAcceptContractCreationState();
+		closeAcceptDrawer(true, { clearRequestFocus: backgrounded });
+		requestDrawerRequestId = null;
+		appStore.showSuccessToast(
+			translateOrFallback(
+				backgrounded
+					? 'dashboard.service_requests.messages.acceptance_complete_background'
+					: 'dashboard.service_requests.messages.acceptance_complete',
+				backgrounded
+					? 'Proposal accepted. Your service contract is ready in Contracts.'
+					: 'Proposal accepted. Opening your service contract.'
+			)
+		);
+		if (!backgrounded) {
+			await viewContract(escrowId);
+		}
+	}
+
+	function finalizeAcceptanceProgressWithoutContract(message: string, severity: 'info' | 'error') {
+		clearAcceptContractCreationState();
 		closeAcceptDrawer(true);
 		requestDrawerRequestId = null;
+		if (severity === 'info') {
+			appStore.showInfoToast(message);
+			return;
+		}
+		appStore.showErrorToast(message);
 	}
 
 	function openConfirmationModal(
@@ -874,7 +990,8 @@
 				return false;
 			}
 
-			finalizeAcceptedRequest();
+			acceptContractCreationBackgrounded = false;
+			acceptContractCreationRequestId = timeline.request.content.quoteRequestId;
 			return true;
 		} finally {
 			actionPending = null;
@@ -1052,6 +1169,24 @@
 			!isActionUnavailableForTimeline(acceptDrawerTimeline) &&
 			acceptWalletVerificationStatus === 'ready'
 	);
+	const acceptContractCreationStatus = $derived.by(() => {
+		const timeline = acceptContractCreationTimeline;
+		if (!acceptContractCreationRequestId || !timeline) {
+			return 'idle' as const;
+		}
+
+		if (timeline.linkedEscrowId) {
+			return 'success' as const;
+		}
+
+		return 'creating' as const;
+	});
+	const showAcceptContractCreationProgress = $derived.by(
+		() =>
+			Boolean(acceptDrawerRequestId) &&
+			acceptContractCreationRequestId === acceptDrawerRequestId &&
+			acceptContractCreationStatus !== 'idle'
+	);
 
 	const confirmationModalConfig = $derived.by(() => {
 		if (!confirmationModalState) {
@@ -1125,7 +1260,55 @@
 			return;
 		}
 
+		if (showAcceptContractCreationProgress) {
+			return;
+		}
+
 		void refreshAcceptFundingCheck(timeline);
+	});
+
+	$effect(() => {
+		const timeline = acceptContractCreationTimeline;
+		if (!acceptContractCreationRequestId || !timeline) {
+			return;
+		}
+
+		if (timeline.linkedEscrowId) {
+			void completeAcceptedRequest(timeline.linkedEscrowId);
+			return;
+		}
+
+		if (timeline.resolvedStatus === 'contract_sync_pending') {
+			finalizeAcceptanceProgressWithoutContract(
+				timeline.resolvedTerminalEvent?.content.message ??
+					translateOrFallback(
+						'dashboard.service_requests.messages.contract_sync_pending',
+						'The funded service contract is still syncing across relays. Open Contracts to monitor it.'
+					),
+				'info'
+			);
+			return;
+		}
+
+		if (timeline.resolvedStatus === 'accept_unknown') {
+			finalizeAcceptanceProgressWithoutContract(
+				timeline.resolvedTerminalEvent?.content.message ??
+					translateOrFallback(
+						'dashboard.service_requests.messages.acceptance_submitted',
+						'Acceptance submitted. The funded contract will appear here once escrow creation is confirmed.'
+					),
+				'info'
+			);
+			return;
+		}
+
+		if (timeline.resolvedStatus === 'accept_failed') {
+			finalizeAcceptanceProgressWithoutContract(
+				timeline.resolvedTerminalEvent?.content.message ??
+					getRequestActionErrorMessage('accept', 'Unable to accept this proposal right now.'),
+				'error'
+			);
+		}
 	});
 </script>
 
@@ -1475,6 +1658,8 @@
 		service={serviceByAddress[acceptDrawerTimeline.request.content.serviceAddress] ?? null}
 		isSubmitting={actionPending === 'accept'}
 		disabled={!acceptDrawerCanConfirm}
+		showContractCreationProgress={showAcceptContractCreationProgress}
+		contractCreationStatus={acceptContractCreationStatus === 'success' ? 'success' : 'creating'}
 		errorMessage={acceptDrawerErrorMessage}
 		errorHint={acceptDrawerErrorHint}
 		walletLoading={acceptFundingCheckInFlight}

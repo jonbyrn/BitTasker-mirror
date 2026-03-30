@@ -300,8 +300,6 @@
 			totalPendingRequestCount: visibleTimelines.filter(
 				(timeline) => timeline.resolvedStatus === 'pending' && !timeline.latestProposal
 			).length,
-			selectedServiceRequestCount:
-				harnessState.selectedServiceAddress !== null ? visibleTimelines.length : null,
 			onServiceFilterChange: (serviceAddress: string | null) => {
 				requestsHarnessState = {
 					...harnessState,

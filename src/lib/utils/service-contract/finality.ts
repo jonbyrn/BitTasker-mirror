@@ -55,7 +55,8 @@ export async function waitForServiceAcceptanceFinality(
 			if (nextReceipt && confirmations >= SERVICE_ACCEPTANCE_REQUIRED_CONFIRMATIONS) {
 				return {
 					...initialReceipt,
-					...nextReceipt
+					...nextReceipt,
+					logs: nextReceipt.logs ?? initialReceipt.logs ?? []
 				} as TransactionReceipt;
 			}
 		} catch (error) {
@@ -67,8 +68,7 @@ export async function waitForServiceAcceptanceFinality(
 		);
 	}
 
-	const reasonCode =
-		classifyServiceAcceptanceAmbiguityError(lastError) ?? 'pending_timeout';
+	const reasonCode = classifyServiceAcceptanceAmbiguityError(lastError) ?? 'pending_timeout';
 	throw new ServiceAcceptanceFinalityError(
 		reasonCode,
 		`Service escrow confirmation did not reach the required ${SERVICE_ACCEPTANCE_REQUIRED_CONFIRMATIONS} confirmations.`

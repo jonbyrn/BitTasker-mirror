@@ -90,11 +90,11 @@ function createProposalEvent() {
 }
 
 function createStatusEvent(
-	status: 'accepting' | 'accepted' | 'accept_unknown',
+	status: 'accepting' | 'contract_sync_pending' | 'accepted' | 'accept_unknown',
 	overrides: Record<string, unknown> = {}
 ) {
 	const acceptedDefaults =
-		status === 'accepted'
+		status === 'accepted' || status === 'contract_sync_pending'
 			? {
 					escrowId: 'escrow-123',
 					transactionHash: '0x' + 'c'.repeat(64),
@@ -402,7 +402,7 @@ describe('service-quote protocol', () => {
 		);
 		expect(downgraded.state).toBe('accept_unknown');
 		expect(downgraded.winningStatus).toBeUndefined();
-		expect(downgraded.linkedEscrowId).toBeUndefined();
+		expect(downgraded.linkedEscrowId).toBe('escrow-123');
 
 		const reconfirmed = resolveProposalState(
 			proposal,
@@ -412,5 +412,27 @@ describe('service-quote protocol', () => {
 		expect(reconfirmed.state).toBe('accepted');
 		expect(reconfirmed.winningStatus?.id).toBe(reconfirmedStatus.id);
 		expect(reconfirmed.linkedEscrowId).toBe('escrow-123');
+	});
+
+	it('preserves escrow linkage while an accepted proposal is still syncing to the contract store', () => {
+		const proposal = createProposalEvent();
+		const acceptedStatus = createStatusEvent('accepted', {
+			timestamp: 1_700_000_180,
+			escrowId: 'escrow-123',
+			transactionHash: '0x' + 'd'.repeat(64)
+		});
+		const syncingStatus = createStatusEvent('contract_sync_pending', {
+			timestamp: 1_700_000_190,
+			escrowId: 'escrow-123',
+			transactionHash: '0x' + 'd'.repeat(64),
+			message: 'Contract syncing'
+		});
+
+		const resolved = resolveProposalState(proposal, [acceptedStatus, syncingStatus], 1_700_000_250);
+
+		expect(resolved.state).toBe('contract_sync_pending');
+		expect(resolved.winningStatus).toBeUndefined();
+		expect(resolved.linkedEscrowId).toBe('escrow-123');
+		expect(resolved.linkedTransactionHash).toBe('0x' + 'd'.repeat(64));
 	});
 });

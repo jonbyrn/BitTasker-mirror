@@ -121,7 +121,6 @@
 			},
 			"accept_drawer": {
 				"title": "Aceptar propuesta",
-				"subtitle": "Revisa los detalles de la cotización antes de crear el contrato de servicio.",
 				"confirm": "Aceptar propuesta",
 				"expires": "La propuesta vence",
 				"warning": "Aceptar esta propuesta creará un contrato de servicio con los detalles de la cotización recibida.",
@@ -140,13 +139,16 @@
 				"expired": "Expirada",
 				"accepting": "Aceptando",
 				"accepting_progress": "Aceptando...",
+				"contract_sync_pending": "Sincronizando contrato",
 				"accept_failed": "Error al aceptar",
 				"accept_unknown": "Aceptación desconocida",
 				"proposal_received": "Propuesta recibida",
 				"awaiting_proposal": "Esperando propuesta"
 			},
 			"filters": {
+				"all": "Todas",
 				"awaiting_proposal": "Esperando propuesta",
+				"proposal_received": "Propuesta recibida",
 				"needs_attention": "Necesita atención",
 				"contract_created": "Contrato creado",
 				"declined": "Rechazada",
@@ -170,7 +172,10 @@
 				"delete_request": "No se puede eliminar esta solicitud de servicio en este momento."
 			},
 			"messages": {
-				"acceptance_submitted": "Aceptación enviada. El contrato financiado aparecerá aquí una vez que se confirme la creación del escrow."
+				"acceptance_submitted": "Aceptación enviada. El contrato financiado aparecerá aquí una vez que se confirme la creación del escrow.",
+				"contract_sync_pending": "El contrato de servicio financiado todavía se está sincronizando entre relays. Abre Contratos para supervisarlo.",
+				"acceptance_complete": "Propuesta aceptada. Abriendo tu contrato de servicio.",
+				"acceptance_complete_background": "Propuesta aceptada. Tu contrato de servicio ya está listo en Contratos."
 			}
 		},
 		"task_details_by_task": {

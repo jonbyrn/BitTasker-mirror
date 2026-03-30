@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { browser, dev } from '$app/environment';
 	import { onMount } from 'svelte';
+	import { SvelteSet } from 'svelte/reactivity';
 	import { t, locale } from 'svelte-i18n';
 	import type { Service } from '$lib/types/service.d';
 	import type { ServiceQuoteTimelineEntry } from '$lib/types/service-quote';
@@ -13,6 +14,16 @@
 		serviceQuoteUiStore
 	} from '$lib/stores/service-quote-ui.store';
 	import { walletStore } from '$lib/stores/wallet.store';
+	import {
+		getAcceptanceConfirmedMonitorEntriesDueForReverify,
+		getAcceptanceReplayEntriesDueForRetry,
+		SERVICE_ACCEPTANCE_CONFIRMED_MONITOR_REVERIFY_INTERVAL_MS,
+		SERVICE_ACCEPTANCE_REPLAY_RETRY_INTERVAL_MS
+	} from '$lib/utils/service-quote/acceptance-ledger';
+	import {
+		retryPendingServiceAcceptanceByEscrowId,
+		reverifyPublishedServiceAcceptanceByEscrowId
+	} from '$lib/utils/escrow/v1/escrowEvents';
 	import { resolveProviderProposalAuthoring } from '$lib/utils/service-quote/provider-authoring';
 	import ErrorAlertWithModal from '$lib/components/ErrorAlertWithModal.svelte';
 	import ServiceQuotesInbox from '$lib/components/service/quotes/ServiceQuotesInbox.svelte';
@@ -40,6 +51,8 @@
 	let lastProviderLoadKey = $state<string | null>(null);
 	let lastQuotesRouteResolutionKey = $state<string | null>(null);
 	let providerLoadGeneration = 0;
+	const inFlightServiceAcceptanceReplays = new SvelteSet<string>();
+	const inFlightServiceAcceptanceReverifications = new SvelteSet<string>();
 	let quoteWorkspaceState = $state<{
 		providerTimelinesByService: Record<string, ServiceQuoteTimelineEntry[]>;
 		loadingProviderByService: Record<string, boolean>;
@@ -106,11 +119,110 @@
 		}
 	}
 
+	async function refreshProviderTimelinesForServices(serviceAddresses: string[]) {
+		const targets = [...new Set(serviceAddresses.filter((value) => value.trim().length > 0))];
+		if (targets.length === 0) {
+			return;
+		}
+
+		const requestId =
+			targets.length === 1 && targets[0] === selectedServiceAddress ? focusedRequestId : null;
+		await loadProviderTimelinesInBatches(targets, requestId, {
+			force: true
+		});
+	}
+
 	onMount(() => {
-		loadServices();
+		void loadServices();
 		void contractStore.loadContracts().catch((contractError) => {
 			console.error('Failed to load contracts for requests continuity:', contractError);
 		});
+
+		if (!browser) {
+			return;
+		}
+
+		let recoveryIntervalId: ReturnType<typeof window.setInterval> | null = null;
+
+		const runServiceAcceptanceReplayCycle = async () => {
+			const dueReplayEntries = getAcceptanceReplayEntriesDueForRetry(window.localStorage);
+			const replayEntries = dueReplayEntries.filter(
+				(entry) => !inFlightServiceAcceptanceReplays.has(entry.escrowId)
+			);
+			if (replayEntries.length === 0) {
+				return;
+			}
+
+			for (const entry of replayEntries) {
+				inFlightServiceAcceptanceReplays.add(entry.escrowId);
+			}
+
+			try {
+				await Promise.allSettled(
+					replayEntries.map((entry) => retryPendingServiceAcceptanceByEscrowId(entry.escrowId))
+				);
+				await refreshProviderTimelinesForServices(
+					replayEntries.map((entry) => entry.serviceAddress)
+				);
+			} finally {
+				for (const entry of replayEntries) {
+					inFlightServiceAcceptanceReplays.delete(entry.escrowId);
+				}
+			}
+		};
+
+		const runServiceAcceptanceReverifyCycle = async () => {
+			const dueMonitorEntries = getAcceptanceConfirmedMonitorEntriesDueForReverify(
+				window.localStorage,
+				Date.now(),
+				{
+					reverifyIntervalMs: SERVICE_ACCEPTANCE_CONFIRMED_MONITOR_REVERIFY_INTERVAL_MS
+				}
+			);
+			const monitorEntries = dueMonitorEntries.filter(
+				(entry) => !inFlightServiceAcceptanceReverifications.has(entry.escrowId)
+			);
+			if (monitorEntries.length === 0) {
+				return;
+			}
+
+			for (const entry of monitorEntries) {
+				inFlightServiceAcceptanceReverifications.add(entry.escrowId);
+			}
+
+			try {
+				await Promise.allSettled(
+					monitorEntries.map((entry) =>
+						reverifyPublishedServiceAcceptanceByEscrowId(entry.escrowId)
+					)
+				);
+				await refreshProviderTimelinesForServices(
+					monitorEntries.map((entry) => entry.serviceAddress)
+				);
+			} finally {
+				for (const entry of monitorEntries) {
+					inFlightServiceAcceptanceReverifications.delete(entry.escrowId);
+				}
+			}
+		};
+
+		void Promise.all([runServiceAcceptanceReplayCycle(), runServiceAcceptanceReverifyCycle()]);
+		recoveryIntervalId = window.setInterval(
+			() => {
+				void runServiceAcceptanceReplayCycle();
+				void runServiceAcceptanceReverifyCycle();
+			},
+			Math.min(
+				SERVICE_ACCEPTANCE_REPLAY_RETRY_INTERVAL_MS,
+				SERVICE_ACCEPTANCE_CONFIRMED_MONITOR_REVERIFY_INTERVAL_MS
+			)
+		);
+
+		return () => {
+			if (recoveryIntervalId !== null) {
+				window.clearInterval(recoveryIntervalId);
+			}
+		};
 	});
 
 	$effect(() => {
@@ -164,17 +276,6 @@
 
 		return allProviderTimelines;
 	});
-	const totalPendingRequestCount = $derived.by(
-		() =>
-			allProviderTimelines.filter(
-				(timeline) => timeline.resolvedStatus === 'pending' && !timeline.latestProposal
-			).length
-	);
-	const selectedServiceRequestCount = $derived.by(() =>
-		selectedServiceAddress
-			? (quoteWorkspaceState.providerTimelinesByService[selectedServiceAddress]?.length ?? 0)
-			: null
-	);
 	const providerQuotesSyncing = $derived.by(() => {
 		if (selectedServiceAddress) {
 			return isProviderTimelineSyncing(
@@ -387,8 +488,6 @@
 		serviceUnavailable={selectedServiceAddress !== null && selectedService === null}
 		showServiceTitles={selectedServiceAddress === null}
 		{serviceTitleByAddress}
-		{totalPendingRequestCount}
-		{selectedServiceRequestCount}
 		dataFreshness={providerDataFreshness}
 		timelines={providerTimelines}
 		{focusedRequestId}

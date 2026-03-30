@@ -56,7 +56,7 @@ export interface ServiceAcceptanceConfirmedMonitorEntry {
 	serviceAddress: string;
 	counterpartyPubkey: string;
 	transactionHash: string;
-	publishedStatus: 'accepted' | 'accept_unknown';
+	publishedStatus: 'accepted' | 'accept_unknown' | 'contract_sync_pending';
 	createdAtMs: number;
 	lastUpdatedAtMs: number;
 	lastVerifiedAtMs: number;
@@ -178,9 +178,11 @@ function sanitizeConfirmedMonitorEntry(
 	const publishedStatus =
 		candidate.publishedStatus === 'accept_unknown'
 			? 'accept_unknown'
-			: candidate.publishedStatus === 'accepted'
-				? 'accepted'
-				: null;
+			: candidate.publishedStatus === 'contract_sync_pending'
+				? 'contract_sync_pending'
+				: candidate.publishedStatus === 'accepted'
+					? 'accepted'
+					: null;
 	const createdAtMs = normalizeReplayTimestamp(candidate.createdAtMs);
 	const lastUpdatedAtMs = normalizeReplayTimestamp(candidate.lastUpdatedAtMs);
 	const lastVerifiedAtMs = normalizeReplayTimestamp(candidate.lastVerifiedAtMs);
