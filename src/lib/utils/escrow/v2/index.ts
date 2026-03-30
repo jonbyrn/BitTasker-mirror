@@ -8,7 +8,9 @@
 import { FEE_TIERS } from '@bittasker/wallet-core';
 
 export {
-	deriveV2CreationParams,
+	ContractCreationParamsError,
+	deriveContractCreationParams,
+	deriveV2CreationDisplay,
 	createEscrowFromBidOrchestrator,
 	estimateGasForCreatePaymentContract,
 	type CreateEscrowOrchestratorOptions
@@ -31,7 +33,6 @@ export { GAS_REIMBURSEMENT_PER_OP, CANCELLATION_FEE_MVP, UPFRONT_DEPOSIT_MVP } f
 export type {
 	CreatePaymentContractParams,
 	V2CreationDisplay,
-	V2DerivationResult,
 	V2DryRunResult,
 	V2GasEstimateResult,
 	V2OrchestratorResult,

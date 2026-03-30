@@ -168,5 +168,30 @@ describe('Currency Formatter', () => {
 			expect(formatConvertedAmount(1_000_000, 'sats')).toBe('1,000,000 Sats');
 			expect(formatConvertedAmount(0.1, 'rbtc')).toBe('0.1 rBTC');
 		});
+
+		it('formats USD and RBTC with fixed fractionDigits', () => {
+			expect(formatConvertedAmount(10.53, 'USD', { fractionDigits: 0 })).toBe('$11 USD');
+			expect(formatConvertedAmount(10.5, 'USD', { fractionDigits: 4 })).toBe('$10.5000 USD');
+			expect(formatConvertedAmount(0.00123, 'RBTC', { fractionDigits: 6 })).toBe('0.001230 rBTC');
+		});
+
+		it('formats USD and RBTC with minimumFractionDigits / maximumFractionDigits', () => {
+			expect(
+				formatConvertedAmount(10, 'USD', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
+			).toBe('$10 USD');
+			expect(
+				formatConvertedAmount(0.00123, 'RBTC', {
+					minimumFractionDigits: 6,
+					maximumFractionDigits: 6
+				})
+			).toBe('0.001230 rBTC');
+			expect(formatConvertedAmount(0.001234567, 'RBTC', { maximumFractionDigits: 4 })).toBe(
+				'0.0012 rBTC'
+			);
+		});
+
+		it('ignores fraction options for SATS output', () => {
+			expect(formatConvertedAmount(1234, 'SATS', { fractionDigits: 4 })).toBe('1,234 Sats');
+		});
 	});
 });

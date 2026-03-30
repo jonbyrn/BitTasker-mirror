@@ -1,21 +1,14 @@
 <script lang="ts">
-	import { get } from 'svelte/store';
 	import { t } from 'svelte-i18n';
 	import {
-		deriveV2CreationParams,
-		createEscrowFromBidOrchestrator,
-		estimateGasForCreatePaymentContract,
-		getFeePercentageDisplay,
-		type V2CreationDisplay
-	} from '$lib/utils/escrow/v2';
+		deriveContractCreationParams,
+		estimateGasCostForCreatePaymentContract
+	} from '$lib/utils/contract/v2/creation';
 	import BidAcceptanceSuccessScreen from './BidAcceptanceSuccessScreen.svelte';
-	import { createDebug } from '$lib/utils/debug';
-
-	const d = createDebug('bidding:BidAcceptanceForm');
 	import type { ContractTransactionResult } from '$lib/types/wallet';
 	import { formatStandardDateTime, formatDate } from '$lib/utils/helpers/dateFormatter';
 	import { goto } from '$app/navigation';
-	import { walletStore, walletManager, getProvider } from '$lib/stores/wallet.store';
+	import { walletStore, walletManager } from '$lib/stores/wallet.store';
 	import { loadNamespace, type SupportedLanguage } from '$lib/i18n/i18n';
 	import { locale } from 'svelte-i18n';
 	import { browser } from '$app/environment';
@@ -24,7 +17,6 @@
 	import { fly } from 'svelte/transition';
 	import { linear } from 'svelte/easing';
 	import { onMount } from 'svelte';
-	import { bidStore } from '$lib/stores/bid.store';
 	import IconContentCopy from '~icons/mdi/content-copy';
 	import IconMessage from '~icons/mdi/message';
 	import IconCalendarClock from '~icons/mdi/calendar-clock';
@@ -34,24 +26,30 @@
 	import SecurePaymentContractModal from '$lib/components/bidding/SecurePaymentContractModal.svelte';
 	import UserInfoDisplay from '$lib/components/user/UserInfoDisplay.svelte';
 	import { triggerHaptic, ImpactStyle } from '$lib/utils/helpers/haptics';
-	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
+	import { formatConvertedAmount } from '$lib/utils/helpers/currencyFormatter';
 	import type { NDKBid } from '$lib/nostr/events/bid';
 	import type { NDKTask } from '$lib/nostr/events/task';
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
+	import { createDebug } from '$lib/utils/debug';
+	import type { ContractCreationDisplay } from '$lib/utils/escrow/v2/types';
+
+	const d = createDebug('bidding:BidAcceptanceForm');
 
 	let { bid, task, onCancel }: { bid: NDKBid; task: NDKTask; onCancel: () => void } = $props();
 
 	const bidContent = $derived(bid.bidContent);
 	const taskContent = $derived(task.taskContent);
 
+	let estimatedGasCost = $state<string>('');
+
 	// Form state
 	let isSubmitting = $state(false);
 	let validationErrors = $state<string[]>([]);
-	let balanceErrors = $state<string[]>([]); // Unused in v2; creation validates on submit
+	let balanceErrors = $state<string[]>(['fake error']); // Unused in v2; creation validates on submit
 	let currentScreen = $state<'form' | 'success'>('form');
 	/** Orchestrator result: tx hash; paymentId after chain confirms */
 	let successDetails = $state<{
-		display: V2CreationDisplay;
+		display: ContractCreationDisplay;
 		dryRun?: {
 			estimatedGas?: bigint;
 			estimatedCostFormatted: string;
@@ -93,110 +91,99 @@
 		loadNamespace($locale as SupportedLanguage, 'dashboard/dashboard').catch(console.error);
 	}
 
-	// Calculate escrow details from bid (v2 derivation — pure, no wallet)
-	let v2Derivation = $derived.by(() => {
-		try {
-			return deriveV2CreationParams(bidContent, taskContent, btcPrice.price);
-		} catch {
-			return null;
-		}
+	// v2 display (contract params are derived separately where needed)
+	let contractDetails = $derived.by(() => {
+		const { display } = deriveContractCreationParams(bidContent, btcPrice.price);
+		return display;
 	});
-	let bidEscrowDetails = $derived(v2Derivation?.display ?? null);
 
-	// Estimated network fee (fetched when form opens and wallet is connected)
-	let estimatedGasPreview = $state<{
-		estimatedCostFormatted: string; // RBTC
-	} | null>(null);
+	// $effect(() => {
+	// 	let params: ReturnType<typeof deriveContractCreationParams> | undefined;
+	// 	try {
+	// 		params = deriveContractCreationParams(bidContent, btcPrice.price);
+	// 	} catch {
+	// 		params = undefined;
+	// 	}
+	// 	const connected = $walletStore.rsk.connected;
+	// 	if (!params || !connected || currentScreen === 'success') return;
 
-	$effect(() => {
-		const params = v2Derivation?.params;
-		const connected = $walletStore.rsk.connected;
-		if (!params || !connected || currentScreen === 'success') return;
-
-		let cancelled = false;
-		estimateGasForCreatePaymentContract(params).then((result) => {
-			if (cancelled) return;
-			if (result.success) {
-				estimatedGasPreview = { estimatedCostFormatted: result.estimatedCostFormatted };
-			} else {
-				estimatedGasPreview = null;
-			}
-		});
-		return () => {
-			cancelled = true;
-		};
-	});
+	// 	let cancelled = false;
+	// 	estimateGasForCreatePaymentContract(params).then((result) => {
+	// 		if (cancelled) return;
+	// 		if (result.success) {
+	// 			estimatedGasPreview = { estimatedCostFormatted: result.estimatedCostFormatted };
+	// 		} else {
+	// 			estimatedGasPreview = null;
+	// 		}
+	// 	});
+	// 	return () => {
+	// 		cancelled = true;
+	// 	};
+	// });
 
 	// Adjusted times — v2 derivation already adjusts past start; expose for UI
 	let adjustedTimes = $derived.by(() => {
-		if (!bidEscrowDetails) return null;
+		if (!contractDetails) return null;
 		return {
-			startTime: bidEscrowDetails.estimatedStartTime,
-			completionTime: bidEscrowDetails.estimatedCompletionTime,
-			wasAdjusted: bidEscrowDetails.wasTimeAdjusted
+			startTime: contractDetails.startTime,
+			completionTime: contractDetails.completionTime,
+			wasAdjusted: contractDetails.wasTimeAdjusted
 		};
 	});
 
-	// Format RBTC → USD for display
-	const formatRbtcToUsd = (rbtc: string) => {
-		const num = parseFloat(rbtc);
-		if (isNaN(num) || !btcPrice.price) return '$0.00';
-		return new Intl.NumberFormat('en-US', {
-			style: 'currency',
-			currency: 'USD',
-			minimumFractionDigits: 2,
-			maximumFractionDigits: 2
-		}).format(num * btcPrice.price);
-	};
-
-	// Derived formatted amounts (memoized, reactive)
 	// Contract amount = base (escrow for the task; taskee fee deducted from it inside contract)
-	const contractAmountUsdFormatted = $derived(
-		bidEscrowDetails ? formatRbtcToUsd(bidEscrowDetails.baseAmount) : '$0.00'
+	const baseAmountUsdFormatted = $derived(
+		contractDetails
+			? formatConvertedAmount(contractDetails.baseAmount, 'RBTC', {
+					toCurrency: 'USD',
+					btcPrice: btcPrice.price
+				})
+			: '$0.00'
 	);
 	// BitTasker fee = tasker fee (platform fee)
 	const taskerFeeUsdFormatted = $derived(
-		bidEscrowDetails ? formatRbtcToUsd(bidEscrowDetails.taskerFee) : '$0.00'
+		contractDetails
+			? formatConvertedAmount(contractDetails.taskerFee, 'RBTC', {
+					toCurrency: 'USD',
+					btcPrice: btcPrice.price
+				})
+			: '$0.00'
 	);
-	// Estimated network fee = creation tx gas + gas reimbursement (for gasless ops)
-	const estimatedNetworkFeeUsd = $derived.by(() => {
-		if (!bidEscrowDetails || !btcPrice.price) return 0;
-		const gasReimbursementRbtc = parseFloat(bidEscrowDetails.gasReimbursementAmount) || 0;
-		let creationGasRbtc = 0;
-		if (successDetails?.dryRun?.estimatedCostFormatted) {
-			creationGasRbtc = parseFloat(successDetails.dryRun.estimatedCostFormatted) || 0;
-		} else if (estimatedGasPreview?.estimatedCostFormatted) {
-			creationGasRbtc = parseFloat(estimatedGasPreview.estimatedCostFormatted) || 0;
-		} else {
-			creationGasRbtc = 0.5 / btcPrice.price; // ~$0.50 placeholder
-		}
-		return (gasReimbursementRbtc + creationGasRbtc) * btcPrice.price;
+
+	const totalEstimatedGasCostRBTC: number = $derived.by(() => {
+		// this should add contractDetails.gasReimbursementAmount and calulated estimatedGasCost
+		const gasReimbursementRbtc = parseFloat(contractDetails?.gasReimbursementAmount ?? '0') || 0;
+		const creationGasRbtc = parseFloat(estimatedGasCost ?? '0') || 0;
+		return gasReimbursementRbtc + creationGasRbtc;
 	});
-	const estimatedNetworkFeeFormatted = $derived(`$${estimatedNetworkFeeUsd.toFixed(2)}`);
-	// Total payment = contract (base) + BitTasker fee + estimated network fee (creation gas + gas reimbursement)
-	const totalPaymentUsd = $derived.by(() => {
-		if (!bidEscrowDetails || !btcPrice.price) return 0;
-		const baseUsd = parseFloat(bidEscrowDetails.baseAmount) * btcPrice.price;
-		const taskerFeeUsd = parseFloat(bidEscrowDetails.taskerFee) * btcPrice.price;
-		return baseUsd + taskerFeeUsd + estimatedNetworkFeeUsd;
+
+	const displayEstimatedGasCostUSD: string = $derived.by(() => {
+		return formatConvertedAmount(totalEstimatedGasCostRBTC, 'RBTC', {
+			toCurrency: 'USD',
+			btcPrice: btcPrice.price
+		});
 	});
-	const totalPaymentSatsFormatted = $derived.by(() => {
-		if (!bidEscrowDetails || !btcPrice.price) return '0';
-		const totalRbtc = totalPaymentUsd / btcPrice.price;
-		const sats = Math.round(totalRbtc * 100_000_000);
-		return new Intl.NumberFormat('en-US').format(sats);
+
+	const totalPaymentRBTC = $derived.by(() => {
+		// this should add contractDetails.totalAmount and estimatedGasCost
+		const contractTotal = parseFloat(contractDetails?.totalAmount ?? '0') || 0;
+		const creationGasRbtc = parseFloat(estimatedGasCost ?? '0') || 0;
+		return contractTotal + creationGasRbtc;
 	});
+
+	const totalPaymentUsdFormatted = $derived(
+		formatConvertedAmount(totalPaymentRBTC, 'RBTC', { toCurrency: 'USD', btcPrice: btcPrice.price })
+	);
+	const totalPaymentSatsFormatted = $derived(
+		formatConvertedAmount(totalPaymentRBTC, 'RBTC', {
+			toCurrency: 'SATS',
+			btcPrice: btcPrice.price
+		})
+	);
 	const btcPriceFormatted = $derived(
-		new Intl.NumberFormat('en-US', {
-			style: 'currency',
-			currency: 'USD',
-			minimumFractionDigits: 0,
-			maximumFractionDigits: 0
-		}).format(btcPrice.price)
+		formatConvertedAmount(btcPrice.price, 'USD', { fractionDigits: 0, suffix: '' })
 	);
-	const feePercentageLabel = $derived(
-		bidEscrowDetails ? getFeePercentageDisplay(bidEscrowDetails.taskerFeeTier) : '0%'
-	);
+	const feePercentageLabel = $derived('2.5%');
 
 	// Open message modal for the taskee
 	function openMessageModal() {
@@ -221,154 +208,160 @@
 	onMount(async () => {
 		await initializeWallet();
 
+		estimatedGasCost = await estimateGasCostForCreatePaymentContract(bidContent, btcPrice.price);
+
 		// Check if we're in success screen and verify transaction status (Phase 2+)
 		// This handles component state persistence when user navigates away and returns
-		if (currentScreen === 'success' && successDetails?.transactionResult?.hash) {
-			try {
-				const provider = getProvider('rsk');
-				if (provider) {
-					const receipt = await provider.getTransactionReceipt(
-						successDetails.transactionResult.hash
-					);
-					if (receipt) {
-						// Update status based on receipt
-						if (receipt.status === 0) {
-							// Transaction failed
-							currentScreen = 'form';
-							validationErrors = ['Transaction failed. Please try again.'];
-							successDetails = null;
-							// Clean up processing bid
-							if (bid.id) {
-								bidStore.removeProcessingBid(bid.id);
-							}
-						} else if (receipt.status === 1) {
-							// Transaction confirmed - ensure we have escrow ID
-							if (
-								successDetails &&
-								successDetails.transactionResult &&
-								!successDetails.transactionResult.escrowId &&
-								successDetails.transactionResult.status !== 'confirmed'
-							) {
-								successDetails.transactionResult.status = 'confirmed';
-							}
-						}
-					}
-				}
-			} catch (error) {
-				// If we can't verify, assume it's still pending
-				console.warn('Could not verify transaction status on mount:', error);
-			}
-		}
+		// if (currentScreen === 'success' && successDetails?.transactionResult?.hash) {
+		// 	try {
+		// 		const provider = getProvider('rsk');
+		// 		if (provider) {
+		// 			const receipt = await provider.getTransactionReceipt(
+		// 				successDetails.transactionResult.hash
+		// 			);
+		// 			if (receipt) {
+		// 				// Update status based on receipt
+		// 				if (receipt.status === 0) {
+		// 					// Transaction failed
+		// 					currentScreen = 'form';
+		// 					validationErrors = ['Transaction failed. Please try again.'];
+		// 					successDetails = null;
+		// 					// Clean up processing bid
+		// 					if (bid.id) {
+		// 						bidStore.removeProcessingBid(bid.id);
+		// 					}
+		// 				} else if (receipt.status === 1) {
+		// 					// Transaction confirmed - ensure we have escrow ID
+		// 					if (
+		// 						successDetails &&
+		// 						successDetails.transactionResult &&
+		// 						!successDetails.transactionResult.escrowId &&
+		// 						successDetails.transactionResult.status !== 'confirmed'
+		// 					) {
+		// 						successDetails.transactionResult.status = 'confirmed';
+		// 					}
+		// 				}
+		// 			}
+		// 		}
+		// 	} catch (error) {
+		// 		// If we can't verify, assume it's still pending
+		// 		console.warn('Could not verify transaction status on mount:', error);
+		// 	}
+		// }
 	});
 
-	// Handle form submission — orchestrator: validate → gas → staticCall → broadcast → confirm → Nostr side effects
+	// // Handle form submission — orchestrator: validate → gas → staticCall → broadcast → confirm → Nostr side effects
+	// async function handleSubmit() {
+	// 	d.log('handleSubmit: start', { bidId: bid?.id, taskId: task?.tagValue?.('d') ?? task?.id });
+
+	// 	if (!bid || !task || validationErrors.length !== 0) {
+	// 		d.warn('handleSubmit: validation guard failed', {
+	// 			hasBid: !!bid,
+	// 			hasTask: !!task,
+	// 			validationErrors
+	// 		});
+	// 		return appStore.showErrorToast('Validation errors');
+	// 	}
+	// 	if (!contractDetails) {
+	// 		d.warn('handleSubmit: no contractDetails');
+	// 		validationErrors = ['Could not calculate escrow details.'];
+	// 		return;
+	// 	}
+
+	// 	try {
+	// 		isSubmitting = true;
+	// 		validationErrors = [];
+	// 		d.log('handleSubmit: set isSubmitting=true, cleared validationErrors');
+
+	// 		d.log('handleSubmit: calling createEscrowFromBidOrchestrator', {
+	// 			btcPrice: btcPrice.price
+	// 		});
+
+	// 		contractComplete = false;
+	// 		txConfirmed = false;
+	// 		confirmationErrored = false;
+
+	// 		const result = await createEscrowFromBidOrchestrator(bid, task, btcPrice.price, {
+	// 			additionalNotes: additionalNotes.trim() || undefined
+	// 		});
+
+	// 		d.log('handleSubmit: orchestrator returned', {
+	// 			success: result.success,
+	// 			...(result.success && {
+	// 				transactionHash: result.transactionHash
+	// 			}),
+	// 			...(result.success === false && { error: result.error })
+	// 		});
+
+	// 		if (result.success) {
+	// 			successDetails = {
+	// 				display: contractDetails,
+	// 				dryRun: {
+	// 					estimatedCostFormatted: result.estimatedCostFormatted ?? '0'
+	// 				},
+	// 				transactionHash: result.transactionHash
+	// 			};
+	// 			currentScreen = 'success';
+
+	// 			result.onConfirmed
+	// 				.then(({ paymentId }) => {
+	// 					txConfirmed = true;
+	// 					if (successDetails) {
+	// 						successDetails = { ...successDetails, paymentId };
+	// 					}
+	// 					d.log('handleSubmit: onConfirmed — paymentId from receipt', { paymentId });
+	// 				})
+	// 				.catch((err) => {
+	// 					d.warn('handleSubmit: onConfirmed failed (tx or receipt)', err);
+	// 					confirmationErrored = true;
+	// 					const _ = get(t);
+	// 					appStore.showErrorToast(
+	// 						err instanceof Error
+	// 							? err.message
+	// 							: _('dashboard.bids.bid_acceptance.funding_confirm_failed')
+	// 					);
+	// 				});
+
+	// 			result.sideEffects
+	// 				.then(() => {
+	// 					contractComplete = true;
+	// 					d.log('handleSubmit: side effects complete — Nostr + notifications done');
+	// 				})
+	// 				.catch((err) => {
+	// 					d.warn('handleSubmit: side effects failed', err);
+	// 					contractComplete = true;
+	// 					if (txConfirmed) {
+	// 						const _ = get(t);
+	// 						appStore.showErrorToast(
+	// 							err instanceof Error
+	// 								? err.message
+	// 								: _('dashboard.bids.bid_acceptance.nostr_contract_failed')
+	// 						);
+	// 					}
+	// 				});
+	// 		} else {
+	// 			const err = result as { error?: string; validationErrors?: string[] };
+	// 			validationErrors = err.validationErrors ?? [err.error ?? 'Failed to create escrow'];
+	// 			bidStore.removeProcessingBid(bid.id);
+	// 			currentScreen = 'form';
+	// 			successDetails = null;
+	// 			d.warn('handleSubmit: orchestrator failed', { validationErrors });
+	// 		}
+	// 	} catch (error) {
+	// 		d.error('handleSubmit: caught error', error);
+	// 		console.error('Failed to accept bid:', error);
+	// 		validationErrors = [error instanceof Error ? error.message : 'Unknown error occurred'];
+	// 		bidStore.removeProcessingBid(bid.id);
+	// 		currentScreen = 'form';
+	// 		successDetails = null;
+	// 	} finally {
+	// 		isSubmitting = false;
+	// 		d.log('handleSubmit: done, isSubmitting=false');
+	// 	}
+	// }
+
 	async function handleSubmit() {
-		d.log('handleSubmit: start', { bidId: bid?.id, taskId: task?.tagValue?.('d') ?? task?.id });
-
-		if (!bid || !task || validationErrors.length !== 0) {
-			d.warn('handleSubmit: validation guard failed', {
-				hasBid: !!bid,
-				hasTask: !!task,
-				validationErrors
-			});
-			return appStore.showErrorToast('Validation errors');
-		}
-		if (!bidEscrowDetails) {
-			d.warn('handleSubmit: no bidEscrowDetails');
-			validationErrors = ['Could not calculate escrow details.'];
-			return;
-		}
-
-		try {
-			isSubmitting = true;
-			validationErrors = [];
-			d.log('handleSubmit: set isSubmitting=true, cleared validationErrors');
-
-			d.log('handleSubmit: calling createEscrowFromBidOrchestrator', {
-				btcPrice: btcPrice.price
-			});
-
-			contractComplete = false;
-			txConfirmed = false;
-			confirmationErrored = false;
-
-			const result = await createEscrowFromBidOrchestrator(bid, task, btcPrice.price, {
-				additionalNotes: additionalNotes.trim() || undefined
-			});
-
-			d.log('handleSubmit: orchestrator returned', {
-				success: result.success,
-				...(result.success && {
-					transactionHash: result.transactionHash
-				}),
-				...(result.success === false && { error: result.error })
-			});
-
-			if (result.success) {
-				successDetails = {
-					display: bidEscrowDetails,
-					dryRun: {
-						estimatedCostFormatted: result.estimatedCostFormatted ?? '0'
-					},
-					transactionHash: result.transactionHash
-				};
-				currentScreen = 'success';
-
-				result.onConfirmed
-					.then(({ paymentId }) => {
-						txConfirmed = true;
-						if (successDetails) {
-							successDetails = { ...successDetails, paymentId };
-						}
-						d.log('handleSubmit: onConfirmed — paymentId from receipt', { paymentId });
-					})
-					.catch((err) => {
-						d.warn('handleSubmit: onConfirmed failed (tx or receipt)', err);
-						confirmationErrored = true;
-						const _ = get(t);
-						appStore.showErrorToast(
-							err instanceof Error
-								? err.message
-								: _('dashboard.bids.bid_acceptance.funding_confirm_failed')
-						);
-					});
-
-				result.sideEffects
-					.then(() => {
-						contractComplete = true;
-						d.log('handleSubmit: side effects complete — Nostr + notifications done');
-					})
-					.catch((err) => {
-						d.warn('handleSubmit: side effects failed', err);
-						contractComplete = true;
-						if (txConfirmed) {
-							const _ = get(t);
-							appStore.showErrorToast(
-								err instanceof Error
-									? err.message
-									: _('dashboard.bids.bid_acceptance.nostr_contract_failed')
-							);
-						}
-					});
-			} else {
-				const err = result as { error?: string; validationErrors?: string[] };
-				validationErrors = err.validationErrors ?? [err.error ?? 'Failed to create escrow'];
-				bidStore.removeProcessingBid(bid.id);
-				currentScreen = 'form';
-				successDetails = null;
-				d.warn('handleSubmit: orchestrator failed', { validationErrors });
-			}
-		} catch (error) {
-			d.error('handleSubmit: caught error', error);
-			console.error('Failed to accept bid:', error);
-			validationErrors = [error instanceof Error ? error.message : 'Unknown error occurred'];
-			bidStore.removeProcessingBid(bid.id);
-			currentScreen = 'form';
-			successDetails = null;
-		} finally {
-			isSubmitting = false;
-			d.log('handleSubmit: done, isSubmitting=false');
-		}
+		d.log('handleSubmit: start');
 	}
 
 	function formatDuration(startTime: number, endTime: number): string {
@@ -531,7 +524,7 @@
 											</div>
 										</div>
 										<span class="shrink-0 text-xs font-bold">
-											{contractAmountUsdFormatted}
+											{baseAmountUsdFormatted}
 										</span>
 									</div>
 
@@ -594,9 +587,13 @@
 												</svg>
 											</div>
 										</div>
-										<span class="shrink-0 text-xs font-bold italic">
-											{estimatedNetworkFeeFormatted}
-										</span>
+										{#if estimatedGasCost}
+											<span class="shrink-0 text-xs font-bold italic">
+												{displayEstimatedGasCostUSD}
+											</span>
+										{:else}
+											<span class="loading loading-spinner loading-xs"></span>
+										{/if}
 									</div>
 
 									<div class="border-base-200 border-t pt-2">
@@ -605,7 +602,7 @@
 												>{$t('dashboard.bids.bid_acceptance.total_payment')}</span
 											>
 											<span class="text-primary shrink-0 text-base font-bold">
-												${formatNumberWithTwoDecimals(totalPaymentUsd)}</span
+												{totalPaymentUsdFormatted}</span
 											>
 										</div>
 									</div>
@@ -619,7 +616,6 @@
 											</span>
 											<span class="text-base-content/60 shrink-0 text-xs font-medium italic">
 												{totalPaymentSatsFormatted}
-												{$t('dashboard.bids.bid_acceptance.sats')}
 											</span>
 										</div>
 									</div>
@@ -630,7 +626,7 @@
 				</div>
 
 				<!-- Past start time warning (v2 adjusts times automatically) -->
-				{#if bidEscrowDetails?.wasTimeAdjusted}
+				{#if contractDetails?.wasTimeAdjusted}
 					<div class="alert alert-outline alert-warning">
 						<div class="flex w-full items-center gap-3">
 							<svg
@@ -1109,14 +1105,10 @@
 								{$t('dashboard.bids.bid_acceptance.total_payment')}
 							</div>
 							<div class="text-lg font-bold">
-								{Number.isFinite(totalPaymentUsd)
-									? `$${formatNumberWithTwoDecimals(totalPaymentUsd)}`
-									: '—'}
+								{totalPaymentUsdFormatted}
 							</div>
 							<div class="text-base-content/60 text-sm">
-								{#if btcPrice.price > 0 && Number.isFinite(totalPaymentUsd)}
-									{totalPaymentSatsFormatted} {$t('dashboard.bids.bid_acceptance.sats')}
-								{/if}
+								{totalPaymentSatsFormatted}
 							</div>
 						</div>
 					{/if}

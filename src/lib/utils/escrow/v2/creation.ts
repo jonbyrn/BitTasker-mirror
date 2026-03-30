@@ -8,7 +8,6 @@
  */
 
 import type { NostrBidContent } from '$lib/types/bid';
-import type { TaskBody } from '$lib/types/task';
 import { FEE_TIERS } from '@bittasker/wallet-core';
 import { ethers } from 'ethers';
 import { parseDateWithLocalTime } from '$lib/utils/helpers/dateFormatter';
@@ -20,7 +19,6 @@ import { createDebug } from '$lib/utils/debug';
 import type {
 	CreatePaymentContractParams,
 	V2CreationDisplay,
-	V2DerivationResult,
 	V2GasEstimateResult,
 	V2OrchestratorResult
 } from './types';
@@ -40,33 +38,80 @@ const d = createDebug('escrow:v2:creation');
 /** Default fee tier (tier 1 = 2.5%) — maps to v1 clientFeeTier/freelancerFeeTier */
 const DEFAULT_FEE_TIER = 1;
 
-/**
- * Derive v2 creation params and display data from bid + task + btcPrice.
- * Pure function — no wallet/contract access. Used by UI for display and by creation for params.
- */
-export function deriveV2CreationParams(
-	bid: NostrBidContent,
-	task: TaskBody,
-	btcPrice: number
-): V2DerivationResult {
-	if (bid.amount <= 0) {
-		throw new Error('Invalid bid amount: amount must be greater than 0');
-	}
-	if (!btcPrice || btcPrice <= 0) {
-		throw new Error('Invalid BTC price: price must be greater than 0');
-	}
+/** Thrown when derived contract params fail validation (orchestrator maps this to `validationErrors`). */
+export class ContractCreationParamsError extends Error {
+	readonly errors: string[];
 
-	const taskee = bid.bidderWalletAddress || '';
+	constructor(errors: string[]) {
+		super(`Validation failed: ${errors.join(', ')}`);
+		this.name = 'ContractCreationParamsError';
+		this.errors = errors;
+	}
+}
+
+function assertValidDerivationInputs(bidContent: NostrBidContent, btcPrice: number): void {
+	if (!Number.isFinite(bidContent.amount) || bidContent.amount <= 0) {
+		throw new Error('Invalid bid amount: amount must be a finite number greater than 0');
+	}
+	if (!Number.isFinite(btcPrice) || btcPrice <= 0) {
+		throw new Error('Invalid BTC price: price must be a finite number greater than 0');
+	}
+	const taskee = bidContent.bidderWalletAddress || '';
 	if (!taskee) {
 		throw new Error('Bid must include bidder wallet address');
 	}
+}
 
-	// Base amount: USD → RBTC
-	const baseAmountRBTC = bid.amount / btcPrice;
+function assertValidCreatePaymentContractParams(params: CreatePaymentContractParams): void {
+	const errors: string[] = [];
+
+	try {
+		normalizeRskAddress(params.taskee);
+	} catch {
+		errors.push('Invalid taskee address format');
+	}
+
+	if (!params.taskee || params.taskee === ethers.ZeroAddress) {
+		errors.push('Taskee address is required');
+	}
+
+	if (params.totalValueWei <= 0n) {
+		errors.push('Total value must be positive');
+	}
+
+	const now = Math.floor(Date.now() / 1000);
+	if (params.estimatedStartTime <= now) {
+		errors.push('Estimated start time must be in the future');
+	}
+	if (params.estimatedCompletionTime <= params.estimatedStartTime) {
+		errors.push('Completion time must be after start time');
+	}
+
+	if (params.taskerFeeTier < 0 || params.taskeeFeeTier < 0) {
+		errors.push('Invalid fee tier');
+	}
+
+	if (errors.length > 0) {
+		throw new ContractCreationParamsError(errors);
+	}
+}
+
+/**
+ * Single derivation pass: validates inputs, builds contract params, validates params, builds display.
+ * Not exported — use {@link deriveContractCreationParams} or {@link deriveV2CreationDisplay}.
+ */
+function deriveV2BidState(
+	bidContent: NostrBidContent,
+	btcPrice: number
+): { params: CreatePaymentContractParams; display: V2CreationDisplay } {
+	assertValidDerivationInputs(bidContent, btcPrice);
+
+	const taskee = bidContent.bidderWalletAddress || '';
+
+	const baseAmountRBTC = bidContent.amount / btcPrice;
 	const baseAmount = baseAmountRBTC.toFixed(8);
 	const baseAmountWei = ethers.parseEther(baseAmount);
 
-	// Fee tiers (MVP: tier 1)
 	const taskerFeeTier = DEFAULT_FEE_TIER;
 	const taskeeFeeTier = DEFAULT_FEE_TIER;
 	const taskerFeePercentage = FEE_TIERS[taskerFeeTier]?.percentage ?? 250;
@@ -75,22 +120,18 @@ export function deriveV2CreationParams(
 	const taskerFeeWei = (baseAmountWei * BigInt(taskerFeePercentage)) / 10000n;
 	const taskeeFeeWei = (baseAmountWei * BigInt(taskeeFeePercentage)) / 10000n;
 
-	// MVP: cancellationFee = 0, upfrontDeposit = 0
 	const cancellationFee = CANCELLATION_FEE_MVP;
 	const upfrontDeposit = UPFRONT_DEPOSIT_MVP;
 
-	// Total value = base + taskerFee + (2 × GAS_REIMBURSEMENT_PER_OP)
-	// Taskee fee is deducted from base inside the contract; we only add tasker fee on top.
 	const gasReimbursementWei = 2n * GAS_REIMBURSEMENT_PER_OP;
 	const totalValueWei = baseAmountWei + taskerFeeWei + gasReimbursementWei;
 
-	// Timing
 	let startTime: number;
 	let completionTime: number;
 
-	if (bid.startDateTime && bid.endDateTime) {
-		const startDate = parseDateWithLocalTime(bid.startDateTime);
-		const endDate = parseDateWithLocalTime(bid.endDateTime);
+	if (bidContent.startDateTime && bidContent.endDateTime) {
+		const startDate = parseDateWithLocalTime(bidContent.startDateTime);
+		const endDate = parseDateWithLocalTime(bidContent.endDateTime);
 		if (startDate && endDate) {
 			startTime = Math.floor(startDate.getTime() / 1000);
 			completionTime = Math.floor(endDate.getTime() / 1000);
@@ -118,7 +159,6 @@ export function deriveV2CreationParams(
 		throw new Error('Completion time must be after start time');
 	}
 
-	// uint32 range check
 	if (
 		startTime < 0 ||
 		startTime > 0xffff_ffff ||
@@ -142,6 +182,8 @@ export function deriveV2CreationParams(
 		taskeeFeeWei
 	};
 
+	assertValidCreatePaymentContractParams(params);
+
 	const display: V2CreationDisplay = {
 		baseAmount,
 		totalAmount: ethers.formatEther(totalValueWei),
@@ -159,41 +201,20 @@ export function deriveV2CreationParams(
 	return { params, display };
 }
 
-/**
- * Validate params before contract call.
- * Returns validation errors; empty array means valid.
- */
-function validateParams(params: CreatePaymentContractParams): string[] {
-	const errors: string[] = [];
+/** Validated `createPaymentContract` arguments only. */
+export function deriveContractCreationParams(
+	bidContent: NostrBidContent,
+	btcPrice: number
+): CreatePaymentContractParams {
+	return deriveV2BidState(bidContent, btcPrice).params;
+}
 
-	try {
-		normalizeRskAddress(params.taskee);
-	} catch {
-		errors.push('Invalid taskee address format');
-	}
-
-	if (!params.taskee || params.taskee === ethers.ZeroAddress) {
-		errors.push('Taskee address is required');
-	}
-
-	if (params.totalValueWei <= 0n) {
-		errors.push('Total value must be positive');
-	}
-
-	const now = Math.floor(Date.now() / 1000);
-	if (params.estimatedStartTime <= now) {
-		// Adjusted in derivation; should not happen if derivation ran
-		errors.push('Estimated start time must be in the future');
-	}
-	if (params.estimatedCompletionTime <= params.estimatedStartTime) {
-		errors.push('Completion time must be after start time');
-	}
-
-	if (params.taskerFeeTier < 0 || params.taskeeFeeTier < 0) {
-		errors.push('Invalid fee tier');
-	}
-
-	return errors;
+/** UI display fields only (same inputs as {@link deriveContractCreationParams}). */
+export function deriveV2CreationDisplay(
+	bidContent: NostrBidContent,
+	btcPrice: number
+): V2CreationDisplay {
+	return deriveV2BidState(bidContent, btcPrice).display;
 }
 
 /**
@@ -433,8 +454,8 @@ export async function createEscrowFromBidOrchestrator(
 	d.log('createEscrowFromBidOrchestrator start', { taskId, bidId: bid.id });
 
 	try {
-		d.log('orchestrator: step 1 — deriveV2CreationParams');
-		const { params } = deriveV2CreationParams(bidContent, taskContent, btcPrice);
+		d.log('orchestrator: step 1 — deriveContractCreationParams');
+		const params = deriveContractCreationParams(bidContent, btcPrice);
 		d.log('orchestrator: params derived', {
 			taskee: params.taskee.slice(0, 10) + '…',
 			totalWei: params.totalValueWei.toString().slice(0, 16) + '…',
@@ -442,18 +463,7 @@ export async function createEscrowFromBidOrchestrator(
 			estimatedCompletionTime: params.estimatedCompletionTime
 		});
 
-		d.log('orchestrator: step 2 — validateParams');
-		const validationErrors = validateParams(params);
-		if (validationErrors.length > 0) {
-			d.error('validation failed', { validationErrors });
-			return {
-				success: false,
-				error: `Validation failed: ${validationErrors.join(', ')}`,
-				validationErrors
-			};
-		}
-
-		d.log('orchestrator: step 3 — check wallet connected');
+		d.log('orchestrator: step 2 — check wallet connected');
 		const walletState = get(walletStore);
 		if (!walletState.rsk.connected) {
 			d.warn('orchestrator: wallet not connected');
@@ -463,14 +473,14 @@ export async function createEscrowFromBidOrchestrator(
 			};
 		}
 
-		d.log('orchestrator: step 4 — ensureV2ContractReady (wallet + provider + contract)');
+		d.log('orchestrator: step 3 — ensureV2ContractReady (wallet + provider + contract)');
 		const { contract, provider } = await ensureV2ContractReady();
 		const taskeeEip55 = ethers.getAddress(params.taskee.toLowerCase());
 		const feeData = await provider.getFeeData();
 		const gasPrice = feeData.gasPrice || BigInt(0);
 		const createPaymentContract = contract.createPaymentContract;
 
-		d.log('orchestrator: step 5 — estimateGas');
+		d.log('orchestrator: step 4 — estimateGas');
 		const gasEstimate = await createPaymentContract.estimateGas(
 			taskeeEip55,
 			params.estimatedStartTime,
@@ -488,7 +498,7 @@ export async function createEscrowFromBidOrchestrator(
 			estimatedCostFormatted
 		});
 
-		d.log('orchestrator: step 6 — staticCall (revert check only; paymentId not used)');
+		d.log('orchestrator: step 5 — staticCall (revert check only; paymentId not used)');
 		await createPaymentContract.staticCall(
 			taskeeEip55,
 			params.estimatedStartTime,
@@ -501,7 +511,7 @@ export async function createEscrowFromBidOrchestrator(
 		);
 		d.log('orchestrator: staticCall ok');
 
-		d.log('orchestrator: step 6b — Nostr prerequisites before broadcast');
+		d.log('orchestrator: step 5b — Nostr prerequisites before broadcast');
 		const taskeePubkey = bid.author?.pubkey;
 		if (!taskeePubkey) {
 			return {
@@ -520,7 +530,7 @@ export async function createEscrowFromBidOrchestrator(
 
 		const v2ContractAddress = ethers.getAddress(getV2ContractAddress().toLowerCase());
 
-		d.log('orchestrator: step 7 — broadcast createPaymentContract');
+		d.log('orchestrator: step 6 — broadcast createPaymentContract');
 		const tx = await createPaymentContract(
 			taskeeEip55,
 			params.estimatedStartTime,
@@ -552,7 +562,7 @@ export async function createEscrowFromBidOrchestrator(
 					taskeePubkey,
 					taskTitle: taskContent.title ?? '',
 					taskDescription: taskContent.description ?? '',
-					amount: bid.bidContent.amount,
+					amount: String(bid.bidContent.amount),
 					estimatedStartTime: params.estimatedStartTime,
 					estimatedCompletionTime: params.estimatedCompletionTime,
 					transactionHash,
@@ -658,6 +668,14 @@ export async function createEscrowFromBidOrchestrator(
 			sideEffects
 		};
 	} catch (error) {
+		if (error instanceof ContractCreationParamsError) {
+			d.error('validation failed', { validationErrors: error.errors });
+			return {
+				success: false,
+				error: error.message,
+				validationErrors: error.errors
+			};
+		}
 		const err = error instanceof Error ? error : new Error(String(error));
 		d.error('createEscrowFromBidOrchestrator failed', { taskId }, err);
 		return {

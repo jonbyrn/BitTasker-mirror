@@ -37,31 +37,17 @@ export interface CreatePaymentContractParams {
 	taskeeFeeWei: bigint;
 }
 
-/**
- * Display-friendly result from deriveV2CreationParams
- * Used by UI for rendering amounts, times, etc.
- */
-export interface V2CreationDisplay {
+/** Display-friendly fields from `deriveV2CreationDisplay` (v2 creation module). */
+export interface ContractCreationDisplay {
+	chain: 'rsk' | 'bsc';
+	currency: string;
 	baseAmount: string;
-	totalAmount: string;
 	taskerFee: string;
-	taskeeFee: string;
-	/** Gas reimbursement (2 × GAS_REIMBURSEMENT) in RBTC — used for gasless ops; shown with estimated network fee in UI */
+	totalAmount: string;
 	gasReimbursementAmount: string;
-	estimatedStartTime: number;
-	estimatedCompletionTime: number;
+	startTime: number;
+	completionTime: number;
 	wasTimeAdjusted: boolean;
-	taskee: string;
-	taskerFeeTier: number;
-	taskeeFeeTier: number;
-}
-
-/**
- * Combined derivation result: params for contract call + display data for UI
- */
-export interface V2DerivationResult {
-	params: CreatePaymentContractParams;
-	display: V2CreationDisplay;
 }
 
 /**
