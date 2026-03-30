@@ -36,6 +36,8 @@
 			"dispute_task": "Dispute Task"
 		},
 		"filters": {
+			"open": "Open",
+			"cancelled": "Cancelled",
 			"waiting_for_bids": "Waiting",
 			"bids_received": "Bids",
 			"in_progress": "In Progress",

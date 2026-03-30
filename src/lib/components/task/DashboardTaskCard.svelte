@@ -12,11 +12,11 @@
 	import IconEyeOutline from '~icons/mdi/eye-outline';
 
 	type TaskFilterCategory =
-		| 'waiting_for_bids'
-		| 'bids_received'
+		| 'open'
 		| 'tasks_in_progress'
 		| 'tasks_completed'
-		| 'tasks_disputed';
+		| 'tasks_disputed'
+		| 'tasks_cancelled';
 
 	const { task, btcPrice, activeFilter, getActionButtons } = $props<{
 		task: Task;
