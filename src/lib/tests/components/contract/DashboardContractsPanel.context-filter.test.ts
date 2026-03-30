@@ -52,6 +52,7 @@ const { contractStoreState, contractStore, scrollStore, goto, mockFindMyServices
 				getContractKey: vi.fn((contract: ContractWithEvents, key: string) => {
 					const content = contract.contractEvent.content as NostrContract & Record<string, unknown>;
 					if (key === 'otherPartyNpub') return 'npub1counterparty';
+					if (key === 'clientPubkey') return 'npub1client';
 					if (key === 'estimatedCompletionTime') return content.estimatedCompletionTime;
 					if (key === 'amount') return content.amount;
 					if (key === 'taskTitle' || key === 'contextTitle') return content.contextTitle;
@@ -152,20 +153,6 @@ vi.mock('svelte-i18n', async () => {
 	};
 });
 
-vi.mock('$lib/utils/escrow', async () => {
-	const actual = await import('$lib/utils/escrow');
-	return {
-		...actual,
-		escrow: {
-			...actual.escrow,
-			contractOps: {
-				...(actual.escrow?.contractOps ?? {}),
-				getContracts: vi.fn().mockResolvedValue([])
-			}
-		}
-	};
-});
-
 vi.mock('$lib/stores/wallet.store', async () => {
 	const { writable } = await import('svelte/store');
 	return {
@@ -187,14 +174,18 @@ function buildContract(
 		title?: string;
 		description?: string;
 		purchaseMode?: 'instant_buy' | 'quote';
+		status?: EscrowStatus;
 	} = {}
 ): ContractWithEvents {
+	const status = options.status ?? EscrowStatus.Funded;
 	return {
 		escrowData: { id },
-		status: EscrowStatus.Funded,
+		status,
 		isClient: options.isClient ?? true,
 		isPending: false,
-		blockchainStatus: EscrowStatus.Funded,
+		blockchainStatus: status,
+		statusEvents: [],
+		disputeProposal: null,
 		permissions: {
 			canComplete: false,
 			canAccept: false,
@@ -381,6 +372,87 @@ describe('DashboardContractsPanel context filter', () => {
 		expect(screen.getAllByText('All').length).toBeGreaterThan(0);
 		expect(screen.getAllByText('Tasks').length).toBeGreaterThan(0);
 		expect(screen.getAllByText('Services').length).toBeGreaterThan(0);
+	});
+
+	it('derives exact earning status filters from the visible contracts and filters by the selected status', async () => {
+		contractStoreState.set({
+			contracts: [
+				buildContract('funded-1', 'service', {
+					isClient: false,
+					title: 'Funded contract',
+					status: EscrowStatus.Funded
+				}),
+				buildContract('in-progress-1', 'service', {
+					isClient: false,
+					title: 'In progress contract',
+					status: EscrowStatus.InProgress
+				}),
+				buildContract('released-1', 'service', {
+					isClient: false,
+					title: 'Funds released contract',
+					status: EscrowStatus.FundsReleased
+				})
+			],
+			contract: null,
+			isDrawerOpen: false,
+			isLoading: false,
+			error: null,
+			hasMore: false,
+			isLoadingMore: false
+		});
+
+		render(DashboardContractsPanel, {
+			initialContext: 'services',
+			showRoleFilters: false,
+			fixedRole: 'freelancer'
+		});
+
+		expect(screen.getAllByText('Funded').length).toBeGreaterThan(0);
+		expect(screen.getAllByText('In Progress').length).toBeGreaterThan(0);
+		expect(screen.getAllByText('Funds Released').length).toBeGreaterThan(0);
+
+		await fireEvent.click(screen.getByRole('button', { name: 'In Progress' }));
+
+		expect(screen.getAllByText('In progress contract').length).toBeGreaterThan(0);
+		expect(screen.queryByText('Funded contract')).toBeNull();
+		expect(screen.queryByText('Funds released contract')).toBeNull();
+	});
+
+	it('derives exact hiring status filters from the visible contracts and filters by the selected status', async () => {
+		contractStoreState.set({
+			contracts: [
+				buildContract('proposal-1', 'service', {
+					isClient: true,
+					title: 'Resolution proposed contract',
+					status: EscrowStatus.DisputeResolutionProposed
+				}),
+				buildContract('resolved-1', 'service', {
+					isClient: true,
+					title: 'Resolved contract',
+					status: EscrowStatus.DisputeResolved
+				})
+			],
+			contract: null,
+			isDrawerOpen: false,
+			isLoading: false,
+			error: null,
+			hasMore: false,
+			isLoadingMore: false
+		});
+
+		render(DashboardContractsPanel, {
+			initialContext: 'services',
+			showRoleFilters: false,
+			fixedRole: 'client'
+		});
+
+		expect(screen.getAllByText('Dispute Resolution Proposed').length).toBeGreaterThan(0);
+		expect(screen.getAllByText('Dispute Resolved').length).toBeGreaterThan(0);
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Dispute Resolution Proposed' }));
+
+		expect(screen.getAllByText('Resolution proposed contract').length).toBeGreaterThan(0);
+		expect(screen.queryByText('Resolved contract')).toBeNull();
 	});
 
 	it('locks the earnings contracts tab to taskee-side contracts', async () => {

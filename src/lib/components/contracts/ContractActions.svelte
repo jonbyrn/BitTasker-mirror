@@ -28,6 +28,11 @@
 	import { browserNetworkStatus } from '$lib/utils/network-status';
 	import { detectErrorType } from '$lib/utils/helpers/errorTypeDetector';
 	import {
+		getContractQuickActionVisibility,
+		getPrioritizedContractQuickActions,
+		type ContractQuickActionId
+	} from '$lib/utils/helpers/contractQuickActions';
+	import {
 		sendTaskCompletionMessageToTasker,
 		sendPaymentReleasedMessageToTaskee
 	} from '$lib/utils/location/sendLocation';
@@ -37,13 +42,15 @@
 		contract,
 		containerClass = 'space-y-3',
 		isInline = false,
-		compactButtons = false
+		compactButtons = false,
+		maxInlineActions = null
 	} = $props<{
 		contract: ContractWithEvents;
 		containerClass?: string;
 		isInline?: boolean;
 		/** When true, buttons size to content (w-fit) instead of full width - for drawers/narrow layouts */
 		compactButtons?: boolean;
+		maxInlineActions?: number | null;
 	}>();
 
 	// State for actions
@@ -156,6 +163,14 @@
 					'dashboard.contracts.actions.stale_action_notice_task',
 					'This contract changed or the action is no longer available. Refreshing the latest contract state.'
 				);
+	}
+
+	function shouldRenderQuickAction(actionId: ContractQuickActionId): boolean {
+		if (!isInline || maxInlineActions == null) {
+			return true;
+		}
+
+		return inlineQuickActions.has(actionId);
 	}
 
 	function maybeShowActionErrorToast(message: string): void {
@@ -801,6 +816,25 @@
 			blockchainCompletionStatus === EscrowStatus.Cancelled ||
 			(contract.isClient && blockchainCompletionStatus === EscrowStatus.Completed)
 	);
+	const quickActionVisibility = $derived.by(() =>
+		getContractQuickActionVisibility({
+			permissions: contract.permissions,
+			isClient: contract.isClient,
+			isPending: isDisabledDueToPending,
+			blockchainStatus: blockchainCompletionStatus ?? contract.blockchainStatus ?? null,
+			hasDisputeProposal: Boolean(contract.disputeProposal),
+			hasProposalsLeft,
+			isCheckingBlockchain,
+			isLoading
+		})
+	);
+	const inlineQuickActions = $derived.by(() => {
+		if (!isInline || maxInlineActions == null) {
+			return new Set<ContractQuickActionId>();
+		}
+
+		return new Set(getPrioritizedContractQuickActions(quickActionVisibility, maxInlineActions));
+	});
 
 	// Auto-calculate client amount from freelancer amount in USD
 	$effect(() => {
@@ -853,7 +887,7 @@
 		containerClass={`${containerClass} ${containerClass.includes('grid') ? 'w-full' : ''}`}
 	>
 		<!-- Complete Task (Freelancer) -->
-		{#if contract.permissions.canComplete && !isCompleteDisabled && !isDisabledDueToPending}
+		{#if shouldRenderQuickAction('complete') && contract.permissions.canComplete && !isCompleteDisabled && !isDisabledDueToPending}
 			<CompleteContractButton
 				compact={compactActionButtons}
 				disabled={isOffline}
@@ -866,7 +900,7 @@
 		{/if}
 
 		<!-- Accept Task (Client) -->
-		{#if contract.permissions.canAccept && !isAcceptDisabled && !isDisabledDueToPending}
+		{#if shouldRenderQuickAction('accept') && contract.permissions.canAccept && !isAcceptDisabled && !isDisabledDueToPending}
 			<AcceptContractButton
 				compact={compactActionButtons}
 				disabled={isOffline}
@@ -879,7 +913,7 @@
 		{/if}
 
 		<!-- Dispute Task (Client) -->
-		{#if contract.permissions.canDispute && !isDisputeDisabled}
+		{#if shouldRenderQuickAction('dispute') && contract.permissions.canDispute && !isDisputeDisabled}
 			<DisputeContractButton
 				compact={compactActionButtons}
 				disabled={isOffline}
@@ -892,7 +926,22 @@
 		{/if}
 
 		<!-- Accept Proposal -->
-		{#if !isInline && contract.permissions.canAcceptProposal}
+		{#if isInline && shouldRenderQuickAction('acceptProposal') && contract.permissions.canAcceptProposal && contract.disputeProposal}
+			{#if isLoading.acceptProposal}
+				<AcceptContractButton
+					compact={compactActionButtons}
+					loading={true}
+					label={tr('dashboard.contracts.actions.accept_proposal', 'Accept Proposal')}
+				/>
+			{:else}
+				<AcceptContractButton
+					compact={compactActionButtons}
+					disabled={isOffline}
+					label={tr('dashboard.contracts.actions.accept_proposal', 'Accept Proposal')}
+					onclick={() => openModal(ContractModalAction.AcceptProposal)}
+				/>
+			{/if}
+		{:else if !isInline && contract.permissions.canAcceptProposal}
 			<div class="bg-base-300 col-span-2 w-full min-w-0 space-y-3 rounded-lg p-3">
 				<h5 class="text-sm font-medium">
 					{$t('dashboard.contracts.actions.current_proposal')}
@@ -994,7 +1043,7 @@
 		{/if}
 
 		<!-- Propose Resolution -->
-		{#if contract.permissions.canPropose}
+		{#if shouldRenderQuickAction('propose') && contract.permissions.canPropose && (hasProposalsLeft || isLoading.propose)}
 			{#if isInline || !$contractStore.isResolutionFormOpen}
 				<div class:hidden={!isInline && contract.permissions.canAcceptProposal}>
 					<ResolutionProposalButton
@@ -1104,7 +1153,7 @@
 		{/if}
 
 		<!-- Cancel Escrow -->
-		{#if contract.permissions.canCancel && !isCancelDisabled}
+		{#if shouldRenderQuickAction('cancel') && contract.permissions.canCancel && !isCancelDisabled}
 			<CancelContractButton
 				compact={compactActionButtons}
 				disabled={isOffline}
@@ -1115,7 +1164,7 @@
 		{/if}
 
 		<!-- Resolve After Timelock -->
-		{#if contract.permissions.canResolveTimelock}
+		{#if shouldRenderQuickAction('resolveTimelock') && contract.permissions.canResolveTimelock}
 			<div
 				class="flex flex-col gap-2 {compactButtons
 					? 'w-fit'
@@ -1176,7 +1225,7 @@
 		{/if}
 
 		<!-- Delete Contract (only visible when can delete) -->
-		{#if contract.permissions.canDelete}
+		{#if shouldRenderQuickAction('delete') && contract.permissions.canDelete}
 			{#if isLoading.delete}
 				<div
 					class="btn btn-error btn-sm gap-2 {compactButtons

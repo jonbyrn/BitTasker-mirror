@@ -1,6 +1,8 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import type { Attachment } from '$lib/types/task';
 	import { findServiceByUniqueId } from '$lib/nostr/service';
+	import { onMount } from 'svelte';
 	import { t } from 'svelte-i18n';
 	import IconCalendarClock from '~icons/mdi/calendar-clock';
 	import IconClockOutline from '~icons/mdi/clock-outline';
@@ -11,7 +13,6 @@
 	import ContractTimeline from './ContractTimeline.svelte';
 	import ContractActions from './ContractActions.svelte';
 	import ContractContextSummary from './ContractContextSummary.svelte';
-	import ServiceAgreementSummary from './ServiceAgreementSummary.svelte';
 	import Gallery from '$lib/components/Gallery.svelte';
 	import {
 		getStatusColorClass,
@@ -19,10 +20,7 @@
 	} from '$lib/utils/helpers/contractStatusFormatter';
 	import { contractStore } from '$lib/stores/contract.store';
 	import UserInfoDisplay from '$lib/components/user/UserInfoDisplay.svelte';
-	import {
-		buildContractContextPresentation,
-		getContractDetailSectionTitle
-	} from '$lib/utils/service-contract/context-presentation';
+	import { buildContractContextPresentation } from '$lib/utils/service-contract/context-presentation';
 	import {
 		getServiceContractLocationPresentationFromAgreementSnapshot,
 		getServiceContractLocationPresentationFromService,
@@ -36,6 +34,9 @@
 	// Technical details toggle state
 	let isTechnicalDetailsOpen = $state(false);
 	let isOriginalBidOpen = $state(false);
+	let serviceDescriptionElement: HTMLParagraphElement | null = $state(null);
+	let showFullServiceDescription = $state(false);
+	let isServiceDescriptionTruncated = $state(false);
 
 	// Timeline display count (bound from ContractTimeline - matches actual items shown)
 	let timelineDisplayCount = $state(0);
@@ -92,13 +93,6 @@
 	);
 	const agreementSnapshot = $derived(
 		$contractStore.contract?.contractEvent.content.agreementSnapshot
-	);
-	const pricingSnapshot = $derived($contractStore.contract?.contractEvent.content.pricingSnapshot);
-	const detailSectionTitle = $derived(
-		getContractDetailSectionTitle(
-			presentation?.isServiceContract === true,
-			$t('dashboard.contracts.bid_details') as string
-		)
 	);
 	const isInstantBuyServiceContract = $derived(
 		presentation?.isServiceContract === true && presentation.purchaseMode === 'instant_buy'
@@ -179,6 +173,42 @@
 		return `${Math.round(rbtcAmount * 100_000_000).toLocaleString('en-US')} Sats`;
 	}
 
+	function checkIfServiceDescriptionTruncated() {
+		if (!serviceDescriptionElement || !presentation?.description) {
+			isServiceDescriptionTruncated = false;
+			return;
+		}
+
+		const clone = serviceDescriptionElement.cloneNode(true) as HTMLElement;
+		clone.className = serviceDescriptionElement.className.replace(/line-clamp-\d+/g, '').trim();
+		clone.style.position = 'absolute';
+		clone.style.visibility = 'hidden';
+		clone.style.pointerEvents = 'none';
+		clone.style.height = 'auto';
+		clone.style.maxHeight = 'none';
+		clone.style.overflow = 'visible';
+		clone.style.width = `${serviceDescriptionElement.offsetWidth}px`;
+		document.body.appendChild(clone);
+
+		const fullHeight = clone.scrollHeight;
+		const lineHeight = parseFloat(getComputedStyle(serviceDescriptionElement).lineHeight) || 24;
+		const maxHeight = lineHeight * 3;
+
+		document.body.removeChild(clone);
+		isServiceDescriptionTruncated = fullHeight > maxHeight + 1;
+	}
+
+	onMount(() => {
+		const handleResize = () => {
+			if ($contractStore.isDrawerOpen && isInstantBuyServiceContract) {
+				checkIfServiceDescriptionTruncated();
+			}
+		};
+
+		window.addEventListener('resize', handleResize);
+		return () => window.removeEventListener('resize', handleResize);
+	});
+
 	$effect(() => {
 		serviceLocationRequestVersion += 1;
 		const requestVersion = serviceLocationRequestVersion;
@@ -211,6 +241,29 @@
 				serviceContractLocation = null;
 			}
 		})();
+	});
+
+	$effect(() => {
+		const description = presentation?.description ?? '';
+		const isDrawerOpen = $contractStore.isDrawerOpen;
+
+		showFullServiceDescription = false;
+		isServiceDescriptionTruncated = false;
+
+		if (
+			!isDrawerOpen ||
+			!isInstantBuyServiceContract ||
+			!description ||
+			!serviceDescriptionElement
+		) {
+			return;
+		}
+
+		requestAnimationFrame(() => {
+			setTimeout(() => {
+				checkIfServiceDescriptionTruncated();
+			}, 0);
+		});
 	});
 </script>
 
@@ -296,7 +349,7 @@
 										<div class="min-w-0 flex-1">
 											{#if serviceListingHref}
 												<a
-													href={serviceListingHref}
+													href={resolve(serviceListingHref)}
 													class="hover:text-primary card-title line-clamp-2 text-lg font-semibold transition-colors"
 												>
 													{presentation?.title}
@@ -322,9 +375,33 @@
 										class="flex items-start justify-between gap-4"
 										data-testid="service-contract-description-sats-row"
 									>
-										<p class="text-base-content/70 min-w-0 flex-1 text-sm whitespace-pre-line">
-											{presentation?.description}
-										</p>
+										<div class="min-w-0 flex-1">
+											<p
+												bind:this={serviceDescriptionElement}
+												class={`text-base-content/70 min-w-0 text-sm whitespace-pre-line ${
+													showFullServiceDescription ? '' : 'line-clamp-3'
+												}`}
+												id="service-contract-description"
+												data-testid="service-contract-description"
+											>
+												{presentation?.description}
+											</p>
+											{#if isServiceDescriptionTruncated}
+												<button
+													type="button"
+													class="btn btn-ghost btn-xs mt-2 h-auto min-h-0 px-0 text-[0.75rem] font-semibold tracking-wide uppercase"
+													aria-controls="service-contract-description"
+													aria-expanded={showFullServiceDescription}
+													onclick={() => {
+														showFullServiceDescription = !showFullServiceDescription;
+													}}
+												>
+													{showFullServiceDescription
+														? tr('common.show_less', 'See Less')
+														: tr('common.show_more', 'See More')}
+												</button>
+											{/if}
+										</div>
 										<div
 											class="text-base-content/60 shrink-0 pl-4 text-right text-sm"
 											data-testid="service-contract-sats-price"
@@ -336,7 +413,10 @@
 									</div>
 								</div>
 							{:else}
-								<ContractContextSummary contract={$contractStore.contract} />
+								<ContractContextSummary
+									contract={$contractStore.contract}
+									enableExpandableDescription={presentation?.isServiceContract === true}
+								/>
 							{/if}
 						</div>
 						{#if !isInstantBuyServiceContract}
@@ -450,7 +530,7 @@
 							{/if}
 						</div>
 						<!-- Original Bid Proposal accordion: above buttons on mobile, bottom row on desktop -->
-						{#if !isInstantBuyServiceContract}
+						{#if presentation?.isServiceContract !== true}
 							<div class="order-2 w-full sm:order-3 sm:basis-full">
 								<div class="join join-vertical w-full">
 									<div
@@ -464,41 +544,18 @@
 											aria-expanded={isOriginalBidOpen}
 											aria-controls="original-bid-content"
 										>
-											{detailSectionTitle}
+											{$t('dashboard.contracts.bid_details')}
 										</button>
 										<div id="original-bid-content" class="collapse-content">
 											<div class="pt-2">
-												{#if presentation?.isServiceContract}
-													<ServiceAgreementSummary
-														quoteRequestId={$contractStore.contract.contractEvent.content
-															.quoteRequestId}
-														proposalId={$contractStore.contract.contractEvent.content.proposalId}
-														instantOrderId={$contractStore.contract.contractEvent.content
-															.instantOrderId}
-														selectedTierLabel={$contractStore.contract.contractEvent.content
-															.agreementSnapshot?.selectedTierLabel ??
-															presentation?.selectedTierLabel}
-														{agreementSnapshot}
-														{pricingSnapshot}
-														estimatedStartTime={contractStore.getContractKey(
-															$contractStore.contract,
-															'estimatedStartTime'
-														) as number | undefined}
-														estimatedCompletionTime={contractStore.getContractKey(
-															$contractStore.contract,
-															'estimatedCompletionTime'
-														) as number | undefined}
-													/>
-												{:else}
-													<div>
-														<span class="text-xs font-medium"
-															>{$t('dashboard.contracts.approach')}:</span
-														>
-														<p class="text-base-content/80 mt-1 text-sm">
-															{$t('dashboard.contracts.bid_info_not_available')}
-														</p>
-													</div>
-												{/if}
+												<div>
+													<span class="text-xs font-medium"
+														>{$t('dashboard.contracts.approach')}:</span
+													>
+													<p class="text-base-content/80 mt-1 text-sm">
+														{$t('dashboard.contracts.bid_info_not_available')}
+													</p>
+												</div>
 											</div>
 										</div>
 									</div>

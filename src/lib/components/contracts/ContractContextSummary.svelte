@@ -1,12 +1,19 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import type { ContractWithEvents } from '$lib/types/contract';
 	import { contractStore } from '$lib/stores/contract.store';
 	import { buildContractContextPresentation } from '$lib/utils/service-contract/context-presentation';
+	import { onMount } from 'svelte';
 	import { t } from 'svelte-i18n';
 
-	const { contract, variant = 'detail' } = $props<{
+	const {
+		contract,
+		variant = 'detail',
+		enableExpandableDescription = false
+	} = $props<{
 		contract: ContractWithEvents;
 		variant?: 'card' | 'detail';
+		enableExpandableDescription?: boolean;
 	}>();
 
 	const presentation = $derived(
@@ -37,6 +44,65 @@
 			return fallback;
 		}
 	}
+
+	let descriptionElement: HTMLParagraphElement | null = $state(null);
+	let showFullDescription = $state(false);
+	let isDescriptionTruncated = $state(false);
+
+	function checkIfDescriptionTruncated() {
+		if (!descriptionElement || !presentation.description) {
+			isDescriptionTruncated = false;
+			return;
+		}
+
+		const clone = descriptionElement.cloneNode(true) as HTMLElement;
+		clone.className = descriptionElement.className.replace(/line-clamp-\d+/g, '').trim();
+		clone.style.position = 'absolute';
+		clone.style.visibility = 'hidden';
+		clone.style.pointerEvents = 'none';
+		clone.style.height = 'auto';
+		clone.style.maxHeight = 'none';
+		clone.style.overflow = 'visible';
+		clone.style.width = `${descriptionElement.offsetWidth}px`;
+		document.body.appendChild(clone);
+
+		const fullHeight = clone.scrollHeight;
+		const lineHeight = parseFloat(getComputedStyle(descriptionElement).lineHeight) || 24;
+		const maxHeight = lineHeight * 3;
+
+		document.body.removeChild(clone);
+		isDescriptionTruncated = fullHeight > maxHeight + 1;
+	}
+
+	onMount(() => {
+		const handleResize = () => {
+			if (variant === 'detail' && presentation.isServiceContract) {
+				checkIfDescriptionTruncated();
+			}
+		};
+
+		window.addEventListener('resize', handleResize);
+		return () => window.removeEventListener('resize', handleResize);
+	});
+
+	$effect(() => {
+		const description = presentation.description;
+		const isServiceDetail =
+			enableExpandableDescription && variant === 'detail' && presentation.isServiceContract;
+
+		showFullDescription = false;
+		isDescriptionTruncated = false;
+
+		if (!isServiceDetail || !description || !descriptionElement) {
+			return;
+		}
+
+		requestAnimationFrame(() => {
+			setTimeout(() => {
+				checkIfDescriptionTruncated();
+			}, 0);
+		});
+	});
 </script>
 
 {#if variant === 'card'}
@@ -68,7 +134,7 @@
 		<div class="space-y-2">
 			{#if serviceListingHref}
 				<a
-					href={serviceListingHref}
+					href={resolve(serviceListingHref)}
 					class="hover:text-primary card-title line-clamp-2 text-lg font-semibold transition-colors"
 				>
 					{presentation.title}
@@ -79,7 +145,42 @@
 				</span>
 			{/if}
 			{#if presentation.description}
-				<p class="text-base-content/70 text-sm whitespace-pre-line">{presentation.description}</p>
+				<p
+					bind:this={descriptionElement}
+					class={`text-base-content/70 text-sm whitespace-pre-line ${
+						enableExpandableDescription &&
+						variant === 'detail' &&
+						presentation.isServiceContract &&
+						!showFullDescription
+							? 'line-clamp-3'
+							: ''
+					}`}
+					data-testid={enableExpandableDescription &&
+					variant === 'detail' &&
+					presentation.isServiceContract
+						? 'contract-context-summary-description'
+						: undefined}
+					id={enableExpandableDescription && variant === 'detail' && presentation.isServiceContract
+						? 'contract-context-summary-description'
+						: undefined}
+				>
+					{presentation.description}
+				</p>
+				{#if enableExpandableDescription && variant === 'detail' && presentation.isServiceContract && isDescriptionTruncated}
+					<button
+						type="button"
+						class="btn btn-ghost btn-xs mt-2 h-auto min-h-0 px-0 text-[0.75rem] font-semibold tracking-wide uppercase"
+						aria-controls="contract-context-summary-description"
+						aria-expanded={showFullDescription}
+						onclick={() => {
+							showFullDescription = !showFullDescription;
+						}}
+					>
+						{showFullDescription
+							? tr('common.show_less', 'See Less')
+							: tr('common.show_more', 'See More')}
+					</button>
+				{/if}
 			{/if}
 		</div>
 	</div>

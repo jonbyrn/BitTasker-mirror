@@ -4,6 +4,20 @@ import { get } from 'svelte/store';
 import ContractCard from '$lib/components/contracts/ContractCard.svelte';
 import { EscrowStatus } from '$lib/utils/escrow';
 
+type ContractEventContent = Record<string, unknown>;
+type MockContract = {
+	contractEvent: {
+		created_at?: number;
+		content: ContractEventContent;
+	};
+	statusEvents?: Array<{ pubkey: string; content: { action: string } }>;
+	disputeProposal?: unknown;
+	isClient?: boolean;
+	isPending?: boolean;
+	blockchainStatus?: string | null;
+	permissions?: Record<string, boolean>;
+};
+
 const { contractStoreState, getContractKey } = vi.hoisted(() => {
 	let value = {
 		contract: null,
@@ -26,9 +40,11 @@ const { contractStoreState, getContractKey } = vi.hoisted(() => {
 	};
 	return {
 		contractStoreState: state,
-		getContractKey: vi.fn((contract: any, key: string) => {
+		getContractKey: vi.fn((contract: MockContract, key: string) => {
 			if (key === 'otherPartyNpub') return 'npub1counterparty';
-			if (key === 'estimatedCompletionTime') return contract.contractEvent.content.estimatedCompletionTime;
+			if (key === 'clientPubkey') return 'npub1client';
+			if (key === 'estimatedCompletionTime')
+				return contract.contractEvent.content.estimatedCompletionTime;
 			if (key === 'amount') return contract.contractEvent.content.amount;
 			if (key === 'taskTitle') return contract.contractEvent.content.taskTitle;
 			if (key === 'taskDescription') return contract.contractEvent.content.taskDescription;
@@ -61,13 +77,20 @@ vi.mock('svelte-i18n', async () => {
 
 vi.mock('$lib/components/contracts/ContractActions.svelte', () => ({
 	default: () => ({
-		$$render: () => '<div data-testid="contract-actions">actions</div>'
+		$$render: (
+			_result: unknown,
+			props: {
+				isInline?: boolean;
+				maxInlineActions?: number | null;
+			}
+		) =>
+			`<div data-testid="contract-actions">actions-${props.isInline ? 'inline' : 'drawer'}-${props.maxInlineActions ?? 'all'}</div>`
 	})
 }));
 
 vi.mock('$lib/components/contracts/ContractContextSummary.svelte', () => ({
 	default: () => ({
-		$$render: (_result: unknown, props: { contract: any }) =>
+		$$render: (_result: unknown, props: { contract: MockContract }) =>
 			`<div data-testid="context-summary">${props.contract.contractEvent.content.contextTitle}</div>`
 	})
 }));
@@ -84,9 +107,23 @@ vi.mock('$lib/components/task/TaskLocationDisplay.svelte', () => ({
 	default: () => ({ $$render: () => '<div>Location</div>' })
 }));
 
+vi.mock('$lib/stores/wallet.store', async () => {
+	const { writable } = await import('svelte/store');
+	return {
+		walletStore: writable({
+			isConnected: true,
+			rsk: { wallet: {}, provider: {} }
+		}),
+		walletManager: {
+			initialize: vi.fn().mockResolvedValue(undefined)
+		}
+	};
+});
+
 function buildContract(overrides: Record<string, unknown> = {}) {
 	return {
 		contractEvent: {
+			created_at: 1_700_000_000,
 			content: {
 				escrowId: 'escrow-1',
 				amount: '0.01',
@@ -104,6 +141,8 @@ function buildContract(overrides: Record<string, unknown> = {}) {
 		status: EscrowStatus.Funded,
 		isPending: false,
 		blockchainStatus: EscrowStatus.Funded,
+		statusEvents: [],
+		disputeProposal: null,
 		permissions: {
 			canComplete: false,
 			canAccept: true,
@@ -114,7 +153,7 @@ function buildContract(overrides: Record<string, unknown> = {}) {
 			canResolveTimelock: false,
 			canDelete: false
 		}
-	} as any;
+	};
 }
 
 describe('ContractCard service context', () => {
@@ -131,6 +170,7 @@ describe('ContractCard service context', () => {
 		});
 
 		expect(screen.getByText('Quoted Service')).toBeInTheDocument();
+		expect(screen.getByText('dashboard.contracts.view_details')).toBeInTheDocument();
 	});
 
 	it('renders unknown contexts as read-only', () => {
@@ -156,5 +196,105 @@ describe('ContractCard service context', () => {
 
 		expect(get(contractStoreState).isDrawerOpen).toBe(true);
 		expect(get(contractStoreState).contract).toEqual(contract);
+	});
+
+	it('does not mount inline actions for pending contracts', () => {
+		const contract = {
+			...buildContract(),
+			isPending: true,
+			permissions: {
+				canComplete: false,
+				canAccept: true,
+				canDispute: true,
+				canPropose: false,
+				canAcceptProposal: false,
+				canCancel: true,
+				canResolveTimelock: false,
+				canDelete: false
+			}
+		};
+
+		render(ContractCard, {
+			contract,
+			btcPrice: 100000
+		});
+
+		expect(screen.queryByTestId('contract-actions')).not.toBeInTheDocument();
+	});
+
+	it('does not mount inline actions when a proposal is missing despite accept-proposal permissions', () => {
+		const contract = {
+			...buildContract(),
+			permissions: {
+				canComplete: false,
+				canAccept: false,
+				canDispute: false,
+				canPropose: false,
+				canAcceptProposal: true,
+				canCancel: false,
+				canResolveTimelock: false,
+				canDelete: false
+			},
+			disputeProposal: null
+		};
+
+		render(ContractCard, {
+			contract,
+			btcPrice: 100000
+		});
+
+		expect(screen.queryByTestId('contract-actions')).not.toBeInTheDocument();
+	});
+
+	it('does not mount inline actions after the actor exhausts dispute proposals', () => {
+		const contract = {
+			...buildContract(),
+			permissions: {
+				canComplete: false,
+				canAccept: false,
+				canDispute: false,
+				canPropose: true,
+				canAcceptProposal: true,
+				canCancel: false,
+				canResolveTimelock: false,
+				canDelete: false
+			},
+			disputeProposal: null,
+			statusEvents: [
+				{ pubkey: 'npub1client', content: { action: 'DISPUTE_RESOLUTION_PROPOSED' } },
+				{ pubkey: 'npub1client', content: { action: 'DISPUTE_RESOLUTION_PROPOSED' } }
+			]
+		};
+
+		render(ContractCard, {
+			contract,
+			btcPrice: 100000
+		});
+
+		expect(screen.queryByTestId('contract-actions')).not.toBeInTheDocument();
+	});
+
+	it('does not mount inline actions when client-side cancellation is blocked by completion', () => {
+		const contract = {
+			...buildContract(),
+			blockchainStatus: EscrowStatus.Completed,
+			permissions: {
+				canComplete: false,
+				canAccept: false,
+				canDispute: false,
+				canPropose: false,
+				canAcceptProposal: false,
+				canCancel: true,
+				canResolveTimelock: false,
+				canDelete: false
+			}
+		};
+
+		render(ContractCard, {
+			contract,
+			btcPrice: 100000
+		});
+
+		expect(screen.queryByTestId('contract-actions')).not.toBeInTheDocument();
 	});
 });
