@@ -64,7 +64,7 @@
 					</div>
 					{#if import.meta.env.DEV && contract.paymentId}
 						<div class="badge badge-error badge-sm">
-							{contract.paymentId}
+							{contract.version}: {contract.paymentId}
 						</div>
 					{/if}
 				</div>
