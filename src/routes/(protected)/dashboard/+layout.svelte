@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { devicePlatform } from '$lib/stores/device.store';
 	import { page } from '$app/state';
 	import { sections } from '$lib/utils/consts';
@@ -21,8 +22,8 @@
 </script>
 
 <svelte:head>
-	<title>{$t('dashboard.dashboard.page_title')}</title>
-	<meta name="description" content={$t('dashboard.dashboard.page_description')} />
+	<title>{$t('dashboard.hiring.page_title')}</title>
+	<meta name="description" content={$t('dashboard.hiring.page_description')} />
 </svelte:head>
 
 <svelte:window bind:innerWidth={width} />
@@ -42,7 +43,7 @@
 									<li class="my-1">
 										<a
 											data-sveltekit-reload="off"
-											href={section.path}
+											href={resolve(section.path)}
 											class:menu-active={page.url.pathname + page.url.search === section.path ||
 												page.url.pathname === section.path}
 											class="flex items-center gap-3"
