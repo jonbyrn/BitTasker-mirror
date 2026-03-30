@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount, onDestroy } from 'svelte';
+	import { page } from '$app/state';
 	import { t } from 'svelte-i18n';
 	import { profileStore } from '$lib/stores/profile.store';
 	import ProfileHeader from '$lib/components/profile/ProfileHeader.svelte';
@@ -21,53 +21,99 @@
 		return now.getFullYear() - then.getFullYear();
 	}
 
-	// Initialize profile store
-	onMount(() => {
-		profileStore.init();
-	});
+	function getRequestedTabFromUrl(url: URL): 'overview' | 'reviews' {
+		return url.searchParams.get('tab') === 'reviews' ? 'reviews' : 'overview';
+	}
 
-	// Cleanup on destroy
-	onDestroy(() => {
-		profileStore.destroy();
-	});
+	function getReviewTargetPubkeyFromUrl(url: URL): string | undefined {
+		const user = url.searchParams.get('user')?.trim();
+		return user || undefined;
+	}
 
 	// Tab management
-	let activeTab = $state<'overview' | 'reviews'>('overview');
+	let activeTab = $state<'overview' | 'reviews'>(
+		getReviewTargetPubkeyFromUrl(page.url) ? 'reviews' : getRequestedTabFromUrl(page.url)
+	);
+	let lastSyncedSearch = $state('');
+	const reviewTargetPubkey = $derived.by(() => {
+		return getReviewTargetPubkeyFromUrl(page.url);
+	});
+	const isOtherUserReviewsView = $derived(Boolean(reviewTargetPubkey));
+	const requestedTab = $derived<'overview' | 'reviews'>(getRequestedTabFromUrl(page.url));
+
+	let profileStoreInitialized = false;
+
+	$effect(() => {
+		if (isOtherUserReviewsView) {
+			if (profileStoreInitialized) {
+				profileStore.destroy();
+				profileStoreInitialized = false;
+			}
+			return;
+		}
+
+		if (!profileStoreInitialized) {
+			profileStore.init();
+			profileStoreInitialized = true;
+		}
+
+		return () => {
+			if (profileStoreInitialized) {
+				profileStore.destroy();
+				profileStoreInitialized = false;
+			}
+		};
+	});
+
+	$effect(() => {
+		const currentSearch = page.url.search;
+
+		if (currentSearch === lastSyncedSearch) {
+			return;
+		}
+
+		lastSyncedSearch = currentSearch;
+		activeTab = reviewTargetPubkey ? 'reviews' : requestedTab;
+	});
 </script>
 
 <!-- Mismas dimensiones que Mi Panel -->
 <div class="mx-auto h-full max-w-6xl px-2 py-6 md:px-0 md:py-0">
 	<div class="mb-8">
-		<h3 class="text-2xl font-bold mb-2">{$t('profile.page.title')}</h3>
+		<h3 class="mb-2 text-2xl font-bold">{$t('profile.page.title')}</h3>
 		<p class="text-base-content/70 text-lg">{$t('profile.page.description')}</p>
 	</div>
 	<div class="bg-base-100 rounded-xl p-8 shadow-lg">
-		<ProfileHeader />
+		{#if isOtherUserReviewsView}
+			<ProfileReviewsSection userPubkey={reviewTargetPubkey} isCurrentUser={false} />
+		{:else}
+			<ProfileHeader />
 
-		<ProfileStats stats={$profileStore.stats} />
+			<ProfileStats stats={$profileStore.stats} />
 
-		<!-- Profile Tabs -->
-		<div class="tabs tabs-boxed bg-base-200 mb-6">
-			<button
-				class="tab {activeTab === 'overview' ? 'tab-active' : ''}"
-				onclick={() => activeTab = 'overview'}
-			>
-				{$t('profile.tabs.overview')}
-			</button>
-			<button
-				class="tab {activeTab === 'reviews' ? 'tab-active' : ''}"
-				onclick={() => activeTab = 'reviews'}
-			>
-				{$t('profile.tabs.reviews')}
-			</button>
-		</div>
+			<!-- Profile Tabs -->
+			<div class="tabs tabs-boxed bg-base-200 mb-6">
+				<button
+					class="tab {activeTab === 'overview' ? 'tab-active' : ''}"
+					onclick={() => (activeTab = 'overview')}
+				>
+					{$t('profile.tabs.overview')}
+				</button>
+				<button
+					class="tab {activeTab === 'reviews' ? 'tab-active' : ''}"
+					onclick={() => (activeTab = 'reviews')}
+				>
+					{$t('profile.tabs.reviews')}
+				</button>
+			</div>
 
-		<!-- Tab Content -->
-		{#if activeTab === 'overview'}
-			<ProfileInfoSection {formatDate} {yearsFrom} />
-			<ProfileSidebar {formatDate} />
-		{:else if activeTab === 'reviews'}
-			<ProfileReviewsSection isCurrentUser={true} />
+			<!-- Tab Content -->
+			{#if activeTab === 'overview'}
+				<ProfileInfoSection {formatDate} {yearsFrom} />
+				<ProfileSidebar {formatDate} />
+			{:else if activeTab === 'reviews'}
+				<ProfileReviewsSection isCurrentUser={true} />
+			{/if}
 		{/if}
 	</div>
 </div>

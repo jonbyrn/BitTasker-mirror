@@ -8,7 +8,11 @@
 	import { t } from 'svelte-i18n';
 	import ContractActions from './ContractActions.svelte';
 	import ReviewPromptModal from '$lib/components/reviews/ReviewPromptModal.svelte';
-	import { hasUserReviewedContract, getOtherPartyPubkey } from '$lib/utils/review-helpers';
+	import {
+		getOtherPartyPubkey,
+		hasUserReviewedContract,
+		isReviewableContractStatus
+	} from '$lib/utils/review-helpers';
 	import { getReviewsForEscrow } from '$lib/utils/nostr-review';
 	import { getNpub } from '$lib/utils/nostrKeys';
 	// eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -18,7 +22,7 @@
 	import TaskDeadlineDisplay from '../task/TaskDeadlineDisplay.svelte';
 	import TaskLocationDisplay from '../task/TaskLocationDisplay.svelte';
 
-	const { contract, btcPrice 	} = $props<{
+	const { contract, btcPrice } = $props<{
 		contract: ContractWithEvents;
 		btcPrice: number;
 	}>();
@@ -71,7 +75,7 @@
 	// Check review status for completed contracts
 	$effect(() => {
 		(async () => {
-			const isCompleted = contract.status === 'completed' || contract.status === 'resolved';
+			const isCompleted = isReviewableContractStatus(contract.status);
 			if (!isCompleted) {
 				reviewStatus = { userReviewed: false, otherPartyReviewed: false, isLoading: false };
 				return;
@@ -94,16 +98,18 @@
 				// Check if other party has reviewed
 				const reviews = await getReviewsForEscrow(contract.escrowData.id);
 				const otherPartyPubkeyHex = getOtherPartyPubkey(contract, currentUserPubkey);
-				
+
 				// Convert other party's hex pubkey to npub for comparison with reviews
 				const otherPartyPubkeyNpub = otherPartyPubkeyHex ? hexToNpub(otherPartyPubkeyHex) : null;
 				const otherPartyReviewed = otherPartyPubkeyNpub
-					? reviews.some(r => {
+					? reviews.some((r) => {
 							// Reviews may have npub or hex format, so check both
-							const reviewerHex = r.reviewerPubkey.startsWith('npub') 
-								? npubToHex(r.reviewerPubkey) 
+							const reviewerHex = r.reviewerPubkey.startsWith('npub')
+								? npubToHex(r.reviewerPubkey)
 								: r.reviewerPubkey;
-							return reviewerHex === otherPartyPubkeyHex || r.reviewerPubkey === otherPartyPubkeyNpub;
+							return (
+								reviewerHex === otherPartyPubkeyHex || r.reviewerPubkey === otherPartyPubkeyNpub
+							);
 						})
 					: false;
 
@@ -131,7 +137,7 @@
 		}
 	}
 
-	function handleReviewSubmit(eventId: string) {
+	function handleReviewSubmit() {
 		reviewStatus.userReviewed = true;
 		isReviewModalOpen = false;
 	}
@@ -159,28 +165,6 @@
 			usd: `$${usdAmount.toFixed(2)}`,
 			sats: `${sats.toLocaleString('en-US')} Sats`
 		};
-	}
-
-	// Format date with proper timestamp handling
-	function formatDate(timestamp: number): string {
-		// Handle invalid or zero timestamps
-		if (!timestamp || timestamp <= 0) {
-			return 'Not set';
-		}
-
-		// Convert to milliseconds if timestamp is in seconds
-		const date = timestamp > 1000000000000 ? new Date(timestamp) : new Date(timestamp * 1000);
-
-		// Check if date is valid
-		if (isNaN(date.getTime())) {
-			return 'Invalid date';
-		}
-
-		return date.toLocaleDateString('en-US', {
-			month: 'short',
-			day: 'numeric',
-			year: 'numeric'
-		});
 	}
 
 	// Get role badge class
@@ -217,7 +201,7 @@
 		<!-- Top Row: Title + Description + Badges -->
 		<div class="mb-3 flex flex-row items-start justify-between gap-2">
 			<!-- Left: Title and Description (flexible, takes available space) -->
-			<div class="flex-1 min-w-0 pr-2 md:pr-4">
+			<div class="min-w-0 flex-1 pr-2 md:pr-4">
 				<div class="card-title line-clamp-2 text-lg font-semibold">
 					<button
 						class="hover:text-primary cursor-pointer text-left transition-colors"
@@ -226,7 +210,7 @@
 						{contractStore.getContractKey(contract, 'taskTitle')}
 					</button>
 				</div>
-				<div class="text-sm text-base-content/80 whitespace-pre-line line-clamp-2 mt-1">
+				<div class="text-base-content/80 mt-1 line-clamp-2 text-sm whitespace-pre-line">
 					{contractStore.getContractKey(contract, 'taskDescription')}
 				</div>
 			</div>
@@ -243,30 +227,63 @@
 						</div>
 					{/if}
 					<!-- Review Status Badges -->
-					{#if (contract.status === 'completed' || contract.status === 'resolved') && !reviewStatus.isLoading}
+					{#if isReviewableContractStatus(contract.status) && !reviewStatus.isLoading}
 						{#if reviewStatus.userReviewed}
 							<div class="badge badge-success badge-sm gap-1" title={$t('reviews.you_reviewed')}>
-								<svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									class="h-3 w-3"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke="currentColor"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+									/>
 								</svg>
 								{$t('reviews.reviewed')}
 							</div>
 						{:else if revieweePubkey}
 							<button
-								class="badge badge-warning badge-sm gap-1 hover:badge-warning/80 transition-colors cursor-pointer"
+								class="badge badge-warning badge-sm hover:badge-warning/80 cursor-pointer gap-1 transition-colors"
 								title={$t('reviews.review_pending')}
 								onclick={handleReviewClick}
 							>
-								<svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									class="h-3 w-3"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke="currentColor"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"
+									/>
 								</svg>
 								{$t('reviews.review_pending')}
 							</button>
 						{/if}
 						{#if reviewStatus.otherPartyReviewed}
 							<div class="badge badge-info badge-sm gap-1" title={$t('reviews.review_received')}>
-								<svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									class="h-3 w-3"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke="currentColor"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
+									/>
 								</svg>
 								{$t('reviews.review_received')}
 							</div>
@@ -289,7 +306,7 @@
 		<!-- Second Row: Deadline + Location + Price -->
 		<div class="mb-3 flex flex-row items-center justify-between gap-3">
 			<!-- Left: Deadline + Location -->
-			<div class="flex flex-col gap-2 min-w-0 flex-1">
+			<div class="flex min-w-0 flex-1 flex-col gap-2">
 				<!-- Deadline -->
 				<TaskDeadlineDisplay
 					deadline={contractStore.getContractKey(contract, 'estimatedCompletionTime') as number}
@@ -300,7 +317,7 @@
 			</div>
 
 			<!-- Right: Price -->
-			<div class="text-right shrink-0">
+			<div class="shrink-0 text-right">
 				{#if btcPrice > 0}
 					{@const priceData = formatPriceStacked(
 						contractStore.getContractKey(contract, 'amount') as string,
@@ -319,12 +336,10 @@
 		<!-- Bottom Row: User Info + Action Buttons -->
 		<div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
 			<!-- Left: User Info (without role headline) -->
-			<UserNostrBadge
-				npub={contractStore.getContractKey(contract, 'otherPartyNpub') as string}
-			/>
+			<UserNostrBadge npub={contractStore.getContractKey(contract, 'otherPartyNpub') as string} />
 
 			<!-- Right: Action Buttons -->
-			<div class="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:w-auto">
+			<div class="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
 				{#if getAvailableActionsCount() > 0}
 					<ContractActions
 						{contract}
@@ -358,7 +373,7 @@
 		<ReviewPromptModal
 			isOpen={isReviewModalOpen}
 			escrowId={contract.escrowData.id}
-			revieweePubkey={revieweePubkey}
+			{revieweePubkey}
 			escrowTxHash={contract.contractEvent.content.transactionHash}
 			onClose={() => {
 				isReviewModalOpen = false;
