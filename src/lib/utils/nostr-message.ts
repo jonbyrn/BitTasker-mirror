@@ -11,7 +11,14 @@ import { formatStandardDateShort } from '$lib/utils/helpers/dateFormatter';
 import { TAG_FILTERS, TAG_PATTERNS } from '$lib/utils/constants/tags';
 import nip44 from '$lib/nostr/nip44';
 import KINDS from '$lib/utils/constants/kinds';
-import type { NostrProfileImage, NostrReview, NostrSkill, SkillCertification, TimeSlot, ProfileTranslations } from '$lib/types/profile';
+import type {
+	NostrProfileImage,
+	NostrReview,
+	NostrSkill,
+	SkillCertification,
+	TimeSlot,
+	ProfileTranslations
+} from '$lib/types/profile';
 
 // --- Relay Configuration ---
 const DEFAULT_RELAYS = [import.meta.env.VITE_NOSTR_RELAY_URL].filter(Boolean);
@@ -261,33 +268,29 @@ export function subscribeToProfileUpdates(
 	};
 }
 
-export async function fetchProfileMetadata(npub: string): Promise<{ name?: string; picture?: string; createdAt?: string }> {
+export async function fetchProfileMetadata(
+	npub: string
+): Promise<{ name?: string; picture?: string; createdAt?: string }> {
 	try {
-		// First check cache (using original format for cache key)
-		const cachedProfile = await profileCache.getProfile(npub);
+		const normalizedPubkey = normalizeProfileLookupKey(npub);
+		const cacheKey = normalizedPubkey.cacheKey;
+
+		// First check cache using the canonical pubkey format.
+		const cachedProfile = await profileCache.getProfile(cacheKey);
 		if (cachedProfile) {
 			return cachedProfile;
-		}
-
-		// Convert npub to hex if needed (Nostr filters require hex pubkeys)
-		let hexPubkey = npub;
-		if (npub.startsWith('npub')) {
-			try {
-				const decoded = nip19.decode(npub);
-				if (decoded.type === 'npub') {
-					hexPubkey = decoded.data as string;
-				}
-			} catch (e) {
-				console.error('Failed to decode npub:', e);
-				// If decoding fails, try using as-is (might already be hex)
-			}
 		}
 
 		// If not in cache, fetch from relays
 		const pool = getPool();
 		const filter: Filter = {
-			kinds: [KINDS.PROFILE_METADATA, KINDS.FILE_METADATA, KINDS.PROFILE_IMAGES, KINDS.NIP_65_RELAY_LIST],
-			authors: [hexPubkey],
+			kinds: [
+				KINDS.PROFILE_METADATA,
+				KINDS.FILE_METADATA,
+				KINDS.PROFILE_IMAGES,
+				KINDS.NIP_65_RELAY_LIST
+			],
+			authors: [normalizedPubkey.hexPubkey],
 			limit: 20
 		};
 
@@ -306,7 +309,9 @@ export async function fetchProfileMetadata(npub: string): Promise<{ name?: strin
 					const content = JSON.parse(event.content);
 
 					// Map displayName to name if name is not available
-					name = content?.display_name || content?.displayName || content?.name;
+					name = sanitizeProfileDisplayName(
+						content?.display_name ?? content?.displayName ?? content?.name
+					);
 
 					if (event.created_at) {
 						createdAt = formatStandardDateShort(new Date(event.created_at * 1000));
@@ -367,17 +372,91 @@ export async function fetchProfileMetadata(npub: string): Promise<{ name?: strin
 		}
 
 		const profile = { name, picture, createdAt };
-
-		// Cache the result (even if empty, to avoid repeated failed requests)
-		await profileCache.cacheProfile(npub, profile);
+		if (hasMeaningfulProfileMetadata(profile)) {
+			await profileCache.cacheProfile(cacheKey, profile);
+		}
 
 		return profile;
 	} catch (error) {
 		console.error('💥 Failed to fetch profile metadata for', npub, ':', error);
-		// Cache empty result to avoid repeated failed requests
-		await profileCache.cacheProfile(npub, {});
 		return {};
 	}
+}
+
+function sanitizeProfileDisplayName(value: unknown): string | undefined {
+	if (typeof value !== 'string') {
+		return undefined;
+	}
+
+	const trimmedValue = value.trim();
+	if (!trimmedValue) {
+		return undefined;
+	}
+
+	if (trimmedValue.startsWith('npub')) {
+		return undefined;
+	}
+
+	if (trimmedValue.includes('...')) {
+		return undefined;
+	}
+
+	if (/^[0-9a-fA-F]{64}$/.test(trimmedValue)) {
+		return undefined;
+	}
+
+	if (trimmedValue.startsWith('[object')) {
+		return undefined;
+	}
+
+	if (/^\d+$/.test(trimmedValue) && trimmedValue.length > 3) {
+		return undefined;
+	}
+
+	return trimmedValue;
+}
+
+function hasMeaningfulProfileMetadata(profile: {
+	name?: string;
+	picture?: string;
+	createdAt?: string;
+}): boolean {
+	return Boolean(profile.name || profile.picture || profile.createdAt);
+}
+
+function normalizeProfileLookupKey(input: string): { cacheKey: string; hexPubkey: string } {
+	const trimmedInput = input.trim();
+	if (!trimmedInput) {
+		return { cacheKey: '', hexPubkey: '' };
+	}
+
+	if (/^[0-9a-fA-F]{64}$/.test(trimmedInput)) {
+		const normalizedHex = trimmedInput.toLowerCase();
+		return {
+			cacheKey: normalizedHex,
+			hexPubkey: normalizedHex
+		};
+	}
+
+	if (trimmedInput.startsWith('npub')) {
+		try {
+			const decoded = nip19.decode(trimmedInput);
+			if (decoded.type === 'npub') {
+				const normalizedHex = (decoded.data as string).toLowerCase();
+				return {
+					cacheKey: normalizedHex,
+					hexPubkey: normalizedHex
+				};
+			}
+		} catch (error) {
+			console.error('Failed to decode npub:', error);
+		}
+	}
+
+	return {
+		cacheKey: trimmedInput,
+		hexPubkey: trimmedInput
+	};
 }
 
 /**
@@ -391,13 +470,16 @@ export async function fetchComprehensiveProfile(pubkey: string): Promise<{
 	website?: string;
 	professionalTitle?: string;
 	translations?: ProfileTranslations;
-	skills?: Array<string | {
-		name: string;
-		level: number;
-		verificationStatus?: string;
-		endorsements?: number;
-		certifications?: SkillCertification[];
-	}>;
+	skills?: Array<
+		| string
+		| {
+				name: string;
+				level: number;
+				verificationStatus?: string;
+				endorsements?: number;
+				certifications?: SkillCertification[];
+		  }
+	>;
 	portfolio?: Array<{
 		id: string;
 		title: string;
@@ -424,6 +506,62 @@ export async function fetchComprehensiveProfile(pubkey: string): Promise<{
 	}>;
 	createdAt?: string;
 }> {
+	type ProfileSkillEntry =
+		| string
+		| (NostrSkill & {
+				translations?: Record<string, unknown>;
+				id?: string;
+		  });
+	type ComprehensiveProfileData = {
+		name: string;
+		display_name: string;
+		about: string;
+		picture: string;
+		pictures: Array<{ url: string; type: string; alt: string; key?: string; isPrimary?: boolean }>;
+		website: string;
+		professionalTitle: string;
+		location: string;
+		translations?: ProfileTranslations;
+		skills: Array<
+			| string
+			| {
+					name: string;
+					level: number;
+					verificationStatus?: string;
+					endorsements?: number;
+					certifications?: SkillCertification[];
+					translations?: Record<string, unknown>;
+					id?: string;
+			  }
+		>;
+		portfolio: Array<{
+			id: string;
+			title: string;
+			description: string;
+			images: NostrProfileImage[];
+			completionDate: string;
+			skills: string[];
+			link?: string;
+			translations?: Record<string, unknown>;
+		}>;
+		availability: {
+			timeSlots: TimeSlot[];
+			timezone: string;
+			noticeHours: number;
+			maxBookingsPerDay: number;
+			breakBetweenBookings: number;
+		};
+		reviews: Array<{ id: string; from: string; rating: number; text: string; date: string }>;
+		certifications: Array<{
+			name: string;
+			issuer: string;
+			date: string;
+			verified: boolean;
+			fileUrl: string;
+		}>;
+		createdAt?: string;
+	};
+
 	try {
 		// Ensure pubkey is in hex format (not npub)
 		let hexPubkey = pubkey;
@@ -459,7 +597,7 @@ export async function fetchComprehensiveProfile(pubkey: string): Promise<{
 		const events = await pool.querySync(DEFAULT_RELAYS, filter);
 
 		// Initialize profile data
-		const profileData: any = {
+		const profileData: ComprehensiveProfileData = {
 			name: '',
 			display_name: '',
 			about: '',
@@ -524,7 +662,8 @@ export async function fetchComprehensiveProfile(pubkey: string): Promise<{
 						}
 						break;
 
-					case KINDS.PROFILE_IMAGES: { // Profile images
+					case KINDS.PROFILE_IMAGES: {
+						// Profile images
 						const dTag = event.tags.find((t) => t[0] === 'd');
 						if (dTag && dTag[1] === 'profile-images') {
 							if (Array.isArray(content)) {
@@ -546,7 +685,7 @@ export async function fetchComprehensiveProfile(pubkey: string): Promise<{
 
 					case KINDS.PROFILE_SKILLS: // Skills (30000)
 						if (Array.isArray(content)) {
-							profileData.skills = content.map((skill: NostrSkill & { translations?: any; id?: string }) => {
+							profileData.skills = content.map((skill: ProfileSkillEntry) => {
 								// Handle both string format and object format
 								if (typeof skill === 'string') {
 									return skill;
@@ -694,17 +833,18 @@ export async function sendDirectMessage(
  * Listen for incoming DMs for the current user
  * Uses the centralized pool to subscribe to all relays simultaneously
  * Returns an unsubscribe function
- * 
+ *
  * Note: pool.subscribe only accepts ONE filter at a time, so we need TWO separate subscriptions:
  * Subscription 1: Messages TO the user (#p tag contains user's pubkey)
  * Subscription 2: Messages FROM the user (authors contains user's pubkey)
- * 
+ *
  * @arg npub - The public key of the user to listen for messages from
  * @arg nsec - The private key of the user to listen for messages from
  * @arg callback - The callback function to call when a message is received
  */
 export function listenForIncomingMessages(
-	npub: string, nsec: Uint8Array,
+	npub: string,
+	nsec: Uint8Array,
 	callback: (msg: { plaintext: string; senderPubkey: string; event: NostrEvent }) => void
 ): () => void {
 	let isUnsubscribed = false;
@@ -737,10 +877,10 @@ export function listenForIncomingMessages(
 				{
 					kinds: [KINDS.DIRECT_MESSAGES],
 					...TAG_PATTERNS.directMessage(npub),
-					since: Math.floor(Date.now() / 1000) - (7 * 24 * 60 * 60)  // Last 7 days
+					since: Math.floor(Date.now() / 1000) - 7 * 24 * 60 * 60 // Last 7 days
 				},
 				{
-					onevent: eventHandler,
+					onevent: eventHandler
 				}
 			);
 
@@ -750,10 +890,10 @@ export function listenForIncomingMessages(
 				{
 					kinds: [KINDS.DIRECT_MESSAGES],
 					authors: [npub],
-					since: Math.floor(Date.now() / 1000) - (7 * 24 * 60 * 60)  // Last 7 days
+					since: Math.floor(Date.now() / 1000) - 7 * 24 * 60 * 60 // Last 7 days
 				},
 				{
-					onevent: eventHandler,
+					onevent: eventHandler
 				}
 			);
 		} catch (error) {
