@@ -35,52 +35,145 @@
 	let isSubmitting = $state(false);
 	let errors = $state<Record<string, string>>({});
 	let alreadyReviewed = $state(false);
+	let isCheckingExistingReview = $state(true);
 	const hasResolvedRevieweeRole = $derived(revieweeRole === 'tasker' || revieweeRole === 'taskee');
+	const legacyAlreadyReviewedCopy =
+		'You have already reviewed this escrow. You can update your review by submitting a new one.';
+	const getFormText = (key: string, fallback: string, values?: Record<string, number | string>) => {
+		const translated = $t(`reviews.form.${key}`, values ? { values } : undefined);
+		if (
+			translated === `reviews.form.${key}` ||
+			(key === 'already_reviewed' && translated === legacyAlreadyReviewedCopy)
+		) {
+			return fallback;
+		}
+
+		return translated;
+	};
+	const getFormErrorText = (key: string, fallback: string) => {
+		const translated = $t(`reviews.form.errors.${key}`);
+		return translated === `reviews.form.errors.${key}` ? fallback : translated;
+	};
+	const getCommonText = (key: string, fallback: string) => {
+		const translated = $t(`common.${key}`);
+		return translated === `common.${key}` ? fallback : translated;
+	};
+	const getRatingAriaLabel = (
+		key:
+			| 'rate_overall_aria'
+			| 'rate_work_quality_aria'
+			| 'rate_experience_aria'
+			| 'rate_delivery_speed_aria'
+			| 'rate_communication_aria'
+			| 'rate_clarity_aria'
+			| 'rate_payment_timeliness_aria',
+		rating: number
+	) =>
+		getFormText(
+			key,
+			{
+				rate_overall_aria: `Rate ${rating} out of 5`,
+				rate_work_quality_aria: `Rate work quality ${rating} out of 5`,
+				rate_experience_aria: `Rate experience ${rating} out of 5`,
+				rate_delivery_speed_aria: `Rate delivery speed ${rating} out of 5`,
+				rate_communication_aria: `Rate communication ${rating} out of 5`,
+				rate_clarity_aria: `Rate clarity ${rating} out of 5`,
+				rate_payment_timeliness_aria: `Rate payment timeliness ${rating} out of 5`
+			}[key],
+			{ rating }
+		);
 
 	// Check if user has already reviewed
 	$effect(() => {
+		let cancelled = false;
+		isCheckingExistingReview = true;
+
 		(async () => {
-			const reviewerPubkey = await getNpub();
-			if (reviewerPubkey) {
-				alreadyReviewed = await hasUserReviewedEscrow(escrowId, reviewerPubkey);
+			try {
+				const reviewerPubkey = await getNpub();
+				if (reviewerPubkey) {
+					const reviewed = await hasUserReviewedEscrow(escrowId, reviewerPubkey);
+					if (!cancelled) {
+						alreadyReviewed = reviewed;
+					}
+				} else if (!cancelled) {
+					alreadyReviewed = false;
+				}
+			} catch (error) {
+				console.error('Failed to load existing review status:', error);
+				if (!cancelled) {
+					alreadyReviewed = false;
+				}
+			} finally {
+				if (!cancelled) {
+					isCheckingExistingReview = false;
+				}
 			}
 		})();
+
+		return () => {
+			cancelled = true;
+		};
 	});
 
 	function validateForm(): boolean {
 		const newErrors: Record<string, string> = {};
 
 		if (overallRating === 0) {
-			newErrors.overallRating = $t('reviews.form.errors.overall_rating_required');
+			newErrors.overallRating = getFormErrorText(
+				'overall_rating_required',
+				'Please provide an overall rating'
+			);
 		}
 
 		// Validate role-specific categories
 		if (revieweeRole === 'taskee') {
 			if (workQualityRating === 0) {
-				newErrors.workQuality = $t('reviews.form.errors.work_quality_required');
+				newErrors.workQuality = getFormErrorText(
+					'work_quality_required',
+					'Please rate the work quality'
+				);
 			}
 			if (experienceRating === 0) {
-				newErrors.experience = $t('reviews.form.errors.experience_required');
+				newErrors.experience = getFormErrorText(
+					'experience_required',
+					'Please rate the experience'
+				);
 			}
 			if (deliverySpeedRating === 0) {
-				newErrors.deliverySpeed = $t('reviews.form.errors.delivery_speed_required');
+				newErrors.deliverySpeed = getFormErrorText(
+					'delivery_speed_required',
+					'Please rate the delivery speed'
+				);
 			}
 		} else if (revieweeRole === 'tasker') {
 			if (communicationRating === 0) {
-				newErrors.communication = $t('reviews.form.errors.communication_required');
+				newErrors.communication = getFormErrorText(
+					'communication_required',
+					'Please rate the communication'
+				);
 			}
 			if (clarityRating === 0) {
-				newErrors.clarity = $t('reviews.form.errors.clarity_required');
+				newErrors.clarity = getFormErrorText('clarity_required', 'Please rate the clarity');
 			}
 			if (paymentTimelinessRating === 0) {
-				newErrors.paymentTimeliness = $t('reviews.form.errors.payment_timeliness_required');
+				newErrors.paymentTimeliness = getFormErrorText(
+					'payment_timeliness_required',
+					'Please rate the payment timeliness'
+				);
 			}
 		} else {
-			newErrors.role = $t('reviews.form.role_unknown');
+			newErrors.role = getFormText(
+				'role_unknown',
+				'Unable to determine role. Please ensure contract information is available.'
+			);
 		}
 
 		if (comment.trim().length > 1000) {
-			newErrors.comment = $t('reviews.form.errors.comment_too_long');
+			newErrors.comment = getFormErrorText(
+				'comment_too_long',
+				'Comment cannot exceed 1000 characters'
+			);
 		}
 
 		errors = newErrors;
@@ -88,7 +181,7 @@
 	}
 
 	async function handleSubmit() {
-		if (!validateForm() || isSubmitting || alreadyReviewed) {
+		if (isCheckingExistingReview || !validateForm() || isSubmitting || alreadyReviewed) {
 			return;
 		}
 
@@ -110,7 +203,12 @@
 					paymentTimeliness: paymentTimelinessRating
 				};
 			} else {
-				throw new Error($t('reviews.form.role_unknown'));
+				throw new Error(
+					getFormText(
+						'role_unknown',
+						'Unable to determine role. Please ensure contract information is available.'
+					)
+				);
 			}
 
 			const content: ReviewContentWithRatings = {
@@ -123,12 +221,14 @@
 
 			const eventId = await publishVerifiedReview(escrowId, revieweePubkey, content, escrowTxHash);
 
-			appStore.showSuccessToast($t('reviews.form.success'));
+			appStore.showSuccessToast(getFormText('success', 'Review submitted successfully!'));
 			onSubmit?.(eventId);
 		} catch (error) {
 			console.error('Failed to submit review:', error);
 			appStore.showErrorToast(
-				error instanceof Error ? error.message : $t('reviews.form.errors.submit_failed')
+				error instanceof Error
+					? error.message
+					: getFormErrorText('submit_failed', 'Unable to submit review. Please try again.')
 			);
 		} finally {
 			isSubmitting = false;
@@ -190,9 +290,11 @@
 				</svg>
 			</div>
 			<div>
-				<h2 class="text-base-content text-2xl font-bold">{$t('reviews.form.title')}</h2>
+				<h2 class="text-base-content text-2xl font-bold">
+					{getFormText('title', 'Write a Review')}
+				</h2>
 				<p class="text-base-content/60 mt-1 text-sm">
-					Share your experience and help build trust in the community
+					{getFormText('subtitle', 'Reviews are public and immutable once submitted.')}
 				</p>
 			</div>
 		</div>
@@ -213,7 +315,17 @@
 					d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
 				/>
 			</svg>
-			<span class="text-sm">{$t('reviews.form.already_reviewed')}</span>
+			<span class="text-sm"
+				>{getFormText(
+					'already_reviewed',
+					'You have already reviewed this escrow. Reviews are immutable once submitted.'
+				)}</span
+			>
+		</div>
+	{:else if isCheckingExistingReview}
+		<div class="text-base-content/60 mb-6 flex items-center gap-2 text-sm">
+			<span class="loading loading-spinner loading-sm"></span>
+			<span>{getFormText('checking_existing', 'Checking review status...')}</span>
 		</div>
 	{/if}
 
@@ -223,7 +335,7 @@
 			<div class="mb-3 flex items-center justify-between">
 				<div class="label p-0">
 					<span class="text-base-content text-base font-semibold"
-						>{$t('reviews.form.overall_rating')}</span
+						>{getFormText('overall_rating', 'Overall Rating')}</span
 					>
 					<span class="text-error ml-1 text-xs">*</span>
 				</div>
@@ -244,7 +356,7 @@
 							: 'cursor-pointer'}"
 						onclick={() => setRating('overall', rating)}
 						disabled={isSubmitting || alreadyReviewed}
-						aria-label="Rate {rating} out of 5"
+						aria-label={getRatingAriaLabel('rate_overall_aria', rating)}
 					>
 						<svg
 							class="h-5 w-5 {getRatingClass(rating, overallRating)} transition-colors duration-200"
@@ -268,7 +380,9 @@
 
 		<!-- Divider -->
 		<div class="divider my-6">
-			<span class="text-base-content/40 text-xs">Category Ratings</span>
+			<span class="text-base-content/40 text-xs"
+				>{getFormText('category_ratings', 'Category Ratings')}</span
+			>
 		</div>
 
 		<!-- Category Ratings - Role-Specific -->
@@ -281,7 +395,7 @@
 					<div class="mb-2 flex items-center justify-between">
 						<div class="label p-0">
 							<span class="text-base-content text-sm font-medium"
-								>{$t('reviews.form.work_quality')}</span
+								>{getFormText('work_quality', 'Work Quality')}</span
 							>
 							<span class="text-error ml-1 text-xs">*</span>
 						</div>
@@ -289,7 +403,12 @@
 							<span class="text-base-content/60 text-xs font-medium">{workQualityRating}/5</span>
 						{/if}
 					</div>
-					<p class="text-base-content/50 mb-2 text-xs">{$t('reviews.form.work_quality_desc')}</p>
+					<p class="text-base-content/50 mb-2 text-xs">
+						{getFormText(
+							'work_quality_desc',
+							'Quality of work delivered, deliverables, and results'
+						)}
+					</p>
 					<div class="flex items-center gap-2">
 						{#each [1, 2, 3, 4, 5] as rating (rating)}
 							<button
@@ -300,7 +419,7 @@
 									: 'cursor-pointer'}"
 								onclick={() => setRating('workQuality', rating)}
 								disabled={isSubmitting || alreadyReviewed}
-								aria-label="Rate work quality {rating} out of 5"
+								aria-label={getRatingAriaLabel('rate_work_quality_aria', rating)}
 							>
 								<svg
 									class="h-5 w-5 {getRatingClass(
@@ -330,7 +449,7 @@
 					<div class="mb-2 flex items-center justify-between">
 						<div class="label p-0">
 							<span class="text-base-content text-sm font-medium"
-								>{$t('reviews.form.experience')}</span
+								>{getFormText('experience', 'Experience')}</span
 							>
 							<span class="text-error ml-1 text-xs">*</span>
 						</div>
@@ -338,7 +457,12 @@
 							<span class="text-base-content/60 text-xs font-medium">{experienceRating}/5</span>
 						{/if}
 					</div>
-					<p class="text-base-content/50 mb-2 text-xs">{$t('reviews.form.experience_desc')}</p>
+					<p class="text-base-content/50 mb-2 text-xs">
+						{getFormText(
+							'experience_desc',
+							'Level of experience, expertise, and skill demonstrated'
+						)}
+					</p>
 					<div class="flex items-center gap-2">
 						{#each [1, 2, 3, 4, 5] as rating (rating)}
 							<button
@@ -349,7 +473,7 @@
 									: 'cursor-pointer'}"
 								onclick={() => setRating('experience', rating)}
 								disabled={isSubmitting || alreadyReviewed}
-								aria-label="Rate experience {rating} out of 5"
+								aria-label={getRatingAriaLabel('rate_experience_aria', rating)}
 							>
 								<svg
 									class="h-5 w-5 {getRatingClass(
@@ -379,7 +503,7 @@
 					<div class="mb-2 flex items-center justify-between">
 						<div class="label p-0">
 							<span class="text-base-content text-sm font-medium"
-								>{$t('reviews.form.delivery_speed')}</span
+								>{getFormText('delivery_speed', 'Delivery Speed')}</span
 							>
 							<span class="text-error ml-1 text-xs">*</span>
 						</div>
@@ -387,7 +511,12 @@
 							<span class="text-base-content/60 text-xs font-medium">{deliverySpeedRating}/5</span>
 						{/if}
 					</div>
-					<p class="text-base-content/50 mb-2 text-xs">{$t('reviews.form.delivery_speed_desc')}</p>
+					<p class="text-base-content/50 mb-2 text-xs">
+						{getFormText(
+							'delivery_speed_desc',
+							'How quickly work was completed and deadlines were met'
+						)}
+					</p>
 					<div class="flex items-center gap-2">
 						{#each [1, 2, 3, 4, 5] as rating (rating)}
 							<button
@@ -398,7 +527,7 @@
 									: 'cursor-pointer'}"
 								onclick={() => setRating('deliverySpeed', rating)}
 								disabled={isSubmitting || alreadyReviewed}
-								aria-label="Rate delivery speed {rating} out of 5"
+								aria-label={getRatingAriaLabel('rate_delivery_speed_aria', rating)}
 							>
 								<svg
 									class="h-5 w-5 {getRatingClass(
@@ -430,7 +559,7 @@
 					<div class="mb-2 flex items-center justify-between">
 						<div class="label p-0">
 							<span class="text-base-content text-sm font-medium"
-								>{$t('reviews.form.communication')}</span
+								>{getFormText('communication', 'Communication')}</span
 							>
 							<span class="text-error ml-1 text-xs">*</span>
 						</div>
@@ -438,7 +567,12 @@
 							<span class="text-base-content/60 text-xs font-medium">{communicationRating}/5</span>
 						{/if}
 					</div>
-					<p class="text-base-content/50 mb-2 text-xs">{$t('reviews.form.communication_desc')}</p>
+					<p class="text-base-content/50 mb-2 text-xs">
+						{getFormText(
+							'communication_desc',
+							'Quality of communication, responsiveness, and clarity in interactions'
+						)}
+					</p>
 					<div class="flex items-center gap-2">
 						{#each [1, 2, 3, 4, 5] as rating (rating)}
 							<button
@@ -449,7 +583,7 @@
 									: 'cursor-pointer'}"
 								onclick={() => setRating('communication', rating)}
 								disabled={isSubmitting || alreadyReviewed}
-								aria-label="Rate communication {rating} out of 5"
+								aria-label={getRatingAriaLabel('rate_communication_aria', rating)}
 							>
 								<svg
 									class="h-5 w-5 {getRatingClass(
@@ -478,7 +612,8 @@
 				<div class="form-control">
 					<div class="mb-2 flex items-center justify-between">
 						<div class="label p-0">
-							<span class="text-base-content text-sm font-medium">{$t('reviews.form.clarity')}</span
+							<span class="text-base-content text-sm font-medium"
+								>{getFormText('clarity', 'Clarity')}</span
 							>
 							<span class="text-error ml-1 text-xs">*</span>
 						</div>
@@ -486,7 +621,12 @@
 							<span class="text-base-content/60 text-xs font-medium">{clarityRating}/5</span>
 						{/if}
 					</div>
-					<p class="text-base-content/50 mb-2 text-xs">{$t('reviews.form.clarity_desc')}</p>
+					<p class="text-base-content/50 mb-2 text-xs">
+						{getFormText(
+							'clarity_desc',
+							'Clarity of requirements, instructions, and feedback provided'
+						)}
+					</p>
 					<div class="flex items-center gap-2">
 						{#each [1, 2, 3, 4, 5] as rating (rating)}
 							<button
@@ -497,7 +637,7 @@
 									: 'cursor-pointer'}"
 								onclick={() => setRating('clarity', rating)}
 								disabled={isSubmitting || alreadyReviewed}
-								aria-label="Rate clarity {rating} out of 5"
+								aria-label={getRatingAriaLabel('rate_clarity_aria', rating)}
 							>
 								<svg
 									class="h-5 w-5 {getRatingClass(
@@ -527,7 +667,7 @@
 					<div class="mb-2 flex items-center justify-between">
 						<div class="label p-0">
 							<span class="text-base-content text-sm font-medium"
-								>{$t('reviews.form.payment_timeliness')}</span
+								>{getFormText('payment_timeliness', 'Payment Timeliness')}</span
 							>
 							<span class="text-error ml-1 text-xs">*</span>
 						</div>
@@ -538,7 +678,10 @@
 						{/if}
 					</div>
 					<p class="text-base-content/50 mb-2 text-xs">
-						{$t('reviews.form.payment_timeliness_desc')}
+						{getFormText(
+							'payment_timeliness_desc',
+							'Speed of payment processing and payment timeliness'
+						)}
 					</p>
 					<div class="flex items-center gap-2">
 						{#each [1, 2, 3, 4, 5] as rating (rating)}
@@ -550,7 +693,7 @@
 									: 'cursor-pointer'}"
 								onclick={() => setRating('paymentTimeliness', rating)}
 								disabled={isSubmitting || alreadyReviewed}
-								aria-label="Rate payment timeliness {rating} out of 5"
+								aria-label={getRatingAriaLabel('rate_payment_timeliness_aria', rating)}
 							>
 								<svg
 									class="h-5 w-5 {getRatingClass(
@@ -589,7 +732,12 @@
 							d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
 						/>
 					</svg>
-					<span class="text-sm">{$t('reviews.form.role_unknown')}</span>
+					<span class="text-sm"
+						>{getFormText(
+							'role_unknown',
+							'Unable to determine role. Please ensure contract information is available.'
+						)}</span
+					>
 				</div>
 				{#if errors.role}
 					<div class="label px-0">
@@ -603,7 +751,9 @@
 		<div class="form-control border-base-300 border-t pt-4">
 			<div class="mb-2 flex items-center justify-between">
 				<label class="label p-0" for="review-comment">
-					<span class="text-base-content text-sm font-medium">{$t('reviews.form.comment')}</span>
+					<span class="text-base-content text-sm font-medium"
+						>{getFormText('comment', 'Comment (Optional)')}</span
+					>
 				</label>
 				<span
 					class="text-base-content/50 text-xs {comment.length > 900
@@ -618,7 +768,7 @@
 				class="textarea textarea-bordered focus:ring-primary/20 min-h-[100px] w-full resize-none transition-all focus:ring-2 focus:outline-none {errors.comment
 					? 'textarea-error border-error'
 					: ''}"
-				placeholder={$t('reviews.form.comment_placeholder')}
+				placeholder={getFormText('comment_placeholder', 'Share your experience...')}
 				bind:value={comment}
 				maxlength={1000}
 				disabled={isSubmitting || alreadyReviewed}
@@ -635,17 +785,20 @@
 		<div class="border-base-300 flex gap-3 border-t pt-6">
 			{#if onCancel}
 				<button class="btn btn-ghost btn-outline flex-1" onclick={onCancel} disabled={isSubmitting}>
-					{$t('common.cancel')}
+					{getCommonText('cancel', 'Cancel')}
 				</button>
 			{/if}
 			<button
 				class="btn btn-primary flex-1 gap-2"
 				onclick={handleSubmit}
-				disabled={isSubmitting || alreadyReviewed || !hasResolvedRevieweeRole}
+				disabled={isSubmitting ||
+					isCheckingExistingReview ||
+					alreadyReviewed ||
+					!hasResolvedRevieweeRole}
 			>
 				{#if isSubmitting}
 					<span class="loading loading-spinner loading-sm"></span>
-					<span>{$t('reviews.form.submitting')}</span>
+					<span>{getFormText('submitting', 'Submitting...')}</span>
 				{:else}
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
@@ -657,7 +810,7 @@
 					>
 						<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
 					</svg>
-					<span>{$t('reviews.form.submit')}</span>
+					<span>{getFormText('submit', 'Submit Review')}</span>
 				{/if}
 			</button>
 		</div>

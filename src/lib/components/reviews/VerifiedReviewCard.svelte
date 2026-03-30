@@ -1,19 +1,24 @@
 <script lang="ts">
-	import { t } from 'svelte-i18n';
-	import { formatDistanceToNow } from 'date-fns';
+	import { locale, t } from 'svelte-i18n';
 	import type { NostrVerifiedReview } from '$lib/types/review';
 	import { verifyNostrReview } from '$lib/utils/nostr-review';
 	import { TranslationStore } from '$lib/stores/translation.store';
+
+	type ReviewWithContext = NostrVerifiedReview & {
+		escrowId?: string | null;
+	};
 
 	let {
 		review,
 		showVerificationBadge = true,
 		revieweeRole,
+		showRevieweeContext = false,
 		onReply
 	} = $props<{
-		review: NostrVerifiedReview;
+		review: ReviewWithContext;
 		showVerificationBadge?: boolean;
 		revieweeRole?: 'tasker' | 'taskee' | null;
+		showRevieweeContext?: boolean;
 		onReply?: (reviewId: string) => void;
 	}>();
 
@@ -23,6 +28,11 @@
 	let isVerified = $state(false);
 	let isVerifying = $state(false);
 	let displayComment = $state('');
+	const reviewEscrowId = $derived.by(() => {
+		return typeof review.escrowId === 'string' && review.escrowId.length > 0
+			? review.escrowId
+			: null;
+	});
 
 	// Verify review on mount
 	$effect(() => {
@@ -71,9 +81,16 @@
 		const eventId = review.nostrEventId;
 
 		(async () => {
-			const translated = await TranslationStore.getDisplayText(eventId, sourceComment);
-			if (!cancelled) {
-				displayComment = translated;
+			try {
+				const translated = await TranslationStore.getDisplayText(eventId, sourceComment);
+				if (!cancelled) {
+					displayComment = translated;
+				}
+			} catch (error) {
+				console.error('Failed to translate review comment:', error);
+				if (!cancelled) {
+					displayComment = sourceComment;
+				}
 			}
 		})();
 
@@ -84,7 +101,37 @@
 
 	function formatDate(timestamp: number): string {
 		try {
-			return formatDistanceToNow(new Date(timestamp), { addSuffix: true });
+			const diffMs = timestamp - Date.now();
+			const absSeconds = Math.abs(diffMs) / 1000;
+			const formatter = new Intl.RelativeTimeFormat($locale || undefined, {
+				numeric: 'auto'
+			});
+
+			if (absSeconds < 60) {
+				return formatter.format(Math.round(diffMs / 1000), 'second');
+			}
+
+			const absMinutes = absSeconds / 60;
+			if (absMinutes < 60) {
+				return formatter.format(Math.round(diffMs / (60 * 1000)), 'minute');
+			}
+
+			const absHours = absMinutes / 60;
+			if (absHours < 24) {
+				return formatter.format(Math.round(diffMs / (60 * 60 * 1000)), 'hour');
+			}
+
+			const absDays = absHours / 24;
+			if (absDays < 30) {
+				return formatter.format(Math.round(diffMs / (24 * 60 * 60 * 1000)), 'day');
+			}
+
+			const absMonths = absDays / 30;
+			if (absMonths < 12) {
+				return formatter.format(Math.round(diffMs / (30 * 24 * 60 * 60 * 1000)), 'month');
+			}
+
+			return formatter.format(Math.round(diffMs / (365 * 24 * 60 * 60 * 1000)), 'year');
 		} catch {
 			return '';
 		}
@@ -94,6 +141,14 @@
 		if (rating >= 4.5) return 'text-success';
 		if (rating >= 3.5) return 'text-warning';
 		return 'text-error';
+	}
+
+	function formatPubkey(pubkey: string): string {
+		if (pubkey.length <= 18) {
+			return pubkey;
+		}
+
+		return `${pubkey.slice(0, 12)}...${pubkey.slice(-6)}`;
 	}
 </script>
 
@@ -105,7 +160,8 @@
 				<div class="mb-1 flex items-center gap-2">
 					{#if showVerificationBadge}
 						{#if isVerifying}
-							<span class="loading loading-spinner loading-xs"></span>
+							<span class="loading loading-spinner loading-xs" aria-hidden="true"></span>
+							<span class="sr-only">Verifying review</span>
 						{:else if isVerified}
 							<div class="badge badge-success badge-sm gap-1">
 								<svg
@@ -148,6 +204,7 @@
 							fill="currentColor"
 							viewBox="0 0 20 20"
 							xmlns="http://www.w3.org/2000/svg"
+							aria-hidden="true"
 						>
 							<path
 								d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"
@@ -158,8 +215,23 @@
 			</div>
 		</div>
 
+		{#if showRevieweeContext}
+			<div class="mb-3 grid gap-2 text-sm sm:grid-cols-2">
+				<div class="bg-base-200/50 flex min-w-0 items-center gap-2 rounded-lg px-3 py-2">
+					<span class="badge badge-outline">{$t('reviews.pending.review_for')}</span>
+					<span class="truncate font-medium">{formatPubkey(review.revieweePubkey)}</span>
+				</div>
+				{#if reviewEscrowId}
+					<div class="bg-base-200/50 flex min-w-0 items-center gap-2 rounded-lg px-3 py-2">
+						<span class="badge badge-outline">{$t('reviews.pending.contract')}</span>
+						<span class="truncate font-medium">{reviewEscrowId}</span>
+					</div>
+				{/if}
+			</div>
+		{/if}
+
 		<!-- Category Ratings - Role-Specific -->
-		<div class="mb-3 grid grid-cols-3 gap-2 text-sm">
+		<div class="mb-3 grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
 			{#if effectiveRole === 'taskee' && 'workQuality' in review.content.categoryRatings}
 				<!-- Taskee Categories -->
 				{@const taskeeRatings = review.content.categoryRatings as {
@@ -167,15 +239,15 @@
 					experience: number;
 					deliverySpeed: number;
 				}}
-				<div class="flex flex-col">
+				<div class="bg-base-200/50 flex min-w-0 flex-col gap-1 rounded-lg p-3">
 					<span class="text-base-content/70">{$t('reviews.form.work_quality')}</span>
 					<span class="font-semibold">{taskeeRatings.workQuality}/5</span>
 				</div>
-				<div class="flex flex-col">
+				<div class="bg-base-200/50 flex min-w-0 flex-col gap-1 rounded-lg p-3">
 					<span class="text-base-content/70">{$t('reviews.form.experience')}</span>
 					<span class="font-semibold">{taskeeRatings.experience}/5</span>
 				</div>
-				<div class="flex flex-col">
+				<div class="bg-base-200/50 flex min-w-0 flex-col gap-1 rounded-lg p-3">
 					<span class="text-base-content/70">{$t('reviews.form.delivery_speed')}</span>
 					<span class="font-semibold">{taskeeRatings.deliverySpeed}/5</span>
 				</div>
@@ -186,15 +258,15 @@
 					clarity: number;
 					paymentTimeliness: number;
 				}}
-				<div class="flex flex-col">
+				<div class="bg-base-200/50 flex min-w-0 flex-col gap-1 rounded-lg p-3">
 					<span class="text-base-content/70">{$t('reviews.form.communication')}</span>
 					<span class="font-semibold">{taskerRatings.communication}/5</span>
 				</div>
-				<div class="flex flex-col">
+				<div class="bg-base-200/50 flex min-w-0 flex-col gap-1 rounded-lg p-3">
 					<span class="text-base-content/70">{$t('reviews.form.clarity')}</span>
 					<span class="font-semibold">{taskerRatings.clarity}/5</span>
 				</div>
-				<div class="flex flex-col">
+				<div class="bg-base-200/50 flex min-w-0 flex-col gap-1 rounded-lg p-3">
 					<span class="text-base-content/70">{$t('reviews.form.payment_timeliness')}</span>
 					<span class="font-semibold">{taskerRatings.paymentTimeliness}/5</span>
 				</div>
@@ -205,15 +277,15 @@
 					professionalism: number;
 					timeliness: number;
 				}}
-				<div class="flex flex-col">
+				<div class="bg-base-200/50 flex min-w-0 flex-col gap-1 rounded-lg p-3">
 					<span class="text-base-content/70">{$t('reviews.form.quality')}</span>
 					<span class="font-semibold">{legacyRatings.quality}/5</span>
 				</div>
-				<div class="flex flex-col">
+				<div class="bg-base-200/50 flex min-w-0 flex-col gap-1 rounded-lg p-3">
 					<span class="text-base-content/70">{$t('reviews.form.professionalism')}</span>
 					<span class="font-semibold">{legacyRatings.professionalism}/5</span>
 				</div>
-				<div class="flex flex-col">
+				<div class="bg-base-200/50 flex min-w-0 flex-col gap-1 rounded-lg p-3">
 					<span class="text-base-content/70">{$t('reviews.form.timeliness')}</span>
 					<span class="font-semibold">{legacyRatings.timeliness}/5</span>
 				</div>
@@ -229,12 +301,12 @@
 
 		<!-- Photos -->
 		{#if review.content.photos && review.content.photos.length > 0}
-			<div class="mb-3 grid grid-cols-3 gap-2">
-				{#each review.content.photos as photo (photo)}
+			<div class="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+				{#each review.content.photos as photo, index (photo)}
 					<img
 						src={photo}
-						alt=""
-						class="h-24 w-full cursor-pointer rounded-lg object-cover"
+						alt={$t('reviews.photo_alt', { values: { index: index + 1 } })}
+						class="h-24 w-full rounded-lg object-cover"
 						loading="lazy"
 					/>
 				{/each}
@@ -246,7 +318,10 @@
 			<div class="card-actions border-base-300 mt-4 justify-end border-t pt-3">
 				<button
 					class="btn btn-ghost btn-sm btn-outline"
-					onclick={() => onReply(review.nostrEventId)}
+					onclick={(event) => {
+						event.stopPropagation();
+						onReply(review.nostrEventId);
+					}}
 				>
 					<svg
 						xmlns="http://www.w3.org/2000/svg"

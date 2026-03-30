@@ -5,6 +5,28 @@ import { verifyNostrReview } from '$lib/utils/nostr-review';
 import { TranslationStore } from '$lib/stores/translation.store';
 import type { NostrVerifiedReview } from '$lib/types/review';
 
+vi.mock('svelte-i18n', async () => {
+	const { readable } = await import('svelte/store');
+	const labels: Record<string, string> = {
+		'reviews.verified': 'Verified',
+		'reviews.unverified': 'Unverified',
+		'reviews.reply': 'Reply',
+		'reviews.pending.review_for': 'Review for',
+		'reviews.pending.contract': 'Contract',
+		'reviews.form.communication': 'Communication',
+		'reviews.form.clarity': 'Clarity',
+		'reviews.form.payment_timeliness': 'Payment Timeliness',
+		'reviews.photo_alt': 'Review photo'
+	};
+
+	return {
+		t: readable((key: string) => labels[key] ?? key),
+		locale: readable('en'),
+		locales: readable(['en']),
+		isLoading: readable(false)
+	};
+});
+
 vi.mock('$lib/utils/nostr-review', () => ({
 	verifyNostrReview: vi.fn()
 }));
@@ -92,5 +114,57 @@ describe('VerifiedReviewCard', () => {
 		await fireEvent.click(screen.getByRole('button', { name: 'Reply' }));
 
 		expect(onReply).toHaveBeenCalledWith('event-123');
+	});
+
+	it('renders review photos with non-empty alt text', async () => {
+		render(VerifiedReviewCard, {
+			props: {
+				review: {
+					...mockReview,
+					content: {
+						...mockReview.content,
+						photos: ['https://example.com/photo-1.jpg']
+					}
+				}
+			}
+		});
+
+		await waitFor(() => {
+			expect(screen.getByRole('img').getAttribute('alt')).not.toBe('');
+		});
+	});
+
+	it('renders authored-review context when requested', async () => {
+		render(VerifiedReviewCard, {
+			props: {
+				review: mockReview,
+				showRevieweeContext: true
+			}
+		});
+
+		await waitFor(() => {
+			expect(screen.getByText('Review for')).toBeInTheDocument();
+		});
+		expect(screen.getByText(/npub1reviewee/i)).toBeInTheDocument();
+		expect(screen.queryByText('Contract')).not.toBeInTheDocument();
+		expect(screen.queryByText('escrow-123')).not.toBeInTheDocument();
+	});
+
+	it('renders optional contract context only when it is actually provided', async () => {
+		render(VerifiedReviewCard, {
+			props: {
+				review: {
+					...mockReview,
+					escrowId: 'escrow-123'
+				} as NostrVerifiedReview & { escrowId: string },
+				showRevieweeContext: true
+			}
+		});
+
+		await waitFor(() => {
+			expect(screen.getByText('Contract')).toBeInTheDocument();
+		});
+		expect(screen.getByText('Contract')).toBeInTheDocument();
+		expect(screen.getByText('escrow-123')).toBeInTheDocument();
 	});
 });
