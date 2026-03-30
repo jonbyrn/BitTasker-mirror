@@ -1,53 +1,62 @@
 /**
- * Reviews page E2E: post-login navigation to /dashboard/reviews and page validation.
+ * Reviews page E2E: complete signup/onboarding with a virtual passkey, then validate
+ * the reviews dashboard for a brand-new user. This is the deterministic full flow for
+ * the reviews feature and does not depend on a pre-generated credentials file.
  *
- * Run after 01-signup-onboarding (and optionally 02-credentials-login).
- * Use --workers=1 when running with 01 and 02.
- *
- * Requires VITE_NOSTR_RELAY_URL for full review data; page loads without it
- * but may show empty states.
+ * Requires VITE_API_URL so onboarding/passkey registration can complete.
  */
+import { test, expect } from './fixtures/signup-login-auth';
 import {
-	test,
-	expect,
-	webauthnCredentialsFileExists,
-	CREDENTIALS_MISSING_MESSAGE
-} from './fixtures/passkey-auth-from-file';
+	completeSignupOnboarding,
+	WEBAUTHN_CHROMIUM_ONLY_MESSAGE
+} from './utils/onboarding-helpers';
 
-test.describe('Reviews page post-login (signup user)', () => {
-	test.skip(
-		() => !webauthnCredentialsFileExists(),
-		CREDENTIALS_MISSING_MESSAGE
-	);
+test.describe('Reviews page full flow (new signup user)', () => {
+	test.skip(({ browserName }) => browserName !== 'chromium', WEBAUTHN_CHROMIUM_ONLY_MESSAGE);
 
-	test.use({ credentialLabel: 'signup' });
-
-	test('logs in, navigates to reviews page, validates page loads', async ({
-		authenticatedPageFromPasskeyFile
+	test('signs up, completes onboarding with a passkey, and lands on a stable reviews page', async ({
+		page
 	}) => {
-		const page = authenticatedPageFromPasskeyFile;
+		test.setTimeout(240_000);
 
-		await expect(page).toHaveURL(/\/dashboard/);
+		await completeSignupOnboarding(page);
 
 		await page.goto('/dashboard/reviews', { waitUntil: 'load' });
 		await page.waitForLoadState('networkidle');
 
 		await expect(page).toHaveURL(/\/dashboard\/reviews/);
-
-		// Page title (Review Management)
-		await expect(
-			page.getByRole('heading', { name: /Review Management/i })
-		).toBeVisible({ timeout: 15_000 });
-
-		// Wait for loading to complete (Nostr queries may take a few seconds)
-		// Tabs appear after data loads
-		await expect(page.getByRole('button', { name: /Received/i })).toBeVisible({
+		await expect(page.getByRole('heading', { name: 'Review Management' })).toBeVisible({
 			timeout: 15_000
 		});
-		await expect(page.getByRole('button', { name: /Given/i })).toBeVisible();
-		await expect(page.getByRole('button', { name: /Pending/i })).toBeVisible();
+		await expect(
+			page.getByText(
+				"Manage your reviews, view pending reviews, and see reviews you've given and received"
+			)
+		).toBeVisible();
 
-		// Main content: tabs container or review list
-		await expect(page.locator('.tabs-boxed').first()).toBeVisible();
+		const receivedTab = page.getByRole('tab', { name: /^Received$/ });
+		const givenTab = page.getByRole('tab', { name: /^Given$/ });
+		const pendingTab = page.getByRole('tab', { name: /^Pending$/ });
+
+		await expect(receivedTab).toHaveClass(/tab-active/);
+		await expect(givenTab).toBeVisible();
+		await expect(pendingTab).toBeVisible();
+
+		await expect(page.getByText('Review Summary')).toBeVisible();
+		await expect(page.getByText('No reviews yet').first()).toBeVisible();
+		await expect(
+			page.getByText('Published reviews will appear here once this account has feedback.')
+		).toBeVisible();
+
+		await givenTab.click();
+		await expect(givenTab).toHaveClass(/tab-active/);
+		await expect(page.getByText('No reviews yet').last()).toBeVisible();
+
+		await pendingTab.click();
+		await expect(pendingTab).toHaveClass(/tab-active/);
+		await expect(page.getByText('No pending reviews')).toBeVisible();
+		await expect(
+			page.getByText("You're all caught up! All completed tasks have been reviewed.")
+		).toBeVisible();
 	});
 });

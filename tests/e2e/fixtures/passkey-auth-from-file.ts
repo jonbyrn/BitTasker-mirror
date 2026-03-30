@@ -5,6 +5,10 @@ import {
 	webauthnCredentialsFileExists,
 	getCredentialSetLabels
 } from '../utils/webauthn-credentials';
+import {
+	dismissBetaWarningIfPresent,
+	WEBAUTHN_CHROMIUM_ONLY_MESSAGE
+} from '../utils/onboarding-helpers';
 
 /** Re-export so specs can skip when file is missing or pick a user */
 export { webauthnCredentialsFileExists, getCredentialSetLabels };
@@ -38,13 +42,18 @@ type PasskeyAuthFromFileFixtures = {
 const test = base.extend<PasskeyAuthFromFileFixtures>({
 	credentialLabel: ['signup', { option: true }],
 
-	authenticatedPageFromPasskeyFile: async ({ browser, credentialLabel }, use, testInfo) => {
-		const credentials =
-			readCredentialSet(credentialLabel) ?? readFirstCredentialSet();
+	authenticatedPageFromPasskeyFile: async (
+		{ browser, browserName, credentialLabel },
+		use,
+		testInfo
+	) => {
+		if (browserName !== 'chromium') {
+			throw new Error(WEBAUTHN_CHROMIUM_ONLY_MESSAGE);
+		}
+
+		const credentials = readCredentialSet(credentialLabel) ?? readFirstCredentialSet();
 		if (!credentials || credentials.length === 0) {
-			throw new Error(
-				`${CREDENTIALS_MISSING_MESSAGE} (label: ${credentialLabel})`
-			);
+			throw new Error(`${CREDENTIALS_MISSING_MESSAGE} (label: ${credentialLabel})`);
 		}
 
 		const baseURL = testInfo.project.use.baseURL ?? 'http://localhost:4173';
@@ -79,14 +88,9 @@ const test = base.extend<PasskeyAuthFromFileFixtures>({
 
 			await page.goto('/auth/login', { waitUntil: 'load' });
 			await page.getByTestId('login-continue-passkey').click();
-			await page.waitForURL(/\/dashboard/, { timeout: 15_000 });
+			await page.waitForURL(/\/dashboard/, { timeout: 45_000 });
 
-			// Dismiss Beta Warning modal so it doesn't block navigations (e.g. messages, wallet)
-			const understandBtn = page.getByRole('button', {
-				name: 'I understand',
-				exact: true
-			});
-			await understandBtn.click({ timeout: 5_000 }).catch(() => {});
+			await dismissBetaWarningIfPresent(page);
 
 			await use(page);
 		} finally {

@@ -5,7 +5,7 @@ import { defineConfig, devices } from '@playwright/test';
 /**
  * E2E config: where the app runs and where it calls the API
  *
- * - Local (CI not set): dev server (port 3000) for faster iteration.
+ * - Local (CI not set): isolated build + preview on a dedicated port for deterministic E2E.
  * - CI with build/ present (e.g. from pipeline artifact): preview only (port 4173), no second build.
  * - CI without build/ (e.g. local `CI=1 npm run test:e2e`): build + preview (port 4173).
  *
@@ -15,111 +15,113 @@ import { defineConfig, devices } from '@playwright/test';
  * @see https://playwright.dev/docs/test-configuration
  */
 const PREVIEW_PORT = 4173;
-const DEV_PORT = 3000;
+// Use a dedicated local port for Playwright so we do not accidentally reuse a dev server
+// from another checkout that also happens to be listening on 3000.
+const DEV_PORT = Number(process.env.PLAYWRIGHT_DEV_PORT || 4000);
 const PREVIEW_URL = `http://localhost:${PREVIEW_PORT}`;
 const DEV_URL = `http://localhost:${DEV_PORT}`;
 
-const useDevServer = !process.env.CI;
+const useLocalPreview = !process.env.CI;
 /** In CI, if build/ already exists (pipeline artifact), run preview only to avoid a second build. */
 const previewOnly = !!process.env.CI && existsSync(join(process.cwd(), 'build'));
-const baseURL = useDevServer ? DEV_URL : PREVIEW_URL;
+const baseURL = useLocalPreview ? DEV_URL : PREVIEW_URL;
 
 export default defineConfig({
-  testDir: './tests/e2e',
-  fullyParallel: true,
-  forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
-  reporter: 'list',
-  use: {
-    baseURL,
+	testDir: './tests/e2e',
+	fullyParallel: true,
+	forbidOnly: !!process.env.CI,
+	retries: process.env.CI ? 2 : 0,
+	workers: process.env.CI ? 1 : undefined,
+	reporter: 'list',
+	use: {
+		baseURL,
 
-    trace: 'off',
-    screenshot: 'off',
-    video: 'off',
-    storageState: process.env.AUTH_STATE_PATH || undefined,
-  },
+		trace: 'off',
+		screenshot: 'off',
+		video: 'off',
+		storageState: process.env.AUTH_STATE_PATH || undefined
+	},
 
-  /* Configure projects for major browsers */
-  projects: [
-    {
-      name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
-    },
+	/* Configure projects for major browsers */
+	projects: [
+		{
+			name: 'chromium',
+			use: { ...devices['Desktop Chrome'] }
+		},
 
-    {
-      name: 'firefox',
-      use: { ...devices['Desktop Firefox'] },
-    },
+		{
+			name: 'firefox',
+			use: { ...devices['Desktop Firefox'] }
+		},
 
-    {
-      name: 'webkit',
-      use: { ...devices['Desktop Safari'] },
-    },
+		{
+			name: 'webkit',
+			use: { ...devices['Desktop Safari'] }
+		},
 
-    /* Test against mobile viewports. */
-    {
-      name: 'Mobile Chrome',
-      use: { ...devices['Pixel 5'] },
-    },
-    {
-      name: 'Mobile Safari',
-      use: { ...devices['iPhone 12'] },
-    },
+		/* Test against mobile viewports. */
+		{
+			name: 'Mobile Chrome',
+			use: { ...devices['Pixel 5'] }
+		},
+		{
+			name: 'Mobile Safari',
+			use: { ...devices['iPhone 12'] }
+		},
 
-    /* Authenticated tests - require auth state */
-    {
-      name: 'chromium-authenticated',
-      use: { 
-        ...devices['Desktop Chrome'],
-        storageState: 'tests/e2e/.auth/test-user.json',
-      },
-      dependencies: [], // Don't require other projects
-      testMatch: /.*\.authenticated\.spec\.ts/,
-    },
+		/* Authenticated tests - require auth state */
+		{
+			name: 'chromium-authenticated',
+			use: {
+				...devices['Desktop Chrome'],
+				storageState: 'tests/e2e/.auth/test-user.json'
+			},
+			dependencies: [], // Don't require other projects
+			testMatch: /.*\.authenticated\.spec\.ts/
+		}
 
-    /* Test against branded browsers. */
-    // {
-    //   name: 'Microsoft Edge',
-    //   use: { ...devices['Desktop Edge'], channel: 'msedge' },
-    // },
-    // {
-    //   name: 'Google Chrome',
-    //   use: { ...devices['Desktop Chrome'], channel: 'chrome' },
-    // },
-  ],
+		/* Test against branded browsers. */
+		// {
+		//   name: 'Microsoft Edge',
+		//   use: { ...devices['Desktop Edge'], channel: 'msedge' },
+		// },
+		// {
+		//   name: 'Google Chrome',
+		//   use: { ...devices['Desktop Chrome'], channel: 'chrome' },
+		// },
+	],
 
-  /* Local: dev server. CI with build/ present: preview only. CI without build/: build + preview. */
-  webServer: useDevServer
-    ? {
-        command: 'npm run dev',
-        url: DEV_URL,
-        reuseExistingServer: true,
-        timeout: 60 * 1000,
-        env: {
-          VITE_E2E_TURNSTILE_BYPASS: 'true',
-          ...process.env,
-        },
-      }
-    : previewOnly
-      ? {
-          command: 'npm run preview',
-          url: PREVIEW_URL,
-          reuseExistingServer: false,
-          timeout: 15 * 1000,
-          env: {
-            VITE_E2E_TURNSTILE_BYPASS: 'true',
-            ...process.env,
-          },
-        }
-      : {
-          command: 'npm run build && npm run preview',
-          url: PREVIEW_URL,
-          reuseExistingServer: !process.env.CI,
-          timeout: 300 * 1000, // 5 min: build can be slow in CI
-          env: {
-            VITE_E2E_TURNSTILE_BYPASS: 'true',
-            ...process.env,
-          },
-        },
+	/* Local: isolated build + preview. CI with build/ present: preview only. CI without build/: build + preview. */
+	webServer: useLocalPreview
+		? {
+				command: `npm run build && npx vite preview --host --port ${DEV_PORT} --strictPort`,
+				url: DEV_URL,
+				reuseExistingServer: false,
+				timeout: 300 * 1000,
+				env: {
+					VITE_E2E_TURNSTILE_BYPASS: 'true',
+					...process.env
+				}
+			}
+		: previewOnly
+			? {
+					command: 'npm run preview',
+					url: PREVIEW_URL,
+					reuseExistingServer: true,
+					timeout: 60 * 1000,
+					env: {
+						VITE_E2E_TURNSTILE_BYPASS: 'true',
+						...process.env
+					}
+				}
+			: {
+					command: 'npm run build && npm run preview',
+					url: PREVIEW_URL,
+					reuseExistingServer: !process.env.CI,
+					timeout: 300 * 1000, // 5 min: build can be slow in CI
+					env: {
+						VITE_E2E_TURNSTILE_BYPASS: 'true',
+						...process.env
+					}
+				}
 });

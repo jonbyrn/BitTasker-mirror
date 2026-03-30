@@ -1,9 +1,10 @@
 /**
- * Review Management E2E Tests
+ * Review Management E2E smoke test.
  *
- * Tests the review management page: tabs, empty states, and navigation.
- * Run after 01-signup-onboarding. Requires VITE_NOSTR_RELAY_URL for
- * full review data; tests handle empty states gracefully.
+ * Reuses the passkey credentials created by 01-signup-onboarding and validates the
+ * deterministic empty-state management experience for the fresh signup user.
+ *
+ * Run after 01-signup-onboarding. WebAuthn login via CDP is Chromium-only.
  */
 import {
 	test,
@@ -11,109 +12,56 @@ import {
 	webauthnCredentialsFileExists,
 	CREDENTIALS_MISSING_MESSAGE
 } from '../fixtures/passkey-auth-from-file';
+import { WEBAUTHN_CHROMIUM_ONLY_MESSAGE } from '../utils/onboarding-helpers';
 
-test.describe('Review Management', () => {
-	test.skip(
-		() => !webauthnCredentialsFileExists(),
-		CREDENTIALS_MISSING_MESSAGE
-	);
+test.describe('Review Management (signup user via passkey)', () => {
+	test.describe.configure({ timeout: 90_000 });
+	test.skip(({ browserName }) => browserName !== 'chromium', WEBAUTHN_CHROMIUM_ONLY_MESSAGE);
+	test.skip(() => !webauthnCredentialsFileExists(), CREDENTIALS_MISSING_MESSAGE);
 
 	test.use({ credentialLabel: 'signup' });
 
-	test.beforeEach(async ({ authenticatedPageFromPasskeyFile }) => {
-		await authenticatedPageFromPasskeyFile.goto('/dashboard/reviews', {
-			waitUntil: 'load'
-		});
-		await authenticatedPageFromPasskeyFile.waitForLoadState('networkidle');
-	});
-
-	test('displays all three tabs: Received, Given, Pending', async ({
+	test('shows the expected empty states for a newly onboarded user', async ({
 		authenticatedPageFromPasskeyFile
 	}) => {
 		const page = authenticatedPageFromPasskeyFile;
 
-		await expect(page.getByRole('button', { name: /Received/i })).toBeVisible({
+		await page.goto('/dashboard/reviews', { waitUntil: 'load' });
+		await page.waitForLoadState('networkidle');
+
+		await expect(page).toHaveURL(/\/dashboard\/reviews/);
+		await expect(page.getByRole('heading', { name: 'Review Management' })).toBeVisible({
 			timeout: 15_000
 		});
-		await expect(page.getByRole('button', { name: /Given/i })).toBeVisible();
-		await expect(page.getByRole('button', { name: /Pending/i })).toBeVisible();
-	});
-
-	test('Pending tab is active by default', async ({
-		authenticatedPageFromPasskeyFile
-	}) => {
-		const page = authenticatedPageFromPasskeyFile;
-
-		// Pending tab should have tab-active class
-		const pendingTab = page.getByRole('button', { name: /Pending/i });
-		await expect(pendingTab).toBeVisible({ timeout: 15_000 });
-		await expect(pendingTab).toHaveClass(/tab-active/);
-	});
-
-	test('switches to Given tab and shows content', async ({
-		authenticatedPageFromPasskeyFile
-	}) => {
-		const page = authenticatedPageFromPasskeyFile;
-
-		await page.getByRole('button', { name: /Given/i }).click();
-
-		// Given tab should become active
 		await expect(
-			page.getByRole('button', { name: /Given/i })
-		).toHaveClass(/tab-active/);
-
-		// Content: either "No reviews yet" or review cards
-		const content = page.locator('text=/No reviews yet|Verified|rating/i').first();
-		await expect(content).toBeVisible({ timeout: 5_000 });
-	});
-
-	test('switches to Received tab and shows content', async ({
-		authenticatedPageFromPasskeyFile
-	}) => {
-		const page = authenticatedPageFromPasskeyFile;
-
-		await page.getByRole('button', { name: /Received/i }).click();
-
-		// Received tab should become active
-		await expect(
-			page.getByRole('button', { name: /Received/i })
-		).toHaveClass(/tab-active/);
-
-		// Content: ReviewList loads (may show empty or reviews)
-		await page.waitForLoadState('networkidle');
-		// Page should not show error
-		await expect(
-			page.getByRole('heading', { name: /Review Management/i })
+			page.getByText(
+				"Manage your reviews, view pending reviews, and see reviews you've given and received"
+			)
 		).toBeVisible();
-	});
 
-	test('Pending tab shows empty state when no pending reviews', async ({
-		authenticatedPageFromPasskeyFile
-	}) => {
-		const page = authenticatedPageFromPasskeyFile;
+		const receivedTab = page.getByRole('tab', { name: /^Received$/ });
+		const givenTab = page.getByRole('tab', { name: /^Given$/ });
+		const pendingTab = page.getByRole('tab', { name: /^Pending$/ });
 
-		// Wait for pending list to load
-		await page.waitForLoadState('networkidle');
+		await expect(receivedTab).toHaveClass(/tab-active/);
+		await expect(givenTab).toBeVisible();
+		await expect(pendingTab).toBeVisible();
 
-		// Pending tab content: either list of pending items or empty state
-		// Empty state: "You're all caught up!" or "No pending reviews"
-		const pendingContent = page.locator(
-			'.pending-reviews-list, text=/all caught up|No pending|Review Now/i'
-		).first();
-		await expect(pendingContent).toBeVisible({ timeout: 15_000 });
-	});
-
-	test('page shows Review Management title and description', async ({
-		authenticatedPageFromPasskeyFile
-	}) => {
-		const page = authenticatedPageFromPasskeyFile;
-
+		await expect(page.getByText('Review Summary')).toBeVisible();
+		await expect(page.getByText('No reviews yet').first()).toBeVisible();
 		await expect(
-			page.getByRole('heading', { name: /Review Management/i })
-		).toBeVisible({ timeout: 15_000 });
+			page.getByText('Published reviews will appear here once this account has feedback.')
+		).toBeVisible();
 
+		await givenTab.click();
+		await expect(givenTab).toHaveClass(/tab-active/);
+		await expect(page.getByText('No reviews yet').last()).toBeVisible();
+
+		await pendingTab.click();
+		await expect(pendingTab).toHaveClass(/tab-active/);
+		await expect(page.getByText('No pending reviews')).toBeVisible();
 		await expect(
-			page.getByText(/Manage your reviews|pending reviews|given and received/i)
+			page.getByText("You're all caught up! All completed tasks have been reviewed.")
 		).toBeVisible();
 	});
 });

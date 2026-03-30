@@ -6,24 +6,26 @@
 
 ## 1. Overview
 
-| What | Details |
-|------|---------|
-| **Framework** | Playwright |
-| **Location** | `tests/e2e/` |
+| What           | Details                                                                                                 |
+| -------------- | ------------------------------------------------------------------------------------------------------- |
+| **Framework**  | Playwright                                                                                              |
+| **Location**   | `tests/e2e/`                                                                                            |
 | **Auth tests** | 01-signup-onboarding (creates users + credentials), 02-credentials-login (validates login with passkey) |
-| **Run order** | 01 first (creates credentials), then the rest. Use `npm run test:e2e` for the full ordered run. |
+| **Run order**  | 01 first (creates credentials), then the rest. Use `npm run test:e2e` for the full ordered run.         |
 
 ---
 
 ## 2. Test Files
 
-| File | Purpose |
-|------|---------|
-| **01-signup-onboarding.spec.ts** | **Creates** two users and writes passkey credentials. Test 1: signup → onboarding → dashboard (label `signup`). Test 2: Nostr login → passkey + onboarding → dashboard (label `nostr`). |
-| **02-credentials-login.spec.ts** | **Loads** credentials from file and validates each user can log in: inject → /auth/login → Continue with passkey → dashboard. Uses fixed labels `['signup', 'nostr']` so tests are discovered at load time. |
-| **03-wallet-post-login.spec.ts** | Logs in with signup credentials, navigates to `/dashboard/wallet`, validates page loads. See [e2e-wallet-post-login.md](./e2e-wallet-post-login.md). |
+| File                                   | Purpose                                                                                                                                                                                                                                                                                                         |
+| -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **01-signup-onboarding.spec.ts**       | **Creates** two users and writes passkey credentials. Test 1: signup → onboarding → dashboard (label `signup`). Test 2: Nostr login → passkey + onboarding → dashboard (label `nostr`).                                                                                                                         |
+| **02-credentials-login.spec.ts**       | **Loads** credentials from file and validates each user can log in: inject → /auth/login → Continue with passkey → dashboard. Uses fixed labels `['signup', 'nostr']` so tests are discovered at load time.                                                                                                     |
+| **03-wallet-post-login.spec.ts**       | Logs in with signup credentials, navigates to `/dashboard/wallet`, validates page loads. See [e2e-wallet-post-login.md](./e2e-wallet-post-login.md).                                                                                                                                                            |
 | **04-messages-start-new-chat.spec.ts** | (1) Nostr user: Messages → new message → search signup user → start chat → send test message → assert in history. (2) Signup user: Messages → open conversation with test message → assert same message received. See [e2e-messages-start-new-chat.md](./e2e-messages-start-new-chat.md). Requires Nostr relay. |
-| **wallet/balance-management.spec.ts** | Skipped (`describe.skip`). Re-enable when adding wallet E2E back. |
+| **05-reviews-page.spec.ts**            | Deterministic full flow for reviews: signup → onboarding with passkey → `/dashboard/reviews` → validate tabs and empty states for a new user. Does **not** depend on the credentials file.                                                                                                                      |
+| **reviews/management.spec.ts**         | Logs in with the signup credential set from file and validates the deterministic empty-state review management experience.                                                                                                                                                                                      |
+| **wallet/balance-management.spec.ts**  | Skipped (`describe.skip`). Re-enable when adding wallet E2E back.                                                                                                                                                                                                                                               |
 
 ---
 
@@ -31,11 +33,11 @@
 
 Set these **before** running Playwright so the app and tests behave correctly:
 
-| Variable | Required | Purpose |
-|----------|----------|---------|
-| **VITE_API_URL** | Yes | Backend API base URL. The app uses it for signup, onboarding, and passkey registration. Example: `https://your-api.example.com`. In CI, set this in GitLab CI/CD variables. |
-| **VITE_E2E_TURNSTILE_BYPASS** | Yes (for auth tests) | Must be `true` so Turnstile is bypassed in E2E. The Playwright config injects this into the webServer process; if you start the dev server yourself, set it in your environment. |
-| **VITE_NOSTR_RELAY_URL** | Yes (for 04-messages) | Nostr relay URL (e.g. `wss://relay.example.com`). Required for Messages E2E (user search, send/receive). Set in GitLab CI/CD variables when running the full E2E suite in CI. |
+| Variable                      | Required              | Purpose                                                                                                                                                                          |
+| ----------------------------- | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **VITE_API_URL**              | Yes                   | Backend API base URL. The app uses it for signup, onboarding, and passkey registration. Example: `https://your-api.example.com`. In CI, set this in GitLab CI/CD variables.      |
+| **VITE_E2E_TURNSTILE_BYPASS** | Yes (for auth tests)  | Must be `true` so Turnstile is bypassed in E2E. The Playwright config injects this into the webServer process; if you start the dev server yourself, set it in your environment. |
+| **VITE_NOSTR_RELAY_URL**      | Yes (for 04-messages) | Nostr relay URL (e.g. `wss://relay.example.com`). Required for Messages E2E (user search, send/receive). Set in GitLab CI/CD variables when running the full E2E suite in CI.    |
 
 **Note:** Backend must be running and reachable at `VITE_API_URL` for passkey creation and login tests.
 
@@ -44,12 +46,15 @@ Set these **before** running Playwright so the app and tests behave correctly:
 ## 4. How to Run
 
 **Full E2E (recommended):** Runs credentials phase first (single worker), then the rest with more workers. No need to list files or pass `--workers=1`.
+
 ```bash
 npm run test:e2e
 ```
+
 Optional: pass Playwright args after `--`, e.g. `npm run test:e2e -- --project=firefox`.
 
 **Manual (individual files):** If you need to run a subset or debug order:
+
 ```bash
 npx playwright test tests/e2e/01-signup-onboarding.spec.ts tests/e2e/02-credentials-login.spec.ts --project=chromium --workers=1
 ```
@@ -61,21 +66,21 @@ npx playwright test tests/e2e/01-signup-onboarding.spec.ts tests/e2e/02-credenti
 
 ## 5. Credentials File
 
-| Item | Details |
-|------|---------|
-| **Path** | `tests/e2e/.auth/webauthn-credentials.json` (gitignored) |
-| **Format** | `{ credentialSets: [ { label: "signup", credentials: [...] }, { label: "nostr", credentials: [...] } ], exportedAt }` |
-| **Written by** | 01-signup-onboarding (fixture teardown after each test) |
-| **Read by** | 02-credentials-login, 04-messages-start-new-chat, passkey-auth-from-file fixture |
+| Item           | Details                                                                                                               |
+| -------------- | --------------------------------------------------------------------------------------------------------------------- |
+| **Path**       | `tests/e2e/.auth/webauthn-credentials.json` (gitignored)                                                              |
+| **Format**     | `{ credentialSets: [ { label: "signup", credentials: [...] }, { label: "nostr", credentials: [...] } ], exportedAt }` |
+| **Written by** | 01-signup-onboarding (fixture teardown after each test)                                                               |
+| **Read by**    | 02-credentials-login, 04-messages-start-new-chat, passkey-auth-from-file fixture                                      |
 
 ---
 
 ## 6. Fixtures
 
-| Fixture | Used in | Purpose |
-|---------|---------|---------|
-| **signup-login-auth** | 01-signup-onboarding | Per-test context (no shared state), virtual authenticator, **no credential injection by default**. Opt-in via `test.use({ injectWebAuthnCredentials: true })`. Teardown exports to worker store and file. |
-| **passkey-auth-from-file** | 02-credentials-login, 03-wallet-post-login, 04-messages-start-new-chat | Reads file by `credentialLabel`, injects into authenticator, uses `performPasskeyLogin` helper, yields page. |
+| Fixture                    | Used in                                                                | Purpose                                                                                                                                                                                                   |
+| -------------------------- | ---------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **signup-login-auth**      | 01-signup-onboarding                                                   | Per-test context (no shared state), virtual authenticator, **no credential injection by default**. Opt-in via `test.use({ injectWebAuthnCredentials: true })`. Teardown exports to worker store and file. |
+| **passkey-auth-from-file** | 02-credentials-login, 03-wallet-post-login, 04-messages-start-new-chat | Reads file by `credentialLabel`, injects into authenticator, uses `performPasskeyLogin` helper, yields page.                                                                                              |
 
 ### Credential injection control (signup-login-auth)
 
@@ -89,6 +94,7 @@ npx playwright test tests/e2e/01-signup-onboarding.spec.ts tests/e2e/02-credenti
 ## 7. Technical Notes
 
 - **CDP virtual authenticator:** Each page gets its own authenticator. Credentials live per authenticator, not per context. We export via `WebAuthn.getCredentials` and inject via `WebAuthn.addCredential`.
+- **Chromium only for WebAuthn:** The virtual authenticator flow uses Chromium CDP. Specs that create or inject passkeys should run under `--project=chromium`; other browser projects should skip those specs.
 - **Per-test context:** No shared storage. Each test starts fresh; Test 2 does not inherit Test 1's auth state.
 - **Fixed labels in 02:** `getCredentialSetLabels()` runs at load time, so the file may not exist. We use `EXPECTED_LABELS = ['signup', 'nostr']` so tests are always discovered.
 - **CI:** When `CI` is set (e.g. GitLab CI), Playwright runs build + preview (port 4173). Set `VITE_API_URL` in GitLab CI/CD variables.

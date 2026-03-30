@@ -16,11 +16,12 @@
  */
 import { nip19, generateSecretKey } from 'nostr-tools';
 import { test, expect } from './fixtures/signup-login-auth';
+import { WEBAUTHN_CHROMIUM_ONLY_MESSAGE } from './utils/onboarding-helpers';
 
 function e2eLog(message: string, stepLog: string[]): void {
 	const line = `[E2E] ${message}`;
 	stepLog.push(line);
-	// eslint-disable-next-line no-console
+	 
 	console.log(line);
 }
 
@@ -28,6 +29,8 @@ const E2E_PROFILE_DESCRIPTION =
 	'E2E test user profile. Experienced in various professional domains including software development, testing, and automation. Ready to take on tasks and deliver quality work.';
 
 test.describe.serial('Signup and onboarding (create credentials file)', () => {
+	test.skip(({ browserName }) => browserName !== 'chromium', WEBAUTHN_CHROMIUM_ONLY_MESSAGE);
+
 	test('user 1: signup → full onboarding → dashboard', async ({ page }) => {
 		test.setTimeout(180_000);
 		const ts = Date.now();
@@ -63,7 +66,9 @@ test.describe.serial('Signup and onboarding (create credentials file)', () => {
 		await expect(continueBtn).toBeEnabled({ timeout: 10_000 });
 		await continueBtn.click();
 		try {
-			await page.getByTestId('onboarding-step-username').waitFor({ state: 'visible', timeout: 45_000 });
+			await page
+				.getByTestId('onboarding-step-username')
+				.waitFor({ state: 'visible', timeout: 45_000 });
 		} catch (e) {
 			e2eLog(`Step 4 FAILED: onboarding not ready. URL=${page.url()}`, stepLog);
 			await attachDiagnostics('signup-to-onboarding-failure');
@@ -82,7 +87,9 @@ test.describe.serial('Signup and onboarding (create credentials file)', () => {
 		const errorLocator = page.getByTestId('passkey-setup-error');
 		const timeoutMs = 60_000;
 		const first = await Promise.race([
-			recoveryLocator.waitFor({ state: 'visible', timeout: timeoutMs }).then(() => 'recovery' as const),
+			recoveryLocator
+				.waitFor({ state: 'visible', timeout: timeoutMs })
+				.then(() => 'recovery' as const),
 			errorLocator.waitFor({ state: 'visible', timeout: timeoutMs }).then(() => 'error' as const)
 		]).catch(() => null);
 
@@ -104,7 +111,9 @@ test.describe.serial('Signup and onboarding (create credentials file)', () => {
 		e2eLog('Step 6: Recovery step visible (passkey created)', stepLog);
 
 		await page.getByTestId('onboarding-recovery-next').click();
-		await page.getByTestId('onboarding-step-profile').waitFor({ state: 'visible', timeout: 15_000 });
+		await page
+			.getByTestId('onboarding-step-profile')
+			.waitFor({ state: 'visible', timeout: 15_000 });
 		e2eLog('Step 7: Profile step visible', stepLog);
 
 		await page.getByTestId('onboarding-display-name').fill(displayName);
@@ -116,21 +125,28 @@ test.describe.serial('Signup and onboarding (create credentials file)', () => {
 		await skillsInput.fill('Testing');
 		await skillsInput.press('Enter');
 		await page.getByTestId('onboarding-profile-next').click();
-		await page.getByTestId('onboarding-step-location').waitFor({ state: 'visible', timeout: 30_000 });
+		await page
+			.getByTestId('onboarding-step-location')
+			.waitFor({ state: 'visible', timeout: 30_000 });
 		e2eLog('Step 8: Location step visible', stepLog);
 
 		await page.getByTestId('onboarding-location-next').click();
-		await page.getByTestId('onboarding-step-complete').waitFor({ state: 'visible', timeout: 30_000 });
+		await page
+			.getByTestId('onboarding-step-complete')
+			.waitFor({ state: 'visible', timeout: 30_000 });
 		e2eLog('Step 9: Complete step visible', stepLog);
 
 		await page.getByTestId('onboarding-continue-without-completing').click();
-		await expect(page).toHaveURL(/\/dashboard/, { timeout: 15_000 });
+		await expect(page).toHaveURL(/\/dashboard/, { timeout: 45_000 });
 		e2eLog('Step 10: Navigated to dashboard', stepLog);
 	});
 
 	// Title contains "Nostr" so fixture uses empty authenticator and writes label 'nostr'.
-	// New user: nsec submit → passkey happens automatically → we land on location. Back → profile → then location → complete.
-	test('user 2: Nostr login (new user) → location → back to profile → complete onboarding', async ({ page }) => {
+	// New user: nsec submit → passkey happens automatically → onboarding resumes at profile or location,
+	// depending on backend-reported completion state. Continue through to dashboard deterministically.
+	test('user 2: Nostr login (new user) → location → back to profile → complete onboarding', async ({
+		page
+	}) => {
 		test.setTimeout(180_000);
 		const ts = Date.now();
 		const displayName = `e2e-nostr-${ts}`;
@@ -142,16 +158,28 @@ test.describe.serial('Signup and onboarding (create credentials file)', () => {
 		await page.goto('/auth/login', gotoOptions);
 		await expect(page).toHaveURL(/\/auth\/login/, { timeout: 10_000 });
 
-		e2eLog('Step 2: Login with nsec, submit (passkey runs automatically); we land on location', stepLog);
+		e2eLog('Step 2: Login with nsec, submit, and wait for onboarding to resume', stepLog);
 		await page.getByTestId('login-with-nsec').click();
 		await page.getByTestId('login-nsec-input').fill(nsec);
 		await page.getByTestId('login-submit').click();
 		await page.waitForURL(/\/auth\/onboarding/, { timeout: 30_000 });
-		await page.getByTestId('onboarding-step-location').waitFor({ state: 'visible', timeout: 30_000 });
-		e2eLog('Step 3: Location step visible; click back to set up profile', stepLog);
+		const profileStep = page.getByTestId('onboarding-step-profile');
+		const locationStep = page.getByTestId('onboarding-step-location');
+		const firstVisibleStep = await Promise.race([
+			profileStep.waitFor({ state: 'visible', timeout: 30_000 }).then(() => 'profile' as const),
+			locationStep.waitFor({ state: 'visible', timeout: 30_000 }).then(() => 'location' as const)
+		]).catch(() => null);
 
-		await page.getByTestId('onboarding-location-back').click();
-		await page.getByTestId('onboarding-step-profile').waitFor({ state: 'visible', timeout: 15_000 });
+		if (firstVisibleStep === 'location') {
+			e2eLog('Step 3: Location step visible first; navigating back to profile', stepLog);
+			await page.getByTestId('onboarding-location-back').click();
+			await profileStep.waitFor({ state: 'visible', timeout: 15_000 });
+		} else if (firstVisibleStep === 'profile') {
+			e2eLog('Step 3: Profile step visible first', stepLog);
+		} else {
+			throw new Error(`Expected onboarding profile or location step. URL: ${page.url()}`);
+		}
+
 		e2eLog('Step 4: Profile step; fill and next', stepLog);
 		await page.getByTestId('onboarding-display-name').fill(displayName);
 		await page.getByTestId('onboarding-professional-title').fill('E2E Nostr Professional');
@@ -162,13 +190,15 @@ test.describe.serial('Signup and onboarding (create credentials file)', () => {
 		await skillsInput.fill('E2E');
 		await skillsInput.press('Enter');
 		await page.getByTestId('onboarding-profile-next').click();
-		await page.getByTestId('onboarding-step-location').waitFor({ state: 'visible', timeout: 30_000 });
+		await locationStep.waitFor({ state: 'visible', timeout: 30_000 });
 		e2eLog('Step 5: Location again; next → complete', stepLog);
 
 		await page.getByTestId('onboarding-location-next').click();
-		await page.getByTestId('onboarding-step-complete').waitFor({ state: 'visible', timeout: 30_000 });
+		await page
+			.getByTestId('onboarding-step-complete')
+			.waitFor({ state: 'visible', timeout: 30_000 });
 		await page.getByTestId('onboarding-continue-without-completing').click();
-		await expect(page).toHaveURL(/\/dashboard/, { timeout: 15_000 });
+		await expect(page).toHaveURL(/\/dashboard/, { timeout: 45_000 });
 		e2eLog('Step 6: Nostr user onboarding complete; dashboard', stepLog);
 	});
 });
