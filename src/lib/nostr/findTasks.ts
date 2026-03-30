@@ -15,7 +15,10 @@ import {
 import { Preferences } from '@capacitor/preferences';
 import { StorageKeys } from '$lib/utils/constants/storage';
 import { TASKS_PER_PAGE } from '$lib/stores/task.store';
+import { muteStore } from '$lib/stores/mute.store';
 import { createDebug } from '$lib/utils/debug';
+
+type MuteState = { mutedPubkeys: Set<string>; mutedEventIds: Set<string>; isLoaded: boolean };
 
 const d = createDebug('findTasks');
 
@@ -186,227 +189,231 @@ function convertEventToTask(event: Event): Task {
 }
 
 /**
- * Find tasks based on search parameters
+ * Fetch one page of tasks from the relay and process them.
+ * Returns the visible (post-mute, post-filter) tasks, the oldest relay timestamp
+ * from this batch (for the next page cursor), and whether the relay has more.
+ */
+async function fetchOnePage(
+	params: SearchTasksParams,
+	npub: string | null,
+	currentMutes: MuteState
+): Promise<{ visibleTasks: Task[]; lastRelayTimestamp: number | undefined; hasMore: boolean }> {
+	const filter = createTaskFilter(params);
+	const response = await nostrEventsService.findEvents(filter);
+	const events = response.data || [];
+
+	const validEvents = filterZombieEvents(events);
+	const rawTasks = validEvents.map((event: Event) => convertEventToTask(event));
+
+	// Deduplicate: keep only the most recent version of each task id
+	const sortedByNewest = [...rawTasks].sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
+	const taskById = new Map<string, Task>();
+	for (const task of sortedByNewest) {
+		if (!taskById.has(task.id)) taskById.set(task.id, task);
+	}
+	const uniqueTasks = Array.from(taskById.values());
+
+	// Oldest timestamp from this batch — this is the next-page cursor regardless of mutes
+	const lastRelayTimestamp =
+		uniqueTasks.length > 0 ? Math.min(...uniqueTasks.map((t) => t.createdAt ?? 0)) : undefined;
+
+	// Relay has more if it returned a full page
+	const hasMore = events.length >= (params.limit || BATCH_SIZE);
+
+	// Exclude own tasks
+	const tasksExcludingOwn = npub ? uniqueTasks.filter((t) => t.npub !== npub) : uniqueTasks;
+
+	// Apply mute filter — muted tasks are excluded from what the user sees
+	const tasksMuteFiltered =
+		currentMutes.mutedPubkeys.size > 0
+			? tasksExcludingOwn.filter((t) => !currentMutes.mutedPubkeys.has(t.npub))
+			: tasksExcludingOwn;
+
+	// Store pre-mute data in cache so muting/unmuting is instant without relay refetch
+	const cacheKey = (() => {
+		const { until: _u, ...f } = filter as typeof filter & { until?: unknown };
+		return JSON.stringify(f);
+	})();
+	const indexedForCache = indexTaskData(tasksExcludingOwn);
+	const existingCached = cache.get(cacheKey);
+	let allCachedTasks: IndexedTask[];
+	if (existingCached && Date.now() - existingCached.timestamp < CACHE_TTL) {
+		const mergedById = new Map<string, IndexedTask>();
+		for (const t of existingCached.data) mergedById.set(t.id, t);
+		for (const t of indexedForCache) {
+			const existing = mergedById.get(t.id);
+			if (!existing || ((t as Task).createdAt ?? 0) > ((existing as Task)?.createdAt ?? 0)) {
+				mergedById.set(t.id, t);
+			}
+		}
+		allCachedTasks = Array.from(mergedById.values());
+	} else {
+		allCachedTasks = indexedForCache;
+	}
+	allCachedTasks = deduplicateTasksById(allCachedTasks);
+	if (allCachedTasks.length > MAX_CACHE_SIZE)
+		allCachedTasks = allCachedTasks.slice(0, MAX_CACHE_SIZE);
+	cache.set(cacheKey, { data: allCachedTasks, timestamp: Date.now(), hasMore });
+
+	// Apply frontend filters (categories, skills, location, etc.)
+	const indexedVisible = indexTaskData(tasksMuteFiltered);
+	const { tasks: filteredTasks, metrics } = filterIndexedTasks(indexedVisible, params);
+	performanceMonitor.addMetric(metrics);
+	const visibleTasks = deduplicateTasksById(cleanupIndexedTasks(filteredTasks));
+
+	d.log('fetchOnePage', {
+		raw: rawTasks.length,
+		unique: uniqueTasks.length,
+		muted: tasksExcludingOwn.length - tasksMuteFiltered.length,
+		visible: visibleTasks.length,
+		hasMore,
+		lastRelayTimestamp
+	});
+
+	return { visibleTasks, lastRelayTimestamp, hasMore };
+}
+
+/**
+ * Find tasks based on search parameters.
+ *
+ * Core guarantee: always returns `limit` visible tasks (or everything the relay
+ * has left) before resolving. If muted users fill up a relay page, this function
+ * automatically fetches additional pages until the limit is satisfied or the relay
+ * is exhausted — so the caller never has to deal with under-full pages.
+ *
+ * Cache: stores raw relay events (pre-mute) keyed by search shape. Mute filtering
+ * is re-applied at read time so muting/unmuting takes effect without a relay refetch.
+ * The cache is bypassed when an explicit `until` cursor is provided (pagination
+ * requests always go to the relay to get fresh deeper data).
  */
 export async function findTasks(
 	params: SearchTasksParams
 ): Promise<{ tasks: Task[]; total: number; hasMore: boolean }> {
+	const MAX_FILL_ROUNDS = 10; // Safety cap: at most 10 relay round-trips per findTasks call
 	try {
 		tasksStore.update((state) => ({ ...state, loading: true, error: null }));
 
-		const filter = createTaskFilter(params);
+		const limit = params.limit || BATCH_SIZE;
+		const isInitialLoad = !params.until;
 
-		const cacheKey = JSON.stringify(filter);
-		const cached = cache.get(cacheKey);
-		if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-			d.log('cache hit', {
-				cachedCount: cached.data.length,
-				cacheAgeMs: Date.now() - cached.timestamp
-			});
-			// Use optimized filtering with pre-indexed data
-			const { tasks: filteredTasks, metrics } = filterIndexedTasks(cached.data, params);
-			metrics.cacheHit = true;
-			performanceMonitor.addMetric(metrics);
+		// ── CACHE PATH (initial load only, no `until` cursor) ──
+		if (isInitialLoad) {
+			const filter = createTaskFilter(params);
+			const { until: _u, ...filterWithoutUntil } = filter as typeof filter & { until?: unknown };
+			const cacheKey = JSON.stringify(filterWithoutUntil);
+			const cached = cache.get(cacheKey);
 
-			// Convert back to regular Task objects and deduplicate (defense in depth)
-			const cleanTasks = deduplicateTasksById(cleanupIndexedTasks(filteredTasks));
+			if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+				const muteState = get(muteStore);
+				// Re-apply mute filter live so recent mutes are reflected immediately
+				const unmuted =
+					muteState.mutedPubkeys.size > 0
+						? cached.data.filter((t) => !muteState.mutedPubkeys.has(t.npub))
+						: cached.data;
 
-			const limit = params.limit || BATCH_SIZE;
-			const currentItemsCount = get(tasksStore).items.length;
+				const { tasks: filteredTasks, metrics } = filterIndexedTasks(unmuted, params);
+				metrics.cacheHit = true;
+				performanceMonitor.addMetric(metrics);
 
-			// If we're loading more (page > 1), get the next batch from cache
-			if (params.page && params.page > 1) {
-				const startIndex = currentItemsCount;
+				const cleanTasks = deduplicateTasksById(cleanupIndexedTasks(filteredTasks));
+				const currentItemsCount = get(tasksStore).items.length;
+
+				// Serve next slice from cache when navigating back to tasks
+				const startIndex = params.page && params.page > 1 ? currentItemsCount : 0;
 				const endIndex = Math.min(startIndex + limit, cleanTasks.length);
-				const limitedTasks = cleanTasks.slice(startIndex, endIndex);
+				const slicedTasks = cleanTasks.slice(startIndex, endIndex);
 				const hasMore = endIndex < cleanTasks.length || cached.hasMore;
+
+				const cachedRelayTimestamp =
+					cached.data.length > 0
+						? Math.min(
+								...cached.data.map((t) => (t as unknown as { createdAt?: number }).createdAt ?? 0)
+							)
+						: undefined;
+
+				d.log('cache hit', { cached: cached.data.length, visible: slicedTasks.length, hasMore });
 
 				tasksStore.update((state) => ({
 					...state,
-					items: deduplicateTasksById([...state.items, ...limitedTasks]),
+					items: deduplicateTasksById(
+						startIndex === 0 ? slicedTasks : [...state.items, ...slicedTasks]
+					),
 					loading: false,
 					currentPage: params.page || 1,
-					hasMore
+					hasMore,
+					lastRelayTimestamp: cachedRelayTimestamp ?? state.lastRelayTimestamp
 				}));
 
-				return {
-					tasks: deduplicateTasksById(limitedTasks),
-					total: limitedTasks.length,
-					hasMore
-				};
-			}
-
-			// For page 1, check if we should use cache or start fresh
-			// If cache has more than what's in store, use cache from current position
-			if (currentItemsCount > 0 && cleanTasks.length > currentItemsCount) {
-				// Continue from where we left off in cache
-				const startIndex = currentItemsCount;
-				const endIndex = Math.min(startIndex + limit, cleanTasks.length);
-				const limitedTasks = cleanTasks.slice(startIndex, endIndex);
-				const hasMore = endIndex < cleanTasks.length || cached.hasMore;
-
-				tasksStore.update((state) => ({
-					...state,
-					items: deduplicateTasksById([...state.items, ...limitedTasks]),
-					loading: false,
-					currentPage: params.page || 1,
-					hasMore
-				}));
-
-				return {
-					tasks: deduplicateTasksById(limitedTasks),
-					total: limitedTasks.length,
-					hasMore
-				};
-			}
-
-			// Limit results to requested batch size for initial load
-			const limitedTasks = cleanTasks.slice(0, limit);
-
-			// hasMore: trust cache metadata for initial load so cache hits don't accidentally disable
-			// infinite scroll after clear-search/filter-reset scenarios.
-			const hasMore =
-				params.page === 1 && params.until === undefined
-					? cached.hasMore || limitedTasks.length >= limit
-					: limitedTasks.length >= limit && cleanTasks.length > limit;
-
-			tasksStore.update((state) => ({
-				...state,
-				items: deduplicateTasksById(
-					params.page === 1 ? limitedTasks : [...state.items, ...limitedTasks]
-				),
-				loading: false,
-				currentPage: params.page || 1,
-				hasMore
-			}));
-
-			return {
-				tasks: deduplicateTasksById(limitedTasks),
-				total: limitedTasks.length,
-				hasMore
-			};
-		}
-
-		try {
-			const response = await nostrEventsService.findEvents(filter);
-
-			const events = response.data || [];
-			// Filter out zombie events: same d-tag from different pubkeys (keep only original owner's)
-			const validEvents = filterZombieEvents(events);
-
-			// Pipeline: API (createTaskFilter) → convert → dedup by id (newest createdAt) → exclude own (npub) → index → filterIndexedTasks → cache merge (newer wins) → store.
-			// Convert events to tasks. Only Tasker publishes task events (replaceable by d-tag), so we need every version for dedup.
-			const rawTasks = validEvents.map((event: Event) => convertEventToTask(event));
-
-			// Deduplicate by task.id: keep only the most recent (highest createdAt). Sort desc so first wins = newest.
-			const sortedByNewest = [...rawTasks].sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
-			const taskById = new Map<string, Task>();
-			for (const task of sortedByNewest) {
-				if (!taskById.has(task.id)) {
-					taskById.set(task.id, task);
-				}
-			}
-			const uniqueTasks = Array.from(taskById.values());
-
-			// Exclude own tasks: task.npub is the event publisher = Tasker (task creator), since only Tasker publishes task events.
-			const { value: npub } = await Preferences.get({ key: StorageKeys.NPUB });
-			const tasksExcludingOwn = npub ? uniqueTasks.filter((t) => t.npub !== npub) : uniqueTasks;
-			d.log('fetch', {
-				rawCount: rawTasks.length,
-				uniqueCount: uniqueTasks.length,
-				excludedOwn: uniqueTasks.length - tasksExcludingOwn.length
-			});
-
-			// Pre-index tasks for optimized filtering (use tasks after excluding own)
-			const indexedTasks = indexTaskData(tasksExcludingOwn);
-
-			// Apply optimized frontend filtering
-			const { tasks: filteredTasks, metrics } = filterIndexedTasks(indexedTasks, params);
-			performanceMonitor.addMetric(metrics);
-
-			// hasMore from API is based on relay page fullness
-			const hasMoreFromApi = events.length >= (params.limit || BATCH_SIZE);
-
-			// Get existing cached data if available
-			const existingCached = cache.get(cacheKey);
-			let allCachedTasks: IndexedTask[] = [];
-
-			if (existingCached && Date.now() - existingCached.timestamp < CACHE_TTL) {
-				// Merge with existing cache: for replaceable events (same id), keep the version with higher createdAt (P0-1).
-				const mergedById = new Map<string, IndexedTask>();
-				for (const t of existingCached.data) {
-					mergedById.set(t.id, t);
-				}
-				for (const t of indexedTasks) {
-					const existing = mergedById.get(t.id);
-					const tCreated = (t as Task).createdAt ?? 0;
-					const existingCreated = (existing as Task)?.createdAt ?? 0;
-					if (!existing || tCreated > existingCreated) {
-						mergedById.set(t.id, t);
+				// If cache is fully muted out but relay has more, fall through to relay path
+				if (slicedTasks.length < limit && cached.hasMore) {
+					const storeTs = get(tasksStore).lastRelayTimestamp ?? cachedRelayTimestamp;
+					if (storeTs) {
+						d.log('cache exhausted, continuing from relay', { storeTs });
+						// Don't return here — fall through below by clearing cache and re-entering relay loop
+						cache.delete(cacheKey);
+						// Recurse with cursor so we pick up from where cache left off
+						const moreResult = await findTasks({ ...params, until: storeTs - 1, limit });
+						// Merge the extra tasks into the store (already done inside recursive call)
+						return {
+							tasks: [...slicedTasks, ...moreResult.tasks],
+							total: slicedTasks.length + moreResult.total,
+							hasMore: moreResult.hasMore
+						};
 					}
 				}
-				allCachedTasks = Array.from(mergedById.values());
-			} else {
-				// Cache unfiltered indexed tasks; frontend-only filters are applied on read.
-				allCachedTasks = indexedTasks;
+
+				return { tasks: slicedTasks, total: slicedTasks.length, hasMore };
 			}
-
-			// Deduplicate and limit cache to MAX_CACHE_SIZE
-			allCachedTasks = deduplicateTasksById(allCachedTasks);
-			if (allCachedTasks.length > MAX_CACHE_SIZE) {
-				allCachedTasks = allCachedTasks.slice(0, MAX_CACHE_SIZE);
-			}
-
-			// Update cache with merged indexed data and pagination metadata
-			cache.set(cacheKey, {
-				data: allCachedTasks,
-				timestamp: Date.now(),
-				hasMore: hasMoreFromApi
-			});
-
-			// Convert back to regular Task objects and deduplicate (defense in depth)
-			const cleanTasks = deduplicateTasksById(cleanupIndexedTasks(filteredTasks));
-
-			const limit = params.limit || BATCH_SIZE;
-			// Limit results to requested batch size
-			const limitedTasks = cleanTasks.slice(0, limit);
-
-			// hasMore: true if relay returned a full page
-			const hasMore = hasMoreFromApi;
-
-			// Update store and ensure no duplicate ids (defense in depth)
-			tasksStore.update((state) => ({
-				...state,
-				items: deduplicateTasksById(
-					params.page === 1 ? limitedTasks : [...state.items, ...limitedTasks]
-				),
-				loading: false,
-				currentPage: params.page || 1,
-				hasMore
-			}));
-
-			return {
-				tasks: deduplicateTasksById(limitedTasks),
-				total: limitedTasks.length,
-				hasMore
-			};
-		} catch (apiError) {
-			console.error('API request failed - ', apiError);
-			tasksStore.update((state) => ({
-				...state,
-				loading: false,
-				error: apiError instanceof Error ? apiError.message : 'Failed to fetch tasks',
-				hasMore: false
-			}));
-
-			return {
-				tasks: [],
-				total: 0,
-				hasMore: false
-			};
 		}
+
+		// ── RELAY PATH ──
+		// Fetch pages from the relay, accumulating visible tasks until `limit` is met.
+		const { value: npub } = await Preferences.get({ key: StorageKeys.NPUB });
+		const currentMutes = get(muteStore);
+
+		const accumulatedTasks: Task[] = [];
+		let cursor = params.until; // advances with each round-trip
+		let hasMore = true;
+		let lastRelayTimestamp: number | undefined;
+		let rounds = 0;
+
+		while (accumulatedTasks.length < limit && hasMore && rounds < MAX_FILL_ROUNDS) {
+			rounds++;
+			const roundParams = { ...params, until: cursor, limit };
+			const result = await fetchOnePage(roundParams, npub, currentMutes);
+
+			// Merge new tasks, dedup in case relay sends duplicates across pages
+			const combined = deduplicateTasksById([...accumulatedTasks, ...result.visibleTasks]);
+			accumulatedTasks.length = 0;
+			accumulatedTasks.push(...combined);
+
+			hasMore = result.hasMore;
+			if (result.lastRelayTimestamp !== undefined) {
+				lastRelayTimestamp = result.lastRelayTimestamp;
+				cursor = result.lastRelayTimestamp - 1;
+			} else {
+				// Relay returned nothing — no point continuing
+				break;
+			}
+
+			d.log('fill loop', { round: rounds, accumulated: accumulatedTasks.length, limit, hasMore });
+		}
+
+		const finalTasks = accumulatedTasks.slice(0, limit);
+
+		// Commit to store
+		tasksStore.update((state) => ({
+			...state,
+			items: deduplicateTasksById(params.page === 1 ? finalTasks : [...state.items, ...finalTasks]),
+			loading: false,
+			currentPage: params.page || 1,
+			hasMore,
+			lastRelayTimestamp: lastRelayTimestamp ?? state.lastRelayTimestamp
+		}));
+
+		return { tasks: finalTasks, total: finalTasks.length, hasMore };
 	} catch (error) {
-		console.error('Error finding tasks:', error);
+		console.error('[findTasks] Error:', error);
 		tasksStore.update((state) => ({
 			...state,
 			loading: false,

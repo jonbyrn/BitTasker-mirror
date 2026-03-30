@@ -11,6 +11,7 @@
 	let turnstileWidget = $state<HTMLElement | null>(null);
 	let turnstileWidgetId: string | undefined;
 	let captchaFailed = $state(false);
+	let tosAccepted = $state(false);
 
 	onMount(async () => {
 		try {
@@ -109,20 +110,23 @@
 </svelte:head>
 
 <div class="mx-auto flex w-full max-w-2xl grow flex-col items-center justify-center px-4 py-8">
-	<div class="card bg-base-100 w-full p-4 shadow-xl mb-6">
+	<div class="card bg-base-100 mb-6 w-full p-4 shadow-xl">
 		<div class="flex flex-col items-center justify-center">
 			<Logo />
 			<h3 class="mt-6 text-center font-bold">{$t('signup.title')}</h3>
 			<br />
-			<p class="mx-auto space-y-2 text-center px-6">
-				<span class="text-base-content mb-10 block text-center text-md">
+			<p class="mx-auto space-y-2 px-6 text-center">
+				<span class="text-base-content text-md mb-10 block text-center">
 					{$t('signup.subtitle')}
 				</span>
-				<span class="text-base-content my-10 block text-center text-md">
+				<span class="text-base-content text-md my-10 block text-center">
 					{$t('signup.description')}
 				</span>
-				<span class="text-base-content my-10 block text-center text-md">
-					{@html $t('signup.nostr_info') + $t('signup.nostr_import')}
+				<span class="text-base-content text-md my-10 block text-center">
+					{$t('signup.nostr_info')}<a href="/auth/login" class="text-primary hover:underline"
+						>{$t('signup.nostr_import_link')}</a
+					>
+					{$t('signup.nostr_import')}
 				</span>
 			</p>
 		</div>
@@ -132,11 +136,11 @@
 				<!-- Cloudflare Turnstile Captcha -->
 				<div class="mt-2">
 					<div class="mb-2">
-						<p class="w-full text-start text-sm mb-2">{$t('signup.verify_human')}</p>
+						<p class="mb-2 w-full text-start text-sm">{$t('signup.verify_human')}</p>
 					</div>
 					<div bind:this={turnstileWidget} class="flex justify-center"></div>
 					{#if captchaFailed && !$isCaptchaVerified}
-						<div class="flex justify-center mt-2">
+						<div class="mt-2 flex justify-center">
 							<button onclick={resetTurnstile} class="btn btn-xs btn-outline">
 								{$t('signup.retry_verification')}
 							</button>
@@ -162,11 +166,34 @@
 					{/if}
 				</div>
 
+				<!-- Terms of Service consent — required by Google Play UGC policy -->
+				<div class="form-control mt-4">
+					<label class="label cursor-pointer justify-start gap-3">
+						<input
+							type="checkbox"
+							bind:checked={tosAccepted}
+							class="checkbox checkbox-primary checkbox-sm"
+							data-testid="signup-tos-checkbox"
+						/>
+						<span class="label-text text-sm leading-relaxed whitespace-pre-line">
+							{$t('signup.tos_consent_prefix')}<a
+								href="/terms"
+								target="_blank"
+								class="text-primary hover:underline">{$t('signup.tos_consent_terms')}</a
+							>{$t('signup.tos_consent_and')}<a
+								href="/privacy"
+								target="_blank"
+								class="text-primary hover:underline">{$t('signup.tos_consent_privacy')}</a
+							>{$t('signup.tos_consent_suffix')}
+						</span>
+					</label>
+				</div>
+
 				<button
 					class="btn btn-primary mt-4"
 					data-testid="signup-continue"
 					onclick={() => goto('/auth/onboarding')}
-					disabled={isLoading || !$isCaptchaVerified}
+					disabled={isLoading || !$isCaptchaVerified || !tosAccepted}
 				>
 					<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24">
 						<g fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.5">

@@ -58,3 +58,24 @@ export function portal(node: HTMLElement, id = 'default') {
 	}
 	return { destroy: () => destroy?.() };
 }
+
+/**
+ * Svelte action that teleports a DOM node to `#portal-root` (the global overlay
+ * container in the root layout). This escapes any ancestor with overflow:hidden,
+ * overflow-x:hidden, or transform that would otherwise break fixed positioning.
+ *
+ * Usage:  <div use:teleport> ... </div>
+ */
+export function teleport(node: HTMLElement) {
+	const host = document.getElementById('portal-root');
+	if (!host) {
+		// portal-root not yet in DOM (SSR or very early render) — no-op
+		return {};
+	}
+	host.appendChild(node);
+	return {
+		destroy() {
+			if (host.contains(node)) host.removeChild(node);
+		}
+	};
+}

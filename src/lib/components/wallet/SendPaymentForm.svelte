@@ -10,8 +10,8 @@
 		parsePaymentAddress,
 		type ParsedPaymentAddress
 	} from '$lib/utils/helpers/paymentAddressParser';
-	import { triggerHaptic, ImpactStyle } from '$lib/utils/helpers/haptics';
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
+	import { triggerHaptic, ImpactStyle } from '$lib/utils/helpers/haptics';
 	import QrCodeScanner from '$lib/components/QrCodeScanner.svelte';
 	import WebQrCodeScanner from '$lib/components/WebQrCodeScanner.svelte';
 	import AmountDisplay from '$lib/components/wallet/AmountDisplay.svelte';
@@ -207,12 +207,13 @@
 	const availableBalance = $derived.by(() => {
 		switch (parsedPayment.detectedNetwork) {
 			case 'rootstock-bitcoin':
-			case 'lightning-bitcoin':
+			case 'lightning-bitcoin': {
 				// Use formatted balance directly from wallet store
 				if (!$walletStore.rsk.connected) return 0;
 				const rbtc = parseFloat($walletStore.rsk.formattedBalance);
 				return Math.floor(rbtc * 100_000_000);
-			case 'usdt-bsc':
+			}
+			case 'usdt-bsc': {
 				// USDT: convert USD to sats using BTC price
 				if (!$walletStore.bsc.connected) return 0;
 				const usdt = parseFloat($walletStore.bsc.formattedUsdtBalance);
@@ -220,6 +221,7 @@
 					return Math.floor((usdt / btcPrice) * 100_000_000);
 				}
 				return 0;
+			}
 			default:
 				return $walletStore.totalBalances.sats;
 		}
@@ -428,7 +430,7 @@
 		feeState.error = null;
 		try {
 			switch (parsedPayment.detectedNetwork) {
-				case 'lightning-bitcoin':
+				case 'lightning-bitcoin': {
 					// Use submarine swap fee estimation (cached)
 					// For lightning invoices, amountToUse is the invoice amount (what receiver gets)
 					const pairsData = await walletManager.getCachedSubmarineSwapPairs();
@@ -477,7 +479,8 @@
 						};
 					}
 					break;
-				case 'rootstock-bitcoin':
+				}
+				case 'rootstock-bitcoin': {
 					if (!$walletStore.rsk.connected || !$walletStore.rsk.address) {
 						const networkFee = 3000; // Fallback
 						feeState.estimated = {
@@ -505,6 +508,7 @@
 						totalFees: networkFee
 					};
 					break;
+				}
 				default:
 					feeState.estimated = null;
 			}
@@ -526,7 +530,7 @@
 
 		try {
 			switch (parsedPayment.detectedNetwork) {
-				case 'lightning-bitcoin':
+				case 'lightning-bitcoin': {
 					// Fetch submarine swap pairs to get fee percentage (use cached)
 					const pairsData = await walletManager.getCachedSubmarineSwapPairs();
 					const pair = pairsData?.['RBTC']?.['BTC'];
@@ -548,7 +552,7 @@
 								estimatedGasFee = Math.floor(
 									parseFloat(gasEstimation.totalCostFormatted) * 100_000_000
 								);
-							} catch (error) {
+							} catch {
 								estimatedGasFee = 3000; // Conservative fallback (100 sats)
 							}
 						} else {
@@ -567,6 +571,7 @@
 						};
 					}
 					break;
+				}
 				case 'rootstock-bitcoin':
 					// For Rootstock, fees are mostly fixed (gas), but we need to estimate
 					// We'll estimate with a high amount to get approximate gas fee
@@ -585,7 +590,7 @@
 							feeState.parameters = {
 								fixedFee: estimatedGasFee
 							};
-						} catch (error) {
+						} catch {
 							feeState.parameters = {
 								fixedFee: 3000 // Conservative fallback
 							};
@@ -646,7 +651,6 @@
 	function handleNextStep() {
 		// Validate that we have address and amount before proceeding
 		if (parsedPayment.data?.isValid && !parsedPayment.addressError && amountInSats > 0) {
-			triggerHaptic(ImpactStyle.Light);
 			uiState.currentStep = 2;
 		} else if (
 			parsedPayment.data?.isValid &&
@@ -655,13 +659,11 @@
 			parsedPayment.detectedAmount > 0
 		) {
 			// Lightning invoice with amount - can proceed without user entering amount
-			triggerHaptic(ImpactStyle.Light);
 			uiState.currentStep = 2;
 		}
 	}
 
 	function handleBackStep() {
-		triggerHaptic(ImpactStyle.Light);
 		uiState.currentStep = 1;
 	}
 
@@ -684,7 +686,6 @@
 		if (!parsedPayment.detectedNetwork || !availableBalance || availableBalance <= 0) return;
 
 		feeState.maxCalculation.isLoading = true;
-		triggerHaptic(ImpactStyle.Light);
 
 		try {
 			formInput.mathExpression = '';
@@ -726,7 +727,6 @@
 
 	// Handle unit change
 	function handleUnitChange(newUnit: 'sats' | 'usd') {
-		triggerHaptic(ImpactStyle.Light);
 		formInput.unit = newUnit;
 		// Keep amount when switching units - user may have entered amount before selecting unit
 		formInput.mathExpression = '';
@@ -789,7 +789,6 @@
 
 					// Show pending transaction screen
 					appStore.showSuccessToast($t('wallet.send.transaction_sending'));
-					triggerHaptic(ImpactStyle.Medium);
 
 					// Return early - pending screen will monitor swap status
 					return;
@@ -809,7 +808,6 @@
 
 				// Show pending transaction screen
 				appStore.showSuccessToast($t('wallet.send.transaction_sending'));
-				triggerHaptic(ImpactStyle.Medium);
 
 				// Return early - pending screen will be shown
 				return;
@@ -848,7 +846,6 @@
 				sendState.isSending = false; // Set to false immediately to skip loading screen
 
 				// Show pending transaction screen
-				triggerHaptic(ImpactStyle.Medium);
 				appStore.showSuccessToast($t('wallet.send.transaction_sent'));
 
 				// Call onSuccess callback
@@ -862,7 +859,6 @@
 			console.error('Send failed:', err);
 			sendState.error = err instanceof Error ? err.message : $t('wallet.send.transaction_failed');
 			appStore.showErrorToast(sendState.error);
-			triggerHaptic(ImpactStyle.Heavy);
 		} finally {
 			sendState.isSending = false;
 		}
@@ -902,7 +898,6 @@
 	// Handle showing send confirmation
 	function showSendConfirmationModal() {
 		uiState.showSendConfirmation = true;
-		triggerHaptic(ImpactStyle.Light);
 	}
 
 	// Handle confirmed send
@@ -912,7 +907,7 @@
 	}
 </script>
 
-<div class="flex flex-1 flex-col min-h-0">
+<div class="flex min-h-0 flex-1 flex-col">
 	<!-- Pending Transaction Screen (highest priority) -->
 	{#if sendState.pendingTxHash && sendState.pendingNetwork && sendState.pendingAmount !== null && sendState.pendingAddress}
 		<PendingTransactionScreen
@@ -920,9 +915,7 @@
 			amountUSD={amountInUSD}
 			address={sendState.pendingAddress}
 			network={sendState.pendingNetwork}
-			txHash={sendState.pendingTxHash}
 			networkOptions={netwokrOption}
-			swapId={sendState.pendingSwapId}
 			onClose={() => {
 				// Clear pending state
 				sendState.pendingTxHash = null;
@@ -962,7 +955,6 @@
 				class:text-primary-content={uiState.activeTab === 'scan'}
 				class:tab-active={uiState.activeTab === 'scan'}
 				onclick={() => {
-					triggerHaptic(ImpactStyle.Light);
 					uiState.activeTab = 'scan';
 					uiState.showConfirmation = false;
 				}}
@@ -975,7 +967,6 @@
 				class:text-primary-content={uiState.activeTab === 'enter'}
 				class:tab-active={uiState.activeTab === 'enter'}
 				onclick={() => {
-					triggerHaptic(ImpactStyle.Light);
 					uiState.activeTab = 'enter';
 					uiState.showConfirmation = false;
 				}}
@@ -985,7 +976,7 @@
 		</div>
 
 		<!-- Scrollable Content Area -->
-		<div class="flex-1 overflow-y-auto min-h-0 space-y-3 sm:space-y-4">
+		<div class="min-h-0 flex-1 space-y-3 overflow-y-auto sm:space-y-4">
 			{#if uiState.activeTab === 'scan'}
 				{#if !uiState.showConfirmation}
 					<!-- QR Code Scanner -->
@@ -1055,6 +1046,7 @@
 							</div>
 						{:else if isWeb}
 							<WebQrCodeScanner
+								mode="inline"
 								onScan={(result) => handleQRScan(result)}
 								onClose={() => (uiState.activeTab = 'enter')}
 							/>
@@ -1117,7 +1109,6 @@
 											class="btn btn-ghost btn-sm btn-circle shrink-0 touch-manipulation transition-transform duration-100 select-none active:scale-95"
 											style="-webkit-tap-highlight-color: transparent;"
 											aria-label={$t('wallet.view_explorer')}
-											onclick={() => triggerHaptic(ImpactStyle.Light)}
 										>
 											<IconOpenInNew class="h-5 w-5" />
 										</a>
@@ -1174,7 +1165,7 @@
 			{#if uiState.activeTab === 'enter'}
 				<!-- Enter Payment Details Tab -->
 				<!-- Mobile Step 1: Address Input and Amount Input -->
-				<div class="block sm:hidden space-y-2">
+				<div class="block space-y-2 sm:hidden">
 					{#if uiState.currentStep === 1}
 						<!-- Address Input -->
 						<div class="form-control">
@@ -1189,11 +1180,11 @@
 								>
 									<!-- Input field with validation icons -->
 									<div class="bg-base-200 relative flex flex-1 items-center p-2">
-										<div class="relative flex-1 min-w-0 pr-10 sm:pr-11">
+										<div class="relative min-w-0 flex-1 pr-10 sm:pr-11">
 											<input
 												id="address-input"
 												type="text"
-												class="w-full bg-transparent pl-6 text-base focus:outline-none placeholder:text-base-content/50"
+												class="placeholder:text-base-content/50 w-full bg-transparent pl-6 text-base focus:outline-none"
 												placeholder={$t('wallet.send.address_placeholder')}
 												bind:value={formInput.addressInput}
 												oninput={handleAddressInput}
@@ -1216,7 +1207,7 @@
 										{#if formInput.addressInput.trim()}
 											<button
 												type="button"
-												class="absolute right-2 sm:right-2 btn btn-ghost btn-sm btn-circle text-error hover:bg-error/20 flex h-9 min-h-[40px] w-9 min-w-[40px] touch-manipulation items-center justify-center p-0 select-none sm:h-11 sm:min-h-[44px] sm:w-11 sm:min-w-[44px]"
+												class="btn btn-ghost btn-sm btn-circle text-error hover:bg-error/20 absolute right-2 flex h-9 min-h-[40px] w-9 min-w-[40px] touch-manipulation items-center justify-center p-0 select-none sm:right-2 sm:h-11 sm:min-h-[44px] sm:w-11 sm:min-w-[44px]"
 												style="-webkit-tap-highlight-color: transparent;"
 												onclick={() => {
 													formInput.addressInput = '';
@@ -1229,7 +1220,6 @@
 													feeState.estimated = null;
 													feeState.error = null;
 													uiState.showRecentAddresses = false;
-													triggerHaptic(ImpactStyle.Light);
 												}}
 												aria-label="Clear address"
 											>
@@ -1242,7 +1232,7 @@
 									<div
 										class="border-base-300 bg-base-100 absolute z-10 mt-1 max-h-60 w-full overflow-y-auto rounded-lg border shadow-lg"
 									>
-										{#each recentAddresses as recentAddress}
+										{#each recentAddresses as recentAddress (recentAddress.address)}
 											<button
 												class="hover:bg-base-200 flex w-full items-center justify-between px-4 py-2 text-left"
 												onclick={() => {
@@ -1294,7 +1284,7 @@
 								</p>
 							{/if}
 							{#if hasInsufficientBalance && feeState.estimated}
-								<p class="text-error text-center text-md pt-1">
+								<p class="text-error text-md pt-1 text-center">
 									{$t('wallet.validation.insufficient_balance')}
 								</p>
 							{/if}
@@ -1303,7 +1293,7 @@
 				</div>
 
 				<!-- Mobile Step 2: Read-only amount display, network, description, fees, total -->
-				<div class="block sm:hidden space-y-2">
+				<div class="block space-y-2 sm:hidden">
 					{#if uiState.currentStep === 2}
 						<!-- Amount Display (Read-only) -->
 						<div
@@ -1361,7 +1351,6 @@
 											class="btn btn-ghost btn-sm btn-circle shrink-0 touch-manipulation transition-transform duration-100 select-none active:scale-95"
 											style="-webkit-tap-highlight-color: transparent;"
 											aria-label={$t('wallet.view_explorer')}
-											onclick={() => triggerHaptic(ImpactStyle.Light)}
 										>
 											<IconOpenInNew class="h-4 w-4 sm:h-5 sm:w-5" />
 										</a>
@@ -1395,16 +1384,13 @@
 								<button
 									type="button"
 									class="collapse-title min-h-0 px-3 py-2 text-left text-sm font-medium"
-									onclick={() => {
-										triggerHaptic(ImpactStyle.Light);
-										uiState.networkFeeExpanded = !uiState.networkFeeExpanded;
-									}}
+									onclick={() => (uiState.networkFeeExpanded = !uiState.networkFeeExpanded)}
 									disabled={feeState.isLoading}
 								>
 									<div class="flex w-full items-center gap-1.5">
 										<span>{$t('wallet.network_fee')}:</span>
 										{#if feeState.isLoading}
-											<span class="font-semibold inline-flex items-center gap-1.5 min-w-20">
+											<span class="inline-flex min-w-20 items-center gap-1.5 font-semibold">
 												<span class="loading loading-spinner loading-xs"></span>
 											</span>
 										{:else if feeState.estimated}
@@ -1492,7 +1478,7 @@
 				</div>
 
 				<!-- Desktop: Always show all fields -->
-				<div class="hidden sm:block space-y-3 sm:space-y-4">
+				<div class="hidden space-y-3 sm:block sm:space-y-4">
 					<!-- Address Input -->
 					<div class="form-control">
 						<div class="relative">
@@ -1506,11 +1492,11 @@
 							>
 								<!-- Input field with validation icons -->
 								<div class="bg-base-200 relative flex flex-1 items-center p-2">
-									<div class="relative flex-1 min-w-0 pr-10 sm:pr-11">
+									<div class="relative min-w-0 flex-1 pr-10 sm:pr-11">
 										<input
 											id="address-input-desktop"
 											type="text"
-											class="w-full bg-transparent pl-6 text-base focus:outline-none placeholder:text-base-content/50"
+											class="placeholder:text-base-content/50 w-full bg-transparent pl-6 text-base focus:outline-none"
 											placeholder={$t('wallet.send.address_placeholder')}
 											bind:value={formInput.addressInput}
 											oninput={handleAddressInput}
@@ -1533,7 +1519,7 @@
 									{#if formInput.addressInput.trim()}
 										<button
 											type="button"
-											class="absolute right-2 sm:right-2 btn btn-ghost btn-sm btn-circle text-error hover:bg-error/20 flex h-9 min-h-[40px] w-9 min-w-[40px] touch-manipulation items-center justify-center p-0 select-none sm:h-11 sm:min-h-[44px] sm:w-11 sm:min-w-[44px]"
+											class="btn btn-ghost btn-sm btn-circle text-error hover:bg-error/20 absolute right-2 flex h-9 min-h-[40px] w-9 min-w-[40px] touch-manipulation items-center justify-center p-0 select-none sm:right-2 sm:h-11 sm:min-h-[44px] sm:w-11 sm:min-w-[44px]"
 											style="-webkit-tap-highlight-color: transparent;"
 											onclick={() => {
 												formInput.addressInput = '';
@@ -1546,7 +1532,6 @@
 												feeState.estimated = null;
 												feeState.error = null;
 												uiState.showRecentAddresses = false;
-												triggerHaptic(ImpactStyle.Light);
 											}}
 											aria-label="Clear address"
 										>
@@ -1559,7 +1544,7 @@
 								<div
 									class="border-base-300 bg-base-100 absolute z-10 mt-1 max-h-60 w-full overflow-y-auto rounded-lg border shadow-lg"
 								>
-									{#each recentAddresses as recentAddress}
+									{#each recentAddresses as recentAddress (recentAddress.address)}
 										<button
 											class="hover:bg-base-200 flex w-full items-center justify-between px-4 py-2 text-left"
 											onclick={() => {
@@ -1611,7 +1596,6 @@
 										class="btn btn-ghost btn-sm btn-circle shrink-0 touch-manipulation transition-transform duration-100 select-none active:scale-95"
 										style="-webkit-tap-highlight-color: transparent;"
 										aria-label={$t('wallet.view_explorer')}
-										onclick={() => triggerHaptic(ImpactStyle.Light)}
 									>
 										<IconOpenInNew class="h-4 w-4 sm:h-5 sm:w-5" />
 									</a>
@@ -1667,16 +1651,13 @@
 							<button
 								type="button"
 								class="collapse-title min-h-0 px-3 py-2 text-left text-sm font-medium sm:px-4 sm:text-base"
-								onclick={() => {
-									triggerHaptic(ImpactStyle.Light);
-									uiState.networkFeeExpanded = !uiState.networkFeeExpanded;
-								}}
+								onclick={() => (uiState.networkFeeExpanded = !uiState.networkFeeExpanded)}
 								disabled={feeState.isLoading}
 							>
 								<div class="flex w-full items-center gap-1.5 sm:gap-2">
 									<span>{$t('wallet.network_fee')}:</span>
 									{#if feeState.isLoading}
-										<span class="font-semibold inline-flex items-center gap-1.5 min-w-20 sm:gap-2">
+										<span class="inline-flex min-w-20 items-center gap-1.5 font-semibold sm:gap-2">
 											<span class="loading loading-spinner loading-xs"></span>
 										</span>
 									{:else if feeState.estimated}
@@ -1792,17 +1773,14 @@
 		<!-- Action Buttons -->
 		{#if uiState.activeTab === 'enter'}
 			<div
-				class="bg-base-100 sticky bottom-0 z-10 mt-auto shrink-0 flex gap-2 pt-3 pb-3 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] sm:gap-3 sm:pt-4 sm:pb-4 md:static md:mb-4 md:pt-0 md:pb-0 md:shadow-none"
+				class="bg-base-100 sticky bottom-0 z-10 mt-auto flex shrink-0 gap-2 pt-3 pb-3 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] sm:gap-3 sm:pt-4 sm:pb-4 md:static md:mb-4 md:pt-0 md:pb-0 md:shadow-none"
 			>
 				<!-- Mobile Step 1: Cancel and Next -->
 				{#if uiState.currentStep === 1}
 					<button
 						class="btn btn-error min-h-[44px] flex-1 touch-manipulation transition-transform duration-100 select-none active:scale-95 sm:hidden"
 						style="-webkit-tap-highlight-color: transparent;"
-						onclick={() => {
-							triggerHaptic(ImpactStyle.Light);
-							onCancel();
-						}}
+						onclick={onCancel}
 					>
 						<IconClose class="h-4 w-4" />
 						<span class="text-sm">{$t('common.cancel')}</span>
@@ -1845,18 +1823,15 @@
 
 				<!-- Desktop: Always show Cancel and Send -->
 				<button
-					class="btn btn-error min-h-[44px] hidden flex-1 touch-manipulation transition-transform duration-100 select-none active:scale-95 sm:flex sm:min-h-[48px] md:min-h-[56px]"
+					class="btn btn-error hidden min-h-[44px] flex-1 touch-manipulation transition-transform duration-100 select-none active:scale-95 sm:flex sm:min-h-[48px] md:min-h-[56px]"
 					style="-webkit-tap-highlight-color: transparent;"
-					onclick={() => {
-						triggerHaptic(ImpactStyle.Light);
-						onCancel();
-					}}
+					onclick={onCancel}
 				>
 					<IconClose class="h-4 w-4 sm:h-5 sm:w-5" />
 					<span class="text-sm sm:text-base">{$t('common.cancel')}</span>
 				</button>
 				<button
-					class="btn btn-primary min-h-[44px] hidden flex-1 touch-manipulation transition-transform duration-100 select-none active:scale-95 sm:flex sm:min-h-[48px] md:min-h-[56px]"
+					class="btn btn-primary hidden min-h-[44px] flex-1 touch-manipulation transition-transform duration-100 select-none active:scale-95 sm:flex sm:min-h-[48px] md:min-h-[56px]"
 					style="-webkit-tap-highlight-color: transparent;"
 					onclick={showSendConfirmationModal}
 					disabled={!isFormValid || feeState.isLoading}
@@ -1873,10 +1848,7 @@
 				<button
 					class="btn btn-error min-h-[48px] touch-manipulation transition-transform duration-100 select-none active:scale-95 md:min-h-[56px]"
 					style="-webkit-tap-highlight-color: transparent;"
-					onclick={() => {
-						triggerHaptic(ImpactStyle.Light);
-						onCancel();
-					}}
+					onclick={onCancel}
 				>
 					<IconClose class="mr-2 h-5 w-5" />
 					{$t('common.cancel')}

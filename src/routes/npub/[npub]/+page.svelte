@@ -1,22 +1,28 @@
 <script lang="ts">
-	import { page } from '$app/stores';
-	import Avatar from '$lib/components/Avatar.svelte';
+	import type {
+		ProfileTranslations,
+		SkillTranslations,
+		PortfolioTranslations,
+		NostrProfileImage,
+		SkillCertification,
+		TimeSlot
+	} from '$lib/types/profile.d';
+	import { page } from '$app/state';
 	import { onMount } from 'svelte';
 	import { fetchComprehensiveProfile } from '$lib/utils/nostr-message';
 	import { goto } from '$app/navigation';
 	import { t, locale } from 'svelte-i18n';
 	import { nip19 } from 'nostr-tools';
-	import type { ProfileTranslations } from '$lib/types/profile.d';
 	import { authState } from '$lib/stores/auth.store';
+	import Avatar from '$lib/components/Avatar.svelte';
+	import ActionsMenu from '$lib/components/moderation/ActionsMenu.svelte';
 
 	// Helper function to get translated profile content
 	// Reactive to locale changes via $locale
-	function getTranslatedProfileContent(
-		field: 'professionalTitle' | 'about'
-	): string {
+	function getTranslatedProfileContent(field: 'professionalTitle' | 'about'): string {
 		const currentLang = $locale || 'en';
 		const originalText = userProfile?.[field] || '';
-		
+
 		// If no translations, return original
 		if (!userProfile?.translations) {
 			return originalText;
@@ -38,16 +44,18 @@
 	}
 
 	// Helper function to get translated skill name
-	function getTranslatedSkillName(skill: string | { name: string; translations?: any }): string {
+	function getTranslatedSkillName(
+		skill: string | { name: string; translations?: SkillTranslations }
+	): string {
 		const currentLang = $locale || 'en';
-		
+
 		// If skill is a string, return as is
 		if (typeof skill === 'string') {
 			return skill;
 		}
 
 		const originalName = skill.name || '';
-		
+
 		// If no translations, return original
 		if (!skill.translations) {
 			return originalName;
@@ -69,10 +77,13 @@
 	}
 
 	// Helper function to get translated portfolio title
-	function getTranslatedPortfolioTitle(item: { title: string; translations?: any }): string {
+	function getTranslatedPortfolioTitle(item: {
+		title: string;
+		translations?: PortfolioTranslations;
+	}): string {
 		const currentLang = $locale || 'en';
 		const originalTitle = item.title || '';
-		
+
 		// If no translations, return original
 		if (!item.translations) {
 			return originalTitle;
@@ -94,10 +105,13 @@
 	}
 
 	// Helper function to get translated portfolio description
-	function getTranslatedPortfolioDescription(item: { description: string; translations?: any }): string {
+	function getTranslatedPortfolioDescription(item: {
+		description: string;
+		translations?: PortfolioTranslations;
+	}): string {
 		const currentLang = $locale || 'en';
 		const originalDescription = item.description || '';
-		
+
 		// If no translations, return original
 		if (!item.translations) {
 			return originalDescription;
@@ -117,9 +131,6 @@
 		// Fallback to original
 		return originalDescription;
 	}
-
-	// Get npub from route params
-	let routeNpub = $derived($page.params.npub);
 
 	// State for validated hex pubkey
 	let hexPubkey = $state<string | null>(null);
@@ -142,7 +153,8 @@
 					level: number;
 					verificationStatus?: string;
 					endorsements?: number;
-					certifications?: any[];
+					certifications?: SkillCertification[];
+					translations?: SkillTranslations;
 			  }
 		>;
 		portfolio?: Array<{
@@ -150,12 +162,13 @@
 			id: string;
 			title: string;
 			description: string;
-			images: any[];
+			images: NostrProfileImage[];
 			completionDate: string;
 			skills: string[];
+			translations?: PortfolioTranslations;
 		}>;
 		availability?: {
-			timeSlots: any[];
+			timeSlots: TimeSlot[];
 			timezone: string;
 			noticeHours: number;
 			maxBookingsPerDay: number;
@@ -211,7 +224,7 @@
 					return { valid: true, hexPubkey: decoded.data as string };
 				}
 				return { valid: false, error: $t('common.profile.invalid_npub_format') };
-			} catch (error) {
+			} catch {
 				return { valid: false, error: $t('common.profile.invalid_npub_format') };
 			}
 		}
@@ -227,14 +240,16 @@
 	// Funciones para el carrusel de imágenes de cada proyecto
 	function nextProjectImage(projectIndex: number, totalImages: number) {
 		if (totalImages > 1) {
-			projectImageSlides[projectIndex] = ((projectImageSlides[projectIndex] || 0) + 1) % totalImages;
+			projectImageSlides[projectIndex] =
+				((projectImageSlides[projectIndex] || 0) + 1) % totalImages;
 			projectImageSlides = { ...projectImageSlides };
 		}
 	}
 
 	function prevProjectImage(projectIndex: number, totalImages: number) {
 		if (totalImages > 1) {
-			projectImageSlides[projectIndex] = ((projectImageSlides[projectIndex] || 0) - 1 + totalImages) % totalImages;
+			projectImageSlides[projectIndex] =
+				((projectImageSlides[projectIndex] || 0) - 1 + totalImages) % totalImages;
 			projectImageSlides = { ...projectImageSlides };
 		}
 	}
@@ -247,7 +262,7 @@
 	// Check if about text is actually truncated (same logic as TranslatableTask)
 	function checkIfAboutTruncated() {
 		if (!aboutElement) return;
-		
+
 		// Create a hidden clone to measure full height without affecting layout
 		const clone = aboutElement.cloneNode(true) as HTMLElement;
 		clone.className = aboutElement.className.replace(/line-clamp-\d+/g, '');
@@ -257,14 +272,14 @@
 		clone.style.width = aboutElement.offsetWidth + 'px';
 		clone.style.whiteSpace = 'pre-line'; // Preserve line breaks
 		document.body.appendChild(clone);
-		
+
 		const fullHeight = clone.scrollHeight;
 		const lineHeight = parseFloat(getComputedStyle(aboutElement).lineHeight) || 20;
 		const maxHeight = lineHeight * 2; // 2 lines
-		
+
 		// Clean up
 		document.body.removeChild(clone);
-		
+
 		// Only show ellipsis if content is actually taller than 2 lines
 		isAboutTruncated = fullHeight > maxHeight + 1; // +1 for small margin
 	}
@@ -364,7 +379,7 @@
 		try {
 			const date = new Date(dateString);
 			if (isNaN(date.getTime())) return dateString;
-			
+
 			return new Intl.DateTimeFormat($locale || 'en', {
 				month: 'short',
 				year: 'numeric'
@@ -377,7 +392,10 @@
 	// Calcular rating promedio
 	const averageRating = $derived(
 		userProfile?.reviews && userProfile.reviews.length > 0
-			? (userProfile.reviews.reduce((acc, review) => acc + review.rating, 0) / userProfile.reviews.length).toFixed(1)
+			? (
+					userProfile.reviews.reduce((acc, review) => acc + review.rating, 0) /
+					userProfile.reviews.length
+				).toFixed(1)
 			: null
 	);
 
@@ -393,7 +411,7 @@
 
 	onMount(async () => {
 		// Validate npub parameter
-		const validation = validateNpub(routeNpub);
+		const validation = validateNpub(page.params.npub);
 		if (!validation.valid) {
 			validationError = validation.error || $t('common.profile.invalid_npub');
 			loadingProfile = false;
@@ -416,21 +434,20 @@
 	// React to description and locale changes
 	$effect(() => {
 		const currentAbout = getTranslatedProfileContent('about');
-		
+
 		if (aboutElement && currentAbout) {
 			showFullAbout = false;
 			isAboutTruncated = false;
-			
+
 			requestAnimationFrame(() => {
 				checkIfAboutTruncated();
 			});
 		}
 	});
-
 </script>
 
 <!-- Skeleton Loading -->
-<div class="bg-base-200 max-w-6xl mx-auto px-2 md:px-0 pt-6">
+<div class="bg-base-200 mx-auto max-w-6xl px-2 pt-6 md:px-0">
 	{#if validationError}
 		<div class="mx-auto py-8">
 			<div class="alert alert-error alert-outline">
@@ -458,7 +475,9 @@
 								<div class="bg-base-300 h-20 w-20 animate-pulse rounded-full"></div>
 							</div>
 							<div class="flex-1 text-center lg:text-left">
-								<div class="mb-2 flex flex-col items-center gap-2 lg:flex-row lg:items-center lg:justify-between">
+								<div
+									class="mb-2 flex flex-col items-center gap-2 lg:flex-row lg:items-center lg:justify-between"
+								>
 									<div class="bg-base-300 h-6 w-32 animate-pulse rounded"></div>
 								</div>
 								<div class="bg-base-300 mb-4 h-6 w-24 animate-pulse rounded"></div>
@@ -485,7 +504,7 @@
 						</div>
 						<div class="bg-base-300 mb-2 h-6 w-32 animate-pulse rounded"></div>
 						<div class="flex flex-wrap gap-2">
-							{#each Array(5) as _}
+							{#each [0, 1, 2, 3, 4] as i (i)}
 								<div class="bg-base-300 h-6 w-16 animate-pulse rounded-full"></div>
 							{/each}
 						</div>
@@ -513,7 +532,7 @@
 					<div class="card-body p-3">
 						<div class="bg-base-300 mb-2 h-6 w-32 animate-pulse rounded"></div>
 						<div class="space-y-1">
-							{#each Array(4) as _}
+							{#each [0, 1, 2, 3] as i (i)}
 								<div class="flex items-center justify-between">
 									<div class="bg-base-300 h-4 w-20 animate-pulse rounded"></div>
 									<div class="bg-base-300 h-4 w-8 animate-pulse rounded"></div>
@@ -528,7 +547,7 @@
 					<div class="card-body p-3">
 						<div class="bg-base-300 mb-2 h-6 w-24 animate-pulse rounded"></div>
 						<div class="space-y-2">
-							{#each Array(3) as _}
+							{#each [0, 1, 2] as i (i)}
 								<div class="flex items-center gap-2">
 									<div class="bg-base-300 h-2 w-2 animate-pulse rounded-full"></div>
 									<div class="bg-base-300 h-3 w-20 animate-pulse rounded"></div>
@@ -567,7 +586,11 @@
 			</div>
 		</div>
 	{:else}
-		<div class="bg-base-200 max-w-6xl mx-auto px-2 md:px-0 {$authState.isAuthenticated ? 'pb-24' : 'pb-8'}">
+		<div
+			class="bg-base-200 mx-auto max-w-6xl px-2 md:px-0 {$authState.isAuthenticated
+				? 'pb-24'
+				: 'pb-8'}"
+		>
 			<!-- Botón de regresar -->
 			<div class="mb-4">
 				<button
@@ -579,7 +602,12 @@
 					}}
 				>
 					<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M10 19l-7-7m0 0l7-7m-7 7h18"
+						/>
 					</svg>
 					{$t('common.back_2')}
 				</button>
@@ -591,20 +619,32 @@
 					<!-- Información del perfil -->
 					<div class="card bg-base-100 w-full rounded-2xl shadow-lg">
 						<div class="card-body p-4">
-							<div class="flex flex-col items-center gap-6 lg:flex-row lg:items-center">
+							<div class="relative flex flex-col items-center gap-6 lg:flex-row lg:items-center">
 								<!-- Avatar -->
 								<div class="shrink-0">
 									<!-- Mobile: tamaño xl (w-24 h-24) -->
 									<div class="block md:hidden">
-										<Avatar name={userProfile?.name} picture={userPicture()} size="xl"  />
+										<Avatar name={userProfile?.name} picture={userPicture()} size="xl" />
 									</div>
 									<!-- Desktop: tamaño 2xl (w-40 h-40) -->
 									<div class="hidden md:block">
-										<Avatar name={userProfile?.name} picture={userPicture()} size="2xl"  />
+										<Avatar name={userProfile?.name} picture={userPicture()} size="2xl" />
 									</div>
 								</div>
 
-								<!-- Información del perfil -->
+								<!-- Content menu -->
+								<div class="absolute top-0 right-0">
+									{#if $authState.isAuthenticated && hexPubkey}
+										<ActionsMenu
+											contentType="user"
+											reportedPubkey={hexPubkey}
+											username={userProfile?.name}
+											profileMode={true}
+										/>
+									{/if}
+								</div>
+
+								<!-- Profile information -->
 								<div class="flex-1 text-center lg:text-left">
 									<div
 										class="mb-2 flex flex-col items-center gap-2 lg:flex-row lg:items-center lg:justify-between"
@@ -617,7 +657,11 @@
 												{#if averageRating}
 													<div class="flex items-center gap-1">
 														<span class="text-lg font-bold">{averageRating}</span>
-														<svg class="h-4 w-4 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
+														<svg
+															class="h-4 w-4 text-yellow-500"
+															fill="currentColor"
+															viewBox="0 0 20 20"
+														>
 															<path
 																fill-rule="evenodd"
 																d="M10.788 3.21c.448-1.077 1.976-1.077 2.424 0l2.082 5.007 5.404.433c1.164.093 1.636 1.545.749 2.305l-4.117 3.527 1.257 5.273c.271 1.136-.964 2.033-1.96 1.425L12 18.354 7.373 21.18c-.996.608-2.231-.29-1.96-1.425l1.257-5.273-4.117-3.527c-.887-.76-.415-2.212.749-2.305l5.404-.433 2.082-5.006z"
@@ -656,7 +700,10 @@
 														d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 01-2 2v12a2 2 0 002 2z"
 													/>
 												</svg>
-												<span>{$t('common.profile.member_since')} {formatMonthYear(userProfile.createdAt)}</span>
+												<span
+													>{$t('common.profile.member_since')}
+													{formatMonthYear(userProfile.createdAt)}</span
+												>
 											</div>
 										{/if}
 										{#if userProfile?.location}
@@ -698,7 +745,7 @@
 										{/if}
 									</div>
 
-									<!-- Botones de acción rápida -->
+									<!-- Quick-action buttons -->
 									<div class="flex flex-wrap justify-center gap-3 md:hidden lg:justify-start">
 										{#if $authState.isAuthenticated}
 											<button class="btn btn-primary btn-sm" onclick={openMessageModal}>
@@ -737,18 +784,17 @@
 					<div class="card bg-base-100 w-full rounded-2xl shadow-lg">
 						<div class="card-body p-4">
 							<p class=" text-xl font-bold">{$t('common.profile.about')}</p>
-							<p 
+							<p
 								bind:this={aboutElement}
-								class="text-base-content/80 text-sm leading-relaxed {showFullAbout ? '' : 'line-clamp-2'}"
+								class="text-base-content/80 text-sm leading-relaxed {showFullAbout
+									? ''
+									: 'line-clamp-2'}"
 							>
 								{getTranslatedProfileContent('about') || $t('common.profile.no_description')}
 							</p>
 							{#if isAboutTruncated && userProfile?.about}
-								<div class="text-left mb-2">
-									<button 
-										class="btn btn-sm btn-secondary p-2" 
-										onclick={toggleAbout}
-									>
+								<div class="mb-2 text-left">
+									<button class="btn btn-sm btn-secondary p-2" onclick={toggleAbout}>
 										{showFullAbout ? $t('common.show_less') : $t('common.show_more')}
 									</button>
 								</div>
@@ -757,10 +803,8 @@
 							<p class="mb-2 text-xl font-bold">{$t('common.profile.skills_expertise')}</p>
 							<div class="flex flex-wrap gap-2">
 								{#if userProfile?.skills && userProfile.skills.length > 0}
-									{#each userProfile.skills as skill}
-										<div
-											class="border-primary text-primary rounded-full border px-3 py-1 text-sm"
-										>
+									{#each userProfile.skills as skill (typeof skill === 'string' ? skill : skill.name)}
+										<div class="border-primary text-primary rounded-full border px-3 py-1 text-sm">
 											{getTranslatedSkillName(skill)}
 										</div>
 									{/each}
@@ -777,12 +821,14 @@
 							<div class="card-body p-4">
 								<p class="mb-4 text-xl font-bold">{$t('common.profile.portfolio')}</p>
 								<div class="grid grid-cols-1 gap-6 md:grid-cols-2">
-									{#each userProfile.portfolio as project, projectIndex}
-										<div class="card bg-base-200 rounded-xl overflow-hidden">
+									{#each userProfile.portfolio as project, projectIndex (project.id)}
+										<div class="card bg-base-200 overflow-hidden rounded-xl">
 											<!-- Título, badges y descripción arriba de la imagen -->
 											<div class="card-body p-4 pb-2">
-												<div class="flex items-center justify-between gap-2 mb-2">
-													<span class="card-title text-md line-clamp-1 font-bold">{getTranslatedPortfolioTitle(project)}</span>
+												<div class="mb-2 flex items-center justify-between gap-2">
+													<span class="card-title text-md line-clamp-1 font-bold"
+														>{getTranslatedPortfolioTitle(project)}</span
+													>
 													{#if project?.link}
 														<a
 															href={project.link}
@@ -810,31 +856,33 @@
 												</div>
 												<!-- Skills badges arriba de la descripción -->
 												{#if project.skills && project.skills.length > 0}
-													<div class="flex flex-wrap gap-1 mb-2">
-														{#each project.skills as skill}
+													<div class="mb-2 flex flex-wrap gap-1">
+														{#each project.skills as skill (skill)}
 															<span class="badge badge-info badge-outline badge-sm">
 																{skill}
 															</span>
 														{/each}
 													</div>
 												{/if}
-												<p class="text-base-content/70 text-sm line-clamp-2 mb-3">{getTranslatedPortfolioDescription(project)}</p>
+												<p class="text-base-content/70 mb-3 line-clamp-2 text-sm">
+													{getTranslatedPortfolioDescription(project)}
+												</p>
 											</div>
-											
+
 											<!-- Imagen del proyecto -->
 											<div class="relative">
 												{#if project.images && project.images.length > 0}
 													{@const currentImageIndex = projectImageSlides[projectIndex] || 0}
 													{@const totalImages = project.images.length}
 													{@const hasMultipleImages = totalImages > 1}
-													
+
 													<!-- Carrusel de imágenes del proyecto -->
 													<div class="relative overflow-hidden">
 														<div
 															class="flex transition-transform duration-500 ease-in-out"
 															style="transform: translateX(-{currentImageIndex * 100}%)"
 														>
-															{#each project.images as image, imgIndex}
+															{#each project.images as image, imgIndex (image.url)}
 																<div class="w-full shrink-0">
 																	{#if typeof image === 'string'}
 																		<img
@@ -852,40 +900,63 @@
 																</div>
 															{/each}
 														</div>
-														
+
 														<!-- Controles de navegación de imágenes (solo si hay más de una) -->
 														{#if hasMultipleImages}
 															<!-- Botón anterior -->
 															<button
 																onclick={() => prevProjectImage(projectIndex, totalImages)}
-																class="absolute left-2 top-1/2 -translate-y-1/2 btn btn-circle btn-sm bg-black/80 hover:bg-black border-2 border-white/50 text-white shadow-xl z-10 backdrop-blur-sm"
+																class="btn btn-circle btn-sm absolute top-1/2 left-2 z-10 -translate-y-1/2 border-2 border-white/50 bg-black/80 text-white shadow-xl backdrop-blur-sm hover:bg-black"
 																aria-label="Previous image"
 															>
-																<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
-																	<path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+																<svg
+																	xmlns="http://www.w3.org/2000/svg"
+																	class="h-4 w-4"
+																	fill="none"
+																	viewBox="0 0 24 24"
+																	stroke="currentColor"
+																	stroke-width="3"
+																>
+																	<path
+																		stroke-linecap="round"
+																		stroke-linejoin="round"
+																		d="M15 19l-7-7 7-7"
+																	/>
 																</svg>
 															</button>
-															
+
 															<!-- Botón siguiente -->
 															<button
 																onclick={() => nextProjectImage(projectIndex, totalImages)}
-																class="absolute right-2 top-1/2 -translate-y-1/2 btn btn-circle btn-sm bg-black/80 hover:bg-black border-2 border-white/50 text-white shadow-xl z-10 backdrop-blur-sm"
+																class="btn btn-circle btn-sm absolute top-1/2 right-2 z-10 -translate-y-1/2 border-2 border-white/50 bg-black/80 text-white shadow-xl backdrop-blur-sm hover:bg-black"
 																aria-label="Next image"
 															>
-																<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
-																	<path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+																<svg
+																	xmlns="http://www.w3.org/2000/svg"
+																	class="h-4 w-4"
+																	fill="none"
+																	viewBox="0 0 24 24"
+																	stroke="currentColor"
+																	stroke-width="3"
+																>
+																	<path
+																		stroke-linecap="round"
+																		stroke-linejoin="round"
+																		d="M9 5l7 7-7 7"
+																	/>
 																</svg>
 															</button>
-															
+
 															<!-- Indicadores de imágenes -->
 															<div class="absolute bottom-2 left-1/2 flex -translate-x-1/2 gap-1">
-																{#each project.images as _, imgIndex}
+																{#each project.images as image, imgIndex (imgIndex)}
 																	<button
 																		onclick={() => goToProjectImage(projectIndex, imgIndex)}
-																		class="h-1.5 w-1.5 rounded-full transition-all duration-300 {currentImageIndex === imgIndex
-																			? 'bg-white w-4'
+																		class="h-1.5 w-1.5 rounded-full transition-all duration-300 {currentImageIndex ===
+																		imgIndex
+																			? 'w-4 bg-white'
 																			: 'bg-white/50'}"
-																		aria-label="Go to image {imgIndex + 1}"
+																		aria-label="Go to image {image.alt || imgIndex + 1}"
 																	></button>
 																{/each}
 															</div>
@@ -893,12 +964,12 @@
 													</div>
 												{:else}
 													<div class="bg-base-300 flex h-48 w-full items-center justify-center">
-														<span class="text-base-content/60 text-sm">{$t('common.profile.no_image_available')}</span>
+														<span class="text-base-content/60 text-sm"
+															>{$t('common.profile.no_image_available')}</span
+														>
 													</div>
 												{/if}
 											</div>
-											
-											
 										</div>
 									{/each}
 								</div>
@@ -922,7 +993,9 @@
 							<p class="mb-2 text-xl font-bold">{$t('common.profile.performance_stats')}</p>
 							<div class="space-y-1">
 								<div class="flex items-center justify-between">
-									<span class="text-base-content/70 text-sm">{$t('common.profile.tasks_completed')}</span>
+									<span class="text-base-content/70 text-sm"
+										>{$t('common.profile.tasks_completed')}</span
+									>
 									<span class="text-primary text-lg font-bold">
 										{userProfile?.reviews?.length || 0}
 									</span>
@@ -943,7 +1016,9 @@
 												/>
 											</svg>
 										{:else}
-											<span class="text-base-content/60 text-sm">{$t('common.profile.no_ratings')}</span>
+											<span class="text-base-content/60 text-sm"
+												>{$t('common.profile.no_ratings')}</span
+											>
 										{/if}
 									</div>
 								</div>
@@ -954,7 +1029,9 @@
 									</span>
 								</div>
 								<div class="flex items-center justify-between">
-									<span class="text-base-content/70 text-sm">{$t('common.profile.portfolio_items')}</span>
+									<span class="text-base-content/70 text-sm"
+										>{$t('common.profile.portfolio_items')}</span
+									>
 									<span class="text-info text-lg font-bold">
 										{userProfile?.portfolio?.length || 0}
 									</span>
@@ -978,7 +1055,12 @@
 									{/if}
 								</div>
 								<div class="flex items-center gap-2">
-									<svg class="text-base-content/60 h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+									<svg
+										class="text-base-content/60 h-3 w-3"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+									>
 										<path
 											stroke-linecap="round"
 											stroke-linejoin="round"
@@ -997,7 +1079,12 @@
 									</span>
 								</div>
 								<div class="flex items-center gap-2">
-									<svg class="text-base-content/60 h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+									<svg
+										class="text-base-content/60 h-3 w-3"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+									>
 										<path
 											stroke-linecap="round"
 											stroke-linejoin="round"
@@ -1021,7 +1108,19 @@
 					<div class="hidden md:block">
 						<div class="card bg-base-100 w-full rounded-2xl shadow-lg">
 							<div class="card-body p-3">
-								<p class="mb-2 text-xl font-bold">{$t('common.profile.quick_actions')}</p>
+								<div class="flex items-start justify-between">
+									<p class="mb-2 text-xl font-bold">{$t('common.profile.quick_actions')}</p>
+									{#if $authState.isAuthenticated && hexPubkey}
+										<div class="flex justify-start">
+											<ActionsMenu
+												contentType="user"
+												reportedPubkey={hexPubkey}
+												username={userProfile?.name}
+												profileMode={true}
+											/>
+										</div>
+									{/if}
+								</div>
 								<div class="space-y-3">
 									{#if $authState.isAuthenticated}
 										<button class="btn btn-primary btn-sm w-full" onclick={openMessageModal}>
@@ -1047,7 +1146,10 @@
 											{$t('common.profile.go_to_chat')}
 										</button>
 									{:else}
-										<button class="btn btn-primary btn-sm w-full" onclick={() => goto('/auth/signup')}>
+										<button
+											class="btn btn-primary btn-sm w-full"
+											onclick={() => goto('/auth/signup')}
+										>
 											{$t('common.profile.signup_to_hire')}
 										</button>
 									{/if}
