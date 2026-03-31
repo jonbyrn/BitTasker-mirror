@@ -9,6 +9,7 @@
 				"counter_proposal": "Contrapropuesta",
 				"accept_proposal": "Aceptar Propuesta",
 				"cancel_contract": "Cancelar Contrato",
+				"refund_tasker": "Reembolsar al Tasker",
 				"resolve_timelock": "Reclamar Fondos",
 				"delete_contract": "Eliminar Contrato",
 				"proposal_counter": "Tus propuestas: {count}/2",
@@ -22,6 +23,7 @@
 				"resolution_proposed_error": "Error al proponer la resolución",
 				"proposal_accepted_error": "Error al aceptar la propuesta",
 				"escrow_cancelled_error": "Error al cancelar el contrato de pago seguro",
+				"refund_tasker_error": "Error al reembolsar al tasker",
 				"timelock_resolved_error": "Error al resolver el timelock",
 				"delete_contract_success": "Contrato eliminado exitosamente",
 				"delete_contract_error": "Error al eliminar el contrato",
@@ -58,13 +60,22 @@
 				"dispute_raising_pending": "La disputa ya se está iniciando. Por favor, espere a que se confirme la transacción.",
 				"contract_already_cancelled": "Este contrato ya ha sido cancelado.",
 				"contract_cancellation_pending": "La cancelación del contrato ya está en progreso. Por favor, espere a que se confirme la transacción.",
+				"contract_refund_pending": "El reembolso del contrato ya está en progreso. Por favor, espere a que se confirme la transacción.",
 				"cancel_contract_confirm_title": "Cancelar Contrato",
 				"cancel_contract_confirm_message": "¿Está seguro de que desea cancelar este contrato? Esto cancelará el contrato de pago seguro y reembolsará todos los fondos. Advertencia: Esta acción no se puede deshacer.",
+				"refund_tasker_confirm_title": "Reembolsar al Tasker",
+				"refund_tasker_confirm_message": "¿Está seguro de que desea reembolsar este contrato? Esto devolverá todos los fondos al tasker. Advertencia: Esta acción no se puede deshacer.",
+				"refund_tasker_unavailable": "Este contrato no se puede reembolsar en este momento.",
 				"cancel_time_restriction": "Este contrato no se puede cancelar en este momento.",
 				"cancel_time_restriction_too_close": "Este contrato no se puede cancelar porque faltan menos de 24 horas para la hora de inicio estimada y el período de gracia ha expirado.",
 				"cancel_time_restriction_grace_period_expired": "Este contrato no se puede cancelar porque faltan menos de 24 horas para la hora de inicio estimada y ha pasado más de 1 hora desde la creación del contrato.",
+				"payment_refunding_message": "Reembolso en progreso... Una vez confirmado, todos los fondos se devolverán al tasker.",
+				"payment_refunded_message": "El pago ha sido reembolsado al tasker",
+				"payment_refunded_success": "¡Tasker reembolsado exitosamente!",
 				"notification_payment_released_title": "Pago liberado",
-				"notification_payment_released_body": "El pago ha sido liberado para la tarea {taskTitle}"
+				"notification_payment_released_body": "El pago ha sido liberado para la tarea {taskTitle}",
+				"notification_payment_refunded_title": "Pago reembolsado",
+				"notification_payment_refunded_body": "El pago ha sido reembolsado para la tarea {taskTitle}"
 			}
 		}
 	}

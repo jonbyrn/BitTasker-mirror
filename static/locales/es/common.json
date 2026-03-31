@@ -308,7 +308,7 @@
 				"dispute_process_step4": "**Paso 4:** Si no hay acuerdo después de 14 días, el Tasker obtiene un reembolso completo.",
 				"cancellation_rules_title": "Cancelación",
 				"cancellation_tasker": "**Cancelación del Tasker:** Dentro de 1 hora: Reembolso completo, sin tarifas. Después de 1 hora: Puede aplicarse una tarifa de cancelación. Las cancelaciones dentro de 24 horas del tiempo de inicio pueden requerir una tarifa para el Taskee.",
-				"cancellation_taskee": "**Cancelación del Taskee:** Puede cancelar en cualquier momento; el Tasker obtiene un reembolso completo (sin tarifa de cancelación).",
+				"cancellation_taskee": "**Reembolso del Taskee:** Puede reembolsar en cualquier momento; el Tasker recibe un reembolso completo sin tarifa de cancelación.",
 				"summary": "**Resumen:** Los fondos están bloqueados por las reglas del contrato. Los límites de tiempo son automáticos. Las tarifas son transparentes. Las disputas tienen negociación justa con reembolsos automáticos si es necesario.",
 				"understand_button": "Entiendo"
 			},

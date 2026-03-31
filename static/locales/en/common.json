@@ -308,7 +308,7 @@
 				"dispute_process_step4": "**Step 4:** If no agreement after 14 days, Tasker gets a full refund.",
 				"cancellation_rules_title": "Cancellation",
 				"cancellation_tasker": "**Tasker cancellation:** Within 1 hour: Full refund, no fees. After 1 hour: Cancellation fee may apply. Cancellations within 24 hours of start time may require a fee to the Taskee.",
-				"cancellation_taskee": "**Taskee cancellation:** Can cancel anytime; Tasker gets a full refund (no cancellation fee).",
+				"cancellation_taskee": "**Taskee refund:** Can refund anytime; Tasker gets a full refund with no cancellation fee.",
 				"summary": "**Summary:** Funds are locked by contract rules. Time limits are automatic. Fees are transparent. Disputes have fair negotiation with automatic refunds if needed.",
 				"understand_button": "I Understand"
 			},
