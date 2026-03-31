@@ -3,11 +3,8 @@
  * Generates translations for bid content (description, proposedApproach, coverLetter)
  */
 
-import { TranslationService, type TranslationResult } from '$lib/services/translation.service';
+import { translationService, type TranslationResult } from '$lib/services/translation.service';
 import { SUPPORTED_LANGUAGES } from '$lib/i18n/i18n';
-
-// Translation service instance
-const translationService = new TranslationService();
 
 /**
  * Bid translations structure
@@ -32,16 +29,11 @@ export async function generateBidTranslations(bidData: {
 	proposedApproach: string;
 	coverLetter: string;
 }): Promise<BidTranslations | undefined> {
-	// Only generate translations if translation service is available
-	if (!translationService.isAvailable()) {
-		console.warn('Translation service not available, skipping bid translations');
-		return undefined;
-	}
-
 	try {
 		// Combine all text fields for language detection
-		const combinedText = `${bidData.description} ${bidData.proposedApproach} ${bidData.coverLetter}`.trim();
-		
+		const combinedText =
+			`${bidData.description} ${bidData.proposedApproach} ${bidData.coverLetter}`.trim();
+
 		// If all fields are empty, return undefined
 		if (!combinedText) {
 			return undefined;
@@ -49,13 +41,13 @@ export async function generateBidTranslations(bidData: {
 
 		// Detect source language from the combined text
 		const detectedLanguage = await translationService.detectLanguage(combinedText);
-		
+
 		// If we can't detect language or it's not supported, default to 'en'
 		const sourceLanguage = detectedLanguage || 'en';
-		
+
 		// Get all supported languages except the source language
-		const targetLanguages = SUPPORTED_LANGUAGES.filter(lang => lang !== sourceLanguage);
-		
+		const targetLanguages = SUPPORTED_LANGUAGES.filter((lang) => lang !== sourceLanguage);
+
 		// If no target languages (bid is already in all supported languages), return empty
 		if (targetLanguages.length === 0) {
 			return {
@@ -93,10 +85,10 @@ export async function generateBidTranslations(bidData: {
 		});
 
 		const results = await Promise.all(translationPromises);
-		
+
 		// Build translations object, filtering out failed translations
 		const translations: BidTranslations['translations'] = {};
-		results.forEach(result => {
+		results.forEach((result) => {
 			if (result) {
 				translations[result.language] = {
 					description: result.description,
@@ -115,4 +107,3 @@ export async function generateBidTranslations(bidData: {
 		return undefined;
 	}
 }
-
