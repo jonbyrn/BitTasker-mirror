@@ -112,7 +112,6 @@
 <div class="mx-auto h-full max-w-6xl px-2 py-6 md:px-0 md:py-0">
 	<div class="mb-4 sm:mb-6">
 		<h3 class="text-xl font-bold sm:text-2xl">{$t('task.drawer.bids_received')}</h3>
-		<h3>{task?.acceptedBid}</h3>
 		<p class="text-base-content/70 mt-2 text-sm sm:text-base">
 			{$t('task.drawer.bids_description')}
 		</p>

@@ -1,5 +1,3 @@
-import type { ethers } from 'ethers';
-
 // Output for getEscrow function
 export type V1PaymentContractRaw = {
 	client: string;
@@ -13,10 +11,4 @@ export type V1PaymentContractRaw = {
 	freelancerFeeTier: number;
 	state: number;
 	reserved: number;
-};
-
-export type InitializedContract = {
-	contract: ethers.Contract;
-	wallet: ethers.Wallet;
-	provider: ethers.JsonRpcProvider;
 };

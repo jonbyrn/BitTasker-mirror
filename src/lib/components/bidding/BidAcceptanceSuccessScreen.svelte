@@ -3,22 +3,16 @@
 	import { fly } from 'svelte/transition';
 	import { linear } from 'svelte/easing';
 	import { goto } from '$app/navigation';
-	import { formatRBTCAmount } from '$lib/utils/escrow/v2';
+	import { formatConvertedAmount } from '$lib/utils/helpers/currencyFormatter';
 
 	let {
 		/** Total amount funded (RBTC string) for success message */
 		totalAmountRbtc,
-		/** True when Nostr contract published and side effects complete */
-		contractComplete,
-		/** True when tx is mined and paymentId is known */
-		txConfirmed,
-		/** Chain confirmation or receipt parsing failed */
-		confirmationErrored
+		/** After tx broadcast: chain confirm + Nostr follow-up */
+		followUpStatus
 	}: {
 		totalAmountRbtc: string;
-		contractComplete: boolean;
-		txConfirmed: boolean;
-		confirmationErrored: boolean;
+		followUpStatus: 'mining' | 'done' | 'failed';
 	} = $props();
 
 	function goToContracts() {
@@ -65,7 +59,9 @@
 		<p class="text-base-content/70">
 			{$t('dashboard.bids.bid_acceptance.success_message', {
 				values: {
-					amount: totalAmountRbtc ? formatRBTCAmount(totalAmountRbtc) : '0'
+					amount: totalAmountRbtc
+						? formatConvertedAmount(totalAmountRbtc, 'RBTC', { suffix: '' })
+						: '0'
 				}
 			})}
 		</p>
@@ -77,15 +73,11 @@
 			{$t('dashboard.bids.bid_acceptance.contract_creation_status')}
 		</h4>
 		<div class="flex items-center gap-3">
-			{#if confirmationErrored}
+			{#if followUpStatus === 'failed'}
 				<span class="text-error">{$t('dashboard.bids.bid_acceptance.funding_confirm_failed')}</span>
-			{:else if !txConfirmed}
+			{:else if followUpStatus === 'mining'}
 				<span class="loading loading-spinner loading-sm text-info"></span>
-				<span class="text-info">{$t('dashboard.bids.bid_acceptance.waiting_for_confirmation')}</span
-				>
-			{:else if !contractComplete}
-				<span class="loading loading-spinner loading-sm text-info"></span>
-				<span class="text-info">{$t('dashboard.bids.bid_acceptance.creating_nostr_contract')}</span>
+				<span class="text-info">{$t('dashboard.bids.bid_acceptance.follow_up_in_progress')}</span>
 			{:else}
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
