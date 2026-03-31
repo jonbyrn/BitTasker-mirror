@@ -15,6 +15,7 @@
 		},
 		"location": {
 			"address": "Dirección",
+			"approximate_short": "Aprox.",
 			"get_directions": "Obtener Direcciones",
 			"open_map": "Abrir Mapa",
 			"pickup_location": "Ubicación de Recogida",

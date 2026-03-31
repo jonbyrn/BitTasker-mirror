@@ -191,7 +191,21 @@ export function parseServiceAddress(serviceAddress: string): {
 }
 
 export function generateServiceQuoteEntityId(prefix: 'qr' | 'pr' | 'io' = 'qr'): string {
-	return `${prefix}_${crypto.randomUUID().replace(/-/g, '').slice(0, 20)}`;
+	const cryptoObject = globalThis.crypto;
+	if (typeof cryptoObject?.randomUUID === 'function') {
+		return `${prefix}_${cryptoObject.randomUUID().replace(/-/g, '').slice(0, 20)}`;
+	}
+
+	if (typeof cryptoObject?.getRandomValues === 'function') {
+		const randomBytes = cryptoObject.getRandomValues(new Uint8Array(10));
+		const suffix = Array.from(randomBytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
+		return `${prefix}_${suffix}`;
+	}
+
+	throw new ServiceQuoteProtocolError(
+		'SERVICE_QUOTE_UNSUPPORTED_CRYPTO',
+		'Secure random id generation is unavailable in this environment.'
+	);
 }
 
 export function buildQuoteRequestD(serviceAddress: string, quoteRequestId: string): string {

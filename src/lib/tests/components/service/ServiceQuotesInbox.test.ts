@@ -81,7 +81,11 @@ const mockService: Service = {
 	serviceLocationTypes: [],
 	pricing: {
 		type: ServicePricingTypeEnum.INQUIRY_REQUIRED,
-		currency: 'USD'
+		currency: 'USD',
+		tiers: [
+			{ id: 'premium', name: 'Premium Plan', price: 250 },
+			{ id: 'standard', name: 'Standard Plan', price: 150 }
+		]
 	},
 	skills: [],
 	categories: [],
@@ -204,6 +208,27 @@ describe('ServiceQuotesInbox', () => {
 		});
 
 		await waitFor(() => expect(onInvalidFocusedRequest).toHaveBeenCalledTimes(1));
+	});
+
+	it('shows the service tier name instead of the raw tier id on request cards and proposal drawers', async () => {
+		const { getAllByText, getByRole, queryByText } = render(ServiceQuotesInbox, {
+			service: mockService,
+			services: [mockService],
+			timelines: [baseTimeline],
+			walletReady: true,
+			feeTierReady: true,
+			onSendProposal: vi.fn().mockResolvedValue({ success: true })
+		});
+
+		expect(getAllByText('Premium Plan').length).toBeGreaterThan(0);
+		expect(queryByText(/^premium$/i)).toBeNull();
+
+		await fireEvent.click(getByRole('button', { name: /Send Proposal/i }));
+
+		await waitFor(() => {
+			expect(getAllByText('Premium Plan').length).toBeGreaterThan(1);
+		});
+		expect(queryByText(/^premium$/i)).toBeNull();
 	});
 
 	it('does not clear focused requests before the initial provider load completes', async () => {

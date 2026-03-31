@@ -1,9 +1,10 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import KINDS from '$lib/utils/constants/kinds';
 import {
 	buildProposalD,
 	buildProposalStatusD,
 	buildQuoteRequestD,
+	generateServiceQuoteEntityId,
 	buildServiceAddress,
 	buildServiceAddressFromParts,
 	canPublishAcceptedStatus,
@@ -22,6 +23,7 @@ import {
 const servicePubkey = 'a'.repeat(64);
 const taskerPubkey = 'b'.repeat(64);
 const serviceAddress = buildServiceAddressFromParts(30402, servicePubkey, 'service-1234');
+const originalCrypto = globalThis.crypto;
 
 function createAcceptanceSnapshot(overrides: Record<string, unknown> = {}) {
 	return {
@@ -138,6 +140,13 @@ function createStatusEvent(
 }
 
 describe('service-quote protocol', () => {
+	afterEach(() => {
+		Object.defineProperty(globalThis, 'crypto', {
+			value: originalCrypto,
+			configurable: true
+		});
+	});
+
 	it('round-trips service addresses and d-tags', () => {
 		expect(parseServiceAddress(serviceAddress)).toEqual({
 			kind: 30402,
@@ -163,6 +172,22 @@ describe('service-quote protocol', () => {
 			status: 'accepting',
 			actorPubkey: taskerPubkey
 		});
+	});
+
+	it('falls back to getRandomValues when randomUUID is unavailable', () => {
+		Object.defineProperty(globalThis, 'crypto', {
+			value: {
+				...originalCrypto,
+				randomUUID: undefined,
+				getRandomValues: vi.fn((values: Uint8Array) => {
+					values.set([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+					return values;
+				})
+			},
+			configurable: true
+		});
+
+		expect(generateServiceQuoteEntityId('qr')).toBe('qr_0102030405060708090a');
 	});
 
 	it('uses the backing event kind when building service addresses for inactive published listings', () => {

@@ -2,11 +2,13 @@
 	import Drawer from '$lib/components/Drawer.svelte';
 	import { onMount } from 'svelte';
 	import { locale, t } from 'svelte-i18n';
+	import type { Service } from '$lib/types/service';
 	import type { ServiceProposalEvent, ServiceQuoteTimelineEntry } from '$lib/types/service-quote';
 	import UserInfoDisplay from '$lib/components/user/UserInfoDisplay.svelte';
 	import { fetchContractProfile } from '$lib/utils/nostr-profile';
 	import { formatStandardDateTimeShort } from '$lib/utils/helpers/dateFormatter';
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
+	import { resolveServiceTierLabel } from '$lib/utils/service-quote/tier-label';
 	import ErrorAlertWithModal from '$lib/components/ErrorAlertWithModal.svelte';
 	import { detectErrorType } from '$lib/utils/helpers/errorTypeDetector';
 	import ServiceProposalComposer, {
@@ -17,6 +19,7 @@
 		isOpen = false,
 		mode = 'compose',
 		timeline,
+		service = null,
 		proposal = null,
 		serviceTitle = null,
 		blockedReason = null,
@@ -31,6 +34,7 @@
 		isOpen?: boolean;
 		mode?: 'compose' | 'view';
 		timeline: ServiceQuoteTimelineEntry | null;
+		service?: Service | null;
 		proposal?: ServiceProposalEvent | null;
 		serviceTitle?: string | null;
 		blockedReason?: string | null;
@@ -200,6 +204,9 @@
 			? `$${formatNumberWithTwoDecimals(numericAmount)}`
 			: `$${amount}`;
 	});
+	const selectedTierLabel = $derived(
+		resolveServiceTierLabel(service, timeline?.request.content.tierId)
+	);
 	const inquiryDescription = $derived(timeline?.request.content.inquiry.description?.trim() ?? '');
 
 	let inquiryDescriptionElement: HTMLParagraphElement | null = $state(null);
@@ -306,10 +313,10 @@
 						</button>
 					{/if}
 				</div>
-				{#if timeline.request.content.tierId || timeline.request.content.selectedAddOns?.length || timeline.request.content.rushDelivery}
+				{#if selectedTierLabel || timeline.request.content.selectedAddOns?.length || timeline.request.content.rushDelivery}
 					<div class="flex flex-wrap gap-2 pt-1 text-xs">
-						{#if timeline.request.content.tierId}
-							<span class="badge badge-outline badge-sm">{timeline.request.content.tierId}</span>
+						{#if selectedTierLabel}
+							<span class="badge badge-outline badge-sm">{selectedTierLabel}</span>
 						{/if}
 						{#if timeline.request.content.selectedAddOns?.length}
 							<span class="badge badge-outline badge-sm">

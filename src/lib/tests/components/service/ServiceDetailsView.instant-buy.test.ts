@@ -62,7 +62,8 @@ const hoisted = vi.hoisted(() => {
 		mockWaitForContractCreation: vi.fn(),
 		mockWritePendingNavigation: vi.fn(),
 		mockClearPendingNavigation: vi.fn(),
-		mockRecoverBookNowContract: vi.fn()
+		mockRecoverBookNowContract: vi.fn(),
+		mockGetExactServiceLocation: vi.fn()
 	};
 });
 
@@ -86,13 +87,17 @@ const {
 	mockWaitForContractCreation,
 	mockWritePendingNavigation,
 	mockClearPendingNavigation,
-	mockRecoverBookNowContract
+	mockRecoverBookNowContract,
+	mockGetExactServiceLocation
 } = hoisted;
 
 vi.mock('svelte-i18n', async () => {
 	const { readable } = await import('svelte/store');
 	return {
 		t: readable((key: string) => {
+			if (key === 'common.location.approximate_short') {
+				return 'Approx.';
+			}
 			if (key === 'dashboard.services.detail.book_now_drawer.balance_verified') {
 				return 'Your available balance covers this service contract.';
 			}
@@ -148,6 +153,10 @@ vi.mock('$lib/components/service/RequestQuoteModal.svelte', () => ({
 	default: () => null
 }));
 
+vi.mock('$lib/components/user/UserInfoDisplay.svelte', async () => ({
+	default: (await import('$lib/tests/fixtures/UserInfoDisplayStub.svelte')).default
+}));
+
 vi.mock('$lib/stores/app.store', () => ({
 	appStore: {
 		showSuccessToast: hoisted.mockShowSuccessToast,
@@ -169,6 +178,11 @@ vi.mock('$lib/api/services/push-notification.service', () => ({
 vi.mock('$lib/nostr/service', () => ({
 	findServiceByUniqueId: (...args: Parameters<typeof hoisted.mockFindServiceByUniqueId>) =>
 		hoisted.mockFindServiceByUniqueId(...args)
+}));
+
+vi.mock('$lib/nostr/exact-location', () => ({
+	getExactServiceLocation: (...args: Parameters<typeof hoisted.mockGetExactServiceLocation>) =>
+		hoisted.mockGetExactServiceLocation(...args)
 }));
 
 vi.mock('$lib/utils/service-contract/create', () => ({
@@ -316,6 +330,8 @@ describe('ServiceDetailsView instant buy flow', () => {
 		cleanup();
 		vi.restoreAllMocks();
 		vi.clearAllMocks();
+		vi.spyOn(console, 'debug').mockImplementation(() => undefined);
+		vi.spyOn(console, 'warn').mockImplementation(() => undefined);
 		window.history.replaceState({}, '', `/services/${baseService.uniqueId}`);
 		setNavigatorOnline(true);
 		authStateStore.set({ isAuthenticated: true });
@@ -361,6 +377,7 @@ describe('ServiceDetailsView instant buy flow', () => {
 			status: 'contract_sync_pending',
 			transactionHash: '0xtxhash'
 		});
+		mockGetExactServiceLocation.mockResolvedValue(null);
 		contractCreationStore.set(null);
 		mockWaitForContractCreation.mockResolvedValue({
 			escrowId: 'escrow-123',
@@ -921,19 +938,19 @@ describe('ServiceDetailsView instant buy flow', () => {
 		});
 	});
 
-	it('captures the physical service location in the Book Now contract snapshot', async () => {
+	it('uses the public service location snapshot in the Book Now contract when the exact companion is self-encrypted to the provider', async () => {
 		const physicalService = {
 			...baseService,
 			serviceLocationTypes: [ServiceLocationTypeEnum.TASKEE_LOCATION],
 			locationDetails: {
 				taskeeLocation: {
 					useGlobalLocation: false,
-					locationDisplayName: '123 Main St, San Salvador, El Salvador',
+					locationDisplayName: 'San Salvador, El Salvador',
 					serviceLocation: {
-						displayName: '123 Main St, San Salvador, El Salvador',
-						formattedAddress: '123 Main St, San Salvador, El Salvador',
-						latitude: 13.6929,
-						longitude: -89.2182,
+						displayName: 'San Salvador, El Salvador',
+						formattedAddress: undefined,
+						latitude: 13.6949,
+						longitude: -89.2142,
 						locationLoaded: true
 					}
 				}
@@ -953,21 +970,46 @@ describe('ServiceDetailsView instant buy flow', () => {
 		await confirmBookNowEscrow(getByTestId, findByText);
 
 		await waitFor(() => expect(mockCreateServiceContract).toHaveBeenCalledTimes(1));
+		expect(mockGetExactServiceLocation).not.toHaveBeenCalled();
 		expect(mockCreateServiceContract).toHaveBeenCalledWith(
 			expect.objectContaining({
 				agreementSnapshot: expect.objectContaining({
 					serviceLocation: expect.objectContaining({
 						mode: 'taskee_location',
-						label: '123 Main St, San Salvador, El Salvador',
+						label: 'San Salvador, El Salvador',
 						location: expect.objectContaining({
-							formattedAddress: '123 Main St, San Salvador, El Salvador',
-							latitude: 13.6929,
-							longitude: -89.2182
+							formattedAddress: undefined,
+							latitude: 13.6949,
+							longitude: -89.2142
 						})
 					})
 				})
 			})
 		);
+	});
+
+	it('shows the approximate area label and radius for range-based services on the public detail view', () => {
+		const rangeService = {
+			...baseService,
+			serviceLocationTypes: [ServiceLocationTypeEnum.TASKEE_LOCATION],
+			locationDetails: {
+				taskeeLocation: {
+					locationDisplayName: 'Denver, CO, US',
+					serviceRadius: 5,
+					serviceLocation: {
+						displayName: 'Denver, CO, US',
+						locationLoaded: true,
+						zipCode: ''
+					}
+				}
+			}
+		} as Service;
+
+		const { getByText } = renderView(rangeService, rangeService.uniqueId);
+
+		expect(getByText('Denver, CO, US')).toBeInTheDocument();
+		expect(getByText(/\(Approx\.\)/)).toBeInTheDocument();
+		expect(getByText('5 km')).toBeInTheDocument();
 	});
 
 	it('verifies wallet balance before enabling Book Now confirmation', async () => {

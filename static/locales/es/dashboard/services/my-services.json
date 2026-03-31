@@ -108,6 +108,24 @@
 					"proposal_expires": "La propuesta vence",
 					"scope_of_work": "Alcance del trabajo",
 					"cover_letter": "Carta de presentación",
+					"composer": {
+						"scope_of_work": "Alcance del trabajo",
+						"scope_placeholder": "Describe lo que entregarás.",
+						"amount_label": "Monto (USD)",
+						"start_date": "Fecha de inicio",
+						"end_date": "Fecha de finalización",
+						"expiration_days": "Días hasta el vencimiento",
+						"expiration_hours": "Horas hasta el vencimiento",
+						"cover_letter": "Carta de presentación",
+						"cover_letter_placeholder": "Mensaje opcional para el comprador.",
+						"errors": {
+							"required_description_amount": "La descripción y el monto son obligatorios.",
+							"missing_schedule": "La fecha y hora de inicio y finalización son obligatorias.",
+							"invalid_schedule": "Ingresa fechas y horas de inicio y finalización válidas.",
+							"end_before_start": "La fecha de finalización debe ser posterior a la de inicio.",
+							"submit_failed": "No se puede enviar la propuesta en este momento."
+						}
+					},
 					"estimated_duration": "Duración estimada: {duration}",
 					"waiting_sync": "Esperando a que termine la sincronización del hilo de cotización seleccionado.",
 					"select_request": "Selecciona una solicitud para revisar la consulta completa y redactar una propuesta.",

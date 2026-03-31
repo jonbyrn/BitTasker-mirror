@@ -52,7 +52,12 @@ import {
 	waitForContractCreationByTransactionHash
 } from '$lib/utils/service-contract/await-contract-creation';
 import { SERVICE_ACCEPTANCE_REQUIRED_CONFIRMATIONS } from '$lib/utils/service-contract/finality';
+import { buildServiceContractLocationSnapshot } from '$lib/utils/service-contract/location';
 import { retryPendingServiceAcceptanceByEscrowId } from '$lib/utils/escrow/v1/escrowEvents';
+import { findServiceByUniqueId } from '$lib/nostr/service';
+import { getExactServiceLocation } from '$lib/nostr/exact-location';
+import { resolveServiceLocationEntityId } from '$lib/utils/location/entity-id';
+import { isApproximatePublicLocation } from '$lib/utils/location/public-location';
 import {
 	getAcceptanceConfirmedMonitorEntry,
 	upsertAcceptanceConfirmedMonitorEntry
@@ -460,12 +465,62 @@ function buildProposalPricingSnapshot(
 	};
 }
 
-function buildAgreementSnapshot(
+async function buildAgreementSnapshot(
 	timeline: ServiceQuoteTimelineEntry,
 	proposal: ServiceQuoteTimelineEntry['proposals'][number]
 ) {
+	let serviceLocation: ReturnType<typeof buildServiceContractLocationSnapshot> | undefined;
+	try {
+		const serviceEntityId = resolveServiceLocationEntityId(timeline.request.content.serviceId);
+		const liveService = serviceEntityId ? await findServiceByUniqueId(serviceEntityId) : null;
+		if (liveService) {
+			let exactLocation: Awaited<ReturnType<typeof getExactServiceLocation>> = null;
+			let exactLookupFailed = false;
+			if (serviceEntityId) {
+				try {
+					exactLocation = await getExactServiceLocation(serviceEntityId);
+				} catch {
+					exactLookupFailed = true;
+				}
+			}
+			const locationAwareService = exactLocation
+				? {
+						...liveService,
+						locationDetails: {
+							...liveService.locationDetails,
+							taskerLocation:
+								exactLocation.taskerLocation && liveService.locationDetails?.taskerLocation
+									? {
+											...liveService.locationDetails.taskerLocation,
+											serviceLocation: exactLocation.taskerLocation
+										}
+									: liveService.locationDetails?.taskerLocation,
+							taskeeLocation:
+								exactLocation.taskeeLocation && liveService.locationDetails?.taskeeLocation
+									? {
+											...liveService.locationDetails.taskeeLocation,
+											serviceLocation: exactLocation.taskeeLocation
+										}
+									: liveService.locationDetails?.taskeeLocation
+						}
+					}
+				: liveService;
+			const candidateLocation = buildServiceContractLocationSnapshot(locationAwareService);
+			serviceLocation =
+				candidateLocation &&
+				candidateLocation.mode === 'taskee_location' &&
+				isApproximatePublicLocation(candidateLocation.location) &&
+				(exactLookupFailed || !exactLocation)
+					? undefined
+					: candidateLocation;
+		}
+	} catch {
+		serviceLocation = undefined;
+	}
+
 	return {
 		selectedTierId: timeline.request.content.tierId,
+		serviceLocation,
 		selectedAddOns: timeline.request.content.selectedAddOns,
 		rushDelivery: timeline.request.content.rushDelivery,
 		deliverables: proposal.content.description,
@@ -683,7 +738,7 @@ function createServiceQuoteUiStore() {
 							params.proposal.content.pricingSnapshot.tierId ??
 							params.timeline.request.content.tierId,
 						pricingSnapshot: params.proposal.content.pricingSnapshot,
-						agreementSnapshot: buildAgreementSnapshot(params.timeline, params.proposal),
+						agreementSnapshot: await buildAgreementSnapshot(params.timeline, params.proposal),
 						escrowId: params.timeline.linkedEscrowId
 					});
 
@@ -1771,7 +1826,7 @@ function createServiceQuoteUiStore() {
 					selectedTierId:
 						proposal.content.pricingSnapshot.tierId ?? timeline.request.content.tierId,
 					pricingSnapshot: proposal.content.pricingSnapshot,
-					agreementSnapshot: buildAgreementSnapshot(timeline, proposal),
+					agreementSnapshot: await buildAgreementSnapshot(timeline, proposal),
 					freelancerFeeTier: proposal.content.freelancerFeeTier
 				});
 

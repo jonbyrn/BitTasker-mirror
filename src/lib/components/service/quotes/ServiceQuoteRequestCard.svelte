@@ -1,8 +1,10 @@
 <script lang="ts">
 	import type { ServiceQuoteTimelineEntry } from '$lib/types/service-quote';
+	import type { Service } from '$lib/types/service';
 	import { locale, t } from 'svelte-i18n';
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { formatStandardDateTimeShort } from '$lib/utils/helpers/dateFormatter';
+	import { resolveServiceTierLabel } from '$lib/utils/service-quote/tier-label';
 	import UserInfoDisplay from '$lib/components/user/UserInfoDisplay.svelte';
 	import IconBriefcaseOutline from '~icons/mdi/briefcase-outline';
 	import IconCheckCircleOutline from '~icons/mdi/check-circle-outline';
@@ -20,6 +22,7 @@
 
 	const {
 		timeline,
+		service = null,
 		isSelected = false,
 		showServiceTitles = false,
 		serviceTitleByAddress = {},
@@ -27,6 +30,7 @@
 		getActionButtons
 	} = $props<{
 		timeline: ServiceQuoteTimelineEntry;
+		service?: Service | null;
 		isSelected?: boolean;
 		showServiceTitles?: boolean;
 		serviceTitleByAddress?: Record<string, string>;
@@ -128,7 +132,9 @@
 	}
 
 	const requestTimestamp = $derived(formatTimestamp(timeline.request.created_at));
-	const selectedTierLabel = $derived(timeline.request.content.tierId ?? null);
+	const selectedTierLabel = $derived(
+		resolveServiceTierLabel(service, timeline.request.content.tierId)
+	);
 	const selectedAddOnCount = $derived(timeline.request.content.selectedAddOns?.length ?? 0);
 	const requestServiceTitle = $derived(
 		serviceTitleByAddress[timeline.request.content.serviceAddress] ??

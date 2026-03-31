@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
 	import IconMapMarker from '~icons/mdi/map-marker';
+	import { isApproximatePublicLocation } from '$lib/utils/location/public-location';
 
 	const {
 		dropOffLocation = null,
@@ -19,6 +20,8 @@
 	const displayText = $derived(
 		locationText || dropOffLocation?.displayName || pickupLocation?.displayName || ''
 	);
+	const displayLocation = $derived(dropOffLocation || pickupLocation);
+	const showApproximateNote = $derived(isApproximatePublicLocation(displayLocation));
 </script>
 
 {#if directionsLink}
@@ -37,6 +40,11 @@
 					{$t('dashboard.task_details_by_task.remote')}
 				{/if}
 			</span>
+			{#if showApproximateNote}
+				<span class="text-base-content/60 ml-1 shrink-0 text-xs">
+					({$t('common.location.approximate_short')})
+				</span>
+			{/if}
 		</div>
 	</a>
 {:else}
@@ -50,6 +58,11 @@
 					{$t('dashboard.task_details_by_task.remote')}
 				{/if}
 			</span>
+			{#if showApproximateNote}
+				<span class="text-base-content/60 ml-1 shrink-0 text-xs">
+					({$t('common.location.approximate_short')})
+				</span>
+			{/if}
 		</div>
 	</div>
 {/if}

@@ -5,7 +5,6 @@
 	import { t } from 'svelte-i18n';
 	import type { Service } from '$lib/types/service.d';
 	import type { ServiceQuoteTimelineEntry } from '$lib/types/service-quote';
-	import type { ServiceQuoteDataFreshness } from '$lib/types/service-quote';
 	import { createDashboardUrl } from '$lib/utils/service-quote/dashboard-route';
 	import { browserNetworkStatus } from '$lib/utils/network-status';
 	import {
@@ -13,6 +12,7 @@
 		getProviderDataFreshness,
 		serviceQuoteUiStore
 	} from '$lib/stores/service-quote-ui.store';
+	import { buildServiceAddress } from '$lib/utils/service-quote/protocol';
 	import type { ServiceProposalComposerSubmitPayload } from './ServiceProposalComposer.svelte';
 	import DashboardEmptyState from '$lib/components/shared/DashboardEmptyState.svelte';
 	import ErrorAlertWithModal from '$lib/components/ErrorAlertWithModal.svelte';
@@ -38,9 +38,9 @@
 		serviceUnavailable = false,
 		showServiceTitles = false,
 		serviceTitleByAddress = {},
-		serviceFilterLabel = 'Filter by service',
-		allServicesLabel = 'All Services',
-		deletedServiceLabel = 'Deleted service',
+		serviceFilterLabel = null,
+		allServicesLabel = null,
+		deletedServiceLabel = null,
 		dataFreshness = null,
 		timelines = [],
 		focusedRequestId = null,
@@ -63,9 +63,9 @@
 		serviceUnavailable?: boolean;
 		showServiceTitles?: boolean;
 		serviceTitleByAddress?: Record<string, string>;
-		serviceFilterLabel?: string;
-		allServicesLabel?: string;
-		deletedServiceLabel?: string;
+		serviceFilterLabel?: string | null;
+		allServicesLabel?: string | null;
+		deletedServiceLabel?: string | null;
 		dataFreshness?: ServiceQuoteDataFreshness | null;
 		timelines?: ServiceQuoteTimelineEntry[];
 		focusedRequestId?: string | null;
@@ -124,6 +124,17 @@
 			);
 		}
 		return null;
+	});
+	const serviceByAddress = $derived.by(() => {
+		const entries = services.flatMap((listedService) => {
+			try {
+				return [[buildServiceAddress(listedService), listedService] as const];
+			} catch {
+				return [];
+			}
+		});
+
+		return Object.fromEntries(entries);
 	});
 	const drawerTimeline = $derived(selectedTimeline ?? activeProposalTimelineSnapshot);
 	const selectedProposal = $derived(drawerTimeline?.latestProposal ?? null);
@@ -326,6 +337,18 @@
 			return fallback;
 		}
 	}
+
+	const resolvedServiceFilterLabel = $derived(
+		serviceFilterLabel ??
+			tr('dashboard.services.my_services.workspace.filter_label', 'Filter by service')
+	);
+	const resolvedAllServicesLabel = $derived(
+		allServicesLabel ?? tr('dashboard.services.my_services.workspace.all_services', 'All Services')
+	);
+	const resolvedDeletedServiceLabel = $derived(
+		deletedServiceLabel ??
+			tr('dashboard.services.my_services.quote_inbox.deleted_service_prefix', 'Deleted service')
+	);
 
 	function getTimelineFilterCategory(
 		timeline: Pick<
@@ -746,9 +769,9 @@
 						<ServiceFilterSelect
 							{services}
 							{selectedServiceAddress}
-							filterLabel={serviceFilterLabel}
-							{allServicesLabel}
-							{deletedServiceLabel}
+							filterLabel={resolvedServiceFilterLabel}
+							allServicesLabel={resolvedAllServicesLabel}
+							deletedServiceLabel={resolvedDeletedServiceLabel}
 							testId="service-request-filter"
 							containerClass="w-full max-w-none"
 							selectClass="select select-bordered h-11 min-h-11 w-full truncate rounded-3xl"
@@ -897,6 +920,10 @@
 				{#each paginatedTimelines as timeline (timeline.request.id)}
 					<ServiceQuoteRequestCard
 						{timeline}
+						service={serviceByAddress[timeline.request.content.serviceAddress] ??
+							(service && selectedServiceAddress === timeline.request.content.serviceAddress
+								? service
+								: null)}
 						isSelected={focusedRequestId === timeline.request.content.quoteRequestId}
 						{showServiceTitles}
 						{serviceTitleByAddress}
@@ -961,6 +988,12 @@
 				(!drawerTimeline.linkedEscrowId && !serviceUnavailable && !selectedTimelineExpired))}
 		mode={activeProposalDrawerMode ?? 'compose'}
 		timeline={drawerTimeline}
+		service={drawerTimeline
+			? (serviceByAddress[drawerTimeline.request.content.serviceAddress] ??
+				(service && selectedServiceAddress === drawerTimeline.request.content.serviceAddress
+					? service
+					: null))
+			: null}
 		proposal={selectedProposal}
 		serviceTitle={selectedServiceTitle}
 		disabled={isSyncing ||

@@ -1,15 +1,15 @@
 <script lang="ts">
 	import type { Service } from '$lib/types/service.d';
-	import { locale } from 'svelte-i18n';
+	import { locale, t } from 'svelte-i18n';
 	import { buildServiceAddress } from '$lib/stores/service-quote-ui.store';
 	import { getServiceDisplayTitle } from '$lib/utils/serviceDisplayTranslation';
 
 	let {
 		services = [],
 		selectedServiceAddress = null,
-		filterLabel = 'Filter by service',
-		allServicesLabel = 'All Services',
-		deletedServiceLabel = 'Deleted service',
+		filterLabel = null,
+		allServicesLabel = null,
+		deletedServiceLabel = null,
 		testId = 'service-filter-select',
 		containerClass = 'max-w-md',
 		selectClass = 'select select-bordered w-full truncate',
@@ -17,14 +17,34 @@
 	} = $props<{
 		services?: Service[];
 		selectedServiceAddress?: string | null;
-		filterLabel?: string;
-		allServicesLabel?: string;
-		deletedServiceLabel?: string;
+		filterLabel?: string | null;
+		allServicesLabel?: string | null;
+		deletedServiceLabel?: string | null;
 		testId?: string;
 		containerClass?: string;
 		selectClass?: string;
 		onChange?: (serviceAddress: string | null) => void;
 	}>();
+
+	function tr(key: string, fallback: string): string {
+		try {
+			const value = $t(key);
+			return typeof value === 'string' && value !== key ? value : fallback;
+		} catch {
+			return fallback;
+		}
+	}
+
+	const resolvedFilterLabel = $derived(
+		filterLabel ?? tr('dashboard.contracts.filter_by_service', 'Filter by service')
+	);
+	const resolvedAllServicesLabel = $derived(
+		allServicesLabel ?? tr('dashboard.contracts.all_services', 'All Services')
+	);
+	const resolvedDeletedServiceLabel = $derived(
+		deletedServiceLabel ??
+			tr('dashboard.services.my_services.quote_inbox.deleted_service_prefix', 'Deleted service')
+	);
 
 	const serviceOptions = $derived(
 		services.map((service) => ({
@@ -36,12 +56,12 @@
 	const selectedValue = $derived(selectedServiceAddress ?? '');
 	const selectedTitle = $derived.by(() => {
 		if (!selectedServiceAddress) {
-			return allServicesLabel;
+			return resolvedAllServicesLabel;
 		}
 
 		return (
 			serviceOptions.find((service) => service.address === selectedServiceAddress)?.label ??
-			deletedServiceLabel
+			resolvedDeletedServiceLabel
 		);
 	});
 
@@ -57,10 +77,10 @@
 			class={selectClass}
 			value={selectedValue}
 			onchange={handleChange}
-			aria-label={filterLabel}
+			aria-label={resolvedFilterLabel}
 			title={selectedTitle}
 		>
-			<option value="">{allServicesLabel}</option>
+			<option value="">{resolvedAllServicesLabel}</option>
 			{#each serviceOptions as service (service.address)}
 				<option value={service.address}>
 					{service.label}
@@ -68,7 +88,7 @@
 			{/each}
 			{#if selectedServiceAddress && !serviceAddresses.includes(selectedServiceAddress)}
 				<option value={selectedServiceAddress}>
-					{deletedServiceLabel}
+					{resolvedDeletedServiceLabel}
 				</option>
 			{/if}
 		</select>

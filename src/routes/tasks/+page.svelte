@@ -561,7 +561,7 @@
 		clearTasksStore();
 
 		searchParams = {
-			...searchParams,
+			...getInitialSearchParams(),
 			...filters,
 			page: 1,
 			until: undefined,
@@ -774,6 +774,24 @@
 	onMount(async () => {
 		if (browser && dev) {
 			void import('$lib/utils/performance-testing-helper');
+		}
+
+		if (browser) {
+			const savedParamsRaw = sessionStorage.getItem('savedSearchParams');
+			if (savedParamsRaw) {
+				try {
+					const saved = JSON.parse(savedParamsRaw) as SearchTasksParams;
+					sessionStorage.removeItem('savedSearchParams');
+					searchParams = {
+						...getInitialSearchParams(),
+						...saved,
+						page: 1,
+						limit: TASKS_PER_PAGE
+					};
+				} catch (error) {
+					console.warn('[FindTasks] Invalid savedSearchParams', error);
+				}
+			}
 		}
 
 		// Find app-shell__content element once on mount

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Service } from '$lib/types/service';
+	import type { Location } from '$lib/types/task.d';
 	import { t, locale } from 'svelte-i18n';
 	import {
 		getServiceDisplayDescription,
@@ -14,6 +15,7 @@
 		formatInstantBuyDurationInput,
 		inferInstantBuyTimeUnit
 	} from '$lib/utils/service-instant-buy/authoring';
+	import { isApproximatePublicLocation } from '$lib/utils/location/public-location';
 	import ServiceShareButton from './ServiceShareButton.svelte';
 	import IconEyeOutline from '~icons/mdi/eye-outline';
 	import IconMapMarker from '~icons/mdi/map-marker';
@@ -150,6 +152,21 @@
 		return '';
 	}
 
+	function getDisplayedLocation(): Location | null {
+		const locationDetails = service.locationDetails;
+		const locationTypes = getServiceLocationTypes();
+
+		if (locationTypes.includes('taskee_location')) {
+			return locationDetails?.taskeeLocation?.serviceLocation ?? null;
+		}
+
+		if (locationTypes.includes('tasker_location')) {
+			return locationDetails?.taskerLocation?.serviceLocation ?? null;
+		}
+
+		return null;
+	}
+
 	function getServiceRadiusDisplay(): string {
 		const locationDetails = service.locationDetails;
 		const serviceLocationTypes = getServiceLocationTypes();
@@ -165,6 +182,8 @@
 		const miles = Math.round(radius * 0.621371 * 10) / 10;
 		return `(${radius} km/${miles} mi)`;
 	}
+
+	const showApproximateLocationNote = $derived(isApproximatePublicLocation(getDisplayedLocation()));
 
 	function getLowestTier() {
 		const tiers = getServiceDisplayTiers(service, $locale || 'en');
@@ -323,6 +342,11 @@
 							<span class="line-clamp-2 text-sm font-medium">
 								{getLocationDisplay()}
 							</span>
+							{#if showApproximateLocationNote}
+								<span class="text-base-content/60 text-xs">
+									({$t('common.location.approximate_short')})
+								</span>
+							{/if}
 							{#if getServiceRadiusDisplay()}
 								<span class="text-base-content/60 text-sm">
 									{getServiceRadiusDisplay()}

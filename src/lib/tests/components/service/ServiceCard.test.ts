@@ -20,6 +20,9 @@ vi.mock('svelte-i18n', async () => {
 			if (key === 'dashboard.services.browse.pricing.inquiry_required') {
 				return 'Request Quote';
 			}
+			if (key === 'common.location.approximate_short') {
+				return 'Approx.';
+			}
 			return key;
 		}),
 		locale: readable('en')
@@ -89,5 +92,57 @@ describe('ServiceCard', () => {
 
 		expect(screen.queryByRole('button', { name: 'Quote' })).toBeNull();
 		expect(screen.getByRole('button', { name: 'View' })).toBeTruthy();
+	});
+
+	it('shows a brief note when the public service location is approximate', () => {
+		render(ServiceCard, {
+			service: createService({
+				serviceLocationTypes: ['taskee_location'] as never,
+				locationDetails: {
+					taskeeLocation: {
+						serviceLocation: {
+							displayName: 'Denver, CO, US',
+							locationLoaded: true,
+							zipCode: ''
+						},
+						locationDisplayName: 'Denver, CO, US'
+					}
+				} as never
+			}),
+			btcPrice: 100_000
+		});
+
+		expect(screen.getByText('Denver, CO, US')).toBeInTheDocument();
+		expect(screen.getByText(/\(Approx\.\)/)).toBeInTheDocument();
+	});
+
+	it('prioritizes the approximate service area when range-based travel is also enabled', () => {
+		render(ServiceCard, {
+			service: createService({
+				serviceLocationTypes: ['tasker_location', 'taskee_location'] as never,
+				locationDetails: {
+					taskerLocation: {
+						serviceLocation: {
+							displayName: '123 Main St, Austin, TX',
+							formattedAddress: '123 Main St, Austin, TX',
+							locationLoaded: true
+						}
+					},
+					taskeeLocation: {
+						serviceLocation: {
+							displayName: 'Austin, TX',
+							locationLoaded: true,
+							zipCode: ''
+						},
+						locationDisplayName: 'Austin, TX'
+					}
+				} as never
+			}),
+			btcPrice: 100_000
+		});
+
+		expect(screen.getByText('Austin, TX')).toBeInTheDocument();
+		expect(screen.getByText(/\(Approx\.\)/)).toBeInTheDocument();
+		expect(screen.queryByText('123 Main St, Austin, TX')).toBeNull();
 	});
 });

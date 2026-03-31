@@ -198,7 +198,7 @@
 	<!-- Service Details -->
 	<div class="card bg-base-200 min-w-0 overflow-hidden p-6">
 		<div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-			<h4 class="wrap-break-words text-lg font-semibold">
+			<h4 class="text-lg font-semibold break-words">
 				{$t('dashboard.services.create.review.service_details_title')}
 			</h4>
 			<div class="bg-base-100 rounded-xl px-4 py-3 text-left sm:min-w-48 sm:text-right">
@@ -325,8 +325,9 @@
 			{/if}
 			{#if hasBookNowInfo()}
 				<div>
-					<span class="font-semibold">{$t('dashboard.services.create.review.book_now_label')}:</span
-					>
+					<span class="font-semibold">
+						{$t('dashboard.services.create.review.book_now_label')}:
+					</span>
 					<div class="text-base-content/70 mt-1 ml-2 space-y-1 text-sm">
 						{#if $store.service.instantBuyLeadHours != null}
 							<div>
@@ -663,14 +664,13 @@
 									/>
 								</svg>
 								<span class="text-base-content/70 line-clamp-2 text-center text-xs"
-									>{item.alt ||
-										$t('dashboard.services.create.portfolio.media_video_fallback')}</span
+									>{item.alt || $t('dashboard.services.create.portfolio.video_label')}</span
 								>
 							</div>
 						{:else}
 							<div class="flex h-full w-full items-center justify-center">
 								<span class="text-base-content/70 text-xs"
-									>{item.alt || $t('dashboard.services.create.portfolio.media_file_fallback')}</span
+									>{item.alt || $t('dashboard.services.create.portfolio.file_label')}</span
 								>
 							</div>
 						{/if}

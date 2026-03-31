@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Service, ServiceTier } from '$lib/types/service.d';
-	import type { Attachment } from '$lib/types/task.d';
+	import type { Attachment, Location } from '$lib/types/task.d';
 	import { t, locale } from 'svelte-i18n';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
@@ -11,6 +11,7 @@
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { satsFromUsd } from '$lib/utils/helpers/crypto';
 	import { ServicePricingTypeEnum, ServiceLocationTypeEnum } from '$lib/utils/enums/service.enum';
+	import { isApproximatePublicLocation } from '$lib/utils/location/public-location';
 	import Avatar from '../Avatar.svelte';
 	import ServiceShareButton from './ServiceShareButton.svelte';
 	import IconEye from '~icons/mdi/eye';
@@ -90,23 +91,43 @@
 	// Helper: show only address when available (no "En Mi Ubicación"), max 50 chars
 	const LOCATION_DISPLAY_MAX_LENGTH = 50;
 
-	function getLocationTypesDisplay(): string {
+	function getDisplayedLocationDetails(): { text: string; location: Location | null } {
 		if (!service.serviceLocationTypes || service.serviceLocationTypes.length === 0) {
-			return '';
+			return { text: '', location: null };
 		}
 
-		const hasTaskerLocation = service.serviceLocationTypes?.includes(
+		const taskerLocation = service.locationDetails?.taskerLocation?.serviceLocation ?? null;
+		const taskeeLocation = service.locationDetails?.taskeeLocation?.serviceLocation ?? null;
+		const hasTaskerLocation = service.serviceLocationTypes.includes(
 			ServiceLocationTypeEnum.TASKER_LOCATION
 		);
-		const baseAddress =
-			service.locationDetails?.taskerLocation?.serviceLocation?.displayName ||
-			service.locationDetails?.taskerLocation?.serviceLocation?.formattedAddress;
+		const hasTaskeeLocation = service.serviceLocationTypes.includes(
+			ServiceLocationTypeEnum.TASKEE_LOCATION
+		);
+		const taskeeAddress =
+			service.locationDetails?.taskeeLocation?.locationDisplayName ||
+			taskeeLocation?.displayName ||
+			taskeeLocation?.formattedAddress;
+		const taskerAddress = taskerLocation?.displayName || taskerLocation?.formattedAddress;
 
-		// When "En Mi Ubicación" with address: show only the address, truncated to 50 chars
-		if (hasTaskerLocation && baseAddress) {
-			return baseAddress.length > LOCATION_DISPLAY_MAX_LENGTH
-				? baseAddress.slice(0, LOCATION_DISPLAY_MAX_LENGTH).trim() + '…'
-				: baseAddress;
+		if (hasTaskeeLocation && taskeeAddress) {
+			return {
+				text:
+					taskeeAddress.length > LOCATION_DISPLAY_MAX_LENGTH
+						? taskeeAddress.slice(0, LOCATION_DISPLAY_MAX_LENGTH).trim() + '…'
+						: taskeeAddress,
+				location: taskeeLocation
+			};
+		}
+
+		if (hasTaskerLocation && taskerAddress) {
+			return {
+				text:
+					taskerAddress.length > LOCATION_DISPLAY_MAX_LENGTH
+						? taskerAddress.slice(0, LOCATION_DISPLAY_MAX_LENGTH).trim() + '…'
+						: taskerAddress,
+				location: taskerLocation
+			};
 		}
 
 		const locationLabels: Record<ServiceLocationTypeEnum, string> = {
@@ -118,10 +139,18 @@
 				$t('dashboard.services.create.location.taskee_title') || 'At Tasker Location'
 		};
 
-		return service.serviceLocationTypes
-			.map((type: ServiceLocationTypeEnum) => locationLabels[type] || type)
-			.join(', ');
+		return {
+			text: service.serviceLocationTypes
+				.map((type: ServiceLocationTypeEnum) => locationLabels[type] || type)
+				.join(', '),
+			location: null
+		};
 	}
+
+	const displayedLocationDetails = $derived(getDisplayedLocationDetails());
+	const showApproximateLocationNote = $derived(
+		isApproximatePublicLocation(displayedLocationDetails.location)
+	);
 
 	// Handle card click - when map visible: select on map; otherwise go to detail (same as TaskCard)
 	function handleCardClick(e: MouseEvent | KeyboardEvent): void {
@@ -333,7 +362,7 @@
 		</div>
 
 		<!-- Second Row: Location (arriba - matches TaskCard Deadline+Location) -->
-		{#if getLocationTypesDisplay()}
+		{#if displayedLocationDetails.text}
 			<div class="mb-3 flex items-center gap-2">
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
@@ -356,8 +385,13 @@
 					/>
 				</svg>
 				<span class="text-base-content/80 min-w-0 flex-1 truncate text-sm"
-					>{getLocationTypesDisplay()}</span
+					>{displayedLocationDetails.text}</span
 				>
+				{#if showApproximateLocationNote}
+					<span class="text-base-content/60 shrink-0 text-xs">
+						({$t('common.location.approximate_short')})
+					</span>
+				{/if}
 			</div>
 		{/if}
 

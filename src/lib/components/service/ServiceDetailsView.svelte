@@ -88,6 +88,7 @@
 	} from '$lib/utils/service-contract/book-now-outbox';
 	import { recoverBookNowContract } from '$lib/utils/service-contract/recover';
 	import { buildServiceContractLocationSnapshot } from '$lib/utils/service-contract/location';
+	import { isApproximatePublicLocation } from '$lib/utils/location/public-location';
 
 	let { service, serviceId } = $props<{
 		service: Service | null;
@@ -107,6 +108,37 @@
 	const deliveryTimeDisplay = $derived(
 		service ? getServiceDeliveryTimeDisplay(service, currentLocale) : undefined
 	);
+	const serviceLocationSummary = $derived.by(() => {
+		if (!service) {
+			return { text: '', approximate: false, radiusText: '' };
+		}
+
+		const taskeeLocation = service.locationDetails?.taskeeLocation?.serviceLocation;
+		const taskeeDisplayName =
+			service.locationDetails?.taskeeLocation?.locationDisplayName ||
+			taskeeLocation?.displayName ||
+			taskeeLocation?.formattedAddress ||
+			'';
+		const taskeeRadius = service.locationDetails?.taskeeLocation?.serviceRadius;
+		if (
+			service.serviceLocationTypes?.includes(ServiceLocationTypeEnum.TASKEE_LOCATION) &&
+			taskeeDisplayName
+		) {
+			return {
+				text: taskeeDisplayName,
+				approximate: isApproximatePublicLocation(taskeeLocation),
+				radiusText: taskeeRadius ? `${taskeeRadius} km` : ''
+			};
+		}
+
+		const taskerLocation = service.locationDetails?.taskerLocation?.serviceLocation;
+		const taskerDisplayName = taskerLocation?.formattedAddress || taskerLocation?.displayName || '';
+		return {
+			text: taskerDisplayName,
+			approximate: isApproximatePublicLocation(taskerLocation),
+			radiusText: ''
+		};
+	});
 
 	let descriptionExpanded = $state(false);
 	const DESCRIPTION_PREVIEW_LENGTH = 300;
@@ -562,10 +594,10 @@
 		return providerName && providerName.length > 0 ? providerName : null;
 	}
 
-	function buildInstantBuyAgreementSnapshot(
+	async function buildInstantBuyAgreementSnapshot(
 		runtimeService: ServiceRuntimeFields,
 		purchaseKey: string
-	): ServiceContractAgreementSnapshot {
+	): Promise<ServiceContractAgreementSnapshot> {
 		const selectedTierDescription =
 			runtimeService.pricing?.type === ServicePricingTypeEnum.TIERED && selectedTierId
 				? (runtimeService.pricing.tiers?.find((tier: ServiceTier) => tier.id === selectedTierId)
@@ -586,10 +618,10 @@
 		};
 	}
 
-	function buildInstantBuyDraft(
+	async function buildInstantBuyDraft(
 		runtimeService: ServiceRuntimeFields,
 		existingInstantOrderId?: string
-	): InstantBuyDraft {
+	): Promise<InstantBuyDraft> {
 		const snapshot = createInstantBuySnapshot({
 			service: runtimeService,
 			selectedTierId: selectedTierId ?? undefined,
@@ -606,7 +638,7 @@
 			tierId: snapshot.selectedTierId,
 			selectedAddOns: selectedAddOnIds.length > 0 ? [...selectedAddOnIds] : undefined
 		};
-		const agreementSnapshot = buildInstantBuyAgreementSnapshot(
+		const agreementSnapshot = await buildInstantBuyAgreementSnapshot(
 			runtimeService,
 			snapshot.purchaseKey
 		);
@@ -1540,9 +1572,19 @@
 										</span>
 									{/each}
 								</div>
-								{#if service.locationDetails?.taskerLocation?.serviceLocation?.formattedAddress}
+								{#if serviceLocationSummary.text}
 									<p class="text-base-content/70 mt-2 text-sm">
-										{service.locationDetails.taskerLocation.serviceLocation.formattedAddress}
+										{serviceLocationSummary.text}
+									</p>
+								{/if}
+								{#if serviceLocationSummary.approximate}
+									<p class="text-base-content/60 mt-1 text-xs">
+										({$t('common.location.approximate_short')})
+									</p>
+								{/if}
+								{#if serviceLocationSummary.radiusText}
+									<p class="text-base-content/60 mt-1 text-xs">
+										{serviceLocationSummary.radiusText}
 									</p>
 								{/if}
 							</div>

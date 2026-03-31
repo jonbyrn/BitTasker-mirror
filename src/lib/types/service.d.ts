@@ -322,6 +322,7 @@ export interface SearchServicesParams {
 	minPrice?: number; // Minimum price
 	maxPrice?: number; // Maximum price
 	location?: string; // Location-based filtering
+	locationCoords?: { latitude: number; longitude: number }; // Coordinate-based radius filtering
 	radius?: number; // Search radius for location
 	status?: ServiceStatus[]; // Filter by service status
 	sortBy?: 'relevance' | 'date' | 'price'; // Sort by relevance, date, price
