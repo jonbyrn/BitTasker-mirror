@@ -5,15 +5,10 @@
  * See docs/payments-v2/escrow-creation-report.md for full specification.
  */
 
-import type { NostrBidContent } from '$lib/types/bid';
-import type { Task } from '$lib/types/task';
+import type { ContractTransactionResponse, TransactionReceipt } from 'ethers';
 
 /** v2 contract constant (from Solidity) — ~252 sats wei. Do not fetch from contract. */
 export const GAS_REIMBURSEMENT_PER_OP = 2_523_514_500_000n;
-
-/** MVP: cancellation fee and upfront deposit are zero */
-export const CANCELLATION_FEE_MVP = 0n;
-export const UPFRONT_DEPOSIT_MVP = 0n;
 
 /**
  * Parameters for createPaymentContract (v2)
@@ -37,7 +32,7 @@ export interface CreatePaymentContractParams {
 	taskeeFeeWei: bigint;
 }
 
-/** Display-friendly fields from `deriveV2CreationDisplay` (v2 creation module). */
+/** Display-friendly fields from `deriveContractCreationParams` (contract creation module). */
 export interface ContractCreationDisplay {
 	chain: 'rsk' | 'bsc';
 	currency: string;
@@ -50,33 +45,8 @@ export interface ContractCreationDisplay {
 	wasTimeAdjusted: boolean;
 }
 
-/**
- * Result of createEscrowFromBid when dryRun: true
- */
-export type V2DryRunResult =
-	| {
-			success: true;
-			estimatedGas: bigint;
-			estimatedCostWei: bigint;
-			estimatedCostFormatted: string;
-			simulatedPaymentId: number;
-			params: CreatePaymentContractParams;
-	  }
-	| {
-			success: false;
-			error: string;
-			validationErrors?: string[];
-	  };
-
-/** Input for derivation: bid content and task content (parsed) */
-export interface DeriveInput {
-	bid: NostrBidContent;
-	task: Task;
-	btcPrice: number;
-}
-
 /** Result of estimateGasForCreatePaymentContract */
-export type V2GasEstimateResult =
+export type GasEstimateResult =
 	| {
 			success: true;
 			estimatedGas: bigint;
@@ -85,27 +55,42 @@ export type V2GasEstimateResult =
 	  }
 	| { success: false; error: string };
 
-/** Tx object from ethers broadcast — has .wait() to await confirmation */
-export interface TransactionWithWait {
-	hash: string;
-	wait(confirmations?: number): Promise<unknown>;
+/** Result of {@link createPaymentContract} — tx is pending until mined; does not call `tx.wait()`. */
+export interface CreatePaymentContractTxResult {
+	tx: ContractTransactionResponse;
+	estimatedCostFormatted: string;
 }
 
-/** Result of createEscrowFromBidOrchestrator */
-export type V2OrchestratorResult =
+/** One failed task from {@link runParallelNamed} (in `$lib/utils/contract/parallelEffects`). */
+export interface ParallelEffectFailure {
+	name: string;
+	error: unknown;
+}
+
+/** Aggregate result for parallel post-broadcast effects — failures are non-fatal for the chain tx. */
+export interface ParallelEffectsReport {
+	failures: ParallelEffectFailure[];
+}
+
+/**
+ * Result of {@link createContract} / {@link createEscrowFromBidOrchestrator}.
+ * Caller should `await tx.wait()` in the UI, then `await afterConfirmed(receipt)` for paymentId + Nostr republish.
+ */
+export type ContractCreationResult =
 	| {
 			success: true;
 			transactionHash: string;
 			estimatedCostFormatted?: string;
-			/** Broadcast tx — wait for receipt inside orchestrator to obtain paymentId */
-			tx: TransactionWithWait;
+			/** Pending tx — use `await tx.wait()` in the UI for confirmation state */
+			tx: ContractTransactionResponse;
 			/**
-			 * Resolves when the tx is mined and `PaymentContractCreated` is parsed from logs.
-			 * `paymentId` is only defined after confirmation (not from staticCall).
+			 * Post-broadcast work (Nostr publish, DMs, task replaceable, push) — already started; await for completion / failures.
 			 */
-			onConfirmed: Promise<{ paymentId: number }>;
-			/** Resolves when Nostr + DM + task + push complete (after onConfirmed) */
-			sideEffects: Promise<void>;
+			afterBroadcast: Promise<ParallelEffectsReport>;
+			/**
+			 * Call after `tx.wait()` with the mined receipt — parses `paymentId`, republishes Nostr with paymentId.
+			 */
+			afterConfirmed: (receipt: TransactionReceipt) => Promise<{ paymentId: number }>;
 	  }
 	| {
 			success: false;

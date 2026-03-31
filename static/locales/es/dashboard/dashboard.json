@@ -261,6 +261,8 @@
 				"creating_nostr_contract": "Creando contrato...",
 				"nostr_contract_success": "¡Contrato creado exitosamente!",
 				"nostr_contract_failed": "Error al crear el contrato",
+				"create_contract_failed": "No se pudo crear el contrato de pago. Inténtalo de nuevo.",
+				"follow_up_in_progress": "Confirmando en la cadena y sincronizando tu contrato…",
 				"what_happens_next_title": "¿Qué sucede después?",
 				"next_item_notify": "Se notificará al taskee de la oferta aceptada",
 				"next_item_begin": "El trabajo puede comenzar según el cronograma acordado",

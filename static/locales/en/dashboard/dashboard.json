@@ -261,6 +261,8 @@
 				"creating_nostr_contract": "Creating contract...",
 				"nostr_contract_success": "Contract created successfully!",
 				"nostr_contract_failed": "Failed to create contract",
+				"create_contract_failed": "Could not create the payment contract. Please try again.",
+				"follow_up_in_progress": "Confirming on-chain and syncing your contract…",
 				"what_happens_next_title": "What happens next?",
 				"next_item_notify": "The taskee will be notified of the accepted bid",
 				"next_item_begin": "Work can begin as per the agreed timeline",

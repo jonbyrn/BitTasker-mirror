@@ -1,13 +1,13 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
 	import {
+		createContract,
 		deriveContractCreationParams,
 		estimateGasCostForCreatePaymentContract
 	} from '$lib/utils/contract/v2/creation';
+	import { get } from 'svelte/store';
 	import BidAcceptanceSuccessScreen from './BidAcceptanceSuccessScreen.svelte';
-	import type { ContractTransactionResult } from '$lib/types/wallet';
 	import { formatStandardDateTime, formatDate } from '$lib/utils/helpers/dateFormatter';
-	import { goto } from '$app/navigation';
 	import { walletStore, walletManager } from '$lib/stores/wallet.store';
 	import { loadNamespace, type SupportedLanguage } from '$lib/i18n/i18n';
 	import { locale } from 'svelte-i18n';
@@ -31,7 +31,6 @@
 	import type { NDKTask } from '$lib/nostr/events/task';
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
 	import { createDebug } from '$lib/utils/debug';
-	import type { ContractCreationDisplay } from '$lib/utils/escrow/v2/types';
 
 	const d = createDebug('bidding:BidAcceptanceForm');
 
@@ -42,29 +41,10 @@
 
 	let estimatedGasCost = $state<string>('');
 
-	// Form state
 	let isSubmitting = $state(false);
-	let validationErrors = $state<string[]>([]);
-	let balanceErrors = $state<string[]>(['fake error']); // Unused in v2; creation validates on submit
 	let currentScreen = $state<'form' | 'success'>('form');
-	/** Orchestrator result: tx hash; paymentId after chain confirms */
-	let successDetails = $state<{
-		display: ContractCreationDisplay;
-		dryRun?: {
-			estimatedGas?: bigint;
-			estimatedCostFormatted: string;
-		};
-		transactionHash?: string;
-		/** Set when receipt is mined and PaymentContractCreated is parsed */
-		paymentId?: number;
-		transactionResult?: ContractTransactionResult;
-	} | null>(null);
-	/** True when tx is mined and paymentId is known */
-	let txConfirmed = $state(false);
-	/** True when orchestrator has finished (Nostr contract published) */
-	let contractComplete = $state(false);
-	/** Chain confirmation or receipt parsing failed (unblocks UI from waiting spinner) */
-	let confirmationErrored = $state(false);
+	/** After broadcast: single phase until chain + Nostr follow-up finish */
+	let followUpStatus = $state<'idle' | 'mining' | 'done' | 'failed'>('idle');
 	let additionalNotes = $state<string>('');
 	let additionalNotesExpanded = $state(false);
 	let isLoading = $state(false);
@@ -96,30 +76,6 @@
 		const { display } = deriveContractCreationParams(bidContent, btcPrice.price);
 		return display;
 	});
-
-	// $effect(() => {
-	// 	let params: ReturnType<typeof deriveContractCreationParams> | undefined;
-	// 	try {
-	// 		params = deriveContractCreationParams(bidContent, btcPrice.price);
-	// 	} catch {
-	// 		params = undefined;
-	// 	}
-	// 	const connected = $walletStore.rsk.connected;
-	// 	if (!params || !connected || currentScreen === 'success') return;
-
-	// 	let cancelled = false;
-	// 	estimateGasForCreatePaymentContract(params).then((result) => {
-	// 		if (cancelled) return;
-	// 		if (result.success) {
-	// 			estimatedGasPreview = { estimatedCostFormatted: result.estimatedCostFormatted };
-	// 		} else {
-	// 			estimatedGasPreview = null;
-	// 		}
-	// 	});
-	// 	return () => {
-	// 		cancelled = true;
-	// 	};
-	// });
 
 	// Adjusted times — v2 derivation already adjusts past start; expose for UI
 	let adjustedTimes = $derived.by(() => {
@@ -207,161 +163,54 @@
 
 	onMount(async () => {
 		await initializeWallet();
-
 		estimatedGasCost = await estimateGasCostForCreatePaymentContract(bidContent, btcPrice.price);
-
-		// Check if we're in success screen and verify transaction status (Phase 2+)
-		// This handles component state persistence when user navigates away and returns
-		// if (currentScreen === 'success' && successDetails?.transactionResult?.hash) {
-		// 	try {
-		// 		const provider = getProvider('rsk');
-		// 		if (provider) {
-		// 			const receipt = await provider.getTransactionReceipt(
-		// 				successDetails.transactionResult.hash
-		// 			);
-		// 			if (receipt) {
-		// 				// Update status based on receipt
-		// 				if (receipt.status === 0) {
-		// 					// Transaction failed
-		// 					currentScreen = 'form';
-		// 					validationErrors = ['Transaction failed. Please try again.'];
-		// 					successDetails = null;
-		// 					// Clean up processing bid
-		// 					if (bid.id) {
-		// 						bidStore.removeProcessingBid(bid.id);
-		// 					}
-		// 				} else if (receipt.status === 1) {
-		// 					// Transaction confirmed - ensure we have escrow ID
-		// 					if (
-		// 						successDetails &&
-		// 						successDetails.transactionResult &&
-		// 						!successDetails.transactionResult.escrowId &&
-		// 						successDetails.transactionResult.status !== 'confirmed'
-		// 					) {
-		// 						successDetails.transactionResult.status = 'confirmed';
-		// 					}
-		// 				}
-		// 			}
-		// 		}
-		// 	} catch (error) {
-		// 		// If we can't verify, assume it's still pending
-		// 		console.warn('Could not verify transaction status on mount:', error);
-		// 	}
-		// }
 	});
 
-	// // Handle form submission — orchestrator: validate → gas → staticCall → broadcast → confirm → Nostr side effects
-	// async function handleSubmit() {
-	// 	d.log('handleSubmit: start', { bidId: bid?.id, taskId: task?.tagValue?.('d') ?? task?.id });
-
-	// 	if (!bid || !task || validationErrors.length !== 0) {
-	// 		d.warn('handleSubmit: validation guard failed', {
-	// 			hasBid: !!bid,
-	// 			hasTask: !!task,
-	// 			validationErrors
-	// 		});
-	// 		return appStore.showErrorToast('Validation errors');
-	// 	}
-	// 	if (!contractDetails) {
-	// 		d.warn('handleSubmit: no contractDetails');
-	// 		validationErrors = ['Could not calculate escrow details.'];
-	// 		return;
-	// 	}
-
-	// 	try {
-	// 		isSubmitting = true;
-	// 		validationErrors = [];
-	// 		d.log('handleSubmit: set isSubmitting=true, cleared validationErrors');
-
-	// 		d.log('handleSubmit: calling createEscrowFromBidOrchestrator', {
-	// 			btcPrice: btcPrice.price
-	// 		});
-
-	// 		contractComplete = false;
-	// 		txConfirmed = false;
-	// 		confirmationErrored = false;
-
-	// 		const result = await createEscrowFromBidOrchestrator(bid, task, btcPrice.price, {
-	// 			additionalNotes: additionalNotes.trim() || undefined
-	// 		});
-
-	// 		d.log('handleSubmit: orchestrator returned', {
-	// 			success: result.success,
-	// 			...(result.success && {
-	// 				transactionHash: result.transactionHash
-	// 			}),
-	// 			...(result.success === false && { error: result.error })
-	// 		});
-
-	// 		if (result.success) {
-	// 			successDetails = {
-	// 				display: contractDetails,
-	// 				dryRun: {
-	// 					estimatedCostFormatted: result.estimatedCostFormatted ?? '0'
-	// 				},
-	// 				transactionHash: result.transactionHash
-	// 			};
-	// 			currentScreen = 'success';
-
-	// 			result.onConfirmed
-	// 				.then(({ paymentId }) => {
-	// 					txConfirmed = true;
-	// 					if (successDetails) {
-	// 						successDetails = { ...successDetails, paymentId };
-	// 					}
-	// 					d.log('handleSubmit: onConfirmed — paymentId from receipt', { paymentId });
-	// 				})
-	// 				.catch((err) => {
-	// 					d.warn('handleSubmit: onConfirmed failed (tx or receipt)', err);
-	// 					confirmationErrored = true;
-	// 					const _ = get(t);
-	// 					appStore.showErrorToast(
-	// 						err instanceof Error
-	// 							? err.message
-	// 							: _('dashboard.bids.bid_acceptance.funding_confirm_failed')
-	// 					);
-	// 				});
-
-	// 			result.sideEffects
-	// 				.then(() => {
-	// 					contractComplete = true;
-	// 					d.log('handleSubmit: side effects complete — Nostr + notifications done');
-	// 				})
-	// 				.catch((err) => {
-	// 					d.warn('handleSubmit: side effects failed', err);
-	// 					contractComplete = true;
-	// 					if (txConfirmed) {
-	// 						const _ = get(t);
-	// 						appStore.showErrorToast(
-	// 							err instanceof Error
-	// 								? err.message
-	// 								: _('dashboard.bids.bid_acceptance.nostr_contract_failed')
-	// 						);
-	// 					}
-	// 				});
-	// 		} else {
-	// 			const err = result as { error?: string; validationErrors?: string[] };
-	// 			validationErrors = err.validationErrors ?? [err.error ?? 'Failed to create escrow'];
-	// 			bidStore.removeProcessingBid(bid.id);
-	// 			currentScreen = 'form';
-	// 			successDetails = null;
-	// 			d.warn('handleSubmit: orchestrator failed', { validationErrors });
-	// 		}
-	// 	} catch (error) {
-	// 		d.error('handleSubmit: caught error', error);
-	// 		console.error('Failed to accept bid:', error);
-	// 		validationErrors = [error instanceof Error ? error.message : 'Unknown error occurred'];
-	// 		bidStore.removeProcessingBid(bid.id);
-	// 		currentScreen = 'form';
-	// 		successDetails = null;
-	// 	} finally {
-	// 		isSubmitting = false;
-	// 		d.log('handleSubmit: done, isSubmitting=false');
-	// 	}
-	// }
-
 	async function handleSubmit() {
-		d.log('handleSubmit: start');
+		isSubmitting = true;
+		try {
+			const result = await createContract(bid, task, btcPrice.price, additionalNotes.trim());
+
+			if (!result.success) {
+				const msg = result.error ?? get(t)('dashboard.bids.bid_acceptance.create_contract_failed');
+				appStore.showErrorToast(msg);
+				return;
+			}
+
+			currentScreen = 'success';
+			followUpStatus = 'mining';
+
+			void (async () => {
+				try {
+					await Promise.all([
+						result.afterBroadcast.then((report) => {
+							if (report.failures.length) {
+								d.warn('handleSubmit: afterBroadcast partial failures', report.failures);
+							}
+						}),
+						(async () => {
+							const receipt = await result.tx.wait();
+							if (!receipt) throw new Error('No receipt');
+							await result.afterConfirmed(receipt);
+						})()
+					]);
+					followUpStatus = 'done';
+				} catch (err) {
+					d.warn('handleSubmit: follow-up failed', err);
+					followUpStatus = 'failed';
+					appStore.showErrorToast(get(t)('dashboard.bids.bid_acceptance.funding_confirm_failed'));
+				}
+			})();
+		} catch (e) {
+			d.error('handleSubmit', e);
+			appStore.showErrorToast(
+				e instanceof Error
+					? e.message
+					: get(t)('dashboard.bids.bid_acceptance.create_contract_failed')
+			);
+		} finally {
+			isSubmitting = false;
+		}
 	}
 
 	function formatDuration(startTime: number, endTime: number): string {
@@ -868,62 +717,6 @@
 					{/if}
 				</div>
 
-				<!-- Insufficient Balance Error -->
-				{#if balanceErrors.length > 0}
-					<button
-						type="button"
-						class="alert alert-outline alert-error w-full cursor-pointer transition-opacity hover:opacity-80"
-						onclick={() => goto('/dashboard/wallet')}
-					>
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="h-6 w-6 shrink-0 stroke-current"
-							fill="none"
-							viewBox="0 0 24 24"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16c-.77.833.192 2.5 1.732 2.5z"
-							/>
-						</svg>
-						<span>{$t('dashboard.bids.bid_acceptance.insufficient_balance')}</span>
-					</button>
-				{/if}
-
-				<!-- Validation Errors -->
-				{#if validationErrors.length > 0}
-					<div class="alert alert-outline alert-error">
-						<div class="flex items-center gap-3">
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								class="h-6 w-6 shrink-0 stroke-current"
-								fill="none"
-								viewBox="0 0 24 24"
-							>
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									stroke-width="2"
-									d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-								/>
-							</svg>
-							<div class="min-w-0 flex-1">
-								{#if validationErrors.length === 1}
-									<p class="word-break-words">{validationErrors[0]}</p>
-								{:else}
-									<ul class="list-inside list-disc space-y-1">
-										{#each validationErrors as error, i (i)}
-											<li class="word-break-words">{error}</li>
-										{/each}
-									</ul>
-								{/if}
-							</div>
-						</div>
-					</div>
-				{/if}
-
 				<!-- Testnet Warning Alert -->
 				{#if import.meta.env.VITE_RSK_NETWORK === 'testnet'}
 					<div class="alert alert-outline alert-warning">
@@ -1025,7 +818,7 @@
 			<button
 				type="button"
 				class="btn btn-primary"
-				disabled={isSubmitting || validationErrors.length > 0 || !$walletStore.rsk.connected}
+				disabled={isSubmitting || !$walletStore.rsk.connected}
 				onclick={() => (showFundConfirmationModal = true)}
 			>
 				{#if isSubmitting}
@@ -1053,12 +846,10 @@
 			</button>
 		</div>
 	</div>
-{:else if currentScreen === 'success' && successDetails}
+{:else if currentScreen === 'success'}
 	<BidAcceptanceSuccessScreen
-		totalAmountRbtc={successDetails.display?.totalAmount ?? '0'}
-		{contractComplete}
-		{txConfirmed}
-		{confirmationErrored}
+		totalAmountRbtc={contractDetails?.totalAmount ?? '0'}
+		followUpStatus={followUpStatus === 'idle' ? 'mining' : followUpStatus}
 	/>
 {/if}
 

@@ -16,10 +16,12 @@ import { createDebug } from '$lib/utils/debug';
 import {
 	GAS_REIMBURSEMENT_PER_OP,
 	type CreatePaymentContractParams,
-	type V2GasEstimateResult,
-	type V2OrchestratorResult,
+	type CreatePaymentContractTxResult,
+	type GasEstimateResult,
+	type ContractCreationResult,
 	type ContractCreationDisplay
-} from '$lib/utils/escrow/v2/types';
+} from '$lib/utils/contract/v2/types';
+import { runParallelNamed } from '../parallelEffects';
 import { NDKPaymentContract } from '$lib/nostr/events/contract';
 import { ndk } from '$lib/nostr/ndk';
 import abi from './abi.json';
@@ -29,9 +31,8 @@ import { sendLocationsToTaskee } from '$lib/utils/location/sendLocation';
 import { pushNotificationService } from '$lib/api/services/push-notification.service';
 import { TaskStatusEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
 import { initContract } from '..';
-import { ContractStatus } from '../types';
 
-const d = createDebug('escrow:v2:creation');
+const d = createDebug('contract:v2');
 
 /** Default fee tier (tier 1 = 2.5%) — maps to v1 clientFeeTier/freelancerFeeTier */
 const DEFAULT_FEE_TIER = 1;
@@ -96,7 +97,7 @@ function assertValidCreatePaymentContractParams(params: CreatePaymentContractPar
 
 /**
  * Single derivation pass: validates inputs, builds contract params, validates params, builds display.
- * Not exported — use {@link deriveContractCreationParams} or {@link deriveV2CreationDisplay}.
+ * Not exported — use {@link deriveContractCreationParams}.
  */
 export function deriveContractCreationParams(
 	bidContent: NostrBidContent,
@@ -204,8 +205,8 @@ function getContractAddress(): string {
 	const network = import.meta.env.VITE_RSK_NETWORK || 'testnet';
 	const address =
 		network === 'mainnet'
-			? ethers.getAddress(import.meta.env.VITE_RSK_CONTRACT_ADDRESS_V2_MAINNET)
-			: ethers.getAddress(import.meta.env.VITE_RSK_CONTRACT_ADDRESS_V2_TESTNET);
+			? ethers.getAddress(import.meta.env.VITE_RSK_CONTRACT_ADDRESS_V2_MAINNET).toLowerCase()
+			: ethers.getAddress(import.meta.env.VITE_RSK_CONTRACT_ADDRESS_V2_TESTNET).toLowerCase();
 
 	if (!address) {
 		throw new Error(
@@ -221,7 +222,7 @@ function getContractAddress(): string {
  */
 export async function estimateGasForCreatePaymentContract(
 	params: CreatePaymentContractParams
-): Promise<V2GasEstimateResult> {
+): Promise<GasEstimateResult> {
 	try {
 		const { contract, provider } = await initContract(getContractAddress(), 'rsk', abi);
 		const taskeeEip55 = ethers.getAddress(params.taskee.toLowerCase());
@@ -284,6 +285,69 @@ export async function estimateGasCostForCreatePaymentContract(
 }
 
 /**
+ * Blockchain-only path: init v2 contract, estimate gas, staticCall (revert check), broadcast `createPaymentContract`.
+ * Does not wait for confirmation — returns the pending transaction as soon as the wallet submits it.
+ */
+export async function createPaymentContract(
+	params: CreatePaymentContractParams
+): Promise<CreatePaymentContractTxResult> {
+	assertValidCreatePaymentContractParams(params);
+
+	const { contract, provider } = await initContract(getContractAddress(), 'rsk', abi);
+	const taskeeEip55 = ethers.getAddress(params.taskee.toLowerCase());
+	const feeData = await provider.getFeeData();
+	const gasPrice = feeData.gasPrice || BigInt(0);
+	const createFn = contract.createPaymentContract;
+
+	const gasEstimate = await createFn.estimateGas(
+		taskeeEip55,
+		params.estimatedStartTime,
+		params.estimatedCompletionTime,
+		params.taskerFeeTier,
+		params.taskeeFeeTier,
+		params.cancellationFee,
+		params.upfrontDeposit,
+		{ value: params.totalValueWei, gasPrice }
+	);
+	const estimatedCostWei = gasEstimate * gasPrice;
+	const estimatedCostFormatted = ethers.formatEther(estimatedCostWei);
+
+	d.log('createPaymentContract: gas estimate', {
+		gasLimit: gasEstimate.toString(),
+		estimatedCostFormatted
+	});
+
+	const overrides = { value: params.totalValueWei, gasPrice };
+
+	await createFn.staticCall(
+		taskeeEip55,
+		params.estimatedStartTime,
+		params.estimatedCompletionTime,
+		params.taskerFeeTier,
+		params.taskeeFeeTier,
+		params.cancellationFee,
+		params.upfrontDeposit,
+		overrides
+	);
+	d.log('createPaymentContract: staticCall ok');
+
+	const tx = await createFn(
+		taskeeEip55,
+		params.estimatedStartTime,
+		params.estimatedCompletionTime,
+		params.taskerFeeTier,
+		params.taskeeFeeTier,
+		params.cancellationFee,
+		params.upfrontDeposit,
+		overrides
+	);
+
+	d.log('createPaymentContract: broadcast', { hash: tx.hash });
+
+	return { tx, estimatedCostFormatted };
+}
+
+/**
  * Read `paymentId` from mined tx logs (authoritative — not from staticCall).
  */
 function parsePaymentContractCreatedPaymentId(
@@ -324,137 +388,31 @@ async function publishTaskAcceptedBid(task: NDKTask, bidEventId: string): Promis
 }
 
 /**
- * Configure Kind 30006 on an existing `NDKPaymentContract` instance (same object for `publish()` then later `publishReplaceable()`).
- * `d` tag = task d-tag (NIP-33 replaceable identity). Omit `paymentId` until receipt is known.
+ * Escrow creation orchestrator: validate → broadcast → parallel post-hash effects.
+ * Does not call `tx.wait()` — the UI should await confirmation, then call `afterConfirmed(receipt)`.
  */
-function prepareV2NostrPaymentContract(
-	ndkPaymentContract: NDKPaymentContract,
-	params: {
-		taskDTag: string;
-		taskeePubkey: string;
-		taskTitle: string;
-		taskDescription: string;
-		amount: string;
-		estimatedStartTime: number;
-		estimatedCompletionTime: number;
-		transactionHash: string;
-		taskerPubkey: string;
-		/** Set after `tx.wait()` before republish */
-		paymentId?: string;
-	}
-): void {
-	const network = import.meta.env.VITE_RSK_NETWORK || 'testnet';
-	const contractAddress =
-		network === 'mainnet'
-			? import.meta.env.VITE_RSK_CONTRACT_ADDRESS_V2_MAINNET
-			: import.meta.env.VITE_RSK_CONTRACT_ADDRESS_V2_TESTNET;
-
-	if (!contractAddress) {
-		throw new Error(
-			`V2 contract address not configured. Set VITE_RSK_CONTRACT_ADDRESS_V2_${network === 'mainnet' ? 'MAINNET' : 'TESTNET'}`
-		);
-	}
-
-	d.log('prepareV2NostrPaymentContract', {
-		taskDTag: params.taskDTag,
-		transactionHash: params.transactionHash,
-		paymentId: params.paymentId ?? '(pending)'
-	});
-
-	(ndkPaymentContract as { pubkey?: string }).pubkey = params.taskerPubkey;
-
-	ndkPaymentContract.dTag = params.taskDTag;
-	ndkPaymentContract.taskId = params.taskDTag;
-	ndkPaymentContract.taskeePubkey = params.taskeePubkey;
-	ndkPaymentContract.network = network;
-	ndkPaymentContract.version = 'v2';
-	ndkPaymentContract.status = String(ContractStatus.Funded);
-	ndkPaymentContract.messageType = 'contract';
-
-	ndkPaymentContract.taskTitle = params.taskTitle;
-	ndkPaymentContract.taskDescription = params.taskDescription;
-	ndkPaymentContract.amount = params.amount;
-	ndkPaymentContract.currency = 'RBTC';
-	ndkPaymentContract.estimatedStartTime = params.estimatedStartTime;
-	ndkPaymentContract.estimatedCompletionTime = params.estimatedCompletionTime;
-	ndkPaymentContract.transactionHash = params.transactionHash;
-	ndkPaymentContract.contractAddress = contractAddress;
-
-	if (params.paymentId !== undefined) {
-		ndkPaymentContract.paymentId = params.paymentId;
-	} else {
-		ndkPaymentContract.removeTag('paymentId');
-	}
-}
-
-/**
- * Escrow creation orchestrator.
- * Runs: validate → gas → staticCall (revert check only) → broadcast → sideEffects in parallel:
- * Nostr contract publish (tx hash only), DMs, task update, push, and tx.wait + republish with paymentId;
- * `onConfirmed` resolves when the chain receipt yields `paymentId` (same promise as the confirm branch).
- */
-
 export async function createContract(
 	bid: NDKBid,
 	task: NDKTask,
 	btcPrice: number,
 	additionalNotes: string = ''
-): Promise<V2OrchestratorResult> {
+): Promise<ContractCreationResult> {
 	const bidContent = bid.bidContent;
 	const taskContent = task.taskContent;
 	const taskId = task.tagValue('d') ?? task.id ?? '';
 
-	d.log('createEscrowFromBidOrchestrator start', { taskId, bidId: bid.id });
+	d.log('createContract start', { taskId, bidId: bid.id });
 
 	try {
-		d.log('orchestrator: step 1 — deriveContractCreationParams');
-		const { params } = deriveContractCreationParams(bidContent, btcPrice);
-		d.log('orchestrator: params derived', {
+		d.log('createContract: deriveContractCreationParams');
+		const { params, display } = deriveContractCreationParams(bidContent, btcPrice);
+		d.log('createContract: params derived', {
 			taskee: params.taskee.slice(0, 10) + '…',
 			totalWei: params.totalValueWei.toString().slice(0, 16) + '…',
 			estimatedStartTime: params.estimatedStartTime,
 			estimatedCompletionTime: params.estimatedCompletionTime
 		});
 
-		d.log('orchestrator: step 2 — wallet + provider + contract');
-		const { contract, provider } = await initContract(getContractAddress(), 'rsk', abi);
-		const taskeeEip55 = ethers.getAddress(params.taskee.toLowerCase());
-		const feeData = await provider.getFeeData();
-		const gasPrice = feeData.gasPrice || BigInt(0);
-		const createPaymentContract = contract.createPaymentContract;
-
-		d.log('orchestrator: step 5 — estimateGas');
-		const gasEstimate = await createPaymentContract.estimateGas(
-			taskeeEip55,
-			params.estimatedStartTime,
-			params.estimatedCompletionTime,
-			params.taskerFeeTier,
-			params.taskeeFeeTier,
-			params.cancellationFee,
-			params.upfrontDeposit,
-			{ value: params.totalValueWei, gasPrice }
-		);
-		const estimatedCostWei = gasEstimate * gasPrice;
-		const estimatedCostFormatted = ethers.formatEther(estimatedCostWei);
-		d.log('orchestrator: gas estimate done', {
-			gasLimit: gasEstimate.toString(),
-			estimatedCostFormatted
-		});
-
-		d.log('orchestrator: step 6 — staticCall (revert check only; paymentId not used)');
-		await createPaymentContract.staticCall(
-			taskeeEip55,
-			params.estimatedStartTime,
-			params.estimatedCompletionTime,
-			params.taskerFeeTier,
-			params.taskeeFeeTier,
-			params.cancellationFee,
-			params.upfrontDeposit,
-			{ value: params.totalValueWei, gasPrice }
-		);
-		d.log('orchestrator: staticCall ok');
-
-		d.log('orchestrator: step 6b — Nostr prerequisites before broadcast');
 		const taskeePubkey = bid.author?.pubkey;
 		if (!taskeePubkey) {
 			return {
@@ -471,156 +429,108 @@ export async function createContract(
 			};
 		}
 
-		const v2ContractAddress = ethers.getAddress(getContractAddress().toLowerCase());
-
-		d.log('orchestrator: step 7 — broadcast createPaymentContract');
-		const tx = await createPaymentContract(
-			taskeeEip55,
-			params.estimatedStartTime,
-			params.estimatedCompletionTime,
-			params.taskerFeeTier,
-			params.taskeeFeeTier,
-			params.cancellationFee,
-			params.upfrontDeposit,
-			{ value: params.totalValueWei, gasPrice }
-		);
+		d.log('createContract: createPaymentContract (init, gas, staticCall, broadcast)');
+		const { tx, estimatedCostFormatted } = await createPaymentContract(params);
 		const transactionHash = tx.hash;
-		d.log('orchestrator: broadcast success — tx hash (pending confirmation)', { transactionHash });
+		d.log('createContract: broadcast ok — pending confirmation', { transactionHash });
 
 		const taskeeNpub = bid.author?.npub;
 		const isRemote = taskContent.taskType === TaskTypeEnum.REMOTE;
 
-		let resolveOnConfirmed!: (value: { paymentId: number }) => void;
-		let rejectOnConfirmed!: (reason?: unknown) => void;
-		const onConfirmed = new Promise<{ paymentId: number }>((resolve, reject) => {
-			resolveOnConfirmed = resolve;
-			rejectOnConfirmed = reject;
+		const network = import.meta.env.VITE_RSK_NETWORK || 'testnet';
+		const paymentContractAddress = getContractAddress();
+
+		const contractEvent = new NDKPaymentContract(ndk);
+		contractEvent.author = task.author;
+		contractEvent.dTag = taskId; // Contract event shares the same dtag as task event for tracking
+		contractEvent.taskId = taskId;
+		contractEvent.taskeePubkey = taskeePubkey;
+		contractEvent.network = network;
+		contractEvent.version = 'v2';
+		contractEvent.status = 'pending';
+		contractEvent.messageType = 'contract';
+		contractEvent.taskTitle = taskContent.title ?? '';
+		contractEvent.taskDescription = taskContent.description ?? '';
+		contractEvent.amount = display.baseAmount;
+		contractEvent.currency = 'RBTC';
+		contractEvent.estimatedStartTime = params.estimatedStartTime;
+		contractEvent.estimatedCompletionTime = params.estimatedCompletionTime;
+		contractEvent.transactionHash = transactionHash;
+		contractEvent.contractAddress = paymentContractAddress;
+
+		d.log('createContract: NDK payment contract (kind 30006) prepared', {
+			taskDTag: taskId,
+			transactionHash
 		});
 
-		const sideEffects = (async () => {
-			try {
-				const ndkPaymentContract = new NDKPaymentContract(ndk);
-				prepareV2NostrPaymentContract(ndkPaymentContract, {
-					taskDTag: taskId,
-					taskeePubkey,
-					taskTitle: taskContent.title ?? '',
-					taskDescription: taskContent.description ?? '',
-					amount: String(bid.bidContent.amount),
-					estimatedStartTime: params.estimatedStartTime,
-					estimatedCompletionTime: params.estimatedCompletionTime,
-					transactionHash,
-					taskerPubkey
-				});
+		const publishPromise = contractEvent.publish();
 
-				d.log(
-					'orchestrator: side effects starting (parallel: publish, DM, task, push, confirm+republish)',
-					{
-						transactionHash,
-						taskDTag: taskId
-					}
-				);
-
-				const publishPromise = ndkPaymentContract.publish();
-
-				const dmPromise = sendLocationsToTaskee(
-					taskContent.pickupLocation ?? null,
-					taskContent.dropOffLocation ?? null,
-					taskeePubkey,
-					{
-						taskId,
-						taskTitle: taskContent.title ?? '',
-						taskDescription: taskContent.description ?? '',
-						isRemote,
-						additionalNotes: additionalNotes.trim() || undefined
-					}
-				);
-
-				const taskUpdatePromise = publishTaskAcceptedBid(task, bid.id);
-
-				const pushPromise = taskeeNpub
-					? pushNotificationService.sendNotificationToNpubs({
-							npubs: [taskeeNpub],
-							title: 'Bid Accepted',
-							body: `Your bid on "${taskContent.title ?? 'Task'}" has been accepted`,
-							type: 'bid_accepted',
-							clickAction: `${import.meta.env.VITE_CLIENT_URL}/dashboard?tab=contracts`,
-							icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
-						})
-					: Promise.resolve();
-
-				const confirmRepublishPromise = (async () => {
-					try {
-						const receipt = await tx.wait();
-						if (!receipt) {
-							throw new Error('Transaction receipt not available');
-						}
-						const paymentId = parsePaymentContractCreatedPaymentId(receipt, v2ContractAddress);
-						d.log('orchestrator: tx confirmed', { transactionHash, paymentId });
-						resolveOnConfirmed({ paymentId });
-						// Avoid mutating tags while the initial `publish()` may still be serializing the same instance.
-						try {
-							await publishPromise;
-						} catch (e) {
-							d.warn('orchestrator: initial contract publish failed; continuing to republish', e);
-						}
-						ndkPaymentContract.paymentId = String(paymentId);
-						await ndkPaymentContract.publishReplaceable();
-						d.log('orchestrator: contract event republished with paymentId', {
-							transactionHash,
-							paymentId
-						});
-					} catch (e) {
-						rejectOnConfirmed(e);
-						throw e;
-					}
-				})();
-
-				const results = await Promise.allSettled([
-					publishPromise,
-					dmPromise,
-					taskUpdatePromise,
-					pushPromise,
-					confirmRepublishPromise
-				]);
-				results.forEach((r, i) => {
-					const names = [
-						'publish',
-						'sendLocations',
-						'taskPublishReplaceable',
-						'push',
-						'confirmRepublish'
-					];
-					if (r.status === 'rejected') {
-						d.warn(`orchestrator: ${names[i]} failed`, r.reason);
-					}
-				});
-				d.log('orchestrator: side effects settled', { transactionHash });
-			} catch (err) {
-				rejectOnConfirmed(err);
-				throw err;
+		const dmPromise = sendLocationsToTaskee(
+			taskContent.pickupLocation ?? null,
+			taskContent.dropOffLocation ?? null,
+			taskeePubkey,
+			{
+				taskId,
+				taskTitle: taskContent.title ?? '',
+				taskDescription: taskContent.description ?? '',
+				isRemote,
+				additionalNotes: additionalNotes.trim() || undefined
 			}
-		})();
+		);
 
-		d.log('orchestrator: returning after broadcast', { transactionHash });
+		const taskUpdatePromise = publishTaskAcceptedBid(task, bid.id);
+
+		const pushPromise = taskeeNpub
+			? pushNotificationService.sendNotificationToNpubs({
+					npubs: [taskeeNpub],
+					title: 'Bid Accepted',
+					body: `Your bid on "${taskContent.title ?? 'Task'}" has been accepted`,
+					type: 'bid_accepted',
+					clickAction: `${import.meta.env.VITE_CLIENT_URL}/dashboard?tab=contracts`,
+					icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
+				})
+			: Promise.resolve();
+
+		const afterBroadcast = runParallelNamed([
+			{ name: 'nostrPublish', run: () => publishPromise },
+			{ name: 'sendLocations', run: () => dmPromise },
+			{ name: 'taskPublishReplaceable', run: () => taskUpdatePromise },
+			{ name: 'push', run: () => pushPromise }
+		]);
+
+		const afterConfirmed = async (receipt: ethers.TransactionReceipt) => {
+			const paymentId = parsePaymentContractCreatedPaymentId(receipt, getContractAddress());
+			d.log('createContract: receipt confirmed', { transactionHash, paymentId });
+			try {
+				await publishPromise;
+			} catch (e) {
+				d.warn('createContract: initial Nostr publish failed before republish', e);
+			}
+			// Recreate NDKEvent to decrypt it before updating it and republishing
+			const updatedContractEvent = await NDKPaymentContract.from(contractEvent);
+			if (updatedContractEvent) {
+				updatedContractEvent.paymentId = String(paymentId);
+				updatedContractEvent.status = 'confirmed';
+				await updatedContractEvent.publishReplaceable();
+				d.log('createContract: contract event republished with paymentId', {
+					transactionHash,
+					paymentId
+				});
+			}
+			return { paymentId };
+		};
+
 		return {
 			success: true,
 			transactionHash,
 			estimatedCostFormatted,
 			tx,
-			onConfirmed,
-			sideEffects
+			afterBroadcast,
+			afterConfirmed
 		};
 	} catch (error) {
-		if (error instanceof ContractCreationParamsError) {
-			d.error('validation failed', { validationErrors: error.errors });
-			return {
-				success: false,
-				error: error.message,
-				validationErrors: error.errors
-			};
-		}
 		const err = error instanceof Error ? error : new Error(String(error));
-		d.error('createEscrowFromBidOrchestrator failed', { taskId }, err);
+		d.error('createContract failed', { taskId }, err);
 		return {
 			success: false,
 			error: err.message
