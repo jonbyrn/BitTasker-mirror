@@ -20,7 +20,10 @@
 	import type SaveServiceSearchFormComponent from '$lib/components/service/SaveServiceSearchForm.svelte';
 	import { serviceQuoteUiStore } from '$lib/stores/service-quote-ui.store';
 	import { appStore } from '$lib/stores/app.store';
-	import { persistServiceSearchFilters } from '$lib/utils/service-search-persistence';
+	import {
+		loadPersistedServiceSearchFilters,
+		persistServiceSearchFilters
+	} from '$lib/utils/service-search-persistence';
 	import { DEFAULT_API_HOST } from '$lib/api/apiService';
 
 	const DESKTOP_MIN_WIDTH = 1024;
@@ -297,6 +300,9 @@
 		if (params.maxPrice !== undefined) parts.push(`max:${params.maxPrice}`);
 		if (params.deliveryTime !== undefined) parts.push(`dt:${params.deliveryTime}`);
 		if (params.location) parts.push(`locn:${params.location}`);
+		if (params.locationCoords) {
+			parts.push(`locc:${params.locationCoords.latitude},${params.locationCoords.longitude}`);
+		}
 		return parts.join('|');
 	}
 
@@ -474,7 +480,8 @@
 		}));
 
 		searchParams = {
-			...searchParams,
+			...getInitialSearchParams(),
+			limit: searchParams.limit ?? 20,
 			...filterParams,
 			page: 1
 		};
@@ -625,6 +632,16 @@
 		if (browser) {
 			logServicesApiConfiguration();
 			windowWidth = window.innerWidth;
+			const persistedFilters = loadPersistedServiceSearchFilters();
+			if (persistedFilters) {
+				searchParams = {
+					...getInitialSearchParams(),
+					...persistedFilters,
+					page: 1,
+					limit: searchParams.limit ?? 20
+				};
+				searchQuery = searchParams.search ?? '';
+			}
 
 			const savedParamsRaw = sessionStorage.getItem('savedServiceSearchParams');
 			if (savedParamsRaw) {

@@ -191,9 +191,11 @@
 					"custom_form_section": "Datos adicionales",
 					"field_required": "Este campo es obligatorio",
 					"images_label": "Imágenes",
+					"attachment_alt": "Adjunto {index}",
 					"optional": "Opcional",
 					"choose": "Elige...",
-					"submit": "Enviar Solicitud"
+					"submit": "Enviar Solicitud",
+					"submit_failed": "No se pudo enviar la solicitud de cotización."
 				}
 			}
 		}

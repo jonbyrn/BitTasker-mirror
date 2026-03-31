@@ -19,6 +19,7 @@ export function persistServiceSearchFilters(filters: SearchServicesParams): void
 			maxPrice: filters.maxPrice,
 			deliveryTime: filters.deliveryTime,
 			location: filters.location,
+			locationCoords: filters.locationCoords,
 			radius: filters.radius
 		};
 

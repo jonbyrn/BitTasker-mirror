@@ -1,0 +1,254 @@
+[
+  {
+    "name": "scroll_into_view_if_needed_polyfill",
+    "kind": "function",
+    "typeSignature": "export declare function scroll_into_view_if_needed_polyfill(element: Element, centerIfNeeded?: boolean): IntersectionObserver;",
+    "description": ""
+  },
+  {
+    "name": "CircleSpinner",
+    "kind": "type",
+    "typeSignature": "export { default }",
+    "description": "Re-exported symbol (unresolved)"
+  },
+  {
+    "name": "CmdPalette",
+    "kind": "type",
+    "typeSignature": "export { default }",
+    "description": "Re-exported symbol (unresolved)"
+  },
+  {
+    "name": "CodeExample",
+    "kind": "type",
+    "typeSignature": "export { default }",
+    "description": "Re-exported symbol (unresolved)"
+  },
+  {
+    "name": "CopyButton",
+    "kind": "type",
+    "typeSignature": "export { default }",
+    "description": "Re-exported symbol (unresolved)"
+  },
+  {
+    "name": "FileDetails",
+    "kind": "type",
+    "typeSignature": "export { default }",
+    "description": "Re-exported symbol (unresolved)"
+  },
+  {
+    "name": "GitHubCorner",
+    "kind": "type",
+    "typeSignature": "export { default }",
+    "description": "Re-exported symbol (unresolved)"
+  },
+  {
+    "name": "Icon",
+    "kind": "type",
+    "typeSignature": "export { default }",
+    "description": "Re-exported symbol (unresolved)"
+  },
+  {
+    "name": "MultiSelect",
+    "kind": "type",
+    "typeSignature": "export { default }",
+    "description": "Re-exported symbol (unresolved)"
+  },
+  {
+    "name": "Nav",
+    "kind": "type",
+    "typeSignature": "export { default }",
+    "description": "Re-exported symbol (unresolved)"
+  },
+  {
+    "name": "PrevNext",
+    "kind": "type",
+    "typeSignature": "export { default }",
+    "description": "Re-exported symbol (unresolved)"
+  },
+  {
+    "name": "Toggle",
+    "kind": "type",
+    "typeSignature": "export { default }",
+    "description": "Re-exported symbol (unresolved)"
+  },
+  {
+    "name": "Wiggle",
+    "kind": "type",
+    "typeSignature": "export { default }",
+    "description": "Re-exported symbol (unresolved)"
+  },
+  {
+    "name": "get_html_sort_value",
+    "kind": "function",
+    "typeSignature": "export declare function get_html_sort_value(element: HTMLElement): string;",
+    "description": ""
+  },
+  {
+    "name": "get_uuid",
+    "kind": "type",
+    "typeSignature": "export { get_uuid }",
+    "description": "Re-exported symbol (unresolved)"
+  },
+  {
+    "name": "Dimensions",
+    "kind": "type",
+    "typeSignature": "type Dimensions = {\n    width: number;\n    height: number;\n}",
+    "description": ""
+  },
+  {
+    "name": "ResizeCallback",
+    "kind": "type",
+    "typeSignature": "type ResizeCallback = (event: MouseEvent, dimensions: Dimensions) => void",
+    "description": ""
+  },
+  {
+    "name": "draggable",
+    "kind": "const",
+    "typeSignature": "const draggable: (options?: import(\"/home/scott/find-services/BitTasker/node_modules/svelte-multiselect/dist/attachments\").DraggableOptions) => import(\"svelte/attachments\").Attachment<Element>",
+    "description": ""
+  },
+  {
+    "name": "resizable",
+    "kind": "const",
+    "typeSignature": "const resizable: (options?: import(\"/home/scott/find-services/BitTasker/node_modules/svelte-multiselect/dist/attachments\").ResizableOptions) => import(\"svelte/attachments\").Attachment<Element>",
+    "description": ""
+  },
+  {
+    "name": "sortable",
+    "kind": "const",
+    "typeSignature": "const sortable: (options?: import(\"/home/scott/find-services/BitTasker/node_modules/svelte-multiselect/dist/attachments\").SortableOptions) => (node: HTMLElement) => () => void",
+    "description": ""
+  },
+  {
+    "name": "HighlightOptions",
+    "kind": "type",
+    "typeSignature": "type HighlightOptions = {\n    query?: string;\n    disabled?: boolean;\n    fuzzy?: boolean;\n    node_filter?: (node: Node) => number;\n    css_class?: string;\n}",
+    "description": ""
+  },
+  {
+    "name": "highlight_matches",
+    "kind": "const",
+    "typeSignature": "const highlight_matches: (ops: import(\"/home/scott/find-services/BitTasker/node_modules/svelte-multiselect/dist/attachments\").HighlightOptions) => (node: HTMLElement) => () => boolean",
+    "description": ""
+  },
+  {
+    "name": "tooltip",
+    "kind": "const",
+    "typeSignature": "const tooltip: (options?: import(\"/home/scott/find-services/BitTasker/node_modules/svelte-multiselect/dist/attachments\").TooltipOptions) => import(\"svelte/attachments\").Attachment<Element>",
+    "description": ""
+  },
+  {
+    "name": "ClickOutsideConfig",
+    "kind": "type",
+    "typeSignature": "type ClickOutsideConfig = {\n    enabled?: boolean;\n    exclude?: string[];\n    callback?: (node: T, config: ClickOutsideConfig<T>) => void;\n}",
+    "description": ""
+  },
+  {
+    "name": "click_outside",
+    "kind": "const",
+    "typeSignature": "const click_outside: <T extends HTMLElement>(config?: import(\"/home/scott/find-services/BitTasker/node_modules/svelte-multiselect/dist/attachments\").ClickOutsideConfig<T>) => (node: T) => () => void",
+    "description": ""
+  },
+  {
+    "name": "heading_ids",
+    "kind": "function",
+    "typeSignature": "export declare function heading_ids():",
+    "description": ""
+  },
+  {
+    "name": "heading_anchors",
+    "kind": "const",
+    "typeSignature": "const heading_anchors: (options?: import(\"/home/scott/find-services/BitTasker/node_modules/svelte-multiselect/dist/heading-anchors\").HeadingAnchorsOptions) => (node: Element) => () => void",
+    "description": ""
+  },
+  {
+    "name": "Option",
+    "kind": "type",
+    "typeSignature": "type Option = string | number | ObjectOption",
+    "description": ""
+  },
+  {
+    "name": "OptionStyle",
+    "kind": "type",
+    "typeSignature": "type OptionStyle = string | {\n    option: string;\n    selected: string;\n}",
+    "description": ""
+  },
+  {
+    "name": "ObjectOption",
+    "kind": "type",
+    "typeSignature": "type ObjectOption = {\n    label: string | number;\n    value?: unknown;\n    title?: string;\n    disabled?: boolean;\n    preselected?: boolean;\n    disabledTitle?: string;\n    selectedTitle?: string;\n    style?: OptionStyle;\n    group?: string;\n    [key: string]: unknown;\n}",
+    "description": ""
+  },
+  {
+    "name": "PlaceholderConfig",
+    "kind": "type",
+    "typeSignature": "type PlaceholderConfig = {\n    text: string;\n    persistent?: boolean;\n}",
+    "description": ""
+  },
+  {
+    "name": "LoadOptionsFn",
+    "kind": "type",
+    "typeSignature": "type LoadOptionsFn = (params: LoadOptionsParams) => Promise<LoadOptionsResult<T>>",
+    "description": ""
+  },
+  {
+    "name": "LoadOptions",
+    "kind": "type",
+    "typeSignature": "type LoadOptions = LoadOptionsFn<T> | LoadOptionsConfig<T>",
+    "description": ""
+  },
+  {
+    "name": "GroupHeaderProps",
+    "kind": "type",
+    "typeSignature": "type GroupHeaderProps = {\n    group: string;\n    options: T[];\n    collapsed: boolean;\n}",
+    "description": ""
+  },
+  {
+    "name": "GroupedOptions",
+    "kind": "type",
+    "typeSignature": "type GroupedOptions = {\n    group: string | null;\n    options: T[];\n    collapsed: boolean;\n}",
+    "description": ""
+  },
+  {
+    "name": "NavRoute",
+    "kind": "type",
+    "typeSignature": "type NavRoute = string | [string, string] | [string, string[]] | NavRouteObject",
+    "description": ""
+  },
+  {
+    "name": "get_style",
+    "kind": "function",
+    "typeSignature": "export declare function get_style(option: Option, key?: `selected` | `option` | null | undefined): string;",
+    "description": ""
+  },
+  {
+    "name": "fuzzy_match",
+    "kind": "function",
+    "typeSignature": "export declare function fuzzy_match(search_text: string, target_text: string): boolean;",
+    "description": ""
+  },
+  {
+    "name": "is_object",
+    "kind": "const",
+    "typeSignature": "const is_object: (val: unknown) => val is Record<string, unknown>",
+    "description": ""
+  },
+  {
+    "name": "has_group",
+    "kind": "const",
+    "typeSignature": "const has_group: <T extends import(\"/home/scott/find-services/BitTasker/node_modules/svelte-multiselect/dist/types\").Option>(opt: T) => opt is T & { group: string; }",
+    "description": ""
+  },
+  {
+    "name": "get_label",
+    "kind": "const",
+    "typeSignature": "const get_label: (opt: import(\"/home/scott/find-services/BitTasker/node_modules/svelte-multiselect/dist/types\").Option) => string | number",
+    "description": ""
+  },
+  {
+    "name": "get_option_key",
+    "kind": "const",
+    "typeSignature": "const get_option_key: (opt: import(\"/home/scott/find-services/BitTasker/node_modules/svelte-multiselect/dist/types\").Option) => unknown",
+    "description": ""
+  }
+]

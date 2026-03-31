@@ -4,6 +4,7 @@
 	import Drawer from '$lib/components/Drawer.svelte';
 	import ServiceTab from '$lib/components/service/ServiceTab.svelte';
 	import { getServiceDisplayTitle } from '$lib/utils/serviceDisplayTranslation';
+	import { resolveServiceTierLabel } from '$lib/utils/service-quote/tier-label';
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { formatStandardDateTimeShort } from '$lib/utils/helpers/dateFormatter';
 	import { normalizeServiceContractSchedule } from '$lib/utils/service-contract/schedule';
@@ -123,6 +124,9 @@
 		Object.entries(timeline?.request.content.inquiry.customFormResponses ?? {})
 	);
 	const latestProposal = $derived(timeline?.latestProposal ?? null);
+	const selectedTierLabel = $derived(
+		resolveServiceTierLabel(service, timeline?.request.content.tierId)
+	);
 	const normalizedSchedule = $derived.by(() =>
 		normalizeServiceContractSchedule(
 			latestProposal?.content.estimatedStartTime ?? 0,
@@ -337,12 +341,12 @@
 						{/if}
 					</div>
 
-					{#if timeline.request.content.tierId || timeline.request.content.selectedAddOns?.length || timeline.request.content.rushDelivery}
+					{#if selectedTierLabel || timeline.request.content.selectedAddOns?.length || timeline.request.content.rushDelivery}
 						<div class="flex flex-wrap gap-2 text-xs">
-							{#if timeline.request.content.tierId}
+							{#if selectedTierLabel}
 								<span class="badge badge-outline badge-sm">
 									{tr('dashboard.service_requests.selected_tier', 'Tier')}:
-									{timeline.request.content.tierId}
+									{selectedTierLabel}
 								</span>
 							{/if}
 							{#if timeline.request.content.selectedAddOns?.length}

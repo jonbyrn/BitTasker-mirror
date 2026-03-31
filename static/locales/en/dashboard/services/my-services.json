@@ -108,6 +108,24 @@
 					"proposal_expires": "Proposal Expires",
 					"scope_of_work": "Scope of work",
 					"cover_letter": "Cover Letter",
+					"composer": {
+						"scope_of_work": "Scope of work",
+						"scope_placeholder": "Describe what you will deliver.",
+						"amount_label": "Amount (USD)",
+						"start_date": "Start Date",
+						"end_date": "End Date",
+						"expiration_days": "Expiration Days",
+						"expiration_hours": "Expiration Hours",
+						"cover_letter": "Cover Letter",
+						"cover_letter_placeholder": "Optional message to the buyer.",
+						"errors": {
+							"required_description_amount": "Description and amount are required.",
+							"missing_schedule": "Start and end time are required.",
+							"invalid_schedule": "Provide valid start and end times.",
+							"end_before_start": "End time must be after start time.",
+							"submit_failed": "Unable to send the proposal right now."
+						}
+					},
 					"estimated_duration": "Estimated duration: {duration}",
 					"waiting_sync": "Waiting for the selected quote thread to finish syncing.",
 					"select_request": "Select a request to review the full inquiry and compose a proposal.",

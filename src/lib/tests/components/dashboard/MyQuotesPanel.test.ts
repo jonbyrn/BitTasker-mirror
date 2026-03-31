@@ -31,7 +31,17 @@ const {
 	findServiceByUniqueId: vi.fn().mockResolvedValue({
 		id: 'service-event-1',
 		uniqueId: 'service-unique-id',
-		title: 'Managed Migration Service'
+		npub: 'd'.repeat(64),
+		status: 'active',
+		title: 'Managed Migration Service',
+		pricing: {
+			type: 'INQUIRY_REQUIRED',
+			currency: 'USD',
+			tiers: [
+				{ id: 'premium', name: 'Premium Plan', price: 250 },
+				{ id: 'standard', name: 'Standard Plan', price: 150 }
+			]
+		}
 	}),
 	mockGetCurrentPrice: vi.fn().mockResolvedValue(50_000),
 	mockInitializeWallet: vi.fn().mockResolvedValue(undefined),
@@ -233,6 +243,7 @@ const timeline: ServiceQuoteTimelineEntry = {
 			serviceId: serviceAddress,
 			serviceAddress,
 			pricingType: ServicePricingTypeEnum.INQUIRY_REQUIRED,
+			tierId: 'premium',
 			inquiry: {
 				title: 'Need a migration',
 				description: 'Move our docs and preserve redirects.'

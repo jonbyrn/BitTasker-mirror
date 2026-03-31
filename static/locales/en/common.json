@@ -15,6 +15,7 @@
 		},
 		"location": {
 			"address": "Address",
+			"approximate_short": "Approx.",
 			"get_directions": "Get Directions",
 			"open_map": "Open Map",
 			"pickup_location": "Pickup Location",

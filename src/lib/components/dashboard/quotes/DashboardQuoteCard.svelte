@@ -5,6 +5,7 @@
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { formatStandardDateTimeShort } from '$lib/utils/helpers/dateFormatter';
 	import { parseServiceAddress } from '$lib/utils/service-quote/protocol';
+	import { resolveServiceTierLabel } from '$lib/utils/service-quote/tier-label';
 	import UserInfoDisplay from '$lib/components/user/UserInfoDisplay.svelte';
 	import IconCheckCircleOutline from '~icons/mdi/check-circle-outline';
 	import IconCloseCircleOutline from '~icons/mdi/close-circle-outline';
@@ -126,7 +127,10 @@
 	}
 
 	const selectedTierLabel = $derived(
-		timeline.latestProposal?.content.pricingSnapshot?.tierId ?? timeline.request.content.tierId
+		resolveServiceTierLabel(
+			service,
+			timeline.latestProposal?.content.pricingSnapshot?.tierId ?? timeline.request.content.tierId
+		)
 	);
 	const selectedAddOns = $derived(
 		timeline.latestProposal?.content.pricingSnapshot?.selectedAddOns ??

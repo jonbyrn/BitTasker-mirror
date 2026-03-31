@@ -18,6 +18,8 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { sendLocationsToTaskee } from '$lib/utils/location/sendLocation';
 	import { TaskTypeEnum } from '$lib/utils/enums/task.enum';
+	import { getExactTaskLocations } from '$lib/nostr/exact-location';
+	import { resolveTaskLocationEntityId } from '$lib/utils/location/entity-id';
 	import { bidStore } from '$lib/stores/bid.store';
 	import IconContentCopy from '~icons/mdi/content-copy';
 	import IconMessage from '~icons/mdi/message';
@@ -41,8 +43,9 @@
 		onCancel: () => void;
 	}>();
 
-	const bidContent = props.bid.content as unknown as NostrBidContent;
-	const taskContent = JSON.parse(props.task.content) as Task;
+	let bidContent = $derived(props.bid.content as unknown as NostrBidContent);
+	let taskContent = $derived(JSON.parse(props.task.content) as Task);
+	let taskLocationEntityId = $derived(resolveTaskLocationEntityId(props.task));
 
 	// Form state
 	let isSubmitting = $state(false);
@@ -292,18 +295,23 @@
 					const isRemote = taskContent.taskType === TaskTypeEnum.REMOTE;
 
 					// Send message asynchronously in background - don't block UI or fail on error
-					sendLocationsToTaskee(
-						taskContent.pickupLocation || null,
-						taskContent.dropOffLocation || null,
-						freelancerPubkey,
-						{
-							taskId: props.task.id,
-							taskTitle: taskContent.title,
-							taskDescription: taskContent.description,
-							isRemote,
-							additionalNotes: additionalNotes.trim() || ''
-						}
-					).catch((locationError) => {
+					void (async () => {
+						const exactLocations = taskLocationEntityId
+							? await getExactTaskLocations(taskLocationEntityId).catch(() => null)
+							: null;
+						return sendLocationsToTaskee(
+							exactLocations?.pickupLocation ?? taskContent.pickupLocation ?? null,
+							exactLocations?.dropOffLocation ?? taskContent.dropOffLocation ?? null,
+							freelancerPubkey,
+							{
+								taskId: props.task.id,
+								taskTitle: taskContent.title,
+								taskDescription: taskContent.description,
+								isRemote,
+								additionalNotes: additionalNotes.trim() || ''
+							}
+						);
+					})().catch((locationError) => {
 						// Log error but don't fail bid acceptance if location sending fails
 						console.error('Failed to send task acceptance message to taskee:', locationError);
 					});
