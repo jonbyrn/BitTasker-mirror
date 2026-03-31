@@ -1,21 +1,67 @@
 import { EscrowStatus } from '$lib/utils/escrow';
+import type { ContractStatusEvent } from '$lib/types/contract';
 
 /**
  * Status event messages configuration
  * Maps each status to its pending message, confirmed message, and success toast
  */
 interface StatusMessages {
-	pendingMessage?: string;  // Message shown during transaction (info toast)
-	confirmedMessage: string;  // Message published to Nostr
-	successToast: string;      // Success toast after confirmation
-	errorToast: string;        // Error toast if transaction fails
+	pendingMessage?: string; // Message shown during transaction (info toast)
+	confirmedMessage: string; // Message published to Nostr
+	successToast: string; // Success toast after confirmation
+	errorToast: string; // Error toast if transaction fails
+}
+
+interface ContractStatusFormatterOptions {
+	statusVariant?: 'default' | 'refund';
+	actorRole?: 'client' | 'freelancer' | 'unknown';
+}
+
+function isRefundMessagingContext(
+	status: EscrowStatus,
+	options?: ContractStatusFormatterOptions
+): boolean {
+	if (status !== EscrowStatus.PendingCancellation && status !== EscrowStatus.Cancelled) {
+		return false;
+	}
+
+	return options?.statusVariant === 'refund' || options?.actorRole === 'freelancer';
+}
+
+export function getCancellationStatusVariant(
+	status: EscrowStatus,
+	statusEvents: ContractStatusEvent[],
+	clientPubkey: string
+): 'default' | 'refund' {
+	if (status !== EscrowStatus.PendingCancellation && status !== EscrowStatus.Cancelled) {
+		return 'default';
+	}
+
+	const latestCancellationEvent = [...statusEvents]
+		.reverse()
+		.find(
+			(event) =>
+				event.content.action === EscrowStatus.PendingCancellation ||
+				event.content.action === EscrowStatus.Cancelled
+		);
+
+	if (!latestCancellationEvent) {
+		return 'default';
+	}
+
+	return latestCancellationEvent.pubkey?.toLowerCase() === clientPubkey.toLowerCase()
+		? 'default'
+		: 'refund';
 }
 
 /**
  * Get messages for a given escrow status
  * Returns translation keys for pending, confirmed, success, and error states
  */
-export function getStatusMessages(status: EscrowStatus): StatusMessages {
+export function getStatusMessages(
+	status: EscrowStatus,
+	options?: ContractStatusFormatterOptions
+): StatusMessages {
 	switch (status) {
 		// Task Completion Flow
 		case EscrowStatus.PendingCompletion:
@@ -94,6 +140,14 @@ export function getStatusMessages(status: EscrowStatus): StatusMessages {
 
 		// Cancellation Flow
 		case EscrowStatus.PendingCancellation:
+			if (isRefundMessagingContext(status, options)) {
+				return {
+					pendingMessage: 'dashboard.contracts.actions.payment_refunding_message',
+					confirmedMessage: 'dashboard.contracts.actions.payment_refunded_message',
+					successToast: 'dashboard.contracts.actions.payment_refunded_success',
+					errorToast: 'dashboard.contracts.actions.refund_tasker_error'
+				};
+			}
 			return {
 				pendingMessage: 'dashboard.contracts.actions.escrow_cancelling_message',
 				confirmedMessage: 'dashboard.contracts.actions.escrow_cancelled_message',
@@ -101,6 +155,13 @@ export function getStatusMessages(status: EscrowStatus): StatusMessages {
 				errorToast: 'dashboard.contracts.actions.escrow_cancelled_error'
 			};
 		case EscrowStatus.Cancelled:
+			if (isRefundMessagingContext(status, options)) {
+				return {
+					confirmedMessage: 'dashboard.contracts.actions.payment_refunded_message',
+					successToast: 'dashboard.contracts.actions.payment_refunded_success',
+					errorToast: 'dashboard.contracts.actions.refund_tasker_error'
+				};
+			}
 			return {
 				confirmedMessage: 'dashboard.contracts.actions.escrow_cancelled_message',
 				successToast: 'dashboard.contracts.actions.escrow_cancelled_success',
@@ -135,7 +196,10 @@ export function getStatusMessages(status: EscrowStatus): StatusMessages {
  * Get translation key for contract status
  * Maps EscrowStatus enum values to translation keys
  */
-export function getStatusTranslationKey(status: EscrowStatus): string {
+export function getStatusTranslationKey(
+	status: EscrowStatus,
+	options?: ContractStatusFormatterOptions
+): string {
 	switch (status) {
 		// Blockchain states (0-5)
 		case EscrowStatus.Funded:
@@ -149,7 +213,9 @@ export function getStatusTranslationKey(status: EscrowStatus): string {
 		case EscrowStatus.Completed:
 			return 'dashboard.contracts.status.completed';
 		case EscrowStatus.Cancelled:
-			return 'dashboard.contracts.status.cancelled';
+			return isRefundMessagingContext(status, options)
+				? 'dashboard.contracts.status.refunded'
+				: 'dashboard.contracts.status.cancelled';
 
 		// Nostr states (6+) - Pending & Custom
 		case EscrowStatus.PendingFunding:
@@ -159,7 +225,9 @@ export function getStatusTranslationKey(status: EscrowStatus): string {
 		case EscrowStatus.PendingCompletion:
 			return 'dashboard.contracts.status.pending_completion';
 		case EscrowStatus.PendingCancellation:
-			return 'dashboard.contracts.status.pending_cancellation';
+			return isRefundMessagingContext(status, options)
+				? 'dashboard.contracts.status.pending_refund'
+				: 'dashboard.contracts.status.pending_cancellation';
 		case EscrowStatus.FundsReleased:
 			return 'dashboard.contracts.status.funds_released';
 		case EscrowStatus.PendingAcceptance:
@@ -225,7 +293,10 @@ export function getStatusColorClass(status: EscrowStatus): string {
 /**
  * Get action description for contract status
  */
-export function getActionDescription(action: EscrowStatus): string {
+export function getActionDescription(
+	action: EscrowStatus,
+	options?: ContractStatusFormatterOptions
+): string {
 	// Map enum values to translation keys
 	switch (action) {
 		case EscrowStatus.Completed:
@@ -245,9 +316,13 @@ export function getActionDescription(action: EscrowStatus): string {
 		case EscrowStatus.DisputeResolved:
 			return 'dashboard.contracts.status.proposal_accepted';
 		case EscrowStatus.Cancelled:
-			return 'dashboard.contracts.status.escrow_cancelled';
+			return isRefundMessagingContext(action, options)
+				? 'dashboard.contracts.status.payment_refunded'
+				: 'dashboard.contracts.status.escrow_cancelled';
 		case EscrowStatus.PendingCancellation:
-			return 'dashboard.contracts.status.pending_cancellation';
+			return isRefundMessagingContext(action, options)
+				? 'dashboard.contracts.status.pending_refund'
+				: 'dashboard.contracts.status.pending_cancellation';
 		case EscrowStatus.DisputeUnresolved:
 			return 'dashboard.contracts.status.timelock_resolved';
 		case EscrowStatus.PendingResolutionProposal:

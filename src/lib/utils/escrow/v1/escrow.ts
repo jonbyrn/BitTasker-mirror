@@ -725,6 +725,91 @@ async function cancelEscrow(
 	}
 }
 
+async function publishRefundStatusSafely(params: {
+	escrowId: string;
+	contractEventId: string;
+	transactionHash: string;
+	status: EscrowStatus;
+	statusMessagingVariant?: 'default' | 'refund';
+}): Promise<void> {
+	try {
+		await EscrowNostrEvent.publishEscrowStatus(params);
+	} catch (error) {
+		console.error('Failed to publish refund status to Nostr:', error, params);
+	}
+}
+
+// Refund client
+async function refundClient(
+	escrowId: string,
+	contractEventId?: string
+): Promise<ContractTransactionResult> {
+	try {
+		const { contract, provider } = await ensureEscrowReady();
+
+		const feeData = await provider.getFeeData();
+		const gasPrice = feeData.gasPrice || BigInt(0);
+
+		const gasEstimate = await contract.refundClient.estimateGas(escrowId, {
+			gasPrice: gasPrice
+		});
+		const tx = await contract.refundClient(escrowId, {
+			gasLimit: gasEstimate + gasEstimate / 10n,
+			gasPrice: gasPrice
+		});
+
+		const result: ContractTransactionResult = {
+			hash: tx.hash,
+			escrowId,
+			status: 'pending'
+		};
+
+		if (contractEventId) {
+			await publishRefundStatusSafely({
+				escrowId,
+				contractEventId,
+				transactionHash: tx.hash,
+				status: EscrowStatus.PendingCancellation,
+				statusMessagingVariant: 'refund'
+			});
+		}
+
+		tx.wait()
+			.then(async (receipt: ethers.TransactionReceipt | null) => {
+				if (receipt) {
+					result.status = 'confirmed';
+					result.gasUsed = receipt.gasUsed.toString();
+					console.log('Client refund transaction confirmed:', receipt);
+
+					if (contractEventId) {
+						await publishRefundStatusSafely({
+							escrowId,
+							contractEventId,
+							transactionHash: receipt.hash,
+							status: EscrowStatus.Cancelled,
+							statusMessagingVariant: 'refund'
+						});
+					}
+				} else {
+					result.status = 'failed';
+					console.error('Client refund transaction receipt is null');
+					appStore.showErrorToast(get(t)('dashboard.contracts.actions.refund_tasker_error'));
+				}
+			})
+			.catch((error: unknown) => {
+				console.error('Client refund transaction failed:', error);
+				result.status = 'failed';
+				appStore.showErrorToast(get(t)('dashboard.contracts.actions.refund_tasker_error'));
+			});
+
+		return result;
+	} catch (error) {
+		throw new Error(
+			`Failed to refund client: ${error instanceof Error ? error.message : 'Unknown error'}`
+		);
+	}
+}
+
 // Dispute task
 async function disputeTask(
 	escrowId: string,
@@ -1215,6 +1300,7 @@ export const escrow = {
 	completeTask,
 	acceptTask,
 	cancelEscrow,
+	refundClient,
 	disputeTask,
 	proposeResolution,
 	acceptProposal,

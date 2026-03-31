@@ -9,6 +9,7 @@
 				"counter_proposal": "Counter Proposal",
 				"accept_proposal": "Accept Proposal",
 				"cancel_contract": "Cancel Contract",
+				"refund_tasker": "Refund Tasker",
 				"resolve_timelock": "Claim Funds",
 				"delete_contract": "Delete Contract",
 				"proposal_counter": "Your proposals: {count}/2",
@@ -22,6 +23,7 @@
 				"resolution_proposed_error": "Error proposing resolution",
 				"proposal_accepted_error": "Error accepting proposal",
 				"escrow_cancelled_error": "Error cancelling secure payment contract",
+				"refund_tasker_error": "Error refunding tasker",
 				"timelock_resolved_error": "Error resolving timelock",
 				"delete_contract_success": "Contract deleted successfully",
 				"delete_contract_error": "Error deleting contract",
@@ -58,13 +60,22 @@
 				"dispute_raising_pending": "Dispute is already being raised. Please wait for the transaction to confirm.",
 				"contract_already_cancelled": "This contract has already been cancelled.",
 				"contract_cancellation_pending": "Contract cancellation is already in progress. Please wait for the transaction to confirm.",
+				"contract_refund_pending": "Contract refund is already in progress. Please wait for the transaction to confirm.",
 				"cancel_contract_confirm_title": "Cancel Contract",
 				"cancel_contract_confirm_message": "Are you sure you want to cancel this contract? This will cancel the secure payment contract and refund all funds. Warning: This action cannot be undone.",
+				"refund_tasker_confirm_title": "Refund Tasker",
+				"refund_tasker_confirm_message": "Are you sure you want to refund this contract? This will return all funds to the tasker. Warning: This action cannot be undone.",
+				"refund_tasker_unavailable": "This contract cannot be refunded at this time.",
 				"cancel_time_restriction": "This contract cannot be cancelled at this time.",
 				"cancel_time_restriction_too_close": "This contract cannot be cancelled because it is less than 24 hours before the estimated start time and the grace period has expired.",
 				"cancel_time_restriction_grace_period_expired": "This contract cannot be cancelled because it is less than 24 hours before the estimated start time and more than 1 hour has passed since contract creation.",
+				"payment_refunding_message": "Refund in progress... Once confirmed, all funds will be returned to the tasker.",
+				"payment_refunded_message": "Payment has been refunded to the tasker",
+				"payment_refunded_success": "Tasker refunded successfully!",
 				"notification_payment_released_title": "Payment Released",
-				"notification_payment_released_body": "Payment has been released for task {taskTitle}"
+				"notification_payment_released_body": "Payment has been released for task {taskTitle}",
+				"notification_payment_refunded_title": "Payment Refunded",
+				"notification_payment_refunded_body": "Payment has been refunded for task {taskTitle}"
 			}
 		}
 	}
