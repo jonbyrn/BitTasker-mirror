@@ -1,7 +1,13 @@
 /**
- * Google Translate API service with comprehensive safeguards
- * Only supports English and Spanish translation
+ * Translation service that proxies requests through the backend API.
+ * The backend holds the Google Translate API key — never the client.
+ * Only supports English and Spanish translation.
  */
+
+import { BaseApiService } from '$lib/api/apiService';
+import { ENDPOINTS } from '$lib/api/endpoints';
+import { Preferences } from '@capacitor/preferences';
+import { StorageKeys } from '$lib/utils/constants/storage';
 
 export interface TranslationResult {
 	translatedText: string;
@@ -21,68 +27,44 @@ interface CachedTranslation {
 	timestamp: number;
 }
 
-export class TranslationService {
-	private apiKey: string;
-	private baseUrl = 'https://translation.googleapis.com/language/translate/v2';
+interface BackendTranslateResponse {
+	translations: string[];
+}
+
+export class TranslationService extends BaseApiService {
 	private cache = new Map<string, CachedTranslation>();
 	private readonly CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours
-	private readonly RATE_LIMIT_DELAY = 1000; // 1 second between calls
+	private readonly RATE_LIMIT_DELAY = 500; // 500ms between calls
 	private lastApiCall = 0;
 	private pendingTranslations = new Set<string>();
 	private readonly SUPPORTED_LANGUAGES = ['en', 'es'] as const;
+	private cacheLoaded = false;
 
 	constructor() {
-		this.apiKey = import.meta.env.VITE_GOOGLE_TRANSLATE_API_KEY;
-		if (!this.apiKey) {
-			console.warn('Google Translate API key not found. Translation features will be disabled.');
-		}
+		super();
 		this.loadCacheFromStorage();
 	}
 
-	/**
-	 * Check if translation service is available
-	 */
-	isAvailable(): boolean {
-		return !!this.apiKey;
-	}
-
-	/**
-	 * Validate language code - only English and Spanish supported
-	 */
 	private validateLanguage(language: string): boolean {
 		return this.SUPPORTED_LANGUAGES.includes(language as (typeof this.SUPPORTED_LANGUAGES)[number]);
 	}
 
 	/**
-	 * Detect the language of the given text
+	 * Detect language by translating a short sample to 'en'.
+	 * If the translation matches the original, it's already English; otherwise Spanish.
 	 */
 	async detectLanguage(text: string): Promise<string | null> {
-		if (!this.isAvailable() || !text.trim()) {
-			return null;
-		}
+		if (!text.trim()) return null;
 
 		try {
 			await this.rateLimit();
 
-			const response = await fetch(`${this.baseUrl}/detect?key=${this.apiKey}`, {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json'
-				},
-				body: JSON.stringify({
-					q: text
-				})
-			});
+			const sample = text.slice(0, 200);
+			const response = await this.translateViaBackend([sample], 'en');
+			const translated = response.translations?.[0];
 
-			if (!response.ok) {
-				throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-			}
-
-			const data = await response.json();
-			const detectedLang = data.data?.detections?.[0]?.[0]?.language || null;
-
-			// Only return if it's a supported language
-			return this.validateLanguage(detectedLang) ? detectedLang : null;
+			if (!translated) return null;
+			return translated === sample ? 'en' : 'es';
 		} catch (error) {
 			console.error('Error detecting language:', error);
 			return null;
@@ -97,14 +79,8 @@ export class TranslationService {
 		targetLanguage: string,
 		sourceLanguage?: string
 	): Promise<(TranslationResult | TranslationError)[]> {
-		if (!this.isAvailable() || texts.length === 0) {
-			return texts.map(() => ({
-				code: 'NO_API_KEY',
-				message: 'Translation service not available'
-			}));
-		}
+		if (texts.length === 0) return [];
 
-		// Validate language codes
 		if (!this.validateLanguage(targetLanguage)) {
 			return texts.map(() => ({
 				code: 'UNSUPPORTED_LANGUAGE',
@@ -118,220 +94,128 @@ export class TranslationService {
 			}));
 		}
 
-		// Filter out empty texts
-		const validTexts = texts.filter((t) => t.trim());
-		if (validTexts.length === 0) {
-			return texts.map(() => ({
-				code: 'EMPTY_TEXT',
-				message: 'Empty text'
-			}));
+		const results: (TranslationResult | TranslationError)[] = new Array(texts.length);
+		const uncachedIndices: number[] = [];
+		const uncachedTexts: string[] = [];
+
+		for (let i = 0; i < texts.length; i++) {
+			if (!texts[i].trim()) {
+				results[i] = { code: 'EMPTY_TEXT', message: 'Empty text' };
+				continue;
+			}
+
+			const cacheKey = this.buildCacheKey(texts[i], targetLanguage, sourceLanguage);
+			const cached = this.cache.get(cacheKey);
+			if (cached && this.isCacheValid(cached)) {
+				results[i] = cached.result;
+			} else {
+				uncachedIndices.push(i);
+				uncachedTexts.push(texts[i]);
+			}
 		}
 
+		if (uncachedTexts.length === 0) return results;
+
 		try {
-			// Apply rate limiting
 			await this.rateLimit();
 
-			const requestBody: {
-				q: string[];
-				target: string;
-				format: string;
-				source?: string;
-			} = {
-				q: validTexts,
-				target: targetLanguage,
-				format: 'text'
-			};
+			const response = await this.translateViaBackend(
+				uncachedTexts,
+				targetLanguage,
+				sourceLanguage
+			);
+			const translations = response.translations;
 
-			if (sourceLanguage) {
-				requestBody.source = sourceLanguage;
-			}
+			for (let j = 0; j < uncachedTexts.length; j++) {
+				const originalIndex = uncachedIndices[j];
+				const translatedText = translations[j];
 
-			// Add timeout to prevent hanging requests
-			const controller = new AbortController();
-			const timeoutId = setTimeout(() => {
-				controller.abort();
-			}, 30000); // 30 second timeout
-
-			const response = await fetch(`${this.baseUrl}?key=${this.apiKey}`, {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json'
-				},
-				body: JSON.stringify(requestBody),
-				signal: controller.signal
-			});
-
-			clearTimeout(timeoutId);
-
-			if (!response.ok) {
-				const errorData = await response.json().catch(() => ({}));
-				throw new Error(
-					errorData.error?.message || `HTTP ${response.status}: ${response.statusText}`
-				);
-			}
-
-			const data = await response.json();
-			const translations = data.data?.translations || [];
-
-			// Map results back to original texts array (including empty ones)
-			let validIndex = 0;
-			return texts.map((text) => {
-				if (!text.trim()) {
-					return {
-						code: 'EMPTY_TEXT',
-						message: 'Empty text'
-					};
-				}
-
-				const translation = translations[validIndex++];
-				if (!translation) {
-					return {
+				if (translatedText === undefined || translatedText === null) {
+					results[originalIndex] = {
 						code: 'TRANSLATION_ERROR',
 						message: 'No translation returned from API'
 					};
+					continue;
 				}
 
 				const result: TranslationResult = {
-					translatedText: translation.translatedText,
-					detectedSourceLanguage: translation.detectedSourceLanguage,
-					originalText: text,
+					translatedText,
+					detectedSourceLanguage:
+						sourceLanguage || (translatedText === uncachedTexts[j] ? targetLanguage : undefined),
+					originalText: uncachedTexts[j],
 					targetLanguage
 				};
 
-				// Cache the result
-				const cacheKey = `${text}-${targetLanguage}-${sourceLanguage || 'auto'}`;
-				this.cache.set(cacheKey, {
+				this.cache.set(this.buildCacheKey(uncachedTexts[j], targetLanguage, sourceLanguage), {
 					result,
 					timestamp: Date.now()
 				});
-
-				return result;
-			});
+				results[originalIndex] = result;
+			}
 		} catch (error) {
-			return texts.map(() => ({
-				code: 'TRANSLATION_ERROR',
-				message: error instanceof Error ? error.message : 'Unknown translation error',
-				details: error
-			}));
+			for (const idx of uncachedIndices) {
+				if (!results[idx]) {
+					results[idx] = {
+						code: 'TRANSLATION_ERROR',
+						message: error instanceof Error ? error.message : 'Unknown translation error',
+						details: error
+					};
+				}
+			}
 		} finally {
-			// Save cache to localStorage
 			this.saveCacheToStorage();
 		}
+
+		return results;
 	}
 
-	/**
-	 * Translate text from source language to target language
-	 */
 	async translate(
 		text: string,
 		targetLanguage: string,
 		sourceLanguage?: string
 	): Promise<TranslationResult | TranslationError> {
-		if (!this.isAvailable() || !text.trim()) {
-			return {
-				code: 'NO_API_KEY',
-				message: 'Translation service not available'
-			};
+		if (!text.trim()) {
+			return { code: 'EMPTY_TEXT', message: 'Empty text' };
 		}
 
-		// Validate language codes
 		if (!this.validateLanguage(targetLanguage)) {
-			return {
-				code: 'UNSUPPORTED_LANGUAGE',
-				message: 'Only English and Spanish are supported'
-			};
+			return { code: 'UNSUPPORTED_LANGUAGE', message: 'Only English and Spanish are supported' };
 		}
 		if (sourceLanguage && !this.validateLanguage(sourceLanguage)) {
-			return {
-				code: 'UNSUPPORTED_LANGUAGE',
-				message: 'Only English and Spanish are supported'
-			};
+			return { code: 'UNSUPPORTED_LANGUAGE', message: 'Only English and Spanish are supported' };
 		}
 
-		// Create cache key
-		const cacheKey = `${text}-${targetLanguage}-${sourceLanguage || 'auto'}`;
+		const cacheKey = this.buildCacheKey(text, targetLanguage, sourceLanguage);
 
-		// Check if translation is already pending
 		if (this.pendingTranslations.has(cacheKey)) {
-			return {
-				code: 'PENDING',
-				message: 'Translation already in progress'
-			};
+			return { code: 'PENDING', message: 'Translation already in progress' };
 		}
 
-		// Check cache first
 		const cached = this.cache.get(cacheKey);
 		if (cached && this.isCacheValid(cached)) {
 			return cached.result;
 		}
 
-		// Add to pending translations
 		this.pendingTranslations.add(cacheKey);
 
 		try {
-			// Apply rate limiting
 			await this.rateLimit();
 
-			const requestBody: {
-				q: string;
-				target: string;
-				format: string;
-				source?: string;
-			} = {
-				q: text,
-				target: targetLanguage,
-				format: 'text'
-			};
+			const response = await this.translateViaBackend([text], targetLanguage, sourceLanguage);
+			const translatedText = response.translations?.[0];
 
-			if (sourceLanguage) {
-				requestBody.source = sourceLanguage;
-			}
-
-			// Add timeout to prevent hanging requests
-			const controller = new AbortController();
-			const timeoutId = setTimeout(() => {
-				controller.abort();
-			}, 30000); // 30 second timeout
-
-			const response = await fetch(`${this.baseUrl}?key=${this.apiKey}`, {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json'
-				},
-				body: JSON.stringify(requestBody),
-				signal: controller.signal
-			});
-
-			clearTimeout(timeoutId);
-
-			if (!response.ok) {
-				const errorData = await response.json().catch(() => ({}));
-				throw new Error(
-					errorData.error?.message || `HTTP ${response.status}: ${response.statusText}`
-				);
-			}
-
-			const data = await response.json();
-			const translation = data.data?.translations?.[0];
-
-			if (!translation) {
+			if (translatedText === undefined || translatedText === null) {
 				throw new Error('No translation returned from API');
 			}
 
 			const result: TranslationResult = {
-				translatedText: translation.translatedText,
-				detectedSourceLanguage: translation.detectedSourceLanguage,
+				translatedText,
+				detectedSourceLanguage: sourceLanguage || undefined,
 				originalText: text,
 				targetLanguage
 			};
 
-			// Cache the result with timestamp
-			this.cache.set(cacheKey, {
-				result,
-				timestamp: Date.now()
-			});
-
-			// Save cache to localStorage
+			this.cache.set(cacheKey, { result, timestamp: Date.now() });
 			this.saveCacheToStorage();
 
 			return result;
@@ -342,45 +226,59 @@ export class TranslationService {
 				details: error
 			};
 		} finally {
-			// Remove from pending translations
 			this.pendingTranslations.delete(cacheKey);
 		}
 	}
 
-	/**
-	 * Check if a cached translation is still valid
-	 */
-	private isCacheValid(cached: CachedTranslation): boolean {
-		const now = Date.now();
-		return now - cached.timestamp < this.CACHE_DURATION;
+	clearCache(): void {
+		this.cache.clear();
+		this.pendingTranslations.clear();
+		Preferences.remove({ key: StorageKeys.TRANSLATION_CACHE });
 	}
 
-	/**
-	 * Load cache from localStorage
-	 */
-	private loadCacheFromStorage(): void {
-		if (typeof window === 'undefined') return;
+	// -- Private helpers --
+
+	private async translateViaBackend(
+		texts: string[],
+		targetLanguage: string,
+		sourceLanguage?: string
+	): Promise<BackendTranslateResponse> {
+		console.log('translateViaBackend', texts, targetLanguage, sourceLanguage);
+		const response = await this.post<BackendTranslateResponse>(ENDPOINTS.TRANSLATION.TRANSLATE, {
+			texts,
+			targetLanguage,
+			...(sourceLanguage && { sourceLanguage })
+		});
+		console.log('response', response);
+		return response.data;
+	}
+
+	private buildCacheKey(text: string, targetLang: string, sourceLang?: string): string {
+		return `${text}-${targetLang}-${sourceLang || 'auto'}`;
+	}
+
+	private isCacheValid(cached: CachedTranslation): boolean {
+		return Date.now() - cached.timestamp < this.CACHE_DURATION;
+	}
+
+	private async loadCacheFromStorage(): Promise<void> {
+		if (this.cacheLoaded) return;
+		this.cacheLoaded = true;
 
 		try {
-			const stored = localStorage.getItem('translation_cache');
-			if (stored) {
-				const parsed = JSON.parse(stored);
-				this.cache = new Map(parsed);
+			const { value } = await Preferences.get({ key: StorageKeys.TRANSLATION_CACHE });
+			if (value) {
+				this.cache = new Map(JSON.parse(value));
 			}
 		} catch (error) {
 			console.error('Failed to load translation cache:', error);
 		}
 	}
 
-	/**
-	 * Save cache to localStorage
-	 */
-	private saveCacheToStorage(): void {
-		if (typeof window === 'undefined') return;
-
+	private async saveCacheToStorage(): Promise<void> {
 		try {
-			const serialized = Array.from(this.cache.entries());
-			localStorage.setItem('translation_cache', JSON.stringify(serialized));
+			const serialized = JSON.stringify(Array.from(this.cache.entries()));
+			await Preferences.set({ key: StorageKeys.TRANSLATION_CACHE, value: serialized });
 		} catch (error) {
 			console.error('Failed to save translation cache:', error);
 		}
@@ -401,43 +299,6 @@ export class TranslationService {
 
 		this.lastApiCall = Date.now();
 	}
-
-	/**
-	 * Clear the translation cache
-	 */
-	clearCache(): void {
-		this.cache.clear();
-		this.pendingTranslations.clear();
-		if (typeof window !== 'undefined') {
-			localStorage.removeItem('translation_cache');
-		}
-	}
-
-	/**
-	 * Get supported languages - only English and Spanish
-	 */
-	getSupportedLanguages(): string[] {
-		return [...this.SUPPORTED_LANGUAGES];
-	}
-
-	/**
-	 * Check if two languages are the same
-	 */
-	isSameLanguage(lang1: string, lang2: string): boolean {
-		const normalize = (lang: string) => lang.split('-')[0].toLowerCase();
-		return normalize(lang1) === normalize(lang2);
-	}
-
-	/**
-	 * Get cache statistics
-	 */
-	getCacheStats(): { size: number; hitRate: number } {
-		return {
-			size: this.cache.size,
-			hitRate: 0 // Would need to track hits/misses for accurate rate
-		};
-	}
 }
 
-// Export singleton instance
 export const translationService = new TranslationService();
