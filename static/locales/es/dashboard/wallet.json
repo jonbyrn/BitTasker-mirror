@@ -320,7 +320,6 @@
 			},
 			"coming_soon": "Próximamente",
 			"usd_not_available": "La funcionalidad de envío de USD aún no está disponible.",
-			"network_not_available": "Esta red aún no está disponible para enviar.",
 			"address_placeholder": {
 				"lightning": "Factura Lightning o dirección Lightning",
 				"liquid_bitcoin": "Dirección Liquid",

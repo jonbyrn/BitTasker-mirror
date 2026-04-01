@@ -144,22 +144,6 @@
 	// Track if user is at bottom for scroll-to-bottom button
 	let isAtBottom = $state(true);
 
-	// Preload translations for current conversation
-	// Only run once when messages are first loaded, not on every change
-	let lastPreloadedMessageIds = $state<string[]>([]);
-	$effect(() => {
-		if (messages.length > 0) {
-			const messageIds = messages.map((msg) => msg.event.id);
-			// Only preload if message IDs have changed
-			const idsString = messageIds.sort().join(',');
-			const lastIdsString = lastPreloadedMessageIds.sort().join(',');
-			if (idsString !== lastIdsString) {
-				lastPreloadedMessageIds = messageIds;
-				TranslationStore.preloadConversationTranslations(messageIds);
-			}
-		}
-	});
-
 	// Track previous recipient to avoid unnecessary reloads
 	let previousRecipient = $state<string | null>(null);
 

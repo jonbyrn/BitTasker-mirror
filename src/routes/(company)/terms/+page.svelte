@@ -144,6 +144,7 @@
 				<li>{$t('terms.ugc.objectionable6')}</li>
 				<li>{$t('terms.ugc.objectionable7')}</li>
 				<li>{$t('terms.ugc.objectionable8')}</li>
+				<li>{$t('terms.ugc.objectionable9')}</li>
 			</ul>
 		</div>
 
