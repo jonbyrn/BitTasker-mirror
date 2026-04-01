@@ -11,11 +11,19 @@
 	import { formatConvertedAmount } from '$lib/utils/helpers/currencyFormatter';
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
 	import { PaymentContractRune } from '$lib/runes/contractRune.svelte';
+	import { ContractStatus } from '$lib/utils/contract/types';
 
 	const { contract }: { contract: NDKPaymentContract } = $props();
 
-	const contractRune = new PaymentContractRune(contract);
-	contractRune.start();
+	let contractRune = $state<PaymentContractRune | null>(null);
+	$effect(() => {
+		const rune = new PaymentContractRune(contract);
+		contractRune = rune;
+		void rune.start();
+		return () => {
+			rune.statusSub?.stop();
+		};
+	});
 
 	// $inspect(contractRune.blockchainData, 'contractRune');
 	// $inspect(contractRune.statusEvents, 'statusEvents');
@@ -69,8 +77,15 @@
 					{/if}
 				</div>
 				<!-- Bottom row: Status badge (with min gap from top badges) -->
-				<div class="badge {getStatusColorClass(contractRune.displayStatus)} badge-sm mt-2">
-					{$t(getStatusTranslationKey(contractRune.displayStatus))}
+				<div
+					class="badge {getStatusColorClass(
+						contractRune?.displayStatus ?? ContractStatus.Funded
+					)} badge-sm mt-2"
+				>
+					{#if contractRune?.isPending}
+						<span class="loading loading-spinner loading-xs mr-1"></span>
+					{/if}
+					{$t(getStatusTranslationKey(contractRune?.displayStatus ?? ContractStatus.Funded))}
 				</div>
 			</div>
 		</div>

@@ -39,7 +39,6 @@ export async function getWallet(chain: ContractChain = 'rsk'): Promise<ethers.Wa
 		d.error('getWallet: missing address', err);
 		throw err;
 	}
-	d.log('getWallet: ok', { chain, address: wallet.address });
 	return wallet;
 }
 
@@ -58,7 +57,6 @@ export async function getProvider(chain: ContractChain = 'rsk'): Promise<ethers.
 		d.error('getProvider: failed after initialize', err);
 		throw err;
 	}
-	d.log('getProvider: ok', { chain });
 	return provider;
 }
 

@@ -350,12 +350,12 @@ export async function createPaymentContract(
 /**
  * Read `paymentId` from mined tx logs (authoritative — not from staticCall).
  */
-function parsePaymentContractCreatedPaymentId(
+export function parsePaymentContractCreatedPaymentId(
 	receipt: ethers.TransactionReceipt,
-	v2ContractAddress: string
+	contractAddress: string
 ): number {
 	const iface = new ethers.Interface(abi as ethers.InterfaceAbi);
-	const expected = v2ContractAddress.toLowerCase();
+	const expected = contractAddress.toLowerCase();
 	for (const log of receipt.logs) {
 		if (!log.address || log.address.toLowerCase() !== expected) continue;
 		try {
