@@ -55,11 +55,16 @@ export type GasEstimateResult =
 	  }
 	| { success: false; error: string };
 
-/** Result of {@link createPaymentContract} — tx is pending until mined; does not call `tx.wait()`. */
-export interface CreatePaymentContractTxResult {
+/**
+ * Standard return for blockchain-only writes (estimateGas, staticCall, broadcast; no `tx.wait()`).
+ */
+export interface WriteTxResult {
 	tx: ContractTransactionResponse;
 	estimatedCostFormatted: string;
 }
+
+/** Same shape as {@link WriteTxResult} — kept for existing imports. */
+export type CreatePaymentContractTxResult = WriteTxResult;
 
 /** One failed task from {@link runParallelNamed} (in `$lib/utils/contract/parallelEffects`). */
 export interface ParallelEffectFailure {

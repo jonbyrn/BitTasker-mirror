@@ -5,6 +5,15 @@ import type { ContractChain, SecurePaymentLegacy } from '../types';
 import { initContract } from '../index';
 import contractAbi from './abi.json';
 
+export {
+	createPaymentContract,
+	estimateWrite,
+	executeWrite,
+	type ExecuteWriteOptions
+} from './blockchainWrites';
+export { getSecurePaymentContractAddress } from './contractAddress';
+export type { WriteTxResult } from './types';
+
 const d = createDebug('contract:v2');
 
 type V2PaymentContractRaw = {

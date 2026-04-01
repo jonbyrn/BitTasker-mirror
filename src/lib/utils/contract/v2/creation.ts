@@ -11,16 +11,15 @@ import type { NostrBidContent } from '$lib/types/bid';
 import { FEE_TIERS } from '@bittasker/wallet-core';
 import { ethers } from 'ethers';
 import { parseDateWithLocalTime } from '$lib/utils/helpers/dateFormatter';
-import { normalizeRskAddress } from '@bittasker/wallet-core';
 import { createDebug } from '$lib/utils/debug';
 import {
 	GAS_REIMBURSEMENT_PER_OP,
 	type CreatePaymentContractParams,
-	type CreatePaymentContractTxResult,
 	type GasEstimateResult,
 	type ContractCreationResult,
 	type ContractCreationDisplay
 } from '$lib/utils/contract/v2/types';
+import { assertValidCreatePaymentContractParams } from './createPaymentContractParams';
 import { runParallelNamed } from '../parallelEffects';
 import { NDKPaymentContract } from '$lib/nostr/events/contract';
 import { ndk } from '$lib/nostr/ndk';
@@ -30,23 +29,15 @@ import type { NDKTask } from '$lib/nostr/events/task';
 import { sendLocationsToTaskee } from '$lib/utils/location/sendLocation';
 import { pushNotificationService } from '$lib/api/services/push-notification.service';
 import { TaskStatusEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
-import { initContract } from '..';
+import { createPaymentContract, estimateWrite } from './blockchainWrites';
+import { getSecurePaymentContractAddress } from './contractAddress';
 
 const d = createDebug('contract:v2');
 
 /** Default fee tier (tier 1 = 2.5%) — maps to v1 clientFeeTier/freelancerFeeTier */
 const DEFAULT_FEE_TIER = 1;
 
-/** Thrown when {@link deriveContractCreationParams} collects one or more validation failures. */
-export class ContractCreationParamsError extends Error {
-	readonly errors: string[];
-
-	constructor(errors: string[]) {
-		super(`Validation failed: ${errors.join(', ')}`);
-		this.name = 'ContractCreationParamsError';
-		this.errors = errors;
-	}
-}
+export { ContractCreationParamsError } from './createPaymentContractParams';
 
 function assertValidDerivationInputs(bidContent: NostrBidContent, btcPrice: number): void {
 	if (!Number.isFinite(bidContent.amount) || bidContent.amount <= 0) {
@@ -58,40 +49,6 @@ function assertValidDerivationInputs(bidContent: NostrBidContent, btcPrice: numb
 	const taskee = bidContent.bidderWalletAddress || '';
 	if (!taskee) {
 		throw new Error('Bid must include bidder wallet address');
-	}
-}
-
-function assertValidCreatePaymentContractParams(params: CreatePaymentContractParams): void {
-	const errors: string[] = [];
-
-	try {
-		normalizeRskAddress(params.taskee);
-	} catch {
-		errors.push('Invalid taskee address format');
-	}
-
-	if (!params.taskee || params.taskee === ethers.ZeroAddress) {
-		errors.push('Taskee address is required');
-	}
-
-	if (params.totalValueWei <= 0n) {
-		errors.push('Total value must be positive');
-	}
-
-	const now = Math.floor(Date.now() / 1000);
-	if (params.estimatedStartTime <= now) {
-		errors.push('Estimated start time must be in the future');
-	}
-	if (params.estimatedCompletionTime <= params.estimatedStartTime) {
-		errors.push('Completion time must be after start time');
-	}
-
-	if (params.taskerFeeTier < 0 || params.taskeeFeeTier < 0) {
-		errors.push('Invalid fee tier');
-	}
-
-	if (errors.length > 0) {
-		throw new ContractCreationParamsError(errors);
 	}
 }
 
@@ -199,72 +156,27 @@ export function deriveContractCreationParams(
 }
 
 /**
- * Get v2 contract address from env
- */
-function getContractAddress(): string {
-	const network = import.meta.env.VITE_RSK_NETWORK || 'testnet';
-	const address =
-		network === 'mainnet'
-			? ethers.getAddress(import.meta.env.VITE_RSK_CONTRACT_ADDRESS_V2_MAINNET).toLowerCase()
-			: ethers.getAddress(import.meta.env.VITE_RSK_CONTRACT_ADDRESS_V2_TESTNET).toLowerCase();
-
-	if (!address) {
-		throw new Error(
-			`V2 contract address not configured. Set VITE_RSK_CONTRACT_ADDRESS_V2_${network === 'mainnet' ? 'MAINNET' : 'TESTNET'}`
-		);
-	}
-	return address;
-}
-
-/**
  * Estimate gas for createPaymentContract. Call when form opens to show network fee before submit.
  * Requires wallet connected. Safe to call; returns error result instead of throwing.
  */
 export async function estimateGasForCreatePaymentContract(
 	params: CreatePaymentContractParams
 ): Promise<GasEstimateResult> {
-	try {
-		const { contract, provider } = await initContract(getContractAddress(), 'rsk', abi);
-		const taskeeEip55 = ethers.getAddress(params.taskee.toLowerCase());
+	const taskeeEip55 = ethers.getAddress(params.taskee.toLowerCase());
 
-		const feeData = await provider.getFeeData();
-		const gasPrice = feeData.gasPrice || BigInt(0);
-
-		const gasEstimate = await contract.createPaymentContract.estimateGas(
+	return estimateWrite({
+		method: 'createPaymentContract',
+		args: [
 			taskeeEip55,
 			params.estimatedStartTime,
 			params.estimatedCompletionTime,
 			params.taskerFeeTier,
 			params.taskeeFeeTier,
 			params.cancellationFee,
-			params.upfrontDeposit,
-			{ value: params.totalValueWei, gasPrice }
-		);
-
-		const estimatedCostWei = gasEstimate * gasPrice;
-		const estimatedCostFormatted = ethers.formatEther(estimatedCostWei);
-
-		d.log('gas estimate (preview)', {
-			gasLimit: gasEstimate.toString(),
-			gasPrice: gasPrice.toString(),
-			estimatedCostWei: estimatedCostWei.toString(),
-			estimatedCostFormatted: estimatedCostFormatted
-		});
-
-		return {
-			success: true,
-			estimatedGas: gasEstimate,
-			estimatedCostWei,
-			estimatedCostFormatted
-		};
-	} catch (error) {
-		const err = error instanceof Error ? error : new Error(String(error));
-		d.error('estimateGasForCreatePaymentContract failed', err);
-		return {
-			success: false,
-			error: err.message
-		};
-	}
+			params.upfrontDeposit
+		],
+		overrides: { value: params.totalValueWei }
+	});
 }
 
 /**
@@ -282,69 +194,6 @@ export async function estimateGasCostForCreatePaymentContract(
 		return '';
 	}
 	return result.estimatedCostFormatted;
-}
-
-/**
- * Blockchain-only path: init v2 contract, estimate gas, staticCall (revert check), broadcast `createPaymentContract`.
- * Does not wait for confirmation — returns the pending transaction as soon as the wallet submits it.
- */
-export async function createPaymentContract(
-	params: CreatePaymentContractParams
-): Promise<CreatePaymentContractTxResult> {
-	assertValidCreatePaymentContractParams(params);
-
-	const { contract, provider } = await initContract(getContractAddress(), 'rsk', abi);
-	const taskeeEip55 = ethers.getAddress(params.taskee.toLowerCase());
-	const feeData = await provider.getFeeData();
-	const gasPrice = feeData.gasPrice || BigInt(0);
-	const createFn = contract.createPaymentContract;
-
-	const gasEstimate = await createFn.estimateGas(
-		taskeeEip55,
-		params.estimatedStartTime,
-		params.estimatedCompletionTime,
-		params.taskerFeeTier,
-		params.taskeeFeeTier,
-		params.cancellationFee,
-		params.upfrontDeposit,
-		{ value: params.totalValueWei, gasPrice }
-	);
-	const estimatedCostWei = gasEstimate * gasPrice;
-	const estimatedCostFormatted = ethers.formatEther(estimatedCostWei);
-
-	d.log('createPaymentContract: gas estimate', {
-		gasLimit: gasEstimate.toString(),
-		estimatedCostFormatted
-	});
-
-	const overrides = { value: params.totalValueWei, gasPrice };
-
-	await createFn.staticCall(
-		taskeeEip55,
-		params.estimatedStartTime,
-		params.estimatedCompletionTime,
-		params.taskerFeeTier,
-		params.taskeeFeeTier,
-		params.cancellationFee,
-		params.upfrontDeposit,
-		overrides
-	);
-	d.log('createPaymentContract: staticCall ok');
-
-	const tx = await createFn(
-		taskeeEip55,
-		params.estimatedStartTime,
-		params.estimatedCompletionTime,
-		params.taskerFeeTier,
-		params.taskeeFeeTier,
-		params.cancellationFee,
-		params.upfrontDeposit,
-		overrides
-	);
-
-	d.log('createPaymentContract: broadcast', { hash: tx.hash });
-
-	return { tx, estimatedCostFormatted };
 }
 
 /**
@@ -438,7 +287,7 @@ export async function createContract(
 		const isRemote = taskContent.taskType === TaskTypeEnum.REMOTE;
 
 		const network = import.meta.env.VITE_RSK_NETWORK || 'testnet';
-		const paymentContractAddress = getContractAddress();
+		const paymentContractAddress = getSecurePaymentContractAddress();
 
 		const contractEvent = new NDKPaymentContract(ndk);
 		contractEvent.author = task.author;
@@ -499,7 +348,10 @@ export async function createContract(
 		]);
 
 		const afterConfirmed = async (receipt: ethers.TransactionReceipt) => {
-			const paymentId = parsePaymentContractCreatedPaymentId(receipt, getContractAddress());
+			const paymentId = parsePaymentContractCreatedPaymentId(
+				receipt,
+				getSecurePaymentContractAddress()
+			);
 			d.log('createContract: receipt confirmed', { transactionHash, paymentId });
 			try {
 				await publishPromise;
