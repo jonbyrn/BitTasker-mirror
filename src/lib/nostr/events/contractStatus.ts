@@ -121,6 +121,13 @@ export class NDKContractStatus extends NDKEvent {
 	static kind = KINDS.CONTRACT_STATUS;
 	static kinds = [KINDS.CONTRACT_STATUS];
 
+	/**
+	 * When `from()` parsed decrypted content as legacy `NostrContractStatus` JSON (not tag-array format),
+	 * this is that object as returned by `JSON.parse`, so no fields are lost to tag mapping.
+	 * Undefined for events that used the new encrypted tag-array content or were not built via `from()`.
+	 */
+	private _legacyContent: Record<string, unknown> | undefined;
+
 	constructor(ndk?: NDK, event?: NostrEvent | NDKEvent) {
 		super(ndk, event);
 		this.kind ??= KINDS.CONTRACT_STATUS;
@@ -187,6 +194,7 @@ export class NDKContractStatus extends NDKEvent {
 		if (isRawEncryptedTagArray(parsed)) {
 			additions.push(...(parsed as NDKTag[]));
 		} else if (isLegacyNostrContractStatusContent(parsed)) {
+			status._legacyContent = parsed as Record<string, unknown>;
 			additions.push(...legacyStatusContentToAdditionalTags(parsed, wireTags));
 		} else {
 			return undefined;
@@ -200,6 +208,11 @@ export class NDKContractStatus extends NDKEvent {
 		}
 
 		return status;
+	}
+
+	/** Legacy decrypted JSON body when this instance was normalized from `NostrContractStatus` content; otherwise `undefined`. */
+	get legacyContent(): Record<string, unknown> | undefined {
+		return this._legacyContent;
 	}
 
 	// --- Public wire tags ---
