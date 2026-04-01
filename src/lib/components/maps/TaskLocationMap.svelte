@@ -1,5 +1,4 @@
 <script lang="ts">
-	/* global google */
 	import type { Task, Location } from '$lib/types/task';
 	import { smallCountries, mediumCountries, largeCountries } from '$lib/utils/constants/countries';
 	import { onMount, onDestroy, tick } from 'svelte';
@@ -1572,10 +1571,8 @@
 
 	onMount(async () => {
 		try {
-			// Get user location first - this is now the primary way to determine map center
-			userLocation = await getUserLocation();
-
-			// Load Google Maps script
+			// Load Google Maps script (don't auto-request user location — let them
+			// tap "My location" button instead, per Google Play policy compliance)
 			await loadGoogleMapsScript();
 
 			// Wait for DOM to be ready

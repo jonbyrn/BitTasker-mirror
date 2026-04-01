@@ -27,7 +27,12 @@ export const StorageKeys = {
 	WARNING_ACKNOWLEDGED: 'bittasker_warning_acknowledged',
 
 	NPUB: 'npub',
-	AUTH_METHOD: 'auth_method' // alby | passkey | biometrics
+	AUTH_METHOD: 'auth_method', // alby | passkey | biometrics
+
+	// Translation
+	TRANSLATION_CACHE: 'bittasker_translation_cache',
+	TRANSLATION_PREFERENCES: 'bittasker_translation_preferences',
+	TRANSLATION_MSG_CACHE: 'bittasker_translation_msg_cache'
 } as const;
 
 // Type to get autocomplete for storage keys

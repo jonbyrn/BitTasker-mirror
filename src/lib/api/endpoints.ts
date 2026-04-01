@@ -63,5 +63,9 @@ export const ENDPOINTS = {
 
 	SAVED_SEARCHES: {
 		TRIGGER_CHECK: `${API_PATH}/${API_VERSION}/saved-searches/check-task`
+	},
+
+	TRANSLATION: {
+		TRANSLATE: `${API_PATH}/${API_VERSION}/translate`
 	}
 };
