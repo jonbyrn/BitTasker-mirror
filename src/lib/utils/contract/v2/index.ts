@@ -6,10 +6,23 @@ import { initContract } from '../index';
 import contractAbi from './abi.json';
 
 export {
+	acceptProposal,
+	acceptTask,
+	cancelPaymentContract,
+	claimNoShowRefund,
+	claimUpfrontDeposit,
+	completeTask,
 	createPaymentContract,
+	disputeTask,
 	estimateWrite,
 	executeWrite,
-	type ExecuteWriteOptions
+	markNoShow,
+	markWorkInProgress,
+	proposeResolution,
+	refundTasker,
+	resolveAfterTimelock,
+	type ExecuteWriteOptions,
+	type SecurePaymentWriteOptions
 } from './blockchainWrites';
 export { getSecurePaymentContractAddress } from './contractAddress';
 export type { WriteTxResult } from './types';

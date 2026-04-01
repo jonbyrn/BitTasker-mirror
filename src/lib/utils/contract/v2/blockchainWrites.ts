@@ -2,7 +2,7 @@
  * Direct secure-payment contract writes: gas estimate, optional simulation, broadcast.
  * These functions do not await chain confirmation — callers own `tx.wait()` / receipt parsing.
  */
-import type { ContractTransactionResponse } from 'ethers';
+import type { BigNumberish, ContractTransactionResponse } from 'ethers';
 import { ethers } from 'ethers';
 import { createDebug } from '$lib/utils/debug';
 import { initContract } from '../index';
@@ -32,6 +32,9 @@ export type ExecuteWriteOptions = {
 	/** Defaults to {@link getSecurePaymentContractAddress}. */
 	contractAddress?: string;
 };
+
+/** Optional chain / contract override for curated payment-contract writes. */
+export type SecurePaymentWriteOptions = Pick<ExecuteWriteOptions, 'chain' | 'contractAddress'>;
 
 type PreparedWrite = {
 	fn: ethers.ContractMethod;
@@ -143,4 +146,95 @@ export async function createPaymentContract(
 		],
 		overrides: { value: params.totalValueWei }
 	});
+}
+
+// --- Curated lifecycle writes (uint32 paymentId; nonpayable unless noted) ---
+
+export async function completeTask(
+	paymentId: BigNumberish,
+	options?: SecurePaymentWriteOptions
+): Promise<WriteTxResult> {
+	return executeWrite({ method: 'completeTask', args: [paymentId], ...options });
+}
+
+export async function acceptTask(
+	paymentId: BigNumberish,
+	options?: SecurePaymentWriteOptions
+): Promise<WriteTxResult> {
+	return executeWrite({ method: 'acceptTask', args: [paymentId], ...options });
+}
+
+export async function resolveAfterTimelock(
+	paymentId: BigNumberish,
+	options?: SecurePaymentWriteOptions
+): Promise<WriteTxResult> {
+	return executeWrite({ method: 'resolveAfterTimelock', args: [paymentId], ...options });
+}
+
+export async function disputeTask(
+	paymentId: BigNumberish,
+	options?: SecurePaymentWriteOptions
+): Promise<WriteTxResult> {
+	return executeWrite({ method: 'disputeTask', args: [paymentId], ...options });
+}
+
+export async function proposeResolution(
+	paymentId: BigNumberish,
+	taskeeAmount: bigint,
+	options?: SecurePaymentWriteOptions
+): Promise<WriteTxResult> {
+	return executeWrite({
+		method: 'proposeResolution',
+		args: [paymentId, taskeeAmount],
+		...options
+	});
+}
+
+export async function acceptProposal(
+	paymentId: BigNumberish,
+	options?: SecurePaymentWriteOptions
+): Promise<WriteTxResult> {
+	return executeWrite({ method: 'acceptProposal', args: [paymentId], ...options });
+}
+
+export async function cancelPaymentContract(
+	paymentId: BigNumberish,
+	options?: SecurePaymentWriteOptions
+): Promise<WriteTxResult> {
+	return executeWrite({ method: 'cancelPaymentContract', args: [paymentId], ...options });
+}
+
+export async function refundTasker(
+	paymentId: BigNumberish,
+	options?: SecurePaymentWriteOptions
+): Promise<WriteTxResult> {
+	return executeWrite({ method: 'refundTasker', args: [paymentId], ...options });
+}
+
+export async function markNoShow(
+	paymentId: BigNumberish,
+	options?: SecurePaymentWriteOptions
+): Promise<WriteTxResult> {
+	return executeWrite({ method: 'markNoShow', args: [paymentId], ...options });
+}
+
+export async function markWorkInProgress(
+	paymentId: BigNumberish,
+	options?: SecurePaymentWriteOptions
+): Promise<WriteTxResult> {
+	return executeWrite({ method: 'markWorkInProgress', args: [paymentId], ...options });
+}
+
+export async function claimNoShowRefund(
+	paymentId: BigNumberish,
+	options?: SecurePaymentWriteOptions
+): Promise<WriteTxResult> {
+	return executeWrite({ method: 'claimNoShowRefund', args: [paymentId], ...options });
+}
+
+export async function claimUpfrontDeposit(
+	paymentId: BigNumberish,
+	options?: SecurePaymentWriteOptions
+): Promise<WriteTxResult> {
+	return executeWrite({ method: 'claimUpfrontDeposit', args: [paymentId], ...options });
 }

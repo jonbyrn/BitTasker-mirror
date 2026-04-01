@@ -17,6 +17,7 @@ import type {
 	NDKFilter
 } from '@nostr-dev-kit/ndk';
 import KINDS from '$lib/utils/constants/kinds';
+import type { NDKContractStatus } from '$lib/nostr/events/contractStatus';
 
 const d = createDebug('runes:contractRune');
 
@@ -30,7 +31,7 @@ export class PaymentContractRune {
 	blockchainStatus = $derived<ContractStatus>(this.blockchainData?.state ?? ContractStatus.Funded);
 	displayStatus = $derived<ContractDisplayStatus>(this.blockchainStatus);
 	error = $state<string | null>(null);
-	statusEvents = $state<NDKEvent[]>([]);
+	statusEvents = $state<NDKContractStatus[]>([]);
 	statusSub: NDKSubscription | null = null;
 
 	constructor(contract: NDKPaymentContract) {
@@ -70,7 +71,10 @@ export class PaymentContractRune {
 				'rsk'
 			);
 			this.blockchainData = paymentContractData;
-			d.log('start: payment contract data loaded', { paymentContractData });
+			d.log('start: payment contract data loaded', {
+				paymentId: this.paymentId,
+				paymentContractData
+			});
 		} catch (err) {
 			const error = err instanceof Error ? err.message : String(err);
 			this.error = error;
@@ -130,10 +134,23 @@ export class PaymentContractRune {
 		const ops: NDKSubscriptionOptions = {
 			closeOnEose: false,
 			onEvent: (event: NDKEvent) => {
-				this.statusEvents.push(event);
-				d.log('#r', event.tagValue('r'));
+				this.statusEvents.push(event as NDKContractStatus);
+			},
+			wrap: true,
+			onEose: () => {
+				// I want to log the contract and the list of status events for this contract and the paymentId
+				d.log('setupSubscription: eose received', {
+					paymentId: this.paymentId,
+					contract: this.contract,
+					statusEvents: $state.snapshot(this.statusEvents)
+				});
 			}
 		};
 		this.statusSub = ndk.subscribe(filter, ops);
+	}
+
+	stopSubscription() {
+		this.statusSub?.stop();
+		this.statusSub = null;
 	}
 }

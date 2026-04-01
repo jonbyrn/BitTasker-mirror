@@ -21,14 +21,12 @@
 		contractRune = rune;
 		void rune.start();
 		return () => {
-			rune.statusSub?.stop();
+			rune.stopSubscription();
 		};
 	});
 
 	// $inspect(contractRune.blockchainData, 'contractRune');
-	// $inspect(contractRune.statusEvents, 'statusEvents');
-
-	/** Layout preview only — wire to real contract data later */
+	// $inspect(contractRune?.statusEvents, 'statusEvents');
 
 	const isTasker = $derived(contract.author.pubkey === contract.ndk?.activeUser?.pubkey);
 	const amountSats = $derived(
