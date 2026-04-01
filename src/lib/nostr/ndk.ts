@@ -12,6 +12,7 @@ import { NDKBid } from './events/bid';
 import { NDKTask } from './events/task';
 import { getNostrKeyPair } from '$lib/utils/nostrKeys';
 import { NDKPaymentContract } from './events/contract';
+import { NDKContractStatus } from './events/contractStatus';
 
 const d = createDebug('ndk:signer');
 
@@ -22,9 +23,11 @@ export const ndk = createNDK({
 	session: true,
 	enableOutboxModel: false
 });
-registerEventClass(NDKBid);
-registerEventClass(NDKTask);
-registerEventClass(NDKPaymentContract);
+/** NDK 3 typings expect sync `from`; our classes use async `from` (valid at runtime). */
+registerEventClass(NDKBid as never);
+registerEventClass(NDKTask as never);
+registerEventClass(NDKPaymentContract as never);
+registerEventClass(NDKContractStatus as never);
 ndk.connect();
 
 /**
