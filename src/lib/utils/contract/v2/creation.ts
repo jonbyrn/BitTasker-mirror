@@ -237,6 +237,18 @@ async function publishTaskAcceptedBid(task: NDKTask, bidEventId: string): Promis
 }
 
 /**
+ * Mark kind 31000 task **COMPLETED** (replaceable) after tasker accepts work / funds released.
+ * Same pattern as {@link publishTaskAcceptedBid}; task event is owned by the tasker.
+ */
+export async function publishTaskCompletedForEscrow(task: NDKTask): Promise<void> {
+	if (!task.ndk) {
+		throw new Error('NDK is required to publish task update');
+	}
+	task.status = TaskStatusEnum.COMPLETED;
+	await task.publishReplaceable();
+}
+
+/**
  * Escrow creation orchestrator: validate → broadcast → parallel post-hash effects.
  * Does not call `tx.wait()` — the UI should await confirmation, then call `afterConfirmed(receipt)`.
  */

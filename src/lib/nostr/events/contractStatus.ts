@@ -237,14 +237,14 @@ export class NDKContractStatus extends NDKEvent {
 		this.tags.push(['e', id]);
 	}
 
-	get action(): ContractStatus | undefined {
+	get status(): ContractStatus | undefined {
 		const raw = this.tagValue('s');
 		if (raw === undefined || raw === '') return undefined;
 		const n = parseInt(raw, 10);
 		return Number.isFinite(n) ? (n as ContractStatus) : undefined;
 	}
 
-	set action(value: ContractStatus) {
+	set status(value: ContractStatus) {
 		this.removeTag('s');
 		this.tags.push(['s', String(value)]);
 	}

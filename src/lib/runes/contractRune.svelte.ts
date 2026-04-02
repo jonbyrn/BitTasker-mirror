@@ -7,7 +7,10 @@ import {
 	type PaymentContractLifecycle,
 	type PaymentContractRuneLike
 } from '$lib/utils/contract/lifecycle';
-import { parsePaymentContractCreatedPaymentId } from '$lib/utils/contract/v2/creation';
+import {
+	parsePaymentContractCreatedPaymentId,
+	publishTaskCompletedForEscrow
+} from '$lib/utils/contract/v2/creation';
 import { isTerminalPaymentState } from '$lib/utils/contract/v2/permittedActions';
 import type { PermittedActions } from '$lib/utils/contract/v2/permittedActions';
 import { getProvider } from '$lib/utils/contract';
@@ -19,14 +22,23 @@ import {
 import { ndk } from '$lib/nostr/ndk';
 import type { NDKSubscription, NDKSubscriptionOptions, NDKFilter } from '@nostr-dev-kit/ndk';
 import KINDS from '$lib/utils/constants/kinds';
+import type { NDKTask } from '$lib/nostr/events/task';
+import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 
 const d = createDebug('runes:contractRune');
+
+/**
+ * Recompute time-based `permittedActions` (e.g. `now >= estimatedStartTime`) without a full reload.
+ * Stopped when chain is terminal or the card unsubscribes.
+ */
+const PERMISSIONS_CLOCK_MS = 15_000;
 
 export type { ContractLifecycleResult };
 
 export class PaymentContractRune implements PaymentContractRuneLike {
 	/** Set in constructor; asserted because `$derived` fields reference it above TS init analysis. */
 	contract!: NDKPaymentContract;
+	task: NDKTask | null = null;
 	paymentId: string | undefined;
 	version: string;
 	lifecycle: PaymentContractLifecycle;
@@ -52,6 +64,10 @@ export class PaymentContractRune implements PaymentContractRuneLike {
 	statusEvents = $state<NDKContractStatus[]>([]);
 	statusSub: NDKSubscription | null = null;
 
+	/** Bumped on an interval + after chain reload so `permissionsNowSeconds()` is effectively reactive. */
+	private permissionsTimeSignal = $state(0);
+	private permissionsClockId: ReturnType<typeof setInterval> | null = null;
+
 	contractAddress = $derived(this.contract.contractAddress?.trim() ?? '');
 	parentEventId = $derived(this.contract.id ?? '');
 	taskerPubkey = $derived(this.contract.taskerPubkey);
@@ -69,7 +85,9 @@ export class PaymentContractRune implements PaymentContractRuneLike {
 	 * Touches `statusEventsByNewest` so Nostr history affects future dispute projection.
 	 */
 	permittedActions = $derived.by((): PermittedActions => {
-		//this.statusEventsByNewest
+		// Read deps so derived re-runs when Nostr history or permissions clock updates.
+		const _statusEvents = this.statusEventsByNewest;
+		const _permissionsTime = this.permissionsTimeSignal;
 		return this.lifecycle.computePermittedActions(this);
 	});
 
@@ -89,9 +107,14 @@ export class PaymentContractRune implements PaymentContractRuneLike {
 		return this.lifecycle.markTaskComplete(this);
 	}
 
+	/** Tasker accepts completed work (v2); v1 returns not allowed. */
+	acceptTask(): Promise<ContractLifecycleResult> {
+		return this.lifecycle.acceptTask(this);
+	}
+
 	async start() {
 		d.log('start: sync requested', { paymentId: this.paymentId, version: this.version });
-
+		await this.getOriginalTaskEvent();
 		if (!this.paymentId && this.contract.transactionHash) {
 			await this.resolvePaymentIdFromTxHash();
 		}
@@ -126,6 +149,50 @@ export class PaymentContractRune implements PaymentContractRuneLike {
 		if (!this.paymentId || !this.contract.contractAddress) return;
 		const data = await this.lifecycle.loadPaymentContractDetails(this);
 		this.blockchainData = data;
+		await this.maybeReconcileTaskWithChain();
+		this.syncPermissionsClock();
+	}
+
+	/** Start/stop wall-clock polling for permitted-actions windows (cancel windows, start time, timelocks, …). */
+	private syncPermissionsClock(): void {
+		const data = this.blockchainData;
+		if (!data || isTerminalPaymentState(data.state)) {
+			this.stopPermissionsClock();
+			return;
+		}
+		if (this.permissionsClockId === null) {
+			this.permissionsClockId = setInterval(() => {
+				this.permissionsTimeSignal = Date.now();
+			}, PERMISSIONS_CLOCK_MS);
+		}
+		this.permissionsTimeSignal = Date.now();
+	}
+
+	private stopPermissionsClock(): void {
+		if (this.permissionsClockId !== null) {
+			clearInterval(this.permissionsClockId);
+			this.permissionsClockId = null;
+		}
+	}
+
+	/**
+	 * Chain can show FundsReleased while the cached kind 31000 task is still IN_PROGRESS
+	 * (e.g. accept before task replaceable landed). Tasker republishes COMPLETED to match chain.
+	 */
+	private async maybeReconcileTaskWithChain(): Promise<void> {
+		const data = this.blockchainData;
+		if (!data || data.state !== ContractStatus.FundsReleased || !this.task) return;
+		if (this.task.status !== TaskStatusEnum.IN_PROGRESS) return;
+		if (ndk.activeUser?.pubkey !== this.task.author?.pubkey) {
+			d.log('maybeReconcileTaskWithChain: skip (not signed in as task author)');
+			return;
+		}
+		try {
+			await publishTaskCompletedForEscrow(this.task);
+			d.log('maybeReconcileTaskWithChain: republished task COMPLETED');
+		} catch (e) {
+			d.warn('maybeReconcileTaskWithChain: publish failed', e);
+		}
 	}
 
 	private async resolvePaymentIdFromTxHash(): Promise<void> {
@@ -163,8 +230,13 @@ export class PaymentContractRune implements PaymentContractRuneLike {
 	}
 
 	/** Live events: wait on the published hash, then refresh chain (not terminal). */
-	private async awaitStatusTxThenReload(txHash: string): Promise<void> {
+	private async awaitStatusTxThenReload(event: NDKContractStatus): Promise<void> {
+		const txHash = event.transactionHash?.trim();
+		if (!txHash) return;
 		this.isPending = true;
+		if (event.status !== undefined) {
+			this.blockchainStatus = event.status;
+		}
 		d.log('awaitStatusTxThenReload', { txHash });
 
 		try {
@@ -194,7 +266,7 @@ export class PaymentContractRune implements PaymentContractRuneLike {
 		if (this.chainIsTerminal) return;
 		const h = ev.transactionHash?.trim();
 		if (!h) return;
-		void this.awaitStatusTxThenReload(h);
+		void this.awaitStatusTxThenReload(ev);
 	}
 
 	setupSubscription() {
@@ -231,5 +303,27 @@ export class PaymentContractRune implements PaymentContractRuneLike {
 	stopSubscription() {
 		this.statusSub?.stop();
 		this.statusSub = null;
+		this.stopPermissionsClock();
+	}
+
+	async getOriginalTaskEvent() {
+		const taskId = this.contract.taskId;
+		if (!taskId) {
+			this.task = null;
+			return;
+		}
+		const filter: NDKFilter = { kinds: [KINDS.TASK_CREATION], '#d': [taskId], limit: 1 };
+		const ops: NDKSubscriptionOptions = {
+			wrap: true
+		};
+		const events = await ndk.fetchEvents(filter, ops);
+		const first = Array.from(events)[0] as NDKTask | undefined;
+		if (!first) {
+			d.warn('getOriginalTaskEvent: no task replaceable found', { taskId });
+			this.task = null;
+			return;
+		}
+		d.log('getOriginalTaskEvent: loaded', { taskId });
+		this.task = first;
 	}
 }

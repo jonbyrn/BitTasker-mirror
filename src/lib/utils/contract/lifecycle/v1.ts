@@ -32,9 +32,16 @@ export async function markTaskCompleteV1(
 	return { ok: false, errorKey: 'dashboard.contracts.actions.mark_complete_not_allowed' };
 }
 
+export async function acceptTaskV1(
+	_rune: PaymentContractRuneLike
+): Promise<ContractLifecycleResult> {
+	return { ok: false, errorKey: 'dashboard.contracts.actions.accept_task_not_allowed' };
+}
+
 export const v1Lifecycle: PaymentContractLifecycle = {
 	loadPaymentContractDetails: loadPaymentContractDetailsV1,
 	computePermittedActions: computePermittedActionsV1,
 	markTaskComplete: markTaskCompleteV1,
+	acceptTask: acceptTaskV1,
 	shouldAwaitStatusTransaction: false
 };
