@@ -276,6 +276,7 @@ contractStore.loadContracts(); // all contracts where user is client or freelanc
 
 ## Related Documentation
 
+- Contract status updates (Kind 31006): [contract-status-nostr-events.md](./contract-status-nostr-events.md)
 - Bid lifecycle: `docs/payments-v2/bid-nostr-events.md`
 - Escrow creation flow: `docs/payments-v2/escrow-creation-report.md`
 - Task status: `docs/tasks/task-status.md`

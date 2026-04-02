@@ -135,18 +135,18 @@ Use this section as the single source of truth for progress. Check boxes as each
 Each row is a thin export that builds args and calls `executeWrite` (or calls a typed contract fragment). ABI types: `uint32` → align with existing usage (likely `number` or `bigint` — match `createPaymentContract` / escrow patterns).
 
 - [x] **C1.** `createPaymentContract` (exported from `blockchainWrites.ts`).
-- [ ] **C2.** `completeTask(paymentId)`
-- [ ] **C3.** `acceptTask(paymentId)`
-- [ ] **C4.** `resolveAfterTimelock(paymentId)`
-- [ ] **C5.** `disputeTask(paymentId)`
-- [ ] **C6.** `proposeResolution(paymentId, taskeeAmount)`
-- [ ] **C7.** `acceptProposal(paymentId)`
-- [ ] **C8.** `cancelPaymentContract(paymentId)`
-- [ ] **C9.** `refundTasker(paymentId)`
-- [ ] **C10.** `markNoShow(paymentId)`
-- [ ] **C11.** `markWorkInProgress(paymentId)`
-- [ ] **C12.** `claimNoShowRefund(paymentId)`
-- [ ] **C13.** `claimUpfrontDeposit(paymentId)`
+- [x] **C2.** `completeTask(paymentId)`
+- [x] **C3.** `acceptTask(paymentId)`
+- [x] **C4.** `resolveAfterTimelock(paymentId)`
+- [x] **C5.** `disputeTask(paymentId)`
+- [x] **C6.** `proposeResolution(paymentId, taskeeAmount)`
+- [x] **C7.** `acceptProposal(paymentId)`
+- [x] **C8.** `cancelPaymentContract(paymentId)`
+- [x] **C9.** `refundTasker(paymentId)`
+- [x] **C10.** `markNoShow(paymentId)`
+- [x] **C11.** `markWorkInProgress(paymentId)`
+- [x] **C12.** `claimNoShowRefund(paymentId)`
+- [x] **C13.** `claimUpfrontDeposit(paymentId)`
 
 ### Phase D — Public API surface
 
