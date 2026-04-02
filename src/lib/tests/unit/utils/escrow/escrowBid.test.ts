@@ -45,6 +45,7 @@ vi.mock('$lib/utils/escrow/v1/escrow', () => ({
 }));
 
 vi.mock('$lib/utils/escrow/v1/escrowEvents', () => ({
+	publishEscrowStatus: vi.fn(),
 	registerPendingContractByTxHash: vi.fn(),
 	cleanupPendingContractByTxHash: vi.fn()
 }));
