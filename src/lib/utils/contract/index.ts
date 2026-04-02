@@ -79,7 +79,7 @@ export async function initContract(
 		throw err;
 	}
 
-	d.log('initContract: start', { chain, contractAddress: trimmed });
+	//d.log('initContract: start', { chain, contractAddress: trimmed });
 
 	let checksummed: string;
 	try {

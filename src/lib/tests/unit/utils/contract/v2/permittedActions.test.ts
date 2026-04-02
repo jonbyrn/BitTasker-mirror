@@ -7,9 +7,7 @@ import {
 	GRACE_PERIOD,
 	CANCELLATION_WINDOW,
 	COMPLETION_TIMELOCK,
-	inferParticipantRole,
-	type ComputePermittedActionsArgs,
-	type ParticipantRole
+	type ComputePermittedActionsArgs
 } from '$lib/utils/contract/v2/permittedActions';
 
 const ADDR = {
@@ -37,50 +35,35 @@ function basePayment(overrides: Partial<SecurePaymentLegacy> = {}): SecurePaymen
 
 function run(
 	payment: SecurePaymentLegacy,
-	role: ParticipantRole,
+	isTasker: boolean,
 	now: number,
-	extra?: Partial<Omit<ComputePermittedActionsArgs, 'payment' | 'role' | 'now'>>
+	extra?: Partial<Omit<ComputePermittedActionsArgs, 'payment' | 'isTasker' | 'now'>>
 ) {
 	return computePermittedActions({
 		payment,
-		role,
+		isTasker,
 		now,
 		awaitingTx: false,
 		...extra
 	});
 }
 
-describe('inferParticipantRole', () => {
-	it('maps tasker and taskee addresses', () => {
-		const p = basePayment();
-		expect(inferParticipantRole(ADDR.tasker, p)).toBe('tasker');
-		expect(inferParticipantRole(ADDR.taskee.toUpperCase(), p)).toBe('taskee');
-	});
-
-	it('returns none for outsider or empty', () => {
-		const p = basePayment();
-		expect(inferParticipantRole('0xcccccccccccccccccccccccccccccccccccccccc', p)).toBe('none');
-		expect(inferParticipantRole('', p)).toBe('none');
-		expect(inferParticipantRole(undefined, p)).toBe('none');
-	});
-});
-
 describe('computePermittedActions', () => {
-	describe('awaitingTx and role', () => {
+	describe('awaitingTx and isTasker', () => {
 		it('returns all false when awaitingTx', () => {
 			const p = basePayment();
 			const r = computePermittedActions({
 				payment: p,
-				role: 'taskee',
+				isTasker: false,
 				now: p.estimatedStartTime,
 				awaitingTx: true
 			});
 			expect(Object.values(r).every((v) => v === false)).toBe(true);
 		});
 
-		it('returns all false when role is none', () => {
+		it('taskee cannot accept or dispute when completed', () => {
 			const p = basePayment({ state: ContractStatus.Completed });
-			const r = run(p, 'none', p.estimatedCompletionTime + 100);
+			const r = run(p, false, p.estimatedCompletionTime + 100);
 			expect(r.canAcceptTask).toBe(false);
 			expect(r.canDisputeTask).toBe(false);
 		});
@@ -96,7 +79,7 @@ describe('computePermittedActions', () => {
 			ContractStatus.FundsClaimed
 		] as const)('state %i yields no actions for tasker', (state) => {
 			const p = basePayment({ state });
-			const r = run(p, 'tasker', p.createdAt + 999999);
+			const r = run(p, true, p.createdAt + 999999);
 			expect(Object.values(r).every((v) => v === false)).toBe(true);
 		});
 	});
@@ -104,31 +87,31 @@ describe('computePermittedActions', () => {
 	describe('completeTask (taskee)', () => {
 		it('true for Funded when now >= estimatedStartTime', () => {
 			const p = basePayment({ state: ContractStatus.Funded });
-			const r = run(p, 'taskee', p.estimatedStartTime);
+			const r = run(p, false, p.estimatedStartTime);
 			expect(r.canCompleteTask).toBe(true);
 		});
 
 		it('false before estimatedStartTime', () => {
 			const p = basePayment({ state: ContractStatus.Funded });
-			const r = run(p, 'taskee', p.estimatedStartTime - 1);
+			const r = run(p, false, p.estimatedStartTime - 1);
 			expect(r.canCompleteTask).toBe(false);
 		});
 
 		it('false for tasker', () => {
 			const p = basePayment({ state: ContractStatus.Funded });
-			const r = run(p, 'tasker', p.estimatedStartTime);
+			const r = run(p, true, p.estimatedStartTime);
 			expect(r.canCompleteTask).toBe(false);
 		});
 
 		it('true for WorkInProgress at start boundary', () => {
 			const p = basePayment({ state: ContractStatus.WorkInProgress });
-			const r = run(p, 'taskee', p.estimatedStartTime);
+			const r = run(p, false, p.estimatedStartTime);
 			expect(r.canCompleteTask).toBe(true);
 		});
 
 		it('true for NoShow when past start', () => {
 			const p = basePayment({ state: ContractStatus.NoShow });
-			const r = run(p, 'taskee', p.estimatedStartTime);
+			const r = run(p, false, p.estimatedStartTime);
 			expect(r.canCompleteTask).toBe(true);
 		});
 	});
@@ -136,25 +119,25 @@ describe('computePermittedActions', () => {
 	describe('acceptTask (tasker)', () => {
 		it('true only in Completed', () => {
 			const p = basePayment({ state: ContractStatus.Completed });
-			expect(run(p, 'tasker', p.estimatedCompletionTime).canAcceptTask).toBe(true);
-			expect(run(p, 'taskee', p.estimatedCompletionTime).canAcceptTask).toBe(false);
+			expect(run(p, true, p.estimatedCompletionTime).canAcceptTask).toBe(true);
+			expect(run(p, false, p.estimatedCompletionTime).canAcceptTask).toBe(false);
 		});
 
 		it('false in Funded', () => {
 			const p = basePayment({ state: ContractStatus.Funded });
-			expect(run(p, 'tasker', p.estimatedStartTime).canAcceptTask).toBe(false);
+			expect(run(p, true, p.estimatedStartTime).canAcceptTask).toBe(false);
 		});
 	});
 
 	describe('disputeTask (tasker)', () => {
 		it('true in WorkInProgress without extra time checks', () => {
 			const p = basePayment({ state: ContractStatus.WorkInProgress });
-			expect(run(p, 'tasker', p.createdAt).canDisputeTask).toBe(true);
+			expect(run(p, true, p.createdAt).canDisputeTask).toBe(true);
 		});
 
 		it('false for taskee', () => {
 			const p = basePayment({ state: ContractStatus.WorkInProgress });
-			expect(run(p, 'taskee', p.createdAt).canDisputeTask).toBe(false);
+			expect(run(p, false, p.createdAt).canDisputeTask).toBe(false);
 		});
 
 		it('Completed: requires timelockEnd and now within dispute window', () => {
@@ -165,8 +148,8 @@ describe('computePermittedActions', () => {
 				timelockEnd,
 				estimatedCompletionTime: completionTime
 			});
-			expect(run(p, 'tasker', timelockEnd).canDisputeTask).toBe(true);
-			expect(run(p, 'tasker', timelockEnd + 1).canDisputeTask).toBe(false);
+			expect(run(p, true, timelockEnd).canDisputeTask).toBe(true);
+			expect(run(p, true, timelockEnd + 1).canDisputeTask).toBe(false);
 		});
 
 		it('Completed: false if timelockEnd is zero', () => {
@@ -174,7 +157,7 @@ describe('computePermittedActions', () => {
 				state: ContractStatus.Completed,
 				timelockEnd: 0
 			});
-			expect(run(p, 'tasker', 1_800_000_000).canDisputeTask).toBe(false);
+			expect(run(p, true, 1_800_000_000).canDisputeTask).toBe(false);
 		});
 
 		it('Funded pre-start: within cancellation window after grace', () => {
@@ -188,7 +171,7 @@ describe('computePermittedActions', () => {
 			const now = createdAt + GRACE_PERIOD + 1;
 			expect(now < estimatedStartTime).toBe(true);
 			expect(estimatedStartTime - now <= CANCELLATION_WINDOW).toBe(true);
-			expect(run(p, 'tasker', now).canDisputeTask).toBe(true);
+			expect(run(p, true, now).canDisputeTask).toBe(true);
 		});
 
 		it('Funded: false before grace elapses', () => {
@@ -198,7 +181,7 @@ describe('computePermittedActions', () => {
 				createdAt,
 				estimatedStartTime: createdAt + 7200
 			});
-			expect(run(p, 'tasker', createdAt + GRACE_PERIOD).canDisputeTask).toBe(false);
+			expect(run(p, true, createdAt + GRACE_PERIOD).canDisputeTask).toBe(false);
 		});
 	});
 
@@ -209,8 +192,8 @@ describe('computePermittedActions', () => {
 				state: ContractStatus.Completed,
 				timelockEnd
 			});
-			expect(run(p, 'tasker', timelockEnd + 1).canResolveAfterTimelock).toBe(true);
-			expect(run(p, 'taskee', timelockEnd + 1).canResolveAfterTimelock).toBe(true);
+			expect(run(p, true, timelockEnd + 1).canResolveAfterTimelock).toBe(true);
+			expect(run(p, false, timelockEnd + 1).canResolveAfterTimelock).toBe(true);
 		});
 
 		it('Completed: false at exactly timelockEnd', () => {
@@ -219,7 +202,7 @@ describe('computePermittedActions', () => {
 				state: ContractStatus.Completed,
 				timelockEnd
 			});
-			expect(run(p, 'tasker', timelockEnd).canResolveAfterTimelock).toBe(false);
+			expect(run(p, true, timelockEnd).canResolveAfterTimelock).toBe(false);
 		});
 
 		it('InDispute: tasker only', () => {
@@ -228,18 +211,18 @@ describe('computePermittedActions', () => {
 				state: ContractStatus.InDispute,
 				timelockEnd
 			});
-			expect(run(p, 'tasker', timelockEnd + 1).canResolveAfterTimelock).toBe(true);
-			expect(run(p, 'taskee', timelockEnd + 1).canResolveAfterTimelock).toBe(false);
+			expect(run(p, true, timelockEnd + 1).canResolveAfterTimelock).toBe(true);
+			expect(run(p, false, timelockEnd + 1).canResolveAfterTimelock).toBe(false);
 		});
 	});
 
 	describe('cancelPaymentContract', () => {
 		it('taskee can cancel in Funded and WIP', () => {
 			expect(
-				run(basePayment({ state: ContractStatus.Funded }), 'taskee', 1).canCancelPaymentContract
+				run(basePayment({ state: ContractStatus.Funded }), false, 1).canCancelPaymentContract
 			).toBe(true);
 			expect(
-				run(basePayment({ state: ContractStatus.WorkInProgress }), 'taskee', 1)
+				run(basePayment({ state: ContractStatus.WorkInProgress }), false, 1)
 					.canCancelPaymentContract
 			).toBe(true);
 		});
@@ -247,7 +230,7 @@ describe('computePermittedActions', () => {
 		it('tasker in Funded: early grace window', () => {
 			const createdAt = 1_700_000_000;
 			const p = basePayment({ state: ContractStatus.Funded, createdAt });
-			expect(run(p, 'tasker', createdAt + GRACE_PERIOD).canCancelPaymentContract).toBe(true);
+			expect(run(p, true, createdAt + GRACE_PERIOD).canCancelPaymentContract).toBe(true);
 		});
 
 		it('tasker: can cancel when now + CANCELLATION_WINDOW < estimatedStartTime', () => {
@@ -261,7 +244,7 @@ describe('computePermittedActions', () => {
 			});
 			const now = createdAt + GRACE_PERIOD + 1;
 			expect(now + CANCELLATION_WINDOW < estimatedStartTime).toBe(true);
-			expect(run(p, 'tasker', now).canCancelPaymentContract).toBe(true);
+			expect(run(p, true, now).canCancelPaymentContract).toBe(true);
 		});
 	});
 
@@ -276,13 +259,13 @@ describe('computePermittedActions', () => {
 				ContractStatus.WorkInProgress
 			]) {
 				const p = basePayment({ state });
-				expect(run(p, 'taskee', p.createdAt).canRefundTasker).toBe(true);
+				expect(run(p, false, p.createdAt).canRefundTasker).toBe(true);
 			}
 		});
 
 		it('false for tasker', () => {
 			const p = basePayment({ state: ContractStatus.Funded });
-			expect(run(p, 'tasker', p.createdAt).canRefundTasker).toBe(false);
+			expect(run(p, true, p.createdAt).canRefundTasker).toBe(false);
 		});
 	});
 
@@ -290,7 +273,7 @@ describe('computePermittedActions', () => {
 		it('tasker when Funded, not marked, past start + grace', () => {
 			const p = basePayment({ state: ContractStatus.Funded, noShowMarked: false });
 			const now = p.estimatedStartTime + GRACE_PERIOD;
-			expect(run(p, 'tasker', now).canMarkNoShow).toBe(true);
+			expect(run(p, true, now).canMarkNoShow).toBe(true);
 		});
 
 		it('false if noShowMarked', () => {
@@ -298,12 +281,12 @@ describe('computePermittedActions', () => {
 				state: ContractStatus.Funded,
 				noShowMarked: true
 			});
-			expect(run(p, 'tasker', p.estimatedStartTime + GRACE_PERIOD + 1).canMarkNoShow).toBe(false);
+			expect(run(p, true, p.estimatedStartTime + GRACE_PERIOD + 1).canMarkNoShow).toBe(false);
 		});
 
 		it('false before start + grace', () => {
 			const p = basePayment({ state: ContractStatus.Funded });
-			expect(run(p, 'tasker', p.estimatedStartTime + GRACE_PERIOD - 1).canMarkNoShow).toBe(false);
+			expect(run(p, true, p.estimatedStartTime + GRACE_PERIOD - 1).canMarkNoShow).toBe(false);
 		});
 	});
 
@@ -315,17 +298,17 @@ describe('computePermittedActions', () => {
 		});
 
 		it('markWorkInProgress when now <= timelockEnd', () => {
-			expect(run(pNoShow, 'taskee', timelockEnd).canMarkWorkInProgress).toBe(true);
-			expect(run(pNoShow, 'taskee', timelockEnd - 1).canMarkWorkInProgress).toBe(true);
+			expect(run(pNoShow, false, timelockEnd).canMarkWorkInProgress).toBe(true);
+			expect(run(pNoShow, false, timelockEnd - 1).canMarkWorkInProgress).toBe(true);
 		});
 
 		it('markWorkInProgress false after timelockEnd', () => {
-			expect(run(pNoShow, 'taskee', timelockEnd + 1).canMarkWorkInProgress).toBe(false);
+			expect(run(pNoShow, false, timelockEnd + 1).canMarkWorkInProgress).toBe(false);
 		});
 
 		it('claimNoShowRefund when now > timelockEnd', () => {
-			expect(run(pNoShow, 'tasker', timelockEnd + 1).canClaimNoShowRefund).toBe(true);
-			expect(run(pNoShow, 'tasker', timelockEnd).canClaimNoShowRefund).toBe(false);
+			expect(run(pNoShow, true, timelockEnd + 1).canClaimNoShowRefund).toBe(true);
+			expect(run(pNoShow, true, timelockEnd).canClaimNoShowRefund).toBe(false);
 		});
 	});
 
@@ -333,7 +316,7 @@ describe('computePermittedActions', () => {
 		const pDispute = basePayment({ state: ContractStatus.InDispute });
 
 		it('without projection, propose and accept stay false', () => {
-			const r = run(pDispute, 'tasker', pDispute.createdAt);
+			const r = run(pDispute, true, pDispute.createdAt);
 			expect(r.canProposeResolution).toBe(false);
 			expect(r.canAcceptProposal).toBe(false);
 		});
@@ -345,15 +328,13 @@ describe('computePermittedActions', () => {
 				disputeAccepted: false
 			};
 			expect(
-				run(pDispute, 'tasker', pDispute.createdAt, { disputeProjection: proj })
-					.canProposeResolution
+				run(pDispute, true, pDispute.createdAt, { disputeProjection: proj }).canProposeResolution
 			).toBe(true);
 			expect(
-				run(pDispute, 'taskee', pDispute.createdAt, { disputeProjection: proj })
-					.canProposeResolution
+				run(pDispute, false, pDispute.createdAt, { disputeProjection: proj }).canProposeResolution
 			).toBe(true);
 			expect(
-				run(pDispute, 'tasker', pDispute.createdAt, { disputeProjection: proj }).canAcceptProposal
+				run(pDispute, true, pDispute.createdAt, { disputeProjection: proj }).canAcceptProposal
 			).toBe(false);
 		});
 
@@ -364,15 +345,13 @@ describe('computePermittedActions', () => {
 				disputeAccepted: false
 			};
 			expect(
-				run(pDispute, 'taskee', pDispute.createdAt, { disputeProjection: proj }).canAcceptProposal
+				run(pDispute, false, pDispute.createdAt, { disputeProjection: proj }).canAcceptProposal
 			).toBe(true);
 			expect(
-				run(pDispute, 'tasker', pDispute.createdAt, { disputeProjection: proj })
-					.canProposeResolution
+				run(pDispute, true, pDispute.createdAt, { disputeProjection: proj }).canProposeResolution
 			).toBe(false);
 			expect(
-				run(pDispute, 'taskee', pDispute.createdAt, { disputeProjection: proj })
-					.canProposeResolution
+				run(pDispute, false, pDispute.createdAt, { disputeProjection: proj }).canProposeResolution
 			).toBe(true);
 		});
 
@@ -382,7 +361,7 @@ describe('computePermittedActions', () => {
 				lastProposerIsTasker: true,
 				disputeAccepted: true
 			};
-			const r = run(pDispute, 'taskee', pDispute.createdAt, { disputeProjection: proj });
+			const r = run(pDispute, false, pDispute.createdAt, { disputeProjection: proj });
 			expect(r.canAcceptProposal).toBe(false);
 			expect(r.canProposeResolution).toBe(false);
 		});
@@ -394,8 +373,7 @@ describe('computePermittedActions', () => {
 				disputeAccepted: false
 			};
 			expect(
-				run(pDispute, 'tasker', pDispute.createdAt, { disputeProjection: proj })
-					.canProposeResolution
+				run(pDispute, true, pDispute.createdAt, { disputeProjection: proj }).canProposeResolution
 			).toBe(false);
 		});
 	});
@@ -403,13 +381,13 @@ describe('computePermittedActions', () => {
 	describe('claimUpfrontDeposit', () => {
 		it('false without upfrontDeposit context', () => {
 			const p = basePayment({ state: ContractStatus.Funded });
-			const r = run(p, 'taskee', p.createdAt + GRACE_PERIOD + 1);
+			const r = run(p, false, p.createdAt + GRACE_PERIOD + 1);
 			expect(r.canClaimUpfrontDeposit).toBe(false);
 		});
 
 		it('true when amount covers deposit + fee and past grace', () => {
 			const p = basePayment({ state: ContractStatus.Funded, amount: '1.0' });
-			const r = run(p, 'taskee', p.createdAt + GRACE_PERIOD + 1, {
+			const r = run(p, false, p.createdAt + GRACE_PERIOD + 1, {
 				upfrontDeposit: {
 					upfrontDepositWei: ethers.parseEther('0.5'),
 					upfrontDepositReleased: false,
@@ -421,7 +399,7 @@ describe('computePermittedActions', () => {
 
 		it('false when amount too small', () => {
 			const p = basePayment({ state: ContractStatus.Funded, amount: '0.1' });
-			const r = run(p, 'taskee', p.createdAt + GRACE_PERIOD + 1, {
+			const r = run(p, false, p.createdAt + GRACE_PERIOD + 1, {
 				upfrontDeposit: {
 					upfrontDepositWei: ethers.parseEther('0.09'),
 					upfrontDepositReleased: false,

@@ -2,6 +2,10 @@
 	"dashboard": {
 		"contracts": {
 			"actions": {
+				"mark_complete_missing_context": "Faltan datos del contrato o del pago. Actualice e intente de nuevo.",
+				"mark_complete_not_signed_in": "Inicie sesión con Nostr para publicar actualizaciones de estado.",
+				"mark_complete_not_allowed": "No puede marcar esta tarea como completada en este momento.",
+				"mark_complete_preflight_failed": "No se pudo cargar el estado del contrato. Compruebe la conexión e intente de nuevo.",
 				"complete_task": "Completar Tarea",
 				"accept_work": "Aceptar Trabajo",
 				"dispute_work": "Disputar Trabajo",
