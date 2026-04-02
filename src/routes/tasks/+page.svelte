@@ -1340,8 +1340,9 @@
 						// Store the task before closing the details drawer
 						const taskToBid = selectedTaskForDetails;
 
-						// Close the task details drawer first
+						// Close the task details drawer and clear selection
 						isTaskDetailsOpen = false;
+						selectedTaskForDetails = null;
 
 						// Wait for the drawer close animation to complete (300ms)
 						await new Promise((resolve) => setTimeout(resolve, DRAWER_CLOSE_DELAY_MS));
