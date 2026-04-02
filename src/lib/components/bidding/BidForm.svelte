@@ -678,15 +678,6 @@
 							{description.length}/500 {$t('dashboard.bids.bid_creation.max')}
 						</small>
 					{/if}
-					{#if bidFormErrors.description}
-						<div class="label w-full min-w-0">
-							<span
-								class="label-text-alt text-error block wrap-break-word"
-								id="description-error"
-								aria-live="polite">{bidFormErrors.description}</span
-							>
-						</div>
-					{/if}
 				</div>
 
 				<!-- Additional information (optional) - dropdown -->

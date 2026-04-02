@@ -4,13 +4,15 @@
  */
 
 import { translationService, type TranslationResult } from '$lib/services/translation.service';
-import { SUPPORTED_LANGUAGES } from '$lib/i18n/i18n';
+import { SUPPORTED_LANGUAGES, type SupportedLanguage } from '$lib/i18n/i18n';
+import { locale } from 'svelte-i18n';
+import { get } from 'svelte/store';
 
 /**
  * Bid translations structure
  */
 export interface BidTranslations {
-	sourceLanguage: string; // Language of the original content
+	sourceLanguage: string;
 	translations: {
 		[language: string]: {
 			description: string;
@@ -21,8 +23,9 @@ export interface BidTranslations {
 }
 
 /**
- * Generate translations for a bid
- * Translates description, proposedApproach, and coverLetter to all supported languages
+ * Generate translations for a bid.
+ * Uses the user's current locale as the source language to avoid an extra
+ * detectLanguage API call, since the user is composing text in their selected language.
  */
 export async function generateBidTranslations(bidData: {
 	description: string;
@@ -39,11 +42,12 @@ export async function generateBidTranslations(bidData: {
 			return undefined;
 		}
 
-		// Detect source language from the combined text
-		const detectedLanguage = await translationService.detectLanguage(combinedText);
-
-		// If we can't detect language or it's not supported, default to 'en'
-		const sourceLanguage = detectedLanguage || 'en';
+		const currentLocale = get(locale) ?? 'en';
+		const sourceLanguage: SupportedLanguage = (SUPPORTED_LANGUAGES as readonly string[]).includes(
+			currentLocale
+		)
+			? (currentLocale as SupportedLanguage)
+			: 'en';
 
 		// Get all supported languages except the source language
 		const targetLanguages = SUPPORTED_LANGUAGES.filter((lang) => lang !== sourceLanguage);
