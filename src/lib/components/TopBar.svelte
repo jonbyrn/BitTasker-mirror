@@ -7,7 +7,6 @@
 	import { authState } from '$lib/stores/auth.store';
 	import { user } from '$lib/stores/user.store';
 	import { profileStore } from '$lib/stores/profile.store';
-	import Drawer from '$lib/components/Drawer.svelte';
 	import Avatar from '$lib/components/Avatar.svelte';
 	import LanguageDropdown from '$lib/components/LanguageDropdown.svelte';
 	import DarkModeToggle from '$lib/components/DarkModeToggle.svelte';
@@ -20,15 +19,10 @@
 		LOGGED_IN_MENU_SECTIONS,
 		LOGGED_OUT_MENU_SECTIONS,
 		AVATAR_MENU_ITEMS,
-		MOBILE_DRAWER_LOGGED_IN,
-		MOBILE_AUTH_BUTTONS,
 		type MenuItem,
 		type MenuSection
 	} from '$lib/utils/constants/menu.constants';
 	import { clickOutside } from '$lib/utils/clickOutside';
-
-	// Control drawer visibility
-	let isDrawerOpen = $state(false);
 
 	// Control logout confirmation modal
 	let showLogoutModal = $state(false);
@@ -107,11 +101,6 @@
 	// Derived values for user display name
 	let userDisplayName = $derived($profileStore.data?.name || $user.name || '');
 
-	// Close drawer
-	function closeDrawer() {
-		isDrawerOpen = false;
-	}
-
 	// Function to close all dropdown menus
 	function closeDropdowns() {
 		openSectionId = null;
@@ -138,7 +127,6 @@
 	}
 
 	function logout() {
-		closeDrawer();
 		closeDropdowns();
 		isAvatarDropdownOpen = false;
 		showLogoutModal = true;
@@ -357,73 +345,6 @@
 		{/if}
 	</div>
 </div>
-
-<!-- Mobile Drawer - Drawer is @deprecated in favor of BottomNavBar component -->
-<Drawer isOpen={isDrawerOpen} onClose={closeDrawer} position="left" isScrollable={true}>
-	<ul class="menu w-full">
-		<!-- Dark mode toggle -->
-		<li><DarkModeToggle /></li>
-
-		<!-- Language submenu -->
-		<li><LanguageDropdown onLanguageChange={closeDrawer} /></li>
-
-		<li class="divider"></li>
-
-		{#if isLoggedIn}
-			<!-- Logged-in mobile menu -->
-			{#each MOBILE_DRAWER_LOGGED_IN as item (item.label)}
-				<li>
-					{#if item.action}
-						<button
-							onclick={async (e) => {
-								await handleMenuItemClick(e, item.action);
-								closeDrawer();
-							}}
-							class="flex items-center gap-2"
-						>
-							<item.icon />
-							{$t(item.label)}
-						</button>
-					{:else}
-						{@const itemHref = item.getDynamicHref
-							? item.getDynamicHref(isLoggedIn)
-							: item.href || '#'}
-						<a
-							href={itemHref}
-							onclick={(e) => handleMenuItemClick(e, undefined, itemHref)}
-							class="flex items-center gap-2"
-						>
-							<item.icon />
-							{$t(item.label)}
-						</a>
-					{/if}
-				</li>
-			{/each}
-		{:else}
-			<!-- Logged-out mobile menu -->
-			{@const loginBtn = MOBILE_AUTH_BUTTONS.login}
-			{@const signupBtn = MOBILE_AUTH_BUTTONS.signup}
-			<li class="mt-4 flex flex-col gap-2">
-				<a
-					href={loginBtn.href}
-					class="btn btn-secondary flex w-full items-center justify-center gap-2"
-					onclick={closeDrawer}
-				>
-					<loginBtn.icon />
-					{$t(loginBtn.label)}
-				</a>
-				<a
-					href={signupBtn.href}
-					class="btn btn-primary flex w-full items-center justify-center gap-2"
-					onclick={closeDrawer}
-				>
-					<signupBtn.icon />
-					{$t(signupBtn.label)}
-				</a>
-			</li>
-		{/if}
-	</ul>
-</Drawer>
 
 <!-- Logout Confirmation Modal -->
 <ConfirmModal

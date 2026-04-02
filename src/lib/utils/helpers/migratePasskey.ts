@@ -194,7 +194,12 @@ async function migratePasskey(params: {
 	deviceName: string;
 	platform: 'mobile' | 'web';
 }): Promise<{
-	response: { user: UserData; access_token: string; encryptedData: EncryptedData };
+	response: {
+		user: UserData;
+		access_token: string;
+		refresh_token?: string;
+		encryptedData: EncryptedData;
+	};
 	exportedKey: string;
 	credentialId: string;
 }> {

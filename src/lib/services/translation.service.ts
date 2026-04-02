@@ -243,13 +243,11 @@ export class TranslationService extends BaseApiService {
 		targetLanguage: string,
 		sourceLanguage?: string
 	): Promise<BackendTranslateResponse> {
-		console.log('translateViaBackend', texts, targetLanguage, sourceLanguage);
 		const response = await this.post<BackendTranslateResponse>(ENDPOINTS.TRANSLATION.TRANSLATE, {
 			texts,
 			targetLanguage,
 			...(sourceLanguage && { sourceLanguage })
 		});
-		console.log('response', response);
 		return response.data;
 	}
 

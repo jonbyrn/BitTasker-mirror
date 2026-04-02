@@ -8,7 +8,6 @@
 import IconAccountCircle from '~icons/mdi/account-circle';
 import IconAccountGroup from '~icons/mdi/account-group';
 import IconAccountHardHat from '~icons/mdi/account-hard-hat';
-import IconAccountPlus from '~icons/mdi/account-plus';
 import IconAccount from '~icons/mdi/account';
 import IconBriefcaseOutline from '~icons/mdi/briefcase-outline';
 import IconBriefcaseSearch from '~icons/mdi/briefcase-search';
@@ -22,10 +21,8 @@ import IconFileSign from '~icons/mdi/file-sign';
 import IconFormatListBulleted from '~icons/mdi/format-list-bulleted';
 import IconFrequentlyAskedQuestions from '~icons/mdi/frequently-asked-questions';
 import IconHelpCircleOutline from '~icons/mdi/help-circle-outline';
-import IconHome from '~icons/mdi/home';
 import IconInformationOutline from '~icons/mdi/information-outline';
 import IconInvoiceTextSendOutline from '~icons/mdi/invoice-text-send-outline';
-import IconLogin from '~icons/mdi/login';
 import IconLogout from '~icons/mdi/logout';
 import IconMagnify from '~icons/mdi/magnify';
 import IconNewspaper from '~icons/mdi/newspaper';
@@ -39,7 +36,7 @@ export interface MenuItem {
 	/** Translation key */
 	label: string;
 	/** Icon component from MDI */
-	icon: any;
+	icon: unknown;
 	/** URL path */
 	href?: string;
 	/** Submenu items */
@@ -58,7 +55,7 @@ export interface MenuSection {
 	/** Translation key for section title */
 	label: string;
 	/** Icon component for section */
-	icon: any;
+	icon: unknown;
 	/** Menu items in this section */
 	items: MenuItem[];
 }
@@ -335,51 +332,3 @@ export const AVATAR_MENU_ITEMS: MenuItem[] = [
 		isError: true
 	}
 ];
-
-/**
- * Mobile drawer menu items (logged in)
- */
-export const MOBILE_DRAWER_LOGGED_IN: MenuItem[] = [
-	{
-		label: 'navbar.settings',
-		icon: IconCog,
-		href: '/dashboard/settings'
-	},
-	{
-		label: 'navbar.home',
-		icon: IconHome,
-		getDynamicHref: () => '/tasks'
-	},
-	{
-		label: 'navbar.how_it_works',
-		icon: IconHelpCircleOutline,
-		href: '/how-it-works'
-	},
-	{
-		label: 'navbar.terms_and_conditions',
-		icon: IconFileSign,
-		href: '/terms'
-	},
-	{
-		label: 'navbar.logout',
-		icon: IconLogout,
-		action: 'logout'
-	}
-];
-
-/**
- * Mobile drawer auth buttons (logged out)
- */
-export const MOBILE_AUTH_BUTTONS: { login: MenuItem; signup: MenuItem } = {
-	login: {
-		label: 'navbar.login',
-		icon: IconLogin,
-		href: '/auth/login'
-	},
-	signup: {
-		label: 'navbar.signup',
-		icon: IconAccountPlus,
-		href: '/auth/signup'
-	}
-};
-

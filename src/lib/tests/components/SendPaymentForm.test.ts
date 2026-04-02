@@ -3,10 +3,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import SendPaymentForm from '$lib/components/wallet/SendPaymentForm.svelte';
 import { walletStore, walletManager } from '$lib/stores/wallet.store';
-import cryptoPriceService from '$lib/api/services/crypto-price.service';
 import { parsePaymentAddress } from '$lib/utils/helpers/paymentAddressParser';
-import { getBiometricData } from '$lib/utils/helpers/biometrics';
-import { getWebBiometricData } from '$lib/utils/helpers/webBiometrics';
 
 // Mock svelte-i18n
 vi.mock('svelte-i18n', async () => {
@@ -38,8 +35,10 @@ vi.mock('svelte-i18n', async () => {
 		'wallet.send.authentication_required': 'Authentication required to send',
 		'wallet.send.payment_sent': 'Payment sent successfully',
 		'wallet.send.large_amount_warning.title': 'Large Amount Warning',
-		'wallet.send.large_amount_warning.message': "You're about to send {amount}. This is a large amount.",
-		'wallet.send.large_amount_warning.confirm_checkbox': 'I confirm this is the correct amount in USD',
+		'wallet.send.large_amount_warning.message':
+			"You're about to send {amount}. This is a large amount.",
+		'wallet.send.large_amount_warning.confirm_checkbox':
+			'I confirm this is the correct amount in USD',
 		'wallet.address': 'Address',
 		'wallet.amount': 'Amount',
 		'wallet.sats': 'Sats',
@@ -50,16 +49,22 @@ vi.mock('svelte-i18n', async () => {
 		'common.back': 'Back',
 		'common.cancel': 'Cancel'
 	};
-	const tStore = readable((key: string, values?: { values?: Record<string, string> } | Record<string, string>) => {
-		let result = translations[key] || key;
-		const replacements = values?.values ?? (typeof values === 'object' && values && !('values' in values) ? (values as Record<string, string>) : undefined);
-		if (replacements) {
-			Object.entries(replacements).forEach(([k, v]) => {
-				result = result.replace(`{${k}}`, String(v));
-			});
+	const tStore = readable(
+		(key: string, values?: { values?: Record<string, string> } | Record<string, string>) => {
+			let result = translations[key] || key;
+			const replacements =
+				values?.values ??
+				(typeof values === 'object' && values && !('values' in values)
+					? (values as Record<string, string>)
+					: undefined);
+			if (replacements) {
+				Object.entries(replacements).forEach(([k, v]) => {
+					result = result.replace(`{${k}}`, String(v));
+				});
+			}
+			return result;
 		}
-		return result;
-	});
+	);
 	return {
 		t: tStore,
 		locale: readable('en'),
@@ -184,7 +189,7 @@ describe('SendPaymentForm Component', () => {
 			},
 			bsc: { connected: false, address: null, formattedUsdtBalance: '0' },
 			totalBalances: { sats: 1_000_000, usd: 50 }
-		} as any));
+		}));
 	});
 
 	describe('Basic Rendering', () => {
@@ -209,7 +214,8 @@ describe('SendPaymentForm Component', () => {
 
 			// Address input exists in mobile (address-input) or desktop (address-input-desktop) layout
 			const addressInput =
-				document.getElementById('address-input') || document.getElementById('address-input-desktop');
+				document.getElementById('address-input') ||
+				document.getElementById('address-input-desktop');
 			await waitFor(() => expect(addressInput).toBeInTheDocument());
 		});
 
@@ -222,7 +228,8 @@ describe('SendPaymentForm Component', () => {
 			await tick();
 
 			const addressInput =
-				document.getElementById('address-input') || document.getElementById('address-input-desktop');
+				document.getElementById('address-input') ||
+				document.getElementById('address-input-desktop');
 			await waitFor(() => expect(addressInput).toBeInTheDocument());
 		});
 	});
@@ -235,10 +242,12 @@ describe('SendPaymentForm Component', () => {
 			const enterTabButton = screen.getByRole('button', { name: /enter payment details/i });
 			fireEvent.click(enterTabButton);
 			await tick();
-			const addressInput =
-				(document.getElementById('address-input') || document.getElementById('address-input-desktop')) as HTMLInputElement;
+			const addressInput = (document.getElementById('address-input') ||
+				document.getElementById('address-input-desktop')) as HTMLInputElement;
 			await waitFor(() => expect(addressInput).toBeInTheDocument());
-			fireEvent.input(addressInput, { target: { value: '0x1234567890123456789012345678901234567890' } });
+			fireEvent.input(addressInput, {
+				target: { value: '0x1234567890123456789012345678901234567890' }
+			});
 			await tick();
 			await waitFor(() => expect(parsePaymentAddress).toHaveBeenCalled());
 		});
@@ -259,8 +268,8 @@ describe('SendPaymentForm Component', () => {
 			const enterTabButton = screen.getByRole('button', { name: /enter payment details/i });
 			fireEvent.click(enterTabButton);
 			await tick();
-			const addressInput =
-				(document.getElementById('address-input') || document.getElementById('address-input-desktop')) as HTMLInputElement;
+			const addressInput = (document.getElementById('address-input') ||
+				document.getElementById('address-input-desktop')) as HTMLInputElement;
 			await waitFor(() => expect(addressInput).toBeInTheDocument());
 			fireEvent.input(addressInput, { target: { value: 'invalid' } });
 			fireEvent.blur(addressInput);
@@ -293,10 +302,12 @@ describe('SendPaymentForm Component', () => {
 			const enterTabButton = screen.getByRole('button', { name: /enter payment details/i });
 			fireEvent.click(enterTabButton);
 			await tick();
-			const addressInput =
-				(document.getElementById('address-input') || document.getElementById('address-input-desktop')) as HTMLInputElement;
+			const addressInput = (document.getElementById('address-input') ||
+				document.getElementById('address-input-desktop')) as HTMLInputElement;
 			await waitFor(() => expect(addressInput).toBeInTheDocument());
-			fireEvent.input(addressInput, { target: { value: '0x1234567890123456789012345678901234567890' } });
+			fireEvent.input(addressInput, {
+				target: { value: '0x1234567890123456789012345678901234567890' }
+			});
 			await tick();
 			await waitFor(() => expect(screen.getByRole('button', { name: '1' })).toBeInTheDocument());
 		});
@@ -317,14 +328,15 @@ describe('SendPaymentForm Component', () => {
 			const enterTabButton = screen.getByRole('button', { name: /enter payment details/i });
 			fireEvent.click(enterTabButton);
 			await tick();
-			const addressInput =
-				(document.getElementById('address-input') || document.getElementById('address-input-desktop')) as HTMLInputElement;
+			const addressInput = (document.getElementById('address-input') ||
+				document.getElementById('address-input-desktop')) as HTMLInputElement;
 			await waitFor(() => expect(addressInput).toBeInTheDocument());
 			fireEvent.input(addressInput, { target: { value: 'lnbc1000u1p3...' } });
 			await tick();
 			await waitFor(
 				() => {
-					const fromInvoiceText = screen.queryByText(/from invoice/i) || screen.queryByText('wallet.send.from_invoice');
+					const fromInvoiceText =
+						screen.queryByText(/from invoice/i) || screen.queryByText('wallet.send.from_invoice');
 					expect(fromInvoiceText).toBeInTheDocument();
 				},
 				{ timeout: 2000 }
@@ -346,7 +358,6 @@ describe('SendPaymentForm Component', () => {
 			await tick();
 
 			// Simulate QR scan
-			const component = render(SendPaymentForm, defaultProps);
 			await tick();
 
 			// The component should show QR scanner initially
@@ -371,10 +382,12 @@ describe('SendPaymentForm Component', () => {
 			const enterTabButton = screen.getByRole('button', { name: /enter payment details/i });
 			fireEvent.click(enterTabButton);
 			await tick();
-			const addressInput =
-				(document.getElementById('address-input') || document.getElementById('address-input-desktop')) as HTMLInputElement;
+			const addressInput = (document.getElementById('address-input') ||
+				document.getElementById('address-input-desktop')) as HTMLInputElement;
 			await waitFor(() => expect(addressInput).toBeInTheDocument());
-			fireEvent.input(addressInput, { target: { value: '0x1234567890123456789012345678901234567890' } });
+			fireEvent.input(addressInput, {
+				target: { value: '0x1234567890123456789012345678901234567890' }
+			});
 			await tick();
 			await waitFor(() => expect(parsePaymentAddress).toHaveBeenCalled(), { timeout: 2000 });
 			await tick();
@@ -397,7 +410,8 @@ describe('SendPaymentForm Component', () => {
 			await waitFor(
 				() => {
 					const addressInput =
-						document.getElementById('address-input') || document.getElementById('address-input-desktop');
+						document.getElementById('address-input') ||
+						document.getElementById('address-input-desktop');
 					expect(addressInput).toBeInTheDocument();
 					const sendButtons = screen.queryAllByRole('button', { name: /send|authenticate/i });
 					if (sendButtons.length > 0) {
@@ -423,17 +437,20 @@ describe('SendPaymentForm Component', () => {
 			const enterTabButton = screen.getByRole('button', { name: /enter payment details/i });
 			fireEvent.click(enterTabButton);
 			await tick();
-			const addressInput =
-				(document.getElementById('address-input') || document.getElementById('address-input-desktop')) as HTMLInputElement;
+			const addressInput = (document.getElementById('address-input') ||
+				document.getElementById('address-input-desktop')) as HTMLInputElement;
 			await waitFor(() => expect(addressInput).toBeInTheDocument());
-			fireEvent.input(addressInput, { target: { value: '0x1234567890123456789012345678901234567890' } });
+			fireEvent.input(addressInput, {
+				target: { value: '0x1234567890123456789012345678901234567890' }
+			});
 			await tick();
 			await waitFor(() => expect(parsePaymentAddress).toHaveBeenCalled(), { timeout: 2000 });
 
 			await waitFor(
 				() => {
 					expect(addressInput.value).toBeTruthy();
-					const hasAmountDisplay = screen.queryByText(/from invoice/i) || screen.queryByTestId('primary-amount-sats');
+					const hasAmountDisplay =
+						screen.queryByText(/from invoice/i) || screen.queryByTestId('primary-amount-sats');
 					expect(hasAmountDisplay || addressInput.value.length > 0).toBeTruthy();
 				},
 				{ timeout: 3000 }
@@ -458,10 +475,12 @@ describe('SendPaymentForm Component', () => {
 			const enterTabButton = screen.getByRole('button', { name: /enter payment details/i });
 			fireEvent.click(enterTabButton);
 			await tick();
-			const addressInput =
-				(document.getElementById('address-input') || document.getElementById('address-input-desktop')) as HTMLInputElement;
+			const addressInput = (document.getElementById('address-input') ||
+				document.getElementById('address-input-desktop')) as HTMLInputElement;
 			await waitFor(() => expect(addressInput).toBeInTheDocument());
-			fireEvent.input(addressInput, { target: { value: '0x1234567890123456789012345678901234567890' } });
+			fireEvent.input(addressInput, {
+				target: { value: '0x1234567890123456789012345678901234567890' }
+			});
 			await tick();
 			await waitFor(() => expect(screen.getByRole('button', { name: '1' })).toBeInTheDocument());
 
@@ -507,4 +526,3 @@ describe('SendPaymentForm Component', () => {
 		});
 	});
 });
-

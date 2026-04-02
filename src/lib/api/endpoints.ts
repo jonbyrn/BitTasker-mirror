@@ -29,7 +29,9 @@ export const ENDPOINTS = {
 		VERIFY_TURNSTILE: `${API_PATH}/${API_VERSION}/${AUTH}/verify-turnstile`,
 		CHECK_USERNAME: `${API_PATH}/${API_VERSION}/${AUTH}/username/check`,
 		MIGRATE_AUTH: `${API_PATH}/${API_VERSION}/${AUTH}/migrate`,
-		DELETE_ACCOUNT: `${API_PATH}/${API_VERSION}/${AUTH}/account`
+		DELETE_ACCOUNT: `${API_PATH}/${API_VERSION}/${AUTH}/account`,
+		REFRESH: `${API_PATH}/${API_VERSION}/${AUTH}/refresh`,
+		LOGOUT: `${API_PATH}/${API_VERSION}/${AUTH}/logout`
 	},
 
 	// Upload endpoints
