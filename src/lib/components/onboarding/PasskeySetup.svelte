@@ -139,7 +139,8 @@
 					npub,
 					response.user,
 					biometricData,
-					false
+					false,
+					response.refresh_token
 				);
 			}
 

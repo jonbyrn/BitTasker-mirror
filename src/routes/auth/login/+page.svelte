@@ -169,7 +169,9 @@
 				'passkey',
 				credentails.npub,
 				response.user,
-				biometricData
+				biometricData,
+				true,
+				response.refresh_token
 			);
 		} catch (err: unknown) {
 			console.error('Authentication failed:', err);
@@ -407,7 +409,15 @@
 				};
 
 				authState
-					.setupAuthData(res.access_token, 'passkey', npub, res.user, biometricData, false)
+					.setupAuthData(
+						res.access_token,
+						'passkey',
+						npub,
+						res.user,
+						biometricData,
+						false,
+						res.refresh_token
+					)
 					.then(async () => {
 						// If the account was pending deletion and the user just logged in,
 						// the backend automatically cancels the deletion. Show a welcome-back toast.
