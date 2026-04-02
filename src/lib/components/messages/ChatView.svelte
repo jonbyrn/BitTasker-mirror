@@ -670,7 +670,7 @@
 				recipientProfile = initialProfile;
 			}
 		} catch (err) {
-			error = 'dashboard.bids.components.messages.chat_view.failed_load_messages';
+			error = 'messages.failed_load_messages';
 			console.error('Error loading messages:', err);
 		} finally {
 			isLoadingMessages = false;
@@ -929,7 +929,7 @@
 			// On error, remove the temporary message and restore the input
 			messages = messages.filter((msg) => msg.event.id !== tempId);
 			newMessageText = messageContent;
-			error = 'dashboard.bids.components.messages.chat_view.failed_send_message';
+			error = 'messages.failed_send_message';
 			console.error('Error sending message:', err);
 
 			// Clear error after 5 seconds
@@ -1072,15 +1072,13 @@
 		class="relative min-h-0 flex-1 space-y-3 overflow-x-hidden overflow-y-auto px-4 py-6 sm:px-6 md:px-8 md:py-8"
 		role="log"
 		aria-live="polite"
-		aria-label={$t('dashboard.bids.components.messages.chat_view.chat_messages_aria')}
+		aria-label={$t('messages.chat_messages_aria')}
 	>
 		{#if isLoadingMessages}
 			<!-- Loading State -->
 			<div class="flex items-center justify-center py-6">
 				<div class="loading loading-spinner loading-md"></div>
-				<span class="ml-2"
-					>{$t('dashboard.bids.components.messages.chat_view.loading_messages')}</span
-				>
+				<span class="ml-2">{$t('messages.loading_messages')}</span>
 			</div>
 		{:else if error}
 			<!-- Error State -->
@@ -1107,13 +1105,13 @@
 					{#if isLoadingMore}
 						<div class="text-base-content/60 flex items-center gap-2 text-sm">
 							<div class="loading loading-spinner loading-sm"></div>
-							{$t('dashboard.bids.components.messages.chat_view.loading_older_messages')}
+							{$t('messages.loading_older_messages')}
 						</div>
 					{:else}
 						<button
 							class="btn btn-ghost btn-sm"
 							onclick={handleLoadMore}
-							aria-label={$t('dashboard.bids.components.messages.chat_view.load_older_messages')}
+							aria-label={$t('messages.load_older_messages')}
 						>
 							<svg
 								xmlns="http://www.w3.org/2000/svg"
@@ -1129,7 +1127,7 @@
 									d="M5 15l7-7 7 7"
 								/>
 							</svg>
-							{$t('dashboard.bids.components.messages.chat_view.load_older_messages')}
+							{$t('messages.load_older_messages')}
 						</button>
 					{/if}
 				</div>
@@ -1153,8 +1151,8 @@
 						/>
 					</svg>
 					<p class="text-base-content/60">
-						{$t('dashboard.bids.components.messages.chat_view.no_messages')}
-						{$t('dashboard.bids.components.messages.chat_view.start_conversation')}
+						{$t('messages.no_messages')}
+						{$t('messages.start_conversation')}
 					</p>
 				</div>
 			{:else}
@@ -1291,7 +1289,7 @@
 						onkeydown={handleKeyPress}
 						oninput={handleInputChange}
 						class="textarea placeholder-base-content/50 min-h-0 w-full resize-none border-none bg-transparent p-1 text-sm leading-6 focus:ring-0 focus:outline-none sm:p-1.5 sm:text-base"
-						placeholder={$t('dashboard.bids.components.messages.chat_view.send_message')}
+						placeholder={$t('messages.send_message')}
 						rows="1"
 						disabled={isSendingMessage}
 						autofocus
@@ -1305,7 +1303,7 @@
 					type="submit"
 					class="btn btn-info h-8 min-h-0 w-8 shrink-0 rounded-full p-0 transition-all duration-200 hover:scale-110 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100"
 					disabled={!newMessageText.trim() || isSendingMessage}
-					title={$t('dashboard.bids.components.messages.chat_view.send_message')}
+					title={$t('messages.send_message')}
 				>
 					{#if isSendingMessage}
 						<span class="loading loading-spinner loading-xs"></span>
@@ -1331,9 +1329,7 @@
 			<!-- Typing indicator or character count could go here -->
 			{#if newMessageText.length > 1000}
 				<div class="text-warning mt-2 text-right text-sm">
-					{newMessageText.length}/2000 {$t(
-						'dashboard.bids.components.messages.chat_view.characters'
-					)}
+					{newMessageText.length}/2000 {$t('messages.characters')}
 				</div>
 			{/if}
 		</form>

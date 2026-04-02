@@ -460,17 +460,6 @@
 						"they": "They",
 						"unknown": "unknown"
 					},
-					"chat_view": {
-						"failed_load_messages": "Failed to load messages",
-						"chat_messages_aria": "Type a message...",
-						"loading_messages": "Loading messages...",
-						"loading_older_messages": "Loading older messages...",
-						"no_messages": "No Message",
-						"start_conversation": "Start a conversation with someone",
-						"type_message_placeholder": "Type a message...",
-						"send_message": "Send message",
-						"characters": "characters"
-					},
 					"message_search": {
 						"failed_load_messages": "Failed to load messages",
 						"chat_messages_aria": "Type a message...",

@@ -1,6 +1,0 @@
-mutation SendNotification($input: SendNotificationInput!) {
-	sendNotification(input: $input) {
-		success
-		message
-	}
-}
