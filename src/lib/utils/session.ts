@@ -92,39 +92,6 @@ function resetAllStores(): void {
 }
 
 /**
- * Complete session cleanup
- *
- * Call this function when a user logs out to ensure:
- * 1. All Nostr subscriptions are closed
- * 2. All caches are cleared
- * 3. All stores are reset to initial state
- * 4. Wallet is disconnected
- *
- * This prevents stale data from the previous user from appearing
- * when a new user logs in.
- */
-export async function clearSession(): Promise<void> {
-	if (import.meta.env.DEV) {
-		console.debug('[Session] Starting session cleanup...');
-	}
-
-	try {
-		// Reset all stores first (this also closes Nostr subscriptions)
-		resetAllStores();
-
-		// Clear all caches
-		clearAllCaches();
-
-		if (import.meta.env.DEV) {
-			console.debug('[Session] Session cleanup complete');
-		}
-	} catch (error) {
-		console.error('[Session] Error during session cleanup:', error);
-		// Don't throw - we want logout to succeed even if cleanup has issues
-	}
-}
-
-/**
  * Full local session destruction.
  *
  * Clears all persisted tokens/keys from Preferences, resets every store,
