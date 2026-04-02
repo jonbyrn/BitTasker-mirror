@@ -26,6 +26,23 @@ export {
 } from './blockchainWrites';
 export { getSecurePaymentContractAddress } from './contractAddress';
 export type { WriteTxResult } from './types';
+export {
+	CANCELLATION_WINDOW,
+	COMPLETION_TIMELOCK,
+	computePermittedActions,
+	DISPUTE_TIMELOCK,
+	DISPUTE_WINDOW,
+	GRACE_PERIOD,
+	NO_SHOW_RESPONSE_PERIOD,
+	PROPOSAL_RESPONSE_PERIOD,
+	type ComputePermittedActionsArgs,
+	type DisputeProjection,
+	type PermittedActions,
+	inferParticipantRole,
+	isTerminalPaymentState,
+	type ParticipantRole,
+	type UpfrontDepositContext
+} from './permittedActions';
 
 const d = createDebug('contract:v2');
 

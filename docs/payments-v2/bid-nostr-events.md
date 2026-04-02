@@ -333,7 +333,7 @@ getMyBids(includeStatus?: boolean): Promise<NostrEvent[]>
 
 - Task status flow: `docs/tasks/task-status.md`
 - Auth/encryption: `docs/auth/encryption.md`
-- Escrow/contract: Contract events (Kind 30006) and contract status (Kind 31006) are documented separately in the escrow module
+- Escrow/contract: [Contract creation (Kind 30006)](./contract-nostr-events-v1.md); [contract status (Kind 31006)](./contract-status-nostr-events.md)
 
 ---
 
