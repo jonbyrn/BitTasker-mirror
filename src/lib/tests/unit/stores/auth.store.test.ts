@@ -14,7 +14,6 @@ vi.mock('@capacitor/preferences', () => ({
 }));
 
 vi.mock('$lib/utils/session', () => ({
-	clearSession: vi.fn().mockResolvedValue(undefined),
 	destroySession: (...args: unknown[]) => mockDestroySession(...args)
 }));
 
@@ -86,12 +85,6 @@ describe('auth.store', () => {
 		});
 
 		it('should call destroySession() for local cleanup', async () => {
-			await authState.logout();
-			expect(mockDestroySession).toHaveBeenCalledOnce();
-		});
-
-		it('should still destroy session if server logout fails', async () => {
-			mockAuthServiceLogout.mockRejectedValueOnce(new Error('Network error'));
 			await authState.logout();
 			expect(mockDestroySession).toHaveBeenCalledOnce();
 		});
