@@ -82,6 +82,8 @@ export async function setBiometricKey({
 			challenge: _challenge,
 			rp: {
 				name: 'BitTasker',
+				// On mobile, window.location.hostname comes from Capacitor's server.hostname config.
+				// This must match the domain where assetlinks.json is hosted for passkey validation.
 				id: window.location.hostname
 			},
 			user: {

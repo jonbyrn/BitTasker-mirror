@@ -7,30 +7,40 @@ const env = loadEnv('', process.cwd(), '');
 
 // Only use server URL for live reload (when VITE_CLIENT_URL is explicitly set)
 // For production builds, omit server config to use bundled webDir
-const serverUrl = process.env.VITE_CLIENT_URL || env.VITE_CLIENT_URL;
+const serverUrl = env.VITE_CLIENT_URL;
 const serverScheme = serverUrl?.startsWith('http://') ? 'http' : 'https';
-const enableDebugWebView = process.env.CAPACITOR_DEBUG_WEBVIEW === 'true';
+const enableDebugWebView = env.CAPACITOR_DEBUG_WEBVIEW === 'true';
 
 const config: CapacitorConfig = {
 	zoomEnabled: false,
 	appId: env.VITE_APP_ID || 'com.bittasker.app',
 	appName: env.VITE_APP_NAME || 'BitTasker',
 	webDir: 'build',
-	// Only set server config if VITE_CLIENT_URL is provided (for live reload)
-	// Otherwise, the app will use the bundled webDir (production mode)
-	...(serverUrl
+	// Server config controls how the WebView loads content:
+	//
+	// With VITE_CLIENT_URL (live reload):
+	//   - server.url makes the WebView fetch pages from a REMOTE server over the network.
+	//   - cleartext: true allows plain HTTP (needed for dev server http://ip:port).
+	//   - Passkeys will NOT work in this mode (rpId would be a LAN IP, not a real domain).
+	//
+	// Without VITE_CLIENT_URL (debug & production builds):
+	//   - server.hostname sets the VIRTUAL origin of the WebView. It does NOT load content
+	//     from bittasker.com over the internet -- the app still serves local files from webDir.
+	//     It only changes what window.location.hostname reports (from "localhost" to "bittasker.com").
+	//   - This is required for passkeys: Android Credential Manager fetches assetlinks.json from
+	//     the rpId domain (window.location.hostname) to validate the app-to-domain association.
+	//   - cleartext is omitted because no real network requests are made; content is local.
+	server: serverUrl
 		? {
-				server: {
-					// Load server URL from environment variable for live reload
-					// Example: `VITE_CLIENT_URL=http://192.168.1.50:3000 npm run android`
-					url: serverUrl,
-					cleartext: true,
-					// IMPORTANT: for Android live reload over LAN/USB with HTTP, the dev URL will be http://...
-					// Use the scheme that matches the configured server URL to avoid forcing the wrong one.
-					androidScheme: serverScheme
-				}
+				url: serverUrl,
+				cleartext: serverScheme === 'http' ? true : false,
+				// Use the scheme that matches the configured server URL to avoid forcing the wrong one.
+				androidScheme: serverScheme
 			}
-		: {}),
+		: {
+				hostname: env.VITE_CLIENT_HOSTNAME || 'bittasker.com',
+				androidScheme: 'https'
+			},
 	android: {
 		allowMixedContent: enableDebugWebView,
 		webContentsDebuggingEnabled: enableDebugWebView
