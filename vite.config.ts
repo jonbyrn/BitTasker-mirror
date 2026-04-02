@@ -5,7 +5,6 @@ import { sveltekit } from '@sveltejs/kit/vite';
 import { sentrySvelteKit } from '@sentry/sveltekit';
 import { nodePolyfills } from 'vite-plugin-node-polyfills';
 import pkg from './package.json';
-import houdini from 'houdini/vite';
 import wasm from 'vite-plugin-wasm';
 import Icons from 'unplugin-icons/vite';
 import tailwindcss from '@tailwindcss/vite';
@@ -52,7 +51,6 @@ export default defineConfig(({ mode }) => {
 				exclude: [
 					'node_modules/**',
 					'.svelte-kit/**',
-					'.houdini/**',
 					'build/**',
 					'dist/**',
 					'packages/**',
@@ -86,19 +84,16 @@ export default defineConfig(({ mode }) => {
 			// 1. Framework core — must come first to establish the SvelteKit transform pipeline
 			sveltekit(),
 
-			// 2. Houdini — GraphQL codegen, needs to run after SvelteKit sets up routing
-			houdini(),
-
-			// 3. Tailwind — CSS processing, needs to see the component files SvelteKit exposes
+			// 2. Tailwind — CSS processing, needs to see the component files SvelteKit exposes
 			tailwindcss(),
 
-			// 4. WASM — sets up WASM module handling before polyfills run
+			// 3. WASM — sets up WASM module handling before polyfills run
 			wasm(),
 
-			// 5. Top-level await — transforms must happen before polyfills
+			// 4. Top-level await — transforms must happen before polyfills
 			topLevelAwait(),
 
-			// 6. Node polyfills — replaces Node built-ins after all transforms are done
+			// 5. Node polyfills — replaces Node built-ins after all transforms are done
 			nodePolyfills({
 				// Whether to polyfill `node:` protocol imports.
 				protocolImports: true,
@@ -115,7 +110,7 @@ export default defineConfig(({ mode }) => {
 				exclude: ['fs', 'path']
 			}),
 
-			// 7. Icons — asset resolution, late in the pipeline
+			// 6. Icons — asset resolution, late in the pipeline
 			Icons({
 				compiler: 'svelte',
 				autoInstall: false,
@@ -124,10 +119,10 @@ export default defineConfig(({ mode }) => {
 				defaultClass: ''
 			}),
 
-			// 8. addBrowserCondition — test-only config tweak, safe anywhere but keep near end
+			// 7. addBrowserCondition — test-only config tweak, safe anywhere but keep near end
 			addBrowserCondition,
 
-			// 9. sentrySvelteKit — MUST be last: it reads the final source maps output
+			// 8. sentrySvelteKit — MUST be last: it reads the final source maps output
 			//    and uploads after the adapter runs (closeBundle hook)
 			sentrySvelteKit({
 				org: process.env.SENTRY_ORG,

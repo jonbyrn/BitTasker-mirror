@@ -1,32 +1,6 @@
 import '@testing-library/jest-dom/vitest';
 import { vi } from 'vitest';
 
-// Mock $houdini to prevent Houdini-generated GraphQL store constructors from
-// failing in the test environment (they require a live GraphQL runtime).
-// push-notification.service.ts instantiates these at module load time, which
-// causes any test that transitively imports escrowEvents.ts to blow up.
-vi.mock('$houdini', () => {
-	const makeStore = () =>
-		vi.fn().mockImplementation(() => ({
-			mutate: vi.fn().mockResolvedValue({ data: null, errors: null }),
-			fetch: vi.fn().mockResolvedValue({ data: null, errors: null }),
-			subscribe: vi.fn(() => () => {}),
-			store: { subscribe: vi.fn(() => () => {}) }
-		}));
-	return {
-		RegisterDeviceStore: makeStore(),
-		RevokeDeviceStore: makeStore(),
-		MyDevicesStore: makeStore(),
-		MyNotificationPreferencesStore: makeStore(),
-		SendNotificationStore: makeStore(),
-		SendNotificationToDeviceStore: makeStore(),
-		SendNotificationToNpubsStore: makeStore(),
-		SubscribeToTopicStore: makeStore(),
-		UnsubscribeFromTopicStore: makeStore(),
-		UpdateDeviceActivityStore: makeStore()
-	};
-});
-
 // Mock @bittasker/wallet-core to avoid EventBus import failure in test env
 // (wallet-core dist/index.js imports ./core/EventBus which may not resolve)
 // Individual tests can override with their own vi.mock if needed
