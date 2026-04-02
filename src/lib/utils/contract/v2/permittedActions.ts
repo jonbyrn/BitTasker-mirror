@@ -2,7 +2,7 @@
  * Pure eligibility for SecurePayment v2 participant writes.
  * @see SECURE-PAYMENT-PARTICIPANT-ACTIONS.md — reconcile with contract if it changes.
  *
- * Use `now` = latest block timestamp (seconds), never `Date.now()` from the caller clock.
+ * `now` is unix seconds. Callers may use chain time or **device time + a small offset** (e.g. +30s on RSK) so predicates stay usable without an RPC round-trip.
  *
  * Doc → code map:
  * - completeTask → `canCompleteTask`
@@ -37,18 +37,6 @@ export const NO_SHOW_RESPONSE_PERIOD = 86400;
 
 export type ParticipantRole = 'tasker' | 'taskee' | 'none';
 
-/** Compare lowercase hex addresses; unknown / non-party → `none`. */
-export function inferParticipantRole(
-	walletAddress: string | null | undefined,
-	payment: SecurePaymentLegacy
-): ParticipantRole {
-	if (!walletAddress?.trim()) return 'none';
-	const w = walletAddress.toLowerCase();
-	if (w === payment.tasker.toLowerCase()) return 'tasker';
-	if (w === payment.taskee.toLowerCase()) return 'taskee';
-	return 'none';
-}
-
 /** From Nostr / indexer for propose & accept; omit → both false in dispute states (Phase E). */
 export type DisputeProjection = {
 	totalProposalCount: number;
@@ -66,8 +54,9 @@ export type UpfrontDepositContext = {
 
 export type ComputePermittedActionsArgs = {
 	payment: SecurePaymentLegacy;
-	role: ParticipantRole;
-	/** Latest block timestamp (unix seconds) */
+	/** `true` = tasker (Kind 30006 author); `false` = taskee — only these two parties use the contract UI. */
+	isTasker: boolean;
+	/** Unix seconds (chain time or device time + offset — see module doc) */
 	now: number;
 	awaitingTx: boolean;
 	disputeProjection?: DisputeProjection;
@@ -120,6 +109,11 @@ function allFalse(): PermittedActions {
 	};
 }
 
+/** All flags false — e.g. no chain snapshot yet. */
+export function emptyPermittedActions(): PermittedActions {
+	return allFalse();
+}
+
 function taskerCanCancel(payment: SecurePaymentLegacy, now: number): boolean {
 	const { createdAt, estimatedStartTime, estimatedCompletionTime } = payment;
 	return (
@@ -152,7 +146,7 @@ function canDisputeTaskPredicate(payment: SecurePaymentLegacy, now: number): boo
 }
 
 function canProposeWithProjection(
-	role: ParticipantRole,
+	isTasker: boolean,
 	state: number,
 	projection: DisputeProjection
 ): boolean {
@@ -161,9 +155,7 @@ function canProposeWithProjection(
 	if (projection.disputeAccepted) return false;
 	if (projection.totalProposalCount >= 4) return false;
 
-	const isTasker = role === 'tasker';
-	const isTaskee = role === 'taskee';
-	if (!isTasker && !isTaskee) return false;
+	const isTaskee = !isTasker;
 
 	if (projection.totalProposalCount === 0) return true;
 
@@ -174,7 +166,7 @@ function canProposeWithProjection(
 }
 
 function canAcceptWithProjection(
-	role: ParticipantRole,
+	isTasker: boolean,
 	state: number,
 	projection: DisputeProjection
 ): boolean {
@@ -183,9 +175,7 @@ function canAcceptWithProjection(
 	if (projection.disputeAccepted) return false;
 	if (projection.totalProposalCount < 1) return false;
 
-	const isTasker = role === 'tasker';
-	const isTaskee = role === 'taskee';
-	if (!isTasker && !isTaskee) return false;
+	const isTaskee = !isTasker;
 
 	if (isTasker && projection.lastProposerIsTasker) return false;
 	if (isTaskee && !projection.lastProposerIsTasker) return false;
@@ -197,14 +187,13 @@ function canAcceptWithProjection(
  * Which lifecycle writes the connected wallet may attempt, from chain + time (+ optional dispute/upfront context).
  */
 export function computePermittedActions(args: ComputePermittedActionsArgs): PermittedActions {
-	const { payment, role, now, awaitingTx, disputeProjection, upfrontDeposit } = args;
+	const { payment, isTasker, now, awaitingTx, disputeProjection, upfrontDeposit } = args;
 	const base = allFalse();
 
-	if (awaitingTx || role === 'none') return base;
+	if (awaitingTx) return base;
 
 	const { state, timelockEnd, noShowMarked, createdAt, estimatedStartTime } = payment;
-	const isTasker = role === 'tasker';
-	const isTaskee = role === 'taskee';
+	const isTaskee = !isTasker;
 
 	if (isTerminalPaymentState(state)) return base;
 
@@ -244,8 +233,8 @@ export function computePermittedActions(args: ComputePermittedActionsArgs): Perm
 
 	// --- Dispute proposals (needs projection from Nostr / indexer in production)
 	if (disputeProjection) {
-		base.canProposeResolution = canProposeWithProjection(role, state, disputeProjection);
-		base.canAcceptProposal = canAcceptWithProjection(role, state, disputeProjection);
+		base.canProposeResolution = canProposeWithProjection(isTasker, state, disputeProjection);
+		base.canAcceptProposal = canAcceptWithProjection(isTasker, state, disputeProjection);
 	}
 
 	// --- cancel

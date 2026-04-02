@@ -1,10 +1,16 @@
 import type { NDKPaymentContract } from '$lib/nostr/events/contract';
+import type { NDKContractStatus } from '$lib/nostr/events/contractStatus';
 import { createDebug } from '$lib/utils/debug';
-import { loadPaymentContractDetails } from '$lib/utils/contract/v1';
-import { loadPaymentContractDetailsV2 } from '$lib/utils/contract/v2';
-import { isTerminalPaymentState } from '$lib/utils/contract/v2/permittedActions';
-import { getProvider } from '$lib/utils/contract';
+import {
+	getPaymentContractLifecycle,
+	type ContractLifecycleResult,
+	type PaymentContractLifecycle,
+	type PaymentContractRuneLike
+} from '$lib/utils/contract/lifecycle';
 import { parsePaymentContractCreatedPaymentId } from '$lib/utils/contract/v2/creation';
+import { isTerminalPaymentState } from '$lib/utils/contract/v2/permittedActions';
+import type { PermittedActions } from '$lib/utils/contract/v2/permittedActions';
+import { getProvider } from '$lib/utils/contract';
 import {
 	type ContractDisplayStatus,
 	ContractStatus,
@@ -13,15 +19,17 @@ import {
 import { ndk } from '$lib/nostr/ndk';
 import type { NDKSubscription, NDKSubscriptionOptions, NDKFilter } from '@nostr-dev-kit/ndk';
 import KINDS from '$lib/utils/constants/kinds';
-import type { NDKContractStatus } from '$lib/nostr/events/contractStatus';
 
 const d = createDebug('runes:contractRune');
 
-export class PaymentContractRune {
-	contract: NDKPaymentContract;
-	isTasker: boolean;
+export type { ContractLifecycleResult };
+
+export class PaymentContractRune implements PaymentContractRuneLike {
+	/** Set in constructor; asserted because `$derived` fields reference it above TS init analysis. */
+	contract!: NDKPaymentContract;
 	paymentId: string | undefined;
 	version: string;
+	lifecycle: PaymentContractLifecycle;
 	isPending = $state(false);
 	/**
 	 * First EOSE: relay backfill is done. We then reconcile once from the **newest** historical
@@ -44,12 +52,41 @@ export class PaymentContractRune {
 	statusEvents = $state<NDKContractStatus[]>([]);
 	statusSub: NDKSubscription | null = null;
 
+	contractAddress = $derived(this.contract.contractAddress?.trim() ?? '');
+	parentEventId = $derived(this.contract.id ?? '');
+	taskerPubkey = $derived(this.contract.taskerPubkey);
+	taskTitle = $derived(this.contract.taskTitle ?? 'Task');
+
+	/** Viewer is the Kind 30006 author (tasker); otherwise treated as taskee for permissions. */
+	isTasker = $derived.by(() => {
+		const me = this.contract.ndk?.activeUser?.pubkey;
+		const tasker = this.contract.taskerPubkey;
+		return !!(me && tasker && me === tasker);
+	});
+
+	/**
+	 * Eligibility flags — delegated to version lifecycle.
+	 * Touches `statusEventsByNewest` so Nostr history affects future dispute projection.
+	 */
+	permittedActions = $derived.by((): PermittedActions => {
+		//this.statusEventsByNewest
+		return this.lifecycle.computePermittedActions(this);
+	});
+
 	constructor(contract: NDKPaymentContract) {
 		this.contract = contract;
-		this.isTasker = contract.ndk?.activeUser?.npub === contract.taskerPubkey;
 		this.paymentId = contract.paymentId || undefined;
 		this.version = contract.version ?? 'v1';
+		this.lifecycle = getPaymentContractLifecycle(this.version);
 		this.isPending = !this.paymentId && !!this.contract.transactionHash;
+	}
+
+	/**
+	 * Taskee marks complete (v2); v1 returns not allowed.
+	 * TODO(gasless): prefer meta-tx when available (in v2 lifecycle).
+	 */
+	markTaskComplete(): Promise<ContractLifecycleResult> {
+		return this.lifecycle.markTaskComplete(this);
 	}
 
 	async start() {
@@ -87,9 +124,7 @@ export class PaymentContractRune {
 
 	private async reloadBlockchainData(): Promise<void> {
 		if (!this.paymentId || !this.contract.contractAddress) return;
-		const loadContractDetails =
-			this.version === 'v2' ? loadPaymentContractDetailsV2 : loadPaymentContractDetails;
-		const data = await loadContractDetails(this.paymentId, this.contract.contractAddress, 'rsk');
+		const data = await this.lifecycle.loadPaymentContractDetails(this);
 		this.blockchainData = data;
 	}
 
@@ -127,7 +162,7 @@ export class PaymentContractRune {
 		}
 	}
 
-	/** v2 live events: wait on the published hash, then refresh chain (not terminal). */
+	/** Live events: wait on the published hash, then refresh chain (not terminal). */
 	private async awaitStatusTxThenReload(txHash: string): Promise<void> {
 		this.isPending = true;
 		d.log('awaitStatusTxThenReload', { txHash });
@@ -153,9 +188,8 @@ export class PaymentContractRune {
 		}
 	}
 
-	/** Shared guards for v2 status tx wait + chain reload (live or first EOSE newest row). */
 	private maybeAwaitStatusTxForEvent(ev: NDKContractStatus) {
-		if (this.version !== 'v2') return;
+		if (!this.lifecycle.shouldAwaitStatusTransaction) return;
 		if (!this.paymentId || !this.blockchainData) return;
 		if (this.chainIsTerminal) return;
 		const h = ev.transactionHash?.trim();
@@ -176,7 +210,6 @@ export class PaymentContractRune {
 			onEvent: (event) => {
 				this.statusEvents.push(event as NDKContractStatus);
 				if (!this.statusHistoryReady) return;
-				// only await status events after initial load of all events
 				this.maybeAwaitStatusTxForEvent(event as NDKContractStatus);
 			},
 			onEose: () => {
@@ -185,7 +218,6 @@ export class PaymentContractRune {
 					count: this.statusEvents.length
 				});
 				if (this.statusHistoryReady) return;
-				// check status of latest event after first load
 				this.statusHistoryReady = true;
 				const newest = this.statusEventsByNewest[0];
 				if (newest) {

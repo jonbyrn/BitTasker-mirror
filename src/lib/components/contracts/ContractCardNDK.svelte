@@ -12,6 +12,7 @@
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
 	import { PaymentContractRune } from '$lib/runes/contractRune.svelte';
 	import { ContractStatus } from '$lib/utils/contract/types';
+	import ContractActionsNDK from './ContractActionsNDK.svelte';
 
 	const { contract }: { contract: NDKPaymentContract } = $props();
 
@@ -28,7 +29,11 @@
 	// $inspect(contractRune.blockchainData, 'contractRune');
 	// $inspect(contractRune?.statusEvents, 'statusEvents');
 
-	const isTasker = $derived(contract.author.pubkey === contract.ndk?.activeUser?.pubkey);
+	const isTasker = $derived(
+		contractRune !== null
+			? contractRune.isTasker
+			: contract.author.pubkey === contract.ndk?.activeUser?.pubkey
+	);
 	const amountSats = $derived(
 		formatConvertedAmount(contract.amount, contract.currency, {
 			btcPrice: btcPrice.price,
@@ -115,8 +120,8 @@
 
 			<!-- Right: Action Buttons -->
 			<div class="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
-				{#if false}
-					<!-- Static placeholder: ContractActions will mount here when wired -->
+				{#if contractRune && contractRune.blockchainData}
+					<ContractActionsNDK {contractRune} />
 				{/if}
 				<button type="button" class="btn btn-outline btn-sm w-full sm:w-auto">
 					<svg

@@ -36,7 +36,7 @@ Plan for wiring **participant actions** (tasker / taskee), **NDK contract status
 └────────────────────────────┬────────────────────────────────────┘
                              │
 ┌────────────────────────────▼────────────────────────────────────┐
-│  participantActions.ts — one exported fn per user-facing action  │
+│  PaymentContractRune (e.g. markTaskComplete) + blockchainWrites   │
 │  • Direct EOA `executeWrite` only (iteration 1); gasless later   │
 │  • After broadcast: NDKContractStatus (`s`, `action`, tx hash)   │
 │  • pushNotificationService → dashboard / contracts tab deep link │
@@ -62,7 +62,7 @@ Plan for wiring **participant actions** (tasker / taskee), **NDK contract status
 | **Tag `e`**           | **Always** the Kind **30006** payment contract event `id`. No UI path before that event exists.                                                                                                                                                                                                                                                            |
 | **Dispute gating**    | **Do not** rely on `totalProposalCount` from chain for v2 UI. Derive from **31006 history**: events whose `s` / flow indicates dispute + **created_at** ordering; infer **proposal count**, **last proposer** (pubkey), and **proposed amounts** from encrypted tag payload where applicable.                                                              |
 | **Push**              | Reuse **`pushNotificationService`**. **Deep link** should open **dashboard** with the **contracts** tab in focus (exact URL fragment or query param to align with whatever the wallet/dashboard UI uses when implemented—e.g. `/dashboard` + `?tab=contracts` or hash; keep consistent with `clickAction` in push payloads).                               |
-| **Meta-transactions** | **First iteration: direct blockchain calls only.** Each orchestrator in `participantActions.ts` should carry a short **TODO / note**: future default path = gasless (`executeMetaTransaction` or equivalent), **fallback** to direct `executeWrite` if gasless fails.                                                                                      |
+| **Meta-transactions** | **First iteration: direct blockchain calls only.** Each rune lifecycle method should carry a short **TODO / note**: future default path = gasless (`executeMetaTransaction` or equivalent), **fallback** to direct `executeWrite` if gasless fails.                                                                                                        |
 | **Reverted tx**       | After `waitForTransaction`: if receipt **failed** (`status === 0`), **reload payment details from the contract** (source of truth), **clear “awaiting”** state, **do not** treat the published status event as authoritative—effectively **ignore** that update for permission/sync (no extra “failed” Nostr event required). Optionally local toast only. |
 
 ---
@@ -120,8 +120,8 @@ Dedupe by **event `id`**. If the same `transactionHash` appears twice, ignore du
 **Inputs:**
 
 - **`SecurePaymentLegacy`** (`state`, times, `timelockEnd`, `noShowMarked`, addresses, fees).
-- **Role:** tasker vs taskee (wallet vs `tasker` / `taskee`).
-- **`now`:** **latest block timestamp** (`getBlock('latest').timestamp`), not `Date.now()`, for SECURE-PAYMENT predicates.
+- **Side:** **`isTasker`** boolean — **UI:** `PaymentContractRune.isTasker` (Nostr pubkey === `taskerPubkey`); otherwise permissions use the **taskee** branch. **Tests / wallet-only:** map `inferParticipantRole` → `isTasker: role === 'tasker'` when you only have chain addresses.
+- **`now`:** **Unix seconds** for SECURE-PAYMENT predicates — product choice here is **device time + ~30s** (RSK block cadence) via `PaymentContractRune` / `permissionsNowSeconds()`, not `getBlock('latest')`.
 - **`awaitingTx`:** if true, UI **disables** all actions regardless of chain `can*`.
 
 **Output:** `{ canCompleteTask, canAcceptTask, … }` plus optional **reason** strings.
@@ -141,7 +141,7 @@ Document the **exact rules** in code comments or a short `dispute-projection.md`
 
 ---
 
-## 7. UI orchestrators (`participantActions.ts`)
+## 7. UI orchestrators (`PaymentContractRune` methods)
 
 For each user-facing operation: call **`blockchainWrites.*`**, then in parallel (e.g. `runParallelNamed`):
 
@@ -162,7 +162,7 @@ For each user-facing operation: call **`blockchainWrites.*`**, then in parallel 
 
 - Consumes rune (or narrow props).
 - Shows buttons only when **`can* && !awaitingTx`** (or show disabled with tooltip when `awaitingTx`).
-- Calls **only** `participantActions` APIs.
+- Calls **only** rune orchestration APIs (e.g. **`contractRune.markTaskComplete()`**), not `blockchainWrites` directly.
 - DaisyUI + `svelte-i18n` for labels.
 
 ---
@@ -180,7 +180,7 @@ Phases **A** and **B** can be reordered if you want subscription refresh before 
 **Deliverables**
 
 - [x] `src/lib/utils/contract/v2/permittedActions.ts` (or split `permittedActions.chain.ts` if large).
-- [x] Export **`computePermittedActions(args)`** with `SecurePaymentLegacy`, `role`, `now`, `awaitingTx`, optional `disputeProjection` / `upfrontDeposit`.
+- [x] Export **`computePermittedActions(args)`** with `SecurePaymentLegacy`, **`isTasker`**, `now`, `awaitingTx`, optional `disputeProjection` / `upfrontDeposit`.
 - [x] Export **`inferParticipantRole`**, time constants (`GRACE_PERIOD`, `CANCELLATION_WINDOW`, `COMPLETION_TIMELOCK`, `DISPUTE_WINDOW`, plus doc-reference-only `DISPUTE_TIMELOCK`, `PROPOSAL_RESPONSE_PERIOD`, `NO_SHOW_RESPONSE_PERIOD`).
 - [x] Re-export from `src/lib/utils/contract/v2/index.ts`.
 - [x] Vitest: `src/lib/tests/unit/utils/contract/v2/permittedActions.test.ts` (mock `SecurePaymentLegacy` + explicit `now`).
@@ -247,17 +247,23 @@ Phases **A** and **B** can be reordered if you want subscription refresh before 
 
 **Deliverables**
 
-- [ ] `participantActions.markTaskComplete` (or `completeTaskForUi`) wrapping **`blockchainWrites.completeTask`**.
-- [ ] After broadcast: publish status with correct **`s`** (`Completed`) and **`action`** (`completeTask`), **`e`** from contract event.
-- [ ] Push to counterparty with **contracts-tab** deep link.
-- [ ] **`ContractActionsNDK.svelte`**: single button wired to taskee + `canCompleteTask` from Phase A + rune `awaitingTx`.
-- [ ] i18n keys for button + errors (en + es if project requires both for new keys).
+- [x] **`PaymentContractRune.markTaskComplete()`** (chain + Nostr + push); **`contractRune.permittedActions`** from **`isTasker`** + chain snapshot.
+- [x] Re-export from **`v2/index.ts`**.
+- [x] After broadcast: **`NDKContractStatus`** with **`e`** = Kind 30006 id, **`r`** = `paymentId`, **`p`** = tasker (recipient), **`v`** = `v2`, **`m`** = `contract-status`, **`s`** = **`ContractStatus.Completed`**, **`transactionHash`**, encrypted tag **`writeMethod`** = `completeTask`.
+- [x] Push to **tasker** npub via **`pushNotificationService`**; **`clickAction`** = dashboard contracts tab (same pattern as **`createContract`**).
+- [x] **`ContractActionsNDK.svelte`**: props **`contract`**, **`contractRune`**; uses **`contractRune.permittedActions`** (derived on the rune: chain + Nostr role + **`isPending`** + app **`now` + offset**).
+- [x] Wire **`ContractCardNDK.svelte`** (v2 only, when chain data present).
+- [x] **en + es** in **`static/locales/*/dashboard/contracts/actions.json`** for any **new** error keys (button label may reuse **`complete_task`**).
 
-**Checklist**
+**Implementation checklist**
 
-- [ ] Gasless **TODO** comment on the orchestrator.
-- [ ] Parallel side effects do not block each other unnecessarily (`runParallelNamed` or equivalent).
-- [ ] Button hidden vs disabled rules match product (prefer **hidden** when `can*` false, **disabled** when `awaitingTx`).
+- [x] **Preflight:** `loadPaymentContractDetailsV2` → fresh **`computePermittedActions`** (**`isTasker`**, app **`now` + ~30s**, **`awaitingTx: false`**); abort if **`!canCompleteTask`** with i18n **`errorKey`**.
+- [x] **Chain:** **`completeTask(paymentId, { contractAddress, chain: 'rsk' })`**; capture **`tx.hash`**.
+- [x] **NDK:** **`ndk` singleton** from **`$lib/nostr/ndk`**; **`status.author = ndk.activeUser`**; **`status.publish()`**.
+- [x] **TODO(gasless)** on **`PaymentContractRune.markTaskComplete`**.
+- [x] **`runParallelNamed`**: Nostr publish + push; log **`failures`** but do **not** fail the overall result if chain tx already broadcast.
+- [x] **UI:** hide button when **`!canCompleteTask`**; **disable** when **`contractRune.isPending`** or local **busy**; toast on **`errorKey`** / success.
+- [ ] **Manual:** testnet happy path + tasker receives event (subscription) and optional push.
 
 **Exit criteria:** Happy path works on testnet; counterparty sees Nostr + push (if env configured).
 
@@ -269,7 +275,7 @@ Phases **A** and **B** can be reordered if you want subscription refresh before 
 
 **Deliverables**
 
-- [ ] One **`participantActions`** function per required **`blockchainWrites`** method (accept, dispute, cancel, refund, no-show, WIP, claims, resolution, timelock, etc.—trim to what v2 UI actually exposes).
+- [ ] One **`PaymentContractRune`** method (or small helper) per required **`blockchainWrites`** method (accept, dispute, cancel, refund, no-show, WIP, claims, resolution, timelock, etc.—trim to what v2 UI actually exposes).
 - [ ] Central **table** (in code or doc): `action` string → `blockchainWrites` → expected **`s`** → push **type** key.
 - [ ] i18n for all new strings.
 - [ ] Extend **`ContractActionsNDK`** with buttons grouped by role (tasker vs taskee).
