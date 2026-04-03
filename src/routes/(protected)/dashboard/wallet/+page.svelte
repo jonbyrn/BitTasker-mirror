@@ -65,9 +65,9 @@
 		}
 	});
 
-	onDestroy(async () => {
-		await walletManager.cleanup();
-		// Clean up WebSocket subscription
+	onDestroy(() => {
+		// Wallet teardown runs in dashboard/+layout onDestroy (leaving /dashboard/*), not here —
+		// otherwise navigating wallet ↔ contracts destroys the provider mid-flight.
 		unsubscribeFromSwaps?.();
 	});
 

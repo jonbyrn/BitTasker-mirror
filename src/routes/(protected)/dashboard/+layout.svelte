@@ -14,8 +14,9 @@
 	import IconCog from '~icons/mdi/cog';
 	import WarningPopup from '$lib/components/WarningPopup.svelte';
 	import NotificationPermissionBanner from '$lib/components/notifications/NotificationPermissionBanner.svelte';
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import { setNDKSigner } from '$lib/nostr/ndk';
+	import { walletManager } from '$lib/stores/wallet.store';
 
 	let { children } = $props();
 
@@ -39,6 +40,12 @@
 
 		// If nsec is not in memory yet, lets get it
 		setNDKSigner();
+	});
+
+	// Dispose SDK / ethers providers only when leaving the whole dashboard shell — not when
+	// swapping child routes (e.g. wallet page ↔ contracts tab). Child pages must not call cleanup.
+	onDestroy(() => {
+		walletManager.cleanup();
 	});
 </script>
 
