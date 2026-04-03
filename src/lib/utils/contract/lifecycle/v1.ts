@@ -50,11 +50,19 @@ export async function refundTaskerV1(
 	return { ok: false };
 }
 
+export async function cancelPaymentContractV1(
+	_rune: PaymentContractRuneLike
+): Promise<ContractLifecycleResult> {
+	d.warn('cancelPaymentContractV1: v1 lifecycle does not support this action');
+	return { ok: false };
+}
+
 export const v1Lifecycle: PaymentContractLifecycle = {
 	loadPaymentContractDetails: loadPaymentContractDetailsV1,
 	computePermittedActions: computePermittedActionsV1,
 	markTaskComplete: markTaskCompleteV1,
 	acceptTask: acceptTaskV1,
 	refundTasker: refundTaskerV1,
+	cancelPaymentContract: cancelPaymentContractV1,
 	shouldAwaitStatusTransaction: false
 };

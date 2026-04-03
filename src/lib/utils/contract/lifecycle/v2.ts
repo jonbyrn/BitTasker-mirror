@@ -1,7 +1,12 @@
 import { ndk } from '$lib/nostr/ndk';
 import { createDebug } from '$lib/utils/debug';
 import { publishTaskCompletedForEscrow } from '$lib/utils/contract/v2/creation';
-import { acceptTask, completeTask, refundTasker } from '$lib/utils/contract/v2/blockchainWrites';
+import {
+	acceptTask,
+	cancelPaymentContract,
+	completeTask,
+	refundTasker
+} from '$lib/utils/contract/v2/blockchainWrites';
 import { loadPaymentContractDetailsV2 } from '$lib/utils/contract/v2/loadPaymentContractDetailsV2';
 import {
 	computePermittedActions,
@@ -293,11 +298,78 @@ export async function refundTaskerV2(
 	return { ok: true, transactionHash };
 }
 
+/**
+ * Tasker or taskee cancels escrow: `cancelPaymentContract` → 31006 `s=Cancelled`, push to counterparty.
+ * TODO(gasless): prefer meta-tx when available.
+ */
+export async function cancelPaymentContractV2(
+	rune: PaymentContractRuneLike
+): Promise<ContractLifecycleResult> {
+	const ids = getRuneWriteIds(rune);
+	const taskerPk = rune.taskerPubkey;
+	const taskeePk = rune.contract.taskeePubkey;
+	if (!ids || !taskerPk || !taskeePk) {
+		d.warn(
+			'cancelPaymentContractV2: missing paymentId, contract address, parent id, tasker, or taskee pubkey'
+		);
+		return { ok: false };
+	}
+
+	if (!ndk.activeUser?.pubkey) {
+		d.warn('cancelPaymentContractV2: not signed in with Nostr');
+		return { ok: false };
+	}
+
+	const preflightErr = await runV2Preflight(rune, ids, {
+		isAllowed: (p) => p.canCancelPaymentContract,
+		logLabel: 'cancelPaymentContractV2'
+	});
+	if (preflightErr) return preflightErr;
+
+	let transactionHash: string;
+	try {
+		const { tx } = await cancelPaymentContract(ids.paymentId, {
+			contractAddress: ids.contractAddress,
+			chain: 'rsk'
+		});
+		transactionHash = tx.hash;
+	} catch (e) {
+		d.error('cancelPaymentContractV2: cancelPaymentContract failed', e);
+		return { ok: false };
+	}
+
+	const signer = ndk.activeUser;
+	if (!signer) {
+		d.warn('cancelPaymentContractV2: signer missing after broadcast');
+		return { ok: false };
+	}
+
+	const counterpartyPk = rune.isTasker ? taskeePk : taskerPk;
+
+	await broadcastThenParallelV2Effects(
+		'cancelPaymentContractV2',
+		ids,
+		signer,
+		transactionHash,
+		counterpartyPk,
+		ContractStatus.Cancelled,
+		'cancelPaymentContract',
+		{
+			title: 'Contract cancelled',
+			body: `"${rune.taskTitle}" — the secure payment was cancelled. Open Contracts to review.`,
+			type: 'contract_payment_cancelled'
+		}
+	);
+
+	return { ok: true, transactionHash };
+}
+
 export const v2Lifecycle: PaymentContractLifecycle = {
 	loadPaymentContractDetails: loadPaymentContractDetailsV2ForRune,
 	computePermittedActions: computePermittedActionsV2,
 	markTaskComplete: markTaskCompleteV2,
 	acceptTask: acceptTaskV2,
 	refundTasker: refundTaskerV2,
+	cancelPaymentContract: cancelPaymentContractV2,
 	shouldAwaitStatusTransaction: true
 };

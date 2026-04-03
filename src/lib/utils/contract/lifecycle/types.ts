@@ -39,6 +39,8 @@ export type PaymentContractLifecycle = {
 	acceptTask: (rune: PaymentContractRuneLike) => Promise<ContractLifecycleResult>;
 	/** Taskee refunds tasker → `Refunded` on chain + 31006 + push to tasker. */
 	refundTasker: (rune: PaymentContractRuneLike) => Promise<ContractLifecycleResult>;
+	/** Tasker or taskee cancels → `Cancelled` on chain + 31006 + push to counterparty. */
+	cancelPaymentContract: (rune: PaymentContractRuneLike) => Promise<ContractLifecycleResult>;
 	/** When true, Nostr 31006 with `transactionHash` triggers wait-for-tx + chain reload. */
 	shouldAwaitStatusTransaction: boolean;
 };

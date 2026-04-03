@@ -8,15 +8,15 @@ Plan for wiring **participant actions** (tasker / taskee), **NDK contract status
 
 ## 1. Review — implemented (current)
 
-| Piece                       | Location                                                                                  | Role                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| --------------------------- | ----------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Version lifecycle API**   | `src/lib/utils/contract/lifecycle/` — `types.ts`, `v1.ts`, `v2.ts`, `index.ts`, `time.ts` | **`getPaymentContractLifecycle(version)`** returns **`PaymentContractLifecycle`**: per-version **`loadPaymentContractDetails`**, **`computePermittedActions`**, **`markTaskComplete`**, **`acceptTask`**, **`refundTasker`**, **`shouldAwaitStatusTransaction`**. Implementations are **functions `(rune) => …`** — no circular import with the rune file; **`PaymentContractRuneLike`** describes the narrow shape. |
-| **v2 chain + Nostr + push** | `lifecycle/v2.ts`                                                                         | **`markTaskComplete`**: `completeTask` → 31006 `s=Completed`, `writeMethod=completeTask`, push to **tasker**. **`acceptTask`**: `acceptTask` → 31006 `s=FundsReleased`, `writeMethod=acceptTask`, push to **taskee** (`contract_payment_released`). **`refundTasker`**: `refundTasker` → 31006 `s=Refunded`, `writeMethod=refundTasker`, push to **tasker** (`contract_refund_to_tasker`).                           |
-| **v1**                      | `lifecycle/v1.ts`                                                                         | **`loadPaymentContractDetails`** → v1 `getEscrow`; **`computePermittedActions`** → all false; **`markTaskComplete` / `acceptTask`** → not allowed i18n keys; **no** status-tx wait path.                                                                                                                                                                                                                             |
-| **Rune**                    | `src/lib/runes/contractRune.svelte.ts`                                                    | Owns **subscriptions**, **`blockchainData`**, **`isPending`**, **`isTasker`**, **`permittedActions`** `$derived` → **`lifecycle.computePermittedActions(this)`**. **Delegates** **`reloadBlockchainData`** → **`lifecycle.loadPaymentContractDetails`**, **`markTaskComplete` / `acceptTask`** → lifecycle. **No `version === 'v2'`** in reload or actions.                                                          |
-| **UI**                      | `ContractActionsNDK.svelte`, `ContractCardNDK.svelte`                                     | Buttons from **`permittedActions.canCompleteTask` / `canAcceptTask`** only; mounted when chain data exists **and** at least one flag is true.                                                                                                                                                                                                                                                                        |
-| **Permissions math (v2)**   | `src/lib/utils/contract/v2/permittedActions.ts`                                           | Pure **`computePermittedActions({ payment, isTasker, now, awaitingTx, … })`**; **`now`** = device + **~30s** via **`permissionsNowSeconds()`** in lifecycle.                                                                                                                                                                                                                                                         |
-| **Raw writes**              | `src/lib/utils/contract/v2/blockchainWrites.ts`                                           | `completeTask`, `acceptTask`, … (no `tx.wait()` in writes; rune waits on 31006 hash when **`shouldAwaitStatusTransaction`**).                                                                                                                                                                                                                                                                                        |
+| Piece                       | Location                                                                                                       | Role                                                                                                                                                                                                                                                                                                                                                        |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Version lifecycle API**   | `src/lib/utils/contract/lifecycle/` — `types.ts`, `v1.ts`, `v2.ts`, `v2WriteHelpers.ts`, `index.ts`, `time.ts` | **`getPaymentContractLifecycle(version)`** returns **`PaymentContractLifecycle`**: **`loadPaymentContractDetails`**, **`computePermittedActions`**, **`markTaskComplete`**, **`acceptTask`**, **`refundTasker`**, **`cancelPaymentContract`**, **`shouldAwaitStatusTransaction`**.                                                                          |
+| **v2 chain + Nostr + push** | `lifecycle/v2.ts`                                                                                              | **`markTaskComplete`**, **`acceptTask`**, **`refundTasker`** (as before). **`cancelPaymentContract`**: `cancelPaymentContract` → 31006 `s=Cancelled`, `writeMethod=cancelPaymentContract`, push **`contract_payment_cancelled`** to **counterparty** (taskee if tasker cancelled, else tasker).                                                             |
+| **v1**                      | `lifecycle/v1.ts`                                                                                              | **`loadPaymentContractDetails`** → v1 `getEscrow`; **`computePermittedActions`** → all false; **`markTaskComplete` / `acceptTask`** → not allowed i18n keys; **no** status-tx wait path.                                                                                                                                                                    |
+| **Rune**                    | `src/lib/runes/contractRune.svelte.ts`                                                                         | Owns **subscriptions**, **`blockchainData`**, **`isPending`**, **`isTasker`**, **`permittedActions`** `$derived` → **`lifecycle.computePermittedActions(this)`**. **Delegates** **`reloadBlockchainData`** → **`lifecycle.loadPaymentContractDetails`**, **`markTaskComplete` / `acceptTask`** → lifecycle. **No `version === 'v2'`** in reload or actions. |
+| **UI**                      | `ContractActionsNDK.svelte`, `ContractCardNDK.svelte`                                                          | Buttons from **`permittedActions.canCompleteTask` / `canAcceptTask`** only; mounted when chain data exists **and** at least one flag is true.                                                                                                                                                                                                               |
+| **Permissions math (v2)**   | `src/lib/utils/contract/v2/permittedActions.ts`                                                                | Pure **`computePermittedActions({ payment, isTasker, now, awaitingTx, … })`**; **`now`** = device + **~30s** via **`permissionsNowSeconds()`** in lifecycle.                                                                                                                                                                                                |
+| **Raw writes**              | `src/lib/utils/contract/v2/blockchainWrites.ts`                                                                | `completeTask`, `acceptTask`, … (no `tx.wait()` in writes; rune waits on 31006 hash when **`shouldAwaitStatusTransaction`**).                                                                                                                                                                                                                               |
 
 ---
 
@@ -75,16 +75,17 @@ After each successful **broadcast** (before requiring confirmation in the orches
 
 **Example mapping (illustrative; verify against actual state transitions):**
 
-| `action`             | Typical expected `s` after success           |
-| -------------------- | -------------------------------------------- |
-| `completeTask`       | `Completed`                                  |
-| `acceptTask`         | `FundsReleased`                              |
-| `refundTasker`       | `Refunded`                                   |
-| `disputeTask`        | `InDispute` (or doc-specific variant)        |
-| `markWorkInProgress` | `WorkInProgress`                             |
-| `proposeResolution`  | `InDispute` (chain may stay same; see below) |
-| `acceptProposal`     | `DisputeResolved`                            |
-| …                    | …                                            |
+| `action`                | Typical expected `s` after success           |
+| ----------------------- | -------------------------------------------- |
+| `completeTask`          | `Completed`                                  |
+| `acceptTask`            | `FundsReleased`                              |
+| `refundTasker`          | `Refunded`                                   |
+| `cancelPaymentContract` | `Cancelled`                                  |
+| `disputeTask`           | `InDispute` (or doc-specific variant)        |
+| `markWorkInProgress`    | `WorkInProgress`                             |
+| `proposeResolution`     | `InDispute` (chain may stay same; see below) |
+| `acceptProposal`        | `DisputeResolved`                            |
+| …                       | …                                            |
 
 If an action does **not** change `state` on chain (rare), `s` should still reflect the **post-tx canonical state** (often unchanged); `action` disambiguates what happened.
 
@@ -160,10 +161,11 @@ For each user-facing operation, the **version’s `lifecycle/v*.ts`** function:
 ## 8. UI component: `ContractActionsNDK.svelte`
 
 - Props: **`contractRune`**.
-- **Complete task** when **`permittedActions.canCompleteTask`**; **Accept work** when **`canAcceptTask`**; **Refund tasker** when **`canRefundTasker`**.
+- **Complete task** when **`permittedActions.canCompleteTask`**; **Accept work** when **`canAcceptTask`**; **Refund tasker** when **`canRefundTasker`**; **Cancel contract** when **`canCancelPaymentContract`**.
 - **`disabled`** when **`contractRune.isPending`** or local **`busy`** (shared between actions).
-- Calls **`contractRune.markTaskComplete()`** / **`contractRune.acceptTask()`** / **`contractRune.refundTasker()`** only.
+- Calls **`contractRune.markTaskComplete()`** / **`acceptTask()`** / **`refundTasker()`** / **`cancelPaymentContract()`** only.
 - DaisyUI + `svelte-i18n` (`dashboard.contracts.actions.*`).
+- **Confirm / completion modals** (planned): see **[v2-contract-modals-plan.md](./v2-contract-modals-plan.md)** — reuse **`ConfirmModal`**, add NDK-native task completion modal; today buttons fire lifecycle **immediately**.
 
 ---
 
@@ -280,7 +282,7 @@ Phases **A** and **B** can be reordered if you want subscription refresh before 
 
 **Goal:** All product-required writes have UI entry points and consistent tags.
 
-**Suggested implementation order:** **§11.2 / §11.3** (next: **`cancelPaymentContract`**).
+**Suggested implementation order:** **§11.2 / §11.3** (next: **`markWorkInProgress`**).
 
 **Deliverables**
 
@@ -334,6 +336,7 @@ Phases **A** and **B** can be reordered if you want subscription refresh before 
 
 ## 10. Related docs / code
 
+- **[v2-contract-modals-plan.md](./v2-contract-modals-plan.md)** — confirmation + **`TaskCompletionModalNDK`** (planned) before further lifecycle buttons.
 - [SECURE-PAYMENT-PARTICIPANT-ACTIONS.md](../../src/lib/utils/contract/v2/SECURE-PAYMENT-PARTICIPANT-ACTIONS.md)
 - [contract-status-nostr-events.md](./contract-status-nostr-events.md)
 - [ndk-contract-status-adaptation-plan.md](./ndk-contract-status-adaptation-plan.md)
@@ -354,30 +357,31 @@ Track **end-to-end** wiring: **`lifecycle/v2.ts` orchestrator** (preflight → `
 - [x] **`completeTask`** — `markTaskCompleteV2`, rune `markTaskComplete()`, `canCompleteTask`, UI button.
 - [x] **`acceptTask`** — `acceptTaskV2`, rune `acceptTask()`, `canAcceptTask`, UI button; kind **31000** `COMPLETED` + rune reconciliation (extra vs original Phase C′).
 - [x] **`refundTasker`** — `refundTaskerV2`, rune `refundTasker()`, `canRefundTasker`, UI button; 31006 `s=Refunded`, push **`contract_refund_to_tasker`** to tasker.
+- [x] **`cancelPaymentContract`** — `cancelPaymentContractV2`, rune `cancelPaymentContract()`, `canCancelPaymentContract`, UI button; 31006 `s=Cancelled`, push **`contract_payment_cancelled`** to counterparty.
 
 ### 11.2 Backlog — suggested order
 
-Rough principle: **taskee-only escapes** (`refundTasker` **done**), then **shared cancellations**, **progress / no-show**, **dispute entry**, **timelock resolution**, **dispute settlement** (needs **Phase E** projection for full `can*` parity), **upfront** last (extra rune/load context).
+Rough principle: **taskee-only escapes** and **cancel** **done**; then **progress / no-show**, **dispute entry**, **timelock resolution**, **dispute settlement** (needs **Phase E** projection for full `can*` parity), **upfront** last (extra rune/load context).
 
-| Priority  | `blockchainWrites`      | Main actor                        | Why this order                                                                                                       |
-| --------- | ----------------------- | --------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| ~~**1**~~ | ~~`refundTasker`~~      | Taskee                            | **Done** — see §11.1.                                                                                                |
-| **2**     | `cancelPaymentContract` | Tasker + taskee (different rules) | Common exit; still no dispute projection.                                                                            |
-| **3**     | `markWorkInProgress`    | Taskee                            | Small state step (`NoShow` path).                                                                                    |
-| **4**     | `markNoShow`            | Tasker                            | Pairs with WIP / no-show timeline.                                                                                   |
-| **5**     | `claimNoShowRefund`     | Tasker                            | After no-show + timelock.                                                                                            |
-| **6**     | `disputeTask`           | Tasker                            | Opens dispute; 31006 + push pattern.                                                                                 |
-| **7**     | `resolveAfterTimelock`  | Tasker / taskee (state-dependent) | Mechanical follow-up to completed / dispute timelocks.                                                               |
-| **8**     | `proposeResolution`     | Alternating                       | **`canProposeResolution`** needs **Phase E** projection for real UX; can still wire chain + 31006 + conservative UI. |
-| **9**     | `acceptProposal`        | Alternating                       | Same as **8**.                                                                                                       |
-| **10**    | `claimUpfrontDeposit`   | Taskee                            | **`computePermittedActions`** needs **`upfrontDeposit`** context from load/rune — wire load path first.              |
+| Priority  | `blockchainWrites`          | Main actor                        | Why this order                                                                                                       |
+| --------- | --------------------------- | --------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| ~~**1**~~ | ~~`refundTasker`~~          | Taskee                            | **Done** — see §11.1.                                                                                                |
+| ~~**2**~~ | ~~`cancelPaymentContract`~~ | Tasker + taskee                   | **Done** — see §11.1.                                                                                                |
+| **3**     | `markWorkInProgress`        | Taskee                            | Small state step (`NoShow` path).                                                                                    |
+| **4**     | `markNoShow`                | Tasker                            | Pairs with WIP / no-show timeline.                                                                                   |
+| **5**     | `claimNoShowRefund`         | Tasker                            | After no-show + timelock.                                                                                            |
+| **6**     | `disputeTask`               | Tasker                            | Opens dispute; 31006 + push pattern.                                                                                 |
+| **7**     | `resolveAfterTimelock`      | Tasker / taskee (state-dependent) | Mechanical follow-up to completed / dispute timelocks.                                                               |
+| **8**     | `proposeResolution`         | Alternating                       | **`canProposeResolution`** needs **Phase E** projection for real UX; can still wire chain + 31006 + conservative UI. |
+| **9**     | `acceptProposal`            | Alternating                       | Same as **8**.                                                                                                       |
+| **10**    | `claimUpfrontDeposit`       | Taskee                            | **`computePermittedActions`** needs **`upfrontDeposit`** context from load/rune — wire load path first.              |
 
 ### 11.3 Per-action checklist (unchecked = pending)
 
 Use this list to **keep score**. Check the line when the action is shippable end-to-end (including push + i18n unless product says otherwise).
 
 - [x] **1. `refundTasker`** — taskee refund paths (`canRefundTasker`).
-- [ ] **2. `cancelPaymentContract`** — tasker + taskee cancel (`canCancelPaymentContract`).
+- [x] **2. `cancelPaymentContract`** — tasker + taskee cancel (`canCancelPaymentContract`).
 - [ ] **3. `markWorkInProgress`** — taskee (`canMarkWorkInProgress`).
 - [ ] **4. `markNoShow`** — tasker (`canMarkNoShow`).
 - [ ] **5. `claimNoShowRefund`** — tasker (`canClaimNoShowRefund`).
@@ -393,4 +397,4 @@ Use this list to **keep score**. Check the line when the action is shippable end
 
 ## 12. Summary
 
-**Version-specific behavior** lives in **`lifecycle/v1.ts`** and **`lifecycle/v2.ts`** as functions **`(rune) => …`**. The **rune** holds reactive state and subscriptions; **UI** only checks **`permittedActions.can*`** and calls **`markTaskComplete` / `acceptTask` / `refundTasker`** (and further actions as wired). Use **`s`** = **expected post-tx `ContractStatus`** and **`writeMethod`** = **write name** for reconciliation; **push** targets the **counterparty** with **typed** payloads and **dashboard `?tab=contracts`**. **Iteration 1**: direct writes + **gasless TODOs** on each orchestrator. **`e`** = Kind **30006** id. On **revert**, **reload** via **`lifecycle.loadPaymentContractDetails`**. **Pending orchestrators:** see **§11 Lifecycle wiring scorecard**. Next large chunks: **Phase D** (remaining writes — follow §11 order) and **Phase E** (dispute projection from 31006 history for proposal actions).
+**Version-specific behavior** lives in **`lifecycle/v1.ts`** and **`lifecycle/v2.ts`** as functions **`(rune) => …`**. The **rune** holds reactive state and subscriptions; **UI** only checks **`permittedActions.can*`** and calls **`markTaskComplete` / `acceptTask` / `refundTasker` / `cancelPaymentContract`** (and further actions as wired). Use **`s`** = **expected post-tx `ContractStatus`** and **`writeMethod`** = **write name** for reconciliation; **push** targets the **counterparty** with **typed** payloads and **dashboard `?tab=contracts`**. **Iteration 1**: direct writes + **gasless TODOs** on each orchestrator. **`e`** = Kind **30006** id. On **revert**, **reload** via **`lifecycle.loadPaymentContractDetails`**. **Pending orchestrators:** see **§11 Lifecycle wiring scorecard**. Next large chunks: **Phase D** (remaining writes — follow §11 order) and **Phase E** (dispute projection from 31006 history for proposal actions).

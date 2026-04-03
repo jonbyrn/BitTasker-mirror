@@ -117,6 +117,11 @@ export class PaymentContractRune implements PaymentContractRuneLike {
 		return this.lifecycle.refundTasker(this);
 	}
 
+	/** Tasker or taskee cancels escrow (v2); v1 returns not allowed. */
+	cancelPaymentContract(): Promise<ContractLifecycleResult> {
+		return this.lifecycle.cancelPaymentContract(this);
+	}
+
 	async start() {
 		d.log('start: sync requested', { paymentId: this.paymentId, version: this.version });
 		await this.getOriginalTaskEvent();

@@ -120,7 +120,7 @@
 
 			<!-- Right: Action Buttons -->
 			<div class="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
-				{#if contractRune && contractRune.blockchainData && (contractRune.permittedActions.canCompleteTask || contractRune.permittedActions.canAcceptTask || contractRune.permittedActions.canRefundTasker)}
+				{#if contractRune && contractRune.blockchainData && (contractRune.permittedActions.canCompleteTask || contractRune.permittedActions.canAcceptTask || contractRune.permittedActions.canRefundTasker || contractRune.permittedActions.canCancelPaymentContract)}
 					<ContractActionsNDK {contractRune} />
 				{/if}
 				<button type="button" class="btn btn-outline btn-sm w-full sm:w-auto">

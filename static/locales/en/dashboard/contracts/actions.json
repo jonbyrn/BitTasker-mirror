@@ -18,6 +18,7 @@
 				"refund_tasker_preflight_failed": "Could not load contract state. Check your connection and try again.",
 				"refund_tasker_error": "Error refunding the tasker",
 				"contract_action_failed": "We couldn't complete that action. Try again, or check your connection and sign-in.",
+				"cancel_contract_success": "Cancellation submitted. The other party will be notified when the transaction confirms.",
 				"accept_work_success": "Payment released successfully.",
 				"complete_task": "Complete Task",
 				"accept_work": "Accept Work",
