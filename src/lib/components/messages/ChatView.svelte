@@ -923,7 +923,7 @@
 				body: messageContent?.substring(0, 50) + (messageContent.length > 50 ? '...' : ''),
 				type: 'message',
 				clickAction: `${import.meta.env.VITE_CLIENT_URL}/dashboard/messages/to/${recipientPubkey}`,
-				icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
+				icon: 'https://bittasker.com/images/logos/bittasker-logomark.svg'
 			});
 		} catch (err) {
 			// On error, remove the temporary message and restore the input

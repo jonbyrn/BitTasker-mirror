@@ -2,20 +2,17 @@
 	import type { Task } from '$lib/types/task.d';
 	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 	import { t } from 'svelte-i18n';
-	import TranslatableTask from '$lib/components/task/TranslatableTask.svelte';
 	import { getStatusBadge } from '$lib/utils/helpers/taskStatusBadge';
-	import UsdSatsDisplay from '$lib/components/shared/UsdSatsDisplay.svelte';
 	import { getTaskId } from '$lib/utils/helpers/task-id';
+	import { authState } from '$lib/stores/auth.store';
+	import TranslatableTask from '$lib/components/task/TranslatableTask.svelte';
+	import UsdSatsDisplay from '$lib/components/shared/UsdSatsDisplay.svelte';
 	import TaskShareButton from '$lib/components/task/TaskShareButton.svelte';
 	import ActionsMenu from '$lib/components/moderation/ActionsMenu.svelte';
-
-	// Icon imports
-	import IconPlus from '~icons/mdi/plus';
-
-	// Reusable display components
 	import TaskDeadlineDisplay from '$lib/components/task/TaskDeadlineDisplay.svelte';
 	import TaskLocationDisplay from '$lib/components/task/TaskLocationDisplay.svelte';
 	import UserInfoDisplay from '$lib/components/user/UserInfoDisplay.svelte';
+	import IconPlus from '~icons/mdi/plus';
 	import IconEye from '~icons/mdi/eye';
 
 	let {
@@ -106,7 +103,7 @@
 						}}
 					>
 						<TaskShareButton {task} variant="circle" class="btn-xs" />
-						{#if task.npub}
+						{#if $authState.isAuthenticated && task.npub}
 							<ActionsMenu
 								contentType="task"
 								reportedPubkey={task.npub}
