@@ -2,6 +2,7 @@
 	import type { Task } from '$lib/types/task';
 	import { t } from 'svelte-i18n';
 	import { onMount } from 'svelte';
+	import { SvelteSet } from 'svelte/reactivity';
 	import { myTasksStore, TASKS_PER_PAGE } from '$lib/stores/task.store';
 	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
@@ -43,7 +44,7 @@
 	let bidStatusMap = $state<Map<string, boolean>>(new Map());
 	let isCheckingBids = $state(false);
 	let lastBidCheckTime = $state<number>(0);
-	let lastCheckedTaskIds = $state<Set<string>>(new Set());
+	let lastCheckedTaskIds = new SvelteSet<string>();
 	const BID_CHECK_INTERVAL = 5000; // 5 seconds minimum between checks (reduced from 30s)
 
 	// Pagination state
@@ -127,7 +128,8 @@
 
 		isCheckingBids = true;
 		lastBidCheckTime = now;
-		lastCheckedTaskIds = new Set(currentTaskIds);
+		lastCheckedTaskIds.clear();
+		for (const id of currentTaskIds) lastCheckedTaskIds.add(id);
 
 		try {
 			// Batch check all bids
@@ -237,17 +239,12 @@
 		}
 	}
 
-	// Reset to page 1 when filter changes
-	$effect(() => {
-		activeFilter; // Watch filter changes
-		currentPage = 1;
-	});
-
 	/**
 	 * Select filter option
 	 */
 	function selectFilter(optionId: TaskFilterCategory) {
 		activeFilter = optionId;
+		currentPage = 1;
 		isDropdownOpen = false;
 	}
 
@@ -329,7 +326,7 @@
 					{
 						label: $t('task.actions.view_details'),
 						class: 'btn-outline btn-sm',
-						onclick: (e: any) => {
+						onclick: (e: MouseEvent | KeyboardEvent) => {
 							e.stopPropagation();
 							openTaskDrawer(task, 'details');
 						},
@@ -338,7 +335,7 @@
 					{
 						label: $t('task.actions.view_bids'),
 						class: 'btn-primary btn-sm',
-						onclick: (e: any) => {
+						onclick: (e: MouseEvent | KeyboardEvent) => {
 							e.stopPropagation();
 							goto(`/dashboard/task/${task.id}/bids`);
 						},
@@ -351,7 +348,7 @@
 					{
 						label: $t('task.actions.mark_as_done'),
 						class: 'btn-success btn-sm',
-						onclick: (e: any) => {
+						onclick: (e: MouseEvent | KeyboardEvent) => {
 							e.stopPropagation();
 							// TODO: Implement mark as done functionality
 						},
@@ -360,7 +357,7 @@
 					{
 						label: $t('task.actions.rescope'),
 						class: 'btn-info btn-outline btn-sm',
-						onclick: (e: any) => {
+						onclick: (e: MouseEvent | KeyboardEvent) => {
 							e.stopPropagation();
 							// TODO: Implement rescope functionality
 						},
@@ -374,7 +371,7 @@
 					{
 						label: $t('task.actions.view_details'),
 						class: 'btn-primary btn-sm',
-						onclick: (e: any) => {
+						onclick: (e: MouseEvent | KeyboardEvent) => {
 							e.stopPropagation();
 							openTaskDrawer(task, 'details');
 						},
@@ -404,7 +401,7 @@
 
 <div class="space-y-6">
 	<!-- Status filter + refresh -->
-	<div class="border-base-300/60 bg-base-100/40 rounded-3xl border p-4 mt-2 shadow-sm">
+	<div class="border-base-300/60 bg-base-100/40 mt-2 rounded-3xl border p-4 shadow-sm">
 		<!-- Header with title and refresh button -->
 		<div class="mb-3 flex items-center justify-between gap-2">
 			<div class="space-y-1">
@@ -418,7 +415,7 @@
 
 			<!-- Refresh button: icon only on mobile, with text on desktop -->
 			<button
-				class="btn btn-ghost btn-sm sm:btn-outline  gap-2"
+				class="btn btn-ghost btn-sm sm:btn-outline gap-2"
 				onclick={handleRefresh}
 				disabled={isLoading}
 				aria-label={$t('dashboard.tasks.refresh')}
@@ -429,7 +426,6 @@
 				{:else}
 					<IconRefresh class="h-5 w-5" />
 					<span class="hidden sm:inline">{$t('dashboard.tasks.refresh')}</span>
-					{' '}
 				{/if}
 			</button>
 		</div>
@@ -445,7 +441,7 @@
 					onclick={toggleDropdown}
 				>
 					<div class="flex items-center gap-2">
-						{#each filterOptions as option}
+						{#each filterOptions as option (option.id)}
 							{#if activeFilter === option.id}
 								{@const IconComponent = option.icon}
 								<IconComponent class="h-5 w-5" />
@@ -464,7 +460,7 @@
 					<div
 						class="border-base-300 bg-base-100 absolute top-full right-0 left-0 z-50 mt-2 rounded-xl border shadow-lg"
 					>
-						{#each filterOptions as option}
+						{#each filterOptions as option (option.id)}
 							{@const IconComponent = option.icon}
 							<button
 								class="hover:bg-base-200 flex w-full items-center gap-2 px-4 py-2 text-left transition-colors duration-200 first:rounded-t-xl last:rounded-b-xl {activeFilter ===
@@ -492,10 +488,10 @@
 		<!-- Desktop filters -->
 		<div class="mt-4 hidden sm:block">
 			<div class="flex flex-col gap-3 sm:flex-row">
-				{#each filterOptions as option}
+				{#each filterOptions as option (option.id)}
 					{@const IconComponent = option.icon}
 					<button
-						class="flex btn btn-sm py-4 flex-1 cursor-pointer items-center justify-center gap-2 rounded-3xl text-center transition-all duration-200 {activeFilter ===
+						class="btn btn-sm flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-3xl py-4 text-center transition-all duration-200 {activeFilter ===
 						option.id
 							? 'text-primary bg-primary/10 border-primary/30 border'
 							: 'bg-base-100/40 hover:bg-base-100/60 text-base-content/70'}"
@@ -540,7 +536,7 @@
 				<h3 class="font-bold">{$t('dashboard.tasks.error_title')}</h3>
 				<div class="text-xs">{error}</div>
 			</div>
-			<button class="btn btn-sm  btn-outline" onclick={loadTasks}>
+			<button class="btn btn-sm btn-outline" onclick={loadTasks}>
 				{$t('dashboard.tasks.retry')}
 			</button>
 		</div>
@@ -580,12 +576,7 @@
 		{:else}
 			<div class="grid grid-cols-1 gap-5">
 				{#each paginatedTasks as task (task.id)}
-					<DashboardTaskCard
-						{task}
-						{btcPrice}
-						{activeFilter}
-						{getActionButtons}
-					/>
+					<DashboardTaskCard {task} {btcPrice} {activeFilter} {getActionButtons} />
 				{/each}
 			</div>
 
@@ -597,8 +588,7 @@
 					</button>
 
 					<div class="flex gap-1">
-						{#each Array(totalPages) as _, i}
-							{@const page = i + 1}
+						{#each Array.from({ length: totalPages }, (_, i) => i + 1) as page (page)}
 							<button
 								class="btn btn-sm {currentPage === page ? 'btn-primary' : 'btn-ghost'}"
 								onclick={() => goToPage(page)}

@@ -260,8 +260,8 @@
 	<link rel="manifest" href="/site.webmanifest" />
 
 	<!-- Preload critical images -->
-	<link href="/images/Logos/BitTasker-Logo-dark-mode.svg" as="image" />
-	<link href="/images/Logos/BitTasker-Logo-light-mode.svg" as="image" />
+	<link href="/images/logos/bittasker-logo-dark.svg" as="image" />
+	<link href="/images/logos/bittasker-logo-light.svg" as="image" />
 
 	<!-- Global JSON-LD structured data for SEO - Inlined for critical content -->
 	<!-- svelte-eslint-parser bug: literal `<script` inside template literals causes "Parsing error: Unexpected keyword or identifier". -->
