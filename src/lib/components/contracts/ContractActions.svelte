@@ -409,7 +409,7 @@
 		}
 	}
 
-	// Cancel escrow
+	// Cancel escrow (client only)
 	async function cancelEscrow() {
 		if (!contract.permissions.canCancel) {
 			return appStore.showErrorToast($t('dashboard.contracts.actions.cancel_time_restriction'));
@@ -444,6 +444,46 @@
 			appStore.showErrorToast(errorMessage);
 
 			setLoading('cancel', false);
+		}
+	}
+
+	// Refund client/tasker (freelancer only)
+	async function refundClient() {
+		if (!contract.permissions.canRefund) {
+			return appStore.showErrorToast($t('dashboard.contracts.actions.refund_tasker_unavailable'));
+		}
+
+		if (contract.isPending) {
+			appStore.showErrorToast($t('dashboard.contracts.actions.contract_refund_pending'));
+			return;
+		}
+
+		setLoading('refund', true);
+		try {
+			await escrow.escrowOps.refundClient(contract);
+
+			pushNotificationService.sendNotificationToNpubs({
+				npubs: [contractStore.getContractKey(contract, 'otherPartyNpub') as string],
+				title: $t('dashboard.contracts.actions.notification_payment_refunded_title'),
+				body: $t('dashboard.contracts.actions.notification_payment_refunded_body', {
+					values: {
+						taskTitle: (contractStore.getContractKey(contract, 'taskTitle') as string) || ''
+					}
+				}),
+				type: 'payment_refunded',
+				clickAction: `${import.meta.env.VITE_CLIENT_URL}/dashboard?tab=contracts`,
+				icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
+			});
+		} catch (error) {
+			console.error('Error refunding client:', error);
+
+			const errorMessage =
+				error instanceof Error
+					? getErrorMessage(error)
+					: $t('dashboard.contracts.actions.refund_tasker_error');
+			appStore.showErrorToast(errorMessage);
+
+			setLoading('refund', false);
 		}
 	}
 
@@ -533,6 +573,9 @@
 			case ContractModalAction.Cancel:
 				await cancelEscrow();
 				break;
+			case ContractModalAction.Refund:
+				await refundClient();
+				break;
 			case ContractModalAction.Delete:
 				await onDeleteContract();
 				break;
@@ -578,6 +621,13 @@
 
 	const isCancelDisabled = $derived(
 		isLoading.cancel ||
+			contract.isPending ||
+			blockchainCompletionStatus === EscrowStatus.Cancelled ||
+			blockchainCompletionStatus === EscrowStatus.Completed
+	);
+
+	const isRefundDisabled = $derived(
+		isLoading.refund ||
 			contract.isPending ||
 			blockchainCompletionStatus === EscrowStatus.Cancelled ||
 			blockchainCompletionStatus === EscrowStatus.Completed
@@ -983,6 +1033,38 @@
 				</svg>
 			{/if}
 			{$t('dashboard.contracts.actions.cancel_contract')}
+		</button>
+	{/if}
+
+	<!-- Refund Tasker -->
+	{#if contract.permissions.canRefund && !isRefundDisabled}
+		<button
+			class="btn btn-error btn-sm {compactButtons
+				? 'w-fit'
+				: isInline
+					? 'w-full sm:w-fit'
+					: 'w-full min-w-0'}"
+			onclick={() => openModal(ContractModalAction.Refund)}
+		>
+			{#if isLoading.refund}
+				<span class="loading loading-spinner loading-xs"></span>
+			{:else}
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					class="h-4 w-4"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke="currentColor"
+				>
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M12 8c-4.418 0-8 1.79-8 4s3.582 4 8 4 8-1.79 8-4-3.582-4-8-4zm0 0V4m0 12v4m-4-8 4 4 4-4"
+					/>
+				</svg>
+			{/if}
+			{$t('dashboard.contracts.actions.refund_tasker')}
 		</button>
 	{/if}
 

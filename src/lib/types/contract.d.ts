@@ -5,14 +5,15 @@ import type { EscrowStatus } from '$lib/utils/escrow';
 
 // Contract permissions - grouped for better organization
 export interface ContractPermissions {
-	canComplete: boolean;         // freelancer can mark as complete
-	canAccept: boolean;           // client can accept completed work
-	canDispute: boolean;          // client can dispute
-	canPropose: boolean;          // either party can propose resolution
-	canAcceptProposal: boolean;   // other party can accept proposal
-	canCancel: boolean;           // either party can cancel
-	canResolveTimelock: boolean;  // either party can resolve after timelock
-	canDelete: boolean;           // ONLY if contract was never funded (no blockchain state, no tx hash)
+	canComplete: boolean; // freelancer can mark as complete
+	canAccept: boolean; // client can accept completed work
+	canDispute: boolean; // client can dispute
+	canPropose: boolean; // either party can propose resolution
+	canAcceptProposal: boolean; // other party can accept proposal
+	canCancel: boolean; // client can cancel within contract rules
+	canRefund?: boolean; // taskee can refund the tasker
+	canResolveTimelock: boolean; // either party can resolve after timelock
+	canDelete: boolean; // ONLY if contract was never funded (no blockchain state, no tx hash)
 }
 
 // Main contract event data (content of KINDS.CONTRACT NostrEvent)
@@ -57,7 +58,7 @@ export interface ContractEvent extends NostrEvent {
 	statusEvents?: ContractStatusEvent[]; // Attached by queryNostrEvents
 }
 
-// NostrEvent with typed content for CONTRACT_STATUS events  
+// NostrEvent with typed content for CONTRACT_STATUS events
 export interface ContractStatusEvent extends NostrEvent {
 	content: NostrContractStatus;
 }
@@ -124,11 +125,11 @@ export interface PublishContractStatusParams {
 	contractEventId: string;
 	transactionHash: string;
 	status: EscrowStatus;
+	statusMessagingVariant?: 'default' | 'refund';
 	completionAttachments?: Attachment[];
 	proposedClientAmount?: string;
 	proposedFreelancerAmount?: string;
 }
-
 
 export interface ContractCreationEvent {
 	escrowId: string;

@@ -1,13 +1,14 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
-	import { nip19 } from 'nostr-tools';
 	import { encryptMasterKeyData } from '$lib/utils/helpers/auth';
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 	import { validateEmail, validatePassword } from '$lib/utils/helpers/validators';
-	import authService from '$lib/api/services/auth.service';
 	import { debounce } from '$lib/utils/helpers/common';
 	import { generatePassword } from '$lib/utils/helpers/password';
 	import { locale } from 'svelte-i18n';
+	import { StorageKeys } from '$lib/utils/constants/storage';
+	import { Preferences } from '@capacitor/preferences';
+	import authService from '$lib/api/services/auth.service';
 
 	let {
 		nsec,
@@ -150,9 +151,6 @@
 				throw new Error($t('settings.error.noMnemonic'));
 			}
 
-			// Extract hex format from npub for API (remove npub prefix and decode)
-			const { data: publicKeyHex } = nip19.decode(npub);
-
 			// Encrypt the nsec with the recovery password
 			const { encryptedData: recoveryData } = await encryptMasterKeyData(
 				nsec,
@@ -160,8 +158,16 @@
 				recoveryPassword
 			);
 
+			const { value: credentialId } = await Preferences.get({
+				key: StorageKeys.WEB_AUTHN_CREDENTIAL_ID
+			});
+
+			if (!credentialId) {
+				throw new Error('No credential ID found');
+			}
+
 			const data = {
-				publicKey: publicKeyHex as string,
+				credentialId: credentialId,
 				recoveryData,
 				email: recoveryEmail
 			};
@@ -507,7 +513,7 @@
 						<div class="mt-2">
 							<div class="flex items-center gap-2">
 								<div class="flex-1">
-									<div class="h-2 w-full overflow-hidden rounded-full bg-base-300">
+									<div class="bg-base-300 h-2 w-full overflow-hidden rounded-full">
 										<div
 											class="h-full transition-all duration-300 {passwordStrength === 'weak'
 												? 'bg-error'

@@ -69,7 +69,7 @@ if (typeof window !== 'undefined' && !window.Element.prototype.animate) {
 		play: vi.fn(),
 		reverse: vi.fn(),
 		updatePlaybackRate: vi.fn()
-	}));
+	})) as unknown as typeof window.Element.prototype.animate;
 }
 
 // Mock MediaStreamTrack (required for QR scanner tests)
@@ -81,7 +81,7 @@ if (typeof global !== 'undefined') {
 		label = 'Mock Camera Track';
 		enabled = true;
 		readyState = 'live' as MediaStreamTrackState;
-	} as any;
+	} as unknown as typeof MediaStreamTrack;
 
 	// Mock crypto.getRandomValues if not already available
 	if (!global.crypto || !global.crypto.getRandomValues) {
@@ -104,16 +104,14 @@ if (typeof global !== 'undefined') {
 // Mock localStorage (required for some tests)
 if (typeof window !== 'undefined') {
 	const localStorageMock = {
-		getItem: vi.fn((key: string) => {
-			return null;
-		}),
-		setItem: vi.fn((key: string, value: string) => {}),
-		removeItem: vi.fn((key: string) => {}),
+		getItem: vi.fn(() => null),
+		setItem: vi.fn(),
+		removeItem: vi.fn(),
 		clear: vi.fn(),
 		length: 0,
-		key: vi.fn((index: number) => null)
+		key: vi.fn(() => null)
 	};
-	
+
 	Object.defineProperty(window, 'localStorage', {
 		value: localStorageMock,
 		writable: true

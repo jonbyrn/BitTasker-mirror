@@ -41,9 +41,7 @@ const createAppStore = () => {
 		biometricData: null,
 		network: import.meta.env.VITE_RSK_NETWORK || 'testnet',
 		pool,
-		relays: import.meta.env.VITE_NOSTR_RELAY_URL
-			? [import.meta.env.VITE_NOSTR_RELAY_URL]
-			: ['wss://relay.bittasker.hedgehackers.finance'] // Fallback relay
+		relays: [import.meta.env.VITE_NOSTR_RELAY_URL]
 	});
 
 	const { subscribe, set, update } = store;

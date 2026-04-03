@@ -5,10 +5,12 @@
 	import { getNpub } from '$lib/utils/nostrKeys';
 	import { nip19 } from 'nostr-tools';
 	import { fetchProfileMetadata } from '$lib/utils/nostr-message';
-	import ChatView from '$lib/components/messages/ChatView.svelte';
 	import { t } from 'svelte-i18n';
-	import TranslationSettings from '$lib/components/translation/TranslationSettings.svelte';
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
+	import { get } from 'svelte/store';
+	import { muteStore } from '$lib/stores/mute.store';
+	import ChatView from '$lib/components/messages/ChatView.svelte';
+	import TranslationSettings from '$lib/components/translation/TranslationSettings.svelte';
 
 	// Get pubkey from URL
 	let recipientPubkey = $derived($page.params.pubkey);
@@ -49,6 +51,12 @@
 				return;
 			}
 
+			// Redirect silently if this user is muted — no error needed
+			if (get(muteStore).mutedPubkeys.has(hexPubkey)) {
+				goto('/dashboard/messages', { replaceState: true });
+				return;
+			}
+
 			// Fetch recipient profile
 			try {
 				const profile = await fetchProfileMetadata(hexPubkey);
@@ -85,7 +93,9 @@
 	}
 </script>
 
-<div class="bg-base-100 mt-6 md:mt-0  mx-auto max-w-6xl rounded-2xl shadow-xl border border-base-300/20 overflow-hidden h-[calc(60vh)] md:h-[calc(70vh)] flex flex-col">
+<div
+	class="bg-base-100 border-base-300/20 mx-auto mt-6 flex h-[calc(60vh)] max-w-6xl flex-col overflow-hidden rounded-2xl border shadow-xl md:mt-0 md:h-[calc(70vh)]"
+>
 	{#if isLoading}
 		<!-- Loading State -->
 		<div class="flex h-full items-center justify-center">
@@ -94,7 +104,7 @@
 	{:else if error}
 		<!-- Error State -->
 		<div class="flex h-full flex-col items-center justify-center p-6">
-			<div class="text-center space-y-4 max-w-md">
+			<div class="max-w-md space-y-4 text-center">
 				<div class="alert alert-error alert-outline">
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
@@ -111,17 +121,19 @@
 					</svg>
 					<span>{error}</span>
 				</div>
-				<button class="btn btn-primary" onclick={goBackToMessages}> 
-					{$t('messages.back_to_messages')} 
+				<button class="btn btn-primary" onclick={goBackToMessages}>
+					{$t('messages.back_to_messages')}
 				</button>
 			</div>
 		</div>
 	{:else}
 		<!-- Chat Header with Back Button - Fixed Header -->
-		<div class="flex shrink-0 items-center border-b border-base-300/30 bg-base-200/30 px-4 py-3 md:px-6 md:py-4">
+		<div
+			class="border-base-300/30 bg-base-200/30 flex shrink-0 items-center border-b px-4 py-3 md:px-6 md:py-4"
+		>
 			<!-- Back Button -->
 			<button
-				class="btn btn-ghost btn-sm hover:bg-base-300 transition-all duration-200 shrink-0 mr-3"
+				class="btn btn-ghost btn-sm hover:bg-base-300 mr-3 shrink-0 transition-all duration-200"
 				onclick={goBackToMessages}
 				aria-label={$t('messages.go_back_to_messages')}
 			>
@@ -142,46 +154,59 @@
 			</button>
 
 			<!-- Recipient Info -->
-			<div class="flex flex-1 items-center justify-between min-w-0">
-				<div class="flex items-center gap-3 min-w-0 flex-1">
+			<div class="flex min-w-0 flex-1 items-center justify-between">
+				<div class="flex min-w-0 flex-1 items-center gap-3">
 					<div class="shrink-0">
 						{#if recipientProfile?.picture}
 							<img
 								src={recipientProfile.picture}
 								alt={recipientProfile.name || $t('messages.unknown')}
-								class="h-12 w-12 rounded-full object-cover ring-2 ring-base-300 shadow-md md:h-14 md:w-14"
+								class="ring-base-300 h-12 w-12 rounded-full object-cover shadow-md ring-2 md:h-14 md:w-14"
 								width={56}
 								height={56}
 							/>
 						{:else}
-							<div class="bg-linear-to-br from-primary/20 to-secondary/20 flex h-12 w-12 items-center justify-center rounded-full ring-2 ring-base-300 shadow-md md:h-14 md:w-14">
+							<div
+								class="from-primary/20 to-secondary/20 ring-base-300 flex h-12 w-12 items-center justify-center rounded-full bg-linear-to-br shadow-md ring-2 md:h-14 md:w-14"
+							>
 								{#if recipientProfile?.name}
-									<span class="text-primary font-bold text-base md:text-lg">
+									<span class="text-primary text-base font-bold md:text-lg">
 										{recipientProfile.name.charAt(0).toUpperCase()}
 									</span>
 								{:else}
-									<svg xmlns="http://www.w3.org/2000/svg" class="text-primary h-6 w-6 md:h-7 md:w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										class="text-primary h-6 w-6 md:h-7 md:w-7"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+										/>
 									</svg>
 								{/if}
 							</div>
 						{/if}
 					</div>
 					<div class="min-w-0 flex-1">
-						<h4 class="text-lg font-bold truncate md:text-xl">
+						<h4 class="truncate text-lg font-bold md:text-xl">
 							{recipientProfile?.name || `${recipientPubkey.slice(0, 8)}...`}
 						</h4>
 					</div>
 				</div>
 
 				<!-- Action Buttons -->
-				<div class="flex items-center gap-2 shrink-0">
+				<div class="flex shrink-0 items-center gap-2">
 					<!-- Translation Settings Button -->
 					<TranslationSettings />
-					
+
 					<!-- Copy Public Key Button -->
 					<button
-						class="btn btn-ghost btn-sm hover:bg-base-300 transition-all duration-200 relative"
+						class="btn btn-ghost btn-sm hover:bg-base-300 relative transition-all duration-200"
 						onclick={copyPubkey}
 						title={copySuccess ? $t('messages.copied') : $t('messages.copy_public_key')}
 						aria-label={copySuccess ? $t('messages.copied') : $t('messages.copy_public_key')}
@@ -190,7 +215,7 @@
 							<!-- Check icon for success state -->
 							<svg
 								xmlns="http://www.w3.org/2000/svg"
-								class="h-5 w-5 text-success"
+								class="text-success h-5 w-5"
 								fill="none"
 								viewBox="0 0 24 24"
 								stroke="currentColor"
@@ -225,7 +250,7 @@
 		</div>
 
 		<!-- ChatView Component - Scrollable Area -->
-		<div class="flex-1 overflow-hidden min-w-0 flex flex-col">
+		<div class="flex min-w-0 flex-1 flex-col overflow-hidden">
 			<ChatView
 				{recipientPubkey}
 				currentUserPubkey={currentUserNpub}

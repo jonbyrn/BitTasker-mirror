@@ -1,6 +1,0 @@
-mutation SubscribeToTopic($input: SubscribeToTopicInput!) {
-	subscribeToTopic(input: $input) {
-		success
-		message
-	}
-}

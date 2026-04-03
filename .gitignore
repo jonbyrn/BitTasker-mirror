@@ -61,3 +61,6 @@ dist/*
 
 # Local-only docs (do not commit)
 docs/testing/presentation-prep.md
+
+# Ignored scripts
+scripts/ignored/*

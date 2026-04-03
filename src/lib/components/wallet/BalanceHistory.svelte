@@ -9,7 +9,6 @@
 	import { walletStore, totalBalances, formatSats } from '$lib/stores/wallet.store';
 	import balanceHistoryService from '$lib/api/services/balanceHistory.service';
 	import BalanceChartModal from './BalanceChartModal.svelte';
-	import { triggerHaptic, ImpactStyle } from '$lib/utils/helpers/haptics';
 
 	let { balancesHidden } = $props<{ balancesHidden: boolean }>();
 
@@ -38,11 +37,11 @@
 
 		const sats = satsChange;
 		const usd = usdChange;
-		
+
 		// Check if sats is neutral (zero or effectively zero)
 		const satsIsZero = sats === 0;
 		const satsIsNeutral = satsIsZero;
-		
+
 		// Check if USD is neutral (zero or below threshold)
 		const usdIsZero = usd === 0;
 		const usdIsBelowThreshold = Math.abs(usd) < 0.01;
@@ -59,20 +58,24 @@
 				? `+${formatSats(Math.abs(sats))}`
 				: `-${formatSats(Math.abs(sats))}`;
 
-		const usdDisplay = usdIsNeutral ? `$${formattedUsd}` : usd > 0 ? `+$${formattedUsd}` : `-$${formattedUsd}`;
+		const usdDisplay = usdIsNeutral
+			? `$${formattedUsd}`
+			: usd > 0
+				? `+$${formattedUsd}`
+				: `-$${formattedUsd}`;
 
 		// Determine color for sats independently
-		const satsColorClass = satsIsNeutral 
-			? 'text-base-content/70'  // Match label color for neutral
-			: sats > 0 
-				? 'text-success' 
+		const satsColorClass = satsIsNeutral
+			? 'text-base-content/70' // Match label color for neutral
+			: sats > 0
+				? 'text-success'
 				: 'text-error';
 
 		// Determine color for USD independently
-		const usdColorClass = usdIsNeutral 
-			? 'text-base-content/70'  // Match label color for neutral
-			: usd > 0 
-				? 'text-success/80' 
+		const usdColorClass = usdIsNeutral
+			? 'text-base-content/70' // Match label color for neutral
+			: usd > 0
+				? 'text-success/80'
 				: 'text-error/80';
 
 		return {
@@ -87,10 +90,9 @@
 </script>
 
 <!-- Historical Balance Indicators Card -->
-<div 
-	class="border-2 border-primary rounded-lg bg-base-100 cursor-pointer hover:bg-base-200 transition-colors"
+<div
+	class="border-primary bg-base-100 hover:bg-base-200 cursor-pointer rounded-lg border-2 transition-colors"
 	onclick={() => {
-		triggerHaptic(ImpactStyle.Light);
 		showChartModal = true;
 	}}
 	role="button"
@@ -98,32 +100,35 @@
 	onkeydown={(e) => {
 		if (e.key === 'Enter' || e.key === ' ') {
 			e.preventDefault();
-			triggerHaptic(ImpactStyle.Light);
 			showChartModal = true;
 		}
 	}}
 	aria-label={$t('wallet.balance_chart.open_chart')}
 >
-	<div class="py-3 px-4">
+	<div class="px-4 py-3">
 		<div class="grid grid-cols-3 gap-2 text-sm">
 			{#await balanceChangesPromise}
 				<!-- Loading state - matching loaded state dimensions to prevent layout shift -->
-				{#each ['24h', '7d', '30d'] as label}
+				{#each ['24h', '7d', '30d'] as label (label)}
 					<div class="flex flex-col items-center gap-1">
 						<div class="text-base-content/70 font-medium">{label}</div>
 						<!-- Sats amount placeholder with spinner - matching loaded state dimensions -->
-						<div class="font-semibold text-base-content inline-flex items-center gap-1 min-w-20 justify-center">
+						<div
+							class="text-base-content inline-flex min-w-20 items-center justify-center gap-1 font-semibold"
+						>
 							<span class="loading loading-spinner loading-xs text-primary"></span>
 						</div>
 						<!-- USD amount placeholder with spinner - matching loaded state dimensions -->
-						<div class="text-base-content/70 inline-flex items-center gap-1 min-w-16 justify-center">
+						<div
+							class="text-base-content/70 inline-flex min-w-16 items-center justify-center gap-1"
+						>
 							<span class="loading loading-spinner loading-xs text-primary"></span>
 						</div>
 					</div>
 				{/each}
 			{:then balanceChanges}
 				<!-- Success state -->
-				{#each balanceChanges as change}
+				{#each balanceChanges as change (change.label)}
 					<div class="flex flex-col items-center gap-1">
 						<div class="text-base-content/70 font-medium">{change.label}</div>
 						{#if balancesHidden}
@@ -131,10 +136,14 @@
 							<div class="text-base-content/50">••••</div>
 						{:else if change.satsChange === null}
 							<!-- Loading indicator - matching loaded state dimensions -->
-							<div class="font-semibold text-base-content inline-flex items-center gap-1 min-w-20 justify-center">
+							<div
+								class="text-base-content inline-flex min-w-20 items-center justify-center gap-1 font-semibold"
+							>
 								<span class="loading loading-spinner loading-xs text-primary"></span>
 							</div>
-							<div class="text-base-content/70 inline-flex items-center gap-1 min-w-16 justify-center">
+							<div
+								class="text-base-content/70 inline-flex min-w-16 items-center justify-center gap-1"
+							>
 								<span class="loading loading-spinner loading-xs text-primary"></span>
 							</div>
 						{:else}
@@ -143,14 +152,14 @@
 								<div class="font-semibold {formatted.satsColorClass}">
 									{formatted.satsDisplay}
 								</div>
-								<div class="{formatted.usdColorClass}">
+								<div class={formatted.usdColorClass}>
 									{formatted.usdDisplay}
 								</div>
 							{/if}
 						{/if}
 					</div>
 				{/each}
-			{:catch error}
+			{:catch}
 				<!-- Error state -->
 				<div class="col-span-3 text-center">
 					<span class="text-error text-xs">{$t('wallet.balance_history.error')}</span>
@@ -161,4 +170,4 @@
 </div>
 
 <!-- Balance Chart Modal -->
-<BalanceChartModal isOpen={showChartModal} onClose={() => showChartModal = false} />
+<BalanceChartModal isOpen={showChartModal} onClose={() => (showChartModal = false)} />

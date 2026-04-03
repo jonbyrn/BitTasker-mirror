@@ -13,10 +13,9 @@
 		amount: number; // Amount in sats
 		recipient: string;
 		onClose: () => void;
-		onViewDetails?: () => void;
 	}
 
-	const props = $props();
+	const props: Props = $props();
 
 	let isConfirmed = $state(false);
 	let confirmationCount = $state(0);
@@ -91,7 +90,7 @@
 						const receipt = await provider.getTransactionReceipt(props.txHash);
 						if (receipt) {
 							const receiptStatus = receipt.status === 1;
-							
+
 							// Check for transaction failure
 							if (receipt.status === 0) {
 								// Transaction failed - stop monitoring
@@ -102,11 +101,13 @@
 								// Keep isConfirmed as false to show error state
 								return;
 							}
-							
+
 							if (receiptStatus) {
 								// Get confirmation count by checking current block
 								const currentBlock = await provider.getBlockNumber();
-								confirmationCount = receipt.blockNumber ? currentBlock - receipt.blockNumber + 1 : 0;
+								confirmationCount = receipt.blockNumber
+									? currentBlock - receipt.blockNumber + 1
+									: 0;
 
 								// Stop monitoring after confirmation
 								if (confirmationCount >= 1) {
@@ -130,7 +131,7 @@
 						const receipt = await provider.getTransactionReceipt(props.txHash);
 						if (receipt) {
 							const receiptStatus = receipt.status === 1;
-							
+
 							// Check for transaction failure
 							if (receipt.status === 0) {
 								// Transaction failed - stop monitoring
@@ -141,10 +142,12 @@
 								// Keep isConfirmed as false to show error state
 								return;
 							}
-							
+
 							if (receiptStatus) {
 								const currentBlock = await provider.getBlockNumber();
-								confirmationCount = receipt.blockNumber ? currentBlock - receipt.blockNumber + 1 : 0;
+								confirmationCount = receipt.blockNumber
+									? currentBlock - receipt.blockNumber + 1
+									: 0;
 
 								if (confirmationCount >= 1) {
 									isConfirmed = true;
@@ -177,8 +180,6 @@
 	}
 
 	onMount(() => {
-		// Trigger success haptic
-		triggerHaptic(ImpactStyle.Medium);
 		// Start monitoring transaction
 		monitorTransaction();
 	});
@@ -211,10 +212,10 @@
 		transition:scale={{ duration: 300, delay: 100 }}
 		style="animation: successPulse 0.6s ease-out;"
 	>
-		<div class="rounded-full bg-success/20 p-6">
+		<div class="bg-success/20 rounded-full p-6">
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
-				class="h-24 w-24 text-success"
+				class="text-success h-24 w-24"
 				fill="none"
 				viewBox="0 0 24 24"
 				stroke="currentColor"
@@ -230,20 +231,23 @@
 	</div>
 
 	<!-- Success Message -->
-	<div class="text-center space-y-2">
-		<h2 class="text-2xl md:text-3xl font-bold">{$t('wallet.send.success.payment_sent')}</h2>
+	<div class="space-y-2 text-center">
+		<h2 class="text-2xl font-bold md:text-3xl">{$t('wallet.send.success.payment_sent')}</h2>
 		<p class="text-base-content/70">
-			{formatSats(props.amount)} {$t('wallet.sats')} {$t('wallet.send.success.sent_to')}
+			{formatSats(props.amount)}
+			{$t('wallet.sats')}
+			{$t('wallet.send.success.sent_to')}
 		</p>
-		<p class="text-sm font-mono text-base-content/60">{formatAddress(props.recipient)}</p>
+		<p class="text-base-content/60 font-mono text-sm">{formatAddress(props.recipient)}</p>
 	</div>
 
 	<!-- Transaction Details Card -->
-	<div class="card bg-base-200 w-full max-w-md p-4 space-y-3">
+	<div class="card bg-base-200 w-full max-w-md space-y-3 p-4">
 		<div class="flex items-center justify-between">
-			<span class="text-sm text-base-content/70">{$t('wallet.send.success.transaction_hash')}:</span>
+			<span class="text-base-content/70 text-sm">{$t('wallet.send.success.transaction_hash')}:</span
+			>
 			<div class="flex items-center gap-2">
-				<code class="text-xs font-mono break-all">{formatAddress(props.txHash)}</code>
+				<code class="font-mono text-xs break-all">{formatAddress(props.txHash)}</code>
 				<button
 					class="btn btn-ghost btn-xs btn-circle"
 					onclick={handleCopyTxHash}
@@ -268,24 +272,26 @@
 		</div>
 
 		<div class="flex items-center justify-between">
-			<span class="text-sm text-base-content/70">{$t('wallet.network')}:</span>
+			<span class="text-base-content/70 text-sm">{$t('wallet.network')}:</span>
 			<span class="badge badge-info">{props.network}</span>
 		</div>
 
 		{#if isConfirmed}
 			<div class="flex items-center justify-between">
-				<span class="text-sm text-base-content/70">{$t('wallet.transaction.status')}:</span>
+				<span class="text-base-content/70 text-sm">{$t('wallet.transaction.status')}:</span>
 				<span class="badge badge-success">{$t('wallet.transaction.status.confirmed')}</span>
 			</div>
 			{#if confirmationCount > 0}
 				<div class="flex items-center justify-between">
-					<span class="text-sm text-base-content/70">{$t('wallet.transaction.status.confirmations')}:</span>
+					<span class="text-base-content/70 text-sm"
+						>{$t('wallet.transaction.status.confirmations')}:</span
+					>
 					<span class="text-sm font-semibold">{confirmationCount}</span>
 				</div>
 			{/if}
 		{:else}
 			<div class="flex items-center justify-between">
-				<span class="text-sm text-base-content/70">{$t('wallet.transaction.status')}:</span>
+				<span class="text-base-content/70 text-sm">{$t('wallet.transaction.status')}:</span>
 				<div class="flex items-center gap-2">
 					<span class="loading loading-spinner loading-sm"></span>
 					<span class="badge badge-warning">{$t('wallet.transaction.status.pending')}</span>
@@ -295,15 +301,12 @@
 	</div>
 
 	<!-- Action Buttons -->
-	<div class="flex flex-col gap-3 w-full max-w-md">
+	<div class="flex w-full max-w-md flex-col gap-3">
 		{#if explorerUrl}
 			<button
-				class="btn btn-outline btn-lg w-full touch-manipulation select-none active:scale-95 transition-transform duration-100"
+				class="btn btn-outline btn-lg w-full touch-manipulation transition-transform duration-100 select-none active:scale-95"
 				style="-webkit-tap-highlight-color: transparent;"
-				onclick={() => {
-					triggerHaptic(ImpactStyle.Light);
-					handleViewExplorer();
-				}}
+				onclick={handleViewExplorer}
 			>
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
@@ -324,12 +327,9 @@
 		{/if}
 
 		<button
-			class="btn btn-primary btn-lg w-full touch-manipulation select-none active:scale-95 transition-transform duration-100"
+			class="btn btn-primary btn-lg w-full touch-manipulation transition-transform duration-100 select-none active:scale-95"
 			style="-webkit-tap-highlight-color: transparent;"
-			onclick={() => {
-				triggerHaptic(ImpactStyle.Light);
-				props.onClose();
-			}}
+			onclick={props.onClose}
 		>
 			{$t('common.done')}
 		</button>
@@ -351,4 +351,3 @@
 		}
 	}
 </style>
-

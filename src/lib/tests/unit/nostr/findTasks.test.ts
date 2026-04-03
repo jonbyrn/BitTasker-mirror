@@ -253,4 +253,60 @@ describe('findTasks', () => {
 			expect(result.tasks[0].title).toBe('First Publisher Task');
 		});
 	});
+
+	describe('cache pagination behavior', () => {
+		it('should preserve hasMore on cache hit when frontend filters reduce visible tasks below page size', async () => {
+			// Build one relay page of 10 events where only 2 match the category filter.
+			const events: Event[] = Array.from({ length: 10 }, (_, index) =>
+				createTaskEvent(
+					`event-${index}`.padEnd(64, `${index % 10}`),
+					`task-${index}-dtag`,
+					OTHER_NPUB,
+					{
+						title: `Task ${index}`,
+						categories: index < 2 ? ['plumbing'] : ['other']
+					},
+					{ created_at: 1700000100 - index }
+				)
+			);
+
+			// First relay call returns a full page (10 events) → hasMore=true.
+			mockFindEvents.mockResolvedValueOnce({ data: events });
+			// Fill-loop follow-up: when cache is exhausted the fill loop fetches more from
+			// the relay; return an empty page so it terminates gracefully.
+			mockFindEvents.mockResolvedValue({ data: [] });
+
+			const params = {
+				page: 1,
+				limit: 10,
+				search: '',
+				categories: ['plumbing'],
+				skills: []
+			};
+
+			// First call: relay fetch (events.length === limit) → hasMore should be true.
+			// The fill loop will fire once more (empty relay page) because only 2 of 10
+			// tasks match the category filter and hasMore was true.
+			const firstResult = await findTasks(params);
+			expect(firstResult.tasks).toHaveLength(2);
+			expect(firstResult.hasMore).toBe(false); // relay returned empty on fill-loop → exhausted
+
+			// Simulate page reset flow (e.g. after clearing search) before reloading page 1.
+			tasksStore.update((state) => ({
+				...state,
+				items: [],
+				loading: false,
+				currentPage: 1
+			}));
+
+			// Second call: cache is still warm (fill-loop only clears cache when recursing
+			// with a cursor; after the empty relay response the cache entry remains).
+			// Regardless of cache path, the result should still include the 2 matching tasks.
+			const secondResult = await findTasks(params);
+			expect(secondResult.tasks).toHaveLength(2);
+
+			const state = get(tasksStore);
+			expect(state.items).toHaveLength(2);
+		});
+	});
 });
