@@ -2,7 +2,7 @@
 	import {
 		getStatusTranslationKey,
 		getStatusColorClass
-	} from '$lib/utils/helpers/contractStatusFormatter';
+	} from '$lib/utils/helpers/contractStatusFormatterV2';
 	import { t } from 'svelte-i18n';
 	import TaskDeadlineDisplay from '../task/TaskDeadlineDisplay.svelte';
 	import TaskLocationDisplay from '../task/TaskLocationDisplay.svelte';
