@@ -241,7 +241,7 @@
 	<div class="navbar-start ml-2 flex-1 sm:flex">
 		<a href={isLoggedIn ? '/dashboard' : '/'} class="block">
 			<img
-				src="/images/Logos/BitTasker-square-logo.svg"
+				src="/images/logos/bittasker-logomark.svg"
 				alt={$t('common.components.topbar.logo_alt')}
 				class="mx-auto block max-h-10"
 				width="40"
