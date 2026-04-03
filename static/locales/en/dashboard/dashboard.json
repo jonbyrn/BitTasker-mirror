@@ -562,6 +562,7 @@
 				"cancelled": "Cancelled",
 				"refunded": "Refunded",
 				"funded": "Funded",
+				"refunded": "Refunded",
 				"in_dispute": "In Dispute",
 				"in_progress": "In Progress",
 				"dispute_resolved": "Dispute Resolved",
