@@ -1,12 +1,27 @@
 <script lang="ts">
 	import { get } from 'svelte/store';
 	import { t } from 'svelte-i18n';
+	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 	import { PaymentContractRune } from '$lib/runes/contractRune.svelte';
 	import { appStore } from '$lib/stores/app.store';
+	import {
+		ContractModalAction,
+		CONTRACT_MODAL_CONFIGS
+	} from '$lib/utils/constants/contract-modals';
+	import { portal } from '$lib/utils/portal';
 
 	let { contractRune }: { contractRune: PaymentContractRune } = $props();
 
 	let busy = $state(false);
+	let activeModal = $state<ContractModalAction>(ContractModalAction.None);
+
+	function openModal(action: ContractModalAction) {
+		activeModal = action;
+	}
+
+	function closeModal() {
+		activeModal = ContractModalAction.None;
+	}
 
 	async function onMarkComplete() {
 		if (busy) return;
@@ -23,7 +38,7 @@
 		}
 	}
 
-	async function onAcceptWork() {
+	async function runAcceptWork() {
 		if (busy) return;
 		busy = true;
 		try {
@@ -38,7 +53,7 @@
 		}
 	}
 
-	async function onRefundTasker() {
+	async function runRefundTasker() {
 		if (busy) return;
 		busy = true;
 		try {
@@ -53,7 +68,7 @@
 		}
 	}
 
-	async function onCancelContract() {
+	async function runCancelContract() {
 		if (busy) return;
 		busy = true;
 		try {
@@ -65,6 +80,24 @@
 			appStore.showSuccessToast(get(t)('dashboard.contracts.actions.cancel_contract_success'));
 		} finally {
 			busy = false;
+		}
+	}
+
+	async function handleModalConfirm() {
+		const action = activeModal;
+		closeModal();
+		switch (action) {
+			case ContractModalAction.Accept:
+				await runAcceptWork();
+				break;
+			case ContractModalAction.Refund:
+				await runRefundTasker();
+				break;
+			case ContractModalAction.Cancel:
+				await runCancelContract();
+				break;
+			default:
+				console.warn('ContractActionsNDK: unexpected modal action', action);
 		}
 	}
 </script>
@@ -88,7 +121,7 @@
 			type="button"
 			class="btn btn-success btn-sm w-full sm:w-auto"
 			disabled={contractRune.isPending || busy}
-			onclick={onAcceptWork}
+			onclick={() => openModal(ContractModalAction.Accept)}
 		>
 			{#if busy || contractRune.isPending}
 				<span class="loading loading-spinner loading-xs"></span>
@@ -101,7 +134,7 @@
 			type="button"
 			class="btn btn-warning btn-sm w-full sm:w-auto"
 			disabled={contractRune.isPending || busy}
-			onclick={onRefundTasker}
+			onclick={() => openModal(ContractModalAction.Refund)}
 		>
 			{#if busy || contractRune.isPending}
 				<span class="loading loading-spinner loading-xs"></span>
@@ -114,7 +147,7 @@
 			type="button"
 			class="btn btn-error btn-outline btn-sm w-full sm:w-auto"
 			disabled={contractRune.isPending || busy}
-			onclick={onCancelContract}
+			onclick={() => openModal(ContractModalAction.Cancel)}
 		>
 			{#if busy || contractRune.isPending}
 				<span class="loading loading-spinner loading-xs"></span>
@@ -123,3 +156,21 @@
 		</button>
 	{/if}
 </div>
+
+{#if activeModal !== ContractModalAction.None && activeModal !== ContractModalAction.Complete}
+	{@const config = CONTRACT_MODAL_CONFIGS[activeModal]}
+	{#if config}
+		<div use:portal={'modals'}>
+			<ConfirmModal
+				isOpen={true}
+				title={$t(config.titleKey)}
+				message={$t(config.messageKey)}
+				confirmText={$t(config.confirmTextKey)}
+				cancelText={$t(config.cancelTextKey)}
+				confirmButtonClass={config.confirmButtonClass}
+				onConfirm={handleModalConfirm}
+				onCancel={closeModal}
+			/>
+		</div>
+	{/if}
+{/if}
