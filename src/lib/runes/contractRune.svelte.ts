@@ -284,7 +284,7 @@ export class PaymentContractRune implements PaymentContractRuneLike {
 		this.statusSub?.stop();
 		const filter: NDKFilter = { kinds: [KINDS.CONTRACT_STATUS], '#r': [this.paymentId] };
 		const ops: NDKSubscriptionOptions = {
-			closeOnEose: false, // keep subscrioption open after eose
+			closeOnEose: this.chainIsTerminal, // Close subscription after eose if chain state is already terminal
 			wrap: true, // wrap the event in the NDKContractStatus class
 			onEvent: (event) => {
 				this.statusEvents.push(event as NDKContractStatus);

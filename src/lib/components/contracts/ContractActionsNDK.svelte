@@ -14,7 +14,7 @@
 		try {
 			const res = await contractRune.markTaskComplete();
 			if (!res.ok) {
-				appStore.showErrorToast(get(t)(res.errorKey));
+				appStore.showErrorToast(get(t)('dashboard.contracts.actions.contract_action_failed'));
 				return;
 			}
 			appStore.showSuccessToast(get(t)('dashboard.contracts.actions.task_completed_success'));
@@ -29,7 +29,7 @@
 		try {
 			const res = await contractRune.acceptTask();
 			if (!res.ok) {
-				appStore.showErrorToast(get(t)(res.errorKey));
+				appStore.showErrorToast(get(t)('dashboard.contracts.actions.contract_action_failed'));
 				return;
 			}
 			appStore.showSuccessToast(get(t)('dashboard.contracts.actions.accept_work_success'));
@@ -44,7 +44,7 @@
 		try {
 			const res = await contractRune.refundTasker();
 			if (!res.ok) {
-				appStore.showErrorToast(get(t)(res.errorKey));
+				appStore.showErrorToast(get(t)('dashboard.contracts.actions.contract_action_failed'));
 				return;
 			}
 			appStore.showSuccessToast(get(t)('dashboard.contracts.actions.refund_tasker_success'));
