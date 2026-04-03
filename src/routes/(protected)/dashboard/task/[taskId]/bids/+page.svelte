@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
 	import { page } from '$app/state';
-	import BidAcceptanceForm from '$lib/components/bidding/BidAcceptanceForm.svelte';
+	import BidAcceptanceFormV2 from '$lib/components/bidding/BidAcceptanceFormV2.svelte';
 	import BidCard from '$lib/components/bidding/BidCard.svelte';
 	// import CounterOfferForm from '$lib/components/bidding/CounterOfferForm.svelte';
 	import NoBids from '$lib/components/bidding/NoBids.svelte';
@@ -183,7 +183,7 @@
 	isScrollable={true}
 >
 	{#if showAcceptanceForm && bidToAccept && task}
-		<BidAcceptanceForm bid={bidToAccept} {task} onCancel={handleCloseBid} />
+		<BidAcceptanceFormV2 bid={bidToAccept} {task} onCancel={handleCloseBid} />
 	{/if}
 </Drawer>
 
