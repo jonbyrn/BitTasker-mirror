@@ -311,7 +311,7 @@ function generateTaskJsonLd(task: Task, canonicalUrl: string) {
 			'@type': 'Organization',
 			name: 'BitTasker',
 			url: baseUrl,
-			logo: `${baseUrl}/images/_logos_tmp/bittasker-logomark.svg`
+			logo: `${baseUrl}/images/logos/bittasker-logomark.svg`
 		},
 		jobLocation:
 			task.pickupLocation?.displayName || task.dropOffLocation?.displayName

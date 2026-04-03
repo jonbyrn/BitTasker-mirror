@@ -10,7 +10,7 @@
 		const themeKey = $darkMode ? 'dark' : 'light';
 		const lang = $locale;
 		const logoLang = lang === 'es' ? '-es' : '';
-		logoUrl = `/images/_logos_tmp/bittasker-logo-${themeKey}${logoLang}.svg`;
+		logoUrl = `/images/logos/bittasker-logo-${themeKey}${logoLang}.svg`;
 	});
 </script>
 

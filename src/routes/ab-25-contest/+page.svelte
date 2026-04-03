@@ -55,7 +55,7 @@
 				logo.onerror = () => {
 					appQrCode = appCanvas.toDataURL();
 				};
-				logo.src = '/images/_logos_tmp/bittasker-logomark.svg';
+				logo.src = '/images/logos/bittasker-logomark.svg';
 			} else {
 				appQrCode = appCanvas.toDataURL();
 			}

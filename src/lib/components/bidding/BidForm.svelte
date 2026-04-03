@@ -416,7 +416,7 @@
 				body: `New bid received ${task.title ? `for task: ${task.title}` : ''}`,
 				type: 'bid_created',
 				clickAction: `${import.meta.env.VITE_CLIENT_URL}/tasks/${task.id}`,
-				icon: 'https://bittasker.com/images/_logos_tmp/bittasker-logomark.svg'
+				icon: 'https://bittasker.com/images/logos/bittasker-logomark.svg'
 			});
 
 			// Clear bid cache for this specific task and current user

@@ -208,7 +208,7 @@
 				body: `Task ${contractStore.getContractKey(contract, 'taskTitle')} has been marked as completed`,
 				type: 'task_completed',
 				clickAction: `${import.meta.env.VITE_CLIENT_URL}/dashboard?tab=contracts`,
-				icon: 'https://bittasker.com/images/_logos_tmp/bittasker-logomark.svg'
+				icon: 'https://bittasker.com/images/logos/bittasker-logomark.svg'
 			});
 
 			const clientPubkey = contractStore.getContractKey(contract, 'clientPubkey') as string;
@@ -260,7 +260,7 @@
 				}),
 				type: 'payment_released',
 				clickAction: `${import.meta.env.VITE_CLIENT_URL}/dashboard?tab=contracts`,
-				icon: 'https://bittasker.com/images/_logos_tmp/bittasker-logomark.svg'
+				icon: 'https://bittasker.com/images/logos/bittasker-logomark.svg'
 			});
 
 			// Enviar DM al taskee: fondos liberados y trabajo aceptado
@@ -307,7 +307,7 @@
 				body: `A dispute has been raised for task ${contractStore.getContractKey(contract, 'taskTitle')}`,
 				type: 'dispute_raised',
 				clickAction: `${import.meta.env.VITE_CLIENT_URL}/dashboard?tab=contracts`,
-				icon: 'https://bittasker.com/images/_logos_tmp/bittasker-logomark.svg'
+				icon: 'https://bittasker.com/images/logos/bittasker-logomark.svg'
 			});
 		} catch (error) {
 			console.error('Error disputing task:', error);
@@ -362,7 +362,7 @@
 				body: `A resolution has been proposed for task ${contractStore.getContractKey(contract, 'taskTitle')}`,
 				type: 'resolution_proposed',
 				clickAction: `${import.meta.env.VITE_CLIENT_URL}/dashboard?tab=contracts`,
-				icon: 'https://bittasker.com/images/_logos_tmp/bittasker-logomark.svg'
+				icon: 'https://bittasker.com/images/logos/bittasker-logomark.svg'
 			});
 
 			$contractStore.isResolutionFormOpen = false;
@@ -395,7 +395,7 @@
 				body: `A proposal has been accepted for task ${contractStore.getContractKey(contract, 'taskTitle')}`,
 				type: 'proposal_accepted',
 				clickAction: `${import.meta.env.VITE_CLIENT_URL}/dashboard?tab=contracts`,
-				icon: 'https://bittasker.com/images/_logos_tmp/bittasker-logomark.svg'
+				icon: 'https://bittasker.com/images/logos/bittasker-logomark.svg'
 			});
 		} catch (error) {
 			console.error('Error accepting proposal:', error);
@@ -432,7 +432,7 @@
 				body: `An escrow has been cancelled for task ${contractStore.getContractKey(contract, 'taskTitle')}`,
 				type: 'escrow_cancelled',
 				clickAction: `${import.meta.env.VITE_CLIENT_URL}/dashboard?tab=contracts`,
-				icon: 'https://bittasker.com/images/_logos_tmp/bittasker-logomark.svg'
+				icon: 'https://bittasker.com/images/logos/bittasker-logomark.svg'
 			});
 		} catch (error) {
 			console.error('Error cancelling escrow:', error);
@@ -472,7 +472,7 @@
 				}),
 				type: 'payment_refunded',
 				clickAction: `${import.meta.env.VITE_CLIENT_URL}/dashboard?tab=contracts`,
-				icon: 'https://bittasker.com/images/_logos_tmp/bittasker-logomark.svg'
+				icon: 'https://bittasker.com/images/logos/bittasker-logomark.svg'
 			});
 		} catch (error) {
 			console.error('Error refunding client:', error);
@@ -505,7 +505,7 @@
 				body: `A timelock has been resolved for task ${contractStore.getContractKey(contract, 'taskTitle')}`,
 				type: 'timelock_resolved',
 				clickAction: `${import.meta.env.VITE_CLIENT_URL}/dashboard?tab=contracts`,
-				icon: 'https://bittasker.com/images/_logos_tmp/bittasker-logomark.svg'
+				icon: 'https://bittasker.com/images/logos/bittasker-logomark.svg'
 			});
 		} catch (error) {
 			console.error('Error resolving timelock:', error);

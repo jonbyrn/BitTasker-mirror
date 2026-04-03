@@ -64,7 +64,7 @@ export default async function generateQrCodeUrl(data: string): Promise<string> {
 			};
 
 			// Load the logo
-			logo.src = '/images/_logos_tmp/bittasker-logomark.svg';
+			logo.src = '/images/logos/bittasker-logomark.svg';
 		});
 	} catch (err) {
 		console.error('Failed to generate QR code:', err);
