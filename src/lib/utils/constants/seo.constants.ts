@@ -10,7 +10,7 @@ export const BITTASKER_ORG_JSONLD = {
 	url: 'https://bittasker.com',
 	logo: {
 		'@type': 'ImageObject',
-		url: 'https://bittasker.com/images/_logos_tmp/bittasker-logomark-og.webp'
+		url: 'https://bittasker.com/images/logos/bittasker-logomark-og.webp'
 	},
 	sameAs: [
 		'https://x.com/BitTaskerdotcom',
@@ -82,7 +82,7 @@ export function generateHomepageWebsiteJsonLd(url: string) {
 	};
 }
 
-export const BITTASKER_LOGO = 'https://bittasker.com/images/_logos_tmp/bittasker-logomark.svg';
+export const BITTASKER_LOGO = 'https://bittasker.com/images/logos/bittasker-logomark.svg';
 export const BITTASKER_CANONICAL_BASE = 'https://bittasker.com';
 export const BITTASKER_SOCIAL_LINKS = [
 	'https://x.com/BitTaskerdotcom',

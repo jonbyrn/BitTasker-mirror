@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Path to your PNG logo
-LOGO="static/images/_logos_tmp/bittasker-logomark.png"
+LOGO="static/images/logos/bittasker-logomark.png"
 BG="#3F3F3F"
 
 # Output directories

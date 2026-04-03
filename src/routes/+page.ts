@@ -13,12 +13,12 @@ export async function load({ url }) {
 		ogTitle: 'BitTasker - The Decentralized Workforce',
 		ogDescription:
 			'Hire skilled professionals for any task. Pay with Bitcoin, Lightning, or dollars. Built on Nostr. Join the decentralized workforce on BitTasker.',
-		ogImage: `${SITE_URL}/images/_logos_tmp/bittasker-logomark-og.webp`,
+		ogImage: `${SITE_URL}/images/logos/bittasker-logomark-og.webp`,
 		ogLocale: 'en_US',
 		twitterTitle: 'BitTasker - The Decentralized Workforce',
 		twitterDescription:
 			'Hire skilled professionals for any task. Pay with Bitcoin, Lightning, or dollars. Join the decentralized workforce on BitTasker.',
-		twitterImage: `${SITE_URL}/images/_logos_tmp/bittasker-logomark-og.webp`,
+		twitterImage: `${SITE_URL}/images/logos/bittasker-logomark-og.webp`,
 		jsonLd: generateHomepageWebsiteJsonLd(url.href)
 	};
 }
