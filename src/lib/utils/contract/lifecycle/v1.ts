@@ -38,10 +38,17 @@ export async function acceptTaskV1(
 	return { ok: false, errorKey: 'dashboard.contracts.actions.accept_task_not_allowed' };
 }
 
+export async function refundTaskerV1(
+	_rune: PaymentContractRuneLike
+): Promise<ContractLifecycleResult> {
+	return { ok: false, errorKey: 'dashboard.contracts.actions.refund_tasker_not_allowed' };
+}
+
 export const v1Lifecycle: PaymentContractLifecycle = {
 	loadPaymentContractDetails: loadPaymentContractDetailsV1,
 	computePermittedActions: computePermittedActionsV1,
 	markTaskComplete: markTaskCompleteV1,
 	acceptTask: acceptTaskV1,
+	refundTasker: refundTaskerV1,
 	shouldAwaitStatusTransaction: false
 };

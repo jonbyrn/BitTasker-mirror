@@ -37,6 +37,21 @@
 			busy = false;
 		}
 	}
+
+	async function onRefundTasker() {
+		if (busy) return;
+		busy = true;
+		try {
+			const res = await contractRune.refundTasker();
+			if (!res.ok) {
+				appStore.showErrorToast(get(t)(res.errorKey));
+				return;
+			}
+			appStore.showSuccessToast(get(t)('dashboard.contracts.actions.refund_tasker_success'));
+		} finally {
+			busy = false;
+		}
+	}
 </script>
 
 <div class="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
@@ -64,6 +79,19 @@
 				<span class="loading loading-spinner loading-xs"></span>
 			{/if}
 			{$t('dashboard.contracts.actions.accept_work')}
+		</button>
+	{/if}
+	{#if contractRune.permittedActions.canRefundTasker}
+		<button
+			type="button"
+			class="btn btn-warning btn-sm w-full sm:w-auto"
+			disabled={contractRune.isPending || busy}
+			onclick={onRefundTasker}
+		>
+			{#if busy || contractRune.isPending}
+				<span class="loading loading-spinner loading-xs"></span>
+			{/if}
+			{$t('dashboard.contracts.actions.refund_tasker')}
 		</button>
 	{/if}
 </div>

@@ -112,6 +112,11 @@ export class PaymentContractRune implements PaymentContractRuneLike {
 		return this.lifecycle.acceptTask(this);
 	}
 
+	/** Taskee refunds tasker (v2); v1 returns not allowed. */
+	refundTasker(): Promise<ContractLifecycleResult> {
+		return this.lifecycle.refundTasker(this);
+	}
+
 	async start() {
 		d.log('start: sync requested', { paymentId: this.paymentId, version: this.version });
 		await this.getOriginalTaskEvent();
@@ -176,20 +181,22 @@ export class PaymentContractRune implements PaymentContractRuneLike {
 	}
 
 	/**
-	 * Chain can show FundsReleased while the cached kind 31000 task is still IN_PROGRESS
-	 * (e.g. accept before task replaceable landed). Tasker republishes COMPLETED to match chain.
+	 * When the escrow is in a **terminal** chain state (`isTerminalPaymentState`) but the kind 31000
+	 * task is still not `COMPLETED` (e.g. taskee refunded — taskee cannot publish the replaceable),
+	 * the **tasker** republishes COMPLETED so listings match chain. Same idea after accept when Nostr lagged.
 	 */
 	private async maybeReconcileTaskWithChain(): Promise<void> {
 		const data = this.blockchainData;
-		if (!data || data.state !== ContractStatus.FundsReleased || !this.task) return;
-		if (this.task.status !== TaskStatusEnum.IN_PROGRESS) return;
+		if (!data || !this.task) return;
+		if (!isTerminalPaymentState(data.state)) return;
+		if (this.task.status === TaskStatusEnum.COMPLETED) return;
 		if (ndk.activeUser?.pubkey !== this.task.author?.pubkey) {
 			d.log('maybeReconcileTaskWithChain: skip (not signed in as task author)');
 			return;
 		}
 		try {
 			await publishTaskCompletedForEscrow(this.task);
-			d.log('maybeReconcileTaskWithChain: republished task COMPLETED');
+			d.log('maybeReconcileTaskWithChain: republished task COMPLETED', { chainState: data.state });
 		} catch (e) {
 			d.warn('maybeReconcileTaskWithChain: publish failed', e);
 		}
@@ -322,6 +329,9 @@ export class PaymentContractRune implements PaymentContractRuneLike {
 			d.warn('getOriginalTaskEvent: no task replaceable found', { taskId });
 			this.task = null;
 			return;
+		}
+		if (!first.ndk) {
+			first.ndk = ndk;
 		}
 		d.log('getOriginalTaskEvent: loaded', { taskId });
 		this.task = first;

@@ -242,6 +242,9 @@ async function publishTaskAcceptedBid(task: NDKTask, bidEventId: string): Promis
  */
 export async function publishTaskCompletedForEscrow(task: NDKTask): Promise<void> {
 	if (!task.ndk) {
+		task.ndk = ndk;
+	}
+	if (!task.ndk) {
 		throw new Error('NDK is required to publish task update');
 	}
 	task.status = TaskStatusEnum.COMPLETED;
