@@ -186,20 +186,16 @@
 
 				<!-- Timeline content: more padding between content and center line; extra left padding on mobile -->
 				<div
-					class="timeline-{index % 2 === 0 ? 'start' : 'end'} mb-10 pl-8 pr-8 {index % 2 === 0
-						? 'md:pl-0 md:pr-10'
-						: 'md:pl-10 md:pr-0'} md:text-{index % 2 === 0
-						? 'end'
-						: 'start'}"
+					class="timeline-{index % 2 === 0 ? 'start' : 'end'} mb-10 pr-8 pl-8 {index % 2 === 0
+						? 'md:pr-10 md:pl-0'
+						: 'md:pr-0 md:pl-10'} md:text-{index % 2 === 0 ? 'end' : 'start'}"
 				>
 					<time class="text-base-content/60 font-mono text-xs italic">
 						{formatTimelineDate(item.timestamp)}
 					</time>
 
 					<div class="mt-1.5">
-						<span
-							class="badge badge-sm shrink-0 {getSenderRoleBadge(item.pubkey).badgeClass}"
-						>
+						<span class="badge badge-sm shrink-0 {getSenderRoleBadge(item.pubkey).badgeClass}">
 							{$t(getSenderRoleBadge(item.pubkey).labelKey)}
 						</span>
 					</div>
@@ -225,15 +221,34 @@
 								</svg>
 							</div>
 						{/if}
-						<span class="text-sm font-semibold {item.isInitiation ? 'text-base-content/60' : item.content ? getActionColorClass(item.content.action) : 'text-base-content/60'}">
-							{item.isInitiation ? $t('dashboard.contracts.timeline.contract_initiated') : item.content ? $t(getActionDescription(item.content.action)) : ''}
+						<span
+							class="text-sm font-semibold {item.isInitiation
+								? 'text-base-content/60'
+								: item.content
+									? getActionColorClass(item.content.action)
+									: 'text-base-content/60'}"
+						>
+							{item.isInitiation
+								? $t('dashboard.contracts.timeline.contract_initiated')
+								: item.content
+									? $t(
+											getActionDescription(item.content.action, {
+												actorRole:
+													item.pubkey.toLowerCase() === contractPubkey.toLowerCase()
+														? 'client'
+														: 'freelancer'
+											})
+										)
+									: ''}
 						</span>
 					</div>
 
-					{#if (item.transactionHash ?? item.content?.transactionHash)}
+					{#if item.transactionHash ?? item.content?.transactionHash}
 						<div class="text-base-content/60 mt-2 text-xs">
 							<a
-								href={getTransactionUrl((item.transactionHash ?? item.content?.transactionHash) ?? '')}
+								href={getTransactionUrl(
+									item.transactionHash ?? item.content?.transactionHash ?? ''
+								)}
 								target="_blank"
 								rel="noopener noreferrer"
 								class="link link-primary inline-flex items-center gap-1"

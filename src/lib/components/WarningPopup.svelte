@@ -17,12 +17,14 @@
 	let isHelpModalOpen = $state(false);
 
 	onMount(async () => {
+		const betaWarning = import.meta.env.VITE_BETA_WARNING;
+		if (betaWarning === 'false') return;
+
 		const hasAcknowledged = await Preferences.get({
 			key: StorageKeys.WARNING_ACKNOWLEDGED
 		});
 		if (!hasAcknowledged.value) {
 			isVisible = true;
-			return;
 		}
 	});
 
@@ -119,7 +121,11 @@
 						class="btn btn-primary btn-sm"
 						aria-label={$t('common.components.warning_popup.zapstore_aria')}
 					>
-						<img src="/zapstore-badge.svg" alt={$t('common.components.warning_popup.zapstore_button')} class="h-8" />
+						<img
+							src="/zapstore-badge.svg"
+							alt={$t('common.components.warning_popup.zapstore_button')}
+							class="h-8"
+						/>
 					</a>
 				</div>
 
@@ -151,21 +157,6 @@
 
 			<!-- Action Buttons -->
 			<div class="border-base-300 flex gap-3 pt-6">
-				<!-- <button
-					type="button"
-					class="btn btn-ghost flex-1"
-					onclick={handleAcknowledge}
-				>
-					<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M6 18L18 6M6 6l12 12"
-						/>
-					</svg>
-					{$t('common.cancel')}
-				</button> -->
 				<button type="button" class="btn btn-primary flex-1" onclick={handleAcknowledge}>
 					<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 						<path

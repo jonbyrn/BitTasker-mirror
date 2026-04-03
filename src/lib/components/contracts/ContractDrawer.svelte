@@ -8,6 +8,7 @@
 	import ContractActions from './ContractActions.svelte';
 	import Gallery from '$lib/components/Gallery.svelte';
 	import {
+		getCancellationStatusVariant,
 		getStatusColorClass,
 		getStatusTranslationKey
 	} from '$lib/utils/helpers/contractStatusFormatter';
@@ -24,6 +25,16 @@
 
 	// Timeline display count (bound from ContractTimeline - matches actual items shown)
 	let timelineDisplayCount = $state(0);
+
+	const currentStatusVariant = $derived(
+		$contractStore.contract
+			? getCancellationStatusVariant(
+					$contractStore.contract.status,
+					$contractStore.contract.statusEvents,
+					contractStore.getContractKey($contractStore.contract, 'clientPubkey') as string
+				)
+			: 'default'
+	);
 
 	// Helper function to detect video files
 	function isVideoFile(url: string): boolean {
@@ -115,7 +126,11 @@
 									: $t('dashboard.freelancer')}
 							</div>
 							<div class="badge {getStatusColorClass($contractStore.contract.status)} shrink-0">
-								{$t(getStatusTranslationKey($contractStore.contract.status))}
+								{$t(
+									getStatusTranslationKey($contractStore.contract.status, {
+										statusVariant: currentStatusVariant
+									})
+								)}
 							</div>
 						</div>
 					</div>

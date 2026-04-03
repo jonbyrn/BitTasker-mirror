@@ -1,283 +1,282 @@
 {
-  "notifications": {
-    "page_title": "Notificaciones",
-    "title": "Notificaciones",
-    "subtitle": "Mantente actualizado con tus tareas, ofertas y pagos",
-    "search_placeholder": "Buscar notificaciones...",
-    "loading": "Cargando notificaciones...",
-    "no_notifications": "Sin notificaciones",
-    "no_matching": "Sin notificaciones coincidentes",
-    "adjust_search": "Intenta ajustar tu búsqueda o criterios de filtro.",
-    "all_caught_up": "¡Estás al día! Las nuevas notificaciones aparecerán aquí.",
-    "notifications_actions": {
-      "mark_all_read": "Marcar todas como leídas",
-      "clear_all": "Limpiar todo",
-      "view": "Ver notificación",
-      "remove": "Eliminar notificación"
-    },
-    "filters": {
-      "all": "Todas las Notificaciones"
-    },
-    "types": {
-      "bid_response": "Respuestas de Ofertas",
-      "contract_event": "Eventos de Contrato",
-      "payment": "Pagos",
-      "task_update": "Actualizaciones de Tarea",
-      "message": "Mensajes",
-      "system": "Sistema",
-      "security": "Seguridad",
-      "other": "Otros"
-    },
-    "stats": {
-      "showing": "Mostrando",
-      "of": "de",
-      "notifications": "notificaciones"
-    },
-    "no_notifications_message": "¡Estás al día!",
-    "no_unread_notifications": "Sin notificaciones no leídas",
-    "no_unread_notifications_message": "¡Todas las notificaciones han sido leídas!",
-    "clear_all": "Limpiar todo",
-    "view_all": "Ver todas las notificaciones",
-    "mark_all_read": "Marcar todas como leídas",
-    "show_all": "Mostrar todas",
-    "show_unread_only": "Mostrar solo no leídas",
-    "new": "nuevo",
-    "new_plural": "nuevos",
-    "unread": "no leído",
-    "unread_plural": "no leídos",
-    "read": "leído",
-    "just_now": "Ahora mismo",
-    "minutes_ago": "hace {count} min",
-    "hours_ago": "hace {count} h",
-    "days_ago": "hace {count} d",
-    "weeks_ago": "hace {count} sem",
-    "months_ago": "hace {count} mes",
-    "years_ago": "hace {count} año",
-    "priority": {
-      "low": "baja",
-      "normal": "normal",
-      "high": "alta",
-      "urgent": "urgente"
-    },
-    "roles": {
-      "tasker": "Solicitante",
-      "taskee": "Ejecutor",
-      "unknown": "Desconocido"
-    },
-    "titles": {
-      "new_bid_received": "Nueva Oferta Recibida",
-      "bid_accepted": "Oferta Aceptada",
-      "bid_rejected": "Oferta Rechazada",
-      "payment_received": "Pago Recibido",
-      "payment_sent": "Pago Enviado",
-      "payment_pending": "Pago Pendiente",
-      "task_updated": "Tarea Actualizada",
-      "task_completed": "Tarea Completada",
-      "contract_created": "Contrato Creado",
-      "contract_updated": "Contrato Actualizado",
-      "contract_completed": "Contrato Completado",
-      "contract_disputed": "Contrato en Disputa",
-      "new_message": "Nuevo Mensaje",
-      "system_maintenance": "Mantenimiento del Sistema",
-      "security_alert": "Alerta de Seguridad",
-      "new_notification": "Nueva Notificación"
-    },
-    "messages": {
-      "bid_status": {
-        "taskee": {
-          "accepted": "¡Excelente! Tu oferta ha sido aceptada por {senderName}. ¡Es hora de comenzar el trabajo!",
-          "rejected": "Tu oferta ha sido rechazada por {senderName}. No te desanimes, sigue intentando."
-        },
-        "tasker": {
-          "accepted": "Has aceptado una oferta de {senderName}.",
-          "rejected": "Has rechazado una oferta de {senderName}."
-        },
-        "unknown": {
-          "accepted": "Oferta aceptada por {senderName}",
-          "rejected": "Oferta rechazada por {senderName}"
-        }
-      },
-      "new_bid": {
-        "tasker": "{senderName} ha enviado una oferta para tu tarea. Revisa los detalles y decide si la aceptas.",
-        "taskee": "Has enviado una oferta a {senderName}.",
-        "unknown": "{senderName} ha enviado una oferta."
-      },
-      "contract": {
-        "tasker": {
-          "created": "Nuevo contrato creado con {senderName}",
-          "completed": "Contrato completado por {senderName}",
-          "disputed": "Disputa iniciada por {senderName}",
-          "cancelled": "Contrato cancelado por {senderName}",
-          "payment_released": "Pago liberado a {senderName}",
-          "payment_refunded": "Pago reembolsado a {senderName}"
-        },
-        "taskee": {
-          "created": "Nuevo contrato creado con {senderName}",
-          "completed": "Contrato completado con {senderName}",
-          "disputed": "Disputa iniciada por {senderName}",
-          "cancelled": "Contrato cancelado por {senderName}",
-          "payment_released": "Pago recibido de {senderName}",
-          "payment_refunded": "Pago reembolsado por {senderName}"
-        },
-        "unknown": {
-          "created": "Nuevo contrato creado por {senderName}",
-          "completed": "Contrato completado por {senderName}",
-          "disputed": "Disputa iniciada por {senderName}",
-          "cancelled": "Contrato cancelado por {senderName}",
-          "payment_released": "Pago liberado por {senderName}",
-          "payment_refunded": "Pago reembolsado por {senderName}"
-        }
-      },
-      "task_completion": {
-        "tasker": "¡{senderName} ha marcado tu tarea como completada! Revisa el trabajo y confirma si está listo.",
-        "taskee": "Has marcado una tarea como completada.",
-        "unknown": "{senderName} ha marcado una tarea como completada."
-      },
-      "payment": {
-        "tasker": {
-          "received": "Has enviado {amount} {currency} a {senderName}",
-          "sent": "Has enviado {amount} {currency} a {senderName}",
-          "pending": "Tu pago de {amount} {currency} está pendiente de confirmación"
-        },
-        "taskee": {
-          "received": "Has recibido {amount} {currency} de {senderName}",
-          "sent": "Has recibido {amount} {currency} de {senderName}",
-          "pending": "Pago de {amount} {currency} está pendiente de confirmación"
-        },
-        "unknown": {
-          "received": "Pago de {amount} {currency} procesado",
-          "sent": "Pago de {amount} {currency} enviado",
-          "pending": "Pago de {amount} {currency} está pendiente"
-        }
-      },
-      "legacy": {
-        "new_bid_received": "{senderName} ha enviado una oferta para tu tarea. Revisa los detalles y decide si la aceptas.",
-        "bid_accepted": "¡Excelente! Tu oferta ha sido aceptada por {senderName}. ¡Es hora de comenzar el trabajo!",
-        "bid_rejected": "Tu oferta ha sido rechazada por {senderName}. No te desanimes, sigue intentando.",
-        "payment_received": "Has recibido un pago de {amount} {currency} de {senderName}.",
-        "payment_sent": "Has enviado un pago de {amount} {currency} a {senderName}.",
-        "payment_pending": "Tu pago de {amount} {currency} está pendiente de confirmación.",
-        "task_updated": "La tarea '{taskTitle}' ha sido actualizada por {senderName}.",
-        "task_completed": "¡{senderName} ha marcado tu tarea como completada! Revisa el trabajo y confirma si está listo.",
-        "contract_created": "Se ha creado un nuevo contrato para la tarea '{taskTitle}'.",
-        "contract_updated": "El contrato para la tarea '{taskTitle}' ha sido actualizado.",
-        "contract_completed": "El contrato para la tarea '{taskTitle}' ha sido completado exitosamente.",
-        "contract_disputed": "El contrato para la tarea '{taskTitle}' está en disputa y requiere tu atención.",
-        "new_message": "Tienes un nuevo mensaje de {senderName}.",
-        "new_message_body": "Has recibido un mensaje de {senderName}.",
-        "system_maintenance": "El sistema estará en mantenimiento programado. Algunas funciones pueden no estar disponibles.",
-        "security_alert": "Se ha detectado actividad sospechosa en tu cuenta. Por favor, verifica tu seguridad.",
-        "new_notification": "Tienes una nueva notificación."
-      }
-    },
-    "actions": {
-      "view_task": "Ver Tarea",
-      "view_contract": "Ver Contrato",
-      "view_message": "Ver Mensaje",
-      "view_payment": "Ver Pago",
-      "respond_to_bid": "Responder a Oferta",
-      "review_work": "Revisar Trabajo",
-      "resolve_dispute": "Resolver Disputa",
-      "check_security": "Verificar Seguridad",
-      "view_details": "Ver Detalles"
-    },
-    "permissions": {
-      "title": "Permisos de Notificaciones",
-      "message": "Para recibir notificaciones importantes sobre tus tareas y ofertas, por favor permite las notificaciones en tu navegador.",
-      "enable_notifications": "Habilitar Notificaciones",
-      "not_supported": "Las notificaciones no son compatibles con este navegador.",
-      "permission_denied": "Permisos de notificación denegados. Puedes habilitarlos en la configuración de tu navegador.",
-      "permission_granted": "Notificaciones habilitadas exitosamente.",
-      "banner": {
-        "title": "Habilitar Notificaciones",
-        "description": "Recibe notificaciones sobre nuevas ofertas, actualizaciones de contratos y pagos incluso cuando la aplicación está cerrada.",
-        "enable_button": "Habilitar",
-        "later_button": "Después",
-        "close_aria": "Cerrar banner"
-      }
-    },
-    "settings": {
-      "title": "Configuración de Notificaciones",
-      "in_app": "En la aplicación",
-      "push": "Notificaciones push",
-      "email": "Correo electrónico",
-      "sms": "SMS",
-      "quiet_hours": "Horas de silencio",
-      "quiet_hours_enabled": "Horas de silencio habilitadas",
-      "quiet_hours_start": "Inicio",
-      "quiet_hours_end": "Fin",
-      "quiet_hours_timezone": "Zona horaria",
-      "save_settings": "Guardar Configuración",
-      "settings_saved": "Configuración guardada exitosamente",
-      "settings_error": "Error al guardar la configuración"
-    },
-    "errors": {
-      "load_failed": "Error al cargar las notificaciones",
-      "mark_read_failed": "Error al marcar como leída",
-      "delete_failed": "Error al eliminar notificación",
-      "clear_failed": "Error al limpiar notificaciones",
-      "permission_failed": "Error al solicitar permisos de notificación"
-    },
-    "success": {
-      "marked_read": "Notificación marcada como leída",
-      "deleted": "Notificación eliminada",
-      "cleared": "Notificaciones limpiadas",
-      "settings_updated": "Configuración actualizada"
-    },
-    "aria_labels": {
-      "notifications": "Notificaciones",
-      "close_notifications": "Cerrar notificaciones",
-      "remove_notification": "Eliminar notificación"
-    },
-    "total": "total",
-    "priority_labels": {
-      "low": "baja",
-      "normal": "normal",
-      "high": "alta", 
-      "urgent": "urgente"
-    },
-    "service_messages": {
-      "new_message": "Nuevo Mensaje",
-      "new_message_body": "Has recibido un mensaje de {senderName}",
-      "bid_accepted_title": "Oferta Aceptada",
-      "bid_accepted_body_taskee": "¡Excelente! Tu oferta ha sido aceptada por {senderName}. ¡Es hora de comenzar el trabajo!",
-      "bid_rejected_title": "Oferta Rechazada",
-      "bid_rejected_body_taskee": "Tu oferta ha sido rechazada por {senderName}. No te desanimes, sigue intentando.",
-      "bid_update_title": "Actualización de Oferta",
-      "bid_update_body_tasker": "Oferta {status} por {senderName}",
-      "contract_created_title": "Contrato Creado",
-      "contract_created_body": "Nuevo contrato creado con {senderName}",
-      "contract_completed_title": "Contrato Completado",
-      "contract_completed_body_tasker": "Contrato completado por {senderName}",
-      "contract_completed_body_taskee": "Contrato completado con {senderName}",
-      "contract_disputed_title": "Contrato en Disputa",
-      "contract_disputed_body": "Disputa iniciada por {senderName}",
-      "contract_cancelled_title": "Contrato Cancelado",
-      "contract_cancelled_body": "Contrato cancelado por {senderName}",
-      "payment_released_title": "Pago Liberado",
-      "payment_released_body_tasker": "Pago liberado a {senderName}",
-      "payment_released_body_taskee": "Pago recibido de {senderName}",
-      "payment_refunded_title": "Pago Reembolsado",
-      "payment_refunded_body_tasker": "Pago reembolsado a {senderName}",
-      "payment_refunded_body_taskee": "Pago reembolsado por {senderName}",
-      "contract_update_title": "Actualización de Contrato",
-      "contract_update_body": "Actualización de contrato por {senderName}",
-      "new_bid_title": "Nueva Oferta Recibida",
-      "new_bid_body_tasker": "{senderName} ha enviado una oferta para tu tarea. Revisa los detalles y decide si la aceptas.",
-      "new_bid_body_unknown": "{senderName} ha enviado una oferta.",
-      "task_completed_title": "Tarea Completada",
-      "task_completed_body_tasker": "¡{senderName} ha marcado tu tarea como completada! Revisa el trabajo y confirma si está listo.",
-      "task_completed_body_unknown": "{senderName} ha marcado una tarea como completada.",
-      "payment_sent_title": "Pago Enviado",
-      "payment_sent_body_tasker": "Has enviado {amount} {currency} a {senderName}",
-      "payment_received_title": "Pago Recibido",
-      "payment_received_body_taskee": "Has recibido {amount} {currency} de {senderName}",
-      "payment_pending_title": "Pago Pendiente",
-      "payment_pending_body_tasker": "Tu pago de {amount} {currency} está pendiente de confirmación",
-      "payment_pending_body_taskee": "Pago de {amount} {currency} está pendiente de confirmación",
-      "payment_update_title": "Actualización de Pago",
-      "payment_update_body": "Pago de {amount} {currency} procesado"
-    }
-  }
+	"notifications": {
+		"page_title": "Notificaciones",
+		"title": "Notificaciones",
+		"subtitle": "Mantente actualizado con tus tareas, ofertas y pagos",
+		"search_placeholder": "Buscar notificaciones...",
+		"loading": "Cargando notificaciones...",
+		"no_notifications": "Sin notificaciones",
+		"no_matching": "Sin notificaciones coincidentes",
+		"adjust_search": "Intenta ajustar tu búsqueda o criterios de filtro.",
+		"all_caught_up": "¡Estás al día! Las nuevas notificaciones aparecerán aquí.",
+		"notifications_actions": {
+			"mark_all_read": "Marcar todas como leídas",
+			"clear_all": "Limpiar todo",
+			"view": "Ver notificación",
+			"remove": "Eliminar notificación"
+		},
+		"filters": {
+			"all": "Todas las Notificaciones"
+		},
+		"types": {
+			"bid_response": "Respuestas de Ofertas",
+			"contract_event": "Eventos de Contrato",
+			"payment": "Pagos",
+			"task_update": "Actualizaciones de Tarea",
+			"message": "Mensajes",
+			"system": "Sistema",
+			"security": "Seguridad",
+			"other": "Otros"
+		},
+		"stats": {
+			"showing": "Mostrando",
+			"of": "de",
+			"notifications": "notificaciones"
+		},
+		"no_notifications_message": "¡Estás al día!",
+		"no_unread_notifications": "Sin notificaciones no leídas",
+		"no_unread_notifications_message": "¡Todas las notificaciones han sido leídas!",
+		"clear_all": "Limpiar todo",
+		"view_all": "Ver todas las notificaciones",
+		"mark_all_read": "Marcar todas como leídas",
+		"show_all": "Mostrar todas",
+		"show_unread_only": "Mostrar solo no leídas",
+		"new": "nuevo",
+		"new_plural": "nuevos",
+		"unread": "no leído",
+		"unread_plural": "no leídos",
+		"read": "leído",
+		"just_now": "Ahora mismo",
+		"minutes_ago": "hace {count} min",
+		"hours_ago": "hace {count} h",
+		"days_ago": "hace {count} d",
+		"weeks_ago": "hace {count} sem",
+		"months_ago": "hace {count} mes",
+		"years_ago": "hace {count} año",
+		"priority": {
+			"low": "baja",
+			"normal": "normal",
+			"high": "alta",
+			"urgent": "urgente"
+		},
+		"roles": {
+			"tasker": "Solicitante",
+			"taskee": "Ejecutor",
+			"unknown": "Desconocido"
+		},
+		"titles": {
+			"new_bid_received": "Nueva Oferta Recibida",
+			"bid_accepted": "Oferta Aceptada",
+			"bid_rejected": "Oferta Rechazada",
+			"payment_received": "Pago Recibido",
+			"payment_sent": "Pago Enviado",
+			"payment_pending": "Pago Pendiente",
+			"task_updated": "Tarea Actualizada",
+			"task_completed": "Tarea Completada",
+			"contract_created": "Contrato Creado",
+			"contract_updated": "Contrato Actualizado",
+			"contract_completed": "Contrato Completado",
+			"contract_disputed": "Contrato en Disputa",
+			"new_message": "Nuevo Mensaje",
+			"system_maintenance": "Mantenimiento del Sistema",
+			"security_alert": "Alerta de Seguridad",
+			"new_notification": "Nueva Notificación"
+		},
+		"messages": {
+			"bid_status": {
+				"taskee": {
+					"accepted": "¡Excelente! Tu oferta ha sido aceptada por {senderName}. ¡Es hora de comenzar el trabajo!",
+					"rejected": "Tu oferta ha sido rechazada por {senderName}. No te desanimes, sigue intentando."
+				},
+				"tasker": {
+					"accepted": "Has aceptado una oferta de {senderName}.",
+					"rejected": "Has rechazado una oferta de {senderName}."
+				},
+				"unknown": {
+					"accepted": "Oferta aceptada por {senderName}",
+					"rejected": "Oferta rechazada por {senderName}"
+				}
+			},
+			"new_bid": {
+				"tasker": "{senderName} ha enviado una oferta para tu tarea. Revisa los detalles y decide si la aceptas.",
+				"taskee": "Has enviado una oferta a {senderName}.",
+				"unknown": "{senderName} ha enviado una oferta."
+			},
+			"contract": {
+				"tasker": {
+					"created": "Nuevo contrato creado con {senderName}",
+					"completed": "Contrato completado por {senderName}",
+					"disputed": "Disputa iniciada por {senderName}",
+					"cancelled": "Contrato cancelado por {senderName}",
+					"payment_released": "Pago liberado a {senderName}",
+					"payment_refunded": "Pago reembolsado a {senderName}"
+				},
+				"taskee": {
+					"created": "Nuevo contrato creado con {senderName}",
+					"completed": "Contrato completado con {senderName}",
+					"disputed": "Disputa iniciada por {senderName}",
+					"cancelled": "Contrato cancelado por {senderName}",
+					"payment_released": "Pago recibido de {senderName}",
+					"payment_refunded": "Pago reembolsado por {senderName}"
+				},
+				"unknown": {
+					"created": "Nuevo contrato creado por {senderName}",
+					"completed": "Contrato completado por {senderName}",
+					"disputed": "Disputa iniciada por {senderName}",
+					"cancelled": "Contrato cancelado por {senderName}",
+					"payment_released": "Pago liberado por {senderName}",
+					"payment_refunded": "Pago reembolsado por {senderName}"
+				}
+			},
+			"task_completion": {
+				"tasker": "¡{senderName} ha marcado tu tarea como completada! Revisa el trabajo y confirma si está listo.",
+				"taskee": "Has marcado una tarea como completada.",
+				"unknown": "{senderName} ha marcado una tarea como completada."
+			},
+			"payment": {
+				"tasker": {
+					"received": "Has enviado {amount} {currency} a {senderName}",
+					"sent": "Has enviado {amount} {currency} a {senderName}",
+					"pending": "Tu pago de {amount} {currency} está pendiente de confirmación"
+				},
+				"taskee": {
+					"received": "Has recibido {amount} {currency} de {senderName}",
+					"sent": "Has recibido {amount} {currency} de {senderName}",
+					"pending": "Pago de {amount} {currency} está pendiente de confirmación"
+				},
+				"unknown": {
+					"received": "Pago de {amount} {currency} procesado",
+					"sent": "Pago de {amount} {currency} enviado",
+					"pending": "Pago de {amount} {currency} está pendiente"
+				}
+			},
+			"legacy": {
+				"new_bid_received": "{senderName} ha enviado una oferta para tu tarea. Revisa los detalles y decide si la aceptas.",
+				"bid_accepted": "¡Excelente! Tu oferta ha sido aceptada por {senderName}. ¡Es hora de comenzar el trabajo!",
+				"bid_rejected": "Tu oferta ha sido rechazada por {senderName}. No te desanimes, sigue intentando.",
+				"payment_received": "Has recibido un pago de {amount} {currency} de {senderName}.",
+				"payment_sent": "Has enviado un pago de {amount} {currency} a {senderName}.",
+				"payment_pending": "Tu pago de {amount} {currency} está pendiente de confirmación.",
+				"task_updated": "La tarea '{taskTitle}' ha sido actualizada por {senderName}.",
+				"task_completed": "¡{senderName} ha marcado tu tarea como completada! Revisa el trabajo y confirma si está listo.",
+				"contract_created": "Se ha creado un nuevo contrato para la tarea '{taskTitle}'.",
+				"contract_updated": "El contrato para la tarea '{taskTitle}' ha sido actualizado.",
+				"contract_completed": "El contrato para la tarea '{taskTitle}' ha sido completado exitosamente.",
+				"contract_disputed": "El contrato para la tarea '{taskTitle}' está en disputa y requiere tu atención.",
+				"new_message": "Tienes un nuevo mensaje de {senderName}.",
+				"new_message_body": "Has recibido un mensaje de {senderName}.",
+				"system_maintenance": "El sistema estará en mantenimiento programado. Algunas funciones pueden no estar disponibles.",
+				"security_alert": "Se ha detectado actividad sospechosa en tu cuenta. Por favor, verifica tu seguridad.",
+				"new_notification": "Tienes una nueva notificación."
+			}
+		},
+		"actions": {
+			"view_task": "Ver Tarea",
+			"view_contract": "Ver Contrato",
+			"view_message": "Ver Mensaje",
+			"view_payment": "Ver Pago",
+			"respond_to_bid": "Responder a Oferta",
+			"review_work": "Revisar Trabajo",
+			"resolve_dispute": "Resolver Disputa",
+			"check_security": "Verificar Seguridad",
+			"view_details": "Ver Detalles"
+		},
+		"permissions": {
+			"title": "Permisos de Notificaciones",
+			"message": "Para recibir notificaciones importantes sobre tus tareas y ofertas, por favor permite las notificaciones en tu navegador.",
+			"enable_notifications": "Habilitar Notificaciones",
+			"not_supported": "Las notificaciones no son compatibles con este navegador.",
+			"permission_denied": "Permisos de notificación denegados. Puedes habilitarlos en la configuración de tu navegador.",
+			"permission_granted": "Notificaciones habilitadas exitosamente.",
+			"banner": {
+				"title": "Habilitar Notificaciones",
+				"description": "BitTasker usa notificaciones para alertarte sobre ofertas, actualizaciones de tareas y mensajes.",
+				"enable_button": "Habilitar",
+				"later_button": "Ahora no",
+				"close_aria": "Cerrar banner"
+			}
+		},
+		"settings": {
+			"title": "Configuración de Notificaciones",
+			"in_app": "En la aplicación",
+			"push": "Notificaciones push",
+			"email": "Correo electrónico",
+			"sms": "SMS",
+			"quiet_hours": "Horas de silencio",
+			"quiet_hours_enabled": "Horas de silencio habilitadas",
+			"quiet_hours_start": "Inicio",
+			"quiet_hours_end": "Fin",
+			"quiet_hours_timezone": "Zona horaria",
+			"save_settings": "Guardar Configuración",
+			"settings_saved": "Configuración guardada exitosamente",
+			"settings_error": "Error al guardar la configuración"
+		},
+		"errors": {
+			"load_failed": "Error al cargar las notificaciones",
+			"mark_read_failed": "Error al marcar como leída",
+			"delete_failed": "Error al eliminar notificación",
+			"clear_failed": "Error al limpiar notificaciones",
+			"permission_failed": "Error al solicitar permisos de notificación"
+		},
+		"success": {
+			"marked_read": "Notificación marcada como leída",
+			"deleted": "Notificación eliminada",
+			"cleared": "Notificaciones limpiadas",
+			"settings_updated": "Configuración actualizada"
+		},
+		"aria_labels": {
+			"notifications": "Notificaciones",
+			"close_notifications": "Cerrar notificaciones",
+			"remove_notification": "Eliminar notificación"
+		},
+		"total": "total",
+		"priority_labels": {
+			"low": "baja",
+			"normal": "normal",
+			"high": "alta",
+			"urgent": "urgente"
+		},
+		"service_messages": {
+			"new_message": "Nuevo Mensaje",
+			"new_message_body": "Has recibido un mensaje de {senderName}",
+			"bid_accepted_title": "Oferta Aceptada",
+			"bid_accepted_body_taskee": "¡Excelente! Tu oferta ha sido aceptada por {senderName}. ¡Es hora de comenzar el trabajo!",
+			"bid_rejected_title": "Oferta Rechazada",
+			"bid_rejected_body_taskee": "Tu oferta ha sido rechazada por {senderName}. No te desanimes, sigue intentando.",
+			"bid_update_title": "Actualización de Oferta",
+			"bid_update_body_tasker": "Oferta {status} por {senderName}",
+			"contract_created_title": "Contrato Creado",
+			"contract_created_body": "Nuevo contrato creado con {senderName}",
+			"contract_completed_title": "Contrato Completado",
+			"contract_completed_body_tasker": "Contrato completado por {senderName}",
+			"contract_completed_body_taskee": "Contrato completado con {senderName}",
+			"contract_disputed_title": "Contrato en Disputa",
+			"contract_disputed_body": "Disputa iniciada por {senderName}",
+			"contract_cancelled_title": "Contrato Cancelado",
+			"contract_cancelled_body": "Contrato cancelado por {senderName}",
+			"payment_released_title": "Pago Liberado",
+			"payment_released_body_tasker": "Pago liberado a {senderName}",
+			"payment_released_body_taskee": "Pago recibido de {senderName}",
+			"payment_refunded_title": "Pago Reembolsado",
+			"payment_refunded_body_tasker": "Pago reembolsado a {senderName}",
+			"payment_refunded_body_taskee": "Pago reembolsado por {senderName}",
+			"contract_update_title": "Actualización de Contrato",
+			"contract_update_body": "Actualización de contrato por {senderName}",
+			"new_bid_title": "Nueva Oferta Recibida",
+			"new_bid_body_tasker": "{senderName} ha enviado una oferta para tu tarea. Revisa los detalles y decide si la aceptas.",
+			"new_bid_body_unknown": "{senderName} ha enviado una oferta.",
+			"task_completed_title": "Tarea Completada",
+			"task_completed_body_tasker": "¡{senderName} ha marcado tu tarea como completada! Revisa el trabajo y confirma si está listo.",
+			"task_completed_body_unknown": "{senderName} ha marcado una tarea como completada.",
+			"payment_sent_title": "Pago Enviado",
+			"payment_sent_body_tasker": "Has enviado {amount} {currency} a {senderName}",
+			"payment_received_title": "Pago Recibido",
+			"payment_received_body_taskee": "Has recibido {amount} {currency} de {senderName}",
+			"payment_pending_title": "Pago Pendiente",
+			"payment_pending_body_tasker": "Tu pago de {amount} {currency} está pendiente de confirmación",
+			"payment_pending_body_taskee": "Pago de {amount} {currency} está pendiente de confirmación",
+			"payment_update_title": "Actualización de Pago",
+			"payment_update_body": "Pago de {amount} {currency} procesado"
+		}
+	}
 }
-

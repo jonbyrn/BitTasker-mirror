@@ -90,10 +90,7 @@
 			<button
 				class="btn btn-ghost btn-sm btn-circle shrink-0 touch-manipulation transition-transform duration-200 select-none active:scale-95"
 				style="-webkit-tap-highlight-color: transparent;"
-				onclick={() => {
-					triggerHaptic(ImpactStyle.Light);
-					addressExpanded = !addressExpanded;
-				}}
+				onclick={() => (addressExpanded = !addressExpanded)}
 				aria-label={addressExpanded ? 'Collapse address' : 'Expand address'}
 			>
 				<div class="transition-transform duration-200" class:rotate-180={addressExpanded}>
@@ -129,5 +126,3 @@
 		{/if}
 	</div>
 </div>
-
-

@@ -201,7 +201,7 @@
 			const deviceId = await getDeviceIdentifier();
 			const deviceName = await createUserDeviceShortName(npub);
 
-			const { access_token, user } = await authService.completeNostrRecovery({
+			const { access_token, refresh_token, user } = await authService.completeNostrRecovery({
 				npub: npub,
 				otp: otpCode,
 				encryptedData,
@@ -224,7 +224,15 @@
 					exportedKey,
 					credentialId: credentialData.credentialId
 				};
-				authState.setupAuthData(access_token, 'passkey', npub, user, biometricData, true);
+				authState.setupAuthData(
+					access_token,
+					'passkey',
+					npub,
+					user,
+					biometricData,
+					true,
+					refresh_token
+				);
 			}
 		} catch (err: unknown) {
 			error = err instanceof Error ? err.message : $t('recovery_npub.errors.recovery_failed');

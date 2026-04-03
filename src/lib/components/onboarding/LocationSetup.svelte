@@ -1,4 +1,9 @@
 <script lang="ts">
+	/**
+	 * @unused This component is no longer used
+	 * @deprecated
+	 */
+
 	import type { Location } from '$lib/types/task';
 	import { onMount } from 'svelte';
 	import { Geolocation } from '@capacitor/geolocation';
@@ -65,7 +70,11 @@
 						(error) => {
 							// Si el error es de permisos denegados, dar un mensaje más claro
 							if (error.code === error.PERMISSION_DENIED) {
-								reject(new Error('Location permission denied. Please enable location access in your browser settings and try again.'));
+								reject(
+									new Error(
+										'Location permission denied. Please enable location access in your browser settings and try again.'
+									)
+								);
 							} else {
 								reject(error);
 							}
@@ -87,14 +96,16 @@
 			if (lat !== null && lng !== null) {
 				// Intentar usar reverse geocoding para obtener el nombre
 				let displayName = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
-				
+
 				try {
 					// Si Google Maps está disponible, usar reverse geocoding
 					if (window.google?.maps) {
-						const { Geocoder } = (await google.maps.importLibrary('geocoding')) as google.maps.GeocodingLibrary;
+						const { Geocoder } = (await google.maps.importLibrary(
+							'geocoding'
+						)) as google.maps.GeocodingLibrary;
 						const geocoder = new Geocoder();
 						const result = await geocoder.geocode({ location: { lat, lng } });
-						
+
 						if (result.results && result.results.length > 0) {
 							displayName = result.results[0].formatted_address;
 						}
@@ -124,7 +135,8 @@
 			console.warn('Error getting user location:', error);
 			// Mostrar mensaje de error si es de permisos denegados
 			if (error instanceof Error && error.message.includes('permission')) {
-				locationError = $t('onboarding_auth.form.location_setup.errors.permission_denied') || 
+				locationError =
+					$t('onboarding_auth.form.location_setup.errors.permission_denied') ||
 					'Location permission denied. Please enable location access in your browser settings and try again.';
 			} else {
 				locationError = null; // No mostrar error para otros tipos de errores
@@ -219,12 +231,15 @@
 	}
 </script>
 
-<div class="card bg-base-100 w-full shadow-xl p-6" data-testid="onboarding-step-location">
+<div class="card bg-base-100 w-full p-6 shadow-xl" data-testid="onboarding-step-location">
 	<div class="card-body relative">
 		<!-- Educational Header -->
 		<div class="education-header mb-6 text-center">
 			<div class="step-indicator text-primary mb-2 text-end text-sm font-medium">
-				{$t('onboarding_auth.form.location_setup.step')} {currentStep + 1} {$t('onboarding_auth.form.location_setup.of')} {totalSteps}
+				{$t('onboarding_auth.form.location_setup.step')}
+				{currentStep + 1}
+				{$t('onboarding_auth.form.location_setup.of')}
+				{totalSteps}
 			</div>
 			<h3 class="step-title mt-4 mb-3">{$t('onboarding_auth.form.location_setup.title')}</h3>
 			<h5 class="mb-3">{$t('onboarding_auth.form.location_setup.subtitle')}</h5>
@@ -236,22 +251,36 @@
 			<div class="features-list mx-auto mb-6 w-fit space-y-2 text-left">
 				<div class="feature-item flex items-center justify-start gap-2 text-lg">
 					<IconCheck class="text-primary min-w-[1.5em]" />
-					<span>{@html $t('onboarding_auth.form.location_setup.features.flexible')}</span>
+					<span
+						><strong>{$t('onboarding_auth.form.location_setup.features.flexible_label')}</strong>
+						{$t('onboarding_auth.form.location_setup.features.flexible_desc')}</span
+					>
 				</div>
 				<div class="feature-item flex items-center justify-start gap-2 text-lg">
 					<IconCheck class="text-primary min-w-[1.5em]" />
-					<span>{@html $t('onboarding_auth.form.location_setup.features.private')}</span>
+					<span
+						><strong>{$t('onboarding_auth.form.location_setup.features.private_label')}</strong>
+						{$t('onboarding_auth.form.location_setup.features.private_desc')}</span
+					>
 				</div>
 				<div class="feature-item flex items-center justify-start gap-2 text-lg">
 					<IconCheck class="text-primary min-w-[1.5em]" />
-					<span>{@html $t('onboarding_auth.form.location_setup.features.adjustable')}</span>
+					<span
+						><strong>{$t('onboarding_auth.form.location_setup.features.adjustable_label')}</strong>
+						{$t('onboarding_auth.form.location_setup.features.adjustable_desc')}</span
+					>
 				</div>
 				<div class="feature-item flex items-center justify-start gap-2 text-lg">
 					<IconCheck class="text-primary min-w-[1.5em]" />
-					<span>{@html $t('onboarding_auth.form.location_setup.features.optional')}</span>
+					<span
+						><strong>{$t('onboarding_auth.form.location_setup.features.optional_label')}</strong>
+						{$t('onboarding_auth.form.location_setup.features.optional_desc')}</span
+					>
 				</div>
 			</div>
-			<p class="text-primary mb-6 text-lg">{$t('onboarding_auth.form.location_setup.find_tasks')}</p>
+			<p class="text-primary mb-6 text-lg">
+				{$t('onboarding_auth.form.location_setup.find_tasks')}
+			</p>
 		</div>
 	</div>
 
@@ -309,9 +338,10 @@
 		<div class="mb-4">
 			<!-- Desktop: siempre visible -->
 			<div class="hidden md:block">
-				<div class="bg-base-100/95 rounded-lg p-4 shadow-lg border border-base-300">
-					<div class="mb-3 text-sm font-medium text-base-content">
-						{$t('onboarding_auth.form.location_setup.service_radius')}: {serviceRadius} {$t('onboarding_auth.form.location_setup.km')}
+				<div class="bg-base-100/95 border-base-300 rounded-lg border p-4 shadow-lg">
+					<div class="text-base-content mb-3 text-sm font-medium">
+						{$t('onboarding_auth.form.location_setup.service_radius')}: {serviceRadius}
+						{$t('onboarding_auth.form.location_setup.km')}
 					</div>
 					<input
 						type="range"
@@ -320,7 +350,7 @@
 						bind:value={serviceRadius}
 						class="range range-sm range-primary mb-2"
 					/>
-					<div class="flex justify-between text-xs text-base-content/70">
+					<div class="text-base-content/70 flex justify-between text-xs">
 						<span>1 {$t('onboarding_auth.form.location_setup.km')}</span>
 						<span>50 {$t('onboarding_auth.form.location_setup.km')}</span>
 					</div>
@@ -329,15 +359,18 @@
 
 			<!-- Mobile: colapsable -->
 			<div class="md:hidden">
-				<div class="collapse collapse-arrow bg-base-100/95 rounded-lg border border-base-300 shadow-lg">
+				<div
+					class="collapse-arrow bg-base-100/95 border-base-300 collapse rounded-lg border shadow-lg"
+				>
 					<input
 						type="checkbox"
 						bind:checked={radiusPanelCollapsed}
 						class="peer"
 						aria-label={$t('onboarding_auth.form.location_setup.toggle_radius')}
 					/>
-					<div class="collapse-title font-medium text-base-content">
-						{$t('onboarding_auth.form.location_setup.service_radius')}: {serviceRadius} {$t('onboarding_auth.form.location_setup.km')}
+					<div class="collapse-title text-base-content font-medium">
+						{$t('onboarding_auth.form.location_setup.service_radius')}: {serviceRadius}
+						{$t('onboarding_auth.form.location_setup.km')}
 					</div>
 					<div class="collapse-content">
 						<input
@@ -347,7 +380,7 @@
 							bind:value={serviceRadius}
 							class="range range-sm range-primary mb-2"
 						/>
-						<div class="flex justify-between text-xs text-base-content/70">
+						<div class="text-base-content/70 flex justify-between text-xs">
 							<span>1 {$t('onboarding_auth.form.location_setup.km')}</span>
 							<span>50 {$t('onboarding_auth.form.location_setup.km')}</span>
 						</div>
@@ -373,7 +406,7 @@
 					/>
 				</svg>
 				<span>
-					{$t('onboarding_auth.form.location_setup.location_set')}: 
+					{$t('onboarding_auth.form.location_setup.location_set')}:
 					{location.displayName || $t('onboarding_auth.form.location_setup.default_location')}
 				</span>
 			</div>
@@ -381,7 +414,12 @@
 	</div>
 
 	<div class="mt-6 flex justify-between">
-		<button type="button" class="btn btn-outline" data-testid="onboarding-location-back" onclick={prevStep}>
+		<button
+			type="button"
+			class="btn btn-outline"
+			data-testid="onboarding-location-back"
+			onclick={prevStep}
+		>
 			{$t('onboarding_auth.form.back')}
 		</button>
 		<button
