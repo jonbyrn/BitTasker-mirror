@@ -204,7 +204,7 @@ export async function handleEscrowCreated(event: EscrowCreatedEvent): Promise<vo
 				body: `Your bid ${pendingContract.taskTitle ? `on task: ${pendingContract.taskTitle}` : ''} has been accepted by the client`,
 				type: 'contract_created',
 				clickAction: `${import.meta.env.VITE_CLIENT_URL}/dashboard?tab=contracts`,
-				icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
+				icon: 'https://bittasker.com/images/logos/bittasker-logomark.svg'
 			});
 
 			// Update contract creation store

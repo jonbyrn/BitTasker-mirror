@@ -1,12 +1,12 @@
 <script lang="ts">
+	import type { PageData } from './$types';
 	import { page } from '$app/state';
 	import { t } from 'svelte-i18n';
-	import TaskDetailsView from '$lib/components/task/TaskDetailsView.svelte';
 	import { authState } from '$lib/stores/auth.store';
 	import { devicePlatform } from '$lib/stores/device.store';
 	import { sections } from '$lib/utils/consts';
 	import WarningPopup from '$lib/components/WarningPopup.svelte';
-	// Icon imports for unplugin-icons
+	import TaskDetailsView from '$lib/components/task/TaskDetailsView.svelte';
 	import IconFormatListBulleted from '~icons/mdi/format-list-bulleted';
 	import IconPlusCircleOutline from '~icons/mdi/plus-circle-outline';
 	import IconMagnify from '~icons/mdi/magnify';
@@ -16,16 +16,12 @@
 	import IconAccount from '~icons/mdi/account';
 	import IconChatOutline from '~icons/mdi/chat-outline';
 	import IconCog from '~icons/mdi/cog';
-	import type { PageData } from './$types';
 
 	// Get taskId from route params
 	const taskId = page.params.taskId;
-	
+
 	// Get SEO data from page data
 	let { data }: { data: PageData } = $props();
-
-	// Check if user is logged in
-	const isLoggedIn = $derived($authState.isAuthenticated);
 
 	// Layout state
 	let width = $state(375);
@@ -60,15 +56,18 @@
 
 	<!-- Structured Data -->
 	{#if data.seo.jsonLd}
-		{@html `<script type="application/ld+json">${JSON.stringify(data.seo.jsonLd)}</script>`}
+		<!-- eslint-disable svelte/no-at-html-tags -->
+		{@html `<\u{73}cript type="application/ld+json">${JSON.stringify(data.seo.jsonLd)}</script>`}
 	{/if}
 </svelte:head>
 
 <svelte:window bind:innerWidth={width} />
 
-{#if isLoggedIn}
+{#if $authState.isAuthenticated}
 	<!-- Mismas dimensiones que Mi Panel -->
-	<div class="dashboard-layout bg-base-200 mx-auto flex h-full w-full flex-row gap-8 overflow-hidden px-2 md:py-4">
+	<div
+		class="dashboard-layout bg-base-200 mx-auto flex h-full w-full flex-row gap-8 overflow-hidden px-2 md:py-4"
+	>
 		{#if $devicePlatform !== 'ios' && $devicePlatform !== 'android' && width >= 1200}
 			<!-- Fixed Sidebar - Only on desktop -->
 			<div class="w-full shrink-0 md:w-64">
@@ -76,12 +75,13 @@
 					<div class="card bg-base-100 rounded-xl shadow-xl">
 						<div class="card-body p-4">
 							<ul class="menu bg-base-100 rounded-box w-full">
-								{#each sections as section}
+								{#each sections as section (section.id)}
 									<li class="my-1">
 										<a
 											data-sveltekit-reload="off"
 											href={section.path}
-											class:menu-active={page.url.pathname + page.url.search === section.path || (section.id === 'find-tasks' && page.url.pathname.startsWith('/tasks'))}
+											class:menu-active={page.url.pathname + page.url.search === section.path ||
+												(section.id === 'find-tasks' && page.url.pathname.startsWith('/tasks'))}
 											class="flex items-center gap-3"
 										>
 											{#if section.icon === 'mdi:format-list-bulleted'}
