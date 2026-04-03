@@ -52,6 +52,21 @@
 			busy = false;
 		}
 	}
+
+	async function onCancelContract() {
+		if (busy) return;
+		busy = true;
+		try {
+			const res = await contractRune.cancelPaymentContract();
+			if (!res.ok) {
+				appStore.showErrorToast(get(t)('dashboard.contracts.actions.contract_action_failed'));
+				return;
+			}
+			appStore.showSuccessToast(get(t)('dashboard.contracts.actions.cancel_contract_success'));
+		} finally {
+			busy = false;
+		}
+	}
 </script>
 
 <div class="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
@@ -92,6 +107,19 @@
 				<span class="loading loading-spinner loading-xs"></span>
 			{/if}
 			{$t('dashboard.contracts.actions.refund_tasker')}
+		</button>
+	{/if}
+	{#if contractRune.permittedActions.canCancelPaymentContract}
+		<button
+			type="button"
+			class="btn btn-error btn-outline btn-sm w-full sm:w-auto"
+			disabled={contractRune.isPending || busy}
+			onclick={onCancelContract}
+		>
+			{#if busy || contractRune.isPending}
+				<span class="loading loading-spinner loading-xs"></span>
+			{/if}
+			{$t('dashboard.contracts.actions.cancel_contract')}
 		</button>
 	{/if}
 </div>

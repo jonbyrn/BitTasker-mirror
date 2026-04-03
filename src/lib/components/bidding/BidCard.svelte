@@ -3,7 +3,7 @@
 	import type { NDKBid } from '$lib/nostr/events/bid';
 	import { t, locale } from 'svelte-i18n';
 	import { goto } from '$app/navigation';
-	import { getProfileUrl } from '$lib/utils/helpers/profile';
+	// import { getProfileUrl } from '$lib/utils/helpers/profile';
 	import { formatConvertedAmount } from '$lib/utils/helpers/currencyFormatter';
 	import { formatStandardDateTime, parseDateWithLocalTime } from '$lib/utils/helpers/dateFormatter';
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
@@ -27,6 +27,8 @@
 	let detailsExpanded = $state(false);
 
 	const bidContent = $derived(bid.bidContent);
+
+	let profileUrl = $derived(`/npub/${bid.author.npub}`);
 
 	function toggleDetails() {
 		detailsExpanded = !detailsExpanded;
@@ -56,7 +58,7 @@
 	}
 
 	function seeProfile() {
-		goto(getProfileUrl(bid.author.npub));
+		goto(profileUrl);
 	}
 </script>
 
