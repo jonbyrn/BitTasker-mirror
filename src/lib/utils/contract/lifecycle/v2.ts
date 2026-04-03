@@ -1,9 +1,5 @@
-import { nip19 } from 'nostr-tools';
-import { pushNotificationService } from '$lib/api/services/push-notification.service';
-import { NDKContractStatus } from '$lib/nostr/events/contractStatus';
 import { ndk } from '$lib/nostr/ndk';
 import { createDebug } from '$lib/utils/debug';
-import { runParallelNamed } from '$lib/utils/contract/parallelEffects';
 import { publishTaskCompletedForEscrow } from '$lib/utils/contract/v2/creation';
 import { acceptTask, completeTask, refundTasker } from '$lib/utils/contract/v2/blockchainWrites';
 import { loadPaymentContractDetailsV2 } from '$lib/utils/contract/v2/loadPaymentContractDetailsV2';
@@ -13,6 +9,14 @@ import {
 	type PermittedActions
 } from '$lib/utils/contract/v2/permittedActions';
 import { ContractStatus, type ContractChain } from '$lib/utils/contract/types';
+import {
+	getRuneWriteIds,
+	notifyContractCounterparty,
+	publishV2ContractStatus,
+	runV2Preflight,
+	runV2SideEffects,
+	type RuneWriteIds
+} from './v2WriteHelpers';
 import type {
 	ContractLifecycleResult,
 	PaymentContractLifecycle,
@@ -45,86 +49,101 @@ export function computePermittedActionsV2(rune: PaymentContractRuneLike): Permit
 	});
 }
 
+/** Standard post-chain pipeline: 31006, optional extra parallel jobs (e.g. kind 31000), then push. */
+async function broadcastThenParallelV2Effects(
+	logLabel: string,
+	ids: RuneWriteIds,
+	signer: NonNullable<typeof ndk.activeUser>,
+	transactionHash: string,
+	recipientPubkey: string,
+	chainStatus: ContractStatus,
+	writeMethod: string,
+	push: { title: string; body: string; type: string },
+	extraBetweenStatusAndPush?: ReadonlyArray<{ name: string; run: () => Promise<unknown> }>
+): Promise<void> {
+	const tasks: { name: string; run: () => Promise<unknown> }[] = [
+		{
+			name: 'nostrContractStatus',
+			run: () =>
+				publishV2ContractStatus({
+					signer,
+					ids,
+					recipientPubkey,
+					transactionHash,
+					chainStatus,
+					writeMethod
+				})
+		}
+	];
+	if (extraBetweenStatusAndPush?.length) {
+		tasks.push(...extraBetweenStatusAndPush);
+	}
+	tasks.push({
+		name: 'push',
+		run: () =>
+			notifyContractCounterparty({
+				recipientPubkey,
+				title: push.title,
+				body: push.body,
+				type: push.type
+			})
+	});
+	await runV2SideEffects(logLabel, tasks);
+}
+
 export async function markTaskCompleteV2(
 	rune: PaymentContractRuneLike
 ): Promise<ContractLifecycleResult> {
-	const paymentId = rune.paymentId?.trim();
-	const contractAddress = rune.contractAddress?.trim() || rune.contract.contractAddress?.trim();
+	const ids = getRuneWriteIds(rune);
 	const taskerPk = rune.taskerPubkey;
-	const parentId = rune.parentEventId;
-
-	if (!paymentId || !contractAddress || !taskerPk || !parentId) {
-		return { ok: false, errorKey: 'dashboard.contracts.actions.mark_complete_missing_context' };
+	if (!ids || !taskerPk) {
+		d.warn('markTaskCompleteV2: missing paymentId, contract address, parent id, or tasker pubkey');
+		return { ok: false };
 	}
 
 	if (!ndk.activeUser?.pubkey) {
-		return { ok: false, errorKey: 'dashboard.contracts.actions.mark_complete_not_signed_in' };
+		d.warn('markTaskCompleteV2: not signed in with Nostr');
+		return { ok: false };
 	}
 
-	try {
-		const payment = await loadPaymentContractDetailsV2(paymentId, contractAddress, 'rsk');
-		const perms = computePermittedActions({
-			payment,
-			isTasker: rune.isTasker,
-			now: permissionsNowSeconds(),
-			awaitingTx: false
-		});
-		if (!perms.canCompleteTask) {
-			return { ok: false, errorKey: 'dashboard.contracts.actions.mark_complete_not_allowed' };
-		}
-	} catch (e) {
-		d.error('markTaskCompleteV2: preflight failed', e);
-		return { ok: false, errorKey: 'dashboard.contracts.actions.mark_complete_preflight_failed' };
-	}
+	const preflightErr = await runV2Preflight(rune, ids, {
+		isAllowed: (p) => p.canCompleteTask,
+		logLabel: 'markTaskCompleteV2'
+	});
+	if (preflightErr) return preflightErr;
 
 	let transactionHash: string;
 	try {
-		const { tx } = await completeTask(paymentId, { contractAddress, chain: 'rsk' });
+		const { tx } = await completeTask(ids.paymentId, {
+			contractAddress: ids.contractAddress,
+			chain: 'rsk'
+		});
 		transactionHash = tx.hash;
 	} catch (e) {
 		d.error('markTaskCompleteV2: completeTask failed', e);
-		return { ok: false, errorKey: 'dashboard.contracts.actions.task_completed_error' };
+		return { ok: false };
 	}
 
 	const signer = ndk.activeUser;
 	if (!signer) {
-		return { ok: false, errorKey: 'dashboard.contracts.actions.mark_complete_not_signed_in' };
+		d.warn('markTaskCompleteV2: signer missing after broadcast');
+		return { ok: false };
 	}
 
-	const publishStatus = async () => {
-		const status = new NDKContractStatus(ndk);
-		status.author = signer;
-		status.paymentId = paymentId;
-		status.parentContractEventId = parentId;
-		status.recipientPubkey = taskerPk;
-		status.version = 'v2';
-		status.messageType = 'contract-status';
-		status.status = ContractStatus.Completed;
-		status.transactionHash = transactionHash;
-		status.tags.push(['writeMethod', 'completeTask']);
-		await status.publish();
-	};
-
-	const taskerNpub = nip19.npubEncode(taskerPk);
-
-	const push = async () => {
-		await pushNotificationService.sendNotificationToNpubs({
-			npubs: [taskerNpub],
+	await broadcastThenParallelV2Effects(
+		'markTaskCompleteV2',
+		ids,
+		signer,
+		transactionHash,
+		taskerPk,
+		ContractStatus.Completed,
+		'completeTask',
+		{
 			title: 'Task marked complete',
 			body: `"${rune.taskTitle}" was marked complete. Open Contracts to review.`,
-			type: 'contract_task_completed',
-			clickAction: `${import.meta.env.VITE_CLIENT_URL}/dashboard?tab=contracts`,
-			icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
-		});
-	};
-
-	const { failures } = await runParallelNamed([
-		{ name: 'nostrContractStatus', run: publishStatus },
-		{ name: 'push', run: push }
-	]);
-	if (failures.length > 0) {
-		d.warn('markTaskCompleteV2: side effects had failures', failures);
-	}
+			type: 'contract_task_completed'
+		}
+	);
 
 	return { ok: true, transactionHash };
 }
@@ -136,79 +155,46 @@ export async function markTaskCompleteV2(
 export async function acceptTaskV2(
 	rune: PaymentContractRuneLike
 ): Promise<ContractLifecycleResult> {
-	const paymentId = rune.paymentId?.trim();
-	const contractAddress = rune.contractAddress?.trim() || rune.contract.contractAddress?.trim();
-	const parentId = rune.parentEventId;
+	const ids = getRuneWriteIds(rune);
 	const taskeePk = rune.contract.taskeePubkey;
-
-	if (!paymentId || !contractAddress || !parentId || !taskeePk) {
-		return { ok: false, errorKey: 'dashboard.contracts.actions.accept_task_missing_context' };
+	if (!ids || !taskeePk) {
+		d.warn('acceptTaskV2: missing paymentId, contract address, parent id, or taskee pubkey');
+		return { ok: false };
 	}
 
 	if (!rune.isTasker) {
-		return { ok: false, errorKey: 'dashboard.contracts.actions.accept_task_not_allowed' };
+		d.warn('acceptTaskV2: viewer is not tasker');
+		return { ok: false };
 	}
 
 	if (!ndk.activeUser?.pubkey) {
-		return { ok: false, errorKey: 'dashboard.contracts.actions.accept_task_not_signed_in' };
+		d.warn('acceptTaskV2: not signed in with Nostr');
+		return { ok: false };
 	}
 
-	try {
-		const payment = await loadPaymentContractDetailsV2(paymentId, contractAddress, 'rsk');
-		const perms = computePermittedActions({
-			payment,
-			isTasker: rune.isTasker,
-			now: permissionsNowSeconds(),
-			awaitingTx: false
-		});
-		if (!perms.canAcceptTask) {
-			return { ok: false, errorKey: 'dashboard.contracts.actions.accept_task_not_allowed' };
-		}
-	} catch (e) {
-		d.error('acceptTaskV2: preflight failed', e);
-		return { ok: false, errorKey: 'dashboard.contracts.actions.accept_task_preflight_failed' };
-	}
+	const preflightErr = await runV2Preflight(rune, ids, {
+		isAllowed: (p) => p.canAcceptTask,
+		logLabel: 'acceptTaskV2'
+	});
+	if (preflightErr) return preflightErr;
 
 	let transactionHash: string;
 	try {
-		const { tx } = await acceptTask(paymentId, { contractAddress, chain: 'rsk' });
+		const { tx } = await acceptTask(ids.paymentId, {
+			contractAddress: ids.contractAddress,
+			chain: 'rsk'
+		});
 		transactionHash = tx.hash;
 	} catch (e) {
 		d.error('acceptTaskV2: acceptTask failed', e);
-		return { ok: false, errorKey: 'dashboard.contracts.actions.payment_released_error' };
+		return { ok: false };
 	}
 
 	const signer = ndk.activeUser;
 	if (!signer) {
-		return { ok: false, errorKey: 'dashboard.contracts.actions.accept_task_not_signed_in' };
+		d.warn('acceptTaskV2: signer missing after broadcast');
+		return { ok: false };
 	}
-
-	const publishStatus = async () => {
-		const status = new NDKContractStatus(ndk);
-		status.author = signer;
-		status.paymentId = paymentId;
-		status.parentContractEventId = parentId;
-		status.recipientPubkey = taskeePk;
-		status.version = 'v2';
-		status.messageType = 'contract-status';
-		status.status = ContractStatus.FundsReleased;
-		status.transactionHash = transactionHash;
-		status.tags.push(['writeMethod', 'acceptTask']);
-		await status.publish();
-	};
-
-	const taskeeNpub = nip19.npubEncode(taskeePk);
-
-	const push = async () => {
-		await pushNotificationService.sendNotificationToNpubs({
-			npubs: [taskeeNpub],
-			title: 'Payment released',
-			body: `"${rune.taskTitle}" — payment was released. Open Contracts to review.`,
-			type: 'contract_payment_released',
-			clickAction: `${import.meta.env.VITE_CLIENT_URL}/dashboard?tab=contracts`,
-			icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
-		});
-	};
 
 	const publishTaskCompleted = async () => {
 		if (!rune.task) {
@@ -222,14 +208,21 @@ export async function acceptTaskV2(
 		}
 	};
 
-	const { failures } = await runParallelNamed([
-		{ name: 'nostrContractStatus', run: publishStatus },
-		{ name: 'taskPublishReplaceable', run: publishTaskCompleted },
-		{ name: 'push', run: push }
-	]);
-	if (failures.length > 0) {
-		d.warn('acceptTaskV2: side effects had failures', failures);
-	}
+	await broadcastThenParallelV2Effects(
+		'acceptTaskV2',
+		ids,
+		signer,
+		transactionHash,
+		taskeePk,
+		ContractStatus.FundsReleased,
+		'acceptTask',
+		{
+			title: 'Payment released',
+			body: `"${rune.taskTitle}" — payment was released. Open Contracts to review.`,
+			type: 'contract_payment_released'
+		},
+		[{ name: 'taskPublishReplaceable', run: publishTaskCompleted }]
+	);
 
 	return { ok: true, transactionHash };
 }
@@ -241,87 +234,61 @@ export async function acceptTaskV2(
 export async function refundTaskerV2(
 	rune: PaymentContractRuneLike
 ): Promise<ContractLifecycleResult> {
-	const paymentId = rune.paymentId?.trim();
-	const contractAddress = rune.contractAddress?.trim() || rune.contract.contractAddress?.trim();
-	const parentId = rune.parentEventId;
+	const ids = getRuneWriteIds(rune);
 	const taskerPk = rune.taskerPubkey;
-
-	if (!paymentId || !contractAddress || !parentId || !taskerPk) {
-		return { ok: false, errorKey: 'dashboard.contracts.actions.refund_tasker_missing_context' };
+	if (!ids || !taskerPk) {
+		d.warn('refundTaskerV2: missing paymentId, contract address, parent id, or tasker pubkey');
+		return { ok: false };
 	}
 
 	if (rune.isTasker) {
-		return { ok: false, errorKey: 'dashboard.contracts.actions.refund_tasker_not_allowed' };
+		d.warn('refundTaskerV2: tasker cannot call refundTasker (taskee action)');
+		return { ok: false };
 	}
 
 	if (!ndk.activeUser?.pubkey) {
-		return { ok: false, errorKey: 'dashboard.contracts.actions.refund_tasker_not_signed_in' };
+		d.warn('refundTaskerV2: not signed in with Nostr');
+		return { ok: false };
 	}
 
-	try {
-		const payment = await loadPaymentContractDetailsV2(paymentId, contractAddress, 'rsk');
-		const perms = computePermittedActions({
-			payment,
-			isTasker: rune.isTasker,
-			now: permissionsNowSeconds(),
-			awaitingTx: false
-		});
-		if (!perms.canRefundTasker) {
-			return { ok: false, errorKey: 'dashboard.contracts.actions.refund_tasker_not_allowed' };
-		}
-	} catch (e) {
-		d.error('refundTaskerV2: preflight failed', e);
-		return { ok: false, errorKey: 'dashboard.contracts.actions.refund_tasker_preflight_failed' };
-	}
+	const preflightErr = await runV2Preflight(rune, ids, {
+		isAllowed: (p) => p.canRefundTasker,
+		logLabel: 'refundTaskerV2'
+	});
+	if (preflightErr) return preflightErr;
 
 	let transactionHash: string;
 	try {
-		const { tx } = await refundTasker(paymentId, { contractAddress, chain: 'rsk' });
+		const { tx } = await refundTasker(ids.paymentId, {
+			contractAddress: ids.contractAddress,
+			chain: 'rsk'
+		});
 		transactionHash = tx.hash;
 	} catch (e) {
 		d.error('refundTaskerV2: refundTasker failed', e);
-		return { ok: false, errorKey: 'dashboard.contracts.actions.refund_tasker_error' };
+		return { ok: false };
 	}
 
 	const signer = ndk.activeUser;
 	if (!signer) {
-		return { ok: false, errorKey: 'dashboard.contracts.actions.refund_tasker_not_signed_in' };
+		d.warn('refundTaskerV2: signer missing after broadcast');
+		return { ok: false };
 	}
 
-	const publishStatus = async () => {
-		const status = new NDKContractStatus(ndk);
-		status.author = signer;
-		status.paymentId = paymentId;
-		status.parentContractEventId = parentId;
-		status.recipientPubkey = taskerPk;
-		status.version = 'v2';
-		status.messageType = 'contract-status';
-		status.status = ContractStatus.Refunded;
-		status.transactionHash = transactionHash;
-		status.tags.push(['writeMethod', 'refundTasker']);
-		await status.publish();
-	};
-
-	const taskerNpub = nip19.npubEncode(taskerPk);
-
-	const pushNotify = async () => {
-		await pushNotificationService.sendNotificationToNpubs({
-			npubs: [taskerNpub],
+	await broadcastThenParallelV2Effects(
+		'refundTaskerV2',
+		ids,
+		signer,
+		transactionHash,
+		taskerPk,
+		ContractStatus.Refunded,
+		'refundTasker',
+		{
 			title: 'Contract refunded',
 			body: `"${rune.taskTitle}" — funds were returned to you. Open Contracts to review.`,
-			type: 'contract_refund_to_tasker',
-			clickAction: `${import.meta.env.VITE_CLIENT_URL}/dashboard?tab=contracts`,
-			icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
-		});
-	};
-
-	const { failures } = await runParallelNamed([
-		{ name: 'nostrContractStatus', run: publishStatus },
-		{ name: 'push', run: pushNotify }
-	]);
-	if (failures.length > 0) {
-		d.warn('refundTaskerV2: side effects had failures', failures);
-	}
+			type: 'contract_refund_to_tasker'
+		}
+	);
 
 	return { ok: true, transactionHash };
 }

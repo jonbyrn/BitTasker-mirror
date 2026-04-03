@@ -6,7 +6,8 @@ import type { PermittedActions } from '$lib/utils/contract/v2/permittedActions';
 
 export type ContractLifecycleResult =
 	| { ok: true; transactionHash: string }
-	| { ok: false; errorKey: string };
+	/** Use `createDebug` / `d.error` in lifecycle for details; UI shows a single generic toast. */
+	| { ok: false };
 
 /**
  * Narrow view of `PaymentContractRune` for lifecycle modules (avoids circular imports with the rune file).

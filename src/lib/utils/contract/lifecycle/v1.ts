@@ -1,4 +1,5 @@
 import { loadPaymentContractDetails as loadV1 } from '$lib/utils/contract/v1';
+import { createDebug } from '$lib/utils/debug';
 import type { ContractChain } from '$lib/utils/contract/types';
 import {
 	emptyPermittedActions,
@@ -9,6 +10,8 @@ import type {
 	PaymentContractLifecycle,
 	PaymentContractRuneLike
 } from './types';
+
+const d = createDebug('contract:lifecycle:v1');
 
 export async function loadPaymentContractDetailsV1(
 	rune: PaymentContractRuneLike,
@@ -29,19 +32,22 @@ export function computePermittedActionsV1(_rune: PaymentContractRuneLike): Permi
 export async function markTaskCompleteV1(
 	_rune: PaymentContractRuneLike
 ): Promise<ContractLifecycleResult> {
-	return { ok: false, errorKey: 'dashboard.contracts.actions.mark_complete_not_allowed' };
+	d.warn('markTaskCompleteV1: v1 lifecycle does not support this action');
+	return { ok: false };
 }
 
 export async function acceptTaskV1(
 	_rune: PaymentContractRuneLike
 ): Promise<ContractLifecycleResult> {
-	return { ok: false, errorKey: 'dashboard.contracts.actions.accept_task_not_allowed' };
+	d.warn('acceptTaskV1: v1 lifecycle does not support this action');
+	return { ok: false };
 }
 
 export async function refundTaskerV1(
 	_rune: PaymentContractRuneLike
 ): Promise<ContractLifecycleResult> {
-	return { ok: false, errorKey: 'dashboard.contracts.actions.refund_tasker_not_allowed' };
+	d.warn('refundTaskerV1: v1 lifecycle does not support this action');
+	return { ok: false };
 }
 
 export const v1Lifecycle: PaymentContractLifecycle = {

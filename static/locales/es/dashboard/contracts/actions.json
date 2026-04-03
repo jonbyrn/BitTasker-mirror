@@ -17,6 +17,7 @@
 				"refund_tasker_not_allowed": "No puede reembolsar al tasker en este momento.",
 				"refund_tasker_preflight_failed": "No se pudo cargar el estado del contrato. Compruebe la conexión e intente de nuevo.",
 				"refund_tasker_error": "Error al reembolsar al tasker",
+				"contract_action_failed": "No pudimos completar esa acción. Inténtelo de nuevo o compruebe la conexión y el inicio de sesión.",
 				"accept_work_success": "Pago liberado correctamente.",
 				"complete_task": "Completar Tarea",
 				"accept_work": "Aceptar Trabajo",
