@@ -361,7 +361,7 @@
 			</div>
 			<div class="flex shrink-0 items-center gap-1">
 				<TaskShareButton {task} variant="icon-only" />
-				{#if task && !isOwner && task.npub}
+				{#if $authState.isAuthenticated && task && !isOwner && task.npub}
 					<ActionsMenu
 						contentType="task"
 						reportedPubkey={task.npub}
