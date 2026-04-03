@@ -65,14 +65,24 @@ export function calculateBidEscrowDetails(
 			startTime = Math.floor(startDate.getTime() / 1000);
 			completionTime = Math.floor(endDate.getTime() / 1000);
 		}
-	} else if (task?.dateRange) {
-		// Fallback to task date range
-		startTime = Math.floor(new Date(task.dateRange.start).getTime() / 1000);
-		completionTime = Math.floor(new Date(task.dateRange.end).getTime() / 1000);
-	} else if (task?.deadline) {
-		// Fallback to task deadline, set start time to now + 1 hour
-		startTime = Math.floor((Date.now() + 60 * 60 * 1000) / 1000);
-		completionTime = Math.floor(new Date(task.deadline).getTime() / 1000);
+	}
+
+	// Fallback to task dateRange if bid timing not provided
+	if (!startTime || !completionTime) {
+		if (task.dateRange?.start && task.dateRange?.end) {
+			const taskStart = new Date(task.dateRange.start);
+			const taskEnd = new Date(task.dateRange.end);
+			if (!isNaN(taskStart.getTime()) && !isNaN(taskEnd.getTime())) {
+				startTime = Math.floor(taskStart.getTime() / 1000);
+				completionTime = Math.floor(taskEnd.getTime() / 1000);
+			}
+		}
+	}
+
+	// Final fallback to default timing if neither bid nor task dateRange available
+	if (!startTime || !completionTime) {
+		startTime = Math.floor((Date.now() + 60 * 60 * 1000) / 1000); // Now + 1 hour
+		completionTime = startTime + 3600; // + 1 hour duration
 	}
 
 	if (!startTime || !completionTime || completionTime <= startTime) {

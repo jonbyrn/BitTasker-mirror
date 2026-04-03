@@ -1,7 +1,9 @@
 import { describe, it, expect } from 'vitest';
+import type { ContractStatusEvent } from '$lib/types/contract';
 import { EscrowStatus } from '$lib/utils/escrow';
 import {
 	getStatusMessages,
+	getCancellationStatusVariant,
 	getStatusTranslationKey,
 	getStatusColorClass,
 	getActionDescription
@@ -35,6 +37,15 @@ describe('contractStatusFormatter', () => {
 			expect(result.confirmedMessage).toBe('dashboard.contracts.actions.escrow_cancelled_message');
 		});
 
+		it('should return refund messages for PendingCancellation on the taskee side', () => {
+			const result = getStatusMessages(EscrowStatus.PendingCancellation, {
+				statusVariant: 'refund'
+			});
+			expect(result.pendingMessage).toBe('dashboard.contracts.actions.payment_refunding_message');
+			expect(result.confirmedMessage).toBe('dashboard.contracts.actions.payment_refunded_message');
+			expect(result.successToast).toBe('dashboard.contracts.actions.payment_refunded_success');
+		});
+
 		it('should return unknown_error for unknown status (default)', () => {
 			const result = getStatusMessages(999 as EscrowStatus);
 			expect(result.confirmedMessage).toBe('dashboard.contracts.actions.unknown_error');
@@ -45,23 +56,39 @@ describe('contractStatusFormatter', () => {
 
 	describe('getStatusTranslationKey', () => {
 		it('should return translation key for Funded', () => {
-			expect(getStatusTranslationKey(EscrowStatus.Funded)).toBe('dashboard.contracts.status.funded');
+			expect(getStatusTranslationKey(EscrowStatus.Funded)).toBe(
+				'dashboard.contracts.status.funded'
+			);
 		});
 
 		it('should return translation key for InDispute', () => {
-			expect(getStatusTranslationKey(EscrowStatus.InDispute)).toBe('dashboard.contracts.status.in_dispute');
+			expect(getStatusTranslationKey(EscrowStatus.InDispute)).toBe(
+				'dashboard.contracts.status.in_dispute'
+			);
 		});
 
 		it('should return translation key for Completed', () => {
-			expect(getStatusTranslationKey(EscrowStatus.Completed)).toBe('dashboard.contracts.status.completed');
+			expect(getStatusTranslationKey(EscrowStatus.Completed)).toBe(
+				'dashboard.contracts.status.completed'
+			);
 		});
 
 		it('should return translation key for Cancelled', () => {
-			expect(getStatusTranslationKey(EscrowStatus.Cancelled)).toBe('dashboard.contracts.status.cancelled');
+			expect(getStatusTranslationKey(EscrowStatus.Cancelled)).toBe(
+				'dashboard.contracts.status.cancelled'
+			);
+		});
+
+		it('should return refunded status key for Cancelled on the taskee side', () => {
+			expect(getStatusTranslationKey(EscrowStatus.Cancelled, { statusVariant: 'refund' })).toBe(
+				'dashboard.contracts.status.refunded'
+			);
 		});
 
 		it('should return funded for unknown status (default)', () => {
-			expect(getStatusTranslationKey(999 as EscrowStatus)).toBe('dashboard.contracts.status.funded');
+			expect(getStatusTranslationKey(999 as EscrowStatus)).toBe(
+				'dashboard.contracts.status.funded'
+			);
 		});
 	});
 
@@ -99,7 +126,9 @@ describe('contractStatusFormatter', () => {
 
 	describe('getActionDescription', () => {
 		it('should return action key for Completed', () => {
-			expect(getActionDescription(EscrowStatus.Completed)).toBe('dashboard.contracts.status.task_completed');
+			expect(getActionDescription(EscrowStatus.Completed)).toBe(
+				'dashboard.contracts.status.task_completed'
+			);
 		});
 
 		it('should return action key for PendingCompletion', () => {
@@ -115,7 +144,9 @@ describe('contractStatusFormatter', () => {
 		});
 
 		it('should return action key for InDispute', () => {
-			expect(getActionDescription(EscrowStatus.InDispute)).toBe('dashboard.contracts.status.dispute_raised');
+			expect(getActionDescription(EscrowStatus.InDispute)).toBe(
+				'dashboard.contracts.status.dispute_raised'
+			);
 		});
 
 		it('should return action key for Cancelled', () => {
@@ -124,8 +155,52 @@ describe('contractStatusFormatter', () => {
 			);
 		});
 
+		it('should return refunded action key for Cancelled on the taskee side', () => {
+			expect(getActionDescription(EscrowStatus.Cancelled, { statusVariant: 'refund' })).toBe(
+				'dashboard.contracts.status.payment_refunded'
+			);
+		});
+
 		it('should return string for unknown status (default)', () => {
 			expect(getActionDescription(999 as EscrowStatus)).toBe('999');
+		});
+	});
+
+	describe('getCancellationStatusVariant', () => {
+		it('returns refund when the latest cancellation event was published by the freelancer', () => {
+			expect(
+				getCancellationStatusVariant(
+					EscrowStatus.Cancelled,
+					[
+						{
+							pubkey: 'npub1freelancer',
+							content: { action: EscrowStatus.PendingCancellation }
+						}
+					] as unknown as ContractStatusEvent[],
+					'npub1client'
+				)
+			).toBe('refund');
+		});
+
+		it('returns default when the latest cancellation event was published by the client', () => {
+			expect(
+				getCancellationStatusVariant(
+					EscrowStatus.Cancelled,
+					[
+						{
+							pubkey: 'npub1client',
+							content: { action: EscrowStatus.Cancelled }
+						}
+					] as unknown as ContractStatusEvent[],
+					'npub1client'
+				)
+			).toBe('default');
+		});
+
+		it('returns default when there is no actor metadata', () => {
+			expect(getCancellationStatusVariant(EscrowStatus.Cancelled, [], 'npub1client')).toBe(
+				'default'
+			);
 		});
 	});
 });

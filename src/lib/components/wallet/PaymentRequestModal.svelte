@@ -17,10 +17,10 @@
 		isOpen: boolean;
 		onClose: () => void;
 		onEdit?: () => void; // Callback to return to edit screen
-		
+
 		// Pattern 1: Swap-based payment (provide swapId, modal fetches everything)
 		swapId?: string;
-		
+
 		// Pattern 2: Direct address payment (provide all details for non-swap payments like Rootstock)
 		address?: string;
 		network?: string;
@@ -36,40 +36,34 @@
 	let isLoadingQR = $state(true);
 	let btcPrice = $state<number>(0);
 	let isTransactionConfirmed = $state(false);
-	
+
 	// Determine if this is a swap-based payment or direct address payment
 	const isSwapBased = $derived(!!props.swapId);
-	
+
 	// Find the swap transaction from transactions store (reactive via WebSocket updates)
 	const swapTransaction = $derived.by(() => {
 		if (!props.swapId) return null;
 		return $transactions.find((tx) => tx.swap?.id === props.swapId);
 	});
-	
-	// Get status from transaction (reactive and UI-ready with label, icon, color)
-	const swapStatus = $derived.by(() => {
-		if (!swapTransaction) return null;
-		return swapTransaction.status;
-	});
-	
+
 	// Get swap data from swap services for static data (invoice/address)
 	// This doesn't need to be reactive since invoice/address don't change
 	const currentSwap = $derived.by(() => {
 		if (!props.swapId) return undefined;
-		
+
 		// Try to find swap in all swap services
 		const reverseSwap = walletManager.reverseSwapService?.getSwap(props.swapId);
 		if (reverseSwap) return { data: reverseSwap, type: 'reverse' as const };
-		
+
 		const chainSwap = walletManager.chainSwapService?.getSwap(props.swapId);
 		if (chainSwap) return { data: chainSwap, type: 'chain' as const };
-		
+
 		const submarineSwap = walletManager.submarineSwapService?.getSwap(props.swapId);
 		if (submarineSwap) return { data: submarineSwap, type: 'submarine' as const };
-		
+
 		return undefined;
 	});
-	
+
 	// Derive network - from swap type OR from props
 	const network = $derived.by(() => {
 		if (currentSwap) {
@@ -80,38 +74,50 @@
 		// Direct payment: use provided network
 		return props.network || 'rootstock-bitcoin';
 	});
-	
+
+	function getSwapStringValue(swapData: unknown, key: string): string {
+		if (typeof swapData !== 'object' || swapData === null) return '';
+		const value = (swapData as Record<string, unknown>)[key];
+		return typeof value === 'string' ? value : '';
+	}
+
+	function getSwapNumberValue(swapData: unknown, key: string): number {
+		if (typeof swapData !== 'object' || swapData === null) return 0;
+		const value = (swapData as Record<string, unknown>)[key];
+		return typeof value === 'number' ? value : 0;
+	}
+
 	// Derive address - from swap data OR from props
 	const address = $derived.by(() => {
 		if (currentSwap) {
 			// Swap-based: extract from swap data
 			const swapData = currentSwap.data;
-			
+
 			if (currentSwap.type === 'reverse') {
-				return (swapData as any).invoice || '';
+				return getSwapStringValue(swapData, 'invoice');
 			} else if (currentSwap.type === 'chain') {
-				return (swapData as any).liquidUri || '';
+				return getSwapStringValue(swapData, 'liquidUri');
 			} else if (currentSwap.type === 'submarine') {
-				return (swapData as any).invoice || '';
+				return getSwapStringValue(swapData, 'invoice');
 			}
 			return '';
 		}
 		// Direct payment: use provided address
 		return props.address || '';
 	});
-	
+
 	// Derive amount - from swap data OR from props
 	const amount = $derived.by(() => {
 		if (currentSwap) {
 			// Swap-based: extract from swap data
 			const swapData = currentSwap.data;
-			
+
 			if (currentSwap.type === 'reverse') {
-				return (swapData as any).amount || 0;
+				return getSwapNumberValue(swapData, 'amount');
 			} else if (currentSwap.type === 'chain') {
-				return (swapData as any).toAmount || 0;
+				return getSwapNumberValue(swapData, 'toAmount');
 			} else if (currentSwap.type === 'submarine') {
-				return (swapData as any).invoiceAmount || 0;
+				return getSwapNumberValue(swapData, 'invoiceAmount');
 			}
 			return 0;
 		}
@@ -148,7 +154,7 @@
 	const displayAmount = $derived.by(() => {
 		if (!currentSwap) return amount;
 		const swapData = currentSwap.data;
-		
+
 		// Only reverse swaps (Lightning) have onchainAmount property
 		if (
 			currentSwap.type === 'reverse' &&
@@ -225,9 +231,9 @@
 	$effect(() => {
 		// Only check for completion when modal is open and we have a swap transaction
 		if (!props.isOpen || !isSwapBased || !swapTransaction) return;
-		
+
 		const status = swapTransaction.status.label;
-		
+
 		// Check if swap is completed (confirmed)
 		if (status === 'wallet.transaction.status.confirmed') {
 			isTransactionConfirmed = true;
@@ -259,7 +265,6 @@
 		}
 	}
 
-
 	// Initialize component
 	onMount(async () => {
 		// Fetch BTC price and generate QR code in parallel
@@ -289,7 +294,7 @@
 
 	<!-- Modal Container - Full screen on mobile/tablet -->
 	<div
-		class="bg-base-100 fixed inset-0 z-101 flex flex-col overflow-y-auto py-1 shadow-2xl pb-safe lg:pb-0 lg:inset-x-0 lg:bottom-0 lg:rounded-t-3xl"
+		class="bg-base-100 pb-safe fixed inset-0 z-101 flex flex-col overflow-y-auto py-1 shadow-2xl lg:inset-x-0 lg:bottom-0 lg:rounded-t-3xl lg:pb-0"
 		transition:fly={prefersReducedMotion
 			? undefined
 			: {
@@ -349,7 +354,6 @@
 							class="btn btn-primary w-full touch-manipulation transition-transform duration-100 select-none active:scale-95"
 							style="-webkit-tap-highlight-color: transparent;"
 							onclick={async () => {
-								triggerHaptic(ImpactStyle.Medium);
 								// Refresh balance before closing
 								await walletManager.loadAssets();
 								// Close both modals and return to wallet balance screen
@@ -404,10 +408,10 @@
 										/>
 									</svg>
 								{/if}
-					<span class="text-base font-medium">{networkInfo.label}</span>
-				</div>
-				<!-- Status Indicator (only show for swap-based payments) -->
-				<!-- {#if isSwapBased && swapStatus && !isTransactionConfirmed}
+								<span class="text-base font-medium">{networkInfo.label}</span>
+							</div>
+							<!-- Status Indicator (only show for swap-based payments) -->
+							<!-- {#if isSwapBased && swapStatus && !isTransactionConfirmed}
 					{@const IconComponent = swapStatus.icon}
 					<div class="flex items-center gap-2">
 						{#if swapStatus.label === 'wallet.transaction.status.pending'}
@@ -424,15 +428,20 @@
 						</span>
 					</div>
 				{/if} -->
-				</div>
+						</div>
 
 						<!-- Invoice Total (Rootstock only, above QR code) -->
 						{#if network === 'rootstock-bitcoin' && payerTotalAmount > 0}
-							<div class="border-primary bg-base-200 flex flex-col items-center gap-1.5 rounded-lg border-2 p-3 sm:p-4">
-								<span class="text-center text-xs opacity-70">{$t('wallet.receive.invoice_total')}</span>
+							<div
+								class="border-primary bg-base-200 flex flex-col items-center gap-1.5 rounded-lg border-2 p-3 sm:p-4"
+							>
+								<span class="text-center text-xs opacity-70"
+									>{$t('wallet.receive.invoice_total')}</span
+								>
 								<div class="flex w-full items-center justify-center gap-1.5">
 									<span class="text-primary text-xl font-bold">
-										{formatSats(payerTotalAmount)} {$t('wallet.sats')}
+										{formatSats(payerTotalAmount)}
+										{$t('wallet.sats')}
 									</span>
 									{#if btcPrice > 0 && payerTotalAmountUSD > 0}
 										<span class="text-xs opacity-60">≈ {formatUSD(payerTotalAmountUSD)}</span>
@@ -467,7 +476,7 @@
 						</div>
 
 						<!-- Payment Address/Link (Copyable) - One line with expand/collapse -->
-						<AddressAccordion address={address} />
+						<AddressAccordion {address} />
 
 						<!-- Transaction Description (if provided) -->
 						{#if props.memo}
@@ -493,7 +502,6 @@
 							class="btn btn-outline min-h-[44px] flex-1 touch-manipulation transition-transform duration-100 select-none active:scale-95 sm:min-h-[48px] md:min-h-[56px]"
 							style="-webkit-tap-highlight-color: transparent;"
 							onclick={() => {
-								triggerHaptic(ImpactStyle.Light);
 								props.onEdit?.();
 							}}
 						>
@@ -502,19 +510,18 @@
 						</button>
 					{/if}
 					<!-- Cancel Button -->
-							<button
+					<button
 						class="btn btn-error min-h-[44px] flex-1 touch-manipulation transition-transform duration-100 select-none active:scale-95 sm:min-h-[48px] md:min-h-[56px]"
-								style="-webkit-tap-highlight-color: transparent;"
-								onclick={() => {
-									triggerHaptic(ImpactStyle.Light);
-									props.onClose();
-								}}
-							>
+						style="-webkit-tap-highlight-color: transparent;"
+						onclick={() => {
+							props.onClose();
+						}}
+					>
 						<IconClose class="h-4 w-4 sm:h-5 sm:w-5" />
-						<span class="text-sm sm:text-base">{$t('wallet.receive.cancel')}</span>
-								</button>
-							{/if}
-						</div>
+						<span class="text-sm sm:text-base">{$t('common.close')}</span>
+					</button>
+				{/if}
 			</div>
+		</div>
 	</div>
 {/if}

@@ -1,4 +1,15 @@
-import type { NostrProfile, NostrProfileImage, Skill, PortfolioItem, Availability, NostrStandardServices, ProfileTranslations, SkillTranslations, CertificationTranslations, PortfolioTranslations } from '$lib/types/profile.d';
+import type {
+	NostrProfile,
+	NostrProfileImage,
+	Skill,
+	PortfolioItem,
+	Availability,
+	NostrStandardServices,
+	ProfileTranslations,
+	SkillTranslations,
+	CertificationTranslations,
+	PortfolioTranslations
+} from '$lib/types/profile.d';
 import { type NostrEvent, type Filter, nip19 } from 'nostr-tools';
 import { get } from 'svelte/store';
 import { appStore } from '$lib/stores/app.store';
@@ -6,12 +17,9 @@ import { getNpub } from '$lib/utils/nostrKeys';
 import { getSignedEvent } from '$lib/utils/nostr';
 import uploadService from '$lib/api/services/upload.service';
 import KINDS from '$lib/utils/constants/kinds';
-import { TranslationService, type TranslationResult } from '$lib/services/translation.service';
+import { translationService, type TranslationResult } from '$lib/services/translation.service';
 import { SUPPORTED_LANGUAGES, type SupportedLanguage } from '$lib/i18n/i18n';
 import type { SubCloser } from 'nostr-tools/abstract-pool';
-
-// Translation service instance
-const translationService = new TranslationService();
 
 // Subscription store for profile updates
 const profileSubscriptions = new Map<
@@ -64,7 +72,7 @@ export async function subscribeToProfileUpdates(
 		npub = await getNpub();
 		if (!npub) {
 			console.error('No public key found');
-			return () => { };
+			return () => {};
 		}
 
 		// Create a unique subscription key based on npub and filters
@@ -147,7 +155,7 @@ export async function subscribeToProfileUpdates(
 		};
 	} catch (err) {
 		console.error('Failed to get public key:', err);
-		return () => { };
+		return () => {};
 	}
 }
 
@@ -159,12 +167,6 @@ export async function generateProfileTranslations(profileData: {
 	professionalTitle?: string;
 	about?: string;
 }): Promise<ProfileTranslations | undefined> {
-	// Only generate translations if translation service is available
-	if (!translationService.isAvailable()) {
-		console.warn('Translation service not available, skipping profile translations');
-		return undefined;
-	}
-
 	try {
 		// Combine all text fields for language detection
 		const combinedText = `${profileData.professionalTitle || ''} ${profileData.about || ''}`.trim();
@@ -247,12 +249,6 @@ export async function generateSkillTranslations(
 	skillName: string,
 	fallbackLocale?: string
 ): Promise<SkillTranslations | undefined> {
-	// Only generate translations if translation service is available
-	if (!translationService.isAvailable()) {
-		console.warn('Translation service not available, skipping skill translations');
-		return undefined;
-	}
-
 	try {
 		// If skill name is empty, return undefined
 		if (!skillName.trim()) {
@@ -269,14 +265,17 @@ export async function generateSkillTranslations(
 		let sourceLanguage: string;
 		if (detectedLanguage && SUPPORTED_LANGUAGES.includes(detectedLanguage as SupportedLanguage)) {
 			sourceLanguage = detectedLanguage;
-		} else if (fallbackLocale && SUPPORTED_LANGUAGES.includes(fallbackLocale as SupportedLanguage)) {
+		} else if (
+			fallbackLocale &&
+			SUPPORTED_LANGUAGES.includes(fallbackLocale as SupportedLanguage)
+		) {
 			sourceLanguage = fallbackLocale;
 		} else {
 			sourceLanguage = 'en';
 		}
 
 		// Always translate to the other language to ensure we have translations in both
-		const targetLanguages = SUPPORTED_LANGUAGES.filter(lang => lang !== sourceLanguage);
+		const targetLanguages = SUPPORTED_LANGUAGES.filter((lang) => lang !== sourceLanguage);
 
 		// If no target languages (skill is already in all supported languages), return empty
 		if (targetLanguages.length === 0) {
@@ -306,7 +305,7 @@ export async function generateSkillTranslations(
 
 		// Build translations object, filtering out failed translations
 		const translations: SkillTranslations['translations'] = {};
-		results.forEach(result => {
+		results.forEach((result) => {
 			if (result) {
 				translations[result.language] = {
 					name: result.name
@@ -331,12 +330,6 @@ export async function generateCertificationTranslations(
 	certificationName: string,
 	issuer: string
 ): Promise<CertificationTranslations | undefined> {
-	// Only generate translations if translation service is available
-	if (!translationService.isAvailable()) {
-		console.warn('Translation service not available, skipping certification translations');
-		return undefined;
-	}
-
 	try {
 		// Combine name and issuer for language detection
 		const combinedText = `${certificationName || ''} ${issuer || ''}`.trim();
@@ -351,12 +344,13 @@ export async function generateCertificationTranslations(
 
 		// Determine source language - if detection fails or language is not supported, default to 'en'
 		// but we'll still translate to ensure both languages are available
-		const sourceLanguage = (detectedLanguage && SUPPORTED_LANGUAGES.includes(detectedLanguage as SupportedLanguage))
-			? detectedLanguage
-			: 'en';
+		const sourceLanguage =
+			detectedLanguage && SUPPORTED_LANGUAGES.includes(detectedLanguage as SupportedLanguage)
+				? detectedLanguage
+				: 'en';
 
 		// Always translate to the other language to ensure we have translations in both
-		const targetLanguages = SUPPORTED_LANGUAGES.filter(lang => lang !== sourceLanguage);
+		const targetLanguages = SUPPORTED_LANGUAGES.filter((lang) => lang !== sourceLanguage);
 
 		// If no target languages (certification is already in all supported languages), return empty
 		if (targetLanguages.length === 0) {
@@ -394,7 +388,7 @@ export async function generateCertificationTranslations(
 
 		// Build translations object, filtering out failed translations
 		const translations: CertificationTranslations['translations'] = {};
-		results.forEach(result => {
+		results.forEach((result) => {
 			if (result) {
 				translations[result.language] = {
 					name: result.name,
@@ -425,12 +419,6 @@ export async function generatePortfolioTranslations(
 	},
 	fallbackLocale?: string
 ): Promise<PortfolioTranslations | undefined> {
-	// Only generate translations if translation service is available
-	if (!translationService.isAvailable()) {
-		console.warn('Translation service not available, skipping portfolio translations');
-		return undefined;
-	}
-
 	try {
 		// Combine title and description for language detection
 		const combinedText = `${portfolioData.title || ''} ${portfolioData.description || ''}`.trim();
@@ -450,14 +438,17 @@ export async function generatePortfolioTranslations(
 		let sourceLanguage: string;
 		if (detectedLanguage && SUPPORTED_LANGUAGES.includes(detectedLanguage as SupportedLanguage)) {
 			sourceLanguage = detectedLanguage;
-		} else if (fallbackLocale && SUPPORTED_LANGUAGES.includes(fallbackLocale as SupportedLanguage)) {
+		} else if (
+			fallbackLocale &&
+			SUPPORTED_LANGUAGES.includes(fallbackLocale as SupportedLanguage)
+		) {
 			sourceLanguage = fallbackLocale;
 		} else {
 			sourceLanguage = 'en';
 		}
 
 		// Always translate to the other language to ensure we have translations in both
-		const targetLanguages = SUPPORTED_LANGUAGES.filter(lang => lang !== sourceLanguage);
+		const targetLanguages = SUPPORTED_LANGUAGES.filter((lang) => lang !== sourceLanguage);
 
 		// If no target languages (portfolio is already in all supported languages), return empty
 		if (targetLanguages.length === 0) {
@@ -495,7 +486,7 @@ export async function generatePortfolioTranslations(
 
 		// Build translations object, filtering out failed translations
 		const translations: PortfolioTranslations['translations'] = {};
-		results.forEach(result => {
+		results.forEach((result) => {
 			if (result) {
 				translations[result.language] = {
 					title: result.title,
@@ -883,7 +874,10 @@ export async function publishPortfolioItem(
 /**
  * Delete a portfolio item
  */
-export async function deletePortfolioItem(id: string, relays = get(appStore)?.relays ?? []): Promise<void> {
+export async function deletePortfolioItem(
+	id: string,
+	relays = get(appStore)?.relays ?? []
+): Promise<void> {
 	try {
 		// Create deletion event according to NIP-09
 		const deleteEvent = {
@@ -969,7 +963,10 @@ export async function publishStandardServices(
  * Deletes a standard service event from Nostr
  * @param eventId The ID of the event to delete
  */
-export async function deleteStandardService(eventId: string, relays = get(appStore)?.relays ?? []): Promise<void> {
+export async function deleteStandardService(
+	eventId: string,
+	relays = get(appStore)?.relays ?? []
+): Promise<void> {
 	try {
 		const pool = get(appStore)?.pool;
 		if (!pool) {
@@ -999,7 +996,10 @@ export async function deleteStandardService(eventId: string, relays = get(appSto
  * @param relays Optional array of relay URLs
  * @returns Promise resolving to the event or null if not found
  */
-export async function getEventById(eventId: string, relays = get(appStore)?.relays ?? []): Promise<NostrEvent | null> {
+export async function getEventById(
+	eventId: string,
+	relays = get(appStore)?.relays ?? []
+): Promise<NostrEvent | null> {
 	try {
 		const filter: Filter = {
 			ids: [eventId]

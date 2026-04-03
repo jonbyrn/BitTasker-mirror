@@ -1,6 +1,0 @@
-mutation RevokeAllDevices {
-  revokeAllDevices {
-    success
-    message
-  }
-} 

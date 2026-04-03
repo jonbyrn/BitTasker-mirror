@@ -5,6 +5,7 @@
 	let { data: seo } = $props();
 </script>
 
+<!-- eslint-disable svelte/no-at-html-tags -->
 <svelte:head>
 	<title>{seo.title}</title>
 	<meta name="description" content={seo.description} />
@@ -35,7 +36,7 @@
 	<meta property="twitter:creator" content="@BitTaskerdotcom" />
 
 	<!-- Structured Data -->
-	{@html `<script type="application/ld+json">${JSON.stringify(seo.jsonLd)}</script>`}
+	{@html `<\u{73}cript type="application/ld+json">${JSON.stringify(seo.jsonLd)}</script>`}
 </svelte:head>
 
 <div class="w-full">
@@ -54,7 +55,7 @@
 		</div>
 	</section>
 
-	<div class="prose mx-auto max-w-4xl my-16 px-8">
+	<div class="prose mx-auto my-16 max-w-4xl px-8">
 		<h3>{$t('privacy.sections.philosophy.title')}</h3>
 		<p>{@html $t('privacy.sections.philosophy.content')}</p>
 
@@ -73,6 +74,27 @@
 
 		<h3>{$t('privacy.sections.private_data.title')}</h3>
 		<p>{@html $t('privacy.sections.private_data.content')}</p>
+
+		<h3>{$t('privacy.sections.location_data.title')}</h3>
+		<p>{$t('privacy.sections.location_data.content')}</p>
+
+		<h3>{$t('privacy.sections.email_data.title')}</h3>
+		<p>{$t('privacy.sections.email_data.content')}</p>
+
+		<h3>{$t('privacy.sections.device_data.title')}</h3>
+		<p>{$t('privacy.sections.device_data.content')}</p>
+
+		<h3>{$t('privacy.sections.third_party.title')}</h3>
+		<p>{$t('privacy.sections.third_party.intro')}</p>
+		<ul>
+			<li>{$t('privacy.sections.third_party.sentry')}</li>
+			<li>{$t('privacy.sections.third_party.firebase')}</li>
+			<li>{$t('privacy.sections.third_party.maps')}</li>
+			<li>{$t('privacy.sections.third_party.translate')}</li>
+			<li>{$t('privacy.sections.third_party.turnstile')}</li>
+			<li>{$t('privacy.sections.third_party.analytics')}</li>
+			<li>{$t('privacy.sections.third_party.swaps')}</li>
+		</ul>
 
 		<h3>{$t('privacy.sections.analytics.title')}</h3>
 		<p>{$t('privacy.sections.analytics.intro')}</p>
