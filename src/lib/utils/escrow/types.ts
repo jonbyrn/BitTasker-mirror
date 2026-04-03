@@ -103,6 +103,14 @@ export interface IEscrowHandler {
 	 */
 	cancelEscrow(escrowId: string, contractEventId?: string): Promise<ContractTransactionResult>;
 
+	/**
+	 * Refund the client as freelancer/taskee
+	 * @param escrowId - Unique escrow identifier
+	 * @param contractEventId - Optional contract event ID for Nostr publishing
+	 * @returns Transaction result
+	 */
+	refundClient(escrowId: string, contractEventId?: string): Promise<ContractTransactionResult>;
+
 	// ============================================
 	// Dispute Operations (Required for ALL versions)
 	// ============================================

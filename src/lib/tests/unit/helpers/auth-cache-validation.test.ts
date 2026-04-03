@@ -103,10 +103,6 @@ vi.mock('$lib/utils/helpers/biometrics', () => ({
 	getBiometricData: vi.fn()
 }));
 
-vi.mock('$lib/utils/helpers/webBiometrics', () => ({
-	getWebBiometricData: vi.fn()
-}));
-
 describe('Cache Validation Logic', () => {
 	const mockAppStoreUpdate = vi.mocked(appStore.update);
 	const mockPreferencesGet = vi.mocked(Preferences.get);

@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { ethers } from 'ethers';
-import { EscrowStatus } from '$lib/utils/escrow';
+import { EscrowStatus } from '$lib/utils/escrow/v1/escrow.enum';
 import { determineContractState } from '$lib/utils/helpers/contractPermissions';
 import type { EscrowData, DisputeProposal } from '$lib/types/wallet';
 import type { NostrContract, ContractStatusEvent } from '$lib/types/contract';
@@ -11,14 +10,16 @@ vi.mock('@bittasker/wallet-core', () => ({
 }));
 
 vi.mock('svelte-i18n', () => {
-	const translationFn = (key: string) => key;
-	const mockT = Object.assign(vi.fn((key: string) => key), { subscribe: vi.fn() });
+	const mockT = Object.assign(
+		vi.fn((key: string) => key),
+		{ subscribe: vi.fn() }
+	);
 	return { t: mockT };
 });
 
 vi.mock('svelte/store', () => {
 	const translationFn = (key: string) => key;
-	const mockGet = vi.fn((store: any) => {
+	const mockGet = vi.fn((store: unknown) => {
 		if (typeof store === 'function') {
 			if (store.subscribe || (store.toString && store.toString().includes('t'))) {
 				return translationFn;
@@ -46,7 +47,10 @@ describe('Escrow Permissions Integration Tests', () => {
 	const clientPubkey = 'client-pubkey';
 	const freelancerPubkey = 'freelancer-pubkey';
 
-	const createMockEscrowData = (state: EscrowStatus, overrides: Partial<EscrowData> = {}): EscrowData => ({
+	const createMockEscrowData = (
+		state: EscrowStatus,
+		overrides: Partial<EscrowData> = {}
+	): EscrowData => ({
 		id: '123',
 		client: '0x1111111111111111111111111111111111111111',
 		freelancer: '0x2222222222222222222222222222222222222222',
@@ -319,6 +323,28 @@ describe('Escrow Permissions Integration Tests', () => {
 			expect(result.permissions.canDispute).toBe(false);
 		});
 
+		it('should allow freelancer to refund after completion', () => {
+			const escrowData = createMockEscrowData(EscrowStatus.Completed, {
+				estimatedStartTime: now - 3600,
+				timelockExpiry: now + 604800
+			});
+			const contract = createMockContract(EscrowStatus.Completed);
+
+			const result = determineContractState(
+				EscrowStatus.Completed,
+				[],
+				contract,
+				escrowData,
+				null,
+				false,
+				false,
+				true
+			);
+
+			expect(result.permissions.canRefund).toBe(true);
+			expect(result.permissions.canAccept).toBe(false);
+		});
+
 		it('should allow freelancer to accept dispute proposal', () => {
 			const escrowData = createMockEscrowData(EscrowStatus.InDispute);
 			const contract = createMockContract(EscrowStatus.InDispute);
@@ -367,6 +393,28 @@ describe('Escrow Permissions Integration Tests', () => {
 			);
 
 			expect(result.permissions.canAcceptProposal).toBe(false);
+		});
+
+		it('should allow freelancer to refund while disputed', () => {
+			const escrowData = createMockEscrowData(EscrowStatus.InDispute, {
+				estimatedStartTime: now - 3600,
+				timelockExpiry: now + 604800
+			});
+			const contract = createMockContract(EscrowStatus.InDispute);
+
+			const result = determineContractState(
+				EscrowStatus.InDispute,
+				[],
+				contract,
+				escrowData,
+				null,
+				false,
+				false,
+				true
+			);
+
+			expect(result.permissions.canRefund).toBe(true);
+			expect(result.permissions.canPropose).toBe(true);
 		});
 	});
 

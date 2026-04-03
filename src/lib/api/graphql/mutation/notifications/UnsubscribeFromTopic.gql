@@ -1,6 +1,0 @@
-mutation UnsubscribeFromTopic($input: SubscribeToTopicInput!) {
-	unsubscribeFromTopic(input: $input) {
-		success
-		message
-	}
-}

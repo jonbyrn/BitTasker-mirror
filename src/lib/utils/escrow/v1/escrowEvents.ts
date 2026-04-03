@@ -101,7 +101,9 @@ export function registerPendingContract(params: PendingContractCreation): void {
  */
 export async function publishEscrowStatus(params: PublishContractStatusParams): Promise<void> {
 	try {
-		const messages = getStatusMessages(params.status);
+		const messages = getStatusMessages(params.status, {
+			statusVariant: params.statusMessagingVariant
+		});
 		const isPending = params.status >= EscrowStatus.PendingFunding; // Pending states are 6+
 
 		// Publish to Nostr
@@ -131,7 +133,9 @@ export async function publishEscrowStatus(params: PublishContractStatusParams): 
 			appStore.showSuccessToast(get(t)(messages.successToast));
 		}
 	} catch (error) {
-		const messages = getStatusMessages(params.status);
+		const messages = getStatusMessages(params.status, {
+			statusVariant: params.statusMessagingVariant
+		});
 		d.error(
 			'publishEscrowStatus failed',
 			{ status: params.status, escrowId: params.escrowId },
@@ -200,7 +204,7 @@ export async function handleEscrowCreated(event: EscrowCreatedEvent): Promise<vo
 				body: `Your bid ${pendingContract.taskTitle ? `on task: ${pendingContract.taskTitle}` : ''} has been accepted by the client`,
 				type: 'contract_created',
 				clickAction: `${import.meta.env.VITE_CLIENT_URL}/dashboard?tab=contracts`,
-				icon: 'https://bittasker.com/images/Logos/BitTasker-square-logo.svg'
+				icon: 'https://bittasker.com/images/logos/bittasker-logomark.svg'
 			});
 
 			// Update contract creation store

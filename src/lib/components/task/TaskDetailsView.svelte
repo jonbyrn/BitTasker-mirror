@@ -10,6 +10,7 @@
 	import { TaskStatusEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
 	import { authState } from '$lib/stores/auth.store';
 	import TaskShareButton from './TaskShareButton.svelte';
+	import ActionsMenu from '$lib/components/moderation/ActionsMenu.svelte';
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import {
 		formatStandardDateShort,
@@ -358,8 +359,16 @@
 				<h3 class="">{$t('dashboard.task_details_by_task.title')}</h3>
 				<p class="text-base-content/70">{$t('dashboard.task_details_by_task.description')}</p>
 			</div>
-			<div class="shrink-0">
+			<div class="flex shrink-0 items-center gap-1">
 				<TaskShareButton {task} variant="icon-only" />
+				{#if $authState.isAuthenticated && task && !isOwner && task.npub}
+					<ActionsMenu
+						contentType="task"
+						reportedPubkey={task.npub}
+						reportedEventId={task.id}
+						username={task.creator?.username}
+					/>
+				{/if}
 			</div>
 		</div>
 		<!-- Loading state -->

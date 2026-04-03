@@ -4,26 +4,27 @@ import { writable, get } from 'svelte/store';
 import { getNpub } from '$lib/utils/nostrKeys';
 import { nip19 } from 'nostr-tools';
 import { appStore } from '$lib/stores/app.store';
+import { muteStore } from '$lib/stores/mute.store';
 import { getBidsForTask, decryptBidEvent, clearBidCache } from '$lib/utils/nostr-bid';
 import KINDS from '$lib/utils/constants/kinds';
 import TAGS, { TAG_FILTERS } from '$lib/utils/constants/tags';
 
 // Bid store state
 type BidStoreState = {
-    bids: { [taskId: string]: NostrEventWithFollowup[] };
-    currentTaskId: string | null;
-    isLoading: boolean;
-    error: string | null;
-    processingBidIds: Set<string>;
+	bids: { [taskId: string]: NostrEventWithFollowup[] };
+	currentTaskId: string | null;
+	isLoading: boolean;
+	error: string | null;
+	processingBidIds: Set<string>;
 };
 
 // Initial state
 const initialState: BidStoreState = {
-    bids: {},
-    currentTaskId: null,
-    isLoading: false,
-    error: null,
-    processingBidIds: new Set()
+	bids: {},
+	currentTaskId: null,
+	isLoading: false,
+	error: null,
+	processingBidIds: new Set()
 };
 
 // Subscription management per task
@@ -36,57 +37,61 @@ let bidStatusSubscriptionOutgoing: { close: () => void } | null = null;
  * Decrypts the single event and adds it to the bids array (no full reload)
  */
 async function handleBidEvent(event: NostrEvent) {
-    try {
-        // Extract taskId from #t tag
-        const taskIdTag = event.tags.find((tag) => tag[0] === TAGS.T);
-        const taskId = taskIdTag?.[1];
+	try {
+		// Extract taskId from #t tag
+		const taskIdTag = event.tags.find((tag) => tag[0] === TAGS.T);
+		const taskId = taskIdTag?.[1];
 
-        if (!taskId) {
-            console.warn('[BidStore] Bid event missing task ID');
-            return;
-        }
+		if (!taskId) {
+			console.warn('[BidStore] Bid event missing task ID');
+			return;
+		}
 
-        // Get current store state
-        const currentState = get(bidStore);
+		// Get current store state
+		const currentState = get(bidStore);
 
-        // Only reload if we're currently viewing this task
-        if (currentState.currentTaskId !== taskId) {
-            return;
-        }
+		// Only reload if we're currently viewing this task
+		if (currentState.currentTaskId !== taskId) {
+			return;
+		}
 
-        // Decrypt the single bid event
-        const decryptedBid = await decryptBidEvent(event);
+		// Decrypt the single bid event
+		const decryptedBid = await decryptBidEvent(event);
 
-        if (!decryptedBid) {
-            console.warn('[BidStore] Failed to decrypt bid event:', event.id);
-            return;
-        }
+		if (!decryptedBid) {
+			console.warn('[BidStore] Failed to decrypt bid event:', event.id);
+			return;
+		}
 
-        // Add the new bid to the top of the existing bids array
-        bidStore.update((state) => {
-            const existingBids = state.bids[taskId] || [];
+		// Drop bids from muted users before touching the store
+		if (get(muteStore).mutedPubkeys.has(decryptedBid.pubkey)) {
+			return;
+		}
 
-            // Check if bid already exists (avoid duplicates)
-            const bidExists = existingBids.some(b => b.id === decryptedBid.id);
-            if (bidExists) {
-                return state;
-            }
+		// Add the new bid to the top of the existing bids array
+		bidStore.update((state) => {
+			const existingBids = state.bids[taskId] || [];
 
-            return {
-                ...state,
-                bids: {
-                    ...state.bids,
-                    [taskId]: [decryptedBid, ...existingBids]
-                }
-            };
-        });
+			// Check if bid already exists (avoid duplicates)
+			const bidExists = existingBids.some((b) => b.id === decryptedBid.id);
+			if (bidExists) {
+				return state;
+			}
 
-        // Invalidate cache so next load gets fresh data including this new bid
-        clearBidCache(taskId);
+			return {
+				...state,
+				bids: {
+					...state.bids,
+					[taskId]: [decryptedBid, ...existingBids]
+				}
+			};
+		});
 
-    } catch (error) {
-        console.error('[BidStore] Error handling bid event:', error);
-    }
+		// Invalidate cache so next load gets fresh data including this new bid
+		clearBidCache(taskId);
+	} catch (error) {
+		console.error('[BidStore] Error handling bid event:', error);
+	}
 }
 
 /**
@@ -94,270 +99,291 @@ async function handleBidEvent(event: NostrEvent) {
  * Decrypts the status event and updates the corresponding bid in the array
  */
 async function handleBidStatusEvent(event: NostrEvent) {
-    try {
-        // Extract taskId from #t tag
-        const taskIdTag = event.tags.find((tag) => tag[0] === TAGS.T);
-        const taskId = taskIdTag?.[1];
+	try {
+		// Extract taskId from #t tag
+		const taskIdTag = event.tags.find((tag) => tag[0] === TAGS.T);
+		const taskId = taskIdTag?.[1];
 
-        if (!taskId) {
-            console.warn('[BidStore] Status event missing task ID');
-            return;
-        }
+		if (!taskId) {
+			console.warn('[BidStore] Status event missing task ID');
+			return;
+		}
 
-        // Extract parent bid event ID from #e tag
-        const parentEventIdTag = event.tags.find((tag) => tag[0] === TAGS.E);
-        const parentBidId = parentEventIdTag?.[1];
+		// Extract parent bid event ID from #e tag
+		const parentEventIdTag = event.tags.find((tag) => tag[0] === TAGS.E);
+		const parentBidId = parentEventIdTag?.[1];
 
-        if (!parentBidId) {
-            console.warn('[BidStore] Status event missing parent bid ID');
-            return;
-        }
+		if (!parentBidId) {
+			console.warn('[BidStore] Status event missing parent bid ID');
+			return;
+		}
 
-        // Get current store state
-        const currentState = get(bidStore);
+		// Get current store state
+		const currentState = get(bidStore);
 
-        // Only process if we have bids for this task
-        if (!currentState.bids[taskId]) {
-            return;
-        }
+		// Only process if we have bids for this task
+		if (!currentState.bids[taskId]) {
+			return;
+		}
 
-        // Decrypt the single status event
-        const decryptedStatus = await decryptBidEvent(event);
+		// Decrypt the single status event
+		const decryptedStatus = await decryptBidEvent(event);
 
-        if (!decryptedStatus) {
-            console.warn('[BidStore] Failed to decrypt status event:', event.id);
-            return;
-        }
+		if (!decryptedStatus) {
+			console.warn('[BidStore] Failed to decrypt status event:', event.id);
+			return;
+		}
 
-        // Update the corresponding bid with the new status
-        bidStore.update((state) => {
-            const existingBids = state.bids[taskId] || [];
+		// Update the corresponding bid with the new status
+		bidStore.update((state) => {
+			const existingBids = state.bids[taskId] || [];
 
-            // Find the bid that this status belongs to
-            const updatedBids = existingBids.map(bid => {
-                if (bid.id === parentBidId) {
-                    // Check if this status is newer than existing one
-                    const existingStatus = bid.latestStatus;
-                    if (!existingStatus || decryptedStatus.created_at > existingStatus.created_at) {
-                        // The decrypted event already has parsed content as NostrBidStatus
-                        // Cast it properly for TypeScript
-                        const typedStatus = decryptedStatus as unknown as Omit<NostrEvent, 'content'> & { content: NostrBidStatus };
+			// Find the bid that this status belongs to
+			const updatedBids = existingBids.map((bid) => {
+				if (bid.id === parentBidId) {
+					// Check if this status is newer than existing one
+					const existingStatus = bid.latestStatus;
+					if (!existingStatus || decryptedStatus.created_at > existingStatus.created_at) {
+						// The decrypted event already has parsed content as NostrBidStatus
+						// Cast it properly for TypeScript
+						const typedStatus = decryptedStatus as unknown as Omit<NostrEvent, 'content'> & {
+							content: NostrBidStatus;
+						};
 
-                        return {
-                            ...bid,
-                            latestStatus: typedStatus
-                        };
-                    }
-                }
-                return bid;
-            });
+						return {
+							...bid,
+							latestStatus: typedStatus
+						};
+					}
+				}
+				return bid;
+			});
 
-            return {
-                ...state,
-                bids: {
-                    ...state.bids,
-                    [taskId]: updatedBids
-                }
-            };
-        });
+			return {
+				...state,
+				bids: {
+					...state.bids,
+					[taskId]: updatedBids
+				}
+			};
+		});
 
-        // Invalidate cache so next load gets fresh data with updated status
-        clearBidCache(taskId);
-
-    } catch (error) {
-        console.error('[BidStore] Error handling bid status event:', error);
-    }
+		// Invalidate cache so next load gets fresh data with updated status
+		clearBidCache(taskId);
+	} catch (error) {
+		console.error('[BidStore] Error handling bid status event:', error);
+	}
 }
 
 // Create the store
 function createBidStore() {
-    const { subscribe, set, update } = writable<BidStoreState>(initialState);
+	const { subscribe, set, update } = writable<BidStoreState>(initialState);
 
-    /**
-     * Subscribe to bid and bid-status updates for a specific task
-     */
-    async function subscribeToUpdates(taskId: string, legacyTaskId?: string) {
-        try {
-            // Close existing subscriptions if any
-            unsubscribeFromUpdates();
+	/**
+	 * Subscribe to bid and bid-status updates for a specific task
+	 */
+	async function subscribeToUpdates(taskId: string, legacyTaskId?: string) {
+		try {
+			// Close existing subscriptions if any
+			unsubscribeFromUpdates();
 
-            const npub = await getNpub();
-            const userPubkeyHex = npub.startsWith('npub') ? (nip19.decode(npub).data as string) : npub;
-            const pool = get(appStore)?.pool;
+			const npub = await getNpub();
+			const userPubkeyHex = npub.startsWith('npub') ? (nip19.decode(npub).data as string) : npub;
+			const pool = get(appStore)?.pool;
 
-            if (!pool) {
-                console.error('[BidStore] Pool not available');
-                return;
-            }
+			if (!pool) {
+				console.error('[BidStore] Pool not available');
+				return;
+			}
 
-            const taskIds =
-                legacyTaskId && legacyTaskId !== taskId ? [taskId, legacyTaskId] : [taskId];
-            const since = Math.floor(Date.now() / 1000);
+			const taskIds = legacyTaskId && legacyTaskId !== taskId ? [taskId, legacyTaskId] : [taskId];
+			const since = Math.floor(Date.now() / 1000);
 
-            // Subscription 1: New bids for this task (where user is recipient)
-            bidSubscription = pool.subscribe(
-                [import.meta.env.VITE_NOSTR_RELAY_URL],
-                {
-                    kinds: [KINDS.BIDS],
-                    ...TAG_FILTERS.byTask(taskIds),
-                    ...TAG_FILTERS.byNpub(userPubkeyHex),
-                    since
-                },
-                { onevent: handleBidEvent }
-            );
+			// Subscription 1: New bids for this task (where user is recipient)
+			bidSubscription = pool.subscribe(
+				[import.meta.env.VITE_NOSTR_RELAY_URL],
+				{
+					kinds: [KINDS.BIDS],
+					...TAG_FILTERS.byTask(taskIds),
+					...TAG_FILTERS.byNpub(userPubkeyHex),
+					since
+				},
+				{ onevent: handleBidEvent }
+			);
 
-            // Subscription 2: Bid status updates TO user (incoming)
-            bidStatusSubscriptionIncoming = pool.subscribe(
-                get(appStore)?.relays ?? [],
-                {
-                    kinds: [KINDS.BID_STATUS],
-                    ...TAG_FILTERS.byTask(taskIds),
-                    ...TAG_FILTERS.byNpub(userPubkeyHex),
-                    since
-                },
-                { onevent: handleBidStatusEvent }
-            );
+			// Subscription 2: Bid status updates TO user (incoming)
+			bidStatusSubscriptionIncoming = pool.subscribe(
+				get(appStore)?.relays ?? [],
+				{
+					kinds: [KINDS.BID_STATUS],
+					...TAG_FILTERS.byTask(taskIds),
+					...TAG_FILTERS.byNpub(userPubkeyHex),
+					since
+				},
+				{ onevent: handleBidStatusEvent }
+			);
 
-            // Subscription 3: Bid status updates FROM user (to see own updates)
-            bidStatusSubscriptionOutgoing = pool.subscribe(
-                [import.meta.env.VITE_NOSTR_RELAY_URL],
-                {
-                    kinds: [KINDS.BID_STATUS],
-                    authors: [userPubkeyHex],
-                    ...TAG_FILTERS.byTask(taskIds),
-                    since
-                },
-                { onevent: handleBidStatusEvent }
-            );
-        } catch (error) {
-            console.error('[BidStore] Failed to subscribe:', error);
-        }
-    }
+			// Subscription 3: Bid status updates FROM user (to see own updates)
+			bidStatusSubscriptionOutgoing = pool.subscribe(
+				[import.meta.env.VITE_NOSTR_RELAY_URL],
+				{
+					kinds: [KINDS.BID_STATUS],
+					authors: [userPubkeyHex],
+					...TAG_FILTERS.byTask(taskIds),
+					since
+				},
+				{ onevent: handleBidStatusEvent }
+			);
+		} catch (error) {
+			console.error('[BidStore] Failed to subscribe:', error);
+		}
+	}
 
-    /**
-     * Unsubscribe from bid updates
-     */
-    function unsubscribeFromUpdates() {
-        if (bidSubscription) {
-            bidSubscription.close();
-            bidSubscription = null;
-        }
-        if (bidStatusSubscriptionIncoming) {
-            bidStatusSubscriptionIncoming.close();
-            bidStatusSubscriptionIncoming = null;
-        }
-        if (bidStatusSubscriptionOutgoing) {
-            bidStatusSubscriptionOutgoing.close();
-            bidStatusSubscriptionOutgoing = null;
-        }
-    }
+	/**
+	 * Unsubscribe from bid updates
+	 */
+	function unsubscribeFromUpdates() {
+		if (bidSubscription) {
+			bidSubscription.close();
+			bidSubscription = null;
+		}
+		if (bidStatusSubscriptionIncoming) {
+			bidStatusSubscriptionIncoming.close();
+			bidStatusSubscriptionIncoming = null;
+		}
+		if (bidStatusSubscriptionOutgoing) {
+			bidStatusSubscriptionOutgoing.close();
+			bidStatusSubscriptionOutgoing = null;
+		}
+	}
 
-    return {
-        subscribe,
-        set,
-        update,
+	return {
+		subscribe,
+		set,
+		update,
 
-        /**
-         * Load bids for a specific task (initial load)
-         */
-        async loadBidsForTask(taskId: string) {
-            update((state) => ({
-                ...state,
-                isLoading: true,
-                error: null,
-                currentTaskId: taskId
-            }));
+		/**
+		 * Load bids for a specific task (initial load)
+		 */
+		async loadBidsForTask(taskId: string) {
+			update((state) => ({
+				...state,
+				isLoading: true,
+				error: null,
+				currentTaskId: taskId
+			}));
 
-            try {
-                const loadedBids = await getBidsForTask(taskId, true);
+			try {
+				let loadedBids = await getBidsForTask(taskId, true);
 
-                update((state) => ({
-                    ...state,
-                    bids: {
-                        ...state.bids,
-                        [taskId]: loadedBids as NostrEventWithFollowup[]
-                    },
-                    isLoading: false,
-                    error: null
-                }));
-            } catch (err) {
-                const error = err instanceof Error ? err.message : 'Failed to load bids';
-                update((state) => ({ ...state, error, isLoading: false }));
-                console.error('[BidStore] Error loading bids:', err);
-            }
-        },
+				// Re-apply mute filter in case the cache was populated before the user
+				// muted someone (cache hit in getBidsForTask skips the filter).
+				const currentMutes = get(muteStore);
+				if (currentMutes.mutedPubkeys.size > 0) {
+					loadedBids = loadedBids.filter((bid) => !currentMutes.mutedPubkeys.has(bid.pubkey));
+				}
 
-        /**
-         * Get bids for a specific task from the store
-         */
-        getBidsForTask(taskId: string): NostrEventWithFollowup[] {
-            const state = get({ subscribe });
-            return state.bids[taskId] || [];
-        },
+				update((state) => ({
+					...state,
+					bids: {
+						...state.bids,
+						[taskId]: loadedBids as NostrEventWithFollowup[]
+					},
+					isLoading: false,
+					error: null
+				}));
+			} catch (err) {
+				const error = err instanceof Error ? err.message : 'Failed to load bids';
+				update((state) => ({ ...state, error, isLoading: false }));
+				console.error('[BidStore] Error loading bids:', err);
+			}
+		},
 
-        /**
-         * Subscribe to real-time bid updates for a task
-         */
-        subscribeToUpdates,
+		/**
+		 * Get bids for a specific task from the store
+		 */
+		getBidsForTask(taskId: string): NostrEventWithFollowup[] {
+			const state = get({ subscribe });
+			return state.bids[taskId] || [];
+		},
 
-        /**
-         * Unsubscribe from real-time bid updates
-         */
-        unsubscribeFromUpdates,
+		/**
+		 * Subscribe to real-time bid updates for a task
+		 */
+		subscribeToUpdates,
 
-        /**
-         * Clear bids for a specific task
-         */
-        clearTaskBids(taskId: string) {
-            update((state) => {
-                const newBids = { ...state.bids };
-                delete newBids[taskId];
-                return {
-                    ...state,
-                    bids: newBids,
-                    currentTaskId: state.currentTaskId === taskId ? null : state.currentTaskId
-                };
-            });
-        },
+		/**
+		 * Unsubscribe from real-time bid updates
+		 */
+		unsubscribeFromUpdates,
 
-        /**
-         * Add bid to processing state (creates new Set for reactivity)
-         */
-        addProcessingBid(bidId: string) {
-            update((state) => {
-                const newProcessingBidIds = new Set(state.processingBidIds);
-                newProcessingBidIds.add(bidId);
-                return {
-                    ...state,
-                    processingBidIds: newProcessingBidIds
-                };
-            });
-        },
+		/**
+		 * Clear bids for a specific task
+		 */
+		clearTaskBids(taskId: string) {
+			update((state) => {
+				const newBids = { ...state.bids };
+				delete newBids[taskId];
+				return {
+					...state,
+					bids: newBids,
+					currentTaskId: state.currentTaskId === taskId ? null : state.currentTaskId
+				};
+			});
+		},
 
-        /**
-         * Remove bid from processing state (creates new Set for reactivity)
-         */
-        removeProcessingBid(bidId: string) {
-            update((state) => {
-                const newProcessingBidIds = new Set(state.processingBidIds);
-                newProcessingBidIds.delete(bidId);
-                return {
-                    ...state,
-                    processingBidIds: newProcessingBidIds
-                };
-            });
-        },
+		/**
+		 * Add bid to processing state (creates new Set for reactivity)
+		 */
+		addProcessingBid(bidId: string) {
+			update((state) => {
+				const newProcessingBidIds = new Set(state.processingBidIds);
+				newProcessingBidIds.add(bidId);
+				return {
+					...state,
+					processingBidIds: newProcessingBidIds
+				};
+			});
+		},
 
-        /**
-         * Reset store to initial state
-         */
-        reset() {
-            unsubscribeFromUpdates();
-            set(initialState);
-        }
-    };
+		/**
+		 * Remove bid from processing state (creates new Set for reactivity)
+		 */
+		removeProcessingBid(bidId: string) {
+			update((state) => {
+				const newProcessingBidIds = new Set(state.processingBidIds);
+				newProcessingBidIds.delete(bidId);
+				return {
+					...state,
+					processingBidIds: newProcessingBidIds
+				};
+			});
+		},
+
+		/**
+		 * Remove all bids from a given pubkey across every cached task.
+		 * Called immediately after a successful mutePubkey publish so the UI
+		 * updates without waiting for a reload.
+		 */
+		removePubkeyBids(pubkey: string) {
+			update((state) => {
+				const updatedBids: { [taskId: string]: NostrEventWithFollowup[] } = {};
+				for (const [taskId, bids] of Object.entries(state.bids)) {
+					updatedBids[taskId] = bids.filter((bid) => bid.pubkey !== pubkey);
+				}
+				return { ...state, bids: updatedBids };
+			});
+		},
+
+		/**
+		 * Reset store to initial state
+		 */
+		reset() {
+			unsubscribeFromUpdates();
+			set(initialState);
+		}
+	};
 }
 
 // Export the store instance
 export const bidStore = createBidStore();
-

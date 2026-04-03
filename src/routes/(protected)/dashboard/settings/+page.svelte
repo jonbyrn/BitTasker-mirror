@@ -9,6 +9,7 @@
 	import AccRecovery from '$lib/components/settings/AccRecovery.svelte';
 	import AccActions from '$lib/components/settings/AccActions.svelte';
 	import Devices from '$lib/components/settings/Devices.svelte';
+	import MutedUsers from '$lib/components/settings/MutedUsers.svelte';
 
 	let loading = $state(false);
 	let error = $state('');
@@ -112,7 +113,7 @@
 		</div>
 	{:else if error}
 		<div
-			class="alert alert-error alert-outline mb-6 flex w-fit min-w-full sm:min-w-1/2 flex-col items-start px-5"
+			class="alert alert-error alert-outline mb-6 flex w-fit min-w-full flex-col items-start px-5 sm:min-w-1/2"
 		>
 			<p>{$t(error)}</p>
 			<button class="btn btn-sm btn-outline place-self-end" onclick={loadKeys} disabled={loading}>
@@ -141,6 +142,7 @@
 		<NostrNsec {npub} {nsec} {authMethod} />
 		<Devices {npub} />
 		<AccRecovery {nsec} {npub} {mnemonic} {authMethod} />
+		<MutedUsers />
 		<AccActions />
 	{/if}
 </div>

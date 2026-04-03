@@ -260,8 +260,8 @@
 	<link rel="manifest" href="/site.webmanifest" />
 
 	<!-- Preload critical images -->
-	<link href="/images/Logos/BitTasker-Logo-dark-mode.svg" as="image" />
-	<link href="/images/Logos/BitTasker-Logo-light-mode.svg" as="image" />
+	<link href="/images/logos/bittasker-logo-dark.svg" as="image" />
+	<link href="/images/logos/bittasker-logo-light.svg" as="image" />
 
 	<!-- Global JSON-LD structured data for SEO - Inlined for critical content -->
 	<!-- svelte-eslint-parser bug: literal `<script` inside template literals causes "Parsing error: Unexpected keyword or identifier". -->
@@ -354,6 +354,10 @@
 <Toast />
 
 <InfiniteScroll />
+
+<!-- Global portal target — overlays (dropdowns, modals) teleport here to escape
+     overflow:hidden/overflow-x:hidden ancestors that break fixed positioning -->
+<div id="portal-root" style="position:relative;z-index:9999;"></div>
 
 <style>
 	/* Hide footer on mobile/tablet for tasks page */

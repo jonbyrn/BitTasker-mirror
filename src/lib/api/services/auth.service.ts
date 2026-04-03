@@ -27,9 +27,13 @@ export class AuthService extends BaseApiService {
 	 * @throws {Error} 422 - Invalid encryption data format
 	 * @throws {Error} 500 - Internal server error
 	 */
-	async register(
-		registrationData: RegistrationData
-	): Promise<{ publicKey: string; user: UserData; access_token: string }> {
+	async register(registrationData: RegistrationData): Promise<{
+		publicKey: string;
+		user: UserData;
+		access_token: string;
+		refresh_token?: string;
+		refresh_token_expires_at?: string;
+	}> {
 		try {
 			// Validate required fields
 			if (!registrationData.publicKey || !registrationData.encryptedData) {
@@ -46,6 +50,8 @@ export class AuthService extends BaseApiService {
 				publicKey: string;
 				user: UserData;
 				access_token: string;
+				refresh_token?: string;
+				refresh_token_expires_at?: string;
 				error: { message: string };
 			}>(ENDPOINTS.AUTH.REGISTER, registrationData);
 
@@ -79,14 +85,20 @@ export class AuthService extends BaseApiService {
 	async passkeyLogin(data: PasskeyLoginArgs): Promise<{
 		user: UserData;
 		access_token: string;
-		isLegacy?: boolean;
+		refresh_token?: string;
+		refresh_token_expires_at?: string;
 		encryptedData: EncryptedData;
+		isLegacy?: boolean;
+		accountRestored?: boolean;
 	}> {
 		const response = await this.post<{
 			user: UserData;
 			access_token: string;
-			isLegacy?: boolean;
+			refresh_token?: string;
+			refresh_token_expires_at?: string;
 			encryptedData: EncryptedData;
+			isLegacy?: boolean;
+			accountRestored?: boolean;
 		}>(ENDPOINTS.AUTH.PASSKEY_LOGIN, data);
 		return response.data;
 	}
@@ -99,15 +111,24 @@ export class AuthService extends BaseApiService {
 	 * @throws {Error} 401 - Invalid signature or unauthorized access
 	 * @throws {Error} 500 - Internal server error
 	 */
-	async nostrLogin(
-		data: NostrLoginArgs
-	): Promise<{ access_token: string; user: UserData; isNewUser: boolean; isMigrated: boolean }> {
+	async nostrLogin(data: NostrLoginArgs): Promise<{
+		access_token: string;
+		refresh_token?: string;
+		refresh_token_expires_at?: string;
+		user: UserData;
+		isNewUser: boolean;
+		isMigrated: boolean;
+		accountRestored?: boolean;
+	}> {
 		try {
 			const response = await this.post<{
 				access_token: string;
+				refresh_token?: string;
+				refresh_token_expires_at?: string;
 				user: UserData;
 				isNewUser: boolean;
 				isMigrated: boolean;
+				accountRestored?: boolean;
 			}>(ENDPOINTS.AUTH.NOSTR_LOGIN, data);
 			return response.data;
 		} catch (error: unknown) {
@@ -198,9 +219,12 @@ export class AuthService extends BaseApiService {
 	 * @response 404 - User not found
 	 * @returns Promise with recovery response
 	 */
-	async completeNostrRecovery(
-		data: NostrRecoveryCompleteData
-	): Promise<{ access_token: string; user: UserData }> {
+	async completeNostrRecovery(data: NostrRecoveryCompleteData): Promise<{
+		access_token: string;
+		refresh_token?: string;
+		refresh_token_expires_at?: string;
+		user: UserData;
+	}> {
 		const response = await this.post(ENDPOINTS.AUTH.NOSTR_RECOVERY_COMPLETE, data);
 		return response.data;
 	}
@@ -265,31 +289,6 @@ export class AuthService extends BaseApiService {
 	}
 
 	/**
-	 * Check if user onboarding is complete
-	 * @response 200 - Onboarding status retrieved successfully
-	 * @response 401 - Unauthorized
-	 * @returns Promise with onboarding status
-	 */
-	async checkOnboardingStatus(): Promise<{ isComplete: boolean; missingFields: string[] }> {
-		try {
-			const response = await this.get<{ isComplete: boolean; missingFields: string[] }>(
-				ENDPOINTS.AUTH.ONBOARDING_STATUS
-			);
-			return response.data;
-		} catch (error: unknown) {
-			const err = error as { status?: number };
-			if (err?.status === 401) {
-				throw new Error('Unauthorized. Please login again.');
-			}
-			throw new Error(
-				error instanceof Error
-					? error.message
-					: String(error) || 'Failed to check onboarding status. Please try again.'
-			);
-		}
-	}
-
-	/**
 	 * Check if username is available
 	 * @param username Username to check
 	 * @response 200 - Username availability checked
@@ -306,6 +305,50 @@ export class AuthService extends BaseApiService {
 				error instanceof Error
 					? error.message
 					: String(error) || 'Failed to check username availability. Please try again.'
+			);
+		}
+	}
+
+	/**
+	 * Revoke the current session's refresh token on the server.
+	 * Best-effort — callers should not block on failure.
+	 */
+	async logout(): Promise<void> {
+		try {
+			await this.post(ENDPOINTS.AUTH.LOGOUT, {});
+		} catch {
+			// Swallow — logout must succeed even if the server is unreachable
+		}
+	}
+
+	/**
+	 * Request account deletion (30-day grace period).
+	 * The account enters PENDING_DELETION status. Logging in within 30 days automatically cancels the deletion.
+	 * After 30 days without login, a nightly cron job permanently anonymizes all PII.
+	 *
+	 * @response 200 - Account scheduled for deletion, returns scheduledFor date
+	 * @response 400 - Account already deleted
+	 * @response 401 - Unauthorized
+	 * @returns Promise with the scheduled deletion date and a confirmation message
+	 */
+	async requestAccountDeletion(): Promise<{ scheduledFor: string; message: string }> {
+		try {
+			const response = await this.delete<{ scheduledFor: string; message: string }>(
+				ENDPOINTS.AUTH.DELETE_ACCOUNT
+			);
+			return response.data;
+		} catch (error: unknown) {
+			const err = error as { status?: number; data?: { message?: string } };
+			if (err?.status === 400) {
+				throw new Error(err.data?.message || 'Account is already deleted.');
+			}
+			if (err?.status === 401) {
+				throw new Error('Unauthorized. Please login again.');
+			}
+			throw new Error(
+				error instanceof Error
+					? error.message
+					: String(error) || 'Failed to request account deletion. Please try again.'
 			);
 		}
 	}

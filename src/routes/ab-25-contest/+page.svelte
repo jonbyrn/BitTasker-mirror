@@ -46,13 +46,7 @@
 					// White background circle
 					ctx.fillStyle = '#FFFFFF';
 					ctx.beginPath();
-					ctx.arc(
-						appCanvas.width / 2,
-						appCanvas.height / 2,
-						(logoSize + 8) / 2,
-						0,
-						2 * Math.PI
-					);
+					ctx.arc(appCanvas.width / 2, appCanvas.height / 2, (logoSize + 8) / 2, 0, 2 * Math.PI);
 					ctx.fill();
 
 					ctx.drawImage(logo, logoX, logoY, logoSize, logoSize);
@@ -61,7 +55,7 @@
 				logo.onerror = () => {
 					appQrCode = appCanvas.toDataURL();
 				};
-				logo.src = '/images/Logos/BitTasker-square-logo.svg';
+				logo.src = '/images/logos/bittasker-logomark.svg';
 			} else {
 				appQrCode = appCanvas.toDataURL();
 			}
@@ -101,30 +95,32 @@
 	<meta property="twitter:creator" content="@BitTaskerDotCom" />
 
 	<!-- Structured Data -->
-	{@html `<script type="application/ld+json">${JSON.stringify(seo.jsonLd)}</script>`}
+	<!-- eslint-disable svelte/no-at-html-tags -->
+	{@html `<\u{73}cript type="application/ld+json">${JSON.stringify(seo.jsonLd)}</script>`}
+	<!-- eslint-enable svelte/no-at-html-tags -->
 </svelte:head>
 
 <div class="min-h-screen bg-[#363636] text-white">
-	<div class="container mx-auto px-6 py-8 max-w-4xl">
+	<div class="container mx-auto max-w-4xl px-6 py-8">
 		<!-- Logo and Tagline -->
-		<div class="text-center mb-8">
+		<div class="mb-8 text-center">
 			<Logo />
-			<p class="text-primary text-lg font-light mt-4">The Decentralized Workforce</p>
+			<p class="text-primary mt-4 text-lg font-light">The Decentralized Workforce</p>
 		</div>
 
 		<!-- Contest Title -->
-		<div class="text-center mb-8">
-			<h1 class="text-5xl md:text-6xl font-serif italic mb-2">Who Wants to Be a Millionaire!</h1>
-			<p class="text-2xl md:text-3xl text-primary">(in Sats)</p>
+		<div class="mb-8 text-center">
+			<h1 class="mb-2 font-serif text-5xl italic md:text-6xl">Who Wants to Be a Millionaire!</h1>
+			<p class="text-primary text-2xl md:text-3xl">(in Sats)</p>
 		</div>
 
 		<!-- Contest Description -->
-		<div class="mb-12 text-center space-y-4">
-			<p class="text-lg md:text-xl leading-relaxed">
-				That's right, we're giving away <strong class="text-primary">1 Million Sats</strong> to
-				whoever completes the most tasks on BitTasker by the end of Adopting Bitcoin!
+		<div class="mb-12 space-y-4 text-center">
+			<p class="text-lg leading-relaxed md:text-xl">
+				That's right, we're giving away <strong class="text-primary">1 Million Sats</strong> to whoever
+				completes the most tasks on BitTasker by the end of Adopting Bitcoin!
 			</p>
-			<p class="text-lg md:text-xl leading-relaxed">
+			<p class="text-lg leading-relaxed md:text-xl">
 				Create your own Bitcoin circular economy here at Adopting Bitcoin for a chance to win
 				<strong class="text-primary">One Million Sats</strong>, delivered directly to your
 				non-custodial BitTasker wallet.
@@ -132,11 +128,11 @@
 		</div>
 
 		<!-- Get the App Section -->
-		<div class="text-center mb-12">
-			<h2 class="text-3xl md:text-4xl font-bold mb-6">Get the App to Play!</h2>
+		<div class="mb-12 text-center">
+			<h2 class="mb-6 text-3xl font-bold md:text-4xl">Get the App to Play!</h2>
 			{#if appQrCode}
-				<div class="flex justify-center mb-4">
-					<img src={appQrCode} alt="BitTasker App QR Code" class="w-64 h-64" />
+				<div class="mb-4 flex justify-center">
+					<img src={appQrCode} alt="BitTasker App QR Code" class="h-64 w-64" />
 				</div>
 			{:else}
 				<div class="flex justify-center">
@@ -149,7 +145,7 @@
 		<div class="mb-8">
 			<div class="card bg-[#424242] shadow-xl">
 				<div class="card-body">
-					<h2 class="card-title text-2xl md:text-3xl mb-4 text-white">To Qualify:</h2>
+					<h2 class="card-title mb-4 text-2xl text-white md:text-3xl">To Qualify:</h2>
 					<ul class="space-y-3 text-lg">
 						<li class="flex items-start">
 							<span class="text-primary mr-3">•</span>
@@ -158,8 +154,8 @@
 						<li class="flex items-start">
 							<span class="text-primary mr-3">•</span>
 							<span
-								>Post at least <strong>ONE</strong> picture/video of yourself and anyone with a
-								BitTasker shirt on X or Nostr</span
+								>Post at least <strong>ONE</strong> picture/video of yourself and anyone with a BitTasker
+								shirt on X or Nostr</span
 							>
 						</li>
 						<li class="flex items-start">
@@ -175,7 +171,7 @@
 		<div class="mb-8">
 			<div class="card bg-[#424242] shadow-xl">
 				<div class="card-body">
-					<h2 class="card-title text-2xl md:text-3xl mb-4 text-white">Rules:</h2>
+					<h2 class="card-title mb-4 text-2xl text-white md:text-3xl">Rules:</h2>
 					<ul class="space-y-3 text-lg">
 						<li class="flex items-start">
 							<span class="text-primary mr-3">•</span>
@@ -216,7 +212,7 @@
 		<div class="mb-12">
 			<div class="card bg-[#424242] shadow-xl">
 				<div class="card-body">
-					<h2 class="card-title text-2xl md:text-3xl mb-4 text-white">Task ideas:</h2>
+					<h2 class="card-title mb-4 text-2xl text-white md:text-3xl">Task ideas:</h2>
 					<ul class="space-y-3 text-lg">
 						<li class="flex items-start">
 							<span class="text-primary mr-3">•</span>
@@ -249,59 +245,57 @@
 
 		<!-- Runner Up Prize Section -->
 		<div class="mb-12 text-center">
-			<div class="flex justify-center mb-6">
+			<div class="mb-6 flex justify-center">
 				<img
 					src="/images/contest/bitcoin-ring.png"
 					alt="Custom-made Gold Bitcoin Ring"
-					class="max-w-md w-full rounded-lg shadow-xl"
+					class="w-full max-w-md rounded-lg shadow-xl"
 				/>
 			</div>
-			<p class="text-xl md:text-2xl font-serif leading-relaxed">
-				Runner up prize: A Custom-made Gold Bitcoin Ring! Show Your Love of Freedom with Some
-				Bling!
+			<p class="font-serif text-xl leading-relaxed md:text-2xl">
+				Runner up prize: A Custom-made Gold Bitcoin Ring! Show Your Love of Freedom with Some Bling!
 			</p>
 		</div>
 
 		<!-- Social Media Follow Sections -->
-		<div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
+		<div class="mb-12 grid grid-cols-1 gap-8 md:grid-cols-2">
 			<!-- Primal.net -->
 			<div class="text-center">
-				<p class="text-lg mb-4">
+				<p class="mb-4 text-lg">
 					Follow @BitTasker on
 					<a
 						href={primalUrl}
 						target="_blank"
 						rel="noopener noreferrer"
-						class="text-primary hover:underline font-semibold"
+						class="text-primary font-semibold hover:underline"
 					>
 						Primal.net
 					</a>
 					:
 				</p>
 				<div class="flex justify-center">
-					<img src={primalQrCodePath} alt="Primal.net QR Code" class="w-48 h-48" />
+					<img src={primalQrCodePath} alt="Primal.net QR Code" class="h-48 w-48" />
 				</div>
 			</div>
 
 			<!-- X (Twitter) -->
 			<div class="text-center">
-				<p class="text-lg mb-4">
+				<p class="mb-4 text-lg">
 					Follow @BitTaskerDotCom on
 					<a
 						href={xUrl}
 						target="_blank"
 						rel="noopener noreferrer"
-						class="text-primary hover:underline font-semibold"
+						class="text-primary font-semibold hover:underline"
 					>
 						X
 					</a>
 					:
 				</p>
 				<div class="flex justify-center">
-					<img src={xQrCodePath} alt="X QR Code" class="w-48 h-48" />
+					<img src={xQrCodePath} alt="X QR Code" class="h-48 w-48" />
 				</div>
 			</div>
 		</div>
 	</div>
 </div>
-

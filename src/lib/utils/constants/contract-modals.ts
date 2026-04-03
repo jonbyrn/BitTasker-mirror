@@ -5,6 +5,7 @@ export enum ContractModalAction {
 	Accept = 'accept',
 	Dispute = 'dispute',
 	Cancel = 'cancel',
+	Refund = 'refund',
 	Delete = 'delete'
 }
 
@@ -42,6 +43,13 @@ export const CONTRACT_MODAL_CONFIGS: Record<ContractModalAction, ContractModalCo
 		cancelTextKey: 'dashboard.contracts.actions.cancel',
 		confirmButtonClass: 'btn-error'
 	},
+	[ContractModalAction.Refund]: {
+		titleKey: 'dashboard.contracts.actions.refund_tasker_confirm_title',
+		messageKey: 'dashboard.contracts.actions.refund_tasker_confirm_message',
+		confirmTextKey: 'dashboard.contracts.actions.refund_tasker',
+		cancelTextKey: 'dashboard.contracts.actions.cancel',
+		confirmButtonClass: 'btn-error'
+	},
 	[ContractModalAction.Delete]: {
 		titleKey: 'dashboard.contracts.actions.delete_contract_confirm_title',
 		messageKey: 'dashboard.contracts.actions.delete_contract_confirm_message',
@@ -50,4 +58,3 @@ export const CONTRACT_MODAL_CONFIGS: Record<ContractModalAction, ContractModalCo
 		confirmButtonClass: 'btn-error'
 	}
 };
-

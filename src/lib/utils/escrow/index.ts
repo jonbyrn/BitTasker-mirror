@@ -67,6 +67,23 @@ export const LATEST_ESCROW_VERSION: EscrowVersion = 'v1';
  * Provides version-agnostic API for all escrow operations
  */
 class EscrowManager {
+	private requireContractIdentifiers(
+		contract: ContractWithEvents,
+		actionName: 'cancelEscrow' | 'refundClient'
+	): { escrowId: string; contractEventId: string } {
+		const escrowId = contract?.escrowData?.id;
+		if (typeof escrowId !== 'string' || escrowId.trim() === '') {
+			throw new Error(`Missing escrow id for ${actionName}`);
+		}
+
+		const contractEventId = contract?.contractEvent?.id;
+		if (typeof contractEventId !== 'string' || contractEventId.trim() === '') {
+			throw new Error(`Missing contract event id for ${actionName}`);
+		}
+
+		return { escrowId, contractEventId };
+	}
+
 	/**
 	 * Get handler for specific version
 	 * Defaults to LATEST if version not found (forward compatibility)
@@ -180,10 +197,27 @@ class EscrowManager {
 			const version = this.getVersionFromContract(contract);
 			const handler = this.getHandler(version);
 
-			const escrowId = contract.escrowData.id;
-			const contractEventId = contract.contractEvent.id;
+			const { escrowId, contractEventId } = this.requireContractIdentifiers(
+				contract,
+				'cancelEscrow'
+			);
 
 			return handler.escrow.cancelEscrow(escrowId, contractEventId);
+		},
+
+		/**
+		 * Refund client (version-aware from contract)
+		 */
+		refundClient: async (contract: ContractWithEvents): Promise<ContractTransactionResult> => {
+			const version = this.getVersionFromContract(contract);
+			const handler = this.getHandler(version);
+
+			const { escrowId, contractEventId } = this.requireContractIdentifiers(
+				contract,
+				'refundClient'
+			);
+
+			return handler.escrow.refundClient(escrowId, contractEventId);
 		},
 
 		/**

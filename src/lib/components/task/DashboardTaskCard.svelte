@@ -1,10 +1,7 @@
 <script lang="ts">
 	import type { Task } from '$lib/types/task';
 	import { t } from 'svelte-i18n';
-	import { goto } from '$app/navigation';
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
-	import { formatStandardDateTime, formatStandardDateShort } from '$lib/utils/helpers/dateFormatter';
-	import { locale } from 'svelte-i18n';
 	import { satsFromUsd } from '$lib/utils/helpers/crypto';
 	import { getStatusBadge } from '$lib/utils/helpers/taskStatusBadge';
 	import TranslatableTask from './TranslatableTask.svelte';
@@ -14,7 +11,7 @@
 	import IconInformationOutline from '~icons/mdi/information-outline';
 	import IconEyeOutline from '~icons/mdi/eye-outline';
 
-	type TaskFilterCategory = 
+	type TaskFilterCategory =
 		| 'waiting_for_bids'
 		| 'bids_received'
 		| 'tasks_in_progress'
@@ -25,23 +22,16 @@
 		task: Task;
 		btcPrice: number;
 		activeFilter: TaskFilterCategory;
-		getActionButtons: (task: Task, category: TaskFilterCategory) => Array<{
+		getActionButtons: (
+			task: Task,
+			category: TaskFilterCategory
+		) => Array<{
 			label: string;
 			class: string;
-			onclick: (e: any) => void;
+			onclick: (e: MouseEvent | KeyboardEvent) => void;
 			icon: string;
 		}>;
 	}>();
-
-	function formatDateTimeReactive(date: Date) {
-		return formatStandardDateTime(date, $locale || 'en');
-	}
-
-	function formatDateRangeReactive(startDate: Date, endDate: Date) {
-		const start = formatStandardDateShort(startDate, $locale || 'en');
-		const end = formatStandardDateShort(endDate, $locale || 'en');
-		return `${start} - ${end}`;
-	}
 
 	const statusBadge = $derived(getStatusBadge(task.status));
 </script>
@@ -51,7 +41,7 @@
 		<!-- Top Row: Title + Status Badge + Price -->
 		<div class="mb-3 flex flex-row items-stretch justify-between gap-2">
 			<!-- Left: Title (flexible, takes available space) -->
-			<div class="flex-1 min-w-0 pr-2 md:pr-4">
+			<div class="min-w-0 flex-1 pr-2 md:pr-4">
 				<TranslatableTask
 					{task}
 					showDescription={true}
@@ -60,12 +50,26 @@
 					titleClass="card-title line-clamp-2 text-lg font-semibold"
 				/>
 			</div>
-			<!-- Right: Status Badge + Price (fixed width, aligned right) -->
-			<div class="flex shrink-0 flex-col items-end justify-between gap-4 w-[min(30%,120px)]">
-				<div class="badge {statusBadge.color} badge-sm">
-					{$t(`common.status.${task.status.toLowerCase()}`) || statusBadge.text}
+			<!-- Right: Status Badge + Share Button + Price (aligned right) -->
+			<div class="flex shrink-0 flex-col items-end gap-2">
+				<div class="flex items-center gap-2">
+					<div class="badge {statusBadge.color} badge-sm max-w-[100px] truncate text-center">
+						{$t(`common.status.${task.status.toLowerCase()}`) || statusBadge.text}
+					</div>
+					<span
+						role="presentation"
+						class="ml-2 shrink-0"
+						onclick={(e) => e.stopPropagation()}
+						onkeydown={(e) => {
+							if (e.key === 'Enter' || e.key === ' ') {
+								e.stopPropagation();
+							}
+						}}
+					>
+						<TaskShareButton {task} variant="circle" class="btn-xs" />
+					</span>
 				</div>
-				<div class="text-right text-xl font-bold mt-2">
+				<div class="text-right text-xl font-bold">
 					${formatNumberWithTwoDecimals(task.budget.amount)}
 
 					<div class="text-base-content/60 text-sm">
@@ -84,51 +88,22 @@
 				dateRangeEnd={task.dateRange?.end}
 			/>
 
-			<!-- Location + mobile share button -->
-			<div class="flex items-center justify-between gap-2">
-				<TaskLocationDisplay
-					dropOffLocation={task.dropOffLocation}
-					pickupLocation={task.pickupLocation}
-				/>
-				<!-- Share button - mobile only: on same row as location, right side -->
-				<span
-					role="presentation"
-					class="inline-block md:hidden shrink-0"
-					onclick={(e) => e.stopPropagation()}
-					onkeydown={(e) => {
-						if (e.key === 'Enter' || e.key === ' ') {
-							e.stopPropagation();
-						}
-					}}
-				>
-					<TaskShareButton task={task} variant="icon-only" />
-				</span>
-			</div>
+			<!-- Location -->
+			<TaskLocationDisplay
+				dropOffLocation={task.dropOffLocation}
+				pickupLocation={task.pickupLocation}
+			/>
 		</div>
 
-		<!-- Bottom Row: Action Buttons with Share Button -->
+		<!-- Bottom Row: Action Buttons -->
 		<div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
 			<!-- Left: empty spacer on desktop to align with title -->
 			<div class="hidden md:block"></div>
 
-			<!-- Right: Share button + Action buttons side-by-side -->
+			<!-- Right: Action buttons side-by-side -->
 			<div class="flex w-full items-center gap-2 md:w-auto">
-				<!-- Share button - tablet/desktop: to the left of action buttons -->
-				<span
-					role="presentation"
-					class="hidden md:inline-block"
-					onclick={(e) => e.stopPropagation()}
-					onkeydown={(e) => {
-						if (e.key === 'Enter' || e.key === ' ') {
-							e.stopPropagation();
-						}
-					}}
-				>
-					<TaskShareButton task={task} variant="icon-only" />
-				</span>
-
 				<!-- Action buttons - next to each other on all breakpoints -->
-				{#each getActionButtons(task, activeFilter) as action}
+				{#each getActionButtons(task, activeFilter) as action (action.label)}
 					<button
 						class="btn {action.class} flex-1 md:flex-none"
 						onclick={(e) => {
