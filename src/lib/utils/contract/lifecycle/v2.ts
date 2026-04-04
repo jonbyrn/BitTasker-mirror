@@ -13,6 +13,7 @@ import {
 	emptyPermittedActions,
 	type PermittedActions
 } from '$lib/utils/contract/v2/permittedActions';
+import type { Attachment } from '$lib/types/task';
 import { ContractStatus, type ContractChain } from '$lib/utils/contract/types';
 import {
 	getRuneWriteIds,
@@ -64,7 +65,8 @@ async function broadcastThenParallelV2Effects(
 	chainStatus: ContractStatus,
 	writeMethod: string,
 	push: { title: string; body: string; type: string },
-	extraBetweenStatusAndPush?: ReadonlyArray<{ name: string; run: () => Promise<unknown> }>
+	extraBetweenStatusAndPush?: ReadonlyArray<{ name: string; run: () => Promise<unknown> }>,
+	completionAttachments?: Attachment[]
 ): Promise<void> {
 	const tasks: { name: string; run: () => Promise<unknown> }[] = [
 		{
@@ -76,7 +78,8 @@ async function broadcastThenParallelV2Effects(
 					recipientPubkey,
 					transactionHash,
 					chainStatus,
-					writeMethod
+					writeMethod,
+					completionAttachments
 				})
 		}
 	];
@@ -97,7 +100,8 @@ async function broadcastThenParallelV2Effects(
 }
 
 export async function markTaskCompleteV2(
-	rune: PaymentContractRuneLike
+	rune: PaymentContractRuneLike,
+	completionAttachmentsArg?: Attachment[]
 ): Promise<ContractLifecycleResult> {
 	const ids = getRuneWriteIds(rune);
 	const taskerPk = rune.taskerPubkey;
@@ -135,6 +139,16 @@ export async function markTaskCompleteV2(
 		return { ok: false };
 	}
 
+	const completionAttachments =
+		completionAttachmentsArg !== undefined && completionAttachmentsArg.length > 0
+			? completionAttachmentsArg.map((a) => ({ ...a }))
+			: undefined;
+	if (completionAttachments) {
+		d.log('markTaskCompleteV2: publishing with completion attachments', {
+			count: completionAttachments.length
+		});
+	}
+
 	await broadcastThenParallelV2Effects(
 		'markTaskCompleteV2',
 		ids,
@@ -147,7 +161,9 @@ export async function markTaskCompleteV2(
 			title: 'Task marked complete',
 			body: `"${rune.taskTitle}" was marked complete. Open Contracts to review.`,
 			type: 'contract_task_completed'
-		}
+		},
+		undefined,
+		completionAttachments
 	);
 
 	return { ok: true, transactionHash };

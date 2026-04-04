@@ -1,6 +1,7 @@
 import type { NDKPaymentContract } from '$lib/nostr/events/contract';
 import type { NDKContractStatus } from '$lib/nostr/events/contractStatus';
 import type { NDKTask } from '$lib/nostr/events/task';
+import type { Attachment } from '$lib/types/task';
 import type { ContractChain, SecurePaymentLegacy } from '$lib/utils/contract/types';
 import type { PermittedActions } from '$lib/utils/contract/v2/permittedActions';
 
@@ -26,6 +27,10 @@ export type PaymentContractRuneLike = {
 	/** Kind 31000 replaceable; loaded by rune for accept + reconciliation. */
 	task: NDKTask | null;
 	readonly statusEventsByNewest: NDKContractStatus[];
+	/**
+	 * Completion evidence copied from Kind 31006 events that include a `completionAttachments` tag.
+	 */
+	readonly completionAttachments: Attachment[];
 };
 
 export type PaymentContractLifecycle = {
@@ -34,7 +39,10 @@ export type PaymentContractLifecycle = {
 		chain?: ContractChain
 	) => Promise<SecurePaymentLegacy>;
 	computePermittedActions: (rune: PaymentContractRuneLike) => PermittedActions;
-	markTaskComplete: (rune: PaymentContractRuneLike) => Promise<ContractLifecycleResult>;
+	markTaskComplete: (
+		rune: PaymentContractRuneLike,
+		completionAttachments?: Attachment[]
+	) => Promise<ContractLifecycleResult>;
 	/** Tasker accepts completed work → `FundsReleased` on chain + status + push to taskee. */
 	acceptTask: (rune: PaymentContractRuneLike) => Promise<ContractLifecycleResult>;
 	/** Taskee refunds tasker → `Refunded` on chain + 31006 + push to tasker. */

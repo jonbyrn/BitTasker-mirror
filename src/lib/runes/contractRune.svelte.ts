@@ -1,5 +1,6 @@
 import type { NDKPaymentContract } from '$lib/nostr/events/contract';
 import type { NDKContractStatus } from '$lib/nostr/events/contractStatus';
+import type { Attachment } from '$lib/types/task';
 import { createDebug } from '$lib/utils/debug';
 import {
 	getPaymentContractLifecycle,
@@ -64,6 +65,11 @@ export class PaymentContractRune implements PaymentContractRuneLike {
 	statusEvents = $state<NDKContractStatus[]>([]);
 	statusSub: NDKSubscription | null = null;
 
+	/**
+	 * Completion evidence from status subscription only (newest `completeTask` + Completed 31006).
+	 */
+	completionAttachments = $state<Attachment[]>([]);
+
 	/** Bumped on an interval + after chain reload so `permissionsNowSeconds()` is effectively reactive. */
 	private permissionsTimeSignal = $state(0);
 	private permissionsClockId: ReturnType<typeof setInterval> | null = null;
@@ -101,10 +107,12 @@ export class PaymentContractRune implements PaymentContractRuneLike {
 
 	/**
 	 * Taskee marks complete (v2); v1 returns not allowed.
+	 * Optional `attachments` are sent on the 31006 only; `completionAttachments` on this rune updates
+	 * when status events arrive from relays (including your own publish).
 	 * TODO(gasless): prefer meta-tx when available (in v2 lifecycle).
 	 */
-	markTaskComplete(): Promise<ContractLifecycleResult> {
-		return this.lifecycle.markTaskComplete(this);
+	markTaskComplete(attachments?: Attachment[]): Promise<ContractLifecycleResult> {
+		return this.lifecycle.markTaskComplete(this, attachments);
 	}
 
 	/** Tasker accepts completed work (v2); v1 returns not allowed. */
@@ -281,6 +289,16 @@ export class PaymentContractRune implements PaymentContractRuneLike {
 		void this.awaitStatusTxThenReload(ev);
 	}
 
+	/** When a 31006 carries `completionAttachments`, mirror them here (typically a single such event). */
+	private applyCompletionAttachmentsFromEvent(ev: NDKContractStatus): void {
+		const atts = ev.completionAttachments;
+		if (!atts?.length) return;
+		this.completionAttachments = atts.map((a) => ({ ...a }));
+		d.log('completionAttachments from status event', {
+			attachments: $state.snapshot(this.completionAttachments)
+		});
+	}
+
 	setupSubscription() {
 		if (!this.paymentId) {
 			d.log('setupSubscription: skipped (paymentId missing)');
@@ -292,9 +310,11 @@ export class PaymentContractRune implements PaymentContractRuneLike {
 			closeOnEose: this.chainIsTerminal, // Close subscription after eose if chain state is already terminal
 			wrap: true, // wrap the event in the NDKContractStatus class
 			onEvent: (event) => {
-				this.statusEvents.push(event as NDKContractStatus);
+				const ev = event as NDKContractStatus;
+				this.statusEvents.push(ev);
+				this.applyCompletionAttachmentsFromEvent(ev);
 				if (!this.statusHistoryReady) return;
-				this.maybeAwaitStatusTxForEvent(event as NDKContractStatus);
+				this.maybeAwaitStatusTxForEvent(ev);
 			},
 			onEose: () => {
 				d.log('setupSubscription: eose', {

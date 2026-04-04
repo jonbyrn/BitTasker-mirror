@@ -168,7 +168,11 @@ export class NDKContractStatus extends NDKEvent {
 				//d.log('decrypted contract status', { eventId: event.id });
 			} catch (_e) {
 				decryptFailed = true;
-				d.warn('NDKContractStatus.from: decryption failed', { eventId: event.id, err: _e });
+				d.warn('NDKContractStatus.from: decryption failed', {
+					paymentId: status.paymentId,
+					event: status,
+					err: _e
+				});
 				status.content = prevContent;
 			}
 		} else if (status.content && status.content.length > 0) {
