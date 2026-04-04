@@ -130,6 +130,21 @@ export class PaymentContractRune implements PaymentContractRuneLike {
 		return this.lifecycle.cancelPaymentContract(this);
 	}
 
+	/** Tasker marks taskee no-show (v2). */
+	markNoShow(): Promise<ContractLifecycleResult> {
+		return this.lifecycle.markNoShow(this);
+	}
+
+	/** Taskee marks work in progress after no-show (v2). */
+	markWorkInProgress(): Promise<ContractLifecycleResult> {
+		return this.lifecycle.markWorkInProgress(this);
+	}
+
+	/** Tasker claims refund after no-show response window (v2). */
+	claimNoShowRefund(): Promise<ContractLifecycleResult> {
+		return this.lifecycle.claimNoShowRefund(this);
+	}
+
 	async start() {
 		d.log('start: sync requested', { paymentId: this.paymentId, version: this.version });
 		await this.getOriginalTaskEvent();

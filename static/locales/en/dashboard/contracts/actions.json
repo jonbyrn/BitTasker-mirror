@@ -93,7 +93,19 @@
 				"notification_payment_released_title": "Payment Released",
 				"notification_payment_released_body": "Payment has been released for task {taskTitle}",
 				"notification_payment_refunded_title": "Payment Refunded",
-				"notification_payment_refunded_body": "Payment has been refunded for task {taskTitle}"
+				"notification_payment_refunded_body": "Payment has been refunded for task {taskTitle}",
+				"mark_no_show": "Mark no-show",
+				"mark_no_show_confirm_title": "Mark taskee as no-show?",
+				"mark_no_show_confirm_message": "This records that the taskee did not start on time. They will have a limited time to respond by marking work in progress. Continue?",
+				"mark_no_show_success": "No-show marked. The taskee will be notified.",
+				"mark_work_in_progress": "Mark work in progress",
+				"mark_work_in_progress_confirm_title": "Mark work in progress?",
+				"mark_work_in_progress_confirm_message": "This tells the tasker you are working on the task after a no-show notice. Continue?",
+				"mark_work_in_progress_success": "Work in progress recorded.",
+				"claim_no_show_refund": "Claim no-show refund",
+				"claim_no_show_refund_confirm_title": "Claim refund?",
+				"claim_no_show_refund_confirm_message": "The taskee did not respond in time. You can claim the refund for this secure payment. Continue?",
+				"claim_no_show_refund_success": "Refund claim submitted."
 			}
 		}
 	}

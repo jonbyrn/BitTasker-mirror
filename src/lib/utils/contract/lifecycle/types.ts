@@ -49,6 +49,12 @@ export type PaymentContractLifecycle = {
 	refundTasker: (rune: PaymentContractRuneLike) => Promise<ContractLifecycleResult>;
 	/** Tasker or taskee cancels → `Cancelled` on chain + 31006 + push to counterparty. */
 	cancelPaymentContract: (rune: PaymentContractRuneLike) => Promise<ContractLifecycleResult>;
+	/** Tasker marks no-show → `NoShow` on chain + 31006 + push to taskee. */
+	markNoShow: (rune: PaymentContractRuneLike) => Promise<ContractLifecycleResult>;
+	/** Taskee marks work in progress after no-show → `WorkInProgress` + 31006 + push to tasker. */
+	markWorkInProgress: (rune: PaymentContractRuneLike) => Promise<ContractLifecycleResult>;
+	/** Tasker claims refund after no-show window → `FundsClaimed` + 31006 + push to taskee. */
+	claimNoShowRefund: (rune: PaymentContractRuneLike) => Promise<ContractLifecycleResult>;
 	/** When true, Nostr 31006 with `transactionHash` triggers wait-for-tx + chain reload. */
 	shouldAwaitStatusTransaction: boolean;
 };

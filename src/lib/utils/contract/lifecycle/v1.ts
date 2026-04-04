@@ -59,6 +59,27 @@ export async function cancelPaymentContractV1(
 	return { ok: false };
 }
 
+export async function markNoShowV1(
+	_rune: PaymentContractRuneLike
+): Promise<ContractLifecycleResult> {
+	d.warn('markNoShowV1: v1 lifecycle does not support this action');
+	return { ok: false };
+}
+
+export async function markWorkInProgressV1(
+	_rune: PaymentContractRuneLike
+): Promise<ContractLifecycleResult> {
+	d.warn('markWorkInProgressV1: v1 lifecycle does not support this action');
+	return { ok: false };
+}
+
+export async function claimNoShowRefundV1(
+	_rune: PaymentContractRuneLike
+): Promise<ContractLifecycleResult> {
+	d.warn('claimNoShowRefundV1: v1 lifecycle does not support this action');
+	return { ok: false };
+}
+
 export const v1Lifecycle: PaymentContractLifecycle = {
 	loadPaymentContractDetails: loadPaymentContractDetailsV1,
 	computePermittedActions: computePermittedActionsV1,
@@ -66,5 +87,8 @@ export const v1Lifecycle: PaymentContractLifecycle = {
 	acceptTask: acceptTaskV1,
 	refundTasker: refundTaskerV1,
 	cancelPaymentContract: cancelPaymentContractV1,
+	markNoShow: markNoShowV1,
+	markWorkInProgress: markWorkInProgressV1,
+	claimNoShowRefund: claimNoShowRefundV1,
 	shouldAwaitStatusTransaction: false
 };

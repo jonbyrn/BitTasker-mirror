@@ -4,7 +4,10 @@ import { publishTaskCompletedForEscrow } from '$lib/utils/contract/v2/creation';
 import {
 	acceptTask,
 	cancelPaymentContract,
+	claimNoShowRefund,
 	completeTask,
+	markNoShow,
+	markWorkInProgress,
 	refundTasker
 } from '$lib/utils/contract/v2/blockchainWrites';
 import { loadPaymentContractDetailsV2 } from '$lib/utils/contract/v2/loadPaymentContractDetailsV2';
@@ -380,6 +383,206 @@ export async function cancelPaymentContractV2(
 	return { ok: true, transactionHash };
 }
 
+/**
+ * Tasker marks taskee no-show: `markNoShow` → 31006 `s=NoShow`, push to taskee.
+ * TODO(gasless): prefer meta-tx when available.
+ */
+export async function markNoShowV2(
+	rune: PaymentContractRuneLike
+): Promise<ContractLifecycleResult> {
+	const ids = getRuneWriteIds(rune);
+	const taskeePk = rune.contract.taskeePubkey;
+	if (!ids || !taskeePk) {
+		d.warn('markNoShowV2: missing paymentId, contract address, parent id, or taskee pubkey');
+		return { ok: false };
+	}
+
+	if (!rune.isTasker) {
+		d.warn('markNoShowV2: only tasker may mark no-show');
+		return { ok: false };
+	}
+
+	if (!ndk.activeUser?.pubkey) {
+		d.warn('markNoShowV2: not signed in with Nostr');
+		return { ok: false };
+	}
+
+	const preflightErr = await runV2Preflight(rune, ids, {
+		isAllowed: (p) => p.canMarkNoShow,
+		logLabel: 'markNoShowV2'
+	});
+	if (preflightErr) return preflightErr;
+
+	let transactionHash: string;
+	try {
+		const { tx } = await markNoShow(ids.paymentId, {
+			contractAddress: ids.contractAddress,
+			chain: 'rsk'
+		});
+		transactionHash = tx.hash;
+	} catch (e) {
+		d.error('markNoShowV2: markNoShow failed', e);
+		return { ok: false };
+	}
+
+	const signer = ndk.activeUser;
+	if (!signer) {
+		d.warn('markNoShowV2: signer missing after broadcast');
+		return { ok: false };
+	}
+
+	await broadcastThenParallelV2Effects(
+		'markNoShowV2',
+		ids,
+		signer,
+		transactionHash,
+		taskeePk,
+		ContractStatus.NoShow,
+		'markNoShow',
+		{
+			title: 'No-show marked',
+			body: `"${rune.taskTitle}" — the taskee was marked no-show. Open Contracts to review.`,
+			type: 'contract_no_show_marked'
+		}
+	);
+
+	return { ok: true, transactionHash };
+}
+
+/**
+ * Taskee marks work in progress after no-show: `markWorkInProgress` → 31006 `s=WorkInProgress`, push to tasker.
+ * TODO(gasless): prefer meta-tx when available.
+ */
+export async function markWorkInProgressV2(
+	rune: PaymentContractRuneLike
+): Promise<ContractLifecycleResult> {
+	const ids = getRuneWriteIds(rune);
+	const taskerPk = rune.taskerPubkey;
+	if (!ids || !taskerPk) {
+		d.warn(
+			'markWorkInProgressV2: missing paymentId, contract address, parent id, or tasker pubkey'
+		);
+		return { ok: false };
+	}
+
+	if (rune.isTasker) {
+		d.warn('markWorkInProgressV2: taskee action only');
+		return { ok: false };
+	}
+
+	if (!ndk.activeUser?.pubkey) {
+		d.warn('markWorkInProgressV2: not signed in with Nostr');
+		return { ok: false };
+	}
+
+	const preflightErr = await runV2Preflight(rune, ids, {
+		isAllowed: (p) => p.canMarkWorkInProgress,
+		logLabel: 'markWorkInProgressV2'
+	});
+	if (preflightErr) return preflightErr;
+
+	let transactionHash: string;
+	try {
+		const { tx } = await markWorkInProgress(ids.paymentId, {
+			contractAddress: ids.contractAddress,
+			chain: 'rsk'
+		});
+		transactionHash = tx.hash;
+	} catch (e) {
+		d.error('markWorkInProgressV2: markWorkInProgress failed', e);
+		return { ok: false };
+	}
+
+	const signer = ndk.activeUser;
+	if (!signer) {
+		d.warn('markWorkInProgressV2: signer missing after broadcast');
+		return { ok: false };
+	}
+
+	await broadcastThenParallelV2Effects(
+		'markWorkInProgressV2',
+		ids,
+		signer,
+		transactionHash,
+		taskerPk,
+		ContractStatus.WorkInProgress,
+		'markWorkInProgress',
+		{
+			title: 'Work in progress',
+			body: `"${rune.taskTitle}" — work was marked in progress. Open Contracts to review.`,
+			type: 'contract_work_in_progress'
+		}
+	);
+
+	return { ok: true, transactionHash };
+}
+
+/**
+ * Tasker claims refund after no-show response window: `claimNoShowRefund` → 31006 `s=FundsClaimed`, push to taskee.
+ * TODO(gasless): prefer meta-tx when available.
+ */
+export async function claimNoShowRefundV2(
+	rune: PaymentContractRuneLike
+): Promise<ContractLifecycleResult> {
+	const ids = getRuneWriteIds(rune);
+	const taskeePk = rune.contract.taskeePubkey;
+	if (!ids || !taskeePk) {
+		d.warn('claimNoShowRefundV2: missing paymentId, contract address, parent id, or taskee pubkey');
+		return { ok: false };
+	}
+
+	if (!rune.isTasker) {
+		d.warn('claimNoShowRefundV2: only tasker may claim no-show refund');
+		return { ok: false };
+	}
+
+	if (!ndk.activeUser?.pubkey) {
+		d.warn('claimNoShowRefundV2: not signed in with Nostr');
+		return { ok: false };
+	}
+
+	const preflightErr = await runV2Preflight(rune, ids, {
+		isAllowed: (p) => p.canClaimNoShowRefund,
+		logLabel: 'claimNoShowRefundV2'
+	});
+	if (preflightErr) return preflightErr;
+
+	let transactionHash: string;
+	try {
+		const { tx } = await claimNoShowRefund(ids.paymentId, {
+			contractAddress: ids.contractAddress,
+			chain: 'rsk'
+		});
+		transactionHash = tx.hash;
+	} catch (e) {
+		d.error('claimNoShowRefundV2: claimNoShowRefund failed', e);
+		return { ok: false };
+	}
+
+	const signer = ndk.activeUser;
+	if (!signer) {
+		d.warn('claimNoShowRefundV2: signer missing after broadcast');
+		return { ok: false };
+	}
+
+	await broadcastThenParallelV2Effects(
+		'claimNoShowRefundV2',
+		ids,
+		signer,
+		transactionHash,
+		taskeePk,
+		ContractStatus.FundsClaimed,
+		'claimNoShowRefund',
+		{
+			title: 'No-show refund claimed',
+			body: `"${rune.taskTitle}" — the no-show refund was claimed. Open Contracts to review.`,
+			type: 'contract_no_show_refund_claimed'
+		}
+	);
+
+	return { ok: true, transactionHash };
+}
+
 export const v2Lifecycle: PaymentContractLifecycle = {
 	loadPaymentContractDetails: loadPaymentContractDetailsV2ForRune,
 	computePermittedActions: computePermittedActionsV2,
@@ -387,5 +590,8 @@ export const v2Lifecycle: PaymentContractLifecycle = {
 	acceptTask: acceptTaskV2,
 	refundTasker: refundTaskerV2,
 	cancelPaymentContract: cancelPaymentContractV2,
+	markNoShow: markNoShowV2,
+	markWorkInProgress: markWorkInProgressV2,
+	claimNoShowRefund: claimNoShowRefundV2,
 	shouldAwaitStatusTransaction: true
 };
