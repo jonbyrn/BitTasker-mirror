@@ -2,15 +2,21 @@
 	import { get } from 'svelte/store';
 	import { t } from 'svelte-i18n';
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
+	import TaskCompletionModalNDK from '$lib/components/contracts/TaskCompletionModalNDK.svelte';
 	import { PaymentContractRune } from '$lib/runes/contractRune.svelte';
 	import { appStore } from '$lib/stores/app.store';
+	import type { Attachment } from '$lib/types/task';
 	import {
 		ContractModalAction,
 		CONTRACT_MODAL_CONFIGS
 	} from '$lib/utils/constants/contract-modals';
+	import { createDebug } from '$lib/utils/debug';
 	import { portal } from '$lib/utils/portal';
 
-	let { contractRune }: { contractRune: PaymentContractRune } = $props();
+	const d = createDebug('contracts:actionsNDK');
+
+	let { contractRune, btcPrice = 0 }: { contractRune: PaymentContractRune; btcPrice?: number } =
+		$props();
 
 	let busy = $state(false);
 	let activeModal = $state<ContractModalAction>(ContractModalAction.None);
@@ -23,14 +29,18 @@
 		activeModal = ContractModalAction.None;
 	}
 
-	async function onMarkComplete() {
+	async function handleCompletionSubmit(attachments: Attachment[]) {
+		d.log('markTaskComplete after uploads', {
+			count: attachments.length,
+			keys: attachments.map((a) => a.key)
+		});
 		if (busy) return;
 		busy = true;
 		try {
-			const res = await contractRune.markTaskComplete();
+			const res = await contractRune.markTaskComplete(attachments);
 			if (!res.ok) {
 				appStore.showErrorToast(get(t)('dashboard.contracts.actions.contract_action_failed'));
-				return;
+				throw new Error('markTaskComplete failed');
 			}
 			appStore.showSuccessToast(get(t)('dashboard.contracts.actions.task_completed_success'));
 		} finally {
@@ -97,7 +107,7 @@
 				await runCancelContract();
 				break;
 			default:
-				console.warn('ContractActionsNDK: unexpected modal action', action);
+				d.warn('unexpected modal action', action);
 		}
 	}
 </script>
@@ -108,7 +118,7 @@
 			type="button"
 			class="btn btn-primary btn-sm w-full sm:w-auto"
 			disabled={contractRune.isPending || busy}
-			onclick={onMarkComplete}
+			onclick={() => openModal(ContractModalAction.Complete)}
 		>
 			{#if busy || contractRune.isPending}
 				<span class="loading loading-spinner loading-xs"></span>
@@ -156,6 +166,18 @@
 		</button>
 	{/if}
 </div>
+
+{#if activeModal === ContractModalAction.Complete}
+	<div use:portal={'modals'}>
+		<TaskCompletionModalNDK
+			{contractRune}
+			isOpen={true}
+			{btcPrice}
+			onClose={closeModal}
+			onComplete={handleCompletionSubmit}
+		/>
+	</div>
+{/if}
 
 {#if activeModal !== ContractModalAction.None && activeModal !== ContractModalAction.Complete}
 	{@const config = CONTRACT_MODAL_CONFIGS[activeModal]}

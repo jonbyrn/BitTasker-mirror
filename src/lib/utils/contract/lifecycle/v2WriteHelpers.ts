@@ -15,6 +15,7 @@ import {
 	computePermittedActions,
 	type PermittedActions
 } from '$lib/utils/contract/v2/permittedActions';
+import type { Attachment } from '$lib/types/task';
 import { ContractStatus } from '$lib/utils/contract/types';
 import type { ContractLifecycleResult } from './types';
 import type { PaymentContractRuneLike } from './types';
@@ -79,6 +80,8 @@ export async function publishV2ContractStatus(params: {
 	transactionHash: string;
 	chainStatus: ContractStatus;
 	writeMethod: string;
+	/** Encrypted tag on 31006 when non-empty (e.g. taskee completion evidence). */
+	completionAttachments?: Attachment[];
 }): Promise<void> {
 	const status = new NDKContractStatus(ndk);
 	status.author = params.signer;
@@ -90,6 +93,9 @@ export async function publishV2ContractStatus(params: {
 	status.status = params.chainStatus;
 	status.transactionHash = params.transactionHash;
 	status.tags.push(['writeMethod', params.writeMethod]);
+	if (params.completionAttachments !== undefined && params.completionAttachments.length > 0) {
+		status.completionAttachments = params.completionAttachments;
+	}
 	await status.publish();
 }
 

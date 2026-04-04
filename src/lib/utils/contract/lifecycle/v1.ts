@@ -5,6 +5,7 @@ import {
 	emptyPermittedActions,
 	type PermittedActions
 } from '$lib/utils/contract/v2/permittedActions';
+import type { Attachment } from '$lib/types/task';
 import type {
 	ContractLifecycleResult,
 	PaymentContractLifecycle,
@@ -30,7 +31,8 @@ export function computePermittedActionsV1(_rune: PaymentContractRuneLike): Permi
 }
 
 export async function markTaskCompleteV1(
-	_rune: PaymentContractRuneLike
+	_rune: PaymentContractRuneLike,
+	_completionAttachments?: Attachment[]
 ): Promise<ContractLifecycleResult> {
 	d.warn('markTaskCompleteV1: v1 lifecycle does not support this action');
 	return { ok: false };
