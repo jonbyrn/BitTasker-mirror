@@ -93,7 +93,19 @@
 				"notification_payment_released_title": "Pago liberado",
 				"notification_payment_released_body": "El pago ha sido liberado para la tarea {taskTitle}",
 				"notification_payment_refunded_title": "Pago reembolsado",
-				"notification_payment_refunded_body": "El pago ha sido reembolsado para la tarea {taskTitle}"
+				"notification_payment_refunded_body": "El pago ha sido reembolsado para la tarea {taskTitle}",
+				"mark_no_show": "Marcar no presentación",
+				"mark_no_show_confirm_title": "¿Marcar al taskee como no presentado?",
+				"mark_no_show_confirm_message": "Esto registra que el taskee no comenzó a tiempo. Tendrá un tiempo limitado para responder marcando el trabajo en curso. ¿Continuar?",
+				"mark_no_show_success": "No presentación registrada. Se notificará al taskee.",
+				"mark_work_in_progress": "Marcar trabajo en curso",
+				"mark_work_in_progress_confirm_title": "¿Marcar trabajo en curso?",
+				"mark_work_in_progress_confirm_message": "Esto indica al tasker que está trabajando en la tarea tras un aviso de no presentación. ¿Continuar?",
+				"mark_work_in_progress_success": "Trabajo en curso registrado.",
+				"claim_no_show_refund": "Reclamar reembolso por no presentación",
+				"claim_no_show_refund_confirm_title": "¿Reclamar reembolso?",
+				"claim_no_show_refund_confirm_message": "El taskee no respondió a tiempo. Puede reclamar el reembolso de este pago seguro. ¿Continuar?",
+				"claim_no_show_refund_success": "Reclamo de reembolso enviado."
 			}
 		}
 	}

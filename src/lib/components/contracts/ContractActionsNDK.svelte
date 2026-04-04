@@ -93,6 +93,53 @@
 		}
 	}
 
+	async function runMarkNoShow() {
+		if (busy) return;
+		busy = true;
+		try {
+			const res = await contractRune.markNoShow();
+			if (!res.ok) {
+				appStore.showErrorToast(get(t)('dashboard.contracts.actions.contract_action_failed'));
+				return;
+			}
+			appStore.showSuccessToast(get(t)('dashboard.contracts.actions.mark_no_show_success'));
+		} finally {
+			busy = false;
+		}
+	}
+
+	async function runMarkWorkInProgress() {
+		if (busy) return;
+		busy = true;
+		try {
+			const res = await contractRune.markWorkInProgress();
+			if (!res.ok) {
+				appStore.showErrorToast(get(t)('dashboard.contracts.actions.contract_action_failed'));
+				return;
+			}
+			appStore.showSuccessToast(
+				get(t)('dashboard.contracts.actions.mark_work_in_progress_success')
+			);
+		} finally {
+			busy = false;
+		}
+	}
+
+	async function runClaimNoShowRefund() {
+		if (busy) return;
+		busy = true;
+		try {
+			const res = await contractRune.claimNoShowRefund();
+			if (!res.ok) {
+				appStore.showErrorToast(get(t)('dashboard.contracts.actions.contract_action_failed'));
+				return;
+			}
+			appStore.showSuccessToast(get(t)('dashboard.contracts.actions.claim_no_show_refund_success'));
+		} finally {
+			busy = false;
+		}
+	}
+
 	async function handleModalConfirm() {
 		const action = activeModal;
 		closeModal();
@@ -105,6 +152,15 @@
 				break;
 			case ContractModalAction.Cancel:
 				await runCancelContract();
+				break;
+			case ContractModalAction.MarkNoShow:
+				await runMarkNoShow();
+				break;
+			case ContractModalAction.MarkWorkInProgress:
+				await runMarkWorkInProgress();
+				break;
+			case ContractModalAction.ClaimNoShowRefund:
+				await runClaimNoShowRefund();
 				break;
 			default:
 				d.warn('unexpected modal action', action);
@@ -163,6 +219,45 @@
 				<span class="loading loading-spinner loading-xs"></span>
 			{/if}
 			{$t('dashboard.contracts.actions.cancel_contract')}
+		</button>
+	{/if}
+	{#if contractRune.permittedActions.canMarkNoShow}
+		<button
+			type="button"
+			class="btn btn-warning btn-sm w-full sm:w-auto"
+			disabled={contractRune.isPending || busy}
+			onclick={() => openModal(ContractModalAction.MarkNoShow)}
+		>
+			{#if busy || contractRune.isPending}
+				<span class="loading loading-spinner loading-xs"></span>
+			{/if}
+			{$t('dashboard.contracts.actions.mark_no_show')}
+		</button>
+	{/if}
+	{#if contractRune.permittedActions.canMarkWorkInProgress}
+		<button
+			type="button"
+			class="btn btn-success btn-outline btn-sm w-full sm:w-auto"
+			disabled={contractRune.isPending || busy}
+			onclick={() => openModal(ContractModalAction.MarkWorkInProgress)}
+		>
+			{#if busy || contractRune.isPending}
+				<span class="loading loading-spinner loading-xs"></span>
+			{/if}
+			{$t('dashboard.contracts.actions.mark_work_in_progress')}
+		</button>
+	{/if}
+	{#if contractRune.permittedActions.canClaimNoShowRefund}
+		<button
+			type="button"
+			class="btn btn-warning btn-outline btn-sm w-full sm:w-auto"
+			disabled={contractRune.isPending || busy}
+			onclick={() => openModal(ContractModalAction.ClaimNoShowRefund)}
+		>
+			{#if busy || contractRune.isPending}
+				<span class="loading loading-spinner loading-xs"></span>
+			{/if}
+			{$t('dashboard.contracts.actions.claim_no_show_refund')}
 		</button>
 	{/if}
 </div>
