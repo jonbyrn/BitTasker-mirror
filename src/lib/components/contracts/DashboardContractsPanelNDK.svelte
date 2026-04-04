@@ -2,7 +2,7 @@
 	import { t } from 'svelte-i18n';
 	import { createPortal } from '$lib/utils/portal';
 	import { EscrowStatus } from '$lib/utils/escrow';
-	import ContractDrawer from './ContractDrawer.svelte';
+	import ContractDrawerNDK from './ContractDrawerNDK.svelte';
 	import InfiniteScroll from '$lib/components/InfiniteScroll.svelte';
 
 	// MDI Icons for filters
@@ -19,6 +19,7 @@
 	import type { NDKPaymentContract } from '$lib/nostr/events/contract';
 	import KINDS from '$lib/utils/constants/kinds';
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
+	import type { PaymentContractRune } from '$lib/runes/contractRune.svelte';
 	import ContractCardNDK from './ContractCardNDK.svelte';
 	// import { ndk } from '$lib/nostr/ndk';
 	// import { NDKEscrowContract } from '$lib/nostr/events/contract';
@@ -27,6 +28,19 @@
 	let statusFilter = $state<EscrowStatus | 'all'>('all');
 	let roleFilter = $state<string>('all'); // 'all', 'client', 'freelancer'
 	let isStatusDropdownOpen = $state(false);
+
+	let contractDrawerOpen = $state(false);
+	let contractDrawerRune = $state<PaymentContractRune | null>(null);
+
+	function openContractDrawer(rune: PaymentContractRune) {
+		contractDrawerRune = rune;
+		contractDrawerOpen = true;
+	}
+
+	function closeContractDrawer() {
+		contractDrawerOpen = false;
+		contractDrawerRune = null;
+	}
 
 	// Create a reactive subscription - note the callback function () => ({ ... })
 	const contractsSub = ndk.$subscribe<NDKPaymentContract>(() => {
@@ -37,8 +51,6 @@
 			wrap: true
 		};
 	});
-
-	$inspect(contractsSub.events);
 
 	// const contracts = $derived(rawContracts.events.map((event) => NDKEscrowContract.from(event)));
 
@@ -312,7 +324,7 @@
 		</div>
 	{:else}
 		{#each contractsSub.events as contract (contract.id)}
-			<ContractCardNDK {contract} />
+			<ContractCardNDK {contract} onOpenContractDrawer={openContractDrawer} />
 		{/each}
 
 		<!-- End of list indicator -->
@@ -330,7 +342,12 @@
 </div>
 
 <!-- Contract Drawer - DO Not wrap in a condition for animation to work -->
-<ContractDrawer btcPrice={btcPrice.price} />
+<ContractDrawerNDK
+	isOpen={contractDrawerOpen}
+	onClose={closeContractDrawer}
+	contractRune={contractDrawerRune}
+	btcPrice={btcPrice.price}
+/>
 
 <!-- Portal target for confirmation modals - outside drawer context -->
 <div use:createPortal={'modals'} style="position: relative; z-index: 9999;"></div>

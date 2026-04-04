@@ -14,7 +14,13 @@
 	import { ContractStatus } from '$lib/utils/contract/types';
 	import ContractActionsNDK from './ContractActionsNDK.svelte';
 
-	const { contract }: { contract: NDKPaymentContract } = $props();
+	const {
+		contract,
+		onOpenContractDrawer
+	}: {
+		contract: NDKPaymentContract;
+		onOpenContractDrawer?: (rune: PaymentContractRune) => void;
+	} = $props();
 
 	let contractRune = $state<PaymentContractRune | null>(null);
 	$effect(() => {
@@ -26,9 +32,11 @@
 		};
 	});
 
-	// $inspect(contractRune.blockchainData, 'contractRune');
-	// $inspect(contractRune?.statusEvents, 'statusEvents');
-	$inspect(contractRune?.completionAttachments, 'completionAttachments');
+	function openDrawer() {
+		if (contractRune && onOpenContractDrawer) {
+			onOpenContractDrawer(contractRune);
+		}
+	}
 
 	const isTasker = $derived(
 		contractRune !== null
@@ -59,6 +67,7 @@
 					<button
 						type="button"
 						class="hover:text-primary cursor-pointer text-left transition-colors"
+						onclick={openDrawer}
 					>
 						{contract.taskTitle}
 					</button>
@@ -124,7 +133,7 @@
 				{#if contractRune && contractRune.blockchainData && (contractRune.permittedActions.canCompleteTask || contractRune.permittedActions.canAcceptTask || contractRune.permittedActions.canRefundTasker || contractRune.permittedActions.canCancelPaymentContract)}
 					<ContractActionsNDK {contractRune} btcPrice={btcPrice.price} />
 				{/if}
-				<button type="button" class="btn btn-outline btn-sm w-full sm:w-auto">
+				<button type="button" class="btn btn-outline btn-sm w-full sm:w-auto" onclick={openDrawer}>
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
 						class="h-4 w-4"
