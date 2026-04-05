@@ -610,7 +610,7 @@ export async function claimNoShowRefundV2(
 
 function expectedChainStatusAfterDisputeTask(payment: SecurePaymentLegacy): ContractStatus {
 	return payment.state === ContractStatus.WorkInProgress
-		? ContractStatus.InDisputeWithTimelock
+		? ContractStatus.InDisputeWorkInProgress
 		: ContractStatus.InDispute;
 }
 
@@ -897,7 +897,7 @@ export async function resolveAfterTimelockV2(
 
 	const disputeBranch =
 		paymentBefore.state === ContractStatus.InDispute ||
-		paymentBefore.state === ContractStatus.InDisputeWithTimelock;
+		paymentBefore.state === ContractStatus.InDisputeWorkInProgress;
 	if (disputeBranch && !rune.isTasker) {
 		d.warn('resolveAfterTimelockV2: only tasker may resolve dispute timelock');
 		return { ok: false };

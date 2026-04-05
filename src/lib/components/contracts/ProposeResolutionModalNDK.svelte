@@ -53,6 +53,7 @@
 	});
 
 	const chainState = $derived(contractRune.blockchainData?.state ?? -1);
+	const minValue = $derived(chainState === ContractStatus.InDisputeWorkInProgress ? 0 : 1);
 
 	const taskeeShareWei = $derived.by(() => {
 		const pool = splitPoolWei;
@@ -223,12 +224,12 @@
 						id="propose-split-range"
 						type="range"
 						class="range range-primary range-md w-full [--range-fill:0]"
-						min="0"
+						min={minValue}
 						max="100"
 						step="1"
 						bind:value={positionPercent}
 						disabled={isSubmitting}
-						aria-valuemin="0"
+						aria-valuemin={minValue}
 						aria-valuemax="100"
 						aria-valuenow={positionPercent}
 						aria-label={$t('dashboard.contracts.actions.propose_resolution_slider_taskee_percent')}

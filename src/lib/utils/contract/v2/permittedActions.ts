@@ -150,7 +150,7 @@ function canProposeWithProjection(
 	state: number,
 	projection: DisputeProjection
 ): boolean {
-	if (state !== ContractStatus.InDispute && state !== ContractStatus.InDisputeWithTimelock)
+	if (state !== ContractStatus.InDispute && state !== ContractStatus.InDisputeWorkInProgress)
 		return false;
 	if (projection.disputeAccepted) return false;
 	if (projection.totalProposalCount >= 4) return false;
@@ -170,7 +170,7 @@ function canAcceptWithProjection(
 	state: number,
 	projection: DisputeProjection
 ): boolean {
-	if (state !== ContractStatus.InDispute && state !== ContractStatus.InDisputeWithTimelock)
+	if (state !== ContractStatus.InDispute && state !== ContractStatus.InDisputeWorkInProgress)
 		return false;
 	if (projection.disputeAccepted) return false;
 	if (projection.totalProposalCount < 1) return false;
@@ -220,7 +220,7 @@ export function computePermittedActions(args: ComputePermittedActionsArgs): Perm
 	if (
 		(state === ContractStatus.Completed ||
 			state === ContractStatus.InDispute ||
-			state === ContractStatus.InDisputeWithTimelock) &&
+			state === ContractStatus.InDisputeWorkInProgress) &&
 		timelockEnd !== 0 &&
 		now > timelockEnd
 	) {
@@ -247,7 +247,7 @@ export function computePermittedActions(args: ComputePermittedActionsArgs): Perm
 	const refundStates = new Set([
 		ContractStatus.Funded,
 		ContractStatus.InDispute,
-		ContractStatus.InDisputeWithTimelock,
+		ContractStatus.InDisputeWorkInProgress,
 		ContractStatus.Completed,
 		ContractStatus.NoShow,
 		ContractStatus.WorkInProgress
@@ -265,7 +265,7 @@ export function computePermittedActions(args: ComputePermittedActionsArgs): Perm
 	base.canMarkWorkInProgress =
 		isTaskee && state === ContractStatus.NoShow && timelockEnd !== 0 && now <= timelockEnd;
 
-	// --- claimNoShowRefund
+	// --- claimNoShowRefund (tasker only — on-chain; taskee responds with markWorkInProgress while now <= timelockEnd)
 	base.canClaimNoShowRefund =
 		isTasker && state === ContractStatus.NoShow && timelockEnd !== 0 && now > timelockEnd;
 

@@ -253,7 +253,7 @@ describe('computePermittedActions', () => {
 			for (const state of [
 				ContractStatus.Funded,
 				ContractStatus.InDispute,
-				ContractStatus.InDisputeWithTimelock,
+				ContractStatus.InDisputeWorkInProgress,
 				ContractStatus.Completed,
 				ContractStatus.NoShow,
 				ContractStatus.WorkInProgress

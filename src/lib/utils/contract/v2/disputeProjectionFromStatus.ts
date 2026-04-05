@@ -9,7 +9,7 @@ export type DisputeProjectionRuneInput = {
 };
 
 /**
- * Derives {@link DisputeProjection} from Kind 31006 history + chain state `InDispute` / `InDisputeWithTimelock`.
+ * Derives {@link DisputeProjection} from Kind 31006 history + chain state `InDispute` / `InDisputeWorkInProgress`.
  * Events are processed in `created_at` ascending (caller may pass newest-first; we sort internally).
  */
 export function disputeProjectionFromStatusEvents(
@@ -21,7 +21,7 @@ export function disputeProjectionFromStatusEvents(
 	if (!taskerPubkey || !taskeePubkey) return undefined;
 	if (
 		chainState !== ContractStatus.InDispute &&
-		chainState !== ContractStatus.InDisputeWithTimelock
+		chainState !== ContractStatus.InDisputeWorkInProgress
 	) {
 		return undefined;
 	}

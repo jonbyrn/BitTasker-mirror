@@ -29,7 +29,7 @@ function chainContractStatusToEscrowTimeline(cs: ContractStatus): EscrowStatus {
 			return EscrowStatus.FundsReleased;
 		case ContractStatus.WorkInProgress:
 			return EscrowStatus.InProgress;
-		case ContractStatus.InDisputeWithTimelock:
+		case ContractStatus.InDisputeWorkInProgress:
 			return EscrowStatus.InDispute;
 		default:
 			return EscrowStatus.Funded;

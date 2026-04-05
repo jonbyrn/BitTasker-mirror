@@ -138,7 +138,6 @@ export function getStatusMessages(status: EscrowStatus): StatusMessages {
  */
 export function getStatusTranslationKey(status: ContractDisplayStatus): string {
 	switch (status) {
-		// Blockchain states (0-5)
 		case ContractStatus.Funded:
 			return 'dashboard.contracts.status.funded';
 		case ContractStatus.Refunded:
@@ -153,12 +152,19 @@ export function getStatusTranslationKey(status: ContractDisplayStatus): string {
 			return 'dashboard.contracts.status.completed';
 		case ContractStatus.Cancelled:
 			return 'dashboard.contracts.status.cancelled';
-
-		// Nostr states (6+) - Pending & Custom
-		case DisplayOnlyStatus.InProgress:
-			return 'dashboard.contracts.status.in_progress';
 		case ContractStatus.FundsReleased:
 			return 'dashboard.contracts.status.funds_released';
+		case ContractStatus.FundsClaimed:
+			return 'dashboard.contracts.status.funds_claimed';
+		case ContractStatus.NoShow:
+			return 'dashboard.contracts.status.no_show';
+		case ContractStatus.WorkInProgress:
+			return 'dashboard.contracts.status.work_in_progress';
+		case ContractStatus.InDisputeWorkInProgress:
+			return 'dashboard.contracts.status.in_dispute';
+
+		case DisplayOnlyStatus.InProgress:
+			return 'dashboard.contracts.status.in_progress';
 		case DisplayOnlyStatus.DisputeResolutionProposed:
 			return 'dashboard.contracts.status.dispute_resolution_proposed';
 
@@ -172,26 +178,26 @@ export function getStatusTranslationKey(status: ContractDisplayStatus): string {
  */
 export function getStatusColorClass(status: ContractDisplayStatus): string {
 	switch (status) {
-		// Active/In-Progress states - Primary (Bitcoin orange)
 		case DisplayOnlyStatus.InProgress:
+		case ContractStatus.WorkInProgress:
 			return 'badge-primary';
 
-		// Completed/Success states - Success (Green)
 		case ContractStatus.Completed:
 		case ContractStatus.FundsReleased:
 		case ContractStatus.DisputeResolved:
+		case ContractStatus.FundsClaimed:
 			return 'badge-success';
 
-		// Pending states - Info (Blue)
 		case ContractStatus.Funded:
 		case ContractStatus.DisputeUnresolved:
+		case ContractStatus.Refunded:
 			return 'badge-info';
 
-		// Dispute states - Warning (Yellow)
 		case ContractStatus.InDispute:
+		case ContractStatus.InDisputeWorkInProgress:
+		case ContractStatus.NoShow:
 			return 'badge-warning';
 
-		// Cancelled states - Error (Red)
 		case ContractStatus.Cancelled:
 			return 'badge-error';
 

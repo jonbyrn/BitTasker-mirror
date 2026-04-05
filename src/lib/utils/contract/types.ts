@@ -32,11 +32,12 @@ export enum ContractStatus {
 	FundsClaimed = 8, // AFTER claimNoShowRefund() confirms - funds claimed (FINAL)
 	NoShow = 9, // Tasker marked freelancer as no-show (FINAL)
 	WorkInProgress = 10, // Work actively in progress (blockchain state)
-	InDisputeWithTimelock = 11 // In dispute from Work in progress
+	InDisputeWorkInProgress = 11 // In dispute from Work in progress
 }
 
+/** Values must not overlap {@link ContractStatus} (0–11). */
 export enum DisplayOnlyStatus {
-	InProgress = 11, // Work started (past start time) but not completed yet
+	InProgress = 13, // Nostr-only: work started — not chain state 11 (InDisputeWorkInProgress)
 	DisputeResolutionProposed = 12 // Proposal exists (Nostr-only, blockchain stays InDispute)
 }
 
