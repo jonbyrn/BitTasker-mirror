@@ -37,3 +37,8 @@ export {
 	type ParticipantRole,
 	type UpfrontDepositContext
 } from './permittedActions';
+export {
+	buildDisputeProjectionForPayment,
+	disputeProjectionFromStatusEvents,
+	type DisputeProjectionRuneInput
+} from './disputeProjectionFromStatus';

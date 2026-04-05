@@ -181,7 +181,7 @@
 						<div
 							class="order-3 flex min-w-0 flex-wrap gap-2 pl-0 sm:order-2 sm:w-fit sm:flex-row sm:items-center sm:justify-end sm:pl-4"
 						>
-							{#if contractRune.blockchainData && (contractRune.permittedActions.canCompleteTask || contractRune.permittedActions.canAcceptTask || contractRune.permittedActions.canRefundTasker || contractRune.permittedActions.canCancelPaymentContract)}
+							{#if contractRune}
 								<div class="flex min-w-0 flex-wrap gap-2 sm:w-fit sm:flex-row">
 									<ContractActionsNDK {contractRune} {btcPrice} />
 								</div>

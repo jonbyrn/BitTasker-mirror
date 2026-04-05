@@ -105,7 +105,30 @@
 				"claim_no_show_refund": "Reclamar reembolso por no presentación",
 				"claim_no_show_refund_confirm_title": "¿Reclamar reembolso?",
 				"claim_no_show_refund_confirm_message": "El taskee no respondió a tiempo. Puede reclamar el reembolso de este pago seguro. ¿Continuar?",
-				"claim_no_show_refund_success": "Reclamo de reembolso enviado."
+				"claim_no_show_refund_success": "Reclamo de reembolso enviado.",
+				"dispute_raised_success": "Disputa enviada. Se notificará a la otra parte cuando la transacción se confirme.",
+				"propose_resolution_success": "Propuesta de resolución enviada.",
+				"accept_proposal_success": "Propuesta aceptada.",
+				"resolve_timelock_success": "Resolución por tiempo de espera enviada.",
+				"accept_proposal_confirm_title": "¿Aceptar la resolución propuesta?",
+				"accept_proposal_confirm_message": "Esto acepta la propuesta de la otra parte y liquida la disputa en la cadena. No se puede deshacer.",
+				"resolve_timelock_confirm_title": "¿Resolver tras el tiempo de espera?",
+				"resolve_timelock_confirm_message": "Esto ejecuta la resolución on-chain tras el tiempo de espera. ¿Continuar?",
+				"propose_resolution_taskee_amount_label": "Importe para el taskee (RBTC)",
+				"propose_resolution_taskee_amount_placeholder": "0,0",
+				"propose_resolution_amount_invalid": "Introduce un importe RBTC válido.",
+				"propose_resolution_split_pool_label": "Importe a repartir",
+				"propose_resolution_split_pool_too_small": "El saldo del depósito es demasiado pequeño para reservar gas en ambos pasos. No puedes proponer un reparto ahora.",
+				"propose_resolution_split_hint": "Mueve el control para cambiar cómo se reparte el importe.",
+				"propose_resolution_slider_taskee_percent": "Parte del taskee del importe a repartir, en porcentaje",
+				"propose_resolution_load_error": "No se pudo leer el importe del contrato. Actualiza e inténtalo de nuevo.",
+				"propose_resolution_label_you": "Tú",
+				"propose_resolution_counterparty_taskee": "Taskee",
+				"propose_resolution_counterparty_tasker": "Tasker",
+				"propose_resolution_label_tasker": "Tasker",
+				"propose_resolution_label_taskee": "Taskee",
+				"propose_resolution_slider_label": "Parte del taskee del importe a repartir (porcentaje)",
+				"propose_resolution_taskee_positive_required": "En este estado de disputa, la parte del taskee debe ser mayor que cero."
 			}
 		}
 	}

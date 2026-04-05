@@ -1,23 +1,35 @@
+import { ethers } from 'ethers';
 import { ndk } from '$lib/nostr/ndk';
 import { createDebug } from '$lib/utils/debug';
+import { getProvider } from '$lib/utils/contract';
 import { publishTaskCompletedForEscrow } from '$lib/utils/contract/v2/creation';
 import {
+	acceptProposal,
 	acceptTask,
 	cancelPaymentContract,
 	claimNoShowRefund,
 	completeTask,
+	disputeTask,
 	markNoShow,
 	markWorkInProgress,
-	refundTasker
+	proposeResolution,
+	refundTasker,
+	resolveAfterTimelock
 } from '$lib/utils/contract/v2/blockchainWrites';
+import { buildDisputeProjectionForPayment } from '$lib/utils/contract/v2/disputeProjectionFromStatus';
 import { loadPaymentContractDetailsV2 } from '$lib/utils/contract/v2/loadPaymentContractDetailsV2';
 import {
 	computePermittedActions,
 	emptyPermittedActions,
 	type PermittedActions
 } from '$lib/utils/contract/v2/permittedActions';
+import { GAS_REIMBURSEMENT_PER_OP } from '$lib/utils/contract/v2/types';
 import type { Attachment } from '$lib/types/task';
-import { ContractStatus, type ContractChain } from '$lib/utils/contract/types';
+import {
+	ContractStatus,
+	type ContractChain,
+	type SecurePaymentLegacy
+} from '$lib/utils/contract/types';
 import {
 	getRuneWriteIds,
 	notifyContractCounterparty,
@@ -50,11 +62,20 @@ export async function loadPaymentContractDetailsV2ForRune(
 export function computePermittedActionsV2(rune: PaymentContractRuneLike): PermittedActions {
 	const payment = rune.blockchainData;
 	if (!payment) return emptyPermittedActions();
+	const disputeProjection = buildDisputeProjectionForPayment(
+		{
+			taskerPubkey: rune.taskerPubkey,
+			taskeePubkey: rune.contract.taskeePubkey,
+			statusEventsByNewest: rune.statusEventsByNewest
+		},
+		payment.state
+	);
 	return computePermittedActions({
 		payment,
 		isTasker: rune.isTasker,
 		now: permissionsNowSeconds(),
-		awaitingTx: rune.isPending
+		awaitingTx: rune.isPending,
+		disputeProjection
 	});
 }
 
@@ -69,7 +90,8 @@ async function broadcastThenParallelV2Effects(
 	writeMethod: string,
 	push: { title: string; body: string; type: string },
 	extraBetweenStatusAndPush?: ReadonlyArray<{ name: string; run: () => Promise<unknown> }>,
-	completionAttachments?: Attachment[]
+	completionAttachments?: Attachment[],
+	proposedAmounts?: { proposedTaskeeAmount?: string; proposedTaskerAmount?: string }
 ): Promise<void> {
 	const tasks: { name: string; run: () => Promise<unknown> }[] = [
 		{
@@ -82,7 +104,9 @@ async function broadcastThenParallelV2Effects(
 					transactionHash,
 					chainStatus,
 					writeMethod,
-					completionAttachments
+					completionAttachments,
+					proposedTaskeeAmount: proposedAmounts?.proposedTaskeeAmount,
+					proposedTaskerAmount: proposedAmounts?.proposedTaskerAmount
 				})
 		}
 	];
@@ -166,7 +190,8 @@ export async function markTaskCompleteV2(
 			type: 'contract_task_completed'
 		},
 		undefined,
-		completionAttachments
+		completionAttachments,
+		undefined
 	);
 
 	return { ok: true, transactionHash };
@@ -583,6 +608,352 @@ export async function claimNoShowRefundV2(
 	return { ok: true, transactionHash };
 }
 
+function expectedChainStatusAfterDisputeTask(payment: SecurePaymentLegacy): ContractStatus {
+	return payment.state === ContractStatus.WorkInProgress
+		? ContractStatus.InDisputeWithTimelock
+		: ContractStatus.InDispute;
+}
+
+/**
+ * Tasker raises dispute: `disputeTask` → 31006 + push to taskee.
+ */
+export async function disputeTaskV2(
+	rune: PaymentContractRuneLike
+): Promise<ContractLifecycleResult> {
+	const ids = getRuneWriteIds(rune);
+	const taskeePk = rune.contract.taskeePubkey;
+	if (!ids || !taskeePk) {
+		d.warn('disputeTaskV2: missing paymentId, contract address, parent id, or taskee pubkey');
+		return { ok: false };
+	}
+
+	if (!rune.isTasker) {
+		d.warn('disputeTaskV2: only tasker may dispute');
+		return { ok: false };
+	}
+
+	if (!ndk.activeUser?.pubkey) {
+		d.warn('disputeTaskV2: not signed in with Nostr');
+		return { ok: false };
+	}
+
+	const preflightErr = await runV2Preflight(rune, ids, {
+		isAllowed: (p) => p.canDisputeTask,
+		logLabel: 'disputeTaskV2'
+	});
+	if (preflightErr) return preflightErr;
+
+	let paymentBefore: SecurePaymentLegacy;
+	try {
+		paymentBefore = await loadPaymentContractDetailsV2(ids.paymentId, ids.contractAddress, 'rsk');
+	} catch (e) {
+		d.error('disputeTaskV2: load payment failed', e);
+		return { ok: false };
+	}
+
+	const nextStatus = expectedChainStatusAfterDisputeTask(paymentBefore);
+
+	let transactionHash: string;
+	try {
+		const { tx } = await disputeTask(ids.paymentId, {
+			contractAddress: ids.contractAddress,
+			chain: 'rsk'
+		});
+		transactionHash = tx.hash;
+	} catch (e) {
+		d.error('disputeTaskV2: disputeTask failed', e);
+		return { ok: false };
+	}
+
+	const signer = ndk.activeUser;
+	if (!signer) {
+		d.warn('disputeTaskV2: signer missing after broadcast');
+		return { ok: false };
+	}
+
+	await broadcastThenParallelV2Effects(
+		'disputeTaskV2',
+		ids,
+		signer,
+		transactionHash,
+		taskeePk,
+		nextStatus,
+		'disputeTask',
+		{
+			title: 'Dispute raised',
+			body: `"${rune.taskTitle}" — a dispute was raised. Open Contracts to review.`,
+			type: 'contract_dispute_raised'
+		},
+		undefined,
+		undefined,
+		undefined
+	);
+
+	return { ok: true, transactionHash };
+}
+
+/**
+ * Either party proposes resolution (`taskeeAmount` wei). 31006 carries proposed amounts + push to counterparty.
+ */
+export async function proposeResolutionV2(
+	rune: PaymentContractRuneLike,
+	taskeeAmountWei: bigint
+): Promise<ContractLifecycleResult> {
+	const ids = getRuneWriteIds(rune);
+	const taskerPk = rune.taskerPubkey;
+	const taskeePk = rune.contract.taskeePubkey;
+	if (!ids || !taskerPk || !taskeePk) {
+		d.warn('proposeResolutionV2: missing ids or party pubkeys');
+		return { ok: false };
+	}
+
+	if (!ndk.activeUser?.pubkey) {
+		d.warn('proposeResolutionV2: not signed in with Nostr');
+		return { ok: false };
+	}
+
+	const preflightErr = await runV2Preflight(rune, ids, {
+		isAllowed: (p) => p.canProposeResolution,
+		logLabel: 'proposeResolutionV2'
+	});
+	if (preflightErr) return preflightErr;
+
+	let paymentBefore: SecurePaymentLegacy;
+	try {
+		paymentBefore = await loadPaymentContractDetailsV2(ids.paymentId, ids.contractAddress, 'rsk');
+	} catch (e) {
+		d.error('proposeResolutionV2: load payment failed', e);
+		return { ok: false };
+	}
+
+	if (paymentBefore.state === ContractStatus.InDispute && taskeeAmountWei <= 0n) {
+		d.warn('proposeResolutionV2: taskee amount must be positive in InDispute');
+		return { ok: false };
+	}
+
+	let baseWei: bigint;
+	try {
+		baseWei = ethers.parseEther(paymentBefore.amount);
+	} catch {
+		d.warn('proposeResolutionV2: invalid payment amount');
+		return { ok: false };
+	}
+	if (taskeeAmountWei > baseWei) {
+		d.warn('proposeResolutionV2: taskee amount exceeds base');
+		return { ok: false };
+	}
+
+	const twoGaslessOps = 2n * GAS_REIMBURSEMENT_PER_OP;
+	const proposedTaskerWei = baseWei - twoGaslessOps - taskeeAmountWei;
+	if (proposedTaskerWei < 0n) {
+		d.warn('proposeResolutionV2: taskee amount leaves no room for gas reserve + tasker share');
+		return { ok: false };
+	}
+
+	let transactionHash: string;
+	try {
+		const { tx } = await proposeResolution(ids.paymentId, taskeeAmountWei, {
+			contractAddress: ids.contractAddress,
+			chain: 'rsk'
+		});
+		transactionHash = tx.hash;
+	} catch (e) {
+		d.error('proposeResolutionV2: proposeResolution failed', e);
+		return { ok: false };
+	}
+
+	const signer = ndk.activeUser;
+	if (!signer) {
+		d.warn('proposeResolutionV2: signer missing after broadcast');
+		return { ok: false };
+	}
+
+	const recipientPubkey = rune.isTasker ? taskeePk : taskerPk;
+
+	const chainStatus = paymentBefore.state as ContractStatus;
+
+	const proposedTaskeeAmount = ethers.formatEther(taskeeAmountWei);
+	const proposedTaskerAmount = ethers.formatEther(proposedTaskerWei);
+
+	await broadcastThenParallelV2Effects(
+		'proposeResolutionV2',
+		ids,
+		signer,
+		transactionHash,
+		recipientPubkey,
+		chainStatus,
+		'proposeResolution',
+		{
+			title: 'Resolution proposed',
+			body: `"${rune.taskTitle}" — a resolution was proposed. Open Contracts to review.`,
+			type: 'contract_resolution_proposed'
+		},
+		undefined,
+		undefined,
+		{ proposedTaskeeAmount, proposedTaskerAmount }
+	);
+
+	return { ok: true, transactionHash };
+}
+
+/**
+ * Non-proposer accepts the latest proposal → `DisputeResolved` + 31006 + push.
+ */
+export async function acceptProposalV2(
+	rune: PaymentContractRuneLike
+): Promise<ContractLifecycleResult> {
+	const ids = getRuneWriteIds(rune);
+	const taskerPk = rune.taskerPubkey;
+	const taskeePk = rune.contract.taskeePubkey;
+	if (!ids || !taskerPk || !taskeePk) {
+		d.warn('acceptProposalV2: missing ids or party pubkeys');
+		return { ok: false };
+	}
+
+	if (!ndk.activeUser?.pubkey) {
+		d.warn('acceptProposalV2: not signed in with Nostr');
+		return { ok: false };
+	}
+
+	const preflightErr = await runV2Preflight(rune, ids, {
+		isAllowed: (p) => p.canAcceptProposal,
+		logLabel: 'acceptProposalV2'
+	});
+	if (preflightErr) return preflightErr;
+
+	let transactionHash: string;
+	try {
+		const { tx } = await acceptProposal(ids.paymentId, {
+			contractAddress: ids.contractAddress,
+			chain: 'rsk'
+		});
+		transactionHash = tx.hash;
+	} catch (e) {
+		d.error('acceptProposalV2: acceptProposal failed', e);
+		return { ok: false };
+	}
+
+	const signer = ndk.activeUser;
+	if (!signer) {
+		d.warn('acceptProposalV2: signer missing after broadcast');
+		return { ok: false };
+	}
+
+	const recipientPubkey = rune.isTasker ? taskeePk : taskerPk;
+
+	await broadcastThenParallelV2Effects(
+		'acceptProposalV2',
+		ids,
+		signer,
+		transactionHash,
+		recipientPubkey,
+		ContractStatus.DisputeResolved,
+		'acceptProposal',
+		{
+			title: 'Dispute resolved',
+			body: `"${rune.taskTitle}" — the proposed resolution was accepted. Open Contracts to review.`,
+			type: 'contract_dispute_resolved'
+		},
+		undefined,
+		undefined,
+		undefined
+	);
+
+	return { ok: true, transactionHash };
+}
+
+/**
+ * `resolveAfterTimelock` after completion or dispute timelock; 31006 uses on-chain outcome + push to counterparty.
+ */
+export async function resolveAfterTimelockV2(
+	rune: PaymentContractRuneLike
+): Promise<ContractLifecycleResult> {
+	const ids = getRuneWriteIds(rune);
+	const taskerPk = rune.taskerPubkey;
+	const taskeePk = rune.contract.taskeePubkey;
+	if (!ids || !taskerPk || !taskeePk) {
+		d.warn('resolveAfterTimelockV2: missing ids or party pubkeys');
+		return { ok: false };
+	}
+
+	if (!ndk.activeUser?.pubkey) {
+		d.warn('resolveAfterTimelockV2: not signed in with Nostr');
+		return { ok: false };
+	}
+
+	const preflightErr = await runV2Preflight(rune, ids, {
+		isAllowed: (p) => p.canResolveAfterTimelock,
+		logLabel: 'resolveAfterTimelockV2'
+	});
+	if (preflightErr) return preflightErr;
+
+	let paymentBefore: SecurePaymentLegacy;
+	try {
+		paymentBefore = await loadPaymentContractDetailsV2(ids.paymentId, ids.contractAddress, 'rsk');
+	} catch (e) {
+		d.error('resolveAfterTimelockV2: load payment failed', e);
+		return { ok: false };
+	}
+
+	const disputeBranch =
+		paymentBefore.state === ContractStatus.InDispute ||
+		paymentBefore.state === ContractStatus.InDisputeWithTimelock;
+	if (disputeBranch && !rune.isTasker) {
+		d.warn('resolveAfterTimelockV2: only tasker may resolve dispute timelock');
+		return { ok: false };
+	}
+
+	let transactionHash: string;
+	try {
+		const { tx } = await resolveAfterTimelock(ids.paymentId, {
+			contractAddress: ids.contractAddress,
+			chain: 'rsk'
+		});
+		transactionHash = tx.hash;
+	} catch (e) {
+		d.error('resolveAfterTimelockV2: resolveAfterTimelock failed', e);
+		return { ok: false };
+	}
+
+	const signer = ndk.activeUser;
+	if (!signer) {
+		d.warn('resolveAfterTimelockV2: signer missing after broadcast');
+		return { ok: false };
+	}
+
+	const recipientPubkey = rune.isTasker ? taskeePk : taskerPk;
+
+	const provider = await getProvider('rsk');
+	await provider.waitForTransaction(transactionHash);
+	let chainStatus: ContractStatus;
+	try {
+		const fresh = await loadPaymentContractDetailsV2(ids.paymentId, ids.contractAddress, 'rsk');
+		chainStatus = fresh.state as ContractStatus;
+	} catch {
+		chainStatus = ContractStatus.DisputeResolved;
+	}
+
+	await broadcastThenParallelV2Effects(
+		'resolveAfterTimelockV2',
+		ids,
+		signer,
+		transactionHash,
+		recipientPubkey,
+		chainStatus,
+		'resolveAfterTimelock',
+		{
+			title: 'Timelock resolution',
+			body: `"${rune.taskTitle}" — the contract was resolved after the timelock. Open Contracts to review.`,
+			type: 'contract_timelock_resolved'
+		},
+		undefined,
+		undefined,
+		undefined
+	);
+
+	return { ok: true, transactionHash };
+}
+
 export const v2Lifecycle: PaymentContractLifecycle = {
 	loadPaymentContractDetails: loadPaymentContractDetailsV2ForRune,
 	computePermittedActions: computePermittedActionsV2,
@@ -593,5 +964,9 @@ export const v2Lifecycle: PaymentContractLifecycle = {
 	markNoShow: markNoShowV2,
 	markWorkInProgress: markWorkInProgressV2,
 	claimNoShowRefund: claimNoShowRefundV2,
+	disputeTask: disputeTaskV2,
+	proposeResolution: proposeResolutionV2,
+	acceptProposal: acceptProposalV2,
+	resolveAfterTimelock: resolveAfterTimelockV2,
 	shouldAwaitStatusTransaction: true
 };

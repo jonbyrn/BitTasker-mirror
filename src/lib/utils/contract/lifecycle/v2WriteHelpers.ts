@@ -11,6 +11,7 @@ import { ndk } from '$lib/nostr/ndk';
 import { createDebug } from '$lib/utils/debug';
 import { runParallelNamed } from '$lib/utils/contract/parallelEffects';
 import { loadPaymentContractDetailsV2 } from '$lib/utils/contract/v2/loadPaymentContractDetailsV2';
+import { buildDisputeProjectionForPayment } from '$lib/utils/contract/v2/disputeProjectionFromStatus';
 import {
 	computePermittedActions,
 	type PermittedActions
@@ -56,11 +57,20 @@ export async function runV2Preflight(
 ): Promise<ContractLifecycleResult | undefined> {
 	try {
 		const payment = await loadPaymentContractDetailsV2(ids.paymentId, ids.contractAddress, 'rsk');
+		const disputeProjection = buildDisputeProjectionForPayment(
+			{
+				taskerPubkey: rune.taskerPubkey,
+				taskeePubkey: rune.contract.taskeePubkey,
+				statusEventsByNewest: rune.statusEventsByNewest
+			},
+			payment.state
+		);
 		const perms = computePermittedActions({
 			payment,
 			isTasker: rune.isTasker,
 			now: permissionsNowSeconds(),
-			awaitingTx: false
+			awaitingTx: false,
+			disputeProjection
 		});
 		if (!opts.isAllowed(perms)) {
 			d.warn(`${opts.logLabel}: preflight denied (fresh chain + permissions)`);
@@ -82,6 +92,9 @@ export async function publishV2ContractStatus(params: {
 	writeMethod: string;
 	/** Encrypted tag on 31006 when non-empty (e.g. taskee completion evidence). */
 	completionAttachments?: Attachment[];
+	/** Dispute proposal amounts (ether strings), e.g. from `ethers.formatEther`. */
+	proposedTaskeeAmount?: string;
+	proposedTaskerAmount?: string;
 }): Promise<void> {
 	const status = new NDKContractStatus(ndk);
 	status.author = params.signer;
@@ -95,6 +108,12 @@ export async function publishV2ContractStatus(params: {
 	status.tags.push(['writeMethod', params.writeMethod]);
 	if (params.completionAttachments !== undefined && params.completionAttachments.length > 0) {
 		status.completionAttachments = params.completionAttachments;
+	}
+	if (params.proposedTaskeeAmount !== undefined) {
+		status.proposedTaskeeAmount = params.proposedTaskeeAmount;
+	}
+	if (params.proposedTaskerAmount !== undefined) {
+		status.proposedTaskerAmount = params.proposedTaskerAmount;
 	}
 	await status.publish();
 }

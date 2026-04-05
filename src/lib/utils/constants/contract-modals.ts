@@ -9,7 +9,10 @@ export enum ContractModalAction {
 	Delete = 'delete',
 	MarkNoShow = 'mark_no_show',
 	MarkWorkInProgress = 'mark_work_in_progress',
-	ClaimNoShowRefund = 'claim_no_show_refund'
+	ClaimNoShowRefund = 'claim_no_show_refund',
+	AcceptProposal = 'accept_proposal',
+	ResolveAfterTimelock = 'resolve_after_timelock',
+	ProposeResolution = 'propose_resolution'
 }
 
 // Modal configuration interface
@@ -80,5 +83,20 @@ export const CONTRACT_MODAL_CONFIGS: Record<ContractModalAction, ContractModalCo
 		confirmTextKey: 'dashboard.contracts.actions.claim_no_show_refund',
 		cancelTextKey: 'dashboard.contracts.actions.cancel',
 		confirmButtonClass: 'btn-warning'
-	}
+	},
+	[ContractModalAction.AcceptProposal]: {
+		titleKey: 'dashboard.contracts.actions.accept_proposal_confirm_title',
+		messageKey: 'dashboard.contracts.actions.accept_proposal_confirm_message',
+		confirmTextKey: 'dashboard.contracts.actions.accept_proposal',
+		cancelTextKey: 'dashboard.contracts.actions.cancel',
+		confirmButtonClass: 'btn-success'
+	},
+	[ContractModalAction.ResolveAfterTimelock]: {
+		titleKey: 'dashboard.contracts.actions.resolve_timelock_confirm_title',
+		messageKey: 'dashboard.contracts.actions.resolve_timelock_confirm_message',
+		confirmTextKey: 'dashboard.contracts.actions.resolve_timelock',
+		cancelTextKey: 'dashboard.contracts.actions.cancel',
+		confirmButtonClass: 'btn-warning'
+	},
+	[ContractModalAction.ProposeResolution]: null
 };

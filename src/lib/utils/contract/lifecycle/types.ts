@@ -55,6 +55,17 @@ export type PaymentContractLifecycle = {
 	markWorkInProgress: (rune: PaymentContractRuneLike) => Promise<ContractLifecycleResult>;
 	/** Tasker claims refund after no-show window → `FundsClaimed` + 31006 + push to taskee. */
 	claimNoShowRefund: (rune: PaymentContractRuneLike) => Promise<ContractLifecycleResult>;
+	/** Tasker disputes → `InDispute` / `InDisputeWithTimelock` + 31006 + push to taskee. */
+	disputeTask: (rune: PaymentContractRuneLike) => Promise<ContractLifecycleResult>;
+	/** Propose dispute resolution (`taskeeAmount` wei). */
+	proposeResolution: (
+		rune: PaymentContractRuneLike,
+		taskeeAmountWei: bigint
+	) => Promise<ContractLifecycleResult>;
+	/** Accept counterparty proposal → `DisputeResolved` + 31006 + push. */
+	acceptProposal: (rune: PaymentContractRuneLike) => Promise<ContractLifecycleResult>;
+	/** Resolve after timelock (completed or dispute) + 31006 + push. */
+	resolveAfterTimelock: (rune: PaymentContractRuneLike) => Promise<ContractLifecycleResult>;
 	/** When true, Nostr 31006 with `transactionHash` triggers wait-for-tx + chain reload. */
 	shouldAwaitStatusTransaction: boolean;
 };

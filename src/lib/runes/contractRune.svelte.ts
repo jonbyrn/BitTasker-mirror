@@ -145,6 +145,26 @@ export class PaymentContractRune implements PaymentContractRuneLike {
 		return this.lifecycle.claimNoShowRefund(this);
 	}
 
+	/** Tasker raises a dispute (v2). */
+	disputeTask(): Promise<ContractLifecycleResult> {
+		return this.lifecycle.disputeTask(this);
+	}
+
+	/** Propose dispute resolution — `taskeeAmountWei` in contract base units (v2). */
+	proposeResolution(taskeeAmountWei: bigint): Promise<ContractLifecycleResult> {
+		return this.lifecycle.proposeResolution(this, taskeeAmountWei);
+	}
+
+	/** Accept the other party's resolution proposal (v2). */
+	acceptProposal(): Promise<ContractLifecycleResult> {
+		return this.lifecycle.acceptProposal(this);
+	}
+
+	/** Resolve after timelock (v2). */
+	resolveAfterTimelock(): Promise<ContractLifecycleResult> {
+		return this.lifecycle.resolveAfterTimelock(this);
+	}
+
 	async start() {
 		d.log('start: sync requested', { paymentId: this.paymentId, version: this.version });
 		await this.getOriginalTaskEvent();
