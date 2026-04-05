@@ -105,7 +105,30 @@
 				"claim_no_show_refund": "Claim no-show refund",
 				"claim_no_show_refund_confirm_title": "Claim refund?",
 				"claim_no_show_refund_confirm_message": "The taskee did not respond in time. You can claim the refund for this secure payment. Continue?",
-				"claim_no_show_refund_success": "Refund claim submitted."
+				"claim_no_show_refund_success": "Refund claim submitted.",
+				"dispute_raised_success": "Dispute submitted. The other party will be notified when the transaction confirms.",
+				"propose_resolution_success": "Resolution proposal submitted.",
+				"accept_proposal_success": "Proposal accepted.",
+				"resolve_timelock_success": "Timelock resolution submitted.",
+				"accept_proposal_confirm_title": "Accept proposed resolution?",
+				"accept_proposal_confirm_message": "This accepts the other party's proposal and settles the dispute on chain. This cannot be undone.",
+				"resolve_timelock_confirm_title": "Resolve after timelock?",
+				"resolve_timelock_confirm_message": "This executes the on-chain timelock resolution. Continue?",
+				"propose_resolution_taskee_amount_label": "Taskee amount (RBTC)",
+				"propose_resolution_taskee_amount_placeholder": "0.0",
+				"propose_resolution_amount_invalid": "Enter a valid RBTC amount.",
+				"propose_resolution_split_pool_label": "Amount to split",
+				"propose_resolution_split_pool_too_small": "The escrow balance is too small to reserve gas for both settlement steps. You cannot propose a split right now.",
+				"propose_resolution_split_hint": "Move the slider to change how the amount is split.",
+				"propose_resolution_slider_taskee_percent": "Taskee share of the split amount, percent",
+				"propose_resolution_load_error": "Could not read the contract amount. Refresh and try again.",
+				"propose_resolution_label_you": "You",
+				"propose_resolution_counterparty_taskee": "Taskee",
+				"propose_resolution_counterparty_tasker": "Tasker",
+				"propose_resolution_label_tasker": "Tasker",
+				"propose_resolution_label_taskee": "Taskee",
+				"propose_resolution_slider_label": "Taskee share of split pool (percent)",
+				"propose_resolution_taskee_positive_required": "In this dispute state, the taskee share must be greater than zero."
 			}
 		}
 	}

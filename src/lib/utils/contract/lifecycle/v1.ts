@@ -80,6 +80,35 @@ export async function claimNoShowRefundV1(
 	return { ok: false };
 }
 
+export async function disputeTaskV1(
+	_rune: PaymentContractRuneLike
+): Promise<ContractLifecycleResult> {
+	d.warn('disputeTaskV1: v1 lifecycle does not support this action');
+	return { ok: false };
+}
+
+export async function proposeResolutionV1(
+	_rune: PaymentContractRuneLike,
+	_taskeeAmountWei: bigint
+): Promise<ContractLifecycleResult> {
+	d.warn('proposeResolutionV1: v1 lifecycle does not support this action');
+	return { ok: false };
+}
+
+export async function acceptProposalV1(
+	_rune: PaymentContractRuneLike
+): Promise<ContractLifecycleResult> {
+	d.warn('acceptProposalV1: v1 lifecycle does not support this action');
+	return { ok: false };
+}
+
+export async function resolveAfterTimelockV1(
+	_rune: PaymentContractRuneLike
+): Promise<ContractLifecycleResult> {
+	d.warn('resolveAfterTimelockV1: v1 lifecycle does not support this action');
+	return { ok: false };
+}
+
 export const v1Lifecycle: PaymentContractLifecycle = {
 	loadPaymentContractDetails: loadPaymentContractDetailsV1,
 	computePermittedActions: computePermittedActionsV1,
@@ -90,5 +119,9 @@ export const v1Lifecycle: PaymentContractLifecycle = {
 	markNoShow: markNoShowV1,
 	markWorkInProgress: markWorkInProgressV1,
 	claimNoShowRefund: claimNoShowRefundV1,
+	disputeTask: disputeTaskV1,
+	proposeResolution: proposeResolutionV1,
+	acceptProposal: acceptProposalV1,
+	resolveAfterTimelock: resolveAfterTimelockV1,
 	shouldAwaitStatusTransaction: false
 };

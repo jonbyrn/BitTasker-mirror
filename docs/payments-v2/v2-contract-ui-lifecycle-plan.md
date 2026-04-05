@@ -337,6 +337,7 @@ Phases **A** and **B** can be reordered if you want subscription refresh before 
 ## 10. Related docs / code
 
 - **[v2-contract-modals-plan.md](./v2-contract-modals-plan.md)** — confirmation + **`TaskCompletionModalNDK`** (planned) before further lifecycle buttons.
+- **[v2-dispute-integration-path.md](./v2-dispute-integration-path.md)** — dispute flow, 31006 projection, rune, UI checklist (in progress).
 - [SECURE-PAYMENT-PARTICIPANT-ACTIONS.md](../../src/lib/utils/contract/v2/SECURE-PAYMENT-PARTICIPANT-ACTIONS.md)
 - [contract-status-nostr-events.md](./contract-status-nostr-events.md)
 - [ndk-contract-status-adaptation-plan.md](./ndk-contract-status-adaptation-plan.md)

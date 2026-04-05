@@ -3,6 +3,7 @@
 	import { t } from 'svelte-i18n';
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 	import TaskCompletionModalNDK from '$lib/components/contracts/TaskCompletionModalNDK.svelte';
+	import ProposeResolutionModalNDK from '$lib/components/contracts/ProposeResolutionModalNDK.svelte';
 	import { PaymentContractRune } from '$lib/runes/contractRune.svelte';
 	import { appStore } from '$lib/stores/app.store';
 	import type { Attachment } from '$lib/types/task';
@@ -140,6 +141,66 @@
 		}
 	}
 
+	async function runDisputeTask() {
+		if (busy) return;
+		busy = true;
+		try {
+			const res = await contractRune.disputeTask();
+			if (!res.ok) {
+				appStore.showErrorToast(get(t)('dashboard.contracts.actions.contract_action_failed'));
+				return;
+			}
+			appStore.showSuccessToast(get(t)('dashboard.contracts.actions.dispute_raised_success'));
+		} finally {
+			busy = false;
+		}
+	}
+
+	async function handleProposeResolutionSubmit(taskeeAmountWei: bigint) {
+		if (busy) return;
+		busy = true;
+		try {
+			const res = await contractRune.proposeResolution(taskeeAmountWei);
+			if (!res.ok) {
+				appStore.showErrorToast(get(t)('dashboard.contracts.actions.contract_action_failed'));
+				throw new Error('proposeResolution failed');
+			}
+			appStore.showSuccessToast(get(t)('dashboard.contracts.actions.propose_resolution_success'));
+		} finally {
+			busy = false;
+		}
+	}
+
+	async function runAcceptProposal() {
+		if (busy) return;
+		busy = true;
+		try {
+			const res = await contractRune.acceptProposal();
+			if (!res.ok) {
+				appStore.showErrorToast(get(t)('dashboard.contracts.actions.contract_action_failed'));
+				return;
+			}
+			appStore.showSuccessToast(get(t)('dashboard.contracts.actions.accept_proposal_success'));
+		} finally {
+			busy = false;
+		}
+	}
+
+	async function runResolveAfterTimelock() {
+		if (busy) return;
+		busy = true;
+		try {
+			const res = await contractRune.resolveAfterTimelock();
+			if (!res.ok) {
+				appStore.showErrorToast(get(t)('dashboard.contracts.actions.contract_action_failed'));
+				return;
+			}
+			appStore.showSuccessToast(get(t)('dashboard.contracts.actions.resolve_timelock_success'));
+		} finally {
+			busy = false;
+		}
+	}
+
 	async function handleModalConfirm() {
 		const action = activeModal;
 		closeModal();
@@ -161,6 +222,15 @@
 				break;
 			case ContractModalAction.ClaimNoShowRefund:
 				await runClaimNoShowRefund();
+				break;
+			case ContractModalAction.Dispute:
+				await runDisputeTask();
+				break;
+			case ContractModalAction.AcceptProposal:
+				await runAcceptProposal();
+				break;
+			case ContractModalAction.ResolveAfterTimelock:
+				await runResolveAfterTimelock();
 				break;
 			default:
 				d.warn('unexpected modal action', action);
@@ -260,6 +330,58 @@
 			{$t('dashboard.contracts.actions.claim_no_show_refund')}
 		</button>
 	{/if}
+	{#if contractRune.permittedActions.canDisputeTask}
+		<button
+			type="button"
+			class="btn btn-error btn-sm w-full sm:w-auto"
+			disabled={contractRune.isPending || busy}
+			onclick={() => openModal(ContractModalAction.Dispute)}
+		>
+			{#if busy || contractRune.isPending}
+				<span class="loading loading-spinner loading-xs"></span>
+			{/if}
+			{$t('dashboard.contracts.actions.dispute_work')}
+		</button>
+	{/if}
+	{#if contractRune.permittedActions.canProposeResolution}
+		<button
+			type="button"
+			class="btn btn-warning btn-outline btn-sm w-full sm:w-auto"
+			disabled={contractRune.isPending || busy}
+			onclick={() => openModal(ContractModalAction.ProposeResolution)}
+		>
+			{#if busy || contractRune.isPending}
+				<span class="loading loading-spinner loading-xs"></span>
+			{/if}
+			{$t('dashboard.contracts.actions.propose_resolution')}
+		</button>
+	{/if}
+	{#if contractRune.permittedActions.canAcceptProposal}
+		<button
+			type="button"
+			class="btn btn-success btn-outline btn-sm w-full sm:w-auto"
+			disabled={contractRune.isPending || busy}
+			onclick={() => openModal(ContractModalAction.AcceptProposal)}
+		>
+			{#if busy || contractRune.isPending}
+				<span class="loading loading-spinner loading-xs"></span>
+			{/if}
+			{$t('dashboard.contracts.actions.accept_proposal')}
+		</button>
+	{/if}
+	{#if contractRune.permittedActions.canResolveAfterTimelock}
+		<button
+			type="button"
+			class="btn btn-warning btn-sm w-full sm:w-auto"
+			disabled={contractRune.isPending || busy}
+			onclick={() => openModal(ContractModalAction.ResolveAfterTimelock)}
+		>
+			{#if busy || contractRune.isPending}
+				<span class="loading loading-spinner loading-xs"></span>
+			{/if}
+			{$t('dashboard.contracts.actions.resolve_timelock')}
+		</button>
+	{/if}
 </div>
 
 {#if activeModal === ContractModalAction.Complete}
@@ -274,7 +396,20 @@
 	</div>
 {/if}
 
-{#if activeModal !== ContractModalAction.None && activeModal !== ContractModalAction.Complete}
+{#if activeModal === ContractModalAction.ProposeResolution}
+	<div use:portal={'modals'}>
+		<ProposeResolutionModalNDK
+			{contractRune}
+			isOpen={true}
+			{btcPrice}
+			chainBusy={busy || contractRune.isPending}
+			onClose={closeModal}
+			onPropose={handleProposeResolutionSubmit}
+		/>
+	</div>
+{/if}
+
+{#if activeModal !== ContractModalAction.None && activeModal !== ContractModalAction.Complete && activeModal !== ContractModalAction.ProposeResolution}
 	{@const config = CONTRACT_MODAL_CONFIGS[activeModal]}
 	{#if config}
 		<div use:portal={'modals'}>
