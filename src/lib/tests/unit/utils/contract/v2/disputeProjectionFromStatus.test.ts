@@ -48,7 +48,7 @@ describe('disputeProjectionFromStatusEvents', () => {
 			tasker,
 			taskee,
 			[ev2, ev1],
-			ContractStatus.InDisputeWithTimelock
+			ContractStatus.InDisputeWorkInProgress
 		);
 		expect(p?.totalProposalCount).toBe(2);
 		expect(p?.lastProposerIsTasker).toBe(false);

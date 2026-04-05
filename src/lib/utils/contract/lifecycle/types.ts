@@ -55,7 +55,7 @@ export type PaymentContractLifecycle = {
 	markWorkInProgress: (rune: PaymentContractRuneLike) => Promise<ContractLifecycleResult>;
 	/** Tasker claims refund after no-show window → `FundsClaimed` + 31006 + push to taskee. */
 	claimNoShowRefund: (rune: PaymentContractRuneLike) => Promise<ContractLifecycleResult>;
-	/** Tasker disputes → `InDispute` / `InDisputeWithTimelock` + 31006 + push to taskee. */
+	/** Tasker disputes → `InDispute` / `InDisputeWorkInProgress` + 31006 + push to taskee. */
 	disputeTask: (rune: PaymentContractRuneLike) => Promise<ContractLifecycleResult>;
 	/** Propose dispute resolution (`taskeeAmount` wei). */
 	proposeResolution: (
