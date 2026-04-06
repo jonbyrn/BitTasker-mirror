@@ -45,7 +45,7 @@ vi.mock('svelte-i18n', async () => {
 	};
 });
 
-vi.mock('$lib/components/EnhancedLocationPicker.svelte', async () => {
+vi.mock('$lib/components/LocationPicker.svelte', async () => {
 	const component = await import('./__mocks__/EnhancedLocationPicker.mock.svelte');
 	return { default: component.default };
 });

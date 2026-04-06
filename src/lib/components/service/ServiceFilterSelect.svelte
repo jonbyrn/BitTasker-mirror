@@ -11,6 +11,8 @@
 		allServicesLabel = 'All Services',
 		deletedServiceLabel = 'Deleted service',
 		testId = 'service-filter-select',
+		containerClass = 'max-w-md',
+		selectClass = 'select select-bordered w-full truncate',
 		onChange = () => {}
 	} = $props<{
 		services?: Service[];
@@ -19,6 +21,8 @@
 		allServicesLabel?: string;
 		deletedServiceLabel?: string;
 		testId?: string;
+		containerClass?: string;
+		selectClass?: string;
 		onChange?: (serviceAddress: string | null) => void;
 	}>();
 
@@ -47,10 +51,10 @@
 	}
 </script>
 
-<div class="max-w-md" data-testid={testId}>
+<div class={containerClass} data-testid={testId}>
 	<label class="form-control w-full">
 		<select
-			class="select select-bordered w-full truncate"
+			class={selectClass}
 			value={selectedValue}
 			onchange={handleChange}
 			aria-label={filterLabel}

@@ -37,7 +37,7 @@ const KIND_TO_MESSAGE_TYPE: Record<number, ServiceQuoteMessageType> = {
 
 export const SERVICE_QUOTE_REQUEST_ID_RE = /^[A-Za-z0-9_-]{8,64}$/;
 export const SERVICE_PROPOSAL_ID_RE = /^[A-Za-z0-9_-]{8,64}$/;
-export const SERVICE_QUOTE_DECIMAL_RE = /^[0-9]+\.[0-9]{2}$/;
+export const SERVICE_QUOTE_DECIMAL_RE = /^[0-9]+(?:\.[0-9]{1,2})?$/;
 
 const HEX_PUBKEY_RE = /^[0-9a-f]{64}$/i;
 const EVM_ADDRESS_RE = /^0x[0-9a-f]{40}$/i;
@@ -46,6 +46,7 @@ const INTEGER_STRING_RE = /^[0-9]+$/;
 
 const STATUS_ROLE_MAP: Record<ServiceProposalStatus, 'tasker' | 'taskee'> = {
 	accepting: 'tasker',
+	contract_sync_pending: 'tasker',
 	accepted: 'tasker',
 	accept_failed: 'tasker',
 	accept_unknown: 'tasker',
@@ -67,10 +68,11 @@ const ALLOWED_STATUS_TRANSITIONS: Record<
 	Set<ServiceProposalStatus>
 > = {
 	pending: new Set(['accepting', 'accepted', 'declined', 'withdrawn']),
-	accepting: new Set(['accepted', 'accept_failed', 'accept_unknown']),
+	accepting: new Set(['contract_sync_pending', 'accepted', 'accept_failed', 'accept_unknown']),
+	contract_sync_pending: new Set(['accepted', 'accept_unknown']),
 	accept_failed: new Set(['accepting']),
 	accept_unknown: new Set(['accepting']),
-	accepted: new Set(),
+	accepted: new Set(['contract_sync_pending']),
 	declined: new Set(),
 	withdrawn: new Set()
 };
@@ -793,7 +795,7 @@ export function validateServiceProposalEvent(event: NostrEvent): ServiceProposal
 	assert(
 		SERVICE_QUOTE_DECIMAL_RE.test(content.amountUsdt),
 		'SERVICE_QUOTE_INVALID_AMOUNT',
-		'Proposal amount must be decimal(2)',
+		'Proposal amount must be numeric with up to 2 decimal places',
 		{
 			amountUsdt: content.amountUsdt
 		}
@@ -1134,11 +1136,23 @@ export function resolveProposalState(
 			.find(
 				(event) =>
 					event.content.status === 'accepting' ||
+					event.content.status === 'contract_sync_pending' ||
 					event.content.status === 'accept_failed' ||
 					event.content.status === 'accept_unknown'
 			);
 		state = transient?.content.status || 'pending';
 	}
+
+	const latestLinkedStatus = [...acceptedTransitionStatuses]
+		.reverse()
+		.find(
+			(event) =>
+				typeof event.content.escrowId === 'string' &&
+				event.content.escrowId.trim().length > 0 &&
+				(event.content.status === 'accepted' ||
+					event.content.status === 'contract_sync_pending' ||
+					event.content.status === 'accept_unknown')
+		);
 
 	return {
 		proposal,
@@ -1146,12 +1160,8 @@ export function resolveProposalState(
 		state,
 		expiresAt,
 		isExpired: now >= expiresAt,
-		linkedEscrowId:
-			winningStatus?.content.status === 'accepted' ? winningStatus.content.escrowId : undefined,
-		linkedTransactionHash:
-			winningStatus?.content.status === 'accepted'
-				? winningStatus.content.transactionHash
-				: undefined,
+		linkedEscrowId: latestLinkedStatus?.content.escrowId,
+		linkedTransactionHash: latestLinkedStatus?.content.transactionHash,
 		winningStatus
 	};
 }
@@ -1217,6 +1227,10 @@ function isReconciliationContinuationAllowed(
 		return hasMatchingAcceptanceLineage(statusEvent, latestAcceptedStatus);
 	}
 
+	if (currentState === 'accepted' && nextStatus === 'contract_sync_pending') {
+		return hasMatchingAcceptanceLineage(statusEvent, latestAcceptedStatus);
+	}
+
 	if (currentState === 'accept_unknown' && nextStatus === 'accepted') {
 		const priorAcceptedStatus = [...acceptedStatuses]
 			.reverse()
@@ -1227,6 +1241,26 @@ function isReconciliationContinuationAllowed(
 		}
 
 		return hasMatchingAcceptanceLineage(statusEvent, priorAcceptedStatus);
+	}
+
+	if (currentState === 'contract_sync_pending' && nextStatus === 'accepted') {
+		const priorAcceptedStatus = [...acceptedStatuses]
+			.reverse()
+			.find((event) => event.content.status === 'accepted');
+
+		if (!priorAcceptedStatus) {
+			return Boolean(statusEvent.content.escrowId);
+		}
+
+		return hasMatchingAcceptanceLineage(statusEvent, priorAcceptedStatus);
+	}
+
+	if (currentState === 'contract_sync_pending' && nextStatus === 'accept_unknown') {
+		const priorAcceptedStatus = [...acceptedStatuses]
+			.reverse()
+			.find((event) => event.content.status === 'accepted');
+
+		return hasMatchingAcceptanceLineage(statusEvent, priorAcceptedStatus ?? latestAcceptedStatus);
 	}
 
 	return false;

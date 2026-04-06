@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/svelte';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import ContractDrawer from '$lib/components/contracts/ContractDrawer.svelte';
 import { EscrowStatus } from '$lib/utils/escrow';
 
@@ -128,7 +128,15 @@ vi.mock('$lib/utils/helpers/contractStatusFormatter', () => ({
 	getStatusTranslationKey: vi.fn(() => 'dashboard.contracts.status.funded')
 }));
 
-function buildServiceContract() {
+function buildServiceContract(
+	overrides: Partial<{
+		purchaseMode: string;
+		description: string;
+		selectedTierId: string;
+		selectedTierLabel: string;
+		serviceLocationLabel: string;
+	}> = {}
+) {
 	return {
 		escrowData: {
 			id: 'svc-escrow_123',
@@ -158,25 +166,27 @@ function buildServiceContract() {
 				escrowId: 'svc-escrow_123',
 				contextType: 'service',
 				contextTitle: 'Premium Logo Package',
-				contextDescription: 'Logo system and brand guide',
+				contextDescription: overrides.description ?? 'Logo system and brand guide',
 				taskTitle: 'Premium Logo Package',
-				taskDescription: 'Logo system and brand guide',
+				taskDescription: overrides.description ?? 'Logo system and brand guide',
 				serviceId: 'premium-logo-package',
 				amount: '0.01',
-				purchaseMode: 'instant_buy',
+				purchaseMode: overrides.purchaseMode ?? 'instant_buy',
 				quoteRequestId: 'qr_valid123',
 				proposalId: 'proposal_valid123',
-				selectedTierId: '26226ebd-121c-493a-af08-4f8b8e59306d',
+				selectedTierId: overrides.selectedTierId ?? '26226ebd-121c-493a-af08-4f8b8e59306d',
 				estimatedStartTime: 1_700_086_400,
 				estimatedCompletionTime: 1_700_345_600,
 				agreementSnapshot: {
-					selectedTierLabel: 'Premium',
+					selectedTierLabel: overrides.selectedTierLabel ?? 'Premium',
 					serviceLocation: {
 						mode: 'taskee_location',
-						label: '123 Main St, San Salvador, El Salvador',
+						label: overrides.serviceLocationLabel ?? '123 Main St, San Salvador, El Salvador',
 						location: {
-							displayName: '123 Main St, San Salvador, El Salvador',
-							formattedAddress: '123 Main St, San Salvador, El Salvador',
+							displayName:
+								overrides.serviceLocationLabel ?? '123 Main St, San Salvador, El Salvador',
+							formattedAddress:
+								overrides.serviceLocationLabel ?? '123 Main St, San Salvador, El Salvador',
 							latitude: 13.6929,
 							longitude: -89.2182,
 							locationLoaded: true
@@ -199,14 +209,40 @@ function buildServiceContract() {
 }
 
 describe('ContractDrawer service context', () => {
+	const originalRequestAnimationFrame = window.requestAnimationFrame;
+	const scrollHeightDescriptor = Object.getOwnPropertyDescriptor(
+		HTMLElement.prototype,
+		'scrollHeight'
+	);
+	const offsetWidthDescriptor = Object.getOwnPropertyDescriptor(
+		HTMLElement.prototype,
+		'offsetWidth'
+	);
+
 	beforeEach(() => {
 		vi.clearAllMocks();
+		window.requestAnimationFrame = ((callback: FrameRequestCallback) => {
+			callback(0);
+			return 0;
+		}) as typeof window.requestAnimationFrame;
 		contractStoreState.set({
 			contract: buildServiceContract(),
 			contracts: [],
 			isDrawerOpen: true,
 			isResolutionFormOpen: false
 		});
+	});
+
+	afterEach(() => {
+		window.requestAnimationFrame = originalRequestAnimationFrame;
+
+		if (scrollHeightDescriptor) {
+			Object.defineProperty(HTMLElement.prototype, 'scrollHeight', scrollHeightDescriptor);
+		}
+
+		if (offsetWidthDescriptor) {
+			Object.defineProperty(HTMLElement.prototype, 'offsetWidth', offsetWidthDescriptor);
+		}
 	});
 
 	it('renders service agreement details and service-aware actions from the shared drawer', async () => {
@@ -248,5 +284,70 @@ describe('ContractDrawer service context', () => {
 
 		expect(screen.getByTestId('service-contract-start-datetime')).toHaveTextContent('Start Date');
 		expect(screen.getByTestId('service-contract-end-datetime')).toHaveTextContent('End Date');
+	});
+
+	it('truncates long instant-buy service descriptions in the drawer and expands them on demand', async () => {
+		Object.defineProperty(HTMLElement.prototype, 'scrollHeight', {
+			configurable: true,
+			get() {
+				if (this instanceof HTMLElement && this.dataset.testid === 'service-contract-description') {
+					return 120;
+				}
+
+				return scrollHeightDescriptor?.get?.call(this) ?? 0;
+			}
+		});
+
+		Object.defineProperty(HTMLElement.prototype, 'offsetWidth', {
+			configurable: true,
+			get() {
+				if (this instanceof HTMLElement && this.dataset.testid === 'service-contract-description') {
+					return 320;
+				}
+
+				return offsetWidthDescriptor?.get?.call(this) ?? 320;
+			}
+		});
+
+		contractStoreState.set({
+			contract: buildServiceContract({
+				description:
+					'This package includes discovery, concept rounds, design system documentation, export-ready files, presentation mockups, revision planning, and a detailed handoff for your marketing and product teams.'
+			}),
+			contracts: [],
+			isDrawerOpen: true,
+			isResolutionFormOpen: false
+		});
+
+		render(ContractDrawer, {
+			btcPrice: 100000
+		});
+
+		const description = await waitFor(() => screen.getByTestId('service-contract-description'));
+		const toggle = await waitFor(() => screen.getByRole('button', { name: 'See More' }));
+
+		expect(description.className).toContain('line-clamp-3');
+		await fireEvent.click(toggle);
+		expect(description.className).not.toContain('line-clamp-3');
+		expect(screen.getByRole('button', { name: 'See Less' })).toBeInTheDocument();
+	});
+
+	it('does not render the technical service agreement accordion for quote-based service contracts', () => {
+		contractStoreState.set({
+			contract: buildServiceContract({
+				purchaseMode: 'quote'
+			}),
+			contracts: [],
+			isDrawerOpen: true,
+			isResolutionFormOpen: false
+		});
+
+		render(ContractDrawer, {
+			btcPrice: 100000
+		});
+
+		expect(screen.queryByRole('button', { name: 'Service agreement' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'dashboard.contracts.bid_details' })).toBeNull();
+		expect(screen.queryByTestId('service-agreement-summary')).toBeNull();
 	});
 });

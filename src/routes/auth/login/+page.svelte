@@ -8,7 +8,6 @@
 		createUserDeviceShortName,
 		getDeviceIdentifier
 	} from '$lib/utils/helpers/deviceIdentity';
-	import { validateNostrPrivateKey } from '$lib/utils/helpers/validators';
 	import {
 		deriveKeyFromPassword,
 		deriveWalletFromNostr,
@@ -33,9 +32,9 @@
 	import { Buffer } from 'buffer';
 	import { bytesToHex } from '@noble/hashes/utils';
 	import { decodeNsec } from '$lib/utils/nostr';
+	import { appStore } from '$lib/stores/app.store';
 	import authService from '$lib/api/services/auth.service';
 	import QrCodeScanner from '$lib/components/QrCodeScanner.svelte';
-	import LoginQrCodeScannerModal from '$lib/components/LoginQrCodeScannerModal.svelte';
 	import ErrorAlertWithModal from '$lib/components/ErrorAlertWithModal.svelte';
 	import Logo from '$lib/components/Logo.svelte';
 	import migratePasskey, {
@@ -43,6 +42,7 @@
 		resetMigration
 	} from '$lib/utils/helpers/migratePasskey';
 	import MigratePasskey from '$lib/components/MigratePasskey.svelte';
+	import WebQrCodeScanner from '$lib/components/WebQrCodeScanner.svelte';
 
 	// Polyfill Buffer
 	if (typeof window !== 'undefined') {
@@ -58,36 +58,6 @@
 	let isNativePlatform = $state(false);
 	let isPasskeyError = $state(false);
 	let lastAction = $state<'authenticate' | 'nsecLogin' | null>(null);
-	let qrScannerModal: LoginQrCodeScannerModal | null = $state(null);
-	let isQrScannerError = $state(false);
-
-	function describeNostrEventPayload(payload: {
-		kind: number;
-		created_at: number;
-		content: unknown;
-		tags: unknown;
-	}) {
-		return {
-			kindType: typeof payload.kind,
-			createdAtType: typeof payload.created_at,
-			contentType: typeof payload.content,
-			contentPreview:
-				typeof payload.content === 'string' ? payload.content.slice(0, 120) : payload.content,
-			tagsAreArray: Array.isArray(payload.tags),
-			tags: Array.isArray(payload.tags)
-				? payload.tags.map((tag, index) => ({
-						index,
-						isArray: Array.isArray(tag),
-						values: Array.isArray(tag)
-							? tag.map((value) => ({
-									type: typeof value,
-									valuePreview: typeof value === 'string' ? value.slice(0, 120) : value
-								}))
-							: tag
-					}))
-				: payload.tags
-		};
-	}
 
 	onMount(async () => {
 		try {
@@ -188,6 +158,12 @@
 				credentialId
 			};
 
+			// If the account was pending deletion and the user just logged in,
+			// the backend automatically cancels the deletion. Show a welcome-back toast.
+			if (response.accountRestored) {
+				appStore.showSuccessToast($t('login.account_restored_message'));
+			}
+
 			await authState.setupAuthData(
 				response.access_token,
 				'passkey',
@@ -246,16 +222,6 @@
 			if (typeof Buffer === 'undefined') {
 				throw new Error('Buffer is not defined');
 			}
-
-			const challengeResponse = await authService.getChallenge();
-			const { challenge } = challengeResponse;
-			console.log('[NSEC login] Challenge response received', {
-				hasChallenge: Object.hasOwn(challengeResponse, 'challenge'),
-				challengeType: typeof challenge,
-				challengePreview: typeof challenge === 'string' ? challenge.slice(0, 120) : challenge,
-				messageType: typeof challengeResponse.message
-			});
-
 			// decode nsec includes validation of nsec
 			const privateKey = decodeNsec(nsec);
 			const npub = getPublicKey(privateKey);
@@ -264,30 +230,20 @@
 				error = 'Invalid nostr keys';
 				return;
 			}
+			const { challenge } = await authService.getChallenge();
 
-			const initialEventPayload = {
-				kind: 22242,
-				created_at: Math.floor(Date.now() / 1000),
-				content: challenge,
-				tags: [
-					['relay', window.location.origin],
-					['challenge', challenge]
-				]
-			};
-			console.log(
-				'[NSEC login] Preparing initial finalizeEvent payload',
-				describeNostrEventPayload(initialEventPayload)
+			const signedEvent = finalizeEvent(
+				{
+					kind: 22242,
+					created_at: Math.floor(Date.now() / 1000),
+					content: challenge,
+					tags: [
+						['relay', window.location.origin],
+						['challenge', challenge]
+					]
+				},
+				privateKey
 			);
-			let signedEvent;
-			try {
-				signedEvent = finalizeEvent(initialEventPayload, privateKey);
-			} catch (error) {
-				console.error(
-					'[NSEC login] Initial finalizeEvent failed',
-					describeNostrEventPayload(initialEventPayload)
-				);
-				throw error;
-			}
 
 			const deviceId = await getDeviceIdentifier();
 			const deviceName = await createUserDeviceShortName(npub);
@@ -374,20 +330,6 @@
 					});
 				}
 			}
-			console.log('[NSEC login] Credential data prepared', {
-				isTestEnvironment,
-				isBiometricsAvailable,
-				credentialIdPresent: credentialData.credentialId.length > 0,
-				passkeyPubkeyPresent: credentialData.passkeyPubkey.length > 0,
-				clientDataJSONPresent: credentialData.clientDataJSON.length > 0,
-				attestationObjectPresent: credentialData.attestationObject.length > 0,
-				challengeType: typeof credentialData.challenge,
-				challengePreview:
-					typeof credentialData.challenge === 'string'
-						? credentialData.challenge.slice(0, 120)
-						: credentialData.challenge
-			});
-
 			// sign a new event with the new challenge
 			const loginEventPayload = {
 				kind: 22242,
@@ -398,20 +340,7 @@
 					['challenge', credentialData.challenge]
 				]
 			};
-			console.log(
-				'[NSEC login] Preparing login finalizeEvent payload',
-				describeNostrEventPayload(loginEventPayload)
-			);
-			let newSignedEvent;
-			try {
-				newSignedEvent = finalizeEvent(loginEventPayload, privateKey);
-			} catch (error) {
-				console.error(
-					'[NSEC login] Login finalizeEvent failed',
-					describeNostrEventPayload(loginEventPayload)
-				);
-				throw error;
-			}
+			const newSignedEvent = finalizeEvent(loginEventPayload, privateKey);
 
 			// Login with nostr, register user if it does not exist
 			const res = await authService.nostrLogin({
@@ -475,6 +404,11 @@
 				authState
 					.setupAuthData(res.access_token, 'passkey', npub, res.user, biometricData, false)
 					.then(async () => {
+						// If the account was pending deletion and the user just logged in,
+						// the backend automatically cancels the deletion. Show a welcome-back toast.
+						if (res.accountRestored) {
+							appStore.showSuccessToast($t('login.account_restored_message'));
+						}
 						if (res.isNewUser) await goto('/auth/onboarding');
 						else await goto('/dashboard');
 						if ($passkeyMigration.isOpen) {
@@ -503,52 +437,9 @@
 		}
 	}
 
-	function handleLoginWithQrCode(barcode: Barcode) {
-		nsec = barcode.displayValue;
+	function handleLoginWithQrCode(barcode: Barcode | string) {
+		nsec = typeof barcode === 'string' ? barcode : barcode.displayValue;
 		handleNsecLogin();
-	}
-
-	function handleQrCodeScan(scannedText: string) {
-		// Clear any previous errors
-		error = '';
-		isPasskeyError = false;
-		isQrScannerError = false;
-
-		// Trim whitespace from scanned text (extra safety check)
-		const trimmedText = scannedText.trim();
-
-		// Validate that the scanned text is an nsec
-		const validation = validateNostrPrivateKey(trimmedText);
-		if (!validation.isValid) {
-			console.error('[Login] QR code validation failed:', validation.error);
-			console.error('[Login] Scanned text details:', {
-				original: scannedText,
-				trimmed: trimmedText,
-				length: trimmedText.length,
-				startsWithNsec: trimmedText.startsWith('nsec1'),
-				firstChars: trimmedText.substring(0, 10)
-			});
-			error =
-				validation.error ||
-				'Invalid nsec QR code. Please ensure you are scanning a valid Nostr private key (nsec1...)';
-			isQrScannerError = true;
-			return;
-		}
-
-		// Set nsec and trigger login
-		nsec = trimmedText;
-		handleNsecLogin();
-	}
-
-	function openQrScanner() {
-		// Clear any previous errors when opening scanner
-		error = '';
-		isPasskeyError = false;
-		isQrScannerError = false;
-
-		if (qrScannerModal) {
-			qrScannerModal.open();
-		}
 	}
 </script>
 
@@ -603,22 +494,50 @@
 								</button>
 							</div>
 
-							<button
-								class="btn btn-secondary btn-sm md:btn-md w-full py-5"
-								onclick={openQrScanner}
-								disabled={isLoading}
-							>
-								<svg xmlns="http://www.w3.org/2000/svg" class="size-6" viewBox="0 0 16 16">
-									<path
-										fill="none"
-										stroke="currentColor"
-										stroke-linejoin="round"
-										d="M6 2.5H2.5V6M10 2.5h3.5V6M10 13.5h3.5V10M6 13.5H2.5V10M2 8h12"
-										stroke-width="1"
-									/>
-								</svg>
-								{$t('login.login_with_qr_code')}
-							</button>
+							<!-- QR Code login - Only for mobile -->
+							{#if isNativePlatform}
+								<QrCodeScanner onScan={handleLoginWithQrCode}>
+									{#snippet scanBtn({ disabled, onStartScan })}
+										<button
+											class="btn btn-secondary btn-sm md:btn-md py-5"
+											onclick={onStartScan}
+											{disabled}
+										>
+											<svg xmlns="http://www.w3.org/2000/svg" class="size-6" viewBox="0 0 16 16">
+												<path
+													fill="none"
+													stroke="currentColor"
+													stroke-linejoin="round"
+													d="M6 2.5H2.5V6M10 2.5h3.5V6M10 13.5h3.5V10M6 13.5H2.5V10M2 8h12"
+													stroke-width="1"
+												/>
+											</svg>
+											{$t('login.login_with_qr_code')}
+										</button>
+									{/snippet}
+								</QrCodeScanner>
+							{:else}
+								<!-- mode="auto": fullscreen on mobile web, modal on desktop web -->
+								<WebQrCodeScanner
+									mode="auto"
+									onScan={(result: string) => handleLoginWithQrCode(result)}
+								>
+									{#snippet scanBtn({ onStartScan })}
+										<button class="btn btn-secondary btn-sm md:btn-md py-5" onclick={onStartScan}>
+											<svg xmlns="http://www.w3.org/2000/svg" class="size-6" viewBox="0 0 16 16">
+												<path
+													fill="none"
+													stroke="currentColor"
+													stroke-linejoin="round"
+													d="M6 2.5H2.5V6M10 2.5h3.5V6M10 13.5h3.5V10M6 13.5H2.5V10M2 8h12"
+													stroke-width="1"
+												/>
+											</svg>
+											{$t('login.login_with_qr_code')}
+										</button>
+									{/snippet}
+								</WebQrCodeScanner>
+							{/if}
 
 							<button
 								class="btn btn-secondary btn-sm md:btn-md w-full py-5"
@@ -753,53 +672,24 @@
 					{/if}
 
 					{#if error}
-						{#if isQrScannerError}
-							<!-- QR Scanner errors - simple alert, no passkey retry -->
-							<div class="alert alert-outline alert-error mt-2">
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									class="h-6 w-6 shrink-0 stroke-current"
-									fill="none"
-									viewBox="0 0 24 24"
-								>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										stroke-width="2"
-										d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-									/>
-								</svg>
-								<span>{error}</span>
-								<button
-									class="btn btn-sm btn-ghost"
-									onclick={() => {
-										error = '';
-										isQrScannerError = false;
-									}}
-								>
-									{$t('common.close')}
-								</button>
-							</div>
-						{:else}
-							<!-- Passkey/biometric errors - use ErrorAlertWithModal -->
-							<ErrorAlertWithModal
-								{error}
-								{isPasskeyError}
-								autoOpenModal={isPasskeyError}
-								onRetry={async () => {
-									// Close modal and clear error state
-									error = '';
-									isPasskeyError = false;
-									// Retry the last action that was attempted
-									if (lastAction === 'nsecLogin') {
-										await handleNsecLogin();
-									} else if (lastAction === 'authenticate') {
-										await authenticate();
-									}
-								}}
-								class="mt-2"
-							/>
-						{/if}
+						<!-- Passkey/biometric errors - use ErrorAlertWithModal -->
+						<ErrorAlertWithModal
+							{error}
+							{isPasskeyError}
+							autoOpenModal={isPasskeyError}
+							onRetry={async () => {
+								// Close modal and clear error state
+								error = '';
+								isPasskeyError = false;
+								// Retry the last action that was attempted
+								if (lastAction === 'nsecLogin') {
+									await handleNsecLogin();
+								} else if (lastAction === 'authenticate') {
+									await authenticate();
+								}
+							}}
+							class="mt-2"
+						/>
 					{/if}
 
 					<div class="divider my-1">{$t('common.or')}</div>
@@ -827,22 +717,4 @@
 			{/if}
 		</div>
 	</div>
-
-	<!-- QR Code Scanner Modal -->
-	<LoginQrCodeScannerModal
-		bind:this={qrScannerModal}
-		onScan={handleQrCodeScan}
-		onError={(err) => {
-			error = err;
-			isQrScannerError = true;
-			isPasskeyError = false;
-		}}
-		onClose={() => {
-			// Clear QR scanner errors when modal closes
-			if (isQrScannerError) {
-				error = '';
-				isQrScannerError = false;
-			}
-		}}
-	/>
 </div>

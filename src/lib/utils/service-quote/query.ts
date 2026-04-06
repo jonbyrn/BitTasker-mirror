@@ -9,6 +9,7 @@ import { queryNostrEvents } from '$lib/utils/nostr';
 import KINDS from '$lib/utils/constants/kinds';
 import { TAG_FILTERS } from '$lib/utils/constants/tags';
 import {
+	buildQuoteRequestD,
 	validateServiceProposalEvent,
 	validateServiceProposalStatusEvent,
 	validateServiceQuoteRequestEvent
@@ -18,6 +19,12 @@ import { getPublishedRelaySet } from './publish';
 
 const DEFAULT_LIMIT = 100;
 const READ_TIMEOUT_MS = 8000;
+const STATUS_QUERY_LIMIT = DEFAULT_LIMIT * 5;
+
+interface QueryCollectionResult<T> {
+	items: T[];
+	isPartial: boolean;
+}
 
 export interface TaskerServiceQuoteQueryParams {
 	taskerPubkey: string;
@@ -35,19 +42,27 @@ export interface TaskeeServiceQuoteQueryParams {
 export async function queryTaskerServiceQuoteThreads(
 	params: TaskerServiceQuoteQueryParams
 ): Promise<ServiceQuoteThread[]> {
-	const requests = await queryServiceQuoteRequestsByAuthor(params.taskerPubkey, params.limit);
+	const requestResult = await queryServiceQuoteRequestsByAuthorDetailed(
+		params.taskerPubkey,
+		params.limit
+	);
 	const filteredRequests = params.quoteRequestId
-		? requests.filter((request) => request.content.quoteRequestId === params.quoteRequestId)
-		: requests;
+		? requestResult.items.filter(
+				(request) => request.content.quoteRequestId === params.quoteRequestId
+			)
+		: requestResult.items;
 
-	const proposals = await queryServiceProposalsForTasker(params.taskerPubkey, params.limit);
-	const statuses = await queryStatusesForProposals(proposals, [
-		...new Set([params.taskerPubkey, ...proposals.map((proposal) => proposal.pubkey)])
+	const proposalResult = await queryServiceProposalsForTaskerDetailed(
+		params.taskerPubkey,
+		params.limit
+	);
+	const statuses = await queryStatusesForProposals(proposalResult.items, [
+		...new Set([params.taskerPubkey, ...proposalResult.items.map((proposal) => proposal.pubkey)])
 	]);
 
 	return resolveServiceQuoteThreads({
 		requests: filteredRequests,
-		proposals,
+		proposals: proposalResult.items,
 		statuses
 	});
 }
@@ -55,27 +70,30 @@ export async function queryTaskerServiceQuoteThreads(
 export async function queryTaskeeServiceQuoteThreads(
 	params: TaskeeServiceQuoteQueryParams
 ): Promise<ServiceQuoteThread[]> {
-	const requests = await queryServiceQuoteRequestsForService(
+	const requestResult = await queryServiceQuoteRequestsForServiceDetailed(
 		params.serviceAddress,
 		params.taskeePubkey,
-		params.limit
+		params.limit,
+		params.quoteRequestId
 	);
 	const filteredRequests = params.quoteRequestId
-		? requests.filter((request) => request.content.quoteRequestId === params.quoteRequestId)
-		: requests;
+		? requestResult.items.filter(
+				(request) => request.content.quoteRequestId === params.quoteRequestId
+			)
+		: requestResult.items;
 
-	const proposals = await queryServiceProposalsByRequestIds(
+	const proposalResult = await queryServiceProposalsByRequestIdsDetailed(
 		filteredRequests.map((request) => request.id),
 		params.limit
 	);
-	const statuses = await queryStatusesForProposals(proposals, [
+	const statuses = await queryStatusesForProposals(proposalResult.items, [
 		params.taskeePubkey,
 		...filteredRequests.map((request) => request.pubkey)
 	]);
 
 	return resolveServiceQuoteThreads({
 		requests: filteredRequests,
-		proposals,
+		proposals: proposalResult.items,
 		statuses
 	});
 }
@@ -84,6 +102,13 @@ export async function queryServiceQuoteRequestsByAuthor(
 	taskerPubkey: string,
 	limit: number = DEFAULT_LIMIT
 ): Promise<ServiceQuoteRequestEvent[]> {
+	return (await queryServiceQuoteRequestsByAuthorDetailed(taskerPubkey, limit)).items;
+}
+
+async function queryServiceQuoteRequestsByAuthorDetailed(
+	taskerPubkey: string,
+	limit: number = DEFAULT_LIMIT
+): Promise<QueryCollectionResult<ServiceQuoteRequestEvent>> {
 	const events = await queryNostrEvents(
 		{
 			kinds: [KINDS.SERVICE_QUOTE_REQUEST],
@@ -99,25 +124,47 @@ export async function queryServiceQuoteRequestsByAuthor(
 		.map(safelyValidateRequest)
 		.filter((event): event is ServiceQuoteRequestEvent => Boolean(event))
 		.sort((left, right) => right.created_at - left.created_at);
-	const deletedRequestIds = await queryDeletedEventIds(
+	const deletedRequestResult = await queryDeletedEventIdsDetailed(
 		requests.map((request) => request.id),
 		[taskerPubkey],
 		await getReadRelays(requests)
 	);
 
-	return requests.filter((request) => !deletedRequestIds.has(request.id));
+	return {
+		items: requests.filter((request) => !deletedRequestResult.items.has(request.id)),
+		isPartial: events.length >= limit || deletedRequestResult.isPartial
+	};
 }
 
 export async function queryServiceQuoteRequestsForService(
 	serviceAddress: string,
 	taskeePubkey: string,
-	limit: number = DEFAULT_LIMIT
+	limit: number = DEFAULT_LIMIT,
+	quoteRequestId?: string
 ): Promise<ServiceQuoteRequestEvent[]> {
+	return (
+		await queryServiceQuoteRequestsForServiceDetailed(
+			serviceAddress,
+			taskeePubkey,
+			limit,
+			quoteRequestId
+		)
+	).items;
+}
+
+async function queryServiceQuoteRequestsForServiceDetailed(
+	serviceAddress: string,
+	taskeePubkey: string,
+	limit: number = DEFAULT_LIMIT,
+	quoteRequestId?: string
+): Promise<QueryCollectionResult<ServiceQuoteRequestEvent>> {
+	const dTag = quoteRequestId ? buildQuoteRequestD(serviceAddress, quoteRequestId) : null;
 	const events = await queryNostrEvents(
 		{
 			kinds: [KINDS.SERVICE_QUOTE_REQUEST],
 			...TAG_FILTERS.byAddress(serviceAddress),
 			...TAG_FILTERS.byNpub(taskeePubkey),
+			...(dTag ? { '#d': [dTag] } : {}),
 			limit
 		},
 		undefined,
@@ -129,19 +176,29 @@ export async function queryServiceQuoteRequestsForService(
 		.map(safelyValidateRequest)
 		.filter((event): event is ServiceQuoteRequestEvent => Boolean(event))
 		.sort((left, right) => right.created_at - left.created_at);
-	const deletedRequestIds = await queryDeletedEventIds(
+	const deletedRequestResult = await queryDeletedEventIdsDetailed(
 		requests.map((request) => request.id),
 		[...new Set(requests.map((request) => request.pubkey))],
 		await getReadRelays(requests)
 	);
 
-	return requests.filter((request) => !deletedRequestIds.has(request.id));
+	return {
+		items: requests.filter((request) => !deletedRequestResult.items.has(request.id)),
+		isPartial: events.length >= limit || deletedRequestResult.isPartial
+	};
 }
 
 export async function queryServiceProposalsForTasker(
 	taskerPubkey: string,
 	limit: number = DEFAULT_LIMIT
 ): Promise<ServiceProposalEvent[]> {
+	return (await queryServiceProposalsForTaskerDetailed(taskerPubkey, limit)).items;
+}
+
+async function queryServiceProposalsForTaskerDetailed(
+	taskerPubkey: string,
+	limit: number = DEFAULT_LIMIT
+): Promise<QueryCollectionResult<ServiceProposalEvent>> {
 	const events = await queryNostrEvents(
 		{
 			kinds: [KINDS.SERVICE_PROPOSAL],
@@ -153,18 +210,36 @@ export async function queryServiceProposalsForTasker(
 		await getReadRelays()
 	);
 
-	return dedupeById(events)
+	const proposals = dedupeById(events)
 		.map(safelyValidateProposal)
 		.filter((event): event is ServiceProposalEvent => Boolean(event))
 		.sort((left, right) => right.created_at - left.created_at);
+
+	const deletedProposalResult = await queryDeletedEventIdsDetailed(
+		proposals.map((proposal) => proposal.id),
+		[...new Set(proposals.map((proposal) => proposal.pubkey))],
+		await getReadRelays(proposals)
+	);
+
+	return {
+		items: proposals.filter((proposal) => !deletedProposalResult.items.has(proposal.id)),
+		isPartial: events.length >= limit || deletedProposalResult.isPartial
+	};
 }
 
 export async function queryServiceProposalsByRequestIds(
 	requestEventIds: string[],
 	limit: number = DEFAULT_LIMIT
 ): Promise<ServiceProposalEvent[]> {
+	return (await queryServiceProposalsByRequestIdsDetailed(requestEventIds, limit)).items;
+}
+
+async function queryServiceProposalsByRequestIdsDetailed(
+	requestEventIds: string[],
+	limit: number = DEFAULT_LIMIT
+): Promise<QueryCollectionResult<ServiceProposalEvent>> {
 	if (requestEventIds.length === 0) {
-		return [];
+		return { items: [], isPartial: false };
 	}
 
 	const events = await queryNostrEvents(
@@ -178,25 +253,43 @@ export async function queryServiceProposalsByRequestIds(
 		await getReadRelays()
 	);
 
-	return dedupeById(events)
+	const proposals = dedupeById(events)
 		.map(safelyValidateProposal)
 		.filter((event): event is ServiceProposalEvent => Boolean(event))
 		.sort((left, right) => right.created_at - left.created_at);
+
+	const deletedProposalResult = await queryDeletedEventIdsDetailed(
+		proposals.map((proposal) => proposal.id),
+		[...new Set(proposals.map((proposal) => proposal.pubkey))],
+		await getReadRelays(proposals)
+	);
+
+	return {
+		items: proposals.filter((proposal) => !deletedProposalResult.items.has(proposal.id)),
+		isPartial: events.length >= limit || deletedProposalResult.isPartial
+	};
 }
 
 export async function queryStatusesForProposals(
 	proposals: ServiceProposalEvent[],
 	authors?: string[]
 ): Promise<ServiceProposalStatusEvent[]> {
+	return (await queryStatusesForProposalsDetailed(proposals, authors)).items;
+}
+
+async function queryStatusesForProposalsDetailed(
+	proposals: ServiceProposalEvent[],
+	authors?: string[]
+): Promise<QueryCollectionResult<ServiceProposalStatusEvent>> {
 	if (proposals.length === 0) {
-		return [];
+		return { items: [], isPartial: false };
 	}
 
 	const proposalIds = proposals.map((proposal) => proposal.id);
 	const filter = {
 		kinds: [KINDS.SERVICE_PROPOSAL_STATUS],
 		'#e': proposalIds,
-		limit: DEFAULT_LIMIT * 5
+		limit: STATUS_QUERY_LIMIT
 	} as Record<string, unknown>;
 	if (authors && authors.length > 0) {
 		filter.authors = [...new Set(authors)];
@@ -208,10 +301,13 @@ export async function queryStatusesForProposals(
 		undefined,
 		await getReadRelays(proposals)
 	);
-	return dedupeById(events)
-		.map(safelyValidateStatus)
-		.filter((event): event is ServiceProposalStatusEvent => Boolean(event))
-		.sort((left, right) => left.created_at - right.created_at);
+	return {
+		items: dedupeById(events)
+			.map(safelyValidateStatus)
+			.filter((event): event is ServiceProposalStatusEvent => Boolean(event))
+			.sort((left, right) => left.created_at - right.created_at),
+		isPartial: events.length >= STATUS_QUERY_LIMIT
+	};
 }
 
 export async function findRequestById(
@@ -222,7 +318,10 @@ export async function findRequestById(
 	return requests.find((request) => request.content.quoteRequestId === quoteRequestId) ?? null;
 }
 
-function toQueryResult(threads: ServiceQuoteThread[]): ServiceQuoteQueryResult {
+function toQueryResult(
+	threads: ServiceQuoteThread[],
+	options: { isPartial?: boolean } = {}
+): ServiceQuoteQueryResult {
 	return {
 		requests: threads.map((thread) => thread.request),
 		proposals: threads.flatMap((thread) => thread.proposals.map((proposal) => proposal.proposal)),
@@ -244,7 +343,8 @@ function toQueryResult(threads: ServiceQuoteThread[]): ServiceQuoteQueryResult {
 			expirationTimestamp: thread.latestProposal?.expiresAt,
 			isExpired: thread.latestProposal?.isExpired ?? false,
 			linkedEscrowId: thread.linkedEscrowId
-		}))
+		})),
+		isPartial: options.isPartial === true
 	};
 }
 
@@ -252,29 +352,74 @@ export async function queryServiceQuotesForTasker(
 	taskerPubkey: string,
 	limit: number = DEFAULT_LIMIT
 ): Promise<ServiceQuoteQueryResult> {
-	const threads = await queryTaskerServiceQuoteThreads({ taskerPubkey, limit });
-	return toQueryResult(threads);
+	const requestResult = await queryServiceQuoteRequestsByAuthorDetailed(taskerPubkey, limit);
+	const proposalsResult = await queryServiceProposalsForTaskerDetailed(taskerPubkey, limit);
+	const statusesResult = await queryStatusesForProposalsDetailed(proposalsResult.items, [
+		...new Set([taskerPubkey, ...proposalsResult.items.map((proposal) => proposal.pubkey)])
+	]);
+	const threads = resolveServiceQuoteThreads({
+		requests: requestResult.items,
+		proposals: proposalsResult.items,
+		statuses: statusesResult.items
+	});
+	return toQueryResult(threads, {
+		isPartial: requestResult.isPartial || proposalsResult.isPartial || statusesResult.isPartial
+	});
 }
 
 export async function queryServiceQuotesForTaskee(
 	serviceAddress: string,
 	taskeePubkey: string,
-	limit: number = DEFAULT_LIMIT
+	limit: number = DEFAULT_LIMIT,
+	quoteRequestId?: string
 ): Promise<ServiceQuoteQueryResult> {
-	const threads = await queryTaskeeServiceQuoteThreads({
+	const requestResult = await queryServiceQuoteRequestsForServiceDetailed(
 		serviceAddress,
 		taskeePubkey,
+		limit,
+		quoteRequestId
+	);
+	const filteredRequests = quoteRequestId
+		? requestResult.items.filter((request) => request.content.quoteRequestId === quoteRequestId)
+		: requestResult.items;
+	const proposalsResult = await queryServiceProposalsByRequestIdsDetailed(
+		filteredRequests.map((request) => request.id),
 		limit
+	);
+	const statusesResult = await queryStatusesForProposalsDetailed(proposalsResult.items, [
+		taskeePubkey,
+		...filteredRequests.map((request) => request.pubkey)
+	]);
+	const threads = resolveServiceQuoteThreads({
+		requests: filteredRequests,
+		proposals: proposalsResult.items,
+		statuses: statusesResult.items
 	});
-	return toQueryResult(threads);
+	return toQueryResult(threads, {
+		isPartial: requestResult.isPartial || proposalsResult.isPartial || statusesResult.isPartial
+	});
 }
 
 export async function findServiceQuoteTimelineByRequestId(
 	quoteRequestId: string,
 	taskerPubkey: string
 ): Promise<ServiceQuoteQueryResult> {
-	const threads = await queryTaskerServiceQuoteThreads({ taskerPubkey, quoteRequestId, limit: 20 });
-	return toQueryResult(threads);
+	const requestResult = await queryServiceQuoteRequestsByAuthorDetailed(taskerPubkey, 20);
+	const filteredRequests = requestResult.items.filter(
+		(request) => request.content.quoteRequestId === quoteRequestId
+	);
+	const proposalsResult = await queryServiceProposalsForTaskerDetailed(taskerPubkey, 20);
+	const statusesResult = await queryStatusesForProposalsDetailed(proposalsResult.items, [
+		...new Set([taskerPubkey, ...proposalsResult.items.map((proposal) => proposal.pubkey)])
+	]);
+	const threads = resolveServiceQuoteThreads({
+		requests: filteredRequests,
+		proposals: proposalsResult.items,
+		statuses: statusesResult.items
+	});
+	return toQueryResult(threads, {
+		isPartial: requestResult.isPartial || proposalsResult.isPartial || statusesResult.isPartial
+	});
 }
 
 async function getReadRelays(events: Array<{ id: string }> = []): Promise<string[]> {
@@ -290,32 +435,36 @@ async function getReadRelays(events: Array<{ id: string }> = []): Promise<string
 	return [...relays];
 }
 
-async function queryDeletedEventIds(
+async function queryDeletedEventIdsDetailed(
 	eventIds: string[],
 	authors: string[],
 	relays: string[]
-): Promise<Set<string>> {
+): Promise<QueryCollectionResult<Set<string>>> {
 	if (eventIds.length === 0) {
-		return new Set<string>();
+		return { items: new Set<string>(), isPartial: false };
 	}
 
+	const deleteLimit = Math.max(DEFAULT_LIMIT, eventIds.length * 2);
 	const deleteEvents = await queryNostrEvents(
 		{
 			kinds: [5],
 			authors,
 			'#e': eventIds,
-			limit: Math.max(DEFAULT_LIMIT, eventIds.length * 2)
+			limit: deleteLimit
 		},
 		undefined,
 		undefined,
 		relays
 	);
 
-	return new Set(
-		deleteEvents.flatMap((event) =>
-			event.tags.filter((tag) => tag[0] === 'e' && eventIds.includes(tag[1])).map((tag) => tag[1])
-		)
-	);
+	return {
+		items: new Set(
+			deleteEvents.flatMap((event) =>
+				event.tags.filter((tag) => tag[0] === 'e' && eventIds.includes(tag[1])).map((tag) => tag[1])
+			)
+		),
+		isPartial: deleteEvents.length >= deleteLimit
+	};
 }
 
 function safelyValidateRequest(event: unknown): ServiceQuoteRequestEvent | null {

@@ -11,8 +11,7 @@ import KINDS from '$lib/utils/constants/kinds';
 import { getSignedEvent, publishToMultipleRelays } from '$lib/utils/nostr';
 import { getNostrKeyPair } from '$lib/utils/nostrKeys';
 import { TAG_PATTERNS } from '$lib/utils/constants/tags';
-import nip44 from '$lib/nostr/nip44';
-import { bytesToHex } from '@noble/hashes/utils';
+import { nip44 } from 'nostr-tools';
 import { buildDashboardQueryUrl } from '$lib/utils/dashboardQuery';
 import { createServicesWorkspaceUrl } from '$lib/utils/service-quote/services-workspace-route';
 
@@ -186,7 +185,7 @@ async function sendDirectMessageMirrorOnce(
 		const recipientHex = recipientPubkey.startsWith('npub') ? recipientPubkey : recipientPubkey;
 		const { nsec } = await getNostrKeyPair();
 		const nonce = crypto.getRandomValues(new Uint8Array(32));
-		const conversationKey = await nip44.getConversationKey(bytesToHex(nsec), recipientHex);
+		const conversationKey = await nip44.getConversationKey(nsec, recipientHex);
 		const encryptedContent = await nip44.encrypt(payload.text, conversationKey, nonce);
 		const event = await getSignedEvent({
 			kind: KINDS.DIRECT_MESSAGES,

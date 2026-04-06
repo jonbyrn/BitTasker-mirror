@@ -126,7 +126,7 @@ function resolveServiceAcceptanceReplayTarget(
 
 function persistConfirmedServiceAcceptanceMonitor(
 	target: ServiceAcceptanceReplayPublishTarget,
-	publishedStatus: 'accepted' | 'accept_unknown' = 'accepted'
+	publishedStatus: 'accepted' | 'accept_unknown' | 'contract_sync_pending' = 'accepted'
 ): void {
 	if (!target.acceptanceSnapshot) {
 		return;
@@ -490,7 +490,7 @@ export async function reverifyPublishedServiceAcceptanceByEscrowId(
 				...monitorEntry.acceptanceSnapshot,
 				confirmationsAtVerification: result.confirmationsAtVerification
 			};
-			if (monitorEntry.publishedStatus === 'accept_unknown') {
+			if (monitorEntry.publishedStatus !== 'accepted') {
 				await publishServiceProposalStatus({
 					content: {
 						type: SERVICE_QUOTE_MESSAGE_TYPES.STATUS,

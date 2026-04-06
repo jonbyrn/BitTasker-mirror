@@ -55,6 +55,7 @@ const {
 			getContractKey: vi.fn(
 				(contract: { contractEvent: { content: MockContractContent } }, key: string) => {
 					if (key === 'otherPartyNpub') return 'npub1counterparty';
+					if (key === 'clientPubkey') return 'npub1client';
 					if (key === 'amount') return contract.contractEvent.content.amount;
 					if (key === 'taskTitle' || key === 'contextTitle') {
 						return contract.contractEvent.content.contextTitle;
@@ -187,6 +188,15 @@ function buildContract({
 	} as unknown;
 }
 
+function createDisputeProposalEvent(pubkey: string) {
+	return {
+		pubkey,
+		content: {
+			action: EscrowStatus.DisputeResolutionProposed
+		}
+	};
+}
+
 function buildTaskContract(overrides: { permissions?: Partial<Record<string, boolean>> } = {}) {
 	return buildContract({
 		permissions: overrides.permissions,
@@ -276,15 +286,177 @@ describe('ContractActions service notification continuity', () => {
 					canCancel: true
 				}
 			}),
-			isInline: true
+			isInline: true,
+			maxInlineActions: 2
 		});
 
+		expect(screen.getByRole('button', { name: 'Accept Service' })).toBeInTheDocument();
 		expect(screen.getByRole('button', { name: 'Mark Service Complete' })).toBeInTheDocument();
+		expect(screen.queryByRole('button', { name: 'Dispute Service' })).toBeNull();
+		expect(
+			screen.queryByRole('button', { name: 'dashboard.contracts.actions.cancel_contract' })
+		).toBeNull();
+	});
+
+	it('shows accept proposal as an inline quick action when a dispute proposal can be accepted', () => {
+		const contract = buildContract({
+			permissions: {
+				canAccept: false,
+				canAcceptProposal: true,
+				canPropose: true,
+				canCancel: true
+			},
+			content: {
+				proposalId: 'proposal-1'
+			}
+		});
+		contract.disputeProposal = {
+			clientAmount: '0.004',
+			freelancerAmount: '0.006',
+			proposer: 'npub1counterparty'
+		};
+
+		render(ContractActions, {
+			contract,
+			isInline: true,
+			maxInlineActions: 2
+		});
+
+		expect(screen.getByRole('button', { name: 'Accept Proposal' })).toBeInTheDocument();
+		expect(
+			screen.getByRole('button', {
+				name: /dashboard\.contracts\.actions\.counter_proposal/
+			})
+		).toBeInTheDocument();
+		expect(
+			screen.queryByRole('button', { name: 'dashboard.contracts.actions.cancel_contract' })
+		).toBeNull();
+	});
+
+	it('hides drawer counter proposal actions after the user exhausts proposal attempts', () => {
+		const contract = buildContract({
+			permissions: {
+				canAccept: false,
+				canAcceptProposal: true,
+				canPropose: true
+			},
+			content: {
+				proposalId: 'proposal-1'
+			}
+		}) as {
+			statusEvents: Array<{ pubkey: string; content: { action: string } }>;
+			disputeProposal: null | {
+				clientAmount: string;
+				freelancerAmount: string;
+				proposer: string;
+			};
+		};
+		contract.disputeProposal = {
+			clientAmount: '0.004',
+			freelancerAmount: '0.006',
+			proposer: 'npub1counterparty'
+		};
+		contract.statusEvents = [
+			createDisputeProposalEvent('npub1client'),
+			createDisputeProposalEvent('npub1client')
+		];
+
+		render(ContractActions, {
+			contract,
+			isInline: false
+		});
+
+		expect(
+			screen.getByRole('button', { name: 'dashboard.contracts.actions.accept_proposal' })
+		).toBeInTheDocument();
+		expect(
+			screen.queryByRole('button', {
+				name: /dashboard\.contracts\.actions\.counter_proposal/
+			})
+		).toBeNull();
+		expect(screen.getByText('dashboard.contracts.actions.no_proposals_left')).toBeInTheDocument();
+	});
+
+	it('releases the inline quick-action slot when an accept proposal stops being renderable mid-load', async () => {
+		let resolveAcceptProposal: (() => void) | undefined;
+		acceptProposal.mockImplementationOnce(
+			() =>
+				new Promise<void>((resolve) => {
+					resolveAcceptProposal = resolve;
+				})
+		);
+
+		const contract = buildContract({
+			permissions: {
+				canAccept: false,
+				canAcceptProposal: true,
+				canDispute: true,
+				canCancel: true
+			},
+			content: {
+				proposalId: 'proposal-1'
+			}
+		}) as {
+			disputeProposal: null | {
+				clientAmount: string;
+				freelancerAmount: string;
+				proposer: string;
+			};
+		};
+		contract.disputeProposal = {
+			clientAmount: '0.004',
+			freelancerAmount: '0.006',
+			proposer: 'npub1counterparty'
+		};
+
+		const view = render(ContractActions, {
+			contract,
+			isInline: true,
+			maxInlineActions: 2
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Accept Proposal' }));
+		await fireEvent.click(screen.getAllByRole('button', { name: 'Accept Proposal' })[1]);
+
+		await waitFor(() => {
+			expect(acceptProposal).toHaveBeenCalledTimes(1);
+		});
+
+		contract.disputeProposal = null;
+		view.rerender({
+			contract: {
+				...contract,
+				disputeProposal: null
+			},
+			isInline: true,
+			maxInlineActions: 2
+		});
+
+		await waitFor(() => {
+			expect(screen.getByRole('button', { name: 'Dispute Service' })).toBeInTheDocument();
+		});
+		expect(screen.getAllByRole('button', { name: 'Accept Proposal' })).toHaveLength(1);
+		resolveAcceptProposal?.();
+	});
+
+	it('limits inline quick actions to the highest-priority two actions', () => {
+		render(ContractActions, {
+			contract: buildContract({
+				permissions: {
+					canAccept: true,
+					canDispute: true,
+					canCancel: true
+				}
+			}),
+			isInline: true,
+			maxInlineActions: 2
+		});
+
 		expect(screen.getByRole('button', { name: 'Accept Service' })).toBeInTheDocument();
 		expect(screen.getByRole('button', { name: 'Dispute Service' })).toBeInTheDocument();
 		expect(
-			screen.getByRole('button', { name: 'dashboard.contracts.actions.cancel_contract' })
-		).toBeInTheDocument();
+			screen.queryByRole('button', { name: 'dashboard.contracts.actions.cancel_contract' })
+		).toBeNull();
 	});
 
 	it('requires confirmation before accepting a proposal', async () => {
@@ -359,15 +531,11 @@ describe('ContractActions service notification continuity', () => {
 					canCancel: true
 				}
 			}),
-			isInline: true
+			isInline: true,
+			maxInlineActions: 2
 		});
 
-		for (const label of [
-			'Mark Service Complete',
-			'Accept Service',
-			'Dispute Service',
-			'dashboard.contracts.actions.cancel_contract'
-		]) {
+		for (const label of ['Mark Service Complete', 'Accept Service']) {
 			const button = screen.getByRole('button', { name: label });
 			expect(button.className).toContain('w-full');
 		}
@@ -383,7 +551,8 @@ describe('ContractActions service notification continuity', () => {
 					canCancel: true
 				}
 			}),
-			isInline: true
+			isInline: true,
+			maxInlineActions: 2
 		});
 
 		expect(
@@ -393,11 +562,11 @@ describe('ContractActions service notification continuity', () => {
 			screen.getByRole('button', { name: 'dashboard.contracts.actions.accept_work' })
 		).toBeInTheDocument();
 		expect(
-			screen.getByRole('button', { name: 'dashboard.contracts.actions.dispute_work' })
-		).toBeInTheDocument();
+			screen.queryByRole('button', { name: 'dashboard.contracts.actions.dispute_work' })
+		).toBeNull();
 		expect(
-			screen.getByRole('button', { name: 'dashboard.contracts.actions.cancel_contract' })
-		).toBeInTheDocument();
+			screen.queryByRole('button', { name: 'dashboard.contracts.actions.cancel_contract' })
+		).toBeNull();
 	});
 
 	it('keeps shared contract actions disabled in-context while offline', async () => {
@@ -410,7 +579,8 @@ describe('ContractActions service notification continuity', () => {
 					canCancel: true
 				}
 			}),
-			isInline: true
+			isInline: true,
+			maxInlineActions: 2
 		});
 
 		window.dispatchEvent(new Event('offline'));
@@ -421,10 +591,6 @@ describe('ContractActions service notification continuity', () => {
 
 		expect(screen.getByRole('button', { name: 'Mark Service Complete' })).toBeDisabled();
 		expect(screen.getByRole('button', { name: 'Accept Service' })).toBeDisabled();
-		expect(screen.getByRole('button', { name: 'Dispute Service' })).toBeDisabled();
-		expect(
-			screen.getByRole('button', { name: 'dashboard.contracts.actions.cancel_contract' })
-		).toBeDisabled();
 	});
 
 	it('shows a time restriction error for tasker-side cancellation when cancel is no longer allowed', async () => {

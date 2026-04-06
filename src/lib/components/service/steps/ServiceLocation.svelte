@@ -3,7 +3,7 @@
 	import { linear } from 'svelte/easing';
 	import { fly } from 'svelte/transition';
 	import { serviceStore as store } from '$lib/stores/service.store';
-	import EnhancedLocationPicker from '$lib/components/EnhancedLocationPicker.svelte';
+	import EnhancedLocationPicker from '$lib/components/LocationPicker.svelte';
 	import { ServiceLocationTypeEnum } from '$lib/utils/enums/service.enum';
 	import type { Location } from '$lib/types/task';
 	import { t } from 'svelte-i18n';

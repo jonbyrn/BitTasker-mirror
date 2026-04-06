@@ -314,6 +314,44 @@ describe('contractPermissions', () => {
 				expect(result.status).toBe(EscrowStatus.PendingCompletion);
 				expect(result.permissions.canComplete).toBe(false);
 			});
+
+			it('falls back to InProgress when a pending completion event is stale', () => {
+				const statusEvents: ContractStatusEvent[] = [
+					{
+						id: 'event-stale-completion',
+						pubkey: 'npub1freelancer',
+						created_at: now - oneHour,
+						kind: 1,
+						sig: 'sig',
+						tags: [],
+						content: {
+							action: EscrowStatus.PendingCompletion,
+							transactionHash: '0xstale-completion',
+							message: 'Completing...'
+						}
+					}
+				];
+
+				const escrowData = {
+					...mockEscrowData,
+					status: EscrowStatus.Funded,
+					estimatedStartTime: now - oneHour
+				};
+
+				const result = determineContractState(
+					EscrowStatus.Funded,
+					statusEvents,
+					mockContract,
+					escrowData,
+					null,
+					false,
+					false,
+					true
+				);
+
+				expect(result.status).toBe(EscrowStatus.InProgress);
+				expect(result.permissions.canComplete).toBe(true);
+			});
 		});
 
 		describe('Completed State', () => {
@@ -433,6 +471,46 @@ describe('contractPermissions', () => {
 
 				expect(result.status).toBe(EscrowStatus.PendingAcceptance);
 				expect(result.permissions.canAccept).toBe(false);
+			});
+
+			it('falls back to Completed when a pending acceptance event is stale', () => {
+				const statusEvents: ContractStatusEvent[] = [
+					{
+						id: 'event-stale-acceptance',
+						pubkey: 'npub1client',
+						created_at: now - oneHour,
+						kind: 1,
+						sig: 'sig',
+						tags: [],
+						content: {
+							action: EscrowStatus.PendingAcceptance,
+							transactionHash: '0xstale-acceptance',
+							message: 'Accepting...'
+						}
+					}
+				];
+
+				const escrowData = {
+					...mockEscrowData,
+					status: EscrowStatus.Completed,
+					estimatedStartTime: now - 12 * oneHour,
+					createdAt: (now - 2 * oneHour) * 1000
+				};
+
+				const result = determineContractState(
+					EscrowStatus.Completed,
+					statusEvents,
+					mockContract,
+					escrowData,
+					null,
+					false,
+					true,
+					false
+				);
+
+				expect(result.status).toBe(EscrowStatus.Completed);
+				expect(result.permissions.canAccept).toBe(true);
+				expect(result.permissions.canDispute).toBe(true);
 			});
 
 			it('should allow client to dispute within 24h of start or after grace period', () => {

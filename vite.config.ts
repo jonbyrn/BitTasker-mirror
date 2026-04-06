@@ -81,9 +81,6 @@ export default defineConfig(({ mode }) => {
 				buffer: 'buffer',
 				crypto: 'crypto-browserify',
 				stream: 'stream-browserify',
-				// Do NOT alias 'path' as it breaks WASM loading in @vulpemventures/secp256k1-zkp
-				// path: 'path-browserify',
-				path: 'path-browserify',
 				process: 'process/browser',
 				'$app/environment': new URL('./src/lib/mocks/app-environment.ts', import.meta.url).pathname
 			}
@@ -167,6 +164,10 @@ export default defineConfig(({ mode }) => {
 			sourcemap: sentryEnabled ? 'hidden' : false,
 			cssCodeSplit: true, // Enable CSS code splitting
 			cssMinify: true, // Explicitly enable CSS minification (default but explicit)
+			// Raise threshold to suppress warnings for intentionally large vendor chunks
+			// (bip39, firebase). Aggressive manualChunks splitting breaks
+			// SvelteKit's internal chunk ordering and causes "kit.start is not a function".
+			chunkSizeWarningLimit: 1000,
 			rollupOptions: {
 				output: {
 					manualChunks: (id) => {
@@ -185,21 +186,8 @@ export default defineConfig(({ mode }) => {
 			}
 		},
 		optimizeDeps: {
-			include: ['date-fns', 'axios', 'swiper', 'buffer', 'bitcoinjs-lib', 'bip32', 'bip39'],
-			exclude: [
-				'firebase',
-				'@capacitor/device',
-				'@capacitor/preferences',
-				'@capacitor/haptics'
-				/* 'liquidjs-lib',
-				'boltz-core',
-				'@vulpemventures/secp256k1-zkp' */
-			]
-			/* esbuildOptions: {
-				define: {
-					global: 'globalThis'
-				}
-			} */
+			include: ['date-fns', 'axios', 'swiper', 'buffer', 'bip39'],
+			exclude: ['firebase', '@capacitor/device', '@capacitor/preferences', '@capacitor/haptics']
 		},
 		server: {
 			// For mobile live-reload (Capacitor on device) we typically load the dev server via:

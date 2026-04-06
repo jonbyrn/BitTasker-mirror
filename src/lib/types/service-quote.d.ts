@@ -9,6 +9,7 @@ export type ServiceQuoteMessageType =
 
 export type ServiceProposalStatus =
 	| 'accepting'
+	| 'contract_sync_pending'
 	| 'accepted'
 	| 'accept_failed'
 	| 'accept_unknown'
@@ -192,6 +193,7 @@ export interface ServiceQuoteQueryResult {
 	proposals: ServiceProposalEvent[];
 	statusEvents: ServiceProposalStatusEvent[];
 	timelines: ServiceQuoteTimelineEntry[];
+	isPartial?: boolean;
 }
 
 export interface ServiceQuoteStoreState extends ServiceQuoteQueryResult {

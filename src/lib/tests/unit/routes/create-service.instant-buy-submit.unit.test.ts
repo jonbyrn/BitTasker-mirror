@@ -212,4 +212,48 @@ describe('create-service instant-buy submit payload', () => {
 			);
 		});
 	}, 10_000);
+
+	it('omits providerWalletAddress for non-instant-buy services even when the store has one', async () => {
+		hoisted.serviceState.set({
+			service: {
+				uniqueId: 'service-123',
+				createdAt: 1_700_000_000,
+				creator: {
+					username: 'Provider',
+					avatar: ''
+				},
+				title: 'Hourly Design Help',
+				description: 'Book design time by the hour.',
+				serviceLocationTypes: [],
+				pricing: {
+					type: 'HOURLY',
+					currency: 'USDt',
+					hourlyRate: 80
+				},
+				skills: ['Branding'],
+				categories: [{ id: 'design', name: 'Design', slug: 'design' }],
+				providerWalletAddress: '0x3333333333333333333333333333333333333333'
+			},
+			id: null,
+			uniqueId: 'service-123',
+			currentStep: 'review',
+			isEditing: false,
+			isDuplicating: false
+		});
+
+		const { findByText } = render(
+			(await import('../../../../routes/(protected)/dashboard/create-service/+page.svelte')).default
+		);
+
+		await fireEvent.click(await findByText('dashboard.services.create.publish'));
+
+		await waitFor(() => {
+			expect(hoisted.createService).toHaveBeenCalledWith(
+				expect.not.objectContaining({
+					providerWalletAddress: expect.anything()
+				})
+			);
+		});
+		expect(hoisted.getRSKAddress).not.toHaveBeenCalled();
+	});
 });

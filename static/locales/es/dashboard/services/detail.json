@@ -47,6 +47,9 @@
 				"quote_submitted": "¡La solicitud de cotización se envió correctamente!",
 				"quote_request_offline": "No tienes conexión. Reconéctate antes de solicitar una cotización.",
 				"quote_request_submit_error": "No se puede enviar la solicitud de cotización en este momento.",
+				"self_quote_blocked": "No puedes solicitar una cotización en tu propio servicio.",
+				"self_book_now_blocked": "No puedes reservar tu propio servicio.",
+				"self_contact_blocked": "No puedes contactarte contigo mismo desde tu propio listado de servicio.",
 				"book_now": "Reservar Ahora",
 				"service_runtime_unavailable": "El servicio no está disponible.",
 				"seo": {

@@ -1,4 +1,6 @@
 <script lang="ts">
+	import ErrorAlertWithModal from '$lib/components/ErrorAlertWithModal.svelte';
+	import { detectErrorType } from '$lib/utils/helpers/errorTypeDetector';
 	import {
 		hasRequiredTrimmedText,
 		validateDateTimeRange
@@ -17,14 +19,10 @@
 	}
 
 	let {
-		walletReady = true,
-		feeTierReady = true,
 		blockedReason = null,
 		disabled = false,
 		onSubmit
 	}: {
-		walletReady?: boolean;
-		feeTierReady?: boolean;
 		blockedReason?: string | null;
 		disabled?: boolean;
 		onSubmit: (
@@ -37,7 +35,6 @@
 
 	let description = $state('');
 	let amountUsdt = $state('');
-	let estimatedDuration = $state('');
 	let startDateTime = $state('');
 	let endDateTime = $state('');
 	let expirationDays = $state(3);
@@ -45,41 +42,13 @@
 	let coverLetter = $state('');
 	let errorMessage = $state<string | null>(null);
 	let submitting = $state(false);
-
-	function tr(key: string, fallback: string): string {
-		try {
-			const value = $t(key);
-			return typeof value === 'string' && value !== key ? value : fallback;
-		} catch {
-			return fallback;
-		}
-	}
-
-	const submitBlockedReason = $derived.by(() => {
-		if (blockedReason) return blockedReason;
-		return null;
-	});
-
-	const walletWarningMessage = $derived.by(() => {
-		if (!walletReady) {
-			return tr(
-				'dashboard.services.my_services.quote_inbox.proposal_composer.warnings.wallet_not_connected',
-				'Connect your wallet before sending a proposal.'
-			);
-		}
-		if (!feeTierReady) {
-			return tr(
-				'dashboard.services.my_services.quote_inbox.proposal_composer.warnings.fee_tier_missing',
-				'Choose a freelancer fee tier before sending a proposal.'
-			);
-		}
-		return null;
-	});
+	const isPasskeyError = $derived.by(
+		() => Boolean(errorMessage) && detectErrorType(errorMessage ?? '') === 'biometric'
+	);
 
 	function resetForm() {
 		description = '';
 		amountUsdt = '';
-		estimatedDuration = '';
 		startDateTime = '';
 		endDateTime = '';
 		expirationDays = 3;
@@ -88,38 +57,43 @@
 		errorMessage = null;
 	}
 
-	function validateForm(): string | null {
-		if (
-			!hasRequiredTrimmedText(description) ||
-			!hasRequiredTrimmedText(amountUsdt) ||
-			!hasRequiredTrimmedText(estimatedDuration)
-		) {
-			return tr(
-				'dashboard.services.my_services.quote_inbox.proposal_composer.errors.required_fields',
-				'Scope, amount, and estimated duration are required.'
-			);
+	function formatEstimatedDuration(startTime: number, endTime: number): string {
+		const diffMs = endTime * 1000 - startTime * 1000;
+		if (diffMs <= 0) return '';
+
+		const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+		const diffHours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+		const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+		const parts: string[] = [];
+
+		if (diffDays > 0) {
+			parts.push(`${diffDays} ${diffDays === 1 ? 'day' : 'days'}`);
+		}
+		if (diffHours > 0) {
+			parts.push(`${diffHours} ${diffHours === 1 ? 'hour' : 'hours'}`);
+		}
+		if (diffMinutes > 0) {
+			parts.push(`${diffMinutes} ${diffMinutes === 1 ? 'minute' : 'minutes'}`);
+		}
+		if (parts.length === 0) {
+			return '1 hour';
+		}
+		if (parts.length === 1) {
+			return parts[0];
 		}
 
-		const amount = Number.parseFloat(amountUsdt);
-		if (Number.isNaN(amount) || amount <= 0) {
-			return tr(
-				'dashboard.services.my_services.quote_inbox.proposal_composer.errors.amount_invalid',
-				'Enter a valid amount greater than 0.'
-			);
-		}
+		const lastPart = parts.pop();
+		return `${parts.join(', ')} and ${lastPart}`;
+	}
 
-		if (expirationDays < 0 || expirationDays > 30) {
-			return tr(
-				'dashboard.services.my_services.quote_inbox.proposal_composer.errors.expiration_days_invalid',
-				'Expiration days must be between 0 and 30.'
-			);
+	async function handleSubmit() {
+		if (disabled) {
+			errorMessage = blockedReason;
+			return;
 		}
-
-		if (expirationHours < 0 || expirationHours > 23) {
-			return tr(
-				'dashboard.services.my_services.quote_inbox.proposal_composer.errors.expiration_hours_invalid',
-				'Expiration hours must be between 0 and 23.'
-			);
+		if (!hasRequiredTrimmedText(description) || !hasRequiredTrimmedText(amountUsdt)) {
+			errorMessage = 'Description and amount are required.';
+			return;
 		}
 
 		const timeWindow = validateDateTimeRange(startDateTime, endDateTime);
@@ -173,7 +147,7 @@
 			const result = await onSubmit({
 				description: description.trim(),
 				amountUsdt: amountUsdt.trim(),
-				estimatedDuration: estimatedDuration.trim(),
+				estimatedDuration: formatEstimatedDuration(timeWindow.startTime, timeWindow.endTime),
 				estimatedStartTime: timeWindow.startTime,
 				estimatedEndTime: timeWindow.endTime,
 				expirationDays,
@@ -194,12 +168,7 @@
 			resetForm();
 		} catch (error) {
 			errorMessage =
-				error instanceof Error
-					? error.message
-					: tr(
-							'dashboard.services.my_services.quote_inbox.proposal_composer.errors.submit_failed',
-							'Unable to send the proposal right now.'
-						);
+				error instanceof Error ? error.message : 'Unable to send the proposal right now.';
 		} finally {
 			submitting = false;
 		}
@@ -210,137 +179,93 @@
 	class="border-base-300 bg-base-100 rounded-2xl border p-4 shadow-sm"
 	data-testid="service-proposal-composer"
 >
-	<div class="mb-4">
-		<h4 class="text-sm font-semibold">
-			{tr('dashboard.services.my_services.quote_inbox.proposal_composer.title', 'Send Proposal')}
-		</h4>
-	</div>
-
-	{#if walletWarningMessage}
-		<div class="alert alert-outline alert-warning mb-4 text-sm">
-			<span>{walletWarningMessage}</span>
-		</div>
-	{/if}
-
-	<div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
-		<label class="block w-full space-y-1 lg:col-span-2">
-			<span class="label-text text-sm font-medium">
-				{tr('dashboard.services.my_services.quote_inbox.proposal_composer.fields.scope', 'Scope')}
-			</span>
+	<div class="grid gap-4 md:grid-cols-2">
+		<div class="md:col-span-2">
+			<div class="label px-0 pb-1">
+				<span class="label-text mb-1 text-sm font-medium">Scope of work</span>
+			</div>
 			<textarea
 				class="textarea textarea-bordered min-h-24 w-full"
 				bind:value={description}
-				placeholder={tr(
-					'dashboard.services.my_services.quote_inbox.proposal_composer.placeholders.scope',
-					'Describe what you will deliver.'
-				)}
+				aria-label="Scope of work"
+				placeholder="Describe what you will deliver."
 			></textarea>
-		</label>
+		</div>
 
-		<label class="block w-full space-y-1">
-			<span class="label-text text-sm font-medium">
-				{tr(
-					'dashboard.services.my_services.quote_inbox.proposal_composer.fields.amount_usdt',
-					'Amount (USDT)'
-				)}
-			</span>
-			<input class="input input-bordered w-full" bind:value={amountUsdt} placeholder="125.00" />
-		</label>
-
-		<label class="block w-full space-y-1">
-			<span class="label-text text-sm font-medium">
-				{tr(
-					'dashboard.services.my_services.quote_inbox.proposal_composer.fields.estimated_duration',
-					'Estimated Duration'
-				)}
-			</span>
+		<label class="form-control md:col-span-2 md:max-w-sm">
+			<span class="label-text mb-1 text-sm font-medium">Amount (USD)</span>
 			<input
 				class="input input-bordered w-full"
-				bind:value={estimatedDuration}
-				placeholder={tr(
-					'dashboard.services.my_services.quote_inbox.proposal_composer.placeholders.estimated_duration',
-					'3 business days'
-				)}
+				type="text"
+				inputmode="decimal"
+				pattern="^[0-9]+(?:\\.[0-9]{(1, 2)})?$"
+				bind:value={amountUsdt}
+				placeholder="125"
 			/>
 		</label>
 
-		<label class="block w-full space-y-1">
-			<span class="label-text text-sm font-medium">
-				{tr(
-					'dashboard.services.my_services.quote_inbox.proposal_composer.fields.estimated_start',
-					'Estimated Start'
-				)}
-			</span>
+		<label class="form-control">
+			<span class="label-text mb-1 text-sm font-medium">Start Date</span>
 			<input class="input input-bordered w-full" type="datetime-local" bind:value={startDateTime} />
 		</label>
 
-		<label class="block w-full space-y-1">
-			<span class="label-text text-sm font-medium">
-				{tr(
-					'dashboard.services.my_services.quote_inbox.proposal_composer.fields.estimated_end',
-					'Estimated End'
-				)}
-			</span>
+		<label class="form-control">
+			<span class="label-text mb-1 text-sm font-medium">End Date</span>
 			<input class="input input-bordered w-full" type="datetime-local" bind:value={endDateTime} />
 		</label>
 
-		<label class="block w-full space-y-1">
-			<span class="label-text text-sm font-medium">
-				{tr(
-					'dashboard.services.my_services.quote_inbox.proposal_composer.fields.expiration_days',
-					'Expiration Days'
-				)}
-			</span>
-			<input
-				class="input input-bordered w-full"
-				type="number"
-				min="0"
-				max="30"
-				bind:value={expirationDays}
-			/>
-		</label>
+		<div class="col-span-full grid grid-cols-2 gap-4">
+			<label class="form-control">
+				<span class="label-text mb-1 text-sm font-medium">Expiration Days</span>
+				<input
+					class="input input-bordered w-full"
+					type="number"
+					min="0"
+					max="30"
+					bind:value={expirationDays}
+				/>
+			</label>
 
-		<label class="block w-full space-y-1">
-			<span class="label-text text-sm font-medium">
-				{tr(
-					'dashboard.services.my_services.quote_inbox.proposal_composer.fields.expiration_hours',
-					'Expiration Hours'
-				)}
-			</span>
-			<input
-				class="input input-bordered w-full"
-				type="number"
-				min="0"
-				max="23"
-				bind:value={expirationHours}
-			/>
-		</label>
+			<label class="form-control">
+				<span class="label-text mb-1 text-sm font-medium">Expiration Hours</span>
+				<input
+					class="input input-bordered w-full"
+					type="number"
+					min="0"
+					max="23"
+					bind:value={expirationHours}
+				/>
+			</label>
+		</div>
 
-		<label class="block w-full space-y-1 lg:col-span-2">
-			<span class="label-text text-sm font-medium">
-				{tr(
-					'dashboard.services.my_services.quote_inbox.proposal_composer.fields.cover_letter',
-					'Cover Letter'
-				)}
-			</span>
+		<div class="md:col-span-2">
+			<div class="label px-0 pb-1">
+				<span class="label-text mb-1 text-sm font-medium">Cover Letter</span>
+			</div>
 			<textarea
 				class="textarea textarea-bordered min-h-20 w-full"
 				bind:value={coverLetter}
-				placeholder={tr(
-					'dashboard.services.my_services.quote_inbox.proposal_composer.placeholders.cover_letter',
-					'Optional message to the buyer.'
-				)}
+				aria-label="Cover Letter"
+				placeholder="Optional message to the buyer."
 			></textarea>
-		</label>
+		</div>
 	</div>
 
 	{#if errorMessage}
-		<div
-			class="alert alert-outline alert-error mt-4 text-sm"
-			data-testid="service-proposal-composer-error"
-		>
-			<span>{errorMessage}</span>
-		</div>
+		{#if isPasskeyError}
+			<div data-testid="service-proposal-composer-error" class="mt-4">
+				<ErrorAlertWithModal
+					error={errorMessage}
+					isPasskeyError
+					autoOpenModal={false}
+					class="text-sm"
+				/>
+			</div>
+		{:else}
+			<div class="alert alert-error mt-4 text-sm" data-testid="service-proposal-composer-error">
+				<span>{errorMessage}</span>
+			</div>
+		{/if}
 	{/if}
 
 	<div class="mt-4 flex justify-end">

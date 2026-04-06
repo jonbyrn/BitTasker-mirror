@@ -12,6 +12,8 @@
 	import TaskDeadlineDisplay from '../task/TaskDeadlineDisplay.svelte';
 	import TaskLocationDisplay from '../task/TaskLocationDisplay.svelte';
 	import { buildContractContextPresentation } from '$lib/utils/service-contract/context-presentation';
+	import { getVisibleContractQuickActions } from '$lib/utils/helpers/contractQuickActions';
+	import { EscrowStatus } from '$lib/utils/escrow';
 
 	const { contract, btcPrice } = $props<{
 		contract: ContractWithEvents;
@@ -50,19 +52,41 @@
 		};
 	}
 
-	function getAvailableActionsCount(): number {
-		if (presentation.isUnknownContext) return 0;
+	const availableQuickActions = $derived.by(() => {
+		if (presentation.isUnknownContext) {
+			return [];
+		}
 
-		let count = 0;
-		if (contract.permissions.canComplete) count++;
-		if (contract.permissions.canAccept) count++;
-		if (contract.permissions.canDispute) count++;
-		if (contract.permissions.canPropose) count++;
-		if (contract.permissions.canAcceptProposal) count++;
-		if (contract.permissions.canCancel) count++;
-		if (contract.permissions.canResolveTimelock) count++;
-		return count;
-	}
+		const clientPubkey = contractStore.getContractKey(contract, 'clientPubkey') as
+			| string
+			| undefined;
+		const otherPartyNpub = contractStore.getContractKey(contract, 'otherPartyNpub') as
+			| string
+			| undefined;
+		const currentUserProposalCount = contract.statusEvents.filter((event) => {
+			if (event.content.action !== EscrowStatus.DisputeResolutionProposed) {
+				return false;
+			}
+
+			const currentActorPubkey = contract.isClient ? clientPubkey : otherPartyNpub;
+			return (
+				typeof currentActorPubkey === 'string' &&
+				event.pubkey.toLowerCase() === currentActorPubkey.toLowerCase()
+			);
+		}).length;
+
+		return getVisibleContractQuickActions(
+			{
+				permissions: contract.permissions,
+				isClient: contract.isClient,
+				isPending: contract.isPending,
+				blockchainStatus: contract.blockchainStatus,
+				hasDisputeProposal: Boolean(contract.disputeProposal),
+				hasProposalsLeft: currentUserProposalCount < 2
+			},
+			2
+		);
+	});
 
 	function openDrawer() {
 		$contractStore.contract = contract;
@@ -145,11 +169,12 @@
 				{#if presentation.isUnknownContext}
 					<div class="text-base-content/60 text-xs sm:mr-2">Read-only contract context</div>
 				{/if}
-				{#if getAvailableActionsCount() > 0}
+				{#if availableQuickActions.length > 0}
 					<ContractActions
 						{contract}
 						containerClass="flex flex-col gap-2 sm:flex-row sm:flex-wrap w-full sm:w-auto"
 						isInline={true}
+						maxInlineActions={2}
 					/>
 				{/if}
 				<button class="btn btn-outline btn-sm w-full sm:w-auto" onclick={openDrawer}>

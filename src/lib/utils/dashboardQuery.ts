@@ -114,6 +114,8 @@ export function parseEarningQuery(url: URL): EarningQueryState {
 	const rawView = url.searchParams.get('view');
 	const decodedService = decodeSearchParam(url.searchParams.get('service'));
 	const rawRequest = url.searchParams.get('request');
+	const normalizedService = isValidServiceAddress(decodedService) ? decodedService : null;
+	const normalizedRequest = isValidQuoteRequestId(rawRequest) ? rawRequest : null;
 
 	let tab: EarningTab = VALID_EARNING_TABS.has(rawTab as EarningTab)
 		? (rawTab as EarningTab)
@@ -135,13 +137,13 @@ export function parseEarningQuery(url: URL): EarningQueryState {
 		const context = url.searchParams.get('context');
 		state.context = context === 'tasks' || context === 'services' ? context : 'all';
 		state.highlight = url.searchParams.get('highlight') || null;
-		state.service = decodeSearchParam(url.searchParams.get('service'));
+		state.service = normalizedService;
 		return state;
 	}
 
 	if (tab === 'requests') {
-		state.service = decodedService;
-		state.request = rawRequest || null;
+		state.service = normalizedService;
+		state.request = normalizedRequest;
 	}
 
 	return state;

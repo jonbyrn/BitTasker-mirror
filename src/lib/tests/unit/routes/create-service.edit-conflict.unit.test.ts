@@ -206,14 +206,14 @@ describe('create-service edit conflict handling', () => {
 			expect(hoisted.updateService).toHaveBeenCalledWith(
 				'service-123',
 				expect.objectContaining({
-					title: 'Logo Sprint',
-					providerWalletAddress: '0x2222222222222222222222222222222222222222'
+					title: 'Logo Sprint'
 				}),
 				{
 					expectedServiceEventId: 'event-old'
 				}
 			);
 		});
+		expect(hoisted.updateService.mock.calls[0]?.[1]).not.toHaveProperty('providerWalletAddress');
 
 		await expect(findByText(new RegExp(SERVICE_EDIT_CONFLICT_CODE))).resolves.toBeTruthy();
 		expect(hoisted.showErrorToast).toHaveBeenCalledWith(

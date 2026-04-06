@@ -177,7 +177,26 @@
 		};
 	}
 
+	function browseText(key: string, fallback: string): string {
+		const translated = $t(key) as string;
+		return !translated || translated === key ? fallback : translated;
+	}
+
+	function isOwnService(service: Service | null | undefined): boolean {
+		return !!service?.npub && !!$user?.npub && service.npub === $user.npub;
+	}
+
 	async function openRequestQuoteModal(service: Service) {
+		if (isOwnService(service)) {
+			appStore.showErrorToast(
+				browseText(
+					'dashboard.services.browse.self_quote_blocked',
+					"You can't request a quote on your own service."
+				)
+			);
+			return;
+		}
+
 		if (!$authState.isAuthenticated) {
 			goto(`/auth/login?returnTo=${encodeURIComponent('/services')}`);
 			return;
@@ -909,6 +928,7 @@
 												onSelectServiceForMap={selectServiceForMap}
 												isMapVisible={true}
 												onRequestQuote={openRequestQuoteModal}
+												canRequestQuote={service.npub !== $user?.npub}
 											/>
 										</div>
 									{/each}
