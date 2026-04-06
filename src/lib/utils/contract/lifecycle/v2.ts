@@ -21,6 +21,7 @@ import { loadPaymentContractDetailsV2 } from '$lib/utils/contract/v2/loadPayment
 import {
 	computePermittedActions,
 	emptyPermittedActions,
+	isTerminalPaymentState,
 	type PermittedActions
 } from '$lib/utils/contract/v2/permittedActions';
 import { GAS_REIMBURSEMENT_PER_OP } from '$lib/utils/contract/v2/types';
@@ -956,6 +957,7 @@ export async function resolveAfterTimelockV2(
 
 export const v2Lifecycle: PaymentContractLifecycle = {
 	loadPaymentContractDetails: loadPaymentContractDetailsV2ForRune,
+	isChainTerminalState: isTerminalPaymentState,
 	computePermittedActions: computePermittedActionsV2,
 	markTaskComplete: markTaskCompleteV2,
 	acceptTask: acceptTaskV2,

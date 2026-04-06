@@ -38,6 +38,8 @@ export type PaymentContractLifecycle = {
 		rune: PaymentContractRuneLike,
 		chain?: ContractChain
 	) => Promise<SecurePaymentLegacy>;
+	/** Version-specific terminal chain state (subscriptions, permissions clock, reconciliation). */
+	isChainTerminalState: (state: number) => boolean;
 	computePermittedActions: (rune: PaymentContractRuneLike) => PermittedActions;
 	markTaskComplete: (
 		rune: PaymentContractRuneLike,

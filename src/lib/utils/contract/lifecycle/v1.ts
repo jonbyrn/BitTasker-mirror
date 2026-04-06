@@ -1,6 +1,11 @@
 import { loadPaymentContractDetails as loadV1 } from '$lib/utils/contract/v1';
+import {
+	computeV1PermittedActions,
+	isTerminalV1ChainState
+} from '$lib/utils/contract/v1/permittedActions';
 import { createDebug } from '$lib/utils/debug';
 import type { ContractChain } from '$lib/utils/contract/types';
+import { buildDisputeProjectionForPayment } from '$lib/utils/contract/v2/disputeProjectionFromStatus';
 import {
 	emptyPermittedActions,
 	type PermittedActions
@@ -11,6 +16,7 @@ import type {
 	PaymentContractLifecycle,
 	PaymentContractRuneLike
 } from './types';
+import { permissionsNowSeconds } from './time';
 
 const d = createDebug('contract:lifecycle:v1');
 
@@ -26,8 +32,24 @@ export async function loadPaymentContractDetailsV1(
 	return loadV1(paymentId, contractAddress, chain);
 }
 
-export function computePermittedActionsV1(_rune: PaymentContractRuneLike): PermittedActions {
-	return emptyPermittedActions();
+export function computePermittedActionsV1(rune: PaymentContractRuneLike): PermittedActions {
+	const payment = rune.blockchainData;
+	if (!payment) return emptyPermittedActions();
+	const disputeProjection = buildDisputeProjectionForPayment(
+		{
+			taskerPubkey: rune.taskerPubkey,
+			taskeePubkey: rune.contract.taskeePubkey,
+			statusEventsByNewest: rune.statusEventsByNewest
+		},
+		payment.state
+	);
+	return computeV1PermittedActions({
+		payment,
+		isTasker: rune.isTasker,
+		now: permissionsNowSeconds(),
+		awaitingTx: rune.isPending,
+		disputeProjection
+	});
 }
 
 export async function markTaskCompleteV1(
@@ -111,6 +133,7 @@ export async function resolveAfterTimelockV1(
 
 export const v1Lifecycle: PaymentContractLifecycle = {
 	loadPaymentContractDetails: loadPaymentContractDetailsV1,
+	isChainTerminalState: isTerminalV1ChainState,
 	computePermittedActions: computePermittedActionsV1,
 	markTaskComplete: markTaskCompleteV1,
 	acceptTask: acceptTaskV1,
