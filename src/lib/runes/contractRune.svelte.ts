@@ -12,7 +12,6 @@ import {
 	parsePaymentContractCreatedPaymentId,
 	publishTaskCompletedForEscrow
 } from '$lib/utils/contract/v2/creation';
-import { isTerminalPaymentState } from '$lib/utils/contract/v2/permittedActions';
 import type { PermittedActions } from '$lib/utils/contract/v2/permittedActions';
 import { getProvider } from '$lib/utils/contract';
 import {
@@ -58,7 +57,7 @@ export class PaymentContractRune implements PaymentContractRuneLike {
 	chainIsTerminal = $derived.by(() => {
 		const data = this.blockchainData;
 		if (!data) return false;
-		return isTerminalPaymentState(data.state);
+		return this.lifecycle.isChainTerminalState(data.state);
 	});
 	displayStatus = $derived<ContractDisplayStatus>(this.blockchainStatus);
 	error = $state<string | null>(null);
@@ -209,7 +208,7 @@ export class PaymentContractRune implements PaymentContractRuneLike {
 	/** Start/stop wall-clock polling for permitted-actions windows (cancel windows, start time, timelocks, …). */
 	private syncPermissionsClock(): void {
 		const data = this.blockchainData;
-		if (!data || isTerminalPaymentState(data.state)) {
+		if (!data || this.lifecycle.isChainTerminalState(data.state)) {
 			this.stopPermissionsClock();
 			return;
 		}
@@ -229,14 +228,14 @@ export class PaymentContractRune implements PaymentContractRuneLike {
 	}
 
 	/**
-	 * When the escrow is in a **terminal** chain state (`isTerminalPaymentState`) but the kind 31000
+	 * When the escrow is in a **terminal** chain state (version-specific) but the kind 31000
 	 * task is still not `COMPLETED` (e.g. taskee refunded — taskee cannot publish the replaceable),
 	 * the **tasker** republishes COMPLETED so listings match chain. Same idea after accept when Nostr lagged.
 	 */
 	private async maybeReconcileTaskWithChain(): Promise<void> {
 		const data = this.blockchainData;
 		if (!data || !this.task) return;
-		if (!isTerminalPaymentState(data.state)) return;
+		if (!this.lifecycle.isChainTerminalState(data.state)) return;
 		if (this.task.status === TaskStatusEnum.COMPLETED) return;
 		if (ndk.activeUser?.pubkey !== this.task.author?.pubkey) {
 			d.log('maybeReconcileTaskWithChain: skip (not signed in as task author)');
@@ -289,10 +288,6 @@ export class PaymentContractRune implements PaymentContractRuneLike {
 		const txHash = event.transactionHash?.trim();
 		if (!txHash) return;
 		this.isPending = true;
-		// Override derived rune for optimistic update while is pending confirmation
-		if (event.status !== undefined) {
-			this.blockchainStatus = event.status;
-		}
 		d.log('awaitStatusTxThenReload', { txHash });
 
 		try {
