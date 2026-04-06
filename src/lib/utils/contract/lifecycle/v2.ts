@@ -967,6 +967,5 @@ export const v2Lifecycle: PaymentContractLifecycle = {
 	disputeTask: disputeTaskV2,
 	proposeResolution: proposeResolutionV2,
 	acceptProposal: acceptProposalV2,
-	resolveAfterTimelock: resolveAfterTimelockV2,
-	shouldAwaitStatusTransaction: true
+	resolveAfterTimelock: resolveAfterTimelockV2
 };

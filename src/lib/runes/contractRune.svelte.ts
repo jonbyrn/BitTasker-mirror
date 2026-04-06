@@ -289,6 +289,7 @@ export class PaymentContractRune implements PaymentContractRuneLike {
 		const txHash = event.transactionHash?.trim();
 		if (!txHash) return;
 		this.isPending = true;
+		// Override derived rune for optimistic update while is pending confirmation
 		if (event.status !== undefined) {
 			this.blockchainStatus = event.status;
 		}
@@ -316,7 +317,6 @@ export class PaymentContractRune implements PaymentContractRuneLike {
 	}
 
 	private maybeAwaitStatusTxForEvent(ev: NDKContractStatus) {
-		if (!this.lifecycle.shouldAwaitStatusTransaction) return;
 		if (!this.paymentId || !this.blockchainData) return;
 		if (this.chainIsTerminal) return;
 		const h = ev.transactionHash?.trim();
