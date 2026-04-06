@@ -47,7 +47,8 @@
 		"buttons": {
 			"cancel": "Cancel",
 			"retry": "Retry",
-			"close": "Close"
+			"close": "Close",
+			"refresh": "Refresh"
 		},
 		"toast": {
 			"link_copied": "Link copied to clipboard",
@@ -511,7 +512,12 @@
 				"close": "Close",
 				"toggle_torch": "Toggle Torch",
 				"no_camera_found": "No camera found. Please ensure your device has a camera.",
-				"camera_permission_denied": "Camera permission denied. Please enable camera access in your browser settings."
+				"camera_permission_denied": "Camera permission denied. Please enable camera access in your browser settings.",
+				"permission_title": "Allow Camera Access",
+				"permission_description": "BitTasker needs camera access to scan QR codes for Bitcoin payments.",
+				"permission_allow": "Allow",
+				"permission_cancel": "Cancel",
+				"point_camera_at_qr": "Point your camera at a QR code to scan it"
 			},
 			"tags": {
 				"select_tags": "Select tags...",

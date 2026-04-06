@@ -681,15 +681,26 @@ export async function updateService(
 			authorHex = decoded.data as string;
 		}
 
-		const filter = {
-			kinds: [KINDS.SERVICE_ACTIVE, KINDS.SERVICE_DRAFT],
-			'#d': [dTag],
-			authors: [authorHex],
-			limit: 10
-		};
+		const requestFilters = [
+			{
+				kinds: [KINDS.SERVICE_ACTIVE, KINDS.SERVICE_DRAFT],
+				'#d': [dTag],
+				authors: [authorHex],
+				limit: 10
+			}
+		] as Array<Record<string, unknown>>;
+
+		if (/^[0-9a-f]{64}$/i.test(dTag)) {
+			requestFilters.push({
+				kinds: [KINDS.SERVICE_ACTIVE, KINDS.SERVICE_DRAFT],
+				ids: [dTag],
+				authors: [authorHex],
+				limit: 1
+			});
+		}
 
 		const response = await nostrEventsService.requestEvents({
-			filters: [filter]
+			filters: requestFilters
 		});
 
 		if (!response.data?.length) {

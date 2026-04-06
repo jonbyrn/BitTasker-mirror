@@ -1,10 +1,10 @@
 <script lang="ts">
+	import { t } from 'svelte-i18n';
 	import { linear } from 'svelte/easing';
 	import { fly } from 'svelte/transition';
 	import { TaskTypeEnum } from '$lib/utils/enums/task.enum';
 	import { taskStore as store } from '$lib/stores/task.store';
-	import EnhancedLocationPicker from '$lib/components/EnhancedLocationPicker.svelte';
-	import { t } from 'svelte-i18n';
+	import LocationPicker from '$lib/components/LocationPicker.svelte';
 
 	let { errors, direction } = $props<{
 		errors: Record<string, string>;
@@ -52,11 +52,11 @@
 	{#if $store.isRemovals}
 		<div class="w-full">
 			<div class="mb-6">
-				<h5 class="text-md font-semibold text-primary">📍 {$t('task.start_location')}</h5>
-				<p class="text-sm text-base-content">{$t('task.pickup_location_description')}</p>
+				<h5 class="text-md text-primary font-semibold">📍 {$t('task.start_location')}</h5>
+				<p class="text-base-content text-sm">{$t('task.pickup_location_description')}</p>
 			</div>
 			<p class="text-base-content mb-2">{$t('task.location_map_instruction')}</p>
-			<EnhancedLocationPicker
+			<LocationPicker
 				label={$t('task.pickup_location')}
 				placeholder={$t('task.address_placeholder')}
 				location={$store.task.pickupLocation}
@@ -76,12 +76,12 @@
 			/>
 		</div>
 		<div class="w-full">
-			<div class="mb-6 mt-10">
-				<h5 class="text-md font-semibold text-success">🏁 {$t('task.destination_location')}</h5>
-				<p class="text-sm text-base-content">{$t('task.dropoff_location_description')}</p>
+			<div class="mt-10 mb-6">
+				<h5 class="text-md text-success font-semibold">🏁 {$t('task.destination_location')}</h5>
+				<p class="text-base-content text-sm">{$t('task.dropoff_location_description')}</p>
 			</div>
-			<p class="text-sm text-base-content mb-2">{$t('task.location_map_instruction')}</p>
-			<EnhancedLocationPicker
+			<p class="text-base-content mb-2 text-sm">{$t('task.location_map_instruction')}</p>
+			<LocationPicker
 				label={$t('task.dropoff_location')}
 				placeholder={$t('task.address_placeholder')}
 				location={$store.task.dropOffLocation}
@@ -138,8 +138,8 @@
 
 		{#if $store.task?.taskType === TaskTypeEnum.IN_PERSON}
 			<div class="w-full">
-				<p class="text-sm text-base-content mb-2">{$t('task.location_map_instruction')}</p>
-				<EnhancedLocationPicker
+				<p class="text-base-content mb-2 text-sm">{$t('task.location_map_instruction')}</p>
+				<LocationPicker
 					label={$t('task.location')}
 					placeholder={$t('task.address_placeholder')}
 					location={$store.task.pickupLocation}
@@ -163,5 +163,4 @@
 			</div>
 		{/if}
 	{/if}
-
 </div>

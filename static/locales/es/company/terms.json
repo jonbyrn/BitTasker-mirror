@@ -1,217 +1,255 @@
 {
-    "terms": {
-        "title": "Términos de Servicio",
-        "subtitle": "Este Acuerdo de Usuario rige el uso de la plataforma BitTasker.",
-        "last_updated": "Última actualización: 13 de julio de 2025",
-        "intro": "Al acceder o utilizar la plataforma BitTasker, aceptas estar sujeto a estos Términos del Servicio, nuestra <a href=\"/privacy\" class=\"link link-primary\">Política de Privacidad</a>, y todas las leyes y regulaciones aplicables. Si no estás de acuerdo con alguna parte de estos términos, no podrás utilizar nuestros servicios.",
-        "definitions": {
-            "title": "Definiciones",
-            "intro": "A lo largo de estos Términos de Servicio, cuando decimos:",
-            "bitTasker": "<strong>\"BitTasker,\"</strong> \"nosotros,\" \"nos\" o \"nuestro\" se refiere a BitTasker, la empresa que desarrolla y mantiene la plataforma BitTasker.",
-            "services": "<strong>\"Servicios\"</strong> se refiere a las funciones y características proporcionadas por la plataforma BitTasker.",
-            "platform": "<strong>\"Plataforma\"</strong> se refiere a nuestro sitio web, aplicaciones móviles y otros servicios relacionados.",
-            "user": "<strong>\"Usuario,\"</strong> \"tú\" o \"tu\" se refiere a personas que utilizan nuestra plataforma en cualquier capacidad.",
-            "tasker": "<strong>\"Solicitante\"</strong> se refiere a los usuarios que publican tareas solicitando servicios.",
-            "taskee": "<strong>\"Ejecutor\"</strong> se refiere a los usuarios que se ofrecen a realizar servicios para los Solicitantes.",
-            "task_contract": "<strong>\"Contrato de Tarea\"</strong> se refiere al acuerdo que se forma entre un Solicitante y un Ejecutor cuando se acepta una oferta.",
-            "nostr": "<strong>\"Nostr\"</strong> se refiere al protocolo descentralizado que impulsa las comunicaciones y la identidad en la plataforma BitTasker.",
-            "bitcoin": "<strong>\"Bitcoin\"</strong> se refiere a la criptomoneda utilizada para pagos en la plataforma BitTasker, incluyendo transacciones on-chain, en Lightning Network y en Liquid Network.",
-            "service_fee": "<strong>\"Comisión por Servicio\"</strong> se refiere a la tarifa que BitTasker cobra por facilitar conexiones entre Solicitantes y Ejecutores."
-        },
-        "scope": {
-            "title": "1. Alcance de los Servicios de BitTasker",
-            "subsection": "",
-            "point1": "BitTasker ofrece una plataforma descentralizada que permite a los Taskers publicar solicitudes de tareas y a los Taskees ofrecerse para realizarlas.",
-            "point2": "La plataforma utiliza el protocolo Nostr para identidad, almacenamiento de datos y comunicaciones, con Bitcoin y moneda fiat como métodos de pago.",
-            "point3": "Cuando un Tasker acepta la oferta de un Taskee, se crea un Contrato de Tarea directamente entre ambas partes.",
-            "point4": "Al completarse y confirmarse la tarea, los fondos se liberan del contrato de pago seguro al Taskee.",
-            "point5": "Se alienta a ambas partes a dejar reseñas y comentarios después de la finalización de la tarea para beneficiar a la comunidad."
-        },
-        "role": {
-            "title": "2. Rol y Obligaciones de BitTasker",
-            "point1": "BitTasker proporciona la plataforma e infraestructura técnica que permite la conexión entre Taskers y Taskees.",
-            "point2": "BitTasker solo permite que personas mayores de 18 años se registren como Usuarios.",
-            "point3": "BitTasker puede negar el servicio o suspender cuentas de usuarios que violen estos términos.",
-            "point4": "Como una aplicación descentralizada:",
-            "point4a": "BitTasker no almacena tus claves privadas ni tiene acceso a tus mensajes cifrados.",
-            "point4b": "BitTasker no puede recuperar claves o contraseñas perdidas.",
-            "point4c": "BitTasker no tiene la capacidad de revertir ni intervenir en transacciones.",
-            "point5": "BitTasker no asume responsabilidad alguna por la interacción entre Taskers y Taskees, incluyendo pero no limitado a la descripción, ejecución o entrega de servicios.",
-            "point6": "BitTasker no es responsable ni garantiza la veracidad o exactitud de la información proporcionada por los Usuarios.",
-            "point7": "La plataforma se proporciona \"tal cual\" y sin ninguna garantía o condición, expresa o implícita."
-        },
-        "user": {
-            "title": "3. Obligaciones del Usuario",
-            "intro": "Tú debes en todo momento:",
-            "point1": "Cumplir con estos Términos de Servicio y todas las leyes y regulaciones aplicables.",
-            "point2": "Publicar únicamente información precisa en la plataforma BitTasker.",
-            "point3": "Conocer y cumplir con cualquier ley que aplique a ti como Tasker o Taskee.",
-            "point4": "Ser responsable de la seguridad de tus claves privadas de Nostr y tu billetera Bitcoin.",
-            "point5": "No utilizar la plataforma BitTasker para fines ilegales o inmorales.",
-            "point6": "No permitir que otros usen tu cuenta ni transferir tu cuenta a otra persona.",
-            "subintro": "Cualquier información que publiques en la plataforma BitTasker no debe:",
-            "subpoint1": "Ser falsa, inexacta, engañosa o confusa.",
-            "subpoint2": "Ser fraudulenta o involucrar artículos falsificados o robados.",
-            "subpoint3": "Infringir los derechos de propiedad intelectual de terceros.",
-            "subpoint4": "Violar cualquier ley o regulación aplicable.",
-            "subpoint5": "Ser difamatoria, calumniosa, amenazante o acosadora.",
-            "subpoint6": "Contener material obsceno o inapropiado.",
-            "subpoint7": "Contener código malicioso que pueda dañar la plataforma u otros usuarios."
-        },
-        "bitcoin": {
-            "title": "4. Pagos con Bitcoin",
-            "point1": "Los usuarios reconocen que las transacciones con Bitcoin son irreversibles y que BitTasker no puede recuperar fondos enviados a direcciones incorrectas.",
-            "point2": "BitTasker utiliza contratos de pago seguro basados en contratos inteligentes para los pagos de tareas, brindando seguridad a ambas partes.",
-            "point3": "Cuando se crea un Contrato de Tarea, el Tasker debe depositar el monto acordado en el contrato de pago seguro.",
-            "point4": "Las tarifas de servicio se deducen del pago de la tarea cuando los fondos se liberan del contrato de pago seguro.",
-            "point5": "Volatilidad del precio del Bitcoin: ambas partes reconocen que el valor del Bitcoin puede fluctuar y acuerdan que, una vez establecido un precio en Bitcoin para una tarea, este no será ajustado por cambios de precio.",
-            "point6": "Los usuarios son responsables de cualquier impuesto o cumplimiento normativo relacionado con sus transacciones."
-        },
-        "fees": {
-            "title": "5. Estructura Dinámica de Tarifas",
-            "point1": "BitTasker implementa un sistema de niveles que recompensa a los usuarios activos con beneficios.",
-            "point2": "Los usuarios pueden subir de nivel completando tareas exitosamente (como Taskees) o contratando Taskees (como Taskers).",
-            "point3": "Los niveles más altos pueden resultar en tarifas de servicio reducidas y privilegios adicionales dentro de la plataforma.",
-            "point4": "La estructura dinámica de tarifas está diseñada para incentivar la participación activa y la recurrencia de tareas.",
-            "point5": "BitTasker se reserva el derecho de modificar la estructura de tarifas en cualquier momento."
-        },
-        "encryption": {
-            "title": "6. Cifrado de Extremo a Extremo y Privacidad",
-            "point1": "Todos los mensajes directos entre usuarios están cifrados de extremo a extremo.",
-            "point2": "BitTasker no puede acceder al contenido de tus conversaciones privadas.",
-            "point3": "Los usuarios son responsables de mantener la seguridad de sus claves privadas.",
-            "point4": "Si pierdes acceso a tus claves privadas, BitTasker no puede recuperar tus mensajes cifrados ni tu cuenta.",
-            "point5": "Para más detalles sobre nuestras prácticas de privacidad, consulta nuestra",
-            "privacy_link": "Política de Privacidad"
-        },
-        "language": {
-            "title": "7. Soporte Multilingüe",
-            "point1": "BitTasker ofrece funciones de traducción automática para facilitar la comunicación entre usuarios que hablan diferentes idiomas.",
-            "point2": "Aunque procuramos precisión, los usuarios reconocen que las traducciones automáticas pueden no ser perfectas y pueden causar malentendidos.",
-            "point3": "En caso de discrepancias entre versiones de estos términos en diferentes idiomas, prevalecerá la versión en inglés.",
-            "point4": "Para evitar confusiones, se recomienda comunicarse con la mayor claridad posible."
-        },
-        "disputes": {
-            "title": "8. Resolución de Disputas",
-            "point1": "En caso de disputa entre un Tasker y un Taskee, ambas partes deben intentar resolver el problema directamente a través del sistema de mensajería de la plataforma.",
-            "point2": "Si no se llega a una resolución, se utilizará nuestro sistema de contratos de pago seguro para resolver la disputa.",
-            "point3": "Los contratos de pago seguro se implementan con contratos inteligentes en la red Rootstock donde solo el tasker y el taskee controlan los fondos.",
-            "point4": "Dado que BitTasker no tiene acceso a tus fondos, no podemos intervenir en caso de que un tasker y un taskee tengan una disputa.",
-            "point5": "Consulta nuestra detallada",
-            "escrow_link": "página de pagos seguros"
-        },
-        "ip": {
-            "title": "9. Propiedad Intelectual",
-            "point1": "El nombre, logotipo y plataforma de BitTasker están protegidos por derechos de propiedad intelectual propiedad de BitTasker.",
-            "point2": "No puedes usar nuestras marcas comerciales, logotipos u otra información propietaria sin nuestro consentimiento previo por escrito.",
-            "point3": "El contenido que creas y publicas en BitTasker sigue siendo de tu propiedad intelectual, pero otorgas a BitTasker una licencia para usar, almacenar, reproducir y mostrar dicho contenido con el fin de proporcionar y promocionar la plataforma.",
-            "point4": "Esta licencia es perpetua y finaliza cuando eliminas tu contenido de la plataforma, excepto en los casos en que tu contenido haya sido compartido con otros que no lo han eliminado."
-        },
-        "liability": {
-            "title": "10. Limitación de Responsabilidad",
-            "point1": "En la máxima medida permitida por la ley, BitTasker y sus afiliados, funcionarios, directores, empleados, agentes y licenciantes no serán responsables de daños indirectos, incidentales, especiales, consecuentes, punitivos o ejemplares, incluidos, entre otros, daños por pérdida de ganancias, fondo de comercio, uso, datos u otras pérdidas intangibles, que surjan de o estén relacionados con tu uso de la plataforma.",
-            "point2": "Esta limitación se aplica ya sea que la supuesta responsabilidad se base en contrato, agravio, negligencia, responsabilidad estricta o cualquier otra base, incluso si BitTasker ha sido advertido de la posibilidad de tal daño.",
-            "point3": "La responsabilidad total de BitTasker hacia ti por todas y cada una de las reclamaciones que surjan de o estén relacionadas con estos Términos o tu uso de la plataforma no excederá la cantidad mayor entre (a) la cantidad que hayas pagado a BitTasker en tarifas de servicio durante los seis meses anteriores a la reclamación, o (b) cien dólares ($100).",
-            "point4": "Algunas jurisdicciones no permiten la exclusión o limitación de responsabilidad por daños consecuentes o incidentales, por lo que la limitación anterior puede no aplicarse a ti. En tales jurisdicciones, nuestra responsabilidad se limita al máximo grado permitido por la ley.",
-            "point5": "Reconoces que las tarifas cobradas por BitTasker reflejan la asignación de riesgo establecida en estos Términos y que BitTasker no celebraría estos Términos sin estas limitaciones en su responsabilidad."
-        },
-        "indemnification": {
-            "title": "11. Indemnización",
-            "point1": "Aceptas defender, indemnizar y eximir de responsabilidad a BitTasker, sus afiliados, funcionarios, directores, empleados, agentes y licenciantes de y contra cualquier y todas las reclamaciones, daños, obligaciones, pérdidas, responsabilidades, costos y gastos (incluidos los honorarios razonables de abogados) que surjan de:",
-            "point2": "Tu uso de la plataforma o servicios;",
-            "point3": "Tu violación de estos Términos;",
-            "point4": "Tu violación de los derechos de cualquier tercero, incluidos los derechos de propiedad intelectual;",
-            "point5": "Tu conducta en relación con la plataforma;",
-            "point6": "Cualquier Contrato de Tarea en el que participes;",
-            "point7": "Cualquier contenido que publiques o transmitas a través de la plataforma. BitTasker se reserva el derecho de asumir la defensa y el control exclusivos de cualquier asunto sujeto a indemnización por tu parte, en cuyo caso cooperarás con BitTasker para presentar cualquier defensa disponible."
-        },
-        "classWaiver": {
-            "title": "12. Renuncia a Demandas Colectivas",
-            "point1": {
-                "label": "Solo Disputas Individuales:",
-                "text": "Tú y BitTasker acuerdan que cualquier procedimiento de resolución de disputas se llevará a cabo solo de forma individual y no en una acción colectiva, consolidada o representativa."
-            },
-            "point2": {
-                "label": "Sin Demandas Colectivas:",
-                "text": "Aceptas no participar ni intentar participar en una demanda colectiva, acción colectiva u otra acción representativa contra BitTasker."
-            },
-            "point3": {
-                "label": "Renuncia a Juicio con Jurado:",
-                "text": "Tú y BitTasker renuncian a cualquier derecho a un juicio con jurado en cualquier procedimiento que surja de o esté relacionado con estos Términos."
-            },
-            "point4": {
-                "label": "Divisibilidad:",
-                "text": "Si alguna parte de esta disposición de arbitraje o renuncia a demandas colectivas se considera inválida o inaplicable, el resto de esta sección permanecerá en vigor. Sin embargo, si la renuncia a demandas colectivas se considera inválida o inaplicable, entonces la totalidad de esta disposición de arbitraje será nula y sin efecto."
-            },
-            "point5": {
-                "label": "Opción de Exclusión:",
-                "text": "Puedes optar por no participar en este acuerdo de arbitraje dentro de los 30 días posteriores a la primera aceptación de estos Términos enviando un aviso por escrito a nuestra página de contacto con tu nombre, dirección y una declaración clara de que deseas excluirte del acuerdo de arbitraje."
-            }
-        },
-        "termination": {
-            "title": "13. Terminación",
-            "point1": "BitTasker puede terminar o suspender tu acceso a la plataforma en cualquier momento, con o sin causa, y con o sin previo aviso.",
-            "point2": "Puedes terminar tu cuenta en cualquier momento dejando de usar la plataforma y cerrando tu cuenta.",
-            "point3": "Tras la terminación, tu derecho a usar la plataforma cesará inmediatamente. Los Contratos de Tarea y las obligaciones subsisten a la terminación.",
-            "point4": "Los términos que deben sobrevivir a la terminación incluyen propiedad, garantías, indemnizaciones, limitaciones de responsabilidad, disputas y renuncia a demandas colectivas.",
-            "point5": "BitTasker no será responsable de ninguna terminación de tu acceso."
-        },
-        "disclaimers": {
-            "title": "14. Descargos de Responsabilidad y Garantías",
-            "point1": {
-                "label": "Sin Garantías:",
-                "text": "La plataforma se proporciona \"tal cual\" y \"según disponibilidad\" sin garantías de ningún tipo, expresas o implícitas."
-            },
-            "point2": {
-                "label": "Sin Garantía de Servicio:",
-                "text": "BitTasker no garantiza un acceso ininterrumpido o sin errores. No garantizamos la corrección de defectos ni la ausencia de componentes dañinos."
-            },
-            "point3": {
-                "label": "Contenido de Terceros:",
-                "text": "BitTasker renuncia a todas las garantías relacionadas con el contenido de terceros o publicado por los usuarios."
-            },
-            "point4": {
-                "label": "Riesgos de Criptomonedas:",
-                "text": "Las criptomonedas implican riesgos como la volatilidad, la regulación y los fallos técnicos. BitTasker no ofrece garantías."
-            },
-            "point5": {
-                "label": "Interacciones del Usuario:",
-                "text": "BitTasker no ofrece ninguna garantía con respecto a la información publicada por los usuarios o la calidad de las tareas."
-            },
-            "point6": "Debido a que BitTasker no puede recuperar fondos enviados a direcciones incorrectas, le recomendamos encarecidamente que verifique todas las transacciones antes de confirmarlas.",
-            "point7": "Los fondos retenidos en un contrato de pago seguro solo se pueden liberar según los términos acordados en el contrato inteligente. Si una de las partes pierde acceso a su cuenta o claves, los fondos pueden quedar bloqueados según los mecanismos del contrato."
-        },
-        "forceMajeure": {
-            "title": "15. Fuerza Mayor",
-            "point1": "BitTasker no es responsable de los fallos debidos a eventos fuera de su control, incluidos desastres naturales, guerra, terrorismo o acciones regulatorias.",
-            "point2": "Durante un evento de fuerza mayor, las obligaciones de BitTasker se suspenden por su duración."
-        },
-        "changes": {
-            "title": "16. Cambios en los Términos",
-            "point1": "BitTasker puede modificar estos Términos en cualquier momento publicando los términos revisados en la plataforma con una nueva fecha de \"Última actualización\".",
-            "point2": "Tu uso continuado de la plataforma después de dichos cambios constituye tu aceptación de los nuevos Términos.",
-            "point3": "Si no estás de acuerdo con los términos modificados, debes dejar de usar la plataforma y es posible que tengas derecho a un reembolso de las tarifas prepagas, sujeto a estos Términos."
-        },
-        "law": {
-            "title": "17. Ley Aplicable",
-            "point1": "Estos Términos se regirán e interpretarán de acuerdo con las leyes de El Salvador, sin tener en cuenta sus disposiciones sobre conflictos de leyes.",
-            "point2": "Cualquier acción o procedimiento legal que surja de estos Términos que no esté sujeto a arbitraje se presentará exclusivamente en los tribunales ubicados en El Salvador, y aceptas la jurisdicción de dichos tribunales.",
-            "point3": "No obstante lo anterior, ciertas leyes de protección al consumidor pueden aplicarse a tu uso de la plataforma, independientemente de esta disposición de ley aplicable."
-        },
-        "severability": {
-            "title": "18. Divisibilidad",
-            "point1": "Si alguna disposición de estos Términos se considera inválida, ilegal o inaplicable, la validez, legalidad y aplicabilidad de las disposiciones restantes no se verán afectadas ni perjudicadas por ello.",
-            "point2": "En tal caso, las partes reemplazarán la disposición inválida, ilegal o inaplicable por una disposición válida, legal y aplicable que logre el mismo o similar efecto económico."
-        },
-        "entire_agreement": {
-            "title": "19. Acuerdo Completo",
-            "point1": "Estos Términos, junto con nuestra Política de Privacidad y cualquier término adicional que se aplique a características específicas de la plataforma, constituyen el acuerdo completo entre tú y BitTasker con respecto a tu uso de la plataforma.",
-            "point2": "Estos Términos reemplazan todos los acuerdos, entendimientos y comunicaciones anteriores entre tú y BitTasker con respecto al tema de este documento."
-        },
-        "contact_info": {
-            "title": "20. Información de Contacto",
-            "point1": "Si tienes alguna pregunta sobre estos Términos, contáctanos en <a href=\"/contact\" class=\"link link-primary\">nuestra página de contacto</a>.",
-            "point2": "Para avisos legales, incluidos los avisos de exclusión de arbitraje, envía la correspondencia por escrito a: BitTasker Legal Department, a través de nuestra página de contacto."
-        }
-    }
+	"terms": {
+		"title": "Términos de Servicio",
+		"subtitle": "Este Acuerdo de Usuario rige el uso de la plataforma BitTasker.",
+		"last_updated": "Última actualización: 13 de marzo de 2026",
+		"intro": "Al acceder o utilizar la plataforma BitTasker, aceptas estar sujeto a estos Términos del Servicio, nuestra <a href=\"/privacy\" class=\"link link-primary\">Política de Privacidad</a>, y todas las leyes y regulaciones aplicables. Si no estás de acuerdo con alguna parte de estos términos, no podrás utilizar nuestros servicios.",
+		"definitions": {
+			"title": "Definiciones",
+			"intro": "A lo largo de estos Términos de Servicio, cuando decimos:",
+			"bitTasker": "<strong>\"BitTasker,\"</strong> \"nosotros,\" \"nos\" o \"nuestro\" se refiere a BitTasker, la empresa que desarrolla y mantiene la plataforma BitTasker.",
+			"services": "<strong>\"Servicios\"</strong> se refiere a las funciones y características proporcionadas por la plataforma BitTasker.",
+			"platform": "<strong>\"Plataforma\"</strong> se refiere a nuestro sitio web, aplicaciones móviles y otros servicios relacionados.",
+			"user": "<strong>\"Usuario,\"</strong> \"tú\" o \"tu\" se refiere a personas que utilizan nuestra plataforma en cualquier capacidad.",
+			"tasker": "<strong>\"Solicitante\"</strong> se refiere a los usuarios que publican tareas solicitando servicios.",
+			"taskee": "<strong>\"Ejecutor\"</strong> se refiere a los usuarios que se ofrecen a realizar servicios para los Solicitantes.",
+			"task_contract": "<strong>\"Contrato de Tarea\"</strong> se refiere al acuerdo que se forma entre un Solicitante y un Ejecutor cuando se acepta una oferta.",
+			"nostr": "<strong>\"Nostr\"</strong> se refiere al protocolo descentralizado que impulsa las comunicaciones y la identidad en la plataforma BitTasker.",
+			"bitcoin": "<strong>\"Bitcoin\"</strong> se refiere a la criptomoneda utilizada para pagos en la plataforma BitTasker, incluyendo transacciones on-chain, en Lightning Network y en Liquid Network.",
+			"service_fee": "<strong>\"Comisión por Servicio\"</strong> se refiere a la tarifa que BitTasker cobra por facilitar conexiones entre Solicitantes y Ejecutores."
+		},
+		"scope": {
+			"title": "1. Alcance de los Servicios de BitTasker",
+			"subsection": "",
+			"point1": "BitTasker ofrece una plataforma descentralizada que permite a los Taskers publicar solicitudes de tareas y a los Taskees ofrecerse para realizarlas.",
+			"point2": "La plataforma utiliza el protocolo Nostr para identidad, almacenamiento de datos y comunicaciones, con Bitcoin y moneda fiat como métodos de pago.",
+			"point3": "Cuando un Tasker acepta la oferta de un Taskee, se crea un Contrato de Tarea directamente entre ambas partes.",
+			"point4": "Al completarse y confirmarse la tarea, los fondos se liberan del contrato de pago seguro al Taskee.",
+			"point5": "Se alienta a ambas partes a dejar reseñas y comentarios después de la finalización de la tarea para beneficiar a la comunidad."
+		},
+		"role": {
+			"title": "2. Rol y Obligaciones de BitTasker",
+			"point1": "BitTasker proporciona la plataforma e infraestructura técnica que permite la conexión entre Taskers y Taskees.",
+			"point2": "BitTasker solo permite que personas mayores de 18 años se registren como Usuarios.",
+			"point3": "BitTasker puede negar el servicio o suspender cuentas de usuarios que violen estos términos.",
+			"point4": "Como una aplicación descentralizada:",
+			"point4a": "BitTasker no almacena tus claves privadas ni tiene acceso a tus mensajes cifrados.",
+			"point4b": "BitTasker no puede recuperar claves o contraseñas perdidas.",
+			"point4c": "BitTasker no tiene la capacidad de revertir ni intervenir en transacciones.",
+			"point5": "BitTasker no asume responsabilidad alguna por la interacción entre Taskers y Taskees, incluyendo pero no limitado a la descripción, ejecución o entrega de servicios.",
+			"point6": "BitTasker no es responsable ni garantiza la veracidad o exactitud de la información proporcionada por los Usuarios.",
+			"point7": "La plataforma se proporciona \"tal cual\" y sin ninguna garantía o condición, expresa o implícita."
+		},
+		"user": {
+			"title": "3. Obligaciones del Usuario",
+			"intro": "Tú debes en todo momento:",
+			"point1": "Cumplir con estos Términos de Servicio y todas las leyes y regulaciones aplicables.",
+			"point2": "Publicar únicamente información precisa en la plataforma BitTasker.",
+			"point3": "Conocer y cumplir con cualquier ley que aplique a ti como Tasker o Taskee.",
+			"point4": "Ser responsable de la seguridad de tus claves privadas de Nostr y tu billetera Bitcoin.",
+			"point5": "No utilizar la plataforma BitTasker para fines ilegales o inmorales.",
+			"point6": "No permitir que otros usen tu cuenta ni transferir tu cuenta a otra persona.",
+			"subintro": "Cualquier información que publiques en la plataforma BitTasker no debe:",
+			"subpoint1": "Ser falsa, inexacta, engañosa o confusa.",
+			"subpoint2": "Ser fraudulenta o involucrar artículos falsificados o robados.",
+			"subpoint3": "Infringir los derechos de propiedad intelectual de terceros.",
+			"subpoint4": "Violar cualquier ley o regulación aplicable.",
+			"subpoint5": "Ser difamatoria, calumniosa, amenazante o acosadora.",
+			"subpoint6": "Contener material obsceno o inapropiado.",
+			"subpoint7": "Contener código malicioso que pueda dañar la plataforma u otros usuarios."
+		},
+		"ugc": {
+			"title": "3a. Contenido Generado por Usuarios, Contenido Objetable y Moderación",
+			"intro": "BitTasker es una plataforma donde los usuarios publican tareas, ofertas, mensajes e información de perfil. Estamos comprometidos a mantener un entorno seguro y respetuoso. Esta sección define qué constituye contenido objetable, cómo reportarlo y cómo actuamos ante los reportes.",
+			"objectionable_title": "Contenido Objetable",
+			"objectionable_intro": "Los siguientes tipos de contenido están estrictamente prohibidos en BitTasker y constituyen contenido objetable:",
+			"objectionable1": "Spam, mensajes comerciales no solicitados o contenido repetitivo diseñado para manipular resultados de búsqueda o clasificaciones.",
+			"objectionable2": "Contenido ilegal, incluyendo pero no limitado a contenido que facilite servicios ilegales, trata de personas, venta de drogas, venta de armas o cualquier actividad prohibida por la ley aplicable.",
+			"objectionable3": "Lenguaje obsceno, discurso de odio o contenido que promueva la discriminación por raza, etnia, religión, género, orientación sexual, discapacidad u origen nacional.",
+			"objectionable4": "Desnudez, contenido sexualmente explícito o violencia gráfica no relevante para los servicios ofrecidos.",
+			"objectionable5": "Suplantación de identidad de cualquier persona, empresa o entidad, incluidos otros usuarios de BitTasker.",
+			"objectionable6": "Acoso, amenazas, intimidación o bullying hacia cualquier usuario.",
+			"objectionable7": "Contenido que infrinja derechos de propiedad intelectual, incluidos derechos de autor y marcas registradas.",
+			"objectionable8": "Contenido falso, engañoso o fraudulento, incluidas reseñas falsas o publicaciones de tareas fraudulentas.",
+			"reporting_title": "Reporte dentro de la Aplicación",
+			"reporting_intro": "BitTasker proporciona herramientas claramente etiquetadas y de fácil acceso dentro de la aplicación para reportar contenido objetable y bloquear usuarios. Puedes reportar:",
+			"reporting1": "Cualquier publicación de tarea — usando el menú de tres puntos (⋮) en cualquier tarjeta de tarea.",
+			"reporting2": "Cualquier oferta — usando el menú de tres puntos (⋮) en cualquier tarjeta de oferta.",
+			"reporting3": "Cualquier mensaje — usando el menú de tres puntos (⋮) en cualquier mensaje.",
+			"reporting4": "Cualquier usuario — usando el menú de tres puntos (⋮) en cualquier perfil de usuario.",
+			"reporting_types": "Al enviar un reporte, debes seleccionar una categoría: Spam, Contenido ilegal, Lenguaje obsceno o discurso de odio, Desnudez o contenido explícito, Suplantación de identidad u Otro (con descripción obligatoria). Los reportes se transmiten como eventos firmados criptográficamente en la red Nostr y son revisados por los operadores del relay de BitTasker.",
+			"blocking_title": "Bloqueo de Usuarios",
+			"blocking_intro": "Puedes bloquear a cualquier usuario en cualquier momento usando el menú de tres puntos (⋮) en su contenido o perfil. Bloquear a un usuario:",
+			"blocking1": "Oculta inmediatamente todo su contenido de tu vista, incluyendo tareas, ofertas y mensajes.",
+			"blocking2": "Actualiza tu lista personal de silenciados, que se almacena como un evento Nostr (NIP-51 Kind 10000) en el relay.",
+			"blocking3": "Puede deshacerse en cualquier momento desde la sección Usuarios Silenciados en tu Configuración.",
+			"action_title": "Moderación y Acción Oportuna",
+			"action_intro": "Los reportes se envían como eventos Nostr (NIP-56) firmados criptográficamente y son visibles para los operadores del relay de BitTasker. BitTasker hará sus mejores esfuerzos para revisar los reportes en su propio relay y tomar las medidas adecuadas en un plazo razonable. El alcance de la moderación de BitTasker está limitado a lo que controla técnicamente, como se describe a continuación.",
+			"action_sla_title": "Qué Puede y No Puede Hacer BitTasker",
+			"action_sla_intro": "Debido a que BitTasker está construido sobre el protocolo Nostr descentralizado, sus capacidades de moderación están técnicamente acotadas:",
+			"action_sla1": "BitTasker opera su propio relay. Los reportes de infracciones serán revisados con el mayor esfuerzo posible, dando prioridad a los reportes de contenido ilegal, contenido explícito y acoso.",
+			"action_sla2": "Tras confirmar una infracción, BitTasker podrá expulsar al usuario reportado de su relay. Esto impide que su contenido aparezca en el cliente de BitTasker para todos los usuarios.",
+			"action_sla3": "BitTasker no puede eliminar contenido de relays Nostr de terceros que no opera. El contenido puede seguir siendo accesible a través de otros clientes o relays Nostr fuera del control de BitTasker.",
+			"action_sla4": "Los usuarios pueden ocultar inmediata e independientemente el contenido de cualquier usuario usando la función de bloqueo/silencio dentro de la aplicación, sin necesidad de esperar la moderación a nivel de relay.",
+			"action1": "Los usuarios cuya infracción de estos Términos haya sido confirmada podrán ser expulsados del relay de BitTasker, lo que impide que su contenido aparezca en el cliente de BitTasker.",
+			"action2": "Las infracciones repetidas o graves pueden resultar en una expulsión permanente del relay de BitTasker.",
+			"action3": "BitTasker se reserva el derecho de expulsar a cualquier usuario de su relay por contenido que viole estos Términos, a su entera discreción.",
+			"decentralized_note": "Importante: Dado que BitTasker está construido sobre el protocolo Nostr, el contenido se almacena en una red descentralizada de relays que BitTasker no posee ni opera. BitTasker solo puede actuar sobre su propio relay y no puede garantizar la eliminación de contenido de relays de terceros fuera de su control. Silenciar a un usuario es una acción del lado del cliente que oculta inmediatamente su contenido de tu vista, independientemente del relay en que esté almacenado."
+		},
+		"bitcoin": {
+			"title": "4. Pagos con Bitcoin",
+			"point1": "Los usuarios reconocen que las transacciones con Bitcoin son irreversibles y que BitTasker no puede recuperar fondos enviados a direcciones incorrectas.",
+			"point2": "BitTasker utiliza contratos de pago seguro basados en contratos inteligentes para los pagos de tareas, brindando seguridad a ambas partes.",
+			"point3": "Cuando se crea un Contrato de Tarea, el Tasker debe depositar el monto acordado en el contrato de pago seguro.",
+			"point4": "Las tarifas de servicio se deducen del pago de la tarea cuando los fondos se liberan del contrato de pago seguro.",
+			"point5": "Volatilidad del precio del Bitcoin: ambas partes reconocen que el valor del Bitcoin puede fluctuar y acuerdan que, una vez establecido un precio en Bitcoin para una tarea, este no será ajustado por cambios de precio.",
+			"point6": "Los usuarios son responsables de cualquier impuesto o cumplimiento normativo relacionado con sus transacciones."
+		},
+		"fees": {
+			"title": "5. Estructura Dinámica de Tarifas",
+			"point1": "BitTasker implementa un sistema de niveles que recompensa a los usuarios activos con beneficios.",
+			"point2": "Los usuarios pueden subir de nivel completando tareas exitosamente (como Taskees) o contratando Taskees (como Taskers).",
+			"point3": "Los niveles más altos pueden resultar en tarifas de servicio reducidas y privilegios adicionales dentro de la plataforma.",
+			"point4": "La estructura dinámica de tarifas está diseñada para incentivar la participación activa y la recurrencia de tareas.",
+			"point5": "BitTasker se reserva el derecho de modificar la estructura de tarifas en cualquier momento."
+		},
+		"encryption": {
+			"title": "6. Cifrado de Extremo a Extremo y Privacidad",
+			"point1": "Todos los mensajes directos entre usuarios están cifrados de extremo a extremo.",
+			"point2": "BitTasker no puede acceder al contenido de tus conversaciones privadas.",
+			"point3": "Los usuarios son responsables de mantener la seguridad de sus claves privadas.",
+			"point4": "Si pierdes acceso a tus claves privadas, BitTasker no puede recuperar tus mensajes cifrados ni tu cuenta.",
+			"point5": "Para más detalles sobre nuestras prácticas de privacidad, consulta nuestra",
+			"privacy_link": "Política de Privacidad"
+		},
+		"language": {
+			"title": "7. Soporte Multilingüe",
+			"point1": "BitTasker ofrece funciones de traducción automática para facilitar la comunicación entre usuarios que hablan diferentes idiomas.",
+			"point2": "Aunque procuramos precisión, los usuarios reconocen que las traducciones automáticas pueden no ser perfectas y pueden causar malentendidos.",
+			"point3": "En caso de discrepancias entre versiones de estos términos en diferentes idiomas, prevalecerá la versión en inglés.",
+			"point4": "Para evitar confusiones, se recomienda comunicarse con la mayor claridad posible."
+		},
+		"disputes": {
+			"title": "8. Resolución de Disputas",
+			"point1": "En caso de disputa entre un Tasker y un Taskee, ambas partes deben intentar resolver el problema directamente a través del sistema de mensajería de la plataforma.",
+			"point2": "Si no se llega a una resolución, se utilizará nuestro sistema de contratos de pago seguro para resolver la disputa.",
+			"point3": "Los contratos de pago seguro se implementan con contratos inteligentes en la red Rootstock donde solo el tasker y el taskee controlan los fondos.",
+			"point4": "Dado que BitTasker no tiene acceso a tus fondos, no podemos intervenir en caso de que un tasker y un taskee tengan una disputa.",
+			"point5": "Consulta nuestra detallada",
+			"escrow_link": "página de pagos seguros"
+		},
+		"ip": {
+			"title": "9. Propiedad Intelectual",
+			"point1": "El nombre, logotipo y plataforma de BitTasker están protegidos por derechos de propiedad intelectual propiedad de BitTasker.",
+			"point2": "No puedes usar nuestras marcas comerciales, logotipos u otra información propietaria sin nuestro consentimiento previo por escrito.",
+			"point3": "El contenido que creas y publicas en BitTasker sigue siendo de tu propiedad intelectual, pero otorgas a BitTasker una licencia para usar, almacenar, reproducir y mostrar dicho contenido con el fin de proporcionar y promocionar la plataforma.",
+			"point4": "Esta licencia es perpetua y finaliza cuando eliminas tu contenido de la plataforma, excepto en los casos en que tu contenido haya sido compartido con otros que no lo han eliminado."
+		},
+		"liability": {
+			"title": "10. Limitación de Responsabilidad",
+			"point1": "En la máxima medida permitida por la ley, BitTasker y sus afiliados, funcionarios, directores, empleados, agentes y licenciantes no serán responsables de daños indirectos, incidentales, especiales, consecuentes, punitivos o ejemplares, incluidos, entre otros, daños por pérdida de ganancias, fondo de comercio, uso, datos u otras pérdidas intangibles, que surjan de o estén relacionados con tu uso de la plataforma.",
+			"point2": "Esta limitación se aplica ya sea que la supuesta responsabilidad se base en contrato, agravio, negligencia, responsabilidad estricta o cualquier otra base, incluso si BitTasker ha sido advertido de la posibilidad de tal daño.",
+			"point3": "La responsabilidad total de BitTasker hacia ti por todas y cada una de las reclamaciones que surjan de o estén relacionadas con estos Términos o tu uso de la plataforma no excederá la cantidad mayor entre (a) la cantidad que hayas pagado a BitTasker en tarifas de servicio durante los seis meses anteriores a la reclamación, o (b) cien dólares ($100).",
+			"point4": "Algunas jurisdicciones no permiten la exclusión o limitación de responsabilidad por daños consecuentes o incidentales, por lo que la limitación anterior puede no aplicarse a ti. En tales jurisdicciones, nuestra responsabilidad se limita al máximo grado permitido por la ley.",
+			"point5": "Reconoces que las tarifas cobradas por BitTasker reflejan la asignación de riesgo establecida en estos Términos y que BitTasker no celebraría estos Términos sin estas limitaciones en su responsabilidad."
+		},
+		"indemnification": {
+			"title": "11. Indemnización",
+			"point1": "Aceptas defender, indemnizar y eximir de responsabilidad a BitTasker, sus afiliados, funcionarios, directores, empleados, agentes y licenciantes de y contra cualquier y todas las reclamaciones, daños, obligaciones, pérdidas, responsabilidades, costos y gastos (incluidos los honorarios razonables de abogados) que surjan de:",
+			"point2": "Tu uso de la plataforma o servicios;",
+			"point3": "Tu violación de estos Términos;",
+			"point4": "Tu violación de los derechos de cualquier tercero, incluidos los derechos de propiedad intelectual;",
+			"point5": "Tu conducta en relación con la plataforma;",
+			"point6": "Cualquier Contrato de Tarea en el que participes;",
+			"point7": "Cualquier contenido que publiques o transmitas a través de la plataforma. BitTasker se reserva el derecho de asumir la defensa y el control exclusivos de cualquier asunto sujeto a indemnización por tu parte, en cuyo caso cooperarás con BitTasker para presentar cualquier defensa disponible."
+		},
+		"classWaiver": {
+			"title": "12. Renuncia a Demandas Colectivas",
+			"point1": {
+				"label": "Solo Disputas Individuales:",
+				"text": "Tú y BitTasker acuerdan que cualquier procedimiento de resolución de disputas se llevará a cabo solo de forma individual y no en una acción colectiva, consolidada o representativa."
+			},
+			"point2": {
+				"label": "Sin Demandas Colectivas:",
+				"text": "Aceptas no participar ni intentar participar en una demanda colectiva, acción colectiva u otra acción representativa contra BitTasker."
+			},
+			"point3": {
+				"label": "Renuncia a Juicio con Jurado:",
+				"text": "Tú y BitTasker renuncian a cualquier derecho a un juicio con jurado en cualquier procedimiento que surja de o esté relacionado con estos Términos."
+			},
+			"point4": {
+				"label": "Divisibilidad:",
+				"text": "Si alguna parte de esta disposición de arbitraje o renuncia a demandas colectivas se considera inválida o inaplicable, el resto de esta sección permanecerá en vigor. Sin embargo, si la renuncia a demandas colectivas se considera inválida o inaplicable, entonces la totalidad de esta disposición de arbitraje será nula y sin efecto."
+			},
+			"point5": {
+				"label": "Opción de Exclusión:",
+				"text": "Puedes optar por no participar en este acuerdo de arbitraje dentro de los 30 días posteriores a la primera aceptación de estos Términos enviando un aviso por escrito a nuestra página de contacto con tu nombre, dirección y una declaración clara de que deseas excluirte del acuerdo de arbitraje."
+			}
+		},
+		"termination": {
+			"title": "13. Terminación",
+			"point1": "BitTasker puede terminar o suspender tu acceso a la plataforma en cualquier momento, con o sin causa, y con o sin previo aviso.",
+			"point2": "Puedes terminar tu cuenta en cualquier momento dejando de usar la plataforma y cerrando tu cuenta.",
+			"point3": "Tras la terminación, tu derecho a usar la plataforma cesará inmediatamente. Los Contratos de Tarea y las obligaciones subsisten a la terminación.",
+			"point4": "Los términos que deben sobrevivir a la terminación incluyen propiedad, garantías, indemnizaciones, limitaciones de responsabilidad, disputas y renuncia a demandas colectivas.",
+			"point5": "BitTasker no será responsable de ninguna terminación de tu acceso."
+		},
+		"disclaimers": {
+			"title": "14. Descargos de Responsabilidad y Garantías",
+			"point1": {
+				"label": "Sin Garantías:",
+				"text": "La plataforma se proporciona \"tal cual\" y \"según disponibilidad\" sin garantías de ningún tipo, expresas o implícitas."
+			},
+			"point2": {
+				"label": "Sin Garantía de Servicio:",
+				"text": "BitTasker no garantiza un acceso ininterrumpido o sin errores. No garantizamos la corrección de defectos ni la ausencia de componentes dañinos."
+			},
+			"point3": {
+				"label": "Contenido de Terceros:",
+				"text": "BitTasker renuncia a todas las garantías relacionadas con el contenido de terceros o publicado por los usuarios."
+			},
+			"point4": {
+				"label": "Riesgos de Criptomonedas:",
+				"text": "Las criptomonedas implican riesgos como la volatilidad, la regulación y los fallos técnicos. BitTasker no ofrece garantías."
+			},
+			"point5": {
+				"label": "Interacciones del Usuario:",
+				"text": "BitTasker no ofrece ninguna garantía con respecto a la información publicada por los usuarios o la calidad de las tareas."
+			},
+			"point6": "Debido a que BitTasker no puede recuperar fondos enviados a direcciones incorrectas, le recomendamos encarecidamente que verifique todas las transacciones antes de confirmarlas.",
+			"point7": "Los fondos retenidos en un contrato de pago seguro solo se pueden liberar según los términos acordados en el contrato inteligente. Si una de las partes pierde acceso a su cuenta o claves, los fondos pueden quedar bloqueados según los mecanismos del contrato."
+		},
+		"forceMajeure": {
+			"title": "15. Fuerza Mayor",
+			"point1": "BitTasker no es responsable de los fallos debidos a eventos fuera de su control, incluidos desastres naturales, guerra, terrorismo o acciones regulatorias.",
+			"point2": "Durante un evento de fuerza mayor, las obligaciones de BitTasker se suspenden por su duración."
+		},
+		"changes": {
+			"title": "16. Cambios en los Términos",
+			"point1": "BitTasker puede modificar estos Términos en cualquier momento publicando los términos revisados en la plataforma con una nueva fecha de \"Última actualización\".",
+			"point2": "Tu uso continuado de la plataforma después de dichos cambios constituye tu aceptación de los nuevos Términos.",
+			"point3": "Si no estás de acuerdo con los términos modificados, debes dejar de usar la plataforma y es posible que tengas derecho a un reembolso de las tarifas prepagas, sujeto a estos Términos."
+		},
+		"law": {
+			"title": "17. Ley Aplicable",
+			"point1": "Estos Términos se regirán e interpretarán de acuerdo con las leyes de El Salvador, sin tener en cuenta sus disposiciones sobre conflictos de leyes.",
+			"point2": "Cualquier acción o procedimiento legal que surja de estos Términos que no esté sujeto a arbitraje se presentará exclusivamente en los tribunales ubicados en El Salvador, y aceptas la jurisdicción de dichos tribunales.",
+			"point3": "No obstante lo anterior, ciertas leyes de protección al consumidor pueden aplicarse a tu uso de la plataforma, independientemente de esta disposición de ley aplicable."
+		},
+		"severability": {
+			"title": "18. Divisibilidad",
+			"point1": "Si alguna disposición de estos Términos se considera inválida, ilegal o inaplicable, la validez, legalidad y aplicabilidad de las disposiciones restantes no se verán afectadas ni perjudicadas por ello.",
+			"point2": "En tal caso, las partes reemplazarán la disposición inválida, ilegal o inaplicable por una disposición válida, legal y aplicable que logre el mismo o similar efecto económico."
+		},
+		"entire_agreement": {
+			"title": "19. Acuerdo Completo",
+			"point1": "Estos Términos, junto con nuestra Política de Privacidad y cualquier término adicional que se aplique a características específicas de la plataforma, constituyen el acuerdo completo entre tú y BitTasker con respecto a tu uso de la plataforma.",
+			"point2": "Estos Términos reemplazan todos los acuerdos, entendimientos y comunicaciones anteriores entre tú y BitTasker con respecto al tema de este documento."
+		},
+		"contact_info": {
+			"title": "20. Información de Contacto",
+			"point1": "Si tienes alguna pregunta sobre estos Términos, contáctanos en <a href=\"/contact\" class=\"link link-primary\">nuestra página de contacto</a>.",
+			"point2": "Para avisos legales, incluidos los avisos de exclusión de arbitraje, envía la correspondencia por escrito a: BitTasker Legal Department, a través de nuestra página de contacto."
+		}
+	}
 }

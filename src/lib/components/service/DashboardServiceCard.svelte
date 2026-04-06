@@ -20,6 +20,7 @@
 	import IconInformationOutline from '~icons/mdi/information-outline';
 	import IconClockOutline from '~icons/mdi/clock-outline';
 	import IconTruckDeliveryOutline from '~icons/mdi/truck-delivery-outline';
+	import IconBriefcaseOutline from '~icons/mdi/briefcase-outline';
 
 	interface ActionButton {
 		label: string;
@@ -96,22 +97,54 @@
 		}
 	}
 
+	function getServiceLocationTypes(): string[] {
+		if (service.serviceLocationTypes?.length) {
+			return service.serviceLocationTypes;
+		}
+
+		return (service.locationDetails as { types?: string[] } | undefined)?.types ?? [];
+	}
+
+	function getLocationTypeLabel(locationType: string): string {
+		if (locationType === 'remote') {
+			return tr('dashboard.services.my_services.location.remote', 'Remote');
+		}
+
+		if (locationType === 'tasker_location') {
+			return tr('dashboard.services.my_services.location.my_location', 'My Location');
+		}
+
+		return tr('dashboard.services.my_services.location.tasker_location', 'Tasker Location');
+	}
+
 	function getLocationDisplay(): string {
 		const locationDetails = service.locationDetails;
+		const locationTypes = getServiceLocationTypes();
+		const taskeeLocation = locationDetails?.taskeeLocation?.serviceLocation;
+		const taskerLocation = locationDetails?.taskerLocation?.serviceLocation;
 
 		// Check for taskee location (where service is provided to client)
-		if (locationDetails?.taskeeLocation?.locationDisplayName) {
-			return locationDetails.taskeeLocation.locationDisplayName;
+		if (locationTypes.includes('taskee_location')) {
+			return (
+				locationDetails?.taskeeLocation?.locationDisplayName ||
+				taskeeLocation?.displayName ||
+				taskeeLocation?.formattedAddress ||
+				getLocationTypeLabel('taskee_location')
+			);
 		}
 
 		// Check for tasker location (where tasker travels to)
-		if (locationDetails?.taskerLocation?.serviceLocation?.displayName) {
-			return locationDetails.taskerLocation.serviceLocation.displayName;
+		if (locationTypes.includes('tasker_location')) {
+			return (
+				taskerLocation?.displayName ||
+				taskerLocation?.formattedAddress ||
+				getLocationTypeLabel('tasker_location')
+			);
 		}
 
 		// Check if service has remote location type
-		if (locationDetails?.types?.includes('remote')) {
-			return tr('dashboard.services.my_services.location.remote', 'Remote');
+		if (locationTypes.includes('remote')) {
+			return getLocationTypeLabel('remote');
 		}
 
 		return '';
@@ -119,7 +152,7 @@
 
 	function getServiceRadiusDisplay(): string {
 		const locationDetails = service.locationDetails;
-		const serviceLocationTypes = service.serviceLocationTypes;
+		const serviceLocationTypes = getServiceLocationTypes();
 
 		// Only show radius for TASKEE_LOCATION ("At Tasker Location")
 		if (!serviceLocationTypes?.includes('taskee_location')) {
@@ -360,28 +393,7 @@
 			</div>
 		{/if}
 
-		<!-- Third Row: Location badges + Pricing type + Toggle -->
-		<div class="mb-3 flex flex-col gap-3 text-sm">
-			<!-- Location badges display -->
-			{#if service.locationDetails?.types && service.locationDetails.types.length > 0}
-				<div class="flex flex-wrap gap-1">
-					{#each service.locationDetails.types as locationType (locationType)}
-						<span class="badge badge-outline badge-sm">
-							{locationType === 'remote'
-								? tr('dashboard.services.my_services.location.remote', 'Remote')
-								: locationType === 'tasker_location'
-									? tr('dashboard.services.my_services.location.my_location', 'My Location')
-									: tr(
-											'dashboard.services.my_services.location.tasker_location',
-											'Tasker Location'
-										)}
-						</span>
-					{/each}
-				</div>
-			{/if}
-		</div>
-
-		<!-- Fourth Row: Action Buttons -->
+		<!-- Third Row: Action Buttons -->
 		<div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
 			<!-- Left: empty spacer on desktop to align with title -->
 			<div class="hidden md:block"></div>
@@ -400,6 +412,8 @@
 							<IconInformationOutline class="h-4 w-4" />
 						{:else if action.icon === 'view_quotes'}
 							<IconEyeOutline class="h-4 w-4" />
+						{:else if action.icon === 'contracts'}
+							<IconBriefcaseOutline class="h-4 w-4" />
 						{/if}
 						{action.label}
 					</button>

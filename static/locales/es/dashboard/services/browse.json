@@ -37,6 +37,7 @@
 				"quote_request_unavailable": "El servicio no está disponible.",
 				"quote_request_submit_error": "No se puede enviar la solicitud de cotización en este momento.",
 				"quote_request_submitted": "¡La solicitud de cotización se envió correctamente!",
+				"self_quote_blocked": "No puedes solicitar una cotización en tu propio servicio.",
 				"error_loading": "Error al cargar servicios: {error}",
 				"loading_timeout_title": "Tiempo de Carga Agotado",
 				"loading_timeout_message": "Los servicios están tardando más de lo esperado en cargar.",

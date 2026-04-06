@@ -177,4 +177,34 @@ describe('updateService edit conflict handling', () => {
 			title: 'Revised draft copy'
 		});
 	});
+
+	it('falls back to event-id lookup when a service is missing its unique id locally', async () => {
+		const eventId = 'c'.repeat(64);
+		hoisted.mockRequestEvents.mockResolvedValue({
+			data: [createServiceEvent(eventId)]
+		});
+
+		await expect(
+			updateService(eventId, {
+				status: 'inactive'
+			})
+		).resolves.toBe('signed-event-id');
+
+		expect(hoisted.mockRequestEvents).toHaveBeenCalledWith({
+			filters: [
+				expect.objectContaining({
+					'#d': [eventId],
+					authors: ['a'.repeat(64)]
+				}),
+				expect.objectContaining({
+					ids: [eventId],
+					authors: ['a'.repeat(64)]
+				})
+			]
+		});
+		expect(JSON.parse(hoisted.mockPublishEvent.mock.calls[0][0].content)).toMatchObject({
+			uniqueId: 'service-123',
+			status: 'inactive'
+		});
+	});
 });

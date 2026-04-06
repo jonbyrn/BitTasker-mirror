@@ -1,4 +1,5 @@
 import { ethers } from 'ethers';
+import { getRSKAddress } from '$lib/stores/wallet.store';
 
 export const DEFAULT_PROVIDER_PROPOSAL_FEE_TIER = 1 as const;
 
@@ -19,6 +20,10 @@ export type ProviderProposalAuthoringState =
 
 const MISSING_WALLET_ERROR = 'Connect your wallet before sending a proposal.';
 
+function normalizeProviderWalletAddress(walletAddress: string): string {
+	return ethers.getAddress(walletAddress.trim().toLowerCase());
+}
+
 export function resolveProviderProposalAuthoring(
 	walletAddress: string | null | undefined
 ): ProviderProposalAuthoringState {
@@ -32,7 +37,7 @@ export function resolveProviderProposalAuthoring(
 	try {
 		return {
 			ok: true,
-			walletAddress: ethers.getAddress(walletAddress),
+			walletAddress: normalizeProviderWalletAddress(walletAddress),
 			freelancerFeeTier: DEFAULT_PROVIDER_PROPOSAL_FEE_TIER
 		};
 	} catch {
@@ -43,3 +48,9 @@ export function resolveProviderProposalAuthoring(
 	}
 }
 
+export async function ensureProviderProposalAuthoring(
+	walletAddress: string | null | undefined
+): Promise<ProviderProposalAuthoringState> {
+	const resolvedAddress = walletAddress || (await getRSKAddress());
+	return resolveProviderProposalAuthoring(resolvedAddress);
+}

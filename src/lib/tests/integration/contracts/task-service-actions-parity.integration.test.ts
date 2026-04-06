@@ -202,6 +202,15 @@ describe('task/service contract action parity integration', () => {
 		).toBeInTheDocument();
 		expect(screen.getByRole('button', { name: 'Mark Service Complete' })).toBeInTheDocument();
 		expect(
+			within(taskView.container).getByRole('button', {
+				name: 'dashboard.contracts.actions.complete_task'
+			}).className
+		).toBe(
+			within(serviceView.container).getByRole('button', {
+				name: 'Mark Service Complete'
+			}).className
+		);
+		expect(
 			screen.getByRole('button', { name: 'dashboard.contracts.actions.dispute_work' })
 		).toBeInTheDocument();
 		expect(screen.getByRole('button', { name: 'Dispute Service' })).toBeInTheDocument();

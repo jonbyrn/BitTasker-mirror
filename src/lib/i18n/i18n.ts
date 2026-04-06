@@ -42,12 +42,15 @@ const getInitialLocale = async (): Promise<SupportedLanguage> => {
 /**
  * Load a specific namespace for a locale
  */
-export async function loadNamespace(locale: SupportedLanguage, namespace: string) {
+export async function loadNamespace(
+	locale: SupportedLanguage,
+	namespace: string
+): Promise<Record<string, string>> {
 	const cacheKey = `${locale}-${namespace}`;
 
 	// Return cached if available
 	if (translationCache.has(cacheKey)) {
-		return translationCache.get(cacheKey);
+		return translationCache.get(cacheKey) || {};
 	}
 
 	try {
@@ -116,6 +119,8 @@ export function getNamespacesForRoute(route: string): string[] {
 		namespaces.push('dashboard/wallet');
 		// Include categories and recommendations for task discovery
 		namespaces.push('dashboard/recomendations', 'categories');
+		// Include moderation namespace for report/mute menus on task cards
+		namespaces.push('moderation');
 	}
 	// Protected workspace routes
 	if (route.includes('/dashboard') || route.includes('/earning')) {
@@ -129,6 +134,8 @@ export function getNamespacesForRoute(route: string): string[] {
 			'dashboard/services/browse',
 			'dashboard/services/detail'
 		);
+		// Load moderation namespace for report/mute menus that appear on all dashboard surfaces
+		namespaces.push('moderation');
 
 		// Load notifications namespace for notification components
 		namespaces.push('notifications');
@@ -191,6 +198,7 @@ export function getNamespacesForRoute(route: string): string[] {
 	}
 
 	// Company pages (route groups don't show in URL, so check actual paths)
+	if (route.includes('/npub')) namespaces.push('moderation');
 	if (route.includes('/about')) namespaces.push('company/about');
 	if (route.includes('/careers')) namespaces.push('company/careers');
 	if (route.includes('/secure-payments')) namespaces.push('company/secure-payments');
@@ -199,6 +207,7 @@ export function getNamespacesForRoute(route: string): string[] {
 	if (route.includes('/privacy')) namespaces.push('company/privacy_policy');
 	if (route.includes('/terms')) namespaces.push('company/terms');
 	if (route.includes('/press')) namespaces.push('company/press');
+	if (route.includes('/delete-account')) namespaces.push('company/delete_account');
 	if (route.includes('/community-guidelines')) namespaces.push('taskees/guidelines');
 	if (route.includes('/taskee-fees')) namespaces.push('taskees/fee');
 	if (route.includes('/tasker-fees')) namespaces.push('taskers/fee');

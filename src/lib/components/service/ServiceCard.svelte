@@ -3,6 +3,7 @@
 	import type { Attachment } from '$lib/types/task.d';
 	import { t, locale } from 'svelte-i18n';
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import {
 		getServiceDisplayTitle,
 		getServiceDisplayDescription
@@ -22,7 +23,8 @@
 		selectedService,
 		onSelectServiceForMap,
 		isMapVisible,
-		onRequestQuote
+		onRequestQuote,
+		canRequestQuote = true
 	} = $props<{
 		service: Service;
 		btcPrice: number;
@@ -31,11 +33,13 @@
 		onSelectServiceForMap?: (service: Service) => void;
 		isMapVisible?: boolean;
 		onRequestQuote?: (service: Service) => void;
+		canRequestQuote?: boolean;
 	}>();
 
 	const isInquiryRequired = $derived(
 		service.pricing?.type === ServicePricingTypeEnum.INQUIRY_REQUIRED
 	);
+	const showRequestQuoteButton = $derived(isInquiryRequired && !!onRequestQuote && canRequestQuote);
 
 	function formatMemberSince(timestamp: number): string {
 		try {
@@ -138,7 +142,7 @@
 			onSelectServiceForMap(service);
 		} else {
 			const serviceIdentifier = service.uniqueId || service.id;
-			goto(`/services/${serviceIdentifier}`);
+			goto(resolve(`/services/${serviceIdentifier}`));
 		}
 		if (onclick) {
 			onclick();
@@ -423,7 +427,7 @@
 				<div class="flex-1"></div>
 			{/if}
 			<div class="flex w-full shrink-0 items-center gap-2 md:w-auto">
-				{#if isInquiryRequired && onRequestQuote}
+				{#if showRequestQuoteButton}
 					<button
 						class="btn btn-primary btn-sm flex-1 md:flex-none"
 						onclick={(e) => {
@@ -441,7 +445,7 @@
 					onclick={(e) => {
 						e.stopPropagation();
 						const serviceIdentifier = service.uniqueId || service.id;
-						goto(`/services/${serviceIdentifier}`);
+						goto(resolve(`/services/${serviceIdentifier}`));
 					}}
 					aria-label={$t('dashboard.services.browse.view')}
 				>

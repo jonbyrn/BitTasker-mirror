@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { t } from 'svelte-i18n';
 	import ServiceDetailsView from '$lib/components/service/ServiceDetailsView.svelte';
@@ -27,19 +28,6 @@
 
 	// Layout state
 	let width = $state(375);
-
-	// Update width on window resize
-	$effect(() => {
-		if (typeof window !== 'undefined') {
-			const handleResize = () => {
-				width = window.innerWidth;
-			};
-			window.addEventListener('resize', handleResize);
-			// Set initial width
-			width = window.innerWidth;
-			return () => window.removeEventListener('resize', handleResize);
-		}
-	});
 
 	const seo = $derived(
 		data.seo ?? {
@@ -118,11 +106,11 @@
 					<div class="card bg-base-100 rounded-xl shadow-xl">
 						<div class="card-body p-4">
 							<ul class="menu bg-base-100 rounded-box w-full">
-								{#each sections as section (section.href)}
+								{#each sections as section (section.id)}
 									<li class="my-1">
 										<a
 											data-sveltekit-reload="off"
-											href={section.path}
+											href={resolve(section.path)}
 											class:menu-active={page.url.pathname + page.url.search === section.path ||
 												(section.id === 'find-tasks' && page.url.pathname.startsWith('/tasks')) ||
 												(section.id === 'find-services' &&

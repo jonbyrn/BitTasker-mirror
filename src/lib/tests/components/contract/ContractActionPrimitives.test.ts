@@ -59,6 +59,16 @@ describe('contract action primitives', () => {
 		expect(resolution).toHaveBeenCalledTimes(1);
 	});
 
+	it('renders the complete action with success styling', () => {
+		render(CompleteContractButton, {
+			label: 'Mark Service Complete'
+		});
+
+		expect(screen.getByRole('button', { name: 'Mark Service Complete' }).className).toContain(
+			'btn-success'
+		);
+	});
+
 	it('shows loading state while preserving the shared button labels', () => {
 		render(AcceptContractButton, {
 			label: 'Accept Service',

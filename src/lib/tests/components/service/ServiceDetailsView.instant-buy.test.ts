@@ -394,6 +394,17 @@ describe('ServiceDetailsView instant buy flow', () => {
 		expect(queryByText('dashboard.services.detail.instant_buy.not_eligible')).toBeNull();
 	}, 40_000);
 
+	it('hides buyer-side actions when viewing your own service listing', async () => {
+		userStore.set({ npub: baseService.npub });
+
+		const { getByText, queryByTestId, queryByText } = renderView(baseService, baseService.uniqueId);
+
+		expect(getByText('dashboard.services.detail.you_are_provider')).toBeTruthy();
+		expect(queryByTestId('service-detail-buy-now')).toBeNull();
+		expect(queryByText('dashboard.services.detail.request_quote')).toBeNull();
+		expect(queryByText('dashboard.services.detail.contact_taskee')).toBeNull();
+	});
+
 	it('shows a confirmation modal when the drawer Book Now button is clicked', async () => {
 		const { getByTestId, findByTestId, findByText, queryByText } = renderView(
 			baseService,
@@ -414,7 +425,10 @@ describe('ServiceDetailsView instant buy flow', () => {
 	it('switches the drawer into contract-creation progress after Book Now is confirmed', async () => {
 		mockWaitForContractCreation.mockImplementation(() => new Promise(() => {}));
 
-		const { getByTestId, findByTestId } = renderView(baseService, baseService.uniqueId);
+		const { getByTestId, findByTestId, findByText, queryByTestId } = renderView(
+			baseService,
+			baseService.uniqueId
+		);
 
 		await openBookNowDrawer(getByTestId);
 		expect(await findByTestId('service-instant-buy-modal')).toBeTruthy();
@@ -777,7 +791,7 @@ describe('ServiceDetailsView instant buy flow', () => {
 	});
 
 	it('waits for escrow confirmation and opens the exact service contract', async () => {
-		const { getByTestId, findByTestId } = renderView(baseService, baseService.uniqueId);
+		const { getByTestId, findByTestId, findByText } = renderView(baseService, baseService.uniqueId);
 
 		await openBookNowDrawer(getByTestId);
 		expect(await findByTestId('service-instant-buy-modal')).toBeTruthy();

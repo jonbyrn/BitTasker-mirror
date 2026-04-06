@@ -3,25 +3,56 @@
 	import type { ServiceQuoteTimelineEntry } from '$lib/types/service-quote';
 	import Drawer from '$lib/components/Drawer.svelte';
 	import ServiceTab from '$lib/components/service/ServiceTab.svelte';
+	import { getServiceDisplayTitle } from '$lib/utils/serviceDisplayTranslation';
+	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { formatStandardDateTimeShort } from '$lib/utils/helpers/dateFormatter';
+	import { normalizeServiceContractSchedule } from '$lib/utils/service-contract/schedule';
 	import { locale, t } from 'svelte-i18n';
+	import { onMount } from 'svelte';
+	import IconCheckCircleOutline from '~icons/mdi/check-circle-outline';
+	import IconCloseCircleOutline from '~icons/mdi/close-circle-outline';
 	import IconClockOutline from '~icons/mdi/clock-outline';
 	import IconFileDocumentOutline from '~icons/mdi/file-document-outline';
 	import IconFormTextbox from '~icons/mdi/form-textbox';
+	import IconTrashCanOutline from '~icons/mdi/trash-can-outline';
 
 	const {
 		isOpen,
 		timeline = null,
 		service = null,
 		serviceUnavailable = false,
+		serviceLookupFailed = false,
 		loading = false,
+		showAcceptActions = false,
+		showDeclineAction = false,
+		showDeleteAction = false,
+		actionsDisabled = false,
+		deleteDisabled = false,
+		actionPending = null,
+		deletePending = false,
+		actionError = null,
+		onAccept,
+		onDecline,
+		onDelete,
 		onClose
 	} = $props<{
 		isOpen: boolean;
 		timeline: ServiceQuoteTimelineEntry | null;
 		service: Service | null;
 		serviceUnavailable?: boolean;
+		serviceLookupFailed?: boolean;
 		loading?: boolean;
+		showAcceptActions?: boolean;
+		showDeclineAction?: boolean;
+		showDeleteAction?: boolean;
+		actionsDisabled?: boolean;
+		deleteDisabled?: boolean;
+		actionPending?: 'accept' | 'decline' | null;
+		deletePending?: boolean;
+		actionError?: string | null;
+		onAccept?: () => void;
+		onDecline?: () => void;
+		onDelete?: () => void;
 		onClose: () => void;
 	}>();
 
@@ -41,7 +72,18 @@
 		return formatStandardDateTimeShort(new Date(timestampSeconds * 1000), $locale || 'en');
 	}
 
-	function stringifyInquiryValue(value: unknown): string {
+	function formatProposalAmount(amountUsdt: string | undefined): string {
+		if (!amountUsdt) {
+			return '—';
+		}
+
+		const numericAmount = Number(amountUsdt);
+		return Number.isFinite(numericAmount)
+			? `$${formatNumberWithTwoDecimals(numericAmount)}`
+			: `$${amountUsdt}`;
+	}
+
+	function stringifyInquiryValue(value: string | number | boolean | string[] | undefined): string {
 		if (value === undefined) return '—';
 		if (Array.isArray(value)) {
 			return value.length > 0 ? value.join(', ') : '—';
@@ -80,15 +122,173 @@
 	const customFormEntries = $derived.by(() =>
 		Object.entries(timeline?.request.content.inquiry.customFormResponses ?? {})
 	);
+	const latestProposal = $derived(timeline?.latestProposal ?? null);
+	const normalizedSchedule = $derived.by(() =>
+		normalizeServiceContractSchedule(
+			latestProposal?.content.estimatedStartTime ?? 0,
+			latestProposal?.content.estimatedEndTime ?? 0
+		)
+	);
+	const proposalStartLabel = $derived(formatTimestamp(normalizedSchedule.estimatedStartTime));
+	const proposalEndLabel = $derived(formatTimestamp(normalizedSchedule.estimatedCompletionTime));
+	const proposalTimingWarning = $derived.by(() =>
+		normalizedSchedule.startWasAdjusted
+			? tr(
+					'dashboard.service_requests.accept_drawer.start_time_adjusted_warning',
+					'The quoted start time has already passed. The contract will use a start time about one hour from now and keep the quoted duration.'
+				)
+			: ''
+	);
+	const inquiryDescription = $derived(timeline?.request.content.inquiry.description?.trim() ?? '');
+
+	let inquiryDescriptionElement: HTMLParagraphElement | null = $state(null);
+	let showFullInquiryDescription = $state(false);
+	let isInquiryDescriptionTruncated = $state(false);
+
+	function checkIfInquiryDescriptionTruncated() {
+		if (!inquiryDescriptionElement || !inquiryDescription) {
+			isInquiryDescriptionTruncated = false;
+			return;
+		}
+
+		const clone = inquiryDescriptionElement.cloneNode(true) as HTMLElement;
+		clone.className = inquiryDescriptionElement.className.replace(/line-clamp-\d+/g, '').trim();
+		clone.style.position = 'absolute';
+		clone.style.visibility = 'hidden';
+		clone.style.pointerEvents = 'none';
+		clone.style.height = 'auto';
+		clone.style.maxHeight = 'none';
+		clone.style.overflow = 'visible';
+		clone.style.width = `${inquiryDescriptionElement.offsetWidth}px`;
+		document.body.appendChild(clone);
+
+		const fullHeight = clone.scrollHeight;
+		const lineHeight = parseFloat(getComputedStyle(inquiryDescriptionElement).lineHeight) || 24;
+		const maxHeight = lineHeight * 3;
+
+		document.body.removeChild(clone);
+
+		isInquiryDescriptionTruncated = fullHeight > maxHeight + 1;
+	}
+
+	onMount(() => {
+		const handleResize = () => {
+			if (isOpen) {
+				checkIfInquiryDescriptionTruncated();
+			}
+		};
+
+		window.addEventListener('resize', handleResize);
+		return () => window.removeEventListener('resize', handleResize);
+	});
+
+	$effect(() => {
+		const requestId = timeline?.request.id ?? null;
+		const currentDescription = inquiryDescription;
+
+		showFullInquiryDescription = false;
+		isInquiryDescriptionTruncated = false;
+
+		if (!isOpen || !requestId || !currentDescription || !inquiryDescriptionElement) {
+			return;
+		}
+
+		requestAnimationFrame(() => {
+			setTimeout(() => {
+				checkIfInquiryDescriptionTruncated();
+			}, 0);
+		});
+	});
 </script>
 
 <Drawer {isOpen} title={drawerTitle} {onClose} position="right" isScrollable={true}>
 	<div class="space-y-6" data-testid="service-request-drawer">
 		{#if timeline}
-			<section
-				class="border-info/50 bg-info/5 rounded-2xl border p-4 shadow-sm"
-				aria-labelledby="service-request-inquiry-heading"
-			>
+			{#if latestProposal}
+				<section
+					class="border-base-300 bg-base-100 rounded-2xl border p-4 shadow-sm"
+					data-testid="service-request-drawer-proposal"
+				>
+					<div class="mb-4 flex flex-wrap items-start justify-between gap-3">
+						<div>
+							<span class="text-base font-semibold">
+								{tr('dashboard.service_requests.drawer.proposal_title', 'Received Proposal')}
+							</span>
+							<p class="text-base-content mt-1 text-2xl font-semibold">
+								{formatProposalAmount(latestProposal.content.amountUsdt)}
+							</p>
+						</div>
+						<div class="text-base-content/70 flex items-center gap-2 text-sm">
+							<IconClockOutline class="text-primary h-5 w-5 shrink-0" />
+							<span>
+								{tr('dashboard.service_requests.expires', 'Expires')}:
+								{formatTimestamp(latestProposal.content.expirationTimestamp)}
+							</span>
+						</div>
+					</div>
+
+					<div class="grid gap-3 md:grid-cols-2">
+						<div class="bg-base-200/60 rounded-xl p-3">
+							<p class="text-base-content/60 text-xs font-medium">
+								{tr('dashboard.service_requests.estimated_duration', 'Estimated duration')}
+							</p>
+							<p class="mt-1 text-sm font-medium">
+								{latestProposal.content.estimatedDuration || '—'}
+							</p>
+						</div>
+						<div class="bg-base-200/60 rounded-xl p-3">
+							<p class="text-base-content/60 text-xs font-medium">
+								{tr('dashboard.service_requests.drawer.proposal_start', 'Estimated Start')}
+							</p>
+							<p class="mt-1 text-sm font-medium">
+								{proposalStartLabel}
+							</p>
+						</div>
+						<div class="bg-base-200/60 rounded-xl p-3">
+							<p class="text-base-content/60 text-xs font-medium">
+								{tr('dashboard.service_requests.drawer.proposal_end', 'Estimated End')}
+							</p>
+							<p class="mt-1 text-sm font-medium">
+								{proposalEndLabel}
+							</p>
+						</div>
+					</div>
+
+					{#if proposalTimingWarning}
+						<div
+							class="alert alert-outline alert-warning mt-4 text-sm"
+							role="alert"
+							aria-live="polite"
+						>
+							<span>{proposalTimingWarning}</span>
+						</div>
+					{/if}
+
+					<div class="mt-4 space-y-3 text-sm">
+						<div>
+							<p class="text-base-content/60 text-xs font-semibold tracking-wide uppercase">
+								{tr('dashboard.service_requests.drawer.scope_of_work', 'Scope of work')}
+							</p>
+							<p class="text-base-content mt-1 whitespace-pre-line">
+								{latestProposal.content.description || '—'}
+							</p>
+						</div>
+
+						{#if latestProposal.content.coverLetter}
+							<div>
+								<p class="text-base-content/60 text-xs font-semibold tracking-wide uppercase">
+									{tr('dashboard.service_requests.drawer.cover_letter', 'Cover letter')}
+								</p>
+								<p class="text-base-content mt-1 whitespace-pre-line">
+									{latestProposal.content.coverLetter}
+								</p>
+							</div>
+						{/if}
+					</div>
+				</section>
+			{/if}
+
+			<section class="border-primary bg-base-100 rounded-2xl border p-4 shadow-sm">
 				<div class="mb-4 flex flex-wrap items-start justify-between gap-3">
 					<div class="min-w-0 flex-1">
 						<span
@@ -110,20 +310,29 @@
 				<div class="space-y-4 text-sm">
 					<div>
 						<p
-							class="text-base-content/80 whitespace-pre-line"
-							class:line-clamp-2={!inquiryDescriptionExpanded && inquiryNeedsToggle}
+							bind:this={inquiryDescriptionElement}
+							class={`text-base-content/80 leading-6 whitespace-pre-line ${
+								showFullInquiryDescription ? '' : 'line-clamp-3'
+							}`}
+							id="service-request-drawer-inquiry-description"
+							data-testid="service-request-drawer-inquiry-description"
 						>
 							{timeline.request.content.inquiry.description || '—'}
 						</p>
-						{#if inquiryNeedsToggle}
+
+						{#if isInquiryDescriptionTruncated}
 							<button
 								type="button"
-								class="btn btn-link btn-xs text-info mt-1 h-auto min-h-0 px-0 font-semibold underline"
-								onclick={() => (inquiryDescriptionExpanded = !inquiryDescriptionExpanded)}
+								class="btn btn-ghost btn-xs mt-2 h-auto min-h-0 px-0 text-[0.75rem] font-semibold tracking-wide uppercase"
+								aria-controls="service-request-drawer-inquiry-description"
+								aria-expanded={showFullInquiryDescription}
+								onclick={() => {
+									showFullInquiryDescription = !showFullInquiryDescription;
+								}}
 							>
-								{inquiryDescriptionExpanded
-									? tr('dashboard.service_requests.drawer.show_less', 'Show less')
-									: tr('dashboard.service_requests.drawer.show_more', 'Show more')}
+								{showFullInquiryDescription
+									? tr('dashboard.service_requests.show_less', 'See Less')
+									: tr('dashboard.service_requests.show_more', 'See More')}
 							</button>
 						{/if}
 					</div>
@@ -206,6 +415,73 @@
 					{/if}
 				</div>
 			</section>
+
+			{#if actionError}
+				<div class="alert alert-outline alert-error text-sm" role="alert" aria-live="assertive">
+					<span>{actionError}</span>
+				</div>
+			{:else if serviceLookupFailed}
+				<div class="alert alert-outline alert-warning text-sm" role="alert" aria-live="polite">
+					<span>
+						{tr(
+							'dashboard.service_requests.alerts.service_lookup_failed',
+							'Some service details could not be refreshed. Retry before acting on those requests.'
+						)}
+					</span>
+				</div>
+			{/if}
+
+			{#if showAcceptActions || showDeclineAction || showDeleteAction}
+				<section class="border-base-300 bg-base-100 rounded-2xl border p-4 shadow-sm">
+					<div class="flex flex-col gap-2 sm:flex-row sm:justify-end">
+						{#if showDeleteAction}
+							<button
+								type="button"
+								class="btn btn-error btn-outline min-h-[40px] flex-1 sm:flex-none"
+								disabled={deleteDisabled}
+								onclick={() => onDelete?.()}
+							>
+								{#if deletePending}
+									<span class="loading loading-spinner loading-sm"></span>
+								{:else}
+									<IconTrashCanOutline class="h-4 w-4 shrink-0" />
+								{/if}
+								{tr('dashboard.service_requests.actions.delete', 'Delete')}
+							</button>
+						{/if}
+						{#if showDeclineAction}
+							<button
+								type="button"
+								class="btn btn-outline min-h-[40px] flex-1 sm:flex-none"
+								disabled={actionsDisabled}
+								onclick={() => onDecline?.()}
+							>
+								{#if actionPending === 'decline'}
+									<span class="loading loading-spinner loading-sm"></span>
+								{:else}
+									<IconCloseCircleOutline class="h-4 w-4 shrink-0" />
+								{/if}
+								{tr('dashboard.service_requests.actions.decline', 'Decline')}
+							</button>
+						{/if}
+						{#if showAcceptActions}
+							<button
+								type="button"
+								class="btn btn-success btn-outline min-h-[40px] flex-1 sm:flex-none"
+								disabled={actionsDisabled}
+								onclick={() => onAccept?.()}
+							>
+								{#if actionPending === 'accept'}
+									<span class="loading loading-spinner loading-sm"></span>
+								{:else}
+									<IconCheckCircleOutline class="h-4 w-4 shrink-0" />
+								{/if}
+								{tr('dashboard.service_requests.actions.accept', 'Accept')}
+							</button>
+						{/if}
+					</div>
+				</section>
+			{/if}
 		{/if}
 
 		{#if loading}

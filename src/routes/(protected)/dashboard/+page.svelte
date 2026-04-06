@@ -386,6 +386,16 @@
 		goto(nextUrl.toString(), { replaceState: true, keepFocus: true, noScroll: true });
 	}
 
+	function handleTaskerRequestClear() {
+		serviceQuoteUiStore.setNonBlockingMessage(null);
+		const nextUrl = createDashboardUrl(page.url, {
+			tab: 'quotes',
+			view: 'tasker',
+			requestId: null
+		});
+		goto(nextUrl.toString(), { replaceState: true, keepFocus: true, noScroll: true });
+	}
+
 	function handleContractsHighlightConsumed() {
 		const nextUrl = createDashboardUrl(page.url, {
 			tab: 'contracts',
@@ -634,11 +644,13 @@
 			<MyQuotesPanel
 				timelines={taskerTimelines}
 				{focusedRequestId}
+				restoreFocusedRequest={true}
 				isSyncing={taskerQuotesSyncing}
 				hasLoaded={taskerQuotesLoaded}
 				loadError={taskerQuotesError}
 				onRetry={() => serviceQuoteUiStore.loadTaskerTimelines(focusedRequestId).catch(() => {})}
 				onRequestFocusChange={handleTaskerRequestFocus}
+				onRequestClear={handleTaskerRequestClear}
 				onInvalidFocusedRequest={() => handleTaskerRequestFocus(null)}
 			/>
 		</div>

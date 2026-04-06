@@ -1,6 +1,6 @@
 /**
  * Firebase Cloud Messaging Utilities
- * 
+ *
  * This module provides utilities for working with FCM on web platforms,
  * including dynamically updating the service worker with configuration.
  */
@@ -78,28 +78,10 @@ function setupNavigationHandler(): void {
 }
 
 /**
- * Checks if the browser supports notifications
- */
-export function isNotificationSupported(): boolean {
-	return 'Notification' in window && 'serviceWorker' in navigator && 'PushManager' in window;
-}
-
-/**
  * Gets the current notification permission status
  */
 export function getNotificationPermission(): NotificationPermission {
 	return Notification.permission;
-}
-
-/**
- * Requests notification permission from the user
- */
-export async function requestNotificationPermission(): Promise<NotificationPermission> {
-	if (!isNotificationSupported()) {
-		throw new Error('Notifications are not supported in this browser');
-	}
-
-	return await Notification.requestPermission();
 }
 
 /**

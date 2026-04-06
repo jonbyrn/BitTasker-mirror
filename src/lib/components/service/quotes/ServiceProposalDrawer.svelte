@@ -1,0 +1,456 @@
+<script lang="ts">
+	import Drawer from '$lib/components/Drawer.svelte';
+	import { onMount } from 'svelte';
+	import { locale, t } from 'svelte-i18n';
+	import type { ServiceProposalEvent, ServiceQuoteTimelineEntry } from '$lib/types/service-quote';
+	import UserInfoDisplay from '$lib/components/user/UserInfoDisplay.svelte';
+	import { fetchContractProfile } from '$lib/utils/nostr-profile';
+	import { formatStandardDateTimeShort } from '$lib/utils/helpers/dateFormatter';
+	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
+	import ErrorAlertWithModal from '$lib/components/ErrorAlertWithModal.svelte';
+	import { detectErrorType } from '$lib/utils/helpers/errorTypeDetector';
+	import ServiceProposalComposer, {
+		type ServiceProposalComposerSubmitPayload
+	} from './ServiceProposalComposer.svelte';
+
+	const {
+		isOpen = false,
+		mode = 'compose',
+		timeline,
+		proposal = null,
+		serviceTitle = null,
+		blockedReason = null,
+		disabled = false,
+		allowDelete = false,
+		deleteSubmitting = false,
+		deleteError = null,
+		onClose,
+		onSubmit,
+		onDelete
+	}: {
+		isOpen?: boolean;
+		mode?: 'compose' | 'view';
+		timeline: ServiceQuoteTimelineEntry | null;
+		proposal?: ServiceProposalEvent | null;
+		serviceTitle?: string | null;
+		blockedReason?: string | null;
+		disabled?: boolean;
+		allowDelete?: boolean;
+		deleteSubmitting?: boolean;
+		deleteError?: string | null;
+		onClose: () => void;
+		onSubmit: (
+			payload: ServiceProposalComposerSubmitPayload
+		) =>
+			| Promise<{ success: boolean; error?: string } | void>
+			| { success: boolean; error?: string }
+			| void;
+		onDelete?: () =>
+			| Promise<{ success: boolean; error?: string } | void>
+			| { success: boolean; error?: string }
+			| void;
+	} = $props();
+
+	let requesterProfile = $state<{
+		averageRating?: number;
+		tasksCompleted?: number;
+	} | null>(null);
+	const isPasskeyDeleteError = $derived.by(
+		() => Boolean(deleteError) && detectErrorType(deleteError ?? '') === 'biometric'
+	);
+
+	$effect(() => {
+		const pubkey = timeline?.request.pubkey;
+		if (!pubkey) {
+			requesterProfile = null;
+			return;
+		}
+
+		let cancelled = false;
+		void fetchContractProfile(pubkey)
+			.then((profile) => {
+				if (cancelled) return;
+				requesterProfile = {
+					averageRating: profile.averageRating ?? 0,
+					tasksCompleted: profile.tasksCompleted ?? 0
+				};
+			})
+			.catch(() => {
+				if (cancelled) return;
+				requesterProfile = {
+					averageRating: 0,
+					tasksCompleted: 0
+				};
+			});
+
+		return () => {
+			cancelled = true;
+		};
+	});
+
+	async function handleSubmit(payload: ServiceProposalComposerSubmitPayload) {
+		const result = await onSubmit(payload);
+		if (!result || (typeof result === 'object' && result.success !== false)) {
+			onClose();
+		}
+		return result;
+	}
+
+	function tr(key: string, fallback: string): string {
+		try {
+			const value = $t(key);
+			return typeof value === 'string' && value !== key ? value : fallback;
+		} catch {
+			return fallback;
+		}
+	}
+
+	function trv(key: string, fallback: string, values: Record<string, string | number>): string {
+		try {
+			const value = $t(key, { values });
+			return typeof value === 'string' && value !== key ? value : fallback;
+		} catch {
+			return fallback;
+		}
+	}
+
+	function formatDateTime(timestampSeconds: number | undefined): string {
+		if (!timestampSeconds) {
+			return '—';
+		}
+
+		return formatStandardDateTimeShort(new Date(timestampSeconds * 1000), $locale || 'en');
+	}
+
+	const drawerTitle = $derived(
+		mode === 'view'
+			? tr('dashboard.services.my_services.quote_inbox.view_proposal', 'View Proposal')
+			: tr('dashboard.services.my_services.quote_inbox.send_proposal', 'Send Proposal')
+	);
+	const proposalStatusLabel = $derived.by(() => {
+		if (!timeline) {
+			return tr(
+				'dashboard.services.my_services.quote_inbox.statuses.proposal_sent',
+				'Proposal sent'
+			);
+		}
+
+		switch (timeline.resolvedStatus) {
+			case 'accepted':
+				return tr(
+					'dashboard.services.my_services.quote_inbox.statuses.accepted',
+					'Contract created'
+				);
+			case 'declined':
+				return tr('dashboard.services.my_services.quote_inbox.statuses.declined', 'Declined');
+			case 'withdrawn':
+				return tr('dashboard.services.my_services.quote_inbox.statuses.withdrawn', 'Withdrawn');
+			case 'expired':
+				return tr('dashboard.services.my_services.quote_inbox.statuses.expired', 'Expired');
+			case 'accepting':
+				return tr('dashboard.services.my_services.quote_inbox.statuses.accepting', 'Accepting');
+			case 'contract_sync_pending':
+				return tr(
+					'dashboard.services.my_services.quote_inbox.statuses.contract_sync_pending',
+					'Contract syncing'
+				);
+			case 'accept_failed':
+				return tr(
+					'dashboard.services.my_services.quote_inbox.statuses.accept_failed',
+					'Accept failed'
+				);
+			case 'accept_unknown':
+				return tr(
+					'dashboard.services.my_services.quote_inbox.statuses.accept_unknown',
+					'Accept unknown'
+				);
+			default:
+				return tr(
+					'dashboard.services.my_services.quote_inbox.statuses.proposal_sent',
+					'Proposal sent'
+				);
+		}
+	});
+	const proposalStatusClass = $derived.by(() => {
+		switch (timeline?.resolvedStatus) {
+			case 'accepted':
+				return 'badge-success';
+			case 'accepting':
+			case 'contract_sync_pending':
+				return 'badge-info';
+			case 'accept_failed':
+			case 'accept_unknown':
+				return 'badge-error';
+			case 'declined':
+			case 'withdrawn':
+			case 'expired':
+				return 'badge-ghost';
+			default:
+				return 'badge-secondary';
+		}
+	});
+	const formattedProposalAmount = $derived.by(() => {
+		const amount = proposal?.content.amountUsdt;
+		if (!amount) {
+			return '—';
+		}
+
+		const numericAmount = Number(amount);
+		return Number.isFinite(numericAmount)
+			? `$${formatNumberWithTwoDecimals(numericAmount)}`
+			: `$${amount}`;
+	});
+	const inquiryDescription = $derived(timeline?.request.content.inquiry.description?.trim() ?? '');
+
+	let inquiryDescriptionElement: HTMLParagraphElement | null = $state(null);
+	let showFullInquiryDescription = $state(false);
+	let isInquiryDescriptionTruncated = $state(false);
+
+	function checkIfInquiryDescriptionTruncated() {
+		if (!inquiryDescriptionElement || !inquiryDescription) {
+			isInquiryDescriptionTruncated = false;
+			return;
+		}
+
+		const clone = inquiryDescriptionElement.cloneNode(true) as HTMLElement;
+		clone.className = inquiryDescriptionElement.className.replace(/line-clamp-\d+/g, '').trim();
+		clone.style.position = 'absolute';
+		clone.style.visibility = 'hidden';
+		clone.style.pointerEvents = 'none';
+		clone.style.height = 'auto';
+		clone.style.maxHeight = 'none';
+		clone.style.overflow = 'visible';
+		clone.style.width = `${inquiryDescriptionElement.offsetWidth}px`;
+		document.body.appendChild(clone);
+
+		const fullHeight = clone.scrollHeight;
+		const lineHeight = parseFloat(getComputedStyle(inquiryDescriptionElement).lineHeight) || 24;
+		const maxHeight = lineHeight * 3;
+
+		document.body.removeChild(clone);
+
+		isInquiryDescriptionTruncated = fullHeight > maxHeight + 1;
+	}
+
+	onMount(() => {
+		const handleResize = () => {
+			if (isOpen) {
+				checkIfInquiryDescriptionTruncated();
+			}
+		};
+
+		window.addEventListener('resize', handleResize);
+		return () => window.removeEventListener('resize', handleResize);
+	});
+
+	$effect(() => {
+		const requestId = timeline?.request.id ?? null;
+		const currentDescription = inquiryDescription;
+
+		showFullInquiryDescription = false;
+		isInquiryDescriptionTruncated = false;
+
+		if (!isOpen || !requestId || !currentDescription || !inquiryDescriptionElement) {
+			return;
+		}
+
+		requestAnimationFrame(() => {
+			setTimeout(() => {
+				checkIfInquiryDescriptionTruncated();
+			}, 0);
+		});
+	});
+</script>
+
+<Drawer {isOpen} title={drawerTitle} {onClose} isScrollable={true} respectBottomNav={true}>
+	{#if timeline}
+		<section class="border-base-300 bg-base-100 mb-4 rounded-2xl border p-4 shadow-sm">
+			<div class="space-y-2">
+				<div class="pt-1">
+					<UserInfoDisplay
+						pubkey={timeline.request.pubkey}
+						rating={requesterProfile?.averageRating ?? 0}
+						size="md"
+						memberSince={timeline.request.created_at}
+						avatarAlt={tr('dashboard.find_tasks.avatar_alt', 'Avatar')}
+					/>
+				</div>
+				{#if serviceTitle}
+					<p class="text-base-content/60 text-sm">{serviceTitle}</p>
+				{/if}
+				<div>
+					<p
+						bind:this={inquiryDescriptionElement}
+						class={`text-base-content/80 text-sm leading-6 whitespace-pre-line ${
+							showFullInquiryDescription ? '' : 'line-clamp-3'
+						}`}
+						id="service-proposal-drawer-inquiry-description"
+						data-testid="service-proposal-drawer-inquiry-description"
+					>
+						{timeline.request.content.inquiry.description}
+					</p>
+
+					{#if isInquiryDescriptionTruncated}
+						<button
+							type="button"
+							class="btn btn-ghost btn-xs mt-2 h-auto min-h-0 px-0 text-[0.75rem] font-semibold tracking-wide uppercase"
+							aria-controls="service-proposal-drawer-inquiry-description"
+							aria-expanded={showFullInquiryDescription}
+							onclick={() => {
+								showFullInquiryDescription = !showFullInquiryDescription;
+							}}
+						>
+							{showFullInquiryDescription
+								? tr('dashboard.service_requests.show_less', 'See Less')
+								: tr('dashboard.service_requests.show_more', 'See More')}
+						</button>
+					{/if}
+				</div>
+				{#if timeline.request.content.tierId || timeline.request.content.selectedAddOns?.length || timeline.request.content.rushDelivery}
+					<div class="flex flex-wrap gap-2 pt-1 text-xs">
+						{#if timeline.request.content.tierId}
+							<span class="badge badge-outline badge-sm">{timeline.request.content.tierId}</span>
+						{/if}
+						{#if timeline.request.content.selectedAddOns?.length}
+							<span class="badge badge-outline badge-sm">
+								{trv(
+									timeline.request.content.selectedAddOns.length === 1
+										? 'dashboard.services.my_services.quote_inbox.add_ons_one'
+										: 'dashboard.services.my_services.quote_inbox.add_ons_other',
+									timeline.request.content.selectedAddOns.length === 1
+										? '1 add-on'
+										: `${timeline.request.content.selectedAddOns.length} add-ons`,
+									{ count: timeline.request.content.selectedAddOns.length }
+								)}
+							</span>
+						{/if}
+						{#if timeline.request.content.rushDelivery}
+							<span class="badge badge-outline badge-sm">
+								{tr('dashboard.services.my_services.quote_inbox.rush_delivery', 'Rush delivery')}
+							</span>
+						{/if}
+					</div>
+				{/if}
+			</div>
+		</section>
+
+		{#if mode === 'view' && proposal}
+			<section class="border-base-300 bg-base-100 rounded-2xl border p-4 shadow-sm">
+				<div class="space-y-4">
+					<div class="flex items-start justify-between gap-4">
+						<div class="min-w-0">
+							<p class="text-base-content/60 text-xs font-semibold tracking-wide uppercase">
+								{tr(
+									'dashboard.services.my_services.quote_inbox.latest_proposal',
+									'Latest Proposal'
+								)}
+							</p>
+							<p class="text-base-content mt-1 text-2xl font-semibold">
+								{formattedProposalAmount}
+							</p>
+						</div>
+						<div class="badge badge-sm {proposalStatusClass}">
+							{proposalStatusLabel}
+						</div>
+					</div>
+
+					<div class="grid gap-3 md:grid-cols-2">
+						<div class="bg-base-200/60 rounded-xl p-3">
+							<p class="text-base-content/60 text-xs font-medium">
+								{tr('dashboard.services.my_services.quote_inbox.estimated_start', 'Start Date')}
+							</p>
+							<p class="mt-1 text-sm font-medium">
+								{formatDateTime(proposal.content.estimatedStartTime)}
+							</p>
+						</div>
+						<div class="bg-base-200/60 rounded-xl p-3">
+							<p class="text-base-content/60 text-xs font-medium">
+								{tr('dashboard.services.my_services.quote_inbox.estimated_end', 'End Date')}
+							</p>
+							<p class="mt-1 text-sm font-medium">
+								{formatDateTime(proposal.content.estimatedEndTime)}
+							</p>
+						</div>
+						<div class="bg-base-200/60 rounded-xl p-3">
+							<p class="text-base-content/60 text-xs font-medium">
+								{tr(
+									'dashboard.services.my_services.quote_inbox.estimated_duration_label',
+									'Estimated Duration'
+								)}
+							</p>
+							<p class="mt-1 text-sm font-medium">{proposal.content.estimatedDuration}</p>
+						</div>
+						<div class="bg-base-200/60 rounded-xl p-3">
+							<p class="text-base-content/60 text-xs font-medium">
+								{tr(
+									'dashboard.services.my_services.quote_inbox.proposal_expires',
+									'Proposal Expires'
+								)}
+							</p>
+							<p class="mt-1 text-sm font-medium">
+								{formatDateTime(proposal.content.expirationTimestamp)}
+							</p>
+						</div>
+					</div>
+
+					<div class="space-y-3">
+						<div>
+							<p class="text-base-content/60 text-xs font-medium">
+								{tr('dashboard.services.my_services.quote_inbox.scope_of_work', 'Scope of work')}
+							</p>
+							<p class="text-base-content mt-1 text-sm whitespace-pre-line">
+								{proposal.content.description}
+							</p>
+						</div>
+						{#if proposal.content.coverLetter}
+							<div>
+								<p class="text-base-content/60 text-xs font-medium">
+									{tr('dashboard.services.my_services.quote_inbox.cover_letter', 'Cover Letter')}
+								</p>
+								<p class="text-base-content mt-1 text-sm whitespace-pre-line">
+									{proposal.content.coverLetter}
+								</p>
+							</div>
+						{/if}
+					</div>
+
+					{#if deleteError}
+						{#if isPasskeyDeleteError}
+							<ErrorAlertWithModal
+								error={deleteError}
+								isPasskeyError
+								autoOpenModal={false}
+								class="text-sm"
+							/>
+						{:else}
+							<div class="alert alert-outline alert-error text-sm">
+								<span>{deleteError}</span>
+							</div>
+						{/if}
+					{/if}
+
+					{#if onDelete && allowDelete}
+						<div class="flex justify-end">
+							<button
+								type="button"
+								class="btn btn-outline btn-error"
+								disabled={deleteSubmitting}
+								onclick={() => onDelete?.()}
+							>
+								{#if deleteSubmitting}
+									<span class="loading loading-spinner loading-sm"></span>
+								{/if}
+								{tr(
+									'dashboard.services.my_services.quote_inbox.delete_proposal',
+									'Delete Proposal'
+								)}
+							</button>
+						</div>
+					{/if}
+				</div>
+			</section>
+		{:else}
+			<ServiceProposalComposer {blockedReason} {disabled} onSubmit={handleSubmit} />
+		{/if}
+	{/if}
+</Drawer>

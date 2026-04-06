@@ -65,7 +65,9 @@
 		},
 		"service_requests": {
 			"status_heading": "Filtrar por estado de la solicitud",
-			"status_subheading": "Aquí puedes filtrar las solicitudes que hiciste a los servicios que quieres contratar.",
+			"status_subheading": "Concéntrate en las solicitudes de servicio que necesitan tu próxima acción.",
+			"showing_all": "Mostrando {count} solicitudes",
+			"showing_filtered": "Mostrando {visible} de {total} solicitudes",
 			"refresh": "Actualizar",
 			"refreshing": "Actualizando",
 			"loading": "Cargando tus solicitudes de servicio...",
@@ -82,6 +84,14 @@
 			"add_ons_other": "{count} extras",
 			"rush_delivery": "Entrega urgente",
 			"expires": "Vence",
+			"filters": {
+				"all": "Todas",
+				"awaiting_proposal": "Pendientes de propuesta",
+				"contract_created": "Contrato creado",
+				"declined": "Rechazadas",
+				"withdrawn": "Retiradas",
+				"expired": "Vencidas"
+			},
 			"service_label": "Servicio",
 			"boolean_yes": "Sí",
 			"boolean_no": "No",
@@ -104,12 +114,26 @@
 				"heading": "Información general",
 				"loading": "Cargando detalles del servicio...",
 				"inquiry_title": "Tu consulta",
-				"inquiry_heading": "Detalle de tu solicitud",
-				"service_to_hire": "Servicio a contratar",
-				"show_more": "Ver más",
-				"show_less": "Ver menos",
+				"proposal_title": "Propuesta recibida",
+				"proposal_start": "Inicio estimado",
+				"proposal_end": "Finalización estimada",
+				"scope_of_work": "Alcance del trabajo",
+				"cover_letter": "Carta de presentación",
 				"custom_answers": "Respuestas enviadas",
 				"attachments": "Archivos adjuntos"
+			},
+			"accept_drawer": {
+				"title": "Aceptar propuesta",
+				"confirm": "Aceptar propuesta",
+				"expires": "La propuesta vence",
+				"warning": "Aceptar esta propuesta creará un contrato de servicio con los detalles de la cotización recibida.",
+				"start_time_adjusted_warning": "La hora de inicio cotizada ya pasó. El contrato usará una hora de inicio aproximadamente una hora a partir de ahora y mantendrá la duración cotizada.",
+				"prepare_error": "No se puede preparar esta aceptación de propuesta en este momento."
+			},
+			"confirm": {
+				"decline_title": "Rechazar propuesta",
+				"decline_message": "Esto marcará la propuesta actual como rechazada.",
+				"decline_confirm": "Confirmar rechazo"
 			},
 			"statuses": {
 				"contract_created": "Contrato creado",
@@ -118,13 +142,17 @@
 				"expired": "Expirada",
 				"accepting": "Aceptando",
 				"accepting_progress": "Aceptando...",
+				"contract_sync_pending": "Sincronizando contrato",
 				"accept_failed": "Error al aceptar",
 				"accept_unknown": "Aceptación desconocida",
 				"proposal_received": "Propuesta recibida",
 				"awaiting_proposal": "Esperando propuesta"
 			},
 			"filters": {
+				"all": "Todas",
 				"awaiting_proposal": "Esperando propuesta",
+				"proposal_received": "Propuesta recibida",
+				"needs_attention": "Necesita atención",
 				"contract_created": "Contrato creado",
 				"declined": "Rechazada",
 				"withdrawn": "Retirada",
@@ -133,17 +161,24 @@
 			"alerts": {
 				"service_unavailable_read_only": "Este servicio fue eliminado por el proveedor. La solicitud ahora es de solo lectura.",
 				"service_unavailable": "Algunos servicios fueron eliminados por el proveedor. Esas solicitudes siguen visibles como historial de solo lectura, salvo que ya exista un contrato.",
+				"service_lookup_failed": "No se pudieron actualizar algunos detalles del servicio. Actualiza antes de actuar sobre esas solicitudes.",
 				"partial_sync": "Los datos más recientes del hilo de cotización aún se están propagando entre relés. Se muestran resultados parciales hasta que el hilo termine de sincronizarse.",
 				"stale": "Se muestran tus últimos datos conocidos de cotizaciones. Actualiza antes de actuar sobre las propuestas porque no se completó la sincronización más reciente con los relés.",
 				"offline": "Estás sin conexión. Vuelve a conectarte antes de revisar o actuar sobre las propuestas de servicio.",
 				"reconnect": "De nuevo en línea. Reintenta si el estado más reciente de la cotización aún no se ha actualizado."
 			},
 			"errors": {
+				"accept": "No se puede aceptar esta propuesta en este momento.",
+				"decline": "No se puede rechazar esta propuesta en este momento.",
+				"delete": "No se puede eliminar esta solicitud de servicio en este momento.",
 				"update_status": "No se pudo actualizar el estado de la cotización.",
 				"delete_request": "No se puede eliminar esta solicitud de servicio en este momento."
 			},
 			"messages": {
-				"acceptance_submitted": "Aceptación enviada. El contrato financiado aparecerá aquí una vez que se confirme la creación del escrow."
+				"acceptance_submitted": "Aceptación enviada. El contrato financiado aparecerá aquí una vez que se confirme la creación del escrow.",
+				"contract_sync_pending": "El contrato de servicio financiado todavía se está sincronizando entre relays. Abre Contratos para supervisarlo.",
+				"acceptance_complete": "Propuesta aceptada. Abriendo tu contrato de servicio.",
+				"acceptance_complete_background": "Propuesta aceptada. Tu contrato de servicio ya está listo en Contratos."
 			}
 		},
 		"task_details_by_task": {
@@ -182,8 +217,8 @@
 			"you_are_owner": "Eres el propietario de esta tarea",
 			"anonymous": "Anónimo",
 			"member_since": "Miembro desde",
-			"show_more": "Mostrar más",
-			"show_less": "Mostrar menos",
+			"show_more": "Ver más",
+			"show_less": "Ver menos",
 			"translate": "Traducir",
 			"remote": "Remoto",
 			"posted": "Publicado",

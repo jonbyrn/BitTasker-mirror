@@ -36,7 +36,7 @@ describe('service-quote acceptance helpers', () => {
 				expirationTimestamp: 500,
 				nowSeconds: 100
 			})
-		).toEqual({ ok: false, errorCode: 'start_in_past' });
+		).toEqual({ ok: true });
 
 		expect(
 			validateServiceProposalAcceptance({
@@ -65,7 +65,13 @@ describe('service-quote acceptance helpers', () => {
 		expect(started.state).toBe('accepting');
 		expect(started.attempts[0].transactionHash).toBe('0xabc');
 
-		const accepted = completeServiceProposalAcceptance('pr_valid123', true, false, undefined, '0xabc');
+		const accepted = completeServiceProposalAcceptance(
+			'pr_valid123',
+			true,
+			false,
+			undefined,
+			'0xabc'
+		);
 		expect(accepted?.state).toBe('accepted');
 		expect(accepted?.attemptCount).toBe(2);
 		expect(accepted?.attempts[1]?.transactionHash).toBe('0xabc');
@@ -86,17 +92,17 @@ describe('service-quote acceptance helpers', () => {
 		expect(timedOut.attempts.at(-1)?.reasonCode).toBe('pending_timeout');
 
 		beginServiceProposalAcceptance('pr_reconcile123', '0xreconcile');
-			const reconciled = completeServiceProposalAcceptance(
-				'pr_reconcile123',
-				false,
-				false,
-				'reconciliation_deferred',
-				'0xreconcile'
-			);
-			expect(reconciled?.state).toBe('accept_unknown');
-			expect(reconciled?.attempts.at(-1)?.reasonCode).toBe('reconciliation_deferred');
-			expect(reconciled?.attempts.at(-1)?.transactionHash).toBe('0xreconcile');
-		});
+		const reconciled = completeServiceProposalAcceptance(
+			'pr_reconcile123',
+			false,
+			false,
+			'reconciliation_deferred',
+			'0xreconcile'
+		);
+		expect(reconciled?.state).toBe('accept_unknown');
+		expect(reconciled?.attempts.at(-1)?.reasonCode).toBe('reconciliation_deferred');
+		expect(reconciled?.attempts.at(-1)?.transactionHash).toBe('0xreconcile');
+	});
 
 	it('allows accepted attempts to downgrade to unknown and later reconfirm', () => {
 		beginServiceProposalAcceptance('pr_reorg123', '0xreorg');

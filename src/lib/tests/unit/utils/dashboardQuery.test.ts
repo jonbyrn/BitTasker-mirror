@@ -54,6 +54,25 @@ describe('dashboard query helpers', () => {
 		);
 	});
 
+	it('preserves the selected service when clearing a focused earning request', () => {
+		const url = buildEarningQueryUrl(
+			new URL(
+				`https://bittasker.test/earning?tab=requests&service=${encodeURIComponent(
+					serviceAddress
+				)}&request=qr_valid123`
+			),
+			{
+				tab: 'requests',
+				service: serviceAddress,
+				request: null
+			}
+		);
+
+		expect(url).toBe(
+			`https://bittasker.test/earning?tab=requests&service=${encodeURIComponent(serviceAddress)}`
+		);
+	});
+
 	it('parses service-filtered earning contracts routes', () => {
 		const parsed = parseEarningQuery(
 			new URL(
@@ -67,6 +86,47 @@ describe('dashboard query helpers', () => {
 			tab: 'contracts',
 			context: 'services',
 			service: serviceAddress,
+			highlight: 'escrow-123'
+		});
+	});
+
+	it('drops malformed service and request params from earning request routes', () => {
+		const parsed = parseEarningQuery(
+			new URL('https://bittasker.test/earning?tab=requests&service=bad&request=bad!')
+		);
+
+		expect(parsed).toEqual({
+			tab: 'requests',
+			service: null,
+			request: null
+		});
+	});
+
+	it('drops malformed earning request service and request params during parsing', () => {
+		const parsed = parseEarningQuery(
+			new URL(
+				'https://bittasker.test/earning?tab=requests&service=not-a-service-address&request=bad'
+			)
+		);
+
+		expect(parsed).toEqual({
+			tab: 'requests',
+			service: null,
+			request: null
+		});
+	});
+
+	it('drops malformed earning contracts service params during parsing', () => {
+		const parsed = parseEarningQuery(
+			new URL(
+				'https://bittasker.test/earning?tab=contracts&context=services&service=not-a-service-address&highlight=escrow-123'
+			)
+		);
+
+		expect(parsed).toEqual({
+			tab: 'contracts',
+			context: 'services',
+			service: null,
 			highlight: 'escrow-123'
 		});
 	});

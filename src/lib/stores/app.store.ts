@@ -1,6 +1,6 @@
 import type { BiometricData } from '$lib/types/auth';
 import { SimplePool } from 'nostr-tools';
-import { writable } from 'svelte/store';
+import { get, writable } from 'svelte/store';
 
 interface Toast {
 	type: 'success' | 'error' | 'info';
@@ -24,10 +24,25 @@ interface AppStore {
 }
 
 const createAppStore = () => {
-	// Create a single pool instance with proper configuration
-	// enablePing: sends regular pings to detect disconnections
-	// enableReconnect: automatically reconnects with exponential backoff
-	const pool = new SimplePool();
+	let pool: SimplePool | null = null;
+
+	const ensurePool = (): SimplePool => {
+		if (!pool) {
+			// Delay pool construction until runtime usage so shared layout imports
+			// never instantiate nostr-tools during app bootstrap.
+			pool = new SimplePool();
+		}
+
+		return pool;
+	};
+
+	const lazyPool = new Proxy({} as SimplePool, {
+		get(_target, property, receiver) {
+			const activePool = ensurePool() as Record<PropertyKey, unknown>;
+			const value = Reflect.get(activePool, property, receiver);
+			return typeof value === 'function' ? value.bind(activePool) : value;
+		}
+	}) as SimplePool;
 
 	const store = writable<AppStore>({
 		nostrKeys: {
@@ -40,10 +55,8 @@ const createAppStore = () => {
 		toasts: [],
 		biometricData: null,
 		network: import.meta.env.VITE_RSK_NETWORK || 'testnet',
-		pool,
-		relays: import.meta.env.VITE_NOSTR_RELAY_URL
-			? [import.meta.env.VITE_NOSTR_RELAY_URL]
-			: ['wss://relay.bittasker.hedgehackers.finance'] // Fallback relay
+		pool: lazyPool,
+		relays: [import.meta.env.VITE_NOSTR_RELAY_URL]
 	});
 
 	const { subscribe, set, update } = store;
@@ -96,13 +109,15 @@ const createAppStore = () => {
 			}));
 		},
 		initializePool: () => {
-			if (pool) return pool;
-			const newPool = new SimplePool();
-			update((state) => ({
-				...state,
-				pool: newPool
-			}));
-			return newPool;
+			ensurePool();
+			const state = get(store);
+			if (state.pool !== lazyPool) {
+				update((currentState) => ({
+					...currentState,
+					pool: lazyPool
+				}));
+			}
+			return lazyPool;
 		}
 	};
 };

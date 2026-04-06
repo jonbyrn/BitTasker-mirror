@@ -354,7 +354,6 @@
 							class="btn btn-primary w-full touch-manipulation transition-transform duration-100 select-none active:scale-95"
 							style="-webkit-tap-highlight-color: transparent;"
 							onclick={async () => {
-								triggerHaptic(ImpactStyle.Medium);
 								// Refresh balance before closing
 								await walletManager.loadAssets();
 								// Close both modals and return to wallet balance screen
@@ -503,7 +502,6 @@
 							class="btn btn-outline min-h-[44px] flex-1 touch-manipulation transition-transform duration-100 select-none active:scale-95 sm:min-h-[48px] md:min-h-[56px]"
 							style="-webkit-tap-highlight-color: transparent;"
 							onclick={() => {
-								triggerHaptic(ImpactStyle.Light);
 								props.onEdit?.();
 							}}
 						>
@@ -516,7 +514,6 @@
 						class="btn btn-error min-h-[44px] flex-1 touch-manipulation transition-transform duration-100 select-none active:scale-95 sm:min-h-[48px] md:min-h-[56px]"
 						style="-webkit-tap-highlight-color: transparent;"
 						onclick={() => {
-							triggerHaptic(ImpactStyle.Light);
 							props.onClose();
 						}}
 					>
