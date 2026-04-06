@@ -41,12 +41,10 @@ function resolveEscrowAction(ev: NDKContractStatus): EscrowStatus {
 	if (leg && typeof leg.action === 'number') {
 		return leg.action as EscrowStatus;
 	}
-	const raw = ev.status;
-	if (raw === undefined) return EscrowStatus.Funded;
-	if (ev.version === 'v2') {
-		return chainContractStatusToEscrowTimeline(raw);
-	}
-	return raw as unknown as EscrowStatus;
+	/** `NDKContractStatus.status` is always {@link ContractStatus} (legacy `s` is normalized). */
+	const cs = ev.status;
+	if (cs === undefined) return EscrowStatus.Funded;
+	return chainContractStatusToEscrowTimeline(cs);
 }
 
 function statusTimestampMs(ev: NDKContractStatus): number {

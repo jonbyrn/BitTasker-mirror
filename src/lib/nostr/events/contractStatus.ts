@@ -3,6 +3,11 @@ import { createDebug } from '$lib/utils/debug';
 import KINDS from '$lib/utils/constants/kinds';
 import NDK, { NDKEvent, NDKUser, type NDKTag, type NostrEvent } from '@nostr-dev-kit/ndk';
 import type { ContractStatus } from '$lib/utils/contract/types';
+import {
+	isLegacyContractStatusWireVersion,
+	isValidContractStatusEnumValue,
+	normalizeLegacyEscrowStatusTagToContractStatus
+} from '$lib/utils/contract/v1/legacyEscrowStatusToContractStatus';
 
 const d = createDebug('ndk:events:contract-status');
 
@@ -241,11 +246,29 @@ export class NDKContractStatus extends NDKEvent {
 		this.tags.push(['e', id]);
 	}
 
+	/**
+	 * Canonical {@link ContractStatus} for this event’s `s` tag.
+	 * - **`v` = `v2`** (or missing `v` without legacy JSON): `s` is already `ContractStatus` (0–11).
+	 * - **Legacy** (`v` = `v1` / `0.0.1`, or missing `v` when parsed from legacy JSON body): `s` was **`EscrowStatus`** — normalized here (see `legacyEscrowStatusToContractStatus.ts`).
+	 */
 	get status(): ContractStatus | undefined {
 		const raw = this.tagValue('s');
 		if (raw === undefined || raw === '') return undefined;
 		const n = parseInt(raw, 10);
-		return Number.isFinite(n) ? (n as ContractStatus) : undefined;
+		if (!Number.isFinite(n)) return undefined;
+
+		const useLegacyWire =
+			isLegacyContractStatusWireVersion(this.version) ||
+			(this.version === undefined && this._legacyContent !== undefined);
+
+		if (useLegacyWire) {
+			return normalizeLegacyEscrowStatusTagToContractStatus(n, undefined);
+		}
+
+		if (isValidContractStatusEnumValue(n)) {
+			return n;
+		}
+		return undefined;
 	}
 
 	set status(value: ContractStatus) {

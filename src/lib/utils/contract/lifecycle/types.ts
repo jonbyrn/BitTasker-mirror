@@ -66,6 +66,4 @@ export type PaymentContractLifecycle = {
 	acceptProposal: (rune: PaymentContractRuneLike) => Promise<ContractLifecycleResult>;
 	/** Resolve after timelock (completed or dispute) + 31006 + push. */
 	resolveAfterTimelock: (rune: PaymentContractRuneLike) => Promise<ContractLifecycleResult>;
-	/** When true, Nostr 31006 with `transactionHash` triggers wait-for-tx + chain reload. */
-	shouldAwaitStatusTransaction: boolean;
 };
