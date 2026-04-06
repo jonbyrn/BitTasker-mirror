@@ -63,7 +63,7 @@
 </script>
 
 <div
-	class="bg-base-100 border-base-200 rounded-2xl border shadow-sm transition-all duration-200 hover:shadow-md"
+	class="bg-base-100 border-base-200 rounded-2xl border p-4 shadow-sm transition-all duration-200 hover:shadow-md"
 >
 	<div class="p-4 md:p-6">
 		<div class="mb-4 flex w-full items-center justify-between gap-4">
