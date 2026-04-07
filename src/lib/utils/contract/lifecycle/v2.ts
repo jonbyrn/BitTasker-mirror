@@ -31,14 +31,8 @@ import {
 	type ContractChain,
 	type SecurePaymentLegacy
 } from '$lib/utils/contract/types';
-import {
-	getRuneWriteIds,
-	notifyContractCounterparty,
-	publishV2ContractStatus,
-	runV2Preflight,
-	runV2SideEffects,
-	type RuneWriteIds
-} from './v2WriteHelpers';
+import { runV2Preflight } from './v2Preflight';
+import { broadcastThenParallelEffects, getRuneWriteIds } from './writeHelpers';
 import type {
 	ContractLifecycleResult,
 	PaymentContractLifecycle,
@@ -78,53 +72,6 @@ export function computePermittedActionsV2(rune: PaymentContractRuneLike): Permit
 		awaitingTx: rune.isPending,
 		disputeProjection
 	});
-}
-
-/** Standard post-chain pipeline: 31006, optional extra parallel jobs (e.g. kind 31000), then push. */
-async function broadcastThenParallelV2Effects(
-	logLabel: string,
-	ids: RuneWriteIds,
-	signer: NonNullable<typeof ndk.activeUser>,
-	transactionHash: string,
-	recipientPubkey: string,
-	chainStatus: ContractStatus,
-	writeMethod: string,
-	push: { title: string; body: string; type: string },
-	extraBetweenStatusAndPush?: ReadonlyArray<{ name: string; run: () => Promise<unknown> }>,
-	completionAttachments?: Attachment[],
-	proposedAmounts?: { proposedTaskeeAmount?: string; proposedTaskerAmount?: string }
-): Promise<void> {
-	const tasks: { name: string; run: () => Promise<unknown> }[] = [
-		{
-			name: 'nostrContractStatus',
-			run: () =>
-				publishV2ContractStatus({
-					signer,
-					ids,
-					recipientPubkey,
-					transactionHash,
-					chainStatus,
-					writeMethod,
-					completionAttachments,
-					proposedTaskeeAmount: proposedAmounts?.proposedTaskeeAmount,
-					proposedTaskerAmount: proposedAmounts?.proposedTaskerAmount
-				})
-		}
-	];
-	if (extraBetweenStatusAndPush?.length) {
-		tasks.push(...extraBetweenStatusAndPush);
-	}
-	tasks.push({
-		name: 'push',
-		run: () =>
-			notifyContractCounterparty({
-				recipientPubkey,
-				title: push.title,
-				body: push.body,
-				type: push.type
-			})
-	});
-	await runV2SideEffects(logLabel, tasks);
 }
 
 export async function markTaskCompleteV2(
@@ -177,7 +124,7 @@ export async function markTaskCompleteV2(
 		});
 	}
 
-	await broadcastThenParallelV2Effects(
+	await broadcastThenParallelEffects(
 		'markTaskCompleteV2',
 		ids,
 		signer,
@@ -258,7 +205,7 @@ export async function acceptTaskV2(
 		}
 	};
 
-	await broadcastThenParallelV2Effects(
+	await broadcastThenParallelEffects(
 		'acceptTaskV2',
 		ids,
 		signer,
@@ -325,7 +272,7 @@ export async function refundTaskerV2(
 		return { ok: false };
 	}
 
-	await broadcastThenParallelV2Effects(
+	await broadcastThenParallelEffects(
 		'refundTaskerV2',
 		ids,
 		signer,
@@ -391,7 +338,7 @@ export async function cancelPaymentContractV2(
 
 	const counterpartyPk = rune.isTasker ? taskeePk : taskerPk;
 
-	await broadcastThenParallelV2Effects(
+	await broadcastThenParallelEffects(
 		'cancelPaymentContractV2',
 		ids,
 		signer,
@@ -457,7 +404,7 @@ export async function markNoShowV2(
 		return { ok: false };
 	}
 
-	await broadcastThenParallelV2Effects(
+	await broadcastThenParallelEffects(
 		'markNoShowV2',
 		ids,
 		signer,
@@ -525,7 +472,7 @@ export async function markWorkInProgressV2(
 		return { ok: false };
 	}
 
-	await broadcastThenParallelV2Effects(
+	await broadcastThenParallelEffects(
 		'markWorkInProgressV2',
 		ids,
 		signer,
@@ -591,7 +538,7 @@ export async function claimNoShowRefundV2(
 		return { ok: false };
 	}
 
-	await broadcastThenParallelV2Effects(
+	await broadcastThenParallelEffects(
 		'claimNoShowRefundV2',
 		ids,
 		signer,
@@ -672,7 +619,7 @@ export async function disputeTaskV2(
 		return { ok: false };
 	}
 
-	await broadcastThenParallelV2Effects(
+	await broadcastThenParallelEffects(
 		'disputeTaskV2',
 		ids,
 		signer,
@@ -776,7 +723,7 @@ export async function proposeResolutionV2(
 	const proposedTaskeeAmount = ethers.formatEther(taskeeAmountWei);
 	const proposedTaskerAmount = ethers.formatEther(proposedTaskerWei);
 
-	await broadcastThenParallelV2Effects(
+	await broadcastThenParallelEffects(
 		'proposeResolutionV2',
 		ids,
 		signer,
@@ -842,7 +789,7 @@ export async function acceptProposalV2(
 
 	const recipientPubkey = rune.isTasker ? taskeePk : taskerPk;
 
-	await broadcastThenParallelV2Effects(
+	await broadcastThenParallelEffects(
 		'acceptProposalV2',
 		ids,
 		signer,
@@ -934,7 +881,7 @@ export async function resolveAfterTimelockV2(
 		chainStatus = ContractStatus.DisputeResolved;
 	}
 
-	await broadcastThenParallelV2Effects(
+	await broadcastThenParallelEffects(
 		'resolveAfterTimelockV2',
 		ids,
 		signer,
