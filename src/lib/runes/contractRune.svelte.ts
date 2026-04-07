@@ -288,6 +288,10 @@ export class PaymentContractRune implements PaymentContractRuneLike {
 		const txHash = event.transactionHash?.trim();
 		if (!txHash) return;
 		this.isPending = true;
+		// Override derived rune for optimistic update while is pending confirmation
+		if (event.status !== undefined) {
+			this.blockchainStatus = event.status;
+		}
 		d.log('awaitStatusTxThenReload', { txHash });
 
 		try {
@@ -344,6 +348,8 @@ export class PaymentContractRune implements PaymentContractRuneLike {
 				this.statusEvents.push(ev);
 				this.applyCompletionAttachmentsFromEvent(ev);
 				if (!this.statusHistoryReady) return;
+				// only log new events that come in after the statusHistoryReady is true
+				d.log('New status event', { ev });
 				this.maybeAwaitStatusTxForEvent(ev);
 			},
 			onEose: () => {

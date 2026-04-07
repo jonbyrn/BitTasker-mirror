@@ -1,6 +1,6 @@
 /**
- * Shared pieces for v2 escrow orchestrators: preflight, 31006 publish, push, parallel side-effects.
- * Keeps `v2.ts` per-action functions thin so cancel / dispute / … follow the same pattern.
+ * Shared lifecycle helpers for v1 and v2 payment contracts: rune ids, Kind 31006 publish, push, parallel side-effects.
+ * Preflight (fresh chain + permissions) stays version-specific — see `v1Preflight.ts` / `v2Preflight.ts`.
  */
 
 import { nip19 } from 'nostr-tools';
@@ -10,19 +10,11 @@ import { NDKContractStatus } from '$lib/nostr/events/contractStatus';
 import { ndk } from '$lib/nostr/ndk';
 import { createDebug } from '$lib/utils/debug';
 import { runParallelNamed } from '$lib/utils/contract/parallelEffects';
-import { loadPaymentContractDetailsV2 } from '$lib/utils/contract/v2/loadPaymentContractDetailsV2';
-import { buildDisputeProjectionForPayment } from '$lib/utils/contract/v2/disputeProjectionFromStatus';
-import {
-	computePermittedActions,
-	type PermittedActions
-} from '$lib/utils/contract/v2/permittedActions';
 import type { Attachment } from '$lib/types/task';
 import { ContractStatus } from '$lib/utils/contract/types';
-import type { ContractLifecycleResult } from './types';
 import type { PaymentContractRuneLike } from './types';
-import { permissionsNowSeconds } from './time';
 
-const d = createDebug('contract:lifecycle:v2:writeHelpers');
+const d = createDebug('contract:lifecycle:writeHelpers');
 
 const CONTRACTS_TAB_URL = () => `${import.meta.env.VITE_CLIENT_URL}/dashboard?tab=contracts`;
 
@@ -44,55 +36,17 @@ export function getRuneWriteIds(rune: PaymentContractRuneLike): RuneWriteIds | n
 }
 
 /**
- * Fresh chain read + `computePermittedActions` (awaitingTx: false).
- * @returns `undefined` if OK; otherwise early-return **`ContractLifecycleResult`** for the caller.
+ * Publish Kind 31006 contract status. **`NDKContractStatus.version` is `"v2"`** on the wire for both
+ * legacy Escrow (v1 chain) and SecurePayment (v2 chain) — see integration docs.
  */
-export async function runV2Preflight(
-	rune: PaymentContractRuneLike,
-	ids: RuneWriteIds,
-	opts: {
-		isAllowed: (p: PermittedActions) => boolean;
-		logLabel: string;
-	}
-): Promise<ContractLifecycleResult | undefined> {
-	try {
-		const payment = await loadPaymentContractDetailsV2(ids.paymentId, ids.contractAddress, 'rsk');
-		const disputeProjection = buildDisputeProjectionForPayment(
-			{
-				taskerPubkey: rune.taskerPubkey,
-				taskeePubkey: rune.contract.taskeePubkey,
-				statusEventsByNewest: rune.statusEventsByNewest
-			},
-			payment.state
-		);
-		const perms = computePermittedActions({
-			payment,
-			isTasker: rune.isTasker,
-			now: permissionsNowSeconds(),
-			awaitingTx: false,
-			disputeProjection
-		});
-		if (!opts.isAllowed(perms)) {
-			d.warn(`${opts.logLabel}: preflight denied (fresh chain + permissions)`);
-			return { ok: false };
-		}
-	} catch (e) {
-		d.error(`${opts.logLabel}: preflight failed`, e);
-		return { ok: false };
-	}
-	return undefined;
-}
-
-export async function publishV2ContractStatus(params: {
+export async function publishContractStatus(params: {
 	signer: NDKUser;
 	ids: RuneWriteIds;
 	recipientPubkey: string;
 	transactionHash: string;
 	chainStatus: ContractStatus;
 	writeMethod: string;
-	/** Encrypted tag on 31006 when non-empty (e.g. taskee completion evidence). */
 	completionAttachments?: Attachment[];
-	/** Dispute proposal amounts (ether strings), e.g. from `ethers.formatEther`. */
 	proposedTaskeeAmount?: string;
 	proposedTaskerAmount?: string;
 }): Promise<void> {
@@ -134,7 +88,7 @@ export async function notifyContractCounterparty(params: {
 	});
 }
 
-export async function runV2SideEffects(
+export async function runWriteSideEffects(
 	logLabel: string,
 	tasks: ReadonlyArray<{ name: string; run: () => Promise<unknown> }>
 ): Promise<void> {
@@ -142,4 +96,54 @@ export async function runV2SideEffects(
 	if (failures.length > 0) {
 		d.warn(`${logLabel}: side effects had failures`, failures);
 	}
+}
+
+/**
+ * Post-chain pipeline: Kind 31006, optional extra parallel jobs (e.g. kind 31000), then push.
+ * Used by both v1 and v2 lifecycle orchestrators.
+ */
+export async function broadcastThenParallelEffects(
+	logLabel: string,
+	ids: RuneWriteIds,
+	signer: NonNullable<typeof ndk.activeUser>,
+	transactionHash: string,
+	recipientPubkey: string,
+	chainStatus: ContractStatus,
+	writeMethod: string,
+	push: { title: string; body: string; type: string },
+	extraBetweenStatusAndPush?: ReadonlyArray<{ name: string; run: () => Promise<unknown> }>,
+	completionAttachments?: Attachment[],
+	proposedAmounts?: { proposedTaskeeAmount?: string; proposedTaskerAmount?: string }
+): Promise<void> {
+	const tasks: { name: string; run: () => Promise<unknown> }[] = [
+		{
+			name: 'nostrContractStatus',
+			run: () =>
+				publishContractStatus({
+					signer,
+					ids,
+					recipientPubkey,
+					transactionHash,
+					chainStatus,
+					writeMethod,
+					completionAttachments,
+					proposedTaskeeAmount: proposedAmounts?.proposedTaskeeAmount,
+					proposedTaskerAmount: proposedAmounts?.proposedTaskerAmount
+				})
+		}
+	];
+	if (extraBetweenStatusAndPush?.length) {
+		tasks.push(...extraBetweenStatusAndPush);
+	}
+	tasks.push({
+		name: 'push',
+		run: () =>
+			notifyContractCounterparty({
+				recipientPubkey,
+				title: push.title,
+				body: push.body,
+				type: push.type
+			})
+	});
+	await runWriteSideEffects(logLabel, tasks);
 }

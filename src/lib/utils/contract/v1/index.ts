@@ -5,6 +5,21 @@ import contractAbi from './abi.json';
 import type { ContractChain, SecurePaymentLegacy } from '../types';
 import type { V1PaymentContractRaw } from './types';
 import { initContract } from '../index';
+
+export type { EscrowWriteOptions, ExecuteWriteOptions, WriteTxResult } from './blockchainWrites';
+export {
+	acceptProposal,
+	acceptTask,
+	cancelPaymentContract,
+	completeTask,
+	disputeTask,
+	estimateWrite,
+	executeWriteDirect,
+	proposeResolution,
+	refundTasker,
+	resolveAfterTimelock
+} from './blockchainWrites';
+
 const d = createDebug('contract:v1');
 
 /**
