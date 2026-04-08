@@ -14,18 +14,10 @@ import type {
 	PermittedActions
 } from '../v2/permittedActions';
 import { emptyPermittedActions, GRACE_PERIOD } from '../v2/permittedActions';
+import { isTerminalV1EffectiveState } from './effectiveContractState';
 
 /** 24h before `estimatedStartTime` — cancel window & funded dispute window (see ESCROW doc). */
 const PRE_START_GAP = 86400;
-
-/** Terminal v1 escrow states: dispute resolved / unresolved, or cancelled. */
-export function isTerminalV1ChainState(state: number): boolean {
-	return (
-		state === ContractStatus.DisputeResolved ||
-		state === ContractStatus.DisputeUnresolved ||
-		state === ContractStatus.Cancelled
-	);
-}
 
 function canProposeWithProjectionV1(isTasker: boolean, projection: DisputeProjection): boolean {
 	if (projection.disputeAccepted) return false;
@@ -81,7 +73,7 @@ export function computeV1PermittedActions(args: ComputePermittedActionsArgs): Pe
 	const { state, timelockEnd, createdAt, estimatedStartTime } = payment;
 	const isTaskee = !isTasker;
 
-	if (isTerminalV1ChainState(state)) return base;
+	if (isTerminalV1EffectiveState(state)) return base;
 
 	// --- Taskee: completeTask (state Funded only on v1)
 	base.canCompleteTask = isTaskee && state === ContractStatus.Funded && now >= estimatedStartTime;

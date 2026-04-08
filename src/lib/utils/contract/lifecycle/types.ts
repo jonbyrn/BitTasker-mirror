@@ -2,7 +2,11 @@ import type { NDKPaymentContract } from '$lib/nostr/events/contract';
 import type { NDKContractStatus } from '$lib/nostr/events/contractStatus';
 import type { NDKTask } from '$lib/nostr/events/task';
 import type { Attachment } from '$lib/types/task';
-import type { ContractChain, SecurePaymentLegacy } from '$lib/utils/contract/types';
+import type {
+	ContractChain,
+	ContractDisplayStatus,
+	SecurePaymentLegacy
+} from '$lib/utils/contract/types';
 import type { PermittedActions } from '$lib/utils/contract/v2/permittedActions';
 
 export type ContractLifecycleResult =
@@ -38,8 +42,10 @@ export type PaymentContractLifecycle = {
 		rune: PaymentContractRuneLike,
 		chain?: ContractChain
 	) => Promise<SecurePaymentLegacy>;
-	/** Version-specific terminal chain state (subscriptions, permissions clock, reconciliation). */
-	isChainTerminalState: (state: number) => boolean;
+	/** Display label — v1 may fuse chain + Kind 31006 (e.g. FundsReleased); v2 follows chain. */
+	computeDisplayStatus: (rune: PaymentContractRuneLike) => ContractDisplayStatus;
+	/** Terminal for subscriptions / permissions clock / reconciliation (version-specific). */
+	isTerminalRuneState: (rune: PaymentContractRuneLike) => boolean;
 	computePermittedActions: (rune: PaymentContractRuneLike) => PermittedActions;
 	markTaskComplete: (
 		rune: PaymentContractRuneLike,
