@@ -51,14 +51,18 @@ export class PaymentContractRune implements PaymentContractRuneLike {
 	blockchainData = $state<SecurePaymentLegacy | null>(null);
 	/** Raw chain `state` from `getEscrow` / `getPaymentContract` (v1 may stay `Completed` after payout). */
 	blockchainStatus = $derived<ContractStatus>(this.blockchainData?.state ?? ContractStatus.Funded);
+	optimisticBlockchainStatus = $state<ContractStatus | null>(null);
 	/** Newest first (`created_at` only). Truth for permissions remains `blockchainData`. */
 	statusEventsByNewest = $derived.by(() =>
 		[...this.statusEvents].sort((a, b) => (b.created_at ?? 0) - (a.created_at ?? 0))
 	);
 	chainIsTerminal = $derived.by(() => this.lifecycle.isTerminalRuneState(this));
-	displayStatus = $derived.by(
-		(): ContractDisplayStatus => this.lifecycle.computeDisplayStatus(this)
-	);
+	displayStatus = $derived.by((): ContractDisplayStatus => {
+		if (this.optimisticBlockchainStatus) {
+			return this.optimisticBlockchainStatus;
+		}
+		return this.lifecycle.computeDisplayStatus(this);
+	});
 	error = $state<string | null>(null);
 	statusEvents = $state<NDKContractStatus[]>([]);
 	statusSub: NDKSubscription | null = null;
@@ -289,7 +293,7 @@ export class PaymentContractRune implements PaymentContractRuneLike {
 		this.isPending = true;
 		// Override derived rune for optimistic update while is pending confirmation
 		if (event.status !== undefined) {
-			this.blockchainStatus = event.status;
+			this.optimisticBlockchainStatus = event.status;
 		}
 		d.log('awaitStatusTxThenReload', { txHash });
 
@@ -311,6 +315,7 @@ export class PaymentContractRune implements PaymentContractRuneLike {
 			}
 		} finally {
 			this.isPending = false;
+			this.optimisticBlockchainStatus = null;
 		}
 	}
 
