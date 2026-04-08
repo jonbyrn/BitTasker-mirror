@@ -407,73 +407,79 @@
 			role="dialog"
 			aria-modal="true"
 			tabindex="-1"
-			class="bottom-nav-menu bg-base-100 border-base-300 w-full overflow-hidden rounded-t-2xl border-t shadow-lg"
+			class="bottom-nav-menu w-full bg-black/30"
 			class:menu-expand={isMenuExpanding && !isMenuClosing}
 			class:menu-collapse={isMenuClosing || (!isMenuExpanding && !isMenuClosing)}
 		>
-			<div class="bottom-nav-scroll max-h-208 overflow-y-auto pt-2">
-				<div class="p-2">
-					{#if $authState.isAuthenticated}
-						<ul class="menu w-full">
-							<li>
-								<button
-									onclick={() => {
-										closeMenu();
-									}}
-									class="min-h-[48px] w-full py-3 text-left"
+			<div class="bg-base-100 border-base-300 overflow-hidden rounded-t-2xl border-t shadow-lg">
+				<div class="bottom-nav-scroll max-h-208 overflow-y-auto pt-2">
+					<div class="p-2">
+						{#if $authState.isAuthenticated}
+							<ul class="menu w-full">
+								<li>
+									<button
+										onclick={() => {
+											closeMenu();
+										}}
+										class="min-h-[48px] w-full py-3 text-left"
+									>
+										<IconLogout class="text-error" />
+										<span class="text-error font-medium">{$t('navbar.logout')}</span>
+									</button>
+								</li>
+								{#each loggedInGroups as group (group.label)}
+									{@render menuGroup(group)}
+								{/each}
+							</ul>
+						{:else}
+							<div class="mb-2 flex items-center justify-around">
+								<a
+									href="/auth/login"
+									class="btn btn-secondary flex w-[48%] items-center justify-center gap-2"
+									onclick={(e) => handleNavWithMenuClose(e, '/auth/login')}
 								>
-									<IconLogout class="text-error" />
-									<span class="text-error font-medium">{$t('navbar.logout')}</span>
-								</button>
-							</li>
-							{#each loggedInGroups as group (group.label)}
-								{@render menuGroup(group)}
-							{/each}
-						</ul>
-					{:else}
-						<div class="mb-2 flex items-center justify-around">
-							<a
-								href="/auth/login"
-								class="btn btn-secondary flex w-[48%] items-center justify-center gap-2"
-								onclick={(e) => handleNavWithMenuClose(e, '/auth/login')}
-							>
-								<IconLogin />
-								{$t('navbar.login')}
-							</a>
-							<a
-								href="/auth/signup"
-								class="btn btn-primary flex w-[48%] items-center justify-center gap-2"
-								onclick={(e) => handleNavWithMenuClose(e, '/auth/signup')}
-							>
-								<IconAccountPlus />
-								{$t('navbar.signup')}
-							</a>
-						</div>
-						<ul class="menu w-full">
-							{#each loggedOutTopLinks as link (link.label)}
-								{@render topLevelLink(link)}
-							{/each}
-							{#each loggedOutGroups as group (group.label)}
-								{@render menuGroup(group)}
-							{/each}
-						</ul>
-					{/if}
-				</div>
-			</div>
-
-			{#if $authState.isAuthenticated}
-				<div class="bottom-nav-quick border-base-300/70 bg-base-100/95 border-t px-2 py-2">
-					<div class="flex gap-2">
-						{@render quickActionLink('/tasks', IconMagnify, 'navbar.find_tasks')}
-						{@render quickActionLink('/dashboard?tab=contracts', IconFileSign, 'navbar.contracts')}
-						{@render quickActionLink(
-							'/dashboard?tab=bids',
-							IconInvoiceTextSendOutline,
-							'navbar.bids_sent'
-						)}
+									<IconLogin />
+									{$t('navbar.login')}
+								</a>
+								<a
+									href="/auth/signup"
+									class="btn btn-primary flex w-[48%] items-center justify-center gap-2"
+									onclick={(e) => handleNavWithMenuClose(e, '/auth/signup')}
+								>
+									<IconAccountPlus />
+									{$t('navbar.signup')}
+								</a>
+							</div>
+							<ul class="menu w-full">
+								{#each loggedOutTopLinks as link (link.label)}
+									{@render topLevelLink(link)}
+								{/each}
+								{#each loggedOutGroups as group (group.label)}
+									{@render menuGroup(group)}
+								{/each}
+							</ul>
+						{/if}
 					</div>
 				</div>
-			{/if}
+
+				{#if $authState.isAuthenticated}
+					<div class="bottom-nav-quick border-base-300/70 bg-base-100/95 border-t px-2 py-2">
+						<div class="flex gap-2">
+							{@render quickActionLink('/tasks', IconMagnify, 'navbar.find_tasks')}
+							{@render quickActionLink(
+								'/dashboard?tab=contracts',
+								IconFileSign,
+								'navbar.contracts'
+							)}
+							{@render quickActionLink(
+								'/dashboard?tab=bids',
+								IconInvoiceTextSendOutline,
+								'navbar.bids_sent'
+							)}
+						</div>
+					</div>
+				{/if}
+			</div>
 		</div>
 	</div>
 {/if}
