@@ -4,7 +4,6 @@
 	import '$lib/i18n/i18n';
 	import { page } from '$app/state';
 	import { darkMode, initializeTheme } from '$lib/stores/theme.store';
-	import { devicePlatform } from '$lib/stores/device.store';
 	import { authState } from '$lib/stores/auth.store';
 	import { user } from '$lib/stores/user.store';
 	import { appScrollContainer } from '$lib/stores/scrollContainer.store';
@@ -48,9 +47,6 @@
 	// Derive layout state from current route
 	const currentPath = $derived(page.url.pathname);
 	const isOnboardingPage = $derived(currentPath.includes('/onboarding'));
-	const isLandingPage = $derived(
-		currentPath === '/' || currentPath === '/how-it-works' || currentPath.startsWith('/auth')
-	);
 	const showTopBar = $derived(!isOnboardingPage);
 	const showFooterSection = $derived(currentPath.includes('/dashboard'));
 	const shouldHideFooterForLoggedInTaskPage = $derived(
@@ -293,17 +289,8 @@
 
 	<!-- Scrollable middle content. This is the ONLY app-level scroll container. -->
 	<div bind:this={scrollEl} class="app-shell__content bg-base-200">
-		<div class="bg-base-200 overflow-x-hidden">
-			{#if $devicePlatform === 'web' && !isLandingPage}
-				<!-- Ensure web routes can use full-height (no unintended outer scrolling) -->
-				<div class="bg-base-200 flex h-full min-h-0 flex-col overflow-x-hidden">
-					{@render children()}
-				</div>
-			{:else}
-				<div class="bg-base-200 flex min-h-0 flex-1 flex-col justify-between overflow-x-hidden">
-					{@render children()}
-				</div>
-			{/if}
+		<div class="bg-base-200 flex min-h-0 flex-col overflow-x-hidden">
+			{@render children()}
 		</div>
 
 		{#if !showFooterSection && showTopBar && !isOnboardingPage && !shouldHideFooterForLoggedInTaskPage && !shouldHideFooterForLoggedInNpubPage && !shouldHideFooterForTasksPage}

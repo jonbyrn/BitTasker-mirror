@@ -1,8 +1,19 @@
+import { redirect } from '@sveltejs/kit';
+import { browser } from '$app/environment';
+import { StorageKeys } from '$lib/utils/constants/storage';
+import { Preferences } from '@capacitor/preferences';
 import { generateHomepageWebsiteJsonLd } from '$lib/utils/constants/seo.constants';
 
 const SITE_URL = 'https://bittasker.com';
 
 export async function load({ url }) {
+	if (browser) {
+		const { value: token } = await Preferences.get({ key: StorageKeys.ACCESS_TOKEN });
+		if (token) {
+			redirect(303, '/dashboard');
+		}
+	}
+
 	return {
 		title: 'BitTasker - The Decentralized Workforce',
 		description:
