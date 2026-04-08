@@ -102,7 +102,7 @@
 
 	// Grouped State: UI State
 	let uiState = $state({
-		activeTab: 'scan' as 'scan' | 'enter',
+		activeTab: isWeb ? 'scan' : 'enter',
 		showConfirmation: false,
 		showSendConfirmation: false,
 		showSuccessScreen: false,
@@ -954,7 +954,8 @@
 	{:else}
 		<!-- Tab Navigation (Top) -->
 		<div
-			class="tabs tabs-boxed border-base-300 mb-3 shrink-0 overflow-hidden rounded-lg border sm:mb-4"
+			class="tabs tabs-boxed tabs-reversed border-base-300 mb-3 shrink-0 overflow-hidden rounded-lg border sm:mb-4"
+			class:flex-row-reverse={!isWeb}
 		>
 			<button
 				class="tab flex-1"
