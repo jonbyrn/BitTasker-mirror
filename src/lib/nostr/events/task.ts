@@ -1,9 +1,9 @@
 import type { TaskBody } from '$lib/types/task';
-import { createDebug } from '$lib/utils/debug';
+// import { createDebug } from '$lib/utils/debug';
 import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 import NDK, { NDKEvent, type NostrEvent } from '@nostr-dev-kit/ndk';
 
-const d = createDebug('ndk:events:task');
+//const d = createDebug('ndk:events:task');
 
 /**
  * task class - represents kind 31000
@@ -25,7 +25,7 @@ export class NDKTask extends NDKEvent {
 	static async from(event: NDKEvent): Promise<NDKTask | undefined> {
 		const task = new NDKTask(event.ndk, event.rawEvent());
 
-		d.log('Creating task from event with wrap:', task);
+		//d.log('Creating task from event with wrap:', task);
 
 		return task;
 	}

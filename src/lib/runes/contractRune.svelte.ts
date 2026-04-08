@@ -185,7 +185,7 @@ export class PaymentContractRune implements PaymentContractRuneLike {
 			await this.reloadBlockchainData();
 			d.log('start: payment contract data loaded', {
 				paymentId: this.paymentId,
-				blockchainData: this.blockchainData
+				blockchainData: $state.snapshot(this.blockchainData)
 			});
 		} catch (err) {
 			const error = err instanceof Error ? err.message : String(err);
@@ -349,7 +349,7 @@ export class PaymentContractRune implements PaymentContractRuneLike {
 				this.applyCompletionAttachmentsFromEvent(ev);
 				if (!this.statusHistoryReady) return;
 				// only log new events that come in after the statusHistoryReady is true
-				d.log('New status event', { ev });
+				d.log('New status event for paymentId', { paymentId: this.paymentId, ev });
 				this.maybeAwaitStatusTxForEvent(ev);
 			},
 			onEose: () => {
@@ -380,21 +380,30 @@ export class PaymentContractRune implements PaymentContractRuneLike {
 			this.task = null;
 			return;
 		}
-		const filter: NDKFilter = { kinds: [KINDS.TASK_CREATION], '#d': [taskId], limit: 1 };
+		let filters: NDKFilter[];
+
+		// If taskId looks like a 64-char hex string, use it in 'ids', otherwise use it in '#d'
+		const isHex = typeof taskId === 'string' && /^[a-fA-F0-9]{64}$/.test(taskId);
+
+		if (isHex) {
+			filters = [{ kinds: [KINDS.TASK_CREATION], ids: [taskId], limit: 1 }];
+		} else {
+			filters = [{ kinds: [KINDS.TASK_CREATION], '#d': [taskId], limit: 1 }];
+		}
 		const ops: NDKSubscriptionOptions = {
 			wrap: true
 		};
-		const events = await ndk.fetchEvents(filter, ops);
+		const events = await ndk.fetchEvents(filters, ops);
 		const first = Array.from(events)[0] as NDKTask | undefined;
 		if (!first) {
-			d.warn('getOriginalTaskEvent: no task replaceable found', { taskId });
+			d.warn('getOriginalTaskEvent: no task found', { paymentId: this.paymentId, taskId });
 			this.task = null;
 			return;
 		}
 		if (!first.ndk) {
 			first.ndk = ndk;
 		}
-		d.log('getOriginalTaskEvent: loaded', { taskId });
+		d.log('getOriginalTaskEvent: loaded', { paymentId: this.paymentId, taskId });
 		this.task = first;
 	}
 }

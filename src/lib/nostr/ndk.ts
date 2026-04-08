@@ -59,7 +59,7 @@ export async function setNDKSigner(): Promise<void> {
 			d.log('setNDKSigner: signer assigned to ndk instance, npub=%s', newSigner.npub);
 			try {
 				ndk.addExplicitRelay(
-					'wss://relay2-dev.bittasker.com',
+					import.meta.env.VITE_NOSTR_TASK_RELAY_URL,
 					NDKRelayAuthPolicies.signIn({ ndk })
 				);
 			} catch (err) {
@@ -74,5 +74,5 @@ export async function setNDKSigner(): Promise<void> {
 }
 
 export function getTaskRelay(): NDKRelaySet {
-	return NDKRelaySet.fromRelayUrls(['wss://relay2-dev.bittasker.com'], ndk);
+	return NDKRelaySet.fromRelayUrls([import.meta.env.VITE_NOSTR_TASK_RELAY_URL], ndk);
 }
