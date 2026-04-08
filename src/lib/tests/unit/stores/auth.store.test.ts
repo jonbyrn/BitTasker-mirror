@@ -4,6 +4,7 @@ import { authState } from '$lib/stores/auth.store';
 
 const mockDestroySession = vi.fn().mockResolvedValue(undefined);
 const mockAuthServiceLogout = vi.fn().mockResolvedValue(undefined);
+const mockNdkLogout = vi.fn().mockResolvedValue(undefined);
 
 vi.mock('@capacitor/preferences', () => ({
 	Preferences: {
@@ -15,6 +16,10 @@ vi.mock('@capacitor/preferences', () => ({
 
 vi.mock('$lib/utils/session', () => ({
 	destroySession: (...args: unknown[]) => mockDestroySession(...args)
+}));
+
+vi.mock('$lib/nostr/ndk', () => ({
+	ndkLogout: (...args: unknown[]) => mockNdkLogout(...args)
 }));
 
 vi.mock('$lib/api/services/auth.service', () => ({
@@ -89,17 +94,25 @@ describe('auth.store', () => {
 			expect(mockDestroySession).toHaveBeenCalledOnce();
 		});
 
-		it('should call destroySession after authService.logout', async () => {
+		it('should call ndkLogout() after authService.logout', async () => {
+			await authState.logout();
+			expect(mockNdkLogout).toHaveBeenCalledOnce();
+		});
+
+		it('should call destroySession after authService.logout and ndkLogout', async () => {
 			const callOrder: string[] = [];
 			mockAuthServiceLogout.mockImplementation(async () => {
 				callOrder.push('server');
+			});
+			mockNdkLogout.mockImplementation(async () => {
+				callOrder.push('ndk');
 			});
 			mockDestroySession.mockImplementation(async () => {
 				callOrder.push('local');
 			});
 
 			await authState.logout();
-			expect(callOrder).toEqual(['server', 'local']);
+			expect(callOrder).toEqual(['server', 'ndk', 'local']);
 		});
 	});
 });

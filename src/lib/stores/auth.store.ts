@@ -5,6 +5,7 @@ import { Preferences } from '@capacitor/preferences';
 import { goto } from '$app/navigation';
 import { appStore } from './app.store';
 import { resetMigration } from '$lib/utils/helpers/migratePasskey';
+import { ndkLogout } from '$lib/nostr/ndk';
 import { destroySession } from '$lib/utils/session';
 
 const initialAuthState: AuthState = {
@@ -20,6 +21,8 @@ const createAuthStore = () => {
 		const { default: authService } = await import('$lib/api/services/auth.service');
 		// Revoke refresh token on the backend (best-effort)
 		await authService.logout();
+
+		await ndkLogout();
 
 		// Destroy the local session (tokens, stores, caches)
 		await destroySession();
