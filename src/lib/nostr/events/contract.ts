@@ -272,8 +272,13 @@ export class NDKPaymentContract extends NDKEvent {
 		this.tags.push(['n', network]);
 	}
 
+	/**
+	 * If the version tag is "0.0.1", treat it as "v1" for legacy support.
+	 */
 	get version(): string | undefined {
-		return this.tagValue('v');
+		const raw = this.tagValue('v');
+		if (raw === '0.0.1') return 'v1';
+		return raw;
 	}
 
 	set version(version: string) {
