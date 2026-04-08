@@ -23,16 +23,21 @@ import {
 	resolveAfterTimelock
 } from '$lib/utils/contract/v1/blockchainWrites';
 import {
-	computeV1PermittedActions,
-	isTerminalV1ChainState
-} from '$lib/utils/contract/v1/permittedActions';
+	deriveV1EffectiveContractStatus,
+	isTerminalV1EffectiveState
+} from '$lib/utils/contract/v1/effectiveContractState';
+import { computeV1PermittedActions } from '$lib/utils/contract/v1/permittedActions';
 import { buildDisputeProjectionForPayment } from '$lib/utils/contract/v2/disputeProjectionFromStatus';
 import {
 	emptyPermittedActions,
 	type PermittedActions
 } from '$lib/utils/contract/v2/permittedActions';
 import { publishTaskCompletedForEscrow } from '$lib/utils/contract/v2/creation';
-import type { ContractChain, SecurePaymentLegacy } from '$lib/utils/contract/types';
+import type {
+	ContractChain,
+	ContractDisplayStatus,
+	SecurePaymentLegacy
+} from '$lib/utils/contract/types';
 import { ContractStatus } from '$lib/utils/contract/types';
 import type { Attachment } from '$lib/types/task';
 import { runV1Preflight } from './v1Preflight';
@@ -63,9 +68,24 @@ export async function loadPaymentContractDetailsV1(
 	return loadPaymentContractDetails(paymentId, contractAddress, chain);
 }
 
+export function computeDisplayStatusV1(rune: PaymentContractRuneLike): ContractDisplayStatus {
+	const d = rune.blockchainData;
+	if (!d) return ContractStatus.Funded;
+	return deriveV1EffectiveContractStatus(d.state, rune.statusEventsByNewest);
+}
+
+export function isTerminalRuneStateV1(rune: PaymentContractRuneLike): boolean {
+	const d = rune.blockchainData;
+	if (!d) return false;
+	const eff = deriveV1EffectiveContractStatus(d.state, rune.statusEventsByNewest);
+	return isTerminalV1EffectiveState(eff);
+}
+
 export function computePermittedActionsV1(rune: PaymentContractRuneLike): PermittedActions {
 	const payment = rune.blockchainData;
 	if (!payment) return emptyPermittedActions();
+	const effectiveState = deriveV1EffectiveContractStatus(payment.state, rune.statusEventsByNewest);
+	const paymentForPerms: SecurePaymentLegacy = { ...payment, state: effectiveState };
 	const disputeProjection = buildDisputeProjectionForPayment(
 		{
 			taskerPubkey: rune.taskerPubkey,
@@ -75,7 +95,7 @@ export function computePermittedActionsV1(rune: PaymentContractRuneLike): Permit
 		payment.state
 	);
 	return computeV1PermittedActions({
-		payment,
+		payment: paymentForPerms,
 		isTasker: rune.isTasker,
 		now: permissionsNowSeconds(),
 		awaitingTx: rune.isPending,
@@ -645,7 +665,8 @@ export async function resolveAfterTimelockV1(
 
 export const v1Lifecycle: PaymentContractLifecycle = {
 	loadPaymentContractDetails: loadPaymentContractDetailsV1,
-	isChainTerminalState: isTerminalV1ChainState,
+	computeDisplayStatus: computeDisplayStatusV1,
+	isTerminalRuneState: isTerminalRuneStateV1,
 	computePermittedActions: computePermittedActionsV1,
 	markTaskComplete: markTaskCompleteV1,
 	acceptTask: acceptTaskV1,

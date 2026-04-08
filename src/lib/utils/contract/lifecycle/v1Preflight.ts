@@ -4,6 +4,7 @@
 
 import { createDebug } from '$lib/utils/debug';
 import { loadPaymentContractDetails } from '$lib/utils/contract/v1';
+import { deriveV1EffectiveContractStatus } from '$lib/utils/contract/v1/effectiveContractState';
 import { computeV1PermittedActions } from '$lib/utils/contract/v1/permittedActions';
 import { buildDisputeProjectionForPayment } from '$lib/utils/contract/v2/disputeProjectionFromStatus';
 import type { PermittedActions } from '$lib/utils/contract/v2/permittedActions';
@@ -27,6 +28,11 @@ export async function runV1Preflight(
 ): Promise<ContractLifecycleResult | undefined> {
 	try {
 		const payment = await loadPaymentContractDetails(ids.paymentId, ids.contractAddress, 'rsk');
+		const effectiveState = deriveV1EffectiveContractStatus(
+			payment.state,
+			rune.statusEventsByNewest
+		);
+		const paymentForPerms = { ...payment, state: effectiveState };
 		const disputeProjection = buildDisputeProjectionForPayment(
 			{
 				taskerPubkey: rune.taskerPubkey,
@@ -36,7 +42,7 @@ export async function runV1Preflight(
 			payment.state
 		);
 		const perms = computeV1PermittedActions({
-			payment,
+			payment: paymentForPerms,
 			isTasker: rune.isTasker,
 			now: permissionsNowSeconds(),
 			awaitingTx: false,

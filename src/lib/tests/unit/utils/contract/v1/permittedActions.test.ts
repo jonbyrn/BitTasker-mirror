@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
-	computeV1PermittedActions,
-	isTerminalV1ChainState
-} from '$lib/utils/contract/v1/permittedActions';
+	deriveV1EffectiveContractStatus,
+	isTerminalV1ChainState,
+	isTerminalV1EffectiveState
+} from '$lib/utils/contract/v1/effectiveContractState';
+import { computeV1PermittedActions } from '$lib/utils/contract/v1/permittedActions';
 import { ContractStatus } from '$lib/utils/contract/types';
 import type { SecurePaymentLegacy } from '$lib/utils/contract/types';
 
@@ -22,6 +24,33 @@ function payment(overrides: Partial<SecurePaymentLegacy>): SecurePaymentLegacy {
 		...overrides
 	};
 }
+
+describe('isTerminalV1EffectiveState', () => {
+	it('treats FundsReleased as terminal for UI/permissions', () => {
+		expect(isTerminalV1EffectiveState(ContractStatus.FundsReleased)).toBe(true);
+		expect(isTerminalV1EffectiveState(ContractStatus.Completed)).toBe(false);
+	});
+});
+
+describe('deriveV1EffectiveContractStatus', () => {
+	it('maps Completed + any FundsReleased 31006 to FundsReleased', () => {
+		const ev = {
+			status: ContractStatus.FundsReleased
+		} as import('$lib/nostr/events/contractStatus').NDKContractStatus;
+		expect(deriveV1EffectiveContractStatus(ContractStatus.Completed, [ev])).toBe(
+			ContractStatus.FundsReleased
+		);
+	});
+
+	it('keeps Completed when no FundsReleased event', () => {
+		const ev = {
+			status: ContractStatus.Completed
+		} as import('$lib/nostr/events/contractStatus').NDKContractStatus;
+		expect(deriveV1EffectiveContractStatus(ContractStatus.Completed, [ev])).toBe(
+			ContractStatus.Completed
+		);
+	});
+});
 
 describe('isTerminalV1ChainState', () => {
 	it('is true for DisputeResolved, DisputeUnresolved, Cancelled', () => {

@@ -29,6 +29,7 @@ import type { Attachment } from '$lib/types/task';
 import {
 	ContractStatus,
 	type ContractChain,
+	type ContractDisplayStatus,
 	type SecurePaymentLegacy
 } from '$lib/utils/contract/types';
 import { runV2Preflight } from './v2Preflight';
@@ -902,9 +903,21 @@ export async function resolveAfterTimelockV2(
 	return { ok: true, transactionHash };
 }
 
+export function computeDisplayStatusV2(rune: PaymentContractRuneLike): ContractDisplayStatus {
+	const d = rune.blockchainData;
+	return (d?.state ?? ContractStatus.Funded) as ContractDisplayStatus;
+}
+
+export function isTerminalRuneStateV2(rune: PaymentContractRuneLike): boolean {
+	const d = rune.blockchainData;
+	if (!d) return false;
+	return isTerminalPaymentState(d.state);
+}
+
 export const v2Lifecycle: PaymentContractLifecycle = {
 	loadPaymentContractDetails: loadPaymentContractDetailsV2ForRune,
-	isChainTerminalState: isTerminalPaymentState,
+	computeDisplayStatus: computeDisplayStatusV2,
+	isTerminalRuneState: isTerminalRuneStateV2,
 	computePermittedActions: computePermittedActionsV2,
 	markTaskComplete: markTaskCompleteV2,
 	acceptTask: acceptTaskV2,
