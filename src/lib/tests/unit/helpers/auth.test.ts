@@ -7,13 +7,6 @@ import {
 } from '$lib/utils/helpers/auth';
 import type { EncryptedData } from '$lib/types/auth';
 
-vi.mock('capacitor-native-biometric', () => ({
-	NativeBiometric: {
-		setCredentials: vi.fn(),
-		getCredentials: vi.fn()
-	}
-}));
-
 describe('Nostr Key Encryption', () => {
 	const mockNostrPrivateKey = '8e1ef72c2da4cf2993ed43fbc059f7a2a6b61de21d706d8fa48ca91b7ceef05f';
 	const mockCryptoEncrypted = {
