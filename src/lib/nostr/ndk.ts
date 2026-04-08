@@ -56,6 +56,8 @@ ndk.connect();
 export async function ndkLogout(): Promise<void> {
 	if (!browser || typeof indexedDB === 'undefined') return;
 
+	await stopUnpublishedEventsRetry();
+
 	let npub: string | undefined;
 	try {
 		const signer = ndk.signer;
@@ -116,6 +118,7 @@ export async function setNDKSigner(): Promise<void> {
 				const newPubkey = newSigner.pubkey;
 				if (currentPubkey === newPubkey) {
 					d.log('setNDKSigner: signer already set for same pubkey, skipping');
+					startUnpublishedEventsRetry();
 					return;
 				}
 				d.log('setNDKSigner: pubkey changed, updating signer');
@@ -132,11 +135,25 @@ export async function setNDKSigner(): Promise<void> {
 				d.error('setNDKSigner failed to add relay: %o', err);
 				throw err;
 			}
+			startUnpublishedEventsRetry();
 		} catch (err) {
 			d.error('setNDKSigner failed: %o', err);
 			throw err;
 		}
 	}
+}
+
+function startUnpublishedEventsRetry(): void {
+	if (!browser) return;
+	void import('$lib/runes/unpublishedEventsRetry.svelte').then((m) => {
+		m.unpublishedEventsRetry.start();
+	});
+}
+
+async function stopUnpublishedEventsRetry(): Promise<void> {
+	if (!browser) return;
+	const m = await import('$lib/runes/unpublishedEventsRetry.svelte');
+	m.unpublishedEventsRetry.stop();
 }
 
 export function getTaskRelay(): NDKRelaySet {
