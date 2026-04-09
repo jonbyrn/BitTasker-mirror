@@ -15,21 +15,31 @@
 
 	const {
 		contract,
-		onOpenContractDrawer
+		onOpenContractDrawer,
+		rune: runeFromParent = undefined
 	}: {
 		contract: NDKPaymentContract;
 		onOpenContractDrawer?: (rune: PaymentContractRune) => void;
+		/** When set (e.g. dashboard list), the parent owns the rune lifecycle. */
+		rune?: PaymentContractRune;
 	} = $props();
 
-	let contractRune = $state<PaymentContractRune | null>(null);
+	let ownedRune = $state<PaymentContractRune | null>(null);
+
 	$effect(() => {
+		if (runeFromParent) {
+			ownedRune = null;
+			return;
+		}
 		const rune = new PaymentContractRune(contract);
-		contractRune = rune;
+		ownedRune = rune;
 		void rune.start();
 		return () => {
 			rune.stopSubscription();
 		};
 	});
+
+	const contractRune = $derived(runeFromParent ?? ownedRune);
 
 	function openDrawer() {
 		if (contractRune && onOpenContractDrawer) {

@@ -1,13 +1,15 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
+	import { SvelteMap } from 'svelte/reactivity';
 	import { t } from 'svelte-i18n';
 	import { createPortal } from '$lib/utils/portal';
-	import { EscrowStatus } from '$lib/utils/escrow';
 	import ContractDrawerNDK from './ContractDrawerNDK.svelte';
 	import InfiniteScroll from '$lib/components/InfiniteScroll.svelte';
 
 	// MDI Icons for filters
 	import IconCheckAll from '~icons/mdi/check-all';
 	import IconLightningBolt from '~icons/mdi/lightning-bolt';
+	import IconProgressClock from '~icons/mdi/progress-clock';
 	import IconCheckCircle from '~icons/mdi/check-circle';
 	import IconAlertCircleOutline from '~icons/mdi/alert-circle-outline';
 	import IconCheck from '~icons/mdi/check';
@@ -19,15 +21,18 @@
 	import type { NDKPaymentContract } from '$lib/nostr/events/contract';
 	import KINDS from '$lib/utils/constants/kinds';
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
-	import type { PaymentContractRune } from '$lib/runes/contractRune.svelte';
+	import { PaymentContractRune } from '$lib/runes/contractRune.svelte';
 	import ContractCardNDK from './ContractCardNDK.svelte';
 	import NdkIdentityGate from '$lib/components/nostr/NdkIdentityGate.svelte';
-	// import { ndk } from '$lib/nostr/ndk';
-	// import { NDKEscrowContract } from '$lib/nostr/events/contract';
+	import {
+		matchesDisplayStatusFilter,
+		matchesRoleFilter,
+		type DashboardContractStatusFilter
+	} from '$lib/utils/helpers/dashboardContractFilters';
 
 	// Filters
-	let statusFilter = $state<EscrowStatus | 'all'>('all');
-	let roleFilter = $state<string>('all'); // 'all', 'client', 'freelancer'
+	let statusFilter = $state<DashboardContractStatusFilter>('all');
+	let roleFilter = $state<'all' | 'client' | 'freelancer'>('all');
 	let isStatusDropdownOpen = $state(false);
 
 	let contractDrawerOpen = $state(false);
@@ -43,19 +48,57 @@
 		contractDrawerRune = null;
 	}
 
+	const network = import.meta.env.VITE_RSK_NETWORK || 'testnet';
+
 	// Create a reactive subscription - note the callback function () => ({ ... })
 	const contractsSub = ndk.$subscribe<NDKPaymentContract>(() => {
 		// No subscription until we have the users pubkey
 		if (!ndk.$currentPubkey) return undefined;
 		return {
-			filters: [{ kinds: [KINDS.CONTRACT], limit: 50, '#p': [ndk.$currentPubkey] }],
+			filters: [
+				{ kinds: [KINDS.CONTRACT], limit: 50, '#p': [ndk.$currentPubkey], '#n': [network] }
+			],
 			wrap: true
 		};
 	});
 
-	// const contracts = $derived(rawContracts.events.map((event) => NDKEscrowContract.from(event)));
+	/** One rune per contract id — shared with cards for filtering without double subscriptions. */
+	const runesByContractId = new SvelteMap<string, PaymentContractRune>();
 
-	// Status filter options - using EscrowStatus enum
+	$effect(() => {
+		const events = contractsSub.events;
+		untrack(() => {
+			const wantedIds = new Set(events.map((e) => e.id));
+			for (const [id, rune] of [...runesByContractId]) {
+				if (!wantedIds.has(id)) {
+					rune.stopSubscription();
+					runesByContractId.delete(id);
+				}
+			}
+			for (const c of events) {
+				if (!runesByContractId.has(c.id)) {
+					const rune = new PaymentContractRune(c);
+					runesByContractId.set(c.id, rune);
+					void rune.start();
+				}
+			}
+		});
+	});
+
+	const visibleContracts = $derived.by(() => {
+		const me = ndk.$currentPubkey;
+		const events = contractsSub.events;
+		return events.filter((contract) => {
+			const rune = runesByContractId.get(contract.id);
+			if (!rune) return false;
+			if (!matchesRoleFilter(contract, roleFilter, me)) return false;
+			if (statusFilter === 'all') return true;
+			if (!rune.statusHistoryReady) return false;
+			return matchesDisplayStatusFilter(statusFilter, rune.displayStatus);
+		});
+	});
+
+	// Status filter options — buckets over ContractDisplayStatus (see dashboardContractFilters)
 	const statusFilterOptions = $derived([
 		{
 			id: 'all' as const,
@@ -63,28 +106,33 @@
 			icon: IconCheckAll
 		},
 		{
-			id: EscrowStatus.Funded,
+			id: 'funded' as const,
 			label: $t('dashboard.contracts.status.funded'),
 			icon: IconLightningBolt
 		},
 		{
-			id: EscrowStatus.Completed,
-			label: $t('dashboard.contracts.status.completed'),
+			id: 'in_progress' as const,
+			label: $t('dashboard.contracts.status.in_progress'),
+			icon: IconProgressClock
+		},
+		{
+			id: 'completed_success' as const,
+			label: $t('dashboard.contracts.filter_completed_paid'),
 			icon: IconCheckCircle
 		},
 		{
-			id: EscrowStatus.InDispute,
+			id: 'in_dispute' as const,
 			label: $t('dashboard.contracts.status.in_dispute'),
 			icon: IconAlertCircleOutline
 		},
 		{
-			id: EscrowStatus.DisputeResolved,
+			id: 'dispute_resolved' as const,
 			label: $t('dashboard.contracts.status.dispute_resolved'),
 			icon: IconCheck
 		},
 		{
-			id: EscrowStatus.Cancelled,
-			label: $t('dashboard.contracts.status.cancelled'),
+			id: 'ended_other' as const,
+			label: $t('dashboard.contracts.filter_ended'),
 			icon: IconCancel
 		}
 	] as const);
@@ -92,28 +140,28 @@
 	// Role filter options
 	const roleFilterOptions = $derived([
 		{
-			id: 'all',
+			id: 'all' as const,
 			label: $t('dashboard.contracts.all_roles'),
 			icon: IconAccountOutline
 		},
 		{
-			id: 'client',
+			id: 'client' as const,
 			label: $t('dashboard.contracts.as_client'),
 			icon: IconAccountTieOutline
 		},
 		{
-			id: 'freelancer',
+			id: 'freelancer' as const,
 			label: $t('dashboard.contracts.as_freelancer'),
 			icon: IconAccountOutline
 		}
 	] as const);
 
-	function selectStatusFilter(statusId: EscrowStatus | 'all') {
+	function selectStatusFilter(statusId: DashboardContractStatusFilter) {
 		statusFilter = statusId;
 		isStatusDropdownOpen = false;
 	}
 
-	function selectRoleFilter(roleId: string) {
+	function selectRoleFilter(roleId: 'all' | 'client' | 'freelancer') {
 		roleFilter = roleId;
 	}
 
@@ -320,19 +368,22 @@
 					{$t('dashboard.contracts.no_contracts_description')}
 				</p>
 			</div>
-		{:else}
-			{#each contractsSub.events as contract (contract.id)}
-				<ContractCardNDK {contract} onOpenContractDrawer={openContractDrawer} />
-			{/each}
-
-			<!-- End of list indicator -->
-			<!-- {#if !$contractStore.hasMore && filteredContracts.length > 0}
-			<div class="text-center">
-				<p class="text-base-content/50 text-sm">
-					{$t('dashboard.contracts.no_more_contracts')}
+		{:else if visibleContracts.length === 0}
+			<div class="py-12 text-center">
+				<h3 class="mb-2 text-lg font-semibold">
+					{$t('dashboard.contracts.no_filtered_contracts')}
+				</h3>
+				<p class="text-base-content/70">
+					{$t('dashboard.contracts.try_different_filters')}
 				</p>
 			</div>
-		{/if} -->
+		{:else}
+			{#each visibleContracts as contract (contract.id)}
+				{@const rune = runesByContractId.get(contract.id)}
+				{#if rune}
+					<ContractCardNDK {contract} {rune} onOpenContractDrawer={openContractDrawer} />
+				{/if}
+			{/each}
 		{/if}
 
 		<!-- Infinite Scroll Component -->
