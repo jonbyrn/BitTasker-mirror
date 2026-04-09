@@ -4,6 +4,33 @@ import type { NostrBidContent, NostrEventWithFollowup } from '$lib/types/bid';
 import type { Task } from '$lib/types/task';
 import type { NostrEvent } from 'nostr-tools';
 import { EscrowStatus } from '$lib/utils/escrow';
+import type { Mock } from 'vitest';
+
+/** Minimal receipt shape returned by `tx.wait()` in escrow integration mocks */
+export type EscrowMockTxReceipt = {
+	hash: string;
+	gasUsed: bigint;
+	logs: unknown[];
+};
+
+/** Contract method mock with ethers-style `estimateGas` sibling */
+export type EscrowMethodMock = Mock & { estimateGas: Mock };
+
+/** Shared mock contract surface for v1 escrow integration tests */
+export type EscrowV1IntegrationMockContract = {
+	interface: { parseLog: Mock };
+	getEscrow: Mock;
+	paused: Mock;
+	createEscrow?: EscrowMethodMock;
+	completeTask?: EscrowMethodMock;
+	acceptTask?: EscrowMethodMock;
+	cancelEscrow?: EscrowMethodMock;
+	disputeTask?: EscrowMethodMock;
+	proposeResolution?: EscrowMethodMock;
+	acceptProposal?: EscrowMethodMock;
+	resolveAfterTimelock?: EscrowMethodMock;
+	getDisputeProposal?: Mock;
+};
 
 // Mock @bittasker/wallet-core
 vi.mock('@bittasker/wallet-core', () => ({
@@ -11,14 +38,14 @@ vi.mock('@bittasker/wallet-core', () => ({
 }));
 
 // Mock ethers
-let mockContractInstance: any = null;
+let mockContractInstance: EscrowV1IntegrationMockContract | null = null;
 vi.mock('ethers', async () => {
 	const actual = await vi.importActual('ethers');
 	return {
 		...actual,
 		ethers: {
 			...actual.ethers,
-			Contract: vi.fn().mockImplementation((...args: any[]) => {
+			Contract: vi.fn().mockImplementation(() => {
 				return mockContractInstance;
 			})
 		}
@@ -42,7 +69,7 @@ vi.mock('$lib/stores/wallet.store', () => ({
 	walletStore: {
 		subscribe: vi.fn((callback) => {
 			callback(mockWalletStore);
-			return () => { };
+			return () => {};
 		})
 	},
 	getWallet: vi.fn(() => ({
@@ -117,7 +144,6 @@ vi.mock('$lib/stores/app.store', () => ({
 
 // Mock svelte-i18n
 vi.mock('svelte-i18n', () => {
-	const translationFn = (key: string) => key;
 	const mockT = Object.assign(
 		vi.fn((key: string) => key),
 		{
@@ -132,13 +158,14 @@ vi.mock('svelte-i18n', () => {
 // Mock svelte/store
 vi.mock('svelte/store', () => {
 	const translationFn = (key: string) => key;
-	const mockGet = vi.fn((store: any) => {
+	const mockGet = vi.fn((store: unknown) => {
 		if (typeof store === 'function') {
-			if (store.subscribe || (store.toString && store.toString().includes('t'))) {
+			const fn = store as (() => unknown) & { subscribe?: unknown; toString?: () => string };
+			if (fn.subscribe || fn.toString?.().includes('t')) {
 				return translationFn;
 			}
 			try {
-				return store();
+				return fn();
 			} catch {
 				return translationFn;
 			}
@@ -171,16 +198,16 @@ import { escrow } from '$lib/utils/escrow/v1/escrow';
 import { acceptBidAndCreateEscrow } from '$lib/utils/escrow/v1/escrowBid';
 import * as EscrowNostrEvent from '$lib/utils/escrow/v1/escrowEvents';
 
+const NOSTR_PEER_HEX = 'aa'.repeat(32);
+
 describe('Escrow Lifecycle Integration Tests', () => {
-	let mockContract: any;
-	let mockProvider: any;
-	let mockWallet: any;
+	let mockContract: EscrowV1IntegrationMockContract;
 
 	beforeEach(() => {
 		vi.clearAllMocks();
 
 		// Create mock transaction with async wait
-		const createMockWait = (receipt: any) => {
+		const createMockWait = (receipt: EscrowMockTxReceipt) => {
 			return vi.fn().mockImplementation(
 				() =>
 					new Promise((resolve) => {
@@ -208,7 +235,10 @@ describe('Escrow Lifecycle Integration Tests', () => {
 		};
 
 		// Setup method mocks with estimateGas
-		const createMethodWithEstimateGas = (estimateGasValue: bigint, waitReceipt: any) => {
+		const createMethodWithEstimateGas = (
+			estimateGasValue: bigint,
+			waitReceipt: EscrowMockTxReceipt
+		) => {
 			const method = vi.fn().mockResolvedValue({
 				hash: '0x' + Math.random().toString(16).substring(2, 66),
 				wait: createMockWait(waitReceipt)
@@ -217,96 +247,58 @@ describe('Escrow Lifecycle Integration Tests', () => {
 			return method;
 		};
 
-		mockContract.createEscrow = createMethodWithEstimateGas(
-			BigInt(100000),
-			{
-				hash: '0x123',
-				gasUsed: BigInt(100000),
-				logs: []
-			}
-		);
+		mockContract.createEscrow = createMethodWithEstimateGas(BigInt(100000), {
+			hash: '0x123',
+			gasUsed: BigInt(100000),
+			logs: []
+		});
 
-		mockContract.completeTask = createMethodWithEstimateGas(
-			BigInt(50000),
-			{
-				hash: '0x456',
-				gasUsed: BigInt(50000),
-				logs: []
-			}
-		);
+		mockContract.completeTask = createMethodWithEstimateGas(BigInt(50000), {
+			hash: '0x456',
+			gasUsed: BigInt(50000),
+			logs: []
+		});
 
-		mockContract.acceptTask = createMethodWithEstimateGas(
-			BigInt(40000),
-			{
-				hash: '0x789',
-				gasUsed: BigInt(40000),
-				logs: []
-			}
-		);
+		mockContract.acceptTask = createMethodWithEstimateGas(BigInt(40000), {
+			hash: '0x789',
+			gasUsed: BigInt(40000),
+			logs: []
+		});
 
-		mockContract.cancelEscrow = createMethodWithEstimateGas(
-			BigInt(30000),
-			{
-				hash: '0xabc',
-				gasUsed: BigInt(30000),
-				logs: []
-			}
-		);
+		mockContract.cancelEscrow = createMethodWithEstimateGas(BigInt(30000), {
+			hash: '0xabc',
+			gasUsed: BigInt(30000),
+			logs: []
+		});
 
-		mockContract.disputeTask = createMethodWithEstimateGas(
-			BigInt(35000),
-			{
-				hash: '0xdef',
-				gasUsed: BigInt(35000),
-				logs: []
-			}
-		);
+		mockContract.disputeTask = createMethodWithEstimateGas(BigInt(35000), {
+			hash: '0xdef',
+			gasUsed: BigInt(35000),
+			logs: []
+		});
 
-		mockContract.proposeResolution = createMethodWithEstimateGas(
-			BigInt(45000),
-			{
-				hash: '0x111',
-				gasUsed: BigInt(45000),
-				logs: []
-			}
-		);
+		mockContract.proposeResolution = createMethodWithEstimateGas(BigInt(45000), {
+			hash: '0x111',
+			gasUsed: BigInt(45000),
+			logs: []
+		});
 
-		mockContract.acceptProposal = createMethodWithEstimateGas(
-			BigInt(40000),
-			{
-				hash: '0x222',
-				gasUsed: BigInt(40000),
-				logs: []
-			}
-		);
+		mockContract.acceptProposal = createMethodWithEstimateGas(BigInt(40000), {
+			hash: '0x222',
+			gasUsed: BigInt(40000),
+			logs: []
+		});
 
-		mockContract.resolveAfterTimelock = createMethodWithEstimateGas(
-			BigInt(50000),
-			{
-				hash: '0x333',
-				gasUsed: BigInt(50000),
-				logs: []
-			}
-		);
+		mockContract.resolveAfterTimelock = createMethodWithEstimateGas(BigInt(50000), {
+			hash: '0x333',
+			gasUsed: BigInt(50000),
+			logs: []
+		});
 
 		mockContract.getEscrow = vi.fn();
 		mockContract.getDisputeProposal = vi.fn();
 
 		mockContractInstance = mockContract;
-
-		// Setup mock provider
-		mockProvider = {
-			getFeeData: vi.fn().mockResolvedValue({
-				gasPrice: BigInt('1000000000')
-			}),
-			getTransactionReceipt: vi.fn()
-		};
-
-		// Setup mock wallet
-		mockWallet = {
-			address: '0x1111111111111111111111111111111111111111',
-			signTransaction: vi.fn()
-		};
 	});
 
 	afterEach(() => {
@@ -398,14 +390,14 @@ describe('Escrow Lifecycle Integration Tests', () => {
 			mockContract.getEscrow.mockResolvedValueOnce(completedEscrowData);
 			const contractEventId = 'contract-123';
 
-			const completeResult = await escrow.completeTask(escrowId, contractEventId);
+			const completeResult = await escrow.completeTask(escrowId, NOSTR_PEER_HEX, contractEventId);
 
 			expect(completeResult.hash).toBeDefined();
 			expect(completeResult.status).toBe('pending');
 			expect(completeResult.escrowId).toBe(escrowId);
 
 			// Wait for async confirmation
-			await new Promise(resolve => setTimeout(resolve, 100));
+			await new Promise((resolve) => setTimeout(resolve, 100));
 
 			expect(mockPublishEscrowStatus).toHaveBeenCalledWith(
 				expect.objectContaining({
@@ -418,13 +410,13 @@ describe('Escrow Lifecycle Integration Tests', () => {
 			// Step 3: Client accepts task
 			mockContract.getEscrow.mockResolvedValueOnce(completedEscrowData);
 
-			const acceptResult = await escrow.acceptTask(escrowId, contractEventId);
+			const acceptResult = await escrow.acceptTask(escrowId, NOSTR_PEER_HEX, contractEventId);
 
 			expect(acceptResult.hash).toBeDefined();
 			expect(acceptResult.status).toBe('pending');
 
 			// Wait for async confirmation
-			await new Promise(resolve => setTimeout(resolve, 100));
+			await new Promise((resolve) => setTimeout(resolve, 100));
 
 			expect(mockPublishEscrowStatus).toHaveBeenCalledWith(
 				expect.objectContaining({
@@ -471,12 +463,12 @@ describe('Escrow Lifecycle Integration Tests', () => {
 
 			// Cancel escrow
 			const contractEventId = 'contract-456';
-			const cancelResult = await escrow.cancelEscrow(escrowId, contractEventId);
+			const cancelResult = await escrow.cancelEscrow(escrowId, NOSTR_PEER_HEX, contractEventId);
 
 			expect(cancelResult.hash).toBeDefined();
 			expect(cancelResult.status).toBe('pending');
 
-			await new Promise(resolve => setTimeout(resolve, 100));
+			await new Promise((resolve) => setTimeout(resolve, 100));
 
 			expect(mockPublishEscrowStatus).toHaveBeenCalledWith(
 				expect.objectContaining({
@@ -524,12 +516,12 @@ describe('Escrow Lifecycle Integration Tests', () => {
 			const contractEventId = 'contract-789';
 
 			// Step 1: Client disputes completed task
-			const disputeResult = await escrow.disputeTask(escrowId, contractEventId);
+			const disputeResult = await escrow.disputeTask(escrowId, NOSTR_PEER_HEX, contractEventId);
 
 			expect(disputeResult.hash).toBeDefined();
 			expect(disputeResult.status).toBe('pending');
 
-			await new Promise(resolve => setTimeout(resolve, 100));
+			await new Promise((resolve) => setTimeout(resolve, 100));
 
 			expect(mockPublishEscrowStatus).toHaveBeenCalledWith(
 				expect.objectContaining({
@@ -544,6 +536,7 @@ describe('Escrow Lifecycle Integration Tests', () => {
 
 			const proposeResult = await escrow.proposeResolution(
 				escrowId,
+				NOSTR_PEER_HEX,
 				'0.5',
 				contractEventId,
 				'0.5',
@@ -553,7 +546,7 @@ describe('Escrow Lifecycle Integration Tests', () => {
 			expect(proposeResult.hash).toBeDefined();
 			expect(proposeResult.status).toBe('pending');
 
-			await new Promise(resolve => setTimeout(resolve, 100));
+			await new Promise((resolve) => setTimeout(resolve, 100));
 
 			expect(mockPublishEscrowStatus).toHaveBeenCalledWith(
 				expect.objectContaining({
@@ -566,12 +559,16 @@ describe('Escrow Lifecycle Integration Tests', () => {
 			);
 
 			// Step 3: Freelancer accepts proposal
-			const acceptProposalResult = await escrow.acceptProposal(escrowId, contractEventId);
+			const acceptProposalResult = await escrow.acceptProposal(
+				escrowId,
+				NOSTR_PEER_HEX,
+				contractEventId
+			);
 
 			expect(acceptProposalResult.hash).toBeDefined();
 			expect(acceptProposalResult.status).toBe('pending');
 
-			await new Promise(resolve => setTimeout(resolve, 100));
+			await new Promise((resolve) => setTimeout(resolve, 100));
 
 			expect(mockPublishEscrowStatus).toHaveBeenCalledWith(
 				expect.objectContaining({
@@ -604,6 +601,7 @@ describe('Escrow Lifecycle Integration Tests', () => {
 			const contractEventId = 'contract-999';
 			const resolveResult = await escrow.resolveAfterTimelock(
 				escrowId,
+				NOSTR_PEER_HEX,
 				EscrowStatus.InDispute,
 				contractEventId
 			);
@@ -611,7 +609,7 @@ describe('Escrow Lifecycle Integration Tests', () => {
 			expect(resolveResult.hash).toBeDefined();
 			expect(resolveResult.status).toBe('pending');
 
-			await new Promise(resolve => setTimeout(resolve, 100));
+			await new Promise((resolve) => setTimeout(resolve, 100));
 
 			expect(mockPublishEscrowStatus).toHaveBeenCalledWith(
 				expect.objectContaining({
@@ -625,9 +623,7 @@ describe('Escrow Lifecycle Integration Tests', () => {
 
 	describe('Error Handling in Lifecycle', () => {
 		it('should handle escrow creation failure gracefully', async () => {
-			mockContract.createEscrow.estimateGas.mockRejectedValueOnce(
-				new Error('Insufficient funds')
-			);
+			mockContract.createEscrow.estimateGas.mockRejectedValueOnce(new Error('Insufficient funds'));
 
 			await expect(
 				escrow.createEscrow(
@@ -646,7 +642,7 @@ describe('Escrow Lifecycle Integration Tests', () => {
 				new Error('Task already completed')
 			);
 
-			await expect(escrow.completeTask('123', 'contract-123')).rejects.toThrow();
+			await expect(escrow.completeTask('123', NOSTR_PEER_HEX, 'contract-123')).rejects.toThrow();
 		});
 
 		it('should handle bid acceptance with invalid data', async () => {
