@@ -11,7 +11,6 @@
 	import { formatConvertedAmount } from '$lib/utils/helpers/currencyFormatter';
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
 	import { PaymentContractRune } from '$lib/runes/contractRune.svelte';
-	import { ContractStatus } from '$lib/utils/contract/types';
 	import ContractActionsNDK from './ContractActionsNDK.svelte';
 
 	const {
@@ -43,6 +42,9 @@
 			? contractRune.isTasker
 			: contract.author.pubkey === contract.ndk?.activeUser?.pubkey
 	);
+
+	/** After first relay EOSE (or when no status subscription runs), show real status + actions. */
+	const statusAndActionsReady = $derived(contractRune?.statusHistoryReady === true);
 	const amountSats = $derived(
 		formatConvertedAmount(contract.amount, contract.currency, {
 			btcPrice: btcPrice.price,
@@ -89,17 +91,23 @@
 						</div>
 					{/if}
 				</div>
-				<!-- Bottom row: Status badge (with min gap from top badges) -->
-				<div
-					class="badge {getStatusColorClass(
-						contractRune?.displayStatus ?? ContractStatus.Funded
-					)} badge-sm mt-2"
-				>
-					{#if contractRune?.isPending}
-						<span class="loading loading-spinner loading-xs mr-1"></span>
-					{/if}
-					{$t(getStatusTranslationKey(contractRune?.displayStatus ?? ContractStatus.Funded))}
-				</div>
+				<!-- Bottom row: Status badge (after relay EOSE so we don't flash default Funded) -->
+				{#if statusAndActionsReady && contractRune}
+					<div class="badge {getStatusColorClass(contractRune.displayStatus)} badge-sm mt-2">
+						{#if contractRune.isPending}
+							<span class="loading loading-spinner loading-xs mr-1"></span>
+						{/if}
+						{$t(getStatusTranslationKey(contractRune.displayStatus))}
+					</div>
+				{:else}
+					<div
+						class="badge badge-ghost badge-sm mt-2 min-h-6 min-w-22 justify-center"
+						aria-busy="true"
+						aria-label={$t('common.loading')}
+					>
+						<span class="loading loading-spinner loading-xs text-base-content/60"></span>
+					</div>
+				{/if}
 			</div>
 		</div>
 
@@ -130,7 +138,7 @@
 
 			<!-- Right: Action Buttons -->
 			<div class="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
-				{#if contractRune}
+				{#if contractRune && statusAndActionsReady}
 					<ContractActionsNDK {contractRune} btcPrice={btcPrice.price} />
 				{/if}
 				<button type="button" class="btn btn-outline btn-sm w-full sm:w-auto" onclick={openDrawer}>

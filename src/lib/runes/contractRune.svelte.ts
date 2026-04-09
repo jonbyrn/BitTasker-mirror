@@ -176,11 +176,14 @@ export class PaymentContractRune implements PaymentContractRuneLike {
 
 		if (!this.paymentId) {
 			d.log('start: skipping onchain + subscription, paymentId not available yet');
+			// No kind-31006 subscription; nothing to wait for from relay EOSE.
+			this.statusHistoryReady = true;
 			return;
 		}
 
 		if (!this.contract.contractAddress) {
 			this.error = 'Contract address is missing';
+			this.statusHistoryReady = true;
 			return;
 		}
 
