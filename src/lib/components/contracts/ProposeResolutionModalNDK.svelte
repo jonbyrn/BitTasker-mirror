@@ -7,6 +7,7 @@
 	import { ContractStatus } from '$lib/utils/contract/types';
 	import { GAS_REIMBURSEMENT_PER_OP } from '$lib/utils/contract/v2/types';
 	import { createDebug } from '$lib/utils/debug';
+	import ResolutionProposalSplitDisplay from './ResolutionProposalSplitDisplay.svelte';
 
 	const d = createDebug('contracts:proposeResolutionModalNDK');
 
@@ -67,34 +68,6 @@
 		return pool - taskeeShareWei;
 	});
 
-	$effect(() => {
-		if (isOpen) {
-			positionPercent = 50;
-		}
-	});
-
-	function displayPercentOfPool(shareWei: bigint, total: bigint): string {
-		if (total === 0n) return '0%';
-		const basisPoints = (shareWei * 10000n) / total;
-		const pct = Number(basisPoints) / 100;
-		if (!Number.isFinite(pct)) return '—';
-		const rounded = Math.round(pct * 10) / 10;
-		if (rounded % 1 === 0) return `${Math.round(rounded)}%`;
-		return `${rounded.toFixed(1)}%`;
-	}
-
-	function displayUsdApproxLine(shareWei: bigint): string {
-		const cur = contractRune.contract.currency;
-		const eth = ethers.formatEther(shareWei);
-		if (btcPrice > 0) {
-			const usd = formatConvertedAmount(eth, cur, { btcPrice, toCurrency: 'USD' });
-			return `~${usd}`;
-		}
-		const n = Number(eth);
-		if (!Number.isFinite(n)) return '';
-		return `~${n.toLocaleString(undefined, { maximumFractionDigits: 6 })} ${cur}`;
-	}
-
 	const splitPoolDisplayLabel = $derived.by(() => {
 		const pool = splitPoolWei;
 		if (pool === null) return '';
@@ -105,6 +78,14 @@
 			return `${usd}`;
 		}
 		return `${eth} ${currency}`;
+	});
+
+	const pending = $derived(contractRune.pendingResolutionProposal);
+
+	$effect(() => {
+		if (isOpen) {
+			positionPercent = 50;
+		}
 	});
 
 	async function handleSubmit() {
@@ -168,6 +149,23 @@
 					<span>{$t('dashboard.contracts.actions.propose_resolution_split_pool_too_small')}</span>
 				</div>
 			{:else}
+				{#if pending}
+					<div class="bg-base-200/80 border-base-300 mb-4 rounded-xl border p-3">
+						<p class="text-base-content/80 mb-2 text-xs font-semibold tracking-wide uppercase">
+							{$t('dashboard.contracts.actions.resolution_latest_compare_title')}
+						</p>
+						<ResolutionProposalSplitDisplay
+							taskerShareWei={pending.taskerWei}
+							taskeeShareWei={pending.taskeeWei}
+							currency={contractRune.contract.currency}
+							{btcPrice}
+							isTasker={contractRune.isTasker}
+							variant="compact"
+							proposerIsTasker={pending.proposerIsTasker}
+						/>
+					</div>
+				{/if}
+
 				<p class="text-base-content/90 mb-2 text-sm font-medium">
 					<strong>{$t('dashboard.contracts.actions.propose_resolution_split_pool_label')}:</strong>
 					{splitPoolDisplayLabel}
@@ -177,44 +175,15 @@
 					{$t('dashboard.contracts.actions.propose_resolution_split_hint')}
 				</p>
 
-				<div class="mb-4 flex flex-row gap-3 sm:flex-row sm:items-stretch sm:justify-between">
-					<div
-						class="flex flex-1 flex-col gap-1 rounded-lg p-4 text-center {contractRune.isTasker
-							? 'border-primary bg-primary/10 border-2'
-							: 'bg-base-200'}"
-					>
-						<span class="text-base-content/80 text-xs font-medium">
-							{contractRune.isTasker
-								? $t('dashboard.contracts.actions.propose_resolution_label_you')
-								: $t('dashboard.contracts.actions.propose_resolution_label_tasker')}
-						</span>
-						<span class="text-2xl font-bold tracking-tight">
-							{displayPercentOfPool(taskerShareWei, splitPoolWei)}
-						</span>
-						<span class="text-base-content/60 text-sm">
-							{displayUsdApproxLine(taskerShareWei)}
-						</span>
-					</div>
-					<div
-						class="flex flex-1 flex-col gap-1 rounded-lg p-4 text-center {!contractRune.isTasker
-							? 'border-primary bg-primary/10 border-2'
-							: 'bg-base-200'}"
-					>
-						<span class="text-base-content/80 text-xs font-medium">
-							{contractRune.isTasker
-								? $t('dashboard.contracts.actions.propose_resolution_label_taskee')
-								: $t('dashboard.contracts.actions.propose_resolution_label_you')}
-						</span>
-						<span class="text-2xl font-bold tracking-tight">
-							{displayPercentOfPool(taskeeShareWei, splitPoolWei)}
-						</span>
-						<span class="text-base-content/60 text-sm">
-							{displayUsdApproxLine(taskeeShareWei)}
-						</span>
-					</div>
-				</div>
+				<ResolutionProposalSplitDisplay
+					{taskerShareWei}
+					{taskeeShareWei}
+					currency={contractRune.contract.currency}
+					{btcPrice}
+					isTasker={contractRune.isTasker}
+				/>
 
-				<div class="form-control w-full">
+				<div class="form-control mt-4 w-full">
 					<label class="label" for="propose-split-range">
 						<span class="label-text sr-only"
 							>{$t('dashboard.contracts.actions.propose_resolution_slider_taskee_percent')}</span

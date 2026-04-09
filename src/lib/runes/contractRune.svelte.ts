@@ -24,8 +24,14 @@ import type { NDKSubscription, NDKSubscriptionOptions, NDKFilter } from '@nostr-
 import KINDS from '$lib/utils/constants/kinds';
 import type { NDKTask } from '$lib/nostr/events/task';
 import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
+import {
+	getPendingResolutionProposalFromStatusEvents,
+	type PendingResolutionProposal
+} from '$lib/utils/contract/resolutionProposalDisplay';
 
 const d = createDebug('runes:contractRune');
+
+export type { PendingResolutionProposal };
 
 /**
  * Recompute time-based `permittedActions` (e.g. `now >= estimatedStartTime`) without a full reload.
@@ -99,6 +105,26 @@ export class PaymentContractRune implements PaymentContractRuneLike {
 		const _statusEvents = this.statusEventsByNewest;
 		const _permissionsTime = this.permissionsTimeSignal;
 		return this.lifecycle.computePermittedActions(this);
+	});
+
+	/**
+	 * Active latest `proposeResolution` from Kind 31006 history while the escrow is in dispute.
+	 * Used to show splits before accepting or counter-proposing.
+	 */
+	pendingResolutionProposal = $derived.by((): PendingResolutionProposal | null => {
+		const chainState = this.optimisticBlockchainStatus ?? this.blockchainData?.state;
+		if (chainState === undefined || chainState === null) return null;
+		if (
+			chainState !== ContractStatus.InDispute &&
+			chainState !== ContractStatus.InDisputeWorkInProgress
+		) {
+			return null;
+		}
+		return getPendingResolutionProposalFromStatusEvents(
+			this.statusEvents,
+			this.contract.taskerPubkey,
+			this.contract.taskeePubkey
+		);
 	});
 
 	constructor(contract: NDKPaymentContract) {

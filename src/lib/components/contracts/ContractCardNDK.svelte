@@ -12,6 +12,7 @@
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
 	import { PaymentContractRune } from '$lib/runes/contractRune.svelte';
 	import ContractActionsNDK from './ContractActionsNDK.svelte';
+	import ResolutionProposalSplitDisplay from './ResolutionProposalSplitDisplay.svelte';
 
 	const {
 		contract,
@@ -140,6 +141,23 @@
 				</div>
 			</div>
 		</div>
+
+		{#if contractRune && statusAndActionsReady && contractRune.pendingResolutionProposal}
+			<div class="border-base-300 bg-base-200/50 mb-3 rounded-xl border border-dashed p-3">
+				<p class="text-base-content/80 mb-2 text-xs font-semibold tracking-wide uppercase">
+					{$t('dashboard.contracts.actions.current_proposal')}
+				</p>
+				<ResolutionProposalSplitDisplay
+					taskerShareWei={contractRune.pendingResolutionProposal.taskerWei}
+					taskeeShareWei={contractRune.pendingResolutionProposal.taskeeWei}
+					currency={contract.currency}
+					btcPrice={btcPrice.price}
+					isTasker={contractRune.isTasker}
+					variant="compact"
+					proposerIsTasker={contractRune.pendingResolutionProposal.proposerIsTasker}
+				/>
+			</div>
+		{/if}
 
 		<!-- Bottom Row: User Info + Action Buttons -->
 		<div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">

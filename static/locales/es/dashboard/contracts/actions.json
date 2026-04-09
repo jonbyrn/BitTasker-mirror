@@ -128,7 +128,11 @@
 				"propose_resolution_label_tasker": "Tasker",
 				"propose_resolution_label_taskee": "Taskee",
 				"propose_resolution_slider_label": "Parte del taskee del importe a repartir (porcentaje)",
-				"propose_resolution_taskee_positive_required": "En este estado de disputa, la parte del taskee debe ser mayor que cero."
+				"propose_resolution_taskee_positive_required": "En este estado de disputa, la parte del taskee debe ser mayor que cero.",
+				"resolution_latest_compare_title": "Última propuesta en la cadena",
+				"resolution_proposed_by_tasker": "Propuesta del Tasker",
+				"resolution_proposed_by_taskee": "Propuesta del Taskee",
+				"resolution_proposal_preview_unavailable": "Los importes del reparto aún no están disponibles. Inténtalo de nuevo en un momento."
 			}
 		}
 	}
