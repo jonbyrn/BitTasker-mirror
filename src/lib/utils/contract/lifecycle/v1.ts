@@ -47,6 +47,7 @@ import type {
 	PaymentContractLifecycle,
 	PaymentContractRuneLike
 } from './types';
+import { applyFundedStartedInProgressDisplay } from './displayFundedInProgress';
 import { permissionsNowSeconds } from './time';
 
 const d = createDebug('contract:lifecycle:v1');
@@ -70,8 +71,11 @@ export async function loadPaymentContractDetailsV1(
 
 export function computeDisplayStatusV1(rune: PaymentContractRuneLike): ContractDisplayStatus {
 	const d = rune.blockchainData;
-	if (!d) return ContractStatus.Funded;
-	return deriveV1EffectiveContractStatus(d.state, rune.statusEventsByNewest);
+	if (!d) {
+		return applyFundedStartedInProgressDisplay(ContractStatus.Funded, rune);
+	}
+	const base = deriveV1EffectiveContractStatus(d.state, rune.statusEventsByNewest);
+	return applyFundedStartedInProgressDisplay(base as ContractDisplayStatus, rune);
 }
 
 export function isTerminalRuneStateV1(rune: PaymentContractRuneLike): boolean {
