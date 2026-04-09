@@ -128,7 +128,11 @@
 				"propose_resolution_label_tasker": "Tasker",
 				"propose_resolution_label_taskee": "Taskee",
 				"propose_resolution_slider_label": "Taskee share of split pool (percent)",
-				"propose_resolution_taskee_positive_required": "In this dispute state, the taskee share must be greater than zero."
+				"propose_resolution_taskee_positive_required": "In this dispute state, the taskee share must be greater than zero.",
+				"resolution_latest_compare_title": "Latest proposal on chain",
+				"resolution_proposed_by_tasker": "Proposed by Tasker",
+				"resolution_proposed_by_taskee": "Proposed by Taskee",
+				"resolution_proposal_preview_unavailable": "Split amounts are not available yet. Try again in a moment."
 			}
 		}
 	}

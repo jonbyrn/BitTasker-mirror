@@ -6,6 +6,7 @@
 	import UsdSatsDisplay from '$lib/components/shared/UsdSatsDisplay.svelte';
 	import ContractTimeline from './ContractTimeline.svelte';
 	import ContractActionsNDK from './ContractActionsNDK.svelte';
+	import ResolutionProposalSplitDisplay from './ResolutionProposalSplitDisplay.svelte';
 	import Gallery from '$lib/components/Gallery.svelte';
 	import {
 		getStatusColorClass,
@@ -190,6 +191,25 @@
 					</div>
 				</div>
 			</div>
+
+			{#if contractRune.pendingResolutionProposal}
+				<div class="card bg-base-200 min-w-0 overflow-hidden">
+					<div class="card-body min-w-0 p-4">
+						<h4 class="mb-3 font-semibold">
+							{$t('dashboard.contracts.actions.current_proposal')}
+						</h4>
+						<ResolutionProposalSplitDisplay
+							taskerShareWei={contractRune.pendingResolutionProposal.taskerWei}
+							taskeeShareWei={contractRune.pendingResolutionProposal.taskeeWei}
+							currency={contract.currency}
+							{btcPrice}
+							isTasker={contractRune.isTasker}
+							variant="compact"
+							proposerIsTasker={contractRune.pendingResolutionProposal.proposerIsTasker}
+						/>
+					</div>
+				</div>
+			{/if}
 
 			<!-- Completion Evidence and Status Timeline -->
 			<div class="flex flex-col gap-6 lg:flex-row">

@@ -4,6 +4,7 @@
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 	import TaskCompletionModalNDK from '$lib/components/contracts/TaskCompletionModalNDK.svelte';
 	import ProposeResolutionModalNDK from '$lib/components/contracts/ProposeResolutionModalNDK.svelte';
+	import ResolutionProposalSplitDisplay from '$lib/components/contracts/ResolutionProposalSplitDisplay.svelte';
 	import { PaymentContractRune } from '$lib/runes/contractRune.svelte';
 	import { appStore } from '$lib/stores/app.store';
 	import type { Attachment } from '$lib/types/task';
@@ -409,7 +410,39 @@
 	</div>
 {/if}
 
-{#if activeModal !== ContractModalAction.None && activeModal !== ContractModalAction.Complete && activeModal !== ContractModalAction.ProposeResolution}
+{#if activeModal === ContractModalAction.AcceptProposal}
+	{@const config = CONTRACT_MODAL_CONFIGS[ContractModalAction.AcceptProposal]}
+	{#if config}
+		<div use:portal={'modals'}>
+			<ConfirmModal
+				isOpen={true}
+				modalBoxClass="max-w-lg"
+				title={$t(config.titleKey)}
+				message={$t(config.messageKey)}
+				confirmText={$t(config.confirmTextKey)}
+				cancelText={$t(config.cancelTextKey)}
+				confirmButtonClass={config.confirmButtonClass}
+				onConfirm={handleModalConfirm}
+				onCancel={closeModal}
+			>
+				{#if contractRune.pendingResolutionProposal}
+					<ResolutionProposalSplitDisplay
+						taskerShareWei={contractRune.pendingResolutionProposal.taskerWei}
+						taskeeShareWei={contractRune.pendingResolutionProposal.taskeeWei}
+						currency={contractRune.contract.currency}
+						{btcPrice}
+						isTasker={contractRune.isTasker}
+						proposerIsTasker={contractRune.pendingResolutionProposal.proposerIsTasker}
+					/>
+				{:else}
+					<div class="alert alert-outline alert-info text-sm">
+						<span>{$t('dashboard.contracts.actions.resolution_proposal_preview_unavailable')}</span>
+					</div>
+				{/if}
+			</ConfirmModal>
+		</div>
+	{/if}
+{:else if activeModal !== ContractModalAction.None && activeModal !== ContractModalAction.Complete && activeModal !== ContractModalAction.ProposeResolution && activeModal !== ContractModalAction.AcceptProposal}
 	{@const config = CONTRACT_MODAL_CONFIGS[activeModal]}
 	{#if config}
 		<div use:portal={'modals'}>

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import type { Snippet } from 'svelte';
 	import { t } from 'svelte-i18n';
 
 	let {
@@ -8,8 +9,10 @@
 		confirmText = $t('common.components.confirm_modal.confirm'),
 		cancelText = $t('common.components.confirm_modal.cancel'),
 		confirmButtonClass = 'btn-error',
+		modalBoxClass = 'max-w-md',
 		onConfirm,
-		onCancel
+		onCancel,
+		children
 	} = $props<{
 		isOpen?: boolean;
 		title?: string;
@@ -17,16 +20,25 @@
 		confirmText?: string;
 		cancelText?: string;
 		confirmButtonClass?: string;
+		/** Daisy/Tailwind classes for `.modal-box` (e.g. `max-w-lg` when showing extra content). */
+		modalBoxClass?: string;
 		onConfirm?: () => void;
 		onCancel?: () => void;
+		/** Optional body below the message (e.g. resolution split preview). */
+		children?: Snippet;
 	}>();
 </script>
 
 {#if isOpen}
 	<div class="modal modal-open">
-		<div class="modal-box max-w-md">
+		<div class="modal-box {modalBoxClass}">
 			<h3 class="text-lg font-bold">{title}</h3>
 			<p class="py-4">{message}</p>
+			{#if children}
+				<div class="mb-4 min-w-0">
+					{@render children()}
+				</div>
+			{/if}
 			<div class="modal-action">
 				<button class="btn btn-ghost" onclick={onCancel}>
 					{cancelText}
