@@ -486,6 +486,7 @@ async function createEscrow(
 // Complete task - Freelancer Only
 async function completeTask(
 	escrowId: string,
+	recipientPubkey: string,
 	contractEventId?: string,
 	completionAttachments?: Attachment[]
 ): Promise<ContractTransactionResult> {
@@ -519,7 +520,8 @@ async function completeTask(
 				contractEventId,
 				transactionHash: tx.hash,
 				status: EscrowStatus.PendingCompletion,
-				completionAttachments
+				completionAttachments,
+				recipientPubkey
 			});
 		}
 
@@ -537,7 +539,8 @@ async function completeTask(
 							contractEventId,
 							transactionHash: receipt.hash,
 							status: EscrowStatus.Completed,
-							completionAttachments
+							completionAttachments,
+							recipientPubkey
 						});
 					}
 				} else {
@@ -569,6 +572,7 @@ export interface AcceptTaskOptions {
 // Accept task
 async function acceptTask(
 	escrowId: string,
+	recipientPubkey: string,
 	contractEventId?: string,
 	options?: AcceptTaskOptions
 ): Promise<ContractTransactionResult> {
@@ -601,7 +605,8 @@ async function acceptTask(
 				escrowId,
 				contractEventId,
 				transactionHash: tx.hash,
-				status: EscrowStatus.PendingAcceptance
+				status: EscrowStatus.PendingAcceptance,
+				recipientPubkey
 			});
 		}
 
@@ -619,7 +624,8 @@ async function acceptTask(
 								escrowId,
 								contractEventId,
 								transactionHash: receipt.hash,
-								status: EscrowStatus.FundsReleased
+								status: EscrowStatus.FundsReleased,
+								recipientPubkey
 							});
 						} catch {
 							// FundsReleased event not published - contract may show PendingAcceptance status
@@ -654,6 +660,7 @@ async function acceptTask(
 // Cancel escrow
 async function cancelEscrow(
 	escrowId: string,
+	recipientPubkey: string,
 	contractEventId?: string
 ): Promise<ContractTransactionResult> {
 	try {
@@ -685,7 +692,8 @@ async function cancelEscrow(
 				escrowId,
 				contractEventId,
 				transactionHash: tx.hash,
-				status: EscrowStatus.PendingCancellation
+				status: EscrowStatus.PendingCancellation,
+				recipientPubkey
 			});
 		}
 
@@ -702,7 +710,8 @@ async function cancelEscrow(
 							escrowId,
 							contractEventId,
 							transactionHash: receipt.hash,
-							status: EscrowStatus.Cancelled
+							status: EscrowStatus.Cancelled,
+							recipientPubkey
 						});
 					}
 				} else {
@@ -730,10 +739,14 @@ async function publishRefundStatusSafely(params: {
 	contractEventId: string;
 	transactionHash: string;
 	status: EscrowStatus;
+	recipientPubkey: string;
 	statusMessagingVariant?: 'default' | 'refund';
 }): Promise<void> {
 	try {
-		await EscrowNostrEvent.publishEscrowStatus(params);
+		await EscrowNostrEvent.publishEscrowStatus({
+			...params,
+			recipientPubkey: params.recipientPubkey
+		});
 	} catch (error) {
 		console.error('Failed to publish refund status to Nostr:', error, params);
 	}
@@ -742,6 +755,7 @@ async function publishRefundStatusSafely(params: {
 // Refund client
 async function refundClient(
 	escrowId: string,
+	recipientPubkey: string,
 	contractEventId?: string
 ): Promise<ContractTransactionResult> {
 	try {
@@ -770,7 +784,8 @@ async function refundClient(
 				contractEventId,
 				transactionHash: tx.hash,
 				status: EscrowStatus.PendingCancellation,
-				statusMessagingVariant: 'refund'
+				statusMessagingVariant: 'refund',
+				recipientPubkey
 			});
 		}
 
@@ -787,7 +802,8 @@ async function refundClient(
 							contractEventId,
 							transactionHash: receipt.hash,
 							status: EscrowStatus.Cancelled,
-							statusMessagingVariant: 'refund'
+							statusMessagingVariant: 'refund',
+							recipientPubkey
 						});
 					}
 				} else {
@@ -813,6 +829,7 @@ async function refundClient(
 // Dispute task
 async function disputeTask(
 	escrowId: string,
+	recipientPubkey: string,
 	contractEventId?: string
 ): Promise<ContractTransactionResult> {
 	try {
@@ -844,7 +861,8 @@ async function disputeTask(
 				escrowId,
 				contractEventId,
 				transactionHash: tx.hash,
-				status: EscrowStatus.PendingDispute
+				status: EscrowStatus.PendingDispute,
+				recipientPubkey
 			});
 		}
 
@@ -861,7 +879,8 @@ async function disputeTask(
 							escrowId,
 							contractEventId,
 							transactionHash: receipt.hash,
-							status: EscrowStatus.InDispute
+							status: EscrowStatus.InDispute,
+							recipientPubkey
 						});
 					}
 				} else {
@@ -887,6 +906,7 @@ async function disputeTask(
 // Propose resolution
 async function proposeResolution(
 	escrowId: string,
+	recipientPubkey: string,
 	freelancerAmount: string,
 	contractEventId?: string,
 	proposedClientAmount?: string,
@@ -928,7 +948,8 @@ async function proposeResolution(
 				transactionHash: tx.hash,
 				status: EscrowStatus.PendingResolutionProposal,
 				proposedClientAmount,
-				proposedFreelancerAmount
+				proposedFreelancerAmount,
+				recipientPubkey
 			});
 		}
 
@@ -947,7 +968,8 @@ async function proposeResolution(
 							transactionHash: receipt.hash,
 							status: EscrowStatus.DisputeResolutionProposed,
 							proposedClientAmount,
-							proposedFreelancerAmount
+							proposedFreelancerAmount,
+							recipientPubkey
 						});
 					}
 				} else {
@@ -973,6 +995,7 @@ async function proposeResolution(
 // Accept proposal
 async function acceptProposal(
 	escrowId: string,
+	recipientPubkey: string,
 	contractEventId?: string,
 	options?: { onConfirmed?: () => Promise<void> }
 ): Promise<ContractTransactionResult> {
@@ -1005,7 +1028,8 @@ async function acceptProposal(
 				escrowId,
 				contractEventId,
 				transactionHash: tx.hash,
-				status: EscrowStatus.PendingProposalAcceptance
+				status: EscrowStatus.PendingProposalAcceptance,
+				recipientPubkey
 			});
 		}
 
@@ -1022,7 +1046,8 @@ async function acceptProposal(
 							escrowId,
 							contractEventId,
 							transactionHash: receipt.hash,
-							status: EscrowStatus.DisputeResolved
+							status: EscrowStatus.DisputeResolved,
+							recipientPubkey
 						});
 					}
 					if (options?.onConfirmed) {
@@ -1051,6 +1076,7 @@ async function acceptProposal(
 // Resolve after timelock
 async function resolveAfterTimelock(
 	escrowId: string,
+	recipientPubkey: string,
 	escrowStatus: EscrowStatus,
 	contractEventId?: string,
 	options?: { onConfirmed?: () => Promise<void> }
@@ -1084,7 +1110,8 @@ async function resolveAfterTimelock(
 				escrowId,
 				contractEventId,
 				transactionHash: tx.hash,
-				status: EscrowStatus.PendingTimelockResolution
+				status: EscrowStatus.PendingTimelockResolution,
+				recipientPubkey
 			});
 		}
 
@@ -1120,7 +1147,8 @@ async function resolveAfterTimelock(
 							escrowId,
 							contractEventId,
 							transactionHash: receipt.hash,
-							status: finalStatus
+							status: finalStatus,
+							recipientPubkey
 						});
 						if (finalStatus === EscrowStatus.FundsReleased && options?.onConfirmed) {
 							await options.onConfirmed();

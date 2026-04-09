@@ -8,7 +8,8 @@
 	import { determineContractState } from '$lib/utils/helpers/contractPermissions';
 	import { loadContractsByAddress } from '$lib/utils/wallet/loadContractsByAddress';
 	import type { EscrowData } from '$lib/types/wallet';
-	import type { ContractPermissions } from '$lib/types/contract';
+	import type { ContractPermissions, NostrContract } from '$lib/types/contract';
+	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 	import { EscrowStatus } from '$lib/utils/escrow/v1/escrow.enum';
 	import { appStore } from '$lib/stores/app.store';
 	import { getErrorMessage } from '$lib/utils/wallet/contractErrorHandler';
@@ -37,11 +38,11 @@
 		error: string | null;
 	}
 
-	// State
-	let contractsByAddress = $state<Map<string, WalletAddressGroup>>(new Map());
+	// State (SvelteMap/SvelteSet are reactive without $state)
+	let contractsByAddress = new SvelteMap<string, WalletAddressGroup>();
 	let safetyOverride = $state(false);
-	let executingActions = $state<Map<string, boolean>>(new Map());
-	let expandedContracts = $state<Set<string>>(new Set());
+	let executingActions = new SvelteMap<string, boolean>();
+	let expandedContracts = new SvelteSet<string>();
 	let showOverrideConfirm = $state(false);
 	let initialLoadComplete = $state(false);
 
@@ -83,28 +84,25 @@
 			}
 		}
 
-		// Use determineContractState with minimal Nostr contract data
-		// Create a minimal contract object that satisfies the NostrContract interface
-		const minimalContract = {
+		const minimalContract: NostrContract = {
 			escrowId: contract.id,
-			transactionHash: null,
-			createdAt: contract.createdAt,
-			content: {
-				escrowId: contract.id,
-				taskId: '',
-				taskTitle: '',
-				taskDescription: '',
-				taskeePubkey: contract.freelancer,
-				amount: contract.baseAmount,
-				estimatedStartTime: contract.estimatedStartTime,
-				estimatedCompletionTime: contract.estimatedCompletionTime
-			}
+			taskId: '',
+			taskTitle: '',
+			taskDescription: '',
+			freelancerPubkey: contract.freelancer,
+			clientPubkey: contract.client,
+			amount: contract.baseAmount,
+			currency: 'RBTC',
+			status: contract.status,
+			estimatedStartTime: contract.estimatedStartTime,
+			estimatedCompletionTime: contract.estimatedCompletionTime,
+			type: 'contract'
 		};
 
 		const { permissions } = determineContractState(
 			contract.status,
 			[], // No status events for debug view
-			minimalContract as any,
+			minimalContract,
 			contract,
 			disputeProposal,
 			false, // Not pending
@@ -128,8 +126,6 @@
 				isLoading: true,
 				error: null
 			});
-			// Reassign Map to trigger reactivity
-			contractsByAddress = new Map(contractsByAddress);
 		} else {
 			contractsByAddress.set(key, {
 				address,
@@ -139,8 +135,6 @@
 				isLoading: true,
 				error: null
 			});
-			// Reassign Map to trigger reactivity
-			contractsByAddress = new Map(contractsByAddress);
 		}
 
 		try {
@@ -163,27 +157,21 @@
 			);
 			const updatedGroup = contractsByAddress.get(key);
 			if (updatedGroup) {
-				// Create a new group object to trigger reactivity
 				contractsByAddress.set(key, {
 					...updatedGroup,
 					contracts: contractsWithPermissions,
 					isLoading: false,
 					error: null
 				});
-				// Reassign Map to trigger reactivity
-				contractsByAddress = new Map(contractsByAddress);
 			}
 		} catch (error) {
 			const updatedGroup = contractsByAddress.get(key);
 			if (updatedGroup) {
-				// Create a new group object to trigger reactivity
 				contractsByAddress.set(key, {
 					...updatedGroup,
 					isLoading: false,
 					error: error instanceof Error ? error.message : 'Failed to load contracts'
 				});
-				// Reassign Map to trigger reactivity
-				contractsByAddress = new Map(contractsByAddress);
 			}
 		}
 	}
@@ -218,13 +206,10 @@
 	function toggleAddress(key: string) {
 		const group = contractsByAddress.get(key);
 		if (group) {
-			// Create a new group object to trigger reactivity
 			contractsByAddress.set(key, {
 				...group,
 				isExpanded: !group.isExpanded
 			});
-			// Reassign Map to trigger reactivity
-			contractsByAddress = new Map(contractsByAddress);
 		}
 	}
 
@@ -235,39 +220,46 @@
 		} else {
 			expandedContracts.add(contractId);
 		}
-		expandedContracts = new Set(expandedContracts);
 	}
 
 	// Execute contract function
-	async function executeContractFunction(contractId: string, functionName: string, ...args: any[]) {
+	async function executeContractFunction(
+		contractId: string,
+		functionName: string,
+		...args: unknown[]
+	) {
 		const actionKey = `${contractId}-${functionName}`;
 		executingActions.set(actionKey, true);
-		executingActions = new Map(executingActions);
 
 		try {
 			switch (functionName) {
 				case 'completeTask':
-					await escrow.completeTask(contractId); // No Nostr event ID or attachments for debug
+					// Second arg: counterparty pubkey for Nostr (unused when no contractEventId)
+					await escrow.completeTask(contractId, '');
 					break;
 				case 'acceptTask':
-					await escrow.acceptTask(contractId); // No Nostr event ID for debug
+					await escrow.acceptTask(contractId, '');
 					break;
 				case 'cancelEscrow':
-					await escrow.cancelEscrow(contractId); // No Nostr event ID for debug
+					await escrow.cancelEscrow(contractId, '');
 					break;
 				case 'disputeTask':
-					await escrow.disputeTask(contractId); // No Nostr event ID for debug
+					await escrow.disputeTask(contractId, '');
 					break;
-				case 'proposeResolution':
-					// args[0] should be the freelancerAmount in RBTC
-					await escrow.proposeResolution(contractId, args[0] || '0');
+				case 'proposeResolution': {
+					const freelancerAmount =
+						typeof args[0] === 'string' ? args[0] : args[0] != null ? String(args[0]) : '0';
+					await escrow.proposeResolution(contractId, '', freelancerAmount);
 					break;
+				}
 				case 'acceptProposal':
-					await escrow.acceptProposal(contractId);
+					await escrow.acceptProposal(contractId, '');
 					break;
-				case 'resolveAfterTimelock':
-					await escrow.resolveAfterTimelock(contractId, args[0] || '0');
+				case 'resolveAfterTimelock': {
+					const escrowStatusArg = typeof args[0] === 'number' ? args[0] : Number(args[0]) || 0;
+					await escrow.resolveAfterTimelock(contractId, '', escrowStatusArg);
 					break;
+				}
 				default:
 					throw new Error(`Unknown function: ${functionName}`);
 			}
@@ -284,7 +276,6 @@
 			);
 		} finally {
 			executingActions.delete(actionKey);
-			executingActions = new Map(executingActions);
 		}
 	}
 
@@ -300,7 +291,6 @@
 
 	// Get network name
 	function getNetworkName(network: 'RSK' | 'BSC'): string {
-		const state = get(walletStore);
 		const rskNetwork = import.meta.env.VITE_RSK_NETWORK || 'testnet';
 		if (network === 'RSK') {
 			return `RSK ${rskNetwork === 'mainnet' ? 'Mainnet' : 'Testnet'}`;
@@ -460,7 +450,7 @@
 				</button>
 			</div>
 		{:else if hasAnyContracts}
-			{#each Array.from(contractsByAddress.entries()) as [key, group]}
+			{#each Array.from(contractsByAddress.entries()) as [key, group] (key)}
 				<div class="card bg-base-100 shadow-xl">
 					<div class="card-body">
 						<!-- Wallet Address Header -->
@@ -484,7 +474,7 @@
 										>
 											{formatAddress(group.address)}
 										</a>
-										<IconOpenInNew class="ml-1 inline h-4 w-4 text-base-content/60" />
+										<IconOpenInNew class="text-base-content/60 ml-1 inline h-4 w-4" />
 									</div>
 									<div class="text-base-content/60 text-sm">
 										{getNetworkName(group.network)} • {$t('debug.smart_contract.contract_count', {
@@ -519,7 +509,7 @@
 									</button>
 								</div>
 							{:else if group.contracts.length === 0}
-								<div class="py-8 text-center text-base-content/60">
+								<div class="text-base-content/60 py-8 text-center">
 									{$t('debug.smart_contract.no_contracts')}
 								</div>
 							{:else}
@@ -556,7 +546,7 @@
 	{/if}
 
 	<!-- Safety Override Toggle -->
-	<div class="mt-8 border-t border-base-300 bg-base-100 p-4">
+	<div class="border-base-300 bg-base-100 mt-8 border-t p-4">
 		<div class="container mx-auto">
 			<div class="flex flex-col gap-4">
 				<!-- Toggle Row (fixed layout, never changes) -->
