@@ -56,11 +56,17 @@ export class PaymentContractRune implements PaymentContractRuneLike {
 	statusEventsByNewest = $derived.by(() =>
 		[...this.statusEvents].sort((a, b) => (b.created_at ?? 0) - (a.created_at ?? 0))
 	);
+	/** Bumped on an interval + after chain reload so time-based display and permissions stay fresh. */
+	private permissionsTimeSignal = $state(0);
+	private permissionsClockId: ReturnType<typeof setInterval> | null = null;
+
 	chainIsTerminal = $derived.by(() => this.lifecycle.isTerminalRuneState(this));
 	displayStatus = $derived.by((): ContractDisplayStatus => {
 		if (this.optimisticBlockchainStatus) {
 			return this.optimisticBlockchainStatus;
 		}
+		// Re-run when the permissions clock ticks so Funded → In progress crosses estimated start.
+		void this.permissionsTimeSignal;
 		return this.lifecycle.computeDisplayStatus(this);
 	});
 	error = $state<string | null>(null);
@@ -71,10 +77,6 @@ export class PaymentContractRune implements PaymentContractRuneLike {
 	 * Completion evidence from status subscription only (newest `completeTask` + Completed 31006).
 	 */
 	completionAttachments = $state<Attachment[]>([]);
-
-	/** Bumped on an interval + after chain reload so `permissionsNowSeconds()` is effectively reactive. */
-	private permissionsTimeSignal = $state(0);
-	private permissionsClockId: ReturnType<typeof setInterval> | null = null;
 
 	contractAddress = $derived(this.contract.contractAddress?.trim() ?? '');
 	parentEventId = $derived(this.contract.id ?? '');
@@ -184,6 +186,7 @@ export class PaymentContractRune implements PaymentContractRuneLike {
 		if (!this.contract.contractAddress) {
 			this.error = 'Contract address is missing';
 			this.statusHistoryReady = true;
+			this.syncPermissionsClock();
 			return;
 		}
 
@@ -199,6 +202,7 @@ export class PaymentContractRune implements PaymentContractRuneLike {
 			d.error('start: escrow sync failed', { error });
 		}
 
+		this.syncPermissionsClock();
 		this.setupSubscription();
 		this.statusSub?.start();
 	}
@@ -213,8 +217,13 @@ export class PaymentContractRune implements PaymentContractRuneLike {
 
 	/** Start/stop wall-clock polling for permitted-actions windows (cancel windows, start time, timelocks, …). */
 	private syncPermissionsClock(): void {
+		if (this.lifecycle.isTerminalRuneState(this)) {
+			this.stopPermissionsClock();
+			return;
+		}
+		const pid = this.paymentId?.trim();
 		const data = this.blockchainData;
-		if (!data || this.lifecycle.isTerminalRuneState(this)) {
+		if (!data && !pid) {
 			this.stopPermissionsClock();
 			return;
 		}
@@ -264,6 +273,7 @@ export class PaymentContractRune implements PaymentContractRuneLike {
 		}
 
 		this.isPending = true;
+		this.optimisticBlockchainStatus = ContractStatus.Funded;
 		d.log('resolvePaymentIdFromTxHash: waiting tx confirmation', { txHash });
 
 		try {
@@ -286,6 +296,8 @@ export class PaymentContractRune implements PaymentContractRuneLike {
 			this.error = error;
 			this.isPending = false;
 			d.error('resolvePaymentIdFromTxHash: failed', { txHash, error });
+		} finally {
+			this.optimisticBlockchainStatus = null;
 		}
 	}
 

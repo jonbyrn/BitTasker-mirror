@@ -32,6 +32,7 @@ import {
 	type ContractDisplayStatus,
 	type SecurePaymentLegacy
 } from '$lib/utils/contract/types';
+import { applyFundedStartedInProgressDisplay } from './displayFundedInProgress';
 import { runV2Preflight } from './v2Preflight';
 import { broadcastThenParallelEffects, getRuneWriteIds } from './writeHelpers';
 import type {
@@ -905,7 +906,8 @@ export async function resolveAfterTimelockV2(
 
 export function computeDisplayStatusV2(rune: PaymentContractRuneLike): ContractDisplayStatus {
 	const d = rune.blockchainData;
-	return (d?.state ?? ContractStatus.Funded) as ContractDisplayStatus;
+	const base = (d?.state ?? ContractStatus.Funded) as ContractDisplayStatus;
+	return applyFundedStartedInProgressDisplay(base, rune);
 }
 
 export function isTerminalRuneStateV2(rune: PaymentContractRuneLike): boolean {
