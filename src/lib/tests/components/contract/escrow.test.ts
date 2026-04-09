@@ -538,7 +538,7 @@ describe('escrow', () => {
 			mockContract.refundClient = refundMethod;
 			ethersShared.mockContractInstance = mockContract;
 
-			const result = await escrow.refundClient('123', 'contract-123');
+			const result = await escrow.refundClient('123', 'aa'.repeat(32), 'contract-123');
 
 			expect(result).toMatchObject({
 				hash: '0xrefund',
@@ -590,7 +590,7 @@ describe('escrow', () => {
 			mockContract.refundClient = refundMethod;
 			ethersShared.mockContractInstance = mockContract;
 
-			const result = await escrow.refundClient('123', 'contract-123');
+			const result = await escrow.refundClient('123', 'aa'.repeat(32), 'contract-123');
 
 			expect(result.status).not.toBe('failed');
 
@@ -617,7 +617,7 @@ describe('escrow', () => {
 			mockContract.refundClient = refundMethod;
 			ethersShared.mockContractInstance = mockContract;
 
-			const result = await escrow.refundClient('123', 'contract-123');
+			const result = await escrow.refundClient('123', 'aa'.repeat(32), 'contract-123');
 
 			await Promise.resolve();
 			await Promise.resolve();

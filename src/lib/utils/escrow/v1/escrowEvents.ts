@@ -117,7 +117,8 @@ export async function publishEscrowStatus(params: PublishContractStatusParams): 
 			transactionHash: params.transactionHash,
 			completionAttachments: params.completionAttachments,
 			proposedClientAmount: params.proposedClientAmount,
-			proposedFreelancerAmount: params.proposedFreelancerAmount
+			proposedFreelancerAmount: params.proposedFreelancerAmount,
+			recipientPubkey: params.recipientPubkey
 		});
 
 		d.log('publishEscrowStatus', { escrowId: params.escrowId, status: params.status });
