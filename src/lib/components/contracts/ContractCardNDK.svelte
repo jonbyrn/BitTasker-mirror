@@ -13,6 +13,7 @@
 	import { PaymentContractRune } from '$lib/runes/contractRune.svelte';
 	import ContractActionsNDK from './ContractActionsNDK.svelte';
 	import ResolutionProposalSplitDisplay from './ResolutionProposalSplitDisplay.svelte';
+	import { ContractStatus } from '$lib/utils/contract/types';
 
 	const {
 		contract,
@@ -55,7 +56,10 @@
 	);
 
 	/** After first relay EOSE (or when no status subscription runs), show real status + actions. */
-	const statusAndActionsReady = $derived(contractRune?.statusHistoryReady === true);
+	const statusAndActionsReady = $derived(
+		contractRune?.statusHistoryReady === true ||
+			contractRune?.optimisticBlockchainStatus == ContractStatus.Funded
+	);
 	const amountSats = $derived(
 		formatConvertedAmount(contract.amount, contract.currency, {
 			btcPrice: btcPrice.price,
