@@ -15,7 +15,6 @@
 	import WarningPopup from '$lib/components/WarningPopup.svelte';
 	import NotificationPermissionBanner from '$lib/components/notifications/NotificationPermissionBanner.svelte';
 	import { onMount, onDestroy } from 'svelte';
-	import { setNDKSigner } from '$lib/nostr/ndk';
 	import { walletManager } from '$lib/stores/wallet.store';
 
 	let { children } = $props();
@@ -38,8 +37,7 @@
 			// Continue anyway - contracts will handle wallet initialization individually
 		}
 
-		// If nsec is not in memory yet, lets get it
-		setNDKSigner();
+		// NDK signer is loaded only from NdkIdentityGate so passkey is not raced with wallet init.
 	});
 
 	// Dispose SDK / ethers providers only when leaving the whole dashboard shell — not when

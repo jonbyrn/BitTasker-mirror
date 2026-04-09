@@ -504,6 +504,14 @@
 			"title": "Contracts",
 			"description": "Manage your active contracts and secure payment agreements",
 			"loading": "Loading contracts...",
+			"ndk_identity": {
+				"loading": "Unlocking your Nostr identity…",
+				"loading_hint": "Use your passkey or complete the biometric prompt when it appears.",
+				"cta_title": "Load your Nostr identity",
+				"cta_description": "Unlock your wallet or passkey flow first if it appears, then tap below. This avoids two passkey prompts at once.",
+				"load_keys": "Load signing keys",
+				"error_title": "Could not unlock Nostr identity"
+			},
 			"loading_more": "Loading more contracts...",
 			"no_more_contracts": "You've reached the end of your contracts",
 			"error_title": "Failed to load contracts",

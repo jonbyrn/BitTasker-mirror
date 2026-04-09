@@ -1,5 +1,6 @@
 // lib/ndk.ts
 import { browser } from '$app/environment';
+import { get } from 'svelte/store';
 import { createNDK } from '@nostr-dev-kit/svelte';
 import {
 	NDKPrivateKeySigner,
@@ -9,6 +10,7 @@ import {
 } from '@nostr-dev-kit/ndk';
 import NDKCacheDexie from '@nostr-dev-kit/cache-dexie';
 import { createDebug } from '$lib/utils/debug';
+import { appStore } from '$lib/stores/app.store';
 import { NDKBid } from './events/bid';
 import { NDKTask } from './events/task';
 import { getNostrKeyPair } from '$lib/utils/nostrKeys';
@@ -94,53 +96,75 @@ export async function ndkLogout(): Promise<void> {
 }
 
 /**
- * Set the NDK signer from the decrypted Nostr private key (nsec).
- * Skips update if signer is already set with the same key (compares pubkeys).
- * Enable debug in console with: localStorage.debug = 'btasker:ndk:signer*'
- * and set authentication policy for tasks relay
- * @param nsec - The Nostr private key as hex string or nsec1 format
+ * Apply `nsec` to the global NDK instance (cache adapter, signer, task relay, retry worker).
+ * Idempotent when the same pubkey is already active.
  */
-export async function setNDKSigner(): Promise<void> {
-	if (!ndk.$currentPubkey) {
-		const { nsec } = await getNostrKeyPair();
-		d.log('setNDKSigner: starting, nsec length=%s', nsec?.length ?? 0);
+export async function applyNdkSignerFromNsec(nsec: Uint8Array): Promise<void> {
+	if (!browser) return;
+	if (!nsec?.length) return;
+
+	d.log('applyNdkSignerFromNsec: starting, nsec length=%s', nsec.length);
+	try {
+		const newSigner = new NDKPrivateKeySigner(nsec);
+		const currentSigner = ndk.signer;
+		const npub = newSigner.npub;
+		const cacheDbName = ndkCacheDbBaseName(npub);
+
+		ndk.cacheAdapter = new NDKCacheDexie({ dbName: cacheDbName });
+		d.log('applyNdkSignerFromNsec: cache adapter configured, dbName=%s', cacheDbName);
+
+		if (currentSigner && currentSigner instanceof NDKPrivateKeySigner) {
+			const currentPubkey = currentSigner.pubkey;
+			const newPubkey = newSigner.pubkey;
+			if (currentPubkey === newPubkey) {
+				d.log('applyNdkSignerFromNsec: signer already set for same pubkey, skipping');
+				startUnpublishedEventsRetry();
+				return;
+			}
+			d.log('applyNdkSignerFromNsec: pubkey changed, updating signer');
+		}
+
+		ndk.signer = newSigner;
+		d.log('applyNdkSignerFromNsec: signer assigned to ndk instance, npub=%s', newSigner.npub);
 		try {
-			const newSigner = new NDKPrivateKeySigner(nsec);
-			const currentSigner = ndk.signer;
-			const npub = newSigner.npub;
-			const cacheDbName = ndkCacheDbBaseName(npub);
-
-			ndk.cacheAdapter = new NDKCacheDexie({ dbName: cacheDbName });
-			d.log('setNDKSigner: cache adapter configured, dbName=%s', cacheDbName);
-
-			if (currentSigner && currentSigner instanceof NDKPrivateKeySigner) {
-				const currentPubkey = currentSigner.pubkey;
-				const newPubkey = newSigner.pubkey;
-				if (currentPubkey === newPubkey) {
-					d.log('setNDKSigner: signer already set for same pubkey, skipping');
-					startUnpublishedEventsRetry();
-					return;
-				}
-				d.log('setNDKSigner: pubkey changed, updating signer');
-			}
-
-			ndk.signer = newSigner;
-			d.log('setNDKSigner: signer assigned to ndk instance, npub=%s', newSigner.npub);
-			try {
-				ndk.addExplicitRelay(
-					import.meta.env.VITE_NOSTR_TASK_RELAY_URL,
-					NDKRelayAuthPolicies.signIn({ ndk })
-				);
-			} catch (err) {
-				d.error('setNDKSigner failed to add relay: %o', err);
-				throw err;
-			}
-			startUnpublishedEventsRetry();
+			ndk.addExplicitRelay(
+				import.meta.env.VITE_NOSTR_TASK_RELAY_URL,
+				NDKRelayAuthPolicies.signIn({ ndk })
+			);
 		} catch (err) {
-			d.error('setNDKSigner failed: %o', err);
+			d.error('applyNdkSignerFromNsec failed to add relay: %o', err);
 			throw err;
 		}
+		startUnpublishedEventsRetry();
+	} catch (err) {
+		d.error('applyNdkSignerFromNsec failed: %o', err);
+		throw err;
 	}
+}
+
+/**
+ * If `appStore` already has `nsec`/`npub` (e.g. wallet or another flow just unlocked keys),
+ * wire them into NDK without calling passkey again.
+ */
+export async function syncNdkSignerFromAppStore(): Promise<void> {
+	if (!browser) return;
+	if (ndk.$currentPubkey) return;
+
+	const s = get(appStore);
+	const nsec = s.nostrKeys.nsec;
+	const npub = s.nostrKeys.npub;
+	if (!nsec || !npub) return;
+
+	await applyNdkSignerFromNsec(nsec);
+}
+
+/**
+ * Ensure NDK has a signer: loads keys via {@link getNostrKeyPair} (passkey when needed).
+ * Successful unlocks also call {@link syncNdkSignerFromAppStore} from inside `nostrKeys`.
+ */
+export async function setNDKSigner(): Promise<void> {
+	if (ndk.$currentPubkey) return;
+	await getNostrKeyPair();
 }
 
 function startUnpublishedEventsRetry(): void {

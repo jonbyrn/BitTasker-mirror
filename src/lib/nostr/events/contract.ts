@@ -134,7 +134,6 @@ export class NDKPaymentContract extends NDKEvent {
 		}
 
 		const prevContent = contract.content;
-		const sender = contract.author;
 		const authorPubkey = contract.author.pubkey ?? '';
 		const currentUserPubkey = contract.ndk?.activeUser?.pubkey ?? '';
 		const wireTags = [...contract.tags] as NDKTag[];
@@ -157,10 +156,10 @@ export class NDKPaymentContract extends NDKEvent {
 			const otherUser = new NDKUser({ pubkey: otherPartyPubkey });
 			try {
 				await contract.decrypt(otherUser);
-				d.log('decrypted contract', {
-					contract,
-					isSenderCurrentUser: sender.pubkey === currentUserPubkey
-				});
+				// d.log('decrypted contract', {
+				// 	contract,
+				// 	isSenderCurrentUser: sender.pubkey === currentUserPubkey
+				// });
 			} catch (_e) {
 				decryptFailed = true;
 				d.warn('NDKPaymentContract.from: decryption failed', { eventId: event.id, err: _e });

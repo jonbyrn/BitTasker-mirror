@@ -6,6 +6,7 @@ import { goto } from '$app/navigation';
 import { appStore } from './app.store';
 import { resetMigration } from '$lib/utils/helpers/migratePasskey';
 import { ndkLogout } from '$lib/nostr/ndk';
+import { ndkIdentity } from '$lib/runes/ndkIdentity.svelte';
 import { destroySession } from '$lib/utils/session';
 
 const initialAuthState: AuthState = {
@@ -23,6 +24,7 @@ const createAuthStore = () => {
 		await authService.logout();
 
 		await ndkLogout();
+		ndkIdentity.reset();
 
 		// Destroy the local session (tokens, stores, caches)
 		await destroySession();
