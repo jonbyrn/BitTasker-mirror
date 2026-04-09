@@ -9,8 +9,8 @@ vi.mock('@bittasker/wallet-core', () => ({
 	normalizeRskAddress: vi.fn((addr: string) => addr.toLowerCase())
 }));
 
-// Mock ethers
-let mockContractInstance: any = null;
+// Mock ethers (tests use mocked escrow.createEscrow; Contract may still be constructed as null)
+const mockContractInstance = null;
 vi.mock('ethers', async () => {
 	const actual = await vi.importActual('ethers');
 	return {

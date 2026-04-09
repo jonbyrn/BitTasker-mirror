@@ -3,11 +3,17 @@ import type { ContractWithEvents } from '$lib/types/contract';
 
 const mocks = vi.hoisted(() => ({
 	mockRefundClient: vi.fn(),
-	mockCancelEscrow: vi.fn()
+	mockCancelEscrow: vi.fn(),
+	clientHex: 'bb'.repeat(32),
+	freelancerHex: 'cc'.repeat(32)
 }));
 
 vi.mock('$lib/nostr/task', () => ({
 	updateTask: vi.fn()
+}));
+
+vi.mock('$lib/utils/nostrKeys', () => ({
+	getNpub: vi.fn().mockResolvedValue(mocks.clientHex)
 }));
 
 vi.mock('$lib/utils/escrow/v1/escrowBid', () => ({
@@ -30,6 +36,8 @@ vi.mock('$lib/utils/escrow/v1', () => ({
 
 import { escrow } from '$lib/utils/escrow';
 
+const { clientHex, freelancerHex } = mocks;
+
 describe('EscrowManager wrapper delegation', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
@@ -48,7 +56,11 @@ describe('EscrowManager wrapper delegation', () => {
 	const contract = {
 		contractEvent: {
 			id: 'contract-event-1',
-			tags: []
+			tags: [],
+			content: {
+				clientPubkey: clientHex,
+				freelancerPubkey: freelancerHex
+			}
 		},
 		escrowData: {
 			id: 'escrow-1'
@@ -58,14 +70,22 @@ describe('EscrowManager wrapper delegation', () => {
 	it('delegates taskee refunds to handler.escrow.refundClient with contract identifiers', async () => {
 		await escrow.escrowOps.refundClient(contract);
 
-		expect(mocks.mockRefundClient).toHaveBeenCalledWith('escrow-1', 'contract-event-1');
+		expect(mocks.mockRefundClient).toHaveBeenCalledWith(
+			'escrow-1',
+			freelancerHex,
+			'contract-event-1'
+		);
 		expect(mocks.mockCancelEscrow).not.toHaveBeenCalled();
 	});
 
 	it('delegates client cancellations to handler.escrow.cancelEscrow with contract identifiers', async () => {
 		await escrow.escrowOps.cancelEscrow(contract);
 
-		expect(mocks.mockCancelEscrow).toHaveBeenCalledWith('escrow-1', 'contract-event-1');
+		expect(mocks.mockCancelEscrow).toHaveBeenCalledWith(
+			'escrow-1',
+			freelancerHex,
+			'contract-event-1'
+		);
 		expect(mocks.mockRefundClient).not.toHaveBeenCalled();
 	});
 

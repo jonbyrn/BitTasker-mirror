@@ -107,6 +107,7 @@ export interface PublishStatusParams {
 	proposedClientAmount?: string;
 	proposedFreelancerAmount?: string;
 	completionAttachments?: Attachment[];
+	recipientPubkey: string;
 }
 
 // Contract filter for queries
@@ -125,6 +126,7 @@ export interface PublishContractStatusParams {
 	contractEventId: string;
 	transactionHash: string;
 	status: EscrowStatus;
+	recipientPubkey: string;
 	statusMessagingVariant?: 'default' | 'refund';
 	completionAttachments?: Attachment[];
 	proposedClientAmount?: string;
