@@ -527,6 +527,8 @@
 			"filter_description": "Choose the contract status and your role to review.",
 			"all_roles": "All",
 			"all_statuses": "All statuses",
+			"filter_completed_paid": "Completed / paid",
+			"filter_ended": "Cancelled / closed",
 			"as_client": "Tasker",
 			"as_freelancer": "Taskee",
 			"amount": "Amount",

@@ -527,6 +527,8 @@
 			"filter_description": "Elige el estado del contrato y tu rol para revisar.",
 			"all_roles": "Todos",
 			"all_statuses": "Todos los estados",
+			"filter_completed_paid": "Completado / pagado",
+			"filter_ended": "Cancelado / cerrado",
 			"as_client": "Tasker",
 			"as_freelancer": "Taskee",
 			"amount": "Cantidad",
