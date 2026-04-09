@@ -504,6 +504,14 @@
 			"title": "Contratos",
 			"description": "Gestiona tus contratos activos y acuerdos de pago seguro",
 			"loading": "Cargando contratos...",
+			"ndk_identity": {
+				"loading": "Desbloqueando tu identidad Nostr…",
+				"loading_hint": "Usa tu clave de acceso o completa el aviso biométrico cuando aparezca.",
+				"cta_title": "Cargar tu identidad Nostr",
+				"cta_description": "Primero completa el desbloqueo de la cartera o la clave de acceso si aparece, y luego pulsa abajo. Así se evitan dos avisos de clave a la vez.",
+				"load_keys": "Cargar claves de firma",
+				"error_title": "No se pudo desbloquear la identidad Nostr"
+			},
 			"loading_more": "Cargando más contratos...",
 			"no_more_contracts": "Has llegado al final de tus contratos",
 			"error_title": "Error al cargar contratos",
