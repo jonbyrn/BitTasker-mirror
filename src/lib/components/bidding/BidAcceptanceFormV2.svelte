@@ -5,6 +5,7 @@
 		deriveContractCreationParams,
 		estimateGasCostForCreatePaymentContract
 	} from '$lib/utils/contract/v2/creation';
+	import { goto } from '$app/navigation';
 	import { get } from 'svelte/store';
 	import BidAcceptanceSuccessScreen from './BidAcceptanceSuccessScreen.svelte';
 	import { formatStandardDateTime, formatDate } from '$lib/utils/helpers/dateFormatter';
@@ -141,6 +142,13 @@
 	);
 	const feePercentageLabel = $derived('2.5%');
 
+	/** Same RBTC total as the “Total payment” line — compared to L2 RBTC balance in the accordion. */
+	const isBalanceInsufficient = $derived.by(() => {
+		if (isLoading || !$walletStore.rsk.connected || !estimatedGasCost) return false;
+		const available = bitcoinAsset?.balance ?? 0;
+		return totalPaymentRBTC > available;
+	});
+
 	// Open message modal for the taskee
 	function openMessageModal() {
 		if (bidContent.bidderId) {
@@ -167,6 +175,10 @@
 	});
 
 	async function handleSubmit() {
+		if (isBalanceInsufficient) {
+			appStore.showErrorToast(get(t)('dashboard.bids.bid_acceptance.insufficient_balance'));
+			return;
+		}
 		isSubmitting = true;
 		try {
 			const result = await createContract(bid, task, btcPrice.price, additionalNotes.trim());
@@ -231,10 +243,14 @@
 		}
 	}
 
-	/** Called when user clicks Fund in the confirmation modal. Closes and submits. */
+	/** Called when user clicks Fund in the confirmation modal. Re-checks balance, then closes and submits. */
 	async function handleFundClick() {
 		d.log('handleFundClick: user confirmed Fund, closing modal and submitting');
 		triggerHaptic(ImpactStyle.Light);
+		if (isBalanceInsufficient) {
+			appStore.showErrorToast(get(t)('dashboard.bids.bid_acceptance.insufficient_balance'));
+			return;
+		}
 		showFundConfirmationModal = false;
 		await handleSubmit();
 	}
@@ -717,6 +733,30 @@
 					{/if}
 				</div>
 
+				<!-- Insufficient Balance Error -->
+				{#if isBalanceInsufficient}
+					<button
+						type="button"
+						class="alert alert-outline alert-error w-full cursor-pointer transition-opacity hover:opacity-80"
+						onclick={() => goto('/dashboard/wallet')}
+					>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="h-6 w-6 shrink-0 stroke-current"
+							fill="none"
+							viewBox="0 0 24 24"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16c-.77.833.192 2.5 1.732 2.5z"
+							/>
+						</svg>
+						<span>{$t('dashboard.bids.bid_acceptance.insufficient_balance')}</span>
+					</button>
+				{/if}
+
 				<!-- Testnet Warning Alert -->
 				{#if import.meta.env.VITE_RSK_NETWORK === 'testnet'}
 					<div class="alert alert-outline alert-warning">
@@ -818,7 +858,10 @@
 			<button
 				type="button"
 				class="btn btn-primary"
-				disabled={isSubmitting || !$walletStore.rsk.connected}
+				disabled={isSubmitting ||
+					isBalanceInsufficient ||
+					!estimatedGasCost ||
+					!$walletStore.rsk.connected}
 				onclick={() => (showFundConfirmationModal = true)}
 			>
 				{#if isSubmitting}
@@ -924,6 +967,12 @@
 							</span>
 						</span>
 					</div>
+				{/if}
+
+				{#if isBalanceInsufficient}
+					<p class="text-error text-sm">
+						{$t('dashboard.bids.bid_acceptance.insufficient_balance')}
+					</p>
 				{/if}
 
 				<!-- Warning -->
