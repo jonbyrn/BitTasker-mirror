@@ -45,7 +45,7 @@
 
 	// Derive layout state from current route
 	const showTopBar = $derived(!page.url.pathname.includes('/onboarding'));
-	const hideFooter = $derived(/^\/(tasks|npub|dashboard|onboarding)(\/|$)/.test(page.url.pathname));
+	const hideFooter = $derived(/^\/(tasks|npub|dashboard|auth)(\/|$)/.test(page.url.pathname));
 
 	// Generate breadcrumbs from current path
 	const breadcrumbList = $derived.by(() => {
