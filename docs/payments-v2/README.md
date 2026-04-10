@@ -4,9 +4,10 @@ This directory contains documentation for BitTasker's Nostr-based bid and paymen
 
 ## Documents
 
-| Document                                     | Description                                                                                                                                           |
-| -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [bid-nostr-events.md](./bid-nostr-events.md) | **Bid Nostr Events** – How freelancer (Taskee) bid events are constructed, including all tags, content schema, encryption, and the full bid lifecycle |
+| Document                                                                         | Description                                                                                                                                           |
+| -------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [bid-nostr-events.md](./bid-nostr-events.md)                                     | **Bid Nostr Events** – How freelancer (Taskee) bid events are constructed, including all tags, content schema, encryption, and the full bid lifecycle |
+| [wallet-transaction-history-v2-plan.md](./wallet-transaction-history-v2-plan.md) | **Wallet tx history & V2** – How RSK history is classified today, why V2/relay differs from V1, and a phased plan to align labels and payouts         |
 
 ## Overview
 
