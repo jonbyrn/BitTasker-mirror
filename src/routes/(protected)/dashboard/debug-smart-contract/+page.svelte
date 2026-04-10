@@ -10,7 +10,6 @@
 	import { loadContractsByAddress } from '$lib/utils/wallet/loadContractsByAddress';
 	import type { EscrowData } from '$lib/types/wallet';
 	import type { ContractPermissions, NostrContract } from '$lib/types/contract';
-	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 	import { EscrowStatus } from '$lib/utils/escrow/v1/escrow.enum';
 	import { appStore } from '$lib/stores/app.store';
 	import { getErrorMessage } from '$lib/utils/wallet/contractErrorHandler';
@@ -114,13 +113,13 @@
 		return { permissions, isClient, isFreelancer };
 	}
 
-	function findLoadedContract(contractId: string): ContractWithPermissions | undefined {
-		for (const group of contractsByAddress.values()) {
-			const found = group.contracts.find((c) => c.id === contractId);
-			if (found) return found;
-		}
-		return undefined;
-	}
+	// function findLoadedContract(contractId: string): ContractWithPermissions | undefined {
+	// 	for (const group of contractsByAddress.values()) {
+	// 		const found = group.contracts.find((c) => c.id === contractId);
+	// 		if (found) return found;
+	// 	}
+	// 	return undefined;
+	// }
 
 	// Load contracts for a specific address
 	async function loadContractsForAddress(address: string, network: 'RSK' | 'BSC') {
