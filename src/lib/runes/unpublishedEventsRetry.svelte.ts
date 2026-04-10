@@ -23,10 +23,8 @@ class UnpublishedEventsRetry {
 			return;
 		}
 		if (this.intervalId !== null) {
-			d.log('start: already running, skipping');
 			return;
 		}
-		d.log('start: monitor enabled', { pollIntervalMs: this.pollIntervalMs });
 		void this.poll();
 		this.intervalId = setInterval(() => void this.poll(), this.pollIntervalMs);
 	}
@@ -38,7 +36,6 @@ class UnpublishedEventsRetry {
 		if (this.intervalId !== null) {
 			clearInterval(this.intervalId);
 			this.intervalId = null;
-			d.log('stop: monitor disabled');
 		}
 	}
 
@@ -49,11 +46,8 @@ class UnpublishedEventsRetry {
 
 		const adapter = ndk.cacheAdapter;
 		if (!adapter || typeof adapter.getUnpublishedEvents !== 'function') {
-			d.log('poll: skip (no cache adapter or getUnpublishedEvents)');
 			return;
 		}
-
-		d.log('poll: checking cache for unpublished events');
 
 		this.isFlushing = true;
 		try {
@@ -61,11 +55,10 @@ class UnpublishedEventsRetry {
 			const count = unpublished?.length ?? 0;
 
 			if (count === 0) {
-				d.log('poll: no unpublished events');
 				return;
 			}
 
-			d.log('poll: found unpublished events', { count });
+			d.log('found unpublished events', { count });
 
 			for (const row of unpublished) {
 				const { event, relays } = row;
@@ -95,18 +88,13 @@ class UnpublishedEventsRetry {
 
 		try {
 			if (rawRelays?.length && usableRelays.length < rawRelays.length) {
-				d.log('retry: dropped invalid relay urls', {
+				d.warn('retry: dropped invalid relay urls', {
 					id: event.id,
 					before: rawRelays.length,
 					after: usableRelays.length
 				});
 			}
-			d.log('retry: publishing', {
-				id: event.id,
-				relayCount: usableRelays.length > 0 ? usableRelays.length : 'ndk-default'
-			});
 			const published = await event.publish(relaySet);
-			d.log('retry: publish finished', { id: event.id, acceptedRelays: published.size });
 
 			if (!event.id) {
 				d.warn('retry: skip discard (event has no id)');
@@ -114,7 +102,7 @@ class UnpublishedEventsRetry {
 			}
 
 			if (!shouldClearUnpublished(published, usableRelays)) {
-				d.log('retry: not all target relays accepted, keeping unpublished row', {
+				d.warn('retry: not all target relays accepted, keeping unpublished row', {
 					id: event.id,
 					targetCount: usableRelays.length,
 					acceptedCount: published.size
@@ -128,7 +116,6 @@ class UnpublishedEventsRetry {
 			}
 
 			await Promise.resolve(adapter.discardUnpublishedEvent(event.id));
-			d.log('retry: discarded unpublished entry', { id: event.id });
 		} catch (err) {
 			d.error('retry: publish failed', { id: event.id, err });
 		}
