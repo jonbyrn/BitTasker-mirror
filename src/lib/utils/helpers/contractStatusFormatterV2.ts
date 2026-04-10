@@ -207,6 +207,32 @@ export function getStatusColorClass(status: ContractDisplayStatus): string {
 }
 
 /**
+ * Text color for a timeline line item (semantic, not badge).
+ */
+export function getContractStatusTimelineTextClass(status: ContractStatus): string {
+	switch (status) {
+		case ContractStatus.Completed:
+		case ContractStatus.FundsReleased:
+		case ContractStatus.DisputeResolved:
+		case ContractStatus.FundsClaimed:
+			return 'text-success';
+		case ContractStatus.InDispute:
+		case ContractStatus.InDisputeWorkInProgress:
+		case ContractStatus.NoShow:
+			return 'text-warning';
+		case ContractStatus.Cancelled:
+			return 'text-error';
+		case ContractStatus.DisputeUnresolved:
+		case ContractStatus.Refunded:
+		case ContractStatus.Funded:
+		case ContractStatus.WorkInProgress:
+			return 'text-info';
+		default:
+			return 'text-base-content/60';
+	}
+}
+
+/**
  * Get action description for contract status
  */
 export function getActionDescription(action: EscrowStatus): string {

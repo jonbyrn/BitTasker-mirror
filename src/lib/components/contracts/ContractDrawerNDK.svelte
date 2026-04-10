@@ -4,7 +4,7 @@
 	import Drawer from '$lib/components/Drawer.svelte';
 	import TaskDeadlineDisplay from '$lib/components/task/TaskDeadlineDisplay.svelte';
 	import UsdSatsDisplay from '$lib/components/shared/UsdSatsDisplay.svelte';
-	import ContractTimeline from './ContractTimeline.svelte';
+	import ContractTimelineNDK from './ContractTimelineNDK.svelte';
 	import ContractActionsNDK from './ContractActionsNDK.svelte';
 	import ResolutionProposalSplitDisplay from './ResolutionProposalSplitDisplay.svelte';
 	import Gallery from '$lib/components/Gallery.svelte';
@@ -14,7 +14,7 @@
 	} from '$lib/utils/helpers/contractStatusFormatterV2';
 	import UserInfoDisplay from '$lib/components/user/UserInfoDisplay.svelte';
 	import type { PaymentContractRune } from '$lib/runes/contractRune.svelte';
-	import { ndkContractStatusesToContractStatusEvents } from '$lib/utils/contract/ndkContractStatusToTimeline';
+	import { buildContractTimelineRows } from '$lib/utils/contract/buildContractTimelineRows';
 
 	const { isOpen, onClose, contractRune, btcPrice } = $props<{
 		isOpen: boolean;
@@ -25,13 +25,17 @@
 
 	let isTechnicalDetailsOpen = $state(false);
 	let isOriginalBidOpen = $state(false);
-	let timelineDisplayCount = $state(0);
 
 	const contract = $derived(contractRune?.contract);
-	const taskerPubkeyHex = $derived(contract?.taskerPubkey ?? contract?.author.pubkey ?? '');
-	const timelineStatusEvents = $derived(
-		contractRune ? ndkContractStatusesToContractStatusEvents(contractRune.statusEvents) : []
+	const timelineRows = $derived(
+		contractRune
+			? buildContractTimelineRows({
+					contract: contractRune.contract,
+					statusEvents: contractRune.statusEvents
+				})
+			: []
 	);
+	const timelineDisplayCount = $derived(timelineRows.length);
 
 	function isVideoFile(url: string): boolean {
 		const videoExtensions = ['.mp4', '.webm', '.ogg', '.mov'];
@@ -212,7 +216,7 @@
 			{/if}
 
 			<!-- Completion Evidence and Status Timeline -->
-			<div class="flex flex-col gap-6 lg:flex-row">
+			<div class="flex flex-col gap-6 xl:flex-row">
 				{#if contractRune.completionAttachments && contractRune.completionAttachments.length > 0}
 					<div class="card bg-base-200 flex-1 overflow-hidden">
 						<div class="card-body p-4">
@@ -272,14 +276,7 @@
 							</h4>
 						</div>
 
-						<ContractTimeline
-							statusEvents={timelineStatusEvents}
-							contractPubkey={taskerPubkeyHex}
-							contractCreatedAt={contract.created_at}
-							contractCreatorPubkey={contract.pubkey}
-							contractFundingTransactionHash={contract.transactionHash}
-							onDisplayCountChange={(count) => (timelineDisplayCount = count)}
-						/>
+						<ContractTimelineNDK {contractRune} {btcPrice} />
 					</div>
 				</div>
 			</div>

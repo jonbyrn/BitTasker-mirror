@@ -55,6 +55,9 @@ function statusTimestampMs(ev: NDKContractStatus): number {
 
 /**
  * Maps NDK status events to the legacy **`ContractStatusEvent`** shape expected by **`ContractTimeline`**.
+ *
+ * @deprecated Prefer **`buildContractTimelineRows`** + **`ContractTimelineNDK`** for NDK drawers; this
+ * adapter exists for legacy **`ContractTimeline.svelte`** only.
  */
 export function ndkContractStatusesToContractStatusEvents(
 	events: NDKContractStatus[]
