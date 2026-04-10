@@ -5,7 +5,6 @@
 	import { page } from '$app/state';
 	import { darkMode, initializeTheme } from '$lib/stores/theme.store';
 	import { authState } from '$lib/stores/auth.store';
-	import { user } from '$lib/stores/user.store';
 	import { appScrollContainer } from '$lib/stores/scrollContainer.store';
 	import { hideSplashScreenWhenReady } from '$lib/utils/helpers/splashScreen';
 	import {
@@ -45,23 +44,17 @@
 	};
 
 	// Derive layout state from current route
-	const currentPath = $derived(page.url.pathname);
-	const isOnboardingPage = $derived(currentPath.includes('/onboarding'));
-	const showTopBar = $derived(!isOnboardingPage);
-	const showFooterSection = $derived(currentPath.includes('/dashboard'));
-	const shouldHideFooterForLoggedInTaskPage = $derived(
-		($authState.isAuthenticated || $user?.npub) && currentPath.match(/^\/tasks\/[^/]+$/)
-	);
-	const shouldHideFooterForTasksPage = $derived(currentPath === '/tasks');
-	const shouldHideFooterForLoggedInNpubPage = $derived(
-		($authState.isAuthenticated || $user?.npub) && currentPath.match(/^\/npub\/[^/]+$/)
+	const showTopBar = $derived(!page.url.pathname.includes('/onboarding'));
+	const hideFooter = $derived(
+		page.url.pathname.match(/^\/(tasks|npub)\/[^/]+$/) ||
+			['/dashboard', '/onboarding'].includes(page.url.pathname)
 	);
 
 	// Generate breadcrumbs from current path
 	const breadcrumbList = $derived.by(() => {
-		if (currentPath === '/') return {};
+		if (page.url.pathname === '/') return {};
 
-		const segments = currentPath.split('/').filter(Boolean);
+		const segments = page.url.pathname.split('/').filter(Boolean);
 		return {
 			'@context': 'https://schema.org',
 			'@type': 'BreadcrumbList',
@@ -76,6 +69,8 @@
 
 	// Initialize keyboard helpers for protected routes
 	async function initializeProtectedRouteHelpers() {
+		const currentPath = page.url.pathname;
+
 		const isProtected =
 			currentPath.includes('/dashboard') ||
 			currentPath.includes('/profile') ||
@@ -293,7 +288,7 @@
 			{@render children()}
 		</div>
 
-		{#if !showFooterSection && showTopBar && !isOnboardingPage && !shouldHideFooterForLoggedInTaskPage && !shouldHideFooterForLoggedInNpubPage && !shouldHideFooterForTasksPage}
+		{#if !hideFooter}
 			<div class="tasks-page-footer">
 				{#if !$authState.isAuthenticated}
 					<!-- Section 7: Final Call to Action (CTA) -->
@@ -345,12 +340,3 @@
 <!-- Global portal target — overlays (dropdowns, modals) teleport here to escape
      overflow:hidden/overflow-x:hidden ancestors that break fixed positioning -->
 <div id="portal-root" style="position:relative;z-index:9999;"></div>
-
-<style>
-	/* Hide footer on mobile/tablet for tasks page */
-	@media (max-width: 1023px) {
-		.tasks-page-footer {
-			display: none !important;
-		}
-	}
-</style>
