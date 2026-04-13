@@ -6,11 +6,12 @@ import IconCloseCircle from '~icons/mdi/close-circle';
 export const ESCROW_CONTRACT_ADDRESSES = {
 	mainnet: [
 		'0x674A253Efe9B740193b34e69694B67971E4335bf',
-		'0x05b08C866f10f922f647e3Ef05BBdacfdb72Ce89'
+		'0x05b08C866f10f922f647e3Ef05BBdacfdb72Ce89',
+		'0x10169472537Cc354D9E24Aebe221aF15827e6378' // v2 SecurePaymentsContract
 	],
 	testnet: [
 		'0xf87e93E73431Aad778592C78E2F86Ef671461c32',
-		'0xC4E2147e49170f56A908574A11CA03404B752E43' // v2 SecurePaymentsContract
+		'0x0E66475957148B55FBef3259b0880a23a5502De6' // v2 SecurePaymentsContract
 	]
 };
 
