@@ -477,11 +477,12 @@ export async function disputeTask(
 export async function proposeResolution(
 	paymentId: BigNumberish,
 	taskeeAmount: bigint,
+	proposalNumber: number,
 	options?: SecurePaymentWriteOptions
 ): Promise<WriteTxResult> {
 	return executeWrite({
 		method: 'proposeResolution',
-		args: [paymentId, taskeeAmount],
+		args: [paymentId, taskeeAmount, proposalNumber],
 		...options
 	});
 }
