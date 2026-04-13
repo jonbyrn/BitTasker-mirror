@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { disputeProjectionFromStatusEvents } from '$lib/utils/contract/v2/disputeProjectionFromStatus';
+import {
+	disputeProjectionFromStatusEvents,
+	nextProposeResolutionProposalNumberFromStatusEvents
+} from '$lib/utils/contract/v2/disputeProjectionFromStatus';
 import { ContractStatus } from '$lib/utils/contract/types';
 
 function mockStatus(params: {
@@ -73,5 +76,38 @@ describe('disputeProjectionFromStatusEvents', () => {
 			ContractStatus.InDispute
 		);
 		expect(p?.disputeAccepted).toBe(true);
+	});
+});
+
+describe('nextProposeResolutionProposalNumberFromStatusEvents', () => {
+	const tasker = 'c'.repeat(64);
+
+	it('returns 0 when there are no proposeResolution events', () => {
+		expect(nextProposeResolutionProposalNumberFromStatusEvents([])).toBe(0);
+	});
+
+	it('returns sequential indices for chronological proposeResolution events (newest-first input ok)', () => {
+		const ev0 = mockStatus({
+			created_at: 100,
+			writeMethod: 'proposeResolution',
+			authorPk: tasker
+		});
+		const ev1 = mockStatus({
+			created_at: 200,
+			writeMethod: 'proposeResolution',
+			authorPk: tasker
+		});
+		expect(nextProposeResolutionProposalNumberFromStatusEvents([])).toBe(0);
+		expect(nextProposeResolutionProposalNumberFromStatusEvents([ev0])).toBe(1);
+		expect(nextProposeResolutionProposalNumberFromStatusEvents([ev1, ev0])).toBe(2);
+	});
+
+	it('ignores non-proposeResolution writeMethod tags', () => {
+		const ev = mockStatus({
+			created_at: 100,
+			writeMethod: 'disputeTask',
+			authorPk: tasker
+		});
+		expect(nextProposeResolutionProposalNumberFromStatusEvents([ev])).toBe(0);
 	});
 });

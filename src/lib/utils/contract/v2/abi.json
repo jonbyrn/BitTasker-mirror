@@ -16,11 +16,6 @@
 	},
 	{
 		"inputs": [],
-		"name": "CancellationFeeExceedsPaymentContractAmount",
-		"type": "error"
-	},
-	{
-		"inputs": [],
 		"name": "CannotAcceptOwnProposal",
 		"type": "error"
 	},
@@ -66,11 +61,6 @@
 	},
 	{
 		"inputs": [],
-		"name": "InsufficientPaymentContractForUpfrontAndFee",
-		"type": "error"
-	},
-	{
-		"inputs": [],
 		"name": "InvalidDeposits",
 		"type": "error"
 	},
@@ -86,12 +76,22 @@
 	},
 	{
 		"inputs": [],
+		"name": "InvalidFunctionSelector",
+		"type": "error"
+	},
+	{
+		"inputs": [],
 		"name": "InvalidPaymentContractAmount",
 		"type": "error"
 	},
 	{
 		"inputs": [],
 		"name": "InvalidPaymentContractId",
+		"type": "error"
+	},
+	{
+		"inputs": [],
+		"name": "InvalidProposalNumber",
 		"type": "error"
 	},
 	{
@@ -172,6 +172,11 @@
 	{
 		"inputs": [],
 		"name": "OnlyTaskerCanResolveDisputes",
+		"type": "error"
+	},
+	{
+		"inputs": [],
+		"name": "OnlyTrustedRelayer",
 		"type": "error"
 	},
 	{
@@ -465,19 +470,6 @@
 	{
 		"inputs": [],
 		"name": "NO_SHOW_RESPONSE_PERIOD",
-		"outputs": [
-			{
-				"internalType": "uint32",
-				"name": "",
-				"type": "uint32"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [],
-		"name": "PROPOSAL_RESPONSE_PERIOD",
 		"outputs": [
 			{
 				"internalType": "uint32",
@@ -906,6 +898,11 @@
 				"internalType": "uint72",
 				"name": "taskeeAmount",
 				"type": "uint72"
+			},
+			{
+				"internalType": "uint8",
+				"name": "proposalNumber",
+				"type": "uint8"
 			}
 		],
 		"name": "proposeResolution",
@@ -950,6 +947,19 @@
 		"inputs": [
 			{
 				"internalType": "address",
+				"name": "_relayer",
+				"type": "address"
+			}
+		],
+		"name": "setTrustedRelayer",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
 				"name": "",
 				"type": "address"
 			}
@@ -957,6 +967,19 @@
 		"name": "transferOwnership",
 		"outputs": [],
 		"stateMutability": "pure",
+		"type": "function"
+	},
+	{
+		"inputs": [],
+		"name": "trustedRelayer",
+		"outputs": [
+			{
+				"internalType": "address",
+				"name": "",
+				"type": "address"
+			}
+		],
+		"stateMutability": "view",
 		"type": "function"
 	},
 	{

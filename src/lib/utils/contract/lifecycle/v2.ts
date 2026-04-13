@@ -16,7 +16,10 @@ import {
 	refundTasker,
 	resolveAfterTimelock
 } from '$lib/utils/contract/v2/blockchainWrites';
-import { buildDisputeProjectionForPayment } from '$lib/utils/contract/v2/disputeProjectionFromStatus';
+import {
+	buildDisputeProjectionForPayment,
+	nextProposeResolutionProposalNumberFromStatusEvents
+} from '$lib/utils/contract/v2/disputeProjectionFromStatus';
 import { loadPaymentContractDetailsV2 } from '$lib/utils/contract/v2/loadPaymentContractDetailsV2';
 import {
 	computePermittedActions,
@@ -700,9 +703,17 @@ export async function proposeResolutionV2(
 		return { ok: false };
 	}
 
+	const proposalNumber = nextProposeResolutionProposalNumberFromStatusEvents(
+		rune.statusEventsByNewest
+	);
+	if (proposalNumber > 4) {
+		d.warn('proposeResolutionV2: proposal number exceeds allowed limit');
+		return { ok: false };
+	}
+
 	let transactionHash: string;
 	try {
-		const { tx } = await proposeResolution(ids.paymentId, taskeeAmountWei, {
+		const { tx } = await proposeResolution(ids.paymentId, taskeeAmountWei, proposalNumber, {
 			contractAddress: ids.contractAddress,
 			chain: 'rsk'
 		});

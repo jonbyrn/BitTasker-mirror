@@ -71,3 +71,23 @@ export function buildDisputeProjectionForPayment(
 		chainState
 	);
 }
+
+/**
+ * Next `proposalNumber` for v2 `proposeResolution(paymentId, taskeeAmount, proposalNumber)`.
+ * Matches on-chain indexing: first proposal → `0`, second → `1`, …
+ *
+ * Uses the same source as dispute projection: Kind 31006 events with `writeMethod` = `proposeResolution`,
+ * ordered by `created_at` ascending (caller may pass newest-first; we sort internally).
+ */
+export function nextProposeResolutionProposalNumberFromStatusEvents(
+	statusEventsNewestFirst: readonly NDKContractStatus[]
+): number {
+	const sorted = [...statusEventsNewestFirst].sort(
+		(a, b) => (a.created_at ?? 0) - (b.created_at ?? 0)
+	);
+	let n = 0;
+	for (const ev of sorted) {
+		if (ev.tagValue('writeMethod') === 'proposeResolution') n++;
+	}
+	return n;
+}
