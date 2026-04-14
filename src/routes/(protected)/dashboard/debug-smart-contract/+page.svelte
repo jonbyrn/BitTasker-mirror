@@ -1,7 +1,8 @@
 <script lang="ts">
 	// Import polyfills FIRST before any other imports that might use Buffer/bitcoinjs-lib
 	import '$lib/polyfills';
-	import { onMount, onDestroy } from 'svelte';
+	import { onMount } from 'svelte';
+	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 	import { t } from 'svelte-i18n';
 	import { walletStore, walletManager } from '$lib/stores/wallet.store';
 	import { escrow } from '$lib/utils/escrow/v1/escrow';
@@ -9,7 +10,6 @@
 	import { loadContractsByAddress } from '$lib/utils/wallet/loadContractsByAddress';
 	import type { EscrowData } from '$lib/types/wallet';
 	import type { ContractPermissions, NostrContract } from '$lib/types/contract';
-	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 	import { EscrowStatus } from '$lib/utils/escrow/v1/escrow.enum';
 	import { appStore } from '$lib/stores/app.store';
 	import { getErrorMessage } from '$lib/utils/wallet/contractErrorHandler';
@@ -112,6 +112,14 @@
 
 		return { permissions, isClient, isFreelancer };
 	}
+
+	// function findLoadedContract(contractId: string): ContractWithPermissions | undefined {
+	// 	for (const group of contractsByAddress.values()) {
+	// 		const found = group.contracts.find((c) => c.id === contractId);
+	// 		if (found) return found;
+	// 	}
+	// 	return undefined;
+	// }
 
 	// Load contracts for a specific address
 	async function loadContractsForAddress(address: string, network: 'RSK' | 'BSC') {
@@ -345,11 +353,6 @@
 
 		// Load contracts after wallet is initialized
 		loadAllContracts();
-	});
-
-	// Cleanup wallet on destroy
-	onDestroy(async () => {
-		await walletManager.cleanup();
 	});
 
 	// Save safety override to localStorage

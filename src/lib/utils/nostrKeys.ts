@@ -11,6 +11,7 @@
  */
 
 import type { PublicKeyCredentialDescriptorJSON } from 'capacitor-webauthn';
+import { browser } from '$app/environment';
 import type { Credentials } from '$lib/types/auth';
 import { t } from 'svelte-i18n';
 import { get } from 'svelte/store';
@@ -33,6 +34,16 @@ import authService from '$lib/api/services/auth.service';
  * @returns Credentials object or null if authentication fails
  * @internal
  */
+/**
+ * After nsec/npub are in `appStore`, wire NDK so subscriptions and gates see `ndk.$currentPubkey`
+ * without a second passkey round-trip when another flow already unlocked keys.
+ */
+async function notifyNdkSignerFromUnlockedKeys(): Promise<void> {
+	if (!browser) return;
+	const { syncNdkSignerFromAppStore } = await import('$lib/nostr/ndk');
+	await syncNdkSignerFromAppStore();
+}
+
 const getBiometrics = async (): Promise<Credentials | null> => {
 	const isBiometricAvailable = await checkBiometricAvailability();
 	const { value: credentialId } = await Preferences.get({
@@ -125,10 +136,12 @@ export const getNpub = async (): Promise<string> => {
 export const getNostrKeyPair = async (): Promise<{ nsec: Uint8Array; npub: string }> => {
 	const currentState = get(appStore);
 	if (currentState.nostrKeys.nsec && currentState.nostrKeys.npub) {
-		return {
+		const result = {
 			nsec: currentState.nostrKeys.nsec,
 			npub: currentState.nostrKeys.npub
 		};
+		await notifyNdkSignerFromUnlockedKeys();
+		return result;
 	}
 
 	if (process.env.NODE_ENV === 'development') {
@@ -149,6 +162,7 @@ export const getNostrKeyPair = async (): Promise<{ nsec: Uint8Array; npub: strin
 		const npub = currentState.biometricData.npub;
 		appStore.update((state) => ({ ...state, nostrKeys: { ...state.nostrKeys, nsec, npub } }));
 		await Preferences.set({ key: StorageKeys.NPUB, value: npub });
+		await notifyNdkSignerFromUnlockedKeys();
 		return { nsec, npub };
 	}
 
@@ -187,6 +201,7 @@ export const getNostrKeyPair = async (): Promise<{ nsec: Uint8Array; npub: strin
 	}));
 
 	await Preferences.set({ key: StorageKeys.NPUB, value: npub });
+	await notifyNdkSignerFromUnlockedKeys();
 	return { nsec, npub };
 };
 
@@ -227,11 +242,13 @@ export const getAllKeys = async (): Promise<{
 		currentState.nostrKeys.npub &&
 		currentState.nostrKeys.mnemonic
 	) {
-		return {
+		const result = {
 			npub: currentState.nostrKeys.npub,
 			nsec: currentState.nostrKeys.nsec,
 			mnemonic: currentState.nostrKeys.mnemonic
 		};
+		await notifyNdkSignerFromUnlockedKeys();
+		return result;
 	}
 
 	if (currentState.biometricData) {
@@ -250,6 +267,7 @@ export const getAllKeys = async (): Promise<{
 			nostrKeys: { ...state.nostrKeys, nsec, npub, mnemonic }
 		}));
 		await Preferences.set({ key: StorageKeys.NPUB, value: npub });
+		await notifyNdkSignerFromUnlockedKeys();
 		return { nsec, npub, mnemonic };
 	}
 
@@ -291,6 +309,7 @@ export const getAllKeys = async (): Promise<{
 	}));
 
 	await Preferences.set({ key: StorageKeys.NPUB, value: npub });
+	await notifyNdkSignerFromUnlockedKeys();
 	return { nsec, npub, mnemonic };
 };
 

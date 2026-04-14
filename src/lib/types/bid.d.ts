@@ -50,9 +50,13 @@ export interface NostrBidContent {
 
 	// Runtime properties added when processing bids
 	status?: BidStatusEnum;
-	
+
 	// Translations (optional, may not be present in older bids)
 	translations?: BidTranslations;
+
+	// V2 contract params
+	upfrontDeposit?: number;
+	cancellationFee?: number;
 }
 
 /**
