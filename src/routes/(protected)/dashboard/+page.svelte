@@ -15,7 +15,7 @@
 	import DashboardTasksPanel from '$lib/components/task/DashboardTasksPanel.svelte';
 	import DashboardSavedSearchesPanel from '$lib/components/task/DashboardSavedSearchesPanel.svelte';
 	import DashboardBidsPanel from '$lib/components/bidding/DashboardBidsPanel.svelte';
-	import DashboardContractsPanel from '$lib/components/contracts/DashboardContractsPanel.svelte';
+	import DashboardContractsPanelNDK from '$lib/components/contracts/DashboardContractsPanelNDK.svelte';
 
 	// Tab configuration - reactive to language changes
 	const tabs = $derived([
@@ -156,7 +156,10 @@
 		if (!taskToDelete) return;
 		try {
 			isDeleting = true;
-			const eventId = 'eventId' in taskToDelete ? (taskToDelete as Task & { eventId?: string }).eventId : undefined;
+			const eventId =
+				'eventId' in taskToDelete
+					? (taskToDelete as Task & { eventId?: string }).eventId
+					: undefined;
 			await deleteTask(taskToDelete.id, eventId);
 			$myTasksStore.items = $myTasksStore.items.filter((t) => t.id !== taskToDelete.id);
 			activeTaskModal = null;
@@ -270,7 +273,7 @@
 			aria-labelledby="tab-contracts"
 			transition:slide={{ duration: 300 }}
 		>
-			<DashboardContractsPanel />
+			<DashboardContractsPanelNDK />
 		</div>
 	{/if}
 </div>
@@ -315,10 +318,10 @@
 			<div class="space-y-4">
 				<!-- Main Warning Box -->
 				<div class="bg-error/10 rounded-lg p-4">
-					<p class="text-sm text-error font-semibold mb-2">
+					<p class="text-error mb-2 text-sm font-semibold">
 						{$t('dashboard.task_details_by_task.edit_task_confirmation.warning')}
 					</p>
-					<p class="text-sm text-error">
+					<p class="text-error text-sm">
 						{$t('dashboard.task_details_by_task.edit_task_confirmation.details')}
 					</p>
 				</div>
@@ -394,7 +397,7 @@
 			<div class="space-y-4">
 				<!-- Main Warning Box -->
 				<div class="bg-error/10 rounded-lg p-4">
-					<p class="text-sm text-error font-semibold">
+					<p class="text-error text-sm font-semibold">
 						{$t('dashboard.task_details_by_task.delete_task_confirm_message')}
 					</p>
 				</div>

@@ -1,12 +1,6 @@
 [
 	{
-		"inputs": [
-			{
-				"internalType": "address",
-				"name": "trustedForwarder",
-				"type": "address"
-			}
-		],
+		"inputs": [],
 		"stateMutability": "nonpayable",
 		"type": "constructor"
 	},
@@ -18,11 +12,6 @@
 	{
 		"inputs": [],
 		"name": "AmountMustBeGreaterThanZero",
-		"type": "error"
-	},
-	{
-		"inputs": [],
-		"name": "CancellationFeeExceedsBase",
 		"type": "error"
 	},
 	{
@@ -42,42 +31,12 @@
 	},
 	{
 		"inputs": [],
-		"name": "CannotEscrowWithContract",
-		"type": "error"
-	},
-	{
-		"inputs": [],
-		"name": "CannotEscrowWithSelf",
-		"type": "error"
-	},
-	{
-		"inputs": [],
 		"name": "CannotMarkNoShowBeforeStart",
 		"type": "error"
 	},
 	{
 		"inputs": [],
-		"name": "ClientRefundTransferFailed",
-		"type": "error"
-	},
-	{
-		"inputs": [],
-		"name": "CompletionMustBeAfterStart",
-		"type": "error"
-	},
-	{
-		"inputs": [],
 		"name": "CompletionTimeTooFarInFuture",
-		"type": "error"
-	},
-	{
-		"inputs": [],
-		"name": "DepositsExceedBaseAmount",
-		"type": "error"
-	},
-	{
-		"inputs": [],
-		"name": "DepositsExceedEscrowAmount",
 		"type": "error"
 	},
 	{
@@ -92,32 +51,22 @@
 	},
 	{
 		"inputs": [],
-		"name": "EstStartNotInFuture",
-		"type": "error"
-	},
-	{
-		"inputs": [],
 		"name": "ExpectedPause",
 		"type": "error"
 	},
 	{
 		"inputs": [],
-		"name": "FreelancerAmountExceedsEscrow",
+		"name": "InsufficientGasReserve",
 		"type": "error"
 	},
 	{
 		"inputs": [],
-		"name": "FreelancerTransferFailed",
+		"name": "InvalidDeposits",
 		"type": "error"
 	},
 	{
 		"inputs": [],
-		"name": "InvalidClientFeeTier",
-		"type": "error"
-	},
-	{
-		"inputs": [],
-		"name": "InvalidEscrowId",
+		"name": "InvalidEstimatedTimes",
 		"type": "error"
 	},
 	{
@@ -127,17 +76,37 @@
 	},
 	{
 		"inputs": [],
-		"name": "InvalidFreelancer",
+		"name": "InvalidFunctionSelector",
 		"type": "error"
 	},
 	{
 		"inputs": [],
-		"name": "InvalidFreelancerFeeTier",
+		"name": "InvalidPaymentContractAmount",
+		"type": "error"
+	},
+	{
+		"inputs": [],
+		"name": "InvalidPaymentContractId",
+		"type": "error"
+	},
+	{
+		"inputs": [],
+		"name": "InvalidProposalNumber",
+		"type": "error"
+	},
+	{
+		"inputs": [],
+		"name": "InvalidSignature",
 		"type": "error"
 	},
 	{
 		"inputs": [],
 		"name": "InvalidState",
+		"type": "error"
+	},
+	{
+		"inputs": [],
+		"name": "InvalidTaskee",
 		"type": "error"
 	},
 	{
@@ -182,27 +151,32 @@
 	},
 	{
 		"inputs": [],
-		"name": "OnlyClient",
-		"type": "error"
-	},
-	{
-		"inputs": [],
-		"name": "OnlyClientCanAccept",
-		"type": "error"
-	},
-	{
-		"inputs": [],
-		"name": "OnlyClientCanResolveDisputes",
-		"type": "error"
-	},
-	{
-		"inputs": [],
-		"name": "OnlyFreelancer",
-		"type": "error"
-	},
-	{
-		"inputs": [],
 		"name": "OnlyParties",
+		"type": "error"
+	},
+	{
+		"inputs": [],
+		"name": "OnlyTaskee",
+		"type": "error"
+	},
+	{
+		"inputs": [],
+		"name": "OnlyTasker",
+		"type": "error"
+	},
+	{
+		"inputs": [],
+		"name": "OnlyTaskerCanAccept",
+		"type": "error"
+	},
+	{
+		"inputs": [],
+		"name": "OnlyTaskerCanResolveDisputes",
+		"type": "error"
+	},
+	{
+		"inputs": [],
+		"name": "OnlyTrustedRelayer",
 		"type": "error"
 	},
 	{
@@ -254,6 +228,11 @@
 	},
 	{
 		"inputs": [],
+		"name": "RelayTransferFailed",
+		"type": "error"
+	},
+	{
+		"inputs": [],
 		"name": "StartTimeTooFarInFuture",
 		"type": "error"
 	},
@@ -264,7 +243,12 @@
 	},
 	{
 		"inputs": [],
-		"name": "TaskeePayoutTransferFailed",
+		"name": "TaskeeAmountExceedsPaymentContract",
+		"type": "error"
+	},
+	{
+		"inputs": [],
+		"name": "TaskeeTransferFailed",
 		"type": "error"
 	},
 	{
@@ -294,26 +278,8 @@
 	},
 	{
 		"inputs": [],
-		"name": "UpfrontDepositExceedsBase",
-		"type": "error"
-	},
-	{
-		"inputs": [],
 		"name": "UpfrontDepositGracePeriodNotExpired",
 		"type": "error"
-	},
-	{
-		"anonymous": false,
-		"inputs": [
-			{
-				"indexed": true,
-				"internalType": "uint32",
-				"name": "escrowId",
-				"type": "uint32"
-			}
-		],
-		"name": "EscrowCreated",
-		"type": "event"
 	},
 	{
 		"anonymous": false,
@@ -353,7 +319,20 @@
 			{
 				"indexed": true,
 				"internalType": "uint32",
-				"name": "escrowId",
+				"name": "paymentContractId",
+				"type": "uint32"
+			}
+		],
+		"name": "PaymentContractCreated",
+		"type": "event"
+	},
+	{
+		"anonymous": false,
+		"inputs": [
+			{
+				"indexed": true,
+				"internalType": "uint32",
+				"name": "paymentContractId",
 				"type": "uint32"
 			},
 			{
@@ -389,6 +368,25 @@
 			}
 		],
 		"name": "Unpaused",
+		"type": "event"
+	},
+	{
+		"anonymous": false,
+		"inputs": [
+			{
+				"indexed": true,
+				"internalType": "uint32",
+				"name": "paymentContractId",
+				"type": "uint32"
+			},
+			{
+				"indexed": true,
+				"internalType": "address",
+				"name": "taskee",
+				"type": "address"
+			}
+		],
+		"name": "UpfrontDepositClaimed",
 		"type": "event"
 	},
 	{
@@ -445,6 +443,19 @@
 	},
 	{
 		"inputs": [],
+		"name": "GAS_REIMBURSEMENT_PER_OP",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [],
 		"name": "GRACE_PERIOD",
 		"outputs": [
 			{
@@ -473,7 +484,7 @@
 		"inputs": [
 			{
 				"internalType": "uint32",
-				"name": "escrowId",
+				"name": "paymentId",
 				"type": "uint32"
 			}
 		],
@@ -486,7 +497,7 @@
 		"inputs": [
 			{
 				"internalType": "uint32",
-				"name": "escrowId",
+				"name": "paymentId",
 				"type": "uint32"
 			}
 		],
@@ -499,11 +510,11 @@
 		"inputs": [
 			{
 				"internalType": "uint32",
-				"name": "escrowId",
+				"name": "paymentId",
 				"type": "uint32"
 			}
 		],
-		"name": "cancelEscrow",
+		"name": "cancelPaymentContract",
 		"outputs": [],
 		"stateMutability": "nonpayable",
 		"type": "function"
@@ -512,7 +523,7 @@
 		"inputs": [
 			{
 				"internalType": "uint32",
-				"name": "escrowId",
+				"name": "paymentId",
 				"type": "uint32"
 			}
 		],
@@ -525,7 +536,7 @@
 		"inputs": [
 			{
 				"internalType": "uint32",
-				"name": "escrowId",
+				"name": "paymentId",
 				"type": "uint32"
 			}
 		],
@@ -538,7 +549,7 @@
 		"inputs": [
 			{
 				"internalType": "uint32",
-				"name": "escrowId",
+				"name": "paymentId",
 				"type": "uint32"
 			}
 		],
@@ -551,7 +562,7 @@
 		"inputs": [
 			{
 				"internalType": "address",
-				"name": "freelancer",
+				"name": "taskee",
 				"type": "address"
 			},
 			{
@@ -566,12 +577,12 @@
 			},
 			{
 				"internalType": "uint8",
-				"name": "clientFeeTier",
+				"name": "taskerFeeTier",
 				"type": "uint8"
 			},
 			{
 				"internalType": "uint8",
-				"name": "freelancerFeeTier",
+				"name": "taskeeFeeTier",
 				"type": "uint8"
 			},
 			{
@@ -585,7 +596,7 @@
 				"type": "uint72"
 			}
 		],
-		"name": "createEscrow",
+		"name": "createPaymentContract",
 		"outputs": [
 			{
 				"internalType": "uint32",
@@ -600,7 +611,7 @@
 		"inputs": [
 			{
 				"internalType": "uint32",
-				"name": "escrowId",
+				"name": "paymentId",
 				"type": "uint32"
 			}
 		],
@@ -612,18 +623,79 @@
 	{
 		"inputs": [
 			{
+				"internalType": "address",
+				"name": "sender",
+				"type": "address"
+			},
+			{
+				"internalType": "bytes",
+				"name": "data",
+				"type": "bytes"
+			},
+			{
+				"internalType": "bytes",
+				"name": "signature",
+				"type": "bytes"
+			}
+		],
+		"name": "executeMetaTransaction",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
 				"internalType": "uint32",
-				"name": "escrowId",
+				"name": "paymentId",
 				"type": "uint32"
 			}
 		],
-		"name": "getEscrow",
+		"name": "getEstimatedCompletionTime",
+		"outputs": [
+			{
+				"internalType": "uint32",
+				"name": "",
+				"type": "uint32"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint32",
+				"name": "paymentId",
+				"type": "uint32"
+			}
+		],
+		"name": "getEstimatedStartTime",
+		"outputs": [
+			{
+				"internalType": "uint32",
+				"name": "",
+				"type": "uint32"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint32",
+				"name": "paymentId",
+				"type": "uint32"
+			}
+		],
+		"name": "getPaymentContract",
 		"outputs": [
 			{
 				"components": [
 					{
 						"internalType": "address",
-						"name": "client",
+						"name": "tasker",
 						"type": "address"
 					},
 					{
@@ -638,17 +710,17 @@
 					},
 					{
 						"internalType": "uint8",
-						"name": "clientFeeTier",
+						"name": "taskerFeeTier",
 						"type": "uint8"
 					},
 					{
 						"internalType": "uint8",
-						"name": "freelancerFeeTier",
+						"name": "taskeeFeeTier",
 						"type": "uint8"
 					},
 					{
 						"internalType": "address",
-						"name": "freelancer",
+						"name": "taskee",
 						"type": "address"
 					},
 					{
@@ -677,7 +749,7 @@
 						"type": "bool"
 					}
 				],
-				"internalType": "struct EscrowContract.EscrowLegacy",
+				"internalType": "struct SecurePaymentContract.SecurePaymentLegacy",
 				"name": "",
 				"type": "tuple"
 			}
@@ -689,11 +761,11 @@
 		"inputs": [
 			{
 				"internalType": "uint32",
-				"name": "escrowId",
+				"name": "paymentId",
 				"type": "uint32"
 			}
 		],
-		"name": "getEscrowState",
+		"name": "getPaymentContractState",
 		"outputs": [
 			{
 				"internalType": "uint8",
@@ -704,6 +776,21 @@
 				"internalType": "bool",
 				"name": "exists",
 				"type": "bool"
+			},
+			{
+				"internalType": "address",
+				"name": "tasker",
+				"type": "address"
+			},
+			{
+				"internalType": "address",
+				"name": "taskee",
+				"type": "address"
+			},
+			{
+				"internalType": "bool",
+				"name": "noShowMarked",
+				"type": "bool"
 			}
 		],
 		"stateMutability": "view",
@@ -713,45 +800,7 @@
 		"inputs": [
 			{
 				"internalType": "uint32",
-				"name": "escrowId",
-				"type": "uint32"
-			}
-		],
-		"name": "getEstimatedCompletionTime",
-		"outputs": [
-			{
-				"internalType": "uint32",
-				"name": "",
-				"type": "uint32"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "uint32",
-				"name": "escrowId",
-				"type": "uint32"
-			}
-		],
-		"name": "getEstimatedStartTime",
-		"outputs": [
-			{
-				"internalType": "uint32",
-				"name": "",
-				"type": "uint32"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "uint32",
-				"name": "escrowId",
+				"name": "paymentId",
 				"type": "uint32"
 			}
 		],
@@ -769,27 +818,8 @@
 	{
 		"inputs": [
 			{
-				"internalType": "address",
-				"name": "forwarder",
-				"type": "address"
-			}
-		],
-		"name": "isTrustedForwarder",
-		"outputs": [
-			{
-				"internalType": "bool",
-				"name": "",
-				"type": "bool"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
 				"internalType": "uint32",
-				"name": "escrowId",
+				"name": "paymentId",
 				"type": "uint32"
 			}
 		],
@@ -802,7 +832,7 @@
 		"inputs": [
 			{
 				"internalType": "uint32",
-				"name": "escrowId",
+				"name": "paymentId",
 				"type": "uint32"
 			}
 		],
@@ -813,7 +843,7 @@
 	},
 	{
 		"inputs": [],
-		"name": "nextEscrowId",
+		"name": "nextPaymentContractId",
 		"outputs": [
 			{
 				"internalType": "uint32",
@@ -861,13 +891,18 @@
 		"inputs": [
 			{
 				"internalType": "uint32",
-				"name": "escrowId",
+				"name": "paymentId",
 				"type": "uint32"
 			},
 			{
 				"internalType": "uint72",
-				"name": "freelancerAmount",
+				"name": "taskeeAmount",
 				"type": "uint72"
+			},
+			{
+				"internalType": "uint8",
+				"name": "proposalNumber",
+				"type": "uint8"
 			}
 		],
 		"name": "proposeResolution",
@@ -879,11 +914,11 @@
 		"inputs": [
 			{
 				"internalType": "uint32",
-				"name": "escrowId",
+				"name": "paymentId",
 				"type": "uint32"
 			}
 		],
-		"name": "refundClient",
+		"name": "refundTasker",
 		"outputs": [],
 		"stateMutability": "nonpayable",
 		"type": "function"
@@ -899,11 +934,24 @@
 		"inputs": [
 			{
 				"internalType": "uint32",
-				"name": "escrowId",
+				"name": "paymentId",
 				"type": "uint32"
 			}
 		],
 		"name": "resolveAfterTimelock",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "_relayer",
+				"type": "address"
+			}
+		],
+		"name": "setTrustedRelayer",
 		"outputs": [],
 		"stateMutability": "nonpayable",
 		"type": "function"
@@ -923,7 +971,7 @@
 	},
 	{
 		"inputs": [],
-		"name": "trustedForwarder",
+		"name": "trustedRelayer",
 		"outputs": [
 			{
 				"internalType": "address",
