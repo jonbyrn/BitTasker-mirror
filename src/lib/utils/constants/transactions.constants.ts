@@ -11,7 +11,7 @@ export const ESCROW_CONTRACT_ADDRESSES = {
 	],
 	testnet: [
 		'0xf87e93E73431Aad778592C78E2F86Ef671461c32',
-		'0x0E66475957148B55FBef3259b0880a23a5502De6' // v2 SecurePaymentsContract
+		'0x0e66475957148b55fbef3259b0880a23a5502de6' // v2 SecurePaymentsContract
 	]
 };
 
