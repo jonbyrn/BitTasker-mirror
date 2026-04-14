@@ -106,12 +106,15 @@ async function prepareWrite(options: ExecuteWriteOptions): Promise<PreparedWrite
 		contractAddress = getSecurePaymentContractAddress()
 	} = options;
 
+	d.log('prepareWrite', { method, args, contractAddress, chain });
+
 	const { contract, provider, wallet } = await initContract(
 		contractAddress,
 		chain,
 		abi as ethers.InterfaceAbi
 	);
 	const resolvedContractAddress = await contract.getAddress();
+	d.log('resolvedContractAddress', { resolvedContractAddress });
 	const feeData = await provider.getFeeData();
 	const gasPrice = feeData.gasPrice || BigInt(0);
 	const finalOverrides: ethers.Overrides = { ...callerOverrides, gasPrice };
