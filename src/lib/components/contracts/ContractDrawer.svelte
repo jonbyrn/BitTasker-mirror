@@ -2,7 +2,7 @@
 	import { resolve } from '$app/paths';
 	import type { Attachment } from '$lib/types/task';
 	import { findServiceByUniqueId } from '$lib/nostr/service';
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import { t } from 'svelte-i18n';
 	import IconCalendarClock from '~icons/mdi/calendar-clock';
 	import IconClockOutline from '~icons/mdi/clock-outline';
@@ -13,6 +13,7 @@
 	import ContractTimeline from './ContractTimeline.svelte';
 	import ContractActions from './ContractActions.svelte';
 	import ContractContextSummary from './ContractContextSummary.svelte';
+	import TranslatableBidContent from '$lib/components/bidding/TranslatableBidContent.svelte';
 	import Gallery from '$lib/components/Gallery.svelte';
 	import {
 		getStatusColorClass,
@@ -26,6 +27,9 @@
 		getServiceContractLocationPresentationFromService,
 		type ServiceContractLocationPresentation
 	} from '$lib/utils/service-contract/location';
+	import { queryNostrEvents } from '$lib/utils/nostr';
+	import KINDS from '$lib/utils/constants/kinds';
+	import type { NostrBidContent } from '$lib/types/bid';
 
 	const { btcPrice } = $props<{
 		btcPrice: number;
@@ -34,6 +38,9 @@
 	// Technical details toggle state
 	let isTechnicalDetailsOpen = $state(false);
 	let isOriginalBidOpen = $state(false);
+	let originalBidData = $state<NostrBidContent | null>(null);
+	let isFetchingBid = $state(false);
+	let bidFetchError = $state<string | null>(null);
 	let serviceDescriptionElement: HTMLParagraphElement | null = $state(null);
 	let showFullServiceDescription = $state(false);
 	let isServiceDescriptionTruncated = $state(false);
@@ -241,6 +248,44 @@
 				serviceContractLocation = null;
 			}
 		})();
+	});
+
+	$effect(() => {
+		const bidId = $contractStore.contract?.contractEvent.content.proposalEventId;
+		const isOpen = $contractStore.isDrawerOpen;
+
+		// Reset bid data if contract changes or drawer closes
+		if (!bidId || !isOpen) {
+			untrack(() => {
+				originalBidData = null;
+				bidFetchError = null;
+				isFetchingBid = false;
+			});
+			return;
+		}
+
+		if (isOriginalBidOpen && !originalBidData && !isFetchingBid && !bidFetchError) {
+			void (async () => {
+				isFetchingBid = true;
+				bidFetchError = null;
+				try {
+					const events = await queryNostrEvents({
+						ids: [bidId],
+						kinds: [KINDS.BIDS]
+					});
+					if (events && events.length > 0) {
+						originalBidData = events[0].content as NostrBidContent;
+					} else {
+						bidFetchError = 'Bid not found';
+					}
+				} catch (error) {
+					console.error('Failed to fetch bid details:', error);
+					bidFetchError = 'Failed to load bid details';
+				} finally {
+					isFetchingBid = false;
+				}
+			})();
+		}
 	});
 
 	$effect(() => {
@@ -548,14 +593,54 @@
 										</button>
 										<div id="original-bid-content" class="collapse-content">
 											<div class="pt-2">
-												<div>
-													<span class="text-xs font-medium"
-														>{$t('dashboard.contracts.approach')}:</span
-													>
-													<p class="text-base-content/80 mt-1 text-sm">
+												{#if isFetchingBid}
+													<div class="flex items-center gap-2 py-4">
+														<span class="loading loading-spinner loading-sm"></span>
+														<span class="text-sm opacity-70"
+															>{tr(
+																'dashboard.contracts.loading_bid_details',
+																'Loading bid details...'
+															)}</span
+														>
+													</div>
+												{:else if bidFetchError}
+													<p class="text-error py-4 text-sm">{bidFetchError}</p>
+												{:else if originalBidData}
+													<div class="space-y-4">
+														{#if originalBidData.proposedApproach}
+															<div>
+																<span class="text-xs font-medium"
+																	>{$t('dashboard.contracts.approach')}:</span
+																>
+																<div class="text-base-content/80 mt-1 text-sm whitespace-pre-wrap">
+																	<TranslatableBidContent
+																		bid={originalBidData}
+																		content={originalBidData.proposedApproach}
+																		contentType="proposedApproach"
+																	/>
+																</div>
+															</div>
+														{/if}
+														{#if originalBidData.coverLetter}
+															<div>
+																<span class="text-xs font-medium"
+																	>{$t('dashboard.contracts.cover_letter')}:</span
+																>
+																<div class="text-base-content/80 mt-1 text-sm whitespace-pre-wrap">
+																	<TranslatableBidContent
+																		bid={originalBidData}
+																		content={originalBidData.coverLetter}
+																		contentType="coverLetter"
+																	/>
+																</div>
+															</div>
+														{/if}
+													</div>
+												{:else}
+													<p class="text-base-content/80 py-4 text-sm">
 														{$t('dashboard.contracts.bid_info_not_available')}
 													</p>
-												</div>
+												{/if}
 											</div>
 										</div>
 									</div>

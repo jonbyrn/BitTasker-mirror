@@ -706,6 +706,7 @@
 			"currency": "Moneda",
 			"original_bid_proposal": "Propuesta de Oferta Original",
 			"bid_details": "Detalles de la Oferta",
+			"loading_bid_details": "Cargando detalles de la oferta...",
 			"approach": "Enfoque",
 			"proposed_approach": "Enfoque Propuesto",
 			"estimated_duration": "Duración Estimada",
