@@ -46,7 +46,7 @@ function getEarningBaseUrl(): URL {
 
 function buildTaskerQuoteClickAction(quoteRequestId: string): string {
 	return buildDashboardQueryUrl(getDashboardBaseUrl(), {
-		tab: 'quotes',
+		tab: 'service-requests',
 		view: 'tasker',
 		request: quoteRequestId
 	});
@@ -54,7 +54,7 @@ function buildTaskerQuoteClickAction(quoteRequestId: string): string {
 
 function buildProviderQuoteClickAction(serviceAddress: string, quoteRequestId: string): string {
 	return createServicesWorkspaceUrl(getEarningBaseUrl(), {
-		tab: 'quotes',
+		tab: 'service-requests',
 		serviceAddress,
 		requestId: quoteRequestId
 	}).toString();

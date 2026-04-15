@@ -85,6 +85,7 @@
 	let currentContractsHighlight = $state<string | null>(null);
 	let selectedServiceAddress = $state<string | null>(null);
 	let focusedRequestId = $state<string | null>(null);
+	let activeStatus = $state<string | null>(null);
 	let nonBlockingMessageCode = $state<string | null>(null);
 
 	function logRequestsDebug(event: string, details: Record<string, unknown>) {
@@ -108,6 +109,7 @@
 		currentContractsHighlight = parsed.highlight ?? null;
 		selectedServiceAddress = parsed.service ?? null;
 		focusedRequestId = parsed.request ?? null;
+		activeStatus = parsed.status ?? parsed.bidStatus ?? null;
 		nonBlockingMessageCode = null;
 
 		const canonicalUrl = new URL(
@@ -116,7 +118,9 @@
 				context: parsed.context,
 				highlight: parsed.highlight,
 				service: parsed.service,
-				request: parsed.request
+				request: parsed.request,
+				status: parsed.tab !== 'bids' ? activeStatus : undefined,
+				bidStatus: parsed.tab === 'bids' ? activeStatus : undefined
 			})
 		);
 
@@ -126,6 +130,7 @@
 				tab: parsed.tab,
 				service: parsed.service ?? null,
 				request: parsed.request ?? null,
+				status: activeStatus,
 				canonicalSearch: canonicalUrl.search
 			});
 		}
@@ -151,6 +156,7 @@
 			highlight: string | null;
 			service: string | null;
 			request: string | null;
+			status: string | null;
 		}>
 	) {
 		const nextUrl = new URL(
@@ -159,7 +165,11 @@
 				context: updates.context ?? contractsContext,
 				highlight: updates.highlight ?? null,
 				service: updates.service ?? null,
-				request: updates.request ?? null
+				request: updates.request ?? null,
+				status:
+					(updates.tab ?? activeTabId) !== 'bids' ? (updates.status ?? activeStatus) : undefined,
+				bidStatus:
+					(updates.tab ?? activeTabId) === 'bids' ? (updates.status ?? activeStatus) : undefined
 			})
 		);
 
@@ -210,9 +220,14 @@
 
 	function handleProviderRouteUpdate(
 		update:
-			| { type: 'service'; serviceAddress: string; requestId?: string | null }
-			| { type: 'reset' }
-			| { type: 'request'; requestId: string | null }
+			| {
+					type: 'service';
+					serviceAddress: string;
+					requestId?: string | null;
+					status?: string | null;
+			  }
+			| { type: 'reset'; status?: string | null }
+			| { type: 'request'; requestId: string | null; status?: string | null }
 	) {
 		logRequestsDebug('provider-route-update', {
 			update,
@@ -226,7 +241,8 @@
 			navigateToEarning({
 				tab: 'requests',
 				service: null,
-				request: null
+				request: null,
+				status: update.status ?? activeStatus
 			});
 			return;
 		}
@@ -243,7 +259,8 @@
 			navigateToEarning({
 				tab: 'requests',
 				service: selectedServiceAddress,
-				request: update.requestId
+				request: update.requestId,
+				status: update.status ?? activeStatus
 			});
 			return;
 		}
@@ -253,7 +270,8 @@
 		navigateToEarning({
 			tab: 'requests',
 			service: update.serviceAddress,
-			request: update.requestId ?? null
+			request: update.requestId ?? null,
+			status: update.status ?? activeStatus
 		});
 	}
 
@@ -392,7 +410,7 @@
 			aria-labelledby="tab-bids"
 			transition:slide={{ duration: 300 }}
 		>
-			<DashboardBidsPanel />
+			<DashboardBidsPanel status={activeStatus} />
 		</div>
 	{:else if activeTabId === 'requests'}
 		<div
@@ -402,6 +420,7 @@
 			transition:slide={{ duration: 300 }}
 		>
 			<DashboardServiceRequestsPanel
+				status={activeStatus}
 				{selectedServiceAddress}
 				{focusedRequestId}
 				onResolveQuotesRoute={handleProviderRouteUpdate}
@@ -416,6 +435,7 @@
 		>
 			<DashboardContractsPanel
 				initialContext={contractsContext}
+				initialStatus={activeStatus as string | null}
 				showRoleFilters={false}
 				fixedRole="freelancer"
 				showServiceFilter={true}
@@ -436,7 +456,10 @@
 			aria-labelledby="tab-my-services"
 			transition:slide={{ duration: 300 }}
 		>
-			<DashboardMyServicesPanel onOpenServiceQuotes={handleOpenServiceQuotes} />
+			<DashboardMyServicesPanel
+				status={activeStatus}
+				onOpenServiceQuotes={handleOpenServiceQuotes}
+			/>
 		</div>
 	{:else if activeTabId === 'saved-searches'}
 		<div

@@ -437,7 +437,7 @@ describe('serviceQuoteUiStore', () => {
 		expect(isTaskerTimelineSyncing(state, requestId)).toBe(true);
 
 		const parsed = serviceQuoteUiStore.parseDashboardQuery(
-			new URLSearchParams(`tab=quotes&view=tasker&request=${requestId}`)
+			new URLSearchParams(`tab=service-requests&view=tasker&request=${requestId}`)
 		);
 
 		expect(parsed.state.requestId).toBe(requestId);
@@ -448,10 +448,10 @@ describe('serviceQuoteUiStore', () => {
 		const { serviceQuoteUiStore } = await import('$lib/stores/service-quote-ui.store');
 
 		const quotesParsed = serviceQuoteUiStore.parseDashboardQuery(
-			new URLSearchParams('tab=quotes&view=tasker&request=bad!')
+			new URLSearchParams('tab=service-requests&view=tasker&request=bad!')
 		);
 		expect(quotesParsed.state.requestId).toBeNull();
-		expect(quotesParsed.messageCode).toBe('quotes_request_not_found');
+		expect(quotesParsed.messageCode).toBe('service_requests_request_not_found');
 
 		const contractsParsed = serviceQuoteUiStore.parseDashboardQuery(
 			new URLSearchParams('tab=contracts&context=services&highlight=%%%')

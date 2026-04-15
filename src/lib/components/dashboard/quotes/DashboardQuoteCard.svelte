@@ -147,6 +147,7 @@
 			timeline.latestProposal?.content.expirationTimestamp ?? timeline.expirationTimestamp
 		)
 	);
+	const hasProposalAmount = $derived(Boolean(timeline.latestProposal?.content.amountUsdt));
 	const providerPubkey = $derived.by(() => {
 		if (timeline.latestProposal?.pubkey) {
 			return timeline.latestProposal.pubkey;

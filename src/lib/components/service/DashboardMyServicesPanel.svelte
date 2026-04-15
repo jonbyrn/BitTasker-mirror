@@ -10,9 +10,8 @@
 	import { deleteService, updateService } from '$lib/nostr/service';
 	import { appStore } from '$lib/stores/app.store';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
-	import IconCheck from '~icons/mdi/check';
-	import IconChevronDown from '~icons/mdi/chevron-down';
 	import IconPlus from '~icons/mdi/plus';
+	import IconRefresh from '~icons/mdi/refresh';
 	import IconPencilOutline from '~icons/mdi/pencil-outline';
 	import IconBriefcaseOutline from '~icons/mdi/briefcase-outline';
 	import DashboardServiceCard from './DashboardServiceCard.svelte';
@@ -38,6 +37,9 @@
 	import DashboardEmptyState from '$lib/components/shared/DashboardEmptyState.svelte';
 	import ErrorAlertWithModal from '$lib/components/ErrorAlertWithModal.svelte';
 	import { detectErrorType } from '$lib/utils/helpers/errorTypeDetector';
+	import DashboardFilterBar from '$lib/components/shared/DashboardFilterBar.svelte';
+	import DashboardDropdown from '$lib/components/shared/DashboardDropdown.svelte';
+	import { createDashboardUrl } from '$lib/utils/service-quote/dashboard-route';
 	import { escrow } from '$lib/utils/escrow';
 
 	const PAGE_SIZE = 12;
@@ -54,7 +56,8 @@
 		loadContractsContinuity = () => contractStore.loadContracts(),
 		loadContractsSnapshot,
 		queryProviderQuoteThreads = queryTaskeeServiceQuoteThreads,
-		deletePortfolioMedia = deleteServicePortfolioMedia
+		deletePortfolioMedia = deleteServicePortfolioMedia,
+		status = null
 	}: {
 		onOpenServiceQuotes?: (service: Service) => void;
 		loadMyServices?: typeof findMyServices;
@@ -64,6 +67,7 @@
 		loadContractsSnapshot?: () => Promise<ContractWithEvents[]>;
 		queryProviderQuoteThreads?: typeof queryTaskeeServiceQuoteThreads;
 		deletePortfolioMedia?: typeof deleteServicePortfolioMedia;
+		status?: string | null;
 	} = $props();
 
 	let services = $state<Service[]>([]);
@@ -73,8 +77,20 @@
 	let btcPrice = $state<number>(0);
 	let deleteSubmitServiceId = $state<string | null>(null);
 	let currentPage = $state(1);
-	let isStatusDropdownOpen = $state(false);
-	let selectedStatusFilter = $state<ServiceStatusFilter>('all');
+
+	const VALID_FILTERS: ServiceStatusFilter[] = ['all', 'active', 'inactive'];
+	let selectedStatusFilter = $state<ServiceStatusFilter>(
+		status && VALID_FILTERS.includes(status as ServiceStatusFilter)
+			? (status as ServiceStatusFilter)
+			: 'all'
+	);
+
+	$effect(() => {
+		if (status && VALID_FILTERS.includes(status as ServiceStatusFilter)) {
+			selectedStatusFilter = status as ServiceStatusFilter;
+		}
+	});
+
 	let deleteModalState = $state<{
 		mode: 'blocked' | 'confirm';
 		service: Service;
@@ -89,8 +105,6 @@
 	let fullContractsSnapshot = $state<ContractWithEvents[]>([]);
 	let contractsSnapshotLoaded = $state(false);
 	let contractsSnapshotPromise: Promise<ContractWithEvents[]> | null = null;
-	let statusDropdownButton = $state<HTMLButtonElement | null>(null);
-	let statusDropdownContainer = $state<HTMLDivElement | null>(null);
 	const emptyStateIcon = IconBriefcaseOutline as unknown as Component<{
 		class?: string;
 		'aria-hidden'?: string;
@@ -166,7 +180,7 @@
 	const statusFilterOptions = $derived.by(() => [
 		{
 			id: 'all' as const,
-			label: tr('dashboard.services.my_services.filters.all', 'All')
+			label: tr('dashboard.services.my_services.filters.all', 'All Statuses')
 		},
 		{
 			id: 'active' as const,
@@ -177,9 +191,6 @@
 			label: tr('dashboard.services.my_services.filters.inactive', 'Inactive')
 		}
 	]);
-	const activeStatusFilterLabel = $derived.by(
-		() => statusFilterOptions.find((option) => option.id === selectedStatusFilter)?.label ?? 'All'
-	);
 
 	async function loadServices() {
 		loading = true;
@@ -214,11 +225,6 @@
 		void refreshContractsSnapshot().catch((contractError) => {
 			console.error('Failed to load full contracts snapshot for my services:', contractError);
 		});
-
-		document.addEventListener('click', handleClickOutside);
-		return () => {
-			document.removeEventListener('click', handleClickOutside);
-		};
 	});
 
 	$effect(() => {
@@ -321,114 +327,18 @@
 		}
 	}
 
-	function selectStatusFilter(nextFilter: ServiceStatusFilter) {
-		selectedStatusFilter = nextFilter;
+	function handleFilterChange(nextStatus: ServiceStatusFilter) {
+		selectedStatusFilter = nextStatus;
+		const nextUrl = createDashboardUrl(new URL(window.location.href), {
+			tab: 'my-services',
+			status: nextStatus === 'all' ? null : nextStatus
+		});
+		void goto(nextUrl.toString(), { replaceState: true, keepFocus: true, noScroll: true });
 		currentPage = 1;
-		isStatusDropdownOpen = false;
 	}
 
 	function clearStatusFilter() {
-		selectStatusFilter('all');
-	}
-
-	function toggleStatusDropdown() {
-		isStatusDropdownOpen = !isStatusDropdownOpen;
-	}
-
-	function focusStatusOption(index: number) {
-		const options = Array.from(
-			statusDropdownContainer?.querySelectorAll<HTMLButtonElement>(
-				'[data-status-filter-option="true"]'
-			) ?? []
-		);
-		if (options.length === 0) {
-			return;
-		}
-
-		const normalizedIndex = ((index % options.length) + options.length) % options.length;
-		options[normalizedIndex]?.focus();
-	}
-
-	function handleClickOutside(event: MouseEvent) {
-		const target = event.target as Node | null;
-		if (
-			isStatusDropdownOpen &&
-			statusDropdownContainer &&
-			target &&
-			!statusDropdownContainer.contains(target)
-		) {
-			isStatusDropdownOpen = false;
-		}
-	}
-
-	function handleStatusTriggerKeydown(event: KeyboardEvent) {
-		if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-			event.preventDefault();
-			isStatusDropdownOpen = true;
-			queueMicrotask(() =>
-				focusStatusOption(event.key === 'ArrowDown' ? 0 : statusFilterOptions.length - 1)
-			);
-			return;
-		}
-
-		if (event.key === 'Enter' || event.key === ' ') {
-			event.preventDefault();
-			const willOpen = !isStatusDropdownOpen;
-			toggleStatusDropdown();
-			if (willOpen) {
-				queueMicrotask(() => focusStatusOption(0));
-			}
-			return;
-		}
-
-		if (event.key === 'Escape') {
-			event.preventDefault();
-			isStatusDropdownOpen = false;
-			statusDropdownButton?.focus();
-		}
-	}
-
-	function handleStatusOptionKeydown(
-		event: KeyboardEvent,
-		index: number,
-		optionId: ServiceStatusFilter
-	) {
-		if (event.key === 'Enter' || event.key === ' ') {
-			event.preventDefault();
-			selectStatusFilter(optionId);
-			statusDropdownButton?.focus();
-			return;
-		}
-
-		if (event.key === 'Escape') {
-			event.preventDefault();
-			isStatusDropdownOpen = false;
-			statusDropdownButton?.focus();
-			return;
-		}
-
-		if (event.key === 'ArrowDown') {
-			event.preventDefault();
-			focusStatusOption(index + 1);
-			return;
-		}
-
-		if (event.key === 'ArrowUp') {
-			event.preventDefault();
-			focusStatusOption(index - 1);
-			return;
-		}
-
-		if (event.key === 'Home') {
-			event.preventDefault();
-			focusStatusOption(0);
-			return;
-		}
-
-		if (event.key === 'End') {
-			event.preventDefault();
-			focusStatusOption(statusFilterOptions.length - 1);
-		}
+		handleFilterChange('all');
 	}
 
 	function openServiceDrawer(service: Service) {
@@ -712,87 +622,36 @@
 		/>
 	</div>
 {:else}
-	<div class="space-y-6">
-		<div class="border-base-300/60 bg-base-100/40 rounded-3xl border p-4 shadow-sm">
-			<div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-				<div>
-					<p class="text-base-content/70 text-xs font-semibold tracking-wide uppercase">
-						{tr('dashboard.services.my_services.filters.status_heading', 'Filter by status')}
-					</p>
-				</div>
-				<div
-					class="status-dropdown-container relative w-full sm:w-60"
-					data-testid="dashboard-my-services-status-filter"
-					bind:this={statusDropdownContainer}
-				>
-					<button
-						type="button"
-						class="border-primary bg-primary/10 text-primary hover:bg-primary/20 flex w-full items-center justify-between rounded-3xl border px-4 py-2 transition-all duration-200"
-						bind:this={statusDropdownButton}
-						aria-controls="dashboard-my-services-status-listbox"
-						aria-expanded={isStatusDropdownOpen}
-						aria-haspopup="listbox"
-						aria-label={tr('dashboard.services.my_services.filters.status', 'Filter by status')}
-						onclick={toggleStatusDropdown}
-						onkeydown={handleStatusTriggerKeydown}
-					>
-						<span class="font-medium">{activeStatusFilterLabel}</span>
-						<IconChevronDown
-							class={`h-5 w-5 transition-transform duration-200 ${isStatusDropdownOpen ? 'rotate-180' : ''}`}
-						/>
-					</button>
-
-					{#if isStatusDropdownOpen}
-						<div
-							id="dashboard-my-services-status-listbox"
-							role="listbox"
-							aria-label={tr('dashboard.services.my_services.filters.status', 'Filter by status')}
-							class="border-base-300 bg-base-100 absolute top-full right-0 left-0 z-50 mt-2 rounded-xl border shadow-lg"
-						>
-							{#each statusFilterOptions as option, index (option.id)}
-								<button
-									type="button"
-									role="option"
-									data-status-filter-option="true"
-									aria-selected={selectedStatusFilter === option.id}
-									class="hover:bg-base-200 flex w-full items-center justify-between px-4 py-3 text-left transition-colors"
-									onclick={() => {
-										selectStatusFilter(option.id);
-										statusDropdownButton?.focus();
-									}}
-									onkeydown={(event) => handleStatusOptionKeydown(event, index, option.id)}
-								>
-									<span class="font-medium">{option.label}</span>
-									{#if selectedStatusFilter === option.id}
-										<IconCheck class="text-primary h-4 w-4" />
-									{/if}
-								</button>
-							{/each}
-						</div>
-					{/if}
-				</div>
-			</div>
-		</div>
+	<div class="space-y-4">
+		<DashboardFilterBar onRefresh={loadServices} isRefreshing={loading}>
+			<DashboardDropdown
+				options={statusFilterOptions}
+				value={selectedStatusFilter}
+				onSelect={handleFilterChange}
+				containerClass="col-span-2 sm:w-64"
+			/>
+		</DashboardFilterBar>
 
 		{#if filteredServices.length === 0}
 			<div class="card bg-base-100 rounded-xl p-4">
-				<div class="py-8 text-center" data-testid="dashboard-my-services-filtered-empty-state">
-					<p class="text-lg font-medium">
-						{tr(
-							'dashboard.services.my_services.filtered_empty_title',
-							'No services match this filter.'
-						)}
-					</p>
-					<p class="text-base-content/60 mx-auto mt-2 max-w-md">
-						{tr(
-							'dashboard.services.my_services.filtered_empty_body',
-							'Try a different status filter to review the rest of your services.'
-						)}
-					</p>
-					<button type="button" class="btn btn-primary mt-4" onclick={clearStatusFilter}>
-						{tr('dashboard.services.my_services.filtered_empty_action', 'Show all services')}
-					</button>
-				</div>
+				<DashboardEmptyState
+					icon={emptyStateIcon}
+					title={tr(
+						'dashboard.services.my_services.filtered_empty_title',
+						'No services match this filter.'
+					)}
+					description={tr(
+						'dashboard.services.my_services.filtered_empty_body',
+						'Try a different status filter to review the rest of your services.'
+					)}
+					actionLabel={tr(
+						'dashboard.services.my_services.filtered_empty_action',
+						'Show all services'
+					)}
+					onAction={clearStatusFilter}
+					actionIcon={IconRefresh}
+					testId="dashboard-my-services-filtered-empty-state"
+				/>
 			</div>
 		{:else}
 			<div class="grid grid-cols-1 gap-5">

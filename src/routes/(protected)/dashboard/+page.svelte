@@ -43,7 +43,7 @@
 		return translated === key ? fallback : translated;
 	}
 
-	const HIRING_TABS = new Set<DashboardTab>(['tasks', 'quotes', 'contracts']);
+	const HIRING_TABS = new Set<DashboardTab>(['tasks', 'service-requests', 'contracts']);
 
 	// Tab configuration - reactive to language changes
 	const tabs = $derived([
@@ -62,7 +62,7 @@
 			icon: 'wallet'
 		},
 		{
-			id: 'quotes',
+			id: 'service-requests',
 			label: translateOrFallback('dashboard.tabs.quotes', 'Service Requests'),
 			buttonLabel: translateOrFallback('dashboard.find_services', 'Find Services'),
 			buttonHref: '/services',
@@ -77,7 +77,8 @@
 			contractsContext: parsed.state.context,
 			focusedRequestId: parsed.state.requestId,
 			nonBlockingMessageCode: parsed.messageCode,
-			currentContractsHighlight: parsed.state.highlight
+			currentContractsHighlight: parsed.state.highlight,
+			activeStatus: parsed.state.status
 		};
 	}
 
@@ -87,6 +88,7 @@
 	const activeTab = $derived(tabs.find((t) => t.id === activeTabId) || tabs[0]);
 	let contractsContext = $state<DashboardContractsContext>(initialRouteState.contractsContext);
 	let focusedRequestId = $state<string | null>(initialRouteState.focusedRequestId);
+	let activeStatus = $state<string | null>(initialRouteState.activeStatus);
 	let taskerTimelines = $state<ReturnType<typeof getTaskerTimelines>>([]);
 	let nonBlockingMessageCode = $state<string | null>(initialRouteState.nonBlockingMessageCode);
 	let taskerQuotesStoreSyncing = $state(false);
@@ -140,7 +142,7 @@
 			const service = currentUrl.searchParams.get('service');
 			const request = currentUrl.searchParams.get('request');
 
-			if (view === 'quotes' || service || request) {
+			if (view === 'service-requests' || view === 'quotes' || service || request) {
 				return new URL(
 					buildEarningQueryUrl(nextUrl, {
 						tab: 'requests',
@@ -187,6 +189,7 @@
 		focusedRequestId = parsed.state.requestId;
 		nonBlockingMessageCode = parsed.messageCode;
 		currentContractsHighlight = parsed.state.highlight;
+		activeStatus = parsed.state.status ?? parsed.state.taskStatus ?? null;
 
 		if (parsed.changed) {
 			const nextSearch = parsed.searchParams.toString();
@@ -346,7 +349,7 @@
 	});
 
 	$effect(() => {
-		if (activeTabId !== 'quotes') {
+		if (activeTabId !== 'service-requests') {
 			taskerQuotesError = null;
 			return;
 		}
@@ -365,23 +368,25 @@
 		serviceQuoteUiStore.setNonBlockingMessage(null);
 		const nextUrl = createDashboardUrl(page.url, {
 			tab: tabId as DashboardTab,
-			view: tabId === 'quotes' ? 'tasker' : 'default',
+			view: tabId === 'service-requests' ? 'tasker' : 'default',
 			context: tabId === 'contracts' ? contractsContext : 'all',
 			serviceAddress: null,
 			requestId: null,
-			highlight: null
+			highlight: null,
+			status: activeStatus
 		});
 		goto(nextUrl.toString(), { replaceState: true, keepFocus: true, noScroll: true });
 	}
 
 	function handleTaskerRequestFocus(requestId: string | null) {
 		serviceQuoteUiStore.setNonBlockingMessage(
-			requestId === null ? 'quotes_request_not_found' : null
+			requestId === null ? 'service_requests_request_not_found' : null
 		);
 		const nextUrl = createDashboardUrl(page.url, {
-			tab: 'quotes',
+			tab: 'service-requests',
 			view: 'tasker',
-			requestId
+			requestId,
+			status: activeStatus
 		});
 		goto(nextUrl.toString(), { replaceState: true, keepFocus: true, noScroll: true });
 	}
@@ -389,9 +394,10 @@
 	function handleTaskerRequestClear() {
 		serviceQuoteUiStore.setNonBlockingMessage(null);
 		const nextUrl = createDashboardUrl(page.url, {
-			tab: 'quotes',
+			tab: 'service-requests',
 			view: 'tasker',
-			requestId: null
+			requestId: null,
+			status: activeStatus
 		});
 		goto(nextUrl.toString(), { replaceState: true, keepFocus: true, noScroll: true });
 	}
@@ -581,7 +587,7 @@
 	{#if nonBlockingMessageCode}
 		<div class="alert alert-info my-4 text-sm">
 			<span>
-				{#if nonBlockingMessageCode === 'quotes_request_not_found'}
+				{#if nonBlockingMessageCode === 'service_requests_request_not_found'}
 					{translateOrFallback(
 						'dashboard.hiring.messages.quotes_request_not_found',
 						'The requested quote thread could not be found.'
@@ -615,6 +621,7 @@
 			transition:slide={{ duration: 300 }}
 		>
 			<DashboardTasksPanel
+				status={activeStatus}
 				openTaskDrawer={(task, tab = 'details') => setDrawerState(true, task, tab)}
 			/>
 		</div>
@@ -627,6 +634,7 @@
 		>
 			<DashboardContractsPanel
 				initialContext={contractsContext}
+				initialStatus={activeStatus as string | null}
 				showRoleFilters={false}
 				fixedRole="client"
 				highlightEscrowId={page.url.searchParams.get('highlight')}
@@ -634,16 +642,17 @@
 				onHighlightMissing={handleContractsHighlightMissing}
 			/>
 		</div>
-	{:else if activeTabId === 'quotes'}
+	{:else if activeTabId === 'service-requests'}
 		<div
-			id="panel-quotes"
+			id="panel-service-requests"
 			role="tabpanel"
-			aria-labelledby="tab-quotes"
+			aria-labelledby="tab-service-requests"
 			transition:slide={{ duration: 300 }}
 		>
 			<MyQuotesPanel
 				timelines={taskerTimelines}
 				{focusedRequestId}
+				status={activeStatus}
 				restoreFocusedRequest={true}
 				isSyncing={taskerQuotesSyncing}
 				hasLoaded={taskerQuotesLoaded}

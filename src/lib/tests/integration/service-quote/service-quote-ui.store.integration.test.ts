@@ -10,9 +10,7 @@ const publishServiceQuoteRequest = vi.fn();
 const publishServiceProposal = vi.fn();
 const publishServiceProposalStatus = vi.fn();
 const createServiceContract = vi.fn();
-const waitForContractCreationByTransactionHash = vi.fn(
-	() => new Promise(() => undefined)
-);
+const waitForContractCreationByTransactionHash = vi.fn(() => new Promise(() => undefined));
 const getContractCreationTimeoutReason = vi.fn().mockReturnValue('pending_timeout');
 const getNpub = vi.fn().mockResolvedValue('f'.repeat(64));
 const walletStore = writable({
@@ -77,7 +75,9 @@ async function loadStoreModule() {
 	return module;
 }
 
-function createTimeline(overrides: Partial<ServiceQuoteTimelineEntry> = {}): ServiceQuoteTimelineEntry {
+function createTimeline(
+	overrides: Partial<ServiceQuoteTimelineEntry> = {}
+): ServiceQuoteTimelineEntry {
 	return {
 		request: {
 			id: 'request-event-1',
@@ -294,7 +294,7 @@ describe('serviceQuoteUiStore route contract', () => {
 				description: 'Refresh our app icon set.'
 			}
 		});
-		const stateSnapshots: Array<any> = [];
+		const stateSnapshots: Array<unknown> = [];
 		const unsubscribe = serviceQuoteUiStore.subscribe((value) => stateSnapshots.push(value));
 		const latestState = stateSnapshots.at(-1);
 		unsubscribe();
@@ -334,7 +334,7 @@ describe('serviceQuoteUiStore route contract', () => {
 		serviceQuoteUiStore.setNonBlockingMessage('service_quote_protocol_pending');
 		serviceQuoteUiStore.clearRecentSubmit();
 
-		const snapshots: Array<any> = [];
+		const snapshots: Array<unknown> = [];
 		const unsubscribe = serviceQuoteUiStore.subscribe((value) => snapshots.push(value));
 		const latestState = snapshots.at(-1);
 		unsubscribe();
@@ -360,7 +360,7 @@ describe('serviceQuoteUiStore route contract', () => {
 			serviceQuoteUiStore.loadProviderTimelines(serviceAddress, 'qr_valid123')
 		).rejects.toThrow('provider load failed');
 
-		const snapshots: Array<any> = [];
+		const snapshots: Array<unknown> = [];
 		const unsubscribe = serviceQuoteUiStore.subscribe((value) => snapshots.push(value));
 		const latestState = snapshots.at(-1);
 		unsubscribe();
@@ -450,7 +450,7 @@ describe('serviceQuoteUiStore route contract', () => {
 			})
 		).resolves.toEqual({ success: true });
 
-		const snapshots: Array<any> = [];
+		const snapshots: Array<unknown> = [];
 		const unsubscribe = serviceQuoteUiStore.subscribe((value) => snapshots.push(value));
 		const latestState = snapshots.at(-1);
 		unsubscribe();

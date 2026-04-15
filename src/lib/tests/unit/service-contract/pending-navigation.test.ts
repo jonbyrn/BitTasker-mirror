@@ -179,7 +179,7 @@ describe('pending service contract navigation', () => {
 					transactionHash: '0xabc123'
 				},
 				{
-					activeTabId: 'quotes',
+					activeTabId: 'service-requests',
 					contractsContext: 'services',
 					highlightEscrowId: null
 				},

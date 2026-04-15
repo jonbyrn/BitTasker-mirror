@@ -8,6 +8,8 @@
 	import { goto } from '$app/navigation';
 	import { TASK_CATEGORIES } from '$lib/utils/constants/categories';
 	import { ServicePricingTypeEnum, ServiceLocationTypeEnum } from '$lib/utils/enums/service.enum';
+	import IconMagnify from '~icons/mdi/magnify';
+	import DashboardEmptyState from '$lib/components/shared/DashboardEmptyState.svelte';
 
 	let savedSearches = $state<SavedServiceSearch[]>([]);
 	let isLoading = $state(true);
@@ -115,7 +117,7 @@
 	}
 </script>
 
-<div class="card bg-base-100 mb-6 rounded-xl p-4">
+<div class="card bg-base-100 mb-4 rounded-xl p-4">
 	{#if error}
 		<div class="alert alert-outline alert-error mb-4">
 			<svg
@@ -153,31 +155,14 @@
 			{/each}
 		</div>
 	{:else if savedSearches.length === 0}
-		<div class="py-8 text-center">
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				class="text-primary mx-auto mb-3 h-12 w-12"
-				fill="none"
-				viewBox="0 0 24 24"
-				stroke="currentColor"
-			>
-				<path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					stroke-width="2"
-					d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-				/>
-			</svg>
-			<p class="text-lg font-medium">
-				{$t('dashboard.services.browse.saved_service_searches.no_saved_searches')}
-			</p>
-			<p class="text-base-content/70 mt-1 text-sm">
-				{$t('dashboard.services.browse.saved_service_searches.saved_searches_info')}
-			</p>
-			<a href="/services" class="btn btn-primary btn-sm mt-4">
-				{$t('dashboard.services.browse.saved_service_searches.start_new_search')}
-			</a>
-		</div>
+		<DashboardEmptyState
+			icon={IconMagnify}
+			title={$t('dashboard.services.browse.saved_service_searches.no_saved_searches')}
+			description={$t('dashboard.services.browse.saved_service_searches.saved_searches_info')}
+			actionLabel={$t('dashboard.services.browse.saved_service_searches.start_new_search')}
+			onAction={() => goto('/services')}
+			testId="saved-service-searches-empty-state"
+		/>
 	{:else}
 		<div class="mt-4 grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-3">
 			{#each savedSearches as search (search.id)}

@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { goto } from '$app/navigation';
-	import { onMount } from 'svelte';
 	import { t } from 'svelte-i18n';
 	import type { Service } from '$lib/types/service.d';
 	import type { ServiceQuoteTimelineEntry } from '$lib/types/service-quote';
@@ -17,10 +16,11 @@
 	import DashboardEmptyState from '$lib/components/shared/DashboardEmptyState.svelte';
 	import ErrorAlertWithModal from '$lib/components/ErrorAlertWithModal.svelte';
 	import { detectErrorType } from '$lib/utils/helpers/errorTypeDetector';
+	import DashboardFilterBar from '$lib/components/shared/DashboardFilterBar.svelte';
+	import DashboardDropdown from '$lib/components/shared/DashboardDropdown.svelte';
 	import IconBriefcaseOutline from '~icons/mdi/briefcase-outline';
 	import IconCheck from '~icons/mdi/check';
 	import IconCheckCircleOutline from '~icons/mdi/check-circle-outline';
-	import IconChevronDown from '~icons/mdi/chevron-down';
 	import IconClockOutline from '~icons/mdi/clock-outline';
 	import IconEmailFastOutline from '~icons/mdi/email-fast-outline';
 	import IconPlus from '~icons/mdi/plus';
@@ -55,7 +55,8 @@
 		onRequestClear,
 		onInvalidFocusedRequest,
 		onSendProposal,
-		onDeleteProposal
+		onDeleteProposal,
+		status = null
 	}: {
 		service?: Service | null;
 		services?: Service[];
@@ -93,28 +94,48 @@
 			| Promise<{ success: boolean; error?: string } | void>
 			| { success: boolean; error?: string }
 			| void;
+		status?: string | null;
 	} = $props();
 
 	let activeProposalRequestId = $state<string | null>(null);
 	let activeProposalDrawerMode = $state<'compose' | 'view' | null>(null);
 	let activeProposalTimelineSnapshot = $state<ServiceQuoteTimelineEntry | null>(null);
-	let activeFilter = $state<
+
+	type ServiceRequestFilterCategory =
 		| 'all'
 		| 'awaiting_proposal'
 		| 'proposal_sent'
 		| 'contract_created'
 		| 'declined'
 		| 'withdrawn'
-		| 'expired'
-	>('all');
+		| 'expired';
+
+	const VALID_FILTERS: ServiceRequestFilterCategory[] = [
+		'all',
+		'awaiting_proposal',
+		'proposal_sent',
+		'contract_created',
+		'declined',
+		'withdrawn',
+		'expired'
+	];
+
+	let activeFilter = $state<ServiceRequestFilterCategory>(
+		status && VALID_FILTERS.includes(status as ServiceRequestFilterCategory)
+			? (status as ServiceRequestFilterCategory)
+			: 'all'
+	);
+
+	$effect(() => {
+		if (status && VALID_FILTERS.includes(status as ServiceRequestFilterCategory)) {
+			activeFilter = status as ServiceRequestFilterCategory;
+		}
+	});
+
 	let deleteProposalSubmitting = $state(false);
 	let deleteProposalError = $state<string | null>(null);
-	let isDropdownOpen = $state(false);
 	let currentPage = $state(1);
-	let statusDropdownButton = $state<HTMLButtonElement | null>(null);
-	let statusDropdownContainer = $state<HTMLDivElement | null>(null);
 	const PAGE_SIZE = 10;
-	const statusDropdownId = 'service-request-status-listbox';
 
 	const selectedTimeline = $derived.by(() => {
 		const requestId = activeProposalRequestId ?? focusedRequestId;
@@ -257,7 +278,7 @@
 	const filterOptions = $derived.by(() => [
 		{
 			id: 'all' as const,
-			label: tr('dashboard.service_requests.filters.all', 'All'),
+			label: tr('dashboard.service_requests.filters.all', 'All Statuses'),
 			icon: IconBriefcaseOutline
 		},
 		{
@@ -378,28 +399,24 @@
 		}
 	}
 
-	function selectFilter(
-		nextFilter:
-			| 'all'
-			| 'awaiting_proposal'
-			| 'proposal_sent'
-			| 'contract_created'
-			| 'declined'
-			| 'withdrawn'
-			| 'expired'
-	) {
-		activeFilter = nextFilter;
-		isDropdownOpen = false;
+	function handleFilterChange(nextStatus: ServiceRequestFilterCategory) {
+		activeFilter = nextStatus;
+		const nextUrl = createDashboardUrl(new URL(window.location.href), {
+			tab: 'requests',
+			status: nextStatus === 'all' ? null : nextStatus
+		});
+		void goto(nextUrl.toString(), { replaceState: true, keepFocus: true, noScroll: true });
 		currentPage = 1;
 	}
 
 	function clearFilters() {
 		activeFilter = 'all';
 		currentPage = 1;
-	}
-
-	function toggleDropdown() {
-		isDropdownOpen = !isDropdownOpen;
+		const nextUrl = createDashboardUrl(new URL(window.location.href), {
+			tab: 'requests',
+			status: null
+		});
+		void goto(nextUrl.toString(), { replaceState: true, keepFocus: true, noScroll: true });
 	}
 
 	function goToPage(page: number) {
@@ -439,109 +456,6 @@
 			return;
 		}
 		onRequestFocusChange?.(null);
-	}
-
-	function focusStatusOption(index: number) {
-		const options = Array.from(
-			statusDropdownContainer?.querySelectorAll<HTMLButtonElement>(
-				'[data-status-filter-option="true"]'
-			) ?? []
-		);
-		if (options.length === 0) {
-			return;
-		}
-
-		const normalizedIndex = ((index % options.length) + options.length) % options.length;
-		options[normalizedIndex]?.focus();
-	}
-
-	function handleClickOutside(event: MouseEvent) {
-		const target = event.target as Node | null;
-		if (
-			isDropdownOpen &&
-			statusDropdownContainer &&
-			target &&
-			!statusDropdownContainer.contains(target)
-		) {
-			isDropdownOpen = false;
-		}
-	}
-
-	function handleStatusTriggerKeydown(event: KeyboardEvent) {
-		if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-			event.preventDefault();
-			isDropdownOpen = true;
-			queueMicrotask(() =>
-				focusStatusOption(event.key === 'ArrowDown' ? 0 : filterOptions.length - 1)
-			);
-			return;
-		}
-
-		if (event.key === 'Enter' || event.key === ' ') {
-			event.preventDefault();
-			const willOpen = !isDropdownOpen;
-			toggleDropdown();
-			if (willOpen) {
-				queueMicrotask(() => focusStatusOption(0));
-			}
-			return;
-		}
-
-		if (event.key === 'Escape') {
-			event.preventDefault();
-			isDropdownOpen = false;
-			statusDropdownButton?.focus();
-		}
-	}
-
-	function handleStatusOptionKeydown(
-		event: KeyboardEvent,
-		index: number,
-		optionId:
-			| 'all'
-			| 'awaiting_proposal'
-			| 'proposal_sent'
-			| 'contract_created'
-			| 'declined'
-			| 'withdrawn'
-			| 'expired'
-	) {
-		if (event.key === 'Enter' || event.key === ' ') {
-			event.preventDefault();
-			selectFilter(optionId);
-			statusDropdownButton?.focus();
-			return;
-		}
-
-		if (event.key === 'Escape') {
-			event.preventDefault();
-			isDropdownOpen = false;
-			statusDropdownButton?.focus();
-			return;
-		}
-
-		if (event.key === 'ArrowDown') {
-			event.preventDefault();
-			focusStatusOption(index + 1);
-			return;
-		}
-
-		if (event.key === 'ArrowUp') {
-			event.preventDefault();
-			focusStatusOption(index - 1);
-			return;
-		}
-
-		if (event.key === 'Home') {
-			event.preventDefault();
-			focusStatusOption(0);
-			return;
-		}
-
-		if (event.key === 'End') {
-			event.preventDefault();
-			focusStatusOption(filterOptions.length - 1);
-		}
 	}
 
 	async function handleProposalSubmit(payload: ServiceProposalComposerSubmitPayload) {
@@ -683,13 +597,6 @@
 			currentPage = 1;
 		}
 	});
-
-	onMount(() => {
-		document.addEventListener('click', handleClickOutside);
-		return () => {
-			document.removeEventListener('click', handleClickOutside);
-		};
-	});
 </script>
 
 <section class="space-y-4" data-testid="service-quotes-inbox">
@@ -756,134 +663,25 @@
 			)}
 		</div>
 	{:else if hasRequestsWorkspace}
-		<div class="border-base-300/60 bg-base-100/40 mt-2 rounded-3xl border p-4 shadow-sm">
-			<div class="mb-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-				<div>
-					<p class="text-base-content/70 text-xs font-semibold tracking-wide uppercase">
-						{tr('dashboard.service_requests.status_heading', 'Filter by request status')}
-					</p>
-				</div>
+		<DashboardFilterBar onRefresh={onRetry} isRefreshing={isSyncing}>
+			<DashboardDropdown
+				options={filterOptions}
+				value={activeFilter}
+				onSelect={handleFilterChange}
+				containerClass="col-span-1 sm:w-64"
+			/>
 
-				<div class="flex items-center gap-2 sm:max-w-md sm:min-w-[20rem]">
-					<div class="min-w-0 flex-1">
-						<ServiceFilterSelect
-							{services}
-							{selectedServiceAddress}
-							filterLabel={resolvedServiceFilterLabel}
-							allServicesLabel={resolvedAllServicesLabel}
-							deletedServiceLabel={resolvedDeletedServiceLabel}
-							testId="service-request-filter"
-							containerClass="w-full max-w-none"
-							selectClass="select select-bordered h-11 min-h-11 w-full truncate rounded-3xl"
-							onChange={(serviceAddress) => onServiceFilterChange?.(serviceAddress)}
-						/>
-					</div>
-
-					<button
-						type="button"
-						class="btn btn-ghost btn-sm sm:btn-outline gap-2"
-						disabled={isSyncing}
-						aria-label={tr('common.buttons.refresh', 'Refresh')}
-						data-testid="service-request-refresh"
-						onclick={onRetry}
-					>
-						<IconRefresh class="h-5 w-5" />
-						<span class="hidden sm:inline">{tr('common.buttons.refresh', 'Refresh')}</span>
-					</button>
-				</div>
-			</div>
-
-			<div class="mb-3 sm:hidden">
-				<div class="status-dropdown-container relative" bind:this={statusDropdownContainer}>
-					<button
-						bind:this={statusDropdownButton}
-						class="border-primary bg-primary/10 text-primary hover:bg-primary/20 flex w-full items-center justify-between rounded-3xl border px-4 py-2 transition-all duration-200"
-						onclick={toggleDropdown}
-						onkeydown={handleStatusTriggerKeydown}
-						type="button"
-						aria-expanded={isDropdownOpen}
-						aria-haspopup="listbox"
-						aria-controls={statusDropdownId}
-					>
-						<div class="flex items-center gap-2">
-							{#each filterOptions as option (option.id)}
-								{#if activeFilter === option.id}
-									{@const IconComponent = option.icon}
-									<IconComponent class="h-5 w-5" />
-								{/if}
-							{/each}
-							<span class="font-medium">
-								{filterOptions.find((option) => option.id === activeFilter)?.label}
-							</span>
-						</div>
-						<IconChevronDown
-							class="h-5 w-5 transition-transform duration-200 {isDropdownOpen ? 'rotate-180' : ''}"
-						/>
-					</button>
-
-					{#if isDropdownOpen}
-						<div
-							id={statusDropdownId}
-							role="listbox"
-							aria-label={tr(
-								'dashboard.service_requests.status_heading',
-								'Filter by request status'
-							)}
-							class="border-base-300 bg-base-100 absolute top-full right-0 left-0 z-50 mt-2 rounded-xl border shadow-lg"
-						>
-							{#each filterOptions as option, index (option.id)}
-								{@const IconComponent = option.icon}
-								<button
-									data-status-filter-option="true"
-									role="option"
-									aria-selected={activeFilter === option.id}
-									class="hover:bg-base-200 flex w-full items-center gap-2 px-4 py-2 text-left transition-colors duration-200 first:rounded-t-xl last:rounded-b-xl {activeFilter ===
-									option.id
-										? 'bg-primary/10 text-primary'
-										: 'text-base-content'}"
-									onclick={() => {
-										selectFilter(option.id);
-										statusDropdownButton?.focus();
-									}}
-									onkeydown={(event) => handleStatusOptionKeydown(event, index, option.id)}
-									type="button"
-								>
-									<IconComponent
-										class="h-5 w-5 {activeFilter === option.id
-											? 'text-primary'
-											: 'text-base-content/60'}"
-									/>
-									<span class="font-medium">{option.label}</span>
-									{#if activeFilter === option.id}
-										<IconCheck class="text-primary ml-auto h-5 w-5" />
-									{/if}
-								</button>
-							{/each}
-						</div>
-					{/if}
-				</div>
-			</div>
-
-			<div class="mt-4 hidden sm:block">
-				<div class="flex flex-col gap-3 sm:flex-row">
-					{#each filterOptions as option (option.id)}
-						{@const IconComponent = option.icon}
-						<button
-							class="btn btn-sm flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-3xl py-4 text-center transition-all duration-200 {activeFilter ===
-							option.id
-								? 'text-primary bg-primary/10 border-primary/30 border'
-								: 'bg-base-100/40 hover:bg-base-100/60 text-base-content/70'}"
-							onclick={() => selectFilter(option.id)}
-							aria-label={option.label}
-							type="button"
-						>
-							<IconComponent class="h-5 w-5 {activeFilter === option.id ? 'text-primary' : ''}" />
-							<span class="font-medium">{option.label}</span>
-						</button>
-					{/each}
-				</div>
-			</div>
-		</div>
+			<ServiceFilterSelect
+				{services}
+				{selectedServiceAddress}
+				filterLabel={resolvedServiceFilterLabel}
+				allServicesLabel={resolvedAllServicesLabel}
+				deletedServiceLabel={resolvedDeletedServiceLabel}
+				testId="service-request-filter"
+				containerClass="col-span-1 sm:w-64"
+				onChange={(serviceAddress) => onServiceFilterChange?.(serviceAddress)}
+			/>
+		</DashboardFilterBar>
 
 		{#if filteredTimelines.length === 0}
 			<div class="card bg-base-100 rounded-xl p-4">
@@ -909,8 +707,9 @@
 							)}
 					actionLabel={activeFilter !== 'all'
 						? tr('dashboard.contracts.clear_filters', 'Clear Filters')
-						: undefined}
-					actionIcon={activeFilter !== 'all' ? IconRefresh : undefined}
+						: tr('dashboard.services.my_services.create_service', 'Create Service')}
+					actionHref={activeFilter !== 'all' ? null : '/dashboard/create-service'}
+					actionIcon={activeFilter !== 'all' ? IconRefresh : IconPlus}
 					onAction={activeFilter !== 'all' ? clearFilters : undefined}
 					testId="service-quotes-filtered-empty-state"
 				/>
