@@ -130,7 +130,7 @@
 	}
 </script>
 
-<div class="card bg-base-100 mb-6 rounded-xl p-4">
+<div class="card bg-base-100 mb-4 rounded-xl p-4">
 	{#if error}
 		<div class="alert alert-outline alert-error mb-4">
 			<svg

@@ -42,15 +42,17 @@
 
 <svelte:window bind:innerWidth={width} />
 
-<div class={`${layoutClassName} bg-base-200 mx-auto flex h-full min-h-0 w-full flex-col overflow-hidden px-2 md:py-4`}>
+<div
+	class={`${layoutClassName} bg-base-200 mx-auto flex h-full min-h-0 w-full flex-col overflow-hidden px-2 md:py-4`}
+>
 	<div class="flex min-h-0 flex-1 flex-row gap-8 overflow-hidden">
 		{#if $user?.npub && $devicePlatform !== 'ios' && $devicePlatform !== 'android' && width >= 1200 && !isDetailsRoute}
 			<div class="w-full shrink-0 md:w-64">
-				<div class="fixed top-24 left-8 z-10 w-56 max-h-[calc(100dvh-6rem)] overflow-y-auto">
+				<div class="fixed top-24 left-8 z-10 max-h-[calc(100dvh-6rem)] w-56 overflow-y-auto">
 					<div class="card bg-base-100 rounded-xl shadow-xl">
 						<div class="card-body p-4">
 							<ul class="menu bg-base-100 rounded-box w-full">
-								{#each sections as section}
+								{#each sections as section (section.id)}
 									<li class="my-1">
 										<a
 											data-sveltekit-reload="off"
@@ -94,7 +96,7 @@
 			</div>
 		{/if}
 
-		<div class="w-full min-h-0 flex-1 overflow-hidden">
+		<div class="min-h-0 w-full flex-1 overflow-hidden">
 			{@render children?.()}
 		</div>
 	</div>

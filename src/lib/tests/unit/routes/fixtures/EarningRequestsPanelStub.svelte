@@ -17,7 +17,7 @@
 	} = $props();
 
 	function reportMissingRequest() {
-		serviceQuoteUiStore.setNonBlockingMessage('service_quotes_request_not_found');
+		serviceQuoteUiStore.setNonBlockingMessage('service_requests_request_not_found');
 		onResolveQuotesRoute?.({ type: 'request', requestId: null });
 	}
 </script>

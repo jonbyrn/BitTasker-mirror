@@ -12,6 +12,9 @@
 	import DashboardEmptyState from '$lib/components/shared/DashboardEmptyState.svelte';
 	import ErrorAlertWithModal from '$lib/components/ErrorAlertWithModal.svelte';
 	import { detectErrorType } from '$lib/utils/helpers/errorTypeDetector';
+	import DashboardFilterBar from '$lib/components/shared/DashboardFilterBar.svelte';
+	import DashboardDropdown from '$lib/components/shared/DashboardDropdown.svelte';
+	import { createDashboardUrl } from '$lib/utils/service-quote/dashboard-route';
 
 	// MDI Icons for filters
 	import IconClockOutline from '~icons/mdi/clock-outline';
@@ -19,27 +22,46 @@
 	import IconCheckCircle from '~icons/mdi/check-circle';
 	import IconAlertCircleOutline from '~icons/mdi/alert-circle-outline';
 	import IconClipboardTextOutline from '~icons/mdi/clipboard-text-outline';
-	import IconChevronDown from '~icons/mdi/chevron-down';
-	import IconCheck from '~icons/mdi/check';
+	import IconCheckAll from '~icons/mdi/check-all';
 	import IconPlus from '~icons/mdi/plus';
 	import IconRefresh from '~icons/mdi/refresh';
 
 	// Props
-	const { openTaskDrawer } = $props<{
+	let { openTaskDrawer, status = null } = $props<{
 		openTaskDrawer: (task: Task, tab?: string) => void;
+		status?: string | null;
 	}>();
 
 	// Task filter categories
 	type TaskFilterCategory =
+		| 'all'
 		| 'open'
 		| 'tasks_in_progress'
 		| 'tasks_completed'
 		| 'tasks_disputed'
 		| 'tasks_cancelled';
 
-	let activeFilter = $state<TaskFilterCategory>('open');
+	const VALID_FILTERS: TaskFilterCategory[] = [
+		'all',
+		'open',
+		'tasks_in_progress',
+		'tasks_completed',
+		'tasks_disputed',
+		'tasks_cancelled'
+	];
+
+	let activeFilter = $state<TaskFilterCategory>(
+		status && VALID_FILTERS.includes(status as TaskFilterCategory)
+			? (status as TaskFilterCategory)
+			: 'all'
+	);
+
+	$effect(() => {
+		if (status && VALID_FILTERS.includes(status as TaskFilterCategory)) {
+			activeFilter = status as TaskFilterCategory;
+		}
+	});
 	let btcPrice = $state<number>(0);
-	let isDropdownOpen = $state<boolean>(false);
 	let isLoading = $state(true);
 	let error = $state<string | null>(null);
 
@@ -49,6 +71,11 @@
 
 	// Filter options - reactive to language changes
 	const filterOptions = $derived([
+		{
+			id: 'all' as const,
+			label: $t('dashboard.contracts.all_statuses'),
+			icon: IconCheckAll
+		},
 		{
 			id: 'open',
 			label: $t('task.filters.open'),
@@ -160,9 +187,7 @@
 	}
 
 	function clearTaskFilters() {
-		const nextFilter =
-			filterOptions.find((option) => getTasksForFilter(option.id).length > 0)?.id ?? 'open';
-		activeFilter = nextFilter;
+		activeFilter = 'all';
 		currentPage = 1;
 	}
 
@@ -172,32 +197,6 @@
 			currentPage = 1;
 		}
 	});
-
-	/**
-	 * Select filter option
-	 */
-	function selectFilter(optionId: TaskFilterCategory) {
-		activeFilter = optionId;
-		isDropdownOpen = false;
-	}
-
-	/**
-	 * Toggle dropdown
-	 */
-	function toggleDropdown() {
-		isDropdownOpen = !isDropdownOpen;
-	}
-
-	/**
-	 * Close dropdown when clicking outside
-	 */
-	function handleClickOutside(event: MouseEvent) {
-		const target = event.target as HTMLElement;
-		const dropdownContainer = target.closest('.status-dropdown-container');
-		if (!dropdownContainer && isDropdownOpen) {
-			isDropdownOpen = false;
-		}
-	}
 
 	/**
 	 * Load tasks
@@ -233,6 +232,15 @@
 		} finally {
 			isLoading = false;
 		}
+	}
+
+	function handleStatusChange(nextStatus: TaskFilterCategory) {
+		activeFilter = nextStatus;
+		const nextUrl = createDashboardUrl(new URL(window.location.href), {
+			tab: 'tasks',
+			status: nextStatus
+		});
+		void goto(nextUrl.toString(), { replaceState: true, keepFocus: true, noScroll: true });
 	}
 
 	/**
@@ -309,126 +317,23 @@
 	);
 
 	onMount(() => {
-		document.addEventListener('click', handleClickOutside);
-
 		// Load tasks and BTC price
 		(async () => {
 			await loadTasks();
 			await fetchBtcPrice();
 		})();
-
-		return () => {
-			document.removeEventListener('click', handleClickOutside);
-		};
 	});
 </script>
 
-<div class="space-y-6">
-	<!-- Status filter + refresh -->
-	<div class="border-base-300/60 bg-base-100/40 mt-2 rounded-3xl border p-4 shadow-sm">
-		<!-- Header with title and refresh button -->
-		<div class="mb-3 flex items-center justify-between gap-2">
-			<div class="space-y-1">
-				<p class="text-base-content/70 text-xs font-semibold tracking-wide uppercase">
-					{$t('dashboard.tasks.status_heading')}
-				</p>
-				<p class="text-base-content/70 hidden text-sm sm:block">
-					{$t('dashboard.tasks.status_subheading')}
-				</p>
-			</div>
-
-			<!-- Refresh button: icon only on mobile, with text on desktop -->
-			<button
-				class="btn btn-ghost btn-sm sm:btn-outline gap-2"
-				onclick={handleRefresh}
-				disabled={isLoading}
-				aria-label={$t('dashboard.tasks.refresh')}
-			>
-				{#if isLoading}
-					<span class="loading loading-spinner loading-xs"></span>
-					<span class="hidden sm:inline">{$t('dashboard.tasks.refreshing')}</span>
-				{:else}
-					<IconRefresh class="h-5 w-5" />
-					<span class="hidden sm:inline">{$t('dashboard.tasks.refresh')}</span>
-				{/if}
-			</button>
-		</div>
-
-		<!-- Mobile: Subheading and dropdown -->
-		<div class="mb-3 sm:hidden">
-			<p class="text-base-content/70 mb-3 text-sm">
-				{$t('dashboard.tasks.status_subheading')}
-			</p>
-			<div class="status-dropdown-container relative">
-				<button
-					class="border-primary bg-primary/10 text-primary hover:bg-primary/20 flex w-full items-center justify-between rounded-3xl border px-4 py-2 transition-all duration-200"
-					onclick={toggleDropdown}
-				>
-					<div class="flex items-center gap-2">
-						{#each filterOptions as option (option.id)}
-							{#if activeFilter === option.id}
-								{@const IconComponent = option.icon}
-								<IconComponent class="h-5 w-5" />
-							{/if}
-						{/each}
-						<span class="font-medium">
-							{filterOptions.find((opt) => opt.id === activeFilter)?.label}
-						</span>
-					</div>
-					<IconChevronDown
-						class="h-5 w-5 transition-transform duration-200 {isDropdownOpen ? 'rotate-180' : ''}"
-					/>
-				</button>
-
-				{#if isDropdownOpen}
-					<div
-						class="border-base-300 bg-base-100 absolute top-full right-0 left-0 z-50 mt-2 rounded-xl border shadow-lg"
-					>
-						{#each filterOptions as option (option.id)}
-							{@const IconComponent = option.icon}
-							<button
-								class="hover:bg-base-200 flex w-full items-center gap-2 px-4 py-2 text-left transition-colors duration-200 first:rounded-t-xl last:rounded-b-xl {activeFilter ===
-								option.id
-									? 'bg-primary/10 text-primary'
-									: 'text-base-content'}"
-								onclick={() => selectFilter(option.id)}
-							>
-								<IconComponent
-									class="h-5 w-5 {activeFilter === option.id
-										? 'text-primary'
-										: 'text-base-content/60'}"
-								/>
-								<span class="font-medium">{option.label}</span>
-								{#if activeFilter === option.id}
-									<IconCheck class="text-primary ml-auto h-5 w-5" />
-								{/if}
-							</button>
-						{/each}
-					</div>
-				{/if}
-			</div>
-		</div>
-
-		<!-- Desktop filters -->
-		<div class="mt-4 hidden sm:block">
-			<div class="flex flex-col gap-3 sm:flex-row">
-				{#each filterOptions as option (option.id)}
-					{@const IconComponent = option.icon}
-					<button
-						class="btn btn-sm flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-3xl py-4 text-center transition-all duration-200 {activeFilter ===
-						option.id
-							? 'text-primary bg-primary/10 border-primary/30 border'
-							: 'bg-base-100/40 hover:bg-base-100/60 text-base-content/70'}"
-						onclick={() => selectFilter(option.id)}
-						aria-label={option.label}
-					>
-						<IconComponent class="h-5 w-5 {activeFilter === option.id ? 'text-primary' : ''}" />
-						<span class="font-medium">{option.label}</span>
-					</button>
-				{/each}
-			</div>
-		</div>
-	</div>
+<div class="space-y-4">
+	<DashboardFilterBar onRefresh={handleRefresh} isRefreshing={isLoading}>
+		<DashboardDropdown
+			options={filterOptions}
+			value={activeFilter}
+			onSelect={handleStatusChange}
+			containerClass="col-span-2 sm:w-64"
+		/>
+	</DashboardFilterBar>
 
 	<!-- Loading State -->
 	{#if isLoading}

@@ -125,7 +125,7 @@ export const LOGGED_IN_MENU_SECTIONS: MenuSection[] = [
 			{
 				label: 'navbar.service_requests',
 				icon: IconCommentTextOutline,
-				href: '/dashboard?tab=quotes'
+				href: '/dashboard?tab=service-requests'
 			},
 			{
 				label: 'navbar.contracts',

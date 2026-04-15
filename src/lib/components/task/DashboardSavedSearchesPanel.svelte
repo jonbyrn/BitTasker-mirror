@@ -2,6 +2,10 @@
 	import { t } from 'svelte-i18n';
 	import DashboardSavedTaskSearchesPanel from '$lib/components/task/DashboardSavedTaskSearchesPanel.svelte';
 	import DashboardSavedServiceSearchesPanel from '$lib/components/service/DashboardSavedServiceSearchesPanel.svelte';
+	import DashboardFilterBar from '$lib/components/shared/DashboardFilterBar.svelte';
+	import DashboardDropdown from '$lib/components/shared/DashboardDropdown.svelte';
+	import IconClipboardTextOutline from '~icons/mdi/clipboard-text-outline';
+	import IconBriefcaseOutline from '~icons/mdi/briefcase-outline';
 
 	type FilterType = 'tasks' | 'services';
 	let { fixedFilter = null }: { fixedFilter?: FilterType | null } = $props();
@@ -12,43 +16,45 @@
 			filter = fixedFilter;
 		}
 	});
+
+	const filterOptions = $derived([
+		{
+			id: 'tasks' as const,
+			label: $t('dashboard.saved_searches.tasks'),
+			icon: IconClipboardTextOutline
+		},
+		{
+			id: 'services' as const,
+			label: $t('dashboard.saved_searches.services'),
+			icon: IconBriefcaseOutline
+		}
+	]);
 </script>
 
-{#if !fixedFilter}
-	<div class="mb-4">
-		<div class="flex gap-2" role="tablist" aria-label={$t('dashboard.saved_searches.filter_label')}>
-			<button
-				type="button"
-				class="btn btn-sm {filter === 'tasks' ? 'btn-primary' : 'btn-ghost'}"
-				role="tab"
-				aria-selected={filter === 'tasks'}
-				aria-controls="panel-saved-tasks"
-				id="tab-saved-tasks"
-				onclick={() => (filter = 'tasks')}
-			>
-				{$t('dashboard.saved_searches.tasks')}
-			</button>
-			<button
-				type="button"
-				class="btn btn-sm {filter === 'services' ? 'btn-primary' : 'btn-ghost'}"
-				role="tab"
-				aria-selected={filter === 'services'}
-				aria-controls="panel-saved-services"
-				id="tab-saved-services"
-				onclick={() => (filter = 'services')}
-			>
-				{$t('dashboard.saved_searches.services')}
-			</button>
-		</div>
-	</div>
-{/if}
+<div class="space-y-4">
+	{#if !fixedFilter}
+		<DashboardFilterBar>
+			<DashboardDropdown
+				options={filterOptions}
+				value={filter}
+				onSelect={(val) => (filter = val)}
+				containerClass="col-span-2 sm:w-64"
+			/>
+		</DashboardFilterBar>
+	{/if}
 
-{#if filter === 'tasks'}
-	<div id="panel-saved-tasks" role="tabpanel" aria-labelledby="tab-saved-tasks" tabindex="0">
-		<DashboardSavedTaskSearchesPanel />
-	</div>
-{:else}
-	<div id="panel-saved-services" role="tabpanel" aria-labelledby="tab-saved-services" tabindex="0">
-		<DashboardSavedServiceSearchesPanel />
-	</div>
-{/if}
+	{#if filter === 'tasks'}
+		<div id="panel-saved-tasks" role="tabpanel" aria-labelledby="tab-saved-tasks" tabindex="0">
+			<DashboardSavedTaskSearchesPanel />
+		</div>
+	{:else}
+		<div
+			id="panel-saved-services"
+			role="tabpanel"
+			aria-labelledby="tab-saved-services"
+			tabindex="0"
+		>
+			<DashboardSavedServiceSearchesPanel />
+		</div>
+	{/if}
+</div>

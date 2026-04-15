@@ -33,15 +33,22 @@
 	let {
 		selectedServiceAddress = null,
 		focusedRequestId = null,
+		status = null,
 		onResolveQuotesRoute
 	}: {
 		selectedServiceAddress?: string | null;
 		focusedRequestId?: string | null;
+		status?: string | null;
 		onResolveQuotesRoute?: (
 			update:
-				| { type: 'service'; serviceAddress: string; requestId?: string | null }
-				| { type: 'reset' }
-				| { type: 'request'; requestId: string | null }
+				| {
+						type: 'service';
+						serviceAddress: string;
+						requestId?: string | null;
+						status?: string | null;
+				  }
+				| { type: 'reset'; status?: string | null }
+				| { type: 'request'; requestId: string | null; status?: string | null }
 		) => void;
 	} = $props();
 
@@ -491,6 +498,7 @@
 		dataFreshness={providerDataFreshness}
 		timelines={providerTimelines}
 		{focusedRequestId}
+		{status}
 		isSyncing={providerQuotesSyncing}
 		hasLoaded={providerQuotesLoaded}
 		loadError={providerQuotesError}
@@ -508,21 +516,23 @@
 		)}
 		onServiceFilterChange={(serviceAddress) => {
 			if (!serviceAddress) {
-				onResolveQuotesRoute?.({ type: 'reset' });
+				onResolveQuotesRoute?.({ type: 'reset', status });
 				return;
 			}
 
 			onResolveQuotesRoute?.({
 				type: 'service',
 				serviceAddress,
-				requestId: null
+				requestId: null,
+				status
 			});
 		}}
-		onRequestFocusChange={(requestId) => onResolveQuotesRoute?.({ type: 'request', requestId })}
-		onRequestClear={() => onResolveQuotesRoute?.({ type: 'request', requestId: null })}
+		onRequestFocusChange={(requestId) =>
+			onResolveQuotesRoute?.({ type: 'request', requestId, status })}
+		onRequestClear={() => onResolveQuotesRoute?.({ type: 'request', requestId: null, status })}
 		onInvalidFocusedRequest={() => {
 			serviceQuoteUiStore.setNonBlockingMessage('service_quotes_request_not_found');
-			onResolveQuotesRoute?.({ type: 'request', requestId: null });
+			onResolveQuotesRoute?.({ type: 'request', requestId: null, status });
 		}}
 		onSendProposal={async (requestId, payload) => {
 			const { service, serviceAddress } = resolveProposalServiceContext(requestId);

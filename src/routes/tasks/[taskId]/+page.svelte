@@ -20,7 +20,7 @@
 
 	// Get taskId from route params
 	const taskId = page.params.taskId;
-	
+
 	// Get SEO data from page data
 	let { data }: { data: PageData } = $props();
 
@@ -28,6 +28,11 @@
 
 	// Layout state
 	let width = $state(375);
+	const jsonLdScript = $derived(
+		data.seo.jsonLd
+			? `<script type="application/ld+json">${JSON.stringify(data.seo.jsonLd)}</sc` + `ript>`
+			: ''
+	);
 </script>
 
 <svelte:head>
@@ -59,7 +64,8 @@
 
 	<!-- Structured Data -->
 	{#if data.seo.jsonLd}
-		{@html `<script type="application/ld+json">${JSON.stringify(data.seo.jsonLd)}</script>`}
+		<!-- eslint-disable-next-line svelte/no-at-html-tags -->
+		{@html jsonLdScript}
 	{/if}
 </svelte:head>
 
@@ -67,20 +73,23 @@
 
 {#if $authState.isAuthenticated}
 	<!-- Mismas dimensiones que Mi Panel -->
-	<div class="dashboard-layout bg-base-200 mx-auto flex h-full w-full flex-row gap-8 overflow-hidden px-2 md:py-4">
+	<div
+		class="dashboard-layout bg-base-200 mx-auto flex h-full w-full flex-row gap-8 overflow-hidden px-2 md:py-4"
+	>
 		{#if $devicePlatform !== 'ios' && $devicePlatform !== 'android' && width >= 1200}
 			<!-- Fixed Sidebar - Only on desktop; max-h + overflow para que no se desborde -->
 			<div class="w-full shrink-0 md:w-64">
-				<div class="fixed top-24 left-8 z-10 w-56 max-h-[calc(100dvh-6rem)] overflow-y-auto">
+				<div class="fixed top-24 left-8 z-10 max-h-[calc(100dvh-6rem)] w-56 overflow-y-auto">
 					<div class="card bg-base-100 rounded-xl shadow-xl">
 						<div class="card-body p-4">
 							<ul class="menu bg-base-100 rounded-box w-full">
-								{#each sections as section}
+								{#each sections as section (section.id)}
 									<li class="my-1">
 										<a
 											data-sveltekit-reload="off"
 											href={section.path}
-											class:menu-active={page.url.pathname + page.url.search === section.path || (section.id === 'find-tasks' && page.url.pathname.startsWith('/tasks'))}
+											class:menu-active={page.url.pathname + page.url.search === section.path ||
+												(section.id === 'find-tasks' && page.url.pathname.startsWith('/tasks'))}
 											class="flex items-center gap-3"
 										>
 											{#if section.icon === 'mdi:format-list-bulleted'}

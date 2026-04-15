@@ -237,8 +237,15 @@ export interface ServiceQuoteRelayCapability {
 }
 
 export interface ServiceQuoteDeepLinkState {
-	tab: 'tasks' | 'my-services' | 'bids' | 'contracts' | 'saved-searches' | 'quotes' | 'requests';
-	view?: 'default' | 'quotes' | 'tasker';
+	tab:
+		| 'tasks'
+		| 'my-services'
+		| 'bids'
+		| 'contracts'
+		| 'saved-searches'
+		| 'service-requests'
+		| 'requests';
+	view?: 'default' | 'service-requests' | 'tasker';
 	context?: 'all' | 'tasks' | 'services';
 	service?: string;
 	request?: string;

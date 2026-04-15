@@ -371,7 +371,7 @@
 						'$lib/utils/service-quote/dashboard-route'
 					);
 					const parsed = parseServiceQuoteDashboardQuery(
-						new URLSearchParams('tab=quotes&view=default&request=bad!'),
+						new URLSearchParams('tab=service-requests&view=default&request=bad!'),
 						emptyDashboardRouteContext
 					);
 					result = {
@@ -401,7 +401,7 @@
 						'$lib/utils/service-quote/dashboard-route'
 					);
 					const parsed = parseServiceQuoteDashboardQuery(
-						new URLSearchParams('tab=quotes&view=tasker&request=qr_valid123'),
+						new URLSearchParams('tab=service-requests&view=tasker&request=qr_valid123'),
 						{
 							taskerTimelines: [],
 							providerTimelinesByService: {},
@@ -427,7 +427,7 @@
 						'$lib/utils/service-quote/dashboard-route'
 					);
 					const parsed = parseServiceQuoteDashboardQuery(
-						new URLSearchParams('tab=quotes&view=tasker&request=qr_valid123'),
+						new URLSearchParams('tab=service-requests&view=tasker&request=qr_valid123'),
 						{
 							taskerTimelines: [],
 							providerTimelinesByService: {},
@@ -824,7 +824,9 @@
 						parseServiceQuoteDashboardQuery
 					} = await import('$lib/utils/service-quote/dashboard-route');
 					const nextUrl = createDashboardUrl(
-						new URL('https://bittasker.test/dashboard?tab=quotes&view=tasker&request=qr_valid123'),
+						new URL(
+							'https://bittasker.test/dashboard?tab=service-requests&view=tasker&request=qr_valid123'
+						),
 						{
 							tab: 'contracts',
 							context: 'services',

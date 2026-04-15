@@ -233,7 +233,7 @@
 		appStore.showSuccessToast($t('dashboard.services.browse.quote_request_submitted'));
 
 		await goto(
-			`/dashboard?tab=quotes&view=tasker&request=${encodeURIComponent(result.quoteRequestId)}`
+			`/dashboard?tab=service-requests&view=tasker&request=${encodeURIComponent(result.quoteRequestId)}`
 		);
 		serviceQuoteUiStore.setNonBlockingMessage('service_quote_protocol_pending');
 		serviceForQuote = null;

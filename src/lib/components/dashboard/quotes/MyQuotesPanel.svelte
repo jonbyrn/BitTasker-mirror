@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { goto } from '$app/navigation';
-	import { onMount, untrack } from 'svelte';
+	import { untrack } from 'svelte';
 	import { t } from 'svelte-i18n';
 	import DashboardQuoteCard from './DashboardQuoteCard.svelte';
 	import ServiceRequestDrawer from './ServiceRequestDrawer.svelte';
@@ -19,6 +19,8 @@
 	import ErrorAlertWithModal from '$lib/components/ErrorAlertWithModal.svelte';
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { detectErrorType } from '$lib/utils/helpers/errorTypeDetector';
+	import DashboardFilterBar from '$lib/components/shared/DashboardFilterBar.svelte';
+	import DashboardDropdown from '$lib/components/shared/DashboardDropdown.svelte';
 	import { createPortal, portal } from '$lib/utils/portal';
 	import { describeServiceContractPreflightFailure } from '$lib/utils/service-contract/preflight-feedback';
 	import {
@@ -37,12 +39,14 @@
 	import IconBriefcaseOutline from '~icons/mdi/briefcase-outline';
 	import IconCheck from '~icons/mdi/check';
 	import IconCheckCircleOutline from '~icons/mdi/check-circle-outline';
-	import IconChevronDown from '~icons/mdi/chevron-down';
 	import IconClockOutline from '~icons/mdi/clock-outline';
 	import IconCloseCircleOutline from '~icons/mdi/close-circle-outline';
 	import IconRefresh from '~icons/mdi/refresh';
 	import IconTimerSand from '~icons/mdi/timer-sand';
 	import IconUndoVariant from '~icons/mdi/undo-variant';
+
+	const briefcaseEmptyStateIcon = IconBriefcaseOutline;
+	const refreshEmptyStateIcon = IconRefresh;
 
 	let {
 		timelines = [],
@@ -97,9 +101,31 @@
 		| 'expired';
 	type RequestConfirmationAction = 'decline' | 'delete';
 
+	const VALID_FILTERS: ServiceRequestFilterCategory[] = [
+		'all',
+		'awaiting_proposal',
+		'proposal_received',
+		'needs_attention',
+		'contract_created',
+		'declined',
+		'withdrawn',
+		'expired'
+	];
+
 	let actionPending = $state<'accept' | 'decline' | null>(null);
 	let actionPendingRequestId = $state<string | null>(null);
-	let activeFilter = $state<ServiceRequestFilterCategory>('awaiting_proposal');
+	let activeFilter = $state<ServiceRequestFilterCategory>(
+		status && VALID_FILTERS.includes(status as ServiceRequestFilterCategory)
+			? (status as ServiceRequestFilterCategory)
+			: 'all'
+	);
+
+	$effect(() => {
+		if (status && VALID_FILTERS.includes(status as ServiceRequestFilterCategory)) {
+			activeFilter = status as ServiceRequestFilterCategory;
+		}
+	});
+
 	let acceptContractCreationBackgrounded = $state(false);
 	let acceptContractCreationRequestId = $state<string | null>(null);
 	let acceptContractCreationTimelineSnapshot = $state<ServiceQuoteTimelineEntry | null>(null);
@@ -110,13 +136,9 @@
 	let acceptFundingCheckRunId = 0;
 	let acceptPreflightErrorHint = $state('');
 	let acceptPreflightErrorMessage = $state('');
-	let hasUserSelectedFilter = $state(false);
 	let deletePendingRequestId = $state<string | null>(null);
 	let dismissedFocusedRequestId = $state<string | null>(null);
-	let isDropdownOpen = $state(false);
 	let requestDrawerRequestId = $state<string | null>(null);
-	let statusDropdownButton = $state<HTMLButtonElement | null>(null);
-	let statusDropdownContainer = $state<HTMLDivElement | null>(null);
 	let serviceByAddress = $state<Record<string, Service | null>>({});
 	let serviceLookupErrorByAddress = $state<Record<string, boolean>>({});
 	let serviceLoadedByAddress = $state<Record<string, boolean>>({});
@@ -233,66 +255,64 @@
 		}
 	}
 
-	const filterOptions = $derived.by(() => [
+	const filteredTimelines = $derived.by(() => {
+		if (activeFilter === 'all') {
+			return timelines;
+		}
+
+		return timelines.filter((timeline) => getTimelineFilterCategory(timeline) === activeFilter);
+	});
+
+	const filterOptions = $derived([
+		{ id: 'all', label: translateOrFallback('dashboard.filter.all', 'All') },
 		{
-			id: 'all' as const,
-			label: translateOrFallback('dashboard.service_requests.filters.all', 'All'),
-			icon: IconBriefcaseOutline
-		},
-		{
-			id: 'awaiting_proposal' as const,
+			id: 'awaiting_proposal',
 			label: translateOrFallback(
-				'dashboard.service_requests.filters.awaiting_proposal',
+				'dashboard.service_requests.filter.awaiting_proposal',
 				'Awaiting proposal'
 			),
 			icon: IconClockOutline
 		},
 		{
-			id: 'proposal_received' as const,
+			id: 'proposal_received',
 			label: translateOrFallback(
-				'dashboard.service_requests.filters.proposal_received',
+				'dashboard.service_requests.filter.proposal_received',
 				'Proposal received'
-			),
-			icon: IconCheck
-		},
-		{
-			id: 'needs_attention' as const,
-			label: translateOrFallback(
-				'dashboard.service_requests.filters.needs_attention',
-				'Needs attention'
-			),
-			icon: IconCloseCircleOutline
-		},
-		{
-			id: 'contract_created' as const,
-			label: translateOrFallback(
-				'dashboard.service_requests.filters.contract_created',
-				'Contract created'
 			),
 			icon: IconCheckCircleOutline
 		},
 		{
-			id: 'declined' as const,
-			label: translateOrFallback('dashboard.service_requests.filters.declined', 'Declined'),
-			icon: IconCloseCircleOutline
-		},
-		{
-			id: 'withdrawn' as const,
-			label: translateOrFallback('dashboard.service_requests.filters.withdrawn', 'Withdrawn'),
+			id: 'needs_attention',
+			label: translateOrFallback(
+				'dashboard.service_requests.filter.needs_attention',
+				'Needs attention'
+			),
 			icon: IconUndoVariant
 		},
 		{
-			id: 'expired' as const,
-			label: translateOrFallback('dashboard.service_requests.filters.expired', 'Expired'),
+			id: 'contract_created',
+			label: translateOrFallback(
+				'dashboard.service_requests.filter.contract_created',
+				'Contract created'
+			),
+			icon: IconCheck
+		},
+		{
+			id: 'declined',
+			label: translateOrFallback('dashboard.service_requests.filter.declined', 'Declined'),
+			icon: IconCloseCircleOutline
+		},
+		{
+			id: 'withdrawn',
+			label: translateOrFallback('dashboard.service_requests.filter.withdrawn', 'Withdrawn'),
+			icon: IconUndoVariant
+		},
+		{
+			id: 'expired',
+			label: translateOrFallback('dashboard.service_requests.filter.expired', 'Expired'),
 			icon: IconTimerSand
 		}
 	]);
-
-	const filteredTimelines = $derived.by(() =>
-		activeFilter === 'all'
-			? timelines
-			: timelines.filter((timeline) => getTimelineFilterCategory(timeline) === activeFilter)
-	);
 
 	function getPreferredFilter(): ServiceRequestFilterCategory {
 		const focusedTimelineEntry =
@@ -305,24 +325,18 @@
 		}
 
 		return (
-			filterOptions.find(
-				(option) =>
-					option.id !== 'all' &&
-					timelines.some((timeline) => getTimelineFilterCategory(timeline) === option.id)
-			)?.id ?? 'awaiting_proposal'
+			VALID_FILTERS.find((filter) =>
+				timelines.some((timeline) => getTimelineFilterCategory(timeline) === filter)
+			) ?? 'all'
 		);
 	}
 
 	$effect(() => {
-		if (!hasUserSelectedFilter && timelines.length > 0) {
-			activeFilter = getPreferredFilter();
-		}
-	});
-
-	$effect(() => {
-		if (focusedRequestId && !selectedTimeline && !isSyncing && hasLoaded) {
-			onInvalidFocusedRequest?.();
-		}
+		untrack(() => {
+			if (activeFilter === 'all' || !VALID_FILTERS.includes(activeFilter)) {
+				activeFilter = getPreferredFilter();
+			}
+		});
 	});
 
 	$effect(() => {
@@ -354,6 +368,12 @@
 		const focusedTimelineMatch =
 			timelines.find((timeline) => timeline.request.content.quoteRequestId === focusedRequestId) ??
 			null;
+
+		if (!focusedTimelineMatch && hasLoaded && !isSyncing) {
+			onInvalidFocusedRequest?.();
+			return;
+		}
+
 		if (!focusedTimelineMatch) {
 			return;
 		}
@@ -458,135 +478,13 @@
 		);
 	}
 
-	const actionsUnavailable = $derived(isActionUnavailableForTimeline(requestDrawerTimeline));
-	const deleteUnavailable = $derived(isActionUnavailableForTimeline(requestDrawerTimeline));
-
-	function selectFilter(nextFilter: ServiceRequestFilterCategory) {
-		if (hasPendingMutation) {
-			return;
-		}
-
-		activeFilter = nextFilter;
-		hasUserSelectedFilter = true;
-		isDropdownOpen = false;
-	}
-
-	function clearFilters() {
-		if (hasPendingMutation) {
-			return;
-		}
-
-		hasUserSelectedFilter = true;
-		activeFilter = 'all';
-		isDropdownOpen = false;
-	}
-
-	function toggleDropdown() {
-		if (hasPendingMutation) {
-			return;
-		}
-
-		isDropdownOpen = !isDropdownOpen;
-	}
-
-	function focusStatusOption(index: number) {
-		const options = Array.from(
-			statusDropdownContainer?.querySelectorAll<HTMLButtonElement>(
-				'[data-status-filter-option="true"]'
-			) ?? []
-		);
-		if (options.length === 0) {
-			return;
-		}
-
-		const normalizedIndex = ((index % options.length) + options.length) % options.length;
-		options[normalizedIndex]?.focus();
-	}
-
-	function handleClickOutside(event: MouseEvent) {
-		const target = event.target as Node | null;
-		if (
-			isDropdownOpen &&
-			statusDropdownContainer &&
-			target &&
-			!statusDropdownContainer.contains(target)
-		) {
-			isDropdownOpen = false;
-		}
-	}
-
-	function handleStatusTriggerKeydown(event: KeyboardEvent) {
-		if (hasPendingMutation) {
-			return;
-		}
-
-		if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-			event.preventDefault();
-			isDropdownOpen = true;
-			queueMicrotask(() =>
-				focusStatusOption(event.key === 'ArrowDown' ? 0 : filterOptions.length - 1)
-			);
-			return;
-		}
-
-		if (event.key === 'Enter' || event.key === ' ') {
-			event.preventDefault();
-			const willOpen = !isDropdownOpen;
-			toggleDropdown();
-			if (willOpen) {
-				queueMicrotask(() => focusStatusOption(0));
-			}
-			return;
-		}
-
-		if (event.key === 'Escape') {
-			event.preventDefault();
-			isDropdownOpen = false;
-			statusDropdownButton?.focus();
-		}
-	}
-
-	function handleStatusOptionKeydown(
-		event: KeyboardEvent,
-		index: number,
-		optionId: ServiceRequestFilterCategory
-	) {
-		if (event.key === 'Enter' || event.key === ' ') {
-			event.preventDefault();
-			selectFilter(optionId);
-			statusDropdownButton?.focus();
-			return;
-		}
-
-		if (event.key === 'Escape') {
-			event.preventDefault();
-			isDropdownOpen = false;
-			statusDropdownButton?.focus();
-			return;
-		}
-
-		if (event.key === 'ArrowDown') {
-			event.preventDefault();
-			focusStatusOption(index + 1);
-			return;
-		}
-
-		if (event.key === 'ArrowUp') {
-			event.preventDefault();
-			focusStatusOption(index - 1);
-			return;
-		}
-
-		if (event.key === 'Home') {
-			event.preventDefault();
-			focusStatusOption(0);
-			return;
-		}
-
-		if (event.key === 'End') {
-			event.preventDefault();
-			focusStatusOption(filterOptions.length - 1);
-		}
+	function handleFilterChange(nextStatus: ServiceRequestFilterCategory) {
+		activeFilter = nextStatus;
+		const nextUrl = createDashboardUrl(new URL(window.location.href), {
+			tab: 'service-requests',
+			status: nextStatus === 'all' ? null : nextStatus
+		});
+		void goto(nextUrl.toString(), { replaceState: true, keepFocus: true, noScroll: true });
 	}
 
 	async function handleRefresh() {
@@ -642,32 +540,39 @@
 		);
 
 		void (async () => {
-			const entries = await Promise.all(
+			const results = await Promise.all(
 				serviceAddresses.map(async (serviceAddress) => {
+					if (existingServiceLoadedByAddress[serviceAddress]) {
+						return {
+							serviceAddress,
+							service: existingServiceByAddress[serviceAddress] ?? null,
+							lookupError: existingServiceLookupErrorByAddress[serviceAddress] ?? false
+						};
+					}
+
 					try {
 						const { dTag } = parseServiceAddress(serviceAddress);
 						const service = await findServiceByUniqueId(dTag);
-						return {
-							serviceAddress,
-							service,
-							lookupError: false
-						} as const;
-					} catch {
-						return {
-							serviceAddress,
-							service: null,
-							lookupError: true
-						} as const;
+						return { serviceAddress, service, lookupError: false };
+					} catch (err) {
+						console.error(`Failed to lookup service ${serviceAddress}:`, err);
+						return { serviceAddress, service: null, lookupError: true };
 					}
 				})
 			);
 
 			if (!cancelled) {
+				const entries = results.map(({ serviceAddress, service, lookupError }) => ({
+					serviceAddress,
+					service,
+					lookupError
+				}));
+
 				serviceByAddress = Object.fromEntries(
-					entries.map(({ serviceAddress, service }) => [serviceAddress, service] as const)
+					entries.map(({ serviceAddress, service }) => [serviceAddress, service])
 				);
 				serviceLookupErrorByAddress = Object.fromEntries(
-					entries.map(({ serviceAddress, lookupError }) => [serviceAddress, lookupError] as const)
+					entries.map(({ serviceAddress, lookupError }) => [serviceAddress, lookupError])
 				);
 				serviceLoadedByAddress = Object.fromEntries(
 					entries.map(({ serviceAddress }) => [serviceAddress, true] as const)
@@ -683,13 +588,6 @@
 
 		return () => {
 			cancelled = true;
-		};
-	});
-
-	onMount(() => {
-		document.addEventListener('click', handleClickOutside);
-		return () => {
-			document.removeEventListener('click', handleClickOutside);
 		};
 	});
 
@@ -721,25 +619,22 @@
 			return false;
 		}
 
-		return timeline.resolvedStatus === 'pending';
+		return timeline.resolvedStatus === 'pending' || timeline.resolvedStatus === 'accept_failed';
 	}
 
 	function canShowDeleteAction(timeline: ServiceQuoteTimelineEntry | null): boolean {
-		if (!timeline || timeline.linkedEscrowId) {
-			return false;
-		}
-
-		if (hasServiceLookupError(timeline) || isServiceUnavailable(timeline)) {
+		if (timeline?.linkedEscrowId) {
 			return false;
 		}
 
 		return (
-			timeline.resolvedStatus !== 'accepting' &&
-			timeline.resolvedStatus !== 'contract_sync_pending' &&
-			timeline.resolvedStatus !== 'accept_unknown' &&
-			timeline.resolvedStatus !== 'accepted'
+			timeline?.resolvedStatus === 'pending' ||
+			timeline?.resolvedStatus === 'declined' ||
+			timeline?.resolvedStatus === 'withdrawn' ||
+			timeline?.resolvedStatus === 'expired'
 		);
 	}
+
 	function getQuoteActionButtons(timeline: ServiceQuoteTimelineEntry): ActionButton[] {
 		const buttons: ActionButton[] = [];
 
@@ -1161,76 +1056,6 @@
 		}
 	}
 
-	const showDrawerAcceptActions = $derived(canShowAcceptActions(requestDrawerTimeline));
-	const showDrawerDeclineAction = $derived(canShowDeclineAction(requestDrawerTimeline));
-	const showDrawerDeleteAction = $derived(canShowDeleteAction(requestDrawerTimeline));
-	const acceptDrawerCanConfirm = $derived.by(
-		() =>
-			Boolean(acceptDrawerTimeline?.latestProposal) &&
-			canShowAcceptActions(acceptDrawerTimeline) &&
-			!isActionUnavailableForTimeline(acceptDrawerTimeline) &&
-			acceptWalletVerificationStatus === 'ready'
-	);
-	const acceptContractCreationStatus = $derived.by(() => {
-		const timeline = acceptContractCreationTimeline;
-		if (!acceptContractCreationRequestId || !timeline) {
-			return 'idle' as const;
-		}
-
-		if (timeline.linkedEscrowId) {
-			return 'success' as const;
-		}
-
-		return 'creating' as const;
-	});
-	const showAcceptContractCreationProgress = $derived.by(
-		() =>
-			Boolean(acceptDrawerRequestId) &&
-			acceptContractCreationRequestId === acceptDrawerRequestId &&
-			acceptContractCreationStatus !== 'idle'
-	);
-
-	const confirmationModalConfig = $derived.by(() => {
-		if (!confirmationModalState) {
-			return null;
-		}
-
-		switch (confirmationModalState.action) {
-			case 'decline':
-				return {
-					title: translateOrFallback(
-						'dashboard.service_requests.confirm.decline_title',
-						'Decline proposal'
-					),
-					message: translateOrFallback(
-						'dashboard.service_requests.confirm.decline_message',
-						'This will mark the current proposal as declined.'
-					),
-					confirmText: translateOrFallback(
-						'dashboard.service_requests.confirm.decline_confirm',
-						'Confirm Decline'
-					),
-					confirmButtonClass: 'btn-warning'
-				};
-			case 'delete':
-				return {
-					title: translateOrFallback(
-						'dashboard.service_requests.delete_modal.title',
-						'Delete service request'
-					),
-					message: translateOrFallback(
-						'dashboard.service_requests.delete_modal.intro',
-						'This will permanently remove this service request from your dashboard history.'
-					),
-					confirmText: translateOrFallback(
-						'dashboard.service_requests.delete_modal.confirm',
-						'Confirm Delete'
-					),
-					confirmButtonClass: 'btn-error'
-				};
-		}
-	});
-
 	async function handleConfirmedAction() {
 		if (!confirmationModalState) {
 			return;
@@ -1312,143 +1137,97 @@
 			);
 		}
 	});
+
+	const actionsUnavailable = $derived(isActionUnavailableForTimeline(requestDrawerTimeline));
+	const deleteUnavailable = $derived(isActionUnavailableForTimeline(requestDrawerTimeline));
+	const showDrawerAcceptActions = $derived(canShowAcceptActions(requestDrawerTimeline));
+	const showDrawerDeclineAction = $derived(canShowDeclineAction(requestDrawerTimeline));
+	const showDrawerDeleteAction = $derived(canShowDeleteAction(requestDrawerTimeline));
+	const acceptDrawerCanConfirm = $derived.by(
+		() =>
+			Boolean(acceptDrawerTimeline?.latestProposal) &&
+			canShowAcceptActions(acceptDrawerTimeline) &&
+			!isActionUnavailableForTimeline(acceptDrawerTimeline) &&
+			acceptWalletVerificationStatus === 'ready'
+	);
+	const acceptContractCreationStatus = $derived.by(() => {
+		const timeline = acceptContractCreationTimeline;
+		if (!acceptContractCreationRequestId || !timeline) {
+			return 'idle' as const;
+		}
+
+		if (timeline.linkedEscrowId) {
+			return 'success' as const;
+		}
+
+		return 'creating' as const;
+	});
+	const showAcceptContractCreationProgress = $derived.by(
+		() =>
+			Boolean(acceptDrawerRequestId) &&
+			acceptContractCreationRequestId === acceptDrawerRequestId &&
+			acceptContractCreationStatus !== 'idle'
+	);
+
+	const confirmationModalConfig = $derived.by(() => {
+		if (!confirmationModalState) {
+			return null;
+		}
+
+		switch (confirmationModalState.action) {
+			case 'decline':
+				return {
+					title: translateOrFallback(
+						'dashboard.service_requests.confirm.decline_title',
+						'Decline proposal'
+					),
+					message: translateOrFallback(
+						'dashboard.service_requests.confirm.decline_message',
+						'This will mark the current proposal as declined.'
+					),
+					confirmText: translateOrFallback(
+						'dashboard.service_requests.confirm.decline_confirm',
+						'Confirm Decline'
+					),
+					confirmButtonClass: 'btn-warning'
+				};
+			case 'delete':
+				return {
+					title: translateOrFallback(
+						'dashboard.service_requests.delete_modal.title',
+						'Delete service request'
+					),
+					message: translateOrFallback(
+						'dashboard.service_requests.delete_modal.intro',
+						'This will permanently remove this service request from your dashboard history.'
+					),
+					confirmText: translateOrFallback(
+						'dashboard.service_requests.delete_modal.confirm',
+						'Confirm Delete'
+					),
+					confirmButtonClass: 'btn-error'
+				};
+		}
+	});
+
+	function clearFilters() {
+		handleFilterChange('all');
+	}
 </script>
 
 <section data-testid="my-quotes-panel" class="space-y-4">
-	<div class="border-base-300/60 bg-base-100/40 mt-2 rounded-3xl border p-4 shadow-sm">
-		<div class="mb-3 flex items-center justify-between gap-2">
-			<div>
-				<p class="text-base-content/70 text-xs font-semibold tracking-wide uppercase">
-					{translateOrFallback(
-						'dashboard.service_requests.status_heading',
-						'Filter by request status'
-					)}
-				</p>
-			</div>
-
-			<button
-				class="btn btn-ghost btn-sm sm:btn-outline gap-2"
-				type="button"
-				onclick={handleRefresh}
-				disabled={isSyncing || !onRetry || hasPendingMutation}
-				aria-label={translateOrFallback('dashboard.service_requests.refresh', 'Refresh')}
-			>
-				{#if isSyncing}
-					<span class="loading loading-spinner loading-xs"></span>
-					<span class="hidden sm:inline">
-						{translateOrFallback('dashboard.service_requests.refreshing', 'Refreshing')}
-					</span>
-				{:else}
-					<IconRefresh class="h-5 w-5" />
-					<span class="hidden sm:inline">
-						{translateOrFallback('dashboard.service_requests.refresh', 'Refresh')}
-					</span>
-				{/if}
-			</button>
-		</div>
-
-		<div class="mb-3 sm:hidden">
-			<div class="status-dropdown-container relative" bind:this={statusDropdownContainer}>
-				<button
-					bind:this={statusDropdownButton}
-					type="button"
-					class="border-primary bg-primary/10 text-primary hover:bg-primary/20 flex w-full items-center justify-between rounded-3xl border px-4 py-2 transition-all duration-200"
-					onclick={toggleDropdown}
-					onkeydown={handleStatusTriggerKeydown}
-					disabled={hasPendingMutation}
-					aria-expanded={isDropdownOpen}
-					aria-controls="service-requests-filter-listbox"
-					aria-haspopup="listbox"
-				>
-					<div class="flex items-center gap-2">
-						{#each filterOptions as option (option.id)}
-							{#if activeFilter === option.id}
-								{@const IconComponent = option.icon}
-								<IconComponent class="h-5 w-5" />
-							{/if}
-						{/each}
-						<span class="font-medium">
-							{filterOptions.find((option) => option.id === activeFilter)?.label}
-						</span>
-					</div>
-					<IconChevronDown
-						class="h-5 w-5 transition-transform duration-200 {isDropdownOpen ? 'rotate-180' : ''}"
-					/>
-				</button>
-
-				{#if isDropdownOpen}
-					<div
-						id="service-requests-filter-listbox"
-						role="listbox"
-						aria-label={translateOrFallback(
-							'dashboard.service_requests.status_heading',
-							'Filter by request status'
-						)}
-						class="border-base-300 bg-base-100 absolute top-full right-0 left-0 z-50 mt-2 rounded-xl border shadow-lg"
-					>
-						{#each filterOptions as option, index (option.id)}
-							{@const IconComponent = option.icon}
-							<button
-								type="button"
-								data-status-filter-option="true"
-								role="option"
-								aria-selected={activeFilter === option.id}
-								class="hover:bg-base-200 flex w-full items-center gap-2 px-4 py-2 text-left transition-colors duration-200 first:rounded-t-xl last:rounded-b-xl {activeFilter ===
-								option.id
-									? 'bg-primary/10 text-primary'
-									: 'text-base-content'}"
-								onclick={() => {
-									selectFilter(option.id);
-									statusDropdownButton?.focus();
-								}}
-								onkeydown={(event) => handleStatusOptionKeydown(event, index, option.id)}
-								disabled={hasPendingMutation}
-							>
-								<IconComponent
-									class="h-5 w-5 {activeFilter === option.id
-										? 'text-primary'
-										: 'text-base-content/60'}"
-								/>
-								<span class="font-medium">{option.label}</span>
-								{#if activeFilter === option.id}
-									<IconCheck class="text-primary ml-auto h-5 w-5" />
-								{/if}
-							</button>
-						{/each}
-					</div>
-				{/if}
-			</div>
-		</div>
-
-		<div class="mt-4 hidden sm:block">
-			<div
-				class="flex flex-wrap gap-3"
-				role="group"
-				aria-label={translateOrFallback(
-					'dashboard.service_requests.status_heading',
-					'Filter by request status'
-				)}
-			>
-				{#each filterOptions as option (option.id)}
-					{@const IconComponent = option.icon}
-					<button
-						type="button"
-						class="btn btn-sm flex cursor-pointer items-center justify-center gap-2 rounded-3xl px-4 py-4 text-center transition-all duration-200 {activeFilter ===
-						option.id
-							? 'text-primary bg-primary/10 border-primary/30 border'
-							: 'bg-base-100/40 hover:bg-base-100/60 text-base-content/70'}"
-						onclick={() => selectFilter(option.id)}
-						aria-label={option.label}
-						aria-pressed={activeFilter === option.id}
-						disabled={hasPendingMutation}
-					>
-						<IconComponent class="h-5 w-5 {activeFilter === option.id ? 'text-primary' : ''}" />
-						<span class="font-medium">{option.label}</span>
-					</button>
-				{/each}
-			</div>
-		</div>
-	</div>
+	<DashboardFilterBar
+		onRefresh={handleRefresh}
+		isRefreshing={isSyncing}
+		refreshDisabled={!onRetry || hasPendingMutation}
+	>
+		<DashboardDropdown
+			options={filterOptions}
+			value={activeFilter}
+			onSelect={handleFilterChange}
+			containerClass="col-span-2 sm:w-64"
+		/>
+	</DashboardFilterBar>
 
 	{#if timelines.some((timeline) => serviceUnavailableByAddress[timeline.request.content.serviceAddress] === true)}
 		<div
