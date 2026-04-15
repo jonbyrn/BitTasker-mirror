@@ -1353,7 +1353,7 @@
 					icon={briefcaseEmptyStateIcon}
 					title={translateOrFallback(
 						'dashboard.service_requests.empty',
-						'No service requests have been submitted yet.'
+						"You haven't submitted any service requests yet."
 					)}
 					actionLabel={translateOrFallback('dashboard.find_services', 'Find Services')}
 					actionHref="/services"

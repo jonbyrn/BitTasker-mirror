@@ -1415,7 +1415,7 @@ describe('MyQuotesPanel', () => {
 		});
 
 		expect(getByText('Loading your service requests...')).toBeTruthy();
-		expect(queryByText('No service requests have been submitted yet.')).toBeNull();
+		expect(queryByText("You haven't submitted any service requests yet.")).toBeNull();
 	});
 
 	it('renders an empty state when no quote requests exist', () => {
@@ -1427,7 +1427,7 @@ describe('MyQuotesPanel', () => {
 		});
 
 		expect(getByTestId('my-quotes-empty-state')).toBeTruthy();
-		expect(getByText('No service requests have been submitted yet.')).toBeTruthy();
+		expect(getByText("You haven't submitted any service requests yet.")).toBeTruthy();
 		expect(getByRole('link', { name: 'Find Services' })).toHaveAttribute('href', '/services');
 		expect(queryByRole('button', { name: 'Find Services' })).toBeNull();
 	});
