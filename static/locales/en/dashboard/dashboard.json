@@ -676,7 +676,7 @@
 			"filter_description": "Choose the contract status and your role to review.",
 			"filter_by_service": "Filter by service",
 			"all_services": "All Services",
-			"all_roles": "All",
+			"all_roles": "All roles",
 			"all_statuses": "All statuses",
 			"as_client": "Tasker",
 			"as_freelancer": "Taskee",
@@ -713,7 +713,7 @@
 			"available_actions": "Available Actions",
 			"no_actions_available": "No actions available",
 			"context_filters": {
-				"all": "All",
+				"all": "All contexts",
 				"tasks": "Tasks",
 				"services": "Services"
 			},
