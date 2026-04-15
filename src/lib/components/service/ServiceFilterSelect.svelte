@@ -3,26 +3,23 @@
 	import { locale, t } from 'svelte-i18n';
 	import { buildServiceAddress } from '$lib/stores/service-quote-ui.store';
 	import { getServiceDisplayTitle } from '$lib/utils/serviceDisplayTranslation';
+	import DashboardDropdown from '$lib/components/shared/DashboardDropdown.svelte';
 
 	let {
 		services = [],
 		selectedServiceAddress = null,
-		filterLabel = null,
 		allServicesLabel = null,
 		deletedServiceLabel = null,
 		testId = 'service-filter-select',
 		containerClass = 'max-w-md',
-		selectClass = 'select select-bordered w-full truncate',
 		onChange = () => {}
 	} = $props<{
 		services?: Service[];
 		selectedServiceAddress?: string | null;
-		filterLabel?: string | null;
 		allServicesLabel?: string | null;
 		deletedServiceLabel?: string | null;
 		testId?: string;
 		containerClass?: string;
-		selectClass?: string;
 		onChange?: (serviceAddress: string | null) => void;
 	}>();
 
@@ -35,9 +32,6 @@
 		}
 	}
 
-	const resolvedFilterLabel = $derived(
-		filterLabel ?? tr('dashboard.contracts.filter_by_service', 'Filter by service')
-	);
 	const resolvedAllServicesLabel = $derived(
 		allServicesLabel ?? tr('dashboard.contracts.all_services', 'All Services')
 	);
@@ -46,51 +40,43 @@
 			tr('dashboard.services.my_services.quote_inbox.deleted_service_prefix', 'Deleted service')
 	);
 
-	const serviceOptions = $derived(
-		services.map((service) => ({
-			address: buildServiceAddress(service),
-			label: getServiceDisplayTitle(service, $locale || 'en')
-		}))
-	);
-	const serviceAddresses = $derived(serviceOptions.map((service) => service.address));
-	const selectedValue = $derived(selectedServiceAddress ?? '');
-	const selectedTitle = $derived.by(() => {
-		if (!selectedServiceAddress) {
-			return resolvedAllServicesLabel;
+	const serviceDropdownOptions = $derived.by(() => {
+		const options = [
+			{
+				id: 'all',
+				label: resolvedAllServicesLabel
+			},
+			...services.map((s) => ({
+				id: buildServiceAddress(s),
+				label: getServiceDisplayTitle(s, $locale || 'en')
+			}))
+		];
+
+		if (
+			selectedServiceAddress &&
+			selectedServiceAddress !== 'all' &&
+			!services.some((s) => buildServiceAddress(s) === selectedServiceAddress)
+		) {
+			options.push({
+				id: selectedServiceAddress,
+				label: resolvedDeletedServiceLabel
+			});
 		}
 
-		return (
-			serviceOptions.find((service) => service.address === selectedServiceAddress)?.label ??
-			resolvedDeletedServiceLabel
-		);
+		return options;
 	});
 
-	function handleChange(event: Event) {
-		const nextServiceAddress = (event.currentTarget as HTMLSelectElement).value || null;
-		onChange(nextServiceAddress);
+	const selectedValue = $derived(selectedServiceAddress ?? 'all');
+
+	function handleSelect(value: string) {
+		onChange(value === 'all' ? null : value);
 	}
 </script>
 
-<div class={containerClass} data-testid={testId}>
-	<label class="form-control w-full">
-		<select
-			class={selectClass}
-			value={selectedValue}
-			onchange={handleChange}
-			aria-label={resolvedFilterLabel}
-			title={selectedTitle}
-		>
-			<option value="">{resolvedAllServicesLabel}</option>
-			{#each serviceOptions as service (service.address)}
-				<option value={service.address}>
-					{service.label}
-				</option>
-			{/each}
-			{#if selectedServiceAddress && !serviceAddresses.includes(selectedServiceAddress)}
-				<option value={selectedServiceAddress}>
-					{resolvedDeletedServiceLabel}
-				</option>
-			{/if}
-		</select>
-	</label>
-</div>
+<DashboardDropdown
+	options={serviceDropdownOptions}
+	value={selectedValue}
+	onSelect={handleSelect}
+	{containerClass}
+	{testId}
+/>
