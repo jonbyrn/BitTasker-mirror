@@ -1339,6 +1339,11 @@
 		bookNowSubmissionOwnerId = getBookNowSubmissionOwner();
 		clearTerminalOrStaleBookNowOutboxEntries(getBookNowOutboxStorage());
 		applyReentryState();
+
+		// Proactively initialize wallet if logged in to ensure Book Now readiness
+		if ($authState.isAuthenticated && !$walletStore.rsk.connected) {
+			void walletManager.initialize();
+		}
 	});
 
 	$effect(() => {

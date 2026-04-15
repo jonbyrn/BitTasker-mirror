@@ -18,6 +18,15 @@
 				"status_active": "Activo",
 				"status_inactive": "Inactivo",
 				"status_sold": "Vendido",
+				"filters": {
+					"heading": "Filtrar servicios",
+					"all": "Todos los estados",
+					"active": "Activos",
+					"inactive": "Inactivos"
+				},
+				"filtered_empty_title": "Ningún servicio coincide con este filtro.",
+				"filtered_empty_body": "Intenta con un filtro de estado diferente para revisar el resto de tus servicios.",
+				"filtered_empty_action": "Mostrar todos los servicios",
 				"status_toggle_active": "Activar",
 				"status_toggle_inactive": "Desactivar",
 				"status_updated": "Estado actualizado",

@@ -118,7 +118,7 @@
 		{ id: BidStatusEnum.PENDING, label: $t('bids.pending'), icon: IconClockOutline },
 		{ id: BidStatusEnum.ACCEPTED, label: $t('bids.accepted'), icon: IconCheck },
 		{ id: BidStatusEnum.REJECTED, label: $t('bids.rejected'), icon: IconClose },
-		{ id: BidStatusEnum.WITHDRAWN, label: $t('bids.withdrawn'), icon: IconUndo },
+		{ id: BidStatusEnum.WITHDRAWN, label: $t('bids.status_withdrawn'), icon: IconUndo },
 		{ id: BidStatusEnum.COUNTERED, label: $t('bids.status_countered'), icon: IconSwapHorizontal }
 	]);
 
