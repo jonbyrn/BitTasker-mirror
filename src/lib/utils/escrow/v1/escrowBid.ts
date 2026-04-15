@@ -327,6 +327,7 @@ export async function acceptBidAndCreateEscrow(
 		// Use d-tag (stable id) so updateTask(contract.taskId) works on repeated updates (Nostr Addressable Event).
 		registerPendingContractByTxHash({
 			bidEventId: bid.id,
+			proposalEventId: bid.id, // Ensure ID is passed for contract persistence
 			taskId,
 			taskTitle: taskContent.title,
 			taskDescription: taskContent.description,
