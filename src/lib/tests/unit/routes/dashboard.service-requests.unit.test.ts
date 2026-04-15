@@ -257,7 +257,7 @@ describe('dashboard service requests route shell', () => {
 		});
 
 		await waitFor(() => {
-			expect(getByText('No service requests have been submitted yet.')).toBeTruthy();
+			expect(getByText("You haven't submitted any service requests yet.")).toBeTruthy();
 		});
 	}, 20_000);
 });
