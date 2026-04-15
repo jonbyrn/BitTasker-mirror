@@ -339,19 +339,24 @@
 			);
 			const requiresProviderWallet =
 				supportsInstantBuyAuthoring($store.service.pricing?.type) && instantBuyLeadHours != null;
-			let providerWalletAddress =
-				$store.service.providerWalletAddress || $walletStore.rsk?.address || undefined;
 
+			// Prefer current wallet if connected, otherwise use stored address (from previous versions/drafts)
+			let providerWalletAddress =
+				$walletStore.rsk?.address || $store.service.providerWalletAddress || undefined;
+
+			// If Book Now is enabled but we don't have a wallet address yet, attempt to connect
 			if (requiresProviderWallet && !providerWalletAddress) {
 				try {
 					providerWalletAddress = await getRSKAddress();
 				} catch {
-					throw new Error($t('dashboard.services.create.errors.wallet_connect_book_now'));
+					// Graceful reuse: If editing an existing Book Now service, we should already have the address
+					// in $store.service.providerWalletAddress (from loadServiceForEdit).
+					// Only throw if we truly have no address for a service that REQUIRES Book Now.
+					if (!$store.isEditing || !providerWalletAddress) {
+						throw new Error($t('dashboard.services.create.errors.wallet_connect_book_now'));
+					}
+					// If editing and we failed to connect but HAVE a previous address, we proceed with the old one.
 				}
-			}
-
-			if (requiresProviderWallet && !providerWalletAddress) {
-				throw new Error($t('dashboard.services.create.errors.wallet_connect_book_now'));
 			}
 
 			const serviceData: ServiceBody = {
@@ -378,8 +383,12 @@
 				status: 'active' // Set to active when publishing
 			};
 
+			// If Book Now is enabled, inject the wallet address.
+			// If it was explicitly disabled, ensure the field is removed/undefined to clear legacy data.
 			if (requiresProviderWallet) {
 				serviceData.providerWalletAddress = providerWalletAddress;
+			} else {
+				serviceData.providerWalletAddress = undefined;
 			}
 
 			// Use store state so we update even if URL lost edit=true (e.g. after navigation)

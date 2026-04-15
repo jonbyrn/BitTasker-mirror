@@ -75,6 +75,7 @@
 			"empty": "No service requests have been submitted yet.",
 			"empty_filtered": "No service requests match this status yet.",
 			"empty_filtered_description": "Try a different status filter to review the rest of your service requests.",
+			"filtered_empty_action": "Clear Filters",
 			"quote_pending": "Pending",
 			"requested": "Requested",
 			"request_id": "Request ID",
@@ -85,7 +86,7 @@
 			"rush_delivery": "Rush delivery",
 			"expires": "Expires",
 			"filters": {
-				"all": "All",
+				"all": "All statuses",
 				"awaiting_proposal": "Awaiting proposal",
 				"contract_created": "Contract created",
 				"declined": "Declined",
@@ -149,7 +150,7 @@
 				"awaiting_proposal": "Awaiting proposal"
 			},
 			"filters": {
-				"all": "All",
+				"all": "All statuses",
 				"awaiting_proposal": "Awaiting proposal",
 				"proposal_received": "Proposal received",
 				"needs_attention": "Needs attention",

@@ -18,6 +18,15 @@
 				"status_active": "Active",
 				"status_inactive": "Inactive",
 				"status_sold": "Sold",
+				"filters": {
+					"heading": "Filter services",
+					"all": "All statuses",
+					"active": "Active",
+					"inactive": "Inactive"
+				},
+				"filtered_empty_title": "No services match this filter.",
+				"filtered_empty_body": "Try a different status filter to review the rest of your services.",
+				"filtered_empty_action": "Show all services",
 				"status_toggle_active": "Activate",
 				"status_toggle_inactive": "Deactivate",
 				"status_updated": "Status updated",

@@ -403,6 +403,21 @@ describe('ServiceDetailsView instant buy flow', () => {
 		setNavigatorOnline(true);
 	});
 
+	it('proactively initializes the wallet on mount when authenticated', async () => {
+		walletStoreMock.set({
+			isConnected: false,
+			rsk: {
+				connected: false,
+				connecting: false,
+				error: null,
+				address: null
+			}
+		} as unknown);
+		const { findByText } = renderView(baseService, baseService.uniqueId);
+		await findByText(baseService.title);
+		expect(_mockInitializeWallet).toHaveBeenCalled();
+	});
+
 	it('shows Buy Now and Request Quote together for eligible fixed-price services', async () => {
 		const { getByTestId, getByText, queryByText } = renderView(baseService, baseService.uniqueId);
 
