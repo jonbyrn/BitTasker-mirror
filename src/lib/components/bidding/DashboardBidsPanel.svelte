@@ -415,9 +415,9 @@
 			<div class="card bg-base-100 rounded-xl p-4">
 				<DashboardEmptyState
 					icon={IconMagnify}
-					title={$t('dashboard.service_requests.empty_filtered')}
-					description={$t('dashboard.service_requests.empty_filtered_description')}
-					actionLabel={$t('dashboard.service_requests.filtered_empty_action')}
+					title={$t('dashboard.tasks.no_filtered_tasks')}
+					description={$t('dashboard.tasks.try_different_filters')}
+					actionLabel={$t('dashboard.contracts.clear_filters')}
 					onAction={() => handleFilterChange('all')}
 				/>
 			</div>
@@ -432,11 +432,6 @@
 						<div class="card-body rounded-xl p-4 md:p-4">
 							<!-- Section TAREA: misma estructura que Find Tasks (TaskCard) -->
 							<div class="border-base-200 border-b pb-4">
-								<span
-									class="text-base-content/60 mb-2 block text-xs font-semibold tracking-wide uppercase"
-								>
-									{$t('bids.section_task')}
-								</span>
 								<!-- Top row: título + descripción | badge + precio (alineado, sin espacio de más) -->
 								<div class="mb-3 flex flex-row items-stretch justify-between gap-2">
 									<div class="min-w-0 flex-1 pr-2 md:pr-4">
