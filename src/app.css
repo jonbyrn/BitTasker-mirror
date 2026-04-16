@@ -184,6 +184,31 @@
 	box-sizing: border-box;
 }
 
+/*
+ * Mobile tap highlight and focus fixes.
+ * Prevents the blue/gray flash when tapping interactive elements on mobile WebView.
+ */
+@media (hover: none) and (pointer: coarse) {
+	/* Remove tap highlight on all interactive elements */
+	a,
+	button,
+	[role='button'],
+	input,
+	select,
+	textarea,
+	summary,
+	details,
+	.btn {
+		-webkit-tap-highlight-color: transparent;
+	}
+
+	/* Remove focus ring on touch devices - rely on active states instead */
+	:focus:not(:focus-visible) {
+		outline: none;
+		box-shadow: none;
+	}
+}
+
 /* Global Typography Styles */
 body h1,
 body h2,
@@ -430,8 +455,6 @@ body {
 	--app-footer-height: var(--bottom-nav-height-safe);
 	/* Standard bottom offset for floating UI above the dock */
 	--app-bottom-fab: calc(var(--app-footer-height, var(--bottom-nav-height-safe)) + 1rem);
-	/* Managed by keyboard.ts -- overlays-content approach */
-	--keyboard-height: 0px;
 }
 
 /*
@@ -479,18 +502,38 @@ body {
 	overflow-y: auto;
 	overflow-x: clip;
 	overscroll-behavior-y: contain;
-	padding-bottom: var(--keyboard-height, 0px);
 }
 
 .app-shell__footer {
 	grid-area: footer;
 	min-height: 0;
-	transition: transform 150ms ease-out;
+	overflow: hidden;
+	/*
+	 * Use max-height for smooth collapse animation.
+	 * 200px is more than enough for any bottom nav (typically ~80px + safe area).
+	 */
+	max-height: 200px;
+	/*
+	 * Footer REAPPEARING: animate smoothly when keyboard closes.
+	 * We only transition max-height; opacity and transform are instant on close.
+	 */
+	transition: max-height 200ms ease-out;
 }
 
-/* Slide the bottom dock off-screen when the keyboard is open */
+/*
+ * Collapse the bottom dock when keyboard is open.
+ * max-height: 0 + overflow: hidden makes the element take no space in the grid.
+ * The grid row with `auto` height will shrink to 0.
+ *
+ * Footer HIDING: instant (no transition) to avoid flickering.
+ * The translateY provides a smooth exit animation while max-height collapses the space.
+ */
 :root[data-keyboard-visible] .app-shell__footer {
 	transform: translateY(100%);
+	max-height: 0;
+	opacity: 0;
+	pointer-events: none;
+	transition: none;
 }
 
 /*
