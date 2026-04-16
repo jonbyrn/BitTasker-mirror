@@ -99,9 +99,11 @@
 		initializeTheme();
 		hideSplashScreenWhenReady(300);
 
-		// Keyboard: init immediately on all routes (no-op on web)
+		// Keyboard: init asynchronously (dynamic import avoids SSR issues, no-op on web)
 		import('$lib/utils/helpers/keyboard').then((m) => {
-			cleanupKb = m.initKeyboard();
+			m.initKeyboard().then((cleanup) => {
+				cleanupKb = cleanup;
+			});
 		});
 
 		if (typeof requestIdleCallback !== 'undefined') {

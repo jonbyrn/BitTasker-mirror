@@ -13,28 +13,35 @@
 	import IconWhatsapp from '~icons/mdi/whatsapp';
 </script>
 
-<footer class="bg-base-300 text-base-content/70 py-12 pb-safe lg:pb-12">
+<footer class="bg-base-300 text-base-content/70 pb-safe py-12 lg:pb-12">
 	<div class="container mx-auto px-4">
 		<div class="grid grid-cols-2 gap-8 md:grid-cols-3 lg:grid-cols-4">
 			<!-- Company Info -->
 			<div class="col-span-2 px-4 md:col-span-3 md:px-6 lg:col-span-1 lg:px-0">
 				<h4 class="text-base-content mb-4 text-lg font-bold">{$t('footer.company_name')}</h4>
 				<p class="mb-4">{$t('footer.company_description')}</p>
-				
-				<!-- Zapstore Badge -->
-				<div class="mb-6">
+
+				<!-- App Store Badges -->
+				<div class="mb-6 flex flex-wrap items-center gap-3">
+					<!-- Google Play Store -->
+					<a
+						href="https://play.google.com/store/apps/details?id=com.bittasker.app"
+						target="_blank"
+						rel="noopener noreferrer"
+						class="inline-block transition-opacity hover:opacity-80"
+						aria-label={$t('footer.google_play_aria')}
+					>
+						<img src="/google-play-badge.svg" alt="Get it on Google Play" class="h-12" />
+					</a>
+					<!-- Zapstore -->
 					<a
 						href="https://zapstore.dev/apps/naddr1qvzqqqr7pvpzpdxcukch9yuvrpytr66vwlqfe0j2e4nuhdch79r52zmqh9s6tuxcqqgkxmmd9e3xjar5v9ekketj9eshquqj9fac3"
 						target="_blank"
 						rel="noopener noreferrer"
-						class="hover:opacity-80 inline-block transition-opacity"
+						class="inline-block transition-opacity hover:opacity-80"
 						aria-label={$t('footer.zapstore_aria')}
 					>
-						<img 
-							src="/zapstore-badge.svg" 
-							alt="Get it on Zapstore" 
-							class="h-12"
-						/>
+						<img src="/zapstore-badge.svg" alt="Get it on Zapstore" class="h-12" />
 					</a>
 				</div>
 

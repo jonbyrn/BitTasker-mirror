@@ -1,199 +1,200 @@
 {
-    "footer": {
-        "company_name": "BitTasker",
-        "company_description": "Connecting people seeking services with taskees offering those services, powered by Bitcoin and decentralized identity.",
-        "zapstore_aria": "Download BitTasker on Zapstore",
-        "social": {
-            "twitter_aria": "BitTasker on X (Twitter)",
-            "facebook_aria": "BitTasker on Facebook",
-            "instagram_aria": "BitTasker on Instagram",
-            "youtube_aria": "BitTasker on YouTube",
-            "linkedin_aria": "BitTasker on LinkedIn",
-            "reddit_aria": "BitTasker on Reddit",
-            "tiktok_aria": "BitTasker on TikTok",
-            "rumble_aria": "BitTasker on Rumble",
-            "telegram_aria": "BitTasker on Telegram",
-            "whatsapp_aria": "BitTasker on WhatsApp"
-        },
-        "made_with": "Made with",
-        "and": "and",
-        "in_el_salvador": "in El Salvador",
-        "for_taskers": "For Taskers",
-        "post_task": "Post a Task",
-        "how_it_works": "How It Works",
-        "tasker_fees": "Tasker Fees",
-        "taskee_fees": "Taskee Fees",
-        "escrow": "Secure Payments",
-        "faq": "FAQ",
-        "for_taskees": "For Taskees",
-        "start_earning": "Start Earning",
-        "community_guidelines": "Community Guidelines",
-        "tasker_principles": "Tasker Principles",
-        "tasker_faq": "FAQ",
-        "company": "Company",
-        "about_us": "About Us",
-        "security": "Security",
-        "careers": "Careers",
-        "press": "Press",
-        "terms": "Terms of Service",
-        "privacy": "Privacy Policy",
-        "contact": "Contact Us",
-        "copyright": "All rights reserved."
-    },
-    "navbar": {
-        "home": "Home",
-        "new_task": "New Task",
-        "my_tasks": "My Tasks",
-        "wallet": "Wallet",
-        "messages": "Messages",
-        "support_help": "Support & Help",
-        "task_management": "Task Management",
-        "my_account": "My Account",
-        "profile": "Profile",
-        "how_it_works": "How It Works",
-        "faq": "FAQ",
-        "contact_support": "Contact Support",
-        "about_us": "About Us",
-        "terms_of_service": "Terms of Service",
-        "privacy_policy": "Privacy Policy",
-        "find_tasks": "Find Tasks",
-        "create_task": "Create Task",
-        "browse_freelancers": "See Taskees",
-        "browse_tasks": "Browse Tasks",
-        "fees": "Fees",
-        "start_now": "Start Now",
-        "dashboard": "Dashboard",
-        "language": {
-            "english": "English",
-            "spanish": "Spanish"
-        },
-        "back": "Back",
-        "terms_and_conditions": "Terms and Conditions",
-        "tooltip": {
-            "dark_mode": "Dark Mode",
-            "light_mode": "Light Mode",
-            "language": "Language: {name}"
-        },
-        "login": "Login",
-        "signup": "Sign Up",
-        "about": "About",
-        "menu": "Menu",
-        "close_menu": "Close menu",
-        "help": "Help",
-        "logout": "Logout",
-        "settings": "Settings",
-        "feedback": "Feedback",
-        "bids": "My Bids",
-        "bids_sent": "Bids Sent",
-        "contracts": "Contracts"
-    },
-    "homepage": {
-        "title": "Hello, World!",
-        "welcome": "Hi <strong>{name}</strong>, how are you?",
-        "time": "The current time is: {time}",
-        "hero": {
-            "title": "BitTasker",
-            "description": "The first Bitcoin-powered freelance marketplace. Connect with talented taskees and pay securely with Bitcoin.",
-            "cta": "Here's How it works"
-        },
-        "features": {
-            "title": "Why Choose BitTasker?",
-            "crypto": {
-                "title": "Bitcoin Payments",
-                "description": "Secure and borderless payments using Bitcoin"
-            },
-            "talent": {
-                "title": "Global Talent",
-                "description": "Access skilled taskees from around the world"
-            },
-            "escrow": {
-                "title": "Secure Payments",
-                "description": "Smart contract-based secure payment contracts for safe transactions"
-            }
-        },
-        "cta": {
-            "title": "Ready to get started?",
-            "description": "Join thousands of taskees and taskers already using BitTasker",
-            "button": "Create Account"
-        },
-        "v2": {
-            "hero": {
-                "title": "The Decentralized Workforce.",
-                "page_title": "The Decentralized Workforce | BitTasker",
-                "description": "Hire professionals for any task. Pay with Bitcoin or fiat. Built on Nostr.",
-                "cta": "Get Started"
-            },
-            "trust": {
-                "title": "Trusted Worldwide",
-                "nostr": {
-                    "title": "Powered by Nostr",
-                    "description": "BitTasker is built on Nostr, a decentralized protocol. This means your identity, data, and reputation are truly yours, free from corporate control and censorship."
-                },
-                "bitcoin": {
-                    "title": "Bitcoin Accepted",
-                    "description": "Embrace the future of money. Pay and get paid globally with Bitcoin, the world's most secure and decentralized digital currency, for borderless and low-cost transactions."
-                },
-                "payments": {
-                    "title": "Pay Your Way",
-                    "description": "Pay with traditional fiat currencies via a credit or debit card, as well as paying with Bitcoin or USDT. Withdraw Bitcoin and USDT on chain, via Lightning, or Liquid."
-                },
-                "lightning": {
-                    "title": "Lightning Network",
-                    "description": "Experience instant and near-free payments with the Lightning Network. Perfect for micro-payments, tipping, and settling tasks the moment they are completed."
-                },
-                "escrow": {
-                    "title": "Secure Payments",
-                    "description": "Our smart contract-based secure payment system protects both taskers and taskees. Funds are held securely and released automatically only when the work is approved."
-                }
-            },
-            "howitworks": {
-                "title": "How BitTasker Works",
-                "step1": {
-                    "title": "Post a Task",
-                    "description": "Describe the work you need done, set your budget, and post it for our community."
-                },
-                "step2": {
-                    "title": "Hire the Best",
-                    "description": "Review proposals from talented taskees and hire the perfect fit for your project."
-                },
-                "step3": {
-                    "title": "Pay Securely",
-                    "description": "Once the work is complete, pay securely with Bitcoin or fiat. Your funds are safe in the secure payment contract."
-                },
-                "learnMore": "Learn More"
-            },
-            "livetasks": {
-                "title": "Featured Tasks"
-            },
-            "benefits": {
-                "title": "Why Choose BitTasker?",
-                "payments": {
-                    "title": "Flexible Payments",
-                    "description": "Seamlessly pay with Bitcoin (on-chain, Lightning) or traditional fiat currencies."
-                },
-                "escrow": {
-                    "title": "Non-Custodial Secure Payments",
-                    "description": "You hold the keys to your Bitcoin, and to your secure payment contracts. No middlemen, no delays, and no trust required."
-                },
-                "ownership": {
-                    "title": "True Data Ownership",
-                    "description": "Your identity, data, and reputation are yours to control, powered by Nostr's decentralized network."
-                },
-                "fees": {
-                    "title": "Lightning-Fast Payments",
-                    "description": "No middlemen or processing delays, get paid instantly peer to peer in Bitcoin or USDT."
-                }
-            },
-            "taskees": {
-                "title": "Featured Taskees"
-            },
-            "finalcta": {
-                "title": "Join the Future of Work",
-                "description": "Whether you need to hire talent or are looking for your next opportunity, BitTasker is the place to be.",
-                "tasker_cta": "Browse Tasks",
-                "taskee_cta": "See Taskees",
-                "get_started": "Get Started"
-            }
-        }
-    }
+	"footer": {
+		"company_name": "BitTasker",
+		"company_description": "Connecting people seeking services with taskees offering those services, powered by Bitcoin and decentralized identity.",
+		"zapstore_aria": "Download BitTasker on Zapstore",
+		"google_play_aria": "Download BitTasker on Google Play",
+		"social": {
+			"twitter_aria": "BitTasker on X (Twitter)",
+			"facebook_aria": "BitTasker on Facebook",
+			"instagram_aria": "BitTasker on Instagram",
+			"youtube_aria": "BitTasker on YouTube",
+			"linkedin_aria": "BitTasker on LinkedIn",
+			"reddit_aria": "BitTasker on Reddit",
+			"tiktok_aria": "BitTasker on TikTok",
+			"rumble_aria": "BitTasker on Rumble",
+			"telegram_aria": "BitTasker on Telegram",
+			"whatsapp_aria": "BitTasker on WhatsApp"
+		},
+		"made_with": "Made with",
+		"and": "and",
+		"in_el_salvador": "in El Salvador",
+		"for_taskers": "For Taskers",
+		"post_task": "Post a Task",
+		"how_it_works": "How It Works",
+		"tasker_fees": "Tasker Fees",
+		"taskee_fees": "Taskee Fees",
+		"escrow": "Secure Payments",
+		"faq": "FAQ",
+		"for_taskees": "For Taskees",
+		"start_earning": "Start Earning",
+		"community_guidelines": "Community Guidelines",
+		"tasker_principles": "Tasker Principles",
+		"tasker_faq": "FAQ",
+		"company": "Company",
+		"about_us": "About Us",
+		"security": "Security",
+		"careers": "Careers",
+		"press": "Press",
+		"terms": "Terms of Service",
+		"privacy": "Privacy Policy",
+		"contact": "Contact Us",
+		"copyright": "All rights reserved."
+	},
+	"navbar": {
+		"home": "Home",
+		"new_task": "New Task",
+		"my_tasks": "My Tasks",
+		"wallet": "Wallet",
+		"messages": "Messages",
+		"support_help": "Support & Help",
+		"task_management": "Task Management",
+		"my_account": "My Account",
+		"profile": "Profile",
+		"how_it_works": "How It Works",
+		"faq": "FAQ",
+		"contact_support": "Contact Support",
+		"about_us": "About Us",
+		"terms_of_service": "Terms of Service",
+		"privacy_policy": "Privacy Policy",
+		"find_tasks": "Find Tasks",
+		"create_task": "Create Task",
+		"browse_freelancers": "See Taskees",
+		"browse_tasks": "Browse Tasks",
+		"fees": "Fees",
+		"start_now": "Start Now",
+		"dashboard": "Dashboard",
+		"language": {
+			"english": "English",
+			"spanish": "Spanish"
+		},
+		"back": "Back",
+		"terms_and_conditions": "Terms and Conditions",
+		"tooltip": {
+			"dark_mode": "Dark Mode",
+			"light_mode": "Light Mode",
+			"language": "Language: {name}"
+		},
+		"login": "Login",
+		"signup": "Sign Up",
+		"about": "About",
+		"menu": "Menu",
+		"close_menu": "Close menu",
+		"help": "Help",
+		"logout": "Logout",
+		"settings": "Settings",
+		"feedback": "Feedback",
+		"bids": "My Bids",
+		"bids_sent": "Bids Sent",
+		"contracts": "Contracts"
+	},
+	"homepage": {
+		"title": "Hello, World!",
+		"welcome": "Hi <strong>{name}</strong>, how are you?",
+		"time": "The current time is: {time}",
+		"hero": {
+			"title": "BitTasker",
+			"description": "The first Bitcoin-powered freelance marketplace. Connect with talented taskees and pay securely with Bitcoin.",
+			"cta": "Here's How it works"
+		},
+		"features": {
+			"title": "Why Choose BitTasker?",
+			"crypto": {
+				"title": "Bitcoin Payments",
+				"description": "Secure and borderless payments using Bitcoin"
+			},
+			"talent": {
+				"title": "Global Talent",
+				"description": "Access skilled taskees from around the world"
+			},
+			"escrow": {
+				"title": "Secure Payments",
+				"description": "Smart contract-based secure payment contracts for safe transactions"
+			}
+		},
+		"cta": {
+			"title": "Ready to get started?",
+			"description": "Join thousands of taskees and taskers already using BitTasker",
+			"button": "Create Account"
+		},
+		"v2": {
+			"hero": {
+				"title": "The Decentralized Workforce.",
+				"page_title": "The Decentralized Workforce | BitTasker",
+				"description": "Hire professionals for any task. Pay with Bitcoin or fiat. Built on Nostr.",
+				"cta": "Get Started"
+			},
+			"trust": {
+				"title": "Trusted Worldwide",
+				"nostr": {
+					"title": "Powered by Nostr",
+					"description": "BitTasker is built on Nostr, a decentralized protocol. This means your identity, data, and reputation are truly yours, free from corporate control and censorship."
+				},
+				"bitcoin": {
+					"title": "Bitcoin Accepted",
+					"description": "Embrace the future of money. Pay and get paid globally with Bitcoin, the world's most secure and decentralized digital currency, for borderless and low-cost transactions."
+				},
+				"payments": {
+					"title": "Pay Your Way",
+					"description": "Pay with traditional fiat currencies via a credit or debit card, as well as paying with Bitcoin or USDT. Withdraw Bitcoin and USDT on chain, via Lightning, or Liquid."
+				},
+				"lightning": {
+					"title": "Lightning Network",
+					"description": "Experience instant and near-free payments with the Lightning Network. Perfect for micro-payments, tipping, and settling tasks the moment they are completed."
+				},
+				"escrow": {
+					"title": "Secure Payments",
+					"description": "Our smart contract-based secure payment system protects both taskers and taskees. Funds are held securely and released automatically only when the work is approved."
+				}
+			},
+			"howitworks": {
+				"title": "How BitTasker Works",
+				"step1": {
+					"title": "Post a Task",
+					"description": "Describe the work you need done, set your budget, and post it for our community."
+				},
+				"step2": {
+					"title": "Hire the Best",
+					"description": "Review proposals from talented taskees and hire the perfect fit for your project."
+				},
+				"step3": {
+					"title": "Pay Securely",
+					"description": "Once the work is complete, pay securely with Bitcoin or fiat. Your funds are safe in the secure payment contract."
+				},
+				"learnMore": "Learn More"
+			},
+			"livetasks": {
+				"title": "Featured Tasks"
+			},
+			"benefits": {
+				"title": "Why Choose BitTasker?",
+				"payments": {
+					"title": "Flexible Payments",
+					"description": "Seamlessly pay with Bitcoin (on-chain, Lightning) or traditional fiat currencies."
+				},
+				"escrow": {
+					"title": "Non-Custodial Secure Payments",
+					"description": "You hold the keys to your Bitcoin, and to your secure payment contracts. No middlemen, no delays, and no trust required."
+				},
+				"ownership": {
+					"title": "True Data Ownership",
+					"description": "Your identity, data, and reputation are yours to control, powered by Nostr's decentralized network."
+				},
+				"fees": {
+					"title": "Lightning-Fast Payments",
+					"description": "No middlemen or processing delays, get paid instantly peer to peer in Bitcoin or USDT."
+				}
+			},
+			"taskees": {
+				"title": "Featured Taskees"
+			},
+			"finalcta": {
+				"title": "Join the Future of Work",
+				"description": "Whether you need to hire talent or are looking for your next opportunity, BitTasker is the place to be.",
+				"tasker_cta": "Browse Tasks",
+				"taskee_cta": "See Taskees",
+				"get_started": "Get Started"
+			}
+		}
+	}
 }
