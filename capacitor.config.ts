@@ -55,9 +55,8 @@ const config: CapacitorConfig = {
 			backgroundColor: '#00000000'
 		},
 		Keyboard: {
-			resize: KeyboardResize.Body,
-			style: KeyboardStyle.Dark,
-			resizeOnFullScreen: true
+			resize: KeyboardResize.None,
+			style: KeyboardStyle.Dark
 		},
 		SplashScreen: {
 			launchAutoHide: false,

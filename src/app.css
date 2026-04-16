@@ -430,6 +430,8 @@ body {
 	--app-footer-height: var(--bottom-nav-height-safe);
 	/* Standard bottom offset for floating UI above the dock */
 	--app-bottom-fab: calc(var(--app-footer-height, var(--bottom-nav-height-safe)) + 1rem);
+	/* Managed by keyboard.ts -- overlays-content approach */
+	--keyboard-height: 0px;
 }
 
 /*
@@ -477,11 +479,18 @@ body {
 	overflow-y: auto;
 	overflow-x: clip;
 	overscroll-behavior-y: contain;
+	padding-bottom: var(--keyboard-height, 0px);
 }
 
 .app-shell__footer {
 	grid-area: footer;
 	min-height: 0;
+	transition: transform 150ms ease-out;
+}
+
+/* Slide the bottom dock off-screen when the keyboard is open */
+:root[data-keyboard-visible] .app-shell__footer {
+	transform: translateY(100%);
 }
 
 /*
