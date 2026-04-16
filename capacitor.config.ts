@@ -55,8 +55,14 @@ const config: CapacitorConfig = {
 			backgroundColor: '#00000000'
 		},
 		Keyboard: {
-			resize: KeyboardResize.None,
-			style: KeyboardStyle.Dark
+			// iOS: 'Body' resizes the <body> element when keyboard appears, which is more
+			// reliable than 'Native' (which has known bugs) or 'None' (requires manual handling).
+			// Android: resize option is ignored; use resizeOnFullScreen instead.
+			resize: KeyboardResize.Body,
+			style: KeyboardStyle.Default,
+			// Android: Required workaround for full-screen apps (StatusBar overlaysWebView: false).
+			// Without this, the WebView won't resize when keyboard appears.
+			resizeOnFullScreen: true
 		},
 		SplashScreen: {
 			launchAutoHide: false,
