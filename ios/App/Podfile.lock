@@ -1,103 +1,125 @@
 PODS:
-  - Alamofire (5.10.2)
-  - AppAuth (1.7.6):
-    - AppAuth/Core (= 1.7.6)
-    - AppAuth/ExternalUserAgent (= 1.7.6)
-  - AppAuth/Core (1.7.6)
-  - AppAuth/ExternalUserAgent (1.7.6):
-    - AppAuth/Core
-  - AppCheckCore (11.2.0):
-    - GoogleUtilities/Environment (~> 8.0)
-    - GoogleUtilities/UserDefaults (~> 8.0)
-    - PromisesObjC (~> 2.4)
-  - Capacitor (7.2.0):
+  - Capacitor (8.1.0):
     - CapacitorCordova
-  - CapacitorApp (7.0.1):
+  - CapacitorApp (8.0.1):
     - Capacitor
-  - CapacitorCordova (7.2.0)
-  - CapacitorDevice (7.0.1):
+  - CapacitorBrowser (8.0.1):
     - Capacitor
-  - CapacitorGeolocation (7.1.2):
+  - CapacitorClipboard (8.0.1):
     - Capacitor
-    - IONGeolocationLib (~> 1.0)
-  - CapacitorKeyboard (7.0.1):
+  - CapacitorCordova (8.1.0)
+  - CapacitorDevice (8.0.1):
     - Capacitor
-  - CapacitorNativeBiometric (0.0.1):
+  - CapacitorGeolocation (8.1.0):
     - Capacitor
-  - CapacitorPreferences (7.0.1):
+    - IONGeolocationLib (= 2.0.0)
+  - CapacitorHaptics (8.0.0):
     - Capacitor
-  - CapacitorScreenOrientation (7.0.1):
+  - CapacitorKeyboard (8.0.0):
     - Capacitor
-  - CapacitorSplashScreen (7.0.1):
+  - CapacitorLocalNotifications (8.0.1):
     - Capacitor
-  - CapacitorStatusBar (7.0.1):
+  - CapacitorMlkitBarcodeScanning (7.5.0):
     - Capacitor
-  - CapawesomeCapacitorScreenOrientation (7.0.1):
+    - GoogleMLKit/BarcodeScanning (= 7.0.0)
+  - CapacitorPreferences (8.0.1):
     - Capacitor
-  - CapgoCapacitorSocialLogin (7.6.3):
-    - Alamofire (~> 5.10.2)
+  - CapacitorPushNotifications (8.0.1):
     - Capacitor
-    - FBSDKCoreKit (= 17.4.0)
-    - FBSDKLoginKit (= 17.4.0)
-    - GoogleSignIn (~> 8.0.0)
-  - FBAEMKit (17.4.0):
-    - FBSDKCoreKit_Basics (= 17.4.0)
-  - FBSDKCoreKit (17.4.0):
-    - FBAEMKit (= 17.4.0)
-    - FBSDKCoreKit_Basics (= 17.4.0)
-  - FBSDKCoreKit_Basics (17.4.0)
-  - FBSDKLoginKit (17.4.0):
-    - FBSDKCoreKit (= 17.4.0)
-  - GoogleSignIn (8.0.0):
-    - AppAuth (< 2.0, >= 1.7.3)
-    - AppCheckCore (~> 11.0)
-    - GTMAppAuth (< 5.0, >= 4.1.1)
-    - GTMSessionFetcher/Core (~> 3.3)
-  - GoogleUtilities/Environment (8.0.2):
+  - CapacitorScreenOrientation (8.0.1):
+    - Capacitor
+  - CapacitorShare (8.0.1):
+    - Capacitor
+  - CapacitorSplashScreen (8.0.1):
+    - Capacitor
+  - CapacitorStatusBar (8.0.1):
+    - Capacitor
+  - CapacitorWebauthn (0.0.12):
+    - Capacitor
+  - CapawesomeCapacitorScreenOrientation (7.1.0):
+    - Capacitor
+  - GoogleDataTransport (10.1.0):
+    - nanopb (~> 3.30910.0)
+    - PromisesObjC (~> 2.4)
+  - GoogleMLKit/BarcodeScanning (7.0.0):
+    - GoogleMLKit/MLKitCore
+    - MLKitBarcodeScanning (~> 6.0.0)
+  - GoogleMLKit/MLKitCore (7.0.0):
+    - MLKitCommon (~> 12.0.0)
+  - GoogleToolboxForMac/Defines (4.2.1)
+  - GoogleToolboxForMac/Logger (4.2.1):
+    - GoogleToolboxForMac/Defines (= 4.2.1)
+  - "GoogleToolboxForMac/NSData+zlib (4.2.1)":
+    - GoogleToolboxForMac/Defines (= 4.2.1)
+  - GoogleUtilities/Environment (8.1.0):
     - GoogleUtilities/Privacy
-  - GoogleUtilities/Logger (8.0.2):
+  - GoogleUtilities/Logger (8.1.0):
     - GoogleUtilities/Environment
     - GoogleUtilities/Privacy
-  - GoogleUtilities/Privacy (8.0.2)
-  - GoogleUtilities/UserDefaults (8.0.2):
+  - GoogleUtilities/Privacy (8.1.0)
+  - GoogleUtilities/UserDefaults (8.1.0):
     - GoogleUtilities/Logger
     - GoogleUtilities/Privacy
-  - GTMAppAuth (4.1.1):
-    - AppAuth/Core (~> 1.7)
-    - GTMSessionFetcher/Core (< 4.0, >= 3.3)
   - GTMSessionFetcher/Core (3.5.0)
-  - IONGeolocationLib (1.0.0)
+  - IONGeolocationLib (2.0.0)
+  - MLImage (1.0.0-beta6)
+  - MLKitBarcodeScanning (6.0.0):
+    - MLKitCommon (~> 12.0)
+    - MLKitVision (~> 8.0)
+  - MLKitCommon (12.0.0):
+    - GoogleDataTransport (~> 10.0)
+    - GoogleToolboxForMac/Logger (< 5.0, >= 4.2.1)
+    - "GoogleToolboxForMac/NSData+zlib (< 5.0, >= 4.2.1)"
+    - GoogleUtilities/Logger (~> 8.0)
+    - GoogleUtilities/UserDefaults (~> 8.0)
+    - GTMSessionFetcher/Core (< 4.0, >= 3.3.2)
+  - MLKitVision (8.0.0):
+    - GoogleToolboxForMac/Logger (< 5.0, >= 4.2.1)
+    - "GoogleToolboxForMac/NSData+zlib (< 5.0, >= 4.2.1)"
+    - GTMSessionFetcher/Core (< 4.0, >= 3.3.2)
+    - MLImage (= 1.0.0-beta6)
+    - MLKitCommon (~> 12.0)
+  - nanopb (3.30910.0):
+    - nanopb/decode (= 3.30910.0)
+    - nanopb/encode (= 3.30910.0)
+  - nanopb/decode (3.30910.0)
+  - nanopb/encode (3.30910.0)
   - PromisesObjC (2.4.0)
 
 DEPENDENCIES:
   - "Capacitor (from `../../node_modules/@capacitor/ios`)"
   - "CapacitorApp (from `../../node_modules/@capacitor/app`)"
+  - "CapacitorBrowser (from `../../node_modules/@capacitor/browser`)"
+  - "CapacitorClipboard (from `../../node_modules/@capacitor/clipboard`)"
   - "CapacitorCordova (from `../../node_modules/@capacitor/ios`)"
   - "CapacitorDevice (from `../../node_modules/@capacitor/device`)"
   - "CapacitorGeolocation (from `../../node_modules/@capacitor/geolocation`)"
+  - "CapacitorHaptics (from `../../node_modules/@capacitor/haptics`)"
   - "CapacitorKeyboard (from `../../node_modules/@capacitor/keyboard`)"
-  - CapacitorNativeBiometric (from `../../node_modules/capacitor-native-biometric`)
+  - "CapacitorLocalNotifications (from `../../node_modules/@capacitor/local-notifications`)"
+  - "CapacitorMlkitBarcodeScanning (from `../../node_modules/@capacitor-mlkit/barcode-scanning`)"
   - "CapacitorPreferences (from `../../node_modules/@capacitor/preferences`)"
+  - "CapacitorPushNotifications (from `../../node_modules/@capacitor/push-notifications`)"
   - "CapacitorScreenOrientation (from `../../node_modules/@capacitor/screen-orientation`)"
+  - "CapacitorShare (from `../../node_modules/@capacitor/share`)"
   - "CapacitorSplashScreen (from `../../node_modules/@capacitor/splash-screen`)"
   - "CapacitorStatusBar (from `../../node_modules/@capacitor/status-bar`)"
+  - CapacitorWebauthn (from `../../node_modules/capacitor-webauthn`)
   - "CapawesomeCapacitorScreenOrientation (from `../../node_modules/@capawesome/capacitor-screen-orientation`)"
-  - "CapgoCapacitorSocialLogin (from `../../node_modules/@capgo/capacitor-social-login`)"
 
 SPEC REPOS:
   trunk:
-    - Alamofire
-    - AppAuth
-    - AppCheckCore
-    - FBAEMKit
-    - FBSDKCoreKit
-    - FBSDKCoreKit_Basics
-    - FBSDKLoginKit
-    - GoogleSignIn
+    - GoogleDataTransport
+    - GoogleMLKit
+    - GoogleToolboxForMac
     - GoogleUtilities
-    - GTMAppAuth
     - GTMSessionFetcher
     - IONGeolocationLib
+    - MLImage
+    - MLKitBarcodeScanning
+    - MLKitCommon
+    - MLKitVision
+    - nanopb
     - PromisesObjC
 
 EXTERNAL SOURCES:
@@ -105,57 +127,74 @@ EXTERNAL SOURCES:
     :path: "../../node_modules/@capacitor/ios"
   CapacitorApp:
     :path: "../../node_modules/@capacitor/app"
+  CapacitorBrowser:
+    :path: "../../node_modules/@capacitor/browser"
+  CapacitorClipboard:
+    :path: "../../node_modules/@capacitor/clipboard"
   CapacitorCordova:
     :path: "../../node_modules/@capacitor/ios"
   CapacitorDevice:
     :path: "../../node_modules/@capacitor/device"
   CapacitorGeolocation:
     :path: "../../node_modules/@capacitor/geolocation"
+  CapacitorHaptics:
+    :path: "../../node_modules/@capacitor/haptics"
   CapacitorKeyboard:
     :path: "../../node_modules/@capacitor/keyboard"
-  CapacitorNativeBiometric:
-    :path: "../../node_modules/capacitor-native-biometric"
+  CapacitorLocalNotifications:
+    :path: "../../node_modules/@capacitor/local-notifications"
+  CapacitorMlkitBarcodeScanning:
+    :path: "../../node_modules/@capacitor-mlkit/barcode-scanning"
   CapacitorPreferences:
     :path: "../../node_modules/@capacitor/preferences"
+  CapacitorPushNotifications:
+    :path: "../../node_modules/@capacitor/push-notifications"
   CapacitorScreenOrientation:
     :path: "../../node_modules/@capacitor/screen-orientation"
+  CapacitorShare:
+    :path: "../../node_modules/@capacitor/share"
   CapacitorSplashScreen:
     :path: "../../node_modules/@capacitor/splash-screen"
   CapacitorStatusBar:
     :path: "../../node_modules/@capacitor/status-bar"
+  CapacitorWebauthn:
+    :path: "../../node_modules/capacitor-webauthn"
   CapawesomeCapacitorScreenOrientation:
     :path: "../../node_modules/@capawesome/capacitor-screen-orientation"
-  CapgoCapacitorSocialLogin:
-    :path: "../../node_modules/@capgo/capacitor-social-login"
 
 SPEC CHECKSUMS:
-  Alamofire: 7193b3b92c74a07f85569e1a6c4f4237291e7496
-  AppAuth: d4f13a8fe0baf391b2108511793e4b479691fb73
-  AppCheckCore: cc8fd0a3a230ddd401f326489c99990b013f0c4f
-  Capacitor: 106e7a4205f4618d582b886a975657c61179138d
-  CapacitorApp: d63334c052278caf5d81585d80b21905c6f93f39
-  CapacitorCordova: 5967b9ba03915ef1d585469d6e31f31dc49be96f
-  CapacitorDevice: fe3f190e1d718f4607bdc6b73993433d1c84f409
-  CapacitorGeolocation: 8c86a3afea574c84447c17905da96f2356ad913e
-  CapacitorKeyboard: 969647d0ca2e5c737d7300088e2517aa832434e2
-  CapacitorNativeBiometric: b47637a8cd349bdac014424bb4ddcae9ee5d4919
-  CapacitorPreferences: cbf154e5e5519b7f5ab33817a334dda1e98387f9
-  CapacitorScreenOrientation: 6590ca2800f2ddab521fae2580808fc7e66dfa1c
-  CapacitorSplashScreen: 19cd3573e57507e02d6f34597a8c421e00931487
-  CapacitorStatusBar: 275cbf2f4dfc00388f519ef80c7ec22edda342c9
-  CapawesomeCapacitorScreenOrientation: f47275aee2356b38d34c1328afc930e787f1caa2
-  CapgoCapacitorSocialLogin: 93adc580cf0b3c1912dccd8828268e056cd0d6a7
-  FBAEMKit: 58cb5f302cdd715a56d4c1d0dfdd2e423ac1421a
-  FBSDKCoreKit: 94d7461d0cecf441b1ba7c41acfff41daa8ccd41
-  FBSDKCoreKit_Basics: 151b43db8b834d3f0e02f95d36a44ffd36265e45
-  FBSDKLoginKit: 5c1cd53c91a2282b3a4fe6e6d3dcf2b8b0d33d55
-  GoogleSignIn: ce8c89bb9b37fb624b92e7514cc67335d1e277e4
-  GoogleUtilities: 26a3abef001b6533cf678d3eb38fd3f614b7872d
-  GTMAppAuth: f69bd07d68cd3b766125f7e072c45d7340dea0de
+  Capacitor: 47b825120c6b8b6d6f9f053e9350a8960d436710
+  CapacitorApp: 942306cd1acf7774a00e89a3986af3a67c8cad7a
+  CapacitorBrowser: e72e572d5dbdbb854fda5950586a2451e981f2d6
+  CapacitorClipboard: c75fdaa6e622111119f35e7914ecfc67b05efecb
+  CapacitorCordova: e8b76fd95fc1e157775abc484c59cc0de464095d
+  CapacitorDevice: ff033fa0c4ec19f5e059a073769a9b2347e69f57
+  CapacitorGeolocation: 7132de914f9d853ec4642dc1d36e4e2018a4e8a8
+  CapacitorHaptics: 2079d9fa04c5a71e18663b4722323c304c58245c
+  CapacitorKeyboard: d7868c079a4d5277a3deca27a10a488fcbbb8b69
+  CapacitorLocalNotifications: bc5325611c92ac302732413bc69244575cd4eaaf
+  CapacitorMlkitBarcodeScanning: afd6fc431b550026a2c052e11ab2b71c7ae30011
+  CapacitorPreferences: cca2021f386efb75947c850334447d9ff22b14f1
+  CapacitorPushNotifications: 99644101c6a82036e459929b6d897ee1cb27d97f
+  CapacitorScreenOrientation: 6c3c84223ea1dd44aaa7184e2b416dd1192270d0
+  CapacitorShare: 0c58305114538568059bfc07111f22dcb9cb2a82
+  CapacitorSplashScreen: 4b46c72298db552b3c57ce021ef028b6dc7f1fa7
+  CapacitorStatusBar: 32206abd53b14f339763da26f71286deaa891e16
+  CapacitorWebauthn: 368d3f73ca9a16196ad644e63979609302bc3e27
+  CapawesomeCapacitorScreenOrientation: 3c69f06737dae8a9340d5f51891a58321987123c
+  GoogleDataTransport: aae35b7ea0c09004c3797d53c8c41f66f219d6a7
+  GoogleMLKit: eff9e23ec1d90ea4157a1ee2e32a4f610c5b3318
+  GoogleToolboxForMac: d1a2cbf009c453f4d6ded37c105e2f67a32206d8
+  GoogleUtilities: 00c88b9a86066ef77f0da2fab05f65d7768ed8e1
   GTMSessionFetcher: 5aea5ba6bd522a239e236100971f10cb71b96ab6
-  IONGeolocationLib: 81f33f88d025846946de2cf63b0c7628e7c6bc9d
+  IONGeolocationLib: a5e40b54edc2ee9902036eda5aaa41ddf07bb68d
+  MLImage: 0ad1c5f50edd027672d8b26b0fee78a8b4a0fc56
+  MLKitBarcodeScanning: 0a3064da0a7f49ac24ceb3cb46a5bc67496facd2
+  MLKitCommon: 07c2c33ae5640e5380beaaa6e4b9c249a205542d
+  MLKitVision: 45e79d68845a2de77e2dd4d7f07947f0ed157b0e
+  nanopb: fad817b59e0457d11a5dfbde799381cd727c1275
   PromisesObjC: f5707f49cb48b9636751c5b2e7d227e43fba9f47
 
-PODFILE CHECKSUM: b97f6362823813ebf0a6bcadd172e91781516c3e
+PODFILE CHECKSUM: b5056e3260d71d8d1b74755eb60880bc42b273a5
 
 COCOAPODS: 1.16.2

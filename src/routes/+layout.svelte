@@ -64,8 +64,8 @@
 		};
 	});
 
-	// Initialize keyboard helpers for protected routes
-	async function initializeProtectedRouteHelpers() {
+	// Initialize device store for protected routes
+	async function initializeDeviceStore() {
 		const currentPath = page.url.pathname;
 
 		const isProtected =
@@ -75,28 +75,29 @@
 
 		if (!isProtected) return;
 
-		const [deviceModule, keyboardModule] = await Promise.all([
-			import('$lib/stores/device.store'),
-			import('$lib/utils/helpers/keyboard')
-		]);
+		const deviceModule = await import('$lib/stores/device.store');
 
 		await Promise.all([
 			deviceModule.initializeDevicePlatform(),
 			deviceModule.getOnboardingCompleted()
 		]);
-
-		keyboardModule.setupKeyboardListeners();
-		keyboardModule.setupGlobalInputFocusScroll();
 	}
+
+	let cleanupKb: (() => void) | undefined;
 
 	onMount(() => {
 		initializeTheme();
 		hideSplashScreenWhenReady(300);
 
+		// Keyboard: init immediately on all routes (no-op on web)
+		import('$lib/utils/helpers/keyboard').then((m) => {
+			cleanupKb = m.initKeyboard();
+		});
+
 		if (typeof requestIdleCallback !== 'undefined') {
-			requestIdleCallback(() => initializeProtectedRouteHelpers(), { timeout: 2000 });
+			requestIdleCallback(() => initializeDeviceStore(), { timeout: 2000 });
 		} else {
-			setTimeout(() => initializeProtectedRouteHelpers(), 100);
+			setTimeout(() => initializeDeviceStore(), 100);
 		}
 
 		window.addEventListener('vite:preloadError', handlePreloadError);
@@ -132,6 +133,7 @@
 		window.addEventListener('unhandledrejection', handleError);
 
 		return () => {
+			cleanupKb?.();
 			window.removeEventListener('vite:preloadError', handlePreloadError);
 			window.removeEventListener('error', handleError);
 			window.removeEventListener('unhandledrejection', handleError);
