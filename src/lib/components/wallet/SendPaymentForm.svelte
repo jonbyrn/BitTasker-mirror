@@ -39,6 +39,8 @@
 	// Platform detection
 	const isWeb = Capacitor.getPlatform() === 'web';
 
+	const SUPPORTED_SEND_NETWORKS = new Set(['rootstock-bitcoin', 'lightning-bitcoin', 'usdt-bsc']);
+
 	const netwokrOption = {
 		'rootstock-bitcoin': {
 			icon: '/images/chains/Bitcoin-Rootstock-logo.webp',
@@ -100,7 +102,7 @@
 
 	// Grouped State: UI State
 	let uiState = $state({
-		activeTab: 'scan' as 'scan' | 'enter',
+		activeTab: isWeb ? 'scan' : 'enter',
 		showConfirmation: false,
 		showSendConfirmation: false,
 		showSuccessScreen: false,
@@ -235,9 +237,17 @@
 			feeState.estimated !== null
 	);
 
+	const isNetworkSupported = $derived(
+		!parsedPayment.detectedNetwork || SUPPORTED_SEND_NETWORKS.has(parsedPayment.detectedNetwork)
+	);
+
 	const isFormValid = $derived.by(() => {
 		// Address validation: must have valid parsed data
 		if (!parsedPayment.data?.isValid) {
+			return false;
+		}
+
+		if (!isNetworkSupported) {
 			return false;
 		}
 
@@ -251,9 +261,6 @@
 		if (amountInSats <= 0) {
 			return false;
 		}
-
-		// Note: Authentication is handled in handleSend(), not here
-		// The button should be enabled so the user can click it and authenticate then
 
 		// Balance check: total (including fees) must not exceed available balance
 		if (totalToSend > availableBalance && availableBalance > 0) {
@@ -947,7 +954,8 @@
 	{:else}
 		<!-- Tab Navigation (Top) -->
 		<div
-			class="tabs tabs-boxed border-base-300 mb-3 shrink-0 overflow-hidden rounded-lg border sm:mb-4"
+			class="tabs tabs-boxed tabs-reversed border-base-300 mb-3 shrink-0 overflow-hidden rounded-lg border sm:mb-4"
+			class:flex-row-reverse={!isWeb}
 		>
 			<button
 				class="tab flex-1"
@@ -1335,15 +1343,22 @@
 								recipientAddress,
 								parsedPayment.detectedNetwork
 							)}
-							<div class="border-base-300 bg-primary/10 rounded-lg border p-1.5 sm:p-2">
+							<div
+								class="border-base-300 {isNetworkSupported
+									? 'bg-primary/10'
+									: 'bg-base-300 opacity-60'} rounded-lg border p-1.5 sm:p-2"
+							>
 								<div class="flex items-center justify-between gap-1.5 pl-1.5 sm:gap-2 sm:pl-2">
 									<div class="flex items-center gap-1.5 sm:gap-2">
 										{#if network?.icon}
 											<img src={network?.icon} alt={network?.name} class="h-4 w-4 sm:h-5 sm:w-5" />
 										{/if}
 										<span class="text-sm font-medium sm:text-base">{network?.name}</span>
+										{#if !isNetworkSupported}
+											<span class="badge badge-sm badge-ghost">{$t('wallet.coming_soon')}</span>
+										{/if}
 									</div>
-									{#if explorerUrl}
+									{#if explorerUrl && isNetworkSupported}
 										<a
 											href={explorerUrl}
 											target="_blank"
@@ -1357,6 +1372,11 @@
 									{/if}
 								</div>
 							</div>
+							{#if !isNetworkSupported}
+								<div class="alert alert-outline alert-warning mt-2 py-2 text-xs">
+									{$t('wallet.send.network_not_available')}
+								</div>
+							{/if}
 						{/if}
 
 						<!-- Description Accordion (Mobile Step 2) -->
@@ -1580,15 +1600,22 @@
 							recipientAddress,
 							parsedPayment.detectedNetwork
 						)}
-						<div class="border-base-300 bg-primary/10 rounded-lg border p-1.5 sm:p-2">
+						<div
+							class="border-base-300 {isNetworkSupported
+								? 'bg-primary/10'
+								: 'bg-base-300 opacity-60'} rounded-lg border p-1.5 sm:p-2"
+						>
 							<div class="flex items-center justify-between gap-1.5 pl-1.5 sm:gap-2 sm:pl-2">
 								<div class="flex items-center gap-1.5 sm:gap-2">
 									{#if network?.icon}
 										<img src={network?.icon} alt={network?.name} class="h-4 w-4 sm:h-5 sm:w-5" />
 									{/if}
 									<span class="text-sm font-medium sm:text-base">{network?.name}</span>
+									{#if !isNetworkSupported}
+										<span class="badge badge-sm badge-ghost">{$t('wallet.coming_soon')}</span>
+									{/if}
 								</div>
-								{#if explorerUrl}
+								{#if explorerUrl && isNetworkSupported}
 									<a
 										href={explorerUrl}
 										target="_blank"
@@ -1602,6 +1629,11 @@
 								{/if}
 							</div>
 						</div>
+						{#if !isNetworkSupported}
+							<div class="alert alert-outline alert-warning mt-2 py-2 text-xs">
+								{$t('wallet.send.network_not_available')}
+							</div>
+						{/if}
 					{/if}
 
 					<!-- Amount Field -->

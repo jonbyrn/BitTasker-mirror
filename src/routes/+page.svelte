@@ -186,6 +186,7 @@
 	});
 </script>
 
+<!-- eslint-disable svelte/no-at-html-tags -->
 <svelte:head>
 	<title>{seo.title}</title>
 	<meta name="description" content={seo.description} />
@@ -238,11 +239,6 @@
 						<a href="/tasks" class="btn btn-secondary mx-auto w-64 sm:mx-0 sm:w-auto"
 							>{$t('navbar.browse_tasks')}</a
 						>
-						<!-- <a
-							href="/dashboard/taskees"
-							class="btn btn-secondary mx-auto w-64 sm:mx-0 sm:w-auto"
-							>{$t('navbar.browse_freelancers')}</a
-						> -->
 					</div>
 					<!-- Large primary button below -->
 					<div class="flex justify-center">
@@ -293,7 +289,7 @@
 
 				<!-- Navigation dots below the carousel -->
 				<div class="flex w-full justify-center gap-2 py-4">
-					{#each featureIds as _, index}
+					{#each featureIds as featureId, index (featureId)}
 						<button
 							onclick={() => {
 								activeFeatureIndex = index;
@@ -533,47 +529,4 @@
 			<LiveTaskCard task={item as LiveTask} />
 		{/snippet}
 	</FeaturedHomepageSection>
-
-	<!-- Section 6: Featured Freelancers -->
-	<!-- <section class="bg-base-200 py-16">
-		<div class="container mx-auto px-4">
-			<div class="mb-8 flex items-center justify-between">
-				<h2>{$t('homepage.v2.taskees.title')}</h2>
-				<a href="/dashboard/taskees" class="btn btn-link text-primary"
-					>{$t('common.view_all')}
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke-width="1.5"
-						stroke="currentColor"
-						class="ml-1 h-5 w-5"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"
-						/>
-					</svg>
-				</a>
-			</div>
-			<div class="overflow-hidden">
-				<div
-					class="scrollbar-hide flex snap-x snap-mandatory gap-4 overflow-x-auto pb-6 pl-8 pt-4 pr-0 md:px-4"
-					style="scrollbar-width:none;"
-				>
-					{#each featuredTaskees as taskee (taskee.id)}
-						<div class="w-80 shrink-0 snap-start">
-							<TaskeeCard {taskee} />
-						</div>
-					{/each}
-				</div>
-			</div> -->
-
-	<!-- Browse Taskees Button -->
-	<!-- <div class="mt-12 text-center">
-				<a href="/dashboard/taskees" class="btn btn-primary">{$t('navbar.browse_freelancers')}</a>
-			</div>
-		</div>
-	</section> -->
 </div>

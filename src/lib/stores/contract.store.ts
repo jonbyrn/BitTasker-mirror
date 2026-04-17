@@ -1,14 +1,15 @@
 import type { ContractWithEvents, NostrContract } from '$lib/types/contract';
 import { writable } from 'svelte/store';
 import { createDebug } from '$lib/utils/debug';
-
-const d = createDebug('storecontracts');
+import { walletManager } from '$lib/stores/wallet.store';
 import { escrow } from '$lib/utils/escrow';
 import { getNpub } from '$lib/utils/nostrKeys';
 import { nip19, type NostrEvent } from 'nostr-tools';
 import { appStore } from '$lib/stores/app.store';
 import { get } from 'svelte/store';
 import KINDS from '$lib/utils/constants/kinds';
+
+const d = createDebug('storecontracts');
 
 // Contract store state
 type ContractStoreState = {
@@ -179,19 +180,13 @@ function createContractStore() {
 		 * Load all contracts (initial load)
 		 */
 		async loadContracts() {
-			// Check wallet state before loading
-			try {
-				await import('$lib/stores/wallet.store');
-				await import('svelte/store');
-			} catch {
-				// Wallet state check failed
-			}
-
 			update((state) => ({ ...state, isLoading: true, error: null }));
 			d.log('load start', { limit: CONTRACTS_LIMIT });
 
 			try {
 				const loadedContracts = await escrow.contractOps.getContracts({ limit: CONTRACTS_LIMIT });
+
+				if (loadedContracts.length > 0) await walletManager.initialize();
 
 				// Build index map: escrowData.id -> array index for O(1) access
 				const contractsMap = new Map<string, number>();

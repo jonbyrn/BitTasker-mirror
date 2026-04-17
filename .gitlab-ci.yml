@@ -117,6 +117,8 @@ unit:
   script:
     - npm ci --cache .npm --prefer-offline
     - npm run test:ci
+  environment:
+    name: development
   rules:
     # Skip on MR (coverage runs) and on dev/master (coverage runs for baseline)
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
@@ -152,6 +154,8 @@ coverage:
   script:
     - npm ci --cache .npm --prefer-offline
     - npm run test:ci -- --coverage
+  environment:
+    name: development
   coverage: '/All files[^|]*\|[^|]*\|[^|]*\|[^|]*\|\s*(\d+\.?\d*)%?/'
   artifacts:
     reports:

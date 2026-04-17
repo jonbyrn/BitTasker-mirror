@@ -65,9 +65,9 @@
 		}
 	});
 
-	onDestroy(async () => {
-		await walletManager.cleanup();
-		// Clean up WebSocket subscription
+	onDestroy(() => {
+		// Wallet teardown runs in dashboard/+layout onDestroy (leaving /dashboard/*), not here —
+		// otherwise navigating wallet ↔ contracts destroys the provider mid-flight.
 		unsubscribeFromSwaps?.();
 	});
 
@@ -166,7 +166,6 @@
 	<title>{$t('wallet.title')} | BitTasker</title>
 </svelte:head>
 
-<!-- Mismas dimensiones que Mi Panel (padding); max-w-4xl para wallet -->
 <div class="bg-base-100 mx-auto h-full max-w-4xl rounded-lg px-2 py-6 shadow-lg md:px-0 md:py-0">
 	<div
 		transition:fly={{ y: 20, duration: 300, easing: linear }}

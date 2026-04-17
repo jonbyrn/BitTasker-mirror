@@ -27,9 +27,13 @@ export class AuthService extends BaseApiService {
 	 * @throws {Error} 422 - Invalid encryption data format
 	 * @throws {Error} 500 - Internal server error
 	 */
-	async register(
-		registrationData: RegistrationData
-	): Promise<{ publicKey: string; user: UserData; access_token: string }> {
+	async register(registrationData: RegistrationData): Promise<{
+		publicKey: string;
+		user: UserData;
+		access_token: string;
+		refresh_token?: string;
+		refresh_token_expires_at?: string;
+	}> {
 		try {
 			// Validate required fields
 			if (!registrationData.publicKey || !registrationData.encryptedData) {
@@ -46,6 +50,8 @@ export class AuthService extends BaseApiService {
 				publicKey: string;
 				user: UserData;
 				access_token: string;
+				refresh_token?: string;
+				refresh_token_expires_at?: string;
 				error: { message: string };
 			}>(ENDPOINTS.AUTH.REGISTER, registrationData);
 
@@ -100,6 +106,8 @@ export class AuthService extends BaseApiService {
 	async passkeyLogin(data: PasskeyLoginArgs): Promise<{
 		user: UserData;
 		access_token: string;
+		refresh_token?: string;
+		refresh_token_expires_at?: string;
 		encryptedData: EncryptedData;
 		isLegacy?: boolean;
 		accountRestored?: boolean;
@@ -107,6 +115,8 @@ export class AuthService extends BaseApiService {
 		const response = await this.post<{
 			user: UserData;
 			access_token: string;
+			refresh_token?: string;
+			refresh_token_expires_at?: string;
 			encryptedData: EncryptedData;
 			isLegacy?: boolean;
 			accountRestored?: boolean;
@@ -124,6 +134,8 @@ export class AuthService extends BaseApiService {
 	 */
 	async nostrLogin(data: NostrLoginArgs): Promise<{
 		access_token: string;
+		refresh_token?: string;
+		refresh_token_expires_at?: string;
 		user: UserData;
 		isNewUser: boolean;
 		isMigrated: boolean;
@@ -132,6 +144,8 @@ export class AuthService extends BaseApiService {
 		try {
 			const response = await this.post<{
 				access_token: string;
+				refresh_token?: string;
+				refresh_token_expires_at?: string;
 				user: UserData;
 				isNewUser: boolean;
 				isMigrated: boolean;
@@ -226,9 +240,12 @@ export class AuthService extends BaseApiService {
 	 * @response 404 - User not found
 	 * @returns Promise with recovery response
 	 */
-	async completeNostrRecovery(
-		data: NostrRecoveryCompleteData
-	): Promise<{ access_token: string; user: UserData }> {
+	async completeNostrRecovery(data: NostrRecoveryCompleteData): Promise<{
+		access_token: string;
+		refresh_token?: string;
+		refresh_token_expires_at?: string;
+		user: UserData;
+	}> {
 		const response = await this.post(ENDPOINTS.AUTH.NOSTR_RECOVERY_COMPLETE, data);
 		return response.data;
 	}
@@ -310,6 +327,18 @@ export class AuthService extends BaseApiService {
 					? error.message
 					: String(error) || 'Failed to check username availability. Please try again.'
 			);
+		}
+	}
+
+	/**
+	 * Revoke the current session's refresh token on the server.
+	 * Best-effort — callers should not block on failure.
+	 */
+	async logout(): Promise<void> {
+		try {
+			await this.post(ENDPOINTS.AUTH.LOGOUT, {});
+		} catch {
+			// Swallow — logout must succeed even if the server is unreachable
 		}
 	}
 

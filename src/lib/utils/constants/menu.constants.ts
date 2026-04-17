@@ -8,7 +8,6 @@
 import IconAccountCircle from '~icons/mdi/account-circle';
 import IconAccountGroup from '~icons/mdi/account-group';
 import IconAccountHardHat from '~icons/mdi/account-hard-hat';
-import IconAccountPlus from '~icons/mdi/account-plus';
 import IconAccount from '~icons/mdi/account';
 import IconBriefcaseOutline from '~icons/mdi/briefcase-outline';
 import IconBriefcaseSearch from '~icons/mdi/briefcase-search';
@@ -22,10 +21,8 @@ import IconFileSign from '~icons/mdi/file-sign';
 import IconChartBoxOutline from '~icons/mdi/chart-box-outline';
 import IconFrequentlyAskedQuestions from '~icons/mdi/frequently-asked-questions';
 import IconHelpCircleOutline from '~icons/mdi/help-circle-outline';
-import IconHome from '~icons/mdi/home';
 import IconInformationOutline from '~icons/mdi/information-outline';
 import IconInvoiceTextSendOutline from '~icons/mdi/invoice-text-send-outline';
-import IconLogin from '~icons/mdi/login';
 import IconLogout from '~icons/mdi/logout';
 import IconMagnify from '~icons/mdi/magnify';
 import IconNewspaper from '~icons/mdi/newspaper';
@@ -34,6 +31,9 @@ import IconShieldAccount from '~icons/mdi/shield-account';
 import IconShieldCheck from '~icons/mdi/shield-check';
 import IconShieldCheckOutline from '~icons/mdi/shield-check-outline';
 import IconWalletOutline from '~icons/mdi/wallet-outline';
+import IconHome from '~icons/mdi/home';
+import IconLogin from '~icons/mdi/login';
+import IconAccountPlus from '~icons/mdi/account-plus';
 
 type IconComponent = typeof IconAccountCircle;
 
@@ -384,7 +384,6 @@ export const AVATAR_MENU_ITEMS: MenuItem[] = [
 		isError: true
 	}
 ];
-
 /**
  * Mobile drawer menu items (logged in)
  */

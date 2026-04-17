@@ -15,10 +15,37 @@
 	import IconCog from '~icons/mdi/cog';
 	import WarningPopup from '$lib/components/WarningPopup.svelte';
 	import NotificationPermissionBanner from '$lib/components/notifications/NotificationPermissionBanner.svelte';
+	import { onMount, onDestroy } from 'svelte';
+	import { walletManager } from '$lib/stores/wallet.store';
 
 	let { children } = $props();
 
 	let width = $state(375);
+
+	onMount(async () => {
+		try {
+			// Ensure wallet is initialized BEFORE loading dashboard
+			const { walletStore, walletManager } = await import('$lib/stores/wallet.store');
+			const { get } = await import('svelte/store');
+			let walletState = get(walletStore);
+
+			// Wait for wallet initialization if not already initialized
+			if (!walletState.isConnected || !walletState.rsk?.wallet || !walletState.rsk?.provider) {
+				await walletManager.initialize();
+				walletState = get(walletStore);
+			}
+		} catch {
+			// Continue anyway - contracts will handle wallet initialization individually
+		}
+
+		// NDK signer is loaded only from NdkIdentityGate so passkey is not raced with wallet init.
+	});
+
+	// Dispose SDK / ethers providers only when leaving the whole dashboard shell — not when
+	// swapping child routes (e.g. wallet page ↔ contracts tab). Child pages must not call cleanup.
+	onDestroy(() => {
+		walletManager.cleanup();
+	});
 </script>
 
 <svelte:head>

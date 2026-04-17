@@ -14,6 +14,7 @@
 	import Tabs from '$lib/components/Tabs.svelte';
 	import TaskDrawer from '$lib/components/task/TaskDrawer.svelte';
 	import DashboardTasksPanel from '$lib/components/task/DashboardTasksPanel.svelte';
+	import DashboardBidsPanel from '$lib/components/bidding/DashboardBidsPanel.svelte';
 	import DashboardContractsPanel from '$lib/components/contracts/DashboardContractsPanel.svelte';
 	import MyQuotesPanel from '$lib/components/dashboard/quotes/MyQuotesPanel.svelte';
 	import {
@@ -43,7 +44,7 @@
 		return translated === key ? fallback : translated;
 	}
 
-	const HIRING_TABS = new Set<DashboardTab>(['tasks', 'service-requests', 'contracts']);
+	const HIRING_TABS = new Set<DashboardTab>(['tasks', 'bids', 'service-requests', 'contracts']);
 
 	// Tab configuration - reactive to language changes
 	const tabs = $derived([
@@ -53,6 +54,13 @@
 			buttonLabel: $t('dashboard.create_task'),
 			buttonHref: '/dashboard/create-task',
 			icon: 'plus'
+		},
+		{
+			id: 'bids',
+			label: $t('dashboard.tabs.bids'),
+			buttonLabel: $t('dashboard.find_taskers'),
+			buttonHref: '/taskees',
+			icon: 'search'
 		},
 		{
 			id: 'contracts',
@@ -624,6 +632,15 @@
 				status={activeStatus}
 				openTaskDrawer={(task, tab = 'details') => setDrawerState(true, task, tab)}
 			/>
+		</div>
+	{:else if activeTabId === 'bids'}
+		<div
+			id="panel-bids"
+			role="tabpanel"
+			aria-labelledby="tab-bids"
+			transition:slide={{ duration: 300 }}
+		>
+			<DashboardBidsPanel />
 		</div>
 	{:else if activeTabId === 'contracts'}
 		<div
