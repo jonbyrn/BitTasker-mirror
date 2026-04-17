@@ -50,7 +50,7 @@ vi.mock('@bittasker/wallet-core', () => ({
 }));
 
 // Mock escrow ABI
-vi.mock('$lib/utils/escrow/v1/abi.json', () => ({
+vi.mock('$lib/utils/contract/v1/abi.json', () => ({
 	default: [
 		{
 			inputs: [],
