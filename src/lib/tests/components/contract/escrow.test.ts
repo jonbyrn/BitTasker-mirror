@@ -1,5 +1,26 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { Contract, Wallet, JsonRpcProvider } from 'ethers';
+import { EscrowStatus } from '$lib/utils/escrow/v1/escrow.enum';
+
+const ethersShared = vi.hoisted(() => ({
+	mockContractInstance: null as unknown
+}));
+
+const escrowEventMocks = vi.hoisted(() => ({
+	mockCleanupPendingContractByTxHash: vi.fn(),
+	mockPublishEscrowStatus: vi.fn()
+}));
+
+vi.mock('ethers', async () => {
+	const actual = await vi.importActual<typeof import('ethers')>('ethers');
+	return {
+		...actual,
+		ethers: {
+			...actual.ethers,
+			Contract: vi.fn().mockImplementation(() => ethersShared.mockContractInstance)
+		}
+	};
+});
 
 // Mock wallet store before importing escrow
 vi.mock('$lib/stores/wallet.store', () => ({
@@ -148,8 +169,7 @@ vi.mock('svelte/store', async () => {
 });
 
 // Mock escrowEvents to avoid store dependencies
-const mockCleanupPendingContractByTxHash = vi.fn();
-vi.mock('../escrowEvents', () => ({
+vi.mock('$lib/utils/escrow/v1/escrowEvents', () => ({
 	default: {
 		handleEscrowCreated: vi.fn(),
 		publishPendingCompletion: vi.fn(),
@@ -163,8 +183,9 @@ vi.mock('../escrowEvents', () => ({
 		handleResolutionProposed: vi.fn(),
 		handleProposalAccepted: vi.fn(),
 		handleTimelockResolved: vi.fn(),
-		cleanupPendingContractByTxHash: mockCleanupPendingContractByTxHash
-	}
+		cleanupPendingContractByTxHash: escrowEventMocks.mockCleanupPendingContractByTxHash
+	},
+	publishEscrowStatus: escrowEventMocks.mockPublishEscrowStatus
 }));
 
 // Now import escrow after mocks
@@ -214,10 +235,12 @@ describe('escrow', () => {
 			},
 			nextEscrowId: vi.fn().mockResolvedValue(BigInt(10)),
 			getEscrow: vi.fn(),
+			refundClient: vi.fn(),
 			createEscrow: {
 				estimateGas: vi.fn().mockResolvedValue(BigInt(100000))
 			}
 		} as unknown as Contract;
+		ethersShared.mockContractInstance = mockContract;
 
 		// Setup default mocks
 		mockGetWalletFn.mockReturnValue(mockWallet);
@@ -498,6 +521,109 @@ describe('escrow', () => {
 			// Second call should use fresh provider
 			const result2 = await escrow.ensureEscrowReady(undefined, false);
 			expect(result2.provider).toBe(mockProvider);
+		});
+	});
+
+	describe('refundClient', () => {
+		it('should call refundClient and publish pending + confirmed cancellation statuses', async () => {
+			const wait = vi.fn().mockResolvedValue({
+				hash: '0xrefund',
+				gasUsed: BigInt(32000)
+			});
+			const refundMethod = vi.fn().mockResolvedValue({
+				hash: '0xrefund',
+				wait
+			});
+			refundMethod.estimateGas = vi.fn().mockResolvedValue(BigInt(30000));
+			mockContract.refundClient = refundMethod;
+			ethersShared.mockContractInstance = mockContract;
+
+			const result = await escrow.refundClient('123', 'aa'.repeat(32), 'contract-123');
+
+			expect(result).toMatchObject({
+				hash: '0xrefund',
+				escrowId: '123'
+			});
+			expect(refundMethod.estimateGas).toHaveBeenCalledWith('123', {
+				gasPrice: BigInt('20000000000')
+			});
+			expect(refundMethod).toHaveBeenCalledWith(
+				'123',
+				expect.objectContaining({
+					gasPrice: BigInt('20000000000')
+				})
+			);
+			expect(escrowEventMocks.mockPublishEscrowStatus).toHaveBeenCalledWith(
+				expect.objectContaining({
+					escrowId: '123',
+					contractEventId: 'contract-123',
+					status: EscrowStatus.PendingCancellation,
+					statusMessagingVariant: 'refund'
+				})
+			);
+
+			await Promise.resolve();
+			await Promise.resolve();
+
+			expect(escrowEventMocks.mockPublishEscrowStatus).toHaveBeenLastCalledWith(
+				expect.objectContaining({
+					escrowId: '123',
+					contractEventId: 'contract-123',
+					status: EscrowStatus.Cancelled,
+					statusMessagingVariant: 'refund'
+				})
+			);
+		});
+
+		it('keeps the refund flow alive if pending Nostr status publication fails', async () => {
+			escrowEventMocks.mockPublishEscrowStatus.mockRejectedValueOnce(new Error('nostr offline'));
+
+			const wait = vi.fn().mockResolvedValue({
+				hash: '0xrefund',
+				gasUsed: BigInt(32000)
+			});
+			const refundMethod = vi.fn().mockResolvedValue({
+				hash: '0xrefund',
+				wait
+			});
+			refundMethod.estimateGas = vi.fn().mockResolvedValue(BigInt(30000));
+			mockContract.refundClient = refundMethod;
+			ethersShared.mockContractInstance = mockContract;
+
+			const result = await escrow.refundClient('123', 'aa'.repeat(32), 'contract-123');
+
+			expect(result.status).not.toBe('failed');
+
+			await Promise.resolve();
+			await Promise.resolve();
+
+			expect(result.status).toBe('confirmed');
+		});
+
+		it('keeps the refund confirmed if final Nostr status publication fails', async () => {
+			escrowEventMocks.mockPublishEscrowStatus
+				.mockResolvedValueOnce(undefined)
+				.mockRejectedValueOnce(new Error('nostr offline'));
+
+			const wait = vi.fn().mockResolvedValue({
+				hash: '0xrefund',
+				gasUsed: BigInt(32000)
+			});
+			const refundMethod = vi.fn().mockResolvedValue({
+				hash: '0xrefund',
+				wait
+			});
+			refundMethod.estimateGas = vi.fn().mockResolvedValue(BigInt(30000));
+			mockContract.refundClient = refundMethod;
+			ethersShared.mockContractInstance = mockContract;
+
+			const result = await escrow.refundClient('123', 'aa'.repeat(32), 'contract-123');
+
+			await Promise.resolve();
+			await Promise.resolve();
+
+			expect(result.status).toBe('confirmed');
+			expect(escrowEventMocks.mockPublishEscrowStatus).toHaveBeenCalledTimes(2);
 		});
 	});
 });

@@ -9,7 +9,6 @@
 const API_PATH = '/api';
 const API_VERSION = 'v1';
 const AUTH = 'auth';
-const LOCATION = 'location';
 const NOTIFICATIONS = 'notifications';
 
 // Full endpoint paths
@@ -30,7 +29,9 @@ export const ENDPOINTS = {
 		VERIFY_TURNSTILE: `${API_PATH}/${API_VERSION}/${AUTH}/verify-turnstile`,
 		CHECK_USERNAME: `${API_PATH}/${API_VERSION}/${AUTH}/username/check`,
 		MIGRATE_AUTH: `${API_PATH}/${API_VERSION}/${AUTH}/migrate`,
-		DELETE_ACCOUNT: `${API_PATH}/${API_VERSION}/${AUTH}/account`
+		DELETE_ACCOUNT: `${API_PATH}/${API_VERSION}/${AUTH}/account`,
+		REFRESH: `${API_PATH}/${API_VERSION}/${AUTH}/refresh`,
+		LOGOUT: `${API_PATH}/${API_VERSION}/${AUTH}/logout`
 	},
 
 	// Upload endpoints
@@ -40,16 +41,18 @@ export const ENDPOINTS = {
 		DELETE: (key: string) => `${API_PATH}/${API_VERSION}/uploads/${key}`
 	},
 
-	// Location endpoints
-	LOCATION: {
-		SEARCH: `${API_PATH}/${API_VERSION}/${LOCATION}/search`,
-		REVERSE_GEOCODE: `${API_PATH}/${API_VERSION}/${LOCATION}/reverse-geocode`
-	},
-
 	// Notifications endpoints
 	NOTIFICATIONS: {
-		REGISTER: `${API_PATH}/${API_VERSION}/${NOTIFICATIONS}/register`,
-		UNREGISTER: `${API_PATH}/${API_VERSION}/${NOTIFICATIONS}/unregister`
+		DEVICES: `${API_PATH}/${API_VERSION}/${NOTIFICATIONS}/devices`,
+		DEVICE: (deviceId: string) => `${API_PATH}/${API_VERSION}/${NOTIFICATIONS}/devices/${deviceId}`,
+		DEVICE_ACTIVITY: (deviceId: string) =>
+			`${API_PATH}/${API_VERSION}/${NOTIFICATIONS}/devices/${deviceId}/activity`,
+		PREFERENCES: `${API_PATH}/${API_VERSION}/${NOTIFICATIONS}/preferences`,
+		SEND: `${API_PATH}/${API_VERSION}/${NOTIFICATIONS}/send`,
+		SEND_TO_DEVICE: `${API_PATH}/${API_VERSION}/${NOTIFICATIONS}/send/device`,
+		SEND_TO_NPUBS: `${API_PATH}/${API_VERSION}/${NOTIFICATIONS}/send/npubs`,
+		SUBSCRIBE_TO_TOPIC: `${API_PATH}/${API_VERSION}/${NOTIFICATIONS}/topics/subscribe`,
+		UNSUBSCRIBE_FROM_TOPIC: `${API_PATH}/${API_VERSION}/${NOTIFICATIONS}/topics/unsubscribe`
 	},
 
 	NOSTR: {
@@ -63,5 +66,9 @@ export const ENDPOINTS = {
 
 	SAVED_SEARCHES: {
 		TRIGGER_CHECK: `${API_PATH}/${API_VERSION}/saved-searches/check-task`
+	},
+
+	TRANSLATION: {
+		TRANSLATE: `${API_PATH}/${API_VERSION}/translate`
 	}
 };

@@ -1,6 +1,6 @@
 import { type Event as NostrEvent, type Filter, nip19, nip44 } from 'nostr-tools';
 import { getNostrKeyPair, getNpub } from '$lib/utils/nostrKeys';
-import { finalizeEvent, getPublicKey, validateEvent } from 'nostr-tools/pure';
+import { finalizeEvent, validateEvent, getPublicKey } from 'nostr-tools/pure';
 import { Preferences } from '@capacitor/preferences';
 import { StorageKeys } from '$lib/utils/constants/storage';
 import { appStore } from '$lib/stores/app.store';

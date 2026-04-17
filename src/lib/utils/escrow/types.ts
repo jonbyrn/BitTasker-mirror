@@ -72,12 +72,14 @@ export interface IEscrowHandler {
 	/**
 	 * Mark task as complete (freelancer action)
 	 * @param escrowId - Unique escrow identifier
+	 * @param recipientPubkey - Counterparty hex pubkey for encrypted CONTRACT_STATUS DMs
 	 * @param contractEventId - Optional contract event ID for Nostr publishing
 	 * @param completionAttachments - Optional completion attachments
 	 * @returns Transaction result
 	 */
 	completeTask(
 		escrowId: string,
+		recipientPubkey: string,
 		contractEventId?: string,
 		completionAttachments?: Attachment[]
 	): Promise<ContractTransactionResult>;
@@ -85,12 +87,14 @@ export interface IEscrowHandler {
 	/**
 	 * Accept completed task and release funds (client action)
 	 * @param escrowId - Unique escrow identifier
+	 * @param recipientPubkey - Counterparty hex pubkey for Nostr CONTRACT_STATUS
 	 * @param contractEventId - Optional contract event ID for Nostr publishing
 	 * @param options - Optional callbacks (e.g. onConfirmed for task status update after chain confirm)
 	 * @returns Transaction result
 	 */
 	acceptTask(
 		escrowId: string,
+		recipientPubkey: string,
 		contractEventId?: string,
 		options?: { onConfirmed?: () => Promise<void> }
 	): Promise<ContractTransactionResult>;
@@ -98,10 +102,28 @@ export interface IEscrowHandler {
 	/**
 	 * Cancel escrow and refund client
 	 * @param escrowId - Unique escrow identifier
+	 * @param recipientPubkey - Counterparty hex pubkey for Nostr CONTRACT_STATUS
 	 * @param contractEventId - Optional contract event ID for Nostr publishing
 	 * @returns Transaction result
 	 */
-	cancelEscrow(escrowId: string, contractEventId?: string): Promise<ContractTransactionResult>;
+	cancelEscrow(
+		escrowId: string,
+		recipientPubkey: string,
+		contractEventId?: string
+	): Promise<ContractTransactionResult>;
+
+	/**
+	 * Refund the client as freelancer/taskee
+	 * @param escrowId - Unique escrow identifier
+	 * @param recipientPubkey - Counterparty hex pubkey for Nostr CONTRACT_STATUS
+	 * @param contractEventId - Optional contract event ID for Nostr publishing
+	 * @returns Transaction result
+	 */
+	refundClient(
+		escrowId: string,
+		recipientPubkey: string,
+		contractEventId?: string
+	): Promise<ContractTransactionResult>;
 
 	// ============================================
 	// Dispute Operations (Required for ALL versions)
@@ -110,14 +132,20 @@ export interface IEscrowHandler {
 	/**
 	 * Initiate dispute on completed task
 	 * @param escrowId - Unique escrow identifier
+	 * @param recipientPubkey - Counterparty hex pubkey for Nostr CONTRACT_STATUS
 	 * @param contractEventId - Optional contract event ID for Nostr publishing
 	 * @returns Transaction result
 	 */
-	disputeTask(escrowId: string, contractEventId?: string): Promise<ContractTransactionResult>;
+	disputeTask(
+		escrowId: string,
+		recipientPubkey: string,
+		contractEventId?: string
+	): Promise<ContractTransactionResult>;
 
 	/**
 	 * Propose resolution for dispute
 	 * @param escrowId - Unique escrow identifier
+	 * @param recipientPubkey - Counterparty hex pubkey for Nostr CONTRACT_STATUS
 	 * @param freelancerAmount - Amount to be paid to freelancer in RBTC
 	 * @param contractEventId - Optional contract event ID for Nostr publishing
 	 * @param proposedClientAmount - Optional client amount for Nostr publishing
@@ -126,6 +154,7 @@ export interface IEscrowHandler {
 	 */
 	proposeResolution(
 		escrowId: string,
+		recipientPubkey: string,
 		freelancerAmount: string,
 		contractEventId?: string,
 		proposedClientAmount?: string,
@@ -135,12 +164,14 @@ export interface IEscrowHandler {
 	/**
 	 * Accept proposed resolution
 	 * @param escrowId - Unique escrow identifier
+	 * @param recipientPubkey - Counterparty hex pubkey for Nostr CONTRACT_STATUS
 	 * @param contractEventId - Optional contract event ID for Nostr publishing
 	 * @param options - Optional callbacks (e.g. onConfirmed for task status update after chain confirm)
 	 * @returns Transaction result
 	 */
 	acceptProposal(
 		escrowId: string,
+		recipientPubkey: string,
 		contractEventId?: string,
 		options?: { onConfirmed?: () => Promise<void> }
 	): Promise<ContractTransactionResult>;
@@ -148,6 +179,7 @@ export interface IEscrowHandler {
 	/**
 	 * Resolve dispute after timelock expires
 	 * @param escrowId - Unique escrow identifier
+	 * @param recipientPubkey - Counterparty hex pubkey for Nostr CONTRACT_STATUS
 	 * @param escrowStatus - Current escrow status (EscrowStatus enum value)
 	 * @param contractEventId - Optional contract event ID for Nostr publishing
 	 * @param options - Optional callbacks (e.g. onConfirmed when outcome is FundsReleased)
@@ -155,6 +187,7 @@ export interface IEscrowHandler {
 	 */
 	resolveAfterTimelock(
 		escrowId: string,
+		recipientPubkey: string,
 		escrowStatus: number,
 		contractEventId?: string,
 		options?: { onConfirmed?: () => Promise<void> }

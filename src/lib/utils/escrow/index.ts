@@ -15,6 +15,8 @@
 
 import type { EscrowVersion, IVersionHandler } from './types';
 import { updateTask } from '$lib/nostr/task';
+import { getNpub } from '../nostrKeys';
+import { nip19, type NostrEvent } from 'nostr-tools';
 import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 import type {
 	ContractFilter,
@@ -29,7 +31,6 @@ import type { BidEscrowDetails, ContractTransactionResult, EscrowData } from '$l
 // Static imports - all versions loaded at startup for optimal performance
 import type { FeeTier } from '@bittasker/wallet-core';
 import type { NostrBidContent, NostrEventWithFollowup } from '$lib/types/bid';
-import type { NostrEvent } from 'nostr-tools';
 import type { Attachment, Task } from '$lib/types/task';
 import type { Writable } from 'svelte/store';
 
@@ -67,6 +68,23 @@ export const LATEST_ESCROW_VERSION: EscrowVersion = 'v1';
  * Provides version-agnostic API for all escrow operations
  */
 class EscrowManager {
+	private requireContractIdentifiers(
+		contract: ContractWithEvents,
+		actionName: 'cancelEscrow' | 'refundClient'
+	): { escrowId: string; contractEventId: string } {
+		const escrowId = contract?.escrowData?.id;
+		if (typeof escrowId !== 'string' || escrowId.trim() === '') {
+			throw new Error(`Missing escrow id for ${actionName}`);
+		}
+
+		const contractEventId = contract?.contractEvent?.id;
+		if (typeof contractEventId !== 'string' || contractEventId.trim() === '') {
+			throw new Error(`Missing contract event id for ${actionName}`);
+		}
+
+		return { escrowId, contractEventId };
+	}
+
 	/**
 	 * Get handler for specific version
 	 * Defaults to LATEST if version not found (forward compatibility)
@@ -91,6 +109,24 @@ class EscrowManager {
 		// Look for version tag ['v', 'v1']
 		const versionTag = contract.contractEvent.tags.find((tag: string[]) => tag[0] === 'v');
 		return versionTag?.[1] || LATEST_ESCROW_VERSION;
+	}
+
+	/**
+	 * Hex pubkey of the counterparty for encrypted contract-status DMs (not npub).
+	 */
+	async getRecipientPubkey(contract: ContractWithEvents): Promise<string> {
+		let npub = await getNpub();
+		if (npub.startsWith('npub')) {
+			npub = nip19.decode(npub).data as string;
+		}
+
+		const content = contract?.contractEvent?.content;
+
+		// Determine recipient: if sender is client, send to freelancer, and vice versa
+		const recipientPubkey =
+			npub === content?.clientPubkey ? content?.freelancerPubkey : content?.clientPubkey;
+
+		return recipientPubkey || '';
 	}
 
 	// ============================================
@@ -149,8 +185,14 @@ class EscrowManager {
 
 			const escrowId = contract.escrowData.id;
 			const contractEventId = contract.contractEvent.id;
+			const recipientPubkey = await this.getRecipientPubkey(contract);
 
-			return handler.escrow.completeTask(escrowId, contractEventId, completionAttachments);
+			return handler.escrow.completeTask(
+				escrowId,
+				recipientPubkey,
+				contractEventId,
+				completionAttachments
+			);
 		},
 
 		/**
@@ -170,7 +212,9 @@ class EscrowManager {
 					}
 				: undefined;
 
-			return handler.escrow.acceptTask(escrowId, contractEventId, { onConfirmed });
+			const recipientPubkey = await this.getRecipientPubkey(contract);
+
+			return handler.escrow.acceptTask(escrowId, recipientPubkey, contractEventId, { onConfirmed });
 		},
 
 		/**
@@ -180,10 +224,31 @@ class EscrowManager {
 			const version = this.getVersionFromContract(contract);
 			const handler = this.getHandler(version);
 
-			const escrowId = contract.escrowData.id;
-			const contractEventId = contract.contractEvent.id;
+			const { escrowId, contractEventId } = this.requireContractIdentifiers(
+				contract,
+				'cancelEscrow'
+			);
 
-			return handler.escrow.cancelEscrow(escrowId, contractEventId);
+			const recipientPubkey = await this.getRecipientPubkey(contract);
+
+			return handler.escrow.cancelEscrow(escrowId, recipientPubkey, contractEventId);
+		},
+
+		/**
+		 * Refund client (version-aware from contract)
+		 */
+		refundClient: async (contract: ContractWithEvents): Promise<ContractTransactionResult> => {
+			const version = this.getVersionFromContract(contract);
+			const handler = this.getHandler(version);
+
+			const { escrowId, contractEventId } = this.requireContractIdentifiers(
+				contract,
+				'refundClient'
+			);
+
+			const recipientPubkey = await this.getRecipientPubkey(contract);
+
+			return handler.escrow.refundClient(escrowId, recipientPubkey, contractEventId);
 		},
 
 		/**
@@ -196,7 +261,9 @@ class EscrowManager {
 			const escrowId = contract.escrowData.id;
 			const contractEventId = contract.contractEvent.id;
 
-			return handler.escrow.disputeTask(escrowId, contractEventId);
+			const recipientPubkey = await this.getRecipientPubkey(contract);
+
+			return handler.escrow.disputeTask(escrowId, recipientPubkey, contractEventId);
 		},
 
 		/**
@@ -214,8 +281,11 @@ class EscrowManager {
 			const escrowId = contract.escrowData.id;
 			const contractEventId = contract.contractEvent.id;
 
+			const recipientPubkey = await this.getRecipientPubkey(contract);
+
 			return handler.escrow.proposeResolution(
 				escrowId,
+				recipientPubkey,
 				freelancerAmountRBTC,
 				contractEventId,
 				proposedClientAmount,
@@ -243,7 +313,11 @@ class EscrowManager {
 						}
 					: undefined;
 
-			return handler.escrow.acceptProposal(escrowId, contractEventId, { onConfirmed });
+			const recipientPubkey = await this.getRecipientPubkey(contract);
+
+			return handler.escrow.acceptProposal(escrowId, recipientPubkey, contractEventId, {
+				onConfirmed
+			});
 		},
 
 		/**
@@ -266,9 +340,17 @@ class EscrowManager {
 					}
 				: undefined;
 
-			return handler.escrow.resolveAfterTimelock(escrowId, Number(escrowStatus), contractEventId, {
-				onConfirmed
-			});
+			const recipientPubkey = await this.getRecipientPubkey(contract);
+
+			return handler.escrow.resolveAfterTimelock(
+				escrowId,
+				recipientPubkey,
+				Number(escrowStatus),
+				contractEventId,
+				{
+					onConfirmed
+				}
+			);
 		},
 
 		// V2+ Operations (with capability checks)

@@ -45,7 +45,8 @@ export interface ContractPermissions {
 	canDispute: boolean; // client can dispute
 	canPropose: boolean; // either party can propose resolution
 	canAcceptProposal: boolean; // other party can accept proposal
-	canCancel: boolean; // either party can cancel
+	canCancel: boolean; // client can cancel within contract rules
+	canRefund?: boolean; // taskee can refund the tasker
 	canResolveTimelock: boolean; // either party can resolve after timelock
 	canDelete: boolean; // ONLY if contract was never funded (no blockchain state, no tx hash)
 }
@@ -175,6 +176,7 @@ export interface PublishStatusParams {
 	proposedClientAmount?: string;
 	proposedFreelancerAmount?: string;
 	completionAttachments?: Attachment[];
+	recipientPubkey: string;
 }
 
 // Contract filter for queries
@@ -193,6 +195,8 @@ export interface PublishContractStatusParams {
 	contractEventId: string;
 	transactionHash: string;
 	status: EscrowStatus;
+	recipientPubkey: string;
+	statusMessagingVariant?: 'default' | 'refund';
 	completionAttachments?: Attachment[];
 	proposedClientAmount?: string;
 	proposedFreelancerAmount?: string;

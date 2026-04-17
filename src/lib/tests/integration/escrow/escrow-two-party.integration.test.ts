@@ -1,6 +1,33 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ethers } from 'ethers';
 import { EscrowStatus } from '$lib/utils/escrow';
+import type { Mock } from 'vitest';
+
+/** Minimal receipt shape returned by `tx.wait()` in escrow integration mocks */
+export type EscrowMockTxReceipt = {
+	hash: string;
+	gasUsed: bigint;
+	logs: unknown[];
+};
+
+/** Contract method mock with ethers-style `estimateGas` sibling */
+export type EscrowMethodMock = Mock & { estimateGas: Mock };
+
+/** Shared mock contract surface for v1 escrow integration tests */
+export type EscrowV1IntegrationMockContract = {
+	interface: { parseLog: Mock };
+	getEscrow: Mock;
+	paused: Mock;
+	createEscrow?: EscrowMethodMock;
+	completeTask?: EscrowMethodMock;
+	acceptTask?: EscrowMethodMock;
+	cancelEscrow?: EscrowMethodMock;
+	disputeTask?: EscrowMethodMock;
+	proposeResolution?: EscrowMethodMock;
+	acceptProposal?: EscrowMethodMock;
+	resolveAfterTimelock?: EscrowMethodMock;
+	getDisputeProposal?: Mock;
+};
 
 // Mock dependencies
 vi.mock('@bittasker/wallet-core', () => ({
@@ -8,7 +35,7 @@ vi.mock('@bittasker/wallet-core', () => ({
 }));
 
 // Mock ethers
-let mockContractInstance: any = null;
+let mockContractInstance: EscrowV1IntegrationMockContract | null = null;
 vi.mock('ethers', async () => {
 	const actual = await vi.importActual('ethers');
 	return {
@@ -44,7 +71,7 @@ const createMockWalletStore = (user: 'client' | 'freelancer') => {
 let currentUser: 'client' | 'freelancer' = 'client';
 
 vi.mock('$lib/stores/wallet.store', () => ({
-	getWallet: vi.fn((network: string) => {
+	getWallet: vi.fn(() => {
 		if (currentUser === 'client') {
 			return {
 				address: '0x1111111111111111111111111111111111111111'
@@ -63,7 +90,7 @@ vi.mock('$lib/stores/wallet.store', () => ({
 	walletStore: {
 		subscribe: vi.fn((callback) => {
 			callback(createMockWalletStore(currentUser));
-			return () => { };
+			return () => {};
 		})
 	},
 	walletManager: {
@@ -117,21 +144,24 @@ vi.mock('$lib/stores/app.store', () => ({
 
 // Mock svelte-i18n
 vi.mock('svelte-i18n', () => {
-	const translationFn = (key: string) => key;
-	const mockT = Object.assign(vi.fn((key: string) => key), { subscribe: vi.fn() });
+	const mockT = Object.assign(
+		vi.fn((key: string) => key),
+		{ subscribe: vi.fn() }
+	);
 	return { t: mockT };
 });
 
 // Mock svelte/store
 vi.mock('svelte/store', () => {
 	const translationFn = (key: string) => key;
-	const mockGet = vi.fn((store: any) => {
+	const mockGet = vi.fn((store: unknown) => {
 		if (typeof store === 'function') {
-			if (store.subscribe || (store.toString && store.toString().includes('t'))) {
+			const fn = store as (() => unknown) & { subscribe?: unknown; toString?: () => string };
+			if (fn.subscribe || fn.toString?.().includes('t')) {
 				return translationFn;
 			}
 			try {
-				return store();
+				return fn();
 			} catch {
 				return translationFn;
 			}
@@ -152,8 +182,10 @@ vi.mock('svelte/store', () => {
 // Import after mocks
 import { escrow } from '$lib/utils/escrow/v1/escrow';
 
+const NOSTR_PEER_HEX = 'aa'.repeat(32);
+
 describe('Escrow Two-Party Interaction Integration Tests', () => {
-	let mockContract: any;
+	let mockContract: EscrowV1IntegrationMockContract;
 	const escrowId = 'two-party-123';
 	const contractEventId = 'contract-two-party-123';
 	const clientAddress = '0x1111111111111111111111111111111111111111';
@@ -167,10 +199,10 @@ describe('Escrow Two-Party Interaction Integration Tests', () => {
 		vi.clearAllMocks();
 		currentUser = 'client'; // Start as client
 
-		const createMockWait = (receipt: any) => {
-			return vi.fn().mockImplementation(
-				() => new Promise((resolve) => setTimeout(() => resolve(receipt), 10))
-			);
+		const createMockWait = (receipt: EscrowMockTxReceipt) => {
+			return vi
+				.fn()
+				.mockImplementation(() => new Promise((resolve) => setTimeout(() => resolve(receipt), 10)));
 		};
 
 		mockContract = {
@@ -184,7 +216,10 @@ describe('Escrow Two-Party Interaction Integration Tests', () => {
 			paused: vi.fn().mockResolvedValue(false)
 		};
 
-		const createMethodWithEstimateGas = (estimateGasValue: bigint, waitReceipt: any) => {
+		const createMethodWithEstimateGas = (
+			estimateGasValue: bigint,
+			waitReceipt: EscrowMockTxReceipt
+		) => {
 			const method = vi.fn().mockResolvedValue({
 				hash: '0x' + Math.random().toString(16).substring(2, 66),
 				wait: createMockWait(waitReceipt)
@@ -253,7 +288,7 @@ describe('Escrow Two-Party Interaction Integration Tests', () => {
 			expect(createResult.status).toBe('pending');
 
 			// Simulate blockchain confirmation
-			await new Promise(resolve => setTimeout(resolve, 100));
+			await new Promise((resolve) => setTimeout(resolve, 100));
 
 			// Simulate EscrowCreated event handling
 			await EscrowNostrEvent.default.handleEscrowCreated({
@@ -271,13 +306,13 @@ describe('Escrow Two-Party Interaction Integration Tests', () => {
 			currentUser = 'freelancer';
 			mockContract.getEscrow.mockResolvedValueOnce(completedEscrowData);
 
-			const completeResult = await escrow.completeTask(escrowId, contractEventId);
+			const completeResult = await escrow.completeTask(escrowId, NOSTR_PEER_HEX, contractEventId);
 
 			expect(completeResult.hash).toBeDefined();
 			expect(completeResult.status).toBe('pending');
 			expect(completeResult.escrowId).toBe(escrowId);
 
-			await new Promise(resolve => setTimeout(resolve, 100));
+			await new Promise((resolve) => setTimeout(resolve, 100));
 
 			expect(mockPublishEscrowStatus).toHaveBeenCalledWith(
 				expect.objectContaining({
@@ -291,12 +326,12 @@ describe('Escrow Two-Party Interaction Integration Tests', () => {
 			currentUser = 'client';
 			mockContract.getEscrow.mockResolvedValueOnce(completedEscrowData);
 
-			const acceptResult = await escrow.acceptTask(escrowId, contractEventId);
+			const acceptResult = await escrow.acceptTask(escrowId, NOSTR_PEER_HEX, contractEventId);
 
 			expect(acceptResult.hash).toBeDefined();
 			expect(acceptResult.status).toBe('pending');
 
-			await new Promise(resolve => setTimeout(resolve, 100));
+			await new Promise((resolve) => setTimeout(resolve, 100));
 
 			expect(mockPublishEscrowStatus).toHaveBeenCalledWith(
 				expect.objectContaining({
@@ -325,12 +360,12 @@ describe('Escrow Two-Party Interaction Integration Tests', () => {
 
 			mockContract.getEscrow.mockResolvedValue(fundedEscrowData);
 
-			const cancelResult = await escrow.cancelEscrow(escrowId, contractEventId);
+			const cancelResult = await escrow.cancelEscrow(escrowId, NOSTR_PEER_HEX, contractEventId);
 
 			expect(cancelResult.hash).toBeDefined();
 			expect(cancelResult.status).toBe('pending');
 
-			await new Promise(resolve => setTimeout(resolve, 100));
+			await new Promise((resolve) => setTimeout(resolve, 100));
 
 			expect(mockPublishEscrowStatus).toHaveBeenCalledWith(
 				expect.objectContaining({
@@ -374,11 +409,11 @@ describe('Escrow Two-Party Interaction Integration Tests', () => {
 			currentUser = 'client';
 			mockContract.getEscrow.mockResolvedValueOnce(completedEscrowData);
 
-			const disputeResult = await escrow.disputeTask(escrowId, contractEventId);
+			const disputeResult = await escrow.disputeTask(escrowId, NOSTR_PEER_HEX, contractEventId);
 
 			expect(disputeResult.hash).toBeDefined();
 
-			await new Promise(resolve => setTimeout(resolve, 100));
+			await new Promise((resolve) => setTimeout(resolve, 100));
 
 			// Step 2: Freelancer proposes resolution
 			currentUser = 'freelancer';
@@ -386,6 +421,7 @@ describe('Escrow Two-Party Interaction Integration Tests', () => {
 
 			const proposeResult = await escrow.proposeResolution(
 				escrowId,
+				NOSTR_PEER_HEX,
 				'0.5',
 				contractEventId,
 				'0.5',
@@ -394,17 +430,17 @@ describe('Escrow Two-Party Interaction Integration Tests', () => {
 
 			expect(proposeResult.hash).toBeDefined();
 
-			await new Promise(resolve => setTimeout(resolve, 100));
+			await new Promise((resolve) => setTimeout(resolve, 100));
 
 			// Step 3: Client accepts proposal
 			currentUser = 'client';
 			mockContract.getDisputeProposal.mockResolvedValueOnce(mockDisputeProposal);
 
-			const acceptResult = await escrow.acceptProposal(escrowId, contractEventId);
+			const acceptResult = await escrow.acceptProposal(escrowId, NOSTR_PEER_HEX, contractEventId);
 
 			expect(acceptResult.hash).toBeDefined();
 
-			await new Promise(resolve => setTimeout(resolve, 100));
+			await new Promise((resolve) => setTimeout(resolve, 100));
 
 			expect(mockPublishEscrowStatus).toHaveBeenCalledWith(
 				expect.objectContaining({
@@ -443,6 +479,7 @@ describe('Escrow Two-Party Interaction Integration Tests', () => {
 
 			const proposeResult = await escrow.proposeResolution(
 				escrowId,
+				NOSTR_PEER_HEX,
 				'0.6',
 				contractEventId,
 				'0.4',
@@ -451,17 +488,17 @@ describe('Escrow Two-Party Interaction Integration Tests', () => {
 
 			expect(proposeResult.hash).toBeDefined();
 
-			await new Promise(resolve => setTimeout(resolve, 100));
+			await new Promise((resolve) => setTimeout(resolve, 100));
 
 			// Step 2: Freelancer accepts
 			currentUser = 'freelancer';
 			mockContract.getDisputeProposal.mockResolvedValueOnce(mockDisputeProposal);
 
-			const acceptResult = await escrow.acceptProposal(escrowId, contractEventId);
+			const acceptResult = await escrow.acceptProposal(escrowId, NOSTR_PEER_HEX, contractEventId);
 
 			expect(acceptResult.hash).toBeDefined();
 
-			await new Promise(resolve => setTimeout(resolve, 100));
+			await new Promise((resolve) => setTimeout(resolve, 100));
 
 			expect(mockPublishEscrowStatus).toHaveBeenCalledWith(
 				expect.objectContaining({
@@ -494,7 +531,7 @@ describe('Escrow Two-Party Interaction Integration Tests', () => {
 
 			// Freelancer should not be able to accept (only client can)
 			// This would be enforced by the smart contract, but we test the integration
-			await expect(escrow.acceptTask(escrowId, contractEventId)).rejects.toThrow();
+			await expect(escrow.acceptTask(escrowId, NOSTR_PEER_HEX, contractEventId)).rejects.toThrow();
 		});
 
 		it('should prevent client from completing task', async () => {
@@ -516,7 +553,9 @@ describe('Escrow Two-Party Interaction Integration Tests', () => {
 			mockContract.getEscrow.mockResolvedValue(fundedEscrowData);
 
 			// Client should not be able to complete (only freelancer can)
-			await expect(escrow.completeTask(escrowId, contractEventId)).rejects.toThrow();
+			await expect(
+				escrow.completeTask(escrowId, NOSTR_PEER_HEX, contractEventId)
+			).rejects.toThrow();
 		});
 	});
 });

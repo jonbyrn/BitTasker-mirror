@@ -71,6 +71,7 @@ describe('contractPermissions', () => {
 				expect(result.status).toBe(EscrowStatus.PendingFunding);
 				expect(result.permissions.canDelete).toBe(false);
 				expect(result.permissions.canCancel).toBe(false);
+				expect(result.permissions.canRefund).toBe(false);
 			});
 		});
 
@@ -89,6 +90,7 @@ describe('contractPermissions', () => {
 
 				expect(result.status).toBe(EscrowStatus.Funded);
 				expect(result.permissions.canDelete).toBe(true);
+				expect(result.permissions.canRefund).toBe(false);
 			});
 
 			it('should handle pending states for never-funded contracts', () => {
@@ -248,7 +250,8 @@ describe('contractPermissions', () => {
 					true
 				);
 
-				expect(result.permissions.canCancel).toBe(true);
+				expect(result.permissions.canCancel).toBe(false);
+				expect(result.permissions.canRefund).toBe(true);
 			});
 
 			it('should show PendingCancellation when cancellation is in progress', () => {
@@ -281,6 +284,7 @@ describe('contractPermissions', () => {
 
 				expect(result.status).toBe(EscrowStatus.PendingCancellation);
 				expect(result.permissions.canCancel).toBe(false);
+				expect(result.permissions.canRefund).toBe(false);
 			});
 
 			it('should show PendingCompletion when completion is in progress', () => {
@@ -313,6 +317,7 @@ describe('contractPermissions', () => {
 
 				expect(result.status).toBe(EscrowStatus.PendingCompletion);
 				expect(result.permissions.canComplete).toBe(false);
+				expect(result.permissions.canRefund).toBe(false);
 			});
 
 			it('falls back to InProgress when a pending completion event is stale', () => {
@@ -376,6 +381,31 @@ describe('contractPermissions', () => {
 				expect(result.status).toBe(EscrowStatus.Completed);
 				expect(result.permissions.canAccept).toBe(true);
 				expect(result.permissions.canDispute).toBe(true);
+			});
+
+			it('should allow freelancer to refund after completion', () => {
+				const escrowData = {
+					...mockEscrowData,
+					status: EscrowStatus.Completed,
+					estimatedStartTime: now - oneHour,
+					timelockExpiry: now + oneDay
+				};
+
+				const result = determineContractState(
+					EscrowStatus.Completed,
+					[],
+					mockContract,
+					escrowData,
+					null,
+					false,
+					false,
+					true
+				);
+
+				expect(result.status).toBe(EscrowStatus.Completed);
+				expect(result.permissions.canCancel).toBe(false);
+				expect(result.permissions.canRefund).toBe(true);
+				expect(result.permissions.canAccept).toBe(false);
 			});
 
 			it('should allow timelock resolution after expiry', () => {
@@ -471,6 +501,7 @@ describe('contractPermissions', () => {
 
 				expect(result.status).toBe(EscrowStatus.PendingAcceptance);
 				expect(result.permissions.canAccept).toBe(false);
+				expect(result.permissions.canRefund).toBe(false);
 			});
 
 			it('falls back to Completed when a pending acceptance event is stale', () => {
@@ -553,6 +584,33 @@ describe('contractPermissions', () => {
 				);
 
 				expect(result.permissions.canCancel).toBe(true);
+			});
+		});
+
+		describe('In Dispute State', () => {
+			it('should allow freelancer to refund while disputed', () => {
+				const escrowData = {
+					...mockEscrowData,
+					status: EscrowStatus.InDispute,
+					estimatedStartTime: now - oneHour,
+					timelockExpiry: now + oneDay
+				};
+
+				const result = determineContractState(
+					EscrowStatus.InDispute,
+					[],
+					mockContract,
+					escrowData,
+					null,
+					false,
+					false,
+					true
+				);
+
+				expect(result.status).toBe(EscrowStatus.InDispute);
+				expect(result.permissions.canCancel).toBe(false);
+				expect(result.permissions.canRefund).toBe(true);
+				expect(result.permissions.canPropose).toBe(true);
 			});
 		});
 
@@ -751,6 +809,7 @@ describe('contractPermissions', () => {
 				expect(result.permissions.canPropose).toBe(false);
 				expect(result.permissions.canAcceptProposal).toBe(false);
 				expect(result.permissions.canCancel).toBe(false);
+				expect(result.permissions.canRefund).toBe(false);
 				expect(result.permissions.canResolveTimelock).toBe(false);
 				expect(result.permissions.canDelete).toBe(false);
 			});
@@ -769,6 +828,7 @@ describe('contractPermissions', () => {
 
 				expect(result.status).toBe(EscrowStatus.Cancelled);
 				expect(result.permissions.canDelete).toBe(false);
+				expect(result.permissions.canRefund).toBe(false);
 			});
 		});
 	});

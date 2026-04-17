@@ -1,7 +1,7 @@
 import type { Task, TaskBody, TaskTranslations } from '$lib/types/task.d';
 import type { Event as NostrEvent, Filter } from 'nostr-tools';
-import { nip19 } from 'nostr-tools';
 import type { RecurrencePattern } from '$lib/types/recurring-tasks';
+import { nip19 } from 'nostr-tools';
 import { calculatePOW } from '$lib/nostr';
 import { getSignedEvent } from '$lib/utils/nostr';
 import { user } from '$lib/stores/user.store';
@@ -10,9 +10,7 @@ import { getNpub } from '$lib/utils/nostrKeys';
 import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 import { getDateRangeTags } from '$lib/utils/helpers/dateTier';
 import { getBudgetBucket } from '$lib/utils/helpers/budgetTier';
-import nostrEventsService from '$lib/api/services/nostr/events';
-import KINDS from '$lib/utils/constants/kinds';
-import { TranslationService } from '$lib/services/translation.service';
+import { translationService } from '$lib/services/translation.service';
 import { SUPPORTED_LANGUAGES } from '$lib/i18n/i18n';
 import { appStore } from '$lib/stores/app.store';
 import { tasksStore, myTasksStore } from '$lib/stores/task.store';
@@ -21,6 +19,8 @@ import { cleanupMyTasks } from '$lib/nostr/findMyTasks';
 import { createDebug } from '$lib/utils/debug';
 import { getExactTaskLocations, publishExactTaskLocations } from '$lib/nostr/exact-location';
 import { sanitizeTaskForPublicPublish } from '$lib/utils/location/public-location';
+import nostrEventsService from '$lib/api/services/nostr/events';
+import KINDS from '$lib/utils/constants/kinds';
 
 const d = createDebug('task');
 
@@ -63,20 +63,11 @@ function getPool() {
 
 type TaskWithIds = Task & { uniqueId?: string; eventId?: string };
 
-// Translation service instance
-const translationService = new TranslationService();
-
 /**
  * Generate translations for a task
  * Translates title and description to all supported languages
  */
 async function generateTaskTranslations(taskData: TaskBody): Promise<TaskTranslations | undefined> {
-	// Only generate translations if translation service is available
-	if (!translationService.isAvailable()) {
-		console.warn('Translation service not available, skipping translations');
-		return undefined;
-	}
-
 	try {
 		// Detect source language from the combined text (title + description)
 		const combinedText = `${taskData.title} ${taskData.description}`.trim();

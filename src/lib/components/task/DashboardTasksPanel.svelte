@@ -61,6 +61,7 @@
 			activeFilter = status as TaskFilterCategory;
 		}
 	});
+
 	let btcPrice = $state<number>(0);
 	let isLoading = $state(true);
 	let error = $state<string | null>(null);
@@ -253,7 +254,7 @@
 					{
 						label: $t('task.actions.view_details'),
 						class: 'btn-outline btn-sm',
-						onclick: (e: MouseEvent) => {
+						onclick: (e: MouseEvent | KeyboardEvent) => {
 							e.stopPropagation();
 							openTaskDrawer(task, 'details');
 						},
@@ -262,7 +263,7 @@
 					{
 						label: $t('task.actions.view_bids'),
 						class: 'btn-primary btn-sm',
-						onclick: (e: MouseEvent) => {
+						onclick: (e: MouseEvent | KeyboardEvent) => {
 							e.stopPropagation();
 							goto(`/dashboard/task/${task.id}/bids`);
 						},
@@ -275,7 +276,7 @@
 					{
 						label: $t('task.actions.mark_as_done'),
 						class: 'btn-success btn-sm',
-						onclick: (e: MouseEvent) => {
+						onclick: (e: MouseEvent | KeyboardEvent) => {
 							e.stopPropagation();
 							// TODO: Implement mark as done functionality
 						},
@@ -284,7 +285,7 @@
 					{
 						label: $t('task.actions.rescope'),
 						class: 'btn-info btn-outline btn-sm',
-						onclick: (e: MouseEvent) => {
+						onclick: (e: MouseEvent | KeyboardEvent) => {
 							e.stopPropagation();
 							// TODO: Implement rescope functionality
 						},
@@ -299,7 +300,7 @@
 					{
 						label: $t('task.actions.view_details'),
 						class: 'btn-primary btn-sm',
-						onclick: (e: MouseEvent) => {
+						onclick: (e: MouseEvent | KeyboardEvent) => {
 							e.stopPropagation();
 							openTaskDrawer(task, 'details');
 						},

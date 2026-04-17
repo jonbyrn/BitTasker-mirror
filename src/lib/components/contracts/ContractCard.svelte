@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { ContractWithEvents } from '$lib/types/contract';
 	import {
+		getCancellationStatusVariant,
 		getStatusTranslationKey,
 		getStatusColorClass
 	} from '$lib/utils/helpers/contractStatusFormatter';
@@ -51,6 +52,14 @@
 			sats: `${sats.toLocaleString('en-US')} Sats`
 		};
 	}
+
+	const statusVariant = $derived(
+		getCancellationStatusVariant(
+			contract.status,
+			contract.statusEvents,
+			contractStore.getContractKey(contract, 'clientPubkey') as string
+		)
+	);
 
 	const availableQuickActions = $derived.by(() => {
 		if (presentation.isUnknownContext) {
@@ -103,6 +112,7 @@
 >
 	<div class="card-body rounded-xl p-4 md:p-4">
 		<div class="mb-3 flex flex-row items-start justify-between gap-2">
+			<!-- Left: Title and Summary (flexible, takes available space) -->
 			<div class="min-w-0 flex-1 pr-2 md:pr-4">
 				<button
 					class="hover:text-primary w-full cursor-pointer text-left transition-colors"
@@ -133,12 +143,13 @@
 					{#if contract.isPending}
 						<span class="loading loading-spinner loading-xs mr-1"></span>
 					{/if}
-					{$t(getStatusTranslationKey(contract.status))}
+					{$t(getStatusTranslationKey(contract.status, { statusVariant }))}
 				</div>
 			</div>
 		</div>
 
 		<div class="mb-3 flex flex-row items-center justify-between gap-3">
+			<!-- Left: Deadline + Location -->
 			<div class="flex min-w-0 flex-1 flex-col gap-2">
 				<TaskDeadlineDisplay
 					deadline={contractStore.getContractKey(contract, 'estimatedCompletionTime') as number}
@@ -146,6 +157,7 @@
 				<TaskLocationDisplay />
 			</div>
 
+			<!-- Right: Price -->
 			<div class="shrink-0 text-right">
 				{#if btcPrice > 0}
 					{@const priceData = formatPriceStacked(

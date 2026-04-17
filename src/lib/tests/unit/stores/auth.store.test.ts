@@ -2,6 +2,19 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { get } from 'svelte/store';
 import { authState } from '$lib/stores/auth.store';
 
+const mockDestroySession = vi.fn().mockResolvedValue(undefined);
+const mockAuthServiceLogout = vi.fn().mockResolvedValue(undefined);
+const mockNdkLogout = vi.fn().mockResolvedValue(undefined);
+const { mockResetNdkIdentity } = vi.hoisted(() => ({
+	mockResetNdkIdentity: vi.fn()
+}));
+
+vi.mock('$lib/runes/ndkIdentity.svelte', () => ({
+	ndkIdentity: {
+		reset: (...args: unknown[]) => mockResetNdkIdentity(...args)
+	}
+}));
+
 vi.mock('@capacitor/preferences', () => ({
 	Preferences: {
 		remove: vi.fn().mockResolvedValue(undefined),
@@ -11,13 +24,25 @@ vi.mock('@capacitor/preferences', () => ({
 }));
 
 vi.mock('$lib/utils/session', () => ({
-	clearSession: vi.fn().mockResolvedValue(undefined)
+	destroySession: (...args: unknown[]) => mockDestroySession(...args)
+}));
+
+vi.mock('$lib/nostr/ndk', () => ({
+	ndkLogout: (...args: unknown[]) => mockNdkLogout(...args)
+}));
+
+vi.mock('$lib/api/services/auth.service', () => ({
+	default: {
+		logout: (...args: unknown[]) => mockAuthServiceLogout(...args)
+	}
 }));
 
 vi.mock('$lib/stores/user.store', () => ({
-	user: {
-		reset: vi.fn()
-	}
+	user: { reset: vi.fn() }
+}));
+
+vi.mock('$lib/stores/mute.store', () => ({
+	muteStore: { reset: vi.fn() }
 }));
 
 vi.mock('$app/navigation', () => ({
@@ -68,29 +93,43 @@ describe('auth.store', () => {
 			expect(state.error).toBe(null);
 		});
 
-		it('should call clearSession on logout', async () => {
-			const { clearSession } = await import('$lib/utils/session');
+		it('should call authService.logout() to revoke token on the server', async () => {
 			await authState.logout();
-			expect(clearSession).toHaveBeenCalled();
+			expect(mockAuthServiceLogout).toHaveBeenCalledOnce();
 		});
 
-		it('should call user.reset on logout', async () => {
-			const { user } = await import('$lib/stores/user.store');
+		it('should call destroySession() for local cleanup', async () => {
 			await authState.logout();
-			expect(user.reset).toHaveBeenCalled();
+			expect(mockDestroySession).toHaveBeenCalledOnce();
 		});
 
-		it('should remove access token from preferences on logout', async () => {
-			const { Preferences } = await import('@capacitor/preferences');
+		it('should call ndkLogout() after authService.logout', async () => {
 			await authState.logout();
-			expect(Preferences.remove).toHaveBeenCalledWith(
-				expect.objectContaining({ key: expect.any(String) })
-			);
-			const removeCalls = vi.mocked(Preferences.remove).mock.calls;
-			const keysRemoved = removeCalls.map((c) => c[0].key);
-			expect(keysRemoved).toContain('access_token');
-			expect(keysRemoved).toContain('npub');
-			expect(keysRemoved).toContain('auth_method');
+			expect(mockNdkLogout).toHaveBeenCalledOnce();
+		});
+
+		it('should call ndkIdentity.reset after ndkLogout', async () => {
+			await authState.logout();
+			expect(mockResetNdkIdentity).toHaveBeenCalledOnce();
+		});
+
+		it('should call destroySession after authService.logout and ndkLogout', async () => {
+			const callOrder: string[] = [];
+			mockAuthServiceLogout.mockImplementation(async () => {
+				callOrder.push('server');
+			});
+			mockNdkLogout.mockImplementation(async () => {
+				callOrder.push('ndk');
+			});
+			mockResetNdkIdentity.mockImplementation(() => {
+				callOrder.push('ndkIdentity');
+			});
+			mockDestroySession.mockImplementation(async () => {
+				callOrder.push('local');
+			});
+
+			await authState.logout();
+			expect(callOrder).toEqual(['server', 'ndk', 'ndkIdentity', 'local']);
 		});
 	});
 });

@@ -1,12 +1,12 @@
 <script lang="ts">
+	import type { PageData } from './$types';
 	import { page } from '$app/state';
 	import { t } from 'svelte-i18n';
-	import TaskDetailsView from '$lib/components/task/TaskDetailsView.svelte';
 	import { authState } from '$lib/stores/auth.store';
 	import { devicePlatform } from '$lib/stores/device.store';
 	import { sections } from '$lib/utils/consts';
 	import WarningPopup from '$lib/components/WarningPopup.svelte';
-	// Icon imports for unplugin-icons
+	import TaskDetailsView from '$lib/components/task/TaskDetailsView.svelte';
 	import IconFormatListBulleted from '~icons/mdi/format-list-bulleted';
 	import IconPlusCircleOutline from '~icons/mdi/plus-circle-outline';
 	import IconMagnify from '~icons/mdi/magnify';
@@ -16,15 +16,12 @@
 	import IconAccount from '~icons/mdi/account';
 	import IconChatOutline from '~icons/mdi/chat-outline';
 	import IconCog from '~icons/mdi/cog';
-	import type { PageData } from './$types';
 
 	// Get taskId from route params
 	const taskId = page.params.taskId;
 
 	// Get SEO data from page data
 	let { data }: { data: PageData } = $props();
-
-	// Check if user is logged in
 
 	// Layout state
 	let width = $state(375);

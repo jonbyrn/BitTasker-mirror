@@ -1,16 +1,16 @@
 [
-  {
-    "relation": [
-      "delegate_permission/common.handle_all_urls",
-      "delegate_permission/common.get_login_creds"
-    ],
-    "target": {
-      "namespace": "android_app",
-      "package_name": "com.bittasker.app",
-      "sha256_cert_fingerprints": [
-        "15:14:39:BE:1B:16:7D:C7:48:C8:DD:1C:4D:AB:6A:0E:0C:80:C8:8C:81:4C:C4:C1:17:A1:38:18:D1:74:FB:8A",
-        "D6:97:1C:6E:24:9B:CA:A3:60:AB:13:D1:E7:A9:32:BB:36:90:A1:A7:0F:95:D0:B5:24:80:E1:15:63:31:CC:50"
-      ]
-    }
-  }
+	{
+		"relation": [
+			"delegate_permission/common.handle_all_urls",
+			"delegate_permission/common.get_login_creds"
+		],
+		"target": {
+			"namespace": "android_app",
+			"package_name": "com.bittasker.app",
+			"sha256_cert_fingerprints": [
+				"D6:97:1C:6E:24:9B:CA:A3:60:AB:13:D1:E7:A9:32:BB:36:90:A1:A7:0F:95:D0:B5:24:80:E1:15:63:31:CC:50",
+				"15:14:39:BE:1B:16:7D:C7:48:C8:DD:1C:4D:AB:6A:0E:0C:80:C8:8C:81:4C:C4:C1:17:A1:38:18:D1:74:FB:8A"
+			]
+		}
+	}
 ]

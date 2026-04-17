@@ -115,12 +115,6 @@ export async function publishContractEvent(params: CreateContractParams): Promis
  */
 export async function publishContractStatus(params: PublishStatusParams): Promise<void> {
 	try {
-		let npub = await getNpub();
-		if (npub.startsWith('npub')) {
-			const { nip19 } = await import('nostr-tools');
-			npub = nip19.decode(npub).data as string;
-		}
-
 		const statusData: NostrContractStatus = {
 			contractEventId: params.contractEventId,
 			escrowId: params.escrowId,
@@ -134,37 +128,17 @@ export async function publishContractStatus(params: PublishStatusParams): Promis
 			type: 'contract-status'
 		};
 
-		// Query the contract directly by escrowId to get recipient info
-		const contractEvents = await queryNostrEvents({
-			kinds: [KINDS.CONTRACT],
-			'#d': [params.escrowId], // Query by escrowId tag
-			limit: 1
-		});
-
-		if (contractEvents.length === 0) {
-			throw new Error('Contract not found for status update');
-		}
-
-		// Get the contract data
-		const contractData: NostrContract = contractEvents[0].content as unknown as NostrContract;
-
-		// Determine recipient: if sender is client, send to freelancer, and vice versa
-		const recipientPubkey =
-			npub === contractData.clientPubkey
-				? contractData.freelancerPubkey
-				: contractData.clientPubkey;
-
 		// Send as encrypted contract status event
 		const statusMessage = JSON.stringify(statusData);
 		const tags = TAG_PATTERNS.contractStatus(
 			params.contractEventId,
 			params.escrowId,
-			recipientPubkey,
+			params.recipientPubkey,
 			params.action,
 			'v1'
 		);
 
-		await publishNostrEvent(KINDS.CONTRACT_STATUS, statusMessage, recipientPubkey, tags);
+		await publishNostrEvent(KINDS.CONTRACT_STATUS, statusMessage, params.recipientPubkey, tags);
 	} catch (error) {
 		console.warn('Error publishing contract status:', error);
 	}
@@ -283,11 +257,15 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 						const transactionHash = oldestStaleEvent.content.transactionHash;
 
 						if (transactionHash && contractEvent.id) {
-							// Attempt to recover by checking if transaction is confirmed
+							const recoveryRecipient =
+								(npub === contractEvent?.content?.clientPubkey
+									? contractEvent?.content?.freelancerPubkey
+									: contractEvent?.content?.clientPubkey) || '';
 							recoverMissingFundsReleasedEvent(
 								contractEvent.content.escrowId,
 								contractEvent.id,
-								transactionHash
+								transactionHash,
+								recoveryRecipient
 							).catch(() => {});
 						}
 					}
@@ -514,7 +492,8 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 async function recoverMissingFundsReleasedEvent(
 	escrowId: string,
 	contractEventId: string,
-	transactionHash: string
+	transactionHash: string,
+	recipientPubkey: string
 ): Promise<void> {
 	try {
 		// Get provider to check transaction status
@@ -544,7 +523,8 @@ async function recoverMissingFundsReleasedEvent(
 			escrowId,
 			contractEventId,
 			transactionHash: receipt.hash,
-			status: EscrowStatus.FundsReleased
+			status: EscrowStatus.FundsReleased,
+			recipientPubkey
 		});
 	} catch {
 		// Don't throw - recovery is best-effort
