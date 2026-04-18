@@ -478,6 +478,52 @@
 				"my_location": "My Location"
 			}
 		},
+		"components": {
+			"modal": {
+				"close": "Close"
+			},
+			"error_troubleshooting_modal": {
+				"button_title": "Open troubleshooting help",
+				"help": "Help",
+				"troubleshoot": "Troubleshoot",
+				"title": "Troubleshooting Help",
+				"error_occurred": "An error occurred",
+				"passkey_overview": {
+					"title": "About Passkeys",
+					"description": "Passkeys are a more secure and convenient way to sign in. They use your device's biometric authentication (fingerprint, face recognition) or PIN.",
+					"benefit1": "Enhanced security against phishing",
+					"benefit2": "No passwords to remember or lose",
+					"benefit3": "Encrypted and stored only on your device"
+				},
+				"troubleshooting_steps_title": "Common Solutions",
+				"passkey_faq": {
+					"question1": "What if I accidentally cancelled the request?",
+					"answer1": "Simply click the 'Retry' button to restart the authentication process.",
+					"question2": "Why is my device not showing the biometric prompt?",
+					"answer2": "Ensure your device screen is unlocked and you haven't disabled biometric authentication in your system settings.",
+					"question3": "What if I haven't set up biometrics yet?",
+					"answer3": "You can usually use your device's screen lock PIN or pattern as a fallback, or set up a fingerprint/face recognition in your device settings.",
+					"question4": "Are there specific browser permissions needed?",
+					"answer4": "Some browsers may require permission to access security keys. Check your browser settings if you're experiencing issues.",
+					"question5": "Is my device/browser supported?",
+					"answer5": "Most modern devices and browsers support passkeys. If you're on an older system, you may need to update your software.",
+					"question6": "The request timed out. What should I do?",
+					"answer6": "Authentication requests have a time limit. If it expires, please try again."
+				},
+				"settings_instructions_title": "How to check your settings:",
+				"biometric_help_title": "Biometric Authentication Help",
+				"biometric_help_description": "If you're having trouble with fingerprint or face recognition:",
+				"biometric_help_point1": "Ensure your sensor is clean and dry.",
+				"biometric_help_point2": "Try using your device PIN if biometrics fail multiple times.",
+				"biometric_help_point3": "Restart your device if the biometric system seems unresponsive.",
+				"still_need_help_title": "Still need help?",
+				"still_need_help_description": "If none of the above solutions work, please contact our support team for further assistance.",
+				"cancel_button": "Cancel",
+				"got_it_button": "Got it",
+				"setup_passkey_button": "Setup Passkey",
+				"retry_button": "Retry"
+			}
+		},
 		"airdatepicker": {
 			"select_date": "Date",
 			"select_date_range": "Date range",

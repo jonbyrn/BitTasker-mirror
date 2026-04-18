@@ -448,6 +448,52 @@
 				"thanks_simple": "¡Gracias por tus comentarios!"
 			}
 		},
+		"components": {
+			"modal": {
+				"close": "Cerrar"
+			},
+			"error_troubleshooting_modal": {
+				"button_title": "Abrir ayuda de solución de problemas",
+				"help": "Ayuda",
+				"troubleshoot": "Solucionar",
+				"title": "Ayuda para la Solución de Problemas",
+				"error_occurred": "Ocurrió un error",
+				"passkey_overview": {
+					"title": "Acerca de las Llaves de Acceso",
+					"description": "Las llaves de acceso son una forma más segura y conveniente de iniciar sesión. Utilizan la autenticación biométrica de su dispositivo (huella digital, reconocimiento facial) o PIN.",
+					"benefit1": "Seguridad mejorada contra el phishing",
+					"benefit2": "Sin contraseñas que recordar o perder",
+					"benefit3": "Encriptado y almacenado solo en su dispositivo"
+				},
+				"troubleshooting_steps_title": "Soluciones Comunes",
+				"passkey_faq": {
+					"question1": "¿Qué pasa si cancelé accidentalmente la solicitud?",
+					"answer1": "Simplemente haga clic en el botón 'Reintentar' para reiniciar el proceso de autenticación.",
+					"question2": "¿Por qué mi dispositivo no muestra el aviso biométrico?",
+					"answer2": "Asegúrese de que la pantalla de su dispositivo esté desbloqueada y que no haya desactivado la autenticación biométrica en la configuración de su sistema.",
+					"question3": "¿Qué pasa si aún no he configurado la biometría?",
+					"answer3": "Por lo general, puede usar el PIN o patrón de bloqueo de pantalla de su dispositivo como respaldo, o configurar el reconocimiento de huella digital/facial en la configuración de su dispositivo.",
+					"question4": "¿Se necesitan permisos específicos del navegador?",
+					"answer4": "Algunos navegadores pueden requerir permiso para acceder a las llaves de seguridad. Verifique la configuración de su navegador si tiene problemas.",
+					"question5": "¿Es compatible mi dispositivo/navegador?",
+					"answer5": "La mayoría de los dispositivos y navegadores modernos admiten llaves de acceso. Si utiliza un sistema más antiguo, es posible que deba actualizar su software.",
+					"question6": "La solicitud expiró. ¿Qué debo hacer?",
+					"answer6": "Las solicitudes de autenticación tienen un límite de tiempo. Si expira, inténtelo de nuevo."
+				},
+				"settings_instructions_title": "Cómo verificar su configuración:",
+				"biometric_help_title": "Ayuda con la Autenticación Biométrica",
+				"biometric_help_description": "Si tiene problemas con el reconocimiento de huella digital o facial:",
+				"biometric_help_point1": "Asegúrese de que su sensor esté limpio y seco.",
+				"biometric_help_point2": "Intente usar el PIN de su dispositivo si la biometría falla varias veces.",
+				"biometric_help_point3": "Reinicie su dispositivo si el sistema biométrico no responde.",
+				"still_need_help_title": "¿Aún necesita ayuda?",
+				"still_need_help_description": "Si ninguna de las soluciones anteriores funciona, póngase en contacto con nuestro equipo de soporte para obtener más ayuda.",
+				"cancel_button": "Cancelar",
+				"got_it_button": "Entendido",
+				"setup_passkey_button": "Configurar Llave de Acceso",
+				"retry_button": "Reintentar"
+			}
+		},
 		"airdatepicker": {
 			"select_date": "Fecha",
 			"select_date_range": "Rango de fechas",
