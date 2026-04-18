@@ -464,9 +464,6 @@
 					<p class="text-base-content mb-4 text-center text-sm">
 						{$t('login.subtitle')}
 					</p>
-					<p class="text-base-content text-center text-sm">
-						{$t('login.passkey_info')}
-					</p>
 				</div>
 				<div class="flex flex-col gap-4">
 					{#if !isNostrLogin}

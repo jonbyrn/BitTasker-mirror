@@ -247,10 +247,11 @@
 		showLogoutConfirm = true;
 	}
 
-	function handleLogoutConfirm() {
-		authState.logout();
+	async function handleLogoutConfirm() {
 		showLogoutConfirm = false;
+		await authState.logout();
 		closeMenu();
+		await goto('/', { replaceState: true });
 	}
 
 	function handleLogoutCancel() {
