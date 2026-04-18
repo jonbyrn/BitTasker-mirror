@@ -5,6 +5,7 @@
 	import { beforeNavigate, goto } from '$app/navigation';
 	import { authState } from '$lib/stores/auth.store';
 	import { ImpactStyle, triggerHaptic } from '$lib/utils/helpers/haptics';
+	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 
 	import IconLogout from '~icons/mdi/logout';
 	import IconHelpCircleOutline from '~icons/mdi/help-circle-outline';
@@ -160,6 +161,7 @@
 	let isMenuOpen = $state(false);
 	let isMenuClosing = $state(false);
 	let isMenuExpanding = $state(false);
+	let showLogoutConfirm = $state(false);
 
 	// Measure actual dock height (avoid relying on 80px fallback)
 	let dockEl = $state<HTMLElement | null>(null);
@@ -231,12 +233,28 @@
 			isMenuClosing = true;
 			// Close all collapses when closing the menu
 			closeAllCollapses();
+			// Close logout confirm if open
+			showLogoutConfirm = false;
 			// Wait for slide-down animation to complete before hiding
 			setTimeout(() => {
 				isMenuOpen = false;
 				isMenuClosing = false;
 			}, 300); // Match animation duration
 		}
+	}
+
+	function handleLogoutClick() {
+		showLogoutConfirm = true;
+	}
+
+	function handleLogoutConfirm() {
+		authState.logout();
+		showLogoutConfirm = false;
+		closeMenu();
+	}
+
+	function handleLogoutCancel() {
+		showLogoutConfirm = false;
 	}
 
 	async function handleNavWithMenuClose(event: MouseEvent, href: string) {
@@ -351,13 +369,7 @@
 							<ul class="menu w-full">
 								<!-- 1. Logout -->
 								<li>
-									<button
-										onclick={() => {
-											authState.logout();
-											closeMenu();
-										}}
-										class="min-h-[48px] w-full py-3 text-left"
-									>
+									<button onclick={handleLogoutClick} class="min-h-[48px] w-full py-3 text-left">
 										<IconLogout class="text-error" />
 										<span class="text-error font-medium">{$t('navbar.logout')}</span>
 									</button>
@@ -542,6 +554,14 @@
 	</div>
 {/if}
 
+<ConfirmModal
+	isOpen={showLogoutConfirm}
+	title={$t('common.components.confirm_modal.logout_title')}
+	message={$t('common.components.confirm_modal.logout_message')}
+	onConfirm={handleLogoutConfirm}
+	onCancel={handleLogoutCancel}
+/>
+
 <style>
 	.pb-safe {
 		padding-bottom: env(safe-area-inset-bottom, 0);
@@ -575,7 +595,7 @@
 
 	.bottom-nav-menu {
 		transform: translateY(100%);
-		transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+		transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
 		will-change: transform;
 		backface-visibility: hidden;
 
@@ -616,14 +636,14 @@
 	}
 
 	/*
-	 * Submenu accordion using grid-template-rows for GPU-friendly animation.
-	 * The cubic-bezier replicates the backOut bounce feel without layout thrashing.
-	 * Expand overshoots slightly (like backOut), collapse eases out smoothly.
+	 * Submenu reveal using grid-template-rows trick for smooth layout pushing.
+	 * Modern browsers optimize this heavily for performance.
 	 */
 	.submenu-grid {
 		display: grid;
 		grid-template-rows: 0fr;
-		transition: grid-template-rows 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+		transition: grid-template-rows 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+		overflow: hidden;
 		list-style: none;
 	}
 
@@ -632,15 +652,16 @@
 	}
 
 	.submenu-inner {
-		overflow: hidden;
+		min-height: 0;
 		padding: 0;
 		margin: 0;
 		list-style: none;
+		overflow: hidden;
 	}
 
 	.dropdown-arrow {
 		transform-origin: center;
-		transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+		transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 		will-change: transform;
 		transform: rotate(0deg);
 	}
