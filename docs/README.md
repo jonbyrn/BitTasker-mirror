@@ -40,9 +40,10 @@ Project documentation lives here. Long-term and canonical docs are in **`docs/`*
 
 ### Other (`docs/`)
 
-| Document                                                     | Purpose                                 |
-| ------------------------------------------------------------ | --------------------------------------- |
-| [gitea-to-gitlab-migration.md](gitea-to-gitlab-migration.md) | Gitea to GitLab migration (if present). |
+| Document                                                     | Purpose                                                                                |
+| ------------------------------------------------------------ | -------------------------------------------------------------------------------------- |
+| [debug-logging.md](debug-logging.md)                         | **`createDebug`:** opt-in traces via `localStorage.debug`, filtering, team guidelines. |
+| [gitea-to-gitlab-migration.md](gitea-to-gitlab-migration.md) | Gitea to GitLab migration (if present).                                                |
 
 ## See also
 
