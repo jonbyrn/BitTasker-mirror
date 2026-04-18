@@ -16,11 +16,8 @@
 	import IconBriefcaseOutline from '~icons/mdi/briefcase-outline';
 	import IconMagnify from '~icons/mdi/magnify';
 	import IconPlusCircleOutline from '~icons/mdi/plus-circle-outline';
-	import IconAccountCircle from '~icons/mdi/account-circle';
 	import IconChatOutline from '~icons/mdi/chat-outline';
 	import IconWalletOutline from '~icons/mdi/wallet-outline';
-	import IconAccount from '~icons/mdi/account';
-	import IconCog from '~icons/mdi/cog';
 	import IconLogin from '~icons/mdi/login';
 	import IconAccountPlus from '~icons/mdi/account-plus';
 	import IconHome from '~icons/mdi/home';
@@ -36,7 +33,6 @@
 	import IconBriefcaseSearch from '~icons/mdi/briefcase-search';
 	import IconNewspaper from '~icons/mdi/newspaper';
 	import IconCommentTextOutline from '~icons/mdi/comment-text-outline';
-	import IconFormatListBulleted from '~icons/mdi/format-list-bulleted';
 
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	type IconComponent = any;
@@ -68,38 +64,6 @@
 				{ href: '/about', icon: IconInformationOutline, label: 'navbar.about_us' },
 				{ href: '/terms', icon: IconFileDocumentOutline, label: 'navbar.terms_of_service' },
 				{ href: '/privacy', icon: IconShieldAccount, label: 'navbar.privacy_policy' }
-			]
-		},
-		{
-			id: 'taskees',
-			icon: IconBriefcaseOutline,
-			label: 'navbar.task_management',
-			items: [
-				{ href: '/tasks', icon: IconMagnify, label: 'navbar.find_tasks' },
-				{ href: '/dashboard', icon: IconFormatListBulleted, label: 'navbar.my_tasks' },
-				{
-					href: '/dashboard/create-task',
-					icon: IconPlusCircleOutline,
-					label: 'navbar.create_task'
-				},
-				{
-					href: '/dashboard?tab=bids',
-					icon: IconInvoiceTextSendOutline,
-					label: 'navbar.bids_sent'
-				},
-				{ href: '/dashboard?tab=contracts', icon: IconFileSign, label: 'navbar.contracts' },
-				{ href: '/earning', icon: IconInvoiceTextSendOutline, label: 'navbar.earning' }
-			]
-		},
-		{
-			id: 'taskers',
-			icon: IconAccountCircle,
-			label: 'navbar.my_account',
-			items: [
-				{ href: '/dashboard/messages', icon: IconChatOutline, label: 'navbar.messages' },
-				{ href: '/dashboard/wallet', icon: IconWalletOutline, label: 'navbar.wallet' },
-				{ href: '/dashboard/profile', icon: IconAccount, label: 'navbar.profile' },
-				{ href: '/dashboard/settings', icon: IconCog, label: 'navbar.settings' }
 			]
 		}
 	];
@@ -297,37 +261,6 @@
 	</li>
 {/snippet}
 
-{#snippet menuGroup(group: NavGroup)}
-	{@const GroupIcon = group.icon}
-	<li>
-		<button onclick={() => toggleGroup(group.id)} class="min-h-[48px] py-3">
-			<GroupIcon class="text-primary" />
-			<span class="font-medium">{$t(group.label)}</span>
-			<svg
-				class="dropdown-arrow ml-auto h-4 w-4"
-				class:dropdown-open={openGroupId === group.id}
-				fill="currentColor"
-				viewBox="0 0 20 20"
-				stroke="currentColor"
-				stroke-width="1"
-			>
-				<path
-					fill-rule="evenodd"
-					d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-					clip-rule="evenodd"
-				/>
-			</svg>
-		</button>
-	</li>
-	<li class="submenu-grid" class:submenu-open={openGroupId === group.id}>
-		<ul class="submenu-inner">
-			{#each group.items as link (link.label)}
-				{@render menuLink(link)}
-			{/each}
-		</ul>
-	</li>
-{/snippet}
-
 {#snippet topLevelLink(link: NavLink)}
 	{@const LinkIcon = link.icon}
 	<li>
@@ -416,6 +349,7 @@
 					<div class="p-2">
 						{#if $authState.isAuthenticated}
 							<ul class="menu w-full">
+								<!-- 1. Logout -->
 								<li>
 									<button
 										onclick={() => {
@@ -428,9 +362,59 @@
 										<span class="text-error font-medium">{$t('navbar.logout')}</span>
 									</button>
 								</li>
-								{#each loggedInGroups as group (group.id)}
-									{@render menuGroup(group)}
-								{/each}
+
+								<!-- 2. Support & Help (Accordion) -->
+								<li>
+									<button onclick={() => toggleGroup('company')} class="min-h-[48px] py-3">
+										<IconHelpCircleOutline class="text-primary" />
+										<span class="font-medium">{$t('navbar.support_help')}</span>
+										<svg
+											class="dropdown-arrow ml-auto h-4 w-4"
+											class:dropdown-open={openGroupId === 'company'}
+											fill="currentColor"
+											viewBox="0 0 20 20"
+											stroke="currentColor"
+											stroke-width="1"
+										>
+											<path
+												fill-rule="evenodd"
+												d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+												clip-rule="evenodd"
+											/>
+										</svg>
+									</button>
+								</li>
+								<li class="submenu-grid" class:submenu-open={openGroupId === 'company'}>
+									<ul class="submenu-inner">
+										{#each loggedInGroups.find((g) => g.id === 'company')?.items || [] as link (link.label)}
+											{@render menuLink(link)}
+										{/each}
+									</ul>
+								</li>
+
+								<!-- 3. Earning (Link) -->
+								<li>
+									<a
+										href="/earning"
+										onclick={(e) => handleNavWithMenuClose(e, '/earning')}
+										class="min-h-[48px] py-3"
+									>
+										<IconInvoiceTextSendOutline class="text-primary" />
+										<span class="font-medium">{$t('navbar.earning')}</span>
+									</a>
+								</li>
+
+								<!-- 4. Hiring (Link) -->
+								<li>
+									<a
+										href="/dashboard"
+										onclick={(e) => handleNavWithMenuClose(e, '/dashboard')}
+										class="min-h-[48px] py-3"
+									>
+										<IconBriefcaseOutline class="text-primary" />
+										<span class="font-medium">{$t('navbar.hiring')}</span>
+									</a>
+								</li>
 							</ul>
 						{:else}
 							<div class="mb-2 flex items-center justify-around">
@@ -456,7 +440,34 @@
 									{@render topLevelLink(link)}
 								{/each}
 								{#each loggedOutGroups as group (group.id)}
-									{@render menuGroup(group)}
+									<!-- Group dropdown -->
+									<li>
+										<button onclick={() => toggleGroup(group.id)} class="min-h-[48px] py-3">
+											<group.icon class="text-primary" />
+											<span class="font-medium">{$t(group.label)}</span>
+											<svg
+												class="dropdown-arrow ml-auto h-4 w-4"
+												class:dropdown-open={openGroupId === group.id}
+												fill="currentColor"
+												viewBox="0 0 20 20"
+												stroke="currentColor"
+												stroke-width="1"
+											>
+												<path
+													fill-rule="evenodd"
+													d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+													clip-rule="evenodd"
+												/>
+											</svg>
+										</button>
+									</li>
+									<li class="submenu-grid" class:submenu-open={openGroupId === group.id}>
+										<ul class="submenu-inner">
+											{#each group.items as link (link.label)}
+												{@render menuLink(link)}
+											{/each}
+										</ul>
+									</li>
 								{/each}
 							</ul>
 						{/if}
@@ -467,15 +478,11 @@
 					<div class="bottom-nav-quick border-base-300/70 bg-base-100/95 border-t px-2 py-2">
 						<div class="flex gap-2">
 							{@render quickActionLink('/tasks', IconMagnify, 'navbar.find_tasks')}
+							{@render quickActionLink('/services', IconBriefcaseSearch, 'navbar.find_services')}
 							{@render quickActionLink(
 								'/dashboard?tab=contracts',
 								IconFileSign,
 								'navbar.contracts'
-							)}
-							{@render quickActionLink(
-								'/dashboard?tab=bids',
-								IconInvoiceTextSendOutline,
-								'navbar.bids_sent'
 							)}
 						</div>
 					</div>
@@ -568,7 +575,7 @@
 
 	.bottom-nav-menu {
 		transform: translateY(100%);
-		transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+		transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 		will-change: transform;
 		backface-visibility: hidden;
 
@@ -616,7 +623,7 @@
 	.submenu-grid {
 		display: grid;
 		grid-template-rows: 0fr;
-		transition: grid-template-rows 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+		transition: grid-template-rows 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 		list-style: none;
 	}
 
@@ -633,7 +640,7 @@
 
 	.dropdown-arrow {
 		transform-origin: center;
-		transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+		transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 		will-change: transform;
 		transform: rotate(0deg);
 	}
