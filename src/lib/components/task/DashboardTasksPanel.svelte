@@ -50,11 +50,7 @@
 		'tasks_cancelled'
 	];
 
-	let activeFilter = $state<TaskFilterCategory>(
-		status && VALID_FILTERS.includes(status as TaskFilterCategory)
-			? (status as TaskFilterCategory)
-			: 'all'
-	);
+	let activeFilter = $state<TaskFilterCategory>('all');
 
 	$effect(() => {
 		if (status && VALID_FILTERS.includes(status as TaskFilterCategory)) {

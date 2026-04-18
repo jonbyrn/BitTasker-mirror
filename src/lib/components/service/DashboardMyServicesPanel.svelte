@@ -79,11 +79,7 @@
 	let currentPage = $state(1);
 
 	const VALID_FILTERS: ServiceStatusFilter[] = ['all', 'active', 'inactive'];
-	let selectedStatusFilter = $state<ServiceStatusFilter>(
-		status && VALID_FILTERS.includes(status as ServiceStatusFilter)
-			? (status as ServiceStatusFilter)
-			: 'all'
-	);
+	let selectedStatusFilter = $state<ServiceStatusFilter>('all');
 
 	$effect(() => {
 		if (status && VALID_FILTERS.includes(status as ServiceStatusFilter)) {

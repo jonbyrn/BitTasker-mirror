@@ -8,26 +8,22 @@
 	import { user } from '$lib/stores/user.store';
 
 	// Define the component props
-	const props = $props<{
+	let {
+		size = 'md',
+		picture,
+		name
+	}: {
 		size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl';
-		loading?: boolean;
-		onClick?: () => void;
-		pubkey?: string;
 		picture?: string | string[];
 		name?: string;
-		professionalTitle?: string;
-		website?: string;
-	}>();
-
-	// Set defaults
-	const size = props.size || 'md';
+	} = $props();
 
 	// State for image loading and user data
 	let imageError = $state(false);
 
 	// Reactive derived values that update when stores change
-	let userName = $derived(props.name || $user.name || '');
-	let userPicture = $derived(props.picture || null);
+	let userName = $derived(name || $user.name || '');
+	let userPicture = $derived(picture || null);
 
 	// Get user initials for badge
 	function getUserInitials(name: string): string {

@@ -77,9 +77,9 @@
 	}>();
 
 	// Filters
-	let statusFilter = $state<EscrowStatus | 'all'>(initialStatus);
-	let roleFilter = $state<string>(fixedRole); // 'all', 'client', 'freelancer'
-	let contextFilter = $state<'all' | 'tasks' | 'services'>(initialContext);
+	let statusFilter = $state<EscrowStatus | 'all'>('all');
+	let roleFilter = $state<string>('all'); // 'all', 'client', 'freelancer'
+	let contextFilter = $state<'all' | 'tasks' | 'services'>('all');
 
 	$effect(() => {
 		if (initialStatus) {
@@ -90,6 +90,12 @@
 	$effect(() => {
 		if (initialContext) {
 			contextFilter = initialContext;
+		}
+	});
+
+	$effect(() => {
+		if (fixedRole) {
+			roleFilter = fixedRole;
 		}
 	});
 
