@@ -123,22 +123,12 @@
 				<span class="text-base-content text-md block text-center">
 					{$t('signup.subtitle')}
 				</span>
-				<span class="text-base-content text-md block text-center">
-					{$t('signup.description')}
-				</span>
-				<span class="text-base-content text-md block text-center">
-					{$t('signup.nostr_info')}<a href="/auth/login" class="text-primary hover:underline"
-						>{$t('signup.nostr_import_link')}</a
-					>
-					{$t('signup.nostr_import')}
-				</span>
 			</p>
 		</div>
 
 		<div class="flex flex-col">
 			<!-- Cloudflare Turnstile Captcha -->
 			<div class="card-body mx-auto w-fit pb-2 sm:pb-4">
-				<p class="mb-2 w-full text-start text-sm">{$t('signup.verify_human')}</p>
 				<div bind:this={turnstileWidget} class="flex justify-center"></div>
 				{#if captchaFailed && !$isCaptchaVerified}
 					<div class="flex justify-center">
