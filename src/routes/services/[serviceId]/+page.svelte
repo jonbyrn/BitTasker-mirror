@@ -53,6 +53,11 @@
 			jsonLd: null
 		}
 	);
+	const jsonLdScript = $derived(
+		seo.jsonLd
+			? `<script type="application/ld+json">${JSON.stringify(seo.jsonLd)}</sc` + `ript>`
+			: ''
+	);
 </script>
 
 <svelte:head>
@@ -85,10 +90,9 @@
 	<meta name="twitter:creator" content="@BitTaskerdotcom" />
 
 	<!-- Structured Data -->
-	{#if seo.jsonLd}
-		<script type="application/ld+json">
-{JSON.stringify(seo.jsonLd)}
-		</script>
+	{#if jsonLdScript}
+		<!-- eslint-disable-next-line svelte/no-at-html-tags -->
+		{@html jsonLdScript}
 	{/if}
 </svelte:head>
 
