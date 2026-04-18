@@ -479,6 +479,12 @@
 			}
 		},
 		"components": {
+			"confirm_modal": {
+				"confirm": "Confirm",
+				"cancel": "Cancel",
+				"logout_title": "Logout",
+				"logout_message": "Are you sure you want to logout? You will need to sign in again to access your account."
+			},
 			"modal": {
 				"close": "Close"
 			},

@@ -449,6 +449,12 @@
 			}
 		},
 		"components": {
+			"confirm_modal": {
+				"confirm": "Confirmar",
+				"cancel": "Cancelar",
+				"logout_title": "Cerrar Sesión",
+				"logout_message": "¿Estás seguro de que quieres cerrar la sesión? Deberás iniciar sesión de nuevo para acceder a tu cuenta."
+			},
 			"modal": {
 				"close": "Cerrar"
 			},
