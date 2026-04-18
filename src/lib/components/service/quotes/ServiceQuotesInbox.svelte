@@ -120,11 +120,7 @@
 		'expired'
 	];
 
-	let activeFilter = $state<ServiceRequestFilterCategory>(
-		status && VALID_FILTERS.includes(status as ServiceRequestFilterCategory)
-			? (status as ServiceRequestFilterCategory)
-			: 'all'
-	);
+	let activeFilter = $state<ServiceRequestFilterCategory>('all');
 
 	$effect(() => {
 		if (status && VALID_FILTERS.includes(status as ServiceRequestFilterCategory)) {

@@ -24,9 +24,11 @@
 
 	// JSON-LD script for structured data (moved from template to fix parser bugs)
 	// Build string piece by piece to avoid <script being interpreted as tag
-	const jsonLdScript = seo.jsonLd
-		? '<' + 'script type="application/ld+json">' + JSON.stringify(seo.jsonLd) + '</' + 'script>'
-		: '';
+	const jsonLdScript = $derived(
+		seo.jsonLd
+			? '<' + 'script type="application/ld+json">' + JSON.stringify(seo.jsonLd) + '</' + 'script>'
+			: ''
+	);
 
 	// Define feature types for type safety
 	type FeatureId = 'nostr' | 'bitcoin' | 'payments' | 'escrow';

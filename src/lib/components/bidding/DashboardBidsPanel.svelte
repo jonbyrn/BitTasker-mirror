@@ -101,11 +101,7 @@
 		BidStatusEnum.COUNTERED
 	];
 
-	let activeFilter = $state<BidFilterCategory>(
-		status && VALID_FILTERS.includes(status as BidFilterCategory)
-			? (status as BidFilterCategory)
-			: 'all'
-	);
+	let activeFilter = $state<BidFilterCategory>('all');
 
 	$effect(() => {
 		if (status && VALID_FILTERS.includes(status as BidFilterCategory)) {
