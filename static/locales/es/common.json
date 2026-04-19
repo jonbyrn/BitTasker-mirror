@@ -458,6 +458,16 @@
 			"modal": {
 				"close": "Cerrar"
 			},
+			"uploader": {
+				"file_size_limit": "El tamaño del archivo excede el límite de {maxSize}MB.",
+				"video_duration_limit": "La duración del video excede el límite de {maxDuration} segundos.",
+				"image_dimensions": "Las dimensiones de la imagen deben ser {width}x{height} píxeles.",
+				"max_files_limit": "Se permite un máximo de {maxFiles} archivos.",
+				"images": "Imágenes",
+				"videos": "Videos",
+				"preview": "Vista previa",
+				"remove_file": "Eliminar archivo"
+			},
 			"error_troubleshooting_modal": {
 				"button_title": "Abrir ayuda de solución de problemas",
 				"help": "Ayuda",

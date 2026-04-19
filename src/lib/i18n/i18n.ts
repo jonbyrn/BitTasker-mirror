@@ -163,13 +163,13 @@ export function getNamespacesForRoute(route: string): string[] {
 			);
 		}
 		if (route.includes('/create-task')) {
-			namespaces.push('dashboard/tasks/create', 'categories');
+			namespaces.push('dashboard/tasks/create', 'categories', 'uploader');
 		}
 		if (route.includes('/messages')) {
 			namespaces.push('dashboard/messages');
 		}
 		if (route.includes('/create-service')) {
-			namespaces.push('dashboard/services/create', 'categories');
+			namespaces.push('dashboard/services/create', 'categories', 'uploader');
 		}
 		if (route.includes('/my-services')) {
 			namespaces.push('dashboard/services/my-services', 'dashboard/services/browse', 'categories');
