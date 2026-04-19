@@ -281,7 +281,7 @@ describe('DashboardContractsPanel context filter', () => {
 		const onHighlightConsumed = vi.fn();
 
 		render(DashboardContractsPanel, {
-			initialContext: 'services',
+			initialType: 'services',
 			highlightEscrowId: 'svc-1',
 			onHighlightConsumed
 		});
@@ -317,7 +317,7 @@ describe('DashboardContractsPanel context filter', () => {
 		});
 
 		const { container } = render(DashboardContractsPanel, {
-			initialContext: 'services',
+			initialType: 'services',
 			showRoleFilters: false,
 			fixedRole: 'freelancer'
 		});
@@ -342,7 +342,7 @@ describe('DashboardContractsPanel context filter', () => {
 
 	it('switches between task and service context filters', async () => {
 		render(DashboardContractsPanel, {
-			initialContext: 'all'
+			initialType: 'all'
 		});
 
 		expect(screen.getAllByText('Task Contract').length).toBeGreaterThan(0);
@@ -359,7 +359,7 @@ describe('DashboardContractsPanel context filter', () => {
 
 	it('keeps status filters while hiding role filters for the earnings contracts tab', async () => {
 		render(DashboardContractsPanel, {
-			initialContext: 'all',
+			initialType: 'all',
 			showRoleFilters: false,
 			fixedRole: 'freelancer'
 		});
@@ -402,7 +402,7 @@ describe('DashboardContractsPanel context filter', () => {
 		});
 
 		render(DashboardContractsPanel, {
-			initialContext: 'services',
+			initialType: 'services',
 			showRoleFilters: false,
 			fixedRole: 'freelancer'
 		});
@@ -441,7 +441,7 @@ describe('DashboardContractsPanel context filter', () => {
 		});
 
 		render(DashboardContractsPanel, {
-			initialContext: 'services',
+			initialType: 'services',
 			showRoleFilters: false,
 			fixedRole: 'client'
 		});
@@ -476,7 +476,7 @@ describe('DashboardContractsPanel context filter', () => {
 		});
 
 		render(DashboardContractsPanel, {
-			initialContext: 'services',
+			initialType: 'services',
 			showRoleFilters: false,
 			fixedRole: 'freelancer'
 		});
@@ -506,7 +506,7 @@ describe('DashboardContractsPanel context filter', () => {
 		});
 
 		render(DashboardContractsPanel, {
-			initialContext: 'services',
+			initialType: 'services',
 			showRoleFilters: false,
 			fixedRole: 'client'
 		});
@@ -533,7 +533,7 @@ describe('DashboardContractsPanel context filter', () => {
 		});
 
 		render(DashboardContractsPanel, {
-			initialContext: 'all'
+			initialType: 'all'
 		});
 
 		await fireEvent.click(screen.getByRole('button', { name: 'dashboard.manage_wallet' }));
@@ -553,7 +553,7 @@ describe('DashboardContractsPanel context filter', () => {
 		});
 
 		render(DashboardContractsPanel, {
-			initialContext: 'all',
+			initialType: 'all',
 			showRoleFilters: false,
 			fixedRole: 'freelancer',
 			emptyStateActionLabel: 'Find Tasks',
@@ -577,7 +577,7 @@ describe('DashboardContractsPanel context filter', () => {
 		});
 
 		render(DashboardContractsPanel, {
-			initialContext: 'services'
+			initialType: 'services'
 		});
 
 		expect(screen.getByText('dashboard.contracts.no_filtered_contracts')).toBeInTheDocument();
@@ -634,7 +634,7 @@ describe('DashboardContractsPanel context filter', () => {
 		});
 
 		render(DashboardContractsPanel, {
-			initialContext: 'services',
+			initialType: 'services',
 			showRoleFilters: false,
 			fixedRole: 'freelancer',
 			showServiceFilter: true,
@@ -653,7 +653,7 @@ describe('DashboardContractsPanel context filter', () => {
 		const onHighlightMissing = vi.fn();
 
 		render(DashboardContractsPanel, {
-			initialContext: 'services',
+			initialType: 'services',
 			highlightEscrowId: 'svc-missing',
 			onHighlightMissing
 		});
@@ -679,7 +679,7 @@ describe('DashboardContractsPanel context filter', () => {
 		const onHighlightMissing = vi.fn();
 
 		render(DashboardContractsPanel, {
-			initialContext: 'services',
+			initialType: 'services',
 			highlightEscrowId: 'svc-recovering',
 			onHighlightMissing
 		});
@@ -707,7 +707,7 @@ describe('DashboardContractsPanel context filter', () => {
 		);
 
 		render(DashboardContractsPanel, {
-			initialContext: 'services',
+			initialType: 'services',
 			highlightEscrowId: 'svc-recovering'
 		});
 
@@ -737,7 +737,7 @@ describe('DashboardContractsPanel context filter', () => {
 		});
 
 		render(DashboardContractsPanel, {
-			initialContext: 'services'
+			initialType: 'services'
 		});
 
 		expect(screen.queryByTestId('contracts-panel-partial-alert')).toBeNull();
@@ -757,7 +757,7 @@ describe('DashboardContractsPanel context filter', () => {
 		});
 
 		render(DashboardContractsPanel, {
-			initialContext: 'all'
+			initialType: 'all'
 		});
 
 		await waitFor(() => {
@@ -785,7 +785,7 @@ describe('DashboardContractsPanel context filter', () => {
 		});
 
 		render(DashboardContractsPanel, {
-			initialContext: 'services'
+			initialType: 'services'
 		});
 
 		await waitFor(() => {
@@ -810,7 +810,7 @@ describe('DashboardContractsPanel context filter', () => {
 		});
 
 		render(DashboardContractsPanel, {
-			initialContext: 'services'
+			initialType: 'services'
 		});
 
 		setNavigatorOnline(false);
@@ -834,7 +834,7 @@ describe('DashboardContractsPanel context filter', () => {
 		});
 
 		render(DashboardContractsPanel, {
-			initialContext: 'services'
+			initialType: 'services'
 		});
 
 		await waitFor(() => {
@@ -849,7 +849,7 @@ describe('DashboardContractsPanel context filter', () => {
 
 	it('does not show a filter-card reconnect alert after the contracts panel returns online', async () => {
 		render(DashboardContractsPanel, {
-			initialContext: 'services'
+			initialType: 'services'
 		});
 
 		setNavigatorOnline(false);

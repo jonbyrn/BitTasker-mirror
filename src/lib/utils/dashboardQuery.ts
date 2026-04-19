@@ -10,13 +10,13 @@ export type DashboardTab =
 export type EarningTab = 'bids' | 'requests' | 'contracts' | 'my-services' | 'saved-searches';
 
 export type DashboardView = 'default' | 'service-requests' | 'tasker';
-export type DashboardContractsContext = 'all' | 'tasks' | 'services';
+export type DashboardContractsType = 'all' | 'tasks' | 'services';
 export type ServicesWorkspaceTab = 'listings' | 'service-requests';
 
 export interface DashboardQueryState {
 	tab: DashboardTab;
 	view?: DashboardView;
-	context?: DashboardContractsContext;
+	type?: DashboardContractsType;
 	service?: string | null;
 	request?: string | null;
 	highlight?: string | null;
@@ -31,8 +31,12 @@ export interface ServicesWorkspaceQueryState {
 
 export interface EarningQueryState {
 	tab: EarningTab;
+	type?: DashboardContractsType;
 	service?: string | null;
 	request?: string | null;
+	highlight?: string | null;
+	status?: string | null;
+	bidStatus?: string | null;
 }
 
 const VALID_TABS = new Set<DashboardTab>([
@@ -88,10 +92,12 @@ export function parseDashboardQuery(url: URL): DashboardQueryState {
 	const state: DashboardQueryState = { tab };
 
 	if (tab === 'contracts') {
-		const context = url.searchParams.get('context');
-		state.context = context === 'tasks' || context === 'services' ? context : 'all';
+		const type = url.searchParams.get('type');
+		state.type = type === 'tasks' || type === 'services' ? type : 'all';
 		const highlight = url.searchParams.get('highlight');
 		state.highlight = highlight || null;
+		const status = url.searchParams.get('status');
+		state.status = status || 'all';
 		return state;
 	}
 
@@ -140,7 +146,19 @@ export function parseEarningQuery(url: URL): EarningQueryState {
 		tab = 'requests';
 	}
 
-	const state: EarningQueryState = { tab };
+	const state: EarningQueryState = {
+		tab,
+		service: decodedService,
+		request: rawRequest,
+		highlight: url.searchParams.get('highlight'),
+		status: url.searchParams.get('status'),
+		bidStatus: url.searchParams.get('bidStatus')
+	};
+
+	if (tab === 'contracts') {
+		const type = url.searchParams.get('type');
+		state.type = type === 'tasks' || type === 'services' ? type : 'all';
+	}
 
 	return state;
 }
@@ -167,9 +185,12 @@ export function buildDashboardQueryUrl(baseUrl: URL, state: DashboardQueryState)
 	url.searchParams.set('tab', state.tab);
 
 	if (state.tab === 'contracts') {
-		url.searchParams.set('context', state.context ?? 'all');
+		url.searchParams.set('type', state.type ?? 'all');
 		if (state.highlight) {
 			url.searchParams.set('highlight', state.highlight);
+		}
+		if (state.status && state.status !== 'all') {
+			url.searchParams.set('status', state.status);
 		}
 		return url.toString();
 	}
@@ -212,12 +233,27 @@ export function buildEarningQueryUrl(baseUrl: URL, state: EarningQueryState): st
 	const url = new URL(baseUrl.toString());
 	url.search = '';
 	url.searchParams.set('tab', state.tab);
+
+	if (state.tab === 'contracts') {
+		url.searchParams.set('type', state.type ?? 'all');
+		if (state.highlight) {
+			url.searchParams.set('highlight', state.highlight);
+		}
+	}
+
 	if (state.service) {
 		url.searchParams.set('service', state.service);
 	}
 	if (state.request) {
 		url.searchParams.set('request', state.request);
 	}
+	if (state.status) {
+		url.searchParams.set('status', state.status);
+	}
+	if (state.bidStatus) {
+		url.searchParams.set('bidStatus', state.bidStatus);
+	}
+
 	return url.toString();
 }
 

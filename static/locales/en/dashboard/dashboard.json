@@ -669,8 +669,8 @@
 			"retry": "Retry",
 			"refresh": "Refresh",
 			"clear_filters": "Clear Filters",
-			"no_contracts": "No contracts found",
-			"no_contracts_description": "You don't have any contracts yet. Create a task or bid on existing tasks to get started.",
+			"no_contracts": "No contracts yet",
+			"no_contracts_description": "",
 			"no_filtered_contracts": "No contracts match your filters",
 			"try_different_filters": "Try adjusting your filters to see more contracts.",
 			"filter_by_role": "Filter by role",
@@ -719,7 +719,7 @@
 			"available_actions": "Available Actions",
 			"no_actions_available": "No actions available",
 			"context_filters": {
-				"all": "All contexts",
+				"all": "All types",
 				"tasks": "Tasks",
 				"services": "Services"
 			},

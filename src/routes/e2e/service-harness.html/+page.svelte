@@ -753,12 +753,12 @@
 						parseServiceQuoteDashboardQuery
 					} = await import('$lib/utils/service-quote/dashboard-route');
 					const parsed = parseServiceQuoteDashboardQuery(
-						new URLSearchParams('tab=contracts&context=services&highlight=%25%25%25'),
+						new URLSearchParams('tab=contracts&type=services&highlight=%25%25%25'),
 						emptyDashboardRouteContext
 					);
 					const url = createDashboardUrl(new URL('https://bittasker.test/dashboard?tab=tasks'), {
 						tab: 'contracts',
-						context: 'services',
+						type: 'services',
 						highlight: null
 					});
 					result = {
@@ -774,7 +774,7 @@
 						'$lib/utils/service-quote/dashboard-route'
 					);
 					const parsed = parseServiceQuoteDashboardQuery(
-						new URLSearchParams('tab=contracts&context=services&highlight=svc-escrow_123'),
+						new URLSearchParams('tab=contracts&type=services&highlight=svc-escrow_123'),
 						emptyDashboardRouteContext
 					);
 					result = {
@@ -800,7 +800,7 @@
 						),
 						{
 							tab: 'contracts',
-							context: 'services',
+							type: 'services',
 							highlight: 'svc-escrow_123'
 						}
 					);
@@ -829,7 +829,7 @@
 						),
 						{
 							tab: 'contracts',
-							context: 'services',
+							type: 'services',
 							highlight: 'svc-escrow_123'
 						}
 					);
@@ -866,7 +866,7 @@
 						},
 						{
 							activeTabId: 'contracts',
-							contractsContext: 'services',
+							contractsType: 'services',
 							highlightEscrowId: null
 						},
 						1_700_000_001_000
@@ -874,7 +874,7 @@
 					const nextUrl = highlightEscrowId
 						? createDashboardUrl(new URL('https://bittasker.test/dashboard?tab=contracts'), {
 								tab: 'contracts',
-								context: 'services',
+								type: 'services',
 								highlight: highlightEscrowId
 							}).toString()
 						: null;
@@ -904,7 +904,7 @@
 						},
 						{
 							activeTabId: 'contracts',
-							contractsContext: 'services',
+							contractsType: 'services',
 							highlightEscrowId: 'svc-existing-999'
 						},
 						1_700_000_001_000
@@ -944,7 +944,7 @@
 
 					surfaceComponent = DashboardContractsPanel;
 					surfaceProps = {
-						initialContext: 'services',
+						initialType: 'services',
 						highlightEscrowId: 'svc-escrow_123'
 					};
 
@@ -998,7 +998,7 @@
 
 					surfaceComponent = DashboardContractsPanel;
 					surfaceProps = {
-						initialContext: 'services'
+						initialType: 'services'
 					};
 
 					await waitForSurfaceReady(() => {
@@ -1067,7 +1067,7 @@
 
 					surfaceComponent = DashboardContractsPanel;
 					surfaceProps = {
-						initialContext: 'services',
+						initialType: 'services',
 						highlightEscrowId: 'svc-escrow_123'
 					};
 

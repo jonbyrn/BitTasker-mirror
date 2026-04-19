@@ -33,7 +33,7 @@
 		getTaskerTimelines,
 		isRequestSyncActive,
 		serviceQuoteUiStore,
-		type DashboardContractsContext,
+		type DashboardContractsType,
 		type DashboardTab
 	} from '$lib/stores/service-quote-ui.store';
 	import { buildEarningQueryUrl } from '$lib/utils/dashboardQuery';
@@ -57,9 +57,9 @@
 		{
 			id: 'contracts',
 			label: $t('dashboard.tabs.contracts'),
-			buttonLabel: $t('dashboard.manage_wallet'),
-			buttonHref: '/dashboard/wallet',
-			icon: 'wallet'
+			buttonLabel: $t('dashboard.create_task'),
+			buttonHref: '/dashboard/create-task',
+			icon: 'plus'
 		},
 		{
 			id: 'service-requests',
@@ -74,7 +74,7 @@
 		const parsed = serviceQuoteUiStore.parseDashboardQuery(currentUrl.searchParams);
 		return {
 			activeTabId: HIRING_TABS.has(parsed.state.tab) ? parsed.state.tab : 'tasks',
-			contractsContext: parsed.state.context,
+			contractsType: parsed.state.type ?? 'all',
 			focusedRequestId: parsed.state.requestId,
 			nonBlockingMessageCode: parsed.messageCode,
 			currentContractsHighlight: parsed.state.highlight,
@@ -86,7 +86,7 @@
 
 	let activeTabId = $state<DashboardTab>(initialRouteState.activeTabId);
 	const activeTab = $derived(tabs.find((t) => t.id === activeTabId) || tabs[0]);
-	let contractsContext = $state<DashboardContractsContext>(initialRouteState.contractsContext);
+	let contractsType = $state<DashboardContractsType>(initialRouteState.contractsType);
 	let focusedRequestId = $state<string | null>(initialRouteState.focusedRequestId);
 	let activeStatus = $state<string | null>(initialRouteState.activeStatus);
 	let taskerTimelines = $state<ReturnType<typeof getTaskerTimelines>>([]);
@@ -185,7 +185,7 @@
 
 		const parsed = serviceQuoteUiStore.parseDashboardQuery(page.url.searchParams);
 		activeTabId = HIRING_TABS.has(parsed.state.tab) ? parsed.state.tab : 'tasks';
-		contractsContext = parsed.state.context;
+		contractsType = parsed.state.type ?? 'all';
 		focusedRequestId = parsed.state.requestId;
 		nonBlockingMessageCode = parsed.messageCode;
 		currentContractsHighlight = parsed.state.highlight;
@@ -302,7 +302,7 @@
 				event ?? {},
 				{
 					activeTabId,
-					contractsContext,
+					contractsType,
 					highlightEscrowId: currentContractsHighlight
 				}
 			);
@@ -312,7 +312,7 @@
 
 			const nextUrl = createDashboardUrl(page.url, {
 				tab: 'contracts',
-				context: 'services',
+				type: 'services',
 				highlight: highlightEscrowId
 			});
 			goto(nextUrl.toString(), { replaceState: true, keepFocus: true, noScroll: true });
@@ -369,7 +369,7 @@
 		const nextUrl = createDashboardUrl(page.url, {
 			tab: tabId as DashboardTab,
 			view: tabId === 'service-requests' ? 'tasker' : 'default',
-			context: tabId === 'contracts' ? contractsContext : 'all',
+			type: tabId === 'contracts' ? contractsType : 'all',
 			serviceAddress: null,
 			requestId: null,
 			highlight: null,
@@ -405,7 +405,7 @@
 	function handleContractsHighlightConsumed() {
 		const nextUrl = createDashboardUrl(page.url, {
 			tab: 'contracts',
-			context: contractsContext,
+			type: contractsType,
 			highlight: null
 		});
 		goto(nextUrl.toString(), { replaceState: true, keepFocus: true, noScroll: true });
@@ -415,7 +415,7 @@
 		serviceQuoteUiStore.setNonBlockingMessage('contracts_highlight_not_found');
 		const nextUrl = createDashboardUrl(page.url, {
 			tab: 'contracts',
-			context: contractsContext,
+			type: contractsType,
 			highlight: null
 		});
 		goto(nextUrl.toString(), { replaceState: true, keepFocus: true, noScroll: true });
@@ -426,7 +426,7 @@
 		if (
 			typeof window === 'undefined' ||
 			activeTabId !== 'contracts' ||
-			contractsContext !== 'services' ||
+			contractsType !== 'services' ||
 			!highlightEscrowId ||
 			attemptedServiceAcceptanceReplays.has(highlightEscrowId)
 		) {
@@ -633,7 +633,7 @@
 			transition:slide={{ duration: 300 }}
 		>
 			<DashboardContractsPanel
-				initialContext={contractsContext}
+				initialType={contractsType}
 				initialStatus={activeStatus as string | null}
 				showRoleFilters={false}
 				fixedRole="client"

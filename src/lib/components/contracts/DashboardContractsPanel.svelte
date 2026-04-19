@@ -45,7 +45,7 @@
 	import { createDashboardUrl } from '$lib/utils/service-quote/dashboard-route';
 
 	const {
-		initialContext = 'all',
+		initialType = 'all',
 		initialStatus = 'all',
 		showRoleFilters = true,
 		fixedRole = 'all',
@@ -60,7 +60,7 @@
 		onHighlightConsumed,
 		onHighlightMissing
 	} = $props<{
-		initialContext?: 'all' | 'tasks' | 'services';
+		initialType?: 'all' | 'tasks' | 'services';
 		initialStatus?: EscrowStatus | 'all';
 		showRoleFilters?: boolean;
 		fixedRole?: 'all' | 'client' | 'freelancer';
@@ -79,7 +79,7 @@
 	// Filters
 	let statusFilter = $state<EscrowStatus | 'all'>('all');
 	let roleFilter = $state<string>('all'); // 'all', 'client', 'freelancer'
-	let contextFilter = $state<'all' | 'tasks' | 'services'>('all');
+	let typeFilter = $state<'all' | 'tasks' | 'services'>('all');
 
 	$effect(() => {
 		if (initialStatus) {
@@ -88,8 +88,8 @@
 	});
 
 	$effect(() => {
-		if (initialContext) {
-			contextFilter = initialContext;
+		if (initialType) {
+			typeFilter = initialType;
 		}
 	});
 
@@ -116,6 +116,13 @@
 	const isPasskeyLoadError = $derived.by(
 		() =>
 			Boolean($contractStore.error) && detectErrorType($contractStore.error ?? '') === 'biometric'
+	);
+
+	const isFilterActive = $derived(
+		statusFilter !== 'all' ||
+			typeFilter !== 'all' ||
+			(roleFilter !== 'all' && roleFilter !== fixedRole) ||
+			selectedServiceAddress !== null
 	);
 
 	function tr(key: string, fallback: string): string {
@@ -256,18 +263,18 @@
 			filtered = filtered.filter((c) => !c.isClient);
 		}
 
-		if (contextFilter === 'tasks') {
+		if (typeFilter === 'tasks') {
 			filtered = filtered.filter((contract) => {
 				const contextType = contract.contractEvent.content.contextType;
 				return contextType == null || contextType === 'task';
 			});
-		} else if (contextFilter === 'services') {
+		} else if (typeFilter === 'services') {
 			filtered = filtered.filter(
 				(contract) => contract.contractEvent.content.contextType === 'service'
 			);
 		}
 
-		if (selectedServiceAddress && contextFilter === 'services') {
+		if (selectedServiceAddress && typeFilter === 'services') {
 			filtered = filtered.filter((contract) => contractMatchesSelectedService(contract));
 		}
 
@@ -324,10 +331,10 @@
 		return contractsMatchingNonStatusFilters.filter((contract) => contract.status === statusFilter);
 	});
 
-	const contextFilterOptions = $derived([
+	const typeFilterOptions = $derived([
 		{
 			id: 'all' as const,
-			label: tr('dashboard.contracts.context_filters.all', 'All Contexts'),
+			label: tr('dashboard.contracts.context_filters.all', 'All Types'),
 			icon: IconLayersTripleOutline
 		},
 		{
@@ -438,7 +445,7 @@
 	}
 
 	onMount(async () => {
-		contextFilter = initialContext;
+		typeFilter = initialType;
 
 		// Ensure wallet is initialized BEFORE loading contracts
 		try {
@@ -499,17 +506,17 @@
 
 	function handleFilterChange(updates: {
 		status?: EscrowStatus | 'all';
-		context?: 'all' | 'tasks' | 'services';
+		type?: 'all' | 'tasks' | 'services';
 		role?: 'all' | 'client' | 'freelancer';
 	}) {
 		if (updates.status !== undefined) statusFilter = updates.status;
-		if (updates.context !== undefined) contextFilter = updates.context;
+		if (updates.type !== undefined) typeFilter = updates.type;
 		if (updates.role !== undefined) roleFilter = updates.role;
 
 		const nextUrl = createDashboardUrl(new URL(window.location.href), {
 			tab: 'contracts',
 			status: statusFilter === 'all' ? null : statusFilter,
-			context: contextFilter,
+			type: typeFilter,
 			role: roleFilter as unknown as string
 		});
 		void goto(nextUrl.toString(), { replaceState: true, keepFocus: true, noScroll: true });
@@ -518,14 +525,14 @@
 	function clearFilters() {
 		statusFilter = 'all';
 		roleFilter = fixedRole;
-		contextFilter = 'all';
+		typeFilter = 'all';
 		onServiceFilterChange?.(null);
 		onClearFilters?.();
 
 		const nextUrl = createDashboardUrl(new URL(window.location.href), {
 			tab: 'contracts',
 			status: null,
-			context: 'all',
+			type: 'all',
 			role: fixedRole as unknown as string
 		});
 		void goto(nextUrl.toString(), { replaceState: true, keepFocus: true, noScroll: true });
@@ -612,9 +619,9 @@
 		refreshDisabled={isOffline || highlightRecoveryPending}
 	>
 		<DashboardDropdown
-			options={contextFilterOptions}
-			value={contextFilter}
-			onSelect={(val) => handleFilterChange({ context: val })}
+			options={typeFilterOptions}
+			value={typeFilter}
+			onSelect={(val) => handleFilterChange({ type: val })}
 			containerClass="sm:w-48"
 		/>
 
@@ -625,7 +632,7 @@
 			containerClass="sm:w-64"
 		/>
 
-		{#if showServiceFilter && (contextFilter === 'services' || selectedServiceAddress)}
+		{#if showServiceFilter && (typeFilter === 'services' || selectedServiceAddress)}
 			<ServiceFilterSelect
 				{services}
 				{selectedServiceAddress}
@@ -694,23 +701,23 @@
 			<div class="card bg-base-100 rounded-xl p-4">
 				<DashboardEmptyState
 					icon={IconFileDocumentOutline}
-					title={$contractStore.contracts.length === 0
+					title={!isFilterActive
 						? $t('dashboard.contracts.no_contracts')
 						: $t('dashboard.contracts.no_filtered_contracts')}
-					description={$contractStore.contracts.length === 0
+					description={!isFilterActive
 						? $t('dashboard.contracts.no_contracts_description')
 						: $t('dashboard.contracts.try_different_filters')}
-					actionLabel={$contractStore.contracts.length === 0
-						? (emptyStateActionLabel ?? $t('dashboard.manage_wallet'))
+					actionLabel={!isFilterActive
+						? (emptyStateActionLabel ?? $t('dashboard.create_task'))
 						: $t('dashboard.contracts.clear_filters')}
-					actionIcon={$contractStore.contracts.length === 0
-						? (emptyStateActionIcon ?? IconWalletOutline)
+					actionIcon={!isFilterActive
+						? (emptyStateActionIcon ?? IconBriefcaseOutline)
 						: IconRefresh}
-					actionHref={$contractStore.contracts.length === 0 ? emptyStateActionHref : null}
+					actionHref={!isFilterActive ? (emptyStateActionHref ?? '/dashboard/create-task') : null}
 					onAction={() => {
-						if ($contractStore.contracts.length === 0) {
+						if (!isFilterActive) {
 							if (!emptyStateActionHref) {
-								void goto('/dashboard/wallet');
+								void goto('/dashboard/create-task');
 							}
 							return;
 						}
