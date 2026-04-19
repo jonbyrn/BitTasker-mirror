@@ -638,20 +638,35 @@
 									{/if}
 								</button>
 							</div>
-							<button
-								class="btn btn-block btn-primary"
-								data-testid="login-submit"
-								onclick={handleNsecLogin}
-								disabled={isLoading}
-							>
-								{isLoading ? $t('common.processing') + '...' : $t('login.login_button')}
-							</button>
+							<div class="mt-2 flex gap-3">
+								<button
+									class="btn btn-secondary flex-1"
+									onclick={() => {
+										error = '';
+										isPasskeyError = false;
+										isNostrLogin = false;
+										nsec = '';
+									}}
+									disabled={isLoading}
+								>
+									{$t('login.cancel_button')}
+								</button>
+								<button
+									class="btn btn-primary flex-1"
+									data-testid="login-submit"
+									onclick={handleNsecLogin}
+									disabled={isLoading}
+								>
+									{isLoading ? $t('common.processing') + '...' : $t('login.login_button')}
+								</button>
+							</div>
+
 							<!-- QR Code login - Only for mobile -->
 							{#if isNativePlatform}
 								<QrCodeScanner onScan={handleLoginWithQrCode}>
 									{#snippet scanBtn({ disabled, onStartScan })}
 										<button
-											class="btn btn-secondary btn-sm md:btn-md py-5"
+											class="btn btn-secondary btn-sm md:btn-md mt-2 py-5"
 											onclick={onStartScan}
 											{disabled}
 										>
@@ -669,18 +684,6 @@
 									{/snippet}
 								</QrCodeScanner>
 							{/if}
-							<button
-								class="btn btn-block btn-secondary"
-								onclick={() => {
-									error = '';
-									isPasskeyError = false;
-									isNostrLogin = false;
-									nsec = '';
-								}}
-								disabled={isLoading}
-							>
-								{$t('login.cancel_button')}
-							</button>
 						</div>
 					{/if}
 
