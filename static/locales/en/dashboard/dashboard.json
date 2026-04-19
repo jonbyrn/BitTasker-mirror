@@ -670,7 +670,6 @@
 			"refresh": "Refresh",
 			"clear_filters": "Clear Filters",
 			"no_contracts": "No contracts yet",
-			"no_contracts_description": "",
 			"no_filtered_contracts": "No contracts match your filters",
 			"try_different_filters": "Try adjusting your filters to see more contracts.",
 			"filter_by_role": "Filter by role",
