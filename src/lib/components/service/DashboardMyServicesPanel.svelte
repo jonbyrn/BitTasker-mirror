@@ -4,6 +4,7 @@
 	import type { Service } from '$lib/types/service.d';
 	import { onMount } from 'svelte';
 	import { fade, scale } from 'svelte/transition';
+	import { flip } from 'svelte/animate';
 	import { goto } from '$app/navigation';
 	import { t } from 'svelte-i18n';
 	import { findMyServices } from '$lib/nostr/findServices';
@@ -652,16 +653,18 @@
 		{:else}
 			<div class="grid grid-cols-1 gap-5">
 				{#each paginatedServices as service (service.id)}
-					<DashboardServiceCard
-						{service}
-						getActionButtons={getServiceActionButtons}
-						onStatusToggle={(e) => {
-							e.stopPropagation();
-							handleStatusToggle(service);
-						}}
-						isTogglingStatus={togglingServiceId === (service.uniqueId || service.id)}
-						{btcPrice}
-					/>
+					<div animate:flip={{ duration: 400 }}>
+						<DashboardServiceCard
+							{service}
+							getActionButtons={getServiceActionButtons}
+							onStatusToggle={(e) => {
+								e.stopPropagation();
+								handleStatusToggle(service);
+							}}
+							isTogglingStatus={togglingServiceId === (service.uniqueId || service.id)}
+							{btcPrice}
+						/>
+					</div>
 				{/each}
 			</div>
 
