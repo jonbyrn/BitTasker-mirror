@@ -10,6 +10,8 @@
 	import TaskLocationDisplay from './TaskLocationDisplay.svelte';
 	import IconInformationOutline from '~icons/mdi/information-outline';
 	import IconEyeOutline from '~icons/mdi/eye-outline';
+	import IconMessageOutline from '~icons/mdi/message-outline';
+	import IconFileSign from '~icons/mdi/file-sign';
 
 	type TaskFilterCategory =
 		| 'open'
@@ -115,6 +117,10 @@
 							<IconInformationOutline class="h-4 w-4" />
 						{:else if action.icon === 'view_bids'}
 							<IconEyeOutline class="h-4 w-4" />
+						{:else if action.icon === 'message'}
+							<IconMessageOutline class="h-4 w-4" />
+						{:else if action.icon === 'contract'}
+							<IconFileSign class="h-4 w-4" />
 						{/if}
 						{action.label}
 					</button>
