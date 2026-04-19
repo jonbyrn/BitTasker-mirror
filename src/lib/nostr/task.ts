@@ -24,8 +24,38 @@ import KINDS from '$lib/utils/constants/kinds';
 
 const d = createDebug('task');
 
+/**
+ * Ensures a relay URL is valid:
+ * 1. Trims whitespace
+ * 2. Ensures it starts with ws:// or wss://
+ * 3. Handles potentially multiple URLs (comma separated)
+ */
+function sanitizeRelayUrls(input: string | string[] | undefined): string[] {
+	if (!input) return [];
+
+	const rawUrls = Array.isArray(input) ? input : input.split(',');
+
+	return rawUrls
+		.map((url) => url.trim())
+		.filter((url) => {
+			return (
+				Boolean(url) &&
+				url.length > 0 &&
+				url !== 'undefined' &&
+				url !== 'null' &&
+				url !== '[object Object]'
+			);
+		})
+		.map((url) => {
+			if (!url.startsWith('ws://') && !url.startsWith('wss://')) {
+				return `wss://${url}`;
+			}
+			return url;
+		});
+}
+
 // Define relay URLs with fallbacks
-const RELAYS = [import.meta.env.VITE_NOSTR_RELAY_URL].filter(Boolean); // Remove any undefined values
+const RELAYS = sanitizeRelayUrls(import.meta.env.VITE_NOSTR_RELAY_URL);
 
 /**
  * Generate a readable d-tag for Nostr Addressable Events (kind:pubkey:d-tag).

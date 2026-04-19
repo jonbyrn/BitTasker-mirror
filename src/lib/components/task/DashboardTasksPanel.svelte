@@ -419,7 +419,7 @@
 						: $t('dashboard.tasks.try_different_filters')}
 					actionLabel={$myTasksStore.items.length === 0
 						? $t('dashboard.create_task')
-						: $t('find_tasks.clear_filters')}
+						: $t('dashboard.contracts.clear_filters')}
 					actionHref={$myTasksStore.items.length === 0 ? '/dashboard/create-task' : null}
 					actionIcon={$myTasksStore.items.length === 0 ? IconPlus : IconRefresh}
 					onAction={$myTasksStore.items.length === 0 ? undefined : clearTaskFilters}

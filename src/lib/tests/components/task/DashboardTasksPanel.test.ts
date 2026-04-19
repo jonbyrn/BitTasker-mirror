@@ -123,10 +123,10 @@ describe('DashboardTasksPanel', () => {
 		await waitFor(() => expect(findMyTasks).toHaveBeenCalled());
 		expect(await findByTestId('dashboard-tasks-empty-state')).toBeTruthy();
 
-		await fireEvent.click(getByRole('button', { name: 'find_tasks.clear_filters' }));
+		await fireEvent.click(getByRole('button', { name: 'dashboard.contracts.clear_filters' }));
 
 		expect(queryByTestId('dashboard-tasks-empty-state')).toBeNull();
-		expect(queryByRole('button', { name: 'find_tasks.clear_filters' })).toBeNull();
+		expect(queryByRole('button', { name: 'dashboard.contracts.clear_filters' })).toBeNull();
 	});
 
 	it('filters tasks by actual status buckets instead of bid-state placeholders', async () => {
