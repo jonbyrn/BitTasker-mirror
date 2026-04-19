@@ -17,7 +17,7 @@ export interface ContractCreationNavigationEvent {
 
 export interface PendingServiceContractNavigationRouteState {
 	activeTabId: string;
-	contractsContext: string;
+	contractsType: string;
 	highlightEscrowId: string | null;
 }
 
@@ -66,10 +66,7 @@ export function writePendingServiceContractNavigation(
 	}
 
 	const pendingNavigation = createPendingServiceContractNavigation(transactionHash, nowMs);
-	storage.setItem(
-		PENDING_SERVICE_CONTRACT_NAVIGATION_KEY,
-		JSON.stringify(pendingNavigation)
-	);
+	storage.setItem(PENDING_SERVICE_CONTRACT_NAVIGATION_KEY, JSON.stringify(pendingNavigation));
 	return pendingNavigation;
 }
 
@@ -164,7 +161,7 @@ export function consumePendingServiceContractNavigationForContractsPage(
 ): string | null {
 	if (
 		routeState.activeTabId !== 'contracts' ||
-		routeState.contractsContext !== 'services' ||
+		routeState.contractsType !== 'services' ||
 		routeState.highlightEscrowId
 	) {
 		return null;

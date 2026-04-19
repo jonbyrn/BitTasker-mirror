@@ -4,14 +4,14 @@ import {
 	isValidQuoteRequestId,
 	isValidServiceAddress,
 	parseDashboardQuery,
-	type DashboardContractsContext,
+	type DashboardContractsType,
 	type DashboardTab,
 	type DashboardView
 } from '$lib/utils/dashboardQuery';
 
 const ESCROW_HIGHLIGHT_RE = /^[A-Za-z0-9_-]{1,128}$/;
 
-export type { DashboardContractsContext, DashboardTab, DashboardView };
+export type { DashboardContractsType, DashboardTab, DashboardView };
 
 export type DashboardMessageCode =
 	| 'service_requests_request_not_found'
@@ -22,7 +22,7 @@ export type DashboardMessageCode =
 export interface DashboardRouteState {
 	tab: DashboardTab;
 	view: DashboardView;
-	context: DashboardContractsContext;
+	type: DashboardContractsType;
 	serviceAddress: string | null;
 	requestId: string | null;
 	highlight: string | null;
@@ -109,7 +109,7 @@ export function parseServiceQuoteDashboardQuery(
 						? 'service-requests'
 						: 'default'
 					: 'default',
-		context: parsed.tab === 'contracts' ? (parsed.context ?? 'all') : 'all',
+		type: parsed.tab === 'contracts' ? (parsed.type ?? 'all') : 'all',
 		serviceAddress: null,
 		requestId: null,
 		highlight: null,
@@ -192,7 +192,7 @@ export function parseServiceQuoteDashboardQuery(
 				: normalized.tab === 'my-services'
 					? normalized.view
 					: undefined,
-		context: normalized.tab === 'contracts' ? normalized.context : undefined,
+		type: normalized.tab === 'contracts' ? normalized.type : undefined,
 		service:
 			normalized.tab === 'my-services' && normalized.view === 'service-requests'
 				? (normalized.serviceAddress ?? undefined)
@@ -234,7 +234,7 @@ export function createDashboardUrl(baseUrl: URL, updates: Partial<DashboardRoute
 				: next.tab === 'my-services'
 					? next.view
 					: undefined,
-		context: next.tab === 'contracts' ? next.context : undefined,
+		type: next.tab === 'contracts' ? next.type : undefined,
 		service:
 			next.tab === 'my-services' && next.view === 'service-requests'
 				? (next.serviceAddress ?? undefined)

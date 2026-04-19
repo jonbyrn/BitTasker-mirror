@@ -669,8 +669,8 @@
 			"retry": "Reintentar",
 			"refresh": "Actualizar",
 			"clear_filters": "Limpiar filtros",
-			"no_contracts": "No se encontraron contratos",
-			"no_contracts_description": "Aún no tienes contratos. Crea una tarea o haz ofertas en tareas existentes para comenzar.",
+			"no_contracts": "Aún no hay contratos",
+			"no_contracts_description": "",
 			"no_filtered_contracts": "Ningún contrato coincide con tus filtros",
 			"try_different_filters": "Intenta ajustar tus filtros para ver más contratos.",
 			"filter_by_role": "Filtrar por rol",
@@ -719,7 +719,7 @@
 			"available_actions": "Acciones Disponibles",
 			"no_actions_available": "No hay acciones disponibles",
 			"context_filters": {
-				"all": "Todos",
+				"all": "Todos los tipos",
 				"tasks": "Tareas",
 				"services": "Servicios"
 			},

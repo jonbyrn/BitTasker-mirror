@@ -23,7 +23,7 @@ import {
 	getDashboardProviderTimelines,
 	isDashboardRequestSyncActive,
 	parseServiceQuoteDashboardQuery,
-	type DashboardContractsContext,
+	type DashboardContractsType,
 	type DashboardMessageCode,
 	type DashboardRouteParseResult,
 	type DashboardRouteState,
@@ -100,7 +100,7 @@ function logAcceptanceReconciliationDebug(event: string, details: Record<string,
 export { buildServiceAddress };
 export { createDashboardUrl };
 export type {
-	DashboardContractsContext,
+	DashboardContractsType,
 	DashboardMessageCode,
 	DashboardRouteParseResult,
 	DashboardRouteState,

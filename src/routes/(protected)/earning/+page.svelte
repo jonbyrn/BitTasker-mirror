@@ -16,7 +16,7 @@
 	import {
 		buildEarningQueryUrl,
 		parseEarningQuery,
-		type DashboardContractsContext,
+		type DashboardContractsType,
 		type EarningTab
 	} from '$lib/utils/dashboardQuery';
 
@@ -81,7 +81,7 @@
 
 	let activeTabId = $state<EarningTab>('bids');
 	const activeTab = $derived.by(() => tabs.find((tab) => tab.id === activeTabId) || tabs[0]);
-	let contractsContext = $state<DashboardContractsContext>('all');
+	let contractsType = $state<DashboardContractsType>('all');
 	let currentContractsHighlight = $state<string | null>(null);
 	let selectedServiceAddress = $state<string | null>(null);
 	let focusedRequestId = $state<string | null>(null);
@@ -105,7 +105,7 @@
 	function syncRouteState() {
 		const parsed = parseEarningQuery(page.url);
 		activeTabId = parsed.tab;
-		contractsContext = parsed.context ?? 'all';
+		contractsType = parsed.type ?? 'all';
 		currentContractsHighlight = parsed.highlight ?? null;
 		selectedServiceAddress = parsed.service ?? null;
 		focusedRequestId = parsed.request ?? null;
@@ -115,7 +115,7 @@
 		const canonicalUrl = new URL(
 			buildEarningQueryUrl(page.url, {
 				tab: parsed.tab,
-				context: parsed.context,
+				type: parsed.type,
 				highlight: parsed.highlight,
 				service: parsed.service,
 				request: parsed.request,
@@ -152,7 +152,7 @@
 	function navigateToEarning(
 		updates: Partial<{
 			tab: EarningTab;
-			context: DashboardContractsContext;
+			type: DashboardContractsType;
 			highlight: string | null;
 			service: string | null;
 			request: string | null;
@@ -162,7 +162,7 @@
 		const nextUrl = new URL(
 			buildEarningQueryUrl(page.url, {
 				tab: updates.tab ?? activeTabId,
-				context: updates.context ?? contractsContext,
+				type: updates.type ?? contractsType,
 				highlight: updates.highlight ?? null,
 				service: updates.service ?? null,
 				request: updates.request ?? null,
@@ -203,7 +203,7 @@
 		if (nextTab === 'contracts') {
 			navigateToEarning({
 				tab: 'contracts',
-				context: contractsContext,
+				type: contractsType,
 				highlight: null,
 				service: selectedServiceAddress
 			});
@@ -288,7 +288,7 @@
 	function handleContractsHighlightConsumed() {
 		navigateToEarning({
 			tab: 'contracts',
-			context: contractsContext,
+			type: contractsType,
 			highlight: null,
 			service: selectedServiceAddress
 		});
@@ -303,7 +303,7 @@
 		nonBlockingMessageCode = null;
 		navigateToEarning({
 			tab: 'contracts',
-			context: serviceAddress ? 'services' : contractsContext,
+			type: serviceAddress ? 'services' : contractsType,
 			highlight: null,
 			service: serviceAddress
 		});
@@ -313,7 +313,7 @@
 		nonBlockingMessageCode = null;
 		navigateToEarning({
 			tab: 'contracts',
-			context: 'all',
+			type: 'all',
 			highlight: null,
 			service: null
 		});
@@ -434,7 +434,7 @@
 			transition:slide={{ duration: 300 }}
 		>
 			<DashboardContractsPanel
-				initialContext={contractsContext}
+				initialType={contractsType}
 				initialStatus={activeStatus as string | null}
 				showRoleFilters={false}
 				fixedRole="freelancer"
