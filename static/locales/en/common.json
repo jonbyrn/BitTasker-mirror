@@ -488,6 +488,16 @@
 			"modal": {
 				"close": "Close"
 			},
+			"uploader": {
+				"file_size_limit": "File size exceeds the limit of {maxSize}MB.",
+				"video_duration_limit": "Video duration exceeds the limit of {maxDuration} seconds.",
+				"image_dimensions": "Image dimensions must be {width}x{height} pixels.",
+				"max_files_limit": "Maximum of {maxFiles} files allowed.",
+				"images": "Images",
+				"videos": "Videos",
+				"preview": "Preview",
+				"remove_file": "Remove file"
+			},
 			"error_troubleshooting_modal": {
 				"button_title": "Open troubleshooting help",
 				"help": "Help",
