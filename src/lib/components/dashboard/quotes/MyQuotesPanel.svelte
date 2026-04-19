@@ -478,6 +478,8 @@
 		);
 	}
 
+	const isFilterActive = $derived(activeFilter !== 'all');
+
 	function handleFilterChange(nextStatus: ServiceRequestFilterCategory) {
 		activeFilter = nextStatus;
 		const nextUrl = createDashboardUrl(new URL(window.location.href), {
@@ -1351,34 +1353,31 @@
 			<div class="card bg-base-100 rounded-xl p-4">
 				<DashboardEmptyState
 					icon={briefcaseEmptyStateIcon}
-					title={translateOrFallback(
-						'dashboard.service_requests.empty',
-						"You haven't submitted any service requests yet."
-					)}
-					actionLabel={translateOrFallback('dashboard.find_services', 'Find Services')}
-					actionHref="/services"
+					title={!isFilterActive
+						? translateOrFallback(
+								'dashboard.service_requests.empty',
+								"You haven't submitted any service requests yet."
+							)
+						: translateOrFallback(
+								'dashboard.service_requests.empty_filtered',
+								'No service requests match this status yet.'
+							)}
+					description={!isFilterActive
+						? ''
+						: translateOrFallback(
+								'dashboard.service_requests.empty_filtered_description',
+								'Try a different status filter to review the rest of your service requests.'
+							)}
+					actionLabel={!isFilterActive
+						? translateOrFallback('dashboard.find_services', 'Find Services')
+						: translateOrFallback('dashboard.contracts.clear_filters', 'Clear Filters')}
+					actionHref={!isFilterActive ? '/services' : null}
+					actionIcon={!isFilterActive ? briefcaseEmptyStateIcon : refreshEmptyStateIcon}
+					onAction={!isFilterActive ? undefined : clearFilters}
 					testId="my-quotes-empty-state"
 				/>
 			</div>
 		{/if}
-	{:else if filteredTimelines.length === 0}
-		<div class="card bg-base-100 rounded-xl p-4">
-			<DashboardEmptyState
-				icon={briefcaseEmptyStateIcon}
-				title={translateOrFallback(
-					'dashboard.service_requests.empty_filtered',
-					'No service requests match this status yet.'
-				)}
-				description={translateOrFallback(
-					'dashboard.service_requests.empty_filtered_description',
-					'Try a different status filter to review the rest of your service requests.'
-				)}
-				actionLabel={translateOrFallback('dashboard.contracts.clear_filters', 'Clear Filters')}
-				actionIcon={refreshEmptyStateIcon}
-				onAction={clearFilters}
-				testId="my-quotes-filtered-empty-state"
-			/>
-		</div>
 	{:else}
 		<div class="grid grid-cols-1 gap-5">
 			{#each filteredTimelines as timeline (timeline.request.id)}
