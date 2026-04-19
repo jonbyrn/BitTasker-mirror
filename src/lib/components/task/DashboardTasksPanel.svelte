@@ -244,68 +244,95 @@
 	 * Get action buttons for each category
 	 */
 	function getActionButtons(task: Task, category: TaskFilterCategory) {
-		switch (category) {
+		// Basic details button - usually available for most statuses
+		const detailsButton = {
+			label: $t('task.actions.view_details'),
+			class: 'btn-outline btn-sm',
+			onclick: (e: MouseEvent | KeyboardEvent) => {
+				e.stopPropagation();
+				openTaskDrawer(task, 'details');
+			},
+			icon: 'view_details'
+		};
+
+		// Bids button - primarily for open tasks but can be useful for context
+		const bidsButton = {
+			label: $t('task.actions.view_bids'),
+			class: 'btn-primary btn-sm',
+			onclick: (e: MouseEvent | KeyboardEvent) => {
+				e.stopPropagation();
+				goto(`/dashboard/task/${task.id}/bids`);
+			},
+			icon: 'view_bids'
+		};
+
+		// Status-specific logic
+		const effectiveStatus = category === 'all' ? task.status : category;
+
+		switch (effectiveStatus) {
 			case 'open':
-				return [
-					{
-						label: $t('task.actions.view_details'),
+			case TaskStatusEnum.OPEN:
+				return [detailsButton, bidsButton];
+
+			case 'tasks_in_progress':
+			case TaskStatusEnum.IN_PROGRESS:
+			case TaskStatusEnum.BID_ACCEPTED:
+			case TaskStatusEnum.ESCROW_FUNDED:
+			case TaskStatusEnum.RESCOPED:
+			case TaskStatusEnum.RESCOPE_ACCEPTED: {
+				// For in-progress, prioritize Contract and Messages
+				const inProgressButtons = [];
+
+				// 1. Message Taskee (if we have a pubkey)
+				if (task.acceptedBidMetadata?.pubkey) {
+					inProgressButtons.push({
+						label: $t('navbar.messages'),
 						class: 'btn-outline btn-sm',
 						onclick: (e: MouseEvent | KeyboardEvent) => {
 							e.stopPropagation();
-							openTaskDrawer(task, 'details');
+							goto(`/dashboard/messages/to/${task.acceptedBidMetadata?.pubkey}`);
 						},
-						icon: 'view_details'
-					},
-					{
-						label: $t('task.actions.view_bids'),
+						icon: 'message'
+					});
+				}
+
+				// 2. View Contract (if we have an escrow ID)
+				if (task.acceptedBidMetadata?.escrowId) {
+					inProgressButtons.push({
+						label: $t('navbar.contracts'),
 						class: 'btn-primary btn-sm',
 						onclick: (e: MouseEvent | KeyboardEvent) => {
 							e.stopPropagation();
-							goto(`/dashboard/task/${task.id}/bids`);
+							const nextUrl = createDashboardUrl(new URL(window.location.href), {
+								tab: 'contracts',
+								highlight: task.acceptedBidMetadata?.escrowId
+							});
+							void goto(nextUrl.toString());
 						},
-						icon: 'view_bids'
-					}
-				];
+						icon: 'contract'
+					});
+				}
 
-			case 'tasks_in_progress':
-				return [
-					{
-						label: $t('task.actions.mark_as_done'),
-						class: 'btn-success btn-sm',
-						onclick: (e: MouseEvent | KeyboardEvent) => {
-							e.stopPropagation();
-							// TODO: Implement mark as done functionality
-						},
-						icon: 'mark_as_done'
-					},
-					{
-						label: $t('task.actions.rescope'),
-						class: 'btn-info btn-outline btn-sm',
-						onclick: (e: MouseEvent | KeyboardEvent) => {
-							e.stopPropagation();
-							// TODO: Implement rescope functionality
-						},
-						icon: 'rescope'
-					}
-				];
+				// 3. Always show details
+				inProgressButtons.push({ ...detailsButton, class: 'btn-outline btn-sm' });
+
+				return inProgressButtons.length > 0 ? inProgressButtons : [detailsButton];
+			}
 
 			case 'tasks_completed':
+			case TaskStatusEnum.COMPLETED:
 			case 'tasks_disputed':
+			case TaskStatusEnum.DISPUTED:
+			case TaskStatusEnum.DISPUTE_PROPOSAL:
 			case 'tasks_cancelled':
-				return [
-					{
-						label: $t('task.actions.view_details'),
-						class: 'btn-primary btn-sm',
-						onclick: (e: MouseEvent | KeyboardEvent) => {
-							e.stopPropagation();
-							openTaskDrawer(task, 'details');
-						},
-						icon: 'view_details'
-					}
-				];
+			case TaskStatusEnum.CANCELLED:
+			case TaskStatusEnum.REFUNDED:
+				// Final states - show Primary Details button
+				return [{ ...detailsButton, class: 'btn-primary btn-sm' }];
 
 			default:
-				return [];
+				// Fallback for "All" or unknown statuses
+				return [detailsButton];
 		}
 	}
 
