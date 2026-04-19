@@ -209,7 +209,7 @@
 	{onClose}
 	onClear={clearFilters}
 	onApply={applyFilters}
-	clearLabel={$t('find_tasks.clear_filters')}
+	clearLabel={$t('dashboard.contracts.clear_filters')}
 	applyLabel={$t('find_tasks.apply')}
 	{activeFilterCount}
 	actionsClass="mt-8 mb-20 flex justify-between"

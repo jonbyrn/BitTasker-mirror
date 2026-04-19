@@ -20,7 +20,7 @@ vi.mock('svelte-i18n', async () => {
 		'find_tasks.view_list': 'View List',
 		'find_tasks.no_results_title': 'No tasks found',
 		'find_tasks.no_results_message': 'Try adjusting your search or filters',
-		'find_tasks.clear_filters': 'Clear Filters',
+		'dashboard.contracts.clear_filters': 'Clear Filters',
 		'find_tasks.error_loading': 'Error loading tasks',
 		'find_tasks.scroll_to_top': 'Scroll to top',
 		'common.status.open': 'Open',

@@ -8,7 +8,38 @@ import { t } from 'svelte-i18n';
 import { get } from 'svelte/store';
 
 const SERVICE_SAVED_SEARCH_TYPE = 'saved-search-service';
-const RELAYS = [import.meta.env.VITE_NOSTR_RELAY_URL].filter(Boolean);
+
+/**
+ * Ensures a relay URL is valid:
+ * 1. Trims whitespace
+ * 2. Ensures it starts with ws:// or wss://
+ * 3. Handles potentially multiple URLs (comma separated)
+ */
+function sanitizeRelayUrls(input: string | string[] | undefined): string[] {
+	if (!input) return [];
+
+	const rawUrls = Array.isArray(input) ? input : input.split(',');
+
+	return rawUrls
+		.map((url) => url.trim())
+		.filter((url) => {
+			return (
+				Boolean(url) &&
+				url.length > 0 &&
+				url !== 'undefined' &&
+				url !== 'null' &&
+				url !== '[object Object]'
+			);
+		})
+		.map((url) => {
+			if (!url.startsWith('ws://') && !url.startsWith('wss://')) {
+				return `wss://${url}`;
+			}
+			return url;
+		});
+}
+
+const RELAYS = sanitizeRelayUrls(import.meta.env.VITE_NOSTR_RELAY_URL);
 
 function getPool() {
 	const pool = get(appStore)?.pool;
@@ -83,16 +114,18 @@ export async function getSavedServiceSearches(): Promise<SavedServiceSearch[]> {
 		const pool = getPool();
 		const events = await pool.querySync(RELAYS, filter);
 
-		return events.sort((a, b) => b.created_at - a.created_at).map((event) => ({
-			id: event.tags.find((t) => t[0] === 'd')?.[1] ?? event.id,
-			name: event.tags.find((t) => t[0] === 'n')?.[1] ?? '',
-			params: JSON.parse(event.content || '{}') as SearchServicesParams,
-			createdAt: event.created_at,
-			notifyOnMatch: event.tags.find((t) => t[0] === 'm')?.[1] === 'true',
-			isActive: event.tags.find((t) => t[0] === 'a')?.[1] !== 'false',
-			notificationFrequency: event.tags.find((t) => t[0] === 'f')?.[1] ?? 'WEEKLY',
-			unreadNotifications: parseInt(event.tags.find((t) => t[0] === 'u')?.[1] ?? '0', 10)
-		}));
+		return events
+			.sort((a, b) => b.created_at - a.created_at)
+			.map((event) => ({
+				id: event.tags.find((t) => t[0] === 'd')?.[1] ?? event.id,
+				name: event.tags.find((t) => t[0] === 'n')?.[1] ?? '',
+				params: JSON.parse(event.content || '{}') as SearchServicesParams,
+				createdAt: event.created_at,
+				notifyOnMatch: event.tags.find((t) => t[0] === 'm')?.[1] === 'true',
+				isActive: event.tags.find((t) => t[0] === 'a')?.[1] !== 'false',
+				notificationFrequency: event.tags.find((t) => t[0] === 'f')?.[1] ?? 'WEEKLY',
+				unreadNotifications: parseInt(event.tags.find((t) => t[0] === 'u')?.[1] ?? '0', 10)
+			}));
 	} catch (error) {
 		console.error('Error getting saved service searches:', error);
 		throw error;

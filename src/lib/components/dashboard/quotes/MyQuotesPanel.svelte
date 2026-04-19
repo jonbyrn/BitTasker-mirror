@@ -1373,7 +1373,7 @@
 					'dashboard.service_requests.empty_filtered_description',
 					'Try a different status filter to review the rest of your service requests.'
 				)}
-				actionLabel={translateOrFallback('find_tasks.clear_filters', 'Clear Filters')}
+				actionLabel={translateOrFallback('dashboard.contracts.clear_filters', 'Clear Filters')}
 				actionIcon={refreshEmptyStateIcon}
 				onAction={clearFilters}
 				testId="my-quotes-filtered-empty-state"
