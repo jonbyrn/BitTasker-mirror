@@ -697,10 +697,7 @@
 								'dashboard.service_requests.empty_filtered_description',
 								'Try a different status filter to review the rest of your service requests.'
 							)
-						: tr(
-								'dashboard.services.my_services.quote_inbox.no_service_quotes_description',
-								'New quote requests for your services will appear here.'
-							)}
+						: ''}
 					actionLabel={activeFilter !== 'all'
 						? tr('dashboard.contracts.clear_filters', 'Clear Filters')
 						: tr('dashboard.services.my_services.create_service', 'Create Service')}
