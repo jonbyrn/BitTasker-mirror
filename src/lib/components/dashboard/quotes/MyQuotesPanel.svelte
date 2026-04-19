@@ -264,7 +264,7 @@
 	});
 
 	const filterOptions = $derived([
-		{ id: 'all', label: translateOrFallback('dashboard.filter.all', 'All') },
+		{ id: 'all', label: translateOrFallback('dashboard.contracts.all_statuses', 'All statuses') },
 		{
 			id: 'awaiting_proposal',
 			label: translateOrFallback(

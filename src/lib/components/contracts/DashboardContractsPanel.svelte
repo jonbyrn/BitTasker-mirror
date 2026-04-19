@@ -704,9 +704,7 @@
 					title={!isFilterActive
 						? $t('dashboard.contracts.no_contracts')
 						: $t('dashboard.contracts.no_filtered_contracts')}
-					description={!isFilterActive
-						? $t('dashboard.contracts.no_contracts_description')
-						: $t('dashboard.contracts.try_different_filters')}
+					description={!isFilterActive ? '' : $t('dashboard.contracts.try_different_filters')}
 					actionLabel={!isFilterActive
 						? (emptyStateActionLabel ?? $t('dashboard.create_task'))
 						: $t('dashboard.contracts.clear_filters')}
