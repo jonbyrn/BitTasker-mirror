@@ -181,5 +181,17 @@ async function stopUnpublishedEventsRetry(): Promise<void> {
 }
 
 export function getTaskRelay(): NDKRelaySet {
-	return NDKRelaySet.fromRelayUrls([import.meta.env.VITE_NOSTR_TASK_RELAY_URL], ndk);
+	const taskRelayUrl = import.meta.env.VITE_NOSTR_TASK_RELAY_URL;
+	const urls = [taskRelayUrl].filter((url): url is string =>
+		Boolean(url && typeof url === 'string' && url.trim().length > 0)
+	);
+
+	if (urls.length === 0) {
+		d.warn(
+			'getTaskRelay: VITE_NOSTR_TASK_RELAY_URL is undefined or empty, falling back to explicit relays'
+		);
+		return NDKRelaySet.fromRelayUrls(Array.from(ndk.explicitRelayUrls || []), ndk);
+	}
+
+	return NDKRelaySet.fromRelayUrls(urls, ndk);
 }
