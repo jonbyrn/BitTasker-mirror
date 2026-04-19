@@ -88,7 +88,6 @@
 					"loading_service_quotes": "Cargando solicitudes de cotización para este servicio...",
 					"retry_service_quotes": "Vuelve a intentar cargar las solicitudes de cotización para este servicio.",
 					"no_service_quotes": "Todavía no hay solicitudes de servicio.",
-					"no_service_quotes_description": "Las nuevas solicitudes de cotización para tus servicios aparecerán aquí.",
 					"total_pending_requests": "Solicitudes pendientes",
 					"selected_service_total": "Solicitudes del servicio seleccionado",
 					"reviews_count": "{count} reseñas",

@@ -88,7 +88,6 @@
 					"loading_service_quotes": "Loading quote requests for this service...",
 					"retry_service_quotes": "Retry to load quote requests for this service.",
 					"no_service_quotes": "No service requests yet.",
-					"no_service_quotes_description": "New quote requests for your services will appear here.",
 					"total_pending_requests": "Pending requests",
 					"selected_service_total": "Requests for selected service",
 					"reviews_count": "{count} reviews",
