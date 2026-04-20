@@ -51,7 +51,7 @@ function deriveCoarseDisplayName(location: Location): string {
 		return parts.slice(1).join(', ');
 	}
 
-	return rawDisplay.trim();
+	return (rawDisplay || '').trim();
 }
 
 export function deriveApproximateLocation(
@@ -127,15 +127,16 @@ export function isApproximatePublicLocation(
 		| null
 		| undefined
 ): boolean {
-	if (!location?.displayName?.trim()) {
+	const name = (location?.displayName || '').trim().toLowerCase();
+	if (!name || name === 'remote' || name === 'approximate location') {
 		return false;
 	}
 
 	return (
-		!location.formattedAddress &&
-		!location.placeId &&
-		!location.addressComponents &&
-		(location.zipCode ?? '') === ''
+		!location?.formattedAddress &&
+		!location?.placeId &&
+		!location?.addressComponents &&
+		(location?.zipCode ?? '') === ''
 	);
 }
 

@@ -248,6 +248,7 @@ async function generateTaskTags(
 		tags.push(['L', taskData.pickupLocation.displayName || '']); // L for location
 	} else {
 		tags.push(['T', 'remote']); // T for task type
+		tags.push(['L', '']); // Explicitly empty for remote
 	}
 
 	return tags;

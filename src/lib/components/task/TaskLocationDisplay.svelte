@@ -17,11 +17,16 @@
 	}>();
 
 	// Determine display text
+	const rawDisplayText = $derived(
+		(locationText || dropOffLocation?.displayName || pickupLocation?.displayName || '').trim()
+	);
 	const isRemote = $derived(
-		!dropOffLocation?.displayName && !pickupLocation?.displayName && !locationText
+		!rawDisplayText ||
+			rawDisplayText.toLowerCase() === 'remote' ||
+			rawDisplayText.toLowerCase() === 'approximate location'
 	);
 	const displayText = $derived(
-		locationText || dropOffLocation?.displayName || pickupLocation?.displayName || ''
+		isRemote ? $t('dashboard.task_details_by_task.remote') : rawDisplayText
 	);
 	const displayLocation = $derived(dropOffLocation || pickupLocation);
 	const showApproximateNote = $derived(!isRemote && isApproximatePublicLocation(displayLocation));
@@ -37,11 +42,7 @@
 		<IconMapMarker class="text-primary h-8 w-8 shrink-0" />
 		<div class="flex min-w-0 flex-1">
 			<span class="line-clamp-2 text-sm font-medium">
-				{#if isRemote}
-					{$t('dashboard.task_details_by_task.remote')}
-				{:else}
-					{displayText}
-				{/if}
+				{displayText}
 			</span>
 			{#if showApproximateNote}
 				<span class="text-base-content/60 ml-1 shrink-0 text-xs">
@@ -55,11 +56,7 @@
 		<IconMapMarker class="text-primary h-8 w-8 shrink-0" />
 		<div class="flex min-w-0 flex-1">
 			<span class="line-clamp-2 text-sm font-medium">
-				{#if isRemote}
-					{$t('dashboard.task_details_by_task.remote')}
-				{:else}
-					{displayText}
-				{/if}
+				{displayText}
 			</span>
 			{#if showApproximateNote}
 				<span class="text-base-content/60 ml-1 shrink-0 text-xs">
