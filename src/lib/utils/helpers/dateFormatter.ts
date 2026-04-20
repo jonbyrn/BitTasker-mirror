@@ -467,7 +467,7 @@ export function formatDurationBetweenDates(
 		);
 	}
 	if (parts.length === 0) {
-		return t('dashboard.bids.bid_creation.one_hour');
+		return t('common.components.date_input.less_than_minute');
 	}
 	if (parts.length === 1) return parts[0];
 	const lastPart = parts.pop()!;

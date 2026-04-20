@@ -543,7 +543,6 @@
 												dateRangeEnd={bid.endDateTime}
 												showTime={true}
 												showDuration={true}
-												estimatedDuration={bid.estimatedDuration}
 											/>
 										{/if}
 										{#if bid.description}
