@@ -1,6 +1,5 @@
 <script lang="ts">
 	import type { Service, ServiceTier } from '$lib/types/service';
-	import type { Location } from '$lib/types/task.d';
 	import { t } from 'svelte-i18n';
 	import {
 		getServiceDisplayTitle,
@@ -12,7 +11,6 @@
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { satsFromUsd } from '$lib/utils/helpers/crypto';
 	import { ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';
-	import { isApproximatePublicLocation } from '$lib/utils/location/public-location';
 	import { TASK_CATEGORIES } from '$lib/utils/constants/categories';
 	import ServiceShareButton from './ServiceShareButton.svelte';
 	import Gallery from '$lib/components/Gallery.svelte';
@@ -226,21 +224,6 @@
 		return '';
 	}
 
-	function getDisplayedLocation(): Location | null {
-		const locationDetails = service.locationDetails;
-		const locationTypes = getServiceLocationTypes();
-
-		if (locationTypes.includes('taskee_location')) {
-			return locationDetails?.taskeeLocation?.serviceLocation ?? null;
-		}
-
-		if (locationTypes.includes('tasker_location')) {
-			return locationDetails?.taskerLocation?.serviceLocation ?? null;
-		}
-
-		return null;
-	}
-
 	function getServiceRadiusDisplay(): string {
 		const locationDetails = service.locationDetails;
 		const serviceLocationTypes = getServiceLocationTypes();
@@ -267,8 +250,6 @@
 				return status;
 		}
 	}
-
-	const showApproximateLocationNote = $derived(isApproximatePublicLocation(getDisplayedLocation()));
 </script>
 
 <div class="min-w-0 space-y-6 overflow-x-hidden">
@@ -318,11 +299,6 @@
 						<span class="text-sm font-medium">
 							{getLocationDisplay()}
 						</span>
-						{#if showApproximateLocationNote}
-							<span class="text-base-content/60 text-xs">
-								({$t('common.location.approximate_short')})
-							</span>
-						{/if}
 						{#if getServiceRadiusDisplay()}
 							<span class="text-base-content/60 text-sm">
 								{getServiceRadiusDisplay()}
