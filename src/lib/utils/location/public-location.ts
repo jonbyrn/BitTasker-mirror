@@ -51,7 +51,7 @@ function deriveCoarseDisplayName(location: Location): string {
 		return parts.slice(1).join(', ');
 	}
 
-	return rawDisplay.trim().length > 0 ? rawDisplay.trim() : 'Approximate location';
+	return rawDisplay.trim();
 }
 
 export function deriveApproximateLocation(
