@@ -538,7 +538,8 @@
 				"zapstore_button": "Disponible en ZapStore",
 				"feedback_text": "Valoramos tus comentarios. Por favor, infórmanos si encuentras algún problema.",
 				"feedback_link": "Enviar comentarios",
-				"acknowledge": "Entendido"
+				"feedback_suffix": "para ayudarnos a mejorar.",
+				"acknowledge_button": "Entendido"
 			}
 		},
 		"airdatepicker": {
