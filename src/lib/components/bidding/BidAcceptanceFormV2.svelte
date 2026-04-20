@@ -21,7 +21,9 @@
 	import IconContentCopy from '~icons/mdi/content-copy';
 	import IconMessage from '~icons/mdi/message';
 	import IconCalendarClock from '~icons/mdi/calendar-clock';
-	import IconTimerOutline from '~icons/mdi/timer-outline';
+	import IconTruckDeliveryOutline from '~icons/mdi/truck-delivery-outline';
+	import IconRefresh from '~icons/mdi/refresh';
+	import { formatDurationBetweenDates } from '$lib/utils/helpers/dateFormatter';
 	import { allAssets, totalBalances, formatSats } from '$lib/stores/wallet.store';
 	import MessageModal from '$lib/components/messages/MessageModal.svelte';
 	import SecurePaymentContractModal from '$lib/components/bidding/SecurePaymentContractModal.svelte';
@@ -35,7 +37,17 @@
 
 	const d = createDebug('bidding:BidAcceptanceForm');
 
-	let { bid, task, onCancel }: { bid: NDKBid; task: NDKTask; onCancel: () => void } = $props();
+	let {
+		bid,
+		task,
+		onCancel,
+		onAddFunds
+	}: {
+		bid: NDKBid;
+		task: NDKTask;
+		onCancel: () => void;
+		onAddFunds?: (amountUsd: number) => void;
+	} = $props();
 
 	const bidContent = $derived(bid.bidContent);
 	const taskContent = $derived(task.taskContent);
@@ -43,6 +55,16 @@
 	let estimatedGasCost = $state<string>('');
 
 	let isSubmitting = $state(false);
+
+	async function handleRefresh() {
+		isLoading = true;
+		try {
+			await walletManager.loadAssets();
+			estimatedGasCost = await estimateGasCostForCreatePaymentContract(bidContent, btcPrice.price);
+		} finally {
+			isLoading = false;
+		}
+	}
 	let currentScreen = $state<'form' | 'success'>('form');
 	/** After broadcast: single phase until chain + Nostr follow-up finish */
 	let followUpStatus = $state<'idle' | 'mining' | 'done' | 'failed'>('idle');
@@ -296,8 +318,24 @@
 				<!-- Unified Responsive Layout -->
 				<div class="bg-base-300 lg:bg-base-200 rounded-2xl">
 					<!-- Task Title Row -->
-					<div class="w-full min-w-0 px-6 pt-3">
-						<h5 class="wrap-break-words line-clamp-2 text-lg font-semibold">{taskContent.title}</h5>
+					<div class="flex items-start justify-between gap-2 px-6 pt-3">
+						<div class="min-w-0 flex-1">
+							<h5 class="wrap-break-words line-clamp-2 text-lg font-semibold">
+								{taskContent.title}
+							</h5>
+						</div>
+						<button
+							type="button"
+							class="btn btn-ghost btn-md btn-circle -mt-2 -mr-2 shrink-0"
+							onclick={(e) => {
+								e.stopPropagation();
+								void handleRefresh();
+							}}
+							disabled={isLoading}
+							aria-label={$t('common.buttons.refresh')}
+						>
+							<IconRefresh class="h-6 w-6 {isLoading ? 'animate-spin' : ''}" />
+						</button>
 					</div>
 
 					<!-- Divider (Desktop only) -->
@@ -543,10 +581,12 @@
 							<div class="flex min-w-0 flex-1 items-center gap-2">
 								<img
 									src="/images/chains/Bitcoin.svg"
-									alt="Bitcoin"
+									alt={$t('wallet.bitcoin')}
 									class="h-5 w-5 shrink-0 sm:h-6 sm:w-6"
 								/>
-								<span>{$t('wallet.bitcoin')}</span>
+								<div class="flex items-center gap-1.5 overflow-hidden">
+									<span class="truncate">{$t('wallet.bitcoin')}</span>
+								</div>
 							</div>
 							<div class="ml-2 shrink-0 text-right">
 								{#if isLoading || $walletStore.rsk.connecting}
@@ -735,11 +775,7 @@
 
 				<!-- Insufficient Balance Error -->
 				{#if isBalanceInsufficient}
-					<button
-						type="button"
-						class="alert alert-outline alert-error w-full cursor-pointer transition-opacity hover:opacity-80"
-						onclick={() => goto('/dashboard/wallet')}
-					>
+					<div class="alert alert-error alert-outline mt-2 shadow-sm">
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
 							class="h-6 w-6 shrink-0 stroke-current"
@@ -753,8 +789,36 @@
 								d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16c-.77.833.192 2.5 1.732 2.5z"
 							/>
 						</svg>
-						<span>{$t('dashboard.bids.bid_acceptance.insufficient_balance')}</span>
-					</button>
+						<div class="flex-1 text-left">
+							<span class="text-sm">
+								{$t('dashboard.services.detail.book_now_drawer.insufficient_funds_message', {
+									values: {
+										sats: contractDetails
+											? formatSats(Math.floor(contractDetails.totalAmount * 100_000_000))
+											: '0',
+										usd: contractDetails
+											? `$${(contractDetails.totalAmount * btcPrice.price).toFixed(2)}`
+											: '$0.00'
+									}
+								})}
+							</span>
+						</div>
+						<div class="flex-none">
+							<button
+								type="button"
+								class="btn btn-primary btn-sm"
+								onclick={() => {
+									if (onAddFunds && contractDetails) {
+										onAddFunds(contractDetails.totalAmount * btcPrice.price);
+									} else {
+										goto('/dashboard/wallet?tab=receive');
+									}
+								}}
+							>
+								{$t('dashboard.services.detail.book_now_drawer.add_funds')}
+							</button>
+						</div>
+					</div>
 				{/if}
 
 				<!-- Testnet Warning Alert -->
@@ -831,11 +895,11 @@
 		</div>
 		<!-- Action buttons (fixed at bottom, like dashboard edit/delete modals) -->
 		<div
-			class="border-base-300 bg-base-100 flex shrink-0 flex-col-reverse justify-end gap-3 border-t py-4 sm:flex-row md:py-3"
+			class="border-base-300 bg-base-100 flex shrink-0 flex-row justify-end gap-3 border-t py-4 md:py-3"
 		>
 			<button
 				type="button"
-				class="btn btn-error btn-outline"
+				class="btn btn-error flex-1 sm:min-w-[100px] sm:flex-none"
 				onclick={onCancel}
 				disabled={isSubmitting}
 			>
@@ -857,7 +921,7 @@
 			</button>
 			<button
 				type="button"
-				class="btn btn-primary"
+				class="btn btn-primary flex-1 sm:min-w-[120px] sm:flex-none"
 				disabled={isSubmitting ||
 					isBalanceInsufficient ||
 					!estimatedGasCost ||
@@ -950,22 +1014,42 @@
 
 				<!-- Start + Duration (one row: date left, duration right; short month) -->
 				{#if adjustedTimes}
-					<div class="flex min-w-0 items-center justify-between gap-3 text-sm">
-						<span class="flex min-w-0 items-center gap-1">
-							<IconCalendarClock class="text-primary h-6 w-6 shrink-0" />
-							<span class="truncate">
-								{formatDate(new Date(adjustedTimes.startTime * 1000))}
+					<div class="flex flex-col gap-2">
+						<div class="flex min-w-0 items-center justify-between gap-3 text-sm">
+							<span class="flex min-w-0 items-center gap-1">
+								<IconCalendarClock class="text-primary h-6 w-6 shrink-0" />
+								<span class="truncate">
+									{formatDate(new Date(adjustedTimes.startTime * 1000))}
+								</span>
 							</span>
-						</span>
-						<span class="flex shrink-0 items-center gap-1">
-							<IconTimerOutline class="text-primary h-6 w-6 shrink-0" />
-							<span>
-								{formatDuration(
-									adjustedTimes.startTime * 1000,
-									adjustedTimes.completionTime * 1000
-								)}
+							<span class="flex shrink-0 items-center gap-1">
+								<span class="truncate">
+									{formatDate(new Date(adjustedTimes.completionTime * 1000))}
+								</span>
+								<IconTruckDeliveryOutline class="text-primary h-6 w-6 shrink-0" />
 							</span>
-						</span>
+						</div>
+
+						<div class="flex items-center px-2">
+							<div
+								class="bg-primary/20 border-primary/30 relative h-0.5 flex-1 border-t-2 border-dashed"
+							>
+								<div class="absolute inset-0 -top-3 flex items-center justify-center">
+									<span
+										class="bg-base-300 text-primary px-2 text-[10px] font-bold tracking-tight uppercase"
+									>
+										{formatDurationBetweenDates(
+											new Date(adjustedTimes.startTime * 1000),
+											new Date(adjustedTimes.completionTime * 1000),
+											$t
+										)}
+									</span>
+								</div>
+								<div
+									class="border-l-primary/40 absolute -top-1 -right-1 border-t-[4px] border-b-[4px] border-l-[6px] border-transparent"
+								></div>
+							</div>
+						</div>
 					</div>
 				{/if}
 

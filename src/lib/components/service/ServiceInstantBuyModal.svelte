@@ -1,13 +1,16 @@
 <script lang="ts">
 	import { format } from 'date-fns';
 	import { t } from 'svelte-i18n';
+	import { goto } from '$app/navigation';
 	import { FEE_TIERS } from '@bittasker/wallet-core';
 	import ContractInitiationDrawer from '$lib/components/contracts/ContractInitiationDrawer.svelte';
 	import ContractFundingWalletCard from '$lib/components/contracts/ContractFundingWalletCard.svelte';
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 	import UserInfoDisplay from '$lib/components/user/UserInfoDisplay.svelte';
 	import IconCalendarClock from '~icons/mdi/calendar-clock';
-	import IconTimerOutline from '~icons/mdi/timer-outline';
+	import IconTruckDeliveryOutline from '~icons/mdi/truck-delivery-outline';
+	import IconRefresh from '~icons/mdi/refresh';
+	import { formatDurationBetweenDates } from '$lib/utils/helpers/dateFormatter';
 	import type {
 		ServiceContractAgreementSnapshot,
 		ServiceContractPricingSnapshot
@@ -35,6 +38,7 @@
 		requiredBalanceUsd = '',
 		walletVerificationStatus = 'idle',
 		walletVerificationMessage = '',
+		walletVerificationErrorCode = null,
 		showContractCreationProgress = false,
 		contractCreationStatus = 'idle',
 		contractCreationMessage = '',
@@ -47,6 +51,8 @@
 		canConfirm = true,
 		onConfirm = () => {},
 		onRetry = () => {},
+		onRefresh = () => {},
+		onAddFunds = undefined,
 		onClose = () => {}
 	} = $props<{
 		open?: boolean;
@@ -72,6 +78,7 @@
 		requiredBalanceUsd?: string;
 		walletVerificationStatus?: 'idle' | 'verifying' | 'ready' | 'error';
 		walletVerificationMessage?: string;
+		walletVerificationErrorCode?: string | null;
 		showContractCreationProgress?: boolean;
 		contractCreationStatus?: 'idle' | 'creating' | 'success' | 'error';
 		contractCreationMessage?: string;
@@ -84,6 +91,8 @@
 		canConfirm?: boolean;
 		onConfirm?: () => void;
 		onRetry?: () => void;
+		onRefresh?: () => void;
+		onAddFunds?: (amountUsd: number) => void;
 		onClose?: () => void;
 	}>();
 
@@ -127,6 +136,16 @@
 	const totalPaymentLabel = $derived(formatUsdLabel(totalPaymentValue));
 	const estimatedStartLabel = $derived(formatTimestamp(estimatedStartTime));
 	const estimatedCompletionLabel = $derived(formatTimestamp(estimatedCompletionTime));
+	const durationLabel = $derived.by(() => {
+		if (estimatedStartTime && estimatedCompletionTime) {
+			return formatDurationBetweenDates(
+				new Date(estimatedStartTime * 1000),
+				new Date(estimatedCompletionTime * 1000),
+				$t
+			);
+		}
+		return '';
+	});
 	const resolvedErrorMessage = $derived(errorMessage);
 	const resolvedErrorHint = $derived(resolvedErrorMessage ? errorHint : '');
 	const resolvedTitle = $derived(
@@ -136,6 +155,15 @@
 		showContractCreationProgress || contractCreationStatus !== 'idle'
 	);
 	let confirmModalOpen = $state(false);
+
+	function handleAddFunds() {
+		if (onAddFunds && totalPaymentValue != null) {
+			onAddFunds(totalPaymentValue);
+		} else {
+			onClose();
+			goto('/dashboard/wallet?tab=receive');
+		}
+	}
 
 	function handleDrawerConfirmClick() {
 		if (!canConfirm || isPreparing || isOffline || isSubmitting) {
@@ -164,8 +192,8 @@
 		hideFooter={showingContractCreationProgress}
 		allowCloseWhileSubmitting={showingContractCreationProgress}
 		{isSubmitting}
-		errorMessage={resolvedErrorMessage}
-		errorHint={resolvedErrorHint}
+		errorMessage={walletVerificationErrorCode === 'insufficient_funds' ? '' : resolvedErrorMessage}
+		errorHint={walletVerificationErrorCode === 'insufficient_funds' ? '' : resolvedErrorHint}
 		drawerTestId="service-instant-buy-modal"
 		confirmTestId="service-instant-buy-confirm"
 		retryTestId="service-instant-buy-retry"
@@ -302,13 +330,29 @@
 
 			{#if !showingContractCreationProgress}
 				<div class="bg-base-300 rounded-2xl">
-					<div class="w-full min-w-0 px-6 pt-3">
-						<h5
-							class="wrap-break-words line-clamp-2 text-lg font-semibold"
-							data-testid="service-instant-buy-title"
-						>
-							{serviceTitle}
-						</h5>
+					<div class="flex items-start justify-between gap-2 px-6 pt-3">
+						<div class="min-w-0 flex-1">
+							<h5
+								class="wrap-break-words line-clamp-2 text-lg font-semibold"
+								data-testid="service-instant-buy-title"
+							>
+								{serviceTitle}
+							</h5>
+						</div>
+						{#if onRefresh}
+							<button
+								type="button"
+								class="btn btn-ghost btn-md btn-circle -mt-2 -mr-2 shrink-0"
+								onclick={(e) => {
+									e.stopPropagation();
+									onRefresh();
+								}}
+								disabled={walletLoading}
+								aria-label={$t('common.buttons.refresh')}
+							>
+								<IconRefresh class="h-6 w-6 {walletLoading ? 'animate-spin' : ''}" />
+							</button>
+						{/if}
 					</div>
 
 					<div class="divider text-base-content/60 mx-6 my-2 text-sm">
@@ -385,11 +429,13 @@
 										</div>
 
 										{#if selectedTierLabel}
-											<div class="text-base-content/70 mt-3 text-xs">
-												{$t('dashboard.services.detail.book_now_drawer.selected_tier')}
-											</div>
-											<div class="mt-1" data-testid="service-agreement-tier">
-												<span class="badge badge-outline badge-primary">{selectedTierLabel}</span>
+											<div class="mt-3 flex items-center justify-between text-xs">
+												<span class="text-base-content/70">
+													{$t('dashboard.services.detail.book_now_drawer.selected_tier')}
+												</span>
+												<div data-testid="service-agreement-tier">
+													<span class="badge badge-outline badge-primary">{selectedTierLabel}</span>
+												</div>
 											</div>
 										{/if}
 
@@ -407,26 +453,55 @@
 								</div>
 							</div>
 
-							<div class="space-y-3 text-sm">
-								<div class="flex min-w-0 items-center gap-3" data-testid="service-agreement-start">
-									<IconCalendarClock class="text-primary h-6 w-6 shrink-0" />
-									<div class="min-w-0">
-										<div class="text-base-content/60 text-xs font-medium">
-											{$t('dashboard.services.detail.book_now_drawer.start_date')}
-										</div>
-										<div class="truncate">{estimatedStartLabel}</div>
+							<div class="flex items-center justify-between gap-2 px-1">
+								<!-- Start Date -->
+								<div class="flex min-w-0 flex-col" data-testid="service-agreement-start">
+									<div
+										class="text-base-content/60 flex items-center gap-1.5 text-[10px] font-bold tracking-wider uppercase"
+									>
+										<IconCalendarClock class="h-3.5 w-3.5" />
+										<span>{$t('dashboard.services.detail.book_now_drawer.start_date')}</span>
+									</div>
+									<div class="mt-0.5 truncate text-xs font-bold sm:text-sm">
+										{estimatedStartLabel}
 									</div>
 								</div>
+
+								<!-- Duration Indicator -->
+								{#if durationLabel}
+									<div class="flex min-w-[60px] flex-1 flex-col items-center justify-center px-2">
+										<div class="relative flex w-full items-center py-2">
+											<div class="bg-primary/20 h-0.5 flex-1 rounded-full"></div>
+											<div class="absolute inset-0 flex items-center justify-center">
+												<span
+													class="badge badge-ghost badge-xs text-primary border-primary/20 h-5 px-2 text-[11px] font-bold whitespace-nowrap shadow-sm"
+												>
+													{durationLabel}
+												</span>
+											</div>
+											<div class="bg-primary/20 h-0.5 flex-1 rounded-full"></div>
+											<div class="absolute -right-0.5 flex items-center">
+												<div
+													class="border-l-primary/30 border-t-[4px] border-b-[4px] border-l-[6px] border-transparent"
+												></div>
+											</div>
+										</div>
+									</div>
+								{/if}
+
+								<!-- Delivery Date -->
 								<div
-									class="flex min-w-0 items-center gap-3"
+									class="flex min-w-0 flex-col items-end text-right"
 									data-testid="service-agreement-delivery"
 								>
-									<IconTimerOutline class="text-primary h-6 w-6 shrink-0" />
-									<div class="min-w-0">
-										<div class="text-base-content/60 text-xs font-medium">
-											{$t('dashboard.services.detail.book_now_drawer.delivery_date')}
-										</div>
-										<div class="truncate">{estimatedCompletionLabel}</div>
+									<div
+										class="text-base-content/60 flex items-center justify-end gap-1.5 text-[10px] font-bold tracking-wider uppercase"
+									>
+										<span>{$t('dashboard.services.detail.book_now_drawer.delivery_date')}</span>
+										<IconTruckDeliveryOutline class="h-3.5 w-3.5" />
+									</div>
+									<div class="mt-0.5 truncate text-xs font-bold sm:text-sm">
+										{estimatedCompletionLabel}
 									</div>
 								</div>
 							</div>
@@ -460,10 +535,40 @@
 								requiredSats={requiredBalanceSats}
 								loading={walletLoading}
 								connected={walletConnected}
-								verificationStatus={walletVerificationStatus}
-								verificationMessage={walletVerificationMessage}
-								forceOpen={walletLoading || walletVerificationStatus === 'error'}
+								verificationStatus={walletVerificationStatus === 'error'
+									? 'idle'
+									: walletVerificationStatus}
+								verificationMessage={walletVerificationStatus === 'error'
+									? ''
+									: walletVerificationMessage}
+								forceOpen={false}
 							/>
+
+							{#if walletVerificationErrorCode === 'insufficient_funds'}
+								<div class="alert alert-error alert-outline mt-2 shadow-sm">
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										class="h-6 w-6 shrink-0 stroke-current"
+										fill="none"
+										viewBox="0 0 24 24"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16c-.77.833.192 2.5 1.732 2.5z"
+										/>
+									</svg>
+									<div class="flex-1">
+										<span class="text-sm">{walletVerificationMessage}</span>
+									</div>
+									<div class="flex-none">
+										<button class="btn btn-primary btn-sm" onclick={handleAddFunds}>
+											{$t('dashboard.services.detail.book_now_drawer.add_funds')}
+										</button>
+									</div>
+								</div>
+							{/if}
 
 							<div
 								class="alert alert-outline alert-warning text-sm"
