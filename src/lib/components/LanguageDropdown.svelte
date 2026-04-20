@@ -18,7 +18,6 @@
 		showLocaleCode = false,
 		showCheckmark = true,
 		className = '',
-		tooltip = '', // unused
 		onLanguageChange = null as ((code: SupportedLanguage) => void) | null
 	} = $props();
 
@@ -100,7 +99,11 @@
 	const isLanguageLoading = $derived($isI18nLoading);
 </script>
 
-<details class="dropdown dropdown-end language-dropdown {className}" bind:this={dropdownElement} use:clickOutside={{ callback: () => closeDropdown() }}>
+<details
+	class="dropdown dropdown-end language-dropdown {className}"
+	bind:this={dropdownElement}
+	use:clickOutside={{ callback: () => closeDropdown() }}
+>
 	<summary
 		class="btn btn-ghost flex items-center gap-2"
 		class:loading={isLanguageLoading}
@@ -134,7 +137,7 @@
 		</svg>
 	</summary>
 	<ul class="menu dropdown-content bg-base-100 rounded-box z-1 w-52 p-2 shadow-sm">
-		{#each LANGUAGES as { code, name }}
+		{#each LANGUAGES as { code, name } (code)}
 			<li>
 				<button
 					class="flex w-full items-center gap-2 text-left"
@@ -174,5 +177,20 @@
 		top: 100%;
 		left: 0;
 		z-index: 1000;
+	}
+
+	/* Prevent focus flash on mobile */
+	.language-dropdown summary {
+		-webkit-tap-highlight-color: transparent;
+	}
+
+	.language-dropdown summary:focus {
+		outline: none;
+	}
+
+	/* Only show focus ring for keyboard navigation */
+	.language-dropdown summary:focus-visible {
+		outline: 2px solid currentColor;
+		outline-offset: 2px;
 	}
 </style>
