@@ -458,15 +458,30 @@
 			"modal": {
 				"close": "Cerrar"
 			},
-			"uploader": {
+			"media_uploader": {
 				"file_size_limit": "El tamaño del archivo excede el límite de {maxSize}MB.",
 				"video_duration_limit": "La duración del video excede el límite de {maxDuration} segundos.",
 				"image_dimensions": "Las dimensiones de la imagen deben ser {width}x{height} píxeles.",
 				"max_files_limit": "Se permite un máximo de {maxFiles} archivos.",
+				"max_info": "(Máx. {size}MB{durationInfo})",
+				"duration_info": ", {duration} min",
 				"images": "Imágenes",
 				"videos": "Videos",
 				"preview": "Vista previa",
-				"remove_file": "Eliminar archivo"
+				"remove_file": "Eliminar archivo",
+				"invalid_file_type": "Tipo de archivo no válido.",
+				"invalid_file_type_images_videos": "Tipo de archivo no válido. Solo se permiten imágenes y videos.",
+				"invalid_file_type_videos": "Tipo de archivo no válido. Solo se permiten videos MP4, WebM y OGG.",
+				"invalid_type_error": "Tipo de archivo no válido. Solo se permiten imágenes.",
+				"invalid_image": "Archivo de imagen no válido.",
+				"compression_failed": "Error al comprimir la imagen: {error}",
+				"failed_validate_video": "Error al validar el video.",
+				"failed_load_image": "Error al cargar la imagen para validación.",
+				"compressing_images": "Comprimiendo imágenes",
+				"uploading_files": "Subiendo archivos",
+				"compression_success": "Imágenes comprimidas con éxito",
+				"upload_failed": "Error al subir: {error}",
+				"file_number": "Archivo {index}"
 			},
 			"error_troubleshooting_modal": {
 				"button_title": "Abrir ayuda de solución de problemas",

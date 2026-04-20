@@ -488,15 +488,30 @@
 			"modal": {
 				"close": "Close"
 			},
-			"uploader": {
+			"media_uploader": {
 				"file_size_limit": "File size exceeds the limit of {maxSize}MB.",
 				"video_duration_limit": "Video duration exceeds the limit of {maxDuration} seconds.",
 				"image_dimensions": "Image dimensions must be {width}x{height} pixels.",
 				"max_files_limit": "Maximum of {maxFiles} files allowed.",
+				"max_info": "(Max. {size}MB{durationInfo})",
+				"duration_info": ", {duration} min",
 				"images": "Images",
 				"videos": "Videos",
 				"preview": "Preview",
-				"remove_file": "Remove file"
+				"remove_file": "Remove file",
+				"invalid_file_type": "Invalid file type.",
+				"invalid_file_type_images_videos": "Invalid file type. Only images and videos are allowed.",
+				"invalid_file_type_videos": "Invalid file type. Only MP4, WebM and OGG videos are allowed.",
+				"invalid_type_error": "Invalid file type. Only images are allowed.",
+				"invalid_image": "Invalid image file.",
+				"compression_failed": "Image compression failed: {error}",
+				"failed_validate_video": "Failed to validate video.",
+				"failed_load_image": "Failed to load image for validation.",
+				"compressing_images": "Compressing images",
+				"uploading_files": "Uploading files",
+				"compression_success": "Images compressed successfully",
+				"upload_failed": "Upload failed: {error}",
+				"file_number": "File {index}"
 			},
 			"error_troubleshooting_modal": {
 				"button_title": "Open troubleshooting help",
