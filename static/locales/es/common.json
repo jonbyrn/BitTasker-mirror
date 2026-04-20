@@ -527,6 +527,18 @@
 				"got_it_button": "Entendido",
 				"setup_passkey_button": "Configurar Llave de Acceso",
 				"retry_button": "Reintentar"
+			},
+			"warning_popup": {
+				"title": "Aviso Beta",
+				"message": "BitTasker se encuentra actualmente en fase Beta. Es posible que encuentres errores o funciones incompletas.",
+				"learn_more": "Saber más",
+				"zapstore_title": "Notificación de ZapStore",
+				"zapstore_message": "¡BitTasker ya está disponible en ZapStore! Recibe las últimas actualizaciones y notificaciones directamente en tu dispositivo.",
+				"zapstore_aria": "Visita BitTasker en ZapStore",
+				"zapstore_button": "Disponible en ZapStore",
+				"feedback_text": "Valoramos tus comentarios. Por favor, infórmanos si encuentras algún problema.",
+				"feedback_link": "Enviar comentarios",
+				"acknowledge": "Entendido"
 			}
 		},
 		"airdatepicker": {

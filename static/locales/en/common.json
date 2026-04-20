@@ -557,6 +557,18 @@
 				"got_it_button": "Got it",
 				"setup_passkey_button": "Setup Passkey",
 				"retry_button": "Retry"
+			},
+			"warning_popup": {
+				"title": "Beta Warning",
+				"message": "BitTasker is currently in Beta. You may encounter bugs or incomplete features.",
+				"learn_more": "Learn more",
+				"zapstore_title": "ZapStore Notification",
+				"zapstore_message": "BitTasker is now available on ZapStore! Get the latest updates and notifications directly on your device.",
+				"zapstore_aria": "Visit BitTasker on ZapStore",
+				"zapstore_button": "Available on ZapStore",
+				"feedback_text": "We value your feedback. Please let us know if you find any issues.",
+				"feedback_link": "Give feedback",
+				"acknowledge": "I Understand"
 			}
 		},
 		"airdatepicker": {
