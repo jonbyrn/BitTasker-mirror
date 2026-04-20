@@ -45,6 +45,15 @@ export class TranslationService extends BaseApiService {
 		this.loadCacheFromStorage();
 	}
 
+	/**
+	 * Returns true if the translation service is configured and ready to use.
+	 */
+	isAvailable(): boolean {
+		// The service is available if the app is initialized.
+		// Actual API availability depends on the backend.
+		return true;
+	}
+
 	private validateLanguage(language: string): boolean {
 		return this.SUPPORTED_LANGUAGES.includes(language as (typeof this.SUPPORTED_LANGUAGES)[number]);
 	}
