@@ -1,6 +1,5 @@
 <script lang="ts">
 	import type { Service } from '$lib/types/service';
-	import type { Location } from '$lib/types/task.d';
 	import { t, locale } from 'svelte-i18n';
 	import {
 		getServiceDisplayDescription,
@@ -15,7 +14,6 @@
 		formatInstantBuyDurationInput,
 		inferInstantBuyTimeUnit
 	} from '$lib/utils/service-instant-buy/authoring';
-	import { isApproximatePublicLocation } from '$lib/utils/location/public-location';
 	import ServiceShareButton from './ServiceShareButton.svelte';
 	import IconEyeOutline from '~icons/mdi/eye-outline';
 	import IconMapMarker from '~icons/mdi/map-marker';
@@ -152,21 +150,6 @@
 		return '';
 	}
 
-	function getDisplayedLocation(): Location | null {
-		const locationDetails = service.locationDetails;
-		const locationTypes = getServiceLocationTypes();
-
-		if (locationTypes.includes('taskee_location')) {
-			return locationDetails?.taskeeLocation?.serviceLocation ?? null;
-		}
-
-		if (locationTypes.includes('tasker_location')) {
-			return locationDetails?.taskerLocation?.serviceLocation ?? null;
-		}
-
-		return null;
-	}
-
 	function getServiceRadiusDisplay(): string {
 		const locationDetails = service.locationDetails;
 		const serviceLocationTypes = getServiceLocationTypes();
@@ -183,14 +166,12 @@
 		return `(${radius} km/${miles} mi)`;
 	}
 
-	const showApproximateLocationNote = $derived(isApproximatePublicLocation(getDisplayedLocation()));
-
-	function getLowestTier() {
+	const getLowestTier = () => {
 		const tiers = getServiceDisplayTiers(service, $locale || 'en');
 		if (!tiers.length) return null;
 
 		return [...tiers].sort((left, right) => left.price - right.price)[0] ?? null;
-	}
+	};
 
 	function getLowestTierPrice(): number | null {
 		return getLowestTier()?.price ?? null;
@@ -342,11 +323,6 @@
 							<span class="line-clamp-2 text-sm font-medium">
 								{getLocationDisplay()}
 							</span>
-							{#if showApproximateLocationNote}
-								<span class="text-base-content/60 text-xs">
-									({$t('common.location.approximate_short')})
-								</span>
-							{/if}
 							{#if getServiceRadiusDisplay()}
 								<span class="text-base-content/60 text-sm">
 									{getServiceRadiusDisplay()}
