@@ -145,12 +145,32 @@
 		}
 	}
 
+	function getLowestTierPrice(): number | null {
+		if (service.pricing?.type !== ServicePricingTypeEnum.TIERED || !service.pricing.tiers?.length) {
+			return null;
+		}
+
+		const prices = service.pricing.tiers
+			.map((tier) => tier.price)
+			.filter((price) => price != null && price > 0);
+
+		if (prices.length === 0) {
+			return null;
+		}
+
+		return Math.min(...prices);
+	}
+
 	function getPriceDisplay(): string {
 		if (service.pricing?.type === ServicePricingTypeEnum.FIXED) {
 			return `$${formatNumberWithTwoDecimals(service.pricing.amount || 0)}`;
 		} else if (service.pricing?.type === ServicePricingTypeEnum.HOURLY) {
 			return `$${formatNumberWithTwoDecimals(service.pricing.hourlyRate || 0)}/hr`;
 		} else if (service.pricing?.type === ServicePricingTypeEnum.TIERED) {
+			const lowestTierPrice = getLowestTierPrice();
+			if (lowestTierPrice != null) {
+				return `${tr('dashboard.services.detail.pricing_type.from', 'From')} $${formatNumberWithTwoDecimals(lowestTierPrice)}`;
+			}
 			return tr('dashboard.services.detail.pricing_type.tiered_pricing', 'Tiered pricing');
 		}
 		return tr('dashboard.services.detail.pricing_type.quote_required', 'Quote required');

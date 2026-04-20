@@ -47,8 +47,17 @@
 				return svc.pricing.hourlyRate
 					? `$${formatNumberWithTwoDecimals(svc.pricing.hourlyRate)}/hr`
 					: '';
-			case ServicePricingTypeEnum.TIERED:
+			case ServicePricingTypeEnum.TIERED: {
+				const prices =
+					svc.pricing.tiers
+						?.map((tier) => tier.price)
+						.filter((price) => price != null && price > 0) || [];
+				if (prices.length > 0) {
+					const lowestPrice = Math.min(...prices);
+					return `${tr('dashboard.services.detail.pricing_type.from', 'From')} $${formatNumberWithTwoDecimals(lowestPrice)}`;
+				}
 				return tr('dashboard.services.detail.pricing_type.tiered_pricing', 'Tiered pricing');
+			}
 			default:
 				return '';
 		}
