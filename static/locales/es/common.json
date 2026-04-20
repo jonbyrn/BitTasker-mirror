@@ -51,7 +51,8 @@
 		},
 		"toast": {
 			"link_copied": "Enlace copiado al portapapeles",
-			"link_copy_failed": "Error al copiar enlace"
+			"link_copy_failed": "Error al copiar enlace",
+			"share_success": "Compartido exitosamente"
 		},
 		"share": {
 			"budget": "Presupuesto",

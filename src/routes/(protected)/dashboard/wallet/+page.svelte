@@ -66,8 +66,9 @@
 	});
 
 	onDestroy(() => {
-		// Wallet teardown runs in dashboard/+layout onDestroy (leaving /dashboard/*), not here —
-		// otherwise navigating wallet ↔ contracts destroys the provider mid-flight.
+		// Only clean up WebSocket subscription, NOT the wallet state
+		// The wallet state should persist across navigation within the app
+		// Full cleanup (disconnectWallet) only happens on explicit logout via session.ts
 		unsubscribeFromSwaps?.();
 	});
 
