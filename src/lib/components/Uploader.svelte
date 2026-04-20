@@ -1,10 +1,10 @@
 <script lang="ts">
 	import type { UploaderProps } from '$lib/types/props';
-	import { t, locale } from 'svelte-i18n';
+	import { t } from 'svelte-i18n';
 
 	let {
 		id = 'image-uploader',
-		label = $t('uploader.uploadImage'),
+		label = $t('common.components.media_uploader.images'),
 		maxFiles = 1,
 		maxDuration = 30, // In seconds
 		maxFileSize = 8, // In MB
@@ -36,7 +36,7 @@
 
 		// Check if the file type is valid
 		let isValidType = false;
-		
+
 		if (isImageAllowed && isImageFile) {
 			isValidType = true;
 		} else if (isVideoAllowed && isVideoFile) {
@@ -45,13 +45,17 @@
 
 		if (!isValidType) {
 			if (isImageAllowed && isVideoAllowed) {
-				error = $t('uploader.invalidFileType') + ' Only images and videos are allowed';
+				error =
+					$t('common.components.media_uploader.invalid_file_type') +
+					' Only images and videos are allowed';
 			} else if (isImageAllowed) {
-				error = $t('uploader.invalidTypeError');
+				error = $t('common.components.media_uploader.invalid_type_error');
 			} else if (isVideoAllowed) {
-				error = $t('uploader.invalidFileType') + ' Only MP4, WebM and OGG videos are allowed';
+				error =
+					$t('common.components.media_uploader.invalid_file_type') +
+					' Only MP4, WebM and OGG videos are allowed';
 			} else {
-				error = $t('uploader.invalidFileType');
+				error = $t('common.components.media_uploader.invalid_file_type');
 			}
 			onError(error);
 			return false;
@@ -59,7 +63,9 @@
 
 		// Validate file size
 		if (file.size > maxFileSize * 1024 * 1024) {
-			error = $t('common.components.uploader.file_size_limit', { values: { maxSize: maxFileSize } });
+			error = $t('common.components.media_uploader.file_size_limit', {
+				values: { maxSize: maxFileSize }
+			});
 			onError(error);
 			return false;
 		}
@@ -76,7 +82,9 @@
 				});
 
 				if (video.duration > maxDuration) {
-					error = $t('common.components.uploader.video_duration_limit', { values: { maxDuration } });
+					error = $t('common.components.media_uploader.video_duration_limit', {
+						values: { maxDuration }
+					});
 					onError(error);
 					URL.revokeObjectURL(video.src);
 					return false;
@@ -85,7 +93,7 @@
 				URL.revokeObjectURL(video.src);
 			} catch (err) {
 				console.error('Failed to validate video duration:', err);
-				error = $t('uploader.failedToValidateVideo');
+				error = $t('common.components.media_uploader.failed_to_validate_video');
 				onError(error);
 				return false;
 			}
@@ -102,7 +110,9 @@
 				});
 
 				if ((width && img.width !== width) || (height && img.height !== height)) {
-					error = $t('common.components.uploader.image_dimensions', { values: { width, height } });
+					error = $t('common.components.media_uploader.image_dimensions', {
+						values: { width, height }
+					});
 					onError(error);
 					URL.revokeObjectURL(img.src);
 					return false;
@@ -111,7 +121,7 @@
 				URL.revokeObjectURL(img.src);
 			} catch (err) {
 				console.error('Failed to validate image dimensions:', err);
-				error = $t('uploader.failedToLoadImage');
+				error = $t('common.components.media_uploader.failed_to_load_image');
 				onError(error);
 				return false;
 			}
@@ -126,7 +136,7 @@
 		if (!selectedFiles) return;
 
 		if (files?.length + selectedFiles.length > maxFiles) {
-			error = $t('common.components.uploader.max_files_limit', { values: { maxFiles } });
+			error = $t('common.components.media_uploader.max_files_limit', { values: { maxFiles } });
 			onError?.(error);
 			return;
 		}
@@ -163,15 +173,21 @@
 	let fileTypeText = $derived(
 		allowedTypes
 			.map((type) => {
-				if (type === 'image/*') return $t('common.components.uploader.images');
-				if (type === 'video/*') return $t('common.components.uploader.videos');
+				if (type === 'image/*') return $t('common.components.media_uploader.images');
+				if (type === 'video/*') return $t('common.components.media_uploader.videos');
 				return type.split('/')[1].toUpperCase();
 			})
 			.join(', ')
 	);
 
-	// Get duration text if applicable
-	let durationText = $derived(maxDuration ? ` (Max. ${maxDuration / 60} minutes)` : '');
+	// Get duration info if applicable
+	let durationInfo = $derived(
+		maxDuration
+			? $t('common.components.media_uploader.duration_info', {
+					values: { duration: maxDuration / 60 }
+				})
+			: ''
+	);
 </script>
 
 <div class="space-y-4">
@@ -180,7 +196,7 @@
 			? 'grid w-full grid-cols-1 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5'
 			: 'h-full w-full'}
 	>
-		{#each files as file, index}
+		{#each files as file, index (index)}
 			<div class="relative {className}">
 				{#if typeof file === 'string'}
 					{#if isVideoURL(file)}
@@ -195,7 +211,11 @@
 							<track kind="captions" />
 						</video>
 					{:else}
-						<img src={file} alt={$t('common.components.uploader.preview')} class="h-full w-full rounded-lg object-cover" />
+						<img
+							src={file}
+							alt={$t('common.components.media_uploader.preview')}
+							class="h-full w-full rounded-lg object-cover"
+						/>
 					{/if}
 				{:else if file.type.startsWith('video/')}
 					<video
@@ -211,12 +231,12 @@
 				{:else}
 					<img
 						src={URL.createObjectURL(file)}
-						alt={$t('common.components.uploader.preview')}
+						alt={$t('common.components.media_uploader.preview')}
 						class="h-full w-full rounded-lg object-cover"
 					/>
 				{/if}
 				<button
-					aria-label={$t('common.components.uploader.remove_file')}
+					aria-label={$t('common.components.media_uploader.remove_file')}
 					type="button"
 					class="absolute -top-2 -right-2 h-6 w-6 cursor-pointer rounded-full bg-white p-1 text-black shadow-md hover:bg-gray-100"
 					onclick={() => removeFile(index)}
@@ -238,14 +258,14 @@
 		{/each}
 
 		{#if files.length < maxFiles}
-			<div class="relative overflow-hidden w-full {className}">
+			<div class="relative w-full overflow-hidden {className}">
 				<label
 					for="file-upload-{id}"
 					class="bg-base-200 flex h-full w-full cursor-pointer flex-col items-center justify-center rounded-lg border border-white/50"
 				>
 					<div class="flex flex-col items-center justify-center pt-5 pb-6">
 						<svg
-							class="label label-text mb-1 sm:mb-2 h-4 w-4 sm:h-8 sm:w-8"
+							class="label label-text mb-1 h-4 w-4 sm:mb-2 sm:h-8 sm:w-8"
 							aria-hidden="true"
 							xmlns="http://www.w3.org/2000/svg"
 							fill="none"
@@ -259,11 +279,14 @@
 								d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"
 							/>
 						</svg>
-						<p class="label label-text mb-1 sm:mb-2 text-[10px] sm:text-xs">
+						<p class="label label-text mb-1 text-[10px] sm:mb-2 sm:text-xs">
 							<span class="font-semibold">{label}</span>
 						</p>
 						<p class="label label-text text-center text-[8px] whitespace-normal sm:px-2">
-							{fileTypeText} (Max. {maxFileSize}MB{durationText})
+							{fileTypeText}
+							{$t('common.components.media_uploader.max_info', {
+								values: { size: maxFileSize, durationInfo }
+							})}
 						</p>
 					</div>
 				</label>
