@@ -65,9 +65,10 @@
 		}
 	});
 
-	onDestroy(async () => {
-		await walletManager.cleanup();
-		// Clean up WebSocket subscription
+	onDestroy(() => {
+		// Only clean up WebSocket subscription, NOT the wallet state
+		// The wallet state should persist across navigation within the app
+		// Full cleanup (disconnectWallet) only happens on explicit logout via session.ts
 		unsubscribeFromSwaps?.();
 	});
 
