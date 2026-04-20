@@ -17,11 +17,14 @@
 	}>();
 
 	// Determine display text
+	const isRemote = $derived(
+		!dropOffLocation?.displayName && !pickupLocation?.displayName && !locationText
+	);
 	const displayText = $derived(
 		locationText || dropOffLocation?.displayName || pickupLocation?.displayName || ''
 	);
 	const displayLocation = $derived(dropOffLocation || pickupLocation);
-	const showApproximateNote = $derived(isApproximatePublicLocation(displayLocation));
+	const showApproximateNote = $derived(!isRemote && isApproximatePublicLocation(displayLocation));
 </script>
 
 {#if directionsLink}
@@ -34,10 +37,10 @@
 		<IconMapMarker class="text-primary h-8 w-8 shrink-0" />
 		<div class="flex min-w-0 flex-1">
 			<span class="line-clamp-2 text-sm font-medium">
-				{#if displayText}
-					{displayText}
-				{:else}
+				{#if isRemote}
 					{$t('dashboard.task_details_by_task.remote')}
+				{:else}
+					{displayText}
 				{/if}
 			</span>
 			{#if showApproximateNote}
@@ -52,10 +55,10 @@
 		<IconMapMarker class="text-primary h-8 w-8 shrink-0" />
 		<div class="flex min-w-0 flex-1">
 			<span class="line-clamp-2 text-sm font-medium">
-				{#if displayText}
-					{displayText}
-				{:else}
+				{#if isRemote}
 					{$t('dashboard.task_details_by_task.remote')}
+				{:else}
+					{displayText}
 				{/if}
 			</span>
 			{#if showApproximateNote}
