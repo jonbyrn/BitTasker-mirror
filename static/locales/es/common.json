@@ -458,6 +458,10 @@
 			"modal": {
 				"close": "Cerrar"
 			},
+			"date_input": {
+				"and": "y",
+				"less_than_minute": "menos de un minuto"
+			},
 			"media_uploader": {
 				"file_size_limit": "El tamaño del archivo excede el límite de {maxSize}MB.",
 				"video_duration_limit": "La duración del video excede el límite de {maxDuration} segundos.",

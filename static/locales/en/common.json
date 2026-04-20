@@ -488,6 +488,10 @@
 			"modal": {
 				"close": "Close"
 			},
+			"date_input": {
+				"and": "and",
+				"less_than_minute": "less than a minute"
+			},
 			"media_uploader": {
 				"file_size_limit": "File size exceeds the limit of {maxSize}MB.",
 				"video_duration_limit": "Video duration exceeds the limit of {maxDuration} seconds.",
