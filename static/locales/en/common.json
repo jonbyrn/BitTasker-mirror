@@ -568,7 +568,8 @@
 				"zapstore_button": "Available on ZapStore",
 				"feedback_text": "We value your feedback. Please let us know if you find any issues.",
 				"feedback_link": "Give feedback",
-				"acknowledge": "I Understand"
+				"feedback_suffix": "to help us improve.",
+				"acknowledge_button": "I Understand"
 			}
 		},
 		"airdatepicker": {
