@@ -244,4 +244,9 @@ describe('earning requests route', () => {
 			})
 		);
 	}, 15_000);
+
+	it('exposes a reviews CTA in the earning header', async () => {
+		const { getByRole } = await renderEarningPage();
+		expect(getByRole('link', { name: 'reviews.view_all' })).toHaveAttribute('href', '/reviews');
+	});
 });

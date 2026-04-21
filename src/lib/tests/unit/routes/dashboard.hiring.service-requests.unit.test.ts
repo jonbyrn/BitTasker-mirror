@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, waitFor } from '@testing-library/svelte';
 import { readable } from 'svelte/store';
 import type { ServiceQuoteTimelineEntry } from '$lib/types/service-quote';
-import { ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';
 
 const hoisted = vi.hoisted(() => {
 	type StoreState = {
@@ -63,7 +62,7 @@ const hoisted = vi.hoisted(() => {
 				quoteRequestId: 'qr_valid123',
 				serviceId: `30402:${'d'.repeat(64)}:service-unique-id`,
 				serviceAddress: `30402:${'d'.repeat(64)}:service-unique-id`,
-				pricingType: ServicePricingTypeEnum.INQUIRY_REQUIRED,
+				pricingType: 'INQUIRY_REQUIRED',
 				inquiry: {
 					title: 'Need a migration',
 					description: 'Move our docs and preserve redirects.'
@@ -152,6 +151,8 @@ const hoisted = vi.hoisted(() => {
 		}),
 		parseDashboardQuery: vi.fn(),
 		loadTaskerTimelines: vi.fn().mockResolvedValue([]),
+		getTaskerDataFreshness: vi.fn().mockReturnValue('fresh'),
+		getProviderDataFreshness: vi.fn().mockReturnValue('fresh'),
 		findServiceByUniqueId: vi.fn().mockResolvedValue({
 			id: 'service-event-1',
 			uniqueId: 'service-unique-id',
@@ -221,7 +222,8 @@ vi.mock('$app/navigation', () => ({
 vi.mock('svelte-i18n', async () => {
 	const { readable } = await import('svelte/store');
 	return {
-		t: readable((key: string) => key)
+		t: readable((key: string) => key),
+		locale: readable('en')
 	};
 });
 
@@ -278,10 +280,16 @@ vi.mock('$lib/stores/service-quote-ui.store', () => ({
 			hoisted.parseDashboardQuery(...args),
 		loadTaskerTimelines: (...args: Parameters<typeof hoisted.loadTaskerTimelines>) =>
 			hoisted.loadTaskerTimelines(...args),
+		getTaskerDataFreshness: (...args: Parameters<typeof hoisted.getTaskerDataFreshness>) =>
+			hoisted.getTaskerDataFreshness(...args),
+		getProviderDataFreshness: (...args: Parameters<typeof hoisted.getProviderDataFreshness>) =>
+			hoisted.getProviderDataFreshness(...args),
 		setNonBlockingMessage: (...args: Parameters<typeof hoisted.setNonBlockingMessage>) =>
 			hoisted.setNonBlockingMessage(...args)
 	},
 	createDashboardUrl,
+	getTaskerDataFreshness: (...args: Parameters<typeof hoisted.getTaskerDataFreshness>) =>
+		hoisted.getTaskerDataFreshness(...args),
 	getTaskerTimelines: (state: { taskerTimelines: ServiceQuoteTimelineEntry[] }) =>
 		state.taskerTimelines,
 	isRequestSyncActive: () => false
@@ -307,6 +315,12 @@ vi.mock('$lib/components/task/DashboardTasksPanel.svelte', () => ({ default: () 
 vi.mock('$lib/components/contracts/DashboardContractsPanel.svelte', () => ({
 	default: () => null
 }));
+vi.mock('$lib/components/dashboard/quotes/MyQuotesPanel.svelte', async () => {
+	const { default: Stub } = await import('./fixtures/DashboardHiringMyQuotesPanelStub.svelte');
+	return {
+		default: Stub
+	};
+});
 
 vi.mock('$lib/stores/task.store', () => ({
 	taskStore: readable({}),
@@ -353,7 +367,6 @@ vi.mock('$lib/utils/service-quote/acceptance-ledger', () => ({
 describe('dashboard hiring service requests route', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
-		vi.resetModules();
 		hoisted.serviceQuoteUiStore.reset();
 		hoisted.page.url = new URL(
 			'http://localhost/dashboard?tab=quotes&view=tasker&request=qr_valid123'
@@ -431,7 +444,7 @@ describe('dashboard hiring service requests route', () => {
 		});
 	});
 
-	it('wires the real quotes panel so a focused request restores the local drawer', async () => {
+	it('wires the quotes panel with the focused request id from the route', async () => {
 		hoisted.serviceQuoteUiStore.setState({
 			taskerLoaded: true,
 			taskerTimelines: [hoisted.timeline],
@@ -442,7 +455,7 @@ describe('dashboard hiring service requests route', () => {
 		const { getByTestId } = render(routeModule.default);
 
 		await waitFor(() => {
-			expect(getByTestId('service-request-drawer')).toBeTruthy();
+			expect(getByTestId('my-quotes-panel')).toHaveTextContent('qr_valid123');
 		});
 	});
 });

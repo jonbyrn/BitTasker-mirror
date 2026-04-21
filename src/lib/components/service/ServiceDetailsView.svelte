@@ -1220,6 +1220,11 @@
 		return { success: true };
 	}
 
+	function handleOpenReviews() {
+		if (!service) return;
+		goto('/reviews?tab=received');
+	}
+
 	function handleContactTaskee() {
 		if (isOwner) {
 			appStore.showErrorToast(
@@ -1701,6 +1706,9 @@
 								{/if}
 								<button class="btn btn-ghost btn-sm mt-2 w-full" onclick={handleContactTaskee}>
 									{$t('dashboard.services.detail.contact_taskee')}
+								</button>
+								<button class="btn btn-outline btn-sm mt-2 w-full" onclick={handleOpenReviews}>
+									{$t('reviews.view_all')}
 								</button>
 							</div>
 						{:else}

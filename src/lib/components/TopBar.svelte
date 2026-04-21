@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { t } from 'svelte-i18n';
 	import { cubicOut } from 'svelte/easing';
 	import type { TransitionConfig } from 'svelte/transition';
@@ -92,7 +93,7 @@
 	});
 
 	// Derived values for avatar - prioritize username from database
-	let userPicture = $derived(() => {
+	let userPicture = $derived.by(() => {
 		// First priority: first image from pictures array
 		if ($profileStore.data?.pictures && $profileStore.data.pictures.length > 0) {
 			return $profileStore.data.pictures[0].url;
@@ -114,6 +115,10 @@
 		$user.name ||
 		''
 	);
+
+	function resolveHref(href: string) {
+		return href === '#' ? href : resolve(href);
+	}
 
 	// Close drawer
 	function closeDrawer() {
@@ -141,7 +146,7 @@
 		if (action === 'logout') {
 			logout();
 		} else if (href) {
-			await goto(href, { noScroll: false, replaceState: false });
+			await goto(resolveHref(href), { noScroll: false, replaceState: false });
 		}
 	}
 
@@ -155,7 +160,7 @@
 	async function confirmedLogout() {
 		showLogoutModal = false;
 		await authState.logout();
-		goto('/');
+		await goto(resolve('/'));
 	}
 
 	function cancelLogout() {
@@ -186,7 +191,9 @@
 			</button>
 		{:else}
 			<!-- Regular link -->
-			{@const itemHref = item.getDynamicHref ? item.getDynamicHref($authState.isAuthenticated) : item.href || '#'}
+			{@const itemHref = resolveHref(
+				item.getDynamicHref ? item.getDynamicHref($authState.isAuthenticated) : item.href || '#'
+			)}
 			<a
 				href={itemHref}
 				onclick={(e) => handleMenuItemClick(e, undefined, itemHref)}
@@ -242,7 +249,7 @@
 					transition:popoverTransition={{ duration: 200, y: -8, start: 0.98 }}
 				>
 					<ul>
-						{#each section.items as item}
+						{#each section.items as item (item.label)}
 							{@render menuItem(item)}
 						{/each}
 					</ul>
@@ -259,7 +266,7 @@
 >
 	<!-- Navbar start -->
 	<div class="navbar-start ml-2 flex-1 sm:flex">
-		<a href={$authState.isAuthenticated ? '/dashboard' : '/'} class="block">
+		<a href={resolve($authState.isAuthenticated ? '/dashboard' : '/')} class="block">
 			<img
 				src="/images/Logos/BitTasker-square-logo.svg"
 				alt={$t('common.components.topbar.logo_alt')}
@@ -277,7 +284,7 @@
 		<ul class="menu menu-horizontal px-1">
 			{#if $authState.isAuthenticated}
 				<!-- Logged-in menu sections -->
-				{#each LOGGED_IN_MENU_SECTIONS as section}
+				{#each LOGGED_IN_MENU_SECTIONS as section (section.id)}
 					{@render menuSection(section)}
 				{/each}
 			{:else}
@@ -285,13 +292,13 @@
 				<!-- First item is standalone link -->
 				{@const firstSection = LOGGED_OUT_MENU_SECTIONS[0]}
 				<li>
-					<a href="/how-it-works" class="btn btn-ghost">
+					<a href={resolve('/how-it-works')} class="btn btn-ghost">
 						<firstSection.icon class="text-primary" />
 						<span>{$t('footer.how_it_works')}</span>
 					</a>
 				</li>
 				<!-- Rest are dropdown sections using DaisyUI details -->
-				{#each LOGGED_OUT_MENU_SECTIONS.slice(1) as section}
+				{#each LOGGED_OUT_MENU_SECTIONS.slice(1) as section (section.id)}
 					{@render menuSection(section)}
 				{/each}
 			{/if}
@@ -306,8 +313,8 @@
 		</div>
 		<!-- login/signup or notification + avatar -->
 		{#if !$authState.isAuthenticated}
-			<a href="/auth/login" class="btn btn-sm sm:btn-md btn-secondary" data-testid="login-link">{$t('navbar.login')}</a>
-			<a href="/auth/signup" class="btn btn-sm sm:btn-md btn-primary">{$t('navbar.signup')}</a>
+			<a href={resolve('/auth/login')} class="btn btn-sm sm:btn-md btn-secondary" data-testid="login-link">{$t('navbar.login')}</a>
+			<a href={resolve('/auth/signup')} class="btn btn-sm sm:btn-md btn-primary">{$t('navbar.signup')}</a>
 		{:else}
 			<!-- Notification Center -->
 			<NotificationCenter />
@@ -317,7 +324,7 @@
 				use:clickOutside={{ callback: () => (isAvatarDropdownOpen = false) }}
 			>
 				<button class="btn btn-ghost" onclick={toggleAvatarDropdown} aria-haspopup="true" aria-expanded={isAvatarDropdownOpen}>
-					<Avatar name={$user.name} picture={userPicture()} size="sm" />
+					<Avatar name={$user.name} picture={userPicture} size="sm" />
 				</button>
 				{#if isAvatarDropdownOpen}
 					<div
@@ -331,7 +338,7 @@
 								isAvatarDropdownOpen = false;
 							}
 						}}
-						transition:popoverTransition={{ duration: 200, y: -8, start: 0.98 }}
+						in:popoverTransition={{ duration: 200, y: -8, start: 0.98 }}
 					>
 						<ul>
 							<!-- User Info Header -->
@@ -346,7 +353,7 @@
 									</button>
 								</li>
 							{/if}
-							{#each AVATAR_MENU_ITEMS as item}
+							{#each AVATAR_MENU_ITEMS as item (item.label)}
 								{@render menuItem(item)}
 							{/each}
 						</ul>
@@ -359,8 +366,7 @@
 
 <!-- Mobile Drawer - Drawer is @deprecated in favor of BottomNavBar component -->
 <Drawer isOpen={isDrawerOpen} onClose={closeDrawer} position="left" isScrollable={true}>
-	{#snippet children()}
-		<ul class="menu w-full">
+	<ul class="menu w-full">
 			<!-- Dark mode toggle -->
 			<li><DarkModeToggle /></li>
 
@@ -371,7 +377,7 @@
 
 			{#if $authState.isAuthenticated}
 				<!-- Logged-in mobile menu -->
-				{#each MOBILE_DRAWER_LOGGED_IN as item}
+				{#each MOBILE_DRAWER_LOGGED_IN as item (item.label)}
 					<li>
 						{#if item.action}
 							<button
@@ -385,7 +391,9 @@
 								{$t(item.label)}
 							</button>
 						{:else}
-							{@const itemHref = item.getDynamicHref ? item.getDynamicHref($authState.isAuthenticated) : item.href || '#'}
+							{@const itemHref = resolveHref(
+								item.getDynamicHref ? item.getDynamicHref($authState.isAuthenticated) : item.href || '#'
+							)}
 							<a
 								href={itemHref}
 								onclick={(e) => handleMenuItemClick(e, undefined, itemHref)}
@@ -403,7 +411,7 @@
 				{@const signupBtn = MOBILE_AUTH_BUTTONS.signup}
 				<li class="mt-4 flex flex-col gap-2">
 					<a
-						href={loginBtn.href}
+						href={resolveHref(loginBtn.href)}
 						class="btn btn-secondary flex w-full items-center justify-center gap-2"
 						onclick={closeDrawer}
 					>
@@ -411,7 +419,7 @@
 						{$t(loginBtn.label)}
 					</a>
 					<a
-						href={signupBtn.href}
+						href={resolveHref(signupBtn.href)}
 						class="btn btn-primary flex w-full items-center justify-center gap-2"
 						onclick={closeDrawer}
 					>
@@ -421,7 +429,6 @@
 				</li>
 			{/if}
 		</ul>
-	{/snippet}
 </Drawer>
 
 <!-- Logout Confirmation Modal -->

@@ -20,12 +20,13 @@
 	} from '$lib/utils/helpers/contractStatusFormatter';
 	import { contractStore } from '$lib/stores/contract.store';
 	import UserInfoDisplay from '$lib/components/user/UserInfoDisplay.svelte';
-	import { buildContractContextPresentation } from '$lib/utils/service-contract/context-presentation';
-	import {
-		getServiceContractLocationPresentationFromAgreementSnapshot,
-		getServiceContractLocationPresentationFromService,
-		type ServiceContractLocationPresentation
-	} from '$lib/utils/service-contract/location';
+import { buildContractContextPresentation } from '$lib/utils/service-contract/context-presentation';
+import {
+	getServiceContractLocationPresentationFromAgreementSnapshot,
+	getServiceContractLocationPresentationFromService,
+	type ServiceContractLocationPresentation
+} from '$lib/utils/service-contract/location';
+import { getReviewAvailabilityLabel, getReviewEligibilityState } from '$lib/reviews';
 
 	const { btcPrice } = $props<{
 		btcPrice: number;
@@ -91,6 +92,21 @@
 			? buildContractContextPresentation($contractStore.contract, contractStore.getContractKey)
 			: null
 	);
+	const reviewState = $derived.by(() =>
+		$contractStore.contract ? getReviewEligibilityState($contractStore.contract) : 'not_reviewable'
+	);
+	const reviewHref = $derived.by(() => {
+		if (!$contractStore.contract) {
+			return '/reviews';
+		}
+
+		const contractId = $contractStore.contract.escrowData?.id ?? $contractStore.contract.contractEvent.content.escrowId;
+		if (reviewState === 'available') {
+			return `/reviews?tab=pending&highlight=${encodeURIComponent(contractId)}`;
+		}
+
+		return '/reviews?tab=received';
+	});
 	const agreementSnapshot = $derived(
 		$contractStore.contract?.contractEvent.content.agreementSnapshot
 	);
@@ -325,6 +341,9 @@
 							{/if}
 							<div class="badge {getStatusColorClass($contractStore.contract.status)} shrink-0">
 								{$t(getStatusTranslationKey($contractStore.contract.status))}
+							</div>
+							<div class="badge badge-outline shrink-0">
+								{getReviewAvailabilityLabel(reviewState)}
 							</div>
 						</div>
 					</div>
@@ -571,6 +590,9 @@
 								isInline={false}
 								compactButtons={true}
 							/>
+							<a href={reviewHref} class="btn btn-outline btn-sm w-full sm:w-auto">
+								{reviewState === 'available' ? 'Write review' : 'Reviews'}
+							</a>
 						</div>
 					</div>
 				</div>

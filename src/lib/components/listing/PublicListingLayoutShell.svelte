@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { devicePlatform } from '$lib/stores/device.store';
 	import { page } from '$app/state';
 	import { sections } from '$lib/utils/consts';
@@ -14,6 +15,7 @@
 	import IconWalletOutline from '~icons/mdi/wallet-outline';
 	import IconAccount from '~icons/mdi/account';
 	import IconChatOutline from '~icons/mdi/chat-outline';
+	import IconCommentTextOutline from '~icons/mdi/comment-text-outline';
 	import IconCog from '~icons/mdi/cog';
 
 	let {
@@ -50,11 +52,11 @@
 					<div class="card bg-base-100 rounded-xl shadow-xl">
 						<div class="card-body p-4">
 							<ul class="menu bg-base-100 rounded-box w-full">
-								{#each sections as section}
+								{#each sections as section (section.id)}
 									<li class="my-1">
 										<a
 											data-sveltekit-reload="off"
-											href={section.path}
+											href={resolve(section.path)}
 											class:menu-active={isSectionActive(section.id, section.path)}
 											class="flex items-center gap-3"
 										>
@@ -66,6 +68,8 @@
 												<IconMagnify class="text-primary" />
 											{:else if section.icon === 'mdi:briefcase-search'}
 												<IconBriefcaseSearch class="text-primary" />
+											{:else if section.icon === 'mdi:comment-text-outline'}
+												<IconCommentTextOutline class="text-primary" />
 											{:else if section.icon === 'mdi:briefcase-outline'}
 												<IconBriefcaseOutline class="text-primary" />
 											{:else if section.icon === 'mdi:invoice-text-send-outline'}

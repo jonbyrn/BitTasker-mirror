@@ -38,6 +38,13 @@ export const sections = [
 		mobile: true
 	},
 	{
+		id: 'reviews',
+		path: '/reviews',
+		label: 'navbar.reviews',
+		icon: 'mdi:comment-text-outline',
+		mobile: false
+	},
+	{
 		id: 'wallet',
 		path: '/dashboard/wallet',
 		label: 'navbar.wallet',

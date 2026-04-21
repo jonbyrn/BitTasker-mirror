@@ -1,6 +1,5 @@
 <script lang="ts">
 	import type { Task, TaskBody } from '$lib/types/task';
-	import { onMount } from 'svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { fade, scale, slide } from 'svelte/transition';
 	import { page } from '$app/state';
@@ -185,7 +184,9 @@
 		activeTabId = HIRING_TABS.has(parsed.state.tab) ? parsed.state.tab : 'tasks';
 		contractsContext = parsed.state.context;
 		focusedRequestId = parsed.state.requestId;
-		nonBlockingMessageCode = parsed.messageCode;
+		if (parsed.messageCode !== null) {
+			nonBlockingMessageCode = parsed.messageCode;
+		}
 		currentContractsHighlight = parsed.state.highlight;
 
 		if (parsed.changed) {
@@ -195,8 +196,15 @@
 		}
 	}
 
-	// Set active tab based on URL param
-	onMount(() => {
+	let dashboardLifecycleStarted = $state(false);
+
+	// Set active tab based on URL param and attach dashboard-level subscriptions once.
+	$effect(() => {
+		if (dashboardLifecycleStarted || typeof window === 'undefined') {
+			return;
+		}
+
+		dashboardLifecycleStarted = true;
 		syncRouteState();
 
 		let replayIntervalId: ReturnType<typeof setInterval> | null = null;
@@ -521,9 +529,13 @@
 		<div class="min-w-0">
 			<h3 class="font-bold">{translateOrFallback('dashboard.hiring.title', 'Hiring')}</h3>
 		</div>
-		<a href={activeTab.buttonHref} class="btn btn-primary btn-sm sm:btn-md whitespace-nowrap">
-			{#if activeTab.icon === 'search'}
-				<svg
+			<div class="flex items-center gap-2">
+				<a href="/reviews" class="btn btn-outline btn-sm sm:btn-md whitespace-nowrap">
+					{$t('reviews.view_all')}
+				</a>
+				<a href={activeTab.buttonHref} class="btn btn-primary btn-sm sm:btn-md whitespace-nowrap">
+					{#if activeTab.icon === 'search'}
+					<svg
 					xmlns="http://www.w3.org/2000/svg"
 					class="mr-1 h-4 w-4 sm:mr-2 sm:h-5 sm:w-5"
 					fill="none"
@@ -538,7 +550,7 @@
 						d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
 					/>
 				</svg>
-			{:else if activeTab.icon === 'wallet'}
+					{:else if activeTab.icon === 'wallet'}
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
 					class="mr-1 h-4 w-4 sm:mr-2 sm:h-5 sm:w-5"
@@ -554,7 +566,7 @@
 						d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
 					/>
 				</svg>
-			{:else if activeTab.icon === 'plus'}
+					{:else if activeTab.icon === 'plus'}
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
 					class="mr-1 h-4 w-4 sm:mr-2 sm:h-5 sm:w-5"
@@ -570,9 +582,10 @@
 						d="M12 4v16m8-8H4"
 					/>
 				</svg>
-			{/if}
-			<span>{activeTab.buttonLabel}</span>
-		</a>
+					{/if}
+					<span>{activeTab.buttonLabel}</span>
+				</a>
+			</div>
 	</div>
 
 	<!-- Dashboard Tabs -->

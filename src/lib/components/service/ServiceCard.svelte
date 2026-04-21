@@ -134,7 +134,7 @@
 		}
 
 		// Don't handle if click came from a button
-		if ((e.target as HTMLElement).closest('button')) {
+		if ((e.target as HTMLElement).closest('button, a')) {
 			return;
 		}
 
@@ -147,6 +147,11 @@
 		if (onclick) {
 			onclick();
 		}
+	}
+
+	function handleReviewsClick(event: MouseEvent) {
+		event.stopPropagation();
+		goto('/reviews?tab=received');
 	}
 
 	// Get portfolio images (non-video)
@@ -427,6 +432,9 @@
 				<div class="flex-1"></div>
 			{/if}
 			<div class="flex w-full shrink-0 items-center gap-2 md:w-auto">
+				<button class="btn btn-ghost btn-sm flex-1 md:flex-none" onclick={handleReviewsClick}>
+					Reviews
+				</button>
 				{#if showRequestQuoteButton}
 					<button
 						class="btn btn-primary btn-sm flex-1 md:flex-none"

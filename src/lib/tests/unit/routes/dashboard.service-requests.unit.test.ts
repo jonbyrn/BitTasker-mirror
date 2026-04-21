@@ -249,4 +249,12 @@ describe('dashboard service requests route shell', () => {
 
 		expect(getByText('The requested quote thread could not be found.')).toBeTruthy();
 	}, 20_000);
+
+	it('exposes a reviews CTA in the dashboard header', async () => {
+		const { getByRole } = render(
+			(await import('../../../../routes/(protected)/dashboard/+page.svelte')).default
+		);
+
+		expect(getByRole('link', { name: 'reviews.view_all' })).toHaveAttribute('href', '/reviews');
+	}, 20_000);
 });

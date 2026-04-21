@@ -66,6 +66,7 @@
 		($authState.isAuthenticated || $user?.npub) && currentPath.match(/^\/services\/[^/]+$/)
 	);
 	const shouldHideFooterForServicesPage = $derived(currentPath === '/services');
+	const shouldHideFooterForReviewsPage = $derived(currentPath === '/reviews');
 
 	// Generate breadcrumbs from current path
 	const breadcrumbList = $derived.by(() => {
@@ -313,7 +314,7 @@
 			{/if}
 		</div>
 
-		{#if !showFooterSection && showTopBar && !isOnboardingPage && !shouldHideFooterForLoggedInTaskPage && !shouldHideFooterForLoggedInServicePage && !shouldHideFooterForLoggedInNpubPage && !shouldHideFooterForTasksPage && !shouldHideFooterForServicesPage}
+		{#if !showFooterSection && showTopBar && !isOnboardingPage && !shouldHideFooterForLoggedInTaskPage && !shouldHideFooterForLoggedInServicePage && !shouldHideFooterForLoggedInNpubPage && !shouldHideFooterForTasksPage && !shouldHideFooterForServicesPage && !shouldHideFooterForReviewsPage}
 			<div class="tasks-page-footer pt-12 lg:pt-16">
 				{#if !$authState.isAuthenticated}
 					<!-- Section 7: Final Call to Action (CTA) -->

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { devicePlatform } from '$lib/stores/device.store';
 	import { page } from '$app/state';
 	import { sections } from '$lib/utils/consts';
@@ -11,6 +12,7 @@
 	import IconWalletOutline from '~icons/mdi/wallet-outline';
 	import IconAccount from '~icons/mdi/account';
 	import IconChatOutline from '~icons/mdi/chat-outline';
+	import IconCommentTextOutline from '~icons/mdi/comment-text-outline';
 	import IconCog from '~icons/mdi/cog';
 	import WarningPopup from '$lib/components/WarningPopup.svelte';
 	import NotificationPermissionBanner from '$lib/components/notifications/NotificationPermissionBanner.svelte';
@@ -42,7 +44,7 @@
 									<li class="my-1">
 										<a
 											data-sveltekit-reload="off"
-											href={section.path}
+											href={resolve(section.path)}
 											class:menu-active={page.url.pathname + page.url.search === section.path ||
 												page.url.pathname === section.path}
 											class="flex items-center gap-3"
@@ -57,6 +59,8 @@
 												<IconMagnify class="text-primary" />
 											{:else if section.icon === 'mdi:briefcase-search'}
 												<IconBriefcaseSearch class="text-primary" />
+											{:else if section.icon === 'mdi:comment-text-outline'}
+												<IconCommentTextOutline class="text-primary" />
 											{:else if section.icon === 'mdi:wallet-outline'}
 												<IconWalletOutline class="text-primary" />
 											{:else if section.icon === 'mdi:account'}

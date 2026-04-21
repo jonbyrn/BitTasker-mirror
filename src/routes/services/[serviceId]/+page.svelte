@@ -17,6 +17,7 @@
 	import IconWalletOutline from '~icons/mdi/wallet-outline';
 	import IconAccount from '~icons/mdi/account';
 	import IconChatOutline from '~icons/mdi/chat-outline';
+	import IconCommentTextOutline from '~icons/mdi/comment-text-outline';
 	import IconCog from '~icons/mdi/cog';
 	import type { PageData } from './$types';
 
@@ -129,6 +130,8 @@
 												<IconInvoiceTextSendOutline class="text-primary" />
 											{:else if section.icon === 'mdi:file-sign'}
 												<IconFileSign class="text-primary" />
+											{:else if section.icon === 'mdi:comment-text-outline'}
+												<IconCommentTextOutline class="text-primary" />
 											{:else if section.icon === 'mdi:wallet-outline'}
 												<IconWalletOutline class="text-primary" />
 											{:else if section.icon === 'mdi:account'}

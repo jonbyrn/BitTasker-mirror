@@ -1,29 +1,51 @@
 <script lang="ts">
-	import { profileStore } from '$lib/stores/profile.store';
 	import { t, locale } from 'svelte-i18n';
-	import { onMount } from 'svelte';
-	import { getUserDisplayName } from '$lib/utils/helpers/userDisplayName';
+	import { profileStore } from '$lib/stores/profile.store';
+	import { formatDate } from '$lib/utils/date';
+
+	let descriptionElement = $state<HTMLElement | null>(null);
+	let isDescriptionTruncated = $state(false);
+	let showFullDescription = $state(false);
+
+	// Carousel state for portfolio items
+	let projectImageSlides = $state<Record<string, number>>({});
+
+	function toggleDescription() {
+		showFullDescription = !showFullDescription;
+	}
+
+	function checkTruncation() {
+		if (descriptionElement) {
+			isDescriptionTruncated = descriptionElement.scrollHeight > descriptionElement.clientHeight;
+		}
+	}
+
+	$effect(() => {
+		if ($profileStore.data) {
+			checkTruncation();
+		}
+	});
 
 	// Helper function to get translated profile content
-	// Reactive to locale changes via $locale
-	function getTranslatedProfileContent(
-		field: 'professionalTitle' | 'about'
-	): string {
+	function getTranslatedProfileContent(field: 'about' | 'name' | 'headline'): string {
+		const data = $profileStore.data;
+		if (!data) return '';
+
 		const currentLang = $locale || 'en';
-		const originalText = $profileStore.data?.[field] || '';
+		const originalText = data[field] || '';
 		
 		// If no translations, return original
-		if (!$profileStore.data?.translations) {
+		if (!data.translations) {
 			return originalText;
 		}
 
 		// If current language is source language, return original
-		if ($profileStore.data.translations.sourceLanguage === currentLang) {
+		if (data.translations.sourceLanguage === currentLang) {
 			return originalText;
 		}
 
 		// Get translation for current language
-		const translation = $profileStore.data.translations.translations[currentLang];
+		const translation = data.translations.translations[currentLang];
 		if (translation) {
 			return translation[field] || originalText;
 		}
@@ -33,7 +55,7 @@
 	}
 
 	// Helper function to get translated skill name
-	function getTranslatedSkillName(skill: string | { name: string; translations?: any }): string {
+	function getTranslatedSkillName(skill: string | { name: string; translations?: Record<string, unknown> }): string {
 		const currentLang = $locale || 'en';
 		
 		// If skill is a string, return as is
@@ -54,7 +76,8 @@
 		}
 
 		// Get translation for current language
-		const translation = skill.translations.translations[currentLang];
+		const translations = skill.translations.translations as Record<string, { name?: string }>;
+		const translation = translations[currentLang];
 		if (translation) {
 			return translation.name || originalName;
 		}
@@ -64,7 +87,7 @@
 	}
 
 	// Helper function to get translated portfolio title
-	function getTranslatedPortfolioTitle(item: { title: string; translations?: any }): string {
+	function getTranslatedPortfolioTitle(item: { title: string; translations?: Record<string, unknown> }): string {
 		const currentLang = $locale || 'en';
 		const originalTitle = item.title || '';
 		
@@ -79,7 +102,8 @@
 		}
 
 		// Get translation for current language
-		const translation = item.translations.translations[currentLang];
+		const translations = item.translations.translations as Record<string, { title?: string }>;
+		const translation = translations[currentLang];
 		if (translation) {
 			return translation.title || originalTitle;
 		}
@@ -89,7 +113,7 @@
 	}
 
 	// Helper function to get translated portfolio description
-	function getTranslatedPortfolioDescription(item: { description: string; translations?: any }): string {
+	function getTranslatedPortfolioDescription(item: { description: string; translations?: Record<string, unknown> }): string {
 		const currentLang = $locale || 'en';
 		const originalDescription = item.description || '';
 		
@@ -104,7 +128,8 @@
 		}
 
 		// Get translation for current language
-		const translation = item.translations.translations[currentLang];
+		const translations = item.translations.translations as Record<string, { description?: string }>;
+		const translation = translations[currentLang];
 		if (translation) {
 			return translation.description || originalDescription;
 		}
@@ -113,91 +138,20 @@
 		return originalDescription;
 	}
 
-	let { formatDate } = $props<{
-		formatDate: (date: string) => string;
-	}>();
-
-	// State for expandable description
-	let descriptionElement: HTMLParagraphElement | null = $state(null);
-	let isDescriptionTruncated = $state(false);
-	let showFullDescription = $state(false);
-	
-	// Estado para el carrusel de imágenes de cada proyecto
-	let projectImageSlides = $state<Record<string, number>>({});
-
-	// Check if description is actually truncated (same logic as TranslatableTask)
-	function checkIfTruncated() {
-		if (!descriptionElement) return;
-		
-		// Create a hidden clone to measure full height without affecting layout
-		const clone = descriptionElement.cloneNode(true) as HTMLElement;
-		clone.className = descriptionElement.className.replace(/line-clamp-\d+/g, '');
-		clone.style.position = 'absolute';
-		clone.style.visibility = 'hidden';
-		clone.style.height = 'auto';
-		clone.style.width = descriptionElement.offsetWidth + 'px';
-		clone.style.whiteSpace = 'pre-line'; // Preserve line breaks
-		document.body.appendChild(clone);
-		
-		const fullHeight = clone.scrollHeight;
-		const lineHeight = parseFloat(getComputedStyle(descriptionElement).lineHeight) || 20;
-		const maxHeight = lineHeight * 2; // 2 lines
-		
-		// Clean up
-		document.body.removeChild(clone);
-		
-		// Only show ellipsis if content is actually taller than 2 lines
-		isDescriptionTruncated = fullHeight > maxHeight + 1; // +1 for small margin
-	}
-
-	// Initialize on mount
-	onMount(() => {
-		if (descriptionElement) {
-			requestAnimationFrame(() => {
-				checkIfTruncated();
-			});
-		}
-	});
-
-	// React to description and locale changes
-	$effect(() => {
-		const currentDescription = getTranslatedProfileContent('about');
-		
-		if (descriptionElement && currentDescription) {
-			showFullDescription = false;
-			isDescriptionTruncated = false;
-			
-			requestAnimationFrame(() => {
-				checkIfTruncated();
-			});
-		}
-	});
-
-	function toggleDescription() {
-		showFullDescription = !showFullDescription;
-	}
-
-	// Funciones para el carrusel de imágenes de cada proyecto
 	function nextProjectImage(itemId: string, totalImages: number) {
-		if (totalImages > 1) {
-			const currentIndex = projectImageSlides[itemId] || 0;
-			const nextIndex = (currentIndex + 1) % totalImages;
-			projectImageSlides[itemId] = nextIndex;
-			projectImageSlides = { ...projectImageSlides };
-		}
+		const currentIndex = projectImageSlides[itemId] || 0;
+		projectImageSlides[itemId] = (currentIndex + 1) % totalImages;
+		projectImageSlides = { ...projectImageSlides };
 	}
 
 	function prevProjectImage(itemId: string, totalImages: number) {
-		if (totalImages > 1) {
-			const currentIndex = projectImageSlides[itemId] || 0;
-			const prevIndex = (currentIndex - 1 + totalImages) % totalImages;
-			projectImageSlides[itemId] = prevIndex;
-			projectImageSlides = { ...projectImageSlides };
-		}
+		const currentIndex = projectImageSlides[itemId] || 0;
+		projectImageSlides[itemId] = (currentIndex - 1 + totalImages) % totalImages;
+		projectImageSlides = { ...projectImageSlides };
 	}
 
-	function goToProjectImage(itemId: string, imageIndex: number) {
-		projectImageSlides[itemId] = imageIndex;
+	function goToProjectImage(itemId: string, index: number) {
+		projectImageSlides[itemId] = index;
 		projectImageSlides = { ...projectImageSlides };
 	}
 </script>
@@ -242,7 +196,7 @@
 			<h3 class="mb-6 text-xl font-semibold">{$t('profile.skills.title')}</h3>
 			{#if $profileStore.data.skills && $profileStore.data.skills.length > 0}
 				<div class="flex flex-wrap gap-2">
-					{#each $profileStore.data.skills as skill}
+					{#each $profileStore.data.skills as skill (typeof skill === 'string' ? skill : skill.name)}
 						<div class="border-primary text-primary rounded-full border px-3 py-1 text-sm">
 							{getTranslatedSkillName(skill)}
 						</div>
@@ -260,25 +214,17 @@
 			<h3 class="mb-4 text-xl font-semibold">{$t('profile.certifications')}</h3>
 			{#if $profileStore.data.certifications && $profileStore.data.certifications.length > 0}
 				<div class="grid grid-cols-1 gap-3 md:grid-cols-3">
-					{#each $profileStore.data.certifications as cert}
+					{#each $profileStore.data.certifications as cert (cert.name)}
 						<div class="card bg-base-200 flex flex-row items-center justify-start rounded-xl">
 							<img src={cert.fileUrl} alt={cert.name} class="h-full w-20 rounded-lg object-cover" />
 							<div class="card-body p-4">
 								<div class="flex items-start justify-between">
 									<h4 class="card-title text-base">{cert.name}</h4>
-									<!-- {#if cert.verified}
-										<div class="badge badge-success">{$t('profile.verified')}</div>
-									{:else}
-										<div class="badge badge-warning text-black">{$t('profile.unverified')}</div>
-									{/if} -->
 								</div>
 								<p class="text-base-content/70 text-sm">{cert.issuer}</p>
 								<p class="text-sm">
 									<span class="text-base-content/70">{$t('profile.since')} </span>
 									{formatDate(cert.date)}
-									<!-- <span class="text-base-content/70"
-										>({yearsFrom(cert.date)} {$t('profile.years')})</span
-									> -->
 								</p>
 							</div>
 						</div>
@@ -296,7 +242,7 @@
 			<h3 class="mb-4 text-xl font-semibold">{$t('profile.portfolio.title')}</h3>
 			{#if $profileStore.data.portfolio && $profileStore.data.portfolio.length > 0}
 				<div class="grid grid-cols-1 gap-6 md:grid-cols-2">
-					{#each $profileStore.data.portfolio as item}
+					{#each $profileStore.data.portfolio as item (item.title)}
 						<div class="card bg-base-200 rounded-xl">
 							<div class="card-body p-4">
 								<div class="flex items-center justify-between gap-2 mb-2">
@@ -330,7 +276,7 @@
 								<!-- Skills badges -->
 								{#if item.skills && item.skills.length > 0}
 									<div class="flex flex-wrap gap-1 mb-2">
-										{#each item.skills as skill}
+										{#each item.skills as skill (skill)}
 											<span class="badge badge-info badge-outline badge-sm">
 												{skill}
 											</span>
@@ -349,7 +295,7 @@
 											class="flex transition-transform duration-500 ease-in-out"
 											style="transform: translateX(-{currentImageIndex * 100}%)"
 										>
-											{#each item.images as image, imgIndex}
+											{#each item.images as image, imgIndex (image.url)}
 												<div class="w-full shrink-0">
 													<img
 														src={image.url}
@@ -360,7 +306,7 @@
 											{/each}
 										</div>
 										
-										<!-- Controles de navegación de imágenes (solo si hay más de una) -->
+										<!-- Controles de navigation de imágenes (solo si hay más de una) -->
 										{#if hasMultipleImages}
 											<!-- Botón anterior -->
 											<button
@@ -386,7 +332,7 @@
 											
 											<!-- Indicadores de imágenes -->
 											<div class="absolute bottom-2 left-1/2 flex -translate-x-1/2 gap-1 z-20">
-												{#each item.images as _, imgIndex}
+												{#each item.images as image, imgIndex (image.url)}
 													<button
 														onclick={() => goToProjectImage(itemId, imgIndex)}
 														class="h-2 w-2 rounded-full transition-all duration-300 {currentImageIndex === imgIndex
@@ -410,66 +356,6 @@
 			{/if}
 		</div>
 
-		<!-- Reviews Section -->
-		<div class="mb-8">
-			<h3 class="mb-4 text-xl font-semibold">{$t('profile.reviews')}</h3>
-			{#if $profileStore.data.reviews && $profileStore.data.reviews.length > 0}
-				<div class="grid grid-cols-1 gap-6 md:grid-cols-2">
-					{#each $profileStore.data.reviews as review}
-						<div class="card bg-base-200">
-							<div class="card-body p-4">
-								<div class="flex items-start justify-between">
-									<div class="flex items-center gap-2">
-										<div class="avatar placeholder">
-											<div class="bg-neutral text-neutral-content w-8 rounded-full">
-												{#if review.from?.name}
-													<span>{review.from.name.charAt(0)}</span>
-												{:else}
-													<span>?</span>
-												{/if}
-											</div>
-										</div>
-										<div>
-											<p class="font-medium">{getUserDisplayName(review.from, '')}</p>
-											<p class="text-base-content/70 text-xs">{formatDate(review.date)}</p>
-										</div>
-									</div>
-									<div class="rating rating-sm">
-										{#each Array(5) as _, i}
-											<input
-												type="radio"
-												class="mask mask-star-2 bg-orange-400"
-												checked={i + 1 === review.rating}
-												disabled
-											/>
-										{/each}
-									</div>
-								</div>
-								<p class="mt-2">{review.text}</p>
-							</div>
-						</div>
-					{/each}
-				</div>
-			{:else}
-				<div class="card bg-base-200 rounded-lg p-6 text-center">
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="text-base-content/30 mx-auto h-12 w-12"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-						/>
-					</svg>
-					<p class="text-base-content/70 mt-4">{$t('profile.noReviews')}</p>
-				</div>
-			{/if}
-		</div>
 	{:else if $profileStore.error}
 		<div class="alert alert-error alert-outline">
 			<span>{$t('profile.loadError')}</span>

@@ -126,6 +126,7 @@ export function getNamespacesForRoute(route: string): string[] {
 	if (route.includes('/dashboard') || route.includes('/earning')) {
 		namespaces.push('dashboard/dashboard', 'dashboard/tasks/info');
 		namespaces.push('dashboard/bids');
+		namespaces.push('reviews');
 		// Always load wallet namespace for bid-related components that use wallet translations
 		namespaces.push('dashboard/wallet');
 		// Service workspaces are surfaced from both protected workspace routes.
@@ -191,6 +192,7 @@ export function getNamespacesForRoute(route: string): string[] {
 	if (route.includes('/onboarding')) namespaces.push('onboarding');
 	if (route.includes('/how-it-works')) namespaces.push('how_it_works');
 	if (route.includes('/auth')) namespaces.push('auth');
+	if (route.includes('/reviews')) namespaces.push('reviews');
 
 	// Protected routes (routes that require authentication)
 	if (route.includes('(protected)')) {

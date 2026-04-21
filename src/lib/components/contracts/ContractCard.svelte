@@ -4,16 +4,17 @@
 		getStatusTranslationKey,
 		getStatusColorClass
 	} from '$lib/utils/helpers/contractStatusFormatter';
-	import { contractStore } from '$lib/stores/contract.store';
-	import { t } from 'svelte-i18n';
-	import ContractActions from './ContractActions.svelte';
-	import ContractContextSummary from './ContractContextSummary.svelte';
-	import UserNostrBadge from '../UserNostrBadge.svelte';
-	import TaskDeadlineDisplay from '../task/TaskDeadlineDisplay.svelte';
-	import TaskLocationDisplay from '../task/TaskLocationDisplay.svelte';
-	import { buildContractContextPresentation } from '$lib/utils/service-contract/context-presentation';
-	import { getVisibleContractQuickActions } from '$lib/utils/helpers/contractQuickActions';
-	import { EscrowStatus } from '$lib/utils/escrow';
+import { contractStore } from '$lib/stores/contract.store';
+import { t } from 'svelte-i18n';
+import ContractActions from './ContractActions.svelte';
+import ContractContextSummary from './ContractContextSummary.svelte';
+import UserNostrBadge from '../UserNostrBadge.svelte';
+import TaskDeadlineDisplay from '../task/TaskDeadlineDisplay.svelte';
+import TaskLocationDisplay from '../task/TaskLocationDisplay.svelte';
+import { buildContractContextPresentation } from '$lib/utils/service-contract/context-presentation';
+import { getVisibleContractQuickActions } from '$lib/utils/helpers/contractQuickActions';
+import { EscrowStatus } from '$lib/utils/escrow';
+import { getReviewAvailabilityLabel, getReviewEligibilityState } from '$lib/reviews';
 
 	const { contract, btcPrice } = $props<{
 		contract: ContractWithEvents;
@@ -28,6 +29,15 @@
 	const presentation = $derived(
 		buildContractContextPresentation(contract, contractStore.getContractKey)
 	);
+	const reviewState = $derived(getReviewEligibilityState(contract));
+	const reviewHref = $derived.by(() => {
+		const contractId = contract.escrowData?.id ?? contract.contractEvent.content.escrowId;
+		if (reviewState === 'available') {
+			return `/reviews?tab=pending&highlight=${encodeURIComponent(contractId)}`;
+		}
+
+		return '/reviews?tab=received';
+	});
 
 	function formatRBTC(amount: string): string {
 		const num = parseFloat(amount);
@@ -112,22 +122,23 @@
 				</button>
 			</div>
 
-			<div class="flex shrink-0 flex-col items-end self-stretch">
-				<div class="flex flex-wrap justify-end gap-1">
-					<div
-						class="badge badge-sm {presentation.isServiceContract
-							? 'badge-info'
-							: presentation.isUnknownContext
-								? 'badge-warning'
-								: 'badge-outline'}"
-					>
-						{presentation.cardLabel}
-					</div>
-					{#if import.meta.env.DEV}
-						<div class="badge badge-error badge-sm">
-							{contract.escrowData?.id}
-						</div>
-					{/if}
+					<div class="flex shrink-0 flex-col items-end self-stretch">
+						<div class="flex flex-wrap justify-end gap-1">
+							<div
+								class="badge badge-sm {presentation.isServiceContract
+									? 'badge-info'
+									: presentation.isUnknownContext
+										? 'badge-warning'
+										: 'badge-outline'}"
+							>
+								{presentation.cardLabel}
+							</div>
+							<div class="badge badge-outline badge-sm">{getReviewAvailabilityLabel(reviewState)}</div>
+							{#if import.meta.env.DEV}
+								<div class="badge badge-error badge-sm">
+									{contract.escrowData?.id}
+								</div>
+							{/if}
 				</div>
 				<div class="badge {getStatusColorClass(contract.status)} badge-sm mt-2">
 					{#if contract.isPending}
@@ -177,6 +188,9 @@
 						maxInlineActions={2}
 					/>
 				{/if}
+				<a href={reviewHref} class="btn btn-outline btn-sm w-full sm:w-auto">
+					{reviewState === 'available' ? 'Write review' : 'Reviews'}
+				</a>
 				<button class="btn btn-outline btn-sm w-full sm:w-auto" onclick={openDrawer}>
 					<svg
 						xmlns="http://www.w3.org/2000/svg"

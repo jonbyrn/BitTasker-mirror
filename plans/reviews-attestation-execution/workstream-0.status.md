@@ -1,0 +1,32 @@
+# Workstream 0 Status
+
+- workstream id: 0
+- DRI: shared-contracts-foundation
+- backup: unassigned
+- owned paths:
+  - `packages/reviews-contracts/**`
+- status enum: `complete`
+- dependencies:
+  - none
+- open blockers:
+  - none
+- tests added or updated:
+  - `packages/reviews-contracts/src/__tests__/contracts.test.ts`
+- touched modules:
+  - `packages/reviews-contracts/package.json`
+  - `packages/reviews-contracts/tsconfig.json`
+  - `packages/reviews-contracts/vitest.config.ts`
+  - `packages/reviews-contracts/src/constants.ts`
+  - `packages/reviews-contracts/src/enums.ts`
+  - `packages/reviews-contracts/src/types.ts`
+  - `packages/reviews-contracts/src/schemas.ts`
+  - `packages/reviews-contracts/src/hash.ts`
+  - `packages/reviews-contracts/src/challenge.ts`
+  - `packages/reviews-contracts/src/fixtures.ts`
+  - `packages/reviews-contracts/src/canonical.ts`
+  - `packages/reviews-contracts/src/reply.ts`
+  - `packages/reviews-contracts/src/status.ts`
+  - `packages/reviews-contracts/src/index.ts`
+  - `packages/reviews-contracts/src/__tests__/contracts.test.ts`
+- last-updated timestamp: 2026-03-31T03:14:00-04:00
+- checkpoint-ready flag: true

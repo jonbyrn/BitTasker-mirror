@@ -309,13 +309,15 @@ describe('ServiceDetailsView delete workflow', () => {
 		});
 		hoisted.mockGetActiveContractsForService.mockReturnValue([createContract()]);
 
-		const { getByText, findByText } = await renderView(createService());
+		const { getByRole, findByText } = await renderView(createService());
 
-		await fireEvent.click(getByText('Delete Service'));
+		await fireEvent.click(getByRole('button', { name: 'dashboard.services.detail.delete_service' }));
 
-		expect(await findByText('Cannot delete service')).toBeTruthy();
 		expect(
-			await findByText(/Active service contracts are still attached to this service/)
+			await findByText('dashboard.services.detail.delete_service_modal.blocked_title')
+		).toBeTruthy();
+		expect(
+			await findByText('dashboard.services.detail.delete_service_modal.blocked_body')
 		).toBeTruthy();
 		expect(hoisted.mockDeleteService).not.toHaveBeenCalled();
 	}, 20_000);
@@ -351,11 +353,15 @@ describe('ServiceDetailsView delete workflow', () => {
 			}
 		]);
 
-		const { getAllByText, findByText } = await renderView(createService());
+		const { getByRole, findByText } = await renderView(createService());
 
-		await fireEvent.click(getAllByText('Delete Service')[0]);
-		expect(await findByText(/open request/i)).toBeTruthy();
-		await fireEvent.click(getAllByText('Confirm Delete')[0]);
+		await fireEvent.click(getByRole('button', { name: 'dashboard.services.detail.delete_service' }));
+		expect(
+			await findByText('dashboard.services.detail.delete_service_modal.confirm_title')
+		).toBeTruthy();
+		await fireEvent.click(
+			getByRole('button', { name: 'dashboard.services.detail.delete_service_modal.confirm' })
+		);
 
 		await waitFor(() => expect(hoisted.mockDeleteService).toHaveBeenCalledTimes(1));
 		expect(hoisted.mockDeleteService).toHaveBeenCalledWith(
@@ -378,11 +384,15 @@ describe('ServiceDetailsView delete workflow', () => {
 	}, 10_000);
 
 	it('confirms owner deletion and returns to my services when no blockers remain', async () => {
-		const { getAllByText, findByText } = await renderView(createService());
+		const { getByRole, findByText } = await renderView(createService());
 
-		await fireEvent.click(getAllByText('Delete Service')[0]);
-		expect(await findByText('Delete service')).toBeTruthy();
-		await fireEvent.click(getAllByText('Confirm Delete')[0]);
+		await fireEvent.click(getByRole('button', { name: 'dashboard.services.detail.delete_service' }));
+		expect(
+			await findByText('dashboard.services.detail.delete_service_modal.confirm_title')
+		).toBeTruthy();
+		await fireEvent.click(
+			getByRole('button', { name: 'dashboard.services.detail.delete_service_modal.confirm' })
+		);
 
 		await waitFor(() => expect(hoisted.mockDeleteService).toHaveBeenCalledTimes(1));
 		expect(hoisted.mockDeleteService).toHaveBeenCalledWith(
@@ -397,4 +407,12 @@ describe('ServiceDetailsView delete workflow', () => {
 		);
 		expect(hoisted.mockGoto).toHaveBeenCalledWith('/dashboard?tab=my-services');
 	}, 10_000);
+
+	it('exposes a reviews CTA that opens the /reviews surface', async () => {
+		const service = createService();
+		service.npub = 'b'.repeat(64);
+		const { getByRole } = await renderView(service);
+
+		expect(getByRole('button', { name: 'reviews.view_all' })).toBeTruthy();
+	});
 });

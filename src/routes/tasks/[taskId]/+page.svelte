@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { t } from 'svelte-i18n';
 	import TaskDetailsView from '$lib/components/task/TaskDetailsView.svelte';
@@ -6,16 +7,6 @@
 	import { devicePlatform } from '$lib/stores/device.store';
 	import { sections } from '$lib/utils/consts';
 	import WarningPopup from '$lib/components/WarningPopup.svelte';
-	// Icon imports for unplugin-icons
-	import IconFormatListBulleted from '~icons/mdi/format-list-bulleted';
-	import IconPlusCircleOutline from '~icons/mdi/plus-circle-outline';
-	import IconMagnify from '~icons/mdi/magnify';
-	import IconInvoiceTextSendOutline from '~icons/mdi/invoice-text-send-outline';
-	import IconFileSign from '~icons/mdi/file-sign';
-	import IconWalletOutline from '~icons/mdi/wallet-outline';
-	import IconAccount from '~icons/mdi/account';
-	import IconChatOutline from '~icons/mdi/chat-outline';
-	import IconCog from '~icons/mdi/cog';
 	import type { PageData } from './$types';
 
 	// Get taskId from route params
@@ -28,6 +19,12 @@
 
 	// Layout state
 	let width = $state(375);
+
+	const jsonLdScript = $derived(
+		data.seo.jsonLd
+			? '<script type="application/ld+json">' + JSON.stringify(data.seo.jsonLd) + '</' + 'script>'
+			: ''
+	);
 </script>
 
 <svelte:head>
@@ -58,8 +55,8 @@
 	<meta property="twitter:creator" content="@BitTaskerdotcom" />
 
 	<!-- Structured Data -->
-	{#if data.seo.jsonLd}
-		{@html `<script type="application/ld+json">${JSON.stringify(data.seo.jsonLd)}</script>`}
+	{#if jsonLdScript}
+		{@html jsonLdScript}
 	{/if}
 </svelte:head>
 
@@ -75,36 +72,14 @@
 					<div class="card bg-base-100 rounded-xl shadow-xl">
 						<div class="card-body p-4">
 							<ul class="menu bg-base-100 rounded-box w-full">
-								{#each sections as section}
-									<li class="my-1">
+								{#each sections as section (section.label)}
+									<li>
 										<a
-											data-sveltekit-reload="off"
-											href={section.path}
-											class:menu-active={page.url.pathname + page.url.search === section.path || (section.id === 'find-tasks' && page.url.pathname.startsWith('/tasks'))}
-											class="flex items-center gap-3"
+											href={resolve(section.href)}
+											class="flex items-center gap-4 py-3 transition-colors hover:bg-primary/10"
 										>
-											{#if section.icon === 'mdi:format-list-bulleted'}
-												<IconFormatListBulleted class="text-primary" />
-											{:else if section.icon === 'mdi:plus-circle-outline'}
-												<IconPlusCircleOutline class="text-primary" />
-											{:else if section.icon === 'mdi:magnify'}
-												<IconMagnify class="text-primary" />
-											{:else if section.icon === 'mdi:invoice-text-send-outline'}
-												<IconInvoiceTextSendOutline class="text-primary" />
-											{:else if section.icon === 'mdi:file-sign'}
-												<IconFileSign class="text-primary" />
-											{:else if section.icon === 'mdi:wallet-outline'}
-												<IconWalletOutline class="text-primary" />
-											{:else if section.icon === 'mdi:account'}
-												<IconAccount class="text-primary" />
-											{:else if section.icon === 'mdi:chat-outline'}
-												<IconChatOutline class="text-primary" />
-											{:else if section.icon === 'mdi:cog'}
-												<IconCog class="text-primary" />
-											{:else}
-												<IconFormatListBulleted class="text-primary" />
-											{/if}
-											{$t(section.label)}
+											<svelte:component this={section.icon} class="h-6 w-6 text-primary" />
+											<span class="font-medium">{$t(section.label)}</span>
 										</a>
 									</li>
 								{/each}
@@ -115,15 +90,17 @@
 			</div>
 		{/if}
 
-		<!-- Main Content - mismas dimensiones que Mi Panel -->
-		<div class="min-h-0 w-full flex-1 overflow-hidden">
-			<div class="mx-auto h-full max-w-6xl px-2 py-6 md:px-0 md:py-0">
-				<TaskDetailsView {taskId} />
-			</div>
+		<!-- Main Content -->
+		<div class="flex-1 overflow-y-auto md:px-4">
+			<TaskDetailsView {taskId} />
 		</div>
 	</div>
-	<WarningPopup />
 {:else}
-	<!-- Simple layout for non-logged-in users -->
-	<TaskDetailsView {taskId} />
+	<div class="container mx-auto p-4">
+		<TaskDetailsView {taskId} />
+	</div>
 {/if}
+
+<!-- Auth required warning for certain actions can be handled within TaskDetailsView 
+     or here via a global event/store -->
+<WarningPopup />

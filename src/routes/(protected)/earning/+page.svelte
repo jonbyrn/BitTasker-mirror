@@ -307,9 +307,13 @@
 		<div class="min-w-0">
 			<h3 class="font-bold">{translateOrFallback($t, 'dashboard.earning.title', 'Earning')}</h3>
 		</div>
-		<a href={activeTab.buttonHref} class="btn btn-primary btn-sm sm:btn-md whitespace-nowrap">
-			{#if activeTab.icon === 'search'}
-				<svg
+			<div class="flex items-center gap-2">
+				<a href="/reviews" class="btn btn-outline btn-sm sm:btn-md whitespace-nowrap">
+					{$t('reviews.view_all')}
+				</a>
+				<a href={activeTab.buttonHref} class="btn btn-primary btn-sm sm:btn-md whitespace-nowrap">
+					{#if activeTab.icon === 'search'}
+					<svg
 					xmlns="http://www.w3.org/2000/svg"
 					class="mr-1 h-4 w-4 sm:mr-2 sm:h-5 sm:w-5"
 					fill="none"
@@ -324,7 +328,7 @@
 						d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
 					/>
 				</svg>
-			{:else if activeTab.icon === 'wallet'}
+					{:else if activeTab.icon === 'wallet'}
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
 					class="mr-1 h-4 w-4 sm:mr-2 sm:h-5 sm:w-5"
@@ -340,7 +344,7 @@
 						d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
 					/>
 				</svg>
-			{:else}
+					{:else}
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
 					class="mr-1 h-4 w-4 sm:mr-2 sm:h-5 sm:w-5"
@@ -356,9 +360,10 @@
 						d="M12 4v16m8-8H4"
 					/>
 				</svg>
-			{/if}
-			<span>{activeTab.buttonLabel}</span>
-		</a>
+					{/if}
+					<span>{activeTab.buttonLabel}</span>
+				</a>
+			</div>
 	</div>
 
 	<Tabs {tabs} activeTab={activeTabId} onTabChange={handleTabChange} />
