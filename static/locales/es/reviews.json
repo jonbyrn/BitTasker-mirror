@@ -1,0 +1,175 @@
+{
+	"reviews": {
+		"verified": "Verificado",
+		"unverified": "No verificado",
+		"pending_verification": "Verificación pendiente",
+		"reply": "Responder",
+		"page": {
+			"title": "Reseñas",
+			"browser_title": "Reseñas | BitTasker",
+			"subtitle": "Administra reseñas de liquidaciones completadas, respuestas y comentarios pendientes."
+		},
+		"actions": {
+			"write_review": "Escribir reseña",
+			"reply_to_review": "Responder",
+			"open_review": "Abrir reseña"
+		},
+		"status": {
+			"pending_settlement": "Liquidación pendiente",
+			"review_available": "Reseña disponible",
+			"submitted": "Enviada",
+			"not_reviewable": "No reseñable",
+			"invalid": "Reseña inválida"
+		},
+		"view_all": "Ver todas las reseñas",
+		"context": {
+			"task": "Tarea",
+			"service_booking": "Reserva de servicio",
+			"service": "Servicio",
+			"reviewer": "Autor",
+			"reviewee": "Revisado",
+			"subject": "Tema",
+			"role": {
+				"tasker": "Realizador",
+				"taskee": "Solicitante",
+				"client": "Cliente",
+				"provider": "Proveedor",
+				"freelancer": "Freelancer",
+				"unknown": "Rol desconocido"
+			}
+		},
+		"settlement": {
+			"escrow": "Custodia",
+			"service_quote_contract": "Cotización de servicio",
+			"instant_buy_contract": "Compra inmediata"
+		},
+		"outcome": {
+			"completed": "Completado",
+			"disputed_resolved_payout": "Disputa resuelta, pagada",
+			"disputed_resolved_refund": "Disputa resuelta, reembolsada",
+			"refunded": "Reembolsado"
+		},
+		"source": {
+			"label": "Origen",
+			"open": "Abrir origen",
+			"removed": "El origen original fue eliminado",
+			"unavailable": "El origen original no está disponible"
+		},
+		"attachments": {
+			"review_generic_alt": "Adjunto de la reseña",
+			"reply_generic_alt": "Adjunto de la respuesta",
+			"review_image_alt": "Adjunto de imagen de la reseña",
+			"review_video_alt": "Adjunto de video de la reseña",
+			"reply_image_alt": "Adjunto de imagen de la respuesta",
+			"reply_video_alt": "Adjunto de video de la respuesta"
+		},
+		"tabs": {
+			"received": "Recibidas",
+			"given": "Dadas",
+			"pending": "Pendientes"
+		},
+		"summary": {
+			"title": "Resumen de reseñas",
+			"average_rating": "Calificación promedio",
+			"total_reviews": "Total de reseñas",
+			"reviews_received": "Reseñas recibidas",
+			"rating_distribution": "Distribución de calificaciones",
+			"category_averages": "Promedios por categoría",
+			"empty_title": "Aún no hay reseñas",
+			"empty_description": "Las reseñas publicadas aparecerán aquí cuando esta cuenta reciba comentarios.",
+			"category_unavailable": "Los promedios por categoría aparecerán después de que se envíen reseñas coincidentes."
+		},
+		"management": {
+			"title": "Gestión de reseñas",
+			"highlighted": "En foco",
+			"given_empty_description": "Aún no has escrito ninguna reseña.",
+			"received_empty_description": "Esta cuenta aún no ha recibido reseñas."
+		},
+		"profile": {
+			"user_label": "Perfil"
+		},
+		"pending": {
+			"loading": "Cargando reseñas pendientes",
+			"no_pending": "No hay reseñas pendientes",
+			"all_caught_up": "¡Estás al día! Todas las liquidaciones completadas ya fueron reseñadas.",
+			"only_current_user": "Las reseñas pendientes solo son visibles para el propietario de la cuenta",
+			"select_prompt": "Selecciona un contrato completado para escribir una reseña.",
+			"completed": "Completado",
+			"review_for": "Reseñar a",
+			"completed_on": "Completado el",
+			"review_now": "Reseñar ahora"
+		},
+		"reply": {
+			"label": "Respuesta",
+			"none": "Aún no hay respuesta",
+			"action": "Escribir respuesta",
+			"composer_title": "Escribir una respuesta",
+			"context_title": "Respondiendo a esta reseña",
+			"context_excerpt_label": "Reseña original",
+			"context_excerpt_empty": "No se proporcionó texto de la reseña.",
+			"draft_restored": "Borrador restaurado desde este dispositivo.",
+			"discard_draft": "Descartar borrador",
+			"focused": "Respuesta enfocada",
+			"subtitle": "Las respuestas usan el mismo flujo bilingüe de publicación y adjuntos opcionales.",
+			"rating_not_required": "Las respuestas no requieren calificación.",
+			"english_label": "Respuesta en inglés",
+			"spanish_label": "Respuesta en español",
+			"english_placeholder": "Escribe la respuesta en inglés",
+			"spanish_placeholder": "Escribe la respuesta en español",
+			"attachments_label": "Adjuntos de la respuesta",
+			"upload_label": "Agregar imágenes o video",
+			"submit": "Enviar respuesta",
+			"submitting": "Enviando respuesta...",
+			"success": "Respuesta publicada correctamente.",
+			"select_prompt": "Selecciona una reseña recibida para responderla.",
+			"errors": {
+				"empty_reply": "Agrega texto de respuesta en al menos un idioma.",
+				"submit_failed": "No se pudo enviar la respuesta."
+			}
+		},
+		"form": {
+			"title": "Escribir una reseña",
+			"subtitle": "Las reseñas son públicas e inmutables una vez enviadas.",
+			"draft_restored": "Borrador restaurado desde este dispositivo.",
+			"discard_draft": "Descartar borrador",
+			"source_language": "Idioma de origen",
+			"language_english": "Inglés",
+			"language_spanish": "Español",
+			"overall_rating": "Calificación general",
+			"context_title": "Contexto de la reseña",
+			"context_summary": "Tema: {subjectType} | Liquidación: {settlementType} | Resultado: {contractOutcome}",
+			"reviewing": "Reseñando a: {reviewee}",
+			"reviewee_role": "Rol: {role}",
+			"title_label": "Título",
+			"comment_label": "Comentario",
+			"title_placeholder": "Resumen opcional",
+			"comment_placeholder": "Cuéntanos qué pasó",
+			"english_label": "Reseña en inglés",
+			"spanish_label": "Reseña en español",
+			"english_placeholder": "Escribe la reseña en inglés",
+			"spanish_placeholder": "Escribe la reseña en español",
+			"attachments_label": "Adjuntos de la reseña",
+			"upload_label": "Agregar imágenes o video",
+			"submit": "Enviar reseña",
+			"submitting": "Enviando reseña...",
+			"success": "Reseña enviada correctamente.",
+			"rate_overall_aria": "Califica {rating} de 5",
+			"errors": {
+				"missing_parties": "Falta el npub del autor o del revisado.",
+				"prepare_failed": "No se pudo preparar la reseña.",
+				"overall_rating_required": "Por favor proporciona una calificación general.",
+				"category_rating_required": "Por favor califica todas las categorías requeridas.",
+				"comment_required": "Agrega texto de reseña en al menos un idioma.",
+				"submit_failed": "No se pudo enviar la reseña."
+			}
+		},
+		"list": {
+			"load_error": "Error al cargar reseñas",
+			"no_reviews": "Aún no hay reseñas",
+			"no_given_reviews": "Aún no has escrito ninguna reseña"
+		},
+		"cta": {
+			"create_task": "Crear tarea"
+		}
+	}
+}

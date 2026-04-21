@@ -1,0 +1,175 @@
+{
+	"reviews": {
+		"verified": "Verified",
+		"unverified": "Unverified",
+		"pending_verification": "Verification pending",
+		"reply": "Reply",
+		"page": {
+			"title": "Reviews",
+			"browser_title": "Reviews | BitTasker",
+			"subtitle": "Manage completed settlement reviews, replies, and pending feedback."
+		},
+		"actions": {
+			"write_review": "Write review",
+			"reply_to_review": "Reply",
+			"open_review": "Open review"
+		},
+		"status": {
+			"pending_settlement": "Pending settlement",
+			"review_available": "Review available",
+			"submitted": "Submitted",
+			"not_reviewable": "Not reviewable",
+			"invalid": "Invalid review"
+		},
+		"view_all": "View all reviews",
+		"context": {
+			"task": "Task",
+			"service_booking": "Service booking",
+			"service": "Service",
+			"reviewer": "Reviewer",
+			"reviewee": "Reviewee",
+			"subject": "Subject",
+			"role": {
+				"tasker": "Tasker",
+				"taskee": "Taskee",
+				"client": "Client",
+				"provider": "Provider",
+				"freelancer": "Freelancer",
+				"unknown": "Unknown role"
+			}
+		},
+		"settlement": {
+			"escrow": "Escrow",
+			"service_quote_contract": "Service quote",
+			"instant_buy_contract": "Instant buy"
+		},
+		"outcome": {
+			"completed": "Completed",
+			"disputed_resolved_payout": "Dispute resolved, paid out",
+			"disputed_resolved_refund": "Dispute resolved, refunded",
+			"refunded": "Refunded"
+		},
+		"source": {
+			"label": "Source",
+			"open": "Open source",
+			"removed": "Original source removed",
+			"unavailable": "Original source unavailable"
+		},
+		"attachments": {
+			"review_generic_alt": "Review attachment",
+			"reply_generic_alt": "Reply attachment",
+			"review_image_alt": "Review image attachment",
+			"review_video_alt": "Review video attachment",
+			"reply_image_alt": "Reply image attachment",
+			"reply_video_alt": "Reply video attachment"
+		},
+		"tabs": {
+			"received": "Received",
+			"given": "Given",
+			"pending": "Pending"
+		},
+		"summary": {
+			"title": "Review Summary",
+			"average_rating": "Average Rating",
+			"total_reviews": "Total Reviews",
+			"reviews_received": "Reviews received",
+			"rating_distribution": "Rating Distribution",
+			"category_averages": "Category Averages",
+			"empty_title": "No reviews yet",
+			"empty_description": "Published reviews will appear here once this account has feedback.",
+			"category_unavailable": "Category averages will appear after matching reviews are submitted."
+		},
+		"management": {
+			"title": "Review Management",
+			"highlighted": "Focused",
+			"given_empty_description": "You have not written any reviews yet.",
+			"received_empty_description": "This account has not received any reviews yet."
+		},
+		"profile": {
+			"user_label": "Profile"
+		},
+		"pending": {
+			"loading": "Loading pending reviews",
+			"no_pending": "No pending reviews",
+			"all_caught_up": "You're all caught up! All completed settlements have been reviewed.",
+			"only_current_user": "Pending reviews are only visible to the account owner",
+			"select_prompt": "Select a completed contract to write a review.",
+			"completed": "Completed",
+			"review_for": "Review for",
+			"completed_on": "Completed on",
+			"review_now": "Review now"
+		},
+		"reply": {
+			"label": "Reply",
+			"none": "No reply yet",
+			"action": "Write reply",
+			"composer_title": "Write a reply",
+			"context_title": "Replying to this review",
+			"context_excerpt_label": "Original review",
+			"context_excerpt_empty": "No review text was provided.",
+			"draft_restored": "Draft restored from this device.",
+			"discard_draft": "Discard draft",
+			"focused": "Reply focused",
+			"subtitle": "Replies use the same bilingual publish flow and optional media attachments.",
+			"rating_not_required": "Replies do not require a rating.",
+			"english_label": "English reply",
+			"spanish_label": "Spanish reply",
+			"english_placeholder": "Write the reply in English",
+			"spanish_placeholder": "Write the reply in Spanish",
+			"attachments_label": "Reply attachments",
+			"upload_label": "Add images or video",
+			"submit": "Submit reply",
+			"submitting": "Submitting reply...",
+			"success": "Reply published successfully!",
+			"select_prompt": "Select a received review to reply to it.",
+			"errors": {
+				"empty_reply": "Add reply text in at least one language.",
+				"submit_failed": "Unable to submit reply."
+			}
+		},
+		"form": {
+			"title": "Write a review",
+			"subtitle": "Reviews are public and immutable once submitted.",
+			"draft_restored": "Draft restored from this device.",
+			"discard_draft": "Discard draft",
+			"source_language": "Source language",
+			"language_english": "English",
+			"language_spanish": "Spanish",
+			"overall_rating": "Overall rating",
+			"context_title": "Review context",
+			"context_summary": "Subject: {subjectType} | Settlement: {settlementType} | Outcome: {contractOutcome}",
+			"reviewing": "Reviewing: {reviewee}",
+			"reviewee_role": "Role: {role}",
+			"title_label": "Title",
+			"comment_label": "Comment",
+			"title_placeholder": "Optional summary",
+			"comment_placeholder": "Share what happened",
+			"english_label": "English review",
+			"spanish_label": "Spanish review",
+			"english_placeholder": "Write the review in English",
+			"spanish_placeholder": "Write the review in Spanish",
+			"attachments_label": "Review attachments",
+			"upload_label": "Add images or video",
+			"submit": "Submit review",
+			"submitting": "Submitting review...",
+			"success": "Review submitted successfully!",
+			"rate_overall_aria": "Rate {rating} out of 5",
+			"errors": {
+				"missing_parties": "Missing reviewer or reviewee pubkey",
+				"prepare_failed": "Unable to prepare review",
+				"overall_rating_required": "Please provide an overall rating.",
+				"category_rating_required": "Please rate all required categories.",
+				"comment_required": "Add review text in at least one language.",
+				"submit_failed": "Unable to submit review."
+			}
+		},
+		"list": {
+			"load_error": "Failed to load reviews",
+			"no_reviews": "No reviews yet",
+			"no_given_reviews": "You haven't written any reviews yet"
+		},
+		"cta": {
+			"create_task": "Create Task"
+		}
+	}
+}
