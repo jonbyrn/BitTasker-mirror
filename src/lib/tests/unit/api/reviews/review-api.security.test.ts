@@ -7,6 +7,7 @@ import {
 	type Event as NostrEvent
 } from 'nostr-tools';
 import { bytesToHex } from '@noble/hashes/utils';
+import { localEncryptionService } from '$lib/services/security/local-encryption.service';
 
 // Helper to ensure we have a hex string from whatever getPublicKey returns
 function ensureHex(pubkey: string | Uint8Array): string {
@@ -97,19 +98,29 @@ vi.mock('@reviews-contracts', async () => {
 		},
 		attestationEventPayloadSchema: { parse: (x: unknown) => x },
 		attestationRequestSchema: { parse: (x: unknown) => x },
-		attestationResponseSchema: { passthrough: () => ({ parse: (x: unknown) => x }) },
-		issuerRegistryResponseSchema: { passthrough: () => ({ parse: (x: unknown) => x }) },
+		attestationResponseSchema: {
+			passthrough: () => ({ parse: (x: unknown) => x }),
+			parse: (x: unknown) => x
+		},
+		issuerRegistryResponseSchema: {
+			passthrough: () => ({ parse: (x: unknown) => x }),
+			parse: (x: unknown) => x
+		},
 		isReplyAuthorAllowed: () => true,
-		reviewErrorResponseSchema: { passthrough: () => ({ safeParse: () => ({ success: false }) }) },
+		reviewErrorResponseSchema: {
+			passthrough: () => ({ safeParse: (x: unknown) => ({ success: true, data: x }) }),
+			safeParse: (x: unknown) => ({ success: true, data: x })
+		},
 		reviewEventPayloadSchema: { parse: (x: unknown) => x },
 		reviewReplyCandidateSchema: { parse: (x: unknown) => x },
 		reviewReplyEventPayloadSchema: { parse: (x: unknown) => x },
 		selectCanonicalReviewReply: (x: unknown[]) => (x as unknown[])[0],
 		computeReviewDraftHashFromPayload: (...args: unknown[]) =>
 			hoisted.verifyReviewDraftHash(...args),
-		buildReviewFixture: (x: { reviewDraftHash?: string }) => ({
+		buildReviewAttestationChallengeMessage: () => 'mock-challenge-message',
+		buildReviewFixture: (x: { reviewDraftHash?: string; revieweePubkey?: string }) => ({
 			createdAt: 123456789,
-			revieweePubkey: '0'.repeat(64),
+			revieweePubkey: x.revieweePubkey || '0'.repeat(64),
 			reviewDraftHash: x.reviewDraftHash || '0'.repeat(64),
 			rating: { overallRating: 5, categoryRatings: {} },
 			content: { sourceLanguage: 'en', en: { comment: 'test' }, es: { comment: 'test' } },
@@ -127,7 +138,7 @@ import { submitAttestedReview, loadPublishedReviewsForUser } from '$lib/api/revi
 import { buildReviewFixture, REVIEW_NOSTR_KINDS } from '@reviews-contracts';
 
 describe('Review API Security Hardening', () => {
-	const reviewerPriv = generateSecretKey();
+	const reviewerPriv = new Uint8Array(generateSecretKey());
 	const reviewerPub = ensureHex(getPublicKey(reviewerPriv));
 	const validSig = 'a'.repeat(128);
 	const validToken = `v1.opaque.${'b'.repeat(128)}`;
@@ -137,6 +148,7 @@ describe('Review API Security Hardening', () => {
 
 	beforeEach(() => {
 		vi.resetAllMocks();
+		localEncryptionService.reset();
 
 		vi.stubEnv('VITE_REVIEW_ATTESTATION_API_URL', 'http://api.example.test');
 		vi.stubEnv('VITE_REVIEW_TRANSLATION_API_URL', 'http://translation.example.test');
@@ -232,8 +244,8 @@ describe('Review API Security Hardening', () => {
 				reviewDraftHash: dummyHex64
 			});
 
-			const input = {
-				review: payload as ReviewEventPayload,
+			const input: SubmitAttestedReviewInput = {
+				review: payload as unknown as ReviewEventPayload,
 				subjectId: 'sub-1',
 				settlementId: 'sett-1',
 				chain: 'rsk' as const,
@@ -255,8 +267,8 @@ describe('Review API Security Hardening', () => {
 				reviewDraftHash: dummyHex64
 			});
 
-			const input = {
-				review: basePayload as ReviewEventPayload,
+			const input: SubmitAttestedReviewInput = {
+				review: basePayload as unknown as ReviewEventPayload,
 				subjectId: 'sub-1',
 				settlementId: 'sett-1',
 				chain: 'rsk' as const,
@@ -285,7 +297,7 @@ describe('Review API Security Hardening', () => {
 					],
 					content: JSON.stringify(reviewPayload)
 				},
-				generateSecretKey()
+				reviewerPriv
 			);
 
 			const attestationPayload = {
@@ -304,7 +316,7 @@ describe('Review API Security Hardening', () => {
 				revieweePubkey: '0'.repeat(64)
 			};
 
-			const issuerPriv = generateSecretKey();
+			const issuerPriv = new Uint8Array(generateSecretKey());
 			const issuerPub = ensureHex(getPublicKey(issuerPriv));
 
 			const attestationEvent = finalizeEvent(

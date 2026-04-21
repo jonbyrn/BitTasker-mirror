@@ -1,8 +1,7 @@
 import { get } from 'svelte/store';
-import { bytesToHex, randomBytes } from '@noble/hashes/utils';
+import { bytesToHex } from '@noble/hashes/utils';
 import { sha256 } from '@noble/hashes/sha256';
 import { schnorr } from '@noble/curves/secp256k1';
-import { gcm } from '@noble/ciphers/aes';
 import { nip19, type Event as NostrEvent, verifyEvent } from 'nostr-tools';
 import { getSignedEvent, publishToMultipleRelays } from '$lib/utils/nostr';
 import { getNostrKeyPair, getNpub } from '$lib/utils/nostrKeys';
@@ -73,55 +72,21 @@ function dedupeEvents(events: NostrEvent[]): NostrEvent[] {
 	return [...new Map(events.map((event) => [event.id, event])).values()];
 }
 
+import { localEncryptionService } from '$lib/services/security/local-encryption.service';
+
 const REVIEW_ISSUER_REGISTRY_CACHE_KEY = 'reviews.issuer-registry.last-good.v1';
-const REVIEW_PUBLISH_OUTBOX_KEY = 'reviews.publish-outbox.v3'; // Hardened encryption key
+const REVIEW_PUBLISH_OUTBOX_KEY = 'reviews.publish-outbox.v3';
 const REVIEW_ISSUER_REGISTRY_CACHE_TTL_MS = 15 * 60 * 1000;
 const REVIEW_PUBLISH_OUTBOX_TTL_MS = 24 * 60 * 60 * 1000;
 
-// Session-bound decryption secret cache
-const sessionEncryptionSecrets = new Map<string, Uint8Array>();
 let isOutboxFlushing = false;
 
-async function getSessionEncryptionSecret(reviewerPubkey: string): Promise<Uint8Array> {
-	const existing = sessionEncryptionSecrets.get(reviewerPubkey);
-	if (existing) return existing;
-
-	// Hardening: Derive secret from the private key if available in memory.
-	// Using a hash of the nsec is cryptographically strong and session-bound.
-	try {
-		const { nsec } = await getNostrKeyPair();
-		const secret = sha256(new Uint8Array([...nsec, ...new TextEncoder().encode('outbox-v3')]));
-		sessionEncryptionSecrets.set(reviewerPubkey, secret);
-		return secret;
-	} catch (error) {
-		console.warn('Could not derive hardened outbox secret, using legacy derivation:', error);
-		const secret = sha256(new TextEncoder().encode(`bittasker.recovery.v3.${reviewerPubkey}`));
-		sessionEncryptionSecrets.set(reviewerPubkey, secret);
-		return secret;
-	}
+async function encryptOutboxData(data: string): Promise<string> {
+	return await localEncryptionService.encrypt(data);
 }
 
-async function encryptOutboxData(data: string, reviewerPubkey: string): Promise<string> {
-	const secret = await getSessionEncryptionSecret(reviewerPubkey);
-	const iv = randomBytes(12);
-	const aes = gcm(secret, iv);
-	const encrypted = aes.encrypt(new TextEncoder().encode(data));
-
-	const combined = new Uint8Array(iv.length + encrypted.length);
-	combined.set(iv);
-	combined.set(encrypted, iv.length);
-
-	return btoa(String.fromCharCode(...combined));
-}
-
-async function decryptOutboxData(encryptedBase64: string, reviewerPubkey: string): Promise<string> {
-	const secret = await getSessionEncryptionSecret(reviewerPubkey);
-	const combined = Uint8Array.from(atob(encryptedBase64), (c) => c.charCodeAt(0));
-	const iv = combined.slice(0, 12);
-	const encrypted = combined.slice(12);
-	const aes = gcm(secret, iv);
-	const decrypted = aes.decrypt(encrypted);
-	return new TextDecoder().decode(decrypted);
+async function decryptOutboxData(encryptedJson: string): Promise<string> {
+	return await localEncryptionService.decrypt(encryptedJson);
 }
 
 type CachedIssuerRegistryRecord = {
@@ -672,7 +637,7 @@ async function issueAttestationForPendingReview(
 		nostrChallengeSignature = bytesToHex(schnorr.sign(digest, nsec));
 
 		const { ethers } = await import('ethers');
-		const wallet = ethers.Wallet.fromPhrase(mnemonic).derivePath("m/44'/60'/0'/0/0");
+		const wallet = ethers.HDNodeWallet.fromPhrase(mnemonic, undefined, "m/44'/60'/0'/0/0");
 		walletChallengeSignature = (await wallet.signMessage(challengeMessage)) as `0x${string}`;
 	} catch (error) {
 		// Fallback for Alby or if consolidated auth is unavailable
