@@ -977,11 +977,9 @@ describe('Encryption', () => {
 - Hybrid approach (classical + quantum-resistant)
 - Migration strategy for quantum threats
 
-### 5. Zero-Knowledge Proofs
+### 5. Future Directions
 
-- Prove key ownership without revealing key
-- Privacy-preserving authentication
-- Anonymous credentials
+BitTasker continues to explore advanced cryptographic techniques to enhance user privacy and platform trust.
 
 ---
 

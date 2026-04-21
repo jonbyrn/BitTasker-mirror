@@ -3,6 +3,30 @@
 		"svelte": {
 			"command": "npx",
 			"args": ["-y", "@sveltejs/mcp"]
+		},
+		"code-index": {
+			"command": "uvx",
+			"args": ["code-index-mcp"]
+		},
+		"playwright": {
+			"command": "npx",
+			"args": ["-y", "@playwright/mcp@latest"]
+		},
+		"ts-introspect": {
+			"command": "npx",
+			"args": ["-y", "@t3ta/ts-introspect-mcp-server"]
+		},
+		"nostrbook": {
+			"command": "npx",
+			"args": ["-y", "@nostrbook/mcp@latest"]
+		},
+		"daisyui": {
+			"command": "/home/scott/daisyui-mcp/venv/bin/python",
+			"args": ["/home/scott/daisyui-mcp/mcp_server.py"]
+		},
+		"pickapicon": {
+			"command": "npx",
+			"args": ["-y", "pickapicon-mcp@latest"]
 		}
 	}
 }

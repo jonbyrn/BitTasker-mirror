@@ -772,24 +772,25 @@ refreshToken(); // Token refresh (if implemented)
 ## Future Architecture Improvements
 
 1. **Multi-Device Sync**
+
    - Encrypted cloud sync
    - Conflict resolution
    - Device management
 
 2. **Hardware Security Keys**
+
    - FIDO2 support
    - YubiKey integration
    - NFC key support
 
 3. **Threshold Signatures**
+
    - Social recovery
    - Multi-sig wallets
    - Collaborative auth
 
-4. **Zero-Knowledge Proofs**
-   - Privacy-preserving auth
-   - Credential attestation
-   - Anonymous authentication
+4. **Future Extensions**
+   The architecture is designed to accommodate future privacy-enhancing technologies as the platform scales.
 
 5. **Quantum-Resistant Crypto**
    - Post-quantum algorithms

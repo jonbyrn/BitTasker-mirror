@@ -16,7 +16,7 @@ This plan is intentionally generalized for:
 
 This plan replaces the prior proof-centric review architecture. `feat/reviews` is a **donor branch for reusable UI and helper code**, not the implementation base.
 
-The attestation backend is a **separate project** that should live in its own folder inside this repository during development. It is not part of the main SvelteKit application/runtime and must not be merged into the existing static-site worker or front-end app modules as an ad hoc server layer.
+The attestation backend is a **separate project** that lives in its own folder inside this repository during development. It is not part of the main SvelteKit application/runtime and must not be merged into the existing static-site worker or front-end app modules as an ad hoc server layer.
 
 ### 1.1 Execution Authority
 
@@ -35,7 +35,7 @@ Backend boundary rule:
 - Support current and future contract upgrades across multiple chains/assets
 - Keep reviews publicly verifiable through Nostr without exposing wallet addresses or escrow IDs
 - Avoid durable product records linking `npub` to wallet address
-- Reuse and adapt existing review UI/components wherever practical
+- Reuse and adapt the approved existing review UI/components from `feat/reviews`
 
 ### 1.3 Non-Goals
 
@@ -69,7 +69,7 @@ Trusted HTTPS artifact:
 
 ### 2.3 Private Verification Inputs
 
-Private attestation inputs may include:
+Private attestation inputs are:
 
 - reviewer `npub`
 - reviewee `npub`
@@ -93,8 +93,9 @@ These are **lookup hints and proofs**, not trusted facts. The backend must deriv
 The following policy decisions are locked for MVP:
 
 - reviews are immutable after publication
-- the platform may later add revocation events, but revocation is not required to ship the first attestation MVP
-- orphaned attestations are tolerated temporarily and expire by policy after a short TTL
+- review content must be translated exactly once before publication by a separate translation backend so the canonical public review payload includes both English and Spanish text
+- revocation events are out of scope for the first attestation MVP
+- orphaned attestations expire after a short TTL frozen during Phase 0
 - a review with a missing, malformed, expired, or untrusted attestation is rendered as invalid and excluded from verified review surfaces
 - duplicate review events referencing the same attestation are invalid; the attestation is single-review by contract
 - a valid completed contract remains reviewable even if the originating task/service event was deleted before the review was written
@@ -106,6 +107,8 @@ Before implementation begins, the following artifacts must be frozen and reviewe
 
 - protocol schemas
 - public-field matrix for review and attestation events
+- review translation adapter contract, including source-language rules and one-time translation policy
+- contract-state inventory and canonical outcome-mapping rules
 - resolver matrix
 - uniqueness-ledger atomicity design
 - privacy/logging rules
@@ -113,8 +116,8 @@ Before implementation begins, the following artifacts must be frozen and reviewe
 - canonical Nostr challenge-signing format
 - canonical wallet-signature format and verification version
 - orphaned-attestation TTL and cleanup policy
-- public `settlementId` representation policy
-- routing contract for dashboard/earning/reviews deep links
+- private `settlementId` handling policy
+- routing contract for dashboard, earning, and `/reviews` deep links
 
 No coding should begin beyond scaffolding and failing tests until those artifacts are frozen.
 
@@ -168,9 +171,10 @@ Required progress-tracking rules:
 
 - each workstream must include a checklist that can be updated as items are completed
 - implementing agents must update sidecar execution notes as work lands
-- each completed item should reference the implemented module(s), route(s), or test suite(s) in short form
+- each completed item must reference the implemented module(s), route(s), or test suite(s) in short form
 - if an implementation diverges from the plan, the plan must be updated in the same change set
 - no workstream is considered complete unless its checklist, tests, and dependency notes are updated in the sidecar execution files and reconciled into this document by the `Plan Ledger Owner` at checkpoint time
+- implementation summaries produced by the AI at the end of the build must include a dedicated `Human Actions Required` section listing every manual step that still must be performed outside code changes
 
 This requirement exists so parallel agents and later reviewers can determine exactly what has already been implemented without re-auditing the entire branch from scratch.
 
@@ -178,7 +182,7 @@ Ledger serialization rule:
 
 - one `Plan Ledger Owner` is responsible for reconciling the master plan file at each checkpoint
 - implementing agents must not edit the master plan file concurrently
-- implementing agents should instead update per-workstream execution notes or checkpoint notes in a dedicated tracking folder, then the `Plan Ledger Owner` merges that state into this document
+- implementing agents must update per-workstream execution notes or checkpoint notes in the dedicated tracking folder, and then the `Plan Ledger Owner` merges that state into this document
 - the sidecar execution notes are the authoritative live status during an active wave
 - the master plan is the authoritative checkpoint snapshot after reconciliation by the `Plan Ledger Owner`
 
@@ -193,6 +197,7 @@ Required tracking files:
 - one open-risks file for newly discovered blockers that require plan changes
 - one governance registry file recording DRIs, backups, approvers, and the `Plan Ledger Owner`
 - one checkpoint evidence file per checkpoint listing exact passing commands and frozen interfaces/modules
+- one `human-actions.md` file tracking required manual follow-up steps, owners, and completion state
 
 Required status-file fields:
 
@@ -224,7 +229,7 @@ Required checkpoint-summary fields:
 
 ### 3.1 TDD
 
-Every new module in this plan should be delivered test-first where feasible:
+Every new module in this plan must be delivered test-first:
 
 - write or extend failing unit/component tests first
 - implement the minimum logic to satisfy the tests
@@ -284,6 +289,24 @@ type ReviewSettlementType = 'escrow' | 'service_quote_contract' | 'instant_buy_c
 type ReviewRole = 'tasker' | 'taskee' | 'client' | 'freelancer' | 'provider';
 type ReviewChain = 'rsk' | 'bsc';
 type ReviewAsset = 'rbtc' | 'usdt';
+type ReviewBlockchainState =
+	| 'funded'
+	| 'in_dispute'
+	| 'dispute_resolved'
+	| 'dispute_unresolved'
+	| 'completed'
+	| 'cancelled'
+	| 'refunded'
+	| 'funds_released'
+	| 'funds_claimed'
+	| 'no_show'
+	| 'work_in_progress'
+	| 'in_dispute_wip';
+type ReviewContractOutcome =
+	| 'completed'
+	| 'disputed_resolved_payout'
+	| 'disputed_resolved_refund'
+	| 'refunded';
 
 interface ReviewableSettlementRecord {
 	subjectType: ReviewSubjectType;
@@ -300,8 +323,10 @@ interface ReviewableSettlementRecord {
 	revieweeNpub?: string;
 	reviewerWallet?: string;
 	revieweeWallet?: string;
+	blockchainState: ReviewBlockchainState;
 	completedAt: number;
 	reviewableAt: number;
+	contractOutcome: ReviewContractOutcome;
 	status: 'reviewable' | 'already_reviewed' | 'not_reviewable';
 	sourceVisibility: 'public_present' | 'public_deleted' | 'public_unknown';
 	sourcePresentation: {
@@ -316,6 +341,28 @@ interface ReviewableSettlementRecord {
 	};
 }
 ```
+
+Authoritative smart-contract state inventory:
+
+- `funded`
+- `in_dispute`
+- `dispute_resolved`
+- `dispute_unresolved`
+- `completed`
+- `cancelled`
+- `refunded`
+- `funds_released`
+- `funds_claimed`
+- `no_show`
+- `work_in_progress`
+- `in_dispute_wip`
+
+These states come from the smart contract and are the canonical source of truth for reviewability mapping.
+
+Secondary app/UI pending states:
+
+- pending and Nostr-only UI states may still exist in the app for optimistic UX, but they must never be treated as authoritative for review eligibility
+- the resolver must map from the authoritative smart-contract state inventory above, not from pending UI status labels
 
 ### 4.2 Uniqueness Ledger
 
@@ -339,36 +386,54 @@ The ledger must not require durable storage of wallet + `npub` linkage.
 
 The following matrix must be implemented and kept explicit in code and tests.
 
-| Flow                     | Chain | Asset  | Settlement Type          | Subject Type      | Settlement ID Source             | Reviewable Terminal State                             |
-| ------------------------ | ----- | ------ | ------------------------ | ----------------- | -------------------------------- | ----------------------------------------------------- |
-| Task escrow              | `rsk` | `rbtc` | `escrow`                 | `task`            | escrow contract id               | funds released / accepted completion                  |
-| Task escrow              | `bsc` | `usdt` | `escrow`                 | `task`            | escrow contract id               | funds released / accepted completion                  |
-| Service quote acceptance | `rsk` | `rbtc` | `service_quote_contract` | `service_booking` | accepted quote-created escrow id | service contract funds released / accepted completion |
-| Service quote acceptance | `bsc` | `usdt` | `service_quote_contract` | `service_booking` | accepted quote-created escrow id | service contract funds released / accepted completion |
-| Service instant buy      | `rsk` | `rbtc` | `instant_buy_contract`   | `service_booking` | instant-buy-created escrow id    | service contract funds released / accepted completion |
-| Service instant buy      | `bsc` | `usdt` | `instant_buy_contract`   | `service_booking` | instant-buy-created escrow id    | service contract funds released / accepted completion |
+| Flow                     | Chain | Asset  | Settlement Type          | Subject Type      | Settlement ID Source             | Reviewable Terminal Outcome Codes                                               |
+| ------------------------ | ----- | ------ | ------------------------ | ----------------- | -------------------------------- | ------------------------------------------------------------------------------- |
+| Task escrow              | `rsk` | `rbtc` | `escrow`                 | `task`            | escrow contract id               | `completed`, `disputed_resolved_payout`, `disputed_resolved_refund`, `refunded` |
+| Task escrow              | `bsc` | `usdt` | `escrow`                 | `task`            | escrow contract id               | `completed`, `disputed_resolved_payout`, `disputed_resolved_refund`, `refunded` |
+| Service quote acceptance | `rsk` | `rbtc` | `service_quote_contract` | `service_booking` | accepted quote-created escrow id | `completed`, `disputed_resolved_payout`, `disputed_resolved_refund`, `refunded` |
+| Service quote acceptance | `bsc` | `usdt` | `service_quote_contract` | `service_booking` | accepted quote-created escrow id | `completed`, `disputed_resolved_payout`, `disputed_resolved_refund`, `refunded` |
+| Service instant buy      | `rsk` | `rbtc` | `instant_buy_contract`   | `service_booking` | instant-buy-created escrow id    | `completed`, `disputed_resolved_payout`, `disputed_resolved_refund`, `refunded` |
+| Service instant buy      | `bsc` | `usdt` | `instant_buy_contract`   | `service_booking` | instant-buy-created escrow id    | `completed`, `disputed_resolved_payout`, `disputed_resolved_refund`, `refunded` |
 
 Additional rules:
 
 - each resolver must define how `subjectId`, `settlementId`, reviewer wallet, reviewee wallet, reviewer `npub`, and reviewee `npub` are derived
+- each resolver must normalize the contract outcome into the canonical `ReviewContractOutcome` enum
 - each resolver must define supported contract versions
 - unsupported contract versions must fail closed
 - new chains/assets must be added by extending the matrix and its test suite, not by ad hoc conditional logic
 - resolver reviewability must never depend on the originating task/service event still existing if the settlement record is otherwise valid
 - resolver output must include enough presentation context to render deleted-source fallback labels without exposing sensitive settlement identity
+- attestation issuance must fail closed unless the resolver reports a reviewable terminal outcome where funds have already left contract custody
+
+Required contract-state to outcome mapping:
+
+- `funds_released` -> `completed` -> reviewable
+- `funds_claimed` -> `completed` -> reviewable
+- `dispute_resolved` -> `disputed_resolved_payout` or `disputed_resolved_refund` -> reviewable
+- `dispute_unresolved` -> `refunded` -> reviewable
+- `refunded` -> `refunded` -> reviewable
+- `cancelled` -> `refunded` -> reviewable only when blockchain records show funds were previously in contract custody and were returned
+- `funded`, `work_in_progress`, `completed`, `in_dispute`, `in_dispute_wip`, `no_show` -> not reviewable
+
+Disambiguation rule:
+
+- the resolver must determine whether `dispute_resolved` is payout vs refund from the settled fund distribution, not from UI copy or heuristics
+- the resolver must reject attestation issuance if outcome classification cannot be determined exactly
 
 ## 5. Architecture
 
 ### 5.1 Public Review Flow
 
 1. User drafts the review locally.
-2. Client builds the canonical public review content payload and computes a deterministic `reviewDraftHash` from that payload.
-3. Client requests attestation from HTTPS API, sending the review draft and later the required proofs.
-4. Backend validates settlement eligibility and identity proofs.
-5. Backend publishes a BitTasker-signed attestation event to Nostr referencing the exact `reviewDraftHash`.
-6. Backend returns the `attestationEventId`.
-7. Client publishes the final review event to Nostr, referencing that attestation and carrying the same `reviewDraftHash`.
-8. Readers verify the review locally using the review event, attestation event, shared `reviewDraftHash`, and HTTPS issuer registry.
+2. Client calls a separate translation backend exactly once for the authored review text and receives the canonical bilingual review content.
+3. Client builds the canonical public review content payload from that bilingual content and computes a deterministic `reviewDraftHash` from that payload.
+4. Client requests attestation from HTTPS API, sending the review draft and later the required proofs.
+5. Backend validates settlement eligibility and identity proofs.
+6. Backend publishes a BitTasker-signed attestation event to Nostr referencing the exact `reviewDraftHash`.
+7. Backend returns the `attestationEventId`.
+8. Client publishes the final review event to Nostr, referencing that attestation and carrying the same `reviewDraftHash`.
+9. Readers verify the review locally using the review event, attestation event, shared `reviewDraftHash`, and HTTPS issuer registry.
 
 ### 5.2 HTTPS Trust Anchor
 
@@ -383,7 +448,7 @@ Returns:
 - active issuer pubkeys
 - key ids
 - validity windows
-- optional retired/revoked issuer metadata
+- retired/revoked issuer metadata
 - schema version
 
 Reason:
@@ -407,6 +472,37 @@ Required endpoints:
 - `POST /review-attestations/challenge`
 - `POST /review-attestations`
 - `GET /review-attestation-issuers`
+
+External dependency endpoint:
+
+- `POST /review-translations` on the separate translation backend
+
+Translation request:
+
+```json
+{
+	"schemaVersion": 1,
+	"sourceLanguage": "en|es",
+	"comment": "<authored review text>"
+}
+```
+
+Translation response:
+
+```json
+{
+	"schemaVersion": 1,
+	"sourceLanguage": "en|es",
+	"content": {
+		"en": {
+			"comment": "<english review text>"
+		},
+		"es": {
+			"comment": "<spanish review text>"
+		}
+	}
+}
+```
 
 Challenge request:
 
@@ -502,13 +598,11 @@ Attestation event payload:
 	"reviewDraftHash": "<lowercase-hex-sha256>",
 	"subjectType": "task|service_booking",
 	"settlementType": "escrow|service_quote_contract|instant_buy_contract",
-	"chain": "rsk|bsc",
-	"asset": "rbtc|usdt",
 	"reviewerPubkey": "<hex-pubkey>",
 	"revieweePubkey": "<hex-pubkey>",
 	"reviewerRole": "<role>",
 	"revieweeRole": "<role>",
-	"completedAt": 0,
+	"contractOutcome": "completed|disputed_resolved_payout|disputed_resolved_refund|refunded",
 	"issuedAt": 0,
 	"expiresAt": 0,
 	"keyId": "<kid>"
@@ -524,15 +618,50 @@ Review event payload:
 	"subjectType": "task|service_booking",
 	"settlementType": "escrow|service_quote_contract|instant_buy_contract",
 	"revieweePubkey": "<hex-pubkey>",
+	"reviewerRole": "<role>",
 	"revieweeRole": "<role>",
+	"contractOutcome": "completed|disputed_resolved_payout|disputed_resolved_refund|refunded",
+	"createdAt": 0,
 	"rating": { "...": "review category ratings" },
-	"comment": "<review text>",
+	"content": {
+		"sourceLanguage": "en|es",
+		"en": {
+			"comment": "<english review text>"
+		},
+		"es": {
+			"comment": "<spanish review text>"
+		}
+	},
+	"attachments": []
+}
+```
+
+Review reply event payload:
+
+```json
+{
+	"schemaVersion": 1,
+	"parentReviewEventId": "<nostr-event-id>",
+	"revieweePubkey": "<hex-pubkey>",
+	"createdAt": 0,
+	"content": {
+		"sourceLanguage": "en|es",
+		"en": {
+			"comment": "<english reply text>"
+		},
+		"es": {
+			"comment": "<spanish reply text>"
+		}
+	},
 	"attachments": []
 }
 ```
 
 Required canonical error codes:
 
+- `translation_invalid`
+- `translation_failed`
+- `contract_outcome_invalid`
 - `challenge_expired`
 - `challenge_invalid`
 - `nostr_signature_invalid`
@@ -543,6 +672,9 @@ Required canonical error codes:
 - `settlement_not_reviewable`
 - `participant_mismatch`
 - `duplicate_review_slot`
+- `duplicate_review_reply`
+- `reply_event_invalid`
+- `reply_not_allowed`
 - `attestation_publish_failed`
 - `review_event_invalid`
 
@@ -560,59 +692,101 @@ Canonical Nostr linkage model for MVP:
 - the client publishes the final review event referencing the attestation and carrying the same `reviewDraftHash`
 - readers verify attestation against `reviewDraftHash`, not against a pre-attestation review event id
 
+Canonical review reply model for MVP:
+
+- replies are plain public Nostr events and are not platform-attested
+- exactly one reply is allowed per canonical review
+- the only valid reply author is the original reviewee
+- replies are not threaded; replies to replies are forbidden
+- replies are immutable for MVP; edit/replace flows are forbidden
+- if multiple reply events exist for the same review, clients must deterministically keep the earliest valid reply and ignore later duplicates
+- replies do not affect rating aggregates or review-attestation validity
+- reply content follows the same one-time translation flow and bilingual public payload contract as reviews
+- reviews and replies support media attachments using the existing upload-service + `MediaUploader.svelte` flow; attachments are public and must follow the same attachment schema used elsewhere in the app
+- reviews and replies must match the existing completion-evidence upload profile used in `TaskCompletionModal.svelte`:
+  - `maxFiles = 5`
+  - `maxFileSize = 10` MB
+  - `allowedTypes = ['image/*', 'video/*']`
+  - `maxDuration = 300` seconds for video
+  - `enableImageCompression = true`
+  - `useCloudflare = true`
+  - `generateVariants = true`
+- reviews and replies must not introduce document-only or arbitrary file uploads in MVP; image and video are the only allowed attachment classes
+- reply image attachments must render using the existing thumbnail-plus-lightbox `Gallery` pattern already used in `ContractDrawer.svelte`, `TaskDetailsView.svelte`, and `ServiceDetailsView.svelte`
+- reply non-image attachments must degrade to the same compact inline preview/download treatment already used for attachment rendering elsewhere in the app rather than inventing a reply-only media presentation
+
 Required tag/link contract to freeze in `packages/reviews-contracts/`:
 
 - exact tag used by the review to reference the attestation event
 - exact field used by the attestation to reference the `reviewDraftHash`
 - exact field or tag used by the review to carry the same `reviewDraftHash`
-- whether relay hints are included
+- relay hints are not included in the MVP event contract
 - exact field names for any duplicated review/attestation identifiers in event content
+- exact bilingual review-content schema and canonical field ordering used to derive `reviewDraftHash`
 
 Locked public-field matrix for MVP:
 
-| Field             | Review Event             | Attestation Event | Policy               |
-| ----------------- | ------------------------ | ----------------- | -------------------- |
-| `reviewDraftHash` | public                   | public            | required             |
-| `subjectType`     | public                   | public            | allowed              |
-| `settlementType`  | public                   | public            | allowed              |
-| `chain`           | optional public          | public            | allowed              |
-| `asset`           | optional public          | public            | allowed              |
-| `reviewerPubkey`  | implicit as event author | public            | required             |
-| `revieweePubkey`  | public                   | public            | required             |
-| `reviewerRole`    | optional                 | public            | allowed              |
-| `revieweeRole`    | public                   | public            | required             |
-| `completedAt`     | not required             | public            | allowed              |
-| `subjectId`       | forbidden                | forbidden         | private backend only |
-| `settlementId`    | forbidden                | forbidden         | private backend only |
-| wallet address    | forbidden                | forbidden         | private backend only |
-| escrow id         | forbidden                | forbidden         | private backend only |
-| tx hash           | forbidden                | forbidden         | private backend only |
+| Field                                 | Review Event             | Attestation Event | Policy               |
+| ------------------------------------- | ------------------------ | ----------------- | -------------------- |
+| `reviewDraftHash`                     | public                   | public            | required             |
+| `subjectType`                         | public                   | public            | required             |
+| `settlementType`                      | public                   | public            | required             |
+| `reviewerPubkey`                      | implicit as event author | public            | required             |
+| `revieweePubkey`                      | public                   | public            | required             |
+| `reviewerRole`                        | public                   | public            | required             |
+| `revieweeRole`                        | public                   | public            | required             |
+| `contractOutcome`                     | public                   | public            | required             |
+| `createdAt`                           | public                   | forbidden         | required in review   |
+| bilingual review content (`en`, `es`) | public                   | forbidden         | required in review   |
+| `subjectId`                           | forbidden                | forbidden         | private backend only |
+| `settlementId`                        | forbidden                | forbidden         | private backend only |
+| wallet address                        | forbidden                | forbidden         | private backend only |
+| escrow id                             | forbidden                | forbidden         | private backend only |
+| tx hash                               | forbidden                | forbidden         | private backend only |
+
+Locked public-field matrix for MVP replies:
+
+| Field                                   | Reply Event                                    | Policy                         |
+| --------------------------------------- | ---------------------------------------------- | ------------------------------ |
+| `parentReviewEventId`                   | public                                         | required                       |
+| `revieweePubkey`                        | implicit as event author and public in content | required                       |
+| `createdAt`                             | public                                         | required                       |
+| bilingual reply content (`en`, `es`)    | public                                         | required                       |
+| `attachments`                           | public                                         | optional                       |
+| wallet address / settlement identifiers | forbidden                                      | never allowed in reply payload |
 
 ### 5.4 Attestation Service
 
-The attestation service should support Cloudflare Worker deployment, but the plan must not depend on Worker-only primitives in the core domain layer.
+The attestation service is implemented as a Cloudflare Worker deployment target, and the core domain layer must stay free of Worker-only primitives.
 
-Recommended backend stack:
+Translation boundary rule:
+
+- review translation is not implemented inside the reviews attestation backend
+- the attestation backend consumes the canonical bilingual review payload supplied by the client after translation by the separate translation backend
+- the app must stop using `VITE_GOOGLE_TRANSLATE_API_KEY` or any direct browser translation API calls for review publication
+- Phase 0 must define the review-translation adapter contract used by the app, but the separate translation backend remains out of scope for this review-attestation backend project
+- until the separate translation backend exists, the app implementation must build against the adapter boundary and keep the review publication flow ready to consume the later backend without exposing translation secrets in the client
+
+Required backend stack:
 
 - Cloudflare Worker as the deployment target
 - Hono for HTTP routing, middleware, and typed endpoint composition
-- Zod, and optionally `@hono/zod-openapi`, for schema validation and contract documentation
+- Zod and `@hono/zod-openapi` for schema validation and contract documentation
 - `viem` for EVM chain reads, address normalization, and wallet-signature verification
 - `nostr-tools` for `npub` decoding, Nostr event verification/signing, and relay publication
 - Durable Objects for strongly consistent uniqueness and idempotency state
 
-Explicit library choices:
+Required library choices:
 
-- prefer `viem` over `ethers` for the attestation backend because it is a better fit for modern TypeScript, explicit verification flows, and Worker-friendly deterministic code paths
-- prefer `nostr-tools` over NDK in the backend because the backend needs a small deterministic issuance/publish surface, not client-oriented cache/session/subscription orchestration
-- NDK remains an optional future choice for richer client/read-side relay handling, but it is not the planned backend foundation
+- use `viem` instead of `ethers` for the attestation backend because it is a better fit for modern TypeScript, explicit verification flows, and Worker-friendly deterministic code paths
+- use `nostr-tools` instead of NDK in the backend because the backend needs a small deterministic issuance/publish surface, not client-oriented cache/session/subscription orchestration
 
 Repository/deployment boundary:
 
 - implement the backend in a dedicated top-level folder inside this repo
-- keep its package configuration, entrypoint, tests, and runtime bindings separate from the main app where practical
+- keep its package configuration, entrypoint, tests, and runtime bindings separate from the main app
 - do not merge the attestation backend into `workers-site/index.js`
-- do not couple backend implementation details to SvelteKit route handlers unless an explicit later architectural decision replaces the separate worker model
+- do not couple backend implementation details to SvelteKit route handlers
 
 Local Worker development model:
 
@@ -634,7 +808,7 @@ Required responsibilities:
 Cloudflare-specific deployment rules:
 
 - Worker handles request validation, challenge issuance, signature verification, resolver dispatch, and attestation construction
-- strongly consistent uniqueness state must live in Durable Objects or an equivalent strongly consistent store
+- strongly consistent uniqueness state must live in Durable Objects
 - KV must not be used for uniqueness or issue-once guarantees
 - issuer private keys and HMAC/signing secrets must live in Worker secrets, never in client config
 - Nostr publish failures must be retriable via explicit recovery logic, not silent best effort
@@ -646,7 +820,47 @@ Local implementation/testing rules:
 - the backend project must have its own focused unit/integration test suite in addition to app-side tests
 - the default local manual workflow is `wrangler dev` for the backend project plus the app dev server pointed at that local backend
 - local backend stateful flows must be exercised against Durable Objects, not mocked away entirely, before a workstream is considered complete
-- the plan should assume a dedicated local persistence directory for backend Worker state to keep attestation/idempotency testing reproducible
+- use a dedicated local persistence directory for backend Worker state to keep attestation/idempotency testing reproducible
+
+### 5.4.1 Attestation Abuse and Rate-Limit Policy
+
+The attestation backend must implement explicit rate limiting and abuse controls. This is part of the MVP trust boundary and is not optional.
+
+Required rate-limit keys:
+
+- reviewer `npub`
+- client IP
+- wallet address hash
+- settlement-slot key `(subjectType, subjectId, settlementType, settlementId, reviewerRole)`
+
+Required endpoint policies:
+
+- `POST /review-attestations/challenge`
+  - limit to `5` requests per `5` minutes per reviewer `npub`
+  - limit to `20` requests per `5` minutes per client IP
+  - duplicate requests for the same settlement slot within the active challenge TTL must return the existing active challenge instead of minting a new one
+- `POST /review-attestations`
+  - limit to `3` requests per `10` minutes per reviewer `npub`
+  - limit to `10` requests per `10` minutes per client IP
+  - limit to `3` failed proof-verification attempts per `10` minutes per wallet address hash before a temporary cooldown is applied
+  - requests that reuse the same valid idempotency/reservation key must return the same attestation result and must not count as a new successful issuance
+- `GET /review-attestation-issuers`
+  - serve through normal cache headers
+  - no special per-user behavior
+  - only apply a coarse IP safeguard if needed for abuse protection
+
+Required abuse responses:
+
+- rate-limited requests must return `429`
+- `429` responses must include a deterministic machine-readable error code and `Retry-After`
+- failed proof-verification and participant-mismatch attempts must be counted toward abuse thresholds even when attestation issuance never begins
+- abuse controls must fail closed for attestation issuance and fail open for the rest of the review UI; users may be blocked from obtaining a new attestation but must still be able to view reviews
+
+Required cooldown policy:
+
+- repeated invalid proof attempts for the same wallet hash or reviewer `npub` must trigger a short cooldown
+- the cooldown duration must be frozen in Phase 0 and tested as part of the backend runtime suite
+- cooldown state must live in the same Durable Object / backend state model used for idempotency and uniqueness so parallel requests resolve deterministically
 
 Required backend project shape:
 
@@ -710,14 +924,15 @@ interface ReviewContractRegistryEntry {
 }
 ```
 
-The client may submit `contractAddress`, but the backend must verify it against this registry and route into the correct resolver.
+The client submits `contractAddress`, and the backend verifies it against this registry and routes into the correct resolver.
 
 Resolver families:
 
 - task escrow resolver
 - service quote acceptance resolver
 - instant-buy service resolver
-- future RBTC/USDT contract-version resolvers
+- RBTC contract-version resolvers
+- USDT contract-version resolvers
 
 ### 5.7 Privacy Operations
 
@@ -750,7 +965,10 @@ Attestation event:
 
 Public attestation content must not include:
 
+- chain
+- asset
 - wallet address
+- settlement ID
 - escrow ID
 - tx hash
 
@@ -769,9 +987,8 @@ Public identifier rule for MVP:
 
 - raw task ids, readable task d-tags, service `uniqueId`, service address, and on-chain `escrowId` must be treated as non-opaque and must not be published in the attestation event
 - `subjectId` and `settlementId` are private backend fields by default
-- the public attestation may omit both fields entirely
-- if the product later needs public linking aids, expose only platform-issued opaque surrogate identifiers such as `subjectRef` or `settlementRef`
-- if a surrogate identifier can be correlated back to the original task/service/settlement without platform help, it is not opaque enough and must not be used
+- the public attestation omits both fields entirely
+- the MVP does not expose surrogate public identifiers such as `subjectRef` or `settlementRef`
 
 Public review-linking rule:
 
@@ -816,6 +1033,111 @@ Checkpoint A routing contract must freeze:
 
 Downstream UI agents must treat that routing contract as read-only after Checkpoint A.
 
+### 5.11 Notification Contract
+
+Review notifications must reuse the existing notification foundation already used by service quotes and contract actions.
+
+Required notification delivery rules:
+
+- reuse `src/lib/api/services/push-notification.service.ts` as the only push delivery entrypoint
+- reuse `pushNotificationService`; do not create a parallel review-notification delivery stack
+- reuse the existing push payload shape with `type`, `title`, `body`, `clickAction`, and `icon`
+- reuse the existing service-worker click flow that reads `clickAction` / `click_action` and navigates via postMessage + app routing
+- review push side effects must be non-blocking and idempotent, following the same pattern as `src/lib/utils/service-quote/notifications.ts`
+- reuse the local side-effect ledger pattern already used for service-quote notifications so duplicate renders, retries, or reconnects do not emit duplicate review push notifications
+- reuse the exact-focus deep-link pattern already used in service quote and service contract notifications; build review links with the existing dashboard/query helpers rather than hand-building route strings in multiple places
+- local success/error/info feedback inside the app must reuse `appStore.showSuccessToast`, `appStore.showErrorToast`, and `appStore.showInfoToast`
+- do not introduce a review-specific service worker; the existing `static/firebase-messaging-sw.js` click handling contract is the only supported push click path for MVP
+
+Required existing app patterns to mirror:
+
+- follow the non-blocking, deduped push side-effect structure used in `src/lib/utils/service-quote/notifications.ts`
+- follow the exact push payload contract already consumed by `src/lib/api/services/push-notification.service.ts`
+- follow the service-worker click behavior implemented in `static/firebase-messaging-sw.js`
+- follow the existing local toast pattern implemented in `src/lib/stores/app.store.ts`
+
+Required review notification types for MVP:
+
+- `review_received`
+  - delivery: push
+  - recipient: reviewee
+  - click action: deep link into `/reviews` with the relevant review highlighted
+- `review_reply_received`
+  - delivery: push
+  - recipient: original reviewer
+  - click action: deep link into `/reviews` with the parent review highlighted and its reply expanded
+- `pending_review_reminder`
+  - delivery: push only when explicitly enabled by later product wiring
+  - recipient: eligible reviewer
+  - click action: deep link into `/reviews` with the relevant pending review highlighted
+  - throttling: reminders must be batched/throttled and must not fire on every render or poll cycle
+- `review_publish_success`
+  - delivery: local success toast only
+  - recipient: reviewer
+- `review_attestation_failed`
+  - delivery: local error toast only
+  - recipient: reviewer
+
+Notification exclusions for MVP:
+
+- no push notification for translation success/failure
+- no push notification for intermediate attestation pipeline steps
+- no separate notification type for attestation verification after successful publish
+
+Required notification preference policy for MVP:
+
+- reuse the existing notification preference model; do not add a review-specific preference schema in MVP
+- `review_received` and `review_reply_received` must respect the existing global `push` channel gate exposed by `myNotificationPreferences`
+- `pending_review_reminder` must remain disabled for push until later product wiring explicitly enables it
+- do not overload unrelated category-specific toggles such as `pushMessages`, `pushPayments`, `pushBidUpdates`, or `pushTaskMatches` to carry review-specific meaning
+- if no notification preference data is available, fail closed for push sends and keep the rest of the review UI working without notification delivery
+
+Required notification implementation pattern:
+
+- create one reusable review notification helper module that wraps `pushNotificationService`
+- store deterministic dedupe keys for review push side effects using the same non-blocking side-effect pattern already used in service quote notifications
+- centralize review click-action builders in one helper module and reuse them across notification emitters, foreground handling, and tests
+- use translation keys for notification titles and bodies in `static/locales/en/notifications.json` and `static/locales/es/notifications.json` or a review namespace that is loaded through the existing i18n system
+- keep notification send failures non-blocking for the canonical review publish/attestation flow
+
+Required review notification deep-link contract for MVP:
+
+- `review_received` must deep-link to `/reviews` with deterministic query parameters that identify the received review card to highlight
+- `review_reply_received` must deep-link to `/reviews` with deterministic query parameters that identify the parent review card and force the reply region open
+- `pending_review_reminder` must deep-link to `/reviews` with deterministic query parameters that identify the pending review target to highlight
+- the exact query-key contract must be frozen once in shared review notification helpers and reused across emitters, loaders, and UI tests
+
+Required pending-review reminder visibility rule for MVP:
+
+- because the app does not have a live notification center, pending-review reminder visibility must come from explicit in-surface review CTAs and `/reviews` pending-state presentation, not from a hidden inbox concept
+- any later push-based reminder must point back to the same visible pending-review surfaces instead of creating a second reminder-only UX path
+
+Required review notification tests:
+
+- unit tests for review notification helper payload composition and dedupe behavior
+- integration tests proving review push sends use `pushNotificationService.sendNotificationToNpubs(...)` with the existing payload contract
+- integration tests proving service-worker click handling opens the correct `/reviews` deep links through existing `clickAction` behavior
+- route/component tests proving `/reviews` consumes notification deep links and highlights the intended received review, reply target, or pending review target
+
+### 5.12 Moderation and Blocking Contract
+
+Review and reply surfaces must reuse the app’s existing moderation policy instead of inventing review-specific moderation primitives.
+
+Required moderation rules for MVP:
+
+- reuse the existing report + mute/block entry pattern from `src/lib/components/moderation/ActionsMenu.svelte`
+- until a review-specific report content type exists, review cards and reply threads must use the existing user-focused moderation path (`profileMode=true`) so users can report or block the author
+- reuse the existing NIP-51 mute-list foundation in `src/lib/nostr/muteList.ts`; do not create a second block list for reviews
+- if the current user has muted an author, that author’s reviews and replies must be filtered out of aggregated review surfaces in the same way other muted content is hidden elsewhere in the app
+- moderation actions must remain non-blocking for normal review rendering; filtering is a client-side visibility rule, not a reason to invalidate canonical review events on Nostr
+- review replies must inherit the same moderation affordances as review cards
+
+Required moderation tests for MVP:
+
+- component tests proving review cards and reply threads expose the shared moderation menu
+- selector/filter tests proving muted authors are removed from aggregated review surfaces
+- regression tests proving moderation affordances do not break review loading, reply rendering, or profile review composition
+
 ## 6. Reusable Components and Modules
 
 ### 6.1 Reuse from `feat/reviews`
@@ -823,7 +1145,7 @@ Downstream UI agents must treat that routing contract as read-only after Checkpo
 Port and adapt, do not copy blindly:
 
 - `src/lib/components/reviews/*`
-- `src/routes/(protected)/dashboard/reviews/+page.svelte`
+- `src/routes/(protected)/dashboard/reviews/+page.svelte` as donor source for the new `/reviews` route
 - `src/lib/components/profile/ProfileReviewsSection.svelte`
 - `src/lib/utils/review-helpers.ts`
 - `src/lib/utils/review-aggregation.ts`
@@ -858,15 +1180,18 @@ Primary shared integration surfaces:
 - `src/lib/components/contracts/ContractActions.svelte`
 - `src/lib/components/contracts/ServiceAgreementSummary.svelte`
 
-These surfaces should consume shared review status helpers and shared review CTA components instead of duplicating task/service review UI.
+These surfaces must consume shared review status helpers and shared review CTA components instead of duplicating task/service review UI.
 
 ### 6.3 New Reusable Building Blocks
 
-Expected reusable modules/components:
+Required reusable modules/components:
 
 - `packages/reviews-contracts/*`
 - `review-attestation.client.ts`
 - `review-attestation.types.ts`
+- `review-reply.types.ts`
+- `review-reply.client.ts`
+- `review-media.types.ts`
 - `reviewable-settlement.types.ts`
 - `reviewable-settlement.registry.ts`
 - `reviewable-settlement.resolver.ts`
@@ -875,8 +1200,11 @@ Expected reusable modules/components:
 - `ReviewCallToAction.svelte`
 - `ReviewEligibilityBanner.svelte`
 - `ReviewSummarySnippet.svelte`
+- `ReviewReplyComposer.svelte`
+- `ReviewReplyThread.svelte`
+- review media upload adapter wrapping `src/lib/components/MediaUploader.svelte`
 
-Expected reusable backend modules:
+Required reusable backend modules:
 
 - `reviews-attestation-backend/src/http/review-attestation-controller`
 - `reviews-attestation-backend/src/domain/review-attestation-service`
@@ -896,26 +1224,32 @@ It must own:
 
 - schema versions
 - public/private DTO definitions that cross the backend/app boundary
-- API validation schemas where code sharing is practical
+- API validation schemas shared across the backend/app boundary
 - Nostr kind constants
 - error-code enums
 - canonical fixture builders for review events, attestation events, and challenge payloads
+- canonical fixture builders for review reply events
 - normalized settlement/domain/event/status types used across backend and app boundaries
 - deleted-source presentation contract used by selectors and shared UI
+- bilingual review-content contract, including source language, English payload, and Spanish payload
+- canonical review-reply ownership and deterministic winner rules
 
 Neither the backend project nor the app may redefine these in local `types.ts` files once the package exists.
 
 ### 6.4 Existing Reusable UI Patterns to Preserve
 
-The implementation should explicitly reuse the following branch-local patterns instead of recreating them:
+The implementation must explicitly reuse the following branch-local patterns instead of recreating them:
 
 - drawer/modal progressive disclosure patterns from service quote acceptance and instant-buy flows
 - status-chip and filter patterns from `MyQuotesPanel` and `ServiceQuotesInbox`
 - dashboard empty/error/offline messaging via `DashboardEmptyState` and `ErrorAlertWithModal`
 - contract-context summary presentation via `ServiceAgreementSummary`
 - existing dashboard/earning query-state helpers for preserving panel context
+- existing media upload flow via `src/lib/components/MediaUploader.svelte` and `src/lib/api/services/upload.service`
+- existing attachment gallery/lightbox flow via `src/lib/components/Gallery.svelte` and the image-preparation pattern already used in `ContractDrawer.svelte`, `TaskDetailsView.svelte`, and `ServiceDetailsView.svelte`
+- existing completion-evidence upload limits and progress/remove UX from `src/lib/components/contracts/TaskCompletionModal.svelte`
 
-The plan should be considered incomplete if review UI is designed outside these existing patterns without a written reason.
+The plan is incomplete if review UI is designed outside these existing patterns without a written reason.
 
 ### 6.5 Required Shared Translation and Constants Work
 
@@ -926,6 +1260,24 @@ The builder must plan reusable constants and translation namespaces up front:
 - task vs service review copy variants
 - provider/public review summary copy
 - stale/offline/partial attestation verification copy
+- translated review-content field keys and locale-selection helpers
+- contract-outcome label keys for human-readable rendering in the app
+- review notification title/body keys aligned to the existing push notification foundation
+
+Translated review-content rule:
+
+- the canonical review payload must include both English and Spanish content before publish
+- translation must happen exactly once per review draft before `reviewDraftHash` is computed
+- UI surfaces must render the locale-matching translated content from the stored review payload and must not trigger ad hoc retranslation during display
+- if the author writes the source text in English, only the Spanish version is generated; if the author writes the source text in Spanish, only the English version is generated
+- the implementation must persist enough metadata to know which language was authored vs translated without issuing another translation request later in the same review submit flow
+- review publication must consume the separate translation backend response and must not call the browser-exposed Google Translate API directly
+
+Contract outcome rendering rule:
+
+- the backend must emit the canonical `ReviewContractOutcome` enum value in resolver output, attestation payloads, and review payloads
+- the app must map that enum to human-readable localized labels
+- the backend must not emit final display strings for contract outcomes
 
 No component should hardcode review-state strings once implementation begins.
 
@@ -961,9 +1313,10 @@ Required UX:
 
 - explain that reviews unlock only after settlement completion
 - show pending-review / reviewed status once contract reaches terminal reviewable state
-- surface links into dashboard reviews and contracts
+- surface links into `/reviews` and contracts
 - keep tasker-side quote inbox and provider-side request inbox behavior aligned for the same settlement
 - ensure contract-created, accept-failed, contract-sync-pending, and stale relay states do not expose premature review CTAs
+- if push reminders are unavailable or disabled, the same pending-review state must still remain discoverable through visible in-context CTAs on contract, quote, and service surfaces rather than relying on a hidden in-app reminder mechanism
 
 ### 7.3 Contract-Centric Service Review Entry Points
 
@@ -985,16 +1338,17 @@ Required UX:
 
 Required review-management integration:
 
-- create `dashboard/reviews` on this branch by porting the donor route and adapting it for mixed task + service settlements
+- create `/reviews` on this branch by porting the donor route and adapting it for mixed task + service settlements
 - show service-derived pending reviews in review management
 - show received reviews on provider profile surfaces
 - add review-entry routing from contracts, service detail, quotes, and earning/dashboard surfaces
+- support notification deep links that can highlight a received review or pending review target inside `/reviews`
 
 Relevant surfaces:
 
 - `src/routes/(protected)/dashboard/+page.svelte`
 - `src/routes/(protected)/earning/+page.svelte`
-- `src/routes/(protected)/dashboard/reviews/+page.svelte` (to be created from donor branch)
+- `src/routes/(protected)/reviews/+page.svelte` (to be created from donor branch)
 - `src/routes/(protected)/dashboard/profile/+page.svelte`
 - `src/lib/components/profile/ProfileReviewsSection.svelte`
 - `src/lib/components/profile/ProfileServicesSection.svelte`
@@ -1007,6 +1361,20 @@ Required UX:
 - deterministic review deep links from contracts, quote inboxes, service detail flows, dashboard, and earning
 - profile composition that renders provider services and received reviews together as one coherent profile experience
 - deleted task/service fallback rendering that preserves user-centric review value without requiring the original public event to still exist
+- `/reviews` must have an explicit mobile-first information architecture with frozen top-level views for `pending`, `given`, and `received`; reply state is rendered inside `received` rather than as a separate top-level view
+- each top-level `/reviews` view must define deterministic sort order, empty state copy, loading state copy, and error/retry state copy before implementation begins
+- highlighted review and pending-review deep links must preserve the active top-level view, scroll/focus the correct card, and avoid disorienting jumps on mobile
+
+### 7.4.1 Review Composer and Recovery UX
+
+Required UX:
+
+- review and reply composers must preserve unsent draft text, rating choices, and selected attachments across recoverable failures in translation, attestation issuance, and review-event publish
+- the implementation must define one deterministic draft-reset rule so drafts are only cleared after successful canonical publish or explicit user discard
+- translation, attestation, and publish are three distinct async steps in the composer UX and must expose clear step-specific loading, retry, and error messages
+- translation failure must never silently discard user-authored content; the composer must remain populated and offer an explicit retry path
+- attestation failure must leave the review draft intact and explain that the user was not yet able to publish a verified review
+- media-upload failure must remain localized to the attachment area and must not erase the rest of the review or reply draft
 
 ### 7.5 Service Branch Touchpoints That Must Be Reviewed Before Coding
 
@@ -1152,7 +1520,7 @@ Must complete before parallel feature implementation:
 - donor import manifest freeze
 - checkpoint note for `Checkpoint A` written and approved
 
-Wave 0 deliverables are expected to land in a dedicated foundation change set before any Wave 1 parallel feature work starts.
+Wave 0 deliverables must land in a dedicated foundation change set before any Wave 1 parallel feature work starts.
 
 ### Wave 1: Backend/App Foundations
 
@@ -1215,7 +1583,7 @@ Checklist:
 - [ ] adapter boundary between app and backend frozen
 - [ ] shared contracts package location and ownership frozen
 - [ ] governance roles assigned for all ownership groups and checkpoints
-- [ ] routing contract frozen for dashboard/earning/reviews deep links
+- [ ] routing contract frozen for dashboard, earning, and `/reviews` deep links
 - [ ] Checkpoint A approval recorded
 
 ### Workstream 1: Review Domain Types and Status Helpers
@@ -1224,6 +1592,7 @@ Tasks:
 
 - define normalized settlement types
 - define public review/attestation event types
+- define public review reply event types
 - define review eligibility state machine
 - define deterministic review status derivation helpers
 - define deleted-source fallback presentation rules for task/service-linked reviews
@@ -1234,11 +1603,13 @@ Tests first:
 - malformed payload tests
 - deterministic status derivation tests
 - deleted-task and deleted-service reviewability tests
+- deterministic review-reply ownership and winner-selection tests
 
 Checklist:
 
 - [ ] normalized settlement/domain types created in `packages/reviews-contracts/`
 - [ ] review status/state-machine helpers implemented
+- [ ] review-reply domain contract finalized
 - [ ] deleted-source fallback contract finalized
 - [ ] domain tests passing
 
@@ -1276,6 +1647,8 @@ Tasks:
 - build attestation challenge endpoint
 - build attestation issuance endpoint
 - add strict request validation and error taxonomy
+- implement the frozen rate-limit and abuse-control policy for challenge and attestation issuance
+- return deterministic `429` payloads with `Retry-After` for rate-limited requests
 
 Tests first:
 
@@ -1286,6 +1659,10 @@ Tests first:
 - signature verification tests
 - invalid contract-registry entry tests
 - mismatched review event vs attestation request tests
+- challenge endpoint rate-limit tests
+- attestation endpoint rate-limit tests
+- invalid-proof cooldown tests
+- idempotent retry tests proving retried successful issuance does not consume additional rate-limit budget
 
 Checklist:
 
@@ -1294,6 +1671,7 @@ Checklist:
 - [ ] issuer registry endpoint implemented
 - [ ] challenge endpoint implemented
 - [ ] attestation issuance endpoint implemented
+- [ ] rate-limit and abuse-control policy implemented
 - [ ] backend schema and runtime tests passing
 
 ### Workstream 3: Settlement Resolver Layer
@@ -1373,7 +1751,7 @@ Tests first:
 Checklist:
 
 - [ ] reservation/idempotency state machine implemented
-- [ ] Durable Object or equivalent store implemented
+- [ ] Durable Object store implemented
 - [ ] duplicate/concurrency tests passing
 - [ ] privacy regression tests passing
 
@@ -1400,21 +1778,35 @@ Tasks:
 
 - rewrite review publish flow for attestation model
 - fetch referenced attestation events
+- publish review reply events
+- fetch and join review reply events to parent reviews deterministically
 - verify attestation signer against HTTPS issuer registry
 - handle stale/missing/malformed referenced events deterministically
+- implement explicit translation-step loading, timeout, retry, and failure states without clearing the user draft
 
 Tests first:
 
 - review publish happy path
+- review reply publish happy path
 - missing attestation path
 - issuer rotation path
 - malformed public payload path
+- one-time translation invocation test
+- translation loading, timeout, and retry-state tests
+- locale-specific review-content selection tests
+- one-reply-per-review deterministic winner tests
+- reply-author-is-reviewee validation tests
+- review notification payload and dedupe tests
 
 Checklist:
 
 - [ ] review publish adapter implemented
 - [ ] attestation fetch/verify adapter implemented
+- [ ] review reply publish/fetch adapter implemented
 - [ ] HTTPS issuer registry verification implemented
+- [ ] one-time bilingual translation flow implemented
+- [ ] translation step UX states implemented
+- [ ] review notification helper implemented against shared push foundation
 - [ ] stale/malformed-path tests passing
 
 ### Workstream 6: Shared Review Components
@@ -1424,7 +1816,13 @@ Tasks:
 - port reusable donor components
 - refactor them to accept normalized review data
 - add shared components for badges, CTA, eligibility, summary snippets
+- add shared reply composer and reply thread components
+- adapt the existing `MediaUploader.svelte` flow for review and reply attachments instead of creating a new uploader
+- adapt the existing `Gallery.svelte` lightbox pattern for reply image attachments
+- match the completion-evidence upload/remove/progress UX from `TaskCompletionModal.svelte` for review and reply attachments
 - port donor translations and normalize copy keys so task/service reviews share one translation domain
+- wire all review render surfaces to consume the stored bilingual review payload dynamically based on current locale
+- implement deterministic draft preservation and explicit discard/reset behavior for review and reply composers
 
 Tests first:
 
@@ -1432,12 +1830,22 @@ Tests first:
 - empty/partial/offline states
 - task vs service context rendering tests
 - translation fallback tests for newly shared keys
+- bilingual review-content rendering tests for English and Spanish locales
+- reply composer visibility and single-reply rendering tests
+- review and reply media upload/remove rendering tests
+- reply image-gallery lightbox rendering tests using the shared gallery pattern
+- draft preservation/discard UX tests
 
 Checklist:
 
 - [ ] donor components ported or replaced
 - [ ] shared CTA/status/summary components implemented
+- [ ] shared reply components implemented
+- [ ] shared review/reply media upload flow implemented
+- [ ] shared review/reply gallery-lightbox flow implemented
 - [ ] translations normalized
+- [ ] bilingual review-content rendering wired
+- [ ] draft preservation/recovery UX implemented
 - [ ] component tests passing
 
 ### Workstream 7: Contract Surface Integration
@@ -1505,6 +1913,7 @@ Tests first:
 - provider request inbox review-status tests
 - contract-sync-pending and accept-failed negative CTA tests
 - deleted-source rendering tests for both task and service reviews
+- pending-review CTA discoverability tests when push reminders are unavailable
 
 Checklist:
 
@@ -1512,6 +1921,7 @@ Checklist:
 - [ ] service detail summary integrated
 - [ ] quote/request lifecycle status integrated
 - [ ] deleted-source service rendering complete
+- [ ] pending-review CTA discoverability integrated
 - [ ] service integration tests passing
 
 ### Workstream 9: Routing and Cross-Surface Navigation
@@ -1548,6 +1958,7 @@ Tasks:
 - wire review entry and return flows through `dashboardQuery` / earning query helpers
 - preserve source context when navigating from contracts, services, or profile surfaces into review management
 - add deterministic deep-link handling for highlighted settlement/review targets
+- add deterministic deep-link handling for highlighted reply targets and reply-composer state
 - support pending-review links from service harness routes and fixtures used in branch-local testing
 
 Tests first:
@@ -1555,12 +1966,14 @@ Tests first:
 - dashboard deep-link tests
 - earning deep-link tests
 - return-navigation tests
+- reply deep-link tests
 
 Checklist:
 
 - [ ] dashboard deep links implemented
 - [ ] earning deep links implemented
 - [ ] return-navigation helpers implemented
+- [ ] reply deep links implemented
 - [ ] routing tests passing
 
 ### Workstream 10: Dashboard and Profile Review Management
@@ -1593,24 +2006,41 @@ Ownership-aligned subtracks:
 
 Tasks:
 
-- adapt dashboard reviews page to mixed task/service settlements
+- adapt the `/reviews` page to mixed task/service settlements
 - include service-booking pending reviews
 - include received reviews on profile/provider surfaces
 - ensure consistent routing from dashboard/earning/service views
 - create the route/component wiring needed on this branch because `feat/find-services` does not currently include a reviews page
 - compose provider services and received reviews together on the profile route
+- allow the reviewee to post exactly one reply on received reviews
+- render received replies inline under their parent reviews across `/reviews` and profile surfaces
+- support media upload in review replies using the shared media uploader flow and existing attachment schema
+- expose the shared moderation menu on review cards and reply threads
+- implement the frozen mobile-first `/reviews` information architecture for `pending`, `given`, and `received`
+- preserve and restore draft state across recoverable translation, attestation, and publish failures
 
 Tests first:
 
-- dashboard reviews integration tests
+- `/reviews` integration tests
 - pending review aggregation tests
 - profile received-review rendering tests
+- review notification deep-link tests
+- reply composer and inline reply rendering integration tests
+- reply media upload integration tests
+- moderation-menu and mute-filter integration tests
+- `/reviews` mobile information-architecture tests for pending/given/received views
+- draft recovery across translation/attestation/publish failures integration tests
 
 Checklist:
 
-- [ ] dashboard reviews route created/adapted
+- [ ] `/reviews` route created/adapted
 - [ ] mixed pending/given/received views implemented
 - [ ] profile review composition implemented
+- [ ] single-reply reviewee flow implemented
+- [ ] reply media upload flow implemented
+- [ ] review moderation/block integration implemented
+- [ ] review notification deep links implemented
+- [ ] mobile `/reviews` IA finalized and implemented
 - [ ] dashboard/profile tests passing
 
 ### Workstream 11: Privacy, Logging, and Observability Hardening
@@ -1621,18 +2051,24 @@ Tasks:
 - add structured error codes
 - instrument attestation issuance and verification outcomes
 - add replay/invalid proof telemetry without leaking identifiers
+- document that review replies are public user-authored events with no platform attestation and no hidden settlement data
+- document every required human follow-up step in the plan tracking folder as it is discovered during implementation
 
 Tests first:
 
 - logging redaction tests
 - error-shape tests
-- observability hook tests where feasible
+- observability hook tests
+- notification failure non-blocking tests
+- reply payload privacy tests
 
 Checklist:
 
 - [ ] redaction policy implemented
 - [ ] structured error codes wired end-to-end
 - [ ] telemetry hooks added without sensitive linkage
+- [ ] reply privacy tests passing
+- [ ] human-actions tracking file maintained
 - [ ] hardening tests passing
 
 ## 8C. Swarm Merge Checkpoints
@@ -1680,7 +2116,7 @@ Required checkpoint evidence:
 
 Parallel confidence rule:
 
-- swarm confidence for parallel implementation should be measured against the plan after `Checkpoint A` requirements are fully specified
+- swarm confidence for parallel implementation must be measured against the plan after `Checkpoint A` requirements are fully specified
 - if an audit finds confidence below 95%, the plan must be revised before additional implementation waves are authorized
 
 ## 9.1 Delivery Gates Per Workstream
@@ -1692,7 +2128,7 @@ No workstream is complete until all four gates pass:
 - UI or integration acceptance gate
 - regression gate for adjacent task/service flows
 
-The builder should not start a downstream workstream while an upstream gate is still failing unless the dependency is explicitly marked parallel-safe in the implementation notes.
+The builder must not start a downstream workstream while an upstream gate is still failing unless the dependency is explicitly marked parallel-safe in the implementation notes.
 
 Additional swarm gate:
 
@@ -1722,7 +2158,7 @@ If any answer is ambiguous, the plan must be revised before implementation start
 - backend-project Workers-runtime integration tests using Cloudflare’s Vitest Workers integration
 - unit tests for domain helpers, attestation validators, resolver routing, uniqueness ledger
 - component tests for review UI reuse and contract/service touchpoints
-- route/integration tests for dashboard reviews, service detail, and service contracts
+- route/integration tests for `/reviews`, service detail, and service contracts
 - end-to-end tests for:
   - service quote -> contract -> review
   - instant buy -> contract -> review
@@ -1758,7 +2194,7 @@ Required harness support:
 - backend automated tests using the Cloudflare Workers Vitest pool so Worker bindings and Durable Object behavior are exercised in the correct runtime model
 - deterministic service contract completion fixtures for component and integration tests
 - seeded contract-card states for task and service reviewability
-- route-level mocks for `dashboard`, `earning`, and `dashboard/reviews`
+- route-level mocks for `dashboard`, `earning`, and `reviews`
 
 ## 11. Rollout Sequencing
 
@@ -1777,6 +2213,29 @@ Recommended order:
 11. service-harness coverage + e2e coverage + rollout hardening
 
 No implementation work should start on browse/detail review summaries until the shared review status/CTA components and normalized review selectors are stable.
+
+## 11. Human Actions Required Outside Code Changes
+
+The implementation must track and surface every manual action that cannot be completed purely by code changes.
+
+Required human-action tracking rules:
+
+- every newly discovered manual prerequisite must be added to `plans/reviews-attestation-execution/human-actions.md` in the same change set that discovers it
+- the final AI implementation summary must end with a `Human Actions Required` section
+- each human action entry must include:
+  - action description
+  - why human intervention is required
+  - owner or likely owner
+  - blocking vs non-blocking status
+  - exact file, secret, environment, dashboard, or account touched
+
+Required initial human-action entries:
+
+- provision Cloudflare Worker secrets for the attestation backend issuer key, signer secrets, and any relay/auth credentials
+- provision backend environment variables and Wrangler bindings for local and deployed attestation environments
+- migrate browser-exposed review translation credentials behind the separate translation backend once that backend exists
+- provide or confirm the production attestation issuer key rotation policy and issuer-registry publication values
+- verify production notification preference defaults and backend support for review notification channel gating before enabling push for review notifications in production
 
 ## 12. Risks and Mitigations
 
@@ -1826,10 +2285,11 @@ The implementation is done only when all of the following are true:
 - attestation verification works against Nostr events plus HTTPS issuer registry
 - service browse/detail surfaces show provider review summaries
 - completed service contracts expose review status/CTA
-- dashboard review management shows task + service pending/given/received reviews
+- the `/reviews` route shows task + service pending/given/received reviews
 - at least one RBTC path and one USDT path are covered by resolver tests
 - no durable review-system record stores wallet address + `npub` together
 - unit, component, integration, and e2e tests cover the critical paths
 - review management route exists on this branch and is wired from dashboard/profile/contract surfaces
 - donor review components, translations, and helpers are ported intentionally rather than duplicated ad hoc
 - the final plan audit reports at least 95% confidence that an AI builder can execute the implementation successfully
+- the final implementation summary includes a `Human Actions Required` section generated from the tracked manual follow-up list
