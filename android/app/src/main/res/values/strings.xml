@@ -4,6 +4,6 @@
     <string name="title_activity_main">BitTasker</string>
     <string name="package_name">com.bittasker.app</string>
     <string name="custom_url_scheme">com.bittasker.app</string>
-    <string name="app_domain">app.bittasker.com</string>
+    <string name="app_domain">bittasker.com</string>
     <string name="asset_statements">[{\"include\": \"https://bittasker.com/.well-known/assetlinks.json\"}]</string>
 </resources>
