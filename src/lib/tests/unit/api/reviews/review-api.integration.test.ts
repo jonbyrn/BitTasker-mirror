@@ -17,8 +17,28 @@ const hoisted = vi.hoisted(() => ({
 	publishToMultipleRelays: vi.fn(),
 	getNostrKeyPair: vi.fn(),
 	getNpub: vi.fn(),
+	getAllKeys: vi.fn(),
 	getWallet: vi.fn(),
-	showSuccessToast: vi.fn()
+	showSuccessToast: vi.fn(),
+	preferencesGet: vi.fn().mockResolvedValue({ value: null })
+}));
+
+vi.mock('@capacitor/preferences', () => ({
+	Preferences: {
+		get: (...args: unknown[]) => hoisted.preferencesGet(...args),
+		set: vi.fn().mockResolvedValue(undefined),
+		remove: vi.fn().mockResolvedValue(undefined),
+		clear: vi.fn().mockResolvedValue(undefined)
+	}
+}));
+
+vi.mock('svelte-i18n', () => ({
+	t: {
+		subscribe: (fn: (v: unknown) => void) => {
+			fn((key: string) => key);
+			return () => {};
+		}
+	}
 }));
 
 vi.mock('$app/state', () => ({
@@ -34,7 +54,8 @@ vi.mock('$lib/utils/nostr', () => ({
 
 vi.mock('$lib/utils/nostrKeys', () => ({
 	getNostrKeyPair: () => hoisted.getNostrKeyPair(),
-	getNpub: () => hoisted.getNpub()
+	getNpub: () => hoisted.getNpub(),
+	getAllKeys: () => hoisted.getAllKeys()
 }));
 
 vi.mock('$lib/stores/wallet.store', () => ({
@@ -76,21 +97,35 @@ function createMockStorage() {
 
 describe('Review API Integration (Hardened)', () => {
 	const reviewerSecret = generateSecretKey();
+	// getPublicKey returns Uint8Array, we need hex
 	const reviewerPubkey = bytesToHex(getPublicKey(reviewerSecret));
+	// Valid 12-word mnemonic for ethers
+	const validMnemonic =
+		'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';
 
 	beforeEach(() => {
 		vi.resetAllMocks();
 		vi.stubGlobal('localStorage', createMockStorage());
 		vi.stubGlobal('fetch', vi.fn());
+
 		hoisted.getNpub.mockResolvedValue(reviewerPubkey);
 		hoisted.getNostrKeyPair.mockResolvedValue({
 			nsec: reviewerSecret,
 			npub: reviewerPubkey
 		});
+		hoisted.getAllKeys.mockResolvedValue({
+			npub: reviewerPubkey,
+			nsec: reviewerSecret,
+			mnemonic: validMnemonic
+		});
 
-		// Default to empty outbox
+		// Provide global objects for Node environment tests
 		if (typeof globalThis !== 'undefined') {
-			(globalThis as unknown as { __reviewsPublishOutbox: unknown[] }).__reviewsPublishOutbox = [];
+			const globalAny = globalThis as unknown as Record<string, unknown>;
+			globalAny.Preferences = {
+				get: (...args: unknown[]) => hoisted.preferencesGet(...args)
+			};
+			globalAny.__reviewsPublishOutbox = [];
 		}
 	});
 

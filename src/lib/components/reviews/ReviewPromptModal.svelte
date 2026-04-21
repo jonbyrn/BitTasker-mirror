@@ -4,6 +4,7 @@
 
 	let {
 		isOpen,
+		currentUserPubkey,
 		revieweePubkey,
 		revieweeLabel,
 		subjectLabel,
@@ -17,6 +18,7 @@
 		onSubmit
 	} = $props<{
 		isOpen: boolean;
+		currentUserPubkey: string;
 		revieweePubkey: string;
 		revieweeLabel?: string | null;
 		subjectLabel?: string | null;
@@ -34,8 +36,9 @@
 {#if isOpen}
 	<div class="modal modal-open">
 		<div class="modal-box max-h-[90vh] max-w-4xl overflow-y-auto">
-			{#key `${revieweePubkey}:${subjectType}:${settlementType}:${contractOutcome}:${subjectLabel ?? ''}`}
+			{#key `${currentUserPubkey}:${revieweePubkey}:${subjectType}:${settlementType}:${contractOutcome}:${subjectLabel ?? ''}`}
 				<VerifiedReviewForm
+					{currentUserPubkey}
 					{revieweePubkey}
 					{revieweeLabel}
 					{subjectLabel}

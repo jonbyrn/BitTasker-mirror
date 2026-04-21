@@ -20,9 +20,29 @@ const hoisted = vi.hoisted(() => ({
 	publishToMultipleRelays: vi.fn(),
 	getNostrKeyPair: vi.fn(),
 	getNpub: vi.fn(),
+	getAllKeys: vi.fn(),
 	getWallet: vi.fn(),
 	showSuccessToast: vi.fn(),
-	verifyReviewDraftHash: vi.fn()
+	verifyReviewDraftHash: vi.fn(),
+	preferencesGet: vi.fn().mockResolvedValue({ value: null })
+}));
+
+vi.mock('@capacitor/preferences', () => ({
+	Preferences: {
+		get: (...args: unknown[]) => hoisted.preferencesGet(...args),
+		set: vi.fn().mockResolvedValue(undefined),
+		remove: vi.fn().mockResolvedValue(undefined),
+		clear: vi.fn().mockResolvedValue(undefined)
+	}
+}));
+
+vi.mock('svelte-i18n', () => ({
+	t: {
+		subscribe: (fn: (v: unknown) => void) => {
+			fn((key: string) => key);
+			return () => {};
+		}
+	}
 }));
 
 vi.mock('$app/state', () => ({
@@ -38,7 +58,8 @@ vi.mock('$lib/utils/nostr', () => ({
 
 vi.mock('$lib/utils/nostrKeys', () => ({
 	getNostrKeyPair: () => hoisted.getNostrKeyPair(),
-	getNpub: () => hoisted.getNpub()
+	getNpub: () => hoisted.getNpub(),
+	getAllKeys: () => hoisted.getAllKeys()
 }));
 
 vi.mock('$lib/stores/wallet.store', () => ({
@@ -124,9 +145,19 @@ describe('Review API Security Hardening', () => {
 
 		hoisted.getNpub.mockResolvedValue(reviewerPub);
 		hoisted.getNostrKeyPair.mockResolvedValue({ nsec: reviewerPriv, npub: reviewerPub });
+		hoisted.getAllKeys.mockResolvedValue({
+			npub: reviewerPub,
+			nsec: reviewerPriv,
+			mnemonic:
+				'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about'
+		});
 
 		if (typeof globalThis !== 'undefined') {
-			(globalThis as unknown as { __reviewsPublishOutbox: unknown[] }).__reviewsPublishOutbox = [];
+			const globalAny = globalThis as unknown as Record<string, unknown>;
+			globalAny.Preferences = {
+				get: (...args: unknown[]) => hoisted.preferencesGet(...args)
+			};
+			globalAny.__reviewsPublishOutbox = [];
 		}
 
 		hoisted.getSignedEvent.mockImplementation(async (event: Partial<NostrEvent>) => ({

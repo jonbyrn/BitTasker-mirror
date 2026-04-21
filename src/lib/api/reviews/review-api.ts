@@ -80,17 +80,25 @@ const REVIEW_PUBLISH_OUTBOX_TTL_MS = 24 * 60 * 60 * 1000;
 
 // Session-bound decryption secret cache
 const sessionEncryptionSecrets = new Map<string, Uint8Array>();
+let isOutboxFlushing = false;
 
 async function getSessionEncryptionSecret(reviewerPubkey: string): Promise<Uint8Array> {
 	const existing = sessionEncryptionSecrets.get(reviewerPubkey);
 	if (existing) return existing;
 
-	// In a real implementation, we'd sign a fixed message or use a DH secret from the wallet.
-	// For this hardening layer, we ensure the secret is unique to the pubkey and doesn't persist.
-	// Note: Nobnoble/ciphers AES needs 32 bytes for AES-256.
-	const secret = sha256(new TextEncoder().encode(`bittasker.recovery.v3.${reviewerPubkey}`));
-	sessionEncryptionSecrets.set(reviewerPubkey, secret);
-	return secret;
+	// Hardening: Derive secret from the private key if available in memory.
+	// Using a hash of the nsec is cryptographically strong and session-bound.
+	try {
+		const { nsec } = await getNostrKeyPair();
+		const secret = sha256(new Uint8Array([...nsec, ...new TextEncoder().encode('outbox-v3')]));
+		sessionEncryptionSecrets.set(reviewerPubkey, secret);
+		return secret;
+	} catch (error) {
+		console.warn('Could not derive hardened outbox secret, using legacy derivation:', error);
+		const secret = sha256(new TextEncoder().encode(`bittasker.recovery.v3.${reviewerPubkey}`));
+		sessionEncryptionSecrets.set(reviewerPubkey, secret);
+		return secret;
+	}
 }
 
 async function encryptOutboxData(data: string, reviewerPubkey: string): Promise<string> {
@@ -330,8 +338,8 @@ function normalizePendingReviewAttestationContext(
 	return {
 		subjectId: candidate.subjectId,
 		settlementId: candidate.settlementId,
-		chain: candidate.chain,
-		asset: candidate.asset,
+		chain: candidate.chain as AttestationChallengeRequest['chain'],
+		asset: candidate.asset as AttestationChallengeRequest['asset'],
 		contractAddress: candidate.contractAddress,
 		revieweeWallet: candidate.revieweeWallet,
 		reviewerWallet:
@@ -591,6 +599,33 @@ export class ReviewApiRequestError extends Error {
 	}
 }
 
+async function signNostrChallengeMessage(message: string): Promise<string> {
+	const { nsec } = await getNostrKeyPair();
+	const digest = sha256(new TextEncoder().encode(message));
+	return bytesToHex(schnorr.sign(digest, nsec));
+}
+
+async function signWalletChallengeMessage(
+	chain: AttestationChallengeRequest['chain'],
+	message: string
+): Promise<`0x${string}`> {
+	const wallet = getWallet(chain === 'bsc' ? 'bsc' : 'rsk');
+	if (!wallet) {
+		throw new Error(`Connect your ${chain.toUpperCase()} wallet before requesting attestation`);
+	}
+
+	return (await wallet.signMessage(message)) as `0x${string}`;
+}
+
+function getCurrentWalletAddress(chain: AttestationChallengeRequest['chain']): string {
+	const wallet = getWallet(chain === 'bsc' ? 'bsc' : 'rsk');
+	if (!wallet) {
+		throw new Error(`Connect your ${chain.toUpperCase()} wallet before requesting attestation`);
+	}
+
+	return wallet.address;
+}
+
 async function issueAttestationForPendingReview(
 	entry: PendingReviewAttestationRecord
 ): Promise<ReadyReviewPublishRecord> {
@@ -605,6 +640,8 @@ async function issueAttestationForPendingReview(
 	const revieweeNpub = entry.context.revieweeNpub ?? toNpub(reviewPayload.revieweePubkey);
 	const reviewerWallet =
 		entry.context.reviewerWallet ?? getCurrentWalletAddress(entry.context.chain);
+
+	// Optimization: Fetch challenge BEFORE prompting for signatures to reduce perceived latency
 	const challengeRequest = {
 		reviewDraftHash: entry.reviewDraftHash,
 		subjectType: reviewPayload.subjectType,
@@ -622,11 +659,30 @@ async function issueAttestationForPendingReview(
 
 	const challenge = await requestReviewAttestationChallenge(challengeRequest);
 	const challengeMessage = challenge.challengeMessage;
-	const nostrChallengeSignature = await signNostrChallengeMessage(challengeMessage);
-	const walletChallengeSignature = await signWalletChallengeMessage(
-		entry.context.chain,
-		challengeMessage
-	);
+
+	// Optimization: Use consolidated key retrieval if available to trigger only ONE biometric prompt
+	// for both Nostr and Wallet keys.
+	let nostrChallengeSignature: string;
+	let walletChallengeSignature: `0x${string}`;
+
+	try {
+		// Attempt consolidated biometric auth first
+		const { nsec, mnemonic } = await import('$lib/utils/nostrKeys').then((m) => m.getAllKeys());
+		const digest = sha256(new TextEncoder().encode(challengeMessage));
+		nostrChallengeSignature = bytesToHex(schnorr.sign(digest, nsec));
+
+		const { ethers } = await import('ethers');
+		const wallet = ethers.Wallet.fromPhrase(mnemonic).derivePath("m/44'/60'/0'/0/0");
+		walletChallengeSignature = (await wallet.signMessage(challengeMessage)) as `0x${string}`;
+	} catch (error) {
+		// Fallback for Alby or if consolidated auth is unavailable
+		console.log('Consolidated auth unavailable, falling back to sequential prompts:', error);
+		nostrChallengeSignature = await signNostrChallengeMessage(challengeMessage);
+		walletChallengeSignature = await signWalletChallengeMessage(
+			entry.context.chain,
+			challengeMessage
+		);
+	}
 
 	const attestationRequest = attestationRequestSchema.parse({
 		schemaVersion: REVIEWS_SCHEMA_VERSION,
@@ -680,43 +736,51 @@ async function publishReviewEventWithRecovery(entry: ReadyReviewPublishRecord): 
 }
 
 async function flushPendingReviewPublishOutbox(): Promise<void> {
-	const pending = await readReviewPublishOutbox();
-	const currentPubkey = await getCurrentReviewerPubkey().catch(() => null);
-	if (!currentPubkey) return;
+	if (isOutboxFlushing) return;
+	isOutboxFlushing = true;
 
-	let publishedCount = 0;
+	try {
+		const pending = await readReviewPublishOutbox();
+		const currentPubkey = await getCurrentReviewerPubkey().catch(() => null);
+		if (!currentPubkey) return;
 
-	for (const entry of pending) {
-		if (entry.reviewerPubkey.toLowerCase() !== currentPubkey.toLowerCase()) {
-			continue;
-		}
+		let publishedCount = 0;
 
-		try {
-			const readyEntry = isReadyReviewPublishRecord(entry)
-				? entry
-				: await issueAttestationForPendingReview(entry);
-			if (!isReadyReviewPublishRecord(entry)) {
-				await upsertPendingReviewPublish(readyEntry);
+		for (const entry of pending) {
+			if (entry.reviewerPubkey.toLowerCase() !== currentPubkey.toLowerCase()) {
+				continue;
 			}
-			await publishReviewEventWithRecovery(readyEntry);
-			publishedCount++;
-		} catch {
-			// Leave the entry in the outbox for a later retry.
-		}
-	}
 
-	if (publishedCount > 0) {
-		try {
-			// Using get from svelte-i18n for non-reactive translation
-			const { t: i18n } = await import('svelte-i18n');
-			const { get: getTranslation } = await import('svelte/store');
-			const message = getTranslation(i18n)('reviews.outbox_published_success', {
-				values: { count: publishedCount }
-			});
-			appStore.showSuccessToast(message);
-		} catch {
-			// Best-effort toast only.
+			try {
+				const readyEntry = isReadyReviewPublishRecord(entry)
+					? entry
+					: await issueAttestationForPendingReview(entry);
+				if (!isReadyReviewPublishRecord(entry)) {
+					await upsertPendingReviewPublish(readyEntry);
+				}
+				await publishReviewEventWithRecovery(readyEntry);
+				publishedCount++;
+			} catch (error) {
+				console.warn(`Failed to process outbox entry ${entry.reviewEventId}:`, error);
+				// Leave the entry in the outbox for a later retry.
+			}
 		}
+
+		if (publishedCount > 0) {
+			try {
+				// Using get from svelte-i18n for non-reactive translation
+				const { t: i18n } = await import('svelte-i18n');
+				const { get: getTranslation } = await import('svelte/store');
+				const message = getTranslation(i18n)('reviews.outbox_published_success', {
+					values: { count: publishedCount }
+				});
+				appStore.showSuccessToast(message);
+			} catch {
+				// Best-effort toast only.
+			}
+		}
+	} finally {
+		isOutboxFlushing = false;
 	}
 }
 
@@ -1204,33 +1268,6 @@ export async function loadReviewFeed(input: {
 	};
 }
 
-async function signNostrChallengeMessage(message: string): Promise<string> {
-	const { nsec } = await getNostrKeyPair();
-	const digest = sha256(new TextEncoder().encode(message));
-	return bytesToHex(schnorr.sign(digest, nsec));
-}
-
-async function signWalletChallengeMessage(
-	chain: AttestationChallengeRequest['chain'],
-	message: string
-): Promise<`0x${string}`> {
-	const wallet = getWallet(chain === 'bsc' ? 'bsc' : 'rsk');
-	if (!wallet) {
-		throw new Error(`Connect your ${chain.toUpperCase()} wallet before requesting attestation`);
-	}
-
-	return wallet.signMessage(message) as Promise<`0x${string}`>;
-}
-
-function getCurrentWalletAddress(chain: AttestationChallengeRequest['chain']): string {
-	const wallet = getWallet(chain === 'bsc' ? 'bsc' : 'rsk');
-	if (!wallet) {
-		throw new Error(`Connect your ${chain.toUpperCase()} wallet before requesting attestation`);
-	}
-
-	return wallet.address;
-}
-
 async function createSignedReviewEvent(review: ReviewEventPayload): Promise<NostrEvent> {
 	return getSignedEvent({
 		kind: REVIEW_NOSTR_KINDS.REVIEW,
@@ -1306,7 +1343,40 @@ export async function submitAttestedReview(input: SubmitAttestedReviewInput): Pr
 		throw new Error('Review content integrity check failed: Draft hash mismatch');
 	}
 
-	const signedReviewEvent = await createSignedReviewEvent(input.review);
+	let signedReviewEvent: NostrEvent;
+
+	// Optimization: Consolidate auth by pre-fetching keys if using internal biometric storage
+	// This ensures only ONE biometric prompt covers all signatures in this flow
+	try {
+		const { npub, nsec } = await import('$lib/utils/nostrKeys').then((m) => m.getAllKeys());
+		const { finalizeEvent } = await import('nostr-tools/pure');
+
+		const eventMetadata: Partial<NostrEvent> = {
+			kind: REVIEW_NOSTR_KINDS.REVIEW,
+			created_at: input.review.createdAt,
+			content: JSON.stringify(input.review),
+			tags: [
+				[REVIEW_TAG_NAMES.REVIEWEE, input.review.revieweePubkey],
+				[REVIEW_TAG_NAMES.REVIEW_DRAFT_HASH, input.review.reviewDraftHash],
+				['subject', input.review.subjectType],
+				['settlement', input.review.settlementType]
+			]
+		};
+
+		const event = {
+			created_at: eventMetadata.created_at || Math.floor(Date.now() / 1000),
+			kind: eventMetadata.kind!,
+			tags: [...(eventMetadata.tags || []), ['v', __APP_VERSION__]],
+			content: eventMetadata.content || '',
+			pubkey: npub
+		};
+		signedReviewEvent = finalizeEvent(event, nsec);
+	} catch (error) {
+		// Fallback for Alby or if consolidated auth is unavailable
+		console.log('Consolidated auth unavailable for review signing, using sequential flow:', error);
+		signedReviewEvent = await createSignedReviewEvent(input.review);
+	}
+
 	const draftEntry: PendingReviewAttestationRecord = {
 		stage: 'awaiting_attestation',
 		reviewEventId: signedReviewEvent.id,

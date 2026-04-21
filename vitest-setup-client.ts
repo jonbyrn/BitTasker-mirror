@@ -61,14 +61,26 @@ if (typeof window !== 'undefined') {
 }
 
 // Mock Capacitor plugins that might be used in tests
+const mockPreferences = {
+	get: vi.fn().mockImplementation(() => Promise.resolve({ value: null })),
+	set: vi.fn().mockImplementation(() => Promise.resolve()),
+	remove: vi.fn().mockImplementation(() => Promise.resolve()),
+	clear: vi.fn().mockImplementation(() => Promise.resolve())
+};
+
+(globalThis as unknown as Record<string, unknown>).mockPreferences = mockPreferences;
+
 vi.mock('@capacitor/preferences', () => ({
-	Preferences: {
-		get: vi.fn().mockResolvedValue({ value: null }),
-		set: vi.fn().mockResolvedValue(undefined),
-		remove: vi.fn().mockResolvedValue(undefined),
-		clear: vi.fn().mockResolvedValue(undefined)
-	}
+	Preferences: mockPreferences
 }));
+
+// Also ensure Preferences is available on window for some capacitor plugins
+if (typeof window !== 'undefined') {
+	const win = window as unknown as Record<string, Record<string, Record<string, unknown>>>;
+	win.Capacitor = win.Capacitor || {};
+	win.Capacitor.Plugins = win.Capacitor.Plugins || {};
+	win.Capacitor.Plugins.Preferences = mockPreferences;
+}
 vi.mock('@capacitor/haptics', () => ({
 	Haptics: {
 		impact: vi.fn().mockResolvedValue(undefined)
@@ -84,6 +96,33 @@ vi.mock('@capacitor/core', () => ({
 	Capacitor: {
 		getPlatform: vi.fn(() => 'web')
 	}
+}));
+
+// Mock @reviews-contracts for tests
+vi.mock('@reviews-contracts', () => ({
+	REVIEWS_SCHEMA_VERSION: 1,
+	REVIEW_NOSTR_KINDS: {
+		REVIEW: 1985,
+		ATTESTATION: 1986,
+		REPLY: 1987
+	},
+	REVIEW_TAG_NAMES: {
+		REVIEWEE: 'p',
+		REVIEW_DRAFT_HASH: 'h',
+		PARENT_REVIEW: 'e'
+	},
+	attestationEventPayloadSchema: { parse: vi.fn((x) => x) },
+	attestationRequestSchema: { parse: vi.fn((x) => x) },
+	attestationResponseSchema: { parse: vi.fn((x) => x) },
+	issuerRegistryResponseSchema: { parse: vi.fn((x) => x) },
+	reviewErrorResponseSchema: { parse: vi.fn((x) => x) },
+	reviewEventPayloadSchema: { parse: vi.fn((x) => x) },
+	reviewReplyCandidateSchema: { parse: vi.fn((x) => x) },
+	reviewReplyEventPayloadSchema: { parse: vi.fn((x) => x) },
+	isReplyAuthorAllowed: vi.fn(() => true),
+	selectCanonicalReviewReply: vi.fn((replies) => replies[0]),
+	computeReviewDraftHashFromPayload: vi.fn(() => 'mock-hash'),
+	computeReviewDraftHash: vi.fn(() => 'mock-hash')
 }));
 
 // Mock Web Animations API (not available in jsdom)

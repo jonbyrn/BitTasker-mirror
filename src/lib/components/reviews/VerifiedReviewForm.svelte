@@ -20,6 +20,7 @@
 
 	let {
 		id, // Explicit ID for draft uniquely
+		currentUserPubkey, // Added for draft isolation
 		revieweePubkey,
 		revieweeLabel,
 		subjectLabel,
@@ -36,6 +37,7 @@
 		onCancel
 	} = $props<{
 		id: string;
+		currentUserPubkey: string;
 		revieweePubkey: string;
 		revieweeLabel?: string | null;
 		subjectLabel?: string | null;
@@ -53,11 +55,20 @@
 	}>();
 
 	const storageKey = $derived.by(() =>
-		buildStorageKey(id, revieweePubkey, subjectType, settlementType, contractOutcome, revieweeRole)
+		buildStorageKey(
+			id,
+			currentUserPubkey,
+			revieweePubkey,
+			subjectType,
+			settlementType,
+			contractOutcome,
+			revieweeRole
+		)
 	);
 	const resetKey = $derived.by(() =>
 		JSON.stringify({
 			id,
+			currentUserPubkey,
 			subjectType,
 			settlementType,
 			contractOutcome,
@@ -152,13 +163,14 @@
 
 	function buildStorageKey(
 		currentId: string,
+		currentUser: string,
 		currentRevieweePubkey: string,
 		currentSubjectType: 'task' | 'service_booking',
 		currentSettlementType: string,
 		currentContractOutcome: string,
 		currentRevieweeRole: ReviewRole
 	) {
-		return `reviews.form.v2.${currentId}:${currentRevieweePubkey}:${currentSubjectType}:${currentSettlementType}:${currentContractOutcome}:${currentRevieweeRole}`;
+		return `reviews.form.v3.${currentId}:${currentUser}:${currentRevieweePubkey}:${currentSubjectType}:${currentSettlementType}:${currentContractOutcome}:${currentRevieweeRole}`;
 	}
 
 	function discardRestoredDraft() {

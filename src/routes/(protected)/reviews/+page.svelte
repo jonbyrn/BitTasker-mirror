@@ -507,6 +507,7 @@
 	<ReviewPromptModal
 		isOpen={true}
 		{isLoading}
+		{currentUserPubkey}
 		target={selectedPendingTarget}
 		categoryGroups={composerCategoryGroups}
 		onClose={closePendingReview}

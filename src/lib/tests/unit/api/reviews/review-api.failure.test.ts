@@ -42,7 +42,7 @@ describe('review api failure matrix', () => {
 		vi.unstubAllGlobals();
 		vi.stubEnv('VITE_REVIEW_ATTESTATION_API_URL', 'https://reviews-api.example.test');
 		window.localStorage.clear();
-		(globalThis as { __reviewsPublishOutbox?: unknown[] }).__reviewsPublishOutbox = [];
+		(globalThis as unknown as Record<string, unknown>).__reviewsPublishOutbox = [];
 		hoisted.getSignedEvent.mockReset();
 		hoisted.publishToMultipleRelays.mockReset();
 		hoisted.getNostrKeyPair.mockReset();
@@ -57,7 +57,7 @@ describe('review api failure matrix', () => {
 			signMessage: vi.fn(async () => `0x${'5'.repeat(130)}`)
 		};
 		hoisted.getNostrKeyPair.mockResolvedValue({
-			nsec: Uint8Array.from(Buffer.from('11'.repeat(32), 'hex')),
+			nsec: new Uint8Array(32).fill(1),
 			npub: reviewerPubkey
 		});
 		const review = reviewEventPayloadSchema.parse({
@@ -444,9 +444,10 @@ describe('review api failure matrix', () => {
 		).rejects.toThrow('Failed to publish review event to any relay');
 
 		const persisted =
-			(globalThis as { __reviewsPublishOutbox?: unknown[] }).__reviewsPublishOutbox ?? [];
+			((globalThis as unknown as Record<string, unknown>).__reviewsPublishOutbox as unknown[]) ??
+			[];
 		expect(persisted).toHaveLength(1);
-		expect(persisted[0]).toMatchObject({
+		expect(persisted[0] as Record<string, unknown>).toMatchObject({
 			attestationEventId: 'c'.repeat(64),
 			reviewDraftHash: review.reviewDraftHash
 		});

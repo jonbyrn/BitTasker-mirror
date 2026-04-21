@@ -84,7 +84,7 @@ const CATEGORY_DESCRIPTOR_MAP: Record<string, CategoryDescriptor> = {
 	}
 };
 
-export function isReviewTabHighlightMatch(
+export function toReviewCategoryScores(
 	categoryRatings: ReviewEventPayload['rating']['categoryRatings']
 ): ReviewCategoryScore[] {
 	return Object.entries(categoryRatings).flatMap(([id, value]) => {
