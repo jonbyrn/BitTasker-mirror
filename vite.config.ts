@@ -78,6 +78,12 @@ export default defineConfig(({ mode }) => {
 		resolve: {
 			conditions: process.env.VITEST ? ['browser', 'development'] : ['browser', 'development'],
 			alias: {
+				'@reviews-contracts': new URL('./packages/reviews-contracts/src/index.ts', import.meta.url)
+					.pathname,
+				'@bittasker/reviews-contracts': new URL(
+					'./packages/reviews-contracts/src/index.ts',
+					import.meta.url
+				).pathname,
 				buffer: 'buffer',
 				crypto: 'crypto-browserify',
 				stream: 'stream-browserify',
