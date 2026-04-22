@@ -1286,7 +1286,10 @@
 		const { contracts } = get(contractStore);
 		const activeContracts = getActiveServiceContractsForService(contracts, service);
 
-		return summarizeDeleteGuardForThreads(quoteThreads, activeContracts);
+		return {
+			...summarizeDeleteGuardForThreads(quoteThreads, activeContracts),
+			activeContractCount: activeContracts.length
+		};
 	}
 
 	async function handleDeleteService() {
@@ -1296,10 +1299,10 @@
 		try {
 			const guard = await inspectDeleteGuards();
 
-			if (guard.blocked) {
+			if (guard.hasBlockingThreads) {
 				deleteModalState = {
 					mode: 'blocked',
-					openQuoteCount: guard.openQuoteCount,
+					openQuoteCount: guard.blockingThreadCount,
 					activeContractCount: guard.activeContractCount
 				};
 				return;
@@ -1307,7 +1310,7 @@
 
 			deleteModalState = {
 				mode: 'confirm',
-				openQuoteCount: guard.openQuoteCount,
+				openQuoteCount: guard.blockingThreadCount,
 				activeContractCount: guard.activeContractCount
 			};
 		} catch (error) {
@@ -1329,7 +1332,16 @@
 		deleteSubmitting = true;
 		try {
 			markServiceDeletePending(service.id);
-			await deleteService(service.id);
+			await deleteService(
+				service.id,
+				{
+					hasOpenQuotes: deleteModalState!.openQuoteCount > 0,
+					hasActiveContracts: deleteModalState!.activeContractCount > 0
+				},
+				{
+					uniqueId: service.uniqueId ?? service.id
+				}
+			);
 
 			if (service.portfolioMedia && service.portfolioMedia.length > 0) {
 				try {
@@ -1345,7 +1357,7 @@
 				detailText('dashboard.services.detail.delete_success', 'Service deleted successfully.')
 			);
 
-			goto(resolve('/dashboard?tab=services'));
+			goto(resolve('/dashboard?tab=my-services'));
 		} catch (error) {
 			console.error('[ServiceDetailsView] Failed to delete service', error);
 			clearPendingServiceDelete(service.id);
@@ -2071,14 +2083,14 @@
 											<button
 												class="btn btn-outline flex-1"
 												onclick={handleOpenRequestQuote}
-												disabled={isOffline}
+												disabled={isOffline || isOwner}
 												>{detailText('dashboard.services.detail.request_quote', 'Inquire')}</button
 											>
 											<button
 												data-testid="service-detail-buy-now"
 												class="btn btn-primary shadow-primary/20 flex-1 shadow-lg"
 												onclick={handleOpenInstantBuy}
-												disabled={instantBuyPreparing || isOffline}
+												disabled={instantBuyPreparing || isOffline || isOwner}
 												>{#if instantBuyPreparing}<span class="loading loading-spinner loading-xs"
 													></span>{/if}{instantBuyEligibility.code === 'missing_selected_tier'
 													? detailText('dashboard.services.detail.select_package', 'Select Package')
@@ -2089,7 +2101,7 @@
 										<button
 											class="btn btn-primary w-full"
 											onclick={handleOpenRequestQuote}
-											disabled={isOffline}
+											disabled={isOffline || isOwner}
 											>{detailText('dashboard.services.detail.request_quote', 'Inquire')}</button
 										>
 									{/if}
@@ -2266,14 +2278,14 @@
 										<button
 											class="btn btn-outline flex-1"
 											onclick={handleOpenRequestQuote}
-											disabled={isOffline}
+											disabled={isOffline || isOwner}
 											>{detailText('dashboard.services.detail.request_quote', 'Inquire')}</button
 										>
 										<button
 											data-testid="service-detail-buy-now"
 											class="btn btn-primary shadow-primary/20 flex-1 shadow-lg"
 											onclick={handleOpenInstantBuy}
-											disabled={instantBuyPreparing || isOffline}
+											disabled={instantBuyPreparing || isOffline || isOwner}
 											>{#if instantBuyPreparing}<span class="loading loading-spinner loading-xs"
 												></span>{/if}{instantBuyEligibility.code === 'missing_selected_tier'
 												? detailText('dashboard.services.detail.select_package', 'Select Package')
@@ -2283,7 +2295,7 @@
 										<button
 											class="btn btn-primary w-full"
 											onclick={handleOpenRequestQuote}
-											disabled={isOffline}
+											disabled={isOffline || isOwner}
 											>{detailText('dashboard.services.detail.request_quote', 'Inquire')}</button
 										>
 									{/if}
