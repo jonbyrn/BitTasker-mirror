@@ -2072,6 +2072,7 @@
 												>{detailText('dashboard.services.detail.request_quote', 'Inquire')}</button
 											>
 											<button
+												data-testid="service-detail-buy-now"
 												class="btn btn-primary shadow-primary/20 flex-1 shadow-lg"
 												onclick={handleOpenInstantBuy}
 												disabled={instantBuyPreparing || isOffline}
@@ -2266,6 +2267,7 @@
 											>{detailText('dashboard.services.detail.request_quote', 'Inquire')}</button
 										>
 										<button
+											data-testid="service-detail-buy-now"
 											class="btn btn-primary shadow-primary/20 flex-1 shadow-lg"
 											onclick={handleOpenInstantBuy}
 											disabled={instantBuyPreparing || isOffline}
