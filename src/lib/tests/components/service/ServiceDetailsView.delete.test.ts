@@ -303,6 +303,30 @@ describe('ServiceDetailsView delete workflow', () => {
 		cleanup();
 	});
 
+	it('calls getActiveServiceContractsForService with contracts array and service object (not just service.id)', async () => {
+		const service = createService();
+		const contract = createContract();
+		hoisted.contractStoreState.set({
+			contracts: [contract]
+		});
+		hoisted.mockGetActiveContractsForService.mockReturnValue([contract]);
+
+		const { getAllByText } = await renderView(service);
+
+		await fireEvent.click(getAllByText('Delete')[0]);
+
+		// Verify getActiveServiceContractsForService was called with (contracts, service) not just (service.id)
+		expect(hoisted.mockGetActiveContractsForService).toHaveBeenCalledTimes(1);
+		const [firstArg, secondArg] = hoisted.mockGetActiveContractsForService.mock.calls[0];
+
+		// First argument should be an array (contracts), not a string (service.id)
+		expect(Array.isArray(firstArg)).toBe(true);
+		// Second argument should be the service object
+		expect(secondArg).toEqual(service);
+		// Should NOT be called with just a string
+		expect(typeof firstArg).not.toBe('string');
+	});
+
 	it('blocks owner deletion when active contracts still exist', async () => {
 		hoisted.contractStoreState.set({
 			contracts: [createContract()]
@@ -311,7 +335,7 @@ describe('ServiceDetailsView delete workflow', () => {
 
 		const { getAllByText, findByText, findAllByText } = await renderView(createService());
 
-		await fireEvent.click(getAllByText('Delete Service')[0]);
+		await fireEvent.click(getAllByText('Delete')[0]);
 
 		expect(await findByText('Cannot delete service')).toBeTruthy();
 		expect(
@@ -353,7 +377,7 @@ describe('ServiceDetailsView delete workflow', () => {
 
 		const { getAllByText, findAllByText } = await renderView(createService());
 
-		await fireEvent.click(getAllByText('Delete Service')[0]);
+		await fireEvent.click(getAllByText('Delete')[0]);
 		expect(await findAllByText(/open request/i)).toBeTruthy();
 		await fireEvent.click(getAllByText('Confirm Delete')[0]);
 
@@ -380,8 +404,9 @@ describe('ServiceDetailsView delete workflow', () => {
 	it('confirms owner deletion and returns to my services when no blockers remain', async () => {
 		const { getAllByText, findByText } = await renderView(createService());
 
-		await fireEvent.click(getAllByText('Delete Service')[0]);
-		expect(await findByText('Delete service')).toBeTruthy();		await fireEvent.click(getAllByText('Confirm Delete')[0]);
+		await fireEvent.click(getAllByText('Delete')[0]);
+		expect(await findByText('Delete service')).toBeTruthy();
+		await fireEvent.click(getAllByText('Confirm Delete')[0]);
 
 		await waitFor(() => expect(hoisted.mockDeleteService).toHaveBeenCalledTimes(1));
 		expect(hoisted.mockDeleteService).toHaveBeenCalledWith(

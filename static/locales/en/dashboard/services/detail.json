@@ -64,8 +64,8 @@
 					"professional_service": "Professional service"
 				},
 				"you_are_provider": "You are the provider of this service.",
-				"edit_service": "Edit Service",
-				"delete_service": "Delete Service",
+				"edit_service": "Edit",
+				"delete_service": "Delete",
 				"edit_service_confirmation": {
 					"title": "Edit Service",
 					"warning": "Editing will update your service listing",

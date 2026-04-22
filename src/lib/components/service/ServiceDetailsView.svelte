@@ -21,6 +21,8 @@
 	} from '$lib/utils/serviceDisplayTranslation';
 	import { authState } from '$lib/stores/auth.store';
 	import { user } from '$lib/stores/user.store';
+	import { get } from 'svelte/store';
+	import { contractStore } from '$lib/stores/contract.store';
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';
 	import { TASK_CATEGORIES } from '$lib/utils/constants/categories';
@@ -1281,9 +1283,10 @@
 		}
 
 		const quoteThreads = await queryTaskeeServiceQuoteThreads(service.id);
-		const contracts = await getActiveServiceContractsForService(service.id);
+		const { contracts } = get(contractStore);
+		const activeContracts = getActiveServiceContractsForService(contracts, service);
 
-		return summarizeDeleteGuardForThreads(quoteThreads, contracts);
+		return summarizeDeleteGuardForThreads(quoteThreads, activeContracts);
 	}
 
 	async function handleDeleteService() {

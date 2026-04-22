@@ -6,6 +6,7 @@
 	 * Handles its own body scroll locking/unlocking and accessibility
 	 */
 	import { t } from 'svelte-i18n';
+	import { fade } from 'svelte/transition';
 	import { appScrollContainer } from '$lib/stores/scrollContainer.store';
 
 	// Props
@@ -162,6 +163,7 @@
 			aria-modal="true"
 			aria-labelledby="modal-title"
 			tabindex="-1"
+			transition:fade={{ duration: 200 }}
 		>
 			<!-- Modal Header -->
 			<div
