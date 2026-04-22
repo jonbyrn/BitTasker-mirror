@@ -43,6 +43,8 @@
 		"cancel": "Cancelar",
 		"update": "Actualizar",
 		"add": "Añadir",
+		"select": "Seleccionar",
+		"selected": "Seleccionado",
 		"required": "Requerido",
 		"optional": "Opcional",
 		"buttons": {
@@ -528,21 +530,36 @@
 				"setup_passkey_button": "Configurar Llave de Acceso",
 				"retry_button": "Reintentar"
 			},
-			"warning_popup": {
-				"title": "Aviso Beta",
-				"message": "BitTasker se encuentra actualmente en fase Beta. Es posible que encuentres errores o funciones incompletas.",
-				"learn_more": "Saber más",
-				"zapstore_title": "Notificación de ZapStore",
-				"zapstore_message": "¡BitTasker ya está disponible en ZapStore! Recibe las últimas actualizaciones y notificaciones directamente en tu dispositivo.",
-				"zapstore_aria": "Visita BitTasker en ZapStore",
-				"zapstore_button": "Disponible en ZapStore",
-				"feedback_text": "Valoramos tus comentarios. Por favor, infórmanos si encuentras algún problema.",
-				"feedback_link": "Enviar comentarios",
-				"feedback_suffix": "para ayudarnos a mejorar.",
-				"acknowledge_button": "Entendido"
+			"app_notification": {
+				"title": "Descarga la Aplicación",
+				"message": "Obtén la mejor experiencia de BitTasker descargando nuestra aplicación móvil. Recibe notificaciones instantáneas de ofertas, tareas y mensajes directamente en tu dispositivo.",
+				"google_play_aria": "Descarga BitTasker en Google Play Store",
+				"zapstore_aria": "Descarga BitTasker en ZapStore",
+				"dismiss": "Entendido"
+			},
+			"wallet_card": {
+				"title": "Saldo de la billetera",
+				"icon_alt": "Bitcoin",
+				"sats_label": "sats",
+				"not_connected": "Billetera no conectada",
+				"available_balance": "Saldo disponible",
+				"required_balance": "Requerido para este contrato"
 			}
 		},
-		"airdatepicker": {
+		"time_units": {
+		        "day": "día",
+		        "days": "días",
+		        "hour": "hora",
+		        "hours": "horas",
+		        "week": "semana",
+		        "weeks": "semanas",
+		        "month": "mes",
+		        "months": "meses",
+		        "minute": "minuto",
+		        "minutes": "minutos",
+		        "and": "y",
+		        "less_than_minute": "menos de un minuto"
+		},		"airdatepicker": {
 			"select_date": "Fecha",
 			"select_date_range": "Rango de fechas",
 			"select_datetime": "Fecha y hora",

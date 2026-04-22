@@ -18,13 +18,11 @@
 		allowCloseWhileSubmitting = false,
 		drawerTestId = 'contract-initiation-drawer',
 		confirmTestId = 'contract-initiation-confirm',
-		retryTestId = 'contract-initiation-retry',
 		errorTestId = 'contract-initiation-error',
 		errorHintTestId = 'contract-initiation-error-hint',
 		warningTestId = 'contract-initiation-warning',
 		warningHintTestId = 'contract-initiation-warning-hint',
 		onConfirm = () => {},
-		onRetry = () => {},
 		onClose = () => {},
 		children: content
 	} = $props<{
@@ -43,13 +41,11 @@
 		allowCloseWhileSubmitting?: boolean;
 		drawerTestId?: string;
 		confirmTestId?: string;
-		retryTestId?: string;
 		errorTestId?: string;
 		errorHintTestId?: string;
 		warningTestId?: string;
 		warningHintTestId?: string;
 		onConfirm?: () => void;
-		onRetry?: () => void;
 		onClose?: () => void;
 		children?: import('svelte').Snippet;
 	}>();
@@ -58,7 +54,6 @@
 		confirmLabel || ($t('common.components.confirm_modal.confirm') as string) || 'Confirm'
 	);
 	const resolvedCancelLabel = $derived(cancelLabel || ($t('common.cancel') as string) || 'Cancel');
-	const showRetry = $derived(Boolean(errorMessage?.trim()) && !isSubmitting);
 
 	function handleClose() {
 		if (isSubmitting && !allowCloseWhileSubmitting) {
@@ -116,17 +111,16 @@
 
 	{#snippet footer()}
 		{#if !hideFooter}
-			<div class="flex flex-col gap-3 sm:flex-row sm:justify-end">
-				<button class="btn btn-ghost" onclick={handleClose} disabled={isSubmitting}>
+			<div class="flex flex-row gap-3 sm:justify-end">
+				<button
+					class="btn btn-error flex-1 sm:min-w-[100px] sm:flex-none"
+					onclick={handleClose}
+					disabled={isSubmitting}
+				>
 					{resolvedCancelLabel}
 				</button>
-				{#if showRetry}
-					<button class="btn btn-outline" onclick={onRetry} data-testid={retryTestId}>
-						{$t('common.buttons.retry') || 'Retry'}
-					</button>
-				{/if}
 				<button
-					class="btn btn-primary"
+					class="btn btn-primary flex-1 sm:min-w-[120px] sm:flex-none"
 					onclick={onConfirm}
 					disabled={isSubmitting || !canConfirm}
 					data-testid={confirmTestId}

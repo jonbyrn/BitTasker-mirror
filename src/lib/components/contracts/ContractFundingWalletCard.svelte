@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
+	import IconRefresh from '~icons/mdi/refresh';
 
 	let {
 		title = undefined,
@@ -14,6 +15,7 @@
 		requiredSats = '',
 		loading = false,
 		connected = false,
+		onRefresh = undefined,
 		connectionError = '',
 		verificationStatus = 'idle',
 		verificationMessage = '',
@@ -31,6 +33,7 @@
 		requiredSats?: string;
 		loading?: boolean;
 		connected?: boolean;
+		onRefresh?: () => void;
 		connectionError?: string;
 		verificationStatus?: 'idle' | 'verifying' | 'ready' | 'error';
 		verificationMessage?: string;
@@ -59,23 +62,23 @@
 	}
 
 	const resolvedTitle = $derived(
-		title ?? tr('dashboard.contracts.wallet_card.title', 'Wallet balance')
+		title ?? tr('common.components.wallet_card.title', 'Wallet balance')
 	);
 	const resolvedIconAlt = $derived(
-		iconAlt ?? tr('dashboard.contracts.wallet_card.icon_alt', 'Bitcoin')
+		iconAlt ?? tr('common.components.wallet_card.icon_alt', 'Bitcoin')
 	);
 	const resolvedSatsLabel = $derived(
-		satsLabel ?? tr('dashboard.contracts.wallet_card.sats_label', 'sats')
+		satsLabel ?? tr('common.components.wallet_card.sats_label', 'sats')
 	);
 	const resolvedNotConnectedLabel = $derived(
-		notConnectedLabel ?? tr('dashboard.contracts.wallet_card.not_connected', 'Wallet not connected')
+		notConnectedLabel ?? tr('common.components.wallet_card.not_connected', 'Wallet not connected')
 	);
 	const resolvedAvailableLabel = $derived(
-		availableLabel ?? tr('dashboard.contracts.wallet_card.available_balance', 'Available balance')
+		availableLabel ?? tr('common.components.wallet_card.available_balance', 'Available balance')
 	);
 	const resolvedRequiredLabel = $derived(
 		requiredLabel ??
-			tr('dashboard.contracts.wallet_card.required_balance', 'Required for this contract')
+			tr('common.components.wallet_card.required_balance', 'Required for this contract')
 	);
 </script>
 
@@ -84,10 +87,12 @@
 	class:collapse-open={expanded || forceOpen}
 	data-testid="contract-funding-wallet-card"
 >
-	<button
-		type="button"
+	<div
+		role="button"
+		tabindex="0"
 		class="collapse-title flex items-center justify-between px-3 py-2 pr-10 text-left text-sm font-medium sm:px-4 sm:py-3 sm:pr-12 sm:text-base"
 		onclick={() => (expanded = !expanded)}
+		onkeydown={(e) => e.key === 'Enter' && (expanded = !expanded)}
 	>
 		<div class="flex min-w-0 flex-1 items-center gap-2">
 			<img
@@ -95,7 +100,23 @@
 				alt={resolvedIconAlt}
 				class="h-5 w-5 shrink-0 sm:h-6 sm:w-6"
 			/>
-			<span>{resolvedTitle}</span>
+			<div class="flex items-center gap-2 overflow-hidden">
+				<span class="truncate">{resolvedTitle}</span>
+				{#if onRefresh}
+					<button
+						type="button"
+						class="btn btn-ghost btn-xs btn-circle shrink-0"
+						onclick={(e) => {
+							e.stopPropagation();
+							onRefresh();
+						}}
+						disabled={loading}
+						aria-label={$t('common.buttons.refresh')}
+					>
+						<IconRefresh class="h-3.5 w-3.5 {loading ? 'animate-spin' : ''}" />
+					</button>
+				{/if}
+			</div>
 		</div>
 		<div class="ml-2 shrink-0 text-right">
 			{#if loading}
@@ -111,7 +132,7 @@
 				<div class="text-xs opacity-70 sm:text-sm">{balanceUsd}</div>
 			{/if}
 		</div>
-	</button>
+	</div>
 	<div class="collapse-content">
 		<div class="space-y-2 px-3 pb-1.5 sm:px-4 sm:pb-2">
 			<div class="flex items-center justify-between gap-2 text-sm">
@@ -130,7 +151,7 @@
 				</span>
 			</div>
 
-			{#if verificationStatus !== 'idle' || verificationMessage}
+			{#if (verificationStatus !== 'idle' && verificationStatus !== 'verifying') || (verificationMessage && verificationStatus !== 'verifying')}
 				<div class={`alert alert-outline text-sm ${walletStatusClass}`}>
 					<span data-testid="contract-funding-wallet-message">{verificationMessage}</span>
 				</div>

@@ -37,6 +37,8 @@
 					"taskee_title": "En Ubicación del Tasker",
 					"taskee_description": "El servicio se puede proporcionar en la ubicación del Tasker",
 					"tasker_config_title": "Configuración de Mi Ubicación",
+					"my_location_title": "Mi Ubicación",
+					"service_radius_title": "Radio de Servicio",
 					"service_location_label": "Ubicación Base del Servicio",
 					"service_location_hint": "Tu ubicación principal desde donde operas",
 					"service_location_picker_label": "Selecciona tu ubicación de servicio",
@@ -163,8 +165,7 @@
 					"name_label": "Nombre del Complemento",
 					"name_placeholder": "ej. Archivos Fuente, Revisiones Adicionales",
 					"description_label": "Descripción",
-					"description_hint": "Descripción opcional de qué incluye este complemento",
-					"description_placeholder": "Describe qué incluye este complemento...",
+					"description_placeholder": "Describe lo que proporciona este complemento...",
 					"price_label": "Precio",
 					"add": "Agregar Complemento"
 				},

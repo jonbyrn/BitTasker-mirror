@@ -37,6 +37,8 @@
 					"taskee_title": "At Tasker Location",
 					"taskee_description": "Service can be provided at the Tasker's location",
 					"tasker_config_title": "My Location Configuration",
+					"my_location_title": "My Location",
+					"service_radius_title": "Service Radius",
 					"service_location_label": "Service Base Location",
 					"service_location_hint": "Your primary location where you operate from",
 					"service_location_picker_label": "Select your service location",
@@ -163,8 +165,7 @@
 					"name_label": "Add-On Name",
 					"name_placeholder": "e.g. Source Files, Extra Revisions",
 					"description_label": "Description",
-					"description_hint": "Optional description of what this add-on includes",
-					"description_placeholder": "Describe what this add-on includes...",
+					"description_placeholder": "Describe what this add-on provides...",
 					"price_label": "Price",
 					"add": "Add Add-On"
 				},
