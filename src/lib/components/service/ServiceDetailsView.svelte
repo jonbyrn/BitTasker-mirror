@@ -29,6 +29,8 @@
 	import RequestQuoteModal from '$lib/components/service/RequestQuoteModal.svelte';
 	import ServiceInstantBuyModal from '$lib/components/service/ServiceInstantBuyModal.svelte';
 	import IconClose from '~icons/mdi/close';
+	import IconChevronLeft from '~icons/mdi/chevron-left';
+	import IconChevronRight from '~icons/mdi/chevron-right';
 	import IconStar from '~icons/mdi/star';
 	import IconCheck from '~icons/mdi/check';
 	import IconTruckDeliveryOutline from '~icons/mdi/truck-delivery-outline';
@@ -1375,11 +1377,28 @@
 		{ url: string; alt: string; width: number; height: number; size?: number }[]
 	>([]);
 	let lightbox: PhotoSwipeLightbox | null = null;
+	let isGalleryOpen = $state(false);
+	let isUserInteracting = $state(false);
+	let carouselInterval: ReturnType<typeof setInterval> | null = null;
+
+	function startCarouselInterval() {
+		if (carouselInterval) return;
+		carouselInterval = setInterval(() => {
+			if (!isGalleryOpen || isUserInteracting) return;
+			nextImage();
+		}, 5000);
+	}
+
+	function stopCarouselInterval() {
+		if (carouselInterval) {
+			clearInterval(carouselInterval);
+			carouselInterval = null;
+		}
+	}
 
 	onMount(async () => {
 		if (service?.portfolio) {
 			galleryImages = await prepareGalleryImages(service.portfolio);
-			// Wait for DOM to update with the new images
 			await tick();
 		}
 
@@ -1387,6 +1406,14 @@
 			gallery: '#service-gallery',
 			children: 'a',
 			pswpModule: () => import('photoswipe')
+		});
+		lightbox.on('open', () => {
+			isGalleryOpen = true;
+			startCarouselInterval();
+		});
+		lightbox.on('close', () => {
+			isGalleryOpen = false;
+			stopCarouselInterval();
 		});
 		lightbox.init();
 
@@ -1403,19 +1430,17 @@
 		if (browser && service) {
 			const recoverable = readRecoverableBookNowOutboxEntry(getBookNowOutboxStorage(), null);
 			if (recoverable && recoverable.state === 'contract_created') {
-				// Only auto-open if it matches this service
-				// In a real implementation we'd check fingerprint
 				void recoverBookNowContract(recoverable, {
 					onSuccess: (escrowId) => goto(buildContractsHighlightUrl(escrowId))
 				});
 			}
 		}
 
-		// Clean up stale outbox entries
 		clearTerminalOrStaleBookNowOutboxEntries(getBookNowOutboxStorage());
 	});
 
 	onDestroy(() => {
+		stopCarouselInterval();
 		if (lightbox) {
 			lightbox.destroy();
 			lightbox = null;
@@ -1498,20 +1523,20 @@
 						{/each}
 
 						{#if galleryImages.length > 1}
-							<!-- Vertical Bar Navigation -->
+							<!-- Full-height arrow navigation -->
 							<button
-								class="absolute top-0 left-0 z-10 flex h-full w-16 items-center justify-start bg-black/30 pl-2 transition-all hover:bg-black/50"
+								class="absolute top-0 left-0 z-10 flex h-full w-12 items-center justify-center bg-black/30 text-white hover:bg-black/50"
 								onclick={prevImage}
 								aria-label="Previous image"
 							>
-								<div class="h-12 w-1 rounded-full bg-white/80"></div>
+								<IconChevronLeft class="h-8 w-8" />
 							</button>
 							<button
-								class="absolute top-0 right-0 z-10 flex h-full w-16 items-center justify-end bg-black/30 pr-2 transition-all hover:bg-black/50"
+								class="absolute top-0 right-0 z-10 flex h-full w-12 items-center justify-center bg-black/30 text-white hover:bg-black/50"
 								onclick={nextImage}
 								aria-label="Next image"
 							>
-								<div class="h-12 w-1 rounded-full bg-white/80"></div>
+								<IconChevronRight class="h-8 w-8" />
 							</button>
 						{/if}
 					</div>
@@ -1548,22 +1573,29 @@
 										>
 									{/if}
 								</h1>
-								<div class="mb-3 flex items-center gap-1 text-sm font-bold">
-									<div class="text-warning flex items-center">
-										{#each Array(5) as _, i (i)}
-											<IconStar
-												class="h-4 w-4 {i < Math.round(effectiveCreator?.rating || 0)
-													? 'text-warning'
-													: 'text-base-content/20'}"
-											/>
-										{/each}
+								<div class="mb-3 flex items-center justify-between gap-1 text-sm font-bold">
+									<div class="flex items-center gap-1">
+										<div class="text-warning flex items-center">
+											{#each Array(5) as _, i (i)}
+												<IconStar
+													class="h-4 w-4 {i < Math.round(effectiveCreator?.rating || 0)
+														? 'text-warning'
+														: 'text-base-content/20'}"
+												/>
+											{/each}
+										</div>
+										<span class="ml-1"
+											>{effectiveCreator?.rating
+												? effectiveCreator?.rating.toFixed(1)
+												: '0.0'}</span
+										>
+										<span class="text-base-content/50 ml-1 font-medium"
+											>({effectiveCreator?.ratingCount || 0} {$t('common.reviews')})</span
+										>
 									</div>
-									<span class="ml-1"
-										>{effectiveCreator?.rating ? effectiveCreator?.rating.toFixed(1) : '0.0'}</span
-									>
-									<span class="text-base-content/50 ml-1 font-medium"
-										>({effectiveCreator?.ratingCount || 0} {$t('common.reviews')})</span
-									>
+									{#if !isPreview}
+										<ServiceShareButton {service} variant="circle" class="btn-sm" />
+									{/if}
 								</div>
 								<div class="text-base-content/70 mb-4 flex items-center gap-2 text-sm">
 									<IconMapMarker class="text-primary h-8 w-8 shrink-0" />
@@ -2065,8 +2097,8 @@
 					{/if}
 				</div>
 
-				<!-- Sidebar (Desktop Desktop) -->
-				<div class="hidden space-y-6 lg:block">
+				<!-- Sidebar (Desktop & Mobile) -->
+				<div class="space-y-6">
 					<!-- Purchase Card (Sidebar) -->
 					<div
 						class="bg-base-100 border-base-300 sticky top-24 space-y-6 rounded-2xl border p-6 shadow-sm"
@@ -2075,25 +2107,27 @@
 							<div class="alert alert-info alert-outline">
 								<span class="text-sm">{$t('dashboard.services.detail.you_are_provider')}</span>
 							</div>
-							<a
-								href="/dashboard/create-service?edit=true&serviceId={service.uniqueId ||
-									service.id}"
-								class="btn btn-primary w-full"
-							>
-								{$t('dashboard.services.detail.edit_service')}
-							</a>
-							<button
-								type="button"
-								class="btn btn-error btn-outline w-full"
-								onclick={handleDeleteService}
-								disabled={deleteCheckInFlight || deleteSubmitting}
-								>{#if deleteCheckInFlight || deleteSubmitting}<span
-										class="loading loading-spinner loading-xs"
-									></span>{/if}{detailText(
-									'dashboard.services.detail.delete_service',
-									'Delete Service'
-								)}</button
-							>
+							<div class="flex gap-2">
+								<button
+									type="button"
+									class="btn btn-error btn-outline flex-1"
+									onclick={handleDeleteService}
+									disabled={deleteCheckInFlight || deleteSubmitting}
+									>{#if deleteCheckInFlight || deleteSubmitting}<span
+											class="loading loading-spinner loading-xs"
+										></span>{/if}{detailText(
+										'dashboard.services.detail.delete_service',
+										'Delete'
+									)}</button
+								>
+								<a
+									href="/dashboard/create-service?edit=true&serviceId={service.uniqueId ||
+										service.id}"
+									class="btn btn-primary flex-1"
+								>
+									{$t('dashboard.services.detail.edit_service')}
+								</a>
+							</div>
 						{:else if service.status === 'active' || isPreview}
 							<div class="space-y-4">
 								<h3 class="text-lg font-bold">
