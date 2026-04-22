@@ -33,8 +33,7 @@
 	import IconHeartOutline from '~icons/mdi/heart-outline';
 	import IconCheck from '~icons/mdi/check';
 	import IconTruckDeliveryOutline from '~icons/mdi/truck-delivery-outline';
-	import IconChevronLeft from '~icons/mdi/chevron-left';
-	import IconChevronRight from '~icons/mdi/chevron-right';
+	import IconMapMarker from '~icons/mdi/map-marker';
 	import ServiceShareButton from './ServiceShareButton.svelte';
 	import PhotoSwipeLightbox from 'photoswipe/lightbox';
 	import 'photoswipe/style.css';
@@ -52,14 +51,7 @@
 	import { waitForContractCreationByTransactionHash } from '$lib/utils/service-contract/await-contract-creation';
 	import { describeServiceContractPreflightFailure } from '$lib/utils/service-contract/preflight-feedback';
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
-	import {
-		preflightServiceContractCreation,
-		type ServiceContractPreflightErrorCode
-	} from '$lib/utils/service-contract/preflight';
-	import {
-		clearPendingServiceContractNavigation,
-		writePendingServiceContractNavigation
-	} from '$lib/utils/service-contract/pending-navigation';
+	import { preflightServiceContractCreation } from '$lib/utils/service-contract/preflight';
 	import { appStore } from '$lib/stores/app.store';
 	import { ethers } from 'ethers';
 	import { escrow } from '$lib/utils/escrow';
@@ -67,6 +59,7 @@
 	import type { ContractCreationEvent } from '$lib/types/contract';
 	import { queryTaskeeServiceQuoteThreads } from '$lib/utils/service-quote/query';
 	import { summarizeDeleteGuardForThreads } from '$lib/utils/service-quote/resolver';
+	import { getActiveServiceContractsForService } from '$lib/utils/service-contract/active-contracts';
 	import { deleteService } from '$lib/nostr/service';
 	import { browserNetworkStatus } from '$lib/utils/network-status';
 	import { buildEarningQueryUrl } from '$lib/utils/dashboardQuery';
@@ -94,17 +87,44 @@
 	import PaymentRequestModal from '$lib/components/wallet/PaymentRequestModal.svelte';
 	import { loadNamespace, type SupportedLanguage } from '$lib/i18n/i18n';
 	import { SvelteSet } from 'svelte/reactivity';
+	import TaskLocationMap from '$lib/components/maps/TaskLocationMap.svelte';
 
-	let { service, serviceId } = $props<{
+	interface PreviewCreator {
+		avatar?: string | null;
+		username?: string | null;
+		rating?: number;
+		ratingCount?: number;
+		memberSince?: string | number;
+		pubkey?: string;
+	}
+
+	let {
+		service,
+		serviceId,
+		isPreview = false,
+		isDraft = false,
+		previewCreator = null
+	} = $props<{
 		service: Service | null;
 		serviceId: string;
+		isPreview?: boolean;
+		isDraft?: boolean;
+		previewCreator?: PreviewCreator | null;
 	}>();
+
+	const effectiveCreator = $derived(
+		isDraft && previewCreator ? { ...service?.creator, ...previewCreator } : service?.creator
+	);
 
 	const isOwner = $derived(service?.npub === $user?.npub);
 
 	const currentLocale = $derived($locale || 'en');
 
-	function detailText(key: string, fallback: string, values?: Record<string, string | number>): string {
+	function detailText(
+		key: string,
+		fallback: string,
+		values?: Record<string, string | number>
+	): string {
 		const translation = $t(key, { values });
 		return !translation || translation === key ? applyValues(fallback, values) : translation;
 	}
@@ -158,18 +178,11 @@
 		paymentRequestModal = {
 			isOpen: true,
 			...data
-		} as any;
+		} as typeof paymentRequestModal;
 	}
 
 	function closePaymentRequestModal() {
 		paymentRequestModal.isOpen = false;
-	}
-
-	function onPaymentRequestSuccess(data: Record<string, unknown>) {
-		if (data.swapId) {
-			console.log('Payment request successful, swap ID:', data.swapId);
-		}
-		closePaymentRequestModal();
 	}
 
 	const displayTitle = $derived(service ? getServiceDisplayTitle(service, currentLocale) : '');
@@ -203,8 +216,7 @@
 
 	$effect(() => {
 		if (tiersWithPrice.length > 0 && !selectedTierId) {
-			const firstTier =
-				tiersWithPrice.find((t: ServiceTier) => t.isPopular) || tiersWithPrice[0];
+			const firstTier = tiersWithPrice.find((t: ServiceTier) => t.isPopular) || tiersWithPrice[0];
 			selectedTierId = firstTier.id;
 			activeMobileTab = firstTier.id;
 		}
@@ -245,13 +257,13 @@
 		}
 	});
 
-	const adjustedDeliveryTime = $derived(
+	const _adjustedDeliveryTime = $derived(
 		requestRushDelivery && availableRushDelivery
 			? formatDeliveryTime(availableRushDelivery.deliveryTime)
 			: formatDeliveryTime(selectedTier?.deliveryTime ?? service?.pricing?.deliveryTime ?? null)
 	);
 
-	const adjustedTierPrice = $derived(
+	const _adjustedTierPrice = $derived(
 		requestRushDelivery && availableRushDelivery
 			? (selectedTier?.price ?? 0) + availableRushDelivery.price
 			: (selectedTier?.price ?? 0)
@@ -400,9 +412,9 @@
 
 	let instantBuyDraft = $state<InstantBuyDraft | null>(null);
 	let instantBuyPendingTransactionHash = $state('');
-	let instantBuyPendingAmountRbtc = $state('');
+	let _instantBuyPendingAmountRbtc = $state('');
 	let instantBuyPostSubmitErrorMessage = $state('');
-	let instantBuyBackgrounded = $state(false);
+	let _instantBuyBackgrounded = $state(false);
 	let bookNowSubmissionOwnerId = $state<string | null>(null);
 
 	let lastInstantBuyDebugSignature = '';
@@ -484,6 +496,64 @@
 			return translated.startsWith('categories.') ? cat.name : translated;
 		}
 		return typeof category === 'string' ? category : (category as { name: string }).name;
+	}
+
+	function hasValidServiceLocation(svc: Service): boolean {
+		const taskeeLocation = svc.locationDetails?.taskeeLocation?.serviceLocation;
+		const taskerLocation = svc.locationDetails?.taskerLocation?.serviceLocation;
+		return (
+			(taskeeLocation?.latitude != null && taskeeLocation?.longitude != null) ||
+			(taskerLocation?.latitude != null && taskerLocation?.longitude != null)
+		);
+	}
+
+	function getServiceLocationDisplay(svc: Service): {
+		address: string;
+		locationType: 'taskee' | 'tasker';
+		radius?: number;
+		latitude: number;
+		longitude: number;
+	} | null {
+		const taskeeLocation = svc.locationDetails?.taskeeLocation;
+		const taskerLocation = svc.locationDetails?.taskerLocation;
+
+		if (
+			taskeeLocation?.serviceLocation?.latitude != null &&
+			taskeeLocation?.serviceLocation?.longitude != null
+		) {
+			const address =
+				taskeeLocation.locationDisplayName ||
+				taskeeLocation.serviceLocation.displayName ||
+				taskeeLocation.serviceLocation.formattedAddress ||
+				'';
+			return {
+				address,
+				locationType: 'taskee',
+				radius: taskeeLocation.serviceRadius,
+				latitude: taskeeLocation.serviceLocation.latitude,
+				longitude: taskeeLocation.serviceLocation.longitude
+			};
+		}
+
+		if (
+			taskerLocation?.serviceLocation?.latitude != null &&
+			taskerLocation?.serviceLocation?.longitude != null
+		) {
+			const address =
+				taskerLocation.locationDisplayName ||
+				taskerLocation.serviceLocation.displayName ||
+				taskerLocation.serviceLocation.formattedAddress ||
+				'';
+			return {
+				address,
+				locationType: 'tasker',
+				radius: taskerLocation.serviceRadius,
+				latitude: taskerLocation.serviceLocation.latitude,
+				longitude: taskerLocation.serviceLocation.longitude
+			};
+		}
+
+		return null;
 	}
 
 	function isVideoFile(url: string): boolean {
@@ -650,8 +720,12 @@
 			return null;
 		}
 
-		const selectedAddOnsTotalAmount = selectedAddOns.reduce((sum, addOn) => sum + (addOn.price ?? 0), 0);
-		const rushDeliveryPrice = requestRushDelivery && availableRushDelivery ? availableRushDelivery.price : 0;
+		const selectedAddOnsTotalAmount = selectedAddOns.reduce(
+			(sum, addOn) => sum + (addOn.price ?? 0),
+			0
+		);
+		const rushDeliveryPrice =
+			requestRushDelivery && availableRushDelivery ? availableRushDelivery.price : 0;
 
 		if (runtimeService.pricing.type === ServicePricingTypeEnum.FIXED) {
 			return runtimeService.pricing.amount != null
@@ -814,14 +888,14 @@
 		instantBuyFundingCheck = null;
 		instantBuyFundingCheckInFlight = false;
 		instantBuyPendingTransactionHash = '';
-		instantBuyPendingAmountRbtc = '';
+		_instantBuyPendingAmountRbtc = '';
 		instantBuyPostSubmitErrorMessage = '';
-		instantBuyBackgrounded = false;
+		_instantBuyBackgrounded = false;
 	}
 
 	function handleCloseInstantBuyDrawer() {
 		if (showInstantBuyContractCreationProgress) {
-			instantBuyBackgrounded = true;
+			_instantBuyBackgrounded = true;
 			instantBuyModalOpen = false;
 			return;
 		}
@@ -1096,12 +1170,11 @@
 
 			if (entry.state === 'contract_created' && entry.transactionHash) {
 				instantBuyPendingTransactionHash = entry.transactionHash;
-				instantBuyPendingAmountRbtc = entry.amountRbtc || '';
+				_instantBuyPendingAmountRbtc = entry.amountRbtc || '';
 
-				const contract = await waitForContractCreationByTransactionHash(
-					entry.transactionHash,
-					{ timeoutMs: 45_000 }
-				);
+				const contract = await waitForContractCreationByTransactionHash(entry.transactionHash, {
+					timeoutMs: 45_000
+				});
 
 				updateBookNowOutboxForDraft(instantBuyDraft, 'escrow_created', {
 					escrowId: contract.escrowId
@@ -1299,7 +1372,9 @@
 
 	// --- Carousel Logic ---
 	let currentImageIndex = $state(0);
-	let galleryImages = $state<{ url: string; alt: string; width: number; height: number; size?: number }[]>([]);
+	let galleryImages = $state<
+		{ url: string; alt: string; width: number; height: number; size?: number }[]
+	>([]);
 	let lightbox: PhotoSwipeLightbox | null = null;
 
 	onMount(async () => {
@@ -1336,7 +1411,7 @@
 				});
 			}
 		}
-		
+
 		// Clean up stale outbox entries
 		clearTerminalOrStaleBookNowOutboxEntries(getBookNowOutboxStorage());
 	});
@@ -1377,98 +1452,143 @@
 	}
 </script>
 
-<div class="relative min-h-screen bg-base-200 pb-32">
+<div class="bg-base-200 relative min-h-screen {isPreview ? 'pb-4' : 'pb-32'}">
 	{#if !service}
 		<div class="flex flex-col items-center justify-center p-12 text-center">
-			<img src="/images/logos/bittasker-logomark.svg" alt="BitTasker" class="mx-auto h-16 w-16 opacity-20" />
-			<h2 class="mt-4 text-2xl font-bold">{detailText('dashboard.services.detail.not_found', 'Service Not Found')}</h2>
-			<p class="text-base-content/60 mt-2">{detailText('dashboard.services.detail.not_found_message', 'The service you\'re looking for could not be found or is no longer available.')}</p>
-			<a href="/services" class="btn btn-primary mt-8">{detailText('dashboard.services.detail.back_to_services', 'Back to Services')}</a>
+			<img
+				src="/images/logos/bittasker-logomark.svg"
+				alt="BitTasker"
+				class="mx-auto h-16 w-16 opacity-20"
+			/>
+			<h2 class="mt-4 text-2xl font-bold">
+				{detailText('dashboard.services.detail.not_found', 'Service Not Found')}
+			</h2>
+			<p class="text-base-content/60 mt-2">
+				{detailText(
+					'dashboard.services.detail.not_found_message',
+					"The service you're looking for could not be found or is no longer available."
+				)}
+			</p>
+			<a href="/services" class="btn btn-primary mt-8"
+				>{detailText('dashboard.services.detail.back_to_services', 'Back to Services')}</a
+			>
 		</div>
 	{:else}
 		<!-- Hero Section / Media -->
-		<div class="w-full bg-black relative overflow-hidden group">
-			<div class="aspect-video w-full max-h-[60vh] flex items-center justify-center">
+		<div class="group relative w-full overflow-hidden bg-black">
+			<div class="flex aspect-video max-h-[60vh] w-full items-center justify-center">
 				{#if galleryImages.length > 0}
-					<div class="relative w-full h-full" id="service-gallery">
+					<div class="relative h-full w-full" id="service-gallery">
 						{#each galleryImages as image, i (image.url || i)}
-							<a 
+							<a
 								href={image.url}
 								data-pswp-width={image.width || 1200}
 								data-pswp-height={image.height || 630}
-								class="absolute inset-0 transition-opacity duration-500 {i === currentImageIndex ? 'opacity-100 z-10' : 'opacity-0 z-0'}"
+								class="absolute inset-0 transition-opacity duration-500 {i === currentImageIndex
+									? 'z-10 opacity-100'
+									: 'z-0 opacity-0'}"
 							>
-								<img 
-									src={image.url} 
-									alt={image.alt || ''} 
-									class="w-full h-full object-cover"
+								<img
+									src={image.url}
+									alt={image.alt || ''}
+									class="h-full w-full object-cover"
 									loading={i === 0 ? 'eager' : 'lazy'}
 									decoding="async"
 								/>
 							</a>
 						{/each}
-						
+
 						{#if galleryImages.length > 1}
-							<!-- Glass-morphism Navigation Arrows -->
-							<button 
-								class="absolute left-4 top-1/2 -translate-y-1/2 z-20 btn btn-circle btn-sm bg-base-100/20 backdrop-blur-md border-white/10 text-white hover:bg-base-100/40 transition-all"
+							<!-- Vertical Bar Navigation -->
+							<button
+								class="absolute top-0 left-0 z-10 flex h-full w-16 items-center justify-start bg-black/30 pl-2 transition-all hover:bg-black/50"
 								onclick={prevImage}
 								aria-label="Previous image"
 							>
-								<IconChevronLeft class="h-6 w-6" />
+								<div class="h-12 w-1 rounded-full bg-white/80"></div>
 							</button>
-							<button 
-								class="absolute right-4 top-1/2 -translate-y-1/2 z-20 btn btn-circle btn-sm bg-base-100/20 backdrop-blur-md border-white/10 text-white hover:bg-base-100/40 transition-all"
+							<button
+								class="absolute top-0 right-0 z-10 flex h-full w-16 items-center justify-end bg-black/30 pr-2 transition-all hover:bg-black/50"
 								onclick={nextImage}
 								aria-label="Next image"
 							>
-								<IconChevronRight class="h-6 w-6" />
+								<div class="h-12 w-1 rounded-full bg-white/80"></div>
 							</button>
 						{/if}
 					</div>
 				{:else}
-					<div class="flex flex-col items-center justify-center text-base-content/20">
-						<img src="/images/logos/bittasker-logomark.svg" alt="BitTasker" class="h-16 w-16 opacity-20" />
+					<div class="text-base-content/20 flex flex-col items-center justify-center">
+						<img
+							src="/images/logos/bittasker-logomark.svg"
+							alt="BitTasker"
+							class="h-16 w-16 opacity-20"
+						/>
 					</div>
 				{/if}
 			</div>
 		</div>
 
-		<div class="container mx-auto px-4 pb-8 -mt-4 md:-mt-12 relative z-10">
-			<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-				<div class="lg:col-span-2 space-y-8 relative z-20">
+		<div class="relative z-10 container mx-auto -mt-4 px-4 pb-8 md:-mt-12">
+			<div class="grid grid-cols-1 gap-8 lg:grid-cols-3">
+				<div class="relative z-20 space-y-8 lg:col-span-2">
 					<!-- Desktop Title, Description & Action Header -->
-					<div class="bg-base-100 rounded-2xl p-6 md:p-8 shadow-sm border border-base-300 hidden lg:block">
-						<div class="flex flex-col md:flex-row md:items-start gap-6">
+					<div
+						class="bg-base-100 border-base-300 hidden rounded-2xl border p-6 shadow-sm md:p-8 lg:block"
+					>
+						<div class="flex flex-col gap-6 md:flex-row md:items-start">
 							<div class="flex-1">
-								<h1 class="text-3xl font-bold leading-tight mb-3">
+								<h1 class="mb-3 text-3xl leading-tight font-bold">
 									{displayTitle}
+									{#if isPreview}
+										<span class="badge badge-secondary ml-2"
+											>{$t('dashboard.services.create.review.preview_badge', 'Preview')}</span
+										>
+									{:else if isDraft}
+										<span class="badge badge-warning ml-2"
+											>{$t('dashboard.services.create.review.draft_badge', 'Draft')}</span
+										>
+									{/if}
 								</h1>
-								<div class="flex items-center justify-between mb-4">
-									<div class="flex items-center gap-1 text-sm font-bold">
-										<div class="flex items-center text-warning">
-											{#each Array(5) as _, i (i)}
-												<IconStar class="h-4 w-4 {i < Math.round(service.creator?.rating || 0) ? 'text-warning' : 'text-base-content/20'}" />
-											{/each}
-										</div>
-										<span class="ml-1">{service.creator?.rating ? service.creator.rating.toFixed(1) : '0.0'}</span>
-										<span class="text-base-content/50 font-medium ml-1">({service.creator?.ratingCount || 0} {$t('common.reviews')})</span>
+								<div class="mb-3 flex items-center gap-1 text-sm font-bold">
+									<div class="text-warning flex items-center">
+										{#each Array(5) as _, i (i)}
+											<IconStar
+												class="h-4 w-4 {i < Math.round(effectiveCreator?.rating || 0)
+													? 'text-warning'
+													: 'text-base-content/20'}"
+											/>
+										{/each}
 									</div>
-									<div class="flex items-center gap-3">
-										<ServiceShareButton {service} variant="circle" class="btn-sm" />
-										<button class="btn btn-circle btn-sm" aria-label="Save service">
-											<IconHeartOutline class="h-4 w-4" />
-										</button>
-									</div>
+									<span class="ml-1"
+										>{effectiveCreator?.rating ? effectiveCreator?.rating.toFixed(1) : '0.0'}</span
+									>
+									<span class="text-base-content/50 ml-1 font-medium"
+										>({effectiveCreator?.ratingCount || 0} {$t('common.reviews')})</span
+									>
+								</div>
+								<div class="text-base-content/70 mb-4 flex items-center gap-2 text-sm">
+									<IconMapMarker class="text-primary h-8 w-8 shrink-0" />
+									{#if getServiceLocationDisplay(service)}
+										{@const headerLocation = getServiceLocationDisplay(service)}
+										<a
+											href="https://www.google.com/maps/search/?api=1&query={headerLocation!
+												.latitude},{headerLocation!.longitude}"
+											target="_blank"
+											rel="noopener noreferrer"
+											class="link link-primary">{headerLocation!.address}</a
+										>
+									{:else}
+										<span>Remote</span>
+									{/if}
 								</div>
 								<div class="text-base-content/80 text-sm leading-relaxed whitespace-pre-line">
 									{displayDescriptionFull}
 								</div>
 
 								{#if service.categories && service.categories.length > 0}
-									<div class="flex flex-wrap gap-2 mt-6">
+									<div class="mt-6 flex flex-wrap gap-2">
 										{#each service.categories as category (category.slug || category.id || category)}
-											<span class="badge badge-primary text-xs py-3">
+											<span class="badge badge-primary py-3 text-xs">
 												{translateCategory(category)}
 											</span>
 										{/each}
@@ -1480,59 +1600,95 @@
 
 					<!-- Tier Comparison Cards (Desktop Only) -->
 					{#if tiersWithPrice.length > 0}
-						<div class="hidden lg:block space-y-6">
+						<div class="hidden space-y-6 lg:block">
 							<div class="flex items-center justify-between">
-								<h3 class="text-2xl font-bold">{detailText('dashboard.services.detail.compare_packages', 'Compare packages')}</h3>
+								<h3 class="text-2xl font-bold">
+									{detailText('dashboard.services.detail.compare_packages', 'Compare packages')}
+								</h3>
 							</div>
 
-							<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+							<div class="grid grid-cols-1 gap-3 md:grid-cols-3">
 								{#each tiersWithPrice as tier (tier.id)}
-									<div 
-										class="card bg-base-100 border relative cursor-pointer {selectedTierId === tier.id ? 'border-primary ring-2 ring-primary/20 shadow-md' : 'border-base-300 shadow-sm hover:border-primary/50'} transition-all duration-200"
+									<div
+										class="card bg-base-100 relative cursor-pointer border {selectedTierId ===
+										tier.id
+											? 'border-primary ring-primary/20 shadow-md ring-2'
+											: 'border-base-300 hover:border-primary/50 shadow-sm'} transition-all duration-200"
 										onclick={() => (selectedTierId = tier.id)}
-										onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') selectedTierId = tier.id; }}
+										onkeydown={(e) => {
+											if (e.key === 'Enter' || e.key === ' ') selectedTierId = tier.id;
+										}}
 										role="button"
 										tabindex="0"
 									>
 										{#if tier.id === popularTierId}
-											<div class="absolute -top-3 left-1/2 -translate-x-1/2 z-10">
-												<span class="badge badge-primary font-black text-[10px] uppercase tracking-widest py-3 px-4 shadow-sm border-none">
+											<div class="absolute -top-3 left-1/2 z-10 -translate-x-1/2">
+												<span
+													class="badge badge-primary border-none px-4 py-3 text-[10px] font-black tracking-widest uppercase shadow-sm"
+												>
 													{detailText('dashboard.services.detail.popular', 'Popular')}
 												</span>
 											</div>
 										{/if}
-										<div class="card-body p-6 flex flex-col h-full">
+										<div class="card-body flex h-full flex-col p-6">
 											<!-- Header -->
 											<div class="mb-4">
-												<h4 class="text-xs uppercase tracking-widest font-black opacity-60 mb-1">{tier.name}</h4>
-												<div class="text-3xl font-black text-primary">${formatNumberWithTwoDecimals(tier.price)}</div>
+												<h4 class="mb-1 text-xs font-black tracking-widest uppercase opacity-60">
+													{tier.name}
+												</h4>
+												<div class="text-primary text-3xl font-black">
+													${formatNumberWithTwoDecimals(tier.price)}
+												</div>
 											</div>
 
 											<!-- Description -->
 											<div class="mb-6 flex-none">
-												<div class="overflow-hidden transition-[max-height] duration-500 ease-in-out relative {tierExpanded[tier.id] ? 'max-h-[1000px]' : 'max-h-[4.5rem]'}">
-													<p class="text-sm text-base-content/80">
+												<div
+													class="relative overflow-hidden transition-[max-height] duration-500 ease-in-out {tierExpanded[
+														tier.id
+													]
+														? 'max-h-[1000px]'
+														: 'max-h-[4.5rem]'}"
+												>
+													<p class="text-base-content/80 text-sm">
 														{tier.description}
 													</p>
 													{#if !tierExpanded[tier.id] && tier.description && tier.description.length > 80}
-														<div class="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-base-100 to-transparent pointer-events-none"></div>
+														<div
+															class="from-base-100 pointer-events-none absolute right-0 bottom-0 left-0 h-8 bg-gradient-to-t to-transparent"
+														></div>
 													{/if}
 												</div>
 												{#if tier.description && tier.description.length > 80}
-													<button 
-														class="text-[10px] font-black uppercase tracking-wider text-primary mt-2 hover:opacity-80 transition-opacity relative z-10"
-														onclick={(e) => { e.stopPropagation(); toggleTierExpansion(tier.id); }}
+													<button
+														class="text-primary relative z-10 mt-2 text-[10px] font-black tracking-wider uppercase transition-opacity hover:opacity-80"
+														onclick={(e) => {
+															e.stopPropagation();
+															toggleTierExpansion(tier.id);
+														}}
 													>
-														{tierExpanded[tier.id] ? detailText('dashboard.services.detail.see_less', 'Show less') : detailText('dashboard.services.detail.see_more', 'Show more')}
+														{tierExpanded[tier.id]
+															? detailText('dashboard.services.detail.see_less', 'Show less')
+															: detailText('dashboard.services.detail.see_more', 'Show more')}
 													</button>
 												{/if}
 											</div>
 
 											<!-- Meta -->
-											<div class="flex items-center gap-2 text-sm font-bold bg-base-200/50 p-3 rounded-lg mb-6">
-												<IconTruckDeliveryOutline class="{requestRushDelivery && availableRushDelivery && tier.id === selectedTierId ? 'text-primary' : 'text-base-content/60'} h-5 w-5 shrink-0" />
+											<div
+												class="bg-base-200/50 mb-6 flex items-center gap-2 rounded-lg p-3 text-sm font-bold"
+											>
+												<IconTruckDeliveryOutline
+													class="{requestRushDelivery &&
+													availableRushDelivery &&
+													tier.id === selectedTierId
+														? 'text-primary'
+														: 'text-base-content/60'} h-5 w-5 shrink-0"
+												/>
 												{#if requestRushDelivery && availableRushDelivery && tier.id === selectedTierId}
-													<span class="text-primary">{formatDeliveryTime(availableRushDelivery.deliveryTime)}</span>
+													<span class="text-primary"
+														>{formatDeliveryTime(availableRushDelivery.deliveryTime)}</span
+													>
 												{:else}
 													<span>{formatDeliveryTime(tier.deliveryTime)}</span>
 												{/if}
@@ -1540,12 +1696,16 @@
 
 											<!-- Features -->
 											<div class="flex-1">
-												<h5 class="text-[10px] uppercase font-bold tracking-widest opacity-50 mb-3">{detailText('dashboard.services.detail.included_label', 'Included')}</h5>
+												<h5 class="mb-3 text-[10px] font-bold tracking-widest uppercase opacity-50">
+													{detailText('dashboard.services.detail.included_label', 'Included')}
+												</h5>
 												<ul class="space-y-3">
 													{#each tier.features as feature (feature)}
 														<li class="flex items-start gap-3 text-sm">
 															<IconCheck class="text-success h-5 w-5 shrink-0" />
-															<span class="text-base-content/90 font-medium leading-snug">{feature}</span>
+															<span class="text-base-content/90 leading-snug font-medium"
+																>{feature}</span
+															>
 														</li>
 													{/each}
 												</ul>
@@ -1553,8 +1713,10 @@
 
 											<!-- Footer Selection Button -->
 											<div class="mt-8">
-												<button 
-													class="btn btn-block {selectedTierId === tier.id ? 'btn-primary shadow-lg shadow-primary/20' : 'btn-outline border-base-300'} transition-all"
+												<button
+													class="btn btn-block {selectedTierId === tier.id
+														? 'btn-primary shadow-primary/20 shadow-lg'
+														: 'btn-outline border-base-300'} transition-all"
 													onclick={() => (selectedTierId = tier.id)}
 												>
 													{selectedTierId === tier.id ? $t('common.selected') : $t('common.select')}
@@ -1567,35 +1729,97 @@
 						</div>
 					{/if}
 
+					<!-- Desktop Service Location Map -->
+					{#if hasValidServiceLocation(service)}
+						{@const locationDisplay = getServiceLocationDisplay(service)}
+						{#if locationDisplay}
+							<div
+								class="bg-base-100 border-base-300 hidden rounded-2xl border p-6 shadow-sm lg:block"
+							>
+								<h3 class="mb-4 text-lg font-bold">Service Location</h3>
+								<div class="mb-3 overflow-hidden rounded-lg">
+									<TaskLocationMap
+										services={[service]}
+										height="250px"
+										zoomOffset={3}
+										showMyLocationButton={false}
+									/>
+								</div>
+								<p class="text-base-content/70 text-sm">
+									📍 <a
+										href="https://www.google.com/maps/search/?api=1&query={locationDisplay.latitude},{locationDisplay.longitude}"
+										target="_blank"
+										rel="noopener noreferrer"
+										class="link link-primary">{locationDisplay.address}</a
+									>
+								</p>
+								<p class="text-base-content/60 mt-1 text-sm">
+									{#if locationDisplay.locationType === 'taskee'}
+										🏠 At Taskee Location
+									{:else}
+										🏠 At My Location {#if locationDisplay.radius}• {locationDisplay.radius} km{/if}
+									{/if}
+								</p>
+							</div>
+						{/if}
+					{/if}
+
 					<!-- Relocated Title, Description & Provider (Mobile) -->
-					<div class="lg:hidden bg-base-100 rounded-t-[2rem] rounded-b-2xl p-6 shadow-xl border border-base-200 -mt-12 relative z-10 space-y-6">
+					<div
+						class="bg-base-100 border-base-200 relative z-10 -mt-12 space-y-6 rounded-t-[2rem] rounded-b-2xl border p-6 shadow-xl lg:hidden"
+					>
 						<div>
-							<h3 class="text-xl font-bold mb-3">{displayTitle}</h3>
-							<div class="flex items-center justify-between mb-4">
+							<h3 class="mb-3 text-xl font-bold">{displayTitle}</h3>
+							<div class="mb-4 flex items-center justify-between">
 								<div class="flex items-center gap-1 text-sm font-bold">
-									<div class="flex items-center text-warning">
+									<div class="text-warning flex items-center">
 										{#each Array(5) as _, i (i)}
-											<IconStar class="h-4 w-4 {i < Math.round(service.creator?.rating || 0) ? 'text-warning' : 'text-base-content/20'}" />
+											<IconStar
+												class="h-4 w-4 {i < Math.round(effectiveCreator?.rating || 0)
+													? 'text-warning'
+													: 'text-base-content/20'}"
+											/>
 										{/each}
 									</div>
-									<span class="ml-1">{service.creator?.rating ? service.creator.rating.toFixed(1) : '0.0'}</span>
-									<span class="text-base-content/50 font-medium ml-1">({service.creator?.ratingCount || 0} {$t('common.reviews')})</span>
+									<span class="ml-1"
+										>{effectiveCreator?.rating ? effectiveCreator?.rating.toFixed(1) : '0.0'}</span
+									>
+									<span class="text-base-content/50 ml-1 font-medium"
+										>({effectiveCreator?.ratingCount || 0} {$t('common.reviews')})</span
+									>
 								</div>
-								<div class="flex items-center gap-3">
-									<ServiceShareButton {service} variant="circle" class="btn-sm" />
-									<button class="btn btn-circle btn-sm" aria-label="Save service">
-										<IconHeartOutline class="h-4 w-4" />
-									</button>
-								</div>
+								{#if !isPreview}
+									<div class="flex items-center gap-3">
+										<ServiceShareButton {service} variant="circle" class="btn-sm" />
+										<button class="btn btn-circle btn-sm" aria-label="Save service">
+											<IconHeartOutline class="h-4 w-4" />
+										</button>
+									</div>
+								{/if}
+							</div>
+							<div class="text-base-content/70 mb-4 flex items-center gap-2 text-sm">
+								<IconMapMarker class="text-primary h-8 w-8 shrink-0" />
+								{#if getServiceLocationDisplay(service)}
+									{@const headerLocation = getServiceLocationDisplay(service)}
+									<a
+										href="https://www.google.com/maps/search/?api=1&query={headerLocation!
+											.latitude},{headerLocation!.longitude}"
+										target="_blank"
+										rel="noopener noreferrer"
+										class="link link-primary">{headerLocation!.address}</a
+									>
+								{:else}
+									<span>Remote</span>
+								{/if}
 							</div>
 							<div class="text-base-content/80 text-sm leading-relaxed whitespace-pre-line">
 								{displayDescriptionFull}
 							</div>
 
 							{#if service.categories && service.categories.length > 0}
-								<div class="flex flex-wrap gap-2 mt-4">
+								<div class="mt-4 flex flex-wrap gap-2">
 									{#each service.categories as category (category.slug || category.id || category)}
-										<span class="badge badge-primary text-xs py-3">
+										<span class="badge badge-primary py-3 text-xs">
 											{translateCategory(category)}
 										</span>
 									{/each}
@@ -1603,13 +1827,13 @@
 							{/if}
 						</div>
 
-						<div class="pt-6 border-t border-base-200">
+						<div class="border-base-200 border-t pt-6">
 							<UserInfoDisplay
-								avatar={service.creator?.avatar}
-								username={service.creator?.username}
-								rating={service.creator?.rating}
-								pubkey={service.npub}
-								memberSince={service.createdAt}
+								avatar={effectiveCreator?.avatar}
+								username={effectiveCreator?.username}
+								rating={effectiveCreator?.rating}
+								pubkey={isDraft && previewCreator ? previewCreator.pubkey : service.npub}
+								memberSince={effectiveCreator?.memberSince ?? service.createdAt}
 								size="md"
 							/>
 						</div>
@@ -1617,63 +1841,99 @@
 
 					<!-- Mobile Tier Selector (Mobile Only) -->
 					{#if tiersWithPrice.length > 0}
-						<div class="lg:hidden bg-base-100 rounded-2xl overflow-hidden shadow-sm border border-base-300">
-							<div class="tabs tabs-bordered bg-base-100 p-1 flex border-b border-base-200">
+						<div
+							class="bg-base-100 border-base-300 overflow-hidden rounded-2xl border shadow-sm lg:hidden"
+						>
+							<div class="tabs tabs-bordered bg-base-100 border-base-200 flex border-b p-1">
 								{#each tiersWithPrice as tier (tier.id)}
-									<button 
-										class="tab flex-1 transition-all duration-200 h-14 relative {activeMobileTab === tier.id ? 'tab-active font-bold text-primary' : 'text-base-content/60'}"
+									<button
+										class="tab relative h-14 flex-1 transition-all duration-200 {activeMobileTab ===
+										tier.id
+											? 'tab-active text-primary font-bold'
+											: 'text-base-content/60'}"
 										onclick={() => handleTabChange(tier.id)}
 									>
 										<div class="flex flex-col items-center gap-0.5">
 											{#if tier.id === popularTierId}
-												<span class="text-[8px] uppercase font-black tracking-widest text-primary/70 -mt-1">{detailText('dashboard.services.detail.popular', 'Popular')}</span>
+												<span
+													class="text-primary/70 -mt-1 text-[8px] font-black tracking-widest uppercase"
+													>{detailText('dashboard.services.detail.popular', 'Popular')}</span
+												>
 											{/if}
-											<span class="text-[10px] uppercase tracking-tighter opacity-70 leading-none">{tier.name}</span>
-											<span class="text-sm font-bold leading-none">${formatNumberWithTwoDecimals(tier.price)}</span>
+											<span class="text-[10px] leading-none tracking-tighter uppercase opacity-70"
+												>{tier.name}</span
+											>
+											<span class="text-sm leading-none font-bold"
+												>${formatNumberWithTwoDecimals(tier.price)}</span
+											>
 										</div>
 									</button>
 								{/each}
 							</div>
 
 							{#if selectedTier}
-								<div class="p-6 space-y-6">
-									<div class="flex justify-between items-start">
+								<div class="space-y-6 p-6">
+									<div class="flex items-start justify-between">
 										<div class="min-w-0">
-											<h3 class="font-bold text-xl truncate">{selectedTier.name}</h3>
+											<h3 class="truncate text-xl font-bold">{selectedTier.name}</h3>
 											<div class="mt-1">
-												<div class="overflow-hidden transition-[max-height] duration-500 ease-in-out relative {tierExpanded[selectedTier.id] ? 'max-h-[1000px]' : 'max-h-[4.5rem]'}">
+												<div
+													class="relative overflow-hidden transition-[max-height] duration-500 ease-in-out {tierExpanded[
+														selectedTier.id
+													]
+														? 'max-h-[1000px]'
+														: 'max-h-[4.5rem]'}"
+												>
 													<p class="text-base-content/70 text-sm">
 														{selectedTier.description}
 													</p>
 													{#if !tierExpanded[selectedTier.id] && selectedTier.description && selectedTier.description.length > 80}
-														<div class="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-base-100 to-transparent pointer-events-none"></div>
+														<div
+															class="from-base-100 pointer-events-none absolute right-0 bottom-0 left-0 h-8 bg-gradient-to-t to-transparent"
+														></div>
 													{/if}
 												</div>
 												{#if selectedTier.description && selectedTier.description.length > 80}
-													<button 
-														class="text-[10px] font-black uppercase tracking-wider text-primary mt-2 hover:opacity-80 transition-opacity relative z-10"
+													<button
+														class="text-primary relative z-10 mt-2 text-[10px] font-black tracking-wider uppercase transition-opacity hover:opacity-80"
 														onclick={() => toggleTierExpansion(selectedTier.id)}
 													>
-														{tierExpanded[selectedTier.id] ? detailText('dashboard.services.detail.see_less', 'Show less') : detailText('dashboard.services.detail.see_more', 'Show more')}
+														{tierExpanded[selectedTier.id]
+															? detailText('dashboard.services.detail.see_less', 'Show less')
+															: detailText('dashboard.services.detail.see_more', 'Show more')}
 													</button>
 												{/if}
 											</div>
 										</div>
-										<span class="text-2xl font-black text-primary ml-4 shrink-0">${formatNumberWithTwoDecimals(selectedTier.price)}</span>
+										<span class="text-primary ml-4 shrink-0 text-2xl font-black"
+											>${formatNumberWithTwoDecimals(selectedTier.price)}</span
+										>
 									</div>
 
 									<div class="flex items-center gap-2 text-sm">
-										<IconTruckDeliveryOutline class="{requestRushDelivery && availableRushDelivery ? 'text-primary' : 'text-base-content/60'} h-4 w-4" />
-										<span class="font-bold">{requestRushDelivery && availableRushDelivery ? formatDeliveryTime(availableRushDelivery.deliveryTime) : formatDeliveryTime(selectedTier.deliveryTime)}</span>
+										<IconTruckDeliveryOutline
+											class="{requestRushDelivery && availableRushDelivery
+												? 'text-primary'
+												: 'text-base-content/60'} h-4 w-4"
+										/>
+										<span class="font-bold"
+											>{requestRushDelivery && availableRushDelivery
+												? formatDeliveryTime(availableRushDelivery.deliveryTime)
+												: formatDeliveryTime(selectedTier.deliveryTime)}</span
+										>
 									</div>
 
-									<div class="pt-4 border-t border-base-200">
-										<h5 class="text-[10px] uppercase font-bold tracking-widest opacity-50 mb-3">{detailText('dashboard.services.detail.included_label', 'Included')}</h5>
+									<div class="border-base-200 border-t pt-4">
+										<h5 class="mb-3 text-[10px] font-bold tracking-widest uppercase opacity-50">
+											{detailText('dashboard.services.detail.included_label', 'Included')}
+										</h5>
 										<ul class="space-y-3">
 											{#each selectedTier.features as feature (feature)}
 												<li class="flex items-start gap-3 text-sm">
-													<IconCheck class="text-success h-4 w-4 shrink-0 mt-0.5" />
-													<span class="text-base-content/80 font-medium leading-snug">{feature}</span>
+													<IconCheck class="text-success mt-0.5 h-4 w-4 shrink-0" />
+													<span class="text-base-content/80 leading-snug font-medium"
+														>{feature}</span
+													>
 												</li>
 											{/each}
 										</ul>
@@ -1683,12 +1943,49 @@
 						</div>
 					{/if}
 
+					<!-- Mobile Service Location Map -->
+					{#if hasValidServiceLocation(service)}
+						{@const locationDisplay = getServiceLocationDisplay(service)}
+						{#if locationDisplay}
+							<div class="bg-base-100 border-base-300 rounded-2xl border p-6 shadow-sm lg:hidden">
+								<h3 class="mb-4 text-lg font-bold">Service Location</h3>
+								<div class="mb-3 overflow-hidden rounded-lg">
+									<TaskLocationMap
+										services={[service]}
+										height="200px"
+										zoomOffset={3}
+										showMyLocationButton={false}
+									/>
+								</div>
+								<p class="text-base-content/70 text-sm">
+									📍 <a
+										href="https://www.google.com/maps/search/?api=1&query={locationDisplay.latitude},{locationDisplay.longitude}"
+										target="_blank"
+										rel="noopener noreferrer"
+										class="link link-primary">{locationDisplay.address}</a
+									>
+								</p>
+								<p class="text-base-content/60 mt-1 text-sm">
+									{#if locationDisplay.locationType === 'taskee'}
+										🏠 At Taskee Location
+									{:else}
+										🏠 At My Location {#if locationDisplay.radius}• {locationDisplay.radius} km{/if}
+									{/if}
+								</p>
+							</div>
+						{/if}
+					{/if}
+
 					<!-- Mobile Add-ons & Total Section -->
-					{#if !isOwner && service.status === 'active' && (displayAddOns.length > 0 || availableRushDelivery)}
-						<div class="lg:hidden bg-base-100 rounded-2xl p-6 shadow-sm border border-base-300 space-y-4">
-							<h3 class="font-bold text-lg">{detailText('dashboard.services.detail.customize_order', 'Customize Your Order')}</h3>
-							
-							<div class="border-t border-base-200 pt-4 space-y-3">
+					{#if (!isOwner || isPreview) && (service.status === 'active' || isPreview) && (displayAddOns.length > 0 || availableRushDelivery)}
+						<div
+							class="bg-base-100 border-base-300 space-y-4 rounded-2xl border p-6 shadow-sm lg:hidden"
+						>
+							<h3 class="text-lg font-bold">
+								{detailText('dashboard.services.detail.customize_order', 'Customize Your Order')}
+							</h3>
+
+							<div class="border-base-200 space-y-3 border-t pt-4">
 								{#if displayAddOns.length > 0 || availableRushDelivery}
 									<ServiceAddOnsSelector
 										addOns={displayAddOns}
@@ -1696,39 +1993,50 @@
 										bind:selectedAddOnIds
 										bind:requestRushDelivery
 										rushDelivery={availableRushDelivery}
-										disabled={service?.pricing?.type === ServicePricingTypeEnum.TIERED && !selectedTierId}
+										disabled={service?.pricing?.type === ServicePricingTypeEnum.TIERED &&
+											!selectedTierId}
 									/>
 								{/if}
 							</div>
-							
-							<div class="border-t border-base-200 pt-4">
-								<div class="flex justify-between items-center">
-									<span class="text-sm font-medium text-base-content/70">{detailText('dashboard.services.detail.total_amount_label', 'Total')}</span>
-									<span class="text-2xl font-black text-primary">${formatNumberWithTwoDecimals(totalAmountUsd)}</span>
+
+							<div class="border-base-200 border-t pt-4">
+								<div class="flex items-center justify-between">
+									<span class="text-base-content/70 text-sm font-medium"
+										>{detailText('dashboard.services.detail.total_amount_label', 'Total')}</span
+									>
+									<span class="text-primary text-2xl font-black"
+										>${formatNumberWithTwoDecimals(totalAmountUsd)}</span
+									>
 								</div>
 							</div>
-<div class="pt-4">
-								{#if showInstantBuyCta}
-									<div class="flex gap-2">
+							<div class="pt-4">
+								{#if !isPreview}
+									{#if showInstantBuyCta}
+										<div class="flex gap-2">
+											<button
+												class="btn btn-outline flex-1"
+												onclick={handleOpenRequestQuote}
+												disabled={isOffline}
+												>{detailText('dashboard.services.detail.request_quote', 'Inquire')}</button
+											>
+											<button
+												class="btn btn-primary shadow-primary/20 flex-1 shadow-lg"
+												onclick={handleOpenInstantBuy}
+												disabled={instantBuyPreparing || isOffline}
+												>{#if instantBuyPreparing}<span class="loading loading-spinner loading-xs"
+													></span>{/if}{instantBuyEligibility.code === 'missing_selected_tier'
+													? detailText('dashboard.services.detail.select_package', 'Select Package')
+													: detailText('dashboard.services.detail.book_now', 'Book Now')}</button
+											>
+										</div>
+									{:else}
 										<button
-											class="btn btn-outline flex-1"
+											class="btn btn-primary w-full"
 											onclick={handleOpenRequestQuote}
 											disabled={isOffline}
-										>{detailText('dashboard.services.detail.request_quote', 'Request Quote')}</button>
-										<button
-											class="btn btn-primary flex-1 shadow-lg shadow-primary/20"
-											onclick={handleOpenInstantBuy}
-											disabled={instantBuyPreparing || isOffline}
-										>{#if instantBuyPreparing}<span
-												class="loading loading-spinner loading-xs"
-											></span>{/if}{instantBuyEligibility.code === 'missing_selected_tier' ? detailText('dashboard.services.detail.select_package', 'Select Package') : detailText('dashboard.services.detail.book_now', 'Book Now')}</button>
-									</div>
- {:else}
-									<button
-										class="btn btn-primary w-full"
-										onclick={handleOpenRequestQuote}
-										disabled={isOffline}
-									>{detailText('dashboard.services.detail.request_quote', 'Request Quote')}</button>
+											>{detailText('dashboard.services.detail.request_quote', 'Inquire')}</button
+										>
+									{/if}
 								{/if}
 							</div>
 						</div>
@@ -1736,19 +2044,23 @@
 
 					<!-- FAQs -->
 					{#if displayFaqs.length > 0}
-						<div class="card bg-base-100 rounded-2xl shadow-sm border border-base-300 overflow-hidden">
+						<div
+							class="card bg-base-100 border-base-300 overflow-hidden rounded-2xl border shadow-sm"
+						>
 							<div class="p-6 pb-0">
 								<h2 class="text-xl font-bold">{$t('dashboard.services.detail.faqs')}</h2>
 							</div>
 							<div class="p-6 pt-4">
 								<div class="join join-vertical w-full">
 									{#each displayFaqs as faq (faq.id || faq.question)}
-										<div class="collapse collapse-arrow join-item border-b border-base-200 last:border-b-0">
-											<input type="radio" name="my-accordion-4" checked /> 
+										<div
+											class="collapse-arrow join-item border-base-200 collapse border-b last:border-b-0"
+										>
+											<input type="radio" name="my-accordion-4" checked />
 											<div class="collapse-title text-base font-bold">
 												{faq.question}
 											</div>
-											<div class="collapse-content text-base-content/70"> 
+											<div class="collapse-content text-base-content/70">
 												<p>{faq.answer}</p>
 											</div>
 										</div>
@@ -1760,15 +2072,18 @@
 				</div>
 
 				<!-- Sidebar (Desktop Desktop) -->
-				<div class="hidden lg:block space-y-6">
+				<div class="hidden space-y-6 lg:block">
 					<!-- Purchase Card (Sidebar) -->
-					<div class="bg-base-100 sticky top-24 rounded-2xl p-6 shadow-sm border border-base-300 space-y-6">
-						{#if isOwner}
+					<div
+						class="bg-base-100 border-base-300 sticky top-24 space-y-6 rounded-2xl border p-6 shadow-sm"
+					>
+						{#if isOwner && !isPreview}
 							<div class="alert alert-info alert-outline">
 								<span class="text-sm">{$t('dashboard.services.detail.you_are_provider')}</span>
 							</div>
 							<a
-								href="/dashboard/create-service?edit=true&serviceId={service.uniqueId || service.id}"
+								href="/dashboard/create-service?edit=true&serviceId={service.uniqueId ||
+									service.id}"
 								class="btn btn-primary w-full"
 							>
 								{$t('dashboard.services.detail.edit_service')}
@@ -1778,46 +2093,63 @@
 								class="btn btn-error btn-outline w-full"
 								onclick={handleDeleteService}
 								disabled={deleteCheckInFlight || deleteSubmitting}
-							>{#if deleteCheckInFlight || deleteSubmitting}<span
-									class="loading loading-spinner loading-xs"
-								></span>{/if}{detailText('dashboard.services.detail.delete_service', 'Delete Service')}</button>
-						{:else if service.status === 'active'}
+								>{#if deleteCheckInFlight || deleteSubmitting}<span
+										class="loading loading-spinner loading-xs"
+									></span>{/if}{detailText(
+									'dashboard.services.detail.delete_service',
+									'Delete Service'
+								)}</button
+							>
+						{:else if service.status === 'active' || isPreview}
 							<div class="space-y-4">
-								<h3 class="font-bold text-lg">
+								<h3 class="text-lg font-bold">
 									{#if service.pricing?.type === ServicePricingTypeEnum.TIERED}
 										{selectedTier?.name || $t('dashboard.services.detail.select_tier')}
-									{:else}
+									{:else if !isPreview}
 										{$t('dashboard.services.detail.interested')}
 									{/if}
 								</h3>
 
 								{#if service.pricing?.type === ServicePricingTypeEnum.TIERED && selectedTier}
-									<div class="text-3xl font-black text-primary">
+									<div class="text-primary text-3xl font-black">
 										${formatNumberWithTwoDecimals(selectedTier.price)}
 									</div>
-									<p class="text-sm text-base-content/70 line-clamp-3">
+									<p class="text-base-content/70 line-clamp-3 text-sm">
 										{selectedTier.description}
 									</p>
 									<div class="space-y-2 py-2">
 										<div class="flex items-center gap-2 text-sm">
-											<IconTruckDeliveryOutline class="{requestRushDelivery && availableRushDelivery ? 'text-primary' : 'text-base-content/60'} h-4 w-4" />
-											<span class="{requestRushDelivery && availableRushDelivery ? 'text-primary' : 'text-base-content/70'} font-bold">{requestRushDelivery && availableRushDelivery ? formatDeliveryTime(availableRushDelivery.deliveryTime) : formatDeliveryTime(selectedTier.deliveryTime)}</span>
+											<IconTruckDeliveryOutline
+												class="{requestRushDelivery && availableRushDelivery
+													? 'text-primary'
+													: 'text-base-content/60'} h-4 w-4"
+											/>
+											<span
+												class="{requestRushDelivery && availableRushDelivery
+													? 'text-primary'
+													: 'text-base-content/70'} font-bold"
+												>{requestRushDelivery && availableRushDelivery
+													? formatDeliveryTime(availableRushDelivery.deliveryTime)
+													: formatDeliveryTime(selectedTier.deliveryTime)}</span
+											>
 										</div>
 									</div>
 								{:else if service.pricing?.type === ServicePricingTypeEnum.FIXED}
-									<div class="text-3xl font-black text-primary">
+									<div class="text-primary text-3xl font-black">
 										${formatNumberWithTwoDecimals(service.pricing.amount ?? 0)}
 									</div>
 									{#if deliveryTimeDisplay}
-										<div class="flex items-center gap-2 text-sm mt-2">
+										<div class="mt-2 flex items-center gap-2 text-sm">
 											<IconTruckDeliveryOutline class="text-primary h-4 w-4" />
 											<span class="font-bold">{deliveryTimeDisplay}</span>
 										</div>
 									{/if}
 								{:else if service.pricing?.type === ServicePricingTypeEnum.HOURLY}
-									<div class="text-3xl font-black text-primary">
+									<div class="text-primary text-3xl font-black">
 										${formatNumberWithTwoDecimals(service.pricing.hourlyRate ?? 0)}
-										<span class="text-sm font-bold opacity-60">{detailText('dashboard.services.detail.per_hour', '/ hr')}</span>
+										<span class="text-sm font-bold opacity-60"
+											>{detailText('dashboard.services.detail.per_hour', '/ hr')}</span
+										>
 									</div>
 								{/if}
 							</div>
@@ -1829,9 +2161,11 @@
 
 						<!-- Sidebar Customize Section (Desktop) -->
 						{#if availableRushDelivery || showAddOnsSelector}
-							<div class="pt-4 border-t border-base-200 space-y-4">
-								<h4 class="font-bold">{detailText('dashboard.services.detail.customize_order', 'Customize Your Order')}</h4>
-								
+							<div class="border-base-200 space-y-4 border-t pt-4">
+								<h4 class="font-bold">
+									{detailText('dashboard.services.detail.customize_order', 'Customize Your Order')}
+								</h4>
+
 								{#if showAddOnsSelector || availableRushDelivery}
 									<ServiceAddOnsSelector
 										addOns={displayAddOns}
@@ -1839,60 +2173,71 @@
 										bind:selectedAddOnIds
 										bind:requestRushDelivery
 										rushDelivery={availableRushDelivery}
-										disabled={service?.pricing?.type === ServicePricingTypeEnum.TIERED && !selectedTierId}
+										disabled={service?.pricing?.type === ServicePricingTypeEnum.TIERED &&
+											!selectedTierId}
 									/>
 								{/if}
 							</div>
 						{/if}
 
-<!-- Total with Add-ons and Rush Delivery -->
-						<div class="border-t border-base-200 pt-4">
-							<div class="flex justify-between items-center">
-								<span class="text-sm font-medium text-base-content/70">{detailText('dashboard.services.detail.total_amount_label', 'Total')}</span>
-								<span class="text-2xl font-black text-primary">${formatNumberWithTwoDecimals(totalAmountUsd)}</span>
+						<!-- Total with Add-ons and Rush Delivery -->
+						<div class="border-base-200 border-t pt-4">
+							<div class="flex items-center justify-between">
+								<span class="text-base-content/70 text-sm font-medium"
+									>{detailText('dashboard.services.detail.total_amount_label', 'Total')}</span
+								>
+								<span class="text-primary text-2xl font-black"
+									>${formatNumberWithTwoDecimals(totalAmountUsd)}</span
+								>
 							</div>
 						</div>
 
 						<!-- Buttons above User Info -->
-						<div class="pt-4 border-t border-base-200">
-							{#if isOffline}
-								<div class="alert alert-warning alert-outline text-xs mb-4">
+						<div class="border-base-200 border-t pt-4">
+							{#if isOffline && !isPreview}
+								<div class="alert alert-warning alert-outline mb-4 text-xs">
 									<span>{$t('dashboard.services.detail.public_cta.offline_notice')}</span>
 								</div>
 							{/if}
 
-							<div class="flex gap-2">
-								{#if showInstantBuyCta}
-									<button
-										class="btn btn-outline flex-1"
-										onclick={handleOpenRequestQuote}
-										disabled={isOffline}
-									>{detailText('dashboard.services.detail.request_quote', 'Request Quote')}</button>
-									<button
-										class="btn btn-primary flex-1 shadow-lg shadow-primary/20"
-										onclick={handleOpenInstantBuy}
-										disabled={instantBuyPreparing || isOffline}
-									>{#if instantBuyPreparing}<span
-											class="loading loading-spinner loading-xs"
-										></span>{/if}{instantBuyEligibility.code === 'missing_selected_tier' ? detailText('dashboard.services.detail.select_package', 'Select Package') : detailText('dashboard.services.detail.book_now', 'Book Now')}</button>
-								{:else}
-									<button
-										class="btn btn-primary w-full"
-										onclick={handleOpenRequestQuote}
-										disabled={isOffline}
-									>{detailText('dashboard.services.detail.request_quote', 'Request Quote')}</button>
-								{/if}
-							</div>
+							{#if !isPreview}
+								<div class="flex gap-2">
+									{#if showInstantBuyCta}
+										<button
+											class="btn btn-outline flex-1"
+											onclick={handleOpenRequestQuote}
+											disabled={isOffline}
+											>{detailText('dashboard.services.detail.request_quote', 'Inquire')}</button
+										>
+										<button
+											class="btn btn-primary shadow-primary/20 flex-1 shadow-lg"
+											onclick={handleOpenInstantBuy}
+											disabled={instantBuyPreparing || isOffline}
+											>{#if instantBuyPreparing}<span class="loading loading-spinner loading-xs"
+												></span>{/if}{instantBuyEligibility.code === 'missing_selected_tier'
+												? detailText('dashboard.services.detail.select_package', 'Select Package')
+												: detailText('dashboard.services.detail.book_now', 'Book Now')}</button
+										>
+									{:else}
+										<button
+											class="btn btn-primary w-full"
+											onclick={handleOpenRequestQuote}
+											disabled={isOffline}
+											>{detailText('dashboard.services.detail.request_quote', 'Inquire')}</button
+										>
+									{/if}
+								</div>
+							{/if}
 						</div>
 
 						<!-- Provider Info (Bottom of sidebar card) -->
-						<div class="pt-6 border-t border-base-200">
+						<div class="border-base-200 border-t pt-6">
 							<UserInfoDisplay
-								avatar={service.creator?.avatar}
-								username={service.creator?.username}
-								rating={service.creator?.rating}
-								pubkey={service.npub}
-								memberSince={service.createdAt}
+								avatar={effectiveCreator?.avatar}
+								username={effectiveCreator?.username}
+								rating={effectiveCreator?.rating}
+								pubkey={isDraft && previewCreator ? previewCreator.pubkey : service.npub}
+								memberSince={effectiveCreator?.memberSince ?? service.createdAt}
 								size="md"
 							/>
 						</div>
@@ -1903,30 +2248,44 @@
 
 		<!-- Mobile Fixed Bottom CTA (Single Row Cart) -->
 		{#if !isOwner && service.status === 'active'}
-			{@const displayDeliveryTime = requestRushDelivery && availableRushDelivery 
-				? formatDeliveryTime(availableRushDelivery.deliveryTime) 
-				: formatDeliveryTime(selectedTier?.deliveryTime ?? service?.pricing?.deliveryTime ?? null)}
-			<div 
-				class="lg:hidden fixed left-0 right-0 z-50 bg-base-100 border-t border-base-200 shadow-[0_-8px_30px_rgba(0,0,0,0.15)]"
+			{@const displayDeliveryTime =
+				requestRushDelivery && availableRushDelivery
+					? formatDeliveryTime(availableRushDelivery.deliveryTime)
+					: formatDeliveryTime(
+							selectedTier?.deliveryTime ?? service?.pricing?.deliveryTime ?? null
+						)}
+			<div
+				class="bg-base-100 border-base-200 fixed right-0 left-0 z-50 border-t shadow-[0_-8px_30px_rgba(0,0,0,0.15)] lg:hidden"
 				style="bottom: var(--app-dock-height, 64px);"
 			>
-				<div class="flex items-center justify-between p-4 gap-4">
-					<div class="flex items-center gap-4 min-w-0">
+				<div class="flex items-center justify-between gap-4 p-4">
+					<div class="flex min-w-0 items-center gap-4">
 						<div class="flex flex-col">
-							<span class="text-[10px] font-bold text-base-content/60 uppercase tracking-wider">{detailText('dashboard.services.detail.total_price', 'Total')}</span>
-							<span class="text-2xl font-black leading-none text-primary">${formatNumberWithTwoDecimals(totalAmountUsd)}</span>
+							<span class="text-base-content/60 text-[10px] font-bold tracking-wider uppercase"
+								>{detailText('dashboard.services.detail.total_price', 'Total')}</span
+							>
+							<span class="text-primary text-2xl leading-none font-black"
+								>${formatNumberWithTwoDecimals(totalAmountUsd)}</span
+							>
 						</div>
 						{#if displayDeliveryTime !== '—'}
-							<div class="flex items-center gap-2 border-l border-base-200 pl-4">
+							<div class="border-base-200 flex items-center gap-2 border-l pl-4">
 								{#if requestRushDelivery && availableRushDelivery}
-									<IconTruckDeliveryOutline class="h-6 w-6 text-primary" />
+									<IconTruckDeliveryOutline class="text-primary h-6 w-6" />
 								{:else}
-									<IconTruckDeliveryOutline class="h-6 w-6 text-base-content/50" />
+									<IconTruckDeliveryOutline class="text-base-content/50 h-6 w-6" />
 								{/if}
 								<div class="flex flex-col">
-									<span class="text-base text-base-content/70 font-medium leading-none">{displayDeliveryTime}</span>
+									<span class="text-base-content/70 text-base leading-none font-medium"
+										>{displayDeliveryTime}</span
+									>
 									{#if requestRushDelivery && availableRushDelivery}
-										<span class="text-xs font-bold text-primary uppercase tracking-widest">{detailText('dashboard.services.detail.rush_delivery_tag', 'Rush Delivery')}</span>
+										<span class="text-primary text-xs font-bold tracking-widest uppercase"
+											>{detailText(
+												'dashboard.services.detail.rush_delivery_tag',
+												'Rush Delivery'
+											)}</span
+										>
 									{/if}
 								</div>
 							</div>
@@ -1934,9 +2293,9 @@
 					</div>
 
 					<div class="flex-none">
-						{#if showInstantBuyCta}
-							<button 
-								class="btn btn-primary btn-sm shadow-lg shadow-primary/20 font-black disabled:bg-base-300 disabled:text-base-content/30 disabled:border-base-300"
+						{#if !isPreview && showInstantBuyCta}
+							<button
+								class="btn btn-primary btn-sm shadow-primary/20 disabled:bg-base-300 disabled:text-base-content/30 disabled:border-base-300 font-black shadow-lg"
 								onclick={handleOpenInstantBuy}
 								disabled={instantBuyPreparing || isOffline}
 							>
@@ -1966,9 +2325,9 @@
 	<ServiceInstantBuyModal
 		open={instantBuyModalOpen}
 		serviceTitle={displayTitle}
-		providerName={instantBuyDraft?.providerName ?? service?.creator?.username ?? null}
-		providerAvatar={service?.creator?.avatar ?? null}
-		providerRating={service?.creator?.rating ?? 0}
+		providerName={instantBuyDraft?.providerName ?? effectiveCreator?.username ?? null}
+		providerAvatar={effectiveCreator?.avatar ?? null}
+		providerRating={effectiveCreator?.rating ?? 0}
 		providerPubkey={service?.npub ?? null}
 		providerMemberSince={service?.createdAt ?? null}
 		amountUsd={instantBuyDraft?.amountUsd ?? null}
@@ -2011,19 +2370,34 @@
 	<Modal
 		isOpen={deleteModalState !== null}
 		title={deleteModalState?.mode === 'blocked'
-			? detailText('dashboard.services.detail.delete_service_modal.blocked_title', 'Cannot delete service')
-			: detailText('dashboard.services.detail.delete_service_modal.confirm_title', 'Delete service')}
+			? detailText(
+					'dashboard.services.detail.delete_service_modal.blocked_title',
+					'Cannot delete service'
+				)
+			: detailText(
+					'dashboard.services.detail.delete_service_modal.confirm_title',
+					'Delete service'
+				)}
 		onClose={closeDeleteModal}
 		size="md"
 	>
 		{#if deleteModalState}
 			<p class="text-base-content/80 text-sm">
 				{#if deleteModalState.mode === 'blocked'}
-					{detailText('dashboard.services.detail.delete_service_modal.blocked_body', 'This service cannot be deleted at this time.')}
+					{detailText(
+						'dashboard.services.detail.delete_service_modal.blocked_body',
+						'This service cannot be deleted at this time.'
+					)}
 				{:else if deleteModalState.openQuoteCount > 0}
-					{detailText('dashboard.services.detail.delete_service_modal.confirm_with_requests', 'This service has open requests. Are you sure you want to delete it?')}
+					{detailText(
+						'dashboard.services.detail.delete_service_modal.confirm_with_requests',
+						'This service has open requests. Are you sure you want to delete it?'
+					)}
 				{:else}
-					{detailText('dashboard.services.detail.delete_service_modal.confirm_without_requests', 'Are you sure you want to delete this service?')}
+					{detailText(
+						'dashboard.services.detail.delete_service_modal.confirm_without_requests',
+						'Are you sure you want to delete this service?'
+					)}
 				{/if}
 			</p>
 
@@ -2032,7 +2406,10 @@
 					{#if deleteModalState.activeContractCount > 0}
 						<div class="alert alert-error">
 							<span>
-								{detailText('dashboard.services.detail.delete_service_modal.active_contracts', 'Active service contracts are still attached to this service.')}
+								{detailText(
+									'dashboard.services.detail.delete_service_modal.active_contracts',
+									'Active service contracts are still attached to this service.'
+								)}
 							</span>
 						</div>
 					{/if}
@@ -2047,12 +2424,18 @@
 					{#if deleteModalState.openQuoteCount > 0}
 						<div class="alert alert-warning">
 							<span>
-								{detailText('dashboard.services.detail.delete_service_modal.open_requests_notice', 'This service has open requests.')}
+								{detailText(
+									'dashboard.services.detail.delete_service_modal.open_requests_notice',
+									'This service has open requests.'
+								)}
 							</span>
 						</div>
 					{:else}
 						<p class="text-base-content/70 text-sm">
-							{detailText('dashboard.services.detail.delete_service_modal.no_dependents', 'This service has no active dependencies and can be safely deleted.')}
+							{detailText(
+								'dashboard.services.detail.delete_service_modal.no_dependents',
+								'This service has no active dependencies and can be safely deleted.'
+							)}
 						</p>
 					{/if}
 				</div>
@@ -2130,7 +2513,7 @@
 	.transition-\[max-height\] {
 		transition-property: max-height;
 	}
-	
+
 	/* Mobile tier tabs active state with primary bottom border */
 	.tabs-bordered .tab-active {
 		border-bottom: 2px solid var(--color-primary);
