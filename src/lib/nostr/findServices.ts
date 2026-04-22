@@ -119,7 +119,7 @@ const performanceMetrics: FilterPerformanceMetrics[] = [];
  * Uses single-character tags from TAG_FILTERS (centralized in tags.ts)
  * Only requests service kinds (SERVICE_ACTIVE) — deleted services are NIP-09 kind 5; we filter those client-side until relay supports exclusion.
  */
-function createServiceFilter(params: SearchServicesParams): Filter {
+export function createServiceFilter(params: SearchServicesParams): Filter {
 	// When search is present, request more events and filter client-side (many relays don't support NIP-50).
 	const requestLimit = params.search?.trim()
 		? SEARCH_FETCH_LIMIT
@@ -164,7 +164,7 @@ function createServiceFilter(params: SearchServicesParams): Filter {
  * Convert a Nostr event to a Service
  * Also fetches creator profile data (reviews, rating) if available
  */
-async function convertEventToService(event: Event): Promise<Service> {
+export async function convertEventToService(event: Event): Promise<Service> {
 	try {
 		const contentData = normalizeServiceTierDeliveryTimes(JSON.parse(event.content));
 		const service: Service = {
@@ -205,7 +205,7 @@ async function convertEventToService(event: Event): Promise<Service> {
 	}
 }
 
-function dedupeServicesByUniqueId(services: Service[]): Service[] {
+export function dedupeServicesByUniqueId(services: Service[]): Service[] {
 	const latestByUniqueId = new Map<string, Service>();
 
 	for (const service of services) {
