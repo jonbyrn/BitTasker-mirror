@@ -53,16 +53,20 @@ function createService(overrides: Partial<Service> = {}): Service {
 
 const canonicalBase = BITTASKER_CANONICAL_BASE.replace(/\/$/, '');
 
+const mockParent = vi.fn().mockResolvedValue({ service: null });
+
 describe('services/[serviceId] page load', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		mockParent.mockResolvedValue({ service: null });
 	});
 
 	it('returns structured service json-ld for a found service', async () => {
 		vi.mocked(findServiceByUniqueId).mockResolvedValue(createService());
 
 		const result = await load({
-			params: { serviceId: 'service-unique-id' }
+			params: { serviceId: 'service-unique-id' },
+			parent: mockParent
 		} as Parameters<typeof load>[0]);
 
 		expect(result.serviceId).toBe('service-unique-id');
@@ -100,7 +104,8 @@ describe('services/[serviceId] page load', () => {
 		vi.mocked(findServiceByUniqueId).mockResolvedValue(null);
 
 		const result = await load({
-			params: { serviceId: 'missing-service' }
+			params: { serviceId: 'missing-service' },
+			parent: mockParent
 		} as Parameters<typeof load>[0]);
 
 		expect(result.service).toBeNull();
@@ -141,7 +146,8 @@ describe('services/[serviceId] page load', () => {
 		);
 
 		const result = await load({
-			params: { serviceId: 'fixed-service' }
+			params: { serviceId: 'fixed-service' },
+			parent: mockParent
 		} as Parameters<typeof load>[0]);
 
 		expect(result.seo.description).toBe('No description available');
@@ -182,7 +188,8 @@ describe('services/[serviceId] page load', () => {
 		);
 
 		const result = await load({
-			params: { serviceId: 'hourly-service' }
+			params: { serviceId: 'hourly-service' },
+			parent: mockParent
 		} as Parameters<typeof load>[0]);
 
 		expect(result.serviceId).toBe('hourly-service');
@@ -215,7 +222,8 @@ describe('services/[serviceId] page load', () => {
 		);
 
 		const result = await load({
-			params: { serviceId: 'quote-only-service' }
+			params: { serviceId: 'quote-only-service' },
+			parent: mockParent
 		} as Parameters<typeof load>[0]);
 
 		expect(result.seo.jsonLd).not.toHaveProperty('offers');
@@ -232,7 +240,8 @@ describe('services/[serviceId] page load', () => {
 		);
 
 		const result = await load({
-			params: { serviceId: 'custom service slug' }
+			params: { serviceId: 'custom service slug' },
+			parent: mockParent
 		} as Parameters<typeof load>[0]);
 
 		expect(result.serviceId).toBe('custom service slug');
