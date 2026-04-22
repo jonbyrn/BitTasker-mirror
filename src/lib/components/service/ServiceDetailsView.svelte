@@ -1561,7 +1561,7 @@
 					>
 						<div class="flex flex-col gap-6 md:flex-row md:items-start">
 							<div class="flex-1">
-								<h1 class="mb-3 text-3xl leading-tight font-bold">
+								<h1 class="mb-3 line-clamp-2 text-3xl leading-tight font-bold">
 									{displayTitle}
 									{#if isPreview}
 										<span class="badge badge-secondary ml-2"
@@ -1800,7 +1800,7 @@
 						class="bg-base-100 border-base-200 relative z-10 -mt-12 space-y-6 rounded-t-[2rem] rounded-b-2xl border p-6 shadow-xl lg:hidden"
 					>
 						<div>
-							<h3 class="mb-3 text-xl font-bold">{displayTitle}</h3>
+							<h3 class="mb-3 line-clamp-2 text-xl font-bold">{displayTitle}</h3>
 							<div class="mb-4 flex items-center justify-between">
 								<div class="flex items-center gap-1 text-sm font-bold">
 									<div class="text-warning flex items-center">
@@ -2154,7 +2154,9 @@
 									{$t('dashboard.services.detail.edit_service')}
 								</a>
 							</div>
-						{:else if service.status === 'active' || isPreview}
+						{/if}
+
+						{#if service.status === 'active' || isPreview}
 							<div class="space-y-4">
 								<h3 class="text-lg font-bold">
 									{#if service.pricing?.type === ServicePricingTypeEnum.TIERED}
@@ -2207,7 +2209,7 @@
 									</div>
 								{/if}
 							</div>
-						{:else}
+						{:else if !isOwner}
 							<div class="alert alert-warning alert-outline">
 								<span>{$t('dashboard.services.detail.service_not_available')}</span>
 							</div>
