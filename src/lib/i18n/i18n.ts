@@ -1,4 +1,10 @@
-import { addMessages, init, locale, getLocaleFromNavigator } from 'svelte-i18n';
+import {
+	addMessages,
+	init,
+	locale,
+	getLocaleFromNavigator,
+	dictionary as dictionaryStore
+} from 'svelte-i18n';
 import { browser } from '$app/environment';
 import { get, writable } from 'svelte/store';
 import { Preferences } from '@capacitor/preferences';
@@ -40,6 +46,28 @@ const getInitialLocale = async (): Promise<SupportedLanguage> => {
 };
 
 /**
+ * Deep merge objects for translation merging
+ */
+function deepMerge(target: Record<string, unknown>, source: Record<string, unknown>): Record<string, unknown> {
+	if (!source) return target;
+	if (!target) return source;
+
+	for (const key in source) {
+		const sourceVal = source[key];
+		const targetVal = target[key];
+
+		if (sourceVal && typeof sourceVal === 'object' && !Array.isArray(sourceVal)) {
+			if (!targetVal || typeof targetVal !== 'object') {
+				target[key] = {};
+			}
+			deepMerge(target[key] as Record<string, unknown>, sourceVal as Record<string, unknown>);
+		} else {
+			target[key] = sourceVal;
+		}
+	}
+	return target;
+}
+/**
  * Load a specific namespace for a locale
  */
 export async function loadNamespace(
@@ -51,6 +79,10 @@ export async function loadNamespace(
 	// Return cached if available
 	if (translationCache.has(cacheKey)) {
 		return translationCache.get(cacheKey) || {};
+	}
+
+	if (!browser) {
+		return {};
 	}
 
 	try {
@@ -71,8 +103,11 @@ export async function loadNamespace(
 		loadedNamespaces.get(locale)!.add(namespace);
 
 		// Add to svelte-i18n
-		addMessages(locale, data);
-
+		// Note: we use manual merging because svelte-i18n addMessages might overwrite root keys if they are the same
+		// and we have multiple files sharing root keys like \"dashboard\".
+		const currentMessages = (get(dictionaryStore) as Record<string, Record<string, unknown>>)[locale] || {};
+		const mergedMessages = deepMerge({ ...currentMessages }, data as Record<string, unknown>);
+		addMessages(locale, mergedMessages);
 		return data;
 	} catch (error) {
 		console.warn(`Failed to load namespace ${namespace} for locale ${locale}:`, error);
@@ -179,7 +214,7 @@ export function getNamespacesForRoute(route: string): string[] {
 		}
 	}
 
-	if (route.includes('/services') && !route.includes('/services/[')) {
+	if (route.includes('/services')) {
 		namespaces.push(
 			'dashboard/services/browse',
 			'dashboard/services/create',

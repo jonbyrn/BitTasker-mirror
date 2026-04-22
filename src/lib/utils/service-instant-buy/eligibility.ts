@@ -118,10 +118,6 @@ export function getInstantBuyEligibility(
 	}
 
 	if (pricing.type === 'FIXED') {
-		if (pricing.rushDelivery?.enabled) {
-			return { eligible: false, code: 'unsupported_rush_delivery', purchaseMode: 'instant_buy' };
-		}
-
 		// Eligible if either pricing.deliveryTime OR service.instantBuyDeliveryHours is present
 		if (!pricing.deliveryTime && !service.instantBuyDeliveryHours) {
 			return { eligible: false, code: 'missing_delivery_time', purchaseMode: 'instant_buy' };
@@ -137,10 +133,6 @@ export function getInstantBuyEligibility(
 	const tier = resolveInstantBuyTier(service, selectedTierId);
 	if (!tier) {
 		return { eligible: false, code: 'invalid_selected_tier', purchaseMode: 'instant_buy' };
-	}
-
-	if (tier.rushDelivery?.enabled) {
-		return { eligible: false, code: 'unsupported_rush_delivery', purchaseMode: 'instant_buy' };
 	}
 
 	if (!tier.deliveryTime) {

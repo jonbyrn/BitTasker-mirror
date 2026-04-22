@@ -117,6 +117,8 @@
 			}
 		});
 	}
+
+	const kmToMiles = (km: number) => (km * 0.621371).toFixed(1);
 </script>
 
 <div
@@ -211,20 +213,15 @@
 		{/if}
 	</div>
 
-	<!-- Tasker Location Configuration -->
+	<!-- Tasker Location Configuration (My Location) -->
 	{#if ($store.service.serviceLocationTypes || []).includes(ServiceLocationTypeEnum.TASKER_LOCATION)}
 		<div class="card bg-base-200 min-w-0 space-y-4 overflow-hidden p-4">
 			<h4 class="text-lg font-semibold break-words">
-				{$t('dashboard.services.create.location.tasker_config_title')}
+				{$t('dashboard.services.create.location.my_location_title')}
 			</h4>
 
 			<!-- Service Location -->
 			<div class="w-full min-w-0">
-				<div class="label">
-					<span class="label-text break-words"
-						>{$t('dashboard.services.create.location.service_location_label')}</span
-					>
-				</div>
 				<EnhancedLocationPicker
 					label={$t('dashboard.services.create.location.service_location_picker_label')}
 					placeholder={$t('dashboard.services.create.location.service_location_placeholder')}
@@ -255,11 +252,11 @@
 		</div>
 	{/if}
 
-	<!-- Taskee Location Configuration -->
+	<!-- Taskee Location Configuration (Service Radius) -->
 	{#if ($store.service.serviceLocationTypes || []).includes(ServiceLocationTypeEnum.TASKEE_LOCATION)}
 		<div class="card bg-base-200 min-w-0 space-y-4 overflow-hidden p-4">
 			<h4 class="text-lg font-semibold break-words">
-				{$t('dashboard.services.create.location.taskee_config_title')}
+				{$t('dashboard.services.create.location.service_radius_title')}
 			</h4>
 
 			<div class="w-full min-w-0">
@@ -300,7 +297,9 @@
 						{$t('dashboard.services.create.location.service_radius_label')}
 					</span>
 					<span class="label-text-alt">
-						{$store.service.locationDetails?.taskeeLocation?.serviceRadius || 5} km
+						{$store.service.locationDetails?.taskeeLocation?.serviceRadius || 5} km ({kmToMiles(
+							$store.service.locationDetails?.taskeeLocation?.serviceRadius || 5
+						)} miles)
 					</span>
 				</label>
 				<input
@@ -315,9 +314,13 @@
 					data-testid="service-location-radius"
 				/>
 				<div class="text-base-content/60 mt-1 flex justify-between px-2 text-xs">
-					<span>1 km</span>
-					<span>{$store.service.locationDetails?.taskeeLocation?.serviceRadius || 5} km</span>
-					<span>100 km</span>
+					<span>1 km ({kmToMiles(1)} mi)</span>
+					<span
+						>{$store.service.locationDetails?.taskeeLocation?.serviceRadius || 5} km ({kmToMiles(
+							$store.service.locationDetails?.taskeeLocation?.serviceRadius || 5
+						)} mi)</span
+					>
+					<span>100 km ({kmToMiles(100)} mi)</span>
 				</div>
 			</div>
 
@@ -333,23 +336,21 @@
 						onchange={(e) => {
 							const enabled = (e.target as HTMLInputElement).checked;
 							const currentTaskeeLocation = $store.service.locationDetails?.taskeeLocation;
-							if (currentTaskeeLocation?.serviceLocation) {
-								store.updateService({
-									locationDetails: {
-										...$store.service.locationDetails,
-										taskeeLocation: {
-											...currentTaskeeLocation,
-											perDistanceCharge: enabled
-												? {
-														amount: 0,
-														currency: $store.service.pricing?.currency || 'USD',
-														unit: 'km'
-													}
-												: undefined
-										}
+							store.updateService({
+								locationDetails: {
+									...$store.service.locationDetails,
+									taskeeLocation: {
+										...currentTaskeeLocation,
+										perDistanceCharge: enabled
+											? {
+													amount: 0,
+													currency: $store.service.pricing?.currency || 'USD',
+													unit: 'km'
+												}
+											: undefined
 									}
-								});
-							}
+								}
+							});
 						}}
 					/>
 				</label>
@@ -371,10 +372,7 @@
 								onchange={(e) => {
 									const amount = Number((e.target as HTMLInputElement).value);
 									const currentTaskeeLocation = $store.service.locationDetails?.taskeeLocation;
-									if (
-										currentTaskeeLocation?.serviceLocation &&
-										currentTaskeeLocation?.perDistanceCharge
-									) {
+									if (currentTaskeeLocation?.perDistanceCharge) {
 										store.updateService({
 											locationDetails: {
 												...$store.service.locationDetails,
@@ -406,10 +404,7 @@
 								onchange={(e) => {
 									const unit = (e.target as HTMLSelectElement).value as 'km' | 'mile';
 									const currentTaskeeLocation = $store.service.locationDetails?.taskeeLocation;
-									if (
-										currentTaskeeLocation?.serviceLocation &&
-										currentTaskeeLocation?.perDistanceCharge
-									) {
+									if (currentTaskeeLocation?.perDistanceCharge) {
 										store.updateService({
 											locationDetails: {
 												...$store.service.locationDetails,

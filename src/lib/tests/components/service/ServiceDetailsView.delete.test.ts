@@ -309,13 +309,13 @@ describe('ServiceDetailsView delete workflow', () => {
 		});
 		hoisted.mockGetActiveContractsForService.mockReturnValue([createContract()]);
 
-		const { getByText, findByText } = await renderView(createService());
+		const { getAllByText, findByText, findAllByText } = await renderView(createService());
 
-		await fireEvent.click(getByText('Delete Service'));
+		await fireEvent.click(getAllByText('Delete Service')[0]);
 
 		expect(await findByText('Cannot delete service')).toBeTruthy();
 		expect(
-			await findByText(/Active service contracts are still attached to this service/)
+			await findAllByText(/Active service contracts are still attached to this service/)
 		).toBeTruthy();
 		expect(hoisted.mockDeleteService).not.toHaveBeenCalled();
 	}, 20_000);
@@ -351,10 +351,10 @@ describe('ServiceDetailsView delete workflow', () => {
 			}
 		]);
 
-		const { getAllByText, findByText } = await renderView(createService());
+		const { getAllByText, findAllByText } = await renderView(createService());
 
 		await fireEvent.click(getAllByText('Delete Service')[0]);
-		expect(await findByText(/open request/i)).toBeTruthy();
+		expect(await findAllByText(/open request/i)).toBeTruthy();
 		await fireEvent.click(getAllByText('Confirm Delete')[0]);
 
 		await waitFor(() => expect(hoisted.mockDeleteService).toHaveBeenCalledTimes(1));
@@ -381,8 +381,7 @@ describe('ServiceDetailsView delete workflow', () => {
 		const { getAllByText, findByText } = await renderView(createService());
 
 		await fireEvent.click(getAllByText('Delete Service')[0]);
-		expect(await findByText('Delete service')).toBeTruthy();
-		await fireEvent.click(getAllByText('Confirm Delete')[0]);
+		expect(await findByText('Delete service')).toBeTruthy();		await fireEvent.click(getAllByText('Confirm Delete')[0]);
 
 		await waitFor(() => expect(hoisted.mockDeleteService).toHaveBeenCalledTimes(1));
 		expect(hoisted.mockDeleteService).toHaveBeenCalledWith(

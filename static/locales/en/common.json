@@ -43,6 +43,8 @@
 		"cancel": "Cancel",
 		"update": "Update",
 		"add": "Add",
+		"select": "Select",
+		"selected": "Selected",
 		"required": "Required",
 		"optional": "Optional",
 		"buttons": {
@@ -558,21 +560,36 @@
 				"setup_passkey_button": "Setup Passkey",
 				"retry_button": "Retry"
 			},
-			"warning_popup": {
-				"title": "Beta Warning",
-				"message": "BitTasker is currently in Beta. You may encounter bugs or incomplete features.",
-				"learn_more": "Learn more",
-				"zapstore_title": "ZapStore Notification",
-				"zapstore_message": "BitTasker is now available on ZapStore! Get the latest updates and notifications directly on your device.",
-				"zapstore_aria": "Visit BitTasker on ZapStore",
-				"zapstore_button": "Available on ZapStore",
-				"feedback_text": "We value your feedback. Please let us know if you find any issues.",
-				"feedback_link": "Give feedback",
-				"feedback_suffix": "to help us improve.",
-				"acknowledge_button": "I Understand"
+			"app_notification": {
+				"title": "Download the App",
+				"message": "Get the best BitTasker experience by downloading our mobile app. Receive instant notifications for bids, tasks, and messages directly on your device.",
+				"google_play_aria": "Download BitTasker on Google Play Store",
+				"zapstore_aria": "Download BitTasker on ZapStore",
+				"dismiss": "Got it"
+			},
+			"wallet_card": {
+				"title": "Wallet balance",
+				"icon_alt": "Bitcoin",
+				"sats_label": "sats",
+				"not_connected": "Wallet not connected",
+				"available_balance": "Available balance",
+				"required_balance": "Required for this contract"
 			}
 		},
-		"airdatepicker": {
+		"time_units": {
+		        "day": "day",
+		        "days": "days",
+		        "hour": "hour",
+		        "hours": "hours",
+		        "week": "week",
+		        "weeks": "weeks",
+		        "month": "month",
+		        "months": "months",
+		        "minute": "minute",
+		        "minutes": "minutes",
+		        "and": "and",
+		        "less_than_minute": "less than a minute"
+		},		"airdatepicker": {
 			"select_date": "Date",
 			"select_date_range": "Date range",
 			"select_datetime": "Date and time",

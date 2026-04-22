@@ -47,7 +47,7 @@ describe('service instant-buy eligibility', () => {
 		});
 	});
 
-	it('allows add-ons but still rejects rush delivery and distance fees', () => {
+	it('allows add-ons and rush delivery but still rejects distance fees', () => {
 		expect(
 			getInstantBuyEligibility({
 				...baseService,
@@ -67,10 +67,10 @@ describe('service instant-buy eligibility', () => {
 				...baseService,
 				pricing: {
 					...baseService.pricing,
-					rushDelivery: { enabled: true }
+					rushDelivery: { enabled: true, price: 50, deliveryTime: { value: 1, unit: 'day' } }
 				}
 			}).code
-		).toBe('unsupported_rush_delivery');
+		).toBe('eligible');
 
 		expect(
 			getInstantBuyEligibility({

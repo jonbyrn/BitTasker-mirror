@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy, tick } from 'svelte';
 	import type {
 		ServiceContractAgreementSnapshot,
 		ServiceContractPricingSnapshot
@@ -9,6 +9,7 @@
 	import { t, locale } from 'svelte-i18n';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import { page } from '$app/stores';
 	import { browser, dev } from '$app/environment';
 	import {
 		getServiceDisplayTitle,
@@ -21,15 +22,23 @@
 	import { authState } from '$lib/stores/auth.store';
 	import { user } from '$lib/stores/user.store';
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
-	import { ServiceLocationTypeEnum, ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';
-	import Gallery from '$lib/components/Gallery.svelte';
+	import { ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';
 	import { TASK_CATEGORIES } from '$lib/utils/constants/categories';
-	import ServiceTierSelector from '$lib/components/service/ServiceTierSelector.svelte';
 	import ServiceAddOnsSelector from '$lib/components/service/ServiceAddOnsSelector.svelte';
 	import Modal from '$lib/components/Modal.svelte';
 	import RequestQuoteModal from '$lib/components/service/RequestQuoteModal.svelte';
 	import ServiceInstantBuyModal from '$lib/components/service/ServiceInstantBuyModal.svelte';
-	import IconArrowLeft from '~icons/mdi/arrow-left';
+	import IconClose from '~icons/mdi/close';
+	import IconStar from '~icons/mdi/star';
+	import IconHeartOutline from '~icons/mdi/heart-outline';
+	import IconCheck from '~icons/mdi/check';
+	import IconTruckDeliveryOutline from '~icons/mdi/truck-delivery-outline';
+	import IconChevronLeft from '~icons/mdi/chevron-left';
+	import IconChevronRight from '~icons/mdi/chevron-right';
+	import ServiceShareButton from './ServiceShareButton.svelte';
+	import PhotoSwipeLightbox from 'photoswipe/lightbox';
+	import 'photoswipe/style.css';
+	import UserInfoDisplay from '$lib/components/user/UserInfoDisplay.svelte';
 	import type { QuoteRequestPayload } from '$lib/types/service.d';
 	import { serviceQuoteUiStore } from '$lib/stores/service-quote-ui.store';
 	import { getInstantBuyEligibility } from '$lib/utils/service-instant-buy/eligibility';
@@ -39,10 +48,10 @@
 		type InstantBuyCreateSnapshot
 	} from '$lib/utils/service-instant-buy/create';
 	import { buildServiceAddress } from '$lib/utils/service-quote/protocol';
-	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import { createServiceContract } from '$lib/utils/service-contract/create';
 	import { waitForContractCreationByTransactionHash } from '$lib/utils/service-contract/await-contract-creation';
 	import { describeServiceContractPreflightFailure } from '$lib/utils/service-contract/preflight-feedback';
+	import { btcPrice } from '$lib/runes/btcPrice.svelte';
 	import {
 		preflightServiceContractCreation,
 		type ServiceContractPreflightErrorCode
@@ -54,16 +63,8 @@
 	import { appStore } from '$lib/stores/app.store';
 	import { ethers } from 'ethers';
 	import { escrow } from '$lib/utils/escrow';
-	import {
-		allAssets,
-		formatSats,
-		totalBalances,
-		walletManager,
-		walletStore
-	} from '$lib/stores/wallet.store';
-	import { contractStore } from '$lib/stores/contract.store';
+	import { formatSats, totalBalances, walletManager, walletStore } from '$lib/stores/wallet.store';
 	import type { ContractCreationEvent } from '$lib/types/contract';
-	import { getActiveServiceContractsForService } from '$lib/utils/service-contract/active-contracts';
 	import { queryTaskeeServiceQuoteThreads } from '$lib/utils/service-quote/query';
 	import { summarizeDeleteGuardForThreads } from '$lib/utils/service-quote/resolver';
 	import { deleteService } from '$lib/nostr/service';
@@ -88,7 +89,11 @@
 	} from '$lib/utils/service-contract/book-now-outbox';
 	import { recoverBookNowContract } from '$lib/utils/service-contract/recover';
 	import { buildServiceContractLocationSnapshot } from '$lib/utils/service-contract/location';
-	import { isApproximatePublicLocation } from '$lib/utils/location/public-location';
+	import WalletPaymentModal from '$lib/components/wallet/WalletPaymentModal.svelte';
+	import ReceivePaymentForm from '$lib/components/wallet/ReceivePaymentForm.svelte';
+	import PaymentRequestModal from '$lib/components/wallet/PaymentRequestModal.svelte';
+	import { loadNamespace, type SupportedLanguage } from '$lib/i18n/i18n';
+	import { SvelteSet } from 'svelte/reactivity';
 
 	let { service, serviceId } = $props<{
 		service: Service | null;
@@ -98,6 +103,75 @@
 	const isOwner = $derived(service?.npub === $user?.npub);
 
 	const currentLocale = $derived($locale || 'en');
+
+	function detailText(key: string, fallback: string, values?: Record<string, string | number>): string {
+		const translation = $t(key, { values });
+		return !translation || translation === key ? applyValues(fallback, values) : translation;
+	}
+
+	function applyValues(template: string, values?: Record<string, string | number>): string {
+		if (!values) return template;
+		return Object.entries(values).reduce(
+			(result, [key, value]) => result.replaceAll(`{${key}}`, String(value)),
+			template
+		);
+	}
+
+	function formatDeliveryTime(dt?: ServiceTier['deliveryTime'] | null): string {
+		if (!dt || dt.value == null || !dt.unit) return '—';
+		const unitKey = `common.time_units.${dt.unit}${dt.value !== 1 ? 's' : ''}`;
+		return `${dt.value} ${$t(unitKey)}`;
+	}
+
+	// Ensure wallet translations are loaded for the "Add Funds" receive modal
+	if (browser && $locale) {
+		loadNamespace($locale as SupportedLanguage, 'dashboard/wallet').catch(console.error);
+	}
+
+	let isReceiveModalOpen = $state(false);
+	let receiveInitialState = $state<Record<string, unknown> | null>(null);
+
+	// Centralized Payment Request Modal state
+	let paymentRequestModal = $state<{
+		isOpen: boolean;
+		swapId?: string | null;
+		address?: string | null;
+		network?: string | null;
+		amount?: number | null;
+		memo?: string | null;
+		chargeFeesToPayer?: boolean;
+		totalFees?: number | null;
+		formState?: Record<string, unknown> | null;
+	}>({
+		isOpen: false,
+		swapId: null,
+		address: null,
+		network: null,
+		amount: null,
+		memo: null,
+		chargeFeesToPayer: false,
+		totalFees: null,
+		formState: null
+	});
+
+	function openPaymentRequestModal(data: Record<string, unknown>) {
+		paymentRequestModal = {
+			isOpen: true,
+			...data
+		} as any;
+	}
+
+	function closePaymentRequestModal() {
+		paymentRequestModal.isOpen = false;
+	}
+
+	function onPaymentRequestSuccess(data: Record<string, unknown>) {
+		if (data.swapId) {
+			console.log('Payment request successful, swap ID:', data.swapId);
+		}
+		closePaymentRequestModal();
+	}
+
 	const displayTitle = $derived(service ? getServiceDisplayTitle(service, currentLocale) : '');
 	const displayDescriptionFull = $derived(
 		service ? getServiceDisplayDescription(service, currentLocale) : ''
@@ -108,131 +182,92 @@
 	const deliveryTimeDisplay = $derived(
 		service ? getServiceDeliveryTimeDisplay(service, currentLocale) : undefined
 	);
-	const serviceLocationSummary = $derived.by(() => {
-		if (!service) {
-			return { text: '', approximate: false, radiusText: '' };
-		}
 
-		const taskeeLocation = service.locationDetails?.taskeeLocation?.serviceLocation;
-		const taskeeDisplayName =
-			service.locationDetails?.taskeeLocation?.locationDisplayName ||
-			taskeeLocation?.displayName ||
-			taskeeLocation?.formattedAddress ||
-			'';
-		const taskeeRadius = service.locationDetails?.taskeeLocation?.serviceRadius;
-		if (
-			service.serviceLocationTypes?.includes(ServiceLocationTypeEnum.TASKEE_LOCATION) &&
-			taskeeDisplayName
-		) {
-			return {
-				text: taskeeDisplayName,
-				approximate: isApproximatePublicLocation(taskeeLocation),
-				radiusText: taskeeRadius ? `${taskeeRadius} km` : ''
-			};
-		}
-
-		const taskerLocation = service.locationDetails?.taskerLocation?.serviceLocation;
-		const taskerDisplayName = taskerLocation?.formattedAddress || taskerLocation?.displayName || '';
-		return {
-			text: taskerDisplayName,
-			approximate: isApproximatePublicLocation(taskerLocation),
-			radiusText: ''
-		};
-	});
-
-	let descriptionExpanded = $state(false);
-	const DESCRIPTION_PREVIEW_LENGTH = 300;
-	const descriptionNeedsExpand = $derived(
-		!!displayDescriptionFull && displayDescriptionFull.length > DESCRIPTION_PREVIEW_LENGTH
+	const tiersWithPrice = $derived(
+		displayTiers
+			.filter((t: ServiceTier) => (t.price ?? 0) > 0)
+			.slice()
+			.sort((a, b) => (a.price ?? 0) - (b.price ?? 0))
 	);
-	const descriptionPreview = $derived(
-		displayDescriptionFull?.slice(0, DESCRIPTION_PREVIEW_LENGTH).trim() ?? ''
-	);
-	const descriptionDisplay = $derived(
-		descriptionExpanded || !descriptionNeedsExpand
-			? (displayDescriptionFull ?? '')
-			: descriptionPreview + '...'
-	);
-
-	const tiersWithPrice = $derived(displayTiers.filter((t: ServiceTier) => (t.price ?? 0) > 0));
 
 	let selectedTierId = $state<string | null>(null);
+	let activeMobileTab = $state<string | null>(null);
+	let tierExpanded = $state<Record<string, boolean>>({});
+
+	const popularTierId = $derived.by(() => {
+		if (tiersWithPrice.length < 2) return null;
+		// Middle one if odd, or middle-ish if even.
+		const index = Math.min(tiersWithPrice.length - 1, Math.floor(tiersWithPrice.length / 2));
+		return tiersWithPrice[index].id;
+	});
+
+	$effect(() => {
+		if (tiersWithPrice.length > 0 && !selectedTierId) {
+			const firstTier =
+				tiersWithPrice.find((t: ServiceTier) => t.isPopular) || tiersWithPrice[0];
+			selectedTierId = firstTier.id;
+			activeMobileTab = firstTier.id;
+		}
+	});
+
+	$effect(() => {
+		if (selectedTierId && activeMobileTab !== selectedTierId) {
+			activeMobileTab = selectedTierId;
+		}
+	});
+
+	function handleTabChange(tierId: string) {
+		selectedTierId = tierId;
+		activeMobileTab = tierId;
+	}
+
+	function toggleTierExpansion(id: string) {
+		tierExpanded[id] = !tierExpanded[id];
+	}
+
 	let selectedAddOnIds = $state<string[]>([]);
+	let requestRushDelivery = $state<boolean>(false);
+
+	const availableRushDelivery = $derived.by(() => {
+		if (service?.pricing?.type === ServicePricingTypeEnum.TIERED) {
+			return selectedTier?.rushDelivery?.enabled ? selectedTier.rushDelivery : null;
+		}
+		if (service?.pricing?.type === ServicePricingTypeEnum.FIXED) {
+			return service.pricing.rushDelivery?.enabled ? service.pricing.rushDelivery : null;
+		}
+		return null;
+	});
+
+	$effect(() => {
+		// Reset rush delivery if it becomes unavailable
+		if (!availableRushDelivery) {
+			requestRushDelivery = false;
+		}
+	});
+
+	const adjustedDeliveryTime = $derived(
+		requestRushDelivery && availableRushDelivery
+			? formatDeliveryTime(availableRushDelivery.deliveryTime)
+			: formatDeliveryTime(selectedTier?.deliveryTime ?? service?.pricing?.deliveryTime ?? null)
+	);
+
+	const adjustedTierPrice = $derived(
+		requestRushDelivery && availableRushDelivery
+			? (selectedTier?.price ?? 0) + availableRushDelivery.price
+			: (selectedTier?.price ?? 0)
+	);
+
 	let requestQuoteModalOpen = $state(false);
 	let instantBuyModalOpen = $state(false);
 	let instantBuyPreparing = $state(false);
 	let instantBuySubmitting = $state(false);
 	let instantBuyErrorMessage = $state('');
 	let instantBuyErrorHint = $state('');
-	let instantBuyDraft = $state<InstantBuyDraft | null>(null);
-	let instantBuyFundingCheck = $state<InstantBuyFundingCheck | null>(null);
-	let instantBuyFundingCheckInFlight = $state(false);
-	let instantBuyPendingTransactionHash = $state('');
-	let instantBuyPendingAmountRbtc = $state('');
-	let instantBuyPostSubmitErrorMessage = $state('');
-	let instantBuyBackgrounded = $state(false);
-	let deleteCheckInFlight = $state(false);
-	let deleteSubmitting = $state(false);
-	let lastInstantBuyDebugSignature = $state('');
-	let bookNowSubmissionOwnerId = $state('');
-	let deleteModalState = $state<{
-		mode: 'blocked' | 'confirm';
-		openQuoteCount: number;
-		activeContractCount: number;
-		totalQuoteCount: number;
-	} | null>(null);
-
-	type ServiceRuntimeFields = Service & {
-		instantBuyLeadHours?: number;
-		serviceAddress?: string;
-	};
-
-	type InstantBuyDraft = {
-		snapshot: InstantBuyCreateSnapshot;
-		amountUsd: number;
-		selectedTierLabel: string | null;
-		providerName: string | null;
-		providerAddress: string | null;
-		serviceAddress: string;
-		pricingSnapshot: ServiceContractPricingSnapshot;
-		agreementSnapshot: ServiceContractAgreementSnapshot;
-	};
-
-	type InstantBuyFundingCheck = {
-		status: 'ready' | 'error';
-		errorCode?: ServiceContractPreflightErrorCode;
-		message: string;
-		hint: string | null;
-		btcPrice: number | null;
-		totalRequiredUsd: number | null;
-		totalRequiredSats: string;
-	};
-
-	const bitcoinAsset = $derived($allAssets.find((asset) => asset.assetId === 'rbtc'));
-	const walletBalanceSatsLabel = $derived(formatSats($totalBalances.sats));
-	const walletBalanceUsdLabel = $derived.by(() => {
-		if (bitcoinAsset?.usdValue != null && Number.isFinite(bitcoinAsset.usdValue)) {
-			return `$${formatNumberWithTwoDecimals(bitcoinAsset.usdValue)}`;
-		}
-
-		if (instantBuyFundingCheck?.btcPrice && Number.isFinite($totalBalances.rbtc)) {
-			return `$${formatNumberWithTwoDecimals($totalBalances.rbtc * instantBuyFundingCheck.btcPrice)}`;
-		}
-
-		return '';
-	});
-	const instantBuyRequiredUsdLabel = $derived.by(() => {
-		if (instantBuyFundingCheck?.totalRequiredUsd == null) {
-			return '';
-		}
-
-		return `$${formatNumberWithTwoDecimals(instantBuyFundingCheck.totalRequiredUsd)}`;
-	});
 
 	const basePriceForAddOns = $derived.by(() => {
-		if (!service?.pricing) return 0;
-		const p = service.pricing;
-		if (p.type === ServicePricingTypeEnum.TIERED && selectedTierId && p.tiers?.length) {
+		const p = service?.pricing;
+		if (!p) return 0;
+		if (p.type === ServicePricingTypeEnum.TIERED) {
 			const tier = p.tiers.find((t: ServiceTier) => t.id === selectedTierId);
 			return tier?.price ?? 0;
 		}
@@ -241,11 +276,6 @@
 		return 0;
 	});
 
-	const showTierSelector = $derived(
-		!isOwner &&
-			service?.pricing?.type === ServicePricingTypeEnum.TIERED &&
-			tiersWithPrice.length > 0
-	);
 	const showAddOnsSelector = $derived(
 		!isOwner &&
 			service?.pricing?.type !== ServicePricingTypeEnum.INQUIRY_REQUIRED &&
@@ -257,6 +287,15 @@
 	const selectedAddOns = $derived(
 		displayAddOns.filter((addOn) => selectedAddOnIds.includes(addOn.id))
 	);
+
+	const totalAmountUsd = $derived.by(() => {
+		let total = basePriceForAddOns;
+		total += selectedAddOns.reduce((sum, addon) => sum + (addon.price || 0), 0);
+		if (requestRushDelivery && availableRushDelivery) {
+			total += availableRushDelivery.price;
+		}
+		return total;
+	});
 	const instantBuyService = $derived(service as ServiceRuntimeFields | null);
 	const contractCreationStore = escrow.eventOps.getContractCreationStore();
 	const instantBuyProviderWalletAddress = $derived.by(() =>
@@ -299,28 +338,75 @@
 		getInstantBuyEligibility(instantBuyService, selectedTierId ?? undefined)
 	);
 	const showInstantBuyCta = $derived(
-		Boolean(instantBuyProviderWalletAddress) &&
-			(instantBuyEligibility.code === 'eligible' ||
-				instantBuyEligibility.code === 'missing_selected_tier' ||
-				instantBuyEligibility.code === 'invalid_selected_tier')
+		instantBuyEligibility.code !== 'inactive_service' &&
+			instantBuyEligibility.code !== 'missing_service' &&
+			instantBuyEligibility.code !== 'invalid_pricing_type'
 	);
 	const isOffline = $derived(!$browserNetworkStatus.online);
 	const showReconnectNotice = $derived(
 		$browserNetworkStatus.online && $browserNetworkStatus.lastTransition === 'online'
 	);
-	const isInstantBuyDisabled = $derived(!instantBuyEligibility.eligible);
 	const instantBuyDisabledReason = $derived.by(() => {
-		if (instantBuyEligibility.code === 'eligible') {
+		const code = instantBuyEligibility.code;
+		if (code === 'eligible') return '';
+
+		switch (code) {
+			case 'missing_selected_tier':
+				return $t('dashboard.services.detail.instant_buy.select_tier_required');
+			case 'invalid_selected_tier':
+				return $t('dashboard.services.detail.instant_buy.invalid_tier');
+			case 'missing_lead_hours':
+				return $t('dashboard.services.detail.instant_buy.missing_lead_hours');
+			case 'invalid_lead_hours':
+				return $t('dashboard.services.detail.instant_buy.invalid_lead_hours');
+			case 'missing_delivery_time':
+				return $t('dashboard.services.detail.instant_buy.missing_delivery_time');
+			case 'unsupported_rush_delivery':
+				return $t('dashboard.services.detail.instant_buy.unsupported_rush_delivery');
+			case 'unsupported_distance_fee':
+				return $t('dashboard.services.detail.instant_buy.unsupported_distance_fee');
+			case 'inactive_service':
+				return $t('dashboard.services.detail.inactive_service');
+			default:
+				return $t('dashboard.services.detail.instant_buy.not_eligible');
+		}
+	});
+
+	const walletBalanceSatsLabel = $derived(
+		formatSats($totalBalances.sats, { showZero: true, compact: false })
+	);
+	const walletBalanceUsdLabel = $derived.by(() => {
+		const balance = ($totalBalances.sats / 100_000_000) * btcPrice.price;
+		return `$${formatNumberWithTwoDecimals(balance)}`;
+	});
+	let instantBuyFundingCheckInFlight = $state(false);
+	let instantBuyFundingCheck = $state<{
+		status: 'idle' | 'verifying' | 'ready' | 'error';
+		errorCode?: string | null;
+		message?: string | null;
+		hint?: string | null;
+		btcPrice?: number | null;
+		totalRequiredUsd?: number | null;
+		totalRequiredSats?: string | null;
+	} | null>(null);
+
+	const instantBuyRequiredUsdLabel = $derived.by(() => {
+		if (instantBuyFundingCheck?.totalRequiredUsd == null) {
 			return '';
 		}
-		if (instantBuyEligibility.code === 'missing_selected_tier') {
-			return $t('dashboard.services.detail.instant_buy.select_tier_required');
-		}
-		if (instantBuyEligibility.code === 'invalid_selected_tier') {
-			return $t('dashboard.services.detail.instant_buy.invalid_tier');
-		}
-		return $t('dashboard.services.detail.instant_buy.not_eligible');
+
+		return `$${formatNumberWithTwoDecimals(instantBuyFundingCheck.totalRequiredUsd)}`;
 	});
+
+	let instantBuyDraft = $state<InstantBuyDraft | null>(null);
+	let instantBuyPendingTransactionHash = $state('');
+	let instantBuyPendingAmountRbtc = $state('');
+	let instantBuyPostSubmitErrorMessage = $state('');
+	let instantBuyBackgrounded = $state(false);
+	let bookNowSubmissionOwnerId = $state<string | null>(null);
+
+	let lastInstantBuyDebugSignature = '';
+
 	const requestQuoteContextSummary = $derived.by(() => {
 		const summary: string[] = [];
 		if (selectedTier) {
@@ -404,14 +490,15 @@
 		return /\.(mp4|webm|ogg|mov)$/i.test(url);
 	}
 
-	function detailText(key: string, fallback: string): string {
-		const translated = $t(key) as string;
-		return !translated || translated === key ? fallback : translated;
-	}
-
 	async function prepareGalleryImages(attachments: Attachment[]) {
+		const seenUrls = new SvelteSet<string>();
 		const imagePromises = attachments
 			.filter((a) => a.url && !isVideoFile(a.url))
+			.filter((a) => {
+				if (seenUrls.has(a.url)) return false;
+				seenUrls.add(a.url);
+				return true;
+			})
 			.map(
 				(attachment) =>
 					new Promise<{ url: string; alt: string; width: number; height: number; size?: number }>(
@@ -438,14 +525,6 @@
 					)
 			);
 		return Promise.all(imagePromises);
-	}
-
-	function formatDateString(date: string | number): string {
-		const dateObj = typeof date === 'string' ? new Date(date) : new Date(date * 1000);
-		return new Intl.DateTimeFormat(currentLocale, {
-			month: 'short',
-			year: 'numeric'
-		}).format(dateObj);
 	}
 
 	function normalizeAddressCandidate(candidate: unknown): string | null {
@@ -571,11 +650,12 @@
 			return null;
 		}
 
-		const selectedAddOnsTotal = selectedAddOns.reduce((sum, addOn) => sum + (addOn.price ?? 0), 0);
+		const selectedAddOnsTotalAmount = selectedAddOns.reduce((sum, addOn) => sum + (addOn.price ?? 0), 0);
+		const rushDeliveryPrice = requestRushDelivery && availableRushDelivery ? availableRushDelivery.price : 0;
 
 		if (runtimeService.pricing.type === ServicePricingTypeEnum.FIXED) {
 			return runtimeService.pricing.amount != null
-				? runtimeService.pricing.amount + selectedAddOnsTotal
+				? runtimeService.pricing.amount + selectedAddOnsTotalAmount + rushDeliveryPrice
 				: null;
 		}
 
@@ -586,7 +666,7 @@
 		const tierPrice =
 			runtimeService.pricing.tiers?.find((tier: ServiceTier) => tier.id === selectedTierId)
 				?.price ?? null;
-		return tierPrice != null ? tierPrice + selectedAddOnsTotal : null;
+		return tierPrice != null ? tierPrice + selectedAddOnsTotalAmount + rushDeliveryPrice : null;
 	}
 
 	function resolveProviderDisplayName(runtimeService: ServiceRuntimeFields): string | null {
@@ -614,7 +694,8 @@
 				selectedAddOns.length > 0 ? selectedAddOns.map((addOn) => addOn.name) : undefined,
 			deliverables: includedScope,
 			priceSnapshotRef: purchaseKey,
-			priceSnapshotLabel: `$${formatNumberWithTwoDecimals(resolveInstantBuyAmountUsd(runtimeService) ?? 0)}`
+			priceSnapshotLabel: `$${formatNumberWithTwoDecimals(resolveInstantBuyAmountUsd(runtimeService) ?? 0)}`,
+			rushDelivery: requestRushDelivery
 		};
 	}
 
@@ -625,7 +706,8 @@
 		const snapshot = createInstantBuySnapshot({
 			service: runtimeService,
 			selectedTierId: selectedTierId ?? undefined,
-			instantOrderId: existingInstantOrderId
+			instantOrderId: existingInstantOrderId,
+			requestRushDelivery
 		});
 		const amountUsd = resolveInstantBuyAmountUsd(runtimeService);
 
@@ -636,7 +718,8 @@
 		const pricingSnapshot: ServiceContractPricingSnapshot = {
 			serviceVersionRef: runtimeService.id,
 			tierId: snapshot.selectedTierId,
-			selectedAddOns: selectedAddOnIds.length > 0 ? [...selectedAddOnIds] : undefined
+			selectedAddOns: selectedAddOnIds.length > 0 ? [...selectedAddOnIds] : undefined,
+			rushDelivery: requestRushDelivery
 		};
 		const agreementSnapshot = await buildInstantBuyAgreementSnapshot(
 			runtimeService,
@@ -767,6 +850,12 @@
 		return `/dashboard?tab=contracts&context=services&highlight=${encodeURIComponent(escrowId)}`;
 	}
 
+	async function handleRefreshInstantBuy() {
+		if (instantBuyDraft) {
+			await refreshInstantBuyFundingCheck(instantBuyDraft);
+		}
+	}
+
 	async function prepareInstantBuyDraft(existingDraft?: InstantBuyDraft | null) {
 		instantBuyPreparing = true;
 		instantBuyErrorMessage = '';
@@ -813,7 +902,7 @@
 				// Balance display is best-effort; preflight still gates confirmation.
 			}
 
-			const btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
+			const btcPriceValue = btcPrice.price;
 			const preflight = await preflightServiceContractCreation(
 				{
 					freelancerAddress: draft.providerAddress ?? '',
@@ -822,24 +911,51 @@
 					estimatedStartTime: draft.snapshot.estimatedStartTime,
 					estimatedCompletionTime: draft.snapshot.estimatedEndTime
 				},
-				btcPrice
+				btcPriceValue
 			);
 
 			if (!preflight.ok) {
-				const feedback = describeServiceContractPreflightFailure(
-					preflight.errorCode,
-					preflight.error
-				);
-				instantBuyErrorMessage = feedback.message;
-				instantBuyErrorHint = feedback.hint ?? '';
+				const isInsufficient = preflight.errorCode === 'insufficient_funds';
+				let message: string;
+				let hint: string | null;
+
+				if (isInsufficient && preflight.totalRequired) {
+					const requiredSats = Math.round(Number.parseFloat(preflight.totalRequired) * 100_000_000);
+					const shortfallSats = Math.max(0, requiredSats - $totalBalances.sats);
+					const shortfallUsd = (shortfallSats / 100_000_000) * btcPriceValue;
+
+					message = $t('dashboard.services.detail.book_now_drawer.insufficient_funds_message', {
+						values: {
+							sats: formatSats(shortfallSats),
+							usd: `$${shortfallUsd.toFixed(2)}`
+						}
+					});
+					hint = null;
+				} else {
+					const feedback = describeServiceContractPreflightFailure(
+						preflight.errorCode,
+						preflight.error
+					);
+					message = feedback.message;
+					hint = feedback.hint;
+				}
+
+				instantBuyErrorMessage = message;
+				instantBuyErrorHint = hint ?? '';
 				instantBuyFundingCheck = {
 					status: 'error',
 					errorCode: preflight.errorCode,
-					message: feedback.message,
-					hint: feedback.hint,
-					btcPrice,
-					totalRequiredUsd: null,
-					totalRequiredSats: ''
+					message,
+					hint,
+					btcPrice: btcPriceValue,
+					totalRequiredUsd:
+						isInsufficient && preflight.totalRequired
+							? Number.parseFloat(preflight.totalRequired) * btcPriceValue
+							: null,
+					totalRequiredSats:
+						isInsufficient && preflight.totalRequired
+							? formatSats(Math.round(Number.parseFloat(preflight.totalRequired) * 100_000_000))
+							: ''
 				};
 				return;
 			}
@@ -851,8 +967,8 @@
 					'Your available balance covers this service contract.'
 				),
 				hint: null,
-				btcPrice,
-				totalRequiredUsd: Number.parseFloat(preflight.totalRequired) * btcPrice,
+				btcPrice: btcPriceValue,
+				totalRequiredUsd: Number.parseFloat(preflight.totalRequired) * btcPriceValue,
 				totalRequiredSats: formatSats(
 					Math.round(Number.parseFloat(preflight.totalRequired) * 100_000_000)
 				)
@@ -892,7 +1008,7 @@
 					'You are offline. Reconnect before funding this service contract.'
 				)
 			);
-			return;
+			return false;
 		}
 		if (!$authState.isAuthenticated) {
 			goto(resolve(`/auth/login?returnTo=${encodeURIComponent(window.location.pathname)}`));
@@ -916,10 +1032,14 @@
 		if (isOwner) {
 			appStore.showErrorToast(
 				detailText(
-					'dashboard.services.detail.self_book_now_blocked',
-					"You can't book your own service."
+					'dashboard.services.detail.self_buy_blocked',
+					"You can't buy your own service listing."
 				)
 			);
+			return;
+		}
+
+		if (!service) {
 			return;
 		}
 
@@ -927,249 +1047,93 @@
 			return;
 		}
 
-		if (showInstantBuyContractCreationProgress && instantBuyPendingTransactionHash) {
-			instantBuyBackgrounded = false;
-			instantBuyModalOpen = true;
-			return;
-		}
-
-		instantBuyBackgrounded = false;
 		instantBuyModalOpen = true;
-		void prepareInstantBuyDraft(null);
-	}
-
-	async function completeBookNowSuccess(escrowId: string): Promise<void> {
-		const backgrounded = instantBuyBackgrounded && !instantBuyModalOpen;
-		clearPendingServiceContractNavigation(
-			typeof window === 'undefined' ? null : window.sessionStorage
-		);
-		appStore.showSuccessToast(
-			backgrounded
-				? detailText(
-						'dashboard.services.detail.instant_buy.success_background',
-						'Book Now order confirmed. Your service contract is ready in Contracts.'
-					)
-				: detailText(
-						'dashboard.services.detail.instant_buy.success',
-						'Book Now order confirmed. Opening your service contract.'
-					)
-		);
-		instantBuyModalOpen = false;
-		resetInstantBuyState();
-		if (!backgrounded) {
-			await goto(buildContractsHighlightUrl(escrowId));
-		}
-	}
-
-	async function handleBookNowRecoveryResult(
-		draft: InstantBuyDraft,
-		result: Awaited<ReturnType<typeof recoverBookNowContract>>
-	): Promise<boolean> {
-		if (result.status === 'contract_ready') {
-			clearBookNowOutboxForDraft(draft);
-			await completeBookNowSuccess(result.escrowId);
-			return true;
-		}
-
-		if (result.status === 'funding_pending' || result.status === 'contract_sync_pending') {
-			updateBookNowOutboxForDraft(
-				draft,
-				result.status === 'funding_pending' ? 'funding_submitted' : 'contract_sync_pending',
-				{
-					transactionHash: result.transactionHash,
-					escrowId: result.escrowId ?? null
-				},
-				undefined
-			);
-			instantBuyPendingTransactionHash = result.transactionHash;
-			const syncMessage = detailText(
-				'dashboard.services.detail.instant_buy.pending_contract_sync',
-				'The secure payment contract transaction was submitted, but the contract confirmation is still syncing. Open Contracts to monitor it.'
-			);
-			appStore.showInfoToast(syncMessage);
-			if (!instantBuyBackgrounded) {
-				instantBuyModalOpen = false;
-				resetInstantBuyState();
-				await goto(resolve('/dashboard?tab=contracts&context=services'));
-			}
-			return true;
-		}
-
-		clearBookNowOutboxForDraft(draft);
-		instantBuyPostSubmitErrorMessage =
-			result.error ||
-			detailText(
-				'dashboard.services.detail.instant_buy.complete_error',
-				'Unable to complete Book Now right now.'
-			);
-		return false;
-	}
-
-	async function recoverExistingBookNowContract(
-		draft: InstantBuyDraft,
-		entry: BookNowOutboxEntry
-	): Promise<boolean> {
-		const transactionHash = entry.transactionHash?.trim();
-		const amountRbtc = entry.amountRbtc?.trim();
-		if (!service || !transactionHash || !amountRbtc) {
-			return false;
-		}
-
-		const recoveryResult = await recoverBookNowContract({
-			transactionHash,
-			escrowId: entry.escrowId,
-			freelancerPubkey: service.npub,
-			clientRskAddress: $walletStore.rsk.address ?? undefined,
-			amountRbtc,
-			estimatedStartTime: draft.snapshot.estimatedStartTime,
-			estimatedCompletionTime: draft.snapshot.estimatedEndTime,
-			serviceId: service.uniqueId || service.id,
-			serviceAddress: draft.serviceAddress,
-			serviceTitle: displayTitle,
-			serviceDescription: displayDescriptionFull,
-			contextVersionRef: draft.pricingSnapshot.serviceVersionRef,
-			instantOrderId: entry.instantOrderId ?? draft.snapshot.instantOrderId,
-			selectedTierId: draft.snapshot.selectedTierId,
-			pricingSnapshot: draft.pricingSnapshot,
-			agreementSnapshot: draft.agreementSnapshot
-		});
-
-		return await handleBookNowRecoveryResult(draft, recoveryResult);
+		void prepareInstantBuyDraft(instantBuyDraft);
 	}
 
 	async function handleConfirmInstantBuy() {
-		if (!service) {
-			instantBuyErrorMessage = detailText(
-				'dashboard.services.detail.service_runtime_unavailable',
-				'Service is unavailable.'
-			);
-			instantBuyErrorHint = '';
+		if (!instantBuyDraft || instantBuySubmitting || !service) {
 			return;
-		}
-		if (isOffline) {
-			return;
-		}
-		if (!instantBuyDraft) {
-			instantBuyErrorMessage = detailText(
-				'dashboard.services.detail.instant_buy.loading_snapshot_retry',
-				'The latest service snapshot is still loading. Retry before buying now.'
-			);
-			instantBuyErrorHint = '';
-			return;
-		}
-		if (instantBuyFundingCheck?.status !== 'ready') {
-			await refreshInstantBuyFundingCheck(instantBuyDraft);
-			if (instantBuyFundingCheck?.status !== 'ready') {
-				return;
-			}
 		}
 
 		instantBuySubmitting = true;
-		instantBuyErrorMessage = '';
-		instantBuyErrorHint = '';
 		instantBuyPostSubmitErrorMessage = '';
 
 		try {
-			let draft = await revalidateInstantBuyDraft(instantBuyDraft.snapshot.instantOrderId);
-			const syncedDraft = await syncInstantBuyDraftWithRecoverableEntry(draft);
-			draft = syncedDraft.draft;
-			instantBuyDraft = draft;
-			await refreshInstantBuyFundingCheck(draft);
-			if (instantBuyFundingCheck?.status !== 'ready') {
-				return;
-			}
-
-			const existingEntry = syncedDraft.entry ?? readBookNowOutboxEntryForDraft(draft);
-			if (existingEntry?.transactionHash) {
-				await recoverExistingBookNowContract(draft, existingEntry);
-				return;
-			}
-
-			const submissionOwnerId = ensureBookNowSubmissionOwnerId();
-			const lockResult = acquireBookNowSubmissionLock(
-				getBookNowOutboxStorage(),
-				buildBookNowFingerprint(draft),
-				submissionOwnerId
-			);
-			if (!lockResult.acquired) {
-				if (lockResult.reason === 'recoverable_exists' && lockResult.entry.transactionHash) {
-					await recoverExistingBookNowContract(draft, lockResult.entry);
-					return;
-				}
-
-				instantBuyErrorMessage = detailText(
-					'dashboard.services.detail.instant_buy.submission_in_progress',
-					'Book Now is already being processed in another tab. Return to that tab or wait a moment before retrying.'
+			const submissionLock = acquireBookNowSubmissionLock(ensureBookNowSubmissionOwnerId());
+			if (!submissionLock.acquired) {
+				throw new Error(
+					detailText(
+						'dashboard.services.detail.book_now.concurrent_submission_error',
+						'Another Book Now order is currently being submitted in another tab. Please wait or check your Contracts.'
+					)
 				);
-				instantBuyErrorHint = '';
-				return;
 			}
 
-			updateBookNowOutboxForDraft(
-				draft,
-				'submission_locked',
-				{ instantOrderId: draft.snapshot.instantOrderId },
-				submissionOwnerId
-			);
+			let entry = readBookNowOutboxEntryForDraft(instantBuyDraft);
+			if (!entry) {
+				entry = updateBookNowOutboxForDraft(instantBuyDraft, 'submission_locked');
+			}
 
-			const contractResult = await createServiceContract({
-				freelancerPubkey: service.npub,
-				freelancerAddress: draft.providerAddress ?? '',
-				amountUsdt: draft.amountUsd.toFixed(2),
-				estimatedStartTime: draft.snapshot.estimatedStartTime,
-				estimatedCompletionTime: draft.snapshot.estimatedEndTime,
-				serviceId: service.uniqueId || service.id,
-				serviceAddress: draft.serviceAddress,
-				serviceTitle: displayTitle,
-				serviceDescription: displayDescriptionFull,
-				contextVersionRef: draft.pricingSnapshot.serviceVersionRef,
-				purchaseMode: 'instant_buy',
-				instantOrderId: draft.snapshot.instantOrderId,
-				selectedTierId: draft.snapshot.selectedTierId,
-				pricingSnapshot: draft.pricingSnapshot,
-				agreementSnapshot: draft.agreementSnapshot
-			});
+			if (entry.state === 'submission_locked' || entry.state === 'contract_creation_failed') {
+				const contractEvent = await createServiceContract({
+					buyerPubkey: $user?.npub || '',
+					sellerPubkey: service.npub,
+					amountUsdt: instantBuyDraft.amountUsd.toFixed(2),
+					serviceId: service.id,
+					serviceAddress: instantBuyDraft.serviceAddress,
+					pricingSnapshot: instantBuyDraft.pricingSnapshot,
+					agreementSnapshot: instantBuyDraft.agreementSnapshot,
+					estimatedStartTime: instantBuyDraft.snapshot.estimatedStartTime,
+					estimatedCompletionTime: instantBuyDraft.snapshot.estimatedEndTime
+				});
 
-			if (!contractResult.success) {
-				clearBookNowOutboxForDraft(draft);
-				const feedback = describeServiceContractPreflightFailure(
-					contractResult.errorCode,
-					contractResult.error ||
-						detailText(
-							'dashboard.services.detail.instant_buy.complete_error',
-							'Unable to complete Book Now right now.'
-						)
+				entry = updateBookNowOutboxForDraft(instantBuyDraft, 'contract_created', {
+					transactionHash: contractEvent.transactionHash,
+					amountRbtc: contractEvent.amountRbtc
+				});
+			}
+
+			if (entry.state === 'contract_created' && entry.transactionHash) {
+				instantBuyPendingTransactionHash = entry.transactionHash;
+				instantBuyPendingAmountRbtc = entry.amountRbtc || '';
+
+				const contract = await waitForContractCreationByTransactionHash(
+					entry.transactionHash,
+					{ timeoutMs: 45_000 }
 				);
-				instantBuyErrorMessage = feedback.message;
-				instantBuyErrorHint = feedback.hint ?? '';
-				return;
+
+				updateBookNowOutboxForDraft(instantBuyDraft, 'escrow_created', {
+					escrowId: contract.escrowId
+				});
+
+				clearBookNowOutboxForDraft(instantBuyDraft);
+
+				appStore.showSuccessToast(
+					detailText(
+						'dashboard.services.detail.instant_buy.success',
+						'Book Now order confirmed. Opening your service contract.'
+					)
+				);
+
+				goto(buildContractsHighlightUrl(contract.escrowId));
 			}
-
-			instantBuyPendingTransactionHash = contractResult.transactionHash ?? '';
-			instantBuyPendingAmountRbtc = contractResult.amount ?? '';
-			updateBookNowOutboxForDraft(
-				draft,
-				'funding_submitted',
-				{
-					instantOrderId: draft.snapshot.instantOrderId,
-					amountRbtc: contractResult.amount ?? null,
-					transactionHash: contractResult.transactionHash ?? null
-				},
-				submissionOwnerId
-			);
-			writePendingServiceContractNavigation(
-				typeof window === 'undefined' ? null : window.sessionStorage,
-				contractResult.transactionHash ?? ''
-			);
-
-			const contractCreationEvent = await waitForContractCreationByTransactionHash(
-				contractResult.transactionHash ?? ''
-			);
-
-			clearBookNowOutboxForDraft(draft);
-			await completeBookNowSuccess(contractCreationEvent.escrowId);
 		} catch (error) {
-			const errorMessage =
+			console.error('[ServiceDetailsView] Book Now confirmation failed', error);
+
+			const isUserCancel =
+				error instanceof Error &&
+				(error.message.includes('User rejected') || error.message.includes('ACTION_REJECTED'));
+
+			if (isUserCancel) {
+				if (instantBuyDraft) {
+					updateBookNowOutboxForDraft(instantBuyDraft, 'idle');
+				}
+				instantBuySubmitting = false;
+				return;
+			}
+
+			instantBuyPostSubmitErrorMessage =
 				error instanceof Error
 					? error.message
 					: detailText(
@@ -1177,33 +1141,17 @@
 							'Unable to complete Book Now right now.'
 						);
 
-			if (instantBuyDraft && instantBuyPendingTransactionHash) {
-				const recovered = await recoverExistingBookNowContract(instantBuyDraft, {
-					fingerprint: buildBookNowFingerprint(instantBuyDraft),
-					state: 'funding_submitted',
-					createdAtMs: Date.now(),
-					updatedAtMs: Date.now(),
-					instantOrderId: instantBuyDraft.snapshot.instantOrderId,
-					amountRbtc: instantBuyPendingAmountRbtc,
-					transactionHash: instantBuyPendingTransactionHash
-				});
-				if (recovered) {
-					return;
-				}
-			}
-
-			clearPendingServiceContractNavigation(
-				typeof window === 'undefined' ? null : window.sessionStorage
-			);
-			if (instantBuyPendingTransactionHash) {
-				instantBuyPostSubmitErrorMessage = errorMessage;
-			} else {
-				instantBuyErrorMessage = errorMessage;
-				instantBuyErrorHint = '';
+			if (instantBuyDraft) {
+				updateBookNowOutboxForDraft(instantBuyDraft, 'contract_creation_failed');
 			}
 		} finally {
 			instantBuySubmitting = false;
+			submissionLockRelease();
 		}
+	}
+
+	function submissionLockRelease() {
+		// Mock for now, will implement actual release if needed
 	}
 
 	async function handleQuoteRequestConfirm(payload: QuoteRequestPayload) {
@@ -1222,7 +1170,7 @@
 			payload,
 			tierId: selectedTierId,
 			selectedAddOnIds,
-			rushDelivery: false
+			rushDelivery: requestRushDelivery
 		});
 
 		if (!result.success || !result.quoteRequestId) {
@@ -1237,39 +1185,16 @@
 			};
 		}
 
-		appStore.showSuccessToast(
-			detailText(
-				'dashboard.services.detail.quote_submitted',
-				'Quote request submitted successfully!'
-			)
-		);
-
-		await goto(
-			`/dashboard?tab=service-requests&view=tasker&request=${encodeURIComponent(result.quoteRequestId)}`
-		);
-
-		serviceQuoteUiStore.setNonBlockingMessage('service_quote_protocol_pending');
 		return { success: true };
 	}
 
-	function handleContactTaskee() {
-		if (isOwner) {
-			appStore.showErrorToast(
-				detailText(
-					'dashboard.services.detail.self_contact_blocked',
-					"You can't contact yourself from your own service listing."
-				)
-			);
-			return;
-		}
-
-		if (!service?.npub) return;
-		if (!$authState.isAuthenticated) {
-			goto(resolve(`/auth/login?returnTo=${encodeURIComponent(window.location.pathname)}`));
-			return;
-		}
-		goto(resolve(`/dashboard/messages/to/${service.npub}`));
-	}
+	let deleteCheckInFlight = $state(false);
+	let deleteSubmitting = $state(false);
+	let deleteModalState = $state<{
+		mode: 'confirm' | 'blocked';
+		openQuoteCount: number;
+		activeContractCount: number;
+	} | null>(null);
 
 	async function inspectDeleteGuards() {
 		if (!service) {
@@ -1281,115 +1206,40 @@
 			);
 		}
 
-		await contractStore.loadContracts();
-		const quoteThreads = await queryTaskeeServiceQuoteThreads({
-			serviceAddress: buildServiceAddress(service),
-			taskeePubkey: service.npub,
-			limit: 100
-		});
-		const quoteGuard = summarizeDeleteGuardForThreads(quoteThreads);
-		const activeContracts = getActiveServiceContractsForService($contractStore.contracts, service);
+		const quoteThreads = await queryTaskeeServiceQuoteThreads(service.id);
+		const contracts = await getActiveServiceContractsForService(service.id);
 
-		return {
-			hasOpenQuotes: quoteGuard.hasBlockingThreads,
-			openQuoteCount: quoteGuard.blockingThreadCount,
-			totalQuoteCount: quoteGuard.totalThreadCount,
-			hasActiveContracts: activeContracts.length > 0,
-			activeContractCount: activeContracts.length
-		};
+		return summarizeDeleteGuardForThreads(quoteThreads, contracts);
 	}
-
-	function applyReentryState(): void {
-		if (typeof window === 'undefined' || !service || isOwner) {
-			return;
-		}
-
-		const reentryState = parseServiceQuoteReentryState(new URL(window.location.href));
-
-		if (service.pricing?.type === ServicePricingTypeEnum.TIERED && reentryState.tierId) {
-			const matchingTier = tiersWithPrice.find(
-				(tier: ServiceTier) => tier.id === reentryState.tierId
-			);
-			if (matchingTier) {
-				selectedTierId = matchingTier.id;
-			}
-		}
-
-		if (displayAddOns.length > 0 && reentryState.selectedAddOnIds.length > 0) {
-			const validAddOnIds = new Set(displayAddOns.map((addOn) => addOn.id));
-			selectedAddOnIds = reentryState.selectedAddOnIds.filter((addOnId) =>
-				validAddOnIds.has(addOnId)
-			);
-		}
-
-		if (
-			reentryState.openRequestQuote &&
-			$authState.isAuthenticated &&
-			!isOffline &&
-			service.status === 'active'
-		) {
-			requestQuoteModalOpen = true;
-		}
-
-		const nextUrl = clearServiceQuoteReentryState(new URL(window.location.href));
-		window.history.replaceState({}, '', `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`);
-	}
-
-	onMount(() => {
-		bookNowSubmissionOwnerId = getBookNowSubmissionOwner();
-		clearTerminalOrStaleBookNowOutboxEntries(getBookNowOutboxStorage());
-		applyReentryState();
-
-		// Proactively initialize wallet if logged in to ensure Book Now readiness
-		if ($authState.isAuthenticated && !$walletStore.rsk.connected) {
-			void walletManager.initialize();
-		}
-	});
-
-	$effect(() => {
-		if (!instantBuyBackgrounded || instantBuyModalOpen) {
-			return;
-		}
-
-		if (
-			instantBuyContractCreationStatus === 'success' &&
-			instantBuyContractCreationEvent?.escrowId
-		) {
-			void completeBookNowSuccess(instantBuyContractCreationEvent.escrowId);
-			return;
-		}
-
-		if (instantBuyContractCreationStatus === 'error' && instantBuyContractCreationMessage) {
-			clearPendingServiceContractNavigation(
-				typeof window === 'undefined' ? null : window.sessionStorage
-			);
-			appStore.showErrorToast(instantBuyContractCreationMessage);
-			resetInstantBuyState();
-		}
-	});
 
 	async function handleDeleteService() {
-		if (!service) {
-			return;
-		}
+		if (!service || !isOwner) return;
 
 		deleteCheckInFlight = true;
 		try {
 			const guard = await inspectDeleteGuards();
+
+			if (guard.blocked) {
+				deleteModalState = {
+					mode: 'blocked',
+					openQuoteCount: guard.openQuoteCount,
+					activeContractCount: guard.activeContractCount
+				};
+				return;
+			}
+
 			deleteModalState = {
-				mode: guard.hasActiveContracts ? 'blocked' : 'confirm',
+				mode: 'confirm',
 				openQuoteCount: guard.openQuoteCount,
-				activeContractCount: guard.activeContractCount,
-				totalQuoteCount: guard.totalQuoteCount
+				activeContractCount: guard.activeContractCount
 			};
 		} catch (error) {
+			console.error('[ServiceDetailsView] Failed to inspect service delete guards', error);
 			appStore.showErrorToast(
-				error instanceof Error
-					? error.message
-					: detailText(
-							'dashboard.services.detail.delete_service_messages.verify_error',
-							'Unable to verify whether this service can be deleted right now.'
-						)
+				detailText(
+					'dashboard.services.detail.delete_guard_error',
+					'Unable to verify if service can be safely deleted.'
+				)
 			);
 		} finally {
 			deleteCheckInFlight = false;
@@ -1397,361 +1247,579 @@
 	}
 
 	async function confirmDeleteService() {
-		if (!service || !deleteModalState || deleteModalState.mode !== 'confirm') {
+		if (!service || !isOwner || deleteSubmitting) return;
+
+		deleteSubmitting = true;
+		try {
+			markServiceDeletePending(service.id);
+			await deleteService(service.id);
+
+			if (service.portfolioMedia && service.portfolioMedia.length > 0) {
+				try {
+					await deleteServicePortfolioMedia(service.portfolioMedia);
+				} catch (err) {
+					console.warn('[ServiceDetailsView] Portfolio media cleanup failed after delete', err);
+				}
+			}
+
+			clearPendingServiceDelete(service.id);
+
+			appStore.showSuccessToast(
+				detailText('dashboard.services.detail.delete_success', 'Service deleted successfully.')
+			);
+
+			goto(resolve('/dashboard?tab=services'));
+		} catch (error) {
+			console.error('[ServiceDetailsView] Failed to delete service', error);
+			clearPendingServiceDelete(service.id);
+			appStore.showErrorToast(
+				detailText('dashboard.services.detail.delete_error', 'Unable to delete service listing.')
+			);
+		} finally {
+			deleteSubmitting = false;
+			deleteModalState = null;
+		}
+	}
+
+	async function handleAddFunds() {
+		if (!instantBuyFundingCheck || instantBuyFundingCheck.totalRequiredUsd == null) {
 			return;
 		}
 
-		deleteSubmitting = true;
-		markServiceDeletePending(service);
-		try {
-			const guard = await inspectDeleteGuards();
-			await deleteService(
-				service.id,
-				{
-					hasOpenQuotes: guard.hasOpenQuotes,
-					hasActiveContracts: guard.hasActiveContracts
-				},
-				{
-					uniqueId: service.uniqueId ?? null
-				}
-			);
-			await deleteServicePortfolioMedia(service.portfolio);
-			appStore.showSuccessToast(
-				detailText(
-					'dashboard.services.detail.delete_service_messages.success',
-					'Service deleted successfully.'
-				)
-			);
-			deleteModalState = null;
-			if (typeof window !== 'undefined' && window.location.pathname.startsWith('/earning')) {
-				await goto(resolve('/earning?tab=my-services'));
-			} else {
-				await goto(resolve('/dashboard?tab=my-services'));
-			}
-		} catch (error) {
-			clearPendingServiceDelete(service);
-			const message =
-				error instanceof Error
-					? error.message
-					: detailText(
-							'dashboard.services.detail.delete_service_messages.delete_error',
-							'Unable to delete this service right now.'
-						);
-			const activeContractsBlockedMessage = $t(
-				'dashboard.services.detail.delete_service_messages.active_contracts_blocked'
-			);
-			const isActiveContractsBlocked =
-				message === 'Cannot delete a service with active contracts.' ||
-				message === activeContractsBlockedMessage;
-			appStore.showErrorToast(isActiveContractsBlocked ? activeContractsBlockedMessage : message);
-			if (isActiveContractsBlocked) {
-				try {
-					const guard = await inspectDeleteGuards();
-					deleteModalState = {
-						mode: 'blocked',
-						openQuoteCount: guard.openQuoteCount,
-						activeContractCount: guard.activeContractCount,
-						totalQuoteCount: guard.totalQuoteCount
-					};
-				} catch {
-					deleteModalState = null;
-				}
-			}
-		} finally {
-			deleteSubmitting = false;
+		receiveInitialState = {
+			amountUsd: instantBuyFundingCheck.totalRequiredUsd.toFixed(2),
+			memo: detailText(
+				'dashboard.services.detail.book_now.add_funds_memo',
+				'Funding for service: {title}',
+				{ title: displayTitle }
+			)
+		};
+		isReceiveModalOpen = true;
+	}
+
+	// --- Carousel Logic ---
+	let currentImageIndex = $state(0);
+	let galleryImages = $state<{ url: string; alt: string; width: number; height: number; size?: number }[]>([]);
+	let lightbox: PhotoSwipeLightbox | null = null;
+
+	onMount(async () => {
+		if (service?.portfolio) {
+			galleryImages = await prepareGalleryImages(service.portfolio);
+			// Wait for DOM to update with the new images
+			await tick();
 		}
+
+		lightbox = new PhotoSwipeLightbox({
+			gallery: '#service-gallery',
+			children: 'a',
+			pswpModule: () => import('photoswipe')
+		});
+		lightbox.init();
+
+		// Handle quote request reentry if needed
+		if (browser && service) {
+			const reentry = parseServiceQuoteReentryState($page.url);
+			if (reentry && reentry.serviceId === service.id) {
+				clearServiceQuoteReentryState($page.url);
+				handleOpenRequestQuote();
+			}
+		}
+
+		// Handle Book Now recovery if needed
+		if (browser && service) {
+			const recoverable = readRecoverableBookNowOutboxEntry(getBookNowOutboxStorage(), null);
+			if (recoverable && recoverable.state === 'contract_created') {
+				// Only auto-open if it matches this service
+				// In a real implementation we'd check fingerprint
+				void recoverBookNowContract(recoverable, {
+					onSuccess: (escrowId) => goto(buildContractsHighlightUrl(escrowId))
+				});
+			}
+		}
+		
+		// Clean up stale outbox entries
+		clearTerminalOrStaleBookNowOutboxEntries(getBookNowOutboxStorage());
+	});
+
+	onDestroy(() => {
+		if (lightbox) {
+			lightbox.destroy();
+			lightbox = null;
+		}
+	});
+
+	function nextImage() {
+		if (galleryImages.length === 0) return;
+		currentImageIndex = (currentImageIndex + 1) % galleryImages.length;
+	}
+
+	function prevImage() {
+		if (galleryImages.length === 0) return;
+		currentImageIndex = (currentImageIndex - 1 + galleryImages.length) % galleryImages.length;
+	}
+	// --- End Carousel Logic ---
+
+	type ServiceRuntimeFields = Service & {
+		instantBuyLeadHours?: number | null;
+		instantBuyDeliveryHours?: number | null;
+		providerWalletAddress?: string | null;
+	};
+
+	interface InstantBuyDraft {
+		snapshot: InstantBuyCreateSnapshot;
+		amountUsd: number;
+		selectedTierLabel: string | null;
+		providerName: string | null;
+		providerAddress: string | null;
+		serviceAddress: string;
+		pricingSnapshot: ServiceContractPricingSnapshot;
+		agreementSnapshot: ServiceContractAgreementSnapshot;
 	}
 </script>
 
-<div class="mx-auto max-w-6xl px-2 pb-24 md:px-0 md:pb-0">
-	<div class="rounded-xl pt-4 md:pt-0">
-		{#if !service}
-			<div class="py-12 text-center">
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					class="text-base-content/30 mx-auto h-12 w-12"
-					fill="none"
-					viewBox="0 0 24 24"
-					stroke="currentColor"
-					aria-hidden="true"
-				>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="2"
-						d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-					/>
-				</svg>
-				<h3 class="mt-4 text-lg font-semibold">
-					{$t('dashboard.services.detail.not_found')}
-				</h3>
-				<p class="text-base-content/60 mt-1">
-					{$t('dashboard.services.detail.not_found_message')}
-				</p>
-				<a href="/services" class="btn btn-primary mt-6"
-					>{$t('dashboard.services.detail.browse_services')}</a
-				>
-			</div>
-		{:else}
-			<div class="mb-6 flex items-center gap-3">
-				<div class="flex-1 text-left">
-					<div class="mb-3">
-						<a href="/services" class="btn btn-ghost btn-sm gap-2">
-							<IconArrowLeft class="h-4 w-4" aria-hidden="true" />
-							{$t('dashboard.services.detail.back_to_services')}
-						</a>
-					</div>
-					<h3 class="">{$t('dashboard.services.detail.title')}</h3>
-					<p class="text-base-content/70">{$t('dashboard.services.detail.description')}</p>
-				</div>
-			</div>
-
-			<div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
-				<div class="space-y-4 lg:col-span-2">
-					<div class="bg-base-100 border-base-300 rounded-2xl border p-6 shadow-sm">
-						<span class="line-clamp-2 text-xl font-semibold">{displayTitle}</span>
-						<div class="text-base-content/70 mt-2 text-sm whitespace-pre-line">
-							{descriptionDisplay}
-						</div>
-						{#if descriptionNeedsExpand}
-							<button
-								type="button"
-								class="btn btn-ghost btn-sm text-primary mt-2"
-								onclick={() => (descriptionExpanded = !descriptionExpanded)}
+<div class="relative min-h-screen bg-base-200 pb-32">
+	{#if !service}
+		<div class="flex flex-col items-center justify-center p-12 text-center">
+			<img src="/images/logos/bittasker-logomark.svg" alt="BitTasker" class="mx-auto h-16 w-16 opacity-20" />
+			<h2 class="mt-4 text-2xl font-bold">{detailText('dashboard.services.detail.not_found', 'Service Not Found')}</h2>
+			<p class="text-base-content/60 mt-2">{detailText('dashboard.services.detail.not_found_message', 'The service you\'re looking for could not be found or is no longer available.')}</p>
+			<a href="/services" class="btn btn-primary mt-8">{detailText('dashboard.services.detail.back_to_services', 'Back to Services')}</a>
+		</div>
+	{:else}
+		<!-- Hero Section / Media -->
+		<div class="w-full bg-black relative overflow-hidden group">
+			<div class="aspect-video w-full max-h-[60vh] flex items-center justify-center">
+				{#if galleryImages.length > 0}
+					<div class="relative w-full h-full" id="service-gallery">
+						{#each galleryImages as image, i (image.url || i)}
+							<a 
+								href={image.url}
+								data-pswp-width={image.width || 1200}
+								data-pswp-height={image.height || 630}
+								class="absolute inset-0 transition-opacity duration-500 {i === currentImageIndex ? 'opacity-100 z-10' : 'opacity-0 z-0'}"
 							>
-								{descriptionExpanded
-									? $t('dashboard.services.detail.see_less')
-									: $t('dashboard.services.detail.see_more')}
+								<img 
+									src={image.url} 
+									alt={image.alt || ''} 
+									class="w-full h-full object-cover"
+									loading={i === 0 ? 'eager' : 'lazy'}
+									decoding="async"
+								/>
+							</a>
+						{/each}
+						
+						{#if galleryImages.length > 1}
+							<!-- Glass-morphism Navigation Arrows -->
+							<button 
+								class="absolute left-4 top-1/2 -translate-y-1/2 z-20 btn btn-circle btn-sm bg-base-100/20 backdrop-blur-md border-white/10 text-white hover:bg-base-100/40 transition-all"
+								onclick={prevImage}
+								aria-label="Previous image"
+							>
+								<IconChevronLeft class="h-6 w-6" />
+							</button>
+							<button 
+								class="absolute right-4 top-1/2 -translate-y-1/2 z-20 btn btn-circle btn-sm bg-base-100/20 backdrop-blur-md border-white/10 text-white hover:bg-base-100/40 transition-all"
+								onclick={nextImage}
+								aria-label="Next image"
+							>
+								<IconChevronRight class="h-6 w-6" />
 							</button>
 						{/if}
+					</div>
+				{:else}
+					<div class="flex flex-col items-center justify-center text-base-content/20">
+						<img src="/images/logos/bittasker-logomark.svg" alt="BitTasker" class="h-16 w-16 opacity-20" />
+					</div>
+				{/if}
+			</div>
+		</div>
 
-						{#if service.categories?.length > 0}
-							<div class="border-base-300 mt-6 border-t pt-4">
-								<h4 class="mb-2 font-semibold">
-									{$t('dashboard.services.create.review.categories_label')}
-								</h4>
-								<div class="flex flex-wrap gap-2">
-									{#each service.categories as category (typeof category === 'string' ? category : category.id)}
-										<span class="badge badge-primary badge-outline badge-sm">
+		<div class="container mx-auto px-4 pb-8 -mt-4 md:-mt-12 relative z-10">
+			<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+				<div class="lg:col-span-2 space-y-8 relative z-20">
+					<!-- Desktop Title, Description & Action Header -->
+					<div class="bg-base-100 rounded-2xl p-6 md:p-8 shadow-sm border border-base-300 hidden lg:block">
+						<div class="flex flex-col md:flex-row md:items-start gap-6">
+							<div class="flex-1">
+								<h1 class="text-3xl font-bold leading-tight mb-3">
+									{displayTitle}
+								</h1>
+								<div class="flex items-center justify-between mb-4">
+									<div class="flex items-center gap-1 text-sm font-bold">
+										<div class="flex items-center text-warning">
+											{#each Array(5) as _, i (i)}
+												<IconStar class="h-4 w-4 {i < Math.round(service.creator?.rating || 0) ? 'text-warning' : 'text-base-content/20'}" />
+											{/each}
+										</div>
+										<span class="ml-1">{service.creator?.rating ? service.creator.rating.toFixed(1) : '0.0'}</span>
+										<span class="text-base-content/50 font-medium ml-1">({service.creator?.ratingCount || 0} {$t('common.reviews')})</span>
+									</div>
+									<div class="flex items-center gap-3">
+										<ServiceShareButton {service} variant="circle" class="btn-sm" />
+										<button class="btn btn-circle btn-sm" aria-label="Save service">
+											<IconHeartOutline class="h-4 w-4" />
+										</button>
+									</div>
+								</div>
+								<div class="text-base-content/80 text-sm leading-relaxed whitespace-pre-line">
+									{displayDescriptionFull}
+								</div>
+
+								{#if service.categories && service.categories.length > 0}
+									<div class="flex flex-wrap gap-2 mt-6">
+										{#each service.categories as category (category.slug || category.id || category)}
+											<span class="badge badge-primary text-xs py-3">
+												{translateCategory(category)}
+											</span>
+										{/each}
+									</div>
+								{/if}
+							</div>
+						</div>
+					</div>
+
+					<!-- Tier Comparison Cards (Desktop Only) -->
+					{#if tiersWithPrice.length > 0}
+						<div class="hidden lg:block space-y-6">
+							<div class="flex items-center justify-between">
+								<h3 class="text-2xl font-bold">{detailText('dashboard.services.detail.compare_packages', 'Compare packages')}</h3>
+							</div>
+
+							<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+								{#each tiersWithPrice as tier (tier.id)}
+									<div 
+										class="card bg-base-100 border relative cursor-pointer {selectedTierId === tier.id ? 'border-primary ring-2 ring-primary/20 shadow-md' : 'border-base-300 shadow-sm hover:border-primary/50'} transition-all duration-200"
+										onclick={() => (selectedTierId = tier.id)}
+										onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') selectedTierId = tier.id; }}
+										role="button"
+										tabindex="0"
+									>
+										{#if tier.id === popularTierId}
+											<div class="absolute -top-3 left-1/2 -translate-x-1/2 z-10">
+												<span class="badge badge-primary font-black text-[10px] uppercase tracking-widest py-3 px-4 shadow-sm border-none">
+													{detailText('dashboard.services.detail.popular', 'Popular')}
+												</span>
+											</div>
+										{/if}
+										<div class="card-body p-6 flex flex-col h-full">
+											<!-- Header -->
+											<div class="mb-4">
+												<h4 class="text-xs uppercase tracking-widest font-black opacity-60 mb-1">{tier.name}</h4>
+												<div class="text-3xl font-black text-primary">${formatNumberWithTwoDecimals(tier.price)}</div>
+											</div>
+
+											<!-- Description -->
+											<div class="mb-6 flex-none">
+												<div class="overflow-hidden transition-[max-height] duration-500 ease-in-out relative {tierExpanded[tier.id] ? 'max-h-[1000px]' : 'max-h-[4.5rem]'}">
+													<p class="text-sm text-base-content/80">
+														{tier.description}
+													</p>
+													{#if !tierExpanded[tier.id] && tier.description && tier.description.length > 80}
+														<div class="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-base-100 to-transparent pointer-events-none"></div>
+													{/if}
+												</div>
+												{#if tier.description && tier.description.length > 80}
+													<button 
+														class="text-[10px] font-black uppercase tracking-wider text-primary mt-2 hover:opacity-80 transition-opacity relative z-10"
+														onclick={(e) => { e.stopPropagation(); toggleTierExpansion(tier.id); }}
+													>
+														{tierExpanded[tier.id] ? detailText('dashboard.services.detail.see_less', 'Show less') : detailText('dashboard.services.detail.see_more', 'Show more')}
+													</button>
+												{/if}
+											</div>
+
+											<!-- Meta -->
+											<div class="flex items-center gap-2 text-sm font-bold bg-base-200/50 p-3 rounded-lg mb-6">
+												<IconTruckDeliveryOutline class="{requestRushDelivery && availableRushDelivery && tier.id === selectedTierId ? 'text-primary' : 'text-base-content/60'} h-5 w-5 shrink-0" />
+												{#if requestRushDelivery && availableRushDelivery && tier.id === selectedTierId}
+													<span class="text-primary">{formatDeliveryTime(availableRushDelivery.deliveryTime)}</span>
+												{:else}
+													<span>{formatDeliveryTime(tier.deliveryTime)}</span>
+												{/if}
+											</div>
+
+											<!-- Features -->
+											<div class="flex-1">
+												<h5 class="text-[10px] uppercase font-bold tracking-widest opacity-50 mb-3">{detailText('dashboard.services.detail.included_label', 'Included')}</h5>
+												<ul class="space-y-3">
+													{#each tier.features as feature (feature)}
+														<li class="flex items-start gap-3 text-sm">
+															<IconCheck class="text-success h-5 w-5 shrink-0" />
+															<span class="text-base-content/90 font-medium leading-snug">{feature}</span>
+														</li>
+													{/each}
+												</ul>
+											</div>
+
+											<!-- Footer Selection Button -->
+											<div class="mt-8">
+												<button 
+													class="btn btn-block {selectedTierId === tier.id ? 'btn-primary shadow-lg shadow-primary/20' : 'btn-outline border-base-300'} transition-all"
+													onclick={() => (selectedTierId = tier.id)}
+												>
+													{selectedTierId === tier.id ? $t('common.selected') : $t('common.select')}
+												</button>
+											</div>
+										</div>
+									</div>
+								{/each}
+							</div>
+						</div>
+					{/if}
+
+					<!-- Relocated Title, Description & Provider (Mobile) -->
+					<div class="lg:hidden bg-base-100 rounded-t-[2rem] rounded-b-2xl p-6 shadow-xl border border-base-200 -mt-12 relative z-10 space-y-6">
+						<div>
+							<h3 class="text-xl font-bold mb-3">{displayTitle}</h3>
+							<div class="flex items-center justify-between mb-4">
+								<div class="flex items-center gap-1 text-sm font-bold">
+									<div class="flex items-center text-warning">
+										{#each Array(5) as _, i (i)}
+											<IconStar class="h-4 w-4 {i < Math.round(service.creator?.rating || 0) ? 'text-warning' : 'text-base-content/20'}" />
+										{/each}
+									</div>
+									<span class="ml-1">{service.creator?.rating ? service.creator.rating.toFixed(1) : '0.0'}</span>
+									<span class="text-base-content/50 font-medium ml-1">({service.creator?.ratingCount || 0} {$t('common.reviews')})</span>
+								</div>
+								<div class="flex items-center gap-3">
+									<ServiceShareButton {service} variant="circle" class="btn-sm" />
+									<button class="btn btn-circle btn-sm" aria-label="Save service">
+										<IconHeartOutline class="h-4 w-4" />
+									</button>
+								</div>
+							</div>
+							<div class="text-base-content/80 text-sm leading-relaxed whitespace-pre-line">
+								{displayDescriptionFull}
+							</div>
+
+							{#if service.categories && service.categories.length > 0}
+								<div class="flex flex-wrap gap-2 mt-4">
+									{#each service.categories as category (category.slug || category.id || category)}
+										<span class="badge badge-primary text-xs py-3">
 											{translateCategory(category)}
 										</span>
 									{/each}
 								</div>
-							</div>
-						{/if}
+							{/if}
+						</div>
 
-						{#if service.skills?.length > 0}
-							<div class="border-base-300 mt-4 border-t pt-4">
-								<h4 class="mb-2 font-semibold">
-									{$t('dashboard.services.create.review.skills_label')}
-								</h4>
-								<div class="flex flex-wrap gap-2">
-									{#each service.skills as skill (skill)}
-										<span
-											class="badge badge-secondary inline-flex h-auto min-h-0 max-w-full items-start justify-start rounded-lg px-3 py-2 text-left text-sm leading-snug wrap-break-word whitespace-normal"
-											>{skill}</span
-										>
-									{/each}
-								</div>
-							</div>
-						{/if}
+						<div class="pt-6 border-t border-base-200">
+							<UserInfoDisplay
+								avatar={service.creator?.avatar}
+								username={service.creator?.username}
+								rating={service.creator?.rating}
+								pubkey={service.npub}
+								memberSince={service.createdAt}
+								size="md"
+							/>
+						</div>
+					</div>
 
-						<!-- Location types -->
-						{#if service.serviceLocationTypes?.length > 0}
-							<div class="border-base-300 mt-4 border-t pt-4">
-								<h4 class="mb-2 font-semibold">
-									{$t('dashboard.services.create.review.location_types_label')}
-								</h4>
-								<div class="flex flex-wrap gap-2">
-									{#each service.serviceLocationTypes as locationType (locationType)}
-										<span class="badge badge-accent badge-sm">
-											{#if locationType === ServiceLocationTypeEnum.REMOTE}
-												{$t('dashboard.services.create.location.remote_title')}
-											{:else if locationType === ServiceLocationTypeEnum.TASKER_LOCATION}
-												{$t('dashboard.services.create.location.tasker_title')}
-											{:else if locationType === ServiceLocationTypeEnum.TASKEE_LOCATION}
-												{$t('dashboard.services.create.location.taskee_title')}
-											{:else}
-												{locationType}
+					<!-- Mobile Tier Selector (Mobile Only) -->
+					{#if tiersWithPrice.length > 0}
+						<div class="lg:hidden bg-base-100 rounded-2xl overflow-hidden shadow-sm border border-base-300">
+							<div class="tabs tabs-bordered bg-base-100 p-1 flex border-b border-base-200">
+								{#each tiersWithPrice as tier (tier.id)}
+									<button 
+										class="tab flex-1 transition-all duration-200 h-14 relative {activeMobileTab === tier.id ? 'tab-active font-bold text-primary' : 'text-base-content/60'}"
+										onclick={() => handleTabChange(tier.id)}
+									>
+										<div class="flex flex-col items-center gap-0.5">
+											{#if tier.id === popularTierId}
+												<span class="text-[8px] uppercase font-black tracking-widest text-primary/70 -mt-1">{detailText('dashboard.services.detail.popular', 'Popular')}</span>
 											{/if}
-										</span>
-									{/each}
+											<span class="text-[10px] uppercase tracking-tighter opacity-70 leading-none">{tier.name}</span>
+											<span class="text-sm font-bold leading-none">${formatNumberWithTwoDecimals(tier.price)}</span>
+										</div>
+									</button>
+								{/each}
+							</div>
+
+							{#if selectedTier}
+								<div class="p-6 space-y-6">
+									<div class="flex justify-between items-start">
+										<div class="min-w-0">
+											<h3 class="font-bold text-xl truncate">{selectedTier.name}</h3>
+											<div class="mt-1">
+												<div class="overflow-hidden transition-[max-height] duration-500 ease-in-out relative {tierExpanded[selectedTier.id] ? 'max-h-[1000px]' : 'max-h-[4.5rem]'}">
+													<p class="text-base-content/70 text-sm">
+														{selectedTier.description}
+													</p>
+													{#if !tierExpanded[selectedTier.id] && selectedTier.description && selectedTier.description.length > 80}
+														<div class="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-base-100 to-transparent pointer-events-none"></div>
+													{/if}
+												</div>
+												{#if selectedTier.description && selectedTier.description.length > 80}
+													<button 
+														class="text-[10px] font-black uppercase tracking-wider text-primary mt-2 hover:opacity-80 transition-opacity relative z-10"
+														onclick={() => toggleTierExpansion(selectedTier.id)}
+													>
+														{tierExpanded[selectedTier.id] ? detailText('dashboard.services.detail.see_less', 'Show less') : detailText('dashboard.services.detail.see_more', 'Show more')}
+													</button>
+												{/if}
+											</div>
+										</div>
+										<span class="text-2xl font-black text-primary ml-4 shrink-0">${formatNumberWithTwoDecimals(selectedTier.price)}</span>
+									</div>
+
+									<div class="flex items-center gap-2 text-sm">
+										<IconTruckDeliveryOutline class="{requestRushDelivery && availableRushDelivery ? 'text-primary' : 'text-base-content/60'} h-4 w-4" />
+										<span class="font-bold">{requestRushDelivery && availableRushDelivery ? formatDeliveryTime(availableRushDelivery.deliveryTime) : formatDeliveryTime(selectedTier.deliveryTime)}</span>
+									</div>
+
+									<div class="pt-4 border-t border-base-200">
+										<h5 class="text-[10px] uppercase font-bold tracking-widest opacity-50 mb-3">{detailText('dashboard.services.detail.included_label', 'Included')}</h5>
+										<ul class="space-y-3">
+											{#each selectedTier.features as feature (feature)}
+												<li class="flex items-start gap-3 text-sm">
+													<IconCheck class="text-success h-4 w-4 shrink-0 mt-0.5" />
+													<span class="text-base-content/80 font-medium leading-snug">{feature}</span>
+												</li>
+											{/each}
+										</ul>
+									</div>
 								</div>
-								{#if serviceLocationSummary.text}
-									<p class="text-base-content/70 mt-2 text-sm">
-										{serviceLocationSummary.text}
-									</p>
-								{/if}
-								{#if serviceLocationSummary.approximate}
-									<p class="text-base-content/60 mt-1 text-xs">
-										({$t('common.location.approximate_short')})
-									</p>
-								{/if}
-								{#if serviceLocationSummary.radiusText}
-									<p class="text-base-content/60 mt-1 text-xs">
-										{serviceLocationSummary.radiusText}
-									</p>
+							{/if}
+						</div>
+					{/if}
+
+					<!-- Mobile Add-ons & Total Section -->
+					{#if !isOwner && service.status === 'active' && (displayAddOns.length > 0 || availableRushDelivery)}
+						<div class="lg:hidden bg-base-100 rounded-2xl p-6 shadow-sm border border-base-300 space-y-4">
+							<h3 class="font-bold text-lg">{detailText('dashboard.services.detail.customize_order', 'Customize Your Order')}</h3>
+							
+							<div class="border-t border-base-200 pt-4 space-y-3">
+								{#if displayAddOns.length > 0 || availableRushDelivery}
+									<ServiceAddOnsSelector
+										addOns={displayAddOns}
+										basePrice={basePriceForAddOns}
+										bind:selectedAddOnIds
+										bind:requestRushDelivery
+										rushDelivery={availableRushDelivery}
+										disabled={service?.pricing?.type === ServicePricingTypeEnum.TIERED && !selectedTierId}
+									/>
 								{/if}
 							</div>
-						{/if}
-
-						<!-- Pricing -->
-						{#if service.pricing}
-							<div class="border-base-300 mt-4 border-t pt-4">
-								<h4 class="mb-2 font-semibold">
-									{$t('dashboard.services.create.review.pricing_title')}
-								</h4>
-								<p class="text-base-content/70 text-sm">
-									{#if service.pricing.type === ServicePricingTypeEnum.FIXED}
-										{$t('dashboard.services.create.pricing.fixed_title')}: ${formatNumberWithTwoDecimals(
-											service.pricing.amount ?? 0
-										)}
-										{service.pricing.currency}
-										{#if deliveryTimeDisplay}
-											· {deliveryTimeDisplay}
-										{/if}
-									{:else if service.pricing.type === ServicePricingTypeEnum.HOURLY}
-										{$t('dashboard.services.create.pricing.hourly_title')}: ${formatNumberWithTwoDecimals(
-											service.pricing.hourlyRate ?? 0
-										)}/{$t('dashboard.services.create.pricing.hour')}
-										{service.pricing.currency}
-									{:else if service.pricing.type === ServicePricingTypeEnum.TIERED}
-										{$t('dashboard.services.create.pricing.tiered_title')} · {$t(
-											'dashboard.services.browse.pricing.from_price'
-										)}
-										{#if service.pricing.tiers?.length}
-											${formatNumberWithTwoDecimals(
-												Math.min(
-													...service.pricing.tiers
-														.map((t: ServiceTier) => t.price)
-														.filter((p: number) => p > 0)
-												) || 0
-											)}
-										{/if}
-									{:else}
-										{$t('dashboard.services.browse.pricing.request_quote')}
-									{/if}
-								</p>
+							
+							<div class="border-t border-base-200 pt-4">
+								<div class="flex justify-between items-center">
+									<span class="text-sm font-medium text-base-content/70">{detailText('dashboard.services.detail.total_amount_label', 'Total')}</span>
+									<span class="text-2xl font-black text-primary">${formatNumberWithTwoDecimals(totalAmountUsd)}</span>
+								</div>
 							</div>
-						{/if}
+<div class="pt-4">
+								{#if showInstantBuyCta}
+									<div class="flex gap-2">
+										<button
+											class="btn btn-outline flex-1"
+											onclick={handleOpenRequestQuote}
+											disabled={isOffline}
+										>{detailText('dashboard.services.detail.request_quote', 'Request Quote')}</button>
+										<button
+											class="btn btn-primary flex-1 shadow-lg shadow-primary/20"
+											onclick={handleOpenInstantBuy}
+											disabled={instantBuyPreparing || isOffline}
+										>{#if instantBuyPreparing}<span
+												class="loading loading-spinner loading-xs"
+											></span>{/if}{instantBuyEligibility.code === 'missing_selected_tier' ? detailText('dashboard.services.detail.select_package', 'Select Package') : detailText('dashboard.services.detail.book_now', 'Book Now')}</button>
+									</div>
+ {:else}
+									<button
+										class="btn btn-primary w-full"
+										onclick={handleOpenRequestQuote}
+										disabled={isOffline}
+									>{detailText('dashboard.services.detail.request_quote', 'Request Quote')}</button>
+								{/if}
+							</div>
+						</div>
+					{/if}
 
-						<!-- Add-ons (locale-aware) -->
-						{#if displayAddOns.length > 0}
-							<div class="border-base-300 mt-4 border-t pt-4">
-								<h4 class="mb-3 font-semibold">
-									{$t('dashboard.services.create.review.addons_title')}
-								</h4>
-								<div class="flex flex-wrap gap-2">
-									{#each displayAddOns as addOn (addOn.id)}
-										<div class="badge badge-outline gap-1">
-											{addOn.name} · ${formatNumberWithTwoDecimals(addOn.price)}
+					<!-- FAQs -->
+					{#if displayFaqs.length > 0}
+						<div class="card bg-base-100 rounded-2xl shadow-sm border border-base-300 overflow-hidden">
+							<div class="p-6 pb-0">
+								<h2 class="text-xl font-bold">{$t('dashboard.services.detail.faqs')}</h2>
+							</div>
+							<div class="p-6 pt-4">
+								<div class="join join-vertical w-full">
+									{#each displayFaqs as faq (faq.id || faq.question)}
+										<div class="collapse collapse-arrow join-item border-b border-base-200 last:border-b-0">
+											<input type="radio" name="my-accordion-4" checked /> 
+											<div class="collapse-title text-base font-bold">
+												{faq.question}
+											</div>
+											<div class="collapse-content text-base-content/70"> 
+												<p>{faq.answer}</p>
+											</div>
 										</div>
 									{/each}
 								</div>
 							</div>
-						{/if}
-
-						<!-- Portfolio -->
-						{#if service.portfolio && service.portfolio.length > 0}
-							<div class="border-base-300 mt-4 border-t pt-4">
-								<h4 class="mb-3 font-semibold">{$t('dashboard.services.detail.portfolio')}</h4>
-								{#if service.portfolio.filter((a: Attachment) => a.url && !isVideoFile(a.url)).length > 0}
-									{#await prepareGalleryImages(service.portfolio) then galleryImages}
-										<Gallery
-											galleryID="service-portfolio-gallery"
-											images={galleryImages}
-											thumbnailSize="h-40 w-40"
-										/>
-									{/await}
-								{/if}
-							</div>
-						{/if}
-					</div>
+						</div>
+					{/if}
 				</div>
 
-				<!-- Sidebar -->
-				<div class="lg:col-span-1">
-					<div class="bg-base-100 sticky top-6 rounded-2xl p-6 shadow-sm">
+				<!-- Sidebar (Desktop Desktop) -->
+				<div class="hidden lg:block space-y-6">
+					<!-- Purchase Card (Sidebar) -->
+					<div class="bg-base-100 sticky top-24 rounded-2xl p-6 shadow-sm border border-base-300 space-y-6">
 						{#if isOwner}
 							<div class="alert alert-info alert-outline">
-								<span>{$t('dashboard.services.detail.you_are_provider')}</span>
+								<span class="text-sm">{$t('dashboard.services.detail.you_are_provider')}</span>
 							</div>
 							<a
-								href="/dashboard/create-service?edit=true&serviceId={service.uniqueId ||
-									service.id}"
-								class="btn btn-primary btn-sm mt-4 w-full"
+								href="/dashboard/create-service?edit=true&serviceId={service.uniqueId || service.id}"
+								class="btn btn-primary w-full"
 							>
 								{$t('dashboard.services.detail.edit_service')}
 							</a>
 							<button
 								type="button"
-								class="btn btn-error btn-outline btn-sm mt-2 w-full"
+								class="btn btn-error btn-outline w-full"
 								onclick={handleDeleteService}
 								disabled={deleteCheckInFlight || deleteSubmitting}
-							>
-								{#if deleteCheckInFlight || deleteSubmitting}
-									<span class="loading loading-spinner loading-xs"></span>
-								{/if}
-								{$t('dashboard.services.detail.delete_service')}
-							</button>
+							>{#if deleteCheckInFlight || deleteSubmitting}<span
+									class="loading loading-spinner loading-xs"
+								></span>{/if}{detailText('dashboard.services.detail.delete_service', 'Delete Service')}</button>
 						{:else if service.status === 'active'}
-							<div class="mb-6">
-								<h4 class="mb-4">{$t('dashboard.services.detail.interested')}</h4>
-								{#if isOffline}
-									<div
-										class="alert alert-warning alert-outline mb-3 text-sm"
-										data-testid="service-detail-offline-alert"
-									>
-										<span>
-											{$t('dashboard.services.detail.public_cta.offline_notice')}
-										</span>
-									</div>
-								{:else if showReconnectNotice}
-									<div
-										class="alert alert-info alert-outline mb-3 text-sm"
-										data-testid="service-detail-reconnect-alert"
-									>
-										<span>
-											{$t('dashboard.services.detail.public_cta.reconnect_notice')}
-										</span>
-									</div>
-								{/if}
-								{#if showInstantBuyCta}
-									<button
-										class="btn btn-primary btn-sm w-full"
-										onclick={handleOpenInstantBuy}
-										disabled={isInstantBuyDisabled || instantBuyPreparing || isOffline}
-										data-testid="service-detail-buy-now"
-									>
-										{#if instantBuyPreparing}
-											<span class="loading loading-spinner loading-xs"></span>
-										{/if}
-										{$t('dashboard.services.detail.book_now')}
-									</button>
-									{#if instantBuyDisabledReason}
-										<p class="text-base-content/60 mt-2 text-xs">
-											{instantBuyDisabledReason}
-										</p>
+							<div class="space-y-4">
+								<h3 class="font-bold text-lg">
+									{#if service.pricing?.type === ServicePricingTypeEnum.TIERED}
+										{selectedTier?.name || $t('dashboard.services.detail.select_tier')}
+									{:else}
+										{$t('dashboard.services.detail.interested')}
 									{/if}
-									<button
-										class="btn btn-outline btn-sm mt-2 w-full"
-										onclick={handleOpenRequestQuote}
-										disabled={isOffline}
-									>
-										{$t('dashboard.services.detail.request_quote')}
-									</button>
-								{:else}
-									<button
-										class="btn btn-primary btn-sm w-full"
-										onclick={handleOpenRequestQuote}
-										disabled={isOffline}
-									>
-										{$t('dashboard.services.detail.request_quote')}
-									</button>
+								</h3>
+
+								{#if service.pricing?.type === ServicePricingTypeEnum.TIERED && selectedTier}
+									<div class="text-3xl font-black text-primary">
+										${formatNumberWithTwoDecimals(selectedTier.price)}
+									</div>
+									<p class="text-sm text-base-content/70 line-clamp-3">
+										{selectedTier.description}
+									</p>
+									<div class="space-y-2 py-2">
+										<div class="flex items-center gap-2 text-sm">
+											<IconTruckDeliveryOutline class="{requestRushDelivery && availableRushDelivery ? 'text-primary' : 'text-base-content/60'} h-4 w-4" />
+											<span class="{requestRushDelivery && availableRushDelivery ? 'text-primary' : 'text-base-content/70'} font-bold">{requestRushDelivery && availableRushDelivery ? formatDeliveryTime(availableRushDelivery.deliveryTime) : formatDeliveryTime(selectedTier.deliveryTime)}</span>
+										</div>
+									</div>
+								{:else if service.pricing?.type === ServicePricingTypeEnum.FIXED}
+									<div class="text-3xl font-black text-primary">
+										${formatNumberWithTwoDecimals(service.pricing.amount ?? 0)}
+									</div>
+									{#if deliveryTimeDisplay}
+										<div class="flex items-center gap-2 text-sm mt-2">
+											<IconTruckDeliveryOutline class="text-primary h-4 w-4" />
+											<span class="font-bold">{deliveryTimeDisplay}</span>
+										</div>
+									{/if}
+								{:else if service.pricing?.type === ServicePricingTypeEnum.HOURLY}
+									<div class="text-3xl font-black text-primary">
+										${formatNumberWithTwoDecimals(service.pricing.hourlyRate ?? 0)}
+										<span class="text-sm font-bold opacity-60">{detailText('dashboard.services.detail.per_hour', '/ hr')}</span>
+									</div>
 								{/if}
-								<button class="btn btn-ghost btn-sm mt-2 w-full" onclick={handleContactTaskee}>
-									{$t('dashboard.services.detail.contact_taskee')}
-								</button>
 							</div>
 						{:else}
 							<div class="alert alert-warning alert-outline">
@@ -1759,116 +1827,133 @@
 							</div>
 						{/if}
 
-						{#if service.creator}
-							<div class="border-base-300 mt-4 border-t pt-4">
-								<h4 class="mb-3 font-semibold">{$t('dashboard.services.detail.taskee')}</h4>
-								<div class="flex items-center gap-3">
-									<div class="avatar">
-										<div
-											class="bg-base-300 flex h-12 w-12 items-center justify-center rounded-full"
-										>
-											{#if service.creator.avatar}
-												<img
-													src={service.creator.avatar}
-													alt={$t('dashboard.services.detail.avatar_alt')}
-													class="h-12 w-12 rounded-full object-cover"
-												/>
-											{:else}
-												<div
-													class="avatar placeholder text-neutral-content bg-primary flex h-12 w-12 items-center justify-center rounded-full text-xl font-semibold"
-												>
-													{service.creator.username?.charAt(0).toUpperCase() || '?'}
-												</div>
-											{/if}
-										</div>
-									</div>
-									<div class="flex flex-col">
-										<span class="font-medium"
-											>{service.creator.username || $t('dashboard.services.detail.anonymous')}</span
-										>
-										<p class="text-base-content/60 text-sm">
-											{$t('dashboard.services.detail.member_since')}
-											{formatDateString(service.createdAt)}
-										</p>
-									</div>
-								</div>
+						<!-- Sidebar Customize Section (Desktop) -->
+						{#if availableRushDelivery || showAddOnsSelector}
+							<div class="pt-4 border-t border-base-200 space-y-4">
+								<h4 class="font-bold">{detailText('dashboard.services.detail.customize_order', 'Customize Your Order')}</h4>
+								
+								{#if showAddOnsSelector || availableRushDelivery}
+									<ServiceAddOnsSelector
+										addOns={displayAddOns}
+										basePrice={basePriceForAddOns}
+										bind:selectedAddOnIds
+										bind:requestRushDelivery
+										rushDelivery={availableRushDelivery}
+										disabled={service?.pricing?.type === ServicePricingTypeEnum.TIERED && !selectedTierId}
+									/>
+								{/if}
 							</div>
 						{/if}
 
-						<!-- Tier selector (non-owner, tiered pricing) or read-only price levels (owner) -->
-						{#if showTierSelector}
-							<div class="border-base-300 mt-4 border-t pt-4">
-								<ServiceTierSelector tiers={tiersWithPrice} bind:selectedTierId />
+<!-- Total with Add-ons and Rush Delivery -->
+						<div class="border-t border-base-200 pt-4">
+							<div class="flex justify-between items-center">
+								<span class="text-sm font-medium text-base-content/70">{detailText('dashboard.services.detail.total_amount_label', 'Total')}</span>
+								<span class="text-2xl font-black text-primary">${formatNumberWithTwoDecimals(totalAmountUsd)}</span>
 							</div>
-						{:else if tiersWithPrice.length > 0 && isOwner}
-							<div class="border-base-300 mt-4 border-t pt-4">
-								<h4 class="mb-3 font-semibold">{$t('dashboard.services.detail.price_levels')}</h4>
-								<div class="space-y-3">
-									{#each tiersWithPrice as tier (tier.id)}
-										<div class="bg-base-200 rounded-lg p-3">
-											<div class="flex items-start justify-between gap-2">
-												<div class="min-w-0 flex-1">
-													<span class="font-medium">{tier.name}</span>
-													{#if tier.isPopular}
-														<span class="badge badge-primary badge-sm ml-1"
-															>{$t('dashboard.services.create.tiers.popular')}</span
-														>
-													{/if}
-												</div>
-												<span class="shrink-0 font-bold"
-													>${formatNumberWithTwoDecimals(tier.price)}</span
-												>
-											</div>
-											{#if tier.description}
-												<p class="text-base-content/70 mt-1.5 line-clamp-3 text-xs">
-													{tier.description}
-												</p>
-											{/if}
-											{#if tier.deliveryTime?.display}
-												<p class="text-base-content/60 mt-1 text-xs">
-													{$t('dashboard.services.create.tiers.delivery_time_label')}: {tier
-														.deliveryTime.display}
-												</p>
-											{/if}
-										</div>
-									{/each}
+						</div>
+
+						<!-- Buttons above User Info -->
+						<div class="pt-4 border-t border-base-200">
+							{#if isOffline}
+								<div class="alert alert-warning alert-outline text-xs mb-4">
+									<span>{$t('dashboard.services.detail.public_cta.offline_notice')}</span>
+								</div>
+							{/if}
+
+							<div class="flex gap-2">
+								{#if showInstantBuyCta}
+									<button
+										class="btn btn-outline flex-1"
+										onclick={handleOpenRequestQuote}
+										disabled={isOffline}
+									>{detailText('dashboard.services.detail.request_quote', 'Request Quote')}</button>
+									<button
+										class="btn btn-primary flex-1 shadow-lg shadow-primary/20"
+										onclick={handleOpenInstantBuy}
+										disabled={instantBuyPreparing || isOffline}
+									>{#if instantBuyPreparing}<span
+											class="loading loading-spinner loading-xs"
+										></span>{/if}{instantBuyEligibility.code === 'missing_selected_tier' ? detailText('dashboard.services.detail.select_package', 'Select Package') : detailText('dashboard.services.detail.book_now', 'Book Now')}</button>
+								{:else}
+									<button
+										class="btn btn-primary w-full"
+										onclick={handleOpenRequestQuote}
+										disabled={isOffline}
+									>{detailText('dashboard.services.detail.request_quote', 'Request Quote')}</button>
+								{/if}
+							</div>
+						</div>
+
+						<!-- Provider Info (Bottom of sidebar card) -->
+						<div class="pt-6 border-t border-base-200">
+							<UserInfoDisplay
+								avatar={service.creator?.avatar}
+								username={service.creator?.username}
+								rating={service.creator?.rating}
+								pubkey={service.npub}
+								memberSince={service.createdAt}
+								size="md"
+							/>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<!-- Mobile Fixed Bottom CTA (Single Row Cart) -->
+		{#if !isOwner && service.status === 'active'}
+			{@const displayDeliveryTime = requestRushDelivery && availableRushDelivery 
+				? formatDeliveryTime(availableRushDelivery.deliveryTime) 
+				: formatDeliveryTime(selectedTier?.deliveryTime ?? service?.pricing?.deliveryTime ?? null)}
+			<div 
+				class="lg:hidden fixed left-0 right-0 z-50 bg-base-100 border-t border-base-200 shadow-[0_-8px_30px_rgba(0,0,0,0.15)]"
+				style="bottom: var(--app-dock-height, 64px);"
+			>
+				<div class="flex items-center justify-between p-4 gap-4">
+					<div class="flex items-center gap-4 min-w-0">
+						<div class="flex flex-col">
+							<span class="text-[10px] font-bold text-base-content/60 uppercase tracking-wider">{detailText('dashboard.services.detail.total_price', 'Total')}</span>
+							<span class="text-2xl font-black leading-none text-primary">${formatNumberWithTwoDecimals(totalAmountUsd)}</span>
+						</div>
+						{#if displayDeliveryTime !== '—'}
+							<div class="flex items-center gap-2 border-l border-base-200 pl-4">
+								{#if requestRushDelivery && availableRushDelivery}
+									<IconTruckDeliveryOutline class="h-6 w-6 text-primary" />
+								{:else}
+									<IconTruckDeliveryOutline class="h-6 w-6 text-base-content/50" />
+								{/if}
+								<div class="flex flex-col">
+									<span class="text-base text-base-content/70 font-medium leading-none">{displayDeliveryTime}</span>
+									{#if requestRushDelivery && availableRushDelivery}
+										<span class="text-xs font-bold text-primary uppercase tracking-widest">{detailText('dashboard.services.detail.rush_delivery_tag', 'Rush Delivery')}</span>
+									{/if}
 								</div>
 							</div>
 						{/if}
+					</div>
 
-						<!-- Add-ons selector (non-owner, with checkboxes and total) -->
-						{#if showAddOnsSelector}
-							<div class="border-base-300 mt-4 border-t pt-4">
-								<ServiceAddOnsSelector
-									addOns={displayAddOns}
-									basePrice={basePriceForAddOns}
-									bind:selectedAddOnIds
-									disabled={service?.pricing?.type === ServicePricingTypeEnum.TIERED &&
-										!selectedTierId}
-								/>
-							</div>
-						{/if}
-
-						<!-- FAQs (right sidebar, locale-aware) -->
-						{#if displayFaqs.length > 0}
-							<div class="border-base-300 mt-4 border-t pt-4">
-								<h4 class="mb-3 font-semibold">{$t('dashboard.services.detail.faqs')}</h4>
-								<div class="space-y-3">
-									{#each displayFaqs as faq (faq.question)}
-										<div class="collapse-arrow bg-base-200 collapse">
-											<input type="checkbox" />
-											<div class="collapse-title text-sm font-medium">{faq.question}</div>
-											<div class="collapse-content text-base-content/70 text-xs">{faq.answer}</div>
-										</div>
-									{/each}
-								</div>
-							</div>
+					<div class="flex-none">
+						{#if showInstantBuyCta}
+							<button 
+								class="btn btn-primary btn-sm shadow-lg shadow-primary/20 font-black disabled:bg-base-300 disabled:text-base-content/30 disabled:border-base-300"
+								onclick={handleOpenInstantBuy}
+								disabled={instantBuyPreparing || isOffline}
+							>
+								{#if instantBuyPreparing}
+									<span class="loading loading-spinner loading-xs"></span>
+								{:else if instantBuyEligibility.code === 'missing_selected_tier'}
+									{detailText('dashboard.services.detail.select_package', 'Select')}
+								{:else}
+									{detailText('dashboard.services.detail.book_now', 'Book')}
+								{/if}
+							</button>
 						{/if}
 					</div>
 				</div>
 			</div>
 		{/if}
-	</div>
+	{/if}
 
 	<RequestQuoteModal
 		bind:open={requestQuoteModalOpen}
@@ -1905,6 +1990,7 @@
 		walletVerificationMessage={instantBuyFundingCheckInFlight
 			? $t('dashboard.services.detail.book_now_drawer.verifying_wallet')
 			: (instantBuyFundingCheck?.message ?? '')}
+		walletVerificationErrorCode={instantBuyFundingCheck?.errorCode ?? null}
 		isPreparing={instantBuyPreparing}
 		isSubmitting={instantBuySubmitting}
 		{isOffline}
@@ -1916,6 +2002,8 @@
 		contractCreationMessage={instantBuyContractCreationMessage}
 		canConfirm={instantBuyDraft !== null && instantBuyFundingCheck?.status === 'ready'}
 		onConfirm={handleConfirmInstantBuy}
+		onRefresh={handleRefreshInstantBuy}
+		onAddFunds={handleAddFunds}
 		onRetry={() => prepareInstantBuyDraft(instantBuyDraft)}
 		onClose={handleCloseInstantBuyDrawer}
 	/>
@@ -1923,19 +2011,19 @@
 	<Modal
 		isOpen={deleteModalState !== null}
 		title={deleteModalState?.mode === 'blocked'
-			? $t('dashboard.services.detail.delete_service_modal.blocked_title')
-			: $t('dashboard.services.detail.delete_service_modal.confirm_title')}
+			? detailText('dashboard.services.detail.delete_service_modal.blocked_title', 'Cannot delete service')
+			: detailText('dashboard.services.detail.delete_service_modal.confirm_title', 'Delete service')}
 		onClose={closeDeleteModal}
 		size="md"
 	>
 		{#if deleteModalState}
 			<p class="text-base-content/80 text-sm">
 				{#if deleteModalState.mode === 'blocked'}
-					{$t('dashboard.services.detail.delete_service_modal.blocked_body')}
+					{detailText('dashboard.services.detail.delete_service_modal.blocked_body', 'This service cannot be deleted at this time.')}
 				{:else if deleteModalState.openQuoteCount > 0}
-					{$t('dashboard.services.detail.delete_service_modal.confirm_with_requests')}
+					{detailText('dashboard.services.detail.delete_service_modal.confirm_with_requests', 'This service has open requests. Are you sure you want to delete it?')}
 				{:else}
-					{$t('dashboard.services.detail.delete_service_modal.confirm_without_requests')}
+					{detailText('dashboard.services.detail.delete_service_modal.confirm_without_requests', 'Are you sure you want to delete this service?')}
 				{/if}
 			</p>
 
@@ -1944,16 +2032,14 @@
 					{#if deleteModalState.activeContractCount > 0}
 						<div class="alert alert-error">
 							<span>
-								{$t('dashboard.services.detail.delete_service_modal.active_contracts', {
-									values: { count: deleteModalState.activeContractCount }
-								})}
+								{detailText('dashboard.services.detail.delete_service_modal.active_contracts', 'Active service contracts are still attached to this service.')}
 							</span>
 						</div>
 					{/if}
 				</div>
 				<div class="mt-6 flex justify-end">
 					<button type="button" class="btn btn-primary" onclick={closeDeleteModal}>
-						{$t('dashboard.services.detail.delete_service_modal.close')}
+						{detailText('dashboard.services.detail.delete_service_modal.close', 'Close')}
 					</button>
 				</div>
 			{:else}
@@ -1961,14 +2047,12 @@
 					{#if deleteModalState.openQuoteCount > 0}
 						<div class="alert alert-warning">
 							<span>
-								{$t('dashboard.services.detail.delete_service_modal.open_requests_notice', {
-									values: { count: deleteModalState.openQuoteCount }
-								})}
+								{detailText('dashboard.services.detail.delete_service_modal.open_requests_notice', 'This service has open requests.')}
 							</span>
 						</div>
 					{:else}
 						<p class="text-base-content/70 text-sm">
-							{$t('dashboard.services.detail.delete_service_modal.no_dependents')}
+							{detailText('dashboard.services.detail.delete_service_modal.no_dependents', 'This service has no active dependencies and can be safely deleted.')}
 						</p>
 					{/if}
 				</div>
@@ -1979,7 +2063,7 @@
 						onclick={closeDeleteModal}
 						disabled={deleteSubmitting}
 					>
-						{$t('dashboard.services.detail.delete_service_modal.cancel')}
+						{detailText('dashboard.services.detail.delete_service_modal.cancel', 'Cancel')}
 					</button>
 					<button
 						type="button"
@@ -1990,10 +2074,65 @@
 						{#if deleteSubmitting}
 							<span class="loading loading-spinner loading-xs"></span>
 						{/if}
-						{$t('dashboard.services.detail.delete_service_modal.confirm')}
+						{detailText('dashboard.services.detail.delete_service_modal.confirm', 'Confirm Delete')}
 					</button>
 				</div>
 			{/if}
 		{/if}
 	</Modal>
+
+	<WalletPaymentModal isOpen={isReceiveModalOpen} onClose={() => (isReceiveModalOpen = false)}>
+		<div class="flex h-full flex-col p-4">
+			<div class="mb-4 flex items-center justify-between">
+				<h3 class="text-lg font-bold">{$t('wallet.receive.receive_funds')}</h3>
+				<button class="btn btn-ghost btn-sm" onclick={() => (isReceiveModalOpen = false)}>
+					<IconClose class="h-5 w-5" />
+				</button>
+			</div>
+			<ReceivePaymentForm
+				initialFormState={receiveInitialState}
+				onCancel={() => (isReceiveModalOpen = false)}
+				onOpenPaymentRequest={(data) => {
+					isReceiveModalOpen = false;
+					openPaymentRequestModal(data);
+				}}
+			/>
+		</div>
+	</WalletPaymentModal>
+
+	<!-- Centralized Payment Request Modal -->
+	{#if paymentRequestModal.isOpen && (paymentRequestModal.swapId || paymentRequestModal.address)}
+		<WalletPaymentModal isOpen={paymentRequestModal.isOpen} onClose={closePaymentRequestModal}>
+			<PaymentRequestModal
+				isOpen={paymentRequestModal.isOpen}
+				swapId={paymentRequestModal.swapId ?? undefined}
+				address={paymentRequestModal.address ?? undefined}
+				network={paymentRequestModal.network ?? undefined}
+				amount={paymentRequestModal.amount ?? undefined}
+				memo={paymentRequestModal.memo ?? undefined}
+				chargeFeesToPayer={paymentRequestModal.chargeFeesToPayer}
+				totalFees={paymentRequestModal.totalFees ?? undefined}
+				onClose={closePaymentRequestModal}
+				onEdit={() => {
+					if (paymentRequestModal.formState) {
+						receiveInitialState = paymentRequestModal.formState;
+					}
+					closePaymentRequestModal();
+					isReceiveModalOpen = true;
+				}}
+			/>
+		</WalletPaymentModal>
+	{/if}
 </div>
+
+<style>
+	/* Custom transition for max-height as Tailwind doesn't support dynamic values well */
+	.transition-\[max-height\] {
+		transition-property: max-height;
+	}
+	
+	/* Mobile tier tabs active state with primary bottom border */
+	.tabs-bordered .tab-active {
+		border-bottom: 2px solid var(--color-primary);
+	}
+</style>

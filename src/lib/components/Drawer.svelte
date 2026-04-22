@@ -165,7 +165,7 @@
 	class="bg-base-100 fixed top-0 {position === 'left'
 		? 'left-0'
 		: 'right-0'} z-70 {drawerWidthClass} 
-		{props.isScrollable ? 'overflow-y-auto' : 'overflow-auto'} 
+		flex flex-col overflow-hidden
 		transform shadow-xl transition-transform duration-300 ease-in-out"
 	class:translate-x-0={visualOpenState}
 	class:-translate-x-full={!visualOpenState && position === 'left'}
@@ -178,7 +178,7 @@
 >
 	{#if props.isOpen}
 		<!-- Header -->
-		<div class="bg-base-200 sticky top-0 z-10 flex items-center justify-between p-4">
+		<div class="bg-base-200 flex-none flex items-center justify-between p-4 shadow-sm">
 			<h4 id="drawer-title" class="min-w-0 flex-1 truncate pr-2 text-xl font-bold">
 				{#if props.title}
 					{props.title}
@@ -207,13 +207,17 @@
 		</div>
 
 		<!-- Content -->
-		<div class="drawer-content p-4">
+		<div
+			class="drawer-scroll-area flex-1 {props.isScrollable
+				? 'overflow-y-auto'
+				: 'overflow-auto'} p-4"
+		>
 			{@render props.children?.()}
 		</div>
 
 		<!-- Footer (Optional) -->
 		{#if props.footer}
-			<div class="bg-base-200 sticky bottom-0 border-t p-4">
+			<div class="drawer-footer bg-base-200 flex-none border-t p-4">
 				{@render props.footer?.()}
 			</div>
 		{/if}
@@ -221,9 +225,11 @@
 </div>
 
 <style>
-	/* Keep content clear of device safe-area insets (not the dock). */
-	.drawer-content {
-		/* Breathing room at bottom for all drawers + safe-area inset */
+	/* Keep content clear of device safe-area insets. */
+	/* If there's a footer, footer handles the bottom safe area. */
+	/* If no footer, content scroll area handles it. */
+	.drawer-scroll-area:last-child,
+	.drawer-footer {
 		padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0));
 	}
 </style>

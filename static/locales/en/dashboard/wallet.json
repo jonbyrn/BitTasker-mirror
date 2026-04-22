@@ -381,6 +381,7 @@
 		},
 		"invoice": {
 			"payment_request": "Payment Request",
+			"generation_failed": "Failed to generate invoice",
 			"qr_generation_failed": "Failed to generate QR code",
 			"share": "Share Invoice",
 			"share_title": "Payment Request",
@@ -548,10 +549,16 @@
 		"calculator": {
 			"clear": "Clear",
 			"delete": "Delete",
-			"calculation": "Calculation"
+			"calculation": "Calculation",
+			"divide": "Divide",
+			"multiply": "Multiply",
+			"add": "Add",
+			"subtract": "Subtract",
+			"decimal_point": "Decimal point"
 		},
 		"receive": {
 			"title": "Request Payment",
+			"receive_funds": "Receive Funds",
 			"unit_sats": "Sats",
 			"unit_usd": "USD",
 			"network_fees": "Network Fees",
@@ -680,6 +687,9 @@
 			"loading_fees": "Calculating fees...",
 			"service_fee": "Service Fee",
 			"miner_fee": "Miner Fee",
+			"error": {
+				"fee_fetch_failed": "Failed to fetch swap fees"
+			},
 			"action": {
 				"refund": "Refund",
 				"renegotiate": "Adjust Amount",
@@ -829,19 +839,23 @@
 			"networks": {
 				"lightning_bitcoin": {
 					"label": "Lightning Bitcoin",
-					"description": "Lightning Network payments"
+					"description": "Lightning Network payments",
+					"fee_info": "~0.25% swap fee"
 				},
 				"rootstock_bitcoin": {
 					"label": "Rootstock Bitcoin",
-					"description": "rBTC on Rootstock network"
+					"description": "rBTC on Rootstock network",
+					"fee_info": "Network gas fee"
 				},
 				"liquid_bitcoin": {
 					"label": "Liquid Bitcoin",
-					"description": "L-BTC on Liquid network (swap to rBTC)"
+					"description": "L-BTC on Liquid network (swap to rBTC)",
+					"fee_info": "~0.1% swap fee"
 				},
 				"bitcoin": {
 					"label": "Bitcoin",
-					"description": "Native Bitcoin network"
+					"description": "Native Bitcoin network",
+					"fee_info": "Network fee"
 				},
 				"liquid_usdt": {
 					"label": "Liquid USDT",
