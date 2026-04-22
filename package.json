@@ -32,7 +32,7 @@
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"format": "prettier --write .",
 		"lint": "prettier --check . && eslint .",
-		"test:unit": "vitest",
+		"test:unit": "vitest run src/lib/tests/unit/ src/lib/tests/integration/ src/lib/tests/components/",
 		"test": "npm run test:unit -- --run",
 		"test:workflow": "node --test tests/codex-plan-workflow.test.mjs",
 		"test:ci": "vitest run src/lib/tests/unit/ src/lib/tests/integration/ src/lib/tests/components/ --exclude src/lib/tests/integration/services-perf.smoke.test.ts",

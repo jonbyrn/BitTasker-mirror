@@ -114,6 +114,12 @@ vi.mock('$app/navigation', () => ({
 	goto: (...args: Parameters<typeof hoisted.mockGoto>) => hoisted.mockGoto(...args)
 }));
 
+vi.mock('$app/stores', () => ({
+	page: {
+		url: new URL('http://localhost:3000/services/test-service')
+	}
+}));
+
 vi.mock('$lib/stores/auth.store', () => ({
 	authState: hoisted.authStateStore
 }));

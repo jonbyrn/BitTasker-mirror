@@ -46,7 +46,7 @@ export default defineConfig(({ mode }) => {
 			environment: 'jsdom',
 			setupFiles: ['./vitest-setup-client.ts'],
 			globals: true,
-			exclude: ['**/_pending/**'],
+			exclude: ['**/_pending/**', 'node_modules/**'],
 			coverage: {
 				provider: 'v8',
 				reporter: ['text', 'html', 'clover', ['cobertura', { file: 'cobertura-coverage.xml' }]],
