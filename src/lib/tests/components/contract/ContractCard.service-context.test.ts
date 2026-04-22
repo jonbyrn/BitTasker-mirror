@@ -64,7 +64,8 @@ vi.mock('$lib/stores/contract.store', () => ({
 
 vi.mock('$lib/utils/helpers/contractStatusFormatter', () => ({
 	getStatusTranslationKey: vi.fn(() => 'contract.status'),
-	getStatusColorClass: vi.fn(() => 'badge-neutral')
+	getStatusColorClass: vi.fn(() => 'badge-neutral'),
+	getCancellationStatusVariant: vi.fn().mockReturnValue('default')
 }));
 
 vi.mock('svelte-i18n', async () => {

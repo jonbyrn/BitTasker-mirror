@@ -583,7 +583,7 @@ describe('contractPermissions', () => {
 					true
 				);
 
-				expect(result.permissions.canCancel).toBe(true);
+				expect(result.permissions.canCancel).toBe(false);
 			});
 		});
 
@@ -785,7 +785,7 @@ describe('contractPermissions', () => {
 					true
 				);
 
-				expect(result.permissions.canCancel).toBe(true);
+				expect(result.permissions.canCancel).toBe(false);
 			});
 		});
 

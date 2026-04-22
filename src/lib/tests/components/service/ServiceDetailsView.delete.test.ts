@@ -378,7 +378,7 @@ describe('ServiceDetailsView delete workflow', () => {
 		const { getAllByText, findAllByText } = await renderView(createService());
 
 		await fireEvent.click(getAllByText('Delete')[0]);
-		expect(await findAllByText(/open request/i)).toBeTruthy();
+		expect(await findAllByText(/open requests/i)).toBeTruthy();
 		await fireEvent.click(getAllByText('Confirm Delete')[0]);
 
 		await waitFor(() => expect(hoisted.mockDeleteService).toHaveBeenCalledTimes(1));

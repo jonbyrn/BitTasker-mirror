@@ -264,6 +264,24 @@ export async function getRSKAddress(): Promise<string> {
 		return state.rsk.address;
 	}
 
+	// If initialization is in progress, wait for it to complete
+	// This handles the case where another caller triggered initialization
+	if (state.isInitializing) {
+		const maxWaitTime = 5000; // 5 second timeout
+		const pollInterval = 1;
+		const startTime = Date.now();
+
+		while (get(walletStore).isInitializing && Date.now() - startTime < maxWaitTime) {
+			await new Promise((resolve) => setTimeout(resolve, pollInterval));
+		}
+
+		// Check if address was set during initialization
+		const addressAfterWait = get(walletStore).rsk.address;
+		if (addressAfterWait) {
+			return addressAfterWait;
+		}
+	}
+
 	const address = await initialize().then(() => {
 		return get(walletStore).rsk.address;
 	});

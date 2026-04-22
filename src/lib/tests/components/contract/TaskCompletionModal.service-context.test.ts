@@ -24,6 +24,7 @@ vi.mock('$lib/stores/app.store', () => ({
 vi.mock('$lib/stores/task.store', async () => {
 	const { writable } = await import('svelte/store');
 	return {
+		TASKS_PER_PAGE: 10,
 		tasksStore: writable({ items: [] }),
 		myTasksStore: writable({ items: [] }),
 		taskStore: {}

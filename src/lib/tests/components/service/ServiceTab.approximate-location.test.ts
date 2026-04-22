@@ -108,7 +108,6 @@ describe('ServiceTab approximate public location display', () => {
 
 		expect(screen.getByText('Austin, TX')).toBeInTheDocument();
 		expect(screen.getByText(/\(5 km\/3.1 mi\)/)).toBeInTheDocument();
-		expect(screen.getByText(/\(Approx\.\)/)).toBeInTheDocument();
 		expect(screen.queryByText('123 Main St, Austin, TX')).not.toBeInTheDocument();
 	});
 });

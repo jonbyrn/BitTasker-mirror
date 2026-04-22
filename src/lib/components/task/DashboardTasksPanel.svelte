@@ -3,6 +3,7 @@
 	import { t } from 'svelte-i18n';
 	import { onMount } from 'svelte';
 	import { myTasksStore, TASKS_PER_PAGE } from '$lib/stores/task.store';
+	import { get } from 'svelte/store';
 	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import { findMyTasks } from '$lib/nostr/findMyTasks';
@@ -111,15 +112,15 @@
 		}
 	}
 
-	function getTasksForFilter(filter: TaskFilterCategory): Task[] {
-		const filtered = $myTasksStore.items;
-
-		switch (filter) {
+	// Svelte 5 $derived.by() does not track store subscriptions accessed inside function calls.
+	// Inline the store access to ensure proper reactivity tracking.
+	let filteredTasks = $derived.by(() => {
+		const items = get(myTasksStore).items;
+		switch (activeFilter) {
 			case 'open':
-				return filtered.filter((t) => t.status === TaskStatusEnum.OPEN);
-
+				return items.filter((t) => t.status === TaskStatusEnum.OPEN);
 			case 'tasks_in_progress':
-				return filtered.filter(
+				return items.filter(
 					(t) =>
 						t.status === TaskStatusEnum.IN_PROGRESS ||
 						t.status === TaskStatusEnum.BID_ACCEPTED ||
@@ -127,28 +128,21 @@
 						t.status === TaskStatusEnum.RESCOPED ||
 						t.status === TaskStatusEnum.RESCOPE_ACCEPTED
 				);
-
 			case 'tasks_completed':
-				return filtered.filter((t) => t.status === TaskStatusEnum.COMPLETED);
-
+				return items.filter((t) => t.status === TaskStatusEnum.COMPLETED);
 			case 'tasks_disputed':
-				return filtered.filter(
+				return items.filter(
 					(t) =>
 						t.status === TaskStatusEnum.DISPUTED || t.status === TaskStatusEnum.DISPUTE_PROPOSAL
 				);
-
 			case 'tasks_cancelled':
-				return filtered.filter(
+				return items.filter(
 					(t) => t.status === TaskStatusEnum.CANCELLED || t.status === TaskStatusEnum.REFUNDED
 				);
-
 			default:
-				return filtered;
+				return items;
 		}
-	}
-
-	// Simple synchronous filtering
-	let filteredTasks = $derived.by(() => getTasksForFilter(activeFilter));
+	});
 	const isPasskeyLoadError = $derived.by(
 		() => Boolean(error) && detectErrorType(error ?? '') === 'biometric'
 	);

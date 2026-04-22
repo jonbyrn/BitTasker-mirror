@@ -483,7 +483,7 @@
 	async function viewContract(escrowId: string) {
 		const nextUrl = createDashboardUrl(new URL(window.location.href), {
 			tab: 'contracts',
-			context: 'services',
+			type: 'services',
 			highlight: escrowId
 		});
 		await goto(resolve(`${nextUrl.pathname}${nextUrl.search}`));

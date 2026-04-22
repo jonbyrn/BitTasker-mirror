@@ -63,7 +63,7 @@ function buildProviderQuoteClickAction(serviceAddress: string, quoteRequestId: s
 function buildContractsClickAction(escrowId?: string): string {
 	return buildDashboardQueryUrl(getDashboardBaseUrl(), {
 		tab: 'contracts',
-		context: 'services',
+		type: 'services',
 		highlight: escrowId ?? null
 	});
 }

@@ -9,6 +9,25 @@ vi.mock('$lib/nostr/service', () => ({
 	findServiceByUniqueId: vi.fn()
 }));
 
+vi.mock('$lib/i18n/i18n', () => ({
+	loadNamespace: vi.fn().mockResolvedValue(undefined)
+}));
+
+vi.mock('svelte-i18n', () => {
+	const { readable } = require('svelte/store');
+	return {
+		locale: readable('en'),
+		_getLocale: () => 'en',
+		t: readable((key: string) => key),
+		initialized: readable(true),
+		store: readable({ locale: 'en' })
+	};
+});
+
+vi.mock('$lib/utils/network-status', () => ({
+	browserNetworkStatus: readable({ online: true, lastTransition: 'initial' })
+}));
+
 function createService(overrides: Partial<Service> = {}): Service {
 	return {
 		id: 'service-event-1',
@@ -45,7 +64,8 @@ describe('services seo integration', () => {
 		vi.mocked(findServiceByUniqueId).mockResolvedValue(createService());
 
 		const result = await load({
-			params: { serviceId: 'premium-logo-package' }
+			params: { serviceId: 'premium-logo-package' },
+			parent: () => Promise.resolve({})
 		} as Parameters<typeof load>[0]);
 
 		expect(result.seo.canonical).toBe('https://bittasker.com/services/premium-logo-package');
@@ -70,7 +90,8 @@ describe('services seo integration', () => {
 		vi.mocked(findServiceByUniqueId).mockResolvedValue(null);
 
 		const result = await load({
-			params: { serviceId: 'missing-service' }
+			params: { serviceId: 'missing-service' },
+			parent: () => Promise.resolve({})
 		} as Parameters<typeof load>[0]);
 
 		expect(result.seo.canonical).toBe('https://bittasker.com/services/missing-service');

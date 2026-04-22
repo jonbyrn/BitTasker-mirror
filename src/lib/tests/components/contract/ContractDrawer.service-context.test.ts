@@ -125,7 +125,8 @@ vi.mock('$lib/components/user/UserInfoDisplay.svelte', () => ({
 
 vi.mock('$lib/utils/helpers/contractStatusFormatter', () => ({
 	getStatusColorClass: vi.fn(() => 'badge-neutral'),
-	getStatusTranslationKey: vi.fn(() => 'dashboard.contracts.status.funded')
+	getStatusTranslationKey: vi.fn(() => 'dashboard.contracts.status.funded'),
+	getCancellationStatusVariant: vi.fn().mockReturnValue('default')
 }));
 
 function buildServiceContract(

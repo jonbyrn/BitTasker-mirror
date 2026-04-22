@@ -31,7 +31,12 @@ export type EscrowV1IntegrationMockContract = {
 
 // Mock dependencies
 vi.mock('@bittasker/wallet-core', () => ({
-	normalizeRskAddress: vi.fn((addr: string) => addr.toLowerCase())
+	normalizeRskAddress: vi.fn((addr: string) => addr.toLowerCase()),
+	FEE_TIERS: {
+		1: { percentage: 250, label: '2.5%' },
+		2: { percentage: 200, label: '2.0%' },
+		3: { percentage: 150, label: '1.5%' }
+	}
 }));
 
 // Mock ethers
@@ -85,7 +90,8 @@ vi.mock('$lib/stores/wallet.store', () => ({
 	getProvider: vi.fn(() => ({
 		getFeeData: vi.fn().mockResolvedValue({
 			gasPrice: BigInt('1000000000')
-		})
+		}),
+		getBalance: vi.fn().mockResolvedValue(BigInt('1000000000000000000'))
 	})),
 	walletStore: {
 		subscribe: vi.fn((callback) => {
@@ -99,9 +105,12 @@ vi.mock('$lib/stores/wallet.store', () => ({
 }));
 
 // Mock escrowEvents
-const mockPublishEscrowStatus = vi.fn();
-const mockHandleEscrowCreated = vi.fn();
-const mockRegisterPendingContractByTxHash = vi.fn();
+const { mockPublishEscrowStatus, mockHandleEscrowCreated, mockRegisterPendingContractByTxHash, mockCleanupPendingContractByTxHash } = vi.hoisted(() => ({
+	mockPublishEscrowStatus: vi.fn(),
+	mockHandleEscrowCreated: vi.fn(),
+	mockRegisterPendingContractByTxHash: vi.fn(),
+	mockCleanupPendingContractByTxHash: vi.fn()
+}));
 
 vi.mock('$lib/utils/escrow/v1/escrowEvents', async () => {
 	const actual = await vi.importActual('$lib/utils/escrow/v1/escrowEvents');
@@ -122,25 +131,49 @@ vi.mock('$lib/utils/escrow/v1/escrowEvents', async () => {
 			handleTimelockResolved: vi.fn()
 		},
 		publishEscrowStatus: mockPublishEscrowStatus,
-		registerPendingContractByTxHash: mockRegisterPendingContractByTxHash
+		registerPendingContractByTxHash: mockRegisterPendingContractByTxHash,
+		cleanupPendingContractByTxHash: mockCleanupPendingContractByTxHash,
+		contractCreationStore: { subscribe: vi.fn() }
 	};
 });
 
 // Mock Nostr contract
-const mockCreateContract = vi.fn();
+const { mockCreateContract, mockPublishContractEvent, mockPublishContractStatus, mockGetContracts, mockDeleteContract, mockHandleStatusEvent, mockHandleContractEvent } = vi.hoisted(() => ({
+	mockCreateContract: vi.fn(),
+	mockPublishContractEvent: vi.fn(),
+	mockPublishContractStatus: vi.fn(),
+	mockGetContracts: vi.fn().mockResolvedValue([]),
+	mockDeleteContract: vi.fn(),
+	mockHandleStatusEvent: vi.fn(),
+	mockHandleContractEvent: vi.fn()
+}));
+
 vi.mock('$lib/utils/escrow/v1/nostrContract', () => ({
 	createContractEvent: mockCreateContract,
-	publishContractStatus: vi.fn()
+	publishContractEvent: mockPublishContractEvent,
+	publishContractStatus: mockPublishContractStatus,
+	getContracts: mockGetContracts,
+	deleteContract: mockDeleteContract,
+	handleStatusEvent: mockHandleStatusEvent,
+	handleContractEvent: mockHandleContractEvent
 }));
 
 // Mock app store
-vi.mock('$lib/stores/app.store', () => ({
-	appStore: {
-		showInfoToast: vi.fn(),
-		showSuccessToast: vi.fn(),
-		showErrorToast: vi.fn()
-	}
-}));
+vi.mock('$lib/stores/app.store', () => {
+	const mockPool = {
+		publish: vi.fn(),
+		subscribe: vi.fn(),
+		close: vi.fn()
+	};
+	return {
+		appStore: {
+			showInfoToast: vi.fn(),
+			showSuccessToast: vi.fn(),
+			showErrorToast: vi.fn(),
+			pool: mockPool
+		}
+	};
+});
 
 // Mock svelte-i18n
 vi.mock('svelte-i18n', () => {

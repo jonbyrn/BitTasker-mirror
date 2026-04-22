@@ -7,13 +7,15 @@ const {
 	copyToClipboard,
 	showSuccessToast,
 	showErrorToast,
-	getServiceDisplayTitle
+	getServiceDisplayTitle,
+	getServiceDisplayDescription
 } = vi.hoisted(() => ({
 	isNativePlatform: vi.fn(() => false),
 	copyToClipboard: vi.fn().mockResolvedValue(true),
 	showSuccessToast: vi.fn(),
 	showErrorToast: vi.fn(),
-	getServiceDisplayTitle: vi.fn()
+	getServiceDisplayTitle: vi.fn(),
+	getServiceDisplayDescription: vi.fn()
 }));
 
 vi.mock('@capacitor/core', () => ({
@@ -35,7 +37,7 @@ vi.mock('$lib/stores/app.store', () => ({
 
 vi.mock('$lib/utils/serviceDisplayTranslation', () => ({
 	getServiceDisplayTitle,
-	getServiceDisplayDescription: vi.fn()
+	getServiceDisplayDescription
 }));
 
 vi.mock('svelte-i18n', async () => {
@@ -62,6 +64,7 @@ describe('ServiceShareButton', () => {
 			configurable: true
 		});
 		getServiceDisplayTitle.mockReturnValue('Localized service title');
+		getServiceDisplayDescription.mockReturnValue('A great service description');
 	});
 
 	it('shares the current service payload through the shared entity button', async () => {
@@ -79,7 +82,7 @@ describe('ServiceShareButton', () => {
 		await waitFor(() => {
 			expect(navigator.share).toHaveBeenCalledWith({
 				title: 'Localized service title',
-				text: 'Check out this task',
+				text: 'Localized service title\n\nA great service description',
 				url: 'http://localhost:3000/services/service-123'
 			});
 		});

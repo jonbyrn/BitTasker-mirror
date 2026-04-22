@@ -1,6 +1,6 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/svelte';
-import { readable } from 'svelte/store';
+import { readable, type Readable } from 'svelte/store';
 import Homepage from '../../../../routes/+page.svelte';
 
 vi.mock('$lib/components/Logo.svelte', () => ({
@@ -24,19 +24,22 @@ vi.mock('$lib/services/featuredTasks.service', () => ({
 
 vi.mock('$lib/services/featuredServices.service', () => ({
 	FeaturedServicesService: {
-		getFeaturedServices: vi.fn().mockResolvedValue([
-			{
-				id: 'service-1',
-				href: '/services/service-1',
-				title: 'Featured Service',
-				description: 'Service description',
-				priceLabel: 'From $85',
-				meta: ['Remote'],
-				image: 'https://cdn.example.com/service.jpg',
-				imageAlt: 'Featured Service',
-				ctaLabel: 'View Service'
-			}
-		])
+		getFeaturedServices: vi.fn().mockResolvedValue({
+			success: true,
+			services: [
+				{
+					id: 'service-1',
+					href: '/services/service-1',
+					title: 'Featured Service',
+					description: 'Service description',
+					priceLabel: 'From $85',
+					meta: ['Remote'],
+					image: 'https://cdn.example.com/service.jpg',
+					imageAlt: 'Featured Service',
+					ctaLabel: 'View Service'
+				}
+			]
+		})
 	}
 }));
 
@@ -65,8 +68,15 @@ describe('homepage featured services ordering', () => {
 			}
 		});
 
-		await waitFor(() => expect(screen.getByTestId('homepage-featured-services')).toBeTruthy());
-		await waitFor(() => expect(screen.getByTestId('homepage-featured-tasks')).toBeTruthy());
+		// Wait for async services to load and component to render
+		await waitFor(
+			() => expect(screen.getByTestId('homepage-featured-services')).toBeTruthy(),
+			{ timeout: 5000 }
+		);
+		await waitFor(
+			() => expect(screen.getByTestId('homepage-featured-tasks')).toBeTruthy(),
+			{ timeout: 5000 }
+		);
 
 		const servicesSection = screen.getByTestId('homepage-featured-services');
 		const benefitsSection = screen.getByTestId('homepage-benefits');

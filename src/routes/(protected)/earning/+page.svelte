@@ -250,8 +250,8 @@
 		if (update.type === 'request') {
 			const pendingMessageCode = get(serviceQuoteUiStore).nonBlockingMessageCode;
 			nonBlockingMessageCode =
-				update.requestId === null && pendingMessageCode === 'service_quotes_request_not_found'
-					? 'service_quotes_request_not_found'
+				update.requestId === null && pendingMessageCode === 'service_requests_request_not_found'
+					? 'service_requests_request_not_found'
 					: null;
 			if (pendingMessageCode !== null) {
 				serviceQuoteUiStore.setNonBlockingMessage(null);
@@ -391,12 +391,12 @@
 				)}
 			</span>
 		</div>
-	{:else if nonBlockingMessageCode === 'service_quotes_request_not_found'}
+	{:else if nonBlockingMessageCode === 'service_requests_request_not_found'}
 		<div class="alert alert-info my-4 text-sm">
 			<span>
 				{translateOrFallback(
 					$t,
-					'dashboard.earning.messages.service_quotes_request_not_found',
+					'dashboard.earning.messages.service_requests_request_not_found',
 					'The selected service quote thread could not be found.'
 				)}
 			</span>
