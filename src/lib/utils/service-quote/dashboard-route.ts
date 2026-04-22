@@ -90,6 +90,9 @@ export function getDashboardProviderTimelines(
 	return state.providerTimelinesByService[serviceAddress] ?? [];
 }
 
+/**
+ * Canonicalizes dashboard quote/contract query params against the locked route contract.
+ */
 export function parseServiceQuoteDashboardQuery(
 	searchParams: URLSearchParams,
 	context: DashboardRouteContext,

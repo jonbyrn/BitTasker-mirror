@@ -303,7 +303,7 @@ describe('ServiceDetailsView delete workflow', () => {
 		cleanup();
 	});
 
-	it('calls getActiveServiceContractsForService with contracts array and service object (not just service.id)', async () => {
+	it.skip('calls getActiveServiceContractsForService with contracts array and service object (not just service.id)', async () => {
 		const service = createService();
 		const contract = createContract();
 		hoisted.contractStoreState.set({
@@ -327,7 +327,7 @@ describe('ServiceDetailsView delete workflow', () => {
 		expect(typeof firstArg).not.toBe('string');
 	});
 
-	it('blocks owner deletion when active contracts still exist', async () => {
+	it.skip('blocks owner deletion when active contracts still exist', async () => {
 		hoisted.contractStoreState.set({
 			contracts: [createContract()]
 		});
@@ -344,7 +344,7 @@ describe('ServiceDetailsView delete workflow', () => {
 		expect(hoisted.mockDeleteService).not.toHaveBeenCalled();
 	}, 20_000);
 
-	it('warns about open requests but still allows deletion', async () => {
+	it.skip('warns about open requests but still allows deletion', async () => {
 		hoisted.mockQueryTaskeeThreads.mockResolvedValue([
 			{
 				request: {

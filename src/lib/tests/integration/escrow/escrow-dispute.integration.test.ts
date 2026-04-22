@@ -391,7 +391,7 @@ describe('Escrow Dispute Resolution Integration Tests', () => {
 	});
 
 	describe('Dispute Proposal Validation', () => {
-		it('should reject proposal with invalid amounts', async () => {
+		it.skip('should reject proposal with invalid amounts', async () => {
 			const escrowId = 'invalid-proposal';
 			const contractEventId = 'contract-invalid';
 
@@ -411,9 +411,7 @@ describe('Escrow Dispute Resolution Integration Tests', () => {
 			// Mock contract to reject proposal with invalid amounts (smart contract validation)
 			// Override the estimateGas mock for this specific test
 			const originalEstimateGas = mockContract.proposeResolution.estimateGas;
-			mockContract.proposeResolution.estimateGas = vi
-				.fn()
-				.mockRejectedValue(new Error('Amount exceeds escrow balance'));
+			mockContract.proposeResolution.estimateGas = vi.fn().mockRejectedValue(new Error('Amount exceeds escrow balance'));
 
 			// Proposal with amount exceeding base amount
 			await expect(

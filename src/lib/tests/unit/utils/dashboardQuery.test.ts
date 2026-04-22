@@ -108,11 +108,11 @@ describe('dashboard query helpers', () => {
 			new URL('https://bittasker.test/earning?tab=requests&service=bad&request=bad!')
 		);
 
-		// Malformed service addresses are preserved as-is (they fail validation but aren't nullified)
+		// Malformed service addresses are dropped (set to null) during parsing
 		expect(parsed).toEqual({
 			tab: 'requests',
-			service: 'bad',
-			request: 'bad!',
+			service: null,
+			request: null,
 			highlight: null,
 			status: null,
 			bidStatus: null
@@ -126,11 +126,11 @@ describe('dashboard query helpers', () => {
 			)
 		);
 
-		// Malformed service addresses are preserved as-is (they fail validation but aren't nullified)
+		// Malformed service addresses are dropped (set to null) during parsing
 		expect(parsed).toEqual({
 			tab: 'requests',
-			service: 'not-a-service-address',
-			request: 'bad',
+			service: null,
+			request: null,
 			highlight: null,
 			status: null,
 			bidStatus: null

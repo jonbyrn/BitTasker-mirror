@@ -17,6 +17,7 @@
 		hideFooter = false,
 		allowCloseWhileSubmitting = false,
 		drawerTestId = 'contract-initiation-drawer',
+		cancelTestId = 'contract-initiation-cancel',
 		confirmTestId = 'contract-initiation-confirm',
 		errorTestId = 'contract-initiation-error',
 		errorHintTestId = 'contract-initiation-error-hint',
@@ -41,6 +42,7 @@
 		warningHint?: string;
 		hideFooter?: boolean;
 		allowCloseWhileSubmitting?: boolean;
+		cancelTestId?: string;
 		drawerTestId?: string;
 		confirmTestId?: string;
 		errorTestId?: string;
@@ -68,7 +70,7 @@
 	}
 </script>
 
-<Drawer isOpen={open} {title} onClose={handleClose} position="right" isScrollable={true}>
+<Drawer isOpen={open} {title} onClose={handleClose} position="right" isScrollable={true} isSubmitting={isSubmitting}>
 	<div class="space-y-4" data-testid={drawerTestId}>
 		{#if subtitle}
 			<p class="text-base-content/70 text-sm">
@@ -94,7 +96,7 @@
 					{/if}
 				</div>
 			</div>
-			{#if onRetry}
+			{#if onRetry && !isSubmitting}
 				<button
 					type="button"
 					class="btn btn-outline btn-error btn-sm w-full"
@@ -128,6 +130,7 @@
 			<div class="flex flex-row gap-3 sm:justify-end">
 				<button
 					class="btn btn-error flex-1 sm:min-w-[100px] sm:flex-none"
+					data-testid={cancelTestId}
 					onclick={handleClose}
 					disabled={isSubmitting}
 				>
