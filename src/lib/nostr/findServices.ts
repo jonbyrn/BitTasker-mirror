@@ -37,7 +37,7 @@ const profileFetchPromises = new Map<
 	Promise<NonNullable<Awaited<ReturnType<typeof fetchComprehensiveProfileSafe>>>>
 >();
 
-async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+export async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
 	const timeout = new Promise<T>((_, reject) =>
 		setTimeout(() => reject(new Error('Request timeout')), ms)
 	);
@@ -66,7 +66,7 @@ function evictOldestDeletionCacheEntry(): void {
 	}
 }
 
-async function getCachedViewerNpub(): Promise<string | null> {
+export async function getCachedViewerNpub(): Promise<string | null> {
 	const inMemoryNpub = get(appStore)?.nostrKeys?.npub;
 	if (typeof inMemoryNpub === 'string' && inMemoryNpub.trim().length > 0) {
 		return inMemoryNpub;
