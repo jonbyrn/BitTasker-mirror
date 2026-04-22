@@ -22,6 +22,8 @@
 		errorHintTestId = 'contract-initiation-error-hint',
 		warningTestId = 'contract-initiation-warning',
 		warningHintTestId = 'contract-initiation-warning-hint',
+		retryTestId = 'contract-initiation-retry',
+		onRetry = () => {},
 		onConfirm = () => {},
 		onClose = () => {},
 		children: content
@@ -45,6 +47,8 @@
 		errorHintTestId?: string;
 		warningTestId?: string;
 		warningHintTestId?: string;
+		retryTestId?: string;
+		onRetry?: () => void;
 		onConfirm?: () => void;
 		onClose?: () => void;
 		children?: import('svelte').Snippet;
@@ -90,6 +94,16 @@
 					{/if}
 				</div>
 			</div>
+			{#if onRetry}
+				<button
+					type="button"
+					class="btn btn-outline btn-error btn-sm w-full"
+					data-testid={retryTestId}
+					onclick={onRetry}
+				>
+					{$t('common.buttons.retry')}
+				</button>
+			{/if}
 		{:else if warningMessage}
 			<div
 				class="alert alert-warning alert-outline"

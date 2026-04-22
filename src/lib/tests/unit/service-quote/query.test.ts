@@ -39,7 +39,7 @@ describe('service-quote query helpers', () => {
 	});
 
 	beforeEach(() => {
-		vi.clearAllMocks();
+		vi.resetAllMocks();
 		queryNostrEvents.mockResolvedValue([]);
 		validateServiceQuoteRequestEvent.mockImplementation((event) => {
 			if (event.id === 'invalid-event') {

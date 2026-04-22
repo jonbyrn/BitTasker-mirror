@@ -103,7 +103,7 @@ async function revalidateServiceForQuote(serviceId: string): Promise<Service> {
 		throw new Error('This service is no longer available.');
 	}
 
-	if (!latestService.active) {
+	if (!latestService.status || latestService.status !== 'active') {
 		throw new Error('This service is no longer active.');
 	}
 

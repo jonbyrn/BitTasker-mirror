@@ -130,7 +130,8 @@ vi.mock('$lib/utils/service-quote/acceptance-ledger', () => ({
 
 vi.mock('$lib/stores/task.store', () => ({
 	taskStore: readable({}),
-	myTasksStore: readable({ items: [], loading: false, error: null, currentPage: 1, hasMore: false })
+	myTasksStore: readable({ items: [], loading: false, error: null, currentPage: 1, hasMore: false }),
+	TASKS_PER_PAGE: 10
 }));
 
 vi.mock('$lib/nostr/task', () => ({

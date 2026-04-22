@@ -1310,7 +1310,7 @@
 
 			deleteModalState = {
 				mode: 'confirm',
-				openQuoteCount: guard.blockingThreadCount,
+				openQuoteCount: guard.totalThreadCount,
 				activeContractCount: guard.activeContractCount
 			};
 		} catch (error) {
@@ -1343,9 +1343,9 @@
 				}
 			);
 
-			if (service.portfolioMedia && service.portfolioMedia.length > 0) {
+			if (service.portfolio && service.portfolio.length > 0) {
 				try {
-					await deleteServicePortfolioMedia(service.portfolioMedia);
+					await deleteServicePortfolioMedia(service.portfolio);
 				} catch (err) {
 					console.warn('[ServiceDetailsView] Portfolio media cleanup failed after delete', err);
 				}

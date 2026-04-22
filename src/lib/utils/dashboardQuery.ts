@@ -155,6 +155,16 @@ export function parseEarningQuery(url: URL): EarningQueryState {
 		bidStatus: url.searchParams.get('bidStatus')
 	};
 
+	// Validate service and request for requests tab
+	if (tab === 'requests') {
+		if (decodedService !== null && !isValidServiceAddress(decodedService)) {
+			state.service = null;
+		}
+		if (rawRequest !== null && !isValidQuoteRequestId(rawRequest)) {
+			state.request = null;
+		}
+	}
+
 	if (tab === 'contracts') {
 		const type = url.searchParams.get('type');
 		state.type = type === 'tasks' || type === 'services' ? type : 'all';

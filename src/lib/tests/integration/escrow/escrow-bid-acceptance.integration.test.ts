@@ -65,7 +65,7 @@ vi.mock('@bittasker/wallet-core', () => ({
 }));
 
 // Mock escrow
-const mockCreateEscrow = vi.fn();
+const mockCreateEscrow = vi.hoisted(() => vi.fn());
 vi.mock('$lib/utils/escrow/v1/escrow', () => ({
 	escrow: {
 		ensureEscrowReady: vi.fn(),
@@ -74,9 +74,16 @@ vi.mock('$lib/utils/escrow/v1/escrow', () => ({
 }));
 
 // Mock escrowEvents
-const mockRegisterPendingContractByTxHash = vi.fn();
+const { mockPublishEscrowStatus, mockRegisterPendingContractByTxHash, mockCleanupPendingContractByTxHash } = vi.hoisted(() => ({
+	mockPublishEscrowStatus: vi.fn(),
+	mockRegisterPendingContractByTxHash: vi.fn(),
+	mockCleanupPendingContractByTxHash: vi.fn()
+}));
 vi.mock('$lib/utils/escrow/v1/escrowEvents', () => ({
-	registerPendingContractByTxHash: mockRegisterPendingContractByTxHash
+	publishEscrowStatus: mockPublishEscrowStatus,
+	registerPendingContractByTxHash: mockRegisterPendingContractByTxHash,
+	cleanupPendingContractByTxHash: mockCleanupPendingContractByTxHash,
+	contractCreationStore: { subscribe: vi.fn() }
 }));
 
 // Mock contract error handler

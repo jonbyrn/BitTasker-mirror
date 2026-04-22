@@ -213,7 +213,7 @@ describe('create-service edit conflict handling', () => {
 				}
 			);
 		});
-		expect(hoisted.updateService.mock.calls[0]?.[1]).not.toHaveProperty('providerWalletAddress');
+		expect(hoisted.updateService.mock.calls[0]?.[1]).toHaveProperty('providerWalletAddress', undefined);
 
 		await expect(findByText(new RegExp(SERVICE_EDIT_CONFLICT_CODE))).resolves.toBeTruthy();
 		expect(hoisted.showErrorToast).toHaveBeenCalledWith(

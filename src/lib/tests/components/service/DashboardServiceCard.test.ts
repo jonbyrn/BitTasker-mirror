@@ -197,7 +197,7 @@ describe('DashboardServiceCard', () => {
 		});
 
 		expect(getByText('Austin, TX')).toBeTruthy();
-		expect(getByText(/\(Approx\.\)/)).toBeTruthy();
+		expect(getByText(/\(5 km\/3\.1 mi\)/)).toBeTruthy();
 		expect(queryByText('123 Main St, Austin, TX')).toBeNull();
 	});
 

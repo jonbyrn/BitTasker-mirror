@@ -58,7 +58,7 @@ vi.mock('svelte-i18n', async () => {
 		'dashboard.find_task': 'Find Tasks',
 		'dashboard.services.my_services.create_service': 'Create Service',
 		'dashboard.earning.title': 'Earning',
-		'dashboard.earning.messages.service_requests_request_not_found':
+		'dashboard.earning.messages.service_quotes_request_not_found':
 			'The selected service quote thread could not be found.',
 		'dashboard.earning.messages.contracts_highlight_not_found':
 			'The requested contract highlight could not be found.',

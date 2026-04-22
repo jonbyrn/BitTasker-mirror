@@ -405,7 +405,7 @@ describe('serviceQuoteUiStore', () => {
 		waitForContractCreationByTransactionHash.mockImplementation(() => new Promise(() => undefined));
 		getContractCreationTimeoutReason.mockReturnValue('pending_timeout');
 		getContracts.mockResolvedValue([]);
-		findServiceByUniqueId.mockResolvedValue(null);
+		findServiceByUniqueId.mockResolvedValue(service);
 		getExactServiceLocation.mockResolvedValue(null);
 		contractStoreState.set({ contracts: [] });
 		walletStore.set({
@@ -454,7 +454,7 @@ describe('serviceQuoteUiStore', () => {
 		expect(quotesParsed.messageCode).toBe('service_requests_request_not_found');
 
 		const contractsParsed = serviceQuoteUiStore.parseDashboardQuery(
-			new URLSearchParams('tab=contracts&context=services&highlight=%%%')
+			new URLSearchParams('tab=contracts&type=services&highlight=%%%')
 		);
 		expect(contractsParsed.state.highlight).toBeNull();
 		expect(contractsParsed.messageCode).toBe('contracts_highlight_not_found');
@@ -2176,12 +2176,12 @@ describe('serviceQuoteUiStore', () => {
 
 		const nextUrl = createDashboardUrl(new URL('https://bittasker.test/dashboard?tab=tasks'), {
 			tab: 'contracts',
-			context: 'services',
+			type: 'services',
 			highlight: 'escrow_123'
 		});
 
 		expect(nextUrl.toString()).toBe(
-			'https://bittasker.test/dashboard?tab=contracts&context=services&highlight=escrow_123'
+			'https://bittasker.test/dashboard?tab=contracts&type=services&highlight=escrow_123'
 		);
 		expect(getProviderTimelines(get(serviceQuoteUiStore), null)).toEqual([]);
 

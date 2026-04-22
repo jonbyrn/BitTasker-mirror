@@ -80,7 +80,8 @@ vi.mock('$lib/stores/wallet.store', () => ({
 		getFeeData: vi.fn().mockResolvedValue({
 			gasPrice: BigInt('1000000000')
 		}),
-		getTransactionReceipt: vi.fn()
+		getTransactionReceipt: vi.fn(),
+		getBalance: vi.fn().mockResolvedValue(BigInt('1000000000000000000'))
 	})),
 	walletManager: {
 		initialize: vi.fn()
@@ -97,9 +98,12 @@ vi.mock('@bittasker/wallet-core', () => ({
 }));
 
 // Mock escrowEvents
-const mockPublishEscrowStatus = vi.fn();
-const mockHandleEscrowCreated = vi.fn();
-const mockRegisterPendingContractByTxHash = vi.fn();
+const { mockPublishEscrowStatus, mockHandleEscrowCreated, mockRegisterPendingContractByTxHash, mockCleanupPendingContractByTxHash } = vi.hoisted(() => ({
+	mockPublishEscrowStatus: vi.fn(),
+	mockHandleEscrowCreated: vi.fn(),
+	mockRegisterPendingContractByTxHash: vi.fn(),
+	mockCleanupPendingContractByTxHash: vi.fn()
+}));
 
 vi.mock('$lib/utils/escrow/v1/escrowEvents', async () => {
 	const actual = await vi.importActual('$lib/utils/escrow/v1/escrowEvents');
@@ -120,27 +124,49 @@ vi.mock('$lib/utils/escrow/v1/escrowEvents', async () => {
 			handleTimelockResolved: vi.fn()
 		},
 		publishEscrowStatus: mockPublishEscrowStatus,
-		registerPendingContractByTxHash: mockRegisterPendingContractByTxHash
+		registerPendingContractByTxHash: mockRegisterPendingContractByTxHash,
+		cleanupPendingContractByTxHash: mockCleanupPendingContractByTxHash,
+		contractCreationStore: { subscribe: vi.fn() }
 	};
 });
 
 // Mock Nostr contract
-const mockCreateContract = vi.fn();
-const mockPublishContractStatus = vi.fn();
+const { mockCreateContract, mockPublishContractEvent, mockPublishContractStatus, mockGetContracts, mockDeleteContract, mockHandleStatusEvent, mockHandleContractEvent } = vi.hoisted(() => ({
+	mockCreateContract: vi.fn(),
+	mockPublishContractEvent: vi.fn(),
+	mockPublishContractStatus: vi.fn(),
+	mockGetContracts: vi.fn().mockResolvedValue([]),
+	mockDeleteContract: vi.fn(),
+	mockHandleStatusEvent: vi.fn(),
+	mockHandleContractEvent: vi.fn()
+}));
 
 vi.mock('$lib/utils/escrow/v1/nostrContract', () => ({
 	createContractEvent: mockCreateContract,
-	publishContractStatus: mockPublishContractStatus
+	publishContractEvent: mockPublishContractEvent,
+	publishContractStatus: mockPublishContractStatus,
+	getContracts: mockGetContracts,
+	deleteContract: mockDeleteContract,
+	handleStatusEvent: mockHandleStatusEvent,
+	handleContractEvent: mockHandleContractEvent
 }));
 
 // Mock app store
-vi.mock('$lib/stores/app.store', () => ({
-	appStore: {
-		showInfoToast: vi.fn(),
-		showSuccessToast: vi.fn(),
-		showErrorToast: vi.fn()
-	}
-}));
+vi.mock('$lib/stores/app.store', () => {
+	const mockPool = {
+		publish: vi.fn(),
+		subscribe: vi.fn(),
+		close: vi.fn()
+	};
+	return {
+		appStore: {
+			showInfoToast: vi.fn(),
+			showSuccessToast: vi.fn(),
+			showErrorToast: vi.fn(),
+			pool: mockPool
+		}
+	};
+});
 
 // Mock svelte-i18n
 vi.mock('svelte-i18n', () => {

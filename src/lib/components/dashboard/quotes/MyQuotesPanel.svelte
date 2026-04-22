@@ -361,10 +361,6 @@
 			return;
 		}
 
-		if (requestDrawerRequestId === focusedRequestId) {
-			return;
-		}
-
 		const focusedTimelineMatch =
 			timelines.find((timeline) => timeline.request.content.quoteRequestId === focusedRequestId) ??
 			null;
@@ -375,6 +371,10 @@
 		}
 
 		if (!focusedTimelineMatch) {
+			return;
+		}
+
+		if (requestDrawerRequestId === focusedRequestId) {
 			return;
 		}
 
@@ -1334,7 +1334,7 @@
 		{/if}
 	{/if}
 
-	{#if timelines.length === 0}
+	{#if filteredTimelines.length === 0}
 		{#if !hasLoaded && isSyncing}
 			<div class="border-base-300 text-base-content/70 rounded-xl border border-dashed p-6 text-sm">
 				{translateOrFallback(

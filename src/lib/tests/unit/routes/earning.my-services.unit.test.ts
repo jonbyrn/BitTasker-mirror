@@ -287,7 +287,7 @@ describe('earning my-services integration', () => {
 		const serviceAddress = `30402:${service.npub}:${service.uniqueId ?? service.id}`;
 		await waitFor(() => {
 			expect(hoisted.mockGoto).toHaveBeenCalledWith(
-				`/earning?tab=contracts&context=services&highlight=escrow-live&service=${encodeURIComponent(serviceAddress)}`
+				`/earning?tab=contracts&type=services&highlight=escrow-live&service=${encodeURIComponent(serviceAddress)}`
 			);
 		});
 	}, 20_000);

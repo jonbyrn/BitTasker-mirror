@@ -169,7 +169,7 @@ describe('ServiceInstantBuyModal', () => {
 		expect(queryByText('Book Now')).toBeTruthy();
 
 		const cancelButtons = Array.from(
-			document.querySelectorAll('button.btn-ghost')
+			document.querySelectorAll('button.btn-error')
 		) as HTMLButtonElement[];
 		const cancelButton = cancelButtons[cancelButtons.length - 1] ?? null;
 		expect(cancelButton?.disabled).toBe(true);

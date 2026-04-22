@@ -23,8 +23,8 @@ vi.mock('$lib/utils/nostrKeys', () => ({
 	getNostrKeyPair
 }));
 
-vi.mock('$lib/nostr/nip44', () => ({
-	default: {
+vi.mock('nostr-tools', () => ({
+	nip44: {
 		getConversationKey,
 		encrypt
 	}
@@ -150,7 +150,7 @@ describe('service quote notification helpers', () => {
 				title: 'New service contract created for Migration audit',
 				body: 'A buyer placed a Book Now order for Migration audit.',
 				clickAction:
-					'https://bittasker.test/dashboard?tab=contracts&context=services&highlight=svc-123'
+					'https://bittasker.test/dashboard?tab=contracts&type=services&highlight=svc-123'
 			})
 		);
 	});

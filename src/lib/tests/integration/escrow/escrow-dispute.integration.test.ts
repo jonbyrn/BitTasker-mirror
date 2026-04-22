@@ -82,18 +82,29 @@ vi.mock('$lib/utils/escrow/v1/escrowEvents', async () => {
 			handleProposalAccepted: vi.fn(),
 			handleTimelockResolved: vi.fn()
 		},
-		publishEscrowStatus: vi.fn()
+		publishEscrowStatus: vi.fn(),
+		registerPendingContractByTxHash: vi.fn(),
+		cleanupPendingContractByTxHash: vi.fn(),
+		contractCreationStore: { subscribe: vi.fn() }
 	};
 });
 
 // Mock app store
-vi.mock('$lib/stores/app.store', () => ({
-	appStore: {
-		showInfoToast: vi.fn(),
-		showSuccessToast: vi.fn(),
-		showErrorToast: vi.fn()
-	}
-}));
+vi.mock('$lib/stores/app.store', () => {
+	const mockPool = {
+		publish: vi.fn(),
+		subscribe: vi.fn(),
+		close: vi.fn()
+	};
+	return {
+		appStore: {
+			showInfoToast: vi.fn(),
+			showSuccessToast: vi.fn(),
+			showErrorToast: vi.fn(),
+			pool: mockPool
+		}
+	};
+});
 
 // Mock svelte-i18n
 vi.mock('svelte-i18n', () => {
