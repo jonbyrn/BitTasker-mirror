@@ -201,7 +201,13 @@ export default defineConfig(({ mode }) => {
 					'**/*.spec.ts',
 					'**/*.spec.tsx',
 					'**/coverage/**',
-					'**/test-results/**'
+					'**/test-results/**',
+					'.playwright-mcp/**',
+					'scripts/**',
+					'status/**',
+					'.storybook/**',
+					'android/**',
+					'ios/**'
 				]
 			}
 		}

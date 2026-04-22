@@ -64,8 +64,8 @@
 					"professional_service": "Servicio profesional"
 				},
 				"you_are_provider": "Tú eres el proveedor de este servicio.",
-				"edit_service": "Editar Servicio",
-				"delete_service": "Eliminar Servicio",
+				"edit_service": "Editar",
+				"delete_service": "Eliminar",
 				"edit_service_confirmation": {
 					"title": "Editar Servicio",
 					"warning": "Editar actualizará tu lista de servicios",
