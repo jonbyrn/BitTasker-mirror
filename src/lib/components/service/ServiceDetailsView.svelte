@@ -1863,6 +1863,32 @@
 								size="md"
 							/>
 						</div>
+
+						{#if isOwner && !isPreview}
+							<div class="alert alert-info alert-outline">
+								<span class="text-sm">{$t('dashboard.services.detail.you_are_provider')}</span>
+							</div>
+							<div class="flex gap-2">
+								<button
+									type="button"
+									class="btn btn-error btn-outline flex-1"
+									onclick={handleDeleteService}
+									disabled={deleteCheckInFlight || deleteSubmitting}
+								>
+									{#if deleteCheckInFlight || deleteSubmitting}
+										<span class="loading loading-spinner loading-xs"></span>
+									{/if}
+									{detailText('dashboard.services.detail.delete_service', 'Delete')}
+								</button>
+								<a
+									href="/dashboard/create-service?edit=true&serviceId={service.uniqueId ||
+										service.id}"
+									class="btn btn-primary flex-1"
+								>
+									{detailText('dashboard.services.detail.edit_service', 'Edit')}
+								</a>
+							</div>
+						{/if}
 					</div>
 
 					<!-- Mobile Tier Selector (Mobile Only) -->
@@ -2097,8 +2123,8 @@
 					{/if}
 				</div>
 
-				<!-- Sidebar (Desktop & Mobile) -->
-				<div class="space-y-6">
+				<!-- Sidebar (Desktop Only) -->
+				<div class="hidden space-y-6 lg:block">
 					<!-- Purchase Card (Sidebar) -->
 					<div
 						class="bg-base-100 border-base-300 sticky top-24 space-y-6 rounded-2xl border p-6 shadow-sm"
