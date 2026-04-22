@@ -28,6 +28,11 @@
 		 * Defaults to the globally measured footer height.
 		 */
 		bottomOffset?: string;
+		/**
+		 * When true, the drawer will not allow closing via overlay click or header button.
+		 * This is useful when the drawer is in a submitting state.
+		 */
+		 isSubmitting?: boolean;
 		children?: import('svelte').Snippet;
 		footer?: import('svelte').Snippet;
 	}>();
@@ -154,7 +159,7 @@
 	class:opacity-0={!visualOpenState}
 	class:pointer-events-none={!visualOpenState || !props.isOpen}
 	class:invisible={!props.isOpen && !visualOpenState}
-	onclick={props.onClose}
+	onclick={props.isSubmitting ? undefined : props.onClose}
 	role="presentation"
 	aria-hidden="true"
 ></div>
@@ -186,7 +191,7 @@
 			</h4>
 			<button
 				class="btn btn-ghost btn-circle shrink-0"
-				onclick={props.onClose}
+				onclick={props.isSubmitting ? undefined : props.onClose}
 				aria-label={$t('common.components.drawer.close')}
 			>
 				<svg

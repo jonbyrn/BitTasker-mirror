@@ -172,7 +172,7 @@ export function isDeleteBlockingTimelineEntry(
 	timeline: Pick<ServiceQuoteTimelineEntry, 'proposals' | 'resolvedStatus'>
 ): boolean {
 	if (timeline.proposals.length === 0) {
-		return false;
+		return !TERMINAL_DELETE_SAFE_STATES.has(timeline.resolvedStatus);
 	}
 
 	return !TERMINAL_DELETE_SAFE_STATES.has(timeline.resolvedStatus);

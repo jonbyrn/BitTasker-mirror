@@ -13,13 +13,13 @@ describe('service code docs coverage', () => {
 		const source = readRepoFile('src/lib/utils/service-quote/publish.ts');
 
 		expect(source).toMatch(
-			/Publishes the canonical `6420` quote-request event[\s\S]*export async function publishServiceQuoteRequest/
+			/Publishes the canonical (encrypted )?`6420` quote-request event[\s\S]*export async function publishServiceQuoteRequest/
 		);
 		expect(source).toMatch(
 			/Publishes the canonical `6421` proposal event[\s\S]*export async function publishServiceProposal/
 		);
 		expect(source).toMatch(
-			/Publishes the canonical `6422` proposal-status event[\s\S]*export async function publishServiceProposalStatus/
+			/Publishes the canonical (encrypted )?`6422` proposal-status event[\s\S]*export async function publishServiceProposalStatus/
 		);
 	});
 
