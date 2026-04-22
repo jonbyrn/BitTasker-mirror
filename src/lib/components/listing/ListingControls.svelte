@@ -23,7 +23,8 @@
 		loadDrawerComponents,
 		translationNamespace = 'find_tasks',
 		filterLabelKey = 'filters',
-		activeFilterCount = 0
+		activeFilterCount = 0,
+		filterDisabled = false
 	} = $props<{
 		searchQuery: string;
 		searchInputClass: string;
@@ -40,21 +41,32 @@
 		translationNamespace?: string;
 		filterLabelKey?: string;
 		activeFilterCount?: number;
+		filterDisabled?: boolean;
 	}>();
 
-	const filtersLabel = $derived($t(`${translationNamespace}.${filterLabelKey}`) || $t('find_tasks.filters'));
+	const filtersLabel = $derived(
+		$t(`${translationNamespace}.${filterLabelKey}`) || $t('find_tasks.filters')
+	);
 	const saveLabel = $derived($t(`${translationNamespace}.save`) || $t('find_tasks.save'));
 	const mapLabel = $derived($t(`${translationNamespace}.map`) || $t('find_tasks.map'));
 	const listLabel = $derived($t(`${translationNamespace}.list`) || $t('find_tasks.list'));
-	const viewMapTitle = $derived($t(`${translationNamespace}.view_map`) || $t('find_tasks.view_map'));
-	const viewListTitle = $derived($t(`${translationNamespace}.view_list`) || $t('find_tasks.view_list'));
+	const viewMapTitle = $derived(
+		$t(`${translationNamespace}.view_map`) || $t('find_tasks.view_map')
+	);
+	const viewListTitle = $derived(
+		$t(`${translationNamespace}.view_list`) || $t('find_tasks.view_list')
+	);
 	const saveTooltipEnabled = $derived(
-		$t(`${translationNamespace}.save_search_tooltip_enabled`) || $t('find_tasks.save_search_tooltip_enabled')
+		$t(`${translationNamespace}.save_search_tooltip_enabled`) ||
+			$t('find_tasks.save_search_tooltip_enabled')
 	);
 	const saveTooltipDisabled = $derived(
-		$t(`${translationNamespace}.save_search_tooltip_disabled`) || $t('find_tasks.save_search_tooltip_disabled')
+		$t(`${translationNamespace}.save_search_tooltip_disabled`) ||
+			$t('find_tasks.save_search_tooltip_disabled')
 	);
-	const searchPlaceholderLabel = $derived($t(`${translationNamespace}.search_placeholder`) || searchPlaceholder);
+	const searchPlaceholderLabel = $derived(
+		$t(`${translationNamespace}.search_placeholder`) || searchPlaceholder
+	);
 </script>
 
 <section class="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:gap-2">
@@ -76,7 +88,12 @@
 		class="flex shrink-0 items-center justify-center gap-2 md:justify-end"
 		aria-label="Search actions"
 	>
-		<button class="btn btn-sm btn-primary" aria-label={filtersLabel} onclick={onFilterClick}>
+		<button
+			class="btn btn-sm btn-primary"
+			aria-label={filtersLabel}
+			onclick={onFilterClick}
+			disabled={filterDisabled}
+		>
 			<IconFilter class="mr-1 h-4 w-4" />
 			<span>{filtersLabel}</span>
 			{#if activeFilterCount > 0}

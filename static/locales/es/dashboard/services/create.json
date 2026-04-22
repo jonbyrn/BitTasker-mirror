@@ -234,6 +234,8 @@
 				"review": {
 					"title": "Revisa tu Servicio",
 					"description": "Por favor revisa toda la información antes de publicar tu servicio.",
+					"preview_badge": "Vista Previa",
+					"draft_badge": "Borrador",
 					"service_details_title": "Detalles del Servicio",
 					"basics_title": "Información Básica",
 					"title_label": "Título",

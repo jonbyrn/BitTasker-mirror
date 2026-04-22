@@ -37,9 +37,17 @@
 
 	// State — use getDefaultFilters directly instead of a separate object literal
 	let filters = $state<SearchServicesParams>(getDefaultFilters());
+	let priceError = $state<string | null>(null);
+	let priceErrorId = 'min-price-error';
 
 	// Store selected location coordinates for distance calculation
 	let selectedLocationCoords = $state<{ latitude: number; longitude: number } | null>(null);
+	let categoriesOpen = $state(false);
+	let skillsOpen = $state(false);
+	let locationTypesOpen = $state(false);
+	let pricingTypeOpen = $state(false);
+	let priceRangeOpen = $state(false);
+	let locationOpen = $state(false);
 
 	// Sync filters with initialFilters when drawer opens (assign from getDefaultFilters + initialFilters)
 	$effect(() => {
@@ -57,6 +65,13 @@
 			selectedLocationCoords = initialFilters.locationCoords
 				? { ...initialFilters.locationCoords }
 				: null;
+		}
+	});
+
+	// Track changes to initialFilters while drawer is closed to sync on open
+	$effect(() => {
+		if (!isOpen && initialFilters) {
+			// Sync filters when drawer opens next time
 		}
 	});
 
@@ -144,6 +159,20 @@
 			filters.location = undefined;
 		}
 	}
+
+	function validatePriceRange(): boolean {
+		if (
+			filters.minPrice !== undefined &&
+			filters.maxPrice !== undefined &&
+			filters.minPrice > filters.maxPrice
+		) {
+			priceError =
+				$t('dashboard.services.browse.filters.price_error') || 'Min price cannot exceed max price';
+			return false;
+		}
+		priceError = null;
+		return true;
+	}
 </script>
 
 <UnifiedFilterDrawer
@@ -162,6 +191,8 @@
 			type="checkbox"
 			class="peer"
 			aria-label={$t('dashboard.services.browse.filters.toggle_categories') || 'Toggle categories'}
+			aria-expanded={categoriesOpen}
+			onchange={() => (categoriesOpen = !categoriesOpen)}
 		/>
 		<div class="collapse-title font-medium">
 			{$t('dashboard.services.browse.filters.categories') || 'Categories'}
@@ -183,6 +214,8 @@
 			type="checkbox"
 			class="peer"
 			aria-label={$t('dashboard.services.browse.filters.toggle_skills') || 'Toggle skills'}
+			aria-expanded={skillsOpen}
+			onchange={() => (skillsOpen = !skillsOpen)}
 		/>
 		<div class="collapse-title font-medium">
 			{$t('dashboard.services.browse.filters.skills') || 'Skills'}
@@ -205,6 +238,8 @@
 			class="peer"
 			aria-label={$t('dashboard.services.browse.filters.toggle_location_types') ||
 				'Toggle location types'}
+			aria-expanded={locationTypesOpen}
+			onchange={() => (locationTypesOpen = !locationTypesOpen)}
 		/>
 		<div class="collapse-title font-medium">
 			{$t('dashboard.services.browse.filters.location_types') || 'Location Types'}
@@ -259,73 +294,80 @@
 			class="peer"
 			aria-label={$t('dashboard.services.browse.filters.toggle_pricing_type') ||
 				'Toggle pricing type'}
+			aria-expanded={pricingTypeOpen}
+			onchange={() => (pricingTypeOpen = !pricingTypeOpen)}
 		/>
 		<div class="collapse-title font-medium">
 			{$t('dashboard.services.browse.filters.pricing_type') || 'Pricing Type'}
 		</div>
 		<div class="collapse-content">
-			<div class="flex flex-col gap-2">
-				<label class="label cursor-pointer justify-start gap-3">
-					<input
-						type="radio"
-						name="pricingType"
-						class="radio"
-						checked={filters.pricingType === ServicePricingTypeEnum.FIXED}
-						onchange={() => handlePricingTypeChange(ServicePricingTypeEnum.FIXED)}
-					/>
-					<span class="label-text">
-						{$t('dashboard.services.create.pricing.fixed_title') || 'Fixed Price'}
-					</span>
-				</label>
-				<label class="label cursor-pointer justify-start gap-3">
-					<input
-						type="radio"
-						name="pricingType"
-						class="radio"
-						checked={filters.pricingType === ServicePricingTypeEnum.HOURLY}
-						onchange={() => handlePricingTypeChange(ServicePricingTypeEnum.HOURLY)}
-					/>
-					<span class="label-text">
-						{$t('dashboard.services.create.pricing.hourly_title') || 'Hourly Rate'}
-					</span>
-				</label>
-				<label class="label cursor-pointer justify-start gap-3">
-					<input
-						type="radio"
-						name="pricingType"
-						class="radio"
-						checked={filters.pricingType === ServicePricingTypeEnum.TIERED}
-						onchange={() => handlePricingTypeChange(ServicePricingTypeEnum.TIERED)}
-					/>
-					<span class="label-text">
-						{$t('dashboard.services.create.pricing.tiered_title') || 'Tiered Packages'}
-					</span>
-				</label>
-				<label class="label cursor-pointer justify-start gap-3">
-					<input
-						type="radio"
-						name="pricingType"
-						class="radio"
-						checked={filters.pricingType === ServicePricingTypeEnum.INQUIRY_REQUIRED}
-						onchange={() => handlePricingTypeChange(ServicePricingTypeEnum.INQUIRY_REQUIRED)}
-					/>
-					<span class="label-text">
-						{$t('dashboard.services.create.pricing.inquiry_title') || 'Inquiry Required'}
-					</span>
-				</label>
-				<label class="label cursor-pointer justify-start gap-3">
-					<input
-						type="radio"
-						name="pricingType"
-						class="radio"
-						checked={filters.pricingType === undefined}
-						onchange={() => handlePricingTypeChange(undefined)}
-					/>
-					<span class="label-text">
-						{$t('dashboard.services.browse.filters.any_pricing') || 'Any'}
-					</span>
-				</label>
-			</div>
+			<fieldset>
+				<legend class="mb-2 text-sm font-medium">
+					{$t('dashboard.services.browse.filters.pricing_type') || 'Price Type'}
+				</legend>
+				<div class="flex flex-col gap-2">
+					<label class="label cursor-pointer justify-start gap-3">
+						<input
+							type="radio"
+							name="pricingType"
+							class="radio"
+							checked={filters.pricingType === ServicePricingTypeEnum.FIXED}
+							onchange={() => handlePricingTypeChange(ServicePricingTypeEnum.FIXED)}
+						/>
+						<span class="label-text">
+							{$t('dashboard.services.create.pricing.fixed_title') || 'Fixed Price'}
+						</span>
+					</label>
+					<label class="label cursor-pointer justify-start gap-3">
+						<input
+							type="radio"
+							name="pricingType"
+							class="radio"
+							checked={filters.pricingType === ServicePricingTypeEnum.HOURLY}
+							onchange={() => handlePricingTypeChange(ServicePricingTypeEnum.HOURLY)}
+						/>
+						<span class="label-text">
+							{$t('dashboard.services.create.pricing.hourly_title') || 'Hourly Rate'}
+						</span>
+					</label>
+					<label class="label cursor-pointer justify-start gap-3">
+						<input
+							type="radio"
+							name="pricingType"
+							class="radio"
+							checked={filters.pricingType === ServicePricingTypeEnum.TIERED}
+							onchange={() => handlePricingTypeChange(ServicePricingTypeEnum.TIERED)}
+						/>
+						<span class="label-text">
+							{$t('dashboard.services.create.pricing.tiered_title') || 'Tiered Packages'}
+						</span>
+					</label>
+					<label class="label cursor-pointer justify-start gap-3">
+						<input
+							type="radio"
+							name="pricingType"
+							class="radio"
+							checked={filters.pricingType === ServicePricingTypeEnum.INQUIRY_REQUIRED}
+							onchange={() => handlePricingTypeChange(ServicePricingTypeEnum.INQUIRY_REQUIRED)}
+						/>
+						<span class="label-text">
+							{$t('dashboard.services.create.pricing.inquiry_title') || 'Inquiry Required'}
+						</span>
+					</label>
+					<label class="label cursor-pointer justify-start gap-3">
+						<input
+							type="radio"
+							name="pricingType"
+							class="radio"
+							checked={filters.pricingType === undefined}
+							onchange={() => handlePricingTypeChange(undefined)}
+						/>
+						<span class="label-text">
+							{$t('dashboard.services.browse.filters.any_pricing') || 'Any'}
+						</span>
+					</label>
+				</div>
+			</fieldset>
 		</div>
 	</div>
 
@@ -336,64 +378,82 @@
 			class="peer"
 			aria-label={$t('dashboard.services.browse.filters.toggle_price_range') ||
 				'Toggle price range'}
+			aria-expanded={priceRangeOpen}
+			onchange={() => (priceRangeOpen = !priceRangeOpen)}
 		/>
 		<div class="collapse-title font-medium">
 			{$t('dashboard.services.browse.filters.price_range') || 'Price Range'}
 		</div>
 		<div class="collapse-content">
-			<div class="space-y-4">
-				<div class="form-control">
-					<label class="label" for="min-price">
-						<span class="label-text">
-							{$t('dashboard.services.browse.filters.min_price') || 'Minimum Price ($)'}
-						</span>
-					</label>
-					<input
-						id="min-price"
-						type="number"
-						class="input input-bordered w-full"
-						placeholder="0"
-						min="0"
-						step="1"
-						bind:value={filters.minPrice}
-						oninput={(e) => {
-							const value = e.currentTarget.value;
-							filters.minPrice = value ? parseFloat(value) : undefined;
-						}}
-					/>
+			<fieldset>
+				<legend class="mb-2 text-sm font-medium">
+					{$t('dashboard.services.browse.filters.price_range') || 'Price Range'}
+				</legend>
+				<div class="space-y-4">
+					<div class="form-control">
+						<label class="label" for="min-price">
+							<span class="label-text">
+								{$t('dashboard.services.browse.filters.min_price') || 'Minimum Price ($)'}
+							</span>
+						</label>
+						<input
+							id="min-price"
+							type="number"
+							class="input input-bordered w-full"
+							class:input-error={priceError !== null}
+							placeholder="0"
+							min="0"
+							step="1"
+							bind:value={filters.minPrice}
+							aria-invalid={priceError !== null}
+							aria-describedby={priceError ? priceErrorId : undefined}
+							oninput={(e) => {
+								const value = e.currentTarget.value;
+								filters.minPrice = value ? parseFloat(value) : undefined;
+								validatePriceRange();
+							}}
+						/>
+						{#if priceError}
+							<p id={priceErrorId} class="text-error mt-1 text-sm" data-testid="price-error">
+								{priceError}
+							</p>
+						{/if}
+					</div>
+					<div class="form-control">
+						<label class="label" for="max-price">
+							<span class="label-text">
+								{$t('dashboard.services.browse.filters.max_price') || 'Maximum Price ($)'}
+							</span>
+						</label>
+						<input
+							id="max-price"
+							type="number"
+							class="input input-bordered w-full"
+							class:input-error={priceError !== null}
+							placeholder="10000"
+							min="0"
+							step="1"
+							bind:value={filters.maxPrice}
+							oninput={(e) => {
+								const value = e.currentTarget.value;
+								filters.maxPrice = value ? parseFloat(value) : undefined;
+								validatePriceRange();
+							}}
+						/>
+					</div>
+					{#if filters.minPrice !== undefined || filters.maxPrice !== undefined}
+						<button
+							class="btn btn-xs btn-ghost"
+							onclick={() => {
+								filters.minPrice = undefined;
+								filters.maxPrice = undefined;
+							}}
+						>
+							{$t('dashboard.services.browse.filters.clear_price_range') || 'Clear'}
+						</button>
+					{/if}
 				</div>
-				<div class="form-control">
-					<label class="label" for="max-price">
-						<span class="label-text">
-							{$t('dashboard.services.browse.filters.max_price') || 'Maximum Price ($)'}
-						</span>
-					</label>
-					<input
-						id="max-price"
-						type="number"
-						class="input input-bordered w-full"
-						placeholder="10000"
-						min="0"
-						step="1"
-						bind:value={filters.maxPrice}
-						oninput={(e) => {
-							const value = e.currentTarget.value;
-							filters.maxPrice = value ? parseFloat(value) : undefined;
-						}}
-					/>
-				</div>
-				{#if filters.minPrice !== undefined || filters.maxPrice !== undefined}
-					<button
-						class="btn btn-xs btn-ghost"
-						onclick={() => {
-							filters.minPrice = undefined;
-							filters.maxPrice = undefined;
-						}}
-					>
-						{$t('dashboard.services.browse.filters.clear_price_range') || 'Clear'}
-					</button>
-				{/if}
-			</div>
+			</fieldset>
 		</div>
 	</div>
 
@@ -403,6 +463,8 @@
 			type="checkbox"
 			class="peer"
 			aria-label={$t('dashboard.services.browse.filters.toggle_location') || 'Toggle location'}
+			aria-expanded={locationOpen}
+			onchange={() => (locationOpen = !locationOpen)}
 		/>
 		<div class="collapse-title font-medium">
 			{$t('dashboard.services.browse.filters.location') || 'Location'}
