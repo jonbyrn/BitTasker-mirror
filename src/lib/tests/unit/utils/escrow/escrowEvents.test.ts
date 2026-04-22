@@ -436,6 +436,8 @@ describe('escrowEvents', () => {
 		});
 	});
 
+	const recipientPubkey = 'aa'.repeat(32);
+
 	describe('publishEscrowStatus', () => {
 		beforeEach(() => {
 			// Reset all mocks
@@ -453,7 +455,8 @@ describe('escrowEvents', () => {
 				escrowId: '123',
 				contractEventId: 'contract-123',
 				transactionHash: '0x456',
-				status: EscrowStatus.PendingCompletion
+				status: EscrowStatus.PendingCompletion,
+				recipientPubkey
 			});
 
 			expect(vi.mocked(publishContractStatus)).toHaveBeenCalled();
@@ -465,7 +468,8 @@ describe('escrowEvents', () => {
 				escrowId: '123',
 				contractEventId: 'contract-123',
 				transactionHash: '0x456',
-				status: EscrowStatus.Completed
+				status: EscrowStatus.Completed,
+				recipientPubkey
 			});
 
 			expect(vi.mocked(publishContractStatus)).toHaveBeenCalled();
@@ -479,7 +483,8 @@ describe('escrowEvents', () => {
 				escrowId: '123',
 				contractEventId: 'contract-123',
 				transactionHash: '0x456',
-				status: EscrowStatus.Completed
+				status: EscrowStatus.Completed,
+				recipientPubkey
 			});
 
 			expect(vi.mocked(appStore.showErrorToast)).toHaveBeenCalled();
@@ -499,7 +504,8 @@ describe('escrowEvents', () => {
 				contractEventId: 'contract-123',
 				transactionHash: '0x456',
 				status: EscrowStatus.PendingCompletion,
-				completionAttachments: attachments
+				completionAttachments: attachments,
+				recipientPubkey
 			});
 
 			expect(vi.mocked(publishContractStatus)).toHaveBeenCalledWith(
@@ -516,7 +522,8 @@ describe('escrowEvents', () => {
 				transactionHash: '0x456',
 				status: EscrowStatus.DisputeResolutionProposed,
 				proposedClientAmount: '0.5',
-				proposedFreelancerAmount: '0.5'
+				proposedFreelancerAmount: '0.5',
+				recipientPubkey
 			});
 
 			expect(vi.mocked(publishContractStatus)).toHaveBeenCalledWith(

@@ -247,10 +247,24 @@
 	 */
 	async function loadUserProfile(currentPubkey: string, requestId: number) {
 		try {
+			//console.debug('[UserInfoDisplay] loadUserProfile: starting fetch', {
+			// 	username,
+			// 	normalizedUsername,
+			// 	avatar,
+			// 	isAvatarMissing,
+			// 	pubkey,
+			// 	normalizedHexPubkey
+			// });
+
 			// Convert hex to npub for fetchProfileMetadata (it handles both, but npub ensures cache consistency)
 			// The cache key will be npub format, which is consistent across calls
 			const npubToFetch = nip19.npubEncode(currentPubkey);
 			const profile = await fetchProfileMetadata(npubToFetch);
+			//console.debug('[UserInfoDisplay] loadUserProfile: received profile', {
+			// 	profile,
+			// 	hasName: !!profile?.name,
+			// 	hasPicture: !!profile?.picture
+			// });
 
 			if (requestId !== activeProfileRequestId) {
 				return;

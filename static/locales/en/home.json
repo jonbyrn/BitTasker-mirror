@@ -3,6 +3,7 @@
 		"company_name": "BitTasker",
 		"company_description": "Connecting people seeking services with taskees offering those services, powered by Bitcoin and decentralized identity.",
 		"zapstore_aria": "Download BitTasker on Zapstore",
+		"google_play_aria": "Download BitTasker on Google Play",
 		"social": {
 			"twitter_aria": "BitTasker on X (Twitter)",
 			"facebook_aria": "BitTasker on Facebook",
@@ -13,7 +14,8 @@
 			"tiktok_aria": "BitTasker on TikTok",
 			"rumble_aria": "BitTasker on Rumble",
 			"telegram_aria": "BitTasker on Telegram",
-			"whatsapp_aria": "BitTasker on WhatsApp"
+			"whatsapp_aria": "BitTasker on WhatsApp",
+			"github_aria": "BitTasker on GitHub"
 		},
 		"made_with": "Made with",
 		"and": "and",

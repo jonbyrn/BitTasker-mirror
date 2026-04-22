@@ -6,7 +6,7 @@ import { redirect } from '@sveltejs/kit';
 import KINDS from '$lib/utils/constants/kinds';
 import type { NostrEvent } from '$lib/types/nostr';
 
-const baseUrl = (import.meta.env.VITE_CLIENT_URL || 'https://bittasker.com').replace(/\/$/, '');
+const SITE_URL = 'https://bittasker.com';
 
 export const prerender = false;
 
@@ -43,7 +43,9 @@ function npubToHex(npub: string): string {
 		}
 		throw new Error('Invalid npub format');
 	} catch (error) {
-		throw new Error(`Failed to decode npub: ${error instanceof Error ? error.message : 'Unknown error'}`);
+		throw new Error(
+			`Failed to decode npub: ${error instanceof Error ? error.message : 'Unknown error'}`
+		);
 	}
 }
 
@@ -58,7 +60,7 @@ async function findTaskByAuthor(pubkey: string): Promise<{ data: NostrEvent } | 
 			authors: [pubkey],
 			limit: 1
 		});
-		
+
 		if (response.data && response.data.length > 0) {
 			// Return the most recent task
 			return { data: response.data[0] };
@@ -102,16 +104,16 @@ export const load: PageLoad = async ({ params }) => {
 	const taskId = params.taskId;
 	let uniqueId = taskId; // Default to using taskId as uniqueId
 	let shouldRedirect = false;
-	
+
 	// Determine if taskId is an event ID, UUID, or npub/pubkey
 	let event = null;
-	
+
 	if (isEventId(taskId)) {
 		// It's an event ID, load the event and extract uniqueId for redirect
 		try {
 			const result = await nostrEventsService.findEventById(taskId);
 			event = result.data;
-			
+
 			if (event) {
 				// Extract uniqueId from the event content
 				try {
@@ -204,26 +206,29 @@ export const load: PageLoad = async ({ params }) => {
 			}
 		}
 	}
-	
+
 	// Redirect to UUID URL if we accessed via event ID, npub, or pubkey
 	if (shouldRedirect && uniqueId !== taskId && uniqueId) {
 		throw redirect(301, `/tasks/${uniqueId}`);
 	}
-	
-	const canonicalUrl = `${baseUrl}/tasks/${uniqueId}`;
-	
+
+	const canonicalUrl = `${SITE_URL}/tasks/${uniqueId}`;
+
 	// Default SEO data
 	let seo = {
 		title: 'Task Details - BitTasker',
-		description: 'View task details and submit your bid on BitTasker, the Bitcoin-powered task marketplace.',
+		description:
+			'View task details and submit your bid on BitTasker, the Bitcoin-powered task marketplace.',
 		keywords: 'bitcoin tasks, freelance work, gig economy, task marketplace, bitcoin payments',
 		canonical: canonicalUrl,
 		ogTitle: 'Task Details - BitTasker',
-		ogDescription: 'View task details and submit your bid on BitTasker, the Bitcoin-powered task marketplace.',
-		ogImage: `${baseUrl}/images/og-task-default.jpg`,
+		ogDescription:
+			'View task details and submit your bid on BitTasker, the Bitcoin-powered task marketplace.',
+		ogImage: `${SITE_URL}/images/og-task-default.jpg`,
 		twitterTitle: 'Task Details - BitTasker',
-		twitterDescription: 'View task details and submit your bid on BitTasker, the Bitcoin-powered task marketplace.',
-		twitterImage: `${baseUrl}/images/og-task-default.jpg`,
+		twitterDescription:
+			'View task details and submit your bid on BitTasker, the Bitcoin-powered task marketplace.',
+		twitterImage: `${SITE_URL}/images/og-task-default.jpg`,
 		jsonLd: null,
 		task: null as Task | null
 	};
@@ -245,8 +250,8 @@ export const load: PageLoad = async ({ params }) => {
 		}
 
 		// Get first image attachment (not video) for meta tags
-		const firstImage = task.attachments?.find(att => !isVideoFile(att.url));
-		const taskImage = firstImage?.url || `${baseUrl}/images/og-task-default.jpg`;
+		const firstImage = task.attachments?.find((att) => !isVideoFile(att.url));
+		const taskImage = firstImage?.url || `${SITE_URL}/images/og-task-default.jpg`;
 
 		// Generate dynamic SEO data based on task content
 		const taskTitle = task.title || 'Untitled Task';
@@ -259,14 +264,15 @@ export const load: PageLoad = async ({ params }) => {
 			task.budget.amount != null
 				? task.budget.amount * task.budget.estimatedHours
 				: task.budget?.amount;
-		const taskBudget = displayAmount != null && displayAmount > 0 ? `$${displayAmount}` : 'Price not specified';
-		const taskLocation = task.pickupLocation?.displayName || task.dropOffLocation?.displayName || 'Remote';
+		const taskBudget =
+			displayAmount != null && displayAmount > 0 ? `$${displayAmount}` : 'Price not specified';
+		const taskLocation =
+			task.pickupLocation?.displayName || task.dropOffLocation?.displayName || 'Remote';
 		const taskSkills = task.skills?.join(', ') || '';
-		
+
 		// Truncate description for meta tags (keep under 160 characters)
-		const truncatedDescription = taskDescription.length > 150 
-			? taskDescription.substring(0, 147) + '...' 
-			: taskDescription;
+		const truncatedDescription =
+			taskDescription.length > 150 ? taskDescription.substring(0, 147) + '...' : taskDescription;
 
 		seo = {
 			title: `${taskTitle} - ${taskBudget} - BitTasker`,
@@ -283,7 +289,7 @@ export const load: PageLoad = async ({ params }) => {
 			task
 		};
 	}
-	
+
 	return {
 		seo,
 		taskId: uniqueId // Always use uniqueId for the component (stable identifier)
@@ -291,37 +297,38 @@ export const load: PageLoad = async ({ params }) => {
 };
 
 function generateTaskJsonLd(task: Task, canonicalUrl: string) {
-	const siteBaseUrl = (import.meta.env.VITE_CLIENT_URL || 'https://bittasker.com').replace(/\/$/, '');
-	
 	return {
 		'@context': 'https://schema.org',
 		'@type': 'JobPosting',
 		title: task.title,
 		description: task.description,
 		datePosted: task.createdAt,
-		validThrough: task.deadline || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), 
+		validThrough: task.deadline || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
 		employmentType: 'CONTRACTOR',
 		hiringOrganization: {
 			'@type': 'Organization',
 			name: 'BitTasker',
-			url: siteBaseUrl,
-			logo: `${baseUrl}/images/Logos/BitTasker-Logo-Icon-light-mode.svg`
+			url: SITE_URL,
+			logo: `${SITE_URL}/images/logos/bittasker-logomark.svg`
 		},
-		jobLocation: task.pickupLocation?.displayName || task.dropOffLocation?.displayName ? {
-			'@type': 'Place',
-			name: task.pickupLocation?.displayName || task.dropOffLocation?.displayName,
-			address: {
-				'@type': 'PostalAddress',
-				addressLocality: task.pickupLocation?.displayName || task.dropOffLocation?.displayName
-			}
-		} : {
-			'@type': 'Place',
-			name: 'Remote',
-			address: {
-				'@type': 'PostalAddress',
-				addressLocality: 'Remote'
-			}
-		},
+		jobLocation:
+			task.pickupLocation?.displayName || task.dropOffLocation?.displayName
+				? {
+						'@type': 'Place',
+						name: task.pickupLocation?.displayName || task.dropOffLocation?.displayName,
+						address: {
+							'@type': 'PostalAddress',
+							addressLocality: task.pickupLocation?.displayName || task.dropOffLocation?.displayName
+						}
+					}
+				: {
+						'@type': 'Place',
+						name: 'Remote',
+						address: {
+							'@type': 'PostalAddress',
+							addressLocality: 'Remote'
+						}
+					},
 		baseSalary: (() => {
 			const amt =
 				task.budget?.type === 'HOURLY' &&
@@ -350,4 +357,3 @@ function generateTaskJsonLd(task: Task, canonicalUrl: string) {
 		]
 	};
 }
-

@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { ethers } from 'ethers';
 import { EscrowStatus } from '$lib/utils/escrow';
 import { determineContractState } from '$lib/utils/helpers/contractPermissions';
 import type { EscrowData, DisputeProposal } from '$lib/types/wallet';
@@ -11,7 +10,6 @@ vi.mock('@bittasker/wallet-core', () => ({
 }));
 
 vi.mock('svelte-i18n', () => {
-	const translationFn = (key: string) => key;
 	const mockT = Object.assign(
 		vi.fn((key: string) => key),
 		{ subscribe: vi.fn() }
@@ -21,13 +19,14 @@ vi.mock('svelte-i18n', () => {
 
 vi.mock('svelte/store', () => {
 	const translationFn = (key: string) => key;
-	const mockGet = vi.fn((store: any) => {
+	const mockGet = vi.fn((store: unknown) => {
 		if (typeof store === 'function') {
-			if (store.subscribe || (store.toString && store.toString().includes('t'))) {
+			const fn = store as (() => unknown) & { subscribe?: unknown; toString?: () => string };
+			if (fn.subscribe || fn.toString?.().includes('t')) {
 				return translationFn;
 			}
 			try {
-				return store();
+				return fn();
 			} catch {
 				return translationFn;
 			}
@@ -49,7 +48,10 @@ describe('Escrow State Transitions Integration Tests', () => {
 	const clientPubkey = 'client-pubkey';
 	const freelancerPubkey = 'freelancer-pubkey';
 
-	const createMockEscrowData = (state: EscrowStatus, overrides: Partial<EscrowData> = {}): EscrowData => ({
+	const createMockEscrowData = (
+		state: EscrowStatus,
+		overrides: Partial<EscrowData> = {}
+	): EscrowData => ({
 		id: '123',
 		client: '0x1111111111111111111111111111111111111111',
 		freelancer: '0x2222222222222222222222222222222222222222',

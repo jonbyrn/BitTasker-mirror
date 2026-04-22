@@ -22,12 +22,6 @@
 
 	let { data: seo }: { data: PageData } = $props();
 
-	// JSON-LD script for structured data (moved from template to fix parser bugs)
-	// Build string piece by piece to avoid <script being interpreted as tag
-	const jsonLdScript = seo.jsonLd
-		? '<' + 'script type="application/ld+json">' + JSON.stringify(seo.jsonLd) + '</' + 'script>'
-		: '';
-
 	// Define feature types for type safety
 	type FeatureId = 'nostr' | 'bitcoin' | 'payments' | 'escrow';
 
@@ -63,8 +57,6 @@
 	};
 
 	let activeFeatureIndex = $state(0);
-	const activeFeatureId = $derived(featureIds[activeFeatureIndex] as FeatureId);
-	const currentLocale = $derived($locale || 'en');
 
 	function resolveHomepageTranslation(key: string, fallback: string): string {
 		const value = $t(key);
@@ -133,7 +125,7 @@
 	const loadFeaturedServices = async () => {
 		try {
 			const result = await FeaturedServicesService.getFeaturedServices(FEATURED_HOMEPAGE_LIMIT, {
-				locale: currentLocale,
+				locale: $locale || 'en',
 				labels: featuredServiceLabels
 			});
 			if (result.success) {
@@ -186,6 +178,7 @@
 	});
 </script>
 
+<!-- eslint-disable svelte/no-at-html-tags -->
 <svelte:head>
 	<title>{seo.title}</title>
 	<meta name="description" content={seo.description} />
@@ -218,9 +211,7 @@
 	<meta name="twitter:creator" content="@BitTaskerdotcom" />
 
 	<!-- Structured Data -->
-	{#if jsonLdScript}
-		{@html jsonLdScript}
-	{/if}
+	{@html `<\u{73}cript type="application/ld+json">${JSON.stringify(seo.jsonLd)}</script>`}
 
 	<link rel="preload" href={featureImages['bitcoin']} as="image" />
 </svelte:head>
@@ -238,11 +229,6 @@
 						<a href="/tasks" class="btn btn-secondary mx-auto w-64 sm:mx-0 sm:w-auto"
 							>{$t('navbar.browse_tasks')}</a
 						>
-						<!-- <a
-							href="/dashboard/taskees"
-							class="btn btn-secondary mx-auto w-64 sm:mx-0 sm:w-auto"
-							>{$t('navbar.browse_freelancers')}</a
-						> -->
 					</div>
 					<!-- Large primary button below -->
 					<div class="flex justify-center">
@@ -293,7 +279,7 @@
 
 				<!-- Navigation dots below the carousel -->
 				<div class="flex w-full justify-center gap-2 py-4">
-					{#each featureIds as _, index}
+					{#each featureIds as featureId, index (featureId)}
 						<button
 							onclick={() => {
 								activeFeatureIndex = index;

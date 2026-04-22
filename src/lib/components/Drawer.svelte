@@ -7,6 +7,7 @@
 	 */
 	import { t } from 'svelte-i18n';
 	import { appScrollContainer } from '$lib/stores/scrollContainer.store';
+	import { keyboardVisible } from '$lib/utils/helpers/keyboard';
 	import { onMount, tick } from 'svelte';
 	import { browser } from '$app/environment';
 
@@ -32,10 +33,14 @@
 	}>();
 
 	// Set defaults
-	const position = $derived(props.position || 'right');
-	const respectBottomNav = $derived(props.respectBottomNav ?? true);
-	const bottomOffset = $derived(props.bottomOffset ?? 'var(--app-footer-height, 0px)');
-	const effectiveBottomOffset = $derived(respectBottomNav ? bottomOffset : '0px');
+	const position = props.position || 'right';
+	const respectBottomNav = props.respectBottomNav ?? true;
+	const bottomOffset = props.bottomOffset ?? 'var(--app-footer-height, 0px)';
+	// When keyboard is visible, always extend drawer to bottom (0px offset)
+	// Otherwise respect the bottom nav setting
+	const effectiveBottomOffset = $derived(
+		$keyboardVisible ? '0px' : respectBottomNav ? bottomOffset : '0px'
+	);
 
 	// Scroll lock management
 	const disableBodyScroll = () => {

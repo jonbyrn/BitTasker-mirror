@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { ContractWithEvents } from '$lib/types/contract';
 	import {
+		getCancellationStatusVariant,
 		getStatusTranslationKey,
 		getStatusColorClass
 	} from '$lib/utils/helpers/contractStatusFormatter';
@@ -102,6 +103,14 @@ import { getReviewAvailabilityLabel, getReviewEligibilityState } from '$lib/revi
 		$contractStore.contract = contract;
 		$contractStore.isDrawerOpen = true;
 	}
+
+	const statusVariant = $derived(
+		getCancellationStatusVariant(
+			contract.status,
+			contract.statusEvents,
+			contractStore.getContractKey(contract, 'clientPubkey') as string
+		)
+	);
 </script>
 
 <div
@@ -144,19 +153,22 @@ import { getReviewAvailabilityLabel, getReviewEligibilityState } from '$lib/revi
 					{#if contract.isPending}
 						<span class="loading loading-spinner loading-xs mr-1"></span>
 					{/if}
-					{$t(getStatusTranslationKey(contract.status))}
+					{$t(getStatusTranslationKey(contract.status, { statusVariant }))}
 				</div>
 			</div>
 		</div>
 
 		<div class="mb-3 flex flex-row items-center justify-between gap-3">
+			<!-- Left: Deadline + Location -->
 			<div class="flex min-w-0 flex-1 flex-col gap-2">
+				<!-- Deadline -->
 				<TaskDeadlineDisplay
 					deadline={contractStore.getContractKey(contract, 'estimatedCompletionTime') as number}
 				/>
 				<TaskLocationDisplay />
 			</div>
 
+			<!-- Right: Price -->
 			<div class="shrink-0 text-right">
 				{#if btcPrice > 0}
 					{@const priceData = formatPriceStacked(
@@ -174,8 +186,10 @@ import { getReviewAvailabilityLabel, getReviewEligibilityState } from '$lib/revi
 		</div>
 
 		<div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+			<!-- Left: User Info (without role headline) -->
 			<UserNostrBadge npub={contractStore.getContractKey(contract, 'otherPartyNpub') as string} />
 
+			<!-- Right: Action Buttons -->
 			<div class="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
 				{#if presentation.isUnknownContext}
 					<div class="text-base-content/60 text-xs sm:mr-2">Read-only contract context</div>

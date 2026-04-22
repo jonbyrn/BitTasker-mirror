@@ -3,7 +3,7 @@ import { get } from 'svelte/store';
 import { redirect } from '@sveltejs/kit';
 import { browser } from '$app/environment';
 import { StorageKeys } from '$lib/utils/constants/storage';
-import { authState, isCaptchaVerified } from '$lib/stores/auth.store';
+import { isCaptchaVerified } from '$lib/stores/auth.store';
 import { Preferences } from '@capacitor/preferences';
 
 export const load: LayoutLoad = async ({ url }) => {
@@ -20,7 +20,6 @@ export const load: LayoutLoad = async ({ url }) => {
 		}
 	} else {
 		if (url.pathname.includes('/onboarding')) {
-			await authState.logout();
 			const verified = get(isCaptchaVerified);
 			// E2E: allow onboarding when bypass env is set so we don't rely on store timing (CI race)
 			const e2eBypass =

@@ -190,13 +190,7 @@
 
 	// Check if task can be edited (cannot edit if contract exists)
 	async function checkCanEditTask(): Promise<void> {
-		if (!task?.id) {
-			canEdit = false;
-			return;
-		}
-
-		// Only check if task is open and user is owner
-		if (task.status !== TaskStatusEnum.OPEN || !isOwner) {
+		if (!task?.id || task.status !== TaskStatusEnum.OPEN || !isOwner) {
 			canEdit = false;
 			return;
 		}
@@ -226,7 +220,7 @@
 
 	// Check if task can be deleted (similar to contract deletion logic)
 	async function checkCanDeleteTask(): Promise<void> {
-		if (!task?.id) {
+		if (!task?.id || task.status !== TaskStatusEnum.OPEN || !isOwner) {
 			canDelete = false;
 			return;
 		}
@@ -295,7 +289,6 @@
 
 	onMount(() => {
 		fetchBtcPrice();
-		checkCanEditTask();
 		checkCanDeleteTask();
 	});
 </script>

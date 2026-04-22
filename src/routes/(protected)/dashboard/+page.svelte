@@ -36,6 +36,9 @@
 		type DashboardTab
 	} from '$lib/stores/service-quote-ui.store';
 	import { buildEarningQueryUrl } from '$lib/utils/dashboardQuery';
+	import DashboardSavedSearchesPanel from '$lib/components/task/DashboardSavedSearchesPanel.svelte';
+	import DashboardBidsPanel from '$lib/components/bidding/DashboardBidsPanel.svelte';
+	import DashboardContractsPanelNDK from '$lib/components/contracts/DashboardContractsPanelNDK.svelte';
 
 	function translateOrFallback(key: string, fallback: string): string {
 		const translated = $t(key);
@@ -638,14 +641,15 @@
 			aria-labelledby="tab-contracts"
 			transition:slide={{ duration: 300 }}
 		>
-			<DashboardContractsPanel
+			<DashboardContractsPanelNDK />
+			<!-- <DashboardContractsPanel
 				initialContext={contractsContext}
 				showRoleFilters={false}
 				fixedRole="client"
 				highlightEscrowId={page.url.searchParams.get('highlight')}
 				onHighlightConsumed={handleContractsHighlightConsumed}
 				onHighlightMissing={handleContractsHighlightMissing}
-			/>
+			/> -->
 		</div>
 	{:else if activeTabId === 'quotes'}
 		<div

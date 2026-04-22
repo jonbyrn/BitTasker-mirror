@@ -15,6 +15,7 @@
 	import ContractContextSummary from './ContractContextSummary.svelte';
 	import Gallery from '$lib/components/Gallery.svelte';
 	import {
+		getCancellationStatusVariant,
 		getStatusColorClass,
 		getStatusTranslationKey
 	} from '$lib/utils/helpers/contractStatusFormatter';
@@ -41,6 +42,16 @@ import { getReviewAvailabilityLabel, getReviewEligibilityState } from '$lib/revi
 
 	// Timeline display count (bound from ContractTimeline - matches actual items shown)
 	let timelineDisplayCount = $state(0);
+
+	const currentStatusVariant = $derived(
+		$contractStore.contract
+			? getCancellationStatusVariant(
+					$contractStore.contract.status,
+					$contractStore.contract.statusEvents,
+					contractStore.getContractKey($contractStore.contract, 'clientPubkey') as string
+				)
+			: 'default'
+	);
 
 	// Helper function to detect video files
 	function isVideoFile(url: string): boolean {
@@ -340,7 +351,11 @@ import { getReviewAvailabilityLabel, getReviewEligibilityState } from '$lib/revi
 								</div>
 							{/if}
 							<div class="badge {getStatusColorClass($contractStore.contract.status)} shrink-0">
-								{$t(getStatusTranslationKey($contractStore.contract.status))}
+								{$t(
+									getStatusTranslationKey($contractStore.contract.status, {
+										statusVariant: currentStatusVariant
+									})
+								)}
 							</div>
 							<div class="badge badge-outline shrink-0">
 								{getReviewAvailabilityLabel(reviewState)}

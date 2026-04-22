@@ -109,13 +109,24 @@ function mapBlockchainStatusToPermissions(
 	const now = Date.now() / 1000;
 
 	switch (status) {
-		case EscrowStatus.Funded: // 0 - Escrow funded on blockchain
+		case EscrowStatus.Funded: {
+			// 0 - Escrow funded on blockchain
 			// PRIORITY 1: Check for pending cancellation (transaction in progress)
 			const hasPendingCancellation = hasFreshPendingStatus(
 				statusEvents,
 				EscrowStatus.PendingCancellation,
 				now
 			);
+
+			function hasFreshPendingStatus(
+				statusEvents: ContractStatusEvent[],
+				action: EscrowStatus,
+				now: number
+			): boolean {
+				return statusEvents.some(
+					(event) => event.content.action === action && isFreshPendingStatusEvent(event, now)
+				);
+			}
 
 			if (hasPendingCancellation) {
 				return {
@@ -127,6 +138,7 @@ function mapBlockchainStatusToPermissions(
 						canPropose: false,
 						canAcceptProposal: false,
 						canCancel: false, // Already being cancelled
+						canRefund: false,
 						canResolveTimelock: false,
 						canDelete: false
 					}
@@ -150,6 +162,7 @@ function mapBlockchainStatusToPermissions(
 						canPropose: false,
 						canAcceptProposal: false,
 						canCancel: false,
+						canRefund: false,
 						canResolveTimelock: false,
 						canDelete: false
 					}
@@ -168,13 +181,16 @@ function mapBlockchainStatusToPermissions(
 					canPropose: false,
 					canAcceptProposal: false,
 					// Client has time restrictions, Freelancer can ALWAYS refund
-					canCancel: isClient ? canClientCancel(escrowData, now) : true, // Freelancer can always refund
+					canCancel: isClient ? canClientCancel(escrowData, now) : true, // Freelancer can always cancel
+					canRefund: isFreelancer,
 					canResolveTimelock: false,
 					canDelete: false // ❌ Cannot delete funded escrow
 				}
 			};
+		}
 
-		case EscrowStatus.Completed: // 4 - Freelancer marked task complete
+		case EscrowStatus.Completed: {
+			// 4 - Freelancer marked task complete
 			const completionTimelockExpired = now > escrowData.timelockExpiry;
 
 			// PRIORITY 1: Check if funds were released (FINAL STATE - takes precedence over pending states)
@@ -193,6 +209,7 @@ function mapBlockchainStatusToPermissions(
 						canPropose: false,
 						canAcceptProposal: false,
 						canCancel: false,
+						canRefund: false,
 						canResolveTimelock: false,
 						canDelete: false // ❌ FINAL STATE - cannot delete
 					}
@@ -216,6 +233,7 @@ function mapBlockchainStatusToPermissions(
 						canPropose: false,
 						canAcceptProposal: false,
 						canCancel: false,
+						canRefund: false,
 						canResolveTimelock: false, // Already being resolved
 						canDelete: false
 					}
@@ -239,6 +257,7 @@ function mapBlockchainStatusToPermissions(
 						canPropose: false,
 						canAcceptProposal: false,
 						canCancel: false,
+						canRefund: false,
 						canResolveTimelock: false,
 						canDelete: false
 					}
@@ -262,6 +281,7 @@ function mapBlockchainStatusToPermissions(
 						canPropose: false,
 						canAcceptProposal: false,
 						canCancel: false,
+						canRefund: false,
 						canResolveTimelock: false,
 						canDelete: false
 					}
@@ -277,13 +297,16 @@ function mapBlockchainStatusToPermissions(
 					canDispute: isClient && canClientDispute(escrowData, now), // Within 24h of start OR after grace
 					canPropose: false,
 					canAcceptProposal: false,
-					canCancel: isFreelancer,
+					canCancel: false,
+					canRefund: isFreelancer,
 					canResolveTimelock: completionTimelockExpired, // Either party after 7 days
 					canDelete: false // ❌ Cannot delete completed escrow
 				}
 			};
+		}
 
-		case EscrowStatus.InDispute: // 1 - Client disputed the task
+		case EscrowStatus.InDispute: {
+			// 1 - Client disputed the task
 			const disputeTimelockExpired = now > escrowData.timelockExpiry;
 
 			// PRIORITY 1: Check for pending timelock resolution (transaction in progress)
@@ -303,6 +326,7 @@ function mapBlockchainStatusToPermissions(
 						canPropose: false,
 						canAcceptProposal: false,
 						canCancel: false,
+						canRefund: false,
 						canResolveTimelock: false, // Already being resolved
 						canDelete: false
 					}
@@ -326,6 +350,7 @@ function mapBlockchainStatusToPermissions(
 						canPropose: false,
 						canAcceptProposal: false, // Already being accepted
 						canCancel: false,
+						canRefund: false,
 						canResolveTimelock: false,
 						canDelete: false
 					}
@@ -354,6 +379,7 @@ function mapBlockchainStatusToPermissions(
 						canPropose: false, // Already being proposed
 						canAcceptProposal: false,
 						canCancel: false,
+						canRefund: false,
 						canResolveTimelock: false,
 						canDelete: false
 					}
@@ -406,11 +432,13 @@ function mapBlockchainStatusToPermissions(
 							disputeProposal.proposer.toLowerCase() !== escrowData.client.toLowerCase()) ||
 							(isFreelancer &&
 								disputeProposal.proposer.toLowerCase() !== escrowData.freelancer.toLowerCase())),
-					canCancel: isFreelancer,
+					canCancel: false,
+					canRefund: isFreelancer,
 					canResolveTimelock: isClient && disputeTimelockExpired, // Only client after 14 days
 					canDelete: false // ❌ Cannot delete disputed escrow
 				}
 			};
+		}
 
 		case EscrowStatus.DisputeResolved: // 2 - Dispute resolved (FINAL STATE)
 		case EscrowStatus.DisputeUnresolved: // 3 - Dispute unresolved, client refunded (FINAL STATE)
@@ -424,6 +452,7 @@ function mapBlockchainStatusToPermissions(
 					canPropose: false,
 					canAcceptProposal: false,
 					canCancel: false,
+					canRefund: false,
 					canResolveTimelock: false,
 					canDelete: false // ❌ Cannot delete resolved/completed escrow
 				}
@@ -439,6 +468,7 @@ function mapBlockchainStatusToPermissions(
 					canPropose: false,
 					canAcceptProposal: false,
 					canCancel: false,
+					canRefund: false,
 					canResolveTimelock: false,
 					canDelete: false // ❌ Cannot delete cancelled escrow (was funded)
 				}
@@ -455,6 +485,7 @@ function mapBlockchainStatusToPermissions(
 					canPropose: false,
 					canAcceptProposal: false,
 					canCancel: false,
+					canRefund: false,
 					canResolveTimelock: false,
 					canDelete: false
 				}
@@ -511,6 +542,7 @@ export function determineContractState(
 				canPropose: false,
 				canAcceptProposal: false,
 				canCancel: false, // Disabled during pending
+				canRefund: false,
 				canResolveTimelock: false,
 				canDelete: false // Can't delete during funding
 			}
@@ -537,6 +569,7 @@ export function determineContractState(
 					canPropose: false,
 					canAcceptProposal: false,
 					canCancel: false,
+					canRefund: false,
 					canResolveTimelock: false,
 					canDelete: false
 				}
@@ -553,6 +586,7 @@ export function determineContractState(
 					canPropose: false,
 					canAcceptProposal: false,
 					canCancel: false,
+					canRefund: false,
 					canResolveTimelock: false,
 					canDelete: false
 				}
@@ -569,6 +603,7 @@ export function determineContractState(
 					canPropose: false,
 					canAcceptProposal: false,
 					canCancel: false,
+					canRefund: false,
 					canResolveTimelock: false,
 					canDelete: false
 				}
@@ -585,6 +620,7 @@ export function determineContractState(
 					canPropose: false,
 					canAcceptProposal: false,
 					canCancel: false,
+					canRefund: false,
 					canResolveTimelock: false,
 					canDelete: false
 				}
@@ -603,6 +639,7 @@ export function determineContractState(
 			canPropose: false,
 			canAcceptProposal: false,
 			canCancel: false,
+			canRefund: false,
 			canResolveTimelock: false,
 			canDelete: true // ✅ Only case where deletion is allowed
 		}

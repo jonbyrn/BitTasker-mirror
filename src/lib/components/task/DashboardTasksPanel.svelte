@@ -2,6 +2,7 @@
 	import type { Task } from '$lib/types/task';
 	import { t } from 'svelte-i18n';
 	import { onMount } from 'svelte';
+	import { SvelteSet } from 'svelte/reactivity';
 	import { myTasksStore, TASKS_PER_PAGE } from '$lib/stores/task.store';
 	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
@@ -178,6 +179,7 @@
 	 */
 	function selectFilter(optionId: TaskFilterCategory) {
 		activeFilter = optionId;
+		currentPage = 1;
 		isDropdownOpen = false;
 	}
 

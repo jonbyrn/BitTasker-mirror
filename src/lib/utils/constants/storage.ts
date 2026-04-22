@@ -33,7 +33,12 @@ export const StorageKeys = {
 
 	NPUB: 'npub',
 	AUTH_METHOD: 'auth_method', // alby | passkey | biometrics
-	LOCAL_ENCRYPTION_SECRET: 'bittasker_local_encryption_secret'
+	LOCAL_ENCRYPTION_SECRET: 'bittasker_local_encryption_secret',
+
+	// Translation
+	TRANSLATION_CACHE: 'bittasker_translation_cache',
+	TRANSLATION_PREFERENCES: 'bittasker_translation_preferences',
+	TRANSLATION_MSG_CACHE: 'bittasker_translation_msg_cache'
 } as const;
 
 // Type to get autocomplete for storage keys

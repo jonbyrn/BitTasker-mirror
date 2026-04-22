@@ -4,9 +4,7 @@
 	import '$lib/i18n/i18n';
 	import { page } from '$app/state';
 	import { darkMode, initializeTheme } from '$lib/stores/theme.store';
-	import { devicePlatform } from '$lib/stores/device.store';
 	import { authState } from '$lib/stores/auth.store';
-	import { user } from '$lib/stores/user.store';
 	import { appScrollContainer } from '$lib/stores/scrollContainer.store';
 	import { hideSplashScreenWhenReady } from '$lib/utils/helpers/splashScreen';
 	import {
@@ -46,33 +44,14 @@
 	};
 
 	// Derive layout state from current route
-	const currentPath = $derived(page.url.pathname);
-	const isOnboardingPage = $derived(currentPath.includes('/onboarding'));
-	const isLandingPage = $derived(
-		currentPath === '/' || currentPath === '/how-it-works' || currentPath.startsWith('/auth')
-	);
-	const showTopBar = $derived(!isOnboardingPage);
-	const showFooterSection = $derived(
-		currentPath.includes('/dashboard') || currentPath.includes('/earning')
-	);
-	const shouldHideFooterForLoggedInTaskPage = $derived(
-		($authState.isAuthenticated || $user?.npub) && currentPath.match(/^\/tasks\/[^/]+$/)
-	);
-	const shouldHideFooterForTasksPage = $derived(currentPath === '/tasks');
-	const shouldHideFooterForLoggedInNpubPage = $derived(
-		($authState.isAuthenticated || $user?.npub) && currentPath.match(/^\/npub\/[^/]+$/)
-	);
-	const shouldHideFooterForLoggedInServicePage = $derived(
-		($authState.isAuthenticated || $user?.npub) && currentPath.match(/^\/services\/[^/]+$/)
-	);
-	const shouldHideFooterForServicesPage = $derived(currentPath === '/services');
-	const shouldHideFooterForReviewsPage = $derived(currentPath === '/reviews');
+	const showTopBar = $derived(!page.url.pathname.includes('/onboarding'));
+	const hideFooter = $derived(/^\/(tasks|npub|dashboard|auth)(\/|$)/.test(page.url.pathname));
 
 	// Generate breadcrumbs from current path
 	const breadcrumbList = $derived.by(() => {
-		if (currentPath === '/') return {};
+		if (page.url.pathname === '/') return {};
 
-		const segments = currentPath.split('/').filter(Boolean);
+		const segments = page.url.pathname.split('/').filter(Boolean);
 		return {
 			'@context': 'https://schema.org',
 			'@type': 'BreadcrumbList',
@@ -85,8 +64,10 @@
 		};
 	});
 
-	// Initialize keyboard helpers for protected routes
-	async function initializeProtectedRouteHelpers() {
+	// Initialize device store for protected routes
+	async function initializeDeviceStore() {
+		const currentPath = page.url.pathname;
+
 		const isProtected =
 			currentPath.includes('/dashboard') ||
 			currentPath.includes('/earning') ||
@@ -95,28 +76,31 @@
 
 		if (!isProtected) return;
 
-		const [deviceModule, keyboardModule] = await Promise.all([
-			import('$lib/stores/device.store'),
-			import('$lib/utils/helpers/keyboard')
-		]);
+		const deviceModule = await import('$lib/stores/device.store');
 
 		await Promise.all([
 			deviceModule.initializeDevicePlatform(),
 			deviceModule.getOnboardingCompleted()
 		]);
-
-		keyboardModule.setupKeyboardListeners();
-		keyboardModule.setupGlobalInputFocusScroll();
 	}
+
+	let cleanupKb: (() => void) | undefined;
 
 	onMount(() => {
 		initializeTheme();
 		hideSplashScreenWhenReady(300);
 
+		// Keyboard: init asynchronously (dynamic import avoids SSR issues, no-op on web)
+		import('$lib/utils/helpers/keyboard').then((m) => {
+			m.initKeyboard().then((cleanup) => {
+				cleanupKb = cleanup;
+			});
+		});
+
 		if (typeof requestIdleCallback !== 'undefined') {
-			requestIdleCallback(() => initializeProtectedRouteHelpers(), { timeout: 2000 });
+			requestIdleCallback(() => initializeDeviceStore(), { timeout: 2000 });
 		} else {
-			setTimeout(() => initializeProtectedRouteHelpers(), 100);
+			setTimeout(() => initializeDeviceStore(), 100);
 		}
 
 		window.addEventListener('vite:preloadError', handlePreloadError);
@@ -152,6 +136,7 @@
 		window.addEventListener('unhandledrejection', handleError);
 
 		return () => {
+			cleanupKb?.();
 			window.removeEventListener('vite:preloadError', handlePreloadError);
 			window.removeEventListener('error', handleError);
 			window.removeEventListener('unhandledrejection', handleError);
@@ -268,8 +253,8 @@
 	<link rel="manifest" href="/site.webmanifest" />
 
 	<!-- Preload critical images -->
-	<link href="/images/Logos/BitTasker-Logo-dark-mode.svg" as="image" />
-	<link href="/images/Logos/BitTasker-Logo-light-mode.svg" as="image" />
+	<link href="/images/logos/bittasker-logo-dark.svg" as="image" />
+	<link href="/images/logos/bittasker-logo-light.svg" as="image" />
 
 	<!-- Global JSON-LD structured data for SEO - Inlined for critical content -->
 	<!-- svelte-eslint-parser bug: literal `<script` inside template literals causes "Parsing error: Unexpected keyword or identifier". -->
@@ -301,21 +286,12 @@
 
 	<!-- Scrollable middle content. This is the ONLY app-level scroll container. -->
 	<div bind:this={scrollEl} class="app-shell__content bg-base-200">
-		<div class="bg-base-200 overflow-x-hidden">
-			{#if $devicePlatform === 'web' && !isLandingPage}
-				<!-- Ensure web routes can use full-height (no unintended outer scrolling) -->
-				<div class="bg-base-200 flex h-full min-h-0 flex-col overflow-x-hidden">
-					{@render children()}
-				</div>
-			{:else}
-				<div class="bg-base-200 flex min-h-0 flex-1 flex-col justify-between overflow-x-hidden">
-					{@render children()}
-				</div>
-			{/if}
+		<div class="bg-base-200 flex min-h-0 flex-col overflow-x-hidden">
+			{@render children()}
 		</div>
 
-		{#if !showFooterSection && showTopBar && !isOnboardingPage && !shouldHideFooterForLoggedInTaskPage && !shouldHideFooterForLoggedInServicePage && !shouldHideFooterForLoggedInNpubPage && !shouldHideFooterForTasksPage && !shouldHideFooterForServicesPage && !shouldHideFooterForReviewsPage}
-			<div class="tasks-page-footer pt-12 lg:pt-16">
+		{#if !hideFooter}
+			<div class="tasks-page-footer">
 				{#if !$authState.isAuthenticated}
 					<!-- Section 7: Final Call to Action (CTA) -->
 					<section class="bg-primary text-primary-content py-16">
@@ -366,12 +342,3 @@
 <!-- Global portal target — overlays (dropdowns, modals) teleport here to escape
      overflow:hidden/overflow-x:hidden ancestors that break fixed positioning -->
 <div id="portal-root" style="position:relative;z-index:9999;"></div>
-
-<style>
-	/* Hide footer on mobile/tablet for tasks page */
-	@media (max-width: 1023px) {
-		.tasks-page-footer {
-			display: none !important;
-		}
-	}
-</style>

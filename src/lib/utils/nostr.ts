@@ -23,10 +23,6 @@ const encryptedKinds = [
 	KINDS.SERVICE_PROPOSAL_STATUS
 ];
 
-function isInvalidMacError(error: unknown): boolean {
-	return error instanceof Error && /invalid mac/i.test(error.message);
-}
-
 /**
  * Get the centralized pool instance from appStore
  * This ensures we use a single pool across the entire application
@@ -271,11 +267,7 @@ export async function publishToMultipleRelays(
 
 	const publishPromises = relays.map(async (relay) => {
 		try {
-			const relayPublish = pool.publish([relay], event);
-			await Promise.race([
-				Promise.all(relayPublish),
-				new Promise((_, reject) => setTimeout(() => reject(new Error('Publish timeout')), 5000))
-			]);
+			pool.publish([relay], event);
 			return { relay, success: true };
 		} catch (error) {
 			return {
@@ -504,7 +496,7 @@ export async function queryNostrEvents(
 						});
 					} catch (error) {
 						// Skip failed decryption
-						if (!isInvalidMacError(error)) {
+						if (error instanceof Error && !error.message.includes('Invalid MAC')) {
 							console.error('Failed to decrypt followup event:', event.id, error);
 						}
 					}
@@ -620,7 +612,7 @@ export async function queryNostrEvents(
 				decryptedEvents.push(decryptedEvent);
 			} catch (error) {
 				// Skip events that fail to decrypt (not meant for us or corrupted)
-				if (!isInvalidMacError(error)) {
+				if (error instanceof Error && !error.message.includes('Invalid MAC')) {
 					console.error('Failed to decrypt event:', event.id, error);
 				}
 				// Continue to next event without adding to results

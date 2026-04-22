@@ -3,10 +3,10 @@
 	import type FilterDrawerComponent from '$lib/components/filters/FilterDrawer.svelte';
 	import type BidFormComponent from '$lib/components/bidding/BidForm.svelte';
 	import type SaveSearchFormComponent from '$lib/components/task/SaveSearchForm.svelte';
-	import type TaskDrawerComponent from '$lib/components/task/TaskDrawer.svelte';
+	import type TaskTabComponent from '$lib/components/task/details/TaskTab.svelte';
 	import type TaskLocationMapComponent from '$lib/components/maps/TaskLocationMap.svelte';
-	import { onMount, onDestroy, tick } from 'svelte';
-	import { browser, dev } from '$app/environment';
+	import { onMount, onDestroy } from 'svelte';
+	import { browser } from '$app/environment';
 	import { tasksStore } from '$lib/stores/task.store';
 	import { user } from '$lib/stores/user.store';
 	import { appStore } from '$lib/stores/app.store';
@@ -67,7 +67,7 @@
 	let FilterDrawer: typeof FilterDrawerComponent | null = $state(null);
 	let BidForm: typeof BidFormComponent | null = $state(null);
 	let SaveSearchForm: typeof SaveSearchFormComponent | null = $state(null);
-	let TaskDrawer: typeof TaskDrawerComponent | null = $state(null);
+	let TaskTab: typeof TaskTabComponent | null = $state(null);
 
 	// Component loading states
 	let drawersLoaded = $state(false);
@@ -144,17 +144,8 @@
 	let selectedTaskForDetails = $state<Task | null>(null);
 	let isTaskDetailsOpen = $state(false);
 
-	// Timeout IDs for drawer close animations (to prevent memory leaks)
-	let drawerCloseTimeouts: Set<ReturnType<typeof setTimeout>> = $state.raw(new Set());
-
-	// Debounce state for onViewTask
-	let viewTaskDebounceTimeout: ReturnType<typeof setTimeout> | null = null;
-
 	// Infinite scroll state - use atomic flag to prevent race conditions
-	let isLoadingMore = $state(false); // Flag to prevent multiple simultaneous loads
-
-	// Task selection locking to prevent race conditions
-	let isTaskSelectionInProgress = $state(false);
+	let isLoadingMore = $state(false);
 
 	// Add class to app-shell__content to prevent scrolling (avoids :has() flickering)
 	// Using $state.raw for DOM element reference - only reassigned, not mutated
@@ -339,16 +330,16 @@
 	async function loadDrawerComponents(): Promise<void> {
 		if (drawersLoaded) return;
 		try {
-			const [filterModule, bidFormModule, saveSearchModule, taskDrawerModule] = await Promise.all([
+			const [filterModule, bidFormModule, saveSearchModule, taskTabModule] = await Promise.all([
 				import('$lib/components/filters/FilterDrawer.svelte'),
 				import('$lib/components/bidding/BidForm.svelte'),
 				import('$lib/components/task/SaveSearchForm.svelte'),
-				import('$lib/components/task/TaskDrawer.svelte')
+				import('$lib/components/task/details/TaskTab.svelte')
 			]);
 			FilterDrawer = filterModule.default;
 			BidForm = bidFormModule.default;
 			SaveSearchForm = saveSearchModule.default;
-			TaskDrawer = taskDrawerModule.default;
+			TaskTab = taskTabModule.default;
 			drawersLoaded = true;
 		} catch (error) {
 			console.error('Error loading drawer components:', error);
@@ -772,7 +763,7 @@
 
 	// Initial data fetch and setup
 	onMount(async () => {
-		if (browser && dev) {
+		if (browser) {
 			void import('$lib/utils/performance-testing-helper');
 		}
 
@@ -835,12 +826,9 @@
 		}
 	});
 
-	// Cleanup on component destroy
 	onDestroy(() => {
-		// Cleanup scroll listener timeout (ensure it's cleared even if effect cleanup didn't run)
 		cleanupScrollListener();
 
-		// Cleanup onMount operations
 		if (mountCleanup.idleCallbackId && window.cancelIdleCallback) {
 			window.cancelIdleCallback(mountCleanup.idleCallbackId);
 		}
@@ -851,19 +839,6 @@
 			mountCleanup.preloadCleanup();
 		}
 
-		// Cleanup drawer close timeouts to prevent memory leaks
-		drawerCloseTimeouts.forEach((timeoutId) => {
-			clearTimeout(timeoutId);
-		});
-		drawerCloseTimeouts.clear();
-
-		// Cleanup view task debounce timeout
-		if (viewTaskDebounceTimeout) {
-			clearTimeout(viewTaskDebounceTimeout);
-			viewTaskDebounceTimeout = null;
-		}
-
-		// Scroll listeners are cleaned up by $effect return function
 		// Remove data attribute from app-shell__content
 		if (appShellContent) {
 			appShellContent.removeAttribute('data-find-tasks-page');
@@ -875,86 +850,83 @@
 			}
 		}
 
-		// Ensure task selection lock is released
-		isTaskSelectionInProgress = false;
-
 		cleanup();
 	});
 
-	/**
-	 * Handle task selection for bidding with proper locking to prevent race conditions
-	 */
+	// ============================================================================
+	// DRAWER FUNCTIONS
+	// ============================================================================
+
 	const onSelectTask = async (task: Task) => {
-		// Prevent multiple simultaneous selections
-		if (isTaskSelectionInProgress) {
+		if (isBidOpen || task.status !== TaskStatusEnum.OPEN) return;
+
+		if (!$user?.npub) {
+			goto('/auth/signup').catch(() => {
+				if (browser) window.location.href = '/auth/signup';
+			});
 			return;
 		}
 
-		if (task.status === TaskStatusEnum.OPEN) {
-			isTaskSelectionInProgress = true;
-
-			try {
-				// Check if user is logged in
-				if ($user?.npub) {
-					// Check if user is trying to bid on their own task
-					if (task?.npub === $user?.npub) {
-						appStore.showErrorToast($t('find_tasks.cannot_bid_own_task'));
-					} else {
-						// Ensure drawer components are loaded before opening bid drawer
-						if (!drawersLoaded) {
-							await loadDrawerComponents();
-						}
-						// Open bid drawer for logged-in users
-						selectedTaskForBid = task;
-						isBidOpen = true;
-					}
-				} else {
-					// Redirect to signup page for public users
-					try {
-						await goto('/auth/signup');
-					} catch {
-						// Fallback if goto fails
-						if (browser) {
-							window.location.href = '/auth/signup';
-						}
-					}
-				}
-			} finally {
-				// Always release lock, even on error
-				isTaskSelectionInProgress = false;
-			}
+		if (task.npub === $user.npub) {
+			appStore.showErrorToast($t('find_tasks.cannot_bid_own_task'));
+			return;
 		}
+
+		if (!drawersLoaded) await loadDrawerComponents();
+		selectedTaskForBid = task;
+		isBidOpen = true;
 	};
 
-	/**
-	 * Handle viewing task details with debouncing to prevent multiple simultaneous opens
-	 */
 	const onViewTask = async (task: Task) => {
-		// Clear any pending view task calls
-		if (viewTaskDebounceTimeout) {
-			clearTimeout(viewTaskDebounceTimeout);
-			viewTaskDebounceTimeout = null;
+		if (isTaskDetailsOpen) return;
+		if (!drawersLoaded) await loadDrawerComponents();
+		selectedTaskForDetails = task;
+		isTaskDetailsOpen = true;
+	};
+
+	function closeTaskDetails() {
+		isTaskDetailsOpen = false;
+		setTimeout(() => {
+			if (!isTaskDetailsOpen) selectedTaskForDetails = null;
+		}, DRAWER_CLOSE_DELAY_MS);
+	}
+
+	function closeBidDrawer() {
+		isBidOpen = false;
+		setTimeout(() => {
+			if (!isBidOpen) selectedTaskForBid = null;
+		}, DRAWER_CLOSE_DELAY_MS);
+	}
+
+	async function handleBidFromDetails() {
+		if (isBidOpen || !selectedTaskForDetails) return;
+		const task = selectedTaskForDetails;
+
+		if (task.status !== TaskStatusEnum.OPEN) {
+			appStore.showErrorToast(
+				$t('find_tasks.task_no_longer_open') || 'This task is no longer open for bidding'
+			);
+			return;
+		}
+		if (!$user?.npub) {
+			goto('/auth/signup').catch(() => {
+				if (browser) window.location.href = '/auth/signup';
+			});
+			return;
+		}
+		if (task.npub === $user.npub) {
+			appStore.showErrorToast($t('find_tasks.cannot_bid_own_task'));
+			return;
 		}
 
-		// Debounce to prevent rapid clicks from opening multiple drawers
-		viewTaskDebounceTimeout = setTimeout(async () => {
-			viewTaskDebounceTimeout = null;
+		isTaskDetailsOpen = false;
+		selectedTaskForDetails = null;
+		await new Promise((r) => setTimeout(r, DRAWER_CLOSE_DELAY_MS));
 
-			// Prevent opening if already viewing a task or if task details drawer is already open
-			if (isTaskDetailsOpen || selectedTaskForDetails) {
-				return;
-			}
-
-			// Ensure drawer components are loaded before opening task details drawer
-			if (!drawersLoaded) {
-				await loadDrawerComponents();
-			}
-			// Wait a tick to ensure TaskDrawer component is available
-			await tick();
-			selectedTaskForDetails = task;
-			isTaskDetailsOpen = true;
-		}, 100); // 100ms debounce delay
-	};
+		if (!drawersLoaded) await loadDrawerComponents();
+		selectedTaskForBid = task;
+		isBidOpen = true;
+	}
 
 	// Function to get dynamic placeholder
 	function getSearchPlaceholder(): string {
@@ -994,32 +966,25 @@
 	}
 
 	// ============================================================================
-	// REACTIVE DERIVED VALUES - Optimized to reduce unnecessary reactive reads
+	// TASK DETAILS DRAWER DERIVED VALUES
 	// ============================================================================
 
-	/**
-	 * Get translated task title for drawer - optimized to reduce reactive reads
-	 * Only re-computes when selectedTaskForDetails or currentUserLanguage changes
-	 */
-	const getTranslatedTaskTitle = $derived.by(() => {
-		if (!selectedTaskForDetails) {
-			return $t('dashboard.task_details_by_task.title');
-		}
-
-		// Cache user language to avoid multiple reactive reads
+	const taskDetailsTitle = $derived.by(() => {
+		if (!selectedTaskForDetails) return $t('dashboard.task_details_by_task.title');
 		const userLang = $currentUserLanguage;
-		const task = selectedTaskForDetails;
-
-		if (userLang && task.translations?.sourceLanguage !== userLang) {
-			const translation = taskTranslationService.getStoredTranslation(task, userLang);
-			if (translation?.translatedTitle) {
-				return translation.translatedTitle;
-			}
+		if (userLang && selectedTaskForDetails.translations?.sourceLanguage !== userLang) {
+			const translation = taskTranslationService.getStoredTranslation(
+				selectedTaskForDetails,
+				userLang
+			);
+			if (translation?.translatedTitle) return translation.translatedTitle;
 		}
-
-		// Fallback to original title
-		return task.title ?? $t('dashboard.task_details_by_task.title');
+		return selectedTaskForDetails.title ?? $t('dashboard.task_details_by_task.title');
 	});
+
+	const isTaskOwner = $derived(
+		!!selectedTaskForDetails && selectedTaskForDetails.npub === $user?.npub
+	);
 </script>
 
 <!-- Mismas dimensiones que Mi Panel -->
@@ -1041,12 +1006,7 @@
 			onSearchInput={debouncedSearch}
 			onFilterClick={() => (isFilterDrawerOpen = true)}
 			onSaveSearch={async () => {
-				// Ensure drawer components are loaded before opening save search form
-				if (!drawersLoaded) {
-					await loadDrawerComponents();
-				}
-				// Wait a tick to ensure SaveSearchForm component is available
-				await tick();
+				if (!drawersLoaded) await loadDrawerComponents();
 				isSaveSearchOpen = true;
 			}}
 			canSaveSearch={$tasksStore.searchParamsKey !== ''}
@@ -1250,23 +1210,13 @@
 <Drawer
 	isOpen={isBidOpen}
 	title={$t('bid_form.title')}
-	onClose={() => {
-		isBidOpen = false;
-		// Clear selected task after animation completes (with cleanup tracking)
-		const timeoutId = setTimeout(() => {
-			drawerCloseTimeouts.delete(timeoutId);
-			if (!isBidOpen) {
-				selectedTaskForBid = null;
-			}
-		}, 300);
-		drawerCloseTimeouts.add(timeoutId);
-	}}
+	onClose={closeBidDrawer}
 	position="right"
 	isScrollable={true}
 >
 	{#if drawersLoaded && BidForm && selectedTaskForBid}
-		<BidForm task={selectedTaskForBid!} onClose={() => (isBidOpen = false)} stickySubmit={false} />
-	{:else}
+		<BidForm task={selectedTaskForBid} onClose={closeBidDrawer} stickySubmit={false} />
+	{:else if isBidOpen}
 		<div class="flex items-center justify-center p-8">
 			<span class="loading loading-spinner loading-md"></span>
 		</div>
@@ -1284,126 +1234,23 @@
 {/if}
 
 <!-- Task Details Drawer Component -->
-{#if selectedTaskForDetails}
-	{#if drawersLoaded && TaskDrawer && selectedTaskForDetails}
-		<TaskDrawer
-			task={selectedTaskForDetails}
-			isOpen={isTaskDetailsOpen}
-			activeTab="details"
-			onClose={() => {
-				isTaskDetailsOpen = false;
-				// Clear task after animation completes (300ms transition duration) with cleanup tracking
-				const timeoutId = setTimeout(() => {
-					drawerCloseTimeouts.delete(timeoutId);
-					selectedTaskForDetails = null;
-				}, 300);
-				drawerCloseTimeouts.add(timeoutId);
-			}}
-			onBid={async () => {
-				// Prevent multiple simultaneous bid attempts (race condition protection)
-				if (isTaskSelectionInProgress || isBidOpen) {
-					return;
-				}
-
-				// Validate task still exists and is still OPEN
-				if (!selectedTaskForDetails) {
-					appStore.showErrorToast($t('find_tasks.task_not_found') || 'Task not found');
-					return;
-				}
-
-				// Check task status before allowing bid
-				if (selectedTaskForDetails.status !== TaskStatusEnum.OPEN) {
-					appStore.showErrorToast(
-						$t('find_tasks.task_no_longer_open') || 'This task is no longer open for bidding'
-					);
-					return;
-				}
-
-				isTaskSelectionInProgress = true;
-
-				try {
-					// Check if user is logged in
-					if ($user?.npub) {
-						// Check if user is trying to bid on their own task
-						if (selectedTaskForDetails?.npub === $user?.npub) {
-							appStore.showErrorToast($t('find_tasks.cannot_bid_own_task'));
-							return;
-						}
-
-						// Store the task before closing the details drawer
-						const taskToBid = selectedTaskForDetails;
-
-						// Close the task details drawer first
-						isTaskDetailsOpen = false;
-
-						// Wait for the drawer close animation to complete (300ms)
-						await new Promise((resolve) => setTimeout(resolve, DRAWER_CLOSE_DELAY_MS));
-
-						// Double-check task is still valid after delay
-						if (!taskToBid || taskToBid.status !== TaskStatusEnum.OPEN) {
-							appStore.showErrorToast(
-								$t('find_tasks.task_no_longer_open') || 'This task is no longer open for bidding'
-							);
-							return;
-						}
-
-						// Ensure drawer components are loaded before opening bid drawer
-						if (!drawersLoaded) {
-							await loadDrawerComponents();
-						}
-						// Wait a tick to ensure BidForm component is available
-						await tick();
-
-						// Set the selected task for the bid form
-						selectedTaskForBid = taskToBid;
-						// Wait another tick to ensure selectedTaskForBid is set
-						await tick();
-						// Open bid drawer
-						isBidOpen = true;
-					} else {
-						// Redirect to signup page for public users
-						try {
-							await goto('/auth/signup');
-						} catch {
-							// Fallback if goto fails
-							if (browser) {
-								window.location.href = '/auth/signup';
-							}
-						}
-					}
-				} catch (error) {
-					console.error('[TaskDrawer] Error opening bid form:', error);
-					appStore.showErrorToast(
-						$t('find_tasks.error_opening_bid_form') || 'Error opening bid form'
-					);
-				} finally {
-					// Always release lock, even on error
-					isTaskSelectionInProgress = false;
-				}
-			}}
-		/>
-	{:else}
-		<Drawer
-			isOpen={isTaskDetailsOpen}
-			title={getTranslatedTaskTitle}
-			onClose={() => {
-				isTaskDetailsOpen = false;
-				// Clear task after animation completes (300ms transition duration) with cleanup tracking
-				const timeoutId = setTimeout(() => {
-					drawerCloseTimeouts.delete(timeoutId);
-					selectedTaskForDetails = null;
-				}, 300);
-				drawerCloseTimeouts.add(timeoutId);
-			}}
-			position="right"
-			isScrollable={true}
-		>
-			<div class="flex items-center justify-center p-8">
-				<span class="loading loading-spinner loading-md"></span>
-			</div>
-		</Drawer>
+<Drawer
+	isOpen={isTaskDetailsOpen}
+	title={taskDetailsTitle}
+	onClose={closeTaskDetails}
+	position="right"
+	isScrollable={true}
+>
+	{#if selectedTaskForDetails && drawersLoaded && TaskTab}
+		<div class="p-4">
+			<TaskTab task={selectedTaskForDetails} isOwner={isTaskOwner} onBid={handleBidFromDetails} />
+		</div>
+	{:else if isTaskDetailsOpen}
+		<div class="flex items-center justify-center p-8">
+			<span class="loading loading-spinner loading-md"></span>
+		</div>
 	{/if}
-{/if}
+</Drawer>
 
 <style>
 	:global([name='gmp-internal-google-attribution']),
