@@ -1,4 +1,4 @@
-import type { ServiceTier, ServiceAddOn } from '$lib/types/service.d';
+import type { ServiceTier, AddOn as ServiceAddOn } from '$lib/types/service.d';
 
 export interface PricingBreakdown {
 	basePriceLabel: string;

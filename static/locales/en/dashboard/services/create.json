@@ -234,6 +234,8 @@
 				"review": {
 					"title": "Review Your Service",
 					"description": "Please review all the information before publishing your service.",
+					"preview_badge": "Preview",
+					"draft_badge": "Draft",
 					"service_details_title": "Service Details",
 					"basics_title": "Basic Information",
 					"title_label": "Title",

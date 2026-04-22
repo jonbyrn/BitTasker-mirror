@@ -1107,6 +1107,7 @@ function createServiceQuoteUiStore() {
 		reset() {
 			providerLoadPromisesByService.clear();
 			providerLoadSequenceByService.clear();
+			acceptanceReconciliationInFlight.clear();
 			set(initialState);
 		},
 		parseDashboardQuery(searchParams: URLSearchParams): DashboardRouteParseResult {

@@ -84,6 +84,7 @@ hoisted.servicesStore = hoisted.createStore({
 	hasMore: false,
 	searchParamsKey: ''
 });
+hoisted.servicesStore.destroy = vi.fn();
 hoisted.authStateStore = hoisted.createStore({ isAuthenticated: true });
 hoisted.userStore = hoisted.createStore({ npub: 'owner-pubkey' });
 
