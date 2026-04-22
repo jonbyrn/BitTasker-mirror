@@ -55,7 +55,8 @@
 		},
 		"toast": {
 			"link_copied": "Link copied to clipboard",
-			"link_copy_failed": "Failed to copy link"
+			"link_copy_failed": "Failed to copy link",
+			"share_success": "Share successful"
 		},
 		"share": {
 			"price": "Price",
@@ -577,19 +578,20 @@
 			}
 		},
 		"time_units": {
-		        "day": "day",
-		        "days": "days",
-		        "hour": "hour",
-		        "hours": "hours",
-		        "week": "week",
-		        "weeks": "weeks",
-		        "month": "month",
-		        "months": "months",
-		        "minute": "minute",
-		        "minutes": "minutes",
-		        "and": "and",
-		        "less_than_minute": "less than a minute"
-		},		"airdatepicker": {
+			"day": "day",
+			"days": "days",
+			"hour": "hour",
+			"hours": "hours",
+			"week": "week",
+			"weeks": "weeks",
+			"month": "month",
+			"months": "months",
+			"minute": "minute",
+			"minutes": "minutes",
+			"and": "and",
+			"less_than_minute": "less than a minute"
+		},
+		"airdatepicker": {
 			"select_date": "Date",
 			"select_date_range": "Date range",
 			"select_datetime": "Date and time",
