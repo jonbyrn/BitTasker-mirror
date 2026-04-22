@@ -97,6 +97,19 @@ function logAcceptanceReconciliationDebug(event: string, details: Record<string,
 	console.info('[serviceQuoteUiStore:acceptance]', event, details);
 }
 
+async function revalidateServiceForQuote(serviceId: string): Promise<Service> {
+	const latestService = await findServiceByUniqueId(serviceId);
+	if (!latestService) {
+		throw new Error('This service is no longer available.');
+	}
+
+	if (!latestService.active) {
+		throw new Error('This service is no longer active.');
+	}
+
+	return latestService;
+}
+
 export { buildServiceAddress };
 export { createDashboardUrl };
 export type {
@@ -1401,6 +1414,8 @@ function createServiceQuoteUiStore() {
 					rushDelivery: input.rushDelivery ?? input.payload.rushDelivery
 				};
 				const serviceAddress = buildServiceAddress(input.service);
+
+				await revalidateServiceForQuote(input.service.id);
 
 				await publishServiceQuoteRequest({
 					service: input.service,
