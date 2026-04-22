@@ -34,7 +34,8 @@ vi.mock('$lib/stores/app.store', () => ({
 }));
 
 vi.mock('$lib/utils/serviceDisplayTranslation', () => ({
-	getServiceDisplayTitle
+	getServiceDisplayTitle,
+	getServiceDisplayDescription: vi.fn()
 }));
 
 vi.mock('svelte-i18n', async () => {
