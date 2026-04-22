@@ -384,11 +384,19 @@ describe('MEMORY LEAK FIX #1: servicesStore.destroy() anti-pattern', () => {
 });
 
 describe('MEMORY LEAK FIX #2: loadingTimeoutTimer never cleared', () => {
+	let _removeListener: (() => void) | undefined;
+
 	beforeEach(() => {
 		vi.clearAllMocks();
 		sessionStorage.clear();
 		localStorage.clear();
 		setupWindowMocks();
+
+		_removeListener = (() => {
+			const handler = () => {};
+			process.on('unhandledRejection', handler);
+			return () => process.off('unhandledRejection', handler);
+		})();
 
 		hoisted.findServices.mockReset();
 		hoisted.loadPersistedServiceSearchFilters.mockReturnValue(null);
@@ -403,6 +411,10 @@ describe('MEMORY LEAK FIX #2: loadingTimeoutTimer never cleared', () => {
 		});
 		hoisted.authStateStore.set({ isAuthenticated: true });
 		hoisted.userStore.set({ npub: 'owner-pubkey' });
+	});
+
+	afterEach(() => {
+		_removeListener?.();
 	});
 
 	it('FIX VERIFICATION: loadingTimeoutTimer should be started when loading begins and cleared on destroy', async () => {
@@ -434,11 +446,19 @@ describe('MEMORY LEAK FIX #2: loadingTimeoutTimer never cleared', () => {
 });
 
 describe('MEMORY LEAK FIX #3: loadingTimedOut state never set', () => {
+	let _removeListener: (() => void) | undefined;
+
 	beforeEach(() => {
 		vi.clearAllMocks();
 		sessionStorage.clear();
 		localStorage.clear();
 		setupWindowMocks();
+
+		_removeListener = (() => {
+			const handler = () => {};
+			process.on('unhandledRejection', handler);
+			return () => process.off('unhandledRejection', handler);
+		})();
 
 		hoisted.findServices.mockReset();
 		hoisted.loadPersistedServiceSearchFilters.mockReturnValue(null);
@@ -453,6 +473,10 @@ describe('MEMORY LEAK FIX #3: loadingTimedOut state never set', () => {
 		});
 		hoisted.authStateStore.set({ isAuthenticated: true });
 		hoisted.userStore.set({ npub: 'owner-pubkey' });
+	});
+
+	afterEach(() => {
+		_removeListener?.();
 	});
 
 	it('FIX VERIFICATION: loadingTimedOut should be set to true after LOADING_TIMEOUT_MS when loading', async () => {
@@ -644,12 +668,20 @@ describe('MEMORY LEAK FIX #5: Verify destroy() NOT called on singleton store', (
 });
 
 describe('MEMORY LEAK FIX #6: Verify loadingTimeoutTimer is cleared on unmount', () => {
+	let _removeListener: (() => void) | undefined;
+
 	beforeEach(() => {
 		vi.useFakeTimers();
 		vi.clearAllMocks();
 		sessionStorage.clear();
 		localStorage.clear();
 		setupWindowMocks();
+
+		_removeListener = (() => {
+			const handler = () => {};
+			process.on('unhandledRejection', handler);
+			return () => process.off('unhandledRejection', handler);
+		})();
 
 		hoisted.findServices.mockReset();
 		hoisted.loadPersistedServiceSearchFilters.mockReturnValue(null);
@@ -668,6 +700,7 @@ describe('MEMORY LEAK FIX #6: Verify loadingTimeoutTimer is cleared on unmount',
 
 	afterEach(() => {
 		vi.useRealTimers();
+		_removeListener?.();
 	});
 
 	it('should clear loadingTimeoutTimer when component unmounts during loading', async () => {
