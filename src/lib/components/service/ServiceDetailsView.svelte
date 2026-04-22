@@ -30,7 +30,6 @@
 	import ServiceInstantBuyModal from '$lib/components/service/ServiceInstantBuyModal.svelte';
 	import IconClose from '~icons/mdi/close';
 	import IconStar from '~icons/mdi/star';
-	import IconHeartOutline from '~icons/mdi/heart-outline';
 	import IconCheck from '~icons/mdi/check';
 	import IconTruckDeliveryOutline from '~icons/mdi/truck-delivery-outline';
 	import IconMapMarker from '~icons/mdi/map-marker';
@@ -1789,12 +1788,7 @@
 									>
 								</div>
 								{#if !isPreview}
-									<div class="flex items-center gap-3">
-										<ServiceShareButton {service} variant="circle" class="btn-sm" />
-										<button class="btn btn-circle btn-sm" aria-label="Save service">
-											<IconHeartOutline class="h-4 w-4" />
-										</button>
-									</div>
+									<ServiceShareButton {service} variant="circle" class="btn-sm" />
 								{/if}
 							</div>
 							<div class="text-base-content/70 mb-4 flex items-center gap-2 text-sm">
