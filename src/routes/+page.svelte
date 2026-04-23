@@ -1,13 +1,34 @@
 <script lang="ts">
 	import type { LiveTask } from '$lib/types/homepage';
 	import type { PageData } from './$types';
-	import { t } from 'svelte-i18n';
+	import { locale, t } from 'svelte-i18n';
 	import { onMount, onDestroy } from 'svelte';
+	import type {
+		FeaturedService,
+		FeaturedServiceLabels
+	} from '$lib/services/featuredServices.service';
+	import type { FeaturedSectionState } from '$lib/services/featuredHomepage';
+	import {
+		FEATURED_HOMEPAGE_LIMIT,
+		createFeaturedSectionState,
+		completeFeaturedSectionState
+	} from '$lib/services/featuredHomepage';
 	import { FeaturedTasksService } from '$lib/services/featuredTasks.service';
+	import { FeaturedServicesService } from '$lib/services/featuredServices.service';
 	import Logo from '$lib/components/Logo.svelte';
 	import LiveTaskCard from '$lib/components/homepage/LiveTaskCard.svelte';
+	import FeaturedHomepageSection from '$lib/components/homepage/FeaturedHomepageSection.svelte';
+	import FeaturedServiceCard from '$lib/components/homepage/FeaturedServiceCard.svelte';
 
 	let { data: seo }: { data: PageData } = $props();
+
+	// JSON-LD script for structured data (moved from template to fix parser bugs)
+	// Build string piece by piece to avoid <script being interpreted as tag
+	const jsonLdScript = $derived(
+		seo.jsonLd
+			? '<' + 'script type="application/ld+json">' + JSON.stringify(seo.jsonLd) + '</' + 'script>'
+			: ''
+	);
 
 	// Define feature types for type safety
 	type FeatureId = 'nostr' | 'bitcoin' | 'payments' | 'escrow';
@@ -44,11 +65,53 @@
 	};
 
 	let activeFeatureIndex = $state(0);
+	const activeFeatureId = $derived(featureIds[activeFeatureIndex] as FeatureId);
+	const currentLocale = $derived($locale || 'en');
 
-	// Featured tasks state
-	let liveTasks = $state<LiveTask[]>([]);
-	let tasksLoading = $state(true);
-	let tasksError = $state<string | null>(null);
+	function resolveHomepageTranslation(key: string, fallback: string): string {
+		const value = $t(key);
+		return !value || value === key ? fallback : value;
+	}
+
+	const featuredServiceLabels = $derived<FeaturedServiceLabels>({
+		untitledServiceLabel: resolveHomepageTranslation(
+			'dashboard.services.detail.not_found',
+			'Untitled service'
+		),
+		noDescriptionLabel: resolveHomepageTranslation(
+			'common.profile.no_description',
+			'No description available.'
+		),
+		requestQuoteLabel: resolveHomepageTranslation(
+			'dashboard.services.browse.pricing.request_quote',
+			'Request Quote'
+		),
+		serviceListingLabel: resolveHomepageTranslation(
+			'common.homepage.featured.services.meta_fallback',
+			'Service listing'
+		),
+		remoteLabel: resolveHomepageTranslation(
+			'dashboard.services.create.location.remote_title',
+			'Remote'
+		),
+		atProviderLocationLabel: resolveHomepageTranslation(
+			'common.homepage.featured.services.at_provider_location',
+			'At provider location'
+		),
+		travelsToYouLabel: resolveHomepageTranslation(
+			'common.homepage.featured.services.travels_to_you',
+			'Travels to you'
+		),
+		viewServiceLabel: resolveHomepageTranslation(
+			'dashboard.services.browse.view_service',
+			'View Service'
+		)
+	});
+
+	let featuredServicesState = $state<FeaturedSectionState<FeaturedService>>(
+		createFeaturedSectionState()
+	);
+	let featuredTasksState = $state<FeaturedSectionState<LiveTask>>(createFeaturedSectionState());
 
 	// Auto-rotation interval reference
 	let carouselInterval: ReturnType<typeof setInterval> | null = null;
@@ -61,17 +124,34 @@
 	// Load featured tasks from Nostr relay
 	const loadFeaturedTasks = async () => {
 		try {
-			tasksLoading = true;
-			tasksError = null;
-			const tasks = await FeaturedTasksService.getFeaturedTasks(8);
-			liveTasks = tasks;
+			const tasks = await FeaturedTasksService.getFeaturedTasks(FEATURED_HOMEPAGE_LIMIT);
+			featuredTasksState = completeFeaturedSectionState(tasks, null);
 		} catch (error) {
 			console.error('Error loading featured tasks:', error);
-			tasksError = 'Failed to load featured tasks';
-			// Fallback to empty array
-			liveTasks = [];
-		} finally {
-			tasksLoading = false;
+			featuredTasksState = completeFeaturedSectionState([], 'Failed to load featured tasks');
+		}
+	};
+
+	const loadFeaturedServices = async () => {
+		try {
+			const result = await FeaturedServicesService.getFeaturedServices(FEATURED_HOMEPAGE_LIMIT, {
+				locale: currentLocale,
+				labels: featuredServiceLabels
+			});
+			if (result.success) {
+				featuredServicesState = completeFeaturedSectionState(result.services, null, {
+					hideWhenEmpty: true
+				});
+			} else {
+				featuredServicesState = completeFeaturedSectionState([], result.error || 'Failed to load featured services', {
+					hideWhenEmpty: true
+				});
+			}
+		} catch (error) {
+			console.error('Error loading featured services:', error);
+			featuredServicesState = completeFeaturedSectionState([], 'Failed to load featured services', {
+				hideWhenEmpty: true
+			});
 		}
 	};
 
@@ -99,8 +179,7 @@
 	onMount(async () => {
 		// Start carousel auto-rotation
 		startCarouselRotation();
-		// Load featured tasks from Nostr relay
-		loadFeaturedTasks();
+		await Promise.all([loadFeaturedServices(), loadFeaturedTasks()]);
 	});
 
 	// Clean up interval when component is destroyed
@@ -142,7 +221,9 @@
 	<meta name="twitter:creator" content="@BitTaskerdotcom" />
 
 	<!-- Structured Data -->
-	{@html `<\u{73}cript type="application/ld+json">${JSON.stringify(seo.jsonLd)}</script>`}
+	{#if jsonLdScript}
+		{@html jsonLdScript}
+	{/if}
 
 	<link rel="preload" href={featureImages['bitcoin']} as="image" />
 </svelte:head>
@@ -279,85 +360,28 @@
 		</div>
 	</section>
 
-	<!-- Section 4: Live Task Feed -->
-	<section class="bg-base-200 py-16">
-		<div class="container mx-auto px-4">
-			<div class="mb-8 flex items-center justify-between">
-				<h2>{$t('homepage.v2.livetasks.title')}</h2>
-				<div class="flex items-center gap-2">
-					<a href="/tasks" class="btn btn-link text-primary"
-						>{$t('common.view_all')}
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke-width="1.5"
-							stroke="currentColor"
-							class="ml-1 h-5 w-5"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"
-							/>
-						</svg>
-					</a>
-				</div>
-			</div>
-			<div class="overflow-hidden">
-				{#if tasksLoading}
-					<div class="flex items-center justify-center py-12">
-						<div class="loading loading-spinner loading-lg"></div>
-						<span class="ml-2">Loading featured tasks...</span>
-					</div>
-				{:else if tasksError}
-					<div class="flex items-center justify-center py-12">
-						<div class="alert alert-warning max-w-md">
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								class="h-6 w-6 shrink-0 stroke-current"
-								fill="none"
-								viewBox="0 0 24 24"
-							>
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									stroke-width="2"
-									d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
-								/>
-							</svg>
-							<span>{tasksError}</span>
-						</div>
-					</div>
-				{:else if liveTasks.length === 0}
-					<div class="flex items-center justify-center py-12">
-						<div class="text-center">
-							<p class="text-base-content/70">No featured tasks available at the moment.</p>
-						</div>
-					</div>
-				{:else}
-					<div
-						class="scrollbar-hide flex snap-x snap-mandatory gap-4 overflow-x-auto pt-4 pr-0 pb-6 pl-8 md:px-4"
-						style="scrollbar-width:none;"
-					>
-						{#each liveTasks as task (task.id)}
-							<div class="w-80 shrink-0 snap-start">
-								<LiveTaskCard {task} />
-							</div>
-						{/each}
-					</div>
-				{/if}
-			</div>
-
-			<!-- Browse Tasks Button -->
-			<div class="mt-12 text-center">
-				<a href="/tasks" class="btn btn-primary">{$t('navbar.browse_tasks')}</a>
-			</div>
-		</div>
-	</section>
+	<FeaturedHomepageSection
+		title={$t('common.homepage.featured.services.title')}
+		viewAllLabel={$t('common.view_all')}
+		viewAllHref="/services"
+		browseHref="/services"
+		browseLabel={resolveHomepageTranslation('dashboard.services.browse.title', 'Browse Services')}
+		items={featuredServicesState.items}
+		loading={featuredServicesState.loading}
+		error={featuredServicesState.error}
+		hideWhenEmpty={!featuredServicesState.visible}
+		emptyMessage={$t('common.homepage.featured.services.empty')}
+		skeletonCount={FEATURED_HOMEPAGE_LIMIT}
+		sectionTestId="homepage-featured-services"
+		cardTestIdPrefix="homepage-featured-service-card"
+	>
+		{#snippet card(item)}
+			<FeaturedServiceCard service={item as FeaturedService} />
+		{/snippet}
+	</FeaturedHomepageSection>
 
 	<!-- Section 5: Core Benefits -->
-	<section class="bg-base-100 py-16">
+	<section class="bg-base-100 py-16" data-testid="homepage-benefits">
 		<div class="container mx-auto px-4">
 			<h2 class="mb-12 text-center">{$t('homepage.v2.benefits.title')}</h2>
 			<div class="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-2">
@@ -488,4 +512,23 @@
 			</div>
 		</div>
 	</section>
+
+	<FeaturedHomepageSection
+		title={$t('homepage.v2.livetasks.title')}
+		viewAllLabel={$t('common.view_all')}
+		viewAllHref="/tasks"
+		browseHref="/tasks"
+		browseLabel={$t('navbar.browse_tasks')}
+		items={featuredTasksState.items}
+		loading={featuredTasksState.loading}
+		error={featuredTasksState.error}
+		emptyMessage={$t('common.homepage.featured.tasks.empty')}
+		skeletonCount={FEATURED_HOMEPAGE_LIMIT}
+		sectionTestId="homepage-featured-tasks"
+		cardTestIdPrefix="homepage-featured-task-card"
+	>
+		{#snippet card(item)}
+			<LiveTaskCard task={item as LiveTask} />
+		{/snippet}
+	</FeaturedHomepageSection>
 </div>

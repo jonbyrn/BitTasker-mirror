@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Task, TaskBody } from '$lib/types/task';
 	import { onMount } from 'svelte';
+	import { SvelteSet } from 'svelte/reactivity';
 	import { fade, scale, slide } from 'svelte/transition';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
@@ -13,9 +14,36 @@
 	import Tabs from '$lib/components/Tabs.svelte';
 	import TaskDrawer from '$lib/components/task/TaskDrawer.svelte';
 	import DashboardTasksPanel from '$lib/components/task/DashboardTasksPanel.svelte';
-	import DashboardSavedSearchesPanel from '$lib/components/task/DashboardSavedSearchesPanel.svelte';
-	import DashboardBidsPanel from '$lib/components/bidding/DashboardBidsPanel.svelte';
-	import DashboardContractsPanelNDK from '$lib/components/contracts/DashboardContractsPanelNDK.svelte';
+	import DashboardContractsPanel from '$lib/components/contracts/DashboardContractsPanel.svelte';
+	import MyQuotesPanel from '$lib/components/dashboard/quotes/MyQuotesPanel.svelte';
+	import {
+		contractCreationStore,
+		reverifyPublishedServiceAcceptanceByEscrowId,
+		retryPendingServiceAcceptanceByEscrowId
+	} from '$lib/utils/escrow/v1/escrowEvents';
+	import {
+		getAcceptanceConfirmedMonitorEntriesDueForReverify,
+		getAcceptanceReplayEntriesDueForRetry,
+		SERVICE_ACCEPTANCE_CONFIRMED_MONITOR_REVERIFY_INTERVAL_MS,
+		SERVICE_ACCEPTANCE_REPLAY_RETRY_INTERVAL_MS
+	} from '$lib/utils/service-quote/acceptance-ledger';
+	import { consumePendingServiceContractNavigationForContractsPage } from '$lib/utils/service-contract/pending-navigation';
+	import {
+		createDashboardUrl,
+		getTaskerTimelines,
+		isRequestSyncActive,
+		serviceQuoteUiStore,
+		type DashboardContractsType,
+		type DashboardTab
+	} from '$lib/stores/service-quote-ui.store';
+	import { buildEarningQueryUrl } from '$lib/utils/dashboardQuery';
+
+	function translateOrFallback(key: string, fallback: string): string {
+		const translated = $t(key);
+		return translated === key ? fallback : translated;
+	}
+
+	const HIRING_TABS = new Set<DashboardTab>(['tasks', 'service-requests', 'contracts']);
 
 	// Tab configuration - reactive to language changes
 	const tabs = $derived([
@@ -27,31 +55,52 @@
 			icon: 'plus'
 		},
 		{
-			id: 'bids',
-			label: $t('dashboard.tabs.bids'),
-			buttonLabel: $t('dashboard.find_task'),
-			buttonHref: '/tasks',
-			icon: 'search'
-		},
-		{
 			id: 'contracts',
 			label: $t('dashboard.tabs.contracts'),
-			buttonLabel: $t('dashboard.manage_wallet'),
-			buttonHref: '/dashboard/wallet',
-			icon: 'wallet'
+			buttonLabel: $t('dashboard.create_task'),
+			buttonHref: '/dashboard/create-task',
+			icon: 'plus'
 		},
 		{
-			id: 'saved-searches',
-			label: $t('dashboard.tabs.saved_searches'),
-			buttonLabel: $t('dashboard.find_task'),
-			buttonHref: '/tasks',
+			id: 'service-requests',
+			label: translateOrFallback('dashboard.tabs.quotes', 'Service Requests'),
+			buttonLabel: translateOrFallback('dashboard.find_services', 'Find Services'),
+			buttonHref: '/services',
 			icon: 'search'
 		}
-		// { id: 'recurring', label: $t('dashboard.tabs.recurring'), buttonLabel: $t('dashboard.create_task'), buttonHref: '/dashboard/create-task', icon: 'plus' }
 	]);
 
-	let activeTabId = $state('tasks');
+	function getInitialRouteState(currentUrl: URL) {
+		const parsed = serviceQuoteUiStore.parseDashboardQuery(currentUrl.searchParams);
+		return {
+			activeTabId: HIRING_TABS.has(parsed.state.tab) ? parsed.state.tab : 'tasks',
+			contractsType: parsed.state.type ?? 'all',
+			focusedRequestId: parsed.state.requestId,
+			nonBlockingMessageCode: parsed.messageCode,
+			currentContractsHighlight: parsed.state.highlight,
+			activeStatus: parsed.state.status
+		};
+	}
+
+	const initialRouteState = getInitialRouteState(page.url);
+
+	let activeTabId = $state<DashboardTab>(initialRouteState.activeTabId);
 	const activeTab = $derived(tabs.find((t) => t.id === activeTabId) || tabs[0]);
+	let contractsType = $state<DashboardContractsType>(initialRouteState.contractsType);
+	let focusedRequestId = $state<string | null>(initialRouteState.focusedRequestId);
+	let activeStatus = $state<string | null>(initialRouteState.activeStatus);
+	let taskerTimelines = $state<ReturnType<typeof getTaskerTimelines>>([]);
+	let nonBlockingMessageCode = $state<string | null>(initialRouteState.nonBlockingMessageCode);
+	let taskerQuotesStoreSyncing = $state(false);
+	let serviceAcceptanceReplaySyncing = $state(false);
+	const taskerQuotesSyncing = $derived(taskerQuotesStoreSyncing || serviceAcceptanceReplaySyncing);
+	let taskerQuotesError = $state<string | null>(null);
+	let taskerQuotesLoaded = $state(false);
+	let currentContractsHighlight = $state<string | null>(
+		initialRouteState.currentContractsHighlight
+	);
+	const attemptedServiceAcceptanceReplays = new SvelteSet<string>();
+	const inFlightServiceAcceptanceReplays = new SvelteSet<string>();
 
 	// Task drawer state
 	let selectedTask = $state<Task | null>(null);
@@ -60,33 +109,333 @@
 	let activeTaskModal = $state<'edit' | 'delete' | null>(null);
 	let isDeleting = $state(false);
 
+	function decodeLegacySearchParam(value: string | null): string | null {
+		if (!value) {
+			return null;
+		}
+
+		try {
+			return decodeURIComponent(value);
+		} catch {
+			return value;
+		}
+	}
+
+	function getLegacyEarningRedirectUrl(currentUrl: URL): URL | null {
+		const rawTab = currentUrl.searchParams.get('tab');
+		if (!rawTab) {
+			return null;
+		}
+
+		const nextUrl = new URL('/earning', currentUrl.origin);
+
+		if (rawTab === 'bids' || rawTab === 'saved-searches') {
+			return new URL(
+				buildEarningQueryUrl(nextUrl, {
+					tab: rawTab
+				})
+			);
+		}
+
+		if (rawTab === 'my-services') {
+			const view = currentUrl.searchParams.get('view');
+			const service = currentUrl.searchParams.get('service');
+			const request = currentUrl.searchParams.get('request');
+
+			if (view === 'service-requests' || view === 'quotes' || service || request) {
+				return new URL(
+					buildEarningQueryUrl(nextUrl, {
+						tab: 'requests',
+						service: decodeLegacySearchParam(service),
+						request
+					})
+				);
+			}
+
+			return new URL(
+				buildEarningQueryUrl(nextUrl, {
+					tab: 'my-services'
+				})
+			);
+		}
+
+		if (rawTab === 'requests') {
+			return new URL(
+				buildEarningQueryUrl(nextUrl, {
+					tab: 'requests',
+					service: decodeLegacySearchParam(currentUrl.searchParams.get('service')),
+					request: currentUrl.searchParams.get('request')
+				})
+			);
+		}
+
+		return null;
+	}
+
+	function syncRouteState() {
+		const earningRedirectUrl = getLegacyEarningRedirectUrl(page.url);
+		if (earningRedirectUrl) {
+			goto(earningRedirectUrl.toString(), {
+				replaceState: true,
+				keepFocus: true,
+				noScroll: true
+			});
+			return;
+		}
+
+		const parsed = serviceQuoteUiStore.parseDashboardQuery(page.url.searchParams);
+		activeTabId = HIRING_TABS.has(parsed.state.tab) ? parsed.state.tab : 'tasks';
+		contractsType = parsed.state.type ?? 'all';
+		focusedRequestId = parsed.state.requestId;
+		nonBlockingMessageCode = parsed.messageCode;
+		currentContractsHighlight = parsed.state.highlight;
+		activeStatus = parsed.state.status ?? parsed.state.taskStatus ?? null;
+
+		if (parsed.changed) {
+			const nextSearch = parsed.searchParams.toString();
+			const nextUrl = `${page.url.pathname}${nextSearch ? `?${nextSearch}` : ''}${page.url.hash}`;
+			goto(nextUrl.toString(), { replaceState: true, keepFocus: true, noScroll: true });
+		}
+	}
+
 	// Set active tab based on URL param
 	onMount(() => {
-		const tabParam = page.url.searchParams.get('tab');
-		if (tabParam && tabs.some((t) => t.id === tabParam)) {
-			activeTabId = tabParam;
-		} else {
-			page.url.searchParams.set('tab', activeTabId);
-			goto(page.url.toString(), { replaceState: true, keepFocus: true, noScroll: true });
-		}
+		syncRouteState();
+
+		let replayIntervalId: ReturnType<typeof setInterval> | null = null;
+
+		const runServiceAcceptanceReplayCycle = async (
+			options: {
+				forcedEscrowId?: string | null;
+				syncing?: boolean;
+			} = {}
+		) => {
+			if (typeof window === 'undefined') {
+				return;
+			}
+
+			const dueReplayEntries = getAcceptanceReplayEntriesDueForRetry(window.localStorage);
+			const replayTargets = new SvelteSet<string>(
+				dueReplayEntries
+					.map((entry) => entry.escrowId)
+					.filter((escrowId) => !inFlightServiceAcceptanceReplays.has(escrowId))
+			);
+
+			if (options.forcedEscrowId && !inFlightServiceAcceptanceReplays.has(options.forcedEscrowId)) {
+				replayTargets.add(options.forcedEscrowId);
+			}
+
+			if (replayTargets.size === 0) {
+				return;
+			}
+
+			if (options.syncing) {
+				serviceAcceptanceReplaySyncing = true;
+			}
+
+			const targetIds = [...replayTargets];
+			for (const escrowId of targetIds) {
+				inFlightServiceAcceptanceReplays.add(escrowId);
+			}
+
+			try {
+				await Promise.allSettled(
+					targetIds.map(async (escrowId) => {
+						await retryPendingServiceAcceptanceByEscrowId(escrowId);
+					})
+				);
+
+				void serviceQuoteUiStore.loadTaskerTimelines(focusedRequestId).catch(() => {
+					// The store exposes taskerQuotesError for inline retry UX.
+				});
+			} finally {
+				for (const escrowId of targetIds) {
+					inFlightServiceAcceptanceReplays.delete(escrowId);
+				}
+
+				if (options.syncing) {
+					serviceAcceptanceReplaySyncing = false;
+				}
+			}
+		};
+
+		const runServiceAcceptanceReverifyCycle = async () => {
+			if (typeof window === 'undefined') {
+				return;
+			}
+
+			const dueMonitorEntries = getAcceptanceConfirmedMonitorEntriesDueForReverify(
+				window.localStorage,
+				Date.now(),
+				{
+					reverifyIntervalMs: SERVICE_ACCEPTANCE_CONFIRMED_MONITOR_REVERIFY_INTERVAL_MS
+				}
+			);
+			if (dueMonitorEntries.length === 0) {
+				return;
+			}
+
+			await Promise.allSettled(
+				dueMonitorEntries.map((entry) =>
+					reverifyPublishedServiceAcceptanceByEscrowId(entry.escrowId)
+				)
+			);
+		};
+
+		const unsubscribeServiceQuotes = serviceQuoteUiStore.subscribe((state) => {
+			taskerTimelines = getTaskerTimelines(state);
+			nonBlockingMessageCode = state.nonBlockingMessageCode;
+			taskerQuotesError = state.taskerLoadError;
+			taskerQuotesLoaded = state.taskerLoaded;
+			taskerQuotesStoreSyncing =
+				state.loadingTasker || isRequestSyncActive(state, focusedRequestId, null);
+			syncRouteState();
+		});
+
+		const unsubscribeContractCreation = contractCreationStore.subscribe((event) => {
+			if (typeof window === 'undefined') {
+				return;
+			}
+
+			const highlightEscrowId = consumePendingServiceContractNavigationForContractsPage(
+				window.sessionStorage,
+				event ?? {},
+				{
+					activeTabId,
+					contractsType,
+					highlightEscrowId: currentContractsHighlight
+				}
+			);
+			if (!highlightEscrowId) {
+				return;
+			}
+
+			const nextUrl = createDashboardUrl(page.url, {
+				tab: 'contracts',
+				type: 'services',
+				highlight: highlightEscrowId
+			});
+			goto(nextUrl.toString(), { replaceState: true, keepFocus: true, noScroll: true });
+		});
+
+		void Promise.all([
+			runServiceAcceptanceReplayCycle({ syncing: true }),
+			runServiceAcceptanceReverifyCycle()
+		]);
+		replayIntervalId = window.setInterval(
+			() => {
+				void runServiceAcceptanceReplayCycle();
+				void runServiceAcceptanceReverifyCycle();
+			},
+			Math.min(
+				SERVICE_ACCEPTANCE_REPLAY_RETRY_INTERVAL_MS,
+				SERVICE_ACCEPTANCE_CONFIRMED_MONITOR_REVERIFY_INTERVAL_MS
+			)
+		);
+
+		return () => {
+			unsubscribeServiceQuotes();
+			unsubscribeContractCreation();
+			if (replayIntervalId !== null) {
+				window.clearInterval(replayIntervalId);
+			}
+		};
 	});
 
 	// Watch for URL changes and update active tab
 	$effect(() => {
-		const tabParam = page.url.searchParams.get('tab');
-		if (tabParam && tabs.some((t) => t.id === tabParam)) {
-			activeTabId = tabParam;
+		page.url.searchParams.toString();
+		syncRouteState();
+	});
+
+	$effect(() => {
+		if (activeTabId !== 'service-requests') {
+			taskerQuotesError = null;
+			return;
 		}
+
+		void serviceQuoteUiStore.loadTaskerTimelines(focusedRequestId).catch(() => {
+			// The store exposes taskerQuotesError for inline retry UX.
+		});
 	});
 
 	// Handle tab change
 	function handleTabChange(tabId: string) {
-		if (tabs.some((t) => t.id === tabId)) {
-			activeTabId = tabId;
-			page.url.searchParams.set('tab', tabId);
-			goto(page.url.toString(), { replaceState: true, keepFocus: true, noScroll: true });
+		if (!tabs.some((t) => t.id === tabId)) {
+			return;
 		}
+
+		serviceQuoteUiStore.setNonBlockingMessage(null);
+		const nextUrl = createDashboardUrl(page.url, {
+			tab: tabId as DashboardTab,
+			view: tabId === 'service-requests' ? 'tasker' : 'default',
+			type: tabId === 'contracts' ? contractsType : 'all',
+			serviceAddress: null,
+			requestId: null,
+			highlight: null,
+			status: activeStatus
+		});
+		goto(nextUrl.toString(), { replaceState: true, keepFocus: true, noScroll: true });
 	}
+
+	function handleTaskerRequestFocus(requestId: string | null) {
+		serviceQuoteUiStore.setNonBlockingMessage(
+			requestId === null ? 'service_requests_request_not_found' : null
+		);
+		const nextUrl = createDashboardUrl(page.url, {
+			tab: 'service-requests',
+			view: 'tasker',
+			requestId,
+			status: activeStatus
+		});
+		goto(nextUrl.toString(), { replaceState: true, keepFocus: true, noScroll: true });
+	}
+
+	function handleTaskerRequestClear() {
+		serviceQuoteUiStore.setNonBlockingMessage(null);
+		const nextUrl = createDashboardUrl(page.url, {
+			tab: 'service-requests',
+			view: 'tasker',
+			requestId: null,
+			status: activeStatus
+		});
+		goto(nextUrl.toString(), { replaceState: true, keepFocus: true, noScroll: true });
+	}
+
+	function handleContractsHighlightConsumed() {
+		const nextUrl = createDashboardUrl(page.url, {
+			tab: 'contracts',
+			type: contractsType,
+			highlight: null
+		});
+		goto(nextUrl.toString(), { replaceState: true, keepFocus: true, noScroll: true });
+	}
+
+	function handleContractsHighlightMissing() {
+		serviceQuoteUiStore.setNonBlockingMessage('contracts_highlight_not_found');
+		const nextUrl = createDashboardUrl(page.url, {
+			tab: 'contracts',
+			type: contractsType,
+			highlight: null
+		});
+		goto(nextUrl.toString(), { replaceState: true, keepFocus: true, noScroll: true });
+	}
+
+	$effect(() => {
+		const highlightEscrowId = currentContractsHighlight;
+		if (
+			typeof window === 'undefined' ||
+			activeTabId !== 'contracts' ||
+			contractsType !== 'services' ||
+			!highlightEscrowId ||
+			attemptedServiceAcceptanceReplays.has(highlightEscrowId)
+		) {
+			return;
+		}
+
+		attemptedServiceAcceptanceReplays.add(highlightEscrowId);
+		void retryPendingServiceAcceptanceByEscrowId(highlightEscrowId);
+	});
 
 	// Task drawer functions
 	const setDrawerState = (
@@ -174,10 +523,9 @@
 
 <div class="mx-auto h-full max-w-6xl px-2 py-6 md:px-0 md:py-0">
 	<!-- Dashboard Header -->
-	<div class="mb-6 flex items-center justify-between">
-		<div>
-			<h3 class="font-bold">{$t('dashboard.title')}</h3>
-			<p class="text-base-content/70">{$t('dashboard.description')}</p>
+	<div class="mb-6 flex items-center justify-between gap-3">
+		<div class="min-w-0">
+			<h3 class="font-bold">{translateOrFallback('dashboard.hiring.title', 'Hiring')}</h3>
 		</div>
 		<a href={activeTab.buttonHref} class="btn btn-primary btn-sm sm:btn-md whitespace-nowrap">
 			{#if activeTab.icon === 'search'}
@@ -203,7 +551,7 @@
 					fill="none"
 					viewBox="0 0 24 24"
 					stroke="currentColor"
-					aria-label="Wallet icon"
+					aria-label={$t('dashboard.page.wallet_icon_alt')}
 				>
 					<path
 						stroke-linecap="round"
@@ -236,6 +584,34 @@
 	<!-- Dashboard Tabs -->
 	<Tabs {tabs} activeTab={activeTabId} onTabChange={handleTabChange} />
 
+	{#if nonBlockingMessageCode}
+		<div class="alert alert-info my-4 text-sm">
+			<span>
+				{#if nonBlockingMessageCode === 'service_requests_request_not_found'}
+					{translateOrFallback(
+						'dashboard.hiring.messages.quotes_request_not_found',
+						'The requested quote thread could not be found.'
+					)}
+				{:else if nonBlockingMessageCode === 'service_quotes_request_not_found'}
+					{translateOrFallback(
+						'dashboard.hiring.messages.service_quotes_request_not_found',
+						'The selected service quote thread could not be found.'
+					)}
+				{:else if nonBlockingMessageCode === 'contracts_highlight_not_found'}
+					{translateOrFallback(
+						'dashboard.hiring.messages.contracts_highlight_not_found',
+						'The requested contract highlight could not be found.'
+					)}
+				{:else}
+					{translateOrFallback(
+						'dashboard.hiring.messages.service_quote_protocol_pending',
+						'Service quote protocol wiring is pending; local UI state is being shown for now.'
+					)}
+				{/if}
+			</span>
+		</div>
+	{/if}
+
 	{#if activeTabId === 'tasks'}
 		<!-- Tasks Panel -->
 		<div
@@ -245,26 +621,9 @@
 			transition:slide={{ duration: 300 }}
 		>
 			<DashboardTasksPanel
+				status={activeStatus}
 				openTaskDrawer={(task, tab = 'details') => setDrawerState(true, task, tab)}
 			/>
-		</div>
-	{:else if activeTabId === 'saved-searches'}
-		<div
-			id="panel-saved-searches"
-			role="tabpanel"
-			aria-labelledby="tab-saved-searches"
-			transition:slide={{ duration: 300 }}
-		>
-			<DashboardSavedSearchesPanel />
-		</div>
-	{:else if activeTabId === 'bids'}
-		<div
-			id="panel-bids"
-			role="tabpanel"
-			aria-labelledby="tab-bids"
-			transition:slide={{ duration: 300 }}
-		>
-			<DashboardBidsPanel />
 		</div>
 	{:else if activeTabId === 'contracts'}
 		<div
@@ -273,7 +632,36 @@
 			aria-labelledby="tab-contracts"
 			transition:slide={{ duration: 300 }}
 		>
-			<DashboardContractsPanelNDK />
+			<DashboardContractsPanel
+				initialType={contractsType}
+				initialStatus={activeStatus as string | null}
+				showRoleFilters={false}
+				fixedRole="client"
+				highlightEscrowId={page.url.searchParams.get('highlight')}
+				onHighlightConsumed={handleContractsHighlightConsumed}
+				onHighlightMissing={handleContractsHighlightMissing}
+			/>
+		</div>
+	{:else if activeTabId === 'service-requests'}
+		<div
+			id="panel-service-requests"
+			role="tabpanel"
+			aria-labelledby="tab-service-requests"
+			transition:slide={{ duration: 300 }}
+		>
+			<MyQuotesPanel
+				timelines={taskerTimelines}
+				{focusedRequestId}
+				status={activeStatus}
+				restoreFocusedRequest={true}
+				isSyncing={taskerQuotesSyncing}
+				hasLoaded={taskerQuotesLoaded}
+				loadError={taskerQuotesError}
+				onRetry={() => serviceQuoteUiStore.loadTaskerTimelines(focusedRequestId).catch(() => {})}
+				onRequestFocusChange={handleTaskerRequestFocus}
+				onRequestClear={handleTaskerRequestClear}
+				onInvalidFocusedRequest={() => handleTaskerRequestFocus(null)}
+			/>
 		</div>
 	{/if}
 </div>

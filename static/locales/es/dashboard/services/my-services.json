@@ -1,0 +1,221 @@
+{
+	"dashboard": {
+		"services": {
+			"my_services": {
+				"page_title": "Mis Servicios",
+				"title": "Mis Servicios",
+				"description": "Gestiona tus publicaciones de servicios. Edítalas, duplícalas o míralas en el marketplace.",
+				"create_service": "Crear Servicio",
+				"loading": "Cargando tus servicios...",
+				"error_loading": "Error al cargar servicios",
+				"retry": "Reintentar",
+				"empty_title": "Aún no tienes servicios",
+				"empty_message": "Publica tu primer servicio para empezar a recibir solicitudes de clientes.",
+				"view": "Ver",
+				"view_details": "Detalles",
+				"edit": "Editar",
+				"duplicate": "Duplicar",
+				"status_active": "Activo",
+				"status_inactive": "Inactivo",
+				"status_sold": "Vendido",
+				"filters": {
+					"heading": "Filtrar servicios",
+					"all": "Todos los estados",
+					"active": "Activos",
+					"inactive": "Inactivos"
+				},
+				"filtered_empty_title": "Ningún servicio coincide con este filtro.",
+				"filtered_empty_body": "Intenta con un filtro de estado diferente para revisar el resto de tus servicios.",
+				"filtered_empty_action": "Mostrar todos los servicios",
+				"status_toggle_active": "Activar",
+				"status_toggle_inactive": "Desactivar",
+				"status_updated": "Estado actualizado",
+				"status_update_failed": "Error al actualizar el estado",
+				"actions": {
+					"quotes": "Solicitudes",
+					"contracts": "Contratos"
+				},
+				"location": {
+					"remote": "Remoto",
+					"my_location": "Mi ubicación",
+					"tasker_location": "Ubicación del tasker"
+				},
+				"pricing_type": {
+					"fixed": "Fijo",
+					"hourly": "Por hora",
+					"tiered": "Por niveles",
+					"quote": "Cotización",
+					"from": "Desde",
+					"tiered_pricing": "Precios por niveles",
+					"quote_required": "Cotización requerida"
+				},
+				"timing": {
+					"lead_time": "Tiempo de anticipación",
+					"delivery_time": "Tiempo de entrega"
+				},
+				"duration": {
+					"hour": "hora",
+					"hours": "horas",
+					"day": "día",
+					"days": "días",
+					"week": "semana",
+					"weeks": "semanas",
+					"month": "mes",
+					"months": "meses"
+				},
+				"book_now": "Reservar ahora",
+				"workspace": {
+					"title": "Servicios",
+					"description": "Gestiona tus publicaciones y responde a las solicitudes de servicio entrantes.",
+					"quote_inbox_tab": "Bandeja de cotizaciones",
+					"selected_thread_not_found": "No se pudo encontrar el hilo de cotización del servicio seleccionado.",
+					"loading_quotes": "Cargando tus servicios...",
+					"filter_label": "Filtrar por servicio",
+					"all_services": "Todos los servicios",
+					"select_service_first": "Selecciona primero un servicio.",
+					"load_failed": "No se pudieron cargar tus servicios."
+				},
+				"quote_inbox": {
+					"title": "Bandeja de cotizaciones",
+					"deleted_service_prefix": "Servicio eliminado",
+					"service_prefix": "Servicio: {service}",
+					"select_service_prompt": "Selecciona un servicio para revisar las solicitudes entrantes.",
+					"syncing_requested_thread": "Sincronizando el hilo solicitado...",
+					"partial_alert": "Los datos más recientes del hilo de solicitud todavía se están propagando entre relays. Se muestran resultados parciales hasta que termine la sincronización.",
+					"stale_alert": "Se muestran los últimos datos conocidos de cotizaciones para este servicio. Actualiza antes de enviar una propuesta porque la sincronización más reciente del relay no se completó.",
+					"offline_alert": "Estás sin conexión. Vuelve a conectarte antes de responder a solicitudes de cotización.",
+					"reconnect_alert": "Conexión restablecida. Reintenta si el hilo de solicitud más reciente aún no se ha actualizado.",
+					"loading_service_quotes": "Cargando solicitudes de cotización para este servicio...",
+					"retry_service_quotes": "Vuelve a intentar cargar las solicitudes de cotización para este servicio.",
+					"no_service_quotes": "Todavía no hay solicitudes de servicio.",
+					"total_pending_requests": "Solicitudes pendientes",
+					"selected_service_total": "Solicitudes del servicio seleccionado",
+					"reviews_count": "{count} reseñas",
+					"send_proposal": "Enviar propuesta",
+					"view_proposal": "Ver propuesta",
+					"delete_proposal": "Eliminar propuesta",
+					"delete_proposal_failed": "No se puede eliminar esta propuesta en este momento.",
+					"pending_amount": "Pendiente",
+					"request_id": "ID de solicitud: {requestId}",
+					"service": "Servicio: {service}",
+					"service_unavailable_body": "Este servicio fue eliminado por el proveedor. Conserva esta solicitud como referencia, pero ya no se pueden enviar nuevas propuestas.",
+					"selected_tier": "Paquete seleccionado: {tier}",
+					"addons": "Complementos: {addons}",
+					"add_ons_one": "1 complemento",
+					"add_ons_other": "{count} complementos",
+					"rush_delivery": "Entrega urgente",
+					"contract_created_title": "Contrato creado",
+					"contract_created_body": "Esta solicitud de cotización ya se convirtió en un contrato de servicio activo.",
+					"view_contract": "Ver contrato",
+					"expired_title": "Solicitud vencida",
+					"expired_body": "Esta solicitud de cotización ahora es de solo lectura. Espera a que el comprador envíe una nueva solicitud antes de responder nuevamente.",
+					"latest_proposal": "Propuesta más reciente",
+					"estimated_start": "Fecha de inicio",
+					"estimated_end": "Fecha de finalización",
+					"estimated_duration_label": "Duración estimada",
+					"proposal_expires": "La propuesta vence",
+					"scope_of_work": "Alcance del trabajo",
+					"cover_letter": "Carta de presentación",
+					"composer": {
+						"scope_of_work": "Alcance del trabajo",
+						"scope_placeholder": "Describe lo que entregarás.",
+						"amount_label": "Monto (USD)",
+						"start_date": "Fecha de inicio",
+						"end_date": "Fecha de finalización",
+						"expiration_days": "Días hasta el vencimiento",
+						"expiration_hours": "Horas hasta el vencimiento",
+						"cover_letter": "Carta de presentación",
+						"cover_letter_placeholder": "Mensaje opcional para el comprador.",
+						"errors": {
+							"required_description_amount": "La descripción y el monto son obligatorios.",
+							"missing_schedule": "La fecha y hora de inicio y finalización son obligatorias.",
+							"invalid_schedule": "Ingresa fechas y horas de inicio y finalización válidas.",
+							"end_before_start": "La fecha de finalización debe ser posterior a la de inicio.",
+							"submit_failed": "No se puede enviar la propuesta en este momento."
+						}
+					},
+					"estimated_duration": "Duración estimada: {duration}",
+					"waiting_sync": "Esperando a que termine la sincronización del hilo de cotización seleccionado.",
+					"select_request": "Selecciona una solicitud para revisar la consulta completa y redactar una propuesta.",
+					"statuses": {
+						"accepted": "Contrato creado",
+						"declined": "Rechazada",
+						"withdrawn": "Retirada",
+						"expired": "Vencida",
+						"accepting": "Aceptando",
+						"contract_sync_pending": "Sincronizando contrato",
+						"accept_failed": "Error al aceptar",
+						"accept_unknown": "Aceptación desconocida",
+						"proposal_sent": "Propuesta enviada",
+						"pending": "Pendiente"
+					},
+					"blocked_reason": {
+						"service_unavailable": "Este servicio fue eliminado por el proveedor. Las solicitudes existentes ahora son de solo lectura.",
+						"wallet": "Conecta tu billetera antes de enviar una propuesta.",
+						"fee_tier": "Elige un nivel de tarifa de freelancer antes de enviar una propuesta.",
+						"offline": "Estás sin conexión. Vuelve a conectarte antes de enviar una propuesta.",
+						"stale": "Se muestran datos obsoletos de cotización. Actualiza antes de enviar una propuesta.",
+						"partial": "Los datos de cotización todavía se están propagando entre relays. El envío está deshabilitado hasta que el hilo de solicitud más reciente se sincronice por completo.",
+						"unavailable": "Los datos de cotización no están disponibles en este momento. Reintenta antes de enviar una propuesta.",
+						"syncing": "Los datos de cotización todavía se están sincronizando. El envío está deshabilitado hasta que se cargue el estado más reciente de la solicitud.",
+						"select_request": "Selecciona una solicitud antes de enviar una propuesta."
+					},
+					"proposal_composer": {
+						"title": "Enviar propuesta",
+						"fields": {
+							"scope": "Alcance",
+							"amount_usdt": "Monto (USDT)",
+							"estimated_duration": "Duración estimada",
+							"estimated_start": "Inicio estimado",
+							"estimated_end": "Fin estimado",
+							"expiration_days": "Días de vencimiento",
+							"expiration_hours": "Horas de vencimiento",
+							"cover_letter": "Mensaje adicional"
+						},
+						"placeholders": {
+							"scope": "Describe lo que vas a entregar.",
+							"estimated_duration": "3 días hábiles",
+							"cover_letter": "Mensaje opcional para el comprador."
+						},
+						"warnings": {
+							"wallet_not_connected": "Conecta tu billetera antes de enviar una propuesta.",
+							"fee_tier_missing": "Elige un nivel de comisión de taskee antes de enviar una propuesta."
+						},
+						"errors": {
+							"required_fields": "Alcance, monto y duración estimada son obligatorios.",
+							"amount_invalid": "Ingresa un monto válido mayor a 0.",
+							"expiration_days_invalid": "Los días de vencimiento deben estar entre 0 y 30.",
+							"expiration_hours_invalid": "Las horas de vencimiento deben estar entre 0 y 23.",
+							"time_required": "La fecha/hora de inicio y fin son obligatorias.",
+							"time_invalid": "Ingresa fechas/horas de inicio y fin válidas.",
+							"time_order_invalid": "La fecha/hora de fin debe ser posterior al inicio.",
+							"submit_failed": "No se pudo enviar la propuesta en este momento."
+						},
+						"actions": {
+							"send": "Enviar propuesta"
+						}
+					}
+				},
+				"delete_modal": {
+					"delete_success": "Servicio eliminado correctamente.",
+					"verify_failed": "No se pudo verificar si este servicio puede eliminarse en este momento.",
+					"delete_failed": "No se puede eliminar este servicio en este momento.",
+					"blocked_title": "No se puede eliminar el servicio",
+					"confirm_title": "Eliminar servicio",
+					"blocked_intro": "Este servicio todavía no se puede eliminar.",
+					"confirm_intro": "Esto elimina permanentemente la publicación actual del servicio de tu panel.",
+					"confirm_intro_warning": "Esto elimina permanentemente la publicación actual del servicio de tu panel. Las solicitudes de servicio existentes seguirán visibles como historial de solo lectura.",
+					"open_quotes_read_only_one": "Este servicio todavía tiene {count} solicitud abierta. Después de eliminarlo, ese hilo seguirá visible como historial de solo lectura.",
+					"open_quotes_read_only_other": "Este servicio todavía tiene {count} solicitudes abiertas. Después de eliminarlo, esos hilos seguirán visibles como historial de solo lectura.",
+					"open_quotes_one": "Todavía hay cotizaciones abiertas vinculadas a este servicio ({count} hilo bloqueante).",
+					"open_quotes_other": "Todavía hay cotizaciones abiertas vinculadas a este servicio ({count} hilos bloqueantes).",
+					"active_contracts_one": "Todavía hay contratos de servicio activos vinculados a este servicio ({count} contrato activo).",
+					"active_contracts_other": "Todavía hay contratos de servicio activos vinculados a este servicio ({count} contratos activos).",
+					"history_preserved": "Los hilos históricos de cotización seguirán disponibles como registro, pero no se encontraron cotizaciones abiertas ni contratos activos.",
+					"no_open_items": "No se encontraron cotizaciones abiertas ni contratos activos para este servicio.",
+					"confirm_delete": "Confirmar eliminación"
+				}
+			}
+		}
+	}
+}

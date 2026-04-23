@@ -1,17 +1,19 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
-	let { stats } = $props<{
+	let { stats, serviceCountState = 'ready' } = $props<{
 		stats: {
 			tasksCompleted: number;
+			activeServices: number;
 			rating: number;
 			responseRate: number;
 			onTimeRate: number;
 		};
+		serviceCountState?: 'loading' | 'ready' | 'error';
 	}>();
 </script>
 
 <!-- Stats Cards -->
-<div class="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
+<div class="mb-8 grid grid-cols-2 gap-4 xl:grid-cols-5">
 	<div class="card bg-base-200 w-full rounded-2xl shadow-lg">
 		<div class="card-body p-4">
 			<div class="flex items-center justify-between">
@@ -38,6 +40,32 @@
 						/>
 					</svg>
 				</div>
+			</div>
+		</div>
+	</div>
+	<div class="card bg-base-200 w-full rounded-2xl shadow-lg">
+		<div class="card-body p-4">
+			<div class="flex items-center justify-between gap-3">
+				<span class="text-base-content/70 text-sm">{$t('stats.activeServices')}</span>
+				{#if serviceCountState === 'loading'}
+					<span
+						class="text-base-content/60 text-sm font-semibold"
+						data-testid="profile-stats-active-services"
+						>{$t('profile.services_summary.count_loading')}</span
+					>
+				{:else if serviceCountState === 'error'}
+					<span
+						class="text-warning text-sm font-semibold"
+						data-testid="profile-stats-active-services"
+						>{$t('profile.services_summary.count_unavailable')}</span
+					>
+				{:else}
+					<span
+						class="text-secondary text-lg font-bold"
+						data-testid="profile-stats-active-services"
+						>{stats.activeServices}</span
+					>
+				{/if}
 			</div>
 		</div>
 	</div>

@@ -17,13 +17,45 @@ import { tasksStore, myTasksStore } from '$lib/stores/task.store';
 import { cleanup as cleanupTasksCache } from '$lib/nostr/findTasks';
 import { cleanupMyTasks } from '$lib/nostr/findMyTasks';
 import { createDebug } from '$lib/utils/debug';
+import { getExactTaskLocations, publishExactTaskLocations } from '$lib/nostr/exact-location';
+import { sanitizeTaskForPublicPublish } from '$lib/utils/location/public-location';
 import nostrEventsService from '$lib/api/services/nostr/events';
 import KINDS from '$lib/utils/constants/kinds';
 
 const d = createDebug('task');
 
+/**
+ * Ensures a relay URL is valid:
+ * 1. Trims whitespace
+ * 2. Ensures it starts with ws:// or wss://
+ * 3. Handles potentially multiple URLs (comma separated)
+ */
+function sanitizeRelayUrls(input: string | string[] | undefined): string[] {
+	if (!input) return [];
+
+	const rawUrls = Array.isArray(input) ? input : input.split(',');
+
+	return rawUrls
+		.map((url) => url.trim())
+		.filter((url) => {
+			return (
+				Boolean(url) &&
+				url.length > 0 &&
+				url !== 'undefined' &&
+				url !== 'null' &&
+				url !== '[object Object]'
+			);
+		})
+		.map((url) => {
+			if (!url.startsWith('ws://') && !url.startsWith('wss://')) {
+				return `wss://${url}`;
+			}
+			return url;
+		});
+}
+
 // Define relay URLs with fallbacks
-const RELAYS = [import.meta.env.VITE_NOSTR_RELAY_URL].filter(Boolean); // Remove any undefined values
+const RELAYS = sanitizeRelayUrls(import.meta.env.VITE_NOSTR_RELAY_URL);
 
 /**
  * Generate a readable d-tag for Nostr Addressable Events (kind:pubkey:d-tag).
@@ -216,6 +248,7 @@ async function generateTaskTags(
 		tags.push(['L', taskData.pickupLocation.displayName || '']); // L for location
 	} else {
 		tags.push(['T', 'remote']); // T for task type
+		tags.push(['L', '']); // Explicitly empty for remote
 	}
 
 	return tags;
@@ -275,6 +308,15 @@ export async function createTask(taskData: TaskBody): Promise<string> {
 			...(translations && { translations })
 		};
 
+		// Publish the exact companion first so we never expose only the obfuscated public location.
+		await publishExactTaskLocations({
+			entityId: dTagValue,
+			pickupLocation: taskDataWithMeta.pickupLocation ?? null,
+			dropOffLocation: taskDataWithMeta.dropOffLocation ?? null
+		});
+
+		const publicTaskData = sanitizeTaskForPublicPublish(taskDataWithMeta, dTagValue);
+
 		// Calculate POW based on task value and d-tag (stable identifier)
 		const pow = await calculatePOW(taskData.budget.amount, dTagValue);
 
@@ -282,8 +324,8 @@ export async function createTask(taskData: TaskBody): Promise<string> {
 		const event = {
 			kind: KINDS.TASK_CREATION,
 			created_at: createdAt,
-			content: JSON.stringify(taskDataWithMeta),
-			tags: await generateTaskTags(taskData, pow, dTagValue)
+			content: JSON.stringify(publicTaskData),
+			tags: await generateTaskTags(publicTaskData, pow, dTagValue)
 		};
 
 		// Sign and publish
@@ -460,8 +502,22 @@ export async function updateTask(taskId: string, updates: Partial<TaskBody>): Pr
 			(updates.description && updates.description !== originalTaskData.description);
 
 		// Create updated task data for translation (if needed)
-		const taskDataForTranslation: TaskBody = {
+		// Companion read failures degrade safely to null so we do not overwrite private exact data
+		// with the obfuscated public coordinates during a normal metadata-only update.
+		const exactLocations = await getExactTaskLocations(dTagValue).catch(() => null);
+		const hasPickupLocationUpdate = Object.prototype.hasOwnProperty.call(updates, 'pickupLocation');
+		const hasDropOffLocationUpdate = Object.prototype.hasOwnProperty.call(
+			updates,
+			'dropOffLocation'
+		);
+		const baseTaskData: TaskBody = {
 			...originalTaskData,
+			pickupLocation: exactLocations?.pickupLocation ?? originalTaskData.pickupLocation,
+			dropOffLocation: exactLocations?.dropOffLocation ?? originalTaskData.dropOffLocation
+		};
+
+		const taskDataForTranslation: TaskBody = {
+			...baseTaskData,
 			...updates
 		};
 
@@ -476,20 +532,33 @@ export async function updateTask(taskId: string, updates: Partial<TaskBody>): Pr
 
 		// Merge updates with original task data (preserve uniqueId in content if present for legacy)
 		const updatedTaskData = {
-			...originalTaskData,
+			...baseTaskData,
 			...updates,
 			...(originalTaskData.uniqueId && { uniqueId: originalTaskData.uniqueId }),
 			updatedAt: Math.floor(Date.now() / 1000),
 			...(translations && { translations })
 		};
 
+		if (exactLocations || hasPickupLocationUpdate || hasDropOffLocationUpdate) {
+			await publishExactTaskLocations({
+				entityId: dTagValue,
+				pickupLocation: hasPickupLocationUpdate
+					? (updatedTaskData.pickupLocation ?? null)
+					: (exactLocations?.pickupLocation ?? null),
+				dropOffLocation: hasDropOffLocationUpdate
+					? (updatedTaskData.dropOffLocation ?? null)
+					: (exactLocations?.dropOffLocation ?? null)
+			});
+		}
+		const publicUpdatedTaskData = sanitizeTaskForPublicPublish(updatedTaskData, dTagValue);
+
 		// Calculate POW based on updated task value (use d-tag for stable identifier)
-		const pow = await calculatePOW(updatedTaskData.budget?.amount || 0, dTagValue);
+		const pow = await calculatePOW(publicUpdatedTaskData.budget?.amount || 0, dTagValue);
 		// Create update event: same kind, pubkey, d-tag = replaceable Addressable Event (latest version)
 		const event = {
 			kind: KINDS.TASK_CREATION,
-			content: JSON.stringify(updatedTaskData),
-			tags: await generateTaskTags(updatedTaskData, pow, dTagValue)
+			content: JSON.stringify(publicUpdatedTaskData),
+			tags: await generateTaskTags(publicUpdatedTaskData, pow, dTagValue)
 		};
 
 		// Sign and publish

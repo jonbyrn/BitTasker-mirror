@@ -1,7 +1,6 @@
 import axios, { type AxiosRequestConfig, type InternalAxiosRequestConfig } from 'axios';
 import { Preferences } from '@capacitor/preferences';
 import { StorageKeys } from '$lib/utils/constants/storage';
-import { getDeviceIdentifier } from '$lib/utils/helpers/deviceIdentity';
 import { ENDPOINTS } from './endpoints';
 
 interface RequestConfig extends AxiosRequestConfig {
@@ -49,12 +48,14 @@ const createAxiosInstance = async (config: RequestConfig = {}) => {
 		...config
 	});
 
-	// Request interceptor
+	// Request interceptor - lazy import getDeviceIdentifier to avoid circular dependency
+	// (deviceIdentity -> profile -> nostrKeys -> auth.service -> apiService)
 	instance.interceptors.request.use(
 		async (config) => {
 			const { value: accessToken } = await Preferences.get({ key: StorageKeys.ACCESS_TOKEN });
 			if (accessToken) {
 				config.headers['Authorization'] = `Bearer ${accessToken}`;
+				const { getDeviceIdentifier } = await import('$lib/utils/helpers/deviceIdentity');
 				const deviceId = await getDeviceIdentifier();
 				config.headers['X-Device-ID'] = deviceId;
 			}

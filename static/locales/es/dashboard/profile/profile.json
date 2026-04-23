@@ -172,12 +172,23 @@
         "noCertifications": "Aún no se han listado certificaciones.",
         "portfolio2": "Portafolio",
         "noPortfolio": "Aún no se han agregado elementos al portafolio.",
+        "services_summary": {
+            "title": "Servicios Activos",
+            "description": "Publicaciones visibles actualmente para taskers desde tu perfil público.",
+            "create_cta": "Crear Servicio",
+            "empty": "Todavía no tienes servicios activos.",
+            "load_error": "No se pudieron cargar los servicios activos.",
+            "active_badge": "Activo",
+            "count_loading": "Cargando...",
+            "count_unavailable": "No disponible"
+        },
         "reviews": "Reseñas",
         "noReviews": "Aún no hay reseñas.",
         "loadError": "No se pudo cargar la información del perfil. Por favor, inténtalo más tarde."
     },
     "stats": {
         "tasksCompleted": "Tareas Completadas",
+        "activeServices": "Servicios Activos",
         "rating": "Calificación",
         "responseRate": "Tasa de Respuesta",
         "onTimeRate": "Tasa de Puntualidad"

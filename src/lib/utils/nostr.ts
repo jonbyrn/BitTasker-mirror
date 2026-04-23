@@ -9,7 +9,37 @@ import { hexToBytes } from '$lib/utils/helpers/encoding';
 import KINDS from '$lib/utils/constants/kinds';
 
 // --- Relay Configuration ---
-const DEFAULT_RELAYS = [import.meta.env.VITE_NOSTR_RELAY_URL].filter(Boolean);
+/**
+ * Ensures a relay URL is valid:
+ * 1. Trims whitespace
+ * 2. Ensures it starts with ws:// or wss://
+ * 3. Handles potentially multiple URLs (comma separated)
+ */
+function sanitizeRelayUrls(input: string | string[] | undefined): string[] {
+	if (!input) return [];
+
+	const rawUrls = Array.isArray(input) ? input : input.split(',');
+
+	return rawUrls
+		.map((url) => url.trim())
+		.filter((url) => {
+			return (
+				Boolean(url) &&
+				url.length > 0 &&
+				url !== 'undefined' &&
+				url !== 'null' &&
+				url !== '[object Object]'
+			);
+		})
+		.map((url) => {
+			if (!url.startsWith('ws://') && !url.startsWith('wss://')) {
+				return `wss://${url}`;
+			}
+			return url;
+		});
+}
+
+const DEFAULT_RELAYS = sanitizeRelayUrls(import.meta.env.VITE_NOSTR_RELAY_URL);
 
 // Determine if events need decryption based on event kinds
 const encryptedKinds = [
@@ -17,8 +47,15 @@ const encryptedKinds = [
 	KINDS.BIDS,
 	KINDS.CONTRACT,
 	KINDS.CONTRACT_STATUS,
-	KINDS.BID_STATUS
+	KINDS.BID_STATUS,
+	KINDS.SERVICE_QUOTE_REQUEST,
+	KINDS.SERVICE_PROPOSAL,
+	KINDS.SERVICE_PROPOSAL_STATUS
 ];
+
+function isInvalidMacError(error: unknown): boolean {
+	return error instanceof Error && /invalid mac/i.test(error.message);
+}
 
 /**
  * Get the centralized pool instance from appStore
@@ -264,7 +301,11 @@ export async function publishToMultipleRelays(
 
 	const publishPromises = relays.map(async (relay) => {
 		try {
-			pool.publish([relay], event);
+			const relayPublish = pool.publish([relay], event);
+			await Promise.race([
+				Promise.all(relayPublish),
+				new Promise((_, reject) => setTimeout(() => reject(new Error('Publish timeout')), 5000))
+			]);
 			return { relay, success: true };
 		} catch (error) {
 			return {
@@ -326,8 +367,12 @@ export async function publishNostrEvent(
 	content: string,
 	recipientNpub: string,
 	tags: string[][],
-	relays: string[] = DEFAULT_RELAYS
-): Promise<void> {
+	relays: string[] = DEFAULT_RELAYS,
+	createdAt?: number
+): Promise<{
+	event: NostrEvent;
+	results: { relay: string; success: boolean; error?: string }[];
+}> {
 	try {
 		// Convert recipient pubkey to hex if it's in npub format
 		const recipientPubkeyHex = recipientNpub.startsWith('npub')
@@ -345,7 +390,8 @@ export async function publishNostrEvent(
 		const eventMetadata: Partial<NostrEvent> = {
 			kind,
 			content: eventContent,
-			tags
+			tags,
+			created_at: createdAt
 		};
 
 		// Sign the event
@@ -366,6 +412,10 @@ export async function publishNostrEvent(
 		if (failedRelays.length > 0) {
 			console.warn('Some relays failed:', failedRelays);
 		}
+		return {
+			event: signedEvent,
+			results
+		};
 	} catch (err: unknown) {
 		const errorMessage = (err as Error)?.message || 'Failed to publish event';
 		appStore.showErrorToast(errorMessage);
@@ -484,7 +534,7 @@ export async function queryNostrEvents(
 						});
 					} catch (error) {
 						// Skip failed decryption
-						if (error instanceof Error && !error.message.includes('Invalid MAC')) {
+						if (!isInvalidMacError(error)) {
 							console.error('Failed to decrypt followup event:', event.id, error);
 						}
 					}
@@ -600,7 +650,7 @@ export async function queryNostrEvents(
 				decryptedEvents.push(decryptedEvent);
 			} catch (error) {
 				// Skip events that fail to decrypt (not meant for us or corrupted)
-				if (error instanceof Error && !error.message.includes('Invalid MAC')) {
+				if (!isInvalidMacError(error)) {
 					console.error('Failed to decrypt event:', event.id, error);
 				}
 				// Continue to next event without adding to results

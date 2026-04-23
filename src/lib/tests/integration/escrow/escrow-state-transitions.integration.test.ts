@@ -39,7 +39,25 @@ vi.mock('svelte/store', () => {
 			set: vi.fn(),
 			subscribe: vi.fn(),
 			update: vi.fn()
-		}))
+		})),
+		derived: vi.fn(() => ({ subscribe: vi.fn() }))
+	};
+});
+
+// Mock app store
+vi.mock('$lib/stores/app.store', () => {
+	const mockPool = {
+		publish: vi.fn(),
+		subscribe: vi.fn(),
+		close: vi.fn()
+	};
+	return {
+		appStore: {
+			showInfoToast: vi.fn(),
+			showSuccessToast: vi.fn(),
+			showErrorToast: vi.fn(),
+			pool: mockPool
+		}
 	};
 });
 

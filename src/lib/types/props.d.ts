@@ -47,6 +47,7 @@ export interface InputProps {
 		| 'url'
 		| 'color'
 		| 'select';
+	inputmode?: 'none' | 'text' | 'decimal' | 'numeric' | 'tel' | 'search' | 'email' | 'url';
 	autoComplete?: 'on' | 'off';
 	options?: { label: string; value: string }[];
 	min?: number;

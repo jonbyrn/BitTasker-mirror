@@ -18,7 +18,7 @@ import IconCurrencyUsd from '~icons/mdi/currency-usd';
 import IconDomain from '~icons/mdi/domain';
 import IconEmailOutline from '~icons/mdi/email-outline';
 import IconFileSign from '~icons/mdi/file-sign';
-import IconFormatListBulleted from '~icons/mdi/format-list-bulleted';
+import IconChartBoxOutline from '~icons/mdi/chart-box-outline';
 import IconFrequentlyAskedQuestions from '~icons/mdi/frequently-asked-questions';
 import IconHelpCircleOutline from '~icons/mdi/help-circle-outline';
 import IconInformationOutline from '~icons/mdi/information-outline';
@@ -31,12 +31,17 @@ import IconShieldAccount from '~icons/mdi/shield-account';
 import IconShieldCheck from '~icons/mdi/shield-check';
 import IconShieldCheckOutline from '~icons/mdi/shield-check-outline';
 import IconWalletOutline from '~icons/mdi/wallet-outline';
+import IconHome from '~icons/mdi/home';
+import IconLogin from '~icons/mdi/login';
+import IconAccountPlus from '~icons/mdi/account-plus';
+
+type IconComponent = typeof IconAccountCircle;
 
 export interface MenuItem {
 	/** Translation key */
 	label: string;
 	/** Icon component from MDI */
-	icon: unknown;
+	icon: IconComponent;
 	/** URL path */
 	href?: string;
 	/** Submenu items */
@@ -55,7 +60,7 @@ export interface MenuSection {
 	/** Translation key for section title */
 	label: string;
 	/** Icon component for section */
-	icon: unknown;
+	icon: IconComponent;
 	/** Menu items in this section */
 	items: MenuItem[];
 }
@@ -98,14 +103,46 @@ export const LOGGED_IN_MENU_SECTIONS: MenuSection[] = [
 		]
 	},
 	{
-		id: 'task-management',
-		label: 'navbar.task_management',
+		id: 'hiring',
+		label: 'navbar.hiring',
 		icon: IconBriefcaseOutline,
 		items: [
+			{
+				label: 'navbar.hiring',
+				icon: IconChartBoxOutline,
+				href: '/dashboard'
+			},
 			{
 				label: 'navbar.create_task',
 				icon: IconPlusCircleOutline,
 				href: '/dashboard/create-task'
+			},
+			{
+				label: 'navbar.find_services',
+				icon: IconBriefcaseSearch,
+				href: '/services'
+			},
+			{
+				label: 'navbar.service_requests',
+				icon: IconCommentTextOutline,
+				href: '/dashboard?tab=service-requests'
+			},
+			{
+				label: 'navbar.contracts',
+				icon: IconFileSign,
+				href: '/dashboard?tab=contracts'
+			}
+		]
+	},
+	{
+		id: 'earning',
+		label: 'navbar.earning',
+		icon: IconInvoiceTextSendOutline,
+		items: [
+			{
+				label: 'navbar.earning',
+				icon: IconInvoiceTextSendOutline,
+				href: '/earning'
 			},
 			{
 				label: 'navbar.find_tasks',
@@ -115,12 +152,27 @@ export const LOGGED_IN_MENU_SECTIONS: MenuSection[] = [
 			{
 				label: 'navbar.bids_sent',
 				icon: IconInvoiceTextSendOutline,
-				href: '/dashboard?tab=bids'
+				href: '/earning?tab=bids'
+			},
+			{
+				label: 'navbar.requests',
+				icon: IconCommentTextOutline,
+				href: '/earning?tab=requests'
 			},
 			{
 				label: 'navbar.contracts',
 				icon: IconFileSign,
-				href: '/dashboard?tab=contracts'
+				href: '/earning?tab=contracts'
+			},
+			{
+				label: 'navbar.my_services',
+				icon: IconBriefcaseSearch,
+				href: '/earning?tab=my-services'
+			},
+			{
+				label: 'navbar.saved_searches',
+				icon: IconMagnify,
+				href: '/earning?tab=saved-searches'
 			}
 		]
 	},
@@ -291,14 +343,14 @@ export const LOGGED_OUT_MENU_SECTIONS = [
  */
 export const AVATAR_MENU_ITEMS: MenuItem[] = [
 	{
+		label: 'navbar.panel',
+		icon: IconChartBoxOutline,
+		href: '/dashboard'
+	},
+	{
 		label: 'navbar.find_tasks',
 		icon: IconMagnify,
 		href: '/tasks'
-	},
-	{
-		label: 'navbar.my_tasks',
-		icon: IconFormatListBulleted,
-		href: '/dashboard'
 	},
 	{
 		label: 'navbar.messages',
@@ -332,3 +384,49 @@ export const AVATAR_MENU_ITEMS: MenuItem[] = [
 		isError: true
 	}
 ];
+/**
+ * Mobile drawer menu items (logged in)
+ */
+export const MOBILE_DRAWER_LOGGED_IN: MenuItem[] = [
+	{
+		label: 'navbar.settings',
+		icon: IconCog,
+		href: '/dashboard/settings'
+	},
+	{
+		label: 'navbar.home',
+		icon: IconHome,
+		getDynamicHref: () => '/tasks'
+	},
+	{
+		label: 'navbar.how_it_works',
+		icon: IconHelpCircleOutline,
+		href: '/how-it-works'
+	},
+	{
+		label: 'navbar.terms_and_conditions',
+		icon: IconFileSign,
+		href: '/terms'
+	},
+	{
+		label: 'navbar.logout',
+		icon: IconLogout,
+		action: 'logout'
+	}
+];
+
+/**
+ * Mobile drawer auth buttons (logged out)
+ */
+export const MOBILE_AUTH_BUTTONS: { login: MenuItem; signup: MenuItem } = {
+	login: {
+		label: 'navbar.login',
+		icon: IconLogin,
+		href: '/auth/login'
+	},
+	signup: {
+		label: 'navbar.signup',
+		icon: IconAccountPlus,
+		href: '/auth/signup'
+	}
+};

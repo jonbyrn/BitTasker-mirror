@@ -19,6 +19,42 @@ import { NDKContractStatus } from './events/contractStatus';
 
 const d = createDebug('ndk:signer');
 
+/**
+ * Ensures a relay URL is valid for NDK:
+ * 1. Trims whitespace
+ * 2. Ensures it starts with ws:// or wss://
+ * 3. Handles potentially multiple URLs (comma separated)
+ */
+function sanitizeRelayUrls(input: string | string[] | undefined): string[] {
+	if (!input) return [];
+
+	const rawUrls = Array.isArray(input) ? input : input.split(',');
+
+	return rawUrls
+		.map((url) => url.trim())
+		.filter((url) => {
+			const isValid =
+				Boolean(url) &&
+				url.length > 0 &&
+				url !== 'undefined' &&
+				url !== 'null' &&
+				url !== '[object Object]';
+			if (!isValid && url.length > 0) {
+				d.warn('sanitizeRelayUrls: removing invalid relay URL candidate: "%s"', url);
+			}
+			return isValid;
+		})
+		.map((url) => {
+			let normalized = url;
+			if (!url.startsWith('ws://') && !url.startsWith('wss://')) {
+				d.warn('sanitizeRelayUrls: URL missing protocol, assuming wss:// for "%s"', url);
+				normalized = `wss://${url}`;
+			}
+			d.log('sanitizeRelayUrls: sanitized URL: "%s"', normalized);
+			return normalized;
+		});
+}
+
 /** IndexedDB base name for NDKCacheDexie — must match `setNDKSigner` (Dexie also uses `${name}_modules`). */
 export function ndkCacheDbBaseName(npub: string): string {
 	return `cache-${npub.slice(0, 8)}`;
@@ -39,7 +75,7 @@ function deleteIndexedDb(dbName: string): Promise<void> {
 }
 
 export const ndk = createNDK({
-	explicitRelayUrls: [import.meta.env.VITE_NOSTR_RELAY_URL],
+	explicitRelayUrls: sanitizeRelayUrls(import.meta.env.VITE_NOSTR_RELAY_URL),
 	// Enable sessions for wallet, follows, mutes, and WoT
 	session: true,
 	enableOutboxModel: false
@@ -49,7 +85,19 @@ registerEventClass(NDKBid as never);
 registerEventClass(NDKTask as never);
 registerEventClass(NDKPaymentContract as never);
 registerEventClass(NDKContractStatus as never);
-ndk.connect();
+
+// Connect only if we have relays configured
+if (ndk.explicitRelayUrls && ndk.explicitRelayUrls.length > 0) {
+	try {
+		ndk.connect().catch((err) => {
+			d.error('ndk.connect failed: %o', err);
+		});
+	} catch (err) {
+		d.error('ndk.connect sync error: %o', err);
+	}
+} else {
+	d.warn('ndk initialization: no explicit relay URLs provided, NDK may not be fully functional');
+}
 
 /**
  * Clears NDK identity and removes the per-user Dexie cache (IndexedDB).
@@ -127,10 +175,10 @@ export async function applyNdkSignerFromNsec(nsec: Uint8Array): Promise<void> {
 		ndk.signer = newSigner;
 		d.log('applyNdkSignerFromNsec: signer assigned to ndk instance, npub=%s', newSigner.npub);
 		try {
-			ndk.addExplicitRelay(
-				import.meta.env.VITE_NOSTR_TASK_RELAY_URL,
-				NDKRelayAuthPolicies.signIn({ ndk })
-			);
+			const taskRelayUrls = sanitizeRelayUrls(import.meta.env.VITE_NOSTR_TASK_RELAY_URL);
+			for (const url of taskRelayUrls) {
+				ndk.addExplicitRelay(url, NDKRelayAuthPolicies.signIn({ ndk }));
+			}
 		} catch (err) {
 			d.error('applyNdkSignerFromNsec failed to add relay: %o', err);
 			throw err;
@@ -181,5 +229,14 @@ async function stopUnpublishedEventsRetry(): Promise<void> {
 }
 
 export function getTaskRelay(): NDKRelaySet {
-	return NDKRelaySet.fromRelayUrls([import.meta.env.VITE_NOSTR_TASK_RELAY_URL], ndk);
+	const urls = sanitizeRelayUrls(import.meta.env.VITE_NOSTR_TASK_RELAY_URL);
+
+	if (urls.length === 0) {
+		d.warn(
+			'getTaskRelay: VITE_NOSTR_TASK_RELAY_URL is undefined or empty, falling back to explicit relays'
+		);
+		return NDKRelaySet.fromRelayUrls(Array.from(ndk.explicitRelayUrls || []), ndk);
+	}
+
+	return NDKRelaySet.fromRelayUrls(urls, ndk);
 }

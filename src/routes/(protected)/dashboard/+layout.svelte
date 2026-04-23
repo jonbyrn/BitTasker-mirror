@@ -1,13 +1,14 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { devicePlatform } from '$lib/stores/device.store';
 	import { page } from '$app/state';
 	import { sections } from '$lib/utils/consts';
 	import { t } from 'svelte-i18n';
-	import IconFormatListBulleted from '~icons/mdi/format-list-bulleted';
+	import IconChartBoxOutline from '~icons/mdi/chart-box-outline';
+	import IconBriefcaseOutline from '~icons/mdi/briefcase-outline';
 	import IconPlusCircleOutline from '~icons/mdi/plus-circle-outline';
 	import IconMagnify from '~icons/mdi/magnify';
-	import IconInvoiceTextSendOutline from '~icons/mdi/invoice-text-send-outline';
-	import IconFileSign from '~icons/mdi/file-sign';
+	import IconBriefcaseSearch from '~icons/mdi/briefcase-search';
 	import IconWalletOutline from '~icons/mdi/wallet-outline';
 	import IconAccount from '~icons/mdi/account';
 	import IconChatOutline from '~icons/mdi/chat-outline';
@@ -48,11 +49,8 @@
 </script>
 
 <svelte:head>
-	<title>Dashboard | BitTasker</title>
-	<meta
-		name="description"
-		content="Manage your tasks, bids, and wallet on BitTasker's dashboard."
-	/>
+	<title>{$t('dashboard.hiring.page_title')}</title>
+	<meta name="description" content={$t('dashboard.hiring.page_description')} />
 </svelte:head>
 
 <svelte:window bind:innerWidth={width} />
@@ -64,7 +62,7 @@
 		{#if $devicePlatform !== 'ios' && $devicePlatform !== 'android' && width >= 1200}
 			<!-- Fixed Sidebar - Solo en desktop -->
 			<div class="w-full shrink-0 md:w-64">
-				<div class="fixed top-24 left-8 z-10 w-60">
+				<div class="fixed top-24 left-8 z-10 w-64">
 					<div class="card bg-base-100 rounded-xl shadow-xl">
 						<div class="card-body p-4">
 							<ul class="menu bg-base-100 rounded-box w-full">
@@ -72,20 +70,21 @@
 									<li class="my-1">
 										<a
 											data-sveltekit-reload="off"
-											href={section.path}
-											class:menu-active={page.url.pathname + page.url.search === section.path}
-											class="flex items-center gap-3"
+											href={resolve(section.path)}
+											class:menu-active={page.url.pathname + page.url.search === section.path ||
+												page.url.pathname === section.path}
+											class="flex items-center gap-3 {section.indent ? 'pl-6' : ''}"
 										>
-											{#if section.icon === 'mdi:format-list-bulleted'}
-												<IconFormatListBulleted class="text-primary" />
+											{#if section.icon === 'mdi:briefcase-outline'}
+												<IconBriefcaseOutline class="text-primary" />
+											{:else if section.icon === 'mdi:chart-box-outline'}
+												<IconChartBoxOutline class="text-primary" />
 											{:else if section.icon === 'mdi:plus-circle-outline'}
 												<IconPlusCircleOutline class="text-primary" />
 											{:else if section.icon === 'mdi:magnify'}
 												<IconMagnify class="text-primary" />
-											{:else if section.icon === 'mdi:invoice-text-send-outline'}
-												<IconInvoiceTextSendOutline class="text-primary" />
-											{:else if section.icon === 'mdi:file-sign'}
-												<IconFileSign class="text-primary" />
+											{:else if section.icon === 'mdi:briefcase-search'}
+												<IconBriefcaseSearch class="text-primary" />
 											{:else if section.icon === 'mdi:wallet-outline'}
 												<IconWalletOutline class="text-primary" />
 											{:else if section.icon === 'mdi:account'}
@@ -95,7 +94,7 @@
 											{:else if section.icon === 'mdi:cog'}
 												<IconCog class="text-primary" />
 											{:else}
-												<IconFormatListBulleted class="text-primary" />
+												<IconChartBoxOutline class="text-primary" />
 											{/if}
 											{$t(section.label)}
 										</a>

@@ -3,6 +3,7 @@
 	import TaskLocationViewer from './TaskLocationViewer.svelte';
 	import { TaskTypeEnum } from '$lib/utils/enums/task.enum';
 	import { t } from 'svelte-i18n';
+	import { isApproximatePublicLocation } from '$lib/utils/location/public-location';
 
 	let { task, isRemovals = false } = $props<{
 		task: TaskBody;
@@ -11,31 +12,39 @@
 
 	// Determine if this is a removal task with both pickup and drop-off locations
 	let isRemovalTask = $derived(
-		isRemovals && 
-		task.pickupLocation?.locationLoaded === true && 
-		task.dropOffLocation?.locationLoaded === true
+		isRemovals &&
+			task.pickupLocation?.locationLoaded === true &&
+			task.dropOffLocation?.locationLoaded === true
 	);
 	let isRemoteTask = $derived(task.taskType === TaskTypeEnum.REMOTE);
-	
+
 	// Check if we have a valid drop-off location
 	let hasDropOffLocation = $derived(task.dropOffLocation?.locationLoaded === true);
 
 	// Helper function to get complete address for display
-	function getCompleteAddress(location: typeof task.pickupLocation | typeof task.dropOffLocation): string {
+	function getCompleteAddress(
+		location: typeof task.pickupLocation | typeof task.dropOffLocation
+	): string {
 		if (!location) return '';
 		return location.formattedAddress || location.displayName;
+	}
+
+	function isApproximate(
+		location: typeof task.pickupLocation | typeof task.dropOffLocation
+	): boolean {
+		return isApproximatePublicLocation(location ?? null);
 	}
 </script>
 
 <div class="space-y-4">
-	<div class="flex items-center justify-between flex-wrap">
+	<div class="flex flex-wrap items-center justify-between">
 		<h4 class="font-medium">{$t('task.location_title')}</h4>
 		{#if isRemoteTask}
-			<span class="badge badge-info text-black text-xs px-1">{$t('task.remote_task')}</span>
+			<span class="badge badge-info px-1 text-xs text-black">{$t('task.remote_task')}</span>
 		{:else if isRemovalTask}
-			<span class="badge badge-warning text-black text-xs px-1">{$t('task.removal_delivery')}</span>
+			<span class="badge badge-warning px-1 text-xs text-black">{$t('task.removal_delivery')}</span>
 		{:else}
-			<span class="badge badge-success text-black text-xs px-1">{$t('task.in_person_badge')}</span>
+			<span class="badge badge-success px-1 text-xs text-black">{$t('task.in_person_badge')}</span>
 		{/if}
 	</div>
 
@@ -76,7 +85,7 @@
 					<span>Pickup</span>
 				</div>
 				<div class="flex items-center gap-1">
-					<div class="h-3 w-3 rounded-full bg-green-500" ></div>
+					<div class="h-3 w-3 rounded-full bg-green-500"></div>
 					<span>Drop-off</span>
 				</div>
 				{#if isRemovalTask && hasDropOffLocation}
@@ -96,7 +105,14 @@
 						<div class="h-3 w-3 rounded-full bg-orange-500"></div>
 						<div>
 							<h4 class="font-semibold text-orange-500">{$t('task.pickup_location_review')}</h4>
-							<p class="text-sm text-orange-500 wrap-break-word">{getCompleteAddress(task.pickupLocation)}</p>
+							<p class="text-sm wrap-break-word text-orange-500">
+								{getCompleteAddress(task.pickupLocation)}
+							</p>
+							{#if isApproximate(task.pickupLocation)}
+								<p class="text-xs text-orange-500/80">
+									({$t('common.location.approximate_short')})
+								</p>
+							{/if}
 							{#if task.pickupLocation.zipCode}
 								<p class="text-xs text-orange-500">
 									{$t('task.zip_label')}
@@ -109,10 +125,13 @@
 					<div class="alert alert-success alert-outline">
 						<div class="h-3 w-3 rounded-full bg-green-500"></div>
 						<div>
-							<h4 class="font-semibold ">{$t('task.dropoff_location_review')}</h4>
+							<h4 class="font-semibold">{$t('task.dropoff_location_review')}</h4>
 							<p class="text-sm wrap-break-word">{getCompleteAddress(task.dropOffLocation)}</p>
+							{#if isApproximate(task.dropOffLocation)}
+								<p class="text-xs opacity-70">({$t('common.location.approximate_short')})</p>
+							{/if}
 							{#if task.dropOffLocation.zipCode}
-								<p class="text-xs ">
+								<p class="text-xs">
 									{$t('task.zip_label')}
 									{task.dropOffLocation.zipCode}
 								</p>
@@ -136,7 +155,12 @@
 							d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
 						/>
 					</svg>
-					<span class="wrap-break-word">{$t('task.location_picker.location_set')}: {getCompleteAddress(task.pickupLocation)}</span>
+					<span class="wrap-break-word">
+						{$t('task.location_picker.location_set')}: {getCompleteAddress(task.pickupLocation)}
+					</span>
+					{#if isApproximate(task.pickupLocation)}
+						<span class="text-xs opacity-70">({$t('common.location.approximate_short')})</span>
+					{/if}
 				</div>
 			{/if}
 		</div>

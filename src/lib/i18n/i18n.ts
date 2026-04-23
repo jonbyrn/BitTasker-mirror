@@ -1,4 +1,10 @@
-import { addMessages, init, locale, getLocaleFromNavigator } from 'svelte-i18n';
+import {
+	addMessages,
+	init,
+	locale,
+	getLocaleFromNavigator,
+	dictionary as dictionaryStore
+} from 'svelte-i18n';
 import { browser } from '$app/environment';
 import { get, writable } from 'svelte/store';
 import { Preferences } from '@capacitor/preferences';
@@ -40,6 +46,28 @@ const getInitialLocale = async (): Promise<SupportedLanguage> => {
 };
 
 /**
+ * Deep merge objects for translation merging
+ */
+function deepMerge(target: Record<string, unknown>, source: Record<string, unknown>): Record<string, unknown> {
+	if (!source) return target;
+	if (!target) return source;
+
+	for (const key in source) {
+		const sourceVal = source[key];
+		const targetVal = target[key];
+
+		if (sourceVal && typeof sourceVal === 'object' && !Array.isArray(sourceVal)) {
+			if (!targetVal || typeof targetVal !== 'object') {
+				target[key] = {};
+			}
+			deepMerge(target[key] as Record<string, unknown>, sourceVal as Record<string, unknown>);
+		} else {
+			target[key] = sourceVal;
+		}
+	}
+	return target;
+}
+/**
  * Load a specific namespace for a locale
  */
 export async function loadNamespace(
@@ -51,6 +79,10 @@ export async function loadNamespace(
 	// Return cached if available
 	if (translationCache.has(cacheKey)) {
 		return translationCache.get(cacheKey) || {};
+	}
+
+	if (!browser) {
+		return {};
 	}
 
 	try {
@@ -71,8 +103,11 @@ export async function loadNamespace(
 		loadedNamespaces.get(locale)!.add(namespace);
 
 		// Add to svelte-i18n
-		addMessages(locale, data);
-
+		// Note: we use manual merging because svelte-i18n addMessages might overwrite root keys if they are the same
+		// and we have multiple files sharing root keys like \"dashboard\".
+		const currentMessages = (get(dictionaryStore) as Record<string, Record<string, unknown>>)[locale] || {};
+		const mergedMessages = deepMerge({ ...currentMessages }, data as Record<string, unknown>);
+		addMessages(locale, mergedMessages);
 		return data;
 	} catch (error) {
 		console.warn(`Failed to load namespace ${namespace} for locale ${locale}:`, error);
@@ -122,12 +157,18 @@ export function getNamespacesForRoute(route: string): string[] {
 		// Include moderation namespace for report/mute menus on task cards
 		namespaces.push('moderation');
 	}
-	// Dashboard routes
-	if (route.includes('/dashboard')) {
+	// Protected workspace routes
+	if (route.includes('/dashboard') || route.includes('/earning')) {
 		namespaces.push('dashboard/dashboard', 'dashboard/tasks/info');
 		namespaces.push('dashboard/bids');
 		// Always load wallet namespace for bid-related components that use wallet translations
 		namespaces.push('dashboard/wallet');
+		// Service workspaces are surfaced from both protected workspace routes.
+		namespaces.push(
+			'dashboard/services/my-services',
+			'dashboard/services/browse',
+			'dashboard/services/detail'
+		);
 		// Load moderation namespace for report/mute menus that appear on all dashboard surfaces
 		namespaces.push('moderation');
 
@@ -146,17 +187,40 @@ export function getNamespacesForRoute(route: string): string[] {
 		if (route.includes('/wallet')) {
 			// Already included above
 		}
-
-		if (route.includes('/create-task')) {
-			namespaces.push('dashboard/tasks/create', 'categories');
+		// Note: /find-tasks route redirects to /tasks, so this check is kept for backward compatibility
+		// but /tasks route already loads all necessary namespaces above
+		if (route.includes('/find-tasks')) {
+			namespaces.push(
+				'dashboard/tasks/find',
+				'dashboard/recomendations',
+				'dashboard/bids',
+				'categories'
+			);
 		}
-
+		if (route.includes('/create-task')) {
+			namespaces.push('dashboard/tasks/create', 'categories', 'uploader');
+		}
 		if (route.includes('/messages')) {
 			namespaces.push('dashboard/messages');
+		}
+		if (route.includes('/create-service')) {
+			namespaces.push('dashboard/services/create', 'categories', 'uploader');
+		}
+		if (route.includes('/my-services')) {
+			namespaces.push('dashboard/services/my-services', 'dashboard/services/browse', 'categories');
 		}
 		if (route.includes('/settings')) {
 			namespaces.push('dashboard/settings');
 		}
+	}
+
+	if (route.includes('/services')) {
+		namespaces.push(
+			'dashboard/services/browse',
+			'dashboard/services/create',
+			'dashboard/services/detail',
+			'categories'
+		);
 	}
 
 	if (route.includes('/onboarding')) namespaces.push('onboarding');

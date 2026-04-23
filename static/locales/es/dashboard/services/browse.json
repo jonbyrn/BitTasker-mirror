@@ -1,0 +1,92 @@
+{
+	"dashboard": {
+		"services": {
+			"browse": {
+				"title": "Explorar Servicios",
+				"search_placeholder": "Buscar servicios...",
+				"search_minimum_chars": "Escribe al menos 3 caracteres",
+				"filters_button": "Filtros",
+				"clear_filters": "Limpiar Filtros",
+				"showing_services": "Mostrando {count} servicio{count, plural, =1 {} other {s}}",
+				"view_service": "Ver Servicio",
+				"view": "Ver",
+				"quote": "Cotizar",
+				"share_service": "Compartir servicio",
+				"view_map": "Ver mapa",
+				"view_list": "Ver lista",
+				"save": "Guardar",
+				"save_search_tooltip_enabled": "Guarda tus criterios de búsqueda",
+				"save_search_tooltip_disabled": "Agrega filtros de búsqueda para guardar",
+				"saved_search_success": "Búsqueda guardada correctamente",
+				"saved_search_error": "Error al guardar la búsqueda",
+				"saved_service_searches": {
+					"no_saved_searches": "Aún no hay búsquedas de servicios guardadas",
+					"saved_searches_info": "Tus búsquedas de servicios guardadas aparecerán aquí. Guarda búsquedas desde la página Explorar Servicios.",
+					"start_new_search": "Explorar Servicios",
+					"apply_search": "Aplicar"
+				},
+				"map": "Mapa",
+				"list": "Lista",
+				"scroll_to_top": "Ir arriba",
+				"live_results_filtered": "{count} servicios encontrados que coinciden con tus filtros",
+				"live_results_available": "{count} servicios encontrados disponibles",
+				"live_loading": "Cargando servicios...",
+				"no_services_found": "No se encontraron servicios",
+				"no_services_message": "Intenta ajustar tu búsqueda o filtros para encontrar más servicios.",
+				"no_more_services": "No hay más servicios para cargar",
+				"quote_request_unavailable": "El servicio no está disponible.",
+				"quote_request_submit_error": "No se puede enviar la solicitud de cotización en este momento.",
+				"quote_request_submitted": "¡La solicitud de cotización se envió correctamente!",
+				"self_quote_blocked": "No puedes solicitar una cotización en tu propio servicio.",
+				"error_loading": "Error al cargar servicios: {error}",
+				"loading_timeout_title": "Tiempo de Carga Agotado",
+				"loading_timeout_message": "Los servicios están tardando más de lo esperado en cargar.",
+				"refresh": "Actualizar",
+				"close_dialog": "Cerrar",
+				"delivery_time": "Tiempo de Entrega",
+				"location_types": "Tipos de Ubicación",
+				"pricing": {
+					"fixed": "Precio Fijo",
+					"hourly": "Tarifa por Hora",
+					"tiered": "Precios por Niveles",
+					"inquiry_required": "Solicitar Cotización",
+					"request_quote": "Solicitar Cotización",
+					"from_price": "Desde $X",
+					"not_set": "Precio no establecido"
+				},
+				"filters": {
+					"categories": "Categorías",
+					"toggle_categories": "Alternar categorías",
+					"add_categories": "Agregar categorías...",
+					"skills": "Habilidades",
+					"toggle_skills": "Alternar habilidades",
+					"add_skills": "Agregar habilidades...",
+					"location_types": "Tipos de Ubicación",
+					"toggle_location_types": "Alternar tipos de ubicación",
+					"pricing_type": "Tipo de Precio",
+					"toggle_pricing_type": "Alternar tipo de precio",
+					"any_pricing": "Cualquiera",
+					"price_range": "Rango de Precio",
+					"toggle_price_range": "Alternar rango de precio",
+					"min_price": "Precio Mínimo ($)",
+					"max_price": "Precio Máximo ($)",
+					"clear_price_range": "Limpiar",
+					"delivery_time": "Tiempo de Entrega",
+					"toggle_delivery_time": "Alternar tiempo de entrega",
+					"any_delivery_time": "Cualquiera",
+					"delivery_time": {
+						"less_than_day": "Menos de 1 día",
+						"one_to_three_days": "1-3 días",
+						"one_week": "1 semana",
+						"more_than_week": "Más de 1 semana"
+					},
+					"location": "Ubicación",
+					"toggle_location": "Alternar ubicación",
+					"location_placeholder": "Buscar ubicación...",
+					"search_radius": "Radio de Búsqueda (km)",
+					"apply": "Aplicar"
+				}
+			}
+		}
+	}
+}

@@ -26,13 +26,19 @@ vi.mock('$lib/utils/constants/kinds', () => ({
 vi.mock('$lib/stores/bid.store', () => ({
 	bidStore: {
 		removeProcessingBid: vi.fn(),
-		processingBidIds: new Set()
+		processingBidIds: new Set(),
+		subscribe: vi.fn(),
+		set: vi.fn(),
+		update: vi.fn()
 	}
 }));
 
 vi.mock('$lib/stores/app.store', () => ({
 	appStore: {
-		showInfoToast: vi.fn()
+		showInfoToast: vi.fn(),
+		subscribe: vi.fn(),
+		set: vi.fn(),
+		update: vi.fn()
 	}
 }));
 
@@ -44,6 +50,18 @@ vi.mock('$lib/utils/cache/bid-cache', () => ({
 	},
 	currencyCache: {
 		clear: vi.fn()
+	}
+}));
+
+// Mock task.store to prevent it from loading and calling get(appStore)?.pool at module init time
+vi.mock('$lib/stores/task.store', () => ({
+	TASKS_PER_PAGE: 10,
+	tasksStore: {
+		subscribe: vi.fn(),
+		set: vi.fn(),
+		update: vi.fn(),
+		removePubkeyTasks: vi.fn(),
+		reset: vi.fn()
 	}
 }));
 

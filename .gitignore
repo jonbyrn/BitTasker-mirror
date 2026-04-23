@@ -65,6 +65,8 @@ docs/testing/presentation-prep.md
 # Ignored scripts
 scripts/ignored/*
 
-# MemPalace per-project files (issue #185)
-mempalace.yaml
-entities.json
+# Claude Code config and state (auto-generated, should not be committed)
+.claude-flow/
+
+# Local swarm state
+.swarm/

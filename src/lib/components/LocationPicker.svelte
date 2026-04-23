@@ -7,6 +7,18 @@
 	import { Capacitor } from '@capacitor/core';
 	import { tick } from 'svelte';
 
+	declare const google: NonNullable<typeof window.google>;
+
+	function getLocationPickerTranslation(key: string): string {
+		const servicesKey = `dashboard.services.create.location.location_picker.${key}`;
+		const tasksKey = `task.location_picker.${key}`;
+		const servicesTranslation = $t(servicesKey);
+		if (servicesTranslation && servicesTranslation !== servicesKey) {
+			return servicesTranslation;
+		}
+		return $t(tasksKey);
+	}
+
 	let {
 		placeholder = $t('common.components.location_picker.enter_address'),
 		location = {
@@ -82,6 +94,13 @@
 		const propServiceRadius = serviceRadius;
 		currentLocation = propLocation;
 		currentServiceRadius = propServiceRadius;
+	});
+
+	$effect(() => {
+		const nextRadius = currentServiceRadius;
+		if (!circle || !Number.isFinite(nextRadius)) return;
+		circle.setRadius(nextRadius * 1000);
+		fitMapToCircle();
 	});
 
 	// ─── Coordinate helpers ────────────────────────────────────────────────────
@@ -182,13 +201,13 @@
 							googleMapsReady = true;
 							resolve();
 						} else {
-							reject(new Error($t('task.location_picker.google_maps_api_not_initialized')));
+							reject(new Error(getLocationPickerTranslation('google_maps_api_not_initialized')));
 						}
 					}, 500);
 				};
 
 				script.onerror = () => {
-					reject(new Error($t('task.location_picker.google_maps_script_failed_load')));
+					reject(new Error(getLocationPickerTranslation('google_maps_script_failed_load')));
 				};
 
 				document.head.appendChild(script);
@@ -213,7 +232,7 @@
 	// ─── Map initialisation ────────────────────────────────────────────────────
 	async function initMap() {
 		if (!googleMapsReady || !window.google?.maps?.Map) {
-			throw new Error($t('task.location_picker.google_maps_not_fully_loaded'));
+			throw new Error(getLocationPickerTranslation('google_maps_not_fully_loaded'));
 		}
 		if (!mapElement) {
 			throw new Error('Map element not available');
@@ -224,8 +243,8 @@
 
 			map = new google.maps.Map(mapElement, {
 				center: safeCoords,
-				zoom: 12,
-				minZoom: 8, // City level minimum zoom
+				zoom: currentServiceRadius > 5 ? 10 : 12,
+				minZoom: 2, // Allow zooming out more
 				maxZoom: 18, // Reduce the maximum zoom level to avoid street view
 				mapTypeId: google.maps.MapTypeId.ROADMAP,
 				mapTypeControl: false,
@@ -269,7 +288,9 @@
 	async function initMapWithRetry() {
 		try {
 			if (initRetryCount >= maxRetries) {
-				throw new Error($t('task.location_picker.failed_initialize_map_after_multiple_attempts'));
+				throw new Error(
+					getLocationPickerTranslation('failed_initialize_map_after_multiple_attempts')
+				);
 			}
 
 			if (!googleMapsReady) {
@@ -303,7 +324,7 @@
 		} catch (err) {
 			console.error('Error initialising map:', err);
 			error =
-				err instanceof Error ? err.message : $t('task.location_picker.error_initializing_map');
+				err instanceof Error ? err.message : getLocationPickerTranslation('error_initializing_map');
 			hasError = true;
 		}
 	}
@@ -317,7 +338,9 @@
 		} catch (err) {
 			console.error('Error loading Google Maps:', err);
 			error =
-				err instanceof Error ? err.message : $t('task.location_picker.error_loading_google_maps');
+				err instanceof Error
+					? err.message
+					: getLocationPickerTranslation('error_loading_google_maps');
 		} finally {
 			isLoading = false;
 		}
@@ -341,7 +364,11 @@
 				)) as google.maps.GeocodingLibrary;
 				const geocoder = new Geocoder();
 
-				const result = await geocoder.geocode({ location: { lat, lng } });
+				const result = await geocoder.geocode({
+					location: { lat, lng },
+					language: 'es',
+					region: 'SV'
+				});
 
 				if (result.results[0]) {
 					const geocodeResult = result.results[0];
@@ -381,7 +408,9 @@
 		} catch (err: unknown) {
 			console.error('Error updating location:', err);
 			error =
-				err instanceof Error ? err.message : $t('task.location_picker.error_updating_location');
+				err instanceof Error
+					? err.message
+					: getLocationPickerTranslation('error_updating_location');
 		}
 	}
 
@@ -488,9 +517,34 @@
 
 	// ─── Service radius ────────────────────────────────────────────────────────
 
+	function fitMapToCircle() {
+		if (map && circle && (showServiceRadius || showRadiusCircle)) {
+			const bounds = circle.getBounds();
+			if (bounds) {
+				map.fitBounds(bounds);
+			}
+		}
+	}
+
 	function updateServiceRadius() {
 		if (circle) {
 			circle.setRadius(currentServiceRadius * 1000); // km → metres
+			fitMapToCircle();
+		}
+	}
+
+	// ─── Zoom controls ────────────────────────────────────────────────────────
+	function zoomIn() {
+		if (map) {
+			const currentZoom = map.getZoom();
+			if (typeof currentZoom === 'number') map.setZoom(currentZoom + 1);
+		}
+	}
+
+	function zoomOut() {
+		if (map) {
+			const currentZoom = map.getZoom();
+			if (typeof currentZoom === 'number') map.setZoom(currentZoom - 1);
 		}
 	}
 
@@ -571,7 +625,11 @@
 			)) as google.maps.PlacesLibrary;
 
 			const token = new AutocompleteSessionToken();
-			const request = { input: searchInput.value, sessionToken: token };
+			const request = {
+				input: searchInput.value,
+				language: 'es',
+				sessionToken: token
+			};
 
 			const { suggestions } = await AutocompleteSuggestion.fetchAutocompleteSuggestions(request);
 			predictions = suggestions.map((suggestion) => suggestion.placePrediction);
@@ -672,7 +730,7 @@
 			mapContainerDiv.style.height = `${availableHeight}px`;
 			mapContainerDiv.style.maxHeight = `${availableHeight}px`;
 			mapContainerDiv.style.minHeight = `${availableHeight}px`;
-			mapContainerDiv.style.zIndex = '1000';
+			mapContainerDiv.style.zIndex = '500'; // Higher than page but lower than search controls (z-1000)
 			mapContainerDiv.style.backgroundColor = 'white';
 			mapContainerDiv.style.overflow = 'hidden';
 			mapContainerDiv.style.margin = '0';
@@ -809,7 +867,7 @@
 		<div
 			class={isFullscreen
 				? 'fixed top-6 right-6 left-6 z-1000'
-				: 'absolute top-4 right-0 left-0 z-10 px-4'}
+				: 'absolute top-4 right-0 left-0 z-40 px-4'}
 		>
 			{#if isFullscreen}
 				<div class="pointer-events-auto mb-4 flex w-full items-center justify-center">
@@ -817,7 +875,7 @@
 						class="btn btn-md bg-base-100/90 text-base-content hover:bg-base-100/90 border-none shadow-md hover:opacity-100"
 						onclick={exitFullscreen}
 					>
-						{$t('task.location_picker.exit_fullscreen')}
+						{getLocationPickerTranslation('exit_fullscreen')}
 					</button>
 				</div>
 			{/if}
@@ -834,11 +892,11 @@
 					/>
 					{#if showGeolocation}
 						<button
-							aria-label={$t('task.location_picker.use_my_location')}
+							aria-label={getLocationPickerTranslation('use_my_location')}
 							onclick={requestUserLocation}
 							class="btn btn-square btn-secondary"
 							disabled={isLoading}
-							title={$t('task.location_picker.use_my_location')}
+							title={getLocationPickerTranslation('use_my_location')}
 						>
 							<svg
 								xmlns="http://www.w3.org/2000/svg"
@@ -863,6 +921,53 @@
 					</div>
 				{/if}
 
+				<!-- Fullscreen toggle — matching style and position -->
+				{#if showFullscreen}
+					<button
+						onclick={toggleFullscreen}
+						class="btn btn-square btn-secondary absolute right-0 z-20 shadow-md"
+						class:top-14={!isFullscreen}
+						class:top-0={isFullscreen}
+						class:z-1000={isFullscreen}
+						aria-label={isFullscreen
+							? getLocationPickerTranslation('exit_fullscreen')
+							: getLocationPickerTranslation('enter_fullscreen')}
+						title={isFullscreen
+							? getLocationPickerTranslation('exit_fullscreen')
+							: getLocationPickerTranslation('enter_fullscreen')}
+					>
+						{#if isFullscreen}
+							<!-- Close icon for fullscreen -->
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								class="h-5 w-5"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke="currentColor"
+								stroke-width="2"
+							>
+								<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+							</svg>
+						{:else}
+							<!-- Enter fullscreen icon -->
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								class="h-5 w-5"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke="currentColor"
+								stroke-width="2"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5v-4m0 4h-4m4 0l-5-5"
+								/>
+							</svg>
+						{/if}
+					</button>
+				{/if}
+
 				{#if showOptions}
 					<div
 						class="predictions-dropdown bg-base-100 border-base-300 absolute z-1000 mt-2 max-h-60 w-full overflow-y-auto rounded-lg border shadow-lg"
@@ -877,7 +982,9 @@
 								</button>
 							{/each}
 						{:else}
-							<div class="text-error px-4 py-3">{$t('task.location_picker.no_places_found')}</div>
+							<div class="text-error px-4 py-3">
+								{getLocationPickerTranslation('no_places_found')}
+							</div>
 						{/if}
 					</div>
 				{/if}
@@ -897,69 +1004,66 @@
 					</div>
 				{/if}
 			</div>
-		</div>
 
-		<!-- Fullscreen toggle -->
-		{#if showFullscreen}
-			<button
-				onclick={toggleFullscreen}
-				class="btn btn-circle btn-lg bg-base-100/90 hover:bg-base-100 absolute top-4 right-4 z-20 shadow-md"
-				class:z-1000={isFullscreen}
-				aria-label={isFullscreen
-					? $t('task.location_picker.exit_fullscreen')
-					: $t('task.location_picker.enter_fullscreen')}
-				title={isFullscreen
-					? $t('task.location_picker.exit_fullscreen')
-					: $t('task.location_picker.enter_fullscreen')}
-			>
-				{#if isFullscreen}
-					<!-- Exit fullscreen icon -->
+			<!-- Custom Zoom Controls in lower left corner -->
+			<div class="absolute bottom-4 left-4 z-1 flex flex-col gap-2">
+				<button
+					onclick={zoomIn}
+					class="btn btn-square btn-secondary btn-sm shadow-md"
+					aria-label="Zoom in"
+					title="Zoom in"
+				>
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
-						class="text-base-content h-5 w-5"
+						class="h-5 w-5"
+						fill="none"
 						viewBox="0 0 24 24"
-						fill="currentColor"
+						stroke="currentColor"
+						stroke-width="2"
 					>
-						<path
-							d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
-						/>
+						<path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
 					</svg>
-				{:else}
-					<!-- Enter fullscreen icon -->
+				</button>
+				<button
+					onclick={zoomOut}
+					class="btn btn-square btn-secondary btn-sm shadow-md"
+					aria-label="Zoom out"
+					title="Zoom out"
+				>
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
-						class="text-base-content h-5 w-5"
+						class="h-5 w-5"
+						fill="none"
 						viewBox="0 0 24 24"
-						fill="currentColor"
+						stroke="currentColor"
+						stroke-width="2"
 					>
-						<path
-							d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"
-						/>
+						<path stroke-linecap="round" stroke-linejoin="round" d="M20 12H4" />
 					</svg>
-				{/if}
-			</button>
-		{/if}
+				</button>
+			</div>
+		</div>
 
 		<!-- Service radius panel -->
 		{#if showServiceRadius}
 			<div class={isFullscreen ? 'fixed top-32 right-6 z-1000' : 'absolute top-16 right-4 z-20'}>
 				<div class="bg-base-100/95 border-base-300 rounded-lg border p-4 shadow-lg">
 					<div class="text-base-content mb-3 text-sm font-medium">
-						{$t('task.location_picker.service_radius')}: {currentServiceRadius}
-						{$t('task.location_picker.miles')}
+						{getLocationPickerTranslation('service_radius')}: {currentServiceRadius}
+						{getLocationPickerTranslation('miles')}
 					</div>
 					<input
 						type="range"
 						min="0.5"
-						max="10"
-						step="0.1"
+						max="100"
+						step="0.5"
 						bind:value={currentServiceRadius}
 						onchange={updateServiceRadius}
 						class="range range-sm range-primary mb-2"
 					/>
 					<div class="text-base-content/70 flex justify-between text-xs">
-						<span>0.5 {$t('task.location_picker.miles')}</span>
-						<span>10 {$t('task.location_picker.miles')}</span>
+						<span>0.5 {getLocationPickerTranslation('miles')}</span>
+						<span>100 {getLocationPickerTranslation('miles')}</span>
 					</div>
 				</div>
 			</div>
@@ -985,7 +1089,7 @@
 	{/if}
 
 	{#if currentLocation.locationLoaded}
-		<div class="alert alert-success alert-outline mt-4">
+		<div class="alert alert-success alert-outline z-30 mt-4">
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
 				class="h-6 w-6 shrink-0 stroke-current"
@@ -999,7 +1103,7 @@
 				/></svg
 			>
 			<span
-				>{$t('task.location_picker.location_set')}: {currentLocation.formattedAddress ||
+				>{getLocationPickerTranslation('location_set')}: {currentLocation.formattedAddress ||
 					currentLocation.displayName}</span
 			>
 		</div>
@@ -1021,8 +1125,8 @@
 				/></svg
 			>
 			<div>
-				<h3 class="font-bold">{$t('task.location_picker.map_loading_failed')}</h3>
-				<div class="text-xs">{$t('task.location_picker.try_reloading_the_map')}</div>
+				<h3 class="font-bold">{getLocationPickerTranslation('map_loading_failed')}</h3>
+				<div class="text-xs">{getLocationPickerTranslation('try_reloading_the_map')}</div>
 			</div>
 			<button
 				class="btn btn-sm"
@@ -1031,7 +1135,7 @@
 					loadGoogleMapsScript().then(() => initMapWithRetry());
 				}}
 			>
-				{$t('task.location_picker.retry')}
+				{getLocationPickerTranslation('retry')}
 			</button>
 		</div>
 	{/if}

@@ -1,19 +1,24 @@
 <script lang="ts">
 	import type { SearchTasksParams } from '$lib/types/task.d';
-	import { BudgetTypeEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
+	import { TaskTypeEnum } from '$lib/utils/enums/task.enum';
 	import PriceRangeSlider from '$lib/components/filters/PriceRangeSlider.svelte';
 	import AvailabilityFilter from '$lib/components/filters/AvailabilityFilter.svelte';
 	import CategoryMultiselect from '$lib/components/CategoryMultiselect.svelte';
 	import SkillsMultiselect from '$lib/components/SkillsMultiselect.svelte';
+	import UnifiedFilterDrawer from '$lib/components/listing/UnifiedFilterDrawer.svelte';
 	import LocationAutoComplete from '../LocationAutoComplete.svelte';
 	import { t } from 'svelte-i18n';
 	import { TASKS_PER_PAGE } from '$lib/stores/task.store';
 
 	// Props
-	let { onApply, initialFilters } = $props<{
+	let { isOpen, onClose, onApply, initialFilters, title } = $props<{
+		isOpen: boolean;
+		onClose: () => void;
 		onApply: (filters: SearchTasksParams) => void;
 		initialFilters?: SearchTasksParams;
+		title?: string;
 	}>();
+	const drawerTitle = $derived(title ?? $t('find_tasks.filters'));
 
 	// State
 	const filters = $state<SearchTasksParams>({
@@ -63,6 +68,9 @@
 			filters.deadline = initialFilters.deadline;
 			filters.dateRange = initialFilters.dateRange;
 			filters.search = initialFilters.search;
+			selectedLocationCoords = initialFilters.locationCoords
+				? { ...initialFilters.locationCoords }
+				: null;
 		}
 	});
 
@@ -108,6 +116,7 @@
 
 	// Clear all filters
 	function clearFilters() {
+		selectedLocationCoords = null;
 
 		onApply({
 			search: '',
@@ -120,6 +129,7 @@
 				type: undefined
 			},
 			location: undefined,
+			locationCoords: undefined,
 			radius: 1.5,
 			deadline: undefined,
 			dateRange: undefined,
@@ -181,11 +191,6 @@
 		}
 	}
 
-	// Handle budget type change
-	function handleBudgetTypeChange(type: BudgetTypeEnum | undefined) {
-		filters.budget && (filters.budget.type = type);
-	}
-
 	// Handle category tags change
 	function handleCategoryChange(tags: string[]) {
 		// Tags now contain category IDs directly
@@ -198,7 +203,17 @@
 	}
 </script>
 
-<div class="px-2">
+<UnifiedFilterDrawer
+	{isOpen}
+	title={drawerTitle}
+	{onClose}
+	onClear={clearFilters}
+	onApply={applyFilters}
+	clearLabel={$t('dashboard.contracts.clear_filters')}
+	applyLabel={$t('find_tasks.apply')}
+	{activeFilterCount}
+	actionsClass="mt-8 mb-20 flex justify-between"
+>
 	<!-- Task Type -->
 	<div class="collapse-arrow collapse mb-2">
 		<input
@@ -253,11 +268,11 @@
 		<div class="collapse-content">
 			<PriceRangeSlider
 				onRangeChange={handlePriceRangeChange}
-			currency={filters.budget?.currency || 'USD'}
-			tier={filters.budget?.tier}
+				currency={filters.budget?.currency || 'USD'}
+				tier={filters.budget?.tier}
 			/>
 
-		<!-- 	<div class="mt-8">
+			<!-- 	<div class="mt-8">
 				<label class="font-medium" for="budget-type">{$t('find_tasks.budget_type')}</label>
 				<div class="mt-4 flex flex-wrap gap-2">
 					{#each Object.values(BudgetTypeEnum) as type}
@@ -303,16 +318,16 @@
 				placeholder={$t('find_tasks.location_placeholder')}
 				location={{
 					displayName: filters.location || '',
-					longitude: selectedLocationCoords?.longitude || 0,
-					latitude: selectedLocationCoords?.latitude || 0,
+					longitude: selectedLocationCoords?.longitude ?? 0,
+					latitude: selectedLocationCoords?.latitude ?? 0,
 					zipCode: '',
 					locationLoaded: !!selectedLocationCoords
 				}}
 				onLocationSelect={(location) => {
 					filters.location = location.displayName;
 					selectedLocationCoords = {
-						latitude: location.latitude || 0,
-						longitude: location.longitude || 0
+						latitude: location.latitude ?? 0,
+						longitude: location.longitude ?? 0
 					};
 				}}
 				showMap={false}
@@ -361,7 +376,7 @@
 			{$t('find_tasks.availability')}
 		</div>
 		<div class="collapse-content">
-			<AvailabilityFilter 
+			<AvailabilityFilter
 				bind:start={availabilityStart}
 				bind:end={availabilityEnd}
 				bind:deadlineDate={availabilityDeadline}
@@ -411,18 +426,4 @@
 			/>
 		</div>
 	</div>
-
-		<!-- Filter Actions -->
-		<div class="divider"></div>
-		<div class="mt-8 mb-20 flex justify-between">
-			<button class="btn btn-ghost btn-outline" onclick={clearFilters}>
-				{$t('find_tasks.clear_filters')}
-			</button>
-			<button class="btn btn-primary" onclick={applyFilters}>
-				{$t('find_tasks.apply')}
-				{#if activeFilterCount > 0}
-					<div class="badge badge-secondary ml-2">{activeFilterCount}</div>
-				{/if}
-			</button>
-		</div>
-	</div>
+</UnifiedFilterDrawer>

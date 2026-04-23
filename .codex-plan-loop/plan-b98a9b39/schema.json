@@ -1,0 +1,41 @@
+{
+  "type": "object",
+  "properties": {
+    "status": {
+      "type": "string",
+      "enum": [
+        "in_progress",
+        "blocked",
+        "complete"
+      ]
+    },
+    "percent_complete": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100
+    },
+    "summary": {
+      "type": "string"
+    },
+    "remaining_work": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "required_user_action": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "status",
+    "percent_complete",
+    "summary",
+    "remaining_work",
+    "required_user_action"
+  ],
+  "additionalProperties": false
+}

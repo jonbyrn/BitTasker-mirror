@@ -95,10 +95,26 @@
 	let translatedCategories = $derived(task?.categories?.map(translateCategory) || []);
 
 	const isRemoteTask = $derived(() => {
-		if (!task?.taskType) return false;
-		const normalizedType =
-			typeof task.taskType === 'string' ? task.taskType.toLowerCase() : task.taskType;
-		return normalizedType === TaskTypeEnum.REMOTE;
+		if (!task) return false;
+
+		// 1. Check explicit task type
+		if (task.taskType) {
+			const normalizedType =
+				typeof task.taskType === 'string' ? task.taskType.toLowerCase() : task.taskType;
+			if (normalizedType === TaskTypeEnum.REMOTE) return true;
+		}
+
+		// 2. Check for missing or placeholder pickup location
+		const pickupName = (task.pickupLocation?.displayName || '').trim().toLowerCase();
+		if (!pickupName || pickupName === 'remote' || pickupName === 'approximate location') {
+			// If we also don't have a drop-off location, it's definitely remote
+			const dropOffName = (task.dropOffLocation?.displayName || '').trim().toLowerCase();
+			if (!dropOffName || dropOffName === 'remote' || dropOffName === 'approximate location') {
+				return true;
+			}
+		}
+
+		return false;
 	});
 
 	const shouldShowLocationInfo = $derived(
@@ -494,11 +510,7 @@
 												<div class="mb-2">
 													<div class="text-base-content/60 flex items-center gap-2 text-sm">
 														<IconMapMarker class="h-4 w-4" />
-														<span>{$t('dashboard.task_details_by_task.remote_location_label')}</span
-														>
-													</div>
-													<div>
-														{$t('dashboard.task_details_by_task.remote_location_description')}
+														<span>{$t('dashboard.task_details_by_task.remote')}</span>
 													</div>
 												</div>
 											{:else}

@@ -1,0 +1,38 @@
+{
+  "input_path": "/home/scott/find-services/BitTasker/requirements/services-listing-feature-plan.md",
+  "run_dir": "/home/scott/find-services/BitTasker/.codex-plan-loop/services-listing-feature-plan-fb915b1d",
+  "iteration": 15,
+  "last_status": "in_progress",
+  "last_result": {
+    "status": "in_progress",
+    "percent_complete": 99,
+    "summary": "This iteration stayed focused on the saved build/verification blocker rather than new feature edits. Using a parallel review/debug pass, I verified that `npx --yes svelte-kit sync` completes cleanly and isolated the real failing step to `vite build`. A heartbeat-wrapped clean build now shows the prior missing preview artifacts were partly a false intermediate signal: the build successfully completes the SSR phase, enters the client build, and begins materializing `.svelte-kit/output/client`, but then the client/static-adapter portion is terminated with exit code `137` before finalizing `build/` and `manifest.js`. That means the earlier preview `[500] GET / TypeError: Cannot read properties of null (reading 'imports')` still points to an incomplete preview artifact set caused by the late build termination, not a confirmed route/runtime regression in the services browse code. No repository files needed to change in this iteration; the remaining work is still to get one uncontended clean build fully through the client/static adapter path, then rerun the targeted bootstrap and browser gates on the completed artifact set.",
+    "remaining_work": [
+      "Run one uncontended clean `npm run build` to completion and confirm the final preview artifact contract exists together: `build/index.html`, `.svelte-kit/output/client`, `.svelte-kit/output/server/manifest-full.js`, and `.svelte-kit/output/server/manifest.js`.",
+      "If the clean build still terminates before finalizing the preview artifact set, continue tracing and reducing the late client-build/static-adapter memory pressure from the current lighter build baseline until the build completes deterministically.",
+      "Once the final artifact set is confirmed, rerun `CI=1 VITE_API_URL=https://api.example.test VITE_NOSTR_RELAY_URL=wss://relay.example.test VITE_E2E_TURNSTILE_BYPASS=true npm run test:e2e:validate-service-bootstrap` against that artifact set.",
+      "Rerun `CI=1 npx playwright test tests/e2e/tasks-services-regression-browse.spec.ts --project=chromium --project='Mobile Safari' --workers=1 --retries=0 --reporter=line` against the clean built preview and confirm the Mobile Safari browse regression is resolved.",
+      "If the targeted browse rerun is green, rerun the remaining Mobile Safari non-visual aggregate and the final Chromium visual bundle to close the local `TEST-G3` / `TEST-G4` evidence.",
+      "Verify the remaining external `CI-G1` GitLab merge-policy requirements (`only_allow_merge_if_pipeline_succeeds`, required jobs active for merge requests) using `GITLAB_TOKEN`, `CI_API_V4_URL`, and `CI_PROJECT_ID` or the real GitLab CI environment."
+    ],
+    "required_user_action": []
+  },
+  "verification_pending": null,
+  "artifact_sync_pending": false,
+  "notification_flags": {
+    "progress_25": "sent",
+    "progress_50": "sent",
+    "progress_75": "sent",
+    "blocked_8": "sent"
+  },
+  "updated_at": "2026-03-13T23:37:12.466Z",
+  "prior_remaining_work": [
+    "Run one uncontended clean `npm run build` to completion and confirm the final preview artifact contract exists together: `build/index.html`, `.svelte-kit/output/client`, `.svelte-kit/output/server/manifest-full.js`, and `.svelte-kit/output/server/manifest.js`.",
+    "If the clean build still terminates before finalizing the preview artifact set, continue tracing and reducing the late client-build/static-adapter memory pressure from the current lighter build baseline until the build completes deterministically.",
+    "Once the final artifact set is confirmed, rerun `CI=1 VITE_API_URL=https://api.example.test VITE_NOSTR_RELAY_URL=wss://relay.example.test VITE_E2E_TURNSTILE_BYPASS=true npm run test:e2e:validate-service-bootstrap` against that artifact set.",
+    "Rerun `CI=1 npx playwright test tests/e2e/tasks-services-regression-browse.spec.ts --project=chromium --project='Mobile Safari' --workers=1 --retries=0 --reporter=line` against the clean built preview and confirm the Mobile Safari browse regression is resolved.",
+    "If the targeted browse rerun is green, rerun the remaining Mobile Safari non-visual aggregate and the final Chromium visual bundle to close the local `TEST-G3` / `TEST-G4` evidence.",
+    "Verify the remaining external `CI-G1` GitLab merge-policy requirements (`only_allow_merge_if_pipeline_succeeds`, required jobs active for merge requests) using `GITLAB_TOKEN`, `CI_API_V4_URL`, and `CI_PROJECT_ID` or the real GitLab CI environment."
+  ],
+  "verify_failures": []
+}
