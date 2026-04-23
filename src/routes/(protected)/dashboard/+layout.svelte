@@ -4,7 +4,7 @@
 	import { page } from '$app/state';
 	import { sections } from '$lib/utils/consts';
 	import { t } from 'svelte-i18n';
-	import IconChartBoxOutline from '~icons/mdi/chart-box-outline';
+	import IconTrendingUp from '~icons/mdi/trending-up';
 	import IconBriefcaseOutline from '~icons/mdi/briefcase-outline';
 	import IconPlusCircleOutline from '~icons/mdi/plus-circle-outline';
 	import IconMagnify from '~icons/mdi/magnify';
@@ -77,8 +77,8 @@
 										>
 											{#if section.icon === 'mdi:briefcase-outline'}
 												<IconBriefcaseOutline class="text-primary" />
-											{:else if section.icon === 'mdi:chart-box-outline'}
-												<IconChartBoxOutline class="text-primary" />
+											{:else if section.icon === 'mdi:trending-up'}
+												<IconTrendingUp class="text-primary" />
 											{:else if section.icon === 'mdi:plus-circle-outline'}
 												<IconPlusCircleOutline class="text-primary" />
 											{:else if section.icon === 'mdi:magnify'}
@@ -94,7 +94,7 @@
 											{:else if section.icon === 'mdi:cog'}
 												<IconCog class="text-primary" />
 											{:else}
-												<IconChartBoxOutline class="text-primary" />
+												<IconTrendingUp class="text-primary" />
 											{/if}
 											{$t(section.label)}
 										</a>
