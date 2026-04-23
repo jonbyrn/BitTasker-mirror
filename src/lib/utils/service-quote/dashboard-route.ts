@@ -48,6 +48,18 @@ export interface DashboardRouteContext {
 	};
 }
 
+export const emptyDashboardRouteContext: DashboardRouteContext = {
+	taskerTimelines: [],
+	providerTimelinesByService: {},
+	taskerLoaded: false,
+	providerLoadedByService: {},
+	focusSync: {
+		requestId: null,
+		serviceAddress: null,
+		expiresAt: null
+	}
+};
+
 export function isDashboardRequestSyncActive(
 	context: Pick<DashboardRouteContext, 'focusSync'>,
 	requestId: string | null | undefined,

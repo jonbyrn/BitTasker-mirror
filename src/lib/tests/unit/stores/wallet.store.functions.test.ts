@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { get } from 'svelte/store';
 import { getRSKAddress, walletStore, walletManager } from '$lib/stores/wallet.store';
+// WalletStateExtended is not exported, so we use type inference
 // Import will be used inside hoisted function
 
 // Prevent profile.ts -> upload.service -> BaseApiService load failure in test env
@@ -119,7 +120,6 @@ describe('Wallet Store Functions', () => {
 		walletStore.set({
 			isInitializing: false,
 			isConnected: false,
-			hasAnyConnection: false,
 			error: null,
 			rsk: {
 				connected: false,
@@ -164,7 +164,7 @@ describe('Wallet Store Functions', () => {
 			activeNetwork: 'rsk',
 			activeTab: 'balance',
 			selectedAsset: 'rBTC'
-		});
+		} as any);
 	});
 
 	afterEach(() => {
@@ -177,7 +177,7 @@ describe('Wallet Store Functions', () => {
 			await walletManager.initialize();
 
 			// Wait for initialization
-			await new Promise((resolve) => setTimeout(resolve, 100));
+			await new Promise((resolve) => setTimeout(resolve, 10));
 
 			const address = await getRSKAddress();
 			expect(address).toBeTruthy();

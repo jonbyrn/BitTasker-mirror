@@ -46,6 +46,8 @@ export default defineConfig(({ mode }) => {
 			environment: 'jsdom',
 			setupFiles: ['./vitest-setup-client.ts'],
 			globals: true,
+			pool: 'forks',
+			maxWorkers: 6,
 			exclude: [
 				'**/_pending/**',
 				'**/e2e/**',

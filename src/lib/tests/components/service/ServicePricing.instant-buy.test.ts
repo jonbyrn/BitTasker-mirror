@@ -10,7 +10,7 @@ const hoisted = vi.hoisted(() => {
 		return {
 			set(nextValue: T) {
 				value = nextValue;
-				for (const subscriber of subscribers) {
+				for (const subscriber of Array.from(subscribers)) {
 					subscriber(value);
 				}
 			},
@@ -91,7 +91,17 @@ describe('ServicePricing instant-buy authoring controls', () => {
 		});
 	});
 
-	function readStoreState() {
+	function readStoreState(): {
+		service: {
+			pricing: {
+				type: string;
+				currency: string;
+				amount?: number;
+			};
+			instantBuyLeadHours?: number;
+			instantBuyDeliveryHours?: number;
+		};
+	} | null {
 		let currentValue: {
 			service: {
 				pricing: {
@@ -119,9 +129,9 @@ describe('ServicePricing instant-buy authoring controls', () => {
 		await fireEvent.click(getByTestId('service-pricing-instant-buy-toggle'));
 
 		await waitFor(() =>
-			expect(getByTestId('service-pricing-instant-buy-lead-hours')).toHaveValue(1)
+			expect((getByTestId('service-pricing-instant-buy-lead-hours') as HTMLInputElement).value).toBe('1')
 		);
-		expect(getByTestId('service-pricing-instant-buy-lead-unit')).toHaveValue('day');
+		expect((getByTestId('service-pricing-instant-buy-lead-unit') as HTMLSelectElement).value).toBe('day');
 
 		await fireEvent.input(getByTestId('service-pricing-instant-buy-lead-hours'), {
 			target: { value: '2' }
@@ -134,9 +144,9 @@ describe('ServicePricing instant-buy authoring controls', () => {
 		});
 
 		await waitFor(() =>
-			expect(getByTestId('service-pricing-instant-buy-lead-hours')).toHaveValue(2)
+		expect((getByTestId('service-pricing-instant-buy-lead-hours') as HTMLInputElement).value).toBe('2')
 		);
-		expect(getByTestId('service-pricing-instant-buy-delivery-unit')).toHaveValue('week');
+		expect((getByTestId('service-pricing-instant-buy-delivery-unit') as HTMLSelectElement).value).toBe('week');
 		expect(readStoreState()?.service.instantBuyLeadHours).toBe(48);
 		expect(readStoreState()?.service.instantBuyDeliveryHours).toBe(168);
 	});
@@ -149,7 +159,7 @@ describe('ServicePricing instant-buy authoring controls', () => {
 
 		await fireEvent.click(getByTestId('service-pricing-instant-buy-toggle'));
 		await waitFor(() =>
-			expect(getByTestId('service-pricing-instant-buy-lead-hours')).toHaveValue(1)
+			expect((getByTestId('service-pricing-instant-buy-lead-hours') as HTMLInputElement).value).toBe('1')
 		);
 
 		await fireEvent.click(getByText('dashboard.services.create.pricing.inquiry_title'));
@@ -196,8 +206,19 @@ describe('ServicePricing instant-buy authoring controls', () => {
 		hoisted.storeState.set({
 			service: {
 				pricing: undefined,
-				instantBuyLeadHours: undefined
+				instantBuyLeadHours: undefined,
+				instantBuyDeliveryHours: undefined
 			}
+		} as unknown as {
+			service: {
+				pricing: {
+					type: string;
+					currency: string;
+					amount: number;
+				};
+				instantBuyLeadHours: number | undefined;
+				instantBuyDeliveryHours: number | undefined;
+			};
 		});
 
 		const { getByText } = render(ServicePricing, {
@@ -253,10 +274,10 @@ describe('ServicePricing instant-buy authoring controls', () => {
 			direction: 'forward'
 		});
 
-		expect(getByTestId('service-pricing-instant-buy-lead-unit')).toHaveValue('day');
-		expect(getByTestId('service-pricing-instant-buy-lead-hours')).toHaveValue(2);
-		expect(getByTestId('service-pricing-instant-buy-delivery-unit')).toHaveValue('week');
-		expect(getByTestId('service-pricing-instant-buy-delivery-hours')).toHaveValue(1);
+		expect((getByTestId('service-pricing-instant-buy-lead-unit') as HTMLSelectElement).value).toBe('day');
+		expect((getByTestId('service-pricing-instant-buy-lead-hours') as HTMLInputElement).value).toBe('2');
+		expect((getByTestId('service-pricing-instant-buy-delivery-unit') as HTMLSelectElement).value).toBe('week');
+		expect((getByTestId('service-pricing-instant-buy-delivery-hours') as HTMLInputElement).value).toBe('1');
 		expect(getByTestId('service-pricing-instant-buy-lead-hours').parentElement).toBe(
 			getByTestId('service-pricing-instant-buy-lead-unit').parentElement
 		);
@@ -268,7 +289,7 @@ describe('ServicePricing instant-buy authoring controls', () => {
 			target: { value: 'hour' }
 		});
 
-		expect(getByTestId('service-pricing-instant-buy-lead-hours')).toHaveValue(48);
+		expect((getByTestId('service-pricing-instant-buy-lead-hours') as HTMLInputElement).value).toBe('48');
 		expect(readStoreState()?.service.instantBuyLeadHours).toBe(48);
 	});
 

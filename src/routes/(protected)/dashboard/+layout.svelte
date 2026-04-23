@@ -70,7 +70,7 @@
 									<li class="my-1">
 										<a
 											data-sveltekit-reload="off"
-											href={resolve(section.path)}
+											href={section.path}
 											class:menu-active={page.url.pathname + page.url.search === section.path ||
 												page.url.pathname === section.path}
 											class="flex items-center gap-3 {section.indent ? 'pl-6' : ''}"

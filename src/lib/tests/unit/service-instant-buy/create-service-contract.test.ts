@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createInstantBuySnapshot } from '$lib/utils/service-instant-buy/create';
 import { createServiceContractFromSnapshot } from '$lib/utils/service-contract/create-from-snapshot';
 import { buildServiceAddress } from '$lib/utils/service-quote/protocol';
+import type { Service } from '$lib/types/service';
 
 describe('service instant-buy contract snapshot mapping', () => {
 	afterEach(() => {
@@ -24,7 +25,7 @@ describe('service instant-buy contract snapshot mapping', () => {
 				amount: 150,
 				deliveryTime: { min: 2, max: 3, unit: 'day' as const }
 			}
-		};
+		} as unknown as Service;
 		const serviceAddress = buildServiceAddress(service);
 		const snapshot = createInstantBuySnapshot({
 			service,

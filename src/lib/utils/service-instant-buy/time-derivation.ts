@@ -53,7 +53,7 @@ export function deriveServiceInstantBuySchedule(
 
 	if (service.pricing.type === 'FIXED') {
 		const deliveryTime = requestRushDelivery && service.pricing.rushDelivery?.enabled
-			? service.pricing.rushDelivery.deliveryTime
+			? service.pricing.rushDelivery!.deliveryTime
 			: (service.instantBuyDeliveryHours
 				? { value: service.instantBuyDeliveryHours, unit: 'hour' as const }
 				: service.pricing.deliveryTime!);
@@ -70,7 +70,7 @@ export function deriveServiceInstantBuySchedule(
 	}
 	
 	const deliveryTime = requestRushDelivery && tier.rushDelivery?.enabled
-		? tier.rushDelivery.deliveryTime
+		? tier.rushDelivery!.deliveryTime
 		: tier.deliveryTime;
 
 	if (!deliveryTime) {

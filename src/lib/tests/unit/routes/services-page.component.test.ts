@@ -61,7 +61,7 @@ const hoisted = vi.hoisted(() => ({
 				searchParamsKey: string;
 			}) => void
 		) => () => void;
-	},
+	} & Record<string, unknown>,
 	authStateStore: null as unknown as {
 		set: (nextValue: { isAuthenticated: boolean }) => void;
 		subscribe: (subscriber: (nextValue: { isAuthenticated: boolean }) => void) => () => void;
@@ -83,10 +83,10 @@ hoisted.servicesStore = hoisted.createStore({
 	currentPage: 1,
 	hasMore: false,
 	searchParamsKey: ''
-});
-hoisted.servicesStore.destroy = vi.fn();
-hoisted.authStateStore = hoisted.createStore({ isAuthenticated: true });
-hoisted.userStore = hoisted.createStore({ npub: 'owner-pubkey' });
+}) as unknown as typeof hoisted.servicesStore;
+(hoisted.servicesStore as unknown as { destroy: ReturnType<typeof vi.fn> }).destroy = vi.fn();
+hoisted.authStateStore = hoisted.createStore({ isAuthenticated: true }) as unknown as typeof hoisted.authStateStore;
+hoisted.userStore = hoisted.createStore({ npub: 'owner-pubkey' }) as unknown as typeof hoisted.userStore;
 
 vi.mock('svelte-i18n', async () => {
 	const { readable } = await import('svelte/store');

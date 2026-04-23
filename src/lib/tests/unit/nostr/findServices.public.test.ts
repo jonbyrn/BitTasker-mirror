@@ -79,7 +79,7 @@ describe('findServices public discovery', () => {
 		}));
 		mockRequestEvents.mockResolvedValue({ data: [] });
 		vi.mocked(Preferences.get).mockResolvedValue({ value: null });
-		mockFetchComprehensiveProfile.mockResolvedValue(null);
+		mockFetchComprehensiveProfile.mockResolvedValue(null as never);
 	});
 
 	it('returns public services without requiring biometric npub resolution', async () => {

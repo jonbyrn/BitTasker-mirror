@@ -36,8 +36,8 @@ describe('portal utility', () => {
 		expect(secondHost.contains(node)).toBe(true);
 		expect(firstHost.contains(node)).toBe(false);
 
-		secondRegistration?.destroy();
-		firstRegistration.destroy();
+		(secondRegistration as { destroy: () => void } | null)?.destroy();
+		(firstRegistration as { destroy: () => void }).destroy();
 		mounted.destroy();
 	});
 

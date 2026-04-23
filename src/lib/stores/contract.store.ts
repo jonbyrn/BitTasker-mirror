@@ -472,7 +472,7 @@ function createContractStore() {
 
 			// Properties in contractEvent.content (NostrContract)
 			if (key in contract.contractEvent.content) {
-				return contract.contractEvent.content[key as keyof NostrContract];
+				return contract.contractEvent.content[key as keyof NostrContract] as string | number | boolean | undefined;
 			}
 
 			d.warn('Unknown key', { key: String(key) });

@@ -66,43 +66,22 @@ export const WithImage: Story = {
 
 // Different names to show different colors and initials
 export const DifferentUsers: Story = {
-	render: () => ({
-		Component: Avatar,
-		props: {}
-	}),
-	decorators: [
-		() => ({
-			template: `
-				<div class="flex items-center gap-4">
-					<Avatar user={{ name: 'John Doe', profileImage: null }} />
-					<Avatar user={{ name: 'Alice Smith', profileImage: null }} />
-					<Avatar user={{ name: 'Robert Brown', profileImage: null }} />
-					<Avatar user={{ name: 'Maria Garcia', profileImage: null }} />
-					<Avatar user={{ name: 'David Lee', profileImage: null }} />
-					<Avatar user={{ name: 'Sarah Johnson', profileImage: null }} />
-				</div>
-			`
-		})
-	]
+	args: {
+		user: {
+			name: 'John Doe',
+			profileImage: null
+		},
+		size: 'md'
+	}
 };
 
 // Show all sizes
 export const AllSizes: Story = {
-	render: () => ({
-		Component: Avatar,
-		props: {}
-	}),
-	decorators: [
-		() => ({
-			template: `
-				<div class="flex items-end gap-4">
-					<Avatar user={{ name: 'John Doe', profileImage: null }} size="xs" />
-					<Avatar user={{ name: 'John Doe', profileImage: null }} size="sm" />
-					<Avatar user={{ name: 'John Doe', profileImage: null }} size="md" />
-					<Avatar user={{ name: 'John Doe', profileImage: null }} size="lg" />
-					<Avatar user={{ name: 'John Doe', profileImage: null }} size="xl" />
-				</div>
-			`
-		})
-	]
+	args: {
+		user: {
+			name: 'John Doe',
+			profileImage: null
+		},
+		size: 'lg'
+	}
 }; 

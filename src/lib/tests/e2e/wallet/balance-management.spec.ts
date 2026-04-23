@@ -97,7 +97,7 @@ test.describe('Balance Management', () => {
 		
 		if (isVisible) {
 			// Should have overflow-y-auto class or computed style
-			const hasScroll = await balanceCard.evaluate(el => {
+			const hasScroll = await balanceCard.evaluate((el: Element) => {
 				return el.classList.contains('overflow-y-auto') || 
 				       getComputedStyle(el).overflowY === 'auto' ||
 				       getComputedStyle(el).overflowY === 'scroll';

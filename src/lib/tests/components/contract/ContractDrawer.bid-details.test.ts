@@ -12,25 +12,25 @@ const { contractStoreState, getContractKey } = vi.hoisted(() => {
 		isResolutionFormOpen: boolean;
 	};
 
-	let value = {
+	let value: MockStoreState = {
 		contract: null,
 		contracts: [],
 		isDrawerOpen: true,
 		isResolutionFormOpen: false
-	} satisfies MockStoreState;
+	};
 
-	const subscribers = new Set<(nextValue: typeof value) => void>();
+	const subscribers = new Set<(v: MockStoreState) => void>();
 	const state = {
-		subscribe(run: (nextValue: typeof value) => void) {
+		subscribe(run: (v: MockStoreState) => void) {
 			run(value);
 			subscribers.add(run);
 			return () => subscribers.delete(run);
 		},
-		set(nextValue: typeof value) {
-			value = nextValue;
+		set(next: MockStoreState) {
+			value = next;
 			subscribers.forEach((run) => run(value));
 		},
-		update(updater: (nextValue: typeof value) => typeof value) {
+		update(updater: (v: MockStoreState) => MockStoreState) {
 			state.set(updater(value));
 		}
 	};

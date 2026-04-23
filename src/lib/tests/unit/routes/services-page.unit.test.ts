@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ServiceLocationTypeEnum, ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';
 import type { Service } from '$lib/types/service.d';
 import { BITTASKER_CANONICAL_BASE } from '$lib/utils/constants/seo.constants';
-import { load } from '../../../../routes/services/[serviceId]/+page.ts';
+import { load } from '../../../../routes/services/[serviceId]/+page';
 import { findServiceByUniqueId } from '$lib/nostr/service';
 
 vi.mock('$lib/nostr/service', () => ({
@@ -41,7 +41,7 @@ function createService(overrides: Partial<Service> = {}): Service {
 		},
 		skills: ['Design'],
 		categories: [{ id: 'design', name: 'Design', slug: 'design' }],
-		portfolio: [{ url: 'https://cdn.example.com/service.jpg', type: 'image/jpeg', alt: 'Service' }],
+		portfolio: [{ url: 'https://cdn.example.com/service.jpg', key: '', size: 0, type: 'image/jpeg', alt: 'Service' }],
 		createdAt: 1_700_000_000,
 		creator: {
 			username: 'designer-pro',
@@ -64,10 +64,10 @@ describe('services/[serviceId] page load', () => {
 	it('returns structured service json-ld for a found service', async () => {
 		vi.mocked(findServiceByUniqueId).mockResolvedValue(createService());
 
-		const result = await load({
+		const result = (await load({
 			params: { serviceId: 'service-unique-id' },
 			parent: mockParent
-		} as Parameters<typeof load>[0]);
+		} as unknown as any)) as unknown as { serviceId: string; seo: Record<string, unknown>; service: unknown };
 
 		expect(result.serviceId).toBe('service-unique-id');
 		expect(result.seo.title).toBe('Premium Design Service - BitTasker');
@@ -103,10 +103,10 @@ describe('services/[serviceId] page load', () => {
 	it('falls back to default seo payload when the service is missing', async () => {
 		vi.mocked(findServiceByUniqueId).mockResolvedValue(null);
 
-		const result = await load({
+		const result = (await load({
 			params: { serviceId: 'missing-service' },
 			parent: mockParent
-		} as Parameters<typeof load>[0]);
+		} as unknown as any)) as unknown as { serviceId: string; seo: Record<string, unknown>; service: unknown };
 
 		expect(result.service).toBeNull();
 		expect(result.serviceId).toBe('missing-service');
@@ -124,8 +124,8 @@ describe('services/[serviceId] page load', () => {
 				description: '',
 				categories: [],
 				portfolio: [
-					{ url: '/images/service-preview.png', type: 'image/png', alt: 'Preview' },
-					{ url: 'https://cdn.example.com/preview.mp4', type: 'video/mp4', alt: 'Preview' }
+					{ url: '/images/service-preview.png', key: '', size: 0, type: 'image/png', alt: 'Preview' },
+					{ url: 'https://cdn.example.com/preview.mp4', key: '', size: 0, type: 'video/mp4', alt: 'Preview' }
 				],
 				pricing: {
 					type: ServicePricingTypeEnum.FIXED,
@@ -145,10 +145,10 @@ describe('services/[serviceId] page load', () => {
 			})
 		);
 
-		const result = await load({
+		const result = (await load({
 			params: { serviceId: 'fixed-service' },
 			parent: mockParent
-		} as Parameters<typeof load>[0]);
+		} as unknown as any)) as unknown as { serviceId: string; seo: Record<string, unknown>; service: unknown };
 
 		expect(result.seo.description).toBe('No description available');
 		expect(result.seo.ogImage).toBe(`${canonicalBase}/images/service-preview.png`);
@@ -187,10 +187,10 @@ describe('services/[serviceId] page load', () => {
 			})
 		);
 
-		const result = await load({
+		const result = (await load({
 			params: { serviceId: 'hourly-service' },
 			parent: mockParent
-		} as Parameters<typeof load>[0]);
+		} as unknown as any)) as unknown as { serviceId: string; seo: Record<string, unknown>; service: unknown };
 
 		expect(result.serviceId).toBe('hourly-service');
 		expect(result.seo.canonical).toBe(`${canonicalBase}/services/hourly-service`);
@@ -221,10 +221,10 @@ describe('services/[serviceId] page load', () => {
 			})
 		);
 
-		const result = await load({
+		const result = (await load({
 			params: { serviceId: 'quote-only-service' },
 			parent: mockParent
-		} as Parameters<typeof load>[0]);
+		} as unknown as any)) as unknown as { serviceId: string; seo: Record<string, unknown>; service: unknown };
 
 		expect(result.seo.jsonLd).not.toHaveProperty('offers');
 		expect(result.seo.jsonLd).not.toHaveProperty('areaServed');
@@ -235,14 +235,14 @@ describe('services/[serviceId] page load', () => {
 			createService({
 				uniqueId: 'custom service slug',
 				status: 'inactive',
-				portfolio: [{ url: '//cdn.example.com/service.png', type: 'image/png', alt: 'Service' }]
+				portfolio: [{ url: '//cdn.example.com/service.png', key: '', size: 0, type: 'image/png', alt: 'Service' }]
 			})
 		);
 
-		const result = await load({
+		const result = (await load({
 			params: { serviceId: 'custom service slug' },
 			parent: mockParent
-		} as Parameters<typeof load>[0]);
+		} as unknown as any)) as unknown as { serviceId: string; seo: Record<string, unknown>; service: unknown };
 
 		expect(result.serviceId).toBe('custom service slug');
 		expect(result.seo.canonical).toBe(`${canonicalBase}/services/custom%20service%20slug`);

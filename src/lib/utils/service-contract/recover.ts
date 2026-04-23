@@ -82,7 +82,7 @@ function extractEscrowIdFromReceipt(
 				data: log.data
 			});
 			if (parsedLog?.name === 'EscrowCreated') {
-				return parsedLog.args[0].toString();
+				return parsedLog.args[0]?.toString() ?? null;
 			}
 		} catch {
 			// Ignore unrelated logs while scanning for EscrowCreated.
@@ -130,7 +130,7 @@ export async function recoverBookNowContract(
 			};
 		}
 
-		const escrowId = extractEscrowIdFromReceipt(receipt, contract) ?? input.escrowId ?? undefined;
+		const escrowId = extractEscrowIdFromReceipt(receipt as unknown as { logs?: Array<{ topics: string[]; data: string }> }, contract) ?? input.escrowId ?? undefined;
 		if (!escrowId) {
 			return {
 				status: 'contract_sync_pending',

@@ -66,7 +66,7 @@ describe('findMyServices deletion filtering', () => {
 				{
 					id: 'delete-1',
 					tags: [['e', 'service-event-1']]
-				}
+				} as unknown as Event
 			]
 		});
 	});

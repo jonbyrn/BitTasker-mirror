@@ -1,7 +1,7 @@
 
 
 
-export async function load({ url }) {
+export async function load({ url }: { url: URL }) {
 	return {
 		title: 'BitTasker FAQ - Bitcoin Task Marketplace Questions',
 		description: 'Find answers to frequently asked questions about BitTasker, including how to use our Bitcoin task marketplace, secure payment contracts, fees, and payment process.',

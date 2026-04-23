@@ -184,11 +184,15 @@ describe('Escrow State Transitions Integration Tests', () => {
 				sig: 'sig',
 				tags: [],
 				content: {
+					contractEventId: 'contract-123',
+					escrowId: '123',
 					action: EscrowStatus.PendingCompletion,
 					message: 'Task completing...',
-					transactionHash: '0x456'
+					transactionHash: '0x456',
+					timestamp: now,
+					type: 'contract-status'
 				}
-			};
+			} as unknown as ContractStatusEvent;
 
 			result = determineContractState(
 				EscrowStatus.Funded,
@@ -258,11 +262,15 @@ describe('Escrow State Transitions Integration Tests', () => {
 				sig: 'sig',
 				tags: [],
 				content: {
+					contractEventId: 'contract-123',
+					escrowId: '123',
 					action: EscrowStatus.PendingAcceptance,
 					message: 'Accepting task...',
-					transactionHash: '0x789'
+					transactionHash: '0x789',
+					timestamp: now,
+					type: 'contract-status'
 				}
-			};
+			} as unknown as ContractStatusEvent;
 
 			result = determineContractState(
 				EscrowStatus.Completed,
@@ -286,11 +294,15 @@ describe('Escrow State Transitions Integration Tests', () => {
 				sig: 'sig',
 				tags: [],
 				content: {
+					contractEventId: 'contract-123',
+					escrowId: '123',
 					action: EscrowStatus.FundsReleased,
 					message: 'Payment released',
-					transactionHash: '0x789'
+					transactionHash: '0x789',
+					timestamp: now + 100,
+					type: 'contract-status'
 				}
-			};
+			} as unknown as ContractStatusEvent;
 
 			result = determineContractState(
 				EscrowStatus.Completed, // Blockchain still shows Completed
@@ -339,11 +351,15 @@ describe('Escrow State Transitions Integration Tests', () => {
 				sig: 'sig',
 				tags: [],
 				content: {
+					contractEventId: 'contract-123',
+					escrowId: '123',
 					action: EscrowStatus.PendingDispute,
 					message: 'Raising dispute...',
-					transactionHash: '0xdef'
+					transactionHash: '0xdef',
+					timestamp: now,
+					type: 'contract-status'
 				}
-			};
+			} as unknown as ContractStatusEvent;
 
 			result = determineContractState(
 				EscrowStatus.Completed,
@@ -405,13 +421,17 @@ describe('Escrow State Transitions Integration Tests', () => {
 				sig: 'sig',
 				tags: [],
 				content: {
+					contractEventId: 'contract-123',
+					escrowId: '123',
 					action: EscrowStatus.DisputeResolutionProposed,
 					message: 'Proposal created',
 					transactionHash: '0x111',
 					proposedClientAmount: '0.5',
-					proposedFreelancerAmount: '0.5'
+					proposedFreelancerAmount: '0.5',
+					timestamp: now,
+					type: 'contract-status'
 				}
-			};
+			} as unknown as ContractStatusEvent;
 
 			let result = determineContractState(
 				EscrowStatus.InDispute,
@@ -441,11 +461,15 @@ describe('Escrow State Transitions Integration Tests', () => {
 				sig: 'sig',
 				tags: [],
 				content: {
+					contractEventId: 'contract-123',
+					escrowId: '123',
 					action: EscrowStatus.DisputeResolved,
 					message: 'Proposal accepted',
-					transactionHash: '0x222'
+					transactionHash: '0x222',
+					timestamp: now + 100,
+					type: 'contract-status'
 				}
-			};
+			} as unknown as ContractStatusEvent;
 
 			result = determineContractState(
 				EscrowStatus.DisputeResolved,
@@ -491,11 +515,15 @@ describe('Escrow State Transitions Integration Tests', () => {
 				sig: 'sig',
 				tags: [],
 				content: {
+					contractEventId: 'contract-123',
+					escrowId: '123',
 					action: EscrowStatus.PendingCancellation,
 					message: 'Cancelling...',
-					transactionHash: '0xabc'
+					transactionHash: '0xabc',
+					timestamp: now,
+					type: 'contract-status'
 				}
-			};
+			} as unknown as ContractStatusEvent;
 
 			result = determineContractState(
 				EscrowStatus.Funded,
@@ -546,11 +574,15 @@ describe('Escrow State Transitions Integration Tests', () => {
 				sig: 'sig',
 				tags: [],
 				content: {
+					contractEventId: 'contract-123',
+					escrowId: '123',
 					action: EscrowStatus.PendingCompletion,
 					message: 'Task completing...',
-					transactionHash: '0xstale'
+					transactionHash: '0xstale',
+					timestamp: now - 3600,
+					type: 'contract-status'
 				}
-			};
+			} as unknown as ContractStatusEvent;
 
 			const result = determineContractState(
 				EscrowStatus.Completed, // Blockchain shows completed

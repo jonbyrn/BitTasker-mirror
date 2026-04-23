@@ -157,7 +157,9 @@ describe('FeaturedServicesService', () => {
 						{
 							url: 'https://cdn.example.com/preferred.jpg',
 							type: 'image/jpeg',
-							alt: 'Preferred'
+							alt: 'Preferred',
+							key: 'preferred-key',
+							size: 12345
 						}
 					]
 				}),

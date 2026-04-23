@@ -73,7 +73,6 @@ const service: Service = {
 	id: 'service-event-1',
 	npub: 'a'.repeat(64),
 	uniqueId: 'service-unique-id',
-	active: true,
 	status: 'active',
 	title: 'Brand Design',
 	description: 'Identity system design.',
@@ -315,7 +314,8 @@ describe('serviceQuoteUiStore route contract', () => {
 				description: 'Refresh our app icon set.'
 			}
 		});
-		const stateSnapshots: Array<unknown> = [];
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const stateSnapshots: Array<any> = [];
 		const unsubscribe = serviceQuoteUiStore.subscribe((value) => stateSnapshots.push(value));
 		const latestState = stateSnapshots.at(-1);
 		unsubscribe();
@@ -356,7 +356,8 @@ describe('serviceQuoteUiStore route contract', () => {
 		serviceQuoteUiStore.setNonBlockingMessage('service_quote_protocol_pending');
 		serviceQuoteUiStore.clearRecentSubmit();
 
-		const snapshots: Array<unknown> = [];
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const snapshots: Array<any> = [];
 		const unsubscribe = serviceQuoteUiStore.subscribe((value) => snapshots.push(value));
 		const latestState = snapshots.at(-1);
 		unsubscribe();
@@ -382,7 +383,8 @@ describe('serviceQuoteUiStore route contract', () => {
 			serviceQuoteUiStore.loadProviderTimelines(serviceAddress, 'qr_valid123')
 		).rejects.toThrow('provider load failed');
 
-		const snapshots: Array<unknown> = [];
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const snapshots: Array<any> = [];
 		const unsubscribe = serviceQuoteUiStore.subscribe((value) => snapshots.push(value));
 		const latestState = snapshots.at(-1);
 		unsubscribe();
@@ -473,9 +475,11 @@ describe('serviceQuoteUiStore route contract', () => {
 			})
 		).resolves.toEqual({ success: true });
 
-		const snapshots: Array<unknown> = [];
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const snapshots: Array<any> = [];
 		const unsubscribe = serviceQuoteUiStore.subscribe((value) => snapshots.push(value));
-		const latestState = snapshots.at(-1);
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const latestState = snapshots.at(-1) as any;
 		unsubscribe();
 		const [updatedTimeline] = getTaskerTimelines(latestState);
 

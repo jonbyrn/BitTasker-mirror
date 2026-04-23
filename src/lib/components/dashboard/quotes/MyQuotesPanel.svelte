@@ -1024,7 +1024,7 @@
 			context: 'services',
 			highlight: escrowId
 		});
-		await goto(resolve(`${nextUrl.pathname}${nextUrl.search}`));
+		await goto(`${nextUrl.pathname}${nextUrl.search}`);
 	}
 
 	async function deleteRequest(timeline: ServiceQuoteTimelineEntry) {

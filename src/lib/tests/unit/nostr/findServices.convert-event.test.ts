@@ -262,7 +262,14 @@ describe('convertEventToService', () => {
 		});
 
 		it('should handle profile fetch returning null gracefully', async () => {
-			vi.mocked(fetchComprehensiveProfile).mockResolvedValue(null);
+			vi.mocked(fetchComprehensiveProfile).mockResolvedValue(null as unknown as {
+				name?: string;
+				about?: string;
+				picture?: string;
+				pictures?: { url: string; type: string; alt: string; key?: string; isPrimary?: boolean }[];
+				npub: string;
+				createdAt?: string;
+			});
 			const event = createServiceEvent();
 
 			const result = await convertEventToService(event);
@@ -273,8 +280,15 @@ describe('convertEventToService', () => {
 
 		it('should add rating from profile reviews when available', async () => {
 			vi.mocked(fetchComprehensiveProfile).mockResolvedValue({
-				reviews: [{ rating: 5 }, { rating: 4 }],
+				reviews: [{ id: '1', from: 'user1', rating: 5, text: 'Great!', date: '2024-01-01' }, { id: '2', from: 'user2', rating: 4, text: 'Good', date: '2024-01-02' }],
 				npub: 'b'.repeat(64)
+			} as unknown as {
+				name?: string;
+				about?: string;
+				picture?: string;
+				pictures?: { url: string; type: string; alt: string; key?: string; isPrimary?: boolean }[];
+				npub: string;
+				createdAt?: string;
 			});
 			const event = createServiceEvent();
 
@@ -291,7 +305,7 @@ describe('convertEventToService', () => {
 				status: 'active',
 				title: 'Test Service',
 				description: 'Test service description',
-				serviceLocationTypes: [ServiceLocationTypeEnum.REMOTE, ServiceLocationTypeEnum.ONLINE],
+				serviceLocationTypes: [ServiceLocationTypeEnum.REMOTE, 'ONLINE' as ServiceLocationTypeEnum],
 				locationDetails: { address: '123 Test St' },
 				pricing: {
 					type: ServicePricingTypeEnum.FIXED,

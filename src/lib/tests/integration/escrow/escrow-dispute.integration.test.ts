@@ -57,11 +57,11 @@ vi.mock('@bittasker/wallet-core', () => ({
 // Mock ethers
 let mockContractInstance: EscrowV1IntegrationMockContract | null = null;
 vi.mock('ethers', async () => {
-	const actual = await vi.importActual('ethers');
+	const actual = (await vi.importActual('ethers')) as { ethers: object };
 	return {
 		...actual,
 		ethers: {
-			...actual.ethers,
+			...(actual.ethers as object),
 			Contract: vi.fn().mockImplementation(() => mockContractInstance)
 		}
 	};
@@ -294,7 +294,7 @@ describe('Escrow Dispute Resolution Integration Tests', () => {
 			);
 
 			// Step 3: Accept proposal
-			mockContract.getDisputeProposal.mockResolvedValueOnce(mockDisputeProposal);
+			mockContract.getDisputeProposal!.mockResolvedValueOnce(mockDisputeProposal);
 
 			const acceptResult = await escrow.acceptProposal(escrowId, NOSTR_PEER_HEX, contractEventId);
 
@@ -415,8 +415,8 @@ describe('Escrow Dispute Resolution Integration Tests', () => {
 
 			// Mock contract to reject proposal with invalid amounts (smart contract validation)
 			// Override the estimateGas mock for this specific test
-			const originalEstimateGas = mockContract.proposeResolution.estimateGas;
-			mockContract.proposeResolution.estimateGas = vi
+			const originalEstimateGas = mockContract.proposeResolution!.estimateGas;
+			mockContract.proposeResolution!.estimateGas = vi
 				.fn()
 				.mockRejectedValue(new Error('Amount exceeds escrow balance'));
 
@@ -426,7 +426,7 @@ describe('Escrow Dispute Resolution Integration Tests', () => {
 			).rejects.toThrow('Failed to propose resolution');
 
 			// Restore original mock
-			mockContract.proposeResolution.estimateGas = originalEstimateGas;
+			mockContract.proposeResolution!.estimateGas = originalEstimateGas;
 		});
 	});
 });

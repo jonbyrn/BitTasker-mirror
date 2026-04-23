@@ -1,6 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/svelte';
 import BidDetailsDrawer from '$lib/components/bidding/BidDetailsDrawer.svelte';
 import type { Bid, CounterOffer } from '$lib/types/bid';
+import { BidStatusEnum } from '$lib/utils/enums/bid.enum';
+import type { Freelancer } from '$lib/types/freelancer';
 
 const meta = {
 	title: 'Bidding/BidDetailsDrawer',
@@ -22,9 +24,39 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
+const sampleFreelancer: Freelancer = {
+	id: 1,
+	userId: 1,
+	professionalTitle: 'Developer',
+	bio: null,
+	promotionalVideo: null,
+	yearsExperience: 5,
+	specialties: ['JavaScript', 'TypeScript'],
+	standardRates: 50,
+	tasksCompleted: 10,
+	bidsSent: 5,
+	successRate: 0.8,
+	averageRating: 4.5,
+	level: 1,
+	experiencePoints: 100,
+	reputationScore: 50,
+	feeDiscount: 0,
+	monthlyActivityPoints: 20,
+	verificationLevel: 'basic',
+	identityVerified: true,
+	createdAt: new Date().toISOString(),
+	updatedAt: new Date().toISOString(),
+	user: {
+		id: 1,
+		name: 'John Doe',
+		profilePicture: null
+	}
+};
+
 const sampleBid: Bid = {
 	id: '1',
 	taskId: 'task-123',
+	freelancerId: 1,
 	amount: 0.01,
 	currency: 'BTC',
 	paymentType: 'FIXED',
@@ -38,7 +70,25 @@ const sampleBid: Bid = {
 	visibility: 'PUBLIC',
 	responseTime: 24,
 	createdAt: new Date().toISOString(),
-	status: 'PENDING'
+	status: BidStatusEnum.PENDING,
+	clientViewed: false,
+	clientViewedAt: null,
+	featured: false,
+	clientResponse: null,
+	competitiveScore: null,
+	rank: null,
+	impressions: 0,
+	clicks: 0,
+	isWithdrawn: false,
+	withdrawnReason: null,
+	expiresAt: null,
+	task: {
+		id: 1,
+		title: 'Sample Task',
+		description: 'Task description',
+		status: 'OPEN'
+	},
+	freelancer: sampleFreelancer
 };
 
 const sampleCounterOffers: CounterOffer[] = [

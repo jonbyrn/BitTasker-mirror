@@ -184,12 +184,35 @@ describe('SendPaymentForm Component', () => {
 			hasAnyConnection: true,
 			rsk: {
 				connected: true,
+				connecting: false,
+				error: null,
 				address: '0x1234567890123456789012345678901234567890',
-				formattedBalance: '0.01'
+				balance: '1000000000000000000',
+				formattedBalance: '0.01',
+				blockNumber: null,
+				provider: null,
+				wallet: null
 			},
-			bsc: { connected: false, address: null, formattedUsdtBalance: '0' },
-			totalBalances: { sats: 1_000_000, usd: 50 }
-		}));
+			bsc: {
+				connected: false,
+				connecting: false,
+				error: null,
+				address: null,
+				bnbBalance: '0',
+				formattedBnbBalance: '0',
+				usdtBalance: '0',
+				formattedUsdtBalance: '0',
+				provider: null,
+				wallet: null,
+				blockNumber: null,
+				usdtContract: null,
+				paymasterContract: null,
+				paymasterConnected: false,
+				paymasterAddress: null,
+				canPayFeesInUsdt: false
+			},
+			totalBalances: { sats: 1_000_000, usd: 50, rbtc: 1, usdt: 100, bnb: 0.5 }
+		} as any));
 	});
 
 	describe('Basic Rendering', () => {

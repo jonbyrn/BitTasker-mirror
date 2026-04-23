@@ -3,10 +3,11 @@
  * This can be used in components to display error modals when errors occur
  */
 
-import type { ErrorType } from '$lib/components/ErrorTroubleshootingModal.svelte';
 import { detectErrorType } from './errorTypeDetector';
 import { handleBiometricError } from './biometricErrorHandler';
 import type { BiometricPlatform } from './biometricErrorHandler';
+
+type ErrorType = 'biometric' | 'network' | 'authentication' | 'permission' | 'hardware' | 'timeout' | 'unknown';
 
 export interface ErrorModalOptions {
 	error: any;

@@ -409,7 +409,7 @@
 										<div class="min-w-0 flex-1">
 											{#if serviceListingHref}
 												<a
-													href={resolve(serviceListingHref)}
+													href={serviceListingHref}
 													class="hover:text-primary card-title line-clamp-2 text-lg font-semibold transition-colors"
 												>
 													{presentation?.title}

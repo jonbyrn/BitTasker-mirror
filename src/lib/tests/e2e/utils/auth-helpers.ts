@@ -1,4 +1,4 @@
-import { Page, expect } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
@@ -168,10 +168,10 @@ export class AuthHelper {
     await submitButton.click();
 
     // Wait for redirect to dashboard or success
-    await this.page.waitForURL(/.*\/dashboard/, { timeout: 10000 }).catch(() => {
+    await this.page.waitForURL(/.*\/dashboard/, { timeout: 10000 }).catch(async () => {
       // If redirect doesn't happen, check for success message
       const successMessage = this.page.locator('.alert-success, .success, [data-testid="success"]');
-      if (successMessage.isVisible()) {
+      if (await successMessage.isVisible()) {
         return;
       }
       throw new Error('Login failed - no redirect or success message');

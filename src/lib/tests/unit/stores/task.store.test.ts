@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { get } from 'svelte/store';
 import { myTasksStore, tasksStore, TASKS_PER_PAGE } from '$lib/stores/task.store';
 import type { Task } from '$lib/types/task.d';

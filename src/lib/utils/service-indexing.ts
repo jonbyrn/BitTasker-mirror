@@ -126,7 +126,7 @@ export function indexServiceData(services: Service[]): IndexedService[] {
 			...translationTexts,
 			...locationSearchTerms(
 				service.locationDetails?.taskerLocation?.serviceLocation,
-				service.locationDetails?.taskerLocation?.locationDisplayName
+				undefined
 			),
 			...locationSearchTerms(
 				service.locationDetails?.taskeeLocation?.serviceLocation,

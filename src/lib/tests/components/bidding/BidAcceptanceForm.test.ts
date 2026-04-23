@@ -6,6 +6,7 @@ import BidAcceptanceForm from '$lib/components/bidding/BidAcceptanceForm.svelte'
 import type { NostrEventWithFollowup } from '$lib/types/bid';
 import type { NostrEvent } from 'nostr-tools';
 import type { Task } from '$lib/types/task';
+import { BudgetTypeEnum, TaskTypeEnum, TaskStatusEnum } from '$lib/utils/enums/task.enum';
 
 const mockContractCreationStore = writable<{
 	escrowId: string;
@@ -183,15 +184,15 @@ const defaultBidContent = {
 const defaultTaskContent: Task = {
 	title: 'Test Task',
 	description: 'Test Description',
-	budget: { amount: 100, currency: 'USD', type: 'fixed' },
-	taskType: 'remote',
+	budget: { amount: 100, currency: 'USD', type: BudgetTypeEnum.FIXED },
+	taskType: TaskTypeEnum.REMOTE,
 	deadline: null,
 	dateRange: null,
 	pickupLocation: null,
 	dropOffLocation: null,
-	status: 'open',
+	status: TaskStatusEnum.OPEN,
 	attachments: []
-};
+} as unknown as Task;
 
 const defaultProps = {
 	bid: {
@@ -202,7 +203,7 @@ const defaultProps = {
 		kind: 1,
 		sig: 'sig',
 		tags: []
-	} as NostrEventWithFollowup,
+	} as unknown as NostrEventWithFollowup,
 	task: {
 		id: 'task-1',
 		content: JSON.stringify(defaultTaskContent),

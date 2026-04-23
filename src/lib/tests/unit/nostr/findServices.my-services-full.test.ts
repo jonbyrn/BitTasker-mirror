@@ -5,6 +5,7 @@ import nostrEventsService from '$lib/api/services/nostr/events';
 import KINDS from '$lib/utils/constants/kinds';
 import { ServiceLocationTypeEnum, ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';
 import { cleanup, findMyServices } from '$lib/nostr/findServices';
+import type { ServiceStatus } from '$lib/types/service';
 
 const mockGetNpub = vi.fn();
 
@@ -216,7 +217,7 @@ describe('findMyServices', () => {
 			});
 			mockFindEvents.mockResolvedValue({ data: [olderEvent, newerEvent] });
 			mockRequestEvents.mockResolvedValue({
-				data: [{ id: 'delete-new', tags: [['e', 'event-new']] }]
+				data: [{ id: 'delete-new', tags: [['e', 'event-new']] } as unknown as Event]
 			});
 
 			const result = await findMyServices({ limit: 20 });
@@ -304,7 +305,7 @@ describe('findMyServices', () => {
 				pubkey: TEST_HEX_PUBKEY,
 				uniqueId: 'service-sold',
 				status: 'sold'
-			});
+			} as unknown as Parameters<typeof createServiceEvent>[0]);
 			const inactiveEvent = createServiceEvent({
 				eventId: 'event-inactive',
 				pubkey: TEST_HEX_PUBKEY,

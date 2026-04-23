@@ -699,7 +699,7 @@ export function validateServiceQuoteRequestEvent(event: NostrEvent): ServiceQuot
 
 	return {
 		...event,
-		kind: KINDS.SERVICE_QUOTE_REQUEST,
+		kind: KINDS.SERVICE_QUOTE_REQUEST as 6420,
 		content
 	};
 }
@@ -852,7 +852,7 @@ export function validateServiceProposalEvent(event: NostrEvent): ServiceProposal
 
 	return {
 		...event,
-		kind: KINDS.SERVICE_PROPOSAL,
+		kind: KINDS.SERVICE_PROPOSAL as 6421,
 		content
 	};
 }
@@ -989,7 +989,7 @@ export function validateServiceProposalStatusEvent(
 
 	return {
 		...event,
-		kind: KINDS.SERVICE_PROPOSAL_STATUS,
+		kind: KINDS.SERVICE_PROPOSAL_STATUS as 6422,
 		content
 	};
 }

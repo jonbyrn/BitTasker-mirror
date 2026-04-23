@@ -1,4 +1,4 @@
-export async function load({ url }) {
+export async function load({ url }: { url: URL }) {
 	return {
 		title: 'About BitTasker - Decentralized Bitcoin Task Marketplace',
 		description:

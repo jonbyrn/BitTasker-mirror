@@ -142,7 +142,7 @@ export async function createServiceContract(
 			schedule.estimatedStartTime,
 			schedule.estimatedCompletionTime,
 			DEFAULT_CLIENT_FEE_TIER,
-			input.freelancerFeeTier ?? 1
+			(input.freelancerFeeTier ?? 1) as 1 | 2 | 3
 		);
 
 		if (!transactionResult?.hash) {
@@ -176,8 +176,7 @@ export async function createServiceContract(
 			agreementSnapshot: input.agreementSnapshot,
 			transactionHash
 		});
-		const pendingContractWithoutEscrowId = { ...pendingContract };
-		delete pendingContractWithoutEscrowId.escrowId;
+		const { escrowId: _escrowId, ...pendingContractWithoutEscrowId } = pendingContract;
 		try {
 			escrow.eventOps.registerPendingContractByTxHash({
 				bidEventId: input.proposalEventId ?? input.instantOrderId ?? input.serviceId,

@@ -346,7 +346,7 @@ function reconcileProviderRequestFocus(
 		...state,
 		providerDataFreshnessByService: {
 			...state.providerDataFreshnessByService,
-			[serviceAddress]: partialSync ? 'partial' : 'fresh'
+			[serviceAddress]: (partialSync ? 'partial' : 'fresh') as ServiceQuoteDataFreshness
 		}
 	};
 
@@ -701,7 +701,7 @@ function createServiceQuoteUiStore() {
 			const contractCreationEvent = await waitForContractCreationByTransactionHash(
 				params.transactionHash
 			);
-			void retryPendingServiceAcceptanceByEscrowId(contractCreationEvent.escrowId).catch(() => {
+			void retryPendingServiceAcceptanceByEscrowId(contractCreationEvent.escrowId ?? '').catch(() => {
 				// Best-effort replay; the accepted status may already exist.
 			});
 			const acceptedInput: TaskerStatusActionInput = {
@@ -1085,7 +1085,7 @@ function createServiceQuoteUiStore() {
 				statusInput,
 				currentTimeline.request.pubkey,
 				{
-					escrowId: result.escrowId,
+					escrowId: 'escrowId' in result ? result.escrowId : undefined,
 					transactionHash: result.transactionHash,
 					acceptanceSnapshot: result.status === 'accepted' ? result.acceptanceSnapshot : undefined
 				}
@@ -1107,7 +1107,7 @@ function createServiceQuoteUiStore() {
 				quoteRequestId: currentTimeline.request.content.quoteRequestId,
 				proposalId: proposal.content.proposalId,
 				status: statusInput.status,
-				escrowId: result.escrowId ?? null,
+				escrowId: 'escrowId' in result ? (result.escrowId ?? null) : null,
 				transactionHash: result.transactionHash
 			});
 		} finally {
@@ -1300,7 +1300,7 @@ function createServiceQuoteUiStore() {
 							},
 							providerDataFreshnessByService: {
 								...state.providerDataFreshnessByService,
-								[serviceAddress]: result.isPartial === true ? 'partial' : 'fresh'
+								[serviceAddress]: (result.isPartial === true ? 'partial' : 'fresh') as ServiceQuoteDataFreshness
 							},
 							providerLastLoadedAtByService: {
 								...state.providerLastLoadedAtByService,
@@ -1519,12 +1519,14 @@ function createServiceQuoteUiStore() {
 						dmMirror: input.dmMirror
 					}
 				});
-				const localProposalEvent =
-					'content' in publishResult.event
+				// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+				const eventHasContent = 'content' in publishResult.event;
+				const localProposalEvent = ((
+					eventHasContent
 						? publishResult.event
-						: ({
-								id: publishResult.event.id,
-								kind: 6421,
+						: {
+								id: (publishResult.event as { id: string }).id,
+								kind: 6421 as const,
 								pubkey: input.service.npub,
 								created_at: proposalContent.timestamp,
 								tags: [
@@ -1539,7 +1541,8 @@ function createServiceQuoteUiStore() {
 										proposalContent.expirationHours * 3_600
 								},
 								sig: ''
-							} as ServiceQuoteTimelineEntry['proposals'][number]);
+							}
+				) as unknown as ServiceQuoteTimelineEntry['proposals'][number]);
 
 				update((state) => ({
 					...state,

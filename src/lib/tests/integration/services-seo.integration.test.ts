@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { readable } from 'svelte/store';
 import { load } from '../../../routes/services/[serviceId]/+page';
 import { findServiceByUniqueId } from '$lib/nostr/service';
 import { getServicesBrowseSeo } from '$lib/utils/seo/servicesBrowseSeo';
@@ -13,16 +14,13 @@ vi.mock('$lib/i18n/i18n', () => ({
 	loadNamespace: vi.fn().mockResolvedValue(undefined)
 }));
 
-vi.mock('svelte-i18n', () => {
-	const { readable } = require('svelte/store');
-	return {
-		locale: readable('en'),
-		_getLocale: () => 'en',
-		t: readable((key: string) => key),
-		initialized: readable(true),
-		store: readable({ locale: 'en' })
-	};
-});
+vi.mock('svelte-i18n', () => ({
+	locale: readable('en'),
+	_getLocale: () => 'en',
+	t: readable((key: string) => key),
+	initialized: readable(true),
+	store: readable({ locale: 'en' })
+}));
 
 vi.mock('$lib/utils/network-status', () => ({
 	browserNetworkStatus: readable({ online: true, lastTransition: 'initial' })
@@ -63,10 +61,10 @@ describe('services seo integration', () => {
 	it('keeps canonical, OG, Twitter, and JSON-LD metadata aligned for active services', async () => {
 		vi.mocked(findServiceByUniqueId).mockResolvedValue(createService());
 
-		const result = await load({
+		const result = (await load({
 			params: { serviceId: 'premium-logo-package' },
 			parent: () => Promise.resolve({})
-		} as Parameters<typeof load>[0]);
+		} as Parameters<typeof load>[0])) as any;
 
 		expect(result.seo.canonical).toBe('https://bittasker.com/services/premium-logo-package');
 		expect(result.seo.ogTitle).toBe(result.seo.title);
@@ -89,10 +87,10 @@ describe('services seo integration', () => {
 	it('fails closed to noindex metadata when the service cannot be resolved', async () => {
 		vi.mocked(findServiceByUniqueId).mockResolvedValue(null);
 
-		const result = await load({
+		const result = (await load({
 			params: { serviceId: 'missing-service' },
 			parent: () => Promise.resolve({})
-		} as Parameters<typeof load>[0]);
+		} as Parameters<typeof load>[0])) as any;
 
 		expect(result.seo.canonical).toBe('https://bittasker.com/services/missing-service');
 		expect(result.seo.robots).toBe('noindex, follow');

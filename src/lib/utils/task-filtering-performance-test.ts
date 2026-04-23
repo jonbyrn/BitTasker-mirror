@@ -39,7 +39,7 @@ function legacyFilterTasks(tasks: Task[], params: SearchTasksParams): { tasks: T
 		filteredTasks = filteredTasks.filter(task => {
 			const taskCategories = task.categories || [];
 			return params.categories!.some(category => 
-				taskCategories.includes(category)
+				taskCategories.some(c => c.id === category)
 			);
 		});
 	}
@@ -101,7 +101,7 @@ function generateMockTasks(count: number): Task[] {
 			title: `Task ${i} - ${selectedSkills[0]} Project`,
 			description: `This is a detailed description for task ${i} involving ${selectedSkills.join(', ')}`,
 			skills: [...new Set(selectedSkills)], // Remove duplicates
-			categories: [...new Set(selectedCategories)], // Remove duplicates
+			categories: [...new Set(selectedCategories)].map(name => ({ id: name.toLowerCase().replace(/\s+/g, '-'), name, slug: name.toLowerCase().replace(/\s+/g, '-'), description: '' })),
 			status: 'OPEN' as any,
 			taskType: 'REMOTE' as any,
 			budget: {

@@ -5,9 +5,7 @@ import { ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';
 
 function createService(overrides: Partial<Service> & { id: string; uniqueId: string }): Service {
 	return {
-		id: overrides.id,
 		npub: 'npub1test123456789',
-		uniqueId: overrides.uniqueId,
 		status: 'active',
 		title: `Service ${overrides.uniqueId}`,
 		description: 'Test service',
@@ -17,7 +15,7 @@ function createService(overrides: Partial<Service> & { id: string; uniqueId: str
 		categories: [],
 		createdAt: 1_700_000_000,
 		...overrides
-	};
+	} as unknown as Service;
 }
 
 describe('dedupeServicesByUniqueId', () => {

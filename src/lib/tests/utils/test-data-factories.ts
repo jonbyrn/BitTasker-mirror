@@ -3,102 +3,210 @@
  * Centralized factories for generating consistent test data across all wallet tests
  */
 
-import type { WalletAsset, Transaction, NetworkType } from '@bittasker/wallet-core';
+import type { WalletAsset, Transaction } from '@bittasker/wallet-core';
 
 /**
  * Factory for creating test wallet assets
  */
 export const AssetFactory = {
 	createRSKAsset: (overrides: Partial<WalletAsset> = {}): WalletAsset => ({
-		symbol: 'RBTC',
+		assetId: 'rbtc',
+		ticker: 'RBTC',
 		name: 'Rootstock Bitcoin',
-		balance: '1000000000000000000', // 1 RBTC
+		precision: 18,
+		icon: '',
+		balance: 1000000000000000000,
 		formattedBalance: '1.00',
 		usdValue: 65000,
-		network: 'rootstock-bitcoin',
-		decimals: 18,
+		network: 'RSK',
 		...overrides
-	}),
+	} as unknown as WalletAsset),
 
 	createBSCBNBAsset: (overrides: Partial<WalletAsset> = {}): WalletAsset => ({
-		symbol: 'BNB',
+		assetId: 'bnb',
+		ticker: 'BNB',
 		name: 'Binance Coin',
-		balance: '500000000000000000', // 0.5 BNB
+		precision: 18,
+		icon: '',
+		balance: 500000000000000000,
 		formattedBalance: '0.50',
 		usdValue: 150,
-		network: 'usdt-bsc',
-		decimals: 18,
+		network: 'BSC',
 		...overrides
-	}),
+	} as unknown as WalletAsset),
 
 	createBSCUSDTAsset: (overrides: Partial<WalletAsset> = {}): WalletAsset => ({
-		symbol: 'USDT',
+		assetId: 'usdt',
+		ticker: 'USDT',
 		name: 'Tether USD',
-		balance: '100000000', // 100 USDT
+		precision: 6,
+		icon: '',
+		balance: 100000000,
 		formattedBalance: '100.00',
 		usdValue: 100,
-		network: 'usdt-bsc',
-		decimals: 6,
+		network: 'BSC',
 		...overrides
-	}),
+	} as unknown as WalletAsset),
 
 	createBitcoinAsset: (overrides: Partial<WalletAsset> = {}): WalletAsset => ({
-		symbol: 'BTC',
+		assetId: 'btc',
+		ticker: 'BTC',
 		name: 'Bitcoin',
-		balance: '100000000', // 1 BTC in sats
+		precision: 8,
+		icon: '',
+		balance: 100000000,
 		formattedBalance: '1.00',
 		usdValue: 65000,
-		network: 'bitcoin',
-		decimals: 8,
+		network: 'Bitcoin',
 		...overrides
-	})
+	} as unknown as WalletAsset)
 };
 
 /**
  * Factory for creating test transactions
  */
+const createMockAddressEntity = (address: string) => ({
+	ens_domain_name: null,
+	hash: address,
+	implementations: [],
+	is_contract: false,
+	is_scam: false,
+	is_verified: true,
+	metadata: null,
+	name: null,
+	private_tags: [],
+	proxy_type: null,
+	public_tags: [],
+	reputation: '',
+	watchlist_names: []
+});
+
 export const TransactionFactory = {
 	createSendTransaction: (overrides: Partial<Transaction> = {}): Transaction => ({
 		hash: '0x' + Math.random().toString(16).substring(2, 66),
-		from: '0x1234567890123456789012345678901234567890',
-		to: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
-		value: '1000000000000000000', // 1 RBTC
-		blockNumber: 12345678,
-		blockHash: '0x' + Math.random().toString(16).substring(2, 66),
-		timestamp: Date.now(),
-		network: 'rootstock-bitcoin',
-		type: 'send',
+		from: createMockAddressEntity('0x1234567890123456789012345678901234567890'),
+		to: createMockAddressEntity('0xabcdefabcdefabcdefabcdefabcdefabcdefabcd'),
+		value: '1000000000000000000',
+		gas_used: '21000',
+		gas_price: '20000000000',
+		gas_limit: '21000',
+		block_number: 12345678,
+		block_hash: '0x' + Math.random().toString(16).substring(2, 66),
+		timestamp: String(Date.now()),
 		status: 'confirmed',
+		nonce: 0,
+		position: 0,
+		confirmations: 1,
+		raw_input: '0x',
+		method: null,
+		decoded_input: null,
+		transaction_types: ['EIP1559'],
+		token_transfers: null,
+		max_fee_per_gas: '20000000000',
+		max_priority_fee_per_gas: '2000000000',
+		base_fee_per_gas: '10000000000',
+		priority_fee: '2000000000',
+		transaction_burnt_fee: null,
+		result: '0x1',
+		revert_reason: null,
+		created_contract: null,
+		is_pending_update: false,
+		type: 2,
+		has_error_in_internal_transactions: false,
+		fee: { type: 'EIP1559', value: '420000000000000' },
+		exchange_rate: null,
+		historic_exchange_rate: null,
+		confirmation_duration: null,
+		token_transfers_overflow: null,
+		transaction_tag: null,
+		authorization_list: [],
+		actions: [],
 		...overrides
-	}),
+	} as unknown as Transaction),
 
 	createReceiveTransaction: (overrides: Partial<Transaction> = {}): Transaction => ({
 		hash: '0x' + Math.random().toString(16).substring(2, 66),
-		from: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
-		to: '0x1234567890123456789012345678901234567890',
-		value: '500000000000000000', // 0.5 RBTC
-		blockNumber: 12345679,
-		blockHash: '0x' + Math.random().toString(16).substring(2, 66),
-		timestamp: Date.now() - 3600000, // 1 hour ago
-		network: 'rootstock-bitcoin',
-		type: 'receive',
+		from: createMockAddressEntity('0xabcdefabcdefabcdefabcdefabcdefabcdefabcd'),
+		to: createMockAddressEntity('0x1234567890123456789012345678901234567890'),
+		value: '500000000000000000',
+		gas_used: '21000',
+		gas_price: '20000000000',
+		gas_limit: '21000',
+		block_number: 12345679,
+		block_hash: '0x' + Math.random().toString(16).substring(2, 66),
+		timestamp: String(Date.now() - 3600000),
 		status: 'confirmed',
+		nonce: 1,
+		position: 0,
+		confirmations: 1,
+		raw_input: '0x',
+		method: null,
+		decoded_input: null,
+		transaction_types: ['EIP1559'],
+		token_transfers: null,
+		max_fee_per_gas: '20000000000',
+		max_priority_fee_per_gas: '2000000000',
+		base_fee_per_gas: '10000000000',
+		priority_fee: '2000000000',
+		transaction_burnt_fee: null,
+		result: '0x1',
+		revert_reason: null,
+		created_contract: null,
+		is_pending_update: false,
+		type: 2,
+		has_error_in_internal_transactions: false,
+		fee: { type: 'EIP1559', value: '420000000000000' },
+		exchange_rate: null,
+		historic_exchange_rate: null,
+		confirmation_duration: null,
+		token_transfers_overflow: null,
+		transaction_tag: null,
+		authorization_list: [],
+		actions: [],
 		...overrides
-	}),
+	} as unknown as Transaction),
 
 	createPendingTransaction: (overrides: Partial<Transaction> = {}): Transaction => ({
 		hash: '0x' + Math.random().toString(16).substring(2, 66),
-		from: '0x1234567890123456789012345678901234567890',
-		to: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
-		value: '200000000000000000', // 0.2 RBTC
-		blockNumber: null,
-		blockHash: null,
-		timestamp: Date.now(),
-		network: 'rootstock-bitcoin',
-		type: 'send',
+		from: createMockAddressEntity('0x1234567890123456789012345678901234567890'),
+		to: createMockAddressEntity('0xabcdefabcdefabcdefabcdefabcdefabcdefabcd'),
+		value: '200000000000000000',
+		gas_used: '0',
+		gas_price: '20000000000',
+		gas_limit: '21000',
+		block_number: 0,
+		block_hash: '0x' + Math.random().toString(16).substring(2, 66),
+		timestamp: String(Date.now()),
 		status: 'pending',
+		nonce: 2,
+		position: 0,
+		confirmations: 0,
+		raw_input: '0x',
+		method: null,
+		decoded_input: null,
+		transaction_types: ['EIP1559'],
+		token_transfers: null,
+		max_fee_per_gas: '20000000000',
+		max_priority_fee_per_gas: '2000000000',
+		base_fee_per_gas: '10000000000',
+		priority_fee: '2000000000',
+		transaction_burnt_fee: null,
+		result: '0x1',
+		revert_reason: null,
+		created_contract: null,
+		is_pending_update: true,
+		type: 2,
+		has_error_in_internal_transactions: false,
+		fee: { type: 'EIP1559', value: '0' },
+		exchange_rate: null,
+		historic_exchange_rate: null,
+		confirmation_duration: null,
+		token_transfers_overflow: null,
+		transaction_tag: null,
+		authorization_list: [],
+		actions: [],
 		...overrides
-	})
+	} as unknown as Transaction)
 };
 
 /**

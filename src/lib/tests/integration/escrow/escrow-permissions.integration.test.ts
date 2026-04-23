@@ -21,11 +21,12 @@ vi.mock('svelte/store', () => {
 	const translationFn = (key: string) => key;
 	const mockGet = vi.fn((store: unknown) => {
 		if (typeof store === 'function') {
-			if (store.subscribe || (store.toString && store.toString().includes('t'))) {
+			const fn = store as (() => unknown) & { subscribe?: unknown; toString?: () => string };
+			if (fn.subscribe || fn.toString?.().includes('t')) {
 				return translationFn;
 			}
 			try {
-				return store();
+				return fn();
 			} catch {
 				return translationFn;
 			}
@@ -431,11 +432,15 @@ describe('Escrow Permissions Integration Tests', () => {
 				sig: 'sig',
 				tags: [],
 				content: {
+					contractEventId: 'contract-123',
+					escrowId: '123',
 					action: EscrowStatus.PendingCompletion,
 					message: 'Completing...',
-					transactionHash: '0x456'
+					transactionHash: '0x456',
+					timestamp: now,
+					type: 'contract-status'
 				}
-			};
+			} as unknown as ContractStatusEvent;
 
 			const result = determineContractState(
 				EscrowStatus.Funded,
@@ -470,11 +475,15 @@ describe('Escrow Permissions Integration Tests', () => {
 					sig: 'sig',
 					tags: [],
 					content: {
+						contractEventId: 'contract-123',
+						escrowId: '123',
 						action: EscrowStatus.DisputeResolutionProposed,
 						message: 'Proposal 1',
-						transactionHash: '0x111'
+						transactionHash: '0x111',
+						timestamp: now,
+						type: 'contract-status'
 					}
-				},
+				} as unknown as ContractStatusEvent,
 				{
 					id: 'prop2',
 					pubkey: clientPubkey,
@@ -483,11 +492,15 @@ describe('Escrow Permissions Integration Tests', () => {
 					sig: 'sig',
 					tags: [],
 					content: {
+						contractEventId: 'contract-123',
+						escrowId: '123',
 						action: EscrowStatus.DisputeResolutionProposed,
 						message: 'Proposal 2',
-						transactionHash: '0x222'
+						transactionHash: '0x222',
+						timestamp: now + 100,
+						type: 'contract-status'
 					}
-				}
+				} as unknown as ContractStatusEvent
 			];
 
 			const result = determineContractState(
@@ -519,11 +532,15 @@ describe('Escrow Permissions Integration Tests', () => {
 					sig: 'sig',
 					tags: [],
 					content: {
+						contractEventId: 'contract-123',
+						escrowId: '123',
 						action: EscrowStatus.DisputeResolutionProposed,
 						message: 'Proposal 1',
-						transactionHash: '0x111'
+						transactionHash: '0x111',
+						timestamp: now,
+						type: 'contract-status'
 					}
-				}
+				} as unknown as ContractStatusEvent
 			];
 
 			const result = determineContractState(

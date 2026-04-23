@@ -365,7 +365,7 @@ describe('service-quote publishing helpers', () => {
 				actorPubkey: 'b'.repeat(64),
 				escrowId: 'escrow-123',
 				transactionHash: '0x' + 'c'.repeat(64),
-				acceptanceSnapshot: createAcceptanceSnapshot(),
+				acceptanceSnapshot: createAcceptanceSnapshot() as unknown as import('$lib/types/service-quote').ServiceAcceptanceSnapshot,
 				timestamp: 1_700_000_200,
 				version: 'v1'
 			},
@@ -446,7 +446,7 @@ describe('service-quote publishing helpers', () => {
 					transactionHash: '0x' + 'c'.repeat(64),
 					acceptanceSnapshot: createAcceptanceSnapshot({
 						sourceTimestamp: undefined
-					}),
+					}) as unknown as import('$lib/types/service-quote').ServiceAcceptanceSnapshot,
 					timestamp: 1_700_000_200,
 					version: 'v1'
 				},

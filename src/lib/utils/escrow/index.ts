@@ -51,7 +51,7 @@ import {
  * Add new versions here as they're implemented
  */
 const VERSION_HANDLERS: Record<string, IVersionHandler> = {
-	v1: v1
+	v1: v1 as unknown as IVersionHandler
 	// 'v2': v2,
 	// 'v3': v3, // Just add new versions here
 };

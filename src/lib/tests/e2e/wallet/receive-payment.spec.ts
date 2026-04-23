@@ -189,7 +189,7 @@ test.describe('Receive Payment Flow', () => {
 		
 		if (isVisible) {
 			// If it's a details element (DaisyUI dropdown), click to open
-			const tagName = await networkSelect.evaluate(el => el.tagName.toLowerCase()).catch(() => '');
+			const tagName = await networkSelect.evaluate((el: Element) => el.tagName.toLowerCase()).catch(() => '');
 			if (tagName === 'summary' || tagName === 'details') {
 				await networkSelect.click();
 				await authenticatedPage.waitForTimeout(300);

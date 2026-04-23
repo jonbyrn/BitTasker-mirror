@@ -1,10 +1,12 @@
 import type { PageLoad } from './$types';
 import nostrEventsService from '$lib/api/services/nostr/events';
-import type { Task } from '$lib/types/task';
+import type { Task, NostrTaskMetadata } from '$lib/types/task';
 import { nip19 } from 'nostr-tools';
 import { redirect } from '@sveltejs/kit';
 import KINDS from '$lib/utils/constants/kinds';
 import type { NostrEvent } from '$lib/types/nostr';
+
+type TaskWithMetadata = Task & Partial<NostrTaskMetadata>;
 
 const baseUrl = (import.meta.env.VITE_CLIENT_URL || 'https://bittasker.com').replace(/\/$/, '');
 
@@ -117,7 +119,7 @@ export const load: PageLoad = async ({ params }) => {
 			if (event) {
 				// Extract uniqueId from the event content
 				try {
-					const taskData = JSON.parse(event.content) as Task;
+					const taskData = JSON.parse(event.content) as TaskWithMetadata;
 					if (taskData.uniqueId) {
 						uniqueId = taskData.uniqueId;
 						shouldRedirect = true; // Redirect to UUID URL for stability
@@ -148,7 +150,7 @@ export const load: PageLoad = async ({ params }) => {
 				event = result.data;
 				// Extract uniqueId for redirect
 				try {
-					const taskData = JSON.parse(event.content) as Task;
+					const taskData = JSON.parse(event.content) as TaskWithMetadata;
 					if (taskData.uniqueId) {
 						uniqueId = taskData.uniqueId;
 						shouldRedirect = true; // Redirect to UUID URL for stability
@@ -168,7 +170,7 @@ export const load: PageLoad = async ({ params }) => {
 				event = result.data;
 				// Extract uniqueId for redirect
 				try {
-					const taskData = JSON.parse(event.content) as Task;
+					const taskData = JSON.parse(event.content) as TaskWithMetadata;
 					if (taskData.uniqueId) {
 						uniqueId = taskData.uniqueId;
 						shouldRedirect = true; // Redirect to UUID URL for stability
@@ -214,7 +216,21 @@ export const load: PageLoad = async ({ params }) => {
 	const canonicalUrl = `${baseUrl}/tasks/${uniqueId}`;
 
 	// Default SEO data
-	let seo = {
+	type TaskJsonLd = ReturnType<typeof generateTaskJsonLd>;
+	let seo: {
+		title: string;
+		description: string;
+		keywords: string;
+		canonical: string;
+		ogTitle: string;
+		ogDescription: string;
+		ogImage: string;
+		twitterTitle: string;
+		twitterDescription: string;
+		twitterImage: string;
+		jsonLd: TaskJsonLd | null;
+		task: Task | null;
+	} = {
 		title: 'Task Details - BitTasker',
 		description:
 			'View task details and submit your bid on BitTasker, the Bitcoin-powered task marketplace.',
@@ -229,15 +245,15 @@ export const load: PageLoad = async ({ params }) => {
 			'View task details and submit your bid on BitTasker, the Bitcoin-powered task marketplace.',
 		twitterImage: `${baseUrl}/images/og-task-default.jpg`,
 		jsonLd: null,
-		task: null as Task | null
+		task: null
 	};
 
 	if (event) {
 		const taskData = JSON.parse(event.content) as Task;
 		const dTag = event.tags?.find((tag: string[]) => tag[0] === 'd')?.[1];
-		const task = {
+		const task: Task = {
 			...taskData,
-			id: dTag || event.id,
+			id: (dTag || event.id) as string,
 			npub: event.pubkey
 		};
 
@@ -284,7 +300,7 @@ export const load: PageLoad = async ({ params }) => {
 			twitterTitle: `${taskTitle} - ${taskBudget} - BitTasker`,
 			twitterDescription: `${truncatedDescription} | Budget: ${taskBudget} | Location: ${taskLocation}`,
 			twitterImage: taskImage,
-			jsonLd: generateTaskJsonLd(task, canonicalUrl),
+			jsonLd: generateTaskJsonLd(task as Task, canonicalUrl),
 			task
 		};
 	}

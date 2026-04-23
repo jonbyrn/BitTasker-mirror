@@ -3,6 +3,7 @@ import { sendBidStatusUpdate } from '$lib/utils/nostr-bid';
 import { BidStatusEnum } from '$lib/utils/enums/bid.enum';
 import { bidStore } from '$lib/stores/bid.store';
 import { get } from 'svelte/store';
+import type { NostrEvent } from 'nostr-tools';
 
 // Mock dependencies
 vi.mock('$lib/utils/nostr', () => ({
@@ -77,7 +78,7 @@ describe('sendBidStatusUpdate', () => {
 	});
 
 	it('should remove processing bid on success', async () => {
-		vi.mocked(publishNostrEvent).mockResolvedValue(undefined);
+		vi.mocked(publishNostrEvent).mockResolvedValue({ event: {} as NostrEvent, results: [] });
 
 		await sendBidStatusUpdate(
 			'bid-123',

@@ -134,7 +134,7 @@
 		<div class="space-y-2">
 			{#if serviceListingHref}
 				<a
-					href={resolve(serviceListingHref)}
+					href={serviceListingHref}
 					class="hover:text-primary card-title line-clamp-2 text-lg font-semibold transition-colors"
 				>
 					{presentation.title}

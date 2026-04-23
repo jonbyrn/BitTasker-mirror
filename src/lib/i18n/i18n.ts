@@ -114,7 +114,7 @@ export async function loadNamespace(
 			{ ...currentMessages },
 			data as unknown as Record<string, unknown>
 		);
-		addMessages(locale, mergedMessages);
+		addMessages(locale, mergedMessages as Parameters<typeof addMessages>[1]);
 		return data;
 	} catch (error) {
 		console.warn(`Failed to load namespace ${namespace} for locale ${locale}:`, error);

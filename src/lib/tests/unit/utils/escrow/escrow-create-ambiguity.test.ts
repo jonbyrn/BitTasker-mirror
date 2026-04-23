@@ -149,8 +149,8 @@ describe('escrow.createEscrow acceptance ambiguity handling', () => {
 					gasUsed: BigInt(100000),
 					logs: [{ topics: [], data: '0x' }]
 				})
-			});
-			createEscrowMethod.estimateGas = vi.fn().mockResolvedValue(BigInt(100000));
+			}) as unknown as { estimateGas: ReturnType<typeof vi.fn>; };
+			(createEscrowMethod as any).estimateGas = vi.fn().mockResolvedValue(BigInt(100000));
 			hoisted.currentContract.createEscrow = createEscrowMethod;
 
 			const result = await escrow.createEscrow(
@@ -203,8 +203,8 @@ describe('escrow.createEscrow acceptance ambiguity handling', () => {
 					gasUsed: BigInt(100000),
 					logs: [{ topics: [], data: '0x' }]
 				})
-			});
-			createEscrowMethod.estimateGas = vi.fn().mockResolvedValue(BigInt(100000));
+			}) as unknown as { estimateGas: ReturnType<typeof vi.fn>; };
+			(createEscrowMethod as any).estimateGas = vi.fn().mockResolvedValue(BigInt(100000));
 			hoisted.currentContract.createEscrow = createEscrowMethod;
 
 			const result = await escrow.createEscrow(
@@ -258,8 +258,8 @@ describe('escrow.createEscrow acceptance ambiguity handling', () => {
 					gasUsed: BigInt(100000),
 					logs: [{ topics: [], data: '0x' }]
 				})
-			});
-			createEscrowMethod.estimateGas = vi.fn().mockResolvedValue(BigInt(100000));
+			}) as unknown as { estimateGas: ReturnType<typeof vi.fn>; };
+			(createEscrowMethod as any).estimateGas = vi.fn().mockResolvedValue(BigInt(100000));
 			hoisted.currentContract.createEscrow = createEscrowMethod;
 
 			const result = await escrow.createEscrow(
@@ -310,8 +310,8 @@ describe('escrow.createEscrow acceptance ambiguity handling', () => {
 					gasUsed: BigInt(100000),
 					logs: [{ topics: [], data: '0x' }]
 				})
-			});
-			createEscrowMethod.estimateGas = vi.fn().mockResolvedValue(BigInt(100000));
+			}) as unknown as { estimateGas: ReturnType<typeof vi.fn>; };
+			(createEscrowMethod as any).estimateGas = vi.fn().mockResolvedValue(BigInt(100000));
 			hoisted.currentContract.createEscrow = createEscrowMethod;
 
 			const result = await escrow.createEscrow(
@@ -344,8 +344,8 @@ describe('escrow.createEscrow acceptance ambiguity handling', () => {
 		const createEscrowMethod = vi.fn().mockResolvedValue({
 			hash: '0xservice-timeout',
 			wait: vi.fn().mockRejectedValue(new Error('Transaction wait timeout after 5 minutes'))
-		});
-		createEscrowMethod.estimateGas = vi.fn().mockResolvedValue(BigInt(100000));
+		}) as unknown as { estimateGas: ReturnType<typeof vi.fn>; };
+		(createEscrowMethod as any).estimateGas = vi.fn().mockResolvedValue(BigInt(100000));
 		hoisted.currentContract.createEscrow = createEscrowMethod;
 
 		const result = await escrow.createEscrow(
@@ -391,8 +391,8 @@ describe('escrow.createEscrow acceptance ambiguity handling', () => {
 					logs: []
 				}
 			})
-		});
-		createEscrowMethod.estimateGas = vi.fn().mockResolvedValue(BigInt(100000));
+		}) as unknown as { estimateGas: ReturnType<typeof vi.fn>; };
+		(createEscrowMethod as any).estimateGas = vi.fn().mockResolvedValue(BigInt(100000));
 		hoisted.currentContract.createEscrow = createEscrowMethod;
 
 		const result = await escrow.createEscrow(
@@ -428,8 +428,8 @@ describe('escrow.createEscrow acceptance ambiguity handling', () => {
 		const createEscrowMethod = vi.fn().mockResolvedValue({
 			hash: '0xservice-rpc',
 			wait: vi.fn().mockRejectedValue(new Error('RPC connection lost while waiting for receipt'))
-		});
-		createEscrowMethod.estimateGas = vi.fn().mockResolvedValue(BigInt(100000));
+		}) as unknown as { estimateGas: ReturnType<typeof vi.fn>; };
+		(createEscrowMethod as any).estimateGas = vi.fn().mockResolvedValue(BigInt(100000));
 		hoisted.currentContract.createEscrow = createEscrowMethod;
 
 		const result = await escrow.createEscrow(
@@ -461,8 +461,8 @@ describe('escrow.createEscrow acceptance ambiguity handling', () => {
 		const createEscrowMethod = vi.fn().mockResolvedValue({
 			hash: '0xservice-nonce',
 			wait: vi.fn().mockRejectedValue(new Error('Nonce too low for replacement transaction'))
-		});
-		createEscrowMethod.estimateGas = vi.fn().mockResolvedValue(BigInt(100000));
+		}) as unknown as { estimateGas: ReturnType<typeof vi.fn>; };
+		(createEscrowMethod as any).estimateGas = vi.fn().mockResolvedValue(BigInt(100000));
 		hoisted.currentContract.createEscrow = createEscrowMethod;
 
 		const result = await escrow.createEscrow(

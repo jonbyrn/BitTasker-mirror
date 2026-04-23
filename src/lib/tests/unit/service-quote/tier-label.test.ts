@@ -12,13 +12,13 @@ describe('resolveServiceTierLabel', () => {
 							{ id: 'premium', name: 'Premium Plan' }
 						]
 					}
-				},
+				} as unknown as NonNullable<Parameters<typeof resolveServiceTierLabel>[0]>,
 				'premium'
 			)
 		).toBe('Premium Plan');
 	});
 
 	it('falls back to the original tier id when the service tier is unavailable', () => {
-		expect(resolveServiceTierLabel(null, 'premium')).toBe('premium');
+		expect(resolveServiceTierLabel(null as unknown as NonNullable<Parameters<typeof resolveServiceTierLabel>[0]>, 'premium')).toBe('premium');
 	});
 });

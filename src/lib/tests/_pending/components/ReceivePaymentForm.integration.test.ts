@@ -175,7 +175,7 @@ vi.mock('@capacitor/core', () => ({
 
 // Mock ethers to prevent real network calls
 vi.mock('ethers', async () => {
-	const actual = await vi.importActual('ethers');
+	const actual = await vi.importActual('ethers') as typeof import('ethers');
 	return {
 		...actual,
 		ethers: {

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render } from '@testing-library/svelte';
 import ServiceReview from '$lib/components/service/steps/ServiceReview.svelte';
+import type { ServicePricing } from '$lib/types/service';
 
 const translations: Record<string, string> = {
 	'dashboard.services.create.review.description': 'Review your service before publishing.',
@@ -167,7 +168,7 @@ describe('ServiceReview', () => {
 				categories: [],
 				skills: [],
 				serviceLocationTypes: [],
-				locationDetails: {},
+				locationDetails: { taskeeLocation: { serviceLocation: { displayName: '', latitude: 0, longitude: 0, zipCode: '', locationLoaded: true }, serviceRadius: 5 } },
 				pricing: {
 					type: 'TIERED',
 					currency: 'USD',
@@ -188,10 +189,10 @@ describe('ServiceReview', () => {
 							isPopular: true
 						}
 					]
-				},
+				} as any,
 				portfolio: [],
 				faqs: []
-			}
+			} as any
 		});
 
 		const { getAllByText } = render(ServiceReview, {

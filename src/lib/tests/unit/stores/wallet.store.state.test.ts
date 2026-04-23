@@ -63,7 +63,7 @@ describe('Wallet Store State Management', () => {
 			activeNetwork: 'rsk',
 			activeTab: 'balance',
 			selectedAsset: 'rBTC'
-		});
+		} as unknown as ReturnType<typeof walletStore.set> extends (val: infer V) => void ? V : never);
 	});
 
 	describe('walletStore', () => {
@@ -164,17 +164,17 @@ describe('Wallet Store State Management', () => {
 				}
 			}));
 
-			// Update another field
+			// Update another field - activeTab not in type, so use type assertion
 			walletStore.update(s => ({
 				...s,
 				activeTab: 'transactions'
-			}));
+			} as any));
 
 			const state = get(walletStore);
 			expect(state.isConnected).toBe(true);
 			expect(state.rsk.address).toBe('0x1234567890123456789012345678901234567890');
 			expect(state.rsk.balance).toBe('1000000000000000000');
-			expect(state.activeTab).toBe('transactions');
+			expect((state as unknown as { activeTab: string }).activeTab).toBe('transactions');
 		});
 	});
 

@@ -114,7 +114,7 @@
 									<li class="my-1">
 										<a
 											data-sveltekit-reload="off"
-											href={resolve(section.path)}
+											href={section.path}
 											class:menu-active={page.url.pathname + page.url.search === section.path ||
 												(section.id === 'find-tasks' && page.url.pathname.startsWith('/tasks')) ||
 												(section.id === 'find-services' &&

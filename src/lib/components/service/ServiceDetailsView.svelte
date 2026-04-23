@@ -881,7 +881,7 @@
 			return;
 		}
 		if (!$authState.isAuthenticated) {
-			goto(resolve(`/auth/login?returnTo=${encodeURIComponent(window.location.pathname)}`));
+			goto(`/auth/login?returnTo=${encodeURIComponent(window.location.pathname)}`);
 			return;
 		}
 		requestQuoteModalOpen = true;
@@ -1363,7 +1363,7 @@
 				detailText('dashboard.services.detail.delete_success', 'Service deleted successfully.')
 			);
 
-			goto(resolve('/dashboard?tab=my-services'));
+			goto('/dashboard?tab=my-services');
 		} catch (error) {
 			console.error('[ServiceDetailsView] Failed to delete service', error);
 			clearPendingServiceDelete(service.id);

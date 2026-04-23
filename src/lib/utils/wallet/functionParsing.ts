@@ -121,7 +121,7 @@ export function parseEscrowFunction(inputData: string): ParsedFunction | null {
 
 		// Extract escrowId (first parameter for most escrow functions)
 		let escrowId: string | undefined;
-		if (parameters.escrowId !== undefined) {
+		if (parameters.escrowId != null) {
 			escrowId = parameters.escrowId.toString();
 		}
 

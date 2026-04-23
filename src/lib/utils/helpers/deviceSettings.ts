@@ -7,7 +7,8 @@ import { Capacitor } from '@capacitor/core';
 import { Browser } from '@capacitor/browser';
 import { browser } from '$app/environment';
 import type { DeviceOS } from './deviceCompatibility';
-import type { ErrorType } from '$lib/components/ErrorTroubleshootingModal.svelte';
+
+type ErrorType = 'biometric' | 'network' | 'authentication' | 'permission' | 'hardware' | 'timeout' | 'unknown';
 
 export type SettingsSection = 
 	| 'biometric' 

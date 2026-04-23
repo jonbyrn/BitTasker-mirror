@@ -60,11 +60,11 @@ vi.mock('@bittasker/wallet-core', () => ({
 // Mock ethers
 let mockContractInstance: EscrowV1IntegrationMockContract | null = null;
 vi.mock('ethers', async () => {
-	const actual = await vi.importActual('ethers');
+	const actual = (await vi.importActual('ethers')) as { ethers: object };
 	return {
 		...actual,
 		ethers: {
-			...actual.ethers,
+			...(actual.ethers as object),
 			Contract: vi.fn().mockImplementation(() => {
 				return mockContractInstance;
 			})
@@ -353,13 +353,13 @@ describe('Escrow Lifecycle Integration Tests', () => {
 			// Setup mock bid and task
 			const mockBid: NostrEventWithFollowup = {
 				id: 'bid-123',
-				content: {
+				content: JSON.stringify({
 					bidderId: 'npub1freelancer',
 					bidderWalletAddress: '0x2222222222222222222222222222222222222222',
 					amount: 100,
 					currency: 'USD',
 					estimatedHours: 2
-				} as unknown as NostrBidContent,
+				}) as string,
 				pubkey: 'npub1freelancer',
 				created_at: now,
 				kind: 1,
@@ -373,7 +373,7 @@ describe('Escrow Lifecycle Integration Tests', () => {
 					title: 'Test Task',
 					description: 'Test Description',
 					budget: { amount: 100, currency: 'USD', type: 'fixed' }
-				} as Task),
+				}) as string,
 				pubkey: 'npub1client',
 				created_at: now - 3600,
 				kind: 1,
@@ -412,7 +412,7 @@ describe('Escrow Lifecycle Integration Tests', () => {
 
 			// Simulate blockchain confirmation and event handling
 			const txHash = bidResult.transactionResult!.hash;
-			await EscrowNostrEvent.default.handleEscrowCreated({
+			await EscrowNostrEvent.handleEscrowCreated({
 				escrowId,
 				transactionHash: txHash,
 				client: '0x1111111111111111111111111111111111111111',
@@ -548,7 +548,7 @@ describe('Escrow Lifecycle Integration Tests', () => {
 			};
 
 			mockContract.getEscrow.mockResolvedValue(completedEscrowData);
-			mockContract.getDisputeProposal.mockResolvedValue(mockDisputeProposal);
+			mockContract.getDisputeProposal!.mockResolvedValue(mockDisputeProposal);
 
 			const contractEventId = 'contract-789';
 
@@ -660,7 +660,7 @@ describe('Escrow Lifecycle Integration Tests', () => {
 
 	describe('Error Handling in Lifecycle', () => {
 		it.skip('should handle escrow creation failure gracefully', async () => {
-			mockContract.createEscrow.estimateGas = vi
+			mockContract.createEscrow!.estimateGas = vi
 				.fn()
 				.mockRejectedValue(new Error('Insufficient funds'));
 
@@ -677,7 +677,7 @@ describe('Escrow Lifecycle Integration Tests', () => {
 		});
 
 		it.skip('should handle task completion failure', async () => {
-			mockContract.completeTask.estimateGas = vi
+			mockContract.completeTask!.estimateGas = vi
 				.fn()
 				.mockRejectedValue(new Error('Task already completed'));
 
@@ -687,12 +687,12 @@ describe('Escrow Lifecycle Integration Tests', () => {
 		it('should handle bid acceptance with invalid data', async () => {
 			const invalidBid: NostrEventWithFollowup = {
 				id: 'bid-invalid',
-				content: {
+				content: JSON.stringify({
 					bidderId: 'npub1freelancer',
 					amount: 0, // Invalid: amount must be > 0
 					currency: 'USD',
 					estimatedHours: 2
-				} as unknown as NostrBidContent,
+				}) as string,
 				pubkey: 'npub1freelancer',
 				created_at: Math.floor(Date.now() / 1000),
 				kind: 1,
@@ -706,7 +706,7 @@ describe('Escrow Lifecycle Integration Tests', () => {
 					title: 'Test Task',
 					description: 'Test Description',
 					budget: { amount: 0, currency: 'USD', type: 'fixed' } // Invalid
-				} as Task),
+				}) as string,
 				pubkey: 'npub1client',
 				created_at: Math.floor(Date.now() / 1000),
 				kind: 1,

@@ -3,7 +3,7 @@
  * Determines the error type from error messages for better troubleshooting
  */
 
-import type { ErrorType } from '$lib/components/ErrorTroubleshootingModal.svelte';
+type ErrorType = 'biometric' | 'network' | 'authentication' | 'permission' | 'hardware' | 'timeout' | 'unknown';
 
 /**
  * Detects the error type from an error message

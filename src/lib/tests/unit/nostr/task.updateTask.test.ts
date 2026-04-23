@@ -80,7 +80,7 @@ describe('updateTask', () => {
 		vi.clearAllMocks();
 		vi.mocked(nostrEventsService.requestEvents).mockResolvedValue({
 			data: [createTaskEvent(TASK_AUTHOR_PUBKEY, D_TAG)]
-		} as unknown as ReturnType<typeof nostrEventsService.requestEvents>);
+		} as unknown as Awaited<ReturnType<typeof nostrEventsService.requestEvents>>);
 	});
 
 	describe('authorization: only task author may update', () => {
@@ -135,7 +135,7 @@ describe('updateTask', () => {
 			const taskEvent = createTaskEvent(TASK_AUTHOR_PUBKEY.toLowerCase(), D_TAG);
 			vi.mocked(nostrEventsService.requestEvents).mockResolvedValueOnce({
 				data: [taskEvent]
-			} as unknown as ReturnType<typeof nostrEventsService.requestEvents>);
+			} as unknown as Awaited<ReturnType<typeof nostrEventsService.requestEvents>>);
 
 			vi.mocked(getNpub).mockResolvedValue(TASK_AUTHOR_PUBKEY.toUpperCase());
 

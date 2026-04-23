@@ -695,12 +695,12 @@ export async function fetchComprehensiveProfile(pubkey: string): Promise<{
 										level: skill.level,
 										verificationStatus: skill.verificationStatus,
 										endorsements: skill.endorsements,
-										certifications: skill.certifications || [],
+										certifications: skill.certifications,
 										translations: skill.translations,
 										id: skill.id
 									};
 								}
-							});
+							}) as ComprehensiveProfileData['skills'];
 						}
 						break;
 

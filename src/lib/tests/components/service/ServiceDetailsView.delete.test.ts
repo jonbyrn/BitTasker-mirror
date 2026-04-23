@@ -225,6 +225,10 @@ function createContract(): ContractWithEvents {
 		contractEvent: {
 			id: 'contract-escrow-1',
 			created_at: 1_700_000_000,
+			kind: 1,
+			tags: [],
+			pubkey: 'a'.repeat(64),
+			sig: 'sig',
 			content: {
 				escrowId: 'escrow-1',
 				freelancerPubkey: 'b'.repeat(64),

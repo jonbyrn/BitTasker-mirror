@@ -1,4 +1,4 @@
-export async function load({ url }) {
+export async function load({ url }: { url: URL }) {
 	return {
 		title: 'Tasker Fees & Pricing - BitTasker | Bitcoin Task Costs',
 		description: 'Discover BitTasker\'s transparent tasker fee structure with tiered pricing that rewards loyalty. Learn about our competitive rates for posting Bitcoin tasks.',

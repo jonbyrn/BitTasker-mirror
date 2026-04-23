@@ -17,7 +17,7 @@ describe('featuredHomepage helpers', () => {
 	});
 
 	it('creates the canonical loading state for featured homepage sections', () => {
-		expect(createFeaturedSectionState<string>()).toEqual({
+		expect(createFeaturedSectionState<string>() as unknown as { items: string[]; loading: boolean; error: null; visible: boolean }).toEqual({
 			items: [],
 			loading: true,
 			error: null,
@@ -98,13 +98,13 @@ describe('featuredHomepage helpers', () => {
 		const first = await loadFeaturedHomepageItems({
 			cacheKey: 'homepage:ttl',
 			fetcher,
-			getId: (item) => item.id
+			getId: (item) => (item as { id: string }).id
 		});
 		vi.setSystemTime(301_000);
 		const second = await loadFeaturedHomepageItems({
 			cacheKey: 'homepage:ttl',
 			fetcher,
-			getId: (item) => item.id
+			getId: (item) => (item as { id: string }).id
 		});
 
 		expect(first).toEqual([{ id: 'first' }]);
@@ -114,14 +114,14 @@ describe('featuredHomepage helpers', () => {
 
 	it('detects and returns the first valid image attachment url', () => {
 		const attachments: Attachment[] = [
-			{ url: 'https://cdn.example.com/demo.mp4', type: 'video/mp4', alt: 'Video' },
-			{ url: 'https://cdn.example.com/preview.webp', type: 'image/webp', alt: 'Preview' },
-			{ url: 'https://cdn.example.com/backup.png', type: 'image/png', alt: 'Backup' }
+			{ url: 'https://cdn.example.com/demo.mp4', type: 'video/mp4', alt: 'Video', key: '1', size: 100 } as unknown as Attachment,
+			{ url: 'https://cdn.example.com/preview.webp', type: 'image/webp', alt: 'Preview', key: '2', size: 100 } as unknown as Attachment,
+			{ url: 'https://cdn.example.com/backup.png', type: 'image/png', alt: 'Backup', key: '3', size: 100 } as unknown as Attachment
 		];
 
 		expect(hasImageAttachment(attachments)).toBe(true);
 		expect(getFirstImageUrl(attachments)).toBe('https://cdn.example.com/preview.webp');
-		expect(hasImageAttachment([{ url: 'https://cdn.example.com/demo.mp4', type: 'video/mp4', alt: 'Video' }])).toBe(false);
+		expect(hasImageAttachment([{ url: 'https://cdn.example.com/demo.mp4', type: 'video/mp4', alt: 'Video', key: '4', size: 100 } as unknown as Attachment])).toBe(false);
 		expect(getFirstImageUrl(undefined)).toBe('');
 	});
 });

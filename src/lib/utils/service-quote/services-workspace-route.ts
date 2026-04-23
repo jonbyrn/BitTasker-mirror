@@ -220,7 +220,6 @@ export function createServicesWorkspaceRedirectUrlFromLegacyDashboard(baseUrl: U
 	const rawView = baseUrl.searchParams.get('view');
 	const isQuotesView =
 		parsed.view === 'service-requests' ||
-		parsed.view === 'quotes' ||
 		rawView === 'service-requests' ||
 		rawView === 'quotes';
 

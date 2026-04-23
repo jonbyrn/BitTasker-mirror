@@ -515,9 +515,8 @@
 
 		const nextUrl = createDashboardUrl(new URL(window.location.href), {
 			tab: 'contracts',
-			status: statusFilter === 'all' ? null : statusFilter,
-			type: typeFilter,
-			role: roleFilter as unknown as string
+			status: statusFilter === 'all' ? null : String(statusFilter),
+			type: typeFilter
 		});
 		void goto(nextUrl.toString(), { replaceState: true, keepFocus: true, noScroll: true });
 	}
@@ -532,8 +531,7 @@
 		const nextUrl = createDashboardUrl(new URL(window.location.href), {
 			tab: 'contracts',
 			status: null,
-			type: 'all',
-			role: fixedRole as unknown as string
+			type: 'all'
 		});
 		void goto(nextUrl.toString(), { replaceState: true, keepFocus: true, noScroll: true });
 	}
@@ -636,7 +634,6 @@
 			<ServiceFilterSelect
 				{services}
 				{selectedServiceAddress}
-				filterLabel={tr('dashboard.contracts.filter_by_service', 'Filter by service')}
 				allServicesLabel={tr('dashboard.contracts.all_services', 'All Services')}
 				deletedServiceLabel={tr(
 					'dashboard.services.my_services.quote_inbox.deleted_service_prefix',

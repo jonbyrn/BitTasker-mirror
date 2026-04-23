@@ -6,7 +6,7 @@ import { generateHomepageWebsiteJsonLd } from '$lib/utils/constants/seo.constant
 
 const baseUrl = (import.meta.env.VITE_CLIENT_URL || 'https://bittasker.com').replace(/\/$/, '');
 
-export async function load({ url }) {
+export async function load({ url }: { url: URL }) {
 	if (browser) {
 		const { value: token } = await Preferences.get({ key: StorageKeys.ACCESS_TOKEN });
 		if (token) {

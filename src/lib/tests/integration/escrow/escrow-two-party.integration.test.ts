@@ -59,11 +59,11 @@ vi.mock('@bittasker/wallet-core', () => ({
 // Mock ethers
 let mockContractInstance: EscrowV1IntegrationMockContract | null = null;
 vi.mock('ethers', async () => {
-	const actual = await vi.importActual('ethers');
+	const actual = (await vi.importActual('ethers')) as unknown as Record<string, unknown>;
 	return {
 		...actual,
 		ethers: {
-			...actual.ethers,
+			...(actual.ethers as object),
 			Contract: vi.fn().mockImplementation(() => mockContractInstance)
 		}
 	};
@@ -242,6 +242,10 @@ vi.mock('svelte/store', async () => {
 // Import after mocks
 import { escrow } from '$lib/utils/escrow/v1/escrow';
 import * as EscrowNostrEvent from '$lib/utils/escrow/v1/escrowEvents';
+const EscrowNostrEventDefault = EscrowNostrEvent as unknown as {
+	default: typeof EscrowNostrEvent;
+	handleEscrowCreated: typeof EscrowNostrEvent.handleEscrowCreated;
+};
 
 const NOSTR_PEER_HEX = 'aa'.repeat(32);
 
@@ -266,7 +270,7 @@ describe('Escrow Two-Party Interaction Integration Tests', () => {
 			},
 			getEscrow: vi.fn(),
 			paused: vi.fn().mockResolvedValue(false)
-		} as EscrowV1IntegrationMockContract;
+		} as unknown as EscrowV1IntegrationMockContract;
 
 		const createMethodWithEstimateGas = (
 			estimateGasValue: bigint,
@@ -279,19 +283,19 @@ describe('Escrow Two-Party Interaction Integration Tests', () => {
 			hash: '0xcreate',
 			gasUsed: BigInt(100000),
 			logs: []
-		});
+		}) as unknown as EscrowMethodMock;
 
 		mockContract.completeTask = createMethodWithEstimateGas(BigInt(50000), {
 			hash: '0xcomplete',
 			gasUsed: BigInt(50000),
 			logs: []
-		});
+		}) as unknown as EscrowMethodMock;
 
 		mockContract.acceptTask = createMethodWithEstimateGas(BigInt(40000), {
 			hash: '0xaccept',
 			gasUsed: BigInt(40000),
 			logs: []
-		});
+		}) as unknown as EscrowMethodMock;
 
 		mockContractInstance = mockContract;
 	});
@@ -338,7 +342,7 @@ describe('Escrow Two-Party Interaction Integration Tests', () => {
 			await new Promise((resolve) => setTimeout(resolve, 100));
 
 			// Simulate EscrowCreated event handling
-			await EscrowNostrEvent.default.handleEscrowCreated({
+			await EscrowNostrEventDefault.default.handleEscrowCreated({
 				escrowId,
 				transactionHash: createResult.hash,
 				client: clientAddress,
@@ -481,7 +485,7 @@ describe('Escrow Two-Party Interaction Integration Tests', () => {
 
 			// Step 3: Client accepts proposal
 			currentUser = 'client';
-			mockContract.getDisputeProposal.mockResolvedValueOnce(mockDisputeProposal);
+			(mockContract.getDisputeProposal as unknown as Mock).mockResolvedValueOnce(mockDisputeProposal);
 
 			const acceptResult = await escrow.acceptProposal(escrowId, NOSTR_PEER_HEX, contractEventId);
 
@@ -539,7 +543,7 @@ describe('Escrow Two-Party Interaction Integration Tests', () => {
 
 			// Step 2: Freelancer accepts
 			currentUser = 'freelancer';
-			mockContract.getDisputeProposal.mockResolvedValueOnce(mockDisputeProposal);
+			(mockContract.getDisputeProposal as unknown as Mock).mockResolvedValueOnce(mockDisputeProposal);
 
 			const acceptResult = await escrow.acceptProposal(escrowId, NOSTR_PEER_HEX, contractEventId);
 

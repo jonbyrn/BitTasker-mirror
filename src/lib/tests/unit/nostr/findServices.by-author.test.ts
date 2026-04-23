@@ -46,7 +46,8 @@ function createServiceEvent(overrides: {
 				username: 'alice',
 				avatar: ''
 			}
-		})
+		}),
+		sig: ''
 	};
 }
 

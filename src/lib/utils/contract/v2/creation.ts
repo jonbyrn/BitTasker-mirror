@@ -261,9 +261,16 @@ export async function createContract(
 	btcPrice: number,
 	additionalNotes: string = ''
 ): Promise<ContractCreationResult> {
-	const bidContent = bid.bidContent;
+	const bidContent: NostrBidContent | null = bid.bidContent;
 	const taskContent = task.taskContent;
 	const taskId = task.tagValue('d') ?? task.id ?? '';
+
+	if (!bidContent) {
+		return {
+			success: false,
+			error: 'Bid content is missing'
+		};
+	}
 
 	d.log('createContract start', { taskId, bidId: bid.id });
 

@@ -32,7 +32,7 @@ vi.mock('$lib/utils/escrow/v1/escrow', () => ({
 }));
 
 vi.mock('$lib/utils/wallet/contractErrorHandler', () => ({
-	extractContractError: (...args: unknown[]) => mockExtractContractError(...args)
+	extractContractError: ((...args: Parameters<typeof mockExtractContractError>) => mockExtractContractError(...args)) as typeof mockExtractContractError
 }));
 
 vi.mock('$lib/utils/nostrKeys', () => ({
@@ -126,9 +126,9 @@ describe('service contract preflight', () => {
 		walletStore.set({
 			isConnected: false,
 			rsk: {
-				address: null,
-				wallet: null,
-				provider: null
+				address: null as unknown as string,
+				wallet: null as unknown as { address: string },
+				provider: null as unknown as {}
 			}
 		});
 		mockInitialize.mockRejectedValueOnce(new Error('init failed'));
@@ -158,9 +158,9 @@ describe('service contract preflight', () => {
 		walletStore.set({
 			isConnected: false,
 			rsk: {
-				address: null,
-				wallet: null,
-				provider: null
+				address: null as unknown as string,
+				wallet: null as unknown as { address: string },
+				provider: null as unknown as {}
 			}
 		});
 		mockInitialize.mockResolvedValueOnce(undefined);

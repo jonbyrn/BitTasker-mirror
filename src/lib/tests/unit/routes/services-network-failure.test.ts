@@ -4,38 +4,40 @@ import type { Service } from '$lib/types/service.d';
 import { ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';
 
 const hoisted = vi.hoisted(() => {
-	const _storeData = {
-		items: [] as Service[],
-		loading: false,
-		error: null as string | null,
-		currentPage: 1,
-		hasMore: false,
-		searchParamsKey: ''
+	type StoreData = {
+		items: Service[];
+		loading: boolean;
+		error: string | null;
+		currentPage: number;
+		hasMore: boolean;
+		searchParamsKey: string;
 	};
 
-	return {
-		createStore<T>(initialValue: T) {
-			let value = initialValue;
-			const subscribers = new Set<(nextValue: T) => void>();
+	function createStore<T>(initialValue: T) {
+		let value = initialValue;
+		const subscribers = new Set<(nextValue: T) => void>();
 
-			return {
-				set(nextValue: T) {
-					value = nextValue;
-					for (const subscriber of subscribers) {
-						subscriber(value);
-					}
-				},
-				update(updater: (currentValue: T) => T) {
-					this.set(updater(value));
-				},
-				subscribe(subscriber: (nextValue: T) => void) {
+		return {
+			set(nextValue: T) {
+				value = nextValue;
+				for (const subscriber of subscribers) {
 					subscriber(value);
-					subscribers.add(subscriber);
-					return () => subscribers.delete(subscriber);
 				}
-			};
-		},
-		servicesStore: null as ReturnType<typeof hoisted.createStore<typeof _storeData>>,
+			},
+			update(updater: (currentValue: T) => T) {
+				this.set(updater(value));
+			},
+			subscribe(subscriber: (nextValue: T) => void) {
+				subscriber(value);
+				subscribers.add(subscriber);
+				return () => subscribers.delete(subscriber);
+			}
+		};
+	}
+
+	return {
+		createStore,
+		servicesStore: null as unknown as ReturnType<typeof createStore<StoreData>> & Record<string, unknown>,
 		authStateStore: null as unknown as {
 			set: (nextValue: { isAuthenticated: boolean }) => void;
 			subscribe: (subscriber: (nextValue: { isAuthenticated: boolean }) => void) => () => void;
@@ -62,10 +64,10 @@ hoisted.servicesStore = hoisted.createStore({
 	currentPage: 1,
 	hasMore: false,
 	searchParamsKey: ''
-});
-hoisted.servicesStore.destroy = vi.fn();
-hoisted.authStateStore = hoisted.createStore({ isAuthenticated: true });
-hoisted.userStore = hoisted.createStore({ npub: 'owner-pubkey' });
+}) as unknown as typeof hoisted.servicesStore;
+(hoisted.servicesStore as unknown as { destroy: ReturnType<typeof vi.fn> }).destroy = vi.fn();
+hoisted.authStateStore = hoisted.createStore({ isAuthenticated: true }) as unknown as typeof hoisted.authStateStore;
+hoisted.userStore = hoisted.createStore({ npub: 'owner-pubkey' }) as unknown as typeof hoisted.userStore;
 
 vi.mock('svelte-i18n', async () => {
 	const { readable } = await import('svelte/store');
@@ -332,19 +334,19 @@ describe('Network failure scenarios', () => {
 			let timeoutFired = false;
 			const originalSetTimeout = window.setTimeout;
 			vi.spyOn(window, 'setTimeout').mockImplementation(
-				(handler: TimerHandler, delay?: number, ...args: unknown[]) => {
+				((handler: TimerHandler, delay?: number, ...args: unknown[]) => {
 					if (typeof handler === 'function' && handler.toString().includes('loadingTimedOut')) {
-						handler();
+						(handler as () => void)();
 						timeoutFired = true;
 						return 0;
 					}
-					return originalSetTimeout.call(window, handler, delay, ...args);
-				}
+					return originalSetTimeout.call(window, handler as () => void, delay, ...args);
+				}) as unknown as typeof window.setTimeout
 			);
 
 			await vi.advanceTimersByTimeAsync(30_000);
 
-			expect(timeoutFired || hoisted.servicesStore.loading).toBeTruthy();
+			expect(timeoutFired || (hoisted.servicesStore as unknown as { loading: boolean }).loading).toBeTruthy();
 
 			vi.useRealTimers();
 		});

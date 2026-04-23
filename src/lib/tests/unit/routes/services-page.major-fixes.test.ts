@@ -62,7 +62,8 @@ const hoisted = vi.hoisted(() => ({
 				searchParamsKey: string;
 			}) => void
 		) => () => void;
-	},
+		destroy: ReturnType<typeof vi.fn>;
+	} & Record<string, unknown>,
 	authStateStore: null as unknown as {
 		set: (nextValue: { isAuthenticated: boolean }) => void;
 		subscribe: (subscriber: (nextValue: { isAuthenticated: boolean }) => void) => () => void;
@@ -84,10 +85,10 @@ hoisted.servicesStore = hoisted.createStore({
 	currentPage: 1,
 	hasMore: false,
 	searchParamsKey: ''
-});
-hoisted.servicesStore.destroy = vi.fn();
-hoisted.authStateStore = hoisted.createStore({ isAuthenticated: true });
-hoisted.userStore = hoisted.createStore({ npub: 'owner-pubkey' });
+}) as unknown as typeof hoisted.servicesStore;
+(hoisted.servicesStore as unknown as { destroy: ReturnType<typeof vi.fn> }).destroy = vi.fn();
+hoisted.authStateStore = hoisted.createStore({ isAuthenticated: true }) as unknown as typeof hoisted.authStateStore;
+hoisted.userStore = hoisted.createStore({ npub: 'owner-pubkey' }) as unknown as typeof hoisted.userStore;
 
 vi.mock('svelte-i18n', async () => {
 	const { readable } = await import('svelte/store');
@@ -149,7 +150,7 @@ vi.mock('$lib/stores/app.store', () => ({
 }));
 
 vi.mock('$lib/nostr/findServices', () => ({
-	findServices: (...args) => hoisted.findServices(...args),
+	findServices: (...args: unknown[]) => hoisted.findServices(...args),
 	cleanup: vi.fn()
 }));
 
@@ -192,7 +193,7 @@ vi.mock('$lib/components/maps/TaskLocationMap.svelte', () => ({
 }));
 
 vi.mock('$lib/utils/service-search-persistence', () => ({
-	persistServiceSearchFilters: (...args) => hoisted.persistServiceSearchFilters(...args),
+	persistServiceSearchFilters: (...args: unknown[]) => hoisted.persistServiceSearchFilters(...args),
 	loadPersistedServiceSearchFilters: () => hoisted.loadPersistedServiceSearchFilters()
 }));
 
@@ -290,7 +291,7 @@ describe('MAJOR #3: isApplyingFilters unused in UI', () => {
 
 		let filterApplyComplete = false;
 		hoisted.findServices.mockImplementation(async () => {
-			await new Promise((resolve) => setTimeout(resolve, 500));
+			await new Promise((resolve) => setTimeout(resolve, 10));
 			filterApplyComplete = true;
 			hoisted.servicesStore.set({
 				items: [createService('service-1', 'other-pubkey', 'Test Service')],
@@ -310,7 +311,7 @@ describe('MAJOR #3: isApplyingFilters unused in UI', () => {
 
 		const filterButtonAfterClick = screen.queryByRole('button', { name: 'Filters' });
 		if (filterButtonAfterClick) {
-			expect(filterButtonAfterClick).toBeDisabled();
+			expect(filterButtonAfterClick.hasAttribute('disabled')).toBe(true);
 		}
 
 		await waitFor(() => {
@@ -397,7 +398,7 @@ describe('MAJOR #5: Carousel buttons below 44px touch target', () => {
 				username: 'designer-pro',
 				avatar: ''
 			}
-		} as Service;
+	} as unknown as Service;
 
 		hoisted.findServices.mockImplementation(async () => {
 			hoisted.servicesStore.set({
@@ -457,7 +458,7 @@ describe('MAJOR #6: No loading timeout enforcement', () => {
 	});
 
 	it('FIX VERIFICATION: Loading timeout mechanism is in place', async () => {
-		hoisted.findServices.mockImplementation(new Promise(() => {}));
+		hoisted.findServices.mockImplementation(() => new Promise(() => {}));
 
 		const { default: ServicesPage } = await import('../../../../routes/services/+page.svelte');
 
@@ -501,7 +502,7 @@ describe('MAJOR #7: Filter drawer closes before apply completes', () => {
 
 		hoisted.findServices.mockImplementation(async () => {
 			applyStartTime = Date.now();
-			await new Promise((resolve) => setTimeout(resolve, 300));
+			await new Promise((resolve) => setTimeout(resolve, 10));
 			applyEndTime = Date.now();
 			hoisted.servicesStore.set({
 				items: [createService('service-1', 'other-pubkey', 'Test Service')],

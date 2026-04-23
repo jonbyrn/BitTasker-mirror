@@ -100,7 +100,7 @@ test.describe('Transaction History', () => {
 			await authenticatedPage.waitForLoadState('networkidle');
 			
 			// Should filter to send transactions - check for active state
-			const isActive = await sendFilter.evaluate(el => {
+			const isActive = await sendFilter.evaluate((el: Element) => {
 				return el.getAttribute('aria-pressed') === 'true' || 
 				       el.classList.contains('active') ||
 				       el.classList.contains('btn-active');
@@ -114,7 +114,7 @@ test.describe('Transaction History', () => {
 			await authenticatedPage.waitForLoadState('networkidle');
 			
 			// Should filter to receive transactions
-			const isActive = await receiveFilter.evaluate(el => {
+			const isActive = await receiveFilter.evaluate((el: Element) => {
 				return el.getAttribute('aria-pressed') === 'true' || 
 				       el.classList.contains('active') ||
 				       el.classList.contains('btn-active');

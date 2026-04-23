@@ -4,21 +4,21 @@ import type { Service } from '$lib/types/service.d';
 import { ServiceLocationTypeEnum, ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';
 
 const hoisted = vi.hoisted(() => ({
-	createStore(initialValue) {
+	createStore<T>(initialValue: T) {
 		let value = initialValue;
-		const subscribers = new Set();
+		const subscribers = new Set<(nextValue: T) => void>();
 
 		return {
-			set(nextValue) {
+			set(nextValue: T) {
 				value = nextValue;
 				for (const subscriber of subscribers) {
 					subscriber(value);
 				}
 			},
-			update(updater) {
+			update(updater: (currentValue: T) => T) {
 				this.set(updater(value));
 			},
-			subscribe(subscriber) {
+			subscribe(subscriber: (nextValue: T) => void) {
 				subscriber(value);
 				subscribers.add(subscriber);
 				return () => subscribers.delete(subscriber);
@@ -61,7 +61,8 @@ const hoisted = vi.hoisted(() => ({
 				searchParamsKey: string;
 			}) => void
 		) => () => void;
-	},
+		destroy: ReturnType<typeof vi.fn>;
+	} & Record<string, unknown>,
 	authStateStore: null as unknown as {
 		set: (nextValue: { isAuthenticated: boolean }) => void;
 		subscribe: (subscriber: (nextValue: { isAuthenticated: boolean }) => void) => () => void;
@@ -83,10 +84,10 @@ hoisted.servicesStore = hoisted.createStore({
 	currentPage: 1,
 	hasMore: false,
 	searchParamsKey: ''
-});
-hoisted.servicesStore.destroy = vi.fn();
-hoisted.authStateStore = hoisted.createStore({ isAuthenticated: true });
-hoisted.userStore = hoisted.createStore({ npub: 'owner-pubkey' });
+}) as unknown as typeof hoisted.servicesStore;
+(hoisted.servicesStore as unknown as { destroy: ReturnType<typeof vi.fn> }).destroy = vi.fn();
+hoisted.authStateStore = hoisted.createStore({ isAuthenticated: true }) as unknown as typeof hoisted.authStateStore;
+hoisted.userStore = hoisted.createStore({ npub: 'owner-pubkey' }) as unknown as typeof hoisted.userStore;
 
 vi.mock('svelte-i18n', async () => {
 	const { readable } = await import('svelte/store');
@@ -146,7 +147,7 @@ vi.mock('$lib/stores/app.store', () => ({
 }));
 
 vi.mock('$lib/nostr/findServices', () => ({
-	findServices: (...args) => hoisted.findServices(...args),
+	findServices: (...args: unknown[]) => hoisted.findServices(...args),
 	cleanup: vi.fn()
 }));
 
@@ -189,7 +190,7 @@ vi.mock('$lib/components/maps/TaskLocationMap.svelte', () => ({
 }));
 
 vi.mock('$lib/utils/service-search-persistence', () => ({
-	persistServiceSearchFilters: (...args) => hoisted.persistServiceSearchFilters(...args),
+	persistServiceSearchFilters: (...args: unknown[]) => hoisted.persistServiceSearchFilters(...args),
 	loadPersistedServiceSearchFilters: () => hoisted.loadPersistedServiceSearchFilters()
 }));
 
@@ -203,8 +204,8 @@ vi.mock('$lib/components/service/ServiceCard.svelte', async () => {
 });
 
 let serviceIdCounter = 0;
-function createService(overrides = {}) {
-	const uniqueId = overrides.uniqueId || `service-${++serviceIdCounter}`;
+function createService(overrides: Record<string, unknown> = {}) {
+	const uniqueId = (overrides.uniqueId as string) || `service-${++serviceIdCounter}`;
 	return {
 		id: `service-event-${uniqueId}`,
 		uniqueId: uniqueId,
@@ -228,7 +229,7 @@ function createService(overrides = {}) {
 			avatar: ''
 		},
 		...overrides
-	} as Service;
+	} as unknown as Service;
 }
 
 function setupWindowMocks() {
@@ -547,8 +548,8 @@ describe('Edge Case: Service with missing fields', () => {
 
 	it('handles service with null portfolio gracefully', async () => {
 		const serviceWithNullPortfolio = createService({
-			portfolio: null,
-			uniqueId: 'null-portfolio'
+		portfolio: null as unknown as [],
+		uniqueId: 'null-portfolio'
 		});
 
 		hoisted.findServices.mockImplementation(async () => {
@@ -594,7 +595,7 @@ describe('Edge Case: Service with invalid coordinates', () => {
 			serviceLocationTypes: [ServiceLocationTypeEnum.TASKEE_LOCATION],
 			locationDetails: {
 				taskeeLocation: {
-					serviceLocation: null
+					serviceLocation: null as unknown as { latitude: number; longitude: number }
 				}
 			},
 			uniqueId: 'null-coords'
@@ -634,7 +635,7 @@ describe('Edge Case: Service with invalid coordinates', () => {
 			serviceLocationTypes: [ServiceLocationTypeEnum.TASKER_LOCATION],
 			locationDetails: {
 				taskerLocation: {
-					serviceLocation: undefined
+					serviceLocation: undefined as unknown as { latitude: number; longitude: number }
 				}
 			},
 			uniqueId: 'undefined-coords'
@@ -812,7 +813,7 @@ describe('Edge Case: Storage with invalid JSON', () => {
 
 	it('handles sessionStorage with circular reference JSON', async () => {
 		try {
-			const circularObj = { key: 'value' };
+			const circularObj: { key: string; self?: object } = { key: 'value' };
 			circularObj.self = circularObj;
 			sessionStorage.setItem('savedServiceSearchParams', JSON.stringify(circularObj));
 		} catch {

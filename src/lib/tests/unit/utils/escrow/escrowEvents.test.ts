@@ -208,7 +208,7 @@ vi.mock('svelte/store', () => {
 		// get(t) should return the translation function: (key: string) => string
 		if (typeof store === 'function') {
 			// Check if it has a subscribe method (it's a store)
-			if (store.subscribe || (store.toString && store.toString().includes('t'))) {
+			if ((store as any).subscribe || (store.toString && store.toString().includes('t'))) {
 				// It's the t store, return translation function
 				return translationFn;
 			}
@@ -333,7 +333,7 @@ describe('escrowEvents', () => {
 			replacePendingContractByTxHash('0xabc123', '0xdef456');
 			vi.mocked(publishContractEvent).mockResolvedValue(undefined);
 			vi.mocked(contractStore.loadContractByEscrowId).mockResolvedValue(true);
-			vi.mocked(pushNotificationService.sendNotificationToNpubs).mockResolvedValue(undefined);
+			vi.mocked(pushNotificationService.sendNotificationToNpubs).mockResolvedValue(undefined as unknown as Awaited<ReturnType<typeof pushNotificationService.sendNotificationToNpubs>>);
 
 			await handleEscrowCreated({
 				escrowId: 'svc-123',
@@ -534,7 +534,9 @@ describe('escrowEvents', () => {
 				{
 					type: 'image',
 					url: 'https://example.com/image.jpg',
-					name: 'image.jpg'
+					key: 'image.jpg',
+					alt: 'image',
+					size: 1024
 				}
 			];
 
@@ -606,7 +608,7 @@ describe('escrowEvents', () => {
 
 			vi.mocked(publishContractEvent).mockResolvedValue(undefined);
 			vi.mocked(contractStore.loadContractByEscrowId).mockResolvedValue(true);
-			vi.mocked(pushNotificationService.sendNotificationToNpubs).mockResolvedValue(undefined);
+			vi.mocked(pushNotificationService.sendNotificationToNpubs).mockResolvedValue(undefined as unknown as Awaited<ReturnType<typeof pushNotificationService.sendNotificationToNpubs>>);
 
 			await handleEscrowCreated(event);
 
@@ -639,7 +641,7 @@ describe('escrowEvents', () => {
 
 			vi.mocked(publishContractEvent).mockResolvedValue(undefined);
 			vi.mocked(contractStore.loadContractByEscrowId).mockResolvedValue(true);
-			vi.mocked(pushNotificationService.sendNotificationToNpubs).mockResolvedValue(undefined);
+			vi.mocked(pushNotificationService.sendNotificationToNpubs).mockResolvedValue(undefined as unknown as Awaited<ReturnType<typeof pushNotificationService.sendNotificationToNpubs>>);
 
 			await handleEscrowCreated(event);
 
@@ -695,7 +697,7 @@ describe('escrowEvents', () => {
 
 			vi.mocked(publishContractEvent).mockResolvedValue(undefined);
 			vi.mocked(contractStore.loadContractByEscrowId).mockResolvedValue(true);
-			vi.mocked(pushNotificationService.sendNotificationToNpubs).mockResolvedValue(undefined);
+			vi.mocked(pushNotificationService.sendNotificationToNpubs).mockResolvedValue(undefined as unknown as Awaited<ReturnType<typeof pushNotificationService.sendNotificationToNpubs>>);
 
 			await handleEscrowCreated(event);
 
@@ -784,7 +786,7 @@ describe('escrowEvents', () => {
 
 			vi.mocked(publishContractEvent).mockResolvedValue(undefined);
 			vi.mocked(contractStore.loadContractByEscrowId).mockResolvedValue(true);
-			vi.mocked(pushNotificationService.sendNotificationToNpubs).mockResolvedValue(undefined);
+			vi.mocked(pushNotificationService.sendNotificationToNpubs).mockResolvedValue(undefined as unknown as Awaited<ReturnType<typeof pushNotificationService.sendNotificationToNpubs>>);
 			vi.mocked(publishServiceProposalStatus)
 				.mockRejectedValueOnce(new Error('status publish failed'))
 				.mockResolvedValueOnce({
@@ -946,7 +948,7 @@ describe('escrowEvents', () => {
 
 			vi.mocked(publishContractEvent).mockResolvedValue(undefined);
 			vi.mocked(contractStore.loadContractByEscrowId).mockResolvedValue(true);
-			vi.mocked(pushNotificationService.sendNotificationToNpubs).mockResolvedValue(undefined);
+			vi.mocked(pushNotificationService.sendNotificationToNpubs).mockResolvedValue(undefined as unknown as Awaited<ReturnType<typeof pushNotificationService.sendNotificationToNpubs>>);
 			vi.mocked(publishServiceProposalStatus).mockRejectedValueOnce(
 				new Error('status publish failed')
 			);
@@ -1245,7 +1247,7 @@ describe('escrowEvents', () => {
 
 			vi.mocked(publishContractEvent).mockResolvedValue(undefined);
 			vi.mocked(contractStore.loadContractByEscrowId).mockResolvedValue(true);
-			vi.mocked(pushNotificationService.sendNotificationToNpubs).mockResolvedValue(undefined);
+			vi.mocked(pushNotificationService.sendNotificationToNpubs).mockResolvedValue(undefined as unknown as Awaited<ReturnType<typeof pushNotificationService.sendNotificationToNpubs>>);
 
 			await handleEscrowCreated(event);
 
@@ -1338,8 +1340,8 @@ describe('escrowEvents', () => {
 			});
 
 			vi.mocked(publishContractEvent).mockResolvedValue(undefined);
-			vi.mocked(contractStore.loadContractByEscrowId).mockResolvedValue(undefined);
-			vi.mocked(pushNotificationService.sendNotificationToNpubs).mockResolvedValue(undefined);
+			vi.mocked(contractStore.loadContractByEscrowId).mockResolvedValue(undefined as unknown as boolean);
+			vi.mocked(pushNotificationService.sendNotificationToNpubs).mockResolvedValue(undefined as unknown as Awaited<ReturnType<typeof pushNotificationService.sendNotificationToNpubs>>);
 
 			await handleEscrowCreated(event);
 
@@ -1374,8 +1376,8 @@ describe('escrowEvents', () => {
 			});
 
 			vi.mocked(publishContractEvent).mockResolvedValue(undefined);
-			vi.mocked(contractStore.loadContractByEscrowId).mockResolvedValue(undefined);
-			vi.mocked(pushNotificationService.sendNotificationToNpubs).mockResolvedValue(undefined);
+			vi.mocked(contractStore.loadContractByEscrowId).mockResolvedValue(undefined as unknown as boolean);
+			vi.mocked(pushNotificationService.sendNotificationToNpubs).mockResolvedValue(undefined as unknown as Awaited<ReturnType<typeof pushNotificationService.sendNotificationToNpubs>>);
 
 			await handleEscrowCreated(event);
 
@@ -1460,12 +1462,13 @@ describe('escrowEvents', () => {
 				freelancerPubkey: 'npub1freelancer',
 				amount: '1.0',
 				estimatedStartTime: Math.floor(Date.now() / 1000) + 3600,
-				estimatedCompletionTime: Math.floor(Date.now() / 1000) + 7200
+				estimatedCompletionTime: Math.floor(Date.now() / 1000) + 7200,
+				transactionHash: '0x123'
 			});
 
 			vi.mocked(publishContractEvent).mockResolvedValue(undefined);
-			vi.mocked(contractStore.loadContractByEscrowId).mockResolvedValue(undefined);
-			vi.mocked(pushNotificationService.sendNotificationToNpubs).mockResolvedValue(undefined);
+			vi.mocked(contractStore.loadContractByEscrowId).mockResolvedValue(undefined as unknown as boolean);
+			vi.mocked(pushNotificationService.sendNotificationToNpubs).mockResolvedValue(undefined as unknown as Awaited<ReturnType<typeof pushNotificationService.sendNotificationToNpubs>>);
 
 			// Make sendBidStatusUpdate fail
 			vi.mocked(sendBidStatusUpdate).mockRejectedValueOnce(
@@ -1524,8 +1527,8 @@ describe('escrowEvents', () => {
 
 			// Wait for handleEscrowCreated to complete
 			vi.mocked(publishContractEvent).mockResolvedValue(undefined);
-			vi.mocked(contractStore.loadContractByEscrowId).mockResolvedValue(undefined);
-			vi.mocked(pushNotificationService.sendNotificationToNpubs).mockResolvedValue(undefined);
+			vi.mocked(contractStore.loadContractByEscrowId).mockResolvedValue(undefined as unknown as boolean);
+			vi.mocked(pushNotificationService.sendNotificationToNpubs).mockResolvedValue(undefined as unknown as Awaited<ReturnType<typeof pushNotificationService.sendNotificationToNpubs>>);
 
 			await handlePromise;
 
@@ -1558,8 +1561,8 @@ describe('escrowEvents', () => {
 			};
 
 			vi.mocked(publishContractEvent).mockResolvedValue(undefined);
-			vi.mocked(contractStore.loadContractByEscrowId).mockResolvedValue(undefined);
-			vi.mocked(pushNotificationService.sendNotificationToNpubs).mockResolvedValue(undefined);
+			vi.mocked(contractStore.loadContractByEscrowId).mockResolvedValue(undefined as unknown as boolean);
+			vi.mocked(pushNotificationService.sendNotificationToNpubs).mockResolvedValue(undefined as unknown as Awaited<ReturnType<typeof pushNotificationService.sendNotificationToNpubs>>);
 
 			// Call both concurrently to simulate race condition
 			const [result] = await Promise.allSettled([
@@ -1598,8 +1601,8 @@ describe('escrowEvents', () => {
 			};
 
 			vi.mocked(publishContractEvent).mockResolvedValue(undefined);
-			vi.mocked(contractStore.loadContractByEscrowId).mockResolvedValue(undefined);
-			vi.mocked(pushNotificationService.sendNotificationToNpubs).mockResolvedValue(undefined);
+			vi.mocked(contractStore.loadContractByEscrowId).mockResolvedValue(undefined as unknown as boolean);
+			vi.mocked(pushNotificationService.sendNotificationToNpubs).mockResolvedValue(undefined as unknown as Awaited<ReturnType<typeof pushNotificationService.sendNotificationToNpubs>>);
 
 			await handleEscrowCreated(event);
 

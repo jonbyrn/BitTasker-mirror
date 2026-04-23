@@ -14,7 +14,7 @@ export interface InstantBuyTierLike {
 	id: string;
 	price: number;
 	deliveryTime?: DeliveryTimeLike;
-	rushDelivery?: { enabled: boolean };
+	rushDelivery?: { enabled: boolean; deliveryTime?: DeliveryTimeLike };
 }
 
 export interface InstantBuyServiceLike {
@@ -28,7 +28,7 @@ export interface InstantBuyServiceLike {
 		type: InstantBuyPricingType;
 		amount?: number;
 		deliveryTime?: DeliveryTimeLike;
-		rushDelivery?: { enabled: boolean };
+		rushDelivery?: { enabled: boolean; deliveryTime?: DeliveryTimeLike };
 		tiers?: InstantBuyTierLike[];
 		addOns?: Array<{ id: string }>;
 	};
@@ -63,7 +63,7 @@ export interface InstantBuyEligibilityResult {
 }
 
 function isValidLeadHours(value: number | undefined): value is number {
-	return Number.isInteger(value) && value >= 0 && value <= 720;
+	return typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 720;
 }
 
 function hasDistanceFee(service: InstantBuyServiceLike): boolean {

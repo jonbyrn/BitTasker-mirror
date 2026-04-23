@@ -1,4 +1,4 @@
-import type { WalletState, WalletAsset, Transaction, NetworkType } from '@bittasker/wallet-core';
+import type { WalletState, WalletAsset, Transaction } from '@bittasker/wallet-core';
 import { writable, get } from 'svelte/store';
 import type { Writable } from 'svelte/store';
 
@@ -16,8 +16,6 @@ export function createMockWalletStore(
 	const defaultState: WalletState = {
 		isInitializing: false,
 		isConnected: false,
-		isConnecting: false,
-		hasAnyConnection: false,
 		error: null,
 		rsk: {
 			connected: false,
@@ -60,10 +58,9 @@ export function createMockWalletStore(
 		rbtcToBtcRate: 1.0,
 		rbtcRateError: false,
 		activeNetwork: 'rsk',
-		activeTab: 'balance',
 		selectedAsset: 'rBTC',
 		...overrides
-	};
+	} as WalletState;
 
 	return writable(defaultState);
 }
@@ -119,20 +116,64 @@ export function createMockWalletManager(overrides: any = {}) {
 /**
  * Generate mock transaction data
  */
+const createMockAddressEntity = (address: string) => ({
+	ens_domain_name: null,
+	hash: address,
+	implementations: [],
+	is_contract: false,
+	is_scam: false,
+	is_verified: true,
+	metadata: null,
+	name: null,
+	private_tags: [],
+	proxy_type: null,
+	public_tags: [],
+	reputation: '',
+	watchlist_names: []
+});
+
 export function generateMockTransaction(overrides: Partial<Transaction> = {}): Transaction {
 	return {
 		hash: '0x' + Math.random().toString(16).substring(2, 66),
-		from: '0x1234567890123456789012345678901234567890',
-		to: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
-		value: '1000000000000000000', // 1 RBTC in wei
-		blockNumber: 12345678,
-		blockHash: '0x' + Math.random().toString(16).substring(2, 66),
-		timestamp: Date.now(),
-		network: 'rootstock-bitcoin',
-		type: 'send',
+		from: createMockAddressEntity('0x1234567890123456789012345678901234567890'),
+		to: createMockAddressEntity('0xabcdefabcdefabcdefabcdefabcdefabcdefabcd'),
+		value: '1000000000000000000',
+		gas_used: '21000',
+		gas_price: '20000000000',
+		gas_limit: '21000',
+		block_number: 12345678,
+		block_hash: '0x' + Math.random().toString(16).substring(2, 66),
+		timestamp: String(Date.now()),
 		status: 'confirmed',
+		nonce: 0,
+		position: 0,
+		confirmations: 1,
+		raw_input: '0x',
+		method: null,
+		decoded_input: null,
+		transaction_types: ['EIP1559'],
+		token_transfers: null,
+		max_fee_per_gas: '20000000000',
+		max_priority_fee_per_gas: '2000000000',
+		base_fee_per_gas: '10000000000',
+		priority_fee: '2000000000',
+		transaction_burnt_fee: null,
+		result: '0x1',
+		revert_reason: null,
+		created_contract: null,
+		is_pending_update: false,
+		type: 2,
+		has_error_in_internal_transactions: false,
+		fee: { type: 'EIP1559', value: '420000000000000' },
+		exchange_rate: null,
+		historic_exchange_rate: null,
+		confirmation_duration: null,
+		token_transfers_overflow: null,
+		transaction_tag: null,
+		authorization_list: [],
+		actions: [],
 		...overrides
-	};
+	} as unknown as Transaction;
 }
 
 /**
@@ -140,22 +181,24 @@ export function generateMockTransaction(overrides: Partial<Transaction> = {}): T
  */
 export function generateMockAsset(overrides: Partial<WalletAsset> = {}): WalletAsset {
 	return {
-		symbol: 'RBTC',
+		assetId: 'rbtc',
+		ticker: 'RBTC',
 		name: 'Rootstock Bitcoin',
-		balance: '1000000000000000000', // 1 RBTC in wei
+		precision: 18,
+		icon: '',
+		balance: 1000000000000000000,
 		formattedBalance: '1.00',
 		usdValue: 65000,
-		network: 'rootstock-bitcoin',
-		decimals: 18,
+		network: 'RSK',
 		...overrides
-	};
+	} as unknown as WalletAsset;
 }
 
 /**
  * Generate mock address for different networks
  */
-export function generateMockAddress(network: NetworkType = 'rootstock-bitcoin'): string {
-	const addresses: Record<NetworkType, string> = {
+export function generateMockAddress(network: string = 'rootstock-bitcoin'): string {
+	const addresses: Record<string, string> = {
 		'rootstock-bitcoin': '0x1234567890123456789012345678901234567890',
 		'usdt-bsc': '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
 		'lightning-bitcoin': 'lnbc1p0example1234567890abcdef',

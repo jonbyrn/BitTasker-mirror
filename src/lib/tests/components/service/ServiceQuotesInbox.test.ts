@@ -83,8 +83,8 @@ const mockService: Service = {
 		type: ServicePricingTypeEnum.INQUIRY_REQUIRED,
 		currency: 'USD',
 		tiers: [
-			{ id: 'premium', name: 'Premium Plan', price: 250 },
-			{ id: 'standard', name: 'Standard Plan', price: 150 }
+			{ id: 'premium', name: 'Premium Plan', description: 'Premium features', features: [], price: 250 },
+			{ id: 'standard', name: 'Standard Plan', description: 'Standard features', features: [], price: 150 }
 		]
 	},
 	skills: [],

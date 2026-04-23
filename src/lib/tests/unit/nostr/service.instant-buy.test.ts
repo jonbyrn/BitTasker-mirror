@@ -60,6 +60,7 @@ describe('service instant-buy nostr round-trip', () => {
 
 	it('serializes instantBuyLeadHours into the published service content', async () => {
 		await createService({
+			uniqueId: 'service-123',
 			title: 'Logo Sprint',
 			description: 'Brand identity package',
 			serviceLocationTypes: [],
@@ -74,7 +75,7 @@ describe('service instant-buy nostr round-trip', () => {
 					display: '2-3 days'
 				}
 			},
-			categories: [{ id: 'design', name: 'Design', slug: 'design' }],
+			categories: [{ id: 'design', name: 'Design', slug: 'design', description: 'Design category' }],
 			skills: ['Branding'],
 			portfolio: [],
 			faqs: [],

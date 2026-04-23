@@ -1,5 +1,5 @@
 
-export async function load({ url }) {
+export async function load({ url }: { url: URL }) {
 	return {
 		title: 'Taskee Fees & Earnings - BitTasker | Bitcoin Workers',
 		description: 'Learn about BitTasker\'s taskee fee structure and maximize your Bitcoin earnings. Transparent pricing with loyalty rewards for active workers.',

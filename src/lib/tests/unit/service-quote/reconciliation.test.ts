@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { reconcileServiceAcceptanceState } from '$lib/utils/service-quote/reconciliation';
+import type { ServiceAcceptanceLedgerEntry, ServiceAcceptanceLedgerState } from '$lib/utils/service-quote/acceptance-ledger';
 
 describe('service-quote acceptance reconciliation', () => {
 	it('returns idle when no ledger entry exists', () => {
@@ -13,13 +14,13 @@ describe('service-quote acceptance reconciliation', () => {
 	});
 
 	it('prioritizes verified escrow over publish failures and otherwise preserves ledger state', () => {
-		const ledgerEntry = {
+		const ledgerEntry: ServiceAcceptanceLedgerEntry = {
 			proposalId: 'pr_valid123',
-			state: 'accepting',
+			state: 'accepting' as ServiceAcceptanceLedgerState,
 			attemptCount: 1,
 			lastUpdatedAt: 1,
-			attempts: []
-		} as const;
+			attempts: [{ attemptNumber: 1, state: 'accepting' as ServiceAcceptanceLedgerState, timestamp: 1 }]
+		};
 
 		expect(
 			reconcileServiceAcceptanceState({
@@ -50,13 +51,13 @@ describe('service-quote acceptance reconciliation', () => {
 	});
 
 	it('maps explicit ambiguity reasons to accept_unknown', () => {
-		const ledgerEntry = {
+		const ledgerEntry: ServiceAcceptanceLedgerEntry = {
 			proposalId: 'pr_valid123',
-			state: 'accepting',
+			state: 'accepting' as ServiceAcceptanceLedgerState,
 			attemptCount: 1,
 			lastUpdatedAt: 1,
-			attempts: []
-		} as const;
+			attempts: [{ attemptNumber: 1, state: 'accepting' as ServiceAcceptanceLedgerState, timestamp: 1 }]
+		};
 
 		expect(
 			reconcileServiceAcceptanceState({
@@ -78,13 +79,16 @@ describe('service-quote acceptance reconciliation', () => {
 	});
 
 	it('allows a previously accepted ledger entry to downgrade and later reconfirm', () => {
-		const acceptedLedgerEntry = {
+		const acceptedLedgerEntry: ServiceAcceptanceLedgerEntry = {
 			proposalId: 'pr_valid123',
-			state: 'accepted',
+			state: 'accepted' as ServiceAcceptanceLedgerState,
 			attemptCount: 2,
 			lastUpdatedAt: 2,
-			attempts: []
-		} as const;
+			attempts: [
+				{ attemptNumber: 1, state: 'accepted' as ServiceAcceptanceLedgerState, timestamp: 1 },
+				{ attemptNumber: 2, state: 'accepted' as ServiceAcceptanceLedgerState, timestamp: 2 }
+			]
+		};
 
 		expect(
 			reconcileServiceAcceptanceState({

@@ -230,7 +230,7 @@ describe('create-service wallet fallback and removal', () => {
 			...state,
 			service: {
 				...state.service,
-				providerWalletAddress: undefined
+				providerWalletAddress: undefined as unknown as string
 			}
 		}));
 
@@ -258,8 +258,8 @@ describe('create-service wallet fallback and removal', () => {
 			...state,
 			service: {
 				...state.service,
-				instantBuyLeadHours: undefined,
-				instantBuyDeliveryHours: undefined
+				instantBuyLeadHours: undefined as unknown as number,
+				instantBuyDeliveryHours: undefined as unknown as number
 			}
 		}));
 

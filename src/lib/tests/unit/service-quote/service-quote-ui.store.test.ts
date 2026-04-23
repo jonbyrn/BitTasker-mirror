@@ -1022,7 +1022,7 @@ describe('serviceQuoteUiStore', () => {
 					latestProposal: {
 						...expiredTimeline.latestProposal,
 						content: {
-							...expiredTimeline.latestProposal.content,
+							...(expiredTimeline.latestProposal?.content ?? {}),
 							expirationTimestamp: expiredTimestamp
 						}
 					},

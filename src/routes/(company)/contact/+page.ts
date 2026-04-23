@@ -1,4 +1,4 @@
-export async function load({ url }) {
+export async function load({ url }: { url: URL }) {
 	return {
 		title: 'Contact BitTasker - Support & Partnership Inquiries',
 		description: 'Get in touch with BitTasker for support, partnership opportunities, or general inquiries. Contact our team for help with our Bitcoin task marketplace.',

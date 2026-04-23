@@ -50,7 +50,7 @@ describe('debounce', () => {
 			value: 0,
 			add: debounce(function (this: { value: number }, num: number) {
 				this.value += num;
-			}, 100)
+			} as (...args: unknown[]) => void, 100)
 		};
 
 		obj.add(5);

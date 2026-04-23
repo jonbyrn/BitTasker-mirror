@@ -151,7 +151,7 @@ export function isStatusLinkedToProposal(
 	}
 
 	try {
-		validateServiceProposalStatusEvent(status, now);
+		validateServiceProposalStatusEvent(status as unknown as Parameters<typeof validateServiceProposalStatusEvent>[0], now);
 		validateStatusAuthorRole(status.content.status, status.pubkey, request.pubkey, proposal.pubkey);
 	} catch {
 		return false;
@@ -178,10 +178,12 @@ export function isDeleteBlockingTimelineEntry(
 	return !TERMINAL_DELETE_SAFE_STATES.has(timeline.resolvedStatus);
 }
 
+type TimelineGuard = Omit<ServiceDeleteQuoteGuard, 'activeContractCount'>;
+
 export function summarizeDeleteGuardForTimelines(
 	timelines: Array<Pick<ServiceQuoteTimelineEntry, 'proposals' | 'resolvedStatus'>>,
 	hasActiveContracts: boolean = false
-): ServiceDeleteQuoteGuard {
+): TimelineGuard {
 	const blockingThreadCount = timelines.reduce(
 		(count, timeline) => count + (isDeleteBlockingTimelineEntry(timeline) ? 1 : 0),
 		0

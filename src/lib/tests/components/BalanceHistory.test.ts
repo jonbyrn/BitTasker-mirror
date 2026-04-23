@@ -30,7 +30,7 @@ vi.mock('$lib/stores/wallet.store', () => {
 			usd: 50000
 		}
 	});
-	const totalBalances = derived(mockWalletStore, ($s) => $s.totalBalances);
+	const totalBalances = derived(mockWalletStore, ($s: any) => $s.totalBalances);
 	return {
 		walletStore: mockWalletStore,
 		totalBalances,

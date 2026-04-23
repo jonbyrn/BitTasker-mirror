@@ -408,7 +408,6 @@
 		const nextUrl = new URL(
 			buildEarningQueryUrl(new URL('/earning', window.location.origin), {
 				tab: 'contracts',
-				context: 'services',
 				highlight: highlightEscrowId,
 				service: buildServiceAddress(service)
 			})
@@ -444,8 +443,8 @@
 			taskeePubkey: service.npub,
 			limit: 100
 		});
-		const quoteGuard = summarizeDeleteGuardForThreads(quoteThreads);
 		const activeContracts = getActiveServiceContractsForService(contracts, service);
+		const quoteGuard = summarizeDeleteGuardForThreads(quoteThreads, activeContracts.length);
 
 		return {
 			hasOpenQuotes: quoteGuard.hasBlockingThreads,

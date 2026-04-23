@@ -60,9 +60,9 @@ vi.mock('$lib/stores/service.store', () => ({
 					...state.service,
 					...updates,
 					locationDetails: {
-						...state.service.locationDetails,
+						...(state.service.locationDetails ?? {}),
 						...((updates.locationDetails as Record<string, unknown> | undefined) ?? {})
-					}
+					} as any
 				}
 			}));
 		}
@@ -122,7 +122,7 @@ describe('ServiceLocation', () => {
 		});
 
 		await waitFor(() =>
-			expect(readStoreState()?.service.locationDetails?.taskeeLocation?.serviceRadius).toBe(42)
+			expect((readStoreState() as any)?.service.locationDetails?.taskeeLocation?.serviceRadius).toBe(42)
 		);
 		await waitFor(() =>
 			expect(getAllByTestId('mock-enhanced-location-picker-radius')[0]).toHaveTextContent('42')

@@ -66,7 +66,7 @@ describe('Tasks Page - Integration Tests', () => {
 			hasMore: true,
 			currentPage: 1,
 			searchParamsKey: ''
-		});
+		} as unknown as ReturnType<typeof tasksStore.set> extends (state: infer S) => unknown ? S : never);
 		vi.clearAllMocks();
 	});
 
@@ -85,7 +85,7 @@ describe('Tasks Page - Integration Tests', () => {
 				hasMore: true,
 				currentPage: 1,
 				searchParamsKey: 'test-key'
-			});
+			} as unknown as Parameters<typeof tasksStore.set>[0]);
 
 			const state = get(tasksStore);
 			expect(state.items).toHaveLength(2);
@@ -101,7 +101,7 @@ describe('Tasks Page - Integration Tests', () => {
 				hasMore: true,
 				currentPage: 1,
 				searchParamsKey: ''
-			});
+			} as unknown as Parameters<typeof tasksStore.set>[0]);
 
 			const state = get(tasksStore);
 			expect(state.loading).toBe(true);
@@ -116,7 +116,7 @@ describe('Tasks Page - Integration Tests', () => {
 				hasMore: false,
 				currentPage: 1,
 				searchParamsKey: ''
-			});
+			} as unknown as Parameters<typeof tasksStore.set>[0]);
 
 			const state = get(tasksStore);
 			expect(state.error).toBe(errorMessage);
@@ -131,7 +131,7 @@ describe('Tasks Page - Integration Tests', () => {
 				hasMore: true,
 				currentPage: 1,
 				searchParamsKey: searchKey
-			});
+			} as unknown as Parameters<typeof tasksStore.set>[0]);
 
 			const state = get(tasksStore);
 			expect(state.searchParamsKey).toBe(searchKey);
@@ -145,7 +145,7 @@ describe('Tasks Page - Integration Tests', () => {
 				hasMore: true,
 				currentPage: 2,
 				searchParamsKey: ''
-			});
+			} as unknown as Parameters<typeof tasksStore.set>[0]);
 
 			const state = get(tasksStore);
 			expect(state.currentPage).toBe(2);
@@ -161,7 +161,7 @@ describe('Tasks Page - Integration Tests', () => {
 				hasMore: true,
 				currentPage: 1,
 				searchParamsKey: 'old-key'
-			});
+			} as unknown as Parameters<typeof tasksStore.set>[0]);
 
 			// Simulate search params change - should clear items
 			tasksStore.update((state) => ({
@@ -202,7 +202,7 @@ describe('Tasks Page - Integration Tests', () => {
 				hasMore: true,
 				currentPage: 1,
 				searchParamsKey: searchKey
-			});
+			} as unknown as Parameters<typeof tasksStore.set>[0]);
 
 			const state = get(tasksStore);
 			expect(state.searchParamsKey).toBe(searchKey);
@@ -222,7 +222,7 @@ describe('Tasks Page - Integration Tests', () => {
 				hasMore: true,
 				currentPage: 1,
 				searchParamsKey: ''
-			});
+			} as unknown as Parameters<typeof tasksStore.set>[0]);
 
 			// Simulate loading more
 			const moreTasks = Array.from({ length: 10 }, (_, i) =>
@@ -248,7 +248,7 @@ describe('Tasks Page - Integration Tests', () => {
 				hasMore: false,
 				currentPage: 1,
 				searchParamsKey: ''
-			});
+			} as unknown as Parameters<typeof tasksStore.set>[0]);
 
 			const state = get(tasksStore);
 			expect(state.hasMore).toBe(false);

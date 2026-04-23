@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { get } from 'svelte/store';
 import { appStore } from '$lib/stores/app.store';
+import type { BiometricData } from '$lib/types/auth';
 
 describe('appStore', () => {
 	beforeEach(() => {
@@ -41,7 +42,7 @@ describe('appStore', () => {
 					npub: 'npub123',
 					mnemonic: 'abandon abandon'
 				},
-				biometricData: { password: 'x', npub: 'y' },
+				biometricData: { password: 'x', npub: 'y' } as unknown as BiometricData,
 				error: 'Some error'
 			}));
 

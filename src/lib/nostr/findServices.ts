@@ -34,7 +34,7 @@ const REQUEST_TIMEOUT_MS = 15000;
 // In-flight profile fetch promises for deduplication
 const profileFetchPromises = new Map<
 	string,
-	Promise<NonNullable<Awaited<ReturnType<typeof fetchComprehensiveProfileSafe>>>>
+	Promise<Awaited<ReturnType<typeof fetchComprehensiveProfileSafe>> | null>
 >();
 
 export async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
@@ -81,7 +81,7 @@ export async function getCachedViewerNpub(): Promise<string | null> {
 	}
 }
 
-async function fetchComprehensiveProfileSafe(pubkey: string) {
+async function fetchComprehensiveProfileSafe(pubkey: string): Promise<Awaited<ReturnType<typeof fetchComprehensiveProfile>> | null> {
 	let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
 	try {
@@ -318,7 +318,7 @@ export async function findServices(
 				const endIndex = Math.min(startIndex + limit, cleanServices.length);
 				let limitedServices = cleanServices.slice(startIndex, endIndex);
 
-				const existingIds = new Set(state.items.map((s) => s.uniqueId));
+				const existingIds = new Set(get(servicesStore).items.map((s: Service) => s.uniqueId));
 				limitedServices = limitedServices.filter((s) => !existingIds.has(s.uniqueId));
 
 				const hasMore = endIndex < cleanServices.length || cleanServices.length >= MAX_CACHE_SIZE;

@@ -27,7 +27,7 @@
 		pushToken?: string | null;
 		revokedAt?: string | null;
 		updatedAt?: string;
-		userId?: number;
+		userId?: string | number;
 		currentDevice?: boolean;
 	}
 

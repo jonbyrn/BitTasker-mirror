@@ -154,10 +154,9 @@ async function ensureContractPublishReady(
 	input: Pick<ServiceContractPreflightInput, 'freelancerPubkey'>
 ): Promise<ServiceContractPreflightFailure | { recipientPubkey: string }> {
 	const normalizedRecipient = normalizeRecipientPubkey(input.freelancerPubkey);
-	if ('ok' in normalizedRecipient && normalizedRecipient.ok === false) {
+	if ('ok' in normalizedRecipient) {
 		return normalizedRecipient;
 	}
-
 	const appState = get(appStore);
 	if (!appState?.pool || !Array.isArray(appState.relays) || appState.relays.length === 0) {
 		return fail(
@@ -215,7 +214,7 @@ export async function preflightServiceContractCreation(
 	}
 
 	const walletReady = await ensureServiceWalletReady();
-	if ('ok' in walletReady && walletReady.ok === false) {
+	if ('ok' in walletReady) {
 		return walletReady;
 	}
 

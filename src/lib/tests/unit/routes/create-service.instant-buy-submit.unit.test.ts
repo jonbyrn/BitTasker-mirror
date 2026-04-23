@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, waitFor } from '@testing-library/svelte';
 import { readable } from 'svelte/store';
+import type { ServicePricing } from '$lib/types/service';
 
 const hoisted = vi.hoisted(() => {
 	let value = {
@@ -229,11 +230,11 @@ describe('create-service instant-buy submit payload', () => {
 					type: 'HOURLY',
 					currency: 'USDt',
 					hourlyRate: 80
-				},
+				} as unknown as ServicePricing,
 				skills: ['Branding'],
 				categories: [{ id: 'design', name: 'Design', slug: 'design' }],
 				providerWalletAddress: '0x3333333333333333333333333333333333333333'
-			},
+			} as any,
 			id: null,
 			uniqueId: 'service-123',
 			currentStep: 'review',

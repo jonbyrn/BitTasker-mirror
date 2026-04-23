@@ -30,7 +30,7 @@ function createCredentials(npub: string, overrides?: Partial<BiometricData>): Bi
 		encryptedData: mockEncryptedData,
 		exportedKey: 'exportedKey',
 		...overrides
-	};
+	} as unknown as BiometricData;
 }
 
 // Mock dependencies

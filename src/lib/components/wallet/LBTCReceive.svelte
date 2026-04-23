@@ -61,10 +61,20 @@
 				};
 
 				// Set fees
+				type MinerFeesVariant = number | { lockup: number; claim: number } | { user: { lockup: number; claim: number } };
+				const minerFees = pair.fees.minerFees as MinerFeesVariant;
 				fees = {
 					percentage: pair.fees.percentage,
-					claimFee: pair.fees.minerFees.user.claim,
-					lockupFee: pair.fees.minerFees.user.lockup
+					claimFee: typeof minerFees === 'number' 
+						? minerFees 
+						: 'user' in minerFees 
+							? (minerFees as { user: { claim: number } }).user.claim 
+							: (minerFees as { claim: number }).claim ?? 0,
+					lockupFee: typeof minerFees === 'number'
+						? 0
+						: 'user' in minerFees 
+							? (minerFees as { user: { lockup: number } }).user.lockup 
+							: (minerFees as { lockup: number }).lockup ?? 0
 				};
 			}
 

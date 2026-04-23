@@ -3,7 +3,6 @@
 	import type { Attachment, Location } from '$lib/types/task.d';
 	import { t, locale } from 'svelte-i18n';
 	import { goto } from '$app/navigation';
-	import { resolve } from '$app/paths';
 	import {
 		getServiceDisplayTitle,
 		getServiceDisplayDescription
@@ -171,7 +170,7 @@
 			onSelectServiceForMap(service);
 		} else {
 			const serviceIdentifier = service.uniqueId || service.id;
-			goto(resolve(`/services/${serviceIdentifier}`));
+			goto(`/services/${serviceIdentifier}`);
 		}
 		if (onclick) {
 			onclick();
@@ -486,7 +485,7 @@
 					onclick={(e) => {
 						e.stopPropagation();
 						const serviceIdentifier = service.uniqueId || service.id;
-						goto(resolve(`/services/${serviceIdentifier}`));
+			goto(`/services/${serviceIdentifier}`);
 					}}
 					aria-label={$t('dashboard.services.browse.view')}
 				>

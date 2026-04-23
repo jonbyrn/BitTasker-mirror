@@ -55,7 +55,7 @@ describe('findServices performance fixes', () => {
 		cleanup();
 		servicesStore.update((state) => ({ ...state, items: [], loading: false, error: null }));
 		mockRequestEvents.mockResolvedValue({ data: [] });
-		vi.mocked(fetchComprehensiveProfile).mockResolvedValue(null);
+		vi.mocked(fetchComprehensiveProfile).mockResolvedValue(null as unknown as Awaited<ReturnType<typeof fetchComprehensiveProfile>>);
 	});
 
 	describe('deletionCache bounded size', () => {

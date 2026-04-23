@@ -6,6 +6,7 @@ import type {
 	ServiceQuoteThread
 } from '$lib/types/service-quote';
 import { queryNostrEvents } from '$lib/utils/nostr';
+import { type Event as NostrEvent, type Filter } from 'nostr-tools';
 import KINDS from '$lib/utils/constants/kinds';
 import { TAG_FILTERS } from '$lib/utils/constants/tags';
 import {
@@ -286,11 +287,11 @@ async function queryStatusesForProposalsDetailed(
 	}
 
 	const proposalIds = proposals.map((proposal) => proposal.id);
-	const filter = {
+	const filter: Filter = {
 		kinds: [KINDS.SERVICE_PROPOSAL_STATUS],
 		'#e': proposalIds,
 		limit: STATUS_QUERY_LIMIT
-	} as Record<string, unknown>;
+	};
 	if (authors && authors.length > 0) {
 		filter.authors = [...new Set(authors)];
 	}
@@ -439,7 +440,7 @@ async function queryDeletedEventIdsDetailed(
 	eventIds: string[],
 	authors: string[],
 	relays: string[]
-): Promise<QueryCollectionResult<Set<string>>> {
+): Promise<{ items: Set<string>; isPartial: boolean }> {
 	if (eventIds.length === 0) {
 		return { items: new Set<string>(), isPartial: false };
 	}
@@ -458,7 +459,7 @@ async function queryDeletedEventIdsDetailed(
 	);
 
 	return {
-		items: new Set(
+		items: new Set<string>(
 			deleteEvents.flatMap((event) =>
 				event.tags.filter((tag) => tag[0] === 'e' && eventIds.includes(tag[1])).map((tag) => tag[1])
 			)
@@ -469,7 +470,7 @@ async function queryDeletedEventIdsDetailed(
 
 function safelyValidateRequest(event: unknown): ServiceQuoteRequestEvent | null {
 	try {
-		return validateServiceQuoteRequestEvent(event);
+		return validateServiceQuoteRequestEvent(event as NostrEvent);
 	} catch {
 		return null;
 	}
@@ -477,7 +478,7 @@ function safelyValidateRequest(event: unknown): ServiceQuoteRequestEvent | null 
 
 function safelyValidateProposal(event: unknown): ServiceProposalEvent | null {
 	try {
-		return validateServiceProposalEvent(event);
+		return validateServiceProposalEvent(event as NostrEvent);
 	} catch {
 		return null;
 	}
@@ -485,7 +486,7 @@ function safelyValidateProposal(event: unknown): ServiceProposalEvent | null {
 
 function safelyValidateStatus(event: unknown): ServiceProposalStatusEvent | null {
 	try {
-		return validateServiceProposalStatusEvent(event);
+		return validateServiceProposalStatusEvent(event as NostrEvent);
 	} catch {
 		return null;
 	}

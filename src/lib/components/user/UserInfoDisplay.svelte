@@ -289,7 +289,7 @@
 	<!-- Avatar -->
 	{#if profileUrl}
 		<a
-			href={resolve(profileUrl)}
+			href={resolve(profileUrl, '')}
 			class="avatar shrink-0 cursor-pointer transition-opacity hover:opacity-80"
 		>
 			<div class="bg-base-300 flex {config.avatar} items-center justify-center rounded-full">
@@ -365,7 +365,7 @@
 		<!-- Display name -->
 		{#if profileUrl}
 			<a
-				href={resolve(profileUrl)}
+				href={resolve(profileUrl, '')}
 				class="w-full cursor-pointer truncate {config.name} transition-opacity hover:opacity-80"
 			>
 				{displayUsername}

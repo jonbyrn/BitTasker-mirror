@@ -29,7 +29,6 @@ describe('contractPermissions', () => {
 	};
 
 	const mockContract: NostrContract = {
-		id: 'contract-123',
 		escrowId: '123',
 		taskId: 'task-123',
 		taskTitle: 'Test Task',
@@ -37,11 +36,12 @@ describe('contractPermissions', () => {
 		clientPubkey: 'npub1client',
 		freelancerPubkey: 'npub1freelancer',
 		amount: '1.0',
+		currency: 'RBTC',
+		status: EscrowStatus.Funded,
 		estimatedStartTime: now + oneHour,
 		estimatedCompletionTime: now + oneDay,
 		transactionHash: '0x123',
-		createdAt: now * 1000,
-		updatedAt: now * 1000
+		type: 'contract'
 	};
 
 	beforeEach(() => {
@@ -103,9 +103,13 @@ describe('contractPermissions', () => {
 						sig: 'sig',
 						tags: [],
 						content: {
+							contractEventId: 'contract-event-1',
+							escrowId: '123',
 							action: EscrowStatus.PendingCompletion,
 							transactionHash: '0x456',
-							message: 'Pending completion'
+							message: 'Pending completion',
+							timestamp: now,
+							type: 'contract-status'
 						}
 					}
 				];
@@ -264,9 +268,13 @@ describe('contractPermissions', () => {
 						sig: 'sig',
 						tags: [],
 						content: {
+							contractEventId: 'contract-event-1',
+							escrowId: '123',
 							action: EscrowStatus.PendingCancellation,
 							transactionHash: '0x789',
-							message: 'Cancelling...'
+							message: 'Cancelling...',
+							timestamp: now,
+							type: 'contract-status'
 						}
 					}
 				];
@@ -297,9 +305,13 @@ describe('contractPermissions', () => {
 						sig: 'sig',
 						tags: [],
 						content: {
+							contractEventId: 'contract-event-1',
+							escrowId: '123',
 							action: EscrowStatus.PendingCompletion,
 							transactionHash: '0xabc',
-							message: 'Completing...'
+							message: 'Completing...',
+							timestamp: now,
+							type: 'contract-status'
 						}
 					}
 				];
@@ -330,9 +342,13 @@ describe('contractPermissions', () => {
 						sig: 'sig',
 						tags: [],
 						content: {
+							contractEventId: 'contract-event-1',
+							escrowId: '123',
 							action: EscrowStatus.PendingCompletion,
 							transactionHash: '0xstale-completion',
-							message: 'Completing...'
+							message: 'Completing...',
+							timestamp: now - oneHour,
+							type: 'contract-status'
 						}
 					}
 				];
@@ -439,8 +455,12 @@ describe('contractPermissions', () => {
 						sig: 'sig',
 						tags: [],
 						content: {
+							contractEventId: 'contract-event-1',
+							escrowId: '123',
 							action: EscrowStatus.FundsReleased,
-							message: 'Funds released'
+							message: 'Funds released',
+							timestamp: now,
+							type: 'contract-status'
 						}
 					}
 				];
@@ -476,9 +496,13 @@ describe('contractPermissions', () => {
 						sig: 'sig',
 						tags: [],
 						content: {
+							contractEventId: 'contract-event-1',
+							escrowId: '123',
 							action: EscrowStatus.PendingAcceptance,
 							transactionHash: '0xdef',
-							message: 'Accepting...'
+							message: 'Accepting...',
+							timestamp: now,
+							type: 'contract-status'
 						}
 					}
 				];
@@ -514,9 +538,13 @@ describe('contractPermissions', () => {
 						sig: 'sig',
 						tags: [],
 						content: {
+							contractEventId: 'contract-event-1',
+							escrowId: '123',
 							action: EscrowStatus.PendingAcceptance,
 							transactionHash: '0xstale-acceptance',
-							message: 'Accepting...'
+							message: 'Accepting...',
+							timestamp: now - oneHour,
+							type: 'contract-status'
 						}
 					}
 				];
@@ -710,8 +738,12 @@ describe('contractPermissions', () => {
 						sig: 'sig',
 						tags: [],
 						content: {
+							contractEventId: 'contract-event-1',
+							escrowId: '123',
 							action: EscrowStatus.DisputeResolutionProposed,
-							message: 'Proposal 1'
+							message: 'Proposal 1',
+							timestamp: now,
+							type: 'contract-status'
 						}
 					},
 					{
@@ -722,8 +754,12 @@ describe('contractPermissions', () => {
 						sig: 'sig',
 						tags: [],
 						content: {
+							contractEventId: 'contract-event-2',
+							escrowId: '123',
 							action: EscrowStatus.DisputeResolutionProposed,
-							message: 'Proposal 2'
+							message: 'Proposal 2',
+							timestamp: now + 100,
+							type: 'contract-status'
 						}
 					}
 				];

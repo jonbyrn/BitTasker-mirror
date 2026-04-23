@@ -1,4 +1,4 @@
-export async function load({ url }) {
+export async function load({ url }: { url: URL }) {
 	return {
 		title: 'Adopting Bitcoin 2025 Contest - Win 1 Million Sats | BitTasker',
 		description:

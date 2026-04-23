@@ -57,11 +57,11 @@ vi.mock('@bittasker/wallet-core', () => ({
 // Mock ethers
 let mockContractInstance: EscrowV1IntegrationMockContract | null = null;
 vi.mock('ethers', async () => {
-	const actual = await vi.importActual('ethers');
+	const actual = (await vi.importActual('ethers')) as unknown as Record<string, unknown>;
 	return {
 		...actual,
 		ethers: {
-			...actual.ethers,
+			...(actual.ethers as object),
 			Contract: vi.fn().mockImplementation(() => mockContractInstance)
 		}
 	};
@@ -207,6 +207,10 @@ vi.mock('svelte/store', () => {
 // Import after mocks
 import { escrow } from '$lib/utils/escrow/v1/escrow';
 import * as EscrowNostrEvent from '$lib/utils/escrow/v1/escrowEvents';
+const EscrowNostrEventDefault = EscrowNostrEvent as unknown as {
+	default: typeof EscrowNostrEvent;
+	handleEscrowCreated: typeof EscrowNostrEvent.handleEscrowCreated;
+};
 
 /** 64-char hex nostr pubkey for counterparty in CONTRACT_STATUS DMs (tests) */
 const NOSTR_PEER_HEX = 'aa'.repeat(32);
@@ -223,7 +227,7 @@ describe('Escrow Event Flow Integration Tests', () => {
 			},
 			getEscrow: vi.fn(),
 			paused: vi.fn().mockResolvedValue(false)
-		} as EscrowV1IntegrationMockContract;
+		} as unknown as EscrowV1IntegrationMockContract;
 
 		const createMethodWithEstimateGas = (
 			estimateGasValue: bigint,
@@ -236,19 +240,19 @@ describe('Escrow Event Flow Integration Tests', () => {
 			hash: '0x123',
 			gasUsed: BigInt(100000),
 			logs: []
-		});
+		}) as unknown as EscrowMethodMock;
 
 		mockContract.completeTask = createMethodWithEstimateGas(BigInt(50000), {
 			hash: '0x456',
 			gasUsed: BigInt(50000),
 			logs: []
-		});
+		}) as unknown as EscrowMethodMock;
 
 		mockContract.acceptTask = createMethodWithEstimateGas(BigInt(40000), {
 			hash: '0x789',
 			gasUsed: BigInt(40000),
 			logs: []
-		});
+		}) as unknown as EscrowMethodMock;
 
 		mockContractInstance = mockContract;
 	});
@@ -284,7 +288,7 @@ describe('Escrow Event Flow Integration Tests', () => {
 			);
 
 			// Wait for confirmation
-			await new Promise((resolve) => setTimeout(resolve, 100));
+			await new Promise((resolve) => setTimeout(resolve, 10));
 
 			// Should publish confirmed status after confirmation
 			expect(mockPublishEscrowStatus).toHaveBeenCalledWith(
@@ -306,7 +310,7 @@ describe('Escrow Event Flow Integration Tests', () => {
 			mockCreateContract.mockResolvedValue(undefined);
 
 			// Simulate EscrowCreated event from blockchain
-			await EscrowNostrEvent.default.handleEscrowCreated({
+			await EscrowNostrEventDefault.default.handleEscrowCreated({
 				escrowId,
 				transactionHash: txHash,
 				client: clientAddress,
@@ -390,7 +394,7 @@ describe('Escrow Event Flow Integration Tests', () => {
 			expect(acceptResult.hash).toBeDefined();
 
 			// Wait for both to confirm
-			await new Promise((resolve) => setTimeout(resolve, 150));
+			await new Promise((resolve) => setTimeout(resolve, 10));
 
 			// Both should have published statuses
 			expect(mockPublishEscrowStatus).toHaveBeenCalledWith(
@@ -408,7 +412,7 @@ describe('Escrow Event Flow Integration Tests', () => {
 			const contractEventId = 'contract-error';
 
 			// Mock estimateGas failure
-			mockContract.completeTask.estimateGas = vi
+			(mockContract.completeTask as unknown as EscrowMethodMock).estimateGas = vi
 				.fn()
 				.mockRejectedValue(new Error('Transaction failed'));
 

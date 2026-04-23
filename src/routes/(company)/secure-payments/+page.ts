@@ -1,4 +1,4 @@
-export async function load({ url }) {
+export async function load({ url }: { url: URL }) {
 	return {
 		title: 'Secure Payment Contracts - Protected Payments | BitTasker',
 		description: 'Learn about BitTasker\'s secure payment contracts powered by Rootstock smart contracts. Protected payments between clients and freelancers with built-in safeguards, automatic fee handling, and transparent blockchain transactions.',

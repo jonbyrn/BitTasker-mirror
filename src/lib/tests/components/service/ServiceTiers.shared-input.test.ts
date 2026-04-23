@@ -219,9 +219,9 @@ describe('ServiceTiers shared usd/sats input integration', () => {
 		let deliveryValue = 0;
 		const unsubscribe = hoisted.storeState.subscribe((value) => {
 			deliveryValue =
-				value.service.pricing.tiers.find(
-					(tier: { id: string; deliveryTime?: { value: number } }) => tier.id === 'tier-basic'
-				)?.deliveryTime?.value ?? 0;
+				(value.service.pricing.tiers.find(
+					(tier) => tier.id === 'tier-basic'
+				) as { deliveryTime?: { value: number } } | undefined)?.deliveryTime?.value ?? 0;
 		});
 		unsubscribe();
 		expect(deliveryValue).toBe(7);

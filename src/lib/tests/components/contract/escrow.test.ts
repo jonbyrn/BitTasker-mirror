@@ -3,7 +3,7 @@ import type { Contract, Wallet, JsonRpcProvider } from 'ethers';
 import { EscrowStatus } from '$lib/utils/escrow/v1/escrow.enum';
 
 const ethersShared = vi.hoisted(() => ({
-	mockContractInstance: null as unknown
+	mockContractInstance: null as unknown as Contract
 }));
 
 const escrowEventMocks = vi.hoisted(() => ({
@@ -193,9 +193,9 @@ import { escrow } from '$lib/utils/escrow/v1/escrow';
 import { getWallet, getProvider, walletManager } from '$lib/stores/wallet.store';
 
 // Setup mocks after import
-const mockGetWalletFn = getWallet as ReturnType<typeof vi.fn>;
-const mockGetProviderFn = getProvider as ReturnType<typeof vi.fn>;
-const mockWalletManager = walletManager as { initialize: ReturnType<typeof vi.fn> };
+const mockGetWalletFn = getWallet as unknown as ReturnType<typeof vi.fn>;
+const mockGetProviderFn = getProvider as unknown as ReturnType<typeof vi.fn>;
+const mockWalletManager = walletManager as unknown as { initialize: ReturnType<typeof vi.fn> };
 
 describe('escrow', () => {
 	let mockWallet: Wallet;
@@ -240,7 +240,7 @@ describe('escrow', () => {
 				estimateGas: vi.fn().mockResolvedValue(BigInt(100000))
 			}
 		} as unknown as Contract;
-		ethersShared.mockContractInstance = mockContract;
+		ethersShared.mockContractInstance = mockContract as unknown as Contract;
 
 		// Setup default mocks
 		mockGetWalletFn.mockReturnValue(mockWallet);
@@ -533,10 +533,10 @@ describe('escrow', () => {
 			const refundMethod = vi.fn().mockResolvedValue({
 				hash: '0xrefund',
 				wait
-			});
-			refundMethod.estimateGas = vi.fn().mockResolvedValue(BigInt(30000));
-			mockContract.refundClient = refundMethod;
-			ethersShared.mockContractInstance = mockContract;
+			}) as unknown as { estimateGas: ReturnType<typeof vi.fn>; wait: ReturnType<typeof vi.fn> };
+			(refundMethod as unknown as { estimateGas: ReturnType<typeof vi.fn> }).estimateGas = vi.fn().mockResolvedValue(BigInt(30000));
+			mockContract.refundClient = refundMethod as unknown as typeof mockContract.refundClient;
+			ethersShared.mockContractInstance = mockContract as unknown as Contract;
 
 			const result = await escrow.refundClient('123', 'aa'.repeat(32), 'contract-123');
 
@@ -585,10 +585,10 @@ describe('escrow', () => {
 			const refundMethod = vi.fn().mockResolvedValue({
 				hash: '0xrefund',
 				wait
-			});
-			refundMethod.estimateGas = vi.fn().mockResolvedValue(BigInt(30000));
-			mockContract.refundClient = refundMethod;
-			ethersShared.mockContractInstance = mockContract;
+			}) as unknown as { estimateGas: ReturnType<typeof vi.fn>; wait: ReturnType<typeof vi.fn> };
+			(refundMethod as unknown as { estimateGas: ReturnType<typeof vi.fn> }).estimateGas = vi.fn().mockResolvedValue(BigInt(30000));
+			mockContract.refundClient = refundMethod as unknown as typeof mockContract.refundClient;
+			ethersShared.mockContractInstance = mockContract as unknown as Contract;
 
 			const result = await escrow.refundClient('123', 'aa'.repeat(32), 'contract-123');
 
@@ -612,10 +612,10 @@ describe('escrow', () => {
 			const refundMethod = vi.fn().mockResolvedValue({
 				hash: '0xrefund',
 				wait
-			});
-			refundMethod.estimateGas = vi.fn().mockResolvedValue(BigInt(30000));
-			mockContract.refundClient = refundMethod;
-			ethersShared.mockContractInstance = mockContract;
+			}) as unknown as { estimateGas: ReturnType<typeof vi.fn>; wait: ReturnType<typeof vi.fn> };
+			(refundMethod as unknown as { estimateGas: ReturnType<typeof vi.fn> }).estimateGas = vi.fn().mockResolvedValue(BigInt(30000));
+			mockContract.refundClient = refundMethod as unknown as typeof mockContract.refundClient;
+			ethersShared.mockContractInstance = mockContract as unknown as Contract;
 
 			const result = await escrow.refundClient('123', 'aa'.repeat(32), 'contract-123');
 
