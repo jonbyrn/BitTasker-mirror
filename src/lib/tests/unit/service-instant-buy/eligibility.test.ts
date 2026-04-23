@@ -47,7 +47,7 @@ describe('service instant-buy eligibility', () => {
 		});
 	});
 
-	it('allows add-ons and rush delivery but still rejects distance fees', () => {
+	it('allows add-ons, rush delivery, and distance fees', () => {
 		expect(
 			getInstantBuyEligibility({
 				...baseService,
@@ -81,7 +81,7 @@ describe('service instant-buy eligibility', () => {
 					}
 				}
 			}).code
-		).toBe('unsupported_distance_fee');
+		).toBe('eligible');
 	});
 
 	it('rejects invalid lead-hour and timing inputs', () => {

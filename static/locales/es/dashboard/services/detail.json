@@ -114,7 +114,6 @@
 					"invalid_lead_hours": "Configuración de horas de antelación no válida.",
 					"missing_delivery_time": "Reservar ahora requiere que se establezca un tiempo de entrega.",
 					"unsupported_rush_delivery": "La entrega urgente no es compatible con Reservar ahora.",
-					"unsupported_distance_fee": "Las tarifas por distancia no son compatibles con Reservar ahora.",
 					"inactive_service": "Este servicio está actualmente inactivo."
 				},
 				"public_cta": {

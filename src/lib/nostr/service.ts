@@ -492,15 +492,6 @@ async function generateServiceTags(
 		]);
 	}
 
-	// Per-distance charge (if taskee_location with provider travel charge)
-	if (
-		serviceData.serviceLocationTypes.includes(ServiceLocationTypeEnum.TASKEE_LOCATION) &&
-		serviceData.locationDetails?.taskeeLocation?.perDistanceCharge
-	) {
-		const charge = serviceData.locationDetails.taskeeLocation.perDistanceCharge;
-		tags.push(['per_distance_charge', charge.amount.toString(), charge.currency, charge.unit]);
-	}
-
 	// Pricing type (single-char tag Y for filtering)
 	tags.push([TAGS.Y, serviceData.pricing.type]);
 

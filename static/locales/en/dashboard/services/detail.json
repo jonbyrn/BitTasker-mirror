@@ -114,7 +114,6 @@
 					"invalid_lead_hours": "Invalid lead hours configuration.",
 					"missing_delivery_time": "Instant buy requires a delivery time to be set.",
 					"unsupported_rush_delivery": "Rush delivery is not supported for instant buy.",
-					"unsupported_distance_fee": "Distance-based fees are not supported for instant buy.",
 					"inactive_service": "This service is currently inactive."
 				},
 				"public_cta": {

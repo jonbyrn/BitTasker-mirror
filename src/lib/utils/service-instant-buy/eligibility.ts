@@ -50,7 +50,6 @@ export type InstantBuyEligibilityCode =
 	| 'missing_lead_hours'
 	| 'invalid_lead_hours'
 	| 'unsupported_rush_delivery'
-	| 'unsupported_distance_fee'
 	| 'missing_delivery_time'
 	| 'missing_selected_tier'
 	| 'invalid_selected_tier';
@@ -64,13 +63,6 @@ export interface InstantBuyEligibilityResult {
 
 function isValidLeadHours(value: number | undefined): value is number {
 	return Number.isInteger(value) && value >= 0 && value <= 720;
-}
-
-function hasDistanceFee(service: InstantBuyServiceLike): boolean {
-	return Boolean(
-		service.locationDetails?.taskeeLocation?.perDistanceCharge?.amount ||
-			service.locationDetails?.taskerLocation?.perDistanceCharge?.amount
-	);
 }
 
 export function resolveInstantBuyTier(
@@ -111,10 +103,6 @@ export function getInstantBuyEligibility(
 
 	if (!isValidLeadHours(service.instantBuyLeadHours)) {
 		return { eligible: false, code: 'invalid_lead_hours', purchaseMode: 'instant_buy' };
-	}
-
-	if (hasDistanceFee(service)) {
-		return { eligible: false, code: 'unsupported_distance_fee', purchaseMode: 'instant_buy' };
 	}
 
 	if (pricing.type === 'FIXED') {
