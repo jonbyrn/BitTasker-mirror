@@ -628,49 +628,6 @@
 			/>
 		</div>
 
-		<!-- Step 2 Content (Mobile Only) - All fields except amount -->
-		<div class="block space-y-2 sm:hidden">
-			{#if uiState.currentStep === 2}
-				<!-- Amount Display (Read-only) -->
-				<div
-					class="border-primary bg-base-200 flex flex-col items-center gap-1.5 rounded-lg border-2 p-3 sm:p-4"
-				>
-					<span class="text-center text-xs opacity-70">{$t('wallet.receive.invoice_total')}</span>
-					{#if true}
-						{@const invoiceAmount =
-							formInput.chargeFeesToPayer && feeState.estimated ? amountPayerPays : amountInSats}
-						<div class="flex w-full items-center justify-center gap-1.5">
-							{#if formInput.unit === 'sats'}
-								<span class="text-primary text-xl font-bold">
-									{formatSats(invoiceAmount)}
-									{$t('wallet.sats')}
-								</span>
-								{#if btcPrice > 0 && invoiceAmount > 0}
-									<span class="text-xs opacity-60">
-										≈ {formatUsd((invoiceAmount / 100_000_000) * btcPrice)}
-									</span>
-								{/if}
-							{:else}
-								<span class="text-primary text-xl font-bold">
-									{formatUsd(
-										formInput.chargeFeesToPayer && feeState.estimated && btcPrice > 0
-											? (invoiceAmount / 100_000_000) * btcPrice
-											: parseFloat(formInput.amount) || 0
-									)}
-								</span>
-								{#if btcPrice > 0 && invoiceAmount > 0}
-									<span class="text-xs opacity-60">
-										≈ {formatSats(invoiceAmount)}
-										{$t('wallet.sats')}
-									</span>
-								{/if}
-							{/if}
-						</div>
-					{/if}
-				</div>
-			{/if}
-		</div>
-
 		<!-- Network Selector and other fields - Hidden on mobile step 1, visible on step 2 and desktop -->
 		<div class="block sm:hidden">
 			<div class="flex flex-col space-y-2">
