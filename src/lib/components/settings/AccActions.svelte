@@ -71,8 +71,8 @@
 <!-- Logout Confirmation Modal -->
 <ConfirmModal
 	isOpen={showLogoutModal}
-	title={$t('common.components.confirm_modal.logout_title')}
-	message={$t('common.components.confirm_modal.logout_message')}
+	title={$t('common.components.confirm_modal.logout.title')}
+	message={$t('common.components.confirm_modal.logout.message')}
 	confirmText={$t('common.components.confirm_modal.confirm')}
 	confirmButtonClass="btn-primary"
 	onConfirm={confirmedLogout}

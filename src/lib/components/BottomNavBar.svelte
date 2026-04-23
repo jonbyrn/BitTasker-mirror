@@ -557,8 +557,8 @@
 
 <ConfirmModal
 	isOpen={showLogoutConfirm}
-	title={$t('common.components.confirm_modal.logout_title')}
-	message={$t('common.components.confirm_modal.logout_message')}
+	title={$t('common.components.confirm_modal.logout.title')}
+	message={$t('common.components.confirm_modal.logout.message')}
 	onConfirm={handleLogoutConfirm}
 	onCancel={handleLogoutCancel}
 />
