@@ -627,6 +627,13 @@
 					"day": "día",
 					"days": "días"
 				}
+			},
+			"app_notification": {
+				"title": "Descargar la App",
+				"message": "Obtén la mejor experiencia BitTasker descargando nuestra aplicación móvil. Recibe notificaciones instantáneas para ofertas, tareas y mensajes directamente en tu dispositivo.",
+				"google_play_aria": "Descargar BitTasker en Google Play Store",
+				"zapstore_aria": "Descargar BitTasker en ZapStore",
+				"dismiss": "Entendido"
 			}
 		},
 		"task": {
