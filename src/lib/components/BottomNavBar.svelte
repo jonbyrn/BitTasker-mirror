@@ -1,9 +1,10 @@
 <script lang="ts">
-	import { onDestroy, tick } from 'svelte';
+	import { onDestroy } from 'svelte';
 	import { t } from 'svelte-i18n';
 	import { page } from '$app/state';
 	import { beforeNavigate, goto } from '$app/navigation';
 	import { authState } from '$lib/stores/auth.store';
+
 	import IconLogout from '~icons/mdi/logout';
 	import IconHelpCircleOutline from '~icons/mdi/help-circle-outline';
 	import IconFrequentlyAskedQuestions from '~icons/mdi/frequently-asked-questions';
@@ -31,9 +32,12 @@
 	import IconBriefcaseSearch from '~icons/mdi/briefcase-search';
 	import IconNewspaper from '~icons/mdi/newspaper';
 	import IconCommentTextOutline from '~icons/mdi/comment-text-outline';
+	import IconFormatListBulleted from '~icons/mdi/format-list-bulleted';
+	import IconAccountCircle from '~icons/mdi/account-circle';
+	import IconAccount from '~icons/mdi/account';
+	import IconCog from '~icons/mdi/cog';
 
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	type IconComponent = any;
+	type IconComponent = typeof IconLogin;
 
 	interface NavLink {
 		href: string;
@@ -157,7 +161,6 @@
 		if (!target) return;
 		const interactive = target.closest('a,button,[role="button"]');
 		if (!interactive) return;
-		void triggerHaptic(ImpactStyle.Light);
 	}
 
 	$effect(() => {
@@ -241,13 +244,6 @@
 			// Render the menu in a collapsed state first
 			isMenuOpen = true;
 			isMenuClosing = false;
-			isMenuExpanding = false;
-			// Wait for DOM to mount the element
-			await tick();
-			// Ensure the collapsed state is painted before transitioning (mobile Safari/Chrome)
-			await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-			await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-			// Now enable expand class to trigger transition
 			isMenuExpanding = true;
 		}
 	}
@@ -271,7 +267,7 @@
 		event.preventDefault();
 		event.stopPropagation();
 		closeMenu();
-		await goto(resolveHref(href), { noScroll: false, replaceState: false });
+		await goto(href, { noScroll: false, replaceState: false });
 	}
 
 	onDestroy(() => {

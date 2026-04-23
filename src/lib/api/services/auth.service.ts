@@ -10,7 +10,7 @@ import type {
 	EncryptedNostrDataArgs,
 	PasskeyEncryptedDataArgs
 } from '$lib/types/auth';
-import { BaseApiService, DEFAULT_API_HOST } from '../apiService';
+import { BaseApiService } from '../apiService';
 import { ENDPOINTS } from '../endpoints';
 
 /**
@@ -70,30 +70,9 @@ export class AuthService extends BaseApiService {
 	 * @returns Promise with login challenge data
 	 */
 	async getChallenge(): Promise<{ challenge: string; message: string }> {
-		const envApiBase = import.meta.env.VITE_API_URL;
-		const resolvedApiBase = envApiBase || DEFAULT_API_HOST;
-		const originFallback =
-			typeof window !== 'undefined' ? window.location.origin : 'http://localhost';
-		const requestUrl = new URL(
-			ENDPOINTS.AUTH.NOSTR_CHALLENGE,
-			resolvedApiBase || originFallback
-		).toString();
-		console.log('[AuthService.getChallenge] Requesting challenge', {
-			apiBase: envApiBase || null,
-			requestUrl,
-			usingFallback: !envApiBase
-		});
 		const response = await this.get<{ challenge: string; message: string }>(
 			ENDPOINTS.AUTH.NOSTR_CHALLENGE
 		);
-		if (!response?.data || typeof response.data.challenge !== 'string') {
-			console.error('[AuthService.getChallenge] Malformed challenge response', {
-				hasData: Boolean(response?.data),
-				challengeType: typeof response?.data?.challenge,
-				challengeValue: response?.data?.challenge,
-				messageType: typeof response?.data?.message
-			});
-		}
 		return response.data;
 	}
 

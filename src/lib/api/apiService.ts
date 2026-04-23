@@ -1,22 +1,26 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import { AxiosError, type AxiosRequestConfig, type AxiosResponse } from 'axios';
+import { AxiosError, type AxiosInstance, type AxiosRequestConfig, type AxiosResponse } from 'axios';
 import createAxiosInstance from './axios';
 
-export const DEFAULT_API_HOST = 'https://api.bittasker.com';
-
 // Create a generic API response type
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
 	data: T;
 	status: number;
 	message?: string;
 }
 
+// Type for API error data returned from the server
+export interface ApiErrorData {
+	message?: string;
+	errors?: Record<string, string[]>;
+	[key: string]: unknown;
+}
+
 // Custom error class for API errors
 export class ApiError extends Error {
 	status: number;
-	data: any;
+	data: ApiErrorData | undefined;
 
-	constructor(message: string, status: number, data?: any) {
+	constructor(message: string, status: number, data?: ApiErrorData) {
 		super(message);
 		this.name = 'ApiError';
 		this.status = status;
@@ -25,20 +29,23 @@ export class ApiError extends Error {
 }
 
 export class BaseApiService {
-	private axiosInstancePromise: Promise<any>;
+	private axiosInstancePromise: Promise<AxiosInstance>;
 
-	constructor(baseURL: string = import.meta.env.VITE_API_URL || DEFAULT_API_HOST) {
+	constructor(baseURL: string = import.meta.env.VITE_API_URL) {
 		this.axiosInstancePromise = createAxiosInstance({ baseURL });
 	}
 
-	private async getAxiosInstance() {
+	private async getAxiosInstance(): Promise<AxiosInstance> {
 		return await this.axiosInstancePromise;
 	}
 
 	/**
 	 * Make a GET request to the specified endpoint
 	 */
-	protected async get<T = any>(url: string, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
+	protected async get<T = unknown>(
+		url: string,
+		config?: AxiosRequestConfig
+	): Promise<ApiResponse<T>> {
 		try {
 			const axiosInstance = await this.getAxiosInstance();
 			const response: AxiosResponse = await axiosInstance.get(url, config);
@@ -51,7 +58,7 @@ export class BaseApiService {
 	/**
 	 * Make a POST request to the specified endpoint
 	 */
-	protected async post<T = any, D = any>(
+	protected async post<T = unknown, D = unknown>(
 		url: string,
 		data?: D,
 		config?: AxiosRequestConfig
@@ -68,7 +75,7 @@ export class BaseApiService {
 	/**
 	 * Make a PUT request to the specified endpoint
 	 */
-	protected async put<T = any, D = any>(
+	protected async put<T = unknown, D = unknown>(
 		url: string,
 		data?: D,
 		config?: AxiosRequestConfig
@@ -85,7 +92,7 @@ export class BaseApiService {
 	/**
 	 * Make a PATCH request to the specified endpoint
 	 */
-	protected async patch<T = any, D = any>(
+	protected async patch<T = unknown, D = unknown>(
 		url: string,
 		data?: D,
 		config?: AxiosRequestConfig
@@ -102,7 +109,7 @@ export class BaseApiService {
 	/**
 	 * Make a DELETE request to the specified endpoint
 	 */
-	protected async delete<T = any>(
+	protected async delete<T = unknown>(
 		url: string,
 		config?: AxiosRequestConfig
 	): Promise<ApiResponse<T>> {

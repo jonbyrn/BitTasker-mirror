@@ -6,7 +6,6 @@
 	import { linear } from 'svelte/easing';
 	import { fly } from 'svelte/transition';
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
-	import { triggerHaptic, ImpactStyle } from '$lib/utils/helpers/haptics';
 	import { appStore } from '$lib/stores/app.store';
 	import { getSwapType } from '$lib/utils/wallet/swapTransaction';
 	import type { PendingSwapData } from '$lib/utils/swapAdapter';
@@ -260,7 +259,6 @@
 									<button
 										class="btn btn-sm btn-outline"
 										onclick={() => {
-											triggerHaptic(ImpactStyle.Light);
 											copyToClipboard($rskConnection.address || '');
 											appStore.showSuccessToast($t('wallet.address_copied'));
 										}}

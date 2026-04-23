@@ -2,7 +2,6 @@
 	import { t } from 'svelte-i18n';
 	import { appStore } from '$lib/stores/app.store';
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
-	import { triggerHaptic, ImpactStyle } from '$lib/utils/helpers/haptics';
 	import { slide } from 'svelte/transition';
 	import { linear } from 'svelte/easing';
 	import IconContentCopy from '~icons/mdi/content-copy';
@@ -32,7 +31,6 @@
 			await copyToClipboard(props.address);
 			appStore.showSuccessToast($t('wallet.address_copied'));
 			addressCopied = true;
-			triggerHaptic(ImpactStyle.Light);
 			setTimeout(() => {
 				addressCopied = false;
 			}, 2000);

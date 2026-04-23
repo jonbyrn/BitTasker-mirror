@@ -13,7 +13,6 @@
 	import DarkModeToggle from '$lib/components/DarkModeToggle.svelte';
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 	import NotificationCenter from '$lib/components/notifications/NotificationCenter.svelte';
-	import { ImpactStyle, triggerHaptic } from '$lib/utils/helpers/haptics';
 	import IconChevronDown from '~icons/mdi/chevron-down';
 	import IconQrcode from '~icons/mdi/qrcode';
 	import NpubQrCodeModal from '$lib/components/NpubQrCodeModal.svelte';
@@ -40,11 +39,7 @@
 
 	function popoverTransition(
 		node: Element,
-		{
-			duration = 200,
-			y = -8,
-			start = 0.98
-		}: { duration?: number; y?: number; start?: number } = {}
+		{ duration = 200, y = -8, start = 0.98 }: { duration?: number; y?: number; start?: number } = {}
 	): TransitionConfig {
 		return {
 			duration,
@@ -62,8 +57,6 @@
 		if (!target) return;
 		const interactive = target.closest('a,button,summary,[role="button"]');
 		if (!interactive) return;
-		// Fire-and-forget; navigation should not be blocked.
-		void triggerHaptic(ImpactStyle.Light);
 	}
 
 	// Toggle avatar dropdown
@@ -104,11 +97,7 @@
 	});
 
 	// Derived values for user display name
-	let userDisplayName = $derived(
-		$profileStore.data?.name ||
-		$user.name ||
-		''
-	);
+	let userDisplayName = $derived($profileStore.data?.name || $user.name || '');
 
 	function resolveHref(href: string) {
 		return href === '#' ? href : resolve(href);
@@ -217,7 +206,7 @@
 		</button>
 		{#if openSectionId === section.id}
 			<div
-				class="absolute left-0 top-full"
+				class="absolute top-full left-0"
 				use:clickOutside={{
 					callback: () => closeDropdowns(),
 					exclude: `#${buttonId}`
@@ -301,8 +290,14 @@
 		</div>
 		<!-- login/signup or notification + avatar -->
 		{#if !$authState.isAuthenticated}
-			<a href={resolve('/auth/login')} class="btn btn-sm sm:btn-md btn-secondary" data-testid="login-link">{$t('navbar.login')}</a>
-			<a href={resolve('/auth/signup')} class="btn btn-sm sm:btn-md btn-primary">{$t('navbar.signup')}</a>
+			<a
+				href={resolve('/auth/login')}
+				class="btn btn-sm sm:btn-md btn-secondary"
+				data-testid="login-link">{$t('navbar.login')}</a
+			>
+			<a href={resolve('/auth/signup')} class="btn btn-sm sm:btn-md btn-primary"
+				>{$t('navbar.signup')}</a
+			>
 		{:else}
 			<!-- Notification Center -->
 			<NotificationCenter />
@@ -311,7 +306,12 @@
 				class="dropdown dropdown-end relative"
 				use:clickOutside={{ callback: () => (isAvatarDropdownOpen = false) }}
 			>
-				<button class="btn btn-ghost" onclick={toggleAvatarDropdown} aria-haspopup="true" aria-expanded={isAvatarDropdownOpen}>
+				<button
+					class="btn btn-ghost"
+					onclick={toggleAvatarDropdown}
+					aria-haspopup="true"
+					aria-expanded={isAvatarDropdownOpen}
+				>
 					<Avatar name={$user.name} picture={userPicture} size="sm" />
 				</button>
 				{#if isAvatarDropdownOpen}
@@ -331,13 +331,15 @@
 						<ul>
 							<!-- User Info Header -->
 							{#if userDisplayName}
-								<li class="border-b border-base-300 pb-2 mb-2">
+								<li class="border-base-300 mb-2 border-b pb-2">
 									<button
 										onclick={showNpubQrCode}
 										class="flex w-full items-center gap-2 whitespace-nowrap"
 									>
 										<IconQrcode class="text-primary" />
-										<span class="wrap-break-words whitespace-normal font-bold">{userDisplayName}</span>
+										<span class="wrap-break-words font-bold whitespace-normal"
+											>{userDisplayName}</span
+										>
 									</button>
 								</li>
 							{/if}

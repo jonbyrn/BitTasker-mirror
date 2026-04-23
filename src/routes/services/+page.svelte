@@ -21,7 +21,6 @@
 	import { serviceQuoteUiStore } from '$lib/stores/service-quote-ui.store';
 	import { appStore } from '$lib/stores/app.store';
 	import { persistServiceSearchFilters } from '$lib/utils/service-search-persistence';
-	import { DEFAULT_API_HOST } from '$lib/api/apiService';
 
 	const DESKTOP_MIN_WIDTH = 1024;
 	const MAP_PRELOAD_TIMEOUT_MS = 2000;
@@ -600,30 +599,9 @@
 		serviceListRef.addEventListener('scroll', scrollHandler, { passive: true });
 	}
 
-	function logServicesApiConfiguration(): void {
-		if (!browser) return;
-
-		const viteApiUrl = import.meta.env.VITE_API_URL || null;
-		const viteNostrRelayNestjs = import.meta.env.VITE_NOSTR_RELAY_NESTJS || null;
-		const resolvedApiBase = viteApiUrl || DEFAULT_API_HOST;
-		const resolvedEventsBase = viteNostrRelayNestjs || resolvedApiBase;
-		const eventsGetUrl = new URL('/api/v1/events', resolvedEventsBase).toString();
-
-		console.log('[ServicesPage] API configuration', {
-			pathname: window.location.pathname,
-			origin: window.location.origin,
-			viteApiUrl,
-			viteNostrRelayNestjs,
-			resolvedApiBase,
-			resolvedEventsBase,
-			eventsGetUrl
-		});
-	}
-
 	// Initial data fetch and setup - apply saved service search from dashboard if present (same pattern as Find Tasks)
 	onMount(() => {
 		if (browser) {
-			logServicesApiConfiguration();
 			windowWidth = window.innerWidth;
 
 			const savedParamsRaw = sessionStorage.getItem('savedServiceSearchParams');
