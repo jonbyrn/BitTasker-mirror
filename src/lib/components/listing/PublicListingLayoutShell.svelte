@@ -15,6 +15,7 @@
 	import IconAccount from '~icons/mdi/account';
 	import IconChatOutline from '~icons/mdi/chat-outline';
 	import IconCog from '~icons/mdi/cog';
+	import IconTrendingUp from '~icons/mdi/trending-up';
 
 	let {
 		layoutClassName = 'listing-layout',
@@ -58,7 +59,7 @@
 											data-sveltekit-reload="off"
 											href={section.path}
 											class:menu-active={isSectionActive(section.id, section.path)}
-											class="flex items-center gap-3"
+											class="flex items-center gap-3 {section.indent ? 'pl-6' : ''}"
 										>
 											{#if section.icon === 'mdi:format-list-bulleted'}
 												<IconFormatListBulleted class="text-primary" />
@@ -82,6 +83,8 @@
 												<IconChatOutline class="text-primary" />
 											{:else if section.icon === 'mdi:cog'}
 												<IconCog class="text-primary" />
+											{:else if section.icon === 'mdi:trending-up'}
+												<IconTrendingUp class="text-primary" />
 											{:else}
 												<IconFormatListBulleted class="text-primary" />
 											{/if}

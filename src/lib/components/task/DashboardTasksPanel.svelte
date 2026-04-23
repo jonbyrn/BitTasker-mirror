@@ -3,7 +3,6 @@
 	import { t } from 'svelte-i18n';
 	import { onMount } from 'svelte';
 	import { myTasksStore, TASKS_PER_PAGE } from '$lib/stores/task.store';
-	import { get } from 'svelte/store';
 	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import { findMyTasks } from '$lib/nostr/findMyTasks';
@@ -112,10 +111,8 @@
 		}
 	}
 
-	// Svelte 5 $derived.by() does not track store subscriptions accessed inside function calls.
-	// Inline the store access to ensure proper reactivity tracking.
 	let filteredTasks = $derived.by(() => {
-		const items = get(myTasksStore).items;
+		const items = $myTasksStore.items;
 		switch (activeFilter) {
 			case 'open':
 				return items.filter((t) => t.status === TaskStatusEnum.OPEN);
