@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import ContractActions from '$lib/components/contracts/ContractActions.svelte';
-import { EscrowStatus } from '$lib/utils/escrow';
+import { EscrowStatus } from '$lib/utils/escrow/v1/escrow.enum';
 
 type MockContractStoreState = {
 	contract: unknown;
@@ -29,18 +29,18 @@ const {
 		isDrawerOpen: false,
 		isResolutionFormOpen: false
 	};
-	const subscribers = new Set<(value: typeof value) => void>();
+	const subscribers = new Set<(v: MockContractStoreState) => void>();
 	const state = {
-		subscribe(run: (value: typeof value) => void) {
+		subscribe(run: (v: MockContractStoreState) => void) {
 			run(value);
 			subscribers.add(run);
 			return () => subscribers.delete(run);
 		},
-		set(next: typeof value) {
+		set(next: MockContractStoreState) {
 			value = next;
 			subscribers.forEach((run) => run(value));
 		},
-		update(updater: (value: typeof value) => typeof value) {
+		update(updater: (v: MockContractStoreState) => MockContractStoreState) {
 			state.set(updater(value));
 		}
 	};
@@ -84,7 +84,8 @@ vi.mock('$lib/utils/escrow', () => ({
 	EscrowStatus: {
 		Funded: 'FUNDED',
 		Completed: 'COMPLETED',
-		Cancelled: 'CANCELLED'
+		Cancelled: 'CANCELLED',
+		DisputeResolutionProposed: 12
 	},
 	escrow: {
 		escrowOps: {
@@ -309,7 +310,7 @@ describe('ContractActions service notification continuity', () => {
 			content: {
 				proposalId: 'proposal-1'
 			}
-		});
+		}) as { disputeProposal: { clientAmount: string; freelancerAmount: string; proposer: string } };
 		contract.disputeProposal = {
 			clientAmount: '0.004',
 			freelancerAmount: '0.006',
@@ -344,7 +345,7 @@ describe('ContractActions service notification continuity', () => {
 				proposalId: 'proposal-1'
 			}
 		}) as {
-			statusEvents: Array<{ pubkey: string; content: { action: string } }>;
+			statusEvents: Array<{ pubkey: string; content: { action: EscrowStatus } }>;
 			disputeProposal: null | {
 				clientAmount: string;
 				freelancerAmount: string;
@@ -468,7 +469,7 @@ describe('ContractActions service notification continuity', () => {
 			content: {
 				proposalId: 'proposal-1'
 			}
-		});
+		}) as { disputeProposal: { clientAmount: string; freelancerAmount: string; proposer: string } };
 		contract.disputeProposal = {
 			clientAmount: '0.004',
 			freelancerAmount: '0.006',
@@ -628,7 +629,7 @@ describe('ContractActions service notification continuity', () => {
 
 		render(ContractActions, {
 			contract: {
-				...buildContract({
+				...(buildContract({
 					permissions: {
 						canAccept: false,
 						canCancel: true
@@ -636,7 +637,7 @@ describe('ContractActions service notification continuity', () => {
 					content: {
 						estimatedStartTime: Math.floor(new Date('2024-05-02T00:00:00Z').getTime() / 1000)
 					}
-				}),
+				}) as Record<string, unknown>),
 				isClient: false
 			},
 			isInline: false
@@ -671,12 +672,12 @@ describe('ContractActions service notification continuity', () => {
 
 		render(ContractActions, {
 			contract: {
-				...buildContract({
+				...(buildContract({
 					permissions: {
 						canAccept: false,
 						canCancel: true
 					}
-				}),
+				}) as Record<string, unknown>),
 				isClient: false,
 				blockchainStatus: EscrowStatus.Completed
 			},

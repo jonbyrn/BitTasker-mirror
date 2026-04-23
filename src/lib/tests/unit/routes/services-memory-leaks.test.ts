@@ -39,7 +39,7 @@ const hoisted = vi.hoisted(() => {
 				getValue: () => value
 			};
 		},
-		servicesStore: null as unknown as ReturnType<typeof vi.fn> & {
+		servicesStore: null as unknown as {
 			set: (nextValue: {
 				items: Service[];
 				loading: boolean;
@@ -70,13 +70,14 @@ const hoisted = vi.hoisted(() => {
 					items: Service[];
 					loading: boolean;
 					error: string | null;
-					currentValue: number;
+					currentPage: number;
 					hasMore: boolean;
 					searchParamsKey: string;
 				}) => void
 			) => () => void;
 			destroy: ReturnType<typeof vi.fn>;
-		},
+			getValue: () => unknown;
+		} & Record<string, unknown>,
 		appStore: null as unknown as {
 			subscribe: (subscriber: (value: { pool: unknown }) => void) => () => void;
 		},
@@ -98,6 +99,15 @@ const hoisted = vi.hoisted(() => {
 });
 
 function createServicesStore() {
+	type StoreValue = {
+		items: Service[];
+		loading: boolean;
+		error: string | null;
+		currentPage: number;
+		hasMore: boolean;
+		searchParamsKey: string;
+		pool: unknown;
+	};
 	let items: Service[] = [];
 	let loading = false;
 	let error: string | null = null;
@@ -105,7 +115,7 @@ function createServicesStore() {
 	let hasMore = true;
 	let searchParamsKey = '';
 
-	const subscribers = new Set<(value: typeof storeValue) => void>();
+	const subscribers = new Set<(value: StoreValue) => void>();
 
 	const notify = () => {
 		const state = { items, loading, error, currentPage, hasMore, searchParamsKey, pool: null };
@@ -115,12 +125,12 @@ function createServicesStore() {
 	};
 
 	return {
-		subscribe: (sub: (value: typeof storeValue) => void) => {
+		subscribe: (sub: (value: StoreValue) => void) => {
 			sub({ items, loading, error, currentPage, hasMore, searchParamsKey, pool: null });
 			subscribers.add(sub);
 			return () => subscribers.delete(sub);
 		},
-		set: (state: Partial<typeof storeValue>) => {
+		set: (state: Partial<StoreValue>) => {
 			if (state.items !== undefined) items = state.items;
 			if (state.loading !== undefined) loading = state.loading;
 			if (state.error !== undefined) error = state.error;
@@ -129,7 +139,7 @@ function createServicesStore() {
 			if (state.searchParamsKey !== undefined) searchParamsKey = state.searchParamsKey;
 			notify();
 		},
-		update: (updater: (state: typeof storeValue) => Partial<typeof storeValue>) => {
+		update: (updater: (state: StoreValue) => Partial<StoreValue>) => {
 			const current = { items, loading, error, currentPage, hasMore, searchParamsKey, pool: null };
 			const changes = updater(current);
 			if (changes.items !== undefined) items = changes.items;
@@ -157,11 +167,15 @@ function createAppStore() {
 	};
 }
 
-hoisted.servicesStore = createServicesStore();
-hoisted.appStore = createAppStore();
+hoisted.servicesStore = createServicesStore() as unknown as typeof hoisted.servicesStore;
+hoisted.appStore = createAppStore() as unknown as typeof hoisted.appStore;
 
-hoisted.authStateStore = hoisted.createStore({ isAuthenticated: true });
-hoisted.userStore = hoisted.createStore({ npub: 'owner-pubkey' });
+hoisted.authStateStore = hoisted.createStore({
+	isAuthenticated: true
+}) as unknown as typeof hoisted.authStateStore;
+hoisted.userStore = hoisted.createStore({
+	npub: 'owner-pubkey'
+}) as unknown as typeof hoisted.userStore;
 
 vi.mock('svelte-i18n', async () => {
 	const { readable } = await import('svelte/store');
@@ -419,9 +433,10 @@ describe('MEMORY LEAK FIX #2: loadingTimeoutTimer never cleared', () => {
 
 	it('FIX VERIFICATION: loadingTimeoutTimer should be started when loading begins and cleared on destroy', async () => {
 		hoisted.findServices.mockImplementation(
-			new Promise<void>((_resolve) => {
-				// intentionally left unresolved to test timeout behavior
-			})
+			() =>
+				new Promise<void>((_resolve) => {
+					// intentionally left unresolved to test timeout behavior
+				})
 		);
 
 		hoisted.servicesStore.set({
@@ -482,7 +497,9 @@ describe('MEMORY LEAK FIX #3: loadingTimedOut state never set', () => {
 	it('FIX VERIFICATION: loadingTimedOut should be set to true after LOADING_TIMEOUT_MS when loading', async () => {
 		vi.useFakeTimers();
 
-		hoisted.findServices.mockImplementation(new Promise(() => {}));
+		hoisted.findServices.mockImplementation(
+			new Promise(() => {}) as unknown as typeof hoisted.findServices
+		);
 
 		hoisted.servicesStore.set({
 			items: [],
@@ -705,9 +722,10 @@ describe('MEMORY LEAK FIX #6: Verify loadingTimeoutTimer is cleared on unmount',
 
 	it('should clear loadingTimeoutTimer when component unmounts during loading', async () => {
 		hoisted.findServices.mockImplementation(
-			new Promise<void>((_resolve) => {
-				// intentionally left unresolved
-			})
+			() =>
+				new Promise<void>((_resolve) => {
+					// intentionally left unresolved
+				})
 		);
 
 		hoisted.servicesStore.set({
@@ -738,7 +756,7 @@ describe('MEMORY LEAK FIX #6: Verify loadingTimeoutTimer is cleared on unmount',
 	});
 
 	it('should clear loadingTimeoutTimer via clearTimeout when unmounted mid-timeout', async () => {
-		hoisted.findServices.mockImplementation(new Promise(() => {}));
+		hoisted.findServices.mockImplementation(() => new Promise(() => {}));
 
 		hoisted.servicesStore.set({
 			items: [],
@@ -749,20 +767,18 @@ describe('MEMORY LEAK FIX #6: Verify loadingTimeoutTimer is cleared on unmount',
 			searchParamsKey: ''
 		});
 
-		vi.spyOn(global, 'clearTimeout').mockClear();
+		const clearTimeoutSpy = vi.spyOn(global, 'clearTimeout').mockClear();
 
 		const { default: ServicesPage } = await import('../../../../routes/services/+page.svelte');
 
-		render(ServicesPage);
+		const { unmount } = render(ServicesPage);
 
 		await tick();
-		await vi.advanceTimersByTimeAsync(10000);
+		await vi.advanceTimersByTimeAsync(100);
 
-		const { unmount } = render(ServicesPage);
 		unmount();
 
-		const clearTimeoutCalls = vi.mocked(global.clearTimeout).mock.calls;
-		expect(clearTimeoutCalls.length).toBeGreaterThan(0);
+		expect(clearTimeoutSpy.mock.calls.length).toBeGreaterThan(0);
 	});
 });
 
@@ -876,7 +892,7 @@ describe('MEMORY LEAK FIX #7: Verify unmounted flag prevents store updates', () 
 		}) => {
 			_storeUpdateCount++;
 			return originalSet(value);
-		}) as typeof hoisted.servicesStore.set;
+		}) as unknown as typeof hoisted.servicesStore.set;
 
 		hoisted.findServices.mockImplementation(async () => {
 			await vi.advanceTimersByTimeAsync(50);

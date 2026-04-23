@@ -14,7 +14,7 @@ const mockServices: Service[] = [
 		serviceLocationTypes: [],
 		pricing: { type: ServicePricingTypeEnum.FIXED, currency: 'USDt', amount: 100 },
 		skills: ['Design'],
-		categories: [{ id: 'cat1', name: 'Design', slug: 'design' }],
+		categories: [{ id: 'cat1', name: 'Design', slug: 'design', description: '' }],
 		portfolio: [],
 		createdAt: 1_700_000_000,
 		creator: { username: 'provider1', avatar: '' }
@@ -29,7 +29,7 @@ const mockServices: Service[] = [
 		serviceLocationTypes: [],
 		pricing: { type: ServicePricingTypeEnum.FIXED, currency: 'USDt', amount: 200 },
 		skills: ['Coding'],
-		categories: [{ id: 'cat2', name: 'Coding', slug: 'coding' }],
+		categories: [{ id: 'cat2', name: 'Coding', slug: 'coding', description: '' }],
 		portfolio: [],
 		createdAt: 1_700_000_001,
 		creator: { username: 'provider2', avatar: '' }
@@ -90,11 +90,14 @@ const hoisted = vi.hoisted(() => {
 vi.mock('svelte-i18n', async () => {
 	const { readable } = await import('svelte/store');
 	return {
-		t: readable((key: string, options?: { values?: Record<string, number> }) => {
-			if (key === 'dashboard.services.browse.error_loading') return 'Error loading services: {error}';
+		t: readable((key: string, _options?: { values?: Record<string, number> }) => {
+			if (key === 'dashboard.services.browse.error_loading')
+				return 'Error loading services: {error}';
 			if (key === 'dashboard.services.browse.refresh') return 'Refresh';
-			if (key === 'dashboard.services.browse.loading_timeout_title') return 'Loading taking too long';
-			if (key === 'dashboard.services.browse.loading_timeout_message') return 'The service list is taking longer than expected.';
+			if (key === 'dashboard.services.browse.loading_timeout_title')
+				return 'Loading taking too long';
+			if (key === 'dashboard.services.browse.loading_timeout_message')
+				return 'The service list is taking longer than expected.';
 			return key;
 		}),
 		locale: readable('en')
@@ -182,7 +185,9 @@ describe('MAJOR #8: Error recovery should not reload entire page', () => {
 
 		await vi.runAllTimersAsync();
 
-		expect(consoleErrorSpy).not.toHaveBeenCalledWith(expect.stringContaining('window.location.reload'));
+		expect(consoleErrorSpy).not.toHaveBeenCalledWith(
+			expect.stringContaining('window.location.reload')
+		);
 		expect(hoisted.findServices).toHaveBeenCalled();
 
 		vi.useRealTimers();
@@ -240,8 +245,8 @@ describe('MAJOR #10: sessionStorage race with loadNostrData', () => {
 			})
 		);
 
-		let findServicesCalledWith: any = null;
-		hoisted.findServices.mockImplementation(async (params: any) => {
+		let findServicesCalledWith: unknown = null;
+		hoisted.findServices.mockImplementation(async (params: unknown) => {
 			findServicesCalledWith = params;
 			hoisted.servicesStore.set({
 				items: mockServices,
@@ -275,11 +280,31 @@ describe('MAJOR #11: loadMoreServices parallel loads should be prevented', () =>
 	});
 
 	it('should prevent parallel loadMoreServices calls with isLoadingMore flag', async () => {
-		let loadCount = 0;
+		let _loadCount = 0;
 		hoisted.findServices.mockImplementation(async () => {
-			loadCount++;
-			await new Promise((r) => setTimeout(r, 50));
-			hoisted.servicesStore.update((state) => ({
+			_loadCount++;
+			await new Promise((r) => setTimeout(r, 5));
+			(
+				hoisted.servicesStore as unknown as {
+					update: (
+						updater: (state: {
+							items: Service[];
+							loading: boolean;
+							error: string | null;
+							currentPage: number;
+							hasMore: boolean;
+							searchParamsKey: string;
+						}) => {
+							items: Service[];
+							loading: boolean;
+							error: string | null;
+							currentPage: number;
+							hasMore: boolean;
+							searchParamsKey: string;
+						}
+					) => void;
+				}
+			).update((state) => ({
 				...state,
 				items: [...state.items, ...mockServices],
 				currentPage: state.currentPage + 1,

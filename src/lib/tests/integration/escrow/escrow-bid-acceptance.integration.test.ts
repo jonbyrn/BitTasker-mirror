@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { NostrBidContent, NostrEventWithFollowup } from '$lib/types/bid';
-import type { Task } from '$lib/types/task';
+import type { NostrEventWithFollowup } from '$lib/types/bid';
 import type { NostrEvent } from 'nostr-tools';
 
 // Mock dependencies - combined into single mock
@@ -16,11 +15,11 @@ vi.mock('@bittasker/wallet-core', () => ({
 // Mock ethers (tests use mocked escrow.createEscrow; Contract may still be constructed as null)
 const mockContractInstance = null;
 vi.mock('ethers', async () => {
-	const actual = await vi.importActual('ethers');
+	const actual = (await vi.importActual('ethers')) as { ethers: object };
 	return {
 		...actual,
 		ethers: {
-			...actual.ethers,
+			...(actual.ethers as object),
 			Contract: vi.fn().mockImplementation(() => mockContractInstance)
 		}
 	};
@@ -71,7 +70,7 @@ const { mockPool } = vi.hoisted(() => {
 
 vi.mock('$lib/stores/app.store', () => {
 	// Store state that will be returned when subscribe callback is called
-	let storeState = {
+	const storeState = {
 		nostrKeys: { nsec: null, npub: null, mnemonic: null },
 		isLoading: false,
 		error: null,
@@ -81,7 +80,7 @@ vi.mock('$lib/stores/app.store', () => {
 		pool: mockPool,
 		relays: []
 	};
-	
+
 	return {
 		appStore: {
 			subscribe: (callback: (state: typeof storeState) => void) => {
@@ -118,7 +117,11 @@ vi.mock('$lib/utils/escrow/v1/escrow', () => ({
 }));
 
 // Mock escrowEvents
-const { mockPublishEscrowStatus, mockRegisterPendingContractByTxHash, mockCleanupPendingContractByTxHash } = vi.hoisted(() => ({
+const {
+	mockPublishEscrowStatus,
+	mockRegisterPendingContractByTxHash,
+	mockCleanupPendingContractByTxHash
+} = vi.hoisted(() => ({
 	mockPublishEscrowStatus: vi.fn(),
 	mockRegisterPendingContractByTxHash: vi.fn(),
 	mockCleanupPendingContractByTxHash: vi.fn()
@@ -155,13 +158,13 @@ describe('Escrow Bid Acceptance Integration Tests', () => {
 
 			const mockBid: NostrEventWithFollowup = {
 				id: 'bid-123',
-				content: {
+				content: JSON.stringify({
 					bidderId: 'npub1freelancer',
 					bidderWalletAddress: '0x2222222222222222222222222222222222222222',
 					amount: 100,
 					currency: 'USD',
 					estimatedHours: 2
-				} as unknown as NostrBidContent,
+				}) as string,
 				pubkey: 'npub1freelancer',
 				created_at: now,
 				kind: 1,
@@ -174,8 +177,12 @@ describe('Escrow Bid Acceptance Integration Tests', () => {
 				content: JSON.stringify({
 					title: 'Test Task',
 					description: 'Test Description',
-					budget: { amount: 100, currency: 'USD', type: 'fixed' }
-				} as Task),
+					budget: { amount: 100, currency: 'USD', type: 'fixed' },
+					dateRange: {
+						start: new Date(now * 1000 + 86400000).toISOString(),
+						end: new Date(now * 1000 + 86400000 * 3).toISOString()
+					}
+				}) as string,
 				pubkey: 'npub1client',
 				created_at: now - 3600,
 				kind: 1,
@@ -203,13 +210,13 @@ describe('Escrow Bid Acceptance Integration Tests', () => {
 
 			const mockBid: NostrEventWithFollowup = {
 				id: 'bid-456',
-				content: {
+				content: JSON.stringify({
 					bidderId: 'npub1freelancer',
 					bidderWalletAddress: '0x2222222222222222222222222222222222222222',
 					amount: 50,
 					currency: 'USD',
 					estimatedHours: 1
-				} as unknown as NostrBidContent,
+				}) as string,
 				pubkey: 'npub1freelancer',
 				created_at: pastStartTime,
 				kind: 1,
@@ -222,8 +229,12 @@ describe('Escrow Bid Acceptance Integration Tests', () => {
 				content: JSON.stringify({
 					title: 'Past Task',
 					description: 'Task with past start time',
-					budget: { amount: 50, currency: 'USD', type: 'fixed' }
-				} as Task),
+					budget: { amount: 50, currency: 'USD', type: 'fixed' },
+					dateRange: {
+						start: new Date(now * 1000 + 86400000).toISOString(),
+						end: new Date(now * 1000 + 86400000 * 3).toISOString()
+					}
+				}) as string,
 				pubkey: 'npub1client',
 				created_at: pastStartTime - 3600,
 				kind: 1,
@@ -252,13 +263,13 @@ describe('Escrow Bid Acceptance Integration Tests', () => {
 		it.skip('should reject bid with zero amount - needs walletStore mock fix', async () => {
 			const mockBid: NostrEventWithFollowup = {
 				id: 'bid-invalid',
-				content: {
+				content: JSON.stringify({
 					bidderId: 'npub1freelancer',
 					bidderWalletAddress: '0x2222222222222222222222222222222222222222',
 					amount: 0, // Invalid
 					currency: 'USD',
 					estimatedHours: 2
-				} as unknown as NostrBidContent,
+				}) as string,
 				pubkey: 'npub1freelancer',
 				created_at: Math.floor(Date.now() / 1000),
 				kind: 1,
@@ -272,7 +283,7 @@ describe('Escrow Bid Acceptance Integration Tests', () => {
 					title: 'Test Task',
 					description: 'Test Description',
 					budget: { amount: 0, currency: 'USD', type: 'fixed' } // Invalid
-				} as Task),
+				}) as string,
 				pubkey: 'npub1client',
 				created_at: Math.floor(Date.now() / 1000),
 				kind: 1,
@@ -292,13 +303,13 @@ describe('Escrow Bid Acceptance Integration Tests', () => {
 
 			const mockBid: NostrEventWithFollowup = {
 				id: 'bid-no-wallet',
-				content: {
+				content: JSON.stringify({
 					bidderId: 'npub1freelancer',
 					bidderWalletAddress: '0x2222222222222222222222222222222222222222',
 					amount: 100,
 					currency: 'USD',
 					estimatedHours: 2
-				} as unknown as NostrBidContent,
+				}) as string,
 				pubkey: 'npub1freelancer',
 				created_at: Math.floor(Date.now() / 1000),
 				kind: 1,
@@ -312,7 +323,7 @@ describe('Escrow Bid Acceptance Integration Tests', () => {
 					title: 'Test Task',
 					description: 'Test Description',
 					budget: { amount: 100, currency: 'USD', type: 'fixed' }
-				} as Task),
+				}) as string,
 				pubkey: 'npub1client',
 				created_at: Math.floor(Date.now() / 1000),
 				kind: 1,
@@ -331,13 +342,13 @@ describe('Escrow Bid Acceptance Integration Tests', () => {
 
 			const mockBid: NostrEventWithFollowup = {
 				id: 'bid-insufficient',
-				content: {
+				content: JSON.stringify({
 					bidderId: 'npub1freelancer',
 					bidderWalletAddress: '0x2222222222222222222222222222222222222222',
 					amount: 1000000, // Very large amount
 					currency: 'USD',
 					estimatedHours: 2
-				} as unknown as NostrBidContent,
+				}) as string,
 				pubkey: 'npub1freelancer',
 				created_at: Math.floor(Date.now() / 1000),
 				kind: 1,
@@ -351,7 +362,7 @@ describe('Escrow Bid Acceptance Integration Tests', () => {
 					title: 'Expensive Task',
 					description: 'Very expensive task',
 					budget: { amount: 1000000, currency: 'USD', type: 'fixed' }
-				} as Task),
+				}) as string,
 				pubkey: 'npub1client',
 				created_at: Math.floor(Date.now() / 1000),
 				kind: 1,
@@ -370,13 +381,13 @@ describe('Escrow Bid Acceptance Integration Tests', () => {
 		it('should calculate fees correctly for tier 1 (2.5%)', async () => {
 			const mockBid: NostrEventWithFollowup = {
 				id: 'bid-tier1',
-				content: {
+				content: JSON.stringify({
 					bidderId: 'npub1freelancer',
 					bidderWalletAddress: '0x2222222222222222222222222222222222222222',
 					amount: 100,
 					currency: 'USD',
 					estimatedHours: 2
-				} as unknown as NostrBidContent,
+				}) as string,
 				pubkey: 'npub1freelancer',
 				created_at: Math.floor(Date.now() / 1000),
 				kind: 1,
@@ -389,8 +400,12 @@ describe('Escrow Bid Acceptance Integration Tests', () => {
 				content: JSON.stringify({
 					title: 'Test Task',
 					description: 'Test Description',
-					budget: { amount: 100, currency: 'USD', type: 'fixed' }
-				} as Task),
+					budget: { amount: 100, currency: 'USD', type: 'fixed' },
+					dateRange: {
+						start: new Date(Date.now() + 86400000).toISOString(),
+						end: new Date(Date.now() + 86400000 * 3).toISOString()
+					}
+				}) as string,
 				pubkey: 'npub1client',
 				created_at: Math.floor(Date.now() / 1000),
 				kind: 1,

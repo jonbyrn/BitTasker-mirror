@@ -231,7 +231,7 @@ export async function acceptBidAndCreateEscrow(
 	d.log('acceptBidAndCreateEscrow start', { taskId, bidId: bid.id });
 
 	try {
-		const bidContent = bid.content as unknown as NostrBidContent;
+		const bidContent = JSON.parse(bid.content) as NostrBidContent;
 		const taskContent = JSON.parse(task.content) as Task;
 
 		// Calculate escrow details

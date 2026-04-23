@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
 import { ethers } from 'ethers';
 import type { NostrBidContent, NostrEventWithFollowup } from '$lib/types/bid';
 import type { Task } from '$lib/types/task';
@@ -91,9 +91,7 @@ import {
 } from '$lib/utils/escrow/v1/escrowEvents';
 
 // Get the mocked cleanup function for use in tests
-const mockCleanupPendingContractByTxHash = cleanupPendingContractByTxHash as ReturnType<
-	typeof vi.fn
->;
+const mockCleanupPendingContractByTxHash = cleanupPendingContractByTxHash as unknown as Mock;
 
 describe('escrowBid', () => {
 	const mockBidContent: NostrBidContent = {
@@ -124,7 +122,7 @@ describe('escrowBid', () => {
 			start: serializeDateWithLocalTime(new Date(Date.now() + 3600000)) || '',
 			end: serializeDateWithLocalTime(new Date(Date.now() + 7200000)) || ''
 		}
-	};
+	} as unknown as Task;
 
 	beforeEach(() => {
 		vi.clearAllMocks();
@@ -158,9 +156,11 @@ describe('escrowBid', () => {
 		});
 
 		it('should fallback to task dateRange when bid timing not available', () => {
-			const bidWithoutTiming = { ...mockBidContent };
-			delete bidWithoutTiming.startDateTime;
-			delete bidWithoutTiming.endDateTime;
+			const bidWithoutTiming = {
+				...mockBidContent,
+				startDateTime: undefined,
+				endDateTime: undefined
+			} as unknown as NostrBidContent;
 
 			const btcPrice = 50000;
 			const result = calculateBidEscrowDetails(bidWithoutTiming, mockTask, btcPrice);
@@ -320,7 +320,7 @@ describe('escrowBid', () => {
 
 			const mockBidEvent: NostrEventWithFollowup = {
 				id: 'bid-123',
-				content: mockBidContent as any,
+				content: JSON.stringify(mockBidContent),
 				pubkey: 'npub1test',
 				created_at: Math.floor(Date.now() / 1000),
 				kind: 1,
@@ -357,7 +357,7 @@ describe('escrowBid', () => {
 			const invalidBid = { ...mockBidContent, amount: 0 };
 			const mockBidEvent: NostrEventWithFollowup = {
 				id: 'bid-123',
-				content: invalidBid as any,
+				content: JSON.stringify(invalidBid),
 				pubkey: 'npub1test',
 				created_at: Math.floor(Date.now() / 1000),
 				kind: 1,
@@ -395,7 +395,7 @@ describe('escrowBid', () => {
 
 			const mockBidEvent: NostrEventWithFollowup = {
 				id: 'bid-123',
-				content: pastBid as any,
+				content: JSON.stringify(pastBid),
 				pubkey: 'npub1test',
 				created_at: Math.floor(Date.now() / 1000),
 				kind: 1,
@@ -436,7 +436,7 @@ describe('escrowBid', () => {
 
 			const mockBidEvent: NostrEventWithFollowup = {
 				id: 'bid-123',
-				content: mockBidContent as any,
+				content: JSON.stringify(mockBidContent),
 				pubkey: 'npub1test',
 				created_at: Math.floor(Date.now() / 1000),
 				kind: 1,
@@ -474,7 +474,7 @@ describe('escrowBid', () => {
 
 			const mockBidEvent: NostrEventWithFollowup = {
 				id: 'bid-123',
-				content: mockBidContent as any,
+				content: JSON.stringify(mockBidContent),
 				pubkey: 'npub1test',
 				created_at: Math.floor(Date.now() / 1000),
 				kind: 1,
@@ -520,7 +520,7 @@ describe('escrowBid', () => {
 
 			const mockBidEvent: NostrEventWithFollowup = {
 				id: 'bid-123',
-				content: pastBid as any,
+				content: JSON.stringify(pastBid),
 				pubkey: 'npub1test',
 				created_at: Math.floor(Date.now() / 1000),
 				kind: 1,
@@ -561,7 +561,7 @@ describe('escrowBid', () => {
 
 			const mockBidEvent: NostrEventWithFollowup = {
 				id: 'bid-123',
-				content: mockBidContent as any,
+				content: JSON.stringify(mockBidContent),
 				pubkey: 'npub1test',
 				created_at: Math.floor(Date.now() / 1000),
 				kind: 1,
@@ -604,7 +604,7 @@ describe('escrowBid', () => {
 
 			const mockBidEvent: NostrEventWithFollowup = {
 				id: 'bid-123',
-				content: mockBidContent as any,
+				content: JSON.stringify(mockBidContent),
 				pubkey: 'npub1test',
 				created_at: Math.floor(Date.now() / 1000),
 				kind: 1,
@@ -648,7 +648,7 @@ describe('escrowBid', () => {
 
 			const mockBidEvent: NostrEventWithFollowup = {
 				id: 'bid-123',
-				content: pastBid as any,
+				content: JSON.stringify(pastBid),
 				pubkey: 'npub1test',
 				created_at: Math.floor(Date.now() / 1000),
 				kind: 1,
@@ -739,7 +739,7 @@ describe('escrowBid', () => {
 
 			const mockBidEvent: NostrEventWithFollowup = {
 				id: 'bid-123',
-				content: mockBidContent as any,
+				content: JSON.stringify(mockBidContent),
 				pubkey: 'npub1test',
 				created_at: Math.floor(Date.now() / 1000),
 				kind: 1,
@@ -838,7 +838,7 @@ describe('escrowBid', () => {
 
 			const mockBidEvent: NostrEventWithFollowup = {
 				id: 'bid-123',
-				content: mockBidContent as any,
+				content: JSON.stringify(mockBidContent),
 				pubkey: 'npub1test',
 				created_at: Math.floor(Date.now() / 1000),
 				kind: 1,
