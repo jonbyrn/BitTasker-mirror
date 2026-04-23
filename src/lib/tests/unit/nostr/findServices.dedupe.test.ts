@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { dedupeServicesByUniqueId } from '$lib/nostr/findServices';
 import type { Service } from '$lib/types/service';
+import { ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';
 
 function createService(overrides: Partial<Service> & { id: string; uniqueId: string }): Service {
 	return {
@@ -11,7 +12,7 @@ function createService(overrides: Partial<Service> & { id: string; uniqueId: str
 		title: `Service ${overrides.uniqueId}`,
 		description: 'Test service',
 		serviceLocationTypes: [],
-		pricing: { type: 'fixed', amount: 100, currency: 'USD' },
+		pricing: { type: ServicePricingTypeEnum.FIXED, amount: 100, currency: 'USD' },
 		skills: [],
 		categories: [],
 		createdAt: 1_700_000_000,

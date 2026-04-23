@@ -76,6 +76,20 @@
 		"slide": "Slide",
 		"view_all": "View All",
 		"view_profile": "View Profile",
+		"homepage": {
+			"featured": {
+				"services": {
+					"title": "Featured Services",
+					"empty": "No featured services available",
+					"meta_fallback": "Service listing",
+					"at_provider_location": "At provider location",
+					"travels_to_you": "Travels to you"
+				},
+				"tasks": {
+					"empty": "No featured tasks available"
+				}
+			}
+		},
 		"show_more": "Show more",
 		"show_less": "Show less",
 		"reviews": "reviews",

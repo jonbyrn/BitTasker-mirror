@@ -605,7 +605,8 @@
 			"network": "Red",
 			"description_characters": "Caracteres",
 			"below_swap_minimum": "Monto por debajo del mínimo de intercambio: {minAmount} Sats",
-			"invoice_total": "Total de la factura"
+			"invoice_total": "Total de la factura",
+			"fee": "Comisión"
 		},
 		"swap": {
 			"title": "Intercambiar Activos Digitales",

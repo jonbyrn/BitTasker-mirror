@@ -46,7 +46,16 @@ export default defineConfig(({ mode }) => {
 			environment: 'jsdom',
 			setupFiles: ['./vitest-setup-client.ts'],
 			globals: true,
-			exclude: ['**/_pending/**', 'node_modules/**'],
+			exclude: [
+				'**/_pending/**',
+				'**/e2e/**',
+				'tests/e2e/**',
+				'src/lib/tests/e2e/**',
+				'tests/scripts/**',
+				'**/*.e2e.test.ts',
+				'**/*.e2e.test.tsx',
+				'node_modules/**'
+			],
 			coverage: {
 				provider: 'v8',
 				reporter: ['text', 'html', 'clover', ['cobertura', { file: 'cobertura-coverage.xml' }]],

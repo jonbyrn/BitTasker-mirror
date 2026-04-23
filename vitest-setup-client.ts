@@ -1,6 +1,29 @@
-import '@testing-library/jest-dom/vitest';
 import { vi } from 'vitest';
+import '@testing-library/jest-dom';
 import { readable } from 'svelte/store';
+
+declare module 'vitest' {
+	interface Expect<T> {
+		toBeInTheDocument(): T;
+		toHaveAttribute(attr: string, value?: string): T;
+		toHaveTextContent(text: string | RegExp): T;
+		toHaveValue(value: string | number): T;
+		toBeDisabled(): T;
+		toHaveClass(...classes: string[]): T;
+		toBeVisible(): T;
+		toBeHidden(): T;
+		toBeEmptyDOMElement(): T;
+		toBeInTheDOM(): T;
+		toHaveFormValues(expectedValues: Record<string, string | number | boolean>): T;
+		toHaveStyle(css: string | Record<string, string>): T;
+		toHaveFocus(): T;
+		toHaveAccessibleDescription(description: string | RegExp): T;
+		toHaveAccessibleName(name: string | RegExp): T;
+		toHaveAttribute(attr: string, value?: string | RegExp): T;
+		toContainHTML(html: string): T;
+		toThrowErrorMatchingInlineSnapshot(snapshot?: string): T;
+	}
+}
 
 // Mock $app/stores with a default page store
 vi.mock('$app/stores', () => ({

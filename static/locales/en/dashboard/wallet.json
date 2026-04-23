@@ -571,7 +571,8 @@
 			"network": "Network",
 			"description_characters": "Characters",
 			"below_swap_minimum": "Amount below swap minimum: {minAmount} Sats",
-			"invoice_total": "Invoice total"
+			"invoice_total": "Invoice total",
+			"fee": "Fee"
 		},
 		"initializing": "Initializing wallet...",
 		"buy_sell": {

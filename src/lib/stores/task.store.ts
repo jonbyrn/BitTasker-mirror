@@ -78,11 +78,25 @@ const getInitialRecurringTask = () => ({
 const initialState = getInitialState();
 const recurringTask = getInitialRecurringTask();
 
+type StoreState = typeof initialState & {
+	isEditing: boolean;
+	recurringTask: ReturnType<typeof getInitialRecurringTask>;
+};
+
+interface TaskDraftPayload {
+	id: string;
+	uniqueId: string;
+	currentStep: TaskStepEnum;
+	task: TaskBody;
+	isEditing: boolean;
+	recurringTask: ReturnType<typeof getInitialRecurringTask>;
+}
+
 function createTaskStore() {
 	const recurring = page.url.searchParams.get('recurring');
 	recurringTask.isRecurring = recurring == 'true';
 
-	const store = createDraftWizardStore({
+	const store = createDraftWizardStore<StoreState, TaskStepEnum, TaskDraftPayload>({
 		initialState: { ...initialState, recurringTask },
 		stepsStore: STEPS,
 		getStorageKey: (isEditing = false) => (isEditing ? EDIT_STORAGE_KEY : CREATE_STORAGE_KEY),
@@ -98,12 +112,14 @@ function createTaskStore() {
 
 			return {
 				...state,
-				id: parsedData.id,
-				uniqueId: parsedData.uniqueId,
-				task: { ...parsedData.task },
-				currentStep: parsedData.currentStep || TaskStepEnum.BASICS,
-				isEditing: parsedData.isEditing || isEditing,
-				recurringTask: { ...parsedData.recurringTask }
+				id: parsedData.id ?? state.id,
+				uniqueId: parsedData.uniqueId ?? state.uniqueId,
+				task: parsedData.task ? { ...parsedData.task } : state.task,
+				currentStep: parsedData.currentStep ?? TaskStepEnum.BASICS,
+				isEditing: parsedData.isEditing ?? isEditing,
+				recurringTask: parsedData.recurringTask
+					? { ...parsedData.recurringTask }
+					: state.recurringTask
 			};
 		},
 		writeDraft: (state, isEditing) => ({

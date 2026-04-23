@@ -178,16 +178,19 @@ describe('waitForContractCreationByTransactionHash', () => {
 	it('rejects after the configured timeout', async () => {
 		vi.useFakeTimers();
 
-		const { waitForContractCreationByTransactionHash } = await import(
-			'$lib/utils/service-contract/await-contract-creation'
-		);
+		try {
+			const { waitForContractCreationByTransactionHash } = await import(
+				'$lib/utils/service-contract/await-contract-creation'
+			);
 
-		const pending = waitForContractCreationByTransactionHash('0xabc123', 25);
-		const assertion = expect(pending).rejects.toThrow(
-			'The secure payment contract transaction was submitted, but the contract confirmation is still syncing. Open Contracts to monitor it.'
-		);
-		await vi.advanceTimersByTimeAsync(25);
-		await assertion;
+			const pending = waitForContractCreationByTransactionHash('0xabc123', 25);
+			vi.runAllTimers();
+			await expect(pending).rejects.toThrow(
+				'The secure payment contract transaction was submitted, but the contract confirmation is still syncing. Open Contracts to monitor it.'
+			);
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 
 	it('classifies replacement aliases as tx_replaced when confirmation times out', async () => {

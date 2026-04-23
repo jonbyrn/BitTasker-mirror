@@ -525,12 +525,14 @@ function hasPublishableAcceptedSnapshot(
 	}
 
 	const snapshot = content.acceptanceSnapshot;
+	if (!snapshot) {
+		return false;
+	}
 	return (
 		typeof content.escrowId === 'string' &&
 		content.escrowId.trim().length > 0 &&
 		typeof content.transactionHash === 'string' &&
 		TRANSACTION_HASH_RE.test(content.transactionHash) &&
-		Boolean(snapshot) &&
 		EVM_ADDRESS_RE.test(snapshot.clientRskAddress) &&
 		[0, 1, 2].includes(snapshot.clientFeeTier) &&
 		EVM_ADDRESS_RE.test(snapshot.freelancerRskAddress) &&

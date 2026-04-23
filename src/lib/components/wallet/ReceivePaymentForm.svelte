@@ -207,6 +207,12 @@
 		networkOptions.find((network) => network.value === formInput.selectedNetwork)
 	);
 
+	// Get fee for selected network (for accordion title display)
+	const selectedNetworkFee = $derived.by(() => {
+		if (amountInSats === 0 || !feeState.estimated) return null;
+		return feeState.estimated;
+	});
+
 	// Get estimated fees for a specific network (for dropdown display)
 	// Only shows fees if this network is currently selected and amount is entered
 	function getNetworkFees(
@@ -668,6 +674,14 @@
 								<span class="font-medium">
 									{selectedNetworkInfo?.label}
 									{$t('wallet.receive.network')}
+									{#if selectedNetworkFee && selectedNetworkFee.totalFees > 0}
+										<span class="text-base-content/60 text-xs font-normal">
+											{$t('wallet.receive.fee')}: {formatSats(selectedNetworkFee.totalFees)}
+											{$t('wallet.sats')} | {btcPrice.price > 0
+												? formatUsd((selectedNetworkFee.totalFees / 100_000_000) * btcPrice.price)
+												: '—'}
+										</span>
+									{/if}
 								</span>
 							</div>
 						</button>
@@ -728,53 +742,42 @@
 											{:else if networkFees && amountInSats > 0}
 												<!-- Show estimated fees when amount is entered -->
 												<span class="text-xs opacity-70 sm:ml-auto sm:text-right">
-													{formatSats(networkFees.totalFees)}
-													{$t('wallet.sats')}
-													{#if btcPrice > 0 && networkFees.totalFees > 0}
-														<span class="ml-1">
-															≈ {formatUsd((networkFees.totalFees / 100_000_000) * btcPrice)}
-														</span>
-													{/if}
+													{$t('wallet.receive.fee')}: {formatSats(networkFees.totalFees)}
+													{$t('wallet.sats')} | {btcPrice.price > 0
+														? formatUsd((networkFees.totalFees / 100_000_000) * btcPrice.price)
+														: '—'}
 												</span>
 											{:else if network.value === 'lightning-bitcoin' && swapPairsInfo?.lightning}
-												<!-- Lightning: Show fee info from cached API data (abbreviated on mobile) -->
+												<!-- Lightning: Show fee info from cached API data -->
+												{@const lightningTotalFees =
+													(swapPairsInfo.lightning.fees.minerFees.lockup || 0) +
+													(swapPairsInfo.lightning.fees.minerFees.claim || 0)}
 												<span class="text-xs opacity-70 sm:ml-auto sm:text-right">
-													<span class="hidden sm:inline"
-														>~{swapPairsInfo.lightning.fees.percentage}% {$t(
-															'wallet.swap.swap_fee'
-														)} +
-													</span>~{formatSats(
-														(swapPairsInfo.lightning.fees.minerFees.lockup || 0) +
-															(swapPairsInfo.lightning.fees.minerFees.claim || 0)
-													)}
-													{$t('wallet.sats')}
-													<span class="hidden sm:inline">{$t('wallet.network_fee')}</span>
+													{$t('wallet.receive.fee')}: ~{formatSats(lightningTotalFees)}
+													{$t('wallet.sats')} | {btcPrice.price > 0
+														? formatUsd((lightningTotalFees / 100_000_000) * btcPrice.price)
+														: '—'}
 												</span>
 											{:else if network.value === 'rootstock-bitcoin' && swapPairsInfo?.rootstock}
 												<!-- Rootstock: Show gas fee from cached estimate -->
 												<span class="text-xs opacity-70 sm:ml-auto sm:text-right">
-													{formatSats(swapPairsInfo.rootstock.gasFee)}
-													{$t('wallet.sats')}
-													<span class="hidden sm:inline">{$t('wallet.network_fee')}</span>
-													{#if btcPrice > 0}
-														<span class="ml-1">
-															≈ {formatUsd(
-																(swapPairsInfo.rootstock.gasFee / 100_000_000) * btcPrice
-															)}
-														</span>
-													{/if}
+													{$t('wallet.receive.fee')}: {formatSats(swapPairsInfo.rootstock.gasFee)}
+													{$t('wallet.sats')} | {btcPrice.price > 0
+														? formatUsd(
+																(swapPairsInfo.rootstock.gasFee / 100_000_000) * btcPrice.price
+															)
+														: '—'}
 												</span>
 											{:else if network.value === 'liquid-bitcoin' && swapPairsInfo?.liquid}
-												<!-- Liquid: Show fee info from cached API data (abbreviated on mobile) -->
+												<!-- Liquid: Show fee info from cached API data -->
+												{@const liquidTotalFees =
+													(swapPairsInfo.liquid.fees.minerFees.user?.lockup || 0) +
+													(swapPairsInfo.liquid.fees.minerFees.user?.claim || 0)}
 												<span class="text-xs opacity-70 sm:ml-auto sm:text-right">
-													<span class="hidden sm:inline"
-														>~{swapPairsInfo.liquid.fees.percentage}% {$t('wallet.swap.swap_fee')} +
-													</span>~{formatSats(
-														(swapPairsInfo.liquid.fees.minerFees.user?.lockup || 0) +
-															(swapPairsInfo.liquid.fees.minerFees.user?.claim || 0)
-													)}
-													{$t('wallet.sats')}
-													<span class="hidden sm:inline">{$t('wallet.network_fee')}</span>
+													{$t('wallet.receive.fee')}: {formatSats(liquidTotalFees)}
+													{$t('wallet.sats')} | {btcPrice.price > 0
+														? formatUsd((liquidTotalFees / 100_000_000) * btcPrice.price)
+														: '—'}
 												</span>
 											{:else if network.value === 'bitcoin'}
 												<!-- Bitcoin on-chain: Show placeholder -->
@@ -895,7 +898,7 @@
 						</div>
 					{/if}
 					<!-- Charge Fees to Payer Toggle (Mobile Step 2) -->
-					{#if feeState.estimated && feeState.estimated.totalFees > 0}
+					{#if feeState.estimated && feeState.estimated.totalFees > 0 && formInput.selectedNetwork !== 'rootstock-bitcoin'}
 						<button
 							type="button"
 							class="btn border-primary h-auto min-h-0 w-full touch-manipulation items-center justify-center gap-2 rounded-lg border-2 px-3 py-2 text-sm transition-colors select-none {formInput.chargeFeesToPayer
@@ -1027,6 +1030,14 @@
 							<span class="font-medium">
 								{selectedNetworkInfo?.label}
 								{$t('wallet.receive.network')}
+								{#if selectedNetworkFee && selectedNetworkFee.totalFees > 0}
+									<span class="text-base-content/60 text-xs font-normal">
+										{$t('wallet.receive.fee')}: {formatSats(selectedNetworkFee.totalFees)}
+										{$t('wallet.sats')} | {btcPrice.price > 0
+											? formatUsd((selectedNetworkFee.totalFees / 100_000_000) * btcPrice.price)
+											: '—'}
+									</span>
+								{/if}
 							</span>
 						</div>
 					</button>
@@ -1087,49 +1098,42 @@
 										{:else if networkFees && amountInSats > 0}
 											<!-- Show estimated fees when amount is entered -->
 											<span class="text-xs opacity-70 sm:ml-auto sm:text-right">
-												{formatSats(networkFees.totalFees)}
-												{$t('wallet.sats')}
-												{#if btcPrice > 0 && networkFees.totalFees > 0}
-													<span class="ml-1">
-														≈ {formatUsd((networkFees.totalFees / 100_000_000) * btcPrice)}
-													</span>
-												{/if}
+												{$t('wallet.receive.fee')}: {formatSats(networkFees.totalFees)}
+												{$t('wallet.sats')} | {btcPrice.price > 0
+													? formatUsd((networkFees.totalFees / 100_000_000) * btcPrice.price)
+													: '—'}
 											</span>
 										{:else if network.value === 'lightning-bitcoin' && swapPairsInfo?.lightning}
-											<!-- Lightning: Show fee info from cached API data (abbreviated on mobile) -->
+											<!-- Lightning: Show fee info from cached API data -->
+											{@const lightningTotalFees =
+												(swapPairsInfo.lightning.fees.minerFees.lockup || 0) +
+												(swapPairsInfo.lightning.fees.minerFees.claim || 0)}
 											<span class="text-xs opacity-70 sm:ml-auto sm:text-right">
-												<span class="hidden sm:inline"
-													>~{swapPairsInfo.lightning.fees.percentage}% {$t('wallet.swap.swap_fee')} +
-												</span>~{formatSats(
-													(swapPairsInfo.lightning.fees.minerFees.lockup || 0) +
-														(swapPairsInfo.lightning.fees.minerFees.claim || 0)
-												)}
-												{$t('wallet.sats')}
-												<span class="hidden sm:inline">{$t('wallet.network_fee')}</span>
+												{$t('wallet.receive.fee')}: ~{formatSats(lightningTotalFees)}
+												{$t('wallet.sats')} | {btcPrice.price > 0
+													? formatUsd((lightningTotalFees / 100_000_000) * btcPrice.price)
+													: '—'}
 											</span>
 										{:else if network.value === 'rootstock-bitcoin' && swapPairsInfo?.rootstock}
 											<!-- Rootstock: Show gas fee from cached estimate -->
 											<span class="text-xs opacity-70 sm:ml-auto sm:text-right">
-												{formatSats(swapPairsInfo.rootstock.gasFee)}
-												{$t('wallet.sats')}
-												<span class="hidden sm:inline">{$t('wallet.network_fee')}</span>
-												{#if btcPrice > 0}
-													<span class="ml-1">
-														≈ {formatUsd((swapPairsInfo.rootstock.gasFee / 100_000_000) * btcPrice)}
-													</span>
-												{/if}
+												{$t('wallet.receive.fee')}: {formatSats(swapPairsInfo.rootstock.gasFee)}
+												{$t('wallet.sats')} | {btcPrice.price > 0
+													? formatUsd(
+															(swapPairsInfo.rootstock.gasFee / 100_000_000) * btcPrice.price
+														)
+													: '—'}
 											</span>
 										{:else if network.value === 'liquid-bitcoin' && swapPairsInfo?.liquid}
-											<!-- Liquid: Show fee info from cached API data (abbreviated on mobile) -->
+											<!-- Liquid: Show fee info from cached API data -->
+											{@const liquidTotalFees =
+												(swapPairsInfo.liquid.fees.minerFees.user?.lockup || 0) +
+												(swapPairsInfo.liquid.fees.minerFees.user?.claim || 0)}
 											<span class="text-xs opacity-70 sm:ml-auto sm:text-right">
-												<span class="hidden sm:inline"
-													>~{swapPairsInfo.liquid.fees.percentage}% {$t('wallet.swap.swap_fee')} +
-												</span>~{formatSats(
-													(swapPairsInfo.liquid.fees.minerFees.user?.lockup || 0) +
-														(swapPairsInfo.liquid.fees.minerFees.user?.claim || 0)
-												)}
-												{$t('wallet.sats')}
-												<span class="hidden sm:inline">{$t('wallet.network_fee')}</span>
+												{$t('wallet.receive.fee')}: {formatSats(liquidTotalFees)}
+												{$t('wallet.sats')} | {btcPrice.price > 0
+													? formatUsd((liquidTotalFees / 100_000_000) * btcPrice.price)
+													: '—'}
 											</span>
 										{:else if network.value === 'bitcoin'}
 											<!-- Bitcoin on-chain: Show placeholder -->
@@ -1249,7 +1253,7 @@
 				{/if}
 
 				<!-- Charge Fees to Payer Toggle (Desktop) -->
-				{#if feeState.estimated && feeState.estimated.totalFees > 0}
+				{#if feeState.estimated && feeState.estimated.totalFees > 0 && formInput.selectedNetwork !== 'rootstock-bitcoin'}
 					<button
 						type="button"
 						class="btn border-primary h-auto min-h-0 w-full touch-manipulation items-center justify-center gap-2 rounded-lg border-2 px-3 py-2 text-sm transition-colors select-none sm:gap-3 sm:text-base {formInput.chargeFeesToPayer

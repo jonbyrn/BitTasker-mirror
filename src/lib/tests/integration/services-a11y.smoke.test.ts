@@ -1,11 +1,12 @@
-import { beforeEach, describe, expect, it } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/svelte';
+import { describe, expect, it } from 'vitest';
+import { render, screen } from '@testing-library/svelte';
 import MyQuotesPanel from '$lib/components/dashboard/quotes/MyQuotesPanel.svelte';
-import ServiceInstantBuyModal from '$lib/components/service/ServiceInstantBuyModal.svelte';
 import ServiceQuotesInbox from '$lib/components/service/quotes/ServiceQuotesInbox.svelte';
 import type { Service } from '$lib/types/service.d';
 import type { ServiceQuoteTimelineEntry } from '$lib/types/service-quote';
-import { ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';
+import { ServiceLocationTypeEnum, ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';
+
+const { FIXED } = ServicePricingTypeEnum;
 
 vi.mock('svelte-i18n', async () => {
 	const { readable } = await import('svelte/store');
@@ -24,8 +25,10 @@ vi.mock('svelte-i18n', async () => {
 			if (key === 'dashboard.services.detail.book_now_drawer.minute') return 'minute';
 			if (key === 'dashboard.services.detail.book_now_drawer.minutes') return 'minutes';
 			if (key === 'dashboard.services.detail.book_now_drawer.unavailable') return 'N/A';
-			if (key === 'dashboard.services.my_services.quote_inbox.view_proposal') return 'View Proposal';
-			if (key === 'dashboard.services.my_services.quote_inbox.send_proposal') return 'Send Proposal';
+			if (key === 'dashboard.services.my_services.quote_inbox.view_proposal')
+				return 'View Proposal';
+			if (key === 'dashboard.services.my_services.quote_inbox.send_proposal')
+				return 'Send Proposal';
 			return key;
 		}),
 		locale: readable('en'),
@@ -50,7 +53,7 @@ const service: Service = {
 	status: 'active',
 	title: 'Premium Logo Package',
 	description: 'Logo system and brand guide',
-	serviceLocationTypes: ['remote'],
+	serviceLocationTypes: [ServiceLocationTypeEnum.REMOTE],
 	pricing: {
 		type: ServicePricingTypeEnum.FIXED,
 		currency: 'USD',
@@ -74,7 +77,7 @@ function createTimelineWithoutProposal(): ServiceQuoteTimelineEntry {
 				quoteRequestId: 'qr_a11y123',
 				serviceId: `30402:${'a'.repeat(64)}:service-1234`,
 				serviceAddress: `30402:${'a'.repeat(64)}:service-1234`,
-				pricingType: 'FIXED',
+				pricingType: FIXED,
 				tierId: 'Premium',
 				selectedAddOns: ['Source files'],
 				inquiry: {
@@ -112,7 +115,7 @@ function createTimelineWithProposal(): ServiceQuoteTimelineEntry {
 				quoteRequestId: 'qr_a11y123',
 				serviceId: `30402:${'a'.repeat(64)}:service-1234`,
 				serviceAddress: `30402:${'a'.repeat(64)}:service-1234`,
-				pricingType: 'FIXED',
+				pricingType: FIXED,
 				tierId: 'Premium',
 				selectedAddOns: ['Source files'],
 				inquiry: {

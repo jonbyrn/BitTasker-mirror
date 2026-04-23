@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { buildServiceQuoteAgreementSummary } from '$lib/utils/service-quote/agreement-summary';
 import type { ServiceQuoteTimelineEntry } from '$lib/types/service-quote';
+import { ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';
 
 const timeline: ServiceQuoteTimelineEntry = {
 	request: {
@@ -14,7 +15,7 @@ const timeline: ServiceQuoteTimelineEntry = {
 			quoteRequestId: 'qr_valid123',
 			serviceId: '30402:provider:service',
 			serviceAddress: '30402:provider:service',
-			pricingType: 'TIERED',
+			pricingType: ServicePricingTypeEnum.TIERED,
 			tierId: 'premium',
 			selectedAddOns: ['source-files'],
 			rushDelivery: true,

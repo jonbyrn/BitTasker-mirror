@@ -299,11 +299,11 @@ describe('findMyServices', () => {
 				uniqueId: 'service-active',
 				status: 'active'
 			});
-			const pausedEvent = createServiceEvent({
-				eventId: 'event-paused',
+			const soldEvent = createServiceEvent({
+				eventId: 'event-sold',
 				pubkey: TEST_HEX_PUBKEY,
-				uniqueId: 'service-paused',
-				status: 'paused'
+				uniqueId: 'service-sold',
+				status: 'sold'
 			});
 			const inactiveEvent = createServiceEvent({
 				eventId: 'event-inactive',
@@ -311,12 +311,12 @@ describe('findMyServices', () => {
 				uniqueId: 'service-inactive',
 				status: 'inactive'
 			});
-			mockFindEvents.mockResolvedValue({ data: [activeEvent, pausedEvent, inactiveEvent] });
+			mockFindEvents.mockResolvedValue({ data: [activeEvent, soldEvent, inactiveEvent] });
 
-			const result = await findMyServices({ limit: 20, status: ['active', 'paused'] });
+			const result = await findMyServices({ limit: 20, status: ['active', 'sold'] });
 
 			expect(result.services).toHaveLength(2);
-			expect(result.services.every((s) => ['active', 'paused'].includes(s.status))).toBe(true);
+			expect(result.services.every((s) => ['active', 'sold'].includes(s.status))).toBe(true);
 		});
 
 		it('should return empty when no services match status filter', async () => {
@@ -328,7 +328,7 @@ describe('findMyServices', () => {
 			});
 			mockFindEvents.mockResolvedValue({ data: [activeEvent] });
 
-			const result = await findMyServices({ limit: 20, status: ['paused'] });
+			const result = await findMyServices({ limit: 20, status: ['sold'] });
 
 			expect(result.services).toHaveLength(0);
 		});

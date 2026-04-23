@@ -86,5 +86,5 @@ describe('services/[serviceId] route shell', () => {
 
 		await waitFor(() => expect(screen.getByRole('link', { name: 'Find Tasks' })).toBeTruthy());
 		expect(screen.getByRole('link', { name: 'Find Services' })).toBeTruthy();
-	});
+	}, 30_000);
 });

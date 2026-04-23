@@ -48,7 +48,10 @@ const getInitialLocale = async (): Promise<SupportedLanguage> => {
 /**
  * Deep merge objects for translation merging
  */
-function deepMerge(target: Record<string, unknown>, source: Record<string, unknown>): Record<string, unknown> {
+function deepMerge(
+	target: Record<string, unknown>,
+	source: Record<string, unknown>
+): Record<string, unknown> {
 	if (!source) return target;
 	if (!target) return source;
 
@@ -105,8 +108,12 @@ export async function loadNamespace(
 		// Add to svelte-i18n
 		// Note: we use manual merging because svelte-i18n addMessages might overwrite root keys if they are the same
 		// and we have multiple files sharing root keys like \"dashboard\".
-		const currentMessages = (get(dictionaryStore) as Record<string, Record<string, unknown>>)[locale] || {};
-		const mergedMessages = deepMerge({ ...currentMessages }, data as Record<string, unknown>);
+		const currentMessages =
+			(get(dictionaryStore) as Record<string, Record<string, unknown>>)[locale] || {};
+		const mergedMessages = deepMerge(
+			{ ...currentMessages },
+			data as unknown as Record<string, unknown>
+		);
 		addMessages(locale, mergedMessages);
 		return data;
 	} catch (error) {

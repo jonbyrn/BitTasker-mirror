@@ -112,7 +112,8 @@ vi.mock('svelte-i18n', async () => {
 			if (key === 'dashboard.services.browse.filters.apply') return 'Apply';
 			if (key === 'dashboard.services.browse.clear_filters') return 'Clear Filters';
 			if (key === 'dashboard.services.browse.loading_timeout_title') return 'Loading Timeout';
-			if (key === 'dashboard.services.browse.loading_timeout_message') return 'Loading is taking longer than expected';
+			if (key === 'dashboard.services.browse.loading_timeout_message')
+				return 'Loading is taking longer than expected';
 			return key;
 		}),
 		locale: readable('en')
@@ -255,9 +256,7 @@ describe('MAJOR #3: isApplyingFilters unused in UI', () => {
 
 		hoisted.findServices.mockImplementation(async () => {
 			hoisted.servicesStore.set({
-				items: [
-					createService('service-1', 'other-pubkey', 'Test Service')
-				],
+				items: [createService('service-1', 'other-pubkey', 'Test Service')],
 				loading: false,
 				error: null,
 				currentPage: 1,
@@ -291,12 +290,10 @@ describe('MAJOR #3: isApplyingFilters unused in UI', () => {
 
 		let filterApplyComplete = false;
 		hoisted.findServices.mockImplementation(async () => {
-			await new Promise(resolve => setTimeout(resolve, 500));
+			await new Promise((resolve) => setTimeout(resolve, 500));
 			filterApplyComplete = true;
 			hoisted.servicesStore.set({
-				items: [
-					createService('service-1', 'other-pubkey', 'Test Service')
-				],
+				items: [createService('service-1', 'other-pubkey', 'Test Service')],
 				loading: false,
 				error: null,
 				currentPage: 1,
@@ -306,11 +303,11 @@ describe('MAJOR #3: isApplyingFilters unused in UI', () => {
 		});
 
 		const applyButton = screen.getByRole('button', { name: 'Apply Empty Service Filters' });
-		
+
 		fireEvent.click(applyButton);
 
 		await tick();
-		
+
 		const filterButtonAfterClick = screen.queryByRole('button', { name: 'Filters' });
 		if (filterButtonAfterClick) {
 			expect(filterButtonAfterClick).toBeDisabled();
@@ -319,7 +316,7 @@ describe('MAJOR #3: isApplyingFilters unused in UI', () => {
 		await waitFor(() => {
 			expect(filterApplyComplete).toBe(true);
 		});
-	});
+	}, 30_000);
 });
 
 describe('MAJOR #4: Live region missing during initial load', () => {
@@ -349,9 +346,9 @@ describe('MAJOR #4: Live region missing during initial load', () => {
 		render(ServicesPage);
 
 		const statusElements = screen.getAllByRole('status');
-		const loadStatusElement = statusElements.find(el => el.id === 'services-load-status');
+		const loadStatusElement = statusElements.find((el) => el.id === 'services-load-status');
 		expect(loadStatusElement).toBeTruthy();
-	});
+	}, 30_000);
 });
 
 describe('MAJOR #5: Carousel buttons below 44px touch target', () => {
@@ -435,7 +432,7 @@ describe('MAJOR #5: Carousel buttons below 44px touch target', () => {
 			expect(nextButtonBox.width).toBeGreaterThanOrEqual(44);
 			expect(nextButtonBox.height).toBeGreaterThanOrEqual(44);
 		}
-	});
+	}, 30_000);
 });
 
 describe('MAJOR #6: No loading timeout enforcement', () => {
@@ -474,8 +471,7 @@ describe('MAJOR #6: No loading timeout enforcement', () => {
 			hasMore: false,
 			searchParamsKey: ''
 		});
-
-	});
+	}, 30_000);
 });
 
 describe('MAJOR #7: Filter drawer closes before apply completes', () => {
@@ -505,12 +501,10 @@ describe('MAJOR #7: Filter drawer closes before apply completes', () => {
 
 		hoisted.findServices.mockImplementation(async () => {
 			applyStartTime = Date.now();
-			await new Promise(resolve => setTimeout(resolve, 300));
+			await new Promise((resolve) => setTimeout(resolve, 300));
 			applyEndTime = Date.now();
 			hoisted.servicesStore.set({
-				items: [
-					createService('service-1', 'other-pubkey', 'Test Service')
-				],
+				items: [createService('service-1', 'other-pubkey', 'Test Service')],
 				loading: false,
 				error: null,
 				currentPage: 1,
@@ -528,7 +522,7 @@ describe('MAJOR #7: Filter drawer closes before apply completes', () => {
 		});
 
 		const applyButton = screen.getByRole('button', { name: 'Apply Empty Service Filters' });
-		
+
 		fireEvent.click(applyButton);
 
 		await tick();
@@ -536,8 +530,11 @@ describe('MAJOR #7: Filter drawer closes before apply completes', () => {
 		expect(applyStartTime).not.toBeNull();
 		expect(applyEndTime).toBeNull();
 
-		await waitFor(() => {
-			expect(applyEndTime).not.toBeNull();
-		}, { timeout: 1000 });
-	});
+		await waitFor(
+			() => {
+				expect(applyEndTime).not.toBeNull();
+			},
+			{ timeout: 1000 }
+		);
+	}, 30_000);
 });

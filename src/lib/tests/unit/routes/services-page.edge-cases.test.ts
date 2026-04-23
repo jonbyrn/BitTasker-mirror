@@ -109,7 +109,8 @@ vi.mock('svelte-i18n', async () => {
 			if (key === 'dashboard.services.browse.quote_request_submitted')
 				return 'Quote request submitted successfully!';
 			if (key === 'dashboard.services.browse.empty_title') return 'No services found';
-			if (key === 'dashboard.services.browse.empty_description') return 'Try adjusting your search or filters';
+			if (key === 'dashboard.services.browse.empty_description')
+				return 'Try adjusting your search or filters';
 			return key;
 		}),
 		locale: readable('en')
@@ -227,7 +228,7 @@ function createService(overrides = {}) {
 			avatar: ''
 		},
 		...overrides
-	};
+	} as Service;
 }
 
 function setupWindowMocks() {
@@ -346,22 +347,22 @@ describe('Edge Case: Single service', () => {
 
 		render(ServicesPage);
 
-await waitFor(() => {
-		expect(screen.queryByTestId('service-card-service-event-single-service')).toBeTruthy();
+		await waitFor(() => {
+			expect(screen.queryByTestId('service-card-service-event-single-service')).toBeTruthy();
+		});
+
+		const serviceCards = screen.queryAllByTestId(/service-card-service-event-/);
+		expect(serviceCards.length).toBe(1);
 	});
 
-	const serviceCards = screen.queryAllByTestId(/service-card-service-event-/);
-	expect(serviceCards.length).toBe(1);
-});
+	it('does not show pagination for single service', async () => {
+		const { default: ServicesPage } = await import('../../../../routes/services/+page.svelte');
 
-it('does not show pagination for single service', async () => {
-	const { default: ServicesPage } = await import('../../../../routes/services/+page.svelte');
+		render(ServicesPage);
 
-	render(ServicesPage);
-
-	await waitFor(() => {
-		expect(screen.queryByTestId('service-card-service-event-single-service')).toBeTruthy();
-	});
+		await waitFor(() => {
+			expect(screen.queryByTestId('service-card-service-event-single-service')).toBeTruthy();
+		});
 
 		const noMoreServices = screen.queryByText('No more services');
 		expect(noMoreServices).toBeTruthy();
@@ -725,7 +726,12 @@ describe('Edge Case: Storage with invalid JSON', () => {
 
 		hoisted.findServices.mockImplementation(async () => {
 			hoisted.servicesStore.set({
-				items: [createService({ uniqueId: 'post-corrupted-storage', title: 'Service After Corrupted Storage' })],
+				items: [
+					createService({
+						uniqueId: 'post-corrupted-storage',
+						title: 'Service After Corrupted Storage'
+					})
+				],
 				loading: false,
 				error: null,
 				currentPage: 1,
@@ -754,7 +760,9 @@ describe('Edge Case: Storage with invalid JSON', () => {
 		expect(() => render(ServicesPage)).not.toThrow();
 
 		await waitFor(() => {
-			expect(screen.queryByTestId('service-card-service-event-post-corrupted-storage')).toBeTruthy();
+			expect(
+				screen.queryByTestId('service-card-service-event-post-corrupted-storage')
+			).toBeTruthy();
 		});
 
 		expect(consoleSpy).not.toHaveBeenCalled();

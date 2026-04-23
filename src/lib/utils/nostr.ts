@@ -100,11 +100,16 @@ export async function getSignedEvent(metadata: Partial<NostrEvent>): Promise<Nos
 			npub = pubkey;
 		}
 
-		const signedEvent = await window.nostr.signEvent({
+		const { sig } = await window.nostr.signEvent({
 			...initialEvent,
 			pubkey: npub
 		});
-		return signedEvent;
+		return {
+			...initialEvent,
+			pubkey: npub,
+			id: '',
+			sig
+		} as NostrEvent;
 	} else {
 		const { npub, nsec } = await getNostrKeyPair();
 

@@ -25,42 +25,59 @@
 
 	// Layout state
 	let width = $state(375);
+
+	const seo = $derived(
+		data?.seo ?? {
+			title: 'Task Details - BitTasker',
+			description: '',
+			keywords: '',
+			canonical: '',
+			ogTitle: '',
+			ogDescription: '',
+			ogImage: '',
+			twitterTitle: '',
+			twitterDescription: '',
+			twitterImage: '',
+			jsonLd: null
+		}
+	);
+
 	const jsonLdScript = $derived(
-		data.seo.jsonLd
-			? `<script type="application/ld+json">${JSON.stringify(data.seo.jsonLd)}</sc` + `ript>`
+		seo.jsonLd
+			? `<script type="application/ld+json">${JSON.stringify(seo.jsonLd)}</sc` + `ript>`
 			: ''
 	);
 </script>
 
 <svelte:head>
-	<title>{data.seo.title}</title>
-	<meta name="description" content={data.seo.description} />
-	<meta name="keywords" content={data.seo.keywords} />
-	<link rel="canonical" href={data.seo.canonical} />
+	<title>{seo.title}</title>
+	<meta name="description" content={seo.description} />
+	<meta name="keywords" content={seo.keywords} />
+	<link rel="canonical" href={seo.canonical} />
 
 	<!-- Open Graph / Facebook -->
 	<meta property="og:type" content="website" />
-	<meta property="og:url" content={data.seo.canonical} />
-	<meta property="og:title" content={data.seo.ogTitle} />
-	<meta property="og:description" content={data.seo.ogDescription} />
-	<meta property="og:image" content={data.seo.ogImage} />
+	<meta property="og:url" content={seo.canonical} />
+	<meta property="og:title" content={seo.ogTitle} />
+	<meta property="og:description" content={seo.ogDescription} />
+	<meta property="og:image" content={seo.ogImage} />
 	<meta property="og:image:width" content="1200" />
 	<meta property="og:image:height" content="630" />
-	<meta property="og:image:alt" content={data.seo.ogTitle} />
+	<meta property="og:image:alt" content={seo.ogTitle} />
 	<meta property="og:site_name" content="BitTasker" />
 
 	<!-- Twitter -->
 	<meta property="twitter:card" content="summary_large_image" />
-	<meta property="twitter:url" content={data.seo.canonical} />
-	<meta property="twitter:title" content={data.seo.twitterTitle} />
-	<meta property="twitter:description" content={data.seo.twitterDescription} />
-	<meta property="twitter:image" content={data.seo.twitterImage} />
-	<meta property="twitter:image:alt" content={data.seo.twitterTitle} />
+	<meta property="twitter:url" content={seo.canonical} />
+	<meta property="twitter:title" content={seo.twitterTitle} />
+	<meta property="twitter:description" content={seo.twitterDescription} />
+	<meta property="twitter:image" content={seo.twitterImage} />
+	<meta property="twitter:image:alt" content={seo.twitterTitle} />
 	<meta property="twitter:site" content="@BitTaskerdotcom" />
 	<meta property="twitter:creator" content="@BitTaskerdotcom" />
 
 	<!-- Structured Data -->
-	{#if data.seo.jsonLd}
+	{#if seo.jsonLd}
 		<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 		{@html jsonLdScript}
 	{/if}

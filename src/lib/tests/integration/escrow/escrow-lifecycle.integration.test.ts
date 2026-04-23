@@ -16,6 +16,26 @@ export type EscrowMockTxReceipt = {
 /** Contract method mock with ethers-style `estimateGas` sibling */
 export type EscrowMethodMock = Mock & { estimateGas: Mock };
 
+function createEscrowMethodMock(
+	estimateGasValue: bigint,
+	waitReceipt: EscrowMockTxReceipt
+): EscrowMethodMock {
+	const createMockWait = () => {
+		return vi.fn().mockImplementation(
+			() =>
+				new Promise((resolve) => {
+					setTimeout(() => resolve(waitReceipt), 10);
+				})
+		);
+	};
+	const method = vi.fn().mockResolvedValue({
+		hash: '0x' + Math.random().toString(16).substring(2, 66),
+		wait: createMockWait()
+	}) as unknown as EscrowMethodMock;
+	method.estimateGas = vi.fn().mockResolvedValue(estimateGasValue);
+	return method;
+}
+
 /** Shared mock contract surface for v1 escrow integration tests */
 export type EscrowV1IntegrationMockContract = {
 	interface: { parseLog: Mock };
@@ -98,7 +118,12 @@ vi.mock('@bittasker/wallet-core', () => ({
 }));
 
 // Mock escrowEvents
-const { mockPublishEscrowStatus, mockHandleEscrowCreated, mockRegisterPendingContractByTxHash, mockCleanupPendingContractByTxHash } = vi.hoisted(() => ({
+const {
+	mockPublishEscrowStatus,
+	mockHandleEscrowCreated,
+	mockRegisterPendingContractByTxHash,
+	mockCleanupPendingContractByTxHash
+} = vi.hoisted(() => ({
 	mockPublishEscrowStatus: vi.fn(),
 	mockHandleEscrowCreated: vi.fn(),
 	mockRegisterPendingContractByTxHash: vi.fn(),
@@ -131,7 +156,15 @@ vi.mock('$lib/utils/escrow/v1/escrowEvents', async () => {
 });
 
 // Mock Nostr contract
-const { mockCreateContract, mockPublishContractEvent, mockPublishContractStatus, mockGetContracts, mockDeleteContract, mockHandleStatusEvent, mockHandleContractEvent } = vi.hoisted(() => ({
+const {
+	mockCreateContract,
+	mockPublishContractEvent,
+	mockPublishContractStatus,
+	mockGetContracts,
+	mockDeleteContract,
+	mockHandleStatusEvent,
+	mockHandleContractEvent
+} = vi.hoisted(() => ({
 	mockCreateContract: vi.fn(),
 	mockPublishContractEvent: vi.fn(),
 	mockPublishContractStatus: vi.fn(),
@@ -232,45 +265,22 @@ describe('Escrow Lifecycle Integration Tests', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 
-		// Create mock transaction with async wait
-		const createMockWait = (receipt: EscrowMockTxReceipt) => {
-			return vi.fn().mockImplementation(
-				() =>
-					new Promise((resolve) => {
-						setTimeout(() => resolve(receipt), 10);
-					})
-			);
-		};
-
 		// Setup mock contract
 		mockContract = {
 			interface: {
 				parseLog: vi.fn()
 			},
-			createEscrow: vi.fn(),
-			completeTask: vi.fn(),
-			acceptTask: vi.fn(),
-			cancelEscrow: vi.fn(),
-			disputeTask: vi.fn(),
-			proposeResolution: vi.fn(),
-			acceptProposal: vi.fn(),
-			resolveAfterTimelock: vi.fn(),
 			getEscrow: vi.fn(),
 			getDisputeProposal: vi.fn(),
 			paused: vi.fn().mockResolvedValue(false)
-		};
+		} as EscrowV1IntegrationMockContract;
 
 		// Setup method mocks with estimateGas
 		const createMethodWithEstimateGas = (
 			estimateGasValue: bigint,
 			waitReceipt: EscrowMockTxReceipt
-		) => {
-			const method = vi.fn().mockResolvedValue({
-				hash: '0x' + Math.random().toString(16).substring(2, 66),
-				wait: createMockWait(waitReceipt)
-			});
-			method.estimateGas = vi.fn().mockResolvedValue(estimateGasValue);
-			return method;
+		): EscrowMethodMock => {
+			return createEscrowMethodMock(estimateGasValue, waitReceipt);
 		};
 
 		mockContract.createEscrow = createMethodWithEstimateGas(BigInt(100000), {
@@ -650,7 +660,9 @@ describe('Escrow Lifecycle Integration Tests', () => {
 
 	describe('Error Handling in Lifecycle', () => {
 		it.skip('should handle escrow creation failure gracefully', async () => {
-			mockContract.createEscrow.estimateGas = vi.fn().mockRejectedValue(new Error('Insufficient funds'));
+			mockContract.createEscrow.estimateGas = vi
+				.fn()
+				.mockRejectedValue(new Error('Insufficient funds'));
 
 			await expect(
 				escrow.createEscrow(
@@ -665,7 +677,9 @@ describe('Escrow Lifecycle Integration Tests', () => {
 		});
 
 		it.skip('should handle task completion failure', async () => {
-			mockContract.completeTask.estimateGas = vi.fn().mockRejectedValue(new Error('Task already completed'));
+			mockContract.completeTask.estimateGas = vi
+				.fn()
+				.mockRejectedValue(new Error('Task already completed'));
 
 			await expect(escrow.completeTask('123', NOSTR_PEER_HEX, 'contract-123')).rejects.toThrow();
 		});

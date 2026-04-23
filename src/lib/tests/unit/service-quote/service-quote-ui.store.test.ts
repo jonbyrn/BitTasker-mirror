@@ -1,7 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { get, writable } from 'svelte/store';
 import type { Service } from '$lib/types/service.d';
-import type { ServiceQuoteTimelineEntry } from '$lib/types/service-quote';
+import type {
+	ServiceProposalStatusEvent,
+	ServiceQuoteTimelineEntry
+} from '$lib/types/service-quote';
+import { ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';
 
 const publishServiceQuoteRequest = vi.fn();
 const publishServiceQuoteRequestDeletion = vi.fn();
@@ -153,7 +157,7 @@ function createTimeline(): ServiceQuoteTimelineEntry {
 				quoteRequestId: 'qr_12345678',
 				serviceId: '30402:' + 'a'.repeat(64) + ':service-1234',
 				serviceAddress: '30402:' + 'a'.repeat(64) + ':service-1234',
-				pricingType: 'TIERED',
+				pricingType: ServicePricingTypeEnum.TIERED,
 				tierId: 'standard',
 				selectedAddOns: ['source-files'],
 				rushDelivery: false,
@@ -268,13 +272,13 @@ function createTimelineWithRequestId(quoteRequestId: string): ServiceQuoteTimeli
 			}
 		})),
 		latestProposal: {
-			...timeline.latestProposal,
+			...timeline.latestProposal!,
 			content: {
-				...timeline.latestProposal.content,
+				...timeline.latestProposal!.content,
 				quoteRequestId
 			}
 		}
-	};
+	} as ServiceQuoteTimelineEntry;
 }
 
 function createAcceptanceSnapshot(overrides: Record<string, unknown> = {}) {
@@ -302,7 +306,7 @@ function createAcceptanceSnapshot(overrides: Record<string, unknown> = {}) {
 function createStatusEvent(
 	status: 'accepting' | 'accept_unknown' | 'contract_sync_pending' | 'accepted',
 	overrides: Record<string, unknown> = {}
-) {
+): ServiceProposalStatusEvent {
 	const timestamp = Number(overrides.timestamp ?? 1_700_000_200);
 
 	return {
@@ -324,7 +328,7 @@ function createStatusEvent(
 			...overrides
 		},
 		sig: 'sig'
-	};
+	} as unknown as ServiceProposalStatusEvent;
 }
 
 function createTimelineWithStatus(

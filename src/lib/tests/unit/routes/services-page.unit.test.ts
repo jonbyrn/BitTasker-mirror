@@ -234,7 +234,7 @@ describe('services/[serviceId] page load', () => {
 		vi.mocked(findServiceByUniqueId).mockResolvedValue(
 			createService({
 				uniqueId: 'custom service slug',
-				status: 'paused',
+				status: 'inactive',
 				portfolio: [{ url: '//cdn.example.com/service.png', type: 'image/png', alt: 'Service' }]
 			})
 		);
