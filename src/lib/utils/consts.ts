@@ -29,7 +29,7 @@ export const sections = [
 		id: 'earning',
 		path: '/earning',
 		label: 'navbar.earning',
-		icon: 'mdi:chart-box-outline',
+		icon: 'mdi:trending-up',
 		mobile: true
 	},
 	{
