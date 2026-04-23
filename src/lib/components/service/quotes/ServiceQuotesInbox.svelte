@@ -760,17 +760,19 @@
 			{/if}
 		{/if}
 	{:else}
-		<DashboardEmptyState
-			icon={IconBriefcaseOutline}
-			title={tr(
-				'dashboard.services.my_services.quote_inbox.no_service_quotes',
-				'No service requests yet.'
-			)}
-			actionLabel={tr('dashboard.services.my_services.create_service', 'Create Service')}
-			actionHref="/dashboard/create-service"
-			actionIcon={IconPlus}
-			testId="service-quotes-empty-state"
-		/>
+		<div class="card bg-base-100 rounded-xl p-4">
+			<DashboardEmptyState
+				icon={IconBriefcaseOutline}
+				title={tr(
+					'dashboard.services.my_services.quote_inbox.no_service_quotes',
+					'No service requests yet.'
+				)}
+				actionLabel={tr('dashboard.services.my_services.create_service', 'Create Service')}
+				actionHref="/dashboard/create-service"
+				actionIcon={IconPlus}
+				testId="service-quotes-empty-state"
+			/>
+		</div>
 	{/if}
 
 	<ServiceProposalDrawer
