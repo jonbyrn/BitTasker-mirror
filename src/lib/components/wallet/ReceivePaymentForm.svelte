@@ -243,7 +243,9 @@
 			formInput.unit = initialFormState.unit;
 			formInput.mathExpression = initialFormState.mathExpression;
 			formInput.memo = initialFormState.memo;
-			formInput.selectedNetwork = initialFormState.selectedNetwork;
+			if (initialFormState.selectedNetwork) {
+				formInput.selectedNetwork = initialFormState.selectedNetwork;
+			}
 			formInput.chargeFeesToPayer = initialFormState.chargeFeesToPayer;
 			if (initialFormState.currentStep) {
 				uiState.currentStep = initialFormState.currentStep;
