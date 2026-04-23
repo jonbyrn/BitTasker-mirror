@@ -1,5 +1,8 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { AxiosError, type AxiosRequestConfig, type AxiosResponse } from 'axios';
 import createAxiosInstance from './axios';
+
+export const DEFAULT_API_HOST = 'https://api.bittasker.com';
 
 // Create a generic API response type
 export interface ApiResponse<T = any> {
@@ -24,7 +27,7 @@ export class ApiError extends Error {
 export class BaseApiService {
 	private axiosInstancePromise: Promise<any>;
 
-	constructor(baseURL: string = import.meta.env.VITE_API_URL) {
+	constructor(baseURL: string = import.meta.env.VITE_API_URL || DEFAULT_API_HOST) {
 		this.axiosInstancePromise = createAxiosInstance({ baseURL });
 	}
 

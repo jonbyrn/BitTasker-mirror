@@ -6,7 +6,7 @@
 	import type TaskTabComponent from '$lib/components/task/details/TaskTab.svelte';
 	import type TaskLocationMapComponent from '$lib/components/maps/TaskLocationMap.svelte';
 	import { onMount, onDestroy } from 'svelte';
-	import { browser } from '$app/environment';
+	import { browser, dev } from '$app/environment';
 	import { tasksStore } from '$lib/stores/task.store';
 	import { user } from '$lib/stores/user.store';
 	import { appStore } from '$lib/stores/app.store';
@@ -23,7 +23,6 @@
 	import { debounce } from '$lib/utils/helpers/common';
 	import { taskTranslationService } from '$lib/services/task-translation.service';
 	import { currentUserLanguage } from '$lib/stores/translation.store';
-	import { loadPageTranslations } from '$lib/i18n/routeTranslations';
 	import { LRUCache } from '$lib/utils/helpers/lru-cache';
 	import TaskCard from '$lib/components/task/TaskCard.svelte';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
@@ -35,9 +34,6 @@
 	import IconAlertCircle from '~icons/mdi/alert-circle';
 	import IconChevronUp from '~icons/mdi/chevron-up';
 	import IconMagnify from '~icons/mdi/magnify';
-
-	// Import performance testing helper in development
-	import '$lib/utils/performance-testing-helper';
 
 	// ============================================================================
 	// CONSTANTS - Organized by category
@@ -556,7 +552,7 @@
 		clearTasksStore();
 
 		searchParams = {
-			...searchParams,
+			...getInitialSearchParams(),
 			...filters,
 			page: 1,
 			until: undefined,
@@ -767,9 +763,26 @@
 
 	// Initial data fetch and setup
 	onMount(async () => {
-		// Ensure translations are loaded for this route
+		if (browser && dev) {
+			void import('$lib/utils/performance-testing-helper');
+		}
+
 		if (browser) {
-			await loadPageTranslations('/tasks');
+			const savedParamsRaw = sessionStorage.getItem('savedSearchParams');
+			if (savedParamsRaw) {
+				try {
+					const saved = JSON.parse(savedParamsRaw) as SearchTasksParams;
+					sessionStorage.removeItem('savedSearchParams');
+					searchParams = {
+						...getInitialSearchParams(),
+						...saved,
+						page: 1,
+						limit: TASKS_PER_PAGE
+					};
+				} catch (error) {
+					console.warn('[FindTasks] Invalid savedSearchParams', error);
+				}
+			}
 		}
 
 		// Find app-shell__content element once on mount
@@ -1123,7 +1136,7 @@
 									<h3 class="mb-2 text-lg font-semibold">{$t('find_tasks.no_results_title')}</h3>
 									<p class="text-base-content/70 mb-3">{$t('find_tasks.no_results_message')}</p>
 									<button class="btn btn-primary" onclick={clearFilters}>
-										{$t('find_tasks.clear_filters')}
+										{$t('dashboard.contracts.clear_filters')}
 									</button>
 								</div>
 							{/if}
@@ -1201,17 +1214,15 @@
 </main>
 
 <!-- Advanced Filter Drawer Component -->
-<Drawer
-	isOpen={isFilterDrawerOpen}
-	title={$t('find_tasks.filters')}
-	onClose={() => (isFilterDrawerOpen = false)}
-	position="right"
-	isScrollable={true}
->
-	{#if FilterDrawer}
-		<FilterDrawer initialFilters={searchParams} onApply={handleFilterApply} />
-	{/if}
-</Drawer>
+{#if FilterDrawer}
+	<FilterDrawer
+		isOpen={isFilterDrawerOpen}
+		title={$t('find_tasks.filters')}
+		onClose={() => (isFilterDrawerOpen = false)}
+		initialFilters={searchParams}
+		onApply={handleFilterApply}
+	/>
+{/if}
 
 <!-- Bid Form Drawer Component -->
 <Drawer

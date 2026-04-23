@@ -470,6 +470,14 @@
 			"bitcoin": "Bitcoin",
 			"bsc": "Binance Smart Chain"
 		},
+		"invoice": {
+			"payment_request": "Solicitud de Pago",
+			"qr_generation_failed": "Error al generar el código QR",
+			"share": "Compartir Factura",
+			"share_title": "Solicitud de Pago",
+			"share_text": "Por favor envía {amount} sats a: {address}"
+		},
+		"all": "Todos",
 		"receive_rbtc": "Recibir rBTC",
 		"your_rsk_address": "Tu Dirección RSK",
 		"generating": "Generando...",
@@ -534,6 +542,7 @@
 		"refresh_balance": "Actualizar Saldo",
 		"balance_refreshed": "Saldo actualizado correctamente",
 		"refresh_failed": "Error al actualizar el saldo",
+		"initializing": "Inicializando billetera...",
 		"buy_sell": {
 			"title": "Comprar y Vender Activos Digitales",
 			"coming_soon": "¡Funcionalidad de compra y venta próximamente!",
@@ -574,10 +583,16 @@
 		"calculator": {
 			"clear": "Limpiar",
 			"delete": "Eliminar",
-			"calculation": "Cálculo"
+			"calculation": "Cálculo",
+			"divide": "Dividir",
+			"multiply": "Multiplicar",
+			"add": "Sumar",
+			"subtract": "Restar",
+			"decimal_point": "Punto decimal"
 		},
 		"receive": {
 			"title": "Solicitar Pago",
+			"receive_funds": "Recibir Fondos",
 			"unit_sats": "Sats",
 			"unit_usd": "USD",
 			"network_fees": "Tarifas de Red",
@@ -668,6 +683,9 @@
 			"loading_fees": "Calculando tarifas...",
 			"service_fee": "Tarifa de Servicio",
 			"miner_fee": "Tarifa de Minero",
+			"error": {
+				"fee_fetch_failed": "Error al obtener las tarifas de intercambio"
+			},
 			"action": {
 				"refund": "Reembolsar",
 				"renegotiate": "Ajustar Cantidad",
@@ -830,19 +848,23 @@
 			"networks": {
 				"lightning_bitcoin": {
 					"label": "Bitcoin Lightning",
-					"description": "Pagos de Lightning Network"
+					"description": "Pagos de Lightning Network",
+					"fee_info": "~0.25% tarifa de intercambio"
 				},
 				"rootstock_bitcoin": {
 					"label": "Bitcoin Rootstock",
-					"description": "rBTC en la red Rootstock"
+					"description": "rBTC en la red Rootstock",
+					"fee_info": "Tarifa de gas de red"
 				},
 				"liquid_bitcoin": {
 					"label": "Bitcoin Liquid",
-					"description": "L-BTC en la red Liquid (intercambiar a rBTC)"
+					"description": "L-BTC en la red Liquid (intercambiar a rBTC)",
+					"fee_info": "~0.1% tarifa de intercambio"
 				},
 				"bitcoin": {
 					"label": "Bitcoin",
-					"description": "Red Bitcoin nativa"
+					"description": "Red Bitcoin nativa",
+					"fee_info": "Tarifa de red"
 				},
 				"liquid_usdt": {
 					"label": "USDT Liquid",

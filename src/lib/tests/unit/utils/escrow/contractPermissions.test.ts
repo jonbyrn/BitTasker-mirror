@@ -319,6 +319,44 @@ describe('contractPermissions', () => {
 				expect(result.permissions.canComplete).toBe(false);
 				expect(result.permissions.canRefund).toBe(false);
 			});
+
+			it('falls back to InProgress when a pending completion event is stale', () => {
+				const statusEvents: ContractStatusEvent[] = [
+					{
+						id: 'event-stale-completion',
+						pubkey: 'npub1freelancer',
+						created_at: now - oneHour,
+						kind: 1,
+						sig: 'sig',
+						tags: [],
+						content: {
+							action: EscrowStatus.PendingCompletion,
+							transactionHash: '0xstale-completion',
+							message: 'Completing...'
+						}
+					}
+				];
+
+				const escrowData = {
+					...mockEscrowData,
+					status: EscrowStatus.Funded,
+					estimatedStartTime: now - oneHour
+				};
+
+				const result = determineContractState(
+					EscrowStatus.Funded,
+					statusEvents,
+					mockContract,
+					escrowData,
+					null,
+					false,
+					false,
+					true
+				);
+
+				expect(result.status).toBe(EscrowStatus.InProgress);
+				expect(result.permissions.canComplete).toBe(true);
+			});
 		});
 
 		describe('Completed State', () => {
@@ -466,6 +504,46 @@ describe('contractPermissions', () => {
 				expect(result.permissions.canRefund).toBe(false);
 			});
 
+			it('falls back to Completed when a pending acceptance event is stale', () => {
+				const statusEvents: ContractStatusEvent[] = [
+					{
+						id: 'event-stale-acceptance',
+						pubkey: 'npub1client',
+						created_at: now - oneHour,
+						kind: 1,
+						sig: 'sig',
+						tags: [],
+						content: {
+							action: EscrowStatus.PendingAcceptance,
+							transactionHash: '0xstale-acceptance',
+							message: 'Accepting...'
+						}
+					}
+				];
+
+				const escrowData = {
+					...mockEscrowData,
+					status: EscrowStatus.Completed,
+					estimatedStartTime: now - 12 * oneHour,
+					createdAt: (now - 2 * oneHour) * 1000
+				};
+
+				const result = determineContractState(
+					EscrowStatus.Completed,
+					statusEvents,
+					mockContract,
+					escrowData,
+					null,
+					false,
+					true,
+					false
+				);
+
+				expect(result.status).toBe(EscrowStatus.Completed);
+				expect(result.permissions.canAccept).toBe(true);
+				expect(result.permissions.canDispute).toBe(true);
+			});
+
 			it('should allow client to dispute within 24h of start or after grace period', () => {
 				const escrowData = {
 					...mockEscrowData,
@@ -486,6 +564,26 @@ describe('contractPermissions', () => {
 				);
 
 				expect(result.permissions.canDispute).toBe(true);
+			});
+
+			it('should allow freelancer cancellation after completion', () => {
+				const escrowData = {
+					...mockEscrowData,
+					status: EscrowStatus.Completed
+				};
+
+				const result = determineContractState(
+					EscrowStatus.Completed,
+					[],
+					mockContract,
+					escrowData,
+					null,
+					false,
+					false,
+					true
+				);
+
+				expect(result.permissions.canCancel).toBe(false);
 			});
 		});
 
@@ -668,6 +766,26 @@ describe('contractPermissions', () => {
 				);
 
 				expect(result.permissions.canResolveTimelock).toBe(true);
+			});
+
+			it('should allow freelancer cancellation while in dispute', () => {
+				const escrowData = {
+					...mockEscrowData,
+					status: EscrowStatus.InDispute
+				};
+
+				const result = determineContractState(
+					EscrowStatus.InDispute,
+					[],
+					mockContract,
+					escrowData,
+					null,
+					false,
+					false,
+					true
+				);
+
+				expect(result.permissions.canCancel).toBe(false);
 			});
 		});
 

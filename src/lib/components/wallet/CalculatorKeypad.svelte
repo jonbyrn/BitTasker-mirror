@@ -34,19 +34,43 @@
 			{ value: '4', label: '4', type: 'number' },
 			{ value: '5', label: '5', type: 'number' },
 			{ value: '6', label: '6', type: 'number' },
-			{ value: '÷', label: '÷', type: 'operator', ariaLabel: 'Divide', isOperator: true }
+			{
+				value: '÷',
+				label: '÷',
+				type: 'operator',
+				ariaLabel: 'wallet.calculator.divide',
+				isOperator: true
+			}
 		],
 		[
 			{ value: '1', label: '1', type: 'number' },
 			{ value: '2', label: '2', type: 'number' },
 			{ value: '3', label: '3', type: 'number' },
-			{ value: '×', label: '×', type: 'operator', ariaLabel: 'Multiply', isOperator: true }
+			{
+				value: '×',
+				label: '×',
+				type: 'operator',
+				ariaLabel: 'wallet.calculator.multiply',
+				isOperator: true
+			}
 		],
 		[
-			{ value: '.', label: '.', type: 'decimal', ariaLabel: 'Decimal point' },
+			{ value: '.', label: '.', type: 'decimal', ariaLabel: 'wallet.calculator.decimal_point' },
 			{ value: '0', label: '0', type: 'number' },
-			{ value: '+', label: '+', type: 'operator', ariaLabel: 'Add', isOperator: true },
-			{ value: '−', label: '−', type: 'operator', ariaLabel: 'Subtract', isOperator: true }
+			{
+				value: '+',
+				label: '+',
+				type: 'operator',
+				ariaLabel: 'wallet.calculator.add',
+				isOperator: true
+			},
+			{
+				value: '−',
+				label: '−',
+				type: 'operator',
+				ariaLabel: 'wallet.calculator.subtract',
+				isOperator: true
+			}
 		]
 	];
 

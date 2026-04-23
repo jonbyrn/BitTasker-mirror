@@ -15,7 +15,10 @@
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import DateInput from '$lib/components/date/DateInput.svelte';
 	import KINDS from '$lib/utils/constants/kinds';
-	import { serializeDateWithLocalTime } from '$lib/utils/helpers/dateFormatter';
+	import {
+		formatDurationBetweenDates,
+		serializeDateWithLocalTime
+	} from '$lib/utils/helpers/dateFormatter';
 	import { SvelteDate } from 'svelte/reactivity';
 
 	// Props - Simplified to just task, onClose, and stickySubmit
@@ -291,43 +294,7 @@
 	// Helper function to format duration for display (reactive)
 	const formatDurationForDisplay = $derived.by(() => {
 		if (startDateTime && endDateTime) {
-			const diffMs = endDateTime.getTime() - startDateTime.getTime();
-			const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-			const diffHours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-			const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-
-			const parts = [];
-
-			if (diffDays > 0) {
-				parts.push(
-					`${diffDays} ${diffDays === 1 ? $t('dashboard.bids.bid_creation.day') : $t('dashboard.bids.bid_creation.days')}`
-				);
-			}
-
-			if (diffHours > 0) {
-				parts.push(
-					`${diffHours} ${diffHours === 1 ? $t('dashboard.bids.bid_creation.hour') : $t('dashboard.bids.bid_creation.hours')}`
-				);
-			}
-
-			if (diffMinutes > 0) {
-				parts.push(
-					`${diffMinutes} ${diffMinutes === 1 ? $t('dashboard.bids.bid_creation.minute') : $t('dashboard.bids.bid_creation.minutes')}`
-				);
-			}
-
-			if (parts.length === 0) {
-				return $t('dashboard.bids.bid_creation.one_hour');
-			}
-
-			if (parts.length === 1) {
-				return parts[0];
-			}
-
-			// Join with translated "and"/"y" for multiple parts
-			const lastPart = parts.pop();
-			const conjunction = $t('common.components.date_input.and');
-			return `${parts.join(', ')} ${conjunction} ${lastPart}`;
+			return formatDurationBetweenDates(startDateTime, endDateTime, (k) => $t(k));
 		}
 		return '';
 	});

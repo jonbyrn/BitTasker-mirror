@@ -10,7 +10,7 @@ How tests run in the pipeline, how to triage and fix tests by directory, how to 
 
 - **Branch strategy:** Pipeline runs on **merge requests** (build + coverage) and on pushes to **`dev`** and **`master`** (build + coverage). No feature-branch names in config; see [Pipeline branch strategy](../ci/pipeline-branch-strategy.md).
 - **Unit vs coverage:** **Coverage** runs on MRs and on push to dev/master (one test run per pipeline). So the **target branch (dev) has a stored coverage** and the MR widget can show “change vs. target”. The **unit** job (tests only, no coverage) does not run on MR or dev/master.
-- **E2E (Playwright):** Commented out in CI until the dev backend is ready. Re-enable per [pipeline-branch-strategy.md § Re-enabling Playwright](../ci/pipeline-branch-strategy.md#6-re-enabling-playwright-e2e).
+- **E2E (Playwright):** The legacy full-app Playwright job remains commented out, but the service/homepage browser slices are active in CI through `service-quote-e2e`. That job runs the preview artifact plus `npm run test:e2e:validate-service-bootstrap` before the Chromium/Mobile Safari service suites.
 
 ### Current CI test set
 

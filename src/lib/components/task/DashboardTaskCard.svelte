@@ -10,13 +10,15 @@
 	import TaskLocationDisplay from './TaskLocationDisplay.svelte';
 	import IconInformationOutline from '~icons/mdi/information-outline';
 	import IconEyeOutline from '~icons/mdi/eye-outline';
+	import IconMessageOutline from '~icons/mdi/message-outline';
+	import IconFileSign from '~icons/mdi/file-sign';
 
 	type TaskFilterCategory =
-		| 'waiting_for_bids'
-		| 'bids_received'
+		| 'open'
 		| 'tasks_in_progress'
 		| 'tasks_completed'
-		| 'tasks_disputed';
+		| 'tasks_disputed'
+		| 'tasks_cancelled';
 
 	const { task, btcPrice, activeFilter, getActionButtons } = $props<{
 		task: Task;
@@ -115,6 +117,10 @@
 							<IconInformationOutline class="h-4 w-4" />
 						{:else if action.icon === 'view_bids'}
 							<IconEyeOutline class="h-4 w-4" />
+						{:else if action.icon === 'message'}
+							<IconMessageOutline class="h-4 w-4" />
+						{:else if action.icon === 'contract'}
+							<IconFileSign class="h-4 w-4" />
 						{/if}
 						{action.label}
 					</button>

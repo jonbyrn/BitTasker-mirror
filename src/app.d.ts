@@ -63,6 +63,10 @@ declare global {
 
 	/** Unique identifier stamped at build time via vite.config.ts `define`. */
 	const __BUILD_VERSION__: string;
+
+	interface GlobalEventHandlersEventMap {
+		'dashboard-dropdown-open': CustomEvent<{ id: string }>;
+	}
 }
 
 // unplugin-icons type declarations

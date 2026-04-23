@@ -1,0 +1,24 @@
+{
+  "input_path": "/tmp/tmp.IjkiQWDn9Y/plan.md",
+  "run_dir": "/home/scott/find-services/BitTasker/.codex-plan-loop/plan-b98a9b39",
+  "iteration": 1,
+  "last_status": "complete",
+  "last_result": {
+    "status": "complete",
+    "percent_complete": 100,
+    "summary": "Implementation finished.",
+    "remaining_work": [],
+    "required_user_action": []
+  },
+  "verification_pending": null,
+  "artifact_sync_pending": false,
+  "notification_flags": {
+    "progress_25": "sent",
+    "progress_50": "sent",
+    "progress_75": "sent",
+    "complete_1": "sent"
+  },
+  "updated_at": "2026-03-13T20:41:21.563Z",
+  "prior_remaining_work": [],
+  "verify_failures": []
+}

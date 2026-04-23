@@ -18,6 +18,7 @@
 		},
 		"create_task": "Crear Tarea",
 		"find_task": "Buscar Tareas",
+		"find_services": "Buscar Servicios",
 		"manage_wallet": "Gestionar Billetera",
 		"client": "Tasker",
 		"freelancer": "Taskee",
@@ -26,10 +27,160 @@
 		"no_data_available": "No hay datos disponibles",
 		"tabs": {
 			"tasks": "Mis Tareas",
-			"bids": "Ofertas Enviadas",
+			"bids": "Ofertas",
+			"requests": "Solicitudes",
 			"contracts": "Contratos",
 			"recurring": "Tareas Recurrentes",
-			"saved_searches": "Búsquedas Guardadas"
+			"saved_searches": "Alertas",
+			"my_services": "Mis Servicios",
+			"quotes": "Solicitudes de servicios"
+		},
+		"hiring": {
+			"title": "Contratación",
+			"description": "Gestiona tus tareas, solicitudes de servicio y contratos.",
+			"page_title": "Contratación | BitTasker",
+			"page_description": "Gestiona tu actividad de contratación, tareas y solicitudes de servicio en BitTasker.",
+			"messages": {
+				"quotes_request_not_found": "No se pudo encontrar el hilo de cotización solicitado.",
+				"service_quotes_request_not_found": "No se pudo encontrar el hilo de cotización del servicio seleccionado.",
+				"contracts_highlight_not_found": "No se pudo encontrar el contrato resaltado solicitado.",
+				"service_quote_protocol_pending": "La integración del protocolo de cotizaciones de servicios sigue pendiente; por ahora se muestra el estado local de la interfaz."
+			}
+		},
+		"earning": {
+			"title": "Ganancias",
+			"description": "Sigue tus ofertas, solicitudes entrantes, contratos y servicios.",
+			"page_title": "Ganancias | BitTasker",
+			"page_description": "Gestiona tu actividad de ganancias, ofertas, servicios y contratos en BitTasker.",
+			"messages": {
+				"service_quotes_request_not_found": "No se pudo encontrar el hilo de cotización del servicio seleccionado.",
+				"contracts_highlight_not_found": "No se pudo encontrar el contrato solicitado."
+			}
+		},
+		"saved_searches": {
+			"filter_label": "Filtrar por tipo",
+			"tasks": "Tareas",
+			"services": "Servicios",
+			"apply_search": "Aplicar búsqueda: {name}"
+		},
+		"service_requests": {
+			"status_heading": "Filtrar por estado de la solicitud",
+			"status_subheading": "Concéntrate en las solicitudes de servicio que necesitan tu próxima acción.",
+			"showing_all": "Mostrando {count} solicitudes",
+			"showing_filtered": "Mostrando {visible} de {total} solicitudes",
+			"refresh": "Actualizar",
+			"refreshing": "Actualizando",
+			"loading": "Cargando tus solicitudes de servicio...",
+			"retry_loading": "Vuelve a intentar cargar tus solicitudes de servicio.",
+			"empty": "Aún no has enviado ninguna solicitud de servicio.",
+			"empty_filtered": "Todavía no hay solicitudes de servicio con este estado.",
+			"empty_filtered_description": "Prueba otro filtro de estado para revisar el resto de tus solicitudes de servicio.",
+			"filtered_empty_action": "Limpiar filtros",
+			"quote_pending": "Pendiente",
+			"requested": "Solicitada",
+			"request_id": "ID de solicitud",
+			"estimated_duration": "Duración estimada",
+			"selected_tier": "Nivel",
+			"add_ons_one": "1 extra",
+			"add_ons_other": "{count} extras",
+			"rush_delivery": "Entrega urgente",
+			"expires": "Vence",
+			"filters": {
+				"all": "Todos los estados",
+				"awaiting_proposal": "Pendientes de propuesta",
+				"contract_created": "Contrato creado",
+				"declined": "Rechazadas",
+				"withdrawn": "Retiradas",
+				"expired": "Vencidas"
+			},
+			"service_label": "Servicio",
+			"boolean_yes": "Sí",
+			"boolean_no": "No",
+			"standard_tier": "Estándar",
+			"days": "días",
+			"actions": {
+				"view": "Ver",
+				"accept": "Aceptar",
+				"decline": "Rechazar",
+				"view_contract": "Ver contrato",
+				"delete": "Eliminar"
+			},
+			"delete_modal": {
+				"title": "Eliminar solicitud de servicio",
+				"intro": "Esto eliminará permanentemente esta solicitud de servicio del historial de tu panel.",
+				"confirm": "Confirmar eliminación"
+			},
+			"drawer": {
+				"title": "Solicitud de servicio",
+				"heading": "Información general",
+				"loading": "Cargando detalles del servicio...",
+				"inquiry_title": "Tu consulta",
+				"proposal_title": "Propuesta recibida",
+				"proposal_start": "Inicio estimado",
+				"proposal_end": "Finalización estimada",
+				"scope_of_work": "Alcance del trabajo",
+				"cover_letter": "Carta de presentación",
+				"custom_answers": "Respuestas enviadas",
+				"attachments": "Archivos adjuntos"
+			},
+			"accept_drawer": {
+				"title": "Aceptar propuesta",
+				"confirm": "Aceptar propuesta",
+				"expires": "La propuesta vence",
+				"warning": "Aceptar esta propuesta creará un contrato de servicio con los detalles de la cotización recibida.",
+				"start_time_adjusted_warning": "La hora de inicio cotizada ya pasó. El contrato usará una hora de inicio aproximadamente una hora a partir de ahora y mantendrá la duración cotizada.",
+				"prepare_error": "No se puede preparar esta aceptación de propuesta en este momento."
+			},
+			"confirm": {
+				"decline_title": "Rechazar propuesta",
+				"decline_message": "Esto marcará la propuesta actual como rechazada.",
+				"decline_confirm": "Confirmar rechazo"
+			},
+			"statuses": {
+				"contract_created": "Contrato creado",
+				"declined": "Rechazada",
+				"withdrawn": "Retirada",
+				"expired": "Expirada",
+				"accepting": "Aceptando",
+				"accepting_progress": "Aceptando...",
+				"contract_sync_pending": "Sincronizando contrato",
+				"accept_failed": "Error al aceptar",
+				"accept_unknown": "Aceptación desconocida",
+				"proposal_received": "Propuesta recibida",
+				"awaiting_proposal": "Esperando propuesta"
+			},
+			"filters": {
+				"all": "Todos los estados",
+				"awaiting_proposal": "Esperando propuesta",
+				"proposal_received": "Propuesta recibida",
+				"needs_attention": "Necesita atención",
+				"contract_created": "Contrato creado",
+				"declined": "Rechazada",
+				"withdrawn": "Retirada",
+				"expired": "Expirada"
+			},
+			"alerts": {
+				"service_unavailable_read_only": "Este servicio fue eliminado por el proveedor. La solicitud ahora es de solo lectura.",
+				"service_unavailable": "Algunos servicios fueron eliminados por el proveedor. Esas solicitudes siguen visibles como historial de solo lectura, salvo que ya exista un contrato.",
+				"service_lookup_failed": "No se pudieron actualizar algunos detalles del servicio. Actualiza antes de actuar sobre esas solicitudes.",
+				"partial_sync": "Los datos más recientes del hilo de cotización aún se están propagando entre relés. Se muestran resultados parciales hasta que el hilo termine de sincronizarse.",
+				"stale": "Se muestran tus últimos datos conocidos de cotizaciones. Actualiza antes de actuar sobre las propuestas porque no se completó la sincronización más reciente con los relés.",
+				"offline": "Estás sin conexión. Vuelve a conectarte antes de revisar o actuar sobre las propuestas de servicio.",
+				"reconnect": "De nuevo en línea. Reintenta si el estado más reciente de la cotización aún no se ha actualizado."
+			},
+			"errors": {
+				"accept": "No se puede aceptar esta propuesta en este momento.",
+				"decline": "No se puede rechazar esta propuesta en este momento.",
+				"delete": "No se puede eliminar esta solicitud de servicio en este momento.",
+				"update_status": "No se pudo actualizar el estado de la cotización.",
+				"delete_request": "No se puede eliminar esta solicitud de servicio en este momento."
+			},
+			"messages": {
+				"acceptance_submitted": "Aceptación enviada. El contrato financiado aparecerá aquí una vez que se confirme la creación del escrow.",
+				"contract_sync_pending": "El contrato de servicio financiado todavía se está sincronizando entre relays. Abre Contratos para supervisarlo.",
+				"acceptance_complete": "Propuesta aceptada. Abriendo tu contrato de servicio.",
+				"acceptance_complete_background": "Propuesta aceptada. Tu contrato de servicio ya está listo en Contratos."
+			}
 		},
 		"task_details_by_task": {
 			"title": "Detalles de la Tarea",
@@ -67,8 +218,8 @@
 			"you_are_owner": "Eres el propietario de esta tarea",
 			"anonymous": "Anónimo",
 			"member_since": "Miembro desde",
-			"show_more": "Mostrar más",
-			"show_less": "Mostrar menos",
+			"show_more": "Ver más",
+			"show_less": "Ver menos",
 			"translate": "Traducir",
 			"remote": "Remoto",
 			"posted": "Publicado",
@@ -92,7 +243,7 @@
 			"task_disputed": "Tarea en disputa",
 			"task_in_progress": "Tarea en progreso",
 			"task_completed": "Tarea completada",
-			"bidding_closed": "Ofertar",
+			"bidding_closed": "Ofertas cerradas",
 			"bid_sent": "Oferta enviada",
 			"bid_already_sent": "Oferta ya enviada",
 			"share": "Compartir",
@@ -139,11 +290,12 @@
 		},
 		"page": {
 			"search_icon_alt": "Icono de búsqueda",
-			"plus_icon_alt": "Icono de más"
+			"plus_icon_alt": "Icono de más",
+			"wallet_icon_alt": "Icono de billetera"
 		},
 		"find_tasks": {
 			"sign_up_to_bid": "Ofertar",
-			"bidding_closed": "Ofertar",
+			"bidding_closed": "Ofertas cerradas",
 			"sign_up_to_bid_aria": "Regístrate para ofertar en esta tarea",
 			"avatar_alt": "Avatar",
 			"invalid_date": "Fecha inválida",
@@ -154,7 +306,7 @@
 			"bid_sent": "Oferta enviada",
 			"bid_already_sent": "Oferta ya enviada",
 			"cannot_bid_own_task": "No puedes hacer oferta en tu propia tarea",
-			"view_task": "Ver"
+			"view_task": "Ver Tarea"
 		},
 		"bids": {
 			"bid_acceptance": {
@@ -209,7 +361,6 @@
 				"accepted": "Aceptado",
 				"rejected": "Rechazado",
 				"pending": "Pendiente",
-				"accept": "Aceptar",
 				"bid_rejected_message": "Tu oferta ha sido rechazada por el propietario de la tarea.",
 				"bid_accepted_message": "¡Felicidades! Tu oferta ha sido aceptada. El contrato de pago seguro ha sido creado.",
 				"bid_already_accepted": "Esta oferta ya ha sido aceptada.",
@@ -448,7 +599,7 @@
 						"error_loading_map": "Error al cargar el mapa"
 					},
 					"mobile_map_sheet": {
-						"view_task": "Ver",
+						"view_task": "Ver Tarea",
 						"remote": "Remoto",
 						"bid_now": "Ofertar Ahora",
 						"no_results": "Sin resultados"
@@ -517,14 +668,16 @@
 			"error_title": "Error al cargar contratos",
 			"retry": "Reintentar",
 			"refresh": "Actualizar",
-			"no_contracts": "No se encontraron contratos",
-			"no_contracts_description": "Aún no tienes contratos. Crea una tarea o haz ofertas en tareas existentes para comenzar.",
+			"clear_filters": "Limpiar filtros",
+			"no_contracts": "No hay contratos todavía",
 			"no_filtered_contracts": "Ningún contrato coincide con tus filtros",
 			"try_different_filters": "Intenta ajustar tus filtros para ver más contratos.",
 			"filter_by_role": "Filtrar por rol",
 			"filter_by_status": "Filtrar por estado",
 			"filter_by_status_and_role": "Filtrar por estado y rol",
 			"filter_description": "Elige el estado del contrato y tu rol para revisar.",
+			"filter_by_service": "Filtrar por servicio",
+			"all_services": "Todos los servicios",
 			"all_roles": "Todos",
 			"all_statuses": "Todos los estados",
 			"filter_completed_paid": "Completado / pagado",
@@ -556,6 +709,7 @@
 			"currency": "Moneda",
 			"original_bid_proposal": "Propuesta de Oferta Original",
 			"bid_details": "Detalles de la Oferta",
+			"loading_bid_details": "Cargando detalles de la oferta...",
 			"approach": "Enfoque",
 			"proposed_approach": "Enfoque Propuesto",
 			"estimated_duration": "Duración Estimada",
@@ -563,6 +717,45 @@
 			"bid_info_not_available": "La información de la oferta original no está disponible para este contrato.",
 			"available_actions": "Acciones Disponibles",
 			"no_actions_available": "No hay acciones disponibles",
+			"context_filters": {
+				"all": "Todos los tipos",
+				"tasks": "Tareas",
+				"services": "Servicios"
+			},
+			"alerts": {
+				"offline": "Estás sin conexión. Vuelve a conectarte antes de actualizar o abrir el estado más reciente del contrato.",
+				"reconnect": "Conexión restablecida. Actualiza los contratos si el estado más reciente aún no aparece.",
+				"highlight_syncing": "Abriendo el contrato resaltado. Esperando a que se sincronicen los últimos datos del contrato de servicio.",
+				"partial_refresh": "Actualizando contratos. Se muestran los últimos datos conocidos hasta que terminen de sincronizarse el relay y la cadena.",
+				"stale_prefix": "Se muestran los últimos datos conocidos del contrato. "
+			},
+			"context_summary": {
+				"task_contract": "Contrato de tarea",
+				"tier_prefix": "Nivel"
+			},
+			"wallet_card": {
+				"title": "Saldo de la billetera",
+				"icon_alt": "Bitcoin",
+				"sats_label": "sats",
+				"not_connected": "Billetera no conectada",
+				"available_balance": "Saldo disponible",
+				"required_balance": "Requerido para este contrato"
+			},
+			"service_agreement": {
+				"provider": "Proveedor",
+				"quote_request": "Solicitud de cotización",
+				"proposal": "Propuesta",
+				"instant_order": "Orden instantánea",
+				"selected_tier": "Nivel seleccionado",
+				"included_scope": "Alcance incluido",
+				"add_ons": "Complementos",
+				"rush_delivery": "Entrega urgente",
+				"included": "Incluido",
+				"inquiry_answers": "Respuestas de la consulta",
+				"price_snapshot": "Resumen del precio",
+				"estimated_start": "Inicio estimado",
+				"estimated_end": "Fin estimado"
+			},
 			"status": {
 				"label": "Estado",
 				"active": "Activo",

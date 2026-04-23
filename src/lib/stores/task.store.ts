@@ -8,6 +8,7 @@ import { StorageKeys } from '$lib/utils/constants/storage';
 import { RecurringFrequencyEnum } from '$lib/utils/enums/task.enum';
 import { SimplePool } from 'nostr-tools';
 import { appStore } from './app.store';
+import { createDraftWizardStore } from './factories/createDraftWizardStore';
 
 const CREATE_STORAGE_KEY = StorageKeys.DRAFT_TASK;
 const EDIT_STORAGE_KEY = StorageKeys.DRAFT_TASK_EDIT;
@@ -81,24 +82,21 @@ function createTaskStore() {
 	const recurring = page.url.searchParams.get('recurring');
 	recurringTask.isRecurring = recurring == 'true';
 
-	const store = writable({ ...initialState, recurringTask });
+	const store = createDraftWizardStore({
+		initialState: { ...initialState, recurringTask },
+		stepsStore: STEPS,
+		getStorageKey: (isEditing = false) => (isEditing ? EDIT_STORAGE_KEY : CREATE_STORAGE_KEY),
+		getCurrentStep: (state) => state.currentStep,
+		setCurrentStep: (state, step) => ({ ...state, currentStep: step }),
+		getIsEditing: (state) => state.isEditing,
+		readDraft: (parsedData, { isEditing, state }) => {
+			if (parsedData.recurringTask?.isRecurring) {
+				STEPS.update((steps) =>
+					steps.includes(TaskStepEnum.RECURRING) ? steps : [...steps, TaskStepEnum.RECURRING]
+				);
+			}
 
-	// Debounce timer for auto-save
-	let autoSaveTimer: ReturnType<typeof setTimeout> | null = null;
-	const AUTO_SAVE_DELAY = 1000; // 1 second debounce
-
-	// Get the appropriate storage key based on editing mode
-	const getStorageKey = (isEditing: boolean = false): string => {
-		return isEditing ? EDIT_STORAGE_KEY : CREATE_STORAGE_KEY;
-	};
-
-	// Load draft from preferences
-	const loadDraft = async (isEditing: boolean = false) => {
-		const storageKey = getStorageKey(isEditing);
-		const stored = await Preferences.get({ key: storageKey });
-		if (stored.value) {
-			const parsedData = JSON.parse(stored.value);
-			store.update((state) => ({
+			return {
 				...state,
 				id: parsedData.id,
 				uniqueId: parsedData.uniqueId,
@@ -106,45 +104,29 @@ function createTaskStore() {
 				currentStep: parsedData.currentStep || TaskStepEnum.BASICS,
 				isEditing: parsedData.isEditing || isEditing,
 				recurringTask: { ...parsedData.recurringTask }
-			}));
-			if (parsedData.recurringTask?.isRecurring) {
-				STEPS.update((steps) => [...steps, TaskStepEnum.RECURRING]);
+			};
+		},
+		writeDraft: (state, isEditing) => ({
+			id: state.id,
+			uniqueId: state.uniqueId,
+			currentStep: state.currentStep,
+			task: state.task,
+			isEditing,
+			recurringTask: state.recurringTask
+		}),
+		resetState: () => {
+			const freshInitialState = getInitialState();
+			const freshRecurringTask = getInitialRecurringTask();
+			return { ...freshInitialState, recurringTask: freshRecurringTask, isEditing: false };
+		},
+		resolvePreviousStep: ({ state, currentIndex }) => {
+			if (currentIndex === -1 && state.currentStep === TaskStepEnum.RECURRING) {
+				return TaskStepEnum.BUDGET;
 			}
+			return null;
 		}
-	};
-
-	// Save draft to preferences with debounce
-	const saveDraft = async (isEditing: boolean | null = null, immediate: boolean = false) => {
-		if (autoSaveTimer && !immediate) {
-			clearTimeout(autoSaveTimer);
-		}
-
-		const save = async () => {
-			const storeData = get(store);
-			if (storeData) {
-				const editingMode = isEditing !== null ? isEditing : storeData.isEditing;
-				const storageKey = getStorageKey(editingMode);
-
-				await Preferences.set({
-					key: storageKey,
-					value: JSON.stringify({
-						id: storeData.id,
-						uniqueId: storeData.uniqueId,
-						currentStep: storeData.currentStep,
-						task: storeData.task,
-						isEditing: editingMode,
-						recurringTask: storeData.recurringTask
-					})
-				});
-			}
-		};
-
-		if (immediate) {
-			await save();
-		} else {
-			autoSaveTimer = setTimeout(save, AUTO_SAVE_DELAY);
-		}
-	};
+	});
+	const saveDraft = store.saveDraft;
 
 	const saveEditTaskDraft = async (id: string, uniqueId: string, task: TaskBody) => {
 		if (id && task) {
@@ -168,47 +150,6 @@ function createTaskStore() {
 				isEditing: true
 			}));
 		}
-	};
-
-	// Clear draft from preferences
-	const clearDraft = async (isEditing: boolean = false) => {
-		const storageKey = getStorageKey(isEditing);
-		await Preferences.remove({ key: storageKey });
-		const freshInitialState = getInitialState();
-		const freshRecurringTask = getInitialRecurringTask();
-		store.set({ ...freshInitialState, recurringTask: freshRecurringTask, isEditing: false });
-	};
-
-	// Navigation between steps
-	const nextStep = () => {
-		store.update((state) => {
-			const steps = get(STEPS);
-			const currentIndex = steps.indexOf(state.currentStep);
-			if (currentIndex < steps.length - 1) {
-				return { ...state, currentStep: steps[currentIndex + 1] };
-			}
-			return state;
-		});
-		const storeData = get(store);
-		saveDraft(storeData.isEditing, true); // Immediate save on step change
-	};
-
-	const previousStep = () => {
-		store.update((state) => {
-			const steps = get(STEPS);
-			const currentIndex = steps.indexOf(state.currentStep);
-			if (currentIndex === -1 && state.currentStep === TaskStepEnum.RECURRING) {
-				return { ...state, currentStep: TaskStepEnum.BUDGET };
-			}
-			if (currentIndex > 0) {
-				return { ...state, currentStep: steps[currentIndex - 1] };
-			}
-			return state;
-		});
-	};
-
-	const setStep = (step: TaskStepEnum) => {
-		store.update((state) => ({ ...state, currentStep: step }));
 	};
 
 	// Update task data (with auto-save)
@@ -267,12 +208,12 @@ function createTaskStore() {
 		subscribe: store.subscribe,
 		update: store.update,
 		STEPS,
-		loadDraft,
-		saveDraft,
-		clearDraft,
-		nextStep,
-		previousStep,
-		setStep,
+		loadDraft: store.loadDraft,
+		saveDraft: store.saveDraft,
+		clearDraft: store.clearDraft,
+		nextStep: store.nextStep,
+		previousStep: store.previousStep,
+		setStep: store.setStep,
 		updateTask,
 		updateStore,
 		setupRecurringTask,

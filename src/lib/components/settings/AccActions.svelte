@@ -11,7 +11,7 @@
 	async function confirmedLogout() {
 		showLogoutModal = false;
 		await authState.logout();
-		goto('/');
+		await goto('/', { replaceState: true });
 	}
 </script>
 
@@ -71,9 +71,9 @@
 <!-- Logout Confirmation Modal -->
 <ConfirmModal
 	isOpen={showLogoutModal}
-	title={$t('common.components.confirm_modal.logout.title')}
-	message={$t('common.components.confirm_modal.logout.message')}
-	confirmText={$t('common.components.confirm_modal.logout.confirm_button')}
+	title={$t('common.components.confirm_modal.logout_title')}
+	message={$t('common.components.confirm_modal.logout_message')}
+	confirmText={$t('common.components.confirm_modal.confirm')}
 	confirmButtonClass="btn-primary"
 	onConfirm={confirmedLogout}
 	onCancel={() => (showLogoutModal = false)}

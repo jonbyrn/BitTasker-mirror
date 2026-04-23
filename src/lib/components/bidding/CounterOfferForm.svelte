@@ -5,7 +5,10 @@
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { t } from 'svelte-i18n';
 	import DateInput from '$lib/components/date/DateInput.svelte';
-	import { serializeDateWithLocalTime } from '$lib/utils/helpers/dateFormatter';
+	import {
+		formatDurationBetweenDates,
+		serializeDateWithLocalTime
+	} from '$lib/utils/helpers/dateFormatter';
 	import { SvelteDate } from 'svelte/reactivity';
 
 	// Props
@@ -186,17 +189,7 @@
 	// Helper function to format duration for display
 	function formatDurationForDisplay(): string {
 		if (bidType === 'FIXED' && startDateTime && endDateTime) {
-			const diffMs = endDateTime.getTime() - startDateTime.getTime();
-			const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-			const diffHours = Math.ceil(diffMs / (1000 * 60 * 60));
-
-			if (diffDays > 1) {
-				return `${diffDays} ${$t('dashboard.bids.counter_offer.days')}`;
-			} else if (diffHours > 1) {
-				return `${diffHours} ${$t('dashboard.bids.counter_offer.hours')}`;
-			} else {
-				return $t('dashboard.bids.counter_offer.one_hour');
-			}
+			return formatDurationBetweenDates(startDateTime, endDateTime, (k) => $t(k));
 		}
 		return '';
 	}
@@ -276,7 +269,7 @@
 				startDate: bidType === 'FIXED' ? serializeDateWithLocalTime(startDateTime) : null,
 				endDate: bidType === 'FIXED' ? serializeDateWithLocalTime(endDateTime) : null,
 				startTime: bidType === 'FIXED' ? serializeDateWithLocalTime(startDateTime) : null,
-				endTime: bidType === 'FIXED' ? serializeDateWithLocalTime(endDateTime) : null,
+				endTime: bidType === 'FIXED' ? serializeDateWithLocalTime(startDateTime) : null,
 				message,
 				proposedBy: 'current-user-id' // This would come from user store
 			};

@@ -1,9 +1,15 @@
 <script lang="ts">
+	import type { Service } from '$lib/types/service.d';
+	import type { ContractWithEvents } from '$lib/types/contract';
+	import { goto } from '$app/navigation';
+	import { tick } from 'svelte';
 	import { onMount, onDestroy } from 'svelte';
+	import { SvelteSet } from 'svelte/reactivity';
 	import { t } from 'svelte-i18n';
 	import { get } from 'svelte/store';
 	import { createPortal } from '$lib/utils/portal';
 	import { EscrowStatus } from '$lib/utils/escrow';
+	import { getStatusTranslationKey } from '$lib/utils/helpers/contractStatusFormatter';
 	import { contractStore } from '$lib/stores/contract.store';
 	import { tasksStore, myTasksStore } from '$lib/stores/task.store';
 	import { reconcileTaskStatusWithContracts } from '$lib/utils/helpers/task-status-reconciliation';
@@ -12,71 +18,217 @@
 	import ContractDrawer from './ContractDrawer.svelte';
 	import InfiniteScroll from '$lib/components/InfiniteScroll.svelte';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
+	import { browserNetworkStatus } from '$lib/utils/network-status';
+	import { findMyServices } from '$lib/nostr/findServices';
+	import ServiceFilterSelect from '$lib/components/service/ServiceFilterSelect.svelte';
+	import { parseServiceAddress } from '$lib/utils/service-quote/protocol';
 
 	// MDI Icons for filters
 	import IconCheckAll from '~icons/mdi/check-all';
 	import IconLightningBolt from '~icons/mdi/lightning-bolt';
 	import IconCheckCircle from '~icons/mdi/check-circle';
 	import IconAlertCircleOutline from '~icons/mdi/alert-circle-outline';
-	import IconCheck from '~icons/mdi/check';
 	import IconCancel from '~icons/mdi/cancel';
 	import IconRefresh from '~icons/mdi/refresh';
-	import IconChevronDown from '~icons/mdi/chevron-down';
 	import IconAccountOutline from '~icons/mdi/account-outline';
 	import IconAccountTieOutline from '~icons/mdi/account-tie-outline';
-	// import { ndk } from '$lib/nostr/ndk';
-	// import { NDKEscrowContract } from '$lib/nostr/events/contract';
+	import IconLayersTripleOutline from '~icons/mdi/layers-triple-outline';
+	import IconClipboardTextOutline from '~icons/mdi/clipboard-text-outline';
+	import IconBriefcaseOutline from '~icons/mdi/briefcase-outline';
+	import IconFileDocumentOutline from '~icons/mdi/file-document-outline';
+	import IconWalletOutline from '~icons/mdi/wallet-outline';
+	import DashboardEmptyState from '$lib/components/shared/DashboardEmptyState.svelte';
+	import ErrorAlertWithModal from '$lib/components/ErrorAlertWithModal.svelte';
+	import { detectErrorType } from '$lib/utils/helpers/errorTypeDetector';
+	import DashboardFilterBar from '$lib/components/shared/DashboardFilterBar.svelte';
+	import DashboardDropdown from '$lib/components/shared/DashboardDropdown.svelte';
+	import { createDashboardUrl } from '$lib/utils/service-quote/dashboard-route';
+
+	const {
+		initialType = 'all',
+		initialStatus = 'all',
+		showRoleFilters = true,
+		fixedRole = 'all',
+		emptyStateActionLabel = null,
+		emptyStateActionHref = null,
+		emptyStateActionIcon = null,
+		showServiceFilter = false,
+		selectedServiceAddress = null,
+		onServiceFilterChange,
+		onClearFilters,
+		highlightEscrowId = null,
+		onHighlightConsumed,
+		onHighlightMissing
+	} = $props<{
+		initialType?: 'all' | 'tasks' | 'services';
+		initialStatus?: EscrowStatus | 'all';
+		showRoleFilters?: boolean;
+		fixedRole?: 'all' | 'client' | 'freelancer';
+		emptyStateActionLabel?: string | null;
+		emptyStateActionHref?: string | null;
+		emptyStateActionIcon?: typeof IconWalletOutline | typeof IconRefresh | null;
+		showServiceFilter?: boolean;
+		selectedServiceAddress?: string | null;
+		onServiceFilterChange?: (serviceAddress: string | null) => void;
+		onClearFilters?: () => void;
+		highlightEscrowId?: string | null;
+		onHighlightConsumed?: (escrowId: string) => void;
+		onHighlightMissing?: (escrowId: string) => void;
+	}>();
 
 	// Filters
 	let statusFilter = $state<EscrowStatus | 'all'>('all');
 	let roleFilter = $state<string>('all'); // 'all', 'client', 'freelancer'
-	let isStatusDropdownOpen = $state(false);
+	let typeFilter = $state<'all' | 'tasks' | 'services'>('all');
+
+	$effect(() => {
+		if (initialStatus) {
+			statusFilter = initialStatus;
+		}
+	});
+
+	$effect(() => {
+		if (initialType) {
+			typeFilter = initialType;
+		}
+	});
+
+	$effect(() => {
+		if (fixedRole) {
+			roleFilter = fixedRole;
+		}
+	});
+
+	let highlightRecoveryAttempted = $state(false);
+	let lastHandledHighlight = $state<string | null>(null);
+	let highlightRecoveryInFlightFor = $state<string | null>(null);
+	const warnedUnknownContextEscrowIds = new SvelteSet<string>();
 
 	let btcPrice = $state<number>(0);
+	let services = $state<Service[]>([]);
+	const isOffline = $derived(!$browserNetworkStatus.online);
+	const highlightRecoveryPending = $derived(
+		Boolean(highlightEscrowId) && highlightRecoveryInFlightFor === highlightEscrowId
+	);
+	const hasCachedContracts = $derived($contractStore.contracts.length > 0);
+	const showBlockingLoadingState = $derived($contractStore.isLoading && !hasCachedContracts);
+	const showBlockingErrorState = $derived(Boolean($contractStore.error) && !hasCachedContracts);
+	const isPasskeyLoadError = $derived.by(
+		() =>
+			Boolean($contractStore.error) && detectErrorType($contractStore.error ?? '') === 'biometric'
+	);
 
-	// // Create a reactive subscription - note the callback function () => ({ ... })
-	// const rawContracts = ndk.$subscribe(() => ({
-	// 	filters: ndk.$currentPubkey ? [{ kinds: [30006], limit: 50, '#p': [ndk.$currentPubkey], '#v': ['v2'] }] : [],
-	// 	eventClass: NDKEscrowContract
-	// }));
+	const isFilterActive = $derived(
+		statusFilter !== 'all' ||
+			typeFilter !== 'all' ||
+			(roleFilter !== 'all' && roleFilter !== fixedRole) ||
+			selectedServiceAddress !== null
+	);
 
-	// const contracts = $derived(rawContracts.events.map((event) => NDKEscrowContract.from(event)));
+	function tr(key: string, fallback: string): string {
+		const value = $t(key);
+		return typeof value === 'string' && value !== key ? value : fallback;
+	}
 
-	// Status filter options - using EscrowStatus enum
-	const statusFilterOptions = $derived([
-		{
-			id: 'all' as const,
-			label: $t('dashboard.contracts.all_statuses'),
-			icon: IconCheckAll
-		},
-		{
-			id: EscrowStatus.Funded,
-			label: $t('dashboard.contracts.status.funded'),
-			icon: IconLightningBolt
-		},
-		{
-			id: EscrowStatus.Completed,
-			label: $t('dashboard.contracts.status.completed'),
-			icon: IconCheckCircle
-		},
-		{
-			id: EscrowStatus.InDispute,
-			label: $t('dashboard.contracts.status.in_dispute'),
-			icon: IconAlertCircleOutline
-		},
-		{
-			id: EscrowStatus.DisputeResolved,
-			label: $t('dashboard.contracts.status.dispute_resolved'),
-			icon: IconCheck
-		},
-		{
-			id: EscrowStatus.Cancelled,
-			label: $t('dashboard.contracts.status.cancelled'),
-			icon: IconCancel
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
+	const STATUS_FILTER_ORDER: EscrowStatus[] = [
+		EscrowStatus.PendingFunding,
+		EscrowStatus.Funded,
+		EscrowStatus.InProgress,
+		EscrowStatus.PendingCompletion,
+		EscrowStatus.Completed,
+		EscrowStatus.PendingAcceptance,
+		EscrowStatus.FundsReleased,
+		EscrowStatus.PendingDispute,
+		EscrowStatus.InDispute,
+		EscrowStatus.PendingResolutionProposal,
+		EscrowStatus.DisputeResolutionProposed,
+		EscrowStatus.PendingProposalAcceptance,
+		EscrowStatus.DisputeResolved,
+		EscrowStatus.PendingTimelockResolution,
+		EscrowStatus.DisputeUnresolved,
+		EscrowStatus.PendingCancellation,
+		EscrowStatus.Cancelled
+	];
+
+	function getStatusFallbackLabel(status: EscrowStatus): string {
+		switch (status) {
+			case EscrowStatus.PendingFunding:
+				return 'Pending Funding';
+			case EscrowStatus.Funded:
+				return 'Funded';
+			case EscrowStatus.InProgress:
+				return 'In Progress';
+			case EscrowStatus.PendingCompletion:
+				return 'Pending Completion';
+			case EscrowStatus.Completed:
+				return 'Completed';
+			case EscrowStatus.PendingAcceptance:
+				return 'Pending Acceptance';
+			case EscrowStatus.FundsReleased:
+				return 'Funds Released';
+			case EscrowStatus.PendingDispute:
+				return 'Pending Dispute';
+			case EscrowStatus.InDispute:
+				return 'In Dispute';
+			case EscrowStatus.DisputeResolutionProposed:
+				return 'Dispute Resolution Proposed';
+			case EscrowStatus.PendingResolutionProposal:
+				return 'Pending Resolution Proposal';
+			case EscrowStatus.PendingProposalAcceptance:
+				return 'Pending Proposal Acceptance';
+			case EscrowStatus.DisputeResolved:
+				return 'Dispute Resolved';
+			case EscrowStatus.PendingTimelockResolution:
+				return 'Pending Timelock Resolution';
+			case EscrowStatus.DisputeUnresolved:
+				return 'Dispute Unresolved';
+			case EscrowStatus.PendingCancellation:
+				return 'Pending Cancellation';
+			case EscrowStatus.Cancelled:
+				return 'Cancelled';
 		}
-	] as const);
+
+		return 'Unknown Status';
+	}
+
+	function getStatusFilterLabel(status: EscrowStatus): string {
+		return tr(getStatusTranslationKey(status), getStatusFallbackLabel(status));
+	}
+
+	function getStatusFilterIcon(status: EscrowStatus | 'all') {
+		switch (status) {
+			case 'all':
+				return IconCheckAll;
+			case EscrowStatus.PendingFunding:
+			case EscrowStatus.Funded:
+				return IconLightningBolt;
+			case EscrowStatus.InProgress:
+				return IconBriefcaseOutline;
+			case EscrowStatus.PendingCompletion:
+			case EscrowStatus.Completed:
+			case EscrowStatus.PendingAcceptance:
+			case EscrowStatus.FundsReleased:
+			case EscrowStatus.PendingProposalAcceptance:
+			case EscrowStatus.DisputeResolved:
+				return IconCheckCircle;
+			case EscrowStatus.PendingDispute:
+			case EscrowStatus.InDispute:
+			case EscrowStatus.DisputeResolutionProposed:
+			case EscrowStatus.PendingResolutionProposal:
+			case EscrowStatus.PendingTimelockResolution:
+			case EscrowStatus.DisputeUnresolved:
+				return IconAlertCircleOutline;
+			case EscrowStatus.PendingCancellation:
+			case EscrowStatus.Cancelled:
+				return IconCancel;
+		}
+
+		return IconCheckAll;
+	}
 
 	// Role filter options
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	const roleFilterOptions = $derived([
 		{
 			id: 'all',
@@ -95,23 +247,107 @@
 		}
 	] as const);
 
-	const filteredContracts = $derived.by(() => {
-		let filtered = $contractStore.contracts;
+	function applyNonStatusFilters(contracts: ContractWithEvents[]): ContractWithEvents[] {
+		let filtered = contracts;
 
-		// Filter by status (using unified status enum)
-		if (statusFilter !== 'all') {
-			filtered = filtered.filter((c) => c.status === statusFilter);
-		}
-
-		// Filter by role
-		if (roleFilter === 'client') {
+		if (fixedRole === 'client') {
 			filtered = filtered.filter((c) => c.isClient);
-		} else if (roleFilter === 'freelancer') {
+		} else if (fixedRole === 'freelancer') {
 			filtered = filtered.filter((c) => !c.isClient);
 		}
 
+		// Filter by role
+		if (showRoleFilters && fixedRole === 'all' && roleFilter === 'client') {
+			filtered = filtered.filter((c) => c.isClient);
+		} else if (showRoleFilters && fixedRole === 'all' && roleFilter === 'freelancer') {
+			filtered = filtered.filter((c) => !c.isClient);
+		}
+
+		if (typeFilter === 'tasks') {
+			filtered = filtered.filter((contract) => {
+				const contextType = contract.contractEvent.content.contextType;
+				return contextType == null || contextType === 'task';
+			});
+		} else if (typeFilter === 'services') {
+			filtered = filtered.filter(
+				(contract) => contract.contractEvent.content.contextType === 'service'
+			);
+		}
+
+		if (selectedServiceAddress && typeFilter === 'services') {
+			filtered = filtered.filter((contract) => contractMatchesSelectedService(contract));
+		}
+
 		return filtered;
+	}
+
+	const contractsMatchingNonStatusFilters = $derived.by(() =>
+		applyNonStatusFilters($contractStore.contracts)
+	);
+
+	const statusFilterOptions = $derived([
+		{
+			id: 'all' as const,
+			label: $t('dashboard.contracts.all_statuses'),
+			icon: IconCheckAll
+		},
+		{
+			id: EscrowStatus.PendingFunding,
+			label: getStatusFilterLabel(EscrowStatus.PendingFunding),
+			icon: getStatusFilterIcon(EscrowStatus.PendingFunding)
+		},
+		{
+			id: EscrowStatus.Funded,
+			label: getStatusFilterLabel(EscrowStatus.Funded),
+			icon: getStatusFilterIcon(EscrowStatus.Funded)
+		},
+		{
+			id: EscrowStatus.InProgress,
+			label: getStatusFilterLabel(EscrowStatus.InProgress),
+			icon: getStatusFilterIcon(EscrowStatus.InProgress)
+		},
+		{
+			id: EscrowStatus.Completed,
+			label: getStatusFilterLabel(EscrowStatus.Completed),
+			icon: getStatusFilterIcon(EscrowStatus.Completed)
+		},
+		{
+			id: EscrowStatus.InDispute,
+			label: getStatusFilterLabel(EscrowStatus.InDispute),
+			icon: getStatusFilterIcon(EscrowStatus.InDispute)
+		},
+		{
+			id: EscrowStatus.Cancelled,
+			label: getStatusFilterLabel(EscrowStatus.Cancelled),
+			icon: getStatusFilterIcon(EscrowStatus.Cancelled)
+		}
+	]);
+
+	const filteredContracts = $derived.by(() => {
+		if (statusFilter === 'all') {
+			return contractsMatchingNonStatusFilters;
+		}
+
+		return contractsMatchingNonStatusFilters.filter((contract) => contract.status === statusFilter);
 	});
+
+	const typeFilterOptions = $derived([
+		{
+			id: 'all' as const,
+			label: tr('dashboard.contracts.context_filters.all', 'All Types'),
+			icon: IconLayersTripleOutline
+		},
+		{
+			id: 'tasks' as const,
+			label: tr('dashboard.contracts.context_filters.tasks', 'Tasks'),
+			icon: IconClipboardTextOutline
+		},
+		{
+			id: 'services' as const,
+			label: tr('dashboard.contracts.context_filters.services', 'Services'),
+			icon: IconBriefcaseOutline
+		}
+	]);
 
 	// Load contracts on mount
 	async function fetchBtcPrice(): Promise<void> {
@@ -122,6 +358,63 @@
 			// Set fallback price to 0 so UI shows RBTC amount instead
 			btcPrice = 0;
 		}
+	}
+
+	async function loadServices(): Promise<void> {
+		if (!showServiceFilter) {
+			services = [];
+			return;
+		}
+
+		try {
+			const result = await findMyServices({ limit: 100 });
+			services = result.services;
+		} catch (error) {
+			console.error('Failed to load services for contracts filter:', error);
+			services = [];
+		}
+	}
+
+	function getSelectedServiceStableId(): string | null {
+		if (!selectedServiceAddress) {
+			return null;
+		}
+
+		try {
+			return parseServiceAddress(selectedServiceAddress).dTag;
+		} catch {
+			return null;
+		}
+	}
+
+	function contractMatchesSelectedService(contract: ContractWithEvents): boolean {
+		const content = contract.contractEvent.content as Record<string, unknown>;
+		const contractServiceAddress =
+			typeof content.serviceAddress === 'string' ? content.serviceAddress : null;
+		if (contractServiceAddress && contractServiceAddress === selectedServiceAddress) {
+			return true;
+		}
+
+		const selectedServiceStableId = getSelectedServiceStableId();
+		if (!selectedServiceStableId) {
+			return false;
+		}
+
+		const contractServiceStableId =
+			(typeof content.serviceId === 'string' && content.serviceId) ||
+			(typeof content.contextId === 'string' && content.contextId) ||
+			(() => {
+				if (!contractServiceAddress) {
+					return null;
+				}
+				try {
+					return parseServiceAddress(contractServiceAddress).dTag;
+				} catch {
+					return null;
+				}
+			})();
+
+		return contractServiceStableId === selectedServiceStableId;
 	}
 
 	function getTaskStatusFromStores(taskId: string): string | undefined {
@@ -136,18 +429,40 @@
 		// Only reconcile contracts where current user is the Tasker (client).
 		// The task event is owned by the Tasker; only they can call updateTask.
 		// Running reconciliation on Taskee contracts causes "Task author mismatch" errors.
-		const taskerContracts = contracts.filter((c) => c.isClient);
+		const taskerContracts = contracts.filter(
+			(c) => c.isClient && (c.contractEvent.content.contextType ?? 'task') === 'task'
+		);
 		if (taskerContracts.length === 0) return;
 		await reconcileTaskStatusWithContracts(taskerContracts, getTaskStatusFromStores);
 	}
 
 	async function refreshContracts(): Promise<void> {
+		if (isOffline) {
+			return;
+		}
 		await contractStore.loadContracts();
 		await runTaskStatusReconciliation();
 	}
 
 	onMount(async () => {
-		await Promise.all([contractStore.loadContracts(), fetchBtcPrice()]);
+		typeFilter = initialType;
+
+		// Ensure wallet is initialized BEFORE loading contracts
+		try {
+			const { walletStore, walletManager } = await import('$lib/stores/wallet.store');
+			const { get } = await import('svelte/store');
+			let walletState = get(walletStore);
+
+			// Wait for wallet initialization if not already initialized
+			if (!walletState.isConnected || !walletState.rsk?.wallet || !walletState.rsk?.provider) {
+				await walletManager.initialize();
+				walletState = get(walletStore);
+			}
+		} catch {
+			// Continue anyway - contracts will handle wallet initialization individually
+		}
+
+		await Promise.all([contractStore.loadContracts(), fetchBtcPrice(), loadServices()]);
 
 		// Self-heal: sync Nostr task status for FundsReleased contracts (docs/tasks/task-status.md)
 		runTaskStatusReconciliation();
@@ -174,215 +489,168 @@
 		}));
 	});
 
+	$effect(() => {
+		if (
+			statusFilter !== 'all' &&
+			!statusFilterOptions.some((option) => option.id === statusFilter)
+		) {
+			statusFilter = 'all';
+		}
+	});
+
 	onDestroy(() => {
 		// Cleanup subscriptions when leaving contracts panel
 		contractStore.unsubscribeFromStatusUpdates();
 		contractStore.unsubscribeFromNewContracts();
 	});
 
-	function selectStatusFilter(statusId: EscrowStatus | 'all') {
-		statusFilter = statusId;
-		isStatusDropdownOpen = false;
+	function handleFilterChange(updates: {
+		status?: EscrowStatus | 'all';
+		type?: 'all' | 'tasks' | 'services';
+		role?: 'all' | 'client' | 'freelancer';
+	}) {
+		if (updates.status !== undefined) statusFilter = updates.status;
+		if (updates.type !== undefined) typeFilter = updates.type;
+		if (updates.role !== undefined) roleFilter = updates.role;
+
+		const nextUrl = createDashboardUrl(new URL(window.location.href), {
+			tab: 'contracts',
+			status: statusFilter === 'all' ? null : statusFilter,
+			type: typeFilter,
+			role: roleFilter as unknown as string
+		});
+		void goto(nextUrl.toString(), { replaceState: true, keepFocus: true, noScroll: true });
 	}
 
-	function selectRoleFilter(roleId: string) {
-		roleFilter = roleId;
+	function clearFilters() {
+		statusFilter = 'all';
+		roleFilter = fixedRole;
+		typeFilter = 'all';
+		onServiceFilterChange?.(null);
+		onClearFilters?.();
+
+		const nextUrl = createDashboardUrl(new URL(window.location.href), {
+			tab: 'contracts',
+			status: null,
+			type: 'all',
+			role: fixedRole as unknown as string
+		});
+		void goto(nextUrl.toString(), { replaceState: true, keepFocus: true, noScroll: true });
 	}
 
-	function toggleStatusDropdown() {
-		isStatusDropdownOpen = !isStatusDropdownOpen;
-	}
-
-	function handleClickOutside(event: MouseEvent) {
-		// Only handle clicks when dropdown is open
-		if (!isStatusDropdownOpen) return;
-		const target = event.target as HTMLElement;
-		if (!target.closest('.status-dropdown-container')) {
-			isStatusDropdownOpen = false;
-		}
-	}
-
-	// Handle window clicks for dropdown - use effect to conditionally attach
 	$effect(() => {
-		if (!isStatusDropdownOpen) return;
+		for (const contract of $contractStore.contracts) {
+			const contextType = contract.contractEvent.content.contextType;
+			if (contextType === 'task' || contextType === 'service' || contextType == null) {
+				continue;
+			}
 
-		const handler = (event: MouseEvent) => {
-			handleClickOutside(event);
-		};
+			const escrowId =
+				contract.escrowData?.id ??
+				contract.contractEvent.content.escrowId ??
+				contract.contractEvent.id;
+			if (warnedUnknownContextEscrowIds.has(escrowId)) {
+				continue;
+			}
 
-		window.addEventListener('click', handler);
-		return () => {
-			window.removeEventListener('click', handler);
-		};
+			warnedUnknownContextEscrowIds.add(escrowId);
+			console.warn('Unknown contract context encountered; leaving contract read-only.', {
+				escrowId,
+				contextType
+			});
+		}
+	});
+
+	$effect(() => {
+		if (!highlightEscrowId || !$contractStore.contracts.length) {
+			highlightRecoveryAttempted = false;
+			highlightRecoveryInFlightFor = null;
+			lastHandledHighlight = null;
+			return;
+		}
+		if (lastHandledHighlight === highlightEscrowId) {
+			return;
+		}
+		if (highlightRecoveryInFlightFor === highlightEscrowId) {
+			return;
+		}
+
+		const matchingContract = filteredContracts.find(
+			(contract) =>
+				(contract.escrowData?.id ?? contract.contractEvent.content.escrowId) === highlightEscrowId
+		);
+
+		if (matchingContract) {
+			void (async () => {
+				await tick();
+				const element = document.querySelector<HTMLElement>(
+					`[data-contract-escrow-id="${highlightEscrowId}"]`
+				);
+				element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+				lastHandledHighlight = highlightEscrowId;
+				onHighlightConsumed?.(highlightEscrowId);
+			})();
+			return;
+		}
+
+		if (!highlightRecoveryAttempted) {
+			highlightRecoveryAttempted = true;
+			highlightRecoveryInFlightFor = highlightEscrowId;
+			void (async () => {
+				const recovered = await contractStore.loadContractByEscrowId(highlightEscrowId);
+				highlightRecoveryInFlightFor = null;
+				if (!recovered) {
+					lastHandledHighlight = highlightEscrowId;
+					onHighlightMissing?.(highlightEscrowId);
+				}
+			})();
+			return;
+		}
+
+		lastHandledHighlight = highlightEscrowId;
+		onHighlightMissing?.(highlightEscrowId);
 	});
 </script>
 
-<div class="space-y-6">
-	<!-- Filters container with same design as TasksPanel -->
-	<div class="border-base-300/60 bg-base-100/40 mt-2 rounded-3xl border p-4 shadow-sm">
-		<!-- Header with title and refresh button -->
-		<div class="mb-3 flex items-center justify-between gap-2">
-			<div class="space-y-1">
-				<p class="text-base-content/70 text-xs font-semibold tracking-wide uppercase">
-					{$t('dashboard.contracts.filter_by_status_and_role')}
-				</p>
-				<p class="text-base-content/70 hidden text-sm sm:block">
-					{$t('dashboard.contracts.filter_description')}
-				</p>
-			</div>
+<div class="space-y-4">
+	<DashboardFilterBar
+		onRefresh={() => refreshContracts()}
+		isRefreshing={$contractStore.isLoading}
+		refreshDisabled={isOffline || highlightRecoveryPending}
+	>
+		<DashboardDropdown
+			options={typeFilterOptions}
+			value={typeFilter}
+			onSelect={(val) => handleFilterChange({ type: val })}
+			containerClass="sm:w-48"
+		/>
 
-			<!-- Refresh button: icon only on mobile, with text on desktop -->
-			<button
-				class="btn btn-ghost btn-sm sm:btn-outline gap-2"
-				onclick={() => refreshContracts()}
-				disabled={$contractStore.isLoading}
-				aria-label={$t('dashboard.contracts.refresh')}
-			>
-				{#if $contractStore.isLoading}
-					<span class="loading loading-spinner loading-xs"></span>
-					<span class="hidden sm:inline">{$t('dashboard.contracts.refresh')}</span>
-				{:else}
-					<IconRefresh class="h-5 w-5" />
-					<span class="hidden sm:inline">{$t('dashboard.contracts.refresh')}</span>
-				{/if}
-			</button>
-		</div>
+		<DashboardDropdown
+			options={statusFilterOptions}
+			value={statusFilter}
+			onSelect={(val) => handleFilterChange({ status: val })}
+			containerClass="sm:w-64"
+		/>
 
-		<!-- Mobile: Subheading and dropdowns -->
-		<div class="mb-3 sm:hidden">
-			<p class="text-base-content/70 mb-3 text-sm">
-				{$t('dashboard.contracts.filter_description')}
-			</p>
-
-			<!-- Role Filter Buttons (Mobile) -->
-			<div class="mb-3 flex gap-2">
-				{#each roleFilterOptions as option (option.id)}
-					{@const IconComponent = option.icon}
-					<button
-						class="btn {roleFilter === option.id
-							? 'btn-primary'
-							: 'btn-secondary'} btn-sm flex items-center gap-2"
-						onclick={() => selectRoleFilter(option.id)}
-						aria-label={option.label}
-					>
-						{#if roleFilter === option.id}
-							<IconCheck class="h-4 w-4" />
-						{:else}
-							<IconComponent class="h-4 w-4" />
-						{/if}
-						<span>{option.label}</span>
-					</button>
-				{/each}
-			</div>
-
-			<!-- Status Filter Dropdown (Mobile) -->
-			<div class="status-dropdown-container relative">
-				<button
-					class="border-primary bg-primary/10 text-primary hover:bg-primary/20 flex w-full items-center justify-between rounded-3xl border px-4 py-2 transition-all duration-200"
-					onclick={toggleStatusDropdown}
-					aria-expanded={isStatusDropdownOpen}
-					aria-haspopup="true"
-					aria-controls="status-dropdown-menu"
-					aria-label={$t('dashboard.contracts.filter_by_status')}
-				>
-					<div class="flex items-center gap-2">
-						{#each statusFilterOptions as option (String(option.id))}
-							{#if statusFilter === option.id}
-								{@const IconComponent = option.icon}
-								<IconComponent class="h-5 w-5" />
-							{/if}
-						{/each}
-						<span class="font-medium">
-							{statusFilterOptions.find((opt) => opt.id === statusFilter)?.label}
-						</span>
-					</div>
-					<IconChevronDown
-						class="h-5 w-5 transition-transform duration-200 {isStatusDropdownOpen
-							? 'rotate-180'
-							: ''}"
-					/>
-				</button>
-
-				{#if isStatusDropdownOpen}
-					<div
-						id="status-dropdown-menu"
-						role="menu"
-						aria-label={$t('dashboard.contracts.status_filter_menu')}
-						class="border-base-300 bg-base-100 absolute top-full right-0 left-0 z-50 mt-2 rounded-xl border shadow-lg"
-					>
-						{#each statusFilterOptions as option (String(option.id))}
-							{@const IconComponent = option.icon}
-							<button
-								role="menuitemradio"
-								aria-checked={statusFilter === option.id}
-								class="hover:bg-base-200 flex w-full items-center gap-2 px-4 py-2 text-left transition-colors duration-200 first:rounded-t-xl last:rounded-b-xl {statusFilter ===
-								option.id
-									? 'bg-primary/10 text-primary'
-									: 'text-base-content'}"
-								onclick={() => selectStatusFilter(option.id)}
-							>
-								<IconComponent
-									class="h-5 w-5 {statusFilter === option.id
-										? 'text-primary'
-										: 'text-base-content/60'}"
-								/>
-								<span class="font-medium">{option.label}</span>
-								{#if statusFilter === option.id}
-									<IconCheck class="text-primary ml-auto h-5 w-5" />
-								{/if}
-							</button>
-						{/each}
-					</div>
-				{/if}
-			</div>
-		</div>
-
-		<!-- Desktop: Role Filter Buttons -->
-		<div class="mb-4 hidden sm:block">
-			<div class="flex gap-2">
-				{#each roleFilterOptions as option (option.id)}
-					{@const IconComponent = option.icon}
-					<button
-						class="btn {roleFilter === option.id
-							? 'btn-primary'
-							: 'btn-secondary'} btn-sm flex items-center gap-2"
-						onclick={() => selectRoleFilter(option.id)}
-						aria-label={option.label}
-					>
-						{#if roleFilter === option.id}
-							<IconCheck class="h-4 w-4" />
-						{:else}
-							<IconComponent class="h-4 w-4" />
-						{/if}
-						<span>{option.label}</span>
-					</button>
-				{/each}
-			</div>
-		</div>
-
-		<!-- Desktop: Status Filter Buttons -->
-		<div class="mt-4 hidden sm:block">
-			<div class="flex flex-col gap-3 sm:flex-row">
-				{#each statusFilterOptions as option (String(option.id))}
-					{@const IconComponent = option.icon}
-					<button
-						class="btn btn-sm flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-3xl py-4 text-center transition-all duration-200 {statusFilter ===
-						option.id
-							? 'text-primary bg-primary/10 border-primary/30 border'
-							: 'bg-base-100/40 hover:bg-base-100/60 text-base-content/70'}"
-						onclick={() => selectStatusFilter(option.id)}
-						aria-label={option.label}
-					>
-						<IconComponent class="h-5 w-5 {statusFilter === option.id ? 'text-primary' : ''}" />
-						<span class="font-medium">{option.label}</span>
-					</button>
-				{/each}
-			</div>
-		</div>
-	</div>
+		{#if showServiceFilter && (typeFilter === 'services' || selectedServiceAddress)}
+			<ServiceFilterSelect
+				{services}
+				{selectedServiceAddress}
+				filterLabel={tr('dashboard.contracts.filter_by_service', 'Filter by service')}
+				allServicesLabel={tr('dashboard.contracts.all_services', 'All Services')}
+				deletedServiceLabel={tr(
+					'dashboard.services.my_services.quote_inbox.deleted_service_prefix',
+					'Deleted service'
+				)}
+				testId="contracts-service-filter"
+				containerClass="col-span-2 sm:w-64"
+				onChange={(serviceAddress) => onServiceFilterChange?.(serviceAddress)}
+			/>
+		{/if}
+	</DashboardFilterBar>
 
 	<!-- Loading State -->
-	{#if $contractStore.isLoading}
+	{#if showBlockingLoadingState}
 		<div class="flex justify-center py-12">
 			<div class="flex items-center gap-3">
 				<span class="loading loading-spinner loading-md"></span>
@@ -392,61 +660,69 @@
 	{/if}
 
 	<!-- Error State -->
-	{#if $contractStore.error}
-		<div class="alert alert-outline alert-error">
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				class="h-6 w-6 shrink-0 stroke-current"
-				fill="none"
-				viewBox="0 0 24 24"
-			>
-				<path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					stroke-width="2"
-					d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-				/>
-			</svg>
-			<div>
-				<h3 class="font-bold">{$t('dashboard.contracts.error_title')}</h3>
-				<div class="text-xs">{$contractStore.error}</div>
+	{#if showBlockingErrorState}
+		{#if isPasskeyLoadError}
+			<ErrorAlertWithModal
+				error={$contractStore.error ?? ''}
+				isPasskeyError
+				autoOpenModal={false}
+				onRetry={() => refreshContracts()}
+				class="w-full"
+			/>
+		{:else}
+			<div class="alert alert-outline alert-error">
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					class="h-6 w-6 shrink-0 stroke-current"
+					fill="none"
+					viewBox="0 0 24 24"
+				>
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+					/>
+				</svg>
+				<div>
+					<h3 class="font-bold">{$t('dashboard.contracts.error_title')}</h3>
+					<div class="text-xs">{$contractStore.error}</div>
+				</div>
+				<button class="btn btn-sm btn-outline" onclick={() => refreshContracts()}>
+					{$t('dashboard.contracts.retry')}
+				</button>
 			</div>
-			<button class="btn btn-sm btn-outline" onclick={() => refreshContracts()}>
-				{$t('dashboard.contracts.retry')}
-			</button>
-		</div>
+		{/if}
 	{/if}
 
 	<!-- Contracts List -->
-	{#if !$contractStore.isLoading && !$contractStore.error}
+	{#if !showBlockingLoadingState && !showBlockingErrorState}
 		{#if filteredContracts.length === 0}
-			<div class="py-12 text-center">
-				<div class="mb-4">
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="text-base-content/30 mx-auto h-12 w-12"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-						/>
-					</svg>
-				</div>
-				<h3 class="mb-2 text-lg font-semibold">
-					{$contractStore.contracts.length === 0
+			<div class="card bg-base-100 rounded-xl p-4">
+				<DashboardEmptyState
+					icon={IconFileDocumentOutline}
+					title={!isFilterActive
 						? $t('dashboard.contracts.no_contracts')
 						: $t('dashboard.contracts.no_filtered_contracts')}
-				</h3>
-				<p class="text-base-content/70">
-					{$contractStore.contracts.length === 0
-						? $t('dashboard.contracts.no_contracts_description')
-						: $t('dashboard.contracts.try_different_filters')}
-				</p>
+					description={!isFilterActive ? '' : $t('dashboard.contracts.try_different_filters')}
+					actionLabel={!isFilterActive
+						? (emptyStateActionLabel ?? $t('dashboard.create_task'))
+						: $t('dashboard.contracts.clear_filters')}
+					actionIcon={!isFilterActive
+						? (emptyStateActionIcon ?? IconBriefcaseOutline)
+						: IconRefresh}
+					actionHref={!isFilterActive ? (emptyStateActionHref ?? '/dashboard/create-task') : null}
+					onAction={() => {
+						if (!isFilterActive) {
+							if (!emptyStateActionHref) {
+								void goto('/dashboard/create-task');
+							}
+							return;
+						}
+						clearFilters();
+					}}
+					testId="dashboard-contracts-empty-state"
+				/>
 			</div>
 		{:else}
 			{#each filteredContracts as contract (contract.escrowData?.id ?? contract.contractEvent.content.escrowId)}

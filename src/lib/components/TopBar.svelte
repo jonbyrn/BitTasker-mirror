@@ -12,6 +12,7 @@
 	import DarkModeToggle from '$lib/components/DarkModeToggle.svelte';
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 	import NotificationCenter from '$lib/components/notifications/NotificationCenter.svelte';
+	import { ImpactStyle, triggerHaptic } from '$lib/utils/helpers/haptics';
 	import IconChevronDown from '~icons/mdi/chevron-down';
 	import IconQrcode from '~icons/mdi/qrcode';
 	import NpubQrCodeModal from '$lib/components/NpubQrCodeModal.svelte';
@@ -29,9 +30,6 @@
 
 	// Control npub QR code modal
 	let showNpubQrModal = $state(false);
-
-	// Track if user is logged in
-	let isLoggedIn = $derived($authState.isAuthenticated);
 
 	// Dropdown state - track which section ID is open
 	let openSectionId = $state<string | null>(null);
@@ -59,6 +57,8 @@
 		if (!target) return;
 		const interactive = target.closest('a,button,summary,[role="button"]');
 		if (!interactive) return;
+		// Fire-and-forget; navigation should not be blocked.
+		void triggerHaptic(ImpactStyle.Light);
 	}
 
 	// Toggle avatar dropdown
@@ -69,7 +69,7 @@
 
 	// Initialize stores when component mounts
 	onMount(async () => {
-		if (isLoggedIn) {
+		if ($authState.isAuthenticated) {
 			try {
 				// Initialize user store
 				await user.getUserData();
@@ -135,7 +135,7 @@
 	async function confirmedLogout() {
 		showLogoutModal = false;
 		await authState.logout();
-		goto('/');
+		await goto('/', { replaceState: true });
 	}
 
 	function cancelLogout() {
@@ -166,7 +166,9 @@
 			</button>
 		{:else}
 			<!-- Regular link -->
-			{@const itemHref = item.getDynamicHref ? item.getDynamicHref(isLoggedIn) : item.href || '#'}
+			{@const itemHref = item.getDynamicHref
+				? item.getDynamicHref($authState.isAuthenticated)
+				: item.href || '#'}
 			<a
 				href={itemHref}
 				onclick={(e) => handleMenuItemClick(e, undefined, itemHref)}
@@ -239,7 +241,7 @@
 >
 	<!-- Navbar start -->
 	<div class="navbar-start ml-2 flex-1 sm:flex">
-		<a href={isLoggedIn ? '/dashboard' : '/'} class="block">
+		<a href={$authState.isAuthenticated ? '/dashboard' : '/'} class="block">
 			<img
 				src="/images/logos/bittasker-logomark.svg"
 				alt={$t('common.components.topbar.logo_alt')}
@@ -255,7 +257,7 @@
 	<!-- Hide navbar-center on mobile and tablet -->
 	<div class="navbar-center mx-auto hidden lg:flex">
 		<ul class="menu menu-horizontal px-1">
-			{#if isLoggedIn}
+			{#if $authState.isAuthenticated}
 				<!-- Logged-in menu sections -->
 				{#each LOGGED_IN_MENU_SECTIONS as section (section.id)}
 					{@render menuSection(section)}
@@ -285,7 +287,7 @@
 			<DarkModeToggle />
 		</div>
 		<!-- login/signup or notification + avatar -->
-		{#if !isLoggedIn}
+		{#if !$authState.isAuthenticated}
 			<a href="/auth/login" class="btn btn-sm sm:btn-md btn-secondary" data-testid="login-link"
 				>{$t('navbar.login')}</a
 			>
@@ -349,9 +351,9 @@
 <!-- Logout Confirmation Modal -->
 <ConfirmModal
 	isOpen={showLogoutModal}
-	title={$t('common.components.confirm_modal.logout.title')}
-	message={$t('common.components.confirm_modal.logout.message')}
-	confirmText={$t('common.components.confirm_modal.logout.confirm_button')}
+	title={$t('common.components.confirm_modal.logout_title')}
+	message={$t('common.components.confirm_modal.logout_message')}
+	confirmText={$t('common.components.confirm_modal.confirm')}
 	confirmButtonClass="btn-primary"
 	onConfirm={confirmedLogout}
 	onCancel={cancelLogout}

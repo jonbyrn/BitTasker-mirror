@@ -37,13 +37,16 @@ export default defineConfig(({ mode }) => {
 	// Using '' as prefix loads ALL variables (not just VITE_* ones).
 	const env = loadEnv(mode, process.cwd(), '');
 	Object.assign(process.env, env);
+	const sentryEnabled = Boolean(
+		process.env.SENTRY_AUTH_TOKEN && process.env.SENTRY_ORG && process.env.SENTRY_PROJECT
+	);
 
 	return {
 		test: {
 			environment: 'jsdom',
 			setupFiles: ['./vitest-setup-client.ts'],
 			globals: true,
-			exclude: ['**/_pending/**'],
+			exclude: ['**/_pending/**', 'node_modules/**'],
 			coverage: {
 				provider: 'v8',
 				reporter: ['text', 'html', 'clover', ['cobertura', { file: 'cobertura-coverage.xml' }]],
@@ -124,15 +127,21 @@ export default defineConfig(({ mode }) => {
 
 			// 8. sentrySvelteKit — MUST be last: it reads the final source maps output
 			//    and uploads after the adapter runs (closeBundle hook)
-			sentrySvelteKit({
-				org: process.env.SENTRY_ORG,
-				project: process.env.SENTRY_PROJECT,
-				authToken: process.env.SENTRY_AUTH_TOKEN,
-				autoInstrument: {
-					load: false, // Disable auto-instrumentation for client-side only app
-					serverLoad: false
-				}
-			})
+			//    Keep it last only when a real upload is configured;
+			//    local/CI preview builds should not pay the source-map/upload cost without credentials.
+			...(sentryEnabled
+				? [
+						sentrySvelteKit({
+							org: process.env.SENTRY_ORG,
+							project: process.env.SENTRY_PROJECT,
+							authToken: process.env.SENTRY_AUTH_TOKEN,
+							autoInstrument: {
+								load: false, // Disable auto-instrumentation for client-side only app
+								serverLoad: false
+							}
+						})
+					]
+				: [])
 		],
 		define: {
 			__APP_VERSION__: JSON.stringify(pkg.version),
@@ -145,8 +154,11 @@ export default defineConfig(({ mode }) => {
 		build: {
 			target: 'es2020',
 
-			minify: 'oxc' as boolean | 'esbuild' | 'terser' | undefined, // Vite 7 default — types not yet updated to include 'oxc'
-			sourcemap: 'hidden', // Generate source maps for Sentry without exposing them publicly
+			// OXC minification is fast but significantly heavier in this repo's local/CI preview builds.
+			// Keep the lighter esbuild path unless a real Sentry upload build is configured.
+			minify: sentryEnabled ? ('oxc' as boolean | 'esbuild' | 'terser' | undefined) : 'esbuild',
+			// Hidden source maps are only needed for Sentry uploads; skip them when no upload is configured.
+			sourcemap: sentryEnabled ? 'hidden' : false,
 			cssCodeSplit: true, // Enable CSS code splitting
 			cssMinify: true, // Explicitly enable CSS minification (default but explicit)
 			// Raise threshold to suppress warnings for intentionally large vendor chunks
@@ -179,7 +191,25 @@ export default defineConfig(({ mode }) => {
 			// - http://<laptop-lan-ip>:3000 (same Wi‑Fi), or
 			// - http://localhost:3000 with `adb reverse`
 			// Allowing all hosts prevents Vite from blocking these.
-			allowedHosts: true
+			allowedHosts: true,
+			watch: {
+				ignored: [
+					'**/src/lib/tests/**',
+					'**/tests/**',
+					'**/*.test.ts',
+					'**/*.test.tsx',
+					'**/*.spec.ts',
+					'**/*.spec.tsx',
+					'**/coverage/**',
+					'**/test-results/**',
+					'.playwright-mcp/**',
+					'scripts/**',
+					'status/**',
+					'.storybook/**',
+					'android/**',
+					'ios/**'
+				]
+			}
 		}
 	};
 });

@@ -1,228 +1,230 @@
 {
-    "task": {
-      "type": {
-        "one_time": "One Time",
-        "recurring": "Recurring",
-        "in_person": "In Person",
-        "remote": "Remote"
-      },
-      "role": {
-        "owner": "Owner"
-      },
-      "budget": {
-        "label": "Budget",
-        "hourly": "per hour",
-        "fixed": "fixed price"
-      },
-      "deadline": {
-        "label": "Deadline",
-        "none": "No deadline",
-        "invalid": "Invalid date"
-      },
-      "dateRange": {
-        "label": "Date Range"
-      },
-      "bids": {
-        "count": "{count} Bids"
-      },
-      "actions": {
-        "view_details": "Details",
-        "view_bids": "Bids",
-        "mark_as_done": "Mark as Done",
-        "rescope": "Rescope",
-        "edit": "Edit",
-        "delete": "Delete",
-        "delete_task": "Delete Task",
-        "dispute_task": "Dispute Task"
-      },
-      "filters": {
-        "waiting_for_bids": "Waiting",
-        "bids_received": "Bids",
-        "in_progress": "In Progress",
-        "completed": "Completed",
-        "disputed": "Disputed",
-        "filtering": "Filtering tasks...",
-        "tasks_in_progress": "Tasks in Progress",
-        "tasks_waiting_for_bids": "Waiting for Bids",
-        "tasks_completed": "Tasks Completed",
-        "tasks_disputed": "Tasks Disputed"
-      },
-      "empty": {
-        "no_tasks": "No tasks found",
-        "no_tasks_description": "Your tasks will appear here"
-      },
-      "error": {
-        "loading": "Error loading tasks"
-      },
-      "location": {
-        "details": "Location Details"
-      },
-      "user": {
-        "anonymous": "Anonymous"
-      },
-      "status": {
-        "open": "Open",
-        "bid_accepted": "Bid Accepted",
-        "escrow_funded": "Escrow Funded",
-        "in_progress": "In Progress",
-        "rescoped": "Rescoped",
-        "rescope_accepted": "Rescope Accepted",
-        "completed": "Completed",
-        "cancelled": "Cancelled",
-        "refunded": "Refunded",
-        "disputed": "Disputed",
-        "dispute_proposal": "Dispute Proposal"
-      },
-      "drawer": {
-        "details": "Details",
-        "bids": "Bids",
-        "messages": "Messages",
-        "milestones": "Milestones",
-        "files": "Files",
-        "loading": "Loading...",
-        "owner": "You are the owner",
-        "provider": "You are the provider",
-        "edit": "Edit",
-        "cancel_edit": "Cancel",
-        "budget": "Budget",
-        "type": "Type",
-        "remote": "Remote",
-        "in_person": "In-Person",
-        "deadline": "Deadline",
-        "date_range": "Date Range",
-        "posted": "Posted",
-        "description": "Description",
-        "required_skills": "Required Skills",
-        "categories": "Categories",
-        "location": "Location",
-        "attachments": "Attachments",
-        "view_attachment": "View attachment",
-        "close_preview": "Close image preview",
-        "no_bids": "No bids yet",
-        "no_bids_owner": "Your task has not received any bids yet",
-        "no_bids_provider": "You have not bid on this task yet",
-        "bids_count": "Bids",
-        "view_details": "View Details",
-        "view_bids": "View Bids",
-        "payment_details": "Payment Details",
-        "payment_type": "Payment Type",
-        "hourly_rate": "Hourly Rate",
-        "estimated_hours": "Estimated Hours",
-        "total_amount": "Total Amount",
-        "proposal": "Proposal",
-        "approach": "Proposed Approach",
-        "timeline": "Estimated Timeline",
-        "provider_highlights": "Provider Highlights",
-        "provider_skills": "Skills",
-        "provider_certifications": "Certifications",
-        "show_details": "Show details",
-        "hide_details": "Hide details",
-        "decline": "Decline",
-        "counter": "Counter",
-        "accept": "Accept",
-        "withdraw": "Withdraw",
-        "cancel_withdrawal": "Cancel Withdrawal",
-        "confirm_withdrawal": "Confirm Withdrawal",
-        "withdrawal_reason": "Please provide a reason for withdrawing your bid",
-        "try_again": "Try Again",
-        "task_not_found": "Task Not Found",
-        "task_not_found_desc": "The task you're looking for could not be found",
-        "bids_received": "Bids received",
-        "bids_description": "Here you can see all the bids for this task.",
-        "member_since": "Member since",
-        "withdraw_bid": "Withdraw Your Bid",
-        "withdrawal_reason_placeholder": "Please explain why you're withdrawing your bid...",
-        "anonymous": "Anonymous",
-        "avatar_alt": "Avatar",
-        "error": {
-          "load": "Failed to load task details. Please try again.",
-          "no_details": "No task details available",
-          "withdraw_reason": "Please provide a reason for withdrawing your bid",
-          "withdraw_failed": "Failed to withdraw bid. Please try again.",
-          "counter_offer": "Error creating counter offer",
-          "counter_offer_response": "Error {action}ing counter offer"
-        }
-      },
-      "upload": {
-        "label": "Upload images",
-        "profile_picture": "Upload profile picture",
-        "landscape": "Upload landscape image",
-        "error": {
-          "max_size": "Maximum file size exceeded",
-          "max_files": "Maximum number of files exceeded",
-          "type": "File type not allowed"
-        }
-      }
-    },
-    "profile_task": {
-      "no_saved_searches": "No saved searches yet",
-      "saved_searches_info": "Your saved searches will appear here",
-      "start_new_search": "Find Tasks",
-      "saved_searches_title": "Your Saved Searches",
-      "retry": "Retry",
-      "new_matching_tasks": "New matching tasks",
-      "unread_new_label": "new",
-      "budget_tier_label": "Budget tier",
-      "budget_tiers": {
-        "micro": "Micro",
-        "small": "Small",
-        "medium": "Medium",
-        "large": "Large",
-        "enterprise": "Enterprise"
-      },
-      "created_label": "Created",
-      "notifications_off": "Notifications off",
-      "notifications_on": "Notifications on",
-      "notifications_activated": "Notifications activated",
-      "actions": {
-        "edit_saved_search": "Edit saved search",
-        "delete_saved_search": "Delete saved search"
-      },
-      "confirm_delete": {
-        "title": "Confirm Delete",
-        "message": "Are you sure you want to delete this saved search? This cannot be undone.",
-        "cancel": "Cancel",
-        "delete": "Delete"
-      },
-      "errors": {
-        "load_saved_searches": "Failed to load saved searches. Please try again.",
-        "delete_saved_search": "Failed to delete saved search.",
-        "update_notification_settings": "Failed to update notification settings.",
-        "mark_notifications_read": "Failed to mark notifications as read.",
-        "save_search": "Error saving search"
-      },
-      "success": {
-        "delete_saved_search": "Saved search deleted successfully.",
-        "update_notification_settings": "Notification settings updated.",
-        "mark_notifications_read": "Notifications marked as read.",
-        "update_saved_search": "Saved search updated.",
-        "save_search": "Search saved successfully"
-      },
-      "notification_frequency": {
-        "immediate": "Immediate",
-        "daily": "Daily Digest",
-        "weekly": "Weekly Digest"
-      },
-      "form": {
-        "title_update": "Update Saved Search",
-        "title_create": "Save Search",
-        "submit_update": "Update Search",
-        "submit_create": "Save Search",
-        "criteria_title": "Search Criteria:",
-        "search_name_label": "Search Name",
-        "search_name_placeholder": "Name your search",
-        "notify_on_match": "Notify me when new matching tasks are posted",
-        "active_label": "Active search",
-        "inactive_hint": "Inactive searches won't appear in your dashboard",
-        "notification_frequency_label": "Notification Frequency",
-        "select_frequency_placeholder": "Select frequency",
-        "filters_info": "If you want to add more search parameters, you can find them in the filters option.",
-        "cancel": "Cancel",
-        "saving": "Saving...",
-        "errors": {
-          "name_required": "Please enter a name for your search.",
-          "save_failed": "Failed to save search. Please try again."
-        }
-      }
-    }
-  }
+	"task": {
+		"type": {
+			"one_time": "One Time",
+			"recurring": "Recurring",
+			"in_person": "In Person",
+			"remote": "Remote"
+		},
+		"role": {
+			"owner": "Owner"
+		},
+		"budget": {
+			"label": "Budget",
+			"hourly": "per hour",
+			"fixed": "fixed price"
+		},
+		"deadline": {
+			"label": "Deadline",
+			"none": "No deadline",
+			"invalid": "Invalid date"
+		},
+		"dateRange": {
+			"label": "Date Range"
+		},
+		"bids": {
+			"count": "{count} Bids"
+		},
+		"actions": {
+			"view_details": "Details",
+			"view_bids": "Bids",
+			"mark_as_done": "Mark as Done",
+			"rescope": "Rescope",
+			"edit": "Edit",
+			"delete": "Delete",
+			"delete_task": "Delete Task",
+			"dispute_task": "Dispute Task"
+		},
+		"filters": {
+			"open": "Open",
+			"cancelled": "Cancelled",
+			"waiting_for_bids": "Waiting",
+			"bids_received": "Bids",
+			"in_progress": "In Progress",
+			"completed": "Completed",
+			"disputed": "Disputed",
+			"filtering": "Filtering tasks...",
+			"tasks_in_progress": "Tasks in Progress",
+			"tasks_waiting_for_bids": "Waiting for Bids",
+			"tasks_completed": "Tasks Completed",
+			"tasks_disputed": "Tasks Disputed"
+		},
+		"empty": {
+			"no_tasks": "No tasks found",
+			"no_tasks_description": "Your tasks will appear here"
+		},
+		"error": {
+			"loading": "Error loading tasks"
+		},
+		"location": {
+			"details": "Location Details"
+		},
+		"user": {
+			"anonymous": "Anonymous"
+		},
+		"status": {
+			"open": "Open",
+			"bid_accepted": "Bid Accepted",
+			"escrow_funded": "Escrow Funded",
+			"in_progress": "In Progress",
+			"rescoped": "Rescoped",
+			"rescope_accepted": "Rescope Accepted",
+			"completed": "Completed",
+			"cancelled": "Cancelled",
+			"refunded": "Refunded",
+			"disputed": "Disputed",
+			"dispute_proposal": "Dispute Proposal"
+		},
+		"drawer": {
+			"details": "Details",
+			"bids": "Bids",
+			"messages": "Messages",
+			"milestones": "Milestones",
+			"files": "Files",
+			"loading": "Loading...",
+			"owner": "You are the owner",
+			"provider": "You are the provider",
+			"edit": "Edit",
+			"cancel_edit": "Cancel",
+			"budget": "Budget",
+			"type": "Type",
+			"remote": "Remote",
+			"in_person": "In-Person",
+			"deadline": "Deadline",
+			"date_range": "Date Range",
+			"posted": "Posted",
+			"description": "Description",
+			"required_skills": "Required Skills",
+			"categories": "Categories",
+			"location": "Location",
+			"attachments": "Attachments",
+			"view_attachment": "View attachment",
+			"close_preview": "Close image preview",
+			"no_bids": "No bids yet",
+			"no_bids_owner": "Your task has not received any bids yet",
+			"no_bids_provider": "You have not bid on this task yet",
+			"bids_count": "Bids",
+			"view_details": "View Details",
+			"view_bids": "View Bids",
+			"payment_details": "Payment Details",
+			"payment_type": "Payment Type",
+			"hourly_rate": "Hourly Rate",
+			"estimated_hours": "Estimated Hours",
+			"total_amount": "Total Amount",
+			"proposal": "Proposal",
+			"approach": "Proposed Approach",
+			"timeline": "Estimated Timeline",
+			"provider_highlights": "Provider Highlights",
+			"provider_skills": "Skills",
+			"provider_certifications": "Certifications",
+			"show_details": "Show details",
+			"hide_details": "Hide details",
+			"decline": "Decline",
+			"counter": "Counter",
+			"accept": "Accept",
+			"withdraw": "Withdraw",
+			"cancel_withdrawal": "Cancel Withdrawal",
+			"confirm_withdrawal": "Confirm Withdrawal",
+			"withdrawal_reason": "Please provide a reason for withdrawing your bid",
+			"try_again": "Try Again",
+			"task_not_found": "Task Not Found",
+			"task_not_found_desc": "The task you're looking for could not be found",
+			"bids_received": "Bids received",
+			"bids_description": "Here you can see all the bids for this task.",
+			"member_since": "Member since",
+			"withdraw_bid": "Withdraw Your Bid",
+			"withdrawal_reason_placeholder": "Please explain why you're withdrawing your bid...",
+			"anonymous": "Anonymous",
+			"avatar_alt": "Avatar",
+			"error": {
+				"load": "Failed to load task details. Please try again.",
+				"no_details": "No task details available",
+				"withdraw_reason": "Please provide a reason for withdrawing your bid",
+				"withdraw_failed": "Failed to withdraw bid. Please try again.",
+				"counter_offer": "Error creating counter offer",
+				"counter_offer_response": "Error {action}ing counter offer"
+			}
+		},
+		"upload": {
+			"label": "Upload images",
+			"profile_picture": "Upload profile picture",
+			"landscape": "Upload landscape image",
+			"error": {
+				"max_size": "Maximum file size exceeded",
+				"max_files": "Maximum number of files exceeded",
+				"type": "File type not allowed"
+			}
+		}
+	},
+	"profile_task": {
+		"no_saved_searches": "Alerts",
+		"saved_searches_info": "Your saved searches will appear here",
+		"start_new_search": "Find Tasks",
+		"saved_searches_title": "Your Saved Searches",
+		"retry": "Retry",
+		"new_matching_tasks": "New matching tasks",
+		"unread_new_label": "new",
+		"budget_tier_label": "Budget tier",
+		"budget_tiers": {
+			"micro": "Micro",
+			"small": "Small",
+			"medium": "Medium",
+			"large": "Large",
+			"enterprise": "Enterprise"
+		},
+		"created_label": "Created",
+		"notifications_off": "Notifications off",
+		"notifications_on": "Notifications on",
+		"notifications_activated": "Notifications activated",
+		"actions": {
+			"edit_saved_search": "Edit saved search",
+			"delete_saved_search": "Delete saved search"
+		},
+		"confirm_delete": {
+			"title": "Confirm Delete",
+			"message": "Are you sure you want to delete this saved search? This cannot be undone.",
+			"cancel": "Cancel",
+			"delete": "Delete"
+		},
+		"errors": {
+			"load_saved_searches": "Failed to load saved searches. Please try again.",
+			"delete_saved_search": "Failed to delete saved search.",
+			"update_notification_settings": "Failed to update notification settings.",
+			"mark_notifications_read": "Failed to mark notifications as read.",
+			"save_search": "Error saving search"
+		},
+		"success": {
+			"delete_saved_search": "Saved search deleted successfully.",
+			"update_notification_settings": "Notification settings updated.",
+			"mark_notifications_read": "Notifications marked as read.",
+			"update_saved_search": "Saved search updated.",
+			"save_search": "Search saved successfully"
+		},
+		"notification_frequency": {
+			"immediate": "Immediate",
+			"daily": "Daily Digest",
+			"weekly": "Weekly Digest"
+		},
+		"form": {
+			"title_update": "Update Saved Search",
+			"title_create": "Save Search",
+			"submit_update": "Update Search",
+			"submit_create": "Save Search",
+			"criteria_title": "Search Criteria:",
+			"search_name_label": "Search Name",
+			"search_name_placeholder": "Name your search",
+			"notify_on_match": "Notify me when new matching tasks are posted",
+			"active_label": "Active search",
+			"inactive_hint": "Inactive searches won't appear in your dashboard",
+			"notification_frequency_label": "Notification Frequency",
+			"select_frequency_placeholder": "Select frequency",
+			"filters_info": "If you want to add more search parameters, you can find them in the filters option.",
+			"cancel": "Cancel",
+			"saving": "Saving...",
+			"errors": {
+				"name_required": "Please enter a name for your search.",
+				"save_failed": "Failed to save search. Please try again."
+			}
+		}
+	}
+}

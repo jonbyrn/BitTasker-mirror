@@ -44,8 +44,14 @@
 	};
 
 	// Derive layout state from current route
-	const showTopBar = $derived(!page.url.pathname.includes('/onboarding'));
-	const hideFooter = $derived(/^\/(tasks|npub|dashboard|auth)(\/|$)/.test(page.url.pathname));
+	const currentPath = $derived(page.url.pathname);
+	const showTopBar = $derived(!currentPath.includes('/onboarding'));
+
+	// Hide complex footer for specific app-like pages to maximize content area
+	const hideFooter = $derived(
+		/^\/(tasks|npub|dashboard|earning|auth|services)(\/|$)/.test(currentPath) ||
+			currentPath === '/onboarding'
+	);
 
 	// Generate breadcrumbs from current path
 	const breadcrumbList = $derived.by(() => {
@@ -70,6 +76,7 @@
 
 		const isProtected =
 			currentPath.includes('/dashboard') ||
+			currentPath.includes('/earning') ||
 			currentPath.includes('/profile') ||
 			currentPath.includes('/settings');
 
@@ -289,8 +296,8 @@
 			{@render children()}
 		</div>
 
-		{#if !hideFooter}
-			<div class="tasks-page-footer">
+		{#if !hideFooter && showTopBar}
+			<div class="tasks-page-footer pt-12 lg:pt-16">
 				{#if !$authState.isAuthenticated}
 					<!-- Section 7: Final Call to Action (CTA) -->
 					<section class="bg-primary text-primary-content py-16">

@@ -364,9 +364,6 @@
 				<h3 class="mb-2 text-lg font-semibold">
 					{$t('dashboard.contracts.no_contracts')}
 				</h3>
-				<p class="text-base-content/70">
-					{$t('dashboard.contracts.no_contracts_description')}
-				</p>
 			</div>
 		{:else if visibleContracts.length === 0}
 			<div class="py-12 text-center">
