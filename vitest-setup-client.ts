@@ -66,6 +66,19 @@ vi.mock('@bittasker/wallet-core', () => ({
 	WalletManager: vi.fn()
 }));
 
+// Mock @cashu/cashu-ts to avoid CashuMint import error
+// @nostr-dev-kit/wallet imports from @cashu/cashu-ts which may have compatibility issues
+vi.mock('@cashu/cashu-ts', () => ({
+	CashuMint: {},
+	CashuWallet: {},
+	MeltQuoteState: {}
+}));
+
+// Mock @nostr-dev-kit/wallet to avoid import chain issues
+vi.mock('@nostr-dev-kit/wallet', () => ({
+	NDKWalletStatus: {}
+}));
+
 // required for svelte5 + jsdom as jsdom does not support matchMedia
 if (typeof window !== 'undefined') {
 	Object.defineProperty(window, 'matchMedia', {
