@@ -147,6 +147,43 @@
 		return '';
 	});
 	const resolvedErrorMessage = $derived(errorMessage);
+
+	let showFullIncludedScope = $state(false);
+	let includedScopeElement: HTMLParagraphElement | null = $state(null);
+	let isIncludedScopeTruncated = $state(false);
+
+	function checkIfIncludedScopeTruncated() {
+		if (!includedScopeElement) return;
+
+		const clone = includedScopeElement.cloneNode(true) as HTMLElement;
+		clone.style.position = 'absolute';
+		clone.style.visibility = 'hidden';
+		clone.style.height = 'auto';
+		clone.style.width = includedScopeElement.offsetWidth + 'px';
+		clone.style.whiteSpace = 'pre-line';
+		document.body.appendChild(clone);
+
+		const fullHeight = clone.scrollHeight;
+		const lineHeight = parseFloat(getComputedStyle(includedScopeElement).lineHeight) || 20;
+		const maxHeight = lineHeight * 3;
+
+		document.body.removeChild(clone);
+
+		isIncludedScopeTruncated = fullHeight > maxHeight + 1;
+	}
+
+	$effect(() => {
+		if (includedScopeElement && includedScope) {
+			requestAnimationFrame(() => {
+				checkIfIncludedScopeTruncated();
+			});
+		}
+	});
+
+	function toggleIncludedScope() {
+		showFullIncludedScope = !showFullIncludedScope;
+	}
+
 	const resolvedErrorHint = $derived(resolvedErrorMessage ? errorHint : '');
 	const resolvedTitle = $derived(
 		title || ($t('dashboard.services.detail.book_now_drawer.title') as string)
@@ -511,12 +548,29 @@
 									<div class="text-base-content/70 text-xs font-medium">
 										{$t('dashboard.services.detail.book_now_drawer.included_scope')}
 									</div>
-									<p
-										class="text-base-content/80 mt-2 text-sm whitespace-pre-line"
-										data-testid="service-agreement-scope"
+									<div
+										class="relative overflow-hidden transition-[max-height] duration-500 ease-in-out {showFullIncludedScope
+											? 'max-h-[1000px]'
+											: 'max-h-[4.5rem]'}"
 									>
-										{includedScope}
-									</p>
+										<p
+											bind:this={includedScopeElement}
+											class="text-base-content/80 mt-2 text-sm whitespace-pre-line"
+											data-testid="service-agreement-scope"
+										>
+											{includedScope}
+										</p>
+										{#if !showFullIncludedScope && isIncludedScopeTruncated}
+											<div
+												class="from-base-100 pointer-events-none absolute right-0 bottom-0 left-0 h-8 bg-gradient-to-t to-transparent"
+											></div>
+										{/if}
+									</div>
+									{#if isIncludedScopeTruncated}
+										<button class="btn btn-xs btn-ghost mt-1" onclick={toggleIncludedScope}>
+											{showFullIncludedScope ? $t('common.show_less') : $t('common.show_more')}
+										</button>
+									{/if}
 								</div>
 							{/if}
 
@@ -596,3 +650,9 @@
 		onCancel={handleCancelConfirmation}
 	/>
 {/if}
+
+<style>
+	.transition-\[max-height\] {
+		transition-property: max-height;
+	}
+</style>

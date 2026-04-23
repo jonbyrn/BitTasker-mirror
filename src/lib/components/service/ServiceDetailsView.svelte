@@ -58,6 +58,11 @@
 	import { appStore } from '$lib/stores/app.store';
 	import { ethers } from 'ethers';
 	import { escrow } from '$lib/utils/escrow';
+	import { FEE_TIERS } from '@bittasker/wallet-core';
+
+	const DEFAULT_CLIENT_FEE_TIER = 1;
+	const PLATFORM_FEE_RATE = FEE_TIERS[DEFAULT_CLIENT_FEE_TIER].percentage / 10000;
+	const ESTIMATED_NETWORK_FEE_USD = 0.5;
 	import { formatSats, totalBalances, walletManager, walletStore } from '$lib/stores/wallet.store';
 	import type { ContractCreationEvent } from '$lib/types/contract';
 	import { queryTaskeeServiceQuoteThreads } from '$lib/utils/service-quote/query';
@@ -996,14 +1001,16 @@
 				let message: string;
 				let hint: string | null;
 
-				if (isInsufficient && preflight.totalRequired) {
-					const requiredSats = Math.round(Number.parseFloat(preflight.totalRequired) * 100_000_000);
-					const requiredUsd = Number.parseFloat(preflight.totalRequired) * btcPriceValue;
+				if (isInsufficient && draft.amountUsd) {
+					const baseAmount = draft.amountUsd;
+					const platformFee = baseAmount * PLATFORM_FEE_RATE;
+					const totalPaymentUsd = baseAmount + platformFee + ESTIMATED_NETWORK_FEE_USD;
+					const totalPaymentSats = Math.round((totalPaymentUsd * 100_000_000) / btcPriceValue);
 
 					message = $t('dashboard.services.detail.book_now_drawer.insufficient_funds_message', {
 						values: {
-							sats: formatSats(requiredSats),
-							usd: `$${requiredUsd.toFixed(2)}`
+							sats: formatSats(totalPaymentSats),
+							usd: `$${totalPaymentUsd.toFixed(2)}`
 						}
 					});
 					hint = null;
@@ -1369,13 +1376,16 @@
 		}
 	}
 
-	async function handleAddFunds() {
-		if (!instantBuyFundingCheck || instantBuyFundingCheck.totalRequiredUsd == null) {
+	async function handleAddFunds(amountUsd: number) {
+		if (!amountUsd || amountUsd <= 0) {
 			return;
 		}
 
 		receiveInitialState = {
-			amountUsd: instantBuyFundingCheck.totalRequiredUsd.toFixed(2),
+			amount: amountUsd.toFixed(2),
+			unit: 'usd',
+			mathExpression: '',
+			chargeFeesToPayer: true,
 			memo: detailText(
 				'dashboard.services.detail.book_now.add_funds_memo',
 				'Funding for service: {title}',
