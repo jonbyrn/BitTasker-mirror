@@ -10,7 +10,6 @@
 
 	let { errors, direction } = $props();
 
-	// Initialize location types if not set (run once on mount)
 	onMount(() => {
 		if (!$store.service.serviceLocationTypes || $store.service.serviceLocationTypes.length === 0) {
 			store.updateService({
@@ -19,20 +18,15 @@
 		}
 	});
 
-	// Select location type (radio button behavior - only one at a time)
 	function toggleLocationType(type: ServiceLocationTypeEnum) {
-		// Always set to single selection (radio button behavior)
 		const currentType = ($store.service.serviceLocationTypes || [])[0];
 
-		// If clicking the same type, don't do anything (radio buttons don't deselect)
 		if (currentType === type) {
 			return;
 		}
 
-		// Set to single selection
 		store.updateService({ serviceLocationTypes: [type] });
 
-		// Clean up location details for unselected types
 		if (type !== ServiceLocationTypeEnum.TASKER_LOCATION) {
 			store.updateService({
 				locationDetails: {
@@ -50,7 +44,6 @@
 			});
 		}
 
-		// Initialize location details for selected type
 		if (type === ServiceLocationTypeEnum.TASKER_LOCATION) {
 			const defaultLocation: Location = {
 				displayName: '',
@@ -64,8 +57,7 @@
 					...$store.service.locationDetails,
 					taskerLocation: {
 						serviceLocation: defaultLocation,
-						serviceRadius: undefined,
-						perDistanceCharge: undefined
+						serviceRadius: undefined
 					}
 				}
 			});
@@ -77,15 +69,13 @@
 						useGlobalLocation: false,
 						serviceLocation: undefined,
 						locationDisplayName: undefined,
-						serviceRadius: 5,
-						perDistanceCharge: undefined
+						serviceRadius: 5
 					}
 				}
 			});
 		}
 	}
 
-	// Get default location object
 	function getDefaultLocation(): Location {
 		return {
 			displayName: '',
@@ -138,7 +128,6 @@
 		</div>
 
 		<div class="space-y-3">
-			<!-- Remote Option -->
 			<label
 				class="flex cursor-pointer items-center gap-3 rounded-lg border p-4 transition-colors {($store
 					.service.serviceLocationTypes || [])[0] === ServiceLocationTypeEnum.REMOTE
@@ -161,7 +150,6 @@
 				</div>
 			</label>
 
-			<!-- Tasker Location Option -->
 			<label
 				class="flex cursor-pointer items-center gap-3 rounded-lg border p-4 transition-colors {($store
 					.service.serviceLocationTypes || [])[0] === ServiceLocationTypeEnum.TASKER_LOCATION
@@ -184,7 +172,6 @@
 				</div>
 			</label>
 
-			<!-- Taskee Location Option -->
 			<label
 				class="flex cursor-pointer items-center gap-3 rounded-lg border p-4 transition-colors {($store
 					.service.serviceLocationTypes || [])[0] === ServiceLocationTypeEnum.TASKEE_LOCATION
@@ -213,14 +200,12 @@
 		{/if}
 	</div>
 
-	<!-- Tasker Location Configuration (My Location) -->
 	{#if ($store.service.serviceLocationTypes || []).includes(ServiceLocationTypeEnum.TASKER_LOCATION)}
 		<div class="card bg-base-200 min-w-0 space-y-4 overflow-hidden p-4">
 			<h4 class="text-lg font-semibold break-words">
 				{$t('dashboard.services.create.location.my_location_title')}
 			</h4>
 
-			<!-- Service Location -->
 			<div class="w-full min-w-0">
 				<EnhancedLocationPicker
 					label={$t('dashboard.services.create.location.service_location_picker_label')}
@@ -252,7 +237,6 @@
 		</div>
 	{/if}
 
-	<!-- Taskee Location Configuration (Service Radius) -->
 	{#if ($store.service.serviceLocationTypes || []).includes(ServiceLocationTypeEnum.TASKEE_LOCATION)}
 		<div class="card bg-base-200 min-w-0 space-y-4 overflow-hidden p-4">
 			<h4 class="text-lg font-semibold break-words">
@@ -322,110 +306,6 @@
 					>
 					<span>100 km ({kmToMiles(100)} mi)</span>
 				</div>
-			</div>
-
-			<div class="w-full min-w-0">
-				<label class="label cursor-pointer" id="perDistanceCharge-label">
-					<span class="label-text break-words"
-						>{$t('dashboard.services.create.location.per_distance_charge_label')}</span
-					>
-					<input
-						type="checkbox"
-						class="checkbox checkbox-primary"
-						checked={!!$store.service.locationDetails?.taskeeLocation?.perDistanceCharge}
-						onchange={(e) => {
-							const enabled = (e.target as HTMLInputElement).checked;
-							const currentTaskeeLocation = $store.service.locationDetails?.taskeeLocation;
-							store.updateService({
-								locationDetails: {
-									...$store.service.locationDetails,
-									taskeeLocation: {
-										...currentTaskeeLocation,
-										perDistanceCharge: enabled
-											? {
-													amount: 0,
-													currency: $store.service.pricing?.currency || 'USD',
-													unit: 'km'
-												}
-											: undefined
-									}
-								}
-							});
-						}}
-					/>
-				</label>
-				{#if $store.service.locationDetails?.taskeeLocation?.perDistanceCharge}
-					<div class="mt-2 grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(8rem,10rem)] gap-3">
-						<div class="min-w-0">
-							<label for="perDistanceAmount" class="label" id="perDistanceAmount-label">
-								<span class="label-text break-words"
-									>{$t('dashboard.services.create.location.per_distance_amount_label')}</span
-								>
-							</label>
-							<input
-								type="number"
-								id="perDistanceAmount"
-								min="0"
-								step="0.01"
-								value={$store.service.locationDetails?.taskeeLocation?.perDistanceCharge?.amount ||
-									0}
-								onchange={(e) => {
-									const amount = Number((e.target as HTMLInputElement).value);
-									const currentTaskeeLocation = $store.service.locationDetails?.taskeeLocation;
-									if (currentTaskeeLocation?.perDistanceCharge) {
-										store.updateService({
-											locationDetails: {
-												...$store.service.locationDetails,
-												taskeeLocation: {
-													...currentTaskeeLocation,
-													perDistanceCharge: {
-														...currentTaskeeLocation.perDistanceCharge,
-														amount
-													}
-												}
-											}
-										});
-									}
-								}}
-								class="input input-bordered w-full"
-							/>
-						</div>
-						<div class="min-w-0">
-							<label for="perDistanceUnit" class="label" id="perDistanceUnit-label">
-								<span class="label-text break-words"
-									>{$t('dashboard.services.create.location.per_distance_unit_label')}</span
-								>
-							</label>
-							<select
-								id="perDistanceUnit"
-								class="select select-bordered w-full"
-								value={$store.service.locationDetails?.taskeeLocation?.perDistanceCharge?.unit ||
-									'km'}
-								onchange={(e) => {
-									const unit = (e.target as HTMLSelectElement).value as 'km' | 'mile';
-									const currentTaskeeLocation = $store.service.locationDetails?.taskeeLocation;
-									if (currentTaskeeLocation?.perDistanceCharge) {
-										store.updateService({
-											locationDetails: {
-												...$store.service.locationDetails,
-												taskeeLocation: {
-													...currentTaskeeLocation,
-													perDistanceCharge: {
-														...currentTaskeeLocation.perDistanceCharge,
-														unit
-													}
-												}
-											}
-										});
-									}
-								}}
-							>
-								<option value="km">{$t('dashboard.services.create.location.unit_km')}</option>
-								<option value="mile">{$t('dashboard.services.create.location.unit_mile')}</option>
-							</select>
-						</div>
-					</div>
-				{/if}
 			</div>
 		</div>
 	{/if}

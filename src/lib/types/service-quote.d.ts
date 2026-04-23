@@ -297,8 +297,7 @@ export interface ServiceInstantBuyEligibility {
 		| 'invalid_lead_hours'
 		| 'missing_delivery_time'
 		| 'unsupported_add_ons'
-		| 'unsupported_rush'
-		| 'unsupported_distance_fee';
+		| 'unsupported_rush';
 }
 
 export interface ServiceQuoteContextSummary {

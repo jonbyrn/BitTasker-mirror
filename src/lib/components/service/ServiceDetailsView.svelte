@@ -383,8 +383,6 @@
 				return $t('dashboard.services.detail.instant_buy.missing_delivery_time');
 			case 'unsupported_rush_delivery':
 				return $t('dashboard.services.detail.instant_buy.unsupported_rush_delivery');
-			case 'unsupported_distance_fee':
-				return $t('dashboard.services.detail.instant_buy.unsupported_distance_fee');
 			case 'inactive_service':
 				return $t('dashboard.services.detail.inactive_service');
 			default:
@@ -457,7 +455,7 @@
 			return;
 		}
 
-		const taskerLocation = service.locationDetails?.taskerLocation;
+		const _taskerLocation = service.locationDetails?.taskerLocation;
 		const debugSnapshot = {
 			serviceId: service.uniqueId || service.id,
 			status: service.status,
@@ -483,7 +481,6 @@
 				service.pricing?.type === ServicePricingTypeEnum.TIERED
 					? (selectedTier?.rushDelivery?.enabled ?? null)
 					: (service.pricing?.rushDelivery?.enabled ?? null),
-			perDistanceChargeAmount: taskerLocation?.perDistanceCharge?.amount ?? null,
 			providerWalletAddress: instantBuyService?.providerWalletAddress ?? null
 		};
 		const nextSignature = JSON.stringify(debugSnapshot);
