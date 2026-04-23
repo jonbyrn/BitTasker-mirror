@@ -273,7 +273,7 @@ async function initialize(): Promise<void> {
  *
  * @returns The RSK wallet address
  */
-export async function getRSKAddress(): Promise<string> {
+export async function getRSKAddress() {
 	const state = get(walletStore);
 
 	// If address already exists, return it

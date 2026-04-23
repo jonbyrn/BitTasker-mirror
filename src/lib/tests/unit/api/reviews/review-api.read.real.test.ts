@@ -258,14 +258,11 @@ describe('review api read-side real verification', () => {
 			})
 		);
 
-		if (!('localStorage' in globalThis) || !globalThis.localStorage) {
-			Object.defineProperty(globalThis, 'localStorage', {
-				value: createMemoryStorage(),
-				configurable: true
-			});
-		} else {
-			globalThis.localStorage.clear();
-		}
+		Object.defineProperty(globalThis, 'localStorage', {
+			value: createMemoryStorage(),
+			configurable: true,
+			writable: true
+		});
 		(globalThis as { __reviewsIssuerRegistryCache?: unknown }).__reviewsIssuerRegistryCache = null;
 	});
 

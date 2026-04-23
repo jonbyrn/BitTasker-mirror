@@ -125,7 +125,7 @@ class PerformanceTestHelper {
 export const performanceTestHelper = new PerformanceTestHelper();
 
 // Make available in browser console for development
-if (browser) {
+if (browser && typeof window !== 'undefined') {
 	(window as any).BitTaskerPerformance = performanceTestHelper;
 	
 	// Show availability message in development

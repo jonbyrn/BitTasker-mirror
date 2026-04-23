@@ -675,38 +675,49 @@ describe('review api read-side verification', () => {
 	}, 15000);
 
 	it('flushes any locally queued review publish before loading reviews', async () => {
-		const queuedReviewEvent = buildSignedEvent({
-			id: '9'.repeat(64),
-			kind: REVIEW_NOSTR_KINDS.REVIEW,
-			pubkey: 'a'.repeat(64),
-			created_at: 1_700_000_000,
-			tags: [['p', 'b'.repeat(64)]],
-			content: JSON.stringify(
-				buildReviewFixture({
-					reviewDraftHash: 'c'.repeat(64),
-					revieweePubkey: 'b'.repeat(64)
-				})
-			)
-		});
+		const reviewerPubkey = 'a'.repeat(64);
+		const revieweePubkey = 'b'.repeat(64);
 
-		window.localStorage.setItem(
-			'reviews.publish-outbox.v1',
-			JSON.stringify([
-				{
-					reviewEvent: queuedReviewEvent,
-					attestationEventId: 'd'.repeat(64),
-					reviewDraftHash: 'c'.repeat(64),
-					savedAt: Date.now()
-				}
-			])
+		// Mock getNpub to return the reviewer's pubkey
+		hoisted.getNpub.mockResolvedValue(reviewerPubkey);
+
+		const reviewEventId = '9'.repeat(64);
+		const reviewDraftHash = 'c'.repeat(64);
+		const eventCreatedAt = 1_700_000_000;
+		const eventTags = [['p', revieweePubkey]];
+		const eventContent = JSON.stringify(
+			buildReviewFixture({
+				reviewDraftHash,
+				revieweePubkey
+			})
 		);
+		const eventSig = 'f'.repeat(128);
+
+		// The expected reconstructed event that will be published
+		const expectedReviewEvent = {
+			id: reviewEventId,
+			pubkey: reviewerPubkey,
+			created_at: eventCreatedAt,
+			kind: REVIEW_NOSTR_KINDS.REVIEW,
+			tags: eventTags,
+			content: eventContent,
+			sig: eventSig
+		};
+
+		// Set up the globalThis outbox with the correct structure
+		// (must match PendingReviewPublishRecordBase + ReadyReviewPublishRecord)
 		(globalThis as { __reviewsPublishOutbox?: unknown[] }).__reviewsPublishOutbox = [
 			{
 				stage: 'ready_to_publish',
-				reviewEvent: queuedReviewEvent,
-				attestationEventId: 'd'.repeat(64),
-				reviewDraftHash: 'c'.repeat(64),
-				savedAt: 1_700_000_000_000
+				reviewEventId,
+				reviewDraftHash,
+				reviewerPubkey,
+				savedAt: Date.now() - 1000, // Recent enough to be fresh
+				eventContent,
+				eventTags,
+				eventCreatedAt,
+				eventSig,
+				attestationEventId: 'd'.repeat(64)
 			}
 		];
 		hoisted.publishToMultipleRelays.mockResolvedValue([
@@ -727,9 +738,9 @@ describe('review api read-side verification', () => {
 		);
 
 		const { loadPublishedReviewsForUser } = await import('$lib/api/reviews/review-api');
-		await loadPublishedReviewsForUser('b'.repeat(64));
+		await loadPublishedReviewsForUser(revieweePubkey);
 
-		expect(hoisted.publishToMultipleRelays).toHaveBeenCalledWith(queuedReviewEvent);
+		expect(hoisted.publishToMultipleRelays).toHaveBeenCalledWith(expectedReviewEvent);
 		expect((globalThis as { __reviewsPublishOutbox?: unknown[] }).__reviewsPublishOutbox).toEqual(
 			[]
 		);
@@ -747,6 +758,8 @@ describe('review api read-side verification', () => {
 			npub: reviewerPubkey
 		});
 		hoisted.getWallet.mockReturnValue(reviewerWallet);
+		// Mock getNpub to return the reviewer's pubkey for getCurrentReviewerPubkey()
+		hoisted.getNpub.mockResolvedValue(reviewerPubkey);
 
 		const reviewPayload = buildReviewFixture({
 			reviewDraftHash: '0'.repeat(64),
@@ -754,49 +767,44 @@ describe('review api read-side verification', () => {
 			createdAt: 1_700_000_000
 		});
 		const reviewDraftHash = await computeReviewDraftHashFromPayload(reviewPayload);
-		const queuedReviewEvent = buildSignedEvent({
-			id: '9'.repeat(64),
-			kind: REVIEW_NOSTR_KINDS.REVIEW,
-			pubkey: reviewerPubkey,
-			created_at: reviewPayload.createdAt,
-			tags: [
-				['p', revieweePubkey],
-				['d', reviewDraftHash]
-			],
-			content: JSON.stringify({
-				...reviewPayload,
-				reviewDraftHash
-			})
-		});
 
-		window.localStorage.setItem(
-			'reviews.publish-outbox.v1',
-			JSON.stringify([
-				{
-					stage: 'awaiting_attestation',
-					reviewEvent: queuedReviewEvent,
-					reviewDraftHash,
-					savedAt: Date.now(),
-					context: {
-						subjectId: 'task-123',
-						settlementId: 'escrow-123',
-						chain: 'rsk',
-						asset: 'rbtc',
-						contractAddress: '0x0000000000000000000000000000000000000123',
-						reviewerWallet: reviewerWallet.address,
-						revieweeWallet: '0x0000000000000000000000000000000000000def',
-						reviewerNpub: reviewerPubkey,
-						revieweeNpub: revieweePubkey
-					}
-				}
-			])
-		);
+		// Build the event fields individually for proper outbox structure
+		const reviewEventId = '9'.repeat(64);
+		const eventCreatedAt = reviewPayload.createdAt;
+		const eventTags = [
+			['p', revieweePubkey],
+			['d', reviewDraftHash]
+		];
+		const eventContent = JSON.stringify({
+			...reviewPayload,
+			reviewDraftHash
+		});
+		const eventSig = 'f'.repeat(128);
+
+		// The expected reconstructed event that will be published
+		const expectedReviewEvent = {
+			id: reviewEventId,
+			pubkey: reviewerPubkey,
+			created_at: eventCreatedAt,
+			kind: REVIEW_NOSTR_KINDS.REVIEW,
+			tags: eventTags,
+			content: eventContent,
+			sig: eventSig
+		};
+
+		// Set up the globalThis outbox with the correct structure
+		// (must match PendingReviewPublishRecordBase + PendingReviewAttestationRecord)
 		(globalThis as { __reviewsPublishOutbox?: unknown[] }).__reviewsPublishOutbox = [
 			{
 				stage: 'awaiting_attestation',
-				reviewEvent: queuedReviewEvent,
+				reviewEventId,
 				reviewDraftHash,
-				savedAt: 1_700_000_000_000,
+				reviewerPubkey,
+				savedAt: Date.now() - 1000, // Recent enough to be fresh
+				eventContent,
+				eventTags,
+				eventCreatedAt,
+				eventSig,
 				context: {
 					subjectId: 'task-123',
 					settlementId: 'escrow-123',
@@ -871,8 +879,7 @@ describe('review api read-side verification', () => {
 		await loadPublishedReviewsForUser(revieweePubkey);
 
 		expect(reviewerWallet.signMessage).toHaveBeenCalled();
-		expect(hoisted.publishToMultipleRelays).toHaveBeenCalledWith(queuedReviewEvent);
-		expect(window.localStorage.getItem('reviews.publish-outbox.v1')).toBeNull();
+		expect(hoisted.publishToMultipleRelays).toHaveBeenCalledWith(expectedReviewEvent);
 		expect((globalThis as { __reviewsPublishOutbox?: unknown[] }).__reviewsPublishOutbox).toEqual(
 			[]
 		);

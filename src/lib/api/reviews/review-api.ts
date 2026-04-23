@@ -22,7 +22,7 @@ import {
 	reviewReplyCandidateSchema,
 	reviewReplyEventPayloadSchema,
 	selectCanonicalReviewReply,
-	computeReviewDraftHashFromPayload as verifyReviewDraftHash,
+	verifyReviewDraftHash,
 	type AttestationChallengeRequest,
 	type AttestationRequest,
 	type AttestationResponse,
@@ -538,16 +538,14 @@ function parseReviewPayloadFromSignedEvent(event: NostrEvent): ReviewEventPayloa
 	return reviewEventPayloadSchema.parse(JSON.parse(event.content));
 }
 
-const reviewChallengeResponseEnvelopeSchema = z
-	.object({
-		schemaVersion: z.number().int(),
-		challengeId: z.string().min(1).optional(),
-		challengeToken: z.string().min(1),
-		challengeMessage: z.string().min(1),
-		issuedAt: z.number().int().nonnegative(),
-		expiresAt: z.number().int().nonnegative()
-	})
-	.passthrough();
+const reviewChallengeResponseEnvelopeSchema = z.object({
+	schemaVersion: z.number().int(),
+	challengeId: z.string().min(1).optional(),
+	challengeToken: z.string().min(1),
+	challengeMessage: z.string().min(1),
+	issuedAt: z.number().int().nonnegative(),
+	expiresAt: z.number().int().nonnegative()
+});
 
 type ReviewChallengeResponseEnvelope = z.infer<typeof reviewChallengeResponseEnvelopeSchema>;
 
@@ -776,7 +774,7 @@ async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
 				retryAfterSeconds?: number;
 			} | null = null;
 			try {
-				const parsed = reviewErrorResponseSchema.passthrough().safeParse(JSON.parse(body));
+				const parsed = reviewErrorResponseSchema.safeParse(JSON.parse(body));
 				if (parsed.success) {
 					parsedError = parsed.data;
 				}
@@ -922,9 +920,9 @@ export async function getCurrentReviewerNpub(): Promise<string> {
 
 export async function loadIssuerRegistry() {
 	try {
-		const registry = issuerRegistryResponseSchema
-			.passthrough()
-			.parse(await fetchJson('/review-attestation-issuers'));
+		const registry = issuerRegistryResponseSchema.parse(
+			await fetchJson('/review-attestation-issuers')
+		);
 		writeCachedIssuerRegistry(registry);
 		return registry;
 	} catch (error) {
@@ -1280,7 +1278,7 @@ export async function requestReviewAttestation(
 		})
 	});
 
-	return attestationResponseSchema.passthrough().parse(response);
+	return attestationResponseSchema.parse(response);
 }
 
 export type SubmitAttestedReviewInput = {

@@ -78,6 +78,7 @@ vi.mock('svelte-i18n', async () => {
 	return {
 		t: readable((key: string, options?: { values?: Record<string, string | number> }) => {
 			const table: Record<string, string> = {
+				'reviews.page.title': 'Reviews',
 				'reviews.management.title': 'Reviews',
 				'reviews.page.subtitle': 'Manage reviews and replies',
 				'reviews.page.browser_title': 'Reviews',

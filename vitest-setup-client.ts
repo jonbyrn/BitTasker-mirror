@@ -97,32 +97,23 @@ vi.mock('@capacitor/core', () => ({
 	}
 }));
 
-// Mock @reviews-contracts for tests
-vi.mock('@reviews-contracts', () => ({
-	REVIEWS_SCHEMA_VERSION: 1,
-	REVIEW_NOSTR_KINDS: {
-		REVIEW: 1985,
-		ATTESTATION: 1986,
-		REPLY: 1987
-	},
-	REVIEW_TAG_NAMES: {
-		REVIEWEE: 'p',
-		REVIEW_DRAFT_HASH: 'h',
-		PARENT_REVIEW: 'e'
-	},
-	attestationEventPayloadSchema: { parse: vi.fn((x) => x) },
-	attestationRequestSchema: { parse: vi.fn((x) => x) },
-	attestationResponseSchema: { parse: vi.fn((x) => x) },
-	issuerRegistryResponseSchema: { parse: vi.fn((x) => x) },
-	reviewErrorResponseSchema: { parse: vi.fn((x) => x) },
-	reviewEventPayloadSchema: { parse: vi.fn((x) => x) },
-	reviewReplyCandidateSchema: { parse: vi.fn((x) => x) },
-	reviewReplyEventPayloadSchema: { parse: vi.fn((x) => x) },
-	isReplyAuthorAllowed: vi.fn(() => true),
-	selectCanonicalReviewReply: vi.fn((replies) => replies[0]),
-	computeReviewDraftHashFromPayload: vi.fn(() => 'mock-hash'),
-	computeReviewDraftHash: vi.fn(() => 'mock-hash')
-}));
+// Mock @reviews-contracts for tests - use actual implementations
+// Tests rely on real fixture builders, schemas, and hash functions
+vi.mock('@reviews-contracts', async () => {
+	const actual = await vi.importActual<typeof import('@reviews-contracts')>('@reviews-contracts');
+	return {
+		...actual
+	};
+});
+
+// Mock ResizeObserver (not available in jsdom)
+if (typeof globalThis !== 'undefined' && !globalThis.ResizeObserver) {
+	globalThis.ResizeObserver = class ResizeObserver {
+		observe() {}
+		unobserve() {}
+		disconnect() {}
+	} as unknown as typeof ResizeObserver;
+}
 
 // Mock Web Animations API (not available in jsdom)
 if (typeof window !== 'undefined' && !window.Element.prototype.animate) {

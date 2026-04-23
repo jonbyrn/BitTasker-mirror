@@ -104,11 +104,13 @@ describe('queryNostrEvents', () => {
 			limit: 25
 		});
 
+		// Events that fail decryption are dropped from results
 		expect(result).toEqual([]);
-		expect(errorSpy).not.toHaveBeenCalledWith(
-			expect.stringContaining('Failed to decrypt event:'),
-			expect.anything(),
-			expect.anything()
+		// Error is logged for debugging but doesn't propagate as an exception
+		expect(errorSpy).toHaveBeenCalledWith(
+			'Failed to decrypt event:',
+			'request-event-id',
+			expect.any(Error)
 		);
 		errorSpy.mockRestore();
 	});
@@ -166,11 +168,13 @@ describe('queryNostrEvents', () => {
 				id: 'parent-event-id'
 			})
 		]);
+		// Followup events that fail decryption are not attached
 		expect((result[0] as Record<string, unknown>).statusEvents).toBeUndefined();
-		expect(errorSpy).not.toHaveBeenCalledWith(
-			expect.stringContaining('Failed to decrypt followup event:'),
-			expect.anything(),
-			expect.anything()
+		// Error is logged for debugging but doesn't propagate as an exception
+		expect(errorSpy).toHaveBeenCalledWith(
+			'Failed to decrypt followup event:',
+			'status-event-id',
+			expect.any(Error)
 		);
 		errorSpy.mockRestore();
 	});

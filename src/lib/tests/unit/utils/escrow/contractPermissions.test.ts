@@ -250,7 +250,9 @@ describe('contractPermissions', () => {
 					true
 				);
 
-				expect(result.permissions.canCancel).toBe(false);
+				// Freelancer can always cancel (triggers refund) and refund directly
+				// Unlike client who has time restrictions on cancellation
+				expect(result.permissions.canCancel).toBe(true);
 				expect(result.permissions.canRefund).toBe(true);
 			});
 

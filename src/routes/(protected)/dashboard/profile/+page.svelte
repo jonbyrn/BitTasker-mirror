@@ -39,7 +39,7 @@
 
 	const pendingReviews = $derived.by(() =>
 		currentUserPubkey
-			? buildPendingReviewRecords($contractStore.contracts, currentUserPubkey, dismissedPendingSlotKeys)
+			? buildPendingReviewRecords($contractStore.contracts, currentUserPubkey, [], dismissedPendingSlotKeys)
 			: []
 	);
 	const reviewStats = $derived.by(() => buildReviewStatsSummary(receivedReviews));

@@ -401,17 +401,17 @@ describe('ServiceDetailsView delete workflow', () => {
 	}, 10_000);
 
 	it('confirms owner deletion and returns to my services when no blockers remain', async () => {
-		const { getByRole, findByText } = await renderView(createService());
+		const { getAllByRole, findByText } = await renderView(createService());
 
-		await fireEvent.click(
-			getByRole('button', { name: 'dashboard.services.detail.delete_service' })
-		);
-		expect(
-			await findByText('dashboard.services.detail.delete_service_modal.confirm_title')
-		).toBeTruthy();
-		await fireEvent.click(
-			getByRole('button', { name: 'dashboard.services.detail.delete_service_modal.confirm' })
-		);
+		// Note: detailText uses 'Delete' as fallback when translation key is returned as-is
+		// There may be multiple Delete buttons (mobile/desktop views), click the first one
+		const deleteButtons = getAllByRole('button', { name: 'Delete' });
+		await fireEvent.click(deleteButtons[0]);
+		// detailText fallback for modal title is 'Delete service'
+		expect(await findByText('Delete service')).toBeTruthy();
+		// detailText fallback for confirm button is 'Confirm Delete'
+		const confirmButtons = getAllByRole('button', { name: 'Confirm Delete' });
+		await fireEvent.click(confirmButtons[0]);
 
 		await waitFor(() => expect(hoisted.mockDeleteService).toHaveBeenCalledTimes(1));
 		expect(hoisted.mockDeleteService).toHaveBeenCalledWith(

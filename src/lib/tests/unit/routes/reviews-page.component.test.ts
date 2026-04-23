@@ -95,6 +95,7 @@ vi.mock('svelte-i18n', async () => {
 	const { readable } = await import('svelte/store');
 	return {
 		t: readable((key: string, options?: { values?: Record<string, string | number> }) => {
+			if (key === 'reviews.page.title') return 'Reviews';
 			if (key === 'reviews.management.title') return 'Reviews';
 			if (key === 'reviews.page.subtitle')
 				return 'Manage pending reviews, published feedback, and public replies from one place.';
@@ -522,7 +523,7 @@ describe('reviews page integration', () => {
 		);
 	});
 
-	it('renders the localized reviews shell heading without the subtitle copy', async () => {
+	it('renders the localized reviews shell heading and subtitle', async () => {
 		resetEnvironment('https://example.test/reviews?tab=received');
 
 		const { default: ReviewsPage } = await import(
@@ -534,11 +535,12 @@ describe('reviews page integration', () => {
 		await waitFor(() => {
 			expect(screen.getByRole('heading', { name: 'Reviews' })).toBeTruthy();
 		});
+		// The subtitle is displayed below the heading
 		expect(
-			screen.queryByText(
+			screen.getByText(
 				'Manage pending reviews, published feedback, and public replies from one place.'
 			)
-		).toBeNull();
+		).toBeTruthy();
 	});
 
 	it('surfaces bootstrap failures instead of leaving the page in a loading state', async () => {

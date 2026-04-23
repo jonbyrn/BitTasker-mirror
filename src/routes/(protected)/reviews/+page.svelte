@@ -440,11 +440,16 @@
 
 	onMount(() => {
 		syncDismissedPendingSlotKeys();
-		getCurrentReviewerPubkey().then((pk) => {
-			currentUserPubkey = pk;
-			loadReviewData();
-			ensureContractsLoaded();
-		});
+		getCurrentReviewerPubkey()
+			.then((pk) => {
+				currentUserPubkey = pk;
+				loadReviewData();
+				ensureContractsLoaded();
+			})
+			.catch((err) => {
+				error = err instanceof Error ? err.message : $t('reviews.list.load_error');
+				isLoading = false;
+			});
 	});
 
 	const composerCategoryGroups = $derived(
@@ -473,8 +478,19 @@
 			<ReviewManagementTabs {activeTab} {pendingReviews} onTabChange={handleTabChange} />
 
 			<div class="mt-6">
+				{#if error && !isLoading}
+					<div class="alert alert-outline alert-error mb-6">
+						<span>{error}</span>
+					</div>
+				{/if}
+
 				{#if activeTab === 'pending'}
-					<PendingReviewsList {pendingReviews} onReviewClick={openPendingReview} />
+					<PendingReviewsList
+						{pendingReviews}
+						showCreateTaskCta={true}
+						{createTaskHref}
+						onReviewClick={openPendingReview}
+					/>
 				{:else if activeTab === 'given'}
 					<ReviewList
 						reviews={givenReviews}
@@ -506,9 +522,14 @@
 {#if selectedPendingReview && selectedPendingTarget}
 	<ReviewPromptModal
 		isOpen={true}
-		{isLoading}
 		{currentUserPubkey}
-		target={selectedPendingTarget}
+		revieweePubkey={selectedPendingTarget.revieweePubkey}
+		revieweeLabel={selectedPendingTarget.revieweeLabel}
+		subjectLabel={selectedPendingTarget.subjectLabel}
+		subjectType={selectedPendingTarget.subjectType}
+		settlementType={selectedPendingTarget.settlementType}
+		contractOutcome={selectedPendingTarget.contractOutcome}
+		revieweeRole={selectedPendingTarget.revieweeRole}
 		categoryGroups={composerCategoryGroups}
 		onClose={closePendingReview}
 		onSubmit={handleReviewSubmit}
@@ -532,6 +553,8 @@
 			</div>
 
 			<ReviewReplyComposer
+				parentReviewId={selectedReplyReview.id}
+				revieweePubkey={selectedReplyReview.revieweePubkey}
 				parentReview={selectedReplyReview}
 				isSubmitting={isSubmittingReply}
 				onCancel={closeReplyComposer}

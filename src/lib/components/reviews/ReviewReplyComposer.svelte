@@ -239,10 +239,10 @@
 						<p class="text-base-content/50 text-xs tracking-[0.18em] uppercase">
 							{$t('reviews.reply.composer_title')}
 						</p>
-						<h3 class="text-base font-semibold">
-							{revieweeLabel?.trim() ||
-								revieweePubkey.slice(0, 12) + '...' + revieweePubkey.slice(-6)}
-						</h3>
+					<h3 class="text-base font-semibold">
+						{revieweeLabel?.trim() ||
+							(revieweePubkey ? revieweePubkey.slice(0, 12) + '...' + revieweePubkey.slice(-6) : '')}
+					</h3>
 					</div>
 					{#if onCancel}
 						<button

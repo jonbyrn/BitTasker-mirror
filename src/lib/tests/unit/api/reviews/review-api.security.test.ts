@@ -117,6 +117,7 @@ vi.mock('@reviews-contracts', async () => {
 		selectCanonicalReviewReply: (x: unknown[]) => (x as unknown[])[0],
 		computeReviewDraftHashFromPayload: (...args: unknown[]) =>
 			hoisted.verifyReviewDraftHash(...args),
+		verifyReviewDraftHash: (...args: unknown[]) => hoisted.verifyReviewDraftHash(...args),
 		buildReviewAttestationChallengeMessage: () => 'mock-challenge-message',
 		buildReviewFixture: (x: { reviewDraftHash?: string; revieweePubkey?: string }) => ({
 			createdAt: 123456789,
