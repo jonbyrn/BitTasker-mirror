@@ -1143,7 +1143,11 @@
 		instantBuyPostSubmitErrorMessage = '';
 
 		try {
-			const submissionLock = acquireBookNowSubmissionLock(ensureBookNowSubmissionOwnerId());
+			const submissionLock = acquireBookNowSubmissionLock(
+				getBookNowOutboxStorage(),
+				buildBookNowFingerprint(instantBuyDraft),
+				ensureBookNowSubmissionOwnerId()
+			);
 			if (!submissionLock.acquired) {
 				throw new Error(
 					detailText(

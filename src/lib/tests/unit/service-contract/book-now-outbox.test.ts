@@ -28,6 +28,12 @@ function createStorage(): StorageLike {
 }
 
 describe('book now outbox', () => {
+	it('throws when called with only lockOwnerId (missing storage and fingerprint) - reproduces ServiceDetailsView bug', () => {
+		expect(() =>
+			acquireBookNowSubmissionLock(undefined, undefined as unknown as string, 'session-a')
+		).toThrow('Book Now outbox requires a fingerprint.');
+	});
+
 	it('creates and persists normalized submission locks', () => {
 		const storage = createStorage();
 
