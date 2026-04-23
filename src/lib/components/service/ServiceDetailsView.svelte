@@ -998,13 +998,12 @@
 
 				if (isInsufficient && preflight.totalRequired) {
 					const requiredSats = Math.round(Number.parseFloat(preflight.totalRequired) * 100_000_000);
-					const shortfallSats = Math.max(0, requiredSats - $totalBalances.sats);
-					const shortfallUsd = (shortfallSats / 100_000_000) * btcPriceValue;
+					const requiredUsd = Number.parseFloat(preflight.totalRequired) * btcPriceValue;
 
 					message = $t('dashboard.services.detail.book_now_drawer.insufficient_funds_message', {
 						values: {
-							sats: formatSats(shortfallSats),
-							usd: `$${shortfallUsd.toFixed(2)}`
+							sats: formatSats(requiredSats),
+							usd: `$${requiredUsd.toFixed(2)}`
 						}
 					});
 					hint = null;
