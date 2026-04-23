@@ -38,7 +38,7 @@ const createAppStore = () => {
 
 	const lazyPool = new Proxy({} as SimplePool, {
 		get(_target, property, receiver) {
-			const activePool = ensurePool() as Record<PropertyKey, unknown>;
+			const activePool = ensurePool() as unknown as Record<PropertyKey, unknown>;
 			const value = Reflect.get(activePool, property, receiver);
 			return typeof value === 'function' ? value.bind(activePool) : value;
 		}

@@ -96,6 +96,12 @@ export async function publishContractEvent(params: CreateContractParams): Promis
 		contractAddress
 	};
 
+	if (!params.escrowId || !params.taskId || !params.freelancerPubkey) {
+		throw new Error(
+			'Missing required escrow parameters: escrowId, taskId, and freelancerPubkey are required'
+		);
+	}
+
 	// Send as encrypted contract event
 	const contractMessage = JSON.stringify(contractData);
 	const tags = TAG_PATTERNS.contract(

@@ -30,7 +30,7 @@
 	let width = $state(375);
 
 	const seo = $derived(
-		data.seo ?? {
+		data?.seo ?? {
 			title: $t('dashboard.services.detail.seo.page_title'),
 			description: $t('dashboard.services.detail.seo.page_description'),
 			keywords: '',

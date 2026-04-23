@@ -17,9 +17,7 @@ describe('browserNetworkStatus', () => {
 		vi.doUnmock('$app/environment');
 	});
 
-	it(
-		'tracks offline and reconnect transitions in the browser',
-		async () => {
+	it('tracks offline and reconnect transitions in the browser', async () => {
 		vi.doMock('$app/environment', () => ({
 			browser: true
 		}));
@@ -37,26 +35,24 @@ describe('browserNetworkStatus', () => {
 
 		unsubscribe();
 
-			expect(observed).toEqual([
-				{
-					online: true,
-					lastTransition: 'initial'
-				},
-				{
-					online: false,
-					lastTransition: 'offline'
-				},
-				{
-					online: true,
-					lastTransition: 'online'
-				}
-			]);
-		},
-		20_000
-	);
+		expect(observed).toEqual([
+			{
+				online: true,
+				lastTransition: 'initial'
+			},
+			{
+				online: false,
+				lastTransition: 'offline'
+			},
+			{
+				online: true,
+				lastTransition: 'online'
+			}
+		]);
+	}, 20_000);
 
 	it('fails open outside the browser runtime', async () => {
-		vi.doMock('$app/environment', () => ({
+		vi.mock('$app/environment', () => ({
 			browser: false
 		}));
 

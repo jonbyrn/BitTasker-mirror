@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import KINDS from '$lib/utils/constants/kinds';
+import type {
+	ServiceQuoteRequestEvent,
+	ServiceProposalEvent,
+	ServiceProposalStatusEvent
+} from '$lib/types/service-quote';
 import {
 	buildProposalD,
 	buildProposalStatusD,
@@ -41,7 +46,7 @@ function createAcceptanceSnapshot(overrides: Record<string, unknown> = {}) {
 	};
 }
 
-function createRequest() {
+function createRequest(): ServiceQuoteRequestEvent {
 	return {
 		id: 'request-event-id',
 		kind: KINDS.SERVICE_QUOTE_REQUEST,
@@ -70,10 +75,10 @@ function createRequest() {
 			version: 'v1'
 		},
 		sig: 'sig'
-	} as const;
+	} as unknown as ServiceQuoteRequestEvent;
 }
 
-function createProposal() {
+function createProposal(): ServiceProposalEvent {
 	return {
 		id: 'proposal-event-id',
 		kind: KINDS.SERVICE_PROPOSAL,
@@ -114,7 +119,7 @@ function createProposal() {
 			version: 'v1'
 		},
 		sig: 'sig'
-	} as const;
+	} as unknown as ServiceProposalEvent;
 }
 
 function createStatus(
@@ -127,7 +132,7 @@ function createStatus(
 		| 'accept_unknown'
 		| 'accept_failed',
 	overrides: Record<string, unknown> = {}
-) {
+): ServiceProposalStatusEvent {
 	const actorPubkey = status === 'withdrawn' ? taskeePubkey : taskerPubkey;
 	const recipientPubkey = status === 'withdrawn' ? taskerPubkey : taskeePubkey;
 	const acceptedDefaults =
@@ -169,7 +174,7 @@ function createStatus(
 			...overrides
 		},
 		sig: 'sig'
-	} as const;
+	} as unknown as ServiceProposalStatusEvent;
 }
 
 describe('service-quote resolver', () => {
@@ -518,7 +523,7 @@ describe('service-quote resolver', () => {
 			totalThreadCount: 2
 		});
 
-		expect(summarizeDeleteGuardForThreads([acceptedThread])).toEqual({
+		expect(summarizeDeleteGuardForThreads([acceptedThread], 0)).toEqual({
 			hasBlockingThreads: false,
 			blockingThreadCount: 0,
 			totalThreadCount: 1

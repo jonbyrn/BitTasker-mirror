@@ -253,7 +253,7 @@ function sanitizeAcceptanceSnapshot(value: unknown): ServiceAcceptanceSnapshot |
 		return undefined;
 	}
 
-	return candidate as ServiceAcceptanceSnapshot;
+	return candidate as unknown as ServiceAcceptanceSnapshot;
 }
 
 function readReplayState(

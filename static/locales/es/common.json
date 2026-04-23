@@ -71,6 +71,20 @@
 		"slide": "Diapositiva",
 		"view_all": "Ver Todo",
 		"view_profile": "Ver Perfil",
+		"homepage": {
+			"featured": {
+				"services": {
+					"title": "Servicios Destacados",
+					"empty": "No hay servicios destacados disponibles",
+					"meta_fallback": "Lista de servicios",
+					"at_provider_location": "En la ubicación del proveedor",
+					"travels_to_you": "Viaja a ti"
+				},
+				"tasks": {
+					"empty": "No hay tareas destacadas disponibles"
+				}
+			}
+		},
 		"show_more": "Mostrar más",
 		"show_less": "Mostrar menos",
 		"reviews": "reseñas",

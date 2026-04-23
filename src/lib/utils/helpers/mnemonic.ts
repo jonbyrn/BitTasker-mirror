@@ -47,6 +47,7 @@ export async function getMnemonic(): Promise<string> {
 			appStore.update((state) => ({
 				...state,
 				biometricData: {
+					credentialId: credentialData.credentialId,
 					npub: credentialData.npub,
 					exportedKey: credentialData.exportedKey,
 					encryptedData: response.encryptedData

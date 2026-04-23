@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { ContractWithEvents } from '$lib/types/contract';
 import type { ServiceQuoteTimelineEntry } from '$lib/types/service-quote';
 import { reconcileQuoteAcceptanceTimeline } from '$lib/utils/service-contract/reconcile-quote-acceptance';
+import { ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';
 
 const serviceAddress = '30402:' + 'a'.repeat(64) + ':service-1234';
 const taskerPubkey = 'b'.repeat(64);
@@ -20,7 +21,7 @@ function createTimeline(): ServiceQuoteTimelineEntry {
 				quoteRequestId: 'qr_12345678',
 				serviceId: serviceAddress,
 				serviceAddress,
-				pricingType: 'TIERED',
+				pricingType: ServicePricingTypeEnum.TIERED,
 				inquiry: {
 					title: 'Need a logo refresh',
 					description: 'Please redesign our logo.'

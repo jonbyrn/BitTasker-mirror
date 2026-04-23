@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { ServiceAcceptanceSnapshot } from '$lib/types/service-quote';
+import type {
+	ServiceAcceptanceSnapshot,
+	ServiceProposalStatusEvent
+} from '$lib/types/service-quote';
 import { EscrowStatus } from '$lib/utils/escrow';
 import {
 	registerPendingContractByTxHash,
@@ -137,7 +140,25 @@ vi.mock('$lib/utils/service-quote/accept', () => ({
 
 vi.mock('$lib/utils/service-quote/publish', () => ({
 	publishServiceProposalStatus: vi.fn().mockResolvedValue({
-		event: { id: 'status-event-id' },
+		event: {
+			id: 'status-event-id',
+			kind: 6422,
+			pubkey: 'a'.repeat(64),
+			created_at: 1700000200,
+			tags: [],
+			content: {
+				type: 'service-proposal-status',
+				proposalId: 'pr_12345678',
+				quoteRequestId: 'qr_12345678',
+				serviceId: '30402:' + 'a'.repeat(64) + ':service-1234',
+				serviceAddress: '30402:' + 'a'.repeat(64) + ':service-1234',
+				status: 'accepting',
+				actorPubkey: 'a'.repeat(64),
+				timestamp: 1700000200,
+				version: 'v1'
+			},
+			sig: 'sig'
+		} as unknown as ServiceProposalStatusEvent,
 		relayResults: [],
 		publishedRelaySet: []
 	})
@@ -247,7 +268,25 @@ describe('escrowEvents', () => {
 		window.localStorage.clear();
 		configureServiceAcceptanceReverifyForTest(null);
 		vi.mocked(publishServiceProposalStatus).mockResolvedValue({
-			event: { id: 'status-event-id' },
+			event: {
+				id: 'status-event-id',
+				kind: 6422,
+				pubkey: 'a'.repeat(64),
+				created_at: 1700000200,
+				tags: [],
+				content: {
+					type: 'service-proposal-status',
+					proposalId: 'pr_12345678',
+					quoteRequestId: 'qr_12345678',
+					serviceId: '30402:' + 'a'.repeat(64) + ':service-1234',
+					serviceAddress: '30402:' + 'a'.repeat(64) + ':service-1234',
+					status: 'accepting',
+					actorPubkey: 'a'.repeat(64),
+					timestamp: 1700000200,
+					version: 'v1'
+				},
+				sig: 'sig'
+			} as unknown as ServiceProposalStatusEvent,
 			relayResults: [],
 			publishedRelaySet: []
 		});
@@ -749,7 +788,25 @@ describe('escrowEvents', () => {
 			vi.mocked(publishServiceProposalStatus)
 				.mockRejectedValueOnce(new Error('status publish failed'))
 				.mockResolvedValueOnce({
-					event: { id: 'status-event-id-retry' },
+					event: {
+						id: 'status-event-id-retry',
+						kind: 6422,
+						pubkey: 'a'.repeat(64),
+						created_at: 1700000200,
+						tags: [],
+						content: {
+							type: 'service-proposal-status',
+							proposalId: 'pr_12345678',
+							quoteRequestId: 'qr_12345678',
+							serviceId: '30402:' + 'a'.repeat(64) + ':service-1234',
+							serviceAddress: '30402:' + 'a'.repeat(64) + ':service-1234',
+							status: 'accepting',
+							actorPubkey: 'a'.repeat(64),
+							timestamp: 1700000200,
+							version: 'v1'
+						},
+						sig: 'sig'
+					} as unknown as ServiceProposalStatusEvent,
 					relayResults: [],
 					publishedRelaySet: []
 				});
@@ -938,7 +995,25 @@ describe('escrowEvents', () => {
 			);
 
 			vi.mocked(publishServiceProposalStatus).mockResolvedValueOnce({
-				event: { id: 'status-event-id-reload' },
+				event: {
+					id: 'status-event-id-reload',
+					kind: 6422,
+					pubkey: 'a'.repeat(64),
+					created_at: 1700000200,
+					tags: [],
+					content: {
+						type: 'service-proposal-status',
+						proposalId: 'pr_12345678',
+						quoteRequestId: 'qr_12345678',
+						serviceId: '30402:' + 'a'.repeat(64) + ':service-1234',
+						serviceAddress: '30402:' + 'a'.repeat(64) + ':service-1234',
+						status: 'accepting',
+						actorPubkey: 'a'.repeat(64),
+						timestamp: 1700000200,
+						version: 'v1'
+					},
+					sig: 'sig'
+				} as unknown as ServiceProposalStatusEvent,
 				relayResults: [],
 				publishedRelaySet: []
 			});

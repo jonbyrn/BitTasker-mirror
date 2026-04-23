@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import KINDS from '$lib/utils/constants/kinds';
+import { ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';
 
 const queryNostrEvents = vi.fn();
 const getSignedEvent = vi.fn();
@@ -188,7 +189,7 @@ describe('service quote publish integration notifications', () => {
 				quoteRequestId: 'qr_valid123',
 				serviceId: `30402:${'a'.repeat(64)}:service-123`,
 				serviceAddress: `30402:${'a'.repeat(64)}:service-123`,
-				pricingType: 'FIXED',
+				pricingType: ServicePricingTypeEnum.FIXED,
 				inquiry: {
 					title: 'Need help',
 					description: 'Please quote'

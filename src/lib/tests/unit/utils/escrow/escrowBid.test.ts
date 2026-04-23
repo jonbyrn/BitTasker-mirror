@@ -97,11 +97,23 @@ const mockCleanupPendingContractByTxHash = cleanupPendingContractByTxHash as Ret
 
 describe('escrowBid', () => {
 	const mockBidContent: NostrBidContent = {
-		amount: 100, // USD
+		type: 'bid',
+		taskId: 'task-123',
+		taskTitle: 'Test Task',
+		taskDescription: 'Test Task Description',
+		amount: 100,
+		currency: 'USD',
+		paymentType: 'FIXED',
+		description: 'Bid description',
+		estimatedDuration: '1 week',
+		proposedApproach: 'My approach',
+		coverLetter: 'Cover letter',
+		timestamp: Date.now(),
+		bidId: 'bid-123',
 		bidderId: 'npub1test',
 		bidderWalletAddress: '0x2222222222222222222222222222222222222222',
-		startDateTime: serializeDateWithLocalTime(new Date(Date.now() + 3600000)) || '', // 1 hour from now
-		endDateTime: serializeDateWithLocalTime(new Date(Date.now() + 7200000)) || '' // 2 hours from now
+		startDateTime: serializeDateWithLocalTime(new Date(Date.now() + 3600000)) || '',
+		endDateTime: serializeDateWithLocalTime(new Date(Date.now() + 7200000)) || ''
 	};
 
 	const mockTask: Task = {
