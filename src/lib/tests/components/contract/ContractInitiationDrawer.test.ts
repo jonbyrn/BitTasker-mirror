@@ -65,14 +65,11 @@ describe('ContractInitiationDrawer', () => {
 		const confirmButton = getByTestId('contract-initiation-confirm') as HTMLButtonElement;
 		expect(confirmButton.disabled).toBe(true);
 
-		const cancelButtons = Array.from(
-			document.querySelectorAll('button.btn-ghost')
-		) as HTMLButtonElement[];
-		const cancelButton = cancelButtons[cancelButtons.length - 1] ?? null;
-		expect(cancelButton?.disabled).toBe(true);
+		const cancelButton = getByTestId('contract-initiation-cancel') as HTMLButtonElement;
+		expect(cancelButton.disabled).toBe(true);
 
 		expect(document.querySelector('[data-testid="test-contract-initiation-retry"]')).toBeNull();
-		await fireEvent.click(cancelButton as HTMLButtonElement);
+		await fireEvent.click(cancelButton);
 		expect(onClose).not.toHaveBeenCalled();
 	});
 

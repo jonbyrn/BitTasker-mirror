@@ -2,7 +2,6 @@
 	import type { Task } from '$lib/types/task';
 	import { t } from 'svelte-i18n';
 	import { onMount } from 'svelte';
-	import { SvelteSet } from 'svelte/reactivity';
 	import { myTasksStore, TASKS_PER_PAGE } from '$lib/stores/task.store';
 	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
@@ -13,6 +12,9 @@
 	import DashboardEmptyState from '$lib/components/shared/DashboardEmptyState.svelte';
 	import ErrorAlertWithModal from '$lib/components/ErrorAlertWithModal.svelte';
 	import { detectErrorType } from '$lib/utils/helpers/errorTypeDetector';
+	import DashboardFilterBar from '$lib/components/shared/DashboardFilterBar.svelte';
+	import DashboardDropdown from '$lib/components/shared/DashboardDropdown.svelte';
+	import { createDashboardUrl } from '$lib/utils/service-quote/dashboard-route';
 
 	// MDI Icons for filters
 	import IconClockOutline from '~icons/mdi/clock-outline';
@@ -20,27 +22,43 @@
 	import IconCheckCircle from '~icons/mdi/check-circle';
 	import IconAlertCircleOutline from '~icons/mdi/alert-circle-outline';
 	import IconClipboardTextOutline from '~icons/mdi/clipboard-text-outline';
-	import IconChevronDown from '~icons/mdi/chevron-down';
-	import IconCheck from '~icons/mdi/check';
+	import IconCheckAll from '~icons/mdi/check-all';
 	import IconPlus from '~icons/mdi/plus';
 	import IconRefresh from '~icons/mdi/refresh';
 
 	// Props
-	const { openTaskDrawer } = $props<{
+	let { openTaskDrawer, status = null } = $props<{
 		openTaskDrawer: (task: Task, tab?: string) => void;
+		status?: string | null;
 	}>();
 
 	// Task filter categories
 	type TaskFilterCategory =
+		| 'all'
 		| 'open'
 		| 'tasks_in_progress'
 		| 'tasks_completed'
 		| 'tasks_disputed'
 		| 'tasks_cancelled';
 
-	let activeFilter = $state<TaskFilterCategory>('open');
+	const VALID_FILTERS: TaskFilterCategory[] = [
+		'all',
+		'open',
+		'tasks_in_progress',
+		'tasks_completed',
+		'tasks_disputed',
+		'tasks_cancelled'
+	];
+
+	let activeFilter = $state<TaskFilterCategory>('all');
+
+	$effect(() => {
+		if (status && VALID_FILTERS.includes(status as TaskFilterCategory)) {
+			activeFilter = status as TaskFilterCategory;
+		}
+	});
+
 	let btcPrice = $state<number>(0);
-	let isDropdownOpen = $state<boolean>(false);
 	let isLoading = $state(true);
 	let error = $state<string | null>(null);
 
@@ -50,6 +68,11 @@
 
 	// Filter options - reactive to language changes
 	const filterOptions = $derived([
+		{
+			id: 'all' as const,
+			label: $t('dashboard.contracts.all_statuses'),
+			icon: IconCheckAll
+		},
 		{
 			id: 'open',
 			label: $t('task.filters.open'),
@@ -88,15 +111,13 @@
 		}
 	}
 
-	function getTasksForFilter(filter: TaskFilterCategory): Task[] {
-		const filtered = $myTasksStore.items;
-
-		switch (filter) {
+	let filteredTasks = $derived.by(() => {
+		const items = $myTasksStore.items;
+		switch (activeFilter) {
 			case 'open':
-				return filtered.filter((t) => t.status === TaskStatusEnum.OPEN);
-
+				return items.filter((t) => t.status === TaskStatusEnum.OPEN);
 			case 'tasks_in_progress':
-				return filtered.filter(
+				return items.filter(
 					(t) =>
 						t.status === TaskStatusEnum.IN_PROGRESS ||
 						t.status === TaskStatusEnum.BID_ACCEPTED ||
@@ -104,28 +125,21 @@
 						t.status === TaskStatusEnum.RESCOPED ||
 						t.status === TaskStatusEnum.RESCOPE_ACCEPTED
 				);
-
 			case 'tasks_completed':
-				return filtered.filter((t) => t.status === TaskStatusEnum.COMPLETED);
-
+				return items.filter((t) => t.status === TaskStatusEnum.COMPLETED);
 			case 'tasks_disputed':
-				return filtered.filter(
+				return items.filter(
 					(t) =>
 						t.status === TaskStatusEnum.DISPUTED || t.status === TaskStatusEnum.DISPUTE_PROPOSAL
 				);
-
 			case 'tasks_cancelled':
-				return filtered.filter(
+				return items.filter(
 					(t) => t.status === TaskStatusEnum.CANCELLED || t.status === TaskStatusEnum.REFUNDED
 				);
-
 			default:
-				return filtered;
+				return items;
 		}
-	}
-
-	// Simple synchronous filtering
-	let filteredTasks = $derived.by(() => getTasksForFilter(activeFilter));
+	});
 	const isPasskeyLoadError = $derived.by(
 		() => Boolean(error) && detectErrorType(error ?? '') === 'biometric'
 	);
@@ -161,9 +175,7 @@
 	}
 
 	function clearTaskFilters() {
-		const nextFilter =
-			filterOptions.find((option) => getTasksForFilter(option.id).length > 0)?.id ?? 'open';
-		activeFilter = nextFilter;
+		activeFilter = 'all';
 		currentPage = 1;
 	}
 
@@ -173,33 +185,6 @@
 			currentPage = 1;
 		}
 	});
-
-	/**
-	 * Select filter option
-	 */
-	function selectFilter(optionId: TaskFilterCategory) {
-		activeFilter = optionId;
-		currentPage = 1;
-		isDropdownOpen = false;
-	}
-
-	/**
-	 * Toggle dropdown
-	 */
-	function toggleDropdown() {
-		isDropdownOpen = !isDropdownOpen;
-	}
-
-	/**
-	 * Close dropdown when clicking outside
-	 */
-	function handleClickOutside(event: MouseEvent) {
-		const target = event.target as HTMLElement;
-		const dropdownContainer = target.closest('.status-dropdown-container');
-		if (!dropdownContainer && isDropdownOpen) {
-			isDropdownOpen = false;
-		}
-	}
 
 	/**
 	 * Load tasks
@@ -237,72 +222,107 @@
 		}
 	}
 
+	function handleStatusChange(nextStatus: TaskFilterCategory) {
+		activeFilter = nextStatus;
+		const nextUrl = createDashboardUrl(new URL(window.location.href), {
+			tab: 'tasks',
+			status: nextStatus
+		});
+		void goto(nextUrl.toString(), { replaceState: true, keepFocus: true, noScroll: true });
+	}
+
 	/**
 	 * Get action buttons for each category
 	 */
 	function getActionButtons(task: Task, category: TaskFilterCategory) {
-		switch (category) {
+		// Basic details button - usually available for most statuses
+		const detailsButton = {
+			label: $t('task.actions.view_details'),
+			class: 'btn-outline btn-sm',
+			onclick: (e: MouseEvent | KeyboardEvent) => {
+				e.stopPropagation();
+				openTaskDrawer(task, 'details');
+			},
+			icon: 'view_details'
+		};
+
+		// Bids button - primarily for open tasks but can be useful for context
+		const bidsButton = {
+			label: $t('task.actions.view_bids'),
+			class: 'btn-primary btn-sm',
+			onclick: (e: MouseEvent | KeyboardEvent) => {
+				e.stopPropagation();
+				goto(`/dashboard/task/${task.id}/bids`);
+			},
+			icon: 'view_bids'
+		};
+
+		// Status-specific logic
+		const effectiveStatus = category === 'all' ? task.status : category;
+
+		switch (effectiveStatus) {
 			case 'open':
-				return [
-					{
-						label: $t('task.actions.view_details'),
-						class: 'btn-outline btn-sm',
-						onclick: (e: MouseEvent) => {
-							e.stopPropagation();
-							openTaskDrawer(task, 'details');
-						},
-						icon: 'view_details'
-					},
-					{
-						label: $t('task.actions.view_bids'),
-						class: 'btn-primary btn-sm',
-						onclick: (e: MouseEvent) => {
-							e.stopPropagation();
-							goto(`/dashboard/task/${task.id}/bids`);
-						},
-						icon: 'view_bids'
-					}
-				];
+			case TaskStatusEnum.OPEN:
+				return [detailsButton, bidsButton];
 
 			case 'tasks_in_progress':
-				return [
-					{
-						label: $t('task.actions.mark_as_done'),
-						class: 'btn-success btn-sm',
-						onclick: (e: MouseEvent) => {
+			case TaskStatusEnum.IN_PROGRESS:
+			case TaskStatusEnum.BID_ACCEPTED:
+			case TaskStatusEnum.ESCROW_FUNDED:
+			case TaskStatusEnum.RESCOPED:
+			case TaskStatusEnum.RESCOPE_ACCEPTED: {
+				// For in-progress, prioritize Contract and Messages
+				const inProgressButtons = [];
+
+				// 1. Message Taskee (if we have a pubkey)
+				if (task.acceptedBidMetadata?.pubkey) {
+					inProgressButtons.push({
+						label: $t('navbar.messages'),
+						class: 'btn-outline btn-sm',
+						onclick: (e: MouseEvent | KeyboardEvent) => {
 							e.stopPropagation();
-							// TODO: Implement mark as done functionality
+							goto(`/dashboard/messages/to/${task.acceptedBidMetadata?.pubkey}`);
 						},
-						icon: 'mark_as_done'
-					},
-					{
-						label: $t('task.actions.rescope'),
-						class: 'btn-info btn-outline btn-sm',
-						onclick: (e: MouseEvent) => {
+						icon: 'message'
+					});
+				}
+
+				// 2. View Contract (if we have an escrow ID)
+				if (task.acceptedBidMetadata?.escrowId) {
+					inProgressButtons.push({
+						label: $t('navbar.contracts'),
+						class: 'btn-primary btn-sm',
+						onclick: (e: MouseEvent | KeyboardEvent) => {
 							e.stopPropagation();
-							// TODO: Implement rescope functionality
+							const nextUrl = createDashboardUrl(new URL(window.location.href), {
+								tab: 'contracts',
+								highlight: task.acceptedBidMetadata?.escrowId
+							});
+							void goto(nextUrl.toString());
 						},
-						icon: 'rescope'
-					}
-				];
+						icon: 'contract'
+					});
+				}
+
+				// 3. Always show details
+				inProgressButtons.push({ ...detailsButton, class: 'btn-outline btn-sm' });
+
+				return inProgressButtons.length > 0 ? inProgressButtons : [detailsButton];
+			}
 
 			case 'tasks_completed':
+			case TaskStatusEnum.COMPLETED:
 			case 'tasks_disputed':
+			case TaskStatusEnum.DISPUTED:
+			case TaskStatusEnum.DISPUTE_PROPOSAL:
 			case 'tasks_cancelled':
-				return [
-					{
-						label: $t('task.actions.view_details'),
-						class: 'btn-primary btn-sm',
-						onclick: (e: MouseEvent) => {
-							e.stopPropagation();
-							openTaskDrawer(task, 'details');
-						},
-						icon: 'view_details'
-					}
-				];
-
+			case TaskStatusEnum.CANCELLED:
+			case TaskStatusEnum.REFUNDED:
+				// Final states - show Primary Details button
+				return [{ ...detailsButton, class: 'btn-primary btn-sm' }];
 			default:
-				return [];
+				// Fallback for "All" or unknown statuses
+				return [detailsButton];
 		}
 	}
 
@@ -311,126 +331,23 @@
 	);
 
 	onMount(() => {
-		document.addEventListener('click', handleClickOutside);
-
 		// Load tasks and BTC price
 		(async () => {
 			await loadTasks();
 			await fetchBtcPrice();
 		})();
-
-		return () => {
-			document.removeEventListener('click', handleClickOutside);
-		};
 	});
 </script>
 
-<div class="space-y-6">
-	<!-- Status filter + refresh -->
-	<div class="border-base-300/60 bg-base-100/40 mt-2 rounded-3xl border p-4 shadow-sm">
-		<!-- Header with title and refresh button -->
-		<div class="mb-3 flex items-center justify-between gap-2">
-			<div class="space-y-1">
-				<p class="text-base-content/70 text-xs font-semibold tracking-wide uppercase">
-					{$t('dashboard.tasks.status_heading')}
-				</p>
-				<p class="text-base-content/70 hidden text-sm sm:block">
-					{$t('dashboard.tasks.status_subheading')}
-				</p>
-			</div>
-
-			<!-- Refresh button: icon only on mobile, with text on desktop -->
-			<button
-				class="btn btn-ghost btn-sm sm:btn-outline gap-2"
-				onclick={handleRefresh}
-				disabled={isLoading}
-				aria-label={$t('dashboard.tasks.refresh')}
-			>
-				{#if isLoading}
-					<span class="loading loading-spinner loading-xs"></span>
-					<span class="hidden sm:inline">{$t('dashboard.tasks.refreshing')}</span>
-				{:else}
-					<IconRefresh class="h-5 w-5" />
-					<span class="hidden sm:inline">{$t('dashboard.tasks.refresh')}</span>
-				{/if}
-			</button>
-		</div>
-
-		<!-- Mobile: Subheading and dropdown -->
-		<div class="mb-3 sm:hidden">
-			<p class="text-base-content/70 mb-3 text-sm">
-				{$t('dashboard.tasks.status_subheading')}
-			</p>
-			<div class="status-dropdown-container relative">
-				<button
-					class="border-primary bg-primary/10 text-primary hover:bg-primary/20 flex w-full items-center justify-between rounded-3xl border px-4 py-2 transition-all duration-200"
-					onclick={toggleDropdown}
-				>
-					<div class="flex items-center gap-2">
-						{#each filterOptions as option (option.id)}
-							{#if activeFilter === option.id}
-								{@const IconComponent = option.icon}
-								<IconComponent class="h-5 w-5" />
-							{/if}
-						{/each}
-						<span class="font-medium">
-							{filterOptions.find((opt) => opt.id === activeFilter)?.label}
-						</span>
-					</div>
-					<IconChevronDown
-						class="h-5 w-5 transition-transform duration-200 {isDropdownOpen ? 'rotate-180' : ''}"
-					/>
-				</button>
-
-				{#if isDropdownOpen}
-					<div
-						class="border-base-300 bg-base-100 absolute top-full right-0 left-0 z-50 mt-2 rounded-xl border shadow-lg"
-					>
-						{#each filterOptions as option (option.id)}
-							{@const IconComponent = option.icon}
-							<button
-								class="hover:bg-base-200 flex w-full items-center gap-2 px-4 py-2 text-left transition-colors duration-200 first:rounded-t-xl last:rounded-b-xl {activeFilter ===
-								option.id
-									? 'bg-primary/10 text-primary'
-									: 'text-base-content'}"
-								onclick={() => selectFilter(option.id)}
-							>
-								<IconComponent
-									class="h-5 w-5 {activeFilter === option.id
-										? 'text-primary'
-										: 'text-base-content/60'}"
-								/>
-								<span class="font-medium">{option.label}</span>
-								{#if activeFilter === option.id}
-									<IconCheck class="text-primary ml-auto h-5 w-5" />
-								{/if}
-							</button>
-						{/each}
-					</div>
-				{/if}
-			</div>
-		</div>
-
-		<!-- Desktop filters -->
-		<div class="mt-4 hidden sm:block">
-			<div class="flex flex-col gap-3 sm:flex-row">
-				{#each filterOptions as option (option.id)}
-					{@const IconComponent = option.icon}
-					<button
-						class="btn btn-sm flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-3xl py-4 text-center transition-all duration-200 {activeFilter ===
-						option.id
-							? 'text-primary bg-primary/10 border-primary/30 border'
-							: 'bg-base-100/40 hover:bg-base-100/60 text-base-content/70'}"
-						onclick={() => selectFilter(option.id)}
-						aria-label={option.label}
-					>
-						<IconComponent class="h-5 w-5 {activeFilter === option.id ? 'text-primary' : ''}" />
-						<span class="font-medium">{option.label}</span>
-					</button>
-				{/each}
-			</div>
-		</div>
-	</div>
+<div class="space-y-4">
+	<DashboardFilterBar onRefresh={handleRefresh} isRefreshing={isLoading}>
+		<DashboardDropdown
+			options={filterOptions}
+			value={activeFilter}
+			onSelect={handleStatusChange}
+			containerClass="col-span-2 sm:w-64"
+		/>
+	</DashboardFilterBar>
 
 	<!-- Loading State -->
 	{#if isLoading}
@@ -492,7 +409,7 @@
 						: $t('dashboard.tasks.try_different_filters')}
 					actionLabel={$myTasksStore.items.length === 0
 						? $t('dashboard.create_task')
-						: $t('find_tasks.clear_filters')}
+						: $t('dashboard.contracts.clear_filters')}
 					actionHref={$myTasksStore.items.length === 0 ? '/dashboard/create-task' : null}
 					actionIcon={$myTasksStore.items.length === 0 ? IconPlus : IconRefresh}
 					onAction={$myTasksStore.items.length === 0 ? undefined : clearTaskFilters}

@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
 	import { onMount, untrack } from 'svelte';
+	import { btcPrice } from '$lib/runes/btcPrice.svelte';
 	import { walletStore, walletManager, formatSats, formatUsd } from '$lib/stores/wallet.store';
 	import { appStore } from '$lib/stores/app.store';
 	import { debounce } from '$lib/utils/helpers/common';
-	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import AmountInputSection from '$lib/components/wallet/AmountInputSection.svelte';
 	import IconCashMultiple from '~icons/mdi/cash-multiple';
 	import IconClose from '~icons/mdi/close';
@@ -104,7 +104,6 @@
 	}
 
 	// Cached data (fetched once on mount)
-	let btcPrice = $state<number>(0);
 	let swapPairsInfo = $state<{
 		lightning: SwapFeeInfo | null;
 		liquid: SwapFeeInfo | null;
@@ -118,8 +117,8 @@
 			return isNaN(parsed) ? 0 : Math.floor(parsed);
 		} else {
 			const usdAmount = parseFloat(formInput.amount);
-			if (isNaN(usdAmount) || btcPrice === 0) return 0;
-			return Math.floor((usdAmount / btcPrice) * 100_000_000);
+			if (isNaN(usdAmount) || btcPrice.price === 0) return 0;
+			return Math.floor((usdAmount / btcPrice.price) * 100_000_000);
 		}
 	});
 
@@ -154,8 +153,17 @@
 
 	// Total received in USD
 	const totalReceivedUSD = $derived.by(() => {
-		if (totalReceived === 0 || btcPrice === 0) return 0;
-		return (totalReceived / 100_000_000) * btcPrice;
+		if (totalReceived === 0 || btcPrice.price === 0) return 0;
+		return (totalReceived / 100_000_000) * btcPrice.price;
+	});
+
+	// Trigger fee estimation when amountInSats changes and we don't have estimates yet
+	$effect(() => {
+		if (amountInSats > 0 && !feeState.estimated && !feeState.isLoading && !feeState.error) {
+			untrack(() => {
+				handleAmountOrNetworkChange();
+			});
+		}
 	});
 
 	// Network options
@@ -166,7 +174,7 @@
 			description: $t('wallet.receive_form.networks.lightning_bitcoin.description'),
 			icon: null,
 			available: $walletStore.isConnected,
-			swapFeeInfo: '~0.25% swap fee' // Lightning reverse swap fee
+			swapFeeInfo: $t('wallet.receive_form.networks.lightning_bitcoin.fee_info')
 		},
 		{
 			value: 'rootstock-bitcoin',
@@ -174,7 +182,7 @@
 			description: $t('wallet.receive_form.networks.rootstock_bitcoin.description'),
 			icon: '/images/chains/Bitcoin-Rootstock-logo.webp',
 			available: $walletStore.isConnected,
-			swapFeeInfo: 'Network gas fee' // RSK gas fee
+			swapFeeInfo: $t('wallet.receive_form.networks.rootstock_bitcoin.fee_info')
 		},
 		{
 			value: 'liquid-bitcoin',
@@ -182,7 +190,7 @@
 			description: $t('wallet.receive_form.networks.liquid_bitcoin.description'),
 			icon: '/images/chains/Liquid-Bitcoin.svg',
 			available: $walletStore.isConnected,
-			swapFeeInfo: '~0.1% swap fee' // Liquid chain swap fee
+			swapFeeInfo: $t('wallet.receive_form.networks.liquid_bitcoin.fee_info')
 		},
 		{
 			value: 'bitcoin',
@@ -190,7 +198,7 @@
 			description: $t('wallet.receive_form.networks.bitcoin.description'),
 			icon: '/images/chains/Bitcoin.svg',
 			available: false, // Disabled - Coming Soon
-			swapFeeInfo: 'Network fee' // Bitcoin on-chain fee
+			swapFeeInfo: $t('wallet.receive_form.networks.bitcoin.fee_info')
 		}
 	]);
 
@@ -235,7 +243,9 @@
 			formInput.unit = initialFormState.unit;
 			formInput.mathExpression = initialFormState.mathExpression;
 			formInput.memo = initialFormState.memo;
-			formInput.selectedNetwork = initialFormState.selectedNetwork;
+			if (initialFormState.selectedNetwork) {
+				formInput.selectedNetwork = initialFormState.selectedNetwork;
+			}
 			formInput.chargeFeesToPayer = initialFormState.chargeFeesToPayer;
 			if (initialFormState.currentStep) {
 				uiState.currentStep = initialFormState.currentStep;
@@ -253,9 +263,6 @@
 	// Fetch BTC price and initialize swap pairs info
 	onMount(async () => {
 		try {
-			// Fetch BTC price
-			btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
-
 			// Fetch and cache swap pairs for dropdown display
 			// These are cached with 1-hour TTL, so subsequent calls are fast
 			const [lightning, liquid] = await Promise.all([
@@ -619,49 +626,6 @@
 				onCalculationChange={handleCalculationChange}
 				onClear={handleClearCalculator}
 			/>
-		</div>
-
-		<!-- Step 2 Content (Mobile Only) - All fields except amount -->
-		<div class="block space-y-2 sm:hidden">
-			{#if uiState.currentStep === 2}
-				<!-- Amount Display (Read-only) -->
-				<div
-					class="border-primary bg-base-200 flex flex-col items-center gap-1.5 rounded-lg border-2 p-3 sm:p-4"
-				>
-					<span class="text-center text-xs opacity-70">{$t('wallet.receive.invoice_total')}</span>
-					{#if true}
-						{@const invoiceAmount =
-							formInput.chargeFeesToPayer && feeState.estimated ? amountPayerPays : amountInSats}
-						<div class="flex w-full items-center justify-center gap-1.5">
-							{#if formInput.unit === 'sats'}
-								<span class="text-primary text-xl font-bold">
-									{formatSats(invoiceAmount)}
-									{$t('wallet.sats')}
-								</span>
-								{#if btcPrice > 0 && invoiceAmount > 0}
-									<span class="text-xs opacity-60">
-										≈ {formatUsd((invoiceAmount / 100_000_000) * btcPrice)}
-									</span>
-								{/if}
-							{:else}
-								<span class="text-primary text-xl font-bold">
-									{formatUsd(
-										formInput.chargeFeesToPayer && feeState.estimated && btcPrice > 0
-											? (invoiceAmount / 100_000_000) * btcPrice
-											: parseFloat(formInput.amount) || 0
-									)}
-								</span>
-								{#if btcPrice > 0 && invoiceAmount > 0}
-									<span class="text-xs opacity-60">
-										≈ {formatSats(invoiceAmount)}
-										{$t('wallet.sats')}
-									</span>
-								{/if}
-							{/if}
-						</div>
-					{/if}
-				</div>
-			{/if}
 		</div>
 
 		<!-- Network Selector and other fields - Hidden on mobile step 1, visible on step 2 and desktop -->

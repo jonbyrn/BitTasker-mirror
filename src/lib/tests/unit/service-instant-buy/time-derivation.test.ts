@@ -54,6 +54,33 @@ describe('service instant-buy time derivation', () => {
 		});
 	});
 
+	it('uses rush delivery time when requested', () => {
+		const service = {
+			status: 'active',
+			instantBuyLeadHours: 12,
+			pricing: {
+				type: 'TIERED' as const,
+				tiers: [
+					{
+						id: 'premium',
+						price: 300,
+						deliveryTime: { value: 2, unit: 'week' as const },
+						rushDelivery: {
+							enabled: true,
+							price: 50,
+							deliveryTime: { value: 3, unit: 'day' as const }
+						}
+					}
+				]
+			}
+		};
+		expect(deriveServiceInstantBuySchedule(service, 'premium', 1_700_000_000, true)).toEqual({
+			estimatedStartTime: 1_700_043_200,
+			estimatedEndTime: 1_700_302_400,
+			deliverySeconds: 259200
+		});
+	});
+
 	it('fails closed when the service is not instant-buy eligible', () => {
 		expect(() =>
 			deriveServiceInstantBuySchedule(

@@ -552,7 +552,7 @@
 		clearTasksStore();
 
 		searchParams = {
-			...searchParams,
+			...getInitialSearchParams(),
 			...filters,
 			page: 1,
 			until: undefined,
@@ -765,6 +765,24 @@
 	onMount(async () => {
 		if (browser) {
 			void import('$lib/utils/performance-testing-helper');
+		}
+
+		if (browser) {
+			const savedParamsRaw = sessionStorage.getItem('savedSearchParams');
+			if (savedParamsRaw) {
+				try {
+					const saved = JSON.parse(savedParamsRaw) as SearchTasksParams;
+					sessionStorage.removeItem('savedSearchParams');
+					searchParams = {
+						...getInitialSearchParams(),
+						...saved,
+						page: 1,
+						limit: TASKS_PER_PAGE
+					};
+				} catch (error) {
+					console.warn('[FindTasks] Invalid savedSearchParams', error);
+				}
+			}
 		}
 
 		// Find app-shell__content element once on mount
@@ -1118,7 +1136,7 @@
 									<h3 class="mb-2 text-lg font-semibold">{$t('find_tasks.no_results_title')}</h3>
 									<p class="text-base-content/70 mb-3">{$t('find_tasks.no_results_message')}</p>
 									<button class="btn btn-primary" onclick={clearFilters}>
-										{$t('find_tasks.clear_filters')}
+										{$t('dashboard.contracts.clear_filters')}
 									</button>
 								</div>
 							{/if}

@@ -312,12 +312,14 @@
 										/>
 									</svg>
 									<span class="text-base-content/70 line-clamp-2 text-center text-xs"
-										>{file.alt || 'Video'}</span
+										>{file.alt || $t('dashboard.services.create.portfolio.video_label')}</span
 									>
 								</div>
 							{:else}
 								<div class="bg-base-200 flex h-full w-full items-center justify-center">
-									<span class="text-base-content/70 text-xs">{file.alt || 'File'}</span>
+									<span class="text-base-content/70 text-xs"
+										>{file.alt || $t('dashboard.services.create.portfolio.file_label')}</span
+									>
 								</div>
 							{/if}
 						{:else if file instanceof File}

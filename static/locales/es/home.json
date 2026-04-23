@@ -1,9 +1,9 @@
 {
 	"footer": {
 		"company_name": "BitTasker",
-		"company_description": "Conectamos a personas que buscan servicios con profesionales que ofrecen esos servicios, impulsados por Bitcoin e identidad descentralizada.",
-		"zapstore_aria": "Descargar BitTasker en Zapstore",
-		"google_play_aria": "Descargar BitTasker en Google Play",
+		"company_description": "Conectando a personas que buscan servicios con taskees que ofrecen esos servicios, potenciado por Bitcoin e identidad descentralizada.",
+		"zapstore_aria": "Descarga BitTasker en Zapstore",
+		"google_play_aria": "Descarga BitTasker en Google Play",
 		"social": {
 			"twitter_aria": "BitTasker en X (Twitter)",
 			"facebook_aria": "BitTasker en Facebook",
@@ -21,37 +21,37 @@
 		"and": "y",
 		"in_el_salvador": "en El Salvador",
 		"for_taskers": "Para Taskers",
-		"post_task": "Publicar Tarea",
+		"post_task": "Publicar una Tarea",
 		"how_it_works": "Cómo Funciona",
-		"tasker_fees": "Comisiones para Taskers",
-		"taskee_fees": "Comisiones para Taskees",
+		"tasker_fees": "Tarifas de Taskers",
+		"taskee_fees": "Tarifas de Taskees",
 		"escrow": "Pagos Seguros",
 		"faq": "Preguntas Frecuentes",
 		"for_taskees": "Para Taskees",
-		"start_earning": "Empieza a Ganar",
-		"community_guidelines": "Normas de la Comunidad",
-		"tasker_principles": "Principios del Profesional",
+		"start_earning": "Comenzar a Ganar",
+		"community_guidelines": "Pautas de la Comunidad",
+		"tasker_principles": "Principios del Tasker",
 		"tasker_faq": "Preguntas Frecuentes",
-		"company": "Empresa",
+		"company": "Compañía",
 		"about_us": "Sobre Nosotros",
 		"security": "Seguridad",
 		"careers": "Carreras",
 		"press": "Prensa",
 		"terms": "Términos de Servicio",
 		"privacy": "Política de Privacidad",
-		"contact": "Contáctanos",
+		"contact": "Contáctenos",
 		"copyright": "Todos los derechos reservados."
 	},
 	"navbar": {
 		"home": "Inicio",
 		"new_task": "Nueva Tarea",
-		"panel": "Panel",
+		"panel": "Panel de Control",
 		"my_tasks": "Mis Tareas",
 		"wallet": "Billetera",
 		"messages": "Mensajes",
 		"support_help": "Soporte y Ayuda",
-		"hiring": "Contratación",
-		"earning": "Ganancias",
+		"hiring": "Contratando",
+		"earning": "Ganando",
 		"task_management": "Gestión de Tareas",
 		"my_account": "Mi Cuenta",
 		"profile": "Perfil",
@@ -69,26 +69,26 @@
 		"browse_freelancers": "Ver Taskees",
 		"browse_tasks": "Explorar Tareas",
 		"fees": "Tarifas",
-		"start_now": "Empezar Ahora",
+		"start_now": "Comenzar Ahora",
 		"dashboard": "Panel de Control",
 		"language": {
 			"english": "Inglés",
 			"spanish": "Español"
 		},
-		"back": "Volver",
+		"back": "Atrás",
 		"terms_and_conditions": "Términos y Condiciones",
 		"tooltip": {
 			"dark_mode": "Modo Oscuro",
 			"light_mode": "Modo Claro",
 			"language": "Idioma: {name}"
 		},
-		"login": "Iniciar",
-		"signup": "Crear",
-		"about": "Sobre",
+		"login": "Iniciar Sesión",
+		"signup": "Registrarse",
+		"about": "Acerca de",
 		"menu": "Menú",
 		"close_menu": "Cerrar menú",
 		"help": "Ayuda",
-		"logout": "Cerrar",
+		"logout": "Cerrar Sesión",
 		"settings": "Configuración",
 		"feedback": "Comentarios",
 		"bids": "Mis Ofertas",
@@ -99,13 +99,13 @@
 		"saved_searches": "Búsquedas Guardadas"
 	},
 	"homepage": {
-		"title": "¡Hola Mundo!",
-		"welcome": "Hola, <strong>{name}</strong>, ¿cómo estás?",
+		"title": "¡Hola, Mundo!",
+		"welcome": "Hola <strong>{name}</strong>, ¿cómo estás?",
 		"time": "La hora actual es: {time}",
 		"hero": {
 			"title": "BitTasker",
-			"description": "El primer mercado freelance impulsado por Bitcoin. Conecta con talentosos taskees y paga de forma segura con Bitcoin.",
-			"cta": "Cómo funciona"
+			"description": "El primer mercado freelance potenciado por Bitcoin. Conéctate con taskees talentosos y paga de forma segura con Bitcoin.",
+			"cta": "Así es como funciona"
 		},
 		"features": {
 			"title": "¿Por qué elegir BitTasker?",
@@ -125,36 +125,36 @@
 		"cta": {
 			"title": "¿Listo para empezar?",
 			"description": "Únete a miles de taskees y taskers que ya usan BitTasker",
-			"button": "Crear"
+			"button": "Crear Cuenta"
 		},
 		"v2": {
 			"hero": {
 				"title": "La Fuerza Laboral Descentralizada.",
 				"page_title": "La Fuerza Laboral Descentralizada | BitTasker",
-				"description": "Contrata profesionales para cualquier tarea. Paga con Bitcoin o moneda fiat. Construido sobre Nostr.",
-				"cta": "Comienza"
+				"description": "Contrata profesionales para cualquier tarea. Paga con Bitcoin o fiat. Construido sobre Nostr.",
+				"cta": "Empezar"
 			},
 			"trust": {
 				"title": "Confiado en Todo el Mundo",
 				"nostr": {
-					"title": "Impulsado por Nostr",
-					"description": "BitTasker está construido sobre Nostr, un protocolo descentralizado. Esto significa que tu identidad, datos y reputación son verdaderamente tuyos, libres del control y la censura corporativa."
+					"title": "Potenciado por Nostr",
+					"description": "BitTasker está construido sobre Nostr, un protocolo descentralizado. Esto significa que tu identidad, datos y reputación son verdaderamente tuyos, libres de control corporativo y censura."
 				},
 				"bitcoin": {
 					"title": "Bitcoin Aceptado",
-					"description": "Adopta el futuro del dinero. Paga y recibe pagos a nivel mundial con Bitcoin, la moneda digital más segura y descentralizada del mundo, para transacciones sin fronteras y de bajo costo."
+					"description": "Abraza el futuro del dinero. Paga y recibe pagos globalmente con Bitcoin, la moneda digital más segura y descentralizada del mundo, para transacciones sin fronteras y de bajo costo."
 				},
 				"payments": {
 					"title": "Paga a Tu Manera",
-					"description": "Paga con monedas fiduciarias tradicionales mediante tarjeta de crédito o débito, así como con Bitcoin o USDT. Retira Bitcoin y USDT en cadena, vía Lightning o Liquid."
+					"description": "Paga con monedas fiat tradicionales a través de una tarjeta de crédito o débito, así como pagando con Bitcoin o USDT. Retira Bitcoin y USDT on-chain, vía Lightning o Liquid."
 				},
 				"lightning": {
-					"title": "Red Lightning",
-					"description": "Experimenta pagos instantáneos y casi gratuitos con la Red Lightning. Perfecto para micropagos, propinas y liquidar tareas en el momento en que se completan."
+					"title": "Lightning Network",
+					"description": "Experimenta pagos instantáneos y casi gratuitos con la Lightning Network. Perfecto para micropagos, propinas y liquidación de tareas en el momento en que se completan."
 				},
 				"escrow": {
 					"title": "Pagos Seguros",
-					"description": "Nuestro sistema de pagos seguros basado en contratos inteligentes protege tanto a clientes como a profesionales. Los fondos se mantienen seguros y se liberan automáticamente solo cuando se aprueba el trabajo."
+					"description": "Nuestro sistema de pagos seguros basado en contratos inteligentes protege tanto a taskers como a taskees. Los fondos se mantienen de forma segura y se liberan automáticamente solo cuando se aprueba el trabajo."
 				}
 			},
 			"howitworks": {
@@ -164,35 +164,35 @@
 					"description": "Describe el trabajo que necesitas, establece tu presupuesto y publícalo para nuestra comunidad."
 				},
 				"step2": {
-					"title": "Contrata al Mejor",
-					"description": "Revisa las propuestas de taskees talentosos y contrata al candidato perfecto para tu proyecto."
+					"title": "Contrata a los Mejores",
+					"description": "Revisa las propuestas de taskees talentosos y contrata al ajuste perfecto para tu proyecto."
 				},
 				"step3": {
-					"title": "Paga con Seguridad",
-					"description": "Una vez que el trabajo esté completo, paga de forma segura con Bitcoin o fiat. Tus fondos están seguros en el contrato de pago seguro."
+					"title": "Paga de Forma Segura",
+					"description": "Una vez completado el trabajo, paga de forma segura con Bitcoin o fiat. Tus fondos están seguros en el contrato de pago seguro."
 				},
-				"learnMore": "Más Información"
+				"learnMore": "Aprender Más"
 			},
 			"livetasks": {
 				"title": "Tareas Destacadas"
 			},
 			"benefits": {
-				"title": "¿Por qué Elegir BitTasker?",
+				"title": "¿Por qué elegir BitTasker?",
 				"payments": {
 					"title": "Pagos Flexibles",
-					"description": "Paga sin problemas con Bitcoin (en la cadena, Lightning) o monedas fiduciarias tradicionales."
+					"description": "Paga sin problemas con Bitcoin (on-chain, Lightning) o monedas fiat tradicionales."
 				},
 				"escrow": {
-					"title": "Pagos Seguros No-Centralizados",
-					"description": "Tú mantienes las llaves de tu Bitcoin y de tus contratos de pago seguro. Sin intermediarios, sin retrasos, y sin necesidad de confianza."
+					"title": "Pagos Seguros No Custodios",
+					"description": "Tú tienes las llaves de tu Bitcoin y de tus contratos de pagos seguros. Sin intermediarios, sin retrasos y sin necesidad de confianza."
 				},
 				"ownership": {
-					"title": "Verdadera Propiedad de los Datos",
-					"description": "Tu identidad, datos y reputación son tuyos para controlar, impulsados por la red descentralizada de Nostr."
+					"title": "Propiedad Real de los Datos",
+					"description": "Tu identidad, datos y reputación son tuyos para controlar, potenciado por la red descentralizada de Nostr."
 				},
 				"fees": {
-					"title": "Pagos Relámpago",
-					"description": "Sin intermediarios ni retrasos de procesamiento, recibe pagos instantáneos de persona a persona en Bitcoin o USDT."
+					"title": "Pagos Ultrarrápidos",
+					"description": "Sin intermediarios ni retrasos en el procesamiento, recibe pagos instantáneos de igual a igual en Bitcoin o USDT."
 				}
 			},
 			"taskees": {
@@ -200,10 +200,10 @@
 			},
 			"finalcta": {
 				"title": "Únete al Futuro del Trabajo",
-				"description": "Ya sea que necesites contratar talento o estés buscando tu próxima oportunidad, BitTasker es el lugar para estar.",
+				"description": "Ya sea que necesites contratar talento o estés buscando tu próxima oportunidad, BitTasker es el lugar ideal.",
 				"tasker_cta": "Explorar Tareas",
 				"taskee_cta": "Ver Taskees",
-				"get_started": "Comienza"
+				"get_started": "Empezar"
 			}
 		}
 	}

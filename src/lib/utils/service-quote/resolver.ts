@@ -24,6 +24,7 @@ export interface ServiceDeleteQuoteGuard {
 	hasBlockingThreads: boolean;
 	blockingThreadCount: number;
 	totalThreadCount: number;
+	activeContractCount: number;
 }
 
 const TERMINAL_DELETE_SAFE_STATES = new Set(['accepted', 'declined', 'withdrawn', 'expired']);
@@ -171,14 +172,15 @@ export function isDeleteBlockingTimelineEntry(
 	timeline: Pick<ServiceQuoteTimelineEntry, 'proposals' | 'resolvedStatus'>
 ): boolean {
 	if (timeline.proposals.length === 0) {
-		return true;
+		return !TERMINAL_DELETE_SAFE_STATES.has(timeline.resolvedStatus);
 	}
 
 	return !TERMINAL_DELETE_SAFE_STATES.has(timeline.resolvedStatus);
 }
 
 export function summarizeDeleteGuardForTimelines(
-	timelines: Array<Pick<ServiceQuoteTimelineEntry, 'proposals' | 'resolvedStatus'>>
+	timelines: Array<Pick<ServiceQuoteTimelineEntry, 'proposals' | 'resolvedStatus'>>,
+	hasActiveContracts: boolean = false
 ): ServiceDeleteQuoteGuard {
 	const blockingThreadCount = timelines.reduce(
 		(count, timeline) => count + (isDeleteBlockingTimelineEntry(timeline) ? 1 : 0),
@@ -186,19 +188,26 @@ export function summarizeDeleteGuardForTimelines(
 	);
 
 	return {
-		hasBlockingThreads: blockingThreadCount > 0,
+		hasBlockingThreads: blockingThreadCount > 0 || hasActiveContracts,
 		blockingThreadCount,
 		totalThreadCount: timelines.length
 	};
 }
 
 export function summarizeDeleteGuardForThreads(
-	threads: Array<Pick<ServiceQuoteThread, 'proposals'>>
+	threads: Array<Pick<ServiceQuoteThread, 'proposals'>>,
+	activeContractCount: number
 ): ServiceDeleteQuoteGuard {
-	return summarizeDeleteGuardForTimelines(
+	const hasActiveContracts = activeContractCount > 0;
+	const guard = summarizeDeleteGuardForTimelines(
 		threads.map((thread) => ({
 			proposals: thread.proposals.map((proposal) => proposal.proposal),
 			resolvedStatus: thread.proposals[0]?.state ?? 'pending'
-		}))
+		})),
+		hasActiveContracts
 	);
+	return {
+		...guard,
+		activeContractCount
+	};
 }

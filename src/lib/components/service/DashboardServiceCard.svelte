@@ -64,6 +64,9 @@
 			}
 
 			return tr('dashboard.services.my_services.pricing_type.tiered_pricing', 'Tiered pricing');
+		} else if (service.pricing?.type === ServicePricingTypeEnum.INQUIRY_REQUIRED) {
+			// Short label on cards (same as badge) — "Cotización requerida" steals title space on mobile
+			return tr('dashboard.services.my_services.pricing_type.quote', 'Quote');
 		}
 		return tr('dashboard.services.my_services.pricing_type.quote_required', 'Quote required');
 	}
@@ -163,12 +166,12 @@
 		return `(${radius} km/${miles} mi)`;
 	}
 
-	function getLowestTier() {
+	const getLowestTier = () => {
 		const tiers = getServiceDisplayTiers(service, $locale || 'en');
 		if (!tiers.length) return null;
 
 		return [...tiers].sort((left, right) => left.price - right.price)[0] ?? null;
-	}
+	};
 
 	function getLowestTierPrice(): number | null {
 		return getLowestTier()?.price ?? null;
@@ -284,9 +287,14 @@
 						<ServiceShareButton {service} variant="circle" class="btn-xs" />
 					</span>
 				</div>
-				<!-- Row 2: Price -->
+				<!-- Row 2: Price (compact on mobile for quote-only — long copy competes with title) -->
 				<div
-					class="text-right text-xl font-bold transition-opacity duration-300"
+					class="text-right font-bold transition-opacity duration-300"
+					class:text-base={service.pricing?.type === ServicePricingTypeEnum.INQUIRY_REQUIRED}
+					class:md:text-xl={service.pricing?.type === ServicePricingTypeEnum.INQUIRY_REQUIRED}
+					class:text-xl={service.pricing?.type !== ServicePricingTypeEnum.INQUIRY_REQUIRED}
+					class:max-w-[9.5rem]={service.pricing?.type === ServicePricingTypeEnum.INQUIRY_REQUIRED}
+					class:leading-tight={service.pricing?.type === ServicePricingTypeEnum.INQUIRY_REQUIRED}
 					class:opacity-50={service.status !== 'active'}
 				>
 					{getPriceDisplay()}
@@ -357,7 +365,7 @@
 								<span class="font-medium">
 									{tr('dashboard.services.my_services.timing.lead_time', 'Lead Time')}:
 								</span>
-								<span class="text-base-content/80 break-words">{getLeadTimeDisplay()}</span>
+								<span class="text-base-content/80 wrap-break-words">{getLeadTimeDisplay()}</span>
 							</div>
 						</div>
 						{#if isBookNowAvailable()}
@@ -375,7 +383,8 @@
 								<span class="font-medium">
 									{tr('dashboard.services.my_services.timing.delivery_time', 'Delivery Time')}:
 								</span>
-								<span class="text-base-content/80 break-words">{getDeliveryTimeDisplay()}</span>
+								<span class="text-base-content/80 wrap-break-words">{getDeliveryTimeDisplay()}</span
+								>
 							</div>
 						</div>
 						<span class="badge badge-outline badge-sm shrink-0">{getPricingBadgeLabel()}</span>

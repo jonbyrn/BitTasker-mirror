@@ -17,7 +17,8 @@ const translations: Record<string, string> = {
 	'dashboard.services.my_services.duration.day': 'day',
 	'dashboard.services.my_services.duration.days': 'days',
 	'dashboard.services.my_services.duration.week': 'week',
-	'dashboard.services.my_services.duration.weeks': 'weeks'
+	'dashboard.services.my_services.duration.weeks': 'weeks',
+	'common.location.approximate_short': 'Approx.'
 };
 
 vi.mock('svelte-i18n', async () => {
@@ -155,6 +156,49 @@ describe('DashboardServiceCard', () => {
 
 		expect(getByText('San Salvador, El Salvador')).toBeTruthy();
 		expect(queryByText('My Location')).toBeNull();
+	});
+
+	it('prioritizes the approximate service area when a service supports both fixed and range-based locations', () => {
+		const service = {
+			id: 'service-mixed',
+			uniqueId: 'service-mixed',
+			title: 'Hybrid repair',
+			description: 'Storefront and mobile support.',
+			status: 'active',
+			serviceLocationTypes: ['tasker_location', 'taskee_location'],
+			locationDetails: {
+				taskerLocation: {
+					serviceLocation: {
+						displayName: '123 Main St, Austin, TX',
+						formattedAddress: '123 Main St, Austin, TX',
+						locationLoaded: true
+					}
+				},
+				taskeeLocation: {
+					locationDisplayName: 'Austin, TX',
+					serviceRadius: 5,
+					serviceLocation: {
+						displayName: 'Austin, TX',
+						locationLoaded: true,
+						zipCode: ''
+					}
+				}
+			},
+			pricing: {
+				type: 'INQUIRY_REQUIRED',
+				currency: 'USD'
+			}
+		};
+
+		const { getByText, queryByText } = render(DashboardServiceCard, {
+			service,
+			getActionButtons: () => [],
+			btcPrice: 100000
+		});
+
+		expect(getByText('Austin, TX')).toBeTruthy();
+		expect(getByText(/\(5 km\/3\.1 mi\)/)).toBeTruthy();
+		expect(queryByText('123 Main St, Austin, TX')).toBeNull();
 	});
 
 	it('renders the contracts action with a clickable icon path', async () => {

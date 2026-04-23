@@ -1,4 +1,3 @@
-/* eslint-disable no-case-declarations */
 import type { NostrContract, ContractStatusEvent, ContractPermissions } from '$lib/types/contract';
 import type { EscrowData, DisputeProposal } from '$lib/types/wallet';
 import { EscrowStatus } from '$lib/utils/escrow/v1/escrow.enum';
@@ -241,11 +240,11 @@ function mapBlockchainStatusToPermissions(
 			}
 
 			// PRIORITY 3: Check for pending acceptance (transaction in progress)
-			const pendingAcceptanceEvents = statusEvents.filter(
-				(e) =>
-					e.content.action === EscrowStatus.PendingAcceptance && isFreshPendingStatusEvent(e, now)
+			const hasPendingAcceptance = hasFreshPendingStatus(
+				statusEvents,
+				EscrowStatus.PendingAcceptance,
+				now
 			);
-			const hasPendingAcceptance = pendingAcceptanceEvents.length > 0;
 
 			if (hasPendingAcceptance) {
 				return {

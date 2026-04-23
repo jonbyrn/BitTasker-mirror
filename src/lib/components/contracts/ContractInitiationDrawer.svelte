@@ -17,14 +17,15 @@
 		hideFooter = false,
 		allowCloseWhileSubmitting = false,
 		drawerTestId = 'contract-initiation-drawer',
+		cancelTestId = 'contract-initiation-cancel',
 		confirmTestId = 'contract-initiation-confirm',
-		retryTestId = 'contract-initiation-retry',
 		errorTestId = 'contract-initiation-error',
 		errorHintTestId = 'contract-initiation-error-hint',
 		warningTestId = 'contract-initiation-warning',
 		warningHintTestId = 'contract-initiation-warning-hint',
-		onConfirm = () => {},
+		retryTestId = 'contract-initiation-retry',
 		onRetry = () => {},
+		onConfirm = () => {},
 		onClose = () => {},
 		children: content
 	} = $props<{
@@ -41,15 +42,16 @@
 		warningHint?: string;
 		hideFooter?: boolean;
 		allowCloseWhileSubmitting?: boolean;
+		cancelTestId?: string;
 		drawerTestId?: string;
 		confirmTestId?: string;
-		retryTestId?: string;
 		errorTestId?: string;
 		errorHintTestId?: string;
 		warningTestId?: string;
 		warningHintTestId?: string;
-		onConfirm?: () => void;
+		retryTestId?: string;
 		onRetry?: () => void;
+		onConfirm?: () => void;
 		onClose?: () => void;
 		children?: import('svelte').Snippet;
 	}>();
@@ -58,7 +60,6 @@
 		confirmLabel || ($t('common.components.confirm_modal.confirm') as string) || 'Confirm'
 	);
 	const resolvedCancelLabel = $derived(cancelLabel || ($t('common.cancel') as string) || 'Cancel');
-	const showRetry = $derived(Boolean(errorMessage?.trim()) && !isSubmitting);
 
 	function handleClose() {
 		if (isSubmitting && !allowCloseWhileSubmitting) {
@@ -69,7 +70,14 @@
 	}
 </script>
 
-<Drawer isOpen={open} {title} onClose={handleClose} position="right" isScrollable={true}>
+<Drawer
+	isOpen={open}
+	{title}
+	onClose={handleClose}
+	position="right"
+	isScrollable={true}
+	{isSubmitting}
+>
 	<div class="space-y-4" data-testid={drawerTestId}>
 		{#if subtitle}
 			<p class="text-base-content/70 text-sm">
@@ -95,6 +103,16 @@
 					{/if}
 				</div>
 			</div>
+			{#if onRetry && !isSubmitting}
+				<button
+					type="button"
+					class="btn btn-outline btn-error btn-sm w-full"
+					data-testid={retryTestId}
+					onclick={onRetry}
+				>
+					{$t('common.buttons.retry')}
+				</button>
+			{/if}
 		{:else if warningMessage}
 			<div
 				class="alert alert-warning alert-outline"
@@ -116,17 +134,17 @@
 
 	{#snippet footer()}
 		{#if !hideFooter}
-			<div class="flex flex-col gap-3 sm:flex-row sm:justify-end">
-				<button class="btn btn-ghost" onclick={handleClose} disabled={isSubmitting}>
+			<div class="flex flex-row gap-3 sm:justify-end">
+				<button
+					class="btn btn-error flex-1 sm:min-w-[100px] sm:flex-none"
+					data-testid={cancelTestId}
+					onclick={handleClose}
+					disabled={isSubmitting}
+				>
 					{resolvedCancelLabel}
 				</button>
-				{#if showRetry}
-					<button class="btn btn-outline" onclick={onRetry} data-testid={retryTestId}>
-						{$t('common.buttons.retry') || 'Retry'}
-					</button>
-				{/if}
 				<button
-					class="btn btn-primary"
+					class="btn btn-primary flex-1 sm:min-w-[120px] sm:flex-none"
 					onclick={onConfirm}
 					disabled={isSubmitting || !canConfirm}
 					data-testid={confirmTestId}

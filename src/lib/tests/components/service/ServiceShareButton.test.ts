@@ -1,19 +1,22 @@
 import { render, fireEvent, screen, waitFor } from '@testing-library/svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import ServiceShareButton from '$lib/components/service/ServiceShareButton.svelte';
+import type { Service } from '$lib/types/service';
 
 const {
 	isNativePlatform,
 	copyToClipboard,
 	showSuccessToast,
 	showErrorToast,
-	getServiceDisplayTitle
+	getServiceDisplayTitle,
+	getServiceDisplayDescription
 } = vi.hoisted(() => ({
 	isNativePlatform: vi.fn(() => false),
 	copyToClipboard: vi.fn().mockResolvedValue(true),
 	showSuccessToast: vi.fn(),
 	showErrorToast: vi.fn(),
-	getServiceDisplayTitle: vi.fn()
+	getServiceDisplayTitle: vi.fn(),
+	getServiceDisplayDescription: vi.fn()
 }));
 
 vi.mock('@capacitor/core', () => ({
@@ -34,7 +37,8 @@ vi.mock('$lib/stores/app.store', () => ({
 }));
 
 vi.mock('$lib/utils/serviceDisplayTranslation', () => ({
-	getServiceDisplayTitle
+	getServiceDisplayTitle,
+	getServiceDisplayDescription
 }));
 
 vi.mock('svelte-i18n', async () => {
@@ -61,6 +65,7 @@ describe('ServiceShareButton', () => {
 			configurable: true
 		});
 		getServiceDisplayTitle.mockReturnValue('Localized service title');
+		getServiceDisplayDescription.mockReturnValue('A great service description');
 	});
 
 	it('shares the current service payload through the shared entity button', async () => {
@@ -69,7 +74,7 @@ describe('ServiceShareButton', () => {
 				id: 'service-event-1',
 				uniqueId: 'service-123',
 				title: 'Original service title'
-			} as any,
+			} as Partial<Service> as Service,
 			variant: 'circle'
 		});
 
@@ -78,7 +83,7 @@ describe('ServiceShareButton', () => {
 		await waitFor(() => {
 			expect(navigator.share).toHaveBeenCalledWith({
 				title: 'Localized service title',
-				text: 'Check out this task',
+				text: 'Localized service title\n\nA great service description',
 				url: 'http://localhost:3000/services/service-123'
 			});
 		});

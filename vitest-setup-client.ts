@@ -1,5 +1,30 @@
 import '@testing-library/jest-dom/vitest';
 import { vi } from 'vitest';
+import { readable } from 'svelte/store';
+
+// Mock $app/stores with a default page store
+vi.mock('$app/stores', () => ({
+	page: readable({
+		url: new URL('http://localhost/'),
+		params: {},
+		data: {},
+		form: undefined,
+		state: {},
+		formError: undefined
+	})
+}));
+
+// Mock $app/navigation
+vi.mock('$app/navigation', () => ({
+	goto: vi.fn(),
+	preloadData: vi.fn(),
+	preloadRoute: vi.fn(),
+	invalidate: vi.fn(),
+	invalidateAll: vi.fn(),
+	beforeNavigate: vi.fn(),
+	afterNavigate: vi.fn(),
+	disableScrollHandling: vi.fn()
+}));
 
 // Mock @bittasker/wallet-core to avoid EventBus import failure in test env
 // (wallet-core dist/index.js imports ./core/EventBus which may not resolve)

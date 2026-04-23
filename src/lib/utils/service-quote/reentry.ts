@@ -55,7 +55,11 @@ export function buildServiceQuoteReentryUrl(
 	return `${url.pathname}${url.search}`;
 }
 
-export function parseServiceQuoteReentryState(input: URL): ServiceQuoteReentryState {
+export function parseServiceQuoteReentryState(input: URL): ServiceQuoteReentryState | null {
+	if (!input || typeof input !== 'object' || !('searchParams' in input)) {
+		return null;
+	}
+
 	const tierId = normalizeIdentifier(input.searchParams.get('tier') ?? undefined) ?? undefined;
 	const selectedAddOnIds = normalizeIdentifiers(
 		(input.searchParams.get('addons') ?? '')

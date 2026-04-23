@@ -54,6 +54,11 @@
 			jsonLd: null
 		}
 	);
+	const jsonLdScript = $derived(
+		seo.jsonLd
+			? `<script type="application/ld+json">${JSON.stringify(seo.jsonLd)}</sc` + `ript>`
+			: ''
+	);
 </script>
 
 <svelte:head>
@@ -86,10 +91,9 @@
 	<meta name="twitter:creator" content="@BitTaskerdotcom" />
 
 	<!-- Structured Data -->
-	{#if seo.jsonLd}
-		<script type="application/ld+json">
-{JSON.stringify(seo.jsonLd)}
-		</script>
+	{#if jsonLdScript}
+		<!-- eslint-disable-next-line svelte/no-at-html-tags -->
+		{@html jsonLdScript}
 	{/if}
 </svelte:head>
 
@@ -116,7 +120,7 @@
 												(section.id === 'find-tasks' && page.url.pathname.startsWith('/tasks')) ||
 												(section.id === 'find-services' &&
 													page.url.pathname.startsWith('/services'))}
-											class="flex items-center gap-3"
+											class="flex items-center gap-3 {section.indent ? 'pl-6' : ''}"
 										>
 											{#if section.icon === 'mdi:format-list-bulleted'}
 												<IconFormatListBulleted class="text-primary" />

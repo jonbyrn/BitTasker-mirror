@@ -1,4 +1,5 @@
 import type { Task, SearchTasksParams } from '$lib/types/task.d';
+import { PRIVACY_JITTER_MAX_METERS } from '$lib/utils/location/public-location';
 
 /**
  * Interface for pre-indexed task data to enable O(1) lookups
@@ -35,6 +36,39 @@ function normalizeText(text: string): string {
 		.trim();
 }
 
+function locationSearchTerms(
+	location:
+		| {
+				displayName?: string | null;
+				formattedAddress?: string | null;
+				addressComponents?: {
+					city?: string | null;
+					state?: string | null;
+					country?: string | null;
+				} | null;
+		  }
+		| null
+		| undefined
+): string[] {
+	if (!location) {
+		return [];
+	}
+
+	const structured = [
+		location.addressComponents?.city,
+		location.addressComponents?.state,
+		location.addressComponents?.country
+	]
+		.filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+		.map((value) => normalizeText(value));
+
+	const raw = [location.displayName, location.formattedAddress]
+		.filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+		.map((value) => normalizeText(value));
+
+	return [...new Set([...raw, ...structured])];
+}
+
 /**
  * Pre-index task data to enable fast filtering operations
  * This converts arrays to Sets and normalizes text for O(1) lookups
@@ -46,8 +80,7 @@ export function indexTaskData(tasks: Task[]): IndexedTask[] {
 		if (typeof value === 'string') return normalizeText(value);
 		if (value && typeof value === 'object') {
 			const v = value as Record<string, unknown>;
-			if (typeof v.id === 'string' || typeof v.id === 'number')
-				return normalizeText(String(v.id));
+			if (typeof v.id === 'string' || typeof v.id === 'number') return normalizeText(String(v.id));
 			if (typeof v.name === 'string') return normalizeText(v.name);
 			if (typeof v.title === 'string') return normalizeText(v.title);
 		}
@@ -84,6 +117,8 @@ export function indexTaskData(tasks: Task[]): IndexedTask[] {
 			normalizedTitle,
 			normalizedDescription,
 			...translationTexts,
+			...locationSearchTerms(task.pickupLocation),
+			...locationSearchTerms(task.dropOffLocation),
 			...Array.from(skillsSet),
 			...Array.from(categoriesSet)
 		].join(' ');
@@ -131,8 +166,7 @@ export function filterIndexedTasks(
 		if (typeof value === 'string') return normalizeText(value);
 		if (value && typeof value === 'object') {
 			const v = value as Record<string, unknown>;
-			if (typeof v.id === 'string' || typeof v.id === 'number')
-				return normalizeText(String(v.id));
+			if (typeof v.id === 'string' || typeof v.id === 'number') return normalizeText(String(v.id));
 			if (typeof v.name === 'string') return normalizeText(v.name);
 			if (typeof v.title === 'string') return normalizeText(v.title);
 		}
@@ -198,7 +232,9 @@ export function filterIndexedTasks(
 		filteredTasks = filteredTasks.filter((task) => {
 			// Only check pickup location for filtering
 			const hasPickupLocation =
-				task.pickupLocation && task.pickupLocation.latitude && task.pickupLocation.longitude;
+				task.pickupLocation &&
+				task.pickupLocation.latitude != null &&
+				task.pickupLocation.longitude != null;
 
 			// Get pickup location name for text matching
 			const pickupLocationName = task.pickupLocation?.displayName?.toLowerCase() || '';
@@ -216,7 +252,7 @@ export function filterIndexedTasks(
 						task.pickupLocation!.latitude!,
 						task.pickupLocation!.longitude!
 					);
-					if (distance <= radius) {
+					if (distance <= radius + PRIVACY_JITTER_MAX_METERS / 1000) {
 						return true;
 					}
 				}
@@ -243,7 +279,7 @@ export function filterIndexedTasks(
 		if (isDateOnly) {
 			filterDeadline.setHours(23, 59, 59, 999);
 		}
-		
+
 		filteredTasks = filteredTasks.filter((task) => {
 			if (!task.deadline) return false;
 			const taskDeadline = new Date(task.deadline);
@@ -259,7 +295,7 @@ export function filterIndexedTasks(
 		const endStr = params.dateRange.end;
 		const startDate = new Date(startStr);
 		const endDate = new Date(endStr);
-		
+
 		// If date-only strings, set start to beginning of day and end to end of day
 		if (/^\d{4}-\d{2}-\d{2}$/.test(startStr)) {
 			startDate.setHours(0, 0, 0, 0);
@@ -267,7 +303,7 @@ export function filterIndexedTasks(
 		if (/^\d{4}-\d{2}-\d{2}$/.test(endStr)) {
 			endDate.setHours(23, 59, 59, 999);
 		}
-		
+
 		filteredTasks = filteredTasks.filter((task) => {
 			// Check if task has dateRange
 			if (task.dateRange?.start && task.dateRange?.end) {

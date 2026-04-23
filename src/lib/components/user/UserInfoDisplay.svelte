@@ -198,8 +198,6 @@
 		return fetchedProfile?.picture || avatar;
 	});
 
-	const normalizedHexPubkey = $derived.by(() => normalizePubkeyToHex(pubkey));
-
 	/**
 	 * Normalize pubkey to hex format (like profile page does)
 	 * This ensures consistent cache keys and proper filtering
@@ -241,30 +239,18 @@
 		return null;
 	}
 
+	const normalizedHexPubkey = $derived.by(() => normalizePubkeyToHex(pubkey));
+
 	/**
 	 * Load user profile (like profile page does)
 	 * Always fetches fresh data when pubkey is provided
 	 */
 	async function loadUserProfile(currentPubkey: string, requestId: number) {
 		try {
-			//console.debug('[UserInfoDisplay] loadUserProfile: starting fetch', {
-			// 	username,
-			// 	normalizedUsername,
-			// 	avatar,
-			// 	isAvatarMissing,
-			// 	pubkey,
-			// 	normalizedHexPubkey
-			// });
-
 			// Convert hex to npub for fetchProfileMetadata (it handles both, but npub ensures cache consistency)
 			// The cache key will be npub format, which is consistent across calls
 			const npubToFetch = nip19.npubEncode(currentPubkey);
 			const profile = await fetchProfileMetadata(npubToFetch);
-			//console.debug('[UserInfoDisplay] loadUserProfile: received profile', {
-			// 	profile,
-			// 	hasName: !!profile?.name,
-			// 	hasPicture: !!profile?.picture
-			// });
 
 			if (requestId !== activeProfileRequestId) {
 				return;
@@ -399,7 +385,7 @@
 		{/if}
 
 		<!-- Rating - same pattern as find-tasks: filled stars, yellow for filled, grey for empty -->
-		<div class="flex items-center">
+		<div class="flex items-center gap-1">
 			{#each Array.from({ length: 5 }, (_, i) => i) as i (i)}
 				<svg
 					xmlns="http://www.w3.org/2000/svg"

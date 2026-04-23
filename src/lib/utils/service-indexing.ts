@@ -1,5 +1,6 @@
 import type { Service, SearchServicesParams } from '$lib/types/service.d';
 import { ServiceLocationTypeEnum, ServicePricingTypeEnum } from './enums/service.enum';
+import { PRIVACY_JITTER_MAX_METERS } from '$lib/utils/location/public-location';
 
 /**
  * Interface for pre-indexed service data to enable O(1) lookups
@@ -38,6 +39,36 @@ function normalizeText(text: string): string {
 		.replace(/[\u0300-\u036f]/g, '') // Remove diacritics (accents)
 		.toLowerCase()
 		.trim();
+}
+
+function locationSearchTerms(
+	location:
+		| {
+				displayName?: string | null;
+				formattedAddress?: string | null;
+				addressComponents?: {
+					city?: string | null;
+					state?: string | null;
+					country?: string | null;
+				} | null;
+		  }
+		| null
+		| undefined,
+	locationDisplayName?: string | null
+): string[] {
+	const structured = [
+		location?.addressComponents?.city,
+		location?.addressComponents?.state,
+		location?.addressComponents?.country
+	]
+		.filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+		.map((value) => normalizeText(value));
+
+	const raw = [locationDisplayName, location?.displayName, location?.formattedAddress]
+		.filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+		.map((value) => normalizeText(value));
+
+	return [...new Set([...raw, ...structured])];
 }
 
 /**
@@ -93,6 +124,14 @@ export function indexServiceData(services: Service[]): IndexedService[] {
 			normalizedTitle,
 			normalizedDescription,
 			...translationTexts,
+			...locationSearchTerms(
+				service.locationDetails?.taskerLocation?.serviceLocation,
+				service.locationDetails?.taskerLocation?.locationDisplayName
+			),
+			...locationSearchTerms(
+				service.locationDetails?.taskeeLocation?.serviceLocation,
+				service.locationDetails?.taskeeLocation?.locationDisplayName
+			),
 			...Array.from(skillsSet),
 			...Array.from(categoriesSet)
 		].join(' ');
@@ -333,10 +372,18 @@ export function filterIndexedServices(
 
 	// Location and radius filtering (requires distance calculation)
 	if (params.location && params.radius !== undefined) {
-		// Parse location string (format: "lat,lng")
-		const [latStr, lngStr] = params.location.split(',');
-		const filterLat = parseFloat(latStr);
-		const filterLng = parseFloat(lngStr);
+		const filterLat =
+			params.locationCoords?.latitude ??
+			(() => {
+				const [latStr] = params.location.split(',');
+				return parseFloat(latStr);
+			})();
+		const filterLng =
+			params.locationCoords?.longitude ??
+			(() => {
+				const [, lngStr] = params.location.split(',');
+				return parseFloat(lngStr);
+			})();
 
 		if (!isNaN(filterLat) && !isNaN(filterLng)) {
 			filteredServices = filteredServices.filter((service) => {
@@ -346,8 +393,8 @@ export function filterIndexedServices(
 
 				// For tasker location type ("At My Location"), match the provider's fixed location
 				if (
-					taskerLocation?.latitude &&
-					taskerLocation?.longitude &&
+					taskerLocation?.latitude != null &&
+					taskerLocation?.longitude != null &&
 					service.serviceLocationTypes?.includes(ServiceLocationTypeEnum.TASKER_LOCATION)
 				) {
 					const distance = calculateDistance(
@@ -361,8 +408,8 @@ export function filterIndexedServices(
 
 				// For taskee location type ("At Tasker Location"), include the provider travel radius
 				if (
-					taskeeLocation?.latitude &&
-					taskeeLocation?.longitude &&
+					taskeeLocation?.latitude != null &&
+					taskeeLocation?.longitude != null &&
 					service.serviceLocationTypes?.includes(ServiceLocationTypeEnum.TASKEE_LOCATION)
 				) {
 					const distance = calculateDistance(
@@ -372,7 +419,7 @@ export function filterIndexedServices(
 						taskeeLocation.longitude
 					);
 					const serviceRadius = service.locationDetails?.taskeeLocation?.serviceRadius || 0;
-					return distance <= params.radius! + serviceRadius;
+					return distance <= params.radius! + serviceRadius + PRIVACY_JITTER_MAX_METERS / 1000;
 				}
 
 				// Remote services are always included

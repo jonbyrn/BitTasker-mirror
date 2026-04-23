@@ -1,9 +1,9 @@
 <script lang="ts">
-	import { onDestroy } from 'svelte';
 	import { t } from 'svelte-i18n';
 	import { page } from '$app/state';
 	import { beforeNavigate, goto } from '$app/navigation';
 	import { authState } from '$lib/stores/auth.store';
+	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 
 	import IconLogout from '~icons/mdi/logout';
 	import IconHelpCircleOutline from '~icons/mdi/help-circle-outline';
@@ -32,22 +32,16 @@
 	import IconBriefcaseSearch from '~icons/mdi/briefcase-search';
 	import IconNewspaper from '~icons/mdi/newspaper';
 	import IconCommentTextOutline from '~icons/mdi/comment-text-outline';
-	import IconFormatListBulleted from '~icons/mdi/format-list-bulleted';
-	import IconAccountCircle from '~icons/mdi/account-circle';
-	import IconAccount from '~icons/mdi/account';
-	import IconCog from '~icons/mdi/cog';
-
-	type IconComponent = typeof IconLogin;
 
 	interface NavLink {
 		href: string;
-		icon: IconComponent;
+		icon: typeof IconLogin;
 		label: string;
 	}
 
 	interface NavGroup {
 		id: string;
-		icon: IconComponent;
+		icon: typeof IconLogin;
 		label: string;
 		items: NavLink[];
 	}
@@ -66,37 +60,6 @@
 				{ href: '/about', icon: IconInformationOutline, label: 'navbar.about_us' },
 				{ href: '/terms', icon: IconFileDocumentOutline, label: 'navbar.terms_of_service' },
 				{ href: '/privacy', icon: IconShieldAccount, label: 'navbar.privacy_policy' }
-			]
-		},
-		{
-			id: 'taskees',
-			icon: IconBriefcaseOutline,
-			label: 'navbar.task_management',
-			items: [
-				{ href: '/tasks', icon: IconMagnify, label: 'navbar.find_tasks' },
-				{ href: '/dashboard', icon: IconFormatListBulleted, label: 'navbar.my_tasks' },
-				{
-					href: '/dashboard/create-task',
-					icon: IconPlusCircleOutline,
-					label: 'navbar.create_task'
-				},
-				{
-					href: '/dashboard?tab=bids',
-					icon: IconInvoiceTextSendOutline,
-					label: 'navbar.bids_sent'
-				},
-				{ href: '/dashboard?tab=contracts', icon: IconFileSign, label: 'navbar.contracts' }
-			]
-		},
-		{
-			id: 'taskers',
-			icon: IconAccountCircle,
-			label: 'navbar.my_account',
-			items: [
-				{ href: '/dashboard/messages', icon: IconChatOutline, label: 'navbar.messages' },
-				{ href: '/dashboard/wallet', icon: IconWalletOutline, label: 'navbar.wallet' },
-				{ href: '/dashboard/profile', icon: IconAccount, label: 'navbar.profile' },
-				{ href: '/dashboard/settings', icon: IconCog, label: 'navbar.settings' }
 			]
 		}
 	];
@@ -165,7 +128,8 @@
 
 	$effect(() => {
 		const path = page.url.pathname;
-		if (path === '/dashboard') {
+		// More specific route detection for active states
+		if (path === '/dashboard' || path === '/earning') {
 			currentSection = 'home';
 		} else if (path.includes('/dashboard/create-task')) {
 			currentSection = 'create-task';
@@ -189,6 +153,7 @@
 	let isMenuOpen = $state(false);
 	let isMenuClosing = $state(false);
 	let isMenuExpanding = $state(false);
+	let showLogoutConfirm = $state(false);
 
 	// Measure actual dock height (avoid relying on 80px fallback)
 	let dockEl = $state<HTMLElement | null>(null);
@@ -228,8 +193,6 @@
 		openGroupId = null;
 	}
 
-	let unsubscribeAuth: (() => void) | undefined;
-
 	// Close menu before any navigation
 	beforeNavigate(() => {
 		if (isMenuOpen && !isMenuClosing) {
@@ -255,6 +218,8 @@
 			isMenuClosing = true;
 			// Close all collapses when closing the menu
 			closeAllCollapses();
+			// Close logout confirm if open
+			showLogoutConfirm = false;
 			// Wait for slide-down animation to complete before hiding
 			setTimeout(() => {
 				isMenuOpen = false;
@@ -263,16 +228,27 @@
 		}
 	}
 
+	function handleLogoutClick() {
+		showLogoutConfirm = true;
+	}
+
+	async function handleLogoutConfirm() {
+		showLogoutConfirm = false;
+		await authState.logout();
+		closeMenu();
+		await goto('/', { replaceState: true });
+	}
+
+	function handleLogoutCancel() {
+		showLogoutConfirm = false;
+	}
+
 	async function handleNavWithMenuClose(event: MouseEvent, href: string) {
 		event.preventDefault();
 		event.stopPropagation();
 		closeMenu();
 		await goto(href, { noScroll: false, replaceState: false });
 	}
-
-	onDestroy(() => {
-		if (unsubscribeAuth) unsubscribeAuth();
-	});
 </script>
 
 {#snippet menuLink(link: NavLink)}
@@ -286,37 +262,6 @@
 			<LinkIcon class="text-primary" />
 			<span class="font-medium">{$t(link.label)}</span>
 		</a>
-	</li>
-{/snippet}
-
-{#snippet menuGroup(group: NavGroup)}
-	{@const GroupIcon = group.icon}
-	<li>
-		<button onclick={() => toggleGroup(group.id)} class="min-h-[48px] py-3">
-			<GroupIcon class="text-primary" />
-			<span class="font-medium">{$t(group.label)}</span>
-			<svg
-				class="dropdown-arrow ml-auto h-4 w-4"
-				class:dropdown-open={openGroupId === group.id}
-				fill="currentColor"
-				viewBox="0 0 20 20"
-				stroke="currentColor"
-				stroke-width="1"
-			>
-				<path
-					fill-rule="evenodd"
-					d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-					clip-rule="evenodd"
-				/>
-			</svg>
-		</button>
-	</li>
-	<li class="submenu-grid" class:submenu-open={openGroupId === group.id}>
-		<ul class="submenu-inner">
-			{#each group.items as link (link.label)}
-				{@render menuLink(link)}
-			{/each}
-		</ul>
 	</li>
 {/snippet}
 
@@ -347,14 +292,14 @@
 		></span>
 		<span
 			class="bg-primary-content block h-0.5 w-5 transition-all duration-300 ease-in-out"
-			class:-rotate-45={isMenuOpen && !isMenuClosing}
-			class:-translate-y-1={isMenuOpen && !isMenuClosing}
+			class:rotate-[-45deg]={isMenuOpen && !isMenuClosing}
+			class:translate-y-[-4px]={isMenuOpen && !isMenuClosing}
 		></span>
 	</div>
 	<span class="text-primary-content text-xs font-medium">{$t('navbar.menu')}</span>
 {/snippet}
 
-{#snippet dockLink(href: string, Icon: IconComponent, label: string, section: string)}
+{#snippet dockLink(href: string, Icon: typeof IconLogin, label: string, section: string)}
 	<a
 		{href}
 		class="hover:bg-primary-content/10 flex min-h-[48px] min-w-[48px] flex-col items-center gap-1 rounded-lg transition-colors {currentSection ===
@@ -368,7 +313,7 @@
 	</a>
 {/snippet}
 
-{#snippet quickActionLink(href: string, Icon: IconComponent, label: string)}
+{#snippet quickActionLink(href: string, Icon: typeof IconLogin, label: string)}
 	<a
 		{href}
 		onclick={(e) => handleNavWithMenuClose(e, href)}
@@ -404,24 +349,70 @@
 			class:menu-collapse={isMenuClosing || (!isMenuExpanding && !isMenuClosing)}
 		>
 			<div class="bg-base-100 border-base-300 overflow-hidden rounded-t-2xl border-t shadow-lg">
-				<div class="bottom-nav-scroll max-h-208 overflow-y-auto pt-2">
+				<div class="bottom-nav-scroll max-h-[70vh] overflow-y-auto pt-2">
 					<div class="p-2">
 						{#if $authState.isAuthenticated}
 							<ul class="menu w-full">
+								<!-- 1. Logout -->
 								<li>
-									<button
-										onclick={() => {
-											closeMenu();
-										}}
-										class="min-h-[48px] w-full py-3 text-left"
-									>
+									<button onclick={handleLogoutClick} class="min-h-[48px] w-full py-3 text-left">
 										<IconLogout class="text-error" />
 										<span class="text-error font-medium">{$t('navbar.logout')}</span>
 									</button>
 								</li>
-								{#each loggedInGroups as group (group.label)}
-									{@render menuGroup(group)}
-								{/each}
+
+								<!-- 2. Support & Help (Accordion) -->
+								<li>
+									<button onclick={() => toggleGroup('company')} class="min-h-[48px] py-3">
+										<IconHelpCircleOutline class="text-primary" />
+										<span class="font-medium">{$t('navbar.support_help')}</span>
+										<svg
+											class="dropdown-arrow ml-auto h-4 w-4"
+											class:dropdown-open={openGroupId === 'company'}
+											fill="currentColor"
+											viewBox="0 0 20 20"
+											stroke="currentColor"
+											stroke-width="1"
+										>
+											<path
+												fill-rule="evenodd"
+												d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+												clip-rule="evenodd"
+											/>
+										</svg>
+									</button>
+								</li>
+								<li class="submenu-grid" class:submenu-open={openGroupId === 'company'}>
+									<ul class="submenu-inner">
+										{#each loggedInGroups.find((g) => g.id === 'company')?.items || [] as link (link.label)}
+											{@render menuLink(link)}
+										{/each}
+									</ul>
+								</li>
+
+								<!-- 3. Earning (Link) -->
+								<li>
+									<a
+										href="/earning"
+										onclick={(e) => handleNavWithMenuClose(e, '/earning')}
+										class="min-h-[48px] py-3"
+									>
+										<IconInvoiceTextSendOutline class="text-primary" />
+										<span class="font-medium">{$t('navbar.earning')}</span>
+									</a>
+								</li>
+
+								<!-- 4. Hiring (Link) -->
+								<li>
+									<a
+										href="/dashboard"
+										onclick={(e) => handleNavWithMenuClose(e, '/dashboard')}
+										class="min-h-[48px] py-3"
+									>
+										<IconBriefcaseOutline class="text-primary" />
+										<span class="font-medium">{$t('navbar.hiring')}</span>
+									</a>
+								</li>
 							</ul>
 						{:else}
 							<div class="mb-2 flex items-center justify-around">
@@ -443,11 +434,38 @@
 								</a>
 							</div>
 							<ul class="menu w-full">
-								{#each loggedOutTopLinks as link (link.label)}
+								{#each loggedOutTopLinks as link (link.href)}
 									{@render topLevelLink(link)}
 								{/each}
-								{#each loggedOutGroups as group (group.label)}
-									{@render menuGroup(group)}
+								{#each loggedOutGroups as group (group.id)}
+									<!-- Group dropdown -->
+									<li>
+										<button onclick={() => toggleGroup(group.id)} class="min-h-[48px] py-3">
+											<group.icon class="text-primary" />
+											<span class="font-medium">{$t(group.label)}</span>
+											<svg
+												class="dropdown-arrow ml-auto h-4 w-4"
+												class:dropdown-open={openGroupId === group.id}
+												fill="currentColor"
+												viewBox="0 0 20 20"
+												stroke="currentColor"
+												stroke-width="1"
+											>
+												<path
+													fill-rule="evenodd"
+													d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+													clip-rule="evenodd"
+												/>
+											</svg>
+										</button>
+									</li>
+									<li class="submenu-grid" class:submenu-open={openGroupId === group.id}>
+										<ul class="submenu-inner">
+											{#each group.items as link (link.label)}
+												{@render menuLink(link)}
+											{/each}
+										</ul>
+									</li>
 								{/each}
 							</ul>
 						{/if}
@@ -458,15 +476,11 @@
 					<div class="bottom-nav-quick border-base-300/70 bg-base-100/95 border-t px-2 py-2">
 						<div class="flex gap-2">
 							{@render quickActionLink('/tasks', IconMagnify, 'navbar.find_tasks')}
+							{@render quickActionLink('/services', IconBriefcaseSearch, 'navbar.find_services')}
 							{@render quickActionLink(
 								'/dashboard?tab=contracts',
 								IconFileSign,
 								'navbar.contracts'
-							)}
-							{@render quickActionLink(
-								'/dashboard?tab=bids',
-								IconInvoiceTextSendOutline,
-								'navbar.bids_sent'
 							)}
 						</div>
 					</div>
@@ -526,6 +540,14 @@
 	</div>
 {/if}
 
+<ConfirmModal
+	isOpen={showLogoutConfirm}
+	title={$t('common.components.confirm_modal.logout_title')}
+	message={$t('common.components.confirm_modal.logout_message')}
+	onConfirm={handleLogoutConfirm}
+	onCancel={handleLogoutCancel}
+/>
+
 <style>
 	.pb-safe {
 		padding-bottom: env(safe-area-inset-bottom, 0);
@@ -542,6 +564,10 @@
 		width: 100%;
 	}
 
+	.dock .dock-label {
+		white-space: nowrap;
+	}
+
 	.bottom-nav-backdrop {
 		opacity: 0;
 		transition: opacity 300ms ease;
@@ -555,7 +581,7 @@
 
 	.bottom-nav-menu {
 		transform: translateY(100%);
-		transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+		transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
 		will-change: transform;
 		backface-visibility: hidden;
 
@@ -596,14 +622,14 @@
 	}
 
 	/*
-	 * Submenu accordion using grid-template-rows for GPU-friendly animation.
-	 * The cubic-bezier replicates the backOut bounce feel without layout thrashing.
-	 * Expand overshoots slightly (like backOut), collapse eases out smoothly.
+	 * Submenu reveal using grid-template-rows trick for smooth layout pushing.
+	 * Modern browsers optimize this heavily for performance.
 	 */
 	.submenu-grid {
 		display: grid;
 		grid-template-rows: 0fr;
-		transition: grid-template-rows 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+		transition: grid-template-rows 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+		overflow: hidden;
 		list-style: none;
 	}
 
@@ -612,10 +638,11 @@
 	}
 
 	.submenu-inner {
-		overflow: hidden;
+		min-height: 0;
 		padding: 0;
 		margin: 0;
 		list-style: none;
+		overflow: hidden;
 	}
 
 	.dropdown-arrow {

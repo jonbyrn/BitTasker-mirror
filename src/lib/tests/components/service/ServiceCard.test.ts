@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/svelte';
+import userEvent from '@testing-library/user-event';
 import type { Service } from '$lib/types/service.d';
 import { ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';
 import ServiceCard from '$lib/components/service/ServiceCard.svelte';
@@ -19,6 +20,9 @@ vi.mock('svelte-i18n', async () => {
 			}
 			if (key === 'dashboard.services.browse.pricing.inquiry_required') {
 				return 'Request Quote';
+			}
+			if (key === 'common.location.approximate_short') {
+				return 'Approx.';
 			}
 			return key;
 		}),
@@ -89,5 +93,92 @@ describe('ServiceCard', () => {
 
 		expect(screen.queryByRole('button', { name: 'Quote' })).toBeNull();
 		expect(screen.getByRole('button', { name: 'View' })).toBeTruthy();
+	});
+
+	it('shows a brief note when the public service location is approximate', () => {
+		render(ServiceCard, {
+			service: createService({
+				serviceLocationTypes: ['taskee_location'] as never,
+				locationDetails: {
+					taskeeLocation: {
+						serviceLocation: {
+							displayName: 'Denver, CO, US',
+							locationLoaded: true,
+							zipCode: ''
+						},
+						locationDisplayName: 'Denver, CO, US'
+					}
+				} as never
+			}),
+			btcPrice: 100_000
+		});
+
+		expect(screen.getByText('Denver, CO, US')).toBeInTheDocument();
+		expect(screen.getByText(/\(Approx\.\)/)).toBeInTheDocument();
+	});
+
+	it('prioritizes the approximate service area when range-based travel is also enabled', () => {
+		render(ServiceCard, {
+			service: createService({
+				serviceLocationTypes: ['tasker_location', 'taskee_location'] as never,
+				locationDetails: {
+					taskerLocation: {
+						serviceLocation: {
+							displayName: '123 Main St, Austin, TX',
+							formattedAddress: '123 Main St, Austin, TX',
+							locationLoaded: true
+						}
+					},
+					taskeeLocation: {
+						serviceLocation: {
+							displayName: 'Austin, TX',
+							locationLoaded: true,
+							zipCode: ''
+						},
+						locationDisplayName: 'Austin, TX'
+					}
+				} as never
+			}),
+			btcPrice: 100_000
+		});
+
+		expect(screen.getByText('Austin, TX')).toBeInTheDocument();
+		expect(screen.getByText(/\(Approx\.\)/)).toBeInTheDocument();
+		expect(screen.queryByText('123 Main St, Austin, TX')).toBeNull();
+	});
+
+	describe('accessibility', () => {
+		it('card is keyboard focusable with tabindex', () => {
+			render(ServiceCard, {
+				service: createService(),
+				btcPrice: 100_000
+			});
+
+			const card = screen.getByRole('button', { name: /Logo Refresh/i });
+			expect(card).toHaveAttribute('tabindex', '0');
+		});
+
+		it('card has role="button"', () => {
+			render(ServiceCard, {
+				service: createService(),
+				btcPrice: 100_000
+			});
+
+			const card = screen.getByRole('button', { name: /Logo Refresh/i });
+			expect(card).toBeInTheDocument();
+		});
+
+		it('card is activated on Enter key press without errors', async () => {
+			const user = userEvent.setup();
+			render(ServiceCard, {
+				service: createService(),
+				btcPrice: 100_000
+			});
+
+			const card = screen.getByRole('button', { name: /Logo Refresh/i });
+			card.focus();
+			await user.keyboard('{Enter}');
+			expect(card).toHaveFocus();
+		});
 	});
 });

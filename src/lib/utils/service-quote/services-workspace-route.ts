@@ -11,7 +11,7 @@ import {
 
 export type { ServicesWorkspaceTab };
 
-export type ServicesWorkspaceMessageCode = 'service_quotes_request_not_found';
+export type ServicesWorkspaceMessageCode = 'service_requests_request_not_found';
 
 export interface ServicesWorkspaceRouteState {
 	tab: ServicesWorkspaceTab;
@@ -109,19 +109,23 @@ export function parseServicesWorkspaceRouteQuery(
 	};
 	let messageCode: ServicesWorkspaceMessageCode | null = null;
 
-	if (parsed.tab === 'quotes' && parsed.service && isValidServiceAddress(parsed.service)) {
+	if (
+		parsed.tab === 'service-requests' &&
+		parsed.service &&
+		isValidServiceAddress(parsed.service)
+	) {
 		normalized.serviceAddress = parsed.service;
 	}
 
-	if (normalized.tab === 'quotes' && parsed.request) {
+	if (normalized.tab === 'service-requests' && parsed.request) {
 		if (isValidQuoteRequestId(parsed.request)) {
 			normalized.requestId = parsed.request;
 		} else {
-			messageCode = 'service_quotes_request_not_found';
+			messageCode = 'service_requests_request_not_found';
 		}
 	}
 
-	if (normalized.tab === 'quotes' && normalized.requestId) {
+	if (normalized.tab === 'service-requests' && normalized.requestId) {
 		const serviceAddresses = normalized.serviceAddress
 			? [normalized.serviceAddress]
 			: getContextServiceAddresses(context);
@@ -144,7 +148,7 @@ export function parseServicesWorkspaceRouteQuery(
 
 		if (!keepFocusedRequest) {
 			normalized.requestId = null;
-			messageCode = 'service_quotes_request_not_found';
+			messageCode = 'service_requests_request_not_found';
 		}
 	}
 
@@ -152,7 +156,10 @@ export function parseServicesWorkspaceRouteQuery(
 		new URL('https://bittasker.local/services/manage'),
 		{
 			tab: normalized.tab,
-			service: normalized.tab === 'quotes' ? (normalized.serviceAddress ?? undefined) : undefined,
+			service:
+				normalized.tab === 'service-requests'
+					? (normalized.serviceAddress ?? undefined)
+					: undefined,
 			request: normalized.requestId ?? undefined
 		}
 	);
@@ -171,11 +178,11 @@ export function createServicesWorkspaceRedirectUrl(baseUrl: URL): URL {
 		baseUrl.searchParams,
 		emptyServicesWorkspaceRouteContext
 	).state;
-	const targetTab = parsed.tab === 'quotes' ? 'requests' : 'my-services';
+	const targetTab = parsed.tab === 'service-requests' ? 'requests' : 'my-services';
 	const nextUrl = buildEarningQueryUrl(new URL('/earning', baseUrl), {
 		tab: targetTab,
-		service: parsed.tab === 'quotes' ? (parsed.serviceAddress ?? undefined) : undefined,
-		request: parsed.tab === 'quotes' ? (parsed.requestId ?? undefined) : undefined
+		service: parsed.tab === 'service-requests' ? (parsed.serviceAddress ?? undefined) : undefined,
+		request: parsed.tab === 'service-requests' ? (parsed.requestId ?? undefined) : undefined
 	});
 
 	return new URL(nextUrl);
@@ -196,8 +203,8 @@ export function createServicesWorkspaceUrl(
 	const legacyWorkspaceUrl = new URL(
 		buildServicesWorkspaceQueryUrl(new URL('/services/manage', baseUrl), {
 			tab: next.tab,
-			service: next.tab === 'quotes' ? (next.serviceAddress ?? undefined) : undefined,
-			request: next.requestId ?? undefined
+			service: next.tab === 'service-requests' ? (next.serviceAddress ?? undefined) : undefined,
+			request: next.tab === 'service-requests' ? (next.requestId ?? undefined) : undefined
 		})
 	);
 
@@ -206,12 +213,23 @@ export function createServicesWorkspaceUrl(
 
 export function createServicesWorkspaceRedirectUrlFromLegacyDashboard(baseUrl: URL): URL | null {
 	const parsed = parseDashboardQuery(baseUrl);
-	if (parsed.tab !== 'my-services' || parsed.view !== 'quotes' || !parsed.service) {
+	if (parsed.tab !== 'my-services' || !parsed.service) {
+		return null;
+	}
+
+	const rawView = baseUrl.searchParams.get('view');
+	const isQuotesView =
+		parsed.view === 'service-requests' ||
+		parsed.view === 'quotes' ||
+		rawView === 'service-requests' ||
+		rawView === 'quotes';
+
+	if (!isQuotesView) {
 		return null;
 	}
 
 	return createServicesWorkspaceUrl(new URL('/earning', baseUrl), {
-		tab: 'quotes',
+		tab: 'service-requests',
 		serviceAddress: parsed.service,
 		requestId: parsed.request ?? null
 	});

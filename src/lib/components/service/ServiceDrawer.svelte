@@ -1,8 +1,7 @@
 <script lang="ts">
 	import type { Service } from '$lib/types/service';
-	import { t, locale } from 'svelte-i18n';
+	import { t } from 'svelte-i18n';
 	import { getNpub } from '$lib/utils/nostrKeys';
-	import { getServiceDisplayTitle } from '$lib/utils/serviceDisplayTranslation';
 	import Drawer from '$lib/components/Drawer.svelte';
 	import ServiceTab from './ServiceTab.svelte';
 
@@ -28,16 +27,12 @@
 		}
 	}
 
-	// Get translated title for drawer
+	// Generic drawer title (service name is shown inside the card — avoids repeating in the chrome)
 	const drawerTitle = $derived.by(() => {
 		if (!props.service) {
 			return tr('dashboard.services.detail.title', 'Service Details');
 		}
-
-		return (
-			getServiceDisplayTitle(props.service, $locale || 'en') ||
-			tr('dashboard.services.detail.title', 'Service Details')
-		);
+		return tr('dashboard.services.detail.drawer_heading', 'Service details');
 	});
 
 	// Handle drawer state changes

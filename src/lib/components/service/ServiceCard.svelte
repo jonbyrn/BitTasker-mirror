@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Service, ServiceTier } from '$lib/types/service.d';
-	import type { Attachment } from '$lib/types/task.d';
+	import type { Attachment, Location } from '$lib/types/task.d';
 	import { t, locale } from 'svelte-i18n';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
@@ -11,6 +11,7 @@
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { satsFromUsd } from '$lib/utils/helpers/crypto';
 	import { ServicePricingTypeEnum, ServiceLocationTypeEnum } from '$lib/utils/enums/service.enum';
+	import { isApproximatePublicLocation } from '$lib/utils/location/public-location';
 	import Avatar from '../Avatar.svelte';
 	import ServiceShareButton from './ServiceShareButton.svelte';
 	import IconEye from '~icons/mdi/eye';
@@ -90,23 +91,43 @@
 	// Helper: show only address when available (no "En Mi Ubicación"), max 50 chars
 	const LOCATION_DISPLAY_MAX_LENGTH = 50;
 
-	function getLocationTypesDisplay(): string {
+	function getDisplayedLocationDetails(): { text: string; location: Location | null } {
 		if (!service.serviceLocationTypes || service.serviceLocationTypes.length === 0) {
-			return '';
+			return { text: '', location: null };
 		}
 
-		const hasTaskerLocation = service.serviceLocationTypes?.includes(
+		const taskerLocation = service.locationDetails?.taskerLocation?.serviceLocation ?? null;
+		const taskeeLocation = service.locationDetails?.taskeeLocation?.serviceLocation ?? null;
+		const hasTaskerLocation = service.serviceLocationTypes.includes(
 			ServiceLocationTypeEnum.TASKER_LOCATION
 		);
-		const baseAddress =
-			service.locationDetails?.taskerLocation?.serviceLocation?.displayName ||
-			service.locationDetails?.taskerLocation?.serviceLocation?.formattedAddress;
+		const hasTaskeeLocation = service.serviceLocationTypes.includes(
+			ServiceLocationTypeEnum.TASKEE_LOCATION
+		);
+		const taskeeAddress =
+			service.locationDetails?.taskeeLocation?.locationDisplayName ||
+			taskeeLocation?.displayName ||
+			taskeeLocation?.formattedAddress;
+		const taskerAddress = taskerLocation?.displayName || taskerLocation?.formattedAddress;
 
-		// When "En Mi Ubicación" with address: show only the address, truncated to 50 chars
-		if (hasTaskerLocation && baseAddress) {
-			return baseAddress.length > LOCATION_DISPLAY_MAX_LENGTH
-				? baseAddress.slice(0, LOCATION_DISPLAY_MAX_LENGTH).trim() + '…'
-				: baseAddress;
+		if (hasTaskeeLocation && taskeeAddress) {
+			return {
+				text:
+					taskeeAddress.length > LOCATION_DISPLAY_MAX_LENGTH
+						? taskeeAddress.slice(0, LOCATION_DISPLAY_MAX_LENGTH).trim() + '…'
+						: taskeeAddress,
+				location: taskeeLocation
+			};
+		}
+
+		if (hasTaskerLocation && taskerAddress) {
+			return {
+				text:
+					taskerAddress.length > LOCATION_DISPLAY_MAX_LENGTH
+						? taskerAddress.slice(0, LOCATION_DISPLAY_MAX_LENGTH).trim() + '…'
+						: taskerAddress,
+				location: taskerLocation
+			};
 		}
 
 		const locationLabels: Record<ServiceLocationTypeEnum, string> = {
@@ -118,10 +139,18 @@
 				$t('dashboard.services.create.location.taskee_title') || 'At Tasker Location'
 		};
 
-		return service.serviceLocationTypes
-			.map((type: ServiceLocationTypeEnum) => locationLabels[type] || type)
-			.join(', ');
+		return {
+			text: service.serviceLocationTypes
+				.map((type: ServiceLocationTypeEnum) => locationLabels[type] || type)
+				.join(', '),
+			location: null
+		};
 	}
+
+	const displayedLocationDetails = $derived(getDisplayedLocationDetails());
+	const showApproximateLocationNote = $derived(
+		isApproximatePublicLocation(displayedLocationDetails.location)
+	);
 
 	// Handle card click - when map visible: select on map; otherwise go to detail (same as TaskCard)
 	function handleCardClick(e: MouseEvent | KeyboardEvent): void {
@@ -183,7 +212,7 @@
 </script>
 
 <div
-	class="card bg-base-100 flex h-full cursor-pointer flex-col gap-0 overflow-hidden rounded-xl p-0 shadow-md transition-all hover:shadow-xl"
+	class="card bg-base-100 focus-visible:ring-primary flex h-full min-h-0 cursor-pointer flex-col overflow-hidden rounded-xl p-0 shadow-md transition-all hover:shadow-xl focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
 	class:bg-base-300={selectedService &&
 		(service.uniqueId || service.id) === (selectedService.uniqueId || selectedService.id)}
 	class:border-primary={selectedService &&
@@ -193,7 +222,7 @@
 	role="button"
 	tabindex="0"
 	onclick={handleCardClick}
-	onkeydown={handleCardClick}
+	onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && handleCardClick(e)}
 >
 	<!-- Portfolio Image - Compact (50% smaller) -->
 	<figure class="bg-base-200 relative mt-0 h-[88px] w-full shrink-0 overflow-hidden rounded-t-xl">
@@ -201,7 +230,7 @@
 			<div class="relative h-full w-full">
 				<img
 					src={portfolioImages[currentImageIndex]?.url}
-					alt={displayTitle || 'Service image'}
+					alt={displayTitle ? `Service: ${displayTitle}` : 'Service image'}
 					class="h-full w-full object-cover transition-opacity duration-300"
 					loading="lazy"
 				/>
@@ -210,7 +239,7 @@
 					<!-- Previous Button -->
 					{#if currentImageIndex > 0}
 						<button
-							class="btn btn-circle btn-sm btn-ghost bg-base-100/80 hover:bg-base-100 absolute top-1/2 left-2 -translate-y-1/2 border-0 shadow-sm backdrop-blur-sm"
+							class="btn btn-circle btn-sm btn-ghost bg-base-100/80 hover:bg-base-100 absolute top-1/2 left-2 min-h-11 min-w-11 -translate-y-1/2 border-0 shadow-sm backdrop-blur-sm"
 							onclick={(e) => {
 								e.stopPropagation();
 								currentImageIndex = Math.max(0, currentImageIndex - 1);
@@ -232,7 +261,7 @@
 					<!-- Next Button -->
 					{#if currentImageIndex < portfolioImages.length - 1}
 						<button
-							class="btn btn-circle btn-sm btn-ghost bg-base-100/80 hover:bg-base-100 absolute top-1/2 right-2 -translate-y-1/2 border-0 shadow-sm backdrop-blur-sm"
+							class="btn btn-circle btn-sm btn-ghost bg-base-100/80 hover:bg-base-100 absolute top-1/2 right-2 min-h-11 min-w-11 -translate-y-1/2 border-0 shadow-sm backdrop-blur-sm"
 							onclick={(e) => {
 								e.stopPropagation();
 								currentImageIndex = Math.min(portfolioImages.length - 1, currentImageIndex + 1);
@@ -252,20 +281,27 @@
 						</button>
 					{/if}
 					<!-- Image Indicators -->
-					<div class="absolute bottom-2 left-1/2 flex -translate-x-1/2 gap-1">
+					<ul
+						class="absolute bottom-2 left-1/2 flex -translate-x-1/2 list-none gap-1.5 p-1"
+						aria-label="Image navigation"
+					>
 						{#each portfolioImages.slice(0, 5) as img, idx (img?.url ?? idx)}
-							<button
-								class="h-1.5 rounded-full transition-all {idx === currentImageIndex
-									? 'bg-base-100 w-4'
-									: 'bg-base-100/50 w-1.5'}"
-								onclick={(e) => {
-									e.stopPropagation();
-									currentImageIndex = idx;
-								}}
-								aria-label="Go to image {idx + 1}"
-							></button>
+							<li>
+								<button
+									class="focus:ring-primary block h-11 w-11 rounded-full transition-all focus:ring-2 focus:ring-offset-1 focus:outline-none {idx ===
+									currentImageIndex
+										? 'bg-base-100 w-11'
+										: 'bg-base-100/50 w-11 opacity-60 hover:opacity-100'}"
+									onclick={(e) => {
+										e.stopPropagation();
+										currentImageIndex = idx;
+									}}
+									aria-label="Go to image {idx + 1}"
+									aria-current={idx === currentImageIndex ? 'true' : 'false'}
+								></button>
+							</li>
 						{/each}
-					</div>
+					</ul>
 				{/if}
 			</div>
 		{:else}
@@ -291,7 +327,7 @@
 	</figure>
 
 	<!-- Card Body - Same layout as TaskCard: Title+Price+Share | Location (arriba) | Description | Provider+Ver (abajo) -->
-	<div class="card-body flex flex-1 flex-col rounded-b-xl p-4">
+	<div class="card-body flex min-h-0 flex-1 flex-col rounded-b-xl p-4">
 		<!-- Top Row: Title + Share + Price (matches TaskCard: Title + Status+Share+Price) -->
 		<div class="mb-3 flex flex-row items-stretch justify-between gap-2">
 			<div class="min-w-0 flex-1 pr-2 md:pr-4">
@@ -303,16 +339,13 @@
 				</p>
 			</div>
 			<div class="flex shrink-0 flex-col items-end gap-2">
-				<span
-					role="presentation"
-					class="shrink-0"
-					onclick={(e) => e.stopPropagation()}
-					onkeydown={(e) => e.key === 'Enter' && e.stopPropagation()}
-				>
+				<span class="shrink-0">
 					<ServiceShareButton {service} variant="circle" class="btn-xs" />
 				</span>
 				<div class="text-right">
-					<div class="text-base leading-tight font-bold">{getPricingDisplay()}</div>
+					<div class="text-base leading-tight font-bold" aria-label="Price: {getPricingDisplay()}">
+						{getPricingDisplay()}
+					</div>
 					{#if service.pricing?.type === ServicePricingTypeEnum.FIXED && service.pricing.amount}
 						<div class="text-base-content/60 text-sm">
 							{satsFromUsd(service.pricing.amount, btcPrice)}
@@ -338,7 +371,7 @@
 		</div>
 
 		<!-- Second Row: Location (arriba - matches TaskCard Deadline+Location) -->
-		{#if getLocationTypesDisplay()}
+		{#if displayedLocationDetails.text}
 			<div class="mb-3 flex items-center gap-2">
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
@@ -361,8 +394,13 @@
 					/>
 				</svg>
 				<span class="text-base-content/80 min-w-0 flex-1 truncate text-sm"
-					>{getLocationTypesDisplay()}</span
+					>{displayedLocationDetails.text}</span
 				>
+				{#if showApproximateLocationNote}
+					<span class="text-base-content/60 shrink-0 text-xs">
+						({$t('common.location.approximate_short')})
+					</span>
+				{/if}
 			</div>
 		{/if}
 
@@ -411,7 +449,10 @@
 								{formatMemberSince(service.createdAt)}
 							</div>
 						{/if}
-						<div class="flex items-center gap-1.5">
+						<div
+							class="flex items-center gap-1.5"
+							aria-label="Rating: {rating.toFixed(1)} out of 5 stars"
+						>
 							{#each [0, 1, 2, 3, 4] as idx (idx)}
 								<svg
 									xmlns="http://www.w3.org/2000/svg"

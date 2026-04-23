@@ -14,20 +14,22 @@ export const sections = [
 		path: '/dashboard/create-task',
 		label: 'navbar.create_task',
 		icon: 'mdi:plus-circle-outline',
-		mobile: true
+		mobile: true,
+		indent: true
 	},
 	{
 		id: 'find-services',
 		path: '/services',
 		label: 'navbar.find_services',
 		icon: 'mdi:briefcase-search',
-		mobile: true
+		mobile: true,
+		indent: true
 	},
 	{
 		id: 'earning',
 		path: '/earning',
 		label: 'navbar.earning',
-		icon: 'mdi:chart-box-outline',
+		icon: 'mdi:trending-up',
 		mobile: true
 	},
 	{
@@ -35,7 +37,8 @@ export const sections = [
 		path: '/tasks',
 		label: 'navbar.find_tasks',
 		icon: 'mdi:magnify',
-		mobile: true
+		mobile: true,
+		indent: true
 	},
 	{
 		id: 'reviews',

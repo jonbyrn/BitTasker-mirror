@@ -36,7 +36,9 @@
 		onServiceSelected,
 		onViewService,
 		drawersLoaded = false,
-		loadDrawerComponents
+		loadDrawerComponents,
+		zoomOffset = 0,
+		showMyLocationButton = true
 	} = $props<{
 		tasks?: Task[];
 		services?: Service[];
@@ -51,6 +53,8 @@
 		onViewTask?: (task: Task) => Promise<void>;
 		onServiceSelected?: (event: { service: Service }) => void;
 		onViewService?: (service: Service) => void;
+		zoomOffset?: number;
+		showMyLocationButton?: boolean;
 		drawersLoaded?: boolean;
 		loadDrawerComponents?: () => Promise<void>;
 	}>();
@@ -1044,7 +1048,7 @@
 			// Initialize Google Maps with zoom restrictions for privacy
 			map = new google.maps.Map(mapElement, {
 				center: { lat: centerLocation.latitude!, lng: centerLocation.longitude! },
-				zoom: zoomLevel,
+				zoom: Math.min(zoomLevel + zoomOffset, 14),
 				maxZoom: 14, // Máximo zoom de ciudad - no mostrar direcciones exactas
 				minZoom: 2, // Permitir zoom out para ver áreas más amplias
 				mapTypeId: google.maps.MapTypeId.ROADMAP,
@@ -2078,40 +2082,42 @@
 
 	<!-- Map Control Buttons -->
 	<div class="absolute top-4 right-4 z-20 flex gap-2" class:z-1000={isFullscreen}>
-		<!-- My Location Button -->
-		<button
-			onclick={centerOnUserLocation}
-			disabled={isLocating || !isMapLoaded}
-			class="btn btn-circle btn-lg bg-base-100/90 hover:bg-base-100 shadow-md disabled:opacity-50"
-			aria-label={$t('common.task.location_picker.my_location') || 'Center on my location'}
-			title={$t('common.task.location_picker.my_location') || 'Center on my location'}
-		>
-			{#if isLocating}
-				<span class="loading loading-spinner loading-sm"></span>
-			{:else}
-				<!-- Map pin icon (matches task cards) -->
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					class="text-base-content h-5 w-5"
-					fill="none"
-					viewBox="0 0 24 24"
-					stroke="currentColor"
-				>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="2"
-						d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-					/>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="2"
-						d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-					/>
-				</svg>
-			{/if}
-		</button>
+		{#if showMyLocationButton}
+			<!-- My Location Button -->
+			<button
+				onclick={centerOnUserLocation}
+				disabled={isLocating || !isMapLoaded}
+				class="btn btn-circle btn-lg bg-base-100/90 hover:bg-base-100 shadow-md disabled:opacity-50"
+				aria-label={$t('common.task.location_picker.my_location') || 'Center on my location'}
+				title={$t('common.task.location_picker.my_location') || 'Center on my location'}
+			>
+				{#if isLocating}
+					<span class="loading loading-spinner loading-sm"></span>
+				{:else}
+					<!-- Map pin icon (matches task cards) -->
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="text-base-content h-5 w-5"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+						/>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+						/>
+					</svg>
+				{/if}
+			</button>
+		{/if}
 
 		<!-- Fullscreen Button -->
 		{#if showFullscreen}

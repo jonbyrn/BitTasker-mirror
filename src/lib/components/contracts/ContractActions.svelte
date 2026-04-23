@@ -604,7 +604,7 @@
 		activeModal = ContractModalAction.ProposeResolution;
 	}
 
-	// Cancel escrow
+	// Cancel escrow (client only)
 	async function cancelEscrow() {
 		if (!contract.permissions.canCancel) {
 			return appStore.showErrorToast($t('dashboard.contracts.actions.cancel_time_restriction'));
@@ -804,10 +804,11 @@
 			case ContractModalAction.Cancel:
 				await cancelEscrow();
 				break;
-			case ContractModalAction.ResolveTimelock:
-				await resolveAfterTimelock();
 			case ContractModalAction.Refund:
 				await refundClient();
+				break;
+			case ContractModalAction.ResolveTimelock:
+				await resolveAfterTimelock();
 				break;
 			case ContractModalAction.Delete:
 				await onDeleteContract();
@@ -1210,6 +1211,38 @@
 				label={$t('dashboard.contracts.actions.cancel_contract') as string}
 				onclick={() => openModal(ContractModalAction.Cancel)}
 			/>
+		{/if}
+
+		<!-- Refund Tasker -->
+		{#if shouldRenderQuickAction('refund') && contract.permissions.canRefund && !isRefundDisabled}
+			<button
+				class="btn btn-error btn-sm {compactButtons
+					? 'w-fit'
+					: isInline
+						? 'w-full sm:w-fit'
+						: 'w-full min-w-0'}"
+				onclick={() => openModal(ContractModalAction.Refund)}
+			>
+				{#if isLoading.refund}
+					<span class="loading loading-spinner loading-xs"></span>
+				{:else}
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="h-4 w-4"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M12 8c-4.418 0-8 1.79-8 4s3.582 4 8 4 8-1.79 8-4-3.582-4-8-4zm0 0V4m0 12v4m-4-8 4 4 4-4"
+						/>
+					</svg>
+				{/if}
+				{$t('dashboard.contracts.actions.refund_tasker')}
+			</button>
 		{/if}
 
 		<!-- Resolve After Timelock -->

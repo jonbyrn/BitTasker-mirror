@@ -46,7 +46,7 @@ export default defineConfig(({ mode }) => {
 			environment: 'jsdom',
 			setupFiles: ['./vitest-setup-client.ts'],
 			globals: true,
-			exclude: ['**/_pending/**'],
+			exclude: ['**/_pending/**', 'node_modules/**'],
 			coverage: {
 				provider: 'v8',
 				reporter: ['text', 'html', 'clover', ['cobertura', { file: 'cobertura-coverage.xml' }]],
@@ -133,9 +133,10 @@ export default defineConfig(({ mode }) => {
 			// 7. addBrowserCondition — test-only config tweak, safe anywhere but keep near end
 			addBrowserCondition,
 
-			// 8. sentrySvelteKit — MUST be last: it reads the final source maps output 
-			// keep it last only when a real upload is configured;
-			// local/CI preview builds should not pay the source-map/upload cost without credentials.
+			// 8. sentrySvelteKit — MUST be last: it reads the final source maps output
+			//    and uploads after the adapter runs (closeBundle hook)
+			//    Keep it last only when a real upload is configured;
+			//    local/CI preview builds should not pay the source-map/upload cost without credentials.
 			...(sentryEnabled
 				? [
 						sentrySvelteKit({
@@ -208,7 +209,13 @@ export default defineConfig(({ mode }) => {
 					'**/*.spec.ts',
 					'**/*.spec.tsx',
 					'**/coverage/**',
-					'**/test-results/**'
+					'**/test-results/**',
+					'.playwright-mcp/**',
+					'scripts/**',
+					'status/**',
+					'.storybook/**',
+					'android/**',
+					'ios/**'
 				]
 			}
 		}

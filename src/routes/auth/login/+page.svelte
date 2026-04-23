@@ -453,22 +453,25 @@
 	}
 </script>
 
-<div class="mx-auto flex w-full max-w-2xl grow flex-col items-center justify-center px-4 py-8">
-	<div class="card bg-base-100 w-full shadow-xl">
-		<div class="card-body">
+<div
+	class="mx-auto flex w-full max-w-2xl grow flex-col items-center justify-center px-2 pt-2 sm:pt-6 sm:pb-8"
+>
+	<div class="card bg-base-100 w-full p-4 shadow-xl">
+		<div class="">
 			{#if !$passkeyMigration.isOpen}
-				<div class="mb-8 flex flex-col items-center justify-center">
-					<Logo />
-					<h3 class="mt-2 text-center font-bold">{$t('login.title')}</h3>
+				<div class="flex flex-col items-center justify-center">
+					<Logo
+						class="mx-auto mt-0 mb-4 block w-full max-w-xs sm:mt-6 sm:mb-6 sm:max-w-sm md:max-w-md"
+					/>
+					<h3 class="mt-2 text-center font-bold sm:mt-4">{$t('login.title')}</h3>
 					<br />
-					<p class="text-base-content mb-4 text-center text-sm">
-						{$t('login.subtitle')}
-					</p>
-					<p class="text-base-content text-center text-sm">
-						{$t('login.passkey_info')}
+					<p class="mx-auto space-y-2 text-center">
+						<span class="text-base-content text-md block text-center">
+							{$t('login.subtitle')}
+						</span>
 					</p>
 				</div>
-				<div class="flex flex-col gap-4">
+				<div class="mt-4 flex flex-col gap-4">
 					{#if !isNostrLogin}
 						<div
 							class="flex flex-col gap-4"
@@ -635,20 +638,35 @@
 									{/if}
 								</button>
 							</div>
-							<button
-								class="btn btn-block btn-primary"
-								data-testid="login-submit"
-								onclick={handleNsecLogin}
-								disabled={isLoading}
-							>
-								{isLoading ? $t('common.processing') + '...' : $t('login.login_button')}
-							</button>
+							<div class="mt-2 flex gap-3">
+								<button
+									class="btn btn-secondary flex-1"
+									onclick={() => {
+										error = '';
+										isPasskeyError = false;
+										isNostrLogin = false;
+										nsec = '';
+									}}
+									disabled={isLoading}
+								>
+									{$t('login.cancel_button')}
+								</button>
+								<button
+									class="btn btn-primary flex-1"
+									data-testid="login-submit"
+									onclick={handleNsecLogin}
+									disabled={isLoading}
+								>
+									{isLoading ? $t('common.processing') + '...' : $t('login.login_button')}
+								</button>
+							</div>
+
 							<!-- QR Code login - Only for mobile -->
 							{#if isNativePlatform}
 								<QrCodeScanner onScan={handleLoginWithQrCode}>
 									{#snippet scanBtn({ disabled, onStartScan })}
 										<button
-											class="btn btn-secondary btn-sm md:btn-md py-5"
+											class="btn btn-secondary btn-sm md:btn-md mt-2 py-5"
 											onclick={onStartScan}
 											{disabled}
 										>
@@ -666,18 +684,6 @@
 									{/snippet}
 								</QrCodeScanner>
 							{/if}
-							<button
-								class="btn btn-block btn-secondary"
-								onclick={() => {
-									error = '';
-									isPasskeyError = false;
-									isNostrLogin = false;
-									nsec = '';
-								}}
-								disabled={isLoading}
-							>
-								{$t('login.cancel_button')}
-							</button>
 						</div>
 					{/if}
 

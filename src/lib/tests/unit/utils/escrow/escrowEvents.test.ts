@@ -677,7 +677,7 @@ describe('escrowEvents', () => {
 			expect(vi.mocked(updateTask)).not.toHaveBeenCalled();
 			expect(vi.mocked(pushNotificationService.sendNotificationToNpubs)).toHaveBeenCalledWith(
 				expect.objectContaining({
-					clickAction: expect.stringContaining('context=services&highlight=svc-123')
+					clickAction: expect.stringContaining('type=services&highlight=svc-123')
 				})
 			);
 			expect(vi.mocked(publishServiceProposalStatus)).toHaveBeenCalledWith(
@@ -1178,7 +1178,7 @@ describe('escrowEvents', () => {
 				expect.objectContaining({
 					body: expect.stringContaining('Book Now order'),
 					clickAction: expect.stringContaining(
-						'/dashboard?tab=contracts&context=services&highlight=svc-ib-123'
+						'/dashboard?tab=contracts&type=services&highlight=svc-ib-123'
 					)
 				})
 			);

@@ -20,6 +20,8 @@ import {
 	tierDeliveryTimeToHours
 } from '$lib/utils/serviceTierDelivery';
 import { nip19 } from 'nostr-tools';
+import { getExactServiceLocation, publishExactServiceLocation } from '$lib/nostr/exact-location';
+import { sanitizeServiceForPublicPublish } from '$lib/utils/location/public-location';
 
 // Translation service instance
 const translationService = new TranslationService();
@@ -628,17 +630,28 @@ export async function createService(serviceData: ServiceBody): Promise<string> {
 			...(translations && { translations }) // Only include if translations were generated
 		};
 
+		if (serviceDataWithMeta.locationDetails?.taskeeLocation?.serviceLocation) {
+			// Publish the exact companion first so public service discovery never outpaces
+			// the private exact location record.
+			await publishExactServiceLocation({
+				entityId: dTagValue,
+				taskeeLocation: serviceDataWithMeta.locationDetails.taskeeLocation.serviceLocation
+			});
+		}
+
+		const publicServiceData = sanitizeServiceForPublicPublish(serviceDataWithMeta, dTagValue);
+
 		// Determine event kind based on status
-		const eventKind = getCreateServiceEventKind(serviceData.status);
+		const eventKind = getCreateServiceEventKind(publicServiceData.status);
 
 		// Generate tags (d-tag is the human-readable identifier)
-		const tags = await generateServiceTags(serviceDataWithMeta, dTagValue);
+		const tags = await generateServiceTags(publicServiceData, dTagValue);
 
 		// Create event
 		const event = {
 			kind: eventKind,
 			created_at: Math.floor(Date.now() / 1000),
-			content: JSON.stringify(serviceDataWithMeta),
+			content: JSON.stringify(publicServiceData),
 			tags
 		};
 
@@ -736,8 +749,39 @@ export async function updateService(
 			(updates.description && updates.description !== originalServiceData.description);
 
 		// Create updated service data for translation (if needed)
-		const serviceDataForTranslation: ServiceBody = {
+		// Companion read failures degrade safely to null so metadata-only edits do not replace
+		// the private exact location with the obfuscated public anchor.
+		const exactLocation = await getExactServiceLocation(dTagValue).catch(() => null);
+		const hasTaskeeLocationUpdate = Object.prototype.hasOwnProperty.call(
+			updates.locationDetails?.taskeeLocation ?? {},
+			'serviceLocation'
+		);
+		const baseServiceData: ServiceBody = {
 			...originalServiceData,
+			locationDetails: {
+				...originalServiceData.locationDetails,
+				taskerLocation:
+					exactLocation?.taskerLocation && originalServiceData.locationDetails?.taskerLocation
+						? {
+								...originalServiceData.locationDetails.taskerLocation,
+								serviceLocation: exactLocation.taskerLocation
+							}
+						: originalServiceData.locationDetails?.taskerLocation,
+				taskeeLocation:
+					exactLocation?.taskeeLocation && originalServiceData.locationDetails?.taskeeLocation
+						? {
+								...originalServiceData.locationDetails.taskeeLocation,
+								serviceLocation: exactLocation.taskeeLocation,
+								locationDisplayName:
+									originalServiceData.locationDetails.taskeeLocation.locationDisplayName ??
+									exactLocation.taskeeLocation.displayName
+							}
+						: originalServiceData.locationDetails?.taskeeLocation
+			}
+		};
+
+		const serviceDataForTranslation: ServiceBody = {
+			...baseServiceData,
 			...updates
 		};
 
@@ -756,21 +800,31 @@ export async function updateService(
 
 		// Merge updates with original service data
 		const updatedServiceData: ServiceBody = {
-			...originalServiceData,
+			...baseServiceData,
 			...updates,
 			uniqueId: dTagValue, // Keep same d-tag as identifier
 			status: updatedStatus,
 			...(translations && { translations }) // Include updated translations
 		};
 
+		if (exactLocation || hasTaskeeLocationUpdate) {
+			await publishExactServiceLocation({
+				entityId: dTagValue,
+				taskeeLocation: hasTaskeeLocationUpdate
+					? updatedServiceData.locationDetails?.taskeeLocation?.serviceLocation
+					: exactLocation?.taskeeLocation
+			});
+		}
+		const publicUpdatedServiceData = sanitizeServiceForPublicPublish(updatedServiceData, dTagValue);
+
 		// Generate tags (same d-tag for replaceable event)
-		const tags = await generateServiceTags(updatedServiceData, dTagValue);
+		const tags = await generateServiceTags(publicUpdatedServiceData, dTagValue);
 
 		// Create update event using the same kind as original (or updated if status changed)
 		const event = {
 			kind: eventKind, // Use same kind as original, or update if status changed
 			created_at: Math.floor(Date.now() / 1000), // New timestamp for replacement
-			content: JSON.stringify(updatedServiceData),
+			content: JSON.stringify(publicUpdatedServiceData),
 			tags
 		};
 

@@ -3,6 +3,7 @@
 	import '$lib/polyfills';
 	import { onMount, onDestroy } from 'svelte';
 	import { t } from 'svelte-i18n';
+	import { page } from '$app/state';
 	import { linear } from 'svelte/easing';
 	import { fly } from 'svelte/transition';
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
@@ -50,6 +51,13 @@
 
 	onMount(async () => {
 		await initializeWallet();
+
+		// Open receive modal if tab=receive is in URL
+		const tab = page.url.searchParams.get('tab');
+		if (tab === 'receive') {
+			showReceiveModal = true;
+		}
+
 		// Subscribe to real-time swap updates via WebSocket
 		try {
 			unsubscribeFromSwaps = walletManager.onSwapUpdate((event: SwapUpdateEvent) => {

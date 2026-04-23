@@ -20,7 +20,7 @@ vi.mock('svelte-i18n', async () => {
 		'find_tasks.view_list': 'View List',
 		'find_tasks.no_results_title': 'No tasks found',
 		'find_tasks.no_results_message': 'Try adjusting your search or filters',
-		'find_tasks.clear_filters': 'Clear Filters',
+		'dashboard.contracts.clear_filters': 'Clear Filters',
 		'find_tasks.error_loading': 'Error loading tasks',
 		'find_tasks.scroll_to_top': 'Scroll to top',
 		'common.status.open': 'Open',
@@ -86,9 +86,14 @@ vi.mock('$lib/components/maps/TaskLocationMap.svelte', () => ({
 	default: vi.fn()
 }));
 
-vi.mock('$lib/components/filters/FilterDrawer.svelte', () => ({
-	default: vi.fn()
-}));
+vi.mock('$lib/components/filters/FilterDrawer.svelte', async () => {
+	const { default: TaskFilterDrawerRouteStub } = await import(
+		'../../fixtures/TaskFilterDrawerRouteStub.svelte'
+	);
+	return {
+		default: TaskFilterDrawerRouteStub
+	};
+});
 
 // Mock task translation service
 vi.mock('$lib/services/task-translation.service', () => ({
@@ -157,6 +162,7 @@ const createMockTask = (overrides: Partial<Task> = {}): Task => ({
 
 describe('Tasks Page - Component Tests', () => {
 	beforeEach(() => {
+		sessionStorage.clear();
 		// Reset store to initial state
 		tasksStore.update((state) => ({
 			...state,
@@ -174,6 +180,81 @@ describe('Tasks Page - Component Tests', () => {
 	});
 
 	describe('Initial Render', () => {
+		it('restores saved task search params including coordinates from session storage on mount', async () => {
+			const { findTasks } = await import('$lib/nostr/findTasks');
+			sessionStorage.setItem(
+				'savedSearchParams',
+				JSON.stringify({
+					search: 'cleanup',
+					location: 'Quito, EC',
+					locationCoords: {
+						latitude: -0.1807,
+						longitude: -78.4678
+					},
+					radius: 4
+				})
+			);
+
+			render(TasksPage);
+			await tick();
+
+			await waitFor(() => {
+				expect(findTasks).toHaveBeenCalledWith(
+					expect.objectContaining({
+						search: 'cleanup',
+						location: 'Quito, EC',
+						locationCoords: {
+							latitude: -0.1807,
+							longitude: -78.4678
+						},
+						radius: 4
+					})
+				);
+			});
+			expect(sessionStorage.getItem('savedSearchParams')).toBeNull();
+		});
+
+		it('drops stale hidden location coordinates when clearing task filters after a saved search', async () => {
+			const { findTasks } = await import('$lib/nostr/findTasks');
+			sessionStorage.setItem(
+				'savedSearchParams',
+				JSON.stringify({
+					search: 'cleanup',
+					location: 'Quito, EC',
+					locationCoords: {
+						latitude: -0.1807,
+						longitude: -78.4678
+					},
+					radius: 4
+				})
+			);
+
+			render(TasksPage);
+			await tick();
+
+			await waitFor(() => {
+				expect(findTasks).toHaveBeenCalledWith(
+					expect.objectContaining({
+						locationCoords: {
+							latitude: -0.1807,
+							longitude: -78.4678
+						}
+					})
+				);
+			});
+
+			await fireEvent.click(screen.getByRole('button', { name: 'Clear Filters' }));
+
+			await waitFor(() => {
+				expect(findTasks).toHaveBeenLastCalledWith(
+					expect.not.objectContaining({
+						location: 'Quito, EC',
+						locationCoords: expect.anything()
+					})
+				);
+			});
+		});
+
 		it('should render search input', async () => {
 			render(TasksPage);
 			await tick();

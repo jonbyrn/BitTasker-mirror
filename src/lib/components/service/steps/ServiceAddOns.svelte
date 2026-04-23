@@ -104,7 +104,9 @@
 			<!-- Add-On Name -->
 			<div class="w-full">
 				<label for="addon-name-{addOn.id}" class="label">
-					<span class="label-text">{$t('dashboard.services.create.addons.name_label')}</span>
+					<span class="label-text break-words"
+						>{$t('dashboard.services.create.addons.name_label')}</span
+					>
 				</label>
 				<input
 					type="text"
@@ -119,9 +121,8 @@
 			<!-- Add-On Description -->
 			<div class="w-full">
 				<label for="addon-description-{addOn.id}" class="label">
-					<span class="label-text">{$t('dashboard.services.create.addons.description_label')}</span>
-					<span class="label-text-alt"
-						>{$t('dashboard.services.create.addons.description_hint')}</span
+					<span class="label-text break-words whitespace-normal"
+						>{$t('dashboard.services.create.addons.description_label')}</span
 					>
 				</label>
 				<textarea
@@ -138,7 +139,9 @@
 			<!-- Add-On Price -->
 			<div class="w-full">
 				<label for="addon-price-{addOn.id}" class="label">
-					<span class="label-text">{$t('dashboard.services.create.addons.price_label')}</span>
+					<span class="label-text break-words whitespace-normal"
+						>{$t('dashboard.services.create.addons.price_label')}</span
+					>
 				</label>
 				<div class="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-2">
 					<input

@@ -4,16 +4,16 @@ export enum ContractModalAction {
 	Complete = 'complete',
 	Accept = 'accept',
 	Dispute = 'dispute',
-	AcceptProposal = 'acceptProposal',
-	ProposeResolution = 'proposeResolution',
+	AcceptProposal = 'accept_proposal',
+	ProposeResolution = 'propose_resolution',
 	Cancel = 'cancel',
-	ResolveTimelock = 'resolveTimelock',
 	Delete = 'delete',
 	Refund = 'refund',
 	MarkNoShow = 'mark_no_show',
 	MarkWorkInProgress = 'mark_work_in_progress',
 	ClaimNoShowRefund = 'claim_no_show_refund',
 	ResolveAfterTimelock = 'resolve_after_timelock',
+	ResolveTimelock = 'resolve_timelock'
 }
 
 // Modal configuration interface

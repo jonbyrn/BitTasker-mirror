@@ -12,6 +12,7 @@ export interface InstantBuyCreateInput {
 	selectedTierId?: string;
 	nowSeconds?: number;
 	instantOrderId?: string;
+	requestRushDelivery?: boolean;
 }
 
 export interface InstantBuyCreateSnapshot {
@@ -20,6 +21,7 @@ export interface InstantBuyCreateSnapshot {
 	selectedTierId?: string;
 	estimatedStartTime: number;
 	estimatedEndTime: number;
+	requestRushDelivery?: boolean;
 }
 
 export interface InstantBuyServiceRevalidationInput {
@@ -50,7 +52,8 @@ export function createInstantBuySnapshot(input: InstantBuyCreateInput): InstantB
 	const schedule = deriveServiceInstantBuySchedule(
 		input.service,
 		input.selectedTierId,
-		input.nowSeconds
+		input.nowSeconds,
+		input.requestRushDelivery
 	);
 
 	return {
@@ -58,7 +61,8 @@ export function createInstantBuySnapshot(input: InstantBuyCreateInput): InstantB
 		purchaseKey: createServicePurchaseKey('instant_buy', instantOrderId),
 		selectedTierId: input.selectedTierId,
 		estimatedStartTime: schedule.estimatedStartTime,
-		estimatedEndTime: schedule.estimatedEndTime
+		estimatedEndTime: schedule.estimatedEndTime,
+		requestRushDelivery: input.requestRushDelivery
 	};
 }
 

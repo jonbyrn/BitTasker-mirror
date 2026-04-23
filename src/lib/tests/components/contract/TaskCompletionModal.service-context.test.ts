@@ -2,6 +2,24 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, within } from '@testing-library/svelte';
 import TaskCompletionModal from '$lib/components/contracts/TaskCompletionModal.svelte';
 import { EscrowStatus } from '$lib/utils/escrow';
+import type { ContractWithEvents } from '$lib/types/contract';
+
+interface MockContractEventContent {
+	contextType: string;
+	contextTitle: string;
+	amount: string;
+	serviceLocationType: string;
+	estimatedStartTime: number;
+	estimatedCompletionTime: number;
+	[key: string]: unknown;
+}
+
+interface MockContractWithEvents {
+	contractEvent: {
+		content: MockContractEventContent;
+	};
+	status: EscrowStatus;
+}
 
 vi.mock('$lib/components/MediaUploader.svelte', () => ({
 	default: () => ({
@@ -24,6 +42,7 @@ vi.mock('$lib/stores/app.store', () => ({
 vi.mock('$lib/stores/task.store', async () => {
 	const { writable } = await import('svelte/store');
 	return {
+		TASKS_PER_PAGE: 10,
 		tasksStore: writable({ items: [] }),
 		myTasksStore: writable({ items: [] }),
 		taskStore: {}
@@ -38,7 +57,7 @@ vi.mock('$lib/nostr/task', () => ({
 
 vi.mock('$lib/stores/contract.store', () => ({
 	contractStore: {
-		getContractKey: vi.fn((contract: any, key: string) => {
+		getContractKey: vi.fn((contract: MockContractWithEvents, key: string) => {
 			if (key === 'amount') return contract.contractEvent.content.amount;
 			return contract.contractEvent.content[key];
 		})
@@ -47,7 +66,7 @@ vi.mock('$lib/stores/contract.store', () => ({
 
 vi.mock('$lib/components/contracts/ContractContextSummary.svelte', () => ({
 	default: () => ({
-		$$render: (_result: unknown, props: { contract: any }) =>
+		$$render: (_result: unknown, props: { contract: MockContractWithEvents }) =>
 			`<div data-testid="context-summary">${props.contract.contractEvent.content.contextTitle}</div>`
 	})
 }));
@@ -72,7 +91,7 @@ function buildContract(
 		contextTitle: string;
 		serviceLocationType: string;
 	}> = {}
-) {
+): Partial<ContractWithEvents> {
 	return {
 		contractEvent: {
 			content: {
@@ -85,7 +104,7 @@ function buildContract(
 			}
 		},
 		status: EscrowStatus.Completed
-	} as any;
+	} as Partial<ContractWithEvents>;
 }
 
 describe('TaskCompletionModal service context', () => {

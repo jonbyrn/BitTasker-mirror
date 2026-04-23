@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { sendBidStatusUpdate } from '$lib/utils/nostr-bid';
 import { BidStatusEnum } from '$lib/utils/enums/bid.enum';
 import { bidStore } from '$lib/stores/bid.store';
-import { get } from 'svelte/store';
 
 // Mock dependencies
 vi.mock('$lib/utils/nostr', () => ({
@@ -12,7 +11,10 @@ vi.mock('$lib/utils/nostr', () => ({
 
 vi.mock('$lib/utils/constants/tags', () => ({
 	TAG_PATTERNS: {
-		bidStatus: vi.fn(() => [['t', 'bid-status'], ['bid', 'bid-123']])
+		bidStatus: vi.fn(() => [
+			['t', 'bid-status'],
+			['bid', 'bid-123']
+		])
 	},
 	TAG_FILTERS: {}
 }));
@@ -26,13 +28,19 @@ vi.mock('$lib/utils/constants/kinds', () => ({
 vi.mock('$lib/stores/bid.store', () => ({
 	bidStore: {
 		removeProcessingBid: vi.fn(),
-		processingBidIds: new Set()
+		processingBidIds: new Set(),
+		subscribe: vi.fn(),
+		set: vi.fn(),
+		update: vi.fn()
 	}
 }));
 
 vi.mock('$lib/stores/app.store', () => ({
 	appStore: {
-		showInfoToast: vi.fn()
+		showInfoToast: vi.fn(),
+		subscribe: vi.fn(),
+		set: vi.fn(),
+		update: vi.fn()
 	}
 }));
 
@@ -47,6 +55,18 @@ vi.mock('$lib/utils/cache/bid-cache', () => ({
 	}
 }));
 
+// Mock task.store to prevent it from loading and calling get(appStore)?.pool at module init time
+vi.mock('$lib/stores/task.store', () => ({
+	TASKS_PER_PAGE: 10,
+	tasksStore: {
+		subscribe: vi.fn(),
+		set: vi.fn(),
+		update: vi.fn(),
+		removePubkeyTasks: vi.fn(),
+		reset: vi.fn()
+	}
+}));
+
 import { publishNostrEvent } from '$lib/utils/nostr';
 import { smartCache } from '$lib/utils/cache/bid-cache';
 import { appStore } from '$lib/stores/app.store';
@@ -54,8 +74,8 @@ import { appStore } from '$lib/stores/app.store';
 describe('sendBidStatusUpdate', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
-		// Reset processing bid IDs
-		(bidStore as any).processingBidIds = new Set(['bid-123']);
+		// Reset processing bid IDs using the store's public API
+		bidStore.addProcessingBid('bid-123');
 	});
 
 	it('should remove processing bid on success', async () => {

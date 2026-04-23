@@ -72,9 +72,10 @@
 			"refreshing": "Refreshing",
 			"loading": "Loading your service requests...",
 			"retry_loading": "Retry to load your service requests.",
-			"empty": "No service requests have been submitted yet.",
+			"empty": "You haven't submitted any service requests yet.",
 			"empty_filtered": "No service requests match this status yet.",
 			"empty_filtered_description": "Try a different status filter to review the rest of your service requests.",
+			"filtered_empty_action": "Clear Filters",
 			"quote_pending": "Pending",
 			"requested": "Requested",
 			"request_id": "Request ID",
@@ -85,7 +86,7 @@
 			"rush_delivery": "Rush delivery",
 			"expires": "Expires",
 			"filters": {
-				"all": "All",
+				"all": "All statuses",
 				"awaiting_proposal": "Awaiting proposal",
 				"contract_created": "Contract created",
 				"declined": "Declined",
@@ -93,6 +94,8 @@
 				"expired": "Expired"
 			},
 			"service_label": "Service",
+			"boolean_yes": "Yes",
+			"boolean_no": "No",
 			"standard_tier": "Standard",
 			"days": "days",
 			"actions": {
@@ -109,6 +112,7 @@
 			},
 			"drawer": {
 				"title": "Service request",
+				"heading": "General information",
 				"loading": "Loading service details...",
 				"inquiry_title": "Your Inquiry",
 				"proposal_title": "Received Proposal",
@@ -146,7 +150,7 @@
 				"awaiting_proposal": "Awaiting proposal"
 			},
 			"filters": {
-				"all": "All",
+				"all": "All statuses",
 				"awaiting_proposal": "Awaiting proposal",
 				"proposal_received": "Proposal received",
 				"needs_attention": "Needs attention",
@@ -665,8 +669,7 @@
 			"retry": "Retry",
 			"refresh": "Refresh",
 			"clear_filters": "Clear Filters",
-			"no_contracts": "No contracts found",
-			"no_contracts_description": "You don't have any contracts yet. Create a task or bid on existing tasks to get started.",
+			"no_contracts": "No contracts yet",
 			"no_filtered_contracts": "No contracts match your filters",
 			"try_different_filters": "Try adjusting your filters to see more contracts.",
 			"filter_by_role": "Filter by role",
@@ -675,7 +678,7 @@
 			"filter_description": "Choose the contract status and your role to review.",
 			"filter_by_service": "Filter by service",
 			"all_services": "All Services",
-			"all_roles": "All",
+			"all_roles": "All roles",
 			"all_statuses": "All statuses",
 			"filter_completed_paid": "Completed / paid",
 			"filter_ended": "Cancelled / closed",
@@ -706,6 +709,7 @@
 			"currency": "Currency",
 			"original_bid_proposal": "Original Bid Proposal",
 			"bid_details": "Bid Details",
+			"loading_bid_details": "Loading bid details...",
 			"approach": "Approach",
 			"proposed_approach": "Proposed Approach",
 			"estimated_duration": "Estimated Duration",
@@ -714,7 +718,7 @@
 			"available_actions": "Available Actions",
 			"no_actions_available": "No actions available",
 			"context_filters": {
-				"all": "All",
+				"all": "All types",
 				"tasks": "Tasks",
 				"services": "Services"
 			},

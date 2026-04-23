@@ -31,6 +31,9 @@ import IconShieldAccount from '~icons/mdi/shield-account';
 import IconShieldCheck from '~icons/mdi/shield-check';
 import IconShieldCheckOutline from '~icons/mdi/shield-check-outline';
 import IconWalletOutline from '~icons/mdi/wallet-outline';
+import IconHome from '~icons/mdi/home';
+import IconLogin from '~icons/mdi/login';
+import IconAccountPlus from '~icons/mdi/account-plus';
 
 type IconComponent = typeof IconAccountCircle;
 
@@ -122,7 +125,7 @@ export const LOGGED_IN_MENU_SECTIONS: MenuSection[] = [
 			{
 				label: 'navbar.service_requests',
 				icon: IconCommentTextOutline,
-				href: '/dashboard?tab=quotes'
+				href: '/dashboard?tab=service-requests'
 			},
 			{
 				label: 'navbar.contracts',
@@ -366,3 +369,50 @@ export const AVATAR_MENU_ITEMS: MenuItem[] = [
 		isError: true
 	}
 ];
+
+/**
+ * Mobile drawer menu items (logged in)
+ */
+export const MOBILE_DRAWER_LOGGED_IN: MenuItem[] = [
+	{
+		label: 'navbar.settings',
+		icon: IconCog,
+		href: '/dashboard/settings'
+	},
+	{
+		label: 'navbar.home',
+		icon: IconHome,
+		getDynamicHref: () => '/tasks'
+	},
+	{
+		label: 'navbar.how_it_works',
+		icon: IconHelpCircleOutline,
+		href: '/how-it-works'
+	},
+	{
+		label: 'navbar.terms_and_conditions',
+		icon: IconFileSign,
+		href: '/terms'
+	},
+	{
+		label: 'navbar.logout',
+		icon: IconLogout,
+		action: 'logout'
+	}
+];
+
+/**
+ * Mobile drawer auth buttons (logged out)
+ */
+export const MOBILE_AUTH_BUTTONS: { login: MenuItem; signup: MenuItem } = {
+	login: {
+		label: 'navbar.login',
+		icon: IconLogin,
+		href: '/auth/login'
+	},
+	signup: {
+		label: 'navbar.signup',
+		icon: IconAccountPlus,
+		href: '/auth/signup'
+	}
+};

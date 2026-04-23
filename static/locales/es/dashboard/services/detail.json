@@ -3,6 +3,7 @@
 		"services": {
 			"detail": {
 				"title": "Detalles del Servicio",
+				"drawer_heading": "Detalles del servicio",
 				"description": "Consulta los detalles del servicio y contacta al Taskee.",
 				"back_to_services": "Volver a Servicios",
 				"not_found": "Servicio no encontrado",
@@ -42,7 +43,7 @@
 				},
 				"interested": "¿Te interesa este servicio?",
 				"contact_taskee": "Contactar Taskee",
-				"request_quote": "Solicitar Cotización",
+				"request_quote": "Consultar",
 				"quote_submitted": "¡La solicitud de cotización se envió correctamente!",
 				"quote_request_offline": "No tienes conexión. Reconéctate antes de solicitar una cotización.",
 				"quote_request_submit_error": "No se puede enviar la solicitud de cotización en este momento.",
@@ -63,8 +64,8 @@
 					"professional_service": "Servicio profesional"
 				},
 				"you_are_provider": "Tú eres el proveedor de este servicio.",
-				"edit_service": "Editar Servicio",
-				"delete_service": "Eliminar Servicio",
+				"edit_service": "Editar",
+				"delete_service": "Eliminar",
 				"edit_service_confirmation": {
 					"title": "Editar Servicio",
 					"warning": "Editar actualizará tu lista de servicios",
@@ -82,6 +83,20 @@
 				"see_less": "Ver menos",
 				"price_levels": "Niveles de Precio",
 				"select_tier": "Elige un paquete",
+				"about_title": "Acerca de este servicio",
+				"compare_packages": "Comparar paquetes",
+				"package_features": "Características del paquete",
+				"description_label": "Descripción",
+				"delivery_time": "Tiempo de entrega",
+				"customize_order": "Personaliza tu Pedido",
+				"select_package": "Seleccionar Paquete",
+				"popular": "Popular",
+				"rush_delivery": "Entrega Urgente",
+				"total_amount_label": "Monto Total",
+				"included_label": "Incluye",
+				"rush_delivery_tag": "Entrega Urgente",
+				"rush_delivery_desc": "Entrega en {value} {unit}{plural}.",
+				"rush_delivery_prefix": "Entrega en",
 				"instant_buy": {
 					"pricing_unavailable": "El precio de Reservar ahora no está disponible para este servicio.",
 					"select_tier_required": "Selecciona un paquete para continuar con Reservar ahora.",
@@ -94,7 +109,13 @@
 					"complete_error": "No se puede completar Reservar ahora en este momento.",
 					"success": "El pedido de Reservar ahora se confirmó. Abriendo tu contrato de servicio.",
 					"success_background": "El pedido de Reservar ahora se confirmó. Tu contrato de servicio está listo en Contratos.",
-					"pending_contract_sync": "La transacción del contrato de pago seguro se envió, pero la confirmación del contrato todavía se está sincronizando. Abre Contratos para monitorearla."
+					"pending_contract_sync": "La transacción del contrato de pago seguro se envió, pero la confirmación del contrato todavía se está sincronizando. Abre Contratos para monitorearla.",
+					"missing_lead_hours": "Reservar ahora requiere que se establezcan las horas de antelación del proveedor.",
+					"invalid_lead_hours": "Configuración de horas de antelación no válida.",
+					"missing_delivery_time": "Reservar ahora requiere que se establezca un tiempo de entrega.",
+					"unsupported_rush_delivery": "La entrega urgente no es compatible con Reservar ahora.",
+					"unsupported_distance_fee": "Las tarifas por distancia no son compatibles con Reservar ahora.",
+					"inactive_service": "Este servicio está actualmente inactivo."
 				},
 				"public_cta": {
 					"offline_notice": "No tienes conexión. Reconéctate antes de solicitar una cotización o financiar este servicio.",
@@ -154,7 +175,9 @@
 					"hours": "horas",
 					"minute": "minuto",
 					"minutes": "minutos",
-					"unavailable": "N/D"
+					"unavailable": "N/D",
+					"insufficient_funds_message": "Saldo insuficiente. Necesitas un adicional de {sats} Sats ({usd}) para reservar este servicio.",
+					"add_funds": "Añadir Fondos"
 				},
 				"delete_service_messages": {
 					"active_contracts_blocked": "No se puede eliminar un servicio con contratos activos.",
@@ -179,6 +202,7 @@
 				"base_price": "Precio base",
 				"addons_total": "Complementos",
 				"total_price": "Total",
+				"per_hour": "/ hr",
 				"request_quote_modal": {
 					"title": "Solicitar Cotización",
 					"title_label": "Título",
@@ -190,9 +214,11 @@
 					"custom_form_section": "Datos adicionales",
 					"field_required": "Este campo es obligatorio",
 					"images_label": "Imágenes",
+					"attachment_alt": "Adjunto {index}",
 					"optional": "Opcional",
 					"choose": "Elige...",
-					"submit": "Enviar Solicitud"
+					"submit": "Enviar Solicitud",
+					"submit_failed": "No se pudo enviar la solicitud de cotización."
 				}
 			}
 		}

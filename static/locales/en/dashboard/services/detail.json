@@ -3,6 +3,7 @@
 		"services": {
 			"detail": {
 				"title": "Service Details",
+				"drawer_heading": "Service details",
 				"description": "View full service details and contact the Taskee.",
 				"back_to_services": "Back to Services",
 				"not_found": "Service Not Found",
@@ -42,7 +43,7 @@
 				},
 				"interested": "Interested in this service?",
 				"contact_taskee": "Contact Taskee",
-				"request_quote": "Request Quote",
+				"request_quote": "Inquire",
 				"quote_submitted": "Quote request submitted successfully!",
 				"quote_request_offline": "You are offline. Reconnect before requesting a quote.",
 				"quote_request_submit_error": "Unable to submit quote request right now.",
@@ -63,8 +64,8 @@
 					"professional_service": "Professional service"
 				},
 				"you_are_provider": "You are the provider of this service.",
-				"edit_service": "Edit Service",
-				"delete_service": "Delete Service",
+				"edit_service": "Edit",
+				"delete_service": "Delete",
 				"edit_service_confirmation": {
 					"title": "Edit Service",
 					"warning": "Editing will update your service listing",
@@ -82,6 +83,20 @@
 				"see_less": "See less",
 				"price_levels": "Price Levels",
 				"select_tier": "Choose a package",
+				"about_title": "About this service",
+				"compare_packages": "Compare packages",
+				"package_features": "Package features",
+				"description_label": "Description",
+				"delivery_time": "Delivery time",
+				"customize_order": "Customize Your Order",
+				"select_package": "Select Package",
+				"popular": "Popular",
+				"rush_delivery": "Rush Delivery",
+				"total_amount_label": "Total Amount",
+				"included_label": "Included",
+				"rush_delivery_tag": "Rush Delivery",
+				"rush_delivery_desc": "Delivery within {value}.",
+				"rush_delivery_prefix": "Delivery within",
 				"instant_buy": {
 					"pricing_unavailable": "Instant-buy pricing is unavailable for this service.",
 					"select_tier_required": "Select a tier to continue with Book Now.",
@@ -94,7 +109,13 @@
 					"complete_error": "Unable to complete Book Now right now.",
 					"success": "Book Now order confirmed. Opening your service contract.",
 					"success_background": "Book Now order confirmed. Your service contract is ready in Contracts.",
-					"pending_contract_sync": "The secure payment contract transaction was submitted, but the contract confirmation is still syncing. Open Contracts to monitor it."
+					"pending_contract_sync": "The secure payment contract transaction was submitted, but the contract confirmation is still syncing. Open Contracts to monitor it.",
+					"missing_lead_hours": "Instant buy requires provider lead hours to be set.",
+					"invalid_lead_hours": "Invalid lead hours configuration.",
+					"missing_delivery_time": "Instant buy requires a delivery time to be set.",
+					"unsupported_rush_delivery": "Rush delivery is not supported for instant buy.",
+					"unsupported_distance_fee": "Distance-based fees are not supported for instant buy.",
+					"inactive_service": "This service is currently inactive."
 				},
 				"public_cta": {
 					"offline_notice": "You are offline. Reconnect before requesting a quote or funding this service.",
@@ -154,7 +175,9 @@
 					"hours": "hours",
 					"minute": "minute",
 					"minutes": "minutes",
-					"unavailable": "N/A"
+					"unavailable": "N/A",
+					"insufficient_funds_message": "Not enough funds. You need an additional {sats} Sats ({usd}) to book this service.",
+					"add_funds": "Add Funds"
 				},
 				"delete_service_messages": {
 					"active_contracts_blocked": "Cannot delete a service with active contracts.",
@@ -179,6 +202,7 @@
 				"base_price": "Base price",
 				"addons_total": "Add-ons",
 				"total_price": "Total",
+				"per_hour": "/ hr",
 				"request_quote_modal": {
 					"title": "Request Quote",
 					"title_label": "Title",
@@ -190,9 +214,11 @@
 					"custom_form_section": "Additional details",
 					"field_required": "This field is required",
 					"images_label": "Images",
+					"attachment_alt": "Attachment {index}",
 					"optional": "Optional",
 					"choose": "Choose...",
-					"submit": "Send Request"
+					"submit": "Send Request",
+					"submit_failed": "Failed to submit quote request."
 				}
 			}
 		}

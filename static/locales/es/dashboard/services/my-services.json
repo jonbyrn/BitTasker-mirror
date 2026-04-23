@@ -18,6 +18,15 @@
 				"status_active": "Activo",
 				"status_inactive": "Inactivo",
 				"status_sold": "Vendido",
+				"filters": {
+					"heading": "Filtrar servicios",
+					"all": "Todos los estados",
+					"active": "Activos",
+					"inactive": "Inactivos"
+				},
+				"filtered_empty_title": "Ningún servicio coincide con este filtro.",
+				"filtered_empty_body": "Intenta con un filtro de estado diferente para revisar el resto de tus servicios.",
+				"filtered_empty_action": "Mostrar todos los servicios",
 				"status_toggle_active": "Activar",
 				"status_toggle_inactive": "Desactivar",
 				"status_updated": "Estado actualizado",
@@ -79,7 +88,6 @@
 					"loading_service_quotes": "Cargando solicitudes de cotización para este servicio...",
 					"retry_service_quotes": "Vuelve a intentar cargar las solicitudes de cotización para este servicio.",
 					"no_service_quotes": "Todavía no hay solicitudes de servicio.",
-					"no_service_quotes_description": "Las nuevas solicitudes de cotización para tus servicios aparecerán aquí.",
 					"total_pending_requests": "Solicitudes pendientes",
 					"selected_service_total": "Solicitudes del servicio seleccionado",
 					"reviews_count": "{count} reseñas",
@@ -108,6 +116,24 @@
 					"proposal_expires": "La propuesta vence",
 					"scope_of_work": "Alcance del trabajo",
 					"cover_letter": "Carta de presentación",
+					"composer": {
+						"scope_of_work": "Alcance del trabajo",
+						"scope_placeholder": "Describe lo que entregarás.",
+						"amount_label": "Monto (USD)",
+						"start_date": "Fecha de inicio",
+						"end_date": "Fecha de finalización",
+						"expiration_days": "Días hasta el vencimiento",
+						"expiration_hours": "Horas hasta el vencimiento",
+						"cover_letter": "Carta de presentación",
+						"cover_letter_placeholder": "Mensaje opcional para el comprador.",
+						"errors": {
+							"required_description_amount": "La descripción y el monto son obligatorios.",
+							"missing_schedule": "La fecha y hora de inicio y finalización son obligatorias.",
+							"invalid_schedule": "Ingresa fechas y horas de inicio y finalización válidas.",
+							"end_before_start": "La fecha de finalización debe ser posterior a la de inicio.",
+							"submit_failed": "No se puede enviar la propuesta en este momento."
+						}
+					},
 					"estimated_duration": "Duración estimada: {duration}",
 					"waiting_sync": "Esperando a que termine la sincronización del hilo de cotización seleccionado.",
 					"select_request": "Selecciona una solicitud para revisar la consulta completa y redactar una propuesta.",
@@ -133,6 +159,41 @@
 						"unavailable": "Los datos de cotización no están disponibles en este momento. Reintenta antes de enviar una propuesta.",
 						"syncing": "Los datos de cotización todavía se están sincronizando. El envío está deshabilitado hasta que se cargue el estado más reciente de la solicitud.",
 						"select_request": "Selecciona una solicitud antes de enviar una propuesta."
+					},
+					"proposal_composer": {
+						"title": "Enviar propuesta",
+						"fields": {
+							"scope": "Alcance",
+							"amount_usdt": "Monto (USDT)",
+							"estimated_duration": "Duración estimada",
+							"estimated_start": "Inicio estimado",
+							"estimated_end": "Fin estimado",
+							"expiration_days": "Días de vencimiento",
+							"expiration_hours": "Horas de vencimiento",
+							"cover_letter": "Mensaje adicional"
+						},
+						"placeholders": {
+							"scope": "Describe lo que vas a entregar.",
+							"estimated_duration": "3 días hábiles",
+							"cover_letter": "Mensaje opcional para el comprador."
+						},
+						"warnings": {
+							"wallet_not_connected": "Conecta tu billetera antes de enviar una propuesta.",
+							"fee_tier_missing": "Elige un nivel de comisión de taskee antes de enviar una propuesta."
+						},
+						"errors": {
+							"required_fields": "Alcance, monto y duración estimada son obligatorios.",
+							"amount_invalid": "Ingresa un monto válido mayor a 0.",
+							"expiration_days_invalid": "Los días de vencimiento deben estar entre 0 y 30.",
+							"expiration_hours_invalid": "Las horas de vencimiento deben estar entre 0 y 23.",
+							"time_required": "La fecha/hora de inicio y fin son obligatorias.",
+							"time_invalid": "Ingresa fechas/horas de inicio y fin válidas.",
+							"time_order_invalid": "La fecha/hora de fin debe ser posterior al inicio.",
+							"submit_failed": "No se pudo enviar la propuesta en este momento."
+						},
+						"actions": {
+							"send": "Enviar propuesta"
+						}
 					}
 				},
 				"delete_modal": {

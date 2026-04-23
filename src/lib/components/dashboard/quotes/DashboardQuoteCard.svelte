@@ -5,6 +5,7 @@
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { formatStandardDateTimeShort } from '$lib/utils/helpers/dateFormatter';
 	import { parseServiceAddress } from '$lib/utils/service-quote/protocol';
+	import { resolveServiceTierLabel } from '$lib/utils/service-quote/tier-label';
 	import UserInfoDisplay from '$lib/components/user/UserInfoDisplay.svelte';
 	import IconCheckCircleOutline from '~icons/mdi/check-circle-outline';
 	import IconCloseCircleOutline from '~icons/mdi/close-circle-outline';
@@ -83,10 +84,7 @@
 							'dashboard.service_requests.statuses.proposal_received',
 							'Proposal received'
 						)
-					: translateOrFallback(
-							'dashboard.service_requests.statuses.awaiting_proposal',
-							'Awaiting proposal'
-						);
+					: translateOrFallback('dashboard.service_requests.quote_pending', 'Pending');
 		}
 	}
 
@@ -129,7 +127,10 @@
 	}
 
 	const selectedTierLabel = $derived(
-		timeline.latestProposal?.content.pricingSnapshot?.tierId ?? timeline.request.content.tierId
+		resolveServiceTierLabel(
+			service,
+			timeline.latestProposal?.content.pricingSnapshot?.tierId ?? timeline.request.content.tierId
+		)
 	);
 	const selectedAddOns = $derived(
 		timeline.latestProposal?.content.pricingSnapshot?.selectedAddOns ??
@@ -146,6 +147,7 @@
 			timeline.latestProposal?.content.expirationTimestamp ?? timeline.expirationTimestamp
 		)
 	);
+	const hasProposalAmount = $derived(Boolean(timeline.latestProposal?.content.amountUsdt));
 	const providerPubkey = $derived.by(() => {
 		if (timeline.latestProposal?.pubkey) {
 			return timeline.latestProposal.pubkey;
@@ -188,9 +190,11 @@
 				>
 					{describeStatus(timeline)}
 				</div>
-				<div class="text-right text-xl font-bold">
-					{getPriceDisplay()}
-				</div>
+				{#if hasProposalAmount}
+					<div class="text-right text-xl font-bold">
+						{getPriceDisplay()}
+					</div>
+				{/if}
 			</div>
 		</div>
 

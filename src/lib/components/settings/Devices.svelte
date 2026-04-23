@@ -126,9 +126,12 @@
 		const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
 		if (diffMins < 1) return $t('settings.devices.lastUsed.justNow');
-		if (diffMins < 60) return `${diffMins} ${diffMins === 1 ? $t('common.components.devices.time_units.minute') : $t('common.components.devices.time_units.minutes')} ago`;
-		if (diffHours < 24) return `${diffHours} ${diffHours === 1 ? $t('common.components.devices.time_units.hour') : $t('common.components.devices.time_units.hours')} ago`;
-		if (diffDays < 7) return `${diffDays} ${diffDays === 1 ? $t('common.components.devices.time_units.day') : $t('common.components.devices.time_units.days')} ago`;
+		if (diffMins < 60)
+			return `${diffMins} ${diffMins === 1 ? $t('common.devices.time_units.minute') : $t('common.devices.time_units.minutes')} ago`;
+		if (diffHours < 24)
+			return `${diffHours} ${diffHours === 1 ? $t('common.devices.time_units.hour') : $t('common.devices.time_units.hours')} ago`;
+		if (diffDays < 7)
+			return `${diffDays} ${diffDays === 1 ? $t('common.devices.time_units.day') : $t('common.devices.time_units.days')} ago`;
 
 		return date.toLocaleDateString();
 	}
@@ -272,6 +275,7 @@
 										viewBox="0 0 24 24"
 										stroke="currentColor"
 									>
+										<!-- eslint-disable svelte/no-at-html-tags -->
 										{@html getDeviceIcon(device.platform)}
 									</svg>
 								</div>

@@ -1,5 +1,5 @@
 import type { Service, SearchServicesParams } from '$lib/types/service.d';
-import { type Event, type Filter } from 'nostr-tools';
+import { type Event, type Filter, nip19 } from 'nostr-tools';
 import { Preferences } from '@capacitor/preferences';
 import { browser } from '$app/environment';
 import nostrEventsService from '$lib/api/services/nostr/events';
@@ -27,15 +27,46 @@ const SEARCH_FETCH_LIMIT = 150;
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 const MAX_CACHE_SIZE = 100; // Maximum number of services to keep in cache
 const DELETION_CACHE_TTL = 5 * 60 * 1000; // 5 minutes for deletion events cache
+const MAX_DELETION_CACHE_SIZE = 10; // Maximum deletion cache entries with LRU eviction
 const PROFILE_FETCH_TIMEOUT_MS = 750;
+const REQUEST_TIMEOUT_MS = 15000;
+
+// In-flight profile fetch promises for deduplication
+const profileFetchPromises = new Map<
+	string,
+	Promise<NonNullable<Awaited<ReturnType<typeof fetchComprehensiveProfileSafe>>>>
+>();
+
+export async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+	const timeout = new Promise<T>((_, reject) =>
+		setTimeout(() => reject(new Error('Request timeout')), ms)
+	);
+	return Promise.race([promise, timeout]);
+}
 
 // Memory cache with indexed services for better performance
 const cache = new Map<string, { data: IndexedService[]; timestamp: number }>();
 
-// Deletion events cache (stores deleted service IDs)
+// Deletion events cache (stores deleted service IDs) with LRU eviction
 const deletionCache = new Map<string, { deletedIds: Set<string>; timestamp: number }>();
 
-async function getCachedViewerNpub(): Promise<string | null> {
+function evictOldestDeletionCacheEntry(): void {
+	if (deletionCache.size >= MAX_DELETION_CACHE_SIZE) {
+		let oldestKey: string | null = null;
+		let oldestTime = Infinity;
+		for (const [key, value] of deletionCache) {
+			if (value.timestamp < oldestTime) {
+				oldestTime = value.timestamp;
+				oldestKey = key;
+			}
+		}
+		if (oldestKey) {
+			deletionCache.delete(oldestKey);
+		}
+	}
+}
+
+export async function getCachedViewerNpub(): Promise<string | null> {
 	const inMemoryNpub = get(appStore)?.nostrKeys?.npub;
 	if (typeof inMemoryNpub === 'string' && inMemoryNpub.trim().length > 0) {
 		return inMemoryNpub;
@@ -88,7 +119,7 @@ const performanceMetrics: FilterPerformanceMetrics[] = [];
  * Uses single-character tags from TAG_FILTERS (centralized in tags.ts)
  * Only requests service kinds (SERVICE_ACTIVE) — deleted services are NIP-09 kind 5; we filter those client-side until relay supports exclusion.
  */
-function createServiceFilter(params: SearchServicesParams): Filter {
+export function createServiceFilter(params: SearchServicesParams): Filter {
 	// When search is present, request more events and filter client-side (many relays don't support NIP-50).
 	const requestLimit = params.search?.trim()
 		? SEARCH_FETCH_LIMIT
@@ -133,7 +164,7 @@ function createServiceFilter(params: SearchServicesParams): Filter {
  * Convert a Nostr event to a Service
  * Also fetches creator profile data (reviews, rating) if available
  */
-async function convertEventToService(event: Event): Promise<Service> {
+export async function convertEventToService(event: Event): Promise<Service> {
 	try {
 		const contentData = normalizeServiceTierDeliveryTimes(JSON.parse(event.content));
 		const service: Service = {
@@ -146,13 +177,24 @@ async function convertEventToService(event: Event): Promise<Service> {
 
 		// Fetch creator profile data (reviews, rating) if creator info exists
 		if (service.creator && event.pubkey) {
-			// Discovery must fail open when secondary profile hydration is slow or unavailable.
-			const profile = await fetchComprehensiveProfileSafe(event.pubkey);
+			// Deduplicate in-flight profile fetches
+			if (!profileFetchPromises.has(event.pubkey)) {
+				const promise = fetchComprehensiveProfileSafe(event.pubkey);
+				profileFetchPromises.set(event.pubkey, promise);
+			}
+			try {
+				const profile = await profileFetchPromises.get(event.pubkey)!;
 
-			// Update creator with reviews and rating
-			if (profile?.reviews && profile.reviews.length > 0) {
-				const totalRating = profile.reviews.reduce((sum, review) => sum + (review.rating || 0), 0);
-				service.creator.rating = totalRating / profile.reviews.length;
+				// Update creator with reviews and rating
+				if (profile?.reviews && profile.reviews.length > 0) {
+					const totalRating = profile.reviews.reduce(
+						(sum, review) => sum + (review.rating || 0),
+						0
+					);
+					service.creator.rating = totalRating / profile.reviews.length;
+				}
+			} finally {
+				profileFetchPromises.delete(event.pubkey);
 			}
 		}
 
@@ -163,7 +205,7 @@ async function convertEventToService(event: Event): Promise<Service> {
 	}
 }
 
-function dedupeServicesByUniqueId(services: Service[]): Service[] {
+export function dedupeServicesByUniqueId(services: Service[]): Service[] {
 	const latestByUniqueId = new Map<string, Service>();
 
 	for (const service of services) {
@@ -199,9 +241,10 @@ async function getDeletedServiceIds(): Promise<Set<string>> {
 			limit: 1000 // Get up to 1000 deletion events
 		};
 
-		const response = await nostrEventsService.requestEvents({
-			filters: [filter]
-		});
+		const response = await withTimeout(
+			nostrEventsService.requestEvents({ filters: [filter] }),
+			REQUEST_TIMEOUT_MS
+		);
 
 		const deletedIds = new Set<string>();
 
@@ -216,6 +259,9 @@ async function getDeletedServiceIds(): Promise<Set<string>> {
 				}
 			}
 		}
+
+		// Evict oldest entry if at capacity before caching
+		evictOldestDeletionCacheEntry();
 
 		// Cache the deleted IDs
 		deletionCache.set(cacheKey, {
@@ -249,7 +295,8 @@ export async function findServices(
 		servicesStore.update((state) => ({ ...state, loading: true, error: null }));
 
 		const filter = createServiceFilter(params);
-		const cacheKey = JSON.stringify(filter);
+		const { limit: _limit, ...filterWithoutLimit } = filter;
+		const cacheKey = JSON.stringify(filterWithoutLimit);
 
 		// Check cache
 		const cached = cache.get(cacheKey);
@@ -269,7 +316,11 @@ export async function findServices(
 			if (params.page && params.page > 1) {
 				const startIndex = currentItemsCount;
 				const endIndex = Math.min(startIndex + limit, cleanServices.length);
-				const limitedServices = cleanServices.slice(startIndex, endIndex);
+				let limitedServices = cleanServices.slice(startIndex, endIndex);
+
+				const existingIds = new Set(state.items.map((s) => s.uniqueId));
+				limitedServices = limitedServices.filter((s) => !existingIds.has(s.uniqueId));
+
 				const hasMore = endIndex < cleanServices.length || cleanServices.length >= MAX_CACHE_SIZE;
 
 				servicesStore.update((state) => ({
@@ -307,7 +358,7 @@ export async function findServices(
 		}
 
 		// Fetch from Nostr (same as Find Tasks: we send search; if relay returns 0, fallback and filter client-side so we always show results)
-		let response = await nostrEventsService.findEvents(filter);
+		let response = await withTimeout(nostrEventsService.findEvents(filter), REQUEST_TIMEOUT_MS);
 		let events = response.data || [];
 
 		if (params.search?.trim() && events.length === 0) {
@@ -319,14 +370,17 @@ export async function findServices(
 		}
 
 		// Convert events to services (with async profile data fetching)
-		const rawServices = await Promise.all(
+		const results = await Promise.allSettled(
 			events.map((event: Event) => convertEventToService(event))
 		);
+		const rawServices = results
+			.filter((r): r is PromiseFulfilledResult<Service> => r.status === 'fulfilled')
+			.map((r) => r.value);
 
 		// Keep only the latest version per logical listing before applying visibility rules.
 		const latestServices = dedupeServicesByUniqueId(rawServices);
 
-		// Filter out deleted services
+		// Filter out deleted services (only on cache miss, not on hit)
 		const visibleServices = await filterDeletedServices(latestServices);
 
 		// Public browse only surfaces active published listings.
@@ -337,7 +391,6 @@ export async function findServices(
 		try {
 			const npub = await getCachedViewerNpub();
 			if (npub && typeof npub === 'string' && npub.startsWith('npub1')) {
-				const { nip19 } = await import('nostr-tools');
 				const decoded = nip19.decode(npub);
 				if (decoded.type === 'npub') {
 					const hexPubkey = decoded.data;
@@ -349,7 +402,7 @@ export async function findServices(
 			console.debug('NPUB not available or invalid, showing all services');
 		}
 
-		// Pre-index services for optimized filtering
+		// Pre-index services for optimized filtering (deletions already filtered)
 		const indexedServices = indexServiceData(filteredServices);
 
 		// Apply optimized frontend filtering
@@ -377,7 +430,7 @@ export async function findServices(
 			allCachedServices = allCachedServices.slice(0, MAX_CACHE_SIZE);
 		}
 
-		// Update cache with merged indexed data
+		// Update cache with merged indexed data (already deletion-filtered)
 		cache.set(cacheKey, { data: allCachedServices, timestamp: Date.now() });
 
 		// Convert back to regular Service objects
@@ -388,11 +441,17 @@ export async function findServices(
 		const hasMore = events.length >= limit || cleanServices.length > limit;
 
 		// Update store
+		const page = params.page || 1;
+		let itemsToAdd = limitedServices;
+		if (page > 1) {
+			const existingIds = new Set(get(servicesStore).items.map((s) => s.uniqueId));
+			itemsToAdd = limitedServices.filter((s) => !existingIds.has(s.uniqueId));
+		}
 		servicesStore.update((state) => ({
 			...state,
-			items: params.page === 1 ? limitedServices : [...state.items, ...limitedServices],
+			items: page === 1 ? itemsToAdd : [...state.items, ...itemsToAdd],
 			loading: false,
-			currentPage: params.page || 1,
+			currentPage: page,
 			hasMore
 		}));
 
@@ -434,7 +493,6 @@ export async function findMyServices(
 		let pubkeyHex = npub;
 		if (npub.startsWith('npub')) {
 			try {
-				const { nip19 } = await import('nostr-tools');
 				const decoded = nip19.decode(npub);
 				if (decoded.type !== 'npub') {
 					console.error('findMyServices: Invalid npub type from nip19.decode');
@@ -468,9 +526,12 @@ export async function findMyServices(
 		const events = response.data || [];
 
 		// Convert events to services (with async profile data fetching)
-		const rawServices = await Promise.all(
+		const results = await Promise.allSettled(
 			events.map((event: Event) => convertEventToService(event))
 		);
+		const rawServices = results
+			.filter((r): r is PromiseFulfilledResult<Service> => r.status === 'fulfilled')
+			.map((r) => r.value);
 
 		// NIP-33: keep only the latest version per service (same uniqueId = same logical service)
 		const latestByUniqueId = new Map<string, Service>();
@@ -525,14 +586,6 @@ export function invalidateServiceDiscoveryCaches(): void {
 }
 
 /**
- * Cleanup function to handle cleanup tasks
- */
-export function cleanup(): void {
-	invalidateServiceDiscoveryCaches();
-	performanceMetrics.length = 0;
-}
-
-/**
  * Get performance metrics for service filtering operations
  */
 export function getFilterPerformanceReport() {
@@ -548,8 +601,23 @@ export function getFilterPerformanceReport() {
 }
 
 // Cleanup cache when browser closes
+let beforeUnloadHandler: (() => void) | null = null;
+
 if (browser) {
-	window.addEventListener('beforeunload', () => {
+	beforeUnloadHandler = () => {
 		invalidateServiceDiscoveryCaches();
-	});
+	};
+	window.addEventListener('beforeunload', beforeUnloadHandler);
+}
+
+/**
+ * Cleanup function to handle cleanup tasks and remove beforeunload listener
+ */
+export function cleanup(): void {
+	invalidateServiceDiscoveryCaches();
+	performanceMetrics.length = 0;
+	if (browser && beforeUnloadHandler) {
+		window.removeEventListener('beforeunload', beforeUnloadHandler);
+		beforeUnloadHandler = null;
+	}
 }

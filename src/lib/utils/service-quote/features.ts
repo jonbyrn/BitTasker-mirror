@@ -1,5 +1,5 @@
-import escrowV1Abi from '$lib/utils/escrow/v1/abi.json';
-import escrowV2Abi from '$lib/utils/escrow/v2/abi.json';
+import escrowV1Abi from '$lib/utils/contract/v1/abi.json';
+import escrowV2Abi from '$lib/utils/contract/v2/abi.json';
 import type { ServiceQuoteFeatureState } from '$lib/types/service-quote';
 
 function getBooleanEnv(value: string | boolean | undefined): boolean {
@@ -22,8 +22,10 @@ export function supportsServicePurchaseKeyCapability(): boolean {
 		return true;
 	}
 
-	return abiSupportsPurchaseKey(escrowV1Abi as Array<Record<string, unknown>>) ||
-		abiSupportsPurchaseKey(escrowV2Abi as Array<Record<string, unknown>>);
+	return (
+		abiSupportsPurchaseKey(escrowV1Abi as Array<Record<string, unknown>>) ||
+		abiSupportsPurchaseKey(escrowV2Abi as Array<Record<string, unknown>>)
+	);
 }
 
 export function getServiceQuoteFeatures(): ServiceQuoteFeatureState {

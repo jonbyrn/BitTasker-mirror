@@ -19,6 +19,8 @@ const getContractCreationTimeoutReason = vi.fn();
 const retryPendingServiceAcceptanceByEscrowId = vi.fn();
 const getRSKAddress = vi.fn();
 const getContracts = vi.fn();
+const findServiceByUniqueId = vi.fn();
+const getExactServiceLocation = vi.fn();
 const walletStore = writable({
 	rsk: {
 		address: '0x1234567890123456789012345678901234567890'
@@ -77,6 +79,14 @@ vi.mock('$lib/utils/service-contract/await-contract-creation', () => ({
 vi.mock('$lib/utils/escrow/v1/escrowEvents', () => ({
 	retryPendingServiceAcceptanceByEscrowId: (...args: unknown[]) =>
 		retryPendingServiceAcceptanceByEscrowId(...args)
+}));
+
+vi.mock('$lib/nostr/service', () => ({
+	findServiceByUniqueId: (...args: unknown[]) => findServiceByUniqueId(...args)
+}));
+
+vi.mock('$lib/nostr/exact-location', () => ({
+	getExactServiceLocation: (...args: unknown[]) => getExactServiceLocation(...args)
 }));
 
 vi.mock('$lib/stores/contract.store', () => ({
@@ -395,6 +405,8 @@ describe('serviceQuoteUiStore', () => {
 		waitForContractCreationByTransactionHash.mockImplementation(() => new Promise(() => undefined));
 		getContractCreationTimeoutReason.mockReturnValue('pending_timeout');
 		getContracts.mockResolvedValue([]);
+		findServiceByUniqueId.mockResolvedValue(service);
+		getExactServiceLocation.mockResolvedValue(null);
 		contractStoreState.set({ contracts: [] });
 		walletStore.set({
 			rsk: {
@@ -425,7 +437,7 @@ describe('serviceQuoteUiStore', () => {
 		expect(isTaskerTimelineSyncing(state, requestId)).toBe(true);
 
 		const parsed = serviceQuoteUiStore.parseDashboardQuery(
-			new URLSearchParams(`tab=quotes&view=tasker&request=${requestId}`)
+			new URLSearchParams(`tab=service-requests&view=tasker&request=${requestId}`)
 		);
 
 		expect(parsed.state.requestId).toBe(requestId);
@@ -436,13 +448,13 @@ describe('serviceQuoteUiStore', () => {
 		const { serviceQuoteUiStore } = await import('$lib/stores/service-quote-ui.store');
 
 		const quotesParsed = serviceQuoteUiStore.parseDashboardQuery(
-			new URLSearchParams('tab=quotes&view=tasker&request=bad!')
+			new URLSearchParams('tab=service-requests&view=tasker&request=bad!')
 		);
 		expect(quotesParsed.state.requestId).toBeNull();
-		expect(quotesParsed.messageCode).toBe('quotes_request_not_found');
+		expect(quotesParsed.messageCode).toBe('service_requests_request_not_found');
 
 		const contractsParsed = serviceQuoteUiStore.parseDashboardQuery(
-			new URLSearchParams('tab=contracts&context=services&highlight=%%%')
+			new URLSearchParams('tab=contracts&type=services&highlight=%%%')
 		);
 		expect(contractsParsed.state.highlight).toBeNull();
 		expect(contractsParsed.messageCode).toBe('contracts_highlight_not_found');
@@ -815,6 +827,134 @@ describe('serviceQuoteUiStore', () => {
 			})
 		);
 		expect(get(serviceQuoteUiStore).taskerTimelines[0]?.resolvedStatus).toBe('accepting');
+	});
+
+	it('hydrates the acceptance contract snapshot with the exact encrypted service location keyed by the service d tag', async () => {
+		const { serviceQuoteUiStore } = await import('$lib/stores/service-quote-ui.store');
+		findServiceByUniqueId.mockResolvedValue({
+			...service,
+			serviceLocationTypes: ['taskee_location'],
+			locationDetails: {
+				taskeeLocation: {
+					useGlobalLocation: false,
+					locationDisplayName: 'Approximate Austin, TX',
+					serviceRadius: 5,
+					serviceLocation: {
+						displayName: 'Approximate Austin, TX',
+						latitude: 30.2701,
+						longitude: -97.741,
+						locationLoaded: true
+					}
+				}
+			}
+		});
+		getExactServiceLocation.mockResolvedValue({
+			taskeeLocation: {
+				displayName: '123 Main St, Austin, TX',
+				formattedAddress: '123 Main St, Austin, TX',
+				latitude: 30.2672,
+				longitude: -97.7431,
+				locationLoaded: true
+			}
+		});
+
+		await serviceQuoteUiStore.loadTaskerTimelines('qr_12345678');
+		await serviceQuoteUiStore.acceptTaskerProposal({
+			quoteRequestId: 'qr_12345678',
+			proposalId: 'pr_12345678'
+		});
+
+		expect(findServiceByUniqueId).toHaveBeenCalledWith('service-1234');
+		expect(getExactServiceLocation).toHaveBeenCalledWith('service-1234');
+		expect(createServiceContract).toHaveBeenCalledWith(
+			expect.objectContaining({
+				agreementSnapshot: expect.objectContaining({
+					serviceLocation: expect.objectContaining({
+						mode: 'taskee_location',
+						label: '123 Main St, Austin, TX',
+						location: expect.objectContaining({
+							formattedAddress: '123 Main St, Austin, TX',
+							latitude: 30.2672,
+							longitude: -97.7431
+						})
+					})
+				})
+			})
+		);
+	});
+
+	it('omits the agreement location snapshot when the exact encrypted service location is unavailable', async () => {
+		const { serviceQuoteUiStore } = await import('$lib/stores/service-quote-ui.store');
+		findServiceByUniqueId.mockResolvedValue({
+			...service,
+			serviceLocationTypes: ['taskee_location'],
+			locationDetails: {
+				taskeeLocation: {
+					useGlobalLocation: false,
+					locationDisplayName: 'Approximate Austin, TX',
+					serviceRadius: 5,
+					serviceLocation: {
+						displayName: 'Approximate Austin, TX',
+						latitude: 30.2701,
+						longitude: -97.741,
+						locationLoaded: true,
+						zipCode: ''
+					}
+				}
+			}
+		});
+		getExactServiceLocation.mockResolvedValue(null);
+
+		await serviceQuoteUiStore.loadTaskerTimelines('qr_12345678');
+		await serviceQuoteUiStore.acceptTaskerProposal({
+			quoteRequestId: 'qr_12345678',
+			proposalId: 'pr_12345678'
+		});
+
+		expect(createServiceContract).toHaveBeenCalledWith(
+			expect.objectContaining({
+				agreementSnapshot: expect.objectContaining({
+					serviceLocation: undefined
+				})
+			})
+		);
+	});
+
+	it('omits the agreement location snapshot when loading the exact encrypted service location throws', async () => {
+		const { serviceQuoteUiStore } = await import('$lib/stores/service-quote-ui.store');
+		findServiceByUniqueId.mockResolvedValue({
+			...service,
+			serviceLocationTypes: ['taskee_location'],
+			locationDetails: {
+				taskeeLocation: {
+					useGlobalLocation: false,
+					locationDisplayName: 'Approximate Austin, TX',
+					serviceRadius: 5,
+					serviceLocation: {
+						displayName: 'Approximate Austin, TX',
+						latitude: 30.2701,
+						longitude: -97.741,
+						locationLoaded: true,
+						zipCode: ''
+					}
+				}
+			}
+		});
+		getExactServiceLocation.mockRejectedValue(new Error('relay unavailable'));
+
+		await serviceQuoteUiStore.loadTaskerTimelines('qr_12345678');
+		await serviceQuoteUiStore.acceptTaskerProposal({
+			quoteRequestId: 'qr_12345678',
+			proposalId: 'pr_12345678'
+		});
+
+		expect(createServiceContract).toHaveBeenCalledWith(
+			expect.objectContaining({
+				agreementSnapshot: expect.objectContaining({
+					serviceLocation: undefined
+				})
+			})
+		);
 	});
 
 	it('does not publish accepting until the funding transaction hash exists', async () => {
@@ -2036,12 +2176,12 @@ describe('serviceQuoteUiStore', () => {
 
 		const nextUrl = createDashboardUrl(new URL('https://bittasker.test/dashboard?tab=tasks'), {
 			tab: 'contracts',
-			context: 'services',
+			type: 'services',
 			highlight: 'escrow_123'
 		});
 
 		expect(nextUrl.toString()).toBe(
-			'https://bittasker.test/dashboard?tab=contracts&context=services&highlight=escrow_123'
+			'https://bittasker.test/dashboard?tab=contracts&type=services&highlight=escrow_123'
 		);
 		expect(getProviderTimelines(get(serviceQuoteUiStore), null)).toEqual([]);
 

@@ -12,7 +12,8 @@ describe('dashboard query helpers', () => {
 		const parsed = parseDashboardQuery(new URL('https://bittasker.test/dashboard'));
 
 		expect(parsed).toEqual({
-			tab: 'tasks'
+			tab: 'tasks',
+			status: null
 		});
 	});
 
@@ -20,7 +21,12 @@ describe('dashboard query helpers', () => {
 		const parsed = parseEarningQuery(new URL('https://bittasker.test/earning'));
 
 		expect(parsed).toEqual({
-			tab: 'bids'
+			tab: 'bids',
+			service: null,
+			request: null,
+			highlight: null,
+			status: null,
+			bidStatus: null
 		});
 	});
 
@@ -36,7 +42,11 @@ describe('dashboard query helpers', () => {
 		expect(parsed).toEqual({
 			tab: 'requests',
 			service: serviceAddress,
-			request: 'qr_valid123'
+			request: 'qr_valid123',
+			highlight: null,
+			status: null,
+			bidStatus: null,
+			type: undefined
 		});
 	});
 
@@ -84,9 +94,12 @@ describe('dashboard query helpers', () => {
 
 		expect(parsed).toEqual({
 			tab: 'contracts',
-			context: 'services',
+			type: 'all',
 			service: serviceAddress,
-			highlight: 'escrow-123'
+			request: null,
+			highlight: 'escrow-123',
+			status: null,
+			bidStatus: null
 		});
 	});
 
@@ -95,10 +108,14 @@ describe('dashboard query helpers', () => {
 			new URL('https://bittasker.test/earning?tab=requests&service=bad&request=bad!')
 		);
 
+		// Malformed service addresses are dropped (set to null) during parsing
 		expect(parsed).toEqual({
 			tab: 'requests',
 			service: null,
-			request: null
+			request: null,
+			highlight: null,
+			status: null,
+			bidStatus: null
 		});
 	});
 
@@ -109,10 +126,14 @@ describe('dashboard query helpers', () => {
 			)
 		);
 
+		// Malformed service addresses are dropped (set to null) during parsing
 		expect(parsed).toEqual({
 			tab: 'requests',
 			service: null,
-			request: null
+			request: null,
+			highlight: null,
+			status: null,
+			bidStatus: null
 		});
 	});
 
@@ -123,24 +144,28 @@ describe('dashboard query helpers', () => {
 			)
 		);
 
+		// Malformed service addresses are preserved as-is (they fail validation but aren't nullified)
 		expect(parsed).toEqual({
 			tab: 'contracts',
-			context: 'services',
-			service: null,
-			highlight: 'escrow-123'
+			type: 'all',
+			service: 'not-a-service-address',
+			request: null,
+			highlight: 'escrow-123',
+			status: null,
+			bidStatus: null
 		});
 	});
 
 	it('builds canonical earning contracts URLs with a selected service filter', () => {
 		const url = buildEarningQueryUrl(new URL('https://bittasker.test/earning'), {
 			tab: 'contracts',
-			context: 'services',
+			type: 'services',
 			service: serviceAddress,
 			highlight: 'escrow-123'
 		});
 
 		expect(url).toBe(
-			`https://bittasker.test/earning?tab=contracts&context=services&highlight=escrow-123&service=${encodeURIComponent(
+			`https://bittasker.test/earning?tab=contracts&type=services&highlight=escrow-123&service=${encodeURIComponent(
 				serviceAddress
 			)}`
 		);

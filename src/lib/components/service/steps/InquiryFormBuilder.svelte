@@ -163,7 +163,9 @@
 			<!-- Field Type -->
 			<div class="w-full">
 				<label for="field-type-{field.id}" class="label">
-					<span class="label-text">{$t('dashboard.services.create.inquiry_form.type_label')}</span>
+					<span class="label-text break-words"
+						>{$t('dashboard.services.create.inquiry_form.type_label')}</span
+					>
 				</label>
 				<select
 					id="field-type-{field.id}"
@@ -190,7 +192,9 @@
 			<!-- Field Label -->
 			<div class="w-full">
 				<label for="field-label-{field.id}" class="label">
-					<span class="label-text">{$t('dashboard.services.create.inquiry_form.label_label')}</span>
+					<span class="label-text break-words"
+						>{$t('dashboard.services.create.inquiry_form.label_label')}</span
+					>
 				</label>
 				<input
 					type="text"
@@ -206,7 +210,7 @@
 			{#if field.type === 'text' || field.type === 'number'}
 				<div class="w-full">
 					<label for="field-placeholder-{field.id}" class="label">
-						<span class="label-text"
+						<span class="label-text break-words"
 							>{$t('dashboard.services.create.inquiry_form.placeholder_label')}</span
 						>
 					</label>
@@ -226,7 +230,7 @@
 			{#if field.type === 'select' || field.type === 'checkbox'}
 				<div class="w-full">
 					<label class="label" for="field-options-{field.id}">
-						<span class="label-text"
+						<span class="label-text break-words"
 							>{$t('dashboard.services.create.inquiry_form.options_label')}</span
 						>
 					</label>
@@ -321,7 +325,7 @@
 			<!-- Required Toggle -->
 			<div class="w-full">
 				<label class="label cursor-pointer">
-					<span class="label-text"
+					<span class="label-text break-words"
 						>{$t('dashboard.services.create.inquiry_form.required_label')}</span
 					>
 					<input

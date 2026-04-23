@@ -47,8 +47,7 @@
 		"buttons": {
 			"cancel": "Cancelar",
 			"retry": "Reintentar",
-			"close": "Cerrar",
-			"refresh": "Actualizar"
+			"close": "Cerrar"
 		},
 		"toast": {
 			"link_copied": "Enlace copiado al portapapeles",
@@ -56,7 +55,6 @@
 			"share_success": "Compartido exitosamente"
 		},
 		"share": {
-			"price": "Precio",
 			"budget": "Presupuesto",
 			"deadline": "Fecha Límite",
 			"location": "Ubicación",
@@ -121,20 +119,6 @@
 		"browse_faq": "Ver Preguntas Frecuentes",
 		"connected": "Connected",
 		"disconnected": "Disconnected",
-		"homepage": {
-			"featured": {
-				"services": {
-					"title": "Servicios Destacados",
-					"empty": "No hay servicios destacados disponibles por ahora.",
-					"meta_fallback": "Listado de servicio",
-					"at_provider_location": "En la ubicación del proveedor",
-					"travels_to_you": "Se desplaza hasta ti"
-				},
-				"tasks": {
-					"empty": "No hay tareas destacadas disponibles por ahora."
-				}
-			}
-		},
 		"link": {
 			"security": "Seguridad",
 			"privacy": "Privacidad",
@@ -643,6 +627,13 @@
 					"day": "día",
 					"days": "días"
 				}
+			},
+			"app_notification": {
+				"title": "Descargar la App",
+				"message": "Obtén la mejor experiencia BitTasker descargando nuestra aplicación móvil. Recibe notificaciones instantáneas para ofertas, tareas y mensajes directamente en tu dispositivo.",
+				"google_play_aria": "Descargar BitTasker en Google Play Store",
+				"zapstore_aria": "Descargar BitTasker en ZapStore",
+				"dismiss": "Entendido"
 			}
 		},
 		"task": {

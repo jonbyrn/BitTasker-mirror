@@ -65,14 +65,12 @@ docs/testing/presentation-prep.md
 # Ignored scripts
 scripts/ignored/*
 
-<<<<<<< HEAD
 # Claude Code config and state (auto-generated, should not be committed)
 .claude-flow/
 
 # Local swarm state
 .swarm/
-=======
+
 # MemPalace per-project files (issue #185)
 mempalace.yaml
 entities.json
->>>>>>> origin/dev

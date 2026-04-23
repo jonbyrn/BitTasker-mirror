@@ -72,9 +72,10 @@
 			"refreshing": "Actualizando",
 			"loading": "Cargando tus solicitudes de servicio...",
 			"retry_loading": "Vuelve a intentar cargar tus solicitudes de servicio.",
-			"empty": "Todavía no se han enviado solicitudes de servicio.",
+			"empty": "Aún no has enviado ninguna solicitud de servicio.",
 			"empty_filtered": "Todavía no hay solicitudes de servicio con este estado.",
 			"empty_filtered_description": "Prueba otro filtro de estado para revisar el resto de tus solicitudes de servicio.",
+			"filtered_empty_action": "Limpiar filtros",
 			"quote_pending": "Pendiente",
 			"requested": "Solicitada",
 			"request_id": "ID de solicitud",
@@ -85,7 +86,7 @@
 			"rush_delivery": "Entrega urgente",
 			"expires": "Vence",
 			"filters": {
-				"all": "Todas",
+				"all": "Todos los estados",
 				"awaiting_proposal": "Pendientes de propuesta",
 				"contract_created": "Contrato creado",
 				"declined": "Rechazadas",
@@ -93,6 +94,8 @@
 				"expired": "Vencidas"
 			},
 			"service_label": "Servicio",
+			"boolean_yes": "Sí",
+			"boolean_no": "No",
 			"standard_tier": "Estándar",
 			"days": "días",
 			"actions": {
@@ -109,6 +112,7 @@
 			},
 			"drawer": {
 				"title": "Solicitud de servicio",
+				"heading": "Información general",
 				"loading": "Cargando detalles del servicio...",
 				"inquiry_title": "Tu consulta",
 				"proposal_title": "Propuesta recibida",
@@ -146,7 +150,7 @@
 				"awaiting_proposal": "Esperando propuesta"
 			},
 			"filters": {
-				"all": "Todas",
+				"all": "Todos los estados",
 				"awaiting_proposal": "Esperando propuesta",
 				"proposal_received": "Propuesta recibida",
 				"needs_attention": "Necesita atención",
@@ -665,8 +669,7 @@
 			"retry": "Reintentar",
 			"refresh": "Actualizar",
 			"clear_filters": "Limpiar filtros",
-			"no_contracts": "No se encontraron contratos",
-			"no_contracts_description": "Aún no tienes contratos. Crea una tarea o haz ofertas en tareas existentes para comenzar.",
+			"no_contracts": "No hay contratos todavía",
 			"no_filtered_contracts": "Ningún contrato coincide con tus filtros",
 			"try_different_filters": "Intenta ajustar tus filtros para ver más contratos.",
 			"filter_by_role": "Filtrar por rol",
@@ -706,6 +709,7 @@
 			"currency": "Moneda",
 			"original_bid_proposal": "Propuesta de Oferta Original",
 			"bid_details": "Detalles de la Oferta",
+			"loading_bid_details": "Cargando detalles de la oferta...",
 			"approach": "Enfoque",
 			"proposed_approach": "Enfoque Propuesto",
 			"estimated_duration": "Duración Estimada",
@@ -714,7 +718,7 @@
 			"available_actions": "Acciones Disponibles",
 			"no_actions_available": "No hay acciones disponibles",
 			"context_filters": {
-				"all": "Todos",
+				"all": "Todos los tipos",
 				"tasks": "Tareas",
 				"services": "Servicios"
 			},

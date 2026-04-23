@@ -94,7 +94,9 @@
 			<!-- FAQ Question -->
 			<div class="w-full">
 				<label for="faq-question-{faq.id}" class="label" id="faq-question-label-{faq.id}">
-					<span class="label-text">{$t('dashboard.services.create.faqs.question_label')}</span>
+					<span class="label-text break-words"
+						>{$t('dashboard.services.create.faqs.question_label')}</span
+					>
 				</label>
 				<input
 					type="text"
@@ -109,7 +111,9 @@
 			<!-- FAQ Answer -->
 			<div class="w-full">
 				<label for="faq-answer-{faq.id}" class="label" id="faq-answer-label-{faq.id}">
-					<span class="label-text">{$t('dashboard.services.create.faqs.answer_label')}</span>
+					<span class="label-text break-words"
+						>{$t('dashboard.services.create.faqs.answer_label')}</span
+					>
 				</label>
 				<textarea
 					id="faq-answer-{faq.id}"

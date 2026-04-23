@@ -72,7 +72,7 @@
 	// This validates in real-time as the user types
 	let descriptionError = $derived.by(() => {
 		const description = $store.task.description?.trim() || '';
-		
+
 		// Only validate if there was an error before (from errors prop) or if user has started typing
 		// This prevents showing errors before the user has interacted with the field
 		if (errors.description || description.length > 0) {
@@ -90,7 +90,6 @@
 
 	// File handling functions
 	async function validateAndProcessFile(file: File): Promise<File | null> {
-		const allowedTypes = ['image/*', 'video/*'];
 		const isImageFile = file.type.startsWith('image/');
 		const isVideoFile = file.type.startsWith('video/');
 
@@ -334,7 +333,7 @@
 			<span class="label-text">{$t('task.budget_label')}</span>
 		</label>
 		<UsdSatsInput
-			usdAmount={usdAmount}
+			{usdAmount}
 			{btcPrice}
 			error={errors.budget}
 			showFieldLabels={false}
@@ -398,7 +397,7 @@
 			<div
 				class="grid grid-cols-2 justify-start gap-6 sm:grid-cols-4 sm:gap-36 md:grid-cols-6 lg:grid-cols-8"
 			>
-				{#each allFiles as file, index}
+				{#each allFiles as file, index (index)}
 					<div class="relative h-24 w-24 sm:h-28 sm:w-28 md:h-32 md:w-32">
 						{#if isVideoFile(file)}
 							<video
@@ -464,13 +463,17 @@
 								/>
 							</svg>
 							<p class="mb-1 text-xs font-semibold sm:text-sm">{$t('task.attachments')}</p>
-							<p class="text-[8px] sm:text-xs">
-								{$t('common.components.media_uploader.images')}, {$t(
-									'common.components.media_uploader.videos'
-								)} (Max. 0.5 minutes)
-							</p>
 							<p class="text-center text-[8px] whitespace-normal sm:px-1 sm:text-xs">
-								{$t('common.components.media_uploader.max_size', { values: { maxSize: 200 } })}
+								{$t('common.components.media_uploader.images')},
+								{$t('common.components.media_uploader.videos')}
+								{$t('common.components.media_uploader.max_info', {
+									values: {
+										size: 50,
+										durationInfo: $t('common.components.media_uploader.duration_info', {
+											values: { duration: 0.5 }
+										})
+									}
+								})}
 							</p>
 							<input
 								id="file-upload-attachments"

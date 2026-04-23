@@ -492,9 +492,8 @@ async function createEscrow(
 			}
 
 			let finalizedReceipt = receipt;
-			const pendingServiceContract = EscrowNostrEvent.findPendingServiceContractByTransactionHashes(
-				transactionHashes
-			);
+			const pendingServiceContract =
+				EscrowNostrEvent.findPendingServiceContractByTransactionHashes(transactionHashes);
 			if (pendingServiceContract) {
 				try {
 					finalizedReceipt = await waitForServiceAcceptanceFinality(
@@ -571,9 +570,8 @@ async function createEscrow(
 						const confirmedAcceptanceSnapshot = pendingServiceContract?.acceptanceSnapshot
 							? {
 									...pendingServiceContract.acceptanceSnapshot,
-									confirmationsAtVerification: await getTransactionConfirmationCount(
-										finalizedReceipt
-									)
+									confirmationsAtVerification:
+										await getTransactionConfirmationCount(finalizedReceipt)
 								}
 							: undefined;
 

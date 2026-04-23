@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { linear } from 'svelte/easing';
-	import { fly } from 'svelte/transition';
+	import { fly, fade } from 'svelte/transition';
 	import { serviceStore as store } from '$lib/stores/service.store';
 	import type { RushDelivery, ServiceTier, TierDeliveryTime } from '$lib/types/service.d';
 	import { t } from 'svelte-i18n';
@@ -198,7 +198,7 @@
 >
 	<div class="w-full">
 		<label class="label" for="tiers-title">
-			<span class="label-text-alt break-words">
+			<span class="label-text-alt wrap-break-words">
 				{$t('dashboard.services.create.tiers.hint')} ({($store.service.pricing?.tiers || [])
 					.length}/4)
 			</span>
@@ -207,15 +207,17 @@
 
 	{#each $store.service.pricing?.tiers || [] as tier (tier.id)}
 		<div
-			class="card min-w-0 space-y-4 overflow-hidden border p-4 {tier.isPopular
-				? 'border-primary bg-primary/5 border-2'
+			class="card min-w-0 space-y-4 overflow-hidden border-2 p-4 transition-all duration-300 {tier.isPopular
+				? 'border-primary bg-primary/5'
 				: 'border-base-300 bg-base-200'}"
 		>
 			<div class="flex items-start justify-between gap-3">
 				<div class="flex min-w-0 items-center gap-2">
-					<h4 class="min-w-0 text-lg font-semibold break-words">{tier.name}</h4>
+					<h4 class="wrap-break-words min-w-0 text-lg font-semibold">{tier.name}</h4>
 					{#if tier.isPopular}
-						<span class="badge badge-primary">{$t('dashboard.services.create.tiers.popular')}</span>
+						<span class="badge badge-primary" transition:fade={{ duration: 200 }}>
+							{$t('dashboard.services.create.tiers.popular')}
+						</span>
 					{/if}
 				</div>
 				<div class="flex shrink-0 gap-2">
@@ -245,7 +247,9 @@
 
 			<div class="w-full">
 				<label for="tier-name-{tier.id}" class="label" id="tier-name-label-{tier.id}">
-					<span class="label-text">{$t('dashboard.services.create.tiers.name_label')}</span>
+					<span class="label-text break-words"
+						>{$t('dashboard.services.create.tiers.name_label')}</span
+					>
 				</label>
 				<input
 					type="text"
@@ -260,7 +264,7 @@
 
 			<div class="w-full">
 				<label for="tier-description-{tier.id}" class="label" id="tier-description-label-{tier.id}">
-					<span class="label-text">
+					<span class="label-text break-words">
 						{$t('dashboard.services.create.tiers.description_label')}
 						<span class="text-error">*</span>
 					</span>
@@ -282,16 +286,16 @@
 					class="label flex items-center justify-between gap-2"
 					id="tier-price-label-{tier.id}"
 				>
-					<span class="label-text">
+					<span class="label-text break-words">
 						{$t('dashboard.services.create.tiers.price_label')}
 						<span class="text-error">*</span>
 					</span>
-					<span class="label-text-alt min-w-0 text-right break-words">
+					<span class="label-text-alt wrap-break-words min-w-0 text-right">
 						{$t('dashboard.services.create.pricing.btc_price')}
 						{#if btcPrice > 0}
 							${Math.round(btcPrice).toLocaleString()}
 						{:else}
-							unavailable
+							{$t('dashboard.services.create.pricing.btc_price_unavailable')}
 						{/if}
 					</span>
 				</label>
@@ -315,7 +319,8 @@
 
 			<div class="w-full">
 				<label class="label cursor-pointer" id="delivery-time-label-{tier.id}">
-					<span class="label-text">{$t('dashboard.services.create.tiers.delivery_time_label')}</span
+					<span class="label-text break-words"
+						>{$t('dashboard.services.create.tiers.delivery_time_label')}</span
 					>
 					<input
 						type="checkbox"
@@ -342,7 +347,7 @@
 									class="label"
 									id="delivery-value-label-{tier.id}"
 								>
-									<span class="label-text-alt break-words">
+									<span class="label-text-alt wrap-break-words">
 										{$t('dashboard.services.create.tiers.delivery_time_label')}
 									</span>
 								</label>
@@ -368,7 +373,7 @@
 									class="label"
 									id="delivery-unit-label-{tier.id}"
 								>
-									<span class="label-text-alt break-words">
+									<span class="label-text-alt wrap-break-words">
 										{$t('dashboard.services.create.tiers.delivery_unit')}
 									</span>
 								</label>
@@ -399,7 +404,8 @@
 
 			<div class="w-full">
 				<label class="label cursor-pointer" id="rush-delivery-label-{tier.id}">
-					<span class="label-text">{$t('dashboard.services.create.tiers.rush_delivery_label')}</span
+					<span class="label-text break-words"
+						>{$t('dashboard.services.create.tiers.rush_delivery_label')}</span
 					>
 					<input
 						type="checkbox"
@@ -413,7 +419,7 @@
 					<div class="mt-2 space-y-2">
 						<div>
 							<label for="rush-price-{tier.id}" class="label" id="rush-price-label-{tier.id}">
-								<span class="label-text-alt break-words">
+								<span class="label-text-alt wrap-break-words">
 									{$t('dashboard.services.create.tiers.rush_price_label')}
 								</span>
 							</label>
@@ -438,7 +444,7 @@
 						>
 							<div class="min-w-0">
 								<label for="rush-value-{tier.id}" class="label" id="rush-value-label-{tier.id}">
-									<span class="label-text-alt break-words">
+									<span class="label-text-alt wrap-break-words">
 										{$t('dashboard.services.create.tiers.delivery_time_label')}
 									</span>
 								</label>
@@ -466,7 +472,7 @@
 							</div>
 							<div class="min-w-0">
 								<label for="rush-unit-{tier.id}" class="label" id="rush-unit-label-{tier.id}">
-									<span class="label-text-alt break-words">
+									<span class="label-text-alt wrap-break-words">
 										{$t('dashboard.services.create.tiers.delivery_unit')}
 									</span>
 								</label>

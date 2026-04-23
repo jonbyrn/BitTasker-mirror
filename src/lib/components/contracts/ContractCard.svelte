@@ -5,17 +5,17 @@
 		getStatusTranslationKey,
 		getStatusColorClass
 	} from '$lib/utils/helpers/contractStatusFormatter';
-import { contractStore } from '$lib/stores/contract.store';
-import { t } from 'svelte-i18n';
-import ContractActions from './ContractActions.svelte';
-import ContractContextSummary from './ContractContextSummary.svelte';
-import UserNostrBadge from '../UserNostrBadge.svelte';
-import TaskDeadlineDisplay from '../task/TaskDeadlineDisplay.svelte';
-import TaskLocationDisplay from '../task/TaskLocationDisplay.svelte';
-import { buildContractContextPresentation } from '$lib/utils/service-contract/context-presentation';
-import { getVisibleContractQuickActions } from '$lib/utils/helpers/contractQuickActions';
-import { EscrowStatus } from '$lib/utils/escrow';
-import { getReviewAvailabilityLabel, getReviewEligibilityState } from '$lib/reviews';
+	import { contractStore } from '$lib/stores/contract.store';
+	import { t } from 'svelte-i18n';
+	import ContractActions from './ContractActions.svelte';
+	import ContractContextSummary from './ContractContextSummary.svelte';
+	import UserNostrBadge from '../UserNostrBadge.svelte';
+	import TaskDeadlineDisplay from '../task/TaskDeadlineDisplay.svelte';
+	import TaskLocationDisplay from '../task/TaskLocationDisplay.svelte';
+	import { buildContractContextPresentation } from '$lib/utils/service-contract/context-presentation';
+	import { getVisibleContractQuickActions } from '$lib/utils/helpers/contractQuickActions';
+	import { EscrowStatus } from '$lib/utils/escrow';
+	import { getReviewAvailabilityLabel, getReviewEligibilityState } from '$lib/reviews';
 
 	const { contract, btcPrice } = $props<{
 		contract: ContractWithEvents;
@@ -63,6 +63,14 @@ import { getReviewAvailabilityLabel, getReviewEligibilityState } from '$lib/revi
 		};
 	}
 
+	const statusVariant = $derived(
+		getCancellationStatusVariant(
+			contract.status,
+			contract.statusEvents,
+			contractStore.getContractKey(contract, 'clientPubkey') as string
+		)
+	);
+
 	const availableQuickActions = $derived.by(() => {
 		if (presentation.isUnknownContext) {
 			return [];
@@ -103,14 +111,6 @@ import { getReviewAvailabilityLabel, getReviewEligibilityState } from '$lib/revi
 		$contractStore.contract = contract;
 		$contractStore.isDrawerOpen = true;
 	}
-
-	const statusVariant = $derived(
-		getCancellationStatusVariant(
-			contract.status,
-			contract.statusEvents,
-			contractStore.getContractKey(contract, 'clientPubkey') as string
-		)
-	);
 </script>
 
 <div
@@ -122,6 +122,7 @@ import { getReviewAvailabilityLabel, getReviewEligibilityState } from '$lib/revi
 >
 	<div class="card-body rounded-xl p-4 md:p-4">
 		<div class="mb-3 flex flex-row items-start justify-between gap-2">
+			<!-- Left: Title and Summary (flexible, takes available space) -->
 			<div class="min-w-0 flex-1 pr-2 md:pr-4">
 				<button
 					class="hover:text-primary w-full cursor-pointer text-left transition-colors"
@@ -131,23 +132,23 @@ import { getReviewAvailabilityLabel, getReviewEligibilityState } from '$lib/revi
 				</button>
 			</div>
 
-					<div class="flex shrink-0 flex-col items-end self-stretch">
-						<div class="flex flex-wrap justify-end gap-1">
-							<div
-								class="badge badge-sm {presentation.isServiceContract
-									? 'badge-info'
-									: presentation.isUnknownContext
-										? 'badge-warning'
-										: 'badge-outline'}"
-							>
-								{presentation.cardLabel}
-							</div>
-							<div class="badge badge-outline badge-sm">{getReviewAvailabilityLabel(reviewState)}</div>
-							{#if import.meta.env.DEV}
-								<div class="badge badge-error badge-sm">
-									{contract.escrowData?.id}
-								</div>
-							{/if}
+			<div class="flex shrink-0 flex-col items-end self-stretch">
+				<div class="flex flex-wrap justify-end gap-1">
+					<div
+						class="badge badge-sm {presentation.isServiceContract
+							? 'badge-info'
+							: presentation.isUnknownContext
+								? 'badge-warning'
+								: 'badge-outline'}"
+					>
+						{presentation.cardLabel}
+					</div>
+					<div class="badge badge-outline badge-sm">{getReviewAvailabilityLabel(reviewState)}</div>
+					{#if import.meta.env.DEV}
+						<div class="badge badge-error badge-sm">
+							{contract.escrowData?.id}
+						</div>
+					{/if}
 				</div>
 				<div class="badge {getStatusColorClass(contract.status)} badge-sm mt-2">
 					{#if contract.isPending}

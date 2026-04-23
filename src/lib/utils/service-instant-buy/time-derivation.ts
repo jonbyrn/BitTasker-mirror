@@ -43,7 +43,8 @@ export function deriveInstantBuySchedule(
 export function deriveServiceInstantBuySchedule(
 	service: InstantBuyServiceLike,
 	selectedTierId?: string,
-	nowSeconds = Math.floor(Date.now() / 1000)
+	nowSeconds = Math.floor(Date.now() / 1000),
+	requestRushDelivery = false
 ): InstantBuyTimingResult {
 	const eligibility = getInstantBuyEligibility(service, selectedTierId);
 	if (!eligibility.eligible || service.instantBuyLeadHours == null || !service.pricing) {
@@ -51,17 +52,40 @@ export function deriveServiceInstantBuySchedule(
 	}
 
 	if (service.pricing.type === 'FIXED') {
-		// Use instantBuyDeliveryHours if set, otherwise fall back to pricing.deliveryTime
-		const deliveryTime = service.instantBuyDeliveryHours
-			? { value: service.instantBuyDeliveryHours, unit: 'hour' as const }
-			: service.pricing.deliveryTime!;
-		return deriveInstantBuySchedule(nowSeconds, service.instantBuyLeadHours, deliveryTime);
+		const deliveryTime =
+			requestRushDelivery && service.pricing.rushDelivery?.enabled
+				? service.pricing.rushDelivery.deliveryTime
+				: service.instantBuyDeliveryHours
+					? { value: service.instantBuyDeliveryHours, unit: 'hour' as const }
+					: service.pricing.deliveryTime!;
+
+		if (!deliveryTime) {
+			throw new Error('Instant buy not eligible: missing_delivery_time');
+		}
+		return deriveInstantBuySchedule(
+			nowSeconds,
+			service.instantBuyLeadHours,
+			deliveryTime as DeliveryTimeLike
+		);
 	}
 
 	const tier = resolveInstantBuyTier(service, selectedTierId);
-	if (!tier?.deliveryTime) {
+	if (!tier) {
+		throw new Error('Instant buy not eligible: missing_tier');
+	}
+
+	const deliveryTime =
+		requestRushDelivery && tier.rushDelivery?.enabled
+			? tier.rushDelivery.deliveryTime
+			: tier.deliveryTime;
+
+	if (!deliveryTime) {
 		throw new Error('Instant buy not eligible: missing_delivery_time');
 	}
 
-	return deriveInstantBuySchedule(nowSeconds, service.instantBuyLeadHours, tier.deliveryTime);
+	return deriveInstantBuySchedule(
+		nowSeconds,
+		service.instantBuyLeadHours,
+		deliveryTime as DeliveryTimeLike
+	);
 }

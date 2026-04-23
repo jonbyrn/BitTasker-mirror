@@ -290,8 +290,8 @@
 			{@render children()}
 		</div>
 
-		{#if !hideFooter}
-			<div class="tasks-page-footer">
+		{#if !hideFooter && showTopBar}
+			<div class="tasks-page-footer pt-12 lg:pt-16">
 				{#if !$authState.isAuthenticated}
 					<!-- Section 7: Final Call to Action (CTA) -->
 					<section class="bg-primary text-primary-content py-16">

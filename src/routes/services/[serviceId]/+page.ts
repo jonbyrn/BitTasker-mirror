@@ -260,14 +260,26 @@ function buildDefaultSeo(canonicalUrl: string, tr: Translate): ServiceSeoPayload
 	};
 }
 
-export const load: PageLoad = async ({ params }) => {
+export const load: PageLoad = async ({ params, parent }) => {
 	const currentLocale = (get(locale) as SupportedLanguage) || 'en';
 	if (browser) {
 		await loadNamespace(currentLocale, 'dashboard/services/detail');
 	}
+
+	const parentData = await parent();
+	const existingService = parentData?.service as Service | null | undefined;
+
 	const tr = createTranslator();
 	const requestedServiceId = normalizeServiceId(params.serviceId, params.serviceId);
-	const service: Service | null = await findServiceByUniqueId(requestedServiceId);
+
+	let service: Service | null = null;
+	try {
+		service = await findServiceByUniqueId(requestedServiceId);
+	} catch (error) {
+		console.warn('[ServiceDetail] Failed to fetch service, keeping existing data:', error);
+		service = existingService ?? null;
+	}
+
 	const canonicalId = normalizeServiceId(service?.uniqueId, requestedServiceId);
 	const canonicalUrl = buildCanonicalUrl(canonicalId);
 	const seo = buildDefaultSeo(canonicalUrl, tr);

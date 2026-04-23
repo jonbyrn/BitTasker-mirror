@@ -72,7 +72,9 @@ const hoisted = vi.hoisted(() => ({
 	},
 	showErrorToast: vi.fn(),
 	showSuccessToast: vi.fn(),
-	findServices: vi.fn()
+	findServices: vi.fn(),
+	persistServiceSearchFilters: vi.fn(),
+	loadPersistedServiceSearchFilters: vi.fn()
 }));
 hoisted.servicesStore = hoisted.createStore({
 	items: [] as Service[],
@@ -82,6 +84,7 @@ hoisted.servicesStore = hoisted.createStore({
 	hasMore: false,
 	searchParamsKey: ''
 });
+hoisted.servicesStore.destroy = vi.fn();
 hoisted.authStateStore = hoisted.createStore({ isAuthenticated: true });
 hoisted.userStore = hoisted.createStore({ npub: 'owner-pubkey' });
 
@@ -160,9 +163,14 @@ vi.mock('$lib/components/listing/ListingControls.svelte', () => ({
 	default: () => null
 }));
 
-vi.mock('$lib/components/service/ServiceSearchFilters.svelte', () => ({
-	default: () => null
-}));
+vi.mock('$lib/components/service/ServiceSearchFilters.svelte', async () => {
+	const { default: ServiceSearchFiltersRouteStub } = await import(
+		'../../fixtures/ServiceSearchFiltersRouteStub.svelte'
+	);
+	return {
+		default: ServiceSearchFiltersRouteStub
+	};
+});
 
 vi.mock('$lib/components/service/SaveServiceSearchForm.svelte', () => ({
 	default: () => null
@@ -177,7 +185,8 @@ vi.mock('$lib/components/maps/TaskLocationMap.svelte', () => ({
 }));
 
 vi.mock('$lib/utils/service-search-persistence', () => ({
-	persistServiceSearchFilters: vi.fn()
+	persistServiceSearchFilters: (...args: unknown[]) => hoisted.persistServiceSearchFilters(...args),
+	loadPersistedServiceSearchFilters: () => hoisted.loadPersistedServiceSearchFilters()
 }));
 
 vi.mock('$lib/components/service/ServiceCard.svelte', async () => {
@@ -216,6 +225,8 @@ function createService(id: string, npub: string, title: string): Service {
 describe('services page ownership guards', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		sessionStorage.clear();
+		localStorage.clear();
 		Object.defineProperty(window, 'innerWidth', {
 			value: 1400,
 			configurable: true,
@@ -245,6 +256,8 @@ describe('services page ownership guards', () => {
 				searchParamsKey: 'loaded'
 			});
 		});
+		hoisted.persistServiceSearchFilters.mockReset();
+		hoisted.loadPersistedServiceSearchFilters.mockReturnValue(null);
 
 		hoisted.servicesStore.set({
 			items: [],
@@ -270,5 +283,108 @@ describe('services page ownership guards', () => {
 
 		expect(screen.queryByRole('button', { name: 'Request quote for My Service' })).toBeNull();
 		expect(screen.getByRole('button', { name: 'Request quote for Other Service' })).toBeTruthy();
+	});
+
+	it('restores saved service search params including coordinates from session storage on mount', async () => {
+		sessionStorage.setItem(
+			'savedServiceSearchParams',
+			JSON.stringify({
+				search: 'logo',
+				location: 'Austin, TX',
+				locationCoords: {
+					latitude: 30.2672,
+					longitude: -97.7431
+				},
+				radius: 12
+			})
+		);
+
+		render((await import('../../../../routes/services/+page.svelte')).default);
+
+		await waitFor(() => {
+			expect(hoisted.findServices).toHaveBeenCalledWith(
+				expect.objectContaining({
+					search: 'logo',
+					location: 'Austin, TX',
+					locationCoords: {
+						latitude: 30.2672,
+						longitude: -97.7431
+					},
+					radius: 12
+				})
+			);
+		});
+		expect(sessionStorage.getItem('savedServiceSearchParams')).toBeNull();
+	});
+
+	it('restores persisted service filters from local storage when no dashboard saved search is present', async () => {
+		hoisted.loadPersistedServiceSearchFilters.mockReturnValue({
+			location: 'Denver, CO',
+			locationCoords: {
+				latitude: 39.7392,
+				longitude: -104.9903
+			},
+			radius: 8
+		});
+
+		render((await import('../../../../routes/services/+page.svelte')).default);
+
+		await waitFor(() => {
+			expect(hoisted.findServices).toHaveBeenCalledWith(
+				expect.objectContaining({
+					location: 'Denver, CO',
+					locationCoords: {
+						latitude: 39.7392,
+						longitude: -104.9903
+					},
+					radius: 8
+				})
+			);
+		});
+	});
+
+	it('drops stale hidden location coordinates when applying empty service filters after a saved search', async () => {
+		sessionStorage.setItem(
+			'savedServiceSearchParams',
+			JSON.stringify({
+				search: 'logo',
+				location: 'Austin, TX',
+				locationCoords: {
+					latitude: 30.2672,
+					longitude: -97.7431
+				},
+				radius: 12
+			})
+		);
+
+		render((await import('../../../../routes/services/+page.svelte')).default);
+
+		await waitFor(() => {
+			expect(hoisted.findServices).toHaveBeenCalledWith(
+				expect.objectContaining({
+					locationCoords: {
+						latitude: 30.2672,
+						longitude: -97.7431
+					}
+				})
+			);
+		});
+
+		await screen.getByRole('button', { name: 'Apply Empty Service Filters' }).click();
+
+		await waitFor(() => {
+			expect(hoisted.findServices).toHaveBeenLastCalledWith(
+				expect.not.objectContaining({
+					location: 'Austin, TX',
+					locationCoords: expect.anything()
+				})
+			);
+		});
+		expect(hoisted.persistServiceSearchFilters).toHaveBeenLastCalledWith(
+			expect.not.objectContaining({
+				location: 'Austin, TX',
+				locationCoords: expect.anything()
+			})
+		);
 	});
 });

@@ -44,6 +44,7 @@ export interface ServiceContractPreflightFailure {
 	ok: false;
 	errorCode: ServiceContractPreflightErrorCode;
 	error: string;
+	totalRequired?: string;
 }
 
 export type ServiceContractPreflightResult =
@@ -258,10 +259,12 @@ export async function preflightServiceContractCreation(
 
 		if (balanceWei < totalRequiredWei) {
 			const shortfallWei = totalRequiredWei - balanceWei;
-			return fail(
-				'insufficient_funds',
-				`Insufficient RBTC balance. You have ${formatRbtcAmount(balanceWei)} RBTC but need ${formatRbtcAmount(totalRequiredWei)} RBTC (including gas). Shortfall: ${formatRbtcAmount(shortfallWei)} RBTC.`
-			);
+			return {
+				ok: false,
+				errorCode: 'insufficient_funds',
+				error: `Insufficient RBTC balance. You have ${formatRbtcAmount(balanceWei)} RBTC but need ${formatRbtcAmount(totalRequiredWei)} RBTC (including gas). Shortfall: ${formatRbtcAmount(shortfallWei)} RBTC.`,
+				totalRequired: ethers.formatEther(totalRequiredWei)
+			};
 		}
 
 		return {

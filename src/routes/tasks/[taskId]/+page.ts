@@ -211,9 +211,7 @@ export const load: PageLoad = async ({ params }) => {
 	if (shouldRedirect && uniqueId !== taskId && uniqueId) {
 		throw redirect(301, `/tasks/${uniqueId}`);
 	}
-
 	const canonicalUrl = `${SITE_URL}/tasks/${uniqueId}`;
-
 	// Default SEO data
 	let seo = {
 		title: 'Task Details - BitTasker',
@@ -252,7 +250,6 @@ export const load: PageLoad = async ({ params }) => {
 		// Get first image attachment (not video) for meta tags
 		const firstImage = task.attachments?.find((att) => !isVideoFile(att.url));
 		const taskImage = firstImage?.url || `${SITE_URL}/images/og-task-default.jpg`;
-
 		// Generate dynamic SEO data based on task content
 		const taskTitle = task.title || 'Untitled Task';
 		const taskDescription = task.description || 'No description available';

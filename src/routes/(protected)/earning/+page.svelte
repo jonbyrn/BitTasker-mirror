@@ -16,7 +16,7 @@
 	import {
 		buildEarningQueryUrl,
 		parseEarningQuery,
-		type DashboardContractsContext,
+		type DashboardContractsType,
 		type EarningTab
 	} from '$lib/utils/dashboardQuery';
 
@@ -81,10 +81,11 @@
 
 	let activeTabId = $state<EarningTab>('bids');
 	const activeTab = $derived.by(() => tabs.find((tab) => tab.id === activeTabId) || tabs[0]);
-	let contractsContext = $state<DashboardContractsContext>('all');
+	let contractsType = $state<DashboardContractsType>('all');
 	let currentContractsHighlight = $state<string | null>(null);
 	let selectedServiceAddress = $state<string | null>(null);
 	let focusedRequestId = $state<string | null>(null);
+	let activeStatus = $state<string | null>(null);
 	let nonBlockingMessageCode = $state<string | null>(null);
 
 	function logRequestsDebug(event: string, details: Record<string, unknown>) {
@@ -104,19 +105,22 @@
 	function syncRouteState() {
 		const parsed = parseEarningQuery(page.url);
 		activeTabId = parsed.tab;
-		contractsContext = parsed.context ?? 'all';
+		contractsType = parsed.type ?? 'all';
 		currentContractsHighlight = parsed.highlight ?? null;
 		selectedServiceAddress = parsed.service ?? null;
 		focusedRequestId = parsed.request ?? null;
+		activeStatus = parsed.status ?? parsed.bidStatus ?? null;
 		nonBlockingMessageCode = null;
 
 		const canonicalUrl = new URL(
 			buildEarningQueryUrl(page.url, {
 				tab: parsed.tab,
-				context: parsed.context,
+				type: parsed.type,
 				highlight: parsed.highlight,
 				service: parsed.service,
-				request: parsed.request
+				request: parsed.request,
+				status: parsed.tab !== 'bids' ? activeStatus : undefined,
+				bidStatus: parsed.tab === 'bids' ? activeStatus : undefined
 			})
 		);
 
@@ -126,6 +130,7 @@
 				tab: parsed.tab,
 				service: parsed.service ?? null,
 				request: parsed.request ?? null,
+				status: activeStatus,
 				canonicalSearch: canonicalUrl.search
 			});
 		}
@@ -147,19 +152,24 @@
 	function navigateToEarning(
 		updates: Partial<{
 			tab: EarningTab;
-			context: DashboardContractsContext;
+			type: DashboardContractsType;
 			highlight: string | null;
 			service: string | null;
 			request: string | null;
+			status: string | null;
 		}>
 	) {
 		const nextUrl = new URL(
 			buildEarningQueryUrl(page.url, {
 				tab: updates.tab ?? activeTabId,
-				context: updates.context ?? contractsContext,
+				type: updates.type ?? contractsType,
 				highlight: updates.highlight ?? null,
 				service: updates.service ?? null,
-				request: updates.request ?? null
+				request: updates.request ?? null,
+				status:
+					(updates.tab ?? activeTabId) !== 'bids' ? (updates.status ?? activeStatus) : undefined,
+				bidStatus:
+					(updates.tab ?? activeTabId) === 'bids' ? (updates.status ?? activeStatus) : undefined
 			})
 		);
 
@@ -193,7 +203,7 @@
 		if (nextTab === 'contracts') {
 			navigateToEarning({
 				tab: 'contracts',
-				context: contractsContext,
+				type: contractsType,
 				highlight: null,
 				service: selectedServiceAddress
 			});
@@ -210,9 +220,14 @@
 
 	function handleProviderRouteUpdate(
 		update:
-			| { type: 'service'; serviceAddress: string; requestId?: string | null }
-			| { type: 'reset' }
-			| { type: 'request'; requestId: string | null }
+			| {
+					type: 'service';
+					serviceAddress: string;
+					requestId?: string | null;
+					status?: string | null;
+			  }
+			| { type: 'reset'; status?: string | null }
+			| { type: 'request'; requestId: string | null; status?: string | null }
 	) {
 		logRequestsDebug('provider-route-update', {
 			update,
@@ -226,7 +241,8 @@
 			navigateToEarning({
 				tab: 'requests',
 				service: null,
-				request: null
+				request: null,
+				status: update.status ?? activeStatus
 			});
 			return;
 		}
@@ -234,8 +250,8 @@
 		if (update.type === 'request') {
 			const pendingMessageCode = get(serviceQuoteUiStore).nonBlockingMessageCode;
 			nonBlockingMessageCode =
-				update.requestId === null && pendingMessageCode === 'service_quotes_request_not_found'
-					? 'service_quotes_request_not_found'
+				update.requestId === null && pendingMessageCode === 'service_requests_request_not_found'
+					? 'service_requests_request_not_found'
 					: null;
 			if (pendingMessageCode !== null) {
 				serviceQuoteUiStore.setNonBlockingMessage(null);
@@ -243,7 +259,8 @@
 			navigateToEarning({
 				tab: 'requests',
 				service: selectedServiceAddress,
-				request: update.requestId
+				request: update.requestId,
+				status: update.status ?? activeStatus
 			});
 			return;
 		}
@@ -253,7 +270,8 @@
 		navigateToEarning({
 			tab: 'requests',
 			service: update.serviceAddress,
-			request: update.requestId ?? null
+			request: update.requestId ?? null,
+			status: update.status ?? activeStatus
 		});
 	}
 
@@ -270,7 +288,7 @@
 	function handleContractsHighlightConsumed() {
 		navigateToEarning({
 			tab: 'contracts',
-			context: contractsContext,
+			type: contractsType,
 			highlight: null,
 			service: selectedServiceAddress
 		});
@@ -285,7 +303,7 @@
 		nonBlockingMessageCode = null;
 		navigateToEarning({
 			tab: 'contracts',
-			context: serviceAddress ? 'services' : contractsContext,
+			type: serviceAddress ? 'services' : contractsType,
 			highlight: null,
 			service: serviceAddress
 		});
@@ -295,7 +313,7 @@
 		nonBlockingMessageCode = null;
 		navigateToEarning({
 			tab: 'contracts',
-			context: 'all',
+			type: 'all',
 			highlight: null,
 			service: null
 		});
@@ -307,63 +325,63 @@
 		<div class="min-w-0">
 			<h3 class="font-bold">{translateOrFallback($t, 'dashboard.earning.title', 'Earning')}</h3>
 		</div>
-			<div class="flex items-center gap-2">
-				<a href="/reviews" class="btn btn-outline btn-sm sm:btn-md whitespace-nowrap">
-					{$t('reviews.view_all')}
-				</a>
-				<a href={activeTab.buttonHref} class="btn btn-primary btn-sm sm:btn-md whitespace-nowrap">
-					{#if activeTab.icon === 'search'}
+		<div class="flex items-center gap-2">
+			<a href="/reviews" class="btn btn-outline btn-sm sm:btn-md whitespace-nowrap">
+				{$t('reviews.view_all')}
+			</a>
+			<a href={activeTab.buttonHref} class="btn btn-primary btn-sm sm:btn-md whitespace-nowrap">
+				{#if activeTab.icon === 'search'}
 					<svg
-					xmlns="http://www.w3.org/2000/svg"
-					class="mr-1 h-4 w-4 sm:mr-2 sm:h-5 sm:w-5"
-					fill="none"
-					viewBox="0 0 24 24"
-					stroke="currentColor"
-					aria-label={$t('dashboard.page.search_icon_alt')}
-				>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="2"
-						d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-					/>
-				</svg>
-					{:else if activeTab.icon === 'wallet'}
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					class="mr-1 h-4 w-4 sm:mr-2 sm:h-5 sm:w-5"
-					fill="none"
-					viewBox="0 0 24 24"
-					stroke="currentColor"
-					aria-label={$t('dashboard.page.wallet_icon_alt')}
-				>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="2"
-						d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
-					/>
-				</svg>
-					{:else}
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					class="mr-1 h-4 w-4 sm:mr-2 sm:h-5 sm:w-5"
-					fill="none"
-					viewBox="0 0 24 24"
-					stroke="currentColor"
-					aria-label={$t('dashboard.page.plus_icon_alt')}
-				>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="2"
-						d="M12 4v16m8-8H4"
-					/>
-				</svg>
-					{/if}
-					<span>{activeTab.buttonLabel}</span>
-				</a>
-			</div>
+						xmlns="http://www.w3.org/2000/svg"
+						class="mr-1 h-4 w-4 sm:mr-2 sm:h-5 sm:w-5"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+						aria-label={$t('dashboard.page.search_icon_alt')}
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+						/>
+					</svg>
+				{:else if activeTab.icon === 'wallet'}
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="mr-1 h-4 w-4 sm:mr-2 sm:h-5 sm:w-5"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+						aria-label={$t('dashboard.page.wallet_icon_alt')}
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
+						/>
+					</svg>
+				{:else}
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="mr-1 h-4 w-4 sm:mr-2 sm:h-5 sm:w-5"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+						aria-label={$t('dashboard.page.plus_icon_alt')}
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M12 4v16m8-8H4"
+						/>
+					</svg>
+				{/if}
+				<span>{activeTab.buttonLabel}</span>
+			</a>
+		</div>
 	</div>
 
 	<Tabs {tabs} activeTab={activeTabId} onTabChange={handleTabChange} />
@@ -378,12 +396,12 @@
 				)}
 			</span>
 		</div>
-	{:else if nonBlockingMessageCode === 'service_quotes_request_not_found'}
+	{:else if nonBlockingMessageCode === 'service_requests_request_not_found'}
 		<div class="alert alert-info my-4 text-sm">
 			<span>
 				{translateOrFallback(
 					$t,
-					'dashboard.earning.messages.service_quotes_request_not_found',
+					'dashboard.earning.messages.service_requests_request_not_found',
 					'The selected service quote thread could not be found.'
 				)}
 			</span>
@@ -397,7 +415,7 @@
 			aria-labelledby="tab-bids"
 			transition:slide={{ duration: 300 }}
 		>
-			<DashboardBidsPanel />
+			<DashboardBidsPanel status={activeStatus} />
 		</div>
 	{:else if activeTabId === 'requests'}
 		<div
@@ -407,6 +425,7 @@
 			transition:slide={{ duration: 300 }}
 		>
 			<DashboardServiceRequestsPanel
+				status={activeStatus}
 				{selectedServiceAddress}
 				{focusedRequestId}
 				onResolveQuotesRoute={handleProviderRouteUpdate}
@@ -420,7 +439,8 @@
 			transition:slide={{ duration: 300 }}
 		>
 			<DashboardContractsPanel
-				initialContext={contractsContext}
+				initialType={contractsType}
+				initialStatus={activeStatus as string | null}
 				showRoleFilters={false}
 				fixedRole="freelancer"
 				showServiceFilter={true}
@@ -441,7 +461,10 @@
 			aria-labelledby="tab-my-services"
 			transition:slide={{ duration: 300 }}
 		>
-			<DashboardMyServicesPanel onOpenServiceQuotes={handleOpenServiceQuotes} />
+			<DashboardMyServicesPanel
+				status={activeStatus}
+				onOpenServiceQuotes={handleOpenServiceQuotes}
+			/>
 		</div>
 	{:else if activeTabId === 'saved-searches'}
 		<div

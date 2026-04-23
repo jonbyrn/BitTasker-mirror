@@ -44,7 +44,12 @@ export class NDKBid extends NDKEvent {
 		return super.toNostrEvent(pubkey) as unknown as NostrEvent;
 	}
 
-	get bidContent(): NostrBidContent {
-		return JSON.parse(this.content) as unknown as NostrBidContent;
+	get bidContent(): NostrBidContent | null {
+		try {
+			return JSON.parse(this.content) as unknown as NostrBidContent;
+		} catch (e) {
+			d.error('Failed to parse bid content', { error: e, content: this.content });
+			return null;
+		}
 	}
 }

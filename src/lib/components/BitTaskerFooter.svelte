@@ -15,7 +15,7 @@
 	const iconClass = 'h-8 w-8 transition-colors duration-300 ease-in-out lg:h-6 lg:w-6';
 </script>
 
-<footer class="bg-base-300 text-base-content/70 pb-safe py-12 lg:pb-12">
+<footer class="bg-base-300 text-base-content/70 pb-safe py-16 lg:py-20">
 	<div class="container mx-auto px-4">
 		<div class="grid grid-cols-1 gap-10 md:grid-cols-3 md:gap-8 lg:grid-cols-4 lg:gap-8">
 			<!-- Company Info -->

@@ -26,24 +26,24 @@ function createContext(
 }
 
 describe('services workspace route helpers', () => {
-	it('keeps quote routes without a service in all-services mode', () => {
+	it('keeps service-requests routes without a service in all-services mode', () => {
 		const parsed = parseServicesWorkspaceRouteQuery(
-			new URLSearchParams('tab=quotes&request=qr_valid123'),
+			new URLSearchParams('tab=service-requests&request=qr_valid123'),
 			createContext()
 		);
 
 		expect(parsed.state).toEqual({
-			tab: 'quotes',
+			tab: 'service-requests',
 			serviceAddress: null,
 			requestId: 'qr_valid123'
 		});
 		expect(parsed.changed).toBe(false);
-		expect(parsed.searchParams.toString()).toBe('tab=quotes&request=qr_valid123');
+		expect(parsed.searchParams.toString()).toBe('tab=service-requests&request=qr_valid123');
 	});
 
 	it('clears stale focused requests in all-services mode after provider timelines are loaded', () => {
 		const parsed = parseServicesWorkspaceRouteQuery(
-			new URLSearchParams('tab=quotes&request=qr_valid123'),
+			new URLSearchParams('tab=service-requests&request=qr_valid123'),
 			createContext({
 				providerLoadedByService: {
 					[serviceAddress]: true
@@ -52,18 +52,18 @@ describe('services workspace route helpers', () => {
 		);
 
 		expect(parsed.state).toEqual({
-			tab: 'quotes',
+			tab: 'service-requests',
 			serviceAddress: null,
 			requestId: null
 		});
-		expect(parsed.messageCode).toBe('service_quotes_request_not_found');
-		expect(parsed.searchParams.toString()).toBe('tab=quotes');
+		expect(parsed.messageCode).toBe('service_requests_request_not_found');
+		expect(parsed.searchParams.toString()).toBe('tab=service-requests');
 	});
 
 	it('clears stale focused requests after provider timelines are loaded', () => {
 		const parsed = parseServicesWorkspaceRouteQuery(
 			new URLSearchParams(
-				`tab=quotes&service=${encodeURIComponent(serviceAddress)}&request=qr_valid123`
+				`tab=service-requests&service=${encodeURIComponent(serviceAddress)}&request=qr_valid123`
 			),
 			createContext({
 				providerLoadedByService: {
@@ -73,20 +73,20 @@ describe('services workspace route helpers', () => {
 		);
 
 		expect(parsed.state).toEqual({
-			tab: 'quotes',
+			tab: 'service-requests',
 			serviceAddress,
 			requestId: null
 		});
-		expect(parsed.messageCode).toBe('service_quotes_request_not_found');
+		expect(parsed.messageCode).toBe('service_requests_request_not_found');
 		expect(parsed.searchParams.toString()).toBe(
-			`tab=quotes&service=${encodeURIComponent(serviceAddress)}`
+			`tab=service-requests&service=${encodeURIComponent(serviceAddress)}`
 		);
 	});
 
 	it('preserves focused requests while provider quote loading is in an error state', () => {
 		const parsed = parseServicesWorkspaceRouteQuery(
 			new URLSearchParams(
-				`tab=quotes&service=${encodeURIComponent(serviceAddress)}&request=qr_valid123`
+				`tab=service-requests&service=${encodeURIComponent(serviceAddress)}&request=qr_valid123`
 			),
 			createContext({
 				providerLoadedByService: {
@@ -99,7 +99,7 @@ describe('services workspace route helpers', () => {
 		);
 
 		expect(parsed.state).toEqual({
-			tab: 'quotes',
+			tab: 'service-requests',
 			serviceAddress,
 			requestId: 'qr_valid123'
 		});
@@ -111,7 +111,7 @@ describe('services workspace route helpers', () => {
 		const allServicesWorkspaceUrl = createServicesWorkspaceUrl(
 			new URL('https://bittasker.test/services/manage?tab=listings'),
 			{
-				tab: 'quotes',
+				tab: 'service-requests',
 				serviceAddress: null,
 				requestId: null
 			}
@@ -122,7 +122,7 @@ describe('services workspace route helpers', () => {
 		const workspaceUrl = createServicesWorkspaceUrl(
 			new URL('https://bittasker.test/services/manage?tab=listings'),
 			{
-				tab: 'quotes',
+				tab: 'service-requests',
 				serviceAddress,
 				requestId: 'qr_valid123'
 			}
@@ -136,7 +136,7 @@ describe('services workspace route helpers', () => {
 
 		const redirected = createServicesWorkspaceRedirectUrlFromLegacyDashboard(
 			new URL(
-				`https://bittasker.test/dashboard?tab=my-services&view=quotes&service=${encodeURIComponent(
+				`https://bittasker.test/dashboard?tab=my-services&view=service-requests&service=${encodeURIComponent(
 					serviceAddress
 				)}&request=qr_valid123`
 			)
@@ -148,7 +148,7 @@ describe('services workspace route helpers', () => {
 	it('redirects the legacy services workspace route to earnings', () => {
 		const redirected = createServicesWorkspaceRedirectUrl(
 			new URL(
-				`https://bittasker.test/services/manage?tab=quotes&service=${encodeURIComponent(
+				`https://bittasker.test/services/manage?tab=service-requests&service=${encodeURIComponent(
 					serviceAddress
 				)}&request=qr_valid123`
 			)

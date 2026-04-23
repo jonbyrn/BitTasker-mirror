@@ -257,7 +257,7 @@ describe('service quote publish integration notifications', () => {
 		const proposalNotification = sendNotificationToNpubs.mock.calls[0][0];
 		expect(proposalNotification.type).toBe('service_quote_proposal_received');
 		const proposalUrl = new URL(proposalNotification.clickAction);
-		expect(proposalUrl.searchParams.get('tab')).toBe('quotes');
+		expect(proposalUrl.searchParams.get('tab')).toBe('service-requests');
 		expect(proposalUrl.searchParams.get('view')).toBe('tasker');
 		expect(proposalUrl.searchParams.get('request')).toBe('qr_valid123');
 	});

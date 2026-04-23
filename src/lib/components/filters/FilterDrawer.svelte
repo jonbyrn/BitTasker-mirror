@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { SearchTasksParams } from '$lib/types/task.d';
-	import { BudgetTypeEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
+	import { TaskTypeEnum } from '$lib/utils/enums/task.enum';
 	import PriceRangeSlider from '$lib/components/filters/PriceRangeSlider.svelte';
 	import AvailabilityFilter from '$lib/components/filters/AvailabilityFilter.svelte';
 	import CategoryMultiselect from '$lib/components/CategoryMultiselect.svelte';
@@ -68,6 +68,9 @@
 			filters.deadline = initialFilters.deadline;
 			filters.dateRange = initialFilters.dateRange;
 			filters.search = initialFilters.search;
+			selectedLocationCoords = initialFilters.locationCoords
+				? { ...initialFilters.locationCoords }
+				: null;
 		}
 	});
 
@@ -113,6 +116,7 @@
 
 	// Clear all filters
 	function clearFilters() {
+		selectedLocationCoords = null;
 
 		onApply({
 			search: '',
@@ -125,6 +129,7 @@
 				type: undefined
 			},
 			location: undefined,
+			locationCoords: undefined,
 			radius: 1.5,
 			deadline: undefined,
 			dateRange: undefined,
@@ -186,11 +191,6 @@
 		}
 	}
 
-	// Handle budget type change
-	function handleBudgetTypeChange(type: BudgetTypeEnum | undefined) {
-		filters.budget && (filters.budget.type = type);
-	}
-
 	// Handle category tags change
 	function handleCategoryChange(tags: string[]) {
 		// Tags now contain category IDs directly
@@ -209,7 +209,7 @@
 	{onClose}
 	onClear={clearFilters}
 	onApply={applyFilters}
-	clearLabel={$t('find_tasks.clear_filters')}
+	clearLabel={$t('dashboard.contracts.clear_filters')}
 	applyLabel={$t('find_tasks.apply')}
 	{activeFilterCount}
 	actionsClass="mt-8 mb-20 flex justify-between"
@@ -268,11 +268,11 @@
 		<div class="collapse-content">
 			<PriceRangeSlider
 				onRangeChange={handlePriceRangeChange}
-			currency={filters.budget?.currency || 'USD'}
-			tier={filters.budget?.tier}
+				currency={filters.budget?.currency || 'USD'}
+				tier={filters.budget?.tier}
 			/>
 
-		<!-- 	<div class="mt-8">
+			<!-- 	<div class="mt-8">
 				<label class="font-medium" for="budget-type">{$t('find_tasks.budget_type')}</label>
 				<div class="mt-4 flex flex-wrap gap-2">
 					{#each Object.values(BudgetTypeEnum) as type}
@@ -318,16 +318,16 @@
 				placeholder={$t('find_tasks.location_placeholder')}
 				location={{
 					displayName: filters.location || '',
-					longitude: selectedLocationCoords?.longitude || 0,
-					latitude: selectedLocationCoords?.latitude || 0,
+					longitude: selectedLocationCoords?.longitude ?? 0,
+					latitude: selectedLocationCoords?.latitude ?? 0,
 					zipCode: '',
 					locationLoaded: !!selectedLocationCoords
 				}}
 				onLocationSelect={(location) => {
 					filters.location = location.displayName;
 					selectedLocationCoords = {
-						latitude: location.latitude || 0,
-						longitude: location.longitude || 0
+						latitude: location.latitude ?? 0,
+						longitude: location.longitude ?? 0
 					};
 				}}
 				showMap={false}
@@ -376,7 +376,7 @@
 			{$t('find_tasks.availability')}
 		</div>
 		<div class="collapse-content">
-			<AvailabilityFilter 
+			<AvailabilityFilter
 				bind:start={availabilityStart}
 				bind:end={availabilityEnd}
 				bind:deadlineDate={availabilityDeadline}
@@ -426,5 +426,4 @@
 			/>
 		</div>
 	</div>
-
-	</UnifiedFilterDrawer>
+</UnifiedFilterDrawer>

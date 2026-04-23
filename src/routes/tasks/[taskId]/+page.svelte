@@ -6,15 +6,6 @@
 	import { sections } from '$lib/utils/consts';
 	import WarningPopup from '$lib/components/WarningPopup.svelte';
 	import TaskDetailsView from '$lib/components/task/TaskDetailsView.svelte';
-	import IconFormatListBulleted from '~icons/mdi/format-list-bulleted';
-	import IconPlusCircleOutline from '~icons/mdi/plus-circle-outline';
-	import IconMagnify from '~icons/mdi/magnify';
-	import IconInvoiceTextSendOutline from '~icons/mdi/invoice-text-send-outline';
-	import IconFileSign from '~icons/mdi/file-sign';
-	import IconWalletOutline from '~icons/mdi/wallet-outline';
-	import IconAccount from '~icons/mdi/account';
-	import IconChatOutline from '~icons/mdi/chat-outline';
-	import IconCog from '~icons/mdi/cog';
 
 	// Get taskId from route params
 	const taskId = page.params.taskId;
@@ -24,12 +15,6 @@
 
 	// Layout state
 	let width = $state(375);
-
-	const jsonLdScript = $derived(
-		data.seo.jsonLd
-			? '<script type="application/ld+json">' + JSON.stringify(data.seo.jsonLd) + '</' + 'script>'
-			: ''
-	);
 </script>
 
 <svelte:head>
@@ -76,7 +61,7 @@
 		{#if $devicePlatform !== 'ios' && $devicePlatform !== 'android' && width >= 1200}
 			<!-- Fixed Sidebar - Only on desktop; max-h + overflow para que no se desborde -->
 			<div class="w-full shrink-0 md:w-64">
-				<div class="fixed top-24 left-8 z-10 w-56 max-h-[calc(100dvh-6rem)] overflow-y-auto">
+				<div class="fixed top-24 left-8 z-10 max-h-[calc(100dvh-6rem)] w-56 overflow-y-auto">
 					<div class="card bg-base-100 rounded-xl shadow-xl">
 						<div class="card-body p-4">
 							<ul class="menu bg-base-100 rounded-box w-full">
@@ -89,7 +74,7 @@
 												(section.id === 'find-tasks' && page.url.pathname.startsWith('/tasks'))}
 											class="flex items-center gap-3"
 										>
-											<svelte:component this={section.icon} class="h-6 w-6 text-primary" />
+											<svelte:component this={section.icon} class="text-primary h-6 w-6" />
 											<span class="font-medium">{$t(section.label)}</span>
 										</a>
 									</li>

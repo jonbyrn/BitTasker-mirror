@@ -17,8 +17,8 @@ import {
 	type SubmarineSwapResult,
 	type BoltzSwapData,
 	type ChainSwapData,
-	type SwapUpdateEvent,
 	type SwapPairs,
+	type SwapUpdateEvent,
 	ERC20_ABI
 } from '@bittasker/wallet-core';
 import type { SwapPairsCache, TokenBalance } from '$lib/types/wallet';
@@ -267,23 +267,6 @@ async function initialize(): Promise<void> {
 	}
 }
 
-async function waitForRSKAddress(timeoutMs = 10_000, intervalMs = 100): Promise<string> {
-	const startTime = Date.now();
-
-	while (Date.now() - startTime < timeoutMs) {
-		const state = get(walletStore);
-		if (state.rsk.address) {
-			return state.rsk.address;
-		}
-		if (!state.isInitializing) {
-			break;
-		}
-		await new Promise((resolve) => setTimeout(resolve, intervalMs));
-	}
-
-	return get(walletStore).rsk.address || '';
-}
-
 /**
  * Get RSK wallet address, initializing only RSK wallet if needed.
  * This is a lightweight operation that doesn't require full wallet initialization.
@@ -298,17 +281,9 @@ export async function getRSKAddress(): Promise<string> {
 		return state.rsk.address;
 	}
 
-	// If another action already triggered wallet initialization, wait for it to finish
-	// instead of returning an empty address and forcing the caller to fail closed.
-	if (state.isInitializing) {
-		const address = await waitForRSKAddress();
-		if (address) {
-			return address;
-		}
-	}
-
-	await initialize();
-	const address = get(walletStore).rsk.address || (await waitForRSKAddress(2_000));
+	const address = await initialize().then(() => {
+		return get(walletStore).rsk.address;
+	});
 
 	return address || '';
 }

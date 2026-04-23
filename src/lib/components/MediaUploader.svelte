@@ -1,14 +1,16 @@
 <script lang="ts">
 	import type { UploaderProps } from '$lib/types/props';
 	import { t } from 'svelte-i18n';
-	import { 
-		compressImage, 
-		compressImages,
-		validateImageFile, 
+	import {
+		compressImage,
+		validateImageFile,
 		formatFileSize,
-		type CompressionResult 
+		type CompressionResult
 	} from '$lib/utils/imageCompression';
-	import uploadService, { type UploadResult, type UploadOptions } from '$lib/api/services/upload.service';
+	import uploadService, {
+		type UploadResult,
+		type UploadOptions
+	} from '$lib/api/services/upload.service';
 
 	interface MediaUploaderProps extends Omit<UploaderProps, 'onChange'> {
 		enableImageCompression?: boolean;
@@ -20,7 +22,11 @@
 		uploadFolder?: string;
 		onChange?: (results: UploadResult[]) => void;
 		onUploadProgress?: (completed: number, total: number, currentFile: string) => void;
-		onCompressionProgress?: (progress: { processed: number; total: number; currentFile: string }) => void;
+		onCompressionProgress?: (progress: {
+			processed: number;
+			total: number;
+			currentFile: string;
+		}) => void;
 	}
 
 	let {
@@ -99,7 +105,7 @@
 
 		// Check if the file type is valid
 		let isValidType = false;
-		
+
 		if (isImageAllowed && isImageFile) {
 			isValidType = true;
 		} else if (isVideoAllowed && isVideoFile) {
@@ -110,11 +116,11 @@
 			if (isImageAllowed && isVideoAllowed) {
 				error = $t('common.components.media_uploader.invalid_file_type_images_videos');
 			} else if (isImageAllowed) {
-				error = $t('uploader.invalidTypeError');
+				error = $t('common.components.media_uploader.invalid_type_error');
 			} else if (isVideoAllowed) {
 				error = $t('common.components.media_uploader.invalid_file_type_videos');
 			} else {
-				error = $t('uploader.invalidFileType');
+				error = $t('common.components.media_uploader.invalid_file_type');
 			}
 			onError(error);
 			return null;
@@ -147,7 +153,9 @@
 				return compressionResult.file;
 			} catch (err) {
 				console.error('Image compression failed:', err);
-				error = $t('common.components.media_uploader.compression_failed', { values: { error: (err as Error).message } });
+				error = $t('common.components.media_uploader.compression_failed', {
+					values: { error: (err as Error).message }
+				});
 				onError(error);
 				return null;
 			}
@@ -155,7 +163,9 @@
 
 		// For non-image files or when compression is disabled, validate file size
 		if (file.size > maxFileSize * 1024 * 1024) {
-			error = $t('common.components.media_uploader.file_size_limit', { values: { maxSize: maxFileSize } });
+			error = $t('common.components.media_uploader.file_size_limit', {
+				values: { maxSize: maxFileSize }
+			});
 			onError(error);
 			return null;
 		}
@@ -172,7 +182,9 @@
 				});
 
 				if (video.duration > maxDuration) {
-					error = $t('common.components.media_uploader.video_duration_limit', { values: { maxDuration } });
+					error = $t('common.components.media_uploader.video_duration_limit', {
+						values: { maxDuration }
+					});
 					onError(error);
 					URL.revokeObjectURL(video.src);
 					return null;
@@ -198,7 +210,9 @@
 				});
 
 				if ((width && img.width !== width) || (height && img.height !== height)) {
-					error = $t('common.components.media_uploader.image_dimensions', { values: { width, height } });
+					error = $t('common.components.media_uploader.image_dimensions', {
+						values: { width, height }
+					});
 					onError(error);
 					URL.revokeObjectURL(img.src);
 					return null;
@@ -229,8 +243,8 @@
 
 		// Set compression state
 		const selectedFilesArray = Array.from(selectedFiles);
-		const hasImages = selectedFilesArray.some(file => file.type.startsWith('image/'));
-		
+		const hasImages = selectedFilesArray.some((file) => file.type.startsWith('image/'));
+
 		if (hasImages && enableImageCompression) {
 			isCompressing = true;
 			compressionProgress = { processed: 0, total: selectedFilesArray.length, currentFile: '' };
@@ -242,13 +256,13 @@
 
 		for (let i = 0; i < selectedFilesArray.length; i++) {
 			const file = selectedFilesArray[i];
-			
+
 			// Update compression progress
 			if (hasImages && enableImageCompression) {
-				compressionProgress = { 
-					processed: i, 
-					total: selectedFilesArray.length, 
-					currentFile: file.name 
+				compressionProgress = {
+					processed: i,
+					total: selectedFilesArray.length,
+					currentFile: file.name
 				};
 				onCompressionProgress(compressionProgress);
 			}
@@ -264,7 +278,11 @@
 		// Finalize compression state
 		if (hasImages && enableImageCompression) {
 			isCompressing = false;
-			compressionProgress = { processed: selectedFilesArray.length, total: selectedFilesArray.length, currentFile: '' };
+			compressionProgress = {
+				processed: selectedFilesArray.length,
+				total: selectedFilesArray.length,
+				currentFile: ''
+			};
 		}
 
 		if (hasErrors) {
@@ -288,7 +306,7 @@
 			};
 
 			const results = await uploadService.uploadMultipleFiles(
-				processedFiles, 
+				processedFiles,
 				uploadOptions,
 				(completed, total, currentFile) => {
 					uploadProgress = { completed, total, currentFile };
@@ -297,13 +315,17 @@
 			);
 
 			uploadResults = [...uploadResults, ...results];
-			files = [...files, ...results.map(result => typeof result === 'string' ? result : result.url)];
+			files = [
+				...files,
+				...results.map((result) => (typeof result === 'string' ? result : result.url))
+			];
 			error = '';
 			onChange(uploadResults);
-
 		} catch (err) {
 			console.error('Upload failed:', err);
-			error = $t('common.components.media_uploader.upload_failed', { values: { error: (err as Error).message } });
+			error = $t('common.components.media_uploader.upload_failed', {
+				values: { error: (err as Error).message }
+			});
 			onError(error);
 		} finally {
 			isUploading = false;
@@ -314,12 +336,12 @@
 	function removeFile(index: number) {
 		const file = files[index];
 		files = files.filter((_, i) => i !== index);
-		
+
 		// Remove from upload results if it's an UploadResult
 		if (uploadResults[index]) {
 			uploadResults = uploadResults.filter((_, i) => i !== index);
 		}
-		
+
 		onRemove(index, file);
 		error = '';
 	}
@@ -343,8 +365,14 @@
 			.join(', ')
 	);
 
-	// Get duration text if applicable
-	let durationText = $derived(maxDuration ? ` (Max. ${maxDuration / 60} minutes)` : '');
+	// Get duration info if applicable
+	let durationInfo = $derived(
+		maxDuration
+			? $t('common.components.media_uploader.duration_info', {
+					values: { duration: maxDuration / 60 }
+				})
+			: ''
+	);
 </script>
 
 <div class="space-y-4">
@@ -353,7 +381,7 @@
 			? 'grid w-fit grid-cols-3 gap-4 sm:grid-cols-4 md:grid-cols-5'
 			: 'h-full w-full'}
 	>
-		{#each files as file, index}
+		{#each files as file, index (index)}
 			<div class="relative {className}">
 				{#if isVideoFile(file)}
 					<video
@@ -403,7 +431,7 @@
 				>
 					<div class="flex flex-col items-center justify-center pt-5 pb-6">
 						<svg
-							class="label label-text mb-1 sm:mb-2 h-4 w-4 sm:h-8 sm:w-8"
+							class="label label-text mb-1 h-4 w-4 sm:mb-2 sm:h-8 sm:w-8"
 							aria-hidden="true"
 							xmlns="http://www.w3.org/2000/svg"
 							fill="none"
@@ -417,11 +445,14 @@
 								d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"
 							/>
 						</svg>
-						<p class="label label-text mb-1 sm:mb-2 text-[10px] sm:text-xs">
+						<p class="label label-text mb-1 text-[10px] sm:mb-2 sm:text-xs">
 							<span class="font-semibold">{label}</span>
 						</p>
 						<p class="label label-text text-center text-[8px] whitespace-normal sm:px-2">
-							{fileTypeText} (Max. {maxFileSize}MB{durationText})
+							{fileTypeText}
+							{$t('common.components.media_uploader.max_info', {
+								values: { size: maxFileSize, durationInfo }
+							})}
 						</p>
 					</div>
 				</label>
@@ -441,20 +472,14 @@
 	<!-- Compression Progress -->
 	{#if isCompressing && compressionProgress.total > 0}
 		<div class="alert alert-outline alert-info alert-xs sm:alert-sm py-2">
-			<div class="flex items-center gap-2 w-full">
+			<div class="flex w-full items-center gap-2">
 				<svg
-					class="animate-spin h-4 w-4 text-info"
+					class="text-info h-4 w-4 animate-spin"
 					xmlns="http://www.w3.org/2000/svg"
 					fill="none"
 					viewBox="0 0 24 24"
 				>
-					<circle
-						class="opacity-25"
-						cx="12"
-						cy="12"
-						r="10"
-						stroke="currentColor"
-						stroke-width="4"
+					<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"
 					></circle>
 					<path
 						class="opacity-75"
@@ -469,7 +494,7 @@
 					{#if compressionProgress.currentFile}
 						<div class="text-xs opacity-70">{compressionProgress.currentFile}</div>
 					{/if}
-					<div class="w-full bg-base-300 rounded-full h-1 mt-1">
+					<div class="bg-base-300 mt-1 h-1 w-full rounded-full">
 						<div
 							class="bg-info h-1 rounded-full transition-all duration-300"
 							style="width: {(compressionProgress.processed / compressionProgress.total) * 100}%"
@@ -483,20 +508,14 @@
 	<!-- Upload Progress -->
 	{#if isUploading && uploadProgress.total > 0}
 		<div class="alert alert-outline alert-info alert-xs sm:alert-sm py-2">
-			<div class="flex items-center gap-2 w-full">
+			<div class="flex w-full items-center gap-2">
 				<svg
-					class="animate-spin h-4 w-4 text-info"
+					class="text-info h-4 w-4 animate-spin"
 					xmlns="http://www.w3.org/2000/svg"
 					fill="none"
 					viewBox="0 0 24 24"
 				>
-					<circle
-						class="opacity-25"
-						cx="12"
-						cy="12"
-						r="10"
-						stroke="currentColor"
-						stroke-width="4"
+					<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"
 					></circle>
 					<path
 						class="opacity-75"
@@ -511,7 +530,7 @@
 					{#if uploadProgress.currentFile}
 						<div class="text-xs opacity-70">{uploadProgress.currentFile}</div>
 					{/if}
-					<div class="w-full bg-base-300 rounded-full h-1 mt-1">
+					<div class="bg-base-300 mt-1 h-1 w-full rounded-full">
 						<div
 							class="bg-info h-1 rounded-full transition-all duration-300"
 							style="width: {(uploadProgress.completed / uploadProgress.total) * 100}%"
@@ -540,9 +559,11 @@
 			</svg>
 			<div class="text-xs">
 				<div class="font-medium">{$t('common.components.media_uploader.compression_success')}</div>
-				{#each compressionInfo as info, index}
+				{#each compressionInfo as info, index (index)}
 					<div class="opacity-70">
-						{$t('common.components.media_uploader.file_number', { values: { index: index + 1 } })}: {formatFileSize(info.originalSize)} → {formatFileSize(info.compressedSize)} 
+						{$t('common.components.media_uploader.file_number', { values: { index: index + 1 } })}: {formatFileSize(
+							info.originalSize
+						)} → {formatFileSize(info.compressedSize)}
 						({Math.round((1 - info.compressedSize / info.originalSize) * 100)}% reduction)
 					</div>
 				{/each}

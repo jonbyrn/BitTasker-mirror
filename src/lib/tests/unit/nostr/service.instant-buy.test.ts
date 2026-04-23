@@ -95,37 +95,41 @@ describe('service instant-buy nostr round-trip', () => {
 	});
 
 	it('parses instantBuyLeadHours from the latest service event', async () => {
-		hoisted.mockRequestEvents.mockResolvedValue({
-			data: [
-				{
-					id: 'service-event-1',
-					pubkey: 'a'.repeat(64),
-					created_at: 1_700_000_000,
-					content: JSON.stringify({
-						uniqueId: 'service-123',
-						title: 'Logo Sprint',
-						description: 'Brand identity package',
-						serviceLocationTypes: [],
-						pricing: {
-							type: ServicePricingTypeEnum.FIXED,
-							currency: 'USDt',
-							amount: 125
-						},
-						categories: [],
-						skills: [],
-						portfolio: [],
-						faqs: [],
-						status: 'active',
-						createdAt: 1_700_000_000,
-						creator: {
-							username: 'Provider',
-							avatar: ''
-						},
-						instantBuyLeadHours: 48
-					})
-				}
-			]
-		});
+		hoisted.mockRequestEvents
+			.mockResolvedValueOnce({
+				data: [
+					{
+						id: 'service-event-1',
+						pubkey: 'a'.repeat(64),
+						created_at: 1_700_000_000,
+						content: JSON.stringify({
+							uniqueId: 'service-123',
+							title: 'Logo Sprint',
+							description: 'Brand identity package',
+							serviceLocationTypes: [],
+							pricing: {
+								type: ServicePricingTypeEnum.FIXED,
+								currency: 'USDt',
+								amount: 125
+							},
+							categories: [],
+							skills: [],
+							portfolio: [],
+							faqs: [],
+							status: 'active',
+							createdAt: 1_700_000_000,
+							creator: {
+								username: 'Provider',
+								avatar: ''
+							},
+							instantBuyLeadHours: 48
+						})
+					}
+				]
+			})
+			.mockResolvedValueOnce({
+				data: []
+			});
 
 		await expect(findServiceByUniqueId('service-123')).resolves.toMatchObject({
 			id: 'service-event-1',

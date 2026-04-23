@@ -1,6 +1,7 @@
 <script lang="ts">
 	import ErrorAlertWithModal from '$lib/components/ErrorAlertWithModal.svelte';
 	import { detectErrorType } from '$lib/utils/helpers/errorTypeDetector';
+	import { t } from 'svelte-i18n';
 	import {
 		hasRequiredTrimmedText,
 		validateDateTimeRange
@@ -44,6 +45,15 @@
 	const isPasskeyError = $derived.by(
 		() => Boolean(errorMessage) && detectErrorType(errorMessage ?? '') === 'biometric'
 	);
+
+	function tr(key: string, fallback: string): string {
+		try {
+			const value = $t(key);
+			return typeof value === 'string' && value !== key ? value : fallback;
+		} catch {
+			return fallback;
+		}
+	}
 
 	function resetForm() {
 		description = '';
@@ -90,18 +100,32 @@
 			errorMessage = blockedReason;
 			return;
 		}
+
 		if (!hasRequiredTrimmedText(description) || !hasRequiredTrimmedText(amountUsdt)) {
-			errorMessage = 'Description and amount are required.';
+			errorMessage = tr(
+				'dashboard.services.my_services.quote_inbox.composer.errors.required_description_amount',
+				'Description and amount are required.'
+			);
 			return;
 		}
+
 		const timeWindow = validateDateTimeRange(startDateTime, endDateTime);
 		if (!timeWindow.ok) {
 			if (timeWindow.errorCode === 'missing') {
-				errorMessage = 'Start and end time are required.';
+				errorMessage = tr(
+					'dashboard.services.my_services.quote_inbox.composer.errors.missing_schedule',
+					'Start and end time are required.'
+				);
 			} else if (timeWindow.errorCode === 'invalid') {
-				errorMessage = 'Provide valid start and end times.';
+				errorMessage = tr(
+					'dashboard.services.my_services.quote_inbox.composer.errors.invalid_schedule',
+					'Provide valid start and end times.'
+				);
 			} else {
-				errorMessage = 'End time must be after start time.';
+				errorMessage = tr(
+					'dashboard.services.my_services.quote_inbox.composer.errors.end_before_start',
+					'End time must be after start time.'
+				);
 			}
 			return;
 		}
@@ -122,14 +146,24 @@
 			});
 
 			if (result && typeof result === 'object' && result.success === false) {
-				errorMessage = result.error || 'Unable to send the proposal right now.';
+				errorMessage =
+					result.error ||
+					tr(
+						'dashboard.services.my_services.quote_inbox.composer.errors.submit_failed',
+						'Unable to send the proposal right now.'
+					);
 				return;
 			}
 
 			resetForm();
 		} catch (error) {
 			errorMessage =
-				error instanceof Error ? error.message : 'Unable to send the proposal right now.';
+				error instanceof Error
+					? error.message
+					: tr(
+							'dashboard.services.my_services.quote_inbox.composer.errors.submit_failed',
+							'Unable to send the proposal right now.'
+						);
 		} finally {
 			submitting = false;
 		}
@@ -143,18 +177,28 @@
 	<div class="grid gap-4 md:grid-cols-2">
 		<div class="md:col-span-2">
 			<div class="label px-0 pb-1">
-				<span class="label-text mb-1 text-sm font-medium">Scope of work</span>
+				<span class="label-text mb-1 text-sm font-medium">
+					{tr('dashboard.services.my_services.quote_inbox.composer.scope_of_work', 'Scope of work')}
+				</span>
 			</div>
 			<textarea
 				class="textarea textarea-bordered min-h-24 w-full"
 				bind:value={description}
-				aria-label="Scope of work"
-				placeholder="Describe what you will deliver."
+				aria-label={tr(
+					'dashboard.services.my_services.quote_inbox.composer.scope_of_work',
+					'Scope of work'
+				)}
+				placeholder={tr(
+					'dashboard.services.my_services.quote_inbox.composer.scope_placeholder',
+					'Describe what you will deliver.'
+				)}
 			></textarea>
 		</div>
 
 		<label class="form-control md:col-span-2 md:max-w-sm">
-			<span class="label-text mb-1 text-sm font-medium">Amount (USD)</span>
+			<span class="label-text mb-1 text-sm font-medium">
+				{tr('dashboard.services.my_services.quote_inbox.composer.amount_label', 'Amount (USD)')}
+			</span>
 			<input
 				class="input input-bordered w-full"
 				type="text"
@@ -166,18 +210,27 @@
 		</label>
 
 		<label class="form-control">
-			<span class="label-text mb-1 text-sm font-medium">Start Date</span>
+			<span class="label-text mb-1 text-sm font-medium">
+				{tr('dashboard.services.my_services.quote_inbox.composer.start_date', 'Start Date')}
+			</span>
 			<input class="input input-bordered w-full" type="datetime-local" bind:value={startDateTime} />
 		</label>
 
 		<label class="form-control">
-			<span class="label-text mb-1 text-sm font-medium">End Date</span>
+			<span class="label-text mb-1 text-sm font-medium">
+				{tr('dashboard.services.my_services.quote_inbox.composer.end_date', 'End Date')}
+			</span>
 			<input class="input input-bordered w-full" type="datetime-local" bind:value={endDateTime} />
 		</label>
 
 		<div class="col-span-full grid grid-cols-2 gap-4">
 			<label class="form-control">
-				<span class="label-text mb-1 text-sm font-medium">Expiration Days</span>
+				<span class="label-text mb-1 text-sm font-medium">
+					{tr(
+						'dashboard.services.my_services.quote_inbox.composer.expiration_days',
+						'Expiration Days'
+					)}
+				</span>
 				<input
 					class="input input-bordered w-full"
 					type="number"
@@ -188,7 +241,12 @@
 			</label>
 
 			<label class="form-control">
-				<span class="label-text mb-1 text-sm font-medium">Expiration Hours</span>
+				<span class="label-text mb-1 text-sm font-medium">
+					{tr(
+						'dashboard.services.my_services.quote_inbox.composer.expiration_hours',
+						'Expiration Hours'
+					)}
+				</span>
 				<input
 					class="input input-bordered w-full"
 					type="number"
@@ -201,13 +259,21 @@
 
 		<div class="md:col-span-2">
 			<div class="label px-0 pb-1">
-				<span class="label-text mb-1 text-sm font-medium">Cover Letter</span>
+				<span class="label-text mb-1 text-sm font-medium">
+					{tr('dashboard.services.my_services.quote_inbox.composer.cover_letter', 'Cover Letter')}
+				</span>
 			</div>
 			<textarea
 				class="textarea textarea-bordered min-h-20 w-full"
 				bind:value={coverLetter}
-				aria-label="Cover Letter"
-				placeholder="Optional message to the buyer."
+				aria-label={tr(
+					'dashboard.services.my_services.quote_inbox.composer.cover_letter',
+					'Cover Letter'
+				)}
+				placeholder={tr(
+					'dashboard.services.my_services.quote_inbox.composer.cover_letter_placeholder',
+					'Optional message to the buyer.'
+				)}
 			></textarea>
 		</div>
 	</div>
@@ -234,7 +300,7 @@
 			{#if submitting}
 				<span class="loading loading-spinner loading-sm"></span>
 			{/if}
-			Send Proposal
+			{tr('dashboard.services.my_services.quote_inbox.send_proposal', 'Send Proposal')}
 		</button>
 	</div>
 </section>

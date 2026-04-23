@@ -179,8 +179,8 @@ describe('pending service contract navigation', () => {
 					transactionHash: '0xabc123'
 				},
 				{
-					activeTabId: 'quotes',
-					contractsContext: 'services',
+					activeTabId: 'service-requests',
+					contractsType: 'services',
 					highlightEscrowId: null
 				},
 				1_700_000_001_000
@@ -196,7 +196,7 @@ describe('pending service contract navigation', () => {
 				},
 				{
 					activeTabId: 'contracts',
-					contractsContext: 'all',
+					contractsType: 'all',
 					highlightEscrowId: null
 				},
 				1_700_000_001_000
@@ -212,7 +212,7 @@ describe('pending service contract navigation', () => {
 				},
 				{
 					activeTabId: 'contracts',
-					contractsContext: 'services',
+					contractsType: 'services',
 					highlightEscrowId: 'already-highlighted'
 				},
 				1_700_000_001_000
@@ -228,7 +228,7 @@ describe('pending service contract navigation', () => {
 				},
 				{
 					activeTabId: 'contracts',
-					contractsContext: 'services',
+					contractsType: 'services',
 					highlightEscrowId: null
 				},
 				1_700_000_001_000

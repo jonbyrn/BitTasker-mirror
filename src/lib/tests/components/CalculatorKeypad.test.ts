@@ -7,7 +7,12 @@ vi.mock('svelte-i18n', async () => {
 	const { readable } = await import('svelte/store');
 	const translations: Record<string, string> = {
 		'wallet.calculator.clear': 'Clear',
-		'wallet.calculator.delete': 'Delete'
+		'wallet.calculator.delete': 'Delete',
+		'wallet.calculator.divide': 'Divide',
+		'wallet.calculator.multiply': 'Multiply',
+		'wallet.calculator.decimal_point': 'Decimal point',
+		'wallet.calculator.add': 'Add',
+		'wallet.calculator.subtract': 'Subtract'
 	};
 	const tStore = readable((key: string) => translations[key] || key);
 	return {
@@ -389,7 +394,7 @@ describe('CalculatorKeypad Component', () => {
 			// Start a calculation: 5 +
 			fireEvent.click(screen.getByLabelText('5'));
 			fireEvent.click(screen.getByLabelText('Add'));
-			
+
 			// Simulate parent clearing the calculator (like unit change does)
 			// by clearing via Escape
 			fireEvent.keyDown(document, { key: 'Escape' });
@@ -397,7 +402,7 @@ describe('CalculatorKeypad Component', () => {
 			// Now start fresh input - should not continue the old calculation
 			fireEvent.click(screen.getByLabelText('3'));
 			expect(onInput).toHaveBeenLastCalledWith('3');
-			
+
 			// Should show just "3", not "5 + 3 = 8"
 			const lastCall = onCalculationChange.mock.calls[onCalculationChange.mock.calls.length - 1];
 			expect(lastCall[0]).toBe('3');
@@ -450,4 +455,3 @@ describe('CalculatorKeypad Component', () => {
 		});
 	});
 });
-

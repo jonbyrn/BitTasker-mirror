@@ -28,10 +28,8 @@
 	import IconLightningBolt from '~icons/mdi/lightning-bolt';
 	import IconCheckCircle from '~icons/mdi/check-circle';
 	import IconAlertCircleOutline from '~icons/mdi/alert-circle-outline';
-	import IconCheck from '~icons/mdi/check';
 	import IconCancel from '~icons/mdi/cancel';
 	import IconRefresh from '~icons/mdi/refresh';
-	import IconChevronDown from '~icons/mdi/chevron-down';
 	import IconAccountOutline from '~icons/mdi/account-outline';
 	import IconAccountTieOutline from '~icons/mdi/account-tie-outline';
 	import IconLayersTripleOutline from '~icons/mdi/layers-triple-outline';
@@ -42,9 +40,13 @@
 	import DashboardEmptyState from '$lib/components/shared/DashboardEmptyState.svelte';
 	import ErrorAlertWithModal from '$lib/components/ErrorAlertWithModal.svelte';
 	import { detectErrorType } from '$lib/utils/helpers/errorTypeDetector';
+	import DashboardFilterBar from '$lib/components/shared/DashboardFilterBar.svelte';
+	import DashboardDropdown from '$lib/components/shared/DashboardDropdown.svelte';
+	import { createDashboardUrl } from '$lib/utils/service-quote/dashboard-route';
 
 	const {
-		initialContext = 'all',
+		initialType = 'all',
+		initialStatus = 'all',
 		showRoleFilters = true,
 		fixedRole = 'all',
 		emptyStateActionLabel = null,
@@ -58,7 +60,8 @@
 		onHighlightConsumed,
 		onHighlightMissing
 	} = $props<{
-		initialContext?: 'all' | 'tasks' | 'services';
+		initialType?: 'all' | 'tasks' | 'services';
+		initialStatus?: EscrowStatus | 'all';
 		showRoleFilters?: boolean;
 		fixedRole?: 'all' | 'client' | 'freelancer';
 		emptyStateActionLabel?: string | null;
@@ -76,8 +79,26 @@
 	// Filters
 	let statusFilter = $state<EscrowStatus | 'all'>('all');
 	let roleFilter = $state<string>('all'); // 'all', 'client', 'freelancer'
-	let contextFilter = $state<'all' | 'tasks' | 'services'>('all');
-	let isStatusDropdownOpen = $state(false);
+	let typeFilter = $state<'all' | 'tasks' | 'services'>('all');
+
+	$effect(() => {
+		if (initialStatus) {
+			statusFilter = initialStatus;
+		}
+	});
+
+	$effect(() => {
+		if (initialType) {
+			typeFilter = initialType;
+		}
+	});
+
+	$effect(() => {
+		if (fixedRole) {
+			roleFilter = fixedRole;
+		}
+	});
+
 	let highlightRecoveryAttempted = $state(false);
 	let lastHandledHighlight = $state<string | null>(null);
 	let highlightRecoveryInFlightFor = $state<string | null>(null);
@@ -97,11 +118,19 @@
 			Boolean($contractStore.error) && detectErrorType($contractStore.error ?? '') === 'biometric'
 	);
 
+	const isFilterActive = $derived(
+		statusFilter !== 'all' ||
+			typeFilter !== 'all' ||
+			(roleFilter !== 'all' && roleFilter !== fixedRole) ||
+			selectedServiceAddress !== null
+	);
+
 	function tr(key: string, fallback: string): string {
 		const value = $t(key);
 		return typeof value === 'string' && value !== key ? value : fallback;
 	}
 
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	const STATUS_FILTER_ORDER: EscrowStatus[] = [
 		EscrowStatus.PendingFunding,
 		EscrowStatus.Funded,
@@ -199,6 +228,7 @@
 	}
 
 	// Role filter options
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	const roleFilterOptions = $derived([
 		{
 			id: 'all',
@@ -233,18 +263,18 @@
 			filtered = filtered.filter((c) => !c.isClient);
 		}
 
-		if (contextFilter === 'tasks') {
+		if (typeFilter === 'tasks') {
 			filtered = filtered.filter((contract) => {
 				const contextType = contract.contractEvent.content.contextType;
 				return contextType == null || contextType === 'task';
 			});
-		} else if (contextFilter === 'services') {
+		} else if (typeFilter === 'services') {
 			filtered = filtered.filter(
 				(contract) => contract.contractEvent.content.contextType === 'service'
 			);
 		}
 
-		if (selectedServiceAddress && contextFilter === 'services') {
+		if (selectedServiceAddress && typeFilter === 'services') {
 			filtered = filtered.filter((contract) => contractMatchesSelectedService(contract));
 		}
 
@@ -255,31 +285,43 @@
 		applyNonStatusFilters($contractStore.contracts)
 	);
 
-	const statusFilterOptions = $derived.by(() => {
-		const availableStatuses = Array.from(
-			new Set(contractsMatchingNonStatusFilters.map((contract) => contract.status))
-		).sort((left, right) => {
-			const leftIndex = STATUS_FILTER_ORDER.indexOf(left);
-			const rightIndex = STATUS_FILTER_ORDER.indexOf(right);
-			return (
-				(leftIndex === -1 ? Number.MAX_SAFE_INTEGER : leftIndex) -
-				(rightIndex === -1 ? Number.MAX_SAFE_INTEGER : rightIndex)
-			);
-		});
-
-		return [
-			{
-				id: 'all' as const,
-				label: $t('dashboard.contracts.all_statuses'),
-				icon: IconCheckAll
-			},
-			...availableStatuses.map((status) => ({
-				id: status,
-				label: getStatusFilterLabel(status),
-				icon: getStatusFilterIcon(status)
-			}))
-		];
-	});
+	const statusFilterOptions = $derived([
+		{
+			id: 'all' as const,
+			label: $t('dashboard.contracts.all_statuses'),
+			icon: IconCheckAll
+		},
+		{
+			id: EscrowStatus.PendingFunding,
+			label: getStatusFilterLabel(EscrowStatus.PendingFunding),
+			icon: getStatusFilterIcon(EscrowStatus.PendingFunding)
+		},
+		{
+			id: EscrowStatus.Funded,
+			label: getStatusFilterLabel(EscrowStatus.Funded),
+			icon: getStatusFilterIcon(EscrowStatus.Funded)
+		},
+		{
+			id: EscrowStatus.InProgress,
+			label: getStatusFilterLabel(EscrowStatus.InProgress),
+			icon: getStatusFilterIcon(EscrowStatus.InProgress)
+		},
+		{
+			id: EscrowStatus.Completed,
+			label: getStatusFilterLabel(EscrowStatus.Completed),
+			icon: getStatusFilterIcon(EscrowStatus.Completed)
+		},
+		{
+			id: EscrowStatus.InDispute,
+			label: getStatusFilterLabel(EscrowStatus.InDispute),
+			icon: getStatusFilterIcon(EscrowStatus.InDispute)
+		},
+		{
+			id: EscrowStatus.Cancelled,
+			label: getStatusFilterLabel(EscrowStatus.Cancelled),
+			icon: getStatusFilterIcon(EscrowStatus.Cancelled)
+		}
+	]);
 
 	const filteredContracts = $derived.by(() => {
 		if (statusFilter === 'all') {
@@ -289,10 +331,10 @@
 		return contractsMatchingNonStatusFilters.filter((contract) => contract.status === statusFilter);
 	});
 
-	const contextFilterOptions = $derived([
+	const typeFilterOptions = $derived([
 		{
 			id: 'all' as const,
-			label: tr('dashboard.contracts.context_filters.all', 'All'),
+			label: tr('dashboard.contracts.context_filters.all', 'All Types'),
 			icon: IconLayersTripleOutline
 		},
 		{
@@ -403,7 +445,7 @@
 	}
 
 	onMount(async () => {
-		contextFilter = initialContext;
+		typeFilter = initialType;
 
 		// Ensure wallet is initialized BEFORE loading contracts
 		try {
@@ -462,53 +504,39 @@
 		contractStore.unsubscribeFromNewContracts();
 	});
 
-	function selectStatusFilter(statusId: EscrowStatus | 'all') {
-		statusFilter = statusId;
-		isStatusDropdownOpen = false;
-	}
+	function handleFilterChange(updates: {
+		status?: EscrowStatus | 'all';
+		type?: 'all' | 'tasks' | 'services';
+		role?: 'all' | 'client' | 'freelancer';
+	}) {
+		if (updates.status !== undefined) statusFilter = updates.status;
+		if (updates.type !== undefined) typeFilter = updates.type;
+		if (updates.role !== undefined) roleFilter = updates.role;
 
-	function selectRoleFilter(roleId: string) {
-		roleFilter = roleId;
-	}
-
-	function selectContextFilter(next: 'all' | 'tasks' | 'services') {
-		contextFilter = next;
-	}
-
-	function toggleStatusDropdown() {
-		isStatusDropdownOpen = !isStatusDropdownOpen;
+		const nextUrl = createDashboardUrl(new URL(window.location.href), {
+			tab: 'contracts',
+			status: statusFilter === 'all' ? null : statusFilter,
+			type: typeFilter,
+			role: roleFilter as unknown as string
+		});
+		void goto(nextUrl.toString(), { replaceState: true, keepFocus: true, noScroll: true });
 	}
 
 	function clearFilters() {
 		statusFilter = 'all';
-		roleFilter = 'all';
-		contextFilter = 'all';
+		roleFilter = fixedRole;
+		typeFilter = 'all';
 		onServiceFilterChange?.(null);
 		onClearFilters?.();
+
+		const nextUrl = createDashboardUrl(new URL(window.location.href), {
+			tab: 'contracts',
+			status: null,
+			type: 'all',
+			role: fixedRole as unknown as string
+		});
+		void goto(nextUrl.toString(), { replaceState: true, keepFocus: true, noScroll: true });
 	}
-
-	function handleClickOutside(event: MouseEvent) {
-		// Only handle clicks when dropdown is open
-		if (!isStatusDropdownOpen) return;
-		const target = event.target as HTMLElement;
-		if (!target.closest('.status-dropdown-container')) {
-			isStatusDropdownOpen = false;
-		}
-	}
-
-	// Handle window clicks for dropdown - use effect to conditionally attach
-	$effect(() => {
-		if (!isStatusDropdownOpen) return;
-
-		const handler = (event: MouseEvent) => {
-			handleClickOutside(event);
-		};
-
-		window.addEventListener('click', handler);
-		return () => {
-			window.removeEventListener('click', handler);
-		};
-	});
 
 	$effect(() => {
 		for (const contract of $contractStore.contracts) {
@@ -584,161 +612,42 @@
 	});
 </script>
 
-<div class="space-y-6">
-	<!-- Filters container with same design as TasksPanel -->
-	<div class="border-base-300/60 bg-base-100/40 mt-2 rounded-3xl border p-4 shadow-sm">
-		<!-- Header with refresh button and top-level filters -->
-		<div class="mb-3 flex items-center justify-between gap-2">
-			<div class="flex flex-wrap gap-2">
-				{#if showRoleFilters}
-					{#each roleFilterOptions as option (option.id)}
-						{@const IconComponent = option.icon}
-						<button
-							class="btn {roleFilter === option.id
-								? 'btn-primary'
-								: 'btn-secondary'} btn-sm flex items-center gap-2"
-							onclick={() => selectRoleFilter(option.id)}
-							aria-label={option.label}
-						>
-							{#if roleFilter === option.id}
-								<IconCheck class="h-4 w-4" />
-							{:else}
-								<IconComponent class="h-4 w-4" />
-							{/if}
-							<span>{option.label}</span>
-						</button>
-					{/each}
-				{/if}
+<div class="space-y-4">
+	<DashboardFilterBar
+		onRefresh={() => refreshContracts()}
+		isRefreshing={$contractStore.isLoading}
+		refreshDisabled={isOffline || highlightRecoveryPending}
+	>
+		<DashboardDropdown
+			options={typeFilterOptions}
+			value={typeFilter}
+			onSelect={(val) => handleFilterChange({ type: val })}
+			containerClass="sm:w-48"
+		/>
 
-				{#each contextFilterOptions as option (option.id)}
-					{@const IconComponent = option.icon}
-					<button
-						class="btn btn-sm flex items-center gap-2 {contextFilter === option.id
-							? 'btn-primary'
-							: 'btn-secondary'}"
-						onclick={() => selectContextFilter(option.id)}
-					>
-						<IconComponent class="h-4 w-4" />
-						<span>{option.label}</span>
-					</button>
-				{/each}
-			</div>
+		<DashboardDropdown
+			options={statusFilterOptions}
+			value={statusFilter}
+			onSelect={(val) => handleFilterChange({ status: val })}
+			containerClass="sm:w-64"
+		/>
 
-			<!-- Refresh button: icon only on mobile, with text on desktop -->
-			<button
-				class="btn btn-ghost btn-sm sm:btn-outline gap-2"
-				onclick={() => refreshContracts()}
-				disabled={$contractStore.isLoading || isOffline || highlightRecoveryPending}
-				aria-label={$t('dashboard.contracts.refresh')}
-			>
-				{#if $contractStore.isLoading}
-					<span class="loading loading-spinner loading-xs"></span>
-					<span class="hidden sm:inline">{$t('dashboard.contracts.refresh')}</span>
-				{:else}
-					<IconRefresh class="h-5 w-5" />
-					<span class="hidden sm:inline">{$t('dashboard.contracts.refresh')}</span>
-				{/if}
-			</button>
-		</div>
-
-		{#if showServiceFilter && (contextFilter === 'services' || selectedServiceAddress)}
-			<div class="mb-4">
-				<ServiceFilterSelect
-					{services}
-					{selectedServiceAddress}
-					filterLabel={tr('dashboard.contracts.filter_by_service', 'Filter by service')}
-					allServicesLabel={tr('dashboard.contracts.all_services', 'All Services')}
-					deletedServiceLabel={tr(
-						'dashboard.services.my_services.quote_inbox.deleted_service_prefix',
-						'Deleted service'
-					)}
-					testId="contracts-service-filter"
-					onChange={(serviceAddress) => onServiceFilterChange?.(serviceAddress)}
-				/>
-			</div>
+		{#if showServiceFilter && (typeFilter === 'services' || selectedServiceAddress)}
+			<ServiceFilterSelect
+				{services}
+				{selectedServiceAddress}
+				filterLabel={tr('dashboard.contracts.filter_by_service', 'Filter by service')}
+				allServicesLabel={tr('dashboard.contracts.all_services', 'All Services')}
+				deletedServiceLabel={tr(
+					'dashboard.services.my_services.quote_inbox.deleted_service_prefix',
+					'Deleted service'
+				)}
+				testId="contracts-service-filter"
+				containerClass="col-span-2 sm:w-64"
+				onChange={(serviceAddress) => onServiceFilterChange?.(serviceAddress)}
+			/>
 		{/if}
-
-		<!-- Mobile: Status Filter Dropdown -->
-		<div class="status-dropdown-container relative mt-4 sm:hidden">
-			<button
-				class="border-primary bg-primary/10 text-primary hover:bg-primary/20 flex w-full items-center justify-between rounded-3xl border px-4 py-2 transition-all duration-200"
-				onclick={toggleStatusDropdown}
-				aria-expanded={isStatusDropdownOpen}
-				aria-haspopup="true"
-				aria-controls="status-dropdown-menu"
-				aria-label={$t('dashboard.contracts.filter_by_status')}
-			>
-				<div class="flex items-center gap-2">
-					{#each statusFilterOptions as option (String(option.id))}
-						{#if statusFilter === option.id}
-							{@const IconComponent = option.icon}
-							<IconComponent class="h-5 w-5" />
-						{/if}
-					{/each}
-					<span class="font-medium">
-						{statusFilterOptions.find((opt) => opt.id === statusFilter)?.label}
-					</span>
-				</div>
-				<IconChevronDown
-					class="h-5 w-5 transition-transform duration-200 {isStatusDropdownOpen
-						? 'rotate-180'
-						: ''}"
-				/>
-			</button>
-
-			{#if isStatusDropdownOpen}
-				<div
-					id="status-dropdown-menu"
-					role="menu"
-					aria-label={$t('dashboard.contracts.status_filter_menu')}
-					class="border-base-300 bg-base-100 absolute top-full right-0 left-0 z-50 mt-2 rounded-xl border shadow-lg"
-				>
-					{#each statusFilterOptions as option (String(option.id))}
-						{@const IconComponent = option.icon}
-						<button
-							role="menuitemradio"
-							aria-checked={statusFilter === option.id}
-							class="hover:bg-base-200 flex w-full items-center gap-2 px-4 py-2 text-left transition-colors duration-200 first:rounded-t-xl last:rounded-b-xl {statusFilter ===
-							option.id
-								? 'bg-primary/10 text-primary'
-								: 'text-base-content'}"
-							onclick={() => selectStatusFilter(option.id)}
-						>
-							<IconComponent
-								class="h-5 w-5 {statusFilter === option.id
-									? 'text-primary'
-									: 'text-base-content/60'}"
-							/>
-							<span class="font-medium">{option.label}</span>
-							{#if statusFilter === option.id}
-								<IconCheck class="text-primary ml-auto h-5 w-5" />
-							{/if}
-						</button>
-					{/each}
-				</div>
-			{/if}
-		</div>
-
-		<!-- Desktop: Status Filter Buttons -->
-		<div class="mt-4 hidden sm:block">
-			<div class="flex flex-wrap gap-3">
-				{#each statusFilterOptions as option (String(option.id))}
-					{@const IconComponent = option.icon}
-					<button
-						class="btn btn-sm flex cursor-pointer items-center justify-center gap-2 rounded-3xl px-4 py-4 text-center transition-all duration-200 {statusFilter ===
-						option.id
-							? 'text-primary bg-primary/10 border-primary/30 border'
-							: 'bg-base-100/40 hover:bg-base-100/60 text-base-content/70'}"
-						onclick={() => selectStatusFilter(option.id)}
-						aria-label={option.label}
-					>
-						<IconComponent class="h-5 w-5 {statusFilter === option.id ? 'text-primary' : ''}" />
-						<span class="font-medium">{option.label}</span>
-					</button>
-				{/each}
-			</div>
-		</div>
-	</div>
+	</DashboardFilterBar>
 
 	<!-- Loading State -->
 	{#if showBlockingLoadingState}
@@ -792,23 +701,21 @@
 			<div class="card bg-base-100 rounded-xl p-4">
 				<DashboardEmptyState
 					icon={IconFileDocumentOutline}
-					title={$contractStore.contracts.length === 0
+					title={!isFilterActive
 						? $t('dashboard.contracts.no_contracts')
 						: $t('dashboard.contracts.no_filtered_contracts')}
-					description={$contractStore.contracts.length === 0
-						? $t('dashboard.contracts.no_contracts_description')
-						: $t('dashboard.contracts.try_different_filters')}
-					actionLabel={$contractStore.contracts.length === 0
-						? (emptyStateActionLabel ?? $t('dashboard.manage_wallet'))
+					description={!isFilterActive ? '' : $t('dashboard.contracts.try_different_filters')}
+					actionLabel={!isFilterActive
+						? (emptyStateActionLabel ?? $t('dashboard.create_task'))
 						: $t('dashboard.contracts.clear_filters')}
-					actionIcon={$contractStore.contracts.length === 0
-						? (emptyStateActionIcon ?? IconWalletOutline)
+					actionIcon={!isFilterActive
+						? (emptyStateActionIcon ?? IconBriefcaseOutline)
 						: IconRefresh}
-					actionHref={$contractStore.contracts.length === 0 ? emptyStateActionHref : null}
+					actionHref={!isFilterActive ? (emptyStateActionHref ?? '/dashboard/create-task') : null}
 					onAction={() => {
-						if ($contractStore.contracts.length === 0) {
+						if (!isFilterActive) {
 							if (!emptyStateActionHref) {
-								void goto('/dashboard/wallet');
+								void goto('/dashboard/create-task');
 							}
 							return;
 						}

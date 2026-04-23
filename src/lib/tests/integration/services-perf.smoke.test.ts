@@ -1,8 +1,18 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { cleanup, render } from '@testing-library/svelte';
 import MyQuotesPanel from '$lib/components/dashboard/quotes/MyQuotesPanel.svelte';
 import FeaturedHomepageSection from '$lib/components/homepage/FeaturedHomepageSection.svelte';
 import type { ServiceQuoteTimelineEntry } from '$lib/types/service-quote';
+
+vi.mock('svelte-i18n', async () => {
+	const { readable } = await import('svelte/store');
+	return {
+		t: readable((key: string) => key),
+		locale: readable('en'),
+		locales: readable(['en', 'es']),
+		isLoading: readable(false)
+	};
+});
 
 function createTimeline(index: number): ServiceQuoteTimelineEntry {
 	return {

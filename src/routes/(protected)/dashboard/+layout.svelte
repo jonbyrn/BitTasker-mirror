@@ -4,7 +4,7 @@
 	import { page } from '$app/state';
 	import { sections } from '$lib/utils/consts';
 	import { t } from 'svelte-i18n';
-	import IconChartBoxOutline from '~icons/mdi/chart-box-outline';
+	import IconTrendingUp from '~icons/mdi/trending-up';
 	import IconBriefcaseOutline from '~icons/mdi/briefcase-outline';
 	import IconPlusCircleOutline from '~icons/mdi/plus-circle-outline';
 	import IconMagnify from '~icons/mdi/magnify';
@@ -50,8 +50,8 @@
 </script>
 
 <svelte:head>
-	<title>{$t('dashboard.dashboard.page_title')}</title>
-	<meta name="description" content={$t('dashboard.dashboard.page_description')} />
+	<title>{$t('dashboard.hiring.page_title')}</title>
+	<meta name="description" content={$t('dashboard.hiring.page_description')} />
 </svelte:head>
 
 <svelte:window bind:innerWidth={width} />
@@ -63,7 +63,7 @@
 		{#if $devicePlatform !== 'ios' && $devicePlatform !== 'android' && width >= 1200}
 			<!-- Fixed Sidebar - Solo en desktop -->
 			<div class="w-full shrink-0 md:w-64">
-				<div class="fixed top-24 left-8 z-10 w-60">
+				<div class="fixed top-24 left-8 z-10 w-64">
 					<div class="card bg-base-100 rounded-xl shadow-xl">
 						<div class="card-body p-4">
 							<ul class="menu bg-base-100 rounded-box w-full">
@@ -74,12 +74,12 @@
 											href={resolve(section.path)}
 											class:menu-active={page.url.pathname + page.url.search === section.path ||
 												page.url.pathname === section.path}
-											class="flex items-center gap-3"
+											class="flex items-center gap-3 {section.indent ? 'pl-6' : ''}"
 										>
 											{#if section.icon === 'mdi:briefcase-outline'}
 												<IconBriefcaseOutline class="text-primary" />
-											{:else if section.icon === 'mdi:chart-box-outline'}
-												<IconChartBoxOutline class="text-primary" />
+											{:else if section.icon === 'mdi:trending-up'}
+												<IconTrendingUp class="text-primary" />
 											{:else if section.icon === 'mdi:plus-circle-outline'}
 												<IconPlusCircleOutline class="text-primary" />
 											{:else if section.icon === 'mdi:magnify'}
@@ -97,7 +97,7 @@
 											{:else if section.icon === 'mdi:cog'}
 												<IconCog class="text-primary" />
 											{:else}
-												<IconChartBoxOutline class="text-primary" />
+												<IconTrendingUp class="text-primary" />
 											{/if}
 											{$t(section.label)}
 										</a>
