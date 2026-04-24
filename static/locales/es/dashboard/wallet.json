@@ -21,6 +21,7 @@
 		"received": "Recibido",
 		"sent": "Enviado",
 		"view_all_transactions": "Ver todas las transacciones",
+		"learn_more": "Más información",
 		"no_transactions": "No se encontraron transacciones.",
 		"receive_btc": "Recibir Bitcoin",
 		"address": "Dirección",
@@ -62,10 +63,12 @@
 		"status_failed": "Fallido",
 		"status_confirmations": "Confirmaciones",
 		"transaction": {
+			"hash_copied": "Hash de transacción copiado al portapapeles",
 			"status": {
 				"confirmed": "Confirmado",
 				"pending": "Pendiente",
-				"failed": "Fallido"
+				"failed": "Fallido",
+				"confirmations": "{count} confirmaciones"
 			},
 			"type": {
 				"send": "Enviado",
@@ -379,6 +382,7 @@
 			"sending_transaction": "Enviando Transacción",
 			"can_close_safely": "Puedes cerrar esta pantalla de forma segura y la transacción continuará.",
 			"transaction_failed": "La transacción falló",
+			"transaction_confirmed": "¡Transacción confirmada!",
 			"status": {
 				"sending": "Enviando Transacción",
 				"confirming": "Confirmando Transacción",
@@ -441,7 +445,7 @@
 				"sent_to": "enviado a",
 				"transaction_hash": "Hash de Transacción",
 				"view_on_explorer": "Ver en Explorador",
-				"transaction_confirmed": "Transacción confirmada"
+				"transaction_confirmed": "¡Transacción confirmada!"
 			},
 			"error": {
 				"invalid_payment_details": "Detalles de pago inválidos",

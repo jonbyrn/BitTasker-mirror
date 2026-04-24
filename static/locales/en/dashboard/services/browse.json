@@ -71,6 +71,7 @@
 					"min_price": "Minimum Price ($)",
 					"max_price": "Maximum Price ($)",
 					"clear_price_range": "Clear",
+					"price_error": "Minimum price must be less than maximum price",
 					"delivery_time_label": "Delivery Time",
 					"toggle_delivery_time": "Toggle delivery time",
 					"any_delivery_time": "Any",

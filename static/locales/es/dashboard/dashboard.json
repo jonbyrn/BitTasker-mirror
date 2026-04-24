@@ -646,6 +646,8 @@
 		"contracts": {
 			"title": "Contratos",
 			"description": "Gestiona tus contratos activos y acuerdos de pago seguro",
+			"cover_letter": "Carta de Presentación",
+			"status_filter_menu": "Menú de filtro de estado",
 			"loading": "Cargando contratos...",
 			"ndk_identity": {
 				"loading": "Desbloqueando tu identidad Nostr…",

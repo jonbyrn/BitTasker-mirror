@@ -12,7 +12,7 @@
 	},
 	"scripts": {
 		"dev": "vite dev --host --port 3000",
-		"dev:development": "vite dev --host --port 3000 --mode development",
+		"dev:dev": "vite dev --host --port 3000 --mode development",
 		"dev:mobile": "vite dev --host --port 3000 --mode mobile",
 		"build": "npm run robots:copy && npx --yes svelte-kit sync && vite build && node scripts/fix-sveltekit-preview-manifest.mjs && npm run sitemap:generate",
 		"build:production": "npm run robots:copy && npx --yes svelte-kit sync && vite build && npm run sitemap:generate",

@@ -12,7 +12,6 @@
 	import DarkModeToggle from '$lib/components/DarkModeToggle.svelte';
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 	import NotificationCenter from '$lib/components/notifications/NotificationCenter.svelte';
-	import { ImpactStyle, triggerHaptic } from '$lib/utils/helpers/haptics';
 	import IconChevronDown from '~icons/mdi/chevron-down';
 	import IconQrcode from '~icons/mdi/qrcode';
 	import NpubQrCodeModal from '$lib/components/NpubQrCodeModal.svelte';
@@ -57,8 +56,6 @@
 		if (!target) return;
 		const interactive = target.closest('a,button,summary,[role="button"]');
 		if (!interactive) return;
-		// Fire-and-forget; navigation should not be blocked.
-		void triggerHaptic(ImpactStyle.Light);
 	}
 
 	// Toggle avatar dropdown
