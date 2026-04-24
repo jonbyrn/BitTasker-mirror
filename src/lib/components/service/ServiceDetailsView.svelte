@@ -918,8 +918,11 @@
 	}
 
 	function buildContractsHighlightUrl(escrowId: string): string {
-		if (typeof window !== 'undefined' && window.location.pathname.startsWith('/earning')) {
-			return buildEarningQueryUrl(new URL('/earning', window.location.origin), {
+		if (
+			typeof window !== 'undefined' &&
+			window.location.pathname.startsWith('/dashboard/earning')
+		) {
+			return buildEarningQueryUrl(new URL('/dashboard/earning', window.location.origin), {
 				tab: 'contracts',
 				context: 'services',
 				highlight: escrowId

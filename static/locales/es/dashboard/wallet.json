@@ -477,7 +477,6 @@
 			"share_title": "Solicitud de Pago",
 			"share_text": "Por favor envía {amount} sats a: {address}"
 		},
-		"all": "Todos",
 		"receive_rbtc": "Recibir rBTC",
 		"your_rsk_address": "Tu Dirección RSK",
 		"generating": "Generando...",
@@ -684,9 +683,6 @@
 			"loading_fees": "Calculando tarifas...",
 			"service_fee": "Tarifa de Servicio",
 			"miner_fee": "Tarifa de Minero",
-			"error": {
-				"fee_fetch_failed": "Error al obtener las tarifas de intercambio"
-			},
 			"action": {
 				"refund": "Reembolsar",
 				"renegotiate": "Ajustar Cantidad",

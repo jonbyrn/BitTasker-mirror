@@ -27,7 +27,7 @@ export const sections = [
 	},
 	{
 		id: 'earning',
-		path: '/earning',
+		path: '/dashboard/earning',
 		label: 'navbar.earning',
 		icon: 'mdi:trending-up',
 		mobile: true

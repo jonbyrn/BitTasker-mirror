@@ -127,7 +127,7 @@
 			return null;
 		}
 
-		const nextUrl = new URL('/earning', currentUrl.origin);
+		const nextUrl = new URL('/dashboard/earning', currentUrl.origin);
 
 		if (rawTab === 'bids' || rawTab === 'saved-searches') {
 			return new URL(

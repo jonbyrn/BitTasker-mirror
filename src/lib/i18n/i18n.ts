@@ -165,7 +165,7 @@ export function getNamespacesForRoute(route: string): string[] {
 		namespaces.push('moderation');
 	}
 	// Protected workspace routes
-	if (route.includes('/dashboard') || route.includes('/earning')) {
+	if (route.includes('/dashboard')) {
 		namespaces.push('dashboard/dashboard', 'dashboard/tasks/info');
 		namespaces.push('dashboard/bids');
 		// Always load wallet namespace for bid-related components that use wallet translations
@@ -212,9 +212,6 @@ export function getNamespacesForRoute(route: string): string[] {
 		}
 		if (route.includes('/create-service')) {
 			namespaces.push('dashboard/services/create', 'categories', 'uploader');
-		}
-		if (route.includes('/my-services')) {
-			namespaces.push('dashboard/services/my-services', 'dashboard/services/browse', 'categories');
 		}
 		if (route.includes('/settings')) {
 			namespaces.push('dashboard/settings');
