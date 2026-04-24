@@ -54,7 +54,8 @@
 		onRefresh = () => {},
 		onAddFunds = undefined,
 		onClose = () => {},
-		shortfallUsd = null
+		shortfallUsd = null,
+		totalRequiredUsd = null
 	} = $props<{
 		open?: boolean;
 		title?: string;
@@ -96,6 +97,7 @@
 		onAddFunds?: (amountUsd: number) => void;
 		onClose?: () => void;
 		shortfallUsd?: number | null;
+		totalRequiredUsd?: number | null;
 	}>();
 
 	const DEFAULT_CLIENT_FEE_TIER = 1;
@@ -135,7 +137,12 @@
 	const baseAmountLabel = $derived(formatUsdLabel(baseAmountValue));
 	const platformFeeLabel = $derived(formatUsdLabel(platformFeeValue));
 	const estimatedNetworkFeeLabel = $derived(formatUsdLabel(ESTIMATED_NETWORK_FEE_USD));
-	const totalPaymentLabel = $derived(formatUsdLabel(totalPaymentValue));
+	// Use totalRequiredUsd from preflight when available to ensure consistency
+	const totalPaymentLabel = $derived(
+		totalRequiredUsd != null && Number.isFinite(totalRequiredUsd)
+			? formatUsdLabel(totalRequiredUsd)
+			: formatUsdLabel(totalPaymentValue)
+	);
 	const estimatedStartLabel = $derived(formatTimestamp(estimatedStartTime));
 	const estimatedCompletionLabel = $derived(formatTimestamp(estimatedCompletionTime));
 	const durationLabel = $derived.by(() => {

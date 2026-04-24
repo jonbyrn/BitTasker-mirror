@@ -2480,6 +2480,7 @@
 		onRetry={() => prepareInstantBuyDraft(instantBuyDraft)}
 		onClose={handleCloseInstantBuyDrawer}
 		shortfallUsd={instantBuyFundingCheck?.shortfallUsd ?? null}
+		totalRequiredUsd={instantBuyFundingCheck?.totalRequiredUsd ?? null}
 	/>
 
 	<Modal
