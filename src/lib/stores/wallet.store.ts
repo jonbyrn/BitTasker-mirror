@@ -138,6 +138,28 @@ function getWalletManager(): WalletManager {
 }
 
 /**
+ * Test if the provider is healthy by making a lightweight RPC call
+ * More reliable than checking internal properties like _destroyed
+ *
+ * @param provider - JSON-RPC provider to test
+ * @returns true if provider is healthy, false otherwise
+ */
+async function isProviderHealthy(provider: JsonRpcProvider): Promise<boolean> {
+	try {
+		// Use a lightweight call with timeout to verify provider works
+		await Promise.race([
+			provider.getNetwork(),
+			new Promise((_, reject) =>
+				setTimeout(() => reject(new Error('Provider health check timeout')), 2000)
+			)
+		]);
+		return true;
+	} catch {
+		return false;
+	}
+}
+
+/**
  * Initialize wallet using SDK
  *
  * @returns void
@@ -146,41 +168,27 @@ function getWalletManager(): WalletManager {
 async function initialize(): Promise<void> {
 	const state = get(walletStore);
 
-	// Skip if already initializing or already connected
+	// Skip if already initializing - prevent race conditions
 	if (state.isInitializing) return;
 
-	// Skip if already fully initialized
-	// BUT: Check if provider is actually valid (not destroyed)
-	if (sdkWalletManager && state.isConnected) {
-		// Test if provider is actually working (not destroyed)
-		const provider = state.rsk?.provider;
-		if (provider) {
-			// Check if provider is destroyed (type-safe check)
-			const providerWithDestroyed = provider as JsonRpcProvider & {
-				_destroyed?: boolean;
-				destroyed?: boolean;
-			};
-			const isDestroyed =
-				providerWithDestroyed._destroyed === true || providerWithDestroyed.destroyed === true;
-
-			if (isDestroyed) {
-				// Provider is marked as destroyed, forcing reinitialization
-				// Force cleanup and reinitialize
-				sdkWalletManager = null;
-				walletStore.set(initialState);
-			} else {
-				// Provider exists and not marked as destroyed - skip initialization
-				return;
-			}
-		} else {
-			// No provider but state says connected - inconsistent state - force reinitialization
-			sdkWalletManager = null;
-			walletStore.set(initialState);
-		}
-	}
+	// Set initializing FIRST before any other state mutations to prevent race conditions
+	walletStore.update((s) => ({ ...s, isInitializing: true, error: null }));
 
 	try {
-		walletStore.update((s) => ({ ...s, isInitializing: true, error: null }));
+		// Check if already fully initialized with healthy provider
+		if (sdkWalletManager && state.isConnected) {
+			const provider = state.rsk?.provider;
+			if (provider && (await isProviderHealthy(provider))) {
+				// Provider is healthy, skip reinitialization
+				walletStore.update((s) => ({ ...s, isInitializing: false }));
+				return;
+			}
+			// Provider unhealthy - continue with reinitialization
+			// Don't reset state yet - let successful init replace it
+			if (import.meta.env.DEV) {
+				console.warn('[WALLET-STORE] Provider unhealthy, reinitializing...');
+			}
+		}
 
 		// Get mnemonic
 		const mnemonic = await getMnemonic();
@@ -196,6 +204,15 @@ async function initialize(): Promise<void> {
 				chain: new NostrSwapStorage(nsec, 'boltz-swap-chain'),
 				submarine: new NostrSwapStorage(nsec, 'boltz-swap-submarine')
 			};
+		}
+
+		// Dispose old manager if exists (but don't reset store state)
+		if (sdkWalletManager) {
+			try {
+				sdkWalletManager.dispose();
+			} catch {
+				// Ignore disposal errors
+			}
 		}
 
 		// Initialize wallet manager
@@ -262,24 +279,6 @@ export async function getRSKAddress(): Promise<string> {
 	// If address already exists, return it
 	if (state.rsk.address) {
 		return state.rsk.address;
-	}
-
-	// If initialization is in progress, wait for it to complete
-	// This handles the case where another caller triggered initialization
-	if (state.isInitializing) {
-		const maxWaitTime = 5000; // 5 second timeout
-		const pollInterval = 1;
-		const startTime = Date.now();
-
-		while (get(walletStore).isInitializing && Date.now() - startTime < maxWaitTime) {
-			await new Promise((resolve) => setTimeout(resolve, pollInterval));
-		}
-
-		// Check if address was set during initialization
-		const addressAfterWait = get(walletStore).rsk.address;
-		if (addressAfterWait) {
-			return addressAfterWait;
-		}
 	}
 
 	const address = await initialize().then(() => {

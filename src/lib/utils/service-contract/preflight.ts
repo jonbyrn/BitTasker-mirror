@@ -9,6 +9,7 @@ import { getNostrKeyPair } from '$lib/utils/nostrKeys';
 
 const DEFAULT_CLIENT_FEE_TIER = 1;
 const GAS_BUFFER_DIVISOR = 10n;
+const ESTIMATED_NETWORK_FEE_USD = 0.5;
 
 export type ServiceContractPreflightErrorCode =
 	| 'wallet_not_connected'
@@ -130,6 +131,10 @@ async function ensureServiceWalletReady(): Promise<
 function normalizeRecipientPubkey(
 	pubkey: string
 ): ServiceContractPreflightFailure | { pubkey: string } {
+	if (!pubkey) {
+		return fail('invalid_provider_pubkey', 'Provider public key is unavailable for this service.');
+	}
+
 	const trimmedPubkey = pubkey.trim();
 	if (!trimmedPubkey) {
 		return fail('invalid_provider_pubkey', 'Provider public key is unavailable for this service.');
@@ -191,7 +196,7 @@ export async function preflightServiceContractCreation(
 	input: ServiceContractPreflightInput,
 	btcPrice: number
 ): Promise<ServiceContractPreflightResult> {
-	if (!input.freelancerAddress.trim()) {
+	if (!input.freelancerAddress || !input.freelancerAddress.trim()) {
 		return fail('invalid_provider_wallet', 'Provider wallet is unavailable for this service.');
 	}
 

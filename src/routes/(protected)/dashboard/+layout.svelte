@@ -4,6 +4,7 @@
 	import { page } from '$app/state';
 	import { sections } from '$lib/utils/consts';
 	import { t } from 'svelte-i18n';
+	import { onMount } from 'svelte';
 	import IconTrendingUp from '~icons/mdi/trending-up';
 	import IconBriefcaseOutline from '~icons/mdi/briefcase-outline';
 	import IconPlusCircleOutline from '~icons/mdi/plus-circle-outline';
@@ -15,8 +16,6 @@
 	import IconCog from '~icons/mdi/cog';
 	import WarningPopup from '$lib/components/WarningPopup.svelte';
 	import NotificationPermissionBanner from '$lib/components/notifications/NotificationPermissionBanner.svelte';
-	import { onMount, onDestroy } from 'svelte';
-	import { walletManager } from '$lib/stores/wallet.store';
 
 	let { children } = $props();
 
@@ -39,12 +38,6 @@
 		}
 
 		// NDK signer is loaded only from NdkIdentityGate so passkey is not raced with wallet init.
-	});
-
-	// Dispose SDK / ethers providers only when leaving the whole dashboard shell — not when
-	// swapping child routes (e.g. wallet page ↔ contracts tab). Child pages must not call cleanup.
-	onDestroy(() => {
-		walletManager.cleanup();
 	});
 </script>
 
