@@ -11,8 +11,7 @@ const primaryRoutes = [
 	'/dashboard/wallet',
 	'/dashboard/profile',
 	'/dashboard/settings',
-	'/earning',
-	'/earning/',
+	'/dashboard/earning',
 	'/how-it-works'
 ];
 
@@ -28,7 +27,7 @@ function isSubPage(path: string): boolean {
 	const segments = path.split('/').filter((segment) => segment.length > 0);
 
 	// Check if it's a protected workspace sub-page (e.g., /dashboard/task/123)
-	if (path.startsWith('/dashboard/') || path.startsWith('/earning/')) {
+	if (path.startsWith('/dashboard/')) {
 		return segments.length > 2;
 	}
 

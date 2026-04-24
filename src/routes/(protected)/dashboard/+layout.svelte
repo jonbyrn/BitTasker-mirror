@@ -73,7 +73,7 @@
 											href={resolve(section.path)}
 											class:menu-active={page.url.pathname + page.url.search === section.path ||
 												page.url.pathname === section.path}
-											class="flex items-center gap-3 {section.indent ? 'pl-6' : ''}"
+											class="flex items-center gap-3"
 										>
 											{#if section.icon === 'mdi:briefcase-outline'}
 												<IconBriefcaseOutline class="text-primary" />

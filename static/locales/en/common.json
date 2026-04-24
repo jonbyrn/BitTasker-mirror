@@ -117,7 +117,198 @@
 			"invalid_npub_format": "Invalid profile identifier format",
 			"failed_to_load": "Failed to load profile",
 			"no_profile_data": "No profile data found for this user",
-			"service_provider": "Service Provider"
+			"service_provider": "Service Provider",
+			"wallet": {
+				"payment_request_form": {
+					"description": "Generate addresses and invoices using Breez SDK. Support for Lightning, Bitcoin, and multi-asset Liquid payments.",
+					"payment_method": "Payment Method",
+					"liquid_address": "Liquid Address",
+					"lightning_invoice": "⚡ Lightning Invoice",
+					"bitcoin_address": "₿ Bitcoin Address",
+					"bolt12_offer": "🔄 BOLT12 Offer",
+					"any_asset": "🎯 Any Asset (Universal)",
+					"liquid_bitcoin": "₿ L-BTC (Liquid Bitcoin)",
+					"tether_usd": "💵 USDt (Tether USD)",
+					"asset_type": "Asset Type",
+					"amount": "Amount ({unit}){required}",
+					"amount_required_placeholder": "Amount required",
+					"amount_optional_placeholder": "Leave empty for any amount",
+					"liquid_address_tip": "💡 Liquid addresses can receive any amount without specifying upfront",
+					"bolt12_warning": "⚠️ BOLT12 offers ignore amount input - payers choose their own amount",
+					"description_label": "Description (optional)",
+					"description_placeholder": "What's this payment for?",
+					"generating": "Generating...",
+					"generate": "Generate {method}",
+					"failed_to_load": "Failed to load payment options. Please try again.",
+					"failed_to_generate": "Failed to generate payment request. Please try again.",
+					"amount_required": "Amount is required for {method}",
+					"amount_too_low": "Amount must be at least {min} sats",
+					"amount_too_high": "Amount must be no more than {max} sats",
+					"liquid_address_name": "Liquid Address",
+					"lightning_invoice_name": "Lightning Invoice",
+					"bitcoin_address_name": "Bitcoin Address",
+					"bolt12_offer_name": "BOLT12 Offer",
+					"address_name": "Address",
+					"liquid_address_desc": "Universal address for L-BTC, USDT, and other Liquid assets. No amount required.",
+					"lightning_invoice_desc": "Instant Lightning payment. Amount required, expires after use.",
+					"bitcoin_address_desc": "On-chain Bitcoin payment. Higher fees, slower confirmation.",
+					"bolt12_offer_desc": "Reusable Lightning offer. Accepts any amount, ignores amount input.",
+					"any_asset_desc": "Accept any supported asset (L-BTC, USDT, etc.)",
+					"liquid_bitcoin_desc": "Liquid Bitcoin only",
+					"tether_usd_desc": "Tether USD on Liquid only",
+					"multi_asset": "multi-asset",
+					"default_description": "{method} payment{asset}",
+					"address_copied": "Address copied to clipboard",
+					"generated": "{method} Generated ✅",
+					"share_with_payer": "Share this {type} with the payer",
+					"address": "Address",
+					"invoice": "Invoice",
+					"method": "Method",
+					"asset": "Asset",
+					"any_amount_accepted": "Any amount accepted",
+					"payer_chooses_amount": "Payer chooses amount",
+					"network_fee": "Network Fee",
+					"click_to_copy": "Click to copy",
+					"click_to_copy_hint": "👆 Click to copy to clipboard",
+					"generate_new": "Generate New",
+					"copy": "📋 Copy"
+				},
+				"swap_dashboard": {
+					"title": "Swap Dashboard",
+					"refresh": "Refresh",
+					"failed_to_load": "Failed to load swaps",
+					"failed_refund": "Failed to refund swap",
+					"loading_swaps": "Loading swaps...",
+					"active_swaps": "Active Swaps",
+					"no_active_swaps": "No Active Swaps",
+					"no_active_swaps_message": "You don't have any active swaps at the moment",
+					"lightning_to_bitcoin": "Lightning → Bitcoin",
+					"lightning_to_bitcoin_desc": "Convert Lightning payments to Bitcoin",
+					"bitcoin_to_lightning": "Bitcoin → Lightning",
+					"bitcoin_to_lightning_desc": "Convert Bitcoin to Lightning payments",
+					"create_swap": "Create Swap",
+					"recent_history": "Recent History",
+					"type": "Type",
+					"amount": "Amount",
+					"status": "Status",
+					"date": "Date",
+					"refund": "Refund",
+					"waiting_payment": "Waiting for payment",
+					"transaction_mempool": "Transaction in mempool"
+				},
+				"transaction_history": {
+					"title": "Transaction History",
+					"loading": "Loading transactions...",
+					"error": "Failed to load transactions",
+					"retry": "Retry",
+					"no_transactions": "No transactions found",
+					"received": "Received",
+					"sent": "Sent",
+					"date": "Date",
+					"address": "Address",
+					"status": "Status",
+					"network": "Network",
+					"confirmed": "Confirmed",
+					"pending": "Pending",
+					"failed": "Failed"
+				},
+				"asset_selector": {
+					"no_assets": "No assets available",
+					"select_asset": "Select Asset",
+					"network": "Network",
+					"available_balance": "Available Balance",
+					"available_rbtc_balance": "Available L2 Bitcoin Balance",
+					"sats": "Sats"
+				},
+				"balance_card": {
+					"total_balance": "Total Balance",
+					"no_assets_found": "No Assets Found",
+					"no_assets_message": "Your wallet doesn't have any assets yet. Start by receiving some Bitcoin or Lightning payments.",
+					"refresh_balances": "Refresh Balances"
+				},
+				"recent_transactions": {
+					"title": "Recent Transactions",
+					"received": "Received",
+					"sent": "Sent",
+					"view_all": "View all transactions",
+					"no_transactions": "No transactions found."
+				},
+				"amount_input": {
+					"amount": "Amount",
+					"min_max": "Min: {min} - Max: {max}",
+					"loading_limits": "Loading limits...",
+					"available_balance": "Available Balance:",
+					"error": "Error:",
+					"estimated_fees": "Estimated Fees:",
+					"max_sendable": "Max Sendable:",
+					"status": "Status:",
+					"insufficient_funds": "Insufficient funds"
+				},
+				"fee_selection": {
+					"transaction_speed": "Transaction Speed",
+					"speed_description": "Higher speed = Higher fees",
+					"slow": "Slow",
+					"medium": "Medium",
+					"fast": "Fast"
+				},
+				"passkey_verification": {
+					"title": "Security Verification Required",
+					"subtitle": "Confirm with your passkey or biometrics",
+					"operation": "Operation:",
+					"amount": "Amount:",
+					"destination": "Destination:",
+					"asset": "Asset:",
+					"security_notice": "Security Notice",
+					"lightning_payment": "This is a Lightning payment and will be processed instantly.",
+					"bitcoin_warning": "⚠️ This is an off-platform Bitcoin transfer. Funds will leave your wallet permanently.",
+					"liquid_warning": "⚠️ This is an off-platform Liquid transfer. Funds will leave your wallet permanently.",
+					"swap_message": "This will initiate a swap between different asset types.",
+					"backup_message": "This will create a secure backup of your wallet data.",
+					"default_message": "This operation requires additional security verification.",
+					"cancel": "Cancel",
+					"verifying": "Verifying...",
+					"verify_passkey": "Verify with Passkey",
+					"transaction_prepared": "Transaction Prepared",
+					"estimated_fee": "Estimated fee: {fee} {asset}"
+				},
+				"recipient_input": {
+					"recipient": "Recipient",
+					"placeholder": "Address, Lightning invoice, or Lightning address"
+				},
+				"send_form": {
+					"title": "Send Payment",
+					"select_asset": "Select Asset",
+					"description": "Description (optional)",
+					"description_placeholder": "What's this payment for?",
+					"processing": "Processing",
+					"processing_short": "Processing",
+					"send": "Send",
+					"activity": "Activity",
+					"pending_payments": "Pending Payments ({count})",
+					"pending_message": "Some payments are waiting for confirmation"
+				},
+				"create_wallet": {
+					"title": "Create New Wallet",
+					"seed_warning": "Keep your seed phrase safe! Anyone with your seed phrase can access your wallet and withdraw your funds.",
+					"copy_instruction": "Copy the seed phrase to your clipboard by clicking on the text.",
+					"copied": "Copied!",
+					"click_to_copy": "Click to copy",
+					"generate_seed": "Generate Seed Phrase",
+					"generating": "Generating...",
+					"setting_up_passkey": "Setting up passkey...",
+					"continue_to_wallet": "Continue to Wallet"
+				},
+				"import_wallet": {
+					"title": "Import Existing Wallet",
+					"seed_instruction": "Enter your 12 or 24 word seed phrase",
+					"seed_placeholder": "Enter your seed phrase here...",
+					"import_wallet": "Import Wallet",
+					"importing": "Importing...",
+					"invalid_seed": "Invalid seed phrase. Please check your words and try again.",
+					"import_success": "Wallet imported successfully!",
+					"continue_to_wallet": "Continue to Wallet"
+				}
+			}
 		},
 		"cta_title": "Ready to Get Started?",
 		"cta_description": "Join BitTasker today and experience a better way to find work or hire skilled taskees. Our Bitcoin-powered platform makes transactions secure, borderless, and efficient.",
@@ -197,11 +388,18 @@
 				"invalid_file": "Invalid file",
 				"processing_error": "Processing error",
 				"failed_to_validate_video": "Failed to validate video",
-				"failed_to_load_image": "Failed to load image"
+				"failed_to_load_image": "Failed to load image",
+				"max_info": "(Max. {size}MB{durationInfo})",
+				"duration_info": ", {duration} min",
+				"invalid_file_type": "Invalid file type.",
+				"invalid_type_error": "Invalid file type. Only images are allowed.",
+				"failed_validate_video": "Failed to validate video.",
+				"failed_load_image": "Failed to load image for validation."
 			},
 			"date_input": {
 				"time_rounded_intervals": "Times will be rounded to {timeStep}-minute intervals",
-				"and": "and"
+				"and": "and",
+				"less_than_minute": "less than a minute"
 			},
 			"modal": {
 				"close": "Close dialog"
@@ -226,7 +424,8 @@
 				"zapstore_title": "Now Available on Zapstore!",
 				"zapstore_message": "Download BitTasker directly from Zapstore for automatic updates and a seamless experience. Zapstore is a decentralized app store built on Nostr.",
 				"zapstore_button": "Get it on Zapstore",
-				"zapstore_aria": "Download BitTasker on Zapstore"
+				"zapstore_aria": "Download BitTasker on Zapstore",
+				"button": "Got it"
 			},
 			"wallet_help_modal": {
 				"title": "Your Bitcoin Wallet",
@@ -335,7 +534,16 @@
 				"cancellation_tasker": "**Tasker cancellation:** Within 1 hour: Full refund, no fees. After 1 hour: Cancellation fee may apply. Cancellations within 24 hours of start time may require a fee to the Taskee.",
 				"cancellation_taskee": "**Taskee cancellation:** Can cancel anytime; Tasker gets a full refund (no cancellation fee).",
 				"summary": "**Summary:** Funds are locked by contract rules. Time limits are automatic. Fees are transparent. Disputes have fair negotiation with automatic refunds if needed.",
-				"understand_button": "I Understand"
+				"understand_button": "I Understand",
+				"time_limits_24h": "**24 hours:** Cancel for a full refund (except within 24 hours of start time)",
+				"time_limits_1h": "**1 hour:** Grace period for full refunds",
+				"time_limits_7d": "**7 days:** Tasker review period after completion",
+				"time_limits_14d": "**14 days:** Escalation period before automatic release",
+				"dispute_title": "Dispute Process",
+				"dispute_propose": "**Propose a split:** Either party can propose how to divide the payment",
+				"dispute_agree": "**Agreement:** If both parties agree to a split, the funds are released accordingly",
+				"dispute_escalate": "**Escalate:** If no agreement, BitTasker reviews and decides within 14 days",
+				"dispute_final": "**Final decision:** BitTasker's decision is final and funds are released"
 			},
 			"error_troubleshooting_modal": {
 				"title": "Error Troubleshooting",
@@ -977,6 +1185,14 @@
 				"google_play_aria": "Download BitTasker on Google Play Store",
 				"zapstore_aria": "Download BitTasker on ZapStore",
 				"dismiss": "Got it"
+			},
+			"zapstore_modal": {
+				"acknowledge_button": "I understand",
+				"learn_more": "Learn more",
+				"zapstore_title": "Now Available on Zapstore!",
+				"zapstore_message": "Download BitTasker directly from Zapstore for automatic updates and a seamless experience. Zapstore is a decentralized app store built on Nostr.",
+				"zapstore_button": "Get on Zapstore",
+				"zapstore_aria": "Download BitTasker on Zapstore"
 			}
 		},
 		"nostr_key_import": {
@@ -1300,7 +1516,8 @@
 				"dropoff_location": "Drop-off Location",
 				"pickup": "Pickup",
 				"drop_off": "Drop-off",
-				"route": "Route"
+				"route": "Route",
+				"error": "Error loading map"
 			},
 			"review_location": {
 				"location_title": "Location",

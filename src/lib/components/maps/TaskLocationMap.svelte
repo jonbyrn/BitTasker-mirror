@@ -2055,7 +2055,7 @@
 					<p class="text-base-content/70 text-sm">
 						{translateMapText(
 							'dashboard.bids.components.maps.task_location_map.loading_map',
-							'common.components.task.location_viewer.loading_map',
+							'common.task.location_viewer.loading_map',
 							'Loading map...'
 						)}
 					</p>
@@ -2081,7 +2081,7 @@
 					<p class="text-error text-sm">
 						{translateMapText(
 							'dashboard.bids.components.maps.task_location_map.error_loading_map',
-							'common.components.task.location_viewer.error_loading_map',
+							'common.task.location_viewer.error',
 							'Error loading map'
 						)}
 					</p>

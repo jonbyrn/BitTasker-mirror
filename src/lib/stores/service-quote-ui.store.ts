@@ -584,13 +584,13 @@ function buildVerifiedAcceptanceSnapshot(
 	};
 }
 
-function markAcceptanceMonitorSyncPending(escrowId: string): void {
-	const monitorEntry = getAcceptanceConfirmedMonitorEntry(escrowId);
+async function markAcceptanceMonitorSyncPending(escrowId: string): Promise<void> {
+	const monitorEntry = await getAcceptanceConfirmedMonitorEntry(escrowId);
 	if (!monitorEntry) {
 		return;
 	}
 
-	upsertAcceptanceConfirmedMonitorEntry({
+	await upsertAcceptanceConfirmedMonitorEntry({
 		escrowId: monitorEntry.escrowId,
 		proposalId: monitorEntry.proposalId,
 		proposalEventId: monitorEntry.proposalEventId,
@@ -793,7 +793,7 @@ function createServiceQuoteUiStore() {
 						recoveryResult.status === 'contract_sync_pending'
 					) {
 						if (recoveryResult.escrowId) {
-							markAcceptanceMonitorSyncPending(recoveryResult.escrowId);
+							await markAcceptanceMonitorSyncPending(recoveryResult.escrowId);
 						}
 						const syncingInput: TaskerStatusActionInput = {
 							quoteRequestId: params.quoteRequestId,

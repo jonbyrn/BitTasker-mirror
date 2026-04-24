@@ -1,4 +1,5 @@
 import { browser } from '$app/environment';
+import { Preferences } from '@capacitor/preferences';
 import type {
 	ServiceAcceptanceSnapshot,
 	ServiceAcceptanceUnknownReasonCode
@@ -24,12 +25,6 @@ export interface ServiceAcceptanceLedgerEntry {
 	attemptCount: number;
 	lastUpdatedAt: number;
 	attempts: ServiceAcceptanceLedgerAttempt[];
-}
-
-export interface StorageLike {
-	getItem(key: string): string | null;
-	setItem(key: string, value: string): void;
-	removeItem(key: string): void;
 }
 
 export interface ServiceAcceptanceReplayEntry {
@@ -74,14 +69,6 @@ const DEFAULT_REPLAY_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 export const SERVICE_ACCEPTANCE_REPLAY_RETRY_INTERVAL_MS = 30_000;
 export const SERVICE_ACCEPTANCE_REPLAY_MAX_ATTEMPTS = 20;
 export const SERVICE_ACCEPTANCE_CONFIRMED_MONITOR_REVERIFY_INTERVAL_MS = 30_000;
-
-function getDefaultReplayStorage(): StorageLike | null {
-	if (!browser) {
-		return null;
-	}
-
-	return window.localStorage;
-}
 
 function normalizeNonEmptyString(value: unknown): string | null {
 	if (typeof value !== 'string') {
@@ -256,17 +243,16 @@ function sanitizeAcceptanceSnapshot(value: unknown): ServiceAcceptanceSnapshot |
 	return candidate as unknown as ServiceAcceptanceSnapshot;
 }
 
-function readReplayState(
-	storage: StorageLike | null,
+async function readReplayState(
 	nowMs = Date.now(),
 	maxAgeMs = DEFAULT_REPLAY_MAX_AGE_MS
-): Record<string, ServiceAcceptanceReplayEntry> {
-	if (!storage || !Number.isFinite(nowMs)) {
+): Promise<Record<string, ServiceAcceptanceReplayEntry>> {
+	if (!browser || !Number.isFinite(nowMs)) {
 		return {};
 	}
 
 	try {
-		const raw = storage.getItem(SERVICE_ACCEPTANCE_REPLAY_STORAGE_KEY);
+		const { value: raw } = await Preferences.get({ key: SERVICE_ACCEPTANCE_REPLAY_STORAGE_KEY });
 		if (!raw) {
 			return {};
 		}
@@ -291,13 +277,13 @@ function readReplayState(
 		}
 
 		if (mutated) {
-			persistReplayState(storage, nextState);
+			await persistReplayState(nextState);
 		}
 
 		return nextState;
 	} catch {
 		try {
-			storage.removeItem(SERVICE_ACCEPTANCE_REPLAY_STORAGE_KEY);
+			await Preferences.remove({ key: SERVICE_ACCEPTANCE_REPLAY_STORAGE_KEY });
 		} catch {
 			// Ignore storage cleanup failures; callers fall back to in-memory state.
 		}
@@ -305,37 +291,40 @@ function readReplayState(
 	}
 }
 
-function persistReplayState(
-	storage: StorageLike | null,
+async function persistReplayState(
 	state: Record<string, ServiceAcceptanceReplayEntry>
-): void {
-	if (!storage) {
+): Promise<void> {
+	if (!browser) {
 		return;
 	}
 
 	try {
 		if (Object.keys(state).length === 0) {
-			storage.removeItem(SERVICE_ACCEPTANCE_REPLAY_STORAGE_KEY);
+			await Preferences.remove({ key: SERVICE_ACCEPTANCE_REPLAY_STORAGE_KEY });
 			return;
 		}
 
-		storage.setItem(SERVICE_ACCEPTANCE_REPLAY_STORAGE_KEY, JSON.stringify(state));
+		await Preferences.set({
+			key: SERVICE_ACCEPTANCE_REPLAY_STORAGE_KEY,
+			value: JSON.stringify(state)
+		});
 	} catch {
 		// Ignore storage persistence failures; in-memory replay remains active for this session.
 	}
 }
 
-function readConfirmedMonitorState(
-	storage: StorageLike | null,
+async function readConfirmedMonitorState(
 	nowMs = Date.now(),
 	maxAgeMs = DEFAULT_REPLAY_MAX_AGE_MS
-): Record<string, ServiceAcceptanceConfirmedMonitorEntry> {
-	if (!storage || !Number.isFinite(nowMs)) {
+): Promise<Record<string, ServiceAcceptanceConfirmedMonitorEntry>> {
+	if (!browser || !Number.isFinite(nowMs)) {
 		return {};
 	}
 
 	try {
-		const raw = storage.getItem(SERVICE_ACCEPTANCE_CONFIRMED_MONITOR_STORAGE_KEY);
+		const { value: raw } = await Preferences.get({
+			key: SERVICE_ACCEPTANCE_CONFIRMED_MONITOR_STORAGE_KEY
+		});
 		if (!raw) {
 			return {};
 		}
@@ -360,13 +349,13 @@ function readConfirmedMonitorState(
 		}
 
 		if (mutated) {
-			persistConfirmedMonitorState(storage, nextState);
+			await persistConfirmedMonitorState(nextState);
 		}
 
 		return nextState;
 	} catch {
 		try {
-			storage.removeItem(SERVICE_ACCEPTANCE_CONFIRMED_MONITOR_STORAGE_KEY);
+			await Preferences.remove({ key: SERVICE_ACCEPTANCE_CONFIRMED_MONITOR_STORAGE_KEY });
 		} catch {
 			// Ignore storage cleanup failures; callers fall back to in-memory state.
 		}
@@ -374,38 +363,38 @@ function readConfirmedMonitorState(
 	}
 }
 
-function persistConfirmedMonitorState(
-	storage: StorageLike | null,
+async function persistConfirmedMonitorState(
 	state: Record<string, ServiceAcceptanceConfirmedMonitorEntry>
-): void {
-	if (!storage) {
+): Promise<void> {
+	if (!browser) {
 		return;
 	}
 
 	try {
 		if (Object.keys(state).length === 0) {
-			storage.removeItem(SERVICE_ACCEPTANCE_CONFIRMED_MONITOR_STORAGE_KEY);
+			await Preferences.remove({ key: SERVICE_ACCEPTANCE_CONFIRMED_MONITOR_STORAGE_KEY });
 			return;
 		}
 
-		storage.setItem(SERVICE_ACCEPTANCE_CONFIRMED_MONITOR_STORAGE_KEY, JSON.stringify(state));
+		await Preferences.set({
+			key: SERVICE_ACCEPTANCE_CONFIRMED_MONITOR_STORAGE_KEY,
+			value: JSON.stringify(state)
+		});
 	} catch {
 		// Ignore storage persistence failures; in-memory monitor state remains active for this session.
 	}
 }
 
-function hydrateReplayLedger(storage: StorageLike | null = getDefaultReplayStorage()): void {
-	const persisted = readReplayState(storage);
+async function hydrateReplayLedger(): Promise<void> {
+	const persisted = await readReplayState();
 	replayLedger.clear();
 	for (const entry of Object.values(persisted)) {
 		replayLedger.set(entry.escrowId, entry);
 	}
 }
 
-function hydrateConfirmedMonitorLedger(
-	storage: StorageLike | null = getDefaultReplayStorage()
-): void {
-	const persisted = readConfirmedMonitorState(storage);
+async function hydrateConfirmedMonitorLedger(): Promise<void> {
+	const persisted = await readConfirmedMonitorState();
 	confirmedMonitorLedger.clear();
 	for (const entry of Object.values(persisted)) {
 		confirmedMonitorLedger.set(entry.escrowId, entry);
@@ -448,18 +437,17 @@ export function upsertAcceptanceLedgerEntry(
 	return entry;
 }
 
-export function clearAcceptanceLedger(): void {
+export async function clearAcceptanceLedger(): Promise<void> {
 	ledger.clear();
 	replayLedger.clear();
 	confirmedMonitorLedger.clear();
-	persistReplayState(getDefaultReplayStorage(), {});
-	persistConfirmedMonitorState(getDefaultReplayStorage(), {});
+	await persistReplayState({});
+	await persistConfirmedMonitorState({});
 }
 
-export function getAcceptanceReplayEntry(
-	escrowId: string,
-	storage: StorageLike | null = getDefaultReplayStorage()
-): ServiceAcceptanceReplayEntry | null {
+export async function getAcceptanceReplayEntry(
+	escrowId: string
+): Promise<ServiceAcceptanceReplayEntry | null> {
 	const normalizedEscrowId = normalizeNonEmptyString(escrowId);
 	if (!normalizedEscrowId) {
 		return null;
@@ -470,18 +458,17 @@ export function getAcceptanceReplayEntry(
 		return cached;
 	}
 
-	hydrateReplayLedger(storage);
+	await hydrateReplayLedger();
 	return replayLedger.get(normalizedEscrowId) ?? null;
 }
 
-export function upsertAcceptanceReplayEntry(
+export async function upsertAcceptanceReplayEntry(
 	input: Omit<ServiceAcceptanceReplayEntry, 'createdAtMs' | 'lastUpdatedAtMs' | 'attemptCount'> & {
 		createdAtMs?: number;
 		lastUpdatedAtMs?: number;
 		attemptCount?: number;
-	},
-	storage: StorageLike | null = getDefaultReplayStorage()
-): ServiceAcceptanceReplayEntry {
+	}
+): Promise<ServiceAcceptanceReplayEntry> {
 	const escrowId = normalizeNonEmptyString(input.escrowId);
 	const proposalId = normalizeNonEmptyString(input.proposalId);
 	const proposalEventId = normalizeNonEmptyString(input.proposalEventId);
@@ -505,7 +492,7 @@ export function upsertAcceptanceReplayEntry(
 		throw new Error('Acceptance replay entries require complete service contract identifiers.');
 	}
 
-	const current = getAcceptanceReplayEntry(escrowId, storage);
+	const current = await getAcceptanceReplayEntry(escrowId);
 	const entry: ServiceAcceptanceReplayEntry = {
 		escrowId,
 		proposalId,
@@ -522,52 +509,49 @@ export function upsertAcceptanceReplayEntry(
 	};
 
 	replayLedger.set(escrowId, entry);
-	const nextState = readReplayState(storage);
+	const nextState = await readReplayState();
 	nextState[escrowId] = entry;
-	persistReplayState(storage, nextState);
+	await persistReplayState(nextState);
 	return entry;
 }
 
-export function clearAcceptanceReplayEntry(
-	escrowId: string,
-	storage: StorageLike | null = getDefaultReplayStorage()
-): void {
+export async function clearAcceptanceReplayEntry(escrowId: string): Promise<void> {
 	const normalizedEscrowId = normalizeNonEmptyString(escrowId);
 	if (!normalizedEscrowId) {
 		return;
 	}
 
 	replayLedger.delete(normalizedEscrowId);
-	const nextState = readReplayState(storage);
+	const nextState = await readReplayState();
 	delete nextState[normalizedEscrowId];
-	persistReplayState(storage, nextState);
+	await persistReplayState(nextState);
 }
 
-export function listAcceptanceReplayEntries(
-	storage: StorageLike | null = getDefaultReplayStorage(),
+export async function listAcceptanceReplayEntries(
 	nowMs = Date.now(),
 	maxAgeMs = DEFAULT_REPLAY_MAX_AGE_MS
-): ServiceAcceptanceReplayEntry[] {
-	return Object.values(readReplayState(storage, nowMs, maxAgeMs)).sort(
+): Promise<ServiceAcceptanceReplayEntry[]> {
+	const state = await readReplayState(nowMs, maxAgeMs);
+	return Object.values(state).sort(
 		(left, right) =>
 			left.lastUpdatedAtMs - right.lastUpdatedAtMs || left.escrowId.localeCompare(right.escrowId)
 	);
 }
 
-export function getAcceptanceReplayEntriesDueForRetry(
-	storage: StorageLike | null = getDefaultReplayStorage(),
+export async function getAcceptanceReplayEntriesDueForRetry(
 	nowMs = Date.now(),
 	options: {
 		retryIntervalMs?: number;
 		maxAttempts?: number;
 		maxAgeMs?: number;
 	} = {}
-): ServiceAcceptanceReplayEntry[] {
+): Promise<ServiceAcceptanceReplayEntry[]> {
 	const retryIntervalMs = options.retryIntervalMs ?? SERVICE_ACCEPTANCE_REPLAY_RETRY_INTERVAL_MS;
 	const maxAttempts = options.maxAttempts ?? SERVICE_ACCEPTANCE_REPLAY_MAX_ATTEMPTS;
 	const maxAgeMs = options.maxAgeMs ?? DEFAULT_REPLAY_MAX_AGE_MS;
 
-	return listAcceptanceReplayEntries(storage, nowMs, maxAgeMs).filter((entry) => {
+	const entries = await listAcceptanceReplayEntries(nowMs, maxAgeMs);
+	return entries.filter((entry) => {
 		if (entry.attemptCount >= maxAttempts) {
 			return false;
 		}
@@ -576,10 +560,9 @@ export function getAcceptanceReplayEntriesDueForRetry(
 	});
 }
 
-export function getAcceptanceConfirmedMonitorEntry(
-	escrowId: string,
-	storage: StorageLike | null = getDefaultReplayStorage()
-): ServiceAcceptanceConfirmedMonitorEntry | null {
+export async function getAcceptanceConfirmedMonitorEntry(
+	escrowId: string
+): Promise<ServiceAcceptanceConfirmedMonitorEntry | null> {
 	const normalizedEscrowId = normalizeNonEmptyString(escrowId);
 	if (!normalizedEscrowId) {
 		return null;
@@ -590,11 +573,11 @@ export function getAcceptanceConfirmedMonitorEntry(
 		return cached;
 	}
 
-	hydrateConfirmedMonitorLedger(storage);
+	await hydrateConfirmedMonitorLedger();
 	return confirmedMonitorLedger.get(normalizedEscrowId) ?? null;
 }
 
-export function upsertAcceptanceConfirmedMonitorEntry(
+export async function upsertAcceptanceConfirmedMonitorEntry(
 	input: Omit<
 		ServiceAcceptanceConfirmedMonitorEntry,
 		'createdAtMs' | 'lastUpdatedAtMs' | 'lastVerifiedAtMs' | 'attemptCount' | 'publishedStatus'
@@ -604,9 +587,8 @@ export function upsertAcceptanceConfirmedMonitorEntry(
 		lastUpdatedAtMs?: number;
 		lastVerifiedAtMs?: number;
 		attemptCount?: number;
-	},
-	storage: StorageLike | null = getDefaultReplayStorage()
-): ServiceAcceptanceConfirmedMonitorEntry {
+	}
+): Promise<ServiceAcceptanceConfirmedMonitorEntry> {
 	const escrowId = normalizeNonEmptyString(input.escrowId);
 	const proposalId = normalizeNonEmptyString(input.proposalId);
 	const proposalEventId = normalizeNonEmptyString(input.proposalEventId);
@@ -634,7 +616,7 @@ export function upsertAcceptanceConfirmedMonitorEntry(
 		);
 	}
 
-	const current = getAcceptanceConfirmedMonitorEntry(escrowId, storage);
+	const current = await getAcceptanceConfirmedMonitorEntry(escrowId);
 	const entry: ServiceAcceptanceConfirmedMonitorEntry = {
 		escrowId,
 		proposalId,
@@ -653,51 +635,46 @@ export function upsertAcceptanceConfirmedMonitorEntry(
 	};
 
 	confirmedMonitorLedger.set(escrowId, entry);
-	const nextState = readConfirmedMonitorState(storage);
+	const nextState = await readConfirmedMonitorState();
 	nextState[escrowId] = entry;
-	persistConfirmedMonitorState(storage, nextState);
+	await persistConfirmedMonitorState(nextState);
 	return entry;
 }
 
-export function clearAcceptanceConfirmedMonitorEntry(
-	escrowId: string,
-	storage: StorageLike | null = getDefaultReplayStorage()
-): void {
+export async function clearAcceptanceConfirmedMonitorEntry(escrowId: string): Promise<void> {
 	const normalizedEscrowId = normalizeNonEmptyString(escrowId);
 	if (!normalizedEscrowId) {
 		return;
 	}
 
 	confirmedMonitorLedger.delete(normalizedEscrowId);
-	const nextState = readConfirmedMonitorState(storage);
+	const nextState = await readConfirmedMonitorState();
 	delete nextState[normalizedEscrowId];
-	persistConfirmedMonitorState(storage, nextState);
+	await persistConfirmedMonitorState(nextState);
 }
 
-export function listAcceptanceConfirmedMonitorEntries(
-	storage: StorageLike | null = getDefaultReplayStorage(),
+export async function listAcceptanceConfirmedMonitorEntries(
 	nowMs = Date.now(),
 	maxAgeMs = DEFAULT_REPLAY_MAX_AGE_MS
-): ServiceAcceptanceConfirmedMonitorEntry[] {
-	return Object.values(readConfirmedMonitorState(storage, nowMs, maxAgeMs)).sort(
+): Promise<ServiceAcceptanceConfirmedMonitorEntry[]> {
+	const state = await readConfirmedMonitorState(nowMs, maxAgeMs);
+	return Object.values(state).sort(
 		(left, right) =>
 			left.lastVerifiedAtMs - right.lastVerifiedAtMs || left.escrowId.localeCompare(right.escrowId)
 	);
 }
 
-export function getAcceptanceConfirmedMonitorEntriesDueForReverify(
-	storage: StorageLike | null = getDefaultReplayStorage(),
+export async function getAcceptanceConfirmedMonitorEntriesDueForReverify(
 	nowMs = Date.now(),
 	options: {
 		reverifyIntervalMs?: number;
 		maxAgeMs?: number;
 	} = {}
-): ServiceAcceptanceConfirmedMonitorEntry[] {
+): Promise<ServiceAcceptanceConfirmedMonitorEntry[]> {
 	const reverifyIntervalMs =
 		options.reverifyIntervalMs ?? SERVICE_ACCEPTANCE_CONFIRMED_MONITOR_REVERIFY_INTERVAL_MS;
 	const maxAgeMs = options.maxAgeMs ?? DEFAULT_REPLAY_MAX_AGE_MS;
 
-	return listAcceptanceConfirmedMonitorEntries(storage, nowMs, maxAgeMs).filter(
-		(entry) => nowMs - entry.lastVerifiedAtMs >= reverifyIntervalMs
-	);
+	const entries = await listAcceptanceConfirmedMonitorEntries(nowMs, maxAgeMs);
+	return entries.filter((entry) => nowMs - entry.lastVerifiedAtMs >= reverifyIntervalMs);
 }

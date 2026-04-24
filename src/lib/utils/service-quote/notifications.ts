@@ -1,4 +1,5 @@
 import { browser } from '$app/environment';
+import { Preferences } from '@capacitor/preferences';
 import { pushNotificationService } from '$lib/api/services/push-notification.service';
 import type {
 	ServiceProposalEvent,
@@ -41,7 +42,7 @@ function getDashboardBaseUrl(): URL {
 }
 
 function getEarningBaseUrl(): URL {
-	return new URL('/earning', getClientBaseUrl());
+	return new URL('/dashboard/earning', getClientBaseUrl());
 }
 
 function buildTaskerQuoteClickAction(quoteRequestId: string): string {
@@ -72,13 +73,13 @@ function buildLedgerKey(channel: SideEffectChannel, action: string, entityId: st
 	return `${channel}:${action}:${entityId}`;
 }
 
-function getLedgerState(): Record<string, true> {
+async function getLedgerState(): Promise<Record<string, true>> {
 	if (!browser) {
 		return {};
 	}
 
 	try {
-		const raw = window.localStorage.getItem(SERVICE_QUOTE_SIDE_EFFECT_LEDGER_KEY);
+		const { value: raw } = await Preferences.get({ key: SERVICE_QUOTE_SIDE_EFFECT_LEDGER_KEY });
 		if (!raw) {
 			return {};
 		}
@@ -89,24 +90,27 @@ function getLedgerState(): Record<string, true> {
 	}
 }
 
-function persistLedgerState(state: Record<string, true>): void {
+async function persistLedgerState(state: Record<string, true>): Promise<void> {
 	if (!browser) {
 		return;
 	}
 
 	try {
-		window.localStorage.setItem(SERVICE_QUOTE_SIDE_EFFECT_LEDGER_KEY, JSON.stringify(state));
+		await Preferences.set({
+			key: SERVICE_QUOTE_SIDE_EFFECT_LEDGER_KEY,
+			value: JSON.stringify(state)
+		});
 	} catch {
-		// Ignore local storage failures; in-memory dedupe remains active for this session.
+		// Ignore storage failures; in-memory dedupe remains active for this session.
 	}
 }
 
-function hasDispatchedSideEffect(key: string): boolean {
+async function hasDispatchedSideEffect(key: string): Promise<boolean> {
 	if (dispatchedSideEffects.has(key) || pendingSideEffects.has(key)) {
 		return true;
 	}
 
-	const persisted = getLedgerState();
+	const persisted = await getLedgerState();
 	if (persisted[key] === true) {
 		dispatchedSideEffects.add(key);
 		return true;
@@ -115,11 +119,11 @@ function hasDispatchedSideEffect(key: string): boolean {
 	return false;
 }
 
-function markSideEffectDispatched(key: string): void {
+async function markSideEffectDispatched(key: string): Promise<void> {
 	dispatchedSideEffects.add(key);
-	const persisted = getLedgerState();
+	const persisted = await getLedgerState();
 	persisted[key] = true;
-	persistLedgerState(persisted);
+	await persistLedgerState(persisted);
 }
 
 async function sendPushNotificationOnce(
@@ -138,7 +142,7 @@ async function sendPushNotificationOnce(
 	}
 
 	const ledgerKey = buildLedgerKey('push', action, entityId);
-	if (hasDispatchedSideEffect(ledgerKey)) {
+	if (await hasDispatchedSideEffect(ledgerKey)) {
 		return;
 	}
 
@@ -152,7 +156,7 @@ async function sendPushNotificationOnce(
 			clickAction: input.clickAction,
 			icon: SERVICE_QUOTE_NOTIFICATION_ICON
 		});
-		markSideEffectDispatched(ledgerKey);
+		await markSideEffectDispatched(ledgerKey);
 	} finally {
 		pendingSideEffects.delete(ledgerKey);
 	}
@@ -176,7 +180,7 @@ async function sendDirectMessageMirrorOnce(
 	}
 
 	const ledgerKey = buildLedgerKey('dm', payload.action, payload.canonicalEventId);
-	if (hasDispatchedSideEffect(ledgerKey)) {
+	if (await hasDispatchedSideEffect(ledgerKey)) {
 		return;
 	}
 
@@ -197,7 +201,7 @@ async function sendDirectMessageMirrorOnce(
 			throw new Error('Failed to publish service quote DM mirror to any relay.');
 		}
 
-		markSideEffectDispatched(ledgerKey);
+		await markSideEffectDispatched(ledgerKey);
 	} finally {
 		pendingSideEffects.delete(ledgerKey);
 	}
@@ -328,7 +332,7 @@ export function dispatchServiceContractCreatedNotification(
 	);
 }
 
-export function resetServiceQuoteSideEffectLedger(): void {
+export async function resetServiceQuoteSideEffectLedger(): Promise<void> {
 	dispatchedSideEffects.clear();
 	pendingSideEffects.clear();
 	if (!browser) {
@@ -336,7 +340,7 @@ export function resetServiceQuoteSideEffectLedger(): void {
 	}
 
 	try {
-		window.localStorage.removeItem(SERVICE_QUOTE_SIDE_EFFECT_LEDGER_KEY);
+		await Preferences.remove({ key: SERVICE_QUOTE_SIDE_EFFECT_LEDGER_KEY });
 	} catch {
 		// Ignore storage cleanup failures in tests/runtime.
 	}

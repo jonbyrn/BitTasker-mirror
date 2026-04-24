@@ -85,14 +85,6 @@
 			"add_ons_other": "{count} extras",
 			"rush_delivery": "Entrega urgente",
 			"expires": "Vence",
-			"filters": {
-				"all": "Todos los estados",
-				"awaiting_proposal": "Pendientes de propuesta",
-				"contract_created": "Contrato creado",
-				"declined": "Rechazadas",
-				"withdrawn": "Retiradas",
-				"expired": "Vencidas"
-			},
 			"service_label": "Servicio",
 			"boolean_yes": "Sí",
 			"boolean_no": "No",
@@ -654,6 +646,8 @@
 		"contracts": {
 			"title": "Contratos",
 			"description": "Gestiona tus contratos activos y acuerdos de pago seguro",
+			"cover_letter": "Carta de Presentación",
+			"status_filter_menu": "Menú de filtro de estado",
 			"loading": "Cargando contratos...",
 			"ndk_identity": {
 				"loading": "Desbloqueando tu identidad Nostr…",
@@ -765,7 +759,6 @@
 				"cancelled": "Cancelado",
 				"refunded": "Reembolsado",
 				"funded": "Financiado",
-				"refunded": "Reembolsado",
 				"in_dispute": "En Disputa",
 				"in_progress": "En Progreso",
 				"dispute_resolved": "Disputa Resuelta",

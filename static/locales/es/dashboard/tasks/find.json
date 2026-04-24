@@ -72,6 +72,8 @@
 		"loading": "Cargando tareas...",
 		"loading_more": "Cargando más tareas...",
 		"load_more": "Cargar Más Tareas",
-		"search_minimum_chars": "Ingresa al menos 3 caracteres para buscar"
+		"search_minimum_chars": "Ingresa al menos 3 caracteres para buscar",
+		"task_no_longer_open": "Esta tarea ya no está abierta para ofertas.",
+		"scroll_to_top": "Ir arriba"
 	}
 }

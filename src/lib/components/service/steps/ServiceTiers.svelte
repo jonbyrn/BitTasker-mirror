@@ -11,6 +11,8 @@
 
 	let { errors, direction } = $props();
 
+	const isBookNowEnabled = $derived($store.service.instantBuyLeadHours != null);
+
 	let btcPrice = $state<number>(0);
 
 	async function fetchBtcPrice(): Promise<void> {
@@ -49,17 +51,41 @@
 		};
 	}
 
+	function ensureAllTiersHaveDeliveryTime(): void {
+		const currentTiers = $store.service.pricing?.tiers || [];
+		const tiersNeedingDeliveryTime = currentTiers.filter((tier) => !tier.deliveryTime);
+
+		if (tiersNeedingDeliveryTime.length > 0) {
+			store.updateService({
+				pricing: {
+					...$store.service.pricing!,
+					tiers: currentTiers.map((tier) => {
+						if (!tier.deliveryTime) {
+							return {
+								...tier,
+								deliveryTime: createDefaultTierDeliveryTime()
+							};
+						}
+						return tier;
+					})
+				}
+			});
+		}
+	}
+
 	onMount(() => {
 		fetchBtcPrice();
 		if (!$store.service.pricing?.tiers || $store.service.pricing.tiers.length === 0) {
 			const translate = get(t);
+			const defaultDeliveryTime = isBookNowEnabled ? createDefaultTierDeliveryTime() : undefined;
 			const defaultTiers: ServiceTier[] = [
 				{
 					id: crypto.randomUUID(),
 					name: translate('dashboard.services.create.tiers.default_basic'),
 					description: '',
 					price: 0,
-					features: []
+					features: [],
+					deliveryTime: defaultDeliveryTime
 				},
 				{
 					id: crypto.randomUUID(),
@@ -67,14 +93,16 @@
 					description: '',
 					price: 0,
 					features: [],
-					isPopular: true
+					isPopular: true,
+					deliveryTime: defaultDeliveryTime
 				},
 				{
 					id: crypto.randomUUID(),
 					name: translate('dashboard.services.create.tiers.default_premium'),
 					description: '',
 					price: 0,
-					features: []
+					features: [],
+					deliveryTime: defaultDeliveryTime
 				}
 			];
 
@@ -84,6 +112,8 @@
 					tiers: defaultTiers
 				}
 			});
+		} else if (isBookNowEnabled) {
+			ensureAllTiersHaveDeliveryTime();
 		}
 	});
 
@@ -247,7 +277,9 @@
 
 			<div class="w-full">
 				<label for="tier-name-{tier.id}" class="label" id="tier-name-label-{tier.id}">
-					<span class="label-text break-words">{$t('dashboard.services.create.tiers.name_label')}</span>
+					<span class="label-text wrap-break-words"
+						>{$t('dashboard.services.create.tiers.name_label')}</span
+					>
 				</label>
 				<input
 					type="text"
@@ -262,7 +294,7 @@
 
 			<div class="w-full">
 				<label for="tier-description-{tier.id}" class="label" id="tier-description-label-{tier.id}">
-					<span class="label-text break-words">
+					<span class="label-text wrap-break-words">
 						{$t('dashboard.services.create.tiers.description_label')}
 						<span class="text-error">*</span>
 					</span>
@@ -284,7 +316,7 @@
 					class="label flex items-center justify-between gap-2"
 					id="tier-price-label-{tier.id}"
 				>
-					<span class="label-text break-words">
+					<span class="label-text wrap-break-words">
 						{$t('dashboard.services.create.tiers.price_label')}
 						<span class="text-error">*</span>
 					</span>
@@ -317,12 +349,17 @@
 
 			<div class="w-full">
 				<label class="label cursor-pointer" id="delivery-time-label-{tier.id}">
-					<span class="label-text break-words">{$t('dashboard.services.create.tiers.delivery_time_label')}</span
-					>
+					<span class="label-text wrap-break-words">
+						{$t('dashboard.services.create.tiers.delivery_time_label')}
+						{#if isBookNowEnabled}
+							<span class="text-error">*</span>
+						{/if}
+					</span>
 					<input
 						type="checkbox"
 						class="checkbox checkbox-primary"
 						checked={!!tier.deliveryTime}
+						disabled={isBookNowEnabled}
 						onchange={(event) => {
 							updateDeliveryTime(
 								tier.id,
@@ -401,7 +438,8 @@
 
 			<div class="w-full">
 				<label class="label cursor-pointer" id="rush-delivery-label-{tier.id}">
-					<span class="label-text break-words">{$t('dashboard.services.create.tiers.rush_delivery_label')}</span
+					<span class="label-text wrap-break-words"
+						>{$t('dashboard.services.create.tiers.rush_delivery_label')}</span
 					>
 					<input
 						type="checkbox"

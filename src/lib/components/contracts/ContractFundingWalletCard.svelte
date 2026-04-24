@@ -62,23 +62,23 @@
 	}
 
 	const resolvedTitle = $derived(
-		title ?? tr('common.components.wallet_card.title', 'Wallet balance')
+		title ?? tr('dashboard.contracts.wallet_card.title', 'Wallet balance')
 	);
 	const resolvedIconAlt = $derived(
-		iconAlt ?? tr('common.components.wallet_card.icon_alt', 'Bitcoin')
+		iconAlt ?? tr('dashboard.contracts.wallet_card.icon_alt', 'Bitcoin')
 	);
 	const resolvedSatsLabel = $derived(
-		satsLabel ?? tr('common.components.wallet_card.sats_label', 'sats')
+		satsLabel ?? tr('dashboard.contracts.wallet_card.sats_label', 'sats')
 	);
 	const resolvedNotConnectedLabel = $derived(
-		notConnectedLabel ?? tr('common.components.wallet_card.not_connected', 'Wallet not connected')
+		notConnectedLabel ?? tr('dashboard.contracts.wallet_card.not_connected', 'Wallet not connected')
 	);
 	const resolvedAvailableLabel = $derived(
-		availableLabel ?? tr('common.components.wallet_card.available_balance', 'Available balance')
+		availableLabel ?? tr('dashboard.contracts.wallet_card.available_balance', 'Available balance')
 	);
 	const resolvedRequiredLabel = $derived(
 		requiredLabel ??
-			tr('common.components.wallet_card.required_balance', 'Required for this contract')
+			tr('dashboard.contracts.wallet_card.required_balance', 'Required for this contract')
 	);
 </script>
 

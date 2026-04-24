@@ -390,7 +390,7 @@
 	},
 	"bid_details": {
 		"per_hour": "/hr",
-		"hours": "hrs",
+		"hours": "hours",
 		"title": "Bid Details",
 		"close_dialog": "Close dialog",
 		"anonymous": "Anonymous",
@@ -416,6 +416,7 @@
 		"enter_counter_offer_amount": "Enter counter offer amount:",
 		"enter_message_for_counter_offer": "Enter message for counter offer:",
 		"failed_to_create_counter_offer": "Failed to create counter offer",
+		"failed_to_load_counter_offers": "Failed to load counter offers",
 		"title": "Bids",
 		"bid": "bid",
 		"bids": "bids",
@@ -466,10 +467,13 @@
 			"end_date_after_start": "End date must be after start date",
 			"valid_hourly_rate": "Please enter a valid hourly rate",
 			"hourly_rate_greater_than_zero": "Please enter an hourly rate greater than zero",
-			"estimated_hours_required": "Please enter estimated hours",
+			"estimated_hours_required": "Estimated hours is required",
 			"estimated_hours_greater_than_zero": "Please enter estimated hours greater than zero",
 			"message_required": "Please provide a message"
 		}
+	},
+	"errors": {
+		"failed_to_load_content": "Failed to load bid content"
 	},
 	"components": {
 		"date_range": {

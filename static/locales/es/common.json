@@ -131,7 +131,198 @@
 			"invalid_npub": "Identificador de perfil inválido",
 			"invalid_npub_format": "Formato de identificador de perfil inválido",
 			"failed_to_load": "Error al cargar el perfil",
-			"no_profile_data": "No se encontraron datos de perfil para este usuario"
+			"no_profile_data": "No se encontraron datos de perfil para este usuario",
+			"wallet": {
+				"payment_request_form": {
+					"description": "Genera direcciones y facturas usando Breez SDK. Soporte para pagos Lightning, Bitcoin y multi-activo Liquid.",
+					"payment_method": "Método de Pago",
+					"liquid_address": "Dirección Liquid",
+					"lightning_invoice": "⚡ Factura Lightning",
+					"bitcoin_address": "₿ Dirección Bitcoin",
+					"bolt12_offer": "🔄 Oferta BOLT12",
+					"any_asset": "🎯 Cualquier Activo (Universal)",
+					"liquid_bitcoin": "₿ L-BTC (Liquid Bitcoin)",
+					"tether_usd": "💵 USDt (Tether USD)",
+					"asset_type": "Tipo de Activo",
+					"amount": "Cantidad ({unit}){required}",
+					"amount_required_placeholder": "Cantidad requerida",
+					"amount_optional_placeholder": "Dejar vacío para cualquier cantidad",
+					"liquid_address_tip": "💡 Las direcciones Liquid pueden recibir cualquier cantidad sin especificar por adelantado",
+					"bolt12_warning": "⚠️ Las ofertas BOLT12 ignoran el monto ingresado - los pagadores eligen su propia cantidad",
+					"description_label": "Descripción (opcional)",
+					"description_placeholder": "¿Para qué es este pago?",
+					"generating": "Generando...",
+					"generate": "Generar {method}",
+					"failed_to_load": "Error al cargar opciones de pago. Por favor intenta de nuevo.",
+					"failed_to_generate": "Error al generar solicitud de pago. Por favor intenta de nuevo.",
+					"amount_required": "La cantidad es requerida para {method}",
+					"amount_too_low": "La cantidad debe ser al menos {min} sats",
+					"amount_too_high": "La cantidad no debe ser mayor a {max} sats",
+					"liquid_address_name": "Dirección Liquid",
+					"lightning_invoice_name": "Factura Lightning",
+					"bitcoin_address_name": "Dirección Bitcoin",
+					"bolt12_offer_name": "Oferta BOLT12",
+					"address_name": "Dirección",
+					"liquid_address_desc": "Dirección universal para L-BTC, USDT y otros activos Liquid. No requiere cantidad.",
+					"lightning_invoice_desc": "Pago Lightning instantáneo. Cantidad requerida, expira después de usar.",
+					"bitcoin_address_desc": "Pago Bitcoin on-chain. Tarifas más altas, confirmación más lenta.",
+					"bolt12_offer_desc": "Oferta Lightning reutilizable. Acepta cualquier cantidad, ignora el monto ingresado.",
+					"any_asset_desc": "Acepta cualquier activo soportado (L-BTC, USDT, etc.)",
+					"liquid_bitcoin_desc": "Solo Liquid Bitcoin",
+					"tether_usd_desc": "Solo Tether USD en Liquid",
+					"multi_asset": "multi-activo",
+					"default_description": "Pago {method}{asset}",
+					"address_copied": "Dirección copiada al portapapeles",
+					"generated": "{method} Generado ✅",
+					"share_with_payer": "Comparte este {type} con el pagador",
+					"address": "Dirección",
+					"invoice": "Factura",
+					"method": "Método",
+					"asset": "Activo",
+					"any_amount_accepted": "Se acepta cualquier cantidad",
+					"payer_chooses_amount": "El pagador elige la cantidad",
+					"network_fee": "Tarifa de Red",
+					"click_to_copy": "Clic para copiar",
+					"click_to_copy_hint": "👆 Clic para copiar al portapapeles",
+					"generate_new": "Generar Nuevo",
+					"copy": "📋 Copiar"
+				},
+				"swap_dashboard": {
+					"title": "Panel de Intercambios",
+					"refresh": "Actualizar",
+					"failed_to_load": "Error al cargar intercambios",
+					"failed_refund": "Error al reembolsar intercambio",
+					"loading_swaps": "Cargando intercambios...",
+					"active_swaps": "Intercambios Activos",
+					"no_active_swaps": "Sin Intercambios Activos",
+					"no_active_swaps_message": "No tienes intercambios activos en este momento",
+					"lightning_to_bitcoin": "Lightning → Bitcoin",
+					"lightning_to_bitcoin_desc": "Convierte pagos Lightning a Bitcoin",
+					"bitcoin_to_lightning": "Bitcoin → Lightning",
+					"bitcoin_to_lightning_desc": "Convierte Bitcoin a pagos Lightning",
+					"create_swap": "Crear Intercambio",
+					"recent_history": "Historial Reciente",
+					"type": "Tipo",
+					"amount": "Cantidad",
+					"status": "Estado",
+					"date": "Fecha",
+					"refund": "Reembolso",
+					"waiting_payment": "Esperando pago",
+					"transaction_mempool": "Transacción en mempool"
+				},
+				"transaction_history": {
+					"title": "Historial de Transacciones",
+					"loading": "Cargando transacciones...",
+					"error": "Error al cargar transacciones",
+					"retry": "Reintentar",
+					"no_transactions": "No se encontraron transacciones",
+					"received": "Recibido",
+					"sent": "Enviado",
+					"date": "Fecha",
+					"address": "Dirección",
+					"status": "Estado",
+					"network": "Red",
+					"confirmed": "Confirmado",
+					"pending": "Pendiente",
+					"failed": "Fallido"
+				},
+				"asset_selector": {
+					"no_assets": "No hay activos disponibles",
+					"select_asset": "Seleccionar Activo",
+					"network": "Red",
+					"available_balance": "Saldo Disponible",
+					"available_rbtc_balance": "Saldo L2 Bitcoin Disponible",
+					"sats": "Sats"
+				},
+				"balance_card": {
+					"total_balance": "Saldo Total",
+					"no_assets_found": "No se Encontraron Activos",
+					"no_assets_message": "Tu billetera no tiene activos todavía. Comienza recibiendo algunos pagos Bitcoin o Lightning.",
+					"refresh_balances": "Actualizar Saldos"
+				},
+				"recent_transactions": {
+					"title": "Transacciones Recientes",
+					"received": "Recibido",
+					"sent": "Enviado",
+					"view_all": "Ver todas las transacciones",
+					"no_transactions": "No se encontraron transacciones."
+				},
+				"amount_input": {
+					"amount": "Cantidad",
+					"min_max": "Mín: {min} - Máx: {max}",
+					"loading_limits": "Cargando límites...",
+					"available_balance": "Saldo Disponible:",
+					"error": "Error:",
+					"estimated_fees": "Tarifas Estimadas:",
+					"max_sendable": "Máximo Enviable:",
+					"status": "Estado:",
+					"insufficient_funds": "Fondos insuficientes"
+				},
+				"fee_selection": {
+					"transaction_speed": "Velocidad de Transacción",
+					"speed_description": "Mayor velocidad = Mayores tarifas",
+					"slow": "Lento",
+					"medium": "Medio",
+					"fast": "Rápido"
+				},
+				"passkey_verification": {
+					"title": "Verificación de Seguridad Requerida",
+					"subtitle": "Confirma con tu passkey o biométricos",
+					"operation": "Operación:",
+					"amount": "Cantidad:",
+					"destination": "Destino:",
+					"asset": "Activo:",
+					"security_notice": "Aviso de Seguridad",
+					"lightning_payment": "Este es un pago Lightning y será procesado instantáneamente.",
+					"bitcoin_warning": "⚠️ Esta es una transferencia Bitcoin fuera de la plataforma. Los fondos dejarán tu billetera permanentemente.",
+					"liquid_warning": "⚠️ Esta es una transferencia Liquid fuera de la plataforma. Los fondos dejarán tu billetera permanentemente.",
+					"swap_message": "Esto iniciará un intercambio entre diferentes tipos de activos.",
+					"backup_message": "Esto creará una copia de seguridad de los datos de tu billetera.",
+					"default_message": "Esta operación requiere verificación de seguridad adicional.",
+					"cancel": "Cancelar",
+					"verifying": "Verificando...",
+					"verify_passkey": "Verificar con Passkey",
+					"transaction_prepared": "Transacción Preparada",
+					"estimated_fee": "Tarifa estimada: {fee} {asset}"
+				},
+				"recipient_input": {
+					"recipient": "Destinatario",
+					"placeholder": "Dirección, factura Lightning o dirección Lightning"
+				},
+				"send_form": {
+					"title": "Enviar Pago",
+					"select_asset": "Seleccionar Activo",
+					"description": "Descripción (opcional)",
+					"description_placeholder": "¿Para qué es este pago?",
+					"processing": "Procesando",
+					"processing_short": "Procesando",
+					"send": "Enviar",
+					"activity": "Actividad",
+					"pending_payments": "Pagos Pendientes ({count})",
+					"pending_message": "Algunos pagos están esperando confirmación"
+				},
+				"create_wallet": {
+					"title": "Crear Nueva Billetera",
+					"seed_warning": "¡Mantén tu frase semilla segura! Cualquiera con tu frase semilla puede acceder a tu billetera y retirar tus fondos.",
+					"copy_instruction": "Copia la frase semilla a tu portapapeles haciendo clic en el texto.",
+					"copied": "¡Copiado!",
+					"click_to_copy": "Clic para copiar",
+					"generate_seed": "Generar Frase Semilla",
+					"generating": "Generando...",
+					"setting_up_passkey": "Configurando passkey...",
+					"continue_to_wallet": "Continuar a la Billetera"
+				},
+				"import_wallet": {
+					"title": "Importar Billetera Existente",
+					"seed_instruction": "Ingresa tu frase semilla de 12 o 24 palabras",
+					"seed_placeholder": "Ingresa tu frase semilla aquí...",
+					"import_wallet": "Importar Billetera",
+					"importing": "Importando...",
+					"invalid_seed": "Frase semilla inválida. Por favor verifica tus palabras e intenta de nuevo.",
+					"import_success": "¡Billetera importada exitosamente!",
+					"continue_to_wallet": "Continuar a la Billetera"
+				}
+			}
 		},
 		"cta_title": "¿Listo para empezar?",
 		"cta_description": "Únete a BitTasker hoy y experimenta una mejor manera de encontrar trabajo o contratar a taskees calificados. Nuestra plataforma impulsada por Bitcoin hace que las transacciones sean seguras, sin fronteras y eficientes.",
@@ -197,11 +388,18 @@
 				"invalid_file": "Archivo inválido",
 				"processing_error": "Error de procesamiento",
 				"failed_to_validate_video": "Error al validar video",
-				"failed_to_load_image": "Error al cargar imagen"
+				"failed_to_load_image": "Error al cargar imagen",
+				"max_info": "(Máx. {size}MB{durationInfo})",
+				"duration_info": ", {duration} min",
+				"invalid_file_type": "Tipo de archivo inválido.",
+				"invalid_type_error": "Tipo de archivo inválido. Solo se permiten imágenes.",
+				"failed_validate_video": "Error al validar video.",
+				"failed_load_image": "Error al cargar imagen para validación."
 			},
 			"date_input": {
 				"time_rounded_intervals": "Los tiempos se redondearán a intervalos de {timeStep} minutos",
-				"and": "y"
+				"and": "y",
+				"less_than_minute": "menos de un minuto"
 			},
 			"modal": {
 				"close": "Cerrar diálogo"
@@ -226,7 +424,8 @@
 				"zapstore_title": "¡Ahora Disponible en Zapstore!",
 				"zapstore_message": "Descarga BitTasker directamente desde Zapstore para actualizaciones automáticas y una experiencia perfecta. Zapstore es una tienda de aplicaciones descentralizada construida en Nostr.",
 				"zapstore_button": "Obtener en Zapstore",
-				"zapstore_aria": "Descargar BitTasker en Zapstore"
+				"zapstore_aria": "Descargar BitTasker en Zapstore",
+				"button": "Entendido"
 			},
 			"wallet_help_modal": {
 				"title": "Tu Wallet de Bitcoin",
@@ -335,7 +534,16 @@
 				"cancellation_tasker": "**Cancelación del Tasker:** Dentro de 1 hora: Reembolso completo, sin tarifas. Después de 1 hora: Puede aplicarse una tarifa de cancelación. Las cancelaciones dentro de 24 horas del tiempo de inicio pueden requerir una tarifa para el Taskee.",
 				"cancellation_taskee": "**Reembolso del Taskee:** Puede reembolsar en cualquier momento; el Tasker recibe un reembolso completo sin tarifa de cancelación.",
 				"summary": "**Resumen:** Los fondos están bloqueados por las reglas del contrato. Los límites de tiempo son automáticos. Las tarifas son transparentes. Las disputas tienen negociación justa con reembolsos automáticos si es necesario.",
-				"understand_button": "Entiendo"
+				"understand_button": "Entiendo",
+				"time_limits_24h": "**24 horas:** Cancela para un reembolso completo (excepto dentro de 24 horas del tiempo de inicio)",
+				"time_limits_1h": "**1 hora:** Período de gracia para reembolsos completos",
+				"time_limits_7d": "**7 días:** Período de revisión del Tasker después de la finalización",
+				"time_limits_14d": "**14 días:** Período de escalamiento antes de la liberación automática",
+				"dispute_title": "Proceso de Disputa",
+				"dispute_propose": "**Proponer una división:** Cualquier parte puede proponer cómo dividir el pago",
+				"dispute_agree": "**Acuerdo:** Si ambas partes acuerdan una división, los fondos se liberan en consecuencia",
+				"dispute_escalate": "**Escalar:** Si no hay acuerdo, BitTasker revisa y decide dentro de 14 días",
+				"dispute_final": "**Decisión final:** La decisión de BitTasker es definitiva y los fondos se liberan"
 			},
 			"error_troubleshooting_modal": {
 				"title": "Solución de Problemas de Error",
@@ -977,6 +1185,14 @@
 				"private_key_placeholder": "Enter your Nostr private key (nsec1...)",
 				"back": "Back",
 				"next": "Next"
+			},
+			"zapstore_modal": {
+				"acknowledge_button": "Entiendo",
+				"learn_more": "Aprender más",
+				"zapstore_title": "¡Ahora Disponible en Zapstore!",
+				"zapstore_message": "Descarga BitTasker directamente desde Zapstore para actualizaciones automáticas y una experiencia perfecta. Zapstore es una tienda de aplicaciones descentralizada construida en Nostr.",
+				"zapstore_button": "Obtener en Zapstore",
+				"zapstore_aria": "Descargar BitTasker en Zapstore"
 			}
 		},
 		"task": {
@@ -1071,7 +1287,8 @@
 				"dropoff_location": "Drop-off Location",
 				"pickup": "Pickup",
 				"drop_off": "Drop-off",
-				"route": "Route"
+				"route": "Route",
+				"error": "Error al cargar el mapa"
 			},
 			"review_location": {
 				"location_title": "Location",
