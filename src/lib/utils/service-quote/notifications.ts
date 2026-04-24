@@ -41,7 +41,7 @@ function getDashboardBaseUrl(): URL {
 }
 
 function getEarningBaseUrl(): URL {
-	return new URL('/earning', getClientBaseUrl());
+	return new URL('/dashboard/earning', getClientBaseUrl());
 }
 
 function buildTaskerQuoteClickAction(quoteRequestId: string): string {

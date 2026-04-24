@@ -71,7 +71,7 @@
 					"min_price": "Precio Mínimo ($)",
 					"max_price": "Precio Máximo ($)",
 					"clear_price_range": "Limpiar",
-					"delivery_time": "Tiempo de Entrega",
+					"delivery_time_label": "Tiempo de Entrega",
 					"toggle_delivery_time": "Alternar tiempo de entrega",
 					"any_delivery_time": "Cualquiera",
 					"delivery_time": {

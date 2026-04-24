@@ -76,7 +76,6 @@
 
 		const isProtected =
 			currentPath.includes('/dashboard') ||
-			currentPath.includes('/earning') ||
 			currentPath.includes('/profile') ||
 			currentPath.includes('/settings');
 

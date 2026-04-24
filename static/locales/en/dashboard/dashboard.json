@@ -85,14 +85,6 @@
 			"add_ons_other": "{count} add-ons",
 			"rush_delivery": "Rush delivery",
 			"expires": "Expires",
-			"filters": {
-				"all": "All statuses",
-				"awaiting_proposal": "Awaiting proposal",
-				"contract_created": "Contract created",
-				"declined": "Declined",
-				"withdrawn": "Withdrawn",
-				"expired": "Expired"
-			},
 			"service_label": "Service",
 			"boolean_yes": "Yes",
 			"boolean_no": "No",
@@ -765,7 +757,6 @@
 				"cancelled": "Cancelled",
 				"refunded": "Refunded",
 				"funded": "Funded",
-				"refunded": "Refunded",
 				"in_dispute": "In Dispute",
 				"in_progress": "In Progress",
 				"dispute_resolved": "Dispute Resolved",

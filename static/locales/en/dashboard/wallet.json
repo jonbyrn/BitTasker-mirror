@@ -688,9 +688,6 @@
 			"loading_fees": "Calculating fees...",
 			"service_fee": "Service Fee",
 			"miner_fee": "Miner Fee",
-			"error": {
-				"fee_fetch_failed": "Failed to fetch swap fees"
-			},
 			"action": {
 				"refund": "Refund",
 				"renegotiate": "Adjust Amount",

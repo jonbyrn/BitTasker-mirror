@@ -321,116 +321,6 @@
 					"import_success": "Wallet imported successfully!",
 					"continue_to_wallet": "Continue to Wallet"
 				}
-			},
-			"task": {
-				"boost": {
-					"title": "Boost Your Task",
-					"description": "Would you like to boost your task to get more visibility and faster responses?",
-					"info_message": "Boosting your task increases your chances of finding the right tasker faster!",
-					"payment_options": "Payment Options"
-				},
-				"recurrence_pattern": {
-					"frequency_question": "How often should this task repeat?",
-					"daily": "Daily",
-					"weekly": "Weekly",
-					"biweekly": "Every 2 weeks",
-					"monthly": "Monthly",
-					"custom": "Custom",
-					"repeat_every": "Repeat every",
-					"days": "day(s)",
-					"weeks": "week(s)",
-					"months": "month(s)",
-					"on_these_days": "On these days:",
-					"on_day": "On day",
-					"of_the_month": "of the month",
-					"select_specific_days": "Select specific days:",
-					"end_conditions": "End Conditions",
-					"end_date_optional": "End Date (optional)",
-					"maximum_occurrences": "Maximum Occurrences",
-					"tasks": "tasks"
-				},
-				"recurring_tasks": {
-					"title": "Recurring Task Templates",
-					"create_template": "Create Template",
-					"update_recurrence_pattern": "Update Recurrence Pattern",
-					"updating_for": "Updating recurrence pattern for:",
-					"close_dialog": "Close dialog",
-					"save_changes": "Save Changes",
-					"no_templates": "You don't have any recurring task templates yet",
-					"create_template_description": "Create a template to automate your regular tasks",
-					"create_template_button": "Create Template",
-					"template_deleted": "Template deleted successfully",
-					"pattern_updated": "Recurrence pattern updated successfully",
-					"failed_update_status": "Failed to update template status. Please try again.",
-					"failed_delete": "Failed to delete template. Please try again.",
-					"failed_update_pattern": "Failed to update recurrence pattern. Please try again."
-				},
-				"template_card": {
-					"confirm_deletion": "Confirm Deletion",
-					"delete_confirmation": "Are you sure you want to delete this recurring task template? All future scheduled tasks will be cancelled.",
-					"template_information": "Template Information",
-					"description": "Description",
-					"created": "Created",
-					"schedule": "Schedule",
-					"frequency": "Frequency",
-					"end_date": "End Date",
-					"maximum_occurrences": "Maximum Occurrences",
-					"next_task": "Next Task",
-					"task_details": "Task Details",
-					"title": "Title",
-					"budget": "Budget",
-					"type": "Type",
-					"location": "Location",
-					"required_skills": "Required Skills",
-					"back": "Back",
-					"edit": "Edit",
-					"pause": "Pause",
-					"resume": "Resume",
-					"show_less": "Show Less",
-					"show_more": "Show More",
-					"view_details": "View Details",
-					"delete": "Delete",
-					"online": "Online",
-					"in_person": "In-person",
-					"unknown": "Unknown",
-					"not_scheduled": "Not scheduled",
-					"every_day": "Every day",
-					"every_week": "Every week",
-					"every_2_weeks": "Every 2 weeks",
-					"monthly_on_day": "Monthly on day",
-					"every_months_on_day": "Every {interval} months on day {day}",
-					"every_months": "Every {interval} months",
-					"custom_schedule": "Custom schedule"
-				},
-				"location_viewer": {
-					"loading_map": "Loading map...",
-					"error_loading_map": "Error loading map",
-					"pickup_location": "Pickup Location",
-					"task_location": "Task Location",
-					"dropoff_location": "Drop-off Location",
-					"pickup": "Pickup",
-					"drop_off": "Drop-off",
-					"route": "Route"
-				},
-				"review_location": {
-					"location_title": "Location",
-					"remote_task": "Remote Task",
-					"removal_delivery": "Removal/Delivery",
-					"in_person_badge": "In-Person",
-					"remote_completion_message": "This task can be completed remotely from anywhere.",
-					"pickup_location_review": "Pickup Location",
-					"dropoff_location_review": "Drop-off Location",
-					"zip_label": "ZIP:",
-					"location_set": "Location set",
-					"location_not_available": "Location information is not available for this task."
-				},
-				"drawer": {
-					"title": "Task Details",
-					"close": "Close",
-					"task_not_found": "Task Not Found",
-					"task_not_found_message": "The requested task could not be found or may have been removed.",
-					"details": "Details"
-				}
 			}
 		},
 		"nostr_key_import": {
@@ -493,18 +383,13 @@
 				"enter_fullscreen": "Enter fullscreen",
 				"exit_fullscreen": "Exit fullscreen",
 				"my_location": "My Location"
+			},
+			"location_viewer": {
+				"loading_map": "Loading map...",
+				"error": "Error loading map"
 			}
 		},
 		"components": {
-			"confirm_modal": {
-				"confirm": "Confirm",
-				"cancel": "Cancel",
-				"logout_title": "Logout",
-				"logout_message": "Are you sure you want to logout? You will need to sign in again to access your account."
-			},
-			"modal": {
-				"close": "Close"
-			},
 			"date_input": {
 				"and": "and",
 				"less_than_minute": "less than a minute"
@@ -582,16 +467,6 @@
 				"zapstore_aria": "Download BitTasker on ZapStore",
 				"dismiss": "Got it"
 			},
-			"wallet_card": {
-				"title": "Wallet balance",
-				"icon_alt": "Bitcoin",
-				"sats_label": "sats",
-				"not_connected": "Wallet not connected",
-				"available_balance": "Available balance",
-				"required_balance": "Required for this contract"
-			}
-		},
-		"components": {
 			"modal": {
 				"close": "Close dialog"
 			},

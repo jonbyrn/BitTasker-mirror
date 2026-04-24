@@ -23,7 +23,6 @@
 		loadPersistedServiceSearchFilters,
 		persistServiceSearchFilters
 	} from '$lib/utils/service-search-persistence';
-	import { DEFAULT_API_HOST } from '$lib/api/apiService';
 	import { debounce } from '$lib/utils/helpers/common';
 	import { hashSearchParams } from '$lib/utils/search.utils';
 
@@ -627,32 +626,9 @@
 		serviceListRef.addEventListener('scroll', handleScroll, { passive: true });
 	}
 
-	function logServicesApiConfiguration(): void {
-		if (!browser) return;
-
-		const viteApiUrl = import.meta.env.VITE_API_URL || null;
-		const viteNostrRelayNestjs = import.meta.env.VITE_NOSTR_RELAY_NESTJS || null;
-		const resolvedApiBase = viteApiUrl || DEFAULT_API_HOST;
-		const resolvedEventsBase = viteNostrRelayNestjs || resolvedApiBase;
-		const eventsGetUrl = new URL('/api/v1/events', resolvedEventsBase).toString();
-
-		if (import.meta.env.DEV) {
-			console.log('[ServicesPage] API configuration', {
-				pathname: window.location.pathname,
-				origin: window.location.origin,
-				viteApiUrl,
-				viteNostrRelayNestjs,
-				resolvedApiBase,
-				resolvedEventsBase,
-				eventsGetUrl
-			});
-		}
-	}
-
 	// Initial data fetch and setup - apply saved service search from dashboard if present (same pattern as Find Tasks)
 	onMount(() => {
 		if (browser) {
-			logServicesApiConfiguration();
 			windowWidth = window.innerWidth;
 
 			// MAJOR #10: Ensure sessionStorage data is loaded before loadNostrData starts

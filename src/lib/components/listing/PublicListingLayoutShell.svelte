@@ -59,7 +59,7 @@
 											data-sveltekit-reload="off"
 											href={section.path}
 											class:menu-active={isSectionActive(section.id, section.path)}
-											class="flex items-center gap-3 {section.indent ? 'pl-6' : ''}"
+											class="flex items-center gap-3"
 										>
 											{#if section.icon === 'mdi:format-list-bulleted'}
 												<IconFormatListBulleted class="text-primary" />
