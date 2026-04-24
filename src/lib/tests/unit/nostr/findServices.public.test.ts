@@ -148,15 +148,13 @@ describe('findServices public discovery', () => {
 	it('fails open when creator profile hydration never resolves', async () => {
 		vi.useFakeTimers();
 		try {
-			// Profile fetch hangs forever, but Promise.race timeout (2500ms) should kick in
 			mockFetchComprehensiveProfile.mockImplementation(() => new Promise(() => {}));
 			mockFindEvents.mockResolvedValue({
 				data: [createServiceEvent('e'.repeat(64), '5'.repeat(64), 'timeout-safe-service')]
 			});
 
 			const resultPromise = findServices({ page: 1, limit: 8 });
-			// Advance past the PROFILE_FETCH_TIMEOUT_MS (2500ms) to trigger the race timeout
-			await vi.advanceTimersByTimeAsync(3000);
+			await vi.advanceTimersByTimeAsync(800);
 			const result = await resultPromise;
 
 			expect(result.services).toHaveLength(1);

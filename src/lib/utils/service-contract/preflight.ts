@@ -9,7 +9,6 @@ import { getNostrKeyPair } from '$lib/utils/nostrKeys';
 
 const DEFAULT_CLIENT_FEE_TIER = 1;
 const GAS_BUFFER_DIVISOR = 10n;
-const ESTIMATED_NETWORK_FEE_USD = 0.5;
 
 export type ServiceContractPreflightErrorCode =
 	| 'wallet_not_connected'
@@ -46,7 +45,6 @@ export interface ServiceContractPreflightFailure {
 	errorCode: ServiceContractPreflightErrorCode;
 	error: string;
 	totalRequired?: string;
-	shortfallUsd?: number;
 }
 
 export type ServiceContractPreflightResult =
@@ -129,23 +127,9 @@ async function ensureServiceWalletReady(): Promise<
 	};
 }
 
-function _isWalletReadyResult(val: unknown): val is { walletAddress: string } {
-	return (
-		typeof val === 'object' &&
-		val !== null &&
-		'walletAddress' in val &&
-		typeof (val as Record<string, unknown>).walletAddress === 'string'
-	);
-}
-
 function normalizeRecipientPubkey(
 	pubkey: string
 ): ServiceContractPreflightFailure | { pubkey: string } {
-	// Defensive: check for undefined first
-	if (!pubkey || typeof pubkey !== 'string') {
-		return fail('invalid_provider_pubkey', 'Provider public key is unavailable for this service.');
-	}
-
 	const trimmedPubkey = pubkey.trim();
 	if (!trimmedPubkey) {
 		return fail('invalid_provider_pubkey', 'Provider public key is unavailable for this service.');
@@ -207,14 +191,8 @@ export async function preflightServiceContractCreation(
 	input: ServiceContractPreflightInput,
 	btcPrice: number
 ): Promise<ServiceContractPreflightResult> {
-	// Defensive: check freelancerAddress before calling .trim()
-	if (!input.freelancerAddress || !input.freelancerAddress.trim()) {
+	if (!input.freelancerAddress.trim()) {
 		return fail('invalid_provider_wallet', 'Provider wallet is unavailable for this service.');
-	}
-
-	// Defensive: check freelancerPubkey before passing to ensureContractPublishReady
-	if (!input.freelancerPubkey || typeof input.freelancerPubkey !== 'string') {
-		return fail('invalid_provider_pubkey', 'Provider public key is unavailable for this service.');
 	}
 
 	let normalizedFreelancerAddress: string;
@@ -222,10 +200,6 @@ export async function preflightServiceContractCreation(
 		normalizedFreelancerAddress = ethers.getAddress(input.freelancerAddress.trim().toLowerCase());
 	} catch {
 		return fail('invalid_provider_wallet', 'Provider wallet is unavailable for this service.');
-	}
-
-	if (normalizedFreelancerAddress === ethers.ZeroAddress) {
-		return fail('invalid_provider_wallet', 'Provider wallet address cannot be zero address.');
 	}
 
 	let amount: string;
@@ -243,14 +217,6 @@ export async function preflightServiceContractCreation(
 	const walletReady = await ensureServiceWalletReady();
 	if ('ok' in walletReady && walletReady.ok === false) {
 		return walletReady;
-	}
-
-	// Defensive: ensure walletAddress is actually available
-	if (!walletReady.walletAddress) {
-		return fail(
-			'wallet_not_ready',
-			'Your wallet address is unavailable. Retry after it finishes connecting.'
-		);
 	}
 
 	const publishReady = await ensureContractPublishReady({
@@ -287,24 +253,19 @@ export async function preflightServiceContractCreation(
 			}
 		);
 		const gasLimit = gasEstimate + gasEstimate / GAS_BUFFER_DIVISOR;
+		// Use fixed $0.50 fee for totalRequired since sponsor covers actual gas
+		const estimatedFeeWei = ethers.parseEther((ESTIMATED_NETWORK_FEE_USD / btcPrice).toFixed(8));
+		const totalRequiredWei = totalPaymentWei + estimatedFeeWei;
 		const gasCostWei = gasLimit * gasPrice;
 		const balanceWei = await provider.getBalance(wallet.address);
-		const totalRequiredWei = totalPaymentWei + gasCostWei;
 
 		if (balanceWei < totalRequiredWei) {
 			const shortfallWei = totalRequiredWei - balanceWei;
-			// Use fixed $0.50 fee for consistency with the sponsor service model
-			const estimatedFeeWei = ethers.parseEther((ESTIMATED_NETWORK_FEE_USD / btcPrice).toFixed(8));
-			const totalWithEstimatedFeeWei = totalPaymentWei + estimatedFeeWei;
-			const shortfallWithoutGasWei =
-				totalWithEstimatedFeeWei > balanceWei ? totalWithEstimatedFeeWei - balanceWei : 0n;
-			const shortfallUsd = Number(ethers.formatEther(shortfallWithoutGasWei)) * btcPrice;
 			return {
 				ok: false,
 				errorCode: 'insufficient_funds',
 				error: `Insufficient RBTC balance. You have ${formatRbtcAmount(balanceWei)} RBTC but need ${formatRbtcAmount(totalRequiredWei)} RBTC (including gas). Shortfall: ${formatRbtcAmount(shortfallWei)} RBTC.`,
-				totalRequired: ethers.formatEther(totalWithEstimatedFeeWei),
-				shortfallUsd
+				totalRequired: ethers.formatEther(totalRequiredWei)
 			};
 		}
 

@@ -25,25 +25,40 @@
 			return;
 		}
 
-		const defaultLocation: Location = {
-			displayName: '',
-			longitude: null,
-			latitude: null,
-			zipCode: '',
-			locationLoaded: false
-		};
-
 		store.updateService({ serviceLocationTypes: [type] });
 
+		if (type !== ServiceLocationTypeEnum.TASKER_LOCATION) {
+			store.updateService({
+				locationDetails: {
+					...$store.service.locationDetails,
+					taskerLocation: undefined
+				}
+			});
+		}
+		if (type !== ServiceLocationTypeEnum.TASKEE_LOCATION) {
+			store.updateService({
+				locationDetails: {
+					...$store.service.locationDetails,
+					taskeeLocation: undefined
+				}
+			});
+		}
+
 		if (type === ServiceLocationTypeEnum.TASKER_LOCATION) {
+			const defaultLocation: Location = {
+				displayName: '',
+				longitude: null,
+				latitude: null,
+				zipCode: '',
+				locationLoaded: false
+			};
 			store.updateService({
 				locationDetails: {
 					...$store.service.locationDetails,
 					taskerLocation: {
-						serviceLocation: { ...defaultLocation },
+						serviceLocation: defaultLocation,
 						serviceRadius: undefined
-					},
-					taskeeLocation: undefined
+					}
 				}
 			});
 		} else if (type === ServiceLocationTypeEnum.TASKEE_LOCATION) {
@@ -55,16 +70,7 @@
 						serviceLocation: undefined,
 						locationDisplayName: undefined,
 						serviceRadius: 5
-					},
-					taskerLocation: undefined
-				}
-			});
-		} else {
-			store.updateService({
-				locationDetails: {
-					...$store.service.locationDetails,
-					taskerLocation: undefined,
-					taskeeLocation: undefined
+					}
 				}
 			});
 		}

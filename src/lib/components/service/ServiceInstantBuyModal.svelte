@@ -53,9 +53,7 @@
 		onRetry = () => {},
 		onRefresh = () => {},
 		onAddFunds = undefined,
-		onClose = () => {},
-		shortfallUsd = null,
-		totalRequiredUsd = null
+		onClose = () => {}
 	} = $props<{
 		open?: boolean;
 		title?: string;
@@ -96,8 +94,6 @@
 		onRefresh?: () => void;
 		onAddFunds?: (amountUsd: number) => void;
 		onClose?: () => void;
-		shortfallUsd?: number | null;
-		totalRequiredUsd?: number | null;
 	}>();
 
 	const DEFAULT_CLIENT_FEE_TIER = 1;
@@ -137,12 +133,7 @@
 	const baseAmountLabel = $derived(formatUsdLabel(baseAmountValue));
 	const platformFeeLabel = $derived(formatUsdLabel(platformFeeValue));
 	const estimatedNetworkFeeLabel = $derived(formatUsdLabel(ESTIMATED_NETWORK_FEE_USD));
-	// Use totalRequiredUsd from preflight when available to ensure consistency
-	const totalPaymentLabel = $derived(
-		totalRequiredUsd != null && Number.isFinite(totalRequiredUsd)
-			? formatUsdLabel(totalRequiredUsd)
-			: formatUsdLabel(totalPaymentValue)
-	);
+	const totalPaymentLabel = $derived(formatUsdLabel(totalPaymentValue));
 	const estimatedStartLabel = $derived(formatTimestamp(estimatedStartTime));
 	const estimatedCompletionLabel = $derived(formatTimestamp(estimatedCompletionTime));
 	const durationLabel = $derived.by(() => {
@@ -203,16 +194,8 @@
 	let confirmModalOpen = $state(false);
 
 	function handleAddFunds() {
-		// Use shortfall amount when user has insufficient funds, otherwise use full payment amount
-		const amountToRequest =
-			walletVerificationErrorCode === 'insufficient_funds' &&
-			shortfallUsd != null &&
-			shortfallUsd > 0
-				? shortfallUsd
-				: totalPaymentValue;
-
-		if (onAddFunds && amountToRequest != null) {
-			onAddFunds(amountToRequest);
+		if (onAddFunds && totalPaymentValue != null) {
+			onAddFunds(totalPaymentValue);
 		} else {
 			onClose();
 			goto('/dashboard/wallet?tab=receive');

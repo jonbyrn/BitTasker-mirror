@@ -1445,7 +1445,7 @@
 
 			marker.addListener('click', () => {
 				hideAllCircles();
-				showCircleForMarker(lat, lng, service);
+				showCircleForMarker(lat, lng);
 
 				const position = { lat, lng };
 				const circle = circles.find(
@@ -1643,22 +1643,12 @@
 		}
 	}
 
-	function getServiceRadiusForDisplay(service: Service): number {
-		if (service.locationDetails?.taskeeLocation?.serviceRadius != null) {
-			return service.locationDetails.taskeeLocation.serviceRadius;
-		}
-		if (service.locationDetails?.taskerLocation?.serviceRadius != null) {
-			return service.locationDetails.taskerLocation.serviceRadius;
-		}
-		return 5;
-	}
-
-	function showCircleForMarker(lat: number, lng: number, service?: Service) {
+	function showCircleForMarker(lat: number, lng: number) {
 		if (!map || !googleMapsReady || !window.google?.maps) return;
 
 		const position = { lat, lng };
-		const radius = service ? getServiceRadiusForDisplay(service) : serviceRadius;
 
+		// Crear círculo de radio
 		const circle = new google.maps.Circle({
 			strokeColor: '#F59E0B',
 			strokeOpacity: 0.8,
@@ -1667,7 +1657,7 @@
 			fillOpacity: 0.1,
 			map,
 			center: position,
-			radius: radius * 100
+			radius: serviceRadius * 100 // Convertir km a metros
 		});
 
 		circles.push(circle);

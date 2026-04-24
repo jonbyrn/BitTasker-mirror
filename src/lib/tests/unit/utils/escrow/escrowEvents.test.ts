@@ -730,7 +730,7 @@ describe('escrowEvents', () => {
 					proposalEventId: 'proposal-event-id'
 				})
 			);
-			expect(getAcceptanceConfirmedMonitorEntry('svc-123')).toEqual(
+			await expect(getAcceptanceConfirmedMonitorEntry('svc-123')).resolves.toEqual(
 				expect.objectContaining({
 					escrowId: 'svc-123',
 					proposalId: 'proposal-123',
@@ -842,7 +842,7 @@ describe('escrowEvents', () => {
 				undefined,
 				'0xservice-retry'
 			);
-			expect(getAcceptanceConfirmedMonitorEntry('svc-retry-123')).toEqual(
+			await expect(getAcceptanceConfirmedMonitorEntry('svc-retry-123')).resolves.toEqual(
 				expect.objectContaining({
 					escrowId: 'svc-retry-123',
 					proposalId: 'proposal-retry-123',
@@ -953,7 +953,7 @@ describe('escrowEvents', () => {
 
 			await handleEscrowCreated(event);
 
-			expect(getAcceptanceReplayEntry('svc-replay-123')).toEqual(
+			await expect(getAcceptanceReplayEntry('svc-replay-123')).resolves.toEqual(
 				expect.objectContaining({
 					escrowId: 'svc-replay-123',
 					proposalId: 'proposal-replay-123',
@@ -974,7 +974,7 @@ describe('escrowEvents', () => {
 				conversionSnapshotId: 'snapshot-reload',
 				confirmationsAtVerification: 3
 			});
-			upsertAcceptanceReplayEntry({
+			await upsertAcceptanceReplayEntry({
 				escrowId: 'svc-reload-123',
 				proposalId: 'proposal-reload-123',
 				proposalEventId: 'proposal-event-id-reload',
@@ -986,7 +986,7 @@ describe('escrowEvents', () => {
 				acceptanceSnapshot: acceptedSnapshot
 			});
 
-			expect(getAcceptanceReplayEntry('svc-reload-123')).toEqual(
+			await expect(getAcceptanceReplayEntry('svc-reload-123')).resolves.toEqual(
 				expect.objectContaining({
 					escrowId: 'svc-reload-123',
 					proposalId: 'proposal-reload-123',
@@ -1032,8 +1032,8 @@ describe('escrowEvents', () => {
 					proposalEventId: 'proposal-event-id-reload'
 				})
 			);
-			expect(getAcceptanceReplayEntry('svc-reload-123')).toBeNull();
-			expect(getAcceptanceConfirmedMonitorEntry('svc-reload-123')).toEqual(
+			await expect(getAcceptanceReplayEntry('svc-reload-123')).resolves.toBeNull();
+			await expect(getAcceptanceConfirmedMonitorEntry('svc-reload-123')).resolves.toEqual(
 				expect.objectContaining({
 					escrowId: 'svc-reload-123',
 					proposalId: 'proposal-reload-123',
@@ -1049,7 +1049,7 @@ describe('escrowEvents', () => {
 				confirmationsAtVerification: 3
 			});
 
-			upsertAcceptanceConfirmedMonitorEntry({
+			await upsertAcceptanceConfirmedMonitorEntry({
 				escrowId: 'svc-monitor-123',
 				proposalId: 'proposal-monitor-123',
 				proposalEventId: 'proposal-event-id-monitor',
@@ -1092,7 +1092,7 @@ describe('escrowEvents', () => {
 				'reconciliation_deferred',
 				'0xservice-monitor'
 			);
-			expect(getAcceptanceConfirmedMonitorEntry('svc-monitor-123')).toEqual(
+			await expect(getAcceptanceConfirmedMonitorEntry('svc-monitor-123')).resolves.toEqual(
 				expect.objectContaining({
 					escrowId: 'svc-monitor-123',
 					proposalId: 'proposal-monitor-123',
@@ -1107,7 +1107,7 @@ describe('escrowEvents', () => {
 				confirmationsAtVerification: 3
 			});
 
-			upsertAcceptanceConfirmedMonitorEntry({
+			await upsertAcceptanceConfirmedMonitorEntry({
 				escrowId: 'svc-monitor-deferred',
 				proposalId: 'proposal-monitor-deferred',
 				proposalEventId: 'proposal-event-id-monitor-deferred',
@@ -1131,7 +1131,7 @@ describe('escrowEvents', () => {
 				status: 'deferred',
 				reasonCode: 'rpc_unavailable'
 			});
-			expect(getAcceptanceConfirmedMonitorEntry('svc-monitor-deferred')).toEqual(
+			await expect(getAcceptanceConfirmedMonitorEntry('svc-monitor-deferred')).resolves.toEqual(
 				expect.objectContaining({
 					escrowId: 'svc-monitor-deferred',
 					proposalId: 'proposal-monitor-deferred',
@@ -1146,7 +1146,7 @@ describe('escrowEvents', () => {
 				confirmationsAtVerification: 3
 			});
 
-			upsertAcceptanceConfirmedMonitorEntry({
+			await upsertAcceptanceConfirmedMonitorEntry({
 				escrowId: 'svc-monitor-reconfirm',
 				proposalId: 'proposal-monitor-reconfirm',
 				proposalEventId: 'proposal-event-id-monitor-reconfirm',
@@ -1191,7 +1191,7 @@ describe('escrowEvents', () => {
 				undefined,
 				'0xservice-monitor-reconfirm'
 			);
-			expect(getAcceptanceConfirmedMonitorEntry('svc-monitor-reconfirm')).toEqual(
+			await expect(getAcceptanceConfirmedMonitorEntry('svc-monitor-reconfirm')).resolves.toEqual(
 				expect.objectContaining({
 					escrowId: 'svc-monitor-reconfirm',
 					proposalId: 'proposal-monitor-reconfirm',
@@ -1204,7 +1204,7 @@ describe('escrowEvents', () => {
 		});
 
 		it('returns not_found when no confirmed monitor entry exists for revalidation', async () => {
-			clearAcceptanceConfirmedMonitorEntry('svc-missing');
+			await clearAcceptanceConfirmedMonitorEntry('svc-missing');
 
 			await expect(reverifyPublishedServiceAcceptanceByEscrowId('svc-missing')).resolves.toEqual({
 				status: 'not_found'

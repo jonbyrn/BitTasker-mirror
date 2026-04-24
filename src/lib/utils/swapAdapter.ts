@@ -26,23 +26,8 @@ import KINDS from '$lib/utils/constants/kinds';
 import { appStore } from '$lib/stores/app.store';
 import { get } from 'svelte/store';
 
-/**
- * Sanitize relay URLs - handles comma-separated URLs
- */
-function sanitizeRelayUrls(input: string | string[] | undefined): string[] {
-	if (!input) return [];
-	const rawUrls = Array.isArray(input) ? input : input.split(',');
-	return rawUrls
-		.map((url) => url.trim())
-		.filter((url) => {
-			return (
-				Boolean(url) && url.length > 0 && (url.startsWith('ws://') || url.startsWith('wss://'))
-			);
-		});
-}
-
 // Define relay URLs
-const RELAYS = sanitizeRelayUrls(import.meta.env.VITE_NOSTR_RELAY_URL);
+const RELAYS = [import.meta.env.VITE_NOSTR_RELAY_URL].filter(Boolean);
 
 /**
  * Get the centralized pool instance from appStore
@@ -373,8 +358,10 @@ export class NostrSwapStorage implements SwapStorage {
 	 * @param swapId - Unique swap identifier
 	 * @param data - Swap data to save
 	 */
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	async save(swapId: string, data: any): Promise<void> {
+	async save(
+		swapId: string,
+		data: BoltzSwapData | ChainSwapData | SubmarineSwapData
+	): Promise<void> {
 		try {
 			await saveSwapToNostr(data, this.nsec, this.swapType);
 		} catch (error) {
@@ -387,8 +374,7 @@ export class NostrSwapStorage implements SwapStorage {
 	 * @param swapId - Unique swap identifier
 	 * @returns Swap data or null if not found
 	 */
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	async load(swapId: string): Promise<any | null> {
+	async load(swapId: string): Promise<BoltzSwapData | ChainSwapData | SubmarineSwapData | null> {
 		try {
 			const swaps = await this.loadAll();
 			return swaps.find((s) => s.id === swapId) || null;
@@ -401,8 +387,7 @@ export class NostrSwapStorage implements SwapStorage {
 	 * Load all swaps of this type
 	 * @returns Array of swap data
 	 */
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	async loadAll(): Promise<any[]> {
+	async loadAll(): Promise<(BoltzSwapData | ChainSwapData | SubmarineSwapData)[]> {
 		try {
 			return await recoverPendingSwaps(this.nsec, this.swapType);
 		} catch (error) {
