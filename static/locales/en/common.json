@@ -115,22 +115,22 @@
 			"no_description": "No description available.",
 			"available_projects": "Available for new projects",
 			"availability_not_set": "Availability not set",
-			"devices": {
-				"platforms": {
-					"android": "Android",
-					"ios": "iOS",
-					"web": "Web Browser",
-					"unknown": "Unknown"
-				},
-				"time_units": {
-					"minute": "minute",
-					"minutes": "minutes",
-					"hour": "hour",
-					"hours": "hours",
-					"day": "day",
-					"days": "days"
-				}
-			},
+			"invalid_npub": "Invalid npub",
+			"invalid_npub_format": "Invalid npub format. Please check the URL.",
+			"no_profile_data": "No profile data available",
+			"failed_to_load": "Failed to load profile",
+			"message_required": "Message is required",
+			"message_send_error": "Failed to send message. Please try again.",
+			"message_sent_successfully": "Message sent successfully!",
+			"no_image_available": "No image available",
+			"no_ratings": "No ratings yet",
+			"responds_within": "Responds within",
+			"response_time_not_specified": "Response time not specified",
+			"signup_to_hire": "Sign up to hire this Taskee",
+			"visit_project": "Visit Project",
+			"website": "Website",
+			"joined": "Joined",
+			"member_since_unknown": "Member since unknown",
 			"wallet": {
 				"payment_request_form": {
 					"description": "Generate addresses and invoices using Breez SDK. Support for Lightning, Bitcoin, and multi-asset Liquid payments.",
@@ -392,7 +392,137 @@
 		"components": {
 			"date_input": {
 				"and": "and",
-				"less_than_minute": "less than a minute"
+				"less_than_minute": "less than a minute",
+				"time_rounded_intervals": "Time rounded to nearest interval"
+			},
+			"drawer": {
+				"close": "Close drawer"
+			},
+			"gallery": {
+				"image_alt": "Gallery image"
+			},
+			"input": {
+				"options": "Options"
+			},
+			"location_autocomplete": {
+				"enter_address": "Enter an address",
+				"failed_suggestions": "Failed to load address suggestions",
+				"no_places_found": "No places found"
+			},
+			"location_picker": {
+				"enter_address": "Enter an address"
+			},
+			"logo": {
+				"alt": "BitTasker Logo"
+			},
+			"topbar": {
+				"logo_alt": "BitTasker Logo",
+				"npub_qr": {
+					"share_profile_title": "Share Profile",
+					"generating": "Generating QR code...",
+					"error": "Failed to generate QR code"
+				}
+			},
+			"tags": {
+				"select_tags": "Select tags",
+				"remove_tag": "Remove tag",
+				"available_tags": "Available tags"
+			},
+			"qr_scanner": {
+				"permission_title": "Camera Access Required",
+				"permission_description": "To scan QR codes, we need permission to access your camera. Your camera is only used locally and no images are stored or transmitted.",
+				"permission_allow": "Allow Camera Access",
+				"permission_cancel": "Cancel",
+				"scan_qr_code": "Scan QR Code",
+				"close": "Close scanner",
+				"toggle_torch": "Toggle flashlight",
+				"camera_permission_denied": "Camera permission denied. Please enable camera access in your settings.",
+				"no_camera_found": "No camera found on this device.",
+				"point_camera_at_qr": "Point your camera at a QR code"
+			},
+			"devices": {
+				"platforms": {
+					"android": "Android",
+					"ios": "iOS",
+					"web": "Web Browser",
+					"unknown": "Unknown"
+				}
+			},
+			"recommendations": {
+				"error": {
+					"load_failed": "Failed to load recommendations",
+					"generate": "Failed to generate recommendations"
+				},
+				"feedback": {
+					"thanks_more": "Thanks! We'll show you more like this.",
+					"thanks_fewer": "Thanks! We'll show you fewer like this.",
+					"thanks_simple": "Thanks for your feedback!"
+				}
+			},
+			"bidding": {
+				"counter_offer_history": {
+					"title": "Counter Offer History",
+					"no_offers": "No counter offers yet",
+					"estimated_completion": "Estimated completion",
+					"you_proposed": "You proposed",
+					"they_proposed": "They proposed",
+					"decline": "Decline",
+					"accept": "Accept"
+				},
+				"counter_offer_item": {
+					"counter_from": "Counter from",
+					"offered_price": "Offered price",
+					"delivery": "Delivery"
+				},
+				"dashboard_bids": {
+					"avatar_alt": "Bidder avatar"
+				},
+				"escrow_success": {
+					"title": "Payment Secured",
+					"close_dialog": "Close dialog",
+					"success_title": "Payment Successful!",
+					"success_message": "Your payment has been secured in escrow. The funds will be released once the work is completed.",
+					"payment_summary": "Payment Summary",
+					"bid_price": "Bid Price",
+					"platform_fee": "Platform Fee",
+					"transaction_fee": "Transaction Fee",
+					"total_price": "Total Price",
+					"blockchain_verification": "Blockchain Verification",
+					"verification_message": "Your payment is secured on the blockchain. You can verify the transaction using the hash below.",
+					"copy_hash": "Copy transaction hash",
+					"view_explorer": "View on Explorer",
+					"gamification_title": "Keep Up the Great Work!",
+					"gamification_message": "Complete {tasks} more tasks by {date} to reach {tier} tier!",
+					"go_dashboard": "Go to Dashboard",
+					"create_new_task": "Create New Task"
+				},
+				"external_wallet": {
+					"title": "External Wallet Payment",
+					"close_dialog": "Close dialog",
+					"payment_methods": {
+						"bitcoin_lightning": "Bitcoin Lightning",
+						"lbtc": "Liquid Bitcoin (L-BTC)",
+						"usdt": "Tether USD (USDT)",
+						"unknown": "Unknown Payment Method"
+					},
+					"networks": {
+						"lightning": "Lightning Network",
+						"liquid": "Liquid Network",
+						"unknown": "Unknown Network"
+					},
+					"instructions": {
+						"send_exactly": "Send exactly the amount shown below",
+						"use_network": "Use the correct network to avoid loss of funds",
+						"no_exchange": "Do not send from an exchange"
+					},
+					"qr_alt": "Payment QR Code",
+					"scan_qr": "Scan QR Code",
+					"payment_address": "Payment Address",
+					"copied": "Copied!",
+					"copy": "Copy",
+					"cancel": "Cancel",
+					"payment_sent": "I've Sent the Payment"
+				}
 			},
 			"media_uploader": {
 				"file_size_limit": "File size exceeds the limit of {maxSize}MB.",
@@ -417,7 +547,14 @@
 				"uploading_files": "Uploading files",
 				"compression_success": "Images compressed successfully",
 				"upload_failed": "Upload failed: {error}",
-				"file_number": "File {index}"
+				"file_number": "File {index}",
+				"compressing": "Compressing...",
+				"uploading": "Uploading...",
+				"failed_to_validate_video": "Failed to validate video",
+				"failed_to_load_image": "Failed to load image",
+				"invalid_file": "Invalid file",
+				"processing_error": "Error processing file",
+				"video_file_too_large": "Video file is too large. Maximum size is {maxSize}MB."
 			},
 			"error_troubleshooting_modal": {
 				"button_title": "Open troubleshooting help",
@@ -596,7 +733,21 @@
 				"dispute_propose": "**Propose a split:** Either party can propose how to divide the payment",
 				"dispute_agree": "**Agreement:** If both parties agree to a split, the funds are released accordingly",
 				"dispute_escalate": "**Escalate:** If no agreement, BitTasker reviews and decides within 14 days",
-				"dispute_final": "**Final decision:** BitTasker's decision is final and funds are released"
+				"dispute_final": "**Final decision:** BitTasker's decision is final and funds are released",
+				"time_limits_grace": "**1-hour grace period:** Full refund available within the first hour",
+				"time_limits_cancellation": "**Cancellation window:** Cancel before work begins for a full refund",
+				"time_limits_review": "**Review period:** 7 days to review completed work",
+				"time_limits_dispute": "**Dispute window:** 14 days to resolve disputes before escalation",
+				"time_limits_no_show": "**No-show protection:** 24 hours for taskee to respond to no-show claims",
+				"dispute_process_title": "How Disputes Work",
+				"dispute_process_step1": "**Step 1:** Either party can raise a dispute if there's an issue with the work",
+				"dispute_process_step2": "**Step 2:** Both parties can propose how to split the payment (up to 2 proposals each)",
+				"dispute_process_step3": "**Step 3:** If both agree to a split, funds are released accordingly",
+				"dispute_process_step4": "**Step 4:** If no agreement after 14 days, the tasker receives a full refund",
+				"cancellation_rules_title": "Cancellation Rules",
+				"cancellation_tasker": "**Taskers:** Can cancel anytime for a full refund, except within 24 hours of scheduled start",
+				"cancellation_taskee": "**Taskees:** Can voluntarily refund the tasker at any time",
+				"understand_button": "I Understand"
 			}
 		},
 		"time_units": {
@@ -622,6 +773,25 @@
 			"select_end_date": "End date",
 			"select_start_datetime": "Start date and time",
 			"select_end_datetime": "End date and time"
+		},
+		"coming_soon": {
+			"title": "Coming Soon",
+			"subtitle": "We're working on something exciting",
+			"description": "This feature is currently under development. Check back soon for updates!"
+		},
+		"browse_faq": "Browse FAQ",
+		"cta_title": "Ready to Get Started?",
+		"cta_description": "Join thousands of people completing tasks and earning Bitcoin.",
+		"create_account": "Create Account",
+		"devices": {
+			"time_units": {
+				"minute": "minute",
+				"minutes": "minutes",
+				"hour": "hour",
+				"hours": "hours",
+				"day": "day",
+				"days": "days"
+			}
 		}
 	}
 }

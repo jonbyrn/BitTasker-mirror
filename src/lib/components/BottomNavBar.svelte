@@ -4,7 +4,6 @@
 	import { page } from '$app/state';
 	import { beforeNavigate, goto } from '$app/navigation';
 	import { authState } from '$lib/stores/auth.store';
-	import { ImpactStyle, triggerHaptic } from '$lib/utils/helpers/haptics';
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 
 	import IconLogout from '~icons/mdi/logout';
@@ -129,7 +128,6 @@
 		if (!target) return;
 		const interactive = target.closest('a,button,[role="button"]');
 		if (!interactive) return;
-		void triggerHaptic(ImpactStyle.Light);
 	}
 
 	$effect(() => {

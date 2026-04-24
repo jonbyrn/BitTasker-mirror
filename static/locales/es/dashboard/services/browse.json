@@ -55,6 +55,7 @@
 					"not_set": "Precio no establecido"
 				},
 				"filters": {
+					"price_error": "El precio mínimo no puede ser mayor que el precio máximo",
 					"categories": "Categorías",
 					"toggle_categories": "Alternar categorías",
 					"add_categories": "Agregar categorías...",
