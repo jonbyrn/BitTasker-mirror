@@ -5,24 +5,6 @@
 	import { fetchProfileMetadata } from '$lib/utils/nostr-message';
 	import { nip19 } from 'nostr-tools';
 
-	// Constants for pubkey validation
-	const HEX_PUBKEY_REGEX = /^[a-fA-F0-9]{64}$/;
-	const NPUB_PREFIX = 'npub1';
-
-	/**
-	 * Validate that an image URL uses safe protocols (http/https only)
-	 * Prevents XSS via javascript: or data: URLs
-	 */
-	function isSafeImageUrl(url: string | null | undefined): url is string {
-		if (!url) return false;
-		try {
-			const parsed = new URL(url);
-			return ['http:', 'https:'].includes(parsed.protocol);
-		} catch {
-			return false;
-		}
-	}
-
 	const {
 		avatar = null,
 		username = null,
@@ -118,12 +100,12 @@
 		if (!pubkeyToUse) return null;
 
 		// If it's already an npub, use it directly
-		if (pubkeyToUse.startsWith(NPUB_PREFIX)) {
+		if (pubkeyToUse.startsWith('npub1')) {
 			return `/npub/${pubkeyToUse}`;
 		}
 
 		// If it's hex, convert to npub for the URL
-		if (HEX_PUBKEY_REGEX.test(pubkeyToUse)) {
+		if (/^[a-fA-F0-9]{64}$/.test(pubkeyToUse)) {
 			try {
 				const npub = nip19.npubEncode(pubkeyToUse);
 				return `/npub/${npub}`;
@@ -154,7 +136,7 @@
 		// 2. Contains "..." (shortened npub pattern)
 		if (str.includes('...')) return true;
 		// 3. Is a hex string (64 chars, all hex)
-		if (HEX_PUBKEY_REGEX.test(str)) return true; // Hex pubkey
+		if (/^[0-9a-fA-F]{64}$/.test(str)) return true; // Hex pubkey
 		// 4. Is "[object Object]" or similar
 		if (str.startsWith('[object')) return true;
 		// 5. Is just numbers
@@ -210,16 +192,10 @@
 
 	/**
 	 * Get the display avatar - use fetched profile if available, otherwise use provided avatar
-	 * Only returns URLs that pass safety checks (http/https only)
 	 */
 	const displayAvatar = $derived.by(() => {
 		// Priority: fetched profile picture > provided avatar
-		const avatarUrl = fetchedProfile?.picture || avatar;
-		// Only return if it passes safety validation
-		if (isSafeImageUrl(avatarUrl)) {
-			return avatarUrl;
-		}
-		return null;
+		return fetchedProfile?.picture || avatar;
 	});
 
 	/**
@@ -230,7 +206,7 @@
 		if (!pubkeyInput) return null;
 
 		// Check if it's an npub format (starts with npub1)
-		if (pubkeyInput.startsWith(NPUB_PREFIX)) {
+		if (pubkeyInput.startsWith('npub1')) {
 			try {
 				const decoded = nip19.decode(pubkeyInput);
 				if (decoded.type === 'npub') {
@@ -243,12 +219,12 @@
 		}
 
 		// Check if it's a hex pubkey (64 characters)
-		if (HEX_PUBKEY_REGEX.test(pubkeyInput)) {
+		if (/^[a-fA-F0-9]{64}$/.test(pubkeyInput)) {
 			return pubkeyInput;
 		}
 
 		// If it's just "npub" without the full format, try to decode anyway
-		if (pubkeyInput.startsWith('npub') && !pubkeyInput.startsWith(NPUB_PREFIX)) {
+		if (pubkeyInput.startsWith('npub') && !pubkeyInput.startsWith('npub1')) {
 			try {
 				const decoded = nip19.decode(pubkeyInput);
 				// Use type assertion since we know it's an npub if decode succeeds
@@ -337,7 +313,6 @@
 							</span>
 						{:else}
 							<IconAccount
-								aria-hidden="true"
 								class="text-base-content/60 {size === 'sm'
 									? 'h-4 w-4'
 									: size === 'md'
@@ -372,7 +347,6 @@
 							</span>
 						{:else}
 							<IconAccount
-								aria-hidden="true"
 								class="text-base-content/60 {size === 'sm'
 									? 'h-4 w-4'
 									: size === 'md'
@@ -411,27 +385,20 @@
 		{/if}
 
 		<!-- Rating - same pattern as find-tasks: filled stars, yellow for filled, grey for empty -->
-		<div
-			class="flex items-center gap-1"
-			role="img"
-			aria-label="Rating: {rating || 0} out of 5 stars"
-		>
+		<div class="flex items-center gap-1">
 			{#each Array.from({ length: 5 }, (_, i) => i) as i (i)}
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
 					class="{config.star} {i < (rating || 0) ? 'text-yellow-400' : 'text-base-content/30'}"
 					fill="currentColor"
 					viewBox="0 0 24 24"
-					aria-hidden="true"
 				>
 					<path
 						d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
 					/>
 				</svg>
 			{/each}
-			<span class="text-base-content/60 ml-1 {config.rating} sr-only"
-				>({rating || 0} out of 5 stars)</span
-			>
+			<span class="text-base-content/60 ml-1 {config.rating}">{rating || 0}</span>
 		</div>
 	</div>
 </div>

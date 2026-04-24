@@ -19,24 +19,9 @@ import type {
 	TimeSlot,
 	ProfileTranslations
 } from '$lib/types/profile';
-import { ndk } from '$lib/nostr/ndk';
 
 // --- Relay Configuration ---
-function sanitizeRelayUrls(input: string | string[] | undefined): string[] {
-	if (!input) return [];
-
-	const rawUrls = Array.isArray(input) ? input : input.split(',');
-
-	return rawUrls
-		.map((url) => url.trim())
-		.filter((url) => {
-			return (
-				Boolean(url) && url.length > 0 && (url.startsWith('ws://') || url.startsWith('wss://'))
-			);
-		});
-}
-
-const DEFAULT_RELAYS = sanitizeRelayUrls(import.meta.env.VITE_NOSTR_RELAY_URL);
+const DEFAULT_RELAYS = [import.meta.env.VITE_NOSTR_RELAY_URL].filter(Boolean);
 
 /**
  * Get the centralized pool instance from appStore
@@ -293,44 +278,112 @@ export async function fetchProfileMetadata(
 		// First check cache using the canonical pubkey format.
 		const cachedProfile = await profileCache.getProfile(cacheKey);
 		if (cachedProfile) {
-			console.log('[UserInfoDisplay] fetchProfileMetadata: Cache hit for', cacheKey);
 			return cachedProfile;
 		}
 
-		console.log('[UserInfoDisplay] fetchProfileMetadata: Cache miss for', cacheKey);
+		// If not in cache, fetch from relays
+		const pool = getPool();
+		const filter: Filter = {
+			kinds: [
+				KINDS.PROFILE_METADATA,
+				KINDS.FILE_METADATA,
+				KINDS.PROFILE_IMAGES,
+				KINDS.NIP_65_RELAY_LIST
+			],
+			authors: [normalizedPubkey.hexPubkey],
+			limit: 20
+		};
 
-		// Use NDK to fetch profile
-		const user = ndk.getUser({ hexpubkey: normalizedPubkey.hexPubkey });
-		console.log('[UserInfoDisplay] fetchProfileMetadata: NDK user created, fetching profile');
+		const events = await pool.querySync(DEFAULT_RELAYS, filter);
 
-		await user.fetchProfile();
+		let name: string | undefined = undefined;
+		let picture: string | undefined = undefined;
+		let createdAt: string | undefined = undefined;
 
-		if (user.profile) {
-			const profile = {
-				name: user.profile.displayName || user.profile.name,
-				picture: user.profile.picture
-			};
-			console.log(
-				'[UserInfoDisplay] fetchProfileMetadata: NDK profile data:',
-				JSON.stringify(profile)
-			);
+		// Sort events by created_at (newest first) to get the latest profile info
+		const sortedEvents = events.sort((a, b) => b.created_at - a.created_at);
 
-			if (hasMeaningfulProfileMetadata(profile)) {
-				await profileCache.cacheProfile(cacheKey, profile);
+		for (const event of sortedEvents) {
+			if (event.kind === KINDS.PROFILE_METADATA && event.content) {
+				try {
+					const content = JSON.parse(event.content);
+
+					// Map displayName to name if name is not available
+					name = sanitizeProfileDisplayName(
+						content?.display_name ?? content?.displayName ?? content?.name
+					);
+
+					if (event.created_at) {
+						createdAt = formatStandardDateShort(new Date(event.created_at * 1000));
+					}
+
+					if (content.picture && !picture) {
+						picture = content.picture;
+					}
+
+					// Also check for other common picture fields
+					if (!picture && content.avatar) {
+						picture = content.avatar;
+					}
+
+					if (!picture && content.image) {
+						picture = content.image;
+					}
+				} catch (e) {
+					console.error('❌ Failed to parse profile metadata:', e);
+				}
+			} else if (!picture && event.kind === KINDS.FILE_METADATA) {
+				const urlTag = event.tags.find((t) => t[0] === 'url');
+				const altTag = event.tags.find((t) => t[0] === 'alt');
+				const mTag = event.tags.find((t) => t[0] === 'm'); // MIME type
+
+				if (urlTag && urlTag[1]) {
+					// Check if this is likely a profile picture
+					const alt = altTag && altTag[1] ? altTag[1].toLowerCase() : '';
+					const mime = mTag && mTag[1] ? mTag[1].toLowerCase() : '';
+
+					if (
+						alt.includes('profile') ||
+						alt.includes('avatar') ||
+						mime.startsWith('image/') ||
+						urlTag[1].match(/\.(jpg|jpeg|png|gif|webp)$/i)
+					) {
+						picture = urlTag[1];
+					}
+				}
+			} else if (!picture && event.kind === KINDS.PROFILE_IMAGES) {
+				// Handle kind 30063 (profile images) - same technique as profile page
+				const dTag = event.tags.find((t) => t[0] === 'd');
+
+				// Check if this is the profile-images event (same as profile page)
+				if (dTag && dTag[1] === 'profile-images' && !picture) {
+					try {
+						const images = JSON.parse(event.content);
+
+						if (Array.isArray(images) && images.length > 0) {
+							// Use the first image as the primary profile picture (same as profile page)
+							picture = images[0].url;
+						}
+					} catch (e) {
+						console.error('❌ Failed to parse profile images content:', e);
+					}
+				}
 			}
-
-			return profile;
 		}
 
-		console.log('[UserInfoDisplay] fetchProfileMetadata: No profile found via NDK');
-		return {};
+		const profile = { name, picture, createdAt };
+		if (hasMeaningfulProfileMetadata(profile)) {
+			await profileCache.cacheProfile(cacheKey, profile);
+		}
+
+		return profile;
 	} catch (error) {
 		console.error('💥 Failed to fetch profile metadata for', npub, ':', error);
 		return {};
 	}
 }
 
-function _sanitizeProfileDisplayName(value: unknown): string | undefined {
+function sanitizeProfileDisplayName(value: unknown): string | undefined {
 	if (typeof value !== 'string') {
 		return undefined;
 	}

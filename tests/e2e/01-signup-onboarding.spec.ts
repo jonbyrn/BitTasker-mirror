@@ -63,6 +63,8 @@ test.describe.serial('Signup and onboarding (create credentials file)', () => {
 		await page.getByTestId('signup-link').click();
 		await page.waitForLoadState('domcontentloaded');
 		await expect(page).toHaveURL(/\/auth\/signup/, { timeout: 10_000 });
+		// Click ToS checkbox before continuing (required for signup to proceed)
+		await page.getByTestId('signup-tos-checkbox').click();
 		const continueBtn = page.getByTestId('signup-continue');
 		await expect(continueBtn).toBeEnabled({ timeout: 10_000 });
 		await continueBtn.click();

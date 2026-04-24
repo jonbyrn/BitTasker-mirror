@@ -5,22 +5,7 @@ import KINDS from '$lib/utils/constants/kinds';
 import { get } from 'svelte/store';
 import { appStore } from '$lib/stores/app.store';
 
-/**
- * Sanitize relay URLs - handles comma-separated URLs
- */
-function sanitizeRelayUrls(input: string | string[] | undefined): string[] {
-	if (!input) return [];
-	const rawUrls = Array.isArray(input) ? input : input.split(',');
-	return rawUrls
-		.map((url) => url.trim())
-		.filter((url) => {
-			return (
-				Boolean(url) && url.length > 0 && (url.startsWith('ws://') || url.startsWith('wss://'))
-			);
-		});
-}
-
-const DEFAULT_RELAYS = sanitizeRelayUrls(import.meta.env.VITE_NOSTR_RELAY_URL);
+const DEFAULT_RELAYS = [import.meta.env.VITE_NOSTR_RELAY_URL].filter(Boolean);
 
 /**
  * Get the centralized pool instance from appStore
@@ -42,15 +27,6 @@ export type ContractProfile = {
 	averageRating?: number;
 	tasksCompleted?: number;
 };
-
-// Raw review structure from JSON parse
-interface RawReview {
-	id: string;
-	from: string;
-	rating: number;
-	text: string;
-	date: string;
-}
 
 /**
  * Lightweight profile fetching for contract panels
@@ -109,7 +85,7 @@ export async function fetchContractProfile(pubkey: string): Promise<ContractProf
 				} else if (event.kind === KINDS.PROFILE_REVIEWS) {
 					const content = JSON.parse(event.content);
 					if (Array.isArray(content)) {
-						reviews = content.map((review: RawReview) => ({
+						reviews = content.map((review: Record<string, unknown>) => ({
 							id: review.id,
 							from: review.from,
 							rating: review.rating,
