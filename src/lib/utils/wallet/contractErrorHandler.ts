@@ -128,7 +128,11 @@ export function extractContractError(error: unknown): ContractError {
 	// Wallet and transaction errors - check before generic wallet errors
 	if (errorLower.includes('insufficient balance') || errorLower.includes('insufficient funds')) {
 		// Check if this is specifically about transaction fees or gas
-		if (errorLower.includes('transaction fees') || errorLower.includes('transaction cost') || errorLower.includes('pay for gas')) {
+		if (
+			errorLower.includes('transaction fees') ||
+			errorLower.includes('transaction cost') ||
+			errorLower.includes('pay for gas')
+		) {
 			return {
 				userMessage: _('dashboard.contracts.errors.insufficient_gas'),
 				technicalMessage: errorMessage,
@@ -153,13 +157,27 @@ export function extractContractError(error: unknown): ContractError {
 
 	if (errorLower.includes('gas') || errorLower.includes('out of gas')) {
 		// Avoid false positives - check if it's actually a gas issue, not just containing "gas" in action/data
-		if (errorLower.includes('out of gas') || errorLower.includes('gas limit') || errorLower.includes('insufficient gas')) {
+		if (
+			errorLower.includes('out of gas') ||
+			errorLower.includes('gas limit') ||
+			errorLower.includes('insufficient gas')
+		) {
 			return {
 				userMessage: _('dashboard.contracts.errors.gas_error'),
 				technicalMessage: errorMessage,
 				errorCode: 'GAS_ERROR'
 			};
 		}
+	}
+
+	// Check for provider destroyed error specifically (before generic network check)
+	// This can happen during wallet reinitialization when cached contracts have stale providers
+	if (errorLower.includes('provider destroyed') || errorLower.includes('provider.destroyed')) {
+		return {
+			userMessage: _('dashboard.contracts.errors.wallet_error'),
+			technicalMessage: errorMessage,
+			errorCode: 'PROVIDER_DESTROYED'
+		};
 	}
 
 	if (errorLower.includes('network') || errorLower.includes('connection')) {
@@ -208,7 +226,7 @@ export function extractContractError(error: unknown): ContractError {
 		const revertMatch = errorMessage.match(/"([^"]+)"/);
 		if (revertMatch && revertMatch[1]) {
 			const revertReason = revertMatch[1];
-			
+
 			// Check if we have a specific handler for this revert reason
 			const specificError = extractContractError(new Error(revertReason));
 			if (specificError.errorCode) {
@@ -250,10 +268,10 @@ export function extractContractError(error: unknown): ContractError {
  */
 export function getErrorMessage(error: unknown, showTechnical = false): string {
 	const contractError = extractContractError(error);
-	
+
 	if (showTechnical && contractError.technicalMessage !== contractError.userMessage) {
 		return `${contractError.userMessage}\n\nTechnical details: ${contractError.technicalMessage}`;
 	}
-	
+
 	return contractError.userMessage;
 }

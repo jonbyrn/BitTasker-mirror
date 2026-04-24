@@ -112,6 +112,20 @@ export async function ensureEscrowReady(
 		}
 	}
 
+	// Verify cached contract's signer is the SAME INSTANCE as current wallet
+	// This handles the case where wallet was reinitialized (same address, but new instance
+	// with new provider) but cached contract still references the old destroyed wallet/provider
+	if (contract) {
+		const contractRunner = contract.runner as ethers.Wallet | null;
+
+		// Compare wallet instance references, not just addresses
+		// Even if addresses match, the old wallet's provider may be destroyed
+		if (contractRunner !== wallet) {
+			// Wallet instance changed - reset cached contract to force reinitialization
+			resetCachedContract();
+		}
+	}
+
 	// Determine which contract to use/initialize
 	let targetContract: ethers.Contract;
 
@@ -141,8 +155,20 @@ export async function ensureEscrowReady(
 			// Legacy contract - check cache or create new instance
 			const normalizedAddress = contractAddress.toLowerCase();
 
+			// Check if cached legacy contract's signer is the SAME INSTANCE as current wallet
+			const cachedLegacy = legacyContracts.get(normalizedAddress);
+			if (cachedLegacy) {
+				const cachedRunner = cachedLegacy.runner as ethers.Wallet | null;
+
+				// Compare wallet instance references, not just addresses
+				if (cachedRunner !== wallet) {
+					// Wallet instance changed - remove stale cached contract
+					legacyContracts.delete(normalizedAddress);
+				}
+			}
+
 			if (legacyContracts.has(normalizedAddress)) {
-				// Use cached legacy contract
+				// Use cached legacy contract (signer verified above)
 				targetContract = legacyContracts.get(normalizedAddress)!;
 			} else {
 				// Create new legacy contract instance
