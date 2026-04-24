@@ -519,7 +519,7 @@
 											<div class="bg-primary/20 h-0.5 flex-1 rounded-full"></div>
 											<div class="absolute -right-0.5 flex items-center">
 												<div
-													class="border-l-primary/30 border-t-[4px] border-b-[4px] border-l-[6px] border-transparent"
+													class="border-l-primary/30 border-t-4 border-l-[6px] border-transparent"
 												></div>
 											</div>
 										</div>
@@ -551,7 +551,7 @@
 									<div
 										class="relative overflow-hidden transition-[max-height] duration-500 ease-in-out {showFullIncludedScope
 											? 'max-h-[1000px]'
-											: 'max-h-[4.5rem]'}"
+											: 'max-h-18'}"
 									>
 										<p
 											bind:this={includedScopeElement}

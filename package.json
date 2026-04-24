@@ -27,6 +27,7 @@
 		"android:bundle:release": "npm run android:build && cd android && ./gradlew bundleRelease",
 		"android:install": "cd android && ./gradlew installDebug",
 		"android:build:install": "npm run android:build && cd android && ./gradlew assembleDebug installDebug",
+		"debug:install": "npm run build:dev && NODE_ENV=development npx cap sync && cd android && ./gradlew assembleDebug && cd .. && adb install -r android/app/build/outputs/apk/debug/app-universal-debug.apk",
 		"prepare": "husky && (npx --yes svelte-kit sync || echo '')",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",

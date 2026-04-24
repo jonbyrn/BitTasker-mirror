@@ -117,6 +117,7 @@
 						"lead_time_label": "Lead time before the service starts",
 						"delivery_time_label": "Delivery time",
 						"delivery_time_hint": "Estimated time to complete and deliver the service to the buyer",
+						"delivery_required_for_tiers": "When Book Now is enabled, delivery time is required for all tiers. You'll set the delivery time for each tier in the next step.",
 						"unit_hour": "Hours",
 						"unit_day": "Days",
 						"unit_week": "Weeks"
@@ -292,6 +293,7 @@
 					"hourly_rate_required": "Hourly rate is required",
 					"tiers_required": "At least 2 tiers are required for tiered pricing",
 					"tiers_description_price_required": "Description and price are required for each tier",
+					"tiers_delivery_time_required_for_book_now": "Delivery time is required for all tiers when Book Now is enabled.",
 					"create_failed": "Failed to create service. Please try again.",
 					"service_not_found": "Service not found",
 					"load_failed": "Failed to load service. Please try again.",

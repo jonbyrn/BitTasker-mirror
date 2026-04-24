@@ -3,7 +3,7 @@ import { KeyboardResize, KeyboardStyle } from '@capacitor/keyboard';
 import { loadEnv } from 'vite';
 
 // Load environment variables
-const env = loadEnv('', process.cwd(), '');
+const env = loadEnv(process.env.NODE_ENV || 'production', process.cwd(), '');
 
 // Only use server URL for live reload (when VITE_CLIENT_URL is explicitly set)
 // For production builds, omit server config to use bundled webDir

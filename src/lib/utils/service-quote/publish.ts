@@ -1,4 +1,5 @@
 import { browser } from '$app/environment';
+import { Preferences } from '@capacitor/preferences';
 import { getSignedEvent, publishToMultipleRelays, queryNostrEvents } from '$lib/utils/nostr';
 import { getNpub, getNostrKeyPair } from '$lib/utils/nostrKeys';
 import type {
@@ -146,7 +147,7 @@ export async function publishServiceQuoteRequest(
 		return {
 			event: duplicate as ServiceQuoteRequestEvent,
 			relayResults: [],
-			publishedRelaySet: getPublishedRelaySet(duplicate.id),
+			publishedRelaySet: await getPublishedRelaySet(duplicate.id),
 			duplicateOf: duplicate.id
 		};
 	}
@@ -174,7 +175,7 @@ export async function publishServiceQuoteRequest(
 	const publishedRelaySet = relayResults
 		.filter((result) => result.success)
 		.map((result) => result.relay);
-	persistPublishedRelaySet(validated.id, publishedRelaySet);
+	await persistPublishedRelaySet(validated.id, publishedRelaySet);
 	dispatchQuoteRequestPublishedSideEffects(validated, params.service, params.sideEffects);
 
 	return {
@@ -204,7 +205,7 @@ export async function publishServiceProposal(
 		return {
 			event: duplicate as ServiceProposalEvent,
 			relayResults: [],
-			publishedRelaySet: getPublishedRelaySet(duplicate.id),
+			publishedRelaySet: await getPublishedRelaySet(duplicate.id),
 			duplicateOf: duplicate.id
 		};
 	}
@@ -251,7 +252,7 @@ export async function publishServiceProposal(
 	}
 
 	const validated = validatePublishedEvent(event, content, validateServiceProposalEvent);
-	persistPublishedRelaySet(validated.id, successfulRelays);
+	await persistPublishedRelaySet(validated.id, successfulRelays);
 	dispatchProposalPublishedSideEffects(validated, params.sideEffects);
 
 	return {
@@ -298,7 +299,7 @@ export async function publishServiceProposalStatus(
 		return {
 			event: duplicate as ServiceProposalStatusEvent,
 			relayResults: [],
-			publishedRelaySet: getPublishedRelaySet(duplicate.id),
+			publishedRelaySet: await getPublishedRelaySet(duplicate.id),
 			duplicateOf: duplicate.id
 		};
 	}
@@ -332,7 +333,7 @@ export async function publishServiceProposalStatus(
 	const publishedRelaySet = relayResults
 		.filter((result) => result.success)
 		.map((result) => result.relay);
-	persistPublishedRelaySet(validated.id, publishedRelaySet);
+	await persistPublishedRelaySet(validated.id, publishedRelaySet);
 
 	return {
 		event: validated,
@@ -345,7 +346,10 @@ export async function publishServiceQuoteRequestDeletion(
 	params: PublishServiceQuoteRequestDeletionParams
 ): Promise<ServiceQuotePublishResult<NostrEvent>> {
 	const relays = [
-		...new Set([...getPublishedRelaySet(params.requestEventId), ...getDefaultRelays(params.relays)])
+		...new Set([
+			...(await getPublishedRelaySet(params.requestEventId)),
+			...getDefaultRelays(params.relays)
+		])
 	];
 	const targetRelays = relays.length > 0 ? relays : getDefaultRelays(params.relays);
 	const deletionEvent = await getSignedEvent({
@@ -376,7 +380,7 @@ export async function publishServiceProposalDeletion(
 ): Promise<ServiceQuotePublishResult<NostrEvent>> {
 	const relays = [
 		...new Set([
-			...getPublishedRelaySet(params.proposalEventId),
+			...(await getPublishedRelaySet(params.proposalEventId)),
 			...getDefaultRelays(params.relays)
 		])
 	];
@@ -404,7 +408,7 @@ export async function publishServiceProposalDeletion(
 	};
 }
 
-export function getPublishedRelaySet(eventId: string): string[] {
+export async function getPublishedRelaySet(eventId: string): Promise<string[]> {
 	const cached = publishedRelaySetCache.get(eventId);
 	if (cached) {
 		return cached;
@@ -415,7 +419,7 @@ export function getPublishedRelaySet(eventId: string): string[] {
 	}
 
 	try {
-		const raw = window.localStorage.getItem(PUBLISHED_RELAY_SET_KEY);
+		const { value: raw } = await Preferences.get({ key: PUBLISHED_RELAY_SET_KEY });
 		if (!raw) {
 			return [];
 		}
@@ -428,17 +432,17 @@ export function getPublishedRelaySet(eventId: string): string[] {
 	}
 }
 
-export function persistPublishedRelaySet(eventId: string, relays: string[]): void {
+export async function persistPublishedRelaySet(eventId: string, relays: string[]): Promise<void> {
 	publishedRelaySetCache.set(eventId, relays);
 	if (!browser) {
 		return;
 	}
 
 	try {
-		const raw = window.localStorage.getItem(PUBLISHED_RELAY_SET_KEY);
+		const { value: raw } = await Preferences.get({ key: PUBLISHED_RELAY_SET_KEY });
 		const parsed = raw ? (JSON.parse(raw) as Record<string, string[]>) : {};
 		parsed[eventId] = relays;
-		window.localStorage.setItem(PUBLISHED_RELAY_SET_KEY, JSON.stringify(parsed));
+		await Preferences.set({ key: PUBLISHED_RELAY_SET_KEY, value: JSON.stringify(parsed) });
 	} catch {
 		// ignore storage persistence failures
 	}
