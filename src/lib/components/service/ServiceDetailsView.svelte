@@ -1009,7 +1009,7 @@
 					message = $t('dashboard.services.detail.book_now_drawer.insufficient_funds_message', {
 						values: {
 							sats: formatSats(totalPaymentSats),
-							usd: `$${totalPaymentUsd.toFixed(2)}`
+							usd: `$${formatNumberWithTwoDecimals(totalPaymentUsd)}`
 						}
 					});
 					hint = null;
@@ -1236,7 +1236,7 @@
 	}
 
 	function submissionLockRelease() {
-		// Mock for now, will implement actual release if needed
+		clearBookNowOutboxForDraft(instantBuyDraft);
 	}
 
 	async function handleQuoteRequestConfirm(payload: QuoteRequestPayload) {
