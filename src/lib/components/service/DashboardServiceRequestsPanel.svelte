@@ -152,7 +152,7 @@
 		let recoveryIntervalId: ReturnType<typeof window.setInterval> | null = null;
 
 		const runServiceAcceptanceReplayCycle = async () => {
-			const dueReplayEntries = getAcceptanceReplayEntriesDueForRetry(window.localStorage);
+			const dueReplayEntries = await getAcceptanceReplayEntriesDueForRetry();
 			const replayEntries = dueReplayEntries.filter(
 				(entry) => !inFlightServiceAcceptanceReplays.has(entry.escrowId)
 			);
@@ -179,8 +179,7 @@
 		};
 
 		const runServiceAcceptanceReverifyCycle = async () => {
-			const dueMonitorEntries = getAcceptanceConfirmedMonitorEntriesDueForReverify(
-				window.localStorage,
+			const dueMonitorEntries = await getAcceptanceConfirmedMonitorEntriesDueForReverify(
 				Date.now(),
 				{
 					reverifyIntervalMs: SERVICE_ACCEPTANCE_CONFIRMED_MONITOR_REVERIFY_INTERVAL_MS

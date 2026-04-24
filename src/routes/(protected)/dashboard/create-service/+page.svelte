@@ -82,7 +82,7 @@
 
 	function getMyServicesUrl(): string {
 		const baseUrl = browser ? new URL(window.location.origin) : new URL('https://bittasker.local');
-		return buildEarningQueryUrl(new URL('/earning', baseUrl), {
+		return buildEarningQueryUrl(new URL('/dashboard/earning', baseUrl), {
 			tab: 'my-services'
 		});
 	}
@@ -251,6 +251,16 @@
 							errors.tiers = $t(
 								'dashboard.services.create.errors.tiers_description_price_required'
 							);
+						}
+
+						// When Book Now is enabled, all tiers must have delivery time
+						if (service.instantBuyLeadHours != null) {
+							const tiersMissingDeliveryTime = service.pricing.tiers.some((t) => !t.deliveryTime);
+							if (tiersMissingDeliveryTime) {
+								errors.tiers = $t(
+									'dashboard.services.create.errors.tiers_delivery_time_required_for_book_now'
+								);
+							}
 						}
 					}
 				}

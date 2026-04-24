@@ -127,7 +127,7 @@
 			return null;
 		}
 
-		const nextUrl = new URL('/earning', currentUrl.origin);
+		const nextUrl = new URL('/dashboard/earning', currentUrl.origin);
 
 		if (rawTab === 'bids' || rawTab === 'saved-searches') {
 			return new URL(
@@ -214,7 +214,7 @@
 				return;
 			}
 
-			const dueReplayEntries = getAcceptanceReplayEntriesDueForRetry(window.localStorage);
+			const dueReplayEntries = await getAcceptanceReplayEntriesDueForRetry();
 			const replayTargets = new SvelteSet<string>(
 				dueReplayEntries
 					.map((entry) => entry.escrowId)
@@ -264,8 +264,7 @@
 				return;
 			}
 
-			const dueMonitorEntries = getAcceptanceConfirmedMonitorEntriesDueForReverify(
-				window.localStorage,
+			const dueMonitorEntries = await getAcceptanceConfirmedMonitorEntriesDueForReverify(
 				Date.now(),
 				{
 					reverifyIntervalMs: SERVICE_ACCEPTANCE_CONFIRMED_MONITOR_REVERIFY_INTERVAL_MS

@@ -1,12 +1,13 @@
+import { browser } from '$app/environment';
+import { Preferences } from '@capacitor/preferences';
+import { StorageKeys } from '$lib/utils/constants/storage';
 import type { SearchServicesParams } from '$lib/types/service.d';
 
-const STORAGE_KEY = 'bittasker_service_search_filters';
-
 /**
- * Persist service search filters to localStorage
+ * Persist service search filters to storage
  */
-export function persistServiceSearchFilters(filters: SearchServicesParams): void {
-	if (typeof window === 'undefined') return;
+export async function persistServiceSearchFilters(filters: SearchServicesParams): Promise<void> {
+	if (!browser) return;
 
 	try {
 		// Only persist filter-related fields, not pagination
@@ -23,20 +24,23 @@ export function persistServiceSearchFilters(filters: SearchServicesParams): void
 			radius: filters.radius
 		};
 
-		window.localStorage.setItem(STORAGE_KEY, JSON.stringify(persistedFilters));
+		await Preferences.set({
+			key: StorageKeys.SERVICE_SEARCH_FILTERS,
+			value: JSON.stringify(persistedFilters)
+		});
 	} catch (error) {
 		console.warn('Failed to persist service search filters:', error);
 	}
 }
 
 /**
- * Load persisted service search filters from localStorage
+ * Load persisted service search filters from storage
  */
-export function loadPersistedServiceSearchFilters(): Partial<SearchServicesParams> | null {
-	if (typeof window === 'undefined') return null;
+export async function loadPersistedServiceSearchFilters(): Promise<Partial<SearchServicesParams> | null> {
+	if (!browser) return null;
 
 	try {
-		const stored = window.localStorage.getItem(STORAGE_KEY);
+		const { value: stored } = await Preferences.get({ key: StorageKeys.SERVICE_SEARCH_FILTERS });
 		if (!stored) return null;
 
 		return JSON.parse(stored);
@@ -49,11 +53,11 @@ export function loadPersistedServiceSearchFilters(): Partial<SearchServicesParam
 /**
  * Clear persisted service search filters
  */
-export function clearPersistedServiceSearchFilters(): void {
-	if (typeof window === 'undefined') return;
+export async function clearPersistedServiceSearchFilters(): Promise<void> {
+	if (!browser) return;
 
 	try {
-		window.localStorage.removeItem(STORAGE_KEY);
+		await Preferences.remove({ key: StorageKeys.SERVICE_SEARCH_FILTERS });
 	} catch (error) {
 		console.warn('Failed to clear persisted service search filters:', error);
 	}

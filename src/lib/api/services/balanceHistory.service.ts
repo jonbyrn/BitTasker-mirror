@@ -1,14 +1,15 @@
 /**
  * Historical Balance Service
- * 
+ *
  * Handles fetching and caching of historical wallet balance data for comparison periods (24h, 7d, 30d).
  * Uses block-level accuracy with API-first approach (Blockscout for RSK, free Binance RPC for BSC) and RPC fallback.
- * Implements daily caching strategy with localStorage persistence.
+ * Implements daily caching strategy with Capacitor Preferences persistence.
  */
 
 import { ethers } from 'ethers';
 import { RSK_NETWORKS, getBSCConfig } from '@bittasker/wallet-core';
 import cryptoPriceService from './crypto-price.service';
+import { Preferences } from '@capacitor/preferences';
 
 // Types
 export interface BalanceChange {
@@ -44,7 +45,8 @@ const CACHE_KEY_PREFIX = 'balance_history_';
 class HistoricalBalanceService {
 	// In-memory caches
 	private blockNumberCache: Map<string, number | null> = new Map();
-	private latestBlockCache: Map<string, { block: ethers.Block | null; timestamp: number }> = new Map();
+	private latestBlockCache: Map<string, { block: ethers.Block | null; timestamp: number }> =
+		new Map();
 	private historicalPricesCache: Map<string, number> = new Map();
 	private bscIndexingUnavailable = true; // BSC historical data not implemented yet
 	private oldCacheFormatsCleared = false; // Track if we've cleared old cache formats
@@ -73,23 +75,23 @@ class HistoricalBalanceService {
 		// Clear old cache formats on first use (one-time migration)
 		// This ensures old cache formats are removed immediately
 		if (!this.oldCacheFormatsCleared) {
-			this.clearOldCacheFormats();
+			await this.clearOldCacheFormats();
 			this.oldCacheFormatsCleared = true;
 		}
 
 		const now = Date.now();
 		const cacheKey = this.getCacheKey(address);
-		
+
 		// Also check and clear old format for this specific cache key
 		// This handles cases where the cache key might have been created before the migration
-		this.clearOldCacheFormatForKey(cacheKey);
-		
+		await this.clearOldCacheFormatForKey(cacheKey);
+
 		// Check cache for historical data (not calculated changes)
 		let historicalBalances: Array<number> | null = null;
 		let historicalPrices: Array<number | null> | null = null;
 		let blockNumbers: Array<number | null> | null = null;
-		
-		const cachedHistoricalData = this.getCachedHistoricalData(cacheKey);
+
+		const cachedHistoricalData = await this.getCachedHistoricalData(cacheKey);
 		if (cachedHistoricalData) {
 			historicalBalances = cachedHistoricalData.historicalBalances;
 			historicalPrices = cachedHistoricalData.historicalPrices;
@@ -98,24 +100,16 @@ class HistoricalBalanceService {
 			// Fetch fresh historical data
 			try {
 				// Pre-fetch all historical data in parallel
-				const prefetched = await this.prefetchHistoricalData(
-					this.periods,
-					now,
-					provider
-				);
+				const prefetched = await this.prefetchHistoricalData(this.periods, now, provider);
 				historicalPrices = prefetched.historicalPrices;
 				blockNumbers = prefetched.blockNumbers;
 
 				// Pre-fetch all historical balances in parallel
-				historicalBalances = await this.prefetchHistoricalBalances(
-					blockNumbers,
-					provider,
-					address
-				);
+				historicalBalances = await this.prefetchHistoricalBalances(blockNumbers, provider, address);
 
 				// Cache historical data (not calculated changes)
 				if (historicalBalances && historicalPrices && blockNumbers) {
-					this.setCachedHistoricalData(cacheKey, {
+					await this.setCachedHistoricalData(cacheKey, {
 						historicalBalances,
 						historicalPrices,
 						blockNumbers,
@@ -136,9 +130,11 @@ class HistoricalBalanceService {
 		}
 
 		// Validate array lengths match expected periods
-		if (historicalBalances.length !== this.periods.length || 
-		    historicalPrices.length !== this.periods.length || 
-		    blockNumbers.length !== this.periods.length) {
+		if (
+			historicalBalances.length !== this.periods.length ||
+			historicalPrices.length !== this.periods.length ||
+			blockNumbers.length !== this.periods.length
+		) {
 			console.error('[BalanceHistoryService] Historical data array length mismatch');
 			return this.getEmptyBalanceChanges();
 		}
@@ -148,7 +144,7 @@ class HistoricalBalanceService {
 			const results = await Promise.all(
 				this.periods.map(async (period, index) => {
 					try {
-						const targetTimestamp = now - period.hours * 60 * 60 * 1000;
+						// const targetTimestamp = now - period.hours * 60 * 60 * 1000;
 						const historicalBalanceSats = historicalBalances[index];
 						const historicalPrice = historicalPrices[index];
 
@@ -161,8 +157,8 @@ class HistoricalBalanceService {
 							historicalBalanceSats,
 							historicalPrice,
 							currentSats,
-							currentUsd,
-							targetTimestamp
+							currentUsd
+							// targetTimestamp
 						);
 					} catch (error) {
 						console.error(`[BalanceHistoryService] ${period.label} period error:`, error);
@@ -224,11 +220,12 @@ class HistoricalBalanceService {
 		try {
 			// Get network config based on environment
 			const rskNetwork = import.meta.env.VITE_RSK_NETWORK || 'mainnet';
-			const bscNetwork = import.meta.env.VITE_BSC_NETWORK || 'mainnet';
+			// const bscNetwork = import.meta.env.VITE_BSC_NETWORK || 'mainnet';
 
 			if (network === 'rsk') {
 				// RSK: Use Blockscout API (no API key required)
-				const explorerApiUrl = RSK_NETWORKS[rskNetwork as 'mainnet' | 'testnet']?.explorerApiUrl || null;
+				const explorerApiUrl =
+					RSK_NETWORKS[rskNetwork as 'mainnet' | 'testnet']?.explorerApiUrl || null;
 				if (!explorerApiUrl) {
 					return null;
 				}
@@ -254,7 +251,10 @@ class HistoricalBalanceService {
 					) {
 						blockNumberStr = String(data.result.blockNumber);
 					} else {
-						console.warn('[BalanceHistoryService] RSK API returned unexpected result format:', data);
+						console.warn(
+							'[BalanceHistoryService] RSK API returned unexpected result format:',
+							data
+						);
 						return null;
 					}
 
@@ -287,7 +287,9 @@ class HistoricalBalanceService {
 				});
 
 				if (!currentBlockResponse.ok) {
-					console.warn(`[BalanceHistoryService] BSC RPC returned status ${currentBlockResponse.status}`);
+					console.warn(
+						`[BalanceHistoryService] BSC RPC returned status ${currentBlockResponse.status}`
+					);
 					return null;
 				}
 
@@ -307,7 +309,10 @@ class HistoricalBalanceService {
 				// Estimate block number (BSC blocks ~3 seconds apart)
 				const BSC_BLOCK_TIME = 3; // seconds
 				const timeDiff = (currentTimestamp - targetTimestamp) / 1000; // Convert to seconds
-				const estimatedBlock = Math.max(0, currentBlockNumber - Math.floor(timeDiff / BSC_BLOCK_TIME));
+				const estimatedBlock = Math.max(
+					0,
+					currentBlockNumber - Math.floor(timeDiff / BSC_BLOCK_TIME)
+				);
 
 				// Binary search to find exact block (within ±100 blocks for efficiency)
 				const searchRange = 100;
@@ -318,8 +323,8 @@ class HistoricalBalanceService {
 					rpcUrl,
 					targetTimestamp,
 					minBlock,
-					maxBlock,
-					currentBlockNumber
+					maxBlock
+					// currentBlockNumber
 				);
 			}
 
@@ -338,8 +343,8 @@ class HistoricalBalanceService {
 		rpcUrl: string,
 		targetTimestamp: number,
 		minBlock: number,
-		maxBlock: number,
-		currentBlockNumber: number
+		maxBlock: number
+		// currentBlockNumber: number
 	): Promise<number | null> {
 		const targetTimestampSeconds = Math.floor(targetTimestamp / 1000);
 		let left = minBlock;
@@ -461,7 +466,7 @@ class HistoricalBalanceService {
 			// Use estimated block (good enough for historical comparisons)
 			this.blockNumberCache.set(cacheKey, estimatedBlock);
 			return estimatedBlock;
-		} catch (error: any) {
+		} catch (error) {
 			// Check for BSC indexing errors
 			if (
 				network === 'bsc' &&
@@ -496,7 +501,10 @@ class HistoricalBalanceService {
 
 			return price;
 		} catch (error) {
-			console.error(`[BalanceHistoryService] Error fetching historical price for ${daysAgo}d ago:`, error);
+			console.error(
+				`[BalanceHistoryService] Error fetching historical price for ${daysAgo}d ago:`,
+				error
+			);
 			return null;
 		}
 	}
@@ -553,17 +561,17 @@ class HistoricalBalanceService {
 			if (!rskProvider || !rskAddress || blockNumber === null) {
 				return Promise.resolve(0);
 			}
-		return rskProvider
-			.getBalance(rskAddress, blockNumber)
-			.then((balanceWei) => {
-				// Convert Wei directly to sats using integer arithmetic to avoid floating point precision issues
-				// 1 RBTC = 10^18 Wei, 1 BTC = 10^8 sats
-				// So: sats = (Wei * 10^8) / 10^18 = Wei / 10^10
-				// balanceWei is already a bigint from ethers, so use it directly
-				const satsBigInt = balanceWei / BigInt(10_000_000_000);
-				return Number(satsBigInt);
-			})
-			.catch(() => 0);
+			return rskProvider
+				.getBalance(rskAddress, blockNumber)
+				.then((balanceWei) => {
+					// Convert Wei directly to sats using integer arithmetic to avoid floating point precision issues
+					// 1 RBTC = 10^18 Wei, 1 BTC = 10^8 sats
+					// So: sats = (Wei * 10^8) / 10^18 = Wei / 10^10
+					// balanceWei is already a bigint from ethers, so use it directly
+					const satsBigInt = balanceWei / BigInt(10_000_000_000);
+					return Number(satsBigInt);
+				})
+				.catch(() => 0);
 		});
 
 		return await Promise.all(balancePromises);
@@ -577,8 +585,8 @@ class HistoricalBalanceService {
 		historicalBalanceSats: number,
 		historicalPrice: number,
 		currentSats: number,
-		currentUsd: number,
-		targetTimestamp: number
+		currentUsd: number
+		// targetTimestamp: number
 	): BalanceChange {
 		// Calculate historical USD value using the historical BTC price at that time
 		const historicalBtcAmount = historicalBalanceSats / 100_000_000;
@@ -627,11 +635,11 @@ class HistoricalBalanceService {
 	}
 
 	/**
-	 * Get cached historical data from localStorage
+	 * Get cached historical data from Preferences
 	 */
-	private getCachedHistoricalData(cacheKey: string): HistoricalDataCache | null {
+	private async getCachedHistoricalData(cacheKey: string): Promise<HistoricalDataCache | null> {
 		try {
-			const cached = localStorage.getItem(cacheKey);
+			const { value: cached } = await Preferences.get({ key: cacheKey });
 			if (!cached) return null;
 
 			const entry = JSON.parse(cached);
@@ -641,25 +649,37 @@ class HistoricalBalanceService {
 			// If so, clear it and return null to force fresh fetch
 			if (entry.data && Array.isArray(entry.data)) {
 				// Check if it looks like old format (BalanceChange array)
-				if (entry.data.length > 0 && entry.data[0] && typeof entry.data[0] === 'object' && 'satsChange' in entry.data[0]) {
-					localStorage.removeItem(cacheKey);
+				if (
+					entry.data.length > 0 &&
+					entry.data[0] &&
+					typeof entry.data[0] === 'object' &&
+					'satsChange' in entry.data[0]
+				) {
+					await Preferences.remove({ key: cacheKey });
 					return null;
 				}
 			}
 
 			// Validate new cache format - must have all required properties
-			if (!entry.historicalBalances || !Array.isArray(entry.historicalBalances) ||
-			    !entry.historicalPrices || !Array.isArray(entry.historicalPrices) ||
-			    !entry.blockNumbers || !Array.isArray(entry.blockNumbers)) {
-				localStorage.removeItem(cacheKey);
+			if (
+				!entry.historicalBalances ||
+				!Array.isArray(entry.historicalBalances) ||
+				!entry.historicalPrices ||
+				!Array.isArray(entry.historicalPrices) ||
+				!entry.blockNumbers ||
+				!Array.isArray(entry.blockNumbers)
+			) {
+				await Preferences.remove({ key: cacheKey });
 				return null;
 			}
 
 			// Validate array lengths match expected periods
-			if (entry.historicalBalances.length !== this.periods.length ||
-			    entry.historicalPrices.length !== this.periods.length ||
-			    entry.blockNumbers.length !== this.periods.length) {
-				localStorage.removeItem(cacheKey);
+			if (
+				entry.historicalBalances.length !== this.periods.length ||
+				entry.historicalPrices.length !== this.periods.length ||
+				entry.blockNumbers.length !== this.periods.length
+			) {
+				await Preferences.remove({ key: cacheKey });
 				return null;
 			}
 
@@ -669,26 +689,26 @@ class HistoricalBalanceService {
 			}
 
 			// Cache expired, remove it
-			localStorage.removeItem(cacheKey);
+			await Preferences.remove({ key: cacheKey });
 			return null;
 		} catch (error) {
 			console.error('[BalanceHistoryService] Error reading cache:', error);
+
 			// Clear potentially corrupted cache
-			try {
-				localStorage.removeItem(cacheKey);
-			} catch {
-				// Ignore errors when clearing
-			}
+			await Preferences.remove({ key: cacheKey });
 			return null;
 		}
 	}
 
 	/**
-	 * Set cached historical data in localStorage with daily expiration
+	 * Set cached historical data in Preferences with daily expiration
 	 */
-	private setCachedHistoricalData(cacheKey: string, data: HistoricalDataCache): void {
+	private async setCachedHistoricalData(
+		cacheKey: string,
+		data: HistoricalDataCache
+	): Promise<void> {
 		try {
-			localStorage.setItem(cacheKey, JSON.stringify(data));
+			await Preferences.set({ key: cacheKey, value: JSON.stringify(data) });
 		} catch (error) {
 			console.error('[BalanceHistoryService] Error writing cache:', error);
 		}
@@ -717,47 +737,48 @@ class HistoricalBalanceService {
 	/**
 	 * Clear all caches (useful for testing or manual refresh)
 	 */
-	clearCaches(): void {
+	async clearCaches(): Promise<void> {
 		this.blockNumberCache.clear();
 		this.latestBlockCache.clear();
 		this.historicalPricesCache.clear();
-		
-		// Clear localStorage cache
+
+		// Clear Preferences cache
 		try {
-			const keys = Object.keys(localStorage);
-			keys.forEach((key) => {
-				if (key.startsWith(CACHE_KEY_PREFIX)) {
-					localStorage.removeItem(key);
-				}
-			});
+			const { keys } = await Preferences.keys();
+			await Promise.all(
+				keys
+					.filter((key) => key.startsWith(CACHE_KEY_PREFIX))
+					.map((key) => Preferences.remove({ key }))
+			);
 		} catch (error) {
-			console.error('[BalanceHistoryService] Error clearing localStorage cache:', error);
+			console.error('[BalanceHistoryService] Error clearing Preferences cache:', error);
 		}
 	}
 
 	/**
 	 * Clear old cache format for a specific cache key
 	 */
-	private clearOldCacheFormatForKey(cacheKey: string): void {
+	private async clearOldCacheFormatForKey(cacheKey: string): Promise<void> {
 		try {
-			const cached = localStorage.getItem(cacheKey);
+			const { value: cached } = await Preferences.get({ key: cacheKey });
 			if (!cached) return;
 
 			const entry = JSON.parse(cached);
-			
+
 			// Check if this is the old format (has 'data' property with BalanceChange[])
 			if (entry.data && Array.isArray(entry.data)) {
-				if (entry.data.length > 0 && entry.data[0] && typeof entry.data[0] === 'object' && 'satsChange' in entry.data[0]) {
-					localStorage.removeItem(cacheKey);
+				if (
+					entry.data.length > 0 &&
+					entry.data[0] &&
+					typeof entry.data[0] === 'object' &&
+					'satsChange' in entry.data[0]
+				) {
+					await Preferences.remove({ key: cacheKey });
 				}
 			}
-		} catch (error) {
+		} catch {
 			// If parsing fails, remove the cache entry
-			try {
-				localStorage.removeItem(cacheKey);
-			} catch {
-				// Ignore errors when clearing
-			}
+			await Preferences.remove({ key: cacheKey });
 		}
 	}
 
@@ -765,14 +786,14 @@ class HistoricalBalanceService {
 	 * Clear old cache formats (migration helper)
 	 * Call this once to migrate from old cache format to new format
 	 */
-	clearOldCacheFormats(): void {
+	async clearOldCacheFormats(): Promise<void> {
 		try {
-			const keys = Object.keys(localStorage);
-			keys.forEach((key) => {
-				if (key.startsWith(CACHE_KEY_PREFIX)) {
-					this.clearOldCacheFormatForKey(key);
-				}
-			});
+			const { keys } = await Preferences.keys();
+			await Promise.all(
+				keys
+					.filter((key) => key.startsWith(CACHE_KEY_PREFIX))
+					.map((key) => this.clearOldCacheFormatForKey(key))
+			);
 		} catch (error) {
 			console.error('[BalanceHistoryService] Error clearing old cache formats:', error);
 		}
@@ -803,7 +824,7 @@ class HistoricalBalanceService {
 
 		// Calculate number of days
 		const daysDiff = Math.ceil((endTimestamp - startTimestamp) / (24 * 60 * 60 * 1000));
-		
+
 		// Limit to reasonable number of days (max 365)
 		const maxDays = Math.min(daysDiff, 365);
 
@@ -814,18 +835,20 @@ class HistoricalBalanceService {
 		let currentBtcPrice: number | null = null;
 		try {
 			currentBtcPrice = await cryptoPriceService.getCurrentPrice('BTC');
-		} catch (error) {
-			console.warn('[BalanceHistoryService] Failed to get current BTC price, will use provided USD value');
+		} catch {
+			console.warn(
+				'[BalanceHistoryService] Failed to get current BTC price, will use provided USD value'
+			);
 		}
 
 		// Fetch balances for each day
 		const balancePromises: Promise<{ date: Date; sats: number; usd: number }>[] = [];
-		
+
 		for (let i = 0; i <= maxDays; i++) {
 			const targetDate = new Date(startTimestamp + i * 24 * 60 * 60 * 1000);
 			targetDate.setHours(0, 0, 0, 0);
 			const targetTimestamp = targetDate.getTime();
-			
+
 			// Skip future dates
 			if (targetTimestamp > now) {
 				continue;
@@ -833,7 +856,7 @@ class HistoricalBalanceService {
 
 			// Check if this is today or in the future - use current balance
 			const isTodayOrFuture = targetTimestamp >= today.getTime();
-			
+
 			if (isTodayOrFuture) {
 				// Use current balance for today and future dates
 				const btcAmount = currentSats / 100_000_000;
@@ -871,14 +894,17 @@ class HistoricalBalanceService {
 						// Get historical price for this day
 						const daysAgo = Math.floor((now - targetEndOfDay) / (24 * 60 * 60 * 1000));
 						const btcPrice = await this.fetchHistoricalPrice(daysAgo);
-						
+
 						// Calculate USD value
 						const btcAmount = sats / 100_000_000;
 						const usd = btcPrice ? btcAmount * btcPrice : 0;
 
 						return { date: targetDate, sats, usd };
 					} catch (error) {
-						console.error(`[BalanceHistoryService] Error fetching balance for ${targetDate.toISOString()}:`, error);
+						console.error(
+							`[BalanceHistoryService] Error fetching balance for ${targetDate.toISOString()}:`,
+							error
+						);
 						// Return zero balance instead of failing - ensures we have data points
 						return { date: targetDate, sats: 0, usd: 0 };
 					}
@@ -903,4 +929,3 @@ class HistoricalBalanceService {
 
 // Export singleton instance
 export default new HistoricalBalanceService();
-

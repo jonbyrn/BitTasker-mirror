@@ -12,6 +12,7 @@ export const StorageKeys = {
 	DRAFT_SERVICE: 'bittasker_service_draft',
 	DRAFT_SERVICE_EDIT: 'bittasker_service_edit_draft',
 	SERVICE_FILTERS: 'bittasker_service_filters',
+	SERVICE_SEARCH_FILTERS: 'bittasker_service_search_filters',
 
 	// User preferences
 	ONBOARDING_COMPLETED: 'onboardingCompleted',

@@ -38,6 +38,9 @@
 			"retry": "Reintentar cargar ofertas",
 			"loading_user_data": "Error al cargar datos del usuario"
 		},
+		"errors": {
+			"failed_to_load_content": "Error al cargar el contenido. Por favor intenta de nuevo."
+		},
 		"empty": {
 			"title": "Aún no hay ofertas",
 			"find_tasks": "Buscar tareas para ofertar",
@@ -410,12 +413,13 @@
 		"accept": "Aceptar"
 	},
 	"bids_panel": {
+		"title": "Ofertas",
 		"failed_to_accept_bid": "Error al aceptar la oferta",
 		"failed_to_reject_bid": "Error al rechazar la oferta",
+		"failed_to_load_counter_offers": "Error al cargar contraofertas",
 		"enter_counter_offer_amount": "Ingresa el monto de la contraoferta:",
 		"enter_message_for_counter_offer": "Ingresa el mensaje para la contraoferta:",
 		"failed_to_create_counter_offer": "Error al crear la contraoferta",
-		"title": "Ofertas",
 		"bid": "oferta",
 		"bids": "ofertas",
 		"submitted": "enviadas"

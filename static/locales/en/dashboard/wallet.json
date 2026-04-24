@@ -1,6 +1,7 @@
 {
 	"wallet": {
 		"title": "Wallet",
+		"learn_more": "Learn More",
 		"tab_balance": "Balance",
 		"tab_receive": "Receive",
 		"tab_send": "Send",
@@ -62,10 +63,12 @@
 		"status_failed": "Failed",
 		"status_confirmations": "Confirmations",
 		"transaction": {
+			"hash_copied": "Transaction hash copied",
 			"status": {
 				"confirmed": "Confirmed",
 				"pending": "Pending",
-				"failed": "Failed"
+				"failed": "Failed",
+				"confirmations": "{count} confirmations"
 			},
 			"type": {
 				"send": "Sent",
@@ -409,6 +412,7 @@
 			"sending_transaction": "Sending Transaction",
 			"can_close_safely": "You can safely close this screen and the transaction will continue.",
 			"transaction_failed": "Transaction failed",
+			"transaction_confirmed": "Transaction confirmed!",
 			"status": {
 				"sending": "Sending Transaction",
 				"confirming": "Confirming Transaction",
@@ -688,9 +692,6 @@
 			"loading_fees": "Calculating fees...",
 			"service_fee": "Service Fee",
 			"miner_fee": "Miner Fee",
-			"error": {
-				"fee_fetch_failed": "Failed to fetch swap fees"
-			},
 			"action": {
 				"refund": "Refund",
 				"renegotiate": "Adjust Amount",

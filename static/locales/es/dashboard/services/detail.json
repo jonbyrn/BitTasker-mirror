@@ -97,6 +97,7 @@
 				"rush_delivery_tag": "Entrega Urgente",
 				"rush_delivery_desc": "Entrega en {value} {unit}{plural}.",
 				"rush_delivery_prefix": "Entrega en",
+				"inactive_service": "Este servicio está actualmente inactivo.",
 				"instant_buy": {
 					"pricing_unavailable": "El precio de Reservar ahora no está disponible para este servicio.",
 					"select_tier_required": "Selecciona un paquete para continuar con Reservar ahora.",

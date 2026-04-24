@@ -15,6 +15,7 @@
 		"title": "¡Ups! Algo salió mal",
 		"description": "Ocurrió un error inesperado. No te preocupes, nuestro equipo ha sido notificado y estamos trabajando en ello."
 	},
+	"general": "Ocurrió un error. Por favor intenta de nuevo.",
 	"actions": {
 		"go_home": "Ir al Inicio",
 		"go_back": "Volver",

@@ -4,7 +4,6 @@
 	import { page } from '$app/state';
 	import { beforeNavigate, goto } from '$app/navigation';
 	import { authState } from '$lib/stores/auth.store';
-	import { ImpactStyle, triggerHaptic } from '$lib/utils/helpers/haptics';
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 
 	import IconLogout from '~icons/mdi/logout';
@@ -129,13 +128,12 @@
 		if (!target) return;
 		const interactive = target.closest('a,button,[role="button"]');
 		if (!interactive) return;
-		void triggerHaptic(ImpactStyle.Light);
 	}
 
 	$effect(() => {
 		const path = page.url.pathname;
 		// More specific route detection for active states
-		if (path === '/dashboard' || path === '/earning') {
+		if (path === '/dashboard' || path === '/dashboard/earning') {
 			currentSection = 'home';
 		} else if (path === '/tasks' || path.startsWith('/tasks/')) {
 			currentSection = 'find-tasks';
@@ -408,8 +406,8 @@
 								<!-- 3. Earning (Link) -->
 								<li>
 									<a
-										href="/earning"
-										onclick={(e) => handleNavWithMenuClose(e, '/earning')}
+										href="/dashboard/earning"
+										onclick={(e) => handleNavWithMenuClose(e, '/dashboard/earning')}
 										class="min-h-[48px] py-3"
 									>
 										<IconInvoiceTextSendOutline class="text-primary" />

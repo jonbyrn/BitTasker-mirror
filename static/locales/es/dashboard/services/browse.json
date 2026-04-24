@@ -55,6 +55,7 @@
 					"not_set": "Precio no establecido"
 				},
 				"filters": {
+					"price_error": "El precio mínimo no puede ser mayor que el precio máximo",
 					"categories": "Categorías",
 					"toggle_categories": "Alternar categorías",
 					"add_categories": "Agregar categorías...",
@@ -71,7 +72,7 @@
 					"min_price": "Precio Mínimo ($)",
 					"max_price": "Precio Máximo ($)",
 					"clear_price_range": "Limpiar",
-					"delivery_time": "Tiempo de Entrega",
+					"delivery_time_label": "Tiempo de Entrega",
 					"toggle_delivery_time": "Alternar tiempo de entrega",
 					"any_delivery_time": "Cualquiera",
 					"delivery_time": {

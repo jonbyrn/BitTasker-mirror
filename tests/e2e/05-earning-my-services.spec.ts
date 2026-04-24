@@ -38,7 +38,9 @@ test.describe('earning my services browser coverage', () => {
 
 		await page.getByRole('button', { name: 'Requests' }).click();
 
-		await expect(page).toHaveURL(/\/earning\?tab=requests&service=30402%3Aa{64}%3Aservice-123/);
+		await expect(page).toHaveURL(
+			/\/dashboard\/earning\?tab=requests&service=30402%3Aa{64}%3Aservice-123/
+		);
 	});
 
 	test('navigates from the real my-services panel to the earning contracts tab', async ({
@@ -55,7 +57,7 @@ test.describe('earning my services browser coverage', () => {
 		await page.getByRole('button', { name: 'Contracts' }).click();
 
 		await expect(page).toHaveURL(
-			/\/earning\?tab=contracts&context=services&highlight=svc-escrow-live&service=30402%3Aa{64}%3Aservice-123/
+			/\/dashboard\/earning\?tab=contracts&context=services&highlight=svc-escrow-live&service=30402%3Aa{64}%3Aservice-123/
 		);
 	});
 

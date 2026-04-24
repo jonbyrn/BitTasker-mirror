@@ -388,7 +388,7 @@
 		}
 
 		const nextUrl = new URL(
-			buildEarningQueryUrl(new URL('/earning', window.location.origin), {
+			buildEarningQueryUrl(new URL('/dashboard/earning', window.location.origin), {
 				tab: 'requests',
 				service: buildServiceAddress(service)
 			})
@@ -406,7 +406,7 @@
 		const highlightEscrowId =
 			primaryContract.escrowData?.id ?? primaryContract.contractEvent.content.escrowId;
 		const nextUrl = new URL(
-			buildEarningQueryUrl(new URL('/earning', window.location.origin), {
+			buildEarningQueryUrl(new URL('/dashboard/earning', window.location.origin), {
 				tab: 'contracts',
 				context: 'services',
 				highlight: highlightEscrowId,
