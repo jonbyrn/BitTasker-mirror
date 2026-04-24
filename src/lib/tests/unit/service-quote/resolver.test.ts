@@ -526,7 +526,8 @@ describe('service-quote resolver', () => {
 		expect(summarizeDeleteGuardForThreads([acceptedThread], 0)).toEqual({
 			hasBlockingThreads: false,
 			blockingThreadCount: 0,
-			totalThreadCount: 1
+			totalThreadCount: 1,
+			activeContractCount: 0
 		});
 	});
 });

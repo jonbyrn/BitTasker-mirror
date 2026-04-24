@@ -206,6 +206,29 @@ describe('service contract preflight', () => {
 		});
 	});
 
+	it('fails when the provider wallet is the zero address', async () => {
+		const { preflightServiceContractCreation } = await import(
+			'$lib/utils/service-contract/preflight'
+		);
+
+		await expect(
+			preflightServiceContractCreation(
+				{
+					freelancerAddress: '0x0000000000000000000000000000000000000000',
+					freelancerPubkey: 'b'.repeat(64),
+					amountUsdt: '125.00',
+					estimatedStartTime: 1_800_000_000,
+					estimatedCompletionTime: 1_800_086_400
+				},
+				100000
+			)
+		).resolves.toEqual({
+			ok: false,
+			errorCode: 'invalid_provider_wallet',
+			error: 'Provider wallet address cannot be zero address.'
+		});
+	});
+
 	it('fails when the service amount is invalid before wallet preflight begins', async () => {
 		const { preflightServiceContractCreation } = await import(
 			'$lib/utils/service-contract/preflight'

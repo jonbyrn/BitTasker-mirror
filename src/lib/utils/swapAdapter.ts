@@ -1,9 +1,9 @@
 /**
  * Nostr-based Swap Storage Adapter
- * 
+ *
  * Consolidated implementation of SwapStorage interface for Boltz swaps.
  * Uses Nostr (NIP-44 encryption) for decentralized, user-owned data storage.
- * 
+ *
  * Features:
  * - Implements SwapStorage interface from @bittasker/wallet-core
  * - Save/update swap data to Nostr with NIP-44 encryption
@@ -12,17 +12,37 @@
  * - Supports both reverse swaps (Lightning → RBTC) and chain swaps (L-BTC → RBTC)
  */
 
-import type { SwapStorage, BoltzSwapData, ChainSwapData, SubmarineSwapData } from '@bittasker/wallet-core';
+import type {
+	SwapStorage,
+	BoltzSwapData,
+	ChainSwapData,
+	SubmarineSwapData
+} from '@bittasker/wallet-core';
 import { randomBytes } from 'crypto';
 import { Buffer } from 'buffer';
-import { getPublicKey, finalizeEvent, type NostrEvent } from 'nostr-tools';
+import { getPublicKey, finalizeEvent } from 'nostr-tools';
 import nip44 from '$lib/nostr/nip44';
 import KINDS from '$lib/utils/constants/kinds';
 import { appStore } from '$lib/stores/app.store';
 import { get } from 'svelte/store';
 
+/**
+ * Sanitize relay URLs - handles comma-separated URLs
+ */
+function sanitizeRelayUrls(input: string | string[] | undefined): string[] {
+	if (!input) return [];
+	const rawUrls = Array.isArray(input) ? input : input.split(',');
+	return rawUrls
+		.map((url) => url.trim())
+		.filter((url) => {
+			return (
+				Boolean(url) && url.length > 0 && (url.startsWith('ws://') || url.startsWith('wss://'))
+			);
+		});
+}
+
 // Define relay URLs
-const RELAYS = [import.meta.env.VITE_NOSTR_RELAY_URL].filter(Boolean);
+const RELAYS = sanitizeRelayUrls(import.meta.env.VITE_NOSTR_RELAY_URL);
 
 /**
  * Get the centralized pool instance from appStore
@@ -43,7 +63,7 @@ export type PendingSwapData = BoltzSwapData | ChainSwapData | SubmarineSwapData;
 
 /**
  * Save swap data to Nostr (encrypted via NIP-44)
- * 
+ *
  * The ENTIRE event content is encrypted with NIP-44.
  * Sensitive fields (preimage, refundPrivateKey) are stored as plaintext
  * within the encrypted content - no double encryption needed.
@@ -138,7 +158,16 @@ async function saveSwapToNostr(
 		// Prepare Nostr event (parameterized replaceable)
 		const tags: string[][] = [
 			['d', swapData.id], // Unique identifier (makes it replaceable)
-			['a', String('amount' in swapData ? swapData.amount : 'fromAmount' in swapData ? swapData.fromAmount : 0)],
+			[
+				'a',
+				String(
+					'amount' in swapData
+						? swapData.amount
+						: 'fromAmount' in swapData
+							? swapData.fromAmount
+							: 0
+				)
+			],
 			['s', swapData.status],
 			['t', swapType] // Swap type tag for filtering
 		];
@@ -337,13 +366,14 @@ export class NostrSwapStorage implements SwapStorage {
 	constructor(
 		private nsec: Uint8Array,
 		private swapType: SwapType
-	) { }
+	) {}
 
 	/**
 	 * Save swap data to Nostr
 	 * @param swapId - Unique swap identifier
 	 * @param data - Swap data to save
 	 */
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	async save(swapId: string, data: any): Promise<void> {
 		try {
 			await saveSwapToNostr(data, this.nsec, this.swapType);
@@ -357,10 +387,11 @@ export class NostrSwapStorage implements SwapStorage {
 	 * @param swapId - Unique swap identifier
 	 * @returns Swap data or null if not found
 	 */
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	async load(swapId: string): Promise<any | null> {
 		try {
 			const swaps = await this.loadAll();
-			return swaps.find(s => s.id === swapId) || null;
+			return swaps.find((s) => s.id === swapId) || null;
 		} catch (error) {
 			console.error(`Failed to load swap ${swapId} from Nostr:`, error);
 			return null;
@@ -370,6 +401,7 @@ export class NostrSwapStorage implements SwapStorage {
 	 * Load all swaps of this type
 	 * @returns Array of swap data
 	 */
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	async loadAll(): Promise<any[]> {
 		try {
 			return await recoverPendingSwaps(this.nsec, this.swapType);
@@ -403,4 +435,3 @@ export class NostrSwapStorage implements SwapStorage {
 		}
 	}
 }
-

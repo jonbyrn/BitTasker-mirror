@@ -8,6 +8,21 @@ interface Toast {
 	id: number;
 }
 
+/**
+ * Sanitize relay URLs - handles comma-separated URLs
+ */
+export function sanitizeRelayUrls(input: string | string[] | undefined): string[] {
+	if (!input) return [];
+	const rawUrls = Array.isArray(input) ? input : input.split(',');
+	return rawUrls
+		.map((url) => url.trim())
+		.filter((url) => {
+			return (
+				Boolean(url) && url.length > 0 && (url.startsWith('ws://') || url.startsWith('wss://'))
+			);
+		});
+}
+
 interface AppStore {
 	nostrKeys: {
 		nsec: Uint8Array | null;
@@ -56,7 +71,7 @@ const createAppStore = () => {
 		biometricData: null,
 		network: import.meta.env.VITE_RSK_NETWORK || 'testnet',
 		pool: lazyPool,
-		relays: [import.meta.env.VITE_NOSTR_RELAY_URL]
+		relays: sanitizeRelayUrls(import.meta.env.VITE_NOSTR_RELAY_URL)
 	});
 
 	const { subscribe, set, update } = store;

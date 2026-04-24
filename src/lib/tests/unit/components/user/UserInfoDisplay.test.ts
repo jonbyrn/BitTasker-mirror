@@ -251,6 +251,42 @@ describe('UserInfoDisplay', () => {
 				{ timeout: 5000 }
 			);
 		});
+
+		it('should show avatar with https:// URL (allowed)', async () => {
+			mockProfileConfig.name = 'TestUser';
+			mockProfileConfig.picture = 'https://example.com/avatar.png';
+
+			render(UserInfoDisplay, {
+				pubkey: VALID_HEX_PUBKEY,
+				rating: 0
+			});
+
+			await waitFor(
+				() => {
+					const img = document.querySelector('img[src="https://example.com/avatar.png"]');
+					expect(img).toBeInTheDocument();
+				},
+				{ timeout: 10000 }
+			);
+		});
+
+		it('should show avatar with http:// URL (allowed)', async () => {
+			mockProfileConfig.name = 'TestUser';
+			mockProfileConfig.picture = 'http://example.com/avatar.png';
+
+			render(UserInfoDisplay, {
+				pubkey: VALID_HEX_PUBKEY,
+				rating: 0
+			});
+
+			await waitFor(
+				() => {
+					const img = document.querySelector('img[src="http://example.com/avatar.png"]');
+					expect(img).toBeInTheDocument();
+				},
+				{ timeout: 10000 }
+			);
+		});
 	});
 
 	describe('Shows first letter of display name as avatar fallback', () => {

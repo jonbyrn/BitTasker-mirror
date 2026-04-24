@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { readable } from 'svelte/store';
 
-const mockQuerySync = vi.hoisted(() => vi.fn());
+// Hoisted mocks - must be before any imports that use them
+const mockNdkGetUser = vi.hoisted(() => vi.fn());
+const mockNdkFetchProfile = vi.hoisted(() => vi.fn());
 const mockProfileCacheStore = vi.hoisted(
 	() => new Map<string, { name?: string; picture?: string; createdAt?: string }>()
 );
@@ -16,10 +18,16 @@ const mockCacheProfile = vi.hoisted(() =>
 	)
 );
 
+vi.mock('$lib/nostr/ndk', () => ({
+	ndk: {
+		getUser: mockNdkGetUser
+	}
+}));
+
 vi.mock('$lib/stores/app.store', () => ({
 	appStore: readable({
 		pool: {
-			querySync: (...args: Parameters<typeof mockQuerySync>) => mockQuerySync(...args)
+			querySync: vi.fn()
 		}
 	})
 }));
@@ -42,22 +50,35 @@ describe('fetchProfileMetadata', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		mockProfileCacheStore.clear();
+		mockNdkFetchProfile.mockReset();
 	});
 
 	it('does not cache empty profile lookups, allowing later retries to succeed', async () => {
-		mockQuerySync.mockResolvedValueOnce([]).mockResolvedValueOnce([
-			{
-				kind: 0,
-				pubkey,
-				created_at: 1_700_000_000,
-				content: JSON.stringify({ display_name: 'Recovered Name' }),
-				tags: []
-			}
-		]);
+		// First call returns no profile, second call returns profile
+		const mockUserNoProfile = {
+			hexpubkey: pubkey,
+			npub: npub,
+			profile: null,
+			fetchProfile: mockNdkFetchProfile
+				.mockResolvedValueOnce(undefined)
+				.mockResolvedValueOnce(undefined)
+		};
+		const mockUserWithProfile = {
+			hexpubkey: pubkey,
+			npub: npub,
+			profile: {
+				displayName: 'Recovered Name',
+				name: undefined,
+				picture: undefined
+			},
+			fetchProfile: mockNdkFetchProfile.mockResolvedValueOnce(undefined)
+		};
+
+		mockNdkGetUser.mockReturnValueOnce(mockUserNoProfile).mockReturnValueOnce(mockUserWithProfile);
 
 		const firstResult = await fetchProfileMetadata(npub);
 		expect(firstResult).toEqual({});
-		expect(mockCacheProfile).not.toHaveBeenCalledWith(expect.any(String), {});
+		expect(mockCacheProfile).not.toHaveBeenCalled();
 
 		const secondResult = await fetchProfileMetadata(npub);
 		expect(secondResult).toEqual(
@@ -65,19 +86,21 @@ describe('fetchProfileMetadata', () => {
 				name: 'Recovered Name'
 			})
 		);
-		expect(mockQuerySync).toHaveBeenCalledTimes(2);
+		expect(mockNdkFetchProfile).toHaveBeenCalledTimes(2);
 	});
 
 	it('uses a canonical cache key so npub and hex lookups share the same cached profile', async () => {
-		mockQuerySync.mockResolvedValueOnce([
-			{
-				kind: 0,
-				pubkey,
-				created_at: 1_700_000_001,
-				content: JSON.stringify({ display_name: 'Canonical User' }),
-				tags: []
-			}
-		]);
+		const mockUser = {
+			hexpubkey: pubkey,
+			npub: npub,
+			profile: {
+				displayName: 'Canonical User',
+				name: undefined,
+				picture: undefined
+			},
+			fetchProfile: mockNdkFetchProfile.mockResolvedValue(undefined)
+		};
+		mockNdkGetUser.mockReturnValue(mockUser);
 
 		const firstResult = await fetchProfileMetadata(npub);
 		expect(firstResult).toEqual(
@@ -86,12 +109,14 @@ describe('fetchProfileMetadata', () => {
 			})
 		);
 
+		// Second call with hex pubkey should use cached result
 		const secondResult = await fetchProfileMetadata(pubkey);
 		expect(secondResult).toEqual(
 			expect.objectContaining({
 				name: 'Canonical User'
 			})
 		);
-		expect(mockQuerySync).toHaveBeenCalledTimes(1);
+		// Should only fetch once since second call uses cache
+		expect(mockNdkFetchProfile).toHaveBeenCalledTimes(1);
 	});
 });

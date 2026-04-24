@@ -24,7 +24,7 @@
 	import { get } from 'svelte/store';
 	import { contractStore } from '$lib/stores/contract.store';
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
-	import { ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';
+	import { ServicePricingTypeEnum, ServiceLocationTypeEnum } from '$lib/utils/enums/service.enum';
 	import { TASK_CATEGORIES } from '$lib/utils/constants/categories';
 	import ServiceAddOnsSelector from '$lib/components/service/ServiceAddOnsSelector.svelte';
 	import Modal from '$lib/components/Modal.svelte';
@@ -61,8 +61,8 @@
 	import { FEE_TIERS } from '@bittasker/wallet-core';
 
 	const DEFAULT_CLIENT_FEE_TIER = 1;
-	const PLATFORM_FEE_RATE = FEE_TIERS[DEFAULT_CLIENT_FEE_TIER].percentage / 10000;
-	const ESTIMATED_NETWORK_FEE_USD = 0.5;
+	const _PLATFORM_FEE_RATE = FEE_TIERS[DEFAULT_CLIENT_FEE_TIER].percentage / 10000;
+	const _ESTIMATED_NETWORK_FEE_USD = 0.5;
 	import { formatSats, totalBalances, walletManager, walletStore } from '$lib/stores/wallet.store';
 	import type { ContractCreationEvent } from '$lib/types/contract';
 	import { queryTaskeeServiceQuoteThreads } from '$lib/utils/service-quote/query';
@@ -406,6 +406,7 @@
 		btcPrice?: number | null;
 		totalRequiredUsd?: number | null;
 		totalRequiredSats?: string | null;
+		shortfallUsd?: number | null;
 	} | null>(null);
 
 	const instantBuyRequiredUsdLabel = $derived.by(() => {
@@ -521,41 +522,46 @@
 	} | null {
 		const taskeeLocation = svc.locationDetails?.taskeeLocation;
 		const taskerLocation = svc.locationDetails?.taskerLocation;
+		const locationType = svc.serviceLocationTypes?.[0];
 
-		if (
-			taskeeLocation?.serviceLocation?.latitude != null &&
-			taskeeLocation?.serviceLocation?.longitude != null
-		) {
-			const address =
-				taskeeLocation.locationDisplayName ||
-				taskeeLocation.serviceLocation.displayName ||
-				taskeeLocation.serviceLocation.formattedAddress ||
-				'';
-			return {
-				address,
-				locationType: 'taskee',
-				radius: taskeeLocation.serviceRadius,
-				latitude: taskeeLocation.serviceLocation.latitude,
-				longitude: taskeeLocation.serviceLocation.longitude
-			};
+		if (locationType === ServiceLocationTypeEnum.TASKEE_LOCATION) {
+			if (
+				taskeeLocation?.serviceLocation?.latitude != null &&
+				taskeeLocation?.serviceLocation?.longitude != null
+			) {
+				const address =
+					taskeeLocation.locationDisplayName ||
+					taskeeLocation.serviceLocation.displayName ||
+					taskeeLocation.serviceLocation.formattedAddress ||
+					'';
+				return {
+					address,
+					locationType: 'taskee',
+					radius: taskeeLocation.serviceRadius,
+					latitude: taskeeLocation.serviceLocation.latitude,
+					longitude: taskeeLocation.serviceLocation.longitude
+				};
+			}
 		}
 
-		if (
-			taskerLocation?.serviceLocation?.latitude != null &&
-			taskerLocation?.serviceLocation?.longitude != null
-		) {
-			const address =
-				taskerLocation.locationDisplayName ||
-				taskerLocation.serviceLocation.displayName ||
-				taskerLocation.serviceLocation.formattedAddress ||
-				'';
-			return {
-				address,
-				locationType: 'tasker',
-				radius: taskerLocation.serviceRadius,
-				latitude: taskerLocation.serviceLocation.latitude,
-				longitude: taskerLocation.serviceLocation.longitude
-			};
+		if (locationType === ServiceLocationTypeEnum.TASKER_LOCATION) {
+			if (
+				taskerLocation?.serviceLocation?.latitude != null &&
+				taskerLocation?.serviceLocation?.longitude != null
+			) {
+				const address =
+					taskerLocation.locationDisplayName ||
+					taskerLocation.serviceLocation.displayName ||
+					taskerLocation.serviceLocation.formattedAddress ||
+					'';
+				return {
+					address,
+					locationType: 'tasker',
+					radius: taskerLocation.serviceRadius,
+					latitude: taskerLocation.serviceLocation.latitude,
+					longitude: taskerLocation.serviceLocation.longitude
+				};
+			}
 		}
 
 		return null;
@@ -998,16 +1004,14 @@
 				let message: string;
 				let hint: string | null;
 
-				if (isInsufficient && draft.amountUsd) {
-					const baseAmount = draft.amountUsd;
-					const platformFee = baseAmount * PLATFORM_FEE_RATE;
-					const totalPaymentUsd = baseAmount + platformFee + ESTIMATED_NETWORK_FEE_USD;
-					const totalPaymentSats = Math.round((totalPaymentUsd * 100_000_000) / btcPriceValue);
+				if (isInsufficient && draft.amountUsd && preflight.shortfallUsd != null) {
+					const shortfallUsd = Math.max(0, preflight.shortfallUsd);
+					const shortfallSats = Math.round((shortfallUsd * 100_000_000) / btcPriceValue);
 
 					message = $t('dashboard.services.detail.book_now_drawer.insufficient_funds_message', {
 						values: {
-							sats: formatSats(totalPaymentSats),
-							usd: `$${totalPaymentUsd.toFixed(2)}`
+							sats: formatSats(shortfallSats),
+							usd: `$${shortfallUsd.toFixed(2)}`
 						}
 					});
 					hint = null;
@@ -1035,7 +1039,8 @@
 					totalRequiredSats:
 						isInsufficient && preflight.totalRequired
 							? formatSats(Math.round(Number.parseFloat(preflight.totalRequired) * 100_000_000))
-							: ''
+							: '',
+					shortfallUsd: isInsufficient ? (preflight.shortfallUsd ?? null) : null
 				};
 				return;
 			}
@@ -1162,15 +1167,40 @@
 			if (entry.state === 'submission_locked' || entry.state === 'contract_creation_failed') {
 				const contractEvent = await createServiceContract({
 					buyerPubkey: $user?.npub || '',
-					sellerPubkey: service.npub,
+					freelancerPubkey: service.npub,
+					freelancerAddress: instantBuyDraft.providerAddress ?? '',
+					serviceTitle: displayTitle,
 					amountUsdt: instantBuyDraft.amountUsd.toFixed(2),
 					serviceId: service.id,
 					serviceAddress: instantBuyDraft.serviceAddress,
+					contextVersionRef: service.id,
+					purchaseMode: 'instant_buy',
+					instantOrderId: instantBuyDraft.snapshot.instantOrderId,
 					pricingSnapshot: instantBuyDraft.pricingSnapshot,
 					agreementSnapshot: instantBuyDraft.agreementSnapshot,
 					estimatedStartTime: instantBuyDraft.snapshot.estimatedStartTime,
 					estimatedCompletionTime: instantBuyDraft.snapshot.estimatedEndTime
 				});
+
+				// Check if contract creation failed (e.g., preflight failure)
+				if (!contractEvent.success) {
+					console.error(
+						'[ServiceDetailsView] Contract creation failed:',
+						contractEvent.error,
+						contractEvent.errorCode
+					);
+					const errorMessage =
+						contractEvent.error ||
+						detailText(
+							'dashboard.services.detail.instant_buy.complete_error',
+							'Unable to complete Book Now right now.'
+						);
+					instantBuyPostSubmitErrorMessage = errorMessage;
+					updateBookNowOutboxForDraft(instantBuyDraft, 'contract_creation_failed');
+					instantBuySubmitting = false;
+					submissionLockRelease();
+					return;
+				}
 
 				entry = updateBookNowOutboxForDraft(instantBuyDraft, 'contract_created', {
 					transactionHash: contractEvent.transactionHash,
@@ -1182,9 +1212,10 @@
 				instantBuyPendingTransactionHash = entry.transactionHash;
 				_instantBuyPendingAmountRbtc = entry.amountRbtc || '';
 
-				const contract = await waitForContractCreationByTransactionHash(entry.transactionHash, {
-					timeoutMs: 45_000
-				});
+				const contract = await waitForContractCreationByTransactionHash(
+					entry.transactionHash,
+					45_000
+				);
 
 				updateBookNowOutboxForDraft(instantBuyDraft, 'escrow_created', {
 					escrowId: contract.escrowId
@@ -2448,6 +2479,7 @@
 		onAddFunds={handleAddFunds}
 		onRetry={() => prepareInstantBuyDraft(instantBuyDraft)}
 		onClose={handleCloseInstantBuyDrawer}
+		shortfallUsd={instantBuyFundingCheck?.shortfallUsd ?? null}
 	/>
 
 	<Modal

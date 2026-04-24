@@ -53,7 +53,8 @@
 		onRetry = () => {},
 		onRefresh = () => {},
 		onAddFunds = undefined,
-		onClose = () => {}
+		onClose = () => {},
+		shortfallUsd = null
 	} = $props<{
 		open?: boolean;
 		title?: string;
@@ -94,6 +95,7 @@
 		onRefresh?: () => void;
 		onAddFunds?: (amountUsd: number) => void;
 		onClose?: () => void;
+		shortfallUsd?: number | null;
 	}>();
 
 	const DEFAULT_CLIENT_FEE_TIER = 1;
@@ -194,8 +196,16 @@
 	let confirmModalOpen = $state(false);
 
 	function handleAddFunds() {
-		if (onAddFunds && totalPaymentValue != null) {
-			onAddFunds(totalPaymentValue);
+		// Use shortfall amount when user has insufficient funds, otherwise use full payment amount
+		const amountToRequest =
+			walletVerificationErrorCode === 'insufficient_funds' &&
+			shortfallUsd != null &&
+			shortfallUsd > 0
+				? shortfallUsd
+				: totalPaymentValue;
+
+		if (onAddFunds && amountToRequest != null) {
+			onAddFunds(amountToRequest);
 		} else {
 			onClose();
 			goto('/dashboard/wallet?tab=receive');
