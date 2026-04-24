@@ -252,6 +252,16 @@
 								'dashboard.services.create.errors.tiers_description_price_required'
 							);
 						}
+
+						// When Book Now is enabled, all tiers must have delivery time
+						if (service.instantBuyLeadHours != null) {
+							const tiersMissingDeliveryTime = service.pricing.tiers.some((t) => !t.deliveryTime);
+							if (tiersMissingDeliveryTime) {
+								errors.tiers = $t(
+									'dashboard.services.create.errors.tiers_delivery_time_required_for_book_now'
+								);
+							}
+						}
 					}
 				}
 				break;

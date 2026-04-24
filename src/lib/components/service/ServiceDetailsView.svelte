@@ -490,7 +490,6 @@
 		}
 
 		lastInstantBuyDebugSignature = nextSignature;
-		console.debug('[ServiceDetailsView] Book Now diagnostics', debugSnapshot);
 	});
 
 	function translateCategory(category: { id: string; name: string } | string): string {

@@ -517,7 +517,7 @@
 
 		searchQuery = filterParams.search || '';
 
-		persistServiceSearchFilters(searchParams);
+		await persistServiceSearchFilters(searchParams);
 
 		await findServicesWithTimeout(searchParams);
 		isApplyingFilters = false;
@@ -543,7 +543,7 @@
 			searchParamsKey: ''
 		}));
 
-		persistServiceSearchFilters(searchParams);
+		await persistServiceSearchFilters(searchParams);
 
 		isApplyingFilters = true;
 		await findServicesWithTimeout(searchParams);
@@ -634,7 +634,7 @@
 			// MAJOR #10: Ensure sessionStorage data is loaded before loadNostrData starts
 			// Use a promise chain to prevent race conditions
 			const initPromise = (async () => {
-				const persistedFilters = loadPersistedServiceSearchFilters();
+				const persistedFilters = await loadPersistedServiceSearchFilters();
 				if (persistedFilters) {
 					searchParams = {
 						...getInitialSearchParams(),

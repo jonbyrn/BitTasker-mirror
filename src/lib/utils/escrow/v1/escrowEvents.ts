@@ -91,9 +91,9 @@ function createServiceAcceptanceReplayTarget(
 	};
 }
 
-function resolveServiceAcceptanceReplayTarget(
+async function resolveServiceAcceptanceReplayTarget(
 	escrowId: string
-): ServiceAcceptanceReplayPublishTarget | null {
+): Promise<ServiceAcceptanceReplayPublishTarget | null> {
 	const pendingContract = pendingContracts.get(escrowId);
 	if (pendingContract) {
 		const inMemoryTarget = createServiceAcceptanceReplayTarget(
@@ -106,7 +106,7 @@ function resolveServiceAcceptanceReplayTarget(
 		}
 	}
 
-	const replayEntry = getAcceptanceReplayEntry(escrowId);
+	const replayEntry = await getAcceptanceReplayEntry(escrowId);
 	if (!replayEntry) {
 		return null;
 	}
@@ -124,15 +124,15 @@ function resolveServiceAcceptanceReplayTarget(
 	};
 }
 
-function persistConfirmedServiceAcceptanceMonitor(
+async function persistConfirmedServiceAcceptanceMonitor(
 	target: ServiceAcceptanceReplayPublishTarget,
 	publishedStatus: 'accepted' | 'accept_unknown' | 'contract_sync_pending' = 'accepted'
-): void {
+): Promise<void> {
 	if (!target.acceptanceSnapshot) {
 		return;
 	}
 
-	upsertAcceptanceConfirmedMonitorEntry({
+	await upsertAcceptanceConfirmedMonitorEntry({
 		escrowId: target.escrowId,
 		proposalId: target.proposalId,
 		proposalEventId: target.proposalEventId,
@@ -399,7 +399,7 @@ export type PublishedServiceAcceptanceReverifyResult =
 export async function retryPendingServiceAcceptanceByEscrowId(
 	escrowId: string
 ): Promise<PendingServiceAcceptanceRetryResult> {
-	const replayTarget = resolveServiceAcceptanceReplayTarget(escrowId);
+	const replayTarget = await resolveServiceAcceptanceReplayTarget(escrowId);
 	if (!replayTarget) {
 		return { status: 'not_found' };
 	}
@@ -433,12 +433,12 @@ export async function retryPendingServiceAcceptanceByEscrowId(
 			undefined,
 			replayTarget.transactionHash
 		);
-		persistConfirmedServiceAcceptanceMonitor(replayTarget);
+		await persistConfirmedServiceAcceptanceMonitor(replayTarget);
 		pendingContracts.delete(escrowId);
-		clearAcceptanceReplayEntry(escrowId);
+		await clearAcceptanceReplayEntry(escrowId);
 		return { status: 'accepted' };
 	} catch (statusUpdateError) {
-		upsertAcceptanceReplayEntry(replayTarget);
+		await upsertAcceptanceReplayEntry(replayTarget);
 		completeServiceProposalAcceptance(
 			replayTarget.proposalId,
 			false,
@@ -461,7 +461,7 @@ export async function retryPendingServiceAcceptanceByEscrowId(
 export async function reverifyPublishedServiceAcceptanceByEscrowId(
 	escrowId: string
 ): Promise<PublishedServiceAcceptanceReverifyResult> {
-	const monitorEntry = getAcceptanceConfirmedMonitorEntry(escrowId);
+	const monitorEntry = await getAcceptanceConfirmedMonitorEntry(escrowId);
 	if (!monitorEntry) {
 		return { status: 'not_found' };
 	}
@@ -508,7 +508,7 @@ export async function reverifyPublishedServiceAcceptanceByEscrowId(
 				);
 			}
 
-			upsertAcceptanceConfirmedMonitorEntry({
+			await upsertAcceptanceConfirmedMonitorEntry({
 				escrowId: monitorEntry.escrowId,
 				proposalId: monitorEntry.proposalId,
 				proposalEventId: monitorEntry.proposalEventId,
@@ -526,7 +526,7 @@ export async function reverifyPublishedServiceAcceptanceByEscrowId(
 		}
 
 		if (result.status === 'deferred') {
-			upsertAcceptanceConfirmedMonitorEntry({
+			await upsertAcceptanceConfirmedMonitorEntry({
 				escrowId: monitorEntry.escrowId,
 				proposalId: monitorEntry.proposalId,
 				proposalEventId: monitorEntry.proposalEventId,
@@ -573,7 +573,7 @@ export async function reverifyPublishedServiceAcceptanceByEscrowId(
 				monitorEntry.transactionHash
 			);
 		}
-		upsertAcceptanceConfirmedMonitorEntry({
+		await upsertAcceptanceConfirmedMonitorEntry({
 			escrowId: monitorEntry.escrowId,
 			proposalId: monitorEntry.proposalId,
 			proposalEventId: monitorEntry.proposalEventId,
@@ -594,7 +594,7 @@ export async function reverifyPublishedServiceAcceptanceByEscrowId(
 			{ escrowId, proposalId: monitorEntry.proposalId },
 			error
 		);
-		upsertAcceptanceConfirmedMonitorEntry({
+		await upsertAcceptanceConfirmedMonitorEntry({
 			escrowId: monitorEntry.escrowId,
 			proposalId: monitorEntry.proposalId,
 			proposalEventId: monitorEntry.proposalEventId,
@@ -815,7 +815,7 @@ export async function handleEscrowCreated(event: EscrowCreatedEvent): Promise<vo
 						undefined,
 						event.transactionHash
 					);
-					persistConfirmedServiceAcceptanceMonitor(
+					await persistConfirmedServiceAcceptanceMonitor(
 						{
 							escrowId: event.escrowId,
 							proposalId: pendingContract.proposalId,
@@ -829,7 +829,7 @@ export async function handleEscrowCreated(event: EscrowCreatedEvent): Promise<vo
 						},
 						'accepted'
 					);
-					clearAcceptanceReplayEntry(event.escrowId);
+					await clearAcceptanceReplayEntry(event.escrowId);
 				} catch (statusUpdateError) {
 					const replayTarget = createServiceAcceptanceReplayTarget(
 						pendingContract,
@@ -837,7 +837,7 @@ export async function handleEscrowCreated(event: EscrowCreatedEvent): Promise<vo
 						event.transactionHash
 					);
 					if (replayTarget) {
-						upsertAcceptanceReplayEntry({
+						await upsertAcceptanceReplayEntry({
 							...replayTarget,
 							acceptanceSnapshot: event.acceptanceSnapshot ?? replayTarget.acceptanceSnapshot
 						});
