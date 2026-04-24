@@ -293,7 +293,7 @@ export async function preflightServiceContractCreation(
 
 		if (balanceWei < totalRequiredWei) {
 			const shortfallWei = totalRequiredWei - balanceWei;
-			// Shortfall including estimated network fee: (base + platform fee + $0.50) - wallet balance
+			// Use fixed $0.50 fee for consistency with the sponsor service model
 			const estimatedFeeWei = ethers.parseEther((ESTIMATED_NETWORK_FEE_USD / btcPrice).toFixed(8));
 			const totalWithEstimatedFeeWei = totalPaymentWei + estimatedFeeWei;
 			const shortfallWithoutGasWei =
@@ -303,7 +303,7 @@ export async function preflightServiceContractCreation(
 				ok: false,
 				errorCode: 'insufficient_funds',
 				error: `Insufficient RBTC balance. You have ${formatRbtcAmount(balanceWei)} RBTC but need ${formatRbtcAmount(totalRequiredWei)} RBTC (including gas). Shortfall: ${formatRbtcAmount(shortfallWei)} RBTC.`,
-				totalRequired: ethers.formatEther(totalRequiredWei),
+				totalRequired: ethers.formatEther(totalWithEstimatedFeeWei),
 				shortfallUsd
 			};
 		}
