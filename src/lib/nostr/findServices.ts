@@ -175,20 +175,20 @@ export async function convertEventToService(event: Event): Promise<Service> {
 			createdAt: event.created_at
 		} as Service;
 
-		// DEBUG: Log hex pubkey usernames before profile fetch
-		const isHexPubkey =
-			service.creator.username && /^[0-9a-fA-F]{64}$/.test(service.creator.username);
-		if (isHexPubkey) {
-			console.log(
-				'[DEBUG] Found hex pubkey username:',
-				service.creator.username?.substring(0, 16) + '...',
-				'for service:',
-				service.title
-			);
-		}
-
 		// Fetch creator profile data (reviews, rating, and name) if creator info exists
 		if (service.creator && event.pubkey) {
+			// DEBUG: Log hex pubkey usernames before profile fetch
+			const isHexPubkey =
+				service.creator.username && /^[0-9a-fA-F]{64}$/.test(service.creator.username);
+			if (isHexPubkey) {
+				console.log(
+					'[DEBUG] Found hex pubkey username:',
+					service.creator.username?.substring(0, 16) + '...',
+					'for service:',
+					service.title
+				);
+			}
+
 			// Deduplicate in-flight profile fetches
 			if (!profileFetchPromises.has(event.pubkey)) {
 				const promise = fetchComprehensiveProfileSafe(event.pubkey);

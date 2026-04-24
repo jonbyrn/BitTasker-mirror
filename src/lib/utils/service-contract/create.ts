@@ -120,6 +120,16 @@ export async function createServiceContract(
 		}
 
 		amount = preflight.amount;
+
+		// Defensive: ensure walletAddress exists before normalization
+		if (!preflight.walletAddress) {
+			return {
+				success: false,
+				state: 'preflight_failed',
+				error: 'Wallet address was not provided by preflight check.'
+			};
+		}
+
 		clientRskAddress = normalizePlainRskAddress(preflight.walletAddress);
 		acceptanceSnapshot = createServiceAcceptanceSnapshot({
 			clientRskAddress,

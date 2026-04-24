@@ -60,6 +60,7 @@ describe('publishContractEvent', () => {
 
 		await publishContractEvent({
 			escrowId: 'escrow-123',
+			taskId: 'task-123',
 			freelancerPubkey: 'a'.repeat(64),
 			clientRskAddress: '0xabcdef1234567890abcdef1234567890abcdef12',
 			amount: '0.00125000',

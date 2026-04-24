@@ -12,7 +12,7 @@
 	import { satsFromUsd } from '$lib/utils/helpers/crypto';
 	import { ServicePricingTypeEnum, ServiceLocationTypeEnum } from '$lib/utils/enums/service.enum';
 	import { isApproximatePublicLocation } from '$lib/utils/location/public-location';
-	import Avatar from '../Avatar.svelte';
+	import UserInfoDisplay from '$lib/components/user/UserInfoDisplay.svelte';
 	import ServiceShareButton from './ServiceShareButton.svelte';
 	import IconEye from '~icons/mdi/eye';
 	import IconPlus from '~icons/mdi/plus';
@@ -41,15 +41,6 @@
 		service.pricing?.type === ServicePricingTypeEnum.INQUIRY_REQUIRED
 	);
 	const showRequestQuoteButton = $derived(isInquiryRequired && !!onRequestQuote && canRequestQuote);
-
-	function formatMemberSince(timestamp: number): string {
-		try {
-			const date = new Date(timestamp * 1000);
-			return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-		} catch {
-			return '';
-		}
-	}
 
 	// Helper function to get pricing display
 	function getPricingDisplay(): string {
@@ -425,44 +416,18 @@
 			</div>
 		{/if}
 
-		<!-- Bottom Row: Avatar + Ver (abajo - matches TaskCard) -->
+		<!-- Bottom Row: UserInfoDisplay (matches TaskCard) -->
 		<div class="mt-auto flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-			{#if service.creator}
-				<div class="flex min-w-0 flex-1 items-center gap-3">
-					{#if service.creator.avatar}
-						<Avatar name={service.creator.username} picture={service.creator.avatar} size="md" />
-					{:else}
-						<Avatar name={service.creator.username} size="md" />
-					{/if}
-					<div class="min-w-0 flex-1">
-						<div class="text-base-content truncate text-sm font-medium">
-							{service.creator.username}
-						</div>
-						{#if service.createdAt}
-							<div class="text-base-content/60 text-xs">
-								{$t('common.profile.member_since')}
-								{formatMemberSince(service.createdAt)}
-							</div>
-						{/if}
-						<div
-							class="flex items-center gap-1.5"
-							aria-label="Rating: {rating.toFixed(1)} out of 5 stars"
-						>
-							{#each [0, 1, 2, 3, 4] as idx (idx)}
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									class="text-base-content/40 h-3 w-3"
-									fill="currentColor"
-									viewBox="0 0 24 24"
-								>
-									<path
-										d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
-									/>
-								</svg>
-							{/each}
-							<span class="text-base-content/60 text-xs">{rating.toFixed(1)}</span>
-						</div>
-					</div>
+			{#if service.creator || service.npub}
+				<div class="min-w-0 flex-1">
+					<UserInfoDisplay
+						username={service.creator?.username}
+						avatar={service.creator?.avatar}
+						pubkey={service.npub}
+						{rating}
+						memberSince={service.createdAt}
+						size="md"
+					/>
 				</div>
 			{:else}
 				<div class="flex-1"></div>

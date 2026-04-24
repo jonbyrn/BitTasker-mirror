@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { get } from 'svelte/store';
-import { appStore } from '$lib/stores/app.store';
+import { appStore, sanitizeRelayUrls } from '$lib/stores/app.store';
 
 describe('appStore', () => {
 	beforeEach(() => {
@@ -110,6 +110,43 @@ describe('appStore', () => {
 			const returned = appStore.initializePool();
 			expect(returned).toBe(poolBefore);
 			expect(get(appStore).pool).toBe(poolBefore);
+		});
+	});
+
+	describe('sanitizeRelayUrls', () => {
+		it('should parse comma-separated relay URLs', () => {
+			const result = sanitizeRelayUrls('wss://relay1.example.com,wss://relay2.example.com');
+			expect(result).toEqual(['wss://relay1.example.com', 'wss://relay2.example.com']);
+		});
+
+		it('should handle single relay URL', () => {
+			const result = sanitizeRelayUrls('wss://relay.example.com');
+			expect(result).toEqual(['wss://relay.example.com']);
+		});
+
+		it('should handle array of relay URLs', () => {
+			const result = sanitizeRelayUrls(['wss://relay1.com', 'wss://relay2.com']);
+			expect(result).toEqual(['wss://relay1.com', 'wss://relay2.com']);
+		});
+
+		it('should filter out invalid URLs and keep valid ones', () => {
+			const result = sanitizeRelayUrls('invalid-url,wss://valid.com');
+			expect(result).toEqual(['wss://valid.com']);
+		});
+
+		it('should reject non-secure WebSocket URLs (http://)', () => {
+			const result = sanitizeRelayUrls('http://insecure.com');
+			expect(result).toEqual([]);
+		});
+
+		it('should return empty array for empty string', () => {
+			const result = sanitizeRelayUrls('');
+			expect(result).toEqual([]);
+		});
+
+		it('should return empty array for undefined', () => {
+			const result = sanitizeRelayUrls(undefined);
+			expect(result).toEqual([]);
 		});
 	});
 });

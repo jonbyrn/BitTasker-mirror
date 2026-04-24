@@ -241,6 +241,15 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 			// Cast properly through unknown since NostrEvent has string content by default
 			const statusEvents = contractEvent.statusEvents?.sort((a, b) => a.created_at - b.created_at);
 
+			// Early validation: ensure required fields exist before blockchain call
+			if (!contractEvent.content.escrowId) {
+				d.warn('Contract event missing escrowId, skipping', {
+					eventId: event.id,
+					contentKeys: Object.keys(contractEvent.content || {})
+				});
+				continue;
+			}
+
 			// RECOVERY: Check for stale PendingAcceptance events and attempt to recover
 			if (statusEvents && contractEvent.content.escrowId) {
 				const pendingAcceptanceEvents = statusEvents.filter(
@@ -365,6 +374,12 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 					// For infrastructure errors, don't set isPending - these should be retried
 					// Skip this contract - don't create it with invalid state
 					// The contract will be retried on next load or via subscription
+					d.warn('Skipping contract due to infrastructure error', {
+						escrowId: contractEvent.content.escrowId,
+						eventId: event.id,
+						error: errorMessage,
+						errorType: isWalletError ? 'wallet' : isProviderError ? 'provider' : 'contract'
+					});
 					continue; // Skip to next contract in the loop
 				}
 			}
@@ -400,6 +415,11 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 			// Skip contracts with null escrowData - these are infrastructure errors that should be retried
 			// Only create contracts with valid escrowData OR legitimate pending state (escrow not found with transactionHash)
 			if (!escrowData && !isPending) {
+				d.warn('Skipping contract - no escrowData and not pending', {
+					escrowId: contractEvent.content.escrowId,
+					eventId: event.id,
+					hasTransactionHash: !!contractEvent.content.transactionHash
+				});
 				continue; // Skip to next contract in the loop
 			}
 
@@ -465,6 +485,19 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 		} catch (error) {
 			d.error('Failed to process contract event', { eventId: event.id }, error);
 		}
+	}
+
+	// Warn if some contracts were skipped during processing
+	const totalEvents = contractEventsWithStatus.length;
+	const processedCount = contractsWithStatuses.length;
+	const skippedCount = totalEvents - processedCount;
+	if (skippedCount > 0) {
+		d.warn('Some contracts were skipped during processing', {
+			totalEvents,
+			processedContracts: processedCount,
+			skippedCount,
+			filterStatuses: filter?.statuses
+		});
 	}
 
 	// Apply status filter if provided (after blockchain status determination)
@@ -901,13 +934,43 @@ export async function handleContractEvent(event: NostrEvent) {
 			isFreelancer
 		);
 
+		// Validate escrowData before creating contract - must have valid escrowData or be pending
+		if (!escrowData && !isPending) {
+			d.warn('handleContractEvent: skipping contract with no escrowData and not pending', {
+				escrowId,
+				eventId: contractEvent.id,
+				hasTransactionHash: !!contractEvent.content.transactionHash
+			});
+			return;
+		}
+
+		// Create minimal placeholder escrowData for pending contracts if needed
+		const effectiveEscrowData = escrowData ?? {
+			id: escrowId,
+			client: contractEvent.content.clientPubkey || '',
+			freelancer: contractEvent.content.freelancerPubkey || '',
+			baseAmount: contractEvent.content.amount || '0',
+			clientFee: '0',
+			freelancerFee: '0',
+			totalAmount: contractEvent.content.amount || '0',
+			status: EscrowStatus.PendingFunding,
+			estimatedStartTime: contractEvent.content.estimatedStartTime || 0,
+			estimatedCompletionTime: contractEvent.content.estimatedCompletionTime || 0,
+			completionTime: 0,
+			timelockExpiry: 0,
+			clientFeeTier: 'standard' as const,
+			freelancerFeeTier: 'standard' as const,
+			createdAt: contractEvent.created_at * 1000,
+			lastUpdated: Date.now()
+		};
+
 		// Create the new contract object
 		const newContract: ContractWithEvents = {
 			contractEvent,
 			statusEvents: [],
 			isClient,
 			blockchainStatus,
-			escrowData: escrowData!, // Non-null assertion safe here due to check above
+			escrowData: effectiveEscrowData,
 			status,
 			isPending,
 			permissions,
