@@ -28,7 +28,7 @@ const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 const MAX_CACHE_SIZE = 100; // Maximum number of services to keep in cache
 const DELETION_CACHE_TTL = 5 * 60 * 1000; // 5 minutes for deletion events cache
 const MAX_DELETION_CACHE_SIZE = 10; // Maximum deletion cache entries with LRU eviction
-const PROFILE_FETCH_TIMEOUT_MS = 750;
+const PROFILE_FETCH_TIMEOUT_MS = 2500;
 const REQUEST_TIMEOUT_MS = 15000;
 
 // In-flight profile fetch promises for deduplication
@@ -175,7 +175,19 @@ export async function convertEventToService(event: Event): Promise<Service> {
 			createdAt: event.created_at
 		} as Service;
 
-		// Fetch creator profile data (reviews, rating) if creator info exists
+		// DEBUG: Log hex pubkey usernames before profile fetch
+		const isHexPubkey =
+			service.creator.username && /^[0-9a-fA-F]{64}$/.test(service.creator.username);
+		if (isHexPubkey) {
+			console.log(
+				'[DEBUG] Found hex pubkey username:',
+				service.creator.username?.substring(0, 16) + '...',
+				'for service:',
+				service.title
+			);
+		}
+
+		// Fetch creator profile data (reviews, rating, and name) if creator info exists
 		if (service.creator && event.pubkey) {
 			// Deduplicate in-flight profile fetches
 			if (!profileFetchPromises.has(event.pubkey)) {
@@ -185,6 +197,16 @@ export async function convertEventToService(event: Event): Promise<Service> {
 			try {
 				const profile = await profileFetchPromises.get(event.pubkey)!;
 
+				// DEBUG: Log profile result
+				if (isHexPubkey) {
+					console.log(
+						'[DEBUG] Profile result for:',
+						event.pubkey?.substring(0, 16) + '...',
+						'name:',
+						profile?.name || 'null'
+					);
+				}
+
 				// Update creator with reviews and rating
 				if (profile?.reviews && profile.reviews.length > 0) {
 					const totalRating = profile.reviews.reduce(
@@ -192,6 +214,14 @@ export async function convertEventToService(event: Event): Promise<Service> {
 						0
 					);
 					service.creator.rating = totalRating / profile.reviews.length;
+				}
+
+				// If username looks like a hex pubkey (64 hex chars), try to use profile name
+				if (service.creator.username && /^[0-9a-fA-F]{64}$/.test(service.creator.username)) {
+					if (profile?.name && profile.name.trim() !== '') {
+						console.log('[DEBUG] Replacing hex pubkey with profile name:', profile.name);
+						service.creator.username = profile.name;
+					}
 				}
 			} finally {
 				profileFetchPromises.delete(event.pubkey);
@@ -318,7 +348,7 @@ export async function findServices(
 				const endIndex = Math.min(startIndex + limit, cleanServices.length);
 				let limitedServices = cleanServices.slice(startIndex, endIndex);
 
-				const existingIds = new Set(state.items.map((s) => s.uniqueId));
+				const existingIds = new Set(get(servicesStore).items.map((s) => s.uniqueId));
 				limitedServices = limitedServices.filter((s) => !existingIds.has(s.uniqueId));
 
 				const hasMore = endIndex < cleanServices.length || cleanServices.length >= MAX_CACHE_SIZE;
