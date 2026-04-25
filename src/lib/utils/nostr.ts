@@ -9,6 +9,19 @@ import { hexToBytes } from '$lib/utils/helpers/encoding';
 import KINDS from '$lib/utils/constants/kinds';
 
 // --- Relay Configuration ---
+
+/**
+ * Timeout for relay connectivity checks during preflight (in milliseconds).
+ * This is a short timeout to quickly verify relay responsiveness.
+ */
+export const RELAY_CONNECTIVITY_TIMEOUT_MS = 3000; // 3 seconds for connectivity check
+
+/**
+ * Timeout for publishing events to relays (in milliseconds).
+ * Increased from 5s to 15s to accommodate slower relays.
+ */
+export const PUBLISH_TIMEOUT_MS = 15000; // 15 seconds for publishing
+
 /**
  * Ensures a relay URL is valid:
  * 1. Trims whitespace
@@ -154,7 +167,7 @@ export async function publishEvent(
 		// Wait for the publish to complete
 		await Promise.race([
 			Promise.all(pub),
-			new Promise((_, reject) => setTimeout(() => reject(new Error('Publish timeout')), 5000))
+			new Promise((_, reject) => setTimeout(() => reject(new Error('Publish timeout')), PUBLISH_TIMEOUT_MS))
 		]);
 	} catch (error) {
 		console.error('Failed to publish event:', error);
@@ -309,7 +322,7 @@ export async function publishToMultipleRelays(
 			const relayPublish = pool.publish([relay], event);
 			await Promise.race([
 				Promise.all(relayPublish),
-				new Promise((_, reject) => setTimeout(() => reject(new Error('Publish timeout')), 5000))
+				new Promise((_, reject) => setTimeout(() => reject(new Error('Publish timeout')), PUBLISH_TIMEOUT_MS))
 			]);
 			return { relay, success: true };
 		} catch (error) {

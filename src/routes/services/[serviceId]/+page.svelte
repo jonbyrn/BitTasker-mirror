@@ -161,6 +161,7 @@
 				<ServiceDetailsView
 					service={data.service ?? null}
 					serviceId={data.serviceId ?? serviceId}
+					isLoading={page.state.loading}
 				/>
 			</div>
 		</div>
@@ -168,5 +169,5 @@
 	<WarningPopup />
 {:else}
 	<!-- Simple layout for non-logged-in users -->
-	<ServiceDetailsView service={data.service ?? null} serviceId={data.serviceId ?? serviceId} />
+	<ServiceDetailsView service={data.service ?? null} serviceId={data.serviceId ?? serviceId} isLoading={page.state.loading} />
 {/if}

@@ -6,8 +6,13 @@ import {
 	SERVICE_ACCEPTANCE_REQUIRED_CONFIRMATIONS
 } from '$lib/utils/service-contract/finality';
 
-const WEI_PER_SAT = 10_000_000_000n;
 const DEFAULT_CONVERSION_FORMULA_VERSION = 'v1' as const;
+
+// Constants for sats calculation (formula v1)
+// 10^8 sats per BTC
+const SATS_PER_BTC = 100_000_000n;
+// 10^18 wei per BTC
+const WEI_PER_BTC = 10n ** 18n;
 
 export interface ServiceAcceptanceSnapshotInput {
 	clientRskAddress: string;
@@ -36,6 +41,28 @@ export function createServiceAcceptanceSnapshot(
 	}
 
 	const weiAmount = BigInt(input.weiAmount);
+	const btcUsdRateMicros = BigInt(input.btcUsdRateMicros);
+
+	// Guard against division by zero
+	if (btcUsdRateMicros <= 0n) {
+		throw new Error('Invalid BTC price: btcUsdRateMicros must be positive');
+	}
+
+	/**
+	 * Calculate sats using the v1 formula:
+	 * 1. usdMicros = (weiAmount * btcUsdRateMicros) / 10^18
+	 *    - Converts wei to RBTC (weiAmount / 10^18), then to USD micros
+	 * 2. satsNumerator = usdMicros * 10^8
+	 *    - Convert USD micros to sats numerator (multiplying by 10^8 sats per BTC)
+	 * 3. sats = floor((satsNumerator + floor(btcUsdRateMicros / 2)) / btcUsdRateMicros)
+	 *    - Divide by rate with rounding for proper floor division
+	 *
+	 * This ensures the sats value is correctly derived from the USD amount,
+	 * using the BTC/USD rate that was used to convert USD to RBTC.
+	 */
+	const usdMicros = (weiAmount * btcUsdRateMicros) / WEI_PER_BTC;
+	const satsNumerator = usdMicros * SATS_PER_BTC;
+	const sats = (satsNumerator + btcUsdRateMicros / 2n) / btcUsdRateMicros;
 
 	return {
 		clientRskAddress: ethers.getAddress(input.clientRskAddress.toLowerCase()),
@@ -48,7 +75,7 @@ export function createServiceAcceptanceSnapshot(
 		conversionSnapshotId: createServicePurchaseKey(input.purchaseMode, snapshotIdentifier),
 		btcUsdRateMicros: input.btcUsdRateMicros,
 		sourceTimestamp: input.sourceTimestamp ?? Math.floor(Date.now() / 1000),
-		sats: (weiAmount / WEI_PER_SAT).toString(),
+		sats: sats.toString(),
 		weiAmount: weiAmount.toString(),
 		requiredConfirmations: SERVICE_ACCEPTANCE_REQUIRED_CONFIRMATIONS,
 		finalityPolicyVersion: SERVICE_ACCEPTANCE_FINALITY_POLICY_VERSION,

@@ -654,6 +654,18 @@ async function createEscrow(
 			})
 			.catch((error: unknown) => {
 				console.error('Transaction failed or timed out:', error);
+
+				// Detect wallet rejection (user cancelled in their wallet)
+				const rejectionError = error as { code?: string | number };
+				if (rejectionError?.code === 4001 || rejectionError?.code === 'ACTION_REJECTED') {
+					result.status = 'rejected';
+					// Clean up pending contract on rejection (only if hash exists)
+					if (result.hash) {
+						EscrowNostrEvent.cleanupPendingContractByTxHash(result.hash);
+					}
+					return;
+				}
+
 				const replacementError = error as TransactionReplacementError;
 				if (
 					replacementError?.code === 'TRANSACTION_REPLACED' &&

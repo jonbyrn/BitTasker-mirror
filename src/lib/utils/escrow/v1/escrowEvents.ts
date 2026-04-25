@@ -35,6 +35,7 @@ import {
 	upsertAcceptanceReplayEntry
 } from '$lib/utils/service-quote/acceptance-ledger';
 import { reverifyPublishedServiceAcceptance } from '$lib/utils/escrow/v1/escrow';
+import { browser } from '$app/environment';
 
 const _ = get(t);
 const d = createDebug('escrow:events');
@@ -166,6 +167,91 @@ const pendingContractsByTxHash = new Map<string, PendingContractCreation>();
 // Track contracts currently being processed to prevent race conditions
 const processingContracts = new Set<string>();
 
+// LocalStorage key for pending contract persistence
+const PENDING_CONTRACTS_STORAGE_KEY = 'bittasker_pending_contracts_by_txhash';
+
+/**
+ * Persist a pending contract to localStorage for crash recovery.
+ * Defensively handles quota errors and corrupted data.
+ */
+function persistPendingContractToStorage(
+	txHash: string,
+	contractData: PendingContractCreation
+): void {
+	if (!browser) return;
+
+	try {
+		const existingData = loadPendingContractsFromStorage();
+		existingData[txHash] = contractData;
+		localStorage.setItem(PENDING_CONTRACTS_STORAGE_KEY, JSON.stringify(existingData));
+	} catch (error) {
+		// Defensive: log error but don't throw - persistence failure shouldn't break the happy path
+		d.warn('persistPendingContractToStorage: failed to persist pending contract', { txHash: txHash.slice(0, 10) }, error);
+	}
+}
+
+/**
+ * Remove a pending contract from localStorage.
+ * Defensively handles errors.
+ */
+function removePendingContractFromStorage(txHash: string): void {
+	if (!browser) return;
+
+	try {
+		const existingData = loadPendingContractsFromStorage();
+		if (txHash in existingData) {
+			delete existingData[txHash];
+			localStorage.setItem(PENDING_CONTRACTS_STORAGE_KEY, JSON.stringify(existingData));
+		}
+	} catch (error) {
+		d.warn('removePendingContractFromStorage: failed to remove pending contract', { txHash: txHash.slice(0, 10) }, error);
+	}
+}
+
+/**
+ * Load pending contracts from localStorage.
+ * Returns empty object if storage is unavailable or data is corrupted.
+ */
+function loadPendingContractsFromStorage(): Record<string, PendingContractCreation> {
+	if (!browser) return {};
+
+	try {
+		const stored = localStorage.getItem(PENDING_CONTRACTS_STORAGE_KEY);
+		if (!stored) return {};
+		return JSON.parse(stored) as Record<string, PendingContractCreation>;
+	} catch (error) {
+		d.warn('loadPendingContractsFromStorage: failed to parse stored data, returning empty', error);
+		return {};
+	}
+}
+
+/**
+ * Recover pending contracts from localStorage into in-memory Maps.
+ * Called on page load to restore state after potential browser crash.
+ */
+export function recoverPendingContractsFromStorage(): void {
+	if (!browser) return;
+
+	try {
+		const storedContracts = loadPendingContractsFromStorage();
+		const txHashes = Object.keys(storedContracts);
+
+		if (txHashes.length === 0) return;
+
+		for (const txHash of txHashes) {
+			const contract = storedContracts[txHash];
+			if (contract && typeof contract === 'object') {
+				pendingContractsByTxHash.set(txHash, contract);
+				d.log('recoverPendingContractsFromStorage: recovered contract', { txHash: txHash.slice(0, 10) });
+			}
+		}
+
+		d.log('recoverPendingContractsFromStorage: recovered', { count: txHashes.length });
+	} catch (error) {
+		d.error('recoverPendingContractsFromStorage: recovery failed', null, error);
+	}
+}
+
 function normalizeTransactionHash(transactionHash: string | null | undefined): string | null {
 	if (typeof transactionHash !== 'string') {
 		return null;
@@ -202,6 +288,11 @@ export function registerPendingContractByTxHash(
 		...(params as PendingContractCreation),
 		transactionHash: normalizedTransactionHash
 	});
+	// Persist to localStorage for crash recovery
+	persistPendingContractToStorage(normalizedTransactionHash, {
+		...(params as PendingContractCreation),
+		transactionHash: normalizedTransactionHash
+	});
 	contractCreationStore.set({
 		state: 'funding_submitted',
 		transactionHash: normalizedTransactionHash,
@@ -234,6 +325,8 @@ export function cleanupPendingContractByTxHash(transactionHash: string): void {
 	// Atomic check-and-delete to prevent race conditions
 	const removed = pendingContractsByTxHash.delete(normalizedTransactionHash);
 	if (removed) {
+		// Remove from localStorage as well
+		removePendingContractFromStorage(normalizedTransactionHash);
 		d.log('cleanupPendingContractByTxHash', {
 			transactionHash: normalizedTransactionHash.slice(0, 10)
 		});
@@ -260,10 +353,16 @@ export function replacePendingContractByTxHash(
 	}
 
 	pendingContractsByTxHash.delete(previousHash);
-	pendingContractsByTxHash.set(nextHash, {
+	// Remove old hash from storage
+	removePendingContractFromStorage(previousHash);
+
+	const updatedContract = {
 		...pendingContract,
 		transactionHash: nextHash
-	});
+	};
+	pendingContractsByTxHash.set(nextHash, updatedContract);
+	// Persist with new hash
+	persistPendingContractToStorage(nextHash, updatedContract);
 
 	if (processingContracts.delete(previousHash)) {
 		processingContracts.add(nextHash);
@@ -689,6 +788,9 @@ export async function publishEscrowStatus(params: PublishContractStatusParams): 
  * Handle escrow created event - called from contract event listener
  */
 export async function handleEscrowCreated(event: EscrowCreatedEvent): Promise<void> {
+	// Recover any pending contracts from localStorage (browser crash recovery)
+	recoverPendingContractsFromStorage();
+
 	// Check if we have a pending contract for this escrow (by escrow ID or transaction hash)
 	let pendingContract = pendingContracts.get(event.escrowId);
 	let retainServiceAcceptanceForRetry = false;
@@ -707,6 +809,8 @@ export async function handleEscrowCreated(event: EscrowCreatedEvent): Promise<vo
 				if (contract) {
 					// Remove from txHash map and add to escrow ID map
 					pendingContractsByTxHash.delete(txHash);
+					// Clean up from localStorage as well
+					removePendingContractFromStorage(txHash);
 					pendingContract = contract;
 					pendingContracts.set(event.escrowId, { ...contract, escrowId: event.escrowId });
 					break;
@@ -915,12 +1019,6 @@ export async function handleEscrowCreated(event: EscrowCreatedEvent): Promise<vo
 			// Contract creation is only considered successful once the event is queryable.
 			const contractLoaded = await contractStore.loadContractByEscrowId(event.escrowId);
 			if (!contractLoaded) {
-				if (!retainServiceAcceptanceForRetry) {
-					pendingContracts.delete(event.escrowId);
-				}
-				for (const txHash of getTransactionHashCandidates(event)) {
-					processingContracts.delete(txHash);
-				}
 				contractCreationStore.set({
 					state: 'contract_sync_pending',
 					escrowId: event.escrowId,
@@ -946,14 +1044,6 @@ export async function handleEscrowCreated(event: EscrowCreatedEvent): Promise<vo
 			// after successful acceptBidAndCreateEscrow, not from here. This keeps the flow cleaner and avoids
 			// redundant task fetching since we already have task data in the form.
 
-			// Clean up pending contract
-			if (!retainServiceAcceptanceForRetry) {
-				pendingContracts.delete(event.escrowId);
-			}
-			// Also remove from processing set if it was there
-			for (const txHash of getTransactionHashCandidates(event)) {
-				processingContracts.delete(txHash);
-			}
 			d.log('handleEscrowCreated: completed', {
 				escrowId: event.escrowId,
 				taskId: pendingContract.taskId
@@ -965,11 +1055,6 @@ export async function handleEscrowCreated(event: EscrowCreatedEvent): Promise<vo
 				error
 			);
 
-			// Remove from processing set on error
-			for (const txHash of getTransactionHashCandidates(event)) {
-				processingContracts.delete(txHash);
-			}
-
 			// Update contract creation store with error
 			contractCreationStore.set({
 				state: 'failed',
@@ -979,10 +1064,20 @@ export async function handleEscrowCreated(event: EscrowCreatedEvent): Promise<vo
 				error: error instanceof Error ? error.message : 'Unknown error'
 			});
 
-			// Show error toast
+			// Show error toast indicating partial success - escrow was created on-chain but Nostr sync failed
 			appStore.showErrorToast(
-				`Failed to create contract: ${error instanceof Error ? error.message : 'Unknown error'}`
+				`Escrow created successfully, but Nostr sync failed: ${error instanceof Error ? error.message : 'Unknown error'}. Your escrow is confirmed on-chain.`
 			);
+		} finally {
+			// ALWAYS cleanup processingContracts on ALL exit paths
+			// This includes early return, success, and error paths
+			for (const txHash of getTransactionHashCandidates(event)) {
+				processingContracts.delete(txHash);
+			}
+			// Only cleanup pendingContracts if we're not retaining for retry
+			if (!retainServiceAcceptanceForRetry) {
+				pendingContracts.delete(event.escrowId);
+			}
 		}
 	} else {
 		d.warn('handleEscrowCreated: no pending contract', { escrowId: event.escrowId });
