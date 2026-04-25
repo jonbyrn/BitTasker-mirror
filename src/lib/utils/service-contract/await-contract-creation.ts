@@ -7,7 +7,7 @@ export const CONTRACT_CREATION_SYNCING_MESSAGE =
 	'The secure payment contract transaction was submitted, but the contract confirmation is still syncing. Open Contracts to monitor it.';
 export type ContractCreationTimeoutReason = 'pending_timeout' | 'tx_replaced';
 
-function normalizeTransactionHash(transactionHash: string): string {
+export function normalizeTransactionHash(transactionHash: string): string {
 	return transactionHash.trim().toLowerCase();
 }
 
@@ -139,7 +139,16 @@ export async function waitForContractCreationByTransactionHash(
 		};
 
 		const timeoutId = setTimeout(() => {
-			finalize(() => reject(new Error(CONTRACT_CREATION_SYNCING_MESSAGE)));
+			let timeoutMessage = CONTRACT_CREATION_SYNCING_MESSAGE;
+			try {
+				const reason = getContractCreationTimeoutReason(transactionHash);
+				if (reason === 'tx_replaced') {
+					timeoutMessage = 'Transaction was replaced. Check your wallet and try again.';
+				}
+			} catch (error) {
+				console.error('Failed to get contract creation timeout reason:', error);
+			}
+			finalize(() => reject(new Error(timeoutMessage)));
 		}, timeoutMs);
 
 		unsubscribe = contractCreationStore.subscribe((event) => {

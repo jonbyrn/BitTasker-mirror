@@ -3,10 +3,13 @@ import { ethers } from 'ethers';
 import { createServiceContractFromSnapshot } from '$lib/utils/service-contract/create-from-snapshot';
 import {
 	preflightServiceContractCreation,
+	revalidateWalletBalance,
+	validateNetworkForTransaction,
 	type ServiceContractPreflightErrorCode
 } from '$lib/utils/service-contract/preflight';
 import { escrow } from '$lib/utils/escrow';
 import { extractContractError } from '$lib/utils/wallet/contractErrorHandler';
+import { convertUsdAmountToRbtc } from '$lib/utils/currency';
 import type {
 	ServiceContractAgreementSnapshot,
 	ServiceContractPricingSnapshot
@@ -21,7 +24,7 @@ import { normalizeServiceContractSchedule } from '$lib/utils/service-contract/sc
 
 const DEFAULT_CLIENT_FEE_TIER = 1;
 
-function normalizePlainRskAddress(address: string): string {
+export function normalizePlainRskAddress(address: string): string {
 	return ethers.getAddress(address.trim().toLowerCase()).toLowerCase();
 }
 
@@ -60,6 +63,8 @@ export type ServiceContractCreationResult =
 			amount: string;
 			clientRskAddress: string;
 			acceptanceSnapshot: ReturnType<typeof createServiceAcceptanceSnapshot>;
+			needsCleanup?: boolean;
+			registrationWarning?: string;
 	  }
 	| {
 			success: false;
@@ -71,19 +76,6 @@ export type ServiceContractCreationResult =
 			error?: string;
 			errorCode?: ServiceContractPreflightErrorCode;
 	  };
-
-export function convertUsdAmountToRbtc(amountUsdt: string, btcPrice: number): string {
-	const parsedAmount = Number(amountUsdt);
-	if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
-		throw new Error('Invalid service amount. Expected a positive USD value.');
-	}
-
-	if (!Number.isFinite(btcPrice) || btcPrice <= 0) {
-		throw new Error('Unable to determine the current BTC price.');
-	}
-
-	return (parsedAmount / btcPrice).toFixed(8);
-}
 
 export async function createServiceContract(
 	input: ServiceContractCreationInput
@@ -136,6 +128,32 @@ export async function createServiceContract(
 			confirmationsAtVerification: 0,
 			verificationRpc: getConfiguredVerificationRpcLabel()
 		});
+
+		// TOCTOU protection: re-validate balance before escrow creation
+		// Another transaction could have drained funds between preflight and now
+		const balanceCheck = await revalidateWalletBalance({
+			amountRbtc: amount,
+			btcPrice
+		});
+		if (!balanceCheck.ok) {
+			return {
+				success: false,
+				state: 'preflight_failed',
+				error: balanceCheck.error
+			};
+		}
+
+		// Network change protection: verify network hasn't changed before transaction
+		const networkValidation = await validateNetworkForTransaction();
+		if (!networkValidation.ok) {
+			return {
+				success: false,
+				state: 'preflight_failed',
+				error: networkValidation.error,
+				errorCode: networkValidation.errorCode
+			};
+		}
+
 		const transactionResult = await escrow.escrowOps.createEscrow(
 			input.freelancerAddress,
 			amount,
@@ -144,6 +162,15 @@ export async function createServiceContract(
 			DEFAULT_CLIENT_FEE_TIER,
 			input.freelancerFeeTier ?? 1
 		);
+
+		// Check for rejection BEFORE checking hash - hash may exist even when rejected
+		if (transactionResult.status === 'rejected') {
+			return {
+				success: false,
+				state: 'funding_failed',
+				error: 'Transaction was rejected in your wallet.'
+			};
+		}
 
 		if (!transactionResult?.hash) {
 			return {
@@ -178,6 +205,8 @@ export async function createServiceContract(
 		});
 		const pendingContractWithoutEscrowId = { ...pendingContract };
 		delete pendingContractWithoutEscrowId.escrowId;
+		let registrationFailed = false;
+		let registrationErrorMessage: string | undefined;
 		try {
 			escrow.eventOps.registerPendingContractByTxHash({
 				bidEventId: input.proposalEventId ?? input.instantOrderId ?? input.serviceId,
@@ -186,6 +215,8 @@ export async function createServiceContract(
 				acceptanceSnapshot
 			});
 		} catch (registrationError) {
+			registrationFailed = true;
+			registrationErrorMessage = extractContractError(registrationError).userMessage;
 			console.error(
 				'Failed to register pending service contract after funding submission:',
 				registrationError
@@ -198,24 +229,32 @@ export async function createServiceContract(
 			transactionHash,
 			amount,
 			clientRskAddress,
-			acceptanceSnapshot
+			acceptanceSnapshot,
+			needsCleanup: registrationFailed,
+			registrationWarning: registrationFailed
+				? `Registration failed: ${registrationErrorMessage}. Transaction ${transactionHash} may need manual cleanup.`
+				: undefined
 		};
 	} catch (error) {
-		if (transactionHash && amount && clientRskAddress && acceptanceSnapshot) {
+		if (!transactionHash) {
 			return {
-				success: true,
-				state: 'funding_submitted',
-				transactionHash,
-				amount,
-				clientRskAddress,
-				acceptanceSnapshot
+				success: false,
+				state: 'funding_failed',
+				error: extractContractError(error).userMessage,
+				errorCode: 'preflight_failed'
 			};
 		}
 
+		// Transaction exists but follow-up registration failed
 		return {
-			success: false,
-			state: 'funding_failed',
-			error: extractContractError(error).userMessage
+			success: true,
+			state: 'funding_submitted',
+			transactionHash,
+			amount,
+			clientRskAddress,
+			acceptanceSnapshot,
+			needsCleanup: true,
+			registrationWarning: 'Transaction mined but registration failed. Cleanup may be required.'
 		};
 	}
 }

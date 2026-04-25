@@ -101,3 +101,52 @@ export function getServiceContractLocationPresentationFromService(
 
 	return buildPresentation(buildServiceContractLocationSnapshot(service));
 }
+
+export interface ValidationResult {
+	valid: boolean;
+	errorCode?: 'MISSING_LOCATION_TYPE' | 'MISSING_COORDINATES' | 'INVALID_RADIUS';
+}
+
+export function validateServiceLocation(
+	service: Pick<Service, 'serviceLocationTypes' | 'locationDetails'>
+): ValidationResult {
+	const locationTypes = service.serviceLocationTypes ?? [];
+	const locationDetails = service.locationDetails;
+
+	if (locationTypes.length === 0) {
+		return { valid: false, errorCode: 'MISSING_LOCATION_TYPE' };
+	}
+
+	if (locationTypes.includes(ServiceLocationTypeEnum.REMOTE)) {
+		return { valid: true };
+	}
+
+	if (locationTypes.includes(ServiceLocationTypeEnum.TASKEE_LOCATION)) {
+		const taskeeLocation = locationDetails?.taskeeLocation;
+		if (!taskeeLocation) {
+			return { valid: false, errorCode: 'MISSING_COORDINATES' };
+		}
+		const { serviceLocation, serviceRadius } = taskeeLocation;
+		if (!serviceLocation?.latitude || !serviceLocation?.longitude) {
+			return { valid: false, errorCode: 'MISSING_COORDINATES' };
+		}
+		if (serviceRadius !== undefined && (serviceRadius < 1 || serviceRadius > 100)) {
+			return { valid: false, errorCode: 'INVALID_RADIUS' };
+		}
+		return { valid: true };
+	}
+
+	if (locationTypes.includes(ServiceLocationTypeEnum.TASKER_LOCATION)) {
+		const taskerLocation = locationDetails?.taskerLocation;
+		if (!taskerLocation) {
+			return { valid: false, errorCode: 'MISSING_COORDINATES' };
+		}
+		const { serviceLocation } = taskerLocation;
+		if (!serviceLocation?.latitude || !serviceLocation?.longitude) {
+			return { valid: false, errorCode: 'MISSING_COORDINATES' };
+		}
+		return { valid: true };
+	}
+
+	return { valid: false, errorCode: 'MISSING_LOCATION_TYPE' };
+}

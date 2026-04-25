@@ -6,6 +6,8 @@ const createEscrow = vi.fn();
 const registerPendingContractByTxHash = vi.fn();
 const cleanupPendingContractByTxHash = vi.fn();
 const preflightServiceContractCreation = vi.fn();
+const revalidateWalletBalance = vi.fn();
+const validateNetworkForTransaction = vi.fn();
 const createServiceAcceptanceSnapshot = vi.fn((input: Record<string, unknown>) => ({
 	clientRskAddress: input.clientRskAddress,
 	clientFeeTier: input.clientFeeTier,
@@ -54,7 +56,9 @@ vi.mock('$lib/utils/wallet/contractErrorHandler', () => ({
 
 vi.mock('$lib/utils/service-contract/preflight', () => ({
 	preflightServiceContractCreation: (...args: unknown[]) =>
-		preflightServiceContractCreation(...args)
+		preflightServiceContractCreation(...args),
+	revalidateWalletBalance: (...args: unknown[]) => revalidateWalletBalance(...args),
+	validateNetworkForTransaction: (...args: unknown[]) => validateNetworkForTransaction(...args)
 }));
 
 vi.mock('$lib/utils/service-contract/acceptance-snapshot', () => ({
@@ -78,6 +82,15 @@ describe('service contract creation', () => {
 			totalRequired: '0.00126000',
 			walletAddress: buyerWalletAddress
 		});
+		revalidateWalletBalance.mockResolvedValue({
+			ok: true,
+			currentBalanceWei: 1000000000000000000n,
+			totalRequiredWei: 1260000000000000n
+		});
+		validateNetworkForTransaction.mockResolvedValue({
+			ok: true,
+			chainId: 31n
+		});
 		createEscrow.mockResolvedValue({
 			hash: '0xservicehash',
 			status: 'pending'
@@ -85,7 +98,7 @@ describe('service contract creation', () => {
 	});
 
 	it('converts USD amounts to RBTC deterministically', async () => {
-		const { convertUsdAmountToRbtc } = await import('$lib/utils/service-contract/create');
+		const { convertUsdAmountToRbtc } = await import('$lib/utils/currency');
 
 		expect(convertUsdAmountToRbtc('125.00', 100000)).toBe('0.00125000');
 		expect(() => convertUsdAmountToRbtc('0', 100000)).toThrow(
@@ -126,19 +139,20 @@ describe('service contract creation', () => {
 			freelancerFeeTier: 1
 		});
 
-		expect(result).toEqual({
+		expect(result).toEqual(expect.objectContaining({
 			success: true,
 			state: 'funding_submitted',
 			transactionHash: '0xservicehash',
 			amount: '0.00125000',
 			clientRskAddress: buyerWalletAddressLowercase,
+			needsCleanup: false,
 			acceptanceSnapshot: expect.objectContaining({
 				clientRskAddress: buyerWalletAddressLowercase,
 				freelancerRskAddress: '0x1111111111111111111111111111111111111111',
 				confirmationsAtVerification: 0,
 				weiAmount: '1250000000000000'
 			})
-		});
+		}));
 		expect(getCurrentPrice).toHaveBeenCalledWith('BTC');
 		expect(preflightServiceContractCreation).toHaveBeenCalledWith(
 			expect.objectContaining({
@@ -210,7 +224,8 @@ describe('service contract creation', () => {
 		expect(result).toEqual({
 			success: false,
 			state: 'funding_failed',
-			error: 'wallet rejected'
+			error: 'wallet rejected',
+			errorCode: 'preflight_failed'
 		});
 		expect(registerPendingContractByTxHash).not.toHaveBeenCalled();
 		expect(cleanupPendingContractByTxHash).not.toHaveBeenCalled();
@@ -277,6 +292,64 @@ describe('service contract creation', () => {
 		});
 		expect(createEscrow).not.toHaveBeenCalled();
 		expect(registerPendingContractByTxHash).not.toHaveBeenCalled();
+	});
+
+	it('fails when balance changes between preflight and escrow creation (TOCTOU)', async () => {
+		const { createServiceContract } = await import('$lib/utils/service-contract/create');
+		revalidateWalletBalance.mockResolvedValueOnce({
+			ok: false,
+			error: 'Insufficient funds at transaction time. Please fund your wallet and try again.'
+		});
+
+		const result = await createServiceContract({
+			freelancerPubkey: 'f'.repeat(64),
+			freelancerAddress: '0x1111111111111111111111111111111111111111',
+			amountUsdt: '125.00',
+			estimatedStartTime: 1_800_000_000,
+			estimatedCompletionTime: 1_800_259_200,
+			serviceId: '30402:' + 'a'.repeat(64) + ':service-1234',
+			serviceAddress: '30402:' + 'a'.repeat(64) + ':service-1234',
+			serviceTitle: 'Logo refresh',
+			contextVersionRef: 'service-event-1',
+			purchaseMode: 'quote',
+			pricingSnapshot: {
+				serviceVersionRef: 'service-event-1'
+			}
+		});
+
+		expect(result.success).toBe(false);
+		expect(result.state).toBe('preflight_failed');
+		expect(createEscrow).not.toHaveBeenCalled();
+	});
+
+	it('handles wallet rejection gracefully', async () => {
+		const { createServiceContract } = await import('$lib/utils/service-contract/create');
+		createEscrow.mockResolvedValueOnce({
+			hash: '0x123',
+			status: 'rejected'
+		});
+
+		const result = await createServiceContract({
+			freelancerPubkey: 'f'.repeat(64),
+			freelancerAddress: '0x1111111111111111111111111111111111111111',
+			amountUsdt: '125.00',
+			estimatedStartTime: 1_800_000_000,
+			estimatedCompletionTime: 1_800_259_200,
+			serviceId: '30402:' + 'a'.repeat(64) + ':service-1234',
+			serviceAddress: '30402:' + 'a'.repeat(64) + ':service-1234',
+			serviceTitle: 'Logo refresh',
+			contextVersionRef: 'service-event-1',
+			purchaseMode: 'quote',
+			pricingSnapshot: {
+				serviceVersionRef: 'service-event-1'
+			}
+		});
+
+		expect(result).toEqual({
+			success: false,
+			state: 'funding_failed',
+			error: 'Transaction was rejected in your wallet.'
+		});
 	});
 
 	it('adjusts past start times forward before preflight and escrow creation', async () => {
@@ -351,17 +424,44 @@ describe('service contract creation', () => {
 			}
 		});
 
-		expect(result).toEqual({
+		expect(result).toEqual(expect.objectContaining({
 			success: true,
 			state: 'funding_submitted',
 			transactionHash: '0xservicehash',
 			amount: '0.00125000',
 			clientRskAddress: buyerWalletAddressLowercase,
+			needsCleanup: true,
 			acceptanceSnapshot: expect.objectContaining({
 				clientRskAddress: buyerWalletAddressLowercase,
 				weiAmount: '1250000000000000'
 			})
-		});
+		}));
 		expect(cleanupPendingContractByTxHash).not.toHaveBeenCalled();
+	});
+
+	describe('normalizePlainRskAddress', () => {
+		it('normalizes a valid address to lowercase checksum format', async () => {
+			const { normalizePlainRskAddress } = await import('$lib/utils/service-contract/create');
+
+			const result = normalizePlainRskAddress('0xAbCdEf1234567890aBCdef1234567890AbCdEf12');
+			expect(result).toBe('0xabcdef1234567890abcdef1234567890abcdef12');
+		});
+
+		it('throws on malformed address', async () => {
+			const { normalizePlainRskAddress } = await import('$lib/utils/service-contract/create');
+
+			expect(() => normalizePlainRskAddress('not-an-address')).toThrow();
+			expect(() => normalizePlainRskAddress('0x123')).toThrow();
+			expect(() => normalizePlainRskAddress('')).toThrow();
+		});
+
+		it('normalizes mixed case addresses correctly', async () => {
+			const { normalizePlainRskAddress } = await import('$lib/utils/service-contract/create');
+
+			// Use a valid mixed-case checksum address (ENS registrar)
+			const mixedCase = '0x742d35Cc6634C0532925a3b844Bc454e4438f44e';
+			const result = normalizePlainRskAddress(mixedCase);
+			expect(result).toBe('0x742d35cc6634c0532925a3b844bc454e4438f44e');
+		});
 	});
 });

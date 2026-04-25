@@ -151,7 +151,12 @@
 				</span>
 			</div>
 
-			{#if (verificationStatus !== 'idle' && verificationStatus !== 'verifying') || (verificationMessage && verificationStatus !== 'verifying')}
+			{#if verificationStatus === 'verifying'}
+				<div class="alert alert-info text-sm">
+					<span class="loading loading-spinner loading-sm"></span>
+					<span data-testid="contract-funding-wallet-message">{verificationMessage}</span>
+				</div>
+			{:else if (verificationStatus !== 'idle' && verificationStatus !== 'verifying') || (verificationMessage && verificationStatus !== 'verifying')}
 				<div class={`alert alert-outline text-sm ${walletStatusClass}`}>
 					<span data-testid="contract-funding-wallet-message">{verificationMessage}</span>
 				</div>

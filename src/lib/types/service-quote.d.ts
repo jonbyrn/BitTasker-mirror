@@ -52,6 +52,7 @@ export interface ServiceQuoteRequestContent {
 	};
 	quoteAmountUsdt?: string;
 	timestamp: number;
+	nonce?: string;
 	version: 'v1';
 }
 
@@ -83,6 +84,7 @@ export interface ServiceProposalContent {
 	freelancerFeeTier: 0 | 1 | 2;
 	pricingSnapshot: ServiceProposalPricingSnapshot;
 	timestamp: number;
+	nonce?: string;
 	version: 'v1';
 }
 
@@ -116,6 +118,7 @@ export interface ServiceProposalStatusContent {
 	message?: string;
 	reasonCode?: ServiceAcceptanceUnknownReasonCode;
 	timestamp: number;
+	nonce?: string;
 	escrowId?: string;
 	transactionHash?: string;
 	acceptanceSnapshot?: ServiceAcceptanceSnapshot;
