@@ -191,11 +191,30 @@
 	});
 
 	/**
+	 * Validate that an image URL uses an allowed protocol (http or https)
+	 * This prevents XSS attacks via javascript: or data: URLs in profile pictures
+	 */
+	function isSafeImageUrl(url: string | null | undefined): url is string {
+		if (!url) return false;
+		try {
+			const parsed = new URL(url);
+			return ['http:', 'https:'].includes(parsed.protocol);
+		} catch {
+			return false;
+		}
+	}
+
+	/**
 	 * Get the display avatar - use fetched profile if available, otherwise use provided avatar
+	 * Only returns URLs that pass safety validation (http/https only)
 	 */
 	const displayAvatar = $derived.by(() => {
 		// Priority: fetched profile picture > provided avatar
-		return fetchedProfile?.picture || avatar;
+		const avatarUrl = fetchedProfile?.picture || avatar;
+		if (isSafeImageUrl(avatarUrl)) {
+			return avatarUrl;
+		}
+		return null;
 	});
 
 	/**
