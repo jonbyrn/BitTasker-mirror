@@ -7,55 +7,8 @@ import { ethers } from 'ethers';
 import { nip19 } from 'nostr-tools';
 import { get } from 'svelte/store';
 import { getNostrKeyPair } from '$lib/utils/nostrKeys';
-import { RELAY_CONNECTIVITY_TIMEOUT_MS } from '$lib/utils/nostr';
 
-const DEFAULT_CLIENT_FEE_TIER = 1;
-const GAS_BUFFER_DIVISOR = 10n;
-const ESTIMATED_NETWORK_FEE_USD = 0.5;
-const DEFAULT_CLIENT_FEE_TIER = 1;
-const GAS_BUFFER_DIVISOR = 10n;
-const ESTIMATED_NETWORK_FEE_USD = 0.5;
-
-/**
- * Check relay connectivity by attempting to query a minimal event from at least one relay.
- * Returns true if at least one relay responds within the timeout, false otherwise.
- */
-async function checkRelayConnectivity(relays: string[]): Promise<boolean> {
-	if (relays.length === 0) {
-		return false;
-	}
-
-	const pool = get(appStore)?.pool;
-	if (!pool) {
-		return false;
-	}
-
-	// Try each relay with a short timeout - success if any relay responds
-	for (const relay of relays) {
-		try {
-			const controller = new AbortController();
-			const timeoutId = setTimeout(() => controller.abort(), RELAY_CONNECTIVITY_TIMEOUT_MS);
-
-			// Use querySync with a minimal filter to test connectivity
-			// kind 0 is metadata, limit 1 - very lightweight query
-			const events = await pool.querySync([relay], { kinds: [0], limit: 1 }, { signal: controller.signal });
-			clearTimeout(timeoutId);
-
-			if (events) {
-				// Query succeeded (empty array is OK, means relay is reachable)
-				return true;
-			}
-		} catch {
-			// This relay failed, try next one
-			continue;
-		}
-	}
-
-	// All relays failed
-	return false;
-}
-
-export { DEFAULT_CLIENT_FEE_TIER, ESTIMATED_NETWORK_FEE_USD, checkRelayConnectivity };
+export { DEFAULT_CLIENT_FEE_TIER, ESTIMATED_NETWORK_FEE_USD };
 
 export type ServiceContractPreflightErrorCode =
 	| 'wallet_not_connected'
