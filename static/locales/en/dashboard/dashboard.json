@@ -733,7 +733,8 @@
 				"sats_label": "sats",
 				"not_connected": "Wallet not connected",
 				"available_balance": "Available balance",
-				"required_balance": "Required for this contract"
+				"required_balance": "Required for this contract",
+				"remaining_balance": "Remaining"
 			},
 			"service_agreement": {
 				"provider": "Provider",

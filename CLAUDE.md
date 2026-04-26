@@ -219,6 +219,93 @@ Generates a Svelte Playground link with the provided code.
 After completing the code, ask the user if they want a playground link. Only call this tool after user confirmation and NEVER if code was written to files in their project.
 
 <!-- gitnexus:start -->
+
+## Domain Knowledge
+
+### Nostr Protocol
+
+The project uses the Nostr decentralized social protocol for certain event propagation.
+
+**Key NIPs Supported:**
+
+- **NIP-01**: Basic protocol (event kinds, signatures, relay behavior)
+- **NIP-04**: Encrypted direct messages using NIP-44 encryption
+- **NIP-05**: Mapping Nostr keys to DNS-based identifiers
+- **NIP-09**: Event deletion
+- **NIP-33**: Parameterized replaceable events (with `d` tag)
+- **NIP-44**: NIP-04 replacement encryption (secp256k1 ECDH + ChaCha20-Poly1305)
+- **NIP-51**: Lists (replaceable events for lists)
+- **NIP-56**: Reports (gossip)
+- **NIP-65**: Relay list metadata (marked read/write per relay)
+- **NIP-94**: File metadata events
+- **NIP-99**: Classified listings
+
+**Custom Event Kinds (30000-30078):**
+| Kind | Description |
+|------|-------------|
+| 30000 | NWC Wallet connection |
+| 30001 | Service Listing |
+| 30018 | Job Auction |
+| 30023 | Addressable Event |
+| 30024 | Service Offer |
+| 30078 | Application Data |
+
+**NDK Usage Pattern:**
+
+```typescript
+import { NDK } from '@nostr-dev-kit/ndk';
+const ndk = new NDK({ explicitRelayUrls: [...] });
+ndk.subscribe(Filter, { closeOnEose: true }, callback);
+```
+
+**Key Files:**
+
+- `src/lib/utils/nostr.ts` - Task creation, updates, deletion using NIP-33
+- `src/lib/types/nostr.d.ts` - Nostr type definitions
+
+### Escrow System (RSK Blockchain)
+
+Escrow contracts operate on Rootstock (RSK) blockchain with 17 states:
+
+**Blockchain States (0-5):** Funded, InDispute, DisputeResolved, DisputeUnresolved, Completed, Cancelled
+
+**Nostr States (6-16):** PendingFunding, InProgress, PendingCompletion, PendingCancellation, FundsReleased, PendingAcceptance, DisputeResolutionProposed, PendingDispute, etc.
+
+**Key Escrow Files:**
+
+- `src/lib/utils/escrow/v1/escrow.ts` - `ensureEscrowReady()`, `calculateFeeAmount()`, `calculateTotalPayment()`
+- `src/lib/utils/escrow/v1/escrow.enum.ts` - EscrowStatus enum (17 states)
+- `src/lib/utils/escrow/v1/escrowEvents.ts` - Escrow event handling
+- `src/lib/utils/wallet/rpcHelpers.ts` - `executeWithRetry()`, `callContractMethod()` with transient error detection
+
+**Fee Calculation (from @bittasker/wallet-core FeeTier):**
+
+```typescript
+// FeeTier from wallet-core calculates:
+// - Network fee (RSK gas)
+// - Service fee (percentage)
+// - Total payment = amount + fees
+```
+
+### Multi-Chain Wallet
+
+**Supported Networks:** 'rsk' | 'bsc' | 'lightning'
+
+**Transaction Types:** 'send' | 'receive' | 'swap' | 'contract'
+
+**RPC Helpers Pattern (`rpcHelpers.ts`):**
+
+```typescript
+executeWithRetry(operation, options);
+// Transient errors: network errors, rate limits, nonce issues
+// Returns: { success: boolean, data?, error?, transient?: boolean }
+```
+
+**Key Types:**
+
+- `ExtendedTransaction` - Full transaction with provider, tx data, receipts
+- `ProcessedTransaction` - Parsed/translated transaction for display
+
 # GitNexus — Code Intelligence
 
 This project is indexed by GitNexus as **BitTasker** (33295 symbols, 63889 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
@@ -242,22 +329,22 @@ This project is indexed by GitNexus as **BitTasker** (33295 symbols, 63889 relat
 
 ## Resources
 
-| Resource | Use for |
-|----------|---------|
-| `gitnexus://repo/BitTasker/context` | Codebase overview, check index freshness |
-| `gitnexus://repo/BitTasker/clusters` | All functional areas |
-| `gitnexus://repo/BitTasker/processes` | All execution flows |
-| `gitnexus://repo/BitTasker/process/{name}` | Step-by-step execution trace |
+| Resource                                   | Use for                                  |
+| ------------------------------------------ | ---------------------------------------- |
+| `gitnexus://repo/BitTasker/context`        | Codebase overview, check index freshness |
+| `gitnexus://repo/BitTasker/clusters`       | All functional areas                     |
+| `gitnexus://repo/BitTasker/processes`      | All execution flows                      |
+| `gitnexus://repo/BitTasker/process/{name}` | Step-by-step execution trace             |
 
 ## CLI
 
-| Task | Read this skill file |
-|------|---------------------|
-| Understand architecture / "How does X work?" | `.claude/skills/gitnexus/gitnexus-exploring/SKILL.md` |
-| Blast radius / "What breaks if I change X?" | `.claude/skills/gitnexus/gitnexus-impact-analysis/SKILL.md` |
-| Trace bugs / "Why is X failing?" | `.claude/skills/gitnexus/gitnexus-debugging/SKILL.md` |
-| Rename / extract / split / refactor | `.claude/skills/gitnexus/gitnexus-refactoring/SKILL.md` |
-| Tools, resources, schema reference | `.claude/skills/gitnexus/gitnexus-guide/SKILL.md` |
-| Index, status, clean, wiki CLI commands | `.claude/skills/gitnexus/gitnexus-cli/SKILL.md` |
+| Task                                         | Read this skill file                                        |
+| -------------------------------------------- | ----------------------------------------------------------- |
+| Understand architecture / "How does X work?" | `.claude/skills/gitnexus/gitnexus-exploring/SKILL.md`       |
+| Blast radius / "What breaks if I change X?"  | `.claude/skills/gitnexus/gitnexus-impact-analysis/SKILL.md` |
+| Trace bugs / "Why is X failing?"             | `.claude/skills/gitnexus/gitnexus-debugging/SKILL.md`       |
+| Rename / extract / split / refactor          | `.claude/skills/gitnexus/gitnexus-refactoring/SKILL.md`     |
+| Tools, resources, schema reference           | `.claude/skills/gitnexus/gitnexus-guide/SKILL.md`           |
+| Index, status, clean, wiki CLI commands      | `.claude/skills/gitnexus/gitnexus-cli/SKILL.md`             |
 
 <!-- gitnexus:end -->
