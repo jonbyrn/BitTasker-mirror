@@ -15,8 +15,8 @@ import { EscrowStatus } from './escrow.enum';
 import { getProvider, getWallet } from '$lib/stores/wallet.store';
 import * as EscrowNostrEvent from './escrowEvents';
 import escrowABI from './abi.json';
-import { classifyServiceAcceptanceAmbiguityError } from '$lib/utils/service-contract/ambiguity-reason';
 import {
+	classifyServiceAcceptanceAmbiguityError,
 	getTransactionConfirmationCount,
 	ServiceAcceptanceFinalityError,
 	waitForServiceAcceptanceFinality

@@ -177,7 +177,8 @@ export async function applyNdkSignerFromNsec(nsec: Uint8Array): Promise<void> {
 		try {
 			const taskRelayUrls = sanitizeRelayUrls(import.meta.env.VITE_NOSTR_TASK_RELAY_URL);
 			for (const url of taskRelayUrls) {
-				ndk.addExplicitRelay(url, NDKRelayAuthPolicies.signIn({ ndk }));
+				// TODO: Add auth policy to the relay
+				ndk.addExplicitRelay(url, /*NDKRelayAuthPolicies.signIn({ ndk })*/);
 			}
 		} catch (err) {
 			d.error('applyNdkSignerFromNsec failed to add relay: %o', err);

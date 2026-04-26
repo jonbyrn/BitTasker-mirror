@@ -1,11 +1,19 @@
 import { appStore } from '$lib/stores/app.store';
 import { walletManager, walletStore } from '$lib/stores/wallet.store';
-import { ensureEscrowReady, calculateTotalPayment } from '$lib/utils/escrow/v1/escrow';
+import {
+	calculateTotalPayment,
+	ensureContractReady,
+	formatRbtcAmount,
+	getExpectedRskChainId,
+	getExpectedRskNetworkLabel
+} from '$lib/utils/contract/v2/utils';
+import { getSecurePaymentContractAddress } from '$lib/utils/contract/v2/contractAddress';
 import { extractContractError } from '$lib/utils/wallet/contractErrorHandler';
 import { ethers } from 'ethers';
 import { nip19 } from 'nostr-tools';
 import { get } from 'svelte/store';
 import { getNostrKeyPair } from '$lib/utils/nostrKeys';
+import { GAS_REIMBURSEMENT_PER_OP } from '$lib/utils/contract/v2/types';
 
 const DEFAULT_CLIENT_FEE_TIER = 1;
 const GAS_BUFFER_DIVISOR = 10n;
@@ -51,32 +59,6 @@ export interface ServiceContractPreflightFailure {
 export type ServiceContractPreflightResult =
 	| ServiceContractPreflightSuccess
 	| ServiceContractPreflightFailure;
-
-function getExpectedRskChainId(): bigint {
-	const configuredNetwork = import.meta.env.VITE_RSK_NETWORK;
-	if (configuredNetwork === 'mainnet') {
-		return 30n;
-	}
-	if (configuredNetwork === 'regtest') {
-		return 33n;
-	}
-	return 31n;
-}
-
-function getExpectedRskNetworkLabel(): string {
-	const configuredNetwork = import.meta.env.VITE_RSK_NETWORK;
-	if (configuredNetwork === 'mainnet') {
-		return 'Rootstock Mainnet';
-	}
-	if (configuredNetwork === 'regtest') {
-		return 'Rootstock Regtest';
-	}
-	return 'Rootstock Testnet';
-}
-
-function formatRbtcAmount(value: bigint): string {
-	return Number.parseFloat(ethers.formatEther(value)).toFixed(6);
-}
 
 function fail(
 	errorCode: ServiceContractPreflightErrorCode,
@@ -159,7 +141,7 @@ async function ensureContractPublishReady(
 	input: Pick<ServiceContractPreflightInput, 'freelancerPubkey'>
 ): Promise<ServiceContractPreflightFailure | { recipientPubkey: string }> {
 	const normalizedRecipient = normalizeRecipientPubkey(input.freelancerPubkey);
-	if ('ok' in normalizedRecipient && normalizedRecipient.ok === false) {
+	if ('ok' in normalizedRecipient) {
 		return normalizedRecipient;
 	}
 
@@ -220,9 +202,10 @@ export async function preflightServiceContractCreation(
 	}
 
 	const walletReady = await ensureServiceWalletReady();
-	if ('ok' in walletReady && walletReady.ok === false) {
+	if ('ok' in walletReady) {
 		return walletReady;
 	}
+	const { walletAddress } = walletReady;
 
 	const publishReady = await ensureContractPublishReady({
 		freelancerPubkey: input.freelancerPubkey
@@ -231,8 +214,26 @@ export async function preflightServiceContractCreation(
 		return publishReady;
 	}
 
+	// Use v2 contract readiness check
+	const contractReady = await ensureContractReady(false);
+	if (!contractReady.ok) {
+		const errorCodeMap: Record<string, ServiceContractPreflightErrorCode> = {
+			wallet_not_connected: 'wallet_not_connected',
+			wallet_not_ready: 'wallet_not_ready',
+			provider_not_ready: 'preflight_failed',
+			wrong_network: 'wrong_network',
+			insufficient_funds: 'insufficient_funds',
+			contract_error: 'preflight_failed'
+		};
+		return fail(
+			errorCodeMap[contractReady.errorCode] ?? 'preflight_failed',
+			contractReady.error
+		);
+	}
+
+	const { contract, wallet, provider } = contractReady.result;
+
 	try {
-		const { contract, wallet, provider } = await ensureEscrowReady(undefined, false);
 		const network = await provider.getNetwork();
 		const expectedChainId = getExpectedRskChainId();
 		if (network.chainId !== expectedChainId) {
@@ -243,15 +244,21 @@ export async function preflightServiceContractCreation(
 		}
 
 		const baseAmountWei = ethers.parseEther(amount);
-		const totalPaymentWei = calculateTotalPayment(baseAmountWei, DEFAULT_CLIENT_FEE_TIER);
+		// For v2, we add gas reimbursement to the payment
+		const gasReimbursementWei = 2n * GAS_REIMBURSEMENT_PER_OP;
+		const totalPaymentWei = calculateTotalPayment(baseAmountWei, DEFAULT_CLIENT_FEE_TIER) + gasReimbursementWei;
 		const feeData = await provider.getFeeData();
 		const gasPrice = feeData.gasPrice ?? 0n;
-		const gasEstimate = await contract.createEscrow.estimateGas(
+
+		// Use v2 contract method: createPaymentContract
+		const gasEstimate = await contract.createPaymentContract.estimateGas(
 			normalizedFreelancerAddress,
 			input.estimatedStartTime,
 			input.estimatedCompletionTime,
 			DEFAULT_CLIENT_FEE_TIER,
 			input.freelancerFeeTier ?? 1,
+			0n, // cancellationFee
+			0n, // upfrontDeposit
 			{
 				value: totalPaymentWei,
 				gasPrice
@@ -279,7 +286,7 @@ export async function preflightServiceContractCreation(
 			amount,
 			gasCost: ethers.formatEther(gasCostWei),
 			totalRequired: ethers.formatEther(totalRequiredWei),
-			walletAddress: walletReady.walletAddress
+			walletAddress
 		};
 	} catch (error) {
 		return fail('preflight_failed', extractContractError(error).userMessage);

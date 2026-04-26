@@ -1,10 +1,26 @@
+/**
+ * Book Now Contract Recovery
+ *
+ * This module handles recovery for instant-buy (Book Now) service contracts when the browser
+ * was closed during transaction or the Nostr publish failed. Updated to use v2/NDK patterns.
+ *
+ * For reactive UI patterns, prefer using:
+ * - PaymentContractRune automatically handles pending state and transaction recovery
+ * - NDK subscriptions sync status from relays, providing built-in "recovery"
+ *
+ * See docs/service-escrow-version-abstraction.md for migration details.
+ */
+
+import { ethers } from 'ethers';
 import type {
 	ServiceContractAgreementSnapshot,
 	ServiceContractPricingSnapshot
 } from '$lib/types/contract';
 import { contractStore } from '$lib/stores/contract.store';
-import { escrow } from '$lib/utils/escrow';
-import { ensureEscrowReady } from '$lib/utils/escrow/v1/escrow';
+import { ensureContractReady } from '$lib/utils/contract/v2/utils';
+import { publishServiceContractEvent } from '$lib/utils/contract/v2/service-creation';
+import { getSecurePaymentContractAddress } from '$lib/utils/contract/v2/contractAddress';
+import { parsePaymentContractCreatedPaymentId } from '$lib/utils/contract/v2/creation';
 
 export interface RecoverBookNowContractInput {
 	transactionHash: string;
@@ -42,54 +58,25 @@ function normalizeTransactionHash(transactionHash: string): string {
 	return transactionHash.trim().toLowerCase();
 }
 
-async function loadContractIfAvailable(escrowId: string): Promise<boolean> {
-	const existingContracts = await escrow.contractOps.getContracts({
-		escrowIds: [escrowId],
-		limit: 1
-	});
-	if (existingContracts.length > 0) {
-		await contractStore.loadContractByEscrowId(escrowId);
-		return true;
+async function loadContractIfAvailable(paymentId: string): Promise<boolean> {
+	try {
+		const loaded = await contractStore.loadContractByEscrowId(paymentId);
+		return Boolean(loaded);
+	} catch {
+		return false;
 	}
-
-	return false;
 }
 
-function extractEscrowIdFromReceipt(
-	receipt: {
-		logs?: Array<{
-			topics: string[];
-			data: string;
-		}>;
-	} | null,
-	contract: {
-		interface: {
-			parseLog(args: {
-				topics: string[];
-				data: string;
-			}): { name?: string; args: ArrayLike<unknown> } | null;
-		};
-	}
+function extractPaymentIdFromReceipt(
+	receipt: ethers.TransactionReceipt | null,
+	contractAddress: string
 ): string | null {
-	if (!receipt?.logs?.length) {
+	if (!receipt) {
 		return null;
 	}
 
-	for (const log of receipt.logs) {
-		try {
-			const parsedLog = contract.interface.parseLog({
-				topics: log.topics,
-				data: log.data
-			});
-			if (parsedLog?.name === 'EscrowCreated') {
-				return parsedLog.args[0].toString();
-			}
-		} catch {
-			// Ignore unrelated logs while scanning for EscrowCreated.
-		}
-	}
-
-	return null;
+	const paymentId = parsePaymentContractCreatedPaymentId(receipt, contractAddress);
+	return paymentId ? String(paymentId) : null;
 }
 
 export async function recoverBookNowContract(
@@ -113,7 +100,16 @@ export async function recoverBookNowContract(
 			};
 		}
 
-		const { contract, provider } = await ensureEscrowReady(undefined, false);
+		const contractReady = await ensureContractReady(false);
+		if (!contractReady.ok) {
+			return {
+				status: 'failed',
+				transactionHash,
+				error: contractReady.error
+			};
+		}
+
+		const { provider } = contractReady.result;
 		const receipt = await provider.getTransactionReceipt(transactionHash);
 		if (!receipt) {
 			return {
@@ -130,52 +126,51 @@ export async function recoverBookNowContract(
 			};
 		}
 
-		const escrowId = extractEscrowIdFromReceipt(receipt, contract) ?? input.escrowId ?? undefined;
-		if (!escrowId) {
+		const contractAddress = getSecurePaymentContractAddress();
+		const paymentId = extractPaymentIdFromReceipt(receipt, contractAddress) ?? input.escrowId ?? undefined;
+		if (!paymentId) {
 			return {
 				status: 'contract_sync_pending',
 				transactionHash
 			};
 		}
 
-		if (await loadContractIfAvailable(escrowId)) {
+		if (await loadContractIfAvailable(paymentId)) {
 			return {
 				status: 'contract_ready',
-				escrowId,
+				escrowId: paymentId,
 				transactionHash
 			};
 		}
 
-		await escrow.contractOps.publishContractEvent({
-			escrowId,
-			taskId: input.serviceId,
-			taskTitle: input.serviceTitle,
-			taskDescription: input.serviceDescription,
+		const publishResult = await publishServiceContractEvent({
+			paymentId,
+			transactionHash,
 			freelancerPubkey: input.freelancerPubkey,
 			clientRskAddress: input.clientRskAddress,
 			amount: input.amountRbtc,
 			estimatedStartTime: input.estimatedStartTime,
 			estimatedCompletionTime: input.estimatedCompletionTime,
-			contextType: 'service',
-			contextId: input.serviceId,
-			contextTitle: input.serviceTitle,
-			contextDescription: input.serviceDescription,
-			contextVersionRef: input.contextVersionRef,
 			serviceId: input.serviceId,
 			serviceAddress: input.serviceAddress,
 			serviceTitle: input.serviceTitle,
+			serviceDescription: input.serviceDescription,
+			contextVersionRef: input.contextVersionRef,
 			purchaseMode: 'instant_buy',
 			instantOrderId: input.instantOrderId,
 			selectedTierId: input.selectedTierId,
 			pricingSnapshot: input.pricingSnapshot,
-			agreementSnapshot: input.agreementSnapshot,
-			transactionHash
+			agreementSnapshot: input.agreementSnapshot
 		});
 
-		if (await contractStore.loadContractByEscrowId(escrowId)) {
+		if (!publishResult.success) {
+			console.warn('[recoverBookNowContract] publish failed:', publishResult.error);
+		}
+
+		if (await contractStore.loadContractByEscrowId(paymentId)) {
 			return {
 				status: 'contract_ready',
-				escrowId,
+				escrowId: paymentId,
 				transactionHash
 			};
 		}
@@ -183,7 +178,7 @@ export async function recoverBookNowContract(
 		return {
 			status: 'contract_sync_pending',
 			transactionHash,
-			escrowId
+			escrowId: paymentId
 		};
 	} catch (error) {
 		return {

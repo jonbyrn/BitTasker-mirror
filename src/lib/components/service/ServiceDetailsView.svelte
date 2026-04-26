@@ -57,14 +57,13 @@
 	import { preflightServiceContractCreation } from '$lib/utils/service-contract/preflight';
 	import { appStore } from '$lib/stores/app.store';
 	import { ethers } from 'ethers';
-	import { escrow } from '$lib/utils/escrow';
+	import { serviceContractCreationStore, type ServiceContractCreationState } from '$lib/utils/contract/v2/pending-contracts';
 	import { FEE_TIERS } from '@bittasker/wallet-core';
 
 	const DEFAULT_CLIENT_FEE_TIER = 1;
 	const PLATFORM_FEE_RATE = FEE_TIERS[DEFAULT_CLIENT_FEE_TIER].percentage / 10000;
 	const ESTIMATED_NETWORK_FEE_USD = 0.5;
 	import { formatSats, totalBalances, walletManager, walletStore } from '$lib/stores/wallet.store';
-	import type { ContractCreationEvent } from '$lib/types/contract';
 	import { queryTaskeeServiceQuoteThreads } from '$lib/utils/service-quote/query';
 	import { summarizeDeleteGuardForThreads } from '$lib/utils/service-quote/resolver';
 	import { getActiveServiceContractsForService } from '$lib/utils/service-contract/active-contracts';
@@ -317,21 +316,22 @@
 		return total;
 	});
 	const instantBuyService = $derived(service as ServiceRuntimeFields | null);
-	const contractCreationStore = escrow.eventOps.getContractCreationStore();
 	const instantBuyProviderWalletAddress = $derived.by(() =>
 		instantBuyService ? resolveProviderWalletAddress(instantBuyService) : null
 	);
-	const instantBuyContractCreationEvent = $derived.by(() => {
+	const instantBuyContractCreationEvent = $derived.by((): ServiceContractCreationState => {
 		if (!instantBuyPendingTransactionHash) {
 			return null;
 		}
 
-		return matchesContractCreationTransaction(
-			$contractCreationStore,
-			instantBuyPendingTransactionHash
-		)
-			? $contractCreationStore
-			: null;
+		const storeValue = $serviceContractCreationStore;
+		if (!storeValue) {
+			return null;
+		}
+
+		const expectedHash = normalizeTransactionHash(instantBuyPendingTransactionHash);
+		const storeHash = normalizeTransactionHash(storeValue.transactionHash);
+		return expectedHash && storeHash && expectedHash === storeHash ? storeValue : null;
 	});
 	const showInstantBuyContractCreationProgress = $derived(
 		Boolean(instantBuyPendingTransactionHash)
@@ -340,20 +340,26 @@
 		if (!instantBuyPendingTransactionHash) {
 			return 'idle' as const;
 		}
-		if (instantBuyPostSubmitErrorMessage || instantBuyContractCreationEvent?.error) {
+		if (instantBuyPostSubmitErrorMessage) {
 			return 'error' as const;
 		}
-		if (
-			instantBuyContractCreationEvent?.contractEventId ||
-			instantBuyContractCreationEvent?.escrowId
-		) {
+		if (instantBuyContractCreationEvent?.state === 'failed') {
+			return 'error' as const;
+		}
+		if (instantBuyContractCreationEvent?.state === 'confirmed') {
 			return 'success' as const;
 		}
 		return 'creating' as const;
 	});
-	const instantBuyContractCreationMessage = $derived.by(
-		() => instantBuyPostSubmitErrorMessage || instantBuyContractCreationEvent?.error || ''
-	);
+	const instantBuyContractCreationMessage = $derived.by(() => {
+		if (instantBuyPostSubmitErrorMessage) {
+			return instantBuyPostSubmitErrorMessage;
+		}
+		if (instantBuyContractCreationEvent?.state === 'failed') {
+			return instantBuyContractCreationEvent.error;
+		}
+		return '';
+	});
 	const instantBuyEligibility = $derived(
 		getInstantBuyEligibility(instantBuyService, selectedTierId ?? undefined)
 	);
@@ -697,26 +703,6 @@
 			expectedLockOwnerId: resolvedExpectedLockOwnerId,
 			lockOwnerId: state === 'submission_locked' ? resolvedExpectedLockOwnerId : undefined
 		});
-	}
-
-	function matchesContractCreationTransaction(
-		event: ContractCreationEvent | null,
-		transactionHash: string
-	): event is ContractCreationEvent {
-		if (!event) {
-			return false;
-		}
-
-		const expectedHash = normalizeTransactionHash(transactionHash);
-		if (!expectedHash) {
-			return false;
-		}
-
-		const candidateHashes = [event.transactionHash, ...(event.transactionHashes ?? [])]
-			.map((value) => (typeof value === 'string' ? normalizeTransactionHash(value) : null))
-			.filter((value): value is string => Boolean(value));
-
-		return candidateHashes.includes(expectedHash);
 	}
 
 	function resolveInstantBuyAmountUsd(runtimeService: ServiceRuntimeFields): number | null {

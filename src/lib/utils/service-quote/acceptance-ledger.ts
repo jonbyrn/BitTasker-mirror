@@ -1,3 +1,21 @@
+/**
+ * Service Acceptance Ledger
+ *
+ * @deprecated This module provides local persistence for service acceptance state.
+ * It was designed for the v1 escrow implementation and handles edge cases like:
+ * - Browser closes during transaction
+ * - Network failures during acceptance publish
+ * - Retry/reverification of uncertain acceptances
+ *
+ * For NEW service contracts using v2/NDK, use PaymentContractRune instead:
+ * - Pending state: rune.isPending
+ * - Status tracking: rune.statusEventsByNewest (from NDK Kind 31006 subscription)
+ * - Transaction confirmation: rune.resolvePaymentIdFromTxHash()
+ *
+ * This module will be removed once all services are migrated to v2.
+ * See docs/service-escrow-version-abstraction.md for migration details.
+ */
+
 import { browser } from '$app/environment';
 import { Preferences } from '@capacitor/preferences';
 import type {
