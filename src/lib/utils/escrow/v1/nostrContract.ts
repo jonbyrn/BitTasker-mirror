@@ -62,6 +62,14 @@ export async function publishContractEvent(params: CreateContractParams): Promis
 			? import.meta.env.VITE_RSK_CONTRACT_ADDRESS_MAINNET
 			: import.meta.env.VITE_RSK_CONTRACT_ADDRESS_TESTNET;
 
+	console.log('[publishContractEvent] publishing contract:', {
+		escrowId: params.escrowId,
+		taskId: params.taskId,
+		freelancerPubkey: params.freelancerPubkey?.slice(0, 8),
+		clientPubkey: clientPubkey.slice(0, 8),
+		network
+	});
+
 	const contractData: NostrContract = {
 		escrowId: params.escrowId,
 		taskId: params.taskId,
@@ -113,7 +121,18 @@ export async function publishContractEvent(params: CreateContractParams): Promis
 		'v1'
 	);
 
+	console.log(
+		'[publishContractEvent] tags for contract:',
+		tags.map((t) => t[0] + ':' + (t[1]?.slice(0, 8) || '?'))
+	);
+	console.log(
+		'[publishContractEvent] publishing to recipient:',
+		params.freelancerPubkey?.slice(0, 8)
+	);
+
 	await publishNostrEvent(KINDS.CONTRACT, contractMessage, params.freelancerPubkey, tags);
+
+	console.log('[publishContractEvent] published successfully');
 }
 
 /**

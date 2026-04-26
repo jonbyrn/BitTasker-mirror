@@ -130,6 +130,7 @@ export class NDKPaymentContract extends NDKEvent {
 
 		const mWire = contract.tagValue('m');
 		if (mWire !== undefined && mWire !== 'contract') {
+			console.log('[NDKPaymentContract.from] mWire != contract:', mWire);
 			return undefined;
 		}
 
@@ -142,6 +143,14 @@ export class NDKPaymentContract extends NDKEvent {
 			? pTags.find((tag) => tag[1] !== authorPubkey)?.[1]
 			: undefined;
 
+		console.log('[NDKPaymentContract.from] initial:', {
+			eventId: event.id?.slice(0, 8),
+			authorPubkey: authorPubkey.slice(0, 8),
+			currentUserPubkey: currentUserPubkey.slice(0, 8),
+			pTagsCount: pTags.length,
+			pTags: pTags.map((t) => t[1]?.slice(0, 8))
+		});
+
 		let otherPartyPubkey: string | undefined;
 		if (currentUserPubkey && authorPubkey) {
 			otherPartyPubkey = currentUserPubkey === authorPubkey ? taskeePubkeyFromTags : authorPubkey;
@@ -151,21 +160,35 @@ export class NDKPaymentContract extends NDKEvent {
 			otherPartyPubkey = taskeePubkeyFromTags;
 		}
 
+		console.log('[NDKPaymentContract.from] otherPartyPubkey:', otherPartyPubkey?.slice(0, 8));
+
 		let decryptFailed = false;
 		if (otherPartyPubkey) {
 			const otherUser = new NDKUser({ pubkey: otherPartyPubkey });
 			try {
 				await contract.decrypt(otherUser);
+				console.log(
+					'[NDKPaymentContract.from] decryption SUCCESS for event:',
+					event.id?.slice(0, 8)
+				);
 				// d.log('decrypted contract', {
 				// 	contract,
 				// 	isSenderCurrentUser: sender.pubkey === currentUserPubkey
 				// });
 			} catch (_e) {
 				decryptFailed = true;
+				console.error('[NDKPaymentContract.from] decryption FAILED:', {
+					eventId: event.id?.slice(0, 8),
+					error: _e
+				});
 				d.warn('NDKPaymentContract.from: decryption failed', { eventId: event.id, err: _e });
 				contract.content = prevContent;
 			}
 		} else if (contract.content && contract.content.length > 0) {
+			console.warn(
+				'[NDKPaymentContract.from] no counterparty pubkey for decrypt:',
+				event.id?.slice(0, 8)
+			);
 			d.warn('NDKPaymentContract.from: no counterparty pubkey for decrypt', {
 				eventId: event.id
 			});
@@ -174,8 +197,13 @@ export class NDKPaymentContract extends NDKEvent {
 		let parsed: unknown;
 		try {
 			parsed = JSON.parse(contract.content);
+			console.log('[NDKPaymentContract.from] parsed content successfully');
 		} catch {
 			if (decryptFailed) {
+				console.warn(
+					'[NDKPaymentContract.from] content not JSON after decrypt failure:',
+					event.id?.slice(0, 8)
+				);
 				d.warn('NDKPaymentContract.from: content not JSON after decrypt failure', {
 					eventId: event.id
 				});

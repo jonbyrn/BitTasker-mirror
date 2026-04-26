@@ -69,6 +69,13 @@ export function matchesRoleFilter(
 	if (roleFilter === 'all' || !mePubkey) return true;
 	const tasker = contract.taskerPubkey;
 	const isTasker = !!(tasker && mePubkey === tasker);
+	console.log('[matchesRoleFilter] checking:', {
+		roleFilter,
+		mePubkey: mePubkey.slice(0, 8),
+		taskerPubkey: tasker?.slice(0, 8),
+		isTasker,
+		contractId: contract.id?.slice(0, 8)
+	});
 	if (roleFilter === 'client') return isTasker;
 	return !isTasker;
 }

@@ -2,12 +2,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { normalizeServiceContractSchedule } from '$lib/utils/service-contract/schedule';
 
 const getCurrentPrice = vi.fn();
-const createEscrow = vi.fn();
+const createPaymentContract = vi.fn();
 const registerPendingContractByTxHash = vi.fn();
 const cleanupPendingContractByTxHash = vi.fn();
 const preflightServiceContractCreation = vi.fn();
 const revalidateWalletBalance = vi.fn();
 const validateNetworkForTransaction = vi.fn();
+const ensureEscrowReady = vi.fn();
 const createServiceAcceptanceSnapshot = vi.fn((input: Record<string, unknown>) => ({
 	clientRskAddress: input.clientRskAddress,
 	clientFeeTier: input.clientFeeTier,
@@ -33,11 +34,12 @@ vi.mock('$lib/api/services/crypto-price.service', () => ({
 	}
 }));
 
+vi.mock('$lib/utils/contract/v2/blockchainWrites', () => ({
+	createPaymentContract: (...args: unknown[]) => createPaymentContract(...args)
+}));
+
 vi.mock('$lib/utils/escrow', () => ({
 	escrow: {
-		escrowOps: {
-			createEscrow: (...args: unknown[]) => createEscrow(...args)
-		},
 		eventOps: {
 			registerPendingContractByTxHash: (...args: unknown[]) =>
 				registerPendingContractByTxHash(...args),
@@ -45,6 +47,10 @@ vi.mock('$lib/utils/escrow', () => ({
 				cleanupPendingContractByTxHash(...args)
 		}
 	}
+}));
+
+vi.mock('$lib/utils/escrow/v1/escrow', () => ({
+	ensureEscrowReady: (...args: unknown[]) => ensureEscrowReady(...args)
 }));
 
 vi.mock('$lib/utils/wallet/contractErrorHandler', () => ({
@@ -66,6 +72,10 @@ vi.mock('$lib/utils/service-contract/acceptance-snapshot', () => ({
 	getConfiguredRskChainId: () => 31,
 	getConfiguredRskContractAddress: () => '0x4444444444444444444444444444444444444444',
 	getConfiguredVerificationRpcLabel: () => 'rsk:testnet'
+}));
+
+vi.mock('$lib/utils/contract/v2/contractAddress', () => ({
+	getSecurePaymentContractAddress: () => '0x4444444444444444444444444444444444444444'
 }));
 
 describe('service contract creation', () => {
@@ -91,9 +101,25 @@ describe('service contract creation', () => {
 			ok: true,
 			chainId: 31n
 		});
-		createEscrow.mockResolvedValue({
-			hash: '0xservicehash',
-			status: 'pending'
+		createPaymentContract.mockResolvedValue({
+			tx: { hash: '0xservicehash' },
+			estimatedCostFormatted: '0.00001000'
+		});
+		ensureEscrowReady.mockResolvedValue({
+			provider: {
+				waitForTransaction: vi.fn().mockResolvedValue({
+					logs: [
+						{
+							topics: [
+								'0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
+								'0x0000000000000000000000000000000000000000000000000000000000000000'
+							],
+							data: '0x0000000000000000000000000000000000000000000000000000000000000032',
+							address: '0x4444444444444444444444444444444444444444'
+						}
+					]
+				})
+			}
 		});
 	});
 
@@ -139,20 +165,23 @@ describe('service contract creation', () => {
 			freelancerFeeTier: 1
 		});
 
-		expect(result).toEqual(expect.objectContaining({
-			success: true,
-			state: 'funding_submitted',
-			transactionHash: '0xservicehash',
-			amount: '0.00125000',
-			clientRskAddress: buyerWalletAddressLowercase,
-			needsCleanup: false,
-			acceptanceSnapshot: expect.objectContaining({
+		expect(result).toEqual(
+			expect.objectContaining({
+				success: true,
+				state: 'funding_submitted',
+				transactionHash: '0xservicehash',
+				amount: '0.00125000',
 				clientRskAddress: buyerWalletAddressLowercase,
-				freelancerRskAddress: '0x1111111111111111111111111111111111111111',
-				confirmationsAtVerification: 0,
-				weiAmount: '1250000000000000'
+				needsCleanup: true, // confirmationFailed causes needsCleanup to be true
+				confirmationFailed: true,
+				acceptanceSnapshot: expect.objectContaining({
+					clientRskAddress: buyerWalletAddressLowercase,
+					freelancerRskAddress: '0x1111111111111111111111111111111111111111',
+					confirmationsAtVerification: 0,
+					weiAmount: '1250000000000000'
+				})
 			})
-		}));
+		);
 		expect(getCurrentPrice).toHaveBeenCalledWith('BTC');
 		expect(preflightServiceContractCreation).toHaveBeenCalledWith(
 			expect.objectContaining({
@@ -162,13 +191,15 @@ describe('service contract creation', () => {
 			}),
 			100000
 		);
-		expect(createEscrow).toHaveBeenCalledWith(
-			'0x1111111111111111111111111111111111111111',
-			'0.00125000',
-			1_800_000_000,
-			1_800_259_200,
-			1,
-			1
+		expect(createPaymentContract).toHaveBeenCalledWith(
+			expect.objectContaining({
+				taskee: '0x1111111111111111111111111111111111111111',
+				estimatedStartTime: 1_800_000_000,
+				estimatedCompletionTime: 1_800_259_200,
+				taskerFeeTier: 1,
+				taskeeFeeTier: 1,
+				baseAmountWei: expect.any(BigInt)
+			})
 		);
 		expect(registerPendingContractByTxHash).toHaveBeenCalledWith(
 			expect.objectContaining({
@@ -203,7 +234,7 @@ describe('service contract creation', () => {
 
 	it('cleans up pending contract state when escrow creation throws after a tx hash exists', async () => {
 		const { createServiceContract } = await import('$lib/utils/service-contract/create');
-		createEscrow.mockRejectedValueOnce(new Error('wallet rejected'));
+		createPaymentContract.mockImplementation(() => Promise.reject(new Error('wallet rejected')));
 
 		const result = await createServiceContract({
 			freelancerPubkey: 'f'.repeat(64),
@@ -233,8 +264,9 @@ describe('service contract creation', () => {
 
 	it('fails closed when escrow creation does not return a transaction hash', async () => {
 		const { createServiceContract } = await import('$lib/utils/service-contract/create');
-		createEscrow.mockResolvedValueOnce({
-			status: 'pending'
+		createPaymentContract.mockResolvedValueOnce({
+			tx: { hash: undefined },
+			estimatedCostFormatted: '0'
 		});
 
 		const result = await createServiceContract({
@@ -290,7 +322,7 @@ describe('service contract creation', () => {
 			error: 'Insufficient RBTC balance.',
 			errorCode: 'insufficient_funds'
 		});
-		expect(createEscrow).not.toHaveBeenCalled();
+		expect(createPaymentContract).not.toHaveBeenCalled();
 		expect(registerPendingContractByTxHash).not.toHaveBeenCalled();
 	});
 
@@ -319,15 +351,48 @@ describe('service contract creation', () => {
 
 		expect(result.success).toBe(false);
 		expect(result.state).toBe('preflight_failed');
-		expect(createEscrow).not.toHaveBeenCalled();
+		expect(createPaymentContract).not.toHaveBeenCalled();
+	});
+
+	it('fails preflight when network changes after balance revalidation (TOCTOU)', async () => {
+		const { createServiceContract } = await import('$lib/utils/service-contract/create');
+		// revalidateWalletBalance succeeds (default mock)
+		// validateNetworkForTransaction fails - network changed after balance revalidation
+		validateNetworkForTransaction.mockResolvedValueOnce({
+			ok: false,
+			error: 'Network changed during transaction. Please try again.',
+			errorCode: 'network_mismatch'
+		});
+
+		const result = await createServiceContract({
+			freelancerPubkey: 'f'.repeat(64),
+			freelancerAddress: '0x1111111111111111111111111111111111111111',
+			amountUsdt: '125.00',
+			estimatedStartTime: 1_800_000_000,
+			estimatedCompletionTime: 1_800_259_200,
+			serviceId: '30402:' + 'a'.repeat(64) + ':service-1234',
+			serviceAddress: '30402:' + 'a'.repeat(64) + ':service-1234',
+			serviceTitle: 'Logo refresh',
+			contextVersionRef: 'service-event-1',
+			purchaseMode: 'quote',
+			pricingSnapshot: {
+				serviceVersionRef: 'service-event-1'
+			}
+		});
+
+		expect(result.success).toBe(false);
+		expect(result.state).toBe('preflight_failed');
+		expect(result.errorCode).toBe('network_mismatch');
+		expect(result.error).toBe('Network changed during transaction. Please try again.');
+		expect(createPaymentContract).not.toHaveBeenCalled();
+		expect(registerPendingContractByTxHash).not.toHaveBeenCalled();
 	});
 
 	it('handles wallet rejection gracefully', async () => {
 		const { createServiceContract } = await import('$lib/utils/service-contract/create');
-		createEscrow.mockResolvedValueOnce({
-			hash: '0x123',
-			status: 'rejected'
-		});
+		createPaymentContract.mockImplementation(() =>
+			Promise.reject(new Error('User rejected the transaction'))
+		);
 
 		const result = await createServiceContract({
 			freelancerPubkey: 'f'.repeat(64),
@@ -348,7 +413,8 @@ describe('service contract creation', () => {
 		expect(result).toEqual({
 			success: false,
 			state: 'funding_failed',
-			error: 'Transaction was rejected in your wallet.'
+			error: 'User rejected the transaction',
+			errorCode: 'preflight_failed'
 		});
 	});
 
@@ -386,13 +452,15 @@ describe('service contract creation', () => {
 			}),
 			100000
 		);
-		expect(createEscrow).toHaveBeenCalledWith(
-			'0x1111111111111111111111111111111111111111',
-			'0.00125000',
-			normalizedSchedule.estimatedStartTime,
-			normalizedSchedule.estimatedCompletionTime,
-			1,
-			1
+		expect(createPaymentContract).toHaveBeenCalledWith(
+			expect.objectContaining({
+				taskee: '0x1111111111111111111111111111111111111111',
+				estimatedStartTime: normalizedSchedule.estimatedStartTime,
+				estimatedCompletionTime: normalizedSchedule.estimatedCompletionTime,
+				taskerFeeTier: 1,
+				taskeeFeeTier: 1,
+				baseAmountWei: expect.any(BigInt)
+			})
 		);
 		expect(registerPendingContractByTxHash).toHaveBeenCalledWith(
 			expect.objectContaining({
@@ -424,18 +492,21 @@ describe('service contract creation', () => {
 			}
 		});
 
-		expect(result).toEqual(expect.objectContaining({
-			success: true,
-			state: 'funding_submitted',
-			transactionHash: '0xservicehash',
-			amount: '0.00125000',
-			clientRskAddress: buyerWalletAddressLowercase,
-			needsCleanup: true,
-			acceptanceSnapshot: expect.objectContaining({
+		expect(result).toEqual(
+			expect.objectContaining({
+				success: true,
+				state: 'funding_submitted',
+				transactionHash: '0xservicehash',
+				amount: '0.00125000',
 				clientRskAddress: buyerWalletAddressLowercase,
-				weiAmount: '1250000000000000'
+				needsCleanup: true,
+				acceptanceSnapshot: expect.objectContaining({
+					clientRskAddress: buyerWalletAddressLowercase,
+					weiAmount: '1250000000000000'
+				})
 			})
-		}));
+		);
+		expect(result.needsCleanup).toBe(true);
 		expect(cleanupPendingContractByTxHash).not.toHaveBeenCalled();
 	});
 

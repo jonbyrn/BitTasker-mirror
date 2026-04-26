@@ -259,7 +259,8 @@ export function extractContractError(error: unknown): ContractError {
 	// Return the original message if it's reasonable
 	return {
 		userMessage: error.message,
-		technicalMessage: errorMessage
+		technicalMessage: errorMessage,
+		errorCode: 'UNKNOWN'
 	};
 }
 

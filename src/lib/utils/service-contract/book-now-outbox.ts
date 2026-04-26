@@ -81,13 +81,13 @@ function isFinitePositiveNumber(value: unknown): value is number {
 
 const VALID_TRANSITIONS: Record<BookNowOutboxState, BookNowOutboxState[]> = {
 	idle: ['submission_locked'],
-	submission_locked: ['funding_submitted', 'idle'],
+	submission_locked: ['funding_submitted', 'contract_created', 'idle'],
 	funding_submitted: ['contract_created', 'contract_sync_pending', 'idle'],
-	contract_created: ['escrow_created', 'contract_sync_pending', 'idle'],
+	contract_created: ['escrow_created', 'contract_sync_pending', 'contract_creation_failed', 'idle'],
 	escrow_created: ['contract_sync_pending', 'idle'],
 	contract_sync_pending: ['contract_ready', 'contract_creation_failed', 'idle'],
 	contract_ready: [], // terminal
-	contract_creation_failed: ['idle'] // can retry
+	contract_creation_failed: ['idle', 'submission_locked'] // can retry
 };
 
 function isBookNowOutboxState(value: unknown): value is BookNowOutboxState {
@@ -196,7 +196,14 @@ function persistSnapshot(
 		return;
 	}
 
-	storage.setItem(BOOK_NOW_OUTBOX_STORAGE_KEY, JSON.stringify(snapshot));
+	try {
+		storage.setItem(BOOK_NOW_OUTBOX_STORAGE_KEY, JSON.stringify(snapshot));
+	} catch (error) {
+		console.error('[outbox] ERROR: persistSnapshot failed', {
+			error: error instanceof Error ? error.message : String(error),
+			entryCount: Object.keys(snapshot.entries).length
+		});
+	}
 }
 
 function isExpiredSubmissionLock(entry: BookNowOutboxEntry, nowMs: number): boolean {
@@ -231,6 +238,7 @@ function pruneSnapshot(
 	nowMs: number,
 	maxAgeMs: number
 ): BookNowOutboxSnapshot {
+	const beforeCount = Object.keys(snapshot.entries).length;
 	const entries = Object.fromEntries(
 		Object.entries(snapshot.entries).filter(([, entry]) => {
 			// Always remove entries marked for cleanup
@@ -244,6 +252,16 @@ function pruneSnapshot(
 
 			return !isStaleRecoverableEntry(entry, nowMs, maxAgeMs);
 		})
+	);
+	const afterCount = Object.keys(entries).length;
+	const removedCount = beforeCount - afterCount;
+	console.log(
+		'[outbox] ACTION: pruneSnapshot before=%d after=%d removed=%d nowMs=%d maxAgeMs=%d',
+		beforeCount,
+		afterCount,
+		removedCount,
+		nowMs,
+		maxAgeMs
 	);
 
 	return { entries };
@@ -270,7 +288,7 @@ export function createBookNowSubmissionLockEntry(
 		throw new Error('Book Now outbox requires a positive lock TTL.');
 	}
 
-	return {
+	const entry: BookNowOutboxEntry = {
 		fingerprint: normalizedFingerprint,
 		state: 'submission_locked',
 		createdAtMs: nowMs,
@@ -278,6 +296,14 @@ export function createBookNowSubmissionLockEntry(
 		lockOwnerId: normalizedLockOwnerId,
 		lockExpiresAtMs: nowMs + lockTtlMs
 	};
+	console.log(
+		'[outbox] ACTION: createBookNowSubmissionLockEntry fingerprint=%s state=%s lockOwnerId=%s lockExpiresAtMs=%d',
+		normalizedFingerprint,
+		entry.state,
+		normalizedLockOwnerId,
+		entry.lockExpiresAtMs
+	);
+	return entry;
 }
 
 export function acquireBookNowSubmissionLock(
@@ -303,13 +329,27 @@ export function acquireBookNowSubmissionLock(
 	// Capture version timestamp for TOCTOU check
 	const originalUpdatedAtMs = existingEntry?.updatedAtMs;
 
+	console.log(
+		'[outbox] ACTION: acquireBookNowSubmissionLock fingerprint=%s lockOwnerId=%s nowMs=%d',
+		normalizedFingerprint,
+		normalizedLockOwnerId,
+		nowMs
+	);
+	console.log(
+		'[outbox] RESULT: existingEntry=%s state=%s',
+		existingEntry ? 'found' : 'none',
+		existingEntry?.state ?? 'N/A'
+	);
+
 	if (existingEntry) {
 		if (existingEntry.state === 'submission_locked') {
 			if (existingEntry.lockOwnerId === normalizedLockOwnerId) {
 				// Check if lock has expired before allowing renewal
 				if (isExpiredSubmissionLock(existingEntry, nowMs)) {
 					// Lock expired, don't allow renewal - let another session acquire
+					console.log('[outbox] ACTION: lock expired for fingerprint=%s', normalizedFingerprint);
 					persistSnapshot(storage, snapshot);
+					console.log('[outbox] RESULT: acquired=false reason=already_locked (expired)');
 					return { acquired: false, entry: existingEntry, reason: 'already_locked' };
 				}
 				// Reload to detect concurrent modification (TOCTOU protection)
@@ -320,9 +360,18 @@ export function acquireBookNowSubmissionLock(
 				if (
 					reloadedEntry &&
 					(reloadedEntry.updatedAtMs !== originalUpdatedAtMs ||
-					 reloadedEntry.lockExpiresAtMs !== existingEntry.lockExpiresAtMs)
+						reloadedEntry.lockExpiresAtMs !== existingEntry.lockExpiresAtMs)
 				) {
 					// Entry was modified by another process - abort
+					console.log(
+						'[outbox] ACTION: TOCTOU protection triggered - concurrent modification detected for fingerprint=%s',
+						normalizedFingerprint
+					);
+					console.log(
+						'[outbox] RESULT: acquired=false reason=already_locked (TOCTOU) originalUpdatedAtMs=%d reloadedUpdatedAtMs=%d',
+						originalUpdatedAtMs,
+						reloadedEntry.updatedAtMs
+					);
 					return {
 						acquired: false,
 						entry: reloadedEntry,
@@ -340,13 +389,26 @@ export function acquireBookNowSubmissionLock(
 				renewedEntry.updatedAtMs = nowMs;
 				snapshot.entries[normalizedFingerprint] = renewedEntry;
 				persistSnapshot(storage, snapshot);
+				console.log(
+					'[outbox] RESULT: acquired=true reason=renewed fingerprint=%s lockExpiresAtMs=%d',
+					normalizedFingerprint,
+					renewedEntry.lockExpiresAtMs
+				);
 				return { acquired: true, entry: renewedEntry, reason: 'renewed' };
 			}
 
+			console.log(
+				'[outbox] RESULT: acquired=false reason=already_locked (different owner) lockOwnerId=%s',
+				existingEntry.lockOwnerId
+			);
 			persistSnapshot(storage, snapshot);
 			return { acquired: false, entry: existingEntry, reason: 'already_locked' };
 		}
 
+		console.log(
+			'[outbox] RESULT: acquired=false reason=recoverable_exists state=%s',
+			existingEntry.state
+		);
 		persistSnapshot(storage, snapshot);
 		return { acquired: false, entry: existingEntry, reason: 'recoverable_exists' };
 	}
@@ -357,8 +419,18 @@ export function acquireBookNowSubmissionLock(
 		nowMs,
 		lockTtlMs
 	);
+	console.log(
+		'[outbox] ACTION: creating new entry fingerprint=%s state=%s lockExpiresAtMs=%d',
+		normalizedFingerprint,
+		entry.state,
+		entry.lockExpiresAtMs
+	);
 	snapshot.entries[normalizedFingerprint] = entry;
 	persistSnapshot(storage, snapshot);
+	console.log(
+		'[outbox] RESULT: acquired=true reason=acquired fingerprint=%s',
+		normalizedFingerprint
+	);
 	return { acquired: true, entry, reason: 'acquired' };
 }
 
@@ -369,10 +441,11 @@ export function readRecoverableBookNowOutboxEntries(
 ): BookNowOutboxEntry[] {
 	const snapshot = pruneSnapshot(loadSnapshot(storage), nowMs, maxAgeMs);
 	persistSnapshot(storage, snapshot);
-
-	return Object.values(snapshot.entries).sort(
+	const entries = Object.values(snapshot.entries).sort(
 		(left, right) => left.updatedAtMs - right.updatedAtMs
 	);
+	console.log('[outbox] ACTION: readRecoverableBookNowOutboxEntries count=%d', entries.length);
+	return entries;
 }
 
 export function readRecoverableBookNowOutboxEntry(
@@ -388,7 +461,14 @@ export function readRecoverableBookNowOutboxEntry(
 
 	const snapshot = pruneSnapshot(loadSnapshot(storage), nowMs, maxAgeMs);
 	persistSnapshot(storage, snapshot);
-	return snapshot.entries[normalizedFingerprint] ?? null;
+	const entry = snapshot.entries[normalizedFingerprint] ?? null;
+	console.log(
+		'[outbox] ACTION: readRecoverableBookNowOutboxEntry fingerprint=%s found=%s state=%s',
+		normalizedFingerprint,
+		entry !== null,
+		entry?.state ?? 'N/A'
+	);
+	return entry;
 }
 
 export function updateBookNowOutboxEntry(
@@ -408,12 +488,30 @@ export function updateBookNowOutboxEntry(
 	const snapshot = loadSnapshot(storage);
 	const existingEntry = snapshot.entries[normalizedFingerprint];
 
+	console.log(
+		'[outbox] ACTION: updateBookNowOutboxEntry fingerprint=%s input.state=%s',
+		normalizedFingerprint,
+		input.state
+	);
+	console.log(
+		'[outbox] RESULT: existingEntry=%s state=%s updatedAtMs=%d',
+		existingEntry ? 'found' : 'none',
+		existingEntry?.state ?? 'N/A',
+		existingEntry?.updatedAtMs ?? 'N/A'
+	);
+
 	// TOCTOU protection: check if entry was modified concurrently
 	if (
 		input.expectedUpdatedAtMs !== undefined &&
 		existingEntry &&
 		existingEntry.updatedAtMs !== input.expectedUpdatedAtMs
 	) {
+		console.log(
+			'[outbox] ACTION: TOCTOU concurrent modification detected fingerprint=%s expectedUpdatedAtMs=%d actualUpdatedAtMs=%d',
+			normalizedFingerprint,
+			input.expectedUpdatedAtMs,
+			existingEntry.updatedAtMs
+		);
 		throw new Error('Concurrent modification detected');
 	}
 
@@ -424,6 +522,11 @@ export function updateBookNowOutboxEntry(
 		existingEntry?.state === 'submission_locked' &&
 		existingEntry.lockOwnerId !== expectedLockOwnerId
 	) {
+		console.log(
+			'[outbox] RESULT: lock owner mismatch expected=%s actual=%s',
+			expectedLockOwnerId,
+			existingEntry.lockOwnerId
+		);
 		throw new Error('Book Now outbox submission lock is owned by another session.');
 	}
 
@@ -437,6 +540,12 @@ export function updateBookNowOutboxEntry(
 	if (existingEntry) {
 		const allowedTransitions = VALID_TRANSITIONS[existingEntry.state];
 		if (!allowedTransitions.includes(input.state)) {
+			console.log(
+				'[outbox] RESULT: invalid state transition from=%s to=%s allowed=%s',
+				existingEntry.state,
+				input.state,
+				allowedTransitions.join(', ')
+			);
 			throw new Error(
 				`Invalid state transition from '${existingEntry.state}' to '${input.state}'. Allowed: [${allowedTransitions.join(', ')}]`
 			);
@@ -468,13 +577,25 @@ export function updateBookNowOutboxEntry(
 				? undefined
 				: (normalizeOptionalString(input.escrowId) ?? existingEntry?.escrowId),
 		needsCleanup:
-			input.needsCleanup === null
-				? undefined
-				: (input.needsCleanup ?? existingEntry?.needsCleanup)
+			input.needsCleanup === null ? undefined : (input.needsCleanup ?? existingEntry?.needsCleanup)
 	};
 
+	console.log(
+		'[outbox] ACTION: persisting entry fingerprint=%s state=%s updatedAtMs=%d',
+		normalizedFingerprint,
+		nextEntry.state,
+		nextEntry.updatedAtMs
+	);
 	snapshot.entries[normalizedFingerprint] = nextEntry;
 	persistSnapshot(storage, snapshot);
+	console.log(
+		'[outbox] RESULT: entry updated fingerprint=%s state=%s txHash=%s escrowId=%s needsCleanup=%s',
+		normalizedFingerprint,
+		nextEntry.state,
+		nextEntry.transactionHash ?? 'none',
+		nextEntry.escrowId ?? 'none',
+		nextEntry.needsCleanup ?? 'N/A'
+	);
 	return nextEntry;
 }
 
@@ -494,8 +615,18 @@ export function clearBookNowOutboxEntry(
 	// whether another deletion occurred first.
 
 	const snapshot = loadSnapshot(storage);
+	console.log(
+		'[outbox] ACTION: clearBookNowOutboxEntry fingerprint=%s entriesBefore=%d',
+		normalizedFingerprint,
+		Object.keys(snapshot.entries).length
+	);
 	delete snapshot.entries[normalizedFingerprint];
 	persistSnapshot(storage, snapshot);
+	console.log(
+		'[outbox] RESULT: clearBookNowOutboxEntry completed fingerprint=%s entriesAfter=%d',
+		normalizedFingerprint,
+		Object.keys(snapshot.entries).length
+	);
 }
 
 export function clearTerminalOrStaleBookNowOutboxEntries(

@@ -93,7 +93,13 @@ export class PaymentContractRune implements PaymentContractRuneLike {
 	isTasker = $derived.by(() => {
 		const me = this.contract.ndk?.activeUser?.pubkey;
 		const tasker = this.contract.taskerPubkey;
-		return !!(me && tasker && me === tasker);
+		const result = !!(me && tasker && me === tasker);
+		console.log('[PaymentContractRune.isTasker] computed:', {
+			me: me?.slice(0, 8),
+			tasker: tasker?.slice(0, 8),
+			result
+		});
+		return result;
 	});
 
 	/**
@@ -196,16 +202,27 @@ export class PaymentContractRune implements PaymentContractRuneLike {
 	}
 
 	async start() {
+		console.log(
+			'[PaymentContractRune.start] called for contract:',
+			this.contract.id?.slice(0, 8),
+			'paymentId:',
+			this.paymentId,
+			'transactionHash:',
+			this.contract.transactionHash?.slice(0, 10)
+		);
 		d.log('start: sync requested', { paymentId: this.paymentId, version: this.version });
 		await this.getOriginalTaskEvent();
 		if (!this.paymentId && this.contract.transactionHash) {
+			console.log('[PaymentContractRune.start] calling resolvePaymentIdFromTxHash');
 			await this.resolvePaymentIdFromTxHash();
 		}
 
 		if (!this.paymentId) {
+			console.log('[PaymentContractRune.start] no paymentId, skipping onchain + subscription');
 			d.log('start: skipping onchain + subscription, paymentId not available yet');
 			// No kind-31006 subscription; nothing to wait for from relay EOSE.
 			this.statusHistoryReady = true;
+			console.log('[PaymentContractRune.start] statusHistoryReady set to true (no paymentId)');
 			return;
 		}
 
@@ -292,12 +309,20 @@ export class PaymentContractRune implements PaymentContractRuneLike {
 
 	private async resolvePaymentIdFromTxHash(): Promise<void> {
 		const txHash = this.contract.transactionHash;
-		if (!txHash) return;
+		if (!txHash) {
+			console.log('[PaymentContractRune.resolvePaymentIdFromTxHash] no txHash');
+			return;
+		}
 		if (!this.contract.contractAddress) {
+			console.log('[PaymentContractRune.resolvePaymentIdFromTxHash] no contractAddress');
 			this.error = 'Contract address is missing';
 			return;
 		}
 
+		console.log(
+			'[PaymentContractRune.resolvePaymentIdFromTxHash] waiting for tx:',
+			txHash.slice(0, 10)
+		);
 		this.isPending = true;
 		this.optimisticBlockchainStatus = ContractStatus.Funded;
 		d.log('resolvePaymentIdFromTxHash: waiting tx confirmation', { txHash });
@@ -316,11 +341,18 @@ export class PaymentContractRune implements PaymentContractRuneLike {
 			this.paymentId = paymentId;
 			this.contract.paymentId = paymentId;
 			this.isPending = false;
+			console.log(
+				'[PaymentContractRune.resolvePaymentIdFromTxHash] paymentId resolved:',
+				paymentId,
+				'txHash:',
+				txHash.slice(0, 10)
+			);
 			d.log('resolvePaymentIdFromTxHash: paymentId resolved', { txHash, paymentId });
 		} catch (err) {
 			const error = err instanceof Error ? err.message : String(err);
 			this.error = error;
 			this.isPending = false;
+			console.error('[PaymentContractRune.resolvePaymentIdFromTxHash] failed:', error);
 			d.error('resolvePaymentIdFromTxHash: failed', { txHash, error });
 		} finally {
 			this.optimisticBlockchainStatus = null;
@@ -398,12 +430,22 @@ export class PaymentContractRune implements PaymentContractRuneLike {
 				this.maybeAwaitStatusTxForEvent(ev);
 			},
 			onEose: () => {
+				console.log(
+					'[PaymentContractRune.setupSubscription] EOSE received for paymentId:',
+					this.paymentId
+				);
 				d.log('setupSubscription: eose', {
 					paymentId: this.paymentId,
 					count: this.statusEvents.length
 				});
-				if (this.statusHistoryReady) return;
+				if (this.statusHistoryReady) {
+					console.log('[PaymentContractRune.setupSubscription] statusHistoryReady already true');
+					return;
+				}
 				this.statusHistoryReady = true;
+				console.log(
+					'[PaymentContractRune.setupSubscription] statusHistoryReady set to true on EOSE'
+				);
 				const newest = this.statusEventsByNewest[0];
 				if (newest) {
 					this.maybeAwaitStatusTxForEvent(newest);

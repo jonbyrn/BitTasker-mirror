@@ -53,7 +53,16 @@
 	// Create a reactive subscription - note the callback function () => ({ ... })
 	const contractsSub = ndk.$subscribe<NDKPaymentContract>(() => {
 		// No subscription until we have the users pubkey
-		if (!ndk.$currentPubkey) return undefined;
+		if (!ndk.$currentPubkey) {
+			console.log('[DashboardContractsPanelNDK] contractsSub: no pubkey yet, returning undefined');
+			return undefined;
+		}
+		console.log(
+			'[DashboardContractsPanelNDK] contractsSub: creating subscription with pubkey:',
+			ndk.$currentPubkey.slice(0, 8),
+			'network:',
+			network
+		);
 		return {
 			filters: [
 				{ kinds: [KINDS.CONTRACT], limit: 50, '#p': [ndk.$currentPubkey], '#n': [network] }
@@ -67,35 +76,113 @@
 
 	$effect(() => {
 		const events = contractsSub.events;
+		console.log(
+			'[DashboardContractsPanelNDK] $effect: events count:',
+			events.length,
+			'currentPubkey:',
+			ndk.$currentPubkey?.slice(0, 8)
+		);
 		untrack(() => {
 			const wantedIds = new Set(events.map((e) => e.id));
+			console.log('[DashboardContractsPanelNDK] wanted contract ids:', wantedIds.size);
 			for (const [id, rune] of [...runesByContractId]) {
 				if (!wantedIds.has(id)) {
+					console.log('[DashboardContractsPanelNDK] removing stale rune:', id.slice(0, 8));
 					rune.stopSubscription();
 					runesByContractId.delete(id);
 				}
 			}
-			for (const c of events) {
-				if (!runesByContractId.has(c.id)) {
-					const rune = new PaymentContractRune(c);
-					runesByContractId.set(c.id, rune);
-					void rune.start();
-				}
-			}
 		});
+		// NDKPaymentContract.from() decrypts and parses the encrypted content to extract
+		// transactionHash and other encrypted tags. Without this, PaymentContractRune.start()
+		// returns early at line 209 because contract.transactionHash is empty.
+		for (const c of events) {
+			if (!runesByContractId.has(c.id)) {
+				console.log(
+					'[DashboardContractsPanelNDK] NDKPaymentContract.from() for event:',
+					c.id.slice(0, 8),
+					'author:',
+					c.author?.pubkey?.slice(0, 8)
+				);
+				NDKPaymentContract.from(c)
+					.then((resolved) => {
+						if (resolved) {
+							console.log(
+								'[DashboardContractsPanelNDK] NDKPaymentContract.from() SUCCESS for:',
+								c.id.slice(0, 8),
+								'taskerPubkey:',
+								resolved.taskerPubkey?.slice(0, 8),
+								'taskeePubkey:',
+								resolved.taskeePubkey?.slice(0, 8)
+							);
+							if (!runesByContractId.has(c.id)) {
+								console.log(
+									'[DashboardContractsPanelNDK] creating PaymentContractRune for:',
+									c.id.slice(0, 8)
+								);
+								const rune = new PaymentContractRune(resolved);
+								runesByContractId.set(c.id, rune);
+								void rune.start();
+							}
+						} else {
+							console.warn(
+								'[DashboardContractsPanelNDK] NDKPaymentContract.from() returned undefined for:',
+								c.id.slice(0, 8),
+								'content length:',
+								c.content?.length
+							);
+						}
+					})
+					.catch((err) => {
+						console.error('[DashboardContractsPanelNDK] NDKPaymentContract.from() ERROR:', err);
+					});
+			}
+		}
 	});
 
 	const visibleContracts = $derived.by(() => {
 		const me = ndk.$currentPubkey;
 		const events = contractsSub.events;
-		return events.filter((contract) => {
+		const filtered = events.filter((contract) => {
 			const rune = runesByContractId.get(contract.id);
-			if (!rune) return false;
-			if (!matchesRoleFilter(contract, roleFilter, me)) return false;
+			if (!rune) {
+				console.log(
+					'[DashboardContractsPanelNDK] visibleContracts: no rune for contract',
+					contract.id.slice(0, 8)
+				);
+				return false;
+			}
+			const roleMatch = matchesRoleFilter(contract, roleFilter, me);
+			console.log(
+				'[DashboardContractsPanelNDK] visibleContracts: contract',
+				contract.id.slice(0, 8),
+				'roleMatch:',
+				roleMatch,
+				'roleFilter:',
+				roleFilter,
+				'me:',
+				me?.slice(0, 8),
+				'taskerPubkey:',
+				contract.author?.pubkey?.slice(0, 8)
+			);
+			if (!roleMatch) return false;
 			if (statusFilter === 'all') return true;
-			if (!rune.statusHistoryReady) return false;
+			if (!rune.statusHistoryReady) {
+				console.log(
+					'[DashboardContractsPanelNDK] visibleContracts: statusHistoryReady not ready for',
+					contract.id.slice(0, 8)
+				);
+				return false;
+			}
 			return matchesDisplayStatusFilter(statusFilter, rune.displayStatus);
 		});
+		console.log(
+			'[DashboardContractsPanelNDK] visibleContracts: events:',
+			events.length,
+			'visible:',
+			filtered.length
+		);
+		return filtered;
 	});
 
 	// Status filter options — buckets over ContractDisplayStatus (see dashboardContractFilters)

@@ -59,11 +59,7 @@
 	import { appStore } from '$lib/stores/app.store';
 	import { ethers } from 'ethers';
 	import { escrow } from '$lib/utils/escrow';
-	import { FEE_TIERS } from '@bittasker/wallet-core';
 
-	const DEFAULT_CLIENT_FEE_TIER = 1;
-	const PLATFORM_FEE_RATE = FEE_TIERS[DEFAULT_CLIENT_FEE_TIER].percentage / 10000;
-	const ESTIMATED_NETWORK_FEE_USD = 0.5;
 	import { formatSats, totalBalances, walletManager, walletStore } from '$lib/stores/wallet.store';
 	import type { ContractCreationEvent } from '$lib/types/contract';
 	import { queryTaskeeServiceQuoteThreads } from '$lib/utils/service-quote/query';
@@ -337,7 +333,7 @@
 			: null;
 	});
 	const showInstantBuyContractCreationProgress = $derived(
-		Boolean(instantBuyPendingTransactionHash)
+		instantBuySubmitting || Boolean(instantBuyPendingTransactionHash)
 	);
 	const instantBuyContractCreationStatus = $derived.by(() => {
 		if (!instantBuyPendingTransactionHash) {
@@ -360,6 +356,21 @@
 	const instantBuyEligibility = $derived(
 		getInstantBuyEligibility(instantBuyService, selectedTierId ?? undefined)
 	);
+
+	// Debug: log eligibility changes
+	$effect(() => {
+		console.log(
+			'[BookNow] eligibility changed:',
+			instantBuyEligibility.code,
+			'eligible:',
+			instantBuyEligibility.eligible,
+			'showCta:',
+			instantBuyEligibility.code !== 'inactive_service' &&
+				instantBuyEligibility.code !== 'missing_service' &&
+				instantBuyEligibility.code !== 'invalid_pricing_type'
+		);
+	});
+
 	const showInstantBuyCta = $derived(
 		instantBuyEligibility.code !== 'inactive_service' &&
 			instantBuyEligibility.code !== 'missing_service' &&
@@ -425,6 +436,8 @@
 	let instantBuyPostSubmitErrorMessage = $state('');
 	let _instantBuyBackgrounded = $state(false);
 	let bookNowSubmissionOwnerId = $state<string | null>(null);
+	/** Captured at lock acquisition time so we can release the lock even if instantBuyDraft becomes null */
+	let _instantBuyLockFingerprint = $state<string | null>(null);
 
 	let lastInstantBuyDebugSignature = '';
 
@@ -683,7 +696,10 @@
 		draft: InstantBuyDraft,
 		state: BookNowOutboxEntry['state'],
 		overrides: Partial<
-			Pick<BookNowOutboxEntry, 'instantOrderId' | 'amountRbtc' | 'transactionHash' | 'escrowId' | 'needsCleanup'>
+			Pick<
+				BookNowOutboxEntry,
+				'instantOrderId' | 'amountRbtc' | 'transactionHash' | 'escrowId' | 'needsCleanup'
+			>
 		> = {},
 		expectedLockOwnerId: string | undefined = undefined
 	): BookNowOutboxEntry {
@@ -899,6 +915,7 @@
 		_instantBuyPendingAmountRbtc = '';
 		instantBuyPostSubmitErrorMessage = '';
 		_instantBuyBackgrounded = false;
+		_instantBuyLockFingerprint = null;
 	}
 
 	function handleCloseInstantBuyDrawer() {
@@ -942,6 +959,11 @@
 	}
 
 	async function prepareInstantBuyDraft(existingDraft?: InstantBuyDraft | null) {
+		console.log('[BookNow] prepareInstantBuyDraft: START');
+		console.log(
+			'[BookNow] prepareInstantBuyDraft: existingDraft =',
+			existingDraft ? existingDraft.snapshot?.instantOrderId : 'null'
+		);
 		instantBuyPreparing = true;
 		instantBuyErrorMessage = '';
 		instantBuyErrorHint = '';
@@ -949,16 +971,29 @@
 		instantBuyPostSubmitErrorMessage = '';
 
 		try {
+			console.log(
+				'[BookNow] prepareInstantBuyDraft: revalidating draft with instantOrderId =',
+				existingDraft?.snapshot?.instantOrderId
+			);
 			const nextDraft = await revalidateInstantBuyDraft(existingDraft?.snapshot.instantOrderId);
+			console.log('[BookNow] prepareInstantBuyDraft: revalidated, syncing');
 			const syncedDraft = await syncInstantBuyDraftWithRecoverableEntry(nextDraft);
+			console.log(
+				'[BookNow] prepareInstantBuyDraft: synced, draft =',
+				syncedDraft.draft ? 'present' : 'null'
+			);
 			instantBuyDraft = syncedDraft.draft;
 			instantBuyPreparing = false;
+			console.log('[BookNow] prepareInstantBuyDraft: refreshing funding check');
 			await refreshInstantBuyFundingCheck(instantBuyDraft);
+			console.log('[BookNow] prepareInstantBuyDraft: funding check complete');
 		} catch (error) {
+			console.log('[BookNow] prepareInstantBuyDraft: ERROR -', error);
 			instantBuyDraft = existingDraft ?? null;
 			instantBuyErrorMessage = extractContractError(error).userMessage;
 		} finally {
 			instantBuyPreparing = false;
+			console.log('[BookNow] prepareInstantBuyDraft: END');
 		}
 	}
 
@@ -982,6 +1017,12 @@
 			}
 
 			const btcPriceValue = btcPrice.price;
+			console.log(
+				'[refreshInstantBuyFundingCheck] draft.amountUsd:',
+				draft.amountUsd,
+				'btcPriceValue:',
+				btcPriceValue
+			);
 			const preflight = await preflightServiceContractCreation(
 				{
 					freelancerAddress: draft.providerAddress ?? '',
@@ -993,21 +1034,36 @@
 				btcPriceValue
 			);
 
+			console.log(
+				'[refreshInstantBuyFundingCheck] preflight result:',
+				JSON.stringify({
+					ok: preflight.ok,
+					errorCode: preflight.errorCode,
+					error: preflight.error,
+					totalRequired: preflight.totalRequired,
+					balance: preflight.balance,
+					shortfall: preflight.shortfall
+				})
+			);
+
 			if (!preflight.ok) {
 				const isInsufficient = preflight.errorCode === 'insufficient_funds';
 				let message: string;
 				let hint: string | null;
 
-				if (isInsufficient && draft.amountUsd) {
-					const baseAmount = draft.amountUsd;
-					const platformFee = baseAmount * PLATFORM_FEE_RATE;
-					const totalPaymentUsd = baseAmount + platformFee + ESTIMATED_NETWORK_FEE_USD;
-					const totalPaymentSats = Math.round((totalPaymentUsd * 100_000_000) / btcPriceValue);
+				if (isInsufficient && preflight.shortfall) {
+					// Use structured shortfall from preflight (real wallet balance at check time)
+					const shortfallRbtc = Number.parseFloat(preflight.shortfall);
+					const shortfallSatsVal = Math.round(shortfallRbtc * 100_000_000);
+					const shortfallUsdVal = shortfallRbtc * btcPriceValue;
+					const balanceRbtc = preflight.balance ? Number.parseFloat(preflight.balance) : null;
+					const _balanceSatsVal =
+						balanceRbtc !== null ? Math.round(balanceRbtc * 100_000_000) : null;
 
 					message = $t('dashboard.services.detail.book_now_drawer.insufficient_funds_message', {
 						values: {
-							sats: formatSats(totalPaymentSats),
-							usd: `$${formatNumberWithTwoDecimals(totalPaymentUsd)}`
+							sats: formatSats(shortfallSatsVal),
+							usd: `$${formatNumberWithTwoDecimals(shortfallUsdVal)}`
 						}
 					});
 					hint = null;
@@ -1028,18 +1084,20 @@
 					message,
 					hint,
 					btcPrice: btcPriceValue,
+					// Use shortfall (additional amount needed) for the "required" display fields
 					totalRequiredUsd:
-						isInsufficient && preflight.totalRequired
-							? Number.parseFloat(preflight.totalRequired) * btcPriceValue
+						isInsufficient && preflight.shortfall
+							? Number.parseFloat(preflight.shortfall) * btcPriceValue
 							: null,
 					totalRequiredSats:
-						isInsufficient && preflight.totalRequired
-							? formatSats(Math.round(Number.parseFloat(preflight.totalRequired) * 100_000_000))
+						isInsufficient && preflight.shortfall
+							? formatSats(Math.round(Number.parseFloat(preflight.shortfall) * 100_000_000))
 							: ''
 				};
 				return;
 			}
 
+			console.log('[refreshInstantBuyFundingCheck] preflight passed, setting status=ready');
 			instantBuyFundingCheck = {
 				status: 'ready',
 				message: detailText(
@@ -1109,7 +1167,12 @@
 	}
 
 	async function handleOpenInstantBuy() {
+		console.log('[BookNow] handleOpenInstantBuy: START');
+		console.log('[BookNow] handleOpenInstantBuy: isOwner =', isOwner);
+		console.log('[BookNow] handleOpenInstantBuy: service =', service ? 'present' : 'null');
+		console.log('[BookNow] handleOpenInstantBuy: instantBuyDraft =', instantBuyDraft);
 		if (isOwner) {
+			console.log('[BookNow] handleOpenInstantBuy: early return - isOwner=true');
 			appStore.showErrorToast(
 				detailText(
 					'dashboard.services.detail.self_buy_blocked',
@@ -1120,32 +1183,79 @@
 		}
 
 		if (!service) {
+			console.log('[BookNow] handleOpenInstantBuy: early return - service is null');
 			return;
 		}
 
 		if (!canBeginInstantBuyReview()) {
+			console.log(
+				'[BookNow] handleOpenInstantBuy: early return - canBeginInstantBuyReview()=false'
+			);
 			return;
 		}
 
-		instantBuyModalOpen = true;
-		await prepareInstantBuyDraft(instantBuyDraft);
+		console.log('[BookNow] handleOpenInstantBuy: eligibility code =', instantBuyEligibility.code);
+		console.log('[BookNow] handleOpenInstantBuy: preparing draft and opening drawer');
+		try {
+			// Prepare draft first, then open drawer for user confirmation
+			await prepareInstantBuyDraft(instantBuyDraft);
+			console.log('[BookNow] handleOpenInstantBuy: draft prepared, opening drawer');
+			// Open drawer so user can review and confirm
+			instantBuyModalOpen = true;
+			console.log('[BookNow] handleOpenInstantBuy: END - drawer opened for user confirmation');
+		} catch (error) {
+			console.error('[BookNow] handleOpenInstantBuy: ERROR caught:', error);
+			appStore.showErrorToast(
+				extractContractError(error).userMessage ||
+					detailText('dashboard.services.detail.book_now.error', 'Book Now failed')
+			);
+		}
 	}
 
 	async function handleConfirmInstantBuy() {
+		console.log('[BookNow] handleConfirmInstantBuy: START');
+		console.log(
+			'[BookNow] RESULT: instantBuyDraft present=%s amountUsd=%s providerAddress=%s serviceAddress=%s',
+			instantBuyDraft !== null,
+			instantBuyDraft?.amountUsd ?? 'N/A',
+			instantBuyDraft?.providerAddress ?? 'N/A',
+			instantBuyDraft?.serviceAddress ?? 'N/A'
+		);
+		console.log(
+			'[BookNow] RESULT: instantBuySubmitting=%s service present=%s',
+			instantBuySubmitting,
+			service !== null
+		);
 		if (!instantBuyDraft || instantBuySubmitting || !service) {
+			console.log(
+				'[BookNow] handleConfirmInstantBuy: early return - missing draft/submitting/service'
+			);
 			return;
 		}
 
+		console.log('[BookNow] ACTION: proceeding with submission');
 		instantBuySubmitting = true;
 		instantBuyPostSubmitErrorMessage = '';
+		// Open drawer immediately to show transaction status
+		instantBuyModalOpen = true;
 
 		try {
+			console.log('[BookNow] ACTION: acquiring submission lock');
+			const lockFingerprint = buildBookNowFingerprint(instantBuyDraft);
+			_instantBuyLockFingerprint = lockFingerprint;
+			console.log('[BookNow] RESULT: lockFingerprint=%s', lockFingerprint);
 			const submissionLock = acquireBookNowSubmissionLock(
 				getBookNowOutboxStorage(),
-				buildBookNowFingerprint(instantBuyDraft),
+				lockFingerprint,
 				ensureBookNowSubmissionOwnerId()
 			);
+			console.log(
+				'[BookNow] RESULT: submissionLock.acquired=%s reason=%s',
+				submissionLock.acquired,
+				submissionLock.reason
+			);
 			if (!submissionLock.acquired) {
+				console.log('[BookNow] handleConfirmInstantBuy: submission lock NOT acquired');
 				throw new Error(
 					detailText(
 						'dashboard.services.detail.book_now.concurrent_submission_error',
@@ -1153,17 +1263,48 @@
 					)
 				);
 			}
+			console.log('[BookNow] RESULT: submission lock acquired successfully');
 
 			let entry = readBookNowOutboxEntryForDraft(instantBuyDraft);
+			console.log(
+				'[BookNow] RESULT: existing outbox entry state=%s txHash=%s escrowId=%s needsCleanup=%s',
+				entry?.state ?? 'none',
+				entry?.transactionHash ?? 'none',
+				entry?.escrowId ?? 'none',
+				entry?.needsCleanup ?? 'N/A'
+			);
 			if (!entry) {
+				console.log(
+					'[BookNow] ACTION: creating new outbox entry for fingerprint=%s',
+					lockFingerprint
+				);
 				entry = updateBookNowOutboxForDraft(instantBuyDraft, 'submission_locked');
+				console.log('[BookNow] RESULT: outbox entry created with state=%s', entry.state);
+				console.log(
+					'[BookNow] RESULT: readBookNowOutboxEntryForDraft returned null - created new entry',
+					{
+						state: entry.state,
+						fingerprint: lockFingerprint
+					}
+				);
+			} else {
+				console.log('[BookNow] ACTION: using existing outbox entry state=%s', entry.state);
 			}
 
+			let contractEvent: Awaited<ReturnType<typeof createServiceContract>> | undefined;
 			if (entry.state === 'submission_locked' || entry.state === 'contract_creation_failed') {
+				console.log('[BookNow] ACTION: creating service contract');
+				console.log(
+					'[BookNow] RESULT: instantBuyDraft values - amountUsd=%s providerAddress=%s serviceAddress=%s instantOrderId=%s',
+					instantBuyDraft.amountUsd.toFixed(2),
+					instantBuyDraft.providerAddress || '',
+					instantBuyDraft.serviceAddress,
+					instantBuyDraft.snapshot.instantOrderId
+				);
 				const serviceTitle = getServiceDisplayTitle(service, currentLocale);
-				const contractEvent = await createServiceContract({
+				contractEvent = await createServiceContract({
 					freelancerPubkey: service.npub,
-					freelancerAddress: service.creator?.walletAddress || '',
+					freelancerAddress: instantBuyDraft.providerAddress || '',
 					amountUsdt: instantBuyDraft.amountUsd.toFixed(2),
 					serviceId: service.id,
 					serviceAddress: instantBuyDraft.serviceAddress,
@@ -1176,21 +1317,55 @@
 					estimatedStartTime: instantBuyDraft.snapshot.estimatedStartTime,
 					estimatedCompletionTime: instantBuyDraft.snapshot.estimatedEndTime
 				});
+				console.log(
+					'[BookNow] RESULT: createServiceContract success=%s state=%s txHash=%s escrowId=%s confirmationFailed=%s needsCleanup=%s error=%s',
+					contractEvent.success,
+					contractEvent.state,
+					contractEvent.transactionHash ?? 'none',
+					contractEvent.escrowId ?? 'none',
+					contractEvent.confirmationFailed ?? 'N/A',
+					contractEvent.needsCleanup ?? 'N/A',
+					contractEvent.error ?? 'none'
+				);
 
+				// Set pending transaction hash immediately so progress drawer shows BEFORE confirmation wait
+				// createServiceContract waits for confirmation internally, but we want to show progress immediately
+				if (contractEvent.transactionHash) {
+					console.log(
+						'[BookNow] ACTION: setting instantBuyPendingTransactionHash=%s to show progress drawer immediately',
+						contractEvent.transactionHash
+					);
+					instantBuyPendingTransactionHash = contractEvent.transactionHash;
+					_instantBuyPendingAmountRbtc = contractEvent.amount || '';
+				}
+
+				console.log('[BookNow] ACTION: updating outbox to contract_created');
 				entry = updateBookNowOutboxForDraft(instantBuyDraft, 'contract_created', {
 					transactionHash: contractEvent.transactionHash,
 					amountRbtc: contractEvent.amount,
 					needsCleanup: contractEvent.needsCleanup
 				});
+				console.log(
+					'[BookNow] RESULT: outbox updated to contract_created txHash=%s',
+					contractEvent.transactionHash ?? 'none'
+				);
+				console.log('[BookNow] RESULT: updateBookNowOutboxForDraft returned entry', {
+					state: entry.state,
+					transactionHash: entry.transactionHash,
+					escrowId: entry.escrowId,
+					needsCleanup: entry.needsCleanup
+				});
 			}
 
 			if (entry.state === 'contract_created' && entry.transactionHash) {
+				console.log('[BookNow] ACTION: tx submitted, waiting for confirmation');
 				instantBuyPendingTransactionHash = entry.transactionHash;
 				_instantBuyPendingAmountRbtc = entry.amountRbtc || '';
 
 				// Check if registration had issues that need cleanup warning
 				if (entry.needsCleanup) {
-					appStore.showWarningToast(
+					console.log('[BookNow] RESULT: needsCleanup=true showing warning toast');
+					appStore.showInfoToast(
 						detailText(
 							'dashboard.services.detail.instant_buy.pending_warning',
 							'Transaction submitted but some processing may be pending. You may need to refresh.'
@@ -1198,12 +1373,60 @@
 					);
 				}
 
+				// Skip wait if confirmation failed - escrowId won't be resolved
+				// Use entry.confirmationFailed if available from this session, otherwise check contractEvent
+				// (contractEvent is only available in the same session, not on page reload)
+				const skipWaitForConfirmation =
+					(entry as { confirmationFailed?: boolean }).confirmationFailed ??
+					contractEvent?.confirmationFailed ??
+					false;
+				console.log(
+					'[BookNow] RESULT: skipWaitForConfirmation=%s confirmationFailed=%s',
+					skipWaitForConfirmation,
+					(entry as { confirmationFailed?: boolean }).confirmationFailed ??
+						contractEvent?.confirmationFailed ??
+						'N/A'
+				);
+				if (skipWaitForConfirmation) {
+					console.log('[BookNow] RESULT: skipWaitForConfirmation=true, taking early return path', {
+						reason: 'confirmationFailed=true or entry.confirmationFailed=true',
+						skipWaitForConfirmation,
+						entryConfirmationFailed: (entry as { confirmationFailed?: boolean }).confirmationFailed,
+						contractEventConfirmationFailed: contractEvent?.confirmationFailed
+					});
+					console.log('[BookNow] ACTION: showing confirmation pending warning and returning early');
+					appStore.showInfoToast(
+						detailText(
+							'dashboard.services.detail.instant_buy.confirmation_pending',
+							'Transaction submitted. Contract will be ready shortly.'
+						)
+					);
+					// Clear the pending transaction hash so modal returns to idle state
+					// The transaction was broadcast but not yet confirmed - user can refresh later
+					instantBuyPendingTransactionHash = null;
+					instantBuySubmitting = false;
+					submissionLockRelease();
+					return;
+				}
+
 				const contract = await waitForContractCreationByTransactionHash(entry.transactionHash, {
 					timeoutMs: 45_000
 				}).catch((error) => {
 					// Handle timeout specifically - tx was submitted but confirmation is still syncing
 					if (error instanceof Error && error.message.includes('timeout')) {
-						appStore.showWarningToast(
+						const outboxEntry = readBookNowOutboxEntryForDraft(instantBuyDraft);
+						console.log(
+							'[BookNow] RESULT: timeout after %dms for tx hash %s',
+							45_000,
+							entry.transactionHash
+						);
+						console.log('[BookNow] ERROR: waitForContractCreationByTransactionHash timeout', {
+							expectedTxHash: entry.transactionHash,
+							outboxState: outboxEntry?.state ?? 'none',
+							outboxEscrowId: outboxEntry?.escrowId ?? 'none',
+							error: error.message
+						});
+						appStore.showInfoToast(
 							detailText(
 								'dashboard.services.detail.instant_buy.timeout_warning',
 								'Transaction submitted. Contract confirmation may take a few minutes.'
@@ -1219,33 +1442,66 @@
 
 				if (!contract) {
 					// Timeout case - already handled above, just return
+					console.log('[BookNow] RESULT: contract creation timed out, returning');
+					console.log(
+						'[BookNow] RESULT: waitForContractCreationByTransactionHash returned null (timeout)'
+					);
 					return;
 				}
 
+				console.log(
+					'[BookNow] RESULT: waitForContractCreationByTransactionHash returned contract',
+					{
+						escrowId: contract.escrowId,
+						contractEventId: contract.contractEventId
+					}
+				);
+
+				console.log(
+					'[BookNow] RESULT: contract created successfully escrowId=%s txHash=%s',
+					contract.escrowId,
+					entry.transactionHash
+				);
+				console.log('[BookNow] ACTION: updating outbox to escrow_created');
 				updateBookNowOutboxForDraft(instantBuyDraft, 'escrow_created', {
-					escrowId: contract.escrowId
+					escrowId: contract.escrowId as string
 				});
 
+				console.log('[BookNow] ACTION: clearing outbox entry');
 				clearBookNowOutboxForDraft(instantBuyDraft);
+				console.log('[BookNow] RESULT: clearBookNowOutboxForDraft called', {
+					draftFingerprint: lockFingerprint
+				});
+
+				// Stop submitting state so modal shows success state
+				instantBuySubmitting = false;
 
 				appStore.showSuccessToast(
 					detailText(
 						'dashboard.services.detail.instant_buy.success',
-						'Book Now order confirmed. Opening your service contract.'
+						'Book Now order confirmed. Your service contract is ready.'
 					)
 				);
 
-				goto(buildContractsHighlightUrl(contract.escrowId));
+				// Keep drawer open on success - user can view status in the drawer
+				// Navigation can be done manually via the Contracts page
+				console.log('[BookNow] RESULT: success - drawer stays open escrowId=%s', contract.escrowId);
 			}
 		} catch (error) {
-			console.error('[ServiceDetailsView] Book Now confirmation failed', error);
+			console.error(
+				'[BookNow] ERROR: Book Now confirmation failed error=%s message=%s',
+				error,
+				error instanceof Error ? error.message : 'unknown'
+			);
 
 			const isUserCancel =
 				error instanceof Error &&
 				(error.message.includes('User rejected') || error.message.includes('ACTION_REJECTED'));
 
 			if (isUserCancel) {
+				console.log('[BookNow] RESULT: user cancelled transaction');
 				if (instantBuyDraft) {
+					console.log('[BookNow] ACTION: updating outbox to idle due to user cancel');
 					updateBookNowOutboxForDraft(instantBuyDraft, 'idle');
 				}
 				instantBuySubmitting = false;
@@ -1253,19 +1509,28 @@
 				return;
 			}
 
+			console.log('[BookNow] RESULT: contract creation failed, setting error message');
 			instantBuyPostSubmitErrorMessage = extractContractError(error).userMessage;
 
 			if (instantBuyDraft) {
+				console.log('[BookNow] ACTION: updating outbox to contract_creation_failed');
 				updateBookNowOutboxForDraft(instantBuyDraft, 'contract_creation_failed');
 			}
 		} finally {
+			console.log(
+				'[BookNow] ACTION: finally block - resetting submitting state and releasing lock'
+			);
 			instantBuySubmitting = false;
 			submissionLockRelease();
 		}
 	}
 
 	function submissionLockRelease() {
-		clearBookNowOutboxForDraft(instantBuyDraft);
+		// Use the captured fingerprint so lock release works even if drawer closed (instantBuyDraft became null)
+		if (_instantBuyLockFingerprint) {
+			clearBookNowOutboxEntry(getBookNowOutboxStorage(), _instantBuyLockFingerprint);
+			_instantBuyLockFingerprint = null;
+		}
 	}
 
 	async function handleQuoteRequestConfirm(payload: QuoteRequestPayload) {
@@ -1631,7 +1896,7 @@
 					>
 						<div class="flex flex-col gap-6 md:flex-row md:items-start">
 							<div class="flex-1">
-								<h1 class="mb-3 line-clamp-2 text-3xl leading-tight font-bold">
+								<h1 class="mb-3 line-clamp-2 text-3xl leading-tight font-bold break-words">
 									{displayTitle}
 									{#if isPreview}
 										<span class="badge badge-secondary ml-2"
@@ -1682,14 +1947,27 @@
 										<span>Remote</span>
 									{/if}
 								</div>
-								<div class="text-base-content/80 text-sm leading-relaxed whitespace-pre-line">
+								<div
+									class="text-base-content/80 overflow-hidden text-sm leading-relaxed break-all whitespace-pre-line"
+								>
 									{displayDescriptionFull}
+								</div>
+
+								<div class="border-base-200 border-t pt-4">
+									<UserInfoDisplay
+										avatar={effectiveCreator?.avatar}
+										username={effectiveCreator?.username}
+										rating={effectiveCreator?.rating}
+										pubkey={isDraft && previewCreator ? previewCreator.pubkey : service.npub}
+										memberSince={effectiveCreator?.memberSince ?? service.createdAt}
+										size="md"
+									/>
 								</div>
 
 								{#if service.categories && service.categories.length > 0}
 									<div class="mt-6 flex flex-wrap gap-2">
 										{#each service.categories as category (category.slug || category.id || category)}
-											<span class="badge badge-primary py-3 text-xs">
+											<span class="badge badge-primary max-w-full truncate py-3 text-xs">
 												{translateCategory(category)}
 											</span>
 										{/each}
@@ -1751,7 +2029,7 @@
 														? 'max-h-[1000px]'
 														: 'max-h-[4.5rem]'}"
 												>
-													<p class="text-base-content/80 text-sm">
+													<p class="text-base-content/80 text-sm break-words">
 														{tier.description}
 													</p>
 													{#if !tierExpanded[tier.id] && tier.description && tier.description.length > 80}
@@ -1804,7 +2082,7 @@
 													{#each tier.features as feature (feature)}
 														<li class="flex items-start gap-3 text-sm">
 															<IconCheck class="text-success h-5 w-5 shrink-0" />
-															<span class="text-base-content/90 leading-snug font-medium"
+															<span class="text-base-content/90 truncate leading-snug font-medium"
 																>{feature}</span
 															>
 														</li>
@@ -1908,30 +2186,32 @@
 									<span>Remote</span>
 								{/if}
 							</div>
-							<div class="text-base-content/80 text-sm leading-relaxed whitespace-pre-line">
+							<div
+								class="text-base-content/80 overflow-hidden text-sm leading-relaxed break-all whitespace-pre-line"
+							>
 								{displayDescriptionFull}
+							</div>
+
+							<div class="border-base-200 border-t pt-4">
+								<UserInfoDisplay
+									avatar={effectiveCreator?.avatar}
+									username={effectiveCreator?.username}
+									rating={effectiveCreator?.rating}
+									pubkey={isDraft && previewCreator ? previewCreator.pubkey : service.npub}
+									memberSince={effectiveCreator?.memberSince ?? service.createdAt}
+									size="md"
+								/>
 							</div>
 
 							{#if service.categories && service.categories.length > 0}
 								<div class="mt-4 flex flex-wrap gap-2">
 									{#each service.categories as category (category.slug || category.id || category)}
-										<span class="badge badge-primary py-3 text-xs">
+										<span class="badge badge-primary max-w-full truncate py-3 text-xs">
 											{translateCategory(category)}
 										</span>
 									{/each}
 								</div>
 							{/if}
-						</div>
-
-						<div class="border-base-200 border-t pt-6">
-							<UserInfoDisplay
-								avatar={effectiveCreator?.avatar}
-								username={effectiveCreator?.username}
-								rating={effectiveCreator?.rating}
-								pubkey={isDraft && previewCreator ? previewCreator.pubkey : service.npub}
-								memberSince={effectiveCreator?.memberSince ?? service.createdAt}
-								size="md"
-							/>
 						</div>
 
 						{#if isOwner && !isPreview}
@@ -2006,7 +2286,7 @@
 														? 'max-h-[1000px]'
 														: 'max-h-[4.5rem]'}"
 												>
-													<p class="text-base-content/70 text-sm">
+													<p class="text-base-content/70 text-sm break-words">
 														{selectedTier.description}
 													</p>
 													{#if !tierExpanded[selectedTier.id] && selectedTier.description && selectedTier.description.length > 80}
@@ -2053,7 +2333,7 @@
 											{#each selectedTier.features as feature (feature)}
 												<li class="flex items-start gap-3 text-sm">
 													<IconCheck class="text-success mt-0.5 h-4 w-4 shrink-0" />
-													<span class="text-base-content/80 leading-snug font-medium"
+													<span class="text-base-content/80 truncate leading-snug font-medium"
 														>{feature}</span
 													>
 												</li>
@@ -2145,16 +2425,24 @@
 											<button
 												data-testid="service-detail-buy-now"
 												class="btn btn-primary shadow-primary/20 flex-1 shadow-lg"
-												onclick={handleOpenInstantBuy}
+												onclick={() => {
+													console.log('[BookNow] BUTTON CLICKED - mobile');
+													handleOpenInstantBuy();
+												}}
 												disabled={instantBuyPreparing || isOffline || isOwner}
 												title={isOffline ? 'You are offline' : ''}
 												>{#if instantBuyPreparing}
 													<span class="loading loading-spinner loading-xs"></span>
 												{:else if instantBuyFundingCheckInFlight}
-													<span class="text-xs text-base-content/60">Verifying wallet balance...</span>
+													<span class="text-base-content/60 text-xs"
+														>Verifying wallet balance...</span
+													>
 												{:else}
 													{instantBuyEligibility.code === 'missing_selected_tier'
-														? detailText('dashboard.services.detail.select_package', 'Select Package')
+														? detailText(
+																'dashboard.services.detail.select_package',
+																'Select Package'
+															)
 														: detailText('dashboard.services.detail.book_now', 'Book Now')}
 												{/if}</button
 											>
@@ -2171,7 +2459,10 @@
 									{#if instantBuyErrorMessage}
 										<div class="alert alert-error mt-2">
 											<span>{instantBuyErrorMessage}</span>
-											<button class="btn btn-sm" onclick={() => prepareInstantBuyDraft(instantBuyDraft)}>Retry</button>
+											<button
+												class="btn btn-sm"
+												onclick={() => prepareInstantBuyDraft(instantBuyDraft)}>Retry</button
+											>
 										</div>
 									{/if}
 								{/if}
@@ -2194,11 +2485,11 @@
 											class="collapse-arrow join-item border-base-200 collapse border-b last:border-b-0"
 										>
 											<input type="radio" name="my-accordion-4" checked />
-											<div class="collapse-title text-base font-bold">
+											<div class="collapse-title truncate text-base font-bold">
 												{faq.question}
 											</div>
 											<div class="collapse-content text-base-content/70">
-												<p>{faq.answer}</p>
+												<p class="break-words">{faq.answer}</p>
 											</div>
 										</div>
 									{/each}
@@ -2354,18 +2645,23 @@
 										<button
 											data-testid="service-detail-buy-now"
 											class="btn btn-primary shadow-primary/20 flex-1 shadow-lg"
-											onclick={handleOpenInstantBuy}
+											onclick={() => {
+												console.log('[BookNow] BUTTON CLICKED - desktop');
+												handleOpenInstantBuy();
+											}}
 											disabled={instantBuyPreparing || isOffline || isOwner}
 											title={isOffline ? 'You are offline' : ''}
 											>{#if instantBuyPreparing}
 												<span class="loading loading-spinner loading-xs"></span>
 											{:else if instantBuyFundingCheckInFlight}
-												<span class="text-xs text-base-content/60">Verifying wallet balance...</span>
+												<span class="text-base-content/60 text-xs">Verifying wallet balance...</span
+												>
 											{:else}
 												{instantBuyEligibility.code === 'missing_selected_tier'
 													? detailText('dashboard.services.detail.select_package', 'Select Package')
 													: detailText('dashboard.services.detail.book_now', 'Book Now')}
-											{/if}</button>
+											{/if}</button
+										>
 									{:else}
 										<button
 											class="btn btn-primary w-full"
@@ -2379,7 +2675,10 @@
 								{#if instantBuyErrorMessage}
 									<div class="alert alert-error mt-2">
 										<span>{instantBuyErrorMessage}</span>
-										<button class="btn btn-sm" onclick={() => prepareInstantBuyDraft(instantBuyDraft)}>Retry</button>
+										<button
+											class="btn btn-sm"
+											onclick={() => prepareInstantBuyDraft(instantBuyDraft)}>Retry</button
+										>
 									</div>
 								{/if}
 							{/if}

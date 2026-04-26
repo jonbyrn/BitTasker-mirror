@@ -171,23 +171,56 @@ export async function estimateWrite(options: ExecuteWriteOptions): Promise<GasEs
  * Does not await confirmation. User pays gas.
  */
 export async function executeWriteDirect(options: ExecuteWriteOptions): Promise<WriteTxResult> {
+	console.log('[v2] executeWriteDirect: entry', { method: options.method });
 	const { fn, args, finalOverrides, gasPrice, logPrefix } = await prepareWrite(options);
-
-	const gasEstimate = await fn.estimateGas(...args, finalOverrides);
-	const estimatedCostFormatted = ethers.formatEther(gasEstimate * gasPrice);
-
-	d.log(`${logPrefix}: gas estimate`, {
-		gasLimit: gasEstimate.toString(),
-		estimatedCostFormatted
+	console.log('[v2] executeWriteDirect: prepareWrite success', {
+		method: options.method,
+		logPrefix
 	});
 
-	await fn.staticCall(...args, finalOverrides);
-	d.log(`${logPrefix}: staticCall ok`);
+	try {
+		const gasEstimate = await fn.estimateGas(...args, finalOverrides);
+		const estimatedCostFormatted = ethers.formatEther(gasEstimate * gasPrice);
+		console.log('[v2] RESULT: estimateGas SUCCESS', {
+			method: options.method,
+			gasLimit: gasEstimate.toString(),
+			estimatedCostFormatted
+		});
 
-	const tx = (await fn(...args, finalOverrides)) as ContractTransactionResponse;
-	d.log(`${logPrefix}: broadcast`, { hash: tx.hash });
+		await fn.staticCall(...args, finalOverrides);
+		console.log('[v2] RESULT: staticCall SUCCESS', { method: options.method });
 
-	return { tx, estimatedCostFormatted };
+		const tx = (await fn(...args, finalOverrides)) as ContractTransactionResponse;
+		console.log('[v2] RESULT: fn() SUCCESS - tx broadcast', {
+			method: options.method,
+			hash: tx.hash
+		});
+
+		return { tx, estimatedCostFormatted };
+	} catch (error) {
+		const err = error instanceof Error ? error : new Error(String(error));
+		// Determine which operation failed
+		const errMsg = err.message || String(error);
+		const errCode =
+			(err as { code?: string; reason?: string }).code ||
+			(err as { code?: string; reason?: string }).reason ||
+			'unknown';
+		// Try to identify the operation from stack or message patterns
+		let operation = 'unknown';
+		if (errMsg.includes('estimateGas') || (err.stack && err.stack.includes('estimateGas'))) {
+			operation = 'estimateGas';
+		} else if (errMsg.includes('staticCall') || (err.stack && err.stack.includes('staticCall'))) {
+			operation = 'staticCall';
+		} else {
+			operation = 'fn';
+		}
+		console.log(`[v2] ERROR: executeWriteDirect operation failed: ${operation}, error: ${errMsg}`, {
+			method: options.method,
+			errCode,
+			stack: err.stack
+		});
+		throw error;
+	}
 }
 
 type RelayInfoResponse = {
@@ -233,6 +266,7 @@ export async function executeWriteWithRelay(
 	options: ExecuteWriteOptions,
 	relayBaseUrl: string
 ): Promise<WriteTxResult> {
+	console.log('[v2] executeWriteWithRelay: entry', { method: options.method, relayBaseUrl });
 	const prepared = await prepareWrite(options);
 	const { method, args, contract, wallet, logPrefix, resolvedContractAddress } = prepared;
 
@@ -273,7 +307,14 @@ export async function executeWriteWithRelay(
 	}
 	relayD.log('contract address OK', { address: relayAddr });
 
-	const data = contract.interface.encodeFunctionData(method, args);
+	let data: string;
+	try {
+		data = contract.interface.encodeFunctionData(method, args);
+	} catch (error) {
+		const err = error instanceof Error ? error : new Error(String(error));
+		console.log('[v2] ERROR: encodeFunctionData failed', { method, error: err.message });
+		throw error;
+	}
 	const sender = ethers.getAddress(await wallet.getAddress());
 	relayD.log('calldata', {
 		byteLength: Math.max(0, (data.length - 2) / 2),
@@ -296,7 +337,14 @@ export async function executeWriteWithRelay(
 	});
 
 	relayD.log('wallet.signMessage (EIP-191) for relay');
-	const signature = await wallet.signMessage(ethers.getBytes(innerHash));
+	let signature: string;
+	try {
+		signature = await wallet.signMessage(ethers.getBytes(innerHash));
+	} catch (error) {
+		const err = error instanceof Error ? error : new Error(String(error));
+		console.log('[v2] ERROR: signMessage failed', { method, error: err.message, stack: err.stack });
+		throw err;
+	}
 	relayD.log('signature', {
 		lengthHexChars: signature.length,
 		sig0x: `${signature.slice(0, 12)}…`
@@ -304,17 +352,32 @@ export async function executeWriteWithRelay(
 
 	const relayUrl = `${base}/relay`;
 	relayD.log('POST /relay', { url: relayUrl, timeoutMs: RELAY_FETCH_TIMEOUT_MS });
-	const relayPost = await fetchRelayJson<{
-		txHash?: string;
-		status?: string;
-		error?: string;
-		message?: string;
-	}>(relayUrl, {
-		method: 'POST',
-		timeoutMs: RELAY_FETCH_TIMEOUT_MS,
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ sender, data, signature })
-	});
+	let relayPost: {
+		ok: boolean;
+		status: number;
+		json: { txHash?: string; status?: string; error?: string; message?: string } | null;
+	};
+	try {
+		relayPost = await fetchRelayJson<{
+			txHash?: string;
+			status?: string;
+			error?: string;
+			message?: string;
+		}>(relayUrl, {
+			method: 'POST',
+			timeoutMs: RELAY_FETCH_TIMEOUT_MS,
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ sender, data, signature })
+		});
+	} catch (error) {
+		const err = error instanceof Error ? error : new Error(String(error));
+		console.log('[v2] ERROR: /relay fetch failed', {
+			method,
+			status: 'network-error',
+			error: err.message
+		});
+		throw error;
+	}
 
 	const body = relayPost.json;
 	relayD.log('/relay response', {
@@ -364,6 +427,11 @@ export async function executeWriteWithRelay(
 		status: relayPost.status,
 		body: body ?? null
 	});
+	console.log('[v2] ERROR: /relay unexpected failure', {
+		method,
+		status: relayPost.status,
+		body: body ?? null
+	});
 	throw new Error(
 		body?.message ?? `Relay /relay failed: HTTP ${relayPost.status} ${JSON.stringify(body ?? {})}`
 	);
@@ -374,12 +442,18 @@ export async function executeWriteWithRelay(
  * Does not fall back when {@link RelaySimulationFailedError} or {@link RelayInvalidRequestError} is thrown.
  */
 export async function executeWrite(options: ExecuteWriteOptions): Promise<WriteTxResult> {
-	if (hasNonZeroValue(options.overrides)) {
+	const relayEnabled = !hasNonZeroValue(options.overrides);
+	const relayBaseUrl = getTxRelayBaseUrl();
+	console.log('[v2] executeWrite: entry', {
+		method: options.method,
+		relayEnabled,
+		relayUrl: relayBaseUrl ?? 'disabled'
+	});
+	if (!relayEnabled) {
 		relayD.log('skip relay (payable / msg.value)', { method: options.method });
 		return executeWriteDirect(options);
 	}
 
-	const relayBaseUrl = getTxRelayBaseUrl();
 	if (!relayBaseUrl) {
 		relayD.log('relay disabled by env, direct write only', {
 			method: options.method,
@@ -418,6 +492,9 @@ export async function executeWrite(options: ExecuteWriteOptions): Promise<WriteT
 			errorMessage: err.message
 		});
 		d.warn('executeWrite: relay failed, falling back to direct', e);
+		console.log('[v2] ACTION: relay failed, falling back to direct write', {
+			error: e instanceof Error ? e.message : String(e)
+		});
 		return executeWriteDirect(options);
 	}
 }
@@ -428,11 +505,19 @@ export async function executeWrite(options: ExecuteWriteOptions): Promise<WriteT
 export async function createPaymentContract(
 	params: CreatePaymentContractParams
 ): Promise<CreatePaymentContractTxResult> {
+	console.log('[v2] createPaymentContract: entry', {
+		taskee: params.taskee,
+		totalValueWei: params.totalValueWei.toString(),
+		baseAmountWei: params.baseAmountWei?.toString(),
+		taskerFeeWei: params.taskerFeeWei?.toString(),
+		taskeeFeeWei: params.taskeeFeeWei?.toString()
+	});
 	assertValidCreatePaymentContractParams(params);
+	console.log('[v2] createPaymentContract: assertValidCreatePaymentContractParams succeeded');
 
 	const taskeeEip55 = ethers.getAddress(params.taskee.toLowerCase());
 
-	return executeWriteDirect({
+	const result = await executeWriteDirect({
 		method: 'createPaymentContract',
 		args: [
 			taskeeEip55,
@@ -445,6 +530,8 @@ export async function createPaymentContract(
 		],
 		overrides: { value: params.totalValueWei }
 	});
+	console.log('[v2] RESULT: createPaymentContract executeWriteDirect', { txHash: result.tx.hash });
+	return result;
 }
 
 // --- Curated lifecycle writes (uint32 paymentId; nonpayable unless noted) ---

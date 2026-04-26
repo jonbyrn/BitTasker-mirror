@@ -74,13 +74,27 @@ export async function ensureEscrowReady(
 	wallet: ethers.Wallet;
 	provider: ethers.JsonRpcProvider;
 }> {
+	console.log(
+		`[escrow] ACTION: ensureEscrowReady entry - contractAddress=${contractAddress ?? 'default'}, requireBalance=${requireBalance}`
+	);
+
 	// Check and initialize wallet if needed
 	let wallet = getRSKWallet();
 	if (!wallet) {
 		const { walletManager } = await import('$lib/stores/wallet.store');
-		await walletManager.initialize();
+		console.log('[escrow] ACTION: walletManager.initialize() called for wallet');
+		try {
+			await walletManager.initialize();
+			console.log('[escrow] RESULT: walletManager.initialize() success');
+		} catch (error) {
+			console.log(
+				`[escrow] ERROR: walletManager.initialize() failed - ${error instanceof Error ? error.message : 'Unknown error'}`
+			);
+			throw error;
+		}
 		wallet = getRSKWallet();
 		if (!wallet) {
+			console.log('[escrow] ERROR: walletManager.initialize() returned null wallet');
 			throw new Error('Failed to initialize wallet');
 		}
 	}
@@ -89,11 +103,22 @@ export async function ensureEscrowReady(
 	let provider = getRSKProvider();
 	if (!provider) {
 		const { walletManager } = await import('$lib/stores/wallet.store');
-		await walletManager.initialize();
+		console.log('[escrow] ACTION: walletManager.initialize() called for provider');
+		try {
+			await walletManager.initialize();
+			console.log('[escrow] RESULT: walletManager.initialize() success');
+		} catch (error) {
+			console.log(
+				`[escrow] ERROR: walletManager.initialize() failed - ${error instanceof Error ? error.message : 'Unknown error'}`
+			);
+			throw error;
+		}
 		provider = getRSKProvider();
 		if (!provider) {
+			console.log('[escrow] ERROR: provider is null after walletManager.initialize()');
 			throw new Error('Failed to get provider');
 		}
+		console.log('[escrow] RESULT: provider ready after initialization');
 	} else {
 		// Check if provider is destroyed (can happen during concurrent initialization)
 		const providerWithMeta = provider as JsonRpcProvider & {
@@ -103,12 +128,27 @@ export async function ensureEscrowReady(
 		const isDestroyed = providerWithMeta._destroyed === true || providerWithMeta.destroyed === true;
 
 		if (isDestroyed) {
+			console.log('[escrow] ACTION: provider destroyed detected, calling resetCachedContract()');
+			resetCachedContract();
 			const { walletManager } = await import('$lib/stores/wallet.store');
-			await walletManager.initialize();
+			console.log('[escrow] ACTION: walletManager.initialize() called after provider destroyed');
+			try {
+				await walletManager.initialize();
+				console.log('[escrow] RESULT: walletManager.initialize() success after provider destroyed');
+			} catch (error) {
+				console.log(
+					`[escrow] ERROR: walletManager.initialize() failed after provider destroyed - ${error instanceof Error ? error.message : 'Unknown error'}`
+				);
+				throw error;
+			}
 			provider = getRSKProvider();
 			if (!provider) {
+				console.log('[escrow] ERROR: provider is null after resetCachedContract()');
 				throw new Error('Failed to get provider after reinitialization');
 			}
+			console.log('[escrow] RESULT: provider ready after reinitialization');
+		} else {
+			console.log('[escrow] RESULT: provider ready');
 		}
 	}
 
@@ -121,8 +161,15 @@ export async function ensureEscrowReady(
 		// Compare wallet instance references, not just addresses
 		// Even if addresses match, the old wallet's provider may be destroyed
 		if (contractRunner !== wallet) {
+			console.log(
+				`[escrow] RESULT: wallet instance comparison - runner changed, resetting cached contract`
+			);
 			// Wallet instance changed - reset cached contract to force reinitialization
 			resetCachedContract();
+		} else {
+			console.log(
+				`[escrow] RESULT: wallet instance comparison - runner unchanged, keeping cached contract`
+			);
 		}
 	}
 
@@ -131,29 +178,36 @@ export async function ensureEscrowReady(
 
 	if (!contractAddress) {
 		// No contract address provided - use default contract
+		console.log('[escrow] ACTION: no contractAddress provided, using default contract path');
 		if (!contract) {
 			await connectToEscrowContract();
 			if (!contract) {
+				console.log('[escrow] ERROR: contract initialization failed');
 				throw new Error('Failed to connect to contract');
 			}
 		}
 		targetContract = contract;
+		console.log('[escrow] RESULT: using cached default contract');
 	} else {
 		// Contract address provided - check if it's default or legacy
 		const defaultAddress = getDefaultContractAddress();
 
 		if (contractAddress.toLowerCase() === defaultAddress?.toLowerCase()) {
 			// Matches default - use default contract
+			console.log('[escrow] RESULT: contractAddress matches default, using default contract path');
 			if (!contract) {
 				await connectToEscrowContract();
 				if (!contract) {
+					console.log('[escrow] ERROR: legacy contract initialization failed');
 					throw new Error('Failed to connect to contract');
 				}
 			}
 			targetContract = contract;
+			console.log('[escrow] RESULT: using cached default contract');
 		} else {
 			// Legacy contract - check cache or create new instance
 			const normalizedAddress = contractAddress.toLowerCase();
+			console.log(`[escrow] ACTION: legacy contract path - address=${normalizedAddress}`);
 
 			// Check if cached legacy contract's signer is the SAME INSTANCE as current wallet
 			const cachedLegacy = legacyContracts.get(normalizedAddress);
@@ -162,6 +216,9 @@ export async function ensureEscrowReady(
 
 				// Compare wallet instance references, not just addresses
 				if (cachedRunner !== wallet) {
+					console.log(
+						`[escrow] RESULT: cached legacy contract signer changed, removing from cache`
+					);
 					// Wallet instance changed - remove stale cached contract
 					legacyContracts.delete(normalizedAddress);
 				}
@@ -170,8 +227,10 @@ export async function ensureEscrowReady(
 			if (legacyContracts.has(normalizedAddress)) {
 				// Use cached legacy contract (signer verified above)
 				targetContract = legacyContracts.get(normalizedAddress)!;
+				console.log('[escrow] RESULT: using cached legacy contract');
 			} else {
 				// Create new legacy contract instance
+				console.log('[escrow] ACTION: creating new legacy contract instance');
 				try {
 					// Convert to lowercase first to handle addresses with invalid checksums
 					const checksummedAddress = ethers.getAddress(contractAddress.toLowerCase());
@@ -179,7 +238,13 @@ export async function ensureEscrowReady(
 
 					// Cache it for future use
 					legacyContracts.set(normalizedAddress, targetContract);
+					console.log(
+						`[escrow] RESULT: created and cached new legacy contract at ${checksummedAddress}`
+					);
 				} catch (error) {
+					console.log(
+						`[escrow] ERROR: Failed to create legacy contract - ${error instanceof Error ? error.message : 'Unknown error'}`
+					);
 					throw new Error(
 						`Failed to connect to legacy contract at ${contractAddress}: ${error instanceof Error ? error.message : 'Unknown error'}`
 					);
@@ -190,14 +255,22 @@ export async function ensureEscrowReady(
 
 	// Check wallet balance (only if required - write operations need balance, read operations don't)
 	if (requireBalance) {
+		console.log('[escrow] ACTION: checking wallet balance');
 		const balance = await provider.getBalance(wallet.address);
 		if (balance === 0n) {
+			console.log(`[escrow] ERROR: Insufficient balance - wallet=${wallet.address}, balance=0`);
 			throw new Error(
 				'Insufficient balance. Please fund your wallet with RBTC to pay for transaction fees.'
 			);
 		}
+		console.log(
+			`[escrow] RESULT: balance check passed - wallet=${wallet.address}, balance=${balance.toString()}`
+		);
 	}
 
+	console.log(
+		`[escrow] RESULT: ensureEscrowReady success - contractAddress=${targetContract.target}, walletAddress=${wallet.address}`
+	);
 	return { contract: targetContract, wallet, provider };
 }
 

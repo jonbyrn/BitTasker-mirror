@@ -186,7 +186,11 @@ function persistPendingContractToStorage(
 		localStorage.setItem(PENDING_CONTRACTS_STORAGE_KEY, JSON.stringify(existingData));
 	} catch (error) {
 		// Defensive: log error but don't throw - persistence failure shouldn't break the happy path
-		d.warn('persistPendingContractToStorage: failed to persist pending contract', { txHash: txHash.slice(0, 10) }, error);
+		d.warn(
+			'persistPendingContractToStorage: failed to persist pending contract',
+			{ txHash: txHash.slice(0, 10) },
+			error
+		);
 	}
 }
 
@@ -204,7 +208,11 @@ function removePendingContractFromStorage(txHash: string): void {
 			localStorage.setItem(PENDING_CONTRACTS_STORAGE_KEY, JSON.stringify(existingData));
 		}
 	} catch (error) {
-		d.warn('removePendingContractFromStorage: failed to remove pending contract', { txHash: txHash.slice(0, 10) }, error);
+		d.warn(
+			'removePendingContractFromStorage: failed to remove pending contract',
+			{ txHash: txHash.slice(0, 10) },
+			error
+		);
 	}
 }
 
@@ -242,7 +250,9 @@ export function recoverPendingContractsFromStorage(): void {
 			const contract = storedContracts[txHash];
 			if (contract && typeof contract === 'object') {
 				pendingContractsByTxHash.set(txHash, contract);
-				d.log('recoverPendingContractsFromStorage: recovered contract', { txHash: txHash.slice(0, 10) });
+				d.log('recoverPendingContractsFromStorage: recovered contract', {
+					txHash: txHash.slice(0, 10)
+				});
 			}
 		}
 
@@ -791,21 +801,55 @@ export async function handleEscrowCreated(event: EscrowCreatedEvent): Promise<vo
 	// Recover any pending contracts from localStorage (browser crash recovery)
 	recoverPendingContractsFromStorage();
 
+	console.log('[handleEscrowCreated] called with event:', {
+		escrowId: event.escrowId,
+		transactionHash: event.transactionHash?.slice(0, 10),
+		client: event.client?.slice(0, 8),
+		freelancer: event.freelancer?.slice(0, 8)
+	});
+
 	// Check if we have a pending contract for this escrow (by escrow ID or transaction hash)
 	let pendingContract = pendingContracts.get(event.escrowId);
+	console.log(
+		'[handleEscrowCreated] pendingContracts keys:',
+		Array.from(pendingContracts.keys()).slice(0, 5)
+	);
+	console.log(
+		'[handleEscrowCreated] pendingContractsByTxHash keys:',
+		Array.from(pendingContractsByTxHash.keys()).slice(0, 5)
+	);
+	console.log(
+		'[handleEscrowCreated] found pendingContract by escrowId:',
+		!!pendingContract,
+		pendingContract?.contextType
+	);
 	let retainServiceAcceptanceForRetry = false;
 
 	// If not found by escrow ID, try to find by transaction hash
 	// Use atomic operations to prevent race conditions with cleanupPendingContractByTxHash
 	if (!pendingContract) {
-		for (const txHash of getTransactionHashCandidates(event)) {
+		console.log('[handleEscrowCreated] no pendingContract by escrowId, trying txHash lookup');
+		const txCandidates = getTransactionHashCandidates(event);
+		console.log(
+			'[handleEscrowCreated] txHash candidates:',
+			txCandidates.map((t) => t.slice(0, 10))
+		);
+		for (const txHash of txCandidates) {
 			// Atomic check-and-get to prevent race conditions
 			// Mark as processing BEFORE getting to prevent cleanup during processing
 			if (pendingContractsByTxHash.has(txHash)) {
+				console.log(
+					'[handleEscrowCreated] found pendingContract in pendingContractsByTxHash for txHash:',
+					txHash.slice(0, 10)
+				);
 				processingContracts.add(txHash);
 
 				// Get the contract (it may have been deleted by cleanup, but we're protected by processingContracts)
 				const contract = pendingContractsByTxHash.get(txHash);
+				console.log('[handleEscrowCreated] pendingContract details:', {
+					contextType: contract?.contextType,
+					taskId: contract?.taskId
+				});
 				if (contract) {
 					// Remove from txHash map and add to escrow ID map
 					pendingContractsByTxHash.delete(txHash);
