@@ -460,4 +460,92 @@ describe('service-quote protocol', () => {
 		expect(resolved.linkedEscrowId).toBe('escrow-123');
 		expect(resolved.linkedTransactionHash).toBe('0x' + 'd'.repeat(64));
 	});
+
+	it('rejects contract_sync_pending transition when actorPubkey does not match accepted status', () => {
+		const proposal = createProposalEvent();
+		const differentActor = 'c'.repeat(64);
+
+		// Create accepted status with taskerPubkey as actor (via helper)
+		const acceptedStatus = createStatusEvent('accepted', {
+			timestamp: 1_700_000_180,
+			escrowId: 'escrow-123',
+			transactionHash: '0x' + 'd'.repeat(64)
+		});
+
+		// Create contract_sync_pending status with different actorPubkey directly
+		// bypassing validateServiceProposalStatusEvent to allow mismatched actorPubkey
+		const syncingStatusWithDifferentActor = {
+			id: 'sync-diff-actor-' + '0'.repeat(62),
+			kind: KINDS.SERVICE_PROPOSAL_STATUS,
+			pubkey: differentActor,
+			created_at: 1_700_000_190,
+			tags: [
+				['d', buildProposalStatusD('pr_valid123', 'contract_sync_pending', differentActor)],
+				['p', servicePubkey],
+				['m', 'service-proposal-status'],
+				['s', 'contract_sync_pending'],
+				['a', serviceAddress],
+				['z', 'v1'],
+				['n', 'testnet'],
+				['e', 'proposal-event-id'],
+				['t', serviceAddress]
+			],
+			content: JSON.stringify({
+				type: 'service-proposal-status',
+				proposalId: 'pr_valid123',
+				quoteRequestId: 'qr_valid123',
+				serviceId: serviceAddress,
+				serviceAddress,
+				status: 'contract_sync_pending',
+				actorPubkey: differentActor,
+				timestamp: 1_700_000_190,
+				escrowId: 'escrow-123',
+				transactionHash: '0x' + 'd'.repeat(64),
+				message: 'Contract syncing',
+				version: 'v1'
+			}),
+			sig: 'sig'
+		} as unknown as Parameters<typeof resolveProposalState>[0]['proposal'];
+
+		const resolved = resolveProposalState(
+			proposal,
+			[acceptedStatus, syncingStatusWithDifferentActor],
+			1_700_000_250
+		);
+
+		// The different actorPubkey should cause the transition to be rejected
+		expect(resolved.state).toBe('accepted');
+		expect(resolved.linkedEscrowId).toBe('escrow-123');
+	});
+
+	it('allows contract_sync_pending transition when actorPubkey matches accepted status', () => {
+		const proposal = createProposalEvent();
+
+		// Create accepted status with taskerPubkey as actor
+		const acceptedStatus = createStatusEvent('accepted', {
+			timestamp: 1_700_000_180,
+			escrowId: 'escrow-456',
+			transactionHash: '0x' + 'e'.repeat(64),
+			actorPubkey: taskerPubkey
+		});
+
+		// Create contract_sync_pending status with same actorPubkey
+		const syncingStatusWithSameActor = createStatusEvent('contract_sync_pending', {
+			timestamp: 1_700_000_190,
+			escrowId: 'escrow-456',
+			transactionHash: '0x' + 'e'.repeat(64),
+			actorPubkey: taskerPubkey,
+			message: 'Contract syncing'
+		});
+
+		const resolved = resolveProposalState(
+			proposal,
+			[acceptedStatus, syncingStatusWithSameActor],
+			1_700_000_250
+		);
+
+		// The matching actorPubkey should allow the transition
+		expect(resolved.state).toBe('contract_sync_pending');
+		expect(resolved.linkedEscrowId).toBe('escrow-456');
+	});
 });

@@ -448,7 +448,9 @@ async function readLedgerState(): Promise<Record<string, ServiceAcceptanceLedger
 	}
 }
 
-async function persistLedgerState(state: Record<string, ServiceAcceptanceLedgerEntry>): Promise<void> {
+async function persistLedgerState(
+	state: Record<string, ServiceAcceptanceLedgerEntry>
+): Promise<void> {
 	if (!browser) {
 		return;
 	}
@@ -550,7 +552,39 @@ function upsertAcceptanceLedgerEntrySync(
 	return entry;
 }
 
-// Public async version with mutex and persistence
+/**
+ * Upserts an acceptance ledger entry for a proposal, tracking acceptance attempt state.
+ *
+ * @remarks
+ * After 10 failed attempts ({@link MAX_LEDGER_ATTEMPTS}), the ledger entry becomes stuck at
+ * `attemptCount: 10` and this function will reject with an error. To recover:
+ *
+ * 1. Call {@link clearAcceptanceLedger} to reset ALL ledger state (in-memory and persisted)
+ * 2. Or call {@link getStuckAcceptanceLedgerEntries} to identify stuck entries
+ *
+ * The `clearAcceptanceLedger()` function clears:
+ * - The acceptance ledger (this module)
+ * - The replay ledger ({@link replayLedger})
+ * - The confirmed monitor ledger ({@link confirmedMonitorLedger})
+ *
+ * @example
+ * ```typescript
+ * // Recovery when MAX_LEDGER_ATTEMPTS is exceeded
+ * try {
+ *   await upsertAcceptanceLedgerEntry(proposalId, 'accept_failed');
+ * } catch (error) {
+ *   if (error.message.includes('maximum attempts')) {
+ *     await clearAcceptanceLedger(); // Reset all ledger state
+ *     // Retry operations will now succeed as attemptCount is reset
+ *   }
+ * }
+ * ```
+ *
+ * @param proposalId - The proposal identifier
+ * @param state - The acceptance state to record
+ * @param options - Optional reason code, transaction hash, or timestamp
+ * @throws Error when MAX_LEDGER_ATTEMPTS (10) is exceeded
+ */
 export async function upsertAcceptanceLedgerEntry(
 	proposalId: string,
 	state: ServiceAcceptanceLedgerState,
@@ -874,4 +908,23 @@ export async function getAcceptanceConfirmedMonitorEntriesDueForReverify(
 
 	const entries = await listAcceptanceConfirmedMonitorEntries(nowMs, maxAgeMs);
 	return entries.filter((entry) => nowMs - entry.lastVerifiedAtMs >= reverifyIntervalMs);
+}
+
+const STUCK_ENTRY_DEFAULT_MAX_AGE_MS = 30 * 60 * 1000; // 30 minutes
+
+export async function getStuckAcceptanceLedgerEntries(
+	nowMs = Date.now(),
+	maxAgeMs = STUCK_ENTRY_DEFAULT_MAX_AGE_MS
+): Promise<ServiceAcceptanceLedgerEntry[]> {
+	const stuckStates: ServiceAcceptanceLedgerState[] = ['accept_failed', 'accept_unknown'];
+	const state = await readLedgerState(nowMs, DEFAULT_REPLAY_MAX_AGE_MS);
+
+	return Object.values(state)
+		.filter((entry) => {
+			if (!stuckStates.includes(entry.state)) {
+				return false;
+			}
+			return nowMs - entry.lastUpdatedAt > maxAgeMs;
+		})
+		.sort((left, right) => left.lastUpdatedAt - right.lastUpdatedAt);
 }

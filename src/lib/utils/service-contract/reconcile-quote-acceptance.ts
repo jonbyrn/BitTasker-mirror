@@ -147,6 +147,25 @@ function getQuoteAcceptanceRecoveryCandidate(
 		return null;
 	}
 
+	// When transactionHash exists but escrowId is missing, we can still recover via contract lookup
+	// This handles the case where resolvedTerminalEvent has tx hash but statusEvent escrowId is null
+	const hasTxHashOnly = transactionHash && !escrowId;
+	if (hasTxHashOnly && timeline.resolvedStatus !== 'accept_unknown') {
+		logQuoteAcceptanceReconciliation('candidate-selected-tx-hash-only', {
+			quoteRequestId: timeline.request.content.quoteRequestId,
+			proposalId: proposal.content.proposalId,
+			resolvedStatus: timeline.resolvedStatus,
+			transactionHash
+		});
+		return {
+			proposal,
+			statusEvent,
+			transactionHash: transactionHash ?? undefined,
+			escrowId: undefined,
+			allowsContractOnlyRecovery: false
+		};
+	}
+
 	logQuoteAcceptanceReconciliation('candidate-selected', {
 		quoteRequestId: timeline.request.content.quoteRequestId,
 		proposalId: proposal.content.proposalId,

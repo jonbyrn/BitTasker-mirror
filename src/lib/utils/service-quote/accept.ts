@@ -2,6 +2,7 @@ import { sha256 } from '@noble/hashes/sha2';
 import type { ServiceAcceptanceUnknownReasonCode } from '$lib/types/service-quote';
 import {
 	getAcceptanceLedgerEntry,
+	upsertAcceptanceLedgerEntry,
 	upsertAcceptanceLedgerEntrySync,
 	type ServiceAcceptanceLedgerEntry
 } from '$lib/utils/service-quote/acceptance-ledger';
@@ -58,6 +59,21 @@ export function beginServiceProposalAcceptance(
 	transactionHash?: string
 ): ServiceAcceptanceLedgerEntry {
 	return upsertAcceptanceLedgerEntrySync(proposalId, 'accepting', { transactionHash });
+}
+
+/**
+ * Async version of beginServiceProposalAcceptance that uses the mutex-protected
+ * upsertAcceptanceLedgerEntry function. This prevents race conditions when
+ * multiple rapid calls (e.g., from concurrent UI clicks) could bypass the
+ * MAX_LEDGER_ATTEMPTS limit.
+ *
+ * @throws Error if MAX_LEDGER_ATTEMPTS is exceeded
+ */
+export async function beginServiceProposalAcceptanceAsync(
+	proposalId: string,
+	transactionHash?: string
+): Promise<ServiceAcceptanceLedgerEntry> {
+	return upsertAcceptanceLedgerEntry(proposalId, 'accepting', { transactionHash });
 }
 
 export function markServiceProposalAcceptanceUnknown(

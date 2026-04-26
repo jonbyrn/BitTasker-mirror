@@ -1251,13 +1251,22 @@ function isReconciliationContinuationAllowed(
 	acceptedStatuses: ServiceProposalStatusEvent[]
 ): boolean {
 	const nextStatus = statusEvent.content.status;
+	const actorPubkey = statusEvent.content.actorPubkey;
 
 	if (currentState === 'accepted' && nextStatus === 'accept_unknown') {
 		return hasMatchingAcceptanceLineage(statusEvent, latestAcceptedStatus);
 	}
 
 	if (currentState === 'accepted' && nextStatus === 'contract_sync_pending') {
-		return hasMatchingAcceptanceLineage(statusEvent, latestAcceptedStatus);
+		if (!hasMatchingAcceptanceLineage(statusEvent, latestAcceptedStatus)) {
+			return false;
+		}
+		// Infer tasker from latestAcceptedStatus to verify role
+		if (latestAcceptedStatus) {
+			return actorPubkey === latestAcceptedStatus.content.actorPubkey;
+		}
+		// No prior accepted status to infer tasker from - reject
+		return false;
 	}
 
 	if (currentState === 'accept_unknown' && nextStatus === 'accepted') {

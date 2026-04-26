@@ -394,4 +394,80 @@ describe('reconcileQuoteAcceptanceTimeline', () => {
 		expect(queryContracts).toHaveBeenCalledTimes(2);
 		expect(result.status).toBe('accepted');
 	});
+
+	it('recovers when resolvedTerminalEvent has transactionHash but statusEvent escrowId is missing', async () => {
+		const txHash = '0x' + 'c'.repeat(64);
+		const timelineWithTxHashOnly: ServiceQuoteTimelineEntry = {
+			...createBareAcceptingTimeline(),
+			statusEventsByProposalId: {
+				pr_12345678: [
+					{
+						id: 'accepting-event-id',
+						kind: 6422,
+						pubkey: taskerPubkey,
+						created_at: 1_700_000_200,
+						tags: [],
+						content: {
+							type: 'service-proposal-status',
+							proposalId: 'pr_12345678',
+							quoteRequestId: 'qr_12345678',
+							serviceId: serviceAddress,
+							serviceAddress,
+							status: 'accepting',
+							actorPubkey: taskerPubkey,
+							timestamp: 1_700_000_200,
+							version: 'v1'
+							// No transactionHash, no escrowId
+						},
+						sig: 'sig'
+					}
+				]
+			},
+			resolvedStatus: 'accepting',
+			resolvedTerminalEvent: {
+				id: 'accepting-event-id',
+				kind: 6422,
+				pubkey: taskerPubkey,
+				created_at: 1_700_000_200,
+				tags: [],
+				content: {
+					type: 'service-proposal-status',
+					proposalId: 'pr_12345678',
+					quoteRequestId: 'qr_12345678',
+					serviceId: serviceAddress,
+					serviceAddress,
+					status: 'accepting',
+					actorPubkey: taskerPubkey,
+					transactionHash: txHash,
+					// escrowId is missing - this is the edge case
+					timestamp: 1_700_000_200,
+					version: 'v1'
+				},
+				sig: 'sig'
+			}
+		};
+
+		const recoverContract = vi.fn().mockResolvedValue({
+			status: 'contract_ready',
+			transactionHash: txHash,
+			escrowId: 'escrow-123'
+		});
+
+		const result = await reconcileQuoteAcceptanceTimeline({
+			timeline: timelineWithTxHashOnly,
+			loadedContracts: [],
+			queryContracts: vi.fn().mockResolvedValue([]),
+			recoverContract
+		});
+
+		// Should proceed with recovery using transactionHash from resolvedTerminalEvent
+		// Since no contract is found after recovery, it returns contract_sync_pending
+		expect(recoverContract).toHaveBeenCalledTimes(1);
+		expect(recoverContract).toHaveBeenCalledWith(
+			expect.objectContaining({
+				transactionHash: txHash
+			})
+		);
+		expect(result.status).toBe('contract_sync_pending');
+	});
 });
