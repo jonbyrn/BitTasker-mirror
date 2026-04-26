@@ -275,28 +275,6 @@
 							</svg>
 						</button>
 					{/if}
-					<!-- Image Indicators -->
-					<ul
-						class="absolute bottom-2 left-1/2 flex -translate-x-1/2 list-none gap-1.5 p-1"
-						aria-label="Image navigation"
-					>
-						{#each portfolioImages.slice(0, 5) as img, idx (img?.url ?? idx)}
-							<li>
-								<button
-									class="focus:ring-primary block h-11 w-11 rounded-full transition-all focus:ring-2 focus:ring-offset-1 focus:outline-none {idx ===
-									currentImageIndex
-										? 'bg-base-100 w-11'
-										: 'bg-base-100/50 w-11 opacity-60 hover:opacity-100'}"
-									onclick={(e) => {
-										e.stopPropagation();
-										currentImageIndex = idx;
-									}}
-									aria-label="Go to image {idx + 1}"
-									aria-current={idx === currentImageIndex ? 'true' : 'false'}
-								></button>
-							</li>
-						{/each}
-					</ul>
 				{/if}
 			</div>
 		{:else}
