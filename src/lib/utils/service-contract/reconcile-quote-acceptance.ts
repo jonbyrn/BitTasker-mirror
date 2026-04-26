@@ -1,3 +1,17 @@
+/**
+ * Quote Acceptance Timeline Reconciliation
+ *
+ * @deprecated This module reconciles service quote timelines with contract events,
+ * handling cases where the UI state doesn't match the blockchain/Nostr state.
+ *
+ * For NEW service contracts using v2/NDK:
+ * - PaymentContractRune provides authoritative state via blockchain + NDK events
+ * - No separate reconciliation needed; the rune IS the source of truth
+ *
+ * This module will be removed once all services are migrated to v2.
+ * See docs/service-escrow-version-abstraction.md for migration details.
+ */
+
 import { browser, dev } from '$app/environment';
 import { ethers } from 'ethers';
 import type { ContractWithEvents } from '$lib/types/contract';

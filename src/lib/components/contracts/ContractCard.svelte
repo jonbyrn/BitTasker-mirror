@@ -1,4 +1,12 @@
+<!--
+ * @deprecated This component uses v1 escrow patterns with ContractWithEvents.
+Use ContractCardNDK.svelte instead which uses v2 escrow with PaymentContractRune.
+This file will be removed in a future release.
+-->
 <script lang="ts">
+/**
+ * @deprecated This file is deprecated. Import ContractCardNDK.svelte instead.
+ */
 	import type { ContractWithEvents } from '$lib/types/contract';
 	import {
 		getCancellationStatusVariant,

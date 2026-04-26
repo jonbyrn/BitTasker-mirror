@@ -1,3 +1,8 @@
+<!--
+@deprecated This component uses v1 escrow patterns.
+Use BidAcceptanceFormV2.svelte instead which uses v2 escrow with NDK and PaymentContractRune.
+This file will be removed in a future release.
+-->
 <script lang="ts">
 	import type { Task } from '$lib/types/task';
 	import type { NostrEvent } from 'nostr-tools';

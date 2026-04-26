@@ -1,6 +1,11 @@
 import type { JsonRpcProvider, TransactionReceipt } from 'ethers';
 import type { ServiceAcceptanceUnknownReasonCode } from '$lib/types/service-quote';
-import { classifyServiceAcceptanceAmbiguityError } from '$lib/utils/service-contract/ambiguity-reason';
+
+/**
+ * @deprecated This finality module is part of the legacy service contract flow.
+ * New service contracts should use the PaymentContractRune and v2 lifecycle.
+ * See docs/service-escrow-version-abstraction.md for migration details.
+ */
 
 export const SERVICE_ACCEPTANCE_REQUIRED_CONFIRMATIONS = 3;
 export const SERVICE_ACCEPTANCE_CONFIRMATION_POLL_INTERVAL_MS = 3_000;
@@ -68,9 +73,47 @@ export async function waitForServiceAcceptanceFinality(
 		);
 	}
 
-	const reasonCode = classifyServiceAcceptanceAmbiguityError(lastError) ?? 'pending_timeout';
+	const reasonCode = classifyAmbiguityError(lastError) ?? 'pending_timeout';
 	throw new ServiceAcceptanceFinalityError(
 		reasonCode,
 		`Service escrow confirmation did not reach the required ${SERVICE_ACCEPTANCE_REQUIRED_CONFIRMATIONS} confirmations.`
 	);
 }
+
+/**
+ * Classifies RPC/network errors into service acceptance reason codes.
+ * Inlined from ambiguity-reason.ts for consolidation.
+ * @deprecated Use standard error handling in v2 lifecycle instead.
+ */
+export function classifyAmbiguityError(
+	error: unknown
+): Exclude<ServiceAcceptanceUnknownReasonCode, 'reconciliation_deferred' | 'tx_replaced'> | null {
+	if (!(error instanceof Error)) {
+		return null;
+	}
+
+	const normalizedMessage = error.message.trim().toLowerCase();
+	if (normalizedMessage.includes('timeout')) {
+		return 'pending_timeout';
+	}
+
+	if (normalizedMessage.includes('nonce')) {
+		return 'nonce_conflict';
+	}
+
+	if (
+		normalizedMessage.includes('rpc') ||
+		normalizedMessage.includes('network') ||
+		normalizedMessage.includes('connection') ||
+		normalizedMessage.includes('provider')
+	) {
+		return 'rpc_unavailable';
+	}
+
+	return null;
+}
+
+/**
+ * @deprecated Re-exported for backward compatibility. Use classifyAmbiguityError instead.
+ */
+export const classifyServiceAcceptanceAmbiguityError = classifyAmbiguityError;

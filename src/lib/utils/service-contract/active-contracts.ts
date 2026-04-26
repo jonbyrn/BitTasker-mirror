@@ -1,13 +1,16 @@
 import type { ContractWithEvents } from '$lib/types/contract';
 import type { Service } from '$lib/types/service.d';
-import { EscrowStatus } from '$lib/utils/escrow';
+import { ContractStatus } from '$lib/utils/contract/types';
 import { buildServiceAddress } from '$lib/stores/service-quote-ui.store';
 
-const TERMINAL_SERVICE_CONTRACT_STATUSES = new Set<EscrowStatus>([
-	EscrowStatus.DisputeResolved,
-	EscrowStatus.DisputeUnresolved,
-	EscrowStatus.FundsReleased,
-	EscrowStatus.Cancelled
+const TERMINAL_SERVICE_CONTRACT_STATUSES = new Set<ContractStatus>([
+	ContractStatus.DisputeResolved,
+	ContractStatus.DisputeUnresolved,
+	ContractStatus.FundsReleased,
+	ContractStatus.Cancelled,
+	ContractStatus.Refunded,
+	ContractStatus.FundsClaimed,
+	ContractStatus.NoShow
 ]);
 
 function getContractEscrowId(contract: ContractWithEvents): string {

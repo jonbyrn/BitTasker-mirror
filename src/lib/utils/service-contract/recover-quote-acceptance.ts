@@ -1,3 +1,16 @@
+/**
+ * Service Quote Acceptance Recovery
+ *
+ * This module handles recovery for quote-based service contracts when the browser was closed
+ * during transaction or the Nostr publish failed. Updated to use v2/NDK patterns.
+ *
+ * For reactive UI patterns, prefer using:
+ * - PaymentContractRune automatically handles pending state and transaction recovery
+ * - NDK subscriptions sync status from relays, providing built-in "recovery"
+ *
+ * See docs/service-escrow-version-abstraction.md for migration details.
+ */
+
 import { browser, dev } from '$app/environment';
 import { ethers } from 'ethers';
 import type {
@@ -5,8 +18,10 @@ import type {
 	ServiceContractPricingSnapshot
 } from '$lib/types/contract';
 import { contractStore } from '$lib/stores/contract.store';
-import { escrow } from '$lib/utils/escrow';
-import { ensureEscrowReady } from '$lib/utils/escrow/v1/escrow';
+import { ensureContractReady } from '$lib/utils/contract/v2/utils';
+import { publishServiceContractEvent } from '$lib/utils/contract/v2/service-creation';
+import { getSecurePaymentContractAddress } from '$lib/utils/contract/v2/contractAddress';
+import { parsePaymentContractCreatedPaymentId } from '$lib/utils/contract/v2/creation';
 
 export interface RecoverServiceQuoteAcceptanceInput {
 	transactionHash: string;
@@ -54,82 +69,52 @@ function normalizeTransactionHash(transactionHash: string): string {
 	return transactionHash.trim().toLowerCase();
 }
 
-async function loadContractIfAvailable(escrowId: string): Promise<boolean> {
-	const existingContracts = await escrow.contractOps.getContracts({
-		escrowIds: [escrowId],
-		limit: 1
-	});
-	logQuoteAcceptanceRecovery('load-contract-if-available', {
-		escrowId,
-		matchCount: existingContracts.length
-	});
-	if (existingContracts.length > 0) {
-		await contractStore.loadContractByEscrowId(escrowId);
-		return true;
+async function loadContractIfAvailable(paymentId: string): Promise<boolean> {
+	try {
+		const loaded = await contractStore.loadContractByEscrowId(paymentId);
+		logQuoteAcceptanceRecovery('load-contract-if-available', {
+			paymentId,
+			loaded
+		});
+		return Boolean(loaded);
+	} catch {
+		return false;
 	}
-
-	return false;
 }
 
-function extractEscrowIdFromReceipt(
-	receipt: {
-		logs?: Array<{
-			topics: string[];
-			data: string;
-		}>;
-	} | null,
-	contract: {
-		interface: {
-			parseLog(args: {
-				topics: string[];
-				data: string;
-			}): { name?: string; args: ArrayLike<unknown> } | null;
-		};
-	}
+function extractPaymentIdFromReceipt(
+	receipt: ethers.TransactionReceipt | null,
+	contractAddress: string
 ): string | null {
-	if (!receipt?.logs?.length) {
+	if (!receipt) {
 		return null;
 	}
 
-	for (const log of receipt.logs) {
-		try {
-			const parsedLog = contract.interface.parseLog({
-				topics: log.topics,
-				data: log.data
-			});
-			if (parsedLog?.name === 'EscrowCreated') {
-				return parsedLog.args[0].toString();
-			}
-		} catch {
-			// Ignore unrelated logs while scanning for EscrowCreated.
-		}
-	}
-
-	return null;
+	const paymentId = parsePaymentContractCreatedPaymentId(receipt, contractAddress);
+	return paymentId ? String(paymentId) : null;
 }
 
-async function loadEscrowChainDetails(
-	contract: {
-		getEscrow?: (escrowId: string) => Promise<{
-			amount?: bigint;
-			client?: string;
-		}>;
-	},
-	escrowId: string
+async function loadPaymentContractChainDetails(
+	contract: ethers.Contract,
+	paymentId: string
 ): Promise<{ amountRbtc?: string; clientRskAddress?: string }> {
-	if (typeof contract.getEscrow !== 'function') {
+	try {
+		if (typeof contract.getPayment !== 'function') {
+			return {};
+		}
+
+		const paymentData = await contract.getPayment(BigInt(paymentId));
+		return {
+			amountRbtc:
+				typeof paymentData?.amount === 'bigint' ? ethers.formatEther(paymentData.amount) : undefined,
+			clientRskAddress:
+				typeof paymentData?.tasker === 'string' && paymentData.tasker.trim().length > 0
+					? paymentData.tasker.toLowerCase()
+					: undefined
+		};
+	} catch {
 		return {};
 	}
-
-	const escrowData = await contract.getEscrow(escrowId);
-	return {
-		amountRbtc:
-			typeof escrowData?.amount === 'bigint' ? ethers.formatEther(escrowData.amount) : undefined,
-		clientRskAddress:
-			typeof escrowData?.client === 'string' && escrowData.client.trim().length > 0
-				? escrowData.client.toLowerCase()
-				: undefined
-	};
 }
 
 export async function recoverServiceQuoteAcceptanceContract(
@@ -164,7 +149,16 @@ export async function recoverServiceQuoteAcceptanceContract(
 			};
 		}
 
-		const { contract, provider } = await ensureEscrowReady(undefined, false);
+		const contractReady = await ensureContractReady(false);
+		if (!contractReady.ok) {
+			return {
+				status: 'failed',
+				transactionHash,
+				error: contractReady.error
+			};
+		}
+
+		const { contract, provider } = contractReady.result;
 		const receipt = await provider.getTransactionReceipt(transactionHash);
 		logQuoteAcceptanceRecovery('recover-receipt-loaded', {
 			transactionHash,
@@ -187,27 +181,28 @@ export async function recoverServiceQuoteAcceptanceContract(
 			};
 		}
 
-		const escrowId = extractEscrowIdFromReceipt(receipt, contract) ?? input.escrowId ?? undefined;
-		logQuoteAcceptanceRecovery('recover-escrow-id', {
+		const contractAddress = getSecurePaymentContractAddress();
+		const paymentId = extractPaymentIdFromReceipt(receipt, contractAddress) ?? input.escrowId ?? undefined;
+		logQuoteAcceptanceRecovery('recover-payment-id', {
 			transactionHash,
-			escrowId: escrowId ?? null,
+			paymentId: paymentId ?? null,
 			fallbackEscrowId: input.escrowId ?? null
 		});
-		if (!escrowId) {
+		if (!paymentId) {
 			return {
 				status: 'contract_sync_pending',
 				transactionHash
 			};
 		}
 
-		if (await loadContractIfAvailable(escrowId)) {
+		if (await loadContractIfAvailable(paymentId)) {
 			logQuoteAcceptanceRecovery('recover-contract-ready-after-load', {
 				transactionHash,
-				escrowId
+				paymentId
 			});
 			return {
 				status: 'contract_ready',
-				escrowId,
+				escrowId: paymentId,
 				transactionHash
 			};
 		}
@@ -216,19 +211,19 @@ export async function recoverServiceQuoteAcceptanceContract(
 		let clientRskAddress = input.clientRskAddress;
 		if (!amountRbtc || !clientRskAddress) {
 			try {
-				const chainDetails = await loadEscrowChainDetails(contract, escrowId);
+				const chainDetails = await loadPaymentContractChainDetails(contract, paymentId);
 				amountRbtc ??= chainDetails.amountRbtc;
 				clientRskAddress ??= chainDetails.clientRskAddress;
 				logQuoteAcceptanceRecovery('recover-chain-details', {
 					transactionHash,
-					escrowId,
+					paymentId,
 					amountRbtc: amountRbtc ?? null,
 					clientRskAddress: clientRskAddress ?? null
 				});
 			} catch (error) {
 				logQuoteAcceptanceRecovery('recover-chain-details-failed', {
 					transactionHash,
-					escrowId,
+					paymentId,
 					error: error instanceof Error ? error.message : String(error)
 				});
 			}
@@ -237,68 +232,71 @@ export async function recoverServiceQuoteAcceptanceContract(
 		if (!amountRbtc) {
 			logQuoteAcceptanceRecovery('recover-awaiting-contract-hydration', {
 				transactionHash,
-				escrowId,
+				paymentId,
 				reason: 'missing_amount_rbtc_after_chain_lookup'
 			});
 			return {
 				status: 'contract_sync_pending',
 				transactionHash,
-				escrowId
+				escrowId: paymentId
 			};
 		}
 
-		await escrow.contractOps.publishContractEvent({
-			escrowId,
-			taskId: input.serviceId,
-			taskTitle: input.serviceTitle,
-			taskDescription: input.serviceDescription,
+		const publishResult = await publishServiceContractEvent({
+			paymentId,
+			transactionHash,
 			freelancerPubkey: input.freelancerPubkey,
 			clientRskAddress,
 			amount: amountRbtc,
 			estimatedStartTime: input.estimatedStartTime,
 			estimatedCompletionTime: input.estimatedCompletionTime,
-			contextType: 'service',
-			contextId: input.serviceId,
-			contextTitle: input.serviceTitle,
-			contextDescription: input.serviceDescription,
-			contextVersionRef: input.contextVersionRef,
 			serviceId: input.serviceId,
 			serviceAddress: input.serviceAddress,
 			serviceTitle: input.serviceTitle,
+			serviceDescription: input.serviceDescription,
+			contextVersionRef: input.contextVersionRef,
 			purchaseMode: 'quote',
 			quoteRequestId: input.quoteRequestId,
 			proposalId: input.proposalId,
 			proposalEventId: input.proposalEventId,
 			selectedTierId: input.selectedTierId,
 			pricingSnapshot: input.pricingSnapshot,
-			agreementSnapshot: input.agreementSnapshot,
-			transactionHash
-		});
-		logQuoteAcceptanceRecovery('recover-published-contract-event', {
-			transactionHash,
-			escrowId
+			agreementSnapshot: input.agreementSnapshot
 		});
 
-		if (await contractStore.loadContractByEscrowId(escrowId)) {
+		if (!publishResult.success) {
+			logQuoteAcceptanceRecovery('recover-publish-failed', {
+				transactionHash,
+				paymentId,
+				error: publishResult.error
+			});
+		} else {
+			logQuoteAcceptanceRecovery('recover-published-contract-event', {
+				transactionHash,
+				paymentId
+			});
+		}
+
+		if (await contractStore.loadContractByEscrowId(paymentId)) {
 			logQuoteAcceptanceRecovery('recover-contract-ready-after-publish', {
 				transactionHash,
-				escrowId
+				paymentId
 			});
 			return {
 				status: 'contract_ready',
-				escrowId,
+				escrowId: paymentId,
 				transactionHash
 			};
 		}
 
 		logQuoteAcceptanceRecovery('recover-still-syncing-after-publish', {
 			transactionHash,
-			escrowId
+			paymentId
 		});
 		return {
 			status: 'contract_sync_pending',
 			transactionHash,
-			escrowId
+			escrowId: paymentId
 		};
 	} catch (error) {
 		logQuoteAcceptanceRecovery('recover-failed', {
