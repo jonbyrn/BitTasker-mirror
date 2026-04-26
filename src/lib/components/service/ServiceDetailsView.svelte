@@ -1202,6 +1202,13 @@
 				);
 
 				goto(buildContractsHighlightUrl(contract.escrowId));
+			} else {
+				appStore.showErrorToast(
+					detailText(
+						'dashboard.services.detail.instant_buy.error',
+						'Unable to confirm instant buy right now.'
+					)
+				);
 			}
 		} catch (error) {
 			console.error('[ServiceDetailsView] Book Now confirmation failed', error);
