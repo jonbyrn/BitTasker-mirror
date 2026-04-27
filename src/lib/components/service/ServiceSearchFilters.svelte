@@ -265,7 +265,7 @@
 						onchange={() => toggleLocationType(ServiceLocationTypeEnum.TASKEE_LOCATION)}
 					/>
 					<span class="label-text">
-						{$t('dashboard.services.create.location.taskee_title') || 'At Tasker Location'}
+						{$t('dashboard.services.create.location.taskee_title') || 'At Taskee Location'}
 					</span>
 				</label>
 			</div>
@@ -287,9 +287,6 @@
 		</div>
 		<div class="collapse-content">
 			<fieldset>
-				<legend class="mb-2 text-sm font-medium">
-					{$t('dashboard.services.browse.filters.pricing_type') || 'Price Type'}
-				</legend>
 				<div class="flex flex-col gap-2">
 					<label class="label cursor-pointer justify-start gap-3">
 						<input
@@ -301,18 +298,6 @@
 						/>
 						<span class="label-text">
 							{$t('dashboard.services.create.pricing.fixed_title') || 'Fixed Price'}
-						</span>
-					</label>
-					<label class="label cursor-pointer justify-start gap-3">
-						<input
-							type="radio"
-							name="pricingType"
-							class="radio"
-							checked={filters.pricingType === ServicePricingTypeEnum.HOURLY}
-							onchange={() => handlePricingTypeChange(ServicePricingTypeEnum.HOURLY)}
-						/>
-						<span class="label-text">
-							{$t('dashboard.services.create.pricing.hourly_title') || 'Hourly Rate'}
 						</span>
 					</label>
 					<label class="label cursor-pointer justify-start gap-3">
@@ -371,14 +356,11 @@
 		</div>
 		<div class="collapse-content">
 			<fieldset>
-				<legend class="mb-2 text-sm font-medium">
-					{$t('dashboard.services.browse.filters.price_range') || 'Price Range'}
-				</legend>
-				<div class="space-y-4">
+				<div class="grid grid-cols-2 gap-4">
 					<div class="form-control">
 						<label class="label" for="min-price">
 							<span class="label-text">
-								{$t('dashboard.services.browse.filters.min_price') || 'Minimum Price ($)'}
+								{$t('dashboard.services.browse.filters.min_price') || 'Min ($)'}
 							</span>
 						</label>
 						<input
@@ -407,7 +389,7 @@
 					<div class="form-control">
 						<label class="label" for="max-price">
 							<span class="label-text">
-								{$t('dashboard.services.browse.filters.max_price') || 'Maximum Price ($)'}
+								{$t('dashboard.services.browse.filters.max_price') || 'Max ($)'}
 							</span>
 						</label>
 						<input
