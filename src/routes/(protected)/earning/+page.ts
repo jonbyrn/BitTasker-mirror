@@ -5,7 +5,6 @@ export const prerender = false;
 
 /**
  * Redirect handler for backward compatibility.
- * Old URL: /dashboard/earning?tab=bids&service=X&request=Y&type=tasks&highlight=Z&status=S
  * New URL: /earning/bids?service=X&request=Y&type=tasks&highlight=Z&status=S
  */
 export function load({ url }: { url: URL }) {
