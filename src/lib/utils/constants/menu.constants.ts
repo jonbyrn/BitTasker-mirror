@@ -142,7 +142,7 @@ export const LOGGED_IN_MENU_SECTIONS: MenuSection[] = [
 			{
 				label: 'navbar.earning',
 				icon: IconInvoiceTextSendOutline,
-				href: '/dashboard/earning'
+				href: '/earning'
 			},
 			{
 				label: 'navbar.find_tasks',
@@ -152,27 +152,27 @@ export const LOGGED_IN_MENU_SECTIONS: MenuSection[] = [
 			{
 				label: 'navbar.bids_sent',
 				icon: IconInvoiceTextSendOutline,
-				href: '/dashboard/earning?tab=bids'
+				href: '/earning/bids'
 			},
 			{
 				label: 'navbar.requests',
 				icon: IconCommentTextOutline,
-				href: '/dashboard/earning?tab=requests'
+				href: '/earning/requests'
 			},
 			{
 				label: 'navbar.contracts',
 				icon: IconFileSign,
-				href: '/dashboard/earning?tab=contracts'
+				href: '/earning/contracts'
 			},
 			{
 				label: 'navbar.my_services',
 				icon: IconBriefcaseSearch,
-				href: '/dashboard/earning?tab=my-services'
+				href: '/earning/my-services'
 			},
 			{
 				label: 'navbar.saved_searches',
 				icon: IconMagnify,
-				href: '/dashboard/earning?tab=saved-searches'
+				href: '/earning/saved-searches'
 			}
 		]
 	},

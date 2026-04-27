@@ -11,7 +11,12 @@ const primaryRoutes = [
 	'/dashboard/wallet',
 	'/dashboard/profile',
 	'/dashboard/settings',
-	'/dashboard/earning',
+	'/earning',
+	'/earning/bids',
+	'/earning/requests',
+	'/earning/contracts',
+	'/earning/my-services',
+	'/earning/saved-searches',
 	'/how-it-works'
 ];
 
@@ -28,6 +33,11 @@ function isSubPage(path: string): boolean {
 
 	// Check if it's a protected workspace sub-page (e.g., /dashboard/task/123)
 	if (path.startsWith('/dashboard/')) {
+		return segments.length > 2;
+	}
+
+	// Check if it's an earning sub-page (e.g., /earning/requests?service=X)
+	if (path.startsWith('/earning/')) {
 		return segments.length > 2;
 	}
 
