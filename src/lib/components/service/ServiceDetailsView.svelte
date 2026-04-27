@@ -50,14 +50,12 @@
 		type InstantBuyCreateSnapshot
 	} from '$lib/utils/service-instant-buy/create';
 	import { buildServiceAddress } from '$lib/utils/service-quote/protocol';
-	import { createServiceContract } from '$lib/utils/service-contract/create';
-	import { waitForContractCreationByTransactionHash } from '$lib/utils/service-contract/await-contract-creation';
+	import { createServiceContract, type ServiceContractCreationResult } from '$lib/utils/service-contract/create';
 	import { describeServiceContractPreflightFailure } from '$lib/utils/service-contract/preflight-feedback';
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
 	import { preflightServiceContractCreation } from '$lib/utils/service-contract/preflight';
 	import { appStore } from '$lib/stores/app.store';
 	import { ethers } from 'ethers';
-	import { serviceContractCreationStore, type ServiceContractCreationState } from '$lib/utils/contract/v2/pending-contracts';
 	import { FEE_TIERS } from '@bittasker/wallet-core';
 
 	const DEFAULT_CLIENT_FEE_TIER = 1;
@@ -319,34 +317,29 @@
 	const instantBuyProviderWalletAddress = $derived.by(() =>
 		instantBuyService ? resolveProviderWalletAddress(instantBuyService) : null
 	);
-	const instantBuyContractCreationEvent = $derived.by((): ServiceContractCreationState => {
-		if (!instantBuyPendingTransactionHash) {
-			return null;
-		}
 
-		const storeValue = $serviceContractCreationStore;
-		if (!storeValue) {
-			return null;
-		}
+	type InstantBuyCreationState = 
+		| { state: 'idle' }
+		| { state: 'pending'; transactionHash: string }
+		| { state: 'confirmed'; transactionHash: string; paymentId: string }
+		| { state: 'failed'; transactionHash: string; error: string };
+	
+	let instantBuyCreationState = $state<InstantBuyCreationState>({ state: 'idle' });
 
-		const expectedHash = normalizeTransactionHash(instantBuyPendingTransactionHash);
-		const storeHash = normalizeTransactionHash(storeValue.transactionHash);
-		return expectedHash && storeHash && expectedHash === storeHash ? storeValue : null;
-	});
 	const showInstantBuyContractCreationProgress = $derived(
-		Boolean(instantBuyPendingTransactionHash)
+		instantBuyCreationState.state !== 'idle'
 	);
 	const instantBuyContractCreationStatus = $derived.by(() => {
-		if (!instantBuyPendingTransactionHash) {
+		if (instantBuyCreationState.state === 'idle') {
 			return 'idle' as const;
 		}
 		if (instantBuyPostSubmitErrorMessage) {
 			return 'error' as const;
 		}
-		if (instantBuyContractCreationEvent?.state === 'failed') {
+		if (instantBuyCreationState.state === 'failed') {
 			return 'error' as const;
 		}
-		if (instantBuyContractCreationEvent?.state === 'confirmed') {
+		if (instantBuyCreationState.state === 'confirmed') {
 			return 'success' as const;
 		}
 		return 'creating' as const;
@@ -355,8 +348,8 @@
 		if (instantBuyPostSubmitErrorMessage) {
 			return instantBuyPostSubmitErrorMessage;
 		}
-		if (instantBuyContractCreationEvent?.state === 'failed') {
-			return instantBuyContractCreationEvent.error;
+		if (instantBuyCreationState.state === 'failed') {
+			return instantBuyCreationState.error;
 		}
 		return '';
 	});
@@ -881,6 +874,7 @@
 		_instantBuyPendingAmountRbtc = '';
 		instantBuyPostSubmitErrorMessage = '';
 		_instantBuyBackgrounded = false;
+		instantBuyCreationState = { state: 'idle' };
 	}
 
 	function handleCloseInstantBuyDrawer() {
@@ -1147,54 +1141,93 @@
 				entry = updateBookNowOutboxForDraft(instantBuyDraft, 'submission_locked');
 			}
 
-			if (entry.state === 'submission_locked' || entry.state === 'contract_creation_failed') {
-				const contractEvent = await createServiceContract({
-					buyerPubkey: $user?.npub || '',
-					sellerPubkey: service.npub,
+			if (entry.state === 'submission_locked') {
+				const contractResult = await createServiceContract({
+					freelancerPubkey: service.npub,
+					freelancerAddress: instantBuyDraft.providerAddress ?? '',
 					amountUsdt: instantBuyDraft.amountUsd.toFixed(2),
 					serviceId: service.id,
 					serviceAddress: instantBuyDraft.serviceAddress,
+					serviceTitle: service.title ?? '',
+					serviceDescription: service.description,
+					contextVersionRef: instantBuyDraft.pricingSnapshot.serviceVersionRef,
+					purchaseMode: 'instant_buy',
+					instantOrderId: instantBuyDraft.snapshot.instantOrderId,
+					selectedTierId: selectedTierId ?? undefined,
 					pricingSnapshot: instantBuyDraft.pricingSnapshot,
 					agreementSnapshot: instantBuyDraft.agreementSnapshot,
 					estimatedStartTime: instantBuyDraft.snapshot.estimatedStartTime,
 					estimatedCompletionTime: instantBuyDraft.snapshot.estimatedEndTime
 				});
 
-				entry = updateBookNowOutboxForDraft(instantBuyDraft, 'contract_created', {
-					transactionHash: contractEvent.transactionHash,
-					amountRbtc: contractEvent.amountRbtc
-				});
-			}
+				if (!contractResult.success) {
+					throw new Error(contractResult.error);
+				}
 
-			if (entry.state === 'contract_created' && entry.transactionHash) {
+				entry = updateBookNowOutboxForDraft(instantBuyDraft, 'funding_submitted', {
+					transactionHash: contractResult.transactionHash,
+					amountRbtc: contractResult.amount
+				});
+
+				instantBuyPendingTransactionHash = contractResult.transactionHash;
+				_instantBuyPendingAmountRbtc = contractResult.amount;
+				instantBuyCreationState = { state: 'pending', transactionHash: contractResult.transactionHash };
+
+				void (async () => {
+					try {
+						await Promise.all([
+							contractResult.afterBroadcast.then((report) => {
+								if (report.failures.length) {
+									console.warn('[ServiceDetailsView] afterBroadcast partial failures', report.failures);
+								}
+							}),
+							(async () => {
+								const receipt = await contractResult.tx.wait();
+								if (!receipt) throw new Error('No receipt');
+								const { paymentId } = await contractResult.afterConfirmed(receipt);
+								
+								instantBuyCreationState = { 
+									state: 'confirmed', 
+									transactionHash: contractResult.transactionHash,
+									paymentId: String(paymentId)
+								};
+
+								updateBookNowOutboxForDraft(instantBuyDraft, 'contract_ready', {
+									escrowId: String(paymentId)
+								});
+
+								clearBookNowOutboxForDraft(instantBuyDraft);
+
+								appStore.showSuccessToast(
+									detailText(
+										'dashboard.services.detail.instant_buy.success',
+										'Book Now order confirmed. Opening your service contract.'
+									)
+								);
+
+								goto(buildContractsHighlightUrl(String(paymentId)));
+							})()
+						]);
+					} catch (err) {
+						console.error('[ServiceDetailsView] tx confirmation failed', err);
+						instantBuyCreationState = { 
+							state: 'failed', 
+							transactionHash: contractResult.transactionHash,
+							error: err instanceof Error ? err.message : 'Transaction confirmation failed'
+						};
+						clearBookNowOutboxForDraft(instantBuyDraft);
+						appStore.showErrorToast(
+							detailText(
+								'dashboard.services.detail.instant_buy.error',
+								'Unable to confirm instant buy right now.'
+							)
+						);
+					}
+				})();
+			} else if (entry.state === 'funding_submitted' && entry.transactionHash) {
 				instantBuyPendingTransactionHash = entry.transactionHash;
 				_instantBuyPendingAmountRbtc = entry.amountRbtc || '';
-
-				const contract = await waitForContractCreationByTransactionHash(entry.transactionHash, {
-					timeoutMs: 45_000
-				});
-
-				updateBookNowOutboxForDraft(instantBuyDraft, 'escrow_created', {
-					escrowId: contract.escrowId
-				});
-
-				clearBookNowOutboxForDraft(instantBuyDraft);
-
-				appStore.showSuccessToast(
-					detailText(
-						'dashboard.services.detail.instant_buy.success',
-						'Book Now order confirmed. Opening your service contract.'
-					)
-				);
-
-				goto(buildContractsHighlightUrl(contract.escrowId));
-			} else {
-				appStore.showErrorToast(
-					detailText(
-						'dashboard.services.detail.instant_buy.error',
-						'Unable to confirm instant buy right now.'
-					)
-				);
+				instantBuyCreationState = { state: 'pending', transactionHash: entry.transactionHash };
 			}
 		} catch (error) {
 			console.error('[ServiceDetailsView] Book Now confirmation failed', error);
@@ -1205,7 +1238,7 @@
 
 			if (isUserCancel) {
 				if (instantBuyDraft) {
-					updateBookNowOutboxForDraft(instantBuyDraft, 'idle');
+					clearBookNowOutboxForDraft(instantBuyDraft);
 				}
 				instantBuySubmitting = false;
 				return;
@@ -1220,16 +1253,11 @@
 						);
 
 			if (instantBuyDraft) {
-				updateBookNowOutboxForDraft(instantBuyDraft, 'contract_creation_failed');
+				clearBookNowOutboxForDraft(instantBuyDraft);
 			}
 		} finally {
 			instantBuySubmitting = false;
-			submissionLockRelease();
 		}
-	}
-
-	function submissionLockRelease() {
-		clearBookNowOutboxForDraft(instantBuyDraft);
 	}
 
 	async function handleQuoteRequestConfirm(payload: QuoteRequestPayload) {
@@ -1447,12 +1475,43 @@
 		}
 
 		// Handle Book Now recovery if needed
-		if (browser && service) {
-			const recoverable = readRecoverableBookNowOutboxEntry(getBookNowOutboxStorage(), null);
-			if (recoverable && recoverable.state === 'contract_created') {
-				void recoverBookNowContract(recoverable, {
-					onSuccess: (escrowId) => goto(buildContractsHighlightUrl(escrowId))
-				});
+		// Note: Recovery is only attempted for entries in 'funding_submitted' or 'contract_sync_pending' state
+		// The v2 pattern handles most recovery via afterConfirmed(), but we check for orphaned entries here
+		if (browser && service && instantBuyDraft) {
+			const fingerprint = buildBookNowFingerprint(instantBuyDraft);
+			const recoverable = readRecoverableBookNowOutboxEntry(getBookNowOutboxStorage(), fingerprint);
+			
+			if (recoverable && 
+				(recoverable.state === 'funding_submitted' || recoverable.state === 'contract_sync_pending') &&
+				recoverable.transactionHash
+			) {
+				// Attempt recovery for interrupted transactions
+				void (async () => {
+					try {
+						const result = await recoverBookNowContract({
+							transactionHash: recoverable.transactionHash!,
+							freelancerPubkey: service.npub,
+							amountRbtc: recoverable.amountRbtc ?? '',
+							estimatedStartTime: instantBuyDraft?.snapshot?.estimatedStartTime ?? 0,
+							estimatedCompletionTime: instantBuyDraft?.snapshot?.estimatedEndTime ?? 0,
+							serviceId: service.id,
+							serviceAddress: instantBuyDraft.serviceAddress,
+							serviceTitle: service.title ?? '',
+							contextVersionRef: instantBuyDraft.pricingSnapshot?.serviceVersionRef ?? '',
+							instantOrderId: recoverable.instantOrderId ?? '',
+							pricingSnapshot: instantBuyDraft.pricingSnapshot,
+							agreementSnapshot: instantBuyDraft.agreementSnapshot,
+							escrowId: recoverable.escrowId
+						});
+						
+						if (result.status === 'contract_ready' && result.escrowId) {
+							clearBookNowOutboxForDraft(instantBuyDraft);
+							goto(buildContractsHighlightUrl(result.escrowId));
+						}
+					} catch (err) {
+						console.warn('[ServiceDetailsView] Recovery attempt failed:', err);
+					}
+				})();
 			}
 		}
 

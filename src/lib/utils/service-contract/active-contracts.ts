@@ -1,17 +1,7 @@
 import type { ContractWithEvents } from '$lib/types/contract';
 import type { Service } from '$lib/types/service.d';
-import { ContractStatus } from '$lib/utils/contract/types';
+import { isTerminalPaymentState } from '$lib/utils/contract/v2/permittedActions';
 import { buildServiceAddress } from '$lib/stores/service-quote-ui.store';
-
-const TERMINAL_SERVICE_CONTRACT_STATUSES = new Set<ContractStatus>([
-	ContractStatus.DisputeResolved,
-	ContractStatus.DisputeUnresolved,
-	ContractStatus.FundsReleased,
-	ContractStatus.Cancelled,
-	ContractStatus.Refunded,
-	ContractStatus.FundsClaimed,
-	ContractStatus.NoShow
-]);
 
 function getContractEscrowId(contract: ContractWithEvents): string {
 	return contract.escrowData?.id ?? contract.contractEvent.content.escrowId;
@@ -50,7 +40,7 @@ export function isActiveServiceContract(contract: ContractWithEvents): boolean {
 		return false;
 	}
 
-	return !TERMINAL_SERVICE_CONTRACT_STATUSES.has(contract.status);
+	return !isTerminalPaymentState(contract.status);
 }
 
 /** Filters contracts down to active entries that still match the provided service identity. */

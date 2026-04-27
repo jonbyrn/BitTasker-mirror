@@ -2,16 +2,14 @@
  * Service Contract Creation
  *
  * Creates service contracts using v2 escrow patterns.
- * This module serves as the entry point for service contract creation,
- * delegating to the v2 service-creation module for blockchain operations.
+ * This module follows the same pattern as BidAcceptanceFormV2.svelte uses for tasks:
+ * - Derives params from input
+ * - Broadcasts transaction
+ * - Returns tx + afterBroadcast + afterConfirmed for the UI to handle
  */
 
 import cryptoPriceService from '$lib/api/services/crypto-price.service';
 import { ethers } from 'ethers';
-import {
-	preflightServiceContractCreation,
-	type ServiceContractPreflightErrorCode
-} from '$lib/utils/service-contract/preflight';
 import {
 	createServiceContract as createServiceContractV2,
 	type ServiceContractCreationInputV2
@@ -28,7 +26,6 @@ import {
 	getConfiguredVerificationRpcLabel
 } from '$lib/utils/service-contract/acceptance-snapshot';
 import { normalizeServiceContractSchedule } from '$lib/utils/service-contract/schedule';
-import { registerPendingServiceContractV2 } from '$lib/utils/contract/v2';
 import { createDebug } from '$lib/utils/debug';
 import type { FeeTier } from '@bittasker/wallet-core';
 
@@ -59,34 +56,24 @@ export interface ServiceContractCreationInput {
 	pricingSnapshot: ServiceContractPricingSnapshot;
 	agreementSnapshot?: ServiceContractAgreementSnapshot;
 	freelancerFeeTier?: 0 | 1 | 2;
+	/** Client wallet address - if not provided, will be fetched from v2 creation */
+	clientRskAddress?: string;
 }
-
-export type ServiceContractCreationState =
-	| 'preflight_failed'
-	| 'funding_failed'
-	| 'funding_submitted';
 
 export type ServiceContractCreationResult =
 	| {
 			success: true;
-			state: 'funding_submitted';
 			transactionHash: string;
 			amount: string;
 			clientRskAddress: string;
 			acceptanceSnapshot: ReturnType<typeof createServiceAcceptanceSnapshot>;
-			tx?: unknown;
-			afterBroadcast?: Promise<{ failures: { name: string; error: unknown }[] }>;
-			afterConfirmed?: (receipt: ethers.TransactionReceipt) => Promise<{ paymentId: number }>;
+			tx: ethers.ContractTransactionResponse;
+			afterBroadcast: Promise<{ failures: { name: string; error: unknown }[] }>;
+			afterConfirmed: (receipt: ethers.TransactionReceipt) => Promise<{ paymentId: number }>;
 	  }
 	| {
 			success: false;
-			state: 'preflight_failed' | 'funding_failed';
-			transactionHash?: string;
-			amount?: string;
-			clientRskAddress?: string;
-			acceptanceSnapshot?: ReturnType<typeof createServiceAcceptanceSnapshot>;
-			error?: string;
-			errorCode?: ServiceContractPreflightErrorCode;
+			error: string;
 	  };
 
 export function convertUsdAmountToRbtc(amountUsdt: string, btcPrice: number): string {
@@ -105,22 +92,19 @@ export function convertUsdAmountToRbtc(amountUsdt: string, btcPrice: number): st
 /**
  * Creates a service contract using v2 escrow patterns.
  *
- * Flow:
- * 1. Preflight: Check wallet, balance, and network
- * 2. Convert USD to RBTC using current BTC price
- * 3. Call v2 createServiceContract which:
- *    - Broadcasts the transaction
- *    - Publishes NDKPaymentContract with service context
- *    - Sends push notifications
- * 4. Register pending contract for tx confirmation handling
+ * This follows the same pattern as v2 task creation:
+ * 1. Derives contract params from input
+ * 2. Broadcasts the transaction
+ * 3. Returns tx + afterBroadcast + afterConfirmed for the UI to handle
+ *
+ * The UI is responsible for:
+ * - Checking wallet balance before calling this
+ * - Calling tx.wait() to wait for confirmation
+ * - Calling afterConfirmed(receipt) to update the Nostr event
  */
 export async function createServiceContract(
 	input: ServiceContractCreationInput
 ): Promise<ServiceContractCreationResult> {
-	let transactionHash: string | null = null;
-	let amount: string | undefined;
-	let clientRskAddress: string | undefined;
-	let acceptanceSnapshot: ReturnType<typeof createServiceAcceptanceSnapshot> | undefined;
 	const schedule = normalizeServiceContractSchedule(
 		input.estimatedStartTime,
 		input.estimatedCompletionTime
@@ -130,46 +114,7 @@ export async function createServiceContract(
 		d.log('createServiceContract: starting', { serviceId: input.serviceId });
 
 		const btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
-		const preflight = await preflightServiceContractCreation(
-			{
-				freelancerAddress: input.freelancerAddress,
-				freelancerPubkey: input.freelancerPubkey,
-				amountUsdt: input.amountUsdt,
-				estimatedStartTime: schedule.estimatedStartTime,
-				estimatedCompletionTime: schedule.estimatedCompletionTime,
-				freelancerFeeTier: input.freelancerFeeTier
-			},
-			btcPrice
-		);
-
-		if (!preflight.ok) {
-			d.log('createServiceContract: preflight failed', { error: preflight.error });
-			return {
-				success: false,
-				state: 'preflight_failed',
-				error: preflight.error,
-				errorCode: preflight.errorCode
-			};
-		}
-
-		amount = preflight.amount;
-		clientRskAddress = normalizePlainRskAddress(preflight.walletAddress);
-
-		acceptanceSnapshot = createServiceAcceptanceSnapshot({
-			clientRskAddress,
-			clientFeeTier: DEFAULT_CLIENT_FEE_TIER as 0 | 1 | 2,
-			freelancerRskAddress: input.freelancerAddress,
-			freelancerFeeTier: (input.freelancerFeeTier ?? 1) as 0 | 1 | 2,
-			chainId: getConfiguredRskChainId(),
-			contractAddress: getConfiguredRskContractAddress(),
-			purchaseMode: input.purchaseMode,
-			proposalId: input.proposalId,
-			instantOrderId: input.instantOrderId,
-			btcUsdRateMicros: Math.round(btcPrice * 1_000_000),
-			weiAmount: ethers.parseEther(amount).toString(),
-			confirmationsAtVerification: 0,
-			verificationRpc: getConfiguredVerificationRpcLabel()
-		});
+		const amount = convertUsdAmountToRbtc(input.amountUsdt, btcPrice);
 
 		const v2Input: ServiceContractCreationInputV2 = {
 			freelancerPubkey: input.freelancerPubkey,
@@ -191,8 +136,7 @@ export async function createServiceContract(
 			pricingSnapshot: input.pricingSnapshot,
 			agreementSnapshot: input.agreementSnapshot,
 			clientFeeTier: DEFAULT_CLIENT_FEE_TIER,
-			freelancerFeeTier: (input.freelancerFeeTier ?? 1) as FeeTier,
-			acceptanceSnapshot
+			freelancerFeeTier: (input.freelancerFeeTier ?? 1) as FeeTier
 		};
 
 		d.log('createServiceContract: calling v2 createServiceContract');
@@ -202,36 +146,35 @@ export async function createServiceContract(
 			d.log('createServiceContract: v2 creation failed', { error: v2Result.error });
 			return {
 				success: false,
-				state: 'funding_failed',
-				error: v2Result.error
+				error: v2Result.error ?? 'Failed to create service contract'
 			};
 		}
 
-		transactionHash = v2Result.transactionHash;
-		d.log('createServiceContract: v2 creation succeeded', { transactionHash });
+		const clientRskAddress = input.clientRskAddress
+			? normalizePlainRskAddress(input.clientRskAddress)
+			: '';
 
-		try {
-			registerPendingServiceContractV2({
-				transactionHash,
-				serviceId: input.serviceId,
-				serviceAddress: input.serviceAddress,
-				serviceTitle: input.serviceTitle,
-				freelancerPubkey: input.freelancerPubkey,
-				purchaseMode: input.purchaseMode,
-				proposalId: input.proposalId,
-				proposalEventId: input.proposalEventId,
-				quoteRequestId: input.quoteRequestId,
-				instantOrderId: input.instantOrderId,
-				acceptanceSnapshot
-			});
-		} catch (registrationError) {
-			d.warn('createServiceContract: failed to register pending contract', registrationError);
-		}
+		const acceptanceSnapshot = createServiceAcceptanceSnapshot({
+			clientRskAddress,
+			clientFeeTier: DEFAULT_CLIENT_FEE_TIER as 0 | 1 | 2,
+			freelancerRskAddress: input.freelancerAddress,
+			freelancerFeeTier: (input.freelancerFeeTier ?? 1) as 0 | 1 | 2,
+			chainId: getConfiguredRskChainId(),
+			contractAddress: getConfiguredRskContractAddress(),
+			purchaseMode: input.purchaseMode,
+			proposalId: input.proposalId,
+			instantOrderId: input.instantOrderId,
+			btcUsdRateMicros: Math.round(btcPrice * 1_000_000),
+			weiAmount: ethers.parseEther(amount).toString(),
+			confirmationsAtVerification: 0,
+			verificationRpc: getConfiguredVerificationRpcLabel()
+		});
+
+		d.log('createServiceContract: success', { transactionHash: v2Result.transactionHash });
 
 		return {
 			success: true,
-			state: 'funding_submitted',
-			transactionHash,
+			transactionHash: v2Result.transactionHash,
 			amount,
 			clientRskAddress,
 			acceptanceSnapshot,
@@ -241,21 +184,8 @@ export async function createServiceContract(
 		};
 	} catch (error) {
 		d.error('createServiceContract: unexpected error', error);
-
-		if (transactionHash && amount && clientRskAddress && acceptanceSnapshot) {
-			return {
-				success: true,
-				state: 'funding_submitted',
-				transactionHash,
-				amount,
-				clientRskAddress,
-				acceptanceSnapshot
-			};
-		}
-
 		return {
 			success: false,
-			state: 'funding_failed',
 			error: extractContractError(error).userMessage
 		};
 	}

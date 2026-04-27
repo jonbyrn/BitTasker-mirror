@@ -1,140 +1,100 @@
 /**
- * Await Contract Creation
+ * @deprecated Service Contract Creation Awaiting
  *
- * This module waits for service contract creation by subscribing to the v2 pending contracts store.
- * It has been updated to use the contract/v2 system instead of the legacy escrow/ system.
+ * This module exists for backward compatibility during migration.
+ * New code should use the v2 pattern: tx.wait() + afterConfirmed()
  *
- * For reactive UI patterns, prefer using:
- * - PaymentContractRune.start() handles contract resolution automatically
- * - The rune's isPending state + resolvePaymentIdFromTxHash() provide the same capability
- *
- * See docs/service-escrow-version-abstraction.md for migration details.
+ * In v2, contract creation is awaited by:
+ * 1. Calling createServiceContract() which returns tx + afterConfirmed
+ * 2. Awaiting tx.wait() to get receipt
+ * 3. Calling afterConfirmed(receipt) to finalize
  */
 
-import {
-	serviceContractCreationStore,
-	type ServiceContractCreationState,
-	getPendingServiceContractByTxHash
-} from '$lib/utils/contract/v2/pending-contracts';
-import { get } from 'svelte/store';
+import { initContract } from '$lib/utils/contract';
+import { getSecurePaymentContractAddress } from '$lib/utils/contract/v2/contractAddress';
+import { parsePaymentContractCreatedPaymentId } from '$lib/utils/contract/v2/creation';
+import { contractStore } from '$lib/stores/contract.store';
+import { ethers } from 'ethers';
+import abi from '$lib/utils/contract/v2/abi.json';
 
-export const DEFAULT_CONTRACT_CREATION_TIMEOUT_MS = 45_000;
-export const CONTRACT_CREATION_SYNCING_MESSAGE =
-	'The secure payment contract transaction was submitted, but the contract confirmation is still syncing. Open Contracts to monitor it.';
-export type ContractCreationTimeoutReason = 'pending_timeout' | 'tx_replaced';
+export const CONTRACT_CREATION_SYNCING_MESSAGE = 'Contract is being synced with Nostr relays...';
+
+export interface ContractCreationResult {
+	escrowId: string;
+	transactionHash: string;
+}
+
+export interface WaitForContractCreationOptions {
+	timeoutMs?: number;
+	pollIntervalMs?: number;
+}
 
 /**
- * Represents a successful contract creation result with payment ID
+ * @deprecated Use the v2 pattern instead: tx.wait() + afterConfirmed(receipt)
  */
-export interface ServiceContractCreationResult {
-	transactionHash: string;
-	paymentId: string;
-	state: NonNullable<ServiceContractCreationState>['state'];
-}
-
-function normalizeTransactionHash(transactionHash: string): string {
-	return transactionHash.trim().toLowerCase();
-}
-
-function matchesTransactionHash(
-	state: ServiceContractCreationState,
-	transactionHash: string
-): boolean {
-	if (!state) {
-		return false;
-	}
-
-	const expectedHash = normalizeTransactionHash(transactionHash);
-	if (!expectedHash) {
-		return false;
-	}
-
-	return normalizeTransactionHash(state.transactionHash) === expectedHash;
-}
-
 export function getContractCreationTimeoutReason(
 	transactionHash: string,
-	state: ServiceContractCreationState = get(serviceContractCreationStore)
-): ContractCreationTimeoutReason {
-	const pending = getPendingServiceContractByTxHash(transactionHash);
-	if (!pending && !state) {
-		return 'pending_timeout';
-	}
-	return 'pending_timeout';
+	options?: { timeoutMs?: number }
+): string {
+	const timeout = options?.timeoutMs ?? 45000;
+	return `Service contract funding timed out after ${Math.round(timeout / 1000)}s. Transaction: ${transactionHash}. Contract may still be created - check your contracts.`;
 }
 
+/**
+ * @deprecated Use the v2 pattern instead: tx.wait() + afterConfirmed(receipt)
+ *
+ * Polls the blockchain for the transaction receipt and extracts the paymentId.
+ * This is a fallback for scenarios where tx.wait() cannot be used directly.
+ */
 export async function waitForContractCreationByTransactionHash(
 	transactionHash: string,
-	timeoutMs: number = DEFAULT_CONTRACT_CREATION_TIMEOUT_MS
-): Promise<ServiceContractCreationResult> {
-	if (!transactionHash.trim()) {
-		throw new Error('Transaction hash is required to await contract creation.');
-	}
+	options?: WaitForContractCreationOptions
+): Promise<ContractCreationResult> {
+	const { timeoutMs = 45000, pollIntervalMs = 3000 } = options ?? {};
 
-	if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
-		throw new Error('Timeout must be a positive number of milliseconds.');
-	}
+	const contractAddress = getSecurePaymentContractAddress();
+	const { provider } = await initContract(
+		contractAddress,
+		'rsk',
+		abi as ethers.InterfaceAbi
+	);
 
-	const currentState = get(serviceContractCreationStore);
+	const normalizedHash = transactionHash.trim().toLowerCase();
+	const startTime = Date.now();
 
-	if (matchesTransactionHash(currentState, transactionHash)) {
-		if (currentState!.state === 'failed') {
-			throw new Error('error' in currentState! ? currentState!.error : 'Contract creation failed.');
+	while (Date.now() - startTime < timeoutMs) {
+		try {
+			const receipt = await provider.getTransactionReceipt(normalizedHash);
+			
+			if (receipt) {
+				if (receipt.status !== 1) {
+					throw new Error('Service contract funding transaction failed on-chain.');
+				}
+
+				const paymentId = parsePaymentContractCreatedPaymentId(receipt, contractAddress);
+				const escrowId = String(paymentId);
+
+				const loaded = await contractStore.loadContractByEscrowId(escrowId);
+				if (loaded) {
+					return { escrowId, transactionHash: normalizedHash };
+				}
+
+				await new Promise((resolve) => setTimeout(resolve, 2000));
+				const retryLoaded = await contractStore.loadContractByEscrowId(escrowId);
+				if (retryLoaded) {
+					return { escrowId, transactionHash: normalizedHash };
+				}
+
+				throw new Error(CONTRACT_CREATION_SYNCING_MESSAGE);
+			}
+		} catch (error) {
+			if (error instanceof Error && error.message === CONTRACT_CREATION_SYNCING_MESSAGE) {
+				throw error;
+			}
 		}
 
-		if (currentState!.state === 'confirmed' && 'paymentId' in currentState!) {
-			return {
-				transactionHash: currentState!.transactionHash,
-				paymentId: currentState!.paymentId,
-				state: currentState!.state
-			};
-		}
+		await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
 	}
 
-	return await new Promise<ServiceContractCreationResult>((resolve, reject) => {
-		let settled = false;
-		let unsubscribe = () => {};
-
-		const finalize = (callback: () => void) => {
-			if (settled) {
-				return;
-			}
-
-			settled = true;
-			clearTimeout(timeoutId);
-			unsubscribe();
-			callback();
-		};
-
-		const handleState = (state: ServiceContractCreationState) => {
-			if (!matchesTransactionHash(state, transactionHash)) {
-				return;
-			}
-
-			if (state!.state === 'failed') {
-				const errorMsg = 'error' in state! ? state!.error : 'Contract creation failed.';
-				finalize(() => reject(new Error(errorMsg)));
-				return;
-			}
-
-			if (state!.state === 'confirmed' && 'paymentId' in state!) {
-				finalize(() =>
-					resolve({
-						transactionHash: state!.transactionHash,
-						paymentId: state!.paymentId,
-						state: state!.state
-					})
-				);
-				return;
-			}
-		};
-
-		const timeoutId = setTimeout(() => {
-			finalize(() => reject(new Error(CONTRACT_CREATION_SYNCING_MESSAGE)));
-		}, timeoutMs);
-
-		unsubscribe = serviceContractCreationStore.subscribe((state) => {
-			handleState(state);
-		});
-	});
+	throw new Error(getContractCreationTimeoutReason(transactionHash, { timeoutMs }));
 }

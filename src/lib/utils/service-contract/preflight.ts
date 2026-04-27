@@ -1,12 +1,22 @@
+/**
+ * @deprecated This module performs pre-creation validation for service contracts.
+ *
+ * In v2, this pattern is NOT used for tasks. Instead:
+ * - BidAcceptanceFormV2 checks balance in the UI directly
+ * - createContract() returns errors via the result object
+ * - Gas estimation is done via estimateGasForCreatePaymentContract()
+ *
+ * Services should follow the same pattern:
+ * - Check balance in UI before calling createServiceContract()
+ * - Handle errors from the result object
+ * - Use estimateGasForServiceContract() for gas estimation
+ *
+ * This file will be removed once all service UIs are updated.
+ */
+
 import { appStore } from '$lib/stores/app.store';
 import { walletManager, walletStore } from '$lib/stores/wallet.store';
-import {
-	calculateTotalPayment,
-	ensureContractReady,
-	formatRbtcAmount,
-	getExpectedRskChainId,
-	getExpectedRskNetworkLabel
-} from '$lib/utils/contract/v2/utils';
+import { initContract } from '$lib/utils/contract';
 import { getSecurePaymentContractAddress } from '$lib/utils/contract/v2/contractAddress';
 import { extractContractError } from '$lib/utils/wallet/contractErrorHandler';
 import { ethers } from 'ethers';
@@ -14,6 +24,8 @@ import { nip19 } from 'nostr-tools';
 import { get } from 'svelte/store';
 import { getNostrKeyPair } from '$lib/utils/nostrKeys';
 import { GAS_REIMBURSEMENT_PER_OP } from '$lib/utils/contract/v2/types';
+import { FEE_TIERS } from '@bittasker/wallet-core';
+import abi from '$lib/utils/contract/v2/abi.json';
 
 const DEFAULT_CLIENT_FEE_TIER = 1;
 const GAS_BUFFER_DIVISOR = 10n;
@@ -82,6 +94,26 @@ function convertUsdAmountToRbtc(amountUsdt: string, btcPrice: number): string {
 	}
 
 	return (parsedAmount / btcPrice).toFixed(8);
+}
+
+function calculateTotalPayment(baseAmountWei: bigint, feeTier: number): bigint {
+	const feePercentage = FEE_TIERS[feeTier as keyof typeof FEE_TIERS]?.percentage ?? 250;
+	const feeWei = (baseAmountWei * BigInt(feePercentage)) / 10000n;
+	return baseAmountWei + feeWei;
+}
+
+function formatRbtcAmount(wei: bigint): string {
+	return ethers.formatEther(wei);
+}
+
+function getExpectedRskChainId(): bigint {
+	const network = import.meta.env.VITE_RSK_NETWORK || 'testnet';
+	return network === 'mainnet' ? 30n : 31n;
+}
+
+function getExpectedRskNetworkLabel(): string {
+	const network = import.meta.env.VITE_RSK_NETWORK || 'testnet';
+	return network === 'mainnet' ? 'RSK Mainnet' : 'RSK Testnet';
 }
 
 async function ensureServiceWalletReady(): Promise<
@@ -174,6 +206,12 @@ async function ensureContractPublishReady(
 	};
 }
 
+/**
+ * @deprecated Use the v2 pattern instead:
+ * - Check balance in UI via walletStore
+ * - Call createServiceContract() and handle errors from result
+ * - Use estimateGasForServiceContract() for gas display
+ */
 export async function preflightServiceContractCreation(
 	input: ServiceContractPreflightInput,
 	btcPrice: number
@@ -214,26 +252,14 @@ export async function preflightServiceContractCreation(
 		return publishReady;
 	}
 
-	// Use v2 contract readiness check
-	const contractReady = await ensureContractReady(false);
-	if (!contractReady.ok) {
-		const errorCodeMap: Record<string, ServiceContractPreflightErrorCode> = {
-			wallet_not_connected: 'wallet_not_connected',
-			wallet_not_ready: 'wallet_not_ready',
-			provider_not_ready: 'preflight_failed',
-			wrong_network: 'wrong_network',
-			insufficient_funds: 'insufficient_funds',
-			contract_error: 'preflight_failed'
-		};
-		return fail(
-			errorCodeMap[contractReady.errorCode] ?? 'preflight_failed',
-			contractReady.error
-		);
-	}
-
-	const { contract, wallet, provider } = contractReady.result;
-
 	try {
+		const contractAddress = getSecurePaymentContractAddress();
+		const { contract, wallet, provider } = await initContract(
+			contractAddress,
+			'rsk',
+			abi as ethers.InterfaceAbi
+		);
+
 		const network = await provider.getNetwork();
 		const expectedChainId = getExpectedRskChainId();
 		if (network.chainId !== expectedChainId) {
@@ -244,28 +270,25 @@ export async function preflightServiceContractCreation(
 		}
 
 		const baseAmountWei = ethers.parseEther(amount);
-		// For v2, we add gas reimbursement to the payment
 		const gasReimbursementWei = 2n * GAS_REIMBURSEMENT_PER_OP;
 		const totalPaymentWei = calculateTotalPayment(baseAmountWei, DEFAULT_CLIENT_FEE_TIER) + gasReimbursementWei;
 		const feeData = await provider.getFeeData();
 		const gasPrice = feeData.gasPrice ?? 0n;
 
-		// Use v2 contract method: createPaymentContract
 		const gasEstimate = await contract.createPaymentContract.estimateGas(
 			normalizedFreelancerAddress,
 			input.estimatedStartTime,
 			input.estimatedCompletionTime,
 			DEFAULT_CLIENT_FEE_TIER,
 			input.freelancerFeeTier ?? 1,
-			0n, // cancellationFee
-			0n, // upfrontDeposit
+			0n,
+			0n,
 			{
 				value: totalPaymentWei,
 				gasPrice
 			}
 		);
 		const gasLimit = gasEstimate + gasEstimate / GAS_BUFFER_DIVISOR;
-		// Use fixed $0.50 fee for totalRequired since sponsor covers actual gas
 		const estimatedFeeWei = ethers.parseEther((ESTIMATED_NETWORK_FEE_USD / btcPrice).toFixed(8));
 		const totalRequiredWei = totalPaymentWei + estimatedFeeWei;
 		const gasCostWei = gasLimit * gasPrice;

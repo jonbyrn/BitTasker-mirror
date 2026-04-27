@@ -1,3 +1,14 @@
+/**
+ * @deprecated This module provides user-friendly messages for preflight errors.
+ *
+ * This is tied to the deprecated preflight.ts module. In v2:
+ * - createServiceContract() returns errors directly
+ * - The wallet/contractErrorHandler provides user messages
+ * - UI should handle errors from the creation result
+ *
+ * This file will be removed once all services use the v2 pattern.
+ */
+
 import type { ServiceContractPreflightErrorCode } from '$lib/utils/service-contract/preflight';
 
 export interface ServiceContractPreflightFeedback {

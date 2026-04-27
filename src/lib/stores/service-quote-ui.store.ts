@@ -43,17 +43,30 @@ import {
 	validateServiceProposalAcceptance
 } from '$lib/utils/service-quote/accept';
 import { createServiceContract } from '$lib/utils/service-contract/create';
-import { recoverServiceQuoteAcceptanceContract } from '$lib/utils/service-contract/recover-quote-acceptance';
-import { reconcileQuoteAcceptanceTimeline } from '$lib/utils/service-contract/reconcile-quote-acceptance';
-import type { ServiceContractPreflightErrorCode } from '$lib/utils/service-contract/preflight';
-import {
-	CONTRACT_CREATION_SYNCING_MESSAGE,
-	getContractCreationTimeoutReason,
-	waitForContractCreationByTransactionHash
-} from '$lib/utils/service-contract/await-contract-creation';
-import { SERVICE_ACCEPTANCE_REQUIRED_CONFIRMATIONS } from '$lib/utils/service-contract/finality';
 import { buildServiceContractLocationSnapshot } from '$lib/utils/service-contract/location';
-import { retryPendingServiceAcceptanceByEscrowId } from '$lib/utils/escrow/v1/escrowEvents';
+import type { ServiceContractPreflightErrorCode } from '$lib/utils/service-contract/preflight';
+
+/**
+ * V2 Migration Note:
+ *
+ * The following imports were removed as they used v1 patterns:
+ * - recoverServiceQuoteAcceptanceContract (deprecated - v2 uses afterConfirmed)
+ * - reconcileQuoteAcceptanceTimeline (deprecated - v2 handles reconciliation)
+ * - waitForContractCreationByTransactionHash (deprecated - use tx.wait())
+ * - SERVICE_ACCEPTANCE_REQUIRED_CONFIRMATIONS (deprecated - v2 handles confirmations)
+ * - retryPendingServiceAcceptanceByEscrowId (deprecated - v2 handles retries in afterConfirmed)
+ * - CONTRACT_CREATION_SYNCING_MESSAGE (deprecated - v2 handles sync)
+ * - getContractCreationTimeoutReason (deprecated - v2 handles timeouts)
+ *
+ * The v2 pattern:
+ * 1. createServiceContract returns { tx, afterBroadcast, afterConfirmed }
+ * 2. Call tx.wait() to wait for confirmation
+ * 3. Call afterConfirmed(receipt) to publish Nostr events
+ * 4. NDK subscriptions handle real-time status updates
+ */
+
+const SERVICE_ACCEPTANCE_REQUIRED_CONFIRMATIONS = 1;
+const CONTRACT_CREATION_SYNCING_MESSAGE = 'Contract is being synced with Nostr relays...';
 import { findServiceByUniqueId } from '$lib/nostr/service';
 import { getExactServiceLocation } from '$lib/nostr/exact-location';
 import { resolveServiceLocationEntityId } from '$lib/utils/location/entity-id';
@@ -386,7 +399,7 @@ function buildStatusContent(
 		message: input.message,
 		reasonCode: input.reasonCode,
 		timestamp: Math.floor(Date.now() / 1000),
-		version: 'v1',
+		version: 'v2',
 		...overrides
 	};
 }
@@ -688,6 +701,23 @@ function createServiceQuoteUiStore() {
 		return true;
 	}
 
+	/**
+	 * V2 Pattern: Monitor pending tasker acceptance using tx.wait() + afterConfirmed
+	 *
+	 * This replaces the v1 pattern of:
+	 * 1. waitForContractCreationByTransactionHash (polling)
+	 * 2. recoverServiceQuoteAcceptanceContract (recovery)
+	 * 3. retryPendingServiceAcceptanceByEscrowId (event replay)
+	 *
+	 * With the v2 pattern:
+	 * 1. tx.wait() - Native ethers waiting for confirmation
+	 * 2. afterConfirmed(receipt) - Handles Nostr event publishing with auto-retry
+	 *
+	 * The afterConfirmed callback from createServiceContract already handles:
+	 * - Nostr event publishing
+	 * - Automatic retry on failure
+	 * - Status updates
+	 */
 	async function monitorPendingTaskerAcceptance(params: {
 		timeline: ServiceQuoteTimelineEntry;
 		proposal: ServiceQuoteTimelineEntry['proposals'][number];
@@ -696,14 +726,18 @@ function createServiceQuoteUiStore() {
 		proposalId: string;
 		transactionHash: string;
 		acceptanceSnapshot: ServiceAcceptanceSnapshot;
+		tx: import('ethers').ContractTransactionResponse;
+		afterConfirmed: (receipt: import('ethers').TransactionReceipt) => Promise<{ paymentId: number }>;
 	}) {
 		try {
-			const contractCreationEvent = await waitForContractCreationByTransactionHash(
-				params.transactionHash
-			);
-			void retryPendingServiceAcceptanceByEscrowId(contractCreationEvent.escrowId).catch(() => {
-				// Best-effort replay; the accepted status may already exist.
-			});
+			const receipt = await params.tx.wait();
+			if (!receipt || receipt.status !== 1) {
+				throw new Error('Service contract funding transaction failed or was not confirmed.');
+			}
+
+			const { paymentId } = await params.afterConfirmed(receipt);
+			const escrowId = String(paymentId);
+
 			const acceptedInput: TaskerStatusActionInput = {
 				quoteRequestId: params.quoteRequestId,
 				proposalId: params.proposalId,
@@ -715,8 +749,8 @@ function createServiceQuoteUiStore() {
 				actorPubkey: params.actorPubkey,
 				input: acceptedInput,
 				overrides: {
-					escrowId: contractCreationEvent.escrowId,
-					transactionHash: contractCreationEvent.transactionHash ?? params.transactionHash,
+					escrowId,
+					transactionHash: params.transactionHash,
 					acceptanceSnapshot: buildVerifiedAcceptanceSnapshot(params.acceptanceSnapshot)
 				},
 				ignorePublishFailure: true
@@ -730,134 +764,23 @@ function createServiceQuoteUiStore() {
 						: entry
 				)
 			}));
-			return;
 		} catch (error) {
-			if (error instanceof Error && error.message === CONTRACT_CREATION_SYNCING_MESSAGE) {
-				try {
-					const recoveryResult = await recoverServiceQuoteAcceptanceContract({
-						transactionHash: params.transactionHash,
-						freelancerPubkey: params.proposal.pubkey,
-						estimatedStartTime: params.proposal.content.estimatedStartTime,
-						estimatedCompletionTime: params.proposal.content.estimatedEndTime,
-						serviceId: params.timeline.request.content.serviceId,
-						serviceAddress: params.timeline.request.content.serviceAddress,
-						serviceTitle: params.timeline.request.content.inquiry.title,
-						serviceDescription: params.timeline.request.content.inquiry.description,
-						contextVersionRef: params.proposal.content.pricingSnapshot.serviceVersionRef,
-						quoteRequestId: params.quoteRequestId,
-						proposalId: params.proposalId,
-						proposalEventId: params.proposal.id,
-						selectedTierId:
-							params.proposal.content.pricingSnapshot.tierId ??
-							params.timeline.request.content.tierId,
-						pricingSnapshot: params.proposal.content.pricingSnapshot,
-						agreementSnapshot: await buildAgreementSnapshot(params.timeline, params.proposal),
-						escrowId: params.timeline.linkedEscrowId
-					});
+			const message = error instanceof Error
+				? error.message
+				: 'The service contract acceptance could not be confirmed. Check your contracts.';
 
-					if (recoveryResult.status === 'contract_ready') {
-						void retryPendingServiceAcceptanceByEscrowId(recoveryResult.escrowId).catch(() => {
-							// Best-effort replay; the accepted status may already exist.
-						});
-						const acceptedInput: TaskerStatusActionInput = {
-							quoteRequestId: params.quoteRequestId,
-							proposalId: params.proposalId,
-							status: 'accepted'
-						};
-						const acceptedContent = await publishTaskerProposalStatus({
-							timeline: params.timeline,
-							proposal: params.proposal,
-							actorPubkey: params.actorPubkey,
-							input: acceptedInput,
-							overrides: {
-								escrowId: recoveryResult.escrowId,
-								transactionHash: recoveryResult.transactionHash,
-								acceptanceSnapshot: buildVerifiedAcceptanceSnapshot(params.acceptanceSnapshot)
-							},
-							ignorePublishFailure: true
-						});
-
-						update((state) => ({
-							...state,
-							taskerTimelines: state.taskerTimelines.map((entry) =>
-								entry.request.content.quoteRequestId === params.quoteRequestId
-									? updateTaskerTimeline(entry, acceptedInput, acceptedContent)
-									: entry
-							)
-						}));
-						return;
-					}
-
-					if (
-						recoveryResult.status === 'funding_pending' ||
-						recoveryResult.status === 'contract_sync_pending'
-					) {
-						if (recoveryResult.escrowId) {
-							await markAcceptanceMonitorSyncPending(recoveryResult.escrowId);
-						}
-						const syncingInput: TaskerStatusActionInput = {
-							quoteRequestId: params.quoteRequestId,
-							proposalId: params.proposalId,
-							status: 'contract_sync_pending',
-							message: getAcceptanceSyncPendingMessage()
-						};
-						const syncingContent = buildStatusContent(
-							params.timeline,
-							syncingInput,
-							params.actorPubkey,
-							{
-								escrowId: recoveryResult.escrowId,
-								transactionHash: recoveryResult.transactionHash
-							}
-						);
-
-						try {
-							await publishServiceProposalStatus({
-								content: syncingContent,
-								proposalEventId: params.proposal.id,
-								counterpartyPubkey: params.proposal.pubkey,
-								taskerPubkey: params.timeline.request.pubkey,
-								taskeePubkey: params.proposal.pubkey
-							});
-						} catch {
-							// Preserve the syncing state locally even if the relay publish fails.
-						}
-
-						update((state) => ({
-							...state,
-							taskerTimelines: state.taskerTimelines.map((entry) =>
-								entry.request.content.quoteRequestId === params.quoteRequestId
-									? updateTaskerTimeline(entry, syncingInput, syncingContent)
-									: entry
-							)
-						}));
-						return;
-					}
-				} catch {
-					// Fall through to the ambiguity path so the acceptance remains recoverable.
-				}
-			}
-
-			const reasonCode =
-				error instanceof Error && error.message === CONTRACT_CREATION_SYNCING_MESSAGE
-					? getContractCreationTimeoutReason(params.transactionHash)
-					: 'reconciliation_deferred';
-			const message =
-				error instanceof Error && error.message !== CONTRACT_CREATION_SYNCING_MESSAGE
-					? error.message
-					: getAcceptanceUnknownMessage(reasonCode);
 			const unknownInput: TaskerStatusActionInput = {
 				quoteRequestId: params.quoteRequestId,
 				proposalId: params.proposalId,
 				status: 'accept_unknown',
 				message,
-				reasonCode
+				reasonCode: 'reconciliation_deferred'
 			};
 			const unknownContent = buildStatusContent(params.timeline, unknownInput, params.actorPubkey, {
 				transactionHash: params.transactionHash
 			});
 
-			markServiceProposalAcceptanceUnknown(params.proposalId, reasonCode, params.transactionHash);
+			markServiceProposalAcceptanceUnknown(params.proposalId, 'reconciliation_deferred', params.transactionHash);
 
 			try {
 				await publishServiceProposalStatus({
@@ -882,7 +805,22 @@ function createServiceQuoteUiStore() {
 		}
 	}
 
-	async function reconcileAcceptanceState(timeline: ServiceQuoteTimelineEntry) {
+	/**
+	 * V2 Migration Note:
+	 *
+	 * Previously this called reconcileQuoteAcceptanceTimeline which used v1 escrow patterns.
+	 * In v2, reconciliation is simplified:
+	 * 1. Check if timeline has a linked escrow (contract)
+	 * 2. If not, and status is accepting/pending, check contractStore for matches
+	 *
+	 * The v2 pattern relies on afterConfirmed() handling Nostr event publishing,
+	 * so most "sync pending" scenarios don't occur.
+	 */
+	async function reconcileAcceptanceState(timeline: ServiceQuoteTimelineEntry): Promise<{
+		status: 'no_change' | 'accepted' | 'contract_sync_pending';
+		escrowId?: string;
+		transactionHash?: string;
+	}> {
 		logAcceptanceReconciliationDebug('reconcile-state-start', {
 			quoteRequestId: timeline.request.content.quoteRequestId,
 			proposalId: timeline.latestProposal?.content.proposalId ?? null,
@@ -890,15 +828,35 @@ function createServiceQuoteUiStore() {
 			linkedEscrowId: timeline.linkedEscrowId ?? null,
 			loadedContractCount: get(contractStore).contracts.length
 		});
-		return reconcileQuoteAcceptanceTimeline({
-			timeline,
-			loadedContracts: get(contractStore).contracts,
-			queryContracts: () =>
-				escrow.contractOps.getContracts({
-					taskIds: [timeline.request.content.serviceId],
-					limit: 100
-				})
-		});
+
+		if (timeline.linkedEscrowId) {
+			return { status: 'no_change' };
+		}
+
+		if (
+			timeline.resolvedStatus !== 'accepting' &&
+			timeline.resolvedStatus !== 'accept_unknown' &&
+			timeline.resolvedStatus !== 'contract_sync_pending'
+		) {
+			return { status: 'no_change' };
+		}
+
+		const contracts = get(contractStore).contracts;
+		const matchingContract = contracts.find(
+			(contract) =>
+				contract.metadata?.serviceId === timeline.request.content.serviceId ||
+				contract.taskId === timeline.request.content.serviceId
+		);
+
+		if (matchingContract) {
+			return {
+				status: 'accepted',
+				escrowId: matchingContract.escrowId,
+				transactionHash: matchingContract.metadata?.transactionHash
+			};
+		}
+
+		return { status: 'no_change' };
 	}
 
 	async function publishRecoveredTaskerStatus(params: {
@@ -1509,7 +1467,7 @@ function createServiceQuoteUiStore() {
 					freelancerFeeTier: providerAuthoring.freelancerFeeTier,
 					pricingSnapshot: buildProposalPricingSnapshot(input.service, timeline),
 					timestamp: Math.floor(Date.now() / 1000),
-					version: 'v1'
+					version: 'v2'
 				};
 				const publishResult = await publishServiceProposal({
 					content: proposalContent,
@@ -1846,7 +1804,7 @@ function createServiceQuoteUiStore() {
 					freelancerFeeTier: proposal.content.freelancerFeeTier
 				});
 
-				if (contractResult.transactionHash) {
+				if (contractResult.success && contractResult.transactionHash) {
 					if (!contractResult.acceptanceSnapshot) {
 						throw new Error(
 							'Unable to monitor the submitted service contract because its acceptance snapshot is missing.'
@@ -1879,6 +1837,7 @@ function createServiceQuoteUiStore() {
 						nonBlockingMessageCode: null
 					}));
 
+					// V2 Pattern: Pass tx and afterConfirmed for native waiting
 					void monitorPendingTaskerAcceptance({
 						timeline,
 						proposal,
@@ -1886,7 +1845,9 @@ function createServiceQuoteUiStore() {
 						quoteRequestId: input.quoteRequestId,
 						proposalId: input.proposalId,
 						transactionHash: contractResult.transactionHash,
-						acceptanceSnapshot: contractResult.acceptanceSnapshot
+						acceptanceSnapshot: contractResult.acceptanceSnapshot,
+						tx: contractResult.tx,
+						afterConfirmed: contractResult.afterConfirmed
 					});
 					return {
 						success: true,

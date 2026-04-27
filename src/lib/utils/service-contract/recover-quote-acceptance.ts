@@ -1,14 +1,13 @@
 /**
- * Service Quote Acceptance Recovery
+ * @deprecated Service Quote Acceptance Recovery
  *
- * This module handles recovery for quote-based service contracts when the browser was closed
- * during transaction or the Nostr publish failed. Updated to use v2/NDK patterns.
+ * In v2, recovery is NOT a separate concern. The pattern is:
+ * - NDK events are persisted on relays
+ * - PaymentContractRune subscribes to events and shows current state
+ * - If a transaction succeeded but Nostr event failed, afterConfirmed() handles republishing
  *
- * For reactive UI patterns, prefer using:
- * - PaymentContractRune automatically handles pending state and transaction recovery
- * - NDK subscriptions sync status from relays, providing built-in "recovery"
- *
- * See docs/service-escrow-version-abstraction.md for migration details.
+ * This file exists for backward compatibility during migration.
+ * Once all service UIs use the v2 pattern, this can be removed.
  */
 
 import { browser, dev } from '$app/environment';
@@ -18,10 +17,11 @@ import type {
 	ServiceContractPricingSnapshot
 } from '$lib/types/contract';
 import { contractStore } from '$lib/stores/contract.store';
-import { ensureContractReady } from '$lib/utils/contract/v2/utils';
+import { initContract } from '$lib/utils/contract';
 import { publishServiceContractEvent } from '$lib/utils/contract/v2/service-creation';
 import { getSecurePaymentContractAddress } from '$lib/utils/contract/v2/contractAddress';
 import { parsePaymentContractCreatedPaymentId } from '$lib/utils/contract/v2/creation';
+import abi from '$lib/utils/contract/v2/abi.json';
 
 export interface RecoverServiceQuoteAcceptanceInput {
 	transactionHash: string;
@@ -117,6 +117,9 @@ async function loadPaymentContractChainDetails(
 	}
 }
 
+/**
+ * @deprecated Use the v2 pattern instead - let afterConfirmed() handle republishing
+ */
 export async function recoverServiceQuoteAcceptanceContract(
 	input: RecoverServiceQuoteAcceptanceInput
 ): Promise<RecoverServiceQuoteAcceptanceResult> {
@@ -149,16 +152,13 @@ export async function recoverServiceQuoteAcceptanceContract(
 			};
 		}
 
-		const contractReady = await ensureContractReady(false);
-		if (!contractReady.ok) {
-			return {
-				status: 'failed',
-				transactionHash,
-				error: contractReady.error
-			};
-		}
+		const contractAddress = getSecurePaymentContractAddress();
+		const { contract, provider } = await initContract(
+			contractAddress,
+			'rsk',
+			abi as ethers.InterfaceAbi
+		);
 
-		const { contract, provider } = contractReady.result;
 		const receipt = await provider.getTransactionReceipt(transactionHash);
 		logQuoteAcceptanceRecovery('recover-receipt-loaded', {
 			transactionHash,
@@ -181,7 +181,6 @@ export async function recoverServiceQuoteAcceptanceContract(
 			};
 		}
 
-		const contractAddress = getSecurePaymentContractAddress();
 		const paymentId = extractPaymentIdFromReceipt(receipt, contractAddress) ?? input.escrowId ?? undefined;
 		logQuoteAcceptanceRecovery('recover-payment-id', {
 			transactionHash,
