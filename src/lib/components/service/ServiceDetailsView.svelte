@@ -1689,7 +1689,7 @@
 												: '0.0'}</span
 										>
 										<span class="text-base-content/50 ml-1 font-medium"
-											>({effectiveCreator?.ratingCount || 0} {$t('common.reviews')})</span
+											>({effectiveCreator?.ratingCount || 0})</span
 										>
 									</div>
 									{#if !isPreview}
@@ -1887,9 +1887,10 @@
 								</p>
 								<p class="text-base-content/60 mt-1 text-sm">
 									{#if locationDisplay.locationType === 'taskee'}
-										🏠 At Taskee Location
+										🏠 {$t('dashboard.services.detail.seo.at_taskee_location')}
 									{:else}
-										🏠 At My Location {#if locationDisplay.radius}• {locationDisplay.radius} km{/if}
+										🏠 {$t('dashboard.services.detail.seo.at_my_location')}
+										{#if locationDisplay.radius}• {locationDisplay.radius} km{/if}
 									{/if}
 								</p>
 							</div>
@@ -1917,7 +1918,7 @@
 										>{effectiveCreator?.rating ? effectiveCreator?.rating.toFixed(1) : '0.0'}</span
 									>
 									<span class="text-base-content/50 ml-1 font-medium"
-										>({effectiveCreator?.ratingCount || 0} {$t('common.reviews')})</span
+										>({effectiveCreator?.ratingCount || 0})</span
 									>
 								</div>
 								{#if !isPreview}
@@ -1943,18 +1944,6 @@
 								{displayDescriptionFull}
 							</div>
 
-							{#if service.categories && service.categories.length > 0}
-								<div class="mt-4 flex flex-wrap gap-2">
-									{#each service.categories as category (category.slug || category.id || category)}
-										<span class="badge badge-primary py-3 text-xs">
-											{translateCategory(category)}
-										</span>
-									{/each}
-								</div>
-							{/if}
-						</div>
-
-						<div class="border-base-200 border-t pt-6">
 							<UserInfoDisplay
 								avatar={effectiveCreator?.avatar}
 								username={effectiveCreator?.username}
@@ -1963,6 +1952,18 @@
 								memberSince={effectiveCreator?.memberSince ?? service.createdAt}
 								size="md"
 							/>
+
+							<div class="border-base-200 my-4 border-t"></div>
+
+							{#if service.categories && service.categories.length > 0}
+								<div class="flex flex-wrap gap-2">
+									{#each service.categories as category (category.slug || category.id || category)}
+										<span class="badge badge-primary py-3 text-xs">
+											{translateCategory(category)}
+										</span>
+									{/each}
+								</div>
+							{/if}
 						</div>
 
 						{#if isOwner && !isPreview}
@@ -2122,9 +2123,10 @@
 								</p>
 								<p class="text-base-content/60 mt-1 text-sm">
 									{#if locationDisplay.locationType === 'taskee'}
-										🏠 At Taskee Location
+										🏠 {$t('dashboard.services.detail.seo.at_taskee_location')}
 									{:else}
-										🏠 At My Location {#if locationDisplay.radius}• {locationDisplay.radius} km{/if}
+										🏠 {$t('dashboard.services.detail.seo.at_my_location')}
+										{#if locationDisplay.radius}• {locationDisplay.radius} km{/if}
 									{/if}
 								</p>
 							</div>

@@ -60,6 +60,8 @@
 					"no_description_available": "No hay descripción disponible",
 					"at_provider_location": "En la ubicación del proveedor",
 					"travels_to_you": "Va hasta ti",
+					"at_taskee_location": "En ubicación del Taskee",
+					"at_my_location": "En mi ubicación",
 					"provider_fallback": "Proveedor de BitTasker",
 					"untitled_service": "Servicio sin título",
 					"professional_service": "Servicio profesional"
