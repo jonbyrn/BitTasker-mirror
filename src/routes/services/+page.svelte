@@ -433,7 +433,6 @@
 			if (capturedSearchQuery.trim().length < 3) {
 				servicesStore.update((state) => ({
 					...state,
-					items: [],
 					currentPage: 1,
 					hasMore: true,
 					error: null,
@@ -470,7 +469,6 @@
 
 			servicesStore.update((state) => ({
 				...state,
-				items: [],
 				currentPage: 1,
 				hasMore: true,
 				error: null,
@@ -498,7 +496,6 @@
 		isApplyingFilters = true;
 		servicesStore.update((state) => ({
 			...state,
-			items: [],
 			currentPage: 1,
 			hasMore: true,
 			error: null,
@@ -533,7 +530,6 @@
 
 		servicesStore.update((state) => ({
 			...state,
-			items: [],
 			currentPage: 1,
 			hasMore: true,
 			error: null,
