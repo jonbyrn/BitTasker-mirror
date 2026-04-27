@@ -1074,9 +1074,20 @@ export function validateStatusAuthorRole(
 	);
 }
 
+function toRelayInfoEndpoint(relay: string): string {
+	const normalized = relay.trim();
+	if (normalized.startsWith('wss://')) {
+		return `https://${normalized.slice('wss://'.length)}`;
+	}
+	if (normalized.startsWith('ws://')) {
+		return `http://${normalized.slice('ws://'.length)}`;
+	}
+	return normalized;
+}
+
 export async function detectRelayCapability(relay: string): Promise<ServiceQuoteRelayCapability> {
 	try {
-		const response = await fetch(relay, {
+		const response = await fetch(toRelayInfoEndpoint(relay), {
 			headers: {
 				Accept: 'application/nostr+json'
 			}

@@ -36,6 +36,43 @@ function normalizeContractContextType(value: unknown): RuntimeContractContextTyp
 	return 'unknown';
 }
 
+/** v2+ kind 30006 wire: decrypted content is `[[key, value], ...]` (see NDKPaymentContract). */
+function isEncryptedContractTagRows(data: unknown): data is string[][] {
+	if (!Array.isArray(data)) return false;
+	return data.every(
+		(row) =>
+			Array.isArray(row) &&
+			row.length >= 2 &&
+			typeof row[0] === 'string' &&
+			typeof row[1] === 'string'
+	);
+}
+
+function tagRowValue(rows: string[][], key: string): string | undefined {
+	const row = rows.find((r) => r[0] === key && typeof r[1] === 'string');
+	return row?.[1];
+}
+
+/**
+ * Human-readable title for toasts / logging after nip44 decrypt.
+ * Legacy v1: flat NostrContract JSON. v2 NDK: encrypted tag rows (taskTitle, etc.).
+ */
+function resolveContractDisplayTitle(content: NostrContract | unknown): string {
+	if (isEncryptedContractTagRows(content)) {
+		return (
+			tagRowValue(content, 'taskTitle') ??
+			tagRowValue(content, 'serviceTitle') ??
+			tagRowValue(content, 'contextTitle') ??
+			''
+		);
+	}
+	if (content && typeof content === 'object' && !Array.isArray(content)) {
+		const c = content as NostrContract;
+		return (c.taskTitle ?? c.serviceTitle ?? c.contextTitle ?? '').trim();
+	}
+	return '';
+}
+
 function getReadonlyPermissions() {
 	return {
 		canComplete: false,
@@ -935,8 +972,15 @@ export async function handleContractEvent(event: NostrEvent) {
 
 		console.log(`[ContractStore] ✅ New contract added to store: ${escrowId}`);
 
-		// Show notification for new contract (can be handled by UI toast system)
-		appStore.showInfoToast(`New contract received: ${newContract.contractEvent.content.taskTitle}`);
+		// Show notification (wording matches on-chain state; v2 events use tag-array content — see resolveContractDisplayTitle)
+		const displayTitle = resolveContractDisplayTitle(newContract.contractEvent.content);
+		const label = displayTitle.trim() || 'Contract';
+		const toastMessage = isPending
+			? `Contract funding in progress: ${label}`
+			: escrowData
+				? `Contract funded: ${label}`
+				: `New contract: ${label}`;
+		appStore.showInfoToast(toastMessage);
 	} catch (err) {
 		console.error('[ContractStore] Error handling contract event:', err);
 	}

@@ -12,7 +12,6 @@ import type {
 } from '$lib/types/service-quote';
 import { contractStore } from '$lib/stores/contract.store';
 import { walletStore } from '$lib/stores/wallet.store';
-import { escrow as _escrow } from '$lib/utils/escrow';
 import {
 	buildServiceAddress,
 	generateServiceQuoteEntityId,
@@ -401,7 +400,7 @@ function buildStatusContent(
 		message: input.message,
 		reasonCode: input.reasonCode,
 		timestamp: Math.floor(Date.now() / 1000),
-		version: 'v2',
+		version: 'v1',
 		...overrides
 	};
 }
@@ -1476,7 +1475,7 @@ function createServiceQuoteUiStore() {
 					freelancerFeeTier: providerAuthoring.freelancerFeeTier,
 					pricingSnapshot: buildProposalPricingSnapshot(input.service, timeline),
 					timestamp: Math.floor(Date.now() / 1000),
-					version: 'v2'
+					version: 'v1'
 				};
 				const publishResult = await publishServiceProposal({
 					content: proposalContent,

@@ -8,6 +8,7 @@ import {
 	buildServiceAddress,
 	buildServiceAddressFromParts,
 	canPublishAcceptedStatus,
+	detectRelayCapability,
 	parseProposalD,
 	parseProposalStatusD,
 	parseQuoteRequestD,
@@ -145,6 +146,7 @@ describe('service-quote protocol', () => {
 			value: originalCrypto,
 			configurable: true
 		});
+		vi.unstubAllGlobals();
 	});
 
 	it('round-trips service addresses and d-tags', () => {
@@ -394,6 +396,39 @@ describe('service-quote protocol', () => {
 				{ relay: 'wss://relay-3.example', state: 'explicit_no_40', supportedNips: [44] }
 			])
 		).toThrow(/No compatible relay/);
+	});
+
+	it('checks relay capabilities via NIP-11 over https for wss relays', async () => {
+		const fetchMock = vi.fn().mockResolvedValue({
+			ok: true,
+			json: async () => ({ supported_nips: [40, 44] })
+		});
+		vi.stubGlobal('fetch', fetchMock);
+
+		const capability = await detectRelayCapability('wss://relay1-dev.bittasker.com');
+
+		expect(fetchMock).toHaveBeenCalledWith('https://relay1-dev.bittasker.com', {
+			headers: {
+				Accept: 'application/nostr+json'
+			}
+		});
+		expect(capability).toEqual({
+			relay: 'wss://relay1-dev.bittasker.com',
+			state: 'supports_40',
+			supportedNips: [40, 44]
+		});
+	});
+
+	it('returns unknown relay capability when NIP-11 fetch fails', async () => {
+		const fetchMock = vi.fn().mockRejectedValue(new TypeError('network error'));
+		vi.stubGlobal('fetch', fetchMock);
+
+		const capability = await detectRelayCapability('wss://relay1-dev.bittasker.com');
+
+		expect(capability).toEqual({
+			relay: 'wss://relay1-dev.bittasker.com',
+			state: 'unknown'
+		});
 	});
 
 	it('allows accepted proposals to downgrade to accept_unknown and later reconfirm on the same lineage', () => {
