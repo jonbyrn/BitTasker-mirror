@@ -318,7 +318,7 @@ export async function findServices(
 				const endIndex = Math.min(startIndex + limit, cleanServices.length);
 				let limitedServices = cleanServices.slice(startIndex, endIndex);
 
-				const existingIds = new Set(state.items.map((s) => s.uniqueId));
+				const existingIds = new Set(get(servicesStore).items.map((s) => s.uniqueId));
 				limitedServices = limitedServices.filter((s) => !existingIds.has(s.uniqueId));
 
 				const hasMore = endIndex < cleanServices.length || cleanServices.length >= MAX_CACHE_SIZE;
