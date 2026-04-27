@@ -80,10 +80,12 @@ import {
 	queryServiceQuotesForTasker
 } from '$lib/utils/service-quote/query';
 import { ensureProviderProposalAuthoring } from '$lib/utils/service-quote/provider-authoring';
+import { createDebug } from '$lib/utils/debug';
 
 const REQUEST_SYNC_WINDOW_MS = 15_000;
 const PROVIDER_CACHE_TTL_MS = 30_000;
 const OWN_SERVICE_QUOTE_ERROR = "You can't request a quote on your own service.";
+const d = createDebug('serviceQuotes');
 
 function normalizePubkey(value: string | null | undefined): string | null {
 	if (!value) {
@@ -99,7 +101,7 @@ function logProviderTimelineDebug(event: string, details: Record<string, unknown
 		return;
 	}
 
-	console.info('[serviceQuoteUiStore:provider]', event, details);
+	d.log('[serviceQuoteUiStore:provider]', event, details);
 }
 
 function logAcceptanceReconciliationDebug(event: string, details: Record<string, unknown>) {
@@ -107,7 +109,7 @@ function logAcceptanceReconciliationDebug(event: string, details: Record<string,
 		return;
 	}
 
-	console.info('[serviceQuoteUiStore:acceptance]', event, details);
+	d.log('[serviceQuoteUiStore:acceptance]', event, details);
 }
 
 async function revalidateServiceForQuote(serviceId: string): Promise<Service> {

@@ -153,7 +153,7 @@
 		{#if usePortal}
 			<div use:teleport>
 				<ul
-					class="menu bg-base-100 border-base-300 z-[10000] max-h-80 w-full min-w-[200px] overflow-x-hidden overflow-y-auto rounded-xl border p-2 shadow-xl focus:outline-none {dropdownClass}"
+					class="menu bg-base-100 border-base-300 z-10000 max-h-80 w-full min-w-[200px] overflow-x-hidden overflow-y-auto rounded-xl border p-2 shadow-xl focus:outline-none {dropdownClass}"
 					role="listbox"
 					tabindex="-1"
 					aria-label={label || undefined}
@@ -188,7 +188,7 @@
 			</div>
 		{:else}
 			<ul
-				class="menu dropdown-content bg-base-100 border-base-300 z-[100] mt-1 max-h-80 w-full min-w-[200px] overflow-x-hidden overflow-y-auto rounded-xl border p-2 shadow-xl focus:outline-none {dropdownClass}"
+				class="menu dropdown-content bg-base-100 border-base-300 z-100 mt-1 max-h-80 w-full min-w-[200px] overflow-x-hidden overflow-y-auto rounded-xl border p-2 shadow-xl focus:outline-none {dropdownClass}"
 				role="listbox"
 				tabindex="-1"
 				aria-label={label || undefined}

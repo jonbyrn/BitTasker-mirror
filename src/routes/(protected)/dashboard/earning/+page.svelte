@@ -19,6 +19,7 @@
 		type DashboardContractsType,
 		type EarningTab
 	} from '$lib/utils/dashboardQuery';
+	import type { DashboardContractStatusFilter } from '$lib/utils/helpers/dashboardContractFilters';
 
 	function translateOrFallback(
 		translate: (key: string) => string,
@@ -435,7 +436,7 @@
 		>
 			<DashboardContractsPanelNDK
 				initialType={contractsType}
-				initialStatus={activeStatus ?? 'all'}
+				initialStatus={(activeStatus ?? 'all') as DashboardContractStatusFilter}
 				showRoleFilters={false}
 				fixedRole="freelancer"
 				showServiceFilter={true}

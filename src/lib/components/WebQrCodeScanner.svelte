@@ -35,6 +35,7 @@
 	let errorMessage = $state<string | null>(null);
 	let scanCompleted = $state(false);
 	let activeMode = $state<'inline' | 'fullscreen' | 'modal'>('inline');
+	let destroyed = false;
 
 	const isDesktop = () =>
 		typeof window !== 'undefined' && window.matchMedia('(min-width: 768px)').matches;
@@ -81,13 +82,30 @@
 		}
 	});
 
-	onDestroy(async () => {
-		await stopScan();
+	onDestroy(() => {
+		destroyed = true;
+		stopAllCameraStreams();
+		void stopScan();
 		onClose();
 	});
 
+	function stopAllCameraStreams() {
+		const selectors = [
+			'#qr-reader-inline video',
+			'#qr-reader-fullscreen video',
+			'#qr-reader-modal video'
+		];
+		for (const selector of selectors) {
+			const video = document.querySelector<HTMLVideoElement>(selector);
+			if (video?.srcObject instanceof MediaStream) {
+				video.srcObject.getTracks().forEach((track) => track.stop());
+				video.srcObject = null;
+			}
+		}
+	}
+
 	async function startScan() {
-		if (isScanning) return;
+		if (isScanning || destroyed) return;
 
 		activeMode = resolvedMode();
 		isScanning = true;
@@ -96,13 +114,23 @@
 		// Give Svelte one tick to render the container div before we look it up.
 		await new Promise((resolve) => setTimeout(resolve, 300));
 
+		if (destroyed) {
+			isScanning = false;
+			return;
+		}
+
 		try {
 			const elementId = readerId();
 			const el = document.getElementById(elementId);
 			if (!el) throw new Error('QR reader element not found');
 
 			html5QrCode = new Html5Qrcode(elementId, { verbose: false });
-			if (scanCompleted) return;
+			if (scanCompleted || destroyed) {
+				html5QrCode.clear();
+				html5QrCode = null;
+				isScanning = false;
+				return;
+			}
 
 			await html5QrCode.start(
 				{ facingMode: 'environment' },
@@ -118,6 +146,10 @@
 				},
 				() => {}
 			);
+
+			if (destroyed) {
+				await stopScan();
+			}
 		} catch (error) {
 			console.error('Failed to start scanning:', error);
 			const errorMsg = error instanceof Error ? error.message : String(error);
@@ -136,7 +168,11 @@
 	}
 
 	async function stopScan() {
-		if (!html5QrCode) return;
+		stopAllCameraStreams();
+		if (!html5QrCode) {
+			isScanning = false;
+			return;
+		}
 		try {
 			try {
 				await html5QrCode.stop();
@@ -156,6 +192,7 @@
 		} catch (error) {
 			console.error('Unexpected error stopping scanner:', error);
 		} finally {
+			html5QrCode = null;
 			isScanning = false;
 		}
 	}
