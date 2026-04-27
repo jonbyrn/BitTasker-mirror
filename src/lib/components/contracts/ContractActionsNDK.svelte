@@ -20,8 +20,10 @@
 	let { contractRune, btcPrice = 0 }: { contractRune: PaymentContractRune; btcPrice?: number } =
 		$props();
 
-	let busy = $state(false);
+	let pendingAction = $state<ContractModalAction | null>(null);
 	let activeModal = $state<ContractModalAction>(ContractModalAction.None);
+
+	const isBusy = $derived(pendingAction !== null);
 
 	function openModal(action: ContractModalAction) {
 		activeModal = action;
@@ -36,8 +38,8 @@
 			count: attachments.length,
 			keys: attachments.map((a) => a.key)
 		});
-		if (busy) return;
-		busy = true;
+		if (isBusy) return;
+		pendingAction = ContractModalAction.Complete;
 		try {
 			const res = await contractRune.markTaskComplete(attachments);
 			if (!res.ok) {
@@ -46,13 +48,13 @@
 			}
 			appStore.showSuccessToast(get(t)('dashboard.contracts.actions.task_completed_success'));
 		} finally {
-			busy = false;
+			pendingAction = null;
 		}
 	}
 
 	async function runAcceptWork() {
-		if (busy) return;
-		busy = true;
+		if (isBusy) return;
+		pendingAction = ContractModalAction.Accept;
 		try {
 			const res = await contractRune.acceptTask();
 			if (!res.ok) {
@@ -61,13 +63,13 @@
 			}
 			appStore.showSuccessToast(get(t)('dashboard.contracts.actions.accept_work_success'));
 		} finally {
-			busy = false;
+			pendingAction = null;
 		}
 	}
 
 	async function runRefundTasker() {
-		if (busy) return;
-		busy = true;
+		if (isBusy) return;
+		pendingAction = ContractModalAction.Refund;
 		try {
 			const res = await contractRune.refundTasker();
 			if (!res.ok) {
@@ -76,13 +78,13 @@
 			}
 			appStore.showSuccessToast(get(t)('dashboard.contracts.actions.refund_tasker_success'));
 		} finally {
-			busy = false;
+			pendingAction = null;
 		}
 	}
 
 	async function runCancelContract() {
-		if (busy) return;
-		busy = true;
+		if (isBusy) return;
+		pendingAction = ContractModalAction.Cancel;
 		try {
 			const res = await contractRune.cancelPaymentContract();
 			if (!res.ok) {
@@ -91,13 +93,13 @@
 			}
 			appStore.showSuccessToast(get(t)('dashboard.contracts.actions.cancel_contract_success'));
 		} finally {
-			busy = false;
+			pendingAction = null;
 		}
 	}
 
 	async function runMarkNoShow() {
-		if (busy) return;
-		busy = true;
+		if (isBusy) return;
+		pendingAction = ContractModalAction.MarkNoShow;
 		try {
 			const res = await contractRune.markNoShow();
 			if (!res.ok) {
@@ -106,13 +108,13 @@
 			}
 			appStore.showSuccessToast(get(t)('dashboard.contracts.actions.mark_no_show_success'));
 		} finally {
-			busy = false;
+			pendingAction = null;
 		}
 	}
 
 	async function runMarkWorkInProgress() {
-		if (busy) return;
-		busy = true;
+		if (isBusy) return;
+		pendingAction = ContractModalAction.MarkWorkInProgress;
 		try {
 			const res = await contractRune.markWorkInProgress();
 			if (!res.ok) {
@@ -123,13 +125,13 @@
 				get(t)('dashboard.contracts.actions.mark_work_in_progress_success')
 			);
 		} finally {
-			busy = false;
+			pendingAction = null;
 		}
 	}
 
 	async function runClaimNoShowRefund() {
-		if (busy) return;
-		busy = true;
+		if (isBusy) return;
+		pendingAction = ContractModalAction.ClaimNoShowRefund;
 		try {
 			const res = await contractRune.claimNoShowRefund();
 			if (!res.ok) {
@@ -138,13 +140,13 @@
 			}
 			appStore.showSuccessToast(get(t)('dashboard.contracts.actions.claim_no_show_refund_success'));
 		} finally {
-			busy = false;
+			pendingAction = null;
 		}
 	}
 
 	async function runDisputeTask() {
-		if (busy) return;
-		busy = true;
+		if (isBusy) return;
+		pendingAction = ContractModalAction.Dispute;
 		try {
 			const res = await contractRune.disputeTask();
 			if (!res.ok) {
@@ -153,13 +155,13 @@
 			}
 			appStore.showSuccessToast(get(t)('dashboard.contracts.actions.dispute_raised_success'));
 		} finally {
-			busy = false;
+			pendingAction = null;
 		}
 	}
 
 	async function handleProposeResolutionSubmit(taskeeAmountWei: bigint) {
-		if (busy) return;
-		busy = true;
+		if (isBusy) return;
+		pendingAction = ContractModalAction.ProposeResolution;
 		try {
 			const res = await contractRune.proposeResolution(taskeeAmountWei);
 			if (!res.ok) {
@@ -168,13 +170,13 @@
 			}
 			appStore.showSuccessToast(get(t)('dashboard.contracts.actions.propose_resolution_success'));
 		} finally {
-			busy = false;
+			pendingAction = null;
 		}
 	}
 
 	async function runAcceptProposal() {
-		if (busy) return;
-		busy = true;
+		if (isBusy) return;
+		pendingAction = ContractModalAction.AcceptProposal;
 		try {
 			const res = await contractRune.acceptProposal();
 			if (!res.ok) {
@@ -183,13 +185,13 @@
 			}
 			appStore.showSuccessToast(get(t)('dashboard.contracts.actions.accept_proposal_success'));
 		} finally {
-			busy = false;
+			pendingAction = null;
 		}
 	}
 
 	async function runResolveAfterTimelock() {
-		if (busy) return;
-		busy = true;
+		if (isBusy) return;
+		pendingAction = ContractModalAction.ResolveTimelock;
 		try {
 			const res = await contractRune.resolveAfterTimelock();
 			if (!res.ok) {
@@ -198,7 +200,7 @@
 			}
 			appStore.showSuccessToast(get(t)('dashboard.contracts.actions.resolve_timelock_success'));
 		} finally {
-			busy = false;
+			pendingAction = null;
 		}
 	}
 
@@ -244,10 +246,10 @@
 		<button
 			type="button"
 			class="btn btn-primary btn-sm w-full sm:w-auto"
-			disabled={contractRune.isPending || busy}
+			disabled={contractRune.isPending || isBusy}
 			onclick={() => openModal(ContractModalAction.Complete)}
 		>
-			{#if busy || contractRune.isPending}
+			{#if pendingAction === ContractModalAction.Complete}
 				<span class="loading loading-spinner loading-xs"></span>
 			{/if}
 			{$t('dashboard.contracts.actions.complete_task')}
@@ -257,10 +259,10 @@
 		<button
 			type="button"
 			class="btn btn-success btn-sm w-full sm:w-auto"
-			disabled={contractRune.isPending || busy}
+			disabled={contractRune.isPending || isBusy}
 			onclick={() => openModal(ContractModalAction.Accept)}
 		>
-			{#if busy || contractRune.isPending}
+			{#if pendingAction === ContractModalAction.Accept}
 				<span class="loading loading-spinner loading-xs"></span>
 			{/if}
 			{$t('dashboard.contracts.actions.accept_work')}
@@ -270,10 +272,10 @@
 		<button
 			type="button"
 			class="btn btn-warning btn-sm w-full sm:w-auto"
-			disabled={contractRune.isPending || busy}
+			disabled={contractRune.isPending || isBusy}
 			onclick={() => openModal(ContractModalAction.Refund)}
 		>
-			{#if busy || contractRune.isPending}
+			{#if pendingAction === ContractModalAction.Refund}
 				<span class="loading loading-spinner loading-xs"></span>
 			{/if}
 			{$t('dashboard.contracts.actions.refund_tasker')}
@@ -283,10 +285,10 @@
 		<button
 			type="button"
 			class="btn btn-error btn-outline btn-sm w-full sm:w-auto"
-			disabled={contractRune.isPending || busy}
+			disabled={contractRune.isPending || isBusy}
 			onclick={() => openModal(ContractModalAction.Cancel)}
 		>
-			{#if busy || contractRune.isPending}
+			{#if pendingAction === ContractModalAction.Cancel}
 				<span class="loading loading-spinner loading-xs"></span>
 			{/if}
 			{$t('dashboard.contracts.actions.cancel_contract')}
@@ -296,10 +298,10 @@
 		<button
 			type="button"
 			class="btn btn-warning btn-sm w-full sm:w-auto"
-			disabled={contractRune.isPending || busy}
+			disabled={contractRune.isPending || isBusy}
 			onclick={() => openModal(ContractModalAction.MarkNoShow)}
 		>
-			{#if busy || contractRune.isPending}
+			{#if pendingAction === ContractModalAction.MarkNoShow}
 				<span class="loading loading-spinner loading-xs"></span>
 			{/if}
 			{$t('dashboard.contracts.actions.mark_no_show')}
@@ -309,10 +311,10 @@
 		<button
 			type="button"
 			class="btn btn-success btn-outline btn-sm w-full sm:w-auto"
-			disabled={contractRune.isPending || busy}
+			disabled={contractRune.isPending || isBusy}
 			onclick={() => openModal(ContractModalAction.MarkWorkInProgress)}
 		>
-			{#if busy || contractRune.isPending}
+			{#if pendingAction === ContractModalAction.MarkWorkInProgress}
 				<span class="loading loading-spinner loading-xs"></span>
 			{/if}
 			{$t('dashboard.contracts.actions.mark_work_in_progress')}
@@ -322,10 +324,10 @@
 		<button
 			type="button"
 			class="btn btn-warning btn-outline btn-sm w-full sm:w-auto"
-			disabled={contractRune.isPending || busy}
+			disabled={contractRune.isPending || isBusy}
 			onclick={() => openModal(ContractModalAction.ClaimNoShowRefund)}
 		>
-			{#if busy || contractRune.isPending}
+			{#if pendingAction === ContractModalAction.ClaimNoShowRefund}
 				<span class="loading loading-spinner loading-xs"></span>
 			{/if}
 			{$t('dashboard.contracts.actions.claim_no_show_refund')}
@@ -335,10 +337,10 @@
 		<button
 			type="button"
 			class="btn btn-error btn-sm w-full sm:w-auto"
-			disabled={contractRune.isPending || busy}
+			disabled={contractRune.isPending || isBusy}
 			onclick={() => openModal(ContractModalAction.Dispute)}
 		>
-			{#if busy || contractRune.isPending}
+			{#if pendingAction === ContractModalAction.Dispute}
 				<span class="loading loading-spinner loading-xs"></span>
 			{/if}
 			{$t('dashboard.contracts.actions.dispute_work')}
@@ -348,10 +350,10 @@
 		<button
 			type="button"
 			class="btn btn-warning btn-outline btn-sm w-full sm:w-auto"
-			disabled={contractRune.isPending || busy}
+			disabled={contractRune.isPending || isBusy}
 			onclick={() => openModal(ContractModalAction.ProposeResolution)}
 		>
-			{#if busy || contractRune.isPending}
+			{#if pendingAction === ContractModalAction.ProposeResolution}
 				<span class="loading loading-spinner loading-xs"></span>
 			{/if}
 			{$t('dashboard.contracts.actions.propose_resolution')}
@@ -361,10 +363,10 @@
 		<button
 			type="button"
 			class="btn btn-success btn-outline btn-sm w-full sm:w-auto"
-			disabled={contractRune.isPending || busy}
+			disabled={contractRune.isPending || isBusy}
 			onclick={() => openModal(ContractModalAction.AcceptProposal)}
 		>
-			{#if busy || contractRune.isPending}
+			{#if pendingAction === ContractModalAction.AcceptProposal}
 				<span class="loading loading-spinner loading-xs"></span>
 			{/if}
 			{$t('dashboard.contracts.actions.accept_proposal')}
@@ -374,10 +376,10 @@
 		<button
 			type="button"
 			class="btn btn-warning btn-sm w-full sm:w-auto"
-			disabled={contractRune.isPending || busy}
-			onclick={() => openModal(ContractModalAction.ResolveAfterTimelock)}
+			disabled={contractRune.isPending || isBusy}
+			onclick={() => openModal(ContractModalAction.ResolveTimelock)}
 		>
-			{#if busy || contractRune.isPending}
+			{#if pendingAction === ContractModalAction.ResolveTimelock}
 				<span class="loading loading-spinner loading-xs"></span>
 			{/if}
 			{$t('dashboard.contracts.actions.resolve_timelock')}
@@ -403,7 +405,7 @@
 			{contractRune}
 			isOpen={true}
 			{btcPrice}
-			chainBusy={busy || contractRune.isPending}
+			chainBusy={isBusy || contractRune.isPending}
 			onClose={closeModal}
 			onPropose={handleProposeResolutionSubmit}
 		/>

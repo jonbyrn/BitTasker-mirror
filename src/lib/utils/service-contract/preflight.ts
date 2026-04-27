@@ -53,13 +53,8 @@ async function checkRelayConnectivity(relays: string[]): Promise<boolean> {
 	for (const relay of relays) {
 		console.log('[preflight] SUBACTION: attempting relay', { relay });
 		try {
-			const controller = new AbortController();
-			const timeout = setTimeout(() => controller.abort(), 3000);
-			const events = await pool.querySync(
-				[relay],
-				{ kinds: [0], limit: 1 },
-				{ signal: controller.signal }
-			);
+			const timeout = setTimeout(() => {}, 3000);
+			const events = await pool.querySync([relay], { kinds: [0], limit: 1 }, { maxWait: 3000 });
 			clearTimeout(timeout);
 			if (events) {
 				console.log('[preflight] RESULT: relay connected', { relay });
@@ -421,83 +416,5 @@ export async function preflightServiceContractCreation(
 		};
 	} catch (error) {
 		return fail('preflight_failed', extractContractError(error).userMessage);
-	}
-}
-
-export interface BalanceRevalidationInput {
-	amountRbtc: string;
-	btcPrice: number;
-}
-
-export interface BalanceRevalidationResult {
-	ok: true;
-	currentBalanceWei: bigint;
-	totalRequiredWei: bigint;
-}
-
-export interface BalanceRevalidationFailure {
-	ok: false;
-	error: string;
-}
-
-export type BalanceRevalidationResult = BalanceRevalidationResult | BalanceRevalidationFailure;
-
-export async function revalidateWalletBalance(
-	input: BalanceRevalidationInput
-): Promise<BalanceRevalidationResult> {
-	try {
-		const { provider } = await ensureEscrowReady(undefined, false);
-
-		const currentChainId = await getCurrentChainId();
-		if (currentChainId === null || currentChainId !== getExpectedRskChainId()) {
-			return {
-				ok: false,
-				error:
-					'Network changed. Please switch to ' +
-					getExpectedRskNetworkLabel() +
-					' before continuing.'
-			};
-		}
-
-		const walletState = get(walletStore);
-
-		if (!walletState.rsk?.address) {
-			return {
-				ok: false,
-				error: 'Wallet address unavailable for balance revalidation.'
-			};
-		}
-
-		const baseAmountWei = ethers.parseEther(input.amountRbtc);
-		const totalPaymentWei = calculateTotalPayment(baseAmountWei, DEFAULT_CLIENT_FEE_TIER);
-
-		let currentBalanceWei: bigint;
-		try {
-			currentBalanceWei = await provider.getBalance(walletState.rsk.address);
-		} catch (_balanceError) {
-			return {
-				ok: false,
-				error: 'Unable to verify wallet balance at transaction time. Please try again.'
-			};
-		}
-
-		if (currentBalanceWei < totalPaymentWei) {
-			const shortfallWei = totalPaymentWei - currentBalanceWei;
-			return {
-				ok: false,
-				error: `Insufficient funds at transaction time. Balance changed since initial check. Shortfall: ${formatRbtcAmount(shortfallWei)} RBTC. Please add funds and retry.`
-			};
-		}
-
-		return {
-			ok: true,
-			currentBalanceWei,
-			totalRequiredWei: totalPaymentWei
-		};
-	} catch (_error) {
-		return {
-			ok: false,
-			error: 'Unable to verify wallet balance at transaction time. Please try again.'
-		};
 	}
 }

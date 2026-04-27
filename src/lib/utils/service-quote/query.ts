@@ -427,7 +427,7 @@ async function getReadRelays(events: Array<{ id: string }> = []): Promise<string
 	const relays = new Set<string>(defaultRelay ? [defaultRelay] : []);
 
 	for (const event of events) {
-		for (const relay of getPublishedRelaySet(event.id)) {
+		for (const relay of await getPublishedRelaySet(event.id)) {
 			relays.add(relay);
 		}
 	}
