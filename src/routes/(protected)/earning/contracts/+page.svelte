@@ -6,7 +6,11 @@
 	import { parseEarningQuery } from '$lib/utils/dashboardQuery';
 	import type { DashboardContractStatusFilter } from '$lib/utils/helpers/dashboardContractFilters';
 
-	function translateOrFallback(translate: (key: string) => string, key: string, fallback: string): string {
+	function translateOrFallback(
+		translate: (key: string) => string,
+		key: string,
+		fallback: string
+	): string {
 		const translated = translate(key);
 		return translated === key ? fallback : translated;
 	}
@@ -19,6 +23,7 @@
 	let nonBlockingMessageCode = $state<string | null>(null);
 
 	function handleContractsHighlightConsumed() {
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
 		const params = new URLSearchParams();
 		params.set('type', contractsType);
 		if (selectedServiceAddress) params.set('service', selectedServiceAddress);
@@ -36,6 +41,7 @@
 
 	function handleContractsServiceFilterChange(serviceAddress: string | null) {
 		nonBlockingMessageCode = null;
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
 		const params = new URLSearchParams();
 		params.set('type', serviceAddress ? 'services' : contractsType);
 		if (serviceAddress) params.set('service', serviceAddress);
@@ -68,11 +74,7 @@
 	</div>
 {/if}
 
-<div
-	id="panel-contracts"
-	role="tabpanel"
-	aria-labelledby="tab-contracts"
->
+<div id="panel-contracts" role="tabpanel" aria-labelledby="tab-contracts">
 	<DashboardContractsPanelNDK
 		initialType={contractsType}
 		initialStatus={(activeStatus ?? 'all') as DashboardContractStatusFilter}
