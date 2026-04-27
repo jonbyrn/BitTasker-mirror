@@ -185,7 +185,7 @@
 			>
 		</label>
 		<CategoryMultiselect
-			bind:selectedCategories={filters.categories}
+			bind:externalCategoryIds={filters.categories}
 			onChange={handleCategoryChange}
 			maxSelections={3}
 			placeholder={$t('dashboard.services.browse.filters.add_categories') || 'Add categories...'}

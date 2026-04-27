@@ -839,9 +839,9 @@
 								Services loaded successfully.
 								{#if $servicesStore.error}
 									However, there was an error loading some services.
-								{:else if $servicesStore.items.length === 0}
+								{:else if $servicesStore.items.length === 0 && !$servicesStore.loading}
 									No services found.
-								{:else}
+								{:else if $servicesStore.items.length > 0}
 									Found {$servicesStore.items.length} services.
 								{/if}
 							{/if}
