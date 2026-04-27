@@ -16,6 +16,15 @@
 	import IconEye from '~icons/mdi/eye';
 	import IconPlus from '~icons/mdi/plus';
 
+	const LOCATION_LABELS: Record<ServiceLocationTypeEnum, string> = {
+		[ServiceLocationTypeEnum.REMOTE]:
+			$t('dashboard.services.create.location.remote_title') || 'Remote',
+		[ServiceLocationTypeEnum.TASKER_LOCATION]:
+			$t('dashboard.services.create.location.tasker_title') || 'At My Location',
+		[ServiceLocationTypeEnum.TASKEE_LOCATION]:
+			$t('dashboard.services.create.location.taskee_title') || 'At Tasker Location'
+	};
+
 	const {
 		service,
 		btcPrice,
@@ -129,18 +138,9 @@
 			};
 		}
 
-		const locationLabels: Record<ServiceLocationTypeEnum, string> = {
-			[ServiceLocationTypeEnum.REMOTE]:
-				$t('dashboard.services.create.location.remote_title') || 'Remote',
-			[ServiceLocationTypeEnum.TASKER_LOCATION]:
-				$t('dashboard.services.create.location.tasker_title') || 'At My Location',
-			[ServiceLocationTypeEnum.TASKEE_LOCATION]:
-				$t('dashboard.services.create.location.taskee_title') || 'At Tasker Location'
-		};
-
 		return {
 			text: service.serviceLocationTypes
-				.map((type: ServiceLocationTypeEnum) => locationLabels[type] || type)
+				.map((type: ServiceLocationTypeEnum) => LOCATION_LABELS[type] || type)
 				.join(', '),
 			location: null
 		};
@@ -180,6 +180,8 @@
 			return service.portfolio.filter((item: Attachment) => {
 				if (!item?.url) return false;
 				const url = item.url.toLowerCase();
+				// Only allow http/https URLs — block javascript:, data:, etc.
+				if (!url.startsWith('http://') && !url.startsWith('https://')) return false;
 				return (
 					!url.endsWith('.mp4') &&
 					!url.endsWith('.webm') &&
@@ -213,7 +215,7 @@
 	role="button"
 	tabindex="0"
 	onclick={handleCardClick}
-	onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && handleCardClick(e)}
+	onkeydown={handleCardClick}
 >
 	<!-- Portfolio Image - Compact (50% smaller) -->
 	<figure class="bg-base-200 relative mt-0 h-[88px] w-full shrink-0 overflow-hidden rounded-t-xl">
@@ -221,7 +223,7 @@
 			<div class="relative h-full w-full">
 				<img
 					src={portfolioImages[currentImageIndex]?.url}
-					alt={displayTitle ? `Service: ${displayTitle}` : 'Service image'}
+					alt={displayTitle || 'Service image'}
 					class="h-full w-full object-cover transition-opacity duration-300"
 					loading="lazy"
 				/>
@@ -300,10 +302,16 @@
 		<!-- Top Row: Title + Share + Price (matches TaskCard: Title + Status+Share+Price) -->
 		<div class="mb-3 flex flex-row items-stretch justify-between gap-2">
 			<div class="min-w-0 flex-1 pr-2 md:pr-4">
-				<span class="card-title text-base-content line-clamp-2 text-lg font-semibold">
+				<span
+					class="card-title text-base-content line-clamp-2 text-lg font-semibold"
+					title={displayTitle}
+				>
 					{displayTitle}
 				</span>
-				<p class="text-base-content/80 mt-1 line-clamp-2 text-sm whitespace-pre-line">
+				<p
+					class="text-base-content/80 mt-1 line-clamp-2 text-sm whitespace-pre-line"
+					title={displayDescription}
+				>
 					{displayDescription}
 				</p>
 			</div>
@@ -362,8 +370,9 @@
 						d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
 					/>
 				</svg>
-				<span class="text-base-content/80 min-w-0 flex-1 truncate text-sm"
-					>{displayedLocationDetails.text}</span
+				<span
+					class="text-base-content/80 min-w-0 flex-1 truncate text-sm"
+					title={displayedLocationDetails.text}>{displayedLocationDetails.text}</span
 				>
 			</div>
 		{/if}
@@ -408,6 +417,7 @@
 									class="text-base-content/40 h-3 w-3"
 									fill="currentColor"
 									viewBox="0 0 24 24"
+									aria-hidden="true"
 								>
 									<path
 										d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"

@@ -23,7 +23,7 @@
 		loadPersistedServiceSearchFilters,
 		persistServiceSearchFilters
 	} from '$lib/utils/service-search-persistence';
-	import { debounce } from '$lib/utils/helpers/common';
+	import { debounceWithAbort } from '$lib/utils/helpers/common';
 	import { hashSearchParams } from '$lib/utils/search.utils';
 
 	const DESKTOP_MIN_WIDTH = 1024;
@@ -70,11 +70,6 @@
 	let showSkeleton = $state(true);
 	let loadingTimedOut = $state(false);
 	let unmounted = $state(false);
-
-	// Derived loading timeout from store loading state (kept for future use)
-	const _loadingTimeout = $derived.by(() => {
-		return $servicesStore.loading;
-	});
 
 	// Loading timeout timer
 	let loadingTimeoutTimer: ReturnType<typeof setTimeout> | null = null;
@@ -223,7 +218,9 @@
 		requestQuoteModalOpen = true;
 	}
 
-	async function handleQuoteRequestConfirm(payload: QuoteRequestPayload) {
+	async function handleQuoteRequestConfirm(
+		payload: QuoteRequestPayload
+	): Promise<{ success: boolean; error?: string }> {
 		if (!serviceForQuote) {
 			return {
 				success: false,
@@ -429,7 +426,7 @@
 		await Promise.race([findServices(params), timeoutPromise]);
 	}
 
-	const debouncedSearch = debounce(
+	const debouncedSearch = debounceWithAbort(
 		async (capturedSearchQuery: string, capturedSearchParams: SearchServicesParams) => {
 			const currentVersion = ++searchVersion;
 
@@ -728,6 +725,8 @@
 				scrollTimeout = null;
 			}
 
+			debouncedSearch.abort();
+
 			if (serviceListRef) {
 				serviceListRef.removeEventListener('scroll', handleScroll);
 			}
@@ -747,15 +746,17 @@
 		return $t('dashboard.services.browse.search_placeholder');
 	}
 
-	function getSearchInputClass(): string {
-		let baseClass = 'input input-bordered w-full pl-10';
-		if (searchQuery.length > 0 && searchQuery.length < 3) {
-			baseClass += ' input-warning';
-		} else if (searchQuery.length >= 3) {
-			baseClass += ' input-success';
-		}
-		return baseClass;
-	}
+	const searchInputClass = $derived(
+		(() => {
+			let baseClass = 'input input-bordered w-full pl-10';
+			if (searchQuery.length > 0 && searchQuery.length < 3) {
+				baseClass += ' input-warning';
+			} else if (searchQuery.length >= 3) {
+				baseClass += ' input-success';
+			}
+			return baseClass;
+		})()
+	);
 </script>
 
 <a href="#services-main" class="sr-only-focusable sr-only">Skip to main content</a>
@@ -766,15 +767,11 @@
 	class="find-services-container mx-auto h-full min-h-0 w-full max-w-6xl flex-1 px-2 py-6 md:px-0 md:py-0"
 	data-find-services-page="true"
 >
-	<div
-		id="panel-find-services"
-		role="tabpanel"
-		class="grid h-full min-h-0 grid-rows-[auto_1fr] overflow-hidden"
-	>
+	<div id="panel-find-services" class="grid h-full min-h-0 grid-rows-[auto_1fr] overflow-hidden">
 		<!-- Same controls as Find Tasks: shared listing controls with services translation namespace -->
 		<ListingControls
 			bind:searchQuery
-			searchInputClass={getSearchInputClass()}
+			{searchInputClass}
 			searchPlaceholder={getSearchPlaceholder()}
 			onSearchInput={() => debouncedSearch(searchQuery, searchParams)}
 			onFilterClick={() => (isFilterDrawerOpen = true)}
@@ -842,9 +839,9 @@
 								Services loaded successfully.
 								{#if $servicesStore.error}
 									However, there was an error loading some services.
-								{:else if $servicesStore.items.length === 0}
+								{:else if $servicesStore.items.length === 0 && !$servicesStore.loading}
 									No services found.
-								{:else}
+								{:else if $servicesStore.items.length > 0}
 									Found {$servicesStore.items.length} services.
 								{/if}
 							{/if}

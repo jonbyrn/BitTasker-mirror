@@ -42,7 +42,6 @@
 
 	// Store selected location coordinates for distance calculation
 	let selectedLocationCoords = $state<{ latitude: number; longitude: number } | null>(null);
-	let categoriesOpen = $state(false);
 	let skillsOpen = $state(false);
 	let locationTypesOpen = $state(false);
 	let pricingTypeOpen = $state(false);
@@ -65,13 +64,6 @@
 			selectedLocationCoords = initialFilters.locationCoords
 				? { ...initialFilters.locationCoords }
 				: null;
-		}
-	});
-
-	// Track changes to initialFilters while drawer is closed to sync on open
-	$effect(() => {
-		if (!isOpen && initialFilters) {
-			// Sync filters when drawer opens next time
 		}
 	});
 
@@ -186,26 +178,19 @@
 	{activeFilterCount}
 >
 	<!-- Categories -->
-	<div class="collapse-arrow collapse mb-2">
-		<input
-			type="checkbox"
-			class="peer"
-			aria-label={$t('dashboard.services.browse.filters.toggle_categories') || 'Toggle categories'}
-			aria-expanded={categoriesOpen}
-			onchange={() => (categoriesOpen = !categoriesOpen)}
+	<div class="mb-4">
+		<label class="label">
+			<span class="label-text text-sm font-medium"
+				>{$t('dashboard.services.browse.filters.categories') || 'Categories'}</span
+			>
+		</label>
+		<CategoryMultiselect
+			bind:externalCategoryIds={filters.categories}
+			onChange={handleCategoryChange}
+			maxSelections={3}
+			placeholder={$t('dashboard.services.browse.filters.add_categories') || 'Add categories...'}
+			className="w-full"
 		/>
-		<div class="collapse-title font-medium">
-			{$t('dashboard.services.browse.filters.categories') || 'Categories'}
-		</div>
-		<div class="collapse-content">
-			<CategoryMultiselect
-				bind:selectedCategories={filters.categories}
-				onChange={handleCategoryChange}
-				maxSelections={3}
-				placeholder={$t('dashboard.services.browse.filters.add_categories') || 'Add categories...'}
-				className="w-full"
-			/>
-		</div>
 	</div>
 
 	<!-- Skills -->
@@ -410,8 +395,8 @@
 							oninput={(e) => {
 								const value = e.currentTarget.value;
 								filters.minPrice = value ? parseFloat(value) : undefined;
-								validatePriceRange();
 							}}
+							onblur={() => validatePriceRange()}
 						/>
 						{#if priceError}
 							<p id={priceErrorId} class="text-error mt-1 text-sm" data-testid="price-error">
@@ -437,8 +422,8 @@
 							oninput={(e) => {
 								const value = e.currentTarget.value;
 								filters.maxPrice = value ? parseFloat(value) : undefined;
-								validatePriceRange();
 							}}
+							onblur={() => validatePriceRange()}
 						/>
 					</div>
 					{#if filters.minPrice !== undefined || filters.maxPrice !== undefined}
@@ -487,7 +472,7 @@
 
 			{#if filters.location}
 				<div class="mt-4">
-					<label class="label" for="search-radius" id="search-radius-label">
+					<label class="label" for="search-radius">
 						<span class="label-text">
 							{$t('dashboard.services.browse.filters.search_radius') || 'Search Radius (km)'}
 						</span>
