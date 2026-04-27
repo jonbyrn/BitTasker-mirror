@@ -419,6 +419,7 @@
 			},
 			"bid_card": {
 				"view_details": "View Details",
+				"view_details_short": "Details",
 				"accept": "Accept",
 				"decline": "Decline",
 				"counter": "Counter",
@@ -687,6 +688,7 @@
 			"updates": "updates",
 			"more_actions": "more actions",
 			"view_details": "View Details",
+			"view_details_short": "Details",
 			"close_modal": "Close modal",
 			"close": "Close",
 			"cover_letter": "Cover Letter",

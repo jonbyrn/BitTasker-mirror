@@ -13,6 +13,7 @@
 				"empty_message": "List your first service to start receiving requests from buyers.",
 				"view": "View",
 				"view_details": "Details",
+				"view_details_short": "Details",
 				"edit": "Edit",
 				"duplicate": "Duplicate",
 				"status_active": "Active",
@@ -33,7 +34,9 @@
 				"status_update_failed": "Failed to update status",
 				"actions": {
 					"quotes": "Requests",
-					"contracts": "Contracts"
+					"quotes_short": "Reqs",
+					"contracts": "Contracts",
+					"contracts_short": "Contracts"
 				},
 				"location": {
 					"remote": "Remote",
@@ -92,7 +95,9 @@
 					"selected_service_total": "Requests for selected service",
 					"reviews_count": "{count} reviews",
 					"send_proposal": "Send Proposal",
+					"send_proposal_short": "Send",
 					"view_proposal": "View Proposal",
+					"view_proposal_short": "View",
 					"delete_proposal": "Delete Proposal",
 					"delete_proposal_failed": "Unable to delete this proposal right now.",
 					"pending_amount": "Pending",
@@ -107,6 +112,7 @@
 					"contract_created_title": "Contract created",
 					"contract_created_body": "This quote request has already been converted into an active service contract.",
 					"view_contract": "View Contract",
+					"view_contract_short": "Contract",
 					"expired_title": "Request expired",
 					"expired_body": "This quote request is now read-only. Wait for the buyer to send a new request before replying again.",
 					"latest_proposal": "Latest Proposal",

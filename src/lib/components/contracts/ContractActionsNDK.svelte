@@ -20,6 +20,24 @@
 	let { contractRune, btcPrice = 0 }: { contractRune: PaymentContractRune; btcPrice?: number } =
 		$props();
 
+	// Mobile abbreviations for action buttons to reduce vertical stacking on small screens
+	function getMobileLabel(fullText: string): string {
+		const abbreviations: Record<string, string> = {
+			'Complete Task': 'Complete',
+			'Accept Work': 'Accept',
+			'Mark Work In Progress': 'In Progress',
+			'Claim No Show Refund': 'Claim Refund',
+			'Propose Resolution': 'Propose',
+			'Accept Proposal': 'Accept',
+			'Resolve Timelock': 'Resolve',
+			'Refund Tasker': 'Refund',
+			'Mark No Show': 'No Show',
+			'Dispute Task': 'Dispute',
+			'Cancel Contract': 'Cancel'
+		};
+		return abbreviations[fullText] || fullText;
+	}
+
 	let pendingAction = $state<ContractModalAction | null>(null);
 	let activeModal = $state<ContractModalAction>(ContractModalAction.None);
 
@@ -252,7 +270,10 @@
 			{#if pendingAction === ContractModalAction.Complete}
 				<span class="loading loading-spinner loading-xs"></span>
 			{/if}
-			{$t('dashboard.contracts.actions.complete_task')}
+			<span class="hidden sm:inline">{$t('dashboard.contracts.actions.complete_task')}</span>
+			<span class="sm:hidden"
+				>{getMobileLabel($t('dashboard.contracts.actions.complete_task'))}</span
+			>
 		</button>
 	{/if}
 	{#if contractRune.permittedActions.canAcceptTask}
@@ -265,7 +286,8 @@
 			{#if pendingAction === ContractModalAction.Accept}
 				<span class="loading loading-spinner loading-xs"></span>
 			{/if}
-			{$t('dashboard.contracts.actions.accept_work')}
+			<span class="hidden sm:inline">{$t('dashboard.contracts.actions.accept_work')}</span>
+			<span class="sm:hidden">{getMobileLabel($t('dashboard.contracts.actions.accept_work'))}</span>
 		</button>
 	{/if}
 	{#if contractRune.permittedActions.canRefundTasker}
@@ -278,7 +300,10 @@
 			{#if pendingAction === ContractModalAction.Refund}
 				<span class="loading loading-spinner loading-xs"></span>
 			{/if}
-			{$t('dashboard.contracts.actions.refund_tasker')}
+			<span class="hidden sm:inline">{$t('dashboard.contracts.actions.refund_tasker')}</span>
+			<span class="sm:hidden"
+				>{getMobileLabel($t('dashboard.contracts.actions.refund_tasker'))}</span
+			>
 		</button>
 	{/if}
 	{#if contractRune.permittedActions.canCancelPaymentContract}
@@ -291,7 +316,10 @@
 			{#if pendingAction === ContractModalAction.Cancel}
 				<span class="loading loading-spinner loading-xs"></span>
 			{/if}
-			{$t('dashboard.contracts.actions.cancel_contract')}
+			<span class="hidden sm:inline">{$t('dashboard.contracts.actions.cancel_contract')}</span>
+			<span class="sm:hidden"
+				>{getMobileLabel($t('dashboard.contracts.actions.cancel_contract'))}</span
+			>
 		</button>
 	{/if}
 	{#if contractRune.permittedActions.canMarkNoShow}
@@ -304,7 +332,9 @@
 			{#if pendingAction === ContractModalAction.MarkNoShow}
 				<span class="loading loading-spinner loading-xs"></span>
 			{/if}
-			{$t('dashboard.contracts.actions.mark_no_show')}
+			<span class="hidden sm:inline">{$t('dashboard.contracts.actions.mark_no_show')}</span>
+			<span class="sm:hidden">{getMobileLabel($t('dashboard.contracts.actions.mark_no_show'))}</span
+			>
 		</button>
 	{/if}
 	{#if contractRune.permittedActions.canMarkWorkInProgress}
@@ -317,7 +347,11 @@
 			{#if pendingAction === ContractModalAction.MarkWorkInProgress}
 				<span class="loading loading-spinner loading-xs"></span>
 			{/if}
-			{$t('dashboard.contracts.actions.mark_work_in_progress')}
+			<span class="hidden sm:inline">{$t('dashboard.contracts.actions.mark_work_in_progress')}</span
+			>
+			<span class="sm:hidden"
+				>{getMobileLabel($t('dashboard.contracts.actions.mark_work_in_progress'))}</span
+			>
 		</button>
 	{/if}
 	{#if contractRune.permittedActions.canClaimNoShowRefund}
@@ -330,7 +364,10 @@
 			{#if pendingAction === ContractModalAction.ClaimNoShowRefund}
 				<span class="loading loading-spinner loading-xs"></span>
 			{/if}
-			{$t('dashboard.contracts.actions.claim_no_show_refund')}
+			<span class="hidden sm:inline">{$t('dashboard.contracts.actions.claim_no_show_refund')}</span>
+			<span class="sm:hidden"
+				>{getMobileLabel($t('dashboard.contracts.actions.claim_no_show_refund'))}</span
+			>
 		</button>
 	{/if}
 	{#if contractRune.permittedActions.canDisputeTask}
@@ -343,7 +380,9 @@
 			{#if pendingAction === ContractModalAction.Dispute}
 				<span class="loading loading-spinner loading-xs"></span>
 			{/if}
-			{$t('dashboard.contracts.actions.dispute_work')}
+			<span class="hidden sm:inline">{$t('dashboard.contracts.actions.dispute_work')}</span>
+			<span class="sm:hidden">{getMobileLabel($t('dashboard.contracts.actions.dispute_work'))}</span
+			>
 		</button>
 	{/if}
 	{#if contractRune.permittedActions.canProposeResolution}
@@ -356,7 +395,10 @@
 			{#if pendingAction === ContractModalAction.ProposeResolution}
 				<span class="loading loading-spinner loading-xs"></span>
 			{/if}
-			{$t('dashboard.contracts.actions.propose_resolution')}
+			<span class="hidden sm:inline">{$t('dashboard.contracts.actions.propose_resolution')}</span>
+			<span class="sm:hidden"
+				>{getMobileLabel($t('dashboard.contracts.actions.propose_resolution'))}</span
+			>
 		</button>
 	{/if}
 	{#if contractRune.permittedActions.canAcceptProposal}
@@ -369,7 +411,10 @@
 			{#if pendingAction === ContractModalAction.AcceptProposal}
 				<span class="loading loading-spinner loading-xs"></span>
 			{/if}
-			{$t('dashboard.contracts.actions.accept_proposal')}
+			<span class="hidden sm:inline">{$t('dashboard.contracts.actions.accept_proposal')}</span>
+			<span class="sm:hidden"
+				>{getMobileLabel($t('dashboard.contracts.actions.accept_proposal'))}</span
+			>
 		</button>
 	{/if}
 	{#if contractRune.permittedActions.canResolveAfterTimelock}
@@ -382,7 +427,10 @@
 			{#if pendingAction === ContractModalAction.ResolveTimelock}
 				<span class="loading loading-spinner loading-xs"></span>
 			{/if}
-			{$t('dashboard.contracts.actions.resolve_timelock')}
+			<span class="hidden sm:inline">{$t('dashboard.contracts.actions.resolve_timelock')}</span>
+			<span class="sm:hidden"
+				>{getMobileLabel($t('dashboard.contracts.actions.resolve_timelock'))}</span
+			>
 		</button>
 	{/if}
 </div>

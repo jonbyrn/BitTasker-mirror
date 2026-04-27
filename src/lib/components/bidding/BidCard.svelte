@@ -258,7 +258,7 @@
 				{/if}
 			</div>
 
-			<div class="flex w-full flex-col-reverse gap-2 sm:w-auto sm:flex-row">
+			<div class="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:flex-row">
 				<button
 					class="btn btn-error btn-outline btn-sm flex-1 py-1 sm:flex-none"
 					onclick={() => onRejectBid(bid)}
@@ -279,9 +279,13 @@
 						/>
 					</svg>
 					{#if bidContent.status === 'REJECTED'}
-						{$t('dashboard.bids.bid_acceptance.rejected')}
+						<span class="hidden sm:inline">{$t('dashboard.bids.bid_acceptance.rejected')}</span>
+						<span class="sm:hidden">{$t('dashboard.bids.bid_acceptance.rejected')}</span>
 					{:else}
-						{$t('dashboard.bids.bid_acceptance.decline')}
+						<span class="hidden sm:inline">{$t('dashboard.bids.bid_acceptance.decline')}</span>
+						<span class="sm:hidden"
+							>{$t('dashboard.bids.bid_acceptance.decline_short') || 'Decline'}</span
+						>
 					{/if}
 				</button>
 
@@ -304,7 +308,8 @@
 								d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
 							/>
 						</svg>
-						{$t('common.profile.send_message')}
+						<span class="hidden sm:inline">{$t('common.profile.send_message')}</span>
+						<span class="sm:hidden">{$t('dashboard.bids.send_message_short') || 'Message'}</span>
 					</button>
 				{/if}
 
@@ -324,7 +329,8 @@
 								d="M5 13l4 4L19 7"
 							/>
 						</svg>
-						{$t('dashboard.bids.bid_acceptance.accepted')}
+						<span class="hidden sm:inline">{$t('dashboard.bids.bid_acceptance.accepted')}</span>
+						<span class="sm:hidden">{$t('dashboard.bids.bid_acceptance.accepted')}</span>
 					</button>
 				{:else}
 					<button
@@ -346,7 +352,10 @@
 								d="M5 13l4 4L19 7"
 							/>
 						</svg>
-						{$t('dashboard.bids.bid_acceptance.accept')}
+						<span class="hidden sm:inline">{$t('dashboard.bids.bid_acceptance.accept')}</span>
+						<span class="sm:hidden"
+							>{$t('dashboard.bids.bid_acceptance.accept_short') || 'Accept'}</span
+						>
 					</button>
 				{/if}
 			</div>

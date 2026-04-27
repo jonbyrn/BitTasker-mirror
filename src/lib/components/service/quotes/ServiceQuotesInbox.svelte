@@ -493,7 +493,7 @@
 		if (timeline.linkedEscrowId) {
 			const actions = [
 				{
-					label: tr('dashboard.services.my_services.quote_inbox.view_contract', 'View Contract'),
+					label: tr('dashboard.services.my_services.quote_inbox.view_contract_short', 'Contract'),
 					class: 'btn-primary btn-sm',
 					icon: 'contract' as const,
 					onclick: () => viewContract(timeline.linkedEscrowId!)
@@ -502,7 +502,7 @@
 
 			if (timeline.latestProposal) {
 				actions.push({
-					label: tr('dashboard.services.my_services.quote_inbox.view_proposal', 'View Proposal'),
+					label: tr('dashboard.services.my_services.quote_inbox.view_proposal_short', 'View'),
 					class: 'btn-outline btn-sm',
 					icon: 'view' as const,
 					onclick: () => openProposalDrawer(timeline.request.content.quoteRequestId, 'view')
@@ -515,7 +515,7 @@
 		if (timeline.latestProposal) {
 			return [
 				{
-					label: tr('dashboard.services.my_services.quote_inbox.view_proposal', 'View Proposal'),
+					label: tr('dashboard.services.my_services.quote_inbox.view_proposal_short', 'View'),
 					class: 'btn-outline btn-sm',
 					icon: 'view' as const,
 					onclick: () => openProposalDrawer(timeline.request.content.quoteRequestId, 'view')
@@ -529,7 +529,7 @@
 
 		return [
 			{
-				label: tr('dashboard.services.my_services.quote_inbox.send_proposal', 'Send Proposal'),
+				label: tr('dashboard.services.my_services.quote_inbox.send_proposal_short', 'Send'),
 				class: 'btn-primary btn-sm',
 				icon: 'proposal' as const,
 				disabled: Boolean(proposalAuthoringBlockedReason),

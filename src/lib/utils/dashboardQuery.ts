@@ -48,7 +48,7 @@ const VALID_TABS = new Set<DashboardTab>([
 	'service-requests',
 	'requests'
 ]);
-const VALID_EARNING_TABS = new Set<EarningTab>([
+export const VALID_EARNING_TABS = new Set<EarningTab>([
 	'bids',
 	'requests',
 	'contracts',
