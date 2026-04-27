@@ -163,7 +163,7 @@
 						<li role="option" aria-selected={value === option.id} class="w-full overflow-hidden">
 							<button
 								type="button"
-								class="flex w-full items-center justify-between gap-3 px-3 py-2 text-sm {value ===
+								class="text-base-content flex w-full items-center justify-between gap-3 px-3 py-2 text-sm {value ===
 								option.id
 									? 'bg-primary/10 text-primary font-semibold'
 									: 'hover:bg-base-200'}"
@@ -197,7 +197,7 @@
 					<li role="option" aria-selected={value === option.id} class="w-full overflow-hidden">
 						<button
 							type="button"
-							class="flex w-full items-center justify-between gap-3 px-3 py-2 text-sm {value ===
+							class="text-base-content flex w-full items-center justify-between gap-3 px-3 py-2 text-sm {value ===
 							option.id
 								? 'bg-primary/10 text-primary font-semibold'
 								: 'hover:bg-base-200'}"
