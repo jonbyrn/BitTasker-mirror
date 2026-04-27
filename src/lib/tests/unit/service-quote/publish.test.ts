@@ -148,8 +148,9 @@ const statusEvent = {
 };
 
 describe('service-quote publishing helpers', () => {
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.clearAllMocks();
+		vi.resetModules();
 		window.localStorage.clear();
 		getServiceQuoteFeatureFlags.mockReturnValue({
 			read: true,
@@ -182,12 +183,14 @@ describe('service-quote publishing helpers', () => {
 			'$lib/utils/service-quote/publish'
 		);
 
-		expect(getPublishedRelaySet('request-event-id')).toEqual([]);
+		await expect(getPublishedRelaySet('request-event-id')).resolves.toEqual([]);
 		persistPublishedRelaySet('request-event-id', ['wss://relay.example']);
-		expect(getPublishedRelaySet('request-event-id')).toEqual(['wss://relay.example']);
+		await expect(getPublishedRelaySet('request-event-id')).resolves.toEqual([
+			'wss://relay.example'
+		]);
 
 		window.localStorage.setItem('bittasker.serviceQuote.publishedRelays', '{not-json');
-		expect(getPublishedRelaySet('missing-event-id')).toEqual([]);
+		await expect(getPublishedRelaySet('missing-event-id')).resolves.toEqual([]);
 	});
 
 	it('finds duplicates from primary identifier queries and fallback history scans', async () => {
@@ -272,7 +275,9 @@ describe('service-quote publishing helpers', () => {
 			})
 		);
 		expect(result.publishedRelaySet).toEqual(['wss://relay-1.example']);
-		expect(getPublishedRelaySet('request-event-id')).toEqual(['wss://relay-1.example']);
+		await expect(getPublishedRelaySet('request-event-id')).resolves.toEqual([
+			'wss://relay-1.example'
+		]);
 	});
 
 	it('publishes encrypted proposals once relay quorum is reached', async () => {
@@ -337,7 +342,9 @@ describe('service-quote publishing helpers', () => {
 			})
 		);
 		expect(result.publishedRelaySet).toEqual(['wss://relay.example']);
-		expect(getPublishedRelaySet('proposal-event-id')).toEqual(['wss://relay.example']);
+		await expect(getPublishedRelaySet('proposal-event-id')).resolves.toEqual([
+			'wss://relay.example'
+		]);
 	});
 
 	it('publishes proposal statuses after accepted-status gating passes', async () => {
@@ -403,7 +410,7 @@ describe('service-quote publishing helpers', () => {
 			})
 		);
 		expect(result.publishedRelaySet).toEqual(['wss://relay.example']);
-		expect(getPublishedRelaySet('status-event-id')).toEqual(['wss://relay.example']);
+		await expect(getPublishedRelaySet('status-event-id')).resolves.toEqual(['wss://relay.example']);
 	});
 
 	it('fails closed before publish when accepted status metadata is incomplete', async () => {
