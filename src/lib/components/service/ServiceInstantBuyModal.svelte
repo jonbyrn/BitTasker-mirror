@@ -148,6 +148,15 @@
 	});
 	const resolvedErrorMessage = $derived(errorMessage);
 
+	const remainingBalanceUsd = $derived.by(() => {
+		if (!walletBalanceUsd || !requiredBalanceUsd) return '—';
+		const walletNum = parseFloat(walletBalanceUsd.replace(/[$,]/g, ''));
+		const requiredNum = parseFloat(requiredBalanceUsd.replace(/[$,]/g, ''));
+		if (isNaN(walletNum) || isNaN(requiredNum)) return '—';
+		const remaining = walletNum - requiredNum;
+		return `$${remaining.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+	});
+
 	let showFullIncludedScope = $state(false);
 	let includedScopeElement: HTMLParagraphElement | null = $state(null);
 	let isIncludedScopeTruncated = $state(false);
@@ -392,10 +401,6 @@
 						{/if}
 					</div>
 
-					<div class="divider text-base-content/60 mx-6 my-2 text-sm">
-						{$t('dashboard.services.detail.book_now_drawer.contract_information')}
-					</div>
-
 					<div class="flex flex-col gap-4 px-3 pb-4">
 						{#if isPreparing}
 							<div class="border-base-300 bg-base-100 rounded-xl border p-4 text-sm">
@@ -407,22 +412,69 @@
 								</div>
 							</div>
 						{:else}
-							<div class="flex flex-col gap-4 lg:flex-row">
-								<div
-									class="min-w-0 flex-1 rounded-lg px-3 pt-3"
-									data-testid="service-agreement-provider"
-								>
-									<UserInfoDisplay
-										avatar={providerAvatar}
-										username={providerName ?? ''}
-										rating={providerRating}
-										size="sm"
-										pubkey={providerPubkey}
-										profileLink={providerPubkey}
-										memberSince={providerMemberSince}
-									/>
+							<!-- Provider Info -->
+							<div class="rounded-lg px-3 pt-3" data-testid="service-agreement-provider">
+								<UserInfoDisplay
+									avatar={providerAvatar}
+									username={providerName ?? ''}
+									rating={providerRating}
+									size="sm"
+									pubkey={providerPubkey}
+									profileLink={providerPubkey}
+									memberSince={providerMemberSince}
+								/>
+							</div>
+
+							<!-- Timeline Row -->
+							<div class="flex items-center justify-between gap-2 px-1">
+								<!-- Start Date -->
+								<div class="flex min-w-0 flex-col" data-testid="service-agreement-start">
+									<div
+										class="text-primary/70 flex items-center gap-1.5 text-[10px] font-bold tracking-wider uppercase"
+									>
+										<IconCalendarClock class="text-primary h-3.5 w-3.5" />
+										<span>{$t('dashboard.services.detail.book_now_drawer.start_date')}</span>
+									</div>
+									<div class="mt-0.5 truncate text-xs font-bold sm:text-sm">
+										{estimatedStartLabel}
+									</div>
 								</div>
 
+								<!-- Duration Indicator -->
+								{#if durationLabel}
+									<div class="flex flex-1 items-center justify-center px-2">
+										<div class="relative flex w-full items-center justify-center py-2">
+											<div
+												class="bg-primary/30 absolute inset-x-0 top-1/2 h-0.5 -translate-y-1/2"
+											></div>
+											<span
+												class="badge badge-ghost badge-xs border-primary/30 bg-base-100 text-primary z-10 flex h-5 items-center px-2 text-[11px] font-bold whitespace-nowrap shadow-sm"
+											>
+												{durationLabel}
+											</span>
+										</div>
+									</div>
+								{/if}
+
+								<!-- Delivery Date -->
+								<div
+									class="flex min-w-0 flex-col items-end text-right"
+									data-testid="service-agreement-delivery"
+								>
+									<div
+										class="text-primary/70 flex items-center justify-start gap-1.5 text-[10px] font-bold tracking-wider uppercase"
+									>
+										<IconTruckDeliveryOutline class="text-primary h-3.5 w-3.5" />
+										<span>{$t('dashboard.services.detail.book_now_drawer.delivery_date')}</span>
+									</div>
+									<div class="mt-0.5 truncate text-xs font-bold sm:text-sm">
+										{estimatedCompletionLabel}
+									</div>
+								</div>
+							</div>
+
+							<!-- Pricing Card -->
+							<div class="flex flex-col gap-4 lg:flex-row">
 								<div class="min-w-0 flex-1">
 									<div class="bg-base-100 rounded-lg p-3 lg:bg-transparent">
 										<div class="space-y-2 text-right">
@@ -490,59 +542,7 @@
 								</div>
 							</div>
 
-							<div class="flex items-center justify-between gap-2 px-1">
-								<!-- Start Date -->
-								<div class="flex min-w-0 flex-col" data-testid="service-agreement-start">
-									<div
-										class="text-base-content/60 flex items-center gap-1.5 text-[10px] font-bold tracking-wider uppercase"
-									>
-										<IconCalendarClock class="h-3.5 w-3.5" />
-										<span>{$t('dashboard.services.detail.book_now_drawer.start_date')}</span>
-									</div>
-									<div class="mt-0.5 truncate text-xs font-bold sm:text-sm">
-										{estimatedStartLabel}
-									</div>
-								</div>
-
-								<!-- Duration Indicator -->
-								{#if durationLabel}
-									<div class="flex min-w-[60px] flex-1 flex-col items-center justify-center px-2">
-										<div class="relative flex w-full items-center py-2">
-											<div class="bg-primary/20 h-0.5 flex-1 rounded-full"></div>
-											<div class="absolute inset-0 flex items-center justify-center">
-												<span
-													class="badge badge-ghost badge-xs text-primary border-primary/20 h-5 px-2 text-[11px] font-bold whitespace-nowrap shadow-sm"
-												>
-													{durationLabel}
-												</span>
-											</div>
-											<div class="bg-primary/20 h-0.5 flex-1 rounded-full"></div>
-											<div class="absolute -right-0.5 flex items-center">
-												<div
-													class="border-l-primary/30 border-t-4 border-l-[6px] border-transparent"
-												></div>
-											</div>
-										</div>
-									</div>
-								{/if}
-
-								<!-- Delivery Date -->
-								<div
-									class="flex min-w-0 flex-col items-end text-right"
-									data-testid="service-agreement-delivery"
-								>
-									<div
-										class="text-base-content/60 flex items-center justify-end gap-1.5 text-[10px] font-bold tracking-wider uppercase"
-									>
-										<span>{$t('dashboard.services.detail.book_now_drawer.delivery_date')}</span>
-										<IconTruckDeliveryOutline class="h-3.5 w-3.5" />
-									</div>
-									<div class="mt-0.5 truncate text-xs font-bold sm:text-sm">
-										{estimatedCompletionLabel}
-									</div>
-								</div>
-							</div>
-
+							<!-- Included Scope -->
 							{#if includedScope}
 								<div class="bg-base-100 rounded-lg p-4">
 									<div class="text-base-content/70 text-xs font-medium">
@@ -587,12 +587,15 @@
 								requiredLabel={$t('dashboard.services.detail.book_now_drawer.required_balance')}
 								requiredUsd={requiredBalanceUsd}
 								requiredSats={requiredBalanceSats}
+								remainingUsd={remainingBalanceUsd}
 								loading={walletLoading}
 								connected={walletConnected}
-								verificationStatus={walletVerificationStatus === 'error'
+								verificationStatus={walletVerificationStatus === 'error' ||
+								walletVerificationStatus === 'ready'
 									? 'idle'
 									: walletVerificationStatus}
-								verificationMessage={walletVerificationStatus === 'error'
+								verificationMessage={walletVerificationStatus === 'error' ||
+								walletVerificationStatus === 'ready'
 									? ''
 									: walletVerificationMessage}
 								forceOpen={false}
@@ -623,15 +626,6 @@
 									</div>
 								</div>
 							{/if}
-
-							<div
-								class="alert alert-outline alert-warning text-sm"
-								data-testid="service-instant-buy-confirm-warning"
-							>
-								<span>
-									{$t('dashboard.services.detail.book_now_drawer.confirm_warning')}
-								</span>
-							</div>
 						{/if}
 					</div>
 				</div>

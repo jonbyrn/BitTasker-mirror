@@ -502,7 +502,7 @@
 		<div class="card bg-base-200 min-w-0 overflow-hidden">
 			<div class="card-body min-w-0 p-4">
 				<h3 class="mb-3 text-lg font-semibold">
-					{tr('dashboard.services.detail.faqs', 'Frequently Asked Questions')}
+					{tr('dashboard.services.detail.faqs', 'FAQ')}
 				</h3>
 				<div class="space-y-2">
 					{#each displayFaqs as faq, index (index)}

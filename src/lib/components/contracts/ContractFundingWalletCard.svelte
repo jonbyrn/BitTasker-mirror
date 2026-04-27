@@ -12,7 +12,9 @@
 		availableLabel = undefined,
 		requiredLabel = undefined,
 		requiredUsd = '—',
-		requiredSats = '',
+		_requiredSats = '',
+		remainingUsd = '—',
+		remainingSats = '',
 		loading = false,
 		connected = false,
 		onRefresh = undefined,
@@ -31,6 +33,8 @@
 		requiredLabel?: string;
 		requiredUsd?: string;
 		requiredSats?: string;
+		remainingUsd?: string;
+		remainingSats?: string;
 		loading?: boolean;
 		connected?: boolean;
 		onRefresh?: () => void;
@@ -79,6 +83,11 @@
 	const resolvedRequiredLabel = $derived(
 		requiredLabel ??
 			tr('dashboard.contracts.wallet_card.required_balance', 'Required for this contract')
+	);
+	const resolvedRemainingLabel = $derived(
+		remainingUsd !== '—' || remainingSats !== ''
+			? tr('dashboard.contracts.wallet_card.remaining_balance', 'Remaining')
+			: ''
 	);
 </script>
 
@@ -143,13 +152,17 @@
 				<span class="text-base-content/70">{resolvedRequiredLabel}</span>
 				<span class="text-right">
 					{requiredUsd}
-					{#if requiredSats}
-						<span class="text-base-content/60 ml-2 text-xs"
-							>({requiredSats} {resolvedSatsLabel})</span
-						>
-					{/if}
 				</span>
 			</div>
+			{#if resolvedRemainingLabel}
+				<div class="border-base-content/10 border-t py-1"></div>
+				<div class="flex items-center justify-between gap-2 text-sm">
+					<span class="text-base-content/70 font-semibold">{resolvedRemainingLabel}</span>
+					<span class="text-success text-right font-semibold">
+						{remainingUsd}
+					</span>
+				</div>
+			{/if}
 
 			{#if verificationStatus === 'verifying'}
 				<div class="alert alert-info text-sm">

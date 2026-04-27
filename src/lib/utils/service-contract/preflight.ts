@@ -8,7 +8,58 @@ import { nip19 } from 'nostr-tools';
 import { get } from 'svelte/store';
 import { getNostrKeyPair } from '$lib/utils/nostrKeys';
 
+const DEFAULT_CLIENT_FEE_TIER = 1;
+const ESTIMATED_NETWORK_FEE_USD = 0.5;
+
 export { DEFAULT_CLIENT_FEE_TIER, ESTIMATED_NETWORK_FEE_USD };
+
+/**
+ * Get the centralized pool instance from appStore
+ */
+function getPool() {
+	const pool = get(appStore)?.pool;
+	if (!pool) {
+		throw new Error('NDK pool is not initialized');
+	}
+	return pool;
+}
+
+/**
+ * Check if any relay is reachable by querying it with a simple filter
+ * Returns true if ANY relay responds, false otherwise
+ */
+async function checkRelayConnectivity(relays: string[]): Promise<boolean> {
+	console.log('[preflight] ACTION: checkRelayConnectivity', { relayCount: relays.length, relays });
+	const pool = getPool();
+	for (const relay of relays) {
+		console.log('[preflight] SUBACTION: attempting relay', { relay });
+		try {
+			const controller = new AbortController();
+			const timeout = setTimeout(() => controller.abort(), 3000);
+			const events = await pool.querySync(
+				[relay],
+				{ kinds: [0], limit: 1 },
+				{ signal: controller.signal }
+			);
+			clearTimeout(timeout);
+			if (events) {
+				console.log('[preflight] RESULT: relay connected', { relay });
+				return true;
+			}
+		} catch (err) {
+			if (err instanceof Error && err.name === 'AbortError') {
+				console.log('[preflight] ERROR: relay timeout', { relay });
+			} else {
+				console.log('[preflight] ERROR: relay failed', {
+					relay,
+					error: err instanceof Error ? err.message : String(err)
+				});
+			}
+		}
+	}
+	console.log('[preflight] RESULT: no relays available', { triedRelays: relays.length });
+	return false;
+}
 
 export type ServiceContractPreflightErrorCode =
 	| 'wallet_not_connected'
@@ -97,14 +148,17 @@ export async function getCurrentChainId(): Promise<bigint | null> {
  * Validates that the current network matches the expected network.
  * Should be called before critical operations like createEscrow.
  */
-export async function validateNetworkForTransaction(): Promise<{
-	ok: true;
-	chainId: bigint;
-} | {
-	ok: false;
-	errorCode: ServiceContractPreflightErrorCode;
-	error: string;
-}> {
+export async function validateNetworkForTransaction(): Promise<
+	| {
+			ok: true;
+			chainId: bigint;
+	  }
+	| {
+			ok: false;
+			errorCode: ServiceContractPreflightErrorCode;
+			error: string;
+	  }
+> {
 	const currentChainId = await getCurrentChainId();
 	if (currentChainId === null) {
 		return {
@@ -166,7 +220,8 @@ async function ensureServiceWalletReady(): Promise<
 
 			// Check if initialization completed synchronously
 			walletState = get(walletStore);
-			needsToWait = !walletState.rsk?.address || !walletState.rsk?.wallet || !walletState.rsk?.provider;
+			needsToWait =
+				!walletState.rsk?.address || !walletState.rsk?.wallet || !walletState.rsk?.provider;
 		} catch {
 			return fail('wallet_not_connected', 'Connect your wallet before continuing.');
 		}
@@ -422,7 +477,10 @@ export async function revalidateWalletBalance(
 		if (currentChainId === null || currentChainId !== getExpectedRskChainId()) {
 			return {
 				ok: false,
-				error: 'Network changed. Please switch to ' + getExpectedRskNetworkLabel() + ' before continuing.'
+				error:
+					'Network changed. Please switch to ' +
+					getExpectedRskNetworkLabel() +
+					' before continuing.'
 			};
 		}
 
@@ -445,11 +503,10 @@ export async function revalidateWalletBalance(
 		let currentBalanceWei: bigint;
 		try {
 			currentBalanceWei = await provider.getBalance(walletState.rsk.address);
-		} catch (balanceError) {
+		} catch (_balanceError) {
 			return {
 				ok: false,
-				error:
-					'Unable to verify wallet balance at transaction time. Please try again.'
+				error: 'Unable to verify wallet balance at transaction time. Please try again.'
 			};
 		}
 
@@ -466,11 +523,10 @@ export async function revalidateWalletBalance(
 			currentBalanceWei,
 			totalRequiredWei
 		};
-	} catch (error) {
+	} catch (_error) {
 		return {
 			ok: false,
-			error:
-				'Unable to verify wallet balance at transaction time. Please try again.'
+			error: 'Unable to verify wallet balance at transaction time. Please try again.'
 		};
 	}
 }
