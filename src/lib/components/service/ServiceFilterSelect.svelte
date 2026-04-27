@@ -11,7 +11,7 @@
 		allServicesLabel = null,
 		deletedServiceLabel = null,
 		testId = 'service-filter-select',
-		containerClass = 'max-w-md',
+		containerClass = 'w-full sm:max-w-md',
 		onChange = () => {}
 	} = $props<{
 		services?: Service[];
