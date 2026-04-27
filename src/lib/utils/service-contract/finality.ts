@@ -7,6 +7,12 @@ import type { ServiceAcceptanceUnknownReasonCode } from '$lib/types/service-quot
  * See docs/service-escrow-version-abstraction.md for migration details.
  */
 
+/**
+ * Reorg safety threshold - blocks within this many blocks of the current tip
+ * could potentially be reorganized out.
+ */
+export const REORG_SAFE_CONFIRMATIONS = 6;
+
 export const SERVICE_ACCEPTANCE_REQUIRED_CONFIRMATIONS = 3;
 export const SERVICE_ACCEPTANCE_CONFIRMATION_POLL_INTERVAL_MS = 3_000;
 export const SERVICE_ACCEPTANCE_CONFIRMATION_MAX_RETRIES = 60;
@@ -117,3 +123,82 @@ export function classifyAmbiguityError(
  * @deprecated Re-exported for backward compatibility. Use classifyAmbiguityError instead.
  */
 export const classifyServiceAcceptanceAmbiguityError = classifyAmbiguityError;
+
+/**
+ * Checks if a block is likely canonical (not reorged out).
+ * A block is considered unsafe if it's within REORG_SAFE_CONFIRMATIONS blocks of the current tip.
+ *
+ * @param provider - The JsonRpcProvider to query
+ * @param blockNumber - The block number to check
+ * @returns true if the block is safe from reorg (>= 6 blocks deep), false if it could still be reorged
+ * @throws Error if the provider is unavailable or block number is invalid
+ */
+export async function isBlockCanonical(
+	provider: JsonRpcProvider,
+	blockNumber: number
+): Promise<boolean> {
+	if (!blockNumber || blockNumber <= 0) {
+		throw new Error('Invalid block number');
+	}
+
+	const currentBlock = await provider.getBlockNumber();
+	const blocksDepth = currentBlock - blockNumber;
+
+	// Block is canonical if it's deeper than the reorg threshold
+	return blocksDepth >= REORG_SAFE_CONFIRMATIONS;
+}
+
+/**
+ * Wait for a transaction receipt and verify block canonicality.
+ * If the tx lands in a block that could still be reorged, poll until canonical or timeout.
+ *
+ * @param provider - The JsonRpcProvider
+ * @param txHash - Transaction hash to wait for
+ * @param options - Optional confirmation options
+ * @returns The transaction receipt, or throws if canonicality cannot be established
+ */
+export async function waitForCanonicalTransaction(
+	provider: JsonRpcProvider,
+	txHash: string,
+	options: { timeoutMs?: number; pollIntervalMs?: number } = {}
+): Promise<TransactionReceipt> {
+	const timeoutMs = options.timeoutMs ?? 120_000;
+	const pollIntervalMs = options.pollIntervalMs ?? 10_000;
+	const deadline = Date.now() + timeoutMs;
+
+	const receipt = await provider.waitForTransaction(txHash);
+	if (!receipt) {
+		throw new Error('Transaction receipt not available');
+	}
+
+	// Check if the block is already canonical
+	const blockNumber = receipt.blockNumber;
+	if (!blockNumber) {
+		throw new Error('Receipt missing block number');
+	}
+
+	const currentBlock = await provider.getBlockNumber();
+	const blocksDepth = currentBlock - blockNumber;
+
+	// If already deep enough, return immediately
+	if (blocksDepth >= REORG_SAFE_CONFIRMATIONS) {
+		return receipt;
+	}
+
+	// Otherwise poll until canonical or timeout
+	while (Date.now() < deadline) {
+		await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
+
+		const newReceipt = await provider.getTransactionReceipt(txHash);
+		if (!newReceipt?.blockNumber) continue;
+
+		const newCurrentBlock = await provider.getBlockNumber();
+		const newDepth = newCurrentBlock - newReceipt.blockNumber;
+
+		if (newDepth >= REORG_SAFE_CONFIRMATIONS) {
+			return newReceipt;
+		}
+	}
+
+	throw new Error(`Transaction did not reach canonical state within ${timeoutMs}ms`);
+}
