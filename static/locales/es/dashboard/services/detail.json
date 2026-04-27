@@ -10,7 +10,7 @@
 				"not_found_message": "El servicio que buscas no existe o ya no está disponible.",
 				"browse_services": "Explorar Servicios",
 				"portfolio": "Portafolio",
-				"faqs": "Preguntas Frecuentes",
+				"faqs": "FAQ",
 				"attachment": "Adjunto",
 				"image_alt": "Imagen del servicio",
 				"taskee": "Taskee",
@@ -33,6 +33,7 @@
 					"my_location": "Mi ubicación",
 					"tasker_location": "Ubicación del tasker"
 				},
+				"service_location": "Ubicación",
 				"pricing_type": {
 					"fixed": "Fijo",
 					"hourly": "Por hora",
@@ -50,7 +51,7 @@
 				"self_quote_blocked": "No puedes solicitar una cotización en tu propio servicio.",
 				"self_book_now_blocked": "No puedes reservar tu propio servicio.",
 				"self_contact_blocked": "No puedes contactarte contigo mismo desde tu propio listado de servicio.",
-				"book_now": "Reservar Ahora",
+				"book_now": "Reservar",
 				"service_runtime_unavailable": "El servicio no está disponible.",
 				"seo": {
 					"page_title": "Detalles del Servicio - BitTasker",
@@ -88,7 +89,7 @@
 				"package_features": "Características del paquete",
 				"description_label": "Descripción",
 				"delivery_time": "Tiempo de entrega",
-				"customize_order": "Personaliza tu Pedido",
+				"customize_order": "Complementos",
 				"select_package": "Seleccionar Paquete",
 				"popular": "Popular",
 				"rush_delivery": "Entrega Urgente",

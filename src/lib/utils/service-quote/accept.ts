@@ -2,7 +2,7 @@ import { sha256 } from '@noble/hashes/sha2';
 import type { ServiceAcceptanceUnknownReasonCode } from '$lib/types/service-quote';
 import {
 	getAcceptanceLedgerEntry,
-	upsertAcceptanceLedgerEntry,
+	upsertAcceptanceLedgerEntrySync,
 	type ServiceAcceptanceLedgerEntry
 } from '$lib/utils/service-quote/acceptance-ledger';
 import { reconcileServiceAcceptanceState } from '$lib/utils/service-quote/reconciliation';
@@ -57,7 +57,7 @@ export function beginServiceProposalAcceptance(
 	proposalId: string,
 	transactionHash?: string
 ): ServiceAcceptanceLedgerEntry {
-	return upsertAcceptanceLedgerEntry(proposalId, 'accepting', { transactionHash });
+	return upsertAcceptanceLedgerEntrySync(proposalId, 'accepting', { transactionHash });
 }
 
 export function markServiceProposalAcceptanceUnknown(
@@ -65,7 +65,7 @@ export function markServiceProposalAcceptanceUnknown(
 	reasonCode: ServiceAcceptanceUnknownReasonCode,
 	transactionHash?: string
 ): ServiceAcceptanceLedgerEntry {
-	return upsertAcceptanceLedgerEntry(proposalId, 'accept_unknown', {
+	return upsertAcceptanceLedgerEntrySync(proposalId, 'accept_unknown', {
 		reasonCode,
 		transactionHash
 	});
@@ -94,7 +94,7 @@ export function completeServiceProposalAcceptance(
 		return current;
 	}
 
-	return upsertAcceptanceLedgerEntry(proposalId, nextState, {
+	return upsertAcceptanceLedgerEntrySync(proposalId, nextState, {
 		reasonCode: nextState === 'accept_unknown' ? unknownReasonCode : undefined,
 		transactionHash
 	});

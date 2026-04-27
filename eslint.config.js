@@ -44,7 +44,7 @@ export default ts.config(
 			'svelte/no-navigation-without-resolve': 'off',
 			'@typescript-eslint/no-unused-vars': [
 				'error',
-				{ varsIgnorePattern: '^_', argsIgnorePattern: '^_' }
+				{ varsIgnorePattern: '^_', argsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' }
 			]
 		}
 	},
@@ -54,7 +54,7 @@ export default ts.config(
 		rules: {
 			'@typescript-eslint/no-unused-vars': [
 				'error',
-				{ varsIgnorePattern: '^_', argsIgnorePattern: '^_' }
+				{ varsIgnorePattern: '^_', argsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' }
 			],
 			'svelte/no-navigation-without-resolve': 'off'
 		}
@@ -76,7 +76,7 @@ export default ts.config(
 			indent: ['error', 2],
 			'@typescript-eslint/no-unused-vars': [
 				'error',
-				{ varsIgnorePattern: '^_', argsIgnorePattern: '^_' }
+				{ varsIgnorePattern: '^_', argsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' }
 			],
 			'@typescript-eslint/no-explicit-any': 'warn'
 		}

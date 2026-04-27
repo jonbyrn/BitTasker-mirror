@@ -80,9 +80,16 @@ export interface ServiceAcceptanceConfirmedMonitorEntry {
 const ledger = new Map<string, ServiceAcceptanceLedgerEntry>();
 const replayLedger = new Map<string, ServiceAcceptanceReplayEntry>();
 const confirmedMonitorLedger = new Map<string, ServiceAcceptanceConfirmedMonitorEntry>();
+
+// Mutex for atomic ledger operations to prevent race conditions
+// Uses promise chaining with proper completion tracking to prevent concurrent access
+const ledgerMutex = new Map<string, Promise<ServiceAcceptanceLedgerEntry>>();
+const MAX_LEDGER_ATTEMPTS = 10;
+
 const SERVICE_ACCEPTANCE_REPLAY_STORAGE_KEY = 'bittasker.service-acceptance-replay';
 const SERVICE_ACCEPTANCE_CONFIRMED_MONITOR_STORAGE_KEY =
 	'bittasker.service-acceptance-confirmed-monitor';
+const SERVICE_ACCEPTANCE_LEDGER_STORAGE_KEY = 'bittasker.service-acceptance-ledger';
 const DEFAULT_REPLAY_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 export const SERVICE_ACCEPTANCE_REPLAY_RETRY_INTERVAL_MS = 30_000;
 export const SERVICE_ACCEPTANCE_REPLAY_MAX_ATTEMPTS = 20;
@@ -419,11 +426,117 @@ async function hydrateConfirmedMonitorLedger(): Promise<void> {
 	}
 }
 
+async function readLedgerState(): Promise<Record<string, ServiceAcceptanceLedgerEntry>> {
+	if (!browser) {
+		return {};
+	}
+
+	try {
+		const { value: raw } = await Preferences.get({ key: SERVICE_ACCEPTANCE_LEDGER_STORAGE_KEY });
+		if (!raw) {
+			return {};
+		}
+
+		const parsed = JSON.parse(raw) as Record<string, unknown>;
+		const nextState: Record<string, ServiceAcceptanceLedgerEntry> = {};
+		let mutated = false;
+
+		for (const [proposalId, value] of Object.entries(parsed)) {
+			const entry = sanitizeLedgerEntry(value);
+			if (!entry || entry.proposalId !== proposalId) {
+				mutated = true;
+				continue;
+			}
+
+			nextState[proposalId] = entry;
+		}
+
+		if (mutated) {
+			await persistLedgerState(nextState);
+		}
+
+		return nextState;
+	} catch {
+		try {
+			await Preferences.remove({ key: SERVICE_ACCEPTANCE_LEDGER_STORAGE_KEY });
+		} catch {
+			// Ignore storage cleanup failures; callers fall back to in-memory state.
+		}
+		return {};
+	}
+}
+
+async function persistLedgerState(state: Record<string, ServiceAcceptanceLedgerEntry>): Promise<void> {
+	if (!browser) {
+		return;
+	}
+
+	try {
+		if (Object.keys(state).length === 0) {
+			await Preferences.remove({ key: SERVICE_ACCEPTANCE_LEDGER_STORAGE_KEY });
+			return;
+		}
+
+		await Preferences.set({
+			key: SERVICE_ACCEPTANCE_LEDGER_STORAGE_KEY,
+			value: JSON.stringify(state)
+		});
+	} catch {
+		// Ignore storage persistence failures; in-memory ledger remains active for this session.
+	}
+}
+
+function sanitizeLedgerEntry(raw: unknown): ServiceAcceptanceLedgerEntry | null {
+	if (!raw || typeof raw !== 'object') {
+		return null;
+	}
+
+	const candidate = raw as Record<string, unknown>;
+
+	if (
+		typeof candidate.proposalId !== 'string' ||
+		typeof candidate.state !== 'string' ||
+		typeof candidate.attemptCount !== 'number' ||
+		typeof candidate.lastUpdatedAt !== 'number'
+	) {
+		return null;
+	}
+
+	const validStates: ServiceAcceptanceLedgerState[] = [
+		'accepting',
+		'accepted',
+		'accept_failed',
+		'accept_unknown'
+	];
+	if (!validStates.includes(candidate.state as ServiceAcceptanceLedgerState)) {
+		return null;
+	}
+
+	const attempts = Array.isArray(candidate.attempts) ? candidate.attempts : [];
+
+	return {
+		proposalId: candidate.proposalId,
+		state: candidate.state as ServiceAcceptanceLedgerState,
+		attemptCount: candidate.attemptCount,
+		lastUpdatedAt: candidate.lastUpdatedAt,
+		attempts: attempts as ServiceAcceptanceLedgerAttempt[]
+	};
+}
+
+async function hydrateLedger(): Promise<void> {
+	const persisted = await readLedgerState();
+	ledger.clear();
+	for (const entry of Object.values(persisted)) {
+		ledger.set(entry.proposalId, entry);
+	}
+}
+
 export function getAcceptanceLedgerEntry(proposalId: string): ServiceAcceptanceLedgerEntry | null {
 	return ledger.get(proposalId) ?? null;
 }
 
-export function upsertAcceptanceLedgerEntry(
+// Internal synchronous upsert without mutex/persistence for internal use
+function upsertAcceptanceLedgerEntrySync(
 	proposalId: string,
 	state: ServiceAcceptanceLedgerState,
 	options: {
@@ -455,12 +568,97 @@ export function upsertAcceptanceLedgerEntry(
 	return entry;
 }
 
+// Public async version with mutex and persistence
+export async function upsertAcceptanceLedgerEntry(
+	proposalId: string,
+	state: ServiceAcceptanceLedgerState,
+	options: {
+		reasonCode?: ServiceAcceptanceUnknownReasonCode;
+		transactionHash?: string;
+		timestamp?: number;
+	} = {}
+): Promise<ServiceAcceptanceLedgerEntry> {
+	// Ensure ledger is hydrated
+	await hydrateLedger();
+
+	// Capture current mutex chain BEFORE any await to prevent race condition
+	// This ensures we chain onto the correct promise even if another call completes first
+	const prevChain = ledgerMutex.get(proposalId) ?? Promise.resolve<ServiceAcceptanceLedgerEntry>();
+
+	// Chain new operation after previous mutex chain
+	// We store the result promise so next caller chains off THIS operation's completion
+	const newChain = prevChain.then(async () => {
+		const timestamp = options.timestamp ?? Math.floor(Date.now() / 1000);
+		const current = ledger.get(proposalId);
+
+		// Check max attempts
+		const attemptNumber = (current?.attemptCount ?? 0) + 1;
+		if (attemptNumber > MAX_LEDGER_ATTEMPTS) {
+			return Promise.reject(
+				new Error(
+					`Acceptance ledger maximum attempts (${MAX_LEDGER_ATTEMPTS}) exceeded for proposal ${proposalId}`
+				)
+			);
+		}
+
+		const entry: ServiceAcceptanceLedgerEntry = {
+			proposalId,
+			state,
+			attemptCount: attemptNumber,
+			lastUpdatedAt: timestamp,
+			attempts: [
+				...(current?.attempts ?? []),
+				{
+					attemptNumber,
+					state,
+					reasonCode: options.reasonCode,
+					transactionHash: options.transactionHash,
+					timestamp
+				}
+			]
+		};
+
+		ledger.set(proposalId, entry);
+
+		// Persist to storage
+		const nextState = await readLedgerState();
+		nextState[proposalId] = entry;
+		await persistLedgerState(nextState);
+
+		return entry;
+	});
+
+	// Store chain BEFORE any await - this prevents race condition
+	ledgerMutex.set(proposalId, newChain);
+
+	// Wait for this operation to complete - errors propagate correctly
+	try {
+		const result = await newChain;
+		// Clean up mutex only if this is still the current chain
+		// This prevents accidentally removing a newer operation's mutex
+		if (ledgerMutex.get(proposalId) === newChain) {
+			ledgerMutex.delete(proposalId);
+		}
+		return result;
+	} catch (error) {
+		// Clean up mutex on error
+		if (ledgerMutex.get(proposalId) === newChain) {
+			ledgerMutex.delete(proposalId);
+		}
+		throw error;
+	}
+}
+
+// Re-export sync version for internal use
+export { upsertAcceptanceLedgerEntrySync };
+
 export async function clearAcceptanceLedger(): Promise<void> {
 	ledger.clear();
 	replayLedger.clear();
 	confirmedMonitorLedger.clear();
 	await persistReplayState({});
 	await persistConfirmedMonitorState({});
+	await persistLedgerState({});
 }
 
 export async function getAcceptanceReplayEntry(
@@ -495,7 +693,6 @@ export async function upsertAcceptanceReplayEntry(
 	const serviceAddress = normalizeNonEmptyString(input.serviceAddress);
 	const counterpartyPubkey = normalizeNonEmptyString(input.counterpartyPubkey);
 	const transactionHash = normalizeNonEmptyString(input.transactionHash)?.toLowerCase();
-	const nowMs = Math.floor(Date.now());
 
 	if (
 		!escrowId ||
@@ -520,8 +717,8 @@ export async function upsertAcceptanceReplayEntry(
 		serviceAddress,
 		counterpartyPubkey,
 		transactionHash,
-		createdAtMs: current?.createdAtMs ?? input.createdAtMs ?? nowMs,
-		lastUpdatedAtMs: input.lastUpdatedAtMs ?? nowMs,
+		createdAtMs: current?.createdAtMs ?? input.createdAtMs ?? Math.floor(Date.now()),
+		lastUpdatedAtMs: input.lastUpdatedAtMs ?? Math.floor(Date.now()),
 		attemptCount: input.attemptCount ?? (current?.attemptCount ?? 0) + 1,
 		acceptanceSnapshot: input.acceptanceSnapshot ?? current?.acceptanceSnapshot
 	};

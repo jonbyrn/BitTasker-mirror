@@ -226,4 +226,33 @@ describe('waitForContractCreationByTransactionHash', () => {
 			'Timeout must be a positive number of milliseconds.'
 		);
 	});
+
+	describe('normalizeTransactionHash', () => {
+		it('trims whitespace from transaction hash', async () => {
+			const { normalizeTransactionHash } = await import(
+				'$lib/utils/service-contract/await-contract-creation'
+			);
+
+			const result = normalizeTransactionHash('  0xabc123  ');
+			expect(result).toBe('0xabc123');
+		});
+
+		it('normalizes transaction hash to lowercase', async () => {
+			const { normalizeTransactionHash } = await import(
+				'$lib/utils/service-contract/await-contract-creation'
+			);
+
+			const result = normalizeTransactionHash('0xABC123DEF456');
+			expect(result).toBe('0xabc123def456');
+		});
+
+		it('handles empty string edge case', async () => {
+			const { normalizeTransactionHash } = await import(
+				'$lib/utils/service-contract/await-contract-creation'
+			);
+
+			const result = normalizeTransactionHash('');
+			expect(result).toBe('');
+		});
+	});
 });

@@ -70,6 +70,4 @@ scripts/ignored/*
 
 # Local swarm state
 .swarm/
-
-# Temporary local development ignored file
-src/lib/utils/nostrKeys.ts
+.gitnexus

@@ -16,9 +16,21 @@ export function normalizeServiceContractSchedule(
 	if (
 		!Number.isFinite(estimatedStartTime) ||
 		!Number.isFinite(estimatedCompletionTime) ||
-		estimatedCompletionTime <= estimatedStartTime ||
-		estimatedStartTime > nowSeconds
+		estimatedCompletionTime <= estimatedStartTime
 	) {
+		if (estimatedCompletionTime <= estimatedStartTime) {
+			estimatedCompletionTime = estimatedStartTime + 1;
+		}
+		return {
+			estimatedStartTime,
+			estimatedCompletionTime,
+			startWasAdjusted: false,
+			originalStartTime: estimatedStartTime,
+			originalCompletionTime: estimatedCompletionTime
+		};
+	}
+
+	if (estimatedStartTime > nowSeconds) {
 		return {
 			estimatedStartTime,
 			estimatedCompletionTime,
