@@ -302,9 +302,25 @@ export class PaymentContractRune implements PaymentContractRuneLike {
 		this.optimisticBlockchainStatus = ContractStatus.Funded;
 		d.log('resolvePaymentIdFromTxHash: waiting tx confirmation', { txHash });
 
+		const TIMEOUT_MS = 180000; // 3 minutes
+
 		try {
 			const provider = await getProvider('rsk');
-			const receipt = await provider.waitForTransaction(txHash);
+
+			const timeoutPromise = new Promise<never>((_, reject) => {
+				setTimeout(
+					() =>
+						reject(
+							new Error(
+								'Transaction confirmation timed out after 3 minutes. The blockchain may be experiencing delays. You can wait longer or check your transaction status on the explorer.'
+							)
+						),
+					TIMEOUT_MS
+				);
+			});
+
+			const receipt = await Promise.race([provider.waitForTransaction(txHash), timeoutPromise]);
+
 			if (!receipt) {
 				throw new Error('Transaction receipt not available');
 			}
