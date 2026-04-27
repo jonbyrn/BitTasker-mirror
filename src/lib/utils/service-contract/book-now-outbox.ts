@@ -5,7 +5,7 @@ export interface StorageLike {
 }
 
 export const BOOK_NOW_OUTBOX_STORAGE_KEY = 'bittasker.book-now-outbox.v1';
-export const DEFAULT_BOOK_NOW_SUBMISSION_LOCK_TTL_MS = 2 * 60 * 1000;
+export const DEFAULT_BOOK_NOW_SUBMISSION_LOCK_TTL_MS = 5 * 60 * 1000;
 export const DEFAULT_BOOK_NOW_RECOVERABLE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
 export type BookNowOutboxState =
@@ -320,7 +320,7 @@ export function acquireBookNowSubmissionLock(
 				if (
 					reloadedEntry &&
 					(reloadedEntry.updatedAtMs !== originalUpdatedAtMs ||
-					 reloadedEntry.lockExpiresAtMs !== existingEntry.lockExpiresAtMs)
+						reloadedEntry.lockExpiresAtMs !== existingEntry.lockExpiresAtMs)
 				) {
 					// Entry was modified by another process - abort
 					return {
@@ -468,9 +468,7 @@ export function updateBookNowOutboxEntry(
 				? undefined
 				: (normalizeOptionalString(input.escrowId) ?? existingEntry?.escrowId),
 		needsCleanup:
-			input.needsCleanup === null
-				? undefined
-				: (input.needsCleanup ?? existingEntry?.needsCleanup)
+			input.needsCleanup === null ? undefined : (input.needsCleanup ?? existingEntry?.needsCleanup)
 	};
 
 	snapshot.entries[normalizedFingerprint] = nextEntry;
