@@ -60,6 +60,8 @@
 					"no_description_available": "No description available",
 					"at_provider_location": "At provider location",
 					"travels_to_you": "Travels to you",
+					"at_taskee_location": "At Taskee Location",
+					"at_my_location": "At My Location",
 					"provider_fallback": "BitTasker provider",
 					"untitled_service": "Untitled Service",
 					"professional_service": "Professional service"
