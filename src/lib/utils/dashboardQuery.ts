@@ -126,7 +126,55 @@ export function parseDashboardQuery(url: URL): DashboardQueryState {
 }
 
 export function parseEarningQuery(url: URL): EarningQueryState {
-	// Extract tab from path first (new path-based routing: /earning/bids)
+	const rawTab = url.searchParams.get('tab');
+	const rawView = url.searchParams.get('view');
+	const decodedService = decodeSearchParam(url.searchParams.get('service'));
+	const rawRequest = url.searchParams.get('request');
+
+	let tab: EarningTab = 'bids';
+
+	if (VALID_EARNING_TABS.has(rawTab as EarningTab)) {
+		tab = rawTab as EarningTab;
+	}
+
+	if (
+		rawTab === 'my-services' &&
+		(rawView === 'service-requests' || decodedService !== null || rawRequest !== null)
+	) {
+		tab = 'requests';
+	} else if (rawTab === 'service-requests') {
+		tab = 'requests';
+	}
+
+	const state: EarningQueryState = {
+		tab,
+		service: decodedService,
+		request: rawRequest,
+		highlight: url.searchParams.get('highlight'),
+		status: url.searchParams.get('status'),
+		bidStatus: url.searchParams.get('bidStatus')
+	};
+
+	// Validate service and request for requests tab
+	if (tab === 'requests') {
+		if (decodedService !== null && !isValidServiceAddress(decodedService)) {
+			state.service = null;
+		}
+		if (rawRequest !== null && !isValidQuoteRequestId(rawRequest)) {
+			state.request = null;
+		}
+	}
+
+	if (tab === 'contracts') {
+		const type = url.searchParams.get('type');
+		state.type = type === 'tasks' || type === 'services' ? type : 'all';
+	}
+
+	return state;
+}
+
+export function parseEarningQueryV2(url: URL): EarningQueryState {
+	// Extract tab from path first (will be used for sub paths routes like /earning/..)
 	// Fall back to query param for backward compatibility
 	const pathSegments = url.pathname.split('/').filter(Boolean);
 	let tab: EarningTab = 'bids';
@@ -151,7 +199,6 @@ export function parseEarningQuery(url: URL): EarningQueryState {
 		}
 	}
 
-	const _rawView = url.searchParams.get('view');
 	const decodedService = decodeSearchParam(url.searchParams.get('service'));
 	const rawRequest = url.searchParams.get('request');
 
@@ -249,6 +296,34 @@ export function buildDashboardQueryUrl(baseUrl: URL, state: DashboardQueryState)
 }
 
 export function buildEarningQueryUrl(baseUrl: URL, state: EarningQueryState): string {
+	const url = new URL(baseUrl.toString());
+	url.search = '';
+	url.searchParams.set('tab', state.tab);
+
+	if (state.tab === 'contracts') {
+		url.searchParams.set('type', state.type ?? 'all');
+		if (state.highlight) {
+			url.searchParams.set('highlight', state.highlight);
+		}
+	}
+
+	if (state.service) {
+		url.searchParams.set('service', state.service);
+	}
+	if (state.request) {
+		url.searchParams.set('request', state.request);
+	}
+	if (state.status) {
+		url.searchParams.set('status', state.status);
+	}
+	if (state.bidStatus) {
+		url.searchParams.set('bidStatus', state.bidStatus);
+	}
+
+	return url.toString();
+}
+
+export function buildEarningQueryUrlV2(baseUrl: URL, state: EarningQueryState): string {
 	// Build path-based URL: /earning/{tab} instead of /earning?tab={tab}
 	const url = new URL(`/earning/${state.tab}`, baseUrl.origin);
 

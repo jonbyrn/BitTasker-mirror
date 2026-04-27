@@ -4,7 +4,6 @@ import {
 	buildServicesWorkspaceQueryUrl,
 	isValidQuoteRequestId,
 	isValidServiceAddress,
-	parseDashboardQuery,
 	parseServicesWorkspaceQuery,
 	type ServicesWorkspaceTab
 } from '$lib/utils/dashboardQuery';
@@ -209,28 +208,4 @@ export function createServicesWorkspaceUrl(
 	);
 
 	return createServicesWorkspaceRedirectUrl(legacyWorkspaceUrl);
-}
-
-export function createServicesWorkspaceRedirectUrlFromLegacyDashboard(baseUrl: URL): URL | null {
-	const parsed = parseDashboardQuery(baseUrl);
-	if (parsed.tab !== 'my-services' || !parsed.service) {
-		return null;
-	}
-
-	const rawView = baseUrl.searchParams.get('view');
-	const isQuotesView =
-		parsed.view === 'service-requests' ||
-		parsed.view === 'quotes' ||
-		rawView === 'service-requests' ||
-		rawView === 'quotes';
-
-	if (!isQuotesView) {
-		return null;
-	}
-
-	return createServicesWorkspaceUrl(new URL('/earning', baseUrl), {
-		tab: 'service-requests',
-		serviceAddress: parsed.service,
-		requestId: parsed.request ?? null
-	});
 }
