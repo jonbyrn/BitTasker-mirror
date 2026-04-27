@@ -10,7 +10,7 @@
 				"showing_services": "Mostrando {count} servicio{count, plural, =1 {} other {s}}",
 				"view_service": "Ver Servicio",
 				"view": "Ver",
-				"quote": "Cotizar",
+				"quote": "Consultar",
 				"share_service": "Compartir servicio",
 				"view_map": "Ver mapa",
 				"view_list": "Ver lista",
