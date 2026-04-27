@@ -6,8 +6,8 @@
 	import IconCheckCircle from '~icons/mdi/check-circle';
 	import IconLoading from '~icons/mdi/loading';
 	import IconClose from '~icons/mdi/close';
-	// COMMENTED OUT: Unused icon (no longer monitoring for errors)
-	// import IconAlertCircle from '~icons/mdi/alert-circle';
+	// Error icon
+	import IconAlertCircle from '~icons/mdi/alert-circle';
 	import IconOpenInNew from '~icons/mdi/open-in-new';
 	import { fade, scale } from 'svelte/transition';
 
@@ -321,7 +321,13 @@
 					textColor: 'text-success',
 					title: $t('wallet.send.status.success')
 				};
-			// COMMENTED OUT: Error status (no longer monitoring for errors)
+			case 'error':
+				return {
+					color: 'error',
+					bgColor: 'bg-error/20',
+					textColor: 'text-error',
+					title: $t('wallet.send.status.error')
+				};
 			// Default case to handle any other status (shouldn't happen, but TypeScript needs it)
 			default:
 				return {
@@ -490,11 +496,9 @@
 					<IconClockOutline class="h-[77px] w-[77px] sm:h-[102px] sm:w-[102px]" />
 				{:else if status === 'success'}
 					<IconCheckCircle class="h-[77px] w-[77px] sm:h-[102px] sm:w-[102px]" />
-				{/if}
-				<!-- COMMENTED OUT: Error icon (no longer monitoring for errors) -->
-				<!-- {:else if status === 'error'}
+				{:else if status === 'error'}
 					<IconAlertCircle class="h-[77px] w-[77px] sm:h-[102px] sm:w-[102px]" />
-				-->
+				{/if}
 			</div>
 			<div class="space-y-2 text-center">
 				<h3
@@ -515,8 +519,11 @@
 					<p class="text-base-content/70 text-xs sm:text-sm">
 						{$t('wallet.send.status.confirmed')}
 					</p>
+				{:else if status === 'error'}
+					<p class="text-error text-xs sm:text-sm">
+						{__errorMessage || $t('wallet.send.status.error')}
+					</p>
 				{/if}
-				<!-- COMMENTED OUT: Error message and confirmations display (no longer monitoring) -->
 			</div>
 		</div>
 
