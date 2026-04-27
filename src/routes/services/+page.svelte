@@ -1002,7 +1002,7 @@
 										{$t('dashboard.services.browse.no_more_services')}
 									</div>
 								{/if}
-							{:else if dataLoaded && $servicesStore.items.length === 0}
+							{:else if dataLoaded && $servicesStore.items.length === 0 && !$servicesStore.loading}
 								<!-- Empty State -->
 								<div class="flex flex-col items-center justify-center py-12">
 									<svg
