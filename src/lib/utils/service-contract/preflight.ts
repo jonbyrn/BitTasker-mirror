@@ -19,7 +19,6 @@ import { walletManager, walletStore } from '$lib/stores/wallet.store';
 import { initContract } from '$lib/utils/contract';
 import { getSecurePaymentContractAddress } from '$lib/utils/contract/v2/contractAddress';
 import { extractContractError } from '$lib/utils/wallet/contractErrorHandler';
-import { convertUsdAmountToRbtc } from '$lib/utils/currency';
 import { ethers } from 'ethers';
 import { nip19 } from 'nostr-tools';
 import { get } from 'svelte/store';
@@ -382,7 +381,8 @@ export async function preflightServiceContractCreation(
 
 		const baseAmountWei = ethers.parseEther(amount);
 		const gasReimbursementWei = 2n * GAS_REIMBURSEMENT_PER_OP;
-		const totalPaymentWei = calculateTotalPayment(baseAmountWei, DEFAULT_CLIENT_FEE_TIER) + gasReimbursementWei;
+		const totalPaymentWei =
+			calculateTotalPayment(baseAmountWei, DEFAULT_CLIENT_FEE_TIER) + gasReimbursementWei;
 		const feeData = await provider.getFeeData();
 		const gasPrice = feeData.gasPrice ?? 0n;
 

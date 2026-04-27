@@ -16,7 +16,6 @@ import {
 	type ServiceContractCreationInputV2
 } from '$lib/utils/contract/v2/service-creation';
 import { extractContractError } from '$lib/utils/wallet/contractErrorHandler';
-import { convertUsdAmountToRbtc } from '$lib/utils/currency';
 import type {
 	ServiceContractAgreementSnapshot,
 	ServiceContractPricingSnapshot
