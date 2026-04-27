@@ -400,7 +400,11 @@
 			return '';
 		}
 
-		return `$${formatNumberWithTwoDecimals(instantBuyFundingCheck.totalRequiredUsd)}`;
+		const value = instantBuyFundingCheck.totalRequiredUsd;
+		if (value < 0) {
+			return `- $${formatNumberWithTwoDecimals(Math.abs(value))}`;
+		}
+		return `$${formatNumberWithTwoDecimals(value)}`;
 	});
 
 	let instantBuyDraft = $state<InstantBuyDraft | null>(null);
@@ -1370,7 +1374,10 @@
 			clearPendingServiceDelete(service.id);
 
 			appStore.showSuccessToast(
-				detailText('dashboard.services.detail.delete_success', 'Service deleted successfully.')
+				detailText(
+					'dashboard.services.detail.delete_service_messages.success',
+					'Service deleted successfully.'
+				)
 			);
 
 			goto('/dashboard?tab=my-services');
@@ -1378,7 +1385,10 @@
 			console.error('[ServiceDetailsView] Failed to delete service', error);
 			clearPendingServiceDelete(service.id);
 			appStore.showErrorToast(
-				detailText('dashboard.services.detail.delete_error', 'Unable to delete service listing.')
+				detailText(
+					'dashboard.services.detail.delete_service_messages.delete_error',
+					'Unable to delete service listing.'
+				)
 			);
 		} finally {
 			deleteSubmitting = false;
