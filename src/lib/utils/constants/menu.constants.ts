@@ -152,27 +152,27 @@ export const LOGGED_IN_MENU_SECTIONS: MenuSection[] = [
 			{
 				label: 'navbar.bids_sent',
 				icon: IconInvoiceTextSendOutline,
-				href: '/earning/bids'
+				href: '/earning?tab=bids'
 			},
 			{
 				label: 'navbar.requests',
 				icon: IconCommentTextOutline,
-				href: '/earning/requests'
+				href: '/earning?tab=requests'
 			},
 			{
 				label: 'navbar.contracts',
 				icon: IconFileSign,
-				href: '/earning/contracts'
+				href: '/earning?tab=contracts'
 			},
 			{
 				label: 'navbar.my_services',
 				icon: IconBriefcaseSearch,
-				href: '/earning/my-services'
+				href: '/earning?tab=my-services'
 			},
 			{
 				label: 'navbar.saved_searches',
 				icon: IconMagnify,
-				href: '/earning/saved-searches'
+				href: '/earning?tab=saved-searches'
 			}
 		]
 	},

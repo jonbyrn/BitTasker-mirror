@@ -12,11 +12,11 @@ const primaryRoutes = [
 	'/dashboard/profile',
 	'/dashboard/settings',
 	'/earning',
-	'/earning/bids',
-	'/earning/requests',
-	'/earning/contracts',
-	'/earning/my-services',
-	'/earning/saved-searches',
+	'/earning?tab=bids',
+	'/earning?tab=requests',
+	'/earning?tab=contracts',
+	'/earning?tab=my-services',
+	'/earning?tab=saved-searches',
 	'/how-it-works'
 ];
 
@@ -36,8 +36,8 @@ function isSubPage(path: string): boolean {
 		return segments.length > 2;
 	}
 
-	// Check if it's an earning sub-page (e.g., /earning/requests?service=X)
-	if (path.startsWith('/earning/')) {
+	// Check if it's an earning sub-page
+	if (path.startsWith('/earning')) {
 		return segments.length > 2;
 	}
 

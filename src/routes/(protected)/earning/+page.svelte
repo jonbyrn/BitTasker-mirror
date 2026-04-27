@@ -69,14 +69,16 @@
 				),
 				buttonHref: '/dashboard/create-service',
 				icon: 'plus'
-			},
-			{
-				id: 'saved-searches',
-				label: translateOrFallback(translate, 'dashboard.tabs.saved_searches', 'Alerts'),
-				buttonLabel: translateOrFallback(translate, 'dashboard.find_task', 'Find Tasks'),
-				buttonHref: '/tasks',
-				icon: 'search'
 			}
+			// TODO:
+			// Disabled because it's falling back to bids tab
+			// {
+			// 	id: 'saved-searches',
+			// 	label: translateOrFallback(translate, 'dashboard.tabs.saved_searches', 'Alerts'),
+			// 	buttonLabel: translateOrFallback(translate, 'dashboard.find_task', 'Find Tasks'),
+			// 	buttonHref: '/tasks',
+			// 	icon: 'search'
+			// }
 		];
 	});
 
