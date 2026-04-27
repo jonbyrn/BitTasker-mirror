@@ -3,7 +3,6 @@
 	import type { Attachment, Location } from '$lib/types/task.d';
 	import { t, locale } from 'svelte-i18n';
 	import { goto } from '$app/navigation';
-	import { resolve } from '$app/paths';
 	import {
 		getServiceDisplayTitle,
 		getServiceDisplayDescription
@@ -11,19 +10,10 @@
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { satsFromUsd } from '$lib/utils/helpers/crypto';
 	import { ServicePricingTypeEnum, ServiceLocationTypeEnum } from '$lib/utils/enums/service.enum';
-	import Avatar from '../Avatar.svelte';
 	import ServiceShareButton from './ServiceShareButton.svelte';
 	import IconEye from '~icons/mdi/eye';
 	import IconPlus from '~icons/mdi/plus';
-
-	const LOCATION_LABELS: Record<ServiceLocationTypeEnum, string> = {
-		[ServiceLocationTypeEnum.REMOTE]:
-			$t('dashboard.services.create.location.remote_title') || 'Remote',
-		[ServiceLocationTypeEnum.TASKER_LOCATION]:
-			$t('dashboard.services.create.location.tasker_title') || 'At My Location',
-		[ServiceLocationTypeEnum.TASKEE_LOCATION]:
-			$t('dashboard.services.create.location.taskee_title') || 'At Tasker Location'
-	};
+	import UserInfoDisplay from '$lib/components/user/UserInfoDisplay.svelte';
 
 	const {
 		service,
@@ -50,14 +40,21 @@
 	);
 	const showRequestQuoteButton = $derived(isInquiryRequired && !!onRequestQuote && canRequestQuote);
 
-	function formatMemberSince(timestamp: number): string {
-		try {
-			const date = new Date(timestamp * 1000);
-			return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-		} catch {
-			return '';
-		}
-	}
+	// Display title and description in current locale (reactive to language switch)
+	const currentLocale = $derived($locale || 'en');
+	const displayTitle = $derived(getServiceDisplayTitle(service, currentLocale));
+	const displayDescription = $derived(getServiceDisplayDescription(service, currentLocale));
+
+	let currentImageIndex = $state(0);
+
+	const LOCATION_LABELS: Record<ServiceLocationTypeEnum, string> = {
+		[ServiceLocationTypeEnum.REMOTE]:
+			$t('dashboard.services.create.location.remote_title') || 'Remote',
+		[ServiceLocationTypeEnum.TASKER_LOCATION]:
+			$t('dashboard.services.create.location.tasker_title') || 'At My Location',
+		[ServiceLocationTypeEnum.TASKEE_LOCATION]:
+			$t('dashboard.services.create.location.taskee_title') || 'At Tasker Location'
+	};
 
 	// Helper function to get pricing display
 	function getPricingDisplay(): string {
@@ -167,7 +164,7 @@
 			onSelectServiceForMap(service);
 		} else {
 			const serviceIdentifier = service.uniqueId || service.id;
-			goto(resolve(`/services/${serviceIdentifier}`));
+			goto(`/services/${serviceIdentifier}`);
 		}
 		if (onclick) {
 			onclick();
@@ -192,16 +189,6 @@
 		}
 		return [];
 	});
-
-	let currentImageIndex = $state(0);
-
-	// Get rating (hardcoded if not available)
-	let rating = $derived(service.creator?.rating || 0);
-
-	// Display title and description in current locale (reactive to language switch)
-	const currentLocale = $derived($locale || 'en');
-	const displayTitle = $derived(getServiceDisplayTitle(service, currentLocale));
-	const displayDescription = $derived(getServiceDisplayDescription(service, currentLocale));
 </script>
 
 <div
@@ -390,47 +377,14 @@
 
 		<!-- Bottom Row: Avatar + Ver (abajo - matches TaskCard) -->
 		<div class="mt-auto flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-			{#if service.creator}
-				<div class="flex min-w-0 flex-1 items-center gap-3">
-					{#if service.creator.avatar}
-						<Avatar name={service.creator.username} picture={service.creator.avatar} size="md" />
-					{:else}
-						<Avatar name={service.creator.username} size="md" />
-					{/if}
-					<div class="min-w-0 flex-1">
-						<div class="text-base-content truncate text-sm font-medium">
-							{service.creator.username}
-						</div>
-						{#if service.createdAt}
-							<div class="text-base-content/60 text-xs">
-								{$t('common.profile.member_since')}
-								{formatMemberSince(service.createdAt)}
-							</div>
-						{/if}
-						<div
-							class="flex items-center gap-1.5"
-							aria-label="Rating: {rating.toFixed(1)} out of 5 stars"
-						>
-							{#each [0, 1, 2, 3, 4] as idx (idx)}
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									class="text-base-content/40 h-3 w-3"
-									fill="currentColor"
-									viewBox="0 0 24 24"
-									aria-hidden="true"
-								>
-									<path
-										d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
-									/>
-								</svg>
-							{/each}
-							<span class="text-base-content/60 text-xs">{rating.toFixed(1)}</span>
-						</div>
-					</div>
-				</div>
-			{:else}
-				<div class="flex-1"></div>
-			{/if}
+			<UserInfoDisplay
+				avatar={service.creator?.avatar}
+				username={service.creator?.username}
+				rating={service.creator?.rating || 0}
+				size="sm"
+				pubkey={service.npub}
+				memberSince={service.createdAt}
+			/>
 			<div class="flex w-full shrink-0 items-center gap-2 md:w-auto">
 				{#if showRequestQuoteButton}
 					<button
@@ -450,7 +404,7 @@
 					onclick={(e) => {
 						e.stopPropagation();
 						const serviceIdentifier = service.uniqueId || service.id;
-						goto(resolve(`/services/${serviceIdentifier}`));
+						goto(`/services/${serviceIdentifier}`);
 					}}
 					aria-label={$t('dashboard.services.browse.view')}
 				>
