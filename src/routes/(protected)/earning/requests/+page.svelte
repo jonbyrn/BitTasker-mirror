@@ -18,7 +18,11 @@
 		}
 	}
 
-	function translateOrFallback(translate: (key: string) => string, key: string, fallback: string): string {
+	function translateOrFallback(
+		translate: (key: string) => string,
+		key: string,
+		fallback: string
+	): string {
 		const translated = translate(key);
 		return translated === key ? fallback : translated;
 	}
@@ -66,6 +70,7 @@
 			if (pendingMessageCode !== null) {
 				serviceQuoteUiStore.setNonBlockingMessage(null);
 			}
+			// eslint-disable-next-line svelte/prefer-svelte-reactivity
 			const params = new URLSearchParams();
 			if (selectedServiceAddress) params.set('service', selectedServiceAddress);
 			if (update.requestId) params.set('request', update.requestId);
@@ -80,6 +85,7 @@
 
 		nonBlockingMessageCode = null;
 		clearRequestsRouteMessage();
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
 		const params = new URLSearchParams();
 		params.set('service', update.serviceAddress);
 		if (update.requestId) params.set('request', update.requestId);
@@ -104,11 +110,7 @@
 	</div>
 {/if}
 
-<div
-	id="panel-requests"
-	role="tabpanel"
-	aria-labelledby="tab-requests"
->
+<div id="panel-requests" role="tabpanel" aria-labelledby="tab-requests">
 	<DashboardServiceRequestsPanel
 		{status}
 		{selectedServiceAddress}
