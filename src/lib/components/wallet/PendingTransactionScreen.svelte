@@ -416,7 +416,7 @@
 					estimatedTimeRemaining = 0;
 				} else {
 					// Transaction was reverted
-					status = 'failed';
+					status = 'error';
 					__errorMessage = 'Transaction failed on-chain';
 				}
 				stopPolling();
