@@ -2,6 +2,42 @@
 
 This document outlines how service-related business logic currently embedded in the `escrow v1` implementation should be integrated into the new NDK-based `contract` implementation. It separates business logic from UI concerns and provides a clear path forward for portability.
 
+---
+
+## 🎯 Source of Truth Clarification (April 27, 2026)
+
+### The `@src/lib/utils/contract` folder is THE SOURCE OF TRUTH
+
+| Concept | Location | Role |
+|---------|----------|------|
+| **Contract Status (Blockchain)** | `contract/types.ts` | `ContractStatus` enum (Funded=0, InDispute=1, etc.) |
+| **Version-Agnostic Lifecycle** | `contract/lifecycle/index.ts` | `getPaymentContractLifecycle(version)` |
+| **V2 Service Creation** | `contract/v2/service-creation.ts` | `createServiceContract()` |
+| **V2 Task Creation** | `contract/v2/creation.ts` | `createContract()` |
+| **Reactive State Management** | `runes/contractRune.svelte.ts` | `PaymentContractRune` |
+
+### BookNowOutboxState is SEPARATE (Client-Side UI Only)
+
+| Concept | Location | Role |
+|---------|----------|------|
+| **BookNowOutboxState** | `service-contract/book-now-outbox.ts` | Local storage persistence for browser session recovery |
+
+**Valid `BookNowOutboxState` values:** `submission_locked`, `funding_submitted`, `contract_sync_pending`, `contract_ready`
+
+**This is NOT `ContractStatus`** - they serve different purposes:
+- `BookNowOutboxState`: Tracks UI flow for recovery after browser refresh
+- `ContractStatus`: Tracks actual blockchain state
+
+### Version-Agnostic Principle
+
+- **Services will use v2** (latest version, since services aren't released yet)
+- **Code must be version-agnostic** for future v3, v4 support
+- **UI code should NOT import from** `contract/v1/*` or `contract/v2/*` directly
+- **Use abstraction layer**: `PaymentContractLifecycle`, `PaymentContractRune`
+- **Service creation**: Call `createServiceContract()` from `service-contract/create.ts` (which delegates to v2)
+
+---
+
 ## Executive Summary
 
 The analysis identified **three categories** of service-related code in the escrow implementation:
@@ -22,12 +58,14 @@ After comparing the service-related code with the v2/NDK contract implementation
 
 The `PaymentContractRune` in `src/lib/runes/contractRune.svelte.ts` provides:
 
-| Feature | V2/NDK Implementation | Service V1 Implementation | Verdict |
-|---------|----------------------|---------------------------|---------|
-| **Pending state tracking** | `isPending` state + `optimisticBlockchainStatus` | `acceptance-ledger.ts` with 680+ lines | **REDUNDANT** |
-| **Transaction confirmation** | `resolvePaymentIdFromTxHash()` + `awaitStatusTxThenReload()` | `finality.ts` with polling + retry logic | **REDUNDANT** |
-| **Status events** | NDK subscription with `statusEventsByNewest` | Custom Nostr publishing + in-memory maps | **REDUNDANT** |
-| **Error recovery** | Automatic via lifecycle + subscription | Complex replay/reverify ledger | **OVER-ENGINEERED** |
+
+| Feature                      | V2/NDK Implementation                                        | Service V1 Implementation                | Verdict             |
+| ---------------------------- | ------------------------------------------------------------ | ---------------------------------------- | ------------------- |
+| **Pending state tracking**   | `isPending` state + `optimisticBlockchainStatus`             | `acceptance-ledger.ts` with 680+ lines   | **REDUNDANT**       |
+| **Transaction confirmation** | `resolvePaymentIdFromTxHash()` + `awaitStatusTxThenReload()` | `finality.ts` with polling + retry logic | **REDUNDANT**       |
+| **Status events**            | NDK subscription with `statusEventsByNewest`                 | Custom Nostr publishing + in-memory maps | **REDUNDANT**       |
+| **Error recovery**           | Automatic via lifecycle + subscription                       | Complex replay/reverify ledger           | **OVER-ENGINEERED** |
+
 
 ### Code to REMOVE (Obsolete with v2/NDK)
 
@@ -44,6 +82,7 @@ export const SERVICE_ACCEPTANCE_REQUIRED_CONFIRMATIONS = 3; // UNNECESSARY
 ```
 
 **Reason**: The v2 lifecycle already:
+
 1. Waits for transaction confirmation via `provider.waitForTransaction()`
 2. Reloads blockchain data after confirmation
 3. Updates the rune's `isPending` state
@@ -64,6 +103,7 @@ This file implements a complex local storage-backed state machine that duplicate
 ```
 
 **Reason**: The v2/NDK implementation stores contract status in **Nostr events (Kind 31006)** which:
+
 1. Are persisted on relays (not local storage)
 2. Are automatically synced via subscriptions
 3. Provide the same "replay" capability via re-fetching
@@ -80,24 +120,28 @@ export function classifyServiceAcceptanceAmbiguityError(...) // UNNECESSARY
 
 #### 4. Most of `escrowEvents.ts` Service Functions - **SIMPLIFY**
 
-| Function | Lines | Status | Reason |
-|----------|-------|--------|--------|
-| `ServiceAcceptanceReplayPublishTarget` | 53-63 | **DELETE** | NDK events are the replay mechanism |
-| `createServiceAcceptanceReplayTarget()` | 65-92 | **DELETE** | NDK events are the replay mechanism |
-| `resolveServiceAcceptanceReplayTarget()` | 94-125 | **DELETE** | NDK events are the replay mechanism |
-| `persistConfirmedServiceAcceptanceMonitor()` | 127-147 | **DELETE** | NDK subscriptions handle monitoring |
-| `getServiceAcceptanceUnknownMessage()` | 302-317 | **SIMPLIFY** | Use standard error messages |
-| `publishPendingServiceAcceptanceUnknownByTxHash()` | 319-386 | **DELETE** | V2 lifecycle handles errors |
-| `retryPendingServiceAcceptanceByEscrowId()` | 399-459 | **DELETE** | NDK re-fetch handles retry |
-| `reverifyPublishedServiceAcceptanceByEscrowId()` | 461-613 | **DELETE** | V2 lifecycle handles verification |
-| `findPendingServiceContractByTransactionHashes()` | 284-300 | **SIMPLIFY** | Single lookup, not ledger |
+
+| Function                                           | Lines   | Status       | Reason                              |
+| -------------------------------------------------- | ------- | ------------ | ----------------------------------- |
+| `ServiceAcceptanceReplayPublishTarget`             | 53-63   | **DELETE**   | NDK events are the replay mechanism |
+| `createServiceAcceptanceReplayTarget()`            | 65-92   | **DELETE**   | NDK events are the replay mechanism |
+| `resolveServiceAcceptanceReplayTarget()`           | 94-125  | **DELETE**   | NDK events are the replay mechanism |
+| `persistConfirmedServiceAcceptanceMonitor()`       | 127-147 | **DELETE**   | NDK subscriptions handle monitoring |
+| `getServiceAcceptanceUnknownMessage()`             | 302-317 | **SIMPLIFY** | Use standard error messages         |
+| `publishPendingServiceAcceptanceUnknownByTxHash()` | 319-386 | **DELETE**   | V2 lifecycle handles errors         |
+| `retryPendingServiceAcceptanceByEscrowId()`        | 399-459 | **DELETE**   | NDK re-fetch handles retry          |
+| `reverifyPublishedServiceAcceptanceByEscrowId()`   | 461-613 | **DELETE**   | V2 lifecycle handles verification   |
+| `findPendingServiceContractByTransactionHashes()`  | 284-300 | **SIMPLIFY** | Single lookup, not ledger           |
+
 
 #### 5. `escrow.ts` Service Functions - **SIMPLIFY**
 
-| Function | Lines | Status | Reason |
-|----------|-------|--------|--------|
-| `verifyServiceEscrowCreation()` | 341-370 | **DELETE** | V2 lifecycle loads and verifies |
-| `reverifyPublishedServiceAcceptance()` | 372-411 | **DELETE** | Rune handles re-verification |
+
+| Function                               | Lines   | Status     | Reason                          |
+| -------------------------------------- | ------- | ---------- | ------------------------------- |
+| `verifyServiceEscrowCreation()`        | 341-370 | **DELETE** | V2 lifecycle loads and verifies |
+| `reverifyPublishedServiceAcceptance()` | 372-411 | **DELETE** | Rune handles re-verification    |
+
 
 ### Code to KEEP (Actually Needed)
 
@@ -105,49 +149,56 @@ export function classifyServiceAcceptanceAmbiguityError(...) // UNNECESSARY
 
 These are **actually service-specific** and cannot be replaced by contract code:
 
-| File | Keep | Reason |
-|------|------|--------|
-| `protocol.ts` | ✅ YES | Defines event kinds 6420, 6421, 6422 |
-| `publish.ts` | ✅ YES | Publishes service quote status updates |
-| `accept.ts` | ⚠️ PARTIAL | Keep validation, remove ledger integration |
-| `notifications.ts` | ✅ YES | Service-specific push notifications |
-| `agreement-summary.ts` | ✅ YES | Service agreement display logic |
+
+| File                   | Keep       | Reason                                         |
+| ---------------------- | ---------- | ---------------------------------------------- |
+| `protocol.ts`          | ✅ YES      | Defines event kinds 6420, 6421, 6422           |
+| `publish.ts`           | ✅ YES      | Publishes service quote status updates         |
+| `accept.ts`            | ⚠️ PARTIAL | Keep validation, remove ledger integration     |
+| `notifications.ts`     | ✅ YES      | Service-specific push notifications            |
+| `agreement-summary.ts` | ✅ YES      | Service agreement display logic                |
 | `acceptance-ledger.ts` | ⚠️ PARTIAL | Keep only simple state tracking (50 lines max) |
+
 
 #### 2. Service Contract Utilities (`src/lib/utils/service-contract/`)
 
-| File | Keep | Reason |
-|------|------|--------|
-| `create.ts` | ✅ YES | Service contract creation (calls escrow.escrowOps) |
-| `create-from-snapshot.ts` | ✅ YES | Builds PendingContractCreation |
-| `context-presentation.ts` | ✅ YES | UI display logic |
-| `location.ts` | ✅ YES | Service location handling |
-| `dashboard-link.ts` | ✅ YES | Navigation helpers |
-| `pending-navigation.ts` | ⚠️ REVIEW | May be replaced by URL params |
-| `schedule.ts` | ✅ YES | Time calculations |
-| `acceptance-snapshot.ts` | ⚠️ REVIEW | May be over-complicated |
-| `finality.ts` | ❌ DELETE | Redundant with v2 lifecycle |
-| `ambiguity-reason.ts` | ❌ DELETE | Over-engineered error handling |
-| `recover.ts` | ❌ DELETE | NDK handles recovery |
-| `recover-quote-acceptance.ts` | ❌ DELETE | NDK handles recovery |
-| `reconcile-quote-acceptance.ts` | ❌ DELETE | NDK handles reconciliation |
-| `await-contract-creation.ts` | ❌ DELETE | Rune handles this |
-| `active-contracts.ts` | ⚠️ REVIEW | May be replaced by store queries |
+
+| File                            | Keep      | Reason                                             |
+| ------------------------------- | --------- | -------------------------------------------------- |
+| `create.ts`                     | ✅ YES     | Service contract creation (calls escrow.escrowOps) |
+| `create-from-snapshot.ts`       | ✅ YES     | Builds PendingContractCreation                     |
+| `context-presentation.ts`       | ✅ YES     | UI display logic                                   |
+| `location.ts`                   | ✅ YES     | Service location handling                          |
+| `dashboard-link.ts`             | ✅ YES     | Navigation helpers                                 |
+| `pending-navigation.ts`         | ⚠️ REVIEW | May be replaced by URL params                      |
+| `schedule.ts`                   | ✅ YES     | Time calculations                                  |
+| `acceptance-snapshot.ts`        | ⚠️ REVIEW | May be over-complicated                            |
+| `finality.ts`                   | ❌ DELETE  | Redundant with v2 lifecycle                        |
+| `ambiguity-reason.ts`           | ❌ DELETE  | Over-engineered error handling                     |
+| `recover.ts`                    | ❌ DELETE  | NDK handles recovery                               |
+| `recover-quote-acceptance.ts`   | ❌ DELETE  | NDK handles recovery                               |
+| `reconcile-quote-acceptance.ts` | ❌ DELETE  | NDK handles reconciliation                         |
+| `await-contract-creation.ts`    | ❌ DELETE  | Rune handles this                                  |
+| `active-contracts.ts`           | ⚠️ REVIEW | May be replaced by store queries                   |
+
 
 ### Estimated Code Reduction
 
-| Category | Current Lines | After Cleanup | Reduction |
-|----------|---------------|---------------|-----------|
-| `acceptance-ledger.ts` | 681 | ~50 | **93%** |
-| `finality.ts` | 77 | 0 | **100%** |
-| `ambiguity-reason.ts` | 30 | 0 | **100%** |
-| `escrowEvents.ts` service code | ~400 | ~100 | **75%** |
-| `escrow.ts` service code | ~100 | ~20 | **80%** |
-| **Total service slop** | **~1,288** | **~170** | **~87%** |
+
+| Category                       | Current Lines | After Cleanup | Reduction |
+| ------------------------------ | ------------- | ------------- | --------- |
+| `acceptance-ledger.ts`         | 681           | ~50           | **93%**   |
+| `finality.ts`                  | 77            | 0             | **100%**  |
+| `ambiguity-reason.ts`          | 30            | 0             | **100%**  |
+| `escrowEvents.ts` service code | ~400          | ~100          | **75%**   |
+| `escrow.ts` service code       | ~100          | ~20           | **80%**   |
+| **Total service slop**         | **~1,288**    | **~170**      | **~87%**  |
+
 
 ### Why This Code Existed
 
 This code was written when:
+
 1. **Only v1 escrow existed** - no lifecycle abstraction
 2. **No NDK integration** - manual Nostr event handling
 3. **AI-generated complexity** - over-engineering error cases that don't happen in practice
@@ -164,6 +215,7 @@ Given the audit findings above, the migration is much simpler than originally pl
 ### Phase 1: Delete Redundant Files (Immediate)
 
 **Delete these files entirely:**
+
 ```bash
 rm src/lib/utils/service-contract/finality.ts
 rm src/lib/utils/service-contract/ambiguity-reason.ts
@@ -246,6 +298,7 @@ set serviceId(value: string) {
 ### Phase 4: Update Service Contract Creation
 
 Update `src/lib/utils/service-contract/create.ts` to:
+
 1. Use v2 creation flow instead of v1 `escrow.escrowOps.createEscrow`
 2. Set service context tags on `NDKPaymentContract`
 3. Let `PaymentContractRune` handle pending state
@@ -264,36 +317,42 @@ The following sections document the original analysis before the audit. They are
 
 #### 1. `escrowEvents.ts` - Service-Related Functions
 
-| Function | Lines | Category | ~~Recommendation~~ | **AUDIT STATUS** |
-|----------|-------|----------|---------------------|------------------|
-| `isServicePendingContract()` | 49-51 | CONTRACT_GENERIC | ~~Move to contract/context.ts~~ | **KEEP** - useful check |
-| `ServiceAcceptanceReplayPublishTarget` (type) | 53-63 | SERVICE_SPECIFIC | ~~Keep~~ | **DELETE** - redundant |
-| `createServiceAcceptanceReplayTarget()` | 65-92 | SERVICE_SPECIFIC | ~~Keep~~ | **DELETE** - redundant |
-| `resolveServiceAcceptanceReplayTarget()` | 94-125 | SERVICE_SPECIFIC | ~~Keep~~ | **DELETE** - redundant |
-| `persistConfirmedServiceAcceptanceMonitor()` | 127-147 | SERVICE_SPECIFIC | ~~Keep~~ | **DELETE** - redundant |
-| `getServiceAcceptanceUnknownMessage()` | 302-317 | SERVICE_SPECIFIC | ~~Keep~~ | **SIMPLIFY** - generic errors |
-| `publishPendingServiceAcceptanceUnknownByTxHash()` | 319-386 | INTEGRATION_GLUE | ~~Adapter~~ | **DELETE** - v2 handles errors |
-| `retryPendingServiceAcceptanceByEscrowId()` | 399-459 | INTEGRATION_GLUE | ~~Adapter~~ | **DELETE** - NDK handles |
-| `reverifyPublishedServiceAcceptanceByEscrowId()` | 461-613 | INTEGRATION_GLUE | ~~Adapter~~ | **DELETE** - rune handles |
-| `registerPendingContractByTxHash()` | 193-214 | INTEGRATION_GLUE | ~~Generalize~~ | **KEEP** - still needed |
-| `findPendingServiceContractByTransactionHashes()` | 284-300 | SERVICE_SPECIFIC | ~~Keep~~ | **SIMPLIFY** - single lookup |
-| `handleEscrowCreated()` (service parts) | 759-868 | INTEGRATION_GLUE | ~~Adapter~~ | **KEEP** - notifications needed |
+
+| Function                                           | Lines   | Category         | ~~Recommendation~~              | **AUDIT STATUS**                |
+| -------------------------------------------------- | ------- | ---------------- | ------------------------------- | ------------------------------- |
+| `isServicePendingContract()`                       | 49-51   | CONTRACT_GENERIC | ~~Move to contract/context.ts~~ | **KEEP** - useful check         |
+| `ServiceAcceptanceReplayPublishTarget` (type)      | 53-63   | SERVICE_SPECIFIC | ~~Keep~~                        | **DELETE** - redundant          |
+| `createServiceAcceptanceReplayTarget()`            | 65-92   | SERVICE_SPECIFIC | ~~Keep~~                        | **DELETE** - redundant          |
+| `resolveServiceAcceptanceReplayTarget()`           | 94-125  | SERVICE_SPECIFIC | ~~Keep~~                        | **DELETE** - redundant          |
+| `persistConfirmedServiceAcceptanceMonitor()`       | 127-147 | SERVICE_SPECIFIC | ~~Keep~~                        | **DELETE** - redundant          |
+| `getServiceAcceptanceUnknownMessage()`             | 302-317 | SERVICE_SPECIFIC | ~~Keep~~                        | **SIMPLIFY** - generic errors   |
+| `publishPendingServiceAcceptanceUnknownByTxHash()` | 319-386 | INTEGRATION_GLUE | ~~Adapter~~                     | **DELETE** - v2 handles errors  |
+| `retryPendingServiceAcceptanceByEscrowId()`        | 399-459 | INTEGRATION_GLUE | ~~Adapter~~                     | **DELETE** - NDK handles        |
+| `reverifyPublishedServiceAcceptanceByEscrowId()`   | 461-613 | INTEGRATION_GLUE | ~~Adapter~~                     | **DELETE** - rune handles       |
+| `registerPendingContractByTxHash()`                | 193-214 | INTEGRATION_GLUE | ~~Generalize~~                  | **KEEP** - still needed         |
+| `findPendingServiceContractByTransactionHashes()`  | 284-300 | SERVICE_SPECIFIC | ~~Keep~~                        | **SIMPLIFY** - single lookup    |
+| `handleEscrowCreated()` (service parts)            | 759-868 | INTEGRATION_GLUE | ~~Adapter~~                     | **KEEP** - notifications needed |
+
 
 #### 2. `nostrContract.ts` - Service-Related Code (Reference)
 
-| Code Section | Lines | Category | **AUDIT STATUS** |
-|--------------|-------|----------|------------------|
-| `RuntimeContractContextType` type | 31 | CONTRACT_GENERIC | **KEEP** |
-| `normalizeContractContextType()` | 33-37 | CONTRACT_GENERIC | **KEEP** |
-| Service fields in `publishContractEvent()` | 65-97 | CONTRACT_GENERIC | **KEEP** |
+
+| Code Section                               | Lines | Category         | **AUDIT STATUS** |
+| ------------------------------------------ | ----- | ---------------- | ---------------- |
+| `RuntimeContractContextType` type          | 31    | CONTRACT_GENERIC | **KEEP**         |
+| `normalizeContractContextType()`           | 33-37 | CONTRACT_GENERIC | **KEEP**         |
+| Service fields in `publishContractEvent()` | 65-97 | CONTRACT_GENERIC | **KEEP**         |
+
 
 #### 3. `escrow.ts` - Service-Related Code (Reference)
 
-| Function | Lines | Category | **AUDIT STATUS** |
-|----------|-------|----------|------------------|
-| `verifyServiceEscrowCreation()` | 341-370 | INTEGRATION_GLUE | **DELETE** - v2 lifecycle |
+
+| Function                               | Lines   | Category         | **AUDIT STATUS**          |
+| -------------------------------------- | ------- | ---------------- | ------------------------- |
+| `verifyServiceEscrowCreation()`        | 341-370 | INTEGRATION_GLUE | **DELETE** - v2 lifecycle |
 | `reverifyPublishedServiceAcceptance()` | 372-411 | INTEGRATION_GLUE | **DELETE** - rune handles |
-| Service handling in `createEscrow()` | 519-676 | INTEGRATION_GLUE | **REVIEW** - may simplify |
+| Service handling in `createEscrow()`   | 519-676 | INTEGRATION_GLUE | **REVIEW** - may simplify |
+
 
 ---
 
@@ -797,8 +856,8 @@ get serviceId(): string | undefined {
 
 ### ~~Step 3: Create Acceptance Lifecycle (SERVICE_SPECIFIC)~~
 
-1. ~~Create `src/lib/utils/service-contract/acceptance-lifecycle.ts`~~
-2. ~~Move retry/reverify logic from `escrowEvents.ts`~~
+1. ~~Create `src/lib/utils/service-contract/acceptance-lifecycle.ts~~`
+2. ~~Move retry/reverify logic from `escrowEvents.ts~~`
 3. ~~Update dashboard pages to use new imports~~
 
 **REVISED**: DELETE all replay/reverify code. The rune handles this automatically.
@@ -821,13 +880,15 @@ get serviceId(): string | undefined {
 
 > The table below was created before the audit. See the audit section for revised actions.
 
-| Category | Files/Functions | ~~Original Action~~ | **Audit Action** |
-|----------|----------------|---------------------|------------------|
-| **SERVICE_SPECIFIC** | `service-quote/*` | Keep | **PARTIAL KEEP** - simplify `acceptance-ledger.ts` |
-| **SERVICE_SPECIFIC** | `finality.ts`, `ambiguity-reason.ts` | Keep | **DELETE** - redundant with v2 |
-| **CONTRACT_GENERIC** | `contextType` utilities | Move to `contract/` | **KEEP IN PLACE** - minimal change needed |
-| **INTEGRATION_GLUE** | `handleEscrowCreated()` service parts | Adapter | **SIMPLIFY** - keep notifications only |
-| **INTEGRATION_GLUE** | Finality/replay/reverify | Adapter | **DELETE** - rune handles all of this |
+
+| Category             | Files/Functions                       | ~~Original Action~~ | **Audit Action**                                   |
+| -------------------- | ------------------------------------- | ------------------- | -------------------------------------------------- |
+| **SERVICE_SPECIFIC** | `service-quote/`*                     | Keep                | **PARTIAL KEEP** - simplify `acceptance-ledger.ts` |
+| **SERVICE_SPECIFIC** | `finality.ts`, `ambiguity-reason.ts`  | Keep                | **DELETE** - redundant with v2                     |
+| **CONTRACT_GENERIC** | `contextType` utilities               | Move to `contract/` | **KEEP IN PLACE** - minimal change needed          |
+| **INTEGRATION_GLUE** | `handleEscrowCreated()` service parts | Adapter             | **SIMPLIFY** - keep notifications only             |
+| **INTEGRATION_GLUE** | Finality/replay/reverify              | Adapter             | **DELETE** - rune handles all of this              |
+
 
 ---
 
@@ -836,6 +897,7 @@ get serviceId(): string | undefined {
 ### What Was Actually Changed
 
 After deeper analysis, the original audit recommendations were **too aggressive**. Many of the files marked for deletion are actually needed for:
+
 - **Browser restart recovery**: Users may close browser mid-transaction
 - **Network failure retry**: Acceptance publish may fail due to RPC issues
 - **Timeline reconciliation**: UI state may not match blockchain/Nostr state
@@ -843,18 +905,22 @@ After deeper analysis, the original audit recommendations were **too aggressive*
 ### Changes Implemented
 
 #### 1. Consolidated `ambiguity-reason.ts` into `finality.ts`
+
 - Inlined `classifyServiceAcceptanceAmbiguityError()` into `finality.ts`
 - `ambiguity-reason.ts` now re-exports from `finality.ts` for backward compatibility
 - Updated `escrow.ts` to import from `finality.ts` directly
 
 #### 2. Added Deprecation Notices
+
 All legacy service files now have clear `@deprecated` JSDoc comments explaining:
+
 - What the file does
 - Why it exists (v1 escrow flow)
 - What to use instead (PaymentContractRune for v2)
 - When it will be removed (after v2 migration)
 
 Files marked deprecated:
+
 - `src/lib/utils/service-contract/finality.ts`
 - `src/lib/utils/service-contract/ambiguity-reason.ts` (re-export)
 - `src/lib/utils/service-contract/recover.ts`
@@ -865,33 +931,39 @@ Files marked deprecated:
 
 ### Files NOT Deleted (Still Needed)
 
-| File | Status | Reason |
-|------|--------|--------|
-| `recover.ts` | ✅ KEEP | Browser restart recovery for Book Now |
-| `recover-quote-acceptance.ts` | ✅ KEEP | Browser restart recovery for quotes |
-| `reconcile-quote-acceptance.ts` | ✅ KEEP | Timeline reconciliation |
-| `await-contract-creation.ts` | ✅ KEEP | Used by ServiceDetailsView.svelte |
-| `acceptance-ledger.ts` | ✅ KEEP | Retry/reverify functionality |
-| `finality.ts` | ✅ KEEP | Wait for confirmations (simplified) |
+
+| File                            | Status | Reason                                |
+| ------------------------------- | ------ | ------------------------------------- |
+| `recover.ts`                    | ✅ KEEP | Browser restart recovery for Book Now |
+| `recover-quote-acceptance.ts`   | ✅ KEEP | Browser restart recovery for quotes   |
+| `reconcile-quote-acceptance.ts` | ✅ KEEP | Timeline reconciliation               |
+| `await-contract-creation.ts`    | ✅ KEEP | Used by ServiceDetailsView.svelte     |
+| `acceptance-ledger.ts`          | ✅ KEEP | Retry/reverify functionality          |
+| `finality.ts`                   | ✅ KEEP | Wait for confirmations (simplified)   |
+
 
 ### Why Files Were Kept
 
 The PaymentContractRune handles **in-memory** pending state, but does NOT handle:
+
 1. **Persistence across browser sessions** - User closes browser, returns later
 2. **Retry logic for failed publishes** - RPC errors, relay unavailability
 3. **Reverification of uncertain acceptances** - Confirmations may be insufficient
 
 These use cases still exist for v1 service contracts. The files will be removed when:
+
 1. All services are migrated to use v2 creation flow
 2. The v2 rune handles persistence (if needed)
 
 ### Actual Code Reduction
 
-| Metric | Before | After | Change |
-|--------|--------|-------|--------|
-| Files deleted | 0 | 0 | N/A |
-| Code inlined | 30 lines | 30 lines | `ambiguity-reason.ts` → `finality.ts` |
-| Deprecation docs | 0 | 7 files | Added migration guidance |
+
+| Metric           | Before   | After    | Change                                |
+| ---------------- | -------- | -------- | ------------------------------------- |
+| Files deleted    | 0        | 0        | N/A                                   |
+| Code inlined     | 30 lines | 30 lines | `ambiguity-reason.ts` → `finality.ts` |
+| Deprecation docs | 0        | 7 files  | Added migration guidance              |
+
 
 ---
 
@@ -902,16 +974,14 @@ These use cases still exist for v1 service contracts. The files will be removed 
 The initial audit overestimated how much code could be safely deleted. Key findings:
 
 1. **PaymentContractRune handles in-memory state, not persistence**
-   - Rune's `isPending` works during a session
-   - Recovery files handle cross-session scenarios (browser restart)
-
+  - Rune's `isPending` works during a session
+  - Recovery files handle cross-session scenarios (browser restart)
 2. **Local storage persistence is still needed for v1 services**
-   - `acceptance-ledger.ts` stores retry/reverify state
-   - Without it, failed publishes would be lost on page refresh
-
+  - `acceptance-ledger.ts` stores retry/reverify state
+  - Without it, failed publishes would be lost on page refresh
 3. **The v2 lifecycle doesn't replace all v1 functionality**
-   - v2 lifecycle is for task contracts with NDK
-   - Service contracts still use v1 escrow for creation
+  - v2 lifecycle is for task contracts with NDK
+  - Service contracts still use v1 escrow for creation
 
 ### Actual Migration Path
 
@@ -945,9 +1015,221 @@ rune.statusEventsByNewest // Kind 31006 events
 ### Files Marked for Future Removal
 
 These files will be removed after v2 service migration is complete:
+
 - `finality.ts` - Use `provider.waitForTransaction()` directly
 - `ambiguity-reason.ts` - Use standard error handling
 - `acceptance-ledger.ts` - Use rune.isPending + NDK events
 - `recover.ts`, `recover-quote-acceptance.ts` - NDK sync handles recovery
 - `reconcile-quote-acceptance.ts` - Rune is source of truth
 - `await-contract-creation.ts` - Use rune.start()
+
+---
+
+## 🚀 PATH FORWARD: Service V2 Migration (April 2026 Comprehensive Audit)
+
+This section documents the complete audit findings and the definitive path forward for migrating services to the v2 escrow architecture.
+
+### Audit Date: April 26, 2026
+
+### ETA Assessment
+
+#### Current State Summary
+
+
+| Component                                     | V2 Compliance          | Work Required                               |
+| --------------------------------------------- | ---------------------- | ------------------------------------------- |
+| `service-contract/create.ts`                  | ✅ **COMPLIANT**        | Minor fix for `clientRskAddress` validation |
+| `service-contract/active-contracts.ts`        | ✅ **COMPLIANT**        | None                                        |
+| `service-contract/preflight.ts`               | ⚠️ **DEPRECATED**      | Delete after UI migration                   |
+| `service-contract/await-contract-creation.ts` | ⚠️ **DEPRECATED**      | Delete after UI migration                   |
+| `service-contract/recover*.ts`                | ⚠️ **DEPRECATED**      | Delete after UI migration                   |
+| `contract/v2/service-creation.ts`             | ✅ **COMPLIANT**        | Cleanup unused input fields                 |
+| `ServiceDetailsView.svelte`                   | ❌ **CRITICAL BUGS**    | Major refactor required                     |
+| `MyQuotesPanel.svelte`                        | ⚠️ **USES DEPRECATED** | Refactor preflight calls                    |
+| `service-quote-ui.store.ts`                   | ❌ **V1 DEPENDENCIES**  | Major refactor required                     |
+| `contractStore`                               | ❌ **V1 STACK**         | Migrate to PaymentContractRune              |
+
+
+#### Estimated Work Breakdown
+
+
+| Phase                           | Work Items                                                                    | Complexity | Estimated Effort |
+| ------------------------------- | ----------------------------------------------------------------------------- | ---------- | ---------------- |
+| **Phase 1: Critical Bug Fixes** | Fix `ServiceDetailsView.svelte` outbox states, recovery, and state management | High       | 2-3 days         |
+| **Phase 2: Store Migration**    | Migrate `service-quote-ui.store.ts` off v1 dependencies                       | High       | 3-4 days         |
+| **Phase 3: UI Components**      | Refactor all quote/service components off deprecated modules                  | Medium     | 2-3 days         |
+| **Phase 4: Cleanup**            | Delete deprecated files, final testing                                        | Low        | 1-2 days         |
+| **Total**                       | —                                                                             | —          | **8-12 days**    |
+
+
+### What Has Been Completed
+
+1. `**service-contract/create.ts`** - Returns v2 pattern (`tx`, `afterBroadcast`, `afterConfirmed`)
+2. `**service-contract/active-contracts.ts**` - Uses `isTerminalPaymentState` from v2
+3. `**contract/v2/service-creation.ts**` - Full v2 service contract creation
+4. **Deprecation notices** - All legacy files marked with `@deprecated`
+
+### What Needs To Be Done
+
+#### CRITICAL BUG FIXES (Immediate)
+
+**1. `ServiceDetailsView.svelte` - Outbox State Mismatch**
+
+The component writes invalid `BookNowOutboxState` values:
+
+- `'contract_created'` → should be `'funding_submitted'`
+- `'escrow_created'` → should be `'contract_ready'`
+- `'idle'` → not a valid state
+- `'contract_creation_failed'` → not a valid state
+
+**Impact:** Recovery logic is completely broken. Entries are silently dropped.
+
+**2. `ServiceDetailsView.svelte` - Premature Outbox Clearing**
+
+The `finally` block at lines 1256-1259 clears the outbox immediately after broadcast, BEFORE `tx.wait()` completes. If user refreshes during confirmation, there's no entry to recover.
+
+**3. `ServiceDetailsView.svelte` - Broken Recovery Logic**
+
+- `readRecoverableBookNowOutboxEntry(..., null)` always returns `null`
+- `recoverBookNowContract(recoverable, { onSuccess: ... })` uses wrong signature
+
+**4. `ServiceDetailsView.svelte` - Missing State Reset**
+
+`instantBuyCreationState` is not reset in `resetInstantBuyState()`, causing stale UI on re-open.
+
+#### V1 DEPENDENCY REMOVAL (Phase 2)
+
+`**service-quote-ui.store.ts` V1 Imports:**
+
+```typescript
+// MUST BE REMOVED:
+import { retryPendingServiceAcceptanceByEscrowId } from '$lib/utils/escrow/v1/escrowEvents';
+import { escrow } from '$lib/utils/escrow';
+```
+
+**Migration Strategy:**
+
+1. Abstract `retryPendingServiceAcceptanceByEscrowId` to version-agnostic interface
+2. Replace `escrow.contractOps.getContracts` with `contractStore` queries or PaymentContractRune
+3. Update protocol version markers from `'v1'` to `'v2'` where applicable
+
+#### UI COMPONENT REFACTORING (Phase 3)
+
+
+| Component                               | Deprecated Dependencies                                                       | Migration Action                                    |
+| --------------------------------------- | ----------------------------------------------------------------------------- | --------------------------------------------------- |
+| `ServiceDetailsView.svelte`             | `preflightServiceContractCreation`, `recoverBookNowContract`                  | Use inline balance check + `afterConfirmed` pattern |
+| `MyQuotesPanel.svelte`                  | `preflightServiceContractCreation`, `describeServiceContractPreflightFailure` | Move balance check to UI, remove preflight calls    |
+| `ServiceRequestAcceptanceDrawer.svelte` | Inherits from parent                                                          | Update parent components                            |
+
+
+### Architecture Decision: PaymentContractRune for Services
+
+The v2 pattern uses `PaymentContractRune` for both tasks AND services. Key differences:
+
+
+| Aspect         | Tasks                      | Services                                    |
+| -------------- | -------------------------- | ------------------------------------------- |
+| Context Type   | `'task'`                   | `'service'`                                 |
+| Creation Entry | `createContract()`         | `createServiceContract()`                   |
+| Nostr Tags     | `taskId`, `taskTitle`      | `serviceId`, `serviceTitle`, `purchaseMode` |
+| Lifecycle      | Same                       | Same                                        |
+| Rune           | Same `PaymentContractRune` | Same                                        |
+
+
+**The rune does NOT branch on context type** - it's fully generic.
+
+### Dependency Chain for Migration
+
+```
+1. Fix ServiceDetailsView.svelte bugs (can be done independently)
+   ↓
+2. Migrate service-quote-ui.store.ts off v1 imports
+   ↓
+3. Update MyQuotesPanel.svelte to use store changes
+   ↓
+4. Verify all flows work end-to-end
+   ↓
+5. Delete deprecated files
+```
+
+### Code Quality Issues Identified
+
+#### i18n Violations (Must Fix)
+
+
+| File                        | Issue                                             |
+| --------------------------- | ------------------------------------------------- |
+| `context-presentation.ts`   | Hardcoded English strings                         |
+| `preflight-feedback.ts`     | Hardcoded English strings                         |
+| `ServiceDetailsView.svelte` | `'Remote'`, `'Service Location'`, location labels |
+
+
+#### Dead Code
+
+
+| File                              | Code                                                  |
+| --------------------------------- | ----------------------------------------------------- |
+| `ServiceDetailsView.svelte`       | `_instantBuyBackgrounded` - written but never read    |
+| `contract/v2/service-creation.ts` | Many `PublishServiceContractEventInput` fields unused |
+
+
+#### Error Handling Gaps
+
+
+| File                        | Issue                                                           |
+| --------------------------- | --------------------------------------------------------------- |
+| `ServiceDetailsView.svelte` | `Promise.all` couples `afterBroadcast` and `tx.wait()` failures |
+| `service-quote-ui.store.ts` | Fire-and-forget monitor has no callback for failures            |
+
+
+### Files Ready for Deletion (After Migration)
+
+
+| File                                     | Dependencies to Remove First        |
+| ---------------------------------------- | ----------------------------------- |
+| `ambiguity-reason.ts`                    | 0 (pure re-export)                  |
+| `finality.ts`                            | Update single import site           |
+| `preflight.ts` + `preflight-feedback.ts` | Migrate UI components               |
+| `await-contract-creation.ts`             | Migrate `service-quote-ui.store.ts` |
+| `recover.ts`                             | Migrate `ServiceDetailsView.svelte` |
+| `recover-quote-acceptance.ts`            | Migrate `service-quote-ui.store.ts` |
+| `reconcile-quote-acceptance.ts`          | Migrate `service-quote-ui.store.ts` |
+
+
+### Testing Requirements
+
+Before release, verify:
+
+1. **Instant Buy (Book Now) Flow**
+  - Balance check shows correctly
+  - Transaction submits successfully
+  - Confirmation updates UI state
+  - Browser refresh during confirmation recovers
+  - Error states display clearly
+2. **Quote Acceptance Flow**
+  - Proposal acceptance creates contract
+  - Timeline updates with `linkedEscrowId`
+  - Recovery handles timeout/RPC failures
+  - Status publishes correctly to Nostr
+3. **Contract Display**
+  - Service contracts appear in dashboard
+  - PaymentContractRune shows correct status
+  - Actions work (complete, dispute, etc.)
+
+### Confidence Assessment
+
+
+| Aspect                 | Confidence                                       |
+| ---------------------- | ------------------------------------------------ |
+| Bug identification     | 95% - Comprehensive audit with code verification |
+| Migration path         | 90% - Based on working v2 task patterns          |
+| ETA accuracy           | 70% - Depends on unknown edge cases in UI        |
+| No missed dependencies | 85% - Searched entire codebase for imports       |
+
+
+### Next Steps (Action Items)
+
+1. **Immediate**: Fix `ServiceDetailsView.svelte` critical bugs
+2. **Immediate**: Create detailed UI refactoring plan (see `docs/service-ui-v2-refactoring-plan.md`)
+

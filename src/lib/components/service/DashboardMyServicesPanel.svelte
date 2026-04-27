@@ -41,6 +41,13 @@
 	import DashboardFilterBar from '$lib/components/shared/DashboardFilterBar.svelte';
 	import DashboardDropdown from '$lib/components/shared/DashboardDropdown.svelte';
 	import { createDashboardUrl } from '$lib/utils/service-quote/dashboard-route';
+	/**
+	 * V2 Migration Note:
+	 * The escrow facade is used for getContracts() which internally uses LATEST_ESCROW_VERSION (v2).
+	 * This is acceptable during transition but should eventually migrate to:
+	 * - contractStore.loadContracts() for reactive state
+	 * - NDK-based queries for direct Nostr access
+	 */
 	import { escrow } from '$lib/utils/escrow';
 
 	const PAGE_SIZE = 12;

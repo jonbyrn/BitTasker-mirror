@@ -14,16 +14,20 @@
 		serviceQuoteUiStore
 	} from '$lib/stores/service-quote-ui.store';
 	import { walletStore } from '$lib/stores/wallet.store';
-	import {
-		getAcceptanceConfirmedMonitorEntriesDueForReverify,
-		getAcceptanceReplayEntriesDueForRetry,
-		SERVICE_ACCEPTANCE_CONFIRMED_MONITOR_REVERIFY_INTERVAL_MS,
-		SERVICE_ACCEPTANCE_REPLAY_RETRY_INTERVAL_MS
-	} from '$lib/utils/service-quote/acceptance-ledger';
-	import {
-		retryPendingServiceAcceptanceByEscrowId,
-		reverifyPublishedServiceAcceptanceByEscrowId
-	} from '$lib/utils/escrow/v1/escrowEvents';
+	/**
+	 * NOTE: The following imports were removed as part of v2 migration:
+	 * - getAcceptanceConfirmedMonitorEntriesDueForReverify
+	 * - getAcceptanceReplayEntriesDueForRetry
+	 * - SERVICE_ACCEPTANCE_CONFIRMED_MONITOR_REVERIFY_INTERVAL_MS
+	 * - SERVICE_ACCEPTANCE_REPLAY_RETRY_INTERVAL_MS
+	 * - retryPendingServiceAcceptanceByEscrowId
+	 * - reverifyPublishedServiceAcceptanceByEscrowId
+	 *
+	 * In v2, contract creation and status updates are handled by:
+	 * - createServiceContract returning tx + afterBroadcast + afterConfirmed
+	 * - NDK subscriptions for real-time status updates via PaymentContractRune
+	 * The interval-based polling mechanism is no longer needed.
+	 */
 	import { resolveProviderProposalAuthoring } from '$lib/utils/service-quote/provider-authoring';
 	import ErrorAlertWithModal from '$lib/components/ErrorAlertWithModal.svelte';
 	import ServiceQuotesInbox from '$lib/components/service/quotes/ServiceQuotesInbox.svelte';
@@ -58,8 +62,8 @@
 	let lastProviderLoadKey = $state<string | null>(null);
 	let lastQuotesRouteResolutionKey = $state<string | null>(null);
 	let providerLoadGeneration = 0;
-	const inFlightServiceAcceptanceReplays = new SvelteSet<string>();
-	const inFlightServiceAcceptanceReverifications = new SvelteSet<string>();
+	// V2 Migration: Removed inFlightServiceAcceptanceReplays and inFlightServiceAcceptanceReverifications
+	// as the v2 contract creation flow handles these within afterConfirmed()
 	let quoteWorkspaceState = $state<{
 		providerTimelinesByService: Record<string, ServiceQuoteTimelineEntry[]>;
 		loadingProviderByService: Record<string, boolean>;
@@ -145,90 +149,20 @@
 			console.error('Failed to load contracts for requests continuity:', contractError);
 		});
 
-		if (!browser) {
-			return;
-		}
-
-		let recoveryIntervalId: ReturnType<typeof window.setInterval> | null = null;
-
-		const runServiceAcceptanceReplayCycle = async () => {
-			const dueReplayEntries = await getAcceptanceReplayEntriesDueForRetry();
-			const replayEntries = dueReplayEntries.filter(
-				(entry) => !inFlightServiceAcceptanceReplays.has(entry.escrowId)
-			);
-			if (replayEntries.length === 0) {
-				return;
-			}
-
-			for (const entry of replayEntries) {
-				inFlightServiceAcceptanceReplays.add(entry.escrowId);
-			}
-
-			try {
-				await Promise.allSettled(
-					replayEntries.map((entry) => retryPendingServiceAcceptanceByEscrowId(entry.escrowId))
-				);
-				await refreshProviderTimelinesForServices(
-					replayEntries.map((entry) => entry.serviceAddress)
-				);
-			} finally {
-				for (const entry of replayEntries) {
-					inFlightServiceAcceptanceReplays.delete(entry.escrowId);
-				}
-			}
-		};
-
-		const runServiceAcceptanceReverifyCycle = async () => {
-			const dueMonitorEntries = await getAcceptanceConfirmedMonitorEntriesDueForReverify(
-				Date.now(),
-				{
-					reverifyIntervalMs: SERVICE_ACCEPTANCE_CONFIRMED_MONITOR_REVERIFY_INTERVAL_MS
-				}
-			);
-			const monitorEntries = dueMonitorEntries.filter(
-				(entry) => !inFlightServiceAcceptanceReverifications.has(entry.escrowId)
-			);
-			if (monitorEntries.length === 0) {
-				return;
-			}
-
-			for (const entry of monitorEntries) {
-				inFlightServiceAcceptanceReverifications.add(entry.escrowId);
-			}
-
-			try {
-				await Promise.allSettled(
-					monitorEntries.map((entry) =>
-						reverifyPublishedServiceAcceptanceByEscrowId(entry.escrowId)
-					)
-				);
-				await refreshProviderTimelinesForServices(
-					monitorEntries.map((entry) => entry.serviceAddress)
-				);
-			} finally {
-				for (const entry of monitorEntries) {
-					inFlightServiceAcceptanceReverifications.delete(entry.escrowId);
-				}
-			}
-		};
-
-		void Promise.all([runServiceAcceptanceReplayCycle(), runServiceAcceptanceReverifyCycle()]);
-		recoveryIntervalId = window.setInterval(
-			() => {
-				void runServiceAcceptanceReplayCycle();
-				void runServiceAcceptanceReverifyCycle();
-			},
-			Math.min(
-				SERVICE_ACCEPTANCE_REPLAY_RETRY_INTERVAL_MS,
-				SERVICE_ACCEPTANCE_CONFIRMED_MONITOR_REVERIFY_INTERVAL_MS
-			)
-		);
-
-		return () => {
-			if (recoveryIntervalId !== null) {
-				window.clearInterval(recoveryIntervalId);
-			}
-		};
+		/**
+		 * V2 Migration Note:
+		 * The v1 interval-based retry/reverify logic has been removed.
+		 *
+		 * In v2, contract lifecycle is handled differently:
+		 * 1. createServiceContract returns { tx, afterBroadcast, afterConfirmed }
+		 * 2. afterConfirmed() handles all post-confirmation tasks including:
+		 *    - Nostr event publishing (with automatic retry)
+		 *    - Status updates
+		 * 3. NDK subscriptions via PaymentContractRune handle real-time updates
+		 *
+		 * The old pattern of polling for "due" entries to retry is no longer needed
+		 * because the v2 flow handles these cases within the transaction lifecycle.
+		 */
 	});
 
 	$effect(() => {
