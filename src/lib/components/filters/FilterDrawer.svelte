@@ -191,10 +191,10 @@
 		}
 	}
 
+	// Handle skills change
 	// Handle category tags change
 	function handleCategoryChange(tags: string[]) {
-		// Tags now contain category IDs directly
-		filters.categories = [...tags]; // Create a new array to avoid proxy issues
+		filters.categories = [...tags];
 	}
 
 	// Handle skills change
@@ -386,25 +386,14 @@
 	</div>
 
 	<!-- Categories -->
-	<div class="collapse-arrow collapse z-50 mb-2" style="overflow: visible;">
-		<input
-			type="checkbox"
-			class="peer"
-			aria-label={$t('find_tasks.toggle_categories_section')}
-			aria-describedby="categories-section"
+	<div class="mb-4">
+		<CategoryMultiselect
+			bind:externalCategoryIds={filters.categories}
+			onChange={handleCategoryChange}
+			maxSelections={5}
+			placeholder={$t('find_tasks.add_categories')}
+			className="w-full"
 		/>
-		<div class="collapse-title font-medium" id="categories-section">
-			{$t('find_tasks.categories')}
-		</div>
-		<div class="collapse-content">
-			<CategoryMultiselect
-				bind:externalCategoryIds={filters.categories}
-				onChange={handleCategoryChange}
-				maxSelections={5}
-				placeholder={$t('find_tasks.add_categories')}
-				className="w-full"
-			/>
-		</div>
 	</div>
 
 	<!-- Skills -->

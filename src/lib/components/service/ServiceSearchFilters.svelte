@@ -42,7 +42,6 @@
 
 	// Store selected location coordinates for distance calculation
 	let selectedLocationCoords = $state<{ latitude: number; longitude: number } | null>(null);
-	let categoriesOpen = $state(false);
 	let skillsOpen = $state(false);
 	let locationTypesOpen = $state(false);
 	let pricingTypeOpen = $state(false);
@@ -179,26 +178,19 @@
 	{activeFilterCount}
 >
 	<!-- Categories -->
-	<div class="collapse-arrow collapse mb-2">
-		<input
-			type="checkbox"
-			class="peer"
-			aria-label={$t('dashboard.services.browse.filters.toggle_categories') || 'Toggle categories'}
-			aria-expanded={categoriesOpen}
-			onchange={() => (categoriesOpen = !categoriesOpen)}
+	<div class="mb-4">
+		<label class="label">
+			<span class="label-text text-sm font-medium"
+				>{$t('dashboard.services.browse.filters.categories') || 'Categories'}</span
+			>
+		</label>
+		<CategoryMultiselect
+			bind:selectedCategories={filters.categories}
+			onChange={handleCategoryChange}
+			maxSelections={3}
+			placeholder={$t('dashboard.services.browse.filters.add_categories') || 'Add categories...'}
+			className="w-full"
 		/>
-		<div class="collapse-title font-medium">
-			{$t('dashboard.services.browse.filters.categories') || 'Categories'}
-		</div>
-		<div class="collapse-content">
-			<CategoryMultiselect
-				bind:selectedCategories={filters.categories}
-				onChange={handleCategoryChange}
-				maxSelections={3}
-				placeholder={$t('dashboard.services.browse.filters.add_categories') || 'Add categories...'}
-				className="w-full"
-			/>
-		</div>
 	</div>
 
 	<!-- Skills -->
