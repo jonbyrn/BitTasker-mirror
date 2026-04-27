@@ -401,6 +401,7 @@
 					{services}
 					{selectedServiceAddress}
 					onChange={handleServiceFilterChange}
+					containerClass="col-span-2 sm:col-span-1"
 				/>
 			{/if}
 		</DashboardFilterBar>
