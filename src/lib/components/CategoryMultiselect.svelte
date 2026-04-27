@@ -3,6 +3,25 @@
 	import { TASK_CATEGORIES } from '$lib/utils/constants/categories';
 	import { t } from 'svelte-i18n';
 
+	// Dev-only logging helper following project conventions
+	const log = {
+		info: (...args: unknown[]) => {
+			if (import.meta.env.DEV) {
+				console.info('[CategoryMultiselect]', ...args);
+			}
+		},
+		error: (...args: unknown[]) => {
+			if (import.meta.env.DEV) {
+				console.error('[CategoryMultiselect]', ...args);
+			}
+		},
+		warn: (...args: unknown[]) => {
+			if (import.meta.env.DEV) {
+				console.warn('[CategoryMultiselect]', ...args);
+			}
+		}
+	};
+
 	let {
 		selectedCategories = $bindable([]),
 		maxSelections = 3,
@@ -24,6 +43,7 @@
 						(cat && typeof cat === 'object' && cat.value === '1')
 				)
 			) {
+				log.warn('Cleaning default category "1" from selection');
 				selectedCategories = selectedCategories.filter((cat) => {
 					if (typeof cat === 'string') {
 						return cat !== '1';
@@ -35,48 +55,23 @@
 				hasCleaned = true;
 			}
 		} catch (error) {
-			console.error('Error cleaning default categories:', error);
+			log.error('Error cleaning default categories:', error);
 		}
 	});
 
-	// Convert categories to the format expected by svelte-multiselect with translations
-	// This will reactively update when the language changes
-	let categoryOptions = $state<{ value: string; label: string }[]>([]);
-	let isInitialized = $state(false);
-
-	// Initialize with default categories first to prevent empty options error
-	$effect(() => {
-		if (!isInitialized) {
-			categoryOptions = TASK_CATEGORIES.map((category) => ({
+	// Use $derived to compute categoryOptions reactively based on actual dependencies
+	// This prevents infinite loops by only recomputing when TASK_CATEGORIES or language changes
+	let categoryOptions = $derived<{ value: string; label: string }[]>(
+		TASK_CATEGORIES.map((category) => {
+			const translatedName = $t(`categories.${category.slug}.name`);
+			// Fallback to category.name if translation key is returned (translation not loaded)
+			const displayName = translatedName.startsWith('categories.') ? category.name : translatedName;
+			return {
 				value: category.id,
-				label: category.name // Use default name initially
-			})).sort((a, b) => a.label.localeCompare(b.label));
-			isInitialized = true;
-		}
-	});
-
-	$effect(() => {
-		try {
-			// Force update on every effect run to ensure translations are applied
-			const currentLanguage = $t('categories.cleaning.name'); // Use any translation to get current language
-
-			// Always update categoryOptions to ensure translations are current
-			categoryOptions = TASK_CATEGORIES.map((category) => {
-				const translatedName = $t(`categories.${category.slug}.name`);
-				// Fallback to category.name if translation key is returned (translation not loaded)
-				const displayName = translatedName.startsWith('categories.')
-					? category.name
-					: translatedName;
-				return {
-					value: category.id, // Use category ID as value for filtering
-					label: displayName // Use translated name for display
-				};
-			}).sort((a, b) => a.label.localeCompare(b.label));
-			void currentLanguage;
-		} catch (error) {
-			console.error('Error updating category options:', error);
-		}
-	});
+				label: displayName
+			};
+		}).sort((a, b) => a.label.localeCompare(b.label))
+	);
 
 	// Sync selectedCategories with external category IDs
 	let lastExternalIds = $state<string[]>([]);
@@ -84,21 +79,32 @@
 
 	$effect(() => {
 		try {
+			// Guard: only sync if categoryOptions is populated
+			if (categoryOptions.length === 0) {
+				log.warn('Sync effect skipped: categoryOptions is empty');
+				return;
+			}
+
 			// Convert external IDs to full objects for display
 			if (JSON.stringify(externalCategoryIds) !== JSON.stringify(lastExternalIds)) {
+				log.info('External IDs changed:', { external: externalCategoryIds, last: lastExternalIds });
 				lastExternalIds = [...externalCategoryIds];
 				isInternalUpdate = true;
 
 				const fullObjects = externalCategoryIds.map((id: string) => {
 					const option = categoryOptions.find((opt) => opt.value === id);
+					if (!option) {
+						log.warn('Option not found for ID:', id);
+					}
 					return option || { value: id, label: id };
 				});
 
+				log.info('Setting selectedCategories:', fullObjects);
 				selectedCategories = fullObjects;
 				isInternalUpdate = false;
 			}
 		} catch (error) {
-			console.error('Error syncing external category IDs:', error);
+			log.error('Error syncing external category IDs:', error);
 		}
 	});
 
@@ -111,6 +117,10 @@
 				!isInternalUpdate &&
 				JSON.stringify(selectedCategories) !== JSON.stringify(lastSelectedCategories)
 			) {
+				log.info('Selection changed, calling onChange:', {
+					selected: selectedCategories,
+					last: lastSelectedCategories
+				});
 				lastSelectedCategories = [...selectedCategories];
 
 				// Extract only the values (IDs) from the selected items
@@ -123,10 +133,11 @@
 					return String(item);
 				});
 
+				log.info('Calling onChange with IDs:', categoryIds);
 				onChange(categoryIds);
 			}
 		} catch (error) {
-			console.error('Error handling category change:', error);
+			log.error('Error handling category change:', error);
 		}
 	});
 </script>
