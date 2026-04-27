@@ -664,7 +664,7 @@
 				options={filterOptions}
 				value={activeFilter}
 				onSelect={handleFilterChange}
-				containerClass="col-span-1 sm:w-64"
+				containerClass="col-span-2 sm:col-span-1 w-full sm:w-64"
 			/>
 
 			<ServiceFilterSelect

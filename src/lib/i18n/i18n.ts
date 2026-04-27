@@ -165,7 +165,7 @@ export function getNamespacesForRoute(route: string): string[] {
 		namespaces.push('moderation');
 	}
 	// Protected workspace routes
-	// Earning routes (formerly /dashboard/earning)
+	// Earning routes
 	if (route.includes('/earning')) {
 		namespaces.push('dashboard/dashboard', 'dashboard/tasks/info');
 		namespaces.push('dashboard/bids');
