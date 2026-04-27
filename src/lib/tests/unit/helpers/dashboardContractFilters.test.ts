@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
 	matchesDisplayStatusFilter,
-	matchesRoleFilter
+	matchesRoleFilter,
+	matchesTypeFilter
 } from '$lib/utils/helpers/dashboardContractFilters';
 import { ContractStatus, DisplayOnlyStatus } from '$lib/utils/contract/types';
 import type { NDKPaymentContract } from '$lib/nostr/events/contract';
@@ -88,5 +89,39 @@ describe('matchesRoleFilter', () => {
 		const c = mockContract(tasker, [tasker, taskee]);
 		expect(matchesRoleFilter(c, 'freelancer', taskee)).toBe(true);
 		expect(matchesRoleFilter(c, 'freelancer', tasker)).toBe(false);
+	});
+});
+
+describe('matchesTypeFilter', () => {
+	function mockContract(contextType?: string): NDKPaymentContract {
+		const tags: [string, string][] = [];
+		if (contextType !== undefined) {
+			tags.push(['contextType', contextType]);
+		}
+		return {
+			tagValue: (name: string) => (name === 'contextType' ? contextType : undefined),
+			tags
+		} as unknown as NDKPaymentContract;
+	}
+
+	it('all passes any type', () => {
+		expect(matchesTypeFilter(mockContract('task'), 'all')).toBe(true);
+		expect(matchesTypeFilter(mockContract('service'), 'all')).toBe(true);
+		expect(matchesTypeFilter(mockContract(undefined), 'all')).toBe(true);
+		expect(matchesTypeFilter(mockContract(''), 'all')).toBe(true);
+	});
+
+	it('tasks matches task or missing contextType', () => {
+		expect(matchesTypeFilter(mockContract('task'), 'tasks')).toBe(true);
+		expect(matchesTypeFilter(mockContract(undefined), 'tasks')).toBe(true);
+		expect(matchesTypeFilter(mockContract(''), 'tasks')).toBe(true);
+		expect(matchesTypeFilter(mockContract('service'), 'tasks')).toBe(false);
+	});
+
+	it('services matches service contextType only', () => {
+		expect(matchesTypeFilter(mockContract('service'), 'services')).toBe(true);
+		expect(matchesTypeFilter(mockContract('task'), 'services')).toBe(false);
+		expect(matchesTypeFilter(mockContract(undefined), 'services')).toBe(false);
+		expect(matchesTypeFilter(mockContract(''), 'services')).toBe(false);
 	});
 });

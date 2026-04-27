@@ -10,6 +10,7 @@
 
 import cryptoPriceService from '$lib/api/services/crypto-price.service';
 import { ethers } from 'ethers';
+import { get } from 'svelte/store';
 import {
 	createServiceContract as createServiceContractV2,
 	type ServiceContractCreationInputV2
@@ -28,6 +29,7 @@ import {
 import { normalizeServiceContractSchedule } from '$lib/utils/service-contract/schedule';
 import { createDebug } from '$lib/utils/debug';
 import type { FeeTier } from '@bittasker/wallet-core';
+import { walletStore } from '$lib/stores/wallet.store';
 
 const d = createDebug('service-contract:create');
 const DEFAULT_CLIENT_FEE_TIER: FeeTier = 1;
@@ -150,9 +152,20 @@ export async function createServiceContract(
 			};
 		}
 
-		const clientRskAddress = input.clientRskAddress
-			? normalizePlainRskAddress(input.clientRskAddress)
-			: '';
+		// Get client RSK address from input or wallet store
+		let clientRskAddress = '';
+		if (input.clientRskAddress) {
+			clientRskAddress = normalizePlainRskAddress(input.clientRskAddress);
+		} else {
+			const walletState = get(walletStore);
+			if (walletState.rsk.address) {
+				clientRskAddress = normalizePlainRskAddress(walletState.rsk.address);
+			}
+		}
+
+		if (!clientRskAddress) {
+			d.warn('createServiceContract: client RSK address not available for acceptance snapshot');
+		}
 
 		const acceptanceSnapshot = createServiceAcceptanceSnapshot({
 			clientRskAddress,

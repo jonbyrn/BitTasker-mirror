@@ -23,19 +23,16 @@ The `feat/find-services` feature branch added extensive service-related function
 
 These components handle service-specific context display in contracts:
 
-
-| Component                          | Path                                                            | Purpose                                                              | NDK Status   |
-| ---------------------------------- | --------------------------------------------------------------- | -------------------------------------------------------------------- | ------------ |
+| Component                          | Path                                                            | Purpose                                                              | NDK Status    |
+| ---------------------------------- | --------------------------------------------------------------- | -------------------------------------------------------------------- | ------------- |
 | `ContractContextSummary.svelte`    | `src/lib/components/contracts/ContractContextSummary.svelte`    | Displays context (task vs service) summary in contract cards/drawers | ❌ Not ported |
 | `ServiceAgreementSummary.svelte`   | `src/lib/components/contracts/ServiceAgreementSummary.svelte`   | Shows service agreement details (tier, deliverables, add-ons, etc.)  | ❌ Not ported |
 | `ContractFundingWalletCard.svelte` | `src/lib/components/contracts/ContractFundingWalletCard.svelte` | Service funding wallet display                                       | ❌ Not ported |
 | `ContractInitiationDrawer.svelte`  | `src/lib/components/contracts/ContractInitiationDrawer.svelte`  | Service contract initiation flow                                     | ❌ Not ported |
 
-
 ### 2. Contract Action Buttons (MEDIUM PRIORITY)
 
 Modular action buttons added for service contracts:
-
 
 | Component                                 | Path                                                                   | Purpose                   |
 | ----------------------------------------- | ---------------------------------------------------------------------- | ------------------------- |
@@ -46,11 +43,9 @@ Modular action buttons added for service contracts:
 | `actions/DisputeContractButton.svelte`    | `src/lib/components/contracts/actions/DisputeContractButton.svelte`    | Dispute service contract  |
 | `actions/ResolutionProposalButton.svelte` | `src/lib/components/contracts/actions/ResolutionProposalButton.svelte` | Propose resolution        |
 
-
 ### 3. Modified Contract Components (HIGH PRIORITY)
 
 These existing components were heavily modified for service support:
-
 
 | Component                        | Key Service Additions                                                                                                                                                      |
 | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -60,13 +55,11 @@ These existing components were heavily modified for service support:
 | `ContractActions.svelte`         | - `ContractActionBar` integration - Individual action button components - Offline handling - Stale action notices                                                          |
 | `TaskCompletionModal.svelte`     | - Service context awareness - Different labels for service completion                                                                                                      |
 
-
 ---
 
 ## Service Contract Utilities to Port
 
 ### 1. Core Service Contract Utilities (`src/lib/utils/service-contract/`)
-
 
 | File                            | Purpose                                                         | Dependencies              |
 | ------------------------------- | --------------------------------------------------------------- | ------------------------- |
@@ -89,9 +82,7 @@ These existing components were heavily modified for service support:
 | `book-now-outbox.ts`            | Book-now order outbox                                           | Order types               |
 | `await-contract-creation.ts`    | Wait for contract creation confirmation                         | Async utilities           |
 
-
 ### 2. Service Quote Utilities (`src/lib/utils/service-quote/`)
-
 
 | File                   | Purpose                                               |
 | ---------------------- | ----------------------------------------------------- |
@@ -104,14 +95,11 @@ These existing components were heavily modified for service support:
 | `acceptance-ledger.ts` | Track quote acceptance state                          |
 | `agreement-summary.ts` | Build agreement summary                               |
 
-
 ### 3. Service Instant-Buy Utilities (`src/lib/utils/service-instant-buy/`)
-
 
 | File        | Purpose                      |
 | ----------- | ---------------------------- |
 | `create.ts` | Instant-buy service creation |
-
 
 ---
 
@@ -119,13 +107,11 @@ These existing components were heavily modified for service support:
 
 ### Files with Service Logic in `src/lib/utils/escrow/v1/`
 
-
 | File               | Service-Related Code                                                                                                       |
 | ------------------ | -------------------------------------------------------------------------------------------------------------------------- |
 | `escrowEvents.ts`  | - `contractCreationStore` - `reverifyPublishedServiceAcceptanceByEscrowId()` - `retryPendingServiceAcceptanceByEscrowId()` |
 | `nostrContract.ts` | - Service context handling in Nostr event creation - `contextType` field support                                           |
 | `escrow.ts`        | - Service contract creation flow - Service-specific validation                                                             |
-
 
 ---
 
@@ -172,7 +158,7 @@ UI state management for service quotes. May need integration with NDK contract r
 
 ### Phase 2: Service Context Display (TODO)
 
-- Refactor earning page to be wired with `DashboardContractsPanelNDK`  
+- Refactor earning page to be wired with `DashboardContractsPanelNDK`
 - Port `ContractContextSummary` logic to work with `PaymentContractRune`
 - Add service context to `ContractCardNDK`
 - Add service context to `ContractDrawerNDK`
@@ -265,4 +251,3 @@ NDK approach: Filter via:
 - Service-related code should be ported incrementally, testing each feature
 - Consider creating NDK-specific versions of service utilities that work with `PaymentContractRune`
 - The `PaymentContractLifecycle` interface may need extension for service-specific operations
-

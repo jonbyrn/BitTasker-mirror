@@ -7,7 +7,7 @@
 	import { t } from 'svelte-i18n';
 	import Tabs from '$lib/components/Tabs.svelte';
 	import DashboardBidsPanel from '$lib/components/bidding/DashboardBidsPanel.svelte';
-	import DashboardContractsPanel from '$lib/components/contracts/DashboardContractsPanel.svelte';
+	import DashboardContractsPanelNDK from '$lib/components/contracts/DashboardContractsPanelNDK.svelte';
 	import DashboardSavedSearchesPanel from '$lib/components/task/DashboardSavedSearchesPanel.svelte';
 	import DashboardMyServicesPanel from '$lib/components/service/DashboardMyServicesPanel.svelte';
 	import DashboardServiceRequestsPanel from '$lib/components/service/DashboardServiceRequestsPanel.svelte';
@@ -433,9 +433,9 @@
 			aria-labelledby="tab-contracts"
 			transition:slide={{ duration: 300 }}
 		>
-			<DashboardContractsPanel
+			<DashboardContractsPanelNDK
 				initialType={contractsType}
-				initialStatus={activeStatus as string | null}
+				initialStatus={activeStatus ?? 'all'}
 				showRoleFilters={false}
 				fixedRole="freelancer"
 				showServiceFilter={true}
