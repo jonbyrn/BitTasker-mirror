@@ -11,7 +11,6 @@
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { satsFromUsd } from '$lib/utils/helpers/crypto';
 	import { ServicePricingTypeEnum, ServiceLocationTypeEnum } from '$lib/utils/enums/service.enum';
-	import { isApproximatePublicLocation } from '$lib/utils/location/public-location';
 	import Avatar from '../Avatar.svelte';
 	import ServiceShareButton from './ServiceShareButton.svelte';
 	import IconEye from '~icons/mdi/eye';
@@ -148,9 +147,6 @@
 	}
 
 	const displayedLocationDetails = $derived(getDisplayedLocationDetails());
-	const showApproximateLocationNote = $derived(
-		isApproximatePublicLocation(displayedLocationDetails.location)
-	);
 
 	// Handle card click - when map visible: select on map; otherwise go to detail (same as TaskCard)
 	function handleCardClick(e: MouseEvent | KeyboardEvent): void {
@@ -369,11 +365,6 @@
 				<span class="text-base-content/80 min-w-0 flex-1 truncate text-sm"
 					>{displayedLocationDetails.text}</span
 				>
-				{#if showApproximateLocationNote}
-					<span class="text-base-content/60 shrink-0 text-xs">
-						({$t('common.location.approximate_short')})
-					</span>
-				{/if}
 			</div>
 		{/if}
 
