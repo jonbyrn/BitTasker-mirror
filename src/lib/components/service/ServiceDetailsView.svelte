@@ -1680,7 +1680,7 @@
 											class="link link-primary">{headerLocation!.address}</a
 										>
 									{:else}
-										<span>Remote</span>
+										<span>{$t('dashboard.services.detail.remote')}</span>
 									{/if}
 								</div>
 								<div class="text-base-content/80 text-sm leading-relaxed whitespace-pre-line">
@@ -1838,7 +1838,9 @@
 							<div
 								class="bg-base-100 border-base-300 hidden rounded-2xl border p-6 shadow-sm lg:block"
 							>
-								<h3 class="mb-4 text-lg font-bold">Service Location</h3>
+								<h3 class="mb-4 text-lg font-bold">
+									{detailText('dashboard.services.detail.service_location', 'Location')}
+								</h3>
 								<div class="mb-3 overflow-hidden rounded-lg">
 									<TaskLocationMap
 										services={[service]}
@@ -1906,7 +1908,7 @@
 										class="link link-primary">{headerLocation!.address}</a
 									>
 								{:else}
-									<span>Remote</span>
+									<span>{$t('dashboard.services.detail.remote')}</span>
 								{/if}
 							</div>
 							<div class="text-base-content/80 text-sm leading-relaxed whitespace-pre-line">
@@ -2071,7 +2073,9 @@
 						{@const locationDisplay = getServiceLocationDisplay(service)}
 						{#if locationDisplay}
 							<div class="bg-base-100 border-base-300 rounded-2xl border p-6 shadow-sm lg:hidden">
-								<h3 class="mb-4 text-lg font-bold">Service Location</h3>
+								<h3 class="mb-4 text-lg font-bold">
+									{detailText('dashboard.services.detail.service_location', 'Location')}
+								</h3>
 								<div class="mb-3 overflow-hidden rounded-lg">
 									<TaskLocationMap
 										services={[service]}
@@ -2153,7 +2157,7 @@
 													<span class="loading loading-spinner loading-xs"></span>
 												{:else if instantBuyFundingCheckInFlight}
 													<span class="text-base-content/60 text-xs"
-														>Verifying wallet balance...</span
+														>{$t('dashboard.services.detail.verifying_wallet')}</span
 													>
 												{:else}
 													{instantBuyEligibility.code === 'missing_selected_tier'
@@ -2179,7 +2183,8 @@
 											<span>{instantBuyErrorMessage}</span>
 											<button
 												class="btn btn-sm"
-												onclick={() => prepareInstantBuyDraft(instantBuyDraft)}>Retry</button
+												onclick={() => prepareInstantBuyDraft(instantBuyDraft)}
+												>{$t('common.buttons.retry')}</button
 											>
 										</div>
 									{/if}
@@ -2369,7 +2374,8 @@
 											>{#if instantBuyPreparing}
 												<span class="loading loading-spinner loading-xs"></span>
 											{:else if instantBuyFundingCheckInFlight}
-												<span class="text-base-content/60 text-xs">Verifying wallet balance...</span
+												<span class="text-base-content/60 text-xs"
+													>{$t('dashboard.services.detail.verifying_wallet')}</span
 												>
 											{:else}
 												{instantBuyEligibility.code === 'missing_selected_tier'
@@ -2392,7 +2398,8 @@
 										<span>{instantBuyErrorMessage}</span>
 										<button
 											class="btn btn-sm"
-											onclick={() => prepareInstantBuyDraft(instantBuyDraft)}>Retry</button
+											onclick={() => prepareInstantBuyDraft(instantBuyDraft)}
+											>{$t('common.buttons.retry')}</button
 										>
 									</div>
 								{/if}
