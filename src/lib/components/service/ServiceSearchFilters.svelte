@@ -68,13 +68,6 @@
 		}
 	});
 
-	// Track changes to initialFilters while drawer is closed to sync on open
-	$effect(() => {
-		if (!isOpen && initialFilters) {
-			// Sync filters when drawer opens next time
-		}
-	});
-
 	// Track active filter count
 	let activeFilterCount = $state(0);
 
@@ -410,8 +403,8 @@
 							oninput={(e) => {
 								const value = e.currentTarget.value;
 								filters.minPrice = value ? parseFloat(value) : undefined;
-								validatePriceRange();
 							}}
+							onblur={() => validatePriceRange()}
 						/>
 						{#if priceError}
 							<p id={priceErrorId} class="text-error mt-1 text-sm" data-testid="price-error">
@@ -437,8 +430,8 @@
 							oninput={(e) => {
 								const value = e.currentTarget.value;
 								filters.maxPrice = value ? parseFloat(value) : undefined;
-								validatePriceRange();
 							}}
+							onblur={() => validatePriceRange()}
 						/>
 					</div>
 					{#if filters.minPrice !== undefined || filters.maxPrice !== undefined}
@@ -487,7 +480,7 @@
 
 			{#if filters.location}
 				<div class="mt-4">
-					<label class="label" for="search-radius" id="search-radius-label">
+					<label class="label" for="search-radius">
 						<span class="label-text">
 							{$t('dashboard.services.browse.filters.search_radius') || 'Search Radius (km)'}
 						</span>
