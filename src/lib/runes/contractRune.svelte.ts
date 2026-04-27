@@ -28,6 +28,7 @@ import {
 	getPendingResolutionProposalFromStatusEvents,
 	type PendingResolutionProposal
 } from '$lib/utils/contract/resolutionProposalDisplay';
+import { isBlockCanonical } from '$lib/utils/service-contract/finality';
 
 const d = createDebug('runes:contractRune');
 
@@ -357,6 +358,31 @@ export class PaymentContractRune implements PaymentContractRuneLike {
 		try {
 			const provider = await getProvider('rsk');
 			const receipt = await provider.waitForTransaction(txHash);
+
+			// Check if block is canonical (not reorged out) before trusting the confirmation
+			if (receipt?.blockNumber) {
+				const canonical = await isBlockCanonical(provider, receipt.blockNumber);
+				if (!canonical) {
+					d.warn('awaitStatusTxThenReload: block not yet canonical, waiting for reorg safety', {
+						txHash,
+						blockNumber: receipt.blockNumber
+					});
+					// Poll until canonical or timeout
+					const deadline = Date.now() + 60_000; // 60s max wait for canonical
+					while (Date.now() < deadline) {
+						await new Promise((r) => setTimeout(r, 10_000));
+						const newReceipt = await provider.getTransactionReceipt(txHash);
+						if (newReceipt?.blockNumber) {
+							const isCanonical = await isBlockCanonical(provider, newReceipt.blockNumber);
+							if (isCanonical) {
+								d.log('awaitStatusTxThenReload: block now canonical', { txHash });
+								break;
+							}
+						}
+					}
+				}
+			}
+
 			await this.reloadBlockchainData();
 			if (receipt?.status === 0) {
 				d.warn('awaitStatusTxThenReload: tx reverted; reloaded chain anyway', { txHash });
