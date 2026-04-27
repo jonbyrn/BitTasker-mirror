@@ -1158,6 +1158,9 @@
 										'[ServiceDetailsView] afterBroadcast partial failures',
 										report.failures
 									);
+									appStore.showErrorToast(
+										'Off-chain sync (Nostr/push) partially failed. Contract may take longer to propagate.'
+									);
 								}
 							}),
 							(async () => {
