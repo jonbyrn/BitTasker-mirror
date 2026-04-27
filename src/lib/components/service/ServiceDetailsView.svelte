@@ -8,8 +8,7 @@
 	import type { Attachment } from '$lib/types/task.d';
 	import { t, locale } from 'svelte-i18n';
 	import { goto } from '$app/navigation';
-	import { resolve } from '$app/paths';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { browser, dev } from '$app/environment';
 	import {
 		getServiceDisplayTitle,
@@ -50,7 +49,7 @@
 		type InstantBuyCreateSnapshot
 	} from '$lib/utils/service-instant-buy/create';
 	import { buildServiceAddress } from '$lib/utils/service-quote/protocol';
-	import { createServiceContract, type ServiceContractCreationResult } from '$lib/utils/service-contract/create';
+	import { createServiceContract } from '$lib/utils/service-contract/create';
 	import { describeServiceContractPreflightFailure } from '$lib/utils/service-contract/preflight-feedback';
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
 	import { preflightServiceContractCreation } from '$lib/utils/service-contract/preflight';
@@ -265,18 +264,6 @@
 		}
 	});
 
-	const _adjustedDeliveryTime = $derived(
-		requestRushDelivery && availableRushDelivery
-			? formatDeliveryTime(availableRushDelivery.deliveryTime)
-			: formatDeliveryTime(selectedTier?.deliveryTime ?? service?.pricing?.deliveryTime ?? null)
-	);
-
-	const _adjustedTierPrice = $derived(
-		requestRushDelivery && availableRushDelivery
-			? (selectedTier?.price ?? 0) + availableRushDelivery.price
-			: (selectedTier?.price ?? 0)
-	);
-
 	let requestQuoteModalOpen = $state(false);
 	let instantBuyModalOpen = $state(false);
 	let instantBuyPreparing = $state(false);
@@ -321,17 +308,15 @@
 		instantBuyService ? resolveProviderWalletAddress(instantBuyService) : null
 	);
 
-	type InstantBuyCreationState = 
+	type InstantBuyCreationState =
 		| { state: 'idle' }
 		| { state: 'pending'; transactionHash: string }
 		| { state: 'confirmed'; transactionHash: string; paymentId: string }
 		| { state: 'failed'; transactionHash: string; error: string };
-	
+
 	let instantBuyCreationState = $state<InstantBuyCreationState>({ state: 'idle' });
 
-	const showInstantBuyContractCreationProgress = $derived(
-		instantBuyCreationState.state !== 'idle'
-	);
+	const showInstantBuyContractCreationProgress = $derived(instantBuyCreationState.state !== 'idle');
 	const instantBuyContractCreationStatus = $derived.by(() => {
 		if (instantBuyCreationState.state === 'idle') {
 			return 'idle' as const;
@@ -419,10 +404,7 @@
 	});
 
 	let instantBuyDraft = $state<InstantBuyDraft | null>(null);
-	let instantBuyPendingTransactionHash = $state('');
-	let _instantBuyPendingAmountRbtc = $state('');
 	let instantBuyPostSubmitErrorMessage = $state('');
-	let _instantBuyBackgrounded = $state(false);
 	let bookNowSubmissionOwnerId = $state<string | null>(null);
 
 	let lastInstantBuyDebugSignature = '';
@@ -619,10 +601,6 @@
 		return normalizeAddressCandidate(runtimeService.providerWalletAddress);
 	}
 
-	function normalizeTransactionHash(transactionHash: string): string {
-		return transactionHash.trim().toLowerCase();
-	}
-
 	function getBookNowOutboxStorage(): Storage | null {
 		return browser ? window.localStorage : null;
 	}
@@ -682,7 +660,10 @@
 		draft: InstantBuyDraft,
 		state: BookNowOutboxEntry['state'],
 		overrides: Partial<
-			Pick<BookNowOutboxEntry, 'instantOrderId' | 'amountRbtc' | 'transactionHash' | 'escrowId' | 'needsCleanup'>
+			Pick<
+				BookNowOutboxEntry,
+				'instantOrderId' | 'amountRbtc' | 'transactionHash' | 'escrowId' | 'needsCleanup'
+			>
 		> = {},
 		expectedLockOwnerId: string | undefined = undefined
 	): BookNowOutboxEntry {
@@ -860,7 +841,7 @@
 			return;
 		}
 		if (!$authState.isAuthenticated) {
-			goto(resolve(`/auth/login?returnTo=${encodeURIComponent(window.location.pathname)}`));
+			goto(`/auth/login?returnTo=${encodeURIComponent(window.location.pathname)}`);
 			return;
 		}
 		requestQuoteModalOpen = true;
@@ -874,16 +855,12 @@
 		instantBuyDraft = null;
 		instantBuyFundingCheck = null;
 		instantBuyFundingCheckInFlight = false;
-		instantBuyPendingTransactionHash = '';
-		_instantBuyPendingAmountRbtc = '';
 		instantBuyPostSubmitErrorMessage = '';
-		_instantBuyBackgrounded = false;
 		instantBuyCreationState = { state: 'idle' };
 	}
 
 	function handleCloseInstantBuyDrawer() {
 		if (showInstantBuyContractCreationProgress) {
-			_instantBuyBackgrounded = true;
 			instantBuyModalOpen = false;
 			return;
 		}
@@ -1071,7 +1048,7 @@
 			return false;
 		}
 		if (!$authState.isAuthenticated) {
-			goto(resolve(`/auth/login?returnTo=${encodeURIComponent(window.location.pathname)}`));
+			goto(`/auth/login?returnTo=${encodeURIComponent(window.location.pathname)}`);
 			return false;
 		}
 		if (!instantBuyEligibility.eligible) {
@@ -1167,29 +1144,37 @@
 					amountRbtc: contractResult.amount
 				});
 
-				instantBuyPendingTransactionHash = contractResult.transactionHash;
-				_instantBuyPendingAmountRbtc = contractResult.amount;
-				instantBuyCreationState = { state: 'pending', transactionHash: contractResult.transactionHash };
+				instantBuyCreationState = {
+					state: 'pending',
+					transactionHash: contractResult.transactionHash
+				};
 
 				void (async () => {
 					try {
 						await Promise.all([
 							contractResult.afterBroadcast.then((report) => {
 								if (report.failures.length) {
-									console.warn('[ServiceDetailsView] afterBroadcast partial failures', report.failures);
+									console.warn(
+										'[ServiceDetailsView] afterBroadcast partial failures',
+										report.failures
+									);
 								}
 							}),
 							(async () => {
 								const receipt = await contractResult.tx.wait();
 								if (!receipt) throw new Error('No receipt');
 								const { paymentId } = await contractResult.afterConfirmed(receipt);
-								
-								instantBuyCreationState = { 
-									state: 'confirmed', 
+
+								instantBuyCreationState = {
+									state: 'confirmed',
 									transactionHash: contractResult.transactionHash,
 									paymentId: String(paymentId)
 								};
 
+								// State machine requires: funding_submitted → contract_sync_pending → contract_ready
+								updateBookNowOutboxForDraft(instantBuyDraft, 'contract_sync_pending', {
+									escrowId: String(paymentId)
+								});
 								updateBookNowOutboxForDraft(instantBuyDraft, 'contract_ready', {
 									escrowId: String(paymentId)
 								});
@@ -1208,8 +1193,8 @@
 						]);
 					} catch (err) {
 						console.error('[ServiceDetailsView] tx confirmation failed', err);
-						instantBuyCreationState = { 
-							state: 'failed', 
+						instantBuyCreationState = {
+							state: 'failed',
 							transactionHash: contractResult.transactionHash,
 							error: err instanceof Error ? err.message : 'Transaction confirmation failed'
 						};
@@ -1223,8 +1208,6 @@
 					}
 				})();
 			} else if (entry.state === 'funding_submitted' && entry.transactionHash) {
-				instantBuyPendingTransactionHash = entry.transactionHash;
-				_instantBuyPendingAmountRbtc = entry.amountRbtc || '';
 				instantBuyCreationState = { state: 'pending', transactionHash: entry.transactionHash };
 			}
 		} catch (error) {
@@ -1380,7 +1363,7 @@
 				detailText('dashboard.services.detail.delete_success', 'Service deleted successfully.')
 			);
 
-			goto(resolve('/dashboard?tab=my-services'));
+			goto('/dashboard?tab=my-services');
 		} catch (error) {
 			console.error('[ServiceDetailsView] Failed to delete service', error);
 			clearPendingServiceDelete(service.id);
@@ -1460,9 +1443,9 @@
 
 		// Handle quote request reentry if needed
 		if (browser && service) {
-			const reentry = parseServiceQuoteReentryState($page.url);
+			const reentry = parseServiceQuoteReentryState(page.url);
 			if (reentry && reentry.serviceId === service.id) {
-				clearServiceQuoteReentryState($page.url);
+				clearServiceQuoteReentryState(page.url);
 				handleOpenRequestQuote();
 			}
 		}
@@ -1473,9 +1456,11 @@
 		if (browser && service && instantBuyDraft) {
 			const fingerprint = buildBookNowFingerprint(instantBuyDraft);
 			const recoverable = readRecoverableBookNowOutboxEntry(getBookNowOutboxStorage(), fingerprint);
-			
-			if (recoverable && 
-				(recoverable.state === 'funding_submitted' || recoverable.state === 'contract_sync_pending') &&
+
+			if (
+				recoverable &&
+				(recoverable.state === 'funding_submitted' ||
+					recoverable.state === 'contract_sync_pending') &&
 				recoverable.transactionHash
 			) {
 				// Attempt recovery for interrupted transactions
@@ -1496,7 +1481,7 @@
 							agreementSnapshot: instantBuyDraft.agreementSnapshot,
 							escrowId: recoverable.escrowId
 						});
-						
+
 						if (result.status === 'contract_ready' && result.escrowId) {
 							clearBookNowOutboxForDraft(instantBuyDraft);
 							goto(buildContractsHighlightUrl(result.escrowId));
@@ -2167,10 +2152,15 @@
 												>{#if instantBuyPreparing}
 													<span class="loading loading-spinner loading-xs"></span>
 												{:else if instantBuyFundingCheckInFlight}
-													<span class="text-xs text-base-content/60">Verifying wallet balance...</span>
+													<span class="text-base-content/60 text-xs"
+														>Verifying wallet balance...</span
+													>
 												{:else}
 													{instantBuyEligibility.code === 'missing_selected_tier'
-														? detailText('dashboard.services.detail.select_package', 'Select Package')
+														? detailText(
+																'dashboard.services.detail.select_package',
+																'Select Package'
+															)
 														: detailText('dashboard.services.detail.book_now', 'Book Now')}
 												{/if}</button
 											>
@@ -2187,7 +2177,10 @@
 									{#if instantBuyErrorMessage}
 										<div class="alert alert-error mt-2">
 											<span>{instantBuyErrorMessage}</span>
-											<button class="btn btn-sm" onclick={() => prepareInstantBuyDraft(instantBuyDraft)}>Retry</button>
+											<button
+												class="btn btn-sm"
+												onclick={() => prepareInstantBuyDraft(instantBuyDraft)}>Retry</button
+											>
 										</div>
 									{/if}
 								{/if}
@@ -2376,12 +2369,14 @@
 											>{#if instantBuyPreparing}
 												<span class="loading loading-spinner loading-xs"></span>
 											{:else if instantBuyFundingCheckInFlight}
-												<span class="text-xs text-base-content/60">Verifying wallet balance...</span>
+												<span class="text-base-content/60 text-xs">Verifying wallet balance...</span
+												>
 											{:else}
 												{instantBuyEligibility.code === 'missing_selected_tier'
 													? detailText('dashboard.services.detail.select_package', 'Select Package')
 													: detailText('dashboard.services.detail.book_now', 'Book Now')}
-											{/if}</button>
+											{/if}</button
+										>
 									{:else}
 										<button
 											class="btn btn-primary w-full"
@@ -2395,7 +2390,10 @@
 								{#if instantBuyErrorMessage}
 									<div class="alert alert-error mt-2">
 										<span>{instantBuyErrorMessage}</span>
-										<button class="btn btn-sm" onclick={() => prepareInstantBuyDraft(instantBuyDraft)}>Retry</button>
+										<button
+											class="btn btn-sm"
+											onclick={() => prepareInstantBuyDraft(instantBuyDraft)}>Retry</button
+										>
 									</div>
 								{/if}
 							{/if}
