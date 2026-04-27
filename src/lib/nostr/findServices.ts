@@ -112,6 +112,7 @@ interface FilterPerformanceMetrics {
 	cacheHit: boolean;
 }
 
+const MAX_PERFORMANCE_METRICS = 100;
 const performanceMetrics: FilterPerformanceMetrics[] = [];
 
 /**
@@ -304,6 +305,7 @@ export async function findServices(
 			// Use optimized filtering with pre-indexed data
 			const { services: filteredServices, metrics } = filterIndexedServices(cached.data, params);
 			metrics.cacheHit = true;
+			if (performanceMetrics.length >= MAX_PERFORMANCE_METRICS) performanceMetrics.length = 0;
 			performanceMetrics.push(metrics);
 
 			// Convert back to regular Service objects
@@ -410,6 +412,7 @@ export async function findServices(
 			indexedServices,
 			params
 		);
+		if (performanceMetrics.length >= MAX_PERFORMANCE_METRICS) performanceMetrics.length = 0;
 		performanceMetrics.push(metrics);
 
 		// Get existing cached data if available
