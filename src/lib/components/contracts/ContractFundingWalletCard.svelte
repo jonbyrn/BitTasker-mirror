@@ -15,6 +15,7 @@
 		_requiredSats = '',
 		remainingUsd = '—',
 		remainingSats = '',
+		remainingIsNegative = false,
 		loading = false,
 		connected = false,
 		onRefresh = undefined,
@@ -35,6 +36,7 @@
 		requiredSats?: string;
 		remainingUsd?: string;
 		remainingSats?: string;
+		remainingIsNegative?: boolean;
 		loading?: boolean;
 		connected?: boolean;
 		onRefresh?: () => void;
@@ -158,7 +160,9 @@
 				<div class="border-base-content/10 border-t py-1"></div>
 				<div class="flex items-center justify-between gap-2 text-sm">
 					<span class="text-base-content/70 font-semibold">{resolvedRemainingLabel}</span>
-					<span class="text-success text-right font-semibold">
+					<span
+						class="{remainingIsNegative ? 'text-error' : 'text-success'} text-right font-semibold"
+					>
 						{remainingUsd}
 					</span>
 				</div>

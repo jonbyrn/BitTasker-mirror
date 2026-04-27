@@ -29,7 +29,6 @@ import abi from '$lib/utils/contract/v2/abi.json';
 
 const DEFAULT_CLIENT_FEE_TIER = 1;
 const ESTIMATED_NETWORK_FEE_USD = 0.5;
-const GAS_BUFFER_DIVISOR = 10n;
 
 export { DEFAULT_CLIENT_FEE_TIER, ESTIMATED_NETWORK_FEE_USD };
 
@@ -400,19 +399,16 @@ export async function preflightServiceContractCreation(
 				gasPrice
 			}
 		);
-		const gasLimit = gasEstimate + gasEstimate / GAS_BUFFER_DIVISOR;
-		const estimatedFeeWei = ethers.parseEther((ESTIMATED_NETWORK_FEE_USD / btcPrice).toFixed(8));
-		const totalRequiredWei = totalPaymentWei + estimatedFeeWei;
-		const gasCostWei = gasLimit * gasPrice;
+		const gasCostWei = gasEstimate * gasPrice;
 		const balanceWei = await provider.getBalance(wallet.address);
 
-		if (balanceWei < totalRequiredWei) {
-			const shortfallWei = totalRequiredWei - balanceWei;
+		if (balanceWei < totalPaymentWei) {
+			const shortfallWei = totalPaymentWei - balanceWei;
 			return {
 				ok: false,
 				errorCode: 'insufficient_funds',
-				error: `Insufficient RBTC balance. You have ${formatRbtcAmount(balanceWei)} RBTC but need ${formatRbtcAmount(totalRequiredWei)} RBTC (including gas). Shortfall: ${formatRbtcAmount(shortfallWei)} RBTC.`,
-				totalRequired: ethers.formatEther(totalRequiredWei)
+				error: `Insufficient RBTC balance. You have ${formatRbtcAmount(balanceWei)} RBTC but need ${formatRbtcAmount(totalPaymentWei)} RBTC. Shortfall: ${formatRbtcAmount(shortfallWei)} RBTC.`,
+				totalRequired: ethers.formatEther(totalPaymentWei)
 			};
 		}
 
@@ -420,7 +416,7 @@ export async function preflightServiceContractCreation(
 			ok: true,
 			amount,
 			gasCost: ethers.formatEther(gasCostWei),
-			totalRequired: ethers.formatEther(totalRequiredWei),
+			totalRequired: ethers.formatEther(totalPaymentWei),
 			walletAddress
 		};
 	} catch (error) {
@@ -474,10 +470,6 @@ export async function revalidateWalletBalance(
 
 		const baseAmountWei = ethers.parseEther(input.amountRbtc);
 		const totalPaymentWei = calculateTotalPayment(baseAmountWei, DEFAULT_CLIENT_FEE_TIER);
-		const estimatedFeeWei = ethers.parseEther(
-			(ESTIMATED_NETWORK_FEE_USD / input.btcPrice).toFixed(8)
-		);
-		const totalRequiredWei = totalPaymentWei + estimatedFeeWei;
 
 		let currentBalanceWei: bigint;
 		try {
@@ -489,8 +481,8 @@ export async function revalidateWalletBalance(
 			};
 		}
 
-		if (currentBalanceWei < totalRequiredWei) {
-			const shortfallWei = totalRequiredWei - currentBalanceWei;
+		if (currentBalanceWei < totalPaymentWei) {
+			const shortfallWei = totalPaymentWei - currentBalanceWei;
 			return {
 				ok: false,
 				error: `Insufficient funds at transaction time. Balance changed since initial check. Shortfall: ${formatRbtcAmount(shortfallWei)} RBTC. Please add funds and retry.`
@@ -500,7 +492,7 @@ export async function revalidateWalletBalance(
 		return {
 			ok: true,
 			currentBalanceWei,
-			totalRequiredWei
+			totalRequiredWei: totalPaymentWei
 		};
 	} catch (_error) {
 		return {

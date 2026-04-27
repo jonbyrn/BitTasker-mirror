@@ -303,6 +303,13 @@
 		}
 		return total;
 	});
+	const totalPaymentSats = $derived.by(() => {
+		// Calculate total payment sats the same way as USD: base + platform fee + $0.50
+		const platformFee = totalAmountUsd * PLATFORM_FEE_RATE;
+		const totalPayment = totalAmountUsd + platformFee + ESTIMATED_NETWORK_FEE_USD;
+		if (totalPayment <= 0) return '';
+		return formatSats(Math.round((totalPayment * 100_000_000) / btcPrice.price));
+	});
 	const instantBuyService = $derived(service as ServiceRuntimeFields | null);
 	const instantBuyProviderWalletAddress = $derived.by(() =>
 		instantBuyService ? resolveProviderWalletAddress(instantBuyService) : null
@@ -396,15 +403,16 @@
 	} | null>(null);
 
 	const instantBuyRequiredUsdLabel = $derived.by(() => {
-		if (instantBuyFundingCheck?.totalRequiredUsd == null) {
+		// Calculate total payment the same way as ServiceInstantBuyModal: base + platform fee + $0.50
+		const platformFee = totalAmountUsd * PLATFORM_FEE_RATE;
+		const totalPayment = totalAmountUsd + platformFee + ESTIMATED_NETWORK_FEE_USD;
+		if (totalPayment <= 0) {
 			return '';
 		}
-
-		const value = instantBuyFundingCheck.totalRequiredUsd;
-		if (value < 0) {
-			return `- $${formatNumberWithTwoDecimals(Math.abs(value))}`;
+		if (totalPayment < 0) {
+			return `- $${formatNumberWithTwoDecimals(Math.abs(totalPayment))}`;
 		}
-		return `$${formatNumberWithTwoDecimals(value)}`;
+		return `$${formatNumberWithTwoDecimals(totalPayment)}`;
 	});
 
 	let instantBuyDraft = $state<InstantBuyDraft | null>(null);
@@ -2537,7 +2545,7 @@
 		walletConnected={$walletStore.rsk.connected}
 		walletBalanceSats={walletBalanceSatsLabel}
 		walletBalanceUsd={walletBalanceUsdLabel}
-		requiredBalanceSats={instantBuyFundingCheck?.totalRequiredSats ?? ''}
+		requiredBalanceSats={totalPaymentSats}
 		requiredBalanceUsd={instantBuyRequiredUsdLabel}
 		walletVerificationStatus={instantBuyFundingCheckInFlight
 			? 'verifying'
