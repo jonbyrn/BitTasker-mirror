@@ -30,6 +30,7 @@
 	let estimatedTimeRemaining = $state<number | null>(null);
 	let pollingInterval: ReturnType<typeof setInterval> | null = null;
 	let isPolling = $state(false);
+	let __errorMessage = $state<string | null>(null);
 
 	// Get network info
 	const networkInfo = $derived.by(() => {
@@ -162,12 +163,12 @@
 			// Update state
 			const statusChanged = status !== newStatus;
 			const timeChanged = estimatedTimeRemaining !== newEstimatedTime;
-			const errorChanged = errorMessage !== newErrorMessage;
+			const errorChanged = __errorMessage !== newErrorMessage;
 
 			if (statusChanged || timeChanged || errorChanged) {
 				status = newStatus;
 				estimatedTimeRemaining = newEstimatedTime;
-				errorMessage = newErrorMessage;
+				__errorMessage = newErrorMessage;
 			}
 		} catch (error) {
 			console.error('[PendingTransactionScreen] Error fetching swap status:', error);
@@ -285,13 +286,13 @@
 		const confirmationsChanged = oldConfirmations !== confirmations;
 		const isErrorStatus = (newStatus as TransactionStatus) === 'error';
 		const newErrorValue = isErrorStatus ? $t('wallet.send.transaction_failed') : null;
-		const errorChanged = errorMessage !== newErrorValue;
+		const errorChanged = __errorMessage !== newErrorValue;
 
 		if (statusChanged || timeChanged || confirmationsChanged || errorChanged) {
 			status = newStatus;
 			estimatedTimeRemaining = newEstimatedTime;
 			if (isErrorStatus) {
-				errorMessage = newErrorValue;
+				__errorMessage = newErrorValue;
 			}
 		}
 	} */
@@ -409,9 +410,15 @@
 			// Check if transaction is already confirmed
 			const receipt = await provider.getTransactionReceipt(txHash);
 			if (receipt && receipt.blockNumber !== null) {
-				// Transaction is mined and has at least 1 confirmation
-				status = 'success';
-				estimatedTimeRemaining = 0;
+				// Transaction is mined - verify it succeeded (status === 1)
+				if (receipt.status === 1) {
+					status = 'success';
+					estimatedTimeRemaining = 0;
+				} else {
+					// Transaction was reverted
+					status = 'failed';
+					__errorMessage = 'Transaction failed on-chain';
+				}
 				stopPolling();
 				isPolling = false;
 				return;
