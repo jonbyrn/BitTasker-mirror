@@ -165,6 +165,27 @@ export function getNamespacesForRoute(route: string): string[] {
 		namespaces.push('moderation');
 	}
 	// Protected workspace routes
+	// Earning routes (formerly /dashboard/earning)
+	if (route.includes('/earning')) {
+		namespaces.push('dashboard/dashboard', 'dashboard/tasks/info');
+		namespaces.push('dashboard/bids');
+		// Always load wallet namespace for bid-related components that use wallet translations
+		namespaces.push('dashboard/wallet');
+		// Service workspaces are surfaced from both protected workspace routes.
+		namespaces.push(
+			'dashboard/services/my-services',
+			'dashboard/services/browse',
+			'dashboard/services/detail'
+		);
+		// Load moderation namespace for report/mute menus that appear on all dashboard surfaces
+		namespaces.push('moderation');
+
+		// Load notifications namespace for notification components
+		namespaces.push('notifications');
+		// Load contracts actions namespace for contract-related components
+		namespaces.push('dashboard/contracts/actions');
+	}
+
 	if (route.includes('/dashboard')) {
 		namespaces.push('dashboard/dashboard', 'dashboard/tasks/info');
 		namespaces.push('dashboard/bids');

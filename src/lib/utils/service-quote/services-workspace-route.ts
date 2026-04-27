@@ -179,7 +179,7 @@ export function createServicesWorkspaceRedirectUrl(baseUrl: URL): URL {
 		emptyServicesWorkspaceRouteContext
 	).state;
 	const targetTab = parsed.tab === 'service-requests' ? 'requests' : 'my-services';
-	const nextUrl = buildEarningQueryUrl(new URL('/dashboard/earning', baseUrl), {
+	const nextUrl = buildEarningQueryUrl(new URL('/earning', baseUrl), {
 		tab: targetTab,
 		service: parsed.tab === 'service-requests' ? (parsed.serviceAddress ?? undefined) : undefined,
 		request: parsed.tab === 'service-requests' ? (parsed.requestId ?? undefined) : undefined
@@ -228,7 +228,7 @@ export function createServicesWorkspaceRedirectUrlFromLegacyDashboard(baseUrl: U
 		return null;
 	}
 
-	return createServicesWorkspaceUrl(new URL('/dashboard/earning', baseUrl), {
+	return createServicesWorkspaceUrl(new URL('/earning', baseUrl), {
 		tab: 'service-requests',
 		serviceAddress: parsed.service,
 		requestId: parsed.request ?? null

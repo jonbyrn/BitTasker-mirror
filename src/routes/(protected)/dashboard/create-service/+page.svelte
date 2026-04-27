@@ -82,7 +82,7 @@
 
 	function getMyServicesUrl(): string {
 		const baseUrl = browser ? new URL(window.location.origin) : new URL('https://bittasker.local');
-		return buildEarningQueryUrl(new URL('/dashboard/earning', baseUrl), {
+		return buildEarningQueryUrl(new URL('/earning', baseUrl), {
 			tab: 'my-services'
 		});
 	}

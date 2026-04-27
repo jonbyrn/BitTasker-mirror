@@ -3,11 +3,11 @@ export type DashboardTab =
 	| 'my-services'
 	| 'bids'
 	| 'contracts'
-	| 'saved-searches'
+	| 'alerts'
 	| 'service-requests'
 	| 'requests';
 
-export type EarningTab = 'bids' | 'requests' | 'contracts' | 'my-services' | 'saved-searches';
+export type EarningTab = 'bids' | 'requests' | 'contracts' | 'my-services' | 'alerts';
 
 export type DashboardView = 'default' | 'service-requests' | 'tasker';
 export type DashboardContractsType = 'all' | 'tasks' | 'services';
@@ -44,7 +44,7 @@ const VALID_TABS = new Set<DashboardTab>([
 	'my-services',
 	'bids',
 	'contracts',
-	'saved-searches',
+	'alerts',
 	'service-requests',
 	'requests'
 ]);
@@ -53,7 +53,7 @@ const VALID_EARNING_TABS = new Set<EarningTab>([
 	'requests',
 	'contracts',
 	'my-services',
-	'saved-searches'
+	'alerts'
 ]);
 const SERVICE_ADDRESS_PATTERN = /^(30402|30403):[0-9a-f]{64}:[^:]+$/i;
 const REQUEST_ID_PATTERN = /^[A-Za-z0-9_-]{8,64}$/;
@@ -126,25 +126,34 @@ export function parseDashboardQuery(url: URL): DashboardQueryState {
 }
 
 export function parseEarningQuery(url: URL): EarningQueryState {
-	const rawTab = url.searchParams.get('tab');
-	const rawView = url.searchParams.get('view');
-	const decodedService = decodeSearchParam(url.searchParams.get('service'));
-	const rawRequest = url.searchParams.get('request');
-
+	// Extract tab from path first (new path-based routing: /earning/bids)
+	// Fall back to query param for backward compatibility
+	const pathSegments = url.pathname.split('/').filter(Boolean);
 	let tab: EarningTab = 'bids';
 
-	if (VALID_EARNING_TABS.has(rawTab as EarningTab)) {
-		tab = rawTab as EarningTab;
+	// Check if we're on an earning sub-route
+	if (pathSegments[0] === 'earning' && pathSegments[1]) {
+		const pathTab = pathSegments[1] as EarningTab;
+		if (VALID_EARNING_TABS.has(pathTab)) {
+			tab = pathTab;
+		}
+	} else {
+		// Fallback to query param for legacy URLs
+		const rawTab = url.searchParams.get('tab');
+		if (VALID_EARNING_TABS.has(rawTab as EarningTab)) {
+			tab = rawTab as EarningTab;
+		}
+
+		if (rawTab === 'my-services' && url.searchParams.get('view') === 'service-requests') {
+			tab = 'requests';
+		} else if (rawTab === 'service-requests') {
+			tab = 'requests';
+		}
 	}
 
-	if (
-		rawTab === 'my-services' &&
-		(rawView === 'service-requests' || decodedService !== null || rawRequest !== null)
-	) {
-		tab = 'requests';
-	} else if (rawTab === 'service-requests') {
-		tab = 'requests';
-	}
+	const _rawView = url.searchParams.get('view');
+	const decodedService = decodeSearchParam(url.searchParams.get('service'));
+	const rawRequest = url.searchParams.get('request');
 
 	const state: EarningQueryState = {
 		tab,
@@ -240,12 +249,11 @@ export function buildDashboardQueryUrl(baseUrl: URL, state: DashboardQueryState)
 }
 
 export function buildEarningQueryUrl(baseUrl: URL, state: EarningQueryState): string {
-	const url = new URL(baseUrl.toString());
-	url.search = '';
-	url.searchParams.set('tab', state.tab);
+	// Build path-based URL: /earning/{tab} instead of /earning?tab={tab}
+	const url = new URL(`/earning/${state.tab}`, baseUrl.origin);
 
-	if (state.tab === 'contracts') {
-		url.searchParams.set('type', state.type ?? 'all');
+	if (state.tab === 'contracts' && state.type) {
+		url.searchParams.set('type', state.type);
 		if (state.highlight) {
 			url.searchParams.set('highlight', state.highlight);
 		}
