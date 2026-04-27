@@ -49,8 +49,8 @@
 					"fixed": "Fixed Price",
 					"hourly": "Hourly Rate",
 					"tiered": "Tiered Pricing",
-					"inquiry_required": "Request Quote",
-					"request_quote": "Request Quote",
+					"inquiry_required": "Inquire",
+					"request_quote": "Inquire",
 					"from_price": "From $X",
 					"not_set": "Price not set"
 				},
