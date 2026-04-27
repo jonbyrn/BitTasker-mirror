@@ -1201,7 +1201,7 @@
 	@media (min-width: 1024px) {
 		[data-services-list-view] {
 			height: 100%;
-			max-height: 65vh;
+			max-height: 80vh;
 		}
 
 		[data-services-list-column],
