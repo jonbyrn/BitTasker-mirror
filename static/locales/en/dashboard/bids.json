@@ -274,6 +274,8 @@
 		"creating": "Creating...",
 		"accept_and_pay": "Accept & Pay",
 		"accept": "Accept",
+		"accept_short": "Accept",
+		"decline_short": "Decline",
 		"fund_contract_title": "Fund Contract",
 		"fund": "Fund",
 		"bid_accepted_message": "Your bid has been accepted!",

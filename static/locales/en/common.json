@@ -107,6 +107,7 @@
 			"availability": "Availability",
 			"quick_actions": "Quick Actions",
 			"send_message": "Send Message",
+			"send_message_short": "Message",
 			"message_placeholder": "Type your message here...",
 			"go_to_chat": "Go to Chat",
 			"member_since": "Member since",

@@ -433,12 +433,16 @@
 				(s.uniqueId || s.id) === id ? { ...s, status: nextStatus } : s
 			);
 			await updateMyService(id, { status: nextStatus });
-			appStore.showSuccessToast($t('dashboard.services.my_services.status_updated'));
+			appStore.showSuccessToast(
+				tr('dashboard.services.my_services.status_updated', 'Status updated')
+			);
 		} catch {
 			services = services.map((s) =>
 				(s.uniqueId || s.id) === id ? { ...s, status: service.status } : s
 			);
-			appStore.showErrorToast($t('dashboard.services.my_services.status_update_failed'));
+			appStore.showErrorToast(
+				tr('dashboard.services.my_services.status_update_failed', 'Failed to update status')
+			);
 		} finally {
 			togglingServiceId = null;
 		}
@@ -556,7 +560,7 @@
 		}> = [];
 
 		actions.push({
-			label: tr('dashboard.services.my_services.view_details', 'Details'),
+			label: tr('dashboard.services.my_services.view_details_short', 'Details'),
 			class: 'btn-outline btn-sm',
 			onclick: (e: MouseEvent) => {
 				e.stopPropagation();
@@ -566,7 +570,7 @@
 		});
 
 		actions.push({
-			label: tr('dashboard.services.my_services.actions.quotes', 'Requests'),
+			label: tr('dashboard.services.my_services.actions.quotes_short', 'Reqs'),
 			class: 'btn-primary btn-sm',
 			onclick: (e: MouseEvent) => {
 				e.stopPropagation();
@@ -577,7 +581,7 @@
 
 		if (getPrimaryActiveContract(service)) {
 			actions.push({
-				label: tr('dashboard.services.my_services.actions.contracts', 'Contracts'),
+				label: tr('dashboard.services.my_services.actions.contracts_short', 'Contracts'),
 				class: 'btn-success btn-outline btn-sm',
 				onclick: async (e: MouseEvent) => {
 					e.stopPropagation();
@@ -594,7 +598,9 @@
 {#if loading}
 	<div class="flex flex-col items-center justify-center py-16">
 		<span class="loading loading-spinner loading-lg text-primary"></span>
-		<p class="text-base-content/70 mt-4">{$t('dashboard.services.my_services.loading')}</p>
+		<p class="text-base-content/70 mt-4">
+			{tr('dashboard.services.my_services.loading', 'Loading your services...')}
+		</p>
 	</div>
 {:else if error}
 	{#if isPasskeyLoadError}
@@ -607,19 +613,24 @@
 		/>
 	{:else}
 		<div class="alert alert-error alert-outline">
-			<span>{$t('dashboard.services.my_services.error_loading')}: {error}</span>
+			<span
+				>{tr('dashboard.services.my_services.error_loading', 'Error loading services')}: {error}</span
+			>
 		</div>
 	{/if}
 	<button type="button" class="btn btn-primary btn-sm mt-4" onclick={loadServices}>
-		{$t('dashboard.services.my_services.retry')}
+		{tr('dashboard.services.my_services.retry', 'Retry')}
 	</button>
 {:else if visibleServices.length === 0}
 	<div class="card bg-base-100 rounded-xl p-4">
 		<DashboardEmptyState
 			icon={emptyStateIcon}
-			title={$t('dashboard.services.my_services.empty_title')}
-			description={$t('dashboard.services.my_services.empty_message')}
-			actionLabel={$t('dashboard.services.my_services.create_service')}
+			title={tr('dashboard.services.my_services.empty_title', 'No services yet')}
+			description={tr(
+				'dashboard.services.my_services.empty_message',
+				'List your first service to start receiving requests from buyers.'
+			)}
+			actionLabel={tr('dashboard.services.my_services.create_service', 'Create Service')}
 			actionHref="/dashboard/create-service"
 			actionIcon={emptyStateActionIcon}
 			testId="dashboard-my-services-empty-state"
