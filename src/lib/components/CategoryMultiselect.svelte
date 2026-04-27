@@ -58,8 +58,7 @@
 	$effect(() => {
 		try {
 			// Force update on every effect run to ensure translations are applied
-			// Call $t() to trigger reactivity when language changes
-			void $t('categories.cleaning.name');
+			const currentLanguage = $t('categories.cleaning.name'); // Use any translation to get current language
 
 			// Always update categoryOptions to ensure translations are current
 			categoryOptions = TASK_CATEGORIES.map((category) => {
@@ -73,6 +72,7 @@
 					label: displayName // Use translated name for display
 				};
 			}).sort((a, b) => a.label.localeCompare(b.label));
+			void currentLanguage;
 		} catch (error) {
 			console.error('Error updating category options:', error);
 		}
@@ -81,55 +81,21 @@
 	// Sync selectedCategories with external category IDs
 	let lastExternalIds = $state<string[]>([]);
 	let isInternalUpdate = $state(false);
-	let lastCategoryOptionsLength = $state(0);
 
 	$effect(() => {
 		try {
-			// Re-sync when either external IDs change OR categoryOptions gets populated
-			const currentIds = externalCategoryIds;
-			const optionsLength = categoryOptions.length;
+			// Convert external IDs to full objects for display
+			if (JSON.stringify(externalCategoryIds) !== JSON.stringify(lastExternalIds)) {
+				lastExternalIds = [...externalCategoryIds];
+				isInternalUpdate = true;
 
-			// Only proceed if we have IDs to sync and options are available
-			if (currentIds.length > 0 && optionsLength > 0) {
-				// Check if we need to re-sync:
-				// 1. External IDs changed, OR
-				// 2. Options just became available (lastCategoryOptionsLength was 0 but now we have options)
-				const idsChanged = JSON.stringify(currentIds) !== JSON.stringify(lastExternalIds);
-				const optionsJustLoaded = lastCategoryOptionsLength === 0 && optionsLength > 0;
-				const needsResync = idsChanged || optionsJustLoaded;
+				const fullObjects = externalCategoryIds.map((id: string) => {
+					const option = categoryOptions.find((opt) => opt.value === id);
+					return option || { value: id, label: id };
+				});
 
-				if (needsResync || selectedCategories.length === 0) {
-					lastExternalIds = [...currentIds];
-					lastCategoryOptionsLength = optionsLength;
-					isInternalUpdate = true;
-
-					const fullObjects = currentIds.map((id: string) => {
-						// First try to find in already-built categoryOptions (with translations)
-						const option = categoryOptions.find((opt) => opt.value === id);
-						if (option) return option;
-
-						// Fallback: look up in TASK_CATEGORIES directly for the name
-						const category = TASK_CATEGORIES.find((cat) => cat.id === id);
-						if (category) {
-							return { value: id, label: category.name };
-						}
-
-						// Last resort: show the ID (shouldn't happen)
-						return { value: id, label: id };
-					});
-
-					selectedCategories = fullObjects;
-					isInternalUpdate = false;
-				}
-			} else if (currentIds.length === 0) {
-				// Handle clearing of selections
-				if (lastExternalIds.length > 0 || selectedCategories.length > 0) {
-					lastExternalIds = [];
-					lastCategoryOptionsLength = optionsLength;
-					isInternalUpdate = true;
-					selectedCategories = [];
-					isInternalUpdate = false;
-				}
+				selectedCategories = fullObjects;
+				isInternalUpdate = false;
 			}
 		} catch (error) {
 			console.error('Error syncing external category IDs:', error);
