@@ -12,7 +12,7 @@ import type {
 } from '$lib/types/service-quote';
 import { contractStore } from '$lib/stores/contract.store';
 import { walletStore } from '$lib/stores/wallet.store';
-import { escrow } from '$lib/utils/escrow';
+import { escrow as _escrow } from '$lib/utils/escrow';
 import {
 	buildServiceAddress,
 	generateServiceQuoteEntityId,
@@ -565,7 +565,7 @@ function mapAcceptanceError(code: 'expired' | 'invalid_time_bounds'): string {
 	}
 }
 
-function getAcceptanceUnknownMessage(reasonCode: ServiceAcceptanceUnknownReasonCode): string {
+function _getAcceptanceUnknownMessage(reasonCode: ServiceAcceptanceUnknownReasonCode): string {
 	switch (reasonCode) {
 		case 'tx_replaced':
 			return 'Your wallet replaced the original escrow transaction, and the final confirmation is still syncing. Open Contracts to monitor the acceptance.';
@@ -597,7 +597,7 @@ function buildVerifiedAcceptanceSnapshot(
 	};
 }
 
-async function markAcceptanceMonitorSyncPending(escrowId: string): Promise<void> {
+async function _markAcceptanceMonitorSyncPending(escrowId: string): Promise<void> {
 	const monitorEntry = await getAcceptanceConfirmedMonitorEntry(escrowId);
 	if (!monitorEntry) {
 		return;
@@ -727,7 +727,9 @@ function createServiceQuoteUiStore() {
 		transactionHash: string;
 		acceptanceSnapshot: ServiceAcceptanceSnapshot;
 		tx: import('ethers').ContractTransactionResponse;
-		afterConfirmed: (receipt: import('ethers').TransactionReceipt) => Promise<{ paymentId: number }>;
+		afterConfirmed: (
+			receipt: import('ethers').TransactionReceipt
+		) => Promise<{ paymentId: number }>;
 	}) {
 		try {
 			const receipt = await params.tx.wait();
@@ -765,9 +767,10 @@ function createServiceQuoteUiStore() {
 				)
 			}));
 		} catch (error) {
-			const message = error instanceof Error
-				? error.message
-				: 'The service contract acceptance could not be confirmed. Check your contracts.';
+			const message =
+				error instanceof Error
+					? error.message
+					: 'The service contract acceptance could not be confirmed. Check your contracts.';
 
 			const unknownInput: TaskerStatusActionInput = {
 				quoteRequestId: params.quoteRequestId,
@@ -780,7 +783,11 @@ function createServiceQuoteUiStore() {
 				transactionHash: params.transactionHash
 			});
 
-			markServiceProposalAcceptanceUnknown(params.proposalId, 'reconciliation_deferred', params.transactionHash);
+			markServiceProposalAcceptanceUnknown(
+				params.proposalId,
+				'reconciliation_deferred',
+				params.transactionHash
+			);
 
 			try {
 				await publishServiceProposalStatus({
@@ -1373,7 +1380,7 @@ function createServiceQuoteUiStore() {
 				};
 				const serviceAddress = buildServiceAddress(input.service);
 
-				await revalidateServiceForQuote(input.service.id);
+				await revalidateServiceForQuote(input.service.uniqueId);
 
 				await publishServiceQuoteRequest({
 					service: input.service,
