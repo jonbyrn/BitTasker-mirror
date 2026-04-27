@@ -161,6 +161,34 @@ describe('book now outbox', () => {
 		});
 	});
 
+	it('tests lock acquisition behavior at TTL boundary', () => {
+		const storage = createStorage();
+
+		// Acquire lock at T=0 with TTL=60000
+		const result1 = acquireBookNowSubmissionLock(
+			storage,
+			'purchase:service:tier',
+			'session-a',
+			1_700_000_000_000,
+			60_000
+		);
+		expect(result1.acquired).toBe(true);
+		expect(result1.entry.lockExpiresAtMs).toBe(1_700_000_060_000);
+
+		// At T + TTL + 1ms (61000), session-a's lock should be expired
+		// and session-b should be able to acquire
+		const result2 = acquireBookNowSubmissionLock(
+			storage,
+			'purchase:service:tier',
+			'session-b',
+			1_700_000_061_000,
+			60_000
+		);
+		// The actual behavior: lock is expired, new session can acquire
+		expect(result2.acquired).toBe(true);
+		expect(result2.entry.lockOwnerId).toBe('session-b');
+	});
+
 	it('returns existing recoverable entries instead of creating a second in-flight purchase', () => {
 		const storage = createStorage();
 
@@ -272,6 +300,27 @@ describe('book now outbox', () => {
 				transactionHash: '0xabc123'
 			})
 		).toThrow('Book Now outbox submission lock is owned by another session.');
+	});
+
+	it('throws when concurrent modification detected via expectedUpdatedAtMs', () => {
+		const storage = createStorage();
+
+		const entry = updateBookNowOutboxEntry(storage, {
+			fingerprint: 'purchase:service:tier',
+			state: 'funding_submitted',
+			nowMs: 1_700_000_000_000,
+			transactionHash: '0xabc123'
+		});
+
+		expect(() =>
+			updateBookNowOutboxEntry(storage, {
+				fingerprint: entry.fingerprint,
+				state: 'contract_sync_pending',
+				nowMs: 1_700_000_005_000,
+				expectedUpdatedAtMs: entry.updatedAtMs - 1000,
+				transactionHash: '0xabc123'
+			})
+		).toThrow('Concurrent modification detected');
 	});
 
 	it('clears terminal and stale entries while preserving active recoverable entries', () => {

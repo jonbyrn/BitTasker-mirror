@@ -68,11 +68,24 @@ const ALLOWED_STATUS_TRANSITIONS: Record<
 	Set<ServiceProposalStatus>
 > = {
 	pending: new Set(['accepting', 'accepted', 'declined', 'withdrawn']),
-	accepting: new Set(['contract_sync_pending', 'accepted', 'accept_failed', 'accept_unknown']),
-	contract_sync_pending: new Set(['accepted', 'accept_unknown']),
-	accept_failed: new Set(['accepting']),
-	accept_unknown: new Set(['accepting']),
-	accepted: new Set(['contract_sync_pending']),
+	accepting: new Set([
+		'contract_sync_pending',
+		'accepted',
+		'accept_failed',
+		'accept_unknown',
+		'declined',
+		'withdrawn'
+	]),
+	contract_sync_pending: new Set([
+		'accepted',
+		'accept_unknown',
+		'declined',
+		'withdrawn',
+		'accept_failed'
+	]),
+	accept_failed: new Set(['accepting', 'declined', 'withdrawn']),
+	accept_unknown: new Set(['accepting', 'declined', 'withdrawn']),
+	accepted: new Set(), // Removed circular transition to contract_sync_pending
 	declined: new Set(),
 	withdrawn: new Set()
 };

@@ -13,6 +13,8 @@ export type ServiceAcceptanceReconciledState =
 	| 'accept_failed'
 	| 'accept_unknown'
 	| 'accepting'
+	| 'declined'
+	| 'withdrawn'
 	| 'idle';
 
 export function reconcileServiceAcceptanceState(

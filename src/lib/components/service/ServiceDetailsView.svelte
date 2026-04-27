@@ -54,6 +54,7 @@
 	import { describeServiceContractPreflightFailure } from '$lib/utils/service-contract/preflight-feedback';
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
 	import { preflightServiceContractCreation } from '$lib/utils/service-contract/preflight';
+	import { extractContractError } from '$lib/utils/wallet/contractErrorHandler';
 	import { appStore } from '$lib/stores/app.store';
 	import { ethers } from 'ethers';
 	import { FEE_TIERS } from '@bittasker/wallet-core';
@@ -108,12 +109,14 @@
 		serviceId,
 		isPreview = false,
 		isDraft = false,
+		isLoading = false,
 		previewCreator = null
 	} = $props<{
 		service: Service | null;
 		serviceId: string;
 		isPreview?: boolean;
 		isDraft?: boolean;
+		isLoading?: boolean;
 		previewCreator?: PreviewCreator | null;
 	}>();
 
@@ -679,7 +682,7 @@
 		draft: InstantBuyDraft,
 		state: BookNowOutboxEntry['state'],
 		overrides: Partial<
-			Pick<BookNowOutboxEntry, 'instantOrderId' | 'amountRbtc' | 'transactionHash' | 'escrowId'>
+			Pick<BookNowOutboxEntry, 'instantOrderId' | 'amountRbtc' | 'transactionHash' | 'escrowId' | 'needsCleanup'>
 		> = {},
 		expectedLockOwnerId: string | undefined = undefined
 	): BookNowOutboxEntry {
@@ -693,6 +696,7 @@
 			amountRbtc: overrides.amountRbtc ?? null,
 			transactionHash: overrides.transactionHash ?? null,
 			escrowId: overrides.escrowId ?? null,
+			needsCleanup: overrides.needsCleanup ?? null,
 			expectedLockOwnerId: resolvedExpectedLockOwnerId,
 			lockOwnerId: state === 'submission_locked' ? resolvedExpectedLockOwnerId : undefined
 		});
@@ -932,13 +936,7 @@
 			await refreshInstantBuyFundingCheck(instantBuyDraft);
 		} catch (error) {
 			instantBuyDraft = existingDraft ?? null;
-			instantBuyErrorMessage =
-				error instanceof Error
-					? error.message
-					: detailText(
-							'dashboard.services.detail.instant_buy.prepare_error',
-							'Unable to prepare Book Now right now.'
-						);
+			instantBuyErrorMessage = extractContractError(error).userMessage;
 		} finally {
 			instantBuyPreparing = false;
 		}
@@ -1090,7 +1088,7 @@
 		return true;
 	}
 
-	function handleOpenInstantBuy() {
+	async function handleOpenInstantBuy() {
 		if (isOwner) {
 			appStore.showErrorToast(
 				detailText(
@@ -1110,7 +1108,7 @@
 		}
 
 		instantBuyModalOpen = true;
-		void prepareInstantBuyDraft(instantBuyDraft);
+		await prepareInstantBuyDraft(instantBuyDraft);
 	}
 
 	async function handleConfirmInstantBuy() {
@@ -1241,16 +1239,11 @@
 					clearBookNowOutboxForDraft(instantBuyDraft);
 				}
 				instantBuySubmitting = false;
+				appStore.showInfoToast('Transaction cancelled');
 				return;
 			}
 
-			instantBuyPostSubmitErrorMessage =
-				error instanceof Error
-					? error.message
-					: detailText(
-							'dashboard.services.detail.instant_buy.complete_error',
-							'Unable to complete Book Now right now.'
-						);
+			instantBuyPostSubmitErrorMessage = extractContractError(error).userMessage;
 
 			if (instantBuyDraft) {
 				clearBookNowOutboxForDraft(instantBuyDraft);
@@ -1556,7 +1549,21 @@
 </script>
 
 <div class="bg-base-200 relative min-h-screen {isPreview ? 'pb-4' : 'pb-32'}">
-	{#if !service}
+	{#if isLoading}
+		<div class="flex flex-col items-center justify-center p-12 text-center">
+			<img
+				src="/images/logos/bittasker-logomark.svg"
+				alt="BitTasker"
+				class="mx-auto h-16 w-16 opacity-20"
+			/>
+			<div class="mt-4">
+				<div class="skeleton h-8 w-48"></div>
+				<div class="skeleton mt-2 h-4 w-64"></div>
+				<div class="skeleton mt-2 h-4 w-56"></div>
+				<div class="skeleton mt-8 h-12 w-32"></div>
+			</div>
+		</div>
+	{:else if !service}
 		<div class="flex flex-col items-center justify-center p-12 text-center">
 			<img
 				src="/images/logos/bittasker-logomark.svg"
@@ -2148,6 +2155,7 @@
 												class="btn btn-outline flex-1"
 												onclick={handleOpenRequestQuote}
 												disabled={isOffline || isOwner}
+												title={isOffline ? 'You are offline' : ''}
 												>{detailText('dashboard.services.detail.request_quote', 'Inquire')}</button
 											>
 											<button
@@ -2155,10 +2163,16 @@
 												class="btn btn-primary shadow-primary/20 flex-1 shadow-lg"
 												onclick={handleOpenInstantBuy}
 												disabled={instantBuyPreparing || isOffline || isOwner}
-												>{#if instantBuyPreparing}<span class="loading loading-spinner loading-xs"
-													></span>{/if}{instantBuyEligibility.code === 'missing_selected_tier'
-													? detailText('dashboard.services.detail.select_package', 'Select Package')
-													: detailText('dashboard.services.detail.book_now', 'Book Now')}</button
+												title={isOffline ? 'You are offline' : ''}
+												>{#if instantBuyPreparing}
+													<span class="loading loading-spinner loading-xs"></span>
+												{:else if instantBuyFundingCheckInFlight}
+													<span class="text-xs text-base-content/60">Verifying wallet balance...</span>
+												{:else}
+													{instantBuyEligibility.code === 'missing_selected_tier'
+														? detailText('dashboard.services.detail.select_package', 'Select Package')
+														: detailText('dashboard.services.detail.book_now', 'Book Now')}
+												{/if}</button
 											>
 										</div>
 									{:else}
@@ -2166,8 +2180,15 @@
 											class="btn btn-primary w-full"
 											onclick={handleOpenRequestQuote}
 											disabled={isOffline || isOwner}
+											title={isOffline ? 'You are offline' : ''}
 											>{detailText('dashboard.services.detail.request_quote', 'Inquire')}</button
 										>
+									{/if}
+									{#if instantBuyErrorMessage}
+										<div class="alert alert-error mt-2">
+											<span>{instantBuyErrorMessage}</span>
+											<button class="btn btn-sm" onclick={() => prepareInstantBuyDraft(instantBuyDraft)}>Retry</button>
+										</div>
 									{/if}
 								{/if}
 							</div>
@@ -2343,6 +2364,7 @@
 											class="btn btn-outline flex-1"
 											onclick={handleOpenRequestQuote}
 											disabled={isOffline || isOwner}
+											title={isOffline ? 'You are offline' : ''}
 											>{detailText('dashboard.services.detail.request_quote', 'Inquire')}</button
 										>
 										<button
@@ -2350,20 +2372,32 @@
 											class="btn btn-primary shadow-primary/20 flex-1 shadow-lg"
 											onclick={handleOpenInstantBuy}
 											disabled={instantBuyPreparing || isOffline || isOwner}
-											>{#if instantBuyPreparing}<span class="loading loading-spinner loading-xs"
-												></span>{/if}{instantBuyEligibility.code === 'missing_selected_tier'
-												? detailText('dashboard.services.detail.select_package', 'Select Package')
-												: detailText('dashboard.services.detail.book_now', 'Book Now')}</button
-										>
+											title={isOffline ? 'You are offline' : ''}
+											>{#if instantBuyPreparing}
+												<span class="loading loading-spinner loading-xs"></span>
+											{:else if instantBuyFundingCheckInFlight}
+												<span class="text-xs text-base-content/60">Verifying wallet balance...</span>
+											{:else}
+												{instantBuyEligibility.code === 'missing_selected_tier'
+													? detailText('dashboard.services.detail.select_package', 'Select Package')
+													: detailText('dashboard.services.detail.book_now', 'Book Now')}
+											{/if}</button>
 									{:else}
 										<button
 											class="btn btn-primary w-full"
 											onclick={handleOpenRequestQuote}
 											disabled={isOffline || isOwner}
+											title={isOffline ? 'You are offline' : ''}
 											>{detailText('dashboard.services.detail.request_quote', 'Inquire')}</button
 										>
 									{/if}
 								</div>
+								{#if instantBuyErrorMessage}
+									<div class="alert alert-error mt-2">
+										<span>{instantBuyErrorMessage}</span>
+										<button class="btn btn-sm" onclick={() => prepareInstantBuyDraft(instantBuyDraft)}>Retry</button>
+									</div>
+								{/if}
 							{/if}
 						</div>
 

@@ -43,7 +43,9 @@ vi.mock('$lib/stores/app.store', () => ({
 	appStore: {
 		subscribe: (run: (value: { pool: object; relays: string[] }) => void) => {
 			run({
-				pool: {},
+				pool: {
+					querySync: vi.fn().mockResolvedValue([])
+				},
 				relays: ['wss://relay.example.com']
 			});
 			return () => {};

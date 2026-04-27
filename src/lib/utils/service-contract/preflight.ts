@@ -19,6 +19,7 @@ import { walletManager, walletStore } from '$lib/stores/wallet.store';
 import { initContract } from '$lib/utils/contract';
 import { getSecurePaymentContractAddress } from '$lib/utils/contract/v2/contractAddress';
 import { extractContractError } from '$lib/utils/wallet/contractErrorHandler';
+import { convertUsdAmountToRbtc } from '$lib/utils/currency';
 import { ethers } from 'ethers';
 import { nip19 } from 'nostr-tools';
 import { get } from 'svelte/store';
@@ -28,8 +29,57 @@ import { FEE_TIERS } from '@bittasker/wallet-core';
 import abi from '$lib/utils/contract/v2/abi.json';
 
 const DEFAULT_CLIENT_FEE_TIER = 1;
-const GAS_BUFFER_DIVISOR = 10n;
 const ESTIMATED_NETWORK_FEE_USD = 0.5;
+
+export { DEFAULT_CLIENT_FEE_TIER, ESTIMATED_NETWORK_FEE_USD };
+
+/**
+ * Get the centralized pool instance from appStore
+ */
+function getPool() {
+	const pool = get(appStore)?.pool;
+	if (!pool) {
+		throw new Error('NDK pool is not initialized');
+	}
+	return pool;
+}
+
+/**
+ * Check if any relay is reachable by querying it with a simple filter
+ * Returns true if ANY relay responds, false otherwise
+ */
+async function checkRelayConnectivity(relays: string[]): Promise<boolean> {
+	console.log('[preflight] ACTION: checkRelayConnectivity', { relayCount: relays.length, relays });
+	const pool = getPool();
+	for (const relay of relays) {
+		console.log('[preflight] SUBACTION: attempting relay', { relay });
+		try {
+			const controller = new AbortController();
+			const timeout = setTimeout(() => controller.abort(), 3000);
+			const events = await pool.querySync(
+				[relay],
+				{ kinds: [0], limit: 1 },
+				{ signal: controller.signal }
+			);
+			clearTimeout(timeout);
+			if (events) {
+				console.log('[preflight] RESULT: relay connected', { relay });
+				return true;
+			}
+		} catch (err) {
+			if (err instanceof Error && err.name === 'AbortError') {
+				console.log('[preflight] ERROR: relay timeout', { relay });
+			} else {
+				console.log('[preflight] ERROR: relay failed', {
+					relay,
+					error: err instanceof Error ? err.message : String(err)
+				});
+			}
+		}
+	}
+	console.log('[preflight] RESULT: no relays available', { triedRelays: relays.length });
+	return false;
+}
 
 export type ServiceContractPreflightErrorCode =
 	| 'wallet_not_connected'
@@ -38,10 +88,12 @@ export type ServiceContractPreflightErrorCode =
 	| 'invalid_provider_wallet'
 	| 'invalid_provider_pubkey'
 	| 'invalid_service_amount'
+	| 'invalid_fee_tier'
 	| 'price_unavailable'
 	| 'insufficient_funds'
 	| 'relay_unavailable'
 	| 'nostr_not_ready'
+	| 'invalid_schedule'
 	| 'preflight_failed';
 
 export interface ServiceContractPreflightInput {
@@ -50,7 +102,7 @@ export interface ServiceContractPreflightInput {
 	amountUsdt: string;
 	estimatedStartTime: number;
 	estimatedCompletionTime: number;
-	freelancerFeeTier?: 0 | 1 | 2;
+	freelancerFeeTier?: 1 | 2 | 3;
 }
 
 export interface ServiceContractPreflightSuccess {
@@ -120,16 +172,61 @@ async function ensureServiceWalletReady(): Promise<
 	ServiceContractPreflightFailure | { walletAddress: string }
 > {
 	let walletState = get(walletStore);
+
+	// If wallet is already ready, return immediately
+	if (walletState.rsk?.address && walletState.rsk?.wallet && walletState.rsk?.provider) {
+		return {
+			walletAddress: walletState.rsk.address
+		};
+	}
+
+	// Start initialization if not already in progress
+	let needsToWait = false;
 	if (!walletState.rsk?.address || !walletState.rsk?.wallet || !walletState.rsk?.provider) {
 		try {
+			// If initialization is already in progress, this returns early
+			// If not, it starts initialization
 			await walletManager.initialize();
+
+			// Check if initialization completed synchronously
+			walletState = get(walletStore);
+			needsToWait =
+				!walletState.rsk?.address || !walletState.rsk?.wallet || !walletState.rsk?.provider;
 		} catch {
 			return fail('wallet_not_connected', 'Connect your wallet before continuing.');
 		}
-
-		walletState = get(walletStore);
 	}
 
+	// If wallet is ready after initialize(), return
+	if (walletState.rsk?.address && walletState.rsk?.wallet && walletState.rsk?.provider) {
+		return {
+			walletAddress: walletState.rsk.address
+		};
+	}
+
+	// If initialization is still in progress (another caller triggered it), wait for it
+	if (needsToWait || walletState.isInitializing) {
+		const maxWaitTime = 5000; // 5 second timeout
+		const pollInterval = 50;
+		const startTime = Date.now();
+
+		while (Date.now() - startTime < maxWaitTime) {
+			walletState = get(walletStore);
+			if (walletState.rsk?.address && walletState.rsk?.wallet && walletState.rsk?.provider) {
+				return {
+					walletAddress: walletState.rsk.address
+				};
+			}
+			// Break if no longer initializing and still no wallet (failed)
+			if (!walletState.isInitializing && (!walletState.rsk?.address || !walletState.rsk?.wallet)) {
+				break;
+			}
+			await new Promise((resolve) => setTimeout(resolve, pollInterval));
+		}
+	}
+
+	// Final check after waiting
+	walletState = get(walletStore);
 	if (!walletState.rsk?.address || !walletState.rsk?.wallet || !walletState.rsk?.provider) {
 		return fail(
 			'wallet_not_ready',
@@ -185,6 +282,15 @@ async function ensureContractPublishReady(
 		);
 	}
 
+	// Verify relay connectivity before proceeding
+	const relayConnected = await checkRelayConnectivity(appState.relays);
+	if (!relayConnected) {
+		return fail(
+			'relay_unavailable',
+			'Unable to connect to relays. Please check your network connection and retry.'
+		);
+	}
+
 	try {
 		const { npub, nsec } = await getNostrKeyPair();
 		if (!npub || !nsec) {
@@ -225,6 +331,11 @@ export async function preflightServiceContractCreation(
 		normalizedFreelancerAddress = ethers.getAddress(input.freelancerAddress.trim().toLowerCase());
 	} catch {
 		return fail('invalid_provider_wallet', 'Provider wallet is unavailable for this service.');
+	}
+
+	const validatedTier = input.freelancerFeeTier ?? 1;
+	if (validatedTier < 1 || validatedTier > 3) {
+		return fail('invalid_fee_tier', 'Invalid freelancer fee tier');
 	}
 
 	let amount: string;
@@ -313,5 +424,87 @@ export async function preflightServiceContractCreation(
 		};
 	} catch (error) {
 		return fail('preflight_failed', extractContractError(error).userMessage);
+	}
+}
+
+export interface BalanceRevalidationInput {
+	amountRbtc: string;
+	btcPrice: number;
+}
+
+export interface BalanceRevalidationResult {
+	ok: true;
+	currentBalanceWei: bigint;
+	totalRequiredWei: bigint;
+}
+
+export interface BalanceRevalidationFailure {
+	ok: false;
+	error: string;
+}
+
+export type BalanceRevalidationResult = BalanceRevalidationResult | BalanceRevalidationFailure;
+
+export async function revalidateWalletBalance(
+	input: BalanceRevalidationInput
+): Promise<BalanceRevalidationResult> {
+	try {
+		const { provider } = await ensureEscrowReady(undefined, false);
+
+		const currentChainId = await getCurrentChainId();
+		if (currentChainId === null || currentChainId !== getExpectedRskChainId()) {
+			return {
+				ok: false,
+				error:
+					'Network changed. Please switch to ' +
+					getExpectedRskNetworkLabel() +
+					' before continuing.'
+			};
+		}
+
+		const walletState = get(walletStore);
+
+		if (!walletState.rsk?.address) {
+			return {
+				ok: false,
+				error: 'Wallet address unavailable for balance revalidation.'
+			};
+		}
+
+		const baseAmountWei = ethers.parseEther(input.amountRbtc);
+		const totalPaymentWei = calculateTotalPayment(baseAmountWei, DEFAULT_CLIENT_FEE_TIER);
+		const estimatedFeeWei = ethers.parseEther(
+			(ESTIMATED_NETWORK_FEE_USD / input.btcPrice).toFixed(8)
+		);
+		const totalRequiredWei = totalPaymentWei + estimatedFeeWei;
+
+		let currentBalanceWei: bigint;
+		try {
+			currentBalanceWei = await provider.getBalance(walletState.rsk.address);
+		} catch (_balanceError) {
+			return {
+				ok: false,
+				error: 'Unable to verify wallet balance at transaction time. Please try again.'
+			};
+		}
+
+		if (currentBalanceWei < totalRequiredWei) {
+			const shortfallWei = totalRequiredWei - currentBalanceWei;
+			return {
+				ok: false,
+				error: `Insufficient funds at transaction time. Balance changed since initial check. Shortfall: ${formatRbtcAmount(shortfallWei)} RBTC. Please add funds and retry.`
+			};
+		}
+
+		return {
+			ok: true,
+			currentBalanceWei,
+			totalRequiredWei
+		};
+	} catch (_error) {
+		return {
+			ok: false,
+			error: 'Unable to verify wallet balance at transaction time. Please try again.'
+		};
 	}
 }
