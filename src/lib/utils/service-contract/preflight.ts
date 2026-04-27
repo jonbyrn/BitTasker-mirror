@@ -29,6 +29,7 @@ import abi from '$lib/utils/contract/v2/abi.json';
 
 const DEFAULT_CLIENT_FEE_TIER = 1;
 const ESTIMATED_NETWORK_FEE_USD = 0.5;
+const GAS_BUFFER_DIVISOR = 10n;
 
 export { DEFAULT_CLIENT_FEE_TIER, ESTIMATED_NETWORK_FEE_USD };
 
