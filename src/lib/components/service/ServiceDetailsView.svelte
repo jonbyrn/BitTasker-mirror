@@ -1270,6 +1270,13 @@
 			};
 		}
 
+		appStore.showSuccessToast(
+			detailText(
+				'dashboard.services.browse.quote_request_submitted',
+				'Quote request sent successfully!'
+			)
+		);
+
 		return { success: true };
 	}
 
