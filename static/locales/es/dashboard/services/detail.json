@@ -143,7 +143,7 @@
 					"offline_notice": "No tienes conexión. Reconéctate antes de financiar este contrato de servicio. Tu revisión actual permanecerá abierta aquí.",
 					"reconnect_notice": "Conexión restablecida. Revisa los detalles más recientes y luego confirma cuando estés listo.",
 					"wallet_icon_alt": "Bitcoin",
-					"wallet_balance": "Saldo de la billetera",
+					"wallet_balance": "Saldo",
 					"wallet_not_connected": "Billetera no conectada",
 					"available_balance": "Saldo disponible",
 					"required_balance": "Requerido para este contrato",
