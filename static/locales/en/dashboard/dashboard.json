@@ -730,12 +730,13 @@
 				"tier_prefix": "Tier"
 			},
 			"wallet_card": {
-				"title": "Wallet balance",
+				"title": "Balance",
 				"icon_alt": "Bitcoin",
 				"sats_label": "sats",
 				"not_connected": "Wallet not connected",
-				"available_balance": "Available balance",
-				"required_balance": "Required for this contract"
+				"available_balance": "Available",
+				"required_balance": "Required",
+				"remaining_balance": "Remaining"
 			},
 			"service_agreement": {
 				"provider": "Provider",

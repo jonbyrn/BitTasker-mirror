@@ -728,12 +728,13 @@
 				"tier_prefix": "Nivel"
 			},
 			"wallet_card": {
-				"title": "Saldo de la billetera",
+				"title": "Saldo",
 				"icon_alt": "Bitcoin",
 				"sats_label": "sats",
 				"not_connected": "Billetera no conectada",
-				"available_balance": "Saldo disponible",
-				"required_balance": "Requerido para este contrato"
+				"available_balance": "Disponible",
+				"required_balance": "Requerido",
+				"remaining_balance": "Restante"
 			},
 			"service_agreement": {
 				"provider": "Proveedor",

@@ -154,7 +154,18 @@
 		const requiredNum = parseFloat(requiredBalanceUsd.replace(/[$,]/g, ''));
 		if (isNaN(walletNum) || isNaN(requiredNum)) return '—';
 		const remaining = walletNum - requiredNum;
+		if (remaining < 0) {
+			return `- $${Math.abs(remaining).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+		}
 		return `$${remaining.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+	});
+
+	const remainingIsNegative = $derived.by(() => {
+		if (!walletBalanceUsd || !requiredBalanceUsd) return false;
+		const walletNum = parseFloat(walletBalanceUsd.replace(/[$,]/g, ''));
+		const requiredNum = parseFloat(requiredBalanceUsd.replace(/[$,]/g, ''));
+		if (isNaN(walletNum) || isNaN(requiredNum)) return false;
+		return walletNum < requiredNum;
 	});
 
 	let showFullIncludedScope = $state(false);
@@ -588,6 +599,7 @@
 								requiredUsd={requiredBalanceUsd}
 								requiredSats={requiredBalanceSats}
 								remainingUsd={remainingBalanceUsd}
+								{remainingIsNegative}
 								loading={walletLoading}
 								connected={walletConnected}
 								verificationStatus={walletVerificationStatus === 'error' ||
