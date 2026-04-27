@@ -91,12 +91,14 @@
 
 			// Only proceed if we have IDs to sync and options are available
 			if (currentIds.length > 0 && optionsLength > 0) {
-				// Check if we need to re-sync (external IDs changed OR this is first population of options)
-				const needsResync =
-					JSON.stringify(currentIds) !== JSON.stringify(lastExternalIds) ||
-					(optionsLength > 0 && lastCategoryOptionsLength === 0);
+				// Check if we need to re-sync:
+				// 1. External IDs changed, OR
+				// 2. Options just became available (lastCategoryOptionsLength was 0 but now we have options)
+				const idsChanged = JSON.stringify(currentIds) !== JSON.stringify(lastExternalIds);
+				const optionsJustLoaded = lastCategoryOptionsLength === 0 && optionsLength > 0;
+				const needsResync = idsChanged || optionsJustLoaded;
 
-				if (needsResync) {
+				if (needsResync || selectedCategories.length === 0) {
 					lastExternalIds = [...currentIds];
 					lastCategoryOptionsLength = optionsLength;
 					isInternalUpdate = true;
