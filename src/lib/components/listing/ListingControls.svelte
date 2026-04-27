@@ -16,6 +16,7 @@
 		onFilterClick,
 		onSaveSearch,
 		canSaveSearch,
+		showSaveButton = true,
 		viewMode,
 		onToggleViewMode,
 		user,
@@ -31,8 +32,9 @@
 		searchPlaceholder: string;
 		onSearchInput: (e: Event) => void;
 		onFilterClick: () => void;
-		onSaveSearch: () => Promise<void>;
-		canSaveSearch: boolean;
+		onSaveSearch?: () => Promise<void>;
+		canSaveSearch?: boolean;
+		showSaveButton?: boolean;
 		viewMode: 'list' | 'map';
 		onToggleViewMode: () => void;
 		user: { npub?: string } | null;
@@ -101,23 +103,25 @@
 			{/if}
 		</button>
 
-		<button
-			class="btn btn-sm btn-secondary gap-2"
-			onclick={async () => {
-				if (user?.npub) {
-					if (!drawersLoaded) {
-						await loadDrawerComponents();
+		{#if showSaveButton && onSaveSearch}
+			<button
+				class="btn btn-sm btn-secondary gap-2"
+				onclick={async () => {
+					if (user?.npub) {
+						if (!drawersLoaded) {
+							await loadDrawerComponents();
+						}
+						await onSaveSearch();
+					} else {
+						goto('/auth/signup');
 					}
-					await onSaveSearch();
-				} else {
-					goto('/auth/signup');
-				}
-			}}
-			title={canSaveSearch ? saveTooltipEnabled : saveTooltipDisabled}
-		>
-			<IconBookmarkOutline class="h-4 w-4" />
-			<span>{saveLabel}</span>
-		</button>
+				}}
+				title={canSaveSearch ? saveTooltipEnabled : saveTooltipDisabled}
+			>
+				<IconBookmarkOutline class="h-4 w-4" />
+				<span>{saveLabel}</span>
+			</button>
+		{/if}
 
 		<button
 			class="btn btn-sm btn-secondary gap-2 lg:hidden"

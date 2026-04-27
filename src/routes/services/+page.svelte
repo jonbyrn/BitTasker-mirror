@@ -771,12 +771,7 @@
 			searchPlaceholder={getSearchPlaceholder()}
 			onSearchInput={() => debouncedSearch(searchQuery, searchParams)}
 			onFilterClick={() => (isFilterDrawerOpen = true)}
-			onSaveSearch={async () => {
-				if (!drawersLoaded) await loadDrawerComponents();
-				await tick();
-				isSaveSearchOpen = true;
-			}}
-			canSaveSearch={$servicesStore.searchParamsKey !== ''}
+			showSaveButton={false}
 			{viewMode}
 			onToggleViewMode={toggleViewMode}
 			user={$user}
