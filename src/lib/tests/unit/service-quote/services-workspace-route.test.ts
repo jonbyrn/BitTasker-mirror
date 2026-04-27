@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
 	createServicesWorkspaceRedirectUrl,
-	createServicesWorkspaceRedirectUrlFromLegacyDashboard,
 	createServicesWorkspaceUrl,
 	parseServicesWorkspaceRouteQuery,
 	type ServicesWorkspaceRouteContext
@@ -133,16 +132,6 @@ describe('services workspace route helpers', () => {
 				serviceAddress
 			)}&request=qr_valid123`
 		);
-
-		const redirected = createServicesWorkspaceRedirectUrlFromLegacyDashboard(
-			new URL(
-				`https://bittasker.test/dashboard?tab=my-services&view=service-requests&service=${encodeURIComponent(
-					serviceAddress
-				)}&request=qr_valid123`
-			)
-		);
-
-		expect(redirected?.toString()).toBe(workspaceUrl.toString());
 	});
 
 	it('redirects the legacy services workspace route to earnings', () => {
