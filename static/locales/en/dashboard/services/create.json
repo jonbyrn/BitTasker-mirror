@@ -34,7 +34,7 @@
 					"remote_description": "Service can be provided remotely (online, virtual)",
 					"tasker_title": "At My Location",
 					"tasker_description": "Service is provided at my location (office, studio, etc.)",
-					"taskee_title": "At Tasker Location",
+					"taskee_title": "At Taskee Location",
 					"taskee_description": "Service can be provided at the Tasker's location",
 					"tasker_config_title": "My Location Configuration",
 					"my_location_title": "My Location",
