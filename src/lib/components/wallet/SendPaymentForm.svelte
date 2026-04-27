@@ -923,6 +923,7 @@
 			address={sendState.pendingAddress}
 			network={sendState.pendingNetwork}
 			networkOptions={netwokrOption}
+			txHash={sendState.pendingTxHash}
 			onClose={() => {
 				// Clear pending state
 				sendState.pendingTxHash = null;

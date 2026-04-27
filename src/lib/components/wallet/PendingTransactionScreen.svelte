@@ -1,10 +1,7 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
 	import { onMount, onDestroy } from 'svelte';
-	import { formatSats, formatUsd } from '$lib/stores/wallet.store';
-	// COMMENTED OUT: Unused imports for transaction monitoring
-	// import { getBlockscoutApiUrl, fetchTransactionStatus as fetchTxStatus, calculateEstimatedTime } from '$lib/utils/wallet/blockscoutTransactionStatus';
-	// import { walletManager } from '$lib/stores/wallet.store';
+	import { formatSats, formatUsd, getProvider } from '$lib/stores/wallet.store';
 	import IconClockOutline from '~icons/mdi/clock-outline';
 	import IconCheckCircle from '~icons/mdi/check-circle';
 	import IconLoading from '~icons/mdi/loading';
@@ -20,20 +17,19 @@
 		address: string;
 		network: string;
 		networkOptions: Record<string, { icon: string; name: string; confirmationTime: number }>;
+		txHash: string | null;
 		onClose: () => void;
 	}
 
-	let { amountSats, amountUSD, address, network, networkOptions, onClose }: Props = $props();
+	let { amountSats, amountUSD, address, network, networkOptions, txHash, onClose }: Props =
+		$props();
 
 	// Transaction status
 	type TransactionStatus = 'sending' | 'confirming' | 'success' | 'error';
 	let status = $state<TransactionStatus>('sending');
-	// COMMENTED OUT: Unused variables for transaction monitoring
-	// let confirmations = $state(0);
 	let estimatedTimeRemaining = $state<number | null>(null);
-	// let pollingInterval: ReturnType<typeof setInterval> | null = null;
-	// let isPolling = $state(false);
-	// let errorMessage = $state<string | null>(null);
+	let pollingInterval: ReturnType<typeof setInterval> | null = null;
+	let isPolling = $state(false);
 
 	// Get network info
 	const networkInfo = $derived.by(() => {
@@ -70,8 +66,6 @@
 	}
 
 	const explorerUrl = $derived.by(() => getAddressExplorerUrl(address, network));
-	// COMMENTED OUT: Unused API URL for transaction monitoring
-	// const apiUrl = $derived.by(() => getBlockscoutApiUrl(network));
 
 	// Format address (truncate)
 	function formatAddress(address: string): string {
@@ -397,40 +391,74 @@
 		};
 	}); */
 
+	// Poll for blockchain confirmation
+	async function pollForConfirmation() {
+		if (!txHash || isPolling) return;
+
+		isPolling = true;
+		try {
+			// Get provider based on network
+			const provider = getProvider(
+				network === 'rootstock-bitcoin' || network === 'rsk' ? 'rsk' : 'bsc'
+			);
+			if (!provider) {
+				isPolling = false;
+				return;
+			}
+
+			// Check if transaction is already confirmed
+			const receipt = await provider.getTransactionReceipt(txHash);
+			if (receipt && receipt.blockNumber !== null) {
+				// Transaction is mined and has at least 1 confirmation
+				status = 'success';
+				estimatedTimeRemaining = 0;
+				stopPolling();
+				isPolling = false;
+				return;
+			}
+
+			// Transaction found but not yet mined - stay in confirming/sending state
+			isPolling = false;
+		} catch (error) {
+			console.error('[PendingTransactionScreen] Error polling for confirmation:', error);
+			isPolling = false;
+		}
+	}
+
+	function stopPolling() {
+		if (pollingInterval) {
+			clearInterval(pollingInterval);
+			pollingInterval = null;
+		}
+	}
+
 	// Initialize component state
 	onMount(() => {
 		// Initial status
 		status = 'sending';
 		estimatedTimeRemaining = networkInfo?.confirmationTime || 60;
 
-		// Start countdown timer - when it reaches 0, show success
+		// Start polling for blockchain confirmation
+		if (txHash) {
+			// Poll immediately, then every 3 seconds
+			pollForConfirmation();
+			pollingInterval = setInterval(pollForConfirmation, 3000);
+		}
+
+		// Also keep countdown for UX (estimates time remaining)
 		countdownInterval = setInterval(() => {
-			// Don't countdown if already successful
 			if (status === 'success') {
 				return;
 			}
 
 			if (estimatedTimeRemaining !== null && estimatedTimeRemaining > 0) {
 				estimatedTimeRemaining = Math.max(0, estimatedTimeRemaining - 1);
-
-				// When countdown reaches 0, show success
-				if (estimatedTimeRemaining === 0) {
-					status = 'success';
-					if (countdownInterval) {
-						clearInterval(countdownInterval);
-						countdownInterval = null;
-					}
-				}
 			}
 		}, 1000);
 	});
 
 	onDestroy(() => {
-		// COMMENTED OUT: Cleanup polling interval (no longer monitoring)
-		// if (pollingInterval) {
-		// 	clearInterval(pollingInterval);
-		// 	pollingInterval = null;
-		// }
+		stopPolling();
 		if (countdownInterval) {
 			clearInterval(countdownInterval);
 			countdownInterval = null;
