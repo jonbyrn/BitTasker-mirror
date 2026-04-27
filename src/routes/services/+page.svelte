@@ -433,7 +433,6 @@
 			if (capturedSearchQuery.trim().length < 3) {
 				servicesStore.update((state) => ({
 					...state,
-					items: [],
 					currentPage: 1,
 					hasMore: true,
 					error: null,
@@ -470,7 +469,6 @@
 
 			servicesStore.update((state) => ({
 				...state,
-				items: [],
 				currentPage: 1,
 				hasMore: true,
 				error: null,
@@ -498,7 +496,6 @@
 		isApplyingFilters = true;
 		servicesStore.update((state) => ({
 			...state,
-			items: [],
 			currentPage: 1,
 			hasMore: true,
 			error: null,
@@ -533,7 +530,6 @@
 
 		servicesStore.update((state) => ({
 			...state,
-			items: [],
 			currentPage: 1,
 			hasMore: true,
 			error: null,
@@ -1002,7 +998,7 @@
 										{$t('dashboard.services.browse.no_more_services')}
 									</div>
 								{/if}
-							{:else if dataLoaded && $servicesStore.items.length === 0}
+							{:else if dataLoaded && $servicesStore.items.length === 0 && !$servicesStore.loading}
 								<!-- Empty State -->
 								<div class="flex flex-col items-center justify-center py-12">
 									<svg
