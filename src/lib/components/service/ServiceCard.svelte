@@ -370,20 +370,12 @@
 
 		<!-- Categories -->
 		{#if service.categories && service.categories.length > 0}
-			{@const totalCategories = service.categories.length || 0}
-			{@const shownCategories = service.categories.slice(0, 2) || []}
-			{@const remainingCount = Math.max(0, totalCategories - 2)}
 			<div class="mb-3 flex max-h-11.5 flex-wrap gap-1.5 overflow-hidden">
-				{#if shownCategories.length > 0}
-					{#each shownCategories as category, i (`cat-${i}-${typeof category === 'string' ? category : category.name}`)}
-						<span class="badge badge-sm badge-info badge-outline">
-							{typeof category === 'string' ? category : category.name}
-						</span>
-					{/each}
-				{/if}
-				{#if remainingCount > 0}
-					<span class="badge badge-sm badge-info badge-outline">+{remainingCount}</span>
-				{/if}
+				{#each service.categories as category, i (`cat-${i}-${typeof category === 'string' ? category : category.name}`)}
+					<span class="badge badge-sm badge-info badge-outline">
+						{typeof category === 'string' ? category : category.name}
+					</span>
+				{/each}
 			</div>
 		{/if}
 
