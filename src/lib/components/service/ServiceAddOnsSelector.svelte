@@ -33,7 +33,9 @@
 			.filter((a: AddOn) => selectedAddOnIds.includes(a.id))
 			.reduce((sum: number, a: AddOn) => sum + (a.price ?? 0), 0)
 	);
-	const totalPrice = $derived(basePrice + totalAddOnsPrice + (requestRushDelivery && rushDelivery ? rushDelivery.price : 0));
+	const _totalPrice = $derived(
+		basePrice + totalAddOnsPrice + (requestRushDelivery && rushDelivery ? rushDelivery.price : 0)
+	);
 
 	function toggleAddOn(id: string) {
 		if (disabled) return;
@@ -48,36 +50,51 @@
 {#if addOns.length > 0 || rushDelivery}
 	<div class="space-y-3">
 		{#if rushDelivery}
-			<label class="flex cursor-pointer items-center gap-3 rounded-lg border border-base-300 bg-base-200/50 p-3 transition-colors hover:bg-base-200 {disabled ? 'cursor-not-allowed opacity-60' : ''}">
+			<label
+				class="border-base-300 bg-base-200/50 hover:bg-base-200 flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition-colors {disabled
+					? 'cursor-not-allowed opacity-60'
+					: ''}"
+			>
 				<input
 					type="checkbox"
 					class="checkbox checkbox-primary checkbox-sm"
 					bind:checked={requestRushDelivery}
-					disabled={disabled}
+					{disabled}
 					aria-label={$t('dashboard.services.detail.rush_delivery_tag')}
 				/>
 				<div class="min-w-0 flex-1">
-					<span class="font-medium text-sm">{$t('dashboard.services.detail.rush_delivery_tag')}</span>
-					<p class="text-base-content/70 text-xs">{$t('dashboard.services.detail.rush_delivery_prefix')} {formatDeliveryTime(rushDelivery.deliveryTime)}</p>
+					<span class="text-sm font-medium"
+						>{$t('dashboard.services.detail.rush_delivery_tag')}</span
+					>
+					<p class="text-base-content/70 text-xs">
+						{$t('dashboard.services.detail.rush_delivery_prefix')}
+						{formatDeliveryTime(rushDelivery.deliveryTime)}
+					</p>
 				</div>
-				<span class="font-semibold text-sm">+${formatNumberWithTwoDecimals(rushDelivery.price)}</span>
+				<span class="text-sm font-semibold"
+					>+${formatNumberWithTwoDecimals(rushDelivery.price)}</span
+				>
 			</label>
 		{/if}
 		{#if addOns.length > 0}
-			<div class="border-base-200 border-t pt-3">
-				<span class="text-sm font-semibold text-base-content/70">{$t('dashboard.services.detail.addons_title')}</span>
-			</div>
-			<div class="space-y-2 mt-3">
+			<div
+				class="border-base-200"
+				class:border-t={!!rushDelivery}
+				class:pt-3={!!rushDelivery}
+			></div>
+			<div class="mt-3 space-y-2">
 				{#each addOns as addOn (addOn.id)}
 					<label
-						class="flex cursor-pointer items-center gap-3 rounded-lg border border-base-300 bg-base-200/50 p-3 transition-colors hover:bg-base-200 {disabled ? 'cursor-not-allowed opacity-60' : ''}"
+						class="border-base-300 bg-base-200/50 hover:bg-base-200 flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition-colors {disabled
+							? 'cursor-not-allowed opacity-60'
+							: ''}"
 					>
 						<input
 							type="checkbox"
 							class="checkbox checkbox-primary checkbox-sm"
 							checked={selectedAddOnIds.includes(addOn.id)}
 							onchange={() => toggleAddOn(addOn.id)}
-							disabled={disabled}
+							{disabled}
 							aria-label={addOn.name}
 						/>
 						<div class="min-w-0 flex-1">
@@ -86,12 +103,14 @@
 								<p class="text-base-content/70 mt-0.5 text-xs">{addOn.description}</p>
 							{/if}
 						</div>
-						<span class="font-semibold text-sm shrink-0">+${formatNumberWithTwoDecimals(addOn.price ?? 0)}</span>
+						<span class="shrink-0 text-sm font-semibold"
+							>+${formatNumberWithTwoDecimals(addOn.price ?? 0)}</span
+						>
 					</label>
 				{/each}
 			</div>
 		{/if}
-		<div class="border-base-300 mt-4 border-t pt-3">
+		<div class="border-base-300 mt-4 pt-3" class:border-t={!!rushDelivery || addOns.length > 0}>
 			{#if basePrice > 0}
 				<p class="text-base-content/70 flex justify-between text-sm">
 					<span>{$t('dashboard.services.detail.base_price')}</span>

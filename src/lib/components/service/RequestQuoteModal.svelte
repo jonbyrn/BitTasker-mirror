@@ -3,7 +3,7 @@
 	import type { QuoteRequestPayload } from '$lib/types/service.d';
 	import type { Attachment } from '$lib/types/task.d';
 	import type { UploadResult } from '$lib/api/services/upload.service';
-	import Modal from '$lib/components/Modal.svelte';
+	import Drawer from '$lib/components/Drawer.svelte';
 	import MediaUploader from '$lib/components/MediaUploader.svelte';
 	import SchemaDrivenFieldRenderer from '$lib/components/forms/SchemaDrivenFieldRenderer.svelte';
 	import {
@@ -155,13 +155,14 @@
 	}
 </script>
 
-<Modal
+<Drawer
 	isOpen={open}
 	title={modalTitle}
 	onClose={closeModal}
-	size="lg"
+	position="right"
 	isScrollable={true}
 	respectBottomNav={true}
+	{isSubmitting}
 >
 	<form
 		class="flex flex-col gap-4"
@@ -279,14 +280,16 @@
 		{/if}
 	</form>
 	{#snippet footer()}
-		<button type="button" class="btn btn-ghost" onclick={closeModal}>
-			{$t('common.buttons.cancel')}
-		</button>
-		<button type="button" class="btn btn-primary" disabled={isSubmitting} onclick={handleConfirm}>
-			{#if isSubmitting}
-				<span class="loading loading-spinner loading-sm"></span>
-			{/if}
-			{$t('dashboard.services.detail.request_quote_modal.submit')}
-		</button>
+		<div class="flex justify-end gap-2">
+			<button type="button" class="btn btn-ghost" onclick={closeModal}>
+				{$t('common.buttons.cancel')}
+			</button>
+			<button type="button" class="btn btn-primary" disabled={isSubmitting} onclick={handleConfirm}>
+				{#if isSubmitting}
+					<span class="loading loading-spinner loading-sm"></span>
+				{/if}
+				{$t('dashboard.services.detail.request_quote_modal.submit')}
+			</button>
+		</div>
 	{/snippet}
-</Modal>
+</Drawer>
