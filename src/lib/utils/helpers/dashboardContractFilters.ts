@@ -15,6 +15,9 @@ export type DashboardContractStatusFilter =
 	| 'dispute_resolved'
 	| 'ended_other';
 
+/** Dashboard type filter for contract context (tasks vs services). */
+export type DashboardContractTypeFilter = 'all' | 'tasks' | 'services';
+
 /**
  * Whether a contract row should match the selected status filter.
  * Caller should only apply when the rune has finished initial status history (or use `all`).
@@ -71,4 +74,20 @@ export function matchesRoleFilter(
 	const isTasker = !!(tasker && mePubkey === tasker);
 	if (roleFilter === 'client') return isTasker;
 	return !isTasker;
+}
+
+/**
+ * Type filter for contract context (task vs service).
+ * The contextType tag is stored in encrypted tags on NDKPaymentContract.
+ */
+export function matchesTypeFilter(
+	contract: NDKPaymentContract,
+	typeFilter: DashboardContractTypeFilter
+): boolean {
+	if (typeFilter === 'all') return true;
+	const contextType = contract.tagValue('contextType') ?? 'task';
+	if (typeFilter === 'tasks') {
+		return contextType === 'task' || contextType === '' || contextType === undefined;
+	}
+	return contextType === 'service';
 }

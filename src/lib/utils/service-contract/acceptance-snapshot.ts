@@ -26,6 +26,13 @@ export interface ServiceAcceptanceSnapshotInput {
 	verificationRpc: string;
 }
 
+function normalizeAddress(address: string): string {
+	if (!address || !ethers.isAddress(address)) {
+		return '';
+	}
+	return ethers.getAddress(address.toLowerCase());
+}
+
 export function createServiceAcceptanceSnapshot(
 	input: ServiceAcceptanceSnapshotInput
 ): ServiceAcceptanceSnapshot {
@@ -38,9 +45,9 @@ export function createServiceAcceptanceSnapshot(
 	const weiAmount = BigInt(input.weiAmount);
 
 	return {
-		clientRskAddress: ethers.getAddress(input.clientRskAddress.toLowerCase()),
+		clientRskAddress: normalizeAddress(input.clientRskAddress),
 		clientFeeTier: input.clientFeeTier,
-		freelancerRskAddress: ethers.getAddress(input.freelancerRskAddress.toLowerCase()),
+		freelancerRskAddress: normalizeAddress(input.freelancerRskAddress),
 		freelancerFeeTier: input.freelancerFeeTier,
 		chainId: input.chainId,
 		contractAddress: ethers.getAddress(input.contractAddress.toLowerCase()),

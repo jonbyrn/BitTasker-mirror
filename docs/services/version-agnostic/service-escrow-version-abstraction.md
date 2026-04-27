@@ -8,23 +8,24 @@ This document outlines how service-related business logic currently embedded in 
 
 ### The `@src/lib/utils/contract` folder is THE SOURCE OF TRUTH
 
-| Concept | Location | Role |
-|---------|----------|------|
-| **Contract Status (Blockchain)** | `contract/types.ts` | `ContractStatus` enum (Funded=0, InDispute=1, etc.) |
-| **Version-Agnostic Lifecycle** | `contract/lifecycle/index.ts` | `getPaymentContractLifecycle(version)` |
-| **V2 Service Creation** | `contract/v2/service-creation.ts` | `createServiceContract()` |
-| **V2 Task Creation** | `contract/v2/creation.ts` | `createContract()` |
-| **Reactive State Management** | `runes/contractRune.svelte.ts` | `PaymentContractRune` |
+| Concept                          | Location                          | Role                                                |
+| -------------------------------- | --------------------------------- | --------------------------------------------------- |
+| **Contract Status (Blockchain)** | `contract/types.ts`               | `ContractStatus` enum (Funded=0, InDispute=1, etc.) |
+| **Version-Agnostic Lifecycle**   | `contract/lifecycle/index.ts`     | `getPaymentContractLifecycle(version)`              |
+| **V2 Service Creation**          | `contract/v2/service-creation.ts` | `createServiceContract()`                           |
+| **V2 Task Creation**             | `contract/v2/creation.ts`         | `createContract()`                                  |
+| **Reactive State Management**    | `runes/contractRune.svelte.ts`    | `PaymentContractRune`                               |
 
 ### BookNowOutboxState is SEPARATE (Client-Side UI Only)
 
-| Concept | Location | Role |
-|---------|----------|------|
+| Concept                | Location                              | Role                                                   |
+| ---------------------- | ------------------------------------- | ------------------------------------------------------ |
 | **BookNowOutboxState** | `service-contract/book-now-outbox.ts` | Local storage persistence for browser session recovery |
 
 **Valid `BookNowOutboxState` values:** `submission_locked`, `funding_submitted`, `contract_sync_pending`, `contract_ready`
 
 **This is NOT `ContractStatus`** - they serve different purposes:
+
 - `BookNowOutboxState`: Tracks UI flow for recovery after browser refresh
 - `ContractStatus`: Tracks actual blockchain state
 
@@ -58,7 +59,6 @@ After comparing the service-related code with the v2/NDK contract implementation
 
 The `PaymentContractRune` in `src/lib/runes/contractRune.svelte.ts` provides:
 
-
 | Feature                      | V2/NDK Implementation                                        | Service V1 Implementation                | Verdict             |
 | ---------------------------- | ------------------------------------------------------------ | ---------------------------------------- | ------------------- |
 | **Pending state tracking**   | `isPending` state + `optimisticBlockchainStatus`             | `acceptance-ledger.ts` with 680+ lines   | **REDUNDANT**       |
@@ -66,14 +66,13 @@ The `PaymentContractRune` in `src/lib/runes/contractRune.svelte.ts` provides:
 | **Status events**            | NDK subscription with `statusEventsByNewest`                 | Custom Nostr publishing + in-memory maps | **REDUNDANT**       |
 | **Error recovery**           | Automatic via lifecycle + subscription                       | Complex replay/reverify ledger           | **OVER-ENGINEERED** |
 
-
 ### Code to REMOVE (Obsolete with v2/NDK)
 
 #### 1. `src/lib/utils/service-contract/finality.ts` (77 lines) - **DELETE**
 
 ```typescript
 // This entire file is redundant. V2 handles this via:
-// - PaymentContractRune.resolvePaymentIdFromTxHash() 
+// - PaymentContractRune.resolvePaymentIdFromTxHash()
 // - PaymentContractRune.awaitStatusTxThenReload()
 // - Provider.waitForTransaction() in lifecycle writes
 
@@ -93,13 +92,12 @@ This file implements a complex local storage-backed state machine that duplicate
 
 ```typescript
 // These are redundant with NDK's event system:
-- ServiceAcceptanceLedgerState // NDK status events track this
-- ServiceAcceptanceReplayEntry // Kind 31006 events are the replay mechanism
-- ServiceAcceptanceConfirmedMonitorEntry // NDK subscriptions handle monitoring
-
-// Keep ONLY the simple in-memory ledger for UI state during acceptance:
-- getAcceptanceLedgerEntry()
-- upsertAcceptanceLedgerEntry()
+-ServiceAcceptanceLedgerState - // NDK status events track this
+	ServiceAcceptanceReplayEntry - // Kind 31006 events are the replay mechanism
+	ServiceAcceptanceConfirmedMonitorEntry - // NDK subscriptions handle monitoring
+	// Keep ONLY the simple in-memory ledger for UI state during acceptance:
+	getAcceptanceLedgerEntry() -
+	upsertAcceptanceLedgerEntry();
 ```
 
 **Reason**: The v2/NDK implementation stores contract status in **Nostr events (Kind 31006)** which:
@@ -120,7 +118,6 @@ export function classifyServiceAcceptanceAmbiguityError(...) // UNNECESSARY
 
 #### 4. Most of `escrowEvents.ts` Service Functions - **SIMPLIFY**
 
-
 | Function                                           | Lines   | Status       | Reason                              |
 | -------------------------------------------------- | ------- | ------------ | ----------------------------------- |
 | `ServiceAcceptanceReplayPublishTarget`             | 53-63   | **DELETE**   | NDK events are the replay mechanism |
@@ -133,15 +130,12 @@ export function classifyServiceAcceptanceAmbiguityError(...) // UNNECESSARY
 | `reverifyPublishedServiceAcceptanceByEscrowId()`   | 461-613 | **DELETE**   | V2 lifecycle handles verification   |
 | `findPendingServiceContractByTransactionHashes()`  | 284-300 | **SIMPLIFY** | Single lookup, not ledger           |
 
-
 #### 5. `escrow.ts` Service Functions - **SIMPLIFY**
-
 
 | Function                               | Lines   | Status     | Reason                          |
 | -------------------------------------- | ------- | ---------- | ------------------------------- |
 | `verifyServiceEscrowCreation()`        | 341-370 | **DELETE** | V2 lifecycle loads and verifies |
 | `reverifyPublishedServiceAcceptance()` | 372-411 | **DELETE** | Rune handles re-verification    |
-
 
 ### Code to KEEP (Actually Needed)
 
@@ -149,41 +143,36 @@ export function classifyServiceAcceptanceAmbiguityError(...) // UNNECESSARY
 
 These are **actually service-specific** and cannot be replaced by contract code:
 
-
 | File                   | Keep       | Reason                                         |
 | ---------------------- | ---------- | ---------------------------------------------- |
-| `protocol.ts`          | ✅ YES      | Defines event kinds 6420, 6421, 6422           |
-| `publish.ts`           | ✅ YES      | Publishes service quote status updates         |
+| `protocol.ts`          | ✅ YES     | Defines event kinds 6420, 6421, 6422           |
+| `publish.ts`           | ✅ YES     | Publishes service quote status updates         |
 | `accept.ts`            | ⚠️ PARTIAL | Keep validation, remove ledger integration     |
-| `notifications.ts`     | ✅ YES      | Service-specific push notifications            |
-| `agreement-summary.ts` | ✅ YES      | Service agreement display logic                |
+| `notifications.ts`     | ✅ YES     | Service-specific push notifications            |
+| `agreement-summary.ts` | ✅ YES     | Service agreement display logic                |
 | `acceptance-ledger.ts` | ⚠️ PARTIAL | Keep only simple state tracking (50 lines max) |
-
 
 #### 2. Service Contract Utilities (`src/lib/utils/service-contract/`)
 
-
 | File                            | Keep      | Reason                                             |
 | ------------------------------- | --------- | -------------------------------------------------- |
-| `create.ts`                     | ✅ YES     | Service contract creation (calls escrow.escrowOps) |
-| `create-from-snapshot.ts`       | ✅ YES     | Builds PendingContractCreation                     |
-| `context-presentation.ts`       | ✅ YES     | UI display logic                                   |
-| `location.ts`                   | ✅ YES     | Service location handling                          |
-| `dashboard-link.ts`             | ✅ YES     | Navigation helpers                                 |
+| `create.ts`                     | ✅ YES    | Service contract creation (calls escrow.escrowOps) |
+| `create-from-snapshot.ts`       | ✅ YES    | Builds PendingContractCreation                     |
+| `context-presentation.ts`       | ✅ YES    | UI display logic                                   |
+| `location.ts`                   | ✅ YES    | Service location handling                          |
+| `dashboard-link.ts`             | ✅ YES    | Navigation helpers                                 |
 | `pending-navigation.ts`         | ⚠️ REVIEW | May be replaced by URL params                      |
-| `schedule.ts`                   | ✅ YES     | Time calculations                                  |
+| `schedule.ts`                   | ✅ YES    | Time calculations                                  |
 | `acceptance-snapshot.ts`        | ⚠️ REVIEW | May be over-complicated                            |
-| `finality.ts`                   | ❌ DELETE  | Redundant with v2 lifecycle                        |
-| `ambiguity-reason.ts`           | ❌ DELETE  | Over-engineered error handling                     |
-| `recover.ts`                    | ❌ DELETE  | NDK handles recovery                               |
-| `recover-quote-acceptance.ts`   | ❌ DELETE  | NDK handles recovery                               |
-| `reconcile-quote-acceptance.ts` | ❌ DELETE  | NDK handles reconciliation                         |
-| `await-contract-creation.ts`    | ❌ DELETE  | Rune handles this                                  |
+| `finality.ts`                   | ❌ DELETE | Redundant with v2 lifecycle                        |
+| `ambiguity-reason.ts`           | ❌ DELETE | Over-engineered error handling                     |
+| `recover.ts`                    | ❌ DELETE | NDK handles recovery                               |
+| `recover-quote-acceptance.ts`   | ❌ DELETE | NDK handles recovery                               |
+| `reconcile-quote-acceptance.ts` | ❌ DELETE | NDK handles reconciliation                         |
+| `await-contract-creation.ts`    | ❌ DELETE | Rune handles this                                  |
 | `active-contracts.ts`           | ⚠️ REVIEW | May be replaced by store queries                   |
 
-
 ### Estimated Code Reduction
-
 
 | Category                       | Current Lines | After Cleanup | Reduction |
 | ------------------------------ | ------------- | ------------- | --------- |
@@ -193,7 +182,6 @@ These are **actually service-specific** and cannot be replaced by contract code:
 | `escrowEvents.ts` service code | ~400          | ~100          | **75%**   |
 | `escrow.ts` service code       | ~100          | ~20           | **80%**   |
 | **Total service slop**         | **~1,288**    | **~170**      | **~87%**  |
-
 
 ### Why This Code Existed
 
@@ -232,41 +220,38 @@ Replace the 681-line file with this ~50 line version:
 ```typescript
 // src/lib/utils/service-quote/acceptance-ledger.ts (SIMPLIFIED)
 
-export type ServiceAcceptanceLedgerState = 
-  | 'accepting' 
-  | 'accepted' 
-  | 'accept_failed';
+export type ServiceAcceptanceLedgerState = 'accepting' | 'accepted' | 'accept_failed';
 
 interface LedgerEntry {
-  state: ServiceAcceptanceLedgerState;
-  transactionHash?: string;
-  timestamp: number;
+	state: ServiceAcceptanceLedgerState;
+	transactionHash?: string;
+	timestamp: number;
 }
 
 const ledger = new Map<string, LedgerEntry>();
 
 export function getAcceptanceState(proposalId: string): ServiceAcceptanceLedgerState | null {
-  return ledger.get(proposalId)?.state ?? null;
+	return ledger.get(proposalId)?.state ?? null;
 }
 
 export function setAcceptanceState(
-  proposalId: string, 
-  state: ServiceAcceptanceLedgerState,
-  transactionHash?: string
+	proposalId: string,
+	state: ServiceAcceptanceLedgerState,
+	transactionHash?: string
 ): void {
-  ledger.set(proposalId, {
-    state,
-    transactionHash,
-    timestamp: Date.now()
-  });
+	ledger.set(proposalId, {
+		state,
+		transactionHash,
+		timestamp: Date.now()
+	});
 }
 
 export function clearAcceptanceState(proposalId: string): void {
-  ledger.delete(proposalId);
+	ledger.delete(proposalId);
 }
 
 export function getAcceptanceTransactionHash(proposalId: string): string | undefined {
-  return ledger.get(proposalId)?.transactionHash;
+	return ledger.get(proposalId)?.transactionHash;
 }
 ```
 
@@ -317,7 +302,6 @@ The following sections document the original analysis before the audit. They are
 
 #### 1. `escrowEvents.ts` - Service-Related Functions
 
-
 | Function                                           | Lines   | Category         | ~~Recommendation~~              | **AUDIT STATUS**                |
 | -------------------------------------------------- | ------- | ---------------- | ------------------------------- | ------------------------------- |
 | `isServicePendingContract()`                       | 49-51   | CONTRACT_GENERIC | ~~Move to contract/context.ts~~ | **KEEP** - useful check         |
@@ -333,9 +317,7 @@ The following sections document the original analysis before the audit. They are
 | `findPendingServiceContractByTransactionHashes()`  | 284-300 | SERVICE_SPECIFIC | ~~Keep~~                        | **SIMPLIFY** - single lookup    |
 | `handleEscrowCreated()` (service parts)            | 759-868 | INTEGRATION_GLUE | ~~Adapter~~                     | **KEEP** - notifications needed |
 
-
 #### 2. `nostrContract.ts` - Service-Related Code (Reference)
-
 
 | Code Section                               | Lines | Category         | **AUDIT STATUS** |
 | ------------------------------------------ | ----- | ---------------- | ---------------- |
@@ -343,16 +325,13 @@ The following sections document the original analysis before the audit. They are
 | `normalizeContractContextType()`           | 33-37 | CONTRACT_GENERIC | **KEEP**         |
 | Service fields in `publishContractEvent()` | 65-97 | CONTRACT_GENERIC | **KEEP**         |
 
-
 #### 3. `escrow.ts` - Service-Related Code (Reference)
-
 
 | Function                               | Lines   | Category         | **AUDIT STATUS**          |
 | -------------------------------------- | ------- | ---------------- | ------------------------- |
 | `verifyServiceEscrowCreation()`        | 341-370 | INTEGRATION_GLUE | **DELETE** - v2 lifecycle |
 | `reverifyPublishedServiceAcceptance()` | 372-411 | INTEGRATION_GLUE | **DELETE** - rune handles |
 | Service handling in `createEscrow()`   | 519-676 | INTEGRATION_GLUE | **REVIEW** - may simplify |
-
 
 ---
 
@@ -396,7 +375,7 @@ src/lib/utils/
 ```typescript
 /**
  * Contract Context Utilities
- * 
+ *
  * Generic context handling for both task and service contracts.
  * Part of the version-agnostic contract implementation.
  */
@@ -409,23 +388,23 @@ export type RuntimeContractContextType = ContractContextType | 'unknown';
  * Handles backward compatibility (null/undefined -> 'task').
  */
 export function normalizeContractContextType(value: unknown): RuntimeContractContextType {
-    if (value === 'service') return 'service';
-    if (value === 'task' || value == null) return 'task';
-    return 'unknown';
+	if (value === 'service') return 'service';
+	if (value === 'task' || value == null) return 'task';
+	return 'unknown';
 }
 
 /**
  * Type guard for service contracts
  */
 export function isServiceContext(contextType: RuntimeContractContextType): boolean {
-    return contextType === 'service';
+	return contextType === 'service';
 }
 
 /**
  * Type guard for task contracts
  */
 export function isTaskContext(contextType: RuntimeContractContextType): boolean {
-    return contextType === 'task';
+	return contextType === 'task';
 }
 ```
 
@@ -434,7 +413,7 @@ export function isTaskContext(contextType: RuntimeContractContextType): boolean 
 ```typescript
 /**
  * Service Contract Adapter
- * 
+ *
  * Bridges service-specific logic with the version-agnostic contract implementation.
  * Implements hooks that are called at specific points in the contract lifecycle.
  */
@@ -444,43 +423,43 @@ import type { ServiceAcceptanceSnapshot } from '$lib/types/service-quote';
 import { isServiceContext, normalizeContractContextType } from '$lib/utils/contract/context';
 
 export interface ServiceContractCreatedEvent {
-    escrowId: string;
-    transactionHash: string;
-    pendingContract: PendingContractCreation;
-    acceptanceSnapshot?: ServiceAcceptanceSnapshot;
+	escrowId: string;
+	transactionHash: string;
+	pendingContract: PendingContractCreation;
+	acceptanceSnapshot?: ServiceAcceptanceSnapshot;
 }
 
 export interface ServiceAcceptancePublishResult {
-    success: boolean;
-    retainForRetry?: boolean;
+	success: boolean;
+	retainForRetry?: boolean;
 }
 
 /**
  * Checks if a pending contract is for a service
  */
 export function isServicePendingContract(contract: PendingContractCreation): boolean {
-    return normalizeContractContextType(contract.contextType) === 'service';
+	return normalizeContractContextType(contract.contextType) === 'service';
 }
 
 /**
  * Determines if a pending contract has the required service fields
  */
 export function hasServiceContractFields(
-    contract: PendingContractCreation
+	contract: PendingContractCreation
 ): contract is PendingContractCreation & {
-    quoteRequestId: string;
-    proposalId: string;
-    proposalEventId: string;
-    serviceId: string;
-    serviceAddress: string;
+	quoteRequestId: string;
+	proposalId: string;
+	proposalEventId: string;
+	serviceId: string;
+	serviceAddress: string;
 } {
-    return !!(
-        contract.quoteRequestId &&
-        contract.proposalId &&
-        contract.proposalEventId &&
-        contract.serviceId &&
-        contract.serviceAddress
-    );
+	return !!(
+		contract.quoteRequestId &&
+		contract.proposalId &&
+		contract.proposalEventId &&
+		contract.serviceId &&
+		contract.serviceAddress
+	);
 }
 
 /**
@@ -488,87 +467,93 @@ export function hasServiceContractFields(
  * Publishes service acceptance status to Nostr
  */
 export async function onServiceContractCreated(
-    event: ServiceContractCreatedEvent
+	event: ServiceContractCreatedEvent
 ): Promise<ServiceAcceptancePublishResult> {
-    const { publishServiceProposalStatus } = await import('$lib/utils/service-quote/publish');
-    const { completeServiceProposalAcceptance } = await import('$lib/utils/service-quote/accept');
-    const { dispatchServiceContractCreatedNotification } = await import(
-        '$lib/utils/service-quote/notifications'
-    );
-    const { SERVICE_QUOTE_MESSAGE_TYPES } = await import('$lib/utils/service-quote/protocol');
-    const { getNpub } = await import('$lib/utils/nostrKeys');
-    const { 
-        upsertAcceptanceReplayEntry,
-        clearAcceptanceReplayEntry 
-    } = await import('$lib/utils/service-quote/acceptance-ledger');
+	const { publishServiceProposalStatus } = await import('$lib/utils/service-quote/publish');
+	const { completeServiceProposalAcceptance } = await import('$lib/utils/service-quote/accept');
+	const { dispatchServiceContractCreatedNotification } = await import(
+		'$lib/utils/service-quote/notifications'
+	);
+	const { SERVICE_QUOTE_MESSAGE_TYPES } = await import('$lib/utils/service-quote/protocol');
+	const { getNpub } = await import('$lib/utils/nostrKeys');
+	const { upsertAcceptanceReplayEntry, clearAcceptanceReplayEntry } = await import(
+		'$lib/utils/service-quote/acceptance-ledger'
+	);
 
-    const { escrowId, transactionHash, pendingContract, acceptanceSnapshot } = event;
+	const { escrowId, transactionHash, pendingContract, acceptanceSnapshot } = event;
 
-    if (!isServicePendingContract(pendingContract) || !hasServiceContractFields(pendingContract)) {
-        return { success: true }; // Not a service contract, nothing to do
-    }
+	if (!isServicePendingContract(pendingContract) || !hasServiceContractFields(pendingContract)) {
+		return { success: true }; // Not a service contract, nothing to do
+	}
 
-    // Dispatch push notification
-    dispatchServiceContractCreatedNotification({
-        recipientPubkey: pendingContract.freelancerPubkey,
-        escrowId,
-        serviceTitle:
-            pendingContract.serviceTitle ??
-            pendingContract.contextTitle ??
-            pendingContract.taskTitle ?? 'Service',
-        purchaseMode: pendingContract.purchaseMode ?? 'quote'
-    });
+	// Dispatch push notification
+	dispatchServiceContractCreatedNotification({
+		recipientPubkey: pendingContract.freelancerPubkey,
+		escrowId,
+		serviceTitle:
+			pendingContract.serviceTitle ??
+			pendingContract.contextTitle ??
+			pendingContract.taskTitle ??
+			'Service',
+		purchaseMode: pendingContract.purchaseMode ?? 'quote'
+	});
 
-    // Publish acceptance status to Nostr
-    try {
-        await publishServiceProposalStatus({
-            content: {
-                type: SERVICE_QUOTE_MESSAGE_TYPES.STATUS,
-                proposalId: pendingContract.proposalId,
-                quoteRequestId: pendingContract.quoteRequestId,
-                serviceId: pendingContract.serviceId,
-                serviceAddress: pendingContract.serviceAddress,
-                status: 'accepted',
-                actorPubkey: await getNpub(),
-                timestamp: Math.floor(Date.now() / 1000),
-                escrowId,
-                transactionHash,
-                acceptanceSnapshot,
-                version: 'v1'
-            },
-            proposalEventId: pendingContract.proposalEventId,
-            counterpartyPubkey: pendingContract.freelancerPubkey,
-            taskerPubkey: await getNpub(),
-            taskeePubkey: pendingContract.freelancerPubkey
-        });
+	// Publish acceptance status to Nostr
+	try {
+		await publishServiceProposalStatus({
+			content: {
+				type: SERVICE_QUOTE_MESSAGE_TYPES.STATUS,
+				proposalId: pendingContract.proposalId,
+				quoteRequestId: pendingContract.quoteRequestId,
+				serviceId: pendingContract.serviceId,
+				serviceAddress: pendingContract.serviceAddress,
+				status: 'accepted',
+				actorPubkey: await getNpub(),
+				timestamp: Math.floor(Date.now() / 1000),
+				escrowId,
+				transactionHash,
+				acceptanceSnapshot,
+				version: 'v1'
+			},
+			proposalEventId: pendingContract.proposalEventId,
+			counterpartyPubkey: pendingContract.freelancerPubkey,
+			taskerPubkey: await getNpub(),
+			taskeePubkey: pendingContract.freelancerPubkey
+		});
 
-        completeServiceProposalAcceptance(pendingContract.proposalId, true, false, undefined, transactionHash);
-        await clearAcceptanceReplayEntry(escrowId);
-        return { success: true };
-    } catch (error) {
-        // Store for retry
-        await upsertAcceptanceReplayEntry({
-            escrowId,
-            proposalId: pendingContract.proposalId,
-            proposalEventId: pendingContract.proposalEventId,
-            quoteRequestId: pendingContract.quoteRequestId,
-            serviceId: pendingContract.serviceId,
-            serviceAddress: pendingContract.serviceAddress,
-            counterpartyPubkey: pendingContract.freelancerPubkey,
-            transactionHash,
-            acceptanceSnapshot
-        });
+		completeServiceProposalAcceptance(
+			pendingContract.proposalId,
+			true,
+			false,
+			undefined,
+			transactionHash
+		);
+		await clearAcceptanceReplayEntry(escrowId);
+		return { success: true };
+	} catch (error) {
+		// Store for retry
+		await upsertAcceptanceReplayEntry({
+			escrowId,
+			proposalId: pendingContract.proposalId,
+			proposalEventId: pendingContract.proposalEventId,
+			quoteRequestId: pendingContract.quoteRequestId,
+			serviceId: pendingContract.serviceId,
+			serviceAddress: pendingContract.serviceAddress,
+			counterpartyPubkey: pendingContract.freelancerPubkey,
+			transactionHash,
+			acceptanceSnapshot
+		});
 
-        completeServiceProposalAcceptance(
-            pendingContract.proposalId,
-            false,
-            false,
-            'reconciliation_deferred',
-            transactionHash
-        );
+		completeServiceProposalAcceptance(
+			pendingContract.proposalId,
+			false,
+			false,
+			'reconciliation_deferred',
+			transactionHash
+		);
 
-        return { success: false, retainForRetry: true };
-    }
+		return { success: false, retainForRetry: true };
+	}
 }
 
 /**
@@ -576,72 +561,82 @@ export async function onServiceContractCreated(
  * Publishes unknown status to service quote protocol
  */
 export async function onServiceAcceptanceUnknown(
-    transactionHash: string,
-    reasonCode: 'tx_replaced' | 'pending_timeout' | 'rpc_unavailable' | 'nonce_conflict' | 'reconciliation_deferred',
-    pendingContract: PendingContractCreation,
-    transactionHashOverride?: string
+	transactionHash: string,
+	reasonCode:
+		| 'tx_replaced'
+		| 'pending_timeout'
+		| 'rpc_unavailable'
+		| 'nonce_conflict'
+		| 'reconciliation_deferred',
+	pendingContract: PendingContractCreation,
+	transactionHashOverride?: string
 ): Promise<void> {
-    if (!isServicePendingContract(pendingContract) || !hasServiceContractFields(pendingContract)) {
-        return; // Not a service contract
-    }
+	if (!isServicePendingContract(pendingContract) || !hasServiceContractFields(pendingContract)) {
+		return; // Not a service contract
+	}
 
-    const { publishServiceProposalStatus } = await import('$lib/utils/service-quote/publish');
-    const { completeServiceProposalAcceptance } = await import('$lib/utils/service-quote/accept');
-    const { SERVICE_QUOTE_MESSAGE_TYPES } = await import('$lib/utils/service-quote/protocol');
-    const { getNpub } = await import('$lib/utils/nostrKeys');
+	const { publishServiceProposalStatus } = await import('$lib/utils/service-quote/publish');
+	const { completeServiceProposalAcceptance } = await import('$lib/utils/service-quote/accept');
+	const { SERVICE_QUOTE_MESSAGE_TYPES } = await import('$lib/utils/service-quote/protocol');
+	const { getNpub } = await import('$lib/utils/nostrKeys');
 
-    const statusTransactionHash = transactionHashOverride ?? transactionHash;
-    const message = getServiceAcceptanceUnknownMessage(reasonCode);
+	const statusTransactionHash = transactionHashOverride ?? transactionHash;
+	const message = getServiceAcceptanceUnknownMessage(reasonCode);
 
-    try {
-        await publishServiceProposalStatus({
-            content: {
-                type: SERVICE_QUOTE_MESSAGE_TYPES.STATUS,
-                proposalId: pendingContract.proposalId,
-                quoteRequestId: pendingContract.quoteRequestId,
-                serviceId: pendingContract.serviceId,
-                serviceAddress: pendingContract.serviceAddress,
-                status: 'accept_unknown',
-                actorPubkey: await getNpub(),
-                message,
-                reasonCode,
-                timestamp: Math.floor(Date.now() / 1000),
-                transactionHash: statusTransactionHash,
-                version: 'v1'
-            },
-            proposalEventId: pendingContract.proposalEventId,
-            counterpartyPubkey: pendingContract.freelancerPubkey,
-            taskerPubkey: await getNpub(),
-            taskeePubkey: pendingContract.freelancerPubkey
-        });
-    } catch (error) {
-        console.error('Failed to publish service acceptance unknown status:', error);
-    } finally {
-        completeServiceProposalAcceptance(
-            pendingContract.proposalId,
-            false,
-            false,
-            reasonCode,
-            statusTransactionHash
-        );
-    }
+	try {
+		await publishServiceProposalStatus({
+			content: {
+				type: SERVICE_QUOTE_MESSAGE_TYPES.STATUS,
+				proposalId: pendingContract.proposalId,
+				quoteRequestId: pendingContract.quoteRequestId,
+				serviceId: pendingContract.serviceId,
+				serviceAddress: pendingContract.serviceAddress,
+				status: 'accept_unknown',
+				actorPubkey: await getNpub(),
+				message,
+				reasonCode,
+				timestamp: Math.floor(Date.now() / 1000),
+				transactionHash: statusTransactionHash,
+				version: 'v1'
+			},
+			proposalEventId: pendingContract.proposalEventId,
+			counterpartyPubkey: pendingContract.freelancerPubkey,
+			taskerPubkey: await getNpub(),
+			taskeePubkey: pendingContract.freelancerPubkey
+		});
+	} catch (error) {
+		console.error('Failed to publish service acceptance unknown status:', error);
+	} finally {
+		completeServiceProposalAcceptance(
+			pendingContract.proposalId,
+			false,
+			false,
+			reasonCode,
+			statusTransactionHash
+		);
+	}
 }
 
 function getServiceAcceptanceUnknownMessage(
-    reasonCode: 'tx_replaced' | 'pending_timeout' | 'rpc_unavailable' | 'nonce_conflict' | 'reconciliation_deferred'
+	reasonCode:
+		| 'tx_replaced'
+		| 'pending_timeout'
+		| 'rpc_unavailable'
+		| 'nonce_conflict'
+		| 'reconciliation_deferred'
 ): string {
-    switch (reasonCode) {
-        case 'tx_replaced':
-            return 'The wallet replaced the original escrow transaction. Contract confirmation is still syncing.';
-        case 'pending_timeout':
-            return 'The escrow transaction was submitted, but confirmation is still syncing.';
-        case 'rpc_unavailable':
-            return 'The escrow transaction state could not be verified because the RPC was unavailable.';
-        case 'nonce_conflict':
-            return 'The escrow transaction encountered a wallet nonce conflict and needs reconciliation.';
-        case 'reconciliation_deferred':
-            return 'The escrow transaction needs additional reconciliation before service acceptance can be confirmed.';
-    }
+	switch (reasonCode) {
+		case 'tx_replaced':
+			return 'The wallet replaced the original escrow transaction. Contract confirmation is still syncing.';
+		case 'pending_timeout':
+			return 'The escrow transaction was submitted, but confirmation is still syncing.';
+		case 'rpc_unavailable':
+			return 'The escrow transaction state could not be verified because the RPC was unavailable.';
+		case 'nonce_conflict':
+			return 'The escrow transaction encountered a wallet nonce conflict and needs reconciliation.';
+		case 'reconciliation_deferred':
+			return 'The escrow transaction needs additional reconciliation before service acceptance can be confirmed.';
+	}
 }
 ```
 
@@ -650,123 +645,126 @@ function getServiceAcceptanceUnknownMessage(
 ```typescript
 /**
  * Service Acceptance Lifecycle
- * 
+ *
  * Manages retry and reverification of service acceptance states.
  * Used by dashboard to recover from failed acceptance publishing.
  */
 
-import type { ServiceAcceptanceUnknownReasonCode, ServiceAcceptanceSnapshot } from '$lib/types/service-quote';
+import type {
+	ServiceAcceptanceUnknownReasonCode,
+	ServiceAcceptanceSnapshot
+} from '$lib/types/service-quote';
 
 export type PendingServiceAcceptanceRetryResult =
-    | { status: 'accepted' }
-    | { status: 'deferred'; reasonCode: 'reconciliation_deferred' }
-    | { status: 'not_found' };
+	| { status: 'accepted' }
+	| { status: 'deferred'; reasonCode: 'reconciliation_deferred' }
+	| { status: 'not_found' };
 
 export type PublishedServiceAcceptanceReverifyResult =
-    | { status: 'confirmed' }
-    | { status: 'downgraded'; reasonCode: ServiceAcceptanceUnknownReasonCode }
-    | { status: 'deferred'; reasonCode: ServiceAcceptanceUnknownReasonCode }
-    | { status: 'not_found' };
+	| { status: 'confirmed' }
+	| { status: 'downgraded'; reasonCode: ServiceAcceptanceUnknownReasonCode }
+	| { status: 'deferred'; reasonCode: ServiceAcceptanceUnknownReasonCode }
+	| { status: 'not_found' };
 
 /**
  * Retry publishing service acceptance for a confirmed escrow
  */
 export async function retryPendingServiceAcceptanceByEscrowId(
-    escrowId: string
+	escrowId: string
 ): Promise<PendingServiceAcceptanceRetryResult> {
-    // Implementation moved from escrowEvents.ts
-    // Uses acceptance-ledger for replay entry lookup
-    // Calls publishServiceProposalStatus with 'accepted' status
-    // Refer to escrowEvents.ts lines 399-459 for full implementation
-    
-    const { getAcceptanceReplayEntry, clearAcceptanceReplayEntry, upsertAcceptanceReplayEntry } = 
-        await import('$lib/utils/service-quote/acceptance-ledger');
-    const { publishServiceProposalStatus } = await import('$lib/utils/service-quote/publish');
-    const { completeServiceProposalAcceptance } = await import('$lib/utils/service-quote/accept');
-    const { SERVICE_QUOTE_MESSAGE_TYPES } = await import('$lib/utils/service-quote/protocol');
-    const { getNpub } = await import('$lib/utils/nostrKeys');
+	// Implementation moved from escrowEvents.ts
+	// Uses acceptance-ledger for replay entry lookup
+	// Calls publishServiceProposalStatus with 'accepted' status
+	// Refer to escrowEvents.ts lines 399-459 for full implementation
 
-    const replayEntry = await getAcceptanceReplayEntry(escrowId);
-    if (!replayEntry) {
-        return { status: 'not_found' };
-    }
+	const { getAcceptanceReplayEntry, clearAcceptanceReplayEntry, upsertAcceptanceReplayEntry } =
+		await import('$lib/utils/service-quote/acceptance-ledger');
+	const { publishServiceProposalStatus } = await import('$lib/utils/service-quote/publish');
+	const { completeServiceProposalAcceptance } = await import('$lib/utils/service-quote/accept');
+	const { SERVICE_QUOTE_MESSAGE_TYPES } = await import('$lib/utils/service-quote/protocol');
+	const { getNpub } = await import('$lib/utils/nostrKeys');
 
-    try {
-        await publishServiceProposalStatus({
-            content: {
-                type: SERVICE_QUOTE_MESSAGE_TYPES.STATUS,
-                proposalId: replayEntry.proposalId,
-                quoteRequestId: replayEntry.quoteRequestId,
-                serviceId: replayEntry.serviceId,
-                serviceAddress: replayEntry.serviceAddress,
-                status: 'accepted',
-                actorPubkey: await getNpub(),
-                timestamp: Math.floor(Date.now() / 1000),
-                escrowId,
-                transactionHash: replayEntry.transactionHash,
-                acceptanceSnapshot: replayEntry.acceptanceSnapshot,
-                version: 'v1'
-            },
-            proposalEventId: replayEntry.proposalEventId,
-            counterpartyPubkey: replayEntry.counterpartyPubkey,
-            taskerPubkey: await getNpub(),
-            taskeePubkey: replayEntry.counterpartyPubkey
-        });
+	const replayEntry = await getAcceptanceReplayEntry(escrowId);
+	if (!replayEntry) {
+		return { status: 'not_found' };
+	}
 
-        completeServiceProposalAcceptance(
-            replayEntry.proposalId,
-            true,
-            false,
-            undefined,
-            replayEntry.transactionHash
-        );
-        await clearAcceptanceReplayEntry(escrowId);
-        return { status: 'accepted' };
-    } catch (error) {
-        await upsertAcceptanceReplayEntry(replayEntry);
-        completeServiceProposalAcceptance(
-            replayEntry.proposalId,
-            false,
-            false,
-            'reconciliation_deferred',
-            replayEntry.transactionHash
-        );
-        return { status: 'deferred', reasonCode: 'reconciliation_deferred' };
-    }
+	try {
+		await publishServiceProposalStatus({
+			content: {
+				type: SERVICE_QUOTE_MESSAGE_TYPES.STATUS,
+				proposalId: replayEntry.proposalId,
+				quoteRequestId: replayEntry.quoteRequestId,
+				serviceId: replayEntry.serviceId,
+				serviceAddress: replayEntry.serviceAddress,
+				status: 'accepted',
+				actorPubkey: await getNpub(),
+				timestamp: Math.floor(Date.now() / 1000),
+				escrowId,
+				transactionHash: replayEntry.transactionHash,
+				acceptanceSnapshot: replayEntry.acceptanceSnapshot,
+				version: 'v1'
+			},
+			proposalEventId: replayEntry.proposalEventId,
+			counterpartyPubkey: replayEntry.counterpartyPubkey,
+			taskerPubkey: await getNpub(),
+			taskeePubkey: replayEntry.counterpartyPubkey
+		});
+
+		completeServiceProposalAcceptance(
+			replayEntry.proposalId,
+			true,
+			false,
+			undefined,
+			replayEntry.transactionHash
+		);
+		await clearAcceptanceReplayEntry(escrowId);
+		return { status: 'accepted' };
+	} catch (error) {
+		await upsertAcceptanceReplayEntry(replayEntry);
+		completeServiceProposalAcceptance(
+			replayEntry.proposalId,
+			false,
+			false,
+			'reconciliation_deferred',
+			replayEntry.transactionHash
+		);
+		return { status: 'deferred', reasonCode: 'reconciliation_deferred' };
+	}
 }
 
 /**
  * Reverify a published service acceptance against blockchain state
  */
 export async function reverifyPublishedServiceAcceptanceByEscrowId(
-    escrowId: string
+	escrowId: string
 ): Promise<PublishedServiceAcceptanceReverifyResult> {
-    // Implementation moved from escrowEvents.ts
-    // Calls reverifyPublishedServiceAcceptance from escrow.ts
-    // Updates acceptance-ledger based on result
-    // Refer to escrowEvents.ts lines 461-613 for full implementation
-    
-    const { getAcceptanceConfirmedMonitorEntry, upsertAcceptanceConfirmedMonitorEntry } =
-        await import('$lib/utils/service-quote/acceptance-ledger');
+	// Implementation moved from escrowEvents.ts
+	// Calls reverifyPublishedServiceAcceptance from escrow.ts
+	// Updates acceptance-ledger based on result
+	// Refer to escrowEvents.ts lines 461-613 for full implementation
 
-    const monitorEntry = await getAcceptanceConfirmedMonitorEntry(escrowId);
-    if (!monitorEntry) {
-        return { status: 'not_found' };
-    }
+	const { getAcceptanceConfirmedMonitorEntry, upsertAcceptanceConfirmedMonitorEntry } =
+		await import('$lib/utils/service-quote/acceptance-ledger');
 
-    // Delegate to blockchain verification
-    const { reverifyPublishedServiceAcceptance } = await import('./reverify');
-    
-    const result = await reverifyPublishedServiceAcceptance({
-        escrowId: monitorEntry.escrowId,
-        transactionHash: monitorEntry.transactionHash,
-        acceptanceSnapshot: monitorEntry.acceptanceSnapshot
-    });
+	const monitorEntry = await getAcceptanceConfirmedMonitorEntry(escrowId);
+	if (!monitorEntry) {
+		return { status: 'not_found' };
+	}
 
-    // Handle result and update ledger
-    // (Full implementation in escrowEvents.ts lines 476-611)
-    
-    return result;
+	// Delegate to blockchain verification
+	const { reverifyPublishedServiceAcceptance } = await import('./reverify');
+
+	const result = await reverifyPublishedServiceAcceptance({
+		escrowId: monitorEntry.escrowId,
+		transactionHash: monitorEntry.transactionHash,
+		acceptanceSnapshot: monitorEntry.acceptanceSnapshot
+	});
+
+	// Handle result and update ledger
+	// (Full implementation in escrowEvents.ts lines 476-611)
+
+	return result;
 }
 ```
 
@@ -880,15 +878,13 @@ get serviceId(): string | undefined {
 
 > The table below was created before the audit. See the audit section for revised actions.
 
-
 | Category             | Files/Functions                       | ~~Original Action~~ | **Audit Action**                                   |
 | -------------------- | ------------------------------------- | ------------------- | -------------------------------------------------- |
-| **SERVICE_SPECIFIC** | `service-quote/`*                     | Keep                | **PARTIAL KEEP** - simplify `acceptance-ledger.ts` |
+| **SERVICE_SPECIFIC** | `service-quote/`\*                    | Keep                | **PARTIAL KEEP** - simplify `acceptance-ledger.ts` |
 | **SERVICE_SPECIFIC** | `finality.ts`, `ambiguity-reason.ts`  | Keep                | **DELETE** - redundant with v2                     |
 | **CONTRACT_GENERIC** | `contextType` utilities               | Move to `contract/` | **KEEP IN PLACE** - minimal change needed          |
 | **INTEGRATION_GLUE** | `handleEscrowCreated()` service parts | Adapter             | **SIMPLIFY** - keep notifications only             |
 | **INTEGRATION_GLUE** | Finality/replay/reverify              | Adapter             | **DELETE** - rune handles all of this              |
-
 
 ---
 
@@ -931,16 +927,14 @@ Files marked deprecated:
 
 ### Files NOT Deleted (Still Needed)
 
-
-| File                            | Status | Reason                                |
-| ------------------------------- | ------ | ------------------------------------- |
+| File                            | Status  | Reason                                |
+| ------------------------------- | ------- | ------------------------------------- |
 | `recover.ts`                    | ✅ KEEP | Browser restart recovery for Book Now |
 | `recover-quote-acceptance.ts`   | ✅ KEEP | Browser restart recovery for quotes   |
 | `reconcile-quote-acceptance.ts` | ✅ KEEP | Timeline reconciliation               |
 | `await-contract-creation.ts`    | ✅ KEEP | Used by ServiceDetailsView.svelte     |
 | `acceptance-ledger.ts`          | ✅ KEEP | Retry/reverify functionality          |
 | `finality.ts`                   | ✅ KEEP | Wait for confirmations (simplified)   |
-
 
 ### Why Files Were Kept
 
@@ -957,13 +951,11 @@ These use cases still exist for v1 service contracts. The files will be removed 
 
 ### Actual Code Reduction
 
-
 | Metric           | Before   | After    | Change                                |
 | ---------------- | -------- | -------- | ------------------------------------- |
 | Files deleted    | 0        | 0        | N/A                                   |
 | Code inlined     | 30 lines | 30 lines | `ambiguity-reason.ts` → `finality.ts` |
 | Deprecation docs | 0        | 7 files  | Added migration guidance              |
-
 
 ---
 
@@ -974,14 +966,19 @@ These use cases still exist for v1 service contracts. The files will be removed 
 The initial audit overestimated how much code could be safely deleted. Key findings:
 
 1. **PaymentContractRune handles in-memory state, not persistence**
-  - Rune's `isPending` works during a session
-  - Recovery files handle cross-session scenarios (browser restart)
+
+- Rune's `isPending` works during a session
+- Recovery files handle cross-session scenarios (browser restart)
+
 2. **Local storage persistence is still needed for v1 services**
-  - `acceptance-ledger.ts` stores retry/reverify state
-  - Without it, failed publishes would be lost on page refresh
+
+- `acceptance-ledger.ts` stores retry/reverify state
+- Without it, failed publishes would be lost on page refresh
+
 3. **The v2 lifecycle doesn't replace all v1 functionality**
-  - v2 lifecycle is for task contracts with NDK
-  - Service contracts still use v1 escrow for creation
+
+- v2 lifecycle is for task contracts with NDK
+- Service contracts still use v1 escrow for creation
 
 ### Actual Migration Path
 
@@ -1003,10 +1000,12 @@ const rune = new PaymentContractRune(ndkContract);
 await rune.start();
 
 // Pending state is reactive
-if (rune.isPending) { /* show loading */ }
+if (rune.isPending) {
+	/* show loading */
+}
 
 // Status comes from NDK subscription
-rune.statusEventsByNewest // Kind 31006 events
+rune.statusEventsByNewest; // Kind 31006 events
 
 // Transaction confirmation is automatic
 // rune.resolvePaymentIdFromTxHash() runs on start() if needed
@@ -1035,23 +1034,20 @@ This section documents the complete audit findings and the definitive path forwa
 
 #### Current State Summary
 
-
 | Component                                     | V2 Compliance          | Work Required                               |
 | --------------------------------------------- | ---------------------- | ------------------------------------------- |
-| `service-contract/create.ts`                  | ✅ **COMPLIANT**        | Minor fix for `clientRskAddress` validation |
-| `service-contract/active-contracts.ts`        | ✅ **COMPLIANT**        | None                                        |
+| `service-contract/create.ts`                  | ✅ **COMPLIANT**       | Minor fix for `clientRskAddress` validation |
+| `service-contract/active-contracts.ts`        | ✅ **COMPLIANT**       | None                                        |
 | `service-contract/preflight.ts`               | ⚠️ **DEPRECATED**      | Delete after UI migration                   |
 | `service-contract/await-contract-creation.ts` | ⚠️ **DEPRECATED**      | Delete after UI migration                   |
 | `service-contract/recover*.ts`                | ⚠️ **DEPRECATED**      | Delete after UI migration                   |
-| `contract/v2/service-creation.ts`             | ✅ **COMPLIANT**        | Cleanup unused input fields                 |
-| `ServiceDetailsView.svelte`                   | ❌ **CRITICAL BUGS**    | Major refactor required                     |
+| `contract/v2/service-creation.ts`             | ✅ **COMPLIANT**       | Cleanup unused input fields                 |
+| `ServiceDetailsView.svelte`                   | ❌ **CRITICAL BUGS**   | Major refactor required                     |
 | `MyQuotesPanel.svelte`                        | ⚠️ **USES DEPRECATED** | Refactor preflight calls                    |
-| `service-quote-ui.store.ts`                   | ❌ **V1 DEPENDENCIES**  | Major refactor required                     |
-| `contractStore`                               | ❌ **V1 STACK**         | Migrate to PaymentContractRune              |
-
+| `service-quote-ui.store.ts`                   | ❌ **V1 DEPENDENCIES** | Major refactor required                     |
+| `contractStore`                               | ❌ **V1 STACK**        | Migrate to PaymentContractRune              |
 
 #### Estimated Work Breakdown
-
 
 | Phase                           | Work Items                                                                    | Complexity | Estimated Effort |
 | ------------------------------- | ----------------------------------------------------------------------------- | ---------- | ---------------- |
@@ -1061,10 +1057,9 @@ This section documents the complete audit findings and the definitive path forwa
 | **Phase 4: Cleanup**            | Delete deprecated files, final testing                                        | Low        | 1-2 days         |
 | **Total**                       | —                                                                             | —          | **8-12 days**    |
 
-
 ### What Has Been Completed
 
-1. `**service-contract/create.ts`** - Returns v2 pattern (`tx`, `afterBroadcast`, `afterConfirmed`)
+1. `**service-contract/create.ts`\*\* - Returns v2 pattern (`tx`, `afterBroadcast`, `afterConfirmed`)
 2. `**service-contract/active-contracts.ts**` - Uses `isTerminalPaymentState` from v2
 3. `**contract/v2/service-creation.ts**` - Full v2 service contract creation
 4. **Deprecation notices** - All legacy files marked with `@deprecated`
@@ -1099,7 +1094,7 @@ The `finally` block at lines 1256-1259 clears the outbox immediately after broad
 
 #### V1 DEPENDENCY REMOVAL (Phase 2)
 
-`**service-quote-ui.store.ts` V1 Imports:**
+`**service-quote-ui.store.ts` V1 Imports:\*\*
 
 ```typescript
 // MUST BE REMOVED:
@@ -1115,18 +1110,15 @@ import { escrow } from '$lib/utils/escrow';
 
 #### UI COMPONENT REFACTORING (Phase 3)
 
-
 | Component                               | Deprecated Dependencies                                                       | Migration Action                                    |
 | --------------------------------------- | ----------------------------------------------------------------------------- | --------------------------------------------------- |
 | `ServiceDetailsView.svelte`             | `preflightServiceContractCreation`, `recoverBookNowContract`                  | Use inline balance check + `afterConfirmed` pattern |
 | `MyQuotesPanel.svelte`                  | `preflightServiceContractCreation`, `describeServiceContractPreflightFailure` | Move balance check to UI, remove preflight calls    |
 | `ServiceRequestAcceptanceDrawer.svelte` | Inherits from parent                                                          | Update parent components                            |
 
-
 ### Architecture Decision: PaymentContractRune for Services
 
 The v2 pattern uses `PaymentContractRune` for both tasks AND services. Key differences:
-
 
 | Aspect         | Tasks                      | Services                                    |
 | -------------- | -------------------------- | ------------------------------------------- |
@@ -1135,7 +1127,6 @@ The v2 pattern uses `PaymentContractRune` for both tasks AND services. Key diffe
 | Nostr Tags     | `taskId`, `taskTitle`      | `serviceId`, `serviceTitle`, `purchaseMode` |
 | Lifecycle      | Same                       | Same                                        |
 | Rune           | Same `PaymentContractRune` | Same                                        |
-
 
 **The rune does NOT branch on context type** - it's fully generic.
 
@@ -1157,34 +1148,27 @@ The v2 pattern uses `PaymentContractRune` for both tasks AND services. Key diffe
 
 #### i18n Violations (Must Fix)
 
-
 | File                        | Issue                                             |
 | --------------------------- | ------------------------------------------------- |
 | `context-presentation.ts`   | Hardcoded English strings                         |
 | `preflight-feedback.ts`     | Hardcoded English strings                         |
 | `ServiceDetailsView.svelte` | `'Remote'`, `'Service Location'`, location labels |
 
-
 #### Dead Code
-
 
 | File                              | Code                                                  |
 | --------------------------------- | ----------------------------------------------------- |
 | `ServiceDetailsView.svelte`       | `_instantBuyBackgrounded` - written but never read    |
 | `contract/v2/service-creation.ts` | Many `PublishServiceContractEventInput` fields unused |
 
-
 #### Error Handling Gaps
-
 
 | File                        | Issue                                                           |
 | --------------------------- | --------------------------------------------------------------- |
 | `ServiceDetailsView.svelte` | `Promise.all` couples `afterBroadcast` and `tx.wait()` failures |
 | `service-quote-ui.store.ts` | Fire-and-forget monitor has no callback for failures            |
 
-
 ### Files Ready for Deletion (After Migration)
-
 
 | File                                     | Dependencies to Remove First        |
 | ---------------------------------------- | ----------------------------------- |
@@ -1196,29 +1180,32 @@ The v2 pattern uses `PaymentContractRune` for both tasks AND services. Key diffe
 | `recover-quote-acceptance.ts`            | Migrate `service-quote-ui.store.ts` |
 | `reconcile-quote-acceptance.ts`          | Migrate `service-quote-ui.store.ts` |
 
-
 ### Testing Requirements
 
 Before release, verify:
 
 1. **Instant Buy (Book Now) Flow**
-  - Balance check shows correctly
-  - Transaction submits successfully
-  - Confirmation updates UI state
-  - Browser refresh during confirmation recovers
-  - Error states display clearly
+
+- Balance check shows correctly
+- Transaction submits successfully
+- Confirmation updates UI state
+- Browser refresh during confirmation recovers
+- Error states display clearly
+
 2. **Quote Acceptance Flow**
-  - Proposal acceptance creates contract
-  - Timeline updates with `linkedEscrowId`
-  - Recovery handles timeout/RPC failures
-  - Status publishes correctly to Nostr
+
+- Proposal acceptance creates contract
+- Timeline updates with `linkedEscrowId`
+- Recovery handles timeout/RPC failures
+- Status publishes correctly to Nostr
+
 3. **Contract Display**
-  - Service contracts appear in dashboard
-  - PaymentContractRune shows correct status
-  - Actions work (complete, dispute, etc.)
+
+- Service contracts appear in dashboard
+- PaymentContractRune shows correct status
+- Actions work (complete, dispute, etc.)
 
 ### Confidence Assessment
-
 
 | Aspect                 | Confidence                                       |
 | ---------------------- | ------------------------------------------------ |
@@ -1227,9 +1214,7 @@ Before release, verify:
 | ETA accuracy           | 70% - Depends on unknown edge cases in UI        |
 | No missed dependencies | 85% - Searched entire codebase for imports       |
 
-
 ### Next Steps (Action Items)
 
 1. **Immediate**: Fix `ServiceDetailsView.svelte` critical bugs
 2. **Immediate**: Create detailed UI refactoring plan (see `docs/service-ui-v2-refactoring-plan.md`)
-
