@@ -2450,7 +2450,7 @@
 		</div>
 
 		<!-- Mobile Fixed Bottom CTA (Single Row Cart) -->
-		{#if !isOwner && service.status === 'active'}
+		{#if !isPreview && !isDraft && !isOwner && service.status === 'active'}
 			{@const displayDeliveryTime =
 				requestRushDelivery && availableRushDelivery
 					? formatDeliveryTime(availableRushDelivery.deliveryTime)
