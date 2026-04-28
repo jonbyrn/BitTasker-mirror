@@ -854,7 +854,7 @@
 								onclick={() => (uiState.networkFeeExpanded = !uiState.networkFeeExpanded)}
 								disabled={feeState.isLoading}
 							>
-								<div class="flex w-full items-center gap-1.5 sm:gap-2">
+								<div class="flex w-full flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
 									<span>{$t('wallet.network_fee')}:</span>
 									{#if feeState.isLoading}
 										<span class="inline-flex min-w-20 items-center gap-1.5 font-semibold sm:gap-2">
