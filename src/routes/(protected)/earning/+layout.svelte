@@ -93,12 +93,12 @@
 <svelte:window bind:innerWidth={width} />
 
 <div
-	class="bg-base-200 dashboard-layout mx-auto flex h-full min-h-0 w-full flex-col overflow-hidden px-2 md:py-4"
+	class="bg-base-200 dashboard-layout mx-auto flex h-full min-h-0 w-full flex-col overflow-hidden md:py-4"
 >
 	<div class="flex min-h-0 flex-1 flex-row gap-8 overflow-hidden">
 		<!-- Main Content -->
 		<div class="min-h-0 w-full flex-1 overflow-hidden">
-			<div class="mx-auto h-full max-w-6xl px-2 py-6 md:px-0 md:py-0">
+			<div class="mx-auto h-full max-w-6xl py-6 md:px-0 md:py-0">
 				<div class="mb-6 flex items-center justify-between gap-3">
 					<div class="min-w-0">
 						<h3 class="font-bold">
