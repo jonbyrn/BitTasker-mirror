@@ -298,8 +298,13 @@
 				use:clickOutside={{ callback: () => (isAvatarDropdownOpen = false) }}
 			>
 				<button
+					type="button"
 					class="btn btn-ghost"
 					onclick={toggleAvatarDropdown}
+					ontouchstart={(e) => {
+						e.stopPropagation();
+						toggleAvatarDropdown(e as unknown as MouseEvent);
+					}}
 					aria-haspopup="true"
 					aria-expanded={isAvatarDropdownOpen}
 				>
@@ -396,5 +401,18 @@
 		position: absolute;
 		top: 100%;
 		left: 0;
+	}
+
+	/* iOS touch improvements for avatar dropdown button */
+	:global(.navbar-end .dropdown-end > button.btn.btn-ghost) {
+		touch-action: manipulation;
+		-webkit-tap-highlight-color: transparent;
+		cursor: pointer;
+	}
+
+	/* Ensure dropdown menu is clickable on iOS */
+	:global(.navbar-end .dropdown-content) {
+		touch-action: manipulation;
+		-webkit-tap-highlight-color: transparent;
 	}
 </style>
