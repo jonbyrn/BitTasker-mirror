@@ -13,6 +13,7 @@
 				"empty_message": "Publica tu primer servicio para empezar a recibir solicitudes de clientes.",
 				"view": "Ver",
 				"view_details": "Detalles",
+				"view_details_short": "Detalles",
 				"edit": "Editar",
 				"duplicate": "Duplicar",
 				"status_active": "Activo",
@@ -33,7 +34,9 @@
 				"status_update_failed": "Error al actualizar el estado",
 				"actions": {
 					"quotes": "Solicitudes",
-					"contracts": "Contratos"
+					"quotes_short": "Solicitudes",
+					"contracts": "Contratos",
+					"contracts_short": "Contratos"
 				},
 				"location": {
 					"remote": "Remoto",
@@ -92,7 +95,9 @@
 					"selected_service_total": "Solicitudes del servicio seleccionado",
 					"reviews_count": "{count} reseñas",
 					"send_proposal": "Enviar propuesta",
+					"send_proposal_short": "Enviar",
 					"view_proposal": "Ver propuesta",
+					"view_proposal_short": "Ver",
 					"delete_proposal": "Eliminar propuesta",
 					"delete_proposal_failed": "No se puede eliminar esta propuesta en este momento.",
 					"pending_amount": "Pendiente",
@@ -107,6 +112,7 @@
 					"contract_created_title": "Contrato creado",
 					"contract_created_body": "Esta solicitud de cotización ya se convirtió en un contrato de servicio activo.",
 					"view_contract": "Ver contrato",
+					"view_contract_short": "Contrato",
 					"expired_title": "Solicitud vencida",
 					"expired_body": "Esta solicitud de cotización ahora es de solo lectura. Espera a que el comprador envíe una nueva solicitud antes de responder nuevamente.",
 					"latest_proposal": "Propuesta más reciente",

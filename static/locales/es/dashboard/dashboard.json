@@ -335,6 +335,7 @@
 				"cancel": "Cancelar",
 				"accept_bid_fund_contract": "Aceptar Oferta y Financiar Contrato",
 				"accept_fund": "Aceptar Fondos",
+				"accept_bid": "Aceptar Oferta",
 				"rootstock_escrow_contract": "Contrato de Pago Seguro en Rootstock",
 				"rootstock_escrow_contract_desc": "Esto creará un contrato de pago seguro en la red Rootstock para mantener el pago hasta que se complete la tarea.",
 				"freelancer_address": "Dirección del Taskee:",
@@ -417,6 +418,7 @@
 			},
 			"bid_card": {
 				"view_details": "Ver Detalles",
+				"view_details_short": "Detalles",
 				"accept": "Aceptar",
 				"decline": "Rechazar",
 				"counter": "Contraoferta",
@@ -687,6 +689,7 @@
 			"updates": "actualizaciones",
 			"more_actions": "más acciones",
 			"view_details": "Ver Detalles",
+			"view_details_short": "Detalles",
 			"close_modal": "Cerrar modal",
 			"close": "Cerrar",
 			"contract_details": "Detalles del Contrato",
