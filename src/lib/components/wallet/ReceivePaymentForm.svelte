@@ -51,11 +51,15 @@
 		chargeFeesToPayer: false
 	});
 
+	// Mobile form container for keyboard scroll handling
+	let mobileFormContainer: HTMLDivElement | undefined = $state(undefined);
+
 	// Grouped State: UI State
 	let uiState = $state({
 		descriptionExpanded: false,
 		networkExpanded: false,
-		calculatorKey: 0
+		calculatorKey: 0,
+		memoScrollPosition: 0
 	});
 
 	// Grouped State: Fee & Swap Information
@@ -618,7 +622,7 @@
 
 		<!-- Network Selector and other fields - Hidden on mobile step 1, visible on step 2 and desktop -->
 		<div class="block sm:hidden">
-			<div class="flex flex-col space-y-2 overflow-y-auto pb-60">
+			<div class="flex flex-col space-y-2 overflow-y-auto pb-60" bind:this={mobileFormContainer}>
 				<!-- Network Selector (Accordion) -->
 				<div
 					class="collapse-arrow border-primary bg-base-100 collapse rounded-lg border-2"
@@ -877,10 +881,20 @@
 								bind:value={formInput.memo}
 								rows="3"
 								maxlength="200"
-								onfocus={() =>
+								onfocus={() => {
+									uiState.memoScrollPosition = mobileFormContainer?.scrollTop || 0;
 									document
 										.getElementById('memo-input')
-										?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+										?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+								}}
+								onblur={() => {
+									if (mobileFormContainer) {
+										mobileFormContainer.scrollTo({
+											top: uiState.memoScrollPosition,
+											behavior: 'smooth'
+										});
+									}
+								}}
 							></textarea>
 							<div class="label text-xs">
 								<span
