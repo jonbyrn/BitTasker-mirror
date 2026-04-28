@@ -259,27 +259,27 @@
 	}
 </script>
 
-<div class="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
+<div
+	class="flex w-full flex-row flex-wrap gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center"
+>
 	{#if contractRune.permittedActions.canCompleteTask}
 		<button
 			type="button"
-			class="btn btn-primary btn-sm w-full sm:w-auto"
+			class="btn btn-success btn-sm flex-1 sm:w-auto"
 			disabled={contractRune.isPending || isBusy}
 			onclick={() => openModal(ContractModalAction.Complete)}
 		>
 			{#if pendingAction === ContractModalAction.Complete}
 				<span class="loading loading-spinner loading-xs"></span>
 			{/if}
-			<span class="hidden sm:inline">{$t('dashboard.contracts.actions.complete_task')}</span>
-			<span class="sm:hidden"
-				>{getMobileLabel($t('dashboard.contracts.actions.complete_task'))}</span
-			>
+			<span class="hidden sm:inline">{$t('dashboard.contracts.actions.complete')}</span>
+			<span class="sm:hidden">{$t('dashboard.contracts.actions.complete')}</span>
 		</button>
 	{/if}
 	{#if contractRune.permittedActions.canAcceptTask}
 		<button
 			type="button"
-			class="btn btn-success btn-sm w-full sm:w-auto"
+			class="btn btn-success btn-sm flex-1 sm:w-auto"
 			disabled={contractRune.isPending || isBusy}
 			onclick={() => openModal(ContractModalAction.Accept)}
 		>
@@ -293,23 +293,21 @@
 	{#if contractRune.permittedActions.canRefundTasker}
 		<button
 			type="button"
-			class="btn btn-warning btn-sm w-full sm:w-auto"
+			class="btn btn-neutral btn-sm flex-1 sm:w-auto"
 			disabled={contractRune.isPending || isBusy}
 			onclick={() => openModal(ContractModalAction.Refund)}
 		>
 			{#if pendingAction === ContractModalAction.Refund}
 				<span class="loading loading-spinner loading-xs"></span>
 			{/if}
-			<span class="hidden sm:inline">{$t('dashboard.contracts.actions.refund_tasker')}</span>
-			<span class="sm:hidden"
-				>{getMobileLabel($t('dashboard.contracts.actions.refund_tasker'))}</span
-			>
+			<span class="hidden sm:inline">{$t('dashboard.contracts.actions.refund')}</span>
+			<span class="sm:hidden">{$t('dashboard.contracts.actions.refund')}</span>
 		</button>
 	{/if}
 	{#if contractRune.permittedActions.canCancelPaymentContract}
 		<button
 			type="button"
-			class="btn btn-error btn-outline btn-sm w-full sm:w-auto"
+			class="btn btn-error btn-outline btn-sm flex-1 sm:w-auto"
 			disabled={contractRune.isPending || isBusy}
 			onclick={() => openModal(ContractModalAction.Cancel)}
 		>
@@ -325,7 +323,7 @@
 	{#if contractRune.permittedActions.canMarkNoShow}
 		<button
 			type="button"
-			class="btn btn-warning btn-sm w-full sm:w-auto"
+			class="btn btn-warning btn-sm flex-1 sm:w-auto"
 			disabled={contractRune.isPending || isBusy}
 			onclick={() => openModal(ContractModalAction.MarkNoShow)}
 		>
@@ -340,7 +338,7 @@
 	{#if contractRune.permittedActions.canMarkWorkInProgress}
 		<button
 			type="button"
-			class="btn btn-success btn-outline btn-sm w-full sm:w-auto"
+			class="btn btn-success btn-outline btn-sm flex-1 sm:w-auto"
 			disabled={contractRune.isPending || isBusy}
 			onclick={() => openModal(ContractModalAction.MarkWorkInProgress)}
 		>
@@ -357,7 +355,7 @@
 	{#if contractRune.permittedActions.canClaimNoShowRefund}
 		<button
 			type="button"
-			class="btn btn-warning btn-outline btn-sm w-full sm:w-auto"
+			class="btn btn-warning btn-outline btn-sm flex-1 sm:w-auto"
 			disabled={contractRune.isPending || isBusy}
 			onclick={() => openModal(ContractModalAction.ClaimNoShowRefund)}
 		>
@@ -373,7 +371,7 @@
 	{#if contractRune.permittedActions.canDisputeTask}
 		<button
 			type="button"
-			class="btn btn-error btn-sm w-full sm:w-auto"
+			class="btn btn-error btn-sm flex-1 sm:w-auto"
 			disabled={contractRune.isPending || isBusy}
 			onclick={() => openModal(ContractModalAction.Dispute)}
 		>
@@ -388,7 +386,7 @@
 	{#if contractRune.permittedActions.canProposeResolution}
 		<button
 			type="button"
-			class="btn btn-warning btn-outline btn-sm w-full sm:w-auto"
+			class="btn btn-warning btn-outline btn-sm flex-1 sm:w-auto"
 			disabled={contractRune.isPending || isBusy}
 			onclick={() => openModal(ContractModalAction.ProposeResolution)}
 		>
@@ -404,7 +402,7 @@
 	{#if contractRune.permittedActions.canAcceptProposal}
 		<button
 			type="button"
-			class="btn btn-success btn-outline btn-sm w-full sm:w-auto"
+			class="btn btn-success btn-outline btn-sm flex-1 sm:w-auto"
 			disabled={contractRune.isPending || isBusy}
 			onclick={() => openModal(ContractModalAction.AcceptProposal)}
 		>
@@ -420,7 +418,7 @@
 	{#if contractRune.permittedActions.canResolveAfterTimelock}
 		<button
 			type="button"
-			class="btn btn-warning btn-sm w-full sm:w-auto"
+			class="btn btn-warning btn-sm flex-1 sm:w-auto"
 			disabled={contractRune.isPending || isBusy}
 			onclick={() => openModal(ContractModalAction.ResolveTimelock)}
 		>
