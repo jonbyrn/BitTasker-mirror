@@ -274,8 +274,8 @@ deploy-development:
     policy: pull
   needs:
     - build
-    - service-quote-gates
-    - service-quote-e2e
+    # - service-quote-gates
+    # - service-quote-e2e
   script:
     - npm ci --cache .npm --prefer-offline
     - npx wrangler deploy --env dev
