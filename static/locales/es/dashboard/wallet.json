@@ -459,7 +459,8 @@
 				"invalid_qr_code": "Código QR de pago inválido",
 				"failed_to_parse_qr": "Error al analizar código QR",
 				"failed_to_parse_address": "Error al analizar dirección",
-				"invalid_form": "Por favor verifica los campos del formulario"
+				"invalid_form": "Por favor verifica los campos del formulario",
+				"amountless_invoice": "Próximamente admitiremos facturas sin monto. Para proceder, solicita una nueva con el monto incluido."
 			}
 		},
 		"payment_request": {

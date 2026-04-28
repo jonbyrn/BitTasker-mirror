@@ -86,7 +86,9 @@
 		destroyed = true;
 		stopAllCameraStreams();
 		void stopScan();
-		onClose();
+		// NOTE: Don't call onClose() here - it should only be called when the user
+		// explicitly closes the scanner (via close button), not when the component
+		// is destroyed due to parent state changes (like error conditions)
 	});
 
 	function stopAllCameraStreams() {

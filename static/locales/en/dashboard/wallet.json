@@ -488,7 +488,8 @@
 				"invalid_qr_code": "Invalid payment QR code",
 				"failed_to_parse_qr": "Failed to parse QR code",
 				"failed_to_parse_address": "Failed to parse address",
-				"invalid_form": "Please check your form inputs"
+				"invalid_form": "Please check your form inputs",
+				"amountless_invoice": "Support for amountless invoices is coming soon. Please request a new invoice with the specific amount included to proceed."
 			}
 		},
 		"receive_rbtc": "Receive rBTC",
