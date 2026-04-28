@@ -34,10 +34,7 @@
 
 	const currentLocale = $derived($locale || 'en');
 	const serviceTitle = $derived(service ? getServiceDisplayTitle(service, currentLocale) : '');
-	const modalTitle = $derived(
-		$t('dashboard.services.detail.request_quote_modal.title') +
-			(serviceTitle ? ` – ${serviceTitle}` : '')
-	);
+	const modalTitle = $derived($t('dashboard.services.detail.request_quote_modal.title'));
 
 	let title = $state('');
 	let description = $state('');
@@ -164,6 +161,9 @@
 	respectBottomNav={true}
 	{isSubmitting}
 >
+	{#if serviceTitle}
+		<span class="text-md mb-4 block font-bold">{serviceTitle}</span>
+	{/if}
 	<form
 		class="flex flex-col gap-4"
 		onsubmit={(e) => {
@@ -215,9 +215,6 @@
 		<!-- Custom form (if service has inquiry fields) -->
 		{#if inquiryFields.length > 0}
 			<div class="space-y-4">
-				<h4 class="font-semibold">
-					{$t('dashboard.services.detail.request_quote_modal.custom_form_section')}
-				</h4>
 				{#each inquiryFields as field (field.id)}
 					{@const inputId = `quote-field-${field.id}`}
 					{@const value = customFormValues[field.id]}
