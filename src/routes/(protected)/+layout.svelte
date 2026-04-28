@@ -65,7 +65,7 @@
 		class="bg-base-200 dashboard-layout mx-auto flex h-full min-h-0 w-full flex-col overflow-hidden px-2 md:py-4"
 	>
 		<div class="flex min-h-0 flex-1 flex-row gap-8 overflow-hidden">
-			{#if $devicePlatform !== 'ios' && $devicePlatform !== 'android' && width >= 1200}
+			{#if $devicePlatform !== 'ios' && $devicePlatform !== 'android' && width >= 1200 && page.url.pathname !== '/feedback'}
 				<!-- Fixed Sidebar - Solo en desktop -->
 				<div class="w-full shrink-0 md:w-64">
 					<div class="fixed top-24 left-8 z-10 w-64">
