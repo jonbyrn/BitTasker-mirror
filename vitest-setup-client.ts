@@ -120,8 +120,16 @@ if (typeof window !== 'undefined' && !window.Element.prototype.animate) {
 	})) as unknown as typeof window.Element.prototype.animate;
 }
 
-// Mock MediaStreamTrack (required for QR scanner tests)
+// Mock MediaStream + MediaStreamTrack (required for QR scanner teardown in jsdom)
 if (typeof global !== 'undefined') {
+	global.MediaStream = class MediaStream {
+		getTracks() {
+			return [];
+		}
+		addTrack() {}
+		removeTrack() {}
+	} as unknown as typeof MediaStream;
+
 	global.MediaStreamTrack = class MediaStreamTrack {
 		stop() {}
 		kind = 'video';

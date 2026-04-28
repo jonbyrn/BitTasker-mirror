@@ -223,7 +223,7 @@ describe('ServiceQuotesInbox', () => {
 		expect(getAllByText('Premium Plan').length).toBeGreaterThan(0);
 		expect(queryByText(/^premium$/i)).toBeNull();
 
-		await fireEvent.click(getByRole('button', { name: /Send Proposal/i }));
+		await fireEvent.click(getByRole('button', { name: /^Send$/ }));
 
 		await waitFor(() => {
 			expect(getAllByText('Premium Plan').length).toBeGreaterThan(1);
@@ -261,7 +261,7 @@ describe('ServiceQuotesInbox', () => {
 			onRequestFocusChange
 		});
 
-		await fireEvent.click(getAllByRole('button', { name: 'Send Proposal' })[0]);
+		await fireEvent.click(getAllByRole('button', { name: 'Send' })[0]);
 		expect(onRequestFocusChange).toHaveBeenCalledWith('qr_valid123');
 		await waitFor(() => expect(getByRole('dialog')).toBeTruthy());
 		expect(within(getByRole('dialog')).queryByText('Need a site audit')).toBeNull();
@@ -270,22 +270,30 @@ describe('ServiceQuotesInbox', () => {
 	});
 
 	it('does not block proposal entry when wallet information is missing', async () => {
-		const { queryByTestId, getAllByRole, getByRole, queryByText } = render(ServiceQuotesInbox, {
-			service: mockService,
-			timelines: [baseTimeline],
-			focusedRequestId: null,
-			isSyncing: false,
-			walletReady: false,
-			feeTierReady: true,
-			totalPendingRequestCount: 1
-		});
+		const { queryByTestId, getAllByRole, getByRole, queryByText, getByTestId } = render(
+			ServiceQuotesInbox,
+			{
+				service: mockService,
+				timelines: [baseTimeline],
+				focusedRequestId: null,
+				isSyncing: false,
+				walletReady: false,
+				feeTierReady: true,
+				totalPendingRequestCount: 1
+			}
+		);
 
 		expect(queryByTestId('service-quotes-prerequisite-alert')).toBeNull();
-		expect(getByRole('button', { name: 'Send Proposal' })).toBeEnabled();
+		expect(getByRole('button', { name: 'Send' })).toBeEnabled();
 
-		await fireEvent.click(getAllByRole('button', { name: 'Send Proposal' })[0]);
+		await fireEvent.click(getAllByRole('button', { name: 'Send' })[0]);
 		await waitFor(() => expect(getByRole('dialog')).toBeTruthy());
-		expect(getAllByRole('button', { name: 'Send Proposal' })[1]).toBeEnabled();
+		await waitFor(() => expect(getByTestId('service-proposal-composer')).toBeTruthy());
+		expect(
+			within(getByTestId('service-proposal-composer')).getByRole('button', {
+				name: 'Send Proposal'
+			})
+		).toBeEnabled();
 		expect(queryByText('Connect your wallet before sending a proposal.')).toBeNull();
 	});
 
@@ -301,7 +309,7 @@ describe('ServiceQuotesInbox', () => {
 		});
 
 		expect(getByTestId('service-quotes-prerequisite-alert')).toBeTruthy();
-		expect(getByRole('button', { name: 'Send Proposal' })).toBeDisabled();
+		expect(getByRole('button', { name: 'Send' })).toBeDisabled();
 	});
 
 	it('shows a proposal viewer instead of the composer once a proposal exists', async () => {
@@ -357,8 +365,8 @@ describe('ServiceQuotesInbox', () => {
 			totalPendingRequestCount: 0
 		});
 
-		expect(queryByRole('button', { name: 'Send Proposal' })).toBeNull();
-		await fireEvent.click(getByRole('button', { name: 'View Proposal' }));
+		expect(queryByRole('button', { name: 'Send' })).toBeNull();
+		await fireEvent.click(getByRole('button', { name: 'View' }));
 		await waitFor(() => expect(getByRole('dialog')).toBeTruthy());
 		expect(queryByTestId('service-proposal-composer')).toBeNull();
 		expect(getByText('Technical SEO audit with prioritized fixes.')).toBeTruthy();
@@ -414,7 +422,7 @@ describe('ServiceQuotesInbox', () => {
 			totalPendingRequestCount: 0
 		});
 
-		await fireEvent.click(getByRole('button', { name: 'View Proposal' }));
+		await fireEvent.click(getByRole('button', { name: 'View' }));
 		await waitFor(() => expect(getByRole('dialog')).toBeTruthy());
 		expect(queryByRole('button', { name: 'Delete Proposal' })).toBeNull();
 	});
@@ -491,7 +499,7 @@ describe('ServiceQuotesInbox', () => {
 		});
 		rerenderInboxRef.current = rerender;
 
-		await fireEvent.click(getByRole('button', { name: 'View Proposal' }));
+		await fireEvent.click(getByRole('button', { name: 'View' }));
 
 		await waitFor(() => expect(getByRole('dialog')).toBeTruthy());
 		expect(getByText('Technical SEO audit with prioritized fixes.')).toBeTruthy();
@@ -551,7 +559,7 @@ describe('ServiceQuotesInbox', () => {
 			totalPendingRequestCount: 1
 		});
 
-		await fireEvent.click(getAllByRole('button', { name: 'Send Proposal' })[0]);
+		await fireEvent.click(getAllByRole('button', { name: 'Send' })[0]);
 		await waitFor(() => expect(getByRole('dialog')).toBeTruthy());
 
 		const description = await waitFor(() =>
@@ -567,19 +575,23 @@ describe('ServiceQuotesInbox', () => {
 
 	it('forwards proposal submissions through the selected request context', async () => {
 		const onSendProposal = vi.fn().mockResolvedValue({ success: true });
-		const { getByLabelText, getAllByRole, getByRole, queryByTestId } = render(ServiceQuotesInbox, {
-			service: mockService,
-			timelines: [baseTimeline],
-			focusedRequestId: null,
-			isSyncing: false,
-			walletReady: true,
-			feeTierReady: true,
-			onSendProposal,
-			totalPendingRequestCount: 1
-		});
+		const { getByLabelText, getAllByRole, getByRole, queryByTestId, getByTestId } = render(
+			ServiceQuotesInbox,
+			{
+				service: mockService,
+				timelines: [baseTimeline],
+				focusedRequestId: null,
+				isSyncing: false,
+				walletReady: true,
+				feeTierReady: true,
+				onSendProposal,
+				totalPendingRequestCount: 1
+			}
+		);
 
-		await fireEvent.click(getAllByRole('button', { name: 'Send Proposal' })[0]);
+		await fireEvent.click(getAllByRole('button', { name: 'Send' })[0]);
 		await waitFor(() => expect(getByRole('dialog')).toBeTruthy());
+		await waitFor(() => expect(getByTestId('service-proposal-composer')).toBeTruthy());
 
 		await fireEvent.input(getByLabelText('Scope of work'), {
 			target: { value: 'Technical SEO audit with prioritized fixes.' }
@@ -603,19 +615,26 @@ describe('ServiceQuotesInbox', () => {
 			target: { value: 'I can start this week.' }
 		});
 
-		await fireEvent.click(getAllByRole('button', { name: 'Send Proposal' })[1]);
+		await fireEvent.click(
+			within(getByTestId('service-proposal-composer')).getByRole('button', {
+				name: 'Send Proposal'
+			})
+		);
 
 		await waitFor(() =>
-			expect(onSendProposal).toHaveBeenCalledWith('qr_valid123', {
-				description: 'Technical SEO audit with prioritized fixes.',
-				amountUsdt: '225.00',
-				estimatedDuration: '4 days and 9 hours',
-				estimatedStartTime: Math.floor(new Date('2026-03-20T09:00').getTime() / 1000),
-				estimatedEndTime: Math.floor(new Date('2026-03-24T18:00').getTime() / 1000),
-				expirationDays: 5,
-				expirationHours: 6,
-				coverLetter: 'I can start this week.'
-			})
+			expect(onSendProposal).toHaveBeenCalledWith(
+				'qr_valid123',
+				expect.objectContaining({
+					description: 'Technical SEO audit with prioritized fixes.',
+					amountUsdt: '225.00',
+					estimatedDuration: expect.stringMatching(/4 days and \d+ hours/),
+					estimatedStartTime: Math.floor(new Date('2026-03-20T09:00').getTime() / 1000),
+					estimatedEndTime: Math.floor(new Date('2026-03-24T18:00').getTime() / 1000),
+					expirationDays: 5,
+					expirationHours: 6,
+					coverLetter: 'I can start this week.'
+				})
+			)
 		);
 		await waitFor(() => expect(queryByTestId('service-proposal-composer')).toBeNull());
 	});
@@ -673,16 +692,16 @@ describe('ServiceQuotesInbox', () => {
 			totalPendingRequestCount: 0
 		});
 
-		expect(queryByRole('button', { name: 'Send Proposal' })).toBeNull();
-		expect(getByRole('button', { name: 'View Proposal' })).toBeTruthy();
+		expect(queryByRole('button', { name: 'Send' })).toBeNull();
+		expect(getByRole('button', { name: 'View' })).toBeTruthy();
 
-		await fireEvent.click(getByRole('button', { name: 'View Contract' }));
+		await fireEvent.click(getByRole('button', { name: 'Contract' }));
 
 		expect(goto).toHaveBeenCalledWith(
 			'/dashboard?tab=contracts&type=services&highlight=escrow_987'
 		);
 
-		await fireEvent.click(getByRole('button', { name: 'View Proposal' }));
+		await fireEvent.click(getByRole('button', { name: 'View' }));
 		expect(await findByRole('dialog')).toBeTruthy();
 	});
 
@@ -705,8 +724,8 @@ describe('ServiceQuotesInbox', () => {
 			}
 		);
 
-		expect(getAllByRole('button', { name: 'Send Proposal' }).length).toBeGreaterThan(0);
-		expect(queryByRole('button', { name: 'View Contract' })).toBeNull();
+		expect(getAllByRole('button', { name: 'Send' }).length).toBeGreaterThan(0);
+		expect(queryByRole('button', { name: 'Contract' })).toBeNull();
 
 		await rerender({
 			service: mockService,
@@ -724,8 +743,8 @@ describe('ServiceQuotesInbox', () => {
 			totalPendingRequestCount: 0
 		});
 
-		expect(queryAllByRole('button', { name: 'Send Proposal' })).toHaveLength(0);
-		expect(getByRole('button', { name: 'View Contract' })).toBeTruthy();
+		expect(queryAllByRole('button', { name: 'Send' })).toHaveLength(0);
+		expect(getByRole('button', { name: 'Contract' })).toBeTruthy();
 	});
 
 	it('shows contract syncing as a neutral state while still exposing the linked contract', async () => {
@@ -745,9 +764,9 @@ describe('ServiceQuotesInbox', () => {
 			totalPendingRequestCount: 0
 		});
 
-		expect(queryAllByRole('button', { name: 'Send Proposal' })).toHaveLength(0);
+		expect(queryAllByRole('button', { name: 'Send' })).toHaveLength(0);
 		expect(getByText('Contract syncing')).toBeTruthy();
-		await fireEvent.click(getByRole('button', { name: 'View Contract' }));
+		await fireEvent.click(getByRole('button', { name: 'Contract' }));
 
 		expect(goto).toHaveBeenCalledWith(
 			'/dashboard?tab=contracts&type=services&highlight=escrow_syncing'
@@ -776,7 +795,7 @@ describe('ServiceQuotesInbox', () => {
 				'This quote request is now read-only. Wait for the buyer to send a new request before replying again.'
 			)
 		).toBeTruthy();
-		expect(queryByRole('button', { name: 'Send Proposal' })).toBeNull();
+		expect(queryByRole('button', { name: 'Send' })).toBeNull();
 	});
 
 	it('keeps deleted-service requests visible as read-only rows and hides the proposal action', () => {
@@ -796,12 +815,12 @@ describe('ServiceQuotesInbox', () => {
 				'This service was deleted by the provider. Keep this request for reference, but no new proposals can be sent.'
 			)
 		).toBeTruthy();
-		expect(queryByRole('button', { name: 'Send Proposal' })).toBeNull();
+		expect(queryByRole('button', { name: 'Send' })).toBeNull();
 	});
 
 	it('renders retry UI and disables proposal sending in the drawer when provider timeline loading fails', async () => {
 		const onRetry = vi.fn();
-		const { getByRole, getAllByRole, getByText } = render(ServiceQuotesInbox, {
+		const { getByRole, getAllByRole, getByText, getByTestId } = render(ServiceQuotesInbox, {
 			service: mockService,
 			timelines: [baseTimeline],
 			focusedRequestId: null,
@@ -813,9 +832,14 @@ describe('ServiceQuotesInbox', () => {
 			totalPendingRequestCount: 1
 		});
 
-		await fireEvent.click(getAllByRole('button', { name: 'Send Proposal' })[0]);
+		await fireEvent.click(getAllByRole('button', { name: 'Send' })[0]);
 		await waitFor(() => expect(getByRole('dialog')).toBeTruthy());
-		expect(getAllByRole('button', { name: 'Send Proposal' })[1]).toBeDisabled();
+		await waitFor(() => expect(getByTestId('service-proposal-composer')).toBeTruthy());
+		expect(
+			within(getByTestId('service-proposal-composer')).getByRole('button', {
+				name: 'Send Proposal'
+			})
+		).toBeDisabled();
 		await fireEvent.click(getByRole('button', { name: 'Retry' }));
 		expect(onRetry).toHaveBeenCalledTimes(1);
 		expect(getByText('provider query failed')).toBeTruthy();
@@ -846,21 +870,29 @@ describe('ServiceQuotesInbox', () => {
 			}
 		});
 
-		const { getByRole, getAllByRole, queryByTestId, queryByText } = render(ServiceQuotesInbox, {
-			service: mockService,
-			timelines: [baseTimeline],
-			focusedRequestId: null,
-			isSyncing: false,
-			walletReady: true,
-			feeTierReady: true,
-			totalPendingRequestCount: 1
-		});
+		const { getByRole, getAllByRole, queryByTestId, queryByText, getByTestId } = render(
+			ServiceQuotesInbox,
+			{
+				service: mockService,
+				timelines: [baseTimeline],
+				focusedRequestId: null,
+				isSyncing: false,
+				walletReady: true,
+				feeTierReady: true,
+				totalPendingRequestCount: 1
+			}
+		);
 
-		await fireEvent.click(getAllByRole('button', { name: 'Send Proposal' })[0]);
+		await fireEvent.click(getAllByRole('button', { name: 'Send' })[0]);
 		await waitFor(() => expect(getByRole('dialog')).toBeTruthy());
+		await waitFor(() => expect(getByTestId('service-proposal-composer')).toBeTruthy());
 		expect(queryByTestId('service-quotes-stale-alert')).toBeNull();
 		expect(queryByText('Showing stale quote data. Refresh before sending a proposal.')).toBeNull();
-		expect(getAllByRole('button', { name: 'Send Proposal' })[1]).toBeDisabled();
+		expect(
+			within(getByTestId('service-proposal-composer')).getByRole('button', {
+				name: 'Send Proposal'
+			})
+		).toBeDisabled();
 	});
 
 	it('keeps partial-sync blocking in-context while thread data is incomplete', async () => {
@@ -870,47 +902,63 @@ describe('ServiceQuotesInbox', () => {
 			}
 		});
 
-		const { getByRole, getAllByRole, queryByTestId, queryByText } = render(ServiceQuotesInbox, {
-			service: mockService,
-			timelines: [baseTimeline],
-			focusedRequestId: null,
-			isSyncing: false,
-			walletReady: true,
-			feeTierReady: true,
-			totalPendingRequestCount: 1
-		});
+		const { getByRole, getAllByRole, queryByTestId, queryByText, getByTestId } = render(
+			ServiceQuotesInbox,
+			{
+				service: mockService,
+				timelines: [baseTimeline],
+				focusedRequestId: null,
+				isSyncing: false,
+				walletReady: true,
+				feeTierReady: true,
+				totalPendingRequestCount: 1
+			}
+		);
 
-		await fireEvent.click(getAllByRole('button', { name: 'Send Proposal' })[0]);
+		await fireEvent.click(getAllByRole('button', { name: 'Send' })[0]);
 		await waitFor(() => expect(getByRole('dialog')).toBeTruthy());
+		await waitFor(() => expect(getByTestId('service-proposal-composer')).toBeTruthy());
 		expect(queryByTestId('service-quotes-partial-alert')).toBeNull();
 		expect(
 			queryByText(
 				'Quote data is still propagating across relays. Sending is disabled until the latest request thread is fully synced.'
 			)
 		).toBeNull();
-		expect(getAllByRole('button', { name: 'Send Proposal' })[1]).toBeDisabled();
+		expect(
+			within(getByTestId('service-proposal-composer')).getByRole('button', {
+				name: 'Send Proposal'
+			})
+		).toBeDisabled();
 	});
 
 	it('keeps the provider composer blocked in-context while offline', async () => {
-		const { getAllByRole, getByRole, queryByTestId, queryByText } = render(ServiceQuotesInbox, {
-			service: mockService,
-			timelines: [baseTimeline],
-			focusedRequestId: null,
-			isSyncing: false,
-			walletReady: true,
-			feeTierReady: true,
-			totalPendingRequestCount: 1
-		});
+		const { getAllByRole, getByRole, queryByTestId, queryByText, getByTestId } = render(
+			ServiceQuotesInbox,
+			{
+				service: mockService,
+				timelines: [baseTimeline],
+				focusedRequestId: null,
+				isSyncing: false,
+				walletReady: true,
+				feeTierReady: true,
+				totalPendingRequestCount: 1
+			}
+		);
 
-		await fireEvent.click(getAllByRole('button', { name: 'Send Proposal' })[0]);
+		await fireEvent.click(getAllByRole('button', { name: 'Send' })[0]);
 		await waitFor(() => expect(getByRole('dialog')).toBeTruthy());
+		await waitFor(() => expect(getByTestId('service-proposal-composer')).toBeTruthy());
 
 		setNavigatorOnline(false);
 		window.dispatchEvent(new Event('offline'));
 
 		await waitFor(() => {
 			expect(queryByTestId('service-quotes-offline-alert')).toBeNull();
-			expect(getAllByRole('button', { name: 'Send Proposal' })[1]).toBeDisabled();
+			expect(
+				within(getByTestId('service-proposal-composer')).getByRole('button', {
+					name: 'Send Proposal'
+				})
+			).toBeDisabled();
 			expect(queryByText('You are offline. Reconnect before sending a proposal.')).toBeNull();
 		});
 	});
@@ -1044,14 +1092,14 @@ describe('ServiceQuotesInbox', () => {
 		});
 
 		expect(getAllByText('Proposal sent').length).toBeGreaterThan(0);
-		expect(getByRole('button', { name: 'View Proposal' })).toBeTruthy();
-		expect(queryByRole('button', { name: 'Send Proposal' })).toBeNull();
+		expect(getByRole('button', { name: 'View' })).toBeTruthy();
+		expect(queryByRole('button', { name: 'Send' })).toBeNull();
 	});
 
 	it('uses the dedicated clear callback when the drawer closes', async () => {
 		const onRequestFocusChange = vi.fn();
 		const onRequestClear = vi.fn();
-		const { getAllByRole, getByLabelText } = render(ServiceQuotesInbox, {
+		const { getAllByRole, getByLabelText, getByRole, getByTestId } = render(ServiceQuotesInbox, {
 			service: mockService,
 			timelines: [baseTimeline],
 			focusedRequestId: null,
@@ -1063,8 +1111,9 @@ describe('ServiceQuotesInbox', () => {
 			totalPendingRequestCount: 1
 		});
 
-		await fireEvent.click(getAllByRole('button', { name: 'Send Proposal' })[0]);
-		await waitFor(() => expect(getAllByRole('button', { name: 'Send Proposal' }).length).toBe(2));
+		await fireEvent.click(getAllByRole('button', { name: 'Send' })[0]);
+		await waitFor(() => expect(getByRole('dialog')).toBeTruthy());
+		await waitFor(() => expect(getByTestId('service-proposal-composer')).toBeTruthy());
 		await fireEvent.click(getByLabelText('common.components.drawer.close'));
 
 		expect(onRequestFocusChange).toHaveBeenCalledTimes(1);
@@ -1116,7 +1165,7 @@ describe('ServiceQuotesInbox', () => {
 			totalPendingRequestCount: 0
 		});
 
-		await fireEvent.click(getByRole('button', { name: 'View Proposal' }));
+		await fireEvent.click(getByRole('button', { name: 'View' }));
 		await waitFor(() => expect(getByRole('dialog')).toBeTruthy());
 		expect(getAllByText('Declined').length).toBeGreaterThan(0);
 	});
@@ -1369,6 +1418,6 @@ describe('ServiceQuotesInbox', () => {
 		expect(
 			queryByText('Select a request to review the full inquiry and compose a proposal.')
 		).toBeNull();
-		expect(queryByRole('button', { name: 'Send Proposal' })).toBeNull();
+		expect(queryByRole('button', { name: 'Send' })).toBeNull();
 	});
 });

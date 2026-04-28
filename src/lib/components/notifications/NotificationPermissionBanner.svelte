@@ -15,6 +15,7 @@
 
 	async function refreshStatus() {
 		permissionStatus = await pushNotificationService.checkPermissionStatus();
+		return permissionStatus;
 	}
 
 	onMount(async () => {

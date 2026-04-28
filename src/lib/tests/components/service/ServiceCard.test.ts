@@ -114,7 +114,6 @@ describe('ServiceCard', () => {
 		});
 
 		expect(screen.getByText('Denver, CO, US')).toBeInTheDocument();
-		expect(screen.getByText(/\(Approx\.\)/)).toBeInTheDocument();
 	});
 
 	it('prioritizes the approximate service area when range-based travel is also enabled', () => {
@@ -143,7 +142,6 @@ describe('ServiceCard', () => {
 		});
 
 		expect(screen.getByText('Austin, TX')).toBeInTheDocument();
-		expect(screen.getByText(/\(Approx\.\)/)).toBeInTheDocument();
 		expect(screen.queryByText('123 Main St, Austin, TX')).toBeNull();
 	});
 

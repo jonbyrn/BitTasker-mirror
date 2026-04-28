@@ -2,9 +2,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import TransactionSuccessScreen from '$lib/components/wallet/TransactionSuccessScreen.svelte';
-import { walletManager, walletStore } from '$lib/stores/wallet.store';
+import { walletManager } from '$lib/stores/wallet.store';
 import { getProvider } from '$lib/stores/wallet.store';
-import { appStore } from '$lib/stores/app.store';
 
 // Mock svelte-i18n
 vi.mock('svelte-i18n', async () => {
@@ -293,7 +292,7 @@ describe('TransactionSuccessScreen Component', () => {
 			getBlockNumber: vi.fn().mockResolvedValue(100)
 		};
 
-		vi.mocked(getProvider).mockReturnValue(mockProvider as any);
+		vi.mocked(getProvider).mockReturnValue(mockProvider);
 
 		render(TransactionSuccessScreen, defaultProps);
 		await tick();
@@ -308,34 +307,31 @@ describe('TransactionSuccessScreen Component', () => {
 	it('should stop monitoring when transaction is confirmed', async () => {
 		vi.useFakeTimers();
 
+		// REORG_SAFE_CONFIRMATIONS = 6: need currentBlock - receiptBlock >= 6 before marking confirmed
 		const mockProvider = {
 			getTransactionReceipt: vi.fn().mockResolvedValue({
 				status: 1,
 				blockNumber: 95
 			}),
-			getBlockNumber: vi.fn().mockResolvedValue(100)
+			getBlockNumber: vi.fn().mockResolvedValue(101)
 		};
 
-		vi.mocked(getProvider).mockReturnValue(mockProvider as any);
+		vi.mocked(getProvider).mockReturnValue(mockProvider);
 
 		render(TransactionSuccessScreen, defaultProps);
 		await tick();
 
-		// Advance time to trigger monitoring
-		vi.advanceTimersByTime(5000);
+		await vi.advanceTimersByTimeAsync(5000);
 		await tick();
 
-		// Should show confirmed status
 		await waitFor(() => {
 			expect(screen.getByText('Confirmed')).toBeDefined();
 		});
 
-		// Advance more time - should not call again
 		const callCount = mockProvider.getTransactionReceipt.mock.calls.length;
-		vi.advanceTimersByTime(5000);
+		await vi.advanceTimersByTimeAsync(5000);
 		await tick();
 
-		// Should not have called again
 		expect(mockProvider.getTransactionReceipt.mock.calls.length).toBe(callCount);
 	});
 
@@ -347,16 +343,15 @@ describe('TransactionSuccessScreen Component', () => {
 				status: 1,
 				blockNumber: 95
 			}),
-			getBlockNumber: vi.fn().mockResolvedValue(100)
+			getBlockNumber: vi.fn().mockResolvedValue(101)
 		};
 
-		vi.mocked(getProvider).mockReturnValue(mockProvider as any);
+		vi.mocked(getProvider).mockReturnValue(mockProvider);
 
 		render(TransactionSuccessScreen, defaultProps);
 		await tick();
 
-		// Advance time to trigger monitoring
-		vi.advanceTimersByTime(5000);
+		await vi.advanceTimersByTimeAsync(5000);
 		await tick();
 
 		await waitFor(() => {
@@ -368,52 +363,40 @@ describe('TransactionSuccessScreen Component', () => {
 		vi.useFakeTimers();
 
 		const mockProvider = {
-			getTransactionReceipt: vi.fn()
-				.mockResolvedValueOnce(null) // First call returns null (not found yet)
-				.mockResolvedValueOnce({
-					status: 1,
-					blockNumber: 95 // Component converts to number for calculation
-				}),
-			getBlockNumber: vi.fn().mockResolvedValue(100) // Component expects number
+			getTransactionReceipt: vi.fn().mockResolvedValueOnce(null).mockResolvedValueOnce({
+				status: 1,
+				blockNumber: 95
+			}),
+			getBlockNumber: vi.fn().mockResolvedValue(101)
 		};
 
-		vi.mocked(getProvider).mockReturnValue(mockProvider as any);
+		vi.mocked(getProvider).mockReturnValue(mockProvider);
 
 		render(TransactionSuccessScreen, defaultProps);
 		await tick();
 
-		// Advance time to trigger first monitoring check (returns null, no confirmation yet)
-		vi.advanceTimersByTime(5000);
+		await vi.advanceTimersByTimeAsync(5000);
 		await tick();
 
-		// Advance time again to trigger second check (with receipt)
-		vi.advanceTimersByTime(5000);
+		await vi.advanceTimersByTimeAsync(5000);
 		await tick();
 
-		// Wait for confirmation count to be displayed
+		// 101 - 95 + 1 = 7 confirmations once reorg-safe depth is satisfied
 		await waitFor(
 			() => {
-				// Check for confirmation count (6 = 100 - 95 + 1)
-				// The component shows confirmation count as a number next to "Confirmations" label
-				// Use flexible text matching since translation might format it differently
 				const confirmationText = screen.queryByText(/Confirmations/i);
 				if (!confirmationText) return false;
-				
-				// Find the parent container and check for the count value
 				const parent = confirmationText.closest('div');
 				if (!parent) return false;
-				
-				const text = parent.textContent || '';
-				return text.includes('6');
+				return (parent.textContent || '').includes('7');
 			},
 			{ timeout: 3000 }
 		);
 
-		// Verify confirmation count is displayed
 		const confirmationLabel = screen.getByText(/Confirmations/i);
 		const parent = confirmationLabel.closest('div');
-		expect(parent?.textContent).toContain('6');
-		
+		expect(parent?.textContent).toContain('7');
+
 		vi.useRealTimers();
 	});
 
@@ -463,4 +446,3 @@ describe('TransactionSuccessScreen Component', () => {
 		expect(screen.getByText(/1,234,567/)).toBeDefined();
 	});
 });
-

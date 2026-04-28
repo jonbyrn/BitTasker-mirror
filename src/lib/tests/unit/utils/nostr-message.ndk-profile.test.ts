@@ -1,20 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { readable } from 'svelte/store';
 
-// Hoisted mocks - must be before any imports that use them
-const mockNdkGetUser = vi.hoisted(() => vi.fn());
-const mockNdkFetchProfile = vi.hoisted(() => vi.fn());
-
-vi.mock('$lib/nostr/ndk', () => ({
-	ndk: {
-		getUser: mockNdkGetUser
-	}
-}));
+const querySync = vi.fn();
 
 vi.mock('$lib/stores/app.store', () => ({
 	appStore: readable({
 		pool: {
-			querySync: vi.fn()
+			querySync: (...args: unknown[]) => querySync(...args)
 		}
 	})
 }));
@@ -30,102 +22,77 @@ vi.mock('$lib/utils/profile-cache', () => ({
 import { nip19 } from 'nostr-tools';
 import { fetchProfileMetadata } from '$lib/utils/nostr-message';
 
-describe('fetchProfileMetadata NDK Integration', () => {
+describe('fetchProfileMetadata (relay pool)', () => {
 	const pubkey = 'c'.repeat(64);
 	const npub = nip19.npubEncode(pubkey);
 
 	beforeEach(() => {
 		vi.clearAllMocks();
+		vi.stubEnv('VITE_NOSTR_RELAY_URL', 'wss://relay.example.com');
 	});
 
-	describe('when NDK is configured and returns profile data', () => {
-		it('should use NDKUser profile when available', async () => {
-			// Setup NDK mock to return a user with profile data
-			const mockUser = {
-				hexpubkey: pubkey,
-				npub: npub,
-				profile: {
+	it('prefers display_name / displayName over plain name from kind 0', async () => {
+		querySync.mockResolvedValue([
+			{
+				kind: 0,
+				content: JSON.stringify({
 					displayName: 'NDK Test User',
-					name: 'Test User',
+					name: 'Ignored',
 					picture: 'https://example.com/avatar.jpg'
-				},
-				fetchProfile: mockNdkFetchProfile.mockResolvedValue(undefined)
-			};
-			mockNdkGetUser.mockReturnValue(mockUser);
+				}),
+				created_at: 1_700_000_001
+			}
+		]);
 
-			const result = await fetchProfileMetadata(npub);
+		const result = await fetchProfileMetadata(npub);
 
-			expect(mockNdkGetUser).toHaveBeenCalledWith({ hexpubkey: pubkey });
-			expect(mockNdkFetchProfile).toHaveBeenCalled();
-			expect(result.name).toBe('NDK Test User');
-			expect(result.picture).toBe('https://example.com/avatar.jpg');
+		expect(querySync).toHaveBeenCalled();
+		expect(result.name).toBe('NDK Test User');
+		expect(result.picture).toBe('https://example.com/avatar.jpg');
+	});
+
+	it('uses name when no display fields are present', async () => {
+		querySync.mockResolvedValue([
+			{
+				kind: 0,
+				content: JSON.stringify({ name: 'Only Name Field' }),
+				created_at: 1_700_000_000
+			}
+		]);
+
+		const result = await fetchProfileMetadata(npub);
+
+		expect(result.name).toBe('Only Name Field');
+		expect(result.picture).toBeUndefined();
+	});
+
+	it('returns empty shape when no profile events are returned', async () => {
+		querySync.mockResolvedValue([]);
+
+		const result = await fetchProfileMetadata(npub);
+
+		expect(result).toEqual({
+			name: undefined,
+			picture: undefined,
+			createdAt: undefined
 		});
+	});
 
-		it('should handle profile with only name field', async () => {
-			const mockUser = {
-				hexpubkey: pubkey,
-				profile: {
-					name: 'Only Name Field'
-				},
-				fetchProfile: mockNdkFetchProfile.mockResolvedValue(undefined)
-			};
-			mockNdkGetUser.mockReturnValue(mockUser);
+	it('normalizes npub and hex pubkey to the same author filter', async () => {
+		querySync.mockResolvedValue([
+			{
+				kind: 0,
+				content: JSON.stringify({ name: 'Test' }),
+				created_at: 1_700_000_000
+			}
+		]);
 
-			const result = await fetchProfileMetadata(npub);
+		await fetchProfileMetadata(npub);
+		const filterNpub = querySync.mock.calls.at(-1)?.[1] as { authors?: string[] };
+		expect(filterNpub?.authors?.[0]).toBe(pubkey);
 
-			expect(result.name).toBe('Only Name Field');
-			expect(result.picture).toBeUndefined();
-		});
-
-		it('should return empty object when profile is null', async () => {
-			const mockUser = {
-				hexpubkey: pubkey,
-				profile: null,
-				fetchProfile: mockNdkFetchProfile.mockResolvedValue(undefined)
-			};
-			mockNdkGetUser.mockReturnValue(mockUser);
-
-			const result = await fetchProfileMetadata(npub);
-
-			expect(result).toEqual({});
-		});
-
-		it('should return empty object when getUser returns null', async () => {
-			mockNdkGetUser.mockReturnValue(null);
-
-			const result = await fetchProfileMetadata(npub);
-
-			expect(result).toEqual({});
-		});
-
-		it('should handle NDK fetchProfile errors gracefully', async () => {
-			const mockUser = {
-				hexpubkey: pubkey,
-				profile: null,
-				fetchProfile: mockNdkFetchProfile.mockRejectedValue(new Error('NDK error'))
-			};
-			mockNdkGetUser.mockReturnValue(mockUser);
-
-			const result = await fetchProfileMetadata(npub);
-
-			expect(result).toEqual({});
-		});
-
-		it('should handle both npub and hex pubkey inputs', async () => {
-			const mockUser = {
-				hexpubkey: pubkey,
-				profile: { displayName: 'Test' },
-				fetchProfile: mockNdkFetchProfile.mockResolvedValue(undefined)
-			};
-			mockNdkGetUser.mockReturnValue(mockUser);
-
-			// Test with npub
-			await fetchProfileMetadata(npub);
-			expect(mockNdkGetUser).toHaveBeenLastCalledWith({ hexpubkey: pubkey });
-
-			// Test with hex
-			await fetchProfileMetadata(pubkey);
-			expect(mockNdkGetUser).toHaveBeenLastCalledWith({ hexpubkey: pubkey });
-		});
+		await fetchProfileMetadata(pubkey);
+		const filterHex = querySync.mock.calls.at(-1)?.[1] as { authors?: string[] };
+		expect(filterHex?.authors?.[0]).toBe(pubkey);
 	});
 });

@@ -78,6 +78,7 @@ describe('ServiceSearchFilters', () => {
 
 			await fireEvent.input(minPriceInput, { target: { value: '500' } });
 			await fireEvent.input(maxPriceInput, { target: { value: '100' } });
+			await fireEvent.blur(maxPriceInput);
 
 			await waitFor(() => {
 				const errorEl = screen.getByTestId('price-error');
@@ -101,6 +102,7 @@ describe('ServiceSearchFilters', () => {
 
 			await fireEvent.input(minPriceInput, { target: { value: '500' } });
 			await fireEvent.input(maxPriceInput, { target: { value: '100' } });
+			await fireEvent.blur(maxPriceInput);
 
 			await waitFor(() => {
 				expect(minPriceInput).toHaveAttribute('aria-invalid', 'true');
@@ -122,6 +124,7 @@ describe('ServiceSearchFilters', () => {
 
 			await fireEvent.input(minPriceInput, { target: { value: '500' } });
 			await fireEvent.input(screen.getByLabelText(/max.*price/i), { target: { value: '100' } });
+			await fireEvent.blur(screen.getByLabelText(/max.*price/i));
 
 			await waitFor(() => {
 				expect(minPriceInput).toHaveAttribute('aria-describedby', 'min-price-error');
@@ -130,7 +133,7 @@ describe('ServiceSearchFilters', () => {
 	});
 
 	describe('Collapse ARIA', () => {
-		it('categories collapse checkbox has aria-expanded reflecting state', async () => {
+		it('skills collapse checkbox has aria-expanded reflecting state', async () => {
 			const onApply = vi.fn();
 			const onClose = vi.fn();
 
@@ -141,7 +144,7 @@ describe('ServiceSearchFilters', () => {
 				initialFilters: {}
 			});
 
-			const checkbox = screen.getByRole('checkbox', { name: /toggle_categories/i });
+			const checkbox = screen.getByRole('checkbox', { name: /toggle_skills/i });
 			expect(checkbox).toHaveAttribute('aria-expanded', 'false');
 
 			await fireEvent.click(checkbox);

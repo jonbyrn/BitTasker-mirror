@@ -1,50 +1,55 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { TransactionReceipt } from 'ethers';
 
-type ContractCreationEvent = {
-	state?: 'funding_submitted' | 'contract_sync_pending' | 'contract_ready' | 'failed';
-	escrowId?: string;
-	contractEventId?: string;
-	transactionHash?: string;
-	transactionHashes?: string[];
-	error?: string;
-};
+const mockInitContract = vi.fn();
+const mockLoadContractByEscrowId = vi.fn();
+const mockParsePaymentId = vi.fn();
 
-function createStore(initialValue: ContractCreationEvent | null = null) {
-	let value = initialValue;
-	const subscribers = new Set<(nextValue: ContractCreationEvent | null) => void>();
-
-	return {
-		set(nextValue: ContractCreationEvent | null) {
-			value = nextValue;
-			for (const subscriber of subscribers) {
-				subscriber(value);
-			}
-		},
-		subscribe(subscriber: (nextValue: ContractCreationEvent | null) => void) {
-			subscriber(value);
-			subscribers.add(subscriber);
-			return () => subscribers.delete(subscriber);
-		}
-	};
-}
-
-const hoisted = vi.hoisted(() => ({
-	contractCreationStore: createStore()
+vi.mock('$lib/utils/contract/v2/contractAddress', () => ({
+	getSecurePaymentContractAddress: () => '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
 }));
 
-vi.mock('$lib/utils/escrow', () => ({
-	escrow: {
-		eventOps: {
-			getContractCreationStore: () => hoisted.contractCreationStore
-		}
+vi.mock('$lib/utils/contract/v2/creation', () => ({
+	parsePaymentContractCreatedPaymentId: (...args: unknown[]) => mockParsePaymentId(...args)
+}));
+
+vi.mock('$lib/stores/contract.store', () => ({
+	contractStore: {
+		loadContractByEscrowId: (...args: unknown[]) => mockLoadContractByEscrowId(...args)
 	}
 }));
 
+vi.mock('$lib/utils/contract', () => ({
+	initContract: (...args: unknown[]) => mockInitContract(...args)
+}));
+
+function receipt(overrides: Partial<TransactionReceipt> = {}): TransactionReceipt {
+	return {
+		status: 1,
+		logs: [],
+		...overrides
+	} as TransactionReceipt;
+}
+
 describe('waitForContractCreationByTransactionHash', () => {
+	let getTransactionReceipt: ReturnType<typeof vi.fn>;
+
 	beforeEach(() => {
 		vi.useRealTimers();
 		vi.resetModules();
-		hoisted.contractCreationStore = createStore();
+		vi.clearAllMocks();
+		getTransactionReceipt = vi.fn();
+		mockInitContract.mockResolvedValue({
+			provider: { getTransactionReceipt },
+			contract: {},
+			wallet: { address: '0x1111111111111111111111111111111111111111' }
+		});
+		mockParsePaymentId.mockReturnValue(999n);
+		mockLoadContractByEscrowId.mockResolvedValue(true);
+	});
+
+	afterEach(() => {
+		vi.useRealTimers();
 	});
 
 	it('resolves when the matching transaction hash produces an escrow id', async () => {
@@ -52,207 +57,68 @@ describe('waitForContractCreationByTransactionHash', () => {
 			'$lib/utils/service-contract/await-contract-creation'
 		);
 
-		const pending = waitForContractCreationByTransactionHash('0xabc123');
-		hoisted.contractCreationStore.set({
-			escrowId: 'escrow-123',
-			transactionHash: '0xAbC123',
-			contractEventId: 'contract-escrow-123'
-		});
+		getTransactionReceipt.mockResolvedValue(receipt({ status: 1 }));
+		mockParsePaymentId.mockReturnValueOnce(42n);
 
-		await expect(pending).resolves.toMatchObject({
-			escrowId: 'escrow-123',
-			transactionHash: '0xAbC123',
-			contractEventId: 'contract-escrow-123'
-		});
-	}, 15_000);
-
-	it('ignores unrelated transaction hashes until the correct event arrives', async () => {
-		const { waitForContractCreationByTransactionHash } = await import(
-			'$lib/utils/service-contract/await-contract-creation'
-		);
-
-		const pending = waitForContractCreationByTransactionHash('0xabc123');
-		hoisted.contractCreationStore.set({
-			escrowId: 'escrow-other',
-			transactionHash: '0xdef456'
-		});
-		hoisted.contractCreationStore.set({
-			escrowId: 'escrow-123',
-			transactionHash: '0xabc123'
-		});
-
-		await expect(pending).resolves.toMatchObject({
-			escrowId: 'escrow-123',
-			transactionHash: '0xabc123'
-		});
-	}, 15_000);
-
-	it('resolves when a replacement transaction hash aliases the original hash', async () => {
-		const { waitForContractCreationByTransactionHash } = await import(
-			'$lib/utils/service-contract/await-contract-creation'
-		);
-
-		const pending = waitForContractCreationByTransactionHash('0xabc123');
-		hoisted.contractCreationStore.set({
-			escrowId: 'escrow-123',
-			transactionHash: '0xdef456',
-			transactionHashes: ['0xabc123', '0xdef456']
-		});
-
-		await expect(pending).resolves.toMatchObject({
-			escrowId: 'escrow-123',
-			transactionHash: '0xdef456',
-			transactionHashes: ['0xabc123', '0xdef456']
-		});
-	}, 15_000);
-
-	it('rejects when the matching transaction hash reports an error', async () => {
-		const { waitForContractCreationByTransactionHash } = await import(
-			'$lib/utils/service-contract/await-contract-creation'
-		);
-
-		const pending = waitForContractCreationByTransactionHash('0xabc123');
-		hoisted.contractCreationStore.set({
-			escrowId: 'escrow-123',
-			transactionHash: '0xabc123',
-			error: 'Contract publish failed'
-		});
-
-		await expect(pending).rejects.toThrow('Contract publish failed');
-	}, 15_000);
-
-	it('rejects immediately when the matching transaction enters contract_sync_pending', async () => {
-		const { waitForContractCreationByTransactionHash } = await import(
-			'$lib/utils/service-contract/await-contract-creation'
-		);
-
-		const pending = waitForContractCreationByTransactionHash('0xabc123');
-		hoisted.contractCreationStore.set({
-			state: 'contract_sync_pending',
-			escrowId: 'escrow-123',
-			transactionHash: '0xabc123'
-		});
-
-		await expect(pending).rejects.toThrow(
-			'The secure payment contract transaction was submitted, but the contract confirmation is still syncing. Open Contracts to monitor it.'
-		);
-	}, 15_000);
-
-	it('ignores matching transaction hashes until an escrow id is available', async () => {
-		const { waitForContractCreationByTransactionHash } = await import(
-			'$lib/utils/service-contract/await-contract-creation'
-		);
-
-		const pending = waitForContractCreationByTransactionHash('0xabc123');
-		hoisted.contractCreationStore.set({
-			escrowId: '',
-			transactionHash: '0xabc123'
-		});
-		hoisted.contractCreationStore.set({
-			escrowId: 'escrow-123',
-			transactionHash: '0xabc123'
-		});
-
-		await expect(pending).resolves.toMatchObject({
-			escrowId: 'escrow-123',
-			transactionHash: '0xabc123'
-		});
-	}, 15_000);
-
-	it('resolves immediately when the store already contains the matching event', async () => {
-		hoisted.contractCreationStore = createStore({
-			escrowId: 'escrow-123',
-			transactionHash: '0xabc123'
-		});
-
-		const { waitForContractCreationByTransactionHash } = await import(
-			'$lib/utils/service-contract/await-contract-creation'
-		);
-
-		await expect(waitForContractCreationByTransactionHash('0xabc123')).resolves.toEqual({
-			escrowId: 'escrow-123',
+		await expect(waitForContractCreationByTransactionHash('0xAbC123')).resolves.toEqual({
+			escrowId: '42',
 			transactionHash: '0xabc123'
 		});
 	});
 
-	it('rejects after the configured timeout', async () => {
-		vi.useFakeTimers();
+	it('polls until a receipt appears then resolves', async () => {
+		const { waitForContractCreationByTransactionHash } = await import(
+			'$lib/utils/service-contract/await-contract-creation'
+		);
 
-		try {
-			const { waitForContractCreationByTransactionHash } = await import(
-				'$lib/utils/service-contract/await-contract-creation'
-			);
+		getTransactionReceipt.mockResolvedValueOnce(null).mockResolvedValueOnce(receipt({ status: 1 }));
+		mockParsePaymentId.mockReturnValueOnce(7n);
 
-			const pending = waitForContractCreationByTransactionHash('0xabc123', 25);
-			vi.runAllTimers();
-			await expect(pending).rejects.toThrow(
-				'The secure payment contract transaction was submitted, but the contract confirmation is still syncing. Open Contracts to monitor it.'
-			);
-		} finally {
-			vi.useRealTimers();
-		}
+		const pending = waitForContractCreationByTransactionHash('0xabc123', {
+			timeoutMs: 15_000,
+			pollIntervalMs: 1
+		});
+
+		await expect(pending).resolves.toMatchObject({
+			escrowId: '7',
+			transactionHash: '0xabc123'
+		});
 	});
 
-	it('classifies replacement aliases as tx_replaced when confirmation times out', async () => {
+	it('throws syncing message when the contract cannot be loaded after a successful receipt', async () => {
+		const { waitForContractCreationByTransactionHash, CONTRACT_CREATION_SYNCING_MESSAGE } =
+			await import('$lib/utils/service-contract/await-contract-creation');
+
+		getTransactionReceipt.mockResolvedValue(receipt({ status: 1 }));
+		mockParsePaymentId.mockReturnValueOnce(55n);
+		mockLoadContractByEscrowId.mockResolvedValue(false);
+
+		await expect(
+			waitForContractCreationByTransactionHash('0xabc123', { pollIntervalMs: 1 })
+		).rejects.toThrow(CONTRACT_CREATION_SYNCING_MESSAGE);
+	});
+
+	it('rejects after the configured timeout when no receipt arrives', async () => {
+		const { waitForContractCreationByTransactionHash, getContractCreationTimeoutReason } =
+			await import('$lib/utils/service-contract/await-contract-creation');
+
+		getTransactionReceipt.mockResolvedValue(null);
+
+		await expect(
+			waitForContractCreationByTransactionHash('0xabc123', {
+				timeoutMs: 200,
+				pollIntervalMs: 40
+			})
+		).rejects.toThrow(getContractCreationTimeoutReason('0xabc123', { timeoutMs: 200 }));
+	});
+
+	it('getContractCreationTimeoutReason includes the transaction hash and duration', async () => {
 		const { getContractCreationTimeoutReason } = await import(
 			'$lib/utils/service-contract/await-contract-creation'
 		);
 
-		hoisted.contractCreationStore.set({
-			transactionHash: '0xdef456',
-			transactionHashes: ['0xabc123', '0xdef456']
-		});
-
-		expect(getContractCreationTimeoutReason('0xabc123')).toBe('tx_replaced');
-	});
-
-	it('classifies unmatched timeouts as pending_timeout', async () => {
-		const { getContractCreationTimeoutReason } = await import(
-			'$lib/utils/service-contract/await-contract-creation'
-		);
-
-		expect(getContractCreationTimeoutReason('0xabc123')).toBe('pending_timeout');
-	});
-
-	it('rejects invalid transaction hashes and timeout values', async () => {
-		const { waitForContractCreationByTransactionHash } = await import(
-			'$lib/utils/service-contract/await-contract-creation'
-		);
-
-		await expect(waitForContractCreationByTransactionHash('   ')).rejects.toThrow(
-			'Transaction hash is required to await contract creation.'
-		);
-		await expect(waitForContractCreationByTransactionHash('0xabc123', 0)).rejects.toThrow(
-			'Timeout must be a positive number of milliseconds.'
-		);
-	});
-
-	describe('normalizeTransactionHash', () => {
-		it('trims whitespace from transaction hash', async () => {
-			const { normalizeTransactionHash } = await import(
-				'$lib/utils/service-contract/await-contract-creation'
-			);
-
-			const result = normalizeTransactionHash('  0xabc123  ');
-			expect(result).toBe('0xabc123');
-		});
-
-		it('normalizes transaction hash to lowercase', async () => {
-			const { normalizeTransactionHash } = await import(
-				'$lib/utils/service-contract/await-contract-creation'
-			);
-
-			const result = normalizeTransactionHash('0xABC123DEF456');
-			expect(result).toBe('0xabc123def456');
-		});
-
-		it('handles empty string edge case', async () => {
-			const { normalizeTransactionHash } = await import(
-				'$lib/utils/service-contract/await-contract-creation'
-			);
-
-			const result = normalizeTransactionHash('');
-			expect(result).toBe('');
-		});
+		const msg = getContractCreationTimeoutReason('0xdead', { timeoutMs: 45_000 });
+		expect(msg).toContain('0xdead');
+		expect(msg).toContain('45');
 	});
 });

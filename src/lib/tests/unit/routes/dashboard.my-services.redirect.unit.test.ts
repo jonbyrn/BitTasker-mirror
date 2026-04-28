@@ -1,16 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { load } from '../../../../routes/(protected)/dashboard/my-services/+page';
+import { buildEarningQueryUrl } from '$lib/utils/dashboardQuery';
 
-describe('dashboard/my-services redirect', () => {
-	it('redirects to the earning my-services tab on the current origin', () => {
-		try {
-			load();
-			throw new Error('Expected redirect');
-		} catch (error) {
-			expect(error).toMatchObject({
-				status: 302,
-				location: '/earning?tab=my-services'
-			});
-		}
+/**
+ * Legacy `/dashboard?tab=my-services` handling now lives in dashboard +page
+ * (client goto). This asserts the canonical earning URL shape that code builds.
+ */
+describe('legacy dashboard my-services → earning', () => {
+	it('builds /earning?tab=my-services on the current origin', () => {
+		const nextUrl = new URL('/earning', 'https://bittasker.test');
+		const href = buildEarningQueryUrl(nextUrl, { tab: 'my-services' });
+		expect(href).toBe('https://bittasker.test/earning?tab=my-services');
 	});
 });

@@ -90,7 +90,7 @@ describe('DashboardServiceCard', () => {
 			btcPrice: 100000
 		});
 
-		expect(getByText('From $75')).toBeTruthy();
+		expect(getByText(/From \$75\.00/)).toBeTruthy();
 		expect(getByText('Lead Time:')).toBeTruthy();
 		expect(getByText('2 days')).toBeTruthy();
 		expect(getByText('Delivery Time:')).toBeTruthy();
