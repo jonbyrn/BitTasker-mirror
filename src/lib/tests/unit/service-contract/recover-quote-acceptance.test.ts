@@ -1,20 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const getContracts = vi.fn();
-const publishContractEvent = vi.fn();
+const mockInitContract = vi.fn();
+const mockParsePaymentId = vi.fn();
+const mockPublishServiceContractEvent = vi.fn();
 const loadContractByEscrowId = vi.fn();
-const getTransactionReceipt = vi.fn();
-const getEscrow = vi.fn();
-const parseLog = vi.fn();
-const ensureEscrowReady = vi.fn();
 
-vi.mock('$lib/utils/escrow', () => ({
-	escrow: {
-		contractOps: {
-			getContracts: (...args: unknown[]) => getContracts(...args),
-			publishContractEvent: (...args: unknown[]) => publishContractEvent(...args)
-		}
-	}
+vi.mock('$lib/utils/contract/v2/contractAddress', () => ({
+	getSecurePaymentContractAddress: () => '0xcccccccccccccccccccccccccccccccccccccccc'
+}));
+
+vi.mock('$lib/utils/contract/v2/creation', () => ({
+	parsePaymentContractCreatedPaymentId: (...args: unknown[]) => mockParsePaymentId(...args)
+}));
+
+vi.mock('$lib/utils/contract/v2/service-creation', () => ({
+	publishServiceContractEvent: (...args: unknown[]) => mockPublishServiceContractEvent(...args)
 }));
 
 vi.mock('$lib/stores/contract.store', () => ({
@@ -23,45 +23,41 @@ vi.mock('$lib/stores/contract.store', () => ({
 	}
 }));
 
-vi.mock('$lib/utils/escrow/v1/escrow', () => ({
-	ensureEscrowReady: (...args: unknown[]) => ensureEscrowReady(...args)
+vi.mock('$lib/utils/contract', () => ({
+	initContract: (...args: unknown[]) => mockInitContract(...args)
 }));
 
 describe('recoverServiceQuoteAcceptanceContract', () => {
+	let getTransactionReceipt: ReturnType<typeof vi.fn>;
+	let getPayment: ReturnType<typeof vi.fn>;
+
 	beforeEach(() => {
 		vi.clearAllMocks();
-		getContracts.mockResolvedValue([]);
-		publishContractEvent.mockResolvedValue(undefined);
-		loadContractByEscrowId.mockResolvedValue(true);
+		getTransactionReceipt = vi.fn();
+		getPayment = vi.fn();
+		mockPublishServiceContractEvent.mockResolvedValue({ success: true });
+		mockInitContract.mockResolvedValue({
+			contract: { getPayment },
+			provider: { getTransactionReceipt },
+			wallet: { address: '0x1111111111111111111111111111111111111111' }
+		});
 		getTransactionReceipt.mockResolvedValue({
 			status: 1,
 			logs: [{ topics: ['0xabc'], data: '0xdef' }]
 		});
-		getEscrow.mockResolvedValue({
-			amount: 1_400_000_000_000_000n,
-			client: '0x3333333333333333333333333333333333333333'
-		});
-		parseLog.mockReturnValue({
-			name: 'EscrowCreated',
-			args: ['212']
-		});
-		ensureEscrowReady.mockResolvedValue({
-			contract: {
-				interface: {
-					parseLog: (...args: unknown[]) => parseLog(...args)
-				},
-				getEscrow: (...args: unknown[]) => getEscrow(...args)
-			},
-			provider: {
-				getTransactionReceipt: (...args: unknown[]) => getTransactionReceipt(...args)
-			}
-		});
+		mockParsePaymentId.mockReturnValue(212n);
 	});
 
 	it('publishes the missing quote contract event from on-chain escrow details when amountRbtc is absent', async () => {
 		const { recoverServiceQuoteAcceptanceContract } = await import(
 			'$lib/utils/service-contract/recover-quote-acceptance'
 		);
+
+		loadContractByEscrowId.mockResolvedValueOnce(false).mockResolvedValue(true);
+		getPayment.mockResolvedValue({
+			amount: 1_400_000_000_000_000n,
+			tasker: '0x3333333333333333333333333333333333333333'
+		});
 
 		const result = await recoverServiceQuoteAcceptanceContract({
 			transactionHash: '0x2f98eb008f38d5eca651215ab8c5b194165e59589298196fa784a8bb4398e5ad',
@@ -81,10 +77,10 @@ describe('recoverServiceQuoteAcceptanceContract', () => {
 			}
 		});
 
-		expect(getEscrow).toHaveBeenCalledWith('212');
-		expect(publishContractEvent).toHaveBeenCalledWith(
+		expect(getPayment).toHaveBeenCalledWith(212n);
+		expect(mockPublishServiceContractEvent).toHaveBeenCalledWith(
 			expect.objectContaining({
-				escrowId: '212',
+				paymentId: '212',
 				amount: '0.0014',
 				clientRskAddress: '0x3333333333333333333333333333333333333333',
 				quoteRequestId: 'qr_12345678',
@@ -104,8 +100,10 @@ describe('recoverServiceQuoteAcceptanceContract', () => {
 		const { recoverServiceQuoteAcceptanceContract } = await import(
 			'$lib/utils/service-contract/recover-quote-acceptance'
 		);
-		getEscrow.mockResolvedValueOnce({
-			client: '0x3333333333333333333333333333333333333333'
+
+		loadContractByEscrowId.mockResolvedValue(false);
+		getPayment.mockResolvedValue({
+			tasker: '0x3333333333333333333333333333333333333333'
 		});
 
 		const result = await recoverServiceQuoteAcceptanceContract({
@@ -126,7 +124,7 @@ describe('recoverServiceQuoteAcceptanceContract', () => {
 			}
 		});
 
-		expect(publishContractEvent).not.toHaveBeenCalled();
+		expect(mockPublishServiceContractEvent).not.toHaveBeenCalled();
 		expect(result).toEqual({
 			status: 'contract_sync_pending',
 			escrowId: '212',

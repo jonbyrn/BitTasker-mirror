@@ -124,13 +124,12 @@ describe('ServiceInstantBuyModal', () => {
 		expect(getByTestId('service-agreement-scope').textContent).toContain(
 			'Logo system and social avatar pack.'
 		);
-		expect(getByTestId('contract-funding-wallet-card').textContent).toContain('Wallet balance');
-		expect(getByTestId('contract-funding-wallet-card').textContent).toContain(
-			'Your available balance covers this service contract.'
-		);
-		expect(getByTestId('service-instant-buy-confirm-warning').textContent).toContain(
-			'This will send your payment into the secure payment contract.'
-		);
+		const walletCard = getByTestId('contract-funding-wallet-card').textContent ?? '';
+		expect(walletCard).toContain('Wallet balance');
+		expect(walletCard).toContain('Available balance');
+		expect(walletCard).toContain('Required for this contract');
+		expect(walletCard).toMatch(/\$250\.00/);
+		expect(walletCard).toMatch(/\$205\.50/);
 		expect(document.body.textContent).not.toContain('Instant order');
 	});
 

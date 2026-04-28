@@ -1249,6 +1249,9 @@ describe('escrowEvents', () => {
 
 			await handleEscrowCreated(event);
 
+			await vi.waitFor(() => {
+				expect(vi.mocked(pushNotificationService.sendNotificationToNpubs)).toHaveBeenCalled();
+			});
 			expect(vi.mocked(pushNotificationService.sendNotificationToNpubs)).toHaveBeenCalledWith(
 				expect.objectContaining({
 					body: expect.stringContaining('Book Now order'),

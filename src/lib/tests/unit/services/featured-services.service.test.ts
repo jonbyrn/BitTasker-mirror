@@ -69,7 +69,7 @@ describe('FeaturedServicesService', () => {
 				id: 'service-event-1',
 				href: '/services/featured-service-1',
 				title: 'Featured Service',
-				priceLabel: 'From $85',
+				priceLabel: 'From $85.00',
 				meta: ['Remote'],
 				ctaLabel: 'View Service'
 			})
@@ -233,7 +233,11 @@ describe('FeaturedServicesService', () => {
 		const result = await FeaturedServicesService.getFeaturedServices(3);
 
 		expect(result.success).toBe(true);
-		expect(result.services.map((service) => service.priceLabel)).toEqual(['$99.5', '$75/hr', 'Request Quote']);
+		expect(result.services.map((service) => service.priceLabel)).toEqual([
+			'$99.50',
+			'$75.00/hr',
+			'Request Quote'
+		]);
 	});
 
 	it('falls back to location-specific labels and service-listing meta when needed', async () => {

@@ -358,6 +358,50 @@ function createDeferred<T>() {
 	return { promise, resolve };
 }
 
+const QUOTE_SERVICE_ID = '30402:' + 'a'.repeat(64) + ':service-1234';
+
+/** Matches `reconcileAcceptanceState` lookup (taskId / metadata on store entries). */
+function seedContractStoreForServiceQuote(opts: {
+	escrowId: string;
+	transactionHash: string;
+	serviceId?: string;
+}) {
+	const serviceId = opts.serviceId ?? QUOTE_SERVICE_ID;
+	contractStoreState.set({
+		contracts: [
+			{
+				escrowId: opts.escrowId,
+				taskId: serviceId,
+				metadata: {
+					serviceId,
+					transactionHash: opts.transactionHash
+				}
+			} as never
+		]
+	});
+}
+
+function createV2ContractSuccess(options?: { txWait?: () => Promise<unknown> }) {
+	const receipt = { status: 1 as const, blockNumber: 100 };
+	const waitFn = options?.txWait ?? vi.fn().mockResolvedValue(receipt);
+	const tx = {
+		hash: '0xservicehash',
+		wait: waitFn
+	};
+	return {
+		success: true as const,
+		transactionHash: '0xservicehash',
+		amount: '0.00125000',
+		clientRskAddress: '0x1234567890123456789012345678901234567890',
+		acceptanceSnapshot: createAcceptanceSnapshot({
+			confirmationsAtVerification: 0
+		}),
+		tx,
+		afterBroadcast: Promise.resolve({ failures: [] as { name: string; error: unknown }[] }),
+		afterConfirmed: vi.fn().mockResolvedValue({ paymentId: 123 })
+	};
+}
+
 describe('serviceQuoteUiStore', () => {
 	beforeEach(async () => {
 		vi.clearAllMocks();
@@ -390,13 +434,7 @@ describe('serviceQuoteUiStore', () => {
 			relayResults: [],
 			publishedRelaySet: []
 		});
-		createServiceContract.mockResolvedValue({
-			success: true,
-			transactionHash: '0xservicehash',
-			acceptanceSnapshot: createAcceptanceSnapshot({
-				confirmationsAtVerification: 0
-			})
-		});
+		createServiceContract.mockImplementation(() => Promise.resolve(createV2ContractSuccess()));
 		recoverServiceQuoteAcceptanceContract.mockResolvedValue({
 			status: 'failed',
 			transactionHash: '0xservicehash',
@@ -800,6 +838,13 @@ describe('serviceQuoteUiStore', () => {
 
 	it('creates a funded service contract when the tasker accepts a proposal', async () => {
 		const { serviceQuoteUiStore } = await import('$lib/stores/service-quote-ui.store');
+		createServiceContract.mockImplementationOnce(() =>
+			Promise.resolve(
+				createV2ContractSuccess({
+					txWait: () => new Promise(() => undefined)
+				})
+			)
+		);
 
 		await serviceQuoteUiStore.loadTaskerTimelines('qr_12345678');
 		const result = await serviceQuoteUiStore.acceptTaskerProposal({
@@ -963,11 +1008,7 @@ describe('serviceQuoteUiStore', () => {
 
 	it('does not publish accepting until the funding transaction hash exists', async () => {
 		const { serviceQuoteUiStore } = await import('$lib/stores/service-quote-ui.store');
-		const deferredContractCreation = createDeferred<{
-			success: true;
-			transactionHash: string;
-			acceptanceSnapshot: ReturnType<typeof createAcceptanceSnapshot>;
-		}>();
+		const deferredContractCreation = createDeferred<ReturnType<typeof createV2ContractSuccess>>();
 		createServiceContract.mockImplementationOnce(() => deferredContractCreation.promise);
 
 		await serviceQuoteUiStore.loadTaskerTimelines('qr_12345678');
@@ -980,13 +1021,11 @@ describe('serviceQuoteUiStore', () => {
 		expect(publishServiceProposalStatus).not.toHaveBeenCalled();
 		expect(get(serviceQuoteUiStore).taskerTimelines[0]?.resolvedStatus).toBe('pending');
 
-		deferredContractCreation.resolve({
-			success: true,
-			transactionHash: '0xservicehash',
-			acceptanceSnapshot: createAcceptanceSnapshot({
-				confirmationsAtVerification: 0
+		deferredContractCreation.resolve(
+			createV2ContractSuccess({
+				txWait: () => new Promise(() => undefined)
 			})
-		});
+		);
 
 		await expect(acceptancePromise).resolves.toEqual({
 			success: true,
@@ -1151,17 +1190,15 @@ describe('serviceQuoteUiStore', () => {
 		expect(createServiceContract).not.toHaveBeenCalled();
 	});
 
-	it('marks acceptance as unknown when escrow confirmation times out', async () => {
+	it('marks acceptance as unknown when on-chain confirmation monitoring fails', async () => {
 		const { serviceQuoteUiStore } = await import('$lib/stores/service-quote-ui.store');
-		waitForContractCreationByTransactionHash.mockRejectedValueOnce(
-			new Error(
-				'The escrow transaction was submitted, but the contract confirmation is still syncing. Open Contracts to monitor it.'
+		createServiceContract.mockImplementationOnce(() =>
+			Promise.resolve(
+				createV2ContractSuccess({
+					txWait: vi.fn().mockRejectedValue(new Error('receipt unavailable'))
+				})
 			)
 		);
-		recoverServiceQuoteAcceptanceContract.mockRejectedValueOnce(
-			new Error('relay reconciliation unavailable')
-		);
-		getContractCreationTimeoutReason.mockReturnValueOnce('pending_timeout');
 
 		await serviceQuoteUiStore.loadTaskerTimelines('qr_12345678');
 		const result = await serviceQuoteUiStore.acceptTaskerProposal({
@@ -1182,24 +1219,22 @@ describe('serviceQuoteUiStore', () => {
 			expect.objectContaining({
 				content: expect.objectContaining({
 					status: 'accept_unknown',
-					reasonCode: 'pending_timeout',
+					reasonCode: 'reconciliation_deferred',
 					transactionHash: '0xservicehash'
 				})
 			})
 		);
 	});
 
-	it('marks replacement-based ambiguity with the tx_replaced reason code', async () => {
+	it('marks replacement-based ambiguity when confirmation monitoring fails', async () => {
 		const { serviceQuoteUiStore } = await import('$lib/stores/service-quote-ui.store');
-		waitForContractCreationByTransactionHash.mockRejectedValueOnce(
-			new Error(
-				'The escrow transaction was submitted, but the contract confirmation is still syncing. Open Contracts to monitor it.'
+		createServiceContract.mockImplementationOnce(() =>
+			Promise.resolve(
+				createV2ContractSuccess({
+					txWait: vi.fn().mockRejectedValue(new Error('transaction was replaced'))
+				})
 			)
 		);
-		recoverServiceQuoteAcceptanceContract.mockRejectedValueOnce(
-			new Error('relay reconciliation unavailable')
-		);
-		getContractCreationTimeoutReason.mockReturnValueOnce('tx_replaced');
 
 		await serviceQuoteUiStore.loadTaskerTimelines('qr_12345678');
 		await serviceQuoteUiStore.acceptTaskerProposal({
@@ -1215,24 +1250,27 @@ describe('serviceQuoteUiStore', () => {
 			expect.objectContaining({
 				content: expect.objectContaining({
 					status: 'accept_unknown',
-					reasonCode: 'tx_replaced'
+					reasonCode: 'reconciliation_deferred'
 				})
 			})
 		);
 	});
 
-	it('keeps the acceptance in a contract syncing state when recovery finds an escrow that is not queryable yet', async () => {
+	it('marks accept_unknown when tx.wait fails with the contract syncing sentinel message', async () => {
 		const { serviceQuoteUiStore } = await import('$lib/stores/service-quote-ui.store');
-		waitForContractCreationByTransactionHash.mockRejectedValueOnce(
-			new Error(
-				'The escrow transaction was submitted, but the contract confirmation is still syncing. Open Contracts to monitor it.'
+		createServiceContract.mockImplementationOnce(() =>
+			Promise.resolve(
+				createV2ContractSuccess({
+					txWait: vi
+						.fn()
+						.mockRejectedValue(
+							new Error(
+								'The escrow transaction was submitted, but the contract confirmation is still syncing. Open Contracts to monitor it.'
+							)
+						)
+				})
 			)
 		);
-		recoverServiceQuoteAcceptanceContract.mockResolvedValueOnce({
-			status: 'contract_sync_pending',
-			transactionHash: '0xservicehash',
-			escrowId: 'escrow-123'
-		});
 
 		await serviceQuoteUiStore.loadTaskerTimelines('qr_12345678');
 		await serviceQuoteUiStore.acceptTaskerProposal({
@@ -1241,53 +1279,25 @@ describe('serviceQuoteUiStore', () => {
 		});
 
 		await vi.waitFor(() => {
-			expect(get(serviceQuoteUiStore).taskerTimelines[0]?.resolvedStatus).toBe(
-				'contract_sync_pending'
-			);
+			expect(get(serviceQuoteUiStore).taskerTimelines[0]?.resolvedStatus).toBe('accept_unknown');
 		});
-		expect(get(serviceQuoteUiStore).taskerTimelines[0]?.linkedEscrowId).toBe('escrow-123');
 		expect(publishServiceProposalStatus).toHaveBeenNthCalledWith(
 			2,
 			expect.objectContaining({
 				content: expect.objectContaining({
-					status: 'contract_sync_pending',
-					escrowId: 'escrow-123',
+					status: 'accept_unknown',
+					reasonCode: 'reconciliation_deferred',
 					transactionHash: '0xservicehash'
 				})
 			})
 		);
 	});
 
-	it('replays the accepted status when recovery finds the created escrow by transaction hash', async () => {
+	it('replays the accepted status when the contract store lists the funded service contract', async () => {
 		const { serviceQuoteUiStore } = await import('$lib/stores/service-quote-ui.store');
-		waitForContractCreationByTransactionHash.mockRejectedValueOnce(
-			new Error(
-				'The escrow transaction was submitted, but the contract confirmation is still syncing. Open Contracts to monitor it.'
-			)
-		);
-		recoverServiceQuoteAcceptanceContract.mockResolvedValueOnce({
-			status: 'contract_ready',
-			transactionHash: '0xservicehash',
-			escrowId: 'escrow-123'
-		});
-
-		await serviceQuoteUiStore.loadTaskerTimelines('qr_12345678');
-		await serviceQuoteUiStore.acceptTaskerProposal({
-			quoteRequestId: 'qr_12345678',
-			proposalId: 'pr_12345678'
-		});
-
-		await vi.waitFor(() => {
-			expect(get(serviceQuoteUiStore).taskerTimelines[0]?.resolvedStatus).toBe('accepted');
-		});
-		expect(get(serviceQuoteUiStore).taskerTimelines[0]?.linkedEscrowId).toBe('escrow-123');
-		expect(retryPendingServiceAcceptanceByEscrowId).toHaveBeenCalledWith('escrow-123');
-	});
-
-	it('reconciles accept_unknown tasker timelines into accepted and republishes the verified status', async () => {
-		const { serviceQuoteUiStore } = await import('$lib/stores/service-quote-ui.store');
-		const acceptanceSnapshot = createAcceptanceSnapshot({
-			conversionSnapshotId: 'quote:pr_recovered'
+		seedContractStoreForServiceQuote({
+			escrowId: 'escrow-123',
+			transactionHash: '0xservicehash'
 		});
 
 		queryServiceQuotesForTasker.mockResolvedValueOnce({
@@ -1298,12 +1308,30 @@ describe('serviceQuoteUiStore', () => {
 				})
 			]
 		});
-		reconcileQuoteAcceptanceTimeline.mockResolvedValueOnce({
-			status: 'accepted',
+
+		await serviceQuoteUiStore.loadTaskerTimelines('qr_12345678');
+
+		await vi.waitFor(() => {
+			expect(get(serviceQuoteUiStore).taskerTimelines[0]?.resolvedStatus).toBe('accepted');
+		});
+		expect(get(serviceQuoteUiStore).taskerTimelines[0]?.linkedEscrowId).toBe('escrow-123');
+		expect(retryPendingServiceAcceptanceByEscrowId).not.toHaveBeenCalled();
+	});
+
+	it('reconciles accept_unknown tasker timelines into accepted and republishes the verified status', async () => {
+		const { serviceQuoteUiStore } = await import('$lib/stores/service-quote-ui.store');
+		seedContractStoreForServiceQuote({
 			escrowId: 'escrow-123',
-			transactionHash: '0xservicehash',
-			acceptanceSnapshot,
-			matchedContract: {} as never
+			transactionHash: '0xservicehash'
+		});
+
+		queryServiceQuotesForTasker.mockResolvedValueOnce({
+			timelines: [
+				createTimelineWithStatus('accept_unknown', {
+					transactionHash: '0xservicehash',
+					reasonCode: 'pending_timeout'
+				})
+			]
 		});
 
 		await serviceQuoteUiStore.loadTaskerTimelines('qr_12345678');
@@ -1318,8 +1346,7 @@ describe('serviceQuoteUiStore', () => {
 				content: expect.objectContaining({
 					status: 'accepted',
 					escrowId: 'escrow-123',
-					transactionHash: '0xservicehash',
-					acceptanceSnapshot
+					transactionHash: '0xservicehash'
 				})
 			})
 		);
@@ -1327,19 +1354,13 @@ describe('serviceQuoteUiStore', () => {
 
 	it('reconciles legacy bare accepting tasker timelines into accepted when deterministic contract healing succeeds', async () => {
 		const { serviceQuoteUiStore } = await import('$lib/stores/service-quote-ui.store');
-		const acceptanceSnapshot = createAcceptanceSnapshot({
-			conversionSnapshotId: 'quote:pr_legacy_recovered'
+		seedContractStoreForServiceQuote({
+			escrowId: 'escrow-legacy-123',
+			transactionHash: '0xlegacyhash'
 		});
 
 		queryServiceQuotesForTasker.mockResolvedValueOnce({
 			timelines: [createTimelineWithStatus('accepting')]
-		});
-		reconcileQuoteAcceptanceTimeline.mockResolvedValueOnce({
-			status: 'accepted',
-			escrowId: 'escrow-legacy-123',
-			transactionHash: '0xlegacyhash',
-			acceptanceSnapshot,
-			matchedContract: {} as never
 		});
 
 		await serviceQuoteUiStore.loadTaskerTimelines('qr_12345678');
@@ -1354,14 +1375,13 @@ describe('serviceQuoteUiStore', () => {
 				content: expect.objectContaining({
 					status: 'accepted',
 					escrowId: 'escrow-legacy-123',
-					transactionHash: '0xlegacyhash',
-					acceptanceSnapshot
+					transactionHash: '0xlegacyhash'
 				})
 			})
 		);
 	});
 
-	it('reconciles provisional tasker timelines into contract_sync_pending instead of leaving accept_unknown', async () => {
+	it('leaves accept_unknown when the contract store has no matching funded contract', async () => {
 		const { serviceQuoteUiStore } = await import('$lib/stores/service-quote-ui.store');
 
 		queryServiceQuotesForTasker.mockResolvedValueOnce({
@@ -1372,32 +1392,17 @@ describe('serviceQuoteUiStore', () => {
 				})
 			]
 		});
-		reconcileQuoteAcceptanceTimeline.mockResolvedValueOnce({
-			status: 'contract_sync_pending',
-			escrowId: 'escrow-sync-123',
-			transactionHash: '0xservicehash'
-		});
 
 		await serviceQuoteUiStore.loadTaskerTimelines('qr_12345678');
 
 		await vi.waitFor(() => {
-			expect(get(serviceQuoteUiStore).taskerTimelines[0]?.resolvedStatus).toBe(
-				'contract_sync_pending'
-			);
+			expect(get(serviceQuoteUiStore).taskerTimelines[0]?.resolvedStatus).toBe('accept_unknown');
 		});
-		expect(get(serviceQuoteUiStore).taskerTimelines[0]?.linkedEscrowId).toBe('escrow-sync-123');
-		expect(publishServiceProposalStatus).toHaveBeenCalledWith(
-			expect.objectContaining({
-				content: expect.objectContaining({
-					status: 'contract_sync_pending',
-					escrowId: 'escrow-sync-123',
-					transactionHash: '0xservicehash'
-				})
-			})
-		);
+		expect(get(serviceQuoteUiStore).taskerTimelines[0]?.linkedEscrowId).toBeUndefined();
+		expect(publishServiceProposalStatus).not.toHaveBeenCalled();
 	});
 
-	it('reconciles recoverable accepting timelines into accept_failed when recovery proves the transaction failed', async () => {
+	it('leaves accepting timelines unchanged when the contract store has no matching funded contract', async () => {
 		const { serviceQuoteUiStore } = await import('$lib/stores/service-quote-ui.store');
 
 		queryServiceQuotesForTasker.mockResolvedValueOnce({
@@ -1407,33 +1412,21 @@ describe('serviceQuoteUiStore', () => {
 				})
 			]
 		});
-		reconcileQuoteAcceptanceTimeline.mockResolvedValueOnce({
-			status: 'accept_failed',
-			transactionHash: '0xservicehash',
-			error: 'The service quote funding transaction did not complete successfully.'
-		});
 
 		await serviceQuoteUiStore.loadTaskerTimelines('qr_12345678');
 
 		await vi.waitFor(() => {
-			expect(get(serviceQuoteUiStore).taskerTimelines[0]?.resolvedStatus).toBe('accept_failed');
+			expect(get(serviceQuoteUiStore).taskerTimelines[0]?.resolvedStatus).toBe('accepting');
 		});
-		expect(publishServiceProposalStatus).toHaveBeenCalledWith(
-			expect.objectContaining({
-				content: expect.objectContaining({
-					status: 'accept_failed',
-					transactionHash: '0xservicehash',
-					message: 'The service quote funding transaction did not complete successfully.'
-				})
-			})
-		);
+		expect(publishServiceProposalStatus).not.toHaveBeenCalled();
 	});
 
 	it('heals provider accept_unknown timelines locally without republishing tasker status events', async () => {
 		const { serviceQuoteUiStore } = await import('$lib/stores/service-quote-ui.store');
 		const serviceAddress = '30402:' + 'a'.repeat(64) + ':service-1234';
-		const acceptanceSnapshot = createAcceptanceSnapshot({
-			conversionSnapshotId: 'quote:pr_provider_recovered'
+		seedContractStoreForServiceQuote({
+			escrowId: 'escrow-provider-123',
+			transactionHash: '0xservicehash'
 		});
 
 		queryServiceQuotesForTaskee.mockResolvedValueOnce({
@@ -1443,13 +1436,6 @@ describe('serviceQuoteUiStore', () => {
 					reasonCode: 'pending_timeout'
 				})
 			]
-		});
-		reconcileQuoteAcceptanceTimeline.mockResolvedValueOnce({
-			status: 'accepted',
-			escrowId: 'escrow-provider-123',
-			transactionHash: '0xservicehash',
-			acceptanceSnapshot,
-			matchedContract: {} as never
 		});
 
 		await serviceQuoteUiStore.loadProviderTimelines(serviceAddress, 'qr_12345678');
@@ -1467,10 +1453,6 @@ describe('serviceQuoteUiStore', () => {
 
 	it('upgrades the local timeline to accepted when escrow confirmation resolves', async () => {
 		const { serviceQuoteUiStore } = await import('$lib/stores/service-quote-ui.store');
-		waitForContractCreationByTransactionHash.mockResolvedValueOnce({
-			escrowId: 'escrow-123',
-			transactionHash: '0xservicehash'
-		});
 
 		await serviceQuoteUiStore.loadTaskerTimelines('qr_12345678');
 		await serviceQuoteUiStore.acceptTaskerProposal({
@@ -1481,21 +1463,36 @@ describe('serviceQuoteUiStore', () => {
 		await vi.waitFor(() => {
 			expect(get(serviceQuoteUiStore).taskerTimelines[0]?.resolvedStatus).toBe('accepted');
 		});
-		expect(get(serviceQuoteUiStore).taskerTimelines[0]?.linkedEscrowId).toBe('escrow-123');
-		expect(retryPendingServiceAcceptanceByEscrowId).toHaveBeenCalledWith('escrow-123');
-		expect(publishServiceProposalStatus).toHaveBeenNthCalledWith(
-			2,
-			expect.objectContaining({
-				content: expect.objectContaining({
-					status: 'accepted',
-					escrowId: 'escrow-123',
-					transactionHash: '0xservicehash',
-					acceptanceSnapshot: expect.objectContaining({
-						confirmationsAtVerification: 3
-					})
-				})
-			})
-		);
+		expect(get(serviceQuoteUiStore).taskerTimelines[0]?.linkedEscrowId).toBe('123');
+		expect(retryPendingServiceAcceptanceByEscrowId).not.toHaveBeenCalled();
+		await vi.waitFor(() => {
+			expect(
+				publishServiceProposalStatus.mock.calls.some(
+					(call) => (call[0] as { content?: { status?: string } }).content?.status === 'accepted'
+				)
+			).toBe(true);
+		});
+		const monitorAccepted = publishServiceProposalStatus.mock.calls
+			.map((call) => call[0] as { content?: Record<string, unknown> })
+			.filter(
+				(arg) =>
+					arg.content?.status === 'accepted' &&
+					(arg.content as { escrowId?: string }).escrowId === '123'
+			)
+			.at(-1);
+		expect(monitorAccepted).toBeDefined();
+		expect(monitorAccepted?.content).toMatchObject({
+			status: 'accepted',
+			escrowId: '123',
+			transactionHash: '0xservicehash'
+		});
+		expect(
+			(
+				monitorAccepted?.content as {
+					acceptanceSnapshot?: { confirmationsAtVerification?: number };
+				}
+			)?.acceptanceSnapshot?.confirmationsAtVerification
+		).toBe(1);
 	});
 
 	it('leaves the proposal actionable when contract creation fails before a transaction is submitted', async () => {
@@ -1540,25 +1537,10 @@ describe('serviceQuoteUiStore', () => {
 		expect(get(serviceQuoteUiStore).taskerTimelines[0]?.resolvedStatus).toBe('pending');
 	});
 
-	it('keeps the acceptance in progress when contract bookkeeping fails after broadcast', async () => {
+	it('returns a hard failure when contract creation reports success: false after broadcast bookkeeping', async () => {
 		const { serviceQuoteUiStore } = await import('$lib/stores/service-quote-ui.store');
-		waitForContractCreationByTransactionHash.mockRejectedValueOnce(
-			new Error(
-				'The escrow transaction was submitted, but the contract confirmation is still syncing. Open Contracts to monitor it.'
-			)
-		);
-		recoverServiceQuoteAcceptanceContract.mockResolvedValueOnce({
-			status: 'contract_sync_pending',
-			transactionHash: '0xservicehash',
-			escrowId: 'escrow-123'
-		});
-
 		createServiceContract.mockResolvedValueOnce({
 			success: false,
-			transactionHash: '0xservicehash',
-			acceptanceSnapshot: createAcceptanceSnapshot({
-				confirmationsAtVerification: 0
-			}),
 			error: 'snapshot registration failed'
 		});
 		await serviceQuoteUiStore.loadTaskerTimelines('qr_12345678');
@@ -1569,23 +1551,12 @@ describe('serviceQuoteUiStore', () => {
 		});
 
 		expect(result).toEqual({
-			success: true,
-			transactionHash: '0xservicehash'
+			success: false,
+			error: 'snapshot registration failed',
+			errorCode: undefined
 		});
-		expect(publishServiceProposalStatus).toHaveBeenNthCalledWith(
-			1,
-			expect.objectContaining({
-				content: expect.objectContaining({
-					status: 'accepting',
-					transactionHash: '0xservicehash'
-				})
-			})
-		);
-		await vi.waitFor(() => {
-			expect(get(serviceQuoteUiStore).taskerTimelines[0]?.resolvedStatus).toBe(
-				'contract_sync_pending'
-			);
-		});
+		expect(publishServiceProposalStatus).not.toHaveBeenCalled();
+		expect(get(serviceQuoteUiStore).taskerTimelines[0]?.resolvedStatus).toBe('pending');
 	});
 
 	it('updates non-blocking messages and clears recent submit focus state', async () => {

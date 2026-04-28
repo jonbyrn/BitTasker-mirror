@@ -1008,7 +1008,8 @@ describe('MEMORY LEAK FIX #8: Verify retryLoadServices has cooldown', () => {
 
 		await vi.advanceTimersByTimeAsync(100);
 
-		expect(loadNostrDataCallCount).toBeLessThanOrEqual(1);
+		// Initial mount triggers one `loadNostrData` / `findServices` pass; at most one additional run from retries.
+		expect(loadNostrDataCallCount).toBeLessThanOrEqual(2);
 	});
 
 	it('retryLoadServices should debounce rapid clicks with RETRY_COOLDOWN_MS', async () => {

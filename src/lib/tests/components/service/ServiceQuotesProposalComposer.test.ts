@@ -30,7 +30,7 @@ describe('ServiceProposalComposer', () => {
 			target: { value: '2026-03-22T18:45' }
 		});
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Send Proposal' }));
+		await fireEvent.click(screen.getByRole('button', { name: /Send Proposal/i }));
 
 		await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
 		expect(screen.getByTestId('service-proposal-composer-error')).toHaveTextContent(
@@ -68,7 +68,7 @@ describe('ServiceProposalComposer', () => {
 			target: { value: '2026-03-22T18:45' }
 		});
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Send Proposal' }));
+		await fireEvent.click(screen.getByRole('button', { name: /Send Proposal/i }));
 
 		await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
 		expect(screen.getByTestId('service-proposal-composer-error')).toHaveTextContent(
@@ -77,7 +77,7 @@ describe('ServiceProposalComposer', () => {
 		expect(scope).toHaveValue('Detailed migration plan.');
 		expect(amount).toHaveValue('180.00');
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Send Proposal' }));
+		await fireEvent.click(screen.getByRole('button', { name: /Send Proposal/i }));
 
 		await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(2));
 		expect(screen.queryByTestId('service-proposal-composer-error')).toBeNull();
@@ -99,7 +99,7 @@ describe('ServiceProposalComposer', () => {
 			}
 		});
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Send Proposal' }));
+		await fireEvent.click(screen.getByRole('button', { name: /Send Proposal/i }));
 
 		expect(onSubmit).not.toHaveBeenCalled();
 		expect(screen.getByTestId('service-proposal-composer-error')).toHaveTextContent(
@@ -129,7 +129,7 @@ describe('ServiceProposalComposer', () => {
 			target: { value: '2026-03-20T09:30' }
 		});
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Send Proposal' }));
+		await fireEvent.click(screen.getByRole('button', { name: /Send Proposal/i }));
 
 		expect(onSubmit).not.toHaveBeenCalled();
 		expect(screen.getByTestId('service-proposal-composer-error')).toHaveTextContent(
@@ -159,7 +159,7 @@ describe('ServiceProposalComposer', () => {
 			target: { value: '2026-03-22T18:45' }
 		});
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Send Proposal' }));
+		await fireEvent.click(screen.getByRole('button', { name: /Send Proposal/i }));
 
 		await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
 		expect(onSubmit).toHaveBeenCalledWith(

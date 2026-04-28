@@ -29,6 +29,10 @@ vi.mock('svelte-i18n', async () => {
 				return 'View Proposal';
 			if (key === 'dashboard.services.my_services.quote_inbox.send_proposal')
 				return 'Send Proposal';
+			if (key === 'dashboard.services.my_services.quote_inbox.view_proposal_short') return 'View';
+			if (key === 'dashboard.services.my_services.quote_inbox.send_proposal_short') return 'Send';
+			if (key === 'dashboard.services.my_services.quote_inbox.view_contract_short')
+				return 'Contract';
 			return key;
 		}),
 		locale: readable('en'),
@@ -225,7 +229,7 @@ describe('services accessibility smoke', () => {
 				onSendProposal: async () => ({ success: true })
 			});
 
-			expect(screen.getByRole('button', { name: 'View Proposal' })).toBeEnabled();
+			expect(screen.getByRole('button', { name: 'View' })).toBeEnabled();
 		});
 
 		it('shows Send Proposal button when no proposal exists', () => {
@@ -239,7 +243,7 @@ describe('services accessibility smoke', () => {
 				onSendProposal: async () => ({ success: true })
 			});
 
-			expect(screen.getByRole('button', { name: 'Send Proposal' })).toBeEnabled();
+			expect(screen.getByRole('button', { name: 'Send' })).toBeEnabled();
 		});
 	});
 });

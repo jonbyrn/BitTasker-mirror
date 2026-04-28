@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { ContractWithEvents } from '$lib/types/contract';
 import type { Service } from '$lib/types/service.d';
 import { EscrowStatus } from '$lib/utils/escrow';
+import { ContractStatus } from '$lib/utils/contract/types';
 import {
 	compareActiveServiceContracts,
 	getActiveServiceContractsForService,
@@ -37,8 +38,12 @@ function createContract(
 		statusEventTimestamps?: number[];
 	}
 ): ContractWithEvents {
-	const { content: _content, contractEvent: _contractEvent, statusEventTimestamps: _timestamps, ...rest } =
-		overrides;
+	const {
+		content: _content,
+		contractEvent: _contractEvent,
+		statusEventTimestamps: _timestamps,
+		...rest
+	} = overrides;
 	const statusEvents = (overrides.statusEventTimestamps ?? []).map((createdAt, index) => ({
 		id: `status-${index}`,
 		created_at: createdAt,
@@ -64,6 +69,7 @@ function createContract(
 			estimatedStartTime: 1_700_010_000,
 			estimatedCompletionTime: 1_700_020_000,
 			type: 'contract',
+			/** Service contracts must declare service context or active-contract helpers treat them as tasks. */
 			contextType: 'service',
 			contextId: 'service-123',
 			serviceId: 'service-123',
@@ -104,7 +110,8 @@ describe('service active contract continuity', () => {
 	it('treats non-terminal service contracts as active', () => {
 		expect(isActiveServiceContract(createContract({ status: EscrowStatus.Funded }))).toBe(true);
 		expect(isActiveServiceContract(createContract({ status: EscrowStatus.Completed }))).toBe(true);
-		expect(isActiveServiceContract(createContract({ status: EscrowStatus.FundsReleased }))).toBe(
+		// v2 `isTerminalPaymentState` uses {@link ContractStatus} chain codes; EscrowStatus.FundsReleased (10) is not terminal there.
+		expect(isActiveServiceContract(createContract({ status: ContractStatus.FundsReleased }))).toBe(
 			false
 		);
 		expect(
@@ -131,7 +138,10 @@ describe('service active contract continuity', () => {
 		const matchingContracts = getActiveServiceContractsForService(
 			[
 				createContract({ content: { escrowId: 'escrow-123' } }),
-				createContract({ status: EscrowStatus.FundsReleased, content: { escrowId: 'escrow-final' } }),
+				createContract({
+					status: ContractStatus.FundsReleased,
+					content: { escrowId: 'escrow-final' }
+				}),
 				otherServiceContract
 			],
 			service

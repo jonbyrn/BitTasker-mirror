@@ -64,8 +64,11 @@ describe('service quote notification helpers', () => {
 		} as ServiceQuoteRequestEvent;
 
 		dispatchQuoteRequestPublishedSideEffects(requestEvent, { title: 'Premium logo package' });
-		dispatchQuoteRequestPublishedSideEffects(requestEvent, { title: 'Premium logo package' });
+		await vi.waitFor(() => {
+			expect(sendNotificationToNpubs).toHaveBeenCalledTimes(1);
+		});
 
+		dispatchQuoteRequestPublishedSideEffects(requestEvent, { title: 'Premium logo package' });
 		await vi.waitFor(() => {
 			expect(sendNotificationToNpubs).toHaveBeenCalledTimes(1);
 		});

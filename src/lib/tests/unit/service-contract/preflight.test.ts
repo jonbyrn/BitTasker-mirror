@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { writable } from 'svelte/store';
 
 const mockInitialize = vi.fn();
-const mockEnsureEscrowReady = vi.fn();
+const mockInitContract = vi.fn();
 const mockGetNostrKeyPair = vi.fn();
 const mockExtractContractError = vi.fn((error: unknown) => ({
 	userMessage: error instanceof Error ? error.message : 'unknown error'
@@ -26,9 +26,12 @@ vi.mock('$lib/stores/wallet.store', () => ({
 	}
 }));
 
-vi.mock('$lib/utils/escrow/v1/escrow', () => ({
-	ensureEscrowReady: (...args: unknown[]) => mockEnsureEscrowReady(...args),
-	calculateTotalPayment: (baseAmount: bigint) => baseAmount + baseAmount / 40n
+vi.mock('$lib/utils/contract/v2/contractAddress', () => ({
+	getSecurePaymentContractAddress: () => '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+}));
+
+vi.mock('$lib/utils/contract', () => ({
+	initContract: (...args: unknown[]) => mockInitContract(...args)
 }));
 
 vi.mock('$lib/utils/wallet/contractErrorHandler', () => ({
@@ -67,7 +70,12 @@ describe('service contract preflight', () => {
 				provider: {}
 			}
 		});
-		mockEnsureEscrowReady.mockResolvedValue({
+		mockInitContract.mockResolvedValue({
+			contract: {
+				createPaymentContract: {
+					estimateGas: vi.fn().mockResolvedValue(1000n)
+				}
+			},
 			wallet: {
 				address: '0x1111111111111111111111111111111111111111'
 			},
@@ -75,11 +83,6 @@ describe('service contract preflight', () => {
 				getNetwork: vi.fn().mockResolvedValue({ chainId: 31n }),
 				getFeeData: vi.fn().mockResolvedValue({ gasPrice: 100n }),
 				getBalance: vi.fn().mockResolvedValue(10_000_000_000_000_000n)
-			},
-			contract: {
-				createEscrow: {
-					estimateGas: vi.fn().mockResolvedValue(1000n)
-				}
 			}
 		});
 		mockGetNostrKeyPair.mockResolvedValue({
@@ -258,7 +261,12 @@ describe('service contract preflight', () => {
 		const { preflightServiceContractCreation } = await import(
 			'$lib/utils/service-contract/preflight'
 		);
-		mockEnsureEscrowReady.mockResolvedValueOnce({
+		mockInitContract.mockResolvedValueOnce({
+			contract: {
+				createPaymentContract: {
+					estimateGas: vi.fn()
+				}
+			},
 			wallet: {
 				address: '0x1111111111111111111111111111111111111111'
 			},
@@ -266,11 +274,6 @@ describe('service contract preflight', () => {
 				getNetwork: vi.fn().mockResolvedValue({ chainId: 30n }),
 				getFeeData: vi.fn(),
 				getBalance: vi.fn()
-			},
-			contract: {
-				createEscrow: {
-					estimateGas: vi.fn()
-				}
 			}
 		});
 
@@ -288,7 +291,7 @@ describe('service contract preflight', () => {
 		).resolves.toEqual({
 			ok: false,
 			errorCode: 'wrong_network',
-			error: 'Switch your wallet to Rootstock Testnet before continuing.'
+			error: 'Switch your wallet to RSK Testnet before continuing.'
 		});
 	});
 
@@ -296,7 +299,12 @@ describe('service contract preflight', () => {
 		const { preflightServiceContractCreation } = await import(
 			'$lib/utils/service-contract/preflight'
 		);
-		mockEnsureEscrowReady.mockResolvedValueOnce({
+		mockInitContract.mockResolvedValueOnce({
+			contract: {
+				createPaymentContract: {
+					estimateGas: vi.fn().mockResolvedValue(21000n)
+				}
+			},
 			wallet: {
 				address: '0x1111111111111111111111111111111111111111'
 			},
@@ -304,11 +312,6 @@ describe('service contract preflight', () => {
 				getNetwork: vi.fn().mockResolvedValue({ chainId: 31n }),
 				getFeeData: vi.fn().mockResolvedValue({ gasPrice: 1_000_000_000n }),
 				getBalance: vi.fn().mockResolvedValue(1_000n)
-			},
-			contract: {
-				createEscrow: {
-					estimateGas: vi.fn().mockResolvedValue(21000n)
-				}
 			}
 		});
 
@@ -335,7 +338,7 @@ describe('service contract preflight', () => {
 		const { preflightServiceContractCreation } = await import(
 			'$lib/utils/service-contract/preflight'
 		);
-		mockEnsureEscrowReady.mockRejectedValueOnce(new Error('provider unavailable'));
+		mockInitContract.mockRejectedValueOnce(new Error('provider unavailable'));
 
 		await expect(
 			preflightServiceContractCreation(
@@ -401,6 +404,6 @@ describe('service contract preflight', () => {
 			errorCode: 'nostr_not_ready',
 			error: 'No biometric data found'
 		});
-		expect(mockEnsureEscrowReady).not.toHaveBeenCalled();
+		expect(mockInitContract).not.toHaveBeenCalled();
 	});
 });
