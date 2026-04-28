@@ -1650,7 +1650,7 @@
 
 		<div class="relative z-10 container mx-auto -mt-4 px-4 pb-8 md:-mt-12">
 			<div class="grid grid-cols-1 gap-8 lg:grid-cols-3">
-				<div class="relative z-20 space-y-8 lg:col-span-2">
+				<div class="relative z-20 space-y-4 lg:col-span-2">
 					<!-- Desktop Title, Description & Action Header -->
 					<div
 						class="bg-base-100 border-base-300 hidden rounded-2xl border p-6 shadow-sm md:p-8 lg:block"
@@ -1734,7 +1734,9 @@
 								</h3>
 							</div>
 
-							<div class="grid grid-cols-1 gap-3 md:grid-cols-3">
+							<div
+								class="grid grid-cols-1 gap-3 md:grid-cols-{tiersWithPrice.length === 2 ? 2 : 3}"
+							>
 								{#each tiersWithPrice as tier (tier.id)}
 									<div
 										class="card bg-base-100 relative cursor-pointer border {selectedTierId ===
@@ -1823,9 +1825,13 @@
 
 											<!-- Features -->
 											<div class="flex-1">
-												<h5 class="mb-3 text-[10px] font-bold tracking-widest uppercase opacity-50">
-													{detailText('dashboard.services.detail.included_label', 'Included')}
-												</h5>
+												{#if tier.features && tier.features.length > 0}
+													<h5
+														class="mb-3 text-[10px] font-bold tracking-widest uppercase opacity-50"
+													>
+														{detailText('dashboard.services.detail.included_label', 'Included')}
+													</h5>
+												{/if}
 												<ul class="space-y-3">
 													{#each tier.features as feature (feature)}
 														<li class="flex items-start gap-3 text-sm">
@@ -1941,14 +1947,16 @@
 								{displayDescriptionFull}
 							</div>
 
-							<UserInfoDisplay
-								avatar={effectiveCreator?.avatar}
-								username={effectiveCreator?.username}
-								rating={effectiveCreator?.rating}
-								pubkey={isDraft && previewCreator ? previewCreator.pubkey : service.npub}
-								memberSince={effectiveCreator?.memberSince ?? service.createdAt}
-								size="md"
-							/>
+							<div class="mt-6">
+								<UserInfoDisplay
+									avatar={effectiveCreator?.avatar}
+									username={effectiveCreator?.username}
+									rating={effectiveCreator?.rating}
+									pubkey={isDraft && previewCreator ? previewCreator.pubkey : service.npub}
+									memberSince={effectiveCreator?.memberSince ?? service.createdAt}
+									size="md"
+								/>
+							</div>
 
 							<div class="border-base-200 my-4 border-t"></div>
 
@@ -2025,40 +2033,38 @@
 							{#if selectedTier}
 								<div class="space-y-6 p-6">
 									<div class="flex items-start justify-between">
-										<div class="min-w-0">
-											<h3 class="truncate text-xl font-bold">{selectedTier.name}</h3>
-											<div class="mt-1">
-												<div
-													class="relative overflow-hidden transition-[max-height] duration-500 ease-in-out {tierExpanded[
-														selectedTier.id
-													]
-														? 'max-h-[1000px]'
-														: 'max-h-[4.5rem]'}"
-												>
-													<p class="text-base-content/70 text-sm">
-														{selectedTier.description}
-													</p>
-													{#if !tierExpanded[selectedTier.id] && selectedTier.description && selectedTier.description.length > 80}
-														<div
-															class="from-base-100 pointer-events-none absolute right-0 bottom-0 left-0 h-8 bg-gradient-to-t to-transparent"
-														></div>
-													{/if}
-												</div>
-												{#if selectedTier.description && selectedTier.description.length > 80}
-													<button
-														class="text-primary relative z-10 mt-2 text-[10px] font-black tracking-wider uppercase transition-opacity hover:opacity-80"
-														onclick={() => toggleTierExpansion(selectedTier.id)}
-													>
-														{tierExpanded[selectedTier.id]
-															? detailText('dashboard.services.detail.see_less', 'Show less')
-															: detailText('dashboard.services.detail.see_more', 'Show more')}
-													</button>
-												{/if}
-											</div>
-										</div>
+										<h3 class="truncate text-xl font-bold">{selectedTier.name}</h3>
 										<span class="text-primary ml-4 shrink-0 text-2xl font-black"
 											>${formatNumberWithTwoDecimals(selectedTier.price)}</span
 										>
+									</div>
+									<div class="relative">
+										<div
+											class="relative overflow-hidden transition-[max-height] duration-500 ease-in-out {tierExpanded[
+												selectedTier.id
+											]
+												? 'max-h-[1000px]'
+												: 'max-h-[4.5rem]'}"
+										>
+											<p class="text-base-content/70 text-sm">
+												{selectedTier.description}
+											</p>
+											{#if !tierExpanded[selectedTier.id] && selectedTier.description && selectedTier.description.length > 80}
+												<div
+													class="from-base-100 pointer-events-none absolute right-0 bottom-0 left-0 h-8 bg-gradient-to-t to-transparent"
+												></div>
+											{/if}
+										</div>
+										{#if selectedTier.description && selectedTier.description.length > 80}
+											<button
+												class="text-primary relative z-10 mt-2 text-[10px] font-black tracking-wider uppercase transition-opacity hover:opacity-80"
+												onclick={() => toggleTierExpansion(selectedTier.id)}
+											>
+												{tierExpanded[selectedTier.id]
+													? detailText('dashboard.services.detail.see_less', 'Show less')
+													: detailText('dashboard.services.detail.see_more', 'Show more')}
+											</button>
+										{/if}
 									</div>
 
 									<div class="flex items-center gap-2 text-sm">
@@ -2074,21 +2080,23 @@
 										>
 									</div>
 
-									<div class="border-base-200 border-t pt-4">
-										<h5 class="mb-3 text-[10px] font-bold tracking-widest uppercase opacity-50">
-											{detailText('dashboard.services.detail.included_label', 'Included')}
-										</h5>
-										<ul class="space-y-3">
-											{#each selectedTier.features as feature (feature)}
-												<li class="flex items-start gap-3 text-sm">
-													<IconCheck class="text-success mt-0.5 h-4 w-4 shrink-0" />
-													<span class="text-base-content/80 leading-snug font-medium"
-														>{feature}</span
-													>
-												</li>
-											{/each}
-										</ul>
-									</div>
+									{#if selectedTier.features && selectedTier.features.length > 0}
+										<div class="border-base-200 border-t pt-4">
+											<h5 class="mb-3 text-[10px] font-bold tracking-widest uppercase opacity-50">
+												{detailText('dashboard.services.detail.included_label', 'Included')}
+											</h5>
+											<ul class="space-y-3">
+												{#each selectedTier.features as feature (feature)}
+													<li class="flex items-start gap-3 text-sm">
+														<IconCheck class="text-success mt-0.5 h-4 w-4 shrink-0" />
+														<span class="text-base-content/80 leading-snug font-medium"
+															>{feature}</span
+														>
+													</li>
+												{/each}
+											</ul>
+										</div>
+									{/if}
 								</div>
 							{/if}
 						</div>
