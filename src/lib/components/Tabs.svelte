@@ -6,8 +6,8 @@
 	}>();
 </script>
 
-<div class="tabs-container relative pb-2 md:pb-4">
-	<div class="tabs tabs-bordered w-full">
+<div class="tabs-container no-scrollbar relative overflow-x-auto pb-2 md:overflow-visible md:pb-4">
+	<div class="tabs tabs-bordered min-w-max snap-x snap-mandatory flex-nowrap overflow-x-auto">
 		{#each tabs as tab (tab.id)}
 			<button
 				class="tab {activeTab === tab.id ? 'active-tab' : ''}"
@@ -24,6 +24,15 @@
 </div>
 
 <style>
+	.no-scrollbar::-webkit-scrollbar {
+		display: none;
+	}
+
+	.no-scrollbar {
+		-ms-overflow-style: none;
+		scrollbar-width: none;
+	}
+
 	.tab.active-tab {
 		position: relative;
 	}
