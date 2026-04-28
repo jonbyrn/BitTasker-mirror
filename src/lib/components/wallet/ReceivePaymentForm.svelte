@@ -54,27 +54,6 @@
 	// Mobile form container for keyboard scroll handling
 	let mobileFormContainer: HTMLDivElement | undefined = $state(undefined);
 
-	// Keyboard height tracking via VisualViewport API
-	let keyboardHeight = $state(0);
-
-	$effect(() => {
-		const viewport = window.visualViewport;
-		if (!viewport) return;
-
-		const handleResize = () => {
-			const visualHeight = viewport.height;
-			const offsetTop = viewport.offsetTop;
-			// Calculate keyboard height - difference between window inner height and visual viewport
-			keyboardHeight = Math.max(0, window.innerHeight - visualHeight - offsetTop);
-		};
-
-		// Initial calculation
-		handleResize();
-
-		viewport.addEventListener('resize', handleResize);
-		return () => viewport.removeEventListener('resize', handleResize);
-	});
-
 	// Grouped State: UI State
 	let uiState = $state({
 		descriptionExpanded: false,
@@ -645,7 +624,7 @@
 			<div
 				class="flex flex-col space-y-2 overflow-y-auto"
 				bind:this={mobileFormContainer}
-				style="padding-bottom: {keyboardHeight > 0 ? keyboardHeight + 16 : 0}px;"
+				style="padding-bottom: env(keyboard-inset-bottom, 0px);"
 			>
 				<!-- Network Selector (Accordion) -->
 				<div
