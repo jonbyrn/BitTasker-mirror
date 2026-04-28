@@ -855,17 +855,17 @@
 								disabled={feeState.isLoading}
 							>
 								<div class="flex w-full flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
-									<span>{$t('wallet.network_fee')}:</span>
+									<span class="w-full">{$t('wallet.network_fee')}:</span>
 									{#if feeState.isLoading}
 										<span class="inline-flex min-w-20 items-center gap-1.5 font-semibold sm:gap-2">
 											<span class="loading loading-spinner loading-xs"></span>
 										</span>
 									{:else if feeState.estimated}
-										<span class="font-semibold"
+										<span class="w-full font-semibold"
 											>{formatSats(feeState.estimated.totalFees)} {$t('wallet.sats')}</span
 										>
 										{#if btcPrice > 0 && feeState.estimated.totalFees > 0}
-											<span class="opacity-60">
+											<span class="w-full opacity-60">
 												≈ {formatUsd((feeState.estimated.totalFees / 100_000_000) * btcPrice)}
 											</span>
 										{/if}
@@ -1208,18 +1208,18 @@
 							onclick={() => (uiState.networkFeeExpanded = !uiState.networkFeeExpanded)}
 							disabled={feeState.isLoading}
 						>
-							<div class="flex w-full items-center gap-1.5 sm:gap-2">
-								<span>{$t('wallet.network_fee')}:</span>
+							<div class="flex w-full flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
+								<span class="w-full">{$t('wallet.network_fee')}:</span>
 								{#if feeState.isLoading}
 									<span class="inline-flex min-w-20 items-center gap-1.5 font-semibold sm:gap-2">
 										<span class="loading loading-spinner loading-xs"></span>
 									</span>
 								{:else if feeState.estimated}
-									<span class="font-semibold"
+									<span class="w-full font-semibold"
 										>{formatSats(feeState.estimated.totalFees)} {$t('wallet.sats')}</span
 									>
 									{#if btcPrice > 0 && feeState.estimated.totalFees > 0}
-										<span class="opacity-60">
+										<span class="w-full opacity-60">
 											≈ {formatUsd((feeState.estimated.totalFees / 100_000_000) * btcPrice)}
 										</span>
 									{/if}
