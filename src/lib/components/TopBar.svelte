@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { t } from 'svelte-i18n';
 	import { cubicOut } from 'svelte/easing';
@@ -36,6 +36,10 @@
 	// Control avatar dropdown visibility
 	let isAvatarDropdownOpen = $state(false);
 
+	// iOS-friendly: track if we're animating
+	let isDropdownAnimating = $state(false);
+
+	// Popover transition for section dropdowns (kept for compatibility)
 	function popoverTransition(
 		node: Element,
 		{ duration = 200, y = -8, start = 0.98 }: { duration?: number; y?: number; start?: number } = {}
@@ -58,10 +62,23 @@
 		if (!interactive) return;
 	}
 
-	// Toggle avatar dropdown
-	function toggleAvatarDropdown(event: MouseEvent) {
+	// Toggle avatar dropdown - iOS-friendly with tick and rAF
+	async function toggleAvatarDropdown(event: MouseEvent) {
 		event.stopPropagation();
-		isAvatarDropdownOpen = !isAvatarDropdownOpen;
+		if (isAvatarDropdownOpen) {
+			isAvatarDropdownOpen = false;
+		} else {
+			// Render the menu in collapsed state first
+			isAvatarDropdownOpen = true;
+			isDropdownAnimating = false;
+			// Wait for DOM to mount the element
+			await tick();
+			// Ensure collapsed state is painted before transitioning (mobile Safari/Chrome)
+			await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+			await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+			// Now enable animation
+			isDropdownAnimating = true;
+		}
 	}
 
 	// Initialize stores when component mounts
@@ -295,7 +312,13 @@
 			<!-- Avatar Dropdown -->
 			<div
 				class="dropdown dropdown-end relative"
-				use:clickOutside={{ callback: () => (isAvatarDropdownOpen = false) }}
+				onclickcapture={(e) => {
+					const target = e.target as HTMLElement;
+					// Don't close if clicking inside dropdown or on the avatar button
+					if (target.closest('.dropdown-content') || target.closest('button')) return;
+					isAvatarDropdownOpen = false;
+					isDropdownAnimating = false;
+				}}
 			>
 				<button
 					type="button"
@@ -310,41 +333,39 @@
 				>
 					<Avatar name={$user.name} picture={userPicture()} size="sm" />
 				</button>
-				{#if isAvatarDropdownOpen}
-					<div
-						class="menu dropdown-content bg-base-100 rounded-box right-0 z-10 mt-2 w-56 p-2 shadow-md"
-						style="transform-origin: top right;"
-						role="menu"
-						tabindex="-1"
-						onclick={(e) => e.stopPropagation()}
-						onkeydown={(e) => {
-							if (e.key === 'Escape') {
-								isAvatarDropdownOpen = false;
-							}
-						}}
-						transition:popoverTransition={{ duration: 200, y: -8, start: 0.98 }}
-					>
-						<ul>
-							<!-- User Info Header -->
-							{#if userDisplayName}
-								<li class="border-base-300 mb-2 border-b pb-2">
-									<button
-										onclick={showNpubQrCode}
-										class="flex w-full items-center gap-2 whitespace-nowrap"
+				<!-- Always render menu, use CSS for visibility (iOS-friendly) -->
+				<div
+					class="menu dropdown-content bg-base-100 rounded-box right-0 z-10 mt-2 w-56 p-2 shadow-md"
+					class:dropdown-visible={isAvatarDropdownOpen && isDropdownAnimating}
+					role="menu"
+					tabindex="-1"
+					onclick={(e) => e.stopPropagation()}
+					onkeydown={(e) => {
+						if (e.key === 'Escape') {
+							isAvatarDropdownOpen = false;
+							isDropdownAnimating = false;
+						}
+					}}
+				>
+					<ul>
+						<!-- User Info Header -->
+						{#if userDisplayName}
+							<li class="border-base-300 mb-2 border-b pb-2">
+								<button
+									onclick={showNpubQrCode}
+									class="flex w-full items-center gap-2 whitespace-nowrap"
+								>
+									<IconQrcode class="text-primary" />
+									<span class="wrap-break-words font-bold whitespace-normal">{userDisplayName}</span
 									>
-										<IconQrcode class="text-primary" />
-										<span class="wrap-break-words font-bold whitespace-normal"
-											>{userDisplayName}</span
-										>
-									</button>
-								</li>
-							{/if}
-							{#each AVATAR_MENU_ITEMS as item (item.label)}
-								{@render menuItem(item)}
-							{/each}
-						</ul>
-					</div>
-				{/if}
+								</button>
+							</li>
+						{/if}
+						{#each AVATAR_MENU_ITEMS as item (item.label)}
+							{@render menuItem(item)}
+						{/each}
+					</ul>
+				</div>
 			</div>
 		{/if}
 	</div>
@@ -414,5 +435,24 @@
 	:global(.navbar-end .dropdown-content) {
 		touch-action: manipulation;
 		-webkit-tap-highlight-color: transparent;
+	}
+
+	/* Avatar dropdown animation - iOS-friendly alternative to Svelte transitions */
+	:global(.navbar-end .dropdown-content) {
+		opacity: 0;
+		transform: translate3d(0, -8px, 0) scale(0.98);
+		transform-origin: top right;
+		pointer-events: none;
+		transition:
+			opacity 200ms ease-out,
+			transform 200ms ease-out;
+		will-change: opacity, transform;
+		backface-visibility: hidden;
+	}
+
+	:global(.navbar-end .dropdown-content.dropdown-visible) {
+		opacity: 1;
+		transform: translate3d(0, 0, 0) scale(1);
+		pointer-events: auto;
 	}
 </style>
