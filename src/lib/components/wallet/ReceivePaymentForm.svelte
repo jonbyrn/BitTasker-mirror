@@ -648,41 +648,43 @@
 							class="collapse-title min-h-0 px-3 py-2 text-left text-sm font-medium sm:px-4 sm:text-base"
 							onclick={() => (uiState.networkExpanded = !uiState.networkExpanded)}
 						>
-							<div class="flex items-center gap-1.5 sm:gap-2">
-								{#if selectedNetworkInfo?.icon}
-									<img
-										src={selectedNetworkInfo.icon}
-										alt={selectedNetworkInfo.label}
-										class="h-4 w-4 sm:h-5 sm:w-5"
-									/>
-								{:else if selectedNetworkInfo?.value === 'lightning-bitcoin'}
-									<svg
-										xmlns="http://www.w3.org/2000/svg"
-										class="h-4 w-4 text-yellow-500 sm:h-5 sm:w-5"
-										fill="none"
-										viewBox="0 0 24 24"
-										stroke="currentColor"
-									>
-										<path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											stroke-width="2"
-											d="M13 10V3L4 14h7v7l9-11h-7z"
+							<div class="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
+								<div class="flex items-center gap-1.5">
+									{#if selectedNetworkInfo?.icon}
+										<img
+											src={selectedNetworkInfo.icon}
+											alt={selectedNetworkInfo.label}
+											class="h-4 w-4 sm:h-5 sm:w-5"
 										/>
-									</svg>
-								{/if}
-								<span class="font-medium">
-									{selectedNetworkInfo?.label}
-									{$t('wallet.receive.network')}
-									{#if selectedNetworkFee && selectedNetworkFee.totalFees > 0}
-										<span class="text-base-content/60 text-xs font-normal">
-											{$t('wallet.receive.fee')}: {formatSats(selectedNetworkFee.totalFees)}
-											{$t('wallet.sats')} | {btcPrice.price > 0
-												? formatUsd((selectedNetworkFee.totalFees / 100_000_000) * btcPrice.price)
-												: '—'}
-										</span>
+									{:else if selectedNetworkInfo?.value === 'lightning-bitcoin'}
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											class="h-4 w-4 text-yellow-500 sm:h-5 sm:w-5"
+											fill="none"
+											viewBox="0 0 24 24"
+											stroke="currentColor"
+										>
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												stroke-width="2"
+												d="M13 10V3L4 14h7v7l9-11h-7z"
+											/>
+										</svg>
 									{/if}
-								</span>
+									<span class="font-medium">
+										{selectedNetworkInfo?.label}
+										{$t('wallet.receive.network')}
+									</span>
+								</div>
+								{#if selectedNetworkFee && selectedNetworkFee.totalFees > 0}
+									<div class="text-base-content/60 text-xs font-normal sm:ml-auto">
+										{$t('wallet.receive.fee')}: {formatSats(selectedNetworkFee.totalFees)}
+										{$t('wallet.sats')} | {btcPrice.price > 0
+											? formatUsd((selectedNetworkFee.totalFees / 100_000_000) * btcPrice.price)
+											: '—'}
+									</div>
+								{/if}
 							</div>
 						</button>
 						<div class="collapse-content px-2">
