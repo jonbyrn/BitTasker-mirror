@@ -1,9 +1,10 @@
 <script lang="ts">
-	import { onMount, tick } from 'svelte';
+	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { t } from 'svelte-i18n';
 	import { cubicOut } from 'svelte/easing';
 	import type { TransitionConfig } from 'svelte/transition';
+	import { Menu, Portal } from '@skeletonlabs/skeleton-svelte';
 	import { authState } from '$lib/stores/auth.store';
 	import { user } from '$lib/stores/user.store';
 	import { profileStore } from '$lib/stores/profile.store';
@@ -33,12 +34,6 @@
 	// Dropdown state - track which section ID is open
 	let openSectionId = $state<string | null>(null);
 
-	// Control avatar dropdown visibility
-	let isAvatarDropdownOpen = $state(false);
-
-	// iOS-friendly: track if we're animating
-	let isDropdownAnimating = $state(false);
-
 	// Popover transition for section dropdowns (kept for compatibility)
 	function popoverTransition(
 		node: Element,
@@ -60,25 +55,6 @@
 		if (!target) return;
 		const interactive = target.closest('a,button,summary,[role="button"]');
 		if (!interactive) return;
-	}
-
-	// Toggle avatar dropdown - iOS-friendly with tick and rAF
-	async function toggleAvatarDropdown(event: MouseEvent) {
-		event.stopPropagation();
-		if (isAvatarDropdownOpen) {
-			isAvatarDropdownOpen = false;
-		} else {
-			// Render the menu in collapsed state first
-			isAvatarDropdownOpen = true;
-			isDropdownAnimating = false;
-			// Wait for DOM to mount the element
-			await tick();
-			// Ensure collapsed state is painted before transitioning (mobile Safari/Chrome)
-			await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-			await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-			// Now enable animation
-			isDropdownAnimating = true;
-		}
 	}
 
 	// Initialize stores when component mounts
@@ -132,7 +108,6 @@
 		event.preventDefault();
 		event.stopPropagation();
 		closeDropdowns();
-		isAvatarDropdownOpen = false;
 		if (action === 'logout') {
 			logout();
 		} else if (href) {
@@ -142,7 +117,6 @@
 
 	function logout() {
 		closeDropdowns();
-		isAvatarDropdownOpen = false;
 		showLogoutModal = true;
 	}
 
@@ -309,64 +283,48 @@
 		{:else}
 			<!-- Notification Center -->
 			<NotificationCenter />
-			<!-- Avatar Dropdown -->
-			<div
-				class="dropdown dropdown-end relative"
-				onclickcapture={(e) => {
-					const target = e.target as HTMLElement;
-					// Don't close if clicking inside dropdown or on the avatar button
-					if (target.closest('.dropdown-content') || target.closest('button')) return;
-					isAvatarDropdownOpen = false;
-					isDropdownAnimating = false;
-				}}
-			>
-				<button
-					type="button"
-					class="btn btn-ghost"
-					onclick={toggleAvatarDropdown}
-					ontouchstart={(e) => {
-						e.stopPropagation();
-						toggleAvatarDropdown(e as unknown as MouseEvent);
-					}}
-					aria-haspopup="true"
-					aria-expanded={isAvatarDropdownOpen}
-				>
+			<!-- Avatar Dropdown using Skeleton UI Menu (iOS-friendly) -->
+			<Menu>
+				<Menu.Trigger class="btn btn-ghost">
 					<Avatar name={$user.name} picture={userPicture()} size="sm" />
-				</button>
-				<!-- Always render menu, use CSS for visibility (iOS-friendly) -->
-				<div
-					class="menu dropdown-content bg-base-100 rounded-box right-0 z-10 mt-2 w-56 p-2 shadow-md"
-					class:dropdown-visible={isAvatarDropdownOpen && isDropdownAnimating}
-					role="menu"
-					tabindex="-1"
-					onclick={(e) => e.stopPropagation()}
-					onkeydown={(e) => {
-						if (e.key === 'Escape') {
-							isAvatarDropdownOpen = false;
-							isDropdownAnimating = false;
-						}
-					}}
-				>
-					<ul>
-						<!-- User Info Header -->
-						{#if userDisplayName}
-							<li class="border-base-300 mb-2 border-b pb-2">
-								<button
-									onclick={showNpubQrCode}
-									class="flex w-full items-center gap-2 whitespace-nowrap"
-								>
-									<IconQrcode class="text-primary" />
-									<span class="wrap-break-words font-bold whitespace-normal">{userDisplayName}</span
+				</Menu.Trigger>
+				<Portal>
+					<Menu.Positioner>
+						<Menu.Content class="card bg-base-100 rounded-box z-50 w-56 p-2 shadow-xl">
+							<!-- User Info Header -->
+							{#if userDisplayName}
+								<div class="border-base-300 mb-2 border-b pb-2">
+									<button
+										onclick={showNpubQrCode}
+										class="flex w-full items-center gap-2 whitespace-nowrap"
 									>
-								</button>
-							</li>
-						{/if}
-						{#each AVATAR_MENU_ITEMS as item (item.label)}
-							{@render menuItem(item)}
-						{/each}
-					</ul>
-				</div>
-			</div>
+										<IconQrcode class="text-primary" />
+										<span class="wrap-break-words font-bold whitespace-normal"
+											>{userDisplayName}</span
+										>
+									</button>
+								</div>
+							{/if}
+							{#each AVATAR_MENU_ITEMS as item (item.label)}
+								{#if item.action === 'logout'}
+									<Menu.Item value={item.label} class="text-error" onclick={() => logout()}>
+										<item.icon class="text-error" />
+										<Menu.ItemText>{$t(item.label)}</Menu.ItemText>
+									</Menu.Item>
+								{:else}
+									{@const itemHref = item.getDynamicHref
+										? item.getDynamicHref($authState.isAuthenticated)
+										: item.href || '#'}
+									<Menu.Item value={item.label} onclick={() => goto(itemHref)}>
+										<item.icon class="text-primary" />
+										<Menu.ItemText>{$t(item.label)}</Menu.ItemText>
+									</Menu.Item>
+								{/if}
+							{/each}
+						</Menu.Content>
+					</Menu.Positioner>
+				</Portal>
+			</Menu>
 		{/if}
 	</div>
 </div>
