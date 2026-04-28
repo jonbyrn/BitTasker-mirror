@@ -619,7 +619,6 @@
 				unit={formInput.unit}
 				mathExpression={formInput.mathExpression}
 				calculatorKey={uiState.calculatorKey}
-				{isBelowSwapMinimum}
 				onAmountChange={(value) => (formInput.amount = value)}
 				onUnitChange={(newUnit) => {
 					formInput.unit = newUnit;
@@ -801,6 +800,18 @@
 							</div>
 						</div>
 					</div>
+					<!-- Swap Minimum Warning -->
+					{#if isBelowSwapMinimum && feeState.swapLimits}
+						{@const minUsd =
+							btcPrice.price > 0
+								? formatUsd((feeState.swapLimits.minimal / 100_000_000) * btcPrice.price)
+								: null}
+						<div class="text-warning mt-1 text-xs">
+							{$t('wallet.receive.below_swap_minimum', {
+								values: { minAmount: formatSats(feeState.swapLimits.minimal) }
+							})}{minUsd ? ` (≈ ${minUsd})` : ''}
+						</div>
+					{/if}
 				{/if}
 
 				{#if uiState.currentStep === 2}
@@ -980,14 +991,6 @@
 								{$t('wallet.receive.enter_amount_to_estimate')}
 							</div>
 						{/if}
-						<!-- Swap Minimum Warning -->
-						{#if isBelowSwapMinimum && feeState.swapLimits}
-							<div class="text-error mt-0.5 text-center text-xs">
-								{$t('wallet.receive.below_swap_minimum', {
-									values: { minAmount: formatSats(feeState.swapLimits.minimal) }
-								})}
-							</div>
-						{/if}
 					</div>
 				{/if}
 			</div>
@@ -1157,6 +1160,19 @@
 						</div>
 					</div>
 				</div>
+
+				<!-- Swap Minimum Warning -->
+				{#if isBelowSwapMinimum && feeState.swapLimits}
+					{@const minUsd =
+						btcPrice.price > 0
+							? formatUsd((feeState.swapLimits.minimal / 100_000_000) * btcPrice.price)
+							: null}
+					<div class="text-warning mt-1 text-xs sm:mt-2">
+						{$t('wallet.receive.below_swap_minimum', {
+							values: { minAmount: formatSats(feeState.swapLimits.minimal) }
+						})}{minUsd ? ` (≈ ${minUsd})` : ''}
+					</div>
+				{/if}
 
 				<!-- Memo/Description Field (Accordion) -->
 				<div
@@ -1335,14 +1351,6 @@
 							{$t('wallet.receive.enter_amount_to_estimate')}
 						</div>
 					{/if}
-					<!-- Swap Minimum Warning -->
-					{#if isBelowSwapMinimum && feeState.swapLimits}
-						<div class="text-error mt-0.5 text-center text-xs sm:mt-1 sm:text-sm">
-							{$t('wallet.receive.below_swap_minimum', {
-								values: { minAmount: formatSats(feeState.swapLimits.minimal) }
-							})}
-						</div>
-					{/if}
 				</div>
 			</div>
 		</div>
@@ -1366,7 +1374,10 @@
 				class="btn btn-primary min-h-[44px] flex-1 touch-manipulation transition-transform duration-100 select-none active:scale-95 sm:hidden"
 				style="-webkit-tap-highlight-color: transparent;"
 				onclick={handleNextStep}
-				disabled={!isFormValid || feeState.isLoading || $walletStore.isInitializing}
+				disabled={!isFormValid ||
+					feeState.isLoading ||
+					$walletStore.isInitializing ||
+					isBelowSwapMinimum}
 			>
 				{#if feeState.isLoading || $walletStore.isInitializing}
 					<span class="loading loading-spinner loading-sm"></span>
