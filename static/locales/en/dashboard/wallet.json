@@ -693,7 +693,7 @@
 			"network_transaction_fee": "Network Transaction Fee",
 			"total_fees": "Total Fees",
 			"estimated_received": "Estimated Received",
-			"total_received_est": "Total Received (est)",
+			"total_received_est": "Total",
 			"loading_fees": "Calculating fees...",
 			"service_fee": "Service Fee",
 			"miner_fee": "Miner Fee",

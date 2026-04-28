@@ -688,7 +688,7 @@
 			"network_transaction_fee": "Tarifa de Transacción de Red",
 			"total_fees": "Tarifas Totales",
 			"estimated_received": "Estimado a Recibir",
-			"total_received_est": "Total Recibido (est)",
+			"total_received_est": "Total",
 			"loading_fees": "Calculando tarifas...",
 			"service_fee": "Tarifa de Servicio",
 			"miner_fee": "Tarifa de Minero",

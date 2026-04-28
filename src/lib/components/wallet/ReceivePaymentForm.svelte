@@ -57,7 +57,6 @@
 	// Grouped State: UI State
 	let uiState = $state({
 		descriptionExpanded: false,
-		networkFeeExpanded: false,
 		networkExpanded: false,
 		calculatorKey: 0,
 		currentStep: 1 as 1 | 2 // Step 1: Amount, Step 2: Details
@@ -814,6 +813,31 @@
 					{/if}
 				{/if}
 
+				<!-- Total Received Card (Mobile - visible on both steps) -->
+				<div
+					class="bg-base-200 flex flex-row items-center justify-between gap-1.5 rounded-lg border-2 p-1.5"
+					class:border-primary={!isBelowSwapMinimum}
+					class:border-error={isBelowSwapMinimum}
+				>
+					<span class="text-xs opacity-70">{$t('wallet.swap.total_received_est')}</span>
+					{#if totalReceived > 0 && feeState.estimated}
+						<div class="flex items-center gap-1.5">
+							<span class="text-primary text-xl font-bold">
+								{formatSats(totalReceived)}
+								{$t('wallet.sats')}
+							</span>
+							<span class="text-xs opacity-60">|</span>
+							<span class="text-xs opacity-60">
+								≈ {formatUsd(totalReceivedUSD)}
+							</span>
+						</div>
+					{:else}
+						<div class="text-xs opacity-60">
+							{$t('wallet.receive.enter_amount_to_estimate')}
+						</div>
+					{/if}
+				</div>
+
 				{#if uiState.currentStep === 2}
 					<!-- Memo/Description Field (Accordion) -->
 					<div
@@ -851,65 +875,6 @@
 						</div>
 					</div>
 
-					<!-- Network Fee Accordion (Always Visible) -->
-					{#if feeState.error}
-						<div class="alert alert-outline alert-error py-2 text-sm sm:py-4 sm:text-base">
-							<span>{feeState.error}</span>
-						</div>
-					{:else}
-						<div
-							class="collapse-arrow border-base-300 bg-base-100 collapse rounded-lg border"
-							class:collapse-open={uiState.networkFeeExpanded}
-						>
-							<button
-								type="button"
-								class="collapse-title min-h-0 px-3 py-2 text-left text-sm font-medium sm:px-4 sm:text-base"
-								onclick={() => (uiState.networkFeeExpanded = !uiState.networkFeeExpanded)}
-								disabled={feeState.isLoading}
-							>
-								<div class="flex w-full flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
-									<span class="w-full">{$t('wallet.network_fee')}:</span>
-									{#if feeState.isLoading}
-										<span class="inline-flex min-w-20 items-center gap-1.5 font-semibold sm:gap-2">
-											<span class="loading loading-spinner loading-xs"></span>
-										</span>
-									{:else if feeState.estimated}
-										<span class="w-full font-semibold"
-											>{formatSats(feeState.estimated.totalFees)} {$t('wallet.sats')}</span
-										>
-										{#if btcPrice > 0 && feeState.estimated.totalFees > 0}
-											<span class="w-full opacity-60">
-												≈ {formatUsd((feeState.estimated.totalFees / 100_000_000) * btcPrice)}
-											</span>
-										{/if}
-									{:else}
-										<span class="font-semibold">0 {$t('wallet.sats')}</span>
-									{/if}
-								</div>
-							</button>
-							<div class="collapse-content pb-1">
-								<div class="space-y-1.5 px-3 pb-1.5 sm:space-y-2 sm:px-4 sm:pb-2">
-									{#if feeState.estimated && feeState.estimated.serviceFee > 0}
-										<div class="flex items-center justify-between text-xs opacity-70">
-											<span>{$t('wallet.swap.swap_fee')}:</span>
-											<span>{formatSats(feeState.estimated.serviceFee)} {$t('wallet.sats')}</span>
-										</div>
-									{/if}
-									{#if feeState.estimated && feeState.estimated.networkFee > 0}
-										<div class="flex items-center justify-between text-xs opacity-70">
-											<span>{$t('wallet.swap.network_transaction_fee')}:</span>
-											<span>{formatSats(feeState.estimated.networkFee)} {$t('wallet.sats')}</span>
-										</div>
-									{/if}
-									{#if !feeState.estimated || feeState.estimated.totalFees === 0}
-										<div class="py-2 text-center text-xs opacity-70">
-											{$t('wallet.receive.enter_amount_to_estimate')}
-										</div>
-									{/if}
-								</div>
-							</div>
-						</div>
-					{/if}
 					<!-- Charge Fees to Payer Toggle (Mobile Step 2) -->
 					{#if feeState.estimated && feeState.estimated.totalFees > 0 && formInput.selectedNetwork !== 'rootstock-bitcoin'}
 						<button
@@ -952,46 +917,6 @@
 							<span class="label-text">{$t('wallet.receive.charge_fees_to_payer')}</span>
 						</button>
 					{/if}
-
-					<!-- Total Received Card (Mobile Step 2) -->
-					<div
-						class="bg-base-200 flex flex-col items-center gap-1.5 rounded-lg border-2 p-1.5"
-						class:border-primary={!isBelowSwapMinimum}
-						class:border-error={isBelowSwapMinimum}
-					>
-						<span class="text-center text-xs opacity-70"
-							>{$t('wallet.swap.total_received_est')}</span
-						>
-						{#if totalReceived > 0 && feeState.estimated}
-							<div class="flex w-full items-center justify-center gap-1.5">
-								{#if formInput.unit === 'sats'}
-									<span class="text-primary text-xl font-bold">
-										{formatSats(totalReceived)}
-										{$t('wallet.sats')}
-									</span>
-									{#if btcPrice > 0}
-										<span class="text-xs opacity-60">
-											≈ {formatUsd(totalReceivedUSD)}
-										</span>
-									{/if}
-								{:else}
-									<span class="text-primary text-xl font-bold">
-										{formatUsd(totalReceivedUSD)}
-									</span>
-									{#if btcPrice > 0}
-										<span class="text-xs opacity-60">
-											≈ {formatSats(totalReceived)}
-											{$t('wallet.sats')}
-										</span>
-									{/if}
-								{/if}
-							</div>
-						{:else}
-							<div class="text-center text-xs opacity-60">
-								{$t('wallet.receive.enter_amount_to_estimate')}
-							</div>
-						{/if}
-					</div>
 				{/if}
 			</div>
 		</div>
@@ -1210,66 +1135,6 @@
 					</div>
 				</div>
 
-				<!-- Network Fee Accordion (Always Visible) -->
-				{#if feeState.error}
-					<div class="alert alert-outline alert-error py-2 text-sm sm:py-4 sm:text-base">
-						<span>{feeState.error}</span>
-					</div>
-				{:else}
-					<div
-						class="collapse-arrow border-base-300 bg-base-100 collapse rounded-lg border"
-						class:collapse-open={uiState.networkFeeExpanded}
-					>
-						<button
-							type="button"
-							class="collapse-title min-h-0 px-3 py-2 text-left text-sm font-medium sm:px-4 sm:text-base"
-							onclick={() => (uiState.networkFeeExpanded = !uiState.networkFeeExpanded)}
-							disabled={feeState.isLoading}
-						>
-							<div class="flex w-full flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
-								<span class="w-full">{$t('wallet.network_fee')}:</span>
-								{#if feeState.isLoading}
-									<span class="inline-flex min-w-20 items-center gap-1.5 font-semibold sm:gap-2">
-										<span class="loading loading-spinner loading-xs"></span>
-									</span>
-								{:else if feeState.estimated}
-									<span class="w-full font-semibold"
-										>{formatSats(feeState.estimated.totalFees)} {$t('wallet.sats')}</span
-									>
-									{#if btcPrice > 0 && feeState.estimated.totalFees > 0}
-										<span class="w-full opacity-60">
-											≈ {formatUsd((feeState.estimated.totalFees / 100_000_000) * btcPrice)}
-										</span>
-									{/if}
-								{:else}
-									<span class="font-semibold">0 {$t('wallet.sats')}</span>
-								{/if}
-							</div>
-						</button>
-						<div class="collapse-content pb-0">
-							<div class="space-y-1.5 px-3 pb-1.5 sm:space-y-2 sm:px-4 sm:pb-2">
-								{#if feeState.estimated && feeState.estimated.serviceFee > 0}
-									<div class="flex items-center justify-between text-xs opacity-70">
-										<span>{$t('wallet.swap.swap_fee')}:</span>
-										<span>{formatSats(feeState.estimated.serviceFee)} {$t('wallet.sats')}</span>
-									</div>
-								{/if}
-								{#if feeState.estimated && feeState.estimated.networkFee > 0}
-									<div class="flex items-center justify-between text-xs opacity-70">
-										<span>{$t('wallet.swap.network_transaction_fee')}:</span>
-										<span>{formatSats(feeState.estimated.networkFee)} {$t('wallet.sats')}</span>
-									</div>
-								{/if}
-								{#if !feeState.estimated || feeState.estimated.totalFees === 0}
-									<div class="py-2 text-center text-xs opacity-70">
-										{$t('wallet.receive.enter_amount_to_estimate')}
-									</div>
-								{/if}
-							</div>
-						</div>
-					</div>
-				{/if}
-
 				<!-- Charge Fees to Payer Toggle (Desktop) -->
 				{#if feeState.estimated && feeState.estimated.totalFees > 0 && formInput.selectedNetwork !== 'rootstock-bitcoin'}
 					<button
@@ -1315,41 +1180,27 @@
 
 				<!-- Total Received Card (Desktop) -->
 				<div
-					class="bg-base-200 flex flex-col items-center gap-1.5 rounded-lg border-2 p-3 sm:gap-2 sm:p-4"
+					class="bg-base-200 flex items-center justify-between gap-3 rounded-lg border-2 px-4 py-3"
 					class:border-primary={!isBelowSwapMinimum}
 					class:border-error={isBelowSwapMinimum}
 				>
-					<span class="text-center text-xs opacity-70 sm:text-sm"
-						>{$t('wallet.swap.total_received_est')}</span
-					>
 					{#if totalReceived > 0 && feeState.estimated}
-						<div class="flex w-full items-center justify-center gap-1.5 sm:gap-2">
-							{#if formInput.unit === 'sats'}
-								<span class="text-primary text-xl font-bold sm:text-2xl">
-									{formatSats(totalReceived)}
-									{$t('wallet.sats')}
+						<span class="text-sm opacity-70">{$t('wallet.swap.total_received_est')}</span>
+						<div class="flex items-center gap-2">
+							<span class="text-primary text-xl font-bold">
+								{formatSats(totalReceived)}
+								{$t('wallet.sats')}
+							</span>
+							{#if btcPrice.price > 0}
+								<span class="text-sm opacity-60">
+									≈ {formatUsd(totalReceivedUSD)}
 								</span>
-								{#if btcPrice > 0}
-									<span class="text-xs opacity-60 sm:text-sm">
-										≈ {formatUsd(totalReceivedUSD)}
-									</span>
-								{/if}
-							{:else}
-								<span class="text-primary text-xl font-bold sm:text-2xl">
-									{formatUsd(totalReceivedUSD)}
-								</span>
-								{#if btcPrice > 0}
-									<span class="text-xs opacity-60 sm:text-sm">
-										≈ {formatSats(totalReceived)}
-										{$t('wallet.sats')}
-									</span>
-								{/if}
 							{/if}
 						</div>
 					{:else}
-						<div class="text-center text-xs opacity-60 sm:text-sm">
+						<span class="text-sm opacity-60">
 							{$t('wallet.receive.enter_amount_to_estimate')}
-						</div>
+						</span>
 					{/if}
 				</div>
 			</div>
