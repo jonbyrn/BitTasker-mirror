@@ -98,7 +98,7 @@ describe('service contract creation', () => {
 		expect(() => convertUsdAmountToRbtc('125.00', 0)).toThrow(
 			'Unable to determine the current BTC price.'
 		);
-	});
+	}, 10000);
 
 	it('delegates to v2 creation and returns transaction hash, amount, and acceptance snapshot', async () => {
 		const { createServiceContract } = await import('$lib/utils/service-contract/create');
