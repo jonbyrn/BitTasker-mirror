@@ -618,7 +618,7 @@
 
 		<!-- Network Selector and other fields - Hidden on mobile step 1, visible on step 2 and desktop -->
 		<div class="block sm:hidden">
-			<div class="flex flex-col space-y-2">
+			<div class="flex flex-col space-y-2 overflow-y-auto pb-60">
 				<!-- Network Selector (Accordion) -->
 				<div
 					class="collapse-arrow border-primary bg-base-100 collapse rounded-lg border-2"
@@ -877,6 +877,10 @@
 								bind:value={formInput.memo}
 								rows="3"
 								maxlength="200"
+								onfocus={() =>
+									document
+										.getElementById('memo-input')
+										?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
 							></textarea>
 							<div class="label text-xs">
 								<span
