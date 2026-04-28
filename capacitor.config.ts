@@ -54,6 +54,13 @@ const config: CapacitorConfig = {
 			style: 'DEFAULT',
 			backgroundColor: '#00000000'
 		},
+		SystemBars: {
+			// Injects --safe-area-inset-* CSS variables on Android WebView < 140
+			// This fixes the bug where env(safe-area-inset-*) returns 0px on Android 15+
+			insetsHandling: 'css',
+			style: 'DEFAULT',
+			hidden: false
+		},
 		Keyboard: {
 			// iOS: 'Body' resizes the <body> element when keyboard appears, which is more
 			// reliable than 'Native' (which has known bugs) or 'None' (requires manual handling).

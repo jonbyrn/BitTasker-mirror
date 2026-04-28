@@ -32,7 +32,7 @@
 		 * When true, the drawer will not allow closing via overlay click or header button.
 		 * This is useful when the drawer is in a submitting state.
 		 */
-		 isSubmitting?: boolean;
+		isSubmitting?: boolean;
 		children?: import('svelte').Snippet;
 		footer?: import('svelte').Snippet;
 	}>();
@@ -170,8 +170,8 @@
 	class="bg-base-100 fixed top-0 {position === 'left'
 		? 'left-0'
 		: 'right-0'} z-70 {drawerWidthClass} 
-		flex flex-col overflow-hidden
-		transform shadow-xl transition-transform duration-300 ease-in-out"
+		flex transform flex-col
+		overflow-hidden shadow-xl transition-transform duration-300 ease-in-out"
 	class:translate-x-0={visualOpenState}
 	class:-translate-x-full={!visualOpenState && position === 'left'}
 	class:translate-x-full={!visualOpenState && position === 'right'}
@@ -183,7 +183,7 @@
 >
 	{#if props.isOpen}
 		<!-- Header -->
-		<div class="bg-base-200 flex-none flex items-center justify-between p-4 shadow-sm">
+		<div class="bg-base-200 flex flex-none items-center justify-between p-4 shadow-sm">
 			<h4 id="drawer-title" class="min-w-0 flex-1 truncate pr-2 text-xl font-bold">
 				{#if props.title}
 					{props.title}
@@ -230,11 +230,15 @@
 </div>
 
 <style>
-	/* Keep content clear of device safe-area insets. */
-	/* If there's a footer, footer handles the bottom safe area. */
-	/* If no footer, content scroll area handles it. */
+	/*
+	 * Keep content clear of device safe-area insets.
+	 * If there's a footer, footer handles the bottom safe area.
+	 * If no footer, content scroll area handles it.
+	 *
+	 * Uses SystemBars fallback pattern for Android WebView < 140.
+	 */
 	.drawer-scroll-area:last-child,
 	.drawer-footer {
-		padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0));
+		padding-bottom: calc(1rem + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
 	}
 </style>

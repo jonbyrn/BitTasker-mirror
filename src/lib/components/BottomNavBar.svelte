@@ -339,10 +339,7 @@
 
 <!-- Bottom-sheet menu overlay (under the dock) -->
 {#if isMenuOpen || isMenuClosing}
-	<div
-		class="bottom-nav-overlay fixed inset-0 z-70 flex flex-col justify-end"
-		onclickcapture={handleBottomNavTap}
-	>
+	<div class="fixed inset-0 z-70 flex flex-col justify-end" onclickcapture={handleBottomNavTap}>
 		<button
 			type="button"
 			class="bottom-nav-backdrop flex-1 bg-black"
@@ -562,8 +559,12 @@
 />
 
 <style>
+	/*
+	 * SystemBars fallback pattern for Android WebView < 140:
+	 * var(--safe-area-inset-*, env(safe-area-inset-*, 0px))
+	 */
 	.pb-safe {
-		padding-bottom: env(safe-area-inset-bottom, 0);
+		padding-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
 	}
 
 	.dock {
@@ -571,7 +572,7 @@
 		align-items: center;
 		justify-content: space-around;
 		padding: 0.5rem 0;
-		padding-bottom: calc(0.5rem + env(safe-area-inset-bottom, 0));
+		padding-bottom: calc(0.5rem + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
 		min-height: 64px;
 		height: auto;
 		width: 100%;
@@ -605,7 +606,7 @@
 			0px,
 			calc(
 				var(--app-dock-height, var(--app-footer-height, var(--bottom-nav-height-safe))) -
-					env(safe-area-inset-bottom, 0px)
+					var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px))
 			)
 		);
 		overflow: hidden;
