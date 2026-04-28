@@ -54,12 +54,32 @@
 	// Mobile form container for keyboard scroll handling
 	let mobileFormContainer: HTMLDivElement | undefined = $state(undefined);
 
+	// Keyboard height tracking via VisualViewport API
+	let keyboardHeight = $state(0);
+
+	$effect(() => {
+		const viewport = window.visualViewport;
+		if (!viewport) return;
+
+		const handleResize = () => {
+			const visualHeight = viewport.height;
+			const offsetTop = viewport.offsetTop;
+			// Calculate keyboard height - difference between window inner height and visual viewport
+			keyboardHeight = Math.max(0, window.innerHeight - visualHeight - offsetTop);
+		};
+
+		// Initial calculation
+		handleResize();
+
+		viewport.addEventListener('resize', handleResize);
+		return () => viewport.removeEventListener('resize', handleResize);
+	});
+
 	// Grouped State: UI State
 	let uiState = $state({
 		descriptionExpanded: false,
 		networkExpanded: false,
-		calculatorKey: 0,
-		memoScrollPosition: 0
+		calculatorKey: 0
 	});
 
 	// Grouped State: Fee & Swap Information
@@ -622,7 +642,11 @@
 
 		<!-- Network Selector and other fields - Hidden on mobile step 1, visible on step 2 and desktop -->
 		<div class="block sm:hidden">
-			<div class="flex flex-col space-y-2 overflow-y-auto pb-60" bind:this={mobileFormContainer}>
+			<div
+				class="flex flex-col space-y-2 overflow-y-auto"
+				bind:this={mobileFormContainer}
+				style="padding-bottom: {keyboardHeight > 0 ? keyboardHeight + 16 : 0}px;"
+			>
 				<!-- Network Selector (Accordion) -->
 				<div
 					class="collapse-arrow border-primary bg-base-100 collapse rounded-lg border-2"
@@ -882,18 +906,9 @@
 								rows="3"
 								maxlength="200"
 								onfocus={() => {
-									uiState.memoScrollPosition = mobileFormContainer?.scrollTop || 0;
 									document
 										.getElementById('memo-input')
 										?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-								}}
-								onblur={() => {
-									if (mobileFormContainer) {
-										mobileFormContainer.scrollTo({
-											top: uiState.memoScrollPosition,
-											behavior: 'smooth'
-										});
-									}
 								}}
 							></textarea>
 							<div class="label text-xs">
