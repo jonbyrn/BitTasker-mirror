@@ -5,7 +5,7 @@
 	import TaskDeadlineDisplay from '$lib/components/task/TaskDeadlineDisplay.svelte';
 	import UsdSatsDisplay from '$lib/components/shared/UsdSatsDisplay.svelte';
 	import ContractTimelineNDK from './ContractTimelineNDK.svelte';
-	import ContractActionsNDK from './ContractActionsNDK.svelte';
+	import ContractActionsDrawerNDK from './ContractActionsDrawerNDK.svelte';
 	import ResolutionProposalSplitDisplay from './ResolutionProposalSplitDisplay.svelte';
 	import Gallery from '$lib/components/Gallery.svelte';
 	import {
@@ -188,7 +188,7 @@
 						>
 							{#if contractRune}
 								<div class="flex min-w-0 flex-wrap gap-2 sm:w-fit sm:flex-row">
-									<ContractActionsNDK {contractRune} {btcPrice} />
+									<ContractActionsDrawerNDK {contractRune} {btcPrice} />
 								</div>
 							{/if}
 						</div>

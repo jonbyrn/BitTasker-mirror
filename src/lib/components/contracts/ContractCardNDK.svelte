@@ -11,7 +11,7 @@
 	import { formatConvertedAmount } from '$lib/utils/helpers/currencyFormatter';
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
 	import { PaymentContractRune } from '$lib/runes/contractRune.svelte';
-	import ContractActionsNDK from './ContractActionsNDK.svelte';
+	import ContractActionsCardNDK from './ContractActionsCardNDK.svelte';
 	import ResolutionProposalSplitDisplay from './ResolutionProposalSplitDisplay.svelte';
 	import { ContractStatus } from '$lib/utils/contract/types';
 
@@ -169,29 +169,13 @@
 			<UserNostrBadge npub={contract.otherPartyNpub ?? ''} />
 
 			<!-- Right: Action Buttons -->
-			<div class="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
-				{#if contractRune && statusAndActionsReady}
-					<ContractActionsNDK {contractRune} btcPrice={btcPrice.price} />
-				{/if}
-				<button type="button" class="btn btn-outline btn-sm w-full sm:w-auto" onclick={openDrawer}>
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="h-4 w-4"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-						/>
-					</svg>
-					<span class="hidden sm:inline">{$t('dashboard.contracts.view_details')}</span>
-					<span class="sm:hidden">{$t('dashboard.contracts.view_details_short') || 'Details'}</span>
-				</button>
-			</div>
+			{#if contractRune && statusAndActionsReady}
+				<ContractActionsCardNDK
+					{contractRune}
+					btcPrice={btcPrice.price}
+					onOpenDrawer={openDrawer}
+				/>
+			{/if}
 		</div>
 	</div>
 </div>
