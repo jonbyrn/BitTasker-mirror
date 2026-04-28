@@ -218,7 +218,7 @@
 					"field_required": "This field is required",
 					"images_label": "Images",
 					"attachment_alt": "Attachment {index}",
-					"optional": "Optional",
+					"optional": "(Optional)",
 					"choose": "Choose...",
 					"submit": "Send Request",
 					"submit_failed": "Failed to submit quote request."
