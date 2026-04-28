@@ -59,8 +59,7 @@
 		descriptionExpanded: false,
 		networkExpanded: false,
 		calculatorKey: 0,
-		memoScrollPosition: 0,
-		memoFocused: false
+		memoScrollPosition: 0
 	});
 
 	// Grouped State: Fee & Swap Information
@@ -623,12 +622,7 @@
 
 		<!-- Network Selector and other fields - Hidden on mobile step 1, visible on step 2 and desktop -->
 		<div class="block sm:hidden">
-			<div
-				class="flex flex-col space-y-2 overflow-y-auto transition-[padding-bottom] duration-300 {uiState.memoFocused
-					? 'pb-60'
-					: 'pb-0'}"
-				bind:this={mobileFormContainer}
-			>
+			<div class="flex flex-col space-y-2 overflow-y-auto pb-60" bind:this={mobileFormContainer}>
 				<!-- Network Selector (Accordion) -->
 				<div
 					class="collapse-arrow border-primary bg-base-100 collapse rounded-lg border-2"
@@ -889,21 +883,17 @@
 								maxlength="200"
 								onfocus={() => {
 									uiState.memoScrollPosition = mobileFormContainer?.scrollTop || 0;
-									uiState.memoFocused = true;
 									document
 										.getElementById('memo-input')
 										?.scrollIntoView({ behavior: 'smooth', block: 'center' });
 								}}
 								onblur={() => {
-									uiState.memoFocused = false;
-									setTimeout(() => {
-										if (mobileFormContainer) {
-											mobileFormContainer.scrollTo({
-												top: uiState.memoScrollPosition,
-												behavior: 'smooth'
-											});
-										}
-									}, 300);
+									if (mobileFormContainer) {
+										mobileFormContainer.scrollTo({
+											top: uiState.memoScrollPosition,
+											behavior: 'smooth'
+										});
+									}
 								}}
 							></textarea>
 							<div class="label text-xs">
