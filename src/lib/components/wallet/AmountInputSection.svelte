@@ -18,7 +18,6 @@
 		isLoadingMaxCalculation?: boolean; // Loading state for max calculation
 		disabled?: boolean; // Whether the input and calculator should be disabled
 		hasInsufficientBalance?: boolean; // Whether there are insufficient funds
-		isBelowSwapMinimum?: boolean; // Whether the amount is below swap minimum
 		onAmountChange: (value: string) => void;
 		onUnitChange: (unit: 'sats' | 'usd') => void;
 		onCalculationChange?: (expression: string, result: number) => void;
@@ -41,7 +40,6 @@
 		isLoadingMaxCalculation = false,
 		disabled = false,
 		hasInsufficientBalance = false,
-		isBelowSwapMinimum = false,
 		onAmountChange,
 		onUnitChange,
 		onCalculationChange,
@@ -100,8 +98,8 @@
 	<!-- Amount Display (shows calculation and result) with attached Max button -->
 	<div
 		class="flex w-full items-stretch overflow-hidden rounded-lg border-2 transition-colors"
-		class:border-primary={!hasInsufficientBalance && !isBelowSwapMinimum}
-		class:border-error={hasInsufficientBalance || isBelowSwapMinimum}
+		class:border-primary={!hasInsufficientBalance}
+		class:border-error={hasInsufficientBalance}
 		class:opacity-50={disabled}
 	>
 		<!-- Input display area (grey bar) - takes remaining width -->
