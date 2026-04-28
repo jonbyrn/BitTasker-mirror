@@ -575,7 +575,7 @@
 			"cancel": "Cancel",
 			"generate_invoice": "Generate Invoice",
 			"get_paid": "Get Paid",
-			"charge_fees_to_payer": "Charge network fees to payer?",
+			"charge_fees_to_payer": "Charge network fees to payer",
 			"enter_amount_to_estimate": "Enter amount to estimate fees",
 			"network": "Network",
 			"description_characters": "Characters",

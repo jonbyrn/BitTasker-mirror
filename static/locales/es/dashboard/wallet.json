@@ -608,7 +608,7 @@
 			"cancel": "Cancelar",
 			"generate_invoice": "Generar Factura",
 			"get_paid": "Cobrar",
-			"charge_fees_to_payer": "¿Cobrar tarifas de red al pagador?",
+			"charge_fees_to_payer": "Cobrar tarifas de red al pagador",
 			"enter_amount_to_estimate": "Ingrese el monto para estimar las tarifas",
 			"network": "Red",
 			"description_characters": "Caracteres",
