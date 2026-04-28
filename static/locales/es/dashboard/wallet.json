@@ -365,6 +365,7 @@
 		"no_assets_loaded": "Aún no se han cargado activos",
 		"copy_address": "Copiar dirección",
 		"refresh": "Actualizar",
+		"copied": "Copiado",
 		"all": "Todos",
 		"all_networks": "Todas las Redes",
 		"failed_to_load_transactions": "Error al cargar transacciones",

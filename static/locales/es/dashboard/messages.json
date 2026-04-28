@@ -50,10 +50,36 @@
 		"whole_words_only": "Solo palabras completas",
 		"from_date": "Desde fecha",
 		"to_date": "Hasta fecha",
+		"searching": "Buscando...",
+		"no_messages_found": "No se encontraron mensajes para \"{query}\"",
+		"unknown": "Desconocido",
+		"score": "Puntuación: {score}",
+		"clear_search_aria": "Limpiar búsqueda",
+		"advanced_search_options_aria": "Opciones de búsqueda avanzada",
 		"tabs": {
 			"messages": "Mensajes",
 			"my_bids": "Mis Ofertas",
 			"bids_received": "Ofertas Recibidas"
+		},
+		"my_bids": {
+			"title": "Ofertas que he Enviado",
+			"subtitle": "Revisa el estado de tus ofertas",
+			"loading": "Cargando tus ofertas...",
+			"empty": {
+				"title": "Aún no has enviado ofertas",
+				"message": "Empieza a ofertar en tareas para verlas aquí.",
+				"browse_tasks": "Explorar Tareas"
+			}
+		},
+		"bids_received": {
+			"title": "Ofertas que he Recibido",
+			"subtitle": "Revisa y gestiona las ofertas para tus tareas",
+			"loading": "Cargando ofertas recibidas...",
+			"empty": {
+				"title": "No hay ofertas recibidas",
+				"message": "Crea tareas para empezar a recibir ofertas.",
+				"create_task": "Crear Tarea"
+			}
 		},
 		"back_to_messages": "Volver a Mensajes",
 		"go_back_to_messages": "Volver a mensajes",
