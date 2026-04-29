@@ -4,7 +4,7 @@
 	import { t } from 'svelte-i18n';
 	import { cubicOut } from 'svelte/easing';
 	import type { TransitionConfig } from 'svelte/transition';
-	import { Menu, Portal } from '@skeletonlabs/skeleton-svelte';
+	import { Menu } from '@skeletonlabs/skeleton-svelte';
 	import { authState } from '$lib/stores/auth.store';
 	import { user } from '$lib/stores/user.store';
 	import { profileStore } from '$lib/stores/profile.store';
@@ -30,6 +30,9 @@
 
 	// Control npub QR code modal
 	let showNpubQrModal = $state(false);
+
+	// Avatar dropdown state (controlled for iOS compatibility)
+	let avatarMenuOpen = $state(false);
 
 	// Dropdown state - track which section ID is open
 	let openSectionId = $state<string | null>(null);
@@ -284,46 +287,43 @@
 			<!-- Notification Center -->
 			<NotificationCenter />
 			<!-- Avatar Dropdown using Skeleton UI Menu (iOS-friendly) -->
-			<Menu>
-				<Menu.Trigger class="btn btn-ghost">
+			<Menu open={avatarMenuOpen} onOpenChange={(v) => (avatarMenuOpen = v)}>
+				<Menu.Trigger class="btn btn-ghost min-w-0 flex-shrink-0 p-0">
 					<Avatar name={$user.name} picture={userPicture()} size="sm" />
 				</Menu.Trigger>
-				<Portal>
-					<Menu.Positioner>
-						<Menu.Content class="card bg-base-100 rounded-box z-50 w-56 p-2 shadow-xl">
-							<!-- User Info Header -->
-							{#if userDisplayName}
-								<div class="border-base-300 mb-2 border-b pb-2">
-									<button
-										onclick={showNpubQrCode}
-										class="flex w-full items-center gap-2 whitespace-nowrap"
+				<Menu.Positioner>
+					<Menu.Content class="card bg-base-100 rounded-box z-50 w-56 p-2 shadow-xl">
+						<!-- User Info Header -->
+						{#if userDisplayName}
+							<div class="border-base-300 mb-2 border-b pb-2">
+								<button
+									onclick={showNpubQrCode}
+									class="flex w-full items-center gap-2 whitespace-nowrap"
+								>
+									<IconQrcode class="text-primary" />
+									<span class="wrap-break-words font-bold whitespace-normal">{userDisplayName}</span
 									>
-										<IconQrcode class="text-primary" />
-										<span class="wrap-break-words font-bold whitespace-normal"
-											>{userDisplayName}</span
-										>
-									</button>
-								</div>
+								</button>
+							</div>
+						{/if}
+						{#each AVATAR_MENU_ITEMS as item (item.label)}
+							{#if item.action === 'logout'}
+								<Menu.Item value={item.label} class="text-error" onclick={() => logout()}>
+									<item.icon class="text-error" />
+									<Menu.ItemText>{$t(item.label)}</Menu.ItemText>
+								</Menu.Item>
+							{:else}
+								{@const itemHref = item.getDynamicHref
+									? item.getDynamicHref($authState.isAuthenticated)
+									: item.href || '#'}
+								<Menu.Item value={item.label} onclick={() => goto(itemHref)}>
+									<item.icon class="text-primary" />
+									<Menu.ItemText>{$t(item.label)}</Menu.ItemText>
+								</Menu.Item>
 							{/if}
-							{#each AVATAR_MENU_ITEMS as item (item.label)}
-								{#if item.action === 'logout'}
-									<Menu.Item value={item.label} class="text-error" onclick={() => logout()}>
-										<item.icon class="text-error" />
-										<Menu.ItemText>{$t(item.label)}</Menu.ItemText>
-									</Menu.Item>
-								{:else}
-									{@const itemHref = item.getDynamicHref
-										? item.getDynamicHref($authState.isAuthenticated)
-										: item.href || '#'}
-									<Menu.Item value={item.label} onclick={() => goto(itemHref)}>
-										<item.icon class="text-primary" />
-										<Menu.ItemText>{$t(item.label)}</Menu.ItemText>
-									</Menu.Item>
-								{/if}
-							{/each}
-						</Menu.Content>
-					</Menu.Positioner>
-				</Portal>
+						{/each}
+					</Menu.Content>
+				</Menu.Positioner>
 			</Menu>
 		{/if}
 	</div>
@@ -383,10 +383,16 @@
 	}
 
 	/* iOS touch improvements for avatar dropdown button */
-	:global(.navbar-end .dropdown-end > button.btn.btn-ghost) {
+	:global(.navbar-end .btn.btn-ghost) {
 		touch-action: manipulation;
 		-webkit-tap-highlight-color: transparent;
 		cursor: pointer;
+	}
+
+	/* Ensure avatar button is clickable on iOS */
+	:global(.navbar-end [class*='avatar']) {
+		touch-action: manipulation;
+		-webkit-tap-highlight-color: transparent;
 	}
 
 	/* Ensure dropdown menu is clickable on iOS */
