@@ -29,9 +29,9 @@ export const CONTRACT_MODAL_CONFIGS: Record<ContractModalAction, ContractModalCo
 	[ContractModalAction.None]: null,
 	[ContractModalAction.Complete]: null, // Uses custom modal (TaskCompletionModal)
 	[ContractModalAction.Accept]: {
-		titleKey: 'dashboard.contracts.actions.accept_work_confirm_title',
-		messageKey: 'dashboard.contracts.actions.accept_work_confirm_message',
-		confirmTextKey: 'dashboard.contracts.actions.accept_work',
+		titleKey: 'dashboard.contracts.actions.approve_confirm_title',
+		messageKey: 'dashboard.contracts.actions.approve_confirm_message',
+		confirmTextKey: 'dashboard.contracts.actions.approve',
 		cancelTextKey: 'dashboard.contracts.actions.cancel',
 		confirmButtonClass: 'btn-success'
 	},

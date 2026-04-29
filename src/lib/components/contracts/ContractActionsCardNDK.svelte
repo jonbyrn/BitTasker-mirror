@@ -49,7 +49,7 @@
 					action: ContractModalAction.Accept,
 					icon: IconThumbUpOutline,
 					btnClass: 'btn-outline btn-success',
-					labelKey: 'dashboard.contracts.actions.accept_work'
+					labelKey: 'dashboard.contracts.actions.approve'
 				};
 			if (p.canClaimNoShowRefund)
 				return {

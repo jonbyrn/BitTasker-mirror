@@ -117,15 +117,13 @@
 						<span class="badge badge-sm {roleBadgeClass}">{$t(roleLabelKey)}</span>
 					</div>
 				{:else}
-					<!-- Older events: date and time stacked on mobile, inline on desktop -->
-					<div class="flex flex-col gap-1 max-md:flex-row max-md:items-center max-md:gap-2">
-						<div class="flex items-center gap-2">
+					<!-- Older events: date on first line, time on second line (when present), badge on right -->
+					<div class="flex items-start justify-between gap-2">
+						<div class="flex flex-col gap-1">
 							<time class="text-base-content/60 font-mono text-xs">{timeDate}</time>
-							<span class="text-base-content/40 text-xs max-md:hidden">at</span>
-							<time class="text-base-content/60 font-mono text-xs max-md:hidden">{timeTime}</time>
-							<span class="badge badge-sm {roleBadgeClass}">{$t(roleLabelKey)}</span>
+							<time class="text-base-content/60 font-mono text-xs">{timeTime}</time>
 						</div>
-						<time class="text-base-content/60 font-mono text-xs md:hidden">{timeTime}</time>
+						<span class="badge badge-sm {roleBadgeClass}">{$t(roleLabelKey)}</span>
 					</div>
 				{/if}
 

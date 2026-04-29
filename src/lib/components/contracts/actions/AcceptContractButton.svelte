@@ -24,5 +24,5 @@
 	{#if loading}
 		<span class="loading loading-spinner loading-xs"></span>
 	{/if}
-	{label || ($t('dashboard.contracts.actions.accept_work') as string) || 'Accept'}
+	{label || ($t('dashboard.contracts.actions.approve') as string) || 'Approve'}
 </button>

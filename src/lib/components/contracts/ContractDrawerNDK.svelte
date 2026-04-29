@@ -163,10 +163,8 @@
 						</div>
 					</div>
 
-					<!-- Row 3: Date + Accordion + Buttons -->
-					<div
-						class="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between"
-					>
+					<!-- Row 3: Date row -->
+					<div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
 						<div class="min-w-0 flex-1">
 							{#if contract.estimatedStartTime != null && contract.estimatedCompletionTime != null}
 								<BookingDatesDisplay
@@ -178,7 +176,7 @@
 							{/if}
 						</div>
 						{#if !isServiceContract}
-							<div class="order-2 w-full sm:order-3 sm:basis-full">
+							<div class="w-full sm:order-3 sm:basis-full">
 								<div class="join join-vertical w-full">
 									<div
 										class="collapse-arrow join-item border-base-300 collapse border-b"
@@ -209,16 +207,14 @@
 								</div>
 							</div>
 						{/if}
-						<div
-							class="order-3 flex min-w-0 flex-wrap justify-end gap-2 pl-0 sm:order-2 sm:w-fit sm:flex-row sm:items-center sm:justify-end sm:pl-4"
-						>
-							{#if contractRune}
-								<div class="flex min-w-0 flex-wrap gap-2 sm:w-fit sm:flex-row">
-									<ContractActionsDrawerNDK {contractRune} {btcPrice} />
-								</div>
-							{/if}
-						</div>
 					</div>
+
+					<!-- Row 4: Buttons on their own row (right-aligned) -->
+					{#if contractRune}
+						<div class="flex justify-end gap-2">
+							<ContractActionsDrawerNDK {contractRune} {btcPrice} />
+						</div>
+					{/if}
 				</div>
 			</div>
 
