@@ -1,6 +1,28 @@
 import { get } from 'svelte/store';
 import { locale, t } from 'svelte-i18n';
-import { formatStandardDateTime } from '$lib/utils/helpers/dateFormatter';
+import { formatStandardDateTime, formatStandardDate } from '$lib/utils/helpers/dateFormatter';
+
+/**
+ * Format timestamp for timeline display - returns date only
+ * e.g., "Feb 14, 2026"
+ */
+export function formatContractTimelineDate(timestampMs: number, loc: string): string {
+	const date = new Date(timestampMs);
+	return formatStandardDate(date, loc);
+}
+
+/**
+ * Format timestamp for timeline display - returns time only
+ * e.g., "10:59 PM"
+ */
+export function formatContractTimelineTime(timestampMs: number): string {
+	const date = new Date(timestampMs);
+	return date.toLocaleTimeString('en-US', {
+		hour: 'numeric',
+		minute: '2-digit',
+		hour12: true
+	});
+}
 
 /**
  * Relative / absolute label for a timeline row (uses current locale from stores).

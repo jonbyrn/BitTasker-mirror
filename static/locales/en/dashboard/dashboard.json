@@ -676,7 +676,10 @@
 			"all_roles": "All roles",
 			"all_statuses": "All statuses",
 			"filter_completed_paid": "Completed / paid",
-			"filter_ended": "Cancelled / closed",
+			"filter_completed": "Completed",
+			"filter_paid": "Paid",
+			"filter_claimed": "Claimed",
+			"filter_ended": "Cancelled",
 			"as_client": "Tasker",
 			"as_freelancer": "Taskee",
 			"amount": "Amount",
@@ -802,7 +805,7 @@
 			"actions": {
 				"complete_task": "Mark Task Complete",
 				"accept_work": "Accept Work",
-				"dispute_work": "Dispute Work",
+				"dispute_work": "Dispute",
 				"propose_resolution": "Propose Resolution",
 				"accept_proposal": "Accept Proposal",
 				"cancel_contract": "Cancel Contract",
@@ -917,7 +920,10 @@
 					"upload_limits": "Max 5 files, 10MB each, videos up to 5 minutes",
 					"uploaded_files": "Uploaded Evidence",
 					"mark_complete": "Mark as Complete",
-					"completing": "Completing Task..."
+					"completing": "Completing Task...",
+					"text_label": "Completion notes",
+					"text_placeholder": "Describe what you completed",
+					"text_hint": "Add details about the work performed"
 				},
 				"completion_evidence": "Completion Evidence",
 				"completion_evidence_description": "Evidence provided by the taskee showing task completion:"

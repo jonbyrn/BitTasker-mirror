@@ -203,6 +203,7 @@ export default defineConfig(({ mode }) => {
 			allowedHosts: true,
 			watch: {
 				ignored: [
+					'**/.git/**',
 					'**/src/lib/tests/**',
 					'**/tests/**',
 					'**/*.test.ts',

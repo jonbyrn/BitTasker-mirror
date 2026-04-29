@@ -3,7 +3,11 @@
 	import type { NDKContractStatus } from '$lib/nostr/events/contractStatus';
 	import { get } from 'svelte/store';
 	import { locale, t } from 'svelte-i18n';
-	import { formatContractTimelineTimeLabel } from '$lib/utils/contract/contractTimelineTime';
+	import {
+		formatContractTimelineTimeLabel,
+		formatContractTimelineDate,
+		formatContractTimelineTime
+	} from '$lib/utils/contract/contractTimelineTime';
 	import {
 		statusEventTimestampMs,
 		timelineParticipantForPubkey
@@ -52,6 +56,21 @@
 		return formatContractTimelineTimeLabel(statusEventTimestampMs(event));
 	});
 
+	/** Whether this event is recent (< 24 hours) and shows relative time */
+	const isRecentEvent = $derived.by(() => {
+		const label = timeLabel;
+		return label.includes('ago') || label.includes('just_now') || label.includes('minutes');
+	});
+
+	const timeDate = $derived.by(() => {
+		get(locale);
+		return formatContractTimelineDate(statusEventTimestampMs(event), get(locale) || 'en');
+	});
+
+	const timeTime = $derived.by(() => {
+		return formatContractTimelineTime(statusEventTimestampMs(event));
+	});
+
 	const roleLabelKey = $derived(
 		participant === 'tasker'
 			? 'dashboard.client'
@@ -91,10 +110,22 @@
 	>
 		<div class="card border-base-300 bg-base-100 rounded-xl border shadow-sm">
 			<div class="card-body gap-3 p-4 text-left">
-				<div class="flex flex-wrap items-center gap-2">
-					<time class="text-base-content/60 font-mono text-xs">{timeLabel}</time>
-					<span class="badge badge-sm {roleBadgeClass}">{$t(roleLabelKey)}</span>
-				</div>
+				{#if isRecentEvent}
+					<!-- Recent events: show relative time (e.g., "2 hours ago") with badge on same row -->
+					<div class="flex flex-wrap items-center gap-2">
+						<time class="text-base-content/60 font-mono text-xs">{timeLabel}</time>
+						<span class="badge badge-sm {roleBadgeClass}">{$t(roleLabelKey)}</span>
+					</div>
+				{:else}
+					<!-- Older events: date on first line, time on second line (when present), badge on right -->
+					<div class="flex items-start justify-between gap-2">
+						<div class="flex flex-col gap-1">
+							<time class="text-base-content/60 font-mono text-xs">{timeDate}</time>
+							<time class="text-base-content/60 font-mono text-xs">{timeTime}</time>
+						</div>
+						<span class="badge badge-sm {roleBadgeClass}">{$t(roleLabelKey)}</span>
+					</div>
+				{/if}
 
 				{#if contractStatus !== undefined}
 					<p class="text-sm leading-snug font-semibold {titleClass}">

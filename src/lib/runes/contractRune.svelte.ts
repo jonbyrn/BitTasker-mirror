@@ -85,6 +85,11 @@ export class PaymentContractRune implements PaymentContractRuneLike {
 	 */
 	completionAttachments = $state<Attachment[]>([]);
 
+	/**
+	 * Completion text from status subscription only (newest `completeTask` + Completed 31006).
+	 */
+	completionText = $state<string>('');
+
 	contractAddress = $derived(this.contract.contractAddress?.trim() ?? '');
 	parentEventId = $derived(this.contract.id ?? '');
 	taskerPubkey = $derived(this.contract.taskerPubkey);
@@ -138,12 +143,15 @@ export class PaymentContractRune implements PaymentContractRuneLike {
 
 	/**
 	 * Taskee marks complete (v2); v1 returns not allowed.
-	 * Optional `attachments` are sent on the 31006 only; `completionAttachments` on this rune updates
-	 * when status events arrive from relays (including your own publish).
+	 * Optional `attachments` and `completionText` are sent on the 31006 only; `completionAttachments`
+	 * and `completionText` on this rune update when status events arrive from relays (including your own publish).
 	 * TODO(gasless): prefer meta-tx when available (in v2 lifecycle).
 	 */
-	markTaskComplete(attachments?: Attachment[]): Promise<ContractLifecycleResult> {
-		return this.lifecycle.markTaskComplete(this, attachments);
+	markTaskComplete(
+		attachments?: Attachment[],
+		completionText?: string
+	): Promise<ContractLifecycleResult> {
+		return this.lifecycle.markTaskComplete(this, attachments, completionText);
 	}
 
 	/** Tasker accepts completed work (v2); v1 returns not allowed. */
@@ -420,6 +428,15 @@ export class PaymentContractRune implements PaymentContractRuneLike {
 		});
 	}
 
+	/** When a 31006 carries `completionText`, mirror it here (typically a single such event). */
+	private applyCompletionTextFromEvent(ev: NDKContractStatus): void {
+		const text = ev.completionText;
+		// Only skip if undefined - empty string is valid (means completion with media only, no text)
+		if (text === undefined) return;
+		this.completionText = text;
+		d.log('completionText from status event', { completionText: this.completionText });
+	}
+
 	setupSubscription() {
 		if (!this.paymentId) {
 			d.log('setupSubscription: skipped (paymentId missing)');
@@ -434,6 +451,7 @@ export class PaymentContractRune implements PaymentContractRuneLike {
 				const ev = event as NDKContractStatus;
 				this.statusEvents.push(ev);
 				this.applyCompletionAttachmentsFromEvent(ev);
+				this.applyCompletionTextFromEvent(ev);
 				if (!this.statusHistoryReady) return;
 				// only log new events that come in after the statusHistoryReady is true
 				d.log('New status event for paymentId', { paymentId: this.paymentId, ev });

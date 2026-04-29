@@ -10,7 +10,9 @@ export type DashboardContractStatusFilter =
 	| 'all'
 	| 'funded'
 	| 'in_progress'
-	| 'completed_success'
+	| 'completed'
+	| 'funds_released'
+	| 'funds_claimed'
 	| 'in_dispute'
 	| 'dispute_resolved'
 	| 'ended_other';
@@ -35,12 +37,12 @@ export function matchesDisplayStatusFilter(
 				displayStatus === DisplayOnlyStatus.InProgress ||
 				displayStatus === ContractStatus.WorkInProgress
 			);
-		case 'completed_success':
-			return (
-				displayStatus === ContractStatus.Completed ||
-				displayStatus === ContractStatus.FundsReleased ||
-				displayStatus === ContractStatus.FundsClaimed
-			);
+		case 'completed':
+			return displayStatus === ContractStatus.Completed;
+		case 'funds_released':
+			return displayStatus === ContractStatus.FundsReleased;
+		case 'funds_claimed':
+			return displayStatus === ContractStatus.FundsClaimed;
 		case 'in_dispute':
 			return (
 				displayStatus === ContractStatus.InDispute ||

@@ -181,8 +181,17 @@
 
 		<!-- Bottom Row: User Info + Action Buttons -->
 		<div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-			<!-- Left: User Info (without role headline) -->
-			<UserNostrBadge npub={contract.otherPartyNpub ?? ''} />
+			<!-- Left: User Info + Context Type Badge (vertically centered) -->
+			<div class="flex w-full items-center justify-between gap-2">
+				<UserNostrBadge npub={contract.otherPartyNpub ?? ''} />
+				<div
+					class="badge {contract.tagValue('contextType') === 'service'
+						? 'badge-info'
+						: 'badge-outline'} badge-sm"
+				>
+					{contract.tagValue('contextType') === 'service' ? 'Service' : 'Task'}
+				</div>
+			</div>
 
 			<!-- Right: Action Buttons -->
 			{#if contractRune && statusAndActionsReady}

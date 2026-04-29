@@ -13,7 +13,7 @@
 	import IconCalendarClock from '~icons/mdi/calendar-clock';
 	import IconTruckDeliveryOutline from '~icons/mdi/truck-delivery-outline';
 	import IconRefresh from '~icons/mdi/refresh';
-	import { formatDurationBetweenDates } from '$lib/utils/helpers/dateFormatter';
+	import BookingDatesDisplay from '$lib/components/shared/BookingDatesDisplay.svelte';
 
 	const {
 		open = false,
@@ -172,20 +172,6 @@
 			latestProposal?.content.estimatedEndTime ?? 0
 		)
 	);
-	const estimatedStartLabel = $derived(formatTimestamp(normalizedSchedule.estimatedStartTime));
-	const estimatedCompletionLabel = $derived(
-		formatTimestamp(normalizedSchedule.estimatedCompletionTime)
-	);
-	const durationLabel = $derived.by(() => {
-		if (normalizedSchedule.estimatedStartTime && normalizedSchedule.estimatedCompletionTime) {
-			return formatDurationBetweenDates(
-				new Date(normalizedSchedule.estimatedStartTime * 1000),
-				new Date(normalizedSchedule.estimatedCompletionTime * 1000),
-				$t
-			);
-		}
-		return '';
-	});
 	const proposalExpiresLabel = $derived(
 		formatTimestamp(latestProposal?.content.expirationTimestamp)
 	);
@@ -490,65 +476,15 @@
 
 					<div class="space-y-4 text-sm">
 						<!-- Booking Dates -->
-						<div class="flex items-center justify-between gap-2 px-1">
-							<!-- Start Date -->
-							<div class="flex min-w-0 flex-col">
-								<div
-									class="text-base-content/60 flex items-center gap-1.5 text-[10px] font-bold tracking-wider uppercase"
-								>
-									<IconCalendarClock class="h-3.5 w-3.5" />
-									<span
-										>{tr(
-											'dashboard.services.detail.book_now_drawer.start_date',
-											'Start date'
-										)}</span
-									>
-								</div>
-								<div class="mt-0.5 truncate text-xs font-bold sm:text-sm">
-									{estimatedStartLabel}
-								</div>
-							</div>
-
-							<!-- Duration Indicator -->
-							{#if durationLabel}
-								<div class="flex min-w-[60px] flex-1 flex-col items-center justify-center px-2">
-									<div class="relative flex w-full items-center py-2">
-										<div class="bg-primary/20 h-0.5 flex-1 rounded-full"></div>
-										<div class="absolute inset-0 flex items-center justify-center">
-											<span
-												class="badge badge-ghost badge-xs text-primary border-primary/20 h-5 px-2 text-[11px] font-bold whitespace-nowrap shadow-sm"
-											>
-												{durationLabel}
-											</span>
-										</div>
-										<div class="bg-primary/20 h-0.5 flex-1 rounded-full"></div>
-										<div class="absolute -right-0.5 flex items-center">
-											<div
-												class="border-l-primary/30 border-t-[4px] border-b-[4px] border-l-[6px] border-transparent"
-											></div>
-										</div>
-									</div>
-								</div>
-							{/if}
-
-							<!-- Delivery Date -->
-							<div class="flex min-w-0 flex-col items-end text-right">
-								<div
-									class="text-base-content/60 flex items-center justify-end gap-1.5 text-[10px] font-bold tracking-wider uppercase"
-								>
-									<span
-										>{tr(
-											'dashboard.services.detail.book_now_drawer.delivery_date',
-											'Delivery date'
-										)}</span
-									>
-									<IconTruckDeliveryOutline class="h-3.5 w-3.5" />
-								</div>
-								<div class="mt-0.5 truncate text-xs font-bold sm:text-sm">
-									{estimatedCompletionLabel}
-								</div>
-							</div>
-						</div>
+						<BookingDatesDisplay
+							startTime={normalizedSchedule.estimatedStartTime}
+							endTime={normalizedSchedule.estimatedCompletionTime}
+							startLabel={tr('dashboard.services.detail.book_now_drawer.start_date', 'Start date')}
+							endLabel={tr(
+								'dashboard.services.detail.book_now_drawer.delivery_date',
+								'Delivery date'
+							)}
+						/>
 
 						<!-- Expiry Row -->
 						<div
