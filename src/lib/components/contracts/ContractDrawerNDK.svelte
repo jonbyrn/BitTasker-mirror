@@ -158,8 +158,8 @@
 					</div>
 
 					<!-- Service Location (for TASKER_LOCATION services) -->
-					{#if serviceLocationPresentation}
-						<div class="bg-base-100 mb-4 rounded-lg p-3" data-testid="contract-service-location">
+					{#if serviceLocationPresentation && mapLinks}
+						<div class="border-base-200 mb-4 border-t pt-3" data-testid="contract-service-location">
 							<div class="flex items-start gap-3">
 								<div class="bg-primary/10 mt-0.5 rounded-full p-1.5">
 									<IconMapMarker class="text-primary h-4 w-4" />
@@ -169,49 +169,47 @@
 										class="text-base-content/60 mb-0.5 text-xs font-medium tracking-wider uppercase"
 									>
 										{serviceLocationPresentation.mode === 'tasker_location'
-											? $t('dashboard.contracts.service_location_tasker')
-											: $t('dashboard.contracts.service_location_taskee')}
+											? $t('dashboard.services.my_services.quote_inbox.tasker_location')
+											: $t('dashboard.services.my_services.quote_inbox.taskee_location')}
 									</p>
-									<p class="text-sm font-medium break-words">
+									<p class="word-break-words text-sm font-medium">
 										{serviceLocationPresentation.label}
 									</p>
-									{#if mapLinks}
-										<div class="mt-2 flex flex-wrap gap-2">
-											<a
-												href={mapLinks.universal}
-												target="_blank"
-												rel="noopener noreferrer"
-												class="btn btn-xs btn-primary btn-outline gap-1"
-											>
-												<IconOpenInNew class="h-3 w-3" />
-												{$t('dashboard.contracts.open_in_maps')}
-											</a>
-											<div class="dropdown dropdown-end">
-												<div tabindex="0" role="button" class="btn btn-xs btn-ghost">
-													{$t('common.buttons.more')}
-												</div>
-												<ul
-													class="dropdown-content menu bg-base-100 rounded-box z-1 w-40 p-2 shadow-lg"
-												>
-													<li>
-														<a href={mapLinks.google} target="_blank" rel="noopener noreferrer">
-															{$t('dashboard.contracts.open_google_maps')}
-														</a>
-													</li>
-													<li>
-														<a href={mapLinks.apple} target="_blank" rel="noopener noreferrer">
-															{$t('dashboard.contracts.open_apple_maps')}
-														</a>
-													</li>
-													<li>
-														<a href={mapLinks.waze} target="_blank" rel="noopener noreferrer">
-															{$t('dashboard.contracts.open_waze')}
-														</a>
-													</li>
-												</ul>
+									<div class="mt-2 flex flex-wrap gap-2">
+										<a
+											href={mapLinks.universal}
+											target="_blank"
+											rel="noopener noreferrer"
+											class="btn btn-xs btn-primary btn-outline gap-1"
+										>
+											<IconOpenInNew class="h-3 w-3" />
+											{$t('dashboard.contracts.open_in_maps')}
+										</a>
+										<div class="dropdown dropdown-top">
+											<div tabindex="0" role="button" class="btn btn-xs btn-ghost">
+												{$t('dashboard.contracts.more_map_options')}
 											</div>
+											<ul
+												class="dropdown-content menu bg-base-100 rounded-box z-10 w-40 p-2 shadow"
+											>
+												<li>
+													<a href={mapLinks.google} target="_blank" rel="noopener noreferrer">
+														Google Maps
+													</a>
+												</li>
+												<li>
+													<a href={mapLinks.apple} target="_blank" rel="noopener noreferrer">
+														Apple Maps
+													</a>
+												</li>
+												<li>
+													<a href={mapLinks.waze} target="_blank" rel="noopener noreferrer">
+														Waze
+													</a>
+												</li>
+											</ul>
 										</div>
-									{/if}
+									</div>
 								</div>
 							</div>
 						</div>

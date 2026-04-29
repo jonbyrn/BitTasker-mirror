@@ -51,7 +51,6 @@ async function checkRelayConnectivity(relays: string[]): Promise<boolean> {
 	console.log('[preflight] ACTION: checkRelayConnectivity', { relayCount: relays.length, relays });
 	const pool = getPool();
 	for (const relay of relays) {
-		console.log('[preflight] SUBACTION: attempting relay', { relay });
 		try {
 			const timeout = setTimeout(() => {}, 3000);
 			const events = await pool.querySync([relay], { kinds: [0], limit: 1 }, { maxWait: 3000 });
@@ -112,6 +111,8 @@ export interface ServiceContractPreflightFailure {
 	errorCode: ServiceContractPreflightErrorCode;
 	error: string;
 	totalRequired?: string;
+	shortfallSats?: number;
+	shortfallUsd?: number;
 }
 
 export type ServiceContractPreflightResult =
@@ -146,10 +147,6 @@ function calculateTotalPayment(baseAmountWei: bigint, feeTier: number): bigint {
 	const feePercentage = FEE_TIERS[feeTier as keyof typeof FEE_TIERS]?.percentage ?? 250;
 	const feeWei = (baseAmountWei * BigInt(feePercentage)) / 10000n;
 	return baseAmountWei + feeWei;
-}
-
-function formatRbtcAmount(wei: bigint): string {
-	return ethers.formatEther(wei);
 }
 
 function getExpectedRskChainId(): bigint {
@@ -399,11 +396,17 @@ export async function preflightServiceContractCreation(
 
 		if (balanceWei < totalPaymentWei) {
 			const shortfallWei = totalPaymentWei - balanceWei;
+			const shortfallSats = Math.round(Number(ethers.formatEther(shortfallWei)) * 100_000_000);
+			const shortfallUsd = Number(ethers.formatEther(shortfallWei)) * btcPrice;
+			const formattedShortfallSats = shortfallSats.toLocaleString('en-US');
+			const formattedShortfallUsd = `$${shortfallUsd.toFixed(2)}`;
 			return {
 				ok: false,
 				errorCode: 'insufficient_funds',
-				error: `Insufficient RBTC balance. You have ${formatRbtcAmount(balanceWei)} RBTC but need ${formatRbtcAmount(totalPaymentWei)} RBTC. Shortfall: ${formatRbtcAmount(shortfallWei)} RBTC.`,
-				totalRequired: ethers.formatEther(totalPaymentWei)
+				error: `Insufficient balance. You need an additional ${formattedShortfallSats} sats (${formattedShortfallUsd}) to complete this transaction.`,
+				totalRequired: ethers.formatEther(totalPaymentWei),
+				shortfallSats,
+				shortfallUsd
 			};
 		}
 

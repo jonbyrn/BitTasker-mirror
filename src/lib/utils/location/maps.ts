@@ -19,12 +19,16 @@ export interface MapLinkSet {
  * - iOS/macOS: Opens Apple Maps
  * - Windows/Linux: Opens Google Maps web
  */
-export function generateUniversalMapLink(location: Location /*options?: MapLinkOptions*/): string {
+export function generateUniversalMapLink(location: Location, options?: MapLinkOptions): string {
 	if (location.latitude != null && location.longitude != null) {
-		return `https://maps.rbt.no/?q=${location.latitude},${location.longitude}`;
+		const coords = `${location.latitude},${location.longitude}`;
+		const label = options?.label || location.displayName || '';
+		// Include label in query for better display on map
+		const query = label ? `${coords} ${label}` : coords;
+		return `https://maps.rbt.no/?q=${encodeURIComponent(query)}`;
 	}
 
-	const query = location.formattedAddress || location.displayName || '';
+	const query = options?.label || location.formattedAddress || location.displayName || '';
 	return `https://maps.rbt.no/?q=${encodeURIComponent(query)}`;
 }
 

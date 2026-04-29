@@ -1031,11 +1031,14 @@
 					const platformFee = baseAmount * PLATFORM_FEE_RATE;
 					const totalPaymentUsd = baseAmount + platformFee + ESTIMATED_NETWORK_FEE_USD;
 					const totalPaymentSats = Math.round((totalPaymentUsd * 100_000_000) / btcPriceValue);
+					const walletBalanceSats = $totalBalances.sats;
+					const shortfallSats = Math.max(0, totalPaymentSats - walletBalanceSats);
+					const shortfallUsd = (shortfallSats / 100_000_000) * btcPriceValue;
 
 					message = $t('dashboard.services.detail.book_now_drawer.insufficient_funds_message', {
 						values: {
-							sats: formatSats(totalPaymentSats),
-							usd: `$${formatNumberWithTwoDecimals(totalPaymentUsd)}`
+							sats: formatSats(shortfallSats),
+							usd: `$${formatNumberWithTwoDecimals(shortfallUsd)}`
 						}
 					});
 					hint = null;

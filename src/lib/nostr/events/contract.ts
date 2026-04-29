@@ -1,5 +1,6 @@
 import { createDebug } from '$lib/utils/debug';
 import NDK, { NDKEvent, NDKUser, type NDKTag, type NostrEvent } from '@nostr-dev-kit/ndk';
+import type { ServiceContractAgreementSnapshot } from '$lib/types/contract';
 
 const d = createDebug('ndk:events:contract');
 
@@ -384,6 +385,27 @@ export class NDKPaymentContract extends NDKEvent {
 	set contractAddress(value: string) {
 		this.removeTag('contractAddress');
 		this.tags.push(['contractAddress', value]);
+	}
+
+	/**
+	 * Agreement snapshot for service contracts (includes service location, selected tier, etc.)
+	 * Stored as JSON in an encrypted tag.
+	 */
+	get agreementSnapshot(): ServiceContractAgreementSnapshot | undefined {
+		const raw = this.tagValue('agreementSnapshot');
+		if (!raw) return undefined;
+		try {
+			return JSON.parse(raw) as ServiceContractAgreementSnapshot;
+		} catch {
+			return undefined;
+		}
+	}
+
+	set agreementSnapshot(value: ServiceContractAgreementSnapshot | undefined) {
+		this.removeTag('agreementSnapshot');
+		if (value !== undefined) {
+			this.tags.push(['agreementSnapshot', JSON.stringify(value)]);
+		}
 	}
 
 	private shouldEncryptTag(tag: NDKTag): boolean {

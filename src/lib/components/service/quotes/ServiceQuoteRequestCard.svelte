@@ -72,7 +72,7 @@
 			case 'expired':
 				return tr('dashboard.services.my_services.quote_inbox.statuses.expired', 'Expired');
 			case 'accepting':
-				return tr('dashboard.services.my_services.quote_inbox.statuses.accepting', 'Accepting');
+				return tr('dashboard.services.my_services.quote_inbox.statuses.accepting', 'Accepted');
 			case 'contract_sync_pending':
 				return tr(
 					'dashboard.services.my_services.quote_inbox.statuses.contract_sync_pending',
