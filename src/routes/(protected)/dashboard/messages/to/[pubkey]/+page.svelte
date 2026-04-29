@@ -94,7 +94,7 @@
 </script>
 
 <div
-	class="bg-base-100 border-base-300/20 mx-auto mt-6 flex h-[calc(60vh)] max-w-6xl flex-col overflow-hidden rounded-2xl border shadow-xl md:mt-0 md:h-[calc(70vh)]"
+	class="bg-base-100 border-base-300/20 mx-auto mt-6 flex h-[70vh] max-w-6xl flex-col overflow-hidden rounded-2xl border shadow-xl sm:h-[80dvh] md:mt-0"
 >
 	{#if isLoading}
 		<!-- Loading State -->
