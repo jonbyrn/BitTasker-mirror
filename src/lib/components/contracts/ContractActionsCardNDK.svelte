@@ -2,7 +2,7 @@
 	import { get } from 'svelte/store';
 	import { t } from 'svelte-i18n';
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
-	import TaskCompletionModalNDK from '$lib/components/contracts/TaskCompletionModalNDK.svelte';
+	import TaskCompletionDrawerNDK from '$lib/components/contracts/TaskCompletionDrawerNDK.svelte';
 	import ProposeResolutionModalNDK from '$lib/components/contracts/ProposeResolutionModalNDK.svelte';
 	import ResolutionProposalSplitDisplay from '$lib/components/contracts/ResolutionProposalSplitDisplay.svelte';
 	import { PaymentContractRune } from '$lib/runes/contractRune.svelte';
@@ -146,11 +146,11 @@
 		activeModal = ContractModalAction.None;
 	}
 
-	async function handleCompletionSubmit(attachments: Attachment[]) {
+	async function handleCompletionSubmit(attachments: Attachment[], completionText?: string) {
 		if (isBusy) return;
 		pendingAction = ContractModalAction.Complete;
 		try {
-			const res = await contractRune.markTaskComplete(attachments);
+			const res = await contractRune.markTaskComplete(attachments, completionText);
 			if (!res.ok) {
 				appStore.showErrorToast(get(t)('dashboard.contracts.actions.contract_action_failed'));
 				throw new Error('markTaskComplete failed');
@@ -375,7 +375,7 @@
 
 {#if activeModal === ContractModalAction.Complete}
 	<div use:portal={'modals'}>
-		<TaskCompletionModalNDK
+		<TaskCompletionDrawerNDK
 			{contractRune}
 			isOpen={true}
 			{btcPrice}

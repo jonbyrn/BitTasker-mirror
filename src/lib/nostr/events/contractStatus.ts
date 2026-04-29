@@ -89,6 +89,9 @@ function legacyStatusContentToAdditionalTags(
 		const raw = parsed.completionAttachments;
 		out.push(['completionAttachments', typeof raw === 'string' ? raw : JSON.stringify(raw)]);
 	}
+	if (parsed.completionText !== undefined && parsed.completionText !== null) {
+		out.push(['completionText', String(parsed.completionText)]);
+	}
 
 	return out;
 }
@@ -379,6 +382,18 @@ export class NDKContractStatus extends NDKEvent {
 		this.removeTag('completionAttachments');
 		if (value !== undefined && value.length > 0) {
 			this.tags.push(['completionAttachments', JSON.stringify(value)]);
+		}
+	}
+
+	get completionText(): string | undefined {
+		return this.tagValue('completionText');
+	}
+
+	set completionText(value: string | undefined) {
+		this.removeTag('completionText');
+		// Empty string is valid - allows completion with only media attachments
+		if (value !== undefined) {
+			this.tags.push(['completionText', value]);
 		}
 	}
 

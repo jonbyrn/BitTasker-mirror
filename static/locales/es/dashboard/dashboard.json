@@ -909,7 +909,10 @@
 					"upload_limits": "Máx 5 archivos, 10MB cada uno, videos hasta 5 minutos",
 					"uploaded_files": "Evidencia Subida",
 					"mark_complete": "Marcar como Completado",
-					"completing": "Completando Tarea..."
+					"completing": "Completando Tarea...",
+					"text_label": "Notas de completado",
+					"text_placeholder": "Describe lo que completaste",
+					"text_hint": "Agrega detalles sobre el trabajo realizado"
 				},
 				"completion_evidence": "Evidencia de Completado",
 				"completion_evidence_description": "Evidencia proporcionada por el taskee mostrando la completación de la tarea:"

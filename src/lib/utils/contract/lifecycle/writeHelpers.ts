@@ -47,6 +47,7 @@ export async function publishContractStatus(params: {
 	chainStatus: ContractStatus;
 	writeMethod: string;
 	completionAttachments?: Attachment[];
+	completionText?: string;
 	proposedTaskeeAmount?: string;
 	proposedTaskerAmount?: string;
 }): Promise<void> {
@@ -62,6 +63,9 @@ export async function publishContractStatus(params: {
 	status.tags.push(['writeMethod', params.writeMethod]);
 	if (params.completionAttachments !== undefined && params.completionAttachments.length > 0) {
 		status.completionAttachments = params.completionAttachments;
+	}
+	if (params.completionText !== undefined && params.completionText !== '') {
+		status.completionText = params.completionText;
 	}
 	if (params.proposedTaskeeAmount !== undefined) {
 		status.proposedTaskeeAmount = params.proposedTaskeeAmount;
@@ -113,6 +117,7 @@ export async function broadcastThenParallelEffects(
 	push: { title: string; body: string; type: string },
 	extraBetweenStatusAndPush?: ReadonlyArray<{ name: string; run: () => Promise<unknown> }>,
 	completionAttachments?: Attachment[],
+	completionText?: string,
 	proposedAmounts?: { proposedTaskeeAmount?: string; proposedTaskerAmount?: string }
 ): Promise<void> {
 	const tasks: { name: string; run: () => Promise<unknown> }[] = [
@@ -127,6 +132,7 @@ export async function broadcastThenParallelEffects(
 					chainStatus,
 					writeMethod,
 					completionAttachments,
+					completionText,
 					proposedTaskeeAmount: proposedAmounts?.proposedTaskeeAmount,
 					proposedTaskerAmount: proposedAmounts?.proposedTaskerAmount
 				})

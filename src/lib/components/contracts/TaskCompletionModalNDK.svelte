@@ -1,3 +1,4 @@
+<!-- @deprecated Use TaskCompletionDrawerNDK instead -->
 <script lang="ts">
 	import { t } from 'svelte-i18n';
 	import type { Attachment } from '$lib/types/task';

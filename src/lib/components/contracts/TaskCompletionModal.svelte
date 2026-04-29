@@ -1,3 +1,4 @@
+<!-- @deprecated Use TaskCompletionDrawerNDK instead -->
 <script lang="ts">
 	import { t } from 'svelte-i18n';
 	import type { ContractWithEvents } from '$lib/types/contract';
@@ -47,7 +48,9 @@
 		})
 	);
 	const estimatedStartTime = $derived(
-		contract ? (contractStore.getContractKey(contract, 'estimatedStartTime') as number | undefined) : undefined
+		contract
+			? (contractStore.getContractKey(contract, 'estimatedStartTime') as number | undefined)
+			: undefined
 	);
 	const estimatedCompletionTime = $derived(
 		contract
@@ -153,15 +156,18 @@
 				<div class="card-body p-4">
 					<h4 class="mb-3 font-semibold">{completionPresentation.infoLabel} details</h4>
 					<ContractContextSummary {contract} />
-					<p class="text-sm text-base-content/80">
+					<p class="text-base-content/80 text-sm">
 						<strong>{$t('dashboard.contracts.amount')}:</strong>
 						{btcPrice > 0
-							? formatUSDWithSatsSync(contractStore.getContractKey(contract, 'amount') as string, btcPrice)
+							? formatUSDWithSatsSync(
+									contractStore.getContractKey(contract, 'amount') as string,
+									btcPrice
+								)
 							: `${contractStore.getContractKey(contract, 'amount') as string} RBTC`}
 					</p>
 					{#if estimatedStartTime && estimatedCompletionTime}
 						<div class="pt-2">
-							<p class="mb-2 text-sm font-medium text-base-content/80">Agreement schedule</p>
+							<p class="text-base-content/80 mb-2 text-sm font-medium">Agreement schedule</p>
 							<TaskDeadlineDisplay
 								dateRangeStart={estimatedStartTime}
 								dateRangeEnd={estimatedCompletionTime}
@@ -208,8 +214,8 @@
 						: 'Upload completion evidence'}
 					files={pendingFiles}
 					uploadedAttachments={completionAttachments}
-					getFilePreview={getFilePreview}
-					isVideoFile={isVideoFile}
+					{getFilePreview}
+					{isVideoFile}
 				/>
 
 				{#if isUploading && uploadProgress.total > 0}

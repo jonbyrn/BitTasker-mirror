@@ -81,7 +81,8 @@ export function computePermittedActionsV2(rune: PaymentContractRuneLike): Permit
 
 export async function markTaskCompleteV2(
 	rune: PaymentContractRuneLike,
-	completionAttachmentsArg?: Attachment[]
+	completionAttachmentsArg?: Attachment[],
+	completionText?: string
 ): Promise<ContractLifecycleResult> {
 	const ids = getRuneWriteIds(rune);
 	const taskerPk = rune.taskerPubkey;
@@ -128,6 +129,11 @@ export async function markTaskCompleteV2(
 			count: completionAttachments.length
 		});
 	}
+	if (completionText !== undefined && completionText !== '') {
+		d.log('markTaskCompleteV2: publishing with completion text', {
+			textLength: completionText.length
+		});
+	}
 
 	await broadcastThenParallelEffects(
 		'markTaskCompleteV2',
@@ -144,6 +150,7 @@ export async function markTaskCompleteV2(
 		},
 		undefined,
 		completionAttachments,
+		completionText,
 		undefined
 	);
 

@@ -217,12 +217,18 @@
 
 			<!-- Completion Evidence and Status Timeline -->
 			<div class="flex flex-col gap-6 xl:flex-row">
-				{#if contractRune.completionAttachments && contractRune.completionAttachments.length > 0}
+				{#if contractRune.completionText || (contractRune.completionAttachments?.length ?? 0) > 0}
 					<div class="card bg-base-200 flex-1 overflow-hidden">
 						<div class="card-body p-4">
 							<h4 class="mb-3 font-semibold">
 								{$t('dashboard.contracts.timeline.completion_evidence')}
 							</h4>
+
+							{#if contractRune.completionText}
+								<div class="mb-4 text-sm whitespace-pre-wrap">
+									{contractRune.completionText}
+								</div>
+							{/if}
 
 							{#if contractRune.completionAttachments.filter((att: Attachment) => !isVideoFile(att.url)).length > 0}
 								<div class="mb-4">
