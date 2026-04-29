@@ -331,7 +331,7 @@ describe('service contract preflight', () => {
 			throw new Error('Expected insufficient-funds preflight failure.');
 		}
 		expect(result.errorCode).toBe('insufficient_funds');
-		expect(result.error).toContain('Insufficient RBTC balance.');
+		expect(result.error).toContain('Insufficient balance.');
 	});
 
 	it('maps unexpected preflight failures through the shared contract error handler', async () => {

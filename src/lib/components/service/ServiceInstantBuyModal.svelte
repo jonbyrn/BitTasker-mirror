@@ -6,12 +6,18 @@
 	import ContractFundingWalletCard from '$lib/components/contracts/ContractFundingWalletCard.svelte';
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 	import UserInfoDisplay from '$lib/components/user/UserInfoDisplay.svelte';
+	import LocationPicker from '$lib/components/LocationPicker.svelte';
 	import IconRefresh from '~icons/mdi/refresh';
+	import IconMapMarker from '~icons/mdi/map-marker';
+	import IconAlertCircle from '~icons/mdi/alert-circle';
+	import IconCheckCircle from '~icons/mdi/check-circle';
 	import BookingDatesDisplay from '$lib/components/shared/BookingDatesDisplay.svelte';
 	import type {
 		ServiceContractAgreementSnapshot,
 		ServiceContractPricingSnapshot
 	} from '$lib/types/contract';
+	import type { Location } from '$lib/types/task';
+	import type { RadiusValidationResult } from '$lib/utils/location/distance';
 
 	let {
 		open = false,
@@ -46,6 +52,12 @@
 		errorMessage = '',
 		errorHint = '',
 		canConfirm = true,
+		requiresTaskerLocation = false,
+		taskeeServiceRadius = null,
+		taskeeBaseLocation = null,
+		taskerLocation = null,
+		locationValidation = null,
+		onTaskerLocationSelect = () => {},
 		onConfirm = () => {},
 		onRetry = () => {},
 		onRefresh = () => {},
@@ -86,6 +98,12 @@
 		errorMessage?: string;
 		errorHint?: string;
 		canConfirm?: boolean;
+		requiresTaskerLocation?: boolean;
+		taskeeServiceRadius?: number | null;
+		taskeeBaseLocation?: Location | null;
+		taskerLocation?: Location | null;
+		locationValidation?: RadiusValidationResult | null;
+		onTaskerLocationSelect?: (location: Location) => void;
 		onConfirm?: () => void;
 		onRetry?: () => void;
 		onRefresh?: () => void;
@@ -412,6 +430,87 @@
 									memberSince={providerMemberSince}
 								/>
 							</div>
+
+							<!-- Service Location Picker (for TASKER_LOCATION services) -->
+							{#if requiresTaskerLocation}
+								<div
+									class="bg-base-100 border-base-300 rounded-xl border p-4"
+									data-testid="service-location-picker-section"
+								>
+									<div class="mb-3">
+										<div class="flex items-center gap-2">
+											<IconMapMarker class="text-primary h-5 w-5" />
+											<h4 class="font-semibold">
+												{$t('dashboard.services.detail.book_now_drawer.service_location_title')}
+											</h4>
+										</div>
+										<p class="text-base-content/70 mt-1 text-sm">
+											{$t('dashboard.services.detail.book_now_drawer.service_location_description')}
+										</p>
+										{#if taskeeServiceRadius}
+											<p class="text-base-content/60 mt-0.5 text-xs">
+												{$t(
+													'dashboard.services.detail.book_now_drawer.service_location_max_distance',
+													{ values: { distance: taskeeServiceRadius } }
+												)}
+											</p>
+										{/if}
+									</div>
+
+									<LocationPicker
+										placeholder={$t(
+											'dashboard.services.detail.book_now_drawer.service_location_placeholder'
+										)}
+										location={taskerLocation ?? undefined}
+										onLocationSelect={onTaskerLocationSelect}
+										mapHeight="280px"
+										showFullscreen={true}
+										showGeolocation={true}
+										showServiceRadius={false}
+										serviceRadius={taskeeServiceRadius ?? undefined}
+										showRadiusCircle={!!taskeeServiceRadius && !!taskeeBaseLocation}
+										circleCenterLocation={taskeeBaseLocation}
+									/>
+
+									<!-- Location Validation Feedback -->
+									{#if locationValidation}
+										{#if locationValidation.valid}
+											<div class="text-success mt-3 flex items-center gap-2 text-sm">
+												<IconCheckCircle class="h-4 w-4" />
+												<span
+													>{$t(
+														'dashboard.services.detail.book_now_drawer.service_location_selected'
+													)}</span
+												>
+											</div>
+										{:else if locationValidation.errorCode === 'OUTSIDE_RADIUS'}
+											<div class="text-error mt-3 flex items-start gap-2 text-sm">
+												<IconAlertCircle class="mt-0.5 h-4 w-4 shrink-0" />
+												<span>
+													{$t(
+														'dashboard.services.detail.book_now_drawer.service_location_outside_radius',
+														{
+															values: {
+																distance: locationValidation.distanceKm,
+																maxDistance: locationValidation.maxRadiusKm
+															}
+														}
+													)}
+												</span>
+											</div>
+										{/if}
+									{:else if !taskerLocation}
+										<div class="text-warning mt-3 flex items-center gap-2 text-sm">
+											<IconAlertCircle class="h-4 w-4" />
+											<span
+												>{$t(
+													'dashboard.services.detail.book_now_drawer.service_location_required'
+												)}</span
+											>
+										</div>
+									{/if}
+								</div>
+							{/if}
 
 							<!-- Timeline Row -->
 							<BookingDatesDisplay

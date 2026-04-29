@@ -54,6 +54,11 @@ export interface ServiceQuoteRequestContent {
 	timestamp: number;
 	nonce?: string;
 	version: 'v1';
+	serviceLocation?: {
+		mode: 'tasker_location';
+		label: string;
+		location: Location;
+	};
 }
 
 export interface ServiceProposalPricingSnapshot {

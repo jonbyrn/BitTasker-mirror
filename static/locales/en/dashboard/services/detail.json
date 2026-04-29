@@ -180,7 +180,14 @@
 					"minutes": "minutes",
 					"unavailable": "N/A",
 					"insufficient_funds_message": "Not enough funds. You need an additional {sats} Sats ({usd}) to book this service.",
-					"add_funds": "Add Funds"
+					"add_funds": "Add Funds",
+					"service_location_title": "Service Location",
+					"service_location_description": "Where should the service be performed?",
+					"service_location_placeholder": "Enter your address or use current location",
+					"service_location_required": "Please select your location to continue",
+					"service_location_max_distance": "Within {distance}km of provider",
+					"service_location_outside_radius": "This location is {distance}km away, but the provider only travels up to {maxDistance}km.",
+					"service_location_selected": "Location selected"
 				},
 				"delete_service_messages": {
 					"active_contracts_blocked": "Cannot delete a service with active contracts.",
@@ -221,7 +228,13 @@
 					"optional": "(Optional)",
 					"choose": "Choose...",
 					"submit": "Send Request",
-					"submit_failed": "Failed to submit quote request."
+					"submit_failed": "Failed to submit quote request.",
+					"service_location_title": "Service Location",
+					"service_location_description": "Where would you like the service performed?",
+					"service_location_placeholder": "Enter address or use current location",
+					"service_location_required": "Location is required for this service",
+					"service_location_max_distance": "Within {distance}km of provider",
+					"service_location_outside_radius": "This location is outside the service area ({distance}km away, max {maxDistance}km)"
 				}
 			}
 		}

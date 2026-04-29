@@ -28,7 +28,10 @@ import { runParallelNamed } from '../parallelEffects';
 import { createPaymentContract, estimateWrite } from './blockchainWrites';
 import { getSecurePaymentContractAddress } from './contractAddress';
 import type { ServiceAcceptanceSnapshot } from '$lib/types/service-quote';
-import type { ServiceContractPricingSnapshot, ServiceContractAgreementSnapshot } from '$lib/types/contract';
+import type {
+	ServiceContractPricingSnapshot,
+	ServiceContractAgreementSnapshot
+} from '$lib/types/contract';
 import { pushNotificationService } from '$lib/api/services/push-notification.service';
 import type { TransactionReceipt } from 'ethers';
 import { parsePaymentContractCreatedPaymentId } from './creation';
@@ -123,10 +126,16 @@ function normalizeServiceSchedule(
  * Derives CreatePaymentContractParams from a service contract input.
  * This is the service-specific equivalent of deriveContractCreationParams in creation.ts
  */
-export function deriveServiceContractParams(
-	input: ServiceContractCreationInputV2
-): { params: CreatePaymentContractParams; display: ContractCreationDisplay } {
-	const { freelancerAddress, amountRbtc, clientFeeTier = DEFAULT_FEE_TIER, freelancerFeeTier = DEFAULT_FEE_TIER } = input;
+export function deriveServiceContractParams(input: ServiceContractCreationInputV2): {
+	params: CreatePaymentContractParams;
+	display: ContractCreationDisplay;
+} {
+	const {
+		freelancerAddress,
+		amountRbtc,
+		clientFeeTier = DEFAULT_FEE_TIER,
+		freelancerFeeTier = DEFAULT_FEE_TIER
+	} = input;
 
 	if (!freelancerAddress || !ethers.isAddress(freelancerAddress)) {
 		throw new Error('Invalid freelancer wallet address');
@@ -244,7 +253,10 @@ export async function createServiceContract(
 ): Promise<ServiceContractCreationResultV2> {
 	const serviceId = input.serviceId;
 
-	d.log('createServiceContract start', { serviceId, freelancerAddress: input.freelancerAddress.slice(0, 10) + '…' });
+	d.log('createServiceContract start', {
+		serviceId,
+		freelancerAddress: input.freelancerAddress.slice(0, 10) + '…'
+	});
 
 	try {
 		const { params, display } = deriveServiceContractParams(input);
@@ -300,6 +312,11 @@ export async function createServiceContract(
 		contractEvent.estimatedCompletionTime = params.estimatedCompletionTime;
 		contractEvent.transactionHash = transactionHash;
 		contractEvent.contractAddress = paymentContractAddress;
+
+		// Store the agreement snapshot (includes service location)
+		if (input.agreementSnapshot) {
+			contractEvent.agreementSnapshot = input.agreementSnapshot;
+		}
 
 		// Add service-specific tags for context
 		contractEvent.tags.push(['contextType', 'service']);
@@ -448,6 +465,11 @@ export async function publishServiceContractEvent(
 		contractEvent.estimatedCompletionTime = input.estimatedCompletionTime;
 		contractEvent.transactionHash = input.transactionHash;
 		contractEvent.contractAddress = paymentContractAddress;
+
+		// Store the agreement snapshot (includes service location)
+		if (input.agreementSnapshot) {
+			contractEvent.agreementSnapshot = input.agreementSnapshot;
+		}
 
 		contractEvent.tags.push(['contextType', 'service']);
 		contractEvent.tags.push(['serviceId', input.serviceId]);

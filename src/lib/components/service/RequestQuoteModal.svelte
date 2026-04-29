@@ -1,24 +1,36 @@
 <script lang="ts">
 	import type { Service } from '$lib/types/service.d';
 	import type { QuoteRequestPayload } from '$lib/types/service.d';
-	import type { Attachment } from '$lib/types/task.d';
+	import type { Attachment, Location } from '$lib/types/task.d';
 	import type { UploadResult } from '$lib/api/services/upload.service';
 	import Drawer from '$lib/components/Drawer.svelte';
 	import MediaUploader from '$lib/components/MediaUploader.svelte';
 	import SchemaDrivenFieldRenderer from '$lib/components/forms/SchemaDrivenFieldRenderer.svelte';
+	import LocationPicker from '$lib/components/LocationPicker.svelte';
 	import {
 		collectMissingRequiredInquiryFieldIds,
 		hasRequiredTrimmedText
 	} from '$lib/components/forms/FormValidationCore';
 	import { getServiceDisplayTitle } from '$lib/utils/serviceDisplayTranslation';
+	import {
+		validateLocationWithinRadius,
+		type RadiusValidationResult
+	} from '$lib/utils/location/distance';
+	import { formatLocationAddress } from '$lib/utils/location/maps';
 	import { t, locale } from 'svelte-i18n';
+	import IconMapMarker from '~icons/mdi/map-marker';
+	import IconAlertCircle from '~icons/mdi/alert-circle';
+	import IconCheckCircle from '~icons/mdi/check-circle';
 
 	let {
 		open = $bindable(false),
 		service,
 		onConfirm,
 		onClose,
-		contextSummary = []
+		contextSummary = [],
+		requiresTaskerLocation = false,
+		taskeeServiceRadius = null,
+		taskeeBaseLocation = null
 	}: {
 		open?: boolean;
 		service: Service | null;
@@ -30,6 +42,9 @@
 			| void;
 		onClose: () => void;
 		contextSummary?: string[];
+		requiresTaskerLocation?: boolean;
+		taskeeServiceRadius?: number | null;
+		taskeeBaseLocation?: Location | null;
 	} = $props();
 
 	const currentLocale = $derived($locale || 'en');
@@ -46,6 +61,30 @@
 	let isSubmitting = $state(false);
 	let submitError = $state<string | null>(null);
 	let previousInputSignature = '';
+
+	// Location state for TASKER_LOCATION services
+	let selectedLocation = $state<Location | null>(null);
+	let locationValidation = $state<RadiusValidationResult | null>(null);
+
+	function handleLocationSelect(location: Location) {
+		selectedLocation = location;
+
+		// Validate against radius if service has TASKER_LOCATION configuration
+		if (taskeeServiceRadius != null && taskeeBaseLocation) {
+			locationValidation = validateLocationWithinRadius(
+				location,
+				taskeeBaseLocation,
+				taskeeServiceRadius
+			);
+		} else {
+			// No radius restriction, just mark as valid
+			locationValidation = {
+				valid: true,
+				distanceKm: null,
+				maxRadiusKm: 0
+			};
+		}
+	}
 
 	// Clear submit error when user modifies form
 	$effect(() => {
@@ -85,6 +124,8 @@
 		uploadResults = [];
 		errors = {};
 		submitError = null;
+		selectedLocation = null;
+		locationValidation = null;
 		onClose();
 	}
 
@@ -98,6 +139,22 @@
 		}
 		for (const fieldId of collectMissingRequiredInquiryFieldIds(inquiryFields, customFormValues)) {
 			e[`field_${fieldId}`] = $t('dashboard.services.detail.request_quote_modal.field_required');
+		}
+		// Validate location for TASKER_LOCATION services
+		if (requiresTaskerLocation) {
+			if (!selectedLocation) {
+				e.location = $t('dashboard.services.detail.request_quote_modal.service_location_required');
+			} else if (locationValidation && !locationValidation.valid) {
+				e.location = $t(
+					'dashboard.services.detail.request_quote_modal.service_location_outside_radius',
+					{
+						values: {
+							distance: locationValidation.distanceKm ?? 0,
+							maxDistance: locationValidation.maxRadiusKm
+						}
+					}
+				);
+			}
 		}
 		errors = e;
 		return Object.keys(e).length === 0;
@@ -126,6 +183,14 @@
 			payload.customFormResponses = Object.fromEntries(
 				Object.entries(customFormValues).filter(([, v]) => v !== undefined)
 			) as QuoteRequestPayload['customFormResponses'];
+		}
+		// Include service location for TASKER_LOCATION services
+		if (requiresTaskerLocation && selectedLocation) {
+			payload.serviceLocation = {
+				mode: 'tasker_location',
+				label: formatLocationAddress(selectedLocation),
+				location: selectedLocation
+			};
 		}
 		try {
 			const result = await onConfirm(payload);
@@ -269,6 +334,78 @@
 				maxFileSize={2}
 			/>
 		</div>
+
+		<!-- Service Location Picker (for TASKER_LOCATION services) - at bottom for better mobile UX -->
+		{#if requiresTaskerLocation}
+			<div
+				class="bg-base-200 border-base-300 rounded-xl border p-4"
+				data-testid="quote-location-picker-section"
+			>
+				<div class="mb-3">
+					<div class="flex items-center gap-2">
+						<IconMapMarker class="text-primary h-5 w-5" />
+						<h4 class="font-semibold">
+							{$t('dashboard.services.detail.request_quote_modal.service_location_title')}
+						</h4>
+					</div>
+					<p class="text-base-content/70 mt-1 text-sm">
+						{$t('dashboard.services.detail.request_quote_modal.service_location_description')}
+					</p>
+					{#if taskeeServiceRadius}
+						<p class="text-base-content/60 mt-0.5 text-xs">
+							{$t('dashboard.services.detail.request_quote_modal.service_location_max_distance', {
+								values: { distance: taskeeServiceRadius }
+							})}
+						</p>
+					{/if}
+				</div>
+
+				<LocationPicker
+					placeholder={$t(
+						'dashboard.services.detail.request_quote_modal.service_location_placeholder'
+					)}
+					location={selectedLocation ?? undefined}
+					onLocationSelect={handleLocationSelect}
+					mapHeight="280px"
+					showFullscreen={true}
+					showGeolocation={true}
+					showServiceRadius={false}
+					serviceRadius={taskeeServiceRadius ?? undefined}
+					showRadiusCircle={!!taskeeServiceRadius && !!taskeeBaseLocation}
+					circleCenterLocation={taskeeBaseLocation}
+				/>
+
+				<!-- Location Validation Feedback -->
+				{#if locationValidation}
+					{#if locationValidation.valid}
+						<div class="text-success mt-3 flex items-center gap-2 text-sm">
+							<IconCheckCircle class="h-4 w-4" />
+							<span>{formatLocationAddress(selectedLocation!)}</span>
+						</div>
+					{:else if locationValidation.errorCode === 'OUTSIDE_RADIUS'}
+						<div class="text-error mt-3 flex items-start gap-2 text-sm">
+							<IconAlertCircle class="mt-0.5 h-4 w-4 shrink-0" />
+							<span>
+								{$t(
+									'dashboard.services.detail.request_quote_modal.service_location_outside_radius',
+									{
+										values: {
+											distance: locationValidation.distanceKm,
+											maxDistance: locationValidation.maxRadiusKm
+										}
+									}
+								)}
+							</span>
+						</div>
+					{/if}
+				{:else if errors.location}
+					<div class="text-error mt-3 flex items-center gap-2 text-sm">
+						<IconAlertCircle class="h-4 w-4" />
+						<span>{errors.location}</span>
+					</div>
+				{/if}
+			</div>
+		{/if}
 
 		{#if submitError}
 			<div class="alert alert-error alert-soft text-sm" data-testid="request-quote-submit-error">
