@@ -109,6 +109,7 @@
 					"add_ons_one": "1 add-on",
 					"add_ons_other": "{count} add-ons",
 					"rush_delivery": "Rush delivery",
+					"tasker_location": "Tasker's Location",
 					"contract_created_title": "Contract created",
 					"contract_created_body": "This quote request has already been converted into an active service contract.",
 					"view_contract": "View Contract",

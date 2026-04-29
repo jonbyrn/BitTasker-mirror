@@ -109,6 +109,7 @@
 					"add_ons_one": "1 complemento",
 					"add_ons_other": "{count} complementos",
 					"rush_delivery": "Entrega urgente",
+					"tasker_location": "Ubicación del Tasker",
 					"contract_created_title": "Contrato creado",
 					"contract_created_body": "Esta solicitud de cotización ya se convirtió en un contrato de servicio activo.",
 					"view_contract": "Ver contrato",

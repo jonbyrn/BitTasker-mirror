@@ -57,7 +57,7 @@
 					...$store.service.locationDetails,
 					taskerLocation: {
 						serviceLocation: defaultLocation,
-						serviceRadius: undefined
+						serviceRadius: 25 // Default 25km travel radius
 					}
 				}
 			});
@@ -103,6 +103,28 @@
 					serviceRadius: Number.isFinite(nextRadius)
 						? nextRadius
 						: currentTaskeeLocation.serviceRadius
+				}
+			}
+		});
+	}
+
+	function updateTaskerLocationRadius(event: Event) {
+		const target = event.currentTarget as HTMLInputElement;
+		const nextRadius = Number(target.value);
+		const currentTaskerLocation = $store.service.locationDetails?.taskerLocation;
+
+		if (!currentTaskerLocation) {
+			return;
+		}
+
+		store.updateService({
+			locationDetails: {
+				...$store.service.locationDetails,
+				taskerLocation: {
+					...currentTaskerLocation,
+					serviceRadius: Number.isFinite(nextRadius)
+						? nextRadius
+						: currentTaskerLocation.serviceRadius
 				}
 			}
 		});
@@ -202,9 +224,12 @@
 
 	{#if ($store.service.serviceLocationTypes || []).includes(ServiceLocationTypeEnum.TASKER_LOCATION)}
 		<div class="card bg-base-200 min-w-0 space-y-4 overflow-hidden p-4">
-			<h4 class="text-lg font-semibold break-words">
+			<h4 class="word-break-words text-lg font-semibold">
 				{$t('dashboard.services.create.location.my_location_title')}
 			</h4>
+			<p class="text-base-content/70 text-sm">
+				{$t('dashboard.services.create.location.tasker_location_hint')}
+			</p>
 
 			<div class="w-full min-w-0">
 				<EnhancedLocationPicker
@@ -231,8 +256,45 @@
 					showFullscreen={true}
 					showGeolocation={true}
 					showServiceRadius={false}
-					showRadiusCircle={false}
+					serviceRadius={$store.service.locationDetails?.taskerLocation?.serviceRadius || 25}
+					showRadiusCircle={true}
 				/>
+			</div>
+
+			<div class="w-full min-w-0">
+				<label class="label" for="tasker-service-radius">
+					<span class="label-text word-break-words">
+						{$t('dashboard.services.create.location.travel_radius_label')}
+					</span>
+					<span class="label-text-alt">
+						{$store.service.locationDetails?.taskerLocation?.serviceRadius || 25} km ({kmToMiles(
+							$store.service.locationDetails?.taskerLocation?.serviceRadius || 25
+						)} miles)
+					</span>
+				</label>
+				<input
+					id="tasker-service-radius"
+					type="range"
+					min="1"
+					max="100"
+					step="1"
+					class="range range-primary w-full"
+					value={$store.service.locationDetails?.taskerLocation?.serviceRadius || 25}
+					oninput={updateTaskerLocationRadius}
+					data-testid="tasker-location-radius"
+				/>
+				<div class="text-base-content/60 mt-1 flex justify-between px-2 text-xs">
+					<span>1 km ({kmToMiles(1)} mi)</span>
+					<span
+						>{$store.service.locationDetails?.taskerLocation?.serviceRadius || 25} km ({kmToMiles(
+							$store.service.locationDetails?.taskerLocation?.serviceRadius || 25
+						)} mi)</span
+					>
+					<span>100 km ({kmToMiles(100)} mi)</span>
+				</div>
+				<p class="text-base-content/60 mt-2 text-xs">
+					{$t('dashboard.services.create.location.travel_radius_hint')}
+				</p>
 			</div>
 		</div>
 	{/if}

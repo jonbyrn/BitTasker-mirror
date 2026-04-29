@@ -1,24 +1,97 @@
 import type { Location } from '$lib/types/task';
 
+export interface MapLinkOptions {
+	label?: string;
+	navigateMode?: boolean;
+}
+
+export interface MapLinkSet {
+	universal: string;
+	google: string;
+	apple: string;
+	waze: string;
+}
+
+/**
+ * Generate universal map link that works across all platforms.
+ * Uses maps.rbt.no for automatic platform detection and native app opening:
+ * - Android: Opens native maps app
+ * - iOS/macOS: Opens Apple Maps
+ * - Windows/Linux: Opens Google Maps web
+ */
+export function generateUniversalMapLink(location: Location /*options?: MapLinkOptions*/): string {
+	if (location.latitude != null && location.longitude != null) {
+		return `https://maps.rbt.no/?q=${location.latitude},${location.longitude}`;
+	}
+
+	const query = location.formattedAddress || location.displayName || '';
+	return `https://maps.rbt.no/?q=${encodeURIComponent(query)}`;
+}
+
+/**
+ * Generate Apple Maps link (native on iOS/macOS)
+ */
+export function generateAppleMapsLink(location: Location, options?: MapLinkOptions): string {
+	if (location.latitude != null && location.longitude != null) {
+		const label = options?.label || location.displayName || 'Location';
+		return `https://maps.apple.com/?ll=${location.latitude},${location.longitude}&q=${encodeURIComponent(label)}`;
+	}
+
+	const query = location.formattedAddress || location.displayName || '';
+	return `https://maps.apple.com/?q=${encodeURIComponent(query)}`;
+}
+
+/**
+ * Generate Waze deep link (navigation-focused)
+ * If navigateMode is true, immediately starts navigation
+ */
+export function generateWazeLink(location: Location, options?: MapLinkOptions): string {
+	if (location.latitude != null && location.longitude != null) {
+		const base = `https://waze.com/ul?ll=${location.latitude},${location.longitude}`;
+		return options?.navigateMode ? `${base}&navigate=yes` : base;
+	}
+
+	const query = location.formattedAddress || location.displayName || '';
+	const base = `https://waze.com/ul?q=${encodeURIComponent(query)}`;
+	return options?.navigateMode ? `${base}&navigate=yes` : base;
+}
+
+/**
+ * Generate all map links for a location
+ * Returns links for universal (auto-detect platform), Google, Apple, and Waze
+ */
+export function generateAllMapLinks(location: Location, options?: MapLinkOptions): MapLinkSet {
+	return {
+		universal: generateUniversalMapLink(location /*options*/),
+		google: generateGoogleMapsLink(location /*options*/),
+		apple: generateAppleMapsLink(location, options),
+		waze: generateWazeLink(location, options)
+	};
+}
+
 /**
  * Generate a Google Maps link for a location
  * Works on both mobile and desktop, opening in user's preferred map app on mobile
  */
-export function generateGoogleMapsLink(location: Location, options?: { label?: string }): string {
-	if (!location.latitude || !location.longitude) {
+export function generateGoogleMapsLink(location: Location /*options?: MapLinkOptions*/): string {
+	if (location.latitude == null || location.longitude == null) {
 		// Fallback to address search if coordinates not available
-		const address = location.formattedAddress || location.displayName;
+		const address = location.formattedAddress || location.displayName || '';
 		return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
 	}
 
 	const lat = location.latitude;
 	const lng = location.longitude;
-	const label = options?.label || location.displayName || 'Location';
 
-	// Use Google Maps URL scheme that works on both mobile and desktop
-	// On mobile, this will open in the user's preferred map app (Google Maps, Apple Maps, etc.)
-	// On desktop, it opens in Google Maps web
-	return `https://www.google.com/maps/search/?api=1&query=${lat},${lng}&query_place_id=${location.placeId || ''}`;
+	// Use coordinate-based search for accuracy
+	let url = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+
+	// Add place ID if available for better accuracy
+	if (location.placeId) {
+		url += `&query_place_id=${location.placeId}`;
+	}
+
+	return url;
 }
 
 /**
@@ -40,7 +113,6 @@ export function generateGoogleMapsDirectionsLink(
 
 	const destLat = destination.latitude;
 	const destLng = destination.longitude;
-	const label = options?.label || destination.displayName || 'Destination';
 
 	let url = `https://www.google.com/maps/dir/?api=1&destination=${destLat},${destLng}`;
 
@@ -78,8 +150,8 @@ export function generateGoogleMapsDirectionsLink(
  */
 export function generateRouteDirectionsLink(
 	pickup: Location,
-	dropoff: Location,
-	options?: { label?: string }
+	dropoff: Location
+	/*options?: { label?: string }*/
 ): string {
 	if (!pickup.latitude || !pickup.longitude || !dropoff.latitude || !dropoff.longitude) {
 		// Fallback to address-based directions
@@ -145,4 +217,3 @@ export function formatLocationAddress(location: Location): string {
 
 	return location.displayName || 'Location';
 }
-

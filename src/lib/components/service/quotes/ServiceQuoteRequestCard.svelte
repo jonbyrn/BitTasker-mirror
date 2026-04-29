@@ -5,12 +5,14 @@
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { formatStandardDateTimeShort } from '$lib/utils/helpers/dateFormatter';
 	import { resolveServiceTierLabel } from '$lib/utils/service-quote/tier-label';
+	import { generateUniversalMapLink } from '$lib/utils/location/maps';
 	import UserInfoDisplay from '$lib/components/user/UserInfoDisplay.svelte';
 	import IconBriefcaseOutline from '~icons/mdi/briefcase-outline';
 	import IconCheckCircleOutline from '~icons/mdi/check-circle-outline';
 	import IconClockOutline from '~icons/mdi/clock-outline';
 	import IconEmailFastOutline from '~icons/mdi/email-fast-outline';
 	import IconEyeOutline from '~icons/mdi/eye-outline';
+	import IconMapMarker from '~icons/mdi/map-marker';
 
 	interface ActionButton {
 		label: string;
@@ -141,6 +143,10 @@
 			timeline.request.content.serviceAddress
 	);
 	const actionButtons = $derived(getActionButtons(timeline));
+	const serviceLocation = $derived(timeline.request.content.serviceLocation ?? null);
+	const serviceLocationMapLink = $derived(
+		serviceLocation?.location ? generateUniversalMapLink(serviceLocation.location) : null
+	);
 </script>
 
 <div
@@ -182,6 +188,20 @@
 				<div class="flex items-center gap-2">
 					<IconBriefcaseOutline class="text-primary h-8 w-8 shrink-0" />
 					<span class="line-clamp-2 text-sm font-medium">{requestServiceTitle}</span>
+				</div>
+			{/if}
+
+			{#if serviceLocation && serviceLocationMapLink}
+				<div class="flex items-center gap-2">
+					<IconMapMarker class="text-primary h-8 w-8 shrink-0" />
+					<a
+						href={serviceLocationMapLink}
+						target="_blank"
+						rel="noopener noreferrer"
+						class="link link-primary line-clamp-1 text-sm font-medium"
+					>
+						{serviceLocation.label}
+					</a>
 				</div>
 			{/if}
 

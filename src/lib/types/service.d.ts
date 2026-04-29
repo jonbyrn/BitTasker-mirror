@@ -104,6 +104,15 @@ export interface InquiryForm {
 }
 
 /**
+ * Location snapshot for quote requests when service requires TASKER_LOCATION
+ */
+export interface QuoteRequestLocationSnapshot {
+	mode: 'tasker_location';
+	label: string;
+	location: Location;
+}
+
+/**
  * Payload when a Tasker requests a quote for a service (solicitar cotización).
  * Order in UI: title, description, custom form (if any), images.
  */
@@ -118,6 +127,8 @@ export interface QuoteRequestPayload {
 	customFormResponses?: Record<string, string | number | boolean | string[]>;
 	/** Optional images; same shape as task attachments */
 	attachments?: Attachment[];
+	/** Service location for TASKER_LOCATION services - where the Tasker wants service performed */
+	serviceLocation?: QuoteRequestLocationSnapshot;
 }
 
 /**

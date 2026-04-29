@@ -15,6 +15,10 @@
 	import UserInfoDisplay from '$lib/components/user/UserInfoDisplay.svelte';
 	import type { PaymentContractRune } from '$lib/runes/contractRune.svelte';
 	import { buildContractTimelineRows } from '$lib/utils/contract/buildContractTimelineRows';
+	import { getServiceContractLocationPresentationFromAgreementSnapshot } from '$lib/utils/service-contract/location';
+	import { generateAllMapLinks } from '$lib/utils/location/maps';
+	import IconMapMarker from '~icons/mdi/map-marker';
+	import IconOpenInNew from '~icons/mdi/open-in-new';
 
 	const { isOpen, onClose, contractRune, btcPrice } = $props<{
 		isOpen: boolean;
@@ -81,6 +85,20 @@
 	}
 
 	const drawerTitle = $derived(contract?.taskTitle ?? '');
+
+	// Service location from the agreement snapshot (for service contracts)
+	const serviceLocationPresentation = $derived.by(() => {
+		const snapshot = contract?.agreementSnapshot;
+		if (!snapshot) return null;
+		return getServiceContractLocationPresentationFromAgreementSnapshot(snapshot);
+	});
+
+	// Map links for the service location
+	const mapLinks = $derived.by(() => {
+		const location = contract?.agreementSnapshot?.serviceLocation?.location;
+		if (!location) return null;
+		return generateAllMapLinks(location, { label: serviceLocationPresentation?.label });
+	});
 </script>
 
 <Drawer {isOpen} title={drawerTitle} {onClose} position="right" isScrollable={true}>
@@ -138,6 +156,66 @@
 							{/if}
 						</div>
 					</div>
+
+					<!-- Service Location (for TASKER_LOCATION services) -->
+					{#if serviceLocationPresentation}
+						<div class="bg-base-100 mb-4 rounded-lg p-3" data-testid="contract-service-location">
+							<div class="flex items-start gap-3">
+								<div class="bg-primary/10 mt-0.5 rounded-full p-1.5">
+									<IconMapMarker class="text-primary h-4 w-4" />
+								</div>
+								<div class="min-w-0 flex-1">
+									<p
+										class="text-base-content/60 mb-0.5 text-xs font-medium tracking-wider uppercase"
+									>
+										{serviceLocationPresentation.mode === 'tasker_location'
+											? $t('dashboard.contracts.service_location_tasker')
+											: $t('dashboard.contracts.service_location_taskee')}
+									</p>
+									<p class="text-sm font-medium break-words">
+										{serviceLocationPresentation.label}
+									</p>
+									{#if mapLinks}
+										<div class="mt-2 flex flex-wrap gap-2">
+											<a
+												href={mapLinks.universal}
+												target="_blank"
+												rel="noopener noreferrer"
+												class="btn btn-xs btn-primary btn-outline gap-1"
+											>
+												<IconOpenInNew class="h-3 w-3" />
+												{$t('dashboard.contracts.open_in_maps')}
+											</a>
+											<div class="dropdown dropdown-end">
+												<div tabindex="0" role="button" class="btn btn-xs btn-ghost">
+													{$t('common.buttons.more')}
+												</div>
+												<ul
+													class="dropdown-content menu bg-base-100 rounded-box z-1 w-40 p-2 shadow-lg"
+												>
+													<li>
+														<a href={mapLinks.google} target="_blank" rel="noopener noreferrer">
+															{$t('dashboard.contracts.open_google_maps')}
+														</a>
+													</li>
+													<li>
+														<a href={mapLinks.apple} target="_blank" rel="noopener noreferrer">
+															{$t('dashboard.contracts.open_apple_maps')}
+														</a>
+													</li>
+													<li>
+														<a href={mapLinks.waze} target="_blank" rel="noopener noreferrer">
+															{$t('dashboard.contracts.open_waze')}
+														</a>
+													</li>
+												</ul>
+											</div>
+										</div>
+									{/if}
+								</div>
+							</div>
+						</div>
+					{/if}
 
 					<!-- Row 3: Date + Accordion + Buttons -->
 					<div

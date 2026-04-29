@@ -86,6 +86,24 @@ export function buildServiceContractLocationSnapshot(
 	return undefined;
 }
 
+/**
+ * Build a location snapshot using the Tasker's (client's) provided location.
+ * Used for TASKER_LOCATION services where the client specifies where they want the service.
+ *
+ * @param taskerLocation - The location provided by the Tasker (client) during booking
+ * @returns A ServiceContractLocationSnapshot with mode 'tasker_location'
+ */
+export function buildTaskerProvidedLocationSnapshot(
+	taskerLocation: Location
+): ServiceContractLocationSnapshot {
+	const label = normalizeLocationLabel(taskerLocation) || 'Client Location';
+	return {
+		mode: 'tasker_location',
+		label,
+		location: taskerLocation
+	};
+}
+
 export function getServiceContractLocationPresentationFromAgreementSnapshot(
 	agreementSnapshot: ServiceContractAgreementSnapshot | null | undefined
 ): ServiceContractLocationPresentation | null {
