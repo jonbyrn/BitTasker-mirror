@@ -6,7 +6,7 @@ vi.mock('svelte-i18n', async () => {
 	const { readable } = await import('svelte/store');
 	const translations: Record<string, string> = {
 		'dashboard.contracts.actions.complete': 'Complete',
-		'dashboard.contracts.actions.accept_work': 'Accept Work',
+		'dashboard.contracts.actions.approve': 'Approve',
 		'dashboard.contracts.actions.refund': 'Refund',
 		'dashboard.contracts.actions.cancel': 'Cancel',
 		'dashboard.contracts.actions.mark_no_show': 'Mark no-show',
@@ -136,7 +136,7 @@ describe('ContractActionsCardNDK', () => {
 			render(ContractActionsCardNDK, {
 				props: { contractRune: rune, btcPrice: 60000, onOpenDrawer: vi.fn() }
 			});
-			expect(screen.getByRole('button', { name: 'Accept Work' })).toBeInTheDocument();
+			expect(screen.getByRole('button', { name: 'Approve' })).toBeInTheDocument();
 		});
 
 		it('returns ClaimNoShowRefund for tasker when canClaimNoShowRefund is true', () => {
@@ -203,8 +203,8 @@ describe('ContractActionsCardNDK', () => {
 			render(ContractActionsCardNDK, {
 				props: { contractRune: rune, btcPrice: 60000, onOpenDrawer: vi.fn() }
 			});
-			// Should only show Details button, not Accept Work
-			expect(screen.queryByRole('button', { name: 'Accept Work' })).not.toBeInTheDocument();
+			// Should only show Details button, not Approve
+			expect(screen.queryByRole('button', { name: 'Approve' })).not.toBeInTheDocument();
 		});
 
 		it('returns Complete for client (taskee) when canCompleteTask is true', () => {
@@ -250,7 +250,7 @@ describe('ContractActionsCardNDK', () => {
 			});
 			// Should only show Details button
 			expect(screen.getByRole('button', { name: 'Details' })).toBeInTheDocument();
-			expect(screen.queryByRole('button', { name: 'Accept Work' })).not.toBeInTheDocument();
+			expect(screen.queryByRole('button', { name: 'Approve' })).not.toBeInTheDocument();
 		});
 
 		it('prioritizes Accept over ClaimNoShowRefund for tasker', () => {
@@ -261,7 +261,7 @@ describe('ContractActionsCardNDK', () => {
 			render(ContractActionsCardNDK, {
 				props: { contractRune: rune, btcPrice: 60000, onOpenDrawer: vi.fn() }
 			});
-			expect(screen.getByRole('button', { name: 'Accept Work' })).toBeInTheDocument();
+			expect(screen.getByRole('button', { name: 'Approve' })).toBeInTheDocument();
 			expect(
 				screen.queryByRole('button', { name: 'Claim no-show refund' })
 			).not.toBeInTheDocument();
@@ -292,7 +292,7 @@ describe('ContractActionsCardNDK', () => {
 			render(ContractActionsCardNDK, {
 				props: { contractRune: rune, btcPrice: 60000, onOpenDrawer: vi.fn() }
 			});
-			const button = screen.getByRole('button', { name: 'Accept Work' });
+			const button = screen.getByRole('button', { name: 'Approve' });
 			expect(button).toBeDisabled();
 		});
 

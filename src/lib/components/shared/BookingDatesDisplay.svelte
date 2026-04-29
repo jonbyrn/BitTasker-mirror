@@ -75,7 +75,7 @@
 {#if hasValidDates}
 	<div class="flex items-center justify-between gap-2 px-1">
 		<!-- Start Date -->
-		<div class="flex min-w-0 flex-col">
+		<div class="flex min-w-0 flex-col" data-testid="service-agreement-start">
 			<div
 				class="text-primary flex items-center gap-1.5 text-[10px] font-bold tracking-wider uppercase"
 			>
@@ -111,7 +111,10 @@
 		{/if}
 
 		<!-- Delivery Date -->
-		<div class="flex min-w-0 flex-col items-end text-right">
+		<div
+			class="flex min-w-0 flex-col items-end text-right"
+			data-testid="service-agreement-delivery"
+		>
 			<div
 				class="text-primary flex items-center justify-end gap-1.5 text-[10px] font-bold tracking-wider uppercase"
 			>
