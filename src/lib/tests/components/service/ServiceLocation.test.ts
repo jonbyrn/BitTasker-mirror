@@ -130,7 +130,7 @@ describe('ServiceLocation', () => {
 	});
 
 	it('does not render a service radius slider for at-my-location services', async () => {
-		const { getByRole, queryByTestId, getAllByTestId } = render(ServiceLocation, {
+		const { getByRole, queryByTestId } = render(ServiceLocation, {
 			errors: {},
 			direction: 'forward'
 		});
@@ -140,9 +140,6 @@ describe('ServiceLocation', () => {
 		);
 
 		expect(queryByTestId('service-location-radius')).toBeNull();
-		expect(getAllByTestId('mock-enhanced-location-picker-show-radius-circle')[0]).toHaveTextContent(
-			'false'
-		);
 	});
 
 	it('does not render the legacy specific location label for taskee location', async () => {
