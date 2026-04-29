@@ -8,6 +8,8 @@
 	import type { PaymentContractRune } from '$lib/runes/contractRune.svelte';
 	import { createDebug } from '$lib/utils/debug';
 	import Drawer from '$lib/components/Drawer.svelte';
+	import TaskLocationDisplay from '$lib/components/task/TaskLocationDisplay.svelte';
+	import TaskDeadlineDisplay from '$lib/components/task/TaskDeadlineDisplay.svelte';
 
 	const d = createDebug('contracts:taskCompletionDrawerNDK');
 
@@ -151,17 +153,38 @@
 		<!-- Task Info Card -->
 		<div class="card bg-base-200">
 			<div class="card-body p-4">
-				<h4 class="mb-2 font-semibold">
-					{$t('dashboard.contracts.timeline.completion.task_info')}
-				</h4>
-				<p class="text-base-content/80 mb-2 text-sm">
-					<strong>{$t('dashboard.contracts.task_description')}:</strong>
-					{contractRune.taskTitle}
-				</p>
-				<p class="text-base-content/80 text-sm">
-					<strong>{$t('dashboard.contracts.amount')}:</strong>
-					{amountLabel}
-				</p>
+				<!-- Row 1: Title + Price (right-aligned, emphasized) -->
+				<div class="mb-4 flex flex-row items-start justify-between gap-4">
+					<div class="min-w-0 flex-1">
+						<p class="text-lg leading-tight font-bold">
+							{contractRune.taskTitle}
+						</p>
+					</div>
+					<div class="shrink-0 text-right">
+						{#if btcPrice > 0}
+							<div class="text-2xl font-bold">{amountLabel.split(' · ')[0]}</div>
+							<div class="text-base-content/60 text-base">{amountLabel.split(' · ')[1]}</div>
+						{:else}
+							<div class="text-2xl font-bold">{amountLabel}</div>
+						{/if}
+					</div>
+				</div>
+
+				<!-- Row 2: Location -->
+				<div class="mb-3">
+					<TaskLocationDisplay />
+				</div>
+
+				<!-- Row 3: Delivery Date/Time -->
+				{#if contractRune.contract.estimatedCompletionTime}
+					<TaskDeadlineDisplay
+						deadline={contractRune.contract.estimatedCompletionTime}
+						dateRangeStart={contractRune.contract.estimatedStartTime}
+						dateRangeEnd={contractRune.contract.estimatedCompletionTime}
+						showTime={true}
+						showDuration={true}
+					/>
+				{/if}
 			</div>
 		</div>
 
