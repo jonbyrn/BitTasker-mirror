@@ -35,7 +35,8 @@
 		showServiceRadius = false,
 		serviceRadius = 1.6, // 1 milla = 1.6 km
 		useCustomPin = true,
-		showRadiusCircle = true
+		showRadiusCircle = true,
+		circleCenterLocation = null
 	} = $props<{
 		label?: string;
 		placeholder?: string;
@@ -49,6 +50,7 @@
 		serviceRadius?: number;
 		useCustomPin?: boolean;
 		showRadiusCircle?: boolean;
+		circleCenterLocation?: Location | null;
 	}>();
 
 	// Map and DOM element references
@@ -101,6 +103,18 @@
 		if (!circle || !Number.isFinite(nextRadius)) return;
 		circle.setRadius(nextRadius * 1000);
 		fitMapToCircle();
+	});
+
+	// Update circle center when circleCenterLocation changes (for external center point)
+	$effect(() => {
+		if (!circle || !circleCenterLocation) return;
+		if (isValidCoordinate(circleCenterLocation.latitude, circleCenterLocation.longitude)) {
+			circle.setCenter({
+				lat: circleCenterLocation.latitude!,
+				lng: circleCenterLocation.longitude!
+			});
+			fitMapToCircle();
+		}
 	});
 
 	// ─── Coordinate helpers ────────────────────────────────────────────────────
@@ -485,6 +499,14 @@
 			}
 
 			if (showServiceRadius || showRadiusCircle) {
+				// If circleCenterLocation is provided, use it as the circle center (e.g., Taskee's base location)
+				// Otherwise, center the circle on the marker position
+				const circleCenter =
+					circleCenterLocation &&
+					isValidCoordinate(circleCenterLocation.latitude, circleCenterLocation.longitude)
+						? { lat: circleCenterLocation.latitude!, lng: circleCenterLocation.longitude! }
+						: position;
+
 				circle = new google.maps.Circle({
 					strokeColor: '#F59E0B',
 					strokeOpacity: 0.8,
@@ -492,8 +514,9 @@
 					fillColor: '#F59E0B',
 					fillOpacity: 0.1,
 					map,
-					center: position,
-					radius: currentServiceRadius * 1000 // km → metres
+					center: circleCenter,
+					radius: currentServiceRadius * 1000, // km → metres
+					clickable: false // Allow clicks to pass through to the map
 				});
 			}
 
@@ -503,7 +526,10 @@
 					const newLat = typeof pos.lat === 'function' ? pos.lat() : pos.lat;
 					const newLng = typeof pos.lng === 'function' ? pos.lng() : pos.lng;
 					if (isValidCoordinate(newLat, newLng)) {
-						if (circle) circle.setCenter({ lat: newLat!, lng: newLng! });
+						// Only move circle center with marker if no external circleCenterLocation is set
+						if (circle && !circleCenterLocation) {
+							circle.setCenter({ lat: newLat!, lng: newLng! });
+						}
 						reverseGeocodeAndUpdate(newLat!, newLng!);
 					}
 				}

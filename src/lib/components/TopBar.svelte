@@ -58,7 +58,7 @@
 		if (!interactive) return;
 	}
 
-	// Toggle avatar dropdown
+	// Toggle avatar dropdown - pure JS controlled for iOS compatibility
 	function toggleAvatarDropdown(event: MouseEvent) {
 		event.stopPropagation();
 		isAvatarDropdownOpen = !isAvatarDropdownOpen;
@@ -292,11 +292,8 @@
 		{:else}
 			<!-- Notification Center -->
 			<NotificationCenter />
-			<!-- Avatar Dropdown -->
-			<div
-				class="dropdown dropdown-end relative"
-				use:clickOutside={{ callback: () => (isAvatarDropdownOpen = false) }}
-			>
+			<!-- Avatar Dropdown - Pure JS controlled for iOS compatibility (no DaisyUI dropdown class) -->
+			<div class="relative" use:clickOutside={{ callback: () => (isAvatarDropdownOpen = false) }}>
 				<button
 					class="btn btn-ghost"
 					onclick={toggleAvatarDropdown}
@@ -307,7 +304,7 @@
 				</button>
 				{#if isAvatarDropdownOpen}
 					<div
-						class="menu dropdown-content bg-base-100 rounded-box right-0 z-10 mt-2 w-56 p-2 shadow-md"
+						class="menu bg-base-100 absolute top-full right-0 z-50 mt-2 w-56 rounded-sm p-2 shadow-md"
 						style="transform-origin: top right;"
 						role="menu"
 						tabindex="-1"

@@ -19,13 +19,10 @@ describe('service contract preflight feedback', () => {
 		});
 
 		expect(
-			describeServiceContractPreflightFailure(
-				'insufficient_funds',
-				'Insufficient RBTC balance.'
-			)
+			describeServiceContractPreflightFailure('insufficient_funds', 'Insufficient balance.')
 		).toEqual({
-			message: 'Insufficient RBTC balance.',
-			hint: 'Add enough RBTC to cover the escrow amount and gas, then retry.'
+			message: 'Insufficient balance.',
+			hint: 'Add funds to your wallet, then retry.'
 		});
 	});
 
@@ -63,8 +60,8 @@ describe('service contract preflight feedback', () => {
 		});
 
 		expect(describeServiceContractPreflightFailure('insufficient_funds')).toEqual({
-			message: 'Insufficient RBTC balance for the escrow amount and gas.',
-			hint: 'Add enough RBTC to cover the escrow amount and gas, then retry.'
+			message: 'Insufficient balance for the escrow amount and gas.',
+			hint: 'Add funds to your wallet, then retry.'
 		});
 
 		expect(

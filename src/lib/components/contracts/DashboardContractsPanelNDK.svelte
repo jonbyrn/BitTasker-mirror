@@ -264,8 +264,18 @@
 			icon: IconProgressClock
 		},
 		{
-			id: 'completed_success' as DashboardContractStatusFilter,
-			label: $t('dashboard.contracts.filter_completed_paid'),
+			id: 'completed' as DashboardContractStatusFilter,
+			label: $t('dashboard.contracts.filter_completed'),
+			icon: IconCheckCircle
+		},
+		{
+			id: 'funds_released' as DashboardContractStatusFilter,
+			label: $t('dashboard.contracts.filter_paid'),
+			icon: IconCheckCircle
+		},
+		{
+			id: 'funds_claimed' as DashboardContractStatusFilter,
+			label: $t('dashboard.contracts.filter_claimed'),
 			icon: IconCheckCircle
 		},
 		{

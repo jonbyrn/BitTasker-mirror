@@ -793,12 +793,18 @@
 							<span class="text-sm">
 								{$t('dashboard.services.detail.book_now_drawer.insufficient_funds_message', {
 									values: {
-										sats: contractDetails
-											? formatSats(Math.floor(contractDetails.totalAmount * 100_000_000))
-											: '0',
-										usd: contractDetails
-											? `$${(contractDetails.totalAmount * btcPrice.price).toFixed(2)}`
-											: '$0.00'
+										sats: (() => {
+											const requiredSats = Math.floor(totalPaymentRBTC * 100_000_000);
+											const availableSats = Math.floor((bitcoinAsset?.balance ?? 0) * 100_000_000);
+											const shortfall = Math.max(0, requiredSats - availableSats);
+											return formatSats(shortfall);
+										})(),
+										usd: (() => {
+											const requiredUsd = totalPaymentRBTC * btcPrice.price;
+											const availableUsd = (bitcoinAsset?.balance ?? 0) * btcPrice.price;
+											const shortfall = Math.max(0, requiredUsd - availableUsd);
+											return `$${shortfall.toFixed(2)}`;
+										})()
 									}
 								})}
 							</span>
@@ -808,8 +814,11 @@
 								type="button"
 								class="btn btn-primary btn-sm"
 								onclick={() => {
-									if (onAddFunds && contractDetails) {
-										onAddFunds(contractDetails.totalAmount * btcPrice.price);
+									if (onAddFunds) {
+										const requiredUsd = totalPaymentRBTC * btcPrice.price;
+										const availableUsd = (bitcoinAsset?.balance ?? 0) * btcPrice.price;
+										const shortfallUsd = Math.max(0, requiredUsd - availableUsd);
+										onAddFunds(shortfallUsd);
 									} else {
 										goto('/dashboard/wallet?tab=receive');
 									}

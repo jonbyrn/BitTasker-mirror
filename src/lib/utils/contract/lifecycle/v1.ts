@@ -109,7 +109,8 @@ export function computePermittedActionsV1(rune: PaymentContractRuneLike): Permit
 
 export async function markTaskCompleteV1(
 	rune: PaymentContractRuneLike,
-	completionAttachmentsArg?: Attachment[]
+	completionAttachmentsArg?: Attachment[],
+	completionText?: string
 ): Promise<ContractLifecycleResult> {
 	const ids = getRuneWriteIds(rune);
 	const taskerPk = rune.taskerPubkey;
@@ -164,7 +165,8 @@ export async function markTaskCompleteV1(
 		},
 		undefined,
 		completionAttachments,
-		undefined
+		undefined,
+		completionText
 	);
 
 	return { ok: true, transactionHash };

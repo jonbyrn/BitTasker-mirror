@@ -14,6 +14,7 @@
 	import ContractActionsCardNDK from './ContractActionsCardNDK.svelte';
 	import ResolutionProposalSplitDisplay from './ResolutionProposalSplitDisplay.svelte';
 	import { ContractStatus } from '$lib/utils/contract/types';
+	import { generateUniversalMapLink } from '$lib/utils/location/maps';
 
 	const {
 		contract,
@@ -72,6 +73,18 @@
 			toCurrency: 'USD'
 		})
 	);
+
+	// Service location from agreement snapshot (for service contracts with TASKER_LOCATION)
+	const serviceLocation = $derived.by(() => {
+		const snapshot = contract.agreementSnapshot;
+		if (!snapshot?.serviceLocation?.location) return null;
+		return snapshot.serviceLocation;
+	});
+
+	const serviceLocationMapLink = $derived.by(() => {
+		if (!serviceLocation?.location) return null;
+		return generateUniversalMapLink(serviceLocation.location, { label: serviceLocation.label });
+	});
 </script>
 
 <div class="card bg-base-100 rounded-xl shadow-md transition-shadow hover:shadow-lg">
@@ -133,8 +146,11 @@
 				<!-- Deadline -->
 				<TaskDeadlineDisplay deadline={contract.estimatedCompletionTime} />
 
-				<!-- Location (contracts don't have location data, default to Remote) -->
-				<TaskLocationDisplay />
+				<!-- Location: show service location if available, otherwise default to Remote -->
+				<TaskLocationDisplay
+					locationText={serviceLocation?.label ?? ''}
+					directionsLink={serviceLocationMapLink}
+				/>
 			</div>
 
 			<!-- Right: Price -->
@@ -165,8 +181,17 @@
 
 		<!-- Bottom Row: User Info + Action Buttons -->
 		<div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-			<!-- Left: User Info (without role headline) -->
-			<UserNostrBadge npub={contract.otherPartyNpub ?? ''} />
+			<!-- Left: User Info + Context Type Badge (vertically centered) -->
+			<div class="flex w-full items-center justify-between gap-2">
+				<UserNostrBadge npub={contract.otherPartyNpub ?? ''} />
+				<div
+					class="badge {contract.tagValue('contextType') === 'service'
+						? 'badge-info'
+						: 'badge-outline'} badge-sm"
+				>
+					{contract.tagValue('contextType') === 'service' ? 'Service' : 'Task'}
+				</div>
+			</div>
 
 			<!-- Right: Action Buttons -->
 			{#if contractRune && statusAndActionsReady}

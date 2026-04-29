@@ -24,13 +24,25 @@ describe('matchesDisplayStatusFilter', () => {
 		expect(matchesDisplayStatusFilter('in_progress', ContractStatus.Funded)).toBe(false);
 	});
 
-	it('completed_success', () => {
-		expect(matchesDisplayStatusFilter('completed_success', ContractStatus.Completed)).toBe(true);
-		expect(matchesDisplayStatusFilter('completed_success', ContractStatus.FundsReleased)).toBe(
-			true
-		);
-		expect(matchesDisplayStatusFilter('completed_success', ContractStatus.FundsClaimed)).toBe(true);
-		expect(matchesDisplayStatusFilter('completed_success', ContractStatus.Funded)).toBe(false);
+	it('completed', () => {
+		expect(matchesDisplayStatusFilter('completed', ContractStatus.Completed)).toBe(true);
+		expect(matchesDisplayStatusFilter('completed', ContractStatus.FundsReleased)).toBe(false);
+		expect(matchesDisplayStatusFilter('completed', ContractStatus.FundsClaimed)).toBe(false);
+		expect(matchesDisplayStatusFilter('completed', ContractStatus.Funded)).toBe(false);
+	});
+
+	it('funds_released', () => {
+		expect(matchesDisplayStatusFilter('funds_released', ContractStatus.FundsReleased)).toBe(true);
+		expect(matchesDisplayStatusFilter('funds_released', ContractStatus.Completed)).toBe(false);
+		expect(matchesDisplayStatusFilter('funds_released', ContractStatus.FundsClaimed)).toBe(false);
+		expect(matchesDisplayStatusFilter('funds_released', ContractStatus.Funded)).toBe(false);
+	});
+
+	it('funds_claimed', () => {
+		expect(matchesDisplayStatusFilter('funds_claimed', ContractStatus.FundsClaimed)).toBe(true);
+		expect(matchesDisplayStatusFilter('funds_claimed', ContractStatus.Completed)).toBe(false);
+		expect(matchesDisplayStatusFilter('funds_claimed', ContractStatus.FundsReleased)).toBe(false);
+		expect(matchesDisplayStatusFilter('funds_claimed', ContractStatus.Funded)).toBe(false);
 	});
 
 	it('in_dispute', () => {

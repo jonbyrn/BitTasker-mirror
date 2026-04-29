@@ -7,11 +7,6 @@
 	import { serviceQuoteUiStore } from '$lib/stores/service-quote-ui.store';
 	import { parseEarningQuery } from '$lib/utils/dashboardQuery';
 
-	function logRequestsDebug(event: string, details: Record<string, unknown>) {
-		if (typeof window === 'undefined') return;
-		console.info('[Earning Requests]', event, details);
-	}
-
 	function clearRequestsRouteMessage() {
 		if (get(serviceQuoteUiStore).nonBlockingMessageCode !== null) {
 			serviceQuoteUiStore.setNonBlockingMessage(null);
@@ -44,12 +39,6 @@
 			| { type: 'reset'; status?: string | null }
 			| { type: 'request'; requestId: string | null; status?: string | null }
 	) {
-		logRequestsDebug('provider-route-update', {
-			update,
-			currentService: selectedServiceAddress,
-			currentRequest: focusedRequestId
-		});
-
 		if (update.type === 'reset') {
 			nonBlockingMessageCode = null;
 			clearRequestsRouteMessage();

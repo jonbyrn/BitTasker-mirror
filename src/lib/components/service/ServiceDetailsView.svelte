@@ -5,7 +5,7 @@
 		ServiceContractPricingSnapshot
 	} from '$lib/types/contract';
 	import type { Service, ServiceTier } from '$lib/types/service.d';
-	import type { Attachment } from '$lib/types/task.d';
+	import type { Attachment, Location } from '$lib/types/task.d';
 	import { t, locale } from 'svelte-i18n';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
@@ -23,7 +23,11 @@
 	import { get } from 'svelte/store';
 	import { contractStore } from '$lib/stores/contract.store';
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
-	import { ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';
+	import { ServicePricingTypeEnum, ServiceLocationTypeEnum } from '$lib/utils/enums/service.enum';
+	import {
+		validateLocationWithinRadius,
+		type RadiusValidationResult
+	} from '$lib/utils/location/distance';
 	import { TASK_CATEGORIES } from '$lib/utils/constants/categories';
 	import ServiceAddOnsSelector from '$lib/components/service/ServiceAddOnsSelector.svelte';
 	import Modal from '$lib/components/Modal.svelte';
@@ -86,7 +90,10 @@
 		type BookNowOutboxEntry
 	} from '$lib/utils/service-contract/book-now-outbox';
 	import { recoverBookNowContract } from '$lib/utils/service-contract/recover';
-	import { buildServiceContractLocationSnapshot } from '$lib/utils/service-contract/location';
+	import {
+		buildServiceContractLocationSnapshot,
+		buildTaskerProvidedLocationSnapshot
+	} from '$lib/utils/service-contract/location';
 	import WalletPaymentModal from '$lib/components/wallet/WalletPaymentModal.svelte';
 	import ReceivePaymentForm from '$lib/components/wallet/ReceivePaymentForm.svelte';
 	import PaymentRequestModal from '$lib/components/wallet/PaymentRequestModal.svelte';
@@ -271,6 +278,53 @@
 	let instantBuyErrorMessage = $state('');
 	let instantBuyErrorHint = $state('');
 
+	// Tasker location for TASKER_LOCATION services (Book Now flow)
+	let bookNowTaskerLocation = $state<Location | null>(null);
+	let bookNowLocationValidation = $state<RadiusValidationResult | null>(null);
+
+	// Check if service requires tasker location input for booking
+	const requiresTaskerLocationForBooking = $derived(
+		service?.serviceLocationTypes?.includes(ServiceLocationTypeEnum.TASKER_LOCATION) ?? false
+	);
+
+	// Get the Taskee's service configuration for TASKER_LOCATION
+	const taskeeServiceConfig = $derived.by(() => {
+		if (!requiresTaskerLocationForBooking || !service?.locationDetails?.taskerLocation) {
+			return null;
+		}
+		return {
+			baseLocation: service.locationDetails.taskerLocation.serviceLocation,
+			serviceRadius: service.locationDetails.taskerLocation.serviceRadius ?? 50 // Default 50km if not set
+		};
+	});
+
+	// Handler for when the tasker selects a location in Book Now flow
+	function handleBookNowLocationSelect(location: Location) {
+		bookNowTaskerLocation = location;
+
+		// Validate against radius if service has TASKER_LOCATION configuration
+		if (taskeeServiceConfig) {
+			bookNowLocationValidation = validateLocationWithinRadius(
+				location,
+				taskeeServiceConfig.baseLocation,
+				taskeeServiceConfig.serviceRadius
+			);
+		} else {
+			// No radius restriction, just mark as valid
+			bookNowLocationValidation = {
+				valid: true,
+				distanceKm: null,
+				maxRadiusKm: 0
+			};
+		}
+	}
+
+	// Clear location state when modal closes
+	function clearBookNowLocationState() {
+		bookNowTaskerLocation = null;
+		bookNowLocationValidation = null;
+	}
+
 	const basePriceForAddOns = $derived.by(() => {
 		const p = service?.pricing;
 		if (!p) return 0;
@@ -354,7 +408,8 @@
 	const showInstantBuyCta = $derived(
 		instantBuyEligibility.code !== 'inactive_service' &&
 			instantBuyEligibility.code !== 'missing_service' &&
-			instantBuyEligibility.code !== 'invalid_pricing_type'
+			instantBuyEligibility.code !== 'invalid_pricing_type' &&
+			instantBuyEligibility.code !== 'missing_lead_hours'
 	);
 	const isOffline = $derived(!$browserNetworkStatus.online);
 	const showReconnectNotice = $derived(
@@ -740,10 +795,17 @@
 		const includedScope =
 			selectedTierDescription.trim() || displayDescriptionFull || runtimeService.description;
 
+		// For TASKER_LOCATION services, use the location provided by the Tasker (client) during booking
+		// Otherwise, use the service's configured location (TASKEE_LOCATION or none)
+		const serviceLocation =
+			requiresTaskerLocationForBooking && bookNowTaskerLocation
+				? buildTaskerProvidedLocationSnapshot(bookNowTaskerLocation)
+				: buildServiceContractLocationSnapshot(runtimeService);
+
 		return {
 			selectedTierId: selectedTierId ?? undefined,
 			selectedTierLabel: selectedTier?.name ?? undefined,
-			serviceLocation: buildServiceContractLocationSnapshot(runtimeService),
+			serviceLocation,
 			selectedAddOns:
 				selectedAddOns.length > 0 ? selectedAddOns.map((addOn) => addOn.name) : undefined,
 			deliverables: includedScope,
@@ -969,11 +1031,14 @@
 					const platformFee = baseAmount * PLATFORM_FEE_RATE;
 					const totalPaymentUsd = baseAmount + platformFee + ESTIMATED_NETWORK_FEE_USD;
 					const totalPaymentSats = Math.round((totalPaymentUsd * 100_000_000) / btcPriceValue);
+					const walletBalanceSats = $totalBalances.sats;
+					const shortfallSats = Math.max(0, totalPaymentSats - walletBalanceSats);
+					const shortfallUsd = (shortfallSats / 100_000_000) * btcPriceValue;
 
 					message = $t('dashboard.services.detail.book_now_drawer.insufficient_funds_message', {
 						values: {
-							sats: formatSats(totalPaymentSats),
-							usd: `$${formatNumberWithTwoDecimals(totalPaymentUsd)}`
+							sats: formatSats(shortfallSats),
+							usd: `$${formatNumberWithTwoDecimals(shortfallUsd)}`
 						}
 					});
 					hint = null;
@@ -1705,7 +1770,7 @@
 											class="link link-primary">{headerLocation!.address}</a
 										>
 									{:else}
-										<span>{$t('dashboard.services.detail.remote')}</span>
+										<span>{$t('dashboard.services.detail.location.remote')}</span>
 									{/if}
 								</div>
 								<div class="text-base-content/80 text-sm leading-relaxed whitespace-pre-line">
@@ -1940,7 +2005,7 @@
 										class="link link-primary">{headerLocation!.address}</a
 									>
 								{:else}
-									<span>{$t('dashboard.services.detail.remote')}</span>
+									<span>{$t('dashboard.services.detail.location.remote')}</span>
 								{/if}
 							</div>
 							<div class="text-base-content/80 text-sm leading-relaxed whitespace-pre-line">
@@ -2518,6 +2583,14 @@
 									{detailText('dashboard.services.detail.book_now', 'Book')}
 								{/if}
 							</button>
+						{:else if !isPreview}
+							<button
+								class="btn btn-primary btn-sm shadow-primary/20 disabled:bg-base-300 disabled:text-base-content/30 disabled:border-base-300 font-black shadow-lg"
+								onclick={handleOpenRequestQuote}
+								disabled={isOffline || isOwner}
+							>
+								{detailText('dashboard.services.detail.request_quote', 'Inquire')}
+							</button>
 						{/if}
 					</div>
 				</div>
@@ -2529,6 +2602,9 @@
 		bind:open={requestQuoteModalOpen}
 		{service}
 		contextSummary={requestQuoteContextSummary}
+		requiresTaskerLocation={requiresTaskerLocationForBooking}
+		taskeeServiceRadius={taskeeServiceConfig?.serviceRadius ?? null}
+		taskeeBaseLocation={taskeeServiceConfig?.baseLocation ?? null}
 		onConfirm={handleQuoteRequestConfirm}
 		onClose={() => (requestQuoteModalOpen = false)}
 	/>
@@ -2570,12 +2646,23 @@
 		showContractCreationProgress={showInstantBuyContractCreationProgress}
 		contractCreationStatus={instantBuyContractCreationStatus}
 		contractCreationMessage={instantBuyContractCreationMessage}
-		canConfirm={instantBuyDraft !== null && instantBuyFundingCheck?.status === 'ready'}
+		requiresTaskerLocation={requiresTaskerLocationForBooking}
+		taskeeServiceRadius={taskeeServiceConfig?.serviceRadius ?? null}
+		taskeeBaseLocation={taskeeServiceConfig?.baseLocation ?? null}
+		taskerLocation={bookNowTaskerLocation}
+		locationValidation={bookNowLocationValidation}
+		onTaskerLocationSelect={handleBookNowLocationSelect}
+		canConfirm={instantBuyDraft !== null &&
+			instantBuyFundingCheck?.status === 'ready' &&
+			(!requiresTaskerLocationForBooking || (bookNowLocationValidation?.valid ?? false))}
 		onConfirm={handleConfirmInstantBuy}
 		onRefresh={handleRefreshInstantBuy}
 		onAddFunds={handleAddFunds}
 		onRetry={() => prepareInstantBuyDraft(instantBuyDraft)}
-		onClose={handleCloseInstantBuyDrawer}
+		onClose={() => {
+			clearBookNowLocationState();
+			handleCloseInstantBuyDrawer();
+		}}
 	/>
 
 	<Modal

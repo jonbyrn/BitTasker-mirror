@@ -128,7 +128,8 @@ export async function publishServiceQuoteRequest(
 		},
 		quoteAmountUsdt: params.quoteAmountUsdt ?? params.payload.quoteAmountUsdt,
 		timestamp: createdAt,
-		version: 'v1'
+		version: 'v1',
+		serviceLocation: params.payload.serviceLocation
 	};
 
 	const recipientPubkey = parseServiceAddress(serviceAddress).pubkey;

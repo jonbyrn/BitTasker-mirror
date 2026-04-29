@@ -102,6 +102,8 @@ export interface NostrContractStatus {
 	proposedFreelancerAmount?: string;
 	// Completion evidence attachments
 	completionAttachments?: Attachment[];
+	// Completion evidence text
+	completionText?: string;
 }
 
 // NostrEvent with typed content for CONTRACT events
@@ -134,6 +136,7 @@ export interface ContractWithEvents {
 	// Computed data from blockchain/Nostr (avoid duplication in events)
 	disputeProposal: DisputeProposal | null; // From blockchain if in dispute
 	completionAttachments: Attachment[] | null; // From latest completion status event
+	completionText: string | null; // From latest completion status event
 }
 
 // Contract creation parameters
@@ -176,6 +179,7 @@ export interface PublishStatusParams {
 	proposedClientAmount?: string;
 	proposedFreelancerAmount?: string;
 	completionAttachments?: Attachment[];
+	completionText?: string;
 	recipientPubkey: string;
 }
 
@@ -198,6 +202,7 @@ export interface PublishContractStatusParams {
 	recipientPubkey: string;
 	statusMessagingVariant?: 'default' | 'refund';
 	completionAttachments?: Attachment[];
+	completionText?: string;
 	proposedClientAmount?: string;
 	proposedFreelancerAmount?: string;
 }

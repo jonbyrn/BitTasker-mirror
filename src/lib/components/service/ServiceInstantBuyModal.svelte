@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { format } from 'date-fns';
 	import { t } from 'svelte-i18n';
 	import { goto } from '$app/navigation';
 	import { FEE_TIERS } from '@bittasker/wallet-core';
@@ -7,14 +6,18 @@
 	import ContractFundingWalletCard from '$lib/components/contracts/ContractFundingWalletCard.svelte';
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 	import UserInfoDisplay from '$lib/components/user/UserInfoDisplay.svelte';
-	import IconCalendarClock from '~icons/mdi/calendar-clock';
-	import IconTruckDeliveryOutline from '~icons/mdi/truck-delivery-outline';
+	import LocationPicker from '$lib/components/LocationPicker.svelte';
 	import IconRefresh from '~icons/mdi/refresh';
-	import { formatDurationBetweenDates } from '$lib/utils/helpers/dateFormatter';
+	import IconMapMarker from '~icons/mdi/map-marker';
+	import IconAlertCircle from '~icons/mdi/alert-circle';
+	import IconCheckCircle from '~icons/mdi/check-circle';
+	import BookingDatesDisplay from '$lib/components/shared/BookingDatesDisplay.svelte';
 	import type {
 		ServiceContractAgreementSnapshot,
 		ServiceContractPricingSnapshot
 	} from '$lib/types/contract';
+	import type { Location } from '$lib/types/task';
+	import type { RadiusValidationResult } from '$lib/utils/location/distance';
 
 	let {
 		open = false,
@@ -49,6 +52,12 @@
 		errorMessage = '',
 		errorHint = '',
 		canConfirm = true,
+		requiresTaskerLocation = false,
+		taskeeServiceRadius = null,
+		taskeeBaseLocation = null,
+		taskerLocation = null,
+		locationValidation = null,
+		onTaskerLocationSelect = () => {},
 		onConfirm = () => {},
 		onRetry = () => {},
 		onRefresh = () => {},
@@ -89,6 +98,12 @@
 		errorMessage?: string;
 		errorHint?: string;
 		canConfirm?: boolean;
+		requiresTaskerLocation?: boolean;
+		taskeeServiceRadius?: number | null;
+		taskeeBaseLocation?: Location | null;
+		taskerLocation?: Location | null;
+		locationValidation?: RadiusValidationResult | null;
+		onTaskerLocationSelect?: (location: Location) => void;
 		onConfirm?: () => void;
 		onRetry?: () => void;
 		onRefresh?: () => void;
@@ -100,14 +115,6 @@
 	const ESTIMATED_NETWORK_FEE_USD = 0.5;
 	const PLATFORM_FEE_RATE = FEE_TIERS[DEFAULT_CLIENT_FEE_TIER].percentage / 10000;
 	const PLATFORM_FEE_PERCENT_LABEL = `${(PLATFORM_FEE_RATE * 100).toFixed(1)}%`;
-
-	function formatTimestamp(timestampSeconds: number | null): string {
-		if (!timestampSeconds || !Number.isFinite(timestampSeconds)) {
-			return $t('dashboard.services.detail.book_now_drawer.unavailable');
-		}
-
-		return format(new Date(timestampSeconds * 1000), 'MMM d, yyyy');
-	}
 
 	function formatUsdLabel(value: number | null): string {
 		if (value == null || !Number.isFinite(value)) {
@@ -134,18 +141,6 @@
 	const platformFeeLabel = $derived(formatUsdLabel(platformFeeValue));
 	const estimatedNetworkFeeLabel = $derived(formatUsdLabel(ESTIMATED_NETWORK_FEE_USD));
 	const totalPaymentLabel = $derived(formatUsdLabel(totalPaymentValue));
-	const estimatedStartLabel = $derived(formatTimestamp(estimatedStartTime));
-	const estimatedCompletionLabel = $derived(formatTimestamp(estimatedCompletionTime));
-	const durationLabel = $derived.by(() => {
-		if (estimatedStartTime && estimatedCompletionTime) {
-			return formatDurationBetweenDates(
-				new Date(estimatedStartTime * 1000),
-				new Date(estimatedCompletionTime * 1000),
-				$t
-			);
-		}
-		return '';
-	});
 	const resolvedErrorMessage = $derived(errorMessage);
 
 	const remainingBalanceUsd = $derived.by(() => {
@@ -436,53 +431,94 @@
 								/>
 							</div>
 
-							<!-- Timeline Row -->
-							<div class="flex items-center justify-between gap-2 px-1">
-								<!-- Start Date -->
-								<div class="flex min-w-0 flex-col" data-testid="service-agreement-start">
-									<div
-										class="text-primary/70 flex items-center gap-1.5 text-[10px] font-bold tracking-wider uppercase"
-									>
-										<IconCalendarClock class="text-primary h-3.5 w-3.5" />
-										<span>{$t('dashboard.services.detail.book_now_drawer.start_date')}</span>
-									</div>
-									<div class="mt-0.5 truncate text-xs font-bold sm:text-sm">
-										{estimatedStartLabel}
-									</div>
-								</div>
-
-								<!-- Duration Indicator -->
-								{#if durationLabel}
-									<div class="flex flex-1 items-center justify-center px-2">
-										<div class="relative flex w-full items-center justify-center py-2">
-											<div
-												class="bg-primary/30 absolute inset-x-0 top-1/2 h-0.5 -translate-y-1/2"
-											></div>
-											<span
-												class="badge badge-ghost badge-xs border-primary/30 bg-base-100 text-primary z-10 flex h-5 items-center px-2 text-[11px] font-bold whitespace-nowrap shadow-sm"
-											>
-												{durationLabel}
-											</span>
-										</div>
-									</div>
-								{/if}
-
-								<!-- Delivery Date -->
+							<!-- Service Location Picker (for TASKER_LOCATION services) -->
+							{#if requiresTaskerLocation}
 								<div
-									class="flex min-w-0 flex-col items-end text-right"
-									data-testid="service-agreement-delivery"
+									class="bg-base-100 border-base-300 rounded-xl border p-4"
+									data-testid="service-location-picker-section"
 								>
-									<div
-										class="text-primary/70 flex items-center justify-start gap-1.5 text-[10px] font-bold tracking-wider uppercase"
-									>
-										<IconTruckDeliveryOutline class="text-primary h-3.5 w-3.5" />
-										<span>{$t('dashboard.services.detail.book_now_drawer.delivery_date')}</span>
+									<div class="mb-3">
+										<div class="flex items-center gap-2">
+											<IconMapMarker class="text-primary h-5 w-5" />
+											<h4 class="font-semibold">
+												{$t('dashboard.services.detail.book_now_drawer.service_location_title')}
+											</h4>
+										</div>
+										<p class="text-base-content/70 mt-1 text-sm">
+											{$t('dashboard.services.detail.book_now_drawer.service_location_description')}
+										</p>
+										{#if taskeeServiceRadius}
+											<p class="text-base-content/60 mt-0.5 text-xs">
+												{$t(
+													'dashboard.services.detail.book_now_drawer.service_location_max_distance',
+													{ values: { distance: taskeeServiceRadius } }
+												)}
+											</p>
+										{/if}
 									</div>
-									<div class="mt-0.5 truncate text-xs font-bold sm:text-sm">
-										{estimatedCompletionLabel}
-									</div>
+
+									<LocationPicker
+										placeholder={$t(
+											'dashboard.services.detail.book_now_drawer.service_location_placeholder'
+										)}
+										location={taskerLocation ?? undefined}
+										onLocationSelect={onTaskerLocationSelect}
+										mapHeight="280px"
+										showFullscreen={true}
+										showGeolocation={true}
+										showServiceRadius={false}
+										serviceRadius={taskeeServiceRadius ?? undefined}
+										showRadiusCircle={!!taskeeServiceRadius && !!taskeeBaseLocation}
+										circleCenterLocation={taskeeBaseLocation}
+									/>
+
+									<!-- Location Validation Feedback -->
+									{#if locationValidation}
+										{#if locationValidation.valid}
+											<div class="text-success mt-3 flex items-center gap-2 text-sm">
+												<IconCheckCircle class="h-4 w-4" />
+												<span
+													>{$t(
+														'dashboard.services.detail.book_now_drawer.service_location_selected'
+													)}</span
+												>
+											</div>
+										{:else if locationValidation.errorCode === 'OUTSIDE_RADIUS'}
+											<div class="text-error mt-3 flex items-start gap-2 text-sm">
+												<IconAlertCircle class="mt-0.5 h-4 w-4 shrink-0" />
+												<span>
+													{$t(
+														'dashboard.services.detail.book_now_drawer.service_location_outside_radius',
+														{
+															values: {
+																distance: locationValidation.distanceKm,
+																maxDistance: locationValidation.maxRadiusKm
+															}
+														}
+													)}
+												</span>
+											</div>
+										{/if}
+									{:else if !taskerLocation}
+										<div class="text-warning mt-3 flex items-center gap-2 text-sm">
+											<IconAlertCircle class="h-4 w-4" />
+											<span
+												>{$t(
+													'dashboard.services.detail.book_now_drawer.service_location_required'
+												)}</span
+											>
+										</div>
+									{/if}
 								</div>
-							</div>
+							{/if}
+
+							<!-- Timeline Row -->
+							<BookingDatesDisplay
+								startTime={estimatedStartTime}
+								endTime={estimatedCompletionTime}
+								startLabel={$t('dashboard.services.detail.book_now_drawer.start_date')}
+								endLabel={$t('dashboard.services.detail.book_now_drawer.delivery_date')}
+							/>
 
 							<!-- Pricing Card -->
 							<div class="flex flex-col gap-4 lg:flex-row">

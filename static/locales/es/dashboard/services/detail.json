@@ -180,7 +180,14 @@
 					"minutes": "minutos",
 					"unavailable": "N/D",
 					"insufficient_funds_message": "Saldo insuficiente. Necesitas un adicional de {sats} Sats ({usd}) para reservar este servicio.",
-					"add_funds": "Añadir Fondos"
+					"add_funds": "Añadir Fondos",
+					"service_location_title": "Ubicación del Servicio",
+					"service_location_description": "¿Dónde se realizará el servicio?",
+					"service_location_placeholder": "Ingresa tu dirección o usa ubicación actual",
+					"service_location_required": "Por favor selecciona tu ubicación para continuar",
+					"service_location_max_distance": "Dentro de {distance}km del proveedor",
+					"service_location_outside_radius": "Esta ubicación está a {distance}km, pero el proveedor solo viaja hasta {maxDistance}km.",
+					"service_location_selected": "Ubicación seleccionada"
 				},
 				"delete_service_messages": {
 					"active_contracts_blocked": "No se puede eliminar un servicio con contratos activos.",
@@ -221,7 +228,13 @@
 					"optional": "Opcional",
 					"choose": "Elige...",
 					"submit": "Enviar Solicitud",
-					"submit_failed": "No se pudo enviar la solicitud de cotización."
+					"submit_failed": "No se pudo enviar la solicitud de cotización.",
+					"service_location_title": "Ubicación del Servicio",
+					"service_location_description": "¿Dónde te gustaría que se realice el servicio?",
+					"service_location_placeholder": "Ingresa dirección o usa ubicación actual",
+					"service_location_required": "La ubicación es requerida para este servicio",
+					"service_location_max_distance": "Dentro de {distance}km del proveedor",
+					"service_location_outside_radius": "Esta ubicación está fuera del área de servicio ({distance}km de distancia, máximo {maxDistance}km)"
 				}
 			}
 		}

@@ -88,8 +88,8 @@
 					type === 'remote'
 						? tr('dashboard.services.detail.location.remote', 'Remote')
 						: type === 'tasker_location'
-							? tr('dashboard.services.detail.location.tasker_location', 'Tasker Location')
-							: tr('dashboard.services.create.location.taskee_title', 'At Tasker Location')
+							? tr('dashboard.services.create.location.tasker_title', 'At Tasker Location')
+							: tr('dashboard.services.create.location.taskee_title', 'At My Location')
 				)
 				.join(', ');
 			details.push(`📍 ${tr('common.share.location', 'Location')}: ${locations}`);

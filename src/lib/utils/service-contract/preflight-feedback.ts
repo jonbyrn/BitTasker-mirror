@@ -33,7 +33,7 @@ function fallbackMessage(errorCode?: ServiceContractPreflightErrorCode): string 
 		case 'price_unavailable':
 			return 'Unable to determine the current BTC price.';
 		case 'insufficient_funds':
-			return 'Insufficient RBTC balance for the escrow amount and gas.';
+			return 'Insufficient balance for the escrow amount and gas.';
 		case 'relay_unavailable':
 			return 'Contract relays are unavailable right now.';
 		case 'nostr_not_ready':
@@ -54,7 +54,7 @@ function resolveHint(errorCode?: ServiceContractPreflightErrorCode): string | nu
 		case 'wrong_network':
 			return 'Switch to the required Rootstock network in your wallet, then retry.';
 		case 'insufficient_funds':
-			return 'Add enough RBTC to cover the escrow amount and gas, then retry.';
+			return 'Add funds to your wallet, then retry.';
 		case 'relay_unavailable':
 			return 'Reconnect and retry once relay connectivity is available again.';
 		case 'nostr_not_ready':

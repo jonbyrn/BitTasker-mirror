@@ -35,6 +35,10 @@ export type PaymentContractRuneLike = {
 	 * Completion evidence copied from Kind 31006 events that include a `completionAttachments` tag.
 	 */
 	readonly completionAttachments: Attachment[];
+	/**
+	 * Completion evidence text copied from Kind 31006 events that include a `completionText` tag.
+	 */
+	readonly completionText: string;
 };
 
 export type PaymentContractLifecycle = {
@@ -49,7 +53,8 @@ export type PaymentContractLifecycle = {
 	computePermittedActions: (rune: PaymentContractRuneLike) => PermittedActions;
 	markTaskComplete: (
 		rune: PaymentContractRuneLike,
-		completionAttachments?: Attachment[]
+		completionAttachments?: Attachment[],
+		completionText?: string
 	) => Promise<ContractLifecycleResult>;
 	/** Tasker accepts completed work → `FundsReleased` on chain + status + push to taskee. */
 	acceptTask: (rune: PaymentContractRuneLike) => Promise<ContractLifecycleResult>;

@@ -9,11 +9,14 @@
 	import { formatStandardDateTimeShort } from '$lib/utils/helpers/dateFormatter';
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { resolveServiceTierLabel } from '$lib/utils/service-quote/tier-label';
+	import { generateAllMapLinks } from '$lib/utils/location/maps';
 	import ErrorAlertWithModal from '$lib/components/ErrorAlertWithModal.svelte';
 	import { detectErrorType } from '$lib/utils/helpers/errorTypeDetector';
 	import ServiceProposalComposer, {
 		type ServiceProposalComposerSubmitPayload
 	} from './ServiceProposalComposer.svelte';
+	import IconMapMarker from '~icons/mdi/map-marker';
+	import IconOpenInNew from '~icons/mdi/open-in-new';
 
 	const {
 		isOpen = false,
@@ -208,6 +211,12 @@
 		resolveServiceTierLabel(service, timeline?.request.content.tierId)
 	);
 	const inquiryDescription = $derived(timeline?.request.content.inquiry.description?.trim() ?? '');
+	const serviceLocation = $derived(timeline?.request.content.serviceLocation ?? null);
+	const mapLinks = $derived.by(() => {
+		const location = serviceLocation?.location;
+		if (!location) return null;
+		return generateAllMapLinks(location, { label: serviceLocation?.label });
+	});
 
 	let inquiryDescriptionElement: HTMLParagraphElement | null = $state(null);
 	let showFullInquiryDescription = $state(false);
@@ -336,6 +345,58 @@
 								{tr('dashboard.services.my_services.quote_inbox.rush_delivery', 'Rush delivery')}
 							</span>
 						{/if}
+					</div>
+				{/if}
+
+				{#if serviceLocation && mapLinks}
+					<div class="border-base-200 mt-3 border-t pt-3" data-testid="request-service-location">
+						<div class="flex items-start gap-3">
+							<div class="bg-primary/10 mt-0.5 rounded-full p-1.5">
+								<IconMapMarker class="text-primary h-4 w-4" />
+							</div>
+							<div class="min-w-0 flex-1">
+								<p class="text-base-content/60 mb-0.5 text-xs font-medium tracking-wider uppercase">
+									{tr(
+										'dashboard.services.my_services.quote_inbox.tasker_location',
+										"Tasker's Location"
+									)}
+								</p>
+								<p class="word-break-words text-sm font-medium">
+									{serviceLocation.label}
+								</p>
+								<div class="mt-2 flex flex-wrap gap-2">
+									<a
+										href={mapLinks.universal}
+										target="_blank"
+										rel="noopener noreferrer"
+										class="btn btn-xs btn-primary btn-outline gap-1"
+									>
+										<IconOpenInNew class="h-3 w-3" />
+										{tr('dashboard.contracts.open_in_maps', 'Open in Maps')}
+									</a>
+									<div class="dropdown dropdown-top">
+										<div tabindex="0" role="button" class="btn btn-xs btn-ghost">
+											{tr('dashboard.contracts.more_map_options', 'More options')}
+										</div>
+										<ul class="dropdown-content menu bg-base-100 rounded-box z-10 w-40 p-2 shadow">
+											<li>
+												<a href={mapLinks.google} target="_blank" rel="noopener noreferrer">
+													Google Maps
+												</a>
+											</li>
+											<li>
+												<a href={mapLinks.apple} target="_blank" rel="noopener noreferrer">
+													Apple Maps
+												</a>
+											</li>
+											<li>
+												<a href={mapLinks.waze} target="_blank" rel="noopener noreferrer"> Waze </a>
+											</li>
+										</ul>
+									</div>
+								</div>
+							</div>
+						</div>
 					</div>
 				{/if}
 			</div>
