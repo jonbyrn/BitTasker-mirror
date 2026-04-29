@@ -4,7 +4,7 @@
 	import { t } from 'svelte-i18n';
 	import { cubicOut } from 'svelte/easing';
 	import type { TransitionConfig } from 'svelte/transition';
-	import { Menu } from '@skeletonlabs/skeleton-svelte';
+	import { Popover, Portal } from '@skeletonlabs/skeleton-svelte';
 	import { authState } from '$lib/stores/auth.store';
 	import { user } from '$lib/stores/user.store';
 	import { profileStore } from '$lib/stores/profile.store';
@@ -30,9 +30,6 @@
 
 	// Control npub QR code modal
 	let showNpubQrModal = $state(false);
-
-	// Avatar dropdown state (controlled for iOS compatibility)
-	let avatarMenuOpen = $state(false);
 
 	// Dropdown state - track which section ID is open
 	let openSectionId = $state<string | null>(null);
@@ -149,10 +146,10 @@
 			<!-- Action button (like logout) -->
 			<button
 				onclick={(e) => handleMenuItemClick(e, item.action)}
-				class="flex w-full items-center gap-2 whitespace-nowrap"
+				class="text-base-content flex w-full items-center gap-2 whitespace-nowrap"
 				class:text-error={item.isError}
 			>
-				<item.icon class={item.isError ? 'text-error' : 'text-primary'} />
+				<item.icon class={`size-4 ${item.isError ? 'text-error' : 'text-base-content'}`} />
 				<span>{$t(item.label)}</span>
 			</button>
 		{:else}
@@ -163,9 +160,9 @@
 			<a
 				href={itemHref}
 				onclick={(e) => handleMenuItemClick(e, undefined, itemHref)}
-				class="flex items-center gap-2 whitespace-nowrap"
+				class="text-base-content flex items-center gap-2 whitespace-nowrap"
 			>
-				<item.icon class="text-primary" />
+				<item.icon class="text-base-content size-4" />
 				<span>{$t(item.label)}</span>
 			</a>
 		{/if}
@@ -286,45 +283,39 @@
 		{:else}
 			<!-- Notification Center -->
 			<NotificationCenter />
-			<!-- Avatar Dropdown using Skeleton UI Menu (iOS-friendly) -->
-			<Menu open={avatarMenuOpen} onOpenChange={(v) => (avatarMenuOpen = v)}>
-				<Menu.Trigger class="btn btn-ghost min-w-0 flex-shrink-0 p-0">
+			<!-- Avatar Dropdown - uses Skeleton Popover with Portal -->
+			<Popover>
+				<Popover.Trigger class="btn btn-ghost min-w-0 flex-shrink-0 p-0 hover:shadow-none">
 					<Avatar name={$user.name} picture={userPicture()} size="sm" />
-				</Menu.Trigger>
-				<Menu.Positioner>
-					<Menu.Content class="card bg-base-100 rounded-box z-50 w-56 p-2 shadow-xl">
-						<!-- User Info Header -->
-						{#if userDisplayName}
-							<div class="border-base-300 mb-2 border-b pb-2">
-								<button
-									onclick={showNpubQrCode}
-									class="flex w-full items-center gap-2 whitespace-nowrap"
-								>
-									<IconQrcode class="text-primary" />
-									<span class="wrap-break-words font-bold whitespace-normal">{userDisplayName}</span
+				</Popover.Trigger>
+				<Portal>
+					<Popover.Positioner class="z-[100]" placement="bottom-end">
+						<Popover.Content
+							class="menu dropdown-content bg-base-100 rounded-box w-auto min-w-48 p-2 text-sm shadow-lg"
+						>
+							<!-- User Info Header -->
+							{#if userDisplayName}
+								<div class="border-base-content/10 border-b px-2 pb-2">
+									<button
+										onclick={showNpubQrCode}
+										class="text-base-content flex w-full items-center gap-2 whitespace-nowrap"
 									>
-								</button>
-							</div>
-						{/if}
-						{#each AVATAR_MENU_ITEMS as item (item.label)}
-							{#if item.action === 'logout'}
-								<Menu.Item value={item.label} class="text-error" onclick={() => logout()}>
-									<item.icon class="text-error" />
-									<Menu.ItemText>{$t(item.label)}</Menu.ItemText>
-								</Menu.Item>
-							{:else}
-								{@const itemHref = item.getDynamicHref
-									? item.getDynamicHref($authState.isAuthenticated)
-									: item.href || '#'}
-								<Menu.Item value={item.label} onclick={() => goto(itemHref)}>
-									<item.icon class="text-primary" />
-									<Menu.ItemText>{$t(item.label)}</Menu.ItemText>
-								</Menu.Item>
+										<IconQrcode class="text-base-content size-4" />
+										<span class="wrap-break-words font-bold whitespace-normal"
+											>{userDisplayName}</span
+										>
+									</button>
+								</div>
 							{/if}
-						{/each}
-					</Menu.Content>
-				</Menu.Positioner>
-			</Menu>
+							<ul>
+								{#each AVATAR_MENU_ITEMS as item (item.label)}
+									{@render menuItem(item)}
+								{/each}
+							</ul>
+						</Popover.Content>
+					</Popover.Positioner>
+				</Portal>
+			</Popover>
 		{/if}
 	</div>
 </div>
@@ -356,32 +347,6 @@
 		margin-bottom: 0;
 	}
 
-	/* Remove hover effect and reduce padding for avatar dropdown summary */
-	:global(.navbar-end .dropdown-end > summary.btn.btn-ghost) {
-		background: none !important;
-		box-shadow: none !important;
-		color: inherit !important;
-		padding: 0.25rem 0.5rem !important;
-		transition: none !important;
-	}
-	:global(.navbar-end .dropdown-end > summary.btn.btn-ghost:hover),
-	:global(.navbar-end .dropdown-end > summary.btn.btn-ghost:focus) {
-		background: none !important;
-		box-shadow: none !important;
-		color: inherit !important;
-	}
-
-	/* Ensure dropdown positioning works correctly in navbar */
-	:global(.navbar-center .menu.menu-horizontal > li.relative) {
-		position: relative;
-	}
-
-	:global(.navbar-center .dropdown-content) {
-		position: absolute;
-		top: 100%;
-		left: 0;
-	}
-
 	/* iOS touch improvements for avatar dropdown button */
 	:global(.navbar-end .btn.btn-ghost) {
 		touch-action: manipulation;
@@ -393,30 +358,5 @@
 	:global(.navbar-end [class*='avatar']) {
 		touch-action: manipulation;
 		-webkit-tap-highlight-color: transparent;
-	}
-
-	/* Ensure dropdown menu is clickable on iOS */
-	:global(.navbar-end .dropdown-content) {
-		touch-action: manipulation;
-		-webkit-tap-highlight-color: transparent;
-	}
-
-	/* Avatar dropdown animation - iOS-friendly alternative to Svelte transitions */
-	:global(.navbar-end .dropdown-content) {
-		opacity: 0;
-		transform: translate3d(0, -8px, 0) scale(0.98);
-		transform-origin: top right;
-		pointer-events: none;
-		transition:
-			opacity 200ms ease-out,
-			transform 200ms ease-out;
-		will-change: opacity, transform;
-		backface-visibility: hidden;
-	}
-
-	:global(.navbar-end .dropdown-content.dropdown-visible) {
-		opacity: 1;
-		transform: translate3d(0, 0, 0) scale(1);
-		pointer-events: auto;
 	}
 </style>
