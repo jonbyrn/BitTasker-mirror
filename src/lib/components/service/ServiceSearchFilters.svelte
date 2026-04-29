@@ -252,7 +252,7 @@
 						onchange={() => toggleLocationType(ServiceLocationTypeEnum.TASKER_LOCATION)}
 					/>
 					<span class="label-text">
-						{$t('dashboard.services.create.location.tasker_title') || 'At My Location'}
+						{$t('dashboard.services.create.location.tasker_title') || 'At Tasker Location'}
 					</span>
 				</label>
 				<label class="label cursor-pointer justify-start gap-3">
@@ -265,7 +265,7 @@
 						onchange={() => toggleLocationType(ServiceLocationTypeEnum.TASKEE_LOCATION)}
 					/>
 					<span class="label-text">
-						{$t('dashboard.services.create.location.taskee_title') || 'At Taskee Location'}
+						{$t('dashboard.services.create.location.taskee_title') || 'At My Location'}
 					</span>
 				</label>
 			</div>

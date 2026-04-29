@@ -51,9 +51,9 @@
 		[ServiceLocationTypeEnum.REMOTE]:
 			$t('dashboard.services.create.location.remote_title') || 'Remote',
 		[ServiceLocationTypeEnum.TASKER_LOCATION]:
-			$t('dashboard.services.create.location.tasker_title') || 'At My Location',
+			$t('dashboard.services.create.location.tasker_title') || 'At Tasker Location',
 		[ServiceLocationTypeEnum.TASKEE_LOCATION]:
-			$t('dashboard.services.create.location.taskee_title') || 'At Tasker Location'
+			$t('dashboard.services.create.location.taskee_title') || 'At My Location'
 	};
 
 	// Helper function to get pricing display

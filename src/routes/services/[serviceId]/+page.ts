@@ -284,6 +284,7 @@ export const load: PageLoad = async ({ params, parent }) => {
 	const canonicalUrl = buildCanonicalUrl(canonicalId);
 	const seo = buildDefaultSeo(canonicalUrl, tr);
 
+	console.log('service', service);
 	if (service) {
 		const title =
 			service.title || tr('dashboard.services.detail.seo.untitled_service', 'Untitled Service');

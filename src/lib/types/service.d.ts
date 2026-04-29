@@ -125,10 +125,11 @@ export interface QuoteRequestPayload {
  * Location-specific configurations for services
  */
 export interface ServiceLocationDetails {
-	// For TASKER_LOCATION offer mode ("At My Location").
-	// The buyer travels to the provider's fixed location.
+	// For TASKER_LOCATION offer mode ("At Tasker Location").
+	// The provider travels to the buyer's location. This stores the provider's base location
+	// for calculating travel distance/charges.
 	taskerLocation?: {
-		serviceLocation: Location; // Provider's fixed location (office, studio, base location)
+		serviceLocation: Location; // Provider's base location for travel calculations
 		serviceRadius?: number; // Legacy radius retained for older listings
 		perDistanceCharge?: {
 			amount: number;
@@ -137,8 +138,8 @@ export interface ServiceLocationDetails {
 		};
 	};
 
-	// For TASKEE_LOCATION offer mode ("At Tasker Location").
-	// The provider travels to the buyer and can constrain how far they are willing to travel.
+	// For TASKEE_LOCATION offer mode ("At My Location").
+	// The buyer travels to the provider's fixed location.
 	taskeeLocation?: {
 		useGlobalLocation: boolean; // Deprecated transitional flag while global location is phased out
 		serviceLocation?: Location; // Preferred explicit location for discovery/filtering/search radius checks

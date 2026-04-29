@@ -354,7 +354,8 @@
 	const showInstantBuyCta = $derived(
 		instantBuyEligibility.code !== 'inactive_service' &&
 			instantBuyEligibility.code !== 'missing_service' &&
-			instantBuyEligibility.code !== 'invalid_pricing_type'
+			instantBuyEligibility.code !== 'invalid_pricing_type' &&
+			instantBuyEligibility.code !== 'missing_lead_hours'
 	);
 	const isOffline = $derived(!$browserNetworkStatus.online);
 	const showReconnectNotice = $derived(
@@ -1705,7 +1706,7 @@
 											class="link link-primary">{headerLocation!.address}</a
 										>
 									{:else}
-										<span>{$t('dashboard.services.detail.remote')}</span>
+										<span>{$t('dashboard.services.detail.location.remote')}</span>
 									{/if}
 								</div>
 								<div class="text-base-content/80 text-sm leading-relaxed whitespace-pre-line">
@@ -1940,7 +1941,7 @@
 										class="link link-primary">{headerLocation!.address}</a
 									>
 								{:else}
-									<span>{$t('dashboard.services.detail.remote')}</span>
+									<span>{$t('dashboard.services.detail.location.remote')}</span>
 								{/if}
 							</div>
 							<div class="text-base-content/80 text-sm leading-relaxed whitespace-pre-line">
@@ -2517,6 +2518,14 @@
 								{:else}
 									{detailText('dashboard.services.detail.book_now', 'Book')}
 								{/if}
+							</button>
+						{:else if !isPreview}
+							<button
+								class="btn btn-primary btn-sm shadow-primary/20 disabled:bg-base-300 disabled:text-base-content/30 disabled:border-base-300 font-black shadow-lg"
+								onclick={handleOpenRequestQuote}
+								disabled={isOffline || isOwner}
+							>
+								{detailText('dashboard.services.detail.request_quote', 'Inquire')}
 							</button>
 						{/if}
 					</div>
