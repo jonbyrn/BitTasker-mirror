@@ -105,7 +105,7 @@
 				return {
 					action: ContractModalAction.Refund,
 					icon: IconCashRefund,
-					btnClass: 'btn-neutral',
+					btnClass: 'btn-warning text-gray-800',
 					labelKey: 'dashboard.contracts.actions.refund'
 				};
 			if (p.canProposeResolution)

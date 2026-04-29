@@ -795,7 +795,7 @@
 			"actions": {
 				"complete_task": "Mark Task Complete",
 				"accept_work": "Accept Work",
-				"dispute_work": "Dispute Work",
+				"dispute_work": "Dispute",
 				"propose_resolution": "Propose Resolution",
 				"accept_proposal": "Accept Proposal",
 				"cancel_contract": "Cancel Contract",

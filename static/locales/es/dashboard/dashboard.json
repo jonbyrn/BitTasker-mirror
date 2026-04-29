@@ -794,7 +794,7 @@
 			"actions": {
 				"complete_task": "Marcar Tarea como Completada",
 				"accept_work": "Aceptar Trabajo",
-				"dispute_work": "Disputar Trabajo",
+				"dispute_work": "Disputar",
 				"propose_resolution": "Proponer Resolución",
 				"accept_proposal": "Aceptar Propuesta",
 				"cancel_contract": "Cancelar Contrato",

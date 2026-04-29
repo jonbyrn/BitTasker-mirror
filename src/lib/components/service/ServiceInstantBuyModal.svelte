@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { format } from 'date-fns';
 	import { t } from 'svelte-i18n';
 	import { goto } from '$app/navigation';
 	import { FEE_TIERS } from '@bittasker/wallet-core';
@@ -7,10 +6,8 @@
 	import ContractFundingWalletCard from '$lib/components/contracts/ContractFundingWalletCard.svelte';
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 	import UserInfoDisplay from '$lib/components/user/UserInfoDisplay.svelte';
-	import IconCalendarClock from '~icons/mdi/calendar-clock';
-	import IconTruckDeliveryOutline from '~icons/mdi/truck-delivery-outline';
 	import IconRefresh from '~icons/mdi/refresh';
-	import { formatDurationBetweenDates } from '$lib/utils/helpers/dateFormatter';
+	import BookingDatesDisplay from '$lib/components/shared/BookingDatesDisplay.svelte';
 	import type {
 		ServiceContractAgreementSnapshot,
 		ServiceContractPricingSnapshot
@@ -101,14 +98,6 @@
 	const PLATFORM_FEE_RATE = FEE_TIERS[DEFAULT_CLIENT_FEE_TIER].percentage / 10000;
 	const PLATFORM_FEE_PERCENT_LABEL = `${(PLATFORM_FEE_RATE * 100).toFixed(1)}%`;
 
-	function formatTimestamp(timestampSeconds: number | null): string {
-		if (!timestampSeconds || !Number.isFinite(timestampSeconds)) {
-			return $t('dashboard.services.detail.book_now_drawer.unavailable');
-		}
-
-		return format(new Date(timestampSeconds * 1000), 'MMM d, yyyy');
-	}
-
 	function formatUsdLabel(value: number | null): string {
 		if (value == null || !Number.isFinite(value)) {
 			return '—';
@@ -134,18 +123,6 @@
 	const platformFeeLabel = $derived(formatUsdLabel(platformFeeValue));
 	const estimatedNetworkFeeLabel = $derived(formatUsdLabel(ESTIMATED_NETWORK_FEE_USD));
 	const totalPaymentLabel = $derived(formatUsdLabel(totalPaymentValue));
-	const estimatedStartLabel = $derived(formatTimestamp(estimatedStartTime));
-	const estimatedCompletionLabel = $derived(formatTimestamp(estimatedCompletionTime));
-	const durationLabel = $derived.by(() => {
-		if (estimatedStartTime && estimatedCompletionTime) {
-			return formatDurationBetweenDates(
-				new Date(estimatedStartTime * 1000),
-				new Date(estimatedCompletionTime * 1000),
-				$t
-			);
-		}
-		return '';
-	});
 	const resolvedErrorMessage = $derived(errorMessage);
 
 	const remainingBalanceUsd = $derived.by(() => {
@@ -437,52 +414,12 @@
 							</div>
 
 							<!-- Timeline Row -->
-							<div class="flex items-center justify-between gap-2 px-1">
-								<!-- Start Date -->
-								<div class="flex min-w-0 flex-col" data-testid="service-agreement-start">
-									<div
-										class="text-primary/70 flex items-center gap-1.5 text-[10px] font-bold tracking-wider uppercase"
-									>
-										<IconCalendarClock class="text-primary h-3.5 w-3.5" />
-										<span>{$t('dashboard.services.detail.book_now_drawer.start_date')}</span>
-									</div>
-									<div class="mt-0.5 truncate text-xs font-bold sm:text-sm">
-										{estimatedStartLabel}
-									</div>
-								</div>
-
-								<!-- Duration Indicator -->
-								{#if durationLabel}
-									<div class="flex flex-1 items-center justify-center px-2">
-										<div class="relative flex w-full items-center justify-center py-2">
-											<div
-												class="bg-primary/30 absolute inset-x-0 top-1/2 h-0.5 -translate-y-1/2"
-											></div>
-											<span
-												class="badge badge-ghost badge-xs border-primary/30 bg-base-100 text-primary z-10 flex h-5 items-center px-2 text-[11px] font-bold whitespace-nowrap shadow-sm"
-											>
-												{durationLabel}
-											</span>
-										</div>
-									</div>
-								{/if}
-
-								<!-- Delivery Date -->
-								<div
-									class="flex min-w-0 flex-col items-end text-right"
-									data-testid="service-agreement-delivery"
-								>
-									<div
-										class="text-primary/70 flex items-center justify-start gap-1.5 text-[10px] font-bold tracking-wider uppercase"
-									>
-										<IconTruckDeliveryOutline class="text-primary h-3.5 w-3.5" />
-										<span>{$t('dashboard.services.detail.book_now_drawer.delivery_date')}</span>
-									</div>
-									<div class="mt-0.5 truncate text-xs font-bold sm:text-sm">
-										{estimatedCompletionLabel}
-									</div>
-								</div>
-							</div>
+							<BookingDatesDisplay
+								startTime={estimatedStartTime}
+								endTime={estimatedCompletionTime}
+								startLabel={$t('dashboard.services.detail.book_now_drawer.start_date')}
+								endLabel={$t('dashboard.services.detail.book_now_drawer.delivery_date')}
+							/>
 
 							<!-- Pricing Card -->
 							<div class="flex flex-col gap-4 lg:flex-row">

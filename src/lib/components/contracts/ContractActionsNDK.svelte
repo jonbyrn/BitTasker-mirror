@@ -293,7 +293,7 @@
 	{#if contractRune.permittedActions.canRefundTasker}
 		<button
 			type="button"
-			class="btn btn-neutral btn-sm flex-1 sm:w-auto"
+			class="btn btn-warning btn-sm flex-1 text-gray-800 sm:w-auto"
 			disabled={contractRune.isPending || isBusy}
 			onclick={() => openModal(ContractModalAction.Refund)}
 		>
