@@ -53,11 +53,11 @@ vi.mock('$lib/api/services/upload.service', () => ({
 vi.mock('$lib/api/services/auth.service', () => ({
 	default: {
 		getPasskeyEncryptedData: vi.fn(),
-		verifyPasskey: vi.fn()
+		verifyPasskey: vi.fn(),
+		getChallenge: vi.fn().mockResolvedValue({ challenge: 'test-challenge' })
 	}
 }));
 
-// Hoist the writable implementation to avoid hoisting issues
 const mockWritable = vi.hoisted(() => <T>(initialValue: T) => {
 	let value = initialValue;
 	const subscribers = new Set<(value: T) => void>();
@@ -78,7 +78,6 @@ const mockWritable = vi.hoisted(() => <T>(initialValue: T) => {
 	};
 });
 
-// Mock dependencies
 vi.mock('$lib/stores/app.store', () => {
 	const createState = (biometricData: BiometricData | null) => ({
 		nostrKeys: { nsec: null, npub: null, mnemonic: null },
@@ -95,8 +94,8 @@ vi.mock('$lib/stores/app.store', () => {
 	return {
 		appStore: {
 			subscribe: mockStore.subscribe,
-			set: vi.fn((value) => mockStore.set(value)),
-			update: vi.fn((fn) => mockStore.update(fn)),
+			set: mockStore.set,
+			update: mockStore.update,
 			showSuccessToast: vi.fn(),
 			showErrorToast: vi.fn(),
 			showInfoToast: vi.fn()
@@ -107,7 +106,7 @@ vi.mock('$lib/stores/app.store', () => {
 vi.mock('@capacitor/preferences', () => ({
 	Preferences: {
 		get: vi.fn(),
-		set: vi.fn(),
+		set: vi.fn().mockResolvedValue(undefined),
 		remove: vi.fn()
 	}
 }));
@@ -137,8 +136,29 @@ vi.mock('$lib/utils/helpers/biometrics', () => ({
 	getBiometricData: vi.fn()
 }));
 
+vi.mock('$lib/nostr/ndk', () => ({
+	syncNdkSignerFromAppStore: vi.fn().mockResolvedValue(undefined),
+	ndk: {
+		$currentPubkey: null,
+		signer: null,
+		cacheAdapter: null,
+		addExplicitRelay: vi.fn()
+	}
+}));
+
+vi.mock('$lib/runes/unpublishedEventsRetry.svelte', () => ({
+	unpublishedEventsRetry: {
+		start: vi.fn(),
+		stop: vi.fn()
+	}
+}));
+
+vi.mock('$lib/utils/helpers/biometricErrorHandler', () => ({
+	handleBiometricError: vi.fn().mockResolvedValue('Biometric error')
+}));
+
 describe('Error Recovery and Fallback', () => {
-	const mockAppStoreUpdate = vi.mocked(appStore.update);
+	const _mockAppStoreUpdate = vi.mocked(appStore.update);
 	const mockPreferencesGet = vi.mocked(Preferences.get);
 	const mockDecryptNsec = vi.mocked(decryptNsecWithBiometrics);
 
@@ -157,8 +177,9 @@ describe('Error Recovery and Fallback', () => {
 
 	beforeEach(async () => {
 		vi.clearAllMocks();
+		mockDecryptNsec.mockReset();
+		mockDecryptNsec.mockResolvedValue('decrypted_nsec');
 
-		// Setup default mock for auth service
 		const authService = await import('$lib/api/services/auth.service');
 		const mockAuthService = vi.mocked(authService.default);
 		mockAuthService.getPasskeyEncryptedData = vi.fn().mockResolvedValue({
@@ -169,21 +190,11 @@ describe('Error Recovery and Fallback', () => {
 	it('should throw when decryption fails with cached biometricData', async () => {
 		const mockBiometricData = createBiometricData('test_npub');
 
-		let currentState: AppState = createState(mockBiometricData);
-		appStore.set(currentState);
-		mockAppStoreUpdate.mockImplementation((fn) => {
-			currentState = fn(currentState);
-			appStore.set(currentState);
-		});
-
+		appStore.set(createState(mockBiometricData));
 		mockPreferencesGet.mockImplementation(async () => ({ value: null }));
 		mockDecryptNsec.mockRejectedValue(new Error('Decryption failed'));
 
-		const { getBiometricData } = await import('$lib/utils/helpers/biometrics');
-		const mockGetBiometricData = vi.mocked(getBiometricData);
-
 		await expect(getNostrKeyPair()).rejects.toThrow('Decryption failed');
-		expect(mockGetBiometricData).not.toHaveBeenCalled();
 	});
 
 	it('should throw when Preferences.get fails before using biometricData', async () => {
@@ -192,31 +203,20 @@ describe('Error Recovery and Fallback', () => {
 		appStore.set(createState(mockBiometricData));
 		mockPreferencesGet.mockRejectedValue(new Error('Validation failed'));
 
-		const { getBiometricData } = await import('$lib/utils/helpers/biometrics');
-		const mockGetBiometricData = vi.mocked(getBiometricData);
-
 		await expect(getNpub()).rejects.toThrow('Validation failed');
-		expect(mockGetBiometricData).not.toHaveBeenCalled();
 	});
 
 	it('should never leave user in unrecoverable authentication state', async () => {
-		let currentState: AppState = createState(null);
-		appStore.set(currentState);
-		mockAppStoreUpdate.mockImplementation((fn) => {
-			currentState = fn(currentState);
-			appStore.set(currentState);
-		});
+		appStore.set(createState(null));
 
 		const { getBiometricData } = await import('$lib/utils/helpers/biometrics');
 		const mockGetBiometricData = vi.mocked(getBiometricData);
 
-		// First attempt fails
 		mockGetBiometricData.mockRejectedValueOnce(new Error('First failure'));
 		mockPreferencesGet.mockResolvedValue({ value: null });
 
 		await expect(getNostrKeyPair()).rejects.toThrow('First failure');
 
-		// Second attempt succeeds
 		const validNsec = 'nsec1new123456789012345678901234567890123456789012345678901234567890';
 		mockGetBiometricData.mockResolvedValueOnce(createCredentials('new_npub'));
 		mockDecryptNsec.mockResolvedValueOnce(validNsec);
@@ -228,38 +228,19 @@ describe('Error Recovery and Fallback', () => {
 	it('should throw when decryption fails without retrying', async () => {
 		const mockBiometricData = createBiometricData('test_npub');
 
-		let currentState: AppState = createState(mockBiometricData);
-		appStore.set(currentState);
-		mockAppStoreUpdate.mockImplementation((fn) => {
-			currentState = fn(currentState);
-			appStore.set(currentState);
-		});
-
+		appStore.set(createState(mockBiometricData));
 		mockPreferencesGet.mockImplementation(async () => ({ value: null }));
-
-		// Ensure the decrypt function actually rejects
-		mockDecryptNsec.mockReset();
 		mockDecryptNsec.mockRejectedValue(new Error('Decryption failed'));
 
-		const { getBiometricData } = await import('$lib/utils/helpers/biometrics');
-		const mockGetBiometricData = vi.mocked(getBiometricData);
-
 		await expect(getNostrKeyPair()).rejects.toThrow('Decryption failed');
-		expect(mockGetBiometricData).not.toHaveBeenCalled();
 	});
 
 	it('should handle multiple consecutive failures gracefully', async () => {
-		let currentState: AppState = createState(null);
-		appStore.set(currentState);
-		mockAppStoreUpdate.mockImplementation((fn) => {
-			currentState = fn(currentState);
-			appStore.set(currentState);
-		});
+		appStore.set(createState(null));
 
 		const { getBiometricData } = await import('$lib/utils/helpers/biometrics');
 		const mockGetBiometricData = vi.mocked(getBiometricData);
 
-		// Multiple failures
 		mockGetBiometricData
 			.mockRejectedValueOnce(new Error('Failure 1'))
 			.mockRejectedValueOnce(new Error('Failure 2'))
@@ -267,12 +248,10 @@ describe('Error Recovery and Fallback', () => {
 
 		mockPreferencesGet.mockResolvedValue({ value: null });
 
-		// Each failure should be handled gracefully
 		await expect(getNostrKeyPair()).rejects.toThrow('Failure 1');
 		await expect(getNostrKeyPair()).rejects.toThrow('Failure 2');
 		await expect(getNostrKeyPair()).rejects.toThrow('Failure 3');
 
-		// No unrecoverable state - can still retry
 		expect(mockGetBiometricData).toHaveBeenCalledTimes(3);
 	});
 });

@@ -14,7 +14,8 @@
 			"tiktok_aria": "BitTasker on TikTok",
 			"rumble_aria": "BitTasker on Rumble",
 			"telegram_aria": "BitTasker on Telegram",
-			"whatsapp_aria": "BitTasker on WhatsApp"
+			"whatsapp_aria": "BitTasker on WhatsApp",
+			"github_aria": "BitTasker on GitHub"
 		},
 		"made_with": "Made with",
 		"and": "and",
@@ -44,10 +45,13 @@
 	"navbar": {
 		"home": "Home",
 		"new_task": "New Task",
+		"panel": "Dashboard",
 		"my_tasks": "My Tasks",
 		"wallet": "Wallet",
 		"messages": "Messages",
 		"support_help": "Support & Help",
+		"hiring": "Hiring",
+		"earning": "Earning",
 		"task_management": "Task Management",
 		"my_account": "My Account",
 		"profile": "Profile",
@@ -58,6 +62,8 @@
 		"terms_of_service": "Terms of Service",
 		"privacy_policy": "Privacy Policy",
 		"find_tasks": "Find Tasks",
+		"find_services": "Find Services",
+		"my_services": "My Services",
 		"create_task": "Create Task",
 		"browse_freelancers": "See Taskees",
 		"browse_tasks": "Browse Tasks",
@@ -86,7 +92,10 @@
 		"feedback": "Feedback",
 		"bids": "My Bids",
 		"bids_sent": "Bids Sent",
-		"contracts": "Contracts"
+		"contracts": "Contracts",
+		"service_requests": "Service Requests",
+		"requests": "Requests",
+		"saved_searches": "Saved Searches"
 	},
 	"homepage": {
 		"title": "Hello, World!",

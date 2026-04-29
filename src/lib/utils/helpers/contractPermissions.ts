@@ -1,6 +1,54 @@
+ 
 import type { NostrContract, ContractStatusEvent, ContractPermissions } from '$lib/types/contract';
 import type { EscrowData, DisputeProposal } from '$lib/types/wallet';
 import { EscrowStatus } from '$lib/utils/escrow/v1/escrow.enum';
+
+const PENDING_STATUS_TTL_SECONDS = 5 * 60;
+
+function isPendingStatusAction(action: EscrowStatus): boolean {
+	return [
+		EscrowStatus.PendingFunding,
+		EscrowStatus.PendingCompletion,
+		EscrowStatus.PendingCancellation,
+		EscrowStatus.PendingAcceptance,
+		EscrowStatus.PendingDispute,
+		EscrowStatus.PendingResolutionProposal,
+		EscrowStatus.PendingProposalAcceptance,
+		EscrowStatus.PendingTimelockResolution
+	].includes(action);
+}
+
+function isFreshPendingStatusEvent(event: ContractStatusEvent, now: number): boolean {
+	return (
+		isPendingStatusAction(event.content.action) &&
+		Boolean(event.content.transactionHash) &&
+		event.created_at >= now - PENDING_STATUS_TTL_SECONDS
+	);
+}
+
+function hasFreshPendingStatus(
+	statusEvents: ContractStatusEvent[],
+	action: EscrowStatus,
+	now: number
+): boolean {
+	return statusEvents.some(
+		(event) => event.content.action === action && isFreshPendingStatusEvent(event, now)
+	);
+}
+
+function getLatestFreshPendingStatusEvent(
+	statusEvents: ContractStatusEvent[],
+	now: number
+): ContractStatusEvent | null {
+	for (let index = statusEvents.length - 1; index >= 0; index -= 1) {
+		const event = statusEvents[index];
+		if (isFreshPendingStatusEvent(event, now)) {
+			return event;
+		}
+	}
+
+	return null;
+}
 
 /**
  * Helper function to determine if client can cancel based on Solidity contract rules
@@ -64,8 +112,10 @@ function mapBlockchainStatusToPermissions(
 		case EscrowStatus.Funded: {
 			// 0 - Escrow funded on blockchain
 			// PRIORITY 1: Check for pending cancellation (transaction in progress)
-			const hasPendingCancellation = statusEvents.some(
-				(e) => e.content.action === EscrowStatus.PendingCancellation && e.content.transactionHash
+			const hasPendingCancellation = hasFreshPendingStatus(
+				statusEvents,
+				EscrowStatus.PendingCancellation,
+				now
 			);
 
 			if (hasPendingCancellation) {
@@ -86,8 +136,10 @@ function mapBlockchainStatusToPermissions(
 			}
 
 			// PRIORITY 2: Check for pending completion (transaction in progress)
-			const hasPendingCompletion = statusEvents.some(
-				(e) => e.content.action === EscrowStatus.PendingCompletion && e.content.transactionHash
+			const hasPendingCompletion = hasFreshPendingStatus(
+				statusEvents,
+				EscrowStatus.PendingCompletion,
+				now
 			);
 
 			if (hasPendingCompletion) {
@@ -118,6 +170,7 @@ function mapBlockchainStatusToPermissions(
 					canDispute: false,
 					canPropose: false,
 					canAcceptProposal: false,
+					// Client has time restrictions, Freelancer can ALWAYS refund
 					canCancel: isClient ? canClientCancel(escrowData, now) : false,
 					canRefund: isFreelancer,
 					canResolveTimelock: false,
@@ -154,9 +207,10 @@ function mapBlockchainStatusToPermissions(
 			}
 
 			// PRIORITY 2: Check for pending timelock resolution (transaction in progress)
-			const hasPendingTimelockResolution = statusEvents.some(
-				(e) =>
-					e.content.action === EscrowStatus.PendingTimelockResolution && e.content.transactionHash
+			const hasPendingTimelockResolution = hasFreshPendingStatus(
+				statusEvents,
+				EscrowStatus.PendingTimelockResolution,
+				now
 			);
 
 			if (hasPendingTimelockResolution) {
@@ -177,10 +231,11 @@ function mapBlockchainStatusToPermissions(
 			}
 
 			// PRIORITY 3: Check for pending acceptance (transaction in progress)
-			const pendingAcceptanceEvents = statusEvents.filter(
-				(e) => e.content.action === EscrowStatus.PendingAcceptance && e.content.transactionHash
+			const hasPendingAcceptance = hasFreshPendingStatus(
+				statusEvents,
+				EscrowStatus.PendingAcceptance,
+				now
 			);
-			const hasPendingAcceptance = pendingAcceptanceEvents.length > 0;
 
 			if (hasPendingAcceptance) {
 				return {
@@ -200,8 +255,10 @@ function mapBlockchainStatusToPermissions(
 			}
 
 			// PRIORITY 4: Check for pending dispute (transaction in progress)
-			const hasPendingDispute = statusEvents.some(
-				(e) => e.content.action === EscrowStatus.PendingDispute && e.content.transactionHash
+			const hasPendingDispute = hasFreshPendingStatus(
+				statusEvents,
+				EscrowStatus.PendingDispute,
+				now
 			);
 
 			if (hasPendingDispute) {
@@ -243,9 +300,10 @@ function mapBlockchainStatusToPermissions(
 			const disputeTimelockExpired = now > escrowData.timelockExpiry;
 
 			// PRIORITY 1: Check for pending timelock resolution (transaction in progress)
-			const hasPendingTimelockResolutionDispute = statusEvents.some(
-				(e) =>
-					e.content.action === EscrowStatus.PendingTimelockResolution && e.content.transactionHash
+			const hasPendingTimelockResolutionDispute = hasFreshPendingStatus(
+				statusEvents,
+				EscrowStatus.PendingTimelockResolution,
+				now
 			);
 
 			if (hasPendingTimelockResolutionDispute) {
@@ -266,9 +324,10 @@ function mapBlockchainStatusToPermissions(
 			}
 
 			// PRIORITY 2: Check for pending proposal acceptance (transaction in progress)
-			const hasPendingProposalAcceptance = statusEvents.some(
-				(e) =>
-					e.content.action === EscrowStatus.PendingProposalAcceptance && e.content.transactionHash
+			const hasPendingProposalAcceptance = hasFreshPendingStatus(
+				statusEvents,
+				EscrowStatus.PendingProposalAcceptance,
+				now
 			);
 
 			if (hasPendingProposalAcceptance) {
@@ -292,7 +351,7 @@ function mapBlockchainStatusToPermissions(
 			const hasPendingResolutionProposal = statusEvents.some(
 				(e) =>
 					e.content.action === EscrowStatus.PendingResolutionProposal &&
-					e.content.transactionHash &&
+					isFreshPendingStatusEvent(e, now) &&
 					!statusEvents.some(
 						(confirmed) =>
 							confirmed.content.action === EscrowStatus.DisputeResolutionProposed &&
@@ -483,14 +542,14 @@ export function determineContractState(
 	// CASE 3: Never funded (no blockchain state, no transaction hash)
 	// This is a Nostr-only contract that was never funded
 	// Check Nostr status events for any pending actions (shouldn't happen, but defensive)
-	const latestStatusEvent = statusEvents.length > 0 ? statusEvents[statusEvents.length - 1] : null;
+	const latestStatusEvent = getLatestFreshPendingStatusEvent(statusEvents, Date.now() / 1000);
 
 	if (latestStatusEvent) {
 		const action = latestStatusEvent.content.action;
 
 		// These pending states should only exist if blockchain state exists
 		// But we handle them defensively
-		if (action === EscrowStatus.PendingCompletion && latestStatusEvent.content.transactionHash) {
+		if (action === EscrowStatus.PendingCompletion) {
 			return {
 				status: EscrowStatus.PendingCompletion,
 				permissions: {
@@ -507,7 +566,7 @@ export function determineContractState(
 			};
 		}
 
-		if (action === EscrowStatus.PendingDispute && latestStatusEvent.content.transactionHash) {
+		if (action === EscrowStatus.PendingDispute) {
 			return {
 				status: EscrowStatus.PendingDispute,
 				permissions: {
@@ -524,7 +583,7 @@ export function determineContractState(
 			};
 		}
 
-		if (action === EscrowStatus.PendingCancellation && latestStatusEvent.content.transactionHash) {
+		if (action === EscrowStatus.PendingCancellation) {
 			return {
 				status: EscrowStatus.PendingCancellation,
 				permissions: {
@@ -541,7 +600,7 @@ export function determineContractState(
 			};
 		}
 
-		if (action === EscrowStatus.PendingAcceptance && latestStatusEvent.content.transactionHash) {
+		if (action === EscrowStatus.PendingAcceptance) {
 			return {
 				status: EscrowStatus.PendingAcceptance,
 				permissions: {

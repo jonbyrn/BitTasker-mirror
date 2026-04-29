@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { t } from 'svelte-i18n';
 	import IconAccount from '~icons/mdi/account';
 	import { fetchProfileMetadata } from '$lib/utils/nostr-message';
@@ -26,9 +27,7 @@
 
 	// State for fetched profile data (fetchProfileMetadata returns name, picture, createdAt)
 	let fetchedProfile = $state<{ name?: string; picture?: string; createdAt?: string } | null>(null);
-	let isLoadingProfile = $state(false);
-	let normalizedHexPubkey = $state<string | null>(null); // Normalized hex pubkey for consistent caching
-	let lastLoadedPubkey = $state<string | null>(null); // Track which pubkey we last loaded to prevent duplicate loads
+	let activeProfileRequestId = 0;
 
 	// Size configurations - matching bids page styling
 	const sizeConfig = {
@@ -44,8 +43,8 @@
 			avatar: 'h-12 w-12 sm:h-14 sm:w-14',
 			text: 'text-base',
 			name: 'text-base font-semibold sm:text-lg',
-			star: 'h-3 w-3 sm:h-4 sm:w-4',
-			rating: 'text-xs sm:text-sm',
+			star: 'h-3 w-3',
+			rating: 'text-xs',
 			memberSince: 'text-xs sm:text-sm'
 		},
 		lg: {
@@ -146,43 +145,76 @@
 		return false;
 	}
 
+	function sanitizeDisplayName(value: unknown): string | null {
+		if (typeof value !== 'string') return null;
+
+		const trimmedValue = value.trim();
+		if (!trimmedValue || isInvalidUsername(trimmedValue)) {
+			return null;
+		}
+
+		return trimmedValue;
+	}
+
 	/**
 	 * Normalize username - ensure it's a string and not invalid
 	 */
 	const normalizedUsername = $derived.by(() => {
-		if (!username) return null;
+		return sanitizeDisplayName(username);
+	});
 
-		// Convert to string if needed
-		const str = typeof username === 'string' ? username : String(username);
+	const normalizedFetchedProfileName = $derived.by(() => sanitizeDisplayName(fetchedProfile?.name));
 
-		// Check if it's invalid
-		if (isInvalidUsername(str)) {
-			return null;
+	const fallbackDisplayName = $derived.by(() => {
+		try {
+			const value = $t('messages.unknown_user');
+			return typeof value === 'string' && value !== 'messages.unknown_user'
+				? value
+				: 'Unknown User';
+		} catch {
+			return 'Unknown User';
 		}
-
-		return str.trim() || null;
 	});
 
 	/**
-	 * Get the display username - use fetched profile if available, otherwise use normalized username.
-	 * Username is always present (not optional); no anonymous fallback.
+	 * Get the display username - prefer a valid fetched profile name, then a valid caller-provided
+	 * username, then a deterministic generic fallback.
 	 */
 	const displayUsername = $derived.by(() => {
-		if (fetchedProfile?.name) {
-			return fetchedProfile.name;
+		if (normalizedFetchedProfileName) {
+			return normalizedFetchedProfileName;
 		}
 		if (normalizedUsername) {
 			return normalizedUsername;
 		}
-		return '';
+		return fallbackDisplayName;
 	});
 
 	/**
+	 * Validate that an image URL uses an allowed protocol (http or https)
+	 * This prevents XSS attacks via javascript: or data: URLs in profile pictures
+	 */
+	function isSafeImageUrl(url: string | null | undefined): url is string {
+		if (!url) return false;
+		try {
+			const parsed = new URL(url);
+			return ['http:', 'https:'].includes(parsed.protocol);
+		} catch {
+			return false;
+		}
+	}
+
+	/**
 	 * Get the display avatar - use fetched profile if available, otherwise use provided avatar
+	 * Only returns URLs that pass safety validation (http/https only)
 	 */
 	const displayAvatar = $derived.by(() => {
 		// Priority: fetched profile picture > provided avatar
-		return fetchedProfile?.picture || avatar;
+		const avatarUrl = fetchedProfile?.picture || avatar;
+		if (isSafeImageUrl(avatarUrl)) {
+			return avatarUrl;
+		}
+		return null;
 	});
 
 	/**
@@ -226,83 +258,59 @@
 		return null;
 	}
 
+	const normalizedHexPubkey = $derived.by(() => normalizePubkeyToHex(pubkey));
+
 	/**
 	 * Load user profile (like profile page does)
 	 * Always fetches fresh data when pubkey is provided
 	 */
-	async function loadUserProfile() {
-		if (!normalizedHexPubkey) {
-			return;
-		}
-
-		// Prevent duplicate loads for the same pubkey or if already loading
-		if (normalizedHexPubkey === lastLoadedPubkey || isLoadingProfile) {
-			return;
-		}
-
-		// Set loading state and track pubkey immediately to prevent race conditions
-		isLoadingProfile = true;
-		lastLoadedPubkey = normalizedHexPubkey;
-
+	async function loadUserProfile(currentPubkey: string, requestId: number) {
 		try {
 			// Convert hex to npub for fetchProfileMetadata (it handles both, but npub ensures cache consistency)
 			// The cache key will be npub format, which is consistent across calls
-			const npubToFetch = nip19.npubEncode(normalizedHexPubkey);
-
+			const npubToFetch = nip19.npubEncode(currentPubkey);
 			const profile = await fetchProfileMetadata(npubToFetch);
 
-			// Update fetched profile even if empty (to avoid re-fetching)
-			fetchedProfile = profile;
+			if (requestId !== activeProfileRequestId) {
+				return;
+			}
+
+			const hasMeaningfulProfileData = Boolean(
+				sanitizeDisplayName(profile?.name) || profile?.picture?.trim() || profile?.createdAt?.trim()
+			);
+			fetchedProfile = hasMeaningfulProfileData ? profile : null;
 		} catch (error) {
-			console.error('[UserInfoDisplay] loadUserProfile: error', error);
+			if (requestId !== activeProfileRequestId) {
+				return;
+			}
+
+			console.error('[UserInfoDisplay] Failed to load user profile metadata:', error);
 			fetchedProfile = null;
-		} finally {
-			isLoadingProfile = false;
 		}
 	}
 
-	// Normalize pubkey to hex format when it changes (like profile page)
 	$effect(() => {
-		const newHexPubkey = normalizePubkeyToHex(pubkey);
-		// Reset loaded pubkey when pubkey changes to allow fresh fetch
-		if (newHexPubkey !== normalizedHexPubkey) {
-			lastLoadedPubkey = null;
-			fetchedProfile = null;
-		}
-		normalizedHexPubkey = newHexPubkey;
-	});
+		const currentPubkey = normalizedHexPubkey;
+		activeProfileRequestId += 1;
+		const requestId = activeProfileRequestId;
 
-	// Load profile when normalized pubkey is available (like profile page)
-	// Use $effect to handle both initial mount and reactive updates
-	$effect(() => {
-		if (normalizedHexPubkey && normalizedHexPubkey !== lastLoadedPubkey && !isLoadingProfile) {
-			loadUserProfile();
-		}
-	});
+		fetchedProfile = null;
 
-	// Debug: Log final values (only when they actually change, not on every render)
-	let lastLoggedValues = $state<{ username?: string; display?: string } | null>(null);
-	$effect(() => {
-		const current = {
-			username: displayUsername,
-			display: displayUsername
-		};
-
-		// Only log if values actually changed
-		if (
-			!lastLoggedValues ||
-			lastLoggedValues.username !== current.username ||
-			lastLoggedValues.display !== current.display
-		) {
-			lastLoggedValues = current;
+		if (!currentPubkey) {
+			return;
 		}
+
+		void loadUserProfile(currentPubkey, requestId);
 	});
 </script>
 
 <div class="flex min-w-0 flex-1 items-center gap-4">
 	<!-- Avatar -->
 	{#if profileUrl}
-		<a href={profileUrl} class="avatar shrink-0 cursor-pointer transition-opacity hover:opacity-80">
+		<a
+			href={resolve(profileUrl)}
+			class="avatar shrink-0 cursor-pointer transition-opacity hover:opacity-80"
+		>
 			<div class="bg-base-300 flex {config.avatar} items-center justify-center rounded-full">
 				{#if displayAvatar}
 					<img
@@ -376,7 +384,7 @@
 		<!-- Display name -->
 		{#if profileUrl}
 			<a
-				href={profileUrl}
+				href={resolve(profileUrl)}
 				class="w-full cursor-pointer truncate {config.name} transition-opacity hover:opacity-80"
 			>
 				{displayUsername}
@@ -390,14 +398,14 @@
 		<!-- Member since -->
 		{#if formattedMemberSince}
 			<span class="text-base-content/60 {config.memberSince}">
-				{$t('task.drawer.member_since')}
+				{$t('common.profile.member_since')}
 				{formattedMemberSince}
 			</span>
 		{/if}
 
-		<!-- Rating -->
+		<!-- Rating - same pattern as find-tasks: filled stars, yellow for filled, grey for empty -->
 		<div class="flex items-center gap-1">
-			{#each [0, 1, 2, 3, 4] as i (i)}
+			{#each Array.from({ length: 5 }, (_, i) => i) as i (i)}
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
 					class="{config.star} {i < (rating || 0) ? 'text-yellow-400' : 'text-base-content/30'}"

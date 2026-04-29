@@ -4,7 +4,7 @@ import { StorageKeys } from '$lib/utils/constants/storage';
 import { Preferences } from '@capacitor/preferences';
 import { generateHomepageWebsiteJsonLd } from '$lib/utils/constants/seo.constants';
 
-const SITE_URL = 'https://bittasker.com';
+const baseUrl = (import.meta.env.VITE_CLIENT_URL || 'https://bittasker.com').replace(/\/$/, '');
 
 export async function load({ url }) {
 	if (browser) {
@@ -24,12 +24,12 @@ export async function load({ url }) {
 		ogTitle: 'BitTasker - The Decentralized Workforce',
 		ogDescription:
 			'Hire skilled professionals for any task. Pay with Bitcoin, Lightning, or dollars. Built on Nostr. Join the decentralized workforce on BitTasker.',
-		ogImage: `${SITE_URL}/images/logos/bittasker-logomark-og.webp`,
+		ogImage: `${baseUrl}/images/logos/bittasker-logomark-og.webp`,
 		ogLocale: 'en_US',
 		twitterTitle: 'BitTasker - The Decentralized Workforce',
 		twitterDescription:
 			'Hire skilled professionals for any task. Pay with Bitcoin, Lightning, or dollars. Join the decentralized workforce on BitTasker.',
-		twitterImage: `${SITE_URL}/images/logos/bittasker-logomark-og.webp`,
+		twitterImage: `${baseUrl}/images/logos/bittasker-logomark-og.webp`,
 		jsonLd: generateHomepageWebsiteJsonLd(url.href)
 	};
 }

@@ -5,20 +5,16 @@
 	import { fly } from 'svelte/transition';
 	import { taskStore as store } from '$lib/stores/task.store';
 	import { get } from 'svelte/store';
-	import { formatNumberForInput, SATS_PER_BTC } from '$lib/utils/helpers/crypto';
+	import { SATS_PER_BTC } from '$lib/utils/helpers/crypto';
 	import { compressImage, validateImageFile } from '$lib/utils/imageCompression';
 	import { t } from 'svelte-i18n';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import uploadService from '$lib/api/services/upload.service';
+	import UsdSatsInput from '$lib/components/shared/UsdSatsInput.svelte';
 
 	// BTC to USD conversion state
 	let usdAmount = $state<number>(0);
 	let btcPrice = $state<number>(0);
-
-	// Reactive calculation of sats from usdAmount and btcPrice
-	let sats = $derived(
-		formatNumberForInput(btcPrice > 0 ? Math.round((usdAmount / btcPrice) * SATS_PER_BTC) : 0)
-	);
 
 	// File upload state
 	let isUploading = $state(false);
@@ -51,78 +47,15 @@
 		}
 	}
 
-	function handleUsdChange(event: Event) {
-		const rawValue = (event.target as HTMLInputElement).value;
-		const input = cleanInput(rawValue);
-		
-		// Remove leading zeros (but keep single zero if that's all there is)
-		let cleanedInput = input.replace(/,/g, '');
-		// Remove leading zeros, but allow "0" or "0." or "0.5" etc.
-		if (cleanedInput.length > 1 && cleanedInput.startsWith('0') && cleanedInput[1] !== '.') {
-			cleanedInput = cleanedInput.replace(/^0+/, '') || '0';
-		}
-		
-		const usdValue = parseFloat(cleanedInput);
-
-		if (!isNaN(usdValue)) {
-			store.updateTask({
-				budget: {
-					...$store.task.budget,
-					amount: usdValue,
-					currency: 'USD'
-				}
-			});
-			usdAmount = usdValue;
-		} else {
-			store.updateTask({
-				budget: {
-					...$store.task.budget,
-					amount: 0,
-					currency: 'USD'
-				}
-			});
-			usdAmount = 0;
-		}
-	}
-
-	function handleSatsChange(event: Event) {
-		const rawValue = (event.target as HTMLInputElement).value;
-		const input = cleanInput(rawValue);
-		
-		// Remove leading zeros (but keep single zero if that's all there is)
-		let cleanedInput = input.replace(/,/g, '');
-		// Remove leading zeros, but allow "0"
-		if (cleanedInput.length > 1 && cleanedInput.startsWith('0')) {
-			cleanedInput = cleanedInput.replace(/^0+/, '') || '0';
-		}
-		
-		const satsValue = parseInt(cleanedInput, 10);
-
-		if (!isNaN(satsValue) && btcPrice > 0) {
-			// Convert sats to USD
-			const usdValue = (satsValue / SATS_PER_BTC) * btcPrice;
-			store.updateTask({
-				budget: {
-					...$store.task.budget,
-					amount: usdValue,
-					currency: 'USD'
-				}
-			});
-			usdAmount = usdValue;
-		} else if (!isNaN(satsValue) && satsValue === 0) {
-			store.updateTask({
-				budget: {
-					...$store.task.budget,
-					amount: 0,
-					currency: 'USD'
-				}
-			});
-			usdAmount = 0;
-		}
-	}
-
-	function cleanInput(value: string): string {
-		return value.replace(/[^0-9.,]/g, '');
+	function updateBudgetAmount(nextUsdAmount: number): void {
+		store.updateTask({
+			budget: {
+				...$store.task.budget,
+				amount: nextUsdAmount,
+				currency: 'USD'
+			}
+		});
+		usdAmount = nextUsdAmount;
 	}
 
 	let {
@@ -139,7 +72,7 @@
 	// This validates in real-time as the user types
 	let descriptionError = $derived.by(() => {
 		const description = $store.task.description?.trim() || '';
-		
+
 		// Only validate if there was an error before (from errors prop) or if user has started typing
 		// This prevents showing errors before the user has interacted with the field
 		if (errors.description || description.length > 0) {
@@ -157,7 +90,6 @@
 
 	// File handling functions
 	async function validateAndProcessFile(file: File): Promise<File | null> {
-		const allowedTypes = ['image/*', 'video/*'];
 		const isImageFile = file.type.startsWith('image/');
 		const isVideoFile = file.type.startsWith('video/');
 
@@ -400,40 +332,24 @@
 		<label for="budget" class="label">
 			<span class="label-text">{$t('task.budget_label')}</span>
 		</label>
-		<div class="flex gap-2">
-			<div class="relative">
-				<span class="text-base-content/70 absolute top-1/2 left-3 z-10 -translate-y-1/2"> $ </span>
-				<input
-					type="text"
-					id="budget-usd"
-					value={formatNumberForInput(usdAmount)}
-					oninput={handleUsdChange}
-					class="input input-bordered w-full pl-7 {errors.budget ? 'input-error' : ''}"
-					placeholder={$t('task.usd_placeholder')}
-					min="0"
-				/>
-			</div>
-			<div class="relative">
-				<span class="text-base-content/70 absolute top-1/2 right-3 z-10 -translate-y-1/2">
-					Sats
-				</span>
-				<input
-					type="text"
-					id="budget-btc"
-					value={sats}
-					oninput={handleSatsChange}
-					class="input input-bordered w-full pr-12 {errors.budget ? 'input-error' : ''}"
-					placeholder={$t('task.sats_placeholder')}
-					min="0"
-				/>
-			</div>
-		</div>
-		{#if errors.budget}
-			<span class="label-text-alt text-error">{errors.budget}</span>
-		{/if}
-		<span class="label-text-alt mt-1 block text-white/70"
-			>{$t('task.btc_price')} ${Math.round(btcPrice).toLocaleString()}</span
-		>
+		<UsdSatsInput
+			{usdAmount}
+			{btcPrice}
+			error={errors.budget}
+			showFieldLabels={false}
+			usdInputId="budget-usd"
+			satsInputId="budget-btc"
+			usdPlaceholder={$t('task.usd_placeholder')}
+			satsPlaceholder={$t('task.sats_placeholder')}
+			btcPriceLabel={$t('task.btc_price')}
+			btcPriceClassName="label-text-alt mt-1 block text-white/70"
+			onUsdChange={({ usdAmount: nextUsdAmount }) => updateBudgetAmount(nextUsdAmount)}
+			onSatsChange={({ usdAmount: nextUsdAmount }) => {
+				if (nextUsdAmount != null) {
+					updateBudgetAmount(nextUsdAmount);
+				}
+			}}
+		/>
 	</div>
 
 	<div class="w-full">
@@ -481,7 +397,7 @@
 			<div
 				class="grid grid-cols-2 justify-start gap-6 sm:grid-cols-4 sm:gap-36 md:grid-cols-6 lg:grid-cols-8"
 			>
-				{#each allFiles as file, index}
+				{#each allFiles as file, index (index)}
 					<div class="relative h-24 w-24 sm:h-28 sm:w-28 md:h-32 md:w-32">
 						{#if isVideoFile(file)}
 							<video
@@ -547,13 +463,17 @@
 								/>
 							</svg>
 							<p class="mb-1 text-xs font-semibold sm:text-sm">{$t('task.attachments')}</p>
-							<p class="text-[8px] sm:text-xs">
-								{$t('common.components.media_uploader.images')}, {$t(
-									'common.components.media_uploader.videos'
-								)} (Max. 0.5 minutes)
-							</p>
 							<p class="text-center text-[8px] whitespace-normal sm:px-1 sm:text-xs">
-								{$t('common.components.media_uploader.max_size', { values: { maxSize: 200 } })}
+								{$t('common.components.media_uploader.images')},
+								{$t('common.components.media_uploader.videos')}
+								{$t('common.components.media_uploader.max_info', {
+									values: {
+										size: 50,
+										durationInfo: $t('common.components.media_uploader.duration_info', {
+											values: { duration: 0.5 }
+										})
+									}
+								})}
 							</p>
 							<input
 								id="file-upload-attachments"

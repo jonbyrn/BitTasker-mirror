@@ -106,7 +106,7 @@ export async function usdToSats(usdAmount: number): Promise<number> {
 	try {
 		const btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
 		if (btcPrice <= 0) return 0;
-		
+
 		const btcAmount = usdAmount / btcPrice;
 		return Math.round(btcAmount * 100_000_000); // Convert to sats
 	} catch (error) {
@@ -138,23 +138,23 @@ export async function satsToUsd(sats: number): Promise<number> {
  * @returns Promise resolving to formatted string like "$10.50 (9,700 Sats)"
  */
 export async function formatUSDWithSats(
-	rbtcAmount: string | number, 
+	rbtcAmount: string | number,
 	btcPrice?: number
 ): Promise<string> {
 	const rbtc = typeof rbtcAmount === 'string' ? parseFloat(rbtcAmount) : rbtcAmount;
 	if (isNaN(rbtc)) return '$0.00 (0 Sats)';
-	
+
 	try {
 		// Get BTC price if not provided
-		const price = btcPrice || await cryptoPriceService.getCurrentPrice('BTC');
+		const price = btcPrice || (await cryptoPriceService.getCurrentPrice('BTC'));
 		if (price <= 0) return `${rbtc.toFixed(4)} RBTC`;
-		
+
 		// Convert RBTC to USD (assuming RBTC ≈ BTC)
 		const usdAmount = rbtc * price;
-		
+
 		// Convert to sats
 		const sats = Math.round(rbtc * 100_000_000);
-		
+
 		return `$${usdAmount.toFixed(2)} (${sats.toLocaleString('en-US')} Sats)`;
 	} catch (error) {
 		console.error('Failed to format USD with sats:', error);
@@ -171,19 +171,19 @@ export async function formatUSDWithSats(
 export function formatUSDWithSatsSync(rbtcAmount: string | number, btcPrice: number): string {
 	const rbtc = typeof rbtcAmount === 'string' ? parseFloat(rbtcAmount) : rbtcAmount;
 	if (isNaN(rbtc) || btcPrice <= 0) return '$0.00 (0 Sats)';
-	
+
 	// Convert RBTC to USD (assuming RBTC ≈ BTC)
 	const usdAmount = rbtc * btcPrice;
-	
+
 	// Convert to sats
 	const sats = Math.round(rbtc * 100_000_000);
-	
+
 	return `$${usdAmount.toFixed(2)} (${sats.toLocaleString('en-US')} Sats)`;
 }
 
 export function formatNumberWithTwoDecimals(number: number): string {
 	return new Intl.NumberFormat('en-US', {
-		minimumFractionDigits: 0,
+		minimumFractionDigits: 2,
 		maximumFractionDigits: 2
 	}).format(number);
 }
@@ -196,4 +196,186 @@ export function formatInteger(num: number): string {
 	return new Intl.NumberFormat('en-US', {
 		maximumFractionDigits: 0
 	}).format(Math.round(num));
+}
+
+/** Supported units for {@link formatConvertedAmount}. */
+export type CurrencyConversionCode = 'USD' | 'RBTC' | 'SATS';
+
+export type FormatConvertedAmountOptions = {
+	/** Target unit; defaults to `fromCurrency` (format only). */
+	toCurrency?: CurrencyConversionCode;
+	/** BTC price in USD per 1 BTC/RBTC. Required for any conversion involving USD. */
+	btcPrice?: number;
+	/** Overrides default prefix (`$` for USD, empty for Sats/rBTC). */
+	prefix?: string;
+	/** Overrides default suffix (` USD`, ` Sats`, ` rBTC`). Pass `''` to omit. */
+	suffix?: string;
+	/** BCP 47 locale for number grouping and decimals. */
+	locale?: string;
+	/**
+	 * Fixed fraction digits for USD/RBTC (`Intl` min and max both set to this value).
+	 * Takes precedence over `minimumFractionDigits` / `maximumFractionDigits`. Ignored for SATS.
+	 */
+	fractionDigits?: number;
+	/**
+	 * Minimum fraction digits for USD/RBTC (not used when `fractionDigits` is set). Ignored for SATS.
+	 * Defaults: USD 2, RBTC 0.
+	 */
+	minimumFractionDigits?: number;
+	/**
+	 * Maximum fraction digits for USD/RBTC (not used when `fractionDigits` is set). Ignored for SATS.
+	 * Defaults: USD 2, RBTC 8 (trailing zeros stripped unless min/max are set).
+	 */
+	maximumFractionDigits?: number;
+};
+
+const SATS_PER_BTC = 100_000_000;
+
+function normalizeConversionCurrency(code: string): CurrencyConversionCode | null {
+	const u = code.trim().toUpperCase();
+	if (u === 'USD' || u === 'RBTC' || u === 'SATS') return u;
+	return null;
+}
+
+function parseAmountInput(amount: number | string): number {
+	if (amount === null || amount === undefined) return NaN;
+	if (typeof amount === 'number') return Number.isFinite(amount) ? amount : NaN;
+	const t = String(amount).trim();
+	if (t === '') return NaN;
+	const n = parseFloat(t.replace(/,/g, ''));
+	return Number.isFinite(n) ? n : NaN;
+}
+
+function stripTrailingZerosFromDecimal(formatted: string): string {
+	if (!formatted.includes('.')) return formatted;
+	return formatted.replace(/\.?0+$/, '');
+}
+
+const MAX_INTL_FRACTION_DIGITS = 20;
+
+function clampFractionDigits(n: number): number {
+	if (!Number.isFinite(n) || n < 0) return 0;
+	return Math.min(MAX_INTL_FRACTION_DIGITS, Math.floor(n));
+}
+
+/**
+ * Convert `amount` in `fromCurrency` to an equivalent value expressed in `toCurrency`,
+ * then format for display with locale-aware grouping and default or custom prefix/suffix.
+ *
+ * Defaults: USD → prefix `$`, suffix ` USD`; SATS → suffix ` Sats`; RBTC → suffix ` rBTC`.
+ *
+ * @param amount - Value in the source unit (e.g. `10.53`, `"123400"`).
+ * @param fromCurrency - `USD`, `RBTC`, or `SATS` (case-insensitive).
+ * @param options - `toCurrency` (default: same as from), `btcPrice` for USD ↔ BTC/Sats, `prefix`, `suffix`, `locale`, optional `fractionDigits` / `minimumFractionDigits` / `maximumFractionDigits` for USD and RBTC display.
+ */
+export function formatConvertedAmount(
+	amount: number | string,
+	fromCurrency: string,
+	options: FormatConvertedAmountOptions = {}
+): string {
+	const from = normalizeConversionCurrency(fromCurrency);
+	if (!from) return '-';
+
+	const parsed = parseAmountInput(amount);
+	if (!Number.isFinite(parsed)) return '-';
+
+	const locale = options.locale ?? 'en-US';
+	const to = options.toCurrency ? normalizeConversionCurrency(options.toCurrency) : from;
+	if (!to) return '-';
+
+	const price = options.btcPrice;
+	const hasValidPrice =
+		price !== undefined && price !== null && Number.isFinite(price) && price > 0;
+
+	if (from === to) {
+		return buildFormattedOutput(parsed, to, locale, options);
+	}
+
+	const needsBtcPrice = from === 'USD' || to === 'USD';
+	if (needsBtcPrice && !hasValidPrice) {
+		return buildFormattedOutput(0, to, locale, options);
+	}
+
+	let rbtc: number;
+	switch (from) {
+		case 'USD':
+			rbtc = parsed / price!;
+			break;
+		case 'RBTC':
+			rbtc = parsed;
+			break;
+		case 'SATS':
+			rbtc = parsed / SATS_PER_BTC;
+			break;
+	}
+
+	let valueInTarget: number;
+	switch (to) {
+		case 'RBTC':
+			valueInTarget = rbtc;
+			break;
+		case 'SATS':
+			valueInTarget = Math.round(rbtc * SATS_PER_BTC);
+			break;
+		case 'USD':
+			valueInTarget = rbtc * price!;
+			break;
+	}
+
+	return buildFormattedOutput(valueInTarget, to, locale, options);
+}
+
+function buildFormattedOutput(
+	value: number,
+	displayAs: CurrencyConversionCode,
+	locale: string,
+	options: FormatConvertedAmountOptions
+): string {
+	const defaultPrefix: string = displayAs === 'USD' ? '$' : '';
+	const defaultSuffix = displayAs === 'USD' ? ' USD' : displayAs === 'SATS' ? ' Sats' : ' rBTC';
+
+	const prefix = options.prefix !== undefined ? options.prefix : defaultPrefix;
+	const suffix = options.suffix !== undefined ? options.suffix : defaultSuffix;
+
+	let numberPart: string;
+	if (displayAs === 'SATS') {
+		numberPart = new Intl.NumberFormat(locale, {
+			maximumFractionDigits: 0
+		}).format(Math.round(value));
+	} else if (options.fractionDigits !== undefined && Number.isFinite(options.fractionDigits)) {
+		const n = clampFractionDigits(options.fractionDigits);
+		numberPart = new Intl.NumberFormat(locale, {
+			minimumFractionDigits: n,
+			maximumFractionDigits: n
+		}).format(value);
+	} else if (displayAs === 'USD') {
+		const min =
+			options.minimumFractionDigits !== undefined
+				? clampFractionDigits(options.minimumFractionDigits)
+				: 2;
+		const max =
+			options.maximumFractionDigits !== undefined
+				? clampFractionDigits(options.maximumFractionDigits)
+				: 2;
+		const safeMin = Math.min(min, max);
+		const safeMax = Math.max(min, max);
+		numberPart = new Intl.NumberFormat(locale, {
+			minimumFractionDigits: safeMin,
+			maximumFractionDigits: safeMax
+		}).format(value);
+	} else {
+		const explicitMin = options.minimumFractionDigits !== undefined;
+		const explicitMax = options.maximumFractionDigits !== undefined;
+		const min = explicitMin ? clampFractionDigits(options.minimumFractionDigits!) : 0;
+		const max = explicitMax ? clampFractionDigits(options.maximumFractionDigits!) : 8;
+		const safeMin = Math.min(min, max);
+		const safeMax = Math.max(min, max);
+		const raw = new Intl.NumberFormat(locale, {
+			minimumFractionDigits: safeMin,
+			maximumFractionDigits: safeMax
+		}).format(value);
+		numberPart = !explicitMin && !explicitMax ? stripTrailingZerosFromDecimal(raw) : raw;
+	}
+
+	return `${prefix}${numberPart}${suffix}`;
 }

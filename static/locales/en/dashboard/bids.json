@@ -241,8 +241,10 @@
 		"base_amount": "Amount",
 		"base_amount_tooltip": "Original bid amount",
 		"client_fee": "Client Fee ({fee})",
+		"taskee_fee": "Taskee Fee ({fee})",
 		"fee_tooltip": "Platform fee",
 		"estimated_gas_fee": "Estimated Network Fee",
+		"simulated_payment_id": "Simulated Payment ID",
 		"gas_fee_tooltip": "Estimated transaction fee",
 		"total_payment": "Total Payment",
 		"btc_price": "BTC Price",
@@ -259,6 +261,10 @@
 		"connecting": "Connecting...",
 		"connect_wallet": "Connect Wallet",
 		"wallet_error_prefix": "Wallet Error:",
+		"available_balance": "Available",
+		"required_balance": "Required",
+		"checking_balance": "Checking your available balance...",
+		"balance_verified": "Your available balance covers this contract.",
 		"retrying": "Retrying...",
 		"retry": "Retry",
 		"insufficient_balance": "Not enough funds - Add more to your wallet",
@@ -268,6 +274,8 @@
 		"creating": "Creating...",
 		"accept_and_pay": "Accept & Pay",
 		"accept": "Accept",
+		"accept_short": "Accept",
+		"decline_short": "Decline",
 		"fund_contract_title": "Fund Contract",
 		"fund": "Fund",
 		"bid_accepted_message": "Your bid has been accepted!",
@@ -288,6 +296,8 @@
 		"nostr_contract_failed": "Failed to create contract",
 		"nostr_contract_success": "Contract created successfully",
 		"creating_nostr_contract": "Creating contract...",
+		"waiting_for_confirmation": "Waiting for transaction confirmation...",
+		"funding_confirm_failed": "We could not confirm this payment on-chain. Check your wallet or block explorer for the transaction.",
 		"what_happens_next_title": "What Happens Next?",
 		"next_item_notify": "The taskee will be notified of the acceptance",
 		"next_item_begin": "The taskee can begin working on the task",
@@ -382,7 +392,7 @@
 	},
 	"bid_details": {
 		"per_hour": "/hr",
-		"hours": "hrs",
+		"hours": "hours",
 		"title": "Bid Details",
 		"close_dialog": "Close dialog",
 		"anonymous": "Anonymous",
@@ -408,6 +418,7 @@
 		"enter_counter_offer_amount": "Enter counter offer amount:",
 		"enter_message_for_counter_offer": "Enter message for counter offer:",
 		"failed_to_create_counter_offer": "Failed to create counter offer",
+		"failed_to_load_counter_offers": "Failed to load counter offers",
 		"title": "Bids",
 		"bid": "bid",
 		"bids": "bids",
@@ -458,10 +469,13 @@
 			"end_date_after_start": "End date must be after start date",
 			"valid_hourly_rate": "Please enter a valid hourly rate",
 			"hourly_rate_greater_than_zero": "Please enter an hourly rate greater than zero",
-			"estimated_hours_required": "Please enter estimated hours",
+			"estimated_hours_required": "Estimated hours is required",
 			"estimated_hours_greater_than_zero": "Please enter estimated hours greater than zero",
 			"message_required": "Please provide a message"
 		}
+	},
+	"errors": {
+		"failed_to_load_content": "Failed to load bid content"
 	},
 	"components": {
 		"date_range": {

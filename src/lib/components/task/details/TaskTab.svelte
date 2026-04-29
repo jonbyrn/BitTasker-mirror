@@ -421,7 +421,10 @@
 						</small>
 						<div class="flex flex-wrap gap-1">
 							{#each task.skills as skill (skill)}
-								<span class="badge badge-primary badge-outline pb-[2px]">{skill}</span>
+								<span
+									class="badge badge-primary badge-outline inline-flex h-auto min-h-0 max-w-full items-start justify-start rounded-lg px-3 py-2 text-left text-sm leading-snug wrap-break-word whitespace-normal"
+									>{skill}</span
+								>
 							{/each}
 						</div>
 					</div>
@@ -523,7 +526,7 @@
 
 			{#if isOwner && task.status === TaskStatusEnum.OPEN && onRequestEditConfirm && canEdit}
 				<button
-					class="btn btn-primary btn-sm min-h-[40px] flex-1 sm:flex-none"
+					class="btn btn-primary btn-sm hidden min-h-[40px] flex-1 sm:flex-none lg:flex"
 					onclick={handleEditTask}
 					disabled={isCheckingEdit}
 				>
@@ -545,14 +548,14 @@
 							/>
 						</svg>
 					{/if}
-					{$t('dashboard.task_details_by_task.edit_task')}
+					{$t('dashboard.task_details_by_task.edit')}
 				</button>
 			{/if}
 
 			<!-- Delete Button (only shown when onRequestDeleteConfirm is provided) -->
 			{#if isOwner && onRequestDeleteConfirm}
 				<button
-					class="btn btn-error btn-sm min-h-[40px] flex-1 sm:flex-none"
+					class="btn btn-error btn-sm hidden min-h-[40px] flex-1 sm:flex-none lg:flex"
 					onclick={showDeleteConfirmation}
 					disabled={(isDeleting ?? false) || isCheckingDelete || !canDelete}
 				>
@@ -574,9 +577,70 @@
 							/>
 						</svg>
 					{/if}
-					{$t('dashboard.task_details_by_task.delete_task')}
+					{$t('dashboard.task_details_by_task.delete')}
 				</button>
 			{/if}
+
+			<!-- Mobile: Edit and Delete on same row with Edit on right -->
+			<div class="flex flex-row gap-2 lg:hidden">
+				<!-- Delete Button (mobile) -->
+				{#if isOwner && onRequestDeleteConfirm}
+					<button
+						class="btn btn-error btn-sm min-h-[40px] flex-1"
+						onclick={showDeleteConfirmation}
+						disabled={(isDeleting ?? false) || isCheckingDelete || !canDelete}
+					>
+						{#if (isDeleting ?? false) || isCheckingDelete}
+							<span class="loading loading-spinner loading-sm"></span>
+						{:else}
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								class="mr-1 h-4 w-4 shrink-0"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke="currentColor"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+								/>
+							</svg>
+						{/if}
+						{$t('dashboard.task_details_by_task.delete')}
+					</button>
+				{/if}
+
+				<!-- Edit Button (mobile) -->
+				{#if isOwner && task.status === TaskStatusEnum.OPEN && onRequestEditConfirm && canEdit}
+					<button
+						class="btn btn-primary btn-sm min-h-[40px] flex-1"
+						onclick={handleEditTask}
+						disabled={isCheckingEdit}
+					>
+						{#if isCheckingEdit}
+							<span class="loading loading-spinner loading-sm"></span>
+						{:else}
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								class="mr-1 h-4 w-4 shrink-0"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke="currentColor"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+								/>
+							</svg>
+						{/if}
+						{$t('dashboard.task_details_by_task.edit')}
+					</button>
+				{/if}
+			</div>
 		</div>
 	</div>
 </div>

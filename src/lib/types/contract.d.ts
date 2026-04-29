@@ -1,7 +1,42 @@
 import type { Event as NostrEvent } from 'nostr-tools';
 import type { DisputeProposal, EscrowData } from '$lib/types/wallet';
-import type { Attachment } from '$lib/types/task';
+import type { Attachment, Location } from '$lib/types/task';
 import type { EscrowStatus } from '$lib/utils/escrow';
+import type { ServiceAcceptanceSnapshot } from './service-quote';
+
+export type ContractContextType = 'task' | 'service';
+export type ContractPurchaseMode = 'quote' | 'instant_buy';
+export type ContractCreationState =
+	| 'funding_submitted'
+	| 'contract_sync_pending'
+	| 'contract_ready'
+	| 'failed';
+
+export interface ServiceContractPricingSnapshot {
+	serviceVersionRef: string;
+	tierId?: string;
+	selectedAddOns?: string[];
+	rushDelivery?: boolean;
+	travelFeeUsdt?: string;
+}
+
+export interface ServiceContractLocationSnapshot {
+	mode: 'tasker_location' | 'taskee_location';
+	label: string;
+	location?: Location;
+}
+
+export interface ServiceContractAgreementSnapshot {
+	selectedTierId?: string;
+	selectedTierLabel?: string;
+	serviceLocation?: ServiceContractLocationSnapshot;
+	selectedAddOns?: string[];
+	rushDelivery?: boolean;
+	deliverables?: string;
+	inquiryAnswers?: Record<string, string | number | boolean | string[]>;
+	priceSnapshotRef?: string;
+	priceSnapshotLabel?: string;
+}
 
 // Contract permissions - grouped for better organization
 export interface ContractPermissions {
@@ -19,17 +54,34 @@ export interface ContractPermissions {
 // Main contract event data (content of KINDS.CONTRACT NostrEvent)
 export interface NostrContract {
 	escrowId: string;
-	taskId: string;
-	taskTitle: string;
-	taskDescription: string;
+	taskId?: string;
+	taskTitle?: string;
+	taskDescription?: string;
 	freelancerPubkey: string;
 	clientPubkey: string;
+	clientRskAddress?: string;
 	amount: string; // RBTC amount
 	currency: string; // 'RBTC'
 	status: EscrowStatus; // Use enum instead of string
 	estimatedStartTime: number;
 	estimatedCompletionTime: number;
 	type: 'contract'; // Identify as contract message in DMs
+	contextType?: ContractContextType;
+	contextId?: string;
+	contextTitle?: string;
+	contextDescription?: string;
+	contextVersionRef?: string;
+	serviceId?: string;
+	serviceAddress?: string;
+	serviceTitle?: string;
+	quoteRequestId?: string;
+	proposalId?: string;
+	proposalEventId?: string;
+	purchaseMode?: ContractPurchaseMode;
+	instantOrderId?: string;
+	selectedTierId?: string;
+	pricingSnapshot?: ServiceContractPricingSnapshot;
+	agreementSnapshot?: ServiceContractAgreementSnapshot;
 	// Transaction hash from escrow creation
 	transactionHash?: string;
 	contractAddress?: string;
@@ -87,13 +139,30 @@ export interface ContractWithEvents {
 // Contract creation parameters
 export interface CreateContractParams {
 	escrowId: string;
-	taskId: string;
-	taskTitle: string;
-	taskDescription: string;
+	taskId?: string;
+	taskTitle?: string;
+	taskDescription?: string;
 	freelancerPubkey: string;
+	clientRskAddress?: string;
 	amount: string;
 	estimatedStartTime: number;
 	estimatedCompletionTime: number;
+	contextType?: ContractContextType;
+	contextId?: string;
+	contextTitle?: string;
+	contextDescription?: string;
+	contextVersionRef?: string;
+	serviceId?: string;
+	serviceAddress?: string;
+	serviceTitle?: string;
+	quoteRequestId?: string;
+	proposalId?: string;
+	proposalEventId?: string;
+	purchaseMode?: ContractPurchaseMode;
+	instantOrderId?: string;
+	selectedTierId?: string;
+	pricingSnapshot?: ServiceContractPricingSnapshot;
+	agreementSnapshot?: ServiceContractAgreementSnapshot;
 	transactionHash?: string; // Optional transaction hash from escrow creation
 }
 
@@ -107,6 +176,7 @@ export interface PublishStatusParams {
 	proposedClientAmount?: string;
 	proposedFreelancerAmount?: string;
 	completionAttachments?: Attachment[];
+	recipientPubkey: string;
 }
 
 // Contract filter for queries
@@ -125,6 +195,7 @@ export interface PublishContractStatusParams {
 	contractEventId: string;
 	transactionHash: string;
 	status: EscrowStatus;
+	recipientPubkey: string;
 	statusMessagingVariant?: 'default' | 'refund';
 	completionAttachments?: Attachment[];
 	proposedClientAmount?: string;
@@ -132,8 +203,11 @@ export interface PublishContractStatusParams {
 }
 
 export interface ContractCreationEvent {
-	escrowId: string;
+	state?: ContractCreationState;
+	escrowId?: string;
 	contractEventId?: string;
+	transactionHash?: string;
+	transactionHashes?: string[];
 	error?: string;
 }
 
@@ -141,12 +215,30 @@ export interface ContractCreationEvent {
 export interface PendingContractCreation {
 	bidEventId: string;
 	escrowId: string;
-	taskId: string;
-	taskTitle: string;
-	taskDescription: string;
+	taskId?: string;
+	taskTitle?: string;
+	taskDescription?: string;
 	freelancerPubkey: string;
+	clientRskAddress?: string;
 	amount: string;
 	estimatedStartTime: number;
 	estimatedCompletionTime: number;
+	contextType?: ContractContextType;
+	contextId?: string;
+	contextTitle?: string;
+	contextDescription?: string;
+	contextVersionRef?: string;
+	serviceId?: string;
+	serviceAddress?: string;
+	serviceTitle?: string;
+	quoteRequestId?: string;
+	proposalId?: string;
+	proposalEventId?: string;
+	purchaseMode?: ContractPurchaseMode;
+	instantOrderId?: string;
+	selectedTierId?: string;
+	pricingSnapshot?: ServiceContractPricingSnapshot;
+	agreementSnapshot?: ServiceContractAgreementSnapshot;
+	acceptanceSnapshot?: ServiceAcceptanceSnapshot;
 	transactionHash: string;
 }

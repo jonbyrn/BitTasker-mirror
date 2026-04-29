@@ -28,14 +28,19 @@
 		 * Defaults to the globally measured footer height.
 		 */
 		bottomOffset?: string;
+		/**
+		 * When true, the drawer will not allow closing via overlay click or header button.
+		 * This is useful when the drawer is in a submitting state.
+		 */
+		isSubmitting?: boolean;
 		children?: import('svelte').Snippet;
 		footer?: import('svelte').Snippet;
 	}>();
 
 	// Set defaults
-	const position = props.position || 'right';
-	const respectBottomNav = props.respectBottomNav ?? true;
-	const bottomOffset = props.bottomOffset ?? 'var(--app-footer-height, 0px)';
+	const position = $derived(props.position || 'right');
+	const respectBottomNav = $derived(props.respectBottomNav ?? true);
+	const bottomOffset = $derived(props.bottomOffset ?? 'var(--app-footer-height, 0px)');
 	// When keyboard is visible, always extend drawer to bottom (0px offset)
 	// Otherwise respect the bottom nav setting
 	const effectiveBottomOffset = $derived(
@@ -154,7 +159,7 @@
 	class:opacity-0={!visualOpenState}
 	class:pointer-events-none={!visualOpenState || !props.isOpen}
 	class:invisible={!props.isOpen && !visualOpenState}
-	onclick={props.onClose}
+	onclick={props.isSubmitting ? undefined : props.onClose}
 	role="presentation"
 	aria-hidden="true"
 ></div>
@@ -165,8 +170,8 @@
 	class="bg-base-100 fixed top-0 {position === 'left'
 		? 'left-0'
 		: 'right-0'} z-70 {drawerWidthClass} 
-		{props.isScrollable ? 'overflow-y-auto' : 'overflow-auto'} 
-		transform shadow-xl transition-transform duration-300 ease-in-out"
+		flex transform flex-col
+		overflow-hidden shadow-xl transition-transform duration-300 ease-in-out"
 	class:translate-x-0={visualOpenState}
 	class:-translate-x-full={!visualOpenState && position === 'left'}
 	class:translate-x-full={!visualOpenState && position === 'right'}
@@ -178,7 +183,7 @@
 >
 	{#if props.isOpen}
 		<!-- Header -->
-		<div class="bg-base-200 sticky top-0 z-10 flex items-center justify-between p-4">
+		<div class="bg-base-200 flex flex-none items-center justify-between p-4 shadow-sm">
 			<h4 id="drawer-title" class="min-w-0 flex-1 truncate pr-2 text-xl font-bold">
 				{#if props.title}
 					{props.title}
@@ -186,7 +191,7 @@
 			</h4>
 			<button
 				class="btn btn-ghost btn-circle shrink-0"
-				onclick={props.onClose}
+				onclick={props.isSubmitting ? undefined : props.onClose}
 				aria-label={$t('common.components.drawer.close')}
 			>
 				<svg
@@ -207,13 +212,17 @@
 		</div>
 
 		<!-- Content -->
-		<div class="drawer-content p-4">
+		<div
+			class="drawer-scroll-area flex-1 {props.isScrollable
+				? 'overflow-y-auto'
+				: 'overflow-auto'} p-4"
+		>
 			{@render props.children?.()}
 		</div>
 
 		<!-- Footer (Optional) -->
 		{#if props.footer}
-			<div class="bg-base-200 sticky bottom-0 border-t p-4">
+			<div class="drawer-footer bg-base-200 flex-none border-t p-4">
 				{@render props.footer?.()}
 			</div>
 		{/if}
@@ -221,9 +230,15 @@
 </div>
 
 <style>
-	/* Keep content clear of device safe-area insets (not the dock). */
-	.drawer-content {
-		/* Breathing room at bottom for all drawers + safe-area inset */
-		padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0));
+	/*
+	 * Keep content clear of device safe-area insets.
+	 * If there's a footer, footer handles the bottom safe area.
+	 * If no footer, content scroll area handles it.
+	 *
+	 * Uses SystemBars fallback pattern for Android WebView < 140.
+	 */
+	.drawer-scroll-area:last-child,
+	.drawer-footer {
+		padding-bottom: calc(1rem + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
 	}
 </style>

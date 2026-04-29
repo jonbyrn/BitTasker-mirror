@@ -6,6 +6,7 @@
 	 * Handles its own body scroll locking/unlocking and accessibility
 	 */
 	import { t } from 'svelte-i18n';
+	import { fade } from 'svelte/transition';
 	import { appScrollContainer } from '$lib/stores/scrollContainer.store';
 
 	// Props
@@ -44,11 +45,27 @@
 		footer?: import('svelte').Snippet;
 	}>();
 
-	const respectBottomNav = props.respectBottomNav ?? true;
-	const bottomOffset = props.bottomOffset ?? 'var(--app-footer-height, 0px)';
+	let windowWidth = $state(0);
+
+	const respectBottomNav = $derived(props.respectBottomNav ?? true);
+	const bottomOffset = $derived(props.bottomOffset ?? 'var(--app-footer-height, 0px)');
 	const effectiveBottomOffset = $derived(respectBottomNav ? bottomOffset : '0px');
-	const maxHeight = props.maxHeight ?? '85vh';
-	const showCloseButton = props.showCloseButton ?? true;
+	// On mobile (< 768px), use smaller max-height to ensure modal fits in viewport
+	const maxHeight = $derived(
+		props.maxHeight ?? (windowWidth < 768 ? '75vh' : windowWidth < 1024 ? '80vh' : '85vh')
+	);
+	const showCloseButton = $derived(props.showCloseButton ?? true);
+
+	$effect(() => {
+		if (typeof window !== 'undefined') {
+			const handleResize = () => {
+				windowWidth = window.innerWidth;
+			};
+			window.addEventListener('resize', handleResize);
+			windowWidth = window.innerWidth;
+			return () => window.removeEventListener('resize', handleResize);
+		}
+	});
 
 	// Scroll lock management
 	const disableBodyScroll = () => {
@@ -146,12 +163,17 @@
 			aria-modal="true"
 			aria-labelledby="modal-title"
 			tabindex="-1"
+			transition:fade={{ duration: 200 }}
 		>
 			<!-- Modal Header -->
-			<div class="card-body flex min-h-0 flex-col overflow-hidden">
+			<div
+				class="card-body flex min-h-0 flex-col {props.isScrollable
+					? 'overflow-y-auto'
+					: 'overflow-hidden'}"
+			>
 				{#if !props.hideHeader}
 					<div class="mb-4 flex items-center justify-between">
-						<h3 id="modal-title" class="card-title">{props.title}</h3>
+						<span id="modal-title" class="card-title">{props.title}</span>
 						{#if showCloseButton}
 							<button
 								class="btn btn-circle btn-ghost btn-sm"

@@ -39,6 +39,19 @@ Set these **before** running Playwright so the app and tests behave correctly:
 
 **Note:** Backend must be running and reachable at `VITE_API_URL` for passkey creation and login tests.
 
+### Service E2E bootstrap contract
+
+The service-quote browser suites currently used in CI are narrower than the auth/messages E2E flow:
+
+- In managed CI they run against the built preview app (`build/` plus `.svelte-kit/output/` + `npm run preview`) unless `PW_E2E_BASE_URL` is explicitly provided.
+- That preview contract needs `build/`, `.svelte-kit/output/server/manifest.js`, and `.svelte-kit/output/client` from the upstream build job; `vite preview` fails before Playwright starts if any of those artifacts are missing.
+- They depend on the in-app harness route `src/routes/e2e/service-harness.html/+page.svelte` plus deterministic route-level request mocks.
+- They do **not** currently require seeded passkey accounts, `tests/e2e/.auth/webauthn-credentials.json`, or a live relay bootstrap to execute the service-specific browser slices.
+- CI still requires `VITE_API_URL`, `VITE_NOSTR_RELAY_URL`, and `VITE_E2E_TURNSTILE_BYPASS=true` to be present so the preview bundle is environment-complete and future shared app flows do not silently diverge.
+- CI now declares `SERVICE_E2E_BOOTSTRAP_MODE=route-harness` explicitly in `service-quote-e2e`; switching to any future seeded-account browser slices should change that mode rather than silently reusing the harness contract.
+
+The fail-fast bootstrap validator for these suites is `npm run test:e2e:validate-service-bootstrap`, and `service-quote-e2e` runs it before Playwright starts.
+
 ---
 
 ## 4. How to Run
@@ -55,7 +68,7 @@ npx playwright test tests/e2e/01-signup-onboarding.spec.ts tests/e2e/02-credenti
 ```
 
 - **Local:** Playwright starts the dev server (port 3000) automatically. Ensure `VITE_API_URL` is set in your environment.
-- **CI:** The pipeline builds the app **once** in a `build` job; the Playwright job receives the `build/` artifact and runs only `npm run preview` (no second build). Set **VITE_API_URL** and **VITE_NOSTR_RELAY_URL** (for Messages E2E) in GitLab CI/CD variables. The build job uses the same variables so the bundle matches the environment. See `.gitlab-ci.yml` for stages and branch strategy.
+- **CI:** The pipeline builds the app **once** in a `build` job; the Playwright job receives the `build/` artifact and runs only `npm run preview` (no second build). The preview start contract is `build/` plus `.svelte-kit/output/server/manifest.js` and `.svelte-kit/output/client`, so all of those artifacts must be preserved by the upstream build job unless `PW_E2E_BASE_URL` points at an externally managed app instance. Set **VITE_API_URL**, **VITE_NOSTR_RELAY_URL**, and **VITE_E2E_TURNSTILE_BYPASS=true** in GitLab CI/CD variables. `service-quote-e2e` also declares **SERVICE_E2E_BOOTSTRAP_MODE=route-harness** so the bootstrap validator can fail fast if the expected service-browser contract changes. The build job uses the same variables so the bundle matches the environment. Local `CI=1` runs do a fresh build + preview by default so they do not accidentally reuse stale artifacts. See `.gitlab-ci.yml` for stages and branch strategy.
 
 ---
 
@@ -91,7 +104,7 @@ npx playwright test tests/e2e/01-signup-onboarding.spec.ts tests/e2e/02-credenti
 - **CDP virtual authenticator:** Each page gets its own authenticator. Credentials live per authenticator, not per context. We export via `WebAuthn.getCredentials` and inject via `WebAuthn.addCredential`.
 - **Per-test context:** No shared storage. Each test starts fresh; Test 2 does not inherit Test 1's auth state.
 - **Fixed labels in 02:** `getCredentialSetLabels()` runs at load time, so the file may not exist. We use `EXPECTED_LABELS = ['signup', 'nostr']` so tests are always discovered.
-- **CI:** When `CI` is set (e.g. GitLab CI), Playwright runs build + preview (port 4173). Set `VITE_API_URL` in GitLab CI/CD variables.
+- **CI:** In managed CI (for example GitLab CI), Playwright can reuse upstream preview artifacts; local `CI=1` runs build fresh by default. Set `VITE_API_URL` in GitLab CI/CD variables.
 
 ### Ordered run script (`npm run test:e2e`)
 

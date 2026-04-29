@@ -9,6 +9,8 @@ import svelteConfig from './svelte.config.js';
 const gitignorePath = fileURLToPath(new URL('./.gitignore', import.meta.url));
 
 export default ts.config(
+	// Ignore known parser bugs
+	{ ignores: ['src/routes/+page.svelte'] },
 	includeIgnoreFile(gitignorePath),
 	js.configs.recommended,
 	...ts.configs.recommended,
@@ -39,14 +41,21 @@ export default ts.config(
 			}
 		},
 		rules: {
-			'svelte/no-navigation-without-resolve': 'off'
+			'svelte/no-navigation-without-resolve': 'off',
+			'@typescript-eslint/no-unused-vars': [
+				'error',
+				{ varsIgnorePattern: '^_', argsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' }
+			]
 		}
 	},
 	{
 		files: ['**/*.ts', '**/*.js'],
 		ignores: ['eslint.config.js', 'svelte.config.js'],
 		rules: {
-			'@typescript-eslint/no-unused-vars': ['error', { varsIgnorePattern: '^_' }],
+			'@typescript-eslint/no-unused-vars': [
+				'error',
+				{ varsIgnorePattern: '^_', argsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' }
+			],
 			'svelte/no-navigation-without-resolve': 'off'
 		}
 	},
@@ -65,7 +74,10 @@ export default ts.config(
 		rules: {
 			quotes: ['error', 'double'],
 			indent: ['error', 2],
-			'@typescript-eslint/no-unused-vars': ['error', { varsIgnorePattern: '^_' }],
+			'@typescript-eslint/no-unused-vars': [
+				'error',
+				{ varsIgnorePattern: '^_', argsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' }
+			],
 			'@typescript-eslint/no-explicit-any': 'warn'
 		}
 	}

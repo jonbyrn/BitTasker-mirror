@@ -2,8 +2,9 @@
 	import Logo from '$lib/components/Logo.svelte';
 	import { onMount } from 'svelte';
 	import QRCode from 'qrcode';
+	import type { PageData } from './$types';
 
-	let { data: seo } = $props();
+	let { data }: { data: PageData } = $props();
 
 	// QR code states
 	let appQrCode = $state('');
@@ -66,19 +67,19 @@
 </script>
 
 <svelte:head>
-	<title>{seo.title}</title>
-	<meta name="description" content={seo.description} />
-	<meta name="keywords" content={seo.keywords} />
+	<title>{data.title}</title>
+	<meta name="description" content={data.description} />
+	<meta name="keywords" content={data.keywords} />
 	<meta name="author" content="BitTasker" />
 	<meta name="robots" content="index, follow" />
-	<link rel="canonical" href={seo.canonical} />
+	<link rel="canonical" href={data.canonical} />
 
 	<!-- Open Graph / Facebook -->
 	<meta property="og:type" content="website" />
-	<meta property="og:url" content={seo.canonical} />
-	<meta property="og:title" content={seo.ogTitle} />
-	<meta property="og:description" content={seo.ogDescription} />
-	<meta property="og:image" content={seo.image} />
+	<meta property="og:url" content={data.canonical} />
+	<meta property="og:title" content={data.ogTitle} />
+	<meta property="og:description" content={data.ogDescription} />
+	<meta property="og:image" content={data.image} />
 	<meta property="og:image:width" content="1200" />
 	<meta property="og:image:height" content="630" />
 	<meta property="og:image:alt" content="BitTasker Adopting Bitcoin 2025 Contest" />
@@ -86,17 +87,17 @@
 
 	<!-- Twitter -->
 	<meta property="twitter:card" content="summary_large_image" />
-	<meta property="twitter:url" content={seo.canonical} />
-	<meta property="twitter:title" content={seo.twitterTitle} />
-	<meta property="twitter:description" content={seo.twitterDescription} />
-	<meta property="twitter:image" content={seo.image} />
+	<meta property="twitter:url" content={data.canonical} />
+	<meta property="twitter:title" content={data.twitterTitle} />
+	<meta property="twitter:description" content={data.twitterDescription} />
+	<meta property="twitter:image" content={data.image} />
 	<meta property="twitter:image:alt" content="BitTasker Logo" />
 	<meta property="twitter:site" content="@BitTaskerDotCom" />
 	<meta property="twitter:creator" content="@BitTaskerDotCom" />
 
 	<!-- Structured Data -->
 	<!-- eslint-disable svelte/no-at-html-tags -->
-	{@html `<\u{73}cript type="application/ld+json">${JSON.stringify(seo.jsonLd)}</script>`}
+	{@html `<\u{73}cript type="application/ld+json">${JSON.stringify(data.jsonLd)}</script>`}
 	<!-- eslint-enable svelte/no-at-html-tags -->
 </svelte:head>
 

@@ -6,7 +6,7 @@ import { redirect } from '@sveltejs/kit';
 import KINDS from '$lib/utils/constants/kinds';
 import type { NostrEvent } from '$lib/types/nostr';
 
-const SITE_URL = 'https://bittasker.com';
+const baseUrl = (import.meta.env.VITE_CLIENT_URL || 'https://bittasker.com').replace(/\/$/, '');
 
 export const prerender = false;
 
@@ -211,8 +211,7 @@ export const load: PageLoad = async ({ params }) => {
 	if (shouldRedirect && uniqueId !== taskId && uniqueId) {
 		throw redirect(301, `/tasks/${uniqueId}`);
 	}
-
-	const canonicalUrl = `${SITE_URL}/tasks/${uniqueId}`;
+	const canonicalUrl = `${baseUrl}/tasks/${uniqueId}`;
 
 	// Default SEO data
 	let seo = {
@@ -224,11 +223,11 @@ export const load: PageLoad = async ({ params }) => {
 		ogTitle: 'Task Details - BitTasker',
 		ogDescription:
 			'View task details and submit your bid on BitTasker, the Bitcoin-powered task marketplace.',
-		ogImage: `${SITE_URL}/images/og-task-default.jpg`,
+		ogImage: `${baseUrl}/images/og-task-default.jpg`,
 		twitterTitle: 'Task Details - BitTasker',
 		twitterDescription:
 			'View task details and submit your bid on BitTasker, the Bitcoin-powered task marketplace.',
-		twitterImage: `${SITE_URL}/images/og-task-default.jpg`,
+		twitterImage: `${baseUrl}/images/og-task-default.jpg`,
 		jsonLd: null,
 		task: null as Task | null
 	};
@@ -251,7 +250,7 @@ export const load: PageLoad = async ({ params }) => {
 
 		// Get first image attachment (not video) for meta tags
 		const firstImage = task.attachments?.find((att) => !isVideoFile(att.url));
-		const taskImage = firstImage?.url || `${SITE_URL}/images/og-task-default.jpg`;
+		const taskImage = firstImage?.url || `${baseUrl}/images/og-task-default.jpg`;
 
 		// Generate dynamic SEO data based on task content
 		const taskTitle = task.title || 'Untitled Task';
@@ -297,7 +296,10 @@ export const load: PageLoad = async ({ params }) => {
 };
 
 function generateTaskJsonLd(task: Task, canonicalUrl: string) {
-	const baseUrl = SITE_URL;
+	const siteBaseUrl = (import.meta.env.VITE_CLIENT_URL || 'https://bittasker.com').replace(
+		/\/$/,
+		''
+	);
 
 	return {
 		'@context': 'https://schema.org',
@@ -310,8 +312,8 @@ function generateTaskJsonLd(task: Task, canonicalUrl: string) {
 		hiringOrganization: {
 			'@type': 'Organization',
 			name: 'BitTasker',
-			url: baseUrl,
-			logo: `${baseUrl}/images/logos/bittasker-logomark.svg`
+			url: siteBaseUrl,
+			logo: `${siteBaseUrl}/images/logos/bittasker-logomark.svg`
 		},
 		jobLocation:
 			task.pickupLocation?.displayName || task.dropOffLocation?.displayName

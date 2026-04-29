@@ -1,18 +1,28 @@
 /**
  * Function Parsing & Decoding Utility
- * 
+ *
  * Parses transaction input data to extract function selectors, decode function names,
  * and extract parameters from known contract ABIs.
  */
 
-import { Interface } from 'ethers';
+import { Interface, FunctionFragment } from 'ethers';
 import { escrow } from '$lib/utils/escrow';
 import { hasContractInteraction } from './contractDetection';
+
+function isFunctionFragment(item: unknown): item is FunctionFragment {
+	return (
+		typeof item === 'object' &&
+		item !== null &&
+		'type' in item &&
+		(item as { type?: string }).type === 'function' &&
+		'name' in item
+	);
+}
 
 interface ParsedFunction {
 	functionName: string | null;
 	functionSelector: string;
-	parameters: Record<string, any>;
+	parameters: Record<string, unknown>;
 	escrowId?: string;
 }
 
@@ -42,7 +52,7 @@ function initializeEscrowInterface(): void {
 
 		// Build selector map from ABI
 		for (const item of abi) {
-			if (item.type === 'function' && item.name) {
+			if (isFunctionFragment(item) && item.name) {
 				try {
 					const fragment = escrowInterface.getFunction(item.name);
 					// In ethers v6, FunctionFragment has a selector property
@@ -50,7 +60,7 @@ function initializeEscrowInterface(): void {
 					if (selector) {
 						escrowFunctionSelectors.set(selector.toLowerCase(), item.name);
 					}
-				} catch (error) {
+				} catch {
 					// Skip invalid functions
 				}
 			}
@@ -101,7 +111,7 @@ export function parseEscrowFunction(inputData: string): ParsedFunction | null {
 
 		// Decode function parameters
 		const decoded = escrowInterface.decodeFunctionData(functionName, inputData);
-		const parameters: Record<string, any> = {};
+		const parameters: Record<string, unknown> = {};
 
 		// Get function fragment to get parameter names
 		const fragment = escrowInterface.getFunction(functionName);
@@ -121,7 +131,7 @@ export function parseEscrowFunction(inputData: string): ParsedFunction | null {
 			parameters,
 			escrowId
 		};
-	} catch (error) {
+	} catch {
 		// Failed to parse - not an escrow function or malformed data
 		return null;
 	}
@@ -180,4 +190,3 @@ export function parseFunction(
 		parameters: {}
 	};
 }
-

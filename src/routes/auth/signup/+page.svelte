@@ -109,108 +109,39 @@
 	></script>
 </svelte:head>
 
-<div class="mx-auto flex w-full max-w-2xl grow flex-col items-center justify-center px-4 py-8">
-	<div class="card bg-base-100 mb-6 w-full p-4 shadow-xl">
+<div
+	class="mx-auto flex w-full max-w-2xl grow flex-col items-center justify-center px-2 pt-2 sm:pt-6 sm:pb-8"
+>
+	<div class="card bg-base-100 w-full p-4 shadow-xl">
 		<div class="flex flex-col items-center justify-center">
-			<Logo />
-			<h3 class="mt-6 text-center font-bold">{$t('signup.title')}</h3>
+			<Logo
+				class="mx-auto mt-0 mb-4 block w-full max-w-xs sm:mt-6 sm:mb-6 sm:max-w-sm md:max-w-md"
+			/>
+			<h3 class="mt-2 text-center font-bold sm:mt-4">{$t('signup.title')}</h3>
 			<br />
-			<p class="mx-auto space-y-2 px-6 text-center">
-				<span class="text-base-content text-md mb-10 block text-center">
+			<p class="mx-auto space-y-2 text-center">
+				<span class="text-base-content text-md block text-center">
 					{$t('signup.subtitle')}
-				</span>
-				<span class="text-base-content text-md my-10 block text-center">
-					{$t('signup.description')}
-				</span>
-				<span class="text-base-content text-md my-10 block text-center">
-					{$t('signup.nostr_info')}<a href="/auth/login" class="text-primary hover:underline"
-						>{$t('signup.nostr_import_link')}</a
-					>
-					{$t('signup.nostr_import')}
 				</span>
 			</p>
 		</div>
 
-		<div class="card-body">
-			<div class="flex flex-col gap-4">
-				<!-- Cloudflare Turnstile Captcha -->
-				<div class="mt-2">
-					<div class="mb-2">
-						<p class="mb-2 w-full text-start text-sm">{$t('signup.verify_human')}</p>
+		<div class="flex flex-col">
+			<!-- Cloudflare Turnstile Captcha -->
+			<div class="card-body mx-auto w-fit pb-2 sm:pb-4">
+				<div bind:this={turnstileWidget} class="flex justify-center"></div>
+				{#if captchaFailed && !$isCaptchaVerified}
+					<div class="flex justify-center">
+						<button onclick={resetTurnstile} class="btn btn-xs btn-outline">
+							{$t('signup.retry_verification')}
+						</button>
 					</div>
-					<div bind:this={turnstileWidget} class="flex justify-center"></div>
-					{#if captchaFailed && !$isCaptchaVerified}
-						<div class="mt-2 flex justify-center">
-							<button onclick={resetTurnstile} class="btn btn-xs btn-outline">
-								{$t('signup.retry_verification')}
-							</button>
-						</div>
-					{/if}
-					{#if $isCaptchaVerified}
-						<div class="alert alert-success alert-outline mt-3 text-sm">
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								class="h-5 w-5 shrink-0 stroke-current"
-								fill="none"
-								viewBox="0 0 24 24"
-							>
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									stroke-width="2"
-									d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-								/>
-							</svg>
-							<span>{$t('signup.verification_success')}</span>
-						</div>
-					{/if}
-				</div>
-
-				<!-- Terms of Service consent — required by Google Play UGC policy -->
-				<div class="form-control mt-4">
-					<label class="label cursor-pointer justify-start gap-3">
-						<input
-							type="checkbox"
-							bind:checked={tosAccepted}
-							class="checkbox checkbox-primary checkbox-sm"
-							data-testid="signup-tos-checkbox"
-						/>
-						<span class="label-text text-sm leading-relaxed whitespace-pre-line">
-							{$t('signup.tos_consent_prefix')}<a
-								href="/terms"
-								target="_blank"
-								class="text-primary hover:underline">{$t('signup.tos_consent_terms')}</a
-							>{$t('signup.tos_consent_and')}<a
-								href="/privacy"
-								target="_blank"
-								class="text-primary hover:underline">{$t('signup.tos_consent_privacy')}</a
-							>{$t('signup.tos_consent_suffix')}
-						</span>
-					</label>
-				</div>
-
-				<button
-					class="btn btn-primary mt-4"
-					data-testid="signup-continue"
-					onclick={() => goto('/auth/onboarding')}
-					disabled={isLoading || !$isCaptchaVerified || !tosAccepted}
-				>
-					<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24">
-						<g fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.5">
-							<path d="M20 12a8 8 0 0 0-8-8m0 16a7.99 7.99 0 0 0 6.245-3" /><path
-								stroke-linejoin="round"
-								d="M4 12h10m0 0l-3-3m3 3l-3 3"
-							/>
-						</g>
-					</svg>
-					{isLoading ? $t('common.processing') : $t('signup.button')}
-				</button>
-
-				{#if error}
-					<div class="alert alert-error alert-outline mt-2">
+				{/if}
+				{#if $isCaptchaVerified}
+					<div class="alert alert-success alert-outline p-2 text-xs sm:p-4 sm:text-sm">
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
-							class="h-6 w-6 shrink-0 stroke-current"
+							class="h-5 w-5 shrink-0 stroke-current"
 							fill="none"
 							viewBox="0 0 24 24"
 						>
@@ -218,18 +149,77 @@
 								stroke-linecap="round"
 								stroke-linejoin="round"
 								stroke-width="2"
-								d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+								d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
 							/>
 						</svg>
-						<span>{error}</span>
+						<span>{$t('signup.verification_success')}</span>
 					</div>
 				{/if}
+			</div>
 
-				<div class="divider my-1">{$t('common.or')}</div>
+			<!-- Terms of Service consent — required by Google Play UGC policy -->
+			<div class="form-control sm:px-4">
+				<label class="label cursor-pointer justify-start gap-3">
+					<input
+						type="checkbox"
+						bind:checked={tosAccepted}
+						class="checkbox checkbox-primary checkbox-sm"
+						data-testid="signup-tos-checkbox"
+					/>
+					<span class="label-text text-xs leading-relaxed whitespace-pre-line sm:text-sm">
+						{$t('signup.tos_consent_prefix')}<a
+							href="/terms"
+							target="_blank"
+							class="text-primary hover:underline">{$t('signup.tos_consent_terms')}</a
+						>{$t('signup.tos_consent_and')}<a
+							href="/privacy"
+							target="_blank"
+							class="text-primary hover:underline">{$t('signup.tos_consent_privacy')}</a
+						>{$t('signup.tos_consent_suffix')}
+					</span>
+				</label>
+			</div>
 
-				<div class="text-center">
-					<a href="/auth/login" class="btn btn-outline w-full">{$t('login.button')}</a>
+			<button
+				class="btn btn-primary mt-4"
+				data-testid="signup-continue"
+				onclick={() => goto('/auth/onboarding')}
+				disabled={isLoading || !$isCaptchaVerified || !tosAccepted}
+			>
+				<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24">
+					<g fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.5">
+						<path d="M20 12a8 8 0 0 0-8-8m0 16a7.99 7.99 0 0 0 6.245-3" /><path
+							stroke-linejoin="round"
+							d="M4 12h10m0 0l-3-3m3 3l-3 3"
+						/>
+					</g>
+				</svg>
+				{isLoading ? $t('common.processing') : $t('signup.button')}
+			</button>
+
+			{#if error}
+				<div class="alert alert-error alert-outline mt-2">
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="h-6 w-6 shrink-0 stroke-current"
+						fill="none"
+						viewBox="0 0 24 24"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+						/>
+					</svg>
+					<span>{error}</span>
 				</div>
+			{/if}
+
+			<div class="divider my-1">{$t('common.or')}</div>
+
+			<div class="text-center">
+				<a href="/auth/login" class="btn btn-outline w-full">{$t('login.button')}</a>
 			</div>
 		</div>
 	</div>

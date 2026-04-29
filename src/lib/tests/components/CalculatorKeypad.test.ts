@@ -7,7 +7,12 @@ vi.mock('svelte-i18n', async () => {
 	const { readable } = await import('svelte/store');
 	const translations: Record<string, string> = {
 		'wallet.calculator.clear': 'Clear',
-		'wallet.calculator.delete': 'Delete'
+		'wallet.calculator.delete': 'Delete',
+		'wallet.calculator.divide': 'Divide',
+		'wallet.calculator.multiply': 'Multiply',
+		'wallet.calculator.decimal_point': 'Decimal point',
+		'wallet.calculator.add': 'Add',
+		'wallet.calculator.subtract': 'Subtract'
 	};
 	const tStore = readable((key: string) => translations[key] || key);
 	return {

@@ -183,7 +183,7 @@
 	>
 		<!-- Message content -->
 		<div
-			class="wrap-break-words text-base-content overflow-hidden rounded-2xl px-4 py-3 shadow-sm transition-all duration-200"
+			class="text-base-content overflow-hidden rounded-2xl px-4 py-3 wrap-anywhere shadow-sm transition-all duration-200"
 			class:bg-base-200={!isSender}
 			class:bg-base-300={isSender}
 			class:hover:shadow-md={isSender}
@@ -204,7 +204,7 @@
 					>
 						<div class="bg-info w-1 shrink-0 rounded-full"></div>
 						<div class="min-w-0 flex-1">
-							<div class="text-base-content/70 wrap-break-words line-clamp-2 text-sm">
+							<div class="text-base-content/70 line-clamp-2 text-sm break-all">
 								{truncatedQuotedText}
 							</div>
 						</div>
@@ -237,7 +237,7 @@
 								{/if}
 							</div>
 						{:else}
-							<p class="wrap-break-words text-sm leading-relaxed whitespace-pre-wrap md:text-base">
+							<p class="text-sm leading-relaxed break-all whitespace-pre-wrap md:text-base">
 								{#each textSegments as segment, segIdx (segIdx)}
 									{#if segment.type === 'link' && segment.url}
 										<a
@@ -282,7 +282,7 @@
 					{/if}
 				</div>
 			{:else}
-				<p class="wrap-break-words text-sm leading-relaxed whitespace-pre-wrap md:text-base">
+				<p class="text-sm leading-relaxed break-all whitespace-pre-wrap md:text-base">
 					{#each textSegments as segment, segIdx (segIdx)}
 						{#if segment.type === 'link' && segment.url}
 							<a

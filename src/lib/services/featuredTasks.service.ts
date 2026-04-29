@@ -1,6 +1,13 @@
 import type { Budget, Task } from '$lib/types/task.d';
 import type { LiveTask } from '$lib/types/homepage';
 import { findTasks } from '$lib/nostr/findTasks';
+import {
+	FEATURED_HOMEPAGE_LIMIT,
+	clearFeaturedHomepageCache,
+	getFirstImageUrl,
+	hasImageAttachment,
+	loadFeaturedHomepageItems
+} from '$lib/services/featuredHomepage';
 import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 
 /**
@@ -10,84 +17,55 @@ import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
  * Proposals count is not displayed as it's not publicly accessible
  */
 export class FeaturedTasksService {
-	private static readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
-	private static cache: { data: LiveTask[]; timestamp: number } | null = null;
+	private static readonly CACHE_KEY = 'homepage:featured-tasks';
 
 	/**
 	 * Fetch featured tasks from Nostr relay
 	 * Prioritizes non-expired tasks, fills remaining slots with expired tasks if needed
 	 */
-	static async getFeaturedTasks(limit: number = 8): Promise<LiveTask[]> {
-		// Check cache first
-		if (this.cache && Date.now() - this.cache.timestamp < this.CACHE_TTL) {
-			return this.cache.data.slice(0, limit);
-		}
-
+	static async getFeaturedTasks(limit: number = FEATURED_HOMEPAGE_LIMIT): Promise<LiveTask[]> {
 		try {
-			// Fetch tasks from Nostr relay
-			const result = await findTasks({
-				status: [TaskStatusEnum.OPEN],
-				limit: 50,
-				page: 1
+			const featuredTasks = await loadFeaturedHomepageItems<Task>({
+				cacheKey: this.CACHE_KEY,
+				limit,
+				getId: (task) => task.id,
+				sorter: (left, right) => {
+					const imageScore =
+						Number(hasImageAttachment(right.attachments)) -
+						Number(hasImageAttachment(left.attachments));
+					if (imageScore !== 0) {
+						return imageScore;
+					}
+
+					const leftCloseToExpiring = this.isCloseToExpiring(left);
+					const rightCloseToExpiring = this.isCloseToExpiring(right);
+
+					if (leftCloseToExpiring !== rightCloseToExpiring) {
+						return Number(rightCloseToExpiring) - Number(leftCloseToExpiring);
+					}
+
+					return (right.createdAt ?? 0) - (left.createdAt ?? 0);
+				},
+				fetcher: async () => {
+					const result = await findTasks({
+						status: [TaskStatusEnum.OPEN],
+						limit: 50,
+						page: 1
+					});
+
+					const nonExpiredTasks = result.tasks.filter((task) => !this.isExpired(task));
+					const expiredTasks = result.tasks.filter((task) => this.isExpired(task));
+					const combinedTasks = [...nonExpiredTasks, ...expiredTasks];
+
+					return combinedTasks;
+				}
 			});
 
-			// Separate non-expired and expired tasks
-			const nonExpiredTasks = result.tasks.filter((task) => !this.isExpired(task));
-			const expiredTasks = result.tasks.filter((task) => this.isExpired(task));
-
-			// Sort non-expired tasks: close to expiring first, then newest
-			const sortedNonExpired = nonExpiredTasks.sort((a, b) => {
-				const aCloseToExpiring = this.isCloseToExpiring(a);
-				const bCloseToExpiring = this.isCloseToExpiring(b);
-
-				if (aCloseToExpiring && !bCloseToExpiring) return -1;
-				if (!aCloseToExpiring && bCloseToExpiring) return 1;
-
-				return b.createdAt - a.createdAt;
-			});
-
-			// Sort expired tasks by creation date (newest first)
-			const sortedExpired = expiredTasks.sort((a, b) => b.createdAt - a.createdAt);
-
-			// Take non-expired tasks first, then fill with expired if needed
-			const combinedTasks = [...sortedNonExpired];
-			if (combinedTasks.length < limit) {
-				const remaining = limit - combinedTasks.length;
-				combinedTasks.push(...sortedExpired.slice(0, remaining));
-			}
-
-			// Deduplicate by id (defense in depth for zombie events), then convert to LiveTask format
-			const uniqueTasks = combinedTasks.filter(
-				(task, index, arr) => arr.findIndex((t) => t.id === task.id) === index
-			);
-			const featuredTasks = uniqueTasks.slice(0, limit).map((task) => this.convertToLiveTask(task));
-
-			// Update cache
-			this.cache = {
-				data: featuredTasks,
-				timestamp: Date.now()
-			};
-
-			return featuredTasks;
+			return featuredTasks.map((task) => this.convertToLiveTask(task));
 		} catch (error) {
 			console.error('Error fetching featured tasks:', error);
 			return [];
 		}
-	}
-
-	/**
-	 * Check if a task has at least one image attachment
-	 */
-	private static hasImage(task: Task): boolean {
-		if (!task.attachments || task.attachments.length === 0) {
-			return false;
-		}
-
-		return task.attachments.some((attachment) => {
-			const url = attachment.url.toLowerCase();
-			const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg'];
-			return imageExtensions.some((ext) => url.includes(ext));
-		});
 	}
 
 	/**
@@ -127,17 +105,7 @@ export class FeaturedTasksService {
 	 * Get the first image from task attachments
 	 */
 	private static getFirstImage(task: Task): string {
-		if (!task.attachments || task.attachments.length === 0) {
-			return '';
-		}
-
-		const imageAttachment = task.attachments.find((attachment) => {
-			const url = attachment.url.toLowerCase();
-			const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg'];
-			return imageExtensions.some((ext) => url.includes(ext));
-		});
-
-		return imageAttachment?.url || '';
+		return getFirstImageUrl(task.attachments);
 	}
 
 	/**
@@ -218,6 +186,6 @@ export class FeaturedTasksService {
 	 * Clear cache (useful for testing or manual refresh)
 	 */
 	static clearCache(): void {
-		this.cache = null;
+		clearFeaturedHomepageCache(this.CACHE_KEY);
 	}
 }

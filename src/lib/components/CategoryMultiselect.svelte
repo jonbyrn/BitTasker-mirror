@@ -3,6 +3,25 @@
 	import { TASK_CATEGORIES } from '$lib/utils/constants/categories';
 	import { t } from 'svelte-i18n';
 
+	// Dev-only logging helper following project conventions
+	const log = {
+		info: (...args: unknown[]) => {
+			if (import.meta.env.DEV) {
+				console.info('[CategoryMultiselect]', ...args);
+			}
+		},
+		error: (...args: unknown[]) => {
+			if (import.meta.env.DEV) {
+				console.error('[CategoryMultiselect]', ...args);
+			}
+		},
+		warn: (...args: unknown[]) => {
+			if (import.meta.env.DEV) {
+				console.warn('[CategoryMultiselect]', ...args);
+			}
+		}
+	};
+
 	let {
 		selectedCategories = $bindable([]),
 		maxSelections = 3,
@@ -16,11 +35,16 @@
 	let hasCleaned = false;
 	$effect(() => {
 		try {
-			if (!hasCleaned && selectedCategories.some(cat => 
-				(typeof cat === 'string' && cat === '1') || 
-				(cat && typeof cat === 'object' && cat.value === '1')
-			)) {
-				selectedCategories = selectedCategories.filter(cat => {
+			if (
+				!hasCleaned &&
+				selectedCategories.some(
+					(cat) =>
+						(typeof cat === 'string' && cat === '1') ||
+						(cat && typeof cat === 'object' && cat.value === '1')
+				)
+			) {
+				log.warn('Cleaning default category "1" from selection');
+				selectedCategories = selectedCategories.filter((cat) => {
 					if (typeof cat === 'string') {
 						return cat !== '1';
 					} else if (cat && typeof cat === 'object' && cat.value) {
@@ -31,86 +55,76 @@
 				hasCleaned = true;
 			}
 		} catch (error) {
-			console.error('Error cleaning default categories:', error);
+			log.error('Error cleaning default categories:', error);
 		}
 	});
 
-	// Convert categories to the format expected by svelte-multiselect with translations
-	// This will reactively update when the language changes
-	let categoryOptions = $state<{ value: string; label: string }[]>([]);
-	let lastLanguage = $state('');
-	let isInitialized = $state(false);
-	
-	// Initialize with default categories first to prevent empty options error
-	$effect(() => {
-		if (!isInitialized) {
-			categoryOptions = TASK_CATEGORIES
-				.map(category => ({
-					value: category.id,
-					label: category.name // Use default name initially
-				}))
-				.sort((a, b) => a.label.localeCompare(b.label));
-			isInitialized = true;
-		}
-	});
-	
-	$effect(() => {
-		try {
-			// Force update on every effect run to ensure translations are applied
-			const currentLanguage = $t('categories.cleaning.name'); // Use any translation to get current language
-			
-			// Always update categoryOptions to ensure translations are current
-			categoryOptions = TASK_CATEGORIES
-				.map(category => {
-					const translatedName = $t(`categories.${category.slug}.name`);
-					// Fallback to category.name if translation key is returned (translation not loaded)
-					const displayName = translatedName.startsWith('categories.') ? category.name : translatedName;
-					return {
-						value: category.id, // Use category ID as value for filtering
-						label: displayName // Use translated name for display
-					};
-				})
-				.sort((a, b) => a.label.localeCompare(b.label));
-			lastLanguage = currentLanguage;
-		} catch (error) {
-			console.error('Error updating category options:', error);
-		}
-	});
+	// Use $derived to compute categoryOptions reactively based on actual dependencies
+	// This prevents infinite loops by only recomputing when TASK_CATEGORIES or language changes
+	let categoryOptions = $derived<{ value: string; label: string }[]>(
+		TASK_CATEGORIES.map((category) => {
+			const translatedName = $t(`categories.${category.slug}.name`);
+			// Fallback to category.name if translation key is returned (translation not loaded)
+			const displayName = translatedName.startsWith('categories.') ? category.name : translatedName;
+			return {
+				value: category.id,
+				label: displayName
+			};
+		}).sort((a, b) => a.label.localeCompare(b.label))
+	);
 
 	// Sync selectedCategories with external category IDs
 	let lastExternalIds = $state<string[]>([]);
 	let isInternalUpdate = $state(false);
-	
+
 	$effect(() => {
 		try {
+			// Guard: only sync if categoryOptions is populated
+			if (categoryOptions.length === 0) {
+				log.warn('Sync effect skipped: categoryOptions is empty');
+				return;
+			}
+
 			// Convert external IDs to full objects for display
 			if (JSON.stringify(externalCategoryIds) !== JSON.stringify(lastExternalIds)) {
+				log.info('External IDs changed:', { external: externalCategoryIds, last: lastExternalIds });
 				lastExternalIds = [...externalCategoryIds];
 				isInternalUpdate = true;
-				
+
 				const fullObjects = externalCategoryIds.map((id: string) => {
-					const option = categoryOptions.find(opt => opt.value === id);
+					const option = categoryOptions.find((opt) => opt.value === id);
+					if (!option) {
+						log.warn('Option not found for ID:', id);
+					}
 					return option || { value: id, label: id };
 				});
-				
+
+				log.info('Setting selectedCategories:', fullObjects);
 				selectedCategories = fullObjects;
 				isInternalUpdate = false;
 			}
 		} catch (error) {
-			console.error('Error syncing external category IDs:', error);
+			log.error('Error syncing external category IDs:', error);
 		}
 	});
 
 	// Call onChange when selectedCategories changes - with guard to prevent infinite loops
-	let lastSelectedCategories = $state<any[]>([]);
+	let lastSelectedCategories = $state<Array<{ value: string; label: string } | string>>([]);
 	$effect(() => {
 		try {
 			// Only call onChange if the selection actually changed and it's not an internal update
-			if (!isInternalUpdate && JSON.stringify(selectedCategories) !== JSON.stringify(lastSelectedCategories)) {
+			if (
+				!isInternalUpdate &&
+				JSON.stringify(selectedCategories) !== JSON.stringify(lastSelectedCategories)
+			) {
+				log.info('Selection changed, calling onChange:', {
+					selected: selectedCategories,
+					last: lastSelectedCategories
+				});
 				lastSelectedCategories = [...selectedCategories];
-				
+
 				// Extract only the values (IDs) from the selected items
-				const categoryIds = selectedCategories.map(item => {
+				const categoryIds = selectedCategories.map((item) => {
 					if (typeof item === 'string') {
 						return item;
 					} else if (item && typeof item === 'object' && item.value) {
@@ -118,11 +132,12 @@
 					}
 					return String(item);
 				});
-				
+
+				log.info('Calling onChange with IDs:', categoryIds);
 				onChange(categoryIds);
 			}
 		} catch (error) {
-			console.error('Error handling category change:', error);
+			log.error('Error handling category change:', error);
 		}
 	});
 </script>
@@ -132,18 +147,20 @@
 		<Multiselect
 			options={categoryOptions}
 			bind:selected={selectedCategories}
-			placeholder={placeholder}
+			{placeholder}
 			maxSelect={maxSelections}
-			outerDivClass="multiselect-wrapper flex flex-wrap items-center gap-2 p-3 min-h-10 text-sm bg-base-100 text-base-content transition-colors"
+			outerDivClass="multiselect-wrapper relative flex flex-wrap items-center gap-2 p-3 min-h-10 text-sm bg-base-100 text-base-content transition-colors z-50 isolate"
 			ulSelectedClass="selected-categories flex flex-wrap gap-2 mb-2"
 			liSelectedClass="selected-category-item bg-primary text-primary-content px-2 py-1 rounded-md text-sm font-medium flex items-center gap-1"
-			ulOptionsClass="category-options absolute top-full left-0 right-0 z-50 mt-1 bg-base-100 rounded-lg shadow-lg max-h-48 overflow-y-auto"
+			ulOptionsClass="category-options absolute top-full left-0 right-0 z-[10001] mt-1 bg-base-100 rounded-lg shadow-lg max-h-48 overflow-y-auto"
 			liOptionClass="category-option my-2 cursor-pointer transition-colors"
 			liActiveOptionClass="category-option-active bg-primary text-primary-content"
 			maxSelectMsgClass="max-select-message text-xs text-neutral ml-auto"
 		/>
 	{:else}
-		<div class="multiselect-wrapper flex flex-wrap items-center gap-2 min-h-10 text-sm bg-base-100 text-base-content transition-colors">
+		<div
+			class="multiselect-wrapper bg-base-100 text-base-content flex min-h-10 flex-wrap items-center gap-2 text-sm transition-colors"
+		>
 			<span class="text-neutral opacity-70">{placeholder}</span>
 		</div>
 	{/if}
@@ -151,48 +168,6 @@
 
 <style>
 	:global(.multiselect-wrapper) {
-		--sms-bg: var(--color-base-100);
-		--sms-text-color: var(--color-base-content);
-		--sms-border: var(--color-base-200);
-		--sms-border-radius: 0.5rem; /* rounded-lg */
-		--sms-padding: 0.75rem;
-		--sms-font-size: 0.875rem;
-		--sms-active-color: var(--color-primary);
-		--sms-focus-border: 1px solid var(--color-primary);
-		--sms-selected-bg: var(--color-primary);
-		--sms-selected-text-color: var(--color-primary-content);
-		--sms-options-bg: var(--color-base-100);
-		--sms-options-max-height: 12rem;
-		--sms-options-border: 1px solid var(--color-base-200);
-		--sms-options-border-radius: 0.5rem; /* rounded-lg */
-		--sms-options-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-		--sms-li-active-bg: var(--color-primary);
-		--sms-li-selected-bg: var(--color-primary);
-		--sms-li-selected-color: var(--color-primary-content);
-		--sms-placeholder-color: var(--color-neutral);
-		--sms-placeholder-opacity: 0.7;
-		--sms-remove-btn-hover-color: var(--color-primary-content);
-		--sms-remove-btn-hover-bg: rgba(0, 0, 0, 0.2);
-	}
-
-	:global(.category-multiselect) {
-		border: 2px solid oklab(0.999994 0.0000455678 0.0000200868 / 0.2);
-		border-radius: 0.5rem !important;
-		transition: border-color 0.2s ease;
-	}
-
-	/* Light mode border color */
-	:global(:root[data-theme='light'] .category-multiselect) {
-		border: 2px solid oklab(0.182191 0.0000082776 0.00000365078 / 0.2);
-	}
-
-	/* Active/focus state - primary color for both modes */
-	:global(.category-multiselect:focus-within) {
-		border: 2px solid var(--color-primary) !important;
-	}
-	
-	:global(.multiselect-wrapper) {
-		/* Custom properties for theme variables */
 		--sms-bg: var(--color-base-100);
 		--sms-text-color: var(--color-base-content);
 		--sms-border: var(--color-base-200);
@@ -216,6 +191,22 @@
 		--sms-remove-btn-hover-color: var(--color-primary-content);
 		--sms-remove-btn-hover-bg: rgba(0, 0, 0, 0.2);
 		padding: 8px !important;
+	}
+
+	:global(.category-multiselect) {
+		border: 2px solid oklab(0.999994 0.0000455678 0.0000200868 / 0.2);
+		border-radius: 0.5rem !important;
+		transition: border-color 0.2s ease;
+	}
+
+	/* Light mode border color */
+	:global(:root[data-theme='light'] .category-multiselect) {
+		border: 2px solid oklab(0.182191 0.0000082776 0.00000365078 / 0.2);
+	}
+
+	/* Active/focus state - primary color for both modes */
+	:global(.category-multiselect:focus-within) {
+		border: 2px solid var(--color-primary) !important;
 	}
 
 	:global(.multiselect-wrapper:focus-within) {

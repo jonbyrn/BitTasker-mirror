@@ -4,9 +4,15 @@ export enum ContractModalAction {
 	Complete = 'complete',
 	Accept = 'accept',
 	Dispute = 'dispute',
+	AcceptProposal = 'accept_proposal',
+	ProposeResolution = 'propose_resolution',
 	Cancel = 'cancel',
 	Refund = 'refund',
-	Delete = 'delete'
+	Delete = 'delete',
+	MarkNoShow = 'mark_no_show',
+	MarkWorkInProgress = 'mark_work_in_progress',
+	ClaimNoShowRefund = 'claim_no_show_refund',
+	ResolveTimelock = 'resolve_timelock'
 }
 
 // Modal configuration interface
@@ -36,6 +42,20 @@ export const CONTRACT_MODAL_CONFIGS: Record<ContractModalAction, ContractModalCo
 		cancelTextKey: 'dashboard.contracts.actions.cancel',
 		confirmButtonClass: 'btn-error'
 	},
+	[ContractModalAction.AcceptProposal]: {
+		titleKey: 'dashboard.contracts.actions.accept_proposal_confirm_title',
+		messageKey: 'dashboard.contracts.actions.accept_proposal_confirm_message',
+		confirmTextKey: 'dashboard.contracts.actions.accept_proposal',
+		cancelTextKey: 'dashboard.contracts.actions.cancel',
+		confirmButtonClass: 'btn-success'
+	},
+	[ContractModalAction.ProposeResolution]: {
+		titleKey: 'dashboard.contracts.actions.propose_resolution_confirm_title',
+		messageKey: 'dashboard.contracts.actions.propose_resolution_confirm_message',
+		confirmTextKey: 'dashboard.contracts.actions.propose',
+		cancelTextKey: 'dashboard.contracts.actions.cancel',
+		confirmButtonClass: 'btn-warning'
+	},
 	[ContractModalAction.Cancel]: {
 		titleKey: 'dashboard.contracts.actions.cancel_contract_confirm_title',
 		messageKey: 'dashboard.contracts.actions.cancel_contract_confirm_message',
@@ -56,5 +76,33 @@ export const CONTRACT_MODAL_CONFIGS: Record<ContractModalAction, ContractModalCo
 		confirmTextKey: 'dashboard.contracts.actions.delete_contract',
 		cancelTextKey: 'dashboard.contracts.actions.cancel',
 		confirmButtonClass: 'btn-error'
+	},
+	[ContractModalAction.MarkNoShow]: {
+		titleKey: 'dashboard.contracts.actions.mark_no_show_confirm_title',
+		messageKey: 'dashboard.contracts.actions.mark_no_show_confirm_message',
+		confirmTextKey: 'dashboard.contracts.actions.mark_no_show',
+		cancelTextKey: 'dashboard.contracts.actions.cancel',
+		confirmButtonClass: 'btn-warning'
+	},
+	[ContractModalAction.MarkWorkInProgress]: {
+		titleKey: 'dashboard.contracts.actions.mark_work_in_progress_confirm_title',
+		messageKey: 'dashboard.contracts.actions.mark_work_in_progress_confirm_message',
+		confirmTextKey: 'dashboard.contracts.actions.mark_work_in_progress',
+		cancelTextKey: 'dashboard.contracts.actions.cancel',
+		confirmButtonClass: 'btn-success'
+	},
+	[ContractModalAction.ClaimNoShowRefund]: {
+		titleKey: 'dashboard.contracts.actions.claim_no_show_refund_confirm_title',
+		messageKey: 'dashboard.contracts.actions.claim_no_show_refund_confirm_message',
+		confirmTextKey: 'dashboard.contracts.actions.claim_no_show_refund',
+		cancelTextKey: 'dashboard.contracts.actions.cancel',
+		confirmButtonClass: 'btn-warning'
+	},
+	[ContractModalAction.ResolveTimelock]: {
+		titleKey: 'dashboard.contracts.actions.resolve_timelock_confirm_title',
+		messageKey: 'dashboard.contracts.actions.resolve_timelock_confirm_message',
+		confirmTextKey: 'dashboard.contracts.actions.resolve_timelock',
+		cancelTextKey: 'dashboard.contracts.actions.cancel',
+		confirmButtonClass: 'btn-warning'
 	}
 };

@@ -15,6 +15,7 @@
 
 	async function refreshStatus() {
 		permissionStatus = await pushNotificationService.checkPermissionStatus();
+		return permissionStatus;
 	}
 
 	onMount(async () => {
@@ -72,11 +73,11 @@
 			</p>
 
 			<!-- Actions -->
-			<div class="flex flex-col gap-2 sm:flex-row sm:gap-2">
+			<div class="flex flex-row gap-2">
 				<button
 					onclick={enableNotifications}
 					disabled={isRequesting}
-					class="btn btn-sm text-primary sm:btn-md w-full font-semibold transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] sm:w-auto"
+					class="btn btn-sm text-primary sm:btn-md flex-1 font-semibold transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
 					style="background-color: var(--color-primary-content, white); border-color: transparent;"
 				>
 					{#if isRequesting}
@@ -87,7 +88,7 @@
 				<button
 					onclick={dismissBanner}
 					disabled={isRequesting}
-					class="btn btn-outline btn-sm border-primary-content/40 text-primary-content hover:border-primary-content/60 hover:bg-primary-content/10 sm:btn-md w-full border-2 bg-transparent font-medium transition-all duration-200 active:scale-[0.98] sm:w-auto"
+					class="btn btn-outline btn-sm border-primary-content/40 text-primary-content hover:border-primary-content/60 hover:bg-primary-content/10 sm:btn-md flex-1 border-2 bg-transparent font-medium transition-all duration-200 active:scale-[0.98]"
 				>
 					{$t('notifications.permissions.banner.later_button')}
 				</button>

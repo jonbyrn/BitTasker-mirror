@@ -9,6 +9,9 @@ let keyboardWillShowListener: { remove: () => Promise<void> } | null = null;
 let keyboardDidShowListener: { remove: () => Promise<void> } | null = null;
 let keyboardWillHideListener: { remove: () => Promise<void> } | null = null;
 let keyboardDidHideListener: { remove: () => Promise<void> } | null = null;
+let appStateChangeListener: { remove: () => Promise<void> } | null = null;
+let appResumeListener: { remove: () => Promise<void> } | null = null;
+let phantomKeyboardCheckTimeout: ReturnType<typeof setTimeout> | null = null;
 
 function getRoot(): HTMLElement | null {
 	return typeof document !== 'undefined' ? document.documentElement : null;
@@ -33,6 +36,91 @@ function setKeyboardClosed(): void {
 }
 
 /**
+ * Check if an input element is currently focused.
+ */
+function isInputElementFocused(): boolean {
+	if (typeof document === 'undefined') return false;
+	const active = document.activeElement;
+	return (
+		active instanceof HTMLElement &&
+		(active.tagName === 'INPUT' ||
+			active.tagName === 'TEXTAREA' ||
+			active.getAttribute('contenteditable') === 'true')
+	);
+}
+
+/**
+ * Detect "phantom keyboard" state - when our app thinks keyboard is visible
+ * but the viewport suggests otherwise. This happens on Android when:
+ * - Switching apps via PiP/split-screen while keyboard was open in another app
+ * - Deep links opened while keyboard was visible
+ * - Share intents from apps with keyboards open
+ *
+ * Heuristics:
+ * - If viewport height is >= 75% of screen height, keyboard is likely NOT visible
+ * - If VisualViewport is available and matches window.innerHeight, keyboard is likely NOT visible
+ * - If no input is focused and our state says keyboard is visible, it's likely phantom
+ */
+function detectPhantomKeyboard(): boolean {
+	if (typeof window === 'undefined') return false;
+
+	const currentlyTrackedAsVisible = get(keyboardVisible);
+	if (!currentlyTrackedAsVisible) return false;
+
+	// Check 1: Is an input actually focused?
+	if (isInputElementFocused()) return false;
+
+	// Check 2: Viewport height heuristic
+	// If viewport is >= 75% of screen height, keyboard is likely not visible
+	const viewportRatio = window.innerHeight / window.screen.height;
+	if (viewportRatio >= 0.75) {
+		return true;
+	}
+
+	// Check 3: VisualViewport API (more accurate on modern browsers)
+	// If visualViewport.height is close to window.innerHeight, keyboard is not visible
+	if (window.visualViewport) {
+		const vvHeight = window.visualViewport.height;
+		const heightDiff = Math.abs(window.innerHeight - vvHeight);
+		// If the difference is less than 100px, keyboard is likely not visible
+		// (small differences can occur due to browser chrome)
+		if (heightDiff < 100) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
+/**
+ * Reset keyboard state if phantom keyboard is detected.
+ * Uses multiple checks with delays to handle viewport stabilization.
+ */
+function checkAndResetPhantomKeyboard(): void {
+	// Clear any pending check
+	if (phantomKeyboardCheckTimeout) {
+		clearTimeout(phantomKeyboardCheckTimeout);
+		phantomKeyboardCheckTimeout = null;
+	}
+
+	// Immediate check
+	if (detectPhantomKeyboard()) {
+		console.debug('[Keyboard] Phantom keyboard detected (immediate), resetting state');
+		setKeyboardClosed();
+		return;
+	}
+
+	// Delayed check (viewport may need time to stabilize after app switch)
+	phantomKeyboardCheckTimeout = setTimeout(() => {
+		if (detectPhantomKeyboard()) {
+			console.debug('[Keyboard] Phantom keyboard detected (delayed), resetting state');
+			setKeyboardClosed();
+		}
+		phantomKeyboardCheckTimeout = null;
+	}, 300);
+}
+
+/**
  * Safety net: when the app resumes from the background, the native
  * keyboard hide event may not have fired (known Capacitor bug on
  * Android when the keyboard was open in another app). Reset state
@@ -40,15 +128,36 @@ function setKeyboardClosed(): void {
  */
 function handleVisibilityChange(): void {
 	if (typeof document === 'undefined' || document.hidden) return;
-	const active = document.activeElement;
-	const isInputFocused =
-		active instanceof HTMLElement &&
-		(active.tagName === 'INPUT' ||
-			active.tagName === 'TEXTAREA' ||
-			active.getAttribute('contenteditable') === 'true');
-	if (!isInputFocused) {
-		setKeyboardClosed();
+	checkAndResetPhantomKeyboard();
+}
+
+/**
+ * Handle app state changes from Capacitor App plugin.
+ * More reliable than visibilitychange on Android for detecting app resume.
+ */
+function handleAppStateChange(isActive: boolean): void {
+	if (isActive) {
+		// App became active - check for phantom keyboard
+		// Use a small delay to let the viewport stabilize
+		setTimeout(() => {
+			checkAndResetPhantomKeyboard();
+		}, 100);
 	}
+}
+
+/**
+ * Handle app resume event from Capacitor App plugin.
+ * Fires when Activity.onResume() is called on Android.
+ */
+function handleAppResume(): void {
+	// App resumed - check for phantom keyboard with multiple delays
+	// The viewport may take time to update after PiP/split-screen transitions
+	checkAndResetPhantomKeyboard();
+
+	// Additional delayed check for slow viewport updates (foldables, PiP)
+	setTimeout(() => {
+		checkAndResetPhantomKeyboard();
+	}, 500);
 }
 
 /**
@@ -108,6 +217,7 @@ export async function initKeyboard(): Promise<() => void> {
 
 	// Dynamic import to avoid SSR issues
 	const { Keyboard } = await import('@capacitor/keyboard');
+	const { App } = await import('@capacitor/app');
 
 	initialized = true;
 	setKeyboardClosed();
@@ -135,6 +245,19 @@ export async function initKeyboard(): Promise<() => void> {
 		setKeyboardClosed();
 	});
 
+	// App state change listener - more reliable than visibilitychange on Android
+	// Fires when Activity.onResume() and Activity.onStop() are called
+	appStateChangeListener = await App.addListener('appStateChange', ({ isActive }) => {
+		handleAppStateChange(isActive);
+	});
+
+	// App resume listener - fires specifically when app comes to foreground
+	// This is critical for detecting phantom keyboard after PiP/split-screen usage
+	appResumeListener = await App.addListener('resume', () => {
+		handleAppResume();
+	});
+
+	// Web fallback for visibilitychange (works on web and as backup on native)
 	document.addEventListener('visibilitychange', handleVisibilityChange);
 
 	return cleanupKeyboard;
@@ -144,6 +267,13 @@ export async function cleanupKeyboard(): Promise<void> {
 	if (!initialized) return;
 	initialized = false;
 
+	// Clear any pending phantom keyboard check
+	if (phantomKeyboardCheckTimeout) {
+		clearTimeout(phantomKeyboardCheckTimeout);
+		phantomKeyboardCheckTimeout = null;
+	}
+
+	// Remove keyboard listeners
 	await keyboardWillShowListener?.remove();
 	await keyboardDidShowListener?.remove();
 	await keyboardWillHideListener?.remove();
@@ -152,6 +282,12 @@ export async function cleanupKeyboard(): Promise<void> {
 	keyboardDidShowListener = null;
 	keyboardWillHideListener = null;
 	keyboardDidHideListener = null;
+
+	// Remove app state listeners
+	await appStateChangeListener?.remove();
+	await appResumeListener?.remove();
+	appStateChangeListener = null;
+	appResumeListener = null;
 
 	if (typeof document !== 'undefined') {
 		document.removeEventListener('visibilitychange', handleVisibilityChange);
@@ -166,4 +302,22 @@ export async function cleanupKeyboard(): Promise<void> {
  */
 export function isKeyboardVisible(): boolean {
 	return get(keyboardVisible);
+}
+
+/**
+ * Force reset keyboard state to closed.
+ * Use this as a manual escape hatch when phantom keyboard is detected
+ * but automatic detection doesn't catch it.
+ */
+export function forceResetKeyboardState(): void {
+	console.debug('[Keyboard] Force resetting keyboard state');
+	setKeyboardClosed();
+}
+
+/**
+ * Trigger a phantom keyboard check manually.
+ * Useful for debugging or when you know an app transition occurred.
+ */
+export function triggerPhantomKeyboardCheck(): void {
+	checkAndResetPhantomKeyboard();
 }

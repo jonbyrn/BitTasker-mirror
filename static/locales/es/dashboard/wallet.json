@@ -21,6 +21,7 @@
 		"received": "Recibido",
 		"sent": "Enviado",
 		"view_all_transactions": "Ver todas las transacciones",
+		"learn_more": "Más información",
 		"no_transactions": "No se encontraron transacciones.",
 		"receive_btc": "Recibir Bitcoin",
 		"address": "Dirección",
@@ -62,10 +63,12 @@
 		"status_failed": "Fallido",
 		"status_confirmations": "Confirmaciones",
 		"transaction": {
+			"hash_copied": "Hash de transacción copiado al portapapeles",
 			"status": {
 				"confirmed": "Confirmado",
 				"pending": "Pendiente",
-				"failed": "Fallido"
+				"failed": "Fallido",
+				"confirmations": "{count} confirmaciones"
 			},
 			"type": {
 				"send": "Enviado",
@@ -106,6 +109,11 @@
 			"acceptproposal": "Propuesta Aceptada",
 			"proposeresolution": "Resolución Propuesta",
 			"refundescrow": "Contrato Reembolsado",
+			"refundclient": "Tasker reembolsado",
+			"transferownership": "Propiedad Transferida",
+			"renounceownership": "Propiedad Renunciada",
+			"pause": "Contrato Pausado",
+			"unpause": "Contrato Despausado",
 			"disputeescrow": "Contrato Disputado",
 			"resolvedispute": "Resolver Disputa",
 			"cancelescrow": "Contrato Cancelado",
@@ -357,6 +365,7 @@
 		"no_assets_loaded": "Aún no se han cargado activos",
 		"copy_address": "Copiar dirección",
 		"refresh": "Actualizar",
+		"copied": "Copiado",
 		"all": "Todos",
 		"all_networks": "Todas las Redes",
 		"failed_to_load_transactions": "Error al cargar transacciones",
@@ -379,6 +388,7 @@
 			"sending_transaction": "Enviando Transacción",
 			"can_close_safely": "Puedes cerrar esta pantalla de forma segura y la transacción continuará.",
 			"transaction_failed": "La transacción falló",
+			"transaction_confirmed": "¡Transacción confirmada!",
 			"status": {
 				"sending": "Enviando Transacción",
 				"confirming": "Confirmando Transacción",
@@ -441,7 +451,7 @@
 				"sent_to": "enviado a",
 				"transaction_hash": "Hash de Transacción",
 				"view_on_explorer": "Ver en Explorador",
-				"transaction_confirmed": "Transacción confirmada"
+				"transaction_confirmed": "¡Transacción confirmada!"
 			},
 			"error": {
 				"invalid_payment_details": "Detalles de pago inválidos",
@@ -449,7 +459,8 @@
 				"invalid_qr_code": "Código QR de pago inválido",
 				"failed_to_parse_qr": "Error al analizar código QR",
 				"failed_to_parse_address": "Error al analizar dirección",
-				"invalid_form": "Por favor verifica los campos del formulario"
+				"invalid_form": "Por favor verifica los campos del formulario",
+				"amountless_invoice": "Próximamente admitiremos facturas sin monto. Para proceder, solicita una nueva con el monto incluido."
 			}
 		},
 		"payment_request": {
@@ -469,6 +480,13 @@
 			"liquid": "Red Liquid",
 			"bitcoin": "Bitcoin",
 			"bsc": "Binance Smart Chain"
+		},
+		"invoice": {
+			"payment_request": "Solicitud de Pago",
+			"qr_generation_failed": "Error al generar el código QR",
+			"share": "Compartir Factura",
+			"share_title": "Solicitud de Pago",
+			"share_text": "Por favor envía {amount} sats a: {address}"
 		},
 		"receive_rbtc": "Recibir rBTC",
 		"your_rsk_address": "Tu Dirección RSK",
@@ -534,6 +552,7 @@
 		"refresh_balance": "Actualizar Saldo",
 		"balance_refreshed": "Saldo actualizado correctamente",
 		"refresh_failed": "Error al actualizar el saldo",
+		"initializing": "Inicializando billetera...",
 		"buy_sell": {
 			"title": "Comprar y Vender Activos Digitales",
 			"coming_soon": "¡Funcionalidad de compra y venta próximamente!",
@@ -574,10 +593,16 @@
 		"calculator": {
 			"clear": "Limpiar",
 			"delete": "Eliminar",
-			"calculation": "Cálculo"
+			"calculation": "Cálculo",
+			"divide": "Dividir",
+			"multiply": "Multiplicar",
+			"add": "Sumar",
+			"subtract": "Restar",
+			"decimal_point": "Punto decimal"
 		},
 		"receive": {
 			"title": "Solicitar Pago",
+			"receive_funds": "Recibir Fondos",
 			"unit_sats": "Sats",
 			"unit_usd": "USD",
 			"network_fees": "Tarifas de Red",
@@ -585,12 +610,13 @@
 			"cancel": "Cancelar",
 			"generate_invoice": "Generar Factura",
 			"get_paid": "Cobrar",
-			"charge_fees_to_payer": "¿Cobrar tarifas de red al pagador?",
+			"charge_fees_to_payer": "Cobrar tarifas de red al pagador",
 			"enter_amount_to_estimate": "Ingrese el monto para estimar las tarifas",
 			"network": "Red",
 			"description_characters": "Caracteres",
 			"below_swap_minimum": "Monto por debajo del mínimo de intercambio: {minAmount} Sats",
-			"invoice_total": "Total de la factura"
+			"invoice_total": "Total de la factura",
+			"fee": "Comisión"
 		},
 		"swap": {
 			"title": "Intercambiar Activos Digitales",
@@ -664,7 +690,7 @@
 			"network_transaction_fee": "Tarifa de Transacción de Red",
 			"total_fees": "Tarifas Totales",
 			"estimated_received": "Estimado a Recibir",
-			"total_received_est": "Total Recibido (est)",
+			"total_received_est": "Total",
 			"loading_fees": "Calculando tarifas...",
 			"service_fee": "Tarifa de Servicio",
 			"miner_fee": "Tarifa de Minero",
@@ -830,19 +856,23 @@
 			"networks": {
 				"lightning_bitcoin": {
 					"label": "Bitcoin Lightning",
-					"description": "Pagos de Lightning Network"
+					"description": "Pagos de Lightning Network",
+					"fee_info": "~0.25% tarifa de intercambio"
 				},
 				"rootstock_bitcoin": {
 					"label": "Bitcoin Rootstock",
-					"description": "rBTC en la red Rootstock"
+					"description": "rBTC en la red Rootstock",
+					"fee_info": "Tarifa de gas de red"
 				},
 				"liquid_bitcoin": {
 					"label": "Bitcoin Liquid",
-					"description": "L-BTC en la red Liquid (intercambiar a rBTC)"
+					"description": "L-BTC en la red Liquid (intercambiar a rBTC)",
+					"fee_info": "~0.1% tarifa de intercambio"
 				},
 				"bitcoin": {
 					"label": "Bitcoin",
-					"description": "Red Bitcoin nativa"
+					"description": "Red Bitcoin nativa",
+					"fee_info": "Tarifa de red"
 				},
 				"liquid_usdt": {
 					"label": "USDT Liquid",

@@ -1,3 +1,8 @@
+<!--
+@deprecated This component uses v1 escrow patterns.
+Use BidAcceptanceFormV2.svelte instead which uses v2 escrow with NDK and PaymentContractRune.
+This file will be removed in a future release.
+-->
 <script lang="ts">
 	import type { Task } from '$lib/types/task';
 	import type { NostrEvent } from 'nostr-tools';
@@ -18,14 +23,19 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { sendLocationsToTaskee } from '$lib/utils/location/sendLocation';
 	import { TaskTypeEnum } from '$lib/utils/enums/task.enum';
+	import { getExactTaskLocations } from '$lib/nostr/exact-location';
+	import { resolveTaskLocationEntityId } from '$lib/utils/location/entity-id';
 	import { bidStore } from '$lib/stores/bid.store';
 	import IconContentCopy from '~icons/mdi/content-copy';
 	import IconMessage from '~icons/mdi/message';
 	import IconCalendarClock from '~icons/mdi/calendar-clock';
-	import IconTimerOutline from '~icons/mdi/timer-outline';
+	import IconTruckDeliveryOutline from '~icons/mdi/truck-delivery-outline';
 	import { allAssets, totalBalances, formatSats } from '$lib/stores/wallet.store';
+	import { formatDurationBetweenDates } from '$lib/utils/helpers/dateFormatter';
 	import MessageModal from '$lib/components/messages/MessageModal.svelte';
 	import SecurePaymentContractModal from '$lib/components/bidding/SecurePaymentContractModal.svelte';
+	import ContractInitiationDrawer from '$lib/components/contracts/ContractInitiationDrawer.svelte';
+	import ContractFundingWalletCard from '$lib/components/contracts/ContractFundingWalletCard.svelte';
 	import UserInfoDisplay from '$lib/components/user/UserInfoDisplay.svelte';
 	import { triggerHaptic, ImpactStyle } from '$lib/utils/helpers/haptics';
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
@@ -37,10 +47,12 @@
 		task: NostrEvent;
 		btcPrice: number;
 		onCancel: () => void;
+		onAddFunds?: (amountUsd: number) => void;
 	}>();
 
-	const bidContent = props.bid.content as unknown as NostrBidContent;
-	const taskContent = JSON.parse(props.task.content) as Task;
+	let bidContent = $derived(props.bid.content as unknown as NostrBidContent);
+	let taskContent = $derived(JSON.parse(props.task.content) as Task);
+	let taskLocationEntityId = $derived(resolveTaskLocationEntityId(props.task));
 
 	// Form state
 	let isSubmitting = $state(false);
@@ -52,11 +64,16 @@
 	let additionalNotes = $state<string>('');
 	let additionalNotesExpanded = $state(false);
 	let isLoading = $state(false);
-	let showContractModal = $state(false);
 
-	// Bitcoin accordion state
-	let bitcoinExpanded = $state(false);
-	let balancesHidden = $state(false); // Always show actual balances
+	async function handleRefresh() {
+		isLoading = true;
+		try {
+			await walletManager.loadAssets();
+		} finally {
+			isLoading = false;
+		}
+	}
+	let showContractModal = $state(false);
 
 	// Get Bitcoin asset (RBTC)
 	let bitcoinAsset = $derived($allAssets.find((a) => a.assetId === 'rbtc'));
@@ -112,6 +129,7 @@
 			wasAdjusted: false
 		};
 	});
+	let fundConfirmationTotalUsd = $derived(getTotalWithGasFee());
 
 	// Helper function to get translated warning text
 	function getTranslatedWarning(warning: string | ValidationWarning): string {
@@ -293,18 +311,23 @@
 					const isRemote = taskContent.taskType === TaskTypeEnum.REMOTE;
 
 					// Send message asynchronously in background - don't block UI or fail on error
-					sendLocationsToTaskee(
-						taskContent.pickupLocation || null,
-						taskContent.dropOffLocation || null,
-						freelancerPubkey,
-						{
-							taskId: props.task.id,
-							taskTitle: taskContent.title,
-							taskDescription: taskContent.description,
-							isRemote,
-							additionalNotes: additionalNotes.trim() || ''
-						}
-					).catch((locationError) => {
+					void (async () => {
+						const exactLocations = taskLocationEntityId
+							? await getExactTaskLocations(taskLocationEntityId).catch(() => null)
+							: null;
+						return sendLocationsToTaskee(
+							exactLocations?.pickupLocation ?? taskContent.pickupLocation ?? null,
+							exactLocations?.dropOffLocation ?? taskContent.dropOffLocation ?? null,
+							freelancerPubkey,
+							{
+								taskId: props.task.id,
+								taskTitle: taskContent.title,
+								taskDescription: taskContent.description,
+								isRemote,
+								additionalNotes: additionalNotes.trim() || ''
+							}
+						);
+					})().catch((locationError) => {
 						// Log error but don't fail bid acceptance if location sending fails
 						console.error('Failed to send task acceptance message to taskee:', locationError);
 					});
@@ -689,119 +712,49 @@
 				{/if}
 
 				<!-- Bitcoin Balance Accordion -->
-				<div>
-					<div
-						class="collapse-arrow border-primary bg-base-100 collapse rounded-lg border-2"
-						class:collapse-open={bitcoinExpanded}
-					>
-						<button
-							type="button"
-							class="collapse-title flex items-center justify-between px-3 py-2 pr-10 text-left text-sm font-medium sm:px-4 sm:py-3 sm:pr-12 sm:text-base"
-							onclick={() => (bitcoinExpanded = !bitcoinExpanded)}
-						>
-							<div class="flex min-w-0 flex-1 items-center gap-2">
-								<img
-									src="/images/chains/Bitcoin.svg"
-									alt="Bitcoin"
-									class="h-5 w-5 shrink-0 sm:h-6 sm:w-6"
-								/>
-								<span>{$t('wallet.bitcoin')}</span>
-							</div>
-							<div class="ml-2 shrink-0 text-right">
-								{#if isLoading || $walletStore.rsk.connecting}
-									<div class="flex h-9 w-9 flex-col items-end justify-center gap-0.5">
-										<span class="loading loading-spinner loading-md"></span>
-									</div>
-								{:else if !$walletStore.rsk.connected || $walletStore.rsk.error}
-									<div class="text-error text-sm font-semibold sm:text-base">
-										{$walletStore.rsk.error
-											? $t('dashboard.bids.bid_acceptance.wallet_error_prefix')
-											: $t('dashboard.bids.bid_acceptance.wallet_not_connected')}
-									</div>
-								{:else if balancesHidden}
-									<div class="text-sm font-semibold sm:text-base">
-										•••• {$t('wallet.sats')}
-									</div>
-									<div class="text-xs opacity-70 sm:text-sm">≈ $••••</div>
-								{:else}
-									<div class="text-sm font-semibold sm:text-base">
-										{formatSats($totalBalances.sats)}
-										{$t('wallet.sats')}
-									</div>
-									{#if bitcoinAsset?.usdValue}
-										<div class="text-xs opacity-70 sm:text-sm">
-											≈ ${bitcoinAsset.usdValue.toFixed(2)}
-										</div>
-									{/if}
-								{/if}
-							</div>
-						</button>
-						<div class="collapse-content">
-							<div class="space-y-1.5 px-3 pb-1.5 sm:space-y-2 sm:px-4 sm:pb-2">
-								<!-- L2 BTC Entry with Lightning Bolt Icon -->
-								<div class="flex items-center justify-between">
-									<div class="flex items-center gap-1.5 sm:gap-2">
-										<svg
-											xmlns="http://www.w3.org/2000/svg"
-											class="h-4 w-4 text-yellow-500 sm:h-5 sm:w-5"
-											fill="none"
-											viewBox="0 0 24 24"
-											stroke="currentColor"
-										>
-											<path
-												stroke-linecap="round"
-												stroke-linejoin="round"
-												stroke-width="2"
-												d="M13 10V3L4 14h7v7l9-11h-7z"
-											/>
-										</svg>
-										<span class="text-sm font-medium sm:text-base">{$t('wallet.l2_btc')}</span>
-									</div>
-									<div class="text-right">
-										{#if balancesHidden}
-											<div class="text-sm font-semibold sm:text-base">
-												•••• {$t('wallet.sats')}
-											</div>
-											<div class="text-xs opacity-70">$••••</div>
-										{:else if bitcoinAsset}
-											{@const balanceInSats = Math.floor(bitcoinAsset.balance * 100_000_000)}
-											<div class="text-sm font-semibold sm:text-base">
-												{formatSats(balanceInSats)}
-												{$t('wallet.sats')}
-											</div>
-											{#if bitcoinAsset.usdValue > 0}
-												<div class="text-xs opacity-70">
-													${bitcoinAsset.usdValue.toFixed(2)}
-												</div>
-											{/if}
-										{:else}
-											<div class="text-sm font-semibold sm:text-base">0 {$t('wallet.sats')}</div>
-										{/if}
-									</div>
-								</div>
-
-								<!-- BTC Entry (Coming Soon) -->
-								<div class="flex items-center justify-between">
-									<div class="flex items-center gap-1.5 sm:gap-2">
-										<img
-											src="/images/chains/Bitcoin.svg"
-											alt="BTC"
-											class="h-4 w-4 opacity-50 sm:h-5 sm:w-5"
-										/>
-										<span class="text-base-content/50 text-sm font-medium sm:text-base"
-											>{$t('wallet.btc')}</span
-										>
-									</div>
-									<div class="text-right">
-										<span class="text-base-content/50 text-sm font-semibold sm:text-base"
-											>{$t('wallet.coming_soon')}</span
-										>
-									</div>
-								</div>
-							</div>
-						</div>
-					</div>
-				</div>
+				<ContractFundingWalletCard
+					title={$t('wallet.bitcoin')}
+					iconAlt={$t('wallet.bitcoin')}
+					balanceSats={formatSats($totalBalances.sats)}
+					balanceUsd={bitcoinAsset?.usdValue != null
+						? `≈ $${bitcoinAsset.usdValue.toFixed(2)}`
+						: '—'}
+					satsLabel={$t('wallet.sats')}
+					notConnectedLabel={$walletStore.rsk.error
+						? `${$t('dashboard.bids.bid_acceptance.wallet_error_prefix')} ${$walletStore.rsk.error}`
+						: $t('dashboard.bids.bid_acceptance.wallet_not_connected')}
+					availableLabel={$t('dashboard.bids.bid_acceptance.available_balance') ||
+						'Available balance'}
+					requiredLabel={$t('dashboard.bids.bid_acceptance.required_balance') ||
+						'Required for this contract'}
+					requiredUsd={Number.isFinite(getTotalWithGasFee())
+						? `$${formatNumberWithTwoDecimals(getTotalWithGasFee())}`
+						: '—'}
+					requiredSats={props.btcPrice > 0 && Number.isFinite(getTotalWithGasFee())
+						? satsFromUsd(getTotalWithGasFee(), props.btcPrice).replace(/\s*sats$/i, '')
+						: ''}
+					loading={isLoading || $walletStore.rsk.connecting}
+					connected={$walletStore.rsk.connected && !$walletStore.rsk.error}
+					onRefresh={handleRefresh}
+					connectionError={$walletStore.rsk.error ?? ''}
+					verificationStatus={balanceErrors.length > 0
+						? 'idle'
+						: isLoading || $walletStore.rsk.connecting
+							? 'verifying'
+							: $walletStore.rsk.connected
+								? 'ready'
+								: 'idle'}
+					verificationMessage={balanceErrors.length > 0
+						? ''
+						: isLoading || $walletStore.rsk.connecting
+							? $t('dashboard.bids.bid_acceptance.checking_balance') ||
+								'Checking your available balance...'
+							: $walletStore.rsk.connected
+								? $t('dashboard.bids.bid_acceptance.balance_verified') ||
+									'Your available balance covers this contract.'
+								: ''}
+					forceOpen={false}
+				/>
 
 				<!-- Additional Notes Section -->
 				<div
@@ -894,11 +847,7 @@
 
 				<!-- Insufficient Balance Error -->
 				{#if balanceErrors.length > 0}
-					<button
-						type="button"
-						class="alert alert-outline alert-error w-full cursor-pointer transition-opacity hover:opacity-80"
-						onclick={() => goto('/dashboard/wallet')}
-					>
+					<div class="alert alert-error alert-outline mt-2 shadow-sm">
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
 							class="h-6 w-6 shrink-0 stroke-current"
@@ -912,8 +861,42 @@
 								d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16c-.77.833.192 2.5 1.732 2.5z"
 							/>
 						</svg>
-						<span>{$t('dashboard.bids.bid_acceptance.insufficient_balance')}</span>
-					</button>
+						<div class="flex-1 text-left">
+							<span class="text-sm">
+								{$t('dashboard.services.detail.book_now_drawer.insufficient_funds_message', {
+									values: {
+										sats: formatSats(
+											Math.max(
+												0,
+												Math.round((getTotalWithGasFee() / props.btcPrice) * 100_000_000) -
+													$totalBalances.sats
+											)
+										),
+										usd: `$${Math.max(0, getTotalWithGasFee() - (bitcoinAsset?.usdValue ?? 0)).toFixed(2)}`
+									}
+								})}
+							</span>
+						</div>
+						<div class="flex-none">
+							<button
+								type="button"
+								class="btn btn-primary btn-sm"
+								onclick={() => {
+									if (props.onAddFunds) {
+										const shortfallUsd = Math.max(
+											0,
+											getTotalWithGasFee() - (bitcoinAsset?.usdValue ?? 0)
+										);
+										props.onAddFunds(shortfallUsd);
+									} else {
+										goto('/dashboard/wallet?tab=receive');
+									}
+								}}
+							>
+								{$t('dashboard.services.detail.book_now_drawer.add_funds')}
+							</button>
+						</div>
+					</div>
 				{/if}
 
 				<!-- Validation Errors -->
@@ -1022,11 +1005,11 @@
 		</div>
 		<!-- Action buttons (fixed at bottom, like dashboard edit/delete modals) -->
 		<div
-			class="border-base-300 bg-base-100 flex shrink-0 flex-col-reverse justify-end gap-3 border-t py-4 sm:flex-row md:py-3"
+			class="border-base-300 bg-base-100 flex shrink-0 flex-row justify-end gap-3 border-t py-4 md:py-3"
 		>
 			<button
 				type="button"
-				class="btn btn-error btn-outline"
+				class="btn btn-error flex-1 sm:min-w-[100px] sm:flex-none"
 				onclick={props.onCancel}
 				disabled={isSubmitting}
 			>
@@ -1048,7 +1031,7 @@
 			</button>
 			<button
 				type="button"
-				class="btn btn-primary"
+				class="btn btn-primary flex-1 sm:min-w-[120px] sm:flex-none"
 				disabled={isSubmitting ||
 					validationErrors.length > 0 ||
 					balanceErrors.length > 0 ||
@@ -1094,122 +1077,110 @@
 	/>
 {/if}
 
-<!-- Fund Contract confirmation modal (structure like dashboard edit/delete modals) -->
-{#if showFundConfirmationModal}
-	<div
-		class="modal modal-open modal-middle z-120"
-		role="dialog"
-		aria-modal="true"
-		aria-labelledby="fund-modal-title"
-	>
-		<div class="modal-box flex max-h-[90vh] max-w-md flex-col p-4">
-			<h3 id="fund-modal-title" class="shrink-0 text-lg font-bold">
-				{$t('dashboard.bids.bid_acceptance.fund_contract_title')}
-			</h3>
-			<div class="min-h-0 flex-1 space-y-6 overflow-y-auto py-3">
-				<!-- Taskee + Total payment in same row: UserInfoDisplay left, Total (label over price) right -->
-				<div class="flex min-w-0 items-center justify-between gap-3">
-					<div class="min-w-0 flex-1">
-						<UserInfoDisplay
-							avatar={bidContent.bidderAvatar}
-							username={bidContent.bidderName}
-							rating={bidContent.bidderRating ?? 0}
-							size="sm"
-							pubkey={bidContent.bidderId ?? null}
-							memberSince={props.bid?.created_at ?? null}
-						/>
-					</div>
-					{#if true}
-						{@const totalUsd = getTotalWithGasFee()}
-						<div class="shrink-0 text-right">
-							<div class="text-xs font-medium opacity-70">
-								{$t('dashboard.bids.bid_acceptance.total_payment')}
-							</div>
-							<div class="text-lg font-bold">
-								{Number.isFinite(totalUsd) ? `$${formatNumberWithTwoDecimals(totalUsd)}` : '—'}
-							</div>
-							<div class="text-base-content/60 text-sm">
-								{props.btcPrice > 0 && Number.isFinite(totalUsd)
-									? satsFromUsd(totalUsd, props.btcPrice)
-									: ''}
-							</div>
-						</div>
-					{/if}
-				</div>
-
-				<!-- Start + Duration (one row: date left, duration right; short month) -->
-				{#if adjustedTimes}
-					<div class="flex min-w-0 items-center justify-between gap-3 text-sm">
-						<span class="flex min-w-0 items-center gap-1">
-							<IconCalendarClock class="text-primary h-6 w-6 shrink-0" />
-							<span class="truncate">
-								{formatDate(new Date(adjustedTimes.startTime * 1000))}
-							</span>
-						</span>
-						<span class="flex shrink-0 items-center gap-1">
-							<IconTimerOutline class="text-primary h-6 w-6 shrink-0" />
-							<span>
-								{formatDuration(
-									adjustedTimes.startTime * 1000,
-									adjustedTimes.completionTime * 1000
-								)}
-							</span>
-						</span>
-					</div>
-				{/if}
-
-				<!-- Insufficient balance message (same key as toast) -->
-				{#if balanceErrors.length > 0}
-					<p class="text-error text-sm">
-						{$t('dashboard.bids.bid_acceptance.insufficient_balance')}
-					</p>
-				{/if}
-
-				<!-- Warning -->
-				<div class="alert alert-outline alert-warning mt-2 py-2">
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="h-5 w-5 shrink-0 stroke-current"
-						fill="none"
-						viewBox="0 0 24 24"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-						/>
-					</svg>
-					<span class="text-xs">{$t('dashboard.bids.bid_acceptance.fund_confirm_warning')}</span>
-				</div>
+<ContractInitiationDrawer
+	open={showFundConfirmationModal}
+	title={$t('dashboard.bids.bid_acceptance.fund_contract_title')}
+	confirmLabel={$t('dashboard.bids.bid_acceptance.fund')}
+	canConfirm={!isSubmitting}
+	{isSubmitting}
+	drawerTestId="bid-contract-initiation-drawer"
+	confirmTestId="bid-contract-initiation-confirm"
+	onConfirm={handleFundClick}
+	onClose={() => (showFundConfirmationModal = false)}
+>
+	<div class="space-y-6 py-1">
+		<div class="flex min-w-0 items-center justify-between gap-3">
+			<div class="min-w-0 flex-1">
+				<UserInfoDisplay
+					avatar={bidContent.bidderAvatar}
+					username={bidContent.bidderName}
+					rating={bidContent.bidderRating ?? 0}
+					size="sm"
+					pubkey={bidContent.bidderId ?? null}
+					memberSince={props.bid?.created_at ?? null}
+				/>
 			</div>
-			<!-- Action buttons (like dashboard modals) -->
-			<div class="modal-action border-base-300 shrink-0 gap-3 border-t pt-4">
-				<button
-					type="button"
-					class="btn btn-ghost flex-1"
-					onclick={() => (showFundConfirmationModal = false)}
-				>
-					{$t('common.cancel')}
-				</button>
-				<button
-					type="button"
-					class="btn btn-primary flex-1"
-					onclick={handleFundClick}
-					disabled={isSubmitting}
-				>
-					{$t('dashboard.bids.bid_acceptance.fund')}
-				</button>
+			<div class="shrink-0 text-right">
+				<div class="text-xs font-medium opacity-70">
+					{$t('dashboard.bids.bid_acceptance.total_payment')}
+				</div>
+				<div class="text-lg font-bold">
+					{Number.isFinite(fundConfirmationTotalUsd)
+						? `$${formatNumberWithTwoDecimals(fundConfirmationTotalUsd)}`
+						: '—'}
+				</div>
+				<div class="text-base-content/60 text-sm">
+					{props.btcPrice > 0 && Number.isFinite(fundConfirmationTotalUsd)
+						? satsFromUsd(fundConfirmationTotalUsd, props.btcPrice)
+						: ''}
+				</div>
 			</div>
 		</div>
-		<button
-			type="button"
-			class="modal-backdrop"
-			onclick={() => (showFundConfirmationModal = false)}
-			aria-label="Close modal"
-		></button>
+
+		{#if adjustedTimes}
+			<div class="flex flex-col gap-2">
+				<div class="flex min-w-0 items-center justify-between gap-3 text-sm">
+					<span class="flex min-w-0 items-center gap-1">
+						<IconCalendarClock class="text-primary h-6 w-6 shrink-0" />
+						<span class="truncate">
+							{formatDate(new Date(adjustedTimes.startTime * 1000))}
+						</span>
+					</span>
+					<span class="flex shrink-0 items-center gap-1">
+						<span class="truncate">
+							{formatDate(new Date(adjustedTimes.completionTime * 1000))}
+						</span>
+						<IconTruckDeliveryOutline class="text-primary h-6 w-6 shrink-0" />
+					</span>
+				</div>
+
+				<div class="flex items-center px-2">
+					<div
+						class="bg-primary/20 border-primary/30 relative h-0.5 flex-1 border-t-2 border-dashed"
+					>
+						<div class="absolute inset-0 -top-3 flex items-center justify-center">
+							<span
+								class="bg-base-300 text-primary px-2 text-[10px] font-bold tracking-tight uppercase"
+							>
+								{formatDurationBetweenDates(
+									new Date(adjustedTimes.startTime * 1000),
+									new Date(adjustedTimes.completionTime * 1000),
+									$t
+								)}
+							</span>
+						</div>
+						<div
+							class="border-l-primary/40 absolute -top-1 -right-1 border-t-[4px] border-b-[4px] border-l-[6px] border-transparent"
+						></div>
+					</div>
+				</div>
+			</div>
+		{/if}
+
+		{#if balanceErrors.length > 0}
+			<p class="text-error text-sm">
+				{$t('dashboard.bids.bid_acceptance.insufficient_balance')}
+			</p>
+		{/if}
+
+		<div class="alert alert-outline alert-warning py-2">
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				class="h-5 w-5 shrink-0 stroke-current"
+				fill="none"
+				viewBox="0 0 24 24"
+			>
+				<path
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					stroke-width="2"
+					d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+				/>
+			</svg>
+			<span class="text-xs">{$t('dashboard.bids.bid_acceptance.fund_confirm_warning')}</span>
+		</div>
 	</div>
-{/if}
+</ContractInitiationDrawer>
 
 {#if currentScreen === 'success' && escrowDetails}
 	<!-- Content -->

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Location } from '$lib/types/task';
 	import { t } from 'svelte-i18n';
+	import { isApproximatePublicLocation } from '$lib/utils/location/public-location';
 	import {
 		generateGoogleMapsDirectionsLink,
 		formatLocationAddress
@@ -22,6 +23,7 @@
 	const directionsLink = $derived(
 		generateGoogleMapsDirectionsLink(location, { origin: 'current', label })
 	);
+	const showApproximateNote = $derived(isApproximatePublicLocation(location));
 </script>
 
 <div class="card bg-base-100 border-base-300 border shadow-lg">
@@ -56,8 +58,18 @@
 						</svg>
 						<span class="line-clamp-2">{formattedAddress}</span>
 					</a>
+					{#if showApproximateNote}
+						<p class="text-base-content/60 mt-1 text-xs">
+							({$t('common.location.approximate_short')})
+						</p>
+					{/if}
 				{:else}
 					<p class="text-base-content font-medium">{formattedAddress}</p>
+					{#if showApproximateNote}
+						<p class="text-base-content/60 mt-1 text-xs">
+							({$t('common.location.approximate_short')})
+						</p>
+					{/if}
 				{/if}
 			</div>
 		{/if}

@@ -18,6 +18,7 @@
 		},
 		"create_task": "Create Task",
 		"find_task": "Find Tasks",
+		"find_services": "Find Services",
 		"manage_wallet": "Manage Wallet",
 		"client": "Tasker",
 		"freelancer": "Taskee",
@@ -26,10 +27,152 @@
 		"no_data_available": "No data available",
 		"tabs": {
 			"tasks": "My Tasks",
-			"bids": "Bids Sent",
+			"bids": "Bids",
+			"requests": "Requests",
 			"contracts": "Contracts",
 			"recurring": "Recurring Tasks",
-			"saved_searches": "Saved Searches"
+			"saved_searches": "Alerts",
+			"my_services": "My Services",
+			"quotes": "Service Requests"
+		},
+		"hiring": {
+			"title": "Hiring",
+			"description": "Manage your tasks, service requests, and contracts.",
+			"page_title": "Hiring | BitTasker",
+			"page_description": "Manage your hiring activity, tasks, and service requests on BitTasker.",
+			"messages": {
+				"quotes_request_not_found": "The requested quote thread could not be found.",
+				"service_quotes_request_not_found": "The selected service quote thread could not be found.",
+				"contracts_highlight_not_found": "The requested contract highlight could not be found.",
+				"service_quote_protocol_pending": "Service quote protocol wiring is pending; local UI state is being shown for now."
+			}
+		},
+		"earning": {
+			"title": "Earning",
+			"description": "Track your bids, incoming requests, contracts, and service listings.",
+			"page_title": "Earning | BitTasker",
+			"page_description": "Manage your earning activity, bids, services, and contracts on BitTasker.",
+			"messages": {
+				"service_quotes_request_not_found": "The selected service quote thread could not be found.",
+				"contracts_highlight_not_found": "The requested contract highlight could not be found."
+			}
+		},
+		"saved_searches": {
+			"filter_label": "Filter by type",
+			"tasks": "Tasks",
+			"services": "Services",
+			"apply_search": "Apply search: {name}"
+		},
+		"service_requests": {
+			"status_heading": "Filter by request status",
+			"status_subheading": "Focus on the service requests that need your next action.",
+			"showing_all": "Showing {count} requests",
+			"showing_filtered": "Showing {visible} of {total} requests",
+			"refresh": "Refresh",
+			"refreshing": "Refreshing",
+			"loading": "Loading your service requests...",
+			"retry_loading": "Retry to load your service requests.",
+			"empty": "You haven't submitted any service requests yet.",
+			"empty_filtered": "No service requests match this status yet.",
+			"empty_filtered_description": "Try a different status filter to review the rest of your service requests.",
+			"filtered_empty_action": "Clear Filters",
+			"quote_pending": "Pending",
+			"requested": "Requested",
+			"request_id": "Request ID",
+			"estimated_duration": "Estimated duration",
+			"selected_tier": "Tier",
+			"add_ons_one": "1 add-on",
+			"add_ons_other": "{count} add-ons",
+			"rush_delivery": "Rush delivery",
+			"expires": "Expires",
+			"service_label": "Service",
+			"boolean_yes": "Yes",
+			"boolean_no": "No",
+			"standard_tier": "Standard",
+			"days": "days",
+			"actions": {
+				"view": "View",
+				"accept": "Accept",
+				"decline": "Decline",
+				"view_contract": "View Contract",
+				"delete": "Delete"
+			},
+			"delete_modal": {
+				"title": "Delete service request",
+				"intro": "This will permanently remove this service request from your dashboard history.",
+				"confirm": "Confirm Delete"
+			},
+			"drawer": {
+				"title": "Service request",
+				"heading": "General information",
+				"loading": "Loading service details...",
+				"inquiry_title": "Your Inquiry",
+				"proposal_title": "Received Proposal",
+				"proposal_start": "Estimated Start",
+				"proposal_end": "Estimated End",
+				"scope_of_work": "Scope of work",
+				"cover_letter": "Cover letter",
+				"custom_answers": "Submitted answers",
+				"attachments": "Attachments"
+			},
+			"accept_drawer": {
+				"title": "Accept proposal",
+				"confirm": "Accept Proposal",
+				"expires": "Proposal expires",
+				"warning": "Accepting this proposal will create a service contract using the received quote details.",
+				"start_time_adjusted_warning": "The quoted start time has already passed. The contract will use a start time about one hour from now and keep the quoted duration.",
+				"prepare_error": "Unable to prepare this proposal acceptance right now."
+			},
+			"confirm": {
+				"decline_title": "Decline proposal",
+				"decline_message": "This will mark the current proposal as declined.",
+				"decline_confirm": "Confirm Decline"
+			},
+			"statuses": {
+				"contract_created": "Contract created",
+				"declined": "Declined",
+				"withdrawn": "Withdrawn",
+				"expired": "Expired",
+				"accepting": "Accepting",
+				"accepting_progress": "Accepting...",
+				"contract_sync_pending": "Contract syncing",
+				"accept_failed": "Accept failed",
+				"accept_unknown": "Accept unknown",
+				"proposal_received": "Proposal received",
+				"awaiting_proposal": "Awaiting proposal"
+			},
+			"filters": {
+				"all": "All statuses",
+				"awaiting_proposal": "Awaiting proposal",
+				"proposal_received": "Proposal received",
+				"needs_attention": "Needs attention",
+				"contract_created": "Contract created",
+				"declined": "Declined",
+				"withdrawn": "Withdrawn",
+				"expired": "Expired"
+			},
+			"alerts": {
+				"service_unavailable_read_only": "This service was deleted by the provider. The request is now read-only.",
+				"service_unavailable": "Some services were deleted by the provider. Those requests remain visible as read-only history unless a contract was already created.",
+				"service_lookup_failed": "Some service details could not be refreshed. Retry before acting on those requests.",
+				"partial_sync": "Latest quote thread data is still propagating across relays. Showing partial results until the thread finishes syncing.",
+				"stale": "Showing your last known quote data. Refresh before acting on proposals because the latest relay sync did not complete.",
+				"offline": "You are offline. Reconnect before reviewing or acting on quote proposals.",
+				"reconnect": "Back online. Retry if the latest quote status has not refreshed yet."
+			},
+			"errors": {
+				"accept": "Unable to accept this proposal right now.",
+				"decline": "Unable to decline this proposal right now.",
+				"delete": "Unable to delete this service request right now.",
+				"update_status": "Unable to update quote status.",
+				"delete_request": "Unable to delete this service request right now."
+			},
+			"messages": {
+				"acceptance_submitted": "Acceptance submitted. The funded contract will appear here once escrow creation is confirmed.",
+				"contract_sync_pending": "The funded service contract is still syncing across relays. Open Contracts to monitor it.",
+				"acceptance_complete": "Proposal accepted. Opening your service contract.",
+				"acceptance_complete_background": "Proposal accepted. Your service contract is ready in Contracts."
+			}
 		},
 		"task_details_by_task": {
 			"title": "Task Details",
@@ -67,13 +210,15 @@
 			"you_are_owner": "You are the owner of this task",
 			"anonymous": "Anonymous",
 			"member_since": "Member since",
-			"show_more": "Show more",
-			"show_less": "Show less",
+			"show_more": "See More",
+			"show_less": "See Less",
 			"translate": "Translate",
 			"remote": "Remote",
 			"posted": "Posted",
 			"edit_task": "Edit Task",
 			"delete_task": "Delete Task",
+			"edit": "Edit",
+			"delete": "Delete",
 			"type": "Type",
 			"budget": "Budget",
 			"in_person": "In-Person",
@@ -92,7 +237,7 @@
 			"task_disputed": "Task disputed",
 			"task_in_progress": "Task in progress",
 			"task_completed": "Task completed",
-			"bidding_closed": "Bid",
+			"bidding_closed": "Bidding closed",
 			"bid_sent": "Bid sent",
 			"bid_already_sent": "Bid already sent",
 			"share": "Share",
@@ -139,11 +284,12 @@
 		},
 		"page": {
 			"search_icon_alt": "Search icon",
-			"plus_icon_alt": "Plus icon"
+			"plus_icon_alt": "Plus icon",
+			"wallet_icon_alt": "Wallet icon"
 		},
 		"find_tasks": {
 			"sign_up_to_bid": "Bid",
-			"bidding_closed": "Bid",
+			"bidding_closed": "Bidding closed",
 			"sign_up_to_bid_aria": "Sign up to bid on this task",
 			"avatar_alt": "Avatar",
 			"invalid_date": "Invalid date",
@@ -154,7 +300,7 @@
 			"bid_sent": "Bid sent",
 			"cannot_bid_own_task": "Cannot bid on your own task",
 			"bid_already_sent": "Bid already sent",
-			"view_task": "View"
+			"view_task": "View Task"
 		},
 		"bids": {
 			"bid_acceptance": {
@@ -211,7 +357,6 @@
 				"rejected": "Rejected",
 				"pending": "Pending",
 				"decline": "Decline",
-				"accept": "Accept",
 				"bid_rejected_message": "Your bid has been declined by the task owner.",
 				"bid_accepted_message": "Congratulations! Your bid has been accepted. The secure payment contract has been created.",
 				"bid_already_accepted": "This bid has already been accepted.",
@@ -230,6 +375,9 @@
 				"fund_contract_title": "Fund Contract",
 				"fund": "Fund",
 				"fund_confirm_warning": "This will send your payment into the secure payment contract. Please verify all details before confirming.",
+				"warning": {
+					"past_start_time": "The estimated start time was {timeText}. You may need to contact the Taskee to arrange a new start time."
+				},
 				"contract_information": "Contract Information",
 				"day": "day",
 				"days": "days",
@@ -258,6 +406,8 @@
 				"creating_nostr_contract": "Creating contract...",
 				"nostr_contract_success": "Contract created successfully!",
 				"nostr_contract_failed": "Failed to create contract",
+				"create_contract_failed": "Could not create the payment contract. Please try again.",
+				"follow_up_in_progress": "Confirming on-chain and syncing your contract…",
 				"what_happens_next_title": "What happens next?",
 				"next_item_notify": "The taskee will be notified of the accepted bid",
 				"next_item_begin": "Work can begin as per the agreed timeline",
@@ -269,6 +419,7 @@
 			},
 			"bid_card": {
 				"view_details": "View Details",
+				"view_details_short": "Details",
 				"accept": "Accept",
 				"decline": "Decline",
 				"counter": "Counter",
@@ -443,7 +594,7 @@
 						"error_loading_map": "Error loading map"
 					},
 					"mobile_map_sheet": {
-						"view_task": "View",
+						"view_task": "View Task",
 						"remote": "Remote",
 						"bid_now": "Bid Now",
 						"no_results": "No results"
@@ -499,21 +650,33 @@
 			"title": "Contracts",
 			"description": "Manage your active contracts and secure payment agreements",
 			"loading": "Loading contracts...",
+			"ndk_identity": {
+				"loading": "Unlocking your Nostr identity…",
+				"loading_hint": "Use your passkey or complete the biometric prompt when it appears.",
+				"cta_title": "Load your Nostr identity",
+				"cta_description": "Unlock your wallet or passkey flow first if it appears, then tap below. This avoids two passkey prompts at once.",
+				"load_keys": "Load signing keys",
+				"error_title": "Could not unlock Nostr identity"
+			},
 			"loading_more": "Loading more contracts...",
 			"no_more_contracts": "You've reached the end of your contracts",
 			"error_title": "Failed to load contracts",
 			"retry": "Retry",
 			"refresh": "Refresh",
-			"no_contracts": "No contracts found",
-			"no_contracts_description": "You don't have any contracts yet. Create a task or bid on existing tasks to get started.",
+			"clear_filters": "Clear Filters",
+			"no_contracts": "No contracts yet",
 			"no_filtered_contracts": "No contracts match your filters",
 			"try_different_filters": "Try adjusting your filters to see more contracts.",
 			"filter_by_role": "Filter by role",
 			"filter_by_status": "Filter by status",
 			"filter_by_status_and_role": "Filter by status & role",
 			"filter_description": "Choose the contract status and your role to review.",
-			"all_roles": "All",
+			"filter_by_service": "Filter by service",
+			"all_services": "All Services",
+			"all_roles": "All roles",
 			"all_statuses": "All statuses",
+			"filter_completed_paid": "Completed / paid",
+			"filter_ended": "Cancelled / closed",
 			"as_client": "Tasker",
 			"as_freelancer": "Taskee",
 			"amount": "Amount",
@@ -525,8 +688,11 @@
 			"updates": "updates",
 			"more_actions": "more actions",
 			"view_details": "View Details",
+			"view_details_short": "Details",
 			"close_modal": "Close modal",
 			"close": "Close",
+			"cover_letter": "Cover Letter",
+			"status_filter_menu": "Filter by status",
 			"contract_details": "Contract Details",
 			"anonymous": "Anonymous",
 			"member_since": "Member since",
@@ -541,6 +707,7 @@
 			"currency": "Currency",
 			"original_bid_proposal": "Original Bid Proposal",
 			"bid_details": "Bid Details",
+			"loading_bid_details": "Loading bid details...",
 			"approach": "Approach",
 			"proposed_approach": "Proposed Approach",
 			"estimated_duration": "Estimated Duration",
@@ -548,6 +715,46 @@
 			"bid_info_not_available": "Original bid information is not available for this contract.",
 			"available_actions": "Available Actions",
 			"no_actions_available": "No actions available",
+			"context_filters": {
+				"all": "All types",
+				"tasks": "Tasks",
+				"services": "Services"
+			},
+			"alerts": {
+				"offline": "You are offline. Reconnect before refreshing or opening updated contract state.",
+				"reconnect": "Back online. Refresh contracts if the latest status has not appeared yet.",
+				"highlight_syncing": "Opening the highlighted contract. Waiting for the latest service contract data to sync.",
+				"partial_refresh": "Refreshing contracts. Showing last known contract data until the latest relay and chain state finish syncing.",
+				"stale_prefix": "Showing last known contract data. "
+			},
+			"context_summary": {
+				"task_contract": "Task Contract",
+				"tier_prefix": "Tier"
+			},
+			"wallet_card": {
+				"title": "Balance",
+				"icon_alt": "Bitcoin",
+				"sats_label": "sats",
+				"not_connected": "Wallet not connected",
+				"available_balance": "Available",
+				"required_balance": "Required",
+				"remaining_balance": "Remaining"
+			},
+			"service_agreement": {
+				"provider": "Provider",
+				"quote_request": "Quote request",
+				"proposal": "Proposal",
+				"instant_order": "Instant order",
+				"selected_tier": "Selected tier",
+				"included_scope": "Included scope",
+				"add_ons": "Add-ons",
+				"rush_delivery": "Rush delivery",
+				"included": "Included",
+				"inquiry_answers": "Inquiry answers",
+				"price_snapshot": "Price snapshot",
+				"estimated_start": "Estimated start",
+				"estimated_end": "Estimated end"
+			},
 			"status": {
 				"label": "Status",
 				"active": "Active",
@@ -567,6 +774,9 @@
 				"pending_cancellation": "Pending Cancellation",
 				"pending_refund": "Pending Refund",
 				"funds_released": "Funds Released",
+				"funds_claimed": "Funds claimed",
+				"no_show": "No-show",
+				"work_in_progress": "Work in progress",
 				"pending_acceptance": "Pending Acceptance",
 				"dispute_resolution_proposed": "Dispute Resolution Proposed",
 				"task_completed": "Task Completed",
