@@ -277,6 +277,15 @@ textarea {
 	border-radius: 0.5rem !important;
 }
 
+/* Ensure alert content breaks long words to prevent horizontal overflow */
+.alert span,
+.alert p,
+.alert div:not(.alert-actions) {
+	word-break: break-word;
+	overflow-wrap: anywhere;
+	hyphens: auto;
+}
+
 /* Match dropdown menu border radius to alerts */
 .dropdown-content {
 	border-radius: 0.5rem !important;
