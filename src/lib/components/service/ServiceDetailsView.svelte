@@ -1726,11 +1726,11 @@
 									{displayTitle}
 									{#if isPreview}
 										<span class="badge badge-secondary ml-2"
-											>{$t('dashboard.services.create.review.preview_badge', 'Preview')}</span
+											>{$t('dashboard.services.create.review.preview_badge')}</span
 										>
 									{:else if isDraft}
 										<span class="badge badge-warning ml-2"
-											>{$t('dashboard.services.create.review.draft_badge', 'Draft')}</span
+											>{$t('dashboard.services.create.review.draft_badge')}</span
 										>
 									{/if}
 								</h1>
@@ -2257,7 +2257,9 @@
 													<span class="loading loading-spinner loading-xs"></span>
 												{:else if instantBuyFundingCheckInFlight}
 													<span class="text-base-content/60 text-xs"
-														>{$t('dashboard.services.detail.verifying_wallet')}</span
+														>{$t(
+															'dashboard.services.detail.book_now_drawer.verifying_wallet'
+														)}</span
 													>
 												{:else}
 													{instantBuyEligibility.code === 'missing_selected_tier'
@@ -2475,7 +2477,7 @@
 												<span class="loading loading-spinner loading-xs"></span>
 											{:else if instantBuyFundingCheckInFlight}
 												<span class="text-base-content/60 text-xs"
-													>{$t('dashboard.services.detail.verifying_wallet')}</span
+													>{$t('dashboard.services.detail.book_now_drawer.verifying_wallet')}</span
 												>
 											{:else}
 												{instantBuyEligibility.code === 'missing_selected_tier'

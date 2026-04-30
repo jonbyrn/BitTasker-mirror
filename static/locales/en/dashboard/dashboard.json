@@ -303,6 +303,10 @@
 			"view_task": "View Task"
 		},
 		"bids": {
+			"send_message_short": "Message",
+			"errors": {
+				"failed_to_load_content": "Failed to load bid content"
+			},
 			"bid_acceptance": {
 				"tether_usd": "Tether USD",
 				"please_select_escrow_method": "Please select a secure payment method",
@@ -415,7 +419,15 @@
 				"next_item_release": "Payment will be released upon task completion",
 				"next_item_contract_details": "Contract details are available in your dashboard",
 				"create_new_task": "Create New Task",
-				"go_to_contracts": "Go to Contracts"
+				"go_to_contracts": "Go to Contracts",
+				"message_taskee": "Message Taskee",
+				"available_balance": "Available",
+				"required_balance": "Required",
+				"checking_balance": "Checking your available balance...",
+				"balance_verified": "Your available balance covers this contract.",
+				"accept_short": "Accept",
+				"decline_short": "Decline",
+				"funding_confirm_failed": "We could not confirm this payment on-chain. Check your wallet or block explorer for the transaction."
 			},
 			"bid_card": {
 				"view_details": "View Details",
@@ -446,6 +458,7 @@
 			},
 			"bid_details": {
 				"per_hour": "/hr · Est.",
+				"hours": "hours",
 				"title": "Bid Details",
 				"max": "max",
 				"close_dialog": "Close Dialog",
@@ -508,6 +521,7 @@
 					"end_date_after_start": "End date must be after start date",
 					"valid_hourly_rate": "Valid hourly rate",
 					"hourly_rate_greater_than_zero": "Please enter an hourly rate greater than zero",
+					"estimated_hours_required": "Estimated hours is required",
 					"estimated_hours_greater_than_zero": "Please enter estimated hours greater than zero",
 					"message_required": "Please provide a message"
 				},

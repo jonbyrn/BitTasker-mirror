@@ -195,7 +195,7 @@
 		try {
 			const result = await onConfirm(payload);
 			if (result && typeof result === 'object' && result.success === false) {
-				submitError = result.error || ($t('error.general') as string);
+				submitError = result.error || ($t('general') as string);
 				return;
 			}
 			closeModal();
