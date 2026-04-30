@@ -301,6 +301,10 @@
 			"view_task": "Ver Tarea"
 		},
 		"bids": {
+			"send_message_short": "Mensaje",
+			"errors": {
+				"failed_to_load_content": "Error al cargar el contenido de la oferta"
+			},
 			"bid_acceptance": {
 				"tether_usd": "Tether USD",
 				"please_select_escrow_method": "Por favor seleccione un método de pago seguro",
@@ -414,7 +418,15 @@
 				"next_item_release": "El pago se liberará al completar la tarea",
 				"next_item_contract_details": "Los detalles del contrato están disponibles en tu panel",
 				"create_new_task": "Crear Nueva Tarea",
-				"go_to_contracts": "Ir a Contratos"
+				"go_to_contracts": "Ir a Contratos",
+				"message_taskee": "Enviar Mensaje al Taskee",
+				"available_balance": "Disponible",
+				"required_balance": "Requerido",
+				"checking_balance": "Verificando tu saldo disponible...",
+				"balance_verified": "Tu saldo disponible cubre este contrato.",
+				"accept_short": "Aceptar",
+				"decline_short": "Rechazar",
+				"funding_confirm_failed": "No pudimos confirmar este pago en cadena. Verifica tu billetera o explorador de bloques para la transacción."
 			},
 			"bid_card": {
 				"view_details": "Ver Detalles",
@@ -445,6 +457,7 @@
 			},
 			"bid_details": {
 				"per_hour": "/h · Est.",
+				"hours": "horas",
 				"title": "Detalles de la Oferta",
 				"max": "máx",
 				"close_dialog": "Cerrar Diálogo",
@@ -507,6 +520,7 @@
 					"end_date_after_start": "La fecha de fin debe ser posterior a la de inicio",
 					"valid_hourly_rate": "Tarifa por hora válida",
 					"hourly_rate_greater_than_zero": "Ingrese una tarifa por hora mayor que cero",
+					"estimated_hours_required": "Se requieren horas estimadas",
 					"estimated_hours_greater_than_zero": "Ingrese horas estimadas mayores que cero",
 					"message_required": "Por favor proporcione un mensaje"
 				},

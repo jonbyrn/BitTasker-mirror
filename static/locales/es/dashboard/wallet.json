@@ -394,7 +394,8 @@
 				"confirming": "Confirmando Transacción",
 				"success": "Transacción Confirmada",
 				"confirmed": "Confirmada",
-				"confirmations": "Confirmaciones"
+				"confirmations": "Confirmaciones",
+				"error": "Transacción Fallida"
 			},
 			"processing": "Procesando...",
 			"processing_transaction": "Procesando transacción...",
