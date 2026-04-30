@@ -875,6 +875,7 @@
 				"contract_paused": "The contract system is temporarily paused for maintenance. Please try again later.",
 				"insufficient_gas": "Insufficient RBTC balance to pay for transaction fees. Please add more RBTC to your wallet.",
 				"insufficient_funds": "Insufficient funds in your wallet. Please add more RBTC.",
+				"insufficient_funds_gas_fluctuation": "Network fees increased since you opened this page. Please refresh and try again, or add a small amount of sats to cover the higher fee.",
 				"unauthorized_caller": "You are not authorized to perform this action on this task. Only the task creator or accepted bidder can perform this operation.",
 				"gas_error": "Transaction failed due to insufficient gas. Please try again.",
 				"network_error": "Network connection error. Please check your internet connection and try again.",

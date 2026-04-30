@@ -127,11 +127,21 @@ export function extractContractError(error: unknown): ContractError {
 
 	// Wallet and transaction errors - check before generic wallet errors
 	if (errorLower.includes('insufficient balance') || errorLower.includes('insufficient funds')) {
+		// Check if this is specifically about pending transactions and gas price fluctuation
+		// This error occurs when gas price increased between estimation and actual transaction
+		if (errorLower.includes('pending and new transactions')) {
+			return {
+				userMessage: _('dashboard.contracts.errors.insufficient_funds_gas_fluctuation'),
+				technicalMessage: errorMessage,
+				errorCode: 'INSUFFICIENT_FUNDS_GAS_FLUCTUATION'
+			};
+		}
 		// Check if this is specifically about transaction fees or gas
 		if (
 			errorLower.includes('transaction fees') ||
 			errorLower.includes('transaction cost') ||
-			errorLower.includes('pay for gas')
+			errorLower.includes('pay for gas') ||
+			errorLower.includes('intrinsic transaction cost')
 		) {
 			return {
 				userMessage: _('dashboard.contracts.errors.insufficient_gas'),

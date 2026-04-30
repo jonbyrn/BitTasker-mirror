@@ -874,6 +874,7 @@
 				"contract_paused": "El sistema de contratos está temporalmente pausado por mantenimiento. Por favor inténtalo más tarde.",
 				"insufficient_gas": "Saldo de RBTC insuficiente para pagar las comisiones de transacción. Por favor agrega más RBTC a tu billetera.",
 				"insufficient_funds": "Fondos insuficientes en tu billetera. Por favor agrega más RBTC.",
+				"insufficient_funds_gas_fluctuation": "Las comisiones de red aumentaron desde que abriste esta página. Por favor actualiza e inténtalo de nuevo, o agrega una pequeña cantidad de sats para cubrir la comisión más alta.",
 				"unauthorized_caller": "No tienes permisos para realizar esta acción en esta tarea. Solo el creador de la tarea o el aceptador de la oferta puede realizar esta operación.",
 				"gas_error": "La transacción falló debido a gas insuficiente. Por favor inténtalo de nuevo.",
 				"network_error": "Error de conexión de red. Por favor verifica tu conexión a internet e inténtalo de nuevo.",
