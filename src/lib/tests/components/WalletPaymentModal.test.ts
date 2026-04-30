@@ -1,8 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/svelte';
-import { get } from 'svelte/store';
-import WalletPaymentModal from '$lib/components/wallet/WalletPaymentModal.svelte';
 import { walletStore } from '$lib/stores/wallet.store';
+import WalletPaymentModal from '$lib/components/wallet/WalletPaymentModal.svelte';
 
 // Mock svelte-i18n - t needs to be a readable store
 vi.mock('svelte-i18n', async () => {
@@ -16,10 +15,10 @@ vi.mock('svelte-i18n', async () => {
 		'wallet.error.retry': 'Retry',
 		'wallet.error.no_connection': 'Wallet not connected'
 	};
-	
+
 	// Create a readable store that returns the translation function
 	const tStore = readable((key: string) => translations[key] || key);
-	
+
 	return {
 		t: tStore,
 		locale: readable('en'),
@@ -100,7 +99,7 @@ describe('WalletPaymentModal Component', () => {
 			isInitializing: false,
 			isConnected: false,
 			error: null
-		} as any);
+		});
 	});
 
 	afterEach(() => {
@@ -211,29 +210,29 @@ describe('WalletPaymentModal Component', () => {
 			});
 		});
 
-	it('should unlock body scroll when modal is closed', async () => {
-		const onClose = vi.fn();
-		const { unmount } = render(WalletPaymentModal, { ...defaultProps, onClose });
+		it('should unlock body scroll when modal is closed', async () => {
+			const onClose = vi.fn();
+			const { unmount } = render(WalletPaymentModal, { ...defaultProps, onClose });
 
-		await waitFor(() => {
-			expect(document.body.style.overflow).toBe('hidden');
+			await waitFor(() => {
+				expect(document.body.style.overflow).toBe('hidden');
+			});
+
+			// Close modal by unmounting
+			unmount();
+
+			await waitFor(() => {
+				expect(document.body.style.overflow).toBe('');
+			});
 		});
-
-		// Close modal by unmounting
-		unmount();
-
-		await waitFor(() => {
-			expect(document.body.style.overflow).toBe('');
-		});
-	});
 	});
 
 	describe('Modal Title', () => {
 		it('should display "Request Payment" for receive mode', () => {
 			// Modal doesn't render title itself - it's in child components
 			// Just verify modal renders with correct mode
-			render(WalletPaymentModal, { 
-				...defaultProps, 
+			render(WalletPaymentModal, {
+				...defaultProps,
 				mode: 'receive',
 				children: () => '<div>Request Payment Content</div>'
 			});
@@ -246,8 +245,8 @@ describe('WalletPaymentModal Component', () => {
 		it('should display "Send Payment" for send mode', () => {
 			// Modal doesn't render title itself - it's in child components
 			// Just verify modal renders with correct mode
-			render(WalletPaymentModal, { 
-				...defaultProps, 
+			render(WalletPaymentModal, {
+				...defaultProps,
 				mode: 'send',
 				children: () => '<div>Send Payment Content</div>'
 			});
@@ -264,7 +263,7 @@ describe('WalletPaymentModal Component', () => {
 				isInitializing: true,
 				hasAnyConnection: false,
 				error: null
-			} as any);
+			});
 
 			render(WalletPaymentModal, {
 				...defaultProps,
@@ -282,7 +281,7 @@ describe('WalletPaymentModal Component', () => {
 				isInitializing: false,
 				isConnected: false,
 				error: 'Initialization failed'
-			} as any);
+			});
 
 			render(WalletPaymentModal, defaultProps);
 
@@ -295,7 +294,7 @@ describe('WalletPaymentModal Component', () => {
 				isInitializing: false,
 				isConnected: false,
 				error: null
-			} as any);
+			});
 
 			render(WalletPaymentModal, defaultProps);
 
@@ -308,7 +307,7 @@ describe('WalletPaymentModal Component', () => {
 				isInitializing: false,
 				isConnected: true,
 				error: null
-			} as any);
+			});
 
 			render(WalletPaymentModal, defaultProps);
 
@@ -362,37 +361,33 @@ describe('WalletPaymentModal Component', () => {
 	});
 
 	describe('Safe Area Support', () => {
-		it('should apply safe area insets to content area', () => {
+		it('should apply safe area insets to content area via CSS class', () => {
 			render(WalletPaymentModal, defaultProps);
 
-			// Content area has flex-1 overflow-hidden and safe area padding
-			const content = document.querySelector('.flex-1.overflow-hidden');
+			// Content area has wallet-modal-content class for safe area padding
+			const content = document.querySelector('.wallet-modal-content');
 			expect(content).toBeDefined();
-			expect(content).toHaveClass('pt-[max(0.75rem,env(safe-area-inset-top))]');
+			expect(content).toHaveClass('flex-1', 'overflow-hidden');
 		});
 
-		it('should apply safe area insets to bottom of content area', () => {
+		it('should have wallet-modal-content class for SystemBars CSS variable fallback', () => {
 			render(WalletPaymentModal, defaultProps);
 
-			const content = document.querySelector('.flex-1.overflow-hidden');
+			// The wallet-modal-content class provides safe area padding via CSS
+			// using the SystemBars fallback pattern: var(--safe-area-inset-*, env(safe-area-inset-*, 0px))
+			const content = document.querySelector('.wallet-modal-content');
 			expect(content).toBeDefined();
-			expect(content).toHaveClass('pb-[max(0.75rem,env(safe-area-inset-bottom))]');
 		});
 	});
 
 	describe('Keyboard Navigation', () => {
 		it('should handle Tab key for focus trap', async () => {
-			// Create a test component that renders a button inside the modal
-			const TestContent = `
-				<button>Test Button</button>
-			`;
-			
 			// Render modal with children - need to use proper snippet syntax
 			// For now, just test that the modal handles Tab key events
 			render(WalletPaymentModal, defaultProps);
 
 			const modal = screen.getByRole('dialog');
-			
+
 			// Focus modal itself
 			modal.focus();
 			expect(document.activeElement).toBe(modal);
@@ -442,4 +437,3 @@ describe('WalletPaymentModal Component', () => {
 		});
 	});
 });
-

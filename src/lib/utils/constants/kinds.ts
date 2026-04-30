@@ -72,6 +72,21 @@ const KINDS = {
 	/** User-to-user chat messages (NIP-04/NIP-44) */
 	DIRECT_MESSAGES: 4,
 
+	/** Service listings (NIP-99) - active services */
+	SERVICE_ACTIVE: 30402,
+
+	/** Service listings (NIP-99) - draft services */
+	SERVICE_DRAFT: 30403,
+
+	/** Service quote request - regular encrypted event */
+	SERVICE_QUOTE_REQUEST: 6420,
+
+	/** Service proposal - regular encrypted event */
+	SERVICE_PROPOSAL: 6421,
+
+	/** Service proposal status - regular encrypted event */
+	SERVICE_PROPOSAL_STATUS: 6422,
+
 	/** User mute list (NIP-51) — replaceable, stores muted pubkeys and event ids */
 	MUTE_LIST: 10000,
 
@@ -84,5 +99,4 @@ const KINDS = {
 	/** Mute a user in channel context (NIP-28) */
 	MUTE_CHANNEL_USER: 44
 };
-
 export default KINDS;

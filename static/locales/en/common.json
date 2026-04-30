@@ -15,6 +15,7 @@
 		},
 		"location": {
 			"address": "Address",
+			"approximate_short": "Approx.",
 			"get_directions": "Get Directions",
 			"open_map": "Open Map",
 			"pickup_location": "Pickup Location",
@@ -42,12 +43,15 @@
 		"cancel": "Cancel",
 		"update": "Update",
 		"add": "Add",
+		"select": "Select",
+		"selected": "Selected",
 		"required": "Required",
 		"optional": "Optional",
 		"buttons": {
 			"cancel": "Cancel",
 			"retry": "Retry",
-			"close": "Close"
+			"close": "Close",
+			"refresh": "Refresh"
 		},
 		"toast": {
 			"link_copied": "Link copied to clipboard",
@@ -55,6 +59,7 @@
 			"share_success": "Share successful"
 		},
 		"share": {
+			"price": "Price",
 			"budget": "Budget",
 			"deadline": "Deadline",
 			"location": "Location",
@@ -71,6 +76,20 @@
 		"slide": "Slide",
 		"view_all": "View All",
 		"view_profile": "View Profile",
+		"homepage": {
+			"featured": {
+				"services": {
+					"title": "Featured Services",
+					"empty": "No featured services available",
+					"meta_fallback": "Service listing",
+					"at_provider_location": "At provider location",
+					"travels_to_you": "Travels to you"
+				},
+				"tasks": {
+					"empty": "No featured tasks available"
+				}
+			}
+		},
 		"show_more": "Show more",
 		"show_less": "Show less",
 		"reviews": "reviews",
@@ -88,6 +107,7 @@
 			"availability": "Availability",
 			"quick_actions": "Quick Actions",
 			"send_message": "Send Message",
+			"send_message_short": "Message",
 			"message_placeholder": "Type your message here...",
 			"go_to_chat": "Go to Chat",
 			"member_since": "Member since",
@@ -96,537 +116,241 @@
 			"no_description": "No description available.",
 			"available_projects": "Available for new projects",
 			"availability_not_set": "Availability not set",
-			"responds_within": "Responds within {hours} hours",
+			"invalid_npub": "Invalid npub",
+			"invalid_npub_format": "Invalid npub format. Please check the URL.",
+			"no_profile_data": "No profile data available",
+			"failed_to_load": "Failed to load profile",
+			"message_required": "Message is required",
+			"message_send_error": "Failed to send message. Please try again.",
+			"message_sent_successfully": "Message sent successfully!",
+			"no_image_available": "No image available",
+			"no_ratings": "No ratings yet",
+			"responds_within": "Responds within",
 			"response_time_not_specified": "Response time not specified",
+			"signup_to_hire": "Sign up to hire this Taskee",
+			"visit_project": "Visit Project",
+			"website": "Website",
 			"joined": "Joined",
 			"member_since_unknown": "Member since unknown",
-			"no_ratings": "No ratings yet",
-			"website": "Website",
-			"no_image_available": "No image available",
-			"visit_project": "Visit Project",
-			"message_sent_successfully": "Message sent successfully!",
-			"message_required": "Please enter a message",
-			"message_send_error": "Failed to send message. Please try again.",
-			"signup_to_hire": "Signup to Hire",
-			"invalid_npub": "Invalid profile identifier",
-			"invalid_npub_format": "Invalid profile identifier format",
-			"failed_to_load": "Failed to load profile",
-			"no_profile_data": "No profile data found for this user"
-		},
-		"cta_title": "Ready to Get Started?",
-		"cta_description": "Join BitTasker today and experience a better way to find work or hire skilled taskees. Our Bitcoin-powered platform makes transactions secure, borderless, and efficient.",
-		"create_account": "Create Your Account",
-		"browse_faq": "Browse FAQ",
-		"connected": "Connected",
-		"disconnected": "Disconnected",
-		"link": {
-			"security": "Security",
-			"privacy": "Privacy",
-			"escrow": "Secure Payment Contracts",
-			"taskee_principles": "Taskee Principles",
-			"community_guidelines": "Community Guidelines"
-		},
-		"coming_soon": {
-			"title": "Coming Soon",
-			"subtitle": "This feature is under development",
-			"description": "We're working hard to bring you something amazing. Stay tuned!"
-		},
-		"components": {
-			"drawer": {
-				"close": "Close drawer"
-			},
-			"gallery": {
-				"image_alt": "Image {index}"
-			},
-			"input": {
-				"options": "options"
-			},
-			"location_picker": {
-				"enter_address": "Enter address"
-			},
-			"location_autocomplete": {
-				"enter_address": "Enter address",
-				"failed_suggestions": "Failed to get address suggestions. Please try again.",
-				"no_places_found": "No places found."
-			},
-			"logo": {
-				"alt": "BitTasker Logo"
-			},
-			"media_uploader": {
-				"remove_file": "Remove file",
-				"preview": "Preview",
-				"images": "Images",
-				"videos": "Videos",
-				"compressing_images": "Compressing images...",
-				"uploading_files": "Uploading files...",
-				"compression_success": "Images compressed successfully!",
-				"file_number": "File {index}",
-				"invalid_file_type_images_videos": "Only images and videos are allowed",
-				"invalid_file_type_videos": "Only MP4, WebM and OGG videos are allowed",
-				"file_size_limit": "File size must be less than {maxSize}MB",
-				"video_duration_limit": "Video must be {maxDuration} seconds or shorter",
-				"image_dimensions": "Image dimensions must be {width}x{height}px",
-				"max_files_limit": "Maximum of {maxFiles} files allowed",
-				"upload_failed": "Upload failed: {error}",
-				"compression_failed": "Failed to compress image: {error}",
-				"invalid_image": "Invalid image file",
-				"failed_validate_video": "Failed to validate video duration",
-				"failed_load_image": "Failed to load image",
-				"max_size": "Max. {maxSize}MB",
-				"video_file_too_large": "Video file {fileName} is too large. Current size: {actualSize}MB. Maximum allowed size: {maxSize}MB"
-			},
-			"date_input": {
-				"time_rounded_intervals": "Times will be rounded to {timeStep}-minute intervals",
-				"and": "and"
-			},
-			"modal": {
-				"close": "Close dialog"
-			},
-			"confirm_modal": {
-				"confirm": "Confirm",
-				"cancel": "Cancel",
-				"logout": {
-					"title": "Confirm Logout",
-					"message": "Are you sure you want to log out?",
-					"confirm_button": "Logout"
-				}
-			},
-			"warning_popup": {
-				"title": "Beta Warning",
-				"message": "This app is currently in beta, so you may encounter bugs or issues when using it. If you have any trouble, please let us know!",
-				"feedback_text": "If you find any bugs or have suggestions, please",
-				"feedback_link": "let us know!",
-				"feedback_suffix": "Thanks for trying BitTasker!",
-				"acknowledge_button": "I understand",
-				"learn_more": "Learn more",
-				"zapstore_title": "Now Available on Zapstore!",
-				"zapstore_message": "Download BitTasker directly from Zapstore for automatic updates and a seamless experience. Zapstore is a decentralized app store built on Nostr.",
-				"zapstore_button": "Get it on Zapstore",
-				"zapstore_aria": "Download BitTasker on Zapstore"
-			},
-			"wallet_help_modal": {
-				"title": "Your Bitcoin Wallet",
-				"learn_more": "Learn More",
-				"button_title": "Learn about your Bitcoin wallet",
-				"start_using_button": "Start Using Wallet",
-				"hero_title": "Your Bitcoin-Powered Wallet",
-				"hero_description": "Send, receive, and manage Bitcoin across multiple networks with complete control of your funds.",
-				"multi_network_title": "Multi-Network Support",
-				"multi_network_description": "Pay and receive with Bitcoin, Lightning, Liquid, Rootstock, and USDT - all in one wallet.",
-				"security_title": "Non-Custodial Security",
-				"security_description": "You control your keys. Your funds are never held by BitTasker - only you can move your Bitcoin.",
-				"lightning_title": "Lightning-Fast Payments",
-				"lightning_description": "Instant Bitcoin payments with Lightning Network. No waiting, no delays, just peer-to-peer speed.",
-				"escrow_title": "Secure Payment Contracts",
-				"escrow_description": "Automatic fund protection with time-locks. Get paid when work is done, refund if it's not.",
-				"how_it_works_title": "How Your Wallet Works",
-				"step1_title": "Automatic Network Conversion",
-				"step1_description": "Pay your way using atomic swaps and your preferred network.",
-				"step2_title": "Secure Non-Custodial Payments",
-				"step2_description": "Your funds are protected by advanced cryptography. Only you and the other party can release payments.",
-				"step3_title": "Instant Cash-Out Options",
-				"step3_description": "Convert your earnings to any supported format - Lightning, Bitcoin, Liquid, or USDT - whenever you want.",
-				"benefits_title": "Why This Matters",
-				"benefits_description": "Traditional platforms hold your money and take fees. BitTasker puts you in control with Bitcoin's security and Lightning's speed.",
-				"faq_title": "Frequently Asked Questions",
-				"faq_rsk_title": "What is Rootstock Bitcoin?",
-				"faq_rsk_description": "Rootstock Bitcoin (rBTC) is a Bitcoin sidechain that maintains a 1:1 peg with Bitcoin while enabling smart contracts and faster transactions. It's secured by Bitcoin miners through merge-mining, making it one of the most secure Bitcoin sidechains available.",
-				"faq_rsk_security": "Bitcoin Security:",
-				"faq_rsk_security_desc": "Secured by Bitcoin miners through merge-mining",
-				"faq_rsk_contracts": "Smart Contracts:",
-				"faq_rsk_contracts_desc": "Full EVM compatibility for programmable secure payment contracts",
-				"faq_rsk_settlement": "Fast Settlement:",
-				"faq_rsk_settlement_desc": "~30-second block times for quick confirmations",
-				"faq_rsk_fees": "Low Fees:",
-				"faq_rsk_fees_desc": "Predictable, low-cost transaction fees",
-				"faq_rsk_peg": "Bitcoin Peg:",
-				"faq_rsk_peg_desc": "1:1 rBTC to BTC ratio maintained through a Proof of Work Peg",
-				"faq_liquid_title": "What is Liquid Bitcoin?",
-				"faq_liquid_description": "Liquid Bitcoin (L-BTC) is a Bitcoin sidechain designed for fast settlements and enhanced functionality. It provides faster transaction confirmations and additional features while maintaining Bitcoin's security model through federation.",
-				"faq_liquid_settlement": "Fast Settlement:",
-				"faq_liquid_settlement_desc": "1-minute block times for quick transaction confirmations",
-				"faq_liquid_scripting": "Enhanced Scripting:",
-				"faq_liquid_scripting_desc": "Advanced Bitcoin script capabilities for complex secure payment contracts",
-				"faq_liquid_assets": "Multi-Asset Support:",
-				"faq_liquid_assets_desc": "Native support for multiple digital assets",
-				"faq_liquid_peg": "Bitcoin Peg:",
-				"faq_liquid_peg_desc": "1:1 L-BTC to BTC ratio through federated peg",
-				"faq_liquid_fees": "Low Fees:",
-				"faq_liquid_fees_desc": "Predictable transaction costs for all job sizes",
-				"faq_lightning_title": "Can I use Lightning Bitcoin?",
-				"faq_lightning_description": "Yes! You can deposit and withdraw using Lightning Bitcoin for instant, low-cost payments. However, for secure payment contracts, we automatically convert Lightning payments to Rootstock to ensure secure, non-custodial fund protection.",
-				"faq_lightning_deposits": "Instant Deposits:",
-				"faq_lightning_deposits_desc": "Send Lightning payments that are instantly available",
-				"faq_lightning_fees": "Low Fees:",
-				"faq_lightning_fees_desc": "Pay minimal fees for Lightning transactions",
-				"faq_lightning_conversion": "Automatic Conversion:",
-				"faq_lightning_conversion_desc": "Lightning funds are swapped to rBTC for secure payment contracts",
-				"faq_lightning_withdrawals": "Instant Withdrawals:",
-				"faq_lightning_withdrawals_desc": "Convert secure payment contract funds back to Lightning any time",
-				"faq_lightning_adoption": "Wide Adoption:",
-				"faq_lightning_adoption_desc": "Lightning is one of the most widely adopted Bitcoin sidechains",
-				"faq_escrow_title": "Why doesn't BitTasker just use Lightning for secure payment contracts?",
-				"faq_escrow_description": "While Lightning excels at instant payments, creating user-friendly, non-custodial secure payment contracts on Lightning is still technically complex. We use Rootstock for secure payment contracts because it provides the security, privacy, and reliability needed for protecting your funds.",
-				"faq_escrow_channels": "Channel Limitations:",
-				"faq_escrow_channels_desc": "Limited number of open channels per node for secure payment contracts",
-				"faq_escrow_time": "Time Constraints:",
-				"faq_escrow_time_desc": "Secure payment contracts limited to hours, not days or weeks",
-				"faq_escrow_contracts": "No Smart Contracts:",
-				"faq_escrow_contracts_desc": "Lightning lacks programmable secure payment contract functionality",
-				"faq_escrow_multisig": "Limited Contract Functionality:",
-				"faq_escrow_multisig_desc": "Lightning Network lacks the programmable contract features needed for secure payment contracts",
-				"faq_escrow_risks": "Node Risks:",
-				"faq_escrow_risks_desc": "Risk of fund loss if Lightning nodes close or go offline"
-			},
-			"secure_payment_contract_modal": {
-				"title": "Secure Payment Contract",
-				"hero_title": "How Your Secure Payment Contract Works",
-				"hero_description": "Your funds are locked in a blockchain smart contract. Only contract rules can release them—no one else can access your money.",
-				"for_taskers_title": "For Taskers",
-				"for_taskers_locked": "**Funds locked:** Funds stay locked until you accept completed work.",
-				"for_taskers_review": "**7-day review period:** You have 7 days to review after completion. If you don't respond, payment releases automatically.",
-				"for_taskers_grace": "**1-hour grace period:** Cancel within 1 hour of booking and get a full refund automatically.",
-				"for_taskers_dispute": "**Dispute rights:** File disputes within 7 days of completion. If unresolved after 14 days, you get a full refund.",
-				"for_taskers_cancel": "**Cancel anytime:** Cancel for a full refund at any point, except within 24 hours of start time.",
-				"for_taskers_no_show": "**No-show protection:** If the Taskee doesn't start on time, mark them as no-show. They have 24 hours to respond or you get a full refund.",
-				"for_taskees_title": "For Taskees",
-				"for_taskees_guaranteed": "**Guaranteed payment:** Once you mark work complete, the Tasker has 7 days to accept. If they don't respond, you're paid automatically after 7 days.",
-				"for_taskees_upfront": "**Upfront deposits:** Can request partial payment upfront (claimable after 1-hour grace period).",
-				"for_taskees_dispute": "**Dispute rights:** Can propose how to split payment during disputes (up to 2 proposals).",
-				"for_taskees_refund": "**Voluntary refund:** Can refund the Tasker at any time.",
-				"platform_fees_title": "Platform Fees",
-				"platform_fees_both": "**Fees:** Both parties pay fees to BitTasker when money moves. Fees are deducted automatically, not upfront.",
-				"time_limits_title": "Key Time Limits",
-				"time_limits_grace": "**1 hour grace period:** Cancel for free within 1 hour of creation.",
-				"time_limits_cancellation": "**24-hour cancellation window:** Cancellations within 24 hours of start time may require a fee to the Taskee.",
-				"time_limits_review": "**7-day completion review:** Tasker has 7 days to accept or dispute after you mark complete.",
-				"time_limits_dispute": "**14-day dispute resolution:** If no agreement after 14 days, Tasker gets a full refund.",
-				"time_limits_no_show": "**24-hour no-show response:** Taskees have 24 hours to respond to no-show claims.",
-				"dispute_process_title": "Disputes",
-				"dispute_process_step1": "**Step 1:** Tasker files a dispute within 7 days of completion.",
-				"dispute_process_step2": "**Step 2:** Either party can propose a payment split (e.g., 60% to Taskee, 40% refund to Tasker).",
-				"dispute_process_step3": "**Step 3:** The other party can accept or counter (up to 2 proposals each).",
-				"dispute_process_step4": "**Step 4:** If no agreement after 14 days, Tasker gets a full refund.",
-				"cancellation_rules_title": "Cancellation",
-				"cancellation_tasker": "**Tasker cancellation:** Within 1 hour: Full refund, no fees. After 1 hour: Cancellation fee may apply. Cancellations within 24 hours of start time may require a fee to the Taskee.",
-				"cancellation_taskee": "**Taskee refund:** Can refund anytime; Tasker gets a full refund with no cancellation fee.",
-				"summary": "**Summary:** Funds are locked by contract rules. Time limits are automatic. Fees are transparent. Disputes have fair negotiation with automatic refunds if needed.",
-				"understand_button": "I Understand"
-			},
-			"error_troubleshooting_modal": {
-				"title": "Error Troubleshooting",
-				"troubleshoot": "Troubleshoot",
-				"help": "Help",
-				"button_title": "Get help troubleshooting this error",
-				"error_occurred": "An error occurred",
-				"troubleshooting_steps_title": "Troubleshooting Steps",
-				"biometric_help_title": "Biometric Authentication Help",
-				"biometric_help_description": "If you're having trouble with biometric authentication, try these additional steps:",
-				"biometric_help_point1": "Make sure your device's biometric settings are enabled",
-				"biometric_help_point2": "Clean your fingerprint sensor or face recognition camera",
-				"biometric_help_point3": "Try using your device passcode as an alternative",
-				"device_specific_title": "Device-Specific Troubleshooting",
-				"device_info_platform": "Platform",
-				"device_info_os": "Operating System",
-				"device_info_browser": "Browser",
-				"settings_instructions_title": "How to Open Settings",
-				"settings_instructions": {
-					"ios_native_biometric_1": "Open Settings app",
-					"ios_native_biometric_2": "Tap \"Touch ID & Passcode\" or \"Face ID & Passcode\"",
-					"ios_native_biometric_3": "Set up Touch ID or Face ID if not already configured",
-					"ios_native_passcode_1": "Open Settings app",
-					"ios_native_passcode_2": "Tap \"Touch ID & Passcode\" or \"Face ID & Passcode\"",
-					"ios_native_passcode_3": "Set up a passcode if not already configured",
-					"ios_native_other_1": "Open Settings app",
-					"ios_native_other_2": "Navigate to the relevant section",
-					"android_native_biometric_1": "Open Settings app",
-					"android_native_biometric_2": "Tap \"Security\" or \"Biometrics and security\"",
-					"android_native_biometric_3": "Tap \"Screen lock\" or \"Fingerprint\"",
-					"android_native_biometric_4": "Set up screen lock and biometric authentication",
-					"android_native_permission_1": "Open Settings app",
-					"android_native_permission_2": "Tap \"Apps\" or \"Application manager\"",
-					"android_native_permission_3": "Find BitTasker and tap it",
-					"android_native_permission_4": "Tap \"Permissions\" and enable required permissions",
-					"android_native_other_1": "Open Settings app",
-					"android_native_other_2": "Navigate to the relevant section",
-					"web_ios_1": "Open Settings app on your iPhone/iPad",
-					"web_ios_2": "Tap your name at the top",
-					"web_ios_3": "Tap \"iCloud\" → \"Keychain\"",
-					"web_ios_4": "Enable iCloud Keychain",
-					"web_android_1": "Open Settings app on your Android device",
-					"web_android_2": "Tap \"Security\" or \"Biometrics and security\"",
-					"web_android_3": "Set up screen lock and enable Google Password Manager",
-					"web_windows_1": "Open Windows Settings",
-					"web_windows_2": "Go to \"Accounts\" → \"Sign-in options\"",
-					"web_windows_3": "Set up Windows Hello (PIN, fingerprint, or face recognition)",
-					"web_macos_1": "Open System Settings",
-					"web_macos_2": "Go to \"Touch ID & Password\"",
-					"web_macos_3": "Set up Touch ID if not already configured"
+			"wallet": {
+				"payment_request_form": {
+					"description": "Generate addresses and invoices using Breez SDK. Support for Lightning, Bitcoin, and multi-asset Liquid payments.",
+					"payment_method": "Payment Method",
+					"liquid_address": "Liquid Address",
+					"lightning_invoice": "⚡ Lightning Invoice",
+					"bitcoin_address": "₿ Bitcoin Address",
+					"bolt12_offer": "🔄 BOLT12 Offer",
+					"any_asset": "🎯 Any Asset (Universal)",
+					"liquid_bitcoin": "₿ L-BTC (Liquid Bitcoin)",
+					"tether_usd": "💵 USDt (Tether USD)",
+					"asset_type": "Asset Type",
+					"amount": "Amount ({unit}){required}",
+					"amount_required_placeholder": "Amount required",
+					"amount_optional_placeholder": "Leave empty for any amount",
+					"liquid_address_tip": "💡 Liquid addresses can receive any amount without specifying upfront",
+					"bolt12_warning": "⚠️ BOLT12 offers ignore amount input - payers choose their own amount",
+					"description_label": "Description (optional)",
+					"description_placeholder": "What's this payment for?",
+					"generating": "Generating...",
+					"generate": "Generate {method}",
+					"failed_to_load": "Failed to load payment options. Please try again.",
+					"failed_to_generate": "Failed to generate payment request. Please try again.",
+					"amount_required": "Amount is required for {method}",
+					"amount_too_low": "Amount must be at least {min} sats",
+					"amount_too_high": "Amount must be no more than {max} sats",
+					"liquid_address_name": "Liquid Address",
+					"lightning_invoice_name": "Lightning Invoice",
+					"bitcoin_address_name": "Bitcoin Address",
+					"bolt12_offer_name": "BOLT12 Offer",
+					"address_name": "Address",
+					"liquid_address_desc": "Universal address for L-BTC, USDT, and other Liquid assets. No amount required.",
+					"lightning_invoice_desc": "Instant Lightning payment. Amount required, expires after use.",
+					"bitcoin_address_desc": "On-chain Bitcoin payment. Higher fees, slower confirmation.",
+					"bolt12_offer_desc": "Reusable Lightning offer. Accepts any amount, ignores amount input.",
+					"any_asset_desc": "Accept any supported asset (L-BTC, USDT, etc.)",
+					"liquid_bitcoin_desc": "Liquid Bitcoin only",
+					"tether_usd_desc": "Tether USD on Liquid only",
+					"multi_asset": "multi-asset",
+					"default_description": "{method} payment{asset}",
+					"address_copied": "Address copied to clipboard",
+					"generated": "{method} Generated ✅",
+					"share_with_payer": "Share this {type} with the payer",
+					"address": "Address",
+					"invoice": "Invoice",
+					"method": "Method",
+					"asset": "Asset",
+					"any_amount_accepted": "Any amount accepted",
+					"payer_chooses_amount": "Payer chooses amount",
+					"network_fee": "Network Fee",
+					"click_to_copy": "Click to copy",
+					"click_to_copy_hint": "👆 Click to copy to clipboard",
+					"generate_new": "Generate New",
+					"copy": "📋 Copy"
 				},
-				"device_specific_steps": {
-					"ios_native_biometric_1": "Ensure Touch ID or Face ID is enabled in Settings > Face ID & Passcode (or Touch ID & Passcode)",
-					"ios_native_biometric_2": "Make sure you have at least one fingerprint or face enrolled",
-					"ios_native_biometric_3": "Check that BitTasker has permission to use biometrics in Settings > Privacy & Security > Biometrics",
-					"ios_native_biometric_4": "If you see a lockout message, unlock your device with your passcode first",
-					"ios_native_biometric_5": "If your passcode is not set, set up a passcode in Settings > Touch ID & Passcode",
-					"ios_web_safari_1": "Ensure iCloud Keychain is enabled in Settings > [Your Name] > iCloud > Keychain",
-					"ios_web_safari_2": "Make sure you're signed in to iCloud on this device",
-					"ios_web_safari_3": "Check that two-factor authentication is enabled for your Apple ID",
-					"ios_web_other_1": "Try using Safari instead - it has the best passkey support on iOS",
-					"ios_web_other_2": "Ensure iCloud Keychain is enabled in Settings",
-					"android_native_biometric_1": "Ensure fingerprint or face unlock is enabled in Settings > Security",
-					"android_native_biometric_2": "Make sure you have at least one fingerprint or face enrolled",
-					"android_native_biometric_3": "Check that the app has permission to use biometrics in Settings > Apps > BitTasker > Permissions",
-					"android_native_biometric_4": "If you see a lockout message, unlock your device with your screen lock first",
-					"android_native_biometric_5": "If screen lock is not set, set up a screen lock in Settings > Security",
-					"android_web_chrome_1": "Ensure Google Password Manager is enabled in Chrome settings",
-					"android_web_chrome_2": "Make sure you're signed in to your Google account in Chrome",
-					"android_web_chrome_3": "Check that screen lock is enabled on your device (Settings > Security)",
-					"android_web_other_1": "Try using Chrome instead - it has the best passkey support on Android",
-					"android_web_other_2": "Ensure screen lock is enabled on your device",
-					"windows_edge_1": "Ensure Windows Hello is set up in Settings > Accounts > Sign-in options",
-					"windows_edge_2": "Make sure you have a PIN, fingerprint, or face recognition configured",
-					"windows_chrome_1": "Ensure Windows Hello is set up in Settings > Accounts > Sign-in options",
-					"windows_chrome_2": "Try using Microsoft Edge for better Windows Hello integration",
-					"macos_safari_1": "Ensure Touch ID is enabled in System Settings > Touch ID & Password",
-					"macos_safari_2": "If you have an Apple Watch, ensure it's unlocked and nearby",
-					"macos_chrome_1": "Ensure Touch ID is enabled in System Settings > Touch ID & Password",
-					"macos_chrome_2": "Try using Safari for better Touch ID integration",
-					"https_required_1": "WebAuthn requires HTTPS - ensure you're using a secure connection",
-					"https_required_2": "If testing locally, use localhost or 127.0.0.1",
-					"webauthn_not_supported_1": "Your browser doesn't support WebAuthn - try updating to the latest version",
-					"webauthn_not_supported_2": "Consider using Chrome, Edge, Safari, or Firefox (latest versions)"
+				"swap_dashboard": {
+					"title": "Swap Dashboard",
+					"refresh": "Refresh",
+					"failed_to_load": "Failed to load swaps",
+					"failed_refund": "Failed to refund swap",
+					"loading_swaps": "Loading swaps...",
+					"active_swaps": "Active Swaps",
+					"no_active_swaps": "No Active Swaps",
+					"no_active_swaps_message": "You don't have any active swaps at the moment",
+					"lightning_to_bitcoin": "Lightning → Bitcoin",
+					"lightning_to_bitcoin_desc": "Convert Lightning payments to Bitcoin",
+					"bitcoin_to_lightning": "Bitcoin → Lightning",
+					"bitcoin_to_lightning_desc": "Convert Bitcoin to Lightning payments",
+					"create_swap": "Create Swap",
+					"recent_history": "Recent History",
+					"type": "Type",
+					"amount": "Amount",
+					"status": "Status",
+					"date": "Date",
+					"refund": "Refund",
+					"waiting_payment": "Waiting for payment",
+					"transaction_mempool": "Transaction in mempool"
 				},
-				"passkey_overview": {
-					"title": "What Are Passkeys?",
-					"description": "Passkeys are a modern, secure way to sign in to BitTasker without using passwords. Instead of remembering a password, you use your device's built-in security (like Face ID, fingerprint, or your device PIN) to unlock your account.",
-					"benefit1": "More secure than passwords — uses public-key cryptography that's resistant to phishing and data breaches",
-					"benefit2": "Easier to use — just unlock your device the same way you normally do",
-					"benefit3": "Private — BitTasker never receives your device password, PIN, or biometric data"
+				"transaction_history": {
+					"title": "Transaction History",
+					"loading": "Loading transactions...",
+					"error": "Failed to load transactions",
+					"retry": "Retry",
+					"no_transactions": "No transactions found",
+					"received": "Received",
+					"sent": "Sent",
+					"date": "Date",
+					"address": "Address",
+					"status": "Status",
+					"network": "Network",
+					"confirmed": "Confirmed",
+					"pending": "Pending",
+					"failed": "Failed"
 				},
-				"passkey_faq": {
-					"question1": "Did you receive a request to unlock your phone, and cancelled the request?",
-					"answer1": "Rather than using a new password on BitTasker, you unlock your account with your device security, which unlocks the passkey that's used to access BitTasker. BitTasker never receives your device password, or biometric data. When you see the unlock prompt, please complete it to set up your passkey.",
-					"question2": "Do you have a lock screen on your device?",
-					"answer2": "You need to use a lock screen on your device to access BitTasker, and keep your account and wallet secure. Passkeys rely on your device's security, so a lock screen (PIN, password, pattern, or biometric) is required. Please set up a lock screen in your device settings if you haven't already.",
-					"question3": "Is biometric authentication (Face ID, fingerprint, etc.) set up on your device?",
-					"answer3": "While biometrics make passkeys more convenient, they're not required. If biometrics aren't set up, you can use your device PIN or password instead. However, setting up biometrics will make signing in faster and easier. You can set this up in your device's Settings app.",
-					"question4": "Have you granted necessary permissions to BitTasker?",
-					"answer4": "BitTasker needs permission to use your device's security features to create and use passkeys. On mobile devices, check Settings > Apps > BitTasker > Permissions. On web browsers, ensure you allow the browser to access your device's security features when prompted.",
-					"question5": "Is your browser or app up to date?",
-					"answer5": "Passkeys require modern browser and app support. Make sure you're using the latest version of your browser (Chrome, Safari, Edge, or Firefox) or the latest version of the BitTasker app. Older versions may not support passkeys properly.",
-					"question6": "Did the setup process time out?",
-					"answer6": "If the passkey setup timed out, try again. Make sure you complete the unlock prompt quickly when it appears. Also check your internet connection, as a stable connection is needed for the setup process. If it continues to timeout, try closing other apps or restarting your device."
+				"asset_selector": {
+					"no_assets": "No assets available",
+					"select_asset": "Select Asset",
+					"network": "Network",
+					"available_balance": "Available Balance",
+					"available_rbtc_balance": "Available L2 Bitcoin Balance",
+					"sats": "Sats"
 				},
-				"still_need_help_title": "Still Need Help?",
-				"still_need_help_description": "If these steps don't resolve the issue, please contact support or try again later.",
-				"got_it_button": "Got It",
-				"retry_button": "Retry",
-				"setup_passkey_button": "Setup Passkey",
-				"cancel_button": "Cancel",
-				"steps": {
-					"biometric": {
-						"step1": "Check that biometrics are enabled and configured on your device",
-						"step2": "If you see lockout, unlock with your passcode and try again",
-						"step3": "Clean the biometric sensor or restart your device and try again"
-					},
-					"network": {
-						"step1": "Check your internet connection and switch between Wi-Fi and mobile data",
-						"step2": "Disable VPN if using one and check other apps",
-						"step3": "Restart your router or mobile connection and try again"
-					},
-					"authentication": {
-						"step1": "Set up biometric authentication/passkey if not configured",
-						"step2": "If credential is invalid, set up a new passkey",
-						"step3": "Clear browser cache or restart the app"
-					},
-					"permission": {
-						"step1": "Check and grant necessary permissions in Settings",
-						"step2": "Restart the app after granting permissions",
-						"step3": "Update the app to the latest version"
-					},
-					"hardware": {
-						"step1": "If no biometric hardware, use your device passcode instead",
-						"step2": "Restart your device if hardware is temporarily unavailable",
-						"step3": "Update operating system and check for available updates"
-					},
-					"timeout": {
-						"step1": "Complete biometric authentication quickly within the time limit",
-						"step2": "Check your internet connection and close other apps",
-						"step3": "Try again immediately or when you have better connection"
-					},
-					"unknown": {
-						"step1": "Refresh the page or restart the app",
-						"step2": "Clear browser cache and check on other devices",
-						"step3": "Update the app or contact support if it persists"
-					},
-					"generic": {
-						"step1": "Refresh the page or restart the app",
-						"step2": "Check your internet connection and device settings",
-						"step3": "Contact support if the issue persists"
-					}
-				}
-			},
-			"network_selector": {
-				"title": "Choose Secure Payment Network",
-				"subtitle": "Select the blockchain network for your secure payment contract. Each network has different characteristics:",
-				"rsk_description": "Lower fees, Bitcoin security, testnet environment",
-				"bsc_description": "Higher liquidity, Ethereum compatibility, testnet environment",
-				"comparison_title": "Network Comparison",
-				"feature": "Feature",
-				"gas_fees": "Gas Fees",
-				"gas_fees_lower": "Lower (~$0.01-0.05)",
-				"gas_fees_higher": "Higher (~$0.10-0.50)",
-				"native_token": "Native Token",
-				"rbtc": "RBTC (Bitcoin-pegged)",
-				"bnb": "BNB",
-				"security": "Security",
-				"bitcoin_merge_mining": "Bitcoin merge-mining",
-				"bnb_staking": "BNB staking",
-				"ecosystem": "Ecosystem",
-				"bitcoin_focused": "Bitcoin-focused",
-				"ethereum_compatible": "Ethereum-compatible",
-				"liquidity": "Liquidity",
-				"liquidity_lower": "Lower",
-				"liquidity_higher": "Higher",
-				"selected": "Selected"
-			},
-			"qr_scanner": {
-				"scan_qr_code": "Scan QR Code",
-				"get_qr_from_settings": "You can get your QR code from your other device by going to <strong>Settings</strong> and tapping the <strong>Show QR Code</strong> button.",
-				"close": "Close",
-				"toggle_torch": "Toggle Torch",
-				"no_camera_found": "No camera found. Please ensure your device has a camera.",
-				"camera_permission_denied": "Camera permission denied. Please enable camera access in your browser settings.",
-				"permission_title": "Allow Camera Access",
-				"permission_description": "BitTasker needs camera access to scan QR codes for Bitcoin payments.",
-				"permission_allow": "Allow",
-				"permission_cancel": "Cancel",
-				"point_camera_at_qr": "Point your camera at a QR code to scan it"
-			},
-			"tags": {
-				"select_tags": "Select tags...",
-				"remove_tag": "Remove {tag} tag",
-				"available_tags": "Available tags"
-			},
-			"topbar": {
-				"logo_alt": "BitTasker Logo",
-				"close_menu": "Close menu",
-				"open_menu": "Open menu",
-				"npub_qr": {
-					"title": "Nostr Public Key",
-					"share_profile_title": "Share Profile",
-					"npub_label": "Public Key (npub)",
-					"generating": "Generating QR code...",
-					"error": "Unable to load public key. Please ensure you are logged in."
-				}
-			},
-			"uploader": {
-				"images": "Images",
-				"videos": "Videos",
-				"preview": "Preview",
-				"remove_file": "Remove file",
-				"file_size_limit": "File size must be less than {maxSize}MB",
-				"video_duration_limit": "Video must be {maxDuration} seconds or shorter",
-				"image_dimensions": "Image dimensions must be {width}x{height}px",
-				"max_files_limit": "Maximum of {maxFiles} files allowed"
-			},
-			"bidding": {
-				"counter_offer_history": {
-					"title": "Negotiation History ({count})",
-					"no_offers": "No counter offers yet",
-					"estimated_completion": "Estimated completion:",
-					"you_proposed": "You",
-					"they_proposed": "They",
-					"decline": "Decline",
-					"accept": "Accept"
+				"balance_card": {
+					"total_balance": "Total Balance",
+					"no_assets_found": "No Assets Found",
+					"no_assets_message": "Your wallet doesn't have any assets yet. Start by receiving some Bitcoin or Lightning payments.",
+					"refresh_balances": "Refresh Balances"
 				},
-				"counter_offer_item": {
-					"counter_from": "Counter from {user}...",
-					"offered_price": "Offered price:",
-					"delivery": "Delivery:"
+				"recent_transactions": {
+					"title": "Recent Transactions",
+					"received": "Received",
+					"sent": "Sent",
+					"view_all": "View all transactions",
+					"no_transactions": "No transactions found."
 				},
-				"dashboard_bids": {
-					"avatar_alt": "Avatar",
-					"anonymous": "Anonymous",
-					"rating": "4.0"
+				"amount_input": {
+					"amount": "Amount",
+					"min_max": "Min: {min} - Max: {max}",
+					"loading_limits": "Loading limits...",
+					"available_balance": "Available Balance:",
+					"error": "Error:",
+					"estimated_fees": "Estimated Fees:",
+					"max_sendable": "Max Sendable:",
+					"status": "Status:",
+					"insufficient_funds": "Insufficient funds"
 				},
-				"escrow_success": {
-					"title": "Transaction Overview",
-					"close_dialog": "Close dialog",
-					"success_title": "Secure Payment Contract Funded Successfully",
-					"success_message": "Your contract has been created and funded on the blockchain.",
-					"payment_summary": "Payment Summary",
-					"bid_price": "Bid Price",
-					"platform_fee": "Platform Fee",
-					"transaction_fee": "Est. Transaction Fee",
-					"total_price": "Total Price",
-					"blockchain_verification": "Blockchain Verification",
-					"verification_message": "Your transaction has been confirmed on the blockchain. You can verify it using the block explorer.",
-					"copy_hash": "Copy transaction hash",
-					"view_explorer": "View on Explorer",
-					"gamification_title": "Keep climbing!",
-					"gamification_message": "Complete {tasks} more tasks by {date} to reach {tier}",
-					"go_dashboard": "Go to Dashboard",
-					"create_new_task": "Create New Task"
+				"fee_selection": {
+					"transaction_speed": "Transaction Speed",
+					"speed_description": "Higher speed = Higher fees",
+					"slow": "Slow",
+					"medium": "Medium",
+					"fast": "Fast"
 				},
-				"external_wallet": {
-					"title": "Complete Payment",
-					"close_dialog": "Close dialog",
-					"payment_methods": {
-						"bitcoin_lightning": "Bitcoin Lightning",
-						"lbtc": "L-BTC",
-						"usdt": "USDT",
-						"unknown": "Unknown"
-					},
-					"networks": {
-						"lightning": "Lightning Network",
-						"liquid": "Liquid Network",
-						"unknown": "Unknown Network"
-					},
-					"instructions": {
-						"send_exactly": "Send exactly ${amount}",
-						"use_network": "Use {network} network",
-						"no_exchange": "Do not send from an exchange"
-					},
-					"qr_alt": "Payment QR Code",
-					"scan_qr": "Scan QR code or copy address",
-					"payment_address": "Payment Address",
-					"copy": "Copy",
-					"copied": "Copied!",
+				"passkey_verification": {
+					"title": "Security Verification Required",
+					"subtitle": "Confirm with your passkey or biometrics",
+					"operation": "Operation:",
+					"amount": "Amount:",
+					"destination": "Destination:",
+					"asset": "Asset:",
+					"security_notice": "Security Notice",
+					"lightning_payment": "This is a Lightning payment and will be processed instantly.",
+					"bitcoin_warning": "⚠️ This is an off-platform Bitcoin transfer. Funds will leave your wallet permanently.",
+					"liquid_warning": "⚠️ This is an off-platform Liquid transfer. Funds will leave your wallet permanently.",
+					"swap_message": "This will initiate a swap between different asset types.",
+					"backup_message": "This will create a secure backup of your wallet data.",
+					"default_message": "This operation requires additional security verification.",
 					"cancel": "Cancel",
-					"payment_sent": "I've Sent the Payment"
+					"verifying": "Verifying...",
+					"verify_passkey": "Verify with Passkey",
+					"transaction_prepared": "Transaction Prepared",
+					"estimated_fee": "Estimated fee: {fee} {asset}"
 				},
-				"task_details": {
-					"close_dialog": "Close dialog"
+				"recipient_input": {
+					"recipient": "Recipient",
+					"placeholder": "Address, Lightning invoice, or Lightning address"
+				},
+				"send_form": {
+					"title": "Send Payment",
+					"select_asset": "Select Asset",
+					"description": "Description (optional)",
+					"description_placeholder": "What's this payment for?",
+					"processing": "Processing",
+					"processing_short": "Processing",
+					"send": "Send",
+					"activity": "Activity",
+					"pending_payments": "Pending Payments ({count})",
+					"pending_message": "Some payments are waiting for confirmation"
+				},
+				"create_wallet": {
+					"title": "Create New Wallet",
+					"seed_warning": "Keep your seed phrase safe! Anyone with your seed phrase can access your wallet and withdraw your funds.",
+					"copy_instruction": "Copy the seed phrase to your clipboard by clicking on the text.",
+					"copied": "Copied!",
+					"click_to_copy": "Click to copy",
+					"generate_seed": "Generate Seed Phrase",
+					"generating": "Generating...",
+					"setting_up_passkey": "Setting up passkey...",
+					"continue_to_wallet": "Continue to Wallet"
+				},
+				"import_wallet": {
+					"title": "Import Existing Wallet",
+					"seed_instruction": "Enter your 12 or 24 word seed phrase",
+					"seed_placeholder": "Enter your seed phrase here...",
+					"import_wallet": "Import Wallet",
+					"importing": "Importing...",
+					"invalid_seed": "Invalid seed phrase. Please check your words and try again.",
+					"import_success": "Wallet imported successfully!",
+					"continue_to_wallet": "Continue to Wallet"
 				}
+			}
+		},
+		"nostr_key_import": {
+			"step_indicator": "Step 2 of 7 - Optional",
+			"title": "Import Your Nostr Key (Optional)",
+			"subtitle": "What is a Nostr key?",
+			"description": "A Nostr private key (nsec…) is like your Bitcoin private key: it gives you ownership of your data. <br /><br />You can import an existing key, or let us generate one for you.",
+			"features": {
+				"use_existing": "<strong>Use existing</strong> — import your nsec to keep your identity",
+				"generate_new": "<strong>Generate new</strong> — we'll create a secure key if you don't have one",
+				"manage_anytime": "<strong>Manage anytime</strong> — view/export your key in App Settings",
+				"stored_securely": "<strong>Stored Securely</strong> — encrypted on your device so we can't see it"
 			},
-			"recommendations": {
-				"error": {
-					"load_failed": "Failed to load recommendations. Please try again.",
-					"generate": "Generate"
-				},
-				"feedback": {
-					"thanks_more": "Thanks for your feedback! We'll show you more tasks like this.",
-					"thanks_fewer": "We'll show you fewer tasks like this.",
-					"thanks_simple": "Thanks for your feedback!"
-				}
+			"control_access": "You control access. Keep your key safe.",
+			"import_checkbox": "Import existing Nostr key (nsec)",
+			"private_key_label": "Private Key (nsec)",
+			"private_key_placeholder": "Enter your Nostr private key (nsec1...)",
+			"back": "Back",
+			"next": "Next"
+		},
+		"recommendations": {
+			"error": {
+				"load_failed": "Failed to load recommendations. Please try again.",
+				"generate": "Generate"
 			},
-			"devices": {
-				"platforms": {
-					"android": "Android",
-					"ios": "iOS",
-					"web": "Web Browser",
-					"unknown": "Unknown"
-				},
-				"time_units": {
-					"minute": "minute",
-					"minutes": "minutes",
-					"hour": "hour",
-					"hours": "hours",
-					"day": "day",
-					"days": "days"
-				}
+			"feedback": {
+				"thanks_more": "Thanks for your feedback! We'll show you more tasks like this.",
+				"thanks_fewer": "We'll show you fewer tasks like this.",
+				"thanks_simple": "Thanks for your feedback!"
 			}
 		},
 		"task": {
@@ -660,7 +384,386 @@
 				"enter_fullscreen": "Enter fullscreen",
 				"exit_fullscreen": "Exit fullscreen",
 				"my_location": "My Location"
+			},
+			"location_viewer": {
+				"loading_map": "Loading map...",
+				"error": "Error loading map"
 			}
+		},
+		"components": {
+			"date_input": {
+				"and": "and",
+				"less_than_minute": "less than a minute",
+				"time_rounded_intervals": "Time rounded to nearest interval"
+			},
+			"drawer": {
+				"close": "Close drawer"
+			},
+			"gallery": {
+				"image_alt": "Gallery image"
+			},
+			"input": {
+				"options": "Options"
+			},
+			"location_autocomplete": {
+				"enter_address": "Enter an address",
+				"failed_suggestions": "Failed to load address suggestions",
+				"no_places_found": "No places found"
+			},
+			"location_picker": {
+				"enter_address": "Enter an address"
+			},
+			"logo": {
+				"alt": "BitTasker Logo"
+			},
+			"topbar": {
+				"logo_alt": "BitTasker Logo",
+				"npub_qr": {
+					"share_profile_title": "Share Profile",
+					"generating": "Generating QR code...",
+					"error": "Failed to generate QR code"
+				}
+			},
+			"tags": {
+				"select_tags": "Select tags",
+				"remove_tag": "Remove tag",
+				"available_tags": "Available tags"
+			},
+			"qr_scanner": {
+				"permission_title": "Camera Access Required",
+				"permission_description": "To scan QR codes, we need permission to access your camera. Your camera is only used locally and no images are stored or transmitted.",
+				"permission_allow": "Allow Camera Access",
+				"permission_cancel": "Cancel",
+				"scan_qr_code": "Scan QR Code",
+				"close": "Close scanner",
+				"toggle_torch": "Toggle flashlight",
+				"camera_permission_denied": "Camera permission denied. Please enable camera access in your settings.",
+				"no_camera_found": "No camera found on this device.",
+				"point_camera_at_qr": "Point your camera at a QR code"
+			},
+			"devices": {
+				"platforms": {
+					"android": "Android",
+					"ios": "iOS",
+					"web": "Web Browser",
+					"unknown": "Unknown"
+				}
+			},
+			"recommendations": {
+				"error": {
+					"load_failed": "Failed to load recommendations",
+					"generate": "Failed to generate recommendations"
+				},
+				"feedback": {
+					"thanks_more": "Thanks! We'll show you more like this.",
+					"thanks_fewer": "Thanks! We'll show you fewer like this.",
+					"thanks_simple": "Thanks for your feedback!"
+				}
+			},
+			"bidding": {
+				"counter_offer_history": {
+					"title": "Counter Offer History",
+					"no_offers": "No counter offers yet",
+					"estimated_completion": "Estimated completion",
+					"you_proposed": "You proposed",
+					"they_proposed": "They proposed",
+					"decline": "Decline",
+					"accept": "Accept"
+				},
+				"counter_offer_item": {
+					"counter_from": "Counter from",
+					"offered_price": "Offered price",
+					"delivery": "Delivery"
+				},
+				"dashboard_bids": {
+					"avatar_alt": "Bidder avatar"
+				},
+				"escrow_success": {
+					"title": "Payment Secured",
+					"close_dialog": "Close dialog",
+					"success_title": "Payment Successful!",
+					"success_message": "Your payment has been secured in escrow. The funds will be released once the work is completed.",
+					"payment_summary": "Payment Summary",
+					"bid_price": "Bid Price",
+					"platform_fee": "Platform Fee",
+					"transaction_fee": "Transaction Fee",
+					"total_price": "Total Price",
+					"blockchain_verification": "Blockchain Verification",
+					"verification_message": "Your payment is secured on the blockchain. You can verify the transaction using the hash below.",
+					"copy_hash": "Copy transaction hash",
+					"view_explorer": "View on Explorer",
+					"gamification_title": "Keep Up the Great Work!",
+					"gamification_message": "Complete {tasks} more tasks by {date} to reach {tier} tier!",
+					"go_dashboard": "Go to Dashboard",
+					"create_new_task": "Create New Task"
+				},
+				"external_wallet": {
+					"title": "External Wallet Payment",
+					"close_dialog": "Close dialog",
+					"payment_methods": {
+						"bitcoin_lightning": "Bitcoin Lightning",
+						"lbtc": "Liquid Bitcoin (L-BTC)",
+						"usdt": "Tether USD (USDT)",
+						"unknown": "Unknown Payment Method"
+					},
+					"networks": {
+						"lightning": "Lightning Network",
+						"liquid": "Liquid Network",
+						"unknown": "Unknown Network"
+					},
+					"instructions": {
+						"send_exactly": "Send exactly the amount shown below",
+						"use_network": "Use the correct network to avoid loss of funds",
+						"no_exchange": "Do not send from an exchange"
+					},
+					"qr_alt": "Payment QR Code",
+					"scan_qr": "Scan QR Code",
+					"payment_address": "Payment Address",
+					"copied": "Copied!",
+					"copy": "Copy",
+					"cancel": "Cancel",
+					"payment_sent": "I've Sent the Payment"
+				}
+			},
+			"media_uploader": {
+				"file_size_limit": "File size exceeds the limit of {maxSize}MB.",
+				"video_duration_limit": "Video duration exceeds the limit of {maxDuration} seconds.",
+				"image_dimensions": "Image dimensions must be {width}x{height} pixels.",
+				"max_files_limit": "Maximum of {maxFiles} files allowed.",
+				"max_info": "(Max. {size}MB{durationInfo})",
+				"duration_info": ", {duration} min",
+				"images": "Images",
+				"videos": "Videos",
+				"preview": "Preview",
+				"remove_file": "Remove file",
+				"invalid_file_type": "Invalid file type.",
+				"invalid_file_type_images_videos": "Invalid file type. Only images and videos are allowed.",
+				"invalid_file_type_videos": "Invalid file type. Only MP4, WebM and OGG videos are allowed.",
+				"invalid_type_error": "Invalid file type. Only images are allowed.",
+				"invalid_image": "Invalid image file.",
+				"compression_failed": "Image compression failed: {error}",
+				"failed_validate_video": "Failed to validate video.",
+				"failed_load_image": "Failed to load image for validation.",
+				"compressing_images": "Compressing images",
+				"uploading_files": "Uploading files",
+				"compression_success": "Images compressed successfully",
+				"upload_failed": "Upload failed: {error}",
+				"file_number": "File {index}",
+				"compressing": "Compressing...",
+				"uploading": "Uploading...",
+				"failed_to_validate_video": "Failed to validate video",
+				"failed_to_load_image": "Failed to load image",
+				"invalid_file": "Invalid file",
+				"processing_error": "Error processing file",
+				"video_file_too_large": "Video file is too large. Maximum size is {maxSize}MB."
+			},
+			"error_troubleshooting_modal": {
+				"button_title": "Open troubleshooting help",
+				"help": "Help",
+				"troubleshoot": "Troubleshoot",
+				"title": "Troubleshooting Help",
+				"error_occurred": "An error occurred",
+				"passkey_overview": {
+					"title": "About Passkeys",
+					"description": "Passkeys are a more secure and convenient way to sign in. They use your device's biometric authentication (fingerprint, face recognition) or PIN.",
+					"benefit1": "Enhanced security against phishing",
+					"benefit2": "No passwords to remember or lose",
+					"benefit3": "Encrypted and stored only on your device"
+				},
+				"troubleshooting_steps_title": "Common Solutions",
+				"passkey_faq": {
+					"question1": "What if I accidentally cancelled the request?",
+					"answer1": "Simply click the 'Retry' button to restart the authentication process.",
+					"question2": "Why is my device not showing the biometric prompt?",
+					"answer2": "Ensure your device screen is unlocked and you haven't disabled biometric authentication in your system settings.",
+					"question3": "What if I haven't set up biometrics yet?",
+					"answer3": "You can usually use your device's screen lock PIN or pattern as a fallback, or set up a fingerprint/face recognition in your device settings.",
+					"question4": "Are there specific browser permissions needed?",
+					"answer4": "Some browsers may require permission to access security keys. Check your browser settings if you're experiencing issues.",
+					"question5": "Is my device/browser supported?",
+					"answer5": "Most modern devices and browsers support passkeys. If you're on an older system, you may need to update your software.",
+					"question6": "The request timed out. What should I do?",
+					"answer6": "Authentication requests have a time limit. If it expires, please try again."
+				},
+				"settings_instructions_title": "How to check your settings:",
+				"biometric_help_title": "Biometric Authentication Help",
+				"biometric_help_description": "If you're having trouble with fingerprint or face recognition:",
+				"biometric_help_point1": "Ensure your sensor is clean and dry.",
+				"biometric_help_point2": "Try using your device PIN if biometrics fail multiple times.",
+				"biometric_help_point3": "Restart your device if the biometric system seems unresponsive.",
+				"still_need_help_title": "Still need help?",
+				"still_need_help_description": "If none of the above solutions work, please contact our support team for further assistance.",
+				"cancel_button": "Cancel",
+				"got_it_button": "Got it",
+				"setup_passkey_button": "Setup Passkey",
+				"retry_button": "Retry"
+			},
+			"app_notification": {
+				"title": "Download the App",
+				"message": "Get the best BitTasker experience by downloading our mobile app. Receive instant notifications for bids, tasks, and messages directly on your device.",
+				"google_play_aria": "Download BitTasker on Google Play Store",
+				"zapstore_aria": "Download BitTasker on ZapStore",
+				"dismiss": "Got it"
+			},
+			"modal": {
+				"close": "Close dialog"
+			},
+			"confirm_modal": {
+				"confirm": "Confirm",
+				"cancel": "Cancel",
+				"logout": {
+					"title": "Confirm Logout",
+					"message": "Are you sure you want to log out?",
+					"confirm_button": "Log Out"
+				}
+			},
+			"warning_popup": {
+				"title": "Beta Warning",
+				"message": "This app is currently in beta, so you may encounter errors or issues when using it. If you have any problems, please let us know!",
+				"feedback_text": "If you find any bugs or have suggestions, please",
+				"feedback_link": "let us know!",
+				"feedback_suffix": "Thank you for trying BitTasker!",
+				"button": "Got it"
+			},
+			"zapstore_modal": {
+				"acknowledge_button": "I understand",
+				"learn_more": "Learn more",
+				"zapstore_title": "Now Available on Zapstore!",
+				"zapstore_message": "Download BitTasker directly from Zapstore for automatic updates and a seamless experience. Zapstore is a decentralized app store built on Nostr.",
+				"zapstore_button": "Get on Zapstore",
+				"zapstore_aria": "Download BitTasker on Zapstore"
+			},
+			"wallet_help_modal": {
+				"title": "Your Bitcoin Wallet",
+				"learn_more": "Learn More",
+				"button_title": "Learn about your Bitcoin wallet",
+				"start_using_button": "Start Using Wallet",
+				"hero_title": "Your Bitcoin-Powered Wallet",
+				"hero_description": "Send, receive, and manage Bitcoin across multiple networks with full control of your funds.",
+				"multi_network_title": "Multi-Network Support",
+				"multi_network_description": "Pay and receive with Bitcoin, Lightning, Liquid, Rootstock, and USDT - all in one wallet.",
+				"security_title": "Non-Custodial Security",
+				"security_description": "You control your keys. BitTasker never holds your funds - only you can move your Bitcoin.",
+				"lightning_title": "Lightning-Fast Payments",
+				"lightning_description": "Instant Bitcoin payments with the Lightning Network. No waits, no delays, just peer-to-peer speed.",
+				"escrow_title": "Secure Payment Contracts",
+				"escrow_description": "Automatic fund protection with time locks. Get paid when the work is done, get refunded if it's not.",
+				"how_it_works_title": "How Your Wallet Works",
+				"step1_title": "Automatic Network Conversion",
+				"step1_description": "Pay however you want using atomic swaps and your preferred network.",
+				"step2_title": "Secure Non-Custodial Payments",
+				"step2_description": "Your funds are protected by advanced cryptography. Only you and the other party can release payments.",
+				"step3_title": "Instant Withdrawal Options",
+				"step3_description": "Convert your earnings to any supported format - Lightning, Bitcoin, Liquid, or USDT - whenever you want.",
+				"benefits_title": "Why This Matters",
+				"benefits_description": "Traditional platforms hold your money and charge fees. BitTasker gives you control with Bitcoin security and Lightning speed.",
+				"faq_title": "Frequently Asked Questions",
+				"faq_rsk_title": "What is Rootstock Bitcoin?",
+				"faq_rsk_description": "Rootstock Bitcoin (rBTC) is a Bitcoin sidechain that maintains 1:1 parity with Bitcoin while enabling smart contracts and faster transactions. It is secured by Bitcoin miners through merged mining, making it one of the most secure Bitcoin sidechains available.",
+				"faq_rsk_security": "Bitcoin Security:",
+				"faq_rsk_security_desc": "Secured by Bitcoin miners through merged mining",
+				"faq_rsk_contracts": "Smart Contracts:",
+				"faq_rsk_contracts_desc": "Full EVM compatibility for programmable payment contracts",
+				"faq_rsk_settlement": "Fast Settlement:",
+				"faq_rsk_settlement_desc": "~30 second block times for quick confirmations",
+				"faq_rsk_fees": "Low Fees:",
+				"faq_rsk_fees_desc": "Predictable and low transaction fees",
+				"faq_rsk_peg": "Bitcoin Peg:",
+				"faq_rsk_peg_desc": "1:1 rBTC to BTC ratio maintained through Proof of Work Peg",
+				"faq_liquid_title": "What is Liquid Bitcoin?",
+				"faq_liquid_description": "Liquid Bitcoin (L-BTC) is a Bitcoin sidechain designed for fast settlements and enhanced functionality. It provides faster transaction confirmations and additional features while maintaining Bitcoin's security model through federation.",
+				"faq_liquid_settlement": "Fast Settlement:",
+				"faq_liquid_settlement_desc": "1 minute block times for quick transaction confirmations",
+				"faq_liquid_scripting": "Enhanced Scripting:",
+				"faq_liquid_scripting_desc": "Advanced Bitcoin script capabilities for complex payment contracts",
+				"faq_liquid_assets": "Multi-Asset Support:",
+				"faq_liquid_assets_desc": "Native support for multiple digital assets",
+				"faq_liquid_peg": "Bitcoin Peg:",
+				"faq_liquid_peg_desc": "1:1 L-BTC to BTC ratio through federated peg",
+				"faq_liquid_fees": "Low Fees:",
+				"faq_liquid_fees_desc": "Predictable transaction costs for all work sizes",
+				"faq_lightning_title": "Can I use Lightning Bitcoin?",
+				"faq_lightning_description": "Yes! You can deposit and withdraw using Lightning Bitcoin for instant, low-cost payments. However, for escrow contracts, we automatically convert Lightning payments to Rootstock to ensure secure, non-custodial fund protection.",
+				"faq_lightning_deposits": "Instant Deposits:",
+				"faq_lightning_deposits_desc": "Send Lightning payments that are instantly available",
+				"faq_lightning_fees": "Low Fees:",
+				"faq_lightning_fees_desc": "Pay minimal fees for Lightning transactions",
+				"faq_lightning_conversion": "Automatic Conversion:",
+				"faq_lightning_conversion_desc": "Lightning funds are swapped to rBTC for escrow contracts",
+				"faq_lightning_withdrawals": "Instant Withdrawals:",
+				"faq_lightning_withdrawals_desc": "Convert escrow contract funds back to Lightning anytime",
+				"faq_lightning_adoption": "Wide Adoption:",
+				"faq_lightning_adoption_desc": "Lightning is one of the most widely adopted Bitcoin sidechains",
+				"faq_escrow_title": "Why doesn't BitTasker just use Lightning for escrow?",
+				"faq_escrow_description": "While Lightning excels at instant payments, creating easy-to-use non-custodial escrow contracts on Lightning remains technically complex. We use Rootstock for escrow because it provides the security, privacy, and reliability needed to protect your funds.",
+				"faq_escrow_channels": "Channel Limitations:",
+				"faq_escrow_channels_desc": "Limited number of open channels per node for escrow contracts",
+				"faq_escrow_time": "Time Restrictions:",
+				"faq_escrow_time_desc": "Escrow contracts limited to hours, not days or weeks",
+				"faq_escrow_contracts": "No Smart Contracts:",
+				"faq_escrow_contracts_desc": "Lightning lacks programmable escrow contract functionality",
+				"faq_escrow_multisig": "Limited Contract Functionality:",
+				"faq_escrow_multisig_desc": "The Lightning network lacks the programmable contract features needed for escrow",
+				"faq_escrow_risks": "Node Risks:",
+				"faq_escrow_risks_desc": "Risk of fund loss if Lightning nodes close or disconnect"
+			},
+			"secure_payment_contract_modal": {
+				"title": "Secure Payment Contract",
+				"hero_title": "How Your Secure Payment Contract Works",
+				"hero_description": "Your funds are locked in a blockchain smart contract. Only the contract rules can release them—nobody else can access your money.",
+				"for_taskers_title": "For Taskers",
+				"for_taskers_locked": "**Funds locked:** Funds remain locked until you accept completed work.",
+				"for_taskers_review": "**7-day review period:** You have 7 days to review after completion. If you don't respond, payment is automatically released.",
+				"for_taskers_grace": "**1-hour grace period:** Cancel within 1 hour of booking and get a full automatic refund.",
+				"for_taskers_dispute": "**Dispute rights:** Raise disputes within 7 days of completion. If unresolved after 14 days, you get a full refund.",
+				"for_taskers_cancel": "**Cancel anytime:** Cancel for a full refund at any point, except within 24 hours of start time.",
+				"for_taskers_no_show": "**No-show protection:** If the Taskee doesn't start on time, mark them as no-show. They have 24 hours to respond or you get a full refund.",
+				"for_taskees_title": "For Taskees",
+				"for_taskees_guaranteed": "**Guaranteed payment:** Once you mark work as complete, the Tasker has 7 days to accept. If they don't respond, you're paid automatically after 7 days.",
+				"for_taskees_upfront": "**Upfront deposits:** You can request partial payment upfront (claimable after the 1-hour grace period).",
+				"for_taskees_dispute": "**Dispute rights:** You can propose how to split payment during disputes (up to 2 proposals).",
+				"for_taskees_refund": "**Voluntary refund:** You can refund the Tasker at any time.",
+				"platform_fees_title": "Platform Fees",
+				"platform_fees_both": "**Fees:** Both parties pay fees to BitTasker when money moves. Fees are deducted automatically, not upfront.",
+				"time_limits_title": "Key Time Limits",
+				"time_limits_24h": "**24 hours:** Cancel for a full refund (except within 24 hours of start time)",
+				"time_limits_1h": "**1 hour:** Grace period for full refunds",
+				"time_limits_7d": "**7 days:** Tasker review period after completion",
+				"time_limits_14d": "**14 days:** Escalation period before automatic release",
+				"dispute_title": "Dispute Process",
+				"dispute_propose": "**Propose a split:** Either party can propose how to divide the payment",
+				"dispute_agree": "**Agreement:** If both parties agree to a split, the funds are released accordingly",
+				"dispute_escalate": "**Escalate:** If no agreement, BitTasker reviews and decides within 14 days",
+				"dispute_final": "**Final decision:** BitTasker's decision is final and funds are released",
+				"time_limits_grace": "**1-hour grace period:** Full refund available within the first hour",
+				"time_limits_cancellation": "**Cancellation window:** Cancel before work begins for a full refund",
+				"time_limits_review": "**Review period:** 7 days to review completed work",
+				"time_limits_dispute": "**Dispute window:** 14 days to resolve disputes before escalation",
+				"time_limits_no_show": "**No-show protection:** 24 hours for taskee to respond to no-show claims",
+				"dispute_process_title": "How Disputes Work",
+				"dispute_process_step1": "**Step 1:** Either party can raise a dispute if there's an issue with the work",
+				"dispute_process_step2": "**Step 2:** Both parties can propose how to split the payment (up to 2 proposals each)",
+				"dispute_process_step3": "**Step 3:** If both agree to a split, funds are released accordingly",
+				"dispute_process_step4": "**Step 4:** If no agreement after 14 days, the tasker receives a full refund",
+				"cancellation_rules_title": "Cancellation Rules",
+				"cancellation_tasker": "**Taskers:** Can cancel anytime for a full refund, except within 24 hours of scheduled start",
+				"cancellation_taskee": "**Taskees:** Can voluntarily refund the tasker at any time",
+				"understand_button": "I Understand"
+			}
+		},
+		"time_units": {
+			"day": "day",
+			"days": "days",
+			"hour": "hour",
+			"hours": "hours",
+			"week": "week",
+			"weeks": "weeks",
+			"month": "month",
+			"months": "months",
+			"minute": "minute",
+			"minutes": "minutes",
+			"and": "and",
+			"less_than_minute": "less than a minute"
 		},
 		"airdatepicker": {
 			"select_date": "Date",
@@ -671,6 +774,25 @@
 			"select_end_date": "End date",
 			"select_start_datetime": "Start date and time",
 			"select_end_datetime": "End date and time"
+		},
+		"coming_soon": {
+			"title": "Coming Soon",
+			"subtitle": "We're working on something exciting",
+			"description": "This feature is currently under development. Check back soon for updates!"
+		},
+		"browse_faq": "Browse FAQ",
+		"cta_title": "Ready to Get Started?",
+		"cta_description": "Join thousands of people completing tasks and earning Bitcoin.",
+		"create_account": "Create Account",
+		"devices": {
+			"time_units": {
+				"minute": "minute",
+				"minutes": "minutes",
+				"hour": "hour",
+				"hours": "hours",
+				"day": "day",
+				"days": "days"
+			}
 		}
 	}
 }

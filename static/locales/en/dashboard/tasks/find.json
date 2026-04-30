@@ -68,6 +68,8 @@
 		"loading": "Loading tasks...",
 		"loading_more": "Loading more tasks...",
 		"load_more": "Load More Tasks",
-		"search_minimum_chars": "Enter at least 3 characters to search"
+		"search_minimum_chars": "Enter at least 3 characters to search",
+		"task_no_longer_open": "This task is no longer open for bidding",
+		"scroll_to_top": "Scroll to top"
 	}
 }

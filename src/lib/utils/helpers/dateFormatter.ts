@@ -453,25 +453,25 @@ export function formatDurationBetweenDates(
 	const parts: string[] = [];
 	if (diffDays > 0) {
 		parts.push(
-			`${diffDays} ${diffDays === 1 ? t('dashboard.bids.bid_creation.day') : t('dashboard.bids.bid_creation.days')}`
+			`${diffDays} ${diffDays === 1 ? t('common.time_units.day') : t('common.time_units.days')}`
 		);
 	}
 	if (diffHours > 0) {
 		parts.push(
-			`${diffHours} ${diffHours === 1 ? t('dashboard.bids.bid_creation.hour') : t('dashboard.bids.bid_creation.hours')}`
+			`${diffHours} ${diffHours === 1 ? t('common.time_units.hour') : t('common.time_units.hours')}`
 		);
 	}
 	if (diffMinutes > 0) {
 		parts.push(
-			`${diffMinutes} ${diffMinutes === 1 ? t('dashboard.bids.bid_creation.minute') : t('dashboard.bids.bid_creation.minutes')}`
+			`${diffMinutes} ${diffMinutes === 1 ? t('common.time_units.minute') : t('common.time_units.minutes')}`
 		);
 	}
 	if (parts.length === 0) {
-		return t('dashboard.bids.bid_creation.one_hour');
+		return t('common.time_units.less_than_minute');
 	}
 	if (parts.length === 1) return parts[0];
 	const lastPart = parts.pop()!;
-	const conjunction = t('common.components.date_input.and');
+	const conjunction = t('common.time_units.and');
 	return `${parts.join(', ')} ${conjunction} ${lastPart}`;
 }
 

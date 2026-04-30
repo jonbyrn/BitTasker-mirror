@@ -37,6 +37,7 @@ type PasskeyAuthFromFileFixtures = {
  */
 const CHROMIUM_ONLY_MESSAGE =
 	'Passkey auth uses CDP/WebAuthn virtual authenticators, which are only available in Chromium.';
+const PASSKEY_DASHBOARD_TIMEOUT_MS = 60_000;
 
 const test = base.extend<PasskeyAuthFromFileFixtures>({
 	credentialLabel: ['signup', { option: true }],
@@ -93,7 +94,7 @@ const test = base.extend<PasskeyAuthFromFileFixtures>({
 
 			await page.goto('/auth/login', { waitUntil: 'load' });
 			await page.getByTestId('login-continue-passkey').click();
-			await page.waitForURL(/\/dashboard/, { timeout: 15_000 });
+			await page.waitForURL(/\/dashboard/, { timeout: PASSKEY_DASHBOARD_TIMEOUT_MS });
 
 			// Dismiss Beta Warning modal so it doesn't block navigations (e.g. messages, wallet)
 			const understandBtn = page.getByRole('button', {

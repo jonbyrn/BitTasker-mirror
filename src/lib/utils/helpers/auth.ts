@@ -16,14 +16,13 @@ import { DERIVATION_CONTEXTS } from '$lib/utils/consts';
  * @param encryptedData Encrypted data string from biometrics
  * @returns Promise<string> Decrypted Nostr private key
  */
-export async function decryptNsecWithBiometrics(encryptedData: EncryptedData, exportedKey: string): Promise<string> {
+export async function decryptNsecWithBiometrics(
+	encryptedData: EncryptedData,
+	exportedKey: string
+): Promise<string> {
 	try {
-		const { nsec } = await decryptMasterKeyDataFromBiometrics(
-			encryptedData,
-			exportedKey
-		);
+		const { nsec } = await decryptMasterKeyDataFromBiometrics(encryptedData, exportedKey);
 		return nsec;
-
 	} catch (err) {
 		throw new Error(
 			'Failed to decrypt with biometrics: ' + (err instanceof Error ? err.message : 'Unknown error')
@@ -36,16 +35,17 @@ export async function decryptNsecWithBiometrics(encryptedData: EncryptedData, ex
  * @param encryptedData Encrypted data string from biometrics
  * @returns Promise<string> Decrypted wallet mnemonic
  */
-export async function decryptWalletMnemonicWithBiometrics(encryptedData: EncryptedData, exportedKey: string): Promise<string> {
+export async function decryptWalletMnemonicWithBiometrics(
+	encryptedData: EncryptedData,
+	exportedKey: string
+): Promise<string> {
 	try {
-		const { mnemonic } = await decryptMasterKeyDataFromBiometrics(
-			encryptedData,
-			exportedKey
-		);
+		const { mnemonic } = await decryptMasterKeyDataFromBiometrics(encryptedData, exportedKey);
 		return mnemonic;
 	} catch (err) {
 		throw new Error(
-			'Failed to decrypt wallet mnemonic with biometrics: ' + (err instanceof Error ? err.message : 'Unknown error')
+			'Failed to decrypt wallet mnemonic with biometrics: ' +
+				(err instanceof Error ? err.message : 'Unknown error')
 		);
 	}
 }
@@ -63,7 +63,7 @@ export async function encryptMasterKeyData(
 	mnemonic: string,
 	masterPassword: string,
 	iterations: number = 100000
-): Promise<{ encryptedData: EncryptedData, exportedKey: string }> {
+): Promise<{ encryptedData: EncryptedData; exportedKey: string }> {
 	try {
 		// Generate master salt
 		const masterSalt = randomBytes(16);
@@ -100,7 +100,7 @@ export async function encryptMasterKeyData(
 					salt: bytesToBase64(walletSalt),
 					iterations
 				},
-				masterSalt: bytesToBase64(masterSalt),
+				masterSalt: bytesToBase64(masterSalt)
 			},
 			exportedKey: exportedMasterKey
 		};
@@ -129,7 +129,9 @@ export async function decryptNsecFromMasterKey(
 		const nostrKey = await deriveContextKey(masterKey, DERIVATION_CONTEXTS.NOSTR, nostrSalt);
 
 		// Decrypt Nostr nsec
-		return await decrypt(masterKeyData.nostr.encrypted, nostrKey);
+		const nsec = await decrypt(masterKeyData.nostr.encrypted, nostrKey);
+
+		return nsec;
 	} catch (err) {
 		console.error('Failed to decrypt Nostr from master key data:', err);
 		throw new Error('Failed to decrypt Nostr from master key data');

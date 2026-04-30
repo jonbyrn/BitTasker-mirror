@@ -1,0 +1,229 @@
+{
+	"dashboard": {
+		"services": {
+			"my_services": {
+				"page_title": "My Services",
+				"title": "My Services",
+				"description": "Manage your service listings. Edit them, duplicate them, or view them on the marketplace.",
+				"create_service": "Create Service",
+				"loading": "Loading your services...",
+				"error_loading": "Error loading services",
+				"retry": "Retry",
+				"empty_title": "No services yet",
+				"empty_message": "List your first service to start receiving requests from buyers.",
+				"view": "View",
+				"view_details": "Details",
+				"view_details_short": "Details",
+				"edit": "Edit",
+				"duplicate": "Duplicate",
+				"status_active": "Active",
+				"status_inactive": "Inactive",
+				"status_sold": "Sold",
+				"filters": {
+					"heading": "Filter services",
+					"all": "All statuses",
+					"active": "Active",
+					"inactive": "Inactive"
+				},
+				"filtered_empty_title": "No services match this filter.",
+				"filtered_empty_body": "Try a different status filter to review the rest of your services.",
+				"filtered_empty_action": "Show all services",
+				"status_toggle_active": "Activate",
+				"status_toggle_inactive": "Deactivate",
+				"status_updated": "Status updated",
+				"status_update_failed": "Failed to update status",
+				"actions": {
+					"quotes": "Requests",
+					"quotes_short": "Reqs",
+					"contracts": "Contracts",
+					"contracts_short": "Contracts"
+				},
+				"location": {
+					"remote": "Remote",
+					"my_location": "My Location",
+					"tasker_location": "Tasker Location"
+				},
+				"pricing_type": {
+					"fixed": "Fixed",
+					"hourly": "Hourly",
+					"tiered": "Tiered",
+					"quote": "Quote",
+					"from": "From",
+					"tiered_pricing": "Tiered pricing",
+					"quote_required": "Quote required"
+				},
+				"timing": {
+					"lead_time": "Lead Time",
+					"delivery_time": "Delivery Time"
+				},
+				"duration": {
+					"hour": "hour",
+					"hours": "hours",
+					"day": "day",
+					"days": "days",
+					"week": "week",
+					"weeks": "weeks",
+					"month": "month",
+					"months": "months"
+				},
+				"book_now": "Book Now",
+				"workspace": {
+					"title": "Services",
+					"description": "Manage your listings and respond to incoming service requests.",
+					"quote_inbox_tab": "Quote Inbox",
+					"selected_thread_not_found": "The selected service quote thread could not be found.",
+					"loading_quotes": "Loading your services...",
+					"filter_label": "Filter by service",
+					"all_services": "All Services",
+					"select_service_first": "Select a service first.",
+					"load_failed": "Failed to load your services."
+				},
+				"quote_inbox": {
+					"title": "Quote Inbox",
+					"deleted_service_prefix": "Deleted service",
+					"service_prefix": "Service: {service}",
+					"select_service_prompt": "Select a service to review incoming requests.",
+					"syncing_requested_thread": "Syncing the requested thread...",
+					"partial_alert": "Latest request-thread data is still propagating across relays. Showing partial results until the sync completes.",
+					"stale_alert": "Showing the last known quote data for this service. Refresh before sending a proposal because the latest relay sync did not complete.",
+					"offline_alert": "You are offline. Reconnect before replying to quote requests.",
+					"reconnect_alert": "Back online. Retry if the latest request thread has not refreshed yet.",
+					"loading_service_quotes": "Loading quote requests for this service...",
+					"retry_service_quotes": "Retry to load quote requests for this service.",
+					"no_service_quotes": "No service requests yet.",
+					"total_pending_requests": "Pending requests",
+					"selected_service_total": "Requests for selected service",
+					"reviews_count": "{count} reviews",
+					"send_proposal": "Send Proposal",
+					"send_proposal_short": "Send",
+					"view_proposal": "View Proposal",
+					"view_proposal_short": "View",
+					"delete_proposal": "Delete Proposal",
+					"delete_proposal_failed": "Unable to delete this proposal right now.",
+					"pending_amount": "Pending",
+					"request_id": "Request ID: {requestId}",
+					"service": "Service: {service}",
+					"service_unavailable_body": "This service was deleted by the provider. Keep this request for reference, but no new proposals can be sent.",
+					"selected_tier": "Selected tier: {tier}",
+					"addons": "Add-ons: {addons}",
+					"add_ons_one": "1 add-on",
+					"add_ons_other": "{count} add-ons",
+					"rush_delivery": "Rush delivery",
+					"tasker_location": "Tasker's Location",
+					"taskee_location": "Taskee's Location",
+					"contract_created_title": "Contract created",
+					"contract_created_body": "This quote request has already been converted into an active service contract.",
+					"view_contract": "View Contract",
+					"view_contract_short": "Contract",
+					"expired_title": "Request expired",
+					"expired_body": "This quote request is now read-only. Wait for the buyer to send a new request before replying again.",
+					"latest_proposal": "Latest Proposal",
+					"estimated_start": "Start Date",
+					"estimated_end": "End Date",
+					"estimated_duration_label": "Estimated Duration",
+					"proposal_expires": "Proposal Expires",
+					"scope_of_work": "Scope of work",
+					"cover_letter": "Cover Letter",
+					"composer": {
+						"scope_of_work": "Scope of work",
+						"scope_placeholder": "Describe what you will deliver.",
+						"amount_label": "Amount (USD)",
+						"start_date": "Start Date",
+						"end_date": "End Date",
+						"expiration_days": "Expiration Days",
+						"expiration_hours": "Expiration Hours",
+						"cover_letter": "Cover Letter",
+						"cover_letter_placeholder": "Optional message to the buyer.",
+						"errors": {
+							"required_description_amount": "Description and amount are required.",
+							"missing_schedule": "Start and end time are required.",
+							"invalid_schedule": "Provide valid start and end times.",
+							"end_before_start": "End time must be after start time.",
+							"submit_failed": "Unable to send the proposal right now."
+						}
+					},
+					"estimated_duration": "Estimated duration: {duration}",
+					"waiting_sync": "Waiting for the selected quote thread to finish syncing.",
+					"select_request": "Select a request to review the full inquiry and compose a proposal.",
+					"statuses": {
+						"accepted": "Contract created",
+						"declined": "Declined",
+						"withdrawn": "Withdrawn",
+						"expired": "Expired",
+						"accepting": "Accepted",
+						"contract_sync_pending": "Contract syncing",
+						"accept_failed": "Accept failed",
+						"accept_unknown": "Accept unknown",
+						"proposal_sent": "Proposal sent",
+						"pending": "Pending"
+					},
+					"blocked_reason": {
+						"service_unavailable": "This service was deleted by the provider. Existing requests are now read-only.",
+						"wallet": "Connect your wallet before sending a proposal.",
+						"fee_tier": "Choose a freelancer fee tier before sending a proposal.",
+						"offline": "You are offline. Reconnect before sending a proposal.",
+						"stale": "Showing stale quote data. Refresh before sending a proposal.",
+						"partial": "Quote data is still propagating across relays. Sending is disabled until the latest request thread is fully synced.",
+						"unavailable": "Quote data is unavailable right now. Retry before sending a proposal.",
+						"syncing": "Quote data is still syncing. Sending is disabled until the latest request state loads.",
+						"select_request": "Select a request before sending a proposal."
+					},
+					"proposal_composer": {
+						"title": "Send Proposal",
+						"fields": {
+							"scope": "Scope",
+							"amount_usdt": "Amount (USDT)",
+							"estimated_duration": "Estimated Duration",
+							"estimated_start": "Estimated Start",
+							"estimated_end": "Estimated End",
+							"expiration_days": "Expiration Days",
+							"expiration_hours": "Expiration Hours",
+							"cover_letter": "Cover Letter"
+						},
+						"placeholders": {
+							"scope": "Describe what you will deliver.",
+							"estimated_duration": "3 business days",
+							"cover_letter": "Optional message to the buyer."
+						},
+						"warnings": {
+							"wallet_not_connected": "Connect your wallet before sending a proposal.",
+							"fee_tier_missing": "Choose a taskee fee tier before sending a proposal."
+						},
+						"errors": {
+							"required_fields": "Scope, amount, and estimated duration are required.",
+							"amount_invalid": "Enter a valid amount greater than 0.",
+							"expiration_days_invalid": "Expiration days must be between 0 and 30.",
+							"expiration_hours_invalid": "Expiration hours must be between 0 and 23.",
+							"time_required": "Start and end time are required.",
+							"time_invalid": "Provide valid start and end times.",
+							"time_order_invalid": "End time must be after start time.",
+							"submit_failed": "Unable to send the proposal right now."
+						},
+						"actions": {
+							"send": "Send Proposal"
+						}
+					}
+				},
+				"delete_modal": {
+					"delete_success": "Service deleted successfully.",
+					"verify_failed": "Unable to verify whether this service can be deleted right now.",
+					"delete_failed": "Unable to delete this service right now.",
+					"blocked_title": "Cannot delete service",
+					"confirm_title": "Delete service",
+					"blocked_intro": "This service cannot be deleted yet.",
+					"confirm_intro": "This permanently removes the current service listing from your dashboard.",
+					"confirm_intro_warning": "This permanently removes the current service listing from your dashboard. Existing service requests will remain visible as read-only history.",
+					"open_quotes_read_only_one": "This service still has {count} open request. After deletion, that thread will remain visible as read-only history.",
+					"open_quotes_read_only_other": "This service still has {count} open requests. After deletion, those threads will remain visible as read-only history.",
+					"open_quotes_one": "Open quotes are still attached to this service ({count} blocking thread).",
+					"open_quotes_other": "Open quotes are still attached to this service ({count} blocking threads).",
+					"active_contracts_one": "Active service contracts are still attached to this service ({count} active contract).",
+					"active_contracts_other": "Active service contracts are still attached to this service ({count} active contracts).",
+					"history_preserved": "Historical quote threads will remain as records, but no open quotes or active contracts were found.",
+					"no_open_items": "No open quotes or active contracts were found for this service.",
+					"confirm_delete": "Confirm Delete"
+				}
+			}
+		}
+	}
+}

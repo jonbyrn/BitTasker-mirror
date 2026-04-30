@@ -113,9 +113,8 @@
 		return originalDescription;
 	}
 
-	let { formatDate, yearsFrom } = $props<{
+	let { formatDate } = $props<{
 		formatDate: (date: string) => string;
-		yearsFrom: (date: string) => number;
 	}>();
 
 	// State for expandable description

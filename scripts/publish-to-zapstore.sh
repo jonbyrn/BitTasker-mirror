@@ -76,8 +76,8 @@ fi
 echo -e "${BLUE}📝 Reading version from build.gradle...${NC}"
 
 # Read current versions from build.gradle
-CURRENT_VERSION_CODE=$(grep -oP 'versionCode\s+\K\d+' android/app/build.gradle)
-CURRENT_VERSION_NAME=$(grep -oP 'versionName\s+"\K[^"]+' android/app/build.gradle)
+CURRENT_VERSION_CODE=$(perl -ne 'print $1 if /versionCode\s+(\d+)/' android/app/build.gradle)
+CURRENT_VERSION_NAME=$(perl -ne 'print $1 if /versionName\s+"([^"]+)"/' android/app/build.gradle)
 
 if [ -z "$CURRENT_VERSION_CODE" ] || [ -z "$CURRENT_VERSION_NAME" ]; then
   echo -e "${RED}❌ Error: Could not read version from build.gradle${NC}"
@@ -150,8 +150,8 @@ if [ "$BUMP_VERSION" = true ]; then
   fi
 
   # Verify update
-  NEW_VERSION_CODE_CHECK=$(grep -oP 'versionCode\s+\K\d+' android/app/build.gradle)
-  NEW_VERSION_NAME_CHECK=$(grep -oP 'versionName\s+"\K[^"]+' android/app/build.gradle)
+  NEW_VERSION_CODE_CHECK=$(perl -ne 'print $1 if /versionCode\s+(\d+)/' android/app/build.gradle)
+  NEW_VERSION_NAME_CHECK=$(perl -ne 'print $1 if /versionName\s+"([^"]+)"/' android/app/build.gradle)
 
   if [ "$NEW_VERSION_CODE_CHECK" == "$NEW_VERSION_CODE" ] && [ "$NEW_VERSION_NAME_CHECK" == "$NEW_VERSION_NAME" ]; then
     echo -e "${GREEN}✓ build.gradle updated: ${CURRENT_VERSION_NAME} → ${NEW_VERSION_NAME}${NC}\n"
@@ -170,7 +170,7 @@ echo -e "${GREEN}✓ Web app built${NC}\n"
 
 # Step 5: Sync with Capacitor
 echo -e "${BLUE}🔄 Syncing with Capacitor...${NC}"
-npx cap sync android
+npx cap sync
 echo -e "${GREEN}✓ Capacitor synced${NC}\n"
 
 # Step 6: Build signed APK

@@ -15,3 +15,6 @@ build/*
 
 # Config files
 nginx.config.yaml
+
+# Known parser bug with svelte-eslint-parser
+src/routes/+page.svelte

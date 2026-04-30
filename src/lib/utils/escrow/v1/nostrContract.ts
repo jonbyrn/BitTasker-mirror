@@ -28,52 +28,129 @@ import { createDebug } from '$lib/utils/debug';
 
 const d = createDebug('contracts');
 
+type RuntimeContractContextType = 'task' | 'service' | 'unknown';
+
+function normalizeContractContextType(value: unknown): RuntimeContractContextType {
+	if (value === 'service') return 'service';
+	if (value === 'task' || value == null) return 'task';
+	return 'unknown';
+}
+
+/** v2+ kind 30006 wire: decrypted content is `[[key, value], ...]` (see NDKPaymentContract). */
+function isEncryptedContractTagRows(data: unknown): data is string[][] {
+	if (!Array.isArray(data)) return false;
+	return data.every(
+		(row) =>
+			Array.isArray(row) &&
+			row.length >= 2 &&
+			typeof row[0] === 'string' &&
+			typeof row[1] === 'string'
+	);
+}
+
+function tagRowValue(rows: string[][], key: string): string | undefined {
+	const row = rows.find((r) => r[0] === key && typeof r[1] === 'string');
+	return row?.[1];
+}
+
+/**
+ * Human-readable title for toasts / logging after nip44 decrypt.
+ * Legacy v1: flat NostrContract JSON. v2 NDK: encrypted tag rows (taskTitle, etc.).
+ */
+function resolveContractDisplayTitle(content: NostrContract | unknown): string {
+	if (isEncryptedContractTagRows(content)) {
+		return (
+			tagRowValue(content, 'taskTitle') ??
+			tagRowValue(content, 'serviceTitle') ??
+			tagRowValue(content, 'contextTitle') ??
+			''
+		);
+	}
+	if (content && typeof content === 'object' && !Array.isArray(content)) {
+		const c = content as NostrContract;
+		return (c.taskTitle ?? c.serviceTitle ?? c.contextTitle ?? '').trim();
+	}
+	return '';
+}
+
+function getReadonlyPermissions() {
+	return {
+		canComplete: false,
+		canAccept: false,
+		canDispute: false,
+		canPropose: false,
+		canAcceptProposal: false,
+		canCancel: false,
+		canResolveTimelock: false,
+		canDelete: false
+	};
+}
+
 /**
  * Create a new contract event after escrow creation (as encrypted DM)
  */
 export async function publishContractEvent(params: CreateContractParams): Promise<void> {
-	try {
-		const npub = await getNpub();
-		const clientPubkey = npub.startsWith('npub') ? (nip19.decode(npub).data as string) : npub;
+	const npub = await getNpub();
+	const clientPubkey = npub.startsWith('npub') ? (nip19.decode(npub).data as string) : npub;
 
-		const network = import.meta.env.VITE_RSK_NETWORK;
-		const contractAddress =
-			network === 'mainnet'
-				? import.meta.env.VITE_RSK_CONTRACT_ADDRESS_MAINNET
-				: import.meta.env.VITE_RSK_CONTRACT_ADDRESS_TESTNET;
+	const network = import.meta.env.VITE_RSK_NETWORK;
+	const contractAddress =
+		network === 'mainnet'
+			? import.meta.env.VITE_RSK_CONTRACT_ADDRESS_MAINNET
+			: import.meta.env.VITE_RSK_CONTRACT_ADDRESS_TESTNET;
 
-		const contractData: NostrContract = {
-			escrowId: params.escrowId,
-			taskId: params.taskId,
-			taskTitle: params.taskTitle,
-			taskDescription: params.taskDescription,
-			freelancerPubkey: params.freelancerPubkey,
-			clientPubkey,
-			amount: params.amount,
-			currency: 'RBTC',
-			status: EscrowStatus.Funded, // Contract is created when escrow is funded
-			estimatedStartTime: params.estimatedStartTime,
-			estimatedCompletionTime: params.estimatedCompletionTime,
-			transactionHash: params.transactionHash, // Include transaction hash if provided
-			type: 'contract', // Identify as contract message
-			contractAddress
-		};
+	const contractData: NostrContract = {
+		escrowId: params.escrowId,
+		taskId: params.taskId,
+		taskTitle: params.taskTitle,
+		taskDescription: params.taskDescription,
+		freelancerPubkey: params.freelancerPubkey,
+		clientPubkey,
+		clientRskAddress: params.clientRskAddress,
+		amount: params.amount,
+		currency: 'RBTC',
+		status: EscrowStatus.Funded, // Contract is created when escrow is funded
+		estimatedStartTime: params.estimatedStartTime,
+		estimatedCompletionTime: params.estimatedCompletionTime,
+		contextType: params.contextType,
+		contextId: params.contextId,
+		contextTitle: params.contextTitle,
+		contextDescription: params.contextDescription,
+		contextVersionRef: params.contextVersionRef,
+		serviceId: params.serviceId,
+		serviceAddress: params.serviceAddress,
+		serviceTitle: params.serviceTitle,
+		quoteRequestId: params.quoteRequestId,
+		proposalId: params.proposalId,
+		proposalEventId: params.proposalEventId,
+		purchaseMode: params.purchaseMode,
+		instantOrderId: params.instantOrderId,
+		selectedTierId: params.selectedTierId,
+		pricingSnapshot: params.pricingSnapshot,
+		agreementSnapshot: params.agreementSnapshot,
+		transactionHash: params.transactionHash, // Include transaction hash if provided
+		type: 'contract', // Identify as contract message
+		contractAddress
+	};
 
-		// Send as encrypted contract event
-		const contractMessage = JSON.stringify(contractData);
-		const tags = TAG_PATTERNS.contract(
-			params.escrowId,
-			params.taskId,
-			params.freelancerPubkey,
-			clientPubkey,
-			network,
-			'v1'
+	if (!params.escrowId || !params.taskId || !params.freelancerPubkey) {
+		throw new Error(
+			'Missing required escrow parameters: escrowId, taskId, and freelancerPubkey are required'
 		);
-
-		await publishNostrEvent(KINDS.CONTRACT, contractMessage, params.freelancerPubkey, tags);
-	} catch (error) {
-		console.warn('Error creating contract:', error);
 	}
+
+	// Send as encrypted contract event
+	const contractMessage = JSON.stringify(contractData);
+	const tags = TAG_PATTERNS.contract(
+		params.escrowId,
+		params.taskId,
+		params.freelancerPubkey,
+		clientPubkey,
+		network,
+		'v1'
+	);
+
+	await publishNostrEvent(KINDS.CONTRACT, contractMessage, params.freelancerPubkey, tags);
 }
 
 /**
@@ -81,12 +158,6 @@ export async function publishContractEvent(params: CreateContractParams): Promis
  */
 export async function publishContractStatus(params: PublishStatusParams): Promise<void> {
 	try {
-		let npub = await getNpub();
-		if (npub.startsWith('npub')) {
-			const { nip19 } = await import('nostr-tools');
-			npub = nip19.decode(npub).data as string;
-		}
-
 		const statusData: NostrContractStatus = {
 			contractEventId: params.contractEventId,
 			escrowId: params.escrowId,
@@ -100,37 +171,17 @@ export async function publishContractStatus(params: PublishStatusParams): Promis
 			type: 'contract-status'
 		};
 
-		// Query the contract directly by escrowId to get recipient info
-		const contractEvents = await queryNostrEvents({
-			kinds: [KINDS.CONTRACT],
-			'#d': [params.escrowId], // Query by escrowId tag
-			limit: 1
-		});
-
-		if (contractEvents.length === 0) {
-			throw new Error('Contract not found for status update');
-		}
-
-		// Get the contract data
-		const contractData: NostrContract = contractEvents[0].content as unknown as NostrContract;
-
-		// Determine recipient: if sender is client, send to freelancer, and vice versa
-		const recipientPubkey =
-			npub === contractData.clientPubkey
-				? contractData.freelancerPubkey
-				: contractData.clientPubkey;
-
 		// Send as encrypted contract status event
 		const statusMessage = JSON.stringify(statusData);
 		const tags = TAG_PATTERNS.contractStatus(
 			params.contractEventId,
 			params.escrowId,
-			recipientPubkey,
+			params.recipientPubkey,
 			params.action,
 			'v1'
 		);
 
-		await publishNostrEvent(KINDS.CONTRACT_STATUS, statusMessage, recipientPubkey, tags);
+		await publishNostrEvent(KINDS.CONTRACT_STATUS, statusMessage, params.recipientPubkey, tags);
 	} catch (error) {
 		console.warn('Error publishing contract status:', error);
 	}
@@ -249,11 +300,15 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 						const transactionHash = oldestStaleEvent.content.transactionHash;
 
 						if (transactionHash && contractEvent.id) {
-							// Attempt to recover by checking if transaction is confirmed
+							const recoveryRecipient =
+								(npub === contractEvent?.content?.clientPubkey
+									? contractEvent?.content?.freelancerPubkey
+									: contractEvent?.content?.clientPubkey) || '';
 							recoverMissingFundsReleasedEvent(
 								contractEvent.content.escrowId,
 								contractEvent.id,
-								transactionHash
+								transactionHash,
+								recoveryRecipient
 							).catch(() => {});
 						}
 					}
@@ -362,6 +417,15 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 				isClient,
 				isFreelancer
 			);
+			const normalizedContextType = normalizeContractContextType(contractEvent.content.contextType);
+			if (normalizedContextType === 'unknown') {
+				d.warn('Unknown contract contextType; forcing read-only rendering', {
+					escrowId: contractEvent.content.escrowId,
+					contextType: contractEvent.content.contextType
+				});
+			}
+			const effectivePermissions =
+				normalizedContextType === 'unknown' ? getReadonlyPermissions() : permissions;
 
 			// Extract completion attachments from latest status event with attachments
 			const completionAttachments =
@@ -431,7 +495,7 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 				escrowData, // TypeScript now knows this is non-null
 				status,
 				isPending,
-				permissions,
+				permissions: effectivePermissions,
 				disputeProposal,
 				completionAttachments
 			});
@@ -471,7 +535,8 @@ export async function getContracts(filter?: ContractFilter): Promise<ContractWit
 async function recoverMissingFundsReleasedEvent(
 	escrowId: string,
 	contractEventId: string,
-	transactionHash: string
+	transactionHash: string,
+	recipientPubkey: string
 ): Promise<void> {
 	try {
 		// Get provider to check transaction status
@@ -501,7 +566,8 @@ async function recoverMissingFundsReleasedEvent(
 			escrowId,
 			contractEventId,
 			transactionHash: receipt.hash,
-			status: EscrowStatus.FundsReleased
+			status: EscrowStatus.FundsReleased,
+			recipientPubkey
 		});
 	} catch {
 		// Don't throw - recovery is best-effort
@@ -906,8 +972,15 @@ export async function handleContractEvent(event: NostrEvent) {
 
 		console.log(`[ContractStore] ✅ New contract added to store: ${escrowId}`);
 
-		// Show notification for new contract (can be handled by UI toast system)
-		appStore.showInfoToast(`New contract received: ${newContract.contractEvent.content.taskTitle}`);
+		// Show notification (wording matches on-chain state; v2 events use tag-array content — see resolveContractDisplayTitle)
+		const displayTitle = resolveContractDisplayTitle(newContract.contractEvent.content);
+		const label = displayTitle.trim() || 'Contract';
+		const toastMessage = isPending
+			? `Contract funding in progress: ${label}`
+			: escrowData
+				? `Contract funded: ${label}`
+				: `New contract: ${label}`;
+		appStore.showInfoToast(toastMessage);
 	} catch (err) {
 		console.error('[ContractStore] Error handling contract event:', err);
 	}

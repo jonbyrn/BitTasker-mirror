@@ -3,7 +3,7 @@ import { KeyboardResize, KeyboardStyle } from '@capacitor/keyboard';
 import { loadEnv } from 'vite';
 
 // Load environment variables
-const env = loadEnv('', process.cwd(), '');
+const env = loadEnv(process.env.NODE_ENV || 'production', process.cwd(), '');
 
 // Only use server URL for live reload (when VITE_CLIENT_URL is explicitly set)
 // For production builds, omit server config to use bundled webDir
@@ -53,6 +53,13 @@ const config: CapacitorConfig = {
 			overlaysWebView: false,
 			style: 'DEFAULT',
 			backgroundColor: '#00000000'
+		},
+		SystemBars: {
+			// Injects --safe-area-inset-* CSS variables on Android WebView < 140
+			// This fixes the bug where env(safe-area-inset-*) returns 0px on Android 15+
+			insetsHandling: 'css',
+			style: 'DEFAULT',
+			hidden: false
 		},
 		Keyboard: {
 			// iOS: 'Body' resizes the <body> element when keyboard appears, which is more

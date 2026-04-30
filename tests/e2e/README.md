@@ -40,6 +40,17 @@ npx playwright test tests/e2e/01-signup-onboarding.spec.ts tests/e2e/02-credenti
 
 **Environment:** Set **VITE_API_URL** (and **VITE_E2E_TURNSTILE_BYPASS** if you start the dev server yourself). See [docs/testing/e2e-testing.md](../docs/testing/e2e-testing.md) for the full list. Locally, Playwright can start the dev server; in CI it runs build + preview.
 
+### Service browser slices in CI
+
+The service-specific browser suites (`service-quotes-*`, `service-ux-hardening*`, `service-instant-buy*`, `homepage-featured-services*`, `tasks-services-regression-*`) currently run through the in-app service harness and route-level request mocks.
+
+- They require the built preview app or an explicit `PW_E2E_BASE_URL`.
+- In preview mode, that means `build/`, `.svelte-kit/output/server/manifest.js`, and `.svelte-kit/output/client` from the upstream build job, not just the static `build/` folder.
+- They require the `/e2e/service-harness.html` route to remain present.
+- They do **not** currently require seeded passkey accounts or a live relay bootstrap.
+- CI validates that contract through `npm run test:e2e:validate-service-bootstrap` before the service Playwright slices run.
+- The current CI declaration is `SERVICE_E2E_BOOTSTRAP_MODE=route-harness`; if service browser coverage later expands to seeded-account flows, update that mode and the validator together instead of layering new assumptions onto the harness contract.
+
 ### Browser support: Chromium required for passkey tests
 
 Tests that use **passkey/WebAuthn** (signup, onboarding, login with passkey) rely on Chrome DevTools Protocol (CDP) to simulate virtual authenticators. CDP is **Chromium-only**, so:
@@ -185,10 +196,12 @@ The fixture logs in via passkey, dismisses the Beta modal, and hands you a page 
 ### General steps for any new test
 
 1. **Decide which fixture you need**
+
    - **Need an already-logged-in user (signup or Nostr)?** Use `fixtures/passkey-auth-from-file.ts`, and `test.use({ credentialLabel: 'signup' })` or `credentialLabel: 'nostr'`. See [Quick start](#quick-start-tests-needing-a-logged-in-user) above.
    - **Creating new users or custom auth?** Use `fixtures/signup-login-auth.ts` (01) or `fixtures/auth.ts` and implement the flow.
 
 2. **Depend on credentials file only when necessary**
+
    - If the spec needs the credentials file (e.g. passkey login), skip when it’s missing:
      ```ts
      test.skip(() => !webauthnCredentialsFileExists(), CREDENTIALS_MISSING_MESSAGE);
@@ -196,9 +209,11 @@ The fixture logs in via passkey, dismisses the Beta modal, and hands you a page 
    - Use a **function** in `test.skip()` so the condition runs at **runtime** (after 01 has created the file), not at load time.
 
 3. **Place the spec in `tests/e2e/`**
+
    - Any `*.spec.ts` under `tests/e2e/` is included in phase 2 of `npm run test:e2e` (see [scripts/e2e-ordered.js](../../scripts/e2e-ordered.js)). No script change needed.
 
 4. **Run order**
+
    - If the new test must run after another (e.g. “B after A”), use `test.describe.serial()` so they run in order in the same worker, or run phases manually with `--workers=1` when ordering matters.
 
 5. **Add a feature doc if useful**
@@ -286,12 +301,10 @@ const attachDiagnostics = async (label: string) => {
 	await test
 		.info()
 		.attach(`${label}-step-log.txt`, { body: stepLog.join('\n'), contentType: 'text/plain' });
-	await test
-		.info()
-		.attach(`${label}-console.txt`, {
-			body: consoleMessages.join('\n') || '(none)',
-			contentType: 'text/plain'
-		});
+	await test.info().attach(`${label}-console.txt`, {
+		body: consoleMessages.join('\n') || '(none)',
+		contentType: 'text/plain'
+	});
 };
 
 // On failure in a step:

@@ -1,4 +1,14 @@
+<!--
+@deprecated This component uses v1 escrow patterns with ContractStatusEvent.
+Use ContractTimelineNDK.svelte instead which uses v2 escrow with NDKContractStatus.
+This file will be removed in a future release.
+-->
 <script lang="ts">
+/**
+ * @deprecated This component uses v1 escrow patterns with ContractStatusEvent.
+Use ContractTimelineNDK.svelte instead which uses v2 escrow with NDKContractStatus.
+This file will be removed in a future release.
+ */
 	import type { ContractStatusEvent, NostrContractStatus } from '$lib/types/contract';
 	import { t } from 'svelte-i18n';
 	import { locale } from 'svelte-i18n';

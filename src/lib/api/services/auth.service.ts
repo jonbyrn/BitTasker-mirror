@@ -73,6 +73,14 @@ export class AuthService extends BaseApiService {
 		const response = await this.get<{ challenge: string; message: string }>(
 			ENDPOINTS.AUTH.NOSTR_CHALLENGE
 		);
+		if (!response?.data || typeof response.data.challenge !== 'string') {
+			console.error('[AuthService.getChallenge] Malformed challenge response', {
+				hasData: Boolean(response?.data),
+				challengeType: typeof response?.data?.challenge,
+				challengeValue: response?.data?.challenge,
+				messageType: typeof response?.data?.message
+			});
+		}
 		return response.data;
 	}
 

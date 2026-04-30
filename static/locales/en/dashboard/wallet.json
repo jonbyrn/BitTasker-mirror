@@ -1,6 +1,7 @@
 {
 	"wallet": {
 		"title": "Wallet",
+		"learn_more": "Learn More",
 		"tab_balance": "Balance",
 		"tab_receive": "Receive",
 		"tab_send": "Send",
@@ -62,10 +63,12 @@
 		"status_failed": "Failed",
 		"status_confirmations": "Confirmations",
 		"transaction": {
+			"hash_copied": "Transaction hash copied",
 			"status": {
 				"confirmed": "Confirmed",
 				"pending": "Pending",
-				"failed": "Failed"
+				"failed": "Failed",
+				"confirmations": "{count} confirmations"
 			},
 			"type": {
 				"send": "Sent",
@@ -106,6 +109,11 @@
 			"acceptproposal": "Proposal Accepted",
 			"proposeresolution": "Resolution Proposed",
 			"refundescrow": "Refund Processed",
+			"refundclient": "Refunded tasker",
+			"transferownership": "Ownership Transferred",
+			"renounceownership": "Ownership Renounced",
+			"pause": "Contract Paused",
+			"unpause": "Contract Unpaused",
 			"disputeescrow": "Task Disputed",
 			"resolvedispute": "Dispute Resolved",
 			"cancelescrow": "Contract Cancelled",
@@ -381,6 +389,7 @@
 		},
 		"invoice": {
 			"payment_request": "Payment Request",
+			"generation_failed": "Failed to generate invoice",
 			"qr_generation_failed": "Failed to generate QR code",
 			"share": "Share Invoice",
 			"share_title": "Payment Request",
@@ -408,6 +417,7 @@
 			"sending_transaction": "Sending Transaction",
 			"can_close_safely": "You can safely close this screen and the transaction will continue.",
 			"transaction_failed": "Transaction failed",
+			"transaction_confirmed": "Transaction confirmed!",
 			"status": {
 				"sending": "Sending Transaction",
 				"confirming": "Confirming Transaction",
@@ -478,7 +488,8 @@
 				"invalid_qr_code": "Invalid payment QR code",
 				"failed_to_parse_qr": "Failed to parse QR code",
 				"failed_to_parse_address": "Failed to parse address",
-				"invalid_form": "Please check your form inputs"
+				"invalid_form": "Please check your form inputs",
+				"amountless_invoice": "Support for amountless invoices is coming soon. Please request a new invoice with the specific amount included to proceed."
 			}
 		},
 		"receive_rbtc": "Receive rBTC",
@@ -548,10 +559,16 @@
 		"calculator": {
 			"clear": "Clear",
 			"delete": "Delete",
-			"calculation": "Calculation"
+			"calculation": "Calculation",
+			"divide": "Divide",
+			"multiply": "Multiply",
+			"add": "Add",
+			"subtract": "Subtract",
+			"decimal_point": "Decimal point"
 		},
 		"receive": {
 			"title": "Request Payment",
+			"receive_funds": "Receive Funds",
 			"unit_sats": "Sats",
 			"unit_usd": "USD",
 			"network_fees": "Network Fees",
@@ -559,12 +576,13 @@
 			"cancel": "Cancel",
 			"generate_invoice": "Generate Invoice",
 			"get_paid": "Get Paid",
-			"charge_fees_to_payer": "Charge network fees to payer?",
+			"charge_fees_to_payer": "Charge network fees to payer",
 			"enter_amount_to_estimate": "Enter amount to estimate fees",
 			"network": "Network",
 			"description_characters": "Characters",
 			"below_swap_minimum": "Amount below swap minimum: {minAmount} Sats",
-			"invoice_total": "Invoice total"
+			"invoice_total": "Invoice total",
+			"fee": "Fee"
 		},
 		"initializing": "Initializing wallet...",
 		"buy_sell": {
@@ -676,7 +694,7 @@
 			"network_transaction_fee": "Network Transaction Fee",
 			"total_fees": "Total Fees",
 			"estimated_received": "Estimated Received",
-			"total_received_est": "Total Received (est)",
+			"total_received_est": "Total",
 			"loading_fees": "Calculating fees...",
 			"service_fee": "Service Fee",
 			"miner_fee": "Miner Fee",
@@ -829,19 +847,23 @@
 			"networks": {
 				"lightning_bitcoin": {
 					"label": "Lightning Bitcoin",
-					"description": "Lightning Network payments"
+					"description": "Lightning Network payments",
+					"fee_info": "~0.25% swap fee"
 				},
 				"rootstock_bitcoin": {
 					"label": "Rootstock Bitcoin",
-					"description": "rBTC on Rootstock network"
+					"description": "rBTC on Rootstock network",
+					"fee_info": "Network gas fee"
 				},
 				"liquid_bitcoin": {
 					"label": "Liquid Bitcoin",
-					"description": "L-BTC on Liquid network (swap to rBTC)"
+					"description": "L-BTC on Liquid network (swap to rBTC)",
+					"fee_info": "~0.1% swap fee"
 				},
 				"bitcoin": {
 					"label": "Bitcoin",
-					"description": "Native Bitcoin network"
+					"description": "Native Bitcoin network",
+					"fee_info": "Network fee"
 				},
 				"liquid_usdt": {
 					"label": "Liquid USDT",

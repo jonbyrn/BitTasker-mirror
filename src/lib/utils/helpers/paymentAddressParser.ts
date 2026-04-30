@@ -1,11 +1,17 @@
 import { detectLightningType, parseLightningInvoice } from './lightningInvoice';
-import { validateRSKAddress, validateBitcoinAddress } from './validators';
+import { validateBitcoinAddress } from './validators';
 import { address as liquidAddress } from 'liquidjs-lib';
 
 export interface ParsedPaymentAddress {
 	isValid: boolean;
 	address: string;
-	network: 'lightning-bitcoin' | 'rootstock-bitcoin' | 'liquid-bitcoin' | 'bitcoin' | 'usdt-bsc' | null;
+	network:
+		| 'lightning-bitcoin'
+		| 'rootstock-bitcoin'
+		| 'liquid-bitcoin'
+		| 'bitcoin'
+		| 'usdt-bsc'
+		| null;
 	amount: number | null; // Amount in sats, null if not specified
 	memo: string | null;
 	errorMessage?: string; // Optional error message with context
@@ -86,7 +92,7 @@ function extractChainId(address: string, requireEthereumContext: boolean = true)
 
 	const chainIdStr = match[1];
 	const chainId = parseInt(chainIdStr, 10);
-	
+
 	// Validate chain ID is a reasonable number
 	if (isNaN(chainId) || chainId < MIN_CHAIN_ID || chainId > MAX_CHAIN_ID) {
 		return null;
@@ -127,31 +133,31 @@ function extractEthereumComponents(input: string): {
 	hasScheme: boolean;
 } {
 	const hasScheme = ETHEREUM_SCHEME_REGEX.test(input);
-	
+
 	// Extract chain ID first (before modifying the string)
 	// Require Ethereum address context to avoid false positives
 	const chainId = extractChainId(input, true);
-	
+
 	// Remove scheme if present
 	let addressPart = input;
 	if (hasScheme) {
 		addressPart = addressPart.replace(ETHEREUM_SCHEME_REGEX, '');
 	}
-	
+
 	// Remove chain ID if present (only the first occurrence after address)
 	if (chainId !== null) {
 		// Replace @chainId pattern, but only if it appears after the address part
 		// This prevents removing @ from query params
 		addressPart = addressPart.replace(CHAIN_ID_REGEX, '');
 	}
-	
+
 	// Extract address (before query params)
 	const queryIndex = addressPart.indexOf('?');
 	const address = (queryIndex === -1 ? addressPart : addressPart.substring(0, queryIndex)).trim();
-	
+
 	// Parse query params from original input
 	const queryParams = parseQueryParams(input);
-	
+
 	return {
 		address,
 		chainId,
@@ -181,7 +187,7 @@ function validateLiquidAddress(address: string): boolean {
 		// toOutputScript will throw if address is invalid
 		liquidAddress.toOutputScript(address);
 		return true;
-	} catch (error) {
+	} catch {
 		// Address is invalid (wrong format, bad checksum, or wrong network)
 		return false;
 	}
@@ -209,6 +215,20 @@ export function parsePaymentAddress(input: string): ParsedPaymentAddress {
 	const lightningType = detectLightningType(trimmed);
 	if (lightningType === 'bolt11') {
 		const parsed = parseLightningInvoice(trimmed);
+
+		// Check for amountless invoice - Boltz submarine swaps require amount in invoice
+		// See: https://support.boltz.exchange/hc/center/articles/1745247555
+		if (parsed.isValid && !parsed.hasAmount) {
+			return {
+				isValid: false,
+				address: trimmed,
+				network: 'lightning-bitcoin',
+				amount: null,
+				memo: parsed.description,
+				errorMessage: 'amountless_invoice' // Special key for i18n lookup
+			};
+		}
+
 		return {
 			isValid: parsed.isValid,
 			address: trimmed,
@@ -233,18 +253,19 @@ export function parsePaymentAddress(input: string): ParsedPaymentAddress {
 	const isBitcoinUri = trimmed.startsWith('bitcoin:');
 	let btcAddressPart = trimmed;
 	let btcQueryIndex = -1;
-	
+
 	if (isBitcoinUri) {
 		// Extract address and query from bitcoin:address?params format
 		const withoutScheme = trimmed.substring(8); // Remove "bitcoin:"
 		btcQueryIndex = withoutScheme.indexOf('?');
-		btcAddressPart = btcQueryIndex === -1 ? withoutScheme : withoutScheme.substring(0, btcQueryIndex);
+		btcAddressPart =
+			btcQueryIndex === -1 ? withoutScheme : withoutScheme.substring(0, btcQueryIndex);
 	} else {
 		// Plain address, check for query params
 		btcQueryIndex = trimmed.indexOf('?');
 		btcAddressPart = btcQueryIndex === -1 ? trimmed : trimmed.substring(0, btcQueryIndex);
 	}
-	
+
 	if (validateBitcoinAddress(btcAddressPart).isValid) {
 		if (isBitcoinUri) {
 			// Handle Bitcoin URI format: bitcoin:address?amount=...&label=...&message=...
@@ -253,7 +274,7 @@ export function parsePaymentAddress(input: string): ParsedPaymentAddress {
 				try {
 					const queryString = trimmed.substring(trimmed.indexOf('?') + 1);
 					const params = new URLSearchParams(queryString);
-					
+
 					let amount: number | null = null;
 					const amountParam = params.get('amount');
 					if (amountParam) {
@@ -272,7 +293,7 @@ export function parsePaymentAddress(input: string): ParsedPaymentAddress {
 						amount,
 						memo
 					};
-				} catch (parseError) {
+				} catch {
 					// If query parsing fails, return basic Bitcoin address
 					return {
 						isValid: true,
@@ -299,7 +320,7 @@ export function parsePaymentAddress(input: string): ParsedPaymentAddress {
 					// Parse query string manually
 					const queryString = trimmed.substring(btcQueryIndex + 1);
 					const params = new URLSearchParams(queryString);
-					
+
 					let amount: number | null = null;
 					const amountParam = params.get('amount');
 					if (amountParam) {
@@ -318,7 +339,7 @@ export function parsePaymentAddress(input: string): ParsedPaymentAddress {
 						amount,
 						memo
 					};
-				} catch (error) {
+				} catch {
 					// If query parsing fails, return basic Bitcoin address
 					return {
 						isValid: true,
@@ -346,28 +367,28 @@ export function parsePaymentAddress(input: string): ParsedPaymentAddress {
 	const isLiquidUri = trimmed.startsWith('liquid:') || trimmed.startsWith('liquidnetwork:');
 	let liquidAddressPart = trimmed;
 	let liquidQueryIndex = -1;
-	
+
 	if (isLiquidUri) {
 		// Extract address and query from liquid:address?params or liquidnetwork:address?params format
-		const withoutScheme = trimmed.startsWith('liquidnetwork:') 
+		const withoutScheme = trimmed.startsWith('liquidnetwork:')
 			? trimmed.substring(14) // Remove "liquidnetwork:"
 			: trimmed.substring(7); // Remove "liquid:"
 		liquidQueryIndex = withoutScheme.indexOf('?');
-		liquidAddressPart = liquidQueryIndex === -1 ? withoutScheme : withoutScheme.substring(0, liquidQueryIndex);
+		liquidAddressPart =
+			liquidQueryIndex === -1 ? withoutScheme : withoutScheme.substring(0, liquidQueryIndex);
 	} else {
 		// Plain address, check for query params
 		liquidQueryIndex = trimmed.indexOf('?');
 		liquidAddressPart = liquidQueryIndex === -1 ? trimmed : trimmed.substring(0, liquidQueryIndex);
 	}
-	
+
 	if (validateLiquidAddress(liquidAddressPart)) {
 		// Parse query parameters if present
 		if (isLiquidUri || liquidQueryIndex !== -1) {
 			try {
 				// Extract query string from original input
-				const queryString = liquidQueryIndex !== -1 
-					? trimmed.substring(trimmed.indexOf('?') + 1)
-					: '';
+				const queryString =
+					liquidQueryIndex !== -1 ? trimmed.substring(trimmed.indexOf('?') + 1) : '';
 				const params = new URLSearchParams(queryString);
 
 				let amount: number | null = null;
@@ -388,7 +409,7 @@ export function parsePaymentAddress(input: string): ParsedPaymentAddress {
 					amount,
 					memo
 				};
-			} catch (error) {
+			} catch {
 				// If query parsing fails, return basic Liquid address
 				return {
 					isValid: true,
@@ -413,12 +434,13 @@ export function parsePaymentAddress(input: string): ParsedPaymentAddress {
 	// 4. Check for Ethereum-compatible addresses (RSK, BSC) with chain ID detection
 	// Only extract components if input looks like Ethereum address (optimization)
 	const lowerTrimmed = trimmed.toLowerCase();
-	const looksLikeEthereum = lowerTrimmed.startsWith('0x') || 
-	                          lowerTrimmed.startsWith('ethereum:') || 
-	                          lowerTrimmed.startsWith('bsc:') || 
-	                          lowerTrimmed.startsWith('rsk:') ||
-	                          ETHEREUM_ADDRESS_REGEX.test(trimmed);
-	
+	const looksLikeEthereum =
+		lowerTrimmed.startsWith('0x') ||
+		lowerTrimmed.startsWith('ethereum:') ||
+		lowerTrimmed.startsWith('bsc:') ||
+		lowerTrimmed.startsWith('rsk:') ||
+		ETHEREUM_ADDRESS_REGEX.test(trimmed);
+
 	if (!looksLikeEthereum) {
 		// Not an Ethereum-compatible address, return invalid
 		return {
@@ -431,11 +453,11 @@ export function parsePaymentAddress(input: string): ParsedPaymentAddress {
 	}
 
 	const ethereumComponents = extractEthereumComponents(trimmed);
-	const { address: addressPart, chainId, queryParams, hasScheme } = ethereumComponents;
-	
+	const { address: addressPart, chainId, queryParams } = ethereumComponents;
+
 	// Normalize address for comparison
 	const normalizedAddress = normalizeEthereumAddress(addressPart);
-	
+
 	// Validate Ethereum address format and checksum
 	const isEthereumAddress = ETHEREUM_ADDRESS_REGEX.test(addressPart);
 	if (!isEthereumAddress) {
@@ -458,7 +480,7 @@ export function parsePaymentAddress(input: string): ParsedPaymentAddress {
 			memo: null
 		};
 	}
-	
+
 	// If chain ID is present and maps to a known network, use it (highest priority)
 	if (chainId !== null) {
 		const network = CHAIN_ID_TO_NETWORK[chainId];
@@ -470,7 +492,7 @@ export function parsePaymentAddress(input: string): ParsedPaymentAddress {
 				try {
 					const wei = BigInt(valueParam);
 					amount = weiToSats(wei);
-				} catch (error) {
+				} catch {
 					// Invalid value parameter, ignore
 				}
 			}
@@ -497,7 +519,7 @@ export function parsePaymentAddress(input: string): ParsedPaymentAddress {
 	// 5. Check for BSC USDT address (BSC uses Ethereum address format: 0x...)
 	// Only treat as BSC if explicitly using bsc: scheme (not ethereum: without chain ID)
 	const isBscUri = lowerTrimmed.startsWith('bsc:');
-	
+
 	// If it's a BSC URI scheme and valid Ethereum address, treat as BSC
 	if (isBscUri && isEthereumAddress) {
 		let amount: number | null = null;
@@ -506,7 +528,7 @@ export function parsePaymentAddress(input: string): ParsedPaymentAddress {
 			try {
 				const wei = BigInt(valueParam);
 				amount = weiToSats(wei);
-			} catch (error) {
+			} catch {
 				// Invalid value parameter, ignore
 			}
 		}
@@ -523,7 +545,7 @@ export function parsePaymentAddress(input: string): ParsedPaymentAddress {
 	// 6. Check for RSK address (with optional query params)
 	// Check for RSK URI scheme or plain Ethereum address format (default fallback)
 	const isRskUri = lowerTrimmed.startsWith('rsk:');
-	
+
 	// Reject ethereum: scheme without chain ID (ambiguous - could be Ethereum mainnet)
 	if (lowerTrimmed.startsWith('ethereum:') && !chainId) {
 		return {
@@ -532,10 +554,11 @@ export function parsePaymentAddress(input: string): ParsedPaymentAddress {
 			network: null,
 			amount: null,
 			memo: null,
-			errorMessage: 'Ethereum mainnet (chain ID 1) is not supported. Use bsc: for BSC or rsk: for RSK, or specify chain ID with @'
+			errorMessage:
+				'Ethereum mainnet (chain ID 1) is not supported. Use bsc: for BSC or rsk: for RSK, or specify chain ID with @'
 		};
 	}
-	
+
 	if (isRskUri || (isEthereumAddress && !isBscUri)) {
 		let amount: number | null = null;
 		const valueParam = queryParams.get('value');
@@ -543,7 +566,7 @@ export function parsePaymentAddress(input: string): ParsedPaymentAddress {
 			try {
 				const wei = BigInt(valueParam);
 				amount = weiToSats(wei);
-			} catch (error) {
+			} catch {
 				// Invalid value parameter, ignore
 			}
 		}
@@ -569,7 +592,7 @@ export function parsePaymentAddress(input: string): ParsedPaymentAddress {
 			memo: null
 		};
 	}
-	
+
 	return {
 		isValid: false,
 		address: trimmed,

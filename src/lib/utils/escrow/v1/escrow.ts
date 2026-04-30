@@ -4,6 +4,7 @@ import {
 	type GasEstimation,
 	FEE_TIERS
 } from '@bittasker/wallet-core';
+import type { ServiceAcceptanceUnknownReasonCode } from '$lib/types/service-quote';
 import type { ContractTransactionResult, DisputeProposal, EscrowData } from '$lib/types/wallet';
 import type { Attachment } from '$lib/types/task';
 import { t } from 'svelte-i18n';
@@ -14,6 +15,13 @@ import { EscrowStatus } from './escrow.enum';
 import { getProvider, getWallet } from '$lib/stores/wallet.store';
 import * as EscrowNostrEvent from './escrowEvents';
 import escrowABI from './abi.json';
+import {
+	classifyServiceAcceptanceAmbiguityError,
+	getTransactionConfirmationCount,
+	ServiceAcceptanceFinalityError,
+	waitForServiceAcceptanceFinality
+} from '$lib/utils/service-contract/finality';
+import type { ServiceAcceptanceSnapshot } from '$lib/types/service-quote';
 
 let contract: ethers.Contract | null = null;
 // Cache for legacy contracts to avoid recreating them
@@ -27,6 +35,26 @@ function resetCachedContract(): void {
 	contract = null;
 	legacyContracts.clear(); // Also clear legacy contracts cache
 }
+
+type TransactionReplacementError = Error & {
+	code?: string;
+	cancelled?: boolean;
+	replacement?: ethers.TransactionResponse;
+	receipt?: ethers.TransactionReceipt | null;
+};
+
+interface EscrowVerificationInput {
+	escrowId: string;
+	client: string;
+	freelancer: string;
+	amount: string;
+	transactionHashes: string[];
+}
+
+export type PublishedServiceAcceptanceReverificationResult =
+	| { status: 'confirmed'; confirmationsAtVerification: number }
+	| { status: 'downgraded'; reasonCode: ServiceAcceptanceUnknownReasonCode }
+	| { status: 'deferred'; reasonCode: ServiceAcceptanceUnknownReasonCode };
 
 const getRSKWallet = () => getWallet('rsk');
 const getRSKProvider = () => getProvider('rsk');
@@ -84,6 +112,20 @@ export async function ensureEscrowReady(
 		}
 	}
 
+	// Verify cached contract's signer is the SAME INSTANCE as current wallet
+	// This handles the case where wallet was reinitialized (same address, but new instance
+	// with new provider) but cached contract still references the old destroyed wallet/provider
+	if (contract) {
+		const contractRunner = contract.runner as ethers.Wallet | null;
+
+		// Compare wallet instance references, not just addresses
+		// Even if addresses match, the old wallet's provider may be destroyed
+		if (contractRunner !== wallet) {
+			// Wallet instance changed - reset cached contract to force reinitialization
+			resetCachedContract();
+		}
+	}
+
 	// Determine which contract to use/initialize
 	let targetContract: ethers.Contract;
 
@@ -113,8 +155,20 @@ export async function ensureEscrowReady(
 			// Legacy contract - check cache or create new instance
 			const normalizedAddress = contractAddress.toLowerCase();
 
+			// Check if cached legacy contract's signer is the SAME INSTANCE as current wallet
+			const cachedLegacy = legacyContracts.get(normalizedAddress);
+			if (cachedLegacy) {
+				const cachedRunner = cachedLegacy.runner as ethers.Wallet | null;
+
+				// Compare wallet instance references, not just addresses
+				if (cachedRunner !== wallet) {
+					// Wallet instance changed - remove stale cached contract
+					legacyContracts.delete(normalizedAddress);
+				}
+			}
+
 			if (legacyContracts.has(normalizedAddress)) {
-				// Use cached legacy contract
+				// Use cached legacy contract (signer verified above)
 				targetContract = legacyContracts.get(normalizedAddress)!;
 			} else {
 				// Create new legacy contract instance
@@ -284,6 +338,79 @@ async function loadEscrowDetails(escrowId: string, contractAddress?: string): Pr
 	throw new Error(`Failed to load escrow details for ID ${escrowId}: Unknown error`);
 }
 
+async function verifyServiceEscrowCreation(
+	input: EscrowVerificationInput
+): Promise<ServiceAcceptanceUnknownReasonCode | null> {
+	const pendingServiceContract = EscrowNostrEvent.findPendingServiceContractByTransactionHashes(
+		input.transactionHashes
+	);
+	if (!pendingServiceContract) {
+		return null;
+	}
+
+	try {
+		const verifiedEscrow = await loadEscrowDetails(input.escrowId);
+		const expectedClient = input.client.toLowerCase();
+		const expectedFreelancer = input.freelancer.toLowerCase();
+		const expectedAmount = BigInt(input.amount);
+		const verifiedAmount = ethers.parseEther(verifiedEscrow.baseAmount);
+
+		if (
+			verifiedEscrow.client.toLowerCase() !== expectedClient ||
+			verifiedEscrow.freelancer.toLowerCase() !== expectedFreelancer ||
+			verifiedAmount !== expectedAmount
+		) {
+			return 'reconciliation_deferred';
+		}
+
+		return null;
+	} catch (error) {
+		return classifyServiceAcceptanceAmbiguityError(error) ?? 'reconciliation_deferred';
+	}
+}
+
+export async function reverifyPublishedServiceAcceptance(input: {
+	escrowId: string;
+	transactionHash: string;
+	acceptanceSnapshot: ServiceAcceptanceSnapshot;
+}): Promise<PublishedServiceAcceptanceReverificationResult> {
+	try {
+		const { provider } = await ensureEscrowReady(undefined, false);
+		const receipt = await provider.getTransactionReceipt(input.transactionHash);
+		if (!receipt) {
+			return { status: 'downgraded', reasonCode: 'reconciliation_deferred' };
+		}
+
+		const confirmationsAtVerification = await getTransactionConfirmationCount(receipt);
+		if (confirmationsAtVerification < input.acceptanceSnapshot.requiredConfirmations) {
+			return { status: 'downgraded', reasonCode: 'reconciliation_deferred' };
+		}
+
+		const verifiedEscrow = await loadEscrowDetails(input.escrowId);
+		const verifiedAmount = ethers.parseEther(verifiedEscrow.baseAmount);
+
+		if (
+			verifiedEscrow.client.toLowerCase() !==
+				input.acceptanceSnapshot.clientRskAddress.toLowerCase() ||
+			verifiedEscrow.freelancer.toLowerCase() !==
+				input.acceptanceSnapshot.freelancerRskAddress.toLowerCase() ||
+			verifiedAmount !== BigInt(input.acceptanceSnapshot.weiAmount)
+		) {
+			return { status: 'downgraded', reasonCode: 'reconciliation_deferred' };
+		}
+
+		return {
+			status: 'confirmed',
+			confirmationsAtVerification
+		};
+	} catch (error) {
+		return {
+			status: 'deferred',
+			reasonCode: classifyServiceAcceptanceAmbiguityError(error) ?? 'rpc_unavailable'
+		};
+	}
+}
+
 // Load dispute proposal details
 async function getDisputeProposal(
 	escrowId: string,
@@ -378,6 +505,129 @@ async function createEscrow(
 			status: 'pending'
 		};
 
+		const processConfirmedReceipt = async (
+			receipt: ethers.TransactionReceipt,
+			transactionHashes: string[] = [receipt.hash]
+		) => {
+			if (receipt.status === 0) {
+				result.status = 'failed';
+				for (const transactionHash of transactionHashes) {
+					EscrowNostrEvent.cleanupPendingContractByTxHash(transactionHash);
+				}
+				return;
+			}
+
+			let finalizedReceipt = receipt;
+			const pendingServiceContract =
+				EscrowNostrEvent.findPendingServiceContractByTransactionHashes(transactionHashes);
+			if (pendingServiceContract) {
+				try {
+					finalizedReceipt = await waitForServiceAcceptanceFinality(
+						provider,
+						receipt.hash,
+						receipt
+					);
+				} catch (error) {
+					if (error instanceof ServiceAcceptanceFinalityError) {
+						const primaryTransactionHash = transactionHashes[0] ?? receipt.hash;
+						void EscrowNostrEvent.publishPendingServiceAcceptanceUnknownByTxHash(
+							primaryTransactionHash,
+							error.reasonCode,
+							receipt.hash
+						);
+						return;
+					}
+
+					throw error;
+				}
+			}
+
+			result.status = 'confirmed';
+			result.gasUsed = finalizedReceipt.gasUsed.toString();
+
+			try {
+				if (!contract) {
+					console.error('Contract is null, cannot parse events');
+					return;
+				}
+
+				const escrowCreatedEvent = finalizedReceipt.logs.find((log) => {
+					try {
+						const parsedLog = contract.interface.parseLog({
+							topics: log.topics,
+							data: log.data
+						});
+						return parsedLog?.name === 'EscrowCreated';
+					} catch {
+						return false;
+					}
+				});
+
+				if (escrowCreatedEvent) {
+					const parsedLog = contract.interface.parseLog({
+						topics: escrowCreatedEvent.topics,
+						data: escrowCreatedEvent.data
+					});
+
+					if (parsedLog) {
+						const escrowId = parsedLog.args[0].toString();
+						const client = parsedLog.args[1];
+						const freelancer = parsedLog.args[2];
+						const amount = parsedLog.args[3].toString();
+
+						result.escrowId = escrowId;
+						const verificationReason = await verifyServiceEscrowCreation({
+							escrowId,
+							client,
+							freelancer,
+							amount,
+							transactionHashes
+						});
+						if (verificationReason) {
+							const primaryTransactionHash = transactionHashes[0] ?? receipt.hash;
+							void EscrowNostrEvent.publishPendingServiceAcceptanceUnknownByTxHash(
+								primaryTransactionHash,
+								verificationReason,
+								finalizedReceipt.hash
+							);
+							return;
+						}
+
+						const confirmedAcceptanceSnapshot = pendingServiceContract?.acceptanceSnapshot
+							? {
+									...pendingServiceContract.acceptanceSnapshot,
+									confirmationsAtVerification:
+										await getTransactionConfirmationCount(finalizedReceipt)
+								}
+							: undefined;
+
+						await EscrowNostrEvent.handleEscrowCreated({
+							escrowId,
+							transactionHash: finalizedReceipt.hash,
+							transactionHashes,
+							client,
+							freelancer,
+							amount,
+							acceptanceSnapshot: confirmedAcceptanceSnapshot
+						});
+					}
+				} else {
+					console.warn('EscrowCreated event not found in transaction receipt');
+					for (const transactionHash of transactionHashes) {
+						EscrowNostrEvent.cleanupPendingContractByTxHash(transactionHash);
+					}
+					appStore.showErrorToast(
+						'Escrow transaction succeeded, but EscrowCreated event was not found. The escrow may need to be verified manually.'
+					);
+				}
+			} catch (error) {
+				console.error('Failed to extract escrow ID from receipt:', error);
+				for (const transactionHash of transactionHashes) {
+					EscrowNostrEvent.cleanupPendingContractByTxHash(transactionHash);
+				}
+			}
+		};
+
 		// Handle confirmation asynchronously and create Nostr contract directly
 		// Add timeout protection (5 minutes) to prevent hanging forever
 		const TX_WAIT_TIMEOUT = 5 * 60 * 1000; // 5 minutes in milliseconds
@@ -392,65 +642,7 @@ async function createEscrow(
 		])
 			.then(async (receipt: ethers.TransactionReceipt | null) => {
 				if (receipt) {
-					result.status = 'confirmed';
-					result.gasUsed = receipt.gasUsed.toString();
-
-					// Extract escrow ID from the EscrowCreated event in the receipt
-					try {
-						if (!contract) {
-							console.error('Contract is null, cannot parse events');
-							return;
-						}
-
-						const escrowCreatedEvent = receipt.logs.find((log) => {
-							try {
-								const parsedLog = contract.interface.parseLog({
-									topics: log.topics,
-									data: log.data
-								});
-								return parsedLog?.name === 'EscrowCreated';
-							} catch {
-								return false;
-							}
-						});
-
-						if (escrowCreatedEvent) {
-							const parsedLog = contract.interface.parseLog({
-								topics: escrowCreatedEvent.topics,
-								data: escrowCreatedEvent.data
-							});
-
-							if (parsedLog) {
-								const escrowId = parsedLog.args[0].toString();
-								const client = parsedLog.args[1];
-								const freelancer = parsedLog.args[2];
-								const amount = parsedLog.args[3].toString();
-
-								result.escrowId = escrowId;
-
-								await EscrowNostrEvent.handleEscrowCreated({
-									escrowId,
-									transactionHash: receipt.hash,
-									client,
-									freelancer,
-									amount
-								});
-							}
-						} else {
-							console.warn('EscrowCreated event not found in transaction receipt');
-							// If EscrowCreated event is missing, clean up pending contract
-							// This handles the case where transaction succeeded but event is missing
-							EscrowNostrEvent.cleanupPendingContractByTxHash(receipt.hash);
-							// Notify user that escrow was created but event is missing
-							appStore.showErrorToast(
-								'Escrow transaction succeeded, but EscrowCreated event was not found. The escrow may need to be verified manually.'
-							);
-						}
-					} catch (error) {
-						console.error('Failed to extract escrow ID from receipt:', error);
-						// Clean up pending contract on error extracting escrow ID
-						EscrowNostrEvent.cleanupPendingContractByTxHash(receipt.hash);
-					}
+					await processConfirmedReceipt(receipt, [tx.hash, receipt.hash]);
 				} else {
 					result.status = 'failed';
 					console.error('Transaction receipt is null');
@@ -462,16 +654,53 @@ async function createEscrow(
 			})
 			.catch((error: unknown) => {
 				console.error('Transaction failed or timed out:', error);
+
+				// Detect wallet rejection (user cancelled in their wallet)
+				const rejectionError = error as { code?: string | number };
+				if (rejectionError?.code === 4001 || rejectionError?.code === 'ACTION_REJECTED') {
+					result.status = 'rejected';
+					// Clean up pending contract on rejection (only if hash exists)
+					if (result.hash) {
+						EscrowNostrEvent.cleanupPendingContractByTxHash(result.hash);
+					}
+					return;
+				}
+
+				const replacementError = error as TransactionReplacementError;
+				if (
+					replacementError?.code === 'TRANSACTION_REPLACED' &&
+					replacementError.receipt &&
+					!replacementError.cancelled
+				) {
+					const replacementHash =
+						replacementError.replacement?.hash ?? replacementError.receipt.hash;
+					void EscrowNostrEvent.publishPendingServiceAcceptanceUnknownByTxHash(
+						result.hash,
+						'tx_replaced',
+						replacementHash
+					);
+					EscrowNostrEvent.replacePendingContractByTxHash(result.hash, replacementHash);
+					void processConfirmedReceipt(replacementError.receipt, [result.hash, replacementHash]);
+					return;
+				}
+				const ambiguityReason = classifyServiceAcceptanceAmbiguityError(error);
+				if (result.hash && ambiguityReason) {
+					void EscrowNostrEvent.publishPendingServiceAcceptanceUnknownByTxHash(
+						result.hash,
+						ambiguityReason
+					);
+					if (ambiguityReason === 'pending_timeout') {
+						console.warn(
+							'Transaction wait timed out. Transaction may still be pending on the blockchain.'
+						);
+					}
+					return;
+				}
+
 				result.status = 'failed';
 				// Clean up pending contract on failure (only if hash exists)
 				if (result.hash) {
 					EscrowNostrEvent.cleanupPendingContractByTxHash(result.hash);
-				}
-				// If it's a timeout, update the error message
-				if (error instanceof Error && error.message.includes('timeout')) {
-					console.warn(
-						'Transaction wait timed out. Transaction may still be pending on the blockchain.'
-					);
 				}
 			});
 
@@ -486,6 +715,7 @@ async function createEscrow(
 // Complete task - Freelancer Only
 async function completeTask(
 	escrowId: string,
+	recipientPubkey: string,
 	contractEventId?: string,
 	completionAttachments?: Attachment[]
 ): Promise<ContractTransactionResult> {
@@ -519,7 +749,8 @@ async function completeTask(
 				contractEventId,
 				transactionHash: tx.hash,
 				status: EscrowStatus.PendingCompletion,
-				completionAttachments
+				completionAttachments,
+				recipientPubkey
 			});
 		}
 
@@ -537,7 +768,8 @@ async function completeTask(
 							contractEventId,
 							transactionHash: receipt.hash,
 							status: EscrowStatus.Completed,
-							completionAttachments
+							completionAttachments,
+							recipientPubkey
 						});
 					}
 				} else {
@@ -569,6 +801,7 @@ export interface AcceptTaskOptions {
 // Accept task
 async function acceptTask(
 	escrowId: string,
+	recipientPubkey: string,
 	contractEventId?: string,
 	options?: AcceptTaskOptions
 ): Promise<ContractTransactionResult> {
@@ -601,7 +834,8 @@ async function acceptTask(
 				escrowId,
 				contractEventId,
 				transactionHash: tx.hash,
-				status: EscrowStatus.PendingAcceptance
+				status: EscrowStatus.PendingAcceptance,
+				recipientPubkey
 			});
 		}
 
@@ -619,7 +853,8 @@ async function acceptTask(
 								escrowId,
 								contractEventId,
 								transactionHash: receipt.hash,
-								status: EscrowStatus.FundsReleased
+								status: EscrowStatus.FundsReleased,
+								recipientPubkey
 							});
 						} catch {
 							// FundsReleased event not published - contract may show PendingAcceptance status
@@ -654,6 +889,7 @@ async function acceptTask(
 // Cancel escrow
 async function cancelEscrow(
 	escrowId: string,
+	recipientPubkey: string,
 	contractEventId?: string
 ): Promise<ContractTransactionResult> {
 	try {
@@ -685,7 +921,8 @@ async function cancelEscrow(
 				escrowId,
 				contractEventId,
 				transactionHash: tx.hash,
-				status: EscrowStatus.PendingCancellation
+				status: EscrowStatus.PendingCancellation,
+				recipientPubkey
 			});
 		}
 
@@ -702,7 +939,8 @@ async function cancelEscrow(
 							escrowId,
 							contractEventId,
 							transactionHash: receipt.hash,
-							status: EscrowStatus.Cancelled
+							status: EscrowStatus.Cancelled,
+							recipientPubkey
 						});
 					}
 				} else {
@@ -730,10 +968,14 @@ async function publishRefundStatusSafely(params: {
 	contractEventId: string;
 	transactionHash: string;
 	status: EscrowStatus;
+	recipientPubkey: string;
 	statusMessagingVariant?: 'default' | 'refund';
 }): Promise<void> {
 	try {
-		await EscrowNostrEvent.publishEscrowStatus(params);
+		await EscrowNostrEvent.publishEscrowStatus({
+			...params,
+			recipientPubkey: params.recipientPubkey
+		});
 	} catch (error) {
 		console.error('Failed to publish refund status to Nostr:', error, params);
 	}
@@ -742,6 +984,7 @@ async function publishRefundStatusSafely(params: {
 // Refund client
 async function refundClient(
 	escrowId: string,
+	recipientPubkey: string,
 	contractEventId?: string
 ): Promise<ContractTransactionResult> {
 	try {
@@ -770,7 +1013,8 @@ async function refundClient(
 				contractEventId,
 				transactionHash: tx.hash,
 				status: EscrowStatus.PendingCancellation,
-				statusMessagingVariant: 'refund'
+				statusMessagingVariant: 'refund',
+				recipientPubkey
 			});
 		}
 
@@ -787,7 +1031,8 @@ async function refundClient(
 							contractEventId,
 							transactionHash: receipt.hash,
 							status: EscrowStatus.Cancelled,
-							statusMessagingVariant: 'refund'
+							statusMessagingVariant: 'refund',
+							recipientPubkey
 						});
 					}
 				} else {
@@ -813,6 +1058,7 @@ async function refundClient(
 // Dispute task
 async function disputeTask(
 	escrowId: string,
+	recipientPubkey: string,
 	contractEventId?: string
 ): Promise<ContractTransactionResult> {
 	try {
@@ -844,7 +1090,8 @@ async function disputeTask(
 				escrowId,
 				contractEventId,
 				transactionHash: tx.hash,
-				status: EscrowStatus.PendingDispute
+				status: EscrowStatus.PendingDispute,
+				recipientPubkey
 			});
 		}
 
@@ -861,7 +1108,8 @@ async function disputeTask(
 							escrowId,
 							contractEventId,
 							transactionHash: receipt.hash,
-							status: EscrowStatus.InDispute
+							status: EscrowStatus.InDispute,
+							recipientPubkey
 						});
 					}
 				} else {
@@ -887,6 +1135,7 @@ async function disputeTask(
 // Propose resolution
 async function proposeResolution(
 	escrowId: string,
+	recipientPubkey: string,
 	freelancerAmount: string,
 	contractEventId?: string,
 	proposedClientAmount?: string,
@@ -928,7 +1177,8 @@ async function proposeResolution(
 				transactionHash: tx.hash,
 				status: EscrowStatus.PendingResolutionProposal,
 				proposedClientAmount,
-				proposedFreelancerAmount
+				proposedFreelancerAmount,
+				recipientPubkey
 			});
 		}
 
@@ -947,7 +1197,8 @@ async function proposeResolution(
 							transactionHash: receipt.hash,
 							status: EscrowStatus.DisputeResolutionProposed,
 							proposedClientAmount,
-							proposedFreelancerAmount
+							proposedFreelancerAmount,
+							recipientPubkey
 						});
 					}
 				} else {
@@ -973,6 +1224,7 @@ async function proposeResolution(
 // Accept proposal
 async function acceptProposal(
 	escrowId: string,
+	recipientPubkey: string,
 	contractEventId?: string,
 	options?: { onConfirmed?: () => Promise<void> }
 ): Promise<ContractTransactionResult> {
@@ -1005,7 +1257,8 @@ async function acceptProposal(
 				escrowId,
 				contractEventId,
 				transactionHash: tx.hash,
-				status: EscrowStatus.PendingProposalAcceptance
+				status: EscrowStatus.PendingProposalAcceptance,
+				recipientPubkey
 			});
 		}
 
@@ -1022,7 +1275,8 @@ async function acceptProposal(
 							escrowId,
 							contractEventId,
 							transactionHash: receipt.hash,
-							status: EscrowStatus.DisputeResolved
+							status: EscrowStatus.DisputeResolved,
+							recipientPubkey
 						});
 					}
 					if (options?.onConfirmed) {
@@ -1051,6 +1305,7 @@ async function acceptProposal(
 // Resolve after timelock
 async function resolveAfterTimelock(
 	escrowId: string,
+	recipientPubkey: string,
 	escrowStatus: EscrowStatus,
 	contractEventId?: string,
 	options?: { onConfirmed?: () => Promise<void> }
@@ -1084,7 +1339,8 @@ async function resolveAfterTimelock(
 				escrowId,
 				contractEventId,
 				transactionHash: tx.hash,
-				status: EscrowStatus.PendingTimelockResolution
+				status: EscrowStatus.PendingTimelockResolution,
+				recipientPubkey
 			});
 		}
 
@@ -1120,7 +1376,8 @@ async function resolveAfterTimelock(
 							escrowId,
 							contractEventId,
 							transactionHash: receipt.hash,
-							status: finalStatus
+							status: finalStatus,
+							recipientPubkey
 						});
 						if (finalStatus === EscrowStatus.FundsReleased && options?.onConfirmed) {
 							await options.onConfirmed();

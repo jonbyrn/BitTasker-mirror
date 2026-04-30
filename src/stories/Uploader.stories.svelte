@@ -3,16 +3,6 @@
 	import { expect, userEvent, within } from '@storybook/test';
 	import Uploader from '$lib/components/Uploader.svelte';
 
-	interface CanvasElement extends HTMLElement {
-		getByRole: (role: string, options: { name: RegExp }) => HTMLElement;
-		getByText: (text: string) => HTMLElement;
-		getByTestId: (id: string) => HTMLElement;
-	}
-
-	interface PlayContext {
-		canvasElement: CanvasElement;
-	}
-
 	const { Story } = defineMeta({
 		title: 'Components/Uploader',
 		component: Uploader,
@@ -70,12 +60,11 @@
 		files: [],
 		error: ''
 	}}
-	play={async ({ canvasElement }: PlayContext) => {
+	play={async ({ canvasElement }) => {
 		const canvas = within(canvasElement);
 		const uploadButton = canvas.getByRole('button', { name: /Upload images/i });
 		await expect(uploadButton).toBeInTheDocument();
 
-		// Test file upload interaction
 		const input = canvas.getByTestId('file-input');
 		const file = new File(['test'], 'test.jpg', { type: 'image/jpeg' });
 		await userEvent.upload(input, file);
@@ -93,7 +82,7 @@
 		files: [],
 		error: 'Maximum file size exceeded'
 	}}
-	play={async ({ canvasElement }: PlayContext) => {
+	play={async ({ canvasElement }) => {
 		const canvas = within(canvasElement);
 		const errorMessage = canvas.getByText('Maximum file size exceeded');
 		await expect(errorMessage).toBeInTheDocument();
@@ -112,7 +101,7 @@
 		files: [],
 		error: ''
 	}}
-	play={async ({ canvasElement }: PlayContext) => {
+	play={async ({ canvasElement }) => {
 		const canvas = within(canvasElement);
 		const uploadButton = canvas.getByRole('button', { name: /Upload profile picture/i });
 		await expect(uploadButton).toBeInTheDocument();
@@ -132,7 +121,7 @@
 		files: [],
 		error: ''
 	}}
-	play={async ({ canvasElement }: PlayContext) => {
+	play={async ({ canvasElement }) => {
 		const canvas = within(canvasElement);
 		const uploadButton = canvas.getByRole('button', { name: /Upload landscape image/i });
 		await expect(uploadButton).toBeInTheDocument();

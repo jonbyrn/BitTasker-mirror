@@ -1,13 +1,16 @@
 <script lang="ts">
-	import type { Snippet } from 'svelte';
 	import { fly, scale } from 'svelte/transition';
 	import { t } from 'svelte-i18n';
 	import { Capacitor } from '@capacitor/core';
 	import { walletStore } from '$lib/stores/wallet.store';
+	import { triggerHaptic, ImpactStyle } from '$lib/utils/helpers/haptics';
+	import type { Snippet } from 'svelte';
 
 	interface Props {
 		isOpen: boolean;
+		// mode: 'receive' | 'send'; unused prop
 		onClose: () => void;
+		// onSuccess?: () => void; unused prop
 		children?: Snippet;
 	}
 
@@ -51,12 +54,17 @@
 			// Lock scroll when modal is open
 			disableBodyScroll();
 
-			// Focus modal after a short delay to allow transition
-			setTimeout(() => {
+			// Focus modal after next frame to allow transition (avoids setTimeout inside $effect)
+			const rafId = requestAnimationFrame(() => {
 				if (modalElement) {
 					modalElement.focus();
 				}
-			}, 100);
+			});
+
+			return () => {
+				cancelAnimationFrame(rafId);
+				enableBodyScroll();
+			};
 		} else {
 			// Restore scrolling when modal is closed
 			enableBodyScroll();
@@ -65,10 +73,8 @@
 			if (previousActiveElement && typeof previousActiveElement.focus === 'function') {
 				previousActiveElement.focus();
 			}
+			return enableBodyScroll;
 		}
-
-		// Cleanup on unmount
-		return enableBodyScroll;
 	});
 
 	// Escape key handler
@@ -109,6 +115,7 @@
 	// Handle backdrop click
 	function handleBackdropClick(e: MouseEvent) {
 		if (e.target === e.currentTarget) {
+			triggerHaptic(ImpactStyle.Light);
 			props.onClose();
 		}
 	}
@@ -153,7 +160,8 @@
 
 		// Check if swipe threshold is met
 		if (deltaY > threshold) {
-			// Close modal
+			// Close modal with haptic feedback
+			triggerHaptic(ImpactStyle.Medium);
 			props.onClose();
 		} else {
 			// Snap back
@@ -206,7 +214,7 @@
 		>
 			<!-- Content Area -->
 			<div
-				class="flex min-h-0 flex-1 flex-col space-y-4 overflow-hidden p-3 pt-[max(0.75rem,env(safe-area-inset-top))] pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:space-y-6 sm:p-4 lg:p-6"
+				class="wallet-modal-content flex min-h-0 flex-1 flex-col space-y-4 overflow-hidden p-3 sm:space-y-6 sm:p-4 lg:p-6"
 			>
 				<!-- Wallet Error States (only show errors, not initialization) -->
 				{#if $walletStore.error}
@@ -253,3 +261,15 @@
 		</div>
 	</div>
 {/if}
+
+<style>
+	/*
+	 * Safe area padding with SystemBars fallback pattern.
+	 * Uses CSS variable injection from Capacitor SystemBars plugin
+	 * for Android WebView < 140 where env() returns 0px.
+	 */
+	.wallet-modal-content {
+		padding-top: max(0.75rem, var(--safe-area-inset-top, env(safe-area-inset-top, 0px)));
+		padding-bottom: max(0.75rem, var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
+	}
+</style>

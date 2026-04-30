@@ -277,6 +277,15 @@ textarea {
 	border-radius: 0.5rem !important;
 }
 
+/* Ensure alert content breaks long words to prevent horizontal overflow */
+.alert span,
+.alert p,
+.alert div:not(.alert-actions) {
+	word-break: break-word;
+	overflow-wrap: anywhere;
+	hyphens: auto;
+}
+
 /* Match dropdown menu border radius to alerts */
 .dropdown-content {
 	border-radius: 0.5rem !important;
@@ -430,27 +439,38 @@ body {
 	}
 }
 
-/* Safe area insets for notched devices */
+/*
+ * Safe area insets for notched devices
+ *
+ * Uses the SystemBars plugin fallback pattern for Android WebView < 140:
+ * var(--safe-area-inset-*, env(safe-area-inset-*, 0px))
+ *
+ * SystemBars injects --safe-area-inset-* CSS variables on Android when
+ * env() values are not available (WebView bug on Android 15+).
+ */
 .pt-safe {
-	padding-top: env(safe-area-inset-top, 0);
+	padding-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
 }
 
 .pb-safe {
-	padding-bottom: env(safe-area-inset-bottom, 0);
+	padding-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
 }
 
 .pl-safe {
-	padding-left: env(safe-area-inset-left, 0);
+	padding-left: var(--safe-area-inset-left, env(safe-area-inset-left, 0px));
 }
 
 .pr-safe {
-	padding-right: env(safe-area-inset-right, 0);
+	padding-right: var(--safe-area-inset-right, env(safe-area-inset-right, 0px));
 }
 
 /* CSS Custom Properties for bottom navigation */
 :root {
 	--bottom-nav-height: 80px;
-	--bottom-nav-height-safe: calc(80px + env(safe-area-inset-bottom, 0));
+	/* Use SystemBars fallback pattern for safe area calculation */
+	--bottom-nav-height-safe: calc(
+		80px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px))
+	);
 	/* Updated at runtime via ResizeObserver */
 	--app-footer-height: var(--bottom-nav-height-safe);
 	/* Standard bottom offset for floating UI above the dock */
@@ -492,7 +512,7 @@ body {
 .app-shell__header {
 	grid-area: header;
 	min-height: 0;
-	padding-top: env(safe-area-inset-top, 0);
+	padding-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
 }
 
 .app-shell__content {

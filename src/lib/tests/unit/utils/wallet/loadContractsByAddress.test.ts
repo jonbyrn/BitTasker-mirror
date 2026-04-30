@@ -5,12 +5,19 @@ import { EscrowStatus } from '$lib/utils/escrow';
 const mockEnsureEscrowReady = vi.fn();
 const mockLoadEscrowDetails = vi.fn();
 
-vi.mock('$lib/utils/escrow/v1/escrow', () => ({
-	escrow: {
-		ensureEscrowReady: (...args: unknown[]) => mockEnsureEscrowReady(...args),
-		loadEscrowDetails: (escrowId: string) => mockLoadEscrowDetails(escrowId)
-	}
-}));
+vi.mock('$lib/utils/escrow/v1/escrow', async (importOriginal) => {
+	const actual = await importOriginal<typeof import('$lib/utils/escrow/v1/escrow')>();
+	return {
+		...actual,
+		escrow: {
+			ensureEscrowReady: (...args: unknown[]) => mockEnsureEscrowReady(...args),
+			loadEscrowDetails: (escrowId: string) => mockLoadEscrowDetails(escrowId)
+		},
+		reverifyPublishedServiceAcceptance: vi.fn().mockResolvedValue({
+			status: 'confirmed'
+		})
+	};
+});
 
 import { loadContractsByAddress } from '$lib/utils/wallet/loadContractsByAddress';
 

@@ -211,6 +211,20 @@ describe('Wallet Store Functions', () => {
 			const address = await getRSKAddress();
 			expect(address).toBe('0x1234567890123456789012345678901234567890');
 		});
+
+		it('returns empty when initialize() is skipped while another init is already in flight', async () => {
+			walletStore.update((s) => ({
+				...s,
+				isInitializing: true,
+				rsk: {
+					...s.rsk,
+					address: null
+				}
+			}));
+
+			const address = await getRSKAddress();
+			expect(address).toBe('');
+		});
 	});
 
 	describe('initializeWallet', () => {

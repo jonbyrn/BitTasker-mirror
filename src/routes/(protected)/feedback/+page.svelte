@@ -4,7 +4,7 @@
 	import { user } from '$lib/stores/user.store';
 	import { compressImage, validateImageFile } from '$lib/utils/imageCompression';
 	import Logo from '$lib/components/Logo.svelte';
-	
+
 	type FeedbackSubmission = {
 		npub: string;
 		status: 'Bug' | 'Feature';
@@ -23,13 +23,7 @@
 	let userNpub = $state('');
 	let username = $state('');
 	let statusBugInput = $state<HTMLInputElement | null>(null);
-	let statusFeatureInput = $state<HTMLInputElement | null>(null);
 	let fileInputEl = $state<HTMLInputElement | null>(null);
-	let compressionInfo = $state<{
-		originalSize: number;
-		compressedSize: number;
-		compressionRatio: number;
-	} | null>(null);
 	let isCompressing = $state(false);
 
 	onMount(() => {
@@ -98,7 +92,8 @@
 			if (username) formData.append('username', username);
 
 			// Debug: log outgoing payload (excluding file content)
-			const debugPayload: Record<string, any> = {};
+			const debugPayload: Record<string, string | { name: string; size: number; type: string }> =
+				{};
 			for (const [k, v] of formData.entries()) {
 				debugPayload[k] = v instanceof File ? { name: v.name, size: v.size, type: v.type } : v;
 			}
@@ -139,7 +134,8 @@
 			// Validate image file before compression
 			const validation = validateImageFile(originalFile);
 			if (!validation.isValid) {
-				error = validation.error || $t('feedback.errors.invalid_image_file') || 'Invalid image file';
+				error =
+					validation.error || $t('feedback.errors.invalid_image_file') || 'Invalid image file';
 				return;
 			}
 
@@ -156,14 +152,8 @@
 				});
 
 				screenshot = compressionResult.file;
-				compressionInfo = {
-					originalSize: compressionResult.originalSize,
-					compressedSize: compressionResult.compressedSize,
-					compressionRatio: compressionResult.compressionRatio
-				};
-			} catch (err) {
+			} catch {
 				screenshot = originalFile;
-				compressionInfo = null;
 			} finally {
 				isCompressing = false;
 			}
@@ -177,7 +167,6 @@
 		contactInfo = '';
 		error = '';
 		isSubmitted = false;
-		compressionInfo = null;
 		isCompressing = false;
 	}
 </script>
@@ -250,9 +239,6 @@
 												required
 												class="radio radio-primary mr-2"
 												bind:this={statusBugInput}
-												onchange={() => {
-													statusBugInput && statusBugInput.setCustomValidity('');
-												}}
 											/>
 											<span class="text-base-content text-sm font-medium"
 												>{$t('feedback.bug') || 'Bug'}</span
@@ -264,10 +250,6 @@
 												bind:group={status}
 												value="Feature"
 												class="radio radio-primary mr-2"
-												bind:this={statusFeatureInput}
-												onchange={() => {
-													statusBugInput && statusBugInput.setCustomValidity('');
-												}}
 											/>
 											<span class="text-base-content text-sm font-medium"
 												>{$t('feedback.feature') || 'Feature Request'}</span
@@ -325,23 +307,16 @@
 										onclick={() => fileInputEl && fileInputEl.click()}
 										disabled={isCompressing}
 									>
-									{#if isCompressing}
-										<span class="loading loading-spinner loading-xs"></span>
-										{$t('feedback.compressing') || 'Compressing...'}
-									{:else}
-										{$t('feedback.choose_file') || 'Choose File'}
-									{/if}
+										{#if isCompressing}
+											<span class="loading loading-spinner loading-xs"></span>
+											{$t('feedback.compressing') || 'Compressing...'}
+										{:else}
+											{$t('feedback.choose_file') || 'Choose File'}
+										{/if}
 									</button>
 									{#if screenshot}
 										<div class="flex flex-col gap-1">
 											<span class="text-base-content/70 text-sm break-all">{screenshot.name}</span>
-											<!-- {#if compressionInfo}
-												<div class="text-success text-xs">
-													✓ Compressed: {Math.round(compressionInfo.originalSize / 1024)}KB → {Math.round(
-														compressionInfo.compressedSize / 1024
-													)}KB ({Math.round((1 - compressionInfo.compressionRatio) * 100)}% smaller)
-												</div>
-											{/if} -->
 										</div>
 									{/if}
 								</div>

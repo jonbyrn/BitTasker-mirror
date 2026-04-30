@@ -64,3 +64,10 @@ docs/testing/presentation-prep.md
 
 # Ignored scripts
 scripts/ignored/*
+
+# Claude Code config and state (auto-generated, should not be committed)
+.claude-flow/
+
+# Local swarm state
+.swarm/
+.gitnexus

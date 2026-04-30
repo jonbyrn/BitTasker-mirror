@@ -38,6 +38,9 @@
 			"retry": "Reintentar cargar ofertas",
 			"loading_user_data": "Error al cargar datos del usuario"
 		},
+		"errors": {
+			"failed_to_load_content": "Error al cargar el contenido. Por favor intenta de nuevo."
+		},
 		"empty": {
 			"title": "Aún no hay ofertas",
 			"find_tasks": "Buscar tareas para ofertar",
@@ -47,6 +50,7 @@
 			"loading": "Cargando...",
 			"bid_submitted": "Oferta Enviada",
 			"task_details": "Detalles de la Tarea",
+			"task_info": "Información de la Tarea",
 			"task_not_found": "Tarea No Encontrada",
 			"close": "Cerrar",
 			"try_again": "Intentar de Nuevo",
@@ -240,7 +244,9 @@
 		"base_amount": "Cantidad",
 		"base_amount_tooltip": "Cantidad original de la oferta",
 		"client_fee": "Tarifa del Cliente ({fee})",
+		"taskee_fee": "Tarifa del Taskee ({fee})",
 		"fee_tooltip": "Tarifa de la plataforma",
+		"simulated_payment_id": "ID de Pago Simulado",
 		"estimated_gas_fee": "Tarifa de Red Estimada",
 		"gas_fee_tooltip": "Tarifa de transacción estimada",
 		"total_payment": "Pago Total",
@@ -258,6 +264,10 @@
 		"connecting": "Conectando...",
 		"connect_wallet": "Conectar Cartera",
 		"wallet_error_prefix": "Error de Cartera:",
+		"available_balance": "Disponible",
+		"required_balance": "Requerido",
+		"checking_balance": "Comprobando tu saldo disponible...",
+		"balance_verified": "Tu saldo disponible cubre este contrato.",
 		"retrying": "Reintentando...",
 		"retry": "Reintentar",
 		"insufficient_balance": "Fondos insuficientes - Agregar más a tu cartera",
@@ -267,6 +277,8 @@
 		"creating": "Creando...",
 		"accept_and_pay": "Aceptar y Pagar",
 		"accept": "Aceptar",
+		"accept_short": "Aceptar",
+		"decline_short": "Rechazar",
 		"fund_contract_title": "Financiar contrato",
 		"fund": "Financiar",
 		"bid_accepted_message": "¡Tu oferta ha sido aceptada!",
@@ -287,6 +299,8 @@
 		"nostr_contract_failed": "Error al crear contrato",
 		"nostr_contract_success": "Contrato creado exitosamente",
 		"creating_nostr_contract": "Creando contrato...",
+		"waiting_for_confirmation": "Esperando confirmación de la transacción...",
+		"funding_confirm_failed": "No pudimos confirmar este pago en la cadena. Revisa tu monedero o el explorador de bloques.",
 		"what_happens_next_title": "¿Qué Sucede Ahora?",
 		"next_item_notify": "El ejecutor de la tarea será notificado de la aceptación",
 		"next_item_begin": "El ejecutor de la tarea puede comenzar a trabajar en la tarea",
@@ -402,12 +416,13 @@
 		"accept": "Aceptar"
 	},
 	"bids_panel": {
+		"title": "Ofertas",
 		"failed_to_accept_bid": "Error al aceptar la oferta",
 		"failed_to_reject_bid": "Error al rechazar la oferta",
+		"failed_to_load_counter_offers": "Error al cargar contraofertas",
 		"enter_counter_offer_amount": "Ingresa el monto de la contraoferta:",
 		"enter_message_for_counter_offer": "Ingresa el mensaje para la contraoferta:",
 		"failed_to_create_counter_offer": "Error al crear la contraoferta",
-		"title": "Ofertas",
 		"bid": "oferta",
 		"bids": "ofertas",
 		"submitted": "enviadas"

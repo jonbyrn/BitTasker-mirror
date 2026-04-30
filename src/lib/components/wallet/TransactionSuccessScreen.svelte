@@ -6,6 +6,7 @@
 	import { getProvider } from '$lib/stores/wallet.store';
 	import { triggerHaptic, ImpactStyle } from '$lib/utils/helpers/haptics';
 	import { scale } from 'svelte/transition';
+	import { REORG_SAFE_CONFIRMATIONS } from '$lib/utils/service-contract/finality';
 
 	interface Props {
 		txHash: string;
@@ -109,8 +110,12 @@
 									? currentBlock - receipt.blockNumber + 1
 									: 0;
 
-								// Stop monitoring after confirmation
-								if (confirmationCount >= 1) {
+								// Reorg detection: if block is within REORG_SAFE_CONFIRMATIONS, mark as pending reorg
+								const blocksDepth = receipt.blockNumber ? currentBlock - receipt.blockNumber : 0;
+								const isSafeFromReorg = blocksDepth >= REORG_SAFE_CONFIRMATIONS;
+
+								// Only mark as confirmed if block is also canonical (not reorged)
+								if (confirmationCount >= 1 && isSafeFromReorg) {
 									isConfirmed = true;
 									if (monitoringInterval) {
 										clearInterval(monitoringInterval);
@@ -120,6 +125,9 @@
 									appStore.showSuccessToast($t('wallet.send.transaction_confirmed'));
 									// Reload assets to update balance
 									await walletManager.loadAssets();
+								} else if (confirmationCount >= 1 && !isSafeFromReorg) {
+									// Transaction confirmed but block not yet canonical - continue monitoring
+									// This is a reorg risk state but tx is in a block
 								}
 							}
 						}
@@ -149,7 +157,11 @@
 									? currentBlock - receipt.blockNumber + 1
 									: 0;
 
-								if (confirmationCount >= 1) {
+								// Reorg detection: if block is within REORG_SAFE_CONFIRMATIONS, mark as pending reorg
+								const blocksDepth = receipt.blockNumber ? currentBlock - receipt.blockNumber : 0;
+								const isSafeFromReorg = blocksDepth >= REORG_SAFE_CONFIRMATIONS;
+
+								if (confirmationCount >= 1 && isSafeFromReorg) {
 									isConfirmed = true;
 									if (monitoringInterval) {
 										clearInterval(monitoringInterval);
@@ -158,6 +170,8 @@
 									triggerHaptic(ImpactStyle.Medium);
 									appStore.showSuccessToast($t('wallet.send.transaction_confirmed'));
 									await walletManager.loadAssets();
+								} else if (confirmationCount >= 1 && !isSafeFromReorg) {
+									// Transaction confirmed but block not yet canonical - continue monitoring
 								}
 							}
 						}

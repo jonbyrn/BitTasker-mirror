@@ -1,5 +1,53 @@
-import '@testing-library/jest-dom/vitest';
 import { vi } from 'vitest';
+import '@testing-library/jest-dom';
+import { readable } from 'svelte/store';
+
+declare module 'vitest' {
+	interface Expect<T> {
+		toBeInTheDocument(): T;
+		toHaveAttribute(attr: string, value?: string): T;
+		toHaveTextContent(text: string | RegExp): T;
+		toHaveValue(value: string | number): T;
+		toBeDisabled(): T;
+		toHaveClass(...classes: string[]): T;
+		toBeVisible(): T;
+		toBeHidden(): T;
+		toBeEmptyDOMElement(): T;
+		toBeInTheDOM(): T;
+		toHaveFormValues(expectedValues: Record<string, string | number | boolean>): T;
+		toHaveStyle(css: string | Record<string, string>): T;
+		toHaveFocus(): T;
+		toHaveAccessibleDescription(description: string | RegExp): T;
+		toHaveAccessibleName(name: string | RegExp): T;
+		toHaveAttribute(attr: string, value?: string | RegExp): T;
+		toContainHTML(html: string): T;
+		toThrowErrorMatchingInlineSnapshot(snapshot?: string): T;
+	}
+}
+
+// Mock $app/stores with a default page store
+vi.mock('$app/stores', () => ({
+	page: readable({
+		url: new URL('http://localhost/'),
+		params: {},
+		data: {},
+		form: undefined,
+		state: {},
+		formError: undefined
+	})
+}));
+
+// Mock $app/navigation
+vi.mock('$app/navigation', () => ({
+	goto: vi.fn(),
+	preloadData: vi.fn(),
+	preloadRoute: vi.fn(),
+	invalidate: vi.fn(),
+	invalidateAll: vi.fn(),
+	beforeNavigate: vi.fn(),
+	afterNavigate: vi.fn(),
+	disableScrollHandling: vi.fn()
+}));
 
 // Mock @bittasker/wallet-core to avoid EventBus import failure in test env
 // (wallet-core dist/index.js imports ./core/EventBus which may not resolve)
@@ -72,8 +120,16 @@ if (typeof window !== 'undefined' && !window.Element.prototype.animate) {
 	})) as unknown as typeof window.Element.prototype.animate;
 }
 
-// Mock MediaStreamTrack (required for QR scanner tests)
+// Mock MediaStream + MediaStreamTrack (required for QR scanner teardown in jsdom)
 if (typeof global !== 'undefined') {
+	global.MediaStream = class MediaStream {
+		getTracks() {
+			return [];
+		}
+		addTrack() {}
+		removeTrack() {}
+	} as unknown as typeof MediaStream;
+
 	global.MediaStreamTrack = class MediaStreamTrack {
 		stop() {}
 		kind = 'video';

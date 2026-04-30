@@ -66,7 +66,7 @@ export interface ContractTransactionResult {
     hash: string;
     escrowId?: string;
     gasUsed?: string;
-    status: 'pending' | 'confirmed' | 'failed';
+    status: 'pending' | 'confirmed' | 'failed' | 'rejected';
 }
 
 // Asset metadata

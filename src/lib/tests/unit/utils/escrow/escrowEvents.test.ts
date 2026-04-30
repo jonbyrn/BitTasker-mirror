@@ -1,11 +1,21 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import type {
+	ServiceAcceptanceSnapshot,
+	ServiceProposalStatusEvent
+} from '$lib/types/service-quote';
 import { EscrowStatus } from '$lib/utils/escrow';
 import {
 	registerPendingContractByTxHash,
 	registerPendingContract,
+	replacePendingContractByTxHash,
 	publishEscrowStatus,
 	handleEscrowCreated,
-	cleanupPendingContractByTxHash
+	publishPendingServiceAcceptanceUnknownByTxHash,
+	configureServiceAcceptanceReverifyForTest,
+	reverifyPublishedServiceAcceptanceByEscrowId,
+	retryPendingServiceAcceptanceByEscrowId,
+	cleanupPendingContractByTxHash,
+	contractCreationStore
 } from '$lib/utils/escrow/v1/escrowEvents';
 import { publishContractEvent, publishContractStatus } from '$lib/utils/escrow/v1/nostrContract';
 import { sendBidStatusUpdate } from '$lib/utils/nostr-bid';
@@ -13,6 +23,17 @@ import { contractStore } from '$lib/stores/contract.store';
 import { appStore } from '$lib/stores/app.store';
 import { getStatusMessages } from '$lib/utils/helpers/contractStatusFormatter';
 import { pushNotificationService } from '$lib/api/services/push-notification.service';
+import { updateTask } from '$lib/nostr/task';
+import { publishServiceProposalStatus } from '$lib/utils/service-quote/publish';
+import { completeServiceProposalAcceptance } from '$lib/utils/service-quote/accept';
+import {
+	clearAcceptanceConfirmedMonitorEntry,
+	clearAcceptanceLedger,
+	getAcceptanceConfirmedMonitorEntry,
+	getAcceptanceReplayEntry,
+	upsertAcceptanceConfirmedMonitorEntry,
+	upsertAcceptanceReplayEntry
+} from '$lib/utils/service-quote/acceptance-ledger';
 
 // Mock @bittasker/wallet-core to avoid EventBus import issues (normalizeRskAddress used by escrow)
 vi.mock('@bittasker/wallet-core', () => ({
@@ -109,6 +130,51 @@ vi.mock('$lib/api/services/push-notification.service', () => ({
 	}
 }));
 
+vi.mock('$lib/utils/nostrKeys', () => ({
+	getNpub: vi.fn().mockResolvedValue('a'.repeat(64))
+}));
+
+vi.mock('$lib/utils/service-quote/accept', () => ({
+	completeServiceProposalAcceptance: vi.fn()
+}));
+
+vi.mock('$lib/utils/service-quote/publish', () => ({
+	publishServiceProposalStatus: vi.fn().mockResolvedValue({
+		event: {
+			id: 'status-event-id',
+			kind: 6422,
+			pubkey: 'a'.repeat(64),
+			created_at: 1700000200,
+			tags: [],
+			content: {
+				type: 'service-proposal-status',
+				proposalId: 'pr_12345678',
+				quoteRequestId: 'qr_12345678',
+				serviceId: '30402:' + 'a'.repeat(64) + ':service-1234',
+				serviceAddress: '30402:' + 'a'.repeat(64) + ':service-1234',
+				status: 'accepting',
+				actorPubkey: 'a'.repeat(64),
+				timestamp: 1700000200,
+				version: 'v1'
+			},
+			sig: 'sig'
+		} as unknown as ServiceProposalStatusEvent,
+		relayResults: [],
+		publishedRelaySet: []
+	})
+}));
+
+vi.mock('$lib/utils/escrow/v1/escrow', async (importOriginal) => {
+	const actual = await importOriginal<typeof import('$lib/utils/escrow/v1/escrow')>();
+	return {
+		...actual,
+		reverifyPublishedServiceAcceptance: vi.fn().mockResolvedValue({
+			status: 'confirmed',
+			confirmationsAtVerification: 3
+		})
+	};
+});
+
 // Mock svelte-i18n
 // t is a readable store, and get(t) from svelte/store returns its value (translation function)
 vi.mock('svelte-i18n', () => {
@@ -171,9 +237,59 @@ vi.mock('svelte/store', () => {
 	};
 });
 
+function createAcceptanceSnapshot(
+	overrides: Partial<ServiceAcceptanceSnapshot> = {}
+): ServiceAcceptanceSnapshot {
+	return {
+		clientRskAddress: '0x3333333333333333333333333333333333333333',
+		clientFeeTier: 1,
+		freelancerRskAddress: '0x2222222222222222222222222222222222222222',
+		freelancerFeeTier: 1,
+		chainId: 31,
+		contractAddress: '0x4444444444444444444444444444444444444444',
+		conversionFormulaVersion: 'v1',
+		conversionSnapshotId: 'snapshot-123',
+		btcUsdRateMicros: 100_000_000_000,
+		sourceTimestamp: 1_763_000_000,
+		requiredConfirmations: 3,
+		finalityPolicyVersion: 'rsk_rootstock_default_v1',
+		sats: '100000',
+		weiAmount: '1000000000000000',
+		confirmationsAtVerification: 0,
+		verificationRpc: 'rsk:testnet',
+		...overrides
+	};
+}
+
 describe('escrowEvents', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		clearAcceptanceLedger();
+		window.localStorage.clear();
+		configureServiceAcceptanceReverifyForTest(null);
+		vi.mocked(publishServiceProposalStatus).mockResolvedValue({
+			event: {
+				id: 'status-event-id',
+				kind: 6422,
+				pubkey: 'a'.repeat(64),
+				created_at: 1700000200,
+				tags: [],
+				content: {
+					type: 'service-proposal-status',
+					proposalId: 'pr_12345678',
+					quoteRequestId: 'qr_12345678',
+					serviceId: '30402:' + 'a'.repeat(64) + ':service-1234',
+					serviceAddress: '30402:' + 'a'.repeat(64) + ':service-1234',
+					status: 'accepting',
+					actorPubkey: 'a'.repeat(64),
+					timestamp: 1700000200,
+					version: 'v1'
+				},
+				sig: 'sig'
+			} as unknown as ServiceProposalStatusEvent,
+			relayResults: [],
+			publishedRelaySet: []
+		});
 		vi.mocked(getStatusMessages).mockReturnValue({
 			pendingMessage: 'pending.message',
 			confirmedMessage: 'confirmed.message',
@@ -201,6 +317,140 @@ describe('escrowEvents', () => {
 			// Function should complete without error
 			expect(true).toBe(true);
 		});
+
+		it('should move pending contract tracking to a replacement transaction hash', async () => {
+			registerPendingContractByTxHash({
+				bidEventId: 'bid-123',
+				taskId: 'task-123',
+				taskTitle: 'Test Task',
+				taskDescription: 'Test Description',
+				freelancerPubkey: 'npub1freelancer',
+				amount: '1.0',
+				estimatedStartTime: Math.floor(Date.now() / 1000) + 3600,
+				estimatedCompletionTime: Math.floor(Date.now() / 1000) + 7200,
+				transactionHash: '0xabc123'
+			});
+			replacePendingContractByTxHash('0xabc123', '0xdef456');
+			vi.mocked(publishContractEvent).mockResolvedValue(undefined);
+			vi.mocked(contractStore.loadContractByEscrowId).mockResolvedValue(true);
+			vi.mocked(pushNotificationService.sendNotificationToNpubs).mockResolvedValue(undefined);
+
+			await handleEscrowCreated({
+				escrowId: 'svc-123',
+				transactionHash: '0xdef456',
+				transactionHashes: ['0xabc123', '0xdef456'],
+				client: '0x1111111111111111111111111111111111111111',
+				freelancer: '0x2222222222222222222222222222222222222222',
+				amount: '1000000000000000000'
+			});
+
+			expect(vi.mocked(publishContractEvent)).toHaveBeenCalled();
+			expect(vi.mocked(contractCreationStore.set)).toHaveBeenLastCalledWith({
+				escrowId: 'svc-123',
+				contractEventId: 'contract-svc-123',
+				state: 'contract_ready',
+				transactionHash: '0xdef456',
+				transactionHashes: ['0xdef456', '0xabc123']
+			});
+		});
+	});
+
+	describe('publishPendingServiceAcceptanceUnknownByTxHash', () => {
+		it('publishes accept_unknown status updates for pending service contracts', async () => {
+			registerPendingContractByTxHash({
+				bidEventId: 'proposal-123',
+				freelancerPubkey: 'npub1freelancer',
+				amount: '1.0',
+				estimatedStartTime: Math.floor(Date.now() / 1000) + 3600,
+				estimatedCompletionTime: Math.floor(Date.now() / 1000) + 7200,
+				transactionHash: '0xservice123',
+				contextType: 'service',
+				contextId: '30402:pub:dtag',
+				contextTitle: 'Logo Design',
+				contextDescription: 'Design service',
+				contextVersionRef: 'service-event-id',
+				serviceId: '30402:pub:dtag',
+				serviceAddress: '30402:pub:dtag',
+				serviceTitle: 'Logo Design',
+				quoteRequestId: 'request-123',
+				proposalId: 'proposal-123',
+				proposalEventId: 'proposal-event-id',
+				purchaseMode: 'quote',
+				pricingSnapshot: {
+					serviceVersionRef: 'service-event-id'
+				}
+			});
+
+			await publishPendingServiceAcceptanceUnknownByTxHash('0xservice123', 'pending_timeout');
+
+			expect(vi.mocked(publishServiceProposalStatus)).toHaveBeenCalledWith(
+				expect.objectContaining({
+					content: expect.objectContaining({
+						status: 'accept_unknown',
+						reasonCode: 'pending_timeout',
+						transactionHash: '0xservice123'
+					}),
+					proposalEventId: 'proposal-event-id'
+				})
+			);
+			expect(vi.mocked(completeServiceProposalAcceptance)).toHaveBeenCalledWith(
+				'proposal-123',
+				false,
+				false,
+				'pending_timeout',
+				'0xservice123'
+			);
+		});
+
+		it('uses the replacement hash when reporting tx replacement ambiguity', async () => {
+			registerPendingContractByTxHash({
+				bidEventId: 'proposal-456',
+				freelancerPubkey: 'npub1freelancer',
+				amount: '1.0',
+				estimatedStartTime: Math.floor(Date.now() / 1000) + 3600,
+				estimatedCompletionTime: Math.floor(Date.now() / 1000) + 7200,
+				transactionHash: '0xservice456',
+				contextType: 'service',
+				contextId: '30402:pub:dtag',
+				contextTitle: 'Logo Design',
+				contextDescription: 'Design service',
+				contextVersionRef: 'service-event-id',
+				serviceId: '30402:pub:dtag',
+				serviceAddress: '30402:pub:dtag',
+				serviceTitle: 'Logo Design',
+				quoteRequestId: 'request-456',
+				proposalId: 'proposal-456',
+				proposalEventId: 'proposal-event-id-456',
+				purchaseMode: 'quote',
+				pricingSnapshot: {
+					serviceVersionRef: 'service-event-id'
+				}
+			});
+
+			await publishPendingServiceAcceptanceUnknownByTxHash(
+				'0xservice456',
+				'tx_replaced',
+				'0xservice789'
+			);
+
+			expect(vi.mocked(publishServiceProposalStatus)).toHaveBeenCalledWith(
+				expect.objectContaining({
+					content: expect.objectContaining({
+						status: 'accept_unknown',
+						reasonCode: 'tx_replaced',
+						transactionHash: '0xservice789'
+					}),
+					proposalEventId: 'proposal-event-id-456'
+				})
+			);
+			expect(vi.mocked(completeServiceProposalAcceptance)).toHaveBeenCalledWith(
+				'proposal-456',
+				false,
+				false,
+				'tx_replaced',
+				'0xservice789'
+			);
+		});
 	});
 
 	describe('registerPendingContract', () => {
@@ -225,6 +475,8 @@ describe('escrowEvents', () => {
 		});
 	});
 
+	const recipientPubkey = 'aa'.repeat(32);
+
 	describe('publishEscrowStatus', () => {
 		beforeEach(() => {
 			// Reset all mocks
@@ -242,7 +494,8 @@ describe('escrowEvents', () => {
 				escrowId: '123',
 				contractEventId: 'contract-123',
 				transactionHash: '0x456',
-				status: EscrowStatus.PendingCompletion
+				status: EscrowStatus.PendingCompletion,
+				recipientPubkey
 			});
 
 			expect(vi.mocked(publishContractStatus)).toHaveBeenCalled();
@@ -254,7 +507,8 @@ describe('escrowEvents', () => {
 				escrowId: '123',
 				contractEventId: 'contract-123',
 				transactionHash: '0x456',
-				status: EscrowStatus.Completed
+				status: EscrowStatus.Completed,
+				recipientPubkey
 			});
 
 			expect(vi.mocked(publishContractStatus)).toHaveBeenCalled();
@@ -268,7 +522,8 @@ describe('escrowEvents', () => {
 				escrowId: '123',
 				contractEventId: 'contract-123',
 				transactionHash: '0x456',
-				status: EscrowStatus.Completed
+				status: EscrowStatus.Completed,
+				recipientPubkey
 			});
 
 			expect(vi.mocked(appStore.showErrorToast)).toHaveBeenCalled();
@@ -288,7 +543,8 @@ describe('escrowEvents', () => {
 				contractEventId: 'contract-123',
 				transactionHash: '0x456',
 				status: EscrowStatus.PendingCompletion,
-				completionAttachments: attachments
+				completionAttachments: attachments,
+				recipientPubkey
 			});
 
 			expect(vi.mocked(publishContractStatus)).toHaveBeenCalledWith(
@@ -305,7 +561,8 @@ describe('escrowEvents', () => {
 				transactionHash: '0x456',
 				status: EscrowStatus.DisputeResolutionProposed,
 				proposedClientAmount: '0.5',
-				proposedFreelancerAmount: '0.5'
+				proposedFreelancerAmount: '0.5',
+				recipientPubkey
 			});
 
 			expect(vi.mocked(publishContractStatus)).toHaveBeenCalledWith(
@@ -348,7 +605,7 @@ describe('escrowEvents', () => {
 			});
 
 			vi.mocked(publishContractEvent).mockResolvedValue(undefined);
-			vi.mocked(contractStore.loadContractByEscrowId).mockResolvedValue(undefined);
+			vi.mocked(contractStore.loadContractByEscrowId).mockResolvedValue(true);
 			vi.mocked(pushNotificationService.sendNotificationToNpubs).mockResolvedValue(undefined);
 
 			await handleEscrowCreated(event);
@@ -381,13 +638,639 @@ describe('escrowEvents', () => {
 			});
 
 			vi.mocked(publishContractEvent).mockResolvedValue(undefined);
-			vi.mocked(contractStore.loadContractByEscrowId).mockResolvedValue(undefined);
+			vi.mocked(contractStore.loadContractByEscrowId).mockResolvedValue(true);
 			vi.mocked(pushNotificationService.sendNotificationToNpubs).mockResolvedValue(undefined);
 
 			await handleEscrowCreated(event);
 
 			expect(vi.mocked(publishContractEvent)).toHaveBeenCalled();
 			expect(vi.mocked(sendBidStatusUpdate)).toHaveBeenCalled();
+		});
+
+		it('publishes service-context contracts without task bid side effects', async () => {
+			const acceptedSnapshot = createAcceptanceSnapshot({
+				confirmationsAtVerification: 3
+			});
+			const event = {
+				escrowId: 'svc-123',
+				transactionHash: '0xservice123',
+				client: '0x1111111111111111111111111111111111111111',
+				freelancer: '0x2222222222222222222222222222222222222222',
+				amount: '1000000000000000000',
+				acceptanceSnapshot: acceptedSnapshot
+			};
+
+			registerPendingContract({
+				bidEventId: 'proposal-123',
+				escrowId: 'svc-123',
+				freelancerPubkey: 'npub1freelancer',
+				clientRskAddress: '0xabcdef1234567890abcdef1234567890abcdef12',
+				amount: '1.0',
+				estimatedStartTime: Math.floor(Date.now() / 1000) + 3600,
+				estimatedCompletionTime: Math.floor(Date.now() / 1000) + 7200,
+				transactionHash: '0xservice123',
+				contextType: 'service',
+				contextId: '30402:pub:dtag',
+				contextTitle: 'Logo Design',
+				contextDescription: 'Design service',
+				contextVersionRef: 'service-event-id',
+				serviceId: '30402:pub:dtag',
+				serviceAddress: '30402:pub:dtag',
+				serviceTitle: 'Logo Design',
+				quoteRequestId: 'request-123',
+				proposalId: 'proposal-123',
+				proposalEventId: 'proposal-event-id',
+				purchaseMode: 'quote',
+				acceptanceSnapshot: createAcceptanceSnapshot(),
+				selectedTierId: 'premium',
+				pricingSnapshot: {
+					serviceVersionRef: 'service-event-id',
+					tierId: 'premium'
+				},
+				agreementSnapshot: {
+					selectedTierId: 'premium',
+					deliverables: 'Three logo concepts'
+				}
+			});
+
+			vi.mocked(publishContractEvent).mockResolvedValue(undefined);
+			vi.mocked(contractStore.loadContractByEscrowId).mockResolvedValue(true);
+			vi.mocked(pushNotificationService.sendNotificationToNpubs).mockResolvedValue(undefined);
+
+			await handleEscrowCreated(event);
+
+			expect(vi.mocked(publishContractEvent)).toHaveBeenCalledWith(
+				expect.objectContaining({
+					contextType: 'service',
+					serviceId: '30402:pub:dtag',
+					serviceTitle: 'Logo Design',
+					clientRskAddress: '0xabcdef1234567890abcdef1234567890abcdef12',
+					purchaseMode: 'quote',
+					proposalId: 'proposal-123',
+					agreementSnapshot: expect.objectContaining({
+						deliverables: 'Three logo concepts'
+					})
+				})
+			);
+			expect(vi.mocked(sendBidStatusUpdate)).not.toHaveBeenCalled();
+			expect(vi.mocked(updateTask)).not.toHaveBeenCalled();
+			expect(vi.mocked(pushNotificationService.sendNotificationToNpubs)).toHaveBeenCalledWith(
+				expect.objectContaining({
+					clickAction: expect.stringContaining('type=services&highlight=svc-123')
+				})
+			);
+			expect(vi.mocked(publishServiceProposalStatus)).toHaveBeenCalledWith(
+				expect.objectContaining({
+					content: expect.objectContaining({
+						status: 'accepted',
+						escrowId: 'svc-123',
+						transactionHash: '0xservice123',
+						acceptanceSnapshot: acceptedSnapshot
+					}),
+					proposalEventId: 'proposal-event-id'
+				})
+			);
+			await expect(getAcceptanceConfirmedMonitorEntry('svc-123')).resolves.toEqual(
+				expect.objectContaining({
+					escrowId: 'svc-123',
+					proposalId: 'proposal-123',
+					transactionHash: '0xservice123',
+					acceptanceSnapshot: acceptedSnapshot
+				})
+			);
+		});
+
+		it('retains confirmed service acceptance locally when accepted status publish fails and retries by escrow id', async () => {
+			const acceptedSnapshot = createAcceptanceSnapshot({
+				conversionSnapshotId: 'snapshot-retry',
+				confirmationsAtVerification: 3
+			});
+			const event = {
+				escrowId: 'svc-retry-123',
+				transactionHash: '0xservice-retry',
+				client: '0x1111111111111111111111111111111111111111',
+				freelancer: '0x2222222222222222222222222222222222222222',
+				amount: '1000000000000000000',
+				acceptanceSnapshot: acceptedSnapshot
+			};
+
+			registerPendingContract({
+				bidEventId: 'proposal-retry-123',
+				escrowId: 'svc-retry-123',
+				freelancerPubkey: 'npub1freelancer',
+				amount: '1.0',
+				estimatedStartTime: Math.floor(Date.now() / 1000) + 3600,
+				estimatedCompletionTime: Math.floor(Date.now() / 1000) + 7200,
+				transactionHash: '0xservice-retry',
+				contextType: 'service',
+				contextId: '30402:pub:dtag',
+				contextTitle: 'Logo Design',
+				contextDescription: 'Design service',
+				contextVersionRef: 'service-event-id',
+				serviceId: '30402:pub:dtag',
+				serviceAddress: '30402:pub:dtag',
+				serviceTitle: 'Logo Design',
+				quoteRequestId: 'request-retry-123',
+				proposalId: 'proposal-retry-123',
+				proposalEventId: 'proposal-event-id-retry',
+				purchaseMode: 'quote',
+				acceptanceSnapshot: createAcceptanceSnapshot({
+					conversionSnapshotId: 'snapshot-retry'
+				}),
+				pricingSnapshot: {
+					serviceVersionRef: 'service-event-id'
+				}
+			});
+
+			vi.mocked(publishContractEvent).mockResolvedValue(undefined);
+			vi.mocked(contractStore.loadContractByEscrowId).mockResolvedValue(true);
+			vi.mocked(pushNotificationService.sendNotificationToNpubs).mockResolvedValue(undefined);
+			vi.mocked(publishServiceProposalStatus)
+				.mockRejectedValueOnce(new Error('status publish failed'))
+				.mockResolvedValueOnce({
+					event: {
+						id: 'status-event-id-retry',
+						kind: 6422,
+						pubkey: 'a'.repeat(64),
+						created_at: 1700000200,
+						tags: [],
+						content: {
+							type: 'service-proposal-status',
+							proposalId: 'pr_12345678',
+							quoteRequestId: 'qr_12345678',
+							serviceId: '30402:' + 'a'.repeat(64) + ':service-1234',
+							serviceAddress: '30402:' + 'a'.repeat(64) + ':service-1234',
+							status: 'accepting',
+							actorPubkey: 'a'.repeat(64),
+							timestamp: 1700000200,
+							version: 'v1'
+						},
+						sig: 'sig'
+					} as unknown as ServiceProposalStatusEvent,
+					relayResults: [],
+					publishedRelaySet: []
+				});
+
+			await handleEscrowCreated(event);
+
+			expect(vi.mocked(completeServiceProposalAcceptance)).toHaveBeenCalledWith(
+				'proposal-retry-123',
+				false,
+				false,
+				'reconciliation_deferred',
+				'0xservice-retry'
+			);
+
+			const retryResult = await retryPendingServiceAcceptanceByEscrowId('svc-retry-123');
+
+			expect(retryResult).toEqual({ status: 'accepted' });
+			expect(vi.mocked(publishServiceProposalStatus)).toHaveBeenLastCalledWith(
+				expect.objectContaining({
+					content: expect.objectContaining({
+						status: 'accepted',
+						escrowId: 'svc-retry-123',
+						transactionHash: '0xservice-retry',
+						acceptanceSnapshot: acceptedSnapshot
+					}),
+					proposalEventId: 'proposal-event-id-retry'
+				})
+			);
+			expect(vi.mocked(completeServiceProposalAcceptance)).toHaveBeenLastCalledWith(
+				'proposal-retry-123',
+				true,
+				false,
+				undefined,
+				'0xservice-retry'
+			);
+			await expect(getAcceptanceConfirmedMonitorEntry('svc-retry-123')).resolves.toEqual(
+				expect.objectContaining({
+					escrowId: 'svc-retry-123',
+					proposalId: 'proposal-retry-123',
+					transactionHash: '0xservice-retry',
+					acceptanceSnapshot: acceptedSnapshot
+				})
+			);
+			await expect(retryPendingServiceAcceptanceByEscrowId('svc-retry-123')).resolves.toEqual({
+				status: 'not_found'
+			});
+		});
+
+		it('keeps deferred service acceptance pending when a retry publish still fails', async () => {
+			registerPendingContract({
+				bidEventId: 'proposal-retry-failed',
+				escrowId: 'svc-retry-failed',
+				freelancerPubkey: 'npub1freelancer',
+				amount: '1.0',
+				estimatedStartTime: Math.floor(Date.now() / 1000) + 3600,
+				estimatedCompletionTime: Math.floor(Date.now() / 1000) + 7200,
+				transactionHash: '0xservice-retry-failed',
+				contextType: 'service',
+				contextId: '30402:pub:dtag',
+				contextTitle: 'Logo Design',
+				contextDescription: 'Design service',
+				contextVersionRef: 'service-event-id',
+				serviceId: '30402:pub:dtag',
+				serviceAddress: '30402:pub:dtag',
+				serviceTitle: 'Logo Design',
+				quoteRequestId: 'request-retry-failed',
+				proposalId: 'proposal-retry-failed',
+				proposalEventId: 'proposal-event-id-retry-failed',
+				purchaseMode: 'quote',
+				pricingSnapshot: {
+					serviceVersionRef: 'service-event-id'
+				}
+			});
+
+			vi.mocked(publishServiceProposalStatus).mockRejectedValue(new Error('status publish failed'));
+
+			const retryResult = await retryPendingServiceAcceptanceByEscrowId('svc-retry-failed');
+
+			expect(retryResult).toEqual({
+				status: 'deferred',
+				reasonCode: 'reconciliation_deferred'
+			});
+			expect(vi.mocked(completeServiceProposalAcceptance)).toHaveBeenCalledWith(
+				'proposal-retry-failed',
+				false,
+				false,
+				'reconciliation_deferred',
+				'0xservice-retry-failed'
+			);
+			await expect(retryPendingServiceAcceptanceByEscrowId('svc-retry-failed')).resolves.toEqual({
+				status: 'deferred',
+				reasonCode: 'reconciliation_deferred'
+			});
+		});
+
+		it('persists deferred service acceptance replay data for later recovery', async () => {
+			const acceptedSnapshot = createAcceptanceSnapshot({
+				conversionSnapshotId: 'snapshot-replay',
+				confirmationsAtVerification: 3
+			});
+			const event = {
+				escrowId: 'svc-replay-123',
+				transactionHash: '0xservice-replay',
+				client: '0x1111111111111111111111111111111111111111',
+				freelancer: '0x2222222222222222222222222222222222222222',
+				amount: '1000000000000000000',
+				acceptanceSnapshot: acceptedSnapshot
+			};
+
+			registerPendingContract({
+				bidEventId: 'proposal-replay-123',
+				escrowId: 'svc-replay-123',
+				freelancerPubkey: 'npub1freelancer',
+				amount: '1.0',
+				estimatedStartTime: Math.floor(Date.now() / 1000) + 3600,
+				estimatedCompletionTime: Math.floor(Date.now() / 1000) + 7200,
+				transactionHash: '0xservice-replay',
+				contextType: 'service',
+				contextId: '30402:pub:dtag',
+				contextTitle: 'Logo Design',
+				contextDescription: 'Design service',
+				contextVersionRef: 'service-event-id',
+				serviceId: '30402:pub:dtag',
+				serviceAddress: '30402:pub:dtag',
+				serviceTitle: 'Logo Design',
+				quoteRequestId: 'request-replay-123',
+				proposalId: 'proposal-replay-123',
+				proposalEventId: 'proposal-event-id-replay',
+				purchaseMode: 'quote',
+				acceptanceSnapshot: createAcceptanceSnapshot({
+					conversionSnapshotId: 'snapshot-replay'
+				}),
+				pricingSnapshot: {
+					serviceVersionRef: 'service-event-id'
+				}
+			});
+
+			vi.mocked(publishContractEvent).mockResolvedValue(undefined);
+			vi.mocked(contractStore.loadContractByEscrowId).mockResolvedValue(true);
+			vi.mocked(pushNotificationService.sendNotificationToNpubs).mockResolvedValue(undefined);
+			vi.mocked(publishServiceProposalStatus).mockRejectedValueOnce(
+				new Error('status publish failed')
+			);
+
+			await handleEscrowCreated(event);
+
+			await expect(getAcceptanceReplayEntry('svc-replay-123')).resolves.toEqual(
+				expect.objectContaining({
+					escrowId: 'svc-replay-123',
+					proposalId: 'proposal-replay-123',
+					proposalEventId: 'proposal-event-id-replay',
+					quoteRequestId: 'request-replay-123',
+					serviceId: '30402:pub:dtag',
+					serviceAddress: '30402:pub:dtag',
+					counterpartyPubkey: 'npub1freelancer',
+					transactionHash: '0xservice-replay',
+					attemptCount: 1,
+					acceptanceSnapshot: acceptedSnapshot
+				})
+			);
+		});
+
+		it('replays deferred service acceptance from persisted storage after a reload', async () => {
+			const acceptedSnapshot = createAcceptanceSnapshot({
+				conversionSnapshotId: 'snapshot-reload',
+				confirmationsAtVerification: 3
+			});
+			await upsertAcceptanceReplayEntry({
+				escrowId: 'svc-reload-123',
+				proposalId: 'proposal-reload-123',
+				proposalEventId: 'proposal-event-id-reload',
+				quoteRequestId: 'request-reload-123',
+				serviceId: '30402:pub:dtag',
+				serviceAddress: '30402:pub:dtag',
+				counterpartyPubkey: 'npub1freelancer',
+				transactionHash: '0xservice-reload',
+				acceptanceSnapshot: acceptedSnapshot
+			});
+
+			await expect(getAcceptanceReplayEntry('svc-reload-123')).resolves.toEqual(
+				expect.objectContaining({
+					escrowId: 'svc-reload-123',
+					proposalId: 'proposal-reload-123',
+					transactionHash: '0xservice-reload'
+				})
+			);
+
+			vi.mocked(publishServiceProposalStatus).mockResolvedValueOnce({
+				event: {
+					id: 'status-event-id-reload',
+					kind: 6422,
+					pubkey: 'a'.repeat(64),
+					created_at: 1700000200,
+					tags: [],
+					content: {
+						type: 'service-proposal-status',
+						proposalId: 'pr_12345678',
+						quoteRequestId: 'qr_12345678',
+						serviceId: '30402:' + 'a'.repeat(64) + ':service-1234',
+						serviceAddress: '30402:' + 'a'.repeat(64) + ':service-1234',
+						status: 'accepting',
+						actorPubkey: 'a'.repeat(64),
+						timestamp: 1700000200,
+						version: 'v1'
+					},
+					sig: 'sig'
+				} as unknown as ServiceProposalStatusEvent,
+				relayResults: [],
+				publishedRelaySet: []
+			});
+
+			await expect(retryPendingServiceAcceptanceByEscrowId('svc-reload-123')).resolves.toEqual({
+				status: 'accepted'
+			});
+			expect(vi.mocked(publishServiceProposalStatus)).toHaveBeenLastCalledWith(
+				expect.objectContaining({
+					content: expect.objectContaining({
+						status: 'accepted',
+						escrowId: 'svc-reload-123',
+						transactionHash: '0xservice-reload',
+						acceptanceSnapshot: acceptedSnapshot
+					}),
+					proposalEventId: 'proposal-event-id-reload'
+				})
+			);
+			await expect(getAcceptanceReplayEntry('svc-reload-123')).resolves.toBeNull();
+			await expect(getAcceptanceConfirmedMonitorEntry('svc-reload-123')).resolves.toEqual(
+				expect.objectContaining({
+					escrowId: 'svc-reload-123',
+					proposalId: 'proposal-reload-123',
+					transactionHash: '0xservice-reload',
+					acceptanceSnapshot: acceptedSnapshot
+				})
+			);
+		});
+
+		it('downgrades a previously published accepted status when revalidation loses finality', async () => {
+			const acceptanceSnapshot = createAcceptanceSnapshot({
+				conversionSnapshotId: 'snapshot-monitor-downgrade',
+				confirmationsAtVerification: 3
+			});
+
+			await upsertAcceptanceConfirmedMonitorEntry({
+				escrowId: 'svc-monitor-123',
+				proposalId: 'proposal-monitor-123',
+				proposalEventId: 'proposal-event-id-monitor',
+				quoteRequestId: 'request-monitor-123',
+				serviceId: '30402:pub:dtag',
+				serviceAddress: '30402:pub:dtag',
+				counterpartyPubkey: 'npub1freelancer',
+				transactionHash: '0xservice-monitor',
+				acceptanceSnapshot
+			});
+			configureServiceAcceptanceReverifyForTest(
+				vi.fn().mockResolvedValueOnce({
+					status: 'downgraded',
+					reasonCode: 'reconciliation_deferred'
+				})
+			);
+
+			await expect(
+				reverifyPublishedServiceAcceptanceByEscrowId('svc-monitor-123')
+			).resolves.toEqual({
+				status: 'downgraded',
+				reasonCode: 'reconciliation_deferred'
+			});
+
+			expect(vi.mocked(publishServiceProposalStatus)).toHaveBeenCalledWith(
+				expect.objectContaining({
+					content: expect.objectContaining({
+						status: 'accept_unknown',
+						escrowId: 'svc-monitor-123',
+						transactionHash: '0xservice-monitor',
+						reasonCode: 'reconciliation_deferred'
+					}),
+					proposalEventId: 'proposal-event-id-monitor'
+				})
+			);
+			expect(vi.mocked(completeServiceProposalAcceptance)).toHaveBeenLastCalledWith(
+				'proposal-monitor-123',
+				false,
+				false,
+				'reconciliation_deferred',
+				'0xservice-monitor'
+			);
+			await expect(getAcceptanceConfirmedMonitorEntry('svc-monitor-123')).resolves.toEqual(
+				expect.objectContaining({
+					escrowId: 'svc-monitor-123',
+					proposalId: 'proposal-monitor-123',
+					publishedStatus: 'accept_unknown'
+				})
+			);
+		});
+
+		it('keeps confirmed monitor entries when revalidation is deferred', async () => {
+			const acceptanceSnapshot = createAcceptanceSnapshot({
+				conversionSnapshotId: 'snapshot-monitor-deferred',
+				confirmationsAtVerification: 3
+			});
+
+			await upsertAcceptanceConfirmedMonitorEntry({
+				escrowId: 'svc-monitor-deferred',
+				proposalId: 'proposal-monitor-deferred',
+				proposalEventId: 'proposal-event-id-monitor-deferred',
+				quoteRequestId: 'request-monitor-deferred',
+				serviceId: '30402:pub:dtag',
+				serviceAddress: '30402:pub:dtag',
+				counterpartyPubkey: 'npub1freelancer',
+				transactionHash: '0xservice-monitor-deferred',
+				acceptanceSnapshot
+			});
+			configureServiceAcceptanceReverifyForTest(
+				vi.fn().mockResolvedValueOnce({
+					status: 'deferred',
+					reasonCode: 'rpc_unavailable'
+				})
+			);
+
+			await expect(
+				reverifyPublishedServiceAcceptanceByEscrowId('svc-monitor-deferred')
+			).resolves.toEqual({
+				status: 'deferred',
+				reasonCode: 'rpc_unavailable'
+			});
+			await expect(getAcceptanceConfirmedMonitorEntry('svc-monitor-deferred')).resolves.toEqual(
+				expect.objectContaining({
+					escrowId: 'svc-monitor-deferred',
+					proposalId: 'proposal-monitor-deferred',
+					publishedStatus: 'accepted'
+				})
+			);
+		});
+
+		it('reconfirms a downgraded funded accept by republishing accepted once finality recovers', async () => {
+			const acceptanceSnapshot = createAcceptanceSnapshot({
+				conversionSnapshotId: 'snapshot-monitor-reconfirm',
+				confirmationsAtVerification: 3
+			});
+
+			await upsertAcceptanceConfirmedMonitorEntry({
+				escrowId: 'svc-monitor-reconfirm',
+				proposalId: 'proposal-monitor-reconfirm',
+				proposalEventId: 'proposal-event-id-monitor-reconfirm',
+				quoteRequestId: 'request-monitor-reconfirm',
+				serviceId: '30402:pub:dtag',
+				serviceAddress: '30402:pub:dtag',
+				counterpartyPubkey: 'npub1freelancer',
+				transactionHash: '0xservice-monitor-reconfirm',
+				publishedStatus: 'accept_unknown',
+				acceptanceSnapshot
+			});
+			configureServiceAcceptanceReverifyForTest(
+				vi.fn().mockResolvedValueOnce({
+					status: 'confirmed',
+					confirmationsAtVerification: 5
+				})
+			);
+
+			await expect(
+				reverifyPublishedServiceAcceptanceByEscrowId('svc-monitor-reconfirm')
+			).resolves.toEqual({
+				status: 'confirmed'
+			});
+
+			expect(vi.mocked(publishServiceProposalStatus)).toHaveBeenCalledWith(
+				expect.objectContaining({
+					content: expect.objectContaining({
+						status: 'accepted',
+						escrowId: 'svc-monitor-reconfirm',
+						transactionHash: '0xservice-monitor-reconfirm',
+						acceptanceSnapshot: expect.objectContaining({
+							confirmationsAtVerification: 5
+						})
+					}),
+					proposalEventId: 'proposal-event-id-monitor-reconfirm'
+				})
+			);
+			expect(vi.mocked(completeServiceProposalAcceptance)).toHaveBeenLastCalledWith(
+				'proposal-monitor-reconfirm',
+				true,
+				false,
+				undefined,
+				'0xservice-monitor-reconfirm'
+			);
+			await expect(getAcceptanceConfirmedMonitorEntry('svc-monitor-reconfirm')).resolves.toEqual(
+				expect.objectContaining({
+					escrowId: 'svc-monitor-reconfirm',
+					proposalId: 'proposal-monitor-reconfirm',
+					publishedStatus: 'accepted',
+					acceptanceSnapshot: expect.objectContaining({
+						confirmationsAtVerification: 5
+					})
+				})
+			);
+		});
+
+		it('returns not_found when no confirmed monitor entry exists for revalidation', async () => {
+			await clearAcceptanceConfirmedMonitorEntry('svc-missing');
+
+			await expect(reverifyPublishedServiceAcceptanceByEscrowId('svc-missing')).resolves.toEqual({
+				status: 'not_found'
+			});
+		});
+
+		it('sends the instant-buy notification branch and exposes the resolved transaction hash', async () => {
+			const event = {
+				escrowId: 'svc-ib-123',
+				transactionHash: '0xinstantbuy123',
+				client: '0x1111111111111111111111111111111111111111',
+				freelancer: '0x2222222222222222222222222222222222222222',
+				amount: '1000000000000000000'
+			};
+
+			registerPendingContract({
+				bidEventId: 'instant-order-123',
+				escrowId: 'svc-ib-123',
+				freelancerPubkey: 'npub1freelancer',
+				amount: '1.0',
+				estimatedStartTime: Math.floor(Date.now() / 1000) + 3600,
+				estimatedCompletionTime: Math.floor(Date.now() / 1000) + 7200,
+				transactionHash: '0xinstantbuy123',
+				contextType: 'service',
+				contextId: 'service-123',
+				contextTitle: 'Logo Design',
+				contextDescription: 'Design service',
+				contextVersionRef: 'service-event-id',
+				serviceId: 'service-123',
+				serviceAddress: '30402:pub:dtag',
+				serviceTitle: 'Logo Design',
+				purchaseMode: 'instant_buy',
+				instantOrderId: 'sib_1234567890abcd',
+				pricingSnapshot: {
+					serviceVersionRef: 'service-event-id'
+				}
+			});
+
+			vi.mocked(publishContractEvent).mockResolvedValue(undefined);
+			vi.mocked(contractStore.loadContractByEscrowId).mockResolvedValue(true);
+			vi.mocked(pushNotificationService.sendNotificationToNpubs).mockResolvedValue(undefined);
+
+			await handleEscrowCreated(event);
+
+			await vi.waitFor(() => {
+				expect(vi.mocked(pushNotificationService.sendNotificationToNpubs)).toHaveBeenCalled();
+			});
+			expect(vi.mocked(pushNotificationService.sendNotificationToNpubs)).toHaveBeenCalledWith(
+				expect.objectContaining({
+					body: expect.stringContaining('Book Now order'),
+					clickAction: expect.stringContaining(
+						'/dashboard?tab=contracts&type=services&highlight=svc-ib-123'
+					)
+				})
+			);
+			expect(vi.mocked(sendBidStatusUpdate)).not.toHaveBeenCalled();
+			expect(vi.mocked(publishServiceProposalStatus)).not.toHaveBeenCalled();
+			expect(vi.mocked(contractCreationStore.set)).toHaveBeenLastCalledWith(
+				expect.objectContaining({
+					escrowId: 'svc-ib-123',
+					contractEventId: 'contract-svc-ib-123',
+					state: 'contract_ready',
+					transactionHash: '0xinstantbuy123',
+					transactionHashes: ['0xinstantbuy123']
+				})
+			);
 		});
 
 		it('should handle error when creating Nostr contract', async () => {

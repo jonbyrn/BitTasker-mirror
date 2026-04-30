@@ -130,12 +130,12 @@ export function validateSufficientBalance(details: BidEscrowDetails): string[] {
 		const totalRequired = requiredAmountWei + estimatedGasCost;
 
 		if (currentBalanceWei < totalRequired) {
-			const currentBalanceRBTC = ethers.formatEther(currentBalanceWei);
-			const requiredRBTC = ethers.formatEther(totalRequired);
-			const shortfallRBTC = ethers.formatEther(totalRequired - currentBalanceWei);
+			const shortfallWei = totalRequired - currentBalanceWei;
+			const shortfallSats = Math.round(Number(ethers.formatEther(shortfallWei)) * 100_000_000);
+			const formattedShortfallSats = shortfallSats.toLocaleString('en-US');
 
 			errors.push(
-				`Insufficient RBTC balance. You have ${parseFloat(currentBalanceRBTC).toFixed(6)} RBTC but need ${parseFloat(requiredRBTC).toFixed(6)} RBTC (including gas fees). Shortfall: ${parseFloat(shortfallRBTC).toFixed(6)} RBTC.`
+				`Insufficient balance. You need an additional ${formattedShortfallSats} sats to complete this transaction.`
 			);
 		}
 	} catch (error) {
@@ -327,6 +327,7 @@ export async function acceptBidAndCreateEscrow(
 		// Use d-tag (stable id) so updateTask(contract.taskId) works on repeated updates (Nostr Addressable Event).
 		registerPendingContractByTxHash({
 			bidEventId: bid.id,
+			proposalEventId: bid.id, // Ensure ID is passed for contract persistence
 			taskId,
 			taskTitle: taskContent.title,
 			taskDescription: taskContent.description,

@@ -1,0 +1,93 @@
+{
+	"dashboard": {
+		"services": {
+			"browse": {
+				"title": "Browse Services",
+				"search_placeholder": "Search services...",
+				"search_minimum_chars": "Type at least 3 characters",
+				"filters_button": "Filters",
+				"clear_filters": "Clear Filters",
+				"showing_services": "Showing {count} service{count, plural, =1 {} other {s}}",
+				"view_service": "View Service",
+				"view": "View",
+				"quote": "Inquire",
+				"share_service": "Share service",
+				"view_map": "View map",
+				"view_list": "View list",
+				"save": "Save",
+				"save_search_tooltip_enabled": "Save your search criteria",
+				"save_search_tooltip_disabled": "Add search filters to save",
+				"saved_search_success": "Search saved successfully",
+				"saved_search_error": "Failed to save search",
+				"saved_service_searches": {
+					"no_saved_searches": "No saved service searches yet",
+					"saved_searches_info": "Your saved service searches will appear here. Save searches from the Browse Services page.",
+					"start_new_search": "Browse Services",
+					"apply_search": "Apply"
+				},
+				"map": "Map",
+				"list": "List",
+				"scroll_to_top": "Scroll to top",
+				"live_results_filtered": "{count} services found matching your filters",
+				"live_results_available": "{count} services found available",
+				"live_loading": "Loading services...",
+				"no_services_found": "No services found",
+				"no_services_message": "Try adjusting your search or filters to find more services.",
+				"no_more_services": "No more services to load",
+				"quote_request_unavailable": "Service is unavailable.",
+				"quote_request_submit_error": "Unable to submit quote request right now.",
+				"quote_request_submitted": "Quote request submitted successfully!",
+				"self_quote_blocked": "You can't request a quote on your own service.",
+				"error_loading": "Error loading services: {error}",
+				"loading_timeout_title": "Loading Timeout",
+				"loading_timeout_message": "Services are taking longer than expected to load.",
+				"refresh": "Refresh",
+				"close_dialog": "Close",
+				"delivery_time": "Delivery Time",
+				"location_types": "Location Types",
+				"pricing": {
+					"fixed": "Fixed Price",
+					"hourly": "Hourly Rate",
+					"tiered": "Tiered Pricing",
+					"inquiry_required": "Inquire",
+					"request_quote": "Inquire",
+					"from_price": "From $X",
+					"not_set": "Price not set"
+				},
+				"filters": {
+					"categories": "Categories",
+					"toggle_categories": "Toggle categories",
+					"add_categories": "Add categories...",
+					"skills": "Skills",
+					"toggle_skills": "Toggle skills",
+					"add_skills": "Add skills...",
+					"location_types": "Location Types",
+					"toggle_location_types": "Toggle location types",
+					"pricing_type": "Pricing Type",
+					"toggle_pricing_type": "Toggle pricing type",
+					"any_pricing": "Any",
+					"price_range": "Price Range",
+					"toggle_price_range": "Toggle price range",
+					"min_price": "Min ($)",
+					"max_price": "Max ($)",
+					"clear_price_range": "Clear",
+					"price_error": "Minimum price must be less than maximum price",
+					"delivery_time_label": "Delivery Time",
+					"toggle_delivery_time": "Toggle delivery time",
+					"any_delivery_time": "Any",
+					"delivery_time": {
+						"less_than_day": "Less than 1 day",
+						"one_to_three_days": "1-3 days",
+						"one_week": "1 week",
+						"more_than_week": "More than 1 week"
+					},
+					"location": "Location",
+					"toggle_location": "Toggle location",
+					"location_placeholder": "Search location...",
+					"search_radius": "Search Radius (km)",
+					"apply": "Apply"
+				}
+			}
+		}
+	}
+}

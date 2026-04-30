@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Event as NostrEvent } from 'nostr-tools';
+	import { Preferences } from '@capacitor/preferences';
 	import {
 		getMessageHistory,
 		sendDirectMessage,
@@ -206,7 +207,7 @@
 		setupRealtimeListener();
 		setupProfileSubscription();
 		setupCurrentUserProfileSubscription();
-		loadDraft();
+		void loadDraft();
 	});
 
 	// Track processed message IDs to avoid re-processing
@@ -532,7 +533,7 @@
 			clearTimeout(draftSaveTimeout);
 		}
 		// Save any pending draft before unmounting
-		saveDraft();
+		void saveDraft();
 	});
 
 	// Cleanup old temporary messages that might have failed to send
@@ -569,9 +570,9 @@
 	});
 
 	// --- Draft persistence functions ---
-	function loadDraft() {
+	async function loadDraft() {
 		try {
-			const saved = localStorage.getItem(draftKey());
+			const { value: saved } = await Preferences.get({ key: draftKey() });
 			if (saved && saved.trim()) {
 				newMessageText = saved;
 				lastSavedDraft = saved;
@@ -581,16 +582,15 @@
 		}
 	}
 
-	function saveDraft() {
+	async function saveDraft() {
 		if (!recipientPubkey) return;
 
 		try {
 			if (newMessageText.trim()) {
-				localStorage.setItem(draftKey(), newMessageText);
+				await Preferences.set({ key: draftKey(), value: newMessageText });
 				lastSavedDraft = newMessageText;
 			} else {
-				// Clear empty drafts
-				localStorage.removeItem(draftKey());
+				await Preferences.remove({ key: draftKey() });
 				lastSavedDraft = '';
 			}
 		} catch (error) {
@@ -604,13 +604,13 @@
 		}
 
 		draftSaveTimeout = setTimeout(() => {
-			saveDraft();
+			void saveDraft();
 		}, DRAFT_SAVE_DELAY);
 	}
 
-	function clearDraft() {
+	async function clearDraft() {
 		try {
-			localStorage.removeItem(draftKey());
+			await Preferences.remove({ key: draftKey() });
 			lastSavedDraft = '';
 		} catch (error) {
 			console.error('Failed to clear draft:', error);
@@ -887,7 +887,7 @@
 		try {
 			// Clear the input, draft, and reply state immediately for better UX
 			newMessageText = '';
-			clearDraft();
+			void clearDraft();
 			replyingToMessage = null;
 
 			// Create a local message object to add to the UI immediately

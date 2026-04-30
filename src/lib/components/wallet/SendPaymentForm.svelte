@@ -12,6 +12,7 @@
 	} from '$lib/utils/helpers/paymentAddressParser';
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 	import { triggerHaptic, ImpactStyle } from '$lib/utils/helpers/haptics';
+	import { detectLightningType, parseLightningInvoice } from '$lib/utils/helpers/lightningInvoice';
 	import QrCodeScanner from '$lib/components/QrCodeScanner.svelte';
 	import WebQrCodeScanner from '$lib/components/WebQrCodeScanner.svelte';
 	import AmountDisplay from '$lib/components/wallet/AmountDisplay.svelte';
@@ -290,9 +291,27 @@
 			qrScanState.scannedValue = null;
 
 			if (!parsed.isValid) {
-				// Show error with decoded QR code
-				// Use specific error message if available, otherwise use generic message
-				qrScanState.error = parsed.errorMessage || $t('wallet.send.invalid_qr_code');
+				// Clear any previous valid payment data to prevent form submission
+				parsedPayment.data = null;
+				parsedPayment.detectedNetwork = null;
+				parsedPayment.detectedAmount = null;
+				parsedPayment.detectedMemo = null;
+				parsedPayment.amountRequired = true;
+				parsedPayment.addressError = null;
+				feeState.estimated = null;
+				feeState.error = null;
+				formInput.addressInput = ''; // Clear address input to prevent stale data
+				formInput.amount = '';
+				formInput.memo = '';
+				formInput.unit = 'usd';
+
+				// Handle amountless Lightning invoice with specific translated error message
+				if (parsed.errorMessage === 'amountless_invoice') {
+					qrScanState.error = $t('wallet.send.error.amountless_invoice');
+				} else {
+					// Use specific error message if available, otherwise use generic message
+					qrScanState.error = parsed.errorMessage || $t('wallet.send.error.invalid_qr_code');
+				}
 				qrScanState.scannedValue = qrValue;
 				return;
 			}
@@ -396,8 +415,13 @@
 					await updateFeeEstimate();
 				}
 			} else {
-				// Use specific error message if available, otherwise use generic message
-				parsedPayment.addressError = parsed.errorMessage || $t('wallet.send.invalid_address');
+				// Handle amountless Lightning invoice with specific error message
+				if (parsed.errorMessage === 'amountless_invoice') {
+					parsedPayment.addressError = $t('wallet.send.error.amountless_invoice');
+				} else {
+					// Use specific error message if available, otherwise use generic message
+					parsedPayment.addressError = parsed.errorMessage || $t('wallet.send.invalid_address');
+				}
 				parsedPayment.data = null;
 				parsedPayment.detectedNetwork = null;
 				parsedPayment.detectedAmount = null;
@@ -766,6 +790,19 @@
 			throw new Error($t('wallet.send.error.invalid_payment_details'));
 		}
 
+		// Safety check: Block amountless Lightning invoices at submission time
+		// This is a backup validation in case the UI validation was bypassed
+		if (network === 'lightning-bitcoin' && parsedPayment.data) {
+			const lightningType = detectLightningType(recipient);
+			if (lightningType === 'bolt11') {
+				const invoiceParsed = parseLightningInvoice(recipient);
+				if (invoiceParsed.isValid && !invoiceParsed.hasAmount) {
+					appStore.showErrorToast($t('wallet.send.error.amountless_invoice'));
+					return;
+				}
+			}
+		}
+
 		// Show pending transaction screen immediately (optimistically)
 		// We'll update with txHash once we get it
 		sendState.pendingTxHash = 'pending'; // Temporary value, will be replaced with actual hash
@@ -923,6 +960,7 @@
 			address={sendState.pendingAddress}
 			network={sendState.pendingNetwork}
 			networkOptions={netwokrOption}
+			txHash={sendState.pendingTxHash}
 			onClose={() => {
 				// Clear pending state
 				sendState.pendingTxHash = null;
@@ -998,23 +1036,7 @@
 						{#if qrScanState.error}
 							<!-- Error state with decoded QR code -->
 							<div class="w-full space-y-3 sm:space-y-4">
-								<div class="alert alert-outline alert-error py-2 sm:py-4">
-									<svg
-										xmlns="http://www.w3.org/2000/svg"
-										class="h-6 w-6 shrink-0 stroke-current"
-										fill="none"
-										viewBox="0 0 24 24"
-									>
-										<path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											stroke-width="2"
-											d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-										/>
-									</svg>
-									<span class="text-sm">{qrScanState.error}</span>
-								</div>
-
+								<!-- Scanned address input (shown first) -->
 								<div class="form-control">
 									<label for="scanned-qr-code" class="label">
 										<span class="label-text">{$t('wallet.send.scanned_qr_code')}</span>
@@ -1042,6 +1064,24 @@
 									</div>
 								</div>
 
+								<!-- Error message (below address input) -->
+								<div class="alert alert-outline alert-error py-2 sm:py-4">
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										class="h-6 w-6 shrink-0 stroke-current"
+										fill="none"
+										viewBox="0 0 24 24"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+										/>
+									</svg>
+									<span class="text-sm">{qrScanState.error}</span>
+								</div>
+
 								<button
 									class="btn btn-primary w-full"
 									onclick={() => {
@@ -1056,10 +1096,23 @@
 							<WebQrCodeScanner
 								mode="inline"
 								onScan={(result) => handleQRScan(result)}
-								onClose={() => (uiState.activeTab = 'enter')}
+								onClose={() => {
+									// Don't switch tabs if there's a QR scan error (stay on scan tab to show error)
+									if (!qrScanState.error) {
+										uiState.activeTab = 'enter';
+									}
+								}}
 							/>
 						{:else}
-							<QrCodeScanner onScan={handleQRScan} onClose={() => (uiState.activeTab = 'enter')} />
+							<QrCodeScanner
+								onScan={handleQRScan}
+								onClose={() => {
+									// Don't switch tabs if there's a QR scan error (stay on scan tab to show error)
+									if (!qrScanState.error) {
+										uiState.activeTab = 'enter';
+									}
+								}}
+							/>
 						{/if}
 					</div>
 				{:else}
@@ -1260,11 +1313,6 @@
 									</div>
 								{/if}
 							</div>
-							{#if parsedPayment.addressError}
-								<div class="label">
-									<span class="label-text-alt text-error">{parsedPayment.addressError}</span>
-								</div>
-							{/if}
 						</div>
 
 						<!-- Amount Field (Mobile Step 1) -->
@@ -1295,6 +1343,25 @@
 								<p class="text-error text-md pt-1 text-center">
 									{$t('wallet.validation.insufficient_balance')}
 								</p>
+							{/if}
+							<!-- Address Error (e.g., amountless invoice) - Mobile Step 1 -->
+							{#if parsedPayment.addressError}
+								<div class="alert alert-outline alert-error mt-2 text-sm">
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										class="h-5 w-5 shrink-0 stroke-current"
+										fill="none"
+										viewBox="0 0 24 24"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+										/>
+									</svg>
+									<span>{parsedPayment.addressError}</span>
+								</div>
 							{/if}
 						</div>
 					{/if}
@@ -1494,6 +1561,25 @@
 								</div>
 							{/if}
 						</div>
+						<!-- Address Error (e.g., amountless invoice) - Mobile Step 2 -->
+						{#if parsedPayment.addressError}
+							<div class="alert alert-outline alert-error mt-2 text-sm">
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									class="h-5 w-5 shrink-0 stroke-current"
+									fill="none"
+									viewBox="0 0 24 24"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+									/>
+								</svg>
+								<span>{parsedPayment.addressError}</span>
+							</div>
+						{/if}
 					{/if}
 				</div>
 
@@ -1584,11 +1670,6 @@
 								</div>
 							{/if}
 						</div>
-						{#if parsedPayment.addressError}
-							<div class="label">
-								<span class="label-text-alt text-error">{parsedPayment.addressError}</span>
-							</div>
-						{/if}
 					</div>
 
 					<!-- Auto-detected Network Display -->
@@ -1796,6 +1877,26 @@
 								<span class="font-semibold">{$t('wallet.send.transaction_failed')}</span>
 								<span class="text-sm opacity-90">{sendState.error}</span>
 							</div>
+						</div>
+					{/if}
+
+					<!-- Address Error (e.g., amountless invoice) -->
+					{#if parsedPayment.addressError}
+						<div class="alert alert-outline alert-error text-sm">
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								class="h-5 w-5 shrink-0 stroke-current"
+								fill="none"
+								viewBox="0 0 24 24"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+								/>
+							</svg>
+							<span>{parsedPayment.addressError}</span>
 						</div>
 					{/if}
 				</div>
