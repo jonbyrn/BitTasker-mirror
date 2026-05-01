@@ -1,10 +1,12 @@
 #!/bin/bash
 
 # BitTasker Zapstore Publishing Script
-# Usage: ./scripts/publish-to-zapstore.sh [major|minor|patch] [publish]
+# Usage: ./scripts/publish-to-zapstore.sh [major|minor|patch|X.Y.Z] [publish]
 # Example: ./scripts/publish-to-zapstore.sh patch        - Build APK & create GitLab release
 # Example: ./scripts/publish-to-zapstore.sh patch publish - Build APK, create release & publish to Zapstore
 # Example: ./scripts/publish-to-zapstore.sh minor publish - Same with minor version bump
+# Example: ./scripts/publish-to-zapstore.sh 1.1.0        - Explicit version (1.0.6 → 1.1.0)
+# Example: ./scripts/publish-to-zapstore.sh 2.0.0 publish - Explicit version + Zapstore publish
 
 set -e  # Exit on error
 
@@ -23,6 +25,7 @@ APK_NAME_PREFIX="bittasker"
 RELEASE_TYPE=${1:-""}  # No default, empty if not provided
 SHOULD_PUBLISH=false
 BUMP_VERSION=false
+EXPLICIT_VERSION=""
 
 # Check if first argument is "publish" (no version bump)
 if [ "$1" == "publish" ]; then
@@ -37,20 +40,31 @@ elif [ -n "$RELEASE_TYPE" ]; then
   BUMP_VERSION=true
 fi
 
-# Validate release type if provided
-if [ -n "$RELEASE_TYPE" ] && ! [[ "$RELEASE_TYPE" =~ ^(major|minor|patch)$ ]]; then
-  echo -e "${RED}❌ Error: Invalid release type '${RELEASE_TYPE}'${NC}"
-  echo "Usage: $0 [major|minor|patch] [publish]"
-  echo ""
-  echo "Examples:"
-  echo "  $0               - Build with current version, no Zapstore publish"
-  echo "  $0 publish       - Build with current version + Zapstore publish"
-  echo "  $0 patch         - Bug fixes (1.0.0 → 1.0.1), no Zapstore publish"
-  echo "  $0 patch publish - Bug fixes (1.0.0 → 1.0.1) + Zapstore publish"
-  echo "  $0 minor         - New features (1.0.0 → 1.1.0), no Zapstore publish"
-  echo "  $0 minor publish - New features (1.0.0 → 1.1.0) + Zapstore publish"
-  echo "  $0 major publish - Breaking changes (1.0.0 → 2.0.0) + Zapstore publish"
-  exit 1
+# Validate release type if provided (supports major|minor|patch or explicit X.Y.Z version)
+if [ -n "$RELEASE_TYPE" ]; then
+  if [[ "$RELEASE_TYPE" =~ ^(major|minor|patch)$ ]]; then
+    # Valid semantic bump type
+    :
+  elif [[ "$RELEASE_TYPE" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    # Explicit version provided (e.g., 1.1.0, 2.0.0)
+    EXPLICIT_VERSION="$RELEASE_TYPE"
+    RELEASE_TYPE="explicit"
+  else
+    echo -e "${RED}❌ Error: Invalid release type '${RELEASE_TYPE}'${NC}"
+    echo "Usage: $0 [major|minor|patch|X.Y.Z] [publish]"
+    echo ""
+    echo "Examples:"
+    echo "  $0               - Build with current version, no Zapstore publish"
+    echo "  $0 publish       - Build with current version + Zapstore publish"
+    echo "  $0 patch         - Bug fixes (1.0.0 → 1.0.1), no Zapstore publish"
+    echo "  $0 patch publish - Bug fixes (1.0.0 → 1.0.1) + Zapstore publish"
+    echo "  $0 minor         - New features (1.0.0 → 1.1.0), no Zapstore publish"
+    echo "  $0 minor publish - New features (1.0.0 → 1.1.0) + Zapstore publish"
+    echo "  $0 major publish - Breaking changes (1.0.0 → 2.0.0) + Zapstore publish"
+    echo "  $0 1.1.0         - Explicit version (e.g., 1.0.6 → 1.1.0), no Zapstore publish"
+    echo "  $0 2.0.0 publish - Explicit version + Zapstore publish"
+    exit 1
+  fi
 fi
 
 # Check for required environment variables (only if publishing)
@@ -89,7 +103,11 @@ echo -e "  Current versionName: ${CURRENT_VERSION_NAME}"
 
 # Step 2: Calculate new version if bump is requested
 if [ "$BUMP_VERSION" = true ]; then
-  echo -e "${BLUE}📝 Calculating new version (${RELEASE_TYPE})...${NC}"
+  if [ "$RELEASE_TYPE" == "explicit" ]; then
+    echo -e "${BLUE}📝 Using explicit version: ${EXPLICIT_VERSION}...${NC}"
+  else
+    echo -e "${BLUE}📝 Calculating new version (${RELEASE_TYPE})...${NC}"
+  fi
   
   # Check if this is the first release (1.0.0 with versionCode 1)
   if [ "$CURRENT_VERSION_NAME" == "1.0.0" ] && [ "$CURRENT_VERSION_CODE" == "1" ]; then
@@ -97,7 +115,7 @@ if [ "$BUMP_VERSION" = true ]; then
     NEW_VERSION_CODE=1
     NEW_VERSION_NAME="1.0.0"
   else
-    # Increment versionCode
+    # Increment versionCode (always increments, even for explicit versions)
     NEW_VERSION_CODE=$((CURRENT_VERSION_CODE + 1))
 
     # Parse current version name (e.g., "1.2.3" → MAJOR=1, MINOR=2, PATCH=3)
@@ -113,6 +131,21 @@ if [ "$BUMP_VERSION" = true ]; then
         ;;
       patch)
         NEW_VERSION_NAME="$MAJOR.$MINOR.$((PATCH + 1))"
+        ;;
+      explicit)
+        # Use the explicit version provided by the user
+        NEW_VERSION_NAME="$EXPLICIT_VERSION"
+        
+        # Validate that explicit version is greater than current version
+        IFS='.' read -r NEW_MAJOR NEW_MINOR NEW_PATCH <<< "$EXPLICIT_VERSION"
+        
+        # Compare versions (major.minor.patch)
+        if [ "$NEW_MAJOR" -lt "$MAJOR" ] || \
+           ([ "$NEW_MAJOR" -eq "$MAJOR" ] && [ "$NEW_MINOR" -lt "$MINOR" ]) || \
+           ([ "$NEW_MAJOR" -eq "$MAJOR" ] && [ "$NEW_MINOR" -eq "$MINOR" ] && [ "$NEW_PATCH" -le "$PATCH" ]); then
+          echo -e "${RED}❌ Error: Explicit version ${EXPLICIT_VERSION} must be greater than current version ${CURRENT_VERSION_NAME}${NC}"
+          exit 1
+        fi
         ;;
     esac
   fi
