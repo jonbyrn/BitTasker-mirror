@@ -68,6 +68,40 @@
 		}
 	];
 
+	// Earning accordion items (tabs from earning page)
+	const loggedInEarningGroup: NavGroup = {
+		id: 'earning',
+		icon: IconInvoiceTextSendOutline,
+		label: 'navbar.earning',
+		items: [
+			{ href: '/earning/bids', icon: IconMagnify, label: 'dashboard.tabs.bids' },
+			{ href: '/earning/requests', icon: IconBriefcaseOutline, label: 'dashboard.tabs.requests' },
+			{ href: '/earning/contracts', icon: IconFileSign, label: 'dashboard.tabs.contracts' },
+			{
+				href: '/earning/my-services',
+				icon: IconBriefcaseSearch,
+				label: 'dashboard.services.my_services.title'
+			},
+			{ href: '/earning/alerts', icon: IconNewspaper, label: 'dashboard.tabs.saved_searches' }
+		]
+	};
+
+	// Hiring accordion items (tabs from dashboard page)
+	const loggedInHiringGroup: NavGroup = {
+		id: 'hiring',
+		icon: IconBriefcaseOutline,
+		label: 'navbar.hiring',
+		items: [
+			{ href: '/dashboard?tab=tasks', icon: IconPlusCircleOutline, label: 'dashboard.tabs.tasks' },
+			{ href: '/dashboard?tab=contracts', icon: IconFileSign, label: 'dashboard.tabs.contracts' },
+			{
+				href: '/dashboard?tab=service-requests',
+				icon: IconCommentTextOutline,
+				label: 'dashboard.tabs.quotes'
+			}
+		]
+	};
+
 	const loggedOutTopLinks: NavLink[] = [
 		{ href: '/tasks', icon: IconHome, label: 'navbar.home' },
 		{ href: '/how-it-works', icon: IconHelpCircleOutline, label: 'footer.how_it_works' }
@@ -400,28 +434,62 @@
 									</ul>
 								</li>
 
-								<!-- 3. Earning (Link) -->
+								<!-- 3. Earning (Accordion) -->
 								<li>
-									<a
-										href="/earning"
-										onclick={(e) => handleNavWithMenuClose(e, '/earning')}
-										class="min-h-[48px] py-3"
-									>
+									<button onclick={() => toggleGroup('earning')} class="min-h-[48px] py-3">
 										<IconInvoiceTextSendOutline class="text-primary" />
 										<span class="font-medium">{$t('navbar.earning')}</span>
-									</a>
+										<svg
+											class="dropdown-arrow ml-auto h-4 w-4"
+											class:dropdown-open={openGroupId === 'earning'}
+											fill="currentColor"
+											viewBox="0 0 20 20"
+											stroke="currentColor"
+											stroke-width="1"
+										>
+											<path
+												fill-rule="evenodd"
+												d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+												clip-rule="evenodd"
+											/>
+										</svg>
+									</button>
+								</li>
+								<li class="submenu-grid" class:submenu-open={openGroupId === 'earning'}>
+									<ul class="submenu-inner">
+										{#each loggedInEarningGroup.items as link (link.label)}
+											{@render menuLink(link)}
+										{/each}
+									</ul>
 								</li>
 
-								<!-- 4. Hiring (Link) -->
+								<!-- 4. Hiring (Accordion) -->
 								<li>
-									<a
-										href="/dashboard"
-										onclick={(e) => handleNavWithMenuClose(e, '/dashboard')}
-										class="min-h-[48px] py-3"
-									>
+									<button onclick={() => toggleGroup('hiring')} class="min-h-[48px] py-3">
 										<IconBriefcaseOutline class="text-primary" />
 										<span class="font-medium">{$t('navbar.hiring')}</span>
-									</a>
+										<svg
+											class="dropdown-arrow ml-auto h-4 w-4"
+											class:dropdown-open={openGroupId === 'hiring'}
+											fill="currentColor"
+											viewBox="0 0 20 20"
+											stroke="currentColor"
+											stroke-width="1"
+										>
+											<path
+												fill-rule="evenodd"
+												d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+												clip-rule="evenodd"
+											/>
+										</svg>
+									</button>
+								</li>
+								<li class="submenu-grid" class:submenu-open={openGroupId === 'hiring'}>
+									<ul class="submenu-inner">
+										{#each loggedInHiringGroup.items as link (link.label)}
+											{@render menuLink(link)}
+										{/each}
+									</ul>
 								</li>
 							</ul>
 						{:else}
