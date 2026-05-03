@@ -100,7 +100,7 @@
 					"view_proposal_short": "View",
 					"delete_proposal": "Delete Proposal",
 					"delete_proposal_failed": "Unable to delete this proposal right now.",
-					"pending_amount": "Pending",
+					"pending_amount": "Awaiting proposal",
 					"request_id": "Request ID: {requestId}",
 					"service": "Service: {service}",
 					"service_unavailable_body": "This service was deleted by the provider. Keep this request for reference, but no new proposals can be sent.",
@@ -155,7 +155,7 @@
 						"accept_failed": "Accept failed",
 						"accept_unknown": "Accept unknown",
 						"proposal_sent": "Proposal sent",
-						"pending": "Pending"
+						"pending": "Awaiting proposal"
 					},
 					"blocked_reason": {
 						"service_unavailable": "This service was deleted by the provider. Existing requests are now read-only.",

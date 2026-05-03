@@ -84,7 +84,10 @@
 							'dashboard.service_requests.statuses.proposal_received',
 							'Proposal received'
 						)
-					: translateOrFallback('dashboard.service_requests.quote_pending', 'Pending');
+					: translateOrFallback(
+							'dashboard.service_requests.statuses.awaiting_proposal',
+							'Awaiting proposal'
+						);
 		}
 	}
 
@@ -118,7 +121,10 @@
 			return `$${amount}`;
 		}
 
-		return translateOrFallback('dashboard.service_requests.quote_pending', 'Pending');
+		return translateOrFallback(
+			'dashboard.service_requests.statuses.awaiting_proposal',
+			'Awaiting proposal'
+		);
 	}
 
 	function formatTimestamp(timestampSeconds: number | undefined): string {

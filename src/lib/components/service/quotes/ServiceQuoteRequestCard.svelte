@@ -170,7 +170,7 @@
 				<div class="badge {getStatusColor(timeline)} badge-sm max-w-[140px] truncate text-center">
 					{describeStatus(timeline)}
 				</div>
-				<div class="text-right text-xl font-bold">
+				<div class="max-w-[140px] text-right text-xl font-bold text-wrap">
 					{getPriceDisplay(timeline)}
 				</div>
 			</div>
