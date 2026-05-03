@@ -17,6 +17,7 @@
 	} from './ServiceProposalComposer.svelte';
 	import IconMapMarker from '~icons/mdi/map-marker';
 	import IconOpenInNew from '~icons/mdi/open-in-new';
+	import IconFormTextbox from '~icons/mdi/form-textbox';
 
 	const {
 		isOpen = false,
@@ -218,6 +219,34 @@
 		return generateAllMapLinks(location, { label: serviceLocation?.label });
 	});
 
+	function stringifyInquiryValue(value: string | number | boolean | string[] | undefined): string {
+		if (value === undefined) return '—';
+		if (Array.isArray(value)) {
+			return value.length > 0 ? value.join(', ') : '—';
+		}
+		if (typeof value === 'boolean') {
+			return value
+				? tr('dashboard.service_requests.boolean_yes', 'Yes')
+				: tr('dashboard.service_requests.boolean_no', 'No');
+		}
+		if (typeof value === 'number' || typeof value === 'string') {
+			const rendered = String(value).trim();
+			return rendered.length > 0 ? rendered : '—';
+		}
+		return '—';
+	}
+
+	function getInquiryFieldLabel(fieldId: string): string {
+		const fields = service?.pricing?.inquiryForm?.fields ?? [];
+		return (
+			fields.find((field: { id: string; label?: string }) => field.id === fieldId)?.label ?? fieldId
+		);
+	}
+
+	const customFormEntries = $derived.by(() =>
+		Object.entries(timeline?.request.content.inquiry.customFormResponses ?? {})
+	);
+
 	let inquiryDescriptionElement: HTMLParagraphElement | null = $state(null);
 	let showFullInquiryDescription = $state(false);
 	let isInquiryDescriptionTruncated = $state(false);
@@ -345,6 +374,29 @@
 								{tr('dashboard.services.my_services.quote_inbox.rush_delivery', 'Rush delivery')}
 							</span>
 						{/if}
+					</div>
+				{/if}
+
+				{#if customFormEntries.length > 0}
+					<div class="space-y-3">
+						<div class="flex items-center gap-2">
+							<IconFormTextbox class="text-info h-5 w-5 shrink-0" />
+							<h5 class="text-info text-sm font-bold">
+								{tr('dashboard.service_requests.drawer.custom_answers', 'Submitted answers')}
+							</h5>
+						</div>
+						<div class="space-y-2">
+							{#each customFormEntries as [fieldId, value] (fieldId)}
+								<div class="border-base-300 rounded-xl border p-3">
+									<p class="text-base-content/70 text-xs font-semibold tracking-wide uppercase">
+										{getInquiryFieldLabel(fieldId)}
+									</p>
+									<p class="mt-1 text-sm whitespace-pre-line">
+										{stringifyInquiryValue(value)}
+									</p>
+								</div>
+							{/each}
+						</div>
 					</div>
 				{/if}
 
