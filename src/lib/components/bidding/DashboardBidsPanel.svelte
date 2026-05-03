@@ -12,18 +12,20 @@
 	import { BidStatusEnum } from '$lib/utils/enums/bid.enum';
 	import TaskDeadlineDisplay from '$lib/components/task/TaskDeadlineDisplay.svelte';
 	import TaskLocationDisplay from '$lib/components/task/TaskLocationDisplay.svelte';
+	import BookingDatesDisplay from '$lib/components/shared/BookingDatesDisplay.svelte';
 	import UserInfoDisplay from '$lib/components/user/UserInfoDisplay.svelte';
 	import IconCheck from '~icons/mdi/check';
 	import IconClose from '~icons/mdi/close';
 	import IconClockOutline from '~icons/mdi/clock-outline';
 	import IconSwapHorizontal from '~icons/mdi/swap-horizontal';
 	import IconUndo from '~icons/mdi/undo';
+	import IconEmailFastOutline from '~icons/mdi/email-fast-outline';
 	import { getSignedEvent, publishToMultipleRelays } from '$lib/utils/nostr';
 	import { clearBidCache as clearBidCacheUtil } from '$lib/utils/nostr-bid';
 	import { appStore } from '$lib/stores/app.store';
 	import { SvelteSet } from 'svelte/reactivity';
 	import KINDS from '$lib/utils/constants/kinds';
-	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
+	import { formatNumberWithTwoDecimals, formatInteger } from '$lib/utils/helpers/currencyFormatter';
 	import { taskTranslationService } from '$lib/services/task-translation.service';
 	import DashboardEmptyState from '$lib/components/shared/DashboardEmptyState.svelte';
 	import DashboardFilterBar from '$lib/components/shared/DashboardFilterBar.svelte';
@@ -528,28 +530,35 @@
 									<!-- Fecha enviado 60% | Precio 40% en la misma fila -->
 									<div class="grid grid-cols-[3fr_2fr] items-center gap-3">
 										<div class="min-w-0">
-											<span class="text-base-content/60 text-sm">
-												{$t('bids.sent_at')}:
-												<strong class="text-base-content"
-													>{formatSentAt(bidEvent.created_at)}</strong
-												>
-											</span>
+											<div class="flex items-center gap-2">
+												<IconEmailFastOutline class="text-primary h-8 w-8 shrink-0" />
+												<div class="flex min-w-0 flex-col gap-0.5">
+													<span class="text-sm font-medium"
+														>{formatSentAt(bidEvent.created_at)
+															.split(/,\s*/)
+															.slice(0, -1)
+															.join(', ')}</span
+													>
+													<span class="text-base-content/60 block text-xs"
+														>{formatSentAt(bidEvent.created_at).split(/,\s*/).pop()}</span
+													>
+												</div>
+											</div>
 										</div>
 										<div class="min-w-0 text-right">
 											<p class="text-xl font-bold">${formatNumberWithTwoDecimals(bid.amount)}</p>
 											<p class="text-base-content/60 text-sm">
-												{cachedSatsFromUsd(bid.amount, btcPrice)}
+												{formatInteger(cachedSatsFromUsd(bid.amount, btcPrice))}
 												{$t('bids.sats')}
 											</p>
 										</div>
 									</div>
 									{#if bid.startDateTime && bid.endDateTime}
-										<TaskDeadlineDisplay
-											dateRangeStart={bid.startDateTime}
-											dateRangeEnd={bid.endDateTime}
-											showTime={true}
-											showDuration={true}
-										/>
+										{@const startTs = new Date(bid.startDateTime).getTime()}
+										{@const endTs = new Date(bid.endDateTime).getTime()}
+										{#if !isNaN(startTs) && !isNaN(endTs)}
+											<BookingDatesDisplay startTime={startTs} endTime={endTs} />
+										{/if}
 									{/if}
 									{#if bid.description}
 										<div class="min-w-0">
