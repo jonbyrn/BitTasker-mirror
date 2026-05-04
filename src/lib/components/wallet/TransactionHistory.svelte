@@ -416,11 +416,11 @@
 				<div class="space-y-3">
 					{#each Array.from({ length: 10 }, (_, i) => i) as skeletonIndex (skeletonIndex)}
 						<div class="card bg-base-200 animate-pulse rounded-lg">
-							<div class="card-body p-4">
+							<div class="card-body p-2">
 								<div class="flex flex-col gap-1">
 									<!-- Top Row: Icon, Text, Checkmark, Amount, Fee -->
 									<div class="flex items-center justify-between gap-2 sm:gap-4">
-										<div class="flex items-center gap-3">
+										<div class="flex min-w-0 flex-1 items-center gap-3">
 											<!-- Type Icon -->
 											<div class="bg-base-300 h-10 w-10 rounded-full"></div>
 											<div class="flex items-center gap-2">
@@ -435,7 +435,7 @@
 									</div>
 									<!-- Bottom Row: Network Icon, Date/Time, Running Balance -->
 									<div class="flex items-center justify-between gap-2 sm:gap-4">
-										<div class="flex items-center gap-3">
+										<div class="flex min-w-0 flex-1 items-center gap-3">
 											<!-- Network Icon -->
 											<div class="bg-base-300 h-10 w-10 rounded-full"></div>
 											<div class="space-y-1">
@@ -491,11 +491,11 @@
 							}}
 							class="card bg-base-200 hover:bg-base-300 cursor-pointer rounded-lg border-2 transition-colors {transactionClasses.border}"
 						>
-							<div class="card-body p-4">
+							<div class="card-body p-2">
 								<div class="flex flex-col gap-1">
 									<!-- Top Row: Icon, Text, Checkmark, Amount, Fee -->
 									<div class="flex items-center justify-between gap-2 sm:gap-4">
-										<div class="flex items-center gap-3">
+										<div class="flex min-w-0 flex-1 items-center gap-3">
 											<!-- Type Icon with Overlay -->
 											<div class="relative inline-block">
 												<div
@@ -528,7 +528,30 @@
 												</span>
 											</div>
 										</div>
-										<div class="flex flex-col items-end">
+										<!-- Swap Action Buttons -->
+										{#if tx.swap?.actions && tx.swap.actions.length > 0}
+											<div class="flex flex-wrap gap-1">
+												{#each tx.swap.actions as action (action.type)}
+													<button
+														class="btn btn-xs"
+														class:btn-warning={action.type === 'refund'}
+														class:btn-primary={action.type === 'renegotiate' ||
+															action.type === 'viewQR'}
+														class:btn-success={action.type === 'claim'}
+														onclick={(e) => {
+															if (action.type === 'viewQR') {
+																handleViewQRAction(tx, e);
+															} else {
+																action.handler();
+															}
+														}}
+													>
+														{$t(action.label)}
+													</button>
+												{/each}
+											</div>
+										{/if}
+										<div class="flex flex-shrink-0 flex-col items-end">
 											<div class="{transactionClasses.text} font-semibold">
 												{#if tx.displayType === 'receive' || tx.displayType === 'swap-claim'}
 													{#if valueSats > 0}+{/if}
@@ -546,7 +569,7 @@
 
 									<!-- Bottom Row: Network Icon, Date/Time, Running Balance -->
 									<div class="flex items-center justify-between gap-2 sm:gap-4">
-										<div class="flex items-center gap-3">
+										<div class="flex min-w-0 flex-1 items-center gap-3">
 											<!-- Network Icon -->
 											<div
 												class="bg-base-300/20 flex h-10 w-10 items-center justify-center rounded-full"
@@ -566,29 +589,6 @@
 												{Math.floor(tx.balanceAfter)?.toLocaleString() || '0'}
 												{$t('wallet.sats')}
 											</div>
-											<!-- Swap Action Buttons - Thin, directly below balance -->
-											{#if tx.swap?.actions && tx.swap.actions.length > 0}
-												<div class="flex flex-wrap justify-end gap-1.5">
-													{#each tx.swap.actions as action (action.type)}
-														<button
-															class="btn btn-xs"
-															class:btn-warning={action.type === 'refund'}
-															class:btn-primary={action.type === 'renegotiate' ||
-																action.type === 'viewQR'}
-															class:btn-success={action.type === 'claim'}
-															onclick={(e) => {
-																if (action.type === 'viewQR') {
-																	handleViewQRAction(tx, e);
-																} else {
-																	action.handler();
-																}
-															}}
-														>
-															{$t(action.label)}
-														</button>
-													{/each}
-												</div>
-											{/if}
 										</div>
 									</div>
 								</div>
