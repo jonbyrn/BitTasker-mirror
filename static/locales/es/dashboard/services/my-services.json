@@ -34,7 +34,7 @@
 				"status_update_failed": "Error al actualizar el estado",
 				"actions": {
 					"quotes": "Solicitudes",
-					"quotes_short": "Solicitudes",
+					"quotes_short": "Consultas",
 					"contracts": "Contratos",
 					"contracts_short": "Contratos"
 				},

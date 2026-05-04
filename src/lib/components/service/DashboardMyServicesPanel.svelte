@@ -570,7 +570,7 @@
 		});
 
 		actions.push({
-			label: tr('dashboard.services.my_services.actions.quotes_short', 'Reqs'),
+			label: tr('dashboard.services.my_services.actions.quotes_short', 'Inquiries'),
 			class: 'btn-primary btn-sm',
 			onclick: (e: MouseEvent) => {
 				e.stopPropagation();

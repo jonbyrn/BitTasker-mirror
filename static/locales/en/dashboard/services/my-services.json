@@ -34,7 +34,7 @@
 				"status_update_failed": "Failed to update status",
 				"actions": {
 					"quotes": "Requests",
-					"quotes_short": "Reqs",
+					"quotes_short": "Inquiries",
 					"contracts": "Contracts",
 					"contracts_short": "Contracts"
 				},
