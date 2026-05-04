@@ -21,6 +21,7 @@ export interface FeaturedService {
 	title: string;
 	description: string;
 	priceLabel: string;
+	location?: string;
 	meta: string[];
 	image: string;
 	imageAlt: string;
@@ -129,7 +130,8 @@ export class FeaturedServicesService {
 				)
 			};
 		} catch (error) {
-			const errorMessage = error instanceof Error ? error.message : 'Failed to fetch featured services';
+			const errorMessage =
+				error instanceof Error ? error.message : 'Failed to fetch featured services';
 			console.error('Error fetching featured services:', error);
 			return {
 				success: false,
@@ -156,12 +158,15 @@ export class FeaturedServicesService {
 			labels.noDescriptionLabel;
 		const serviceIdentity = getHomepageServiceIdentity(service);
 
+		const location = this.getLocationLabel(service, labels);
+
 		return {
 			id: service.id,
 			href: `/services/${encodeURIComponent(serviceIdentity)}`,
 			title,
 			description,
 			priceLabel: this.getPriceLabel(service, labels),
+			location: location || undefined,
 			meta: this.getMeta(service, locale, labels),
 			image: getFirstImageUrl(service.portfolio),
 			imageAlt: title,
@@ -201,22 +206,13 @@ export class FeaturedServicesService {
 	private static getMeta(
 		service: Service,
 		locale: string,
-		labels: FeaturedServiceLabels
+		_labels: FeaturedServiceLabels
 	): string[] {
 		const meta: string[] = [];
-		const locationLabel = this.getLocationLabel(service, labels);
 		const deliveryLabel = getServiceDeliveryTimeDisplay(service, locale);
-
-		if (locationLabel) {
-			meta.push(locationLabel);
-		}
 
 		if (deliveryLabel) {
 			meta.push(deliveryLabel);
-		}
-
-		if (meta.length === 0) {
-			meta.push(labels.serviceListingLabel);
 		}
 
 		return meta;

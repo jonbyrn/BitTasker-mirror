@@ -1,9 +1,14 @@
 <script lang="ts">
+	import IconMapMarker from '~icons/mdi/map-marker';
+
 	let {
 		href,
 		title,
 		description = '',
 		meta = [],
+		price = '',
+		priceLabel = '',
+		location = '',
 		image = '',
 		imageAlt,
 		ctaLabel,
@@ -15,6 +20,9 @@
 		title: string;
 		description?: string;
 		meta?: string[];
+		price?: string;
+		priceLabel?: string;
+		location?: string;
 		image?: string;
 		imageAlt?: string;
 		ctaLabel: string;
@@ -24,42 +32,61 @@
 	}>();
 </script>
 
-<a
-	{href}
-	class="card card-compact bg-base-100 focus-visible:ring-primary h-full overflow-hidden rounded-2xl shadow-lg transition-transform duration-200 hover:-translate-y-1 hover:shadow-xl focus:outline-none focus-visible:ring-2"
+<div
+	class="card card-compact bg-base-100 overflow-hidden rounded-2xl shadow-lg"
 	data-testid={testId}
 	data-homepage-card-shell="true"
 >
-	<figure class="bg-base-200 h-48 overflow-hidden">
+	<a {href} class="bg-base-200 block h-48 overflow-hidden">
 		<img
 			src={image || fallbackImage}
 			alt={imageAlt || title}
-			class="h-full w-full object-cover"
+			class="h-full w-full object-cover transition-transform duration-200 hover:scale-105"
 			loading={imageLoading}
 		/>
-	</figure>
+	</a>
 
-	<div class="card-body flex h-full flex-col gap-3 p-5">
-		<div class="space-y-2">
-			<h3 class="line-clamp-2 min-h-[3.5rem] text-lg font-semibold">{title}</h3>
-			{#if description}
-				<p class="text-base-content/75 line-clamp-2 text-sm">{description}</p>
+	<div class="card-body flex flex-col gap-2 p-4">
+		<h3 class="line-clamp-2 text-lg leading-snug font-semibold" style="min-height:2lh">{title}</h3>
+		<div class="text-base-content/75 line-clamp-4 text-sm leading-snug" style="min-height:4lh">
+			{description || ''}
+		</div>
+
+		<!-- Location row -->
+		<div class="flex items-center gap-2" style="min-height:2rem">
+			{#if location}
+				<IconMapMarker class="text-primary h-8 w-8 shrink-0" />
+				<span class="line-clamp-1 text-sm">{location}</span>
 			{/if}
 		</div>
 
-		{#if meta.length > 0}
-			<div class="flex flex-wrap gap-2">
-				{#each meta as metaItem}
-					<span class="bg-base-200 text-base-content/80 rounded-full px-3 py-1 text-xs font-medium">
-						{metaItem}
-					</span>
-				{/each}
+		<!-- Price and badges row -->
+		<div class="flex items-start justify-between gap-3">
+			<div class="min-w-0 flex-1">
+				{#if priceLabel}
+					<span class="text-base-content/60 text-xs font-medium tracking-wide uppercase"
+						>{priceLabel}</span
+					>
+				{/if}
+				{#if meta.length > 0}
+					<div class="mt-1 flex flex-wrap gap-1.5">
+						{#each meta as metaItem (metaItem)}
+							<span
+								class="bg-base-200 text-base-content/80 rounded-full px-2.5 py-0.5 text-xs font-medium"
+							>
+								{metaItem}
+							</span>
+						{/each}
+					</div>
+				{/if}
 			</div>
-		{/if}
-
-		<div class="mt-auto flex items-center justify-between gap-3 pt-1">
-			<span class="text-primary text-sm font-semibold">{ctaLabel}</span>
-			<span class="btn btn-primary btn-sm pointer-events-none">{ctaLabel}</span>
+			{#if price}
+				<div class="shrink-0 text-right">
+					<span class="text-xl font-bold">{price}</span>
+				</div>
+			{/if}
 		</div>
+
+		<a {href} class="btn btn-primary btn-sm w-full">{ctaLabel}</a>
 	</div>
-</a>
+</div>

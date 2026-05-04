@@ -11,7 +11,10 @@
 	href={service.href}
 	title={service.title}
 	description={service.description}
-	meta={[service.priceLabel, ...service.meta]}
+	price={service.priceLabel}
+	priceLabel="Price"
+	location={service.location}
+	meta={service.meta}
 	image={service.image}
 	imageAlt={service.imageAlt}
 	ctaLabel={service.ctaLabel}
