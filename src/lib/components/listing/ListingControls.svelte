@@ -25,7 +25,8 @@
 		translationNamespace = 'find_tasks',
 		filterLabelKey = 'filters',
 		activeFilterCount = 0,
-		filterDisabled = false
+		filterDisabled = false,
+		children
 	} = $props<{
 		searchQuery: string;
 		searchInputClass: string;
@@ -33,6 +34,7 @@
 		onSearchInput: (e: Event) => void;
 		onFilterClick: () => void;
 		onSaveSearch?: () => Promise<void>;
+		children?: import('svelte').Snippet;
 		canSaveSearch?: boolean;
 		showSaveButton?: boolean;
 		viewMode: 'list' | 'map';
@@ -141,5 +143,8 @@
 				{/if}
 			</span>
 		</button>
+		{#if children}
+			{@render children()}
+		{/if}
 	</nav>
 </section>

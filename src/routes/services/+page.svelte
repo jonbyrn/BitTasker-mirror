@@ -760,7 +760,7 @@
 <!-- Same layout and structure as Find Tasks -->
 <main
 	id="services-main"
-	class="find-services-container mx-auto h-full min-h-0 w-full max-w-6xl flex-1 px-2 py-6 md:px-0 md:py-0"
+	class="find-services-container mx-auto h-full min-h-0 w-full max-w-6xl flex-1 px-2 py-4 md:px-0 md:py-0"
 	data-find-services-page="true"
 >
 	<div id="panel-find-services" class="grid h-full min-h-0 grid-rows-[auto_1fr] overflow-hidden">
@@ -781,7 +781,25 @@
 			filterLabelKey="filters_button"
 			{activeFilterCount}
 			filterDisabled={isApplyingFilters}
-		/>
+		>
+			<a href="/dashboard/create-service" class="btn btn-primary btn-sm gap-2 whitespace-nowrap">
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					class="h-4 w-4"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke="currentColor"
+				>
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M12 4v16m8-8H4"
+					/>
+				</svg>
+				<span>{$t('dashboard.services.browse.create_service') || 'New'}</span>
+			</a>
+		</ListingControls>
 
 		<!-- Main Content Area - same structure as Find Tasks -->
 		<section class="min-h-0 flex-1" data-services-content-area>

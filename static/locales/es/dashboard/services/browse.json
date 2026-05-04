@@ -25,6 +25,7 @@
 					"start_new_search": "Explorar Servicios",
 					"apply_search": "Aplicar"
 				},
+				"create_service": "Nuevo",
 				"map": "Mapa",
 				"list": "Lista",
 				"scroll_to_top": "Ir arriba",
