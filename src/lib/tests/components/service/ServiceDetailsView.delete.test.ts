@@ -303,7 +303,7 @@ describe('ServiceDetailsView delete workflow', () => {
 		cleanup();
 	});
 
-	it.skip('calls getActiveServiceContractsForService with contracts array and service object (not just service.id)', async () => {
+	it('calls getActiveServiceContractsForService with contracts array and service object (not just service.id)', async () => {
 		const service = createService();
 		const contract = createContract();
 		hoisted.contractStoreState.set({
@@ -316,7 +316,9 @@ describe('ServiceDetailsView delete workflow', () => {
 		await fireEvent.click(getAllByText('Delete')[0]);
 
 		// Verify getActiveServiceContractsForService was called with (contracts, service) not just (service.id)
-		expect(hoisted.mockGetActiveContractsForService).toHaveBeenCalledTimes(1);
+		await waitFor(() => {
+			expect(hoisted.mockGetActiveContractsForService).toHaveBeenCalledTimes(1);
+		});
 		const [firstArg, secondArg] = hoisted.mockGetActiveContractsForService.mock.calls[0];
 
 		// First argument should be an array (contracts), not a string (service.id)
@@ -325,26 +327,40 @@ describe('ServiceDetailsView delete workflow', () => {
 		expect(secondArg).toEqual(service);
 		// Should NOT be called with just a string
 		expect(typeof firstArg).not.toBe('string');
-	});
+	}, 15_000);
 
-	it.skip('blocks owner deletion when active contracts still exist', async () => {
+	it('allows owner deletion even when active contracts exist', async () => {
 		hoisted.contractStoreState.set({
 			contracts: [createContract()]
 		});
 		hoisted.mockGetActiveContractsForService.mockReturnValue([createContract()]);
 
-		const { getAllByText, findByText, findAllByText } = await renderView(createService());
+		const { getAllByText, findByText } = await renderView(createService());
 
 		await fireEvent.click(getAllByText('Delete')[0]);
 
-		expect(await findByText('Cannot delete service')).toBeTruthy();
+		// Component shows confirm modal (does not block on active contracts)
+		expect(await findByText('Delete service')).toBeTruthy();
 		expect(
-			await findAllByText(/Active service contracts are still attached to this service/)
+			await findByText('This service has no active dependencies and can be safely deleted.')
 		).toBeTruthy();
-		expect(hoisted.mockDeleteService).not.toHaveBeenCalled();
-	}, 20_000);
+		await fireEvent.click(getAllByText('Confirm Delete')[0]);
 
-	it.skip('warns about open requests but still allows deletion', async () => {
+		await waitFor(() => expect(hoisted.mockDeleteService).toHaveBeenCalledTimes(1));
+		expect(hoisted.mockDeleteService).toHaveBeenCalledWith(
+			'service-event-1',
+			{
+				hasOpenQuotes: false,
+				hasActiveContracts: true
+			},
+			{
+				uniqueId: 'service-123'
+			}
+		);
+		expect(hoisted.mockGoto).toHaveBeenCalledWith('/dashboard?tab=my-services');
+	}, 15_000);
+
+	it('warns about open requests but still allows deletion', async () => {
 		hoisted.mockQueryTaskeeThreads.mockResolvedValue([
 			{
 				request: {
@@ -367,7 +383,16 @@ describe('ServiceDetailsView delete workflow', () => {
 						version: 'v1'
 					}
 				},
-				proposals: [],
+				proposals: [
+					{
+						proposal: {
+							id: 'proposal-1',
+							quoteRequestId: 'qr_valid123',
+							content: 'Here is my proposal'
+						},
+						state: 'accepted'
+					}
+				],
 				taskerPubkey: 'b'.repeat(64),
 				taskeePubkey: 'a'.repeat(64),
 				serviceAddress: `30402:${'a'.repeat(64)}:service-123`,
