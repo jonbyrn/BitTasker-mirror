@@ -1007,8 +1007,27 @@
 
 								<!-- End of Results -->
 								{#if !$servicesStore.hasMore && $servicesStore.items.length > 0}
-									<div class="text-base-content/60 mt-4 mb-12 text-center text-sm">
-										{$t('dashboard.services.browse.no_more_services')}
+									<div class="mt-4 mb-12 text-center">
+										<p class="text-base-content/60 mb-4 text-sm">
+											{$t('dashboard.services.browse.no_more_services')}
+										</p>
+										<a href="/dashboard/create-service" class="btn btn-primary gap-2">
+											<svg
+												xmlns="http://www.w3.org/2000/svg"
+												class="h-5 w-5"
+												fill="none"
+												viewBox="0 0 24 24"
+												stroke="currentColor"
+											>
+												<path
+													stroke-linecap="round"
+													stroke-linejoin="round"
+													stroke-width="2"
+													d="M12 4v16m8-8H4"
+												/>
+											</svg>
+											{$t('dashboard.services.browse.list_your_service') || 'List Your Service'}
+										</a>
 									</div>
 								{/if}
 							{:else if dataLoaded && $servicesStore.items.length === 0 && !$servicesStore.loading}
