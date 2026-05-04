@@ -49,6 +49,9 @@
 		"my_tasks": "Mis Tareas",
 		"wallet": "Billetera",
 		"messages": "Mensajes",
+		"my_account": "Mi Cuenta",
+		"profile": "Perfil",
+		"settings": "Ajustes",
 		"support_help": "Soporte y Ayuda",
 		"hiring": "Contratando",
 		"earning": "Ganando",
@@ -63,6 +66,7 @@
 		"privacy_policy": "Política de Privacidad",
 		"find_tasks": "Buscar Tareas",
 		"find_services": "Buscar Servicios",
+		"browse_services": "Explorar Servicios",
 		"my_services": "Mis Servicios",
 		"create_task": "Crear Tarea",
 		"browse_freelancers": "Ver Taskees",
@@ -81,7 +85,7 @@
 			"light_mode": "Modo Claro",
 			"language": "Idioma: {name}"
 		},
-		"login": "Iniciar Sesión",
+		"login": "Iniciar",
 		"signup": "Registrarse",
 		"about": "Acerca de",
 		"menu": "Menú",
@@ -131,7 +135,7 @@
 				"title": "La Fuerza Laboral Descentralizada.",
 				"page_title": "La Fuerza Laboral Descentralizada | BitTasker",
 				"description": "Contrata profesionales para cualquier tarea. Paga con Bitcoin o fiat. Construido sobre Nostr.",
-				"cta": "Empezar"
+				"cta": "Registrarse"
 			},
 			"trust": {
 				"title": "Confiado en Todo el Mundo",

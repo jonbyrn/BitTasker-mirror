@@ -33,6 +33,9 @@
 	import IconBriefcaseSearch from '~icons/mdi/briefcase-search';
 	import IconNewspaper from '~icons/mdi/newspaper';
 	import IconCommentTextOutline from '~icons/mdi/comment-text-outline';
+	import IconAccountCircle from '~icons/mdi/account-circle';
+	import IconAccountOutline from '~icons/mdi/account-outline';
+	import IconCogOutline from '~icons/mdi/cog-outline';
 
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	type IconComponent = any;
@@ -51,6 +54,15 @@
 	}
 
 	const loggedInGroups: NavGroup[] = [
+		{
+			id: 'account',
+			icon: IconAccountCircle,
+			label: 'navbar.my_account',
+			items: [
+				{ href: '/dashboard/profile', icon: IconAccountOutline, label: 'navbar.profile' },
+				{ href: '/dashboard/settings', icon: IconCogOutline, label: 'navbar.settings' }
+			]
+		},
 		{
 			id: 'company',
 			icon: IconHelpCircleOutline,
@@ -431,7 +443,36 @@
 									</ul>
 								</li>
 
-								<!-- 3. Earning (Accordion) -->
+								<!-- 3. My Account (Accordion) -->
+								<li>
+									<button onclick={() => toggleGroup('account')} class="min-h-[48px] py-3">
+										<IconAccountCircle class="text-primary" />
+										<span class="font-medium">{$t('navbar.my_account')}</span>
+										<svg
+											class="dropdown-arrow ml-auto h-4 w-4"
+											class:dropdown-open={openGroupId === 'account'}
+											fill="currentColor"
+											viewBox="0 0 20 20"
+											stroke="currentColor"
+											stroke-width="1"
+										>
+											<path
+												fill-rule="evenodd"
+												d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+												clip-rule="evenodd"
+											/>
+										</svg>
+									</button>
+								</li>
+								<li class="submenu-grid" class:submenu-open={openGroupId === 'account'}>
+									<ul class="submenu-inner">
+										{#each loggedInGroups.find((g) => g.id === 'account')?.items || [] as link (link.label)}
+											{@render menuLink(link)}
+										{/each}
+									</ul>
+								</li>
+
+								<!-- 4. Earning (Accordion) -->
 								<li>
 									<button onclick={() => toggleGroup('earning')} class="min-h-[48px] py-3">
 										<IconInvoiceTextSendOutline class="text-primary" />
@@ -460,7 +501,7 @@
 									</ul>
 								</li>
 
-								<!-- 4. Hiring (Accordion) -->
+								<!-- 5. Hiring (Accordion) -->
 								<li>
 									<button onclick={() => toggleGroup('hiring')} class="min-h-[48px] py-3">
 										<IconBriefcaseOutline class="text-primary" />

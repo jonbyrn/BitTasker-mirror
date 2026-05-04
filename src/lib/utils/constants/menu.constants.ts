@@ -343,6 +343,16 @@ export const LOGGED_OUT_MENU_SECTIONS = [
  */
 export const AVATAR_MENU_ITEMS: MenuItem[] = [
 	{
+		label: 'navbar.hiring',
+		icon: IconChartBoxOutline,
+		href: '/dashboard'
+	},
+	{
+		label: 'navbar.earning',
+		icon: IconInvoiceTextSendOutline,
+		href: '/earning'
+	},
+	{
 		label: 'navbar.messages',
 		icon: IconChatOutline,
 		href: '/dashboard/messages'
