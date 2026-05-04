@@ -7,7 +7,6 @@ describe('homepage featured section shell', () => {
 		render(FeaturedHomepageSection, {
 			props: {
 				title: 'Featured Services',
-				viewAllHref: '/services',
 				browseHref: '/services',
 				browseLabel: 'Browse Services',
 				items: [{ title: 'Logo Design' }],
@@ -21,10 +20,6 @@ describe('homepage featured section shell', () => {
 			'data-homepage-featured-shell',
 			'true'
 		);
-		expect(screen.getByTestId('homepage-featured-services-view-all')).toHaveAttribute(
-			'href',
-			'/services'
-		);
 		expect(screen.getByTestId('homepage-featured-services-browse-cta')).toHaveAttribute(
 			'href',
 			'/services'
@@ -35,7 +30,6 @@ describe('homepage featured section shell', () => {
 		const { rerender } = render(FeaturedHomepageSection, {
 			props: {
 				title: 'Featured Tasks',
-				viewAllHref: '/tasks',
 				browseHref: '/tasks',
 				browseLabel: 'Browse Tasks',
 				items: [],
@@ -52,7 +46,6 @@ describe('homepage featured section shell', () => {
 
 		rerender({
 			title: 'Featured Tasks',
-			viewAllHref: '/tasks',
 			browseHref: '/tasks',
 			browseLabel: 'Browse Tasks',
 			items: [],

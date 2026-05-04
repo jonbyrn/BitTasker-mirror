@@ -371,9 +371,9 @@
 	};
 </script>
 
-<div class="mx-auto h-full max-w-6xl py-6 md:px-0 md:py-0">
+<div class="mx-auto h-full max-w-6xl py-4 md:px-0 md:py-0">
 	<!-- Dashboard Header -->
-	<div class="mb-6 flex items-center justify-between gap-3">
+	<div class="mb-2 flex items-center justify-between gap-3 md:mb-6">
 		<div class="min-w-0">
 			<h3 class="font-bold">{translateOrFallback('dashboard.hiring.title', 'Hiring')}</h3>
 		</div>

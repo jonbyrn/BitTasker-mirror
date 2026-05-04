@@ -49,6 +49,9 @@
 		"my_tasks": "My Tasks",
 		"wallet": "Wallet",
 		"messages": "Messages",
+		"my_account": "My Account",
+		"profile": "Profile",
+		"settings": "Settings",
 		"support_help": "Support & Help",
 		"hiring": "Hiring",
 		"earning": "Earning",
@@ -63,6 +66,7 @@
 		"privacy_policy": "Privacy Policy",
 		"find_tasks": "Find Tasks",
 		"find_services": "Find Services",
+		"browse_services": "Browse Services",
 		"my_services": "My Services",
 		"create_task": "Create Task",
 		"browse_freelancers": "See Taskees",
@@ -131,7 +135,7 @@
 				"title": "The Decentralized Workforce.",
 				"page_title": "The Decentralized Workforce | BitTasker",
 				"description": "Hire professionals for any task. Pay with Bitcoin or fiat. Built on Nostr.",
-				"cta": "Get Started"
+				"cta": "Sign Up"
 			},
 			"trust": {
 				"title": "Trusted Worldwide",

@@ -3,8 +3,6 @@
 
 	let {
 		title,
-		viewAllLabel = 'View All',
-		viewAllHref,
 		browseHref,
 		browseLabel,
 		items = [],
@@ -19,8 +17,6 @@
 		card
 	} = $props<{
 		title: string;
-		viewAllLabel?: string;
-		viewAllHref: string;
 		browseHref: string;
 		browseLabel: string;
 		items?: unknown[];
@@ -50,29 +46,8 @@
 		aria-labelledby={headingId}
 	>
 		<div class="container mx-auto px-4">
-			<div class="mb-8 flex items-center justify-between gap-4">
+			<div class="mb-8">
 				<h2 id={headingId}>{title}</h2>
-				<a
-					href={viewAllHref}
-					class="btn btn-link text-primary"
-					data-testid={`${sectionTestId}-view-all`}
-				>
-					{viewAllLabel}
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke-width="1.5"
-						stroke="currentColor"
-						class="ml-1 h-5 w-5"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"
-						/>
-					</svg>
-				</a>
 			</div>
 
 			<div class="overflow-hidden">
@@ -91,7 +66,7 @@
 						data-testid={`${sectionTestId}-skeletons`}
 						aria-hidden="true"
 					>
-						{#each Array.from({ length: skeletonCount }) as _, index}
+						{#each Array.from({ length: skeletonCount }) as _, index (index)}
 							<div
 								class="{cardWidthClass} shrink-0 snap-start"
 								data-testid={`${cardTestIdPrefix}-skeleton-${index + 1}`}
@@ -145,7 +120,7 @@
 						role="list"
 						aria-label={title}
 					>
-						{#each items as item, index}
+						{#each items as item, index (index)}
 							<div
 								class="{cardWidthClass} shrink-0 snap-start"
 								data-testid={`${cardTestIdPrefix}-${index + 1}`}
@@ -159,11 +134,7 @@
 			</div>
 
 			<div class="mt-12 text-center">
-				<a
-					href={browseHref}
-					class="btn btn-primary"
-					data-testid={`${sectionTestId}-browse-cta`}
-				>
+				<a href={browseHref} class="btn btn-primary" data-testid={`${sectionTestId}-browse-cta`}>
 					{browseLabel}
 				</a>
 			</div>

@@ -8,7 +8,7 @@ import {
 	hasImageAttachment,
 	loadFeaturedHomepageItems
 } from '$lib/services/featuredHomepage';
-import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
+import { TaskStatusEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
 
 /**
  * Service to fetch featured tasks from Nostr relay
@@ -118,13 +118,20 @@ export class FeaturedTasksService {
 		// Get budget amount (convert from sats to USD if needed)
 		const budgetAmount = this.getBudgetAmount(task.budget);
 
+		const locationDisplay =
+			task.pickupLocation?.displayName ||
+			task.pickupLocation?.formattedAddress ||
+			(task.taskType === TaskTypeEnum.REMOTE ? 'Remote' : '');
+
 		return {
 			id: task.id,
 			title: task.title,
 			budget: budgetAmount,
 			proposals: 0, // Not publicly accessible
 			timeLeft,
-			image: this.getFirstImage(task)
+			image: this.getFirstImage(task),
+			description: task.description || '',
+			location: locationDisplay || undefined
 		};
 	}
 

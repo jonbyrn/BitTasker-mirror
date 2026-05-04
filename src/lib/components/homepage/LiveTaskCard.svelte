@@ -10,8 +10,10 @@
 <FeaturedHomepageCardShell
 	href={`/tasks/${task.id}`}
 	title={task.title}
-	description={`Budget $${task.budget}`}
-	meta={[`${task.proposals} proposals`, `Time left: ${task.timeLeft}`]}
+	description={task.description || ''}
+	price={`$${task.budget}`}
+	priceLabel="Budget"
+	location={task.location}
 	image={task.image}
 	imageAlt={task.title}
 	ctaLabel="View Task"

@@ -18,7 +18,8 @@
 		label = null,
 		labelPlacement = 'above',
 		variant = 'default',
-		align = 'left'
+		align = 'left',
+		showYear = true
 	} = $props<{
 		deadline?: Date | number | string | null;
 		dateRangeStart?: Date | number | string | null;
@@ -37,6 +38,8 @@
 		variant?: 'default' | 'stacked';
 		/** Text alignment when using stacked layout */
 		align?: 'left' | 'right';
+		/** Include the year in the date format (e.g. "Feb 14, 2026" vs "Feb 14") */
+		showYear?: boolean;
 	}>();
 
 	function toDate(value: Date | number | string | null | undefined): Date | null {
@@ -55,6 +58,18 @@
 		const date = toDate(value);
 		if (!date || isNaN(date.getTime())) return '';
 		const loc = $locale || 'en';
+		if (!showYear) {
+			const options: Intl.DateTimeFormatOptions = {
+				month: 'short',
+				day: 'numeric'
+			};
+			if (showTime) {
+				options.hour = 'numeric';
+				options.minute = '2-digit';
+				options.hour12 = true;
+			}
+			return new Intl.DateTimeFormat(loc, options).format(date);
+		}
 		return showTime ? formatStandardDateTimeShort(date, loc) : formatStandardDateShort(date, loc);
 	}
 
@@ -67,6 +82,10 @@
 		const start = formatSingleDate(dateRangeStart);
 		const end = formatSingleDate(dateRangeEnd);
 		if (!start || !end) return '';
+
+		// If both format to the same date, show only one
+		if (start === end) return start;
+
 		return `${start} - ${end}`;
 	});
 

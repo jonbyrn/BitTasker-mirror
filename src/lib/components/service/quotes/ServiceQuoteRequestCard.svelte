@@ -26,7 +26,6 @@
 		timeline,
 		service = null,
 		isSelected = false,
-		showServiceTitles = false,
 		serviceTitleByAddress = {},
 		serviceUnavailable = false,
 		getActionButtons
@@ -34,7 +33,6 @@
 		timeline: ServiceQuoteTimelineEntry;
 		service?: Service | null;
 		isSelected?: boolean;
-		showServiceTitles?: boolean;
 		serviceTitleByAddress?: Record<string, string>;
 		serviceUnavailable?: boolean;
 		getActionButtons: (timeline: ServiceQuoteTimelineEntry) => ActionButton[];
@@ -170,7 +168,7 @@
 				<div class="badge {getStatusColor(timeline)} badge-sm max-w-[140px] truncate text-center">
 					{describeStatus(timeline)}
 				</div>
-				<div class="text-right text-xl font-bold">
+				<div class="max-w-[140px] text-right text-xl font-bold text-wrap">
 					{getPriceDisplay(timeline)}
 				</div>
 			</div>
@@ -184,12 +182,10 @@
 				</span>
 			</div>
 
-			{#if showServiceTitles}
-				<div class="flex items-center gap-2">
-					<IconBriefcaseOutline class="text-primary h-8 w-8 shrink-0" />
-					<span class="line-clamp-2 text-sm font-medium">{requestServiceTitle}</span>
-				</div>
-			{/if}
+			<div class="flex items-center gap-2">
+				<IconBriefcaseOutline class="text-primary h-8 w-8 shrink-0" />
+				<span class="line-clamp-2 text-sm font-medium">{requestServiceTitle}</span>
+			</div>
 
 			{#if serviceLocation && serviceLocationMapLink}
 				<div class="flex items-center gap-2">

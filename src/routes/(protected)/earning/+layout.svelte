@@ -98,8 +98,8 @@
 	<div class="flex min-h-0 flex-1 flex-row gap-8 overflow-hidden">
 		<!-- Main Content -->
 		<div class="min-h-0 w-full flex-1 overflow-hidden">
-			<div class="mx-auto h-full max-w-6xl py-6 md:px-0 md:py-0">
-				<div class="mb-6 flex items-center justify-between gap-3">
+			<div class="mx-auto h-full max-w-6xl py-4 md:px-0 md:py-0">
+				<div class="mb-2 flex items-center justify-between gap-3 md:mb-6">
 					<div class="min-w-0">
 						<h3 class="font-bold">
 							{translateOrFallback($t, 'dashboard.earning.title', 'Earning')}

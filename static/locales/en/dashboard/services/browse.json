@@ -25,6 +25,7 @@
 					"start_new_search": "Browse Services",
 					"apply_search": "Apply"
 				},
+				"create_service": "New",
 				"map": "Map",
 				"list": "List",
 				"scroll_to_top": "Scroll to top",
@@ -34,6 +35,7 @@
 				"no_services_found": "No services found",
 				"no_services_message": "Try adjusting your search or filters to find more services.",
 				"no_more_services": "No more services to load",
+				"list_your_service": "List Your Service",
 				"quote_request_unavailable": "Service is unavailable.",
 				"quote_request_submit_error": "Unable to submit quote request right now.",
 				"quote_request_submitted": "Quote request submitted successfully!",

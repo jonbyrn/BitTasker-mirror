@@ -5,6 +5,8 @@ export interface LiveTask {
 	proposals: number;
 	timeLeft: string;
 	image: string;
+	description?: string;
+	location?: string;
 }
 
 export interface FeaturedTaskee {
