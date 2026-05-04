@@ -60,10 +60,7 @@
 				{ href: '/faq', icon: IconFrequentlyAskedQuestions, label: 'navbar.faq' },
 				{ href: '/contact', icon: IconEmailOutline, label: 'navbar.contact_support' },
 				{ href: '/feedback', icon: IconCommentTextOutline, label: 'navbar.feedback' },
-				{ href: '/security', icon: IconShieldCheck, label: 'footer.security' },
-				{ href: '/about', icon: IconInformationOutline, label: 'navbar.about_us' },
-				{ href: '/terms', icon: IconFileDocumentOutline, label: 'navbar.terms_of_service' },
-				{ href: '/privacy', icon: IconShieldAccount, label: 'navbar.privacy_policy' }
+				{ href: '/security', icon: IconShieldCheck, label: 'footer.security' }
 			]
 		}
 	];
