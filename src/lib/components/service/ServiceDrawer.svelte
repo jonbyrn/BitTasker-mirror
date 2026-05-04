@@ -3,7 +3,10 @@
 	import { t } from 'svelte-i18n';
 	import { getNpub } from '$lib/utils/nostrKeys';
 	import Drawer from '$lib/components/Drawer.svelte';
-	import ServiceTab from './ServiceTab.svelte';
+	import ServiceDetailsView from '$lib/components/service/ServiceDetailsView.svelte';
+	import IconEyeOutline from '~icons/mdi/eye-outline';
+	import IconPencilOutline from '~icons/mdi/pencil-outline';
+	import IconDeleteOutline from '~icons/mdi/delete-outline';
 
 	// Props using Svelte 5 runes syntax
 	const props = $props<{
@@ -56,16 +59,58 @@
 	isScrollable={true}
 >
 	{#if props.service}
-		<!-- Service Details Tab -->
-		<div class="p-4">
-			<ServiceTab
+		<div>
+			<ServiceDetailsView
 				service={props.service}
-				{isOwner}
-				onRequestEditConfirm={props.onRequestEditConfirm}
-				onRequestDeleteConfirm={props.onRequestDeleteConfirm}
-				isDeleting={props.isDeleting}
-				onQuotes={props.onQuotes}
+				serviceId={props.service.id || ''}
+				isPreview={true}
 			/>
+
+			<!-- Action Buttons -->
+			<div class="pt-2 pb-4">
+				<div class="flex flex-row justify-end gap-2">
+					<!-- Delete Button -->
+					{#if isOwner && props.onRequestDeleteConfirm}
+						<button
+							class="btn btn-error btn-sm min-h-[40px] flex-1 sm:flex-none"
+							onclick={() => props.onRequestDeleteConfirm?.()}
+							disabled={props.isDeleting ?? false}
+						>
+							{#if props.isDeleting ?? false}
+								<span class="loading loading-spinner loading-sm"></span>
+							{:else}
+								<IconDeleteOutline class="h-4 w-4 shrink-0" />
+							{/if}
+							{tr('dashboard.services.detail.delete_service', 'Delete')}
+						</button>
+					{/if}
+
+					<!-- Edit Button -->
+					{#if isOwner && props.onRequestEditConfirm}
+						<button
+							class="btn btn-outline btn-sm min-h-[40px] flex-1 sm:flex-none"
+							onclick={() => props.onRequestEditConfirm?.()}
+						>
+							<IconPencilOutline class="h-4 w-4 shrink-0" />
+							{tr('dashboard.services.detail.edit_service', 'Edit')}
+						</button>
+					{/if}
+
+					<!-- Inquiries Button -->
+					{#if props.onQuotes}
+						<button
+							class="btn btn-primary btn-sm min-h-[40px] flex-1 gap-2 sm:flex-none"
+							onclick={(e) => {
+								e.stopPropagation();
+								props.onQuotes?.();
+							}}
+						>
+							<IconEyeOutline class="h-4 w-4 shrink-0" />
+							<span>{tr('dashboard.services.detail.inquiries', 'Inquiries')}</span>
+						</button>
+					{/if}
+				</div>
+			</div>
 		</div>
 
 		<!-- Service not found state -->

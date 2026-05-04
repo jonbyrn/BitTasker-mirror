@@ -77,6 +77,7 @@
 				"delete_service_confirm_title": "Delete Service",
 				"delete_service_confirm_message": "This permanently removes the service listing from your dashboard.",
 				"view_quotes": "View Quotes",
+				"inquiries": "Inquiries",
 				"share": "Share",
 				"share_service": "Share this service",
 				"service_not_available": "This service is not currently available.",

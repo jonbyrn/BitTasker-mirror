@@ -779,7 +779,7 @@
 		{:else}
 			<div class="mt-4 space-y-3">
 				{#if deleteModalState.openQuoteCount > 0}
-					<div class="alert alert-warning">
+					<div class="alert alert-warning alert-outline">
 						<span>
 							{deleteModalState.openQuoteCount === 1
 								? trv(
