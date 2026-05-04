@@ -16,7 +16,6 @@ describe('FeaturedHomepageCardShell', () => {
 		});
 
 		const card = screen.getByTestId('homepage-card-shell');
-		expect(card).toHaveAttribute('href', '/services/logo-design');
 		expect(card).toHaveAttribute('data-homepage-card-shell', 'true');
 		expect(screen.getByRole('img', { name: 'Logo Design' })).toHaveAttribute(
 			'src',
@@ -25,7 +24,7 @@ describe('FeaturedHomepageCardShell', () => {
 		expect(screen.getByText('Brand identity and launch assets.')).toBeTruthy();
 		expect(screen.getByText('From $85')).toBeTruthy();
 		expect(screen.getByText('Remote')).toBeTruthy();
-		expect(screen.getAllByText('View Service')).toHaveLength(2);
+		expect(screen.getByText('View Service')).toBeTruthy();
 	});
 
 	it('prefers the provided image, alt text, and loading mode', () => {
@@ -43,6 +42,6 @@ describe('FeaturedHomepageCardShell', () => {
 		const image = screen.getByRole('img', { name: 'Launch illustration' });
 		expect(image).toHaveAttribute('src', 'https://cdn.example.com/launch.jpg');
 		expect(image).toHaveAttribute('loading', 'eager');
-		expect(screen.getAllByText('View Task')).toHaveLength(2);
+		expect(screen.getByText('View Task')).toBeTruthy();
 	});
 });

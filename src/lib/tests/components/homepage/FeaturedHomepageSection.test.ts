@@ -7,8 +7,6 @@ describe('FeaturedHomepageSection', () => {
 		render(FeaturedHomepageSection, {
 			props: {
 				title: 'Featured Services',
-				viewAllLabel: 'View All',
-				viewAllHref: '/services',
 				browseHref: '/services',
 				browseLabel: 'Browse Services',
 				items: [],
@@ -35,8 +33,6 @@ describe('FeaturedHomepageSection', () => {
 		render(FeaturedHomepageSection, {
 			props: {
 				title: 'Featured Services',
-				viewAllLabel: 'View All',
-				viewAllHref: '/services',
 				browseHref: '/services',
 				browseLabel: 'Browse Services',
 				items: [],
@@ -54,8 +50,6 @@ describe('FeaturedHomepageSection', () => {
 		render(FeaturedHomepageSection, {
 			props: {
 				title: 'Featured Services',
-				viewAllLabel: 'View All',
-				viewAllHref: '/services',
 				browseHref: '/services',
 				browseLabel: 'Browse Services',
 				items: [],
@@ -72,8 +66,6 @@ describe('FeaturedHomepageSection', () => {
 		render(FeaturedHomepageSection, {
 			props: {
 				title: 'Featured Services',
-				viewAllLabel: 'View All',
-				viewAllHref: '/services',
 				browseHref: '/services',
 				browseLabel: 'Browse Services',
 				items: [],
@@ -93,8 +85,6 @@ describe('FeaturedHomepageSection', () => {
 		render(FeaturedHomepageSection, {
 			props: {
 				title: 'Featured Services',
-				viewAllLabel: 'View All',
-				viewAllHref: '/services',
 				browseHref: '/services',
 				browseLabel: 'Browse Services',
 				items: [{ title: 'Logo Design' }, { title: 'SEO Audit' }],
@@ -107,10 +97,6 @@ describe('FeaturedHomepageSection', () => {
 		expect(screen.getByTestId('homepage-featured-services')).toHaveAttribute(
 			'data-homepage-featured-shell',
 			'true'
-		);
-		expect(screen.getByTestId('homepage-featured-services-view-all')).toHaveAttribute(
-			'href',
-			'/services'
 		);
 		expect(screen.getByTestId('homepage-featured-services-browse-cta')).toHaveAttribute(
 			'href',

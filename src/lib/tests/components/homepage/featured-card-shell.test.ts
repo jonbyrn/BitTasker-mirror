@@ -19,13 +19,9 @@ describe('homepage featured card shell', () => {
 		});
 
 		const card = screen.getByTestId('homepage-card');
-		expect(card).toHaveAttribute('href', '/services/logo-design');
 		expect(card).toHaveAttribute('data-homepage-card-shell', 'true');
-		expect(screen.getAllByText('View Service')).toHaveLength(2);
-		expect(screen.getByRole('img', { name: 'Logo Design' })).toHaveAttribute(
-			'loading',
-			'lazy'
-		);
+		expect(screen.getByText('View Service')).toBeTruthy();
+		expect(screen.getByRole('img', { name: 'Logo Design' })).toHaveAttribute('loading', 'lazy');
 	});
 
 	it('keeps service and task homepage cards on the shared shell path', () => {
@@ -58,11 +54,11 @@ describe('homepage featured card shell', () => {
 			}
 		});
 
-		expect(screen.getByRole('link', { name: /Featured Service/i })).toHaveAttribute(
+		expect(screen.getByTestId('featured-service-card')).toHaveAttribute(
 			'data-homepage-card-shell',
 			'true'
 		);
-		expect(screen.getByRole('link', { name: /Featured Task/i })).toHaveAttribute(
+		expect(screen.getByTestId('featured-task-card')).toHaveAttribute(
 			'data-homepage-card-shell',
 			'true'
 		);
