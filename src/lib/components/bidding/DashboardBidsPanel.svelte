@@ -8,7 +8,6 @@
 	import { goto } from '$app/navigation';
 	import { slide } from 'svelte/transition';
 	import { getMyBids, getBidStatus, cachedSatsFromUsd } from '$lib/utils/nostr-bid';
-	import { formatStandardDateTimeShort } from '$lib/utils/helpers/dateFormatter';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import { BidStatusEnum } from '$lib/utils/enums/bid.enum';
 	import TaskDeadlineDisplay from '$lib/components/task/TaskDeadlineDisplay.svelte';
@@ -216,10 +215,16 @@
 		}
 	};
 
-	/** Format sent-at timestamp (Unix seconds) for display: "Feb 14, 2026 at 10:59 PM" */
+	/** Format sent-at timestamp (Unix seconds) for display: "Feb 14 at 10:59 PM" */
 	function formatSentAt(createdAt: number): string {
 		const currentLocale = $locale || 'en';
-		return formatStandardDateTimeShort(new Date(createdAt * 1000), currentLocale);
+		return new Intl.DateTimeFormat(currentLocale, {
+			month: 'short',
+			day: 'numeric',
+			hour: 'numeric',
+			minute: '2-digit',
+			hour12: true
+		}).format(new Date(createdAt * 1000));
 	}
 
 	// Withdrawal logic
@@ -474,6 +479,7 @@
 									<TaskDeadlineDisplay
 										dateRangeStart={bid.startDateTime}
 										dateRangeEnd={bid.endDateTime}
+										showYear={false}
 									/>
 									<TaskLocationDisplay />
 								</div>

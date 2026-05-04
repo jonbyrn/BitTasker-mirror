@@ -70,7 +70,8 @@
 	const amountUsd = $derived(
 		formatConvertedAmount(contract.amount, contract.currency, {
 			btcPrice: btcPrice.price,
-			toCurrency: 'USD'
+			toCurrency: 'USD',
+			suffix: ''
 		})
 	);
 
