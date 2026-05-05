@@ -1,21 +1,28 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, fireEvent } from '@testing-library/svelte';
+import { tick } from 'svelte';
 import TaskCompletionDrawerNDK from './TaskCompletionDrawerNDK.svelte';
 import type { PaymentContractRune } from '$lib/runes/contractRune.svelte';
 
-// Mock the dependencies
-vi.mock('$lib/i18n', () => ({
-	t: (key: string) => key,
-	locale: { subscribe: vi.fn((fn) => fn('en')) }
+// Mock svelte-i18n (the component imports t from 'svelte-i18n', not '$lib/i18n')
+vi.mock('svelte-i18n', () => ({
+	t: {
+		subscribe: vi.fn((fn: (value: any) => void) => {
+			fn((key: string) => key);
+			return () => {};
+		})
+	}
 }));
 
-// Mock MediaUploader
+// Mock MediaUploader - capture onChange on globalThis so tests can simulate uploads
+// In Svelte 5, the component function is called as (anchor_node, props),
+// so we must read props.onChange from the second argument.
 vi.mock('$lib/components/MediaUploader.svelte', () => ({
-	default: vi.fn(() => ({
-		render: () => ({
-			dom: document.createElement('div')
-		})
-	}))
+	default: vi.fn((_anchor: any, props: any) => {
+		(globalThis as any).__taskCompletionMediaOnChange = props?.onChange;
+		return {};
+	})
 }));
 
 function createMockContractRune() {
@@ -29,6 +36,21 @@ function createMockContractRune() {
 	} as unknown as PaymentContractRune;
 }
 
+function simulateAttachmentUpload() {
+	const onChange = (globalThis as any).__taskCompletionMediaOnChange;
+	if (onChange) {
+		onChange([
+			{
+				key: 'test-key',
+				url: 'https://example.com/test.jpg',
+				type: 'image/jpeg',
+				alt: 'Test attachment',
+				size: 1024
+			}
+		]);
+	}
+}
+
 describe('TaskCompletionDrawerNDK', () => {
 	let mockContractRune: PaymentContractRune;
 	let mockOnClose: ReturnType<typeof vi.fn>;
@@ -38,6 +60,7 @@ describe('TaskCompletionDrawerNDK', () => {
 		mockContractRune = createMockContractRune();
 		mockOnClose = vi.fn();
 		mockOnComplete = vi.fn().mockResolvedValue(undefined);
+		(globalThis as any).__taskCompletionMediaOnChange = null;
 	});
 
 	it('renders the drawer with task information', async () => {
@@ -46,8 +69,7 @@ describe('TaskCompletionDrawerNDK', () => {
 				contractRune: mockContractRune,
 				isOpen: true,
 				onClose: mockOnClose,
-				onComplete: mockOnComplete,
-				btcPrice: 50000
+				onComplete: mockOnComplete
 			}
 		});
 
@@ -65,7 +87,9 @@ describe('TaskCompletionDrawerNDK', () => {
 			}
 		});
 
-		const textarea = getByPlaceholderText('dashboard.contracts.timeline.completion.placeholder');
+		const textarea = getByPlaceholderText(
+			'dashboard.contracts.timeline.completion.text_placeholder'
+		);
 		expect(textarea).toBeTruthy();
 	});
 
@@ -92,10 +116,14 @@ describe('TaskCompletionDrawerNDK', () => {
 			}
 		});
 
-		const textarea = getByPlaceholderText('dashboard.contracts.timeline.completion.placeholder');
-		await fireEvent.input(textarea, { target: { value: 'Test completion notes' } });
+		const textarea = getByPlaceholderText(
+			'dashboard.contracts.timeline.completion.text_placeholder'
+		) as HTMLTextAreaElement;
+		textarea.value = 'Test completion notes';
+		await fireEvent.input(textarea);
+		await tick();
 
-		expect(getByText('20/1000')).toBeTruthy();
+		expect(getByText('21/1000')).toBeTruthy();
 	});
 
 	it('enforces 1000 character limit', async () => {
@@ -109,13 +137,16 @@ describe('TaskCompletionDrawerNDK', () => {
 		});
 
 		const textarea = getByPlaceholderText(
-			'dashboard.contracts.timeline.completion.placeholder'
+			'dashboard.contracts.timeline.completion.text_placeholder'
 		) as HTMLTextAreaElement;
 		const longText = 'a'.repeat(1001);
 
-		await fireEvent.input(textarea, { target: { value: longText } });
+		textarea.value = longText;
+		await fireEvent.input(textarea);
+		await tick();
 
-		// Value should be truncated to 1000
+		// The component enforces the limit via handleTextInput which truncates
+		// the completionText rune to 1000 chars and sets the DOM .value directly
 		expect(textarea.value.length).toBe(1000);
 	});
 
@@ -135,7 +166,7 @@ describe('TaskCompletionDrawerNDK', () => {
 		expect(submitButton).toBeDisabled();
 	});
 
-	it('enables submit button when text has content (no attachments)', async () => {
+	it('keeps submit button disabled when only text has content (attachments required)', async () => {
 		const { getByRole, getByPlaceholderText } = render(TaskCompletionDrawerNDK, {
 			props: {
 				contractRune: mockContractRune,
@@ -145,22 +176,21 @@ describe('TaskCompletionDrawerNDK', () => {
 			}
 		});
 
-		const textarea = getByPlaceholderText('dashboard.contracts.timeline.completion.placeholder');
-		await fireEvent.input(textarea, { target: { value: 'I completed the task!' } });
+		const textarea = getByPlaceholderText(
+			'dashboard.contracts.timeline.completion.text_placeholder'
+		) as HTMLTextAreaElement;
+		textarea.value = 'I completed the task!';
+		await fireEvent.input(textarea);
+		await tick();
 
 		const submitButton = getByRole('button', {
 			name: 'dashboard.contracts.timeline.completion.mark_complete'
 		});
-		expect(submitButton).not.toBeDisabled();
+		// Button stays disabled because attachments are required as well
+		expect(submitButton).toBeDisabled();
 	});
 
-	it('enables submit button when attachments exist (even with empty text)', async () => {
-		// Note: MediaUploader mock returns empty attachments, so this test documents
-		// the expected behavior when attachments are provided via the component
-
-		// We need to test the derived disabled state
-		// Since we can't easily mock the MediaUploader to return attachments in unit test,
-		// we test the component's internal state logic via prop
+	it('keeps submit button disabled when only attachments exist (text required)', async () => {
 		const { getByRole } = render(TaskCompletionDrawerNDK, {
 			props: {
 				contractRune: mockContractRune,
@@ -170,10 +200,14 @@ describe('TaskCompletionDrawerNDK', () => {
 			}
 		});
 
-		// Without attachments, button should be disabled when text is empty
+		// Simulate attachment upload after render so onChange callback is captured
+		simulateAttachmentUpload();
+		await tick();
+
 		const submitButton = getByRole('button', {
 			name: 'dashboard.contracts.timeline.completion.mark_complete'
 		});
+		// Button stays disabled because text is also required
 		expect(submitButton).toBeDisabled();
 	});
 
@@ -187,16 +221,33 @@ describe('TaskCompletionDrawerNDK', () => {
 			}
 		});
 
-		const textarea = getByPlaceholderText('dashboard.contracts.timeline.completion.placeholder');
-		await fireEvent.input(textarea, { target: { value: 'Task completed successfully' } });
+		// Set text first
+		const textarea = getByPlaceholderText(
+			'dashboard.contracts.timeline.completion.text_placeholder'
+		) as HTMLTextAreaElement;
+		textarea.value = 'Task completed successfully';
+		await fireEvent.input(textarea);
+		await tick();
+
+		// Then simulate attachment upload after render so onChange callback is captured
+		simulateAttachmentUpload();
+		await tick();
 
 		const submitButton = getByRole('button', {
 			name: 'dashboard.contracts.timeline.completion.mark_complete'
 		});
-		await fireEvent.click(submitButton);
+		submitButton.click();
 
 		expect(mockOnComplete).toHaveBeenCalledWith(
-			[], // empty attachments in this test
+			[
+				{
+					key: 'test-key',
+					url: 'https://example.com/test.jpg',
+					type: 'image/jpeg',
+					alt: 'Completion evidence',
+					size: 1024
+				}
+			],
 			'Task completed successfully'
 		);
 	});
@@ -215,13 +266,24 @@ describe('TaskCompletionDrawerNDK', () => {
 			}
 		});
 
-		const textarea = getByPlaceholderText('dashboard.contracts.timeline.completion.placeholder');
-		await fireEvent.input(textarea, { target: { value: 'Completing...' } });
+		// Set text first
+		const textarea = getByPlaceholderText(
+			'dashboard.contracts.timeline.completion.text_placeholder'
+		) as HTMLTextAreaElement;
+		textarea.value = 'Completing...';
+		await fireEvent.input(textarea);
+		await tick();
+
+		// Then simulate attachment upload after render so onChange callback is captured
+		simulateAttachmentUpload();
+		await tick();
 
 		const submitButton = getByRole('button', {
 			name: 'dashboard.contracts.timeline.completion.mark_complete'
 		});
-		await fireEvent.click(submitButton);
+		expect(submitButton).not.toBeDisabled();
+		submitButton.click();
+		await tick();
 
 		// Button should be disabled during submission
 		expect(submitButton).toBeDisabled();
@@ -243,12 +305,12 @@ describe('TaskCompletionDrawerNDK', () => {
 		expect(mockOnClose).toHaveBeenCalled();
 	});
 
-	it('shows loading spinner when completing', async () => {
+	it('shows completing text when completing', async () => {
 		mockOnComplete = vi
 			.fn()
 			.mockImplementation(() => new Promise((resolve) => setTimeout(resolve, 100)));
 
-		const { getByRole, getByPlaceholderText, queryByRole } = render(TaskCompletionDrawerNDK, {
+		const { container, getByRole, getByPlaceholderText } = render(TaskCompletionDrawerNDK, {
 			props: {
 				contractRune: mockContractRune,
 				isOpen: true,
@@ -257,16 +319,28 @@ describe('TaskCompletionDrawerNDK', () => {
 			}
 		});
 
-		const textarea = getByPlaceholderText('dashboard.contracts.timeline.completion.placeholder');
-		await fireEvent.input(textarea, { target: { value: 'Working...' } });
+		// Set text first
+		const textarea = getByPlaceholderText(
+			'dashboard.contracts.timeline.completion.text_placeholder'
+		) as HTMLTextAreaElement;
+		textarea.value = 'Working...';
+		await fireEvent.input(textarea);
+		await tick();
+
+		// Then simulate attachment upload after render so onChange callback is captured
+		simulateAttachmentUpload();
+		await tick();
 
 		const submitButton = getByRole('button', {
-			name: 'dashboard.contracts.timeline.completion.completing'
+			name: 'dashboard.contracts.timeline.completion.mark_complete'
 		});
-		await fireEvent.click(submitButton);
+		submitButton.click();
+		await tick();
 
-		// Should show loading spinner
-		expect(queryByRole('status', { name: 'Loading' })).toBeTruthy();
+		// The submit button text should switch to completing state
+		expect(container.querySelector('.btn-primary')?.textContent?.trim()).toContain(
+			'dashboard.contracts.timeline.completion.completing'
+		);
 	});
 
 	it('resets state when drawer is closed and reopened', async () => {
@@ -280,8 +354,12 @@ describe('TaskCompletionDrawerNDK', () => {
 		});
 
 		// Enter some text
-		const textarea = getByPlaceholderText('dashboard.contracts.timeline.completion.placeholder');
-		await fireEvent.input(textarea, { target: { value: 'Some text' } });
+		const textarea = getByPlaceholderText(
+			'dashboard.contracts.timeline.completion.text_placeholder'
+		) as HTMLTextAreaElement;
+		textarea.value = 'Some text';
+		await fireEvent.input(textarea);
+		await tick();
 
 		expect(getByText('9/1000')).toBeTruthy();
 

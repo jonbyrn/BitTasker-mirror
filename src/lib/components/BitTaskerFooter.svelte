@@ -24,7 +24,7 @@
 				<p class="mb-4">{$t('footer.company_description')}</p>
 
 				<!-- App Store Badges -->
-				<div class="mb-6 flex flex-wrap items-center gap-3">
+				<div class="mb-6 flex flex-wrap items-center justify-center gap-3 md:justify-start">
 					<!-- Google Play Store -->
 					<a
 						href="https://play.google.com/store/apps/details?id=com.bittasker.app"

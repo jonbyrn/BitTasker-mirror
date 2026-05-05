@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { fly, scale } from 'svelte/transition';
 	import { t } from 'svelte-i18n';
-	import { Capacitor } from '@capacitor/core';
 	import { walletStore } from '$lib/stores/wallet.store';
 	import { triggerHaptic, ImpactStyle } from '$lib/utils/helpers/haptics';
 	import type { Snippet } from 'svelte';
@@ -19,13 +18,6 @@
 	// Focus trap management
 	let modalElement = $state<HTMLElement | null>(null);
 	let previousActiveElement: HTMLElement | null = null;
-
-	// Swipe gesture state
-	let touchStartY = $state(0);
-	let isDragging = $state(false);
-	const SWIPE_THRESHOLD = 100; // pixels
-	const SWIPE_THRESHOLD_PERCENT = 0.3; // 30% of screen height
-	const isMobile = $derived(Capacitor.getPlatform() !== 'web');
 
 	// Check for reduced motion preference
 	const prefersReducedMotion = $derived(
@@ -120,57 +112,6 @@
 		}
 	}
 
-	// Swipe gesture handlers
-	function handleTouchStart(e: TouchEvent) {
-		if (!isMobile || !modalElement) return;
-		touchStartY = e.touches[0].clientY;
-		isDragging = true;
-	}
-
-	function handleTouchMove(e: TouchEvent) {
-		if (!isMobile || !isDragging || !modalElement) return;
-
-		const currentY = e.touches[0].clientY;
-		const deltaY = currentY - touchStartY;
-
-		// Only allow downward swipes
-		if (deltaY > 0) {
-			// Apply transform to modal
-			if (modalElement) {
-				modalElement.style.transform = `translateY(${deltaY}px)`;
-				modalElement.style.transition = 'none';
-			}
-		}
-	}
-
-	function handleTouchEnd(e: TouchEvent) {
-		if (!isMobile || !isDragging || !modalElement) return;
-
-		const currentY = e.changedTouches[0].clientY;
-		const deltaY = currentY - touchStartY;
-		const screenHeight = window.innerHeight;
-		const threshold = Math.max(SWIPE_THRESHOLD, screenHeight * SWIPE_THRESHOLD_PERCENT);
-
-		isDragging = false;
-
-		// Reset transform
-		if (modalElement) {
-			modalElement.style.transition = '';
-		}
-
-		// Check if swipe threshold is met
-		if (deltaY > threshold) {
-			// Close modal with haptic feedback
-			triggerHaptic(ImpactStyle.Medium);
-			props.onClose();
-		} else {
-			// Snap back
-			if (modalElement) {
-				modalElement.style.transform = '';
-			}
-		}
-	}
-
 	// Reset modal position when closed
 	$effect(() => {
 		if (!props.isOpen && modalElement) {
@@ -206,9 +147,6 @@
 			aria-labelledby="wallet-modal-title"
 			tabindex="-1"
 			onkeydown={handleTabKey}
-			ontouchstart={handleTouchStart}
-			ontouchmove={handleTouchMove}
-			ontouchend={handleTouchEnd}
 			onclick={(e) => e.stopPropagation()}
 			transition:scale={{ duration: prefersReducedMotion ? 0 : 300, start: 0.95 }}
 		>

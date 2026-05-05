@@ -70,7 +70,8 @@ describe('FeaturedServicesService', () => {
 				href: '/services/featured-service-1',
 				title: 'Featured Service',
 				priceLabel: 'From $85.00',
-				meta: ['Remote'],
+				meta: [],
+				location: 'Remote',
 				ctaLabel: 'View Service'
 			})
 		]);
@@ -106,7 +107,8 @@ describe('FeaturedServicesService', () => {
 			expect.objectContaining({
 				href: '/services/brand%20sprint%20%2F%20premium',
 				ctaLabel: 'Ver Servicio',
-				meta: ['Se desplaza hasta ti']
+				meta: [],
+				location: 'Se desplaza hasta ti'
 			})
 		);
 	});
@@ -280,9 +282,12 @@ describe('FeaturedServicesService', () => {
 		const result = await FeaturedServicesService.getFeaturedServices(3);
 
 		expect(result.success).toBe(true);
-		expect(result.services[0].meta).toEqual(['Downtown Studio']);
-		expect(result.services[1].meta).toEqual(['Travels across Austin']);
-		expect(result.services[2].meta).toEqual(['Service listing']);
+		expect(result.services[0].meta).toEqual([]);
+		expect(result.services[0].location).toBe('Downtown Studio');
+		expect(result.services[1].meta).toEqual([]);
+		expect(result.services[1].location).toBe('Travels across Austin');
+		expect(result.services[2].meta).toEqual([]);
+		expect(result.services[2].location).toBeUndefined();
 		expect(result.services[2].priceLabel).toBe('Request Quote');
 	});
 

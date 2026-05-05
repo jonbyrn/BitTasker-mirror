@@ -191,7 +191,6 @@
 		}
 	}
 
-	// Handle skills change
 	// Handle category tags change
 	function handleCategoryChange(tags: string[]) {
 		filters.categories = [...tags];
@@ -214,6 +213,17 @@
 	{activeFilterCount}
 	actionsClass="mt-8 mb-20 flex justify-between"
 >
+	<!-- Categories -->
+	<div class="mb-4">
+		<CategoryMultiselect
+			bind:externalCategoryIds={filters.categories}
+			onChange={handleCategoryChange}
+			maxSelections={5}
+			placeholder={$t('find_tasks.add_categories')}
+			className="w-full"
+		/>
+	</div>
+
 	<!-- Task Type -->
 	<div class="collapse-arrow collapse mb-2">
 		<input
@@ -303,7 +313,7 @@
 	</div>
 
 	<!-- Location -->
-	<div class="collapse-arrow collapse mb-2" style="overflow: visible; z-index: 1000;">
+	<div class="collapse-arrow collapse mb-2">
 		<input
 			type="checkbox"
 			class="peer"
@@ -383,17 +393,6 @@
 				bind:filterMode={availabilityFilterMode}
 			/>
 		</div>
-	</div>
-
-	<!-- Categories -->
-	<div class="mb-4">
-		<CategoryMultiselect
-			bind:externalCategoryIds={filters.categories}
-			onChange={handleCategoryChange}
-			maxSelections={5}
-			placeholder={$t('find_tasks.add_categories')}
-			className="w-full"
-		/>
 	</div>
 
 	<!-- Skills -->

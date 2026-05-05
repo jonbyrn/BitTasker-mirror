@@ -9,10 +9,18 @@
 	import Modal from '$lib/components/Modal.svelte';
 	import DashboardEmptyState from '$lib/components/shared/DashboardEmptyState.svelte';
 	import { onMount } from 'svelte';
-	import { t, locale } from 'svelte-i18n';
+	import { t } from 'svelte-i18n';
 	import { goto } from '$app/navigation';
 	import { TASK_CATEGORIES } from '$lib/utils/constants/categories';
 	import IconMagnify from '~icons/mdi/magnify';
+	import IconTagOutline from '~icons/mdi/tag-outline';
+	import IconWrenchOutline from '~icons/mdi/wrench-outline';
+	import IconBriefcaseOutline from '~icons/mdi/briefcase-outline';
+	import IconMapMarker from '~icons/mdi/map-marker';
+	import IconCash from '~icons/mdi/cash';
+	import IconBellOutline from '~icons/mdi/bell-outline';
+	import IconPencilOutline from '~icons/mdi/pencil-outline';
+	import IconDeleteOutline from '~icons/mdi/delete-outline';
 
 	let savedSearches = $state<SavedSearch[]>([]);
 	let isLoading = $state(true);
@@ -38,15 +46,12 @@
 		loadSavedSearches();
 	});
 
-	function formatDate(timestamp: number): string {
-		const date = new Date(timestamp * 1000);
-		return date.toLocaleDateString($locale || 'en', {
-			year: 'numeric',
-			month: 'short',
-			day: 'numeric',
-			hour: '2-digit',
-			minute: '2-digit'
-		});
+	function formatFrequency(frequency: string | undefined): string {
+		if (!frequency) return '';
+		const key = `profile_task.notification_frequency.${frequency.toLowerCase()}`;
+		const translated = $t(key);
+		if (translated && translated !== key) return translated;
+		return frequency.charAt(0).toUpperCase() + frequency.slice(1).toLowerCase();
 	}
 
 	function openEditForm(search: SavedSearch) {
@@ -86,20 +91,26 @@
 		}
 	}
 
+	function toProperCase(text: string): string {
+		return text.charAt(0).toUpperCase() + text.slice(1).toLowerCase();
+	}
+
 	function getTaskTypeName(taskType: string | undefined): string {
 		if (!taskType) return '';
 		if (taskType === 'REMOTE') return $t('find_tasks.remote');
 		if (taskType === 'IN_PERSON') return $t('find_tasks.in_person');
-		return taskType;
+		return toProperCase(taskType);
 	}
 
 	function getBudgetTierName(tier: string | undefined): string {
 		if (!tier) return '';
 		try {
 			const translatedTier = $t(`profile_task.budget_tiers.${tier}`);
-			return translatedTier.startsWith('profile_task.budget_tiers.') ? tier : translatedTier;
+			return translatedTier.startsWith('profile_task.budget_tiers.')
+				? toProperCase(tier)
+				: translatedTier;
 		} catch {
-			return tier;
+			return toProperCase(tier);
 		}
 	}
 
@@ -130,7 +141,7 @@
 	}
 </script>
 
-<div class="card bg-base-100 mb-4 rounded-xl p-4">
+<div class="card bg-base-100 mb-4 rounded-xl px-4 pb-4">
 	{#if error}
 		<div class="alert alert-outline alert-error mb-4">
 			<svg
@@ -155,8 +166,8 @@
 	{#if isLoading}
 		<div class="mt-4 grid animate-pulse grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-3">
 			{#each Array.from({ length: 3 }, (_, index) => index) as index (index)}
-				<div class="card bg-base-200 border-base-content/10 rounded-xl border shadow-sm">
-					<div class="card-body p-3">
+				<div class="card bg-base-100 border-base-300 rounded-xl border shadow-md">
+					<div class="card-body rounded-xl p-4">
 						<div class="bg-base-300 h-5 w-32 flex-1 rounded"></div>
 						<div class="mt-1 flex flex-wrap gap-1">
 							<div class="bg-base-300 h-4 w-16 rounded-full"></div>
@@ -187,16 +198,16 @@
 		<div class="mt-4 grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-3">
 			{#each savedSearches as search (search.id)}
 				<div
-					class="card bg-base-200 border-base-content/10 hover:border-primary cursor-pointer rounded-xl border shadow-sm transition-all hover:shadow-md"
+					class="card bg-base-100 border-base-300 hover:border-primary cursor-pointer rounded-xl border shadow-md transition-all hover:shadow-lg"
 					onclick={() => applySavedSearch(search)}
 					onkeydown={(e) => handleKeydown(e, search)}
 					role="button"
 					tabindex="0"
 					aria-label="Apply search: {search.name}"
 				>
-					<div class="card-body p-3">
+					<div class="card-body rounded-xl p-4">
 						<div class="flex items-start justify-between gap-2">
-							<span class="line-clamp-1 text-sm">{search.name}</span>
+							<span class="line-clamp-1 text-sm font-semibold">{search.name}</span>
 							{#if (search.unreadNotifications ?? 0) > 0}
 								<button
 									class="badge badge-primary badge-sm tooltip shrink-0"
@@ -211,105 +222,75 @@
 								</button>
 							{/if}
 						</div>
-						<div class="mt-1">
-							<div class="flex flex-wrap gap-1">
-								{#if search.params.categories && search.params.categories.length > 0}
-									{#each search.params.categories as category (typeof category === 'string' ? category : category.id)}
-										{@const categoryId =
-											typeof category === 'string' ? category : (category as { id: string }).id}
-										{@const categoryName = getCategoryName(categoryId)}
-										<div
-											class="badge badge-primary badge-sm max-w-[120px] truncate"
-											title={categoryName}
-										>
-											{categoryName}
-										</div>
-									{/each}
-								{/if}
-								{#if search.params.skills && search.params.skills.length > 0}
-									{#each search.params.skills as skill (skill)}
-										<div
-											class="badge badge-secondary badge-sm max-w-[120px] truncate"
-											title={skill}
-										>
-											{skill}
-										</div>
-									{/each}
-								{/if}
-								{#if search.params.taskType}
-									<div class="badge badge-accent badge-sm">
-										{getTaskTypeName(search.params.taskType)}
-									</div>
-								{/if}
-								{#if search.params.location}
-									<div
-										class="badge badge-info badge-sm max-w-[120px] truncate"
-										title={search.params.location}
+						<div class="mt-2 flex flex-col gap-1.5">
+							{#if search.params.categories && search.params.categories.length > 0}
+								<div class="flex items-center gap-2">
+									<IconTagOutline class="text-primary h-8 w-8 shrink-0" />
+									<span class="line-clamp-1 text-sm">
+										{search.params.categories
+											.map((c) => getCategoryName(typeof c === 'string' ? c : c.id))
+											.join(', ')}
+									</span>
+								</div>
+							{/if}
+							{#if search.params.skills && search.params.skills.length > 0}
+								<div class="flex items-center gap-2">
+									<IconWrenchOutline class="text-primary h-8 w-8 shrink-0" />
+									<span class="line-clamp-1 text-sm capitalize"
+										>{search.params.skills.join(', ')}</span
 									>
-										{search.params.location}
-									</div>
-								{/if}
-								{#if search.params.budget?.tier}
-									<div class="badge badge-success badge-sm">
-										{$t('profile_task.budget_tier_label')}: {getBudgetTierName(
+								</div>
+							{/if}
+							{#if search.params.taskType}
+								<div class="flex items-center gap-2">
+									<IconBriefcaseOutline class="text-primary h-8 w-8 shrink-0" />
+									<span class="text-sm">{getTaskTypeName(search.params.taskType)}</span>
+								</div>
+							{/if}
+							{#if search.params.location}
+								<div class="flex items-center gap-2">
+									<IconMapMarker class="text-primary h-8 w-8 shrink-0" />
+									<span class="line-clamp-1 text-sm capitalize">{search.params.location}</span>
+								</div>
+							{/if}
+							{#if search.params.budget?.tier}
+								<div class="flex items-center gap-2">
+									<IconCash class="text-primary h-8 w-8 shrink-0" />
+									<span class="text-sm"
+										>{$t('profile_task.budget_tier_label')}: {getBudgetTierName(
 											search.params.budget.tier
-										)}
-									</div>
-								{/if}
-							</div>
+										)}</span
+									>
+								</div>
+							{/if}
 						</div>
-						<div class="mt-2 flex items-center justify-between gap-2">
-							<div class="text-base-content/70 min-w-0 flex-1 text-xs">
-								{$t('profile_task.created_label')}: {formatDate(search.createdAt)}
+						{#if search.notificationFrequency}
+							<div class="mt-2 flex items-center gap-2">
+								<IconBellOutline class="text-primary h-8 w-8 shrink-0" />
+								<span class="text-sm">{formatFrequency(search.notificationFrequency)}</span>
 							</div>
-							<div class="flex shrink-0 gap-1">
-								<button
-									aria-label={$t('profile_task.actions.edit_saved_search')}
-									class="btn btn-xs btn-ghost btn-square"
-									onclick={(e) => {
-										e.stopPropagation();
-										openEditForm(search);
-									}}
-								>
-									<svg
-										xmlns="http://www.w3.org/2000/svg"
-										class="h-3.5 w-3.5"
-										fill="none"
-										viewBox="0 0 24 24"
-										stroke="currentColor"
-									>
-										<path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											stroke-width="2"
-											d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-										/>
-									</svg>
-								</button>
-								<button
-									aria-label={$t('profile_task.actions.delete_saved_search')}
-									class="btn btn-xs btn-ghost btn-square text-error"
-									onclick={(e) => {
-										e.stopPropagation();
-										confirmDeleteId = search.id;
-									}}
-								>
-									<svg
-										xmlns="http://www.w3.org/2000/svg"
-										class="h-3.5 w-3.5"
-										fill="none"
-										viewBox="0 0 24 24"
-										stroke="currentColor"
-									>
-										<path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											stroke-width="2"
-											d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-										/>
-									</svg>
-								</button>
-							</div>
+						{/if}
+						<div class="mt-2 flex w-full gap-1">
+							<button
+								class="btn btn-outline btn-sm flex-1 gap-1"
+								onclick={(e) => {
+									e.stopPropagation();
+									openEditForm(search);
+								}}
+							>
+								<IconPencilOutline class="h-4 w-4" />
+								<span class="text-xs">{$t('common.edit')}</span>
+							</button>
+							<button
+								class="btn btn-outline btn-sm text-error flex-1 gap-1"
+								onclick={(e) => {
+									e.stopPropagation();
+									confirmDeleteId = search.id;
+								}}
+							>
+								<IconDeleteOutline class="h-4 w-4" />
+								<span class="text-xs">{$t('common.delete') || 'Delete'}</span>
+							</button>
 						</div>
 					</div>
 				</div>

@@ -66,14 +66,18 @@
 		}
 	}
 
-	// Function to handle cancel/back to My Services
+	// Function to handle cancel/back to previous page
 	function handleCancel() {
 		// Check if we're in edit or duplicate mode
 		const isEditing = $page.url.searchParams.get('edit') === 'true';
 		// Clear the appropriate draft (creation or edit)
 		store.clearDraft(isEditing);
-		// Navigate back to My Services
-		goto(getMyServicesUrl());
+		// Navigate back to previous page, fallback to My Services
+		if (browser && window.history.length > 1) {
+			window.history.back();
+		} else {
+			goto(getMyServicesUrl());
+		}
 	}
 
 	// Save draft before leaving the page

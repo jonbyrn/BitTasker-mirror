@@ -570,7 +570,7 @@
 		});
 
 		actions.push({
-			label: tr('dashboard.services.my_services.actions.quotes_short', 'Reqs'),
+			label: tr('dashboard.services.my_services.actions.quotes_short', 'Inquiries'),
 			class: 'btn-primary btn-sm',
 			onclick: (e: MouseEvent) => {
 				e.stopPropagation();
@@ -779,7 +779,7 @@
 		{:else}
 			<div class="mt-4 space-y-3">
 				{#if deleteModalState.openQuoteCount > 0}
-					<div class="alert alert-warning">
+					<div class="alert alert-warning alert-outline">
 						<span>
 							{deleteModalState.openQuoteCount === 1
 								? trv(

@@ -241,6 +241,9 @@
 						<a href="/tasks" class="btn btn-secondary mx-auto w-64 sm:mx-0 sm:w-auto"
 							>{$t('navbar.browse_tasks')}</a
 						>
+						<a href="/services" class="btn btn-secondary mx-auto w-64 sm:mx-0 sm:w-auto"
+							>{$t('navbar.browse_services')}</a
+						>
 					</div>
 					<!-- Large primary button below -->
 					<div class="flex justify-center">
@@ -362,8 +365,6 @@
 
 	<FeaturedHomepageSection
 		title={$t('common.homepage.featured.services.title')}
-		viewAllLabel={$t('common.view_all')}
-		viewAllHref="/services"
 		browseHref="/services"
 		browseLabel={resolveHomepageTranslation('dashboard.services.browse.title', 'Browse Services')}
 		items={featuredServicesState.items}
@@ -515,8 +516,6 @@
 
 	<FeaturedHomepageSection
 		title={$t('homepage.v2.livetasks.title')}
-		viewAllLabel={$t('common.view_all')}
-		viewAllHref="/tasks"
 		browseHref="/tasks"
 		browseLabel={$t('navbar.browse_tasks')}
 		items={featuredTasksState.items}

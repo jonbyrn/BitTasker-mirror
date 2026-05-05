@@ -343,24 +343,19 @@ export const LOGGED_OUT_MENU_SECTIONS = [
  */
 export const AVATAR_MENU_ITEMS: MenuItem[] = [
 	{
-		label: 'navbar.panel',
+		label: 'navbar.hiring',
 		icon: IconChartBoxOutline,
 		href: '/dashboard'
 	},
 	{
-		label: 'navbar.find_tasks',
-		icon: IconMagnify,
-		href: '/tasks'
+		label: 'navbar.earning',
+		icon: IconInvoiceTextSendOutline,
+		href: '/earning'
 	},
 	{
 		label: 'navbar.messages',
 		icon: IconChatOutline,
 		href: '/dashboard/messages'
-	},
-	{
-		label: 'navbar.contracts',
-		icon: IconFileSign,
-		href: '/dashboard?tab=contracts'
 	},
 	{
 		label: 'navbar.wallet',
