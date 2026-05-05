@@ -17,6 +17,7 @@
 	import Toast from '$lib/components/Toast.svelte';
 	import InfiniteScroll from '$lib/components/InfiniteScroll.svelte';
 	import BitTaskerFooter from '$lib/components/BitTaskerFooter.svelte';
+	import DebugSafeArea from '$lib/components/DebugSafeArea.svelte';
 	import '../app.css';
 
 	const { children } = $props();
@@ -350,6 +351,9 @@
 <Toast />
 
 <InfiniteScroll />
+
+<!-- DEBUG: iOS PWA safe-area inspector — REMOVE AFTER DEBUGGING -->
+<DebugSafeArea />
 
 <!-- Global portal target — overlays (dropdowns, modals) teleport here to escape
      overflow:hidden/overflow-x:hidden ancestors that break fixed positioning -->
