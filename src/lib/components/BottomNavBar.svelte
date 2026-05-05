@@ -730,6 +730,11 @@
 		max-height: calc(52rem + var(--bottom-nav-height-safe));
 	}
 
+	/* iOS PWA: remove dock bottom padding — the home indicator floats naturally */
+	:global([data-platform='ios-pwa']) .dock {
+		padding-bottom: 0;
+	}
+
 	.bottom-nav-menu::-webkit-scrollbar {
 		width: 4px;
 	}
