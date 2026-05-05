@@ -719,10 +719,11 @@
 	}
 
 	/*
-	 * iOS PWA (home screen): use CSS-driven safe-area var instead of the
-	 * JS-measured --app-dock-height pixel value. The ResizeObserver captures
-	 * the full dock content height, which creates excessive bottom padding
-	 * on iOS where the home indicator already provides visual separation.
+	 * iOS PWA: bypass the JS-measured --app-dock-height for menu padding.
+	 * The [data-platform] rule in app.css zeroes --safe-area-inset-bottom
+	 * (shrinks the dock) and sets --bottom-nav-height-safe to 56px.
+	 * This override ensures the menu uses the CSS-driven value even if the
+	 * ResizeObserver hasn't remeasured yet.
 	 */
 	:global([data-platform='ios-pwa']) .bottom-nav-menu {
 		padding-bottom: var(--bottom-nav-height-safe);

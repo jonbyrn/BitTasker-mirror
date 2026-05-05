@@ -482,19 +482,24 @@ body {
  *
  * On iOS standalone, env(safe-area-inset-bottom) returns ~34px for the home
  * indicator. The BottomNavBar dock already has its own 0.5rem base padding,
- * so the extra 34px is excessive. We tighten --bottom-nav-height-safe and
- * remove the safe-area component from the dock padding.
+ * so the extra 34px is excessive — it creates a visible gap below the dock
+ * and bloats the measured dock height, causing the menu panel's padding to
+ * be too large (or, if overridden, the menu slides behind the dock).
  *
- * The top safe-area (--safe-area-inset-top / env(safe-area-inset-top)) is
- * intentionally preserved — it provides necessary status bar / Dynamic Island
- * clearance for the top navbar (~47-59px on notched iPhones).
+ * Zeroing --safe-area-inset-bottom via CSS (not JS) naturally short-circuits
+ * every var() reference site-wide:
+ *   var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)) → 0px
  *
- * The attribute is set by applyIOSPwaSafeAreaFix() in $effect.pre in the
- * root layout, so it is available before any child component measures layout.
+ * This is a stylesheet rule, not inline style, so it only overrides the
+ * env() fallback — on Android, SystemBars injects the same property as
+ * inline style (higher priority) and is unaffected.
+ *
+ * The top safe-area is intentionally preserved for status bar clearance.
  */
 [data-platform='ios-pwa'] {
-	--bottom-nav-height-safe: 64px;
-	--app-bottom-fab: calc(64px + 1rem);
+	--safe-area-inset-bottom: 0px;
+	--bottom-nav-height-safe: 56px;
+	--app-bottom-fab: calc(56px + 1rem);
 }
 
 /*
