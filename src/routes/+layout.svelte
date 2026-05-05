@@ -174,7 +174,7 @@
 		// If the footer is unmounted (or not rendered on desktop), ensure we don't keep a stale value.
 		if (!footerEl) {
 			if (typeof document !== 'undefined') {
-				document.documentElement.style.setProperty('--app-footer-height', `0px`);
+				document.documentElement.style.removeProperty('--app-footer-height');
 			}
 			return;
 		}

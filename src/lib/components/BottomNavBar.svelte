@@ -707,14 +707,8 @@
 
 		/* Panel extends behind the dock so it appears to slide from behind it */
 		max-height: calc(52rem + var(--app-footer-height, var(--bottom-nav-height-safe)));
-		/* Reserve space for the dock, but don't include the safe-area padding */
-		padding-bottom: max(
-			0px,
-			calc(
-				var(--app-dock-height, var(--app-footer-height, var(--bottom-nav-height-safe))) -
-					var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px))
-			)
-		);
+		/* Reserve space for the dock — uses measured dock height directly */
+		padding-bottom: var(--app-dock-height, var(--app-footer-height, var(--bottom-nav-height-safe)));
 		overflow: hidden;
 	}
 	.menu-expand {
