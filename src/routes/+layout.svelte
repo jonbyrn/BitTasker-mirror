@@ -90,12 +90,17 @@
 		]);
 	}
 
+	// Must run before any child $effect fires so BottomNavBar's
+	// --app-dock-height measurement reflects the iOS PWA override.
+	$effect.pre(() => {
+		applyIOSPwaSafeAreaFix();
+	});
+
 	let cleanupKb: (() => void) | undefined;
 
 	onMount(() => {
 		initializeTheme();
 		hideSplashScreenWhenReady(300);
-		applyIOSPwaSafeAreaFix();
 
 		// Keyboard: init asynchronously (dynamic import avoids SSR issues, no-op on web)
 		import('$lib/utils/helpers/keyboard').then((m) => {
