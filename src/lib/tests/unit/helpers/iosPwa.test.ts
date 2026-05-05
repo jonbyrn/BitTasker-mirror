@@ -43,17 +43,26 @@ describe('applyIOSPwaSafeAreaFix', () => {
 		vi.unstubAllGlobals();
 	});
 
-	it('sets --safe-area-inset-* to 0px when iOS standalone', () => {
+	it('sets bottom, left, and right safe-area vars to 0px when iOS standalone', () => {
 		vi.stubGlobal('navigator', { standalone: true });
 		applyIOSPwaSafeAreaFix();
 
 		const setProp = (
 			document.documentElement as unknown as { style: { setProperty: ReturnType<typeof vi.fn> } }
 		).style.setProperty;
-		expect(setProp).toHaveBeenCalledWith('--safe-area-inset-top', '0px');
 		expect(setProp).toHaveBeenCalledWith('--safe-area-inset-bottom', '0px');
 		expect(setProp).toHaveBeenCalledWith('--safe-area-inset-left', '0px');
 		expect(setProp).toHaveBeenCalledWith('--safe-area-inset-right', '0px');
+	});
+
+	it('does NOT override --safe-area-inset-top (preserves status bar clearance)', () => {
+		vi.stubGlobal('navigator', { standalone: true });
+		applyIOSPwaSafeAreaFix();
+
+		const setProp = (
+			document.documentElement as unknown as { style: { setProperty: ReturnType<typeof vi.fn> } }
+		).style.setProperty;
+		expect(setProp).not.toHaveBeenCalledWith('--safe-area-inset-top', expect.anything());
 	});
 
 	it('does NOT set CSS vars when NOT standalone', () => {
