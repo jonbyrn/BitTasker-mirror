@@ -87,7 +87,7 @@ const config: CapacitorConfig = {
 			// @capawesome/capacitor-android-edge-to-edge-support
 			// Sets the background color of the Android system navigation bar.
 			// Uses WindowInsetsControllerCompat under the hood (required for SDK 35+).
-			navigationBarColor: '#000000'
+			navigationBarColor: '#2d2d2d'
 		}
 	}
 };

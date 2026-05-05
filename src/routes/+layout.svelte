@@ -7,6 +7,7 @@
 	import { authState } from '$lib/stores/auth.store';
 	import { appScrollContainer } from '$lib/stores/scrollContainer.store';
 	import { hideSplashScreenWhenReady } from '$lib/utils/helpers/splashScreen';
+	import { applyIOSPwaSafeAreaFix } from '$lib/utils/helpers/iosPwa';
 	import {
 		BITTASKER_ORG_JSONLD,
 		BITTASKER_SITE_NAVIGATION_JSONLD
@@ -94,6 +95,7 @@
 	onMount(() => {
 		initializeTheme();
 		hideSplashScreenWhenReady(300);
+		applyIOSPwaSafeAreaFix();
 
 		// Keyboard: init asynchronously (dynamic import avoids SSR issues, no-op on web)
 		import('$lib/utils/helpers/keyboard').then((m) => {
