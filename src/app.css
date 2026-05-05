@@ -478,6 +478,26 @@ body {
 }
 
 /*
+ * iOS PWA (home screen) overrides.
+ *
+ * On iOS standalone, env(safe-area-inset-bottom) returns ~34px for the home
+ * indicator. The BottomNavBar dock already has its own 0.5rem base padding,
+ * so the extra 34px is excessive. We tighten --bottom-nav-height-safe and
+ * remove the safe-area component from the dock padding.
+ *
+ * The top safe-area (--safe-area-inset-top / env(safe-area-inset-top)) is
+ * intentionally preserved — it provides necessary status bar / Dynamic Island
+ * clearance for the top navbar (~47-59px on notched iPhones).
+ *
+ * The attribute is set by applyIOSPwaSafeAreaFix() in $effect.pre in the
+ * root layout, so it is available before any child component measures layout.
+ */
+[data-platform='ios-pwa'] {
+	--bottom-nav-height-safe: 64px;
+	--app-bottom-fab: calc(64px + 1rem);
+}
+
+/*
  * App shell layout (header / scrollable content / footer)
  *
  * This prevents top/bottom navigation from overlapping content by reserving

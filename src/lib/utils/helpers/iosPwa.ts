@@ -12,30 +12,23 @@ export function isIOSStandalone(): boolean {
 }
 
 /**
- * On iOS standalone PWA, iOS reports real env(safe-area-inset-*) values for the
- * status bar area and home indicator.
+ * On iOS standalone PWA, set a data-platform attribute on <html> so CSS can
+ * target iOS-specific overrides via [data-platform="ios-pwa"] selectors.
  *
- * The --safe-area-inset-top value (~47-59px on notched iPhones) is intentionally
- * LEFT ALONE — it provides necessary status bar / Dynamic Island clearance for
- * the top navbar. Zeroing it causes content to render behind the notch.
+ * This replaces the previous approach of patching individual CSS custom
+ * properties (--safe-area-inset-*), which was fragile because the
+ * BottomNavBar's ResizeObserver captures element heights as hard px values
+ * (--app-dock-height, --app-footer-height) that bypass the CSS cascade.
  *
- * The --safe-area-inset-bottom value (~34px for the home indicator) is zeroed
- * because the BottomNavBar already has its own padding via the .dock class
- * (0.5rem base), and the extra 34px makes the nav bar look bloated and the
- * menu panel leaves an excessive gap at the bottom. The 0.5rem base padding
- * in .dock is enough to keep buttons clear of the home indicator.
+ * With a platform attribute, CSS rules can naturally adjust spacing:
+ *   [data-platform="ios-pwa"] { --bottom-nav-height-safe: 64px; }
  *
- * Left/right insets are zeroed as iOS PWA handles landscape safe areas
- * natively and they are not relevant in portrait.
- *
- * Short-circuits the fallback chain site-wide:
- *   var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)) → 0px
+ * Must run in $effect.pre to ensure the attribute is set before any child
+ * component's $effect measures layout.
  */
 export function applyIOSPwaSafeAreaFix(): void {
 	if (typeof document === 'undefined') return;
 	if (!isIOSStandalone()) return;
 
-	document.documentElement.style.setProperty('--safe-area-inset-bottom', '0px');
-	document.documentElement.style.setProperty('--safe-area-inset-left', '0px');
-	document.documentElement.style.setProperty('--safe-area-inset-right', '0px');
+	document.documentElement.setAttribute('data-platform', 'ios-pwa');
 }

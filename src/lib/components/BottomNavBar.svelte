@@ -718,6 +718,17 @@
 		transform: translateY(100%);
 	}
 
+	/*
+	 * iOS PWA (home screen): use CSS-driven safe-area var instead of the
+	 * JS-measured --app-dock-height pixel value. The ResizeObserver captures
+	 * the full dock content height, which creates excessive bottom padding
+	 * on iOS where the home indicator already provides visual separation.
+	 */
+	:global([data-platform='ios-pwa']) .bottom-nav-menu {
+		padding-bottom: var(--bottom-nav-height-safe);
+		max-height: calc(52rem + var(--bottom-nav-height-safe));
+	}
+
 	.bottom-nav-menu::-webkit-scrollbar {
 		width: 4px;
 	}
