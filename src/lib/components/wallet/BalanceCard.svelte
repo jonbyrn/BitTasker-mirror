@@ -180,7 +180,7 @@
 				<div class="flex items-center gap-2">
 					{#if isLoading || isRefreshing}
 						<p
-							class="inline-flex flex-1 items-center gap-2 text-3xl font-bold text-white sm:text-4xl"
+							class="inline-flex flex-1 items-center gap-2 text-2xl font-bold text-white sm:text-3xl"
 						>
 							<span class="inline-flex items-center gap-2">
 								<span class="loading loading-spinner loading-sm sm:loading-md"></span>
@@ -190,7 +190,7 @@
 						</p>
 					{:else}
 						<p
-							class="inline-flex flex-1 items-center gap-2 text-3xl font-bold text-white sm:text-4xl"
+							class="inline-flex flex-1 items-center gap-2 text-2xl font-bold text-white sm:text-3xl"
 						>
 							{satsDisplay}
 							{$t('wallet.sats')}
@@ -201,14 +201,14 @@
 				<!-- USD row with toggle and refresh buttons -->
 				<div class="flex items-center gap-2">
 					{#if isLoading || isRefreshing}
-						<p class="mt-0.5 flex-1 text-base text-white opacity-80 sm:mt-1 sm:text-xl">
+						<p class="mt-0.5 flex-1 text-sm text-white opacity-80 sm:mt-1 sm:text-base">
 							<span class="inline-flex items-center gap-2">
 								≈ $<span class="loading loading-spinner loading-xs sm:loading-sm"></span>
 								{$t('wallet.usd')}
 							</span>
 						</p>
 					{:else}
-						<p class="mt-0.5 flex-1 text-base text-white opacity-80 sm:mt-1 sm:text-xl">
+						<p class="mt-0.5 flex-1 text-sm text-white opacity-80 sm:mt-1 sm:text-base">
 							≈ ${usdDisplay}
 							{$t('wallet.usd')}
 						</p>
