@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
 	import type { ReviewStats } from '$lib/types/review';
-	import { getRatingPercentage } from '$lib/utils/review-aggregation';
+	import { getRatingPercentage } from '$lib/utils/reviews/aggregation';
 
 	type CategoryDescriptor = {
 		id: string;

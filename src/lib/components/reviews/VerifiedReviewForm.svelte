@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
-	import { publishVerifiedReview, hasUserReviewedEscrow } from '$lib/utils/nostr-review';
+	import { hasUserReviewedContract } from '$lib/utils/reviews/queries';
+	import { buildSignedReviewEvent, submitAttestedReview } from '$lib/utils/reviews/attestation';
+	import { normalizeNostrPubkey } from '$lib/utils/nostr-pubkey';
 	import { getNpub } from '$lib/utils/nostrKeys';
 	import { appStore } from '$lib/stores/app.store';
 	import type {
@@ -9,15 +11,18 @@
 		TaskerCategoryRatings
 	} from '$lib/types/review';
 
-	let { escrowId, revieweePubkey, escrowTxHash, revieweeRole, onSubmit, onCancel } = $props<{
-		escrowId: string;
-		revieweePubkey: string;
-		escrowTxHash?: string;
-		revieweeRole?: 'tasker' | 'taskee' | null;
-		onSubmit?: (eventId: string) => void;
-		onCancel?: () => void;
-	}>();
+	let { escrowId, revieweePubkey, escrowTxHash, revieweeRole, contract, onSubmit, onCancel } =
+		$props<{
+			escrowId: string;
+			revieweePubkey: string;
+			escrowTxHash?: string;
+			revieweeRole?: 'tasker' | 'taskee' | null;
+			contract?: import('$lib/utils/reviews/contract-interface').IContractForReview | null;
+			onSubmit?: (eventId: string) => void;
+			onCancel?: () => void;
+		}>();
 
+	console.log('escrowTxHash', escrowTxHash);
 	let overallRating = $state(0);
 
 	// Role-specific category ratings
@@ -92,7 +97,7 @@
 			try {
 				const reviewerPubkey = await getNpub();
 				if (reviewerPubkey) {
-					const reviewed = await hasUserReviewedEscrow(escrowId, reviewerPubkey);
+					const reviewed = await hasUserReviewedContract(escrowId, reviewerPubkey);
 					if (!cancelled) {
 						alreadyReviewed = reviewed;
 					}
@@ -219,7 +224,46 @@
 				photos: photos.length > 0 ? photos : undefined
 			};
 
-			const eventId = await publishVerifiedReview(escrowId, revieweePubkey, content, escrowTxHash);
+			let eventId: string;
+
+			// Use attestation flow when IContractForReview is provided, otherwise fallback to deprecated Merkle flow
+			if (contract) {
+				const normalizedReviewee = normalizeNostrPubkey(revieweePubkey) ?? revieweePubkey;
+				const signedEvent = await buildSignedReviewEvent(content, [
+					['p', normalizedReviewee],
+					['e', contract.contractId]
+				]);
+
+				const hashInput = JSON.stringify(content);
+				const hashBuffer = await crypto.subtle.digest(
+					'SHA-256',
+					new TextEncoder().encode(hashInput)
+				);
+				const reviewDraftHash = Array.from(new Uint8Array(hashBuffer))
+					.map((b) => b.toString(16).padStart(2, '0'))
+					.join('');
+
+				const result = await submitAttestedReview({
+					reviewDraftHash,
+					signedReviewEvent: signedEvent,
+					subjectType: 'task',
+					subjectId: contract.contractId,
+					settlementType: contract.settlementType,
+					settlementId: contract.contractId,
+					chain: contract.chain,
+					asset: contract.asset,
+					contractAddress: contract.contractAddress,
+					revieweeNpub: normalizedReviewee,
+					revieweeWallet: '',
+					reviewerWallet: ''
+				});
+
+				eventId = result.attestationEventId;
+			} else {
+				throw new Error(
+					'Contract information is required to submit a review via the attestation flow.'
+				);
+			}
 
 			appStore.showSuccessToast(getFormText('success', 'Review submitted successfully!'));
 			onSubmit?.(eventId);

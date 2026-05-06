@@ -2,8 +2,8 @@
 	import { onMount } from 'svelte';
 	import { get } from 'svelte/store';
 	import { locale, t } from 'svelte-i18n';
-	import { findPendingReviews } from '$lib/utils/review-helpers';
-	import type { PendingReview } from '$lib/utils/review-helpers';
+	import { findPendingReviews } from '$lib/utils/reviews/helpers';
+	import type { PendingReview } from '$lib/utils/reviews/helpers';
 	import ReviewPromptModal from './ReviewPromptModal.svelte';
 
 	let { initialPendingReviews, onReviewSubmitted } = $props<{

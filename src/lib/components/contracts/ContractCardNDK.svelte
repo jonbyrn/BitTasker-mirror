@@ -8,6 +8,7 @@
 	import TaskLocationDisplay from '../task/TaskLocationDisplay.svelte';
 	import UserNostrBadge from '../UserNostrBadge.svelte';
 	import type { NDKPaymentContract } from '$lib/nostr/events/contract';
+	import { adaptV2Contract } from '$lib/utils/reviews/contractAdapter';
 	import { formatConvertedAmount } from '$lib/utils/helpers/currencyFormatter';
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
 	import { PaymentContractRune } from '$lib/runes/contractRune.svelte';
@@ -15,6 +16,7 @@
 	import ResolutionProposalSplitDisplay from './ResolutionProposalSplitDisplay.svelte';
 	import { ContractStatus } from '$lib/utils/contract/types';
 	import { generateUniversalMapLink } from '$lib/utils/location/maps';
+	import ReviewPromptModal from '$lib/components/reviews/ReviewPromptModal.svelte';
 
 	const {
 		contract,
@@ -43,6 +45,10 @@
 	});
 
 	const contractRune = $derived(runeFromParent ?? ownedRune);
+
+	// Review integration — version-agnostic via IContractForReview
+	const reviewContract = $derived(adaptV2Contract(contract));
+	let showReviewModal = $state(false);
 
 	function openDrawer() {
 		if (contractRune && onOpenContractDrawer) {
@@ -145,6 +151,17 @@
 			</div>
 		</div>
 
+		<!-- Review badge -->
+		{#if statusAndActionsReady && reviewContract?.isReviewable()}
+			<button
+				type="button"
+				class="badge badge-warning badge-sm mt-2 cursor-pointer"
+				onclick={() => (showReviewModal = true)}
+			>
+				★ Review Pending
+			</button>
+		{/if}
+
 		<!-- Second Row: Deadline + Location + Price -->
 		<div class="mb-3 flex flex-row items-center justify-between gap-3">
 			<!-- Left: Deadline + Location -->
@@ -202,3 +219,12 @@
 		</div>
 	</div>
 </div>
+
+<ReviewPromptModal
+	isOpen={showReviewModal}
+	contract={reviewContract}
+	onClose={() => (showReviewModal = false)}
+	onSubmit={() => {
+		showReviewModal = false;
+	}}
+/>

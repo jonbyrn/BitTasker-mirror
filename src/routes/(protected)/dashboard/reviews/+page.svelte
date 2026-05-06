@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
 	import { getNpub } from '$lib/utils/nostrKeys';
-	import { getReviewsForUser, getReviewsByReviewer } from '$lib/utils/nostr-review';
-	import { calculateReviewStats } from '$lib/utils/review-aggregation';
-	import { findPendingReviews, type PendingReview } from '$lib/utils/review-helpers';
+	import { getReviewsForUser, getReviewsByReviewer } from '$lib/utils/reviews/queries';
+	import { calculateReviewStats } from '$lib/utils/reviews/aggregation';
+	import { findPendingReviews, type PendingReview } from '$lib/utils/reviews/helpers';
 	import type { NostrVerifiedReview, ReviewStats } from '$lib/types/review';
 	import ReviewSummaryCard from '$lib/components/profile/ReviewSummaryCard.svelte';
 	import ReviewManagementTabs from '$lib/components/reviews/ReviewManagementTabs.svelte';

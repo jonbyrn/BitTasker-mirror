@@ -4,19 +4,29 @@
 	import { escrow } from '$lib/utils/wallet/escrow';
 	import { getUserContracts } from '$lib/utils/nostr-bid';
 	import { fetchProfileMetadata } from '$lib/utils/nostr-message';
-	import { getRevieweeRoleFromContractParticipants } from '$lib/utils/review-helpers';
+	import { getRevieweeRoleFromContractParticipants } from '$lib/utils/reviews/helpers';
 	import { nostrPubkeysMatch } from '$lib/utils/nostr-pubkey';
-	import { isReviewableContractStatus } from '$lib/utils/review-status';
+	import { isReviewableContractStatus } from '$lib/utils/reviews/helpers';
 	import { nip19 } from 'nostr-tools';
 	import VerifiedReviewForm from './VerifiedReviewForm.svelte';
 	import Drawer from '../Drawer.svelte';
 
-	let { isOpen, escrowId, revieweePubkey, revieweeName, escrowTxHash, onClose, onSubmit } = $props<{
+	let {
+		isOpen,
+		escrowId,
+		revieweePubkey,
+		revieweeName,
+		escrowTxHash,
+		contract,
+		onClose,
+		onSubmit
+	} = $props<{
 		isOpen: boolean;
 		escrowId?: string;
 		revieweePubkey?: string;
 		revieweeName?: string;
 		escrowTxHash?: string;
+		contract?: import('$lib/utils/reviews/contract-interface').IContractForReview | null;
 		onClose: () => void;
 		onSubmit?: (eventId: string) => void;
 	}>();
@@ -57,6 +67,41 @@
 	$effect(() => {
 		if (!isOpen) return;
 		void reloadKey;
+
+		// When IContractForReview is provided, resolve directly from it
+		if (contract && contract.isReviewable()) {
+			void (async () => {
+				let cancelled = false;
+				try {
+					const pubkey = await getNpub();
+					if (!pubkey || cancelled) return;
+					const party = contract.getReviewableParty(pubkey);
+					if (!party) {
+						if (!cancelled) {
+							error = $t('reviews.prompt.not_participant');
+							isLoading = false;
+						}
+						return;
+					}
+					const reviewee = party === 'client' ? contract.freelancerPubkey : contract.clientPubkey;
+					if (!cancelled) {
+						targetRevieweePubkey = reviewee;
+						targetRevieweeName = revieweeName || null;
+						revieweeRole = party === 'client' ? 'taskee' : 'tasker';
+						isLoading = false;
+					}
+				} catch (err) {
+					if (!cancelled) {
+						error = err instanceof Error ? err.message : $t('reviews.prompt.load_error');
+						isLoading = false;
+					}
+				}
+				return () => {
+					cancelled = true;
+				};
+			})();
+			return;
+		}
 
 		let cancelled = false;
 

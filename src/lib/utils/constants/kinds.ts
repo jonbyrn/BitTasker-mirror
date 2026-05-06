@@ -20,13 +20,11 @@ const KINDS = {
 	/** Availability schedule - parameterized replaceable */
 	PROFILE_AVAILABILITY: 30002,
 
-    // Review System (Secure Merkle Tree Verified Reviews)
-    REVIEW_VERIFIED: 31007, // Verified review with Merkle proof
-    MERKLE_TREE_METADATA: 31008, // Merkle tree metadata (root, version, etc.)
-    MERKLE_TREE_CHUNK: 31009, // Chunked Merkle tree data
-    MERKLE_TREE_UPDATE: 31010, // Merkle tree update notification
-    REVIEW_REPORTED: 31011, // Reported review for moderation
-    REVIEW_REPLY: 31012, // Reply to a review
+	// Review System (Attestation-Based Verified Reviews)
+	REVIEW: 6430, // Review content (signed by reviewer, published by client)
+	ATTESTATION: 6431, // Attestation proof (signed by BitTasker issuer, published by backend)
+	REVIEW_REPLY: 6432, // Reply to a review (signed by reviewee, published by client)
+	REPLY_ATTESTATION: 6433, // Reply attestation proof (signed by BitTasker issuer)
 
 	/** Standard services offered - parameterized replaceable */
 	PROFILE_STANDARD_SERVICES: 30003,

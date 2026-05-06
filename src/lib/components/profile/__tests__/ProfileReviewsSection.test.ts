@@ -35,7 +35,7 @@ vi.mock('$lib/utils/review-aggregation', () => ({
 	calculateReviewStats: mocks.calculateReviewStats
 }));
 
-vi.mock('$lib/utils/review-helpers', () => ({
+vi.mock('$lib/utils/helpers/review', () => ({
 	findPendingReviews: mocks.findPendingReviews
 }));
 

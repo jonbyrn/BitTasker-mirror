@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
-	import { getReviewsForUser } from '$lib/utils/nostr-review';
+	import { getReviewsForUser } from '$lib/utils/reviews/queries';
 	import VerifiedReviewCard from './VerifiedReviewCard.svelte';
 	import type { NostrVerifiedReview, ReviewFilter, ReviewSort } from '$lib/types/review';
 

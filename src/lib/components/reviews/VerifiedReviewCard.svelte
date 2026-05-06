@@ -1,10 +1,7 @@
 <script lang="ts">
 	import { locale, t } from 'svelte-i18n';
-	import type { NostrVerifiedReview } from '$lib/types/review';
-	import { verifyNostrReview } from '$lib/utils/nostr-review';
-	import { TranslationStore } from '$lib/stores/translation.store';
-
-	type ReviewWithContext = NostrVerifiedReview & {
+	import type { AttestedReview } from '$lib/types/review';
+	type ReviewWithContext = AttestedReview & {
 		escrowId?: string | null;
 	};
 
@@ -24,79 +21,15 @@
 
 	// Determine role from review if not provided
 	const effectiveRole = $derived(revieweeRole || review.content.revieweeRole || null);
+	let displayComment = $derived(review.content.comment || '');
 
-	let isVerified = $state(false);
-	let isVerifying = $state(false);
-	let displayComment = $state('');
-	const reviewEscrowId = $derived.by(() => {
-		return typeof review.escrowId === 'string' && review.escrowId.length > 0
-			? review.escrowId
+	// Attestation reviews are inherently verified — the backend checked on-chain settlement
+	const isVerified = $derived(showVerificationBadge);
+	const isVerifying = $derived(false);
+	const reviewContractId = $derived.by(() => {
+		return typeof review.contractId === 'string' && review.contractId.length > 0
+			? review.contractId
 			: null;
-	});
-
-	// Verify review on mount
-	$effect(() => {
-		if (!showVerificationBadge) {
-			isVerifying = false;
-			isVerified = false;
-			return;
-		}
-
-		let cancelled = false;
-
-		(async () => {
-			isVerifying = true;
-			try {
-				const verified = await verifyNostrReview(review);
-				if (!cancelled) {
-					isVerified = verified;
-				}
-			} catch (error) {
-				console.error('Failed to verify review:', error);
-				if (!cancelled) {
-					isVerified = false;
-				}
-			} finally {
-				if (!cancelled) {
-					isVerifying = false;
-				}
-			}
-		})();
-
-		return () => {
-			cancelled = true;
-		};
-	});
-
-	// Load translation for comment if available
-	$effect(() => {
-		const sourceComment = review.content.comment || '';
-		displayComment = sourceComment;
-
-		if (!sourceComment || !review.nostrEventId) {
-			return;
-		}
-
-		let cancelled = false;
-		const eventId = review.nostrEventId;
-
-		(async () => {
-			try {
-				const translated = await TranslationStore.getDisplayText(eventId, sourceComment);
-				if (!cancelled) {
-					displayComment = translated;
-				}
-			} catch (error) {
-				console.error('Failed to translate review comment:', error);
-				if (!cancelled) {
-					displayComment = sourceComment;
-				}
-			}
-		})();
-
-		return () => {
-			cancelled = true;
-		};
 	});
 
 	function formatDate(timestamp: number): string {
@@ -178,7 +111,7 @@
 										d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
 									/>
 								</svg>
-								{$t('reviews.verified')}
+								{$t('reviews.attested')}
 							</div>
 						{:else}
 							<div class="badge badge-error badge-sm">
@@ -221,10 +154,10 @@
 					<span class="badge badge-outline">{$t('reviews.pending.review_for')}</span>
 					<span class="truncate font-medium">{formatPubkey(review.revieweePubkey)}</span>
 				</div>
-				{#if reviewEscrowId}
+				{#if reviewContractId}
 					<div class="bg-base-200/50 flex min-w-0 items-center gap-2 rounded-lg px-3 py-2">
 						<span class="badge badge-outline">{$t('reviews.pending.contract')}</span>
-						<span class="truncate font-medium">{reviewEscrowId}</span>
+						<span class="truncate font-medium">{reviewContractId}</span>
 					</div>
 				{/if}
 			</div>
@@ -320,7 +253,7 @@
 					class="btn btn-ghost btn-sm btn-outline"
 					onclick={(event) => {
 						event.stopPropagation();
-						onReply(review.nostrEventId);
+						onReply(review.attestationEventId);
 					}}
 				>
 					<svg

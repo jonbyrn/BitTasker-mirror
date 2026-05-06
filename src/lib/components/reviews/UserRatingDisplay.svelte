@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { getReviewsForUser } from '$lib/utils/nostr-review';
-	import { calculateReviewStats } from '$lib/utils/review-aggregation';
+	import { getReviewsForUser } from '$lib/utils/reviews/queries';
+	import { calculateReviewStats } from '$lib/utils/reviews/aggregation';
 	import type { NostrVerifiedReview } from '$lib/types/review';
 	import { nip19 } from 'nostr-tools';
 

@@ -37,7 +37,6 @@
 		"test:workflow": "node --test tests/codex-plan-workflow.test.mjs",
 		"test:ci": "vitest run src/lib/tests/unit/ src/lib/tests/integration/ src/lib/tests/components/ --exclude src/lib/tests/integration/services-perf.smoke.test.ts",
 		"test:e2e:validate-service-bootstrap": "node scripts/validate-service-e2e-bootstrap.mjs",
-		"test:ci:sdk": "npm test --prefix packages/merkle-review-sdk",
 		"test:reviews:components": "vitest run --config vitest.config.ts src/lib/components/profile/__tests__/ src/lib/components/reviews/__tests__/",
 		"test:triage": "node scripts/test-triage.js",
 		"test:unit:validators": "vitest run src/lib/tests/unit/helpers/validators.test.ts",
@@ -116,6 +115,7 @@
 		"wrangler": "^4.0.0"
 	},
 	"dependencies": {
+		"@bittasker/reviews-contracts": "file:nostr-reviews-verifier/packages/reviews-contracts/bittasker-reviews-contracts-0.0.1.tgz",
 		"@bittasker/wallet-core": "^0.1.10",
 		"@capacitor-mlkit/barcode-scanning": "^8.0.1",
 		"@capacitor/android": "^8.0.0",
@@ -191,7 +191,6 @@
 		"vite-plugin-inspect": "^11.3.2",
 		"vite-plugin-pwa": "^1.0.1",
 		"vite-plugin-top-level-await": "^1.5.0",
-		"vite-plugin-wasm": "^3.4.1",
-		"@bittasker/merkle-review-sdk": "file:./packages/merkle-review-sdk"
+		"vite-plugin-wasm": "^3.4.1"
 	}
 }

@@ -4,7 +4,7 @@
  * Functions for calculating review statistics and aggregations
  */
 
-import type { NostrVerifiedReview, ReviewStats } from '$lib/types/review';
+import type { AttestedReview, ReviewStats } from '$lib/types/review';
 
 type ReviewContentLike = {
 	overallRating?: unknown;
@@ -78,7 +78,7 @@ function getEmptyStats(): ReviewStats {
 	};
 }
 
-function getReviewContent(review: NostrVerifiedReview): ReviewContentLike | null {
+function getReviewContent(review: AttestedReview): ReviewContentLike | null {
 	if (!review || typeof review !== 'object') {
 		return null;
 	}
@@ -99,12 +99,12 @@ function hasPhotoAttachments(value: unknown): boolean {
 	return Array.isArray(value) && value.length > 0;
 }
 
-function getSortableTimestamp(review: NostrVerifiedReview): number {
+function getSortableTimestamp(review: AttestedReview): number {
 	const createdAt = review?.createdAt;
 	return typeof createdAt === 'number' && Number.isFinite(createdAt) ? createdAt : 0;
 }
 
-function getSortableRating(review: NostrVerifiedReview): number | null {
+function getSortableRating(review: AttestedReview): number | null {
 	const overallRating = getReviewContent(review)?.overallRating;
 	return isValidRating(overallRating) ? overallRating : null;
 }
@@ -113,7 +113,7 @@ function getSortableRating(review: NostrVerifiedReview): number | null {
  * Calculate review statistics from a list of reviews
  * Handles both role-specific and legacy category formats
  */
-export function calculateReviewStats(reviews: NostrVerifiedReview[]): ReviewStats {
+export function calculateReviewStats(reviews: AttestedReview[]): ReviewStats {
 	if (reviews.length === 0) {
 		return getEmptyStats();
 	}
@@ -247,7 +247,7 @@ export function calculateReviewStats(reviews: NostrVerifiedReview[]): ReviewStat
  * Filter reviews by criteria
  */
 export function filterReviews(
-	reviews: NostrVerifiedReview[],
+	reviews: AttestedReview[],
 	filter: {
 		minRating?: number;
 		maxRating?: number;
@@ -256,7 +256,7 @@ export function filterReviews(
 		dateFrom?: number;
 		dateTo?: number;
 	}
-): NostrVerifiedReview[] {
+): AttestedReview[] {
 	return reviews.filter((review) => {
 		const content = getReviewContent(review);
 		const overallRating = content?.overallRating;
@@ -294,9 +294,9 @@ export function filterReviews(
  * Sort reviews
  */
 export function sortReviews(
-	reviews: NostrVerifiedReview[],
+	reviews: AttestedReview[],
 	sortBy: 'newest' | 'oldest' | 'highest_rating' | 'lowest_rating'
-): NostrVerifiedReview[] {
+): AttestedReview[] {
 	const sorted = [...reviews];
 
 	switch (sortBy) {
