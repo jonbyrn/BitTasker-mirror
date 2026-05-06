@@ -1,3 +1,4 @@
+/// <reference types="@capawesome/capacitor-android-edge-to-edge-support" />
 import type { CapacitorConfig } from '@capacitor/cli';
 import { KeyboardResize, KeyboardStyle } from '@capacitor/keyboard';
 import { loadEnv } from 'vite';
@@ -55,9 +56,9 @@ const config: CapacitorConfig = {
 			backgroundColor: '#00000000'
 		},
 		SystemBars: {
-			// Injects --safe-area-inset-* CSS variables on Android WebView < 140
-			// This fixes the bug where env(safe-area-inset-*) returns 0px on Android 15+
-			insetsHandling: 'css',
+			// Disabled per @capawesome/capacitor-android-edge-to-edge-support docs —
+			// the plugin manages insets and safe-area CSS variables directly.
+			insetsHandling: 'disable',
 			style: 'DEFAULT',
 			hidden: false
 		},
@@ -67,8 +68,8 @@ const config: CapacitorConfig = {
 			// Android: resize option is ignored; use resizeOnFullScreen instead.
 			resize: KeyboardResize.Body,
 			style: KeyboardStyle.Default,
-			// Android: Required workaround for full-screen apps (StatusBar overlaysWebView: false).
-			// Without this, the WebView won't resize when keyboard appears.
+			// Must be true to prevent keyboard from overlaying the WebView
+			// when the app uses edge-to-edge display.
 			resizeOnFullScreen: true
 		},
 		SplashScreen: {
@@ -81,6 +82,12 @@ const config: CapacitorConfig = {
 		},
 		PushNotifications: {
 			presentationOptions: ['badge', 'sound' /* , 'alert' */]
+		},
+		EdgeToEdge: {
+			// @capawesome/capacitor-android-edge-to-edge-support
+			// Sets the background color of the Android system navigation bar.
+			// Uses WindowInsetsControllerCompat under the hood (required for SDK 35+).
+			navigationBarColor: '#2d2d2d'
 		}
 	}
 };

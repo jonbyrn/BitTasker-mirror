@@ -233,7 +233,7 @@
 
 <!-- Main TopBar component -->
 <div
-	class="navbar bg-base-100/80 border-base-300 pt-safe sticky top-0 z-50 w-full border-b backdrop-blur-sm"
+	class="navbar bg-base-100/80 border-base-300 sticky top-0 z-50 w-full border-b backdrop-blur-sm"
 	onclickcapture={handleTopNavTap}
 >
 	<!-- Navbar start -->
