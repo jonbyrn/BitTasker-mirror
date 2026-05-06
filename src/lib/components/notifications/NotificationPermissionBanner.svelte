@@ -43,8 +43,7 @@
 
 {#if showBanner}
 	<div
-		class="fixed inset-x-3 z-50 mx-auto max-w-none sm:inset-x-4 md:inset-x-auto md:right-4 md:max-w-sm"
-		style="top: max(0.75rem, env(safe-area-inset-top, 0px))"
+		class="fixed inset-x-3 top-3 z-50 mx-auto max-w-none sm:inset-x-4 sm:top-4 md:inset-x-auto md:top-4 md:right-4 md:max-w-sm"
 	>
 		<div
 			class="bg-primary text-primary-content border-primary-content/20 rounded-xl border p-3 shadow-2xl sm:p-4 md:p-5"

@@ -355,7 +355,6 @@
 		left: 0 !important;
 		width: 100% !important;
 		height: 100% !important;
-		padding-top: env(safe-area-inset-top, 0px) !important;
 		background: transparent !important;
 		backdrop-filter: none !important;
 		display: flex !important;

@@ -718,18 +718,6 @@
 		transform: translateY(100%);
 	}
 
-	/*
-	 * iOS PWA: bypass the JS-measured --app-dock-height for menu padding.
-	 * The [data-platform] rule in app.css zeroes --safe-area-inset-bottom
-	 * (shrinks the dock) and sets --bottom-nav-height-safe to 56px.
-	 * This override ensures the menu uses the CSS-driven value even if the
-	 * ResizeObserver hasn't remeasured yet.
-	 */
-	:global([data-platform='ios-pwa']) .bottom-nav-menu {
-		padding-bottom: var(--bottom-nav-height-safe);
-		max-height: calc(52rem + var(--bottom-nav-height-safe));
-	}
-
 	.bottom-nav-menu::-webkit-scrollbar {
 		width: 4px;
 	}

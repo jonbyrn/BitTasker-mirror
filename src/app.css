@@ -478,31 +478,6 @@ body {
 }
 
 /*
- * iOS PWA (home screen) overrides.
- *
- * On iOS standalone, env(safe-area-inset-bottom) returns ~34px for the home
- * indicator. The BottomNavBar dock already has its own 0.5rem base padding,
- * so the extra 34px is excessive — it creates a visible gap below the dock
- * and bloats the measured dock height, causing the menu panel's padding to
- * be too large (or, if overridden, the menu slides behind the dock).
- *
- * Zeroing --safe-area-inset-bottom via CSS (not JS) naturally short-circuits
- * every var() reference site-wide:
- *   var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)) → 0px
- *
- * This is a stylesheet rule, not inline style, so it only overrides the
- * env() fallback — on Android, SystemBars injects the same property as
- * inline style (higher priority) and is unaffected.
- *
- * The top safe-area is intentionally preserved for status bar clearance.
- */
-[data-platform='ios-pwa'] {
-	--safe-area-inset-bottom: 0px;
-	--bottom-nav-height-safe: 56px;
-	--app-bottom-fab: calc(56px + 1rem);
-}
-
-/*
  * App shell layout (header / scrollable content / footer)
  *
  * This prevents top/bottom navigation from overlapping content by reserving
