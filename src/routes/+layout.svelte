@@ -7,6 +7,7 @@
 	import { authState } from '$lib/stores/auth.store';
 	import { appScrollContainer } from '$lib/stores/scrollContainer.store';
 	import { hideSplashScreenWhenReady } from '$lib/utils/helpers/splashScreen';
+	import { applyIOSPwaSafeAreaFix } from '$lib/utils/helpers/iosPwa';
 	import {
 		BITTASKER_ORG_JSONLD,
 		BITTASKER_SITE_NAVIGATION_JSONLD
@@ -88,6 +89,12 @@
 			deviceModule.getOnboardingCompleted()
 		]);
 	}
+
+	// Must run before any child $effect fires so BottomNavBar's
+	// --app-dock-height measurement reflects the iOS PWA override.
+	$effect.pre(() => {
+		applyIOSPwaSafeAreaFix();
+	});
 
 	let cleanupKb: (() => void) | undefined;
 
@@ -174,7 +181,7 @@
 		// If the footer is unmounted (or not rendered on desktop), ensure we don't keep a stale value.
 		if (!footerEl) {
 			if (typeof document !== 'undefined') {
-				document.documentElement.style.setProperty('--app-footer-height', `0px`);
+				document.documentElement.style.removeProperty('--app-footer-height');
 			}
 			return;
 		}

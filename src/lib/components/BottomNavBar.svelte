@@ -373,7 +373,7 @@
 	<a
 		{href}
 		onclick={(e) => handleNavWithMenuClose(e, href)}
-		class="hover:bg-base-200 flex flex-1 flex-col items-center justify-center gap-1 rounded-lg p-2 transition-colors"
+		class="hover:bg-base-200 flex flex-1 flex-col items-center justify-center gap-1 rounded-lg py-2 transition-colors"
 	>
 		<Icon class="text-primary h-6 w-6" />
 		<span class="text-center text-xs font-medium">{$t(label)}</span>
@@ -594,9 +594,9 @@
 							{@render quickActionLink('/tasks', IconMagnify, 'navbar.find_tasks')}
 							{@render quickActionLink('/services', IconBriefcaseSearch, 'navbar.find_services')}
 							{@render quickActionLink(
-								'/dashboard?tab=contracts',
-								IconFileSign,
-								'navbar.contracts'
+								'/dashboard/create-service',
+								IconPlusCircleOutline,
+								'navbar.list_service'
 							)}
 						</div>
 					</div>
@@ -707,14 +707,8 @@
 
 		/* Panel extends behind the dock so it appears to slide from behind it */
 		max-height: calc(52rem + var(--app-footer-height, var(--bottom-nav-height-safe)));
-		/* Reserve space for the dock, but don't include the safe-area padding */
-		padding-bottom: max(
-			0px,
-			calc(
-				var(--app-dock-height, var(--app-footer-height, var(--bottom-nav-height-safe))) -
-					var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px))
-			)
-		);
+		/* Reserve space for the dock — uses measured dock height directly */
+		padding-bottom: var(--app-dock-height, var(--app-footer-height, var(--bottom-nav-height-safe)));
 		overflow: hidden;
 	}
 	.menu-expand {
