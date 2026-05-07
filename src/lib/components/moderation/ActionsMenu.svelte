@@ -14,7 +14,7 @@
 	import { teleport } from '$lib/utils/portal';
 	import ReportModal from './ReportModal.svelte';
 
-	type ContentType = 'task' | 'bid' | 'message' | 'user';
+	type ContentType = 'task' | 'bid' | 'message' | 'user' | 'service';
 
 	let {
 		contentType,
@@ -50,6 +50,7 @@
 		task: $t('moderation.menu.report_task'),
 		bid: $t('moderation.menu.report_bid'),
 		message: $t('moderation.menu.report_message'),
+		service: $t('moderation.menu.report_service'),
 		mute: $t('moderation.menu.mute_user'),
 		mute_generic: $t('moderation.menu.mute_user_generic'),
 		block: $t('moderation.menu.block_user')

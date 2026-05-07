@@ -46,6 +46,7 @@
 	const isOpen = $derived(task.status === TaskStatusEnum.OPEN);
 	const canBid = $derived(isOpen && !hasBid);
 	const taskId = $derived(getTaskId(task));
+	let resolvedCreatorName = $state<string | null>(null);
 </script>
 
 <div
@@ -99,7 +100,7 @@
 						contentType="task"
 						reportedPubkey={task.npub}
 						reportedEventId={taskId}
-						username={task.creator?.username}
+						username={resolvedCreatorName}
 						{onMuted}
 					/>
 				{/if}
@@ -153,6 +154,7 @@
 					size="md"
 					pubkey={task.npub}
 					memberSince={task.createdAt}
+					onResolvedName={(name) => (resolvedCreatorName = name)}
 				/>
 			</div>
 			<div class="flex w-full shrink-0 items-center gap-2 md:w-auto">

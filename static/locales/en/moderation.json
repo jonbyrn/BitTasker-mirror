@@ -6,6 +6,7 @@
 			"report_bid": "Report bid",
 			"report_message": "Report message",
 			"report_user": "Report user",
+			"report_service": "Report service",
 			"mute_user": "Mute {username}",
 			"mute_user_generic": "Mute user",
 			"block_user": "Block user",

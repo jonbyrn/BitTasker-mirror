@@ -244,7 +244,8 @@ export function getNamespacesForRoute(route: string): string[] {
 			'dashboard/services/browse',
 			'dashboard/services/create',
 			'dashboard/services/detail',
-			'categories'
+			'categories',
+			'moderation'
 		);
 	}
 

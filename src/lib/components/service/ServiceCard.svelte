@@ -11,6 +11,8 @@
 	import { satsFromUsd } from '$lib/utils/helpers/crypto';
 	import { ServicePricingTypeEnum, ServiceLocationTypeEnum } from '$lib/utils/enums/service.enum';
 	import ServiceShareButton from './ServiceShareButton.svelte';
+	import ActionsMenu from '$lib/components/moderation/ActionsMenu.svelte';
+	import { authState } from '$lib/stores/auth.store';
 	import IconEye from '~icons/mdi/eye';
 	import IconPlus from '~icons/mdi/plus';
 	import UserInfoDisplay from '$lib/components/user/UserInfoDisplay.svelte';
@@ -46,6 +48,7 @@
 	const displayDescription = $derived(getServiceDisplayDescription(service, currentLocale));
 
 	let currentImageIndex = $state(0);
+	let resolvedCreatorName = $state<string | null>(null);
 
 	const LOCATION_LABELS: Record<ServiceLocationTypeEnum, string> = {
 		[ServiceLocationTypeEnum.REMOTE]:
@@ -303,8 +306,16 @@
 				</p>
 			</div>
 			<div class="flex shrink-0 flex-col items-end gap-2">
-				<span class="shrink-0">
+				<span class="flex shrink-0 items-center gap-1">
 					<ServiceShareButton {service} variant="circle" class="btn-xs" />
+					{#if $authState.isAuthenticated && service.npub}
+						<ActionsMenu
+							contentType="service"
+							reportedPubkey={service.npub}
+							reportedEventId={service.id}
+							username={resolvedCreatorName}
+						/>
+					{/if}
 				</span>
 				<div class="text-right">
 					<div class="text-base leading-tight font-bold" aria-label="Price: {getPricingDisplay()}">
@@ -384,6 +395,7 @@
 				size="sm"
 				pubkey={service.npub}
 				memberSince={service.createdAt}
+				onResolvedName={(name) => (resolvedCreatorName = name)}
 			/>
 			<div class="flex w-full shrink-0 items-center gap-2 md:w-auto">
 				{#if showRequestQuoteButton}
