@@ -7,6 +7,8 @@ import { initializeSplashScreen } from '$lib/utils/helpers/splashScreen';
 import { initDebug } from '$lib/utils/debug';
 import { Preferences } from '@capacitor/preferences';
 import { StorageKeys } from '$lib/utils/constants/storage';
+// Register the Capacitor deep-link listener before any routing decisions
+import '$lib/utils/deep-link';
 
 export const prerender = true;
 export const ssr = false;

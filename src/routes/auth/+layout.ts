@@ -5,6 +5,7 @@ import { browser } from '$app/environment';
 import { StorageKeys } from '$lib/utils/constants/storage';
 import { isCaptchaVerified } from '$lib/stores/auth.store';
 import { Preferences } from '@capacitor/preferences';
+import { consumeDeepLink } from '$lib/utils/deep-link';
 
 export const load: LayoutLoad = async ({ url }) => {
 	if (!browser) return;
@@ -16,6 +17,11 @@ export const load: LayoutLoad = async ({ url }) => {
 		if (url.pathname.includes('/onboarding')) {
 			return { currentStep: 2 };
 		} else {
+			// Check for a pending deep link before defaulting to /dashboard
+			const deepLink = await consumeDeepLink();
+			if (deepLink) {
+				redirect(303, deepLink);
+			}
 			redirect(303, '/dashboard');
 		}
 	} else {

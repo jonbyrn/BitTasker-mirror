@@ -241,50 +241,48 @@
 					{/if}
 
 					<!-- Row 3: Date row -->
-					<div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-						<div class="min-w-0 flex-1">
-							{#if contract.estimatedStartTime != null && contract.estimatedCompletionTime != null}
-								<BookingDatesDisplay
-									startTime={contract.estimatedStartTime}
-									endTime={contract.estimatedCompletionTime}
-									startLabel={$t('dashboard.services.detail.book_now_drawer.start_date')}
-									endLabel={$t('dashboard.services.detail.book_now_drawer.delivery_date')}
-								/>
-							{/if}
-						</div>
-						{#if !isServiceContract}
-							<div class="w-full sm:order-3 sm:basis-full">
-								<div class="join join-vertical w-full">
-									<div
-										class="collapse-arrow join-item border-base-300 collapse border-b"
-										class:collapse-open={isOriginalBidOpen}
+					<div class="w-full flex-1">
+						{#if contract.estimatedStartTime != null && contract.estimatedCompletionTime != null}
+							<BookingDatesDisplay
+								startTime={contract.estimatedStartTime}
+								endTime={contract.estimatedCompletionTime}
+								startLabel={$t('dashboard.services.detail.book_now_drawer.start_date')}
+								endLabel={$t('dashboard.services.detail.book_now_drawer.delivery_date')}
+							/>
+						{/if}
+					</div>
+					{#if !isServiceContract}
+						<div class="w-full sm:order-3 sm:basis-full">
+							<div class="join join-vertical w-full">
+								<div
+									class="collapse-arrow join-item border-base-300 collapse border-b"
+									class:collapse-open={isOriginalBidOpen}
+								>
+									<button
+										type="button"
+										class="collapse-title text-left text-lg leading-tight font-bold"
+										onclick={() => (isOriginalBidOpen = !isOriginalBidOpen)}
+										aria-expanded={isOriginalBidOpen}
+										aria-controls="original-bid-content-ndk"
 									>
-										<button
-											type="button"
-											class="collapse-title text-left text-lg leading-tight font-bold"
-											onclick={() => (isOriginalBidOpen = !isOriginalBidOpen)}
-											aria-expanded={isOriginalBidOpen}
-											aria-controls="original-bid-content-ndk"
-										>
-											{$t('dashboard.contracts.bid_details')}
-										</button>
-										<div id="original-bid-content-ndk" class="collapse-content">
-											<div class="pt-2">
-												<div>
-													<span class="text-xs font-medium"
-														>{$t('dashboard.contracts.approach')}:</span
-													>
-													<p class="text-base-content/80 mt-1 text-sm">
-														{$t('dashboard.contracts.bid_info_not_available')}
-													</p>
-												</div>
+										{$t('dashboard.contracts.bid_details')}
+									</button>
+									<div id="original-bid-content-ndk" class="collapse-content">
+										<div class="pt-2">
+											<div>
+												<span class="text-xs font-medium"
+													>{$t('dashboard.contracts.approach')}:</span
+												>
+												<p class="text-base-content/80 mt-1 text-sm">
+													{$t('dashboard.contracts.bid_info_not_available')}
+												</p>
 											</div>
 										</div>
 									</div>
 								</div>
 							</div>
-						{/if}
-					</div>
+						</div>
+					{/if}
 
 					<!-- Row 4: Buttons on their own row (right-aligned) -->
 					{#if contractRune}

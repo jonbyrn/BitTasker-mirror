@@ -32,6 +32,8 @@
 	let isLoading = $state(false);
 	let error = $state('');
 	let descriptionError = $state('');
+	let displayNameInput = $state(displayName);
+	let displayNameError = $state('');
 	let picture = $state<NostrProfileImage | null>(null);
 	let selectedFile = $state<File | null>(null);
 	let pictureLoading = $state(false);
@@ -58,8 +60,8 @@
 						const metadata = JSON.parse(event.content);
 
 						// Basic NIP-01 fields
-						displayName =
-							metadata.display_name || metadata.displayName || metadata.name || displayName;
+						displayNameInput =
+							metadata.display_name || metadata.displayName || metadata.name || displayNameInput;
 						professionalTitle = metadata.professionalTitle || professionalTitle;
 						profileDescription = metadata.about || profileDescription;
 
@@ -193,6 +195,20 @@
 			isLoading = true;
 			error = '';
 			descriptionError = '';
+			displayNameError = '';
+
+			// Display name is required
+			const trimmedName = displayNameInput.trim();
+			if (!trimmedName) {
+				displayNameError = $t('onboarding_auth.form.display_name_required');
+				isLoading = false;
+				return;
+			}
+			if (trimmedName.length < 3 || trimmedName.length > 50) {
+				displayNameError = $t('onboarding_auth.form.display_name_setup.invalid');
+				isLoading = false;
+				return;
+			}
 
 			// Enforce minimum description length of 100 characters
 			if (profileDescription && profileDescription.trim().length < 100) {
@@ -212,8 +228,8 @@
 
 			// Publish profile metadata
 			const profileData: NostrProfile = {
-				name: displayName, // Use 'name' as primary field per NIP-24
-				display_name: displayName,
+				name: displayNameInput, // Use 'name' as primary field per NIP-24
+				display_name: displayNameInput,
 				professionalTitle,
 				about: profileDescription,
 				...(profileTranslations && { translations: profileTranslations })
@@ -308,6 +324,30 @@
 						}}
 					/>
 				</div>
+
+				<!-- Display Name Field (shown for NSEC login, hidden for signup) -->
+				{#if !displayName}
+					<div class="form-control mx-auto max-w-xl">
+						<label class="label" for="displayName">
+							<span class="label-text">{$t('onboarding_auth.form.display_name')}</span>
+						</label>
+						<input
+							type="text"
+							id="displayName"
+							data-testid="onboarding-display-name"
+							bind:value={displayNameInput}
+							class="input input-bordered w-full {displayNameError ? 'input-error' : ''}"
+							placeholder={$t('onboarding_auth.form.display_name_setup.placeholder')}
+							minlength="3"
+							maxlength="50"
+						/>
+						{#if displayNameError}
+							<label class="label whitespace-normal" for="displayName">
+								<span class="label-text-alt text-error">{displayNameError}</span>
+							</label>
+						{/if}
+					</div>
+				{/if}
 
 				<!-- Professional Title Field -->
 				<div class="form-control mx-auto max-w-xl">
