@@ -12,7 +12,6 @@ import type {
 import { Capacitor } from '@capacitor/core';
 import { PushNotifications } from '@capacitor/push-notifications';
 import { LocalNotifications } from '@capacitor/local-notifications';
-import { App } from '@capacitor/app';
 import { notificationService } from '$lib/api/services/notification.service';
 import { registerServiceWorker, getFirebaseWebConfig, getVapidKey } from '$lib/utils/helpers/fcm';
 import { createUserDeviceShortName, getDeviceIdentifier } from '$lib/utils/helpers/deviceIdentity';
@@ -89,7 +88,6 @@ class PushNotificationService {
 				await this.requestPermissions();
 				await this.createPushNotificationChannel();
 				await this.registerDevice();
-				this.addDeepLinkListener();
 			} else {
 				await this.initWebPushNotifications();
 			}
@@ -406,29 +404,10 @@ class PushNotificationService {
 	}
 
 	/**
-	 * Add deep link listener for when app is opened from notifications
+	 * Add notification URL open listener for custom notification events
 	 * Mobile specific
 	 */
-	private addDeepLinkListener(): void {
-		App.addListener('appUrlOpen', (data) => {
-			// Parse the URL to extract the path for internal navigation
-			if (data.url) {
-				try {
-					const url = new URL(data.url);
-					// Navigate to the path portion of the URL
-					if (url.pathname && url.pathname !== '/') {
-						this.navigateToUrl(url.pathname + (url.search || ''));
-					} else {
-						// Fallback to dashboard if no specific path
-						this.navigateToUrl('/dashboard');
-					}
-				} catch (error) {
-					console.error('❌ Error parsing deep link URL:', error);
-					this.navigateToUrl('/dashboard');
-				}
-			}
-		});
-
+	private addNotificationUrlOpenListener(): void {
 		if (Capacitor.isNativePlatform()) {
 			window.addEventListener('notificationUrlOpen', (event: Event) => {
 				const customEvent = event as NotificationUrlOpenEvent;

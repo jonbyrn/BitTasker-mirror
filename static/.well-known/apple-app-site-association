@@ -1,0 +1,24 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "com.bittasker.app",
+        "paths": [
+          "/auth/*",
+          "/tasks/*",
+          "/services/*",
+          "/npub/*",
+          "/dashboard/*",
+          "/earning/*",
+          "/profile/*",
+          "/settings/*",
+          "/verify-email",
+          "/about",
+          "/terms",
+          "/privacy"
+        ]
+      }
+    ]
+  }
+}

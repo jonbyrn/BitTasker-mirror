@@ -3,11 +3,19 @@ import { browser } from '$app/environment';
 import { StorageKeys } from '$lib/utils/constants/storage';
 import { Preferences } from '@capacitor/preferences';
 import { generateHomepageWebsiteJsonLd } from '$lib/utils/constants/seo.constants';
+import { getPendingDeepLink, consumeDeepLink } from '$lib/utils/deep-link';
 
 const baseUrl = (import.meta.env.VITE_CLIENT_URL || 'https://bittasker.com').replace(/\/$/, '');
 
 export async function load({ url }) {
 	if (browser) {
+		// If the app was opened via a deep link, navigate there instead of the default redirect
+		const deepLink = getPendingDeepLink();
+		if (deepLink) {
+			await consumeDeepLink();
+			redirect(303, deepLink);
+		}
+
 		const { value: token } = await Preferences.get({ key: StorageKeys.ACCESS_TOKEN });
 		if (token) {
 			redirect(303, '/dashboard');

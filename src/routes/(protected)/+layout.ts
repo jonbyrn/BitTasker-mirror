@@ -4,14 +4,23 @@ import { redirect, isRedirect } from '@sveltejs/kit';
 import { Preferences } from '@capacitor/preferences';
 import { authState } from '$lib/stores/auth.store';
 import { StorageKeys } from '$lib/utils/constants/storage';
+import { getPendingDeepLink } from '$lib/utils/deep-link';
 
-export const load: LayoutLoad = async () => {
+export const load: LayoutLoad = async ({ url }) => {
 	if (browser) {
 		try {
 			const { value: token } = await Preferences.get({ key: StorageKeys.ACCESS_TOKEN });
 
 			if (!token || token === null) {
-				redirect(303, '/auth/login');
+				// Preserve the target path so we can return after login
+				const deepLink = getPendingDeepLink();
+				const target = deepLink || url.pathname;
+				const loginUrl = '/auth/login';
+				const returnTo =
+					target !== '/' && target !== '/auth/login' && !target.startsWith('/auth/')
+						? `?returnTo=${encodeURIComponent(target)}`
+						: '';
+				redirect(303, `${loginUrl}${returnTo}`);
 			} else {
 				await authState.login();
 			}

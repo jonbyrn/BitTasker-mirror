@@ -25,12 +25,20 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
 
-            <!-- Intent filter for deep links from notifications -->
+            <!-- Intent filter for deep links (production domain, auto-verified) -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="https" android:host="@string/app_domain" />
+            </intent-filter>
+
+            <!-- Intent filter for dev -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="dev.bittasker.com" />
             </intent-filter>
 
             <!-- Intent filter for custom URL scheme -->

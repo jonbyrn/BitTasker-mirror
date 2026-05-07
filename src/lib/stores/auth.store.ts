@@ -8,6 +8,7 @@ import { resetMigration } from '$lib/utils/helpers/migratePasskey';
 import { ndkLogout } from '$lib/nostr/ndk';
 import { ndkIdentity } from '$lib/runes/ndkIdentity.svelte';
 import { destroySession } from '$lib/utils/session';
+import { consumeDeepLink, isValidInternalPath } from '$lib/utils/deep-link';
 
 const initialAuthState: AuthState = {
 	isAuthenticated: false,
@@ -60,7 +61,13 @@ const createAuthStore = () => {
 		if (biometricData) appStore.update((state) => ({ ...state, biometricData }));
 
 		if (redirect) {
-			await goto('/dashboard');
+			// Respect returnTo param and pending deep links before defaulting to /dashboard
+			const deepLink = await consumeDeepLink();
+			const params = new URLSearchParams(window.location.search);
+			const returnTo = params.get('returnTo');
+			const target =
+				returnTo && isValidInternalPath(returnTo) ? returnTo : deepLink || '/dashboard';
+			await goto(target);
 			// Close modal and reset migration state
 			resetMigration();
 

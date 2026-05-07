@@ -43,6 +43,7 @@
 	} from '$lib/utils/helpers/migratePasskey';
 	import MigratePasskey from '$lib/components/MigratePasskey.svelte';
 	import WebQrCodeScanner from '$lib/components/WebQrCodeScanner.svelte';
+	import { consumeDeepLink, isValidInternalPath } from '$lib/utils/deep-link';
 
 	// Polyfill Buffer
 	if (typeof window !== 'undefined') {
@@ -419,8 +420,16 @@
 						if (res.accountRestored) {
 							appStore.showSuccessToast($t('login.account_restored_message'));
 						}
-						if (res.isNewUser) await goto('/auth/onboarding');
-						else await goto('/dashboard');
+						if (res.isNewUser) {
+							await goto('/auth/onboarding');
+						} else {
+							const deepLink = await consumeDeepLink();
+							const params = new URLSearchParams(window.location.search);
+							const returnTo = params.get('returnTo');
+							const target =
+								returnTo && isValidInternalPath(returnTo) ? returnTo : deepLink || '/dashboard';
+							await goto(target);
+						}
 						if ($passkeyMigration.isOpen) {
 							resetMigration();
 						}
