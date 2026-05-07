@@ -73,72 +73,78 @@
 		}
 	}}
 >
-	<div class="card-body rounded-xl p-4 md:p-4">
-		<!-- Top Row: Title + Status Badge + Price -->
-		<div class="mb-3 flex flex-row items-stretch justify-between gap-2">
-			<!-- Left: Title (flexible, takes available space) -->
-			<div class="min-w-0 flex-1 pr-2 md:pr-4">
+	<div class="card-body flex flex-col gap-2 rounded-xl p-4 md:p-4">
+		<!-- Row 1: Title (left, top-aligned) | Share + ActionsMenu (right) -->
+		<div class="flex items-start justify-between gap-2">
+			<div class="min-w-0 flex-1">
 				<TranslatableTask
 					{task}
-					showDescription={true}
-					showDescriptionToggle={false}
-					descriptionClass="text-sm text-base-content/80 whitespace-pre-line line-clamp-2"
+					showDescription={false}
 					titleClass="card-title line-clamp-2 text-lg font-semibold"
 				/>
 			</div>
-			<!-- Right: Status Badge + Share Button + Price (aligned right) -->
-			<div class="flex shrink-0 flex-col items-end gap-2">
-				<div class="flex items-center gap-2">
-					<div class="badge {statusBadge.color} badge-sm max-w-[100px] truncate text-center">
-						{$t(`common.status.${task.status.toLowerCase()}`) || statusBadge.text}
-					</div>
-					<span
-						role="presentation"
-						class="ml-2 flex shrink-0 items-center gap-1"
-						onclick={(e) => e.stopPropagation()}
-						onkeydown={(e) => {
-							if (e.key === 'Enter' || e.key === ' ') {
-								e.stopPropagation();
-							}
-						}}
-					>
-						<TaskShareButton {task} variant="circle" class="btn-xs" />
-						{#if $authState.isAuthenticated && task.npub}
-							<ActionsMenu
-								contentType="task"
-								reportedPubkey={task.npub}
-								reportedEventId={taskId}
-								username={task.creator?.username}
-								{onMuted}
-							/>
-						{/if}
-					</span>
-				</div>
-				<div class="text-right">
-					<UsdSatsDisplay amount={task.budget.amount} {btcPrice} />
-				</div>
+			<span
+				role="presentation"
+				class="flex shrink-0 items-center gap-1"
+				onclick={(e) => e.stopPropagation()}
+				onkeydown={(e) => {
+					if (e.key === 'Enter' || e.key === ' ') {
+						e.stopPropagation();
+					}
+				}}
+			>
+				<TaskShareButton {task} variant="circle" class="btn-xs" />
+				{#if $authState.isAuthenticated && task.npub}
+					<ActionsMenu
+						contentType="task"
+						reportedPubkey={task.npub}
+						reportedEventId={taskId}
+						username={task.creator?.username}
+						{onMuted}
+					/>
+				{/if}
+			</span>
+		</div>
+
+		<!-- Row 2: Description + Price (same row, aligned top) -->
+		<div class="flex items-start justify-between gap-4">
+			<div class="min-w-0 flex-1">
+				<TranslatableTask
+					{task}
+					showTitle={false}
+					showDescription={true}
+					showDescriptionToggle={false}
+					descriptionClass="text-sm text-base-content/80 whitespace-pre-line line-clamp-3"
+				/>
+			</div>
+			<div class="shrink-0 text-right">
+				<UsdSatsDisplay amount={task.budget.amount} {btcPrice} />
 			</div>
 		</div>
 
-		<!-- Second Row: Deadline + Location -->
-		<div class="mb-3 flex flex-col gap-3">
-			<!-- Deadline -->
+		<!-- Row 3: Deadline (left) | Badge (right) -->
+		<div class="flex items-center justify-between gap-3">
 			<TaskDeadlineDisplay
 				deadline={task.deadline}
 				dateRangeStart={task.dateRange?.start}
 				dateRangeEnd={task.dateRange?.end}
+				showYear={false}
 			/>
+			<div class="badge {statusBadge.color} badge-sm shrink-0 truncate">
+				{$t(`common.status.${task.status.toLowerCase()}`) || statusBadge.text}
+			</div>
+		</div>
 
-			<!-- Location -->
+		<!-- Row 4: Location -->
+		<div>
 			<TaskLocationDisplay
 				dropOffLocation={task.dropOffLocation}
 				pickupLocation={task.pickupLocation}
 			/>
 		</div>
 
-		<!-- Bottom Row: Avatar + Action Buttons -->
+		<!-- Row 5: Creator info + Action Buttons -->
 		<div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-			<!-- Left: Avatar, Username, Review Stars -->
 			<div class="flex min-w-0 flex-1 items-center gap-3">
 				<UserInfoDisplay
 					avatar={task.creator?.avatar}
@@ -149,8 +155,6 @@
 					memberSince={task.createdAt}
 				/>
 			</div>
-
-			<!-- Right: Action Buttons -->
 			<div class="flex w-full shrink-0 items-center gap-2 md:w-auto">
 				<button
 					class="btn btn-primary btn-sm flex-1 md:flex-none"
@@ -170,7 +174,6 @@
 						? $t('dashboard.find_tasks.bid_sent') || 'Bid sent'
 						: $t('dashboard.find_tasks.sign_up_to_bid') || 'Bid'}
 				</button>
-
 				<button
 					class="btn btn-secondary btn-sm flex-1 md:flex-none"
 					onclick={async (e) => {
