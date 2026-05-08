@@ -10,12 +10,10 @@
 
 	// Helper function to get translated profile content
 	// Reactive to locale changes via $locale
-	function getTranslatedProfileContent(
-		field: 'professionalTitle' | 'about'
-	): string {
+	function getTranslatedProfileContent(field: 'professionalTitle' | 'about'): string {
 		const currentLang = $locale || 'en';
 		const originalText = $profileStore.data?.[field] || '';
-		
+
 		// If no translations, return original
 		if (!$profileStore.data?.translations) {
 			return originalText;
@@ -77,7 +75,7 @@
 	});
 
 	// Generate share link for profile
-	const shareLink = $derived(() => {
+	const _shareLink = $derived(() => {
 		if (typeof window === 'undefined') {
 			return '';
 		}
@@ -95,24 +93,22 @@
 	});
 
 	// Generate share text with professional title/name and description
-	const shareText = $derived(() => {
+	const _shareText = $derived(() => {
 		if (!$profileStore.data) return '';
-		
+
 		const displayName = shareDisplayName();
 		let description = '';
-		
+
 		// Use about description if available (translated)
 		const translatedAbout = getTranslatedProfileContent('about');
 		if (translatedAbout && translatedAbout.trim()) {
 			description = translatedAbout;
 		}
-		
+
 		// Build share message - use string replacement for parameters
 		if (description) {
 			const message = String($t('profile.page.share_message') || '');
-			return message
-				.replace('{name}', displayName)
-				.replace('{description}', description);
+			return message.replace('{name}', displayName).replace('{description}', description);
 		} else {
 			const message = String($t('profile.page.share_message_no_desc') || '');
 			return message.replace('{name}', displayName);
@@ -143,22 +139,41 @@
 		<!-- User Profile Info -->
 		<div class="mb-4 flex items-center gap-4">
 			<Avatar name={userName} picture={userPicture()} size="lg" />
-			<div class="flex-1 min-w-0">
+			<div class="min-w-0 flex-1">
 				<div class="flex flex-wrap items-center justify-between gap-2">
-					<div class="flex flex-wrap items-center gap-2 min-w-0 flex-1">
-						<h3 class="line-clamp-2 wrap-break-word min-w-0">
+					<div class="min-w-0 flex-1">
+						<h3 class="line-clamp-2 min-w-0 wrap-break-word">
 							{userName}
 						</h3>
-					{#if $profileStore.data.professionalTitle}
-						<div
-							class="badge badge-primary mb-2 w-fit leading-tight wrap-break-word whitespace-nowrap"
-						>
-							{getTranslatedProfileContent('professionalTitle')}
+						{#if $profileStore.data.professionalTitle}
+							<p class="text-base-content/80 text-sm font-medium">
+								{getTranslatedProfileContent('professionalTitle')}
+							</p>
+						{/if}
+						<div class="text-warning mt-1 flex items-center gap-1 text-sm">
+							{#each Array(5) as _, i (i)}
+								<svg
+									class="h-4 w-4 {i < Math.round($profileStore.stats.rating || 0)
+										? 'text-warning'
+										: 'text-base-content/20'}"
+									fill="currentColor"
+									viewBox="0 0 20 20"
+								>
+									<path
+										d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"
+									/>
+								</svg>
+							{/each}
+							<span class="ml-1 font-bold"
+								>{$profileStore.stats.rating ? $profileStore.stats.rating.toFixed(1) : '0.0'}</span
+							>
+							<span class="text-base-content/50 ml-1 font-medium"
+								>({$profileStore.data?.reviews?.length || 0})</span
+							>
 						</div>
-					{/if}
 					</div>
 					<!-- Action buttons - Desktop only -->
-					<div class="hidden md:flex gap-2">
+					<div class="hidden gap-2 md:flex">
 						<button
 							class="btn btn-outline btn-md gap-2"
 							onclick={handleShare}
@@ -191,7 +206,12 @@
 								viewBox="0 0 24 24"
 								stroke="currentColor"
 							>
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+								/>
 							</svg>
 							{$t('profile.page.edit_profile')}
 						</button>
@@ -247,7 +267,10 @@
 				</svg>
 				{$t('profile.page.share')}
 			</button>
-			<button class="btn btn-primary btn-sm flex-1 gap-2" onclick={() => goto('/dashboard/profile/edit')}>
+			<button
+				class="btn btn-primary btn-sm flex-1 gap-2"
+				onclick={() => goto('/dashboard/profile/edit')}
+			>
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
 					class="h-4 w-4"
@@ -255,7 +278,12 @@
 					viewBox="0 0 24 24"
 					stroke="currentColor"
 				>
-					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+					/>
 				</svg>
 				{$t('profile.page.edit_profile')}
 			</button>

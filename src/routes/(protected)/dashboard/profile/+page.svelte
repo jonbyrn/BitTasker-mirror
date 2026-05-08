@@ -3,7 +3,6 @@
 	import { t } from 'svelte-i18n';
 	import { profileStore } from '$lib/stores/profile.store';
 	import ProfileHeader from '$lib/components/profile/ProfileHeader.svelte';
-	import ProfileStats from '$lib/components/profile/ProfileStats.svelte';
 	import ProfileServicesSection from '$lib/components/profile/ProfileServicesSection.svelte';
 	import ProfileInfoSection from '$lib/components/profile/ProfileInfoSection.svelte';
 	import ProfileSidebar from '$lib/components/profile/ProfileSidebar.svelte';
@@ -26,26 +25,17 @@
 </script>
 
 <!-- Mismas dimensiones que Mi Panel -->
-<div class="mx-auto h-full max-w-6xl px-2 py-6 md:px-0 md:py-0">
-	<div class="mb-8">
-		<h3 class="text-2xl font-bold mb-2">{$t('profile.page.title')}</h3>
-		<p class="text-base-content/70 text-lg">{$t('profile.page.description')}</p>
+<div class="mx-auto h-full max-w-6xl py-4 md:px-0 md:py-0">
+	<div class="mb-2 md:mb-6">
+		<h3 class="text-2xl font-bold">{$t('profile.page.title')}</h3>
 	</div>
 	<div class="bg-base-100 rounded-xl p-8 shadow-lg">
 		<ProfileHeader />
 
-		<ProfileStats
-			stats={$profileStore.stats}
-			serviceCountState={$profileStore.servicesLoading
-				? 'loading'
-				: $profileStore.servicesError
-					? 'error'
-					: 'ready'}
-		/>
-		<ProfileServicesSection />
-
 		<ProfileInfoSection {formatDate} />
 
 		<ProfileSidebar {formatDate} />
+
+		<ProfileServicesSection />
 	</div>
 </div>

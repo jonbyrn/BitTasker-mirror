@@ -44,6 +44,7 @@
 
 		// Function to get next occurrence of a day
 		function getNextDay(targetDay: number): Date {
+			// eslint-disable-next-line svelte/prefer-svelte-reactivity
 			const result = new Date(now);
 			result.setHours(0, 0, 0, 0);
 			const currentDay = result.getDay();
@@ -119,7 +120,7 @@
 					<div class="mt-2">
 						<p class="font-medium">{$t('profile_availability.weeklySchedule')}</p>
 						<div class="mt-2 space-y-2">
-							{#each Object.entries(schedule()) as [day, scheduleData]}
+							{#each Object.entries(schedule()) as [_day, scheduleData] (_day)}
 								<div class="border-base-300 flex items-center justify-between border-b py-1">
 									<span class="capitalize">{scheduleData.label}</span>
 									<span>
@@ -158,25 +159,25 @@
 					<div class="divider"></div>
 
 					<div class="space-y-2 text-sm">
-						<div class="flex justify-between">
-							<span>{$t('profile_availability.noticeRequired')}</span>
-							<span class="text-base-content/70">
+						<div class="border-base-300 border-b pb-2">
+							<p class="font-medium">{$t('profile_availability.noticeRequired')}</p>
+							<p class="text-base-content/70">
 								{$profileStore.data.availability.noticeHours}
 								{$t('profile_availability.hours')}
-							</span>
+							</p>
 						</div>
-						<div class="flex justify-between">
-							<span>{$t('profile_availability.maxBookingsPerDay')}</span>
-							<span class="text-base-content/70"
-								>{$profileStore.data.availability.maxBookingsPerDay}</span
-							>
+						<div class="border-base-300 border-b pb-2">
+							<p class="font-medium">{$t('profile_availability.maxBookingsPerDay')}</p>
+							<p class="text-base-content/70">
+								{$profileStore.data.availability.maxBookingsPerDay}
+							</p>
 						</div>
-						<div class="flex justify-between">
-							<span>{$t('profile_availability.breakBetweenBookings')}</span>
-							<span class="text-base-content/70">
+						<div class="border-base-300 border-b pb-2">
+							<p class="font-medium">{$t('profile_availability.breakBetweenBookings')}</p>
+							<p class="text-base-content/70">
 								{$profileStore.data.availability.breakBetweenBookings}
 								{$t('profile_availability.minutes')}
-							</span>
+							</p>
 						</div>
 					</div>
 				{/if}
@@ -186,8 +187,6 @@
 				</div> -->
 			</div>
 		</div>
-
-
 	{:else if $profileStore.error}
 		<div class="alert alert-outline alert-error">
 			<span>{$t('profile_availability.error_load')}</span>
