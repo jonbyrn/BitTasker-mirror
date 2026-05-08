@@ -3,9 +3,7 @@
 	import { t } from 'svelte-i18n';
 	import { profileStore } from '$lib/stores/profile.store';
 	import ProfileHeader from '$lib/components/profile/ProfileHeader.svelte';
-	import ProfileServicesSection from '$lib/components/profile/ProfileServicesSection.svelte';
 	import ProfileInfoSection from '$lib/components/profile/ProfileInfoSection.svelte';
-	import ProfileSidebar from '$lib/components/profile/ProfileSidebar.svelte';
 
 	// Format date (passed to children)
 	function formatDate(dateString: string) {
@@ -33,9 +31,5 @@
 		<ProfileHeader />
 
 		<ProfileInfoSection {formatDate} />
-
-		<ProfileSidebar {formatDate} />
-
-		<ProfileServicesSection />
 	</div>
 </div>
