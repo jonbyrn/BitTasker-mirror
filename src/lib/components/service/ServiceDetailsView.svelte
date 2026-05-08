@@ -2105,7 +2105,8 @@
 													>{detailText('dashboard.services.detail.popular', 'Popular')}</span
 												>
 											{/if}
-											<span class="text-[10px] leading-none tracking-tighter uppercase opacity-70"
+											<span
+												class="truncate text-[10px] leading-none tracking-tighter uppercase opacity-70"
 												>{tier.name}</span
 											>
 											<span class="text-sm leading-none font-bold"
