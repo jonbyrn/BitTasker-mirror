@@ -41,6 +41,7 @@
 	import IconTruckDeliveryOutline from '~icons/mdi/truck-delivery-outline';
 	import IconMapMarker from '~icons/mdi/map-marker';
 	import ServiceShareButton from './ServiceShareButton.svelte';
+	import ActionsMenu from '$lib/components/moderation/ActionsMenu.svelte';
 	import PhotoSwipeLightbox from 'photoswipe/lightbox';
 	import 'photoswipe/style.css';
 	import UserInfoDisplay from '$lib/components/user/UserInfoDisplay.svelte';
@@ -1755,7 +1756,17 @@
 										>
 									</div>
 									{#if !isPreview}
-										<ServiceShareButton {service} variant="circle" class="btn-sm" />
+										<span class="flex shrink-0 items-center gap-1">
+											<ServiceShareButton {service} variant="circle" class="btn-sm" />
+											{#if $authState.isAuthenticated && service.npub}
+												<ActionsMenu
+													contentType="service"
+													reportedPubkey={service.npub}
+													reportedEventId={service.id}
+													username={effectiveCreator?.username}
+												/>
+											{/if}
+										</span>
 									{/if}
 								</div>
 								<div class="text-base-content/70 mb-4 flex items-center gap-2 text-sm">
@@ -1990,7 +2001,17 @@
 									>
 								</div>
 								{#if !isPreview}
-									<ServiceShareButton {service} variant="circle" class="btn-sm" />
+									<span class="flex shrink-0 items-center gap-1">
+										<ServiceShareButton {service} variant="circle" class="btn-sm" />
+										{#if $authState.isAuthenticated && service.npub}
+											<ActionsMenu
+												contentType="service"
+												reportedPubkey={service.npub}
+												reportedEventId={service.id}
+												username={effectiveCreator?.username}
+											/>
+										{/if}
+									</span>
 								{/if}
 							</div>
 							<div class="text-base-content/70 mb-4 flex items-center gap-2 text-sm">
