@@ -2101,7 +2101,7 @@
 										<div class="flex flex-col items-center gap-0.5">
 											{#if tier.id === popularTierId}
 												<span
-													class="text-primary/70 -mt-1 text-[8px] font-black tracking-widest uppercase"
+													class="text-primary/70 -mt-1 text-[10px] font-black tracking-widest uppercase"
 													>{detailText('dashboard.services.detail.popular', 'Popular')}</span
 												>
 											{/if}
@@ -2119,8 +2119,8 @@
 							{#if selectedTier}
 								<div class="space-y-6 p-6">
 									<div class="flex items-start justify-between">
-										<h3 class="truncate text-xl font-bold">{selectedTier.name}</h3>
-										<span class="text-primary ml-4 shrink-0 text-2xl font-black"
+										<h3 class="truncate text-lg font-bold">{selectedTier.name}</h3>
+										<span class="text-primary ml-4 shrink-0 text-xl font-black"
 											>${formatNumberWithTwoDecimals(selectedTier.price)}</span
 										>
 									</div>
@@ -2563,7 +2563,7 @@
 							<span class="text-base-content/60 text-[10px] font-bold tracking-wider uppercase"
 								>{detailText('dashboard.services.detail.total_price', 'Total')}</span
 							>
-							<span class="text-primary text-2xl leading-none font-black"
+							<span class="text-primary text-xl leading-none font-black"
 								>${formatNumberWithTwoDecimals(totalAmountUsd)}</span
 							>
 						</div>
@@ -2575,7 +2575,7 @@
 									<IconTruckDeliveryOutline class="text-base-content/50 h-6 w-6" />
 								{/if}
 								<div class="flex flex-col">
-									<span class="text-base-content/70 text-base leading-none font-medium"
+									<span class="text-base-content/70 text-sm leading-none font-medium"
 										>{displayDeliveryTime}</span
 									>
 									{#if requestRushDelivery && availableRushDelivery}
