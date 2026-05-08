@@ -107,35 +107,12 @@ static/locales/     # i18n translation files (en, es)
 - Run `npx @claude-flow/cli@latest security scan` after security-related changes
 - Never log, store, or expose nsec private keys, mnemonics, or seed phrases in code or logs
 
-## Nostr Reliability (Production)
-
-Nostr powers identity, events, DMs, and wallet — it must be treated as production infrastructure.
-
-- **NDK lifecycle**: Use NDK's built-in connection management. Don't manually manage WebSocket connections. NDK handles reconnection, queueing, and subscription management
-- **Event publishing**: Use NDK's `publish()` and verify publication via a follow-up query to confirm the event was persisted
-- **NIP-07 error states**: Handle all browser extension states — not installed, locked, user rejected, network error. Surface clear guidance to users for each case
-- **Relay timeouts**: Set reasonable timeouts (10-15s) for relay queries. Show loading state while waiting, error state on timeout — never hang indefinitely
-- **Offline queuing**: Queue events locally when offline (NDK handles this). Don't silently drop events when network is unavailable — see `src/lib/utils/network-status.ts`
-- **Content validation**: Never trust Nostr event content from relays. Validate all event fields (kind, tags, pubkey, created_at) before processing. Sanitize user-generated content before rendering
-
-## Payment & Wallet Safety (Production)
-
-Real Bitcoin and Lightning payments flow through this app. Financial bugs are unacceptable.
-
-- **Invoice validation**: Always validate bolt11 invoices before displaying or paying — check amount, expiry, and network. Never present an invoice the user can't verify
-- **Amount safety**: Display amounts in both BTC and fiat (USD). Always show the user exactly what they're paying before any transaction. Round fiat equivalents sensibly
-- **Transaction verification**: After any on-chain or Lightning transaction, verify the result via at least 2 sources (e.g., boltz.exchange status + blockscout/mempool). Don't trust a single API response
-- **Timeout handling**: Every swap and payment must have a timeout. boltz.exchange swaps have lock times — respect them. Show countdown timers for time-sensitive operations
-- **Fee transparency**: Always display network fees and swap fees separately. Never hide fees in the total. Users must know what they're paying for
-- **Error recovery**: Payment failures must provide actionable next steps. "Transaction failed" is not enough — explain why (insufficient funds, network congestion, timeout) and what to do
-- **Test thoroughly**: Every wallet path (send, receive, swap, invoice generation) must have integration tests covering success, insufficient funds, network failure, timeout, and invalid input. Use `src/lib/mocks/` and `tryCatch()` patterns
-- **Key safety**: Never derive or expose private keys in client-side code unnecessarily. Signatures should happen via NIP-07 or Capacitor plugin, never via raw key material in app code
-
 ## Domain Skills
 
 **Before starting any task, check `.claude/skills/` for applicable skills.** Available skills are discoverable by listing the directory. Key project skills:
 
-- **Nostr development** — `/bittasker-nostr` — NDK, Nostr events, relays, NIPs, DMs, wallet
+- **Nostr development** — `/bittasker-nostr` — NDK, Nostr events, relays, NIPs, DMs, wallet, production reliability
+- **Wallet & payments** — `/bittasker-wallet` — boltz.exchange swaps, bolt11 invoices, transaction safety, fee handling
 - **i18n workflow** — `/bittasker-i18n` — adding user-facing strings, locale files
 - **E2E testing** — `/bittasker-e2e` — Playwright tests, UI verification
 - **Svelte 5 runes** — `/svelte-runes` — $state, $derived, $effect, $props, $bindable
