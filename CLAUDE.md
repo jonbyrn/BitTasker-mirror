@@ -107,6 +107,30 @@ static/locales/     # i18n translation files (en, es)
 - Run `npx @claude-flow/cli@latest security scan` after security-related changes
 - Never log, store, or expose nsec private keys, mnemonics, or seed phrases in code or logs
 
+## Nostr Reliability (Production)
+
+Nostr powers identity, events, DMs, and wallet — it must be treated as production infrastructure.
+
+- **NDK lifecycle**: Use NDK's built-in connection management. Don't manually manage WebSocket connections. NDK handles reconnection, queueing, and subscription management
+- **Event publishing**: Use NDK's `publish()` and verify publication via a follow-up query to confirm the event was persisted
+- **NIP-07 error states**: Handle all browser extension states — not installed, locked, user rejected, network error. Surface clear guidance to users for each case
+- **Relay timeouts**: Set reasonable timeouts (10-15s) for relay queries. Show loading state while waiting, error state on timeout — never hang indefinitely
+- **Offline queuing**: Queue events locally when offline (NDK handles this). Don't silently drop events when network is unavailable — see `src/lib/utils/network-status.ts`
+- **Content validation**: Never trust Nostr event content from relays. Validate all event fields (kind, tags, pubkey, created_at) before processing. Sanitize user-generated content before rendering
+
+## Payment & Wallet Safety (Production)
+
+Real Bitcoin and Lightning payments flow through this app. Financial bugs are unacceptable.
+
+- **Invoice validation**: Always validate bolt11 invoices before displaying or paying — check amount, expiry, and network. Never present an invoice the user can't verify
+- **Amount safety**: Display amounts in both BTC and fiat (USD). Always show the user exactly what they're paying before any transaction. Round fiat equivalents sensibly
+- **Transaction verification**: After any on-chain or Lightning transaction, verify the result via at least 2 sources (e.g., boltz.exchange status + blockscout/mempool). Don't trust a single API response
+- **Timeout handling**: Every swap and payment must have a timeout. boltz.exchange swaps have lock times — respect them. Show countdown timers for time-sensitive operations
+- **Fee transparency**: Always display network fees and swap fees separately. Never hide fees in the total. Users must know what they're paying for
+- **Error recovery**: Payment failures must provide actionable next steps. "Transaction failed" is not enough — explain why (insufficient funds, network congestion, timeout) and what to do
+- **Test thoroughly**: Every wallet path (send, receive, swap, invoice generation) must have integration tests covering success, insufficient funds, network failure, timeout, and invalid input. Use `src/lib/mocks/` and `tryCatch()` patterns
+- **Key safety**: Never derive or expose private keys in client-side code unnecessarily. Signatures should happen via NIP-07 or Capacitor plugin, never via raw key material in app code
+
 ## Domain Skills
 
 **Before starting any task, check `.claude/skills/` for applicable skills.** Available skills are discoverable by listing the directory. Key project skills:
@@ -153,6 +177,10 @@ static/locales/     # i18n translation files (en, es)
 - **Browser guards**: All `svelte-i18n`, `fetch`, DOM, and localStorage access must be wrapped in `if (browser)` checks. The app may render server-side.
 - **Error handling**: Every async operation (fetch, plugin call, store write) must have error handling — never let a Promise rejection go uncaught. Use `tryCatch()` from `src/lib/utils/tryCatch.ts`.
 - **Silent failures are bugs**: If an operation fails, either surface the error to the user via a toast/alert, or log it to Sentry. Never `catch (e) {}` with an empty block.
+- **Sentry breadcrumbs**: Log key user actions (navigation, auth state change, wallet operation, Nostr event publish) as Sentry breadcrumbs for debugging production issues. Use `Sentry.addBreadcrumb()` — this is a Capacitor app with no server-side logs, so breadcrumbs are the primary debugging tool
+- **Network awareness**: Always check `navigator.onLine` and the app's `network-status.ts` store before initiating network operations. Show offline UI when unavailable — never silently fail. This is a mobile app; offline is normal
+- **App lifecycle**: Respect Capacitor app lifecycle events (pause/resume). Pause subscriptions and polling when the app backgrounds. Resume and refresh data when the app returns to foreground
+- **Deep links**: All deep link handlers must validate the incoming URL before routing. Never navigate to an unvalidated deep link path — see `src/lib/utils/deep-link.ts`
 
 ### Svelte 5 Specific
 
@@ -256,7 +284,7 @@ Code the AI ships must be **functional, low-bug, and provide good UX**. Low conf
 
 - **Every interactive element must have**: a loading indicator during async actions, disabled state while in progress, error feedback on failure
 - **Consistent with existing patterns** — match the component patterns in `src/lib/components/`. Don't invent new UX patterns when one already exists
-- **Accessible**: form inputs need labels, buttons need accessible names, interactive elements need focus styles
+- **Accessible (WCAG AA minimum)**: form inputs need labels, buttons need accessible names, interactive elements need visible focus indicators. Every new component must pass keyboard navigation (Tab/Enter/Escape). Modals must trap focus. Use semantic HTML by default. Run `/web-design-guidelines` for systematic audits. Test with screen reader before shipping user-facing changes
 - **Use daisyUI + Tailwind CSS 4** for styling:
   - daisyUI components are the primary building blocks — `btn`, `card`, `modal`, `badge`, `input`, `select`, `textarea`, `table`, `tabs`, `collapse`, `drawer`, `dropdown`, `menu`, `navbar`, `toast`, `tooltip`, `avatar`, `divider`, `loading`, `skeleton`, `carousel`, `countdown`, `kbd`, `stat`, `steps`, `swap`, `timeline`, `chat`, `diff`, `fieldset`, `status`, `checkbox`, `radio`, `range`, `rating`, `file-input`, `label`, `toggle`, `validator`
   - daisyUI theme colors are defined in `tailwind.config` — use semantic classes (`btn-primary`, `btn-secondary`, `bg-base-100`, `text-base-content`) not hardcoded hex values
