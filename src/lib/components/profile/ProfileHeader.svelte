@@ -170,6 +170,30 @@
 							<span class="text-base-content/50 ml-1 font-medium"
 								>({$profileStore.data?.reviews?.length || 0})</span
 							>
+							{#if $profileStore.data.website}
+								<a
+									href={$profileStore.data.website}
+									target="_blank"
+									rel="noopener noreferrer"
+									class="text-base-content/50 hover:text-primary ml-2 inline-flex items-center"
+									title={$profileStore.data.website}
+								>
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										class="h-4 w-4"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
+										/>
+									</svg>
+								</a>
+							{/if}
 						</div>
 					</div>
 					<!-- Action buttons - Desktop only -->
@@ -217,30 +241,6 @@
 						</button>
 					</div>
 				</div>
-				{#if $profileStore.data.website}
-					<a
-						href={$profileStore.data.website}
-						target="_blank"
-						rel="noopener noreferrer"
-						class="text-base-content/70 hover:text-primary flex items-center gap-1"
-					>
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="h-4 w-4"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
-							/>
-						</svg>
-						{$profileStore.data.website}
-					</a>
-				{/if}
 			</div>
 		</div>
 

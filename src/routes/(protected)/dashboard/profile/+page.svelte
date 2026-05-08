@@ -25,11 +25,11 @@
 </script>
 
 <!-- Mismas dimensiones que Mi Panel -->
-<div class="mx-auto h-full max-w-6xl py-4 md:px-0 md:py-0">
+<div class="mx-auto h-full max-w-6xl px-4 py-4 md:px-0 md:py-0">
 	<div class="mb-2 md:mb-6">
 		<h3 class="text-2xl font-bold">{$t('profile.page.title')}</h3>
 	</div>
-	<div class="bg-base-100 rounded-xl p-8 shadow-lg">
+	<div class="bg-base-100 rounded-xl p-4 shadow-lg sm:p-6 md:p-8">
 		<ProfileHeader />
 
 		<ProfileInfoSection {formatDate} />

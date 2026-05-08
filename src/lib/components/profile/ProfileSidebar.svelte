@@ -114,74 +114,79 @@
 		<!-- Availability Card -->
 		<div class="card bg-base-200 mb-6 rounded-xl">
 			<div class="card-body">
-				<h3 class="card-title text-lg">{$t('profile_availability.availabilityTitle')}</h3>
-
-				{#if $profileStore.data.availability}
-					<div class="mt-2">
-						<p class="font-medium">{$t('profile_availability.weeklySchedule')}</p>
-						<div class="mt-2 space-y-2">
-							{#each Object.entries(schedule()) as [_day, scheduleData] (_day)}
-								<div class="border-base-300 flex items-center justify-between border-b py-1">
-									<span class="capitalize">{scheduleData.label}</span>
-									<span>
-										{#if scheduleData.available}
-											{scheduleData.hours}
-										{:else}
-											<span class="text-base-content/50"
-												>{$t('profile_availability.unavailable')}</span
-											>
-										{/if}
-									</span>
+				<div class="collapse-arrow md:collapse-open collapse rounded-none bg-transparent p-0">
+					<input type="checkbox" class="md:hidden" />
+					<h3 class="collapse-title card-title p-0 text-lg">
+						{$t('profile_availability.availabilityTitle')}
+					</h3>
+					<div class="collapse-content p-0">
+						{#if $profileStore.data.availability}
+							<div class="mt-2">
+								<p class="font-medium">{$t('profile_availability.weeklySchedule')}</p>
+								<div class="mt-2 space-y-2">
+									{#each Object.entries(schedule()) as [_day, scheduleData] (_day)}
+										<div class="border-base-300 flex items-center justify-between border-b py-1">
+											<span class="capitalize">{scheduleData.label}</span>
+											<span>
+												{#if scheduleData.available}
+													{scheduleData.hours}
+												{:else}
+													<span class="text-base-content/50"
+														>{$t('profile_availability.unavailable')}</span
+													>
+												{/if}
+											</span>
+										</div>
+									{/each}
 								</div>
-							{/each}
-						</div>
-					</div>
+							</div>
 
-					<div class="divider"></div>
+							<div class="divider"></div>
 
-					<div class="flex items-center justify-between">
-						{#if nextAvailable()}
-							<div class="">
-								<p class="font-medium">{$t('profile_availability.nextAvailable')}</p>
-								<p class="text-primary">{formatDate(nextAvailable())}</p>
+							<div class="flex items-center justify-between">
+								{#if nextAvailable()}
+									<div class="">
+										<p class="font-medium">{$t('profile_availability.nextAvailable')}</p>
+										<p class="text-primary">{formatDate(nextAvailable())}</p>
+									</div>
+								{/if}
+
+								<div>
+									<p class="font-medium">{$t('profile_availability.timezone')}</p>
+									<p class="text-base-content/70">
+										{$profileStore.data.availability?.timezone ||
+											Intl.DateTimeFormat().resolvedOptions().timeZone}
+									</p>
+								</div>
+							</div>
+
+							<div class="divider"></div>
+
+							<div class="space-y-2 text-sm">
+								<div class="border-base-300 border-b pb-2">
+									<p class="font-medium">{$t('profile_availability.noticeRequired')}</p>
+									<p class="text-base-content/70">
+										{$profileStore.data.availability.noticeHours}
+										{$t('profile_availability.hours')}
+									</p>
+								</div>
+								<div class="border-base-300 border-b pb-2">
+									<p class="font-medium">{$t('profile_availability.maxBookingsPerDay')}</p>
+									<p class="text-base-content/70">
+										{$profileStore.data.availability.maxBookingsPerDay}
+									</p>
+								</div>
+								<div class="border-base-300 border-b pb-2">
+									<p class="font-medium">{$t('profile_availability.breakBetweenBookings')}</p>
+									<p class="text-base-content/70">
+										{$profileStore.data.availability.breakBetweenBookings}
+										{$t('profile_availability.minutes')}
+									</p>
+								</div>
 							</div>
 						{/if}
-
-						<div>
-							<p class="font-medium">{$t('profile_availability.timezone')}</p>
-							<p class="text-base-content/70">
-								{$profileStore.data.availability?.timezone ||
-									Intl.DateTimeFormat().resolvedOptions().timeZone}
-							</p>
-						</div>
 					</div>
-
-					<div class="divider"></div>
-
-					<div class="space-y-2 text-sm">
-						<div class="border-base-300 border-b pb-2">
-							<p class="font-medium">{$t('profile_availability.noticeRequired')}</p>
-							<p class="text-base-content/70">
-								{$profileStore.data.availability.noticeHours}
-								{$t('profile_availability.hours')}
-							</p>
-						</div>
-						<div class="border-base-300 border-b pb-2">
-							<p class="font-medium">{$t('profile_availability.maxBookingsPerDay')}</p>
-							<p class="text-base-content/70">
-								{$profileStore.data.availability.maxBookingsPerDay}
-							</p>
-						</div>
-						<div class="border-base-300 border-b pb-2">
-							<p class="font-medium">{$t('profile_availability.breakBetweenBookings')}</p>
-							<p class="text-base-content/70">
-								{$profileStore.data.availability.breakBetweenBookings}
-								{$t('profile_availability.minutes')}
-							</p>
-						</div>
-					</div>
-				{/if}
-
+				</div>
 				<!-- <div class="card-actions mt-4">
 					<button class="btn btn-primary btn-block">Contact</button>
 				</div> -->
