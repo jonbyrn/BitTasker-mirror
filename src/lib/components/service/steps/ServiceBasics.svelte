@@ -83,7 +83,7 @@
 			type="text"
 			id="title"
 			value={$store.service.title || ''}
-			onchange={(e) => store.updateService({ title: (e.target as HTMLInputElement).value })}
+			oninput={(e) => store.updateService({ title: (e.target as HTMLInputElement).value })}
 			class="input input-bordered w-full rounded-lg {errors.title ? 'input-error' : ''}"
 			placeholder={$t('dashboard.services.create.basics.title_placeholder')}
 			maxlength="200"
@@ -102,8 +102,7 @@
 		<textarea
 			id="description"
 			value={$store.service.description || ''}
-			onchange={(e) =>
-				store.updateService({ description: (e.target as HTMLTextAreaElement).value })}
+			oninput={(e) => store.updateService({ description: (e.target as HTMLTextAreaElement).value })}
 			class="textarea textarea-bordered w-full rounded-lg {errors.description
 				? 'textarea-error'
 				: ''}"

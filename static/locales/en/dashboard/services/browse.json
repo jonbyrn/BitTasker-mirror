@@ -53,7 +53,7 @@
 					"tiered": "Tiered Pricing",
 					"inquiry_required": "Inquire",
 					"request_quote": "Inquire",
-					"from_price": "From $X",
+					"from_price": "From",
 					"not_set": "Price not set"
 				},
 				"filters": {

@@ -85,7 +85,7 @@
 						);
 					if (prices.length > 0) {
 						const minPrice = Math.min(...prices);
-						return `From $${formatNumberWithTwoDecimals(minPrice)}`;
+						return `$${formatNumberWithTwoDecimals(minPrice)}`;
 					}
 				}
 				return $t('dashboard.services.browse.pricing.from_price') || 'From $X';
@@ -318,6 +318,11 @@
 					{/if}
 				</span>
 				<div class="text-right">
+					{#if service.pricing?.type === ServicePricingTypeEnum.TIERED && service.pricing.tiers && service.pricing.tiers.length > 0}
+						<div class="text-base-content/60 text-xs leading-tight">
+							{$t('dashboard.services.browse.pricing.from_price') || 'From'}
+						</div>
+					{/if}
 					<div class="text-base leading-tight font-bold" aria-label="Price: {getPricingDisplay()}">
 						{getPricingDisplay()}
 					</div>
