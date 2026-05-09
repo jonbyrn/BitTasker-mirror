@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { linear } from 'svelte/easing';
-	import { fly } from 'svelte/transition';
+	import { fly, slide } from 'svelte/transition';
 	import { serviceStore as store } from '$lib/stores/service.store';
 	import EnhancedLocationPicker from '$lib/components/LocationPicker.svelte';
 	import { ServiceLocationTypeEnum } from '$lib/utils/enums/service.enum';
@@ -86,28 +86,6 @@
 		};
 	}
 
-	function updateTaskeeLocationRadius(event: Event) {
-		const target = event.currentTarget as HTMLInputElement;
-		const nextRadius = Number(target.value);
-		const currentTaskeeLocation = $store.service.locationDetails?.taskeeLocation;
-
-		if (!currentTaskeeLocation) {
-			return;
-		}
-
-		store.updateService({
-			locationDetails: {
-				...$store.service.locationDetails,
-				taskeeLocation: {
-					...currentTaskeeLocation,
-					serviceRadius: Number.isFinite(nextRadius)
-						? nextRadius
-						: currentTaskeeLocation.serviceRadius
-				}
-			}
-		});
-	}
-
 	function updateTaskerLocationRadius(event: Event) {
 		const target = event.currentTarget as HTMLInputElement;
 		const nextRadius = Number(target.value);
@@ -134,7 +112,7 @@
 </script>
 
 <div
-	class="min-w-0 space-y-6 overflow-x-hidden"
+	class="min-w-0 space-y-6"
 	in:fly={{
 		duration: 200,
 		easing: linear,
@@ -143,11 +121,9 @@
 	}}
 >
 	<div class="w-full">
-		<div class="label">
-			<span class="label-text-alt break-words">
-				{$t('dashboard.services.create.location.types_hint')}
-			</span>
-		</div>
+		<p class="text-base-content/70 text-sm">
+			{$t('dashboard.services.create.location.types_hint')}
+		</p>
 
 		<div class="space-y-3">
 			<label
@@ -166,7 +142,7 @@
 				/>
 				<div class="flex-1">
 					<div class="font-semibold">{$t('dashboard.services.create.location.remote_title')}</div>
-					<div class="text-base-content/70 text-sm">
+					<div class="text-base-content/70 text-sm break-words">
 						{$t('dashboard.services.create.location.remote_description')}
 					</div>
 				</div>
@@ -188,7 +164,7 @@
 				/>
 				<div class="flex-1">
 					<div class="font-semibold">{$t('dashboard.services.create.location.tasker_title')}</div>
-					<div class="text-base-content/70 text-sm">
+					<div class="text-base-content/70 text-sm break-words">
 						{$t('dashboard.services.create.location.tasker_description')}
 					</div>
 				</div>
@@ -210,7 +186,7 @@
 				/>
 				<div class="flex-1">
 					<div class="font-semibold">{$t('dashboard.services.create.location.taskee_title')}</div>
-					<div class="text-base-content/70 text-sm">
+					<div class="text-base-content/70 text-sm break-words">
 						{$t('dashboard.services.create.location.taskee_description')}
 					</div>
 				</div>
@@ -223,7 +199,7 @@
 	</div>
 
 	{#if ($store.service.serviceLocationTypes || []).includes(ServiceLocationTypeEnum.TASKER_LOCATION)}
-		<div class="card bg-base-200 min-w-0 space-y-4 overflow-hidden p-4">
+		<div class="card bg-base-200 min-w-0 space-y-4 p-4" transition:slide={{ duration: 200 }}>
 			<h4 class="word-break-words text-lg font-semibold">
 				{$t('dashboard.services.create.location.my_location_title')}
 			</h4>
@@ -263,13 +239,10 @@
 
 			<div class="w-full min-w-0">
 				<label class="label" for="tasker-service-radius">
-					<span class="label-text word-break-words">
-						{$t('dashboard.services.create.location.travel_radius_label')}
-					</span>
 					<span class="label-text-alt">
 						{$store.service.locationDetails?.taskerLocation?.serviceRadius || 25} km ({kmToMiles(
 							$store.service.locationDetails?.taskerLocation?.serviceRadius || 25
-						)} miles)
+						)} mi)
 					</span>
 				</label>
 				<input
@@ -283,26 +256,19 @@
 					oninput={updateTaskerLocationRadius}
 					data-testid="tasker-location-radius"
 				/>
-				<div class="text-base-content/60 mt-1 flex justify-between px-2 text-xs">
-					<span>1 km ({kmToMiles(1)} mi)</span>
-					<span
-						>{$store.service.locationDetails?.taskerLocation?.serviceRadius || 25} km ({kmToMiles(
-							$store.service.locationDetails?.taskerLocation?.serviceRadius || 25
-						)} mi)</span
-					>
-					<span>100 km ({kmToMiles(100)} mi)</span>
+				<div class="text-base-content/60 mt-1 flex justify-between px-2 text-xs leading-tight">
+					<span>1 km<br />{kmToMiles(1)} mi</span>
+					<span>50 km<br />{kmToMiles(50)} mi</span>
+					<span>100 km<br />{kmToMiles(100)} mi</span>
 				</div>
-				<p class="text-base-content/60 mt-2 text-xs">
-					{$t('dashboard.services.create.location.travel_radius_hint')}
-				</p>
 			</div>
 		</div>
 	{/if}
 
 	{#if ($store.service.serviceLocationTypes || []).includes(ServiceLocationTypeEnum.TASKEE_LOCATION)}
-		<div class="card bg-base-200 min-w-0 space-y-4 overflow-hidden p-4">
+		<div class="card bg-base-200 min-w-0 space-y-4 p-4" transition:slide={{ duration: 200 }}>
 			<h4 class="text-lg font-semibold break-words">
-				{$t('dashboard.services.create.location.service_radius_title')}
+				{$t('dashboard.services.create.location.my_location_title')}
 			</h4>
 
 			<div class="w-full min-w-0">
@@ -332,42 +298,8 @@
 					showFullscreen={true}
 					showGeolocation={true}
 					showServiceRadius={false}
-					serviceRadius={$store.service.locationDetails?.taskeeLocation?.serviceRadius || 5}
-					showRadiusCircle={true}
+					showRadiusCircle={false}
 				/>
-			</div>
-
-			<div class="w-full min-w-0">
-				<label class="label" for="service-radius">
-					<span class="label-text break-words">
-						{$t('dashboard.services.create.location.service_radius_label')}
-					</span>
-					<span class="label-text-alt">
-						{$store.service.locationDetails?.taskeeLocation?.serviceRadius || 5} km ({kmToMiles(
-							$store.service.locationDetails?.taskeeLocation?.serviceRadius || 5
-						)} miles)
-					</span>
-				</label>
-				<input
-					id="service-radius"
-					type="range"
-					min="1"
-					max="100"
-					step="1"
-					class="range range-primary w-full"
-					value={$store.service.locationDetails?.taskeeLocation?.serviceRadius || 5}
-					oninput={updateTaskeeLocationRadius}
-					data-testid="service-location-radius"
-				/>
-				<div class="text-base-content/60 mt-1 flex justify-between px-2 text-xs">
-					<span>1 km ({kmToMiles(1)} mi)</span>
-					<span
-						>{$store.service.locationDetails?.taskeeLocation?.serviceRadius || 5} km ({kmToMiles(
-							$store.service.locationDetails?.taskeeLocation?.serviceRadius || 5
-						)} mi)</span
-					>
-					<span>100 km ({kmToMiles(100)} mi)</span>
-				</div>
 			</div>
 		</div>
 	{/if}

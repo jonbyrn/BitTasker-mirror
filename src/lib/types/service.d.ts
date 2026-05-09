@@ -26,7 +26,7 @@ export type ServicePricingType = ServicePricingTypeEnum;
 export interface DeliveryTime {
 	min: number; // Minimum delivery time value (e.g., 3)
 	max: number; // Maximum delivery time value (e.g., 5)
-	unit: 'hour' | 'day' | 'week' | 'month'; // Time unit
+	unit: 'minute' | 'hour' | 'day' | 'week' | 'month'; // Time unit
 	display: string; // Human-readable display (e.g., "3-5 days", "2-3 weeks")
 }
 
@@ -36,7 +36,7 @@ export interface DeliveryTime {
  */
 export interface TierDeliveryTime {
 	value: number;
-	unit: 'hour' | 'day' | 'week' | 'month';
+	unit: 'minute' | 'hour' | 'day' | 'week' | 'month';
 	display: string;
 }
 

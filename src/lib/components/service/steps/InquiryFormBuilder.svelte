@@ -2,6 +2,25 @@
 	import { onMount } from 'svelte';
 	import { linear } from 'svelte/easing';
 	import { fly } from 'svelte/transition';
+
+	let openDropdownId = $state<string | null>(null);
+
+	function toggleDropdown(id: string) {
+		openDropdownId = openDropdownId === id ? null : id;
+	}
+
+	const fieldTypeOptions = [
+		{ value: 'text', label: () => $t('dashboard.services.create.inquiry_form.type_text') },
+		{ value: 'number', label: () => $t('dashboard.services.create.inquiry_form.type_number') },
+		{ value: 'select', label: () => $t('dashboard.services.create.inquiry_form.type_select') },
+		{ value: 'checkbox', label: () => $t('dashboard.services.create.inquiry_form.type_checkbox') },
+		{ value: 'date', label: () => $t('dashboard.services.create.inquiry_form.type_date') },
+		{ value: 'time', label: () => $t('dashboard.services.create.inquiry_form.type_time') }
+	];
+
+	function getFieldTypeLabel(type: string): string {
+		return fieldTypeOptions.find((o) => o.value === type)?.label() || type;
+	}
 	import { serviceStore as store } from '$lib/stores/service.store';
 	import type { InquiryFormField } from '$lib/types/service.d';
 	import { t } from 'svelte-i18n';
@@ -120,7 +139,7 @@
 </script>
 
 <div
-	class="min-w-0 space-y-6 overflow-x-clip"
+	class="min-w-0 space-y-6"
 	in:fly={{
 		duration: 200,
 		easing: linear,
@@ -129,11 +148,9 @@
 	}}
 >
 	<div class="w-full">
-		<label class="label" for="inquiry-form-title" id="inquiry-form-title">
-			<span class="label-text-alt break-words">
-				{$t('dashboard.services.create.inquiry_form.hint')}
-			</span>
-		</label>
+		<p class="text-base-content/70 text-sm">
+			{$t('dashboard.services.create.inquiry_form.hint')}
+		</p>
 	</div>
 
 	{#if ($store.service.pricing?.inquiryForm?.fields || []).length === 0}
@@ -143,7 +160,7 @@
 	{/if}
 
 	{#each $store.service.pricing?.inquiryForm?.fields || [] as field (field.id)}
-		<div class="card bg-base-200 min-w-0 space-y-4 overflow-hidden p-4">
+		<div class="card bg-base-200 min-w-0 space-y-4 p-4" transition:fly={{ y: 20, duration: 200 }}>
 			<div class="flex min-w-0 items-center justify-between gap-3">
 				<h4 class="min-w-0 font-semibold break-words">
 					{$t('dashboard.services.create.inquiry_form.field')} #{(
@@ -163,34 +180,54 @@
 			<!-- Field Type -->
 			<div class="w-full">
 				<label for="field-type-{field.id}" class="label">
-					<span class="label-text break-words">{$t('dashboard.services.create.inquiry_form.type_label')}</span>
-				</label>
-				<select
-					id="field-type-{field.id}"
-					class="select select-bordered w-full"
-					value={field.type}
-					onchange={(e) =>
-						handleFieldTypeChange(
-							field.id,
-							(e.target as HTMLSelectElement).value as InquiryFormField['type']
-						)}
-				>
-					<option value="text">{$t('dashboard.services.create.inquiry_form.type_text')}</option>
-					<!-- textarea and file not offered: description/images are in the quote request modal -->
-					<option value="number">{$t('dashboard.services.create.inquiry_form.type_number')}</option>
-					<option value="select">{$t('dashboard.services.create.inquiry_form.type_select')}</option>
-					<option value="checkbox"
-						>{$t('dashboard.services.create.inquiry_form.type_checkbox')}</option
+					<span class="label-text break-words"
+						>{$t('dashboard.services.create.inquiry_form.type_label')}</span
 					>
-					<option value="date">{$t('dashboard.services.create.inquiry_form.type_date')}</option>
-					<option value="time">{$t('dashboard.services.create.inquiry_form.type_time')}</option>
-				</select>
+				</label>
+				<div class="dropdown w-full">
+					<button
+						type="button"
+						class="input input-bordered flex w-full cursor-pointer items-center justify-between"
+						onclick={() => toggleDropdown(`ft-${field.id}`)}
+					>
+						<span>{getFieldTypeLabel(field.type)}</span>
+						<svg class="h-4 w-4 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+							><path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M19 9l-7 7-7-7"
+							/></svg
+						>
+					</button>
+					{#if openDropdownId === `ft-${field.id}`}
+						<ul
+							class="dropdown-content menu bg-base-100 rounded-box z-30 w-full shadow"
+							transition:fly={{ y: -10, duration: 200 }}
+						>
+							{#each fieldTypeOptions as opt (opt.value)}
+								<li>
+									<button
+										type="button"
+										class:active={field.type === opt.value}
+										onclick={() => {
+											handleFieldTypeChange(field.id, opt.value as InquiryFormField['type']);
+											openDropdownId = null;
+										}}>{opt.label()}</button
+									>
+								</li>
+							{/each}
+						</ul>
+					{/if}
+				</div>
 			</div>
 
 			<!-- Field Label -->
 			<div class="w-full">
 				<label for="field-label-{field.id}" class="label">
-					<span class="label-text break-words">{$t('dashboard.services.create.inquiry_form.label_label')}</span>
+					<span class="label-text break-words"
+						>{$t('dashboard.services.create.inquiry_form.label_label')}</span
+					>
 				</label>
 				<input
 					type="text"

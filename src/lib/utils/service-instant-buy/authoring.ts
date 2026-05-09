@@ -7,9 +7,10 @@ export const MAX_INSTANT_BUY_LEAD_HOURS = 720;
 export const DEFAULT_INSTANT_BUY_DELIVERY_HOURS = 24;
 export const MIN_INSTANT_BUY_DELIVERY_HOURS = 1;
 
-export type InstantBuyTimeUnit = 'hour' | 'day' | 'week';
+export type InstantBuyTimeUnit = 'minute' | 'hour' | 'day' | 'week';
 
 export const INSTANT_BUY_TIME_UNIT_HOURS: Record<InstantBuyTimeUnit, number> = {
+	minute: 1 / 60,
 	hour: 1,
 	day: 24,
 	week: 24 * 7

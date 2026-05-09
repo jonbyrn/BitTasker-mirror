@@ -63,7 +63,7 @@
 </script>
 
 <div
-	class="min-w-0 space-y-6 overflow-x-clip"
+	class="min-w-0 space-y-6"
 	in:fly={{
 		duration: 200,
 		easing: linear,
@@ -72,9 +72,7 @@
 	}}
 >
 	<div class="w-full">
-		<label class="label" for="addons-title">
-			<span class="label-text-alt break-words">{$t('dashboard.services.create.addons.hint')}</span>
-		</label>
+		<p class="text-base-content/70 text-sm">{$t('dashboard.services.create.addons.hint')}</p>
 	</div>
 
 	{#if ($store.service.pricing?.addOns || []).length === 0}
@@ -84,7 +82,7 @@
 	{/if}
 
 	{#each $store.service.pricing?.addOns || [] as addOn (addOn.id)}
-		<div class="card bg-base-200 min-w-0 space-y-4 overflow-hidden p-4">
+		<div class="card bg-base-200 min-w-0 space-y-4 p-4" transition:fly={{ y: 20, duration: 200 }}>
 			<div class="flex min-w-0 items-center justify-between gap-3">
 				<h4 class="min-w-0 font-semibold break-words">
 					{$t('dashboard.services.create.addons.addon')} #{(
@@ -104,7 +102,9 @@
 			<!-- Add-On Name -->
 			<div class="w-full">
 				<label for="addon-name-{addOn.id}" class="label">
-					<span class="label-text break-words">{$t('dashboard.services.create.addons.name_label')}</span>
+					<span class="label-text break-words"
+						>{$t('dashboard.services.create.addons.name_label')}</span
+					>
 				</label>
 				<input
 					type="text"

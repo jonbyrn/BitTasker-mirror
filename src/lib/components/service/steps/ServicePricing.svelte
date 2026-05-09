@@ -22,6 +22,26 @@
 	let { errors, direction } = $props();
 
 	let btcPrice = $state<number>(0);
+	let openDropdownId = $state<string | null>(null);
+
+	function toggleDropdown(id: string) {
+		openDropdownId = openDropdownId === id ? null : id;
+	}
+
+	const unitOptions = [
+		{
+			value: 'minute',
+			label: () => $t('dashboard.services.create.pricing.instant_buy.unit_minute')
+		},
+		{ value: 'hour', label: () => $t('dashboard.services.create.pricing.instant_buy.unit_hour') },
+		{ value: 'day', label: () => $t('dashboard.services.create.pricing.instant_buy.unit_day') },
+		{ value: 'week', label: () => $t('dashboard.services.create.pricing.instant_buy.unit_week') }
+	];
+
+	function getUnitLabel(unit: string): string {
+		return unitOptions.find((o) => o.value === unit)?.label() || unit;
+	}
+
 	let leadTimeUnit = $state<InstantBuyTimeUnit>(
 		inferInstantBuyTimeUnit($store.service.instantBuyLeadHours)
 	);
@@ -148,7 +168,7 @@
 </script>
 
 <div
-	class="min-w-0 space-y-4 overflow-x-hidden"
+	class="min-w-0 space-y-4"
 	in:fly={{
 		duration: 200,
 		easing: linear,
@@ -240,19 +260,23 @@
 					</div>
 				{/if}
 
-				<div class="mt-4 space-y-2">
+				<div class="mt-4 space-y-2" transition:fly={{ y: -10, duration: 200 }}>
 					<label for="instant-buy-lead-hours" class="label">
 						<span class="label-text"
 							>{$t('dashboard.services.create.pricing.instant_buy.lead_time_label')}</span
 						>
 					</label>
-					<div class="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(8.5rem,10rem)] items-end gap-3">
+					<div class="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(6rem,8rem)] items-end gap-3">
 						<input
 							id="instant-buy-lead-hours"
 							type="number"
 							min="0"
-							max={leadTimeUnit === 'hour' ? '720' : undefined}
-							step={leadTimeUnit === 'hour' ? '1' : '0.5'}
+							max={leadTimeUnit === 'minute'
+								? '43200'
+								: leadTimeUnit === 'hour'
+									? '720'
+									: undefined}
+							step={leadTimeUnit === 'minute' ? '15' : leadTimeUnit === 'hour' ? '1' : '0.5'}
 							value={formatInstantBuyDurationInput(
 								$store.service.instantBuyLeadHours,
 								leadTimeUnit
@@ -263,39 +287,69 @@
 								: ''}"
 							data-testid="service-pricing-instant-buy-lead-hours"
 						/>
-						<select
-							class="select select-bordered w-full min-w-0"
-							bind:value={leadTimeUnit}
-							data-testid="service-pricing-instant-buy-lead-unit"
-						>
-							<option value="hour">
-								{$t('dashboard.services.create.pricing.instant_buy.unit_hour')}
-							</option>
-							<option value="day">
-								{$t('dashboard.services.create.pricing.instant_buy.unit_day')}
-							</option>
-							<option value="week">
-								{$t('dashboard.services.create.pricing.instant_buy.unit_week')}
-							</option>
-						</select>
+						<div class="dropdown">
+							<button
+								type="button"
+								class="input input-bordered flex w-full min-w-0 cursor-pointer items-center justify-between"
+								onclick={() => toggleDropdown('lead-unit')}
+								data-testid="service-pricing-instant-buy-lead-unit"
+							>
+								<span>{getUnitLabel(leadTimeUnit)}</span>
+								<svg
+									class="h-4 w-4 opacity-50"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke="currentColor"
+									><path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M19 9l-7 7-7-7"
+									/></svg
+								>
+							</button>
+							{#if openDropdownId === 'lead-unit'}
+								<ul
+									class="dropdown-content menu bg-base-100 rounded-box z-30 w-full shadow"
+									transition:fly={{ y: -10, duration: 200 }}
+								>
+									{#each unitOptions as opt (opt.value)}
+										<li>
+											<button
+												type="button"
+												class:active={leadTimeUnit === opt.value}
+												onclick={() => {
+													leadTimeUnit = opt.value as InstantBuyTimeUnit;
+													openDropdownId = null;
+												}}>{opt.label()}</button
+											>
+										</li>
+									{/each}
+								</ul>
+							{/if}
+						</div>
 					</div>
 					{#if errors.instantBuyLeadHours}
 						<span class="label-text-alt text-error">{errors.instantBuyLeadHours}</span>
 					{/if}
 				</div>
 
-				<div class="mt-4 space-y-2">
+				<div class="mt-4 space-y-2" transition:fly={{ y: -10, duration: 200 }}>
 					<label for="instant-buy-delivery-hours" class="label">
 						<span class="label-text"
 							>{$t('dashboard.services.create.pricing.instant_buy.delivery_time_label')}</span
 						>
 					</label>
-					<div class="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(8.5rem,10rem)] items-end gap-3">
+					<div class="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(6rem,8rem)] items-end gap-3">
 						<input
 							id="instant-buy-delivery-hours"
 							type="number"
 							min="1"
-							step={deliveryTimeUnit === 'hour' ? '1' : '0.5'}
+							step={deliveryTimeUnit === 'minute'
+								? '15'
+								: deliveryTimeUnit === 'hour'
+									? '1'
+									: '0.5'}
 							value={formatInstantBuyDurationInput(
 								$store.service.instantBuyDeliveryHours,
 								deliveryTimeUnit
@@ -306,21 +360,47 @@
 								: ''}"
 							data-testid="service-pricing-instant-buy-delivery-hours"
 						/>
-						<select
-							class="select select-bordered w-full min-w-0"
-							bind:value={deliveryTimeUnit}
-							data-testid="service-pricing-instant-buy-delivery-unit"
-						>
-							<option value="hour">
-								{$t('dashboard.services.create.pricing.instant_buy.unit_hour')}
-							</option>
-							<option value="day">
-								{$t('dashboard.services.create.pricing.instant_buy.unit_day')}
-							</option>
-							<option value="week">
-								{$t('dashboard.services.create.pricing.instant_buy.unit_week')}
-							</option>
-						</select>
+						<div class="dropdown">
+							<button
+								type="button"
+								class="input input-bordered flex w-full min-w-0 cursor-pointer items-center justify-between"
+								onclick={() => toggleDropdown('delivery-unit')}
+								data-testid="service-pricing-instant-buy-delivery-unit"
+							>
+								<span>{getUnitLabel(deliveryTimeUnit)}</span>
+								<svg
+									class="h-4 w-4 opacity-50"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke="currentColor"
+									><path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M19 9l-7 7-7-7"
+									/></svg
+								>
+							</button>
+							{#if openDropdownId === 'delivery-unit'}
+								<ul
+									class="dropdown-content menu bg-base-100 rounded-box z-30 w-full shadow"
+									transition:fly={{ y: -10, duration: 200 }}
+								>
+									{#each unitOptions as opt (opt.value)}
+										<li>
+											<button
+												type="button"
+												class:active={deliveryTimeUnit === opt.value}
+												onclick={() => {
+													deliveryTimeUnit = opt.value as InstantBuyTimeUnit;
+													openDropdownId = null;
+												}}>{opt.label()}</button
+											>
+										</li>
+									{/each}
+								</ul>
+							{/if}
+						</div>
 					</div>
 					{#if errors.instantBuyDeliveryHours}
 						<span class="label-text-alt text-error">{errors.instantBuyDeliveryHours}</span>
@@ -332,7 +412,7 @@
 
 	<!-- Fixed price: amount in USD and Sats -->
 	{#if $store.service.pricing?.type === ServicePricingTypeEnum.FIXED}
-		<div class="w-full">
+		<div class="w-full" transition:fly={{ y: -10, duration: 200 }}>
 			<label for="budget" class="label">
 				<span class="label-text">{$t('dashboard.services.create.pricing.budget_label')}</span>
 			</label>

@@ -266,6 +266,18 @@
 								);
 							}
 						}
+
+						// Rush delivery price must be > 0 if enabled
+						const invalidRushPrice = service.pricing.tiers.some(
+							(t) =>
+								t.rushDelivery?.enabled &&
+								(t.rushDelivery.price == null || t.rushDelivery.price <= 0)
+						);
+						if (invalidRushPrice) {
+							errors.tiers = $t(
+								'dashboard.services.create.errors.tiers_description_price_required'
+							);
+						}
 					}
 				}
 				break;
@@ -449,9 +461,7 @@
 </script>
 
 <!-- Mismas dimensiones que Create Task: max-w-6xl, px-2 py-6 md:px-0 md:py-0 -->
-<div
-	class="service-create-flow mx-auto h-full max-w-6xl min-w-0 overflow-x-clip px-2 py-6 md:px-0 md:py-0"
->
+<div class="service-create-flow mx-auto h-full max-w-6xl min-w-0 px-2 py-6 md:px-0 md:py-0">
 	<!-- Page Header -->
 	<div class="mb-6">
 		<h3 class="">
@@ -470,7 +480,7 @@
 		</p>
 	</div>
 	<div class="bg-base-100 rounded-xl">
-		<div class="card-body min-w-0 overflow-x-clip">
+		<div class="card-body min-w-0">
 			<!-- Step counter (igual que Create Task) -->
 			<div class="mb-4 flex items-center justify-between">
 				<div class="text-sm">
@@ -486,7 +496,7 @@
 					<span class="loading loading-spinner loading-lg"></span>
 				</div>
 			{:else}
-				<div class="service-create-step-content min-w-0 space-y-6 overflow-x-clip">
+				<div class="service-create-step-content min-w-0 space-y-6">
 					<!-- Step Components -->
 					{#if $store.currentStep === ServiceStepEnum.BASICS}
 						<ServiceBasics {errors} {direction} />

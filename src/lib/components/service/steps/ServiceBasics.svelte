@@ -65,7 +65,7 @@
 </script>
 
 <div
-	class="min-w-0 space-y-6 overflow-x-clip"
+	class="min-w-0 space-y-6"
 	in:fly={{
 		duration: 200,
 		easing: linear,
