@@ -16,6 +16,8 @@
 				"managed": "Clave privada gestionada por la extensión Alby"
 			},
 			"qrCode": {
+				"title": "Código QR de Acceso",
+				"description": "Escanea este código QR en otro dispositivo para iniciar sesión.",
 				"generate": "Generar Código QR",
 				"generating": "Generando Código QR...",
 				"show": "Mostrar Código QR"
@@ -153,7 +155,8 @@
 			},
 			"error": {
 				"loadFailed": "Error al cargar dispositivos. Por favor intenta de nuevo.",
-				"revokeFailed": "Error al revocar el acceso del dispositivo. Por favor intenta de nuevo."
+				"revokeFailed": "Error al revocar el acceso del dispositivo. Por favor intenta de nuevo.",
+				"revokeAllFailed": "Error al revocar todos los dispositivos. Por favor intenta de nuevo."
 			},
 			"revokeModal": {
 				"title": "Revocar Acceso del Dispositivo",
@@ -161,6 +164,13 @@
 				"confirmMessage": "Esto revocará permanentemente el acceso para \"{deviceName}\".",
 				"warning": "Este dispositivo ya no podrá acceder a tu cuenta y necesitará re-autenticarse.",
 				"confirm": "Revocar"
+			},
+			"revokeAll": "Revocar Todos los Demás Dispositivos",
+			"revokeAllModal": {
+				"title": "Revocar Todos los Demás Dispositivos",
+				"confirmTitle": "¿Estás seguro?",
+				"warning": "Esto revocará el acceso para {count} otro(s) dispositivo(s). Ya no podrán acceder a tu cuenta y necesitarán re-autenticarse.",
+				"confirm": "Revocar Todos"
 			},
 			"sections": {
 				"active": "Dispositivos Activos",

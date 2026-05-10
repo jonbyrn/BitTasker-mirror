@@ -63,19 +63,81 @@
 >
 	<button
 		type="button"
-		class="collapse-title flex items-center gap-2 text-left"
+		class="collapse-title border-base-300 flex items-center gap-2 border-b text-left"
 		onclick={() => (nostrExpanded = !nostrExpanded)}
 	>
 		<h4 class="text-lg font-semibold">{$t('settings.nostr.title')}</h4>
 	</button>
 	<div class="collapse-content">
-		<p class="text-base-content/70 mb-6">
+		<p class="text-base-content/70 mb-4">
 			{$t('settings.nostr.description')}
 		</p>
 
-		<!-- Desktop Layout: Side by side, Mobile: Stacked -->
+		<!-- Login QR Code Section -->
+		<div class="mb-4">
+			<h5 class="mb-1 text-base font-semibold">{$t('settings.nostr.qrCode.title')}</h5>
+			<p class="text-base-content/70 text-sm">
+				{$t('settings.nostr.qrCode.description')}
+			</p>
+		</div>
+
+		<!-- Security Notice -->
+		<div class="alert alert-warning alert-outline mb-4">
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				class="h-6 w-6 shrink-0 stroke-current"
+				fill="none"
+				viewBox="0 0 24 24"
+			>
+				<path
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					stroke-width="2"
+					d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.083 15.5c-.77.833.192 2.5 1.732 2.5z"
+				/>
+			</svg>
+			<div class="text-sm">
+				<p class="font-semibold">{$t('settings.security.title')}</p>
+				<p>
+					{$t('settings.security.description')}
+				</p>
+			</div>
+		</div>
+
+		<!-- QR Code Button -->
+		{#if authMethod !== 'alby'}
+			<div class="mb-6 flex justify-center">
+				<button
+					class="btn btn-outline flex gap-2"
+					onclick={generateQrCode}
+					disabled={!nsec || isGeneratingQr}
+				>
+					{#if isGeneratingQr}
+						<span class="loading loading-spinner loading-xs"></span>
+						{$t('settings.nostr.qrCode.generating')}
+					{:else}
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="h-5 w-5"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"
+							/>
+						</svg>
+						{$t('settings.nostr.qrCode.show')}
+					{/if}
+				</button>
+			</div>
+		{/if}
+
+		<!-- Key Fields -->
 		<div class="flex flex-col lg:flex-row lg:gap-8">
-			<!-- Left Column: Keys -->
 			<div class="flex-1 lg:min-w-0">
 				<!-- Public Key (NPub) -->
 				<div class="mb-6">
@@ -247,61 +309,6 @@
 						{/if}
 					</div>
 				</div>
-
-				<!-- QR Code Toggle Button -->
-				{#if authMethod !== 'alby'}
-					<div class="flex justify-center lg:justify-end">
-						<button
-							class="btn btn-outline btn-sm flex gap-2"
-							onclick={generateQrCode}
-							disabled={!nsec || isGeneratingQr}
-						>
-							{#if isGeneratingQr}
-								<span class="loading loading-spinner loading-xs"></span>
-								{$t('settings.nostr.qrCode.generating')}
-							{:else}
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									class="h-5 w-5"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke="currentColor"
-								>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										stroke-width="2"
-										d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"
-									/>
-								</svg>
-								{$t('settings.nostr.qrCode.show')}
-							{/if}
-						</button>
-					</div>
-				{/if}
-			</div>
-		</div>
-
-		<!-- Security Notice -->
-		<div class="alert alert-warning alert-outline mt-4">
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				class="h-6 w-6 shrink-0 stroke-current"
-				fill="none"
-				viewBox="0 0 24 24"
-			>
-				<path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					stroke-width="2"
-					d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.083 15.5c-.77.833.192 2.5 1.732 2.5z"
-				/>
-			</svg>
-			<div class="text-sm">
-				<p class="font-semibold">{$t('settings.security.title')}</p>
-				<p>
-					{$t('settings.security.description')}
-				</p>
 			</div>
 		</div>
 	</div>

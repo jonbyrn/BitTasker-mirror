@@ -23,7 +23,7 @@
 >
 	<button
 		type="button"
-		class="collapse-title flex items-center gap-2 text-left"
+		class="collapse-title border-base-300 flex items-center gap-2 border-b text-left"
 		onclick={() => (actionsExpanded = !actionsExpanded)}
 	>
 		<h4 class="text-lg font-semibold">{$t('settings.actions.title')}</h4>

@@ -57,7 +57,7 @@
 >
 	<button
 		type="button"
-		class="collapse-title flex items-center gap-2 text-left"
+		class="collapse-title border-base-300 flex items-center gap-2 border-b text-left"
 		onclick={() => (mutedExpanded = !mutedExpanded)}
 	>
 		<h4 class="text-lg font-semibold">

@@ -42,6 +42,11 @@
 	let revokeLoading = $state(false);
 	let revokeError = $state('');
 
+	// Revoke all modal state
+	let showRevokeAllModal = $state(false);
+	let revokeAllLoading = $state(false);
+	let revokeAllError = $state('');
+
 	// Collapse state
 	let devicesExpanded = $state(false);
 	let inactiveExpanded = $state(false);
@@ -66,6 +71,7 @@
 				return bTime - aTime;
 			})
 	);
+	let otherDevices = $derived([...activeDevices, ...inactiveDevices]);
 
 	onMount(async () => {
 		if (npub) {
@@ -217,6 +223,37 @@
 			revokeLoading = false;
 		}
 	}
+
+	function openRevokeAllModal() {
+		showRevokeAllModal = true;
+		revokeAllError = '';
+	}
+
+	function closeRevokeAllModal() {
+		showRevokeAllModal = false;
+		revokeAllError = '';
+	}
+
+	async function confirmRevokeAll() {
+		try {
+			revokeAllLoading = true;
+			revokeAllError = '';
+
+			const message = `All other device access has been revoked from your BitTasker account for security reasons. Please log in again if this was not intended.`;
+
+			for (const d of otherDevices) {
+				await pushNotificationService.revokeDevice(d.deviceId, message);
+			}
+
+			await loadDevices();
+			closeRevokeAllModal();
+		} catch (err) {
+			console.error('Failed to revoke all devices:', err);
+			revokeAllError = $t('settings.devices.error.revokeAllFailed');
+		} finally {
+			revokeAllLoading = false;
+		}
+	}
 </script>
 
 <!-- Devices Section -->
@@ -226,7 +263,7 @@
 >
 	<button
 		type="button"
-		class="collapse-title flex items-center gap-2 text-left"
+		class="collapse-title border-base-300 flex items-center gap-2 border-b text-left"
 		onclick={() => (devicesExpanded = !devicesExpanded)}
 	>
 		<h4 class="text-lg font-semibold">
@@ -272,6 +309,29 @@
 				{#if currentDevice}
 					<div class="bg-primary/5 border-primary/20 rounded-lg border px-3 py-3">
 						{@render deviceRow(currentDevice)}
+					</div>
+				{/if}
+
+				<!-- Revoke All Other Devices -->
+				{#if otherDevices.length > 0}
+					<div class="px-3 pt-3">
+						<button class="btn btn-outline btn-error btn-sm w-full" onclick={openRevokeAllModal}>
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								class="h-4 w-4"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke="currentColor"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+								/>
+							</svg>
+							{$t('settings.devices.revokeAll')}
+						</button>
 					</div>
 				{/if}
 
@@ -522,6 +582,76 @@
 				<span class="loading loading-spinner loading-sm"></span>
 			{/if}
 			{$t('settings.devices.revokeModal.confirm')}
+		</button>
+	</div>
+</Modal>
+
+<!-- Revoke All Devices Confirmation Modal -->
+<Modal
+	isOpen={showRevokeAllModal}
+	title={$t('settings.devices.revokeAllModal.title')}
+	onClose={closeRevokeAllModal}
+	size="md"
+>
+	<div class="text-center">
+		<div class="mb-4">
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				class="text-warning mx-auto h-16 w-16"
+				fill="none"
+				viewBox="0 0 24 24"
+				stroke="currentColor"
+			>
+				<path
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					stroke-width="2"
+					d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"
+				/>
+			</svg>
+		</div>
+
+		<h3 class="mb-2 text-lg font-bold">
+			{$t('settings.devices.revokeAllModal.confirmTitle')}
+		</h3>
+
+		<p class="text-base-content/70 mb-4 text-sm">
+			{$t('settings.devices.revokeAllModal.warning', { values: { count: otherDevices.length } })}
+		</p>
+
+		{#if revokeAllError}
+			<div class="alert alert-error alert-outline mb-4">
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					class="h-6 w-6 shrink-0 stroke-current"
+					fill="none"
+					viewBox="0 0 24 24"
+				>
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+					/>
+				</svg>
+				<span>{revokeAllError}</span>
+			</div>
+		{/if}
+	</div>
+
+	<div class="flex gap-3">
+		<button
+			class="btn btn-outline flex-1"
+			onclick={closeRevokeAllModal}
+			disabled={revokeAllLoading}
+		>
+			{$t('common.cancel')}
+		</button>
+		<button class="btn btn-error flex-1" onclick={confirmRevokeAll} disabled={revokeAllLoading}>
+			{#if revokeAllLoading}
+				<span class="loading loading-spinner loading-sm"></span>
+			{/if}
+			{$t('settings.devices.revokeAllModal.confirm')}
 		</button>
 	</div>
 </Modal>
