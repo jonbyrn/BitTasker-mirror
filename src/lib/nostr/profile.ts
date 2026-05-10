@@ -4,7 +4,6 @@ import type {
 	Skill,
 	PortfolioItem,
 	Availability,
-	NostrStandardServices,
 	ProfileTranslations,
 	SkillTranslations,
 	CertificationTranslations,
@@ -925,67 +924,6 @@ export async function publishAvailabilityUpdate(availability: Availability): Pro
 		await Promise.all(pool.publish(relays, signedEvent));
 	} catch (error) {
 		console.error('Failed to publish availability update:', error);
-		throw error;
-	}
-}
-
-/**
- * Publishes standard services data to Nostr
- * @param servicesData The services data to publish
- * @param tags Additional tags to include
- */
-export async function publishStandardServices(
-	servicesData: NostrStandardServices,
-	tags: string[][],
-	relays = get(appStore)?.relays ?? []
-): Promise<void> {
-	try {
-		const pool = get(appStore)?.pool;
-		if (!pool) {
-			throw new Error('Pool not found');
-		}
-		const event = {
-			kind: KINDS.PROFILE_STANDARD_SERVICES,
-			created_at: Math.floor(Date.now() / 1000),
-			content: JSON.stringify(servicesData),
-			tags: [...tags]
-		};
-
-		const signedEvent = await getSignedEvent(event);
-		await Promise.all(pool.publish(relays, signedEvent));
-	} catch (error) {
-		console.error('Failed to publish standard services:', error);
-		throw error;
-	}
-}
-
-/**
- * Deletes a standard service event from Nostr
- * @param eventId The ID of the event to delete
- */
-export async function deleteStandardService(
-	eventId: string,
-	relays = get(appStore)?.relays ?? []
-): Promise<void> {
-	try {
-		const pool = get(appStore)?.pool;
-		if (!pool) {
-			throw new Error('Pool not found');
-		}
-		const event = {
-			kind: 5,
-			created_at: Math.floor(Date.now() / 1000),
-			tags: [
-				['e', eventId],
-				['k', KINDS.PROFILE_STANDARD_SERVICES.toString()]
-			],
-			content: 'Standard service deleted'
-		};
-
-		const signedEvent = await getSignedEvent(event);
-		await Promise.all(pool.publish(relays, signedEvent));
-	} catch (error) {
-		console.error('Failed to delete standard service:', error);
 		throw error;
 	}
 }

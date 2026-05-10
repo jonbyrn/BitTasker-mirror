@@ -24,7 +24,7 @@
 		1984: 'Report',
 		30000: 'Skills',
 		30002: 'Availability',
-		30003: 'StdServices',
+
 		30063: 'ProfileImg',
 		30078: 'BoltzSwap',
 		6420: 'ServiceQuoteReq',
@@ -407,7 +407,7 @@
 		profileInspectorData = null;
 
 		try {
-			const kinds = [0, 30063, 10002, 30000, 30002, 30003];
+			const kinds = [0, 30063, 10002, 30000, 30002];
 			const results = await pool.querySync([relay], { kinds, authors: [hex], limit: 20 });
 			profileInspectorEvents = results.sort((a, b) => b.created_at - a.created_at);
 			addLog(`Profile events found: ${results.length}`, 'success');

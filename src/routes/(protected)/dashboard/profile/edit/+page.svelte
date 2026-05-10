@@ -7,7 +7,6 @@
 	import Portfolio from '$lib/components/profile/edit/Portfolio.svelte';
 	import VideoIntro from '$lib/components/profile/edit/VideoIntro.svelte';
 	import Availability from '$lib/components/profile/edit/Availability.svelte';
-	import StandardServices from '$lib/components/profile/edit/StandardServices.svelte';
 
 	let completedSections = $state({
 		personalInfo: false,
@@ -15,8 +14,7 @@
 		skills: false,
 		portfolio: false,
 		videoIntro: false,
-		availability: false,
-		standardServices: false
+		availability: false
 		// aiAssistant: false
 	});
 
@@ -26,8 +24,7 @@
 		skills: true,
 		portfolio: true,
 		videoIntro: true,
-		availability: true,
-		standardServices: true
+		availability: true
 		// aiAssistant: false
 	});
 
@@ -37,7 +34,6 @@
 	let portfolioComponent: Portfolio;
 	let videoIntroComponent: VideoIntro;
 	let availabilityComponent: Availability;
-	let standardServicesComponent: StandardServices;
 
 	// Global save state
 	let isSaving = $state(false);
@@ -75,8 +71,7 @@
 				skillsComponent,
 				portfolioComponent,
 				videoIntroComponent,
-				availabilityComponent,
-				standardServicesComponent
+				availabilityComponent
 			];
 
 			// Find all forms in the components and submit them
@@ -112,11 +107,7 @@
 		tabindex="0"
 		aria-label="Toggle {title}"
 		class="flex items-center justify-between"
-		onclick={() => {
-			if (isCollapsed[section]) {
-				isCollapsed[section] = !isCollapsed[section];
-			}
-		}}
+		onclick={() => (isCollapsed[section] = !isCollapsed[section])}
 		onkeydown={() => {}}
 	>
 		<h3 class="card-title">
@@ -187,7 +178,7 @@
 		</div>
 		<div class="bg-base-200 h-2.5 w-full rounded-full">
 			<div
-				class="bg-primary h-2.5 rounded-full transition-all duration-500 ease-out"
+				class="bg-primary h-2.5 rounded-full transition-all duration-500 ease-in-out"
 				style="width: {progress}%"
 			></div>
 		</div>
@@ -197,10 +188,10 @@
 	<div class="space-y-4">
 		<!-- Personal Information -->
 		<div class="card bg-base-100 rounded-xl shadow-lg">
-			<div class="card-body">
+			<div class="card-body p-4">
 				{@render cardTitle($t('profile.page.sections.personal_info'), 'personalInfo')}
 				<div
-					class="overflow-hidden transition-[max-height] duration-300 ease-out"
+					class="overflow-hidden transition-[max-height] duration-300 ease-in-out"
 					style:max-height={isCollapsed.personalInfo ? '0' : '200rem'}
 				>
 					<PersonalInfo
@@ -214,10 +205,10 @@
 
 		<!-- Skills -->
 		<div class="card bg-base-100 rounded-xl shadow-lg">
-			<div class="card-body">
+			<div class="card-body p-4">
 				{@render cardTitle($t('profile.page.sections.skills'), 'skills')}
 				<div
-					class="overflow-hidden transition-[max-height] duration-300 ease-out"
+					class="overflow-hidden transition-[max-height] duration-300 ease-in-out"
 					style:max-height={isCollapsed.skills ? '0' : '200rem'}
 				>
 					<Skills
@@ -231,10 +222,10 @@
 
 		<!-- Portfolio -->
 		<div class="card bg-base-100 rounded-xl shadow-lg">
-			<div class="card-body">
+			<div class="card-body p-4">
 				{@render cardTitle($t('profile.page.sections.portfolio'), 'portfolio')}
 				<div
-					class="overflow-hidden transition-[max-height] duration-300 ease-out"
+					class="overflow-hidden transition-[max-height] duration-300 ease-in-out"
 					style:max-height={isCollapsed.portfolio ? '0' : '200rem'}
 				>
 					<Portfolio
@@ -248,10 +239,10 @@
 
 		<!-- Video Introduction -->
 		<div class="card bg-base-100 rounded-xl shadow-lg">
-			<div class="card-body">
+			<div class="card-body p-4">
 				{@render cardTitle($t('profile.page.sections.video'), 'videoIntro')}
 				<div
-					class="overflow-hidden transition-[max-height] duration-300 ease-out"
+					class="overflow-hidden transition-[max-height] duration-300 ease-in-out"
 					style:max-height={isCollapsed.videoIntro ? '0' : '200rem'}
 				>
 					<VideoIntro
@@ -265,10 +256,10 @@
 
 		<!-- Availability Calendar -->
 		<div class="card bg-base-100 rounded-xl shadow-lg">
-			<div class="card-body">
+			<div class="card-body p-4">
 				{@render cardTitle($t('profile.page.sections.availability'), 'availability')}
 				<div
-					class="overflow-hidden transition-[max-height] duration-300 ease-out"
+					class="overflow-hidden transition-[max-height] duration-300 ease-in-out"
 					style:max-height={isCollapsed.availability ? '0' : '200rem'}
 				>
 					<Availability
@@ -280,26 +271,9 @@
 			</div>
 		</div>
 
-		<!-- Standard Services -->
-		<div class="card bg-base-100 rounded-xl shadow-lg">
-			<div class="card-body">
-				{@render cardTitle($t('profile.page.sections.services'), 'standardServices')}
-				<div
-					class="overflow-hidden transition-[max-height] duration-300 ease-out"
-					style:max-height={isCollapsed.standardServices ? '0' : '200rem'}
-				>
-					<StandardServices
-						bind:this={standardServicesComponent}
-						onComplete={(completed, fromSave) =>
-							handleSectionComplete('standardServices', completed, fromSave)}
-					/>
-				</div>
-			</div>
-		</div>
-
 		<!-- AI Assistant -->
 		<!-- <div class="card bg-base-100 rounded-xl shadow-lg">
-				<div class="card-body">
+				<div class="card-body p-4">
 					<h2 class="card-title">AI Assistant</h2>
 					<AIAssistant
 						{user}
