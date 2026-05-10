@@ -2135,10 +2135,8 @@
 
 							{#if selectedTier}
 								<div class="space-y-6 p-6">
-									<div class="flex items-start justify-between">
-										<h3 class="min-w-0 text-lg font-bold">
-											<span class="line-clamp-2 break-words">{selectedTier.name}</span>
-										</h3>
+									<div class="grid grid-cols-[1fr_auto] items-start gap-4">
+										<h3 class="line-clamp-2 text-lg font-bold break-words">{selectedTier.name}</h3>
 										<span class="text-primary ml-4 shrink-0 text-xl font-black"
 											>${formatNumberWithTwoDecimals(selectedTier.price)}</span
 										>
