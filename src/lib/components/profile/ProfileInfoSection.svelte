@@ -314,11 +314,13 @@
 						>
 							{getTranslatedProfileContent('about')}
 						</p>
-						<div
-							class="from-base-100 pointer-events-none absolute right-0 bottom-0 left-0 h-8 bg-gradient-to-t to-transparent transition-opacity duration-300 {showFullDescription
-								? 'opacity-0'
-								: 'opacity-100'}"
-						></div>
+						{#if isDescriptionTruncated}
+							<div
+								class="from-base-100 pointer-events-none absolute right-0 bottom-0 left-0 h-8 bg-gradient-to-t to-transparent transition-opacity duration-300 {showFullDescription
+									? 'opacity-0'
+									: 'opacity-100'}"
+							></div>
+						{/if}
 					</div>
 					{#if isDescriptionTruncated}
 						<button

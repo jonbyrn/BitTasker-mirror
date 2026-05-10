@@ -221,6 +221,12 @@
 	let selectedTierId = $state<string | null>(null);
 	let activeMobileTab = $state<string | null>(null);
 	let tierExpanded = $state<Record<string, boolean>>({});
+	let tierScrolledRight = $state(false);
+
+	function updateTierScroll(e: Event) {
+		const el = e.currentTarget as HTMLElement;
+		tierScrolledRight = el.scrollLeft + el.clientWidth < el.scrollWidth - 2;
+	}
 
 	const popularTierId = $derived.by(() => {
 		if (tiersWithPrice.length < 2) return null;
@@ -1811,12 +1817,20 @@
 							</div>
 
 							<div
-								class="grid grid-cols-1 gap-3 md:grid-cols-{tiersWithPrice.length === 2 ? 2 : 3}"
+								class={tiersWithPrice.length >= 3
+									? 'scrollbar-hide flex snap-x snap-mandatory gap-4 overflow-x-auto overflow-y-visible pt-4 pr-2 pb-6 pl-4'
+									: 'grid grid-cols-1 gap-3 md:grid-cols-2'}
+								onscroll={tiersWithPrice.length >= 3 ? updateTierScroll : undefined}
+								style={tiersWithPrice.length >= 3 && tierScrolledRight
+									? 'mask-image:linear-gradient(to right,black 0%,black 92%,transparent 100%);-webkit-mask-image:linear-gradient(to right,black 0%,black 92%,transparent 100%)'
+									: ''}
 							>
 								{#each tiersWithPrice as tier (tier.id)}
 									<div
-										class="card bg-base-100 relative cursor-pointer border {selectedTierId ===
-										tier.id
+										class="card bg-base-100 relative cursor-pointer border {tiersWithPrice.length >=
+										3
+											? 'md:w-[45%] md:shrink-0 md:snap-start'
+											: ''} {selectedTierId === tier.id
 											? 'border-primary ring-primary/20 shadow-md ring-2'
 											: 'border-base-300 hover:border-primary/50 shadow-sm'} transition-all duration-200"
 										onclick={() => (selectedTierId = tier.id)}
@@ -1838,7 +1852,9 @@
 										<div class="card-body flex h-full flex-col p-6">
 											<!-- Header -->
 											<div class="mb-4">
-												<h4 class="mb-1 text-xs font-black tracking-widest uppercase opacity-60">
+												<h4
+													class="mb-1 min-w-0 truncate text-xs font-black tracking-widest uppercase opacity-60"
+												>
 													{tier.name}
 												</h4>
 												<div class="text-primary text-3xl font-black">
@@ -2092,13 +2108,13 @@
 							<div class="tabs tabs-bordered bg-base-100 border-base-200 flex border-b p-1">
 								{#each tiersWithPrice as tier (tier.id)}
 									<button
-										class="tab relative h-14 flex-1 transition-all duration-200 {activeMobileTab ===
+										class="tab relative flex h-14 flex-1 flex-col justify-end transition-all duration-200 {activeMobileTab ===
 										tier.id
 											? 'tab-active text-primary font-bold'
 											: 'text-base-content/60'}"
 										onclick={() => handleTabChange(tier.id)}
 									>
-										<div class="flex flex-col items-center gap-0.5">
+										<div class="flex flex-col items-center gap-0.5 pb-1">
 											{#if tier.id === popularTierId}
 												<span
 													class="text-primary/70 -mt-1 text-[10px] font-black tracking-widest uppercase"
@@ -2120,7 +2136,9 @@
 							{#if selectedTier}
 								<div class="space-y-6 p-6">
 									<div class="flex items-start justify-between">
-										<h3 class="truncate text-lg font-bold">{selectedTier.name}</h3>
+										<h3 class="min-w-0 text-lg font-bold">
+											<span class="line-clamp-2 break-words">{selectedTier.name}</span>
+										</h3>
 										<span class="text-primary ml-4 shrink-0 text-xl font-black"
 											>${formatNumberWithTwoDecimals(selectedTier.price)}</span
 										>

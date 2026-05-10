@@ -461,7 +461,7 @@
 </script>
 
 <!-- Mismas dimensiones que Create Task: max-w-6xl, px-2 py-6 md:px-0 md:py-0 -->
-<div class="service-create-flow mx-auto h-full max-w-6xl min-w-0 px-2 py-6 md:px-0 md:py-0">
+<div class="service-create-flow mx-auto h-full min-w-0 px-2 py-6 md:px-0 md:py-0">
 	<!-- Page Header -->
 	<div class="mb-6">
 		<h3 class="">

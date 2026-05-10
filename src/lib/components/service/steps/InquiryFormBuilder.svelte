@@ -169,7 +169,7 @@
 				</h4>
 				<button
 					type="button"
-					class="btn btn-sm btn-error"
+					class="btn btn-circle btn-outline btn-error min-h-[44px] min-w-[44px] text-lg"
 					onclick={() => removeField(field.id)}
 					title={$t('dashboard.services.create.inquiry_form.remove')}
 				>
@@ -279,7 +279,7 @@
 									placeholder={$t('dashboard.services.create.inquiry_form.option_placeholder')}
 								/>
 								<button
-									class="btn btn-sm btn-error"
+									class="btn btn-circle btn-outline btn-error min-h-[44px] min-w-[44px] text-lg"
 									onclick={() => removeOption(field.id, optionIndex)}
 									title={$t('dashboard.services.create.inquiry_form.remove_option')}
 								>

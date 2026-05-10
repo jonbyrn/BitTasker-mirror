@@ -105,7 +105,7 @@
 								>
 							</div>
 							{#if addOn.description}
-								<p class="text-base-content/70 mt-0.5 text-xs">{addOn.description}</p>
+								<p class="text-base-content/70 mt-0.5 line-clamp-4 text-xs">{addOn.description}</p>
 							{/if}
 						</div>
 					</label>

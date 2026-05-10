@@ -309,7 +309,7 @@
 							✕
 						</button>
 					{/if}
-					<h4 class="wrap-break-words min-w-0 text-lg font-semibold">
+					<h4 class="wrap-break-words line-clamp-2 min-w-0 text-lg font-semibold">
 						{getTierDisplayName(tier.name, tierIndex)}
 					</h4>
 				</div>

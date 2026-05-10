@@ -91,7 +91,7 @@
 				</h4>
 				<button
 					type="button"
-					class="btn btn-sm btn-error"
+					class="btn btn-circle btn-outline btn-error min-h-[44px] min-w-[44px] text-lg"
 					onclick={() => removeAddOn(addOn.id)}
 					title={$t('dashboard.services.create.addons.remove')}
 				>

@@ -143,6 +143,8 @@ export function createDraftWizardStore<State, Step, DraftPayload>(
 
 			return setCurrentStep(state, steps[currentIndex - 1]);
 		});
+
+		void saveDraft(getIsEditing(get(store)), true);
 	}
 
 	function setStep(step: Step): void {
