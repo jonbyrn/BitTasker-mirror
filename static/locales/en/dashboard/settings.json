@@ -3,7 +3,7 @@
 		"title": "Settings",
 		"subtitle": "Manage your account settings and Nostr identity",
 		"nostr": {
-			"title": "Nostr Identity",
+			"title": "Login Info",
 			"description": "Your decentralized identity on the Nostr network. Keep your private key secure!",
 			"publicKey-label": "Nostr Public Key",
 			"publicKey": {
@@ -36,7 +36,7 @@
 			"password": {
 				"placeholder": "Create a strong recovery password"
 			},
-			"confirmPassword-label": "Confirm Recovery Password",
+			"confirmPassword-label": "Confirm Password",
 			"confirmPassword": {
 				"placeholder": "Confirm your recovery password"
 			},
@@ -54,7 +54,7 @@
 				"numbers": "Numbers",
 				"special": "Special chars"
 			},
-			"setup": "Setup Account Recovery",
+			"setup": "Setup",
 			"setting": "Setting up recovery...",
 			"success": "Account recovery has been set up successfully!",
 			"notice": {

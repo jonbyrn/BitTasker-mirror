@@ -1,7 +1,5 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
-	import { linear } from 'svelte/easing';
-	import { fade, fly } from 'svelte/transition';
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 	import generateQrCodeUrl from '$lib/utils/helpers/generateQrCodeUrl';
 
@@ -20,6 +18,7 @@
 	let qrCodeDataUrl = $state('');
 	let isGeneratingQr = $state(false);
 	let showQrModal = $state(false);
+	let nostrExpanded = $state(false);
 
 	async function generateQrCode() {
 		if (qrCodeDataUrl && !showQrModal) {
@@ -58,25 +57,18 @@
 </script>
 
 <!-- Nostr Identity Section -->
-<div class="card bg-base-100 mb-6 shadow-xl">
-	<div class="card-body">
-		<div class="mb-1 flex items-center gap-2">
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				class="h-6 w-6"
-				fill="none"
-				viewBox="0 0 24 24"
-				stroke="currentColor"
-			>
-				<path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					stroke-width="2"
-					d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-				/>
-			</svg>
-			<h4 class="card-title">{$t('settings.nostr.title')}</h4>
-		</div>
+<div
+	class="collapse-arrow bg-base-100 collapse mb-6 rounded-lg shadow-xl"
+	class:collapse-open={nostrExpanded}
+>
+	<button
+		type="button"
+		class="collapse-title flex items-center gap-2 text-left"
+		onclick={() => (nostrExpanded = !nostrExpanded)}
+	>
+		<h4 class="text-lg font-semibold">{$t('settings.nostr.title')}</h4>
+	</button>
+	<div class="collapse-content">
 		<p class="text-base-content/70 mb-6">
 			{$t('settings.nostr.description')}
 		</p>
@@ -288,7 +280,6 @@
 					</div>
 				{/if}
 			</div>
-
 		</div>
 
 		<!-- Security Notice -->
@@ -314,82 +305,79 @@
 			</div>
 		</div>
 	</div>
+</div>
 
-	<!-- QR Code Modal -->
-	{#if showQrModal && qrCodeDataUrl && authMethod !== 'alby'}
-		<div class="modal modal-open">
-			<div class="modal-box max-w-md max-h-[85vh] p-0 bg-base-100 flex flex-col overflow-hidden">
-				<div class="flex flex-col flex-1 min-h-0">
-					<!-- Header -->
-					<div class="flex items-center justify-between bg-base-300 px-3 py-2 rounded-t-lg sm:px-4 sm:py-3 shrink-0">
-						<div class="flex items-center gap-2 sm:gap-3">
-							<h4 class="text-base font-bold text-base-content sm:text-lg">{$t('settings.nostr.title')} - {$t('settings.nostr.qrCode.show')}</h4>
-						</div>
-						<button
-							class="btn btn-sm btn-circle btn-ghost hover:bg-white/20"
-							onclick={closeQrModal}
-							aria-label={$t('common.close')}
-						>
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								class="h-4 w-4 sm:h-5 sm:w-5"
-								fill="none"
-								viewBox="0 0 24 24"
-								stroke="currentColor"
-							>
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									stroke-width="2"
-									d="M6 18L18 6M6 6l12 12"
-								/>
-							</svg>
-						</button>
+<!-- QR Code Modal -->
+{#if showQrModal && qrCodeDataUrl && authMethod !== 'alby'}
+	<div class="modal modal-open">
+		<div class="modal-box bg-base-100 flex max-h-[85vh] max-w-md flex-col overflow-hidden p-0">
+			<div class="flex min-h-0 flex-1 flex-col">
+				<!-- Header -->
+				<div
+					class="bg-base-300 flex shrink-0 items-center justify-between rounded-t-lg px-3 py-2 sm:px-4 sm:py-3"
+				>
+					<div class="flex items-center gap-2 sm:gap-3">
+						<h4 class="text-base-content text-base font-bold sm:text-lg">
+							{$t('settings.nostr.title')} - {$t('settings.nostr.qrCode.show')}
+						</h4>
 					</div>
-
-					<!-- QR Code Content -->
-					<div class="flex-1 flex flex-col items-center justify-center p-6 min-h-0 overflow-auto">
-						<div class="w-full max-w-xs rounded-lg bg-white p-4 shadow-xl">
-							<img
-								src={qrCodeDataUrl}
-								alt="Private Key QR Code"
-								class="w-full aspect-square"
+					<button
+						class="btn btn-sm btn-circle btn-ghost hover:bg-white/20"
+						onclick={closeQrModal}
+						aria-label={$t('common.close')}
+					>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="h-4 w-4 sm:h-5 sm:w-5"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M6 18L18 6M6 6l12 12"
 							/>
-						</div>
-						<!-- Close Button -->
-						<button
-							class="btn btn-primary w-full mt-6"
-							onclick={closeQrModal}
-						>
-							{$t('common.close')}
-						</button>
-					</div>
+						</svg>
+					</button>
+				</div>
 
-					<!-- Footer with Security Warning -->
-					<div class="p-4 border-t border-base-300 shrink-0">
-						<div class="alert alert-warning alert-outline">
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								class="h-5 w-5 shrink-0 stroke-current"
-								fill="none"
-								viewBox="0 0 24 24"
-							>
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									stroke-width="2"
-									d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.083 15.5c-.77.833.192 2.5 1.732 2.5z"
-								/>
-							</svg>
-							<span class="text-xs">{$t('settings.security.description')}</span>
-						</div>
+				<!-- QR Code Content -->
+				<div class="flex min-h-0 flex-1 flex-col items-center justify-center overflow-auto p-6">
+					<div class="w-full max-w-xs rounded-lg bg-white p-4 shadow-xl">
+						<img src={qrCodeDataUrl} alt="Private Key QR Code" class="aspect-square w-full" />
+					</div>
+					<!-- Close Button -->
+					<button class="btn btn-primary mt-6 w-full" onclick={closeQrModal}>
+						{$t('common.close')}
+					</button>
+				</div>
+
+				<!-- Footer with Security Warning -->
+				<div class="border-base-300 shrink-0 border-t p-4">
+					<div class="alert alert-warning alert-outline">
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="h-5 w-5 shrink-0 stroke-current"
+							fill="none"
+							viewBox="0 0 24 24"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.083 15.5c-.77.833.192 2.5 1.732 2.5z"
+							/>
+						</svg>
+						<span class="text-xs">{$t('settings.security.description')}</span>
 					</div>
 				</div>
 			</div>
-			<!-- Modal backdrop -->
-			<form method="dialog" class="modal-backdrop">
-				<button onclick={closeQrModal}>close</button>
-			</form>
 		</div>
-	{/if}
-</div>
+		<!-- Modal backdrop -->
+		<form method="dialog" class="modal-backdrop">
+			<button onclick={closeQrModal}>close</button>
+		</form>
+	</div>
+{/if}

@@ -27,7 +27,7 @@
 		pushToken?: string | null;
 		revokedAt?: string | null;
 		updatedAt?: string;
-		userId?: number;
+		userId?: string;
 		currentDevice?: boolean;
 	}
 
@@ -42,7 +42,8 @@
 	let revokeLoading = $state(false);
 	let revokeError = $state('');
 
-	// Collapse state for inactive devices
+	// Collapse state
+	let devicesExpanded = $state(false);
 	let inactiveExpanded = $state(false);
 
 	// Derived: sorted and grouped devices
@@ -219,25 +220,23 @@
 </script>
 
 <!-- Devices Section -->
-<div class="card bg-base-100 mb-6 shadow-xl">
-	<div class="card-body">
-		<div class="mb-1 flex items-center gap-2">
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				class="h-6 w-6"
-				fill="none"
-				viewBox="0 0 24 24"
-				stroke="currentColor"
-			>
-				<path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					stroke-width="2"
-					d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-				/>
-			</svg>
-			<h4 class="card-title">{$t('settings.devices.title')}</h4>
-		</div>
+<div
+	class="collapse-arrow bg-base-100 collapse mb-6 rounded-lg shadow-xl"
+	class:collapse-open={devicesExpanded}
+>
+	<button
+		type="button"
+		class="collapse-title flex items-center gap-2 text-left"
+		onclick={() => (devicesExpanded = !devicesExpanded)}
+	>
+		<h4 class="text-lg font-semibold">
+			{$t('settings.devices.title')}
+			{#if devices.length > 0}
+				<span class="text-base-content/60 ml-1 text-sm font-normal">({devices.length})</span>
+			{/if}
+		</h4>
+	</button>
+	<div class="collapse-content">
 		<p class="text-base-content/70 mb-6">
 			{$t('settings.devices.description')}
 		</p>

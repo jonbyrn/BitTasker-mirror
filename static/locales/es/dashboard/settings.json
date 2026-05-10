@@ -3,7 +3,7 @@
 		"title": "Configuración",
 		"subtitle": "Gestiona la configuración de tu cuenta e identidad Nostr",
 		"nostr": {
-			"title": "Identidad Nostr",
+			"title": "Información de Acceso",
 			"description": "Tu identidad descentralizada en la red Nostr. ¡Mantén tu clave privada segura!",
 			"publicKey-label": "Clave Pública Nostr",
 			"publicKey": {
@@ -36,7 +36,7 @@
 			"password": {
 				"placeholder": "Crea una contraseña de recuperación fuerte"
 			},
-			"confirmPassword-label": "Confirmar Contraseña de Recuperación",
+			"confirmPassword-label": "Confirmar Contraseña",
 			"confirmPassword": {
 				"placeholder": "Confirma tu contraseña de recuperación"
 			},
@@ -54,7 +54,7 @@
 				"numbers": "Números",
 				"special": "Caracteres especiales"
 			},
-			"setup": "Configurar Recuperación de Cuenta",
+			"setup": "Configurar",
 			"setting": "Configurando recuperación...",
 			"success": "¡La recuperación de cuenta se ha configurado exitosamente!",
 			"notice": {

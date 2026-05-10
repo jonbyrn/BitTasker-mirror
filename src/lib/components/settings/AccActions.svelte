@@ -7,6 +7,7 @@
 
 	let showLogoutModal = $state(false);
 	let showDeleteAccountModal = $state(false);
+	let actionsExpanded = $state(false);
 
 	async function confirmedLogout() {
 		showLogoutModal = false;
@@ -16,9 +17,18 @@
 </script>
 
 <!-- Account Actions Section -->
-<div class="card bg-base-100 shadow-xl">
-	<div class="card-body">
-		<h4 class="card-title text-error">{$t('settings.actions.title')}</h4>
+<div
+	class="collapse-arrow bg-base-100 collapse rounded-lg shadow-xl"
+	class:collapse-open={actionsExpanded}
+>
+	<button
+		type="button"
+		class="collapse-title flex items-center gap-2 text-left"
+		onclick={() => (actionsExpanded = !actionsExpanded)}
+	>
+		<h4 class="text-lg font-semibold">{$t('settings.actions.title')}</h4>
+	</button>
+	<div class="collapse-content">
 		<p class="text-base-content/70 mb-3">{$t('settings.actions.description')}</p>
 
 		<div class="flex flex-col gap-4">
