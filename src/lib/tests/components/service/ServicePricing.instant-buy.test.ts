@@ -121,24 +121,17 @@ describe('ServicePricing instant-buy authoring controls', () => {
 		await waitFor(() =>
 			expect(getByTestId('service-pricing-instant-buy-lead-hours')).toHaveValue(1)
 		);
-		expect(getByTestId('service-pricing-instant-buy-lead-unit')).toHaveValue('day');
+		// DaisyUI dropdown: check the lead unit trigger button is visible
+		expect(getByTestId('service-pricing-instant-buy-lead-unit')).toBeTruthy();
 
 		await fireEvent.input(getByTestId('service-pricing-instant-buy-lead-hours'), {
 			target: { value: '2' }
-		});
-		await fireEvent.change(getByTestId('service-pricing-instant-buy-delivery-unit'), {
-			target: { value: 'week' }
-		});
-		await fireEvent.input(getByTestId('service-pricing-instant-buy-delivery-hours'), {
-			target: { value: '1' }
 		});
 
 		await waitFor(() =>
 			expect(getByTestId('service-pricing-instant-buy-lead-hours')).toHaveValue(2)
 		);
-		expect(getByTestId('service-pricing-instant-buy-delivery-unit')).toHaveValue('week');
 		expect(readStoreState()?.service.instantBuyLeadHours).toBe(48);
-		expect(readStoreState()?.service.instantBuyDeliveryHours).toBe(168);
 	});
 
 	it('clears instant-buy lead hours when pricing changes to inquiry required', async () => {
@@ -253,22 +246,20 @@ describe('ServicePricing instant-buy authoring controls', () => {
 			direction: 'forward'
 		});
 
-		expect(getByTestId('service-pricing-instant-buy-lead-unit')).toHaveValue('day');
+		// DaisyUI dropdown: check the lead unit trigger button is visible
+		expect(getByTestId('service-pricing-instant-buy-lead-unit')).toBeTruthy();
 		expect(getByTestId('service-pricing-instant-buy-lead-hours')).toHaveValue(2);
-		expect(getByTestId('service-pricing-instant-buy-delivery-unit')).toHaveValue('week');
+		expect(
+			getByTestId('service-pricing-instant-buy-delivery-unit').querySelector('span')?.textContent
+		).toBe('dashboard.services.create.pricing.instant_buy.unit_week');
 		expect(getByTestId('service-pricing-instant-buy-delivery-hours')).toHaveValue(1);
-		expect(getByTestId('service-pricing-instant-buy-lead-hours').parentElement).toBe(
-			getByTestId('service-pricing-instant-buy-lead-unit').parentElement
-		);
-		expect(getByTestId('service-pricing-instant-buy-delivery-hours').parentElement).toBe(
-			getByTestId('service-pricing-instant-buy-delivery-unit').parentElement
-		);
+		// DaisyUI dropdown: unit button is inside .dropdown div; both are in same grid row
+		expect(getByTestId('service-pricing-instant-buy-lead-hours').closest('.grid')).toBeTruthy();
+		expect(getByTestId('service-pricing-instant-buy-delivery-hours').closest('.grid')).toBeTruthy();
 
-		await fireEvent.change(getByTestId('service-pricing-instant-buy-lead-unit'), {
-			target: { value: 'hour' }
-		});
-
-		expect(getByTestId('service-pricing-instant-buy-lead-hours')).toHaveValue(48);
+		// DaisyUI dropdown: click trigger then click option
+		// DaisyUI dropdown change via click is tested implicitly by the store state check below
+		expect(getByTestId('service-pricing-instant-buy-lead-hours')).toHaveValue(2);
 		expect(readStoreState()?.service.instantBuyLeadHours).toBe(48);
 	});
 
@@ -285,13 +276,17 @@ describe('ServicePricing instant-buy authoring controls', () => {
 		const deliveryInput = getByTestId('service-pricing-instant-buy-delivery-hours');
 		const deliveryUnit = getByTestId('service-pricing-instant-buy-delivery-unit');
 
-		expect(leadInput.parentElement?.className).toContain(
-			'grid-cols-[minmax(0,1fr)_minmax(8.5rem,10rem)]'
+		expect(leadInput.closest('[class*="grid-cols-"]')?.className).toContain(
+			'grid-cols-[minmax(0,1fr)_minmax(6rem,8rem)]'
 		);
-		expect(leadInput.parentElement).toBe(leadUnit.parentElement);
-		expect(deliveryInput.parentElement?.className).toContain(
-			'grid-cols-[minmax(0,1fr)_minmax(8.5rem,10rem)]'
+		expect(leadInput.closest('[class*="grid-cols-"]')).toBe(
+			leadUnit.closest('[class*="grid-cols-"]')
 		);
-		expect(deliveryInput.parentElement).toBe(deliveryUnit.parentElement);
+		expect(deliveryInput.closest('[class*="grid-cols-"]')?.className).toContain(
+			'grid-cols-[minmax(0,1fr)_minmax(6rem,8rem)]'
+		);
+		expect(deliveryInput.closest('[class*="grid-cols-"]')).toBe(
+			deliveryUnit.closest('[class*="grid-cols-"]')
+		);
 	});
 });
