@@ -275,7 +275,7 @@
 						<!-- Show/Hide Password Button -->
 						<button
 							type="button"
-							class="absolute inset-y-0 right-0 flex items-center pr-3"
+							class="absolute inset-y-0 right-12 flex items-center pr-3"
 							onclick={() => (showRecoveryPassword = !showRecoveryPassword)}
 							disabled={recoveryLoading}
 							title={showRecoveryPassword ? 'Hide password' : 'Show password'}
@@ -321,7 +321,7 @@
 						<!-- Generate Password Button -->
 						<button
 							type="button"
-							class="absolute inset-y-0 right-12 flex items-center pr-3"
+							class="absolute inset-y-0 right-24 flex items-center pr-3"
 							onclick={handleGeneratePassword}
 							disabled={recoveryLoading}
 							title="Generate secure password"
@@ -345,7 +345,7 @@
 						<!-- Copy Button -->
 						<button
 							type="button"
-							class="absolute inset-y-0 right-24 flex items-center pr-3"
+							class="absolute inset-y-0 right-0 flex items-center pr-3"
 							onclick={() => _copyToClipboard(recoveryPassword, 'recovery')}
 							disabled={!recoveryPassword || recoveryLoading}
 							title="Copy password to clipboard"
