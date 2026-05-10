@@ -44,7 +44,11 @@
 	let saveError = $state('');
 
 	// Section completion handlers
-	function handleSectionComplete(section: keyof typeof completedSections, completed: boolean, fromSave?: boolean) {
+	function handleSectionComplete(
+		section: keyof typeof completedSections,
+		completed: boolean,
+		fromSave?: boolean
+	) {
 		completedSections[section] = completed;
 		// Show toast only when save occurs, not on every completion change
 		if (fromSave) {
@@ -66,7 +70,7 @@
 
 		try {
 			// Trigger save for all components by dispatching submit events
-			const components = [
+			const _components = [
 				personalInfoComponent,
 				skillsComponent,
 				portfolioComponent,
@@ -77,7 +81,7 @@
 
 			// Find all forms in the components and submit them
 			const forms = document.querySelectorAll('form');
-			const submitPromises = Array.from(forms).map(form => {
+			const submitPromises = Array.from(forms).map((form) => {
 				return new Promise<void>((resolve) => {
 					const submitEvent = new Event('submit', { bubbles: true, cancelable: true });
 					form.dispatchEvent(submitEvent);
@@ -89,7 +93,7 @@
 			await Promise.all(submitPromises);
 
 			// Wait a bit more for all saves to complete
-			await new Promise(resolve => setTimeout(resolve, 1000));
+			await new Promise((resolve) => setTimeout(resolve, 1000));
 
 			// Navigate back to profile view
 			goto('/dashboard/profile');
@@ -166,11 +170,7 @@
 				<h3 class="">{$t('profile.page.edit_profile')}</h3>
 				<p class="text-base-content/70">{$t('profile.page.completion_desc')}</p>
 			</div>
-			<button 
-				class="btn btn-primary" 
-				onclick={saveAllAndExit}
-				disabled={isSaving}
-			>
+			<button class="btn btn-primary" onclick={saveAllAndExit} disabled={isSaving}>
 				{#if isSaving}
 					<span class="loading loading-spinner loading-sm"></span>
 				{/if}
@@ -186,7 +186,10 @@
 			<span class="text-sm font-medium">{Math.round(progress)}%</span>
 		</div>
 		<div class="bg-base-200 h-2.5 w-full rounded-full">
-			<div class="bg-primary h-2.5 rounded-full" style="width: {progress}%"></div>
+			<div
+				class="bg-primary h-2.5 rounded-full transition-all duration-500 ease-out"
+				style="width: {progress}%"
+			></div>
 		</div>
 	</div>
 
@@ -196,10 +199,14 @@
 		<div class="card bg-base-100 rounded-xl shadow-lg">
 			<div class="card-body">
 				{@render cardTitle($t('profile.page.sections.personal_info'), 'personalInfo')}
-				<div class="overflow-hidden" style:height={isCollapsed.personalInfo ? '1px' : 'auto'}>
+				<div
+					class="overflow-hidden transition-[max-height] duration-300 ease-out"
+					style:max-height={isCollapsed.personalInfo ? '0' : '200rem'}
+				>
 					<PersonalInfo
 						bind:this={personalInfoComponent}
-						onComplete={(completed, fromSave) => handleSectionComplete('personalInfo', completed, fromSave)}
+						onComplete={(completed, fromSave) =>
+							handleSectionComplete('personalInfo', completed, fromSave)}
 					/>
 				</div>
 			</div>
@@ -209,10 +216,14 @@
 		<div class="card bg-base-100 rounded-xl shadow-lg">
 			<div class="card-body">
 				{@render cardTitle($t('profile.page.sections.skills'), 'skills')}
-				<div class="overflow-hidden" style:height={isCollapsed.skills ? '0' : 'auto'}>
-					<Skills 
+				<div
+					class="overflow-hidden transition-[max-height] duration-300 ease-out"
+					style:max-height={isCollapsed.skills ? '0' : '200rem'}
+				>
+					<Skills
 						bind:this={skillsComponent}
-						onComplete={(completed, fromSave) => handleSectionComplete('skills', completed, fromSave)}
+						onComplete={(completed, fromSave) =>
+							handleSectionComplete('skills', completed, fromSave)}
 					/>
 				</div>
 			</div>
@@ -222,10 +233,14 @@
 		<div class="card bg-base-100 rounded-xl shadow-lg">
 			<div class="card-body">
 				{@render cardTitle($t('profile.page.sections.portfolio'), 'portfolio')}
-				<div class="overflow-hidden" style:height={isCollapsed.portfolio ? '0' : 'auto'}>
-					<Portfolio 
+				<div
+					class="overflow-hidden transition-[max-height] duration-300 ease-out"
+					style:max-height={isCollapsed.portfolio ? '0' : '200rem'}
+				>
+					<Portfolio
 						bind:this={portfolioComponent}
-						onComplete={(completed, fromSave) => handleSectionComplete('portfolio', completed, fromSave)}
+						onComplete={(completed, fromSave) =>
+							handleSectionComplete('portfolio', completed, fromSave)}
 					/>
 				</div>
 			</div>
@@ -235,10 +250,14 @@
 		<div class="card bg-base-100 rounded-xl shadow-lg">
 			<div class="card-body">
 				{@render cardTitle($t('profile.page.sections.video'), 'videoIntro')}
-				<div class="overflow-hidden" style:height={isCollapsed.videoIntro ? '0' : 'auto'}>
-					<VideoIntro 
+				<div
+					class="overflow-hidden transition-[max-height] duration-300 ease-out"
+					style:max-height={isCollapsed.videoIntro ? '0' : '200rem'}
+				>
+					<VideoIntro
 						bind:this={videoIntroComponent}
-						onComplete={(completed, fromSave) => handleSectionComplete('videoIntro', completed, fromSave)}
+						onComplete={(completed, fromSave) =>
+							handleSectionComplete('videoIntro', completed, fromSave)}
 					/>
 				</div>
 			</div>
@@ -248,10 +267,14 @@
 		<div class="card bg-base-100 rounded-xl shadow-lg">
 			<div class="card-body">
 				{@render cardTitle($t('profile.page.sections.availability'), 'availability')}
-				<div class="overflow-hidden" style:height={isCollapsed.availability ? '0' : 'auto'}>
+				<div
+					class="overflow-hidden transition-[max-height] duration-300 ease-out"
+					style:max-height={isCollapsed.availability ? '0' : '200rem'}
+				>
 					<Availability
 						bind:this={availabilityComponent}
-						onComplete={(completed, fromSave) => handleSectionComplete('availability', completed, fromSave)}
+						onComplete={(completed, fromSave) =>
+							handleSectionComplete('availability', completed, fromSave)}
 					/>
 				</div>
 			</div>
@@ -261,10 +284,14 @@
 		<div class="card bg-base-100 rounded-xl shadow-lg">
 			<div class="card-body">
 				{@render cardTitle($t('profile.page.sections.services'), 'standardServices')}
-				<div class="overflow-hidden" style:height={isCollapsed.standardServices ? '0' : 'auto'}>
+				<div
+					class="overflow-hidden transition-[max-height] duration-300 ease-out"
+					style:max-height={isCollapsed.standardServices ? '0' : '200rem'}
+				>
 					<StandardServices
 						bind:this={standardServicesComponent}
-						onComplete={(completed, fromSave) => handleSectionComplete('standardServices', completed, fromSave)}
+						onComplete={(completed, fromSave) =>
+							handleSectionComplete('standardServices', completed, fromSave)}
 					/>
 				</div>
 			</div>
@@ -291,11 +318,7 @@
 
 	<!-- Bottom Save Button -->
 	<div class="mt-8 flex justify-center">
-		<button 
-			class="btn btn-primary btn-lg" 
-			onclick={saveAllAndExit}
-			disabled={isSaving}
-		>
+		<button class="btn btn-primary btn-lg" onclick={saveAllAndExit} disabled={isSaving}>
 			{#if isSaving}
 				<span class="loading loading-spinner loading-sm"></span>
 			{/if}

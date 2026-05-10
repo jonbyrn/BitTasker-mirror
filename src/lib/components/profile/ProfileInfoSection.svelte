@@ -211,29 +211,27 @@
 	// Estado para el carrusel de imágenes de cada proyecto
 	let projectImageSlides = $state<Record<string, number>>({});
 
-	// Check if description is actually truncated (same logic as TranslatableTask)
+	// Check if description is actually truncated
 	function checkIfTruncated() {
 		if (!descriptionElement) return;
 
 		// Create a hidden clone to measure full height without affecting layout
 		const clone = descriptionElement.cloneNode(true) as HTMLElement;
-		clone.className = descriptionElement.className.replace(/line-clamp-\d+/g, '');
 		clone.style.position = 'absolute';
 		clone.style.visibility = 'hidden';
+		clone.style.maxHeight = 'none';
 		clone.style.height = 'auto';
 		clone.style.width = descriptionElement.offsetWidth + 'px';
-		clone.style.whiteSpace = 'pre-line'; // Preserve line breaks
+		clone.style.whiteSpace = 'pre-line';
 		document.body.appendChild(clone);
 
 		const fullHeight = clone.scrollHeight;
-		const lineHeight = parseFloat(getComputedStyle(descriptionElement).lineHeight) || 20;
-		const maxHeight = lineHeight * 2; // 2 lines
+		// max-h-[6rem] = 96px (~4 lines)
+		const maxHeight = 96;
 
-		// Clean up
 		document.body.removeChild(clone);
 
-		// Only show ellipsis if content is actually taller than 2 lines
-		isDescriptionTruncated = fullHeight > maxHeight + 1; // +1 for small margin
+		isDescriptionTruncated = fullHeight > maxHeight + 1;
 	}
 
 	// Initialize on mount
@@ -303,20 +301,34 @@
 		<div class="mb-8">
 			<h3 class="mb-4 text-xl font-semibold">{$t('profile.about')}</h3>
 			{#if $profileStore.data.about}
-				<p
-					bind:this={descriptionElement}
-					class="text-base-content/70 whitespace-pre-line {showFullDescription
-						? ''
-						: 'line-clamp-2'}"
-					style="word-break: break-word; overflow-wrap: anywhere;"
-				>
-					{getTranslatedProfileContent('about')}
-				</p>
-				{#if isDescriptionTruncated}
-					<button class="btn btn-xs btn-ghost mt-1" onclick={toggleDescription}>
-						{showFullDescription ? $t('common.show_less') : $t('common.show_more')}
-					</button>
-				{/if}
+				<div class="relative">
+					<div
+						class="relative overflow-hidden transition-[max-height] duration-300 ease-out {showFullDescription
+							? 'max-h-[50rem]'
+							: 'max-h-[6rem]'}"
+					>
+						<p
+							bind:this={descriptionElement}
+							class="text-base-content/70 whitespace-pre-line"
+							style="word-break: break-word; overflow-wrap: anywhere;"
+						>
+							{getTranslatedProfileContent('about')}
+						</p>
+						<div
+							class="from-base-100 pointer-events-none absolute right-0 bottom-0 left-0 h-8 bg-gradient-to-t to-transparent transition-opacity duration-300 {showFullDescription
+								? 'opacity-0'
+								: 'opacity-100'}"
+						></div>
+					</div>
+					{#if isDescriptionTruncated}
+						<button
+							class="text-primary relative z-10 mt-2 text-[10px] font-black tracking-wider uppercase"
+							onclick={toggleDescription}
+						>
+							{showFullDescription ? $t('common.show_less') : $t('common.show_more')}
+						</button>
+					{/if}
+				</div>
 			{:else}
 				<p class="text-base-content/70 line-clamp-2">{$t('profile.noDescription')}</p>
 			{/if}
