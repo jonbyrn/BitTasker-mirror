@@ -160,7 +160,11 @@
 				"confirmTitle": "Are you sure?",
 				"confirmMessage": "This will permanently revoke access for",
 				"warning": "This device will no longer be able to access your account and will need to re-authenticate.",
-				"confirm": "Revoke Access"
+				"confirm": "Revoke"
+			},
+			"sections": {
+				"active": "Active Devices",
+				"inactive": "Inactive Devices"
 			}
 		},
 		"muted_users": {

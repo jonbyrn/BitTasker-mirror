@@ -160,7 +160,11 @@
 				"confirmTitle": "¿Estás seguro?",
 				"confirmMessage": "Esto revocará permanentemente el acceso para \"{deviceName}\".",
 				"warning": "Este dispositivo ya no podrá acceder a tu cuenta y necesitará re-autenticarse.",
-				"confirm": "Revocar Acceso"
+				"confirm": "Revocar"
+			},
+			"sections": {
+				"active": "Dispositivos Activos",
+				"inactive": "Dispositivos Inactivos"
 			}
 		},
 		"muted_users": {

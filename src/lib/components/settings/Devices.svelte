@@ -42,6 +42,30 @@
 	let revokeLoading = $state(false);
 	let revokeError = $state('');
 
+	// Collapse state for inactive devices
+	let inactiveExpanded = $state(false);
+
+	// Derived: sorted and grouped devices
+	let currentDevice = $derived(devices.find((d) => d.currentDevice) ?? null);
+	let activeDevices = $derived(
+		devices
+			.filter((d) => !d.currentDevice && d.isActive)
+			.sort((a, b) => {
+				const aTime = a.lastUsedAt ? new Date(a.lastUsedAt).getTime() : 0;
+				const bTime = b.lastUsedAt ? new Date(b.lastUsedAt).getTime() : 0;
+				return bTime - aTime;
+			})
+	);
+	let inactiveDevices = $derived(
+		devices
+			.filter((d) => !d.currentDevice && !d.isActive)
+			.sort((a, b) => {
+				const aTime = a.lastUsedAt ? new Date(a.lastUsedAt).getTime() : 0;
+				const bTime = b.lastUsedAt ? new Date(b.lastUsedAt).getTime() : 0;
+				return bTime - aTime;
+			})
+	);
+
 	onMount(async () => {
 		if (npub) {
 			await loadDevices();
@@ -126,9 +150,12 @@
 		const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
 		if (diffMins < 1) return $t('settings.devices.lastUsed.justNow');
-		if (diffMins < 60) return `${diffMins} ${diffMins === 1 ? $t('common.devices.time_units.minute') : $t('common.devices.time_units.minutes')} ago`;
-		if (diffHours < 24) return `${diffHours} ${diffHours === 1 ? $t('common.devices.time_units.hour') : $t('common.devices.time_units.hours')} ago`;
-		if (diffDays < 7) return `${diffDays} ${diffDays === 1 ? $t('common.devices.time_units.day') : $t('common.devices.time_units.days')} ago`;
+		if (diffMins < 60)
+			return `${diffMins} ${diffMins === 1 ? $t('common.devices.time_units.minute') : $t('common.devices.time_units.minutes')} ago`;
+		if (diffHours < 24)
+			return `${diffHours} ${diffHours === 1 ? $t('common.devices.time_units.hour') : $t('common.devices.time_units.hours')} ago`;
+		if (diffDays < 7)
+			return `${diffDays} ${diffDays === 1 ? $t('common.devices.time_units.day') : $t('common.devices.time_units.days')} ago`;
 
 		return date.toLocaleDateString();
 	}
@@ -241,96 +268,75 @@
 				<p class="text-base-content/70">{$t('settings.devices.noDevices')}</p>
 			</div>
 		{:else}
-			<div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-				{#each devices as device (device.id)}
-					<div class="card bg-base-200 border-base-300 relative border shadow-sm">
-						<!-- Active/Inactive Status Indicator -->
-						<div class="absolute top-3 right-3">
-							{#if device.isActive}
-								<span class="relative flex size-3" title={$t('settings.devices.status.active')}>
-									<span
-										class="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75"
-									></span>
-									<span class="relative inline-flex size-3 rounded-full bg-green-500"></span>
-								</span>
-							{:else}
-								<div
-									class="h-3 w-3 rounded-full bg-red-500"
-									title={$t('settings.devices.status.inactive')}
-								></div>
-							{/if}
+			<div class="divide-base-300 -mx-2 divide-y">
+				<!-- Current Device -->
+				{#if currentDevice}
+					<div class="bg-primary/5 border-primary/20 rounded-lg border px-3 py-3">
+						{@render deviceRow(currentDevice)}
+					</div>
+				{/if}
+
+				<!-- Active Devices -->
+				{#if activeDevices.length > 0}
+					<div class="pt-2">
+						<div
+							class="text-base-content/60 mb-1 px-3 text-xs font-semibold tracking-wider uppercase"
+						>
+							{$t('settings.devices.sections.active')} ({activeDevices.length})
 						</div>
-
-						<div class="card-body p-4">
-							<!-- Device Icon -->
-							<div class="mb-3 flex justify-center">
-								<div class="bg-primary/10 rounded-full p-3">
-									<svg
-										xmlns="http://www.w3.org/2000/svg"
-										class="text-primary h-8 w-8"
-										fill="none"
-										viewBox="0 0 24 24"
-										stroke="currentColor"
-									>
-										{@html getDeviceIcon(device.platform)}
-									</svg>
-								</div>
+						{#each activeDevices as device (device.id)}
+							<div class="hover:bg-base-200/50 rounded-lg px-3 py-2 transition-colors">
+								{@render deviceRow(device)}
 							</div>
+						{/each}
+					</div>
+				{/if}
 
-							<!-- Device Name -->
-							<h5 class="mb-1 text-center text-base font-semibold">
-								{getDeviceDisplayName(device)}
-							</h5>
-
-							<!-- Platform -->
-							<p class="text-base-content/60 mb-2 text-center text-sm">
-								{getDevicePlatformName(device.platform)}
-							</p>
-
-							<!-- Last Used -->
-							<p class="text-base-content/70 mb-4 text-center text-sm">
-								{$t('settings.devices.lastUsed.label')}: {formatLastUsed(device.lastUsedAt)}
-							</p>
-
-							<!-- Revoke Button -->
-							<div class="card-actions justify-center">
-								<button
-									class="btn btn-error btn-outline btn-sm"
-									onclick={() => openRevokeModal(device)}
-									disabled={device.currentDevice}
-									title={device.currentDevice
-										? $t('settings.devices.cannotRevokeCurrentDevice')
-										: $t('settings.devices.revokeDevice')}
+				<!-- Inactive Devices (Collapsed) -->
+				{#if inactiveDevices.length > 0}
+					<div class="pt-2">
+						<div class="collapse-arrow collapse rounded-lg" class:collapse-open={inactiveExpanded}>
+							<button
+								type="button"
+								class="collapse-title flex items-center gap-2 px-3 py-3 text-sm font-medium"
+								onclick={() => (inactiveExpanded = !inactiveExpanded)}
+							>
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									class="text-base-content/40 h-4 w-4"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke="currentColor"
 								>
-									<svg
-										xmlns="http://www.w3.org/2000/svg"
-										class="h-4 w-4"
-										fill="none"
-										viewBox="0 0 24 24"
-										stroke="currentColor"
-									>
-										<path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											stroke-width="2"
-											d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-										/>
-									</svg>
-									{$t('settings.devices.revoke')}
-								</button>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+									/>
+								</svg>
+								<span>{$t('settings.devices.sections.inactive')}</span>
+								<span class="badge badge-outline badge-sm ml-1">{inactiveDevices.length}</span>
+							</button>
+							<div class="collapse-content px-0 pb-0">
+								{#each inactiveDevices as device (device.id)}
+									<div class="hover:bg-base-200/50 rounded-lg px-3 py-2 transition-colors">
+										{@render deviceRow(device)}
+									</div>
+								{/each}
 							</div>
 						</div>
 					</div>
-				{/each}
+				{/if}
 			</div>
 		{/if}
 
 		<!-- Refresh Button -->
 		<div class="mt-6 flex justify-center">
-			<button class="btn btn-outline" onclick={loadDevices} disabled={loading}>
+			<button class="btn btn-outline btn-sm" onclick={loadDevices} disabled={loading}>
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
-					class="h-5 w-5"
+					class="h-4 w-4"
 					fill="none"
 					viewBox="0 0 24 24"
 					stroke="currentColor"
@@ -347,6 +353,90 @@
 		</div>
 	</div>
 </div>
+
+<!-- Device Row Snippet -->
+{#snippet deviceRow(device: UserDevice)}
+	<div class="flex items-center gap-3">
+		<!-- Platform Icon -->
+		<div
+			class="bg-primary/10 text-primary flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
+		>
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				class="h-5 w-5"
+				fill="none"
+				viewBox="0 0 24 24"
+				stroke="currentColor"
+			>
+				<!-- eslint-disable-next-line svelte/no-at-html-tags -->
+				{@html getDeviceIcon(device.platform)}
+			</svg>
+		</div>
+
+		<!-- Device Info -->
+		<div class="min-w-0 flex-1">
+			<div class="flex items-center gap-2">
+				<span class="truncate text-sm font-semibold">
+					{getDeviceDisplayName(device)}
+				</span>
+				{#if device.currentDevice}
+					<span class="badge badge-primary badge-xs shrink-0"
+						>{$t('settings.devices.currentDevice')}</span
+					>
+				{/if}
+			</div>
+			<div class="text-base-content/60 text-xs">
+				{getDevicePlatformName(device.platform)}
+				<span class="mx-1 opacity-50">&middot;</span>
+				{$t('settings.devices.lastUsed.label')}: {formatLastUsed(device.lastUsedAt)}
+			</div>
+		</div>
+
+		<!-- Status Dot -->
+		<div
+			class="shrink-0"
+			title={device.isActive
+				? $t('settings.devices.status.active')
+				: $t('settings.devices.status.inactive')}
+		>
+			{#if device.isActive}
+				<span class="relative flex size-2.5">
+					<span
+						class="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75"
+					></span>
+					<span class="relative inline-flex size-2.5 rounded-full bg-green-500"></span>
+				</span>
+			{:else}
+				<div class="size-2.5 rounded-full bg-red-500/60"></div>
+			{/if}
+		</div>
+
+		<!-- Revoke Button -->
+		<button
+			class="btn btn-ghost btn-xs text-base-content/40 hover:text-error shrink-0"
+			onclick={() => openRevokeModal(device)}
+			disabled={device.currentDevice}
+			title={device.currentDevice
+				? $t('settings.devices.cannotRevokeCurrentDevice')
+				: $t('settings.devices.revokeDevice')}
+		>
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				class="h-4 w-4"
+				fill="none"
+				viewBox="0 0 24 24"
+				stroke="currentColor"
+			>
+				<path
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					stroke-width="2"
+					d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+				/>
+			</svg>
+		</button>
+	</div>
+{/snippet}
 
 <!-- Revoke Device Confirmation Modal -->
 <Modal
@@ -378,9 +468,8 @@
 		</h3>
 
 		{#if deviceToRevoke}
-			<p class="mb-4">
-				{$t('settings.devices.revokeModal.confirmMessage')}
-				{getDeviceDisplayName(deviceToRevoke)}
+			<p class="text-base-content/70 mb-4 text-sm">
+				{$t('settings.devices.revokeModal.warning')}
 			</p>
 
 			<div class="bg-base-200 mb-4 rounded-lg p-4">
@@ -392,6 +481,7 @@
 						viewBox="0 0 24 24"
 						stroke="currentColor"
 					>
+						<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 						{@html getDeviceIcon(deviceToRevoke.platform)}
 					</svg>
 					<span class="font-semibold">
@@ -403,10 +493,6 @@
 				</p>
 			</div>
 		{/if}
-
-		<p class="text-base-content/70 mb-6 text-sm">
-			{$t('settings.devices.revokeModal.warning')}
-		</p>
 
 		{#if revokeError}
 			<div class="alert alert-error alert-outline mb-4">
@@ -428,28 +514,15 @@
 		{/if}
 	</div>
 
-	<button class="btn btn-outline" onclick={closeRevokeModal} disabled={revokeLoading}>
-		{$t('common.cancel')}
-	</button>
-	<button class="btn btn-error" onclick={confirmRevokeDevice} disabled={revokeLoading}>
-		{#if revokeLoading}
-			<span class="loading loading-spinner loading-sm"></span>
-		{:else}
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				class="h-5 w-5"
-				fill="none"
-				viewBox="0 0 24 24"
-				stroke="currentColor"
-			>
-				<path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					stroke-width="2"
-					d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-				/>
-			</svg>
-		{/if}
-		{$t('settings.devices.revokeModal.confirm')}
-	</button>
+	<div class="flex gap-3">
+		<button class="btn btn-outline flex-1" onclick={closeRevokeModal} disabled={revokeLoading}>
+			{$t('common.cancel')}
+		</button>
+		<button class="btn btn-error flex-1" onclick={confirmRevokeDevice} disabled={revokeLoading}>
+			{#if revokeLoading}
+				<span class="loading loading-spinner loading-sm"></span>
+			{/if}
+			{$t('settings.devices.revokeModal.confirm')}
+		</button>
+	</div>
 </Modal>
