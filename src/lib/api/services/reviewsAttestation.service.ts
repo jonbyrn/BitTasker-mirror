@@ -76,4 +76,6 @@ export class ReviewsAttestationClient {
 	}
 }
 
-export const reviewsAttestationClient = new ReviewsAttestationClient('http://localhost:8788');
+export const reviewsAttestationClient = new ReviewsAttestationClient(
+	import.meta.env.VITE_REVIEWS_ATTESTATION_API_URL
+);
