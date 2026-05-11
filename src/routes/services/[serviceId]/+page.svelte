@@ -157,7 +157,7 @@
 
 		<!-- Main Content - mismas dimensiones que Mi Panel -->
 		<div class="min-h-0 w-full flex-1 overflow-hidden">
-			<div class="mx-auto h-full max-w-6xl py-6 md:px-0 md:py-0">
+			<div class="mx-auto h-full py-6 md:px-0 md:py-0">
 				<ServiceDetailsView
 					service={data.service ?? null}
 					serviceId={data.serviceId ?? serviceId}

@@ -53,7 +53,7 @@
 					"tiered": "Precios por Niveles",
 					"inquiry_required": "Consultar",
 					"request_quote": "Consultar",
-					"from_price": "Desde $X",
+					"from_price": "Desde",
 					"not_set": "Precio no establecido"
 				},
 				"filters": {

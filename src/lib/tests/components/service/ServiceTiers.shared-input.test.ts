@@ -173,18 +173,19 @@ describe('ServiceTiers shared usd/sats input integration', () => {
 		});
 
 		const toggleButtons = getAllByTitle('dashboard.services.create.tiers.toggle_popular');
-		expect(toggleButtons[0].className).toContain('opacity-40');
+		expect(toggleButtons[0].className).toContain('text-base-content/40');
 		expect(toggleButtons[0]).toHaveAttribute('aria-pressed', 'false');
-		expect(toggleButtons[1].className).toContain('opacity-100');
+		expect(toggleButtons[1].className).toContain('text-primary');
 		expect(toggleButtons[1]).toHaveAttribute('aria-pressed', 'true');
 
 		await fireEvent.click(toggleButtons[0]);
 
 		expect(readPopularTierIds()).toEqual(['tier-basic']);
 
+		// Clicking the already-popular tier does nothing (must always have one popular)
 		await fireEvent.click(getAllByTitle('dashboard.services.create.tiers.toggle_popular')[0]);
 
-		expect(readPopularTierIds()).toEqual([]);
+		expect(readPopularTierIds()).toEqual(['tier-basic']);
 	});
 
 	it('uses single-value delivery and rush delivery controls', async () => {
@@ -201,15 +202,13 @@ describe('ServiceTiers shared usd/sats input integration', () => {
 		);
 
 		expect(document.getElementById('delivery-value-tier-basic')).toBeTruthy();
-		expect(document.getElementById('delivery-unit-tier-basic')).toBeTruthy();
-		expect(document.getElementById('delivery-value-tier-basic')?.parentElement?.parentElement).toBe(
-			document.getElementById('delivery-unit-tier-basic')?.parentElement?.parentElement
-		);
+		// Unit is now a daisyUI dropdown button, not a native select
+		expect(container.querySelector('.dropdown button')).toBeTruthy();
 		expect(document.getElementById('delivery-min-tier-basic')).toBeNull();
 		expect(document.getElementById('delivery-max-tier-basic')).toBeNull();
 		expect(container.textContent).not.toContain('dashboard.services.create.tiers.delivery_display');
 
-		await fireEvent.change(
+		await fireEvent.input(
 			document.getElementById('delivery-value-tier-basic') as HTMLInputElement,
 			{
 				target: { value: '7' }
@@ -231,10 +230,8 @@ describe('ServiceTiers shared usd/sats input integration', () => {
 		);
 
 		expect(document.getElementById('rush-value-tier-basic')).toBeTruthy();
-		expect(document.getElementById('rush-unit-tier-basic')).toBeTruthy();
-		expect(document.getElementById('rush-value-tier-basic')?.parentElement?.parentElement).toBe(
-			document.getElementById('rush-unit-tier-basic')?.parentElement?.parentElement
-		);
+		// Unit is now a daisyUI dropdown button, not a native select
+		expect(container.querySelectorAll('.dropdown button').length).toBeGreaterThanOrEqual(2);
 		expect(document.getElementById('rush-min-tier-basic')).toBeNull();
 		expect(document.getElementById('rush-max-tier-basic')).toBeNull();
 		expect(container.textContent).not.toContain('dashboard.services.create.tiers.delivery_display');

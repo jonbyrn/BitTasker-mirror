@@ -44,8 +44,16 @@
 	const statusBadge = $derived(getStatusBadge(task.status));
 	const isSelected = $derived(selectedTask && getTaskId(selectedTask) === getTaskId(task));
 	const isOpen = $derived(task.status === TaskStatusEnum.OPEN);
+	const isDeadlineExpired = $derived(() => {
+		if (!task?.deadline) return false;
+		const deadlineDate = new Date(task.deadline);
+		const now = new Date();
+		return now.toISOString().split('T')[0] > deadlineDate.toISOString().split('T')[0];
+	});
 	const canBid = $derived(isOpen && !hasBid);
+	const showExpiredWarning = $derived(isDeadlineExpired() && isOpen);
 	const taskId = $derived(getTaskId(task));
+	let resolvedCreatorName = $state<string | null>(null);
 </script>
 
 <div
@@ -73,72 +81,99 @@
 		}
 	}}
 >
-	<div class="card-body rounded-xl p-4 md:p-4">
-		<!-- Top Row: Title + Status Badge + Price -->
-		<div class="mb-3 flex flex-row items-stretch justify-between gap-2">
-			<!-- Left: Title (flexible, takes available space) -->
-			<div class="min-w-0 flex-1 pr-2 md:pr-4">
+	<div class="card-body flex flex-col gap-2 rounded-xl p-4 md:p-4">
+		<!-- Row 1: Title (left, top-aligned) | Share + ActionsMenu (right) -->
+		<div class="flex items-start justify-between gap-2">
+			<div class="min-w-0 flex-1">
 				<TranslatableTask
 					{task}
-					showDescription={true}
-					showDescriptionToggle={false}
-					descriptionClass="text-sm text-base-content/80 whitespace-pre-line line-clamp-2"
+					showDescription={false}
 					titleClass="card-title line-clamp-2 text-lg font-semibold"
 				/>
 			</div>
-			<!-- Right: Status Badge + Share Button + Price (aligned right) -->
-			<div class="flex shrink-0 flex-col items-end gap-2">
-				<div class="flex items-center gap-2">
-					<div class="badge {statusBadge.color} badge-sm max-w-[100px] truncate text-center">
-						{$t(`common.status.${task.status.toLowerCase()}`) || statusBadge.text}
-					</div>
-					<span
-						role="presentation"
-						class="ml-2 flex shrink-0 items-center gap-1"
-						onclick={(e) => e.stopPropagation()}
-						onkeydown={(e) => {
-							if (e.key === 'Enter' || e.key === ' ') {
-								e.stopPropagation();
-							}
-						}}
-					>
-						<TaskShareButton {task} variant="circle" class="btn-xs" />
-						{#if $authState.isAuthenticated && task.npub}
-							<ActionsMenu
-								contentType="task"
-								reportedPubkey={task.npub}
-								reportedEventId={taskId}
-								username={task.creator?.username}
-								{onMuted}
-							/>
-						{/if}
-					</span>
-				</div>
-				<div class="text-right">
-					<UsdSatsDisplay amount={task.budget.amount} {btcPrice} />
-				</div>
+			<span
+				role="presentation"
+				class="flex shrink-0 items-center gap-1"
+				onclick={(e) => e.stopPropagation()}
+				onkeydown={(e) => {
+					if (e.key === 'Enter' || e.key === ' ') {
+						e.stopPropagation();
+					}
+				}}
+			>
+				<TaskShareButton {task} variant="circle" class="btn-xs" />
+				{#if $authState.isAuthenticated && task.npub}
+					<ActionsMenu
+						contentType="task"
+						reportedPubkey={task.npub}
+						reportedEventId={taskId}
+						username={resolvedCreatorName}
+						{onMuted}
+					/>
+				{/if}
+			</span>
+		</div>
+
+		<!-- Row 2: Description + Price (same row, aligned top) -->
+		<div class="flex items-start justify-between gap-4">
+			<div class="min-w-0 flex-1">
+				<TranslatableTask
+					{task}
+					showTitle={false}
+					showDescription={true}
+					showDescriptionToggle={false}
+					descriptionClass="text-sm text-base-content/80 whitespace-pre-line line-clamp-3"
+				/>
+			</div>
+			<div class="shrink-0 text-right">
+				<UsdSatsDisplay amount={task.budget.amount} {btcPrice} />
 			</div>
 		</div>
 
-		<!-- Second Row: Deadline + Location -->
-		<div class="mb-3 flex flex-col gap-3">
-			<!-- Deadline -->
-			<TaskDeadlineDisplay
-				deadline={task.deadline}
-				dateRangeStart={task.dateRange?.start}
-				dateRangeEnd={task.dateRange?.end}
-			/>
+		<!-- Row 3: Deadline (left) | Badge (right) -->
+		<div class="flex items-center justify-between gap-3">
+			<div class="flex items-center gap-2">
+				<TaskDeadlineDisplay
+					deadline={task.deadline}
+					dateRangeStart={task.dateRange?.start}
+					dateRangeEnd={task.dateRange?.end}
+					showYear={false}
+				/>
+				{#if showExpiredWarning}
+					<span class="badge badge-warning badge-xs gap-1">
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="h-3 w-3"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+							/>
+						</svg>
+						{$t('dashboard.task_details_by_task.deadline_expired')}
+					</span>
+				{/if}
+			</div>
+			<div class="badge {statusBadge.color} badge-sm shrink-0 truncate">
+				{$t(`common.status.${task.status.toLowerCase()}`) || statusBadge.text}
+			</div>
+		</div>
 
-			<!-- Location -->
+		<!-- Row 4: Location -->
+		<div>
 			<TaskLocationDisplay
 				dropOffLocation={task.dropOffLocation}
 				pickupLocation={task.pickupLocation}
 			/>
 		</div>
 
-		<!-- Bottom Row: Avatar + Action Buttons -->
+		<!-- Row 5: Creator info + Action Buttons -->
 		<div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-			<!-- Left: Avatar, Username, Review Stars -->
 			<div class="flex min-w-0 flex-1 items-center gap-3">
 				<UserInfoDisplay
 					avatar={task.creator?.avatar}
@@ -147,10 +182,9 @@
 					size="md"
 					pubkey={task.npub}
 					memberSince={task.createdAt}
+					onResolvedName={(name) => (resolvedCreatorName = name)}
 				/>
 			</div>
-
-			<!-- Right: Action Buttons -->
 			<div class="flex w-full shrink-0 items-center gap-2 md:w-auto">
 				<button
 					class="btn btn-primary btn-sm flex-1 md:flex-none"
@@ -170,7 +204,6 @@
 						? $t('dashboard.find_tasks.bid_sent') || 'Bid sent'
 						: $t('dashboard.find_tasks.sign_up_to_bid') || 'Bid'}
 				</button>
-
 				<button
 					class="btn btn-secondary btn-sm flex-1 md:flex-none"
 					onclick={async (e) => {

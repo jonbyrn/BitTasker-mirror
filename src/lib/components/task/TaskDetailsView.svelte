@@ -628,8 +628,8 @@
 						<div class="bg-base-100 sticky top-6 rounded-2xl p-6 shadow-sm">
 							<!-- Action buttons -->
 							<div>
-								{#if isDeadlineExpired()}
-									<div class="alert alert-error alert-outline">
+								{#if isDeadlineExpired() && task.status === TaskStatusEnum.OPEN}
+									<div class="alert alert-warning alert-outline">
 										<IconAlertCircle class="h-6 w-6 shrink-0" />
 										<div>
 											<span class="font-bold"
@@ -640,7 +640,8 @@
 											</div>
 										</div>
 									</div>
-								{:else if task.status === TaskStatusEnum.OPEN && !isOwner && $authState.isAuthenticated}
+								{/if}
+								{#if task.status === TaskStatusEnum.OPEN && !isOwner && $authState.isAuthenticated}
 									<div class="mb-6">
 										<h4 class="mb-4">{$t('dashboard.task_details_by_task.interested_in_task')}</h4>
 										<button class="btn btn-primary btn-sm w-full" onclick={handleBidNow}>

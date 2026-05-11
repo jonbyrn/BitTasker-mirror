@@ -3,7 +3,7 @@
 		"title": "Configuración",
 		"subtitle": "Gestiona la configuración de tu cuenta e identidad Nostr",
 		"nostr": {
-			"title": "Identidad Nostr",
+			"title": "Información de Acceso",
 			"description": "Tu identidad descentralizada en la red Nostr. ¡Mantén tu clave privada segura!",
 			"publicKey-label": "Clave Pública Nostr",
 			"publicKey": {
@@ -16,6 +16,8 @@
 				"managed": "Clave privada gestionada por la extensión Alby"
 			},
 			"qrCode": {
+				"title": "Código QR de Acceso",
+				"description": "Escanea este código QR en otro dispositivo para iniciar sesión.",
 				"generate": "Generar Código QR",
 				"generating": "Generando Código QR...",
 				"show": "Mostrar Código QR"
@@ -36,7 +38,7 @@
 			"password": {
 				"placeholder": "Crea una contraseña de recuperación fuerte"
 			},
-			"confirmPassword-label": "Confirmar Contraseña de Recuperación",
+			"confirmPassword-label": "Confirmar Contraseña",
 			"confirmPassword": {
 				"placeholder": "Confirma tu contraseña de recuperación"
 			},
@@ -54,7 +56,7 @@
 				"numbers": "Números",
 				"special": "Caracteres especiales"
 			},
-			"setup": "Configurar Recuperación de Cuenta",
+			"setup": "Configurar",
 			"setting": "Configurando recuperación...",
 			"success": "¡La recuperación de cuenta se ha configurado exitosamente!",
 			"notice": {
@@ -153,14 +155,26 @@
 			},
 			"error": {
 				"loadFailed": "Error al cargar dispositivos. Por favor intenta de nuevo.",
-				"revokeFailed": "Error al revocar el acceso del dispositivo. Por favor intenta de nuevo."
+				"revokeFailed": "Error al revocar el acceso del dispositivo. Por favor intenta de nuevo.",
+				"revokeAllFailed": "Error al revocar todos los dispositivos. Por favor intenta de nuevo."
 			},
 			"revokeModal": {
 				"title": "Revocar Acceso del Dispositivo",
 				"confirmTitle": "¿Estás seguro?",
 				"confirmMessage": "Esto revocará permanentemente el acceso para \"{deviceName}\".",
 				"warning": "Este dispositivo ya no podrá acceder a tu cuenta y necesitará re-autenticarse.",
-				"confirm": "Revocar Acceso"
+				"confirm": "Revocar"
+			},
+			"revokeAll": "Revocar Todos los Demás Dispositivos",
+			"revokeAllModal": {
+				"title": "Revocar Todos los Demás Dispositivos",
+				"confirmTitle": "¿Estás seguro?",
+				"warning": "Esto revocará el acceso para {count} otro(s) dispositivo(s). Ya no podrán acceder a tu cuenta y necesitarán re-autenticarse.",
+				"confirm": "Revocar Todos"
+			},
+			"sections": {
+				"active": "Dispositivos Activos",
+				"inactive": "Dispositivos Inactivos"
 			}
 		},
 		"muted_users": {

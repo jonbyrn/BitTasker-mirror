@@ -98,14 +98,16 @@
 							aria-label={addOn.name}
 						/>
 						<div class="min-w-0 flex-1">
-							<span class="font-medium">{addOn.name}</span>
+							<div class="flex items-center justify-between gap-2">
+								<span class="line-clamp-2 font-medium">{addOn.name}</span>
+								<span class="shrink-0 font-semibold"
+									>+${formatNumberWithTwoDecimals(addOn.price ?? 0)}</span
+								>
+							</div>
 							{#if addOn.description}
-								<p class="text-base-content/70 mt-0.5 text-xs">{addOn.description}</p>
+								<p class="text-base-content/70 mt-0.5 line-clamp-4 text-xs">{addOn.description}</p>
 							{/if}
 						</div>
-						<span class="shrink-0 text-sm font-semibold"
-							>+${formatNumberWithTwoDecimals(addOn.price ?? 0)}</span
-						>
 					</label>
 				{/each}
 			</div>

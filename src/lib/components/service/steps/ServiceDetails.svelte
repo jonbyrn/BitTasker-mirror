@@ -18,13 +18,17 @@
 >
 	<div class="w-full">
 		<label for="extendedDescription" class="label">
-			<span class="label-text-alt">{$t('dashboard.services.create.details.extended_description_hint')}</span>
+			<span class="label-text-alt"
+				>{$t('dashboard.services.create.details.extended_description_hint')}</span
+			>
 		</label>
 		<textarea
 			id="extendedDescription"
 			value={$store.service.description || ''}
-			onchange={(e) => store.updateService({ description: (e.target as HTMLTextAreaElement).value })}
-			class="textarea textarea-bordered w-full rounded-lg {errors.description ? 'textarea-error' : ''}"
+			oninput={(e) => store.updateService({ description: (e.target as HTMLTextAreaElement).value })}
+			class="textarea textarea-bordered w-full rounded-lg {errors.description
+				? 'textarea-error'
+				: ''}"
 			placeholder={$t('dashboard.services.create.details.extended_description_placeholder')}
 			rows="8"
 			maxlength="10000"
@@ -39,4 +43,3 @@
 		{/if}
 	</div>
 </div>
-

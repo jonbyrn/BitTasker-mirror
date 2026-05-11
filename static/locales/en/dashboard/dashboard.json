@@ -257,7 +257,7 @@
 			"login_to_bid": "Please log in to bid on this task",
 			"login": "Login",
 			"deadline_expired": "Deadline Expired",
-			"deadline_expired_message": "This task's deadline has passed and is no longer accepting bids.",
+			"deadline_expired_message": "This task's deadline has passed but the task is still open for bidding.",
 			"amount": "Amount",
 			"edit_task_confirmation": {
 				"title": "Edit Task Confirmation",

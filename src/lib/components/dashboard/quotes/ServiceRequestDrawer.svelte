@@ -3,8 +3,7 @@
 	import type { ServiceQuoteTimelineEntry } from '$lib/types/service-quote';
 	import Drawer from '$lib/components/Drawer.svelte';
 	import ServiceTab from '$lib/components/service/ServiceTab.svelte';
-	import { getServiceDisplayTitle } from '$lib/utils/serviceDisplayTranslation';
-	import { resolveServiceTierLabel } from '$lib/utils/service-quote/tier-label';
+	import type { ServiceTier } from '$lib/types/service';
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { formatStandardDateTimeShort } from '$lib/utils/helpers/dateFormatter';
 	import { normalizeServiceContractSchedule } from '$lib/utils/service-contract/schedule';
@@ -57,7 +56,7 @@
 		onClose: () => void;
 	}>();
 
-	let inquiryDescriptionExpanded = $state(false);
+	let _inquiryDescriptionExpanded = $state(false);
 
 	function tr(key: string, fallback: string): string {
 		try {
@@ -118,14 +117,15 @@
 	);
 
 	/** ~2 lines on mobile; show toggle when likely to overflow */
-	const inquiryNeedsToggle = $derived(inquiryDescriptionText.length > 100);
+	const _inquiryNeedsToggle = $derived(inquiryDescriptionText.length > 100);
 
 	const customFormEntries = $derived.by(() =>
 		Object.entries(timeline?.request.content.inquiry.customFormResponses ?? {})
 	);
 	const latestProposal = $derived(timeline?.latestProposal ?? null);
-	const selectedTierLabel = $derived(
-		resolveServiceTierLabel(service, timeline?.request.content.tierId)
+	const tierId = $derived(timeline?.request.content.tierId);
+	const selectedTier = $derived(
+		service?.pricing?.tiers?.find((t: ServiceTier) => t.id === tierId) ?? null
 	);
 	const normalizedSchedule = $derived.by(() =>
 		normalizeServiceContractSchedule(
@@ -341,13 +341,22 @@
 						{/if}
 					</div>
 
-					{#if selectedTierLabel || timeline.request.content.selectedAddOns?.length || timeline.request.content.rushDelivery}
-						<div class="flex flex-wrap gap-2 text-xs">
-							{#if selectedTierLabel}
-								<span class="badge badge-outline badge-sm">
-									{tr('dashboard.service_requests.selected_tier', 'Tier')}:
-									{selectedTierLabel}
-								</span>
+					{#if tierId || timeline.request.content.selectedAddOns?.length || timeline.request.content.rushDelivery}
+						<div class="flex flex-wrap items-center gap-2 text-xs">
+							{#if tierId}
+								<div class="bg-primary/5 border-primary/20 rounded-lg border px-3 py-1.5">
+									{#if !service}
+										<span class="loading loading-spinner loading-xs text-primary"></span>
+									{:else if selectedTier}
+										<span class="text-sm font-semibold">{selectedTier.name}</span>
+										<span class="text-base-content/40 mx-1.5">&middot;</span>
+										<span class="text-primary text-sm font-bold">${selectedTier.price}</span>
+									{:else}
+										<span class="text-base-content/60"
+											>{tr('dashboard.service_requests.selected_tier', 'Tier')}</span
+										>
+									{/if}
+								</div>
 							{/if}
 							{#if timeline.request.content.selectedAddOns?.length}
 								<span class="badge badge-outline badge-sm">
