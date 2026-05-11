@@ -89,6 +89,90 @@
 
 	const cells = $derived(getMonthGridCells(viewYear, viewMonth));
 
+	const weeks = $derived.by(() => {
+		const result: (number | null)[][] = [];
+		for (let i = 0; i < cells.length; i += 7) {
+			result.push(cells.slice(i, i + 7));
+		}
+		return result;
+	});
+
+	const fullWeekdayLabels = $derived.by(() => {
+		const fmt = new Intl.DateTimeFormat($locale || 'en', { weekday: 'long' });
+		return Array.from({ length: 7 }, (_, i) => {
+			const day = new Date(2024, 6, 7 + i);
+			return fmt.format(day);
+		});
+	});
+
+	function isToday(day: number): boolean {
+		const today = new Date();
+		return (
+			today.getFullYear() === viewYear && today.getMonth() === viewMonth && today.getDate() === day
+		);
+	}
+
+	function handleGridKeydown(e: KeyboardEvent) {
+		const grid = e.currentTarget as HTMLElement;
+		const currentButton = document.activeElement as HTMLButtonElement | null;
+		if (!currentButton || !grid.contains(currentButton)) return;
+
+		const currentIdx = parseInt(currentButton.dataset.idx ?? '-1', 10);
+		if (currentIdx === -1 || isNaN(currentIdx)) return;
+
+		const ARROW_KEYS = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'];
+		if (!ARROW_KEYS.includes(e.key)) return;
+		e.preventDefault();
+
+		let targetIdx = currentIdx;
+
+		switch (e.key) {
+			case 'ArrowLeft':
+				targetIdx = currentIdx - 1;
+				break;
+			case 'ArrowRight':
+				targetIdx = currentIdx + 1;
+				break;
+			case 'ArrowUp':
+				targetIdx = currentIdx - 7;
+				break;
+			case 'ArrowDown':
+				targetIdx = currentIdx + 7;
+				break;
+			case 'Home': {
+				const first = cells.findIndex((c) => c !== null);
+				targetIdx = first >= 0 ? first : 0;
+				break;
+			}
+			case 'End': {
+				let last = cells.length - 1;
+				while (last >= 0 && cells[last] === null) last--;
+				targetIdx = last >= 0 ? last : cells.length - 1;
+				break;
+			}
+		}
+
+		targetIdx = Math.max(0, Math.min(cells.length - 1, targetIdx));
+
+		const tryFocus = (idx: number): boolean => {
+			const btn = grid.querySelector(`button[data-idx="${idx}"]`) as HTMLButtonElement | null;
+			if (btn && !btn.disabled) {
+				btn.focus();
+				return true;
+			}
+			return false;
+		};
+
+		if (tryFocus(targetIdx)) return;
+
+		const step = e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 1;
+		let searchIdx = targetIdx + step;
+		while (searchIdx >= 0 && searchIdx < cells.length) {
+			if (tryFocus(searchIdx)) return;
+			searchIdx += step;
+		}
+	}
+
 	function prevMonth() {
 		if (viewMonth === 0) {
 			viewMonth = 11;
@@ -193,29 +277,46 @@
 			</div>
 
 			<div class="px-3 pt-3">
-				<div class="text-base-content/60 grid grid-cols-7 gap-1 text-center text-xs font-medium">
-					{#each weekdayLabels as wd, wi (wi)}
-						<span>{wd}</span>
-					{/each}
-				</div>
-				<div class="mt-2 grid grid-cols-7 gap-1 pb-2">
-					{#each cells as cell, ci (ci)}
-						{#if cell === null}
-							<div class="aspect-square"></div>
-						{:else}
-							{@const disabled = isCalendarDayDisabled(cell, viewYear, viewMonth, minDate, maxDate)}
-							{@const selected = isSelectedDay(cell)}
-							<button
-								type="button"
-								class="btn btn-sm aspect-square min-h-9 border-0 p-0 font-normal {selected
-									? 'btn-primary text-primary-content'
-									: ''} {disabled ? 'opacity-30' : 'hover:bg-base-200'}"
-								{disabled}
-								onclick={() => selectDay(cell)}
-							>
-								{cell}
-							</button>
-						{/if}
+				<div role="grid" tabindex="0" class="pb-2 outline-none" onkeydown={handleGridKeydown}>
+					<div
+						role="row"
+						class="text-base-content/60 grid grid-cols-7 gap-1 text-center text-xs font-medium"
+					>
+						{#each weekdayLabels as wd, wi (wi)}
+							<span role="columnheader" aria-label={fullWeekdayLabels[wi]}>{wd}</span>
+						{/each}
+					</div>
+					{#each weeks as week, wi (wi)}
+						<div role="row" class="grid grid-cols-7 gap-1 {wi === 0 ? 'mt-2' : 'mt-1'}">
+							{#each week as cell, ci (wi * 7 + ci)}
+								{#if cell === null}
+									<div role="gridcell" class="aspect-square"></div>
+								{:else}
+									{@const disabled = isCalendarDayDisabled(
+										cell,
+										viewYear,
+										viewMonth,
+										minDate,
+										maxDate
+									)}
+									{@const selected = isSelectedDay(cell)}
+									<button
+										type="button"
+										role="gridcell"
+										class="btn btn-sm aspect-square min-h-9 border-0 p-0 font-normal {selected
+											? 'btn-primary text-primary-content'
+											: ''} {disabled ? 'opacity-30' : 'hover:bg-base-200'}"
+										{disabled}
+										data-idx={wi * 7 + ci}
+										aria-selected={selected || undefined}
+										aria-current={isToday(cell) ? 'date' : undefined}
+										onclick={() => selectDay(cell)}
+									>
+										{cell}
+									</button>
+								{/if}
+							{/each}
+						</div>
 					{/each}
 				</div>
 			</div>

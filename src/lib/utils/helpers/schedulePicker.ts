@@ -167,8 +167,13 @@ export function snapLocalWallClockCeilToMinutesStep(date: Date, stepMinutes: num
 	d.setSeconds(0, 0);
 	const step = Math.max(1, Math.min(60, Math.floor(stepMinutes)));
 	const stepMs = step * 60 * 1000;
-	const dayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
-	const msFromDayStart = d.getTime() - dayStart;
+	// Use wall-clock time components directly to avoid DST offset skew
+	// between the UTC epoch and local midnight on transition days.
+	const msFromDayStart =
+		d.getHours() * 3_600_000 +
+		d.getMinutes() * 60_000 +
+		d.getSeconds() * 1_000 +
+		d.getMilliseconds();
 	const remainder = msFromDayStart % stepMs;
 	if (remainder === 0) {
 		return d;
