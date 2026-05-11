@@ -2,10 +2,9 @@
 	import ErrorAlertWithModal from '$lib/components/ErrorAlertWithModal.svelte';
 	import { detectErrorType } from '$lib/utils/helpers/errorTypeDetector';
 	import { t } from 'svelte-i18n';
-	import {
-		hasRequiredTrimmedText,
-		validateDateTimeRange
-	} from '$lib/components/forms/FormValidationCore';
+	import { hasRequiredTrimmedText } from '$lib/components/forms/FormValidationCore';
+	import SchedulePeriodPicker from '$lib/components/date/SchedulePeriodPicker.svelte';
+	import { toUnixSeconds } from '$lib/utils/helpers/dateFormatter';
 
 	export interface ServiceProposalComposerSubmitPayload {
 		description: string;
@@ -35,8 +34,8 @@
 
 	let description = $state('');
 	let amountUsdt = $state('');
-	let startDateTime = $state('');
-	let endDateTime = $state('');
+	let startDateTime = $state<Date | null>(null);
+	let endDateTime = $state<Date | null>(null);
 	let expirationDays = $state(3);
 	let expirationHours = $state(0);
 	let coverLetter = $state('');
@@ -58,8 +57,8 @@
 	function resetForm() {
 		description = '';
 		amountUsdt = '';
-		startDateTime = '';
-		endDateTime = '';
+		startDateTime = null;
+		endDateTime = null;
 		expirationDays = 3;
 		expirationHours = 0;
 		coverLetter = '';
@@ -109,24 +108,30 @@
 			return;
 		}
 
-		const timeWindow = validateDateTimeRange(startDateTime, endDateTime);
-		if (!timeWindow.ok) {
-			if (timeWindow.errorCode === 'missing') {
-				errorMessage = tr(
-					'dashboard.services.my_services.quote_inbox.composer.errors.missing_schedule',
-					'Start and end time are required.'
-				);
-			} else if (timeWindow.errorCode === 'invalid') {
-				errorMessage = tr(
-					'dashboard.services.my_services.quote_inbox.composer.errors.invalid_schedule',
-					'Provide valid start and end times.'
-				);
-			} else {
-				errorMessage = tr(
-					'dashboard.services.my_services.quote_inbox.composer.errors.end_before_start',
-					'End time must be after start time.'
-				);
-			}
+		if (!startDateTime || !endDateTime) {
+			errorMessage = tr(
+				'dashboard.services.my_services.quote_inbox.composer.errors.missing_schedule',
+				'Start and end time are required.'
+			);
+			return;
+		}
+
+		const startSeconds = toUnixSeconds(startDateTime);
+		const endSeconds = toUnixSeconds(endDateTime);
+
+		if (!startSeconds || !endSeconds) {
+			errorMessage = tr(
+				'dashboard.services.my_services.quote_inbox.composer.errors.invalid_schedule',
+				'Provide valid start and end times.'
+			);
+			return;
+		}
+
+		if (endSeconds <= startSeconds) {
+			errorMessage = tr(
+				'dashboard.services.my_services.quote_inbox.composer.errors.end_before_start',
+				'End time must be after start time.'
+			);
 			return;
 		}
 
@@ -137,9 +142,9 @@
 			const result = await onSubmit({
 				description: description.trim(),
 				amountUsdt: amountUsdt.trim(),
-				estimatedDuration: formatEstimatedDuration(timeWindow.startTime, timeWindow.endTime),
-				estimatedStartTime: timeWindow.startTime,
-				estimatedEndTime: timeWindow.endTime,
+				estimatedDuration: formatEstimatedDuration(startSeconds, endSeconds),
+				estimatedStartTime: startSeconds,
+				estimatedEndTime: endSeconds,
 				expirationDays,
 				expirationHours,
 				coverLetter: coverLetter.trim() || undefined
@@ -209,19 +214,20 @@
 			/>
 		</label>
 
-		<label class="form-control">
-			<span class="label-text mb-1 text-sm font-medium">
-				{tr('dashboard.services.my_services.quote_inbox.composer.start_date', 'Start Date')}
-			</span>
-			<input class="input input-bordered w-full" type="datetime-local" bind:value={startDateTime} />
-		</label>
-
-		<label class="form-control">
-			<span class="label-text mb-1 text-sm font-medium">
-				{tr('dashboard.services.my_services.quote_inbox.composer.end_date', 'End Date')}
-			</span>
-			<input class="input input-bordered w-full" type="datetime-local" bind:value={endDateTime} />
-		</label>
+		<div class="col-span-full">
+			<SchedulePeriodPicker
+				bind:startValue={startDateTime}
+				bind:endValue={endDateTime}
+				minStartDate={new Date()}
+				minEndDate={startDateTime || new Date()}
+				onStartChange={(date: Date | null) => {
+					startDateTime = date;
+				}}
+				onEndChange={(date: Date | null) => {
+					endDateTime = date;
+				}}
+			/>
+		</div>
 
 		<div class="col-span-full grid grid-cols-2 gap-4">
 			<label class="form-control">
