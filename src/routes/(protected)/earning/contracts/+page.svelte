@@ -43,7 +43,7 @@
 		nonBlockingMessageCode = null;
 		// eslint-disable-next-line svelte/prefer-svelte-reactivity
 		const params = new URLSearchParams();
-		params.set('type', serviceAddress ? 'services' : contractsType);
+		params.set('type', serviceAddress ? 'services' : 'all');
 		if (serviceAddress) params.set('service', serviceAddress);
 		goto(`/earning/contracts?${params.toString()}`, {
 			replaceState: true,
