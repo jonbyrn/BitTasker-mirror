@@ -166,9 +166,7 @@
 	}
 
 	function handleServiceFilterChange(serviceAddress: string | null) {
-		if (serviceAddress) {
-			typeFilter = 'services';
-		}
+		typeFilter = serviceAddress ? 'services' : 'all';
 		onServiceFilterChange?.(serviceAddress);
 	}
 

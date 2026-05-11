@@ -2,6 +2,7 @@
 	import type { Component } from 'svelte';
 	import IconChevronDown from '~icons/mdi/chevron-down';
 	import IconCheck from '~icons/mdi/check';
+	import { onMount } from 'svelte';
 	import { teleport } from '$lib/utils/portal';
 
 	interface Option<T> {
@@ -65,7 +66,7 @@
 			position: fixed;
 			top: ${top}px;
 			left: ${left}px;
-			width: ${Math.max(200, rect.width)}px;
+			width: ${rect.width}px;
 			z-index: 10000;
 		`;
 	}
@@ -97,11 +98,18 @@
 		}
 	}
 
-	function handleOtherDropdownOpen(event: CustomEvent<{ id: string }>) {
-		if (event.detail.id !== id) {
+	function handleOtherDropdownOpen(event: Event) {
+		const detail = (event as CustomEvent<{ id: string }>).detail;
+		if (detail?.id !== id) {
 			isOpen = false;
 		}
 	}
+
+	onMount(() => {
+		const handler = handleOtherDropdownOpen as EventListener;
+		window.addEventListener('dashboard-dropdown-open', handler);
+		return () => window.removeEventListener('dashboard-dropdown-open', handler);
+	});
 
 	function handleClickOutside(event: MouseEvent) {
 		if (isOpen) {
@@ -113,7 +121,7 @@
 	}
 </script>
 
-<svelte:window onclick={handleClickOutside} ondashboard-dropdown-open={handleOtherDropdownOpen} />
+<svelte:window onclick={handleClickOutside} />
 
 <div
 	bind:this={triggerRef}
@@ -131,13 +139,13 @@
 	<button
 		{id}
 		type="button"
-		class="btn no-animation flex w-full flex-nowrap items-center justify-between gap-2 px-4 font-medium transition-all duration-200 {buttonClass}"
+		class="btn no-animation inline-flex w-full min-w-0 flex-nowrap items-center justify-between gap-2 overflow-hidden px-4 font-medium transition-all duration-200 {buttonClass}"
 		onclick={toggleDropdown}
 		aria-haspopup="listbox"
 		aria-expanded={isOpen}
 		aria-label={label || undefined}
 	>
-		<div class="flex min-w-0 flex-1 items-center gap-2">
+		<div class="flex w-0 min-w-0 flex-1 items-center gap-2 overflow-hidden">
 			{#if selectedOption?.icon}
 				{@const Icon = selectedOption.icon}
 				<Icon class="h-4 w-4 shrink-0 opacity-70" />
@@ -153,7 +161,7 @@
 		{#if usePortal}
 			<div use:teleport>
 				<ul
-					class="menu bg-base-100 border-base-300 z-10000 max-h-80 w-full min-w-[200px] overflow-x-hidden overflow-y-auto rounded-xl border p-2 shadow-xl focus:outline-none {dropdownClass}"
+					class="menu bg-base-100 border-base-300 z-10000 max-h-80 w-full min-w-0 overflow-x-hidden overflow-y-auto rounded-xl border p-2 shadow-xl focus:outline-none {dropdownClass}"
 					role="listbox"
 					tabindex="-1"
 					aria-label={label || undefined}
@@ -188,7 +196,7 @@
 			</div>
 		{:else}
 			<ul
-				class="menu dropdown-content bg-base-100 border-base-300 z-100 mt-1 max-h-80 w-full min-w-[200px] overflow-x-hidden overflow-y-auto rounded-xl border p-2 shadow-xl focus:outline-none {dropdownClass}"
+				class="menu dropdown-content bg-base-100 border-base-300 z-100 mt-1 max-h-80 w-full min-w-0 overflow-x-hidden overflow-y-auto rounded-xl border p-2 shadow-xl focus:outline-none {dropdownClass}"
 				role="listbox"
 				tabindex="-1"
 				aria-label={label || undefined}
