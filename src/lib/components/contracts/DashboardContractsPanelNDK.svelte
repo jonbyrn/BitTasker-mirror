@@ -26,6 +26,7 @@
 	import IconFileDocumentOutline from '~icons/mdi/file-document-outline';
 	import IconRefresh from '~icons/mdi/refresh';
 	import { ndk } from '$lib/nostr/ndk';
+	import { ndkIdentity } from '$lib/runes/ndkIdentity.svelte';
 	import type { NDKPaymentContract } from '$lib/nostr/events/contract';
 	import type { Service } from '$lib/types/service.d';
 	import KINDS from '$lib/utils/constants/kinds';
@@ -185,9 +186,32 @@
 	}
 
 	const network = import.meta.env.VITE_RSK_NETWORK || 'testnet';
+	let refreshing = $state(false);
+	let refreshCounter = $state(0);
+
+	async function refreshContracts() {
+		try {
+			refreshing = true;
+
+			// Ensure signer is available — triggers passkey/biometric prompt if stale
+			await ndkIdentity.ensureSigner();
+
+			// Guard: user cancelled auth or signer still unavailable
+			if (!ndk.$currentPubkey) return;
+
+			// Increment counter triggers the reactive subscription to re-query relays
+			refreshCounter++;
+		} catch (err) {
+			console.error('Failed to refresh contracts:', err);
+		} finally {
+			setTimeout(() => (refreshing = false), 3000);
+		}
+	}
 
 	// Create a reactive subscription - note the callback function () => ({ ... })
 	const contractsSub = ndk.$subscribe<NDKPaymentContract>(() => {
+		// Re-subscribe when refreshCounter changes
+		void refreshCounter;
 		// No subscription until we have the users pubkey
 		if (!ndk.$currentPubkey) return undefined;
 		return {
@@ -407,12 +431,28 @@
 			{/if}
 
 			{#if showServiceFilter}
-				<ServiceFilterSelect
-					{services}
-					{selectedServiceAddress}
-					onChange={handleServiceFilterChange}
-					containerClass="col-span-2 sm:col-span-1"
-				/>
+				<div class="col-span-2 flex items-center gap-2">
+					<div class="flex-1">
+						<ServiceFilterSelect
+							{services}
+							{selectedServiceAddress}
+							onChange={handleServiceFilterChange}
+						/>
+					</div>
+					<button
+						type="button"
+						class="btn btn-ghost btn-sm h-10 w-10 shrink-0 rounded-2xl p-0"
+						onclick={refreshContracts}
+						disabled={refreshing}
+						aria-label="Refresh"
+					>
+						{#if refreshing}
+							<span class="loading loading-spinner loading-xs"></span>
+						{:else}
+							<IconRefresh class="h-5 w-5 opacity-70" />
+						{/if}
+					</button>
+				</div>
 			{/if}
 		</DashboardFilterBar>
 

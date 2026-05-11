@@ -1,11 +1,11 @@
 <script lang="ts">
 	import type { ServiceQuoteTimelineEntry } from '$lib/types/service-quote';
-	import type { Service } from '$lib/types/service';
+	import type { Service, ServiceTier } from '$lib/types/service';
+	import { ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';
 	import { locale, t } from 'svelte-i18n';
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { formatStandardDateTimeShort } from '$lib/utils/helpers/dateFormatter';
 	import { parseServiceAddress } from '$lib/utils/service-quote/protocol';
-	import { resolveServiceTierLabel } from '$lib/utils/service-quote/tier-label';
 	import UserInfoDisplay from '$lib/components/user/UserInfoDisplay.svelte';
 	import IconCheckCircleOutline from '~icons/mdi/check-circle-outline';
 	import IconCloseCircleOutline from '~icons/mdi/close-circle-outline';
@@ -110,50 +110,57 @@
 		}
 	}
 
-	function getPriceDisplay(): string {
-		const amount = timeline.latestProposal?.content.amountUsdt;
-		if (amount) {
-			const numericAmount = Number(amount);
-			if (Number.isFinite(numericAmount)) {
-				return `$${formatNumberWithTwoDecimals(numericAmount)}`;
-			}
-
-			return `$${amount}`;
-		}
-
-		return translateOrFallback(
-			'dashboard.service_requests.statuses.awaiting_proposal',
-			'Awaiting proposal'
-		);
-	}
-
 	function formatTimestamp(timestampSeconds: number | undefined): string {
 		if (!timestampSeconds) return '—';
 		return formatStandardDateTimeShort(new Date(timestampSeconds * 1000), $locale || 'en');
 	}
 
-	const selectedTierLabel = $derived(
-		resolveServiceTierLabel(
-			service,
-			timeline.latestProposal?.content.pricingSnapshot?.tierId ?? timeline.request.content.tierId
-		)
-	);
-	const selectedAddOns = $derived(
-		timeline.latestProposal?.content.pricingSnapshot?.selectedAddOns ??
-			timeline.request.content.selectedAddOns ??
-			[]
-	);
-	const rushDeliverySelected = $derived(
-		timeline.latestProposal?.content.pricingSnapshot?.rushDelivery === true ||
-			timeline.request.content.rushDelivery === true
-	);
 	const formattedRequestedAt = $derived(formatTimestamp(timeline.request.created_at));
 	const formattedExpiresAt = $derived(
 		formatTimestamp(
 			timeline.latestProposal?.content.expirationTimestamp ?? timeline.expirationTimestamp
 		)
 	);
-	const hasProposalAmount = $derived(Boolean(timeline.latestProposal?.content.amountUsdt));
+	// Pricing info (label + price) shown on its own row below the title
+	const pricingInfo = $derived.by(() => {
+		if (!service) return null;
+		const pricingType = service.pricing?.type;
+
+		if (pricingType === ServicePricingTypeEnum.TIERED) {
+			const tierId =
+				timeline.latestProposal?.content.pricingSnapshot?.tierId ?? timeline.request.content.tierId;
+			const tier = tierId
+				? service.pricing?.tiers?.find((t: ServiceTier) => t.id === tierId)
+				: null;
+			return {
+				label: tier?.name ?? 'Tier',
+				price: tier?.price != null ? `$${formatNumberWithTwoDecimals(tier.price)}` : null
+			};
+		}
+		if (pricingType === ServicePricingTypeEnum.FIXED) {
+			return {
+				label: 'Fixed Price',
+				price:
+					service.pricing?.amount != null
+						? `$${formatNumberWithTwoDecimals(service.pricing.amount)}`
+						: null
+			};
+		}
+		if (pricingType === ServicePricingTypeEnum.HOURLY) {
+			return {
+				label: 'Hourly',
+				price:
+					service.pricing?.hourlyRate != null
+						? `$${formatNumberWithTwoDecimals(service.pricing.hourlyRate)}`
+						: null
+			};
+		}
+		if (pricingType === ServicePricingTypeEnum.INQUIRY_REQUIRED) {
+			return { label: 'Inquire', price: null };
+		}
+		return null;
+	});
+
 	const providerPubkey = $derived.by(() => {
 		if (timeline.latestProposal?.pubkey) {
 			return timeline.latestProposal.pubkey;
@@ -176,30 +183,34 @@
 
 <div class="card bg-base-100 rounded-xl shadow-md transition-shadow hover:shadow-lg">
 	<div class="card-body rounded-xl p-4 md:p-4">
-		<!-- Top Row: Title + Status Badge + Price -->
-		<div class="mb-3 flex flex-row items-stretch justify-between gap-2">
-			<!-- Left: Title + Description (flexible, takes available space) -->
-			<div class="min-w-0 flex-1 pr-2 md:pr-4">
-				<span class="card-title line-clamp-2 text-lg font-semibold">
-					{timeline.request.content.inquiry.title}
-				</span>
-				<p class="text-base-content/80 mt-1 line-clamp-2 text-sm whitespace-pre-line">
-					{timeline.request.content.inquiry.description || '—'}
-				</p>
+		<!-- Top Row: Title + Status Badge -->
+		<div class="mb-2 flex flex-row items-start justify-between gap-2">
+			<div class="min-w-0 flex-1">
+				{#if service}
+					<span class="card-title line-clamp-2 text-lg font-semibold">
+						{service.title}
+					</span>
+				{:else}
+					<div class="bg-base-300 h-5 w-48 animate-pulse rounded"></div>
+				{/if}
 			</div>
-			<!-- Right: Status Badge + Price (aligned right) -->
-			<div class="flex shrink-0 flex-col items-end gap-2">
-				<div
-					class="badge {getStatusColor(
-						timeline
-					)} badge-sm h-auto min-h-6 max-w-[180px] px-3 py-1 text-center leading-tight break-words whitespace-normal"
-				>
-					{describeStatus(timeline)}
-				</div>
-				{#if hasProposalAmount}
-					<div class="text-right text-xl font-bold">
-						{getPriceDisplay()}
-					</div>
+			<div class="badge {getStatusColor(timeline)} badge-sm max-w-[180px] shrink-0 text-center">
+				{describeStatus(timeline)}
+			</div>
+		</div>
+
+		<!-- Pricing Row: Tier/Type + Price -->
+		<div class="mb-3 flex items-center justify-between">
+			<div>
+				{#if !service}
+					<div class="bg-base-300 h-4 w-24 animate-pulse rounded"></div>
+				{:else if pricingInfo}
+					<span class="text-base-content/70 text-base">{pricingInfo.label}</span>
+				{/if}
+			</div>
+			<div>
+				{#if pricingInfo?.price}
+					<span class="text-primary text-lg font-bold">{pricingInfo.price}</span>
 				{/if}
 			</div>
 		</div>
@@ -208,15 +219,12 @@
 		<div class="mb-3 flex flex-col gap-3">
 			<div class="flex items-center gap-2">
 				<IconEmailFastOutline class="text-primary h-8 w-8 shrink-0" />
-				<span class="line-clamp-2 text-sm font-medium">
-					{translateOrFallback('dashboard.service_requests.requested', 'Requested')}:
-					{formattedRequestedAt}
-				</span>
+				<span class="text-sm font-medium">{formattedRequestedAt}</span>
 			</div>
 
 			<div class="flex items-center gap-2">
 				<IconClockOutline class="text-primary h-8 w-8 shrink-0" />
-				<span class="line-clamp-2 text-sm font-medium">
+				<span class="text-sm font-medium">
 					{#if timeline.latestProposal?.content.estimatedDuration}
 						{translateOrFallback(
 							'dashboard.service_requests.estimated_duration',
@@ -249,32 +257,6 @@
 							'Some service details could not be refreshed. Retry before acting on those requests.'
 						)}
 					</span>
-				</div>
-			{/if}
-
-			{#if selectedTierLabel || selectedAddOns.length > 0 || rushDeliverySelected}
-				<div class="flex flex-wrap gap-2 text-xs">
-					{#if selectedTierLabel}
-						<span class="badge badge-outline badge-sm">
-							{translateOrFallback('dashboard.service_requests.selected_tier', 'Tier')}:
-							{selectedTierLabel}
-						</span>
-					{/if}
-					{#if selectedAddOns.length > 0}
-						<span class="badge badge-outline badge-sm">
-							{selectedAddOns.length === 1
-								? translateOrFallback('dashboard.service_requests.add_ons_one', '1 add-on')
-								: translateOrFallback(
-										'dashboard.service_requests.add_ons_other',
-										`${selectedAddOns.length} add-ons`
-									).replace('{count}', String(selectedAddOns.length))}
-						</span>
-					{/if}
-					{#if rushDeliverySelected}
-						<span class="badge badge-outline badge-sm">
-							{translateOrFallback('dashboard.service_requests.rush_delivery', 'Rush delivery')}
-						</span>
-					{/if}
 				</div>
 			{/if}
 

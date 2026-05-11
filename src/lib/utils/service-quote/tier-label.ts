@@ -8,5 +8,5 @@ export function resolveServiceTierLabel(
 		return null;
 	}
 
-	return service?.pricing?.tiers?.find((tier) => tier.id === tierId)?.name ?? tierId;
+	return service?.pricing?.tiers?.find((tier) => tier.id === tierId)?.name ?? null;
 }
