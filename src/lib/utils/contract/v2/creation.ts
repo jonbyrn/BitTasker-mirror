@@ -10,7 +10,7 @@
 import type { NostrBidContent } from '$lib/types/bid';
 import { FEE_TIERS } from '@bittasker/wallet-core';
 import { ethers } from 'ethers';
-import { parseDateWithLocalTime } from '$lib/utils/helpers/dateFormatter';
+import { coerceUnixSeconds } from '$lib/utils/helpers/dateFormatter';
 import { createDebug } from '$lib/utils/debug';
 import {
 	GAS_REIMBURSEMENT_PER_OP,
@@ -85,12 +85,12 @@ export function deriveContractCreationParams(
 	let startTime: number;
 	let completionTime: number;
 
-	if (bidContent.startDateTime && bidContent.endDateTime) {
-		const startDate = parseDateWithLocalTime(bidContent.startDateTime);
-		const endDate = parseDateWithLocalTime(bidContent.endDateTime);
-		if (startDate && endDate) {
-			startTime = Math.floor(startDate.getTime() / 1000);
-			completionTime = Math.floor(endDate.getTime() / 1000);
+	if (bidContent.startDateTime != null && bidContent.endDateTime != null) {
+		const startSeconds = coerceUnixSeconds(bidContent.startDateTime);
+		const endSeconds = coerceUnixSeconds(bidContent.endDateTime);
+		if (startSeconds != null && endSeconds != null) {
+			startTime = startSeconds;
+			completionTime = endSeconds;
 		} else {
 			startTime = Math.floor((Date.now() + 60 * 60 * 1000) / 1000);
 			completionTime = startTime + 3600;
