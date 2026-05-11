@@ -616,7 +616,9 @@
 					<h3 class="collapse-title card-title p-0 text-lg">
 						{$t('profile.reviews')}
 						<span class="text-base-content/70 ml-2 text-base font-normal">
-							{$profileStore.stats.rating ? $profileStore.stats.rating.toFixed(1) : '0.0'}
+							<span class="text-primary font-semibold"
+								>{$profileStore.stats.rating ? $profileStore.stats.rating.toFixed(1) : '0.0'}</span
+							>
 							({$profileStore.data?.reviews?.length || 0})
 						</span>
 					</h3>

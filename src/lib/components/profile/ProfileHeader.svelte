@@ -164,7 +164,7 @@
 									/>
 								</svg>
 							{/each}
-							<span class="ml-1 font-bold"
+							<span class="text-primary ml-1 font-bold"
 								>{$profileStore.stats.rating ? $profileStore.stats.rating.toFixed(1) : '0.0'}</span
 							>
 							<span class="text-base-content/50 ml-1 font-medium"
