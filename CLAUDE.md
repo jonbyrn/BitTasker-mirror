@@ -28,6 +28,7 @@ npm run storybook    # Storybook dev server (port 6006)
 - **In swarms: defer `npm run build` to the final integration step** — it serializes all of SvelteKit and is the slowest command in the pipeline.
 - **Do NOT run `npm run test` (full suite) first.** Use targeted commands: `npm run test:unit:components`, `npm run test:unit:stores`, `npm run test:unit:api`, etc. Run the full suite only after targeted tests pass.
 - Always run `npm run check` after TypeScript changes — catches type errors without a full build.
+- **Before committing when i18n keys have changed**: run `python3 scripts/find-missing-translations.py --fix-suggestions` to detect missing or mismatched translation keys. Fix all issues before committing.
 
 ## Behavioral Rules
 
@@ -40,6 +41,7 @@ npm run storybook    # Storybook dev server (port 6006)
 - NEVER commit secrets, credentials, or .env files
 - NEVER use `--no-verify` when committing or pushing — fix the underlying hook failure instead
 - ALWAYS create NEW commits (never amend) unless explicitly asked
+- ALWAYS run translation verification before committing when i18n keys have been added or modified
 
 ## Project Structure
 
@@ -269,7 +271,7 @@ Code the AI ships must be **functional, low-bug, and provide good UX**. Low conf
   - **No inline styles** (`style=""`) — they break daisyUI theme consistency and can't be themed
   - **No custom CSS files** — use Tailwind config or daisyUI theme variables for new design tokens
   - **Responsive**: use Tailwind breakpoints (`sm:`, `md:`, `lg:`, `xl:`) — this is a mobile-first Capacitor app
-- **i18n-ready**: every user-visible string uses `$t()`. See `/bittasker-i18n` skill
+- **i18n-ready**: every user-visible string uses `$t()`. Run `python3 scripts/find-missing-translations.py --fix-suggestions` and fix all issues before committing. See `/bittasker-i18n` skill
 
 ### Confidence Checklist (per change)
 
@@ -279,7 +281,7 @@ Before shipping code, the AI must confirm:
 - [ ] Style: `npm run lint` passes with zero warnings
 - [ ] Tests: targeted test suite passes; `npm run test:ci` for multi-file changes
 - [ ] Coverage: new code has tests; uncovered lines are intentional and justified
-- [ ] UX audit: matches existing patterns, handles all 5 states, accessible, i18n'd
+- [ ] UX audit: matches existing patterns, handles all 5 states, accessible, i18n'd, translations verified (`find-missing-translations.py`)
 - [ ] GitNexus: `detect_changes` confirms only expected symbols affected
 - [ ] Unsure paths flagged: any unverified behavior explicitly noted to the user
 - [ ] **Memory**: `memory_search` checked before start; `memory_store` saved key learnings after completion
