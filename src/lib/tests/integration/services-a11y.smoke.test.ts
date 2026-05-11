@@ -214,8 +214,10 @@ describe('services accessibility smoke', () => {
 				focusedRequestId: 'qr_a11y123'
 			});
 
-			// Just verify the panel renders with the timeline content
-			expect(screen.getByText('Need a logo refresh')).toBeTruthy();
+			// Verify the panel mounts and renders a quote card
+			expect(screen.getByTestId('my-quotes-panel')).toBeTruthy();
+			const elements = screen.getAllByText('Proposal received');
+			expect(elements.length).toBeGreaterThan(0);
 		});
 
 		it('keeps provider reply controls named and enabled when proposal exists', () => {
