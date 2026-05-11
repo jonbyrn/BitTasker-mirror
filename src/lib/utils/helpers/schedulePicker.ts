@@ -6,12 +6,17 @@ export const SCHEDULE_TIME_STEP_MINUTES = 15;
  * Long date for schedule triggers. Spanish uses "8 de abril, 2026" instead of "8 de abril de 2026".
  */
 export function formatScheduleDateDisplay(date: Date, locale: string): string {
-	const loc = locale || 'en';
-	const s = new Intl.DateTimeFormat(loc, { dateStyle: 'long' }).format(date);
-	if (/^es/i.test(loc)) {
-		return s.replace(/ de (\d{4})$/, ', $1');
+	try {
+		const loc = locale || 'en';
+		const s = new Intl.DateTimeFormat(loc, { dateStyle: 'long' }).format(date);
+		if (/^es/i.test(loc)) {
+			return s.replace(/ de (\d{4})$/, ', $1');
+		}
+		return s;
+	} catch (error) {
+		console.error('Error formatting schedule date display:', error);
+		return 'Invalid date';
 	}
-	return s;
 }
 
 /**
@@ -56,7 +61,12 @@ const scheduleTime12hOptions: Intl.DateTimeFormatOptions = {
 
 /** 12-hour clock with locale-appropriate AM/PM (used in schedule pickers and triggers). */
 export function formatScheduleTime12h(date: Date, locale: string): string {
-	return new Intl.DateTimeFormat(locale || 'en', scheduleTime12hOptions).format(date);
+	try {
+		return new Intl.DateTimeFormat(locale || 'en', scheduleTime12hOptions).format(date);
+	} catch (error) {
+		console.error('Error formatting schedule time:', error);
+		return 'Invalid date';
+	}
 }
 
 /**
@@ -66,17 +76,24 @@ export function formatScheduleTime12hParts(
 	date: Date,
 	locale: string
 ): { main: string; suffix: string } {
-	const parts = new Intl.DateTimeFormat(locale || 'en', scheduleTime12hOptions).formatToParts(date);
-	let main = '';
-	let suffix = '';
-	for (const p of parts) {
-		if (p.type === 'dayPeriod') {
-			suffix += p.value;
-		} else {
-			main += p.value;
+	try {
+		const parts = new Intl.DateTimeFormat(locale || 'en', scheduleTime12hOptions).formatToParts(
+			date
+		);
+		let main = '';
+		let suffix = '';
+		for (const p of parts) {
+			if (p.type === 'dayPeriod') {
+				suffix += p.value;
+			} else {
+				main += p.value;
+			}
 		}
+		return { main: main.trim(), suffix: suffix.trim() };
+	} catch (error) {
+		console.error('Error formatting schedule time parts:', error);
+		return { main: '', suffix: '' };
 	}
-	return { main: main.trim(), suffix: suffix.trim() };
 }
 
 export function mergeDateAndTime(datePart: Date, timeSource: Date): Date {

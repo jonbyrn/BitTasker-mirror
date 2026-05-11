@@ -22,6 +22,8 @@
 	let viewYear = $state(new Date().getFullYear());
 	let viewMonth = $state(new Date().getMonth());
 
+	let modalEl: HTMLDivElement | null = $state(null);
+
 	$effect(() => {
 		if (open) {
 			const ref = selectedDate ?? minDate ?? new Date();
@@ -35,6 +37,41 @@
 			return;
 		}
 		return acquireScheduleModalScrollLock();
+	});
+
+	$effect(() => {
+		if (!open) return;
+		const modal = modalEl;
+		if (!modal) return;
+
+		const focusableSelector =
+			'button:not([disabled]), [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
+
+		const firstFocusable = modal.querySelector(focusableSelector) as HTMLElement | null;
+		firstFocusable?.focus();
+
+		const handleKeyDown = (e: KeyboardEvent) => {
+			if (e.key !== 'Tab') return;
+			const focusable = modal.querySelectorAll(focusableSelector);
+			if (focusable.length === 0) return;
+			const first = focusable[0] as HTMLElement;
+			const last = focusable[focusable.length - 1] as HTMLElement;
+
+			if (e.shiftKey) {
+				if (document.activeElement === first) {
+					e.preventDefault();
+					last.focus();
+				}
+			} else {
+				if (document.activeElement === last) {
+					e.preventDefault();
+					first.focus();
+				}
+			}
+		};
+
+		modal.addEventListener('keydown', handleKeyDown);
+		return () => modal.removeEventListener('keydown', handleKeyDown);
 	});
 
 	const monthTitle = $derived.by(() => {
@@ -86,12 +123,29 @@
 		const cell = new Date(viewYear, viewMonth, day, 12, 0, 0, 0);
 		return sameCalendarDay(cell, selectedDate);
 	}
+
+	function handleWindowKeydown(e: KeyboardEvent) {
+		if (e.key === 'Escape' && open) {
+			e.preventDefault();
+			onClose();
+		}
+	}
 </script>
+
+<svelte:window onkeydown={handleWindowKeydown} />
 
 {#if open}
 	<!-- Teleport: Drawer uses transform on the panel; fixed modals would size to the drawer, not the viewport. -->
-	<div use:teleport class="modal modal-open modal-middle z-220 overscroll-contain">
-		<div class="modal-box max-h-[min(90dvh,90vh)] max-w-sm overflow-y-auto p-0 shadow-xl">
+	<div
+		bind:this={modalEl}
+		use:teleport
+		class="modal modal-open modal-middle z-220 overscroll-contain"
+	>
+		<div
+			class="modal-box max-h-[min(90dvh,90vh)] max-w-sm overflow-y-auto p-0 shadow-xl"
+			role="dialog"
+			aria-modal="true"
+		>
 			<div class="border-base-200 flex items-center justify-between border-b px-3 py-3">
 				<button
 					type="button"

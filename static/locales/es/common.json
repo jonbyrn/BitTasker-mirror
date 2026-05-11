@@ -391,6 +391,29 @@
 			}
 		},
 		"components": {
+			"schedule_picker": {
+				"date": "Fecha",
+				"time": "Hora",
+				"select_date": "Seleccionar una fecha",
+				"select_time": "Seleccionar una hora",
+				"placeholder_date_start": "Seleccionar fecha de inicio",
+				"placeholder_date_end": "Seleccionar fecha de fin",
+				"placeholder_time_start": "Seleccionar hora de inicio",
+				"placeholder_time_end": "Seleccionar hora de fin",
+				"time_label_start": "Hora de inicio",
+				"time_label_end": "Hora de fin",
+				"date_accessibility_start": "Fecha de inicio",
+				"date_accessibility_end": "Fecha de fin",
+				"close_picker": "Cerrar",
+				"previous_month": "Mes anterior",
+				"next_month": "Mes siguiente",
+				"hour_short_label": "Hora",
+				"minute_short_label": "Minuto",
+				"clock_ok": "Aceptar",
+				"am": "AM",
+				"pm": "PM",
+				"period_toggle_aria": "Elegir AM o PM"
+			},
 			"date_input": {
 				"and": "y",
 				"less_than_minute": "menos de un minuto",

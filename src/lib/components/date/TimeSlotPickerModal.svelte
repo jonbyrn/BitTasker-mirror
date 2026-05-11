@@ -41,6 +41,8 @@
 	let hourInputEl: HTMLInputElement | null = $state(null);
 	let minInputEl: HTMLInputElement | null = $state(null);
 
+	let modalEl: HTMLDivElement | null = $state(null);
+
 	const noonBase = $derived(
 		new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate(), 12, 0, 0, 0)
 	);
@@ -132,6 +134,38 @@
 		return acquireScheduleModalScrollLock();
 	});
 
+	$effect(() => {
+		if (!open) return;
+		const modal = modalEl;
+		if (!modal) return;
+
+		const focusableSelector =
+			'button:not([disabled]), [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
+
+		const handleKeyDown = (e: KeyboardEvent) => {
+			if (e.key !== 'Tab') return;
+			const focusable = modal.querySelectorAll(focusableSelector);
+			if (focusable.length === 0) return;
+			const first = focusable[0] as HTMLElement;
+			const last = focusable[focusable.length - 1] as HTMLElement;
+
+			if (e.shiftKey) {
+				if (document.activeElement === first) {
+					e.preventDefault();
+					last.focus();
+				}
+			} else {
+				if (document.activeElement === last) {
+					e.preventDefault();
+					first.focus();
+				}
+			}
+		};
+
+		modal.addEventListener('keydown', handleKeyDown);
+		return () => modal.removeEventListener('keydown', handleKeyDown);
+	});
+
 	function confirm() {
 		commitHourFromInput();
 		commitMinFromInput();
@@ -142,14 +176,27 @@
 		onClose();
 	}
 
+	function handleWindowKeydown(e: KeyboardEvent) {
+		if (e.key === 'Escape' && open) {
+			e.preventDefault();
+			onClose();
+		}
+	}
+
 	const inputClass =
 		'input border-2 font-mono text-4xl font-bold tabular-nums transition-[box-shadow,background-color,border-color] ' +
 		'min-h-17 w-[5.25rem] rounded-2xl border-base-300 bg-base-200/90 px-2 text-center text-base-content ' +
 		'focus:border-primary focus:bg-primary/10 focus:outline-none focus:ring-2 focus:ring-primary/25';
 </script>
 
+<svelte:window onkeydown={handleWindowKeydown} />
+
 {#if open}
-	<div use:teleport class="modal modal-open modal-middle z-230 overscroll-contain">
+	<div
+		bind:this={modalEl}
+		use:teleport
+		class="modal modal-open modal-middle z-230 overscroll-contain"
+	>
 		<div
 			class="modal-box border-base-300 bg-base-100 flex max-h-[min(92dvh,92vh)] w-full max-w-[min(100%,20rem)] flex-col overflow-hidden rounded-3xl border p-0 shadow-xl"
 			role="dialog"

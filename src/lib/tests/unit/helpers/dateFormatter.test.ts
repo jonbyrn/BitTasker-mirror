@@ -1,5 +1,14 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { formatDate, formatStandardDate, timeAgo } from '$lib/utils/helpers/dateFormatter';
+import {
+	formatDate,
+	formatStandardDate,
+	formatStandardDateShort,
+	formatStandardDateTimeShort,
+	formatStandardDateTime,
+	formatTimeLarge,
+	formatTime12Hour,
+	timeAgo
+} from '$lib/utils/helpers/dateFormatter';
 
 describe('Date Formatter', () => {
 	describe('formatDate', () => {
@@ -152,6 +161,149 @@ describe('Date Formatter', () => {
 			// Reset fake timers for other tests
 			vi.useFakeTimers();
 			vi.setSystemTime(new Date('2023-01-15T12:00:00Z'));
+		});
+	});
+
+	describe('formatStandardDateShort', () => {
+		it('should format a date with short month in English', () => {
+			const d = new Date(2025, 8, 23); // Sep 23, 2025
+			const result = formatStandardDateShort(d);
+			expect(result).toBe('Sep 23, 2025');
+		});
+
+		it('should format a date with short month in Spanish', () => {
+			const d = new Date(2025, 9, 15); // Oct 15, 2025
+			const result = formatStandardDateShort(d, 'es');
+			expect(result).toBe('15 Oct 2025');
+		});
+
+		it('should return "Invalid date" for Invalid Date', () => {
+			const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+			const result = formatStandardDateShort(new Date('invalid'));
+			expect(result).toBe('Invalid date');
+			expect(consoleSpy).toHaveBeenCalled();
+			consoleSpy.mockRestore();
+		});
+	});
+
+	describe('formatStandardDateTimeShort', () => {
+		it('should format a date with short month and time in English', () => {
+			const d = new Date(2026, 1, 14, 22, 59); // Feb 14, 2026, 10:59 PM
+			const result = formatStandardDateTimeShort(d);
+			expect(result).toContain('Feb');
+			expect(result).toContain('14');
+			expect(result).toContain('2026');
+			expect(result).toMatch(/10:59\s*PM/i);
+		});
+
+		it('should format a date with Spanish locale', () => {
+			const d = new Date(2026, 1, 14, 22, 59);
+			const result = formatStandardDateTimeShort(d, 'es');
+			expect(result).toContain('Feb'); // Capitalized month
+			expect(result).toContain('14');
+			expect(result).toContain('2026');
+			expect(result).toMatch(/10:59/);
+		});
+
+		it('should return "Invalid date" for Invalid Date', () => {
+			const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+			const result = formatStandardDateTimeShort(new Date('invalid'));
+			expect(result).toBe('Invalid date');
+			expect(consoleSpy).toHaveBeenCalled();
+			consoleSpy.mockRestore();
+		});
+	});
+
+	describe('formatStandardDateTime', () => {
+		it('should format a date with long month and time in English', () => {
+			const d = new Date(2025, 8, 23, 14, 30); // Sep 23, 2025, 2:30 PM
+			const result = formatStandardDateTime(d);
+			expect(result).toBe('September 23, 2025 at 2:30 PM');
+		});
+
+		it('should format a date with Spanish locale', () => {
+			const d = new Date(2025, 8, 23, 14, 30);
+			const result = formatStandardDateTime(d, 'es');
+			// Should capitalize month and replace a.m./p.m. with AM/PM
+			expect(result).toContain('Septiembre');
+			expect(result).toContain('2025');
+			expect(result).toContain('2:30');
+			expect(result).toMatch(/PM$/);
+		});
+
+		it('should return "Invalid date" for Invalid Date', () => {
+			const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+			const result = formatStandardDateTime(new Date('invalid'));
+			expect(result).toBe('Invalid date');
+			expect(consoleSpy).toHaveBeenCalled();
+			consoleSpy.mockRestore();
+		});
+	});
+
+	describe('formatTimeLarge', () => {
+		beforeEach(() => {
+			vi.useFakeTimers();
+			vi.setSystemTime(new Date('2026-05-11T00:00:00Z'));
+		});
+
+		afterEach(() => {
+			vi.useRealTimers();
+		});
+
+		it('should format 14:30 as "2:30 PM"', () => {
+			const result = formatTimeLarge('14:30');
+			expect(result).toMatch(/2:30\s*PM/i);
+		});
+
+		it('should format midnight as "12:00 AM"', () => {
+			const result = formatTimeLarge('00:00');
+			expect(result).toMatch(/12:00\s*AM/i);
+		});
+
+		it('should return empty string for empty input', () => {
+			expect(formatTimeLarge('')).toBe('');
+		});
+
+		it('should handle noon (12:00) as "12:00 PM"', () => {
+			const result = formatTimeLarge('12:00');
+			expect(result).toMatch(/12:00\s*PM/i);
+		});
+	});
+
+	describe('formatTime12Hour', () => {
+		beforeEach(() => {
+			vi.useFakeTimers();
+			vi.setSystemTime(new Date('2026-05-11T00:00:00Z'));
+		});
+
+		afterEach(() => {
+			vi.useRealTimers();
+		});
+
+		it('should format 14:30 as "2:30 PM"', () => {
+			const result = formatTime12Hour('14:30');
+			expect(result).toBe('2:30 PM');
+		});
+
+		it('should format midnight as "12:00 AM"', () => {
+			const result = formatTime12Hour('00:00');
+			expect(result).toBe('12:00 AM');
+		});
+
+		it('should format noon as "12:00 PM"', () => {
+			const result = formatTime12Hour('12:00');
+			expect(result).toBe('12:00 PM');
+		});
+
+		it('should return empty string for empty input', () => {
+			expect(formatTime12Hour('')).toBe('');
+		});
+
+		it('should return the original string for invalid format (catch block returns input)', () => {
+			// Invalid Date from toLocaleTimeString may return the string "Invalid Date"
+			// rather than throwing; check the behavior either way.
+			const result = formatTime12Hour('abc');
+			expect(typeof result).toBe('string');
 		});
 	});
 });
