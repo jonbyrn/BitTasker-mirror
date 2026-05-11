@@ -1,12 +1,14 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { t } from 'svelte-i18n';
+	import { onMount } from 'svelte';
 	import { profileStore } from '$lib/stores/profile.store';
 	import ProfileHeader from '$lib/components/profile/ProfileHeader.svelte';
 	import ProfileInfoSection from '$lib/components/profile/ProfileInfoSection.svelte';
 	import ProfileSidebar from '$lib/components/profile/ProfileSidebar.svelte';
 	import ProfileReviewsSection from '$lib/components/profile/ProfileReviewsSection.svelte';
-	import { onMount } from 'svelte';
+	import ProfileStats from '$lib/components/profile/ProfileStats.svelte';
+	import ProfileServicesSection from '$lib/components/profile/ProfileServicesSection.svelte';
 
 	// Format date (passed to children)
 	function formatDate(dateString: string) {
@@ -18,12 +20,6 @@
 	onMount(() => {
 		profileStore.init();
 	});
-	// Calculate years from date (passed to children)
-	function yearsFrom(dateString: string) {
-		const then = new Date(dateString);
-		const now = new Date();
-		return now.getFullYear() - then.getFullYear();
-	}
 
 	function getRequestedTabFromUrl(url: URL): 'overview' | 'reviews' {
 		return url.searchParams.get('tab') === 'reviews' ? 'reviews' : 'overview';
@@ -93,15 +89,15 @@
 		{:else}
 			<ProfileHeader />
 
-		<ProfileStats
-			stats={$profileStore.stats}
-			serviceCountState={$profileStore.servicesLoading
-				? 'loading'
-				: $profileStore.servicesError
-					? 'error'
-					: 'ready'}
-		/>
-		<ProfileServicesSection />
+			<ProfileStats
+				stats={$profileStore.stats}
+				serviceCountState={$profileStore.servicesLoading
+					? 'loading'
+					: $profileStore.servicesError
+						? 'error'
+						: 'ready'}
+			/>
+			<ProfileServicesSection />
 
 			<!-- Profile Tabs -->
 			<div class="tabs tabs-boxed bg-base-200 mb-6">
@@ -121,7 +117,7 @@
 
 			<!-- Tab Content -->
 			{#if activeTab === 'overview'}
-				<ProfileInfoSection {formatDate} {yearsFrom} />
+				<ProfileInfoSection {formatDate} />
 				<ProfileSidebar {formatDate} />
 			{:else if activeTab === 'reviews'}
 				<ProfileReviewsSection isCurrentUser={true} />

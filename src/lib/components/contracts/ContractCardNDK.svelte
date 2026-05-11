@@ -245,20 +245,11 @@
 		{/if}
 
 		<div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-			<div class="flex items-center gap-2">
-				<UserInfoDisplay
-					pubkey={contract.otherPartyNpub ?? ''}
-					profileLink={contract.otherPartyNpub ?? ''}
-					size="sm"
-				/>
-				<div
-					class="badge {contract.tagValue('contextType') === 'service'
-						? 'badge-info'
-						: 'badge-outline'} badge-sm"
-				>
-					{contract.tagValue('contextType') === 'service' ? 'Service' : 'Task'}
-				</div>
-			</div>
+			<UserInfoDisplay
+				pubkey={contract.otherPartyNpub ?? ''}
+				profileLink={contract.otherPartyNpub ?? ''}
+				size="sm"
+			/>
 
 			<!-- Review on left of actions (desktop), below actions (mobile) -->
 			<div class="flex flex-col-reverse gap-2 md:flex-row md:items-center">
