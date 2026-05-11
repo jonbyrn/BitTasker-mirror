@@ -1,8 +1,10 @@
 import type { BidStatusEnum } from './enums/bid.enum';
 import type { Filter, NostrEvent } from 'nostr-tools';
 import type { NostrBidStatus, NostrEventWithFollowup } from '$lib/types/bid';
+import type { ContractFilter, ContractWithEvents } from '$lib/types/contract';
 import { getNpub, getNostrKeyPair } from '$lib/utils/nostrKeys';
 import { queryNostrEvents, publishNostrEvent } from '$lib/utils/nostr';
+import { escrow } from '$lib/utils/escrow';
 import { TAG_FILTERS, TAG_PATTERNS } from '$lib/utils/constants/tags';
 import { smartCache, currencyCache } from '$lib/utils/cache/bid-cache';
 import { appStore } from '$lib/stores/app.store';
@@ -313,6 +315,13 @@ export async function decryptBidEvent(event: NostrEvent): Promise<NostrEvent | n
 		}
 		return null;
 	}
+}
+
+/**
+ * Get user contracts (re-exports escrow.contractOps.getContracts for review system)
+ */
+export async function getUserContracts(filter?: ContractFilter): Promise<ContractWithEvents[]> {
+	return escrow.contractOps.getContracts(filter ?? { limit: 100 });
 }
 
 /**

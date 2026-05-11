@@ -1,4 +1,12 @@
+<!--
+ * @deprecated This component uses v1 escrow patterns with ContractWithEvents.
+ * Only used by deprecated components. This file will be removed in a future release.
+-->
 <script lang="ts">
+	/**
+	 * @deprecated This file is deprecated. No direct NDK replacement; context display
+	 * is handled inline in ContractCardNDK.svelte.
+	 */
 	import { resolve } from '$app/paths';
 	import type { ContractWithEvents } from '$lib/types/contract';
 	import { contractStore } from '$lib/stores/contract.store';

@@ -48,6 +48,13 @@ export const sections = [
 		mobile: true
 	},
 	{
+		id: 'reviews',
+		path: '/reviews',
+		label: 'navbar.reviews',
+		icon: 'mdi:star-outline',
+		mobile: true
+	},
+	{
 		id: 'messages',
 		path: '/dashboard/messages',
 		label: 'navbar.messages',

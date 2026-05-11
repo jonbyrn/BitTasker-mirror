@@ -134,7 +134,7 @@
 				"withdrawn": "Withdrawn",
 				"expired": "Expired",
 				"accepting": "Accepting",
-				"accepting_progress": "Accepting...",
+				"accepting_progress": "Accepted",
 				"contract_sync_pending": "Contract syncing",
 				"accept_failed": "Accept failed",
 				"accept_unknown": "Accept unknown",

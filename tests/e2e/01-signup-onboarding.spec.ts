@@ -20,11 +20,11 @@
  */
 import { nip19, generateSecretKey } from 'nostr-tools';
 import { test, expect } from './fixtures/signup-login-auth';
+import { WEBAUTHN_CHROMIUM_ONLY_MESSAGE } from './utils/onboarding-helpers';
 
 function e2eLog(message: string, stepLog: string[]): void {
 	const line = `[E2E] ${message}`;
 	stepLog.push(line);
-
 	console.log(line);
 }
 
@@ -32,6 +32,8 @@ const E2E_PROFILE_DESCRIPTION =
 	'E2E test user profile. Experienced in various professional domains including software development, testing, and automation. Ready to take on tasks and deliver quality work.';
 
 test.describe.serial('Signup and onboarding (create credentials file)', () => {
+	test.skip(({ browserName }) => browserName !== 'chromium', WEBAUTHN_CHROMIUM_ONLY_MESSAGE);
+
 	test('user 1: signup → full onboarding → dashboard', async ({ page }) => {
 		test.setTimeout(180_000);
 		const ts = Date.now();

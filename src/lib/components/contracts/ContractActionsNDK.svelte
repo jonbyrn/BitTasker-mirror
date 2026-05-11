@@ -79,7 +79,7 @@
 				appStore.showErrorToast(get(t)('dashboard.contracts.actions.contract_action_failed'));
 				return;
 			}
-			appStore.showSuccessToast(get(t)('dashboard.contracts.actions.accept_work_success'));
+			appStore.showSuccessToast(get(t)('dashboard.contracts.actions.payment_released_success'));
 		} finally {
 			pendingAction = null;
 		}

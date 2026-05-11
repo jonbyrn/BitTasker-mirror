@@ -11,12 +11,12 @@ import {
 	webauthnCredentialsFileExists,
 	CREDENTIALS_MISSING_MESSAGE
 } from './fixtures/passkey-auth-from-file';
+import { WEBAUTHN_CHROMIUM_ONLY_MESSAGE } from './utils/onboarding-helpers';
 
 test.describe('Wallet post-login (signup user)', () => {
-	test.skip(
-		() => !webauthnCredentialsFileExists(),
-		CREDENTIALS_MISSING_MESSAGE
-	);
+	test.describe.configure({ timeout: 90_000 });
+	test.skip(({ browserName }) => browserName !== 'chromium', WEBAUTHN_CHROMIUM_ONLY_MESSAGE);
+	test.skip(() => !webauthnCredentialsFileExists(), CREDENTIALS_MISSING_MESSAGE);
 
 	test.use({ credentialLabel: 'signup' });
 

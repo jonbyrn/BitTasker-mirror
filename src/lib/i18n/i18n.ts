@@ -138,7 +138,7 @@ export async function loadNamespaces(
  */
 async function loadEssentialTranslations(currentLocale: SupportedLanguage): Promise<void> {
 	// Only load critical translations needed for initial render
-	const essentialNamespaces = ['home', 'common', 'notifications'];
+	const essentialNamespaces = ['home', 'common', 'notifications', 'reviews'];
 
 	await loadNamespaces(currentLocale, essentialNamespaces);
 }
@@ -237,6 +237,9 @@ export function getNamespacesForRoute(route: string): string[] {
 		if (route.includes('/settings')) {
 			namespaces.push('dashboard/settings');
 		}
+	if (route.includes('/reviews')) {
+		namespaces.push('reviews');
+	}
 	}
 
 	if (route.includes('/services')) {
