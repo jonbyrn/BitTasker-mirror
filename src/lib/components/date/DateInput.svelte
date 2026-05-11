@@ -2,7 +2,6 @@
 	/* eslint-disable svelte/prefer-svelte-reactivity -- legacy component uses mutable Date objects for local time math */
 	import { t } from 'svelte-i18n';
 
-	 
 	interface _Props {
 		value: Date | null;
 		onChange: (value: Date | null) => void;
@@ -236,12 +235,15 @@
 		}
 	}
 
-	// Get min/max attributes
+	// Get min/max attributes using local date components to avoid timezone shift
 	function getMinValue() {
 		if (!minDate) return '';
 		try {
 			const date = minDate instanceof Date ? minDate : new Date(minDate);
-			return date.toISOString().split('T')[0];
+			const y = date.getFullYear();
+			const m = String(date.getMonth() + 1).padStart(2, '0');
+			const d = String(date.getDate()).padStart(2, '0');
+			return `${y}-${m}-${d}`;
 		} catch {
 			return '';
 		}
@@ -251,7 +253,10 @@
 		if (!maxDate) return '';
 		try {
 			const date = maxDate instanceof Date ? maxDate : new Date(maxDate);
-			return date.toISOString().split('T')[0];
+			const y = date.getFullYear();
+			const m = String(date.getMonth() + 1).padStart(2, '0');
+			const d = String(date.getDate()).padStart(2, '0');
+			return `${y}-${m}-${d}`;
 		} catch {
 			return '';
 		}

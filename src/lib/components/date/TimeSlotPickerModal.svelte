@@ -212,7 +212,7 @@
 				</p>
 				<button
 					type="button"
-					class="btn btn-circle btn-ghost btn-xs text-base-content/60 min-h-8 min-w-8 shrink-0"
+					class="btn btn-circle btn-ghost btn-xs text-base-content/60 min-h-11 min-w-11 shrink-0"
 					onclick={onClose}
 					aria-label={$t('common.components.schedule_picker.close_picker')}
 				>
@@ -317,14 +317,14 @@
 				<div class="flex items-center gap-1">
 					<button
 						type="button"
-						class="btn btn-ghost btn-sm text-primary min-h-10 px-3 font-medium normal-case hover:bg-transparent"
+						class="btn btn-ghost btn-sm text-primary min-h-11 px-3 font-medium normal-case hover:bg-transparent"
 						onclick={onClose}
 					>
 						{$t('common.components.confirm_modal.cancel')}
 					</button>
 					<button
 						type="button"
-						class="btn btn-ghost btn-sm text-primary min-h-10 px-3 font-medium normal-case hover:bg-transparent"
+						class="btn btn-ghost btn-sm text-primary min-h-11 px-3 font-medium normal-case hover:bg-transparent"
 						onclick={confirm}
 					>
 						{$t('common.components.schedule_picker.clock_ok')}

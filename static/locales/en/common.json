@@ -413,7 +413,10 @@
 				"clock_ok": "OK",
 				"am": "AM",
 				"pm": "PM",
-				"period_toggle_aria": "Choose AM or PM"
+				"period_toggle_aria": "Choose AM or PM",
+				"duration_minutes": "{minutes} min",
+				"duration_hours": "{hours} hr",
+				"duration_hours_minutes": "{hours} hr {minutes} min"
 			},
 			"date_input": {
 				"and": "and",

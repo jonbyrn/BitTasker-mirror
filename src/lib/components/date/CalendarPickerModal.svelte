@@ -47,8 +47,10 @@
 		const focusableSelector =
 			'button:not([disabled]), [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
 
-		const firstFocusable = modal.querySelector(focusableSelector) as HTMLElement | null;
-		firstFocusable?.focus();
+		// Focus the selected date or today's date if available, otherwise first focusable
+		const selectedCell = modal.querySelector('[aria-selected="true"]') as HTMLElement | null;
+		const todayCell = modal.querySelector('[aria-current="date"]') as HTMLElement | null;
+		(selectedCell || todayCell || (modal.querySelector(focusableSelector) as HTMLElement))?.focus();
 
 		const handleKeyDown = (e: KeyboardEvent) => {
 			if (e.key !== 'Tab') return;
@@ -233,7 +235,7 @@
 			<div class="border-base-200 flex items-center justify-between border-b px-3 py-3">
 				<button
 					type="button"
-					class="btn btn-circle btn-ghost btn-sm"
+					class="btn btn-circle btn-ghost btn-sm min-h-11 min-w-11"
 					onclick={prevMonth}
 					aria-label={$t('common.components.schedule_picker.previous_month')}
 				>
@@ -252,10 +254,10 @@
 						/>
 					</svg>
 				</button>
-				<span class="text-base-content font-semibold">{monthTitle}</span>
+				<span class="text-base-content font-semibold" aria-live="polite">{monthTitle}</span>
 				<button
 					type="button"
-					class="btn btn-circle btn-ghost btn-sm"
+					class="btn btn-circle btn-ghost btn-sm min-h-11 min-w-11"
 					onclick={nextMonth}
 					aria-label={$t('common.components.schedule_picker.next_month')}
 				>
@@ -303,7 +305,7 @@
 									<button
 										type="button"
 										role="gridcell"
-										class="btn btn-sm aspect-square min-h-9 border-0 p-0 font-normal {selected
+										class="btn btn-sm aspect-square min-h-11 border-0 p-0 font-normal {selected
 											? 'btn-primary text-primary-content'
 											: ''} {disabled ? 'opacity-30' : 'hover:bg-base-200'}"
 										{disabled}
@@ -322,7 +324,9 @@
 			</div>
 
 			<div class="border-base-200 flex items-center justify-end gap-2 border-t px-3 py-2">
-				<button type="button" class="btn btn-sm" onclick={handleClear}>{$t('common.clear')}</button>
+				<button type="button" class="btn btn-sm min-h-11" onclick={handleClear}
+					>{$t('common.clear')}</button
+				>
 			</div>
 		</div>
 		<button

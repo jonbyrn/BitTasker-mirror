@@ -1,5 +1,6 @@
 <script lang="ts">
 	import ScheduleDateTimeField from '$lib/components/date/ScheduleDateTimeField.svelte';
+	import { t } from 'svelte-i18n';
 
 	interface Props {
 		startValue: Date | null;
@@ -40,9 +41,13 @@
 		const totalMinutes = Math.round(diffMs / 60000);
 		const hours = Math.floor(totalMinutes / 60);
 		const minutes = totalMinutes % 60;
-		if (hours === 0) return `${minutes} min`;
-		if (minutes === 0) return `${hours} hr`;
-		return `${hours} hr ${minutes} min`;
+		if (hours === 0)
+			return $t('common.components.schedule_picker.duration_minutes', { values: { minutes } });
+		if (minutes === 0)
+			return $t('common.components.schedule_picker.duration_hours', { values: { hours } });
+		return $t('common.components.schedule_picker.duration_hours_minutes', {
+			values: { hours, minutes }
+		});
 	});
 
 	$effect(() => {
@@ -86,5 +91,7 @@
 	/>
 </div>
 {#if durationText}
-	<div class="text-base-content/60 mt-1 text-center text-xs font-medium">{durationText}</div>
+	<div class="text-base-content/60 mt-1 text-center text-xs font-medium" aria-live="polite">
+		{durationText}
+	</div>
 {/if}

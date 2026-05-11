@@ -169,7 +169,7 @@
 	>
 		<button
 			type="button"
-			class="input input-bordered hover:bg-base-200/50 flex min-h-10 min-w-0 flex-1 items-center gap-1 px-1.5 py-0 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50 sm:gap-1.5 sm:px-2 {calendarOpen
+			class="input input-bordered hover:bg-base-200/50 flex min-h-11 min-w-0 flex-1 items-center gap-1 px-1.5 py-0 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50 sm:gap-1.5 sm:px-2 {calendarOpen
 				? 'border-primary'
 				: ''}"
 			{disabled}
@@ -200,7 +200,7 @@
 		</button>
 		<button
 			type="button"
-			class="input input-bordered hover:bg-base-200/50 flex min-h-10 min-w-0 flex-1 items-center gap-1 px-1.5 py-0 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50 sm:gap-1.5 sm:px-2 {timeOpen
+			class="input input-bordered hover:bg-base-200/50 flex min-h-11 min-w-0 flex-1 items-center gap-1 px-1.5 py-0 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50 sm:gap-1.5 sm:px-2 {timeOpen
 				? 'border-primary'
 				: ''}"
 			{disabled}

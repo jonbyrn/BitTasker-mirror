@@ -412,7 +412,10 @@
 				"clock_ok": "Aceptar",
 				"am": "AM",
 				"pm": "PM",
-				"period_toggle_aria": "Elegir AM o PM"
+				"period_toggle_aria": "Elegir AM o PM",
+				"duration_minutes": "{minutes} min",
+				"duration_hours": "{hours} h",
+				"duration_hours_minutes": "{hours} h {minutes} min"
 			},
 			"date_input": {
 				"and": "y",
