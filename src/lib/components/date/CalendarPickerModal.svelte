@@ -231,6 +231,7 @@
 			class="modal-box max-h-[min(90dvh,90vh)] max-w-sm overflow-y-auto p-0 shadow-xl"
 			role="dialog"
 			aria-modal="true"
+			aria-labelledby="bittasker-calendar-heading"
 		>
 			<div class="border-base-200 flex items-center justify-between border-b px-3 py-3">
 				<button
@@ -254,7 +255,11 @@
 						/>
 					</svg>
 				</button>
-				<span class="text-base-content font-semibold" aria-live="polite">{monthTitle}</span>
+				<span
+					id="bittasker-calendar-heading"
+					class="text-base-content font-semibold"
+					aria-live="polite">{monthTitle}</span
+				>
 				<button
 					type="button"
 					class="btn btn-circle btn-ghost btn-sm min-h-11 min-w-11"
