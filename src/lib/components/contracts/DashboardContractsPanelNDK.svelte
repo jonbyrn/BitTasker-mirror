@@ -430,7 +430,7 @@
 
 			{#if showServiceFilter}
 				<div class="col-span-2 flex items-center gap-2">
-					<div class="flex-1">
+					<div class="flex-1 sm:w-64">
 						<ServiceFilterSelect
 							{services}
 							{selectedServiceAddress}
