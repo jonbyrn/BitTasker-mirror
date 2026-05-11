@@ -1,6 +1,6 @@
 export type { IContractForReview } from './contract-interface';
 export { isReviewableStatus, isConfirmedCompletionAction } from './status-mapper';
-export { adaptV2Contract } from './contractAdapter';
+export { adaptNDKContract, type ChainParticipantWallets } from './contractAdapter';
 export { submitAttestedReview, buildSignedReviewEvent } from './attestation';
 export type { AttestationFlowResult } from './attestation';
 export {

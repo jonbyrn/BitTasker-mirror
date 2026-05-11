@@ -2,7 +2,11 @@
 	import { getReviewsForUser } from '$lib/utils/reviews/queries';
 	import { calculateReviewStats } from '$lib/utils/reviews/aggregation';
 	import type { NostrVerifiedReview } from '$lib/types/review';
-	import { nip19 } from 'nostr-tools';
+	import { ndk } from '$lib/nostr/ndk';
+	import { createDebug } from '$lib/utils/debug';
+	import IconStar from '~icons/mdi/star';
+
+	const d = createDebug('reviews:rating');
 
 	type UserRatingSummary = {
 		averageRating: number;
@@ -108,9 +112,10 @@
 			return pubkey;
 		}
 
-		// Try to convert hex to npub
+		// Try to convert hex to npub using NDK
 		try {
-			return nip19.npubEncode(pubkey);
+			const user = ndk.getUser({ pubkey });
+			return user.npub;
 		} catch {
 			// If conversion fails, return as is (might be invalid)
 			return pubkey;
@@ -147,7 +152,7 @@
 			averageRating = ratingSummary.averageRating;
 			reviewCount = ratingSummary.reviewCount;
 		} catch (error) {
-			console.error('Failed to load user rating:', error);
+			d.error('Failed to load user rating:', error);
 			if (requestId === activeRequestId) {
 				averageRating = 0;
 				reviewCount = 0;
@@ -178,19 +183,12 @@
 	<div class="flex items-center gap-1">
 		{#if showStars}
 			{#each [0, 1, 2, 3, 4] as i (i)}
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
+				<IconStar
 					class="{currentSizeClasses.star} {i < roundedRating
-						? 'text-warning fill-warning'
+						? 'text-warning'
 						: 'text-base-content/30'}"
-					fill="currentColor"
-					viewBox="0 0 24 24"
 					aria-hidden="true"
-				>
-					<path
-						d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
-					/>
-				</svg>
+				/>
 			{/each}
 		{/if}
 		{#if showCount}

@@ -17,18 +17,15 @@ This file will be removed in a future release.
 	import { t } from 'svelte-i18n';
 	import ContractActions from './ContractActions.svelte';
 	import ContractContextSummary from './ContractContextSummary.svelte';
-	import UserNostrBadge from '../UserNostrBadge.svelte';
+	import UserInfoDisplay from '$lib/components/user/UserInfoDisplay.svelte';
 	import TaskDeadlineDisplay from '../task/TaskDeadlineDisplay.svelte';
 	import TaskLocationDisplay from '../task/TaskLocationDisplay.svelte';
 	import { buildContractContextPresentation } from '$lib/utils/service-contract/context-presentation';
 	import { getVisibleContractQuickActions } from '$lib/utils/helpers/contractQuickActions';
 	import { EscrowStatus } from '$lib/utils/escrow';
 	import ReviewPromptModal from '$lib/components/reviews/ReviewPromptModal.svelte';
-	import {
-		getOtherPartyPubkey,
-		hasUserReviewedContract,
-		isReviewableContractStatus
-	} from '$lib/utils/reviews/helpers';
+	import { getOtherPartyPubkey, isReviewableContractStatus } from '$lib/utils/reviews/helpers';
+	import { hasUserReviewedContract } from '$lib/utils/reviews/queries';
 	import { getReviewsForContract } from '$lib/utils/reviews/queries';
 	import { getNpub } from '$lib/utils/nostrKeys';
 	import { nip19 } from 'nostr-tools';
@@ -102,7 +99,11 @@ This file will be removed in a future release.
 				const currentUserPubkey = npubToHex(currentUserNpub);
 
 				// Check if user has reviewed
-				const userReviewed = await hasUserReviewedContract(contract.contract.escrowId);
+				const userReviewed = await hasUserReviewedContract(
+					contract.contract.escrowId,
+					contract.contract.escrowId,
+					currentUserPubkey
+				);
 
 				// Check if other party has reviewed
 				const reviews = await getReviewsForContract(contract.contract.escrowId);
@@ -484,7 +485,11 @@ This file will be removed in a future release.
 		</div>
 
 		<div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-			<UserNostrBadge npub={contractStore.getContractKey(contract, 'otherPartyNpub') as string} />
+			<UserInfoDisplay
+				pubkey={contractStore.getContractKey(contract, 'otherPartyNpub') as string}
+				profileLink={contractStore.getContractKey(contract, 'otherPartyNpub') as string}
+				size="sm"
+			/>
 
 			<div class="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
 				{#if presentation.isUnknownContext}

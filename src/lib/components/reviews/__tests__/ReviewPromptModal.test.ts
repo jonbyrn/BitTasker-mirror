@@ -2,12 +2,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { nip19 } from 'nostr-tools';
 import ReviewPromptModal from '../ReviewPromptModal.svelte';
+import type { IContractForReview } from '$lib/utils/reviews/contract-interface';
 
 const mocks = vi.hoisted(() => ({
 	getNpub: vi.fn(),
-	getUserContracts: vi.fn(),
-	fetchProfileMetadata: vi.fn(),
-	getEscrow: vi.fn()
+	fetchIContractForReviewByEscrowId: vi.fn(),
+	fetchProfileMetadata: vi.fn()
 }));
 
 vi.mock('svelte-i18n', async () => {
@@ -36,17 +36,19 @@ vi.mock('$lib/utils/nostrKeys', () => ({
 	getNpub: mocks.getNpub
 }));
 
-vi.mock('$lib/utils/nostr-bid', () => ({
-	getUserContracts: mocks.getUserContracts
+vi.mock('$lib/utils/contract/reviewContractsFromNdk', () => ({
+	fetchIContractForReviewByEscrowId: mocks.fetchIContractForReviewByEscrowId
 }));
 
 vi.mock('$lib/utils/nostr-message', () => ({
 	fetchProfileMetadata: mocks.fetchProfileMetadata
 }));
 
-vi.mock('$lib/utils/wallet/escrow', () => ({
-	escrow: {
-		getEscrow: mocks.getEscrow
+vi.mock('$lib/nostr/ndk', () => ({
+	ndk: {
+		getUser: ({ pubkey }: { pubkey: string }) => ({
+			npub: pubkey.startsWith('npub') ? pubkey : nip19.npubEncode(pubkey)
+		})
 	}
 }));
 
@@ -60,6 +62,67 @@ vi.mock('$lib/components/Drawer.svelte', async () => {
 	return { default: module.default };
 });
 
+function mockReviewContract(clientHex: string, freelancerHex: string): IContractForReview {
+	const clientNpubLocal = nip19.npubEncode(clientHex);
+	const freelancerNpubLocal = nip19.npubEncode(freelancerHex);
+	return {
+		get contractId() {
+			return 'contract-event-1';
+		},
+		get paymentId() {
+			return 'escrow-1';
+		},
+		get txHash() {
+			return '0xescrowtx';
+		},
+		get status() {
+			return 'FundsReleased';
+		},
+		get clientPubkey() {
+			return clientHex;
+		},
+		get freelancerPubkey() {
+			return freelancerHex;
+		},
+		get settlementType() {
+			return 'escrow';
+		},
+		get chain() {
+			return 'rsk';
+		},
+		get asset() {
+			return 'rbtc';
+		},
+		get contractAddress() {
+			return '0xpayment';
+		},
+		get taskTitle() {
+			return 'Mock contract title';
+		},
+		get taskDescription() {
+			return '';
+		},
+		get taskerWalletAddress() {
+			return '0xtasker';
+		},
+		get taskeeWalletAddress() {
+			return '0xtaskee';
+		},
+		get contractVersion() {
+			return 'v2';
+		},
+		isReviewable() {
+			return true;
+		},
+		getReviewableParty(pubkey: string) {
+			const p = pubkey.trim();
+			if (p === clientHex || p === clientNpubLocal) return 'client';
+			if (p === freelancerHex || p === freelancerNpubLocal) return 'freelancer';
+			return null;
+		}
+	};
+}
+
 describe('ReviewPromptModal', () => {
 	const clientHex = 'a'.repeat(64);
 	const freelancerHex = 'b'.repeat(64);
@@ -70,21 +133,9 @@ describe('ReviewPromptModal', () => {
 		vi.clearAllMocks();
 		mocks.getNpub.mockResolvedValue(clientNpub);
 		mocks.fetchProfileMetadata.mockResolvedValue({ name: 'Alice' });
-		mocks.getEscrow.mockResolvedValue({
-			id: 'escrow-1',
-			status: 10
-		});
-		mocks.getUserContracts.mockResolvedValue([
-			{
-				contractEvent: {
-					content: {
-						clientPubkey: clientHex,
-						freelancerPubkey: freelancerHex,
-						transactionHash: '0xescrowtx'
-					}
-				}
-			}
-		]);
+		mocks.fetchIContractForReviewByEscrowId.mockResolvedValue(
+			mockReviewContract(clientHex, freelancerHex)
+		);
 	});
 
 	it('derives the reviewee role from the loaded contract and passes it to the review form', async () => {
@@ -103,7 +154,7 @@ describe('ReviewPromptModal', () => {
 		const form = await screen.findByTestId('mock-review-form');
 		expect(form).toHaveAttribute('data-reviewee-role', 'taskee');
 		expect(form).toHaveAttribute('data-reviewee-pubkey', freelancerHex);
-		expect(mocks.getUserContracts).toHaveBeenCalledTimes(1);
+		expect(mocks.fetchIContractForReviewByEscrowId).toHaveBeenCalledWith('escrow-1');
 		expect(mocks.fetchProfileMetadata).toHaveBeenCalledWith(freelancerNpub);
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Mock submit review' }));
@@ -113,19 +164,9 @@ describe('ReviewPromptModal', () => {
 	});
 
 	it('retries loading the contract details after an initial failure', async () => {
-		mocks.getUserContracts
+		mocks.fetchIContractForReviewByEscrowId
 			.mockRejectedValueOnce(new Error('relay unavailable'))
-			.mockResolvedValueOnce([
-				{
-					contractEvent: {
-						content: {
-							clientPubkey: clientHex,
-							freelancerPubkey: freelancerHex,
-							transactionHash: '0xescrowtx'
-						}
-					}
-				}
-			]);
+			.mockResolvedValueOnce(mockReviewContract(clientHex, freelancerHex));
 
 		render(ReviewPromptModal, {
 			props: {
@@ -144,6 +185,6 @@ describe('ReviewPromptModal', () => {
 		await waitFor(() => {
 			expect(screen.getByTestId('mock-review-form')).toBeInTheDocument();
 		});
-		expect(mocks.getUserContracts).toHaveBeenCalledTimes(2);
+		expect(mocks.fetchIContractForReviewByEscrowId).toHaveBeenCalledTimes(2);
 	});
 });

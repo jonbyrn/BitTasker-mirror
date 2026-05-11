@@ -1,7 +1,6 @@
 import { defineConfig } from 'vitest/config';
 import { sveltekit } from '@sveltejs/kit/vite';
 import { svelteTesting } from '@testing-library/svelte/vite';
-import houdini from 'houdini/vite';
 import tailwindcss from '@tailwindcss/vite';
 import Icons from 'unplugin-icons/vite';
 import wasm from 'vite-plugin-wasm';
@@ -15,7 +14,6 @@ export default defineConfig({
 	plugins: [
 		sveltekit(),
 		svelteTesting(),
-		houdini(),
 		tailwindcss(),
 		wasm(),
 		topLevelAwait(),

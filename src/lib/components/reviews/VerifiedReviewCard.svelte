@@ -1,8 +1,18 @@
 <script lang="ts">
 	import { locale, t } from 'svelte-i18n';
+	import { onMount } from 'svelte';
 	import type { AttestedReview } from '$lib/types/review';
+	import { fetchContractProfile } from '$lib/utils/nostr-profile';
+	import IconCheckCircle from '~icons/mdi/check-circle';
+	import IconStar from '~icons/mdi/star';
+	import IconReply from '~icons/mdi/reply';
+	import { createDebug } from '$lib/utils/debug';
+
+	const d = createDebug('reviews:card');
+
 	type ReviewWithContext = AttestedReview & {
 		escrowId?: string | null;
+		contractTitle?: string | null;
 	};
 
 	let {
@@ -30,6 +40,30 @@
 		return typeof review.contractId === 'string' && review.contractId.length > 0
 			? review.contractId
 			: null;
+	});
+
+	// Profile name fetching for reviewee
+	let revieweeName = $state<string | null>(null);
+	let isLoadingProfile = $state(false);
+
+	onMount(async () => {
+		if (showRevieweeContext && review.revieweePubkey) {
+			isLoadingProfile = true;
+			try {
+				const profile = await fetchContractProfile(review.revieweePubkey);
+				revieweeName = profile.name || null;
+			} catch (error) {
+				d.error('Failed to fetch reviewee profile:', error);
+			} finally {
+				isLoadingProfile = false;
+			}
+		}
+	});
+
+	// Display name: prefer fetched name, fall back to formatted pubkey
+	const displayName = $derived.by(() => {
+		if (revieweeName) return revieweeName;
+		return formatPubkey(review.revieweePubkey);
 	});
 
 	function formatDate(timestamp: number): string {
@@ -81,8 +115,14 @@
 			return pubkey;
 		}
 
-		return `${pubkey.slice(0, 12)}...${pubkey.slice(-6)}`;
+		return `${pubkey.slice(0, 8)}...${pubkey.slice(-4)}`;
 	}
+
+	const roleLabel = $derived.by(() => {
+		if (effectiveRole === 'taskee') return $t('notifications.roles.taskee');
+		if (effectiveRole === 'tasker') return $t('notifications.roles.tasker');
+		return '';
+	});
 </script>
 
 <div class="card bg-base-100 border-base-300 border shadow-md">
@@ -97,21 +137,8 @@
 							<span class="sr-only">Verifying review</span>
 						{:else if isVerified}
 							<div class="badge badge-success badge-sm gap-1">
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									class="h-3 w-3"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke="currentColor"
-								>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										stroke-width="2"
-										d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-									/>
-								</svg>
-								{$t('reviews.attested')}
+								<IconCheckCircle class="h-3 w-3" />
+								{$t('reviews.verified')}
 							</div>
 						{:else}
 							<div class="badge badge-error badge-sm">
@@ -130,41 +157,44 @@
 				</div>
 				<div class="mt-1 flex items-center justify-end gap-0.5">
 					{#each [0, 1, 2, 3, 4] as i (i)}
-						<svg
+						<IconStar
 							class="h-3.5 w-3.5 {i < Math.round(review.content.overallRating)
-								? 'text-warning fill-warning'
+								? 'text-warning'
 								: 'text-base-content/20'}"
-							fill="currentColor"
-							viewBox="0 0 20 20"
-							xmlns="http://www.w3.org/2000/svg"
 							aria-hidden="true"
-						>
-							<path
-								d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"
-							/>
-						</svg>
+						/>
 					{/each}
 				</div>
 			</div>
 		</div>
 
 		{#if showRevieweeContext}
-			<div class="mb-3 grid gap-2 text-sm sm:grid-cols-2">
-				<div class="bg-base-200/50 flex min-w-0 items-center gap-2 rounded-lg px-3 py-2">
-					<span class="badge badge-outline">{$t('reviews.pending.review_for')}</span>
-					<span class="truncate font-medium">{formatPubkey(review.revieweePubkey)}</span>
+			<div class="border-base-300 mb-4 border-b pb-3">
+				<div class="flex flex-wrap items-center gap-2 text-sm">
+					<span class="text-base-content/70">{$t('reviews.pending.review_for')}</span>
+					{#if isLoadingProfile}
+						<span class="loading loading-dots loading-xs"></span>
+					{:else}
+						<span class="font-semibold">{displayName}</span>
+					{/if}
+					{#if roleLabel}
+						<span class="badge badge-sm badge-ghost">{roleLabel}</span>
+					{/if}
 				</div>
-				{#if reviewContractId}
-					<div class="bg-base-200/50 flex min-w-0 items-center gap-2 rounded-lg px-3 py-2">
-						<span class="badge badge-outline">{$t('reviews.pending.contract')}</span>
-						<span class="truncate font-medium">{reviewContractId}</span>
+				{#if review.contractTitle}
+					<div class="text-base-content/70 mt-1 text-sm">
+						<span class="text-base-content font-medium">{review.contractTitle}</span>
+					</div>
+				{:else if reviewContractId}
+					<div class="text-base-content/60 mt-1 text-xs">
+						{$t('reviews.pending.contract')}: {reviewContractId}
 					</div>
 				{/if}
 			</div>
 		{/if}
 
 		<!-- Category Ratings - Role-Specific -->
-		<div class="mb-3 grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
+		<div class="mb-4 grid grid-cols-1 gap-2 text-sm sm:grid-cols-3">
 			{#if effectiveRole === 'taskee' && 'workQuality' in review.content.categoryRatings}
 				<!-- Taskee Categories -->
 				{@const taskeeRatings = review.content.categoryRatings as {
@@ -172,18 +202,26 @@
 					experience: number;
 					deliverySpeed: number;
 				}}
-				<div class="bg-base-200/50 flex min-w-0 flex-col gap-1 rounded-lg p-3">
-					<span class="text-base-content/70">{$t('reviews.form.work_quality')}</span>
-					<span class="font-semibold">{taskeeRatings.workQuality}/5</span>
-				</div>
-				<div class="bg-base-200/50 flex min-w-0 flex-col gap-1 rounded-lg p-3">
-					<span class="text-base-content/70">{$t('reviews.form.experience')}</span>
-					<span class="font-semibold">{taskeeRatings.experience}/5</span>
-				</div>
-				<div class="bg-base-200/50 flex min-w-0 flex-col gap-1 rounded-lg p-3">
-					<span class="text-base-content/70">{$t('reviews.form.delivery_speed')}</span>
-					<span class="font-semibold">{taskeeRatings.deliverySpeed}/5</span>
-				</div>
+				{@const categories = [
+					{ label: $t('reviews.form.work_quality'), value: taskeeRatings.workQuality },
+					{ label: $t('reviews.form.experience'), value: taskeeRatings.experience },
+					{ label: $t('reviews.form.delivery_speed'), value: taskeeRatings.deliverySpeed }
+				]}
+				{#each categories as category (category.label)}
+					<div class="bg-base-200/50 flex items-center justify-between rounded-lg px-3 py-2">
+						<span class="text-base-content/70 text-xs">{category.label}</span>
+						<div class="flex items-center gap-1">
+							{#each [1, 2, 3, 4, 5] as star (star)}
+								<IconStar
+									class="h-3 w-3 {star <= Math.round(category.value)
+										? 'text-warning'
+										: 'text-base-content/20'}"
+									aria-hidden="true"
+								/>
+							{/each}
+						</div>
+					</div>
+				{/each}
 			{:else if effectiveRole === 'tasker' && 'communication' in review.content.categoryRatings}
 				<!-- Tasker Categories -->
 				{@const taskerRatings = review.content.categoryRatings as {
@@ -191,18 +229,26 @@
 					clarity: number;
 					paymentTimeliness: number;
 				}}
-				<div class="bg-base-200/50 flex min-w-0 flex-col gap-1 rounded-lg p-3">
-					<span class="text-base-content/70">{$t('reviews.form.communication')}</span>
-					<span class="font-semibold">{taskerRatings.communication}/5</span>
-				</div>
-				<div class="bg-base-200/50 flex min-w-0 flex-col gap-1 rounded-lg p-3">
-					<span class="text-base-content/70">{$t('reviews.form.clarity')}</span>
-					<span class="font-semibold">{taskerRatings.clarity}/5</span>
-				</div>
-				<div class="bg-base-200/50 flex min-w-0 flex-col gap-1 rounded-lg p-3">
-					<span class="text-base-content/70">{$t('reviews.form.payment_timeliness')}</span>
-					<span class="font-semibold">{taskerRatings.paymentTimeliness}/5</span>
-				</div>
+				{@const categories = [
+					{ label: $t('reviews.form.communication'), value: taskerRatings.communication },
+					{ label: $t('reviews.form.clarity'), value: taskerRatings.clarity },
+					{ label: $t('reviews.form.payment_timeliness'), value: taskerRatings.paymentTimeliness }
+				]}
+				{#each categories as category (category.label)}
+					<div class="bg-base-200/50 flex items-center justify-between rounded-lg px-3 py-2">
+						<span class="text-base-content/70 text-xs">{category.label}</span>
+						<div class="flex items-center gap-1">
+							{#each [1, 2, 3, 4, 5] as star (star)}
+								<IconStar
+									class="h-3 w-3 {star <= Math.round(category.value)
+										? 'text-warning'
+										: 'text-base-content/20'}"
+									aria-hidden="true"
+								/>
+							{/each}
+						</div>
+					</div>
+				{/each}
 			{:else}
 				<!-- Legacy Categories -->
 				{@const legacyRatings = review.content.categoryRatings as {
@@ -210,25 +256,35 @@
 					professionalism: number;
 					timeliness: number;
 				}}
-				<div class="bg-base-200/50 flex min-w-0 flex-col gap-1 rounded-lg p-3">
-					<span class="text-base-content/70">{$t('reviews.form.quality')}</span>
-					<span class="font-semibold">{legacyRatings.quality}/5</span>
-				</div>
-				<div class="bg-base-200/50 flex min-w-0 flex-col gap-1 rounded-lg p-3">
-					<span class="text-base-content/70">{$t('reviews.form.professionalism')}</span>
-					<span class="font-semibold">{legacyRatings.professionalism}/5</span>
-				</div>
-				<div class="bg-base-200/50 flex min-w-0 flex-col gap-1 rounded-lg p-3">
-					<span class="text-base-content/70">{$t('reviews.form.timeliness')}</span>
-					<span class="font-semibold">{legacyRatings.timeliness}/5</span>
-				</div>
+				{@const categories = [
+					{ label: $t('reviews.form.quality'), value: legacyRatings.quality },
+					{ label: $t('reviews.form.professionalism'), value: legacyRatings.professionalism },
+					{ label: $t('reviews.form.timeliness'), value: legacyRatings.timeliness }
+				]}
+				{#each categories as category (category.label)}
+					<div class="bg-base-200/50 flex items-center justify-between rounded-lg px-3 py-2">
+						<span class="text-base-content/70 text-xs">{category.label}</span>
+						<div class="flex items-center gap-1">
+							{#each [1, 2, 3, 4, 5] as star (star)}
+								<IconStar
+									class="h-3 w-3 {star <= Math.round(category.value)
+										? 'text-warning'
+										: 'text-base-content/20'}"
+									aria-hidden="true"
+								/>
+							{/each}
+						</div>
+					</div>
+				{/each}
 			{/if}
 		</div>
 
 		<!-- Comment -->
 		{#if displayComment}
-			<div class="mb-3">
-				<p class="text-base-content/90 whitespace-pre-wrap">{displayComment}</p>
+			<div class="bg-base-200/30 mb-4 rounded-lg p-3">
+				<p class="text-base-content text-sm leading-relaxed whitespace-pre-wrap">
+					{displayComment}
+				</p>
 			</div>
 		{/if}
 
@@ -256,20 +312,7 @@
 						onReply(review.attestationEventId);
 					}}
 				>
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="mr-1 h-4 w-4"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-						stroke-width="2"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"
-						/>
-					</svg>
+					<IconReply class="mr-1 h-4 w-4" />
 					{$t('reviews.reply')}
 				</button>
 			</div>

@@ -279,7 +279,7 @@
 		<p class="text-base-content/70 text-lg">{$t('reviews.management.description')}</p>
 	</div>
 
-	<div class="bg-base-100 rounded-xl p-8 shadow-lg">
+	<div>
 		{#if isLoading}
 			<div class="flex items-center justify-center py-12" role="status" aria-live="polite">
 				<span class="loading loading-spinner loading-lg"></span>
@@ -400,7 +400,7 @@
 									<p>{$t('reviews.list.no_given_reviews')}</p>
 								</div>
 							{:else}
-								{#each givenReviews as review (review.nostrEventId)}
+								{#each givenReviews as review (review.attestationEventId)}
 									<VerifiedReviewCard {review} showRevieweeContext={true} />
 								{/each}
 							{/if}

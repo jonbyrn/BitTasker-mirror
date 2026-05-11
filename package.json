@@ -115,7 +115,7 @@
 		"wrangler": "^4.0.0"
 	},
 	"dependencies": {
-		"@bittasker/reviews-contracts": "file:nostr-reviews-verifier/packages/reviews-contracts/bittasker-reviews-contracts-0.0.1.tgz",
+		"@bittasker/reviews-contracts": "file:../nostr-reviews-verifier/packages/reviews-contracts/bittasker-reviews-contracts-0.0.1.tgz",
 		"@bittasker/wallet-core": "^0.1.10",
 		"@capacitor-mlkit/barcode-scanning": "^8.0.1",
 		"@capacitor/android": "^8.0.0",

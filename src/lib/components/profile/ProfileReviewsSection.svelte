@@ -418,7 +418,7 @@
 							<p>{$t('reviews.list.no_given_reviews')}</p>
 						</div>
 					{:else}
-						{#each givenReviews as review (review.nostrEventId)}
+						{#each givenReviews as review (review.attestationEventId)}
 							<VerifiedReviewCard {review} showRevieweeContext={true} />
 						{/each}
 					{/if}

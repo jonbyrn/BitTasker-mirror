@@ -1,6 +1,7 @@
 import { vi } from 'vitest';
 import '@testing-library/jest-dom';
 import { readable } from 'svelte/store';
+import { addMessages, init } from 'svelte-i18n';
 
 declare module 'vitest' {
 	interface Expect<T> {

@@ -1,4 +1,12 @@
+<!--
+ * @deprecated This component uses v1 escrow patterns with ContractWithEvents.
+ * Use the NDK-based contract flow (ContractDrawerNDK + ContractCardNDK) instead.
+ * This file will be removed in a future release.
+-->
 <script lang="ts">
+	/**
+	 * @deprecated This file is deprecated. Use ContractDrawerNDK.svelte instead.
+	 */
 	import { t } from 'svelte-i18n';
 	import { locale } from 'svelte-i18n';
 	import { formatStandardDateTime } from '$lib/utils/helpers/dateFormatter';
@@ -7,7 +15,12 @@
 	import ContractActions from './ContractActions.svelte';
 	import { contractStore } from '$lib/stores/contract.store';
 
-	const { contract, isOpen, onClose, onUpdate } = $props<{
+	const {
+		contract,
+		isOpen,
+		onClose,
+		onUpdate: _onUpdate
+	} = $props<{
 		contract: ContractWithEvents;
 		isOpen: boolean;
 		onClose: () => void;
@@ -41,11 +54,6 @@
 			default:
 				return 'badge-ghost';
 		}
-	}
-
-	// Handle action completion
-	function handleActionComplete() {
-		onUpdate();
 	}
 
 	// Handle modal close

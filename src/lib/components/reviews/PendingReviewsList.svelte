@@ -5,6 +5,12 @@
 	import { findPendingReviews } from '$lib/utils/reviews/helpers';
 	import type { PendingReview } from '$lib/utils/reviews/helpers';
 	import ReviewPromptModal from './ReviewPromptModal.svelte';
+	import UserInfoDisplay from '$lib/components/user/UserInfoDisplay.svelte';
+	import { createDebug } from '$lib/utils/debug';
+	import IconCloseCircle from '~icons/mdi/close-circle-outline';
+	import IconCheckCircle from '~icons/mdi/check-circle-outline';
+
+	const d = createDebug('reviews:pending');
 
 	let { initialPendingReviews, onReviewSubmitted } = $props<{
 		initialPendingReviews?: PendingReview[];
@@ -28,7 +34,7 @@
 	});
 
 	onMount(async () => {
-		if (initialPendingReviews !== undefined) {
+		if (initialPendingReviews !== undefined && initialPendingReviews.length > 0) {
 			return;
 		}
 
@@ -48,7 +54,7 @@
 			pendingReviews = nextPendingReviews;
 			return nextPendingReviews;
 		} catch (err) {
-			console.error('Failed to load pending reviews:', err);
+			d.error('Failed to load pending reviews:', err);
 			error = err instanceof Error ? err.message : $t('reviews.pending.load_error');
 			return null;
 		} finally {
@@ -62,9 +68,9 @@
 	}
 
 	async function handleReviewSubmitted() {
-		const submittedEscrowId = selectedReview?.escrowId;
-		const optimisticPendingReviews = submittedEscrowId
-			? pendingReviews.filter((pendingReview) => pendingReview.escrowId !== submittedEscrowId)
+		const submittedContractId = selectedReview?.contractId;
+		const optimisticPendingReviews = submittedContractId
+			? pendingReviews.filter((pendingReview) => pendingReview.contractId !== submittedContractId)
 			: pendingReviews;
 
 		pendingReviews = optimisticPendingReviews;
@@ -84,45 +90,22 @@
 		}).format(date);
 	}
 
-	function formatPubkey(pubkey: string): string {
-		if (pubkey.length <= 18) {
-			return pubkey;
-		}
-
-		return `${pubkey.slice(0, 12)}...${pubkey.slice(-6)}`;
-	}
-
-	function getRevieweeLabel(pendingReview: PendingReview): string {
-		return pendingReview.revieweeName?.trim() || formatPubkey(pendingReview.revieweePubkey);
-	}
-
-	function getRevieweeInitial(pendingReview: PendingReview): string {
-		return getRevieweeLabel(pendingReview).charAt(0).toUpperCase() || '?';
+	function contractDisplayTitle(pendingReview: PendingReview): string {
+		const title = pendingReview.contract.taskTitle?.trim();
+		return title || $t('reviews.pending.fallback_contract_title');
 	}
 </script>
 
-<div class="pending-reviews-list space-y-4">
+<div class="pending-reviews-list space-y-2">
 	{#if isLoading}
 		<div class="flex items-center justify-center py-12" role="status" aria-live="polite">
-			<span class="loading loading-spinner loading-lg"></span>
+			<span class="loading loading-spinner loading-lg text-primary"></span>
 			<span class="sr-only">{$t('reviews.pending.loading')}</span>
 		</div>
 	{:else if error}
 		<div class="space-y-3">
 			<div class="alert alert-outline alert-error">
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					class="h-6 w-6 shrink-0 stroke-current"
-					fill="none"
-					viewBox="0 0 24 24"
-				>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="2"
-						d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-					/>
-				</svg>
+				<IconCloseCircle class="h-6 w-6 shrink-0" />
 				<span>{error}</span>
 			</div>
 			<div class="flex justify-end">
@@ -132,77 +115,73 @@
 			</div>
 		</div>
 	{:else if pendingReviews.length === 0}
-		<div class="py-12 text-center">
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				class="text-base-content/30 mx-auto mb-4 h-16 w-16"
-				fill="none"
-				viewBox="0 0 24 24"
-				stroke="currentColor"
-			>
-				<path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					stroke-width="2"
-					d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-				/>
-			</svg>
-			<p class="text-base-content/70 mb-2 text-lg">{$t('reviews.pending.no_pending')}</p>
-			<p class="text-base-content/50 text-sm">{$t('reviews.pending.all_caught_up')}</p>
+		<div class="rounded-box border-base-300 bg-base-200/40 py-12 text-center">
+			<IconCheckCircle class="text-base-content/25 mx-auto mb-4 h-16 w-16" />
+			<p class="text-base-content/80 mb-1 text-lg font-medium">
+				{$t('reviews.pending.no_pending')}
+			</p>
+			<p class="text-base-content/50 px-4 text-sm">{$t('reviews.pending.all_caught_up')}</p>
 		</div>
 	{:else}
-		<div class="space-y-3">
-			{#each pendingReviews as pendingReview (pendingReview.escrowId)}
+		<div class="space-y-2">
+			{#each pendingReviews as pendingReview (pendingReview.contractId)}
 				<div
-					class="card bg-base-100 border-base-300 border shadow-sm transition-shadow hover:shadow-md"
+					class="card bg-base-100 border-base-300 rounded-box border shadow-sm transition-shadow duration-200 hover:shadow-md"
 				>
-					<div class="card-body p-4">
-						<div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-							<div class="flex min-w-0 flex-1 items-start gap-3">
-								<div
-									class="bg-primary/10 text-primary flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sm font-semibold"
-									aria-hidden="true"
+					<div class="card-body p-6">
+						<div
+							class="grid grid-cols-1 gap-y-2 md:grid-cols-[minmax(0,1fr)_minmax(12rem,22rem)] md:gap-x-5 md:gap-y-1"
+						>
+							<!-- `h3` is avoided: global app.css sets body h3 to large display type and can override utilities. -->
+							<p
+								role="heading"
+								aria-level="3"
+								class="text-base-content m-0 line-clamp-2 font-sans text-2xl leading-snug font-semibold md:col-start-1 md:row-start-1"
+							>
+								{contractDisplayTitle(pendingReview)}
+							</p>
+
+							{#if pendingReview.contract.taskDescription?.trim()}
+								<p
+									class="text-base-content/70 line-clamp-3 text-sm whitespace-pre-line md:col-start-1 md:row-start-2"
 								>
-									{getRevieweeInitial(pendingReview)}
-								</div>
-								<div class="min-w-0 flex-1">
-									<p class="text-base-content/50 text-xs font-semibold tracking-[0.18em] uppercase">
-										{$t('reviews.pending.review_for')}
-									</p>
-									<h4 class="truncate text-lg font-semibold">
-										{getRevieweeLabel(pendingReview)}
-									</h4>
-									{#if pendingReview.revieweeName}
-										<p
-											class="text-base-content/60 mt-1 truncate font-mono text-xs"
-											title={pendingReview.revieweePubkey}
-										>
-											{$t('reviews.pending.nostr_id')}: {formatPubkey(pendingReview.revieweePubkey)}
-										</p>
-									{/if}
-								</div>
-							</div>
+									{pendingReview.contract.taskDescription}
+								</p>
+							{:else}
+								<div class="min-h-0 min-w-0 md:col-start-1 md:row-start-2" aria-hidden="true"></div>
+							{/if}
+
+							<p class="text-base-content/60 text-sm md:col-start-1 md:row-start-3">
+								{$t('reviews.pending.completed_on')}
+								<span class="text-base-content font-medium"
+									>{formatDate(pendingReview.completedAt)}</span
+								>
+							</p>
 
 							<div
-								class="text-base-content/70 flex shrink-0 flex-col items-start gap-2 text-sm md:items-end"
+								class="flex w-full min-w-0 flex-col gap-2 md:col-start-2 md:row-span-3 md:row-start-1 md:max-w-sm md:justify-center md:justify-self-end"
 							>
-								<div class="flex flex-wrap items-center gap-2">
-									<span class="badge badge-outline badge-sm">
-										{$t('reviews.pending.completed')}
-									</span>
-									<span class="font-medium">
-										{$t('reviews.pending.contract')} #{pendingReview.escrowId.slice(0, 8)}
-									</span>
-								</div>
-								<p class="text-xs">
-									{$t('reviews.pending.completed_on')}
-									{formatDate(pendingReview.completedAt)}
+								<p
+									class="text-base-content/50 m-0 text-start text-xs font-semibold tracking-wider uppercase"
+								>
+									{$t('reviews.pending.review_for')}
 								</p>
+								<div class="flex w-full justify-center md:justify-end">
+									<UserInfoDisplay
+										pubkey={pendingReview.revieweePubkey}
+										username={pendingReview.revieweeName ?? null}
+										size="md"
+										showReviewCount={true}
+										showRanking={false}
+									/>
+								</div>
 							</div>
 						</div>
-						<div class="card-actions mt-4 justify-end">
+
+						<div class="card-actions border-base-200 mt-3 justify-end border-t pt-3">
 							<button
 								class="btn btn-primary btn-sm"
+								type="button"
 								onclick={() => handleReviewClick(pendingReview)}
 							>
 								{$t('reviews.pending.review_now')}
@@ -218,8 +197,9 @@
 	{#if showReviewModal && selectedReview}
 		<ReviewPromptModal
 			isOpen={showReviewModal}
-			escrowId={selectedReview.escrowId}
-			escrowTxHash={selectedReview.escrowTxHash}
+			contract={selectedReview.contract}
+			escrowId={selectedReview.contract?.paymentId ?? selectedReview.contractId}
+			escrowTxHash={selectedReview.contract?.txHash}
 			revieweePubkey={selectedReview.revieweePubkey}
 			onClose={() => {
 				showReviewModal = false;

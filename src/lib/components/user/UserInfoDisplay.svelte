@@ -1,24 +1,28 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import { t } from 'svelte-i18n';
 	import IconAccount from '~icons/mdi/account';
 	import { fetchProfileMetadata } from '$lib/utils/nostr-message';
-	import { nip19 } from 'nostr-tools';
+	import { ndk } from '$lib/nostr/ndk';
+	import { getReviewsForUser } from '$lib/utils/reviews/queries';
+	import { calculateReviewStats } from '$lib/utils/reviews/aggregation';
+	import { calculateUserRanking, type UserRanking } from '$lib/utils/reviews/ranking';
 
 	const {
 		avatar = null,
 		username = null,
-		rating = 0,
+		rating: ratingProp = null, // Now optional - will calculate from reviews if not provided
 		avatarAlt = $t('dashboard.find_tasks.avatar_alt') || 'Avatar',
 		size = 'md',
 		pubkey = null, // Optional pubkey to fetch profile if username is invalid
 		memberSince = null, // Optional date/timestamp for "Member since" text
 		profileLink = null, // Optional npub/pubkey for profile link
-		onResolvedName = null
+		onResolvedName = null,
+		showRanking = false, // Show ranking badge
+		showReviewCount = true // Show review count next to stars
 	} = $props<{
 		avatar?: string | null;
 		username?: string | null;
-		rating?: number;
+		rating?: number | null;
 		avatarAlt?: string;
 		size?: 'sm' | 'md' | 'lg';
 		pubkey?: string | null; // npub or hex pubkey for fetching profile metadata
@@ -26,11 +30,19 @@
 		profileLink?: string | null; // npub or hex pubkey for profile link
 		/** Callback invoked with the resolved display name after fetch completes or username changes. Never returns the fallback "Unknown User" string. */
 		onResolvedName?: ((name: string) => void) | null;
+		showRanking?: boolean;
+		showReviewCount?: boolean;
 	}>();
 
 	// State for fetched profile data (fetchProfileMetadata returns name, picture, createdAt)
 	let fetchedProfile = $state<{ name?: string; picture?: string; createdAt?: string } | null>(null);
 	let activeProfileRequestId = 0;
+
+	// State for reviews and ranking
+	let userRanking = $state<UserRanking | null>(null);
+	let reviewCount = $state(0);
+	let calculatedRating = $state(0);
+	let isLoadingReviews = $state(false);
 
 	// Size configurations - matching bids page styling
 	const sizeConfig = {
@@ -94,6 +106,18 @@
 	});
 
 	/**
+	 * Encode hex pubkey to npub using NDK
+	 */
+	function hexToNpub(hex: string): string | null {
+		try {
+			const user = ndk.getUser({ pubkey: hex });
+			return user.npub;
+		} catch {
+			return null;
+		}
+	}
+
+	/**
 	 * Get profile URL from profileLink or pubkey (npub or hex)
 	 * Converts to npub format for consistent URLs
 	 */
@@ -107,20 +131,13 @@
 			return `/npub/${pubkeyToUse}`;
 		}
 
-		// If it's hex, convert to npub for the URL
+		// If it's hex, convert to npub for the URL using NDK
 		if (/^[a-fA-F0-9]{64}$/.test(pubkeyToUse)) {
-			try {
-				const npub = nip19.npubEncode(pubkeyToUse);
-				return `/npub/${npub}`;
-			} catch (error) {
-				console.error('[UserInfoDisplay] Failed to encode npub:', error);
-				// Fallback to hex format (route should handle it)
-				return `/npub/${pubkeyToUse}`;
-			}
+			const npub = hexToNpub(pubkeyToUse);
+			return npub ? `/npub/${npub}` : `/npub/${pubkeyToUse}`;
 		}
 
 		// Fallback: use as-is (route should handle it)
-		// If it's an npub format, it will be handled by the route
 		return `/npub/${pubkeyToUse}`;
 	});
 
@@ -228,40 +245,25 @@
 	});
 
 	/**
-	 * Normalize pubkey to hex format (like profile page does)
+	 * Normalize pubkey to hex format using NDK
 	 * This ensures consistent cache keys and proper filtering
 	 */
 	function normalizePubkeyToHex(pubkeyInput: string | null): string | null {
 		if (!pubkeyInput) return null;
-
-		// Check if it's an npub format (starts with npub1)
-		if (pubkeyInput.startsWith('npub1')) {
-			try {
-				const decoded = nip19.decode(pubkeyInput);
-				if (decoded.type === 'npub') {
-					return decoded.data as string;
-				}
-			} catch (error) {
-				console.error('[UserInfoDisplay] Failed to decode npub:', error);
-				return null;
-			}
-		}
 
 		// Check if it's a hex pubkey (64 characters)
 		if (/^[a-fA-F0-9]{64}$/.test(pubkeyInput)) {
 			return pubkeyInput;
 		}
 
-		// If it's just "npub" without the full format, try to decode anyway
-		if (pubkeyInput.startsWith('npub') && !pubkeyInput.startsWith('npub1')) {
+		// Check if it's an npub format - use NDK to decode
+		if (pubkeyInput.startsWith('npub')) {
 			try {
-				const decoded = nip19.decode(pubkeyInput);
-				// Use type assertion since we know it's an npub if decode succeeds
-				if ((decoded as { type: string }).type === 'npub') {
-					return (decoded as { type: 'npub'; data: string }).data;
-				}
+				const user = ndk.getUser({ npub: pubkeyInput });
+				return user.pubkey;
 			} catch (error) {
 				console.error('[UserInfoDisplay] Failed to decode npub:', error);
+				return null;
 			}
 		}
 
@@ -276,9 +278,13 @@
 	 */
 	async function loadUserProfile(currentPubkey: string, requestId: number) {
 		try {
-			// Convert hex to npub for fetchProfileMetadata (it handles both, but npub ensures cache consistency)
-			// The cache key will be npub format, which is consistent across calls
-			const npubToFetch = nip19.npubEncode(currentPubkey);
+			// Convert hex to npub for fetchProfileMetadata using NDK
+			const npubToFetch = hexToNpub(currentPubkey);
+			if (!npubToFetch) {
+				fetchedProfile = null;
+				return;
+			}
+
 			const profile = await fetchProfileMetadata(npubToFetch);
 
 			if (requestId !== activeProfileRequestId) {
@@ -299,28 +305,79 @@
 		}
 	}
 
+	/**
+	 * Load reviews and calculate ranking for a user
+	 */
+	async function loadUserReviews(currentPubkey: string, requestId: number) {
+		if (ratingProp !== null && ratingProp !== undefined) {
+			// If rating is explicitly provided, use it
+			calculatedRating = ratingProp;
+			return;
+		}
+
+		isLoadingReviews = true;
+		try {
+			const reviews = await getReviewsForUser(currentPubkey, 100);
+
+			if (requestId !== activeProfileRequestId) {
+				return;
+			}
+
+			reviewCount = reviews.length;
+
+			if (reviews.length > 0) {
+				const stats = calculateReviewStats(reviews);
+				calculatedRating = stats.averageRating;
+				userRanking = calculateUserRanking({ reviewStats: stats });
+			} else {
+				calculatedRating = 0;
+				userRanking = null;
+			}
+		} catch (error) {
+			if (requestId !== activeProfileRequestId) {
+				return;
+			}
+			console.error('[UserInfoDisplay] Failed to load user reviews:', error);
+			calculatedRating = 0;
+			userRanking = null;
+		} finally {
+			isLoadingReviews = false;
+		}
+	}
+
+	/**
+	 * Get display rating - use prop if provided, otherwise calculated from reviews
+	 */
+	const displayRating = $derived(
+		ratingProp !== null && ratingProp !== undefined ? ratingProp : calculatedRating
+	);
+
 	$effect(() => {
 		const currentPubkey = normalizedHexPubkey;
 		activeProfileRequestId += 1;
 		const requestId = activeProfileRequestId;
 
 		fetchedProfile = null;
+		userRanking = null;
+		reviewCount = 0;
+		calculatedRating = 0;
 
 		if (!currentPubkey) {
 			return;
 		}
 
-		void loadUserProfile(currentPubkey, requestId);
+		// Load profile and reviews in parallel
+		void Promise.all([
+			loadUserProfile(currentPubkey, requestId),
+			loadUserReviews(currentPubkey, requestId)
+		]);
 	});
 </script>
 
 <div class="flex min-w-0 flex-1 items-center gap-4">
 	<!-- Avatar -->
 	{#if profileUrl}
-		<a
-			href={resolve(profileUrl)}
-			class="avatar shrink-0 cursor-pointer transition-opacity hover:opacity-80"
-		>
+		<a href={profileUrl} class="avatar shrink-0 cursor-pointer transition-opacity hover:opacity-80">
 			<div class="bg-base-300 flex {config.avatar} items-center justify-center rounded-full">
 				{#if displayAvatar}
 					<img
@@ -394,7 +451,7 @@
 		<!-- Display name -->
 		{#if profileUrl}
 			<a
-				href={resolve(profileUrl)}
+				href={profileUrl}
 				class="w-full cursor-pointer truncate {config.name} transition-opacity hover:opacity-80"
 			>
 				{displayUsername}
@@ -415,19 +472,41 @@
 
 		<!-- Rating - same pattern as find-tasks: filled stars, yellow for filled, grey for empty -->
 		<div class="flex items-center gap-1">
-			{#each Array.from({ length: 5 }, (_, i) => i) as i (i)}
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					class="{config.star} {i < (rating || 0) ? 'text-yellow-400' : 'text-base-content/30'}"
-					fill="currentColor"
-					viewBox="0 0 24 24"
-				>
-					<path
-						d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
-					/>
-				</svg>
-			{/each}
-			<span class="text-base-content/60 ml-1 {config.rating}">{rating || 0}</span>
+			{#if isLoadingReviews}
+				<span class="loading loading-spinner loading-xs text-base-content/40"></span>
+			{:else}
+				{#each Array.from({ length: 5 }, (_, i) => i) as i (i)}
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="{config.star} {i < Math.round(displayRating)
+							? 'text-yellow-400'
+							: 'text-base-content/30'}"
+						fill="currentColor"
+						viewBox="0 0 24 24"
+					>
+						<path
+							d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+						/>
+					</svg>
+				{/each}
+				<span class="text-base-content/60 ml-1 {config.rating}">
+					{displayRating > 0 ? displayRating.toFixed(1) : '0'}
+				</span>
+				{#if showReviewCount && reviewCount > 0}
+					<span class="text-base-content/40 {config.rating}">
+						({reviewCount})
+					</span>
+				{/if}
+			{/if}
 		</div>
+
+		<!-- Ranking Badge (optional) -->
+		{#if showRanking && userRanking && userRanking.score > 0}
+			<div class="mt-1">
+				<span class="badge {userRanking.tierConfig.badgeClass} badge-sm gap-1">
+					{userRanking.tierConfig.label}
+				</span>
+			</div>
+		{/if}
 	</div>
 </div>

@@ -1,5 +1,5 @@
 import { reviewsAttestationClient } from '$lib/api/services/reviewsAttestation.service';
-import type { ReviewChallengeRequest, ReviewChallengeResponse } from '$lib/types/review';
+import type { ReviewChallengeRequest } from '$lib/types/review';
 import type { NostrEventLike } from '@bittasker/reviews-contracts';
 import KINDS from '$lib/utils/constants/kinds';
 import { normalizeNostrPubkey } from '$lib/utils/nostr-pubkey';
@@ -7,6 +7,7 @@ import { getNostrKeyPair } from '$lib/utils/nostrKeys';
 import { getSignedEvent } from '$lib/utils/nostr';
 import { schnorr } from '@noble/curves/secp256k1';
 import { bytesToHex } from '@noble/hashes/utils';
+import { getWallet } from '$lib/stores/wallet.store';
 
 export interface AttestationFlowResult {
 	attestationEventId: string;
@@ -54,7 +55,23 @@ export async function submitAttestedReview(params: {
 
 	const reviewerNpub = normalizeNostrPubkey(npub) ?? npub;
 
+	const wallet = getWallet('rsk');
+	if (!wallet) throw new Error('RSK wallet not initialized');
+	const walletAddress = wallet.address;
+
+	const resolvedRevieweeWallet = params.revieweeWallet?.trim();
+	if (!resolvedRevieweeWallet) {
+		throw new Error('missing_reviewee_wallet');
+	}
+
+	// Reviewer wallet must match the on-chain party (tasker or taskee); prefer explicit param over connected wallet.
+	const resolvedReviewerWallet = params.reviewerWallet?.trim() || walletAddress;
+	if (!resolvedReviewerWallet) {
+		throw new Error('missing_reviewer_wallet');
+	}
+
 	const challengeRequest: ReviewChallengeRequest = {
+		schemaVersion: 1 as const,
 		reviewDraftHash: params.reviewDraftHash,
 		subjectType: params.subjectType,
 		subjectId: params.subjectId,
@@ -65,12 +82,16 @@ export async function submitAttestedReview(params: {
 		contractAddress: params.contractAddress,
 		reviewerNpub,
 		revieweeNpub: params.revieweeNpub,
-		reviewerWallet: params.reviewerWallet,
-		revieweeWallet: params.revieweeWallet
+		reviewerWallet: resolvedReviewerWallet,
+		revieweeWallet: resolvedRevieweeWallet
 	};
 
 	const challenge = await reviewsAttestationClient.requestChallenge(challengeRequest);
-	const { nostrSignature, walletSignature } = await signChallenge(challenge);
+
+	const [nostrSignature, walletSignature] = await Promise.all([
+		signWithNostr(challenge.challengeMessage),
+		wallet.signMessage(challenge.challengeMessage)
+	]);
 
 	const response = await reviewsAttestationClient.submitAttestation({
 		reviewDraftHash: params.reviewDraftHash,
@@ -87,22 +108,14 @@ export async function submitAttestedReview(params: {
 		contractAddress: params.contractAddress,
 		reviewerNpub,
 		revieweeNpub: params.revieweeNpub,
-		reviewerWallet: params.reviewerWallet,
-		revieweeWallet: params.revieweeWallet
+		reviewerWallet: resolvedReviewerWallet,
+		revieweeWallet: resolvedRevieweeWallet
 	});
 
 	return {
 		attestationEventId: response.attestationEventId,
 		reviewEventId: params.signedReviewEvent.id
 	};
-}
-
-async function signChallenge(
-	challenge: ReviewChallengeResponse
-): Promise<{ nostrSignature: string; walletSignature: string }> {
-	const nostrSignature = await signWithNostr(challenge.challengeMessage);
-	const walletSignature = await signWithWallet(challenge.challengeMessage);
-	return { nostrSignature, walletSignature };
 }
 
 async function signWithNostr(message: string): Promise<string> {
@@ -112,15 +125,4 @@ async function signWithNostr(message: string): Promise<string> {
 	const messageHash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(message));
 	const sig = schnorr.sign(new Uint8Array(messageHash), nsec);
 	return bytesToHex(sig);
-}
-
-async function signWithWallet(message: string): Promise<string> {
-	if (typeof window === 'undefined' || !(window as Window).ethereum) {
-		throw new Error('No Ethereum wallet available');
-	}
-	const ethereum = (window as Window).ethereum;
-	const accounts: string[] = await ethereum.request({ method: 'eth_requestAccounts' });
-	const account = accounts[0];
-	if (!account) throw new Error('No wallet account selected');
-	return ethereum.request({ method: 'personal_sign', params: [message, account] });
 }

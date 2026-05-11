@@ -3,6 +3,10 @@
 	import { getReviewsForUser } from '$lib/utils/reviews/queries';
 	import VerifiedReviewCard from './VerifiedReviewCard.svelte';
 	import type { NostrVerifiedReview, ReviewFilter, ReviewSort } from '$lib/types/review';
+	import { createDebug } from '$lib/utils/debug';
+	import IconCloseCircle from '~icons/mdi/close-circle-outline';
+
+	const d = createDebug('reviews:list');
 
 	let {
 		reviews: prefetchedReviews,
@@ -113,7 +117,7 @@
 				reviews = applyFilterAndSort(fetchedReviews);
 			}
 		} catch (err) {
-			console.error('Failed to load reviews:', err);
+			d.error('Failed to load reviews:', err);
 			if (requestId === activeRequestId) {
 				error = err instanceof Error ? err.message : $t('reviews.list.load_error');
 				reviews = [];
@@ -143,19 +147,7 @@
 		</div>
 	{:else if error}
 		<div class="alert alert-outline alert-error">
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				class="h-6 w-6 shrink-0 stroke-current"
-				fill="none"
-				viewBox="0 0 24 24"
-			>
-				<path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					stroke-width="2"
-					d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-				/>
-			</svg>
+			<IconCloseCircle class="h-6 w-6 shrink-0" />
 			<span>{error}</span>
 		</div>
 	{:else if reviews.length === 0}
@@ -164,7 +156,7 @@
 		</div>
 	{:else}
 		<div class="space-y-4">
-			{#each reviews as review (review.nostrEventId)}
+			{#each reviews as review (review.attestationEventId)}
 				{#if onReviewClick}
 					<div
 						role="button"

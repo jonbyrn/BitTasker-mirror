@@ -60,7 +60,17 @@
 				"payment_timeliness_required": "Please rate the payment timeliness",
 				"category_rating_required": "Please rate all categories",
 				"comment_too_long": "Comment cannot exceed 1000 characters",
-				"submit_failed": "Unable to submit review. Please try again."
+				"submit_failed": "Unable to submit review. Please try again.",
+				"resolver_not_found": "We couldn't verify this contract. Please ensure the contract is completed and on a supported network.",
+				"duplicate_review_slot": "You have already reviewed this contract.",
+				"review_event_invalid": "The review data is invalid. Please try again.",
+				"contract_outcome_invalid": "Verified settlement does not allow a review for this contract",
+				"nostr_signature_invalid": "Failed to verify your signature. Please reconnect your wallet.",
+				"wallet_signature_invalid": "Failed to verify your wallet signature. Please try again.",
+				"internal_error": "Something went wrong on our end. Please try again later.",
+				"missing_reviewee_wallet": "Reviewee wallet address is missing. Reload the page or open the contract again.",
+				"missing_reviewer_wallet": "Could not resolve your wallet for this contract. Reconnect your RSK wallet.",
+				"missing_party_wallet_addresses": "Participant wallet addresses are still loading from the chain. Wait a moment and try again."
 			}
 		},
 		"verified": "Verified",
@@ -68,7 +78,8 @@
 		"reply": "Reply",
 		"photo_alt": "Review photo {index}",
 		"reviewed": "Reviewed",
-		"review_pending": "Review Pending",
+		"review_pending": "Review",
+		"leave_review": "Leave Review",
 		"review_received": "Review Received",
 		"you_reviewed": "You have reviewed this contract",
 		"list": {
@@ -112,6 +123,7 @@
 			"no_pending": "No pending reviews",
 			"all_caught_up": "You're all caught up! All completed tasks have been reviewed.",
 			"contract": "Contract",
+			"fallback_contract_title": "Untitled contract",
 			"completed": "Completed",
 			"review_for": "Review for",
 			"nostr_id": "Nostr ID",
@@ -136,6 +148,32 @@
 			"escrow_not_completed": "This escrow must be completed before a review can be submitted.",
 			"missing_info": "Missing required information to submit review",
 			"missing_escrow": "Escrow ID is required to submit a review"
+		},
+		"ranking": {
+			"title": "Reputation",
+			"score": "Score",
+			"tier": "Tier",
+			"progress_to_next": "Progress to next tier",
+			"breakdown": "Score Breakdown",
+			"rating_score": "Rating Score",
+			"volume_score": "Volume Score",
+			"recency_score": "Recency Score",
+			"consistency_score": "Consistency Score",
+			"no_reviews_yet": "No reviews yet - complete tasks to build your reputation!",
+			"top_tier_reached": "You've reached the top tier!",
+			"progress_label": "{progress}% progress to {nextTier}",
+			"tiers": {
+				"newcomer": "Newcomer",
+				"newcomer_desc": "Just getting started on BitTasker",
+				"rising": "Rising",
+				"rising_desc": "Building a reputation with positive reviews",
+				"established": "Established",
+				"established_desc": "A trusted member of the community",
+				"expert": "Expert",
+				"expert_desc": "Consistently delivering excellent results",
+				"elite": "Elite",
+				"elite_desc": "Top performer with outstanding reviews"
+			}
 		}
 	}
 }

@@ -96,6 +96,12 @@ export interface AttestedReview {
 	revieweeRole?: string;
 }
 
+/**
+ * Type alias for backward compatibility.
+ * NostrVerifiedReview is the same as AttestedReview - reviews backed by on-chain attestations.
+ */
+export type NostrVerifiedReview = AttestedReview;
+
 // ── Aggregation ────────────────────────────────────────
 
 export interface ReviewStats {

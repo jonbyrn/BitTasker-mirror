@@ -76,4 +76,4 @@ export class ReviewsAttestationClient {
 	}
 }
 
-export const reviewsAttestationClient = new ReviewsAttestationClient('');
+export const reviewsAttestationClient = new ReviewsAttestationClient('http://localhost:8788');

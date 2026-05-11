@@ -5,24 +5,33 @@
 	import { normalizeNostrPubkey } from '$lib/utils/nostr-pubkey';
 	import { getNpub } from '$lib/utils/nostrKeys';
 	import { appStore } from '$lib/stores/app.store';
-	import type {
-		ReviewContentWithRatings,
-		TaskeeCategoryRatings,
-		TaskerCategoryRatings
-	} from '$lib/types/review';
+	import type { TaskeeCategoryRatings, TaskerCategoryRatings } from '$lib/types/review';
+	import { createDebug } from '$lib/utils/debug';
+	import IconStar from '~icons/mdi/star';
+	import IconStarOutline from '~icons/mdi/star-outline';
+	import IconAlertTriangle from '~icons/mdi/alert-outline';
+	import IconCheck from '~icons/mdi/check';
 
-	let { escrowId, revieweePubkey, escrowTxHash, revieweeRole, contract, onSubmit, onCancel } =
-		$props<{
-			escrowId: string;
-			revieweePubkey: string;
-			escrowTxHash?: string;
-			revieweeRole?: 'tasker' | 'taskee' | null;
-			contract?: import('$lib/utils/reviews/contract-interface').IContractForReview | null;
-			onSubmit?: (eventId: string) => void;
-			onCancel?: () => void;
-		}>();
+	const d = createDebug('reviews:form');
 
-	console.log('escrowTxHash', escrowTxHash);
+	let {
+		escrowId,
+		revieweePubkey,
+		escrowTxHash: _escrowTxHash,
+		revieweeRole,
+		contract,
+		onSubmit,
+		onCancel
+	} = $props<{
+		escrowId: string;
+		revieweePubkey: string;
+		escrowTxHash?: string;
+		revieweeRole?: 'tasker' | 'taskee' | null;
+		contract?: import('$lib/utils/reviews/contract-interface').IContractForReview | null;
+		onSubmit?: (eventId: string) => void;
+		onCancel?: () => void;
+	}>();
+
 	let overallRating = $state(0);
 
 	// Role-specific category ratings
@@ -36,7 +45,6 @@
 	let paymentTimelinessRating = $state(0);
 
 	let comment = $state('');
-	let photos = $state<string[]>([]);
 	let isSubmitting = $state(false);
 	let errors = $state<Record<string, string>>({});
 	let alreadyReviewed = $state(false);
@@ -59,6 +67,41 @@
 		const translated = $t(`reviews.form.errors.${key}`);
 		return translated === `reviews.form.errors.${key}` ? fallback : translated;
 	};
+
+	const BACKEND_ERROR_CODE_MAP: Record<string, string> = {
+		resolver_not_found: 'resolver_not_found',
+		duplicate_review_slot: 'duplicate_review_slot',
+		review_event_invalid: 'review_event_invalid',
+		contract_outcome_invalid: 'contract_outcome_invalid',
+		nostr_signature_invalid: 'nostr_signature_invalid',
+		wallet_signature_invalid: 'wallet_signature_invalid',
+		internal_error: 'internal_error',
+		missing_reviewee_wallet: 'missing_reviewee_wallet',
+		missing_reviewer_wallet: 'missing_reviewer_wallet'
+	};
+
+	const getBackendErrorMessage = (error: unknown): string => {
+		if (error instanceof Error) {
+			const errorCode = error.message.toLowerCase().replace(/\s+/g, '_');
+			const mappedKey = BACKEND_ERROR_CODE_MAP[errorCode];
+			if (mappedKey) {
+				return getFormErrorText(mappedKey, error.message);
+			}
+
+			for (const [code, translationKey] of Object.entries(BACKEND_ERROR_CODE_MAP)) {
+				if (
+					error.message.toLowerCase().includes(code.replace(/_/g, ' ')) ||
+					error.message.toLowerCase().includes(code)
+				) {
+					return getFormErrorText(translationKey, error.message);
+				}
+			}
+
+			return error.message;
+		}
+		return getFormErrorText('submit_failed', 'Unable to submit review. Please try again.');
+	};
+
 	const getCommonText = (key: string, fallback: string) => {
 		const translated = $t(`common.${key}`);
 		return translated === `common.${key}` ? fallback : translated;
@@ -97,7 +140,7 @@
 			try {
 				const reviewerPubkey = await getNpub();
 				if (reviewerPubkey) {
-					const reviewed = await hasUserReviewedContract(escrowId, reviewerPubkey);
+					const reviewed = await hasUserReviewedContract(escrowId, escrowId, reviewerPubkey);
 					if (!cancelled) {
 						alreadyReviewed = reviewed;
 					}
@@ -105,7 +148,7 @@
 					alreadyReviewed = false;
 				}
 			} catch (error) {
-				console.error('Failed to load existing review status:', error);
+				d.error('Failed to load existing review status:', error);
 				if (!cancelled) {
 					alreadyReviewed = false;
 				}
@@ -216,32 +259,76 @@
 				);
 			}
 
-			const content: ReviewContentWithRatings = {
-				overallRating,
-				categoryRatings,
-				revieweeRole: revieweeRole || undefined,
-				comment: comment.trim() || undefined,
-				photos: photos.length > 0 ? photos : undefined
-			};
-
 			let eventId: string;
 
-			// Use attestation flow when IContractForReview is provided, otherwise fallback to deprecated Merkle flow
+			// Use attestation flow when IContractForReview is provided
 			if (contract) {
 				const normalizedReviewee = normalizeNostrPubkey(revieweePubkey) ?? revieweePubkey;
-				const signedEvent = await buildSignedReviewEvent(content, [
-					['p', normalizedReviewee],
-					['e', contract.contractId]
-				]);
 
-				const hashInput = JSON.stringify(content);
+				// Map reviewee role to both roles
+				const resolvedReviewerRole: 'tasker' | 'taskee' =
+					revieweeRole === 'taskee' ? 'tasker' : 'taskee';
+				const resolvedRevieweeRole: 'tasker' | 'taskee' =
+					revieweeRole === 'taskee' ? 'taskee' : 'tasker';
+
+				const walletForChainRole = (role: 'tasker' | 'taskee'): string => {
+					const w =
+						role === 'taskee'
+							? contract.taskeeWalletAddress?.trim()
+							: contract.taskerWalletAddress?.trim();
+					return w ?? '';
+				};
+				const revieweeWalletResolved = walletForChainRole(resolvedRevieweeRole);
+				const reviewerWalletResolved = walletForChainRole(resolvedReviewerRole);
+				if (!revieweeWalletResolved || !reviewerWalletResolved) {
+					appStore.showErrorToast(
+						getFormErrorText(
+							'missing_party_wallet_addresses',
+							'Counterparty wallet addresses are still loading. Open the contract and wait a moment, then try again.'
+						)
+					);
+					return;
+				}
+
+				const createdAt = Math.floor(Date.now() / 1000);
+				const trimmedComment = comment.trim() || '';
+
+				// Build canonical payload matching reviewEventPayloadSchema minus reviewDraftHash
+				const canonicalPayload = {
+					schemaVersion: 1,
+					subjectType: 'task' as const,
+					settlementType: contract.settlementType,
+					revieweePubkey: normalizedReviewee,
+					reviewerRole: resolvedReviewerRole,
+					revieweeRole: resolvedRevieweeRole,
+					contractOutcome: 'completed' as const,
+					createdAt,
+					rating: { overallRating, categoryRatings: { ...categoryRatings } },
+					content: {
+						sourceLanguage: 'en' as const,
+						en: { comment: trimmedComment },
+						es: { comment: trimmedComment }
+					},
+					attachments: [] as Array<Record<string, unknown>>
+				};
+
+				const canonicalJson = JSON.stringify(canonicalPayload);
 				const hashBuffer = await crypto.subtle.digest(
 					'SHA-256',
-					new TextEncoder().encode(hashInput)
+					new TextEncoder().encode(canonicalJson)
 				);
 				const reviewDraftHash = Array.from(new Uint8Array(hashBuffer))
 					.map((b) => b.toString(16).padStart(2, '0'))
 					.join('');
+
+				const eventPayload = { ...canonicalPayload, reviewDraftHash };
+
+				const signedEvent = await buildSignedReviewEvent(eventPayload, [
+					['p', normalizedReviewee],
+					['e', contract.contractId]
+				]);
+
+				const attestationAsset = contract.asset === 'usdt' ? 'usdt' : 'rbtc';
 
 				const result = await submitAttestedReview({
 					reviewDraftHash,
@@ -249,13 +336,13 @@
 					subjectType: 'task',
 					subjectId: contract.contractId,
 					settlementType: contract.settlementType,
-					settlementId: contract.contractId,
-					chain: contract.chain,
-					asset: contract.asset,
+					settlementId: contract.paymentId,
+					chain: 'rsk',
+					asset: attestationAsset,
 					contractAddress: contract.contractAddress,
 					revieweeNpub: normalizedReviewee,
-					revieweeWallet: '',
-					reviewerWallet: ''
+					revieweeWallet: revieweeWalletResolved,
+					reviewerWallet: reviewerWalletResolved
 				});
 
 				eventId = result.attestationEventId;
@@ -268,12 +355,8 @@
 			appStore.showSuccessToast(getFormText('success', 'Review submitted successfully!'));
 			onSubmit?.(eventId);
 		} catch (error) {
-			console.error('Failed to submit review:', error);
-			appStore.showErrorToast(
-				error instanceof Error
-					? error.message
-					: getFormErrorText('submit_failed', 'Unable to submit review. Please try again.')
-			);
+			d.error('Failed to submit review:', error);
+			appStore.showErrorToast(getBackendErrorMessage(error));
 		} finally {
 			isSubmitting = false;
 		}
@@ -318,20 +401,7 @@
 	<div class="border-base-300 mb-6 border-b pb-4">
 		<div class="mb-3 flex items-center gap-3">
 			<div class="bg-primary/10 border-primary/20 rounded-xl border p-2.5">
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					class="text-primary h-6 w-6"
-					fill="none"
-					viewBox="0 0 24 24"
-					stroke="currentColor"
-					stroke-width="2"
-				>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"
-					/>
-				</svg>
+				<IconStarOutline class="text-primary h-6 w-6" />
 			</div>
 			<div>
 				<h2 class="text-base-content text-2xl font-bold">
@@ -346,19 +416,7 @@
 
 	{#if alreadyReviewed}
 		<div class="alert alert-outline alert-warning mb-6">
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				class="h-5 w-5 shrink-0 stroke-current"
-				fill="none"
-				viewBox="0 0 24 24"
-			>
-				<path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					stroke-width="2"
-					d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-				/>
-			</svg>
+			<IconAlertTriangle class="h-5 w-5 shrink-0" />
 			<span class="text-sm"
 				>{getFormText(
 					'already_reviewed',
@@ -402,16 +460,9 @@
 						disabled={isSubmitting || alreadyReviewed}
 						aria-label={getRatingAriaLabel('rate_overall_aria', rating)}
 					>
-						<svg
+						<IconStar
 							class="h-5 w-5 {getRatingClass(rating, overallRating)} transition-colors duration-200"
-							fill="currentColor"
-							viewBox="0 0 20 20"
-							xmlns="http://www.w3.org/2000/svg"
-						>
-							<path
-								d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"
-							/>
-						</svg>
+						/>
 					</button>
 				{/each}
 			</div>
@@ -465,19 +516,12 @@
 								disabled={isSubmitting || alreadyReviewed}
 								aria-label={getRatingAriaLabel('rate_work_quality_aria', rating)}
 							>
-								<svg
+								<IconStar
 									class="h-5 w-5 {getRatingClass(
 										rating,
 										workQualityRating
 									)} transition-colors duration-200"
-									fill="currentColor"
-									viewBox="0 0 20 20"
-									xmlns="http://www.w3.org/2000/svg"
-								>
-									<path
-										d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"
-									/>
-								</svg>
+								/>
 							</button>
 						{/each}
 					</div>
@@ -519,19 +563,12 @@
 								disabled={isSubmitting || alreadyReviewed}
 								aria-label={getRatingAriaLabel('rate_experience_aria', rating)}
 							>
-								<svg
+								<IconStar
 									class="h-5 w-5 {getRatingClass(
 										rating,
 										experienceRating
 									)} transition-colors duration-200"
-									fill="currentColor"
-									viewBox="0 0 20 20"
-									xmlns="http://www.w3.org/2000/svg"
-								>
-									<path
-										d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"
-									/>
-								</svg>
+								/>
 							</button>
 						{/each}
 					</div>
@@ -573,19 +610,12 @@
 								disabled={isSubmitting || alreadyReviewed}
 								aria-label={getRatingAriaLabel('rate_delivery_speed_aria', rating)}
 							>
-								<svg
+								<IconStar
 									class="h-5 w-5 {getRatingClass(
 										rating,
 										deliverySpeedRating
 									)} transition-colors duration-200"
-									fill="currentColor"
-									viewBox="0 0 20 20"
-									xmlns="http://www.w3.org/2000/svg"
-								>
-									<path
-										d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"
-									/>
-								</svg>
+								/>
 							</button>
 						{/each}
 					</div>
@@ -629,19 +659,12 @@
 								disabled={isSubmitting || alreadyReviewed}
 								aria-label={getRatingAriaLabel('rate_communication_aria', rating)}
 							>
-								<svg
+								<IconStar
 									class="h-5 w-5 {getRatingClass(
 										rating,
 										communicationRating
 									)} transition-colors duration-200"
-									fill="currentColor"
-									viewBox="0 0 20 20"
-									xmlns="http://www.w3.org/2000/svg"
-								>
-									<path
-										d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"
-									/>
-								</svg>
+								/>
 							</button>
 						{/each}
 					</div>
@@ -683,19 +706,12 @@
 								disabled={isSubmitting || alreadyReviewed}
 								aria-label={getRatingAriaLabel('rate_clarity_aria', rating)}
 							>
-								<svg
+								<IconStar
 									class="h-5 w-5 {getRatingClass(
 										rating,
 										clarityRating
 									)} transition-colors duration-200"
-									fill="currentColor"
-									viewBox="0 0 20 20"
-									xmlns="http://www.w3.org/2000/svg"
-								>
-									<path
-										d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"
-									/>
-								</svg>
+								/>
 							</button>
 						{/each}
 					</div>
@@ -739,19 +755,12 @@
 								disabled={isSubmitting || alreadyReviewed}
 								aria-label={getRatingAriaLabel('rate_payment_timeliness_aria', rating)}
 							>
-								<svg
+								<IconStar
 									class="h-5 w-5 {getRatingClass(
 										rating,
 										paymentTimelinessRating
 									)} transition-colors duration-200"
-									fill="currentColor"
-									viewBox="0 0 20 20"
-									xmlns="http://www.w3.org/2000/svg"
-								>
-									<path
-										d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"
-									/>
-								</svg>
+								/>
 							</button>
 						{/each}
 					</div>
@@ -763,19 +772,7 @@
 				</div>
 			{:else}
 				<div class="alert alert-outline alert-warning">
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="h-5 w-5 shrink-0 stroke-current"
-						fill="none"
-						viewBox="0 0 24 24"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-						/>
-					</svg>
+					<IconAlertTriangle class="h-5 w-5 shrink-0" />
 					<span class="text-sm"
 						>{getFormText(
 							'role_unknown',
@@ -844,16 +841,7 @@
 					<span class="loading loading-spinner loading-sm"></span>
 					<span>{getFormText('submitting', 'Submitting...')}</span>
 				{:else}
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="h-5 w-5"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-						stroke-width="2"
-					>
-						<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-					</svg>
+					<IconCheck class="h-5 w-5" />
 					<span>{getFormText('submit', 'Submit Review')}</span>
 				{/if}
 			</button>
