@@ -6,6 +6,7 @@
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { formatStandardDateTimeShort } from '$lib/utils/helpers/dateFormatter';
 	import { parseServiceAddress } from '$lib/utils/service-quote/protocol';
+	import { resolveServiceTierLabel } from '$lib/utils/service-quote/tier-label';
 	import UserInfoDisplay from '$lib/components/user/UserInfoDisplay.svelte';
 	import IconCheckCircleOutline from '~icons/mdi/check-circle-outline';
 	import IconCloseCircleOutline from '~icons/mdi/close-circle-outline';
@@ -156,7 +157,12 @@
 			};
 		}
 		if (pricingType === ServicePricingTypeEnum.INQUIRY_REQUIRED) {
-			return { label: 'Inquire', price: null };
+			const tierId = timeline.request.content.tierId;
+			const tierLabel = resolveServiceTierLabel(service, tierId);
+			return {
+				label: tierLabel ?? 'Inquire',
+				price: null
+			};
 		}
 		return null;
 	});
