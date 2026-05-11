@@ -258,7 +258,7 @@
 </script>
 
 <div
-	class="min-w-0 space-y-6 overflow-x-clip"
+	class="min-w-0 space-y-6"
 	in:fly={{
 		duration: 200,
 		easing: linear,
@@ -281,7 +281,10 @@
 			class="grid grid-cols-2 justify-start gap-6 sm:grid-cols-4 sm:gap-8 md:grid-cols-6 lg:grid-cols-8"
 		>
 			{#each [...($store.service.portfolio || []), ...(get(store).pendingFiles || [])] as file, index (`${'id' in file ? file.id : file.name}-${index}`)}
-				<div class="relative h-24 w-24 sm:h-28 sm:w-28 md:h-32 md:w-32">
+				<div
+					class="relative h-24 w-24 sm:h-28 sm:w-28 md:h-32 md:w-32"
+					transition:fly={{ y: 10, duration: 150 }}
+				>
 					<div class="border-base-300 h-full w-full overflow-hidden rounded-lg border">
 						{#if file && typeof file === 'object' && 'url' in file}
 							<!-- Already uploaded - show from URL -->

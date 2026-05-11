@@ -141,7 +141,7 @@
 		"page": {
 			"title": "My Profile",
 			"description": "Manage your profile information and settings",
-			"edit_profile": "Edit Profile",
+			"edit_profile": "Edit",
 			"share": "Share",
 			"share_profile": "Share this profile",
 			"share_title": "BitTasker Profile",

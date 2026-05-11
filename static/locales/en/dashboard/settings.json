@@ -3,7 +3,7 @@
 		"title": "Settings",
 		"subtitle": "Manage your account settings and Nostr identity",
 		"nostr": {
-			"title": "Nostr Identity",
+			"title": "Login Info",
 			"description": "Your decentralized identity on the Nostr network. Keep your private key secure!",
 			"publicKey-label": "Nostr Public Key",
 			"publicKey": {
@@ -16,6 +16,8 @@
 				"managed": "Private key managed by Alby extension"
 			},
 			"qrCode": {
+				"title": "Login QR Code",
+				"description": "Scan this QR code on another device to log in instantly.",
 				"generate": "Generate QR Code",
 				"generating": "Generating QR Code...",
 				"show": "Show QR Code"
@@ -36,7 +38,7 @@
 			"password": {
 				"placeholder": "Create a strong recovery password"
 			},
-			"confirmPassword-label": "Confirm Recovery Password",
+			"confirmPassword-label": "Confirm Password",
 			"confirmPassword": {
 				"placeholder": "Confirm your recovery password"
 			},
@@ -54,7 +56,7 @@
 				"numbers": "Numbers",
 				"special": "Special chars"
 			},
-			"setup": "Setup Account Recovery",
+			"setup": "Setup",
 			"setting": "Setting up recovery...",
 			"success": "Account recovery has been set up successfully!",
 			"notice": {
@@ -153,14 +155,26 @@
 			},
 			"error": {
 				"loadFailed": "Failed to load devices. Please try again.",
-				"revokeFailed": "Failed to revoke device access. Please try again."
+				"revokeFailed": "Failed to revoke device access. Please try again.",
+				"revokeAllFailed": "Failed to revoke all devices. Please try again."
 			},
 			"revokeModal": {
 				"title": "Revoke Device Access",
 				"confirmTitle": "Are you sure?",
 				"confirmMessage": "This will permanently revoke access for",
 				"warning": "This device will no longer be able to access your account and will need to re-authenticate.",
-				"confirm": "Revoke Access"
+				"confirm": "Revoke"
+			},
+			"revokeAll": "Revoke All Other Devices",
+			"revokeAllModal": {
+				"title": "Revoke All Other Devices",
+				"confirmTitle": "Are you sure?",
+				"warning": "This will revoke access for {count} other device(s). They will no longer be able to access your account and will need to re-authenticate.",
+				"confirm": "Revoke All"
+			},
+			"sections": {
+				"active": "Active Devices",
+				"inactive": "Inactive Devices"
 			}
 		},
 		"muted_users": {

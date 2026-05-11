@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Service } from '$lib/types/service';
+	import type { Service, ServiceTier } from '$lib/types/service';
 	import { t, locale } from 'svelte-i18n';
 	import {
 		getServiceDisplayDescription,
@@ -60,41 +60,13 @@
 		} else if (service.pricing?.type === ServicePricingTypeEnum.TIERED) {
 			const lowestTierPrice = getLowestTierPrice();
 			if (lowestTierPrice != null) {
-				return `${tr('dashboard.services.my_services.pricing_type.from', 'From')} $${formatNumberWithTwoDecimals(lowestTierPrice)}`;
+				return `$${formatNumberWithTwoDecimals(lowestTierPrice)}`;
 			}
-
 			return tr('dashboard.services.my_services.pricing_type.tiered_pricing', 'Tiered pricing');
 		} else if (service.pricing?.type === ServicePricingTypeEnum.INQUIRY_REQUIRED) {
-			// Short label on cards (same as badge) — "Cotización requerida" steals title space on mobile
 			return tr('dashboard.services.my_services.pricing_type.quote', 'Quote');
 		}
 		return tr('dashboard.services.my_services.pricing_type.quote_required', 'Quote required');
-	}
-
-	function getStatusColor(status: string): string {
-		switch (status) {
-			case 'active':
-				return 'badge-success';
-			case 'inactive':
-				return 'badge-warning';
-			case 'sold':
-				return 'badge-ghost';
-			default:
-				return 'badge-neutral';
-		}
-	}
-
-	function getStatusLabel(status: string): string {
-		switch (status) {
-			case 'active':
-				return tr('dashboard.services.my_services.status_active', 'Active');
-			case 'inactive':
-				return tr('dashboard.services.my_services.status_inactive', 'Inactive');
-			case 'sold':
-				return tr('dashboard.services.my_services.status_sold', 'Sold');
-			default:
-				return status;
-		}
 	}
 
 	function getServiceLocationTypes(): string[] {
@@ -229,93 +201,73 @@
 
 		return getInstantBuyEligibility(service).eligible;
 	}
-
-	function getPricingBadgeLabel(): string {
-		if (service.pricing?.type === ServicePricingTypeEnum.FIXED) {
-			return tr('dashboard.services.my_services.pricing_type.fixed', 'Fixed');
-		}
-
-		if (service.pricing?.type === ServicePricingTypeEnum.HOURLY) {
-			return tr('dashboard.services.my_services.pricing_type.hourly', 'Hourly');
-		}
-
-		if (service.pricing?.type === ServicePricingTypeEnum.TIERED) {
-			return tr('dashboard.services.my_services.pricing_type.tiered', 'Tiered');
-		}
-
-		return tr('dashboard.services.my_services.pricing_type.quote', 'Quote');
-	}
 </script>
 
 <div class="card bg-base-100 rounded-xl shadow-md transition-shadow hover:shadow-lg">
 	<div class="card-body rounded-xl p-4 md:p-4">
-		<!-- Top Row: Title + Status Badge + Share Button + Price -->
-		<div class="mb-3 flex flex-row items-stretch justify-between gap-2">
-			<!-- Left: Title + Description (flexible, takes available space) -->
-			<div
-				class="min-w-0 flex-1 pr-2 transition-opacity duration-300 md:pr-4"
-				class:opacity-50={service.status !== 'active'}
-			>
-				<span class="card-title line-clamp-2 text-lg font-semibold">
+		<!-- Row 1: Title + Share Button -->
+		<div class="mb-1 flex flex-row items-start justify-between gap-2">
+			<div class="min-w-0 flex-1 pr-2 md:pr-4">
+				<span class="card-title text-base-content line-clamp-2 text-lg font-semibold">
 					{getServiceDisplayTitle(service, $locale || 'en')}
 				</span>
-				<p class="text-base-content/80 mt-1 line-clamp-2 text-sm">
+			</div>
+			<span
+				role="presentation"
+				class="shrink-0"
+				onclick={(e) => e.stopPropagation()}
+				onkeydown={(e) => {
+					if (e.key === 'Enter' || e.key === ' ') {
+						e.stopPropagation();
+					}
+				}}
+			>
+				<ServiceShareButton {service} variant="circle" class="btn-xs" />
+			</span>
+		</div>
+
+		<!-- Row 2: Description + Price (From label above for tiered) -->
+		<div class="mb-3 flex flex-row items-start justify-between gap-2">
+			<div class="min-w-0 flex-1 pr-2 md:pr-4">
+				<p class="text-base-content/80 line-clamp-2 text-sm whitespace-pre-line">
 					{getServiceDisplayDescription(service, $locale || 'en') || '—'}
 				</p>
 			</div>
-			<!-- Right: Status Badge + Share Button + Toggle + Price (aligned right) -->
-			<div class="flex shrink-0 flex-col items-end gap-2">
-				<!-- Row 1: Badge + Share Button -->
-				<div class="flex items-center gap-2">
-					<div
-						class="badge {getStatusColor(
-							service.status
-						)} badge-sm max-w-[100px] truncate text-center"
-					>
-						{getStatusLabel(service.status)}
+			<div class="shrink-0 text-right">
+				{#if service.pricing?.type === ServicePricingTypeEnum.TIERED && service.pricing.tiers && service.pricing.tiers.length > 0}
+					<div class="text-base-content/60 text-xs leading-tight">
+						{tr('dashboard.services.my_services.pricing_type.from', 'From')}
 					</div>
-					<span
-						role="presentation"
-						class="shrink-0"
-						onclick={(e) => e.stopPropagation()}
-						onkeydown={(e) => {
-							if (e.key === 'Enter' || e.key === ' ') {
-								e.stopPropagation();
-							}
-						}}
-					>
-						<ServiceShareButton {service} variant="circle" class="btn-xs" />
-					</span>
-				</div>
-				<!-- Row 2: Price (compact on mobile for quote-only — long copy competes with title) -->
-				<div
-					class="text-right font-bold transition-opacity duration-300"
-					class:text-base={service.pricing?.type === ServicePricingTypeEnum.INQUIRY_REQUIRED}
-					class:md:text-xl={service.pricing?.type === ServicePricingTypeEnum.INQUIRY_REQUIRED}
-					class:text-xl={service.pricing?.type !== ServicePricingTypeEnum.INQUIRY_REQUIRED}
-					class:max-w-[9.5rem]={service.pricing?.type === ServicePricingTypeEnum.INQUIRY_REQUIRED}
-					class:leading-tight={service.pricing?.type === ServicePricingTypeEnum.INQUIRY_REQUIRED}
-					class:opacity-50={service.status !== 'active'}
-				>
+				{/if}
+				<div class="text-base leading-tight font-bold">
 					{getPriceDisplay()}
-
-					<div class="text-base-content/60 text-sm">
-						{#if service.pricing?.type === ServicePricingTypeEnum.FIXED && service.pricing.amount}
-							{satsFromUsd(service.pricing.amount, btcPrice)}
-						{:else if service.pricing?.type === ServicePricingTypeEnum.HOURLY && service.pricing.hourlyRate}
-							{satsFromUsd(service.pricing.hourlyRate, btcPrice)}/hr
-						{/if}
-					</div>
 				</div>
+				{#if service.pricing?.type === ServicePricingTypeEnum.FIXED && service.pricing.amount}
+					<div class="text-base-content/60 text-sm">
+						{satsFromUsd(service.pricing.amount, btcPrice)}
+					</div>
+				{:else if service.pricing?.type === ServicePricingTypeEnum.HOURLY && service.pricing.hourlyRate}
+					<div class="text-base-content/60 text-xs leading-tight">
+						{satsFromUsd(service.pricing.hourlyRate, btcPrice)}/hr
+					</div>
+				{:else if service.pricing?.type === ServicePricingTypeEnum.TIERED && service.pricing.tiers && service.pricing.tiers.length > 0}
+					<div class="text-base-content/60 text-xs leading-tight">
+						{satsFromUsd(
+							Math.min(
+								...service.pricing.tiers
+									.map((tier: ServiceTier) => tier.price || 0)
+									.filter((price: number) => price > 0)
+							),
+							btcPrice
+						)}
+					</div>
+				{/if}
 			</div>
 		</div>
 
 		<!-- Second Row: Service Location + Toggle -->
 		{#if getLocationDisplay() || (onStatusToggle && service.status !== 'sold')}
-			<div
-				class="mb-3 flex items-center justify-between gap-3 transition-opacity duration-300"
-				class:opacity-50={service.status !== 'active'}
-			>
+			<div class="mb-3 flex items-center justify-between gap-3">
 				<div class="flex min-w-0 flex-1 items-center gap-2">
 					{#if getLocationDisplay()}
 						<IconMapMarker class="text-primary h-8 w-8 shrink-0" />
@@ -353,10 +305,7 @@
 		{/if}
 
 		{#if getLeadTimeDisplay() || getDeliveryTimeDisplay()}
-			<div
-				class="mb-3 space-y-2 transition-opacity duration-300"
-				class:opacity-50={service.status !== 'active'}
-			>
+			<div class="mb-3 space-y-2">
 				{#if getLeadTimeDisplay()}
 					<div class="flex items-center justify-between gap-2">
 						<div class="flex min-w-0 items-center gap-2">
@@ -387,7 +336,6 @@
 								>
 							</div>
 						</div>
-						<span class="badge badge-outline badge-sm shrink-0">{getPricingBadgeLabel()}</span>
 					</div>
 				{/if}
 			</div>

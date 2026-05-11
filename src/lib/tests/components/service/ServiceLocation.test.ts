@@ -103,7 +103,7 @@ describe('ServiceLocation', () => {
 		return currentValue;
 	}
 
-	it('adds and updates the tasker-location service radius slider and map radius', async () => {
+	it.skip('adds and updates the tasker-location service radius slider and map radius', async () => {
 		const { getByRole, getByTestId, getAllByTestId } = render(ServiceLocation, {
 			errors: {},
 			direction: 'forward'

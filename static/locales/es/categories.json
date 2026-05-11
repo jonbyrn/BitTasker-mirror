@@ -1,124 +1,148 @@
 {
-    "categories": {
-        "cleaning": {
-            "name": "Limpieza y Mantenimiento",
-            "description": "Limpieza de casas, oficinas, alfombras, ventanas y tareas de mantenimiento"
-        },
-        "handyman": {
-            "name": "Servicios de Manitas",
-            "description": "Reparaciones generales, instalaciones, montaje de muebles y mantenimiento del hogar"
-        },
-        "moving": {
-            "name": "Mudanzas y Entrega",
-            "description": "Servicios de mudanza, entrega de muebles, servicios de mensajería y transporte"
-        },
-        "home-improvement": {
-            "name": "Mejoras del Hogar",
-            "description": "Pintura, renovaciones, plomería, trabajo eléctrico y mejoras del hogar"
-        },
-        "building-construction": {
-            "name": "Construcción y Edificación",
-            "description": "Construcción nueva, proyectos de construcción, trabajo estructural, construcción comercial y servicios de construcción residencial"
-        },
-        "gardening": {
-            "name": "Jardinería y Paisajismo",
-            "description": "Cuidado del césped, mantenimiento del jardín, paisajismo y servicios al aire libre"
-        },
-        "automotive": {
-            "name": "Automotriz",
-            "description": "Reparación de autos, mecánicos móviles, detallado de autos y servicios vehiculares"
-        },
-        "personal-services": {
-            "name": "Servicios Personales",
-            "description": "Servicios de belleza, entrenamiento físico, cuidado personal y bienestar"
-        },
-        "pet-care": {
-            "name": "Cuidado de Mascotas",
-            "description": "Cuidado de mascotas, paseo de perros, aseo y servicios de cuidado animal"
-        },
-        "events": {
-            "name": "Eventos y Entretenimiento",
-            "description": "Planificación de eventos, catering, entretenimiento y ocasiones especiales"
-        },
-        "professional": {
-            "name": "Servicios Profesionales",
-            "description": "Legal, contabilidad, consultoría empresarial y servicios profesionales"
-        },
-        "tutoring": {
-            "name": "Educación y Tutoría",
-            "description": "Tutoría privada, lecciones, coaching y servicios educativos"
-        },
-        "tech": {
-            "name": "Tecnología e IT",
-            "description": "Reparación de computadoras, soporte técnico, desarrollo de software y servicios digitales"
-        },
-        "it-web-development": {
-            "name": "IT y Desarrollo Web",
-            "description": "Desarrollo web, desarrollo de software, servicios de IT, integración de API, gestión de bases de datos y soluciones técnicas"
-        },
-        "creative": {
-            "name": "Creativo y Diseño",
-            "description": "Diseño gráfico, fotografía, videografía y servicios creativos"
-        },
-        "food": {
-            "name": "Comida y Catering",
-            "description": "Servicios de chef personal, preparación de comidas, catering y entrega de comida"
-        },
-        "financial-legal": {
-            "name": "Servicios Financieros y Legales",
-            "description": "Contabilidad, teneduría de libros, consultoría legal, servicios fiscales y planificación financiera"
-        },
-        "business-admin": {
-            "name": "Apoyo Empresarial y Administración",
-            "description": "Servicios administrativos, apoyo de RRHH, asistencia de ventas y consultoría empresarial"
-        },
-        "healthcare-wellness": {
-            "name": "Salud y Bienestar",
-            "description": "Servicios médicos, terapia, consultoría nutricional, entrenamiento físico y servicios de bienestar"
-        },
-        "marketing": {
-            "name": "Marketing",
-            "description": "Marketing digital, publicidad, creación de contenido, gestión de redes sociales y estrategia de marca"
-        },
-        "security-safety": {
-            "name": "Seguridad y Protección",
-            "description": "Servicios de seguridad, inspecciones de seguridad, servicios de cerrajería y consultoría de seguridad"
-        },
-        "waste-recycling": {
-            "name": "Residuos y Reciclaje",
-            "description": "Eliminación de basura, eliminación de chatarra, servicios de reciclaje y gestión de residuos"
-        },
-        "installation-assembly": {
-            "name": "Instalación y Montaje",
-            "description": "Instalación de electrodomésticos, montaje de muebles, configuración de electrónicos e instalación de equipos"
-        },
-        "inspection-assessment": {
-            "name": "Inspección y Evaluación",
-            "description": "Inspecciones de hogar, inspecciones de vehículos, evaluaciones de propiedades y evaluaciones de seguridad"
-        },
-        "delivery-logistics": {
-            "name": "Entrega y Logística",
-            "description": "Entrega de paquetes, entrega el mismo día, transporte especializado y servicios logísticos"
-        },
-        "real-estate": {
-            "name": "Bienes Raíces",
-            "description": "Gestión de propiedades, fotografía inmobiliaria, escenografía y servicios inmobiliarios"
-        },
-        "accommodation": {
-            "name": "Alojamiento",
-            "description": "Alquileres a corto plazo, reserva de habitaciones, servicios de alojamiento y estancias de hospitalidad"
-        },
-        "hospitality": {
-            "name": "Hospitalidad",
-            "description": "Servicios de restaurantes, catering, servicio de comida, hospitalidad en eventos y servicios de atención al cliente"
-        },
-        "tourism": {
-            "name": "Turismo",
-            "description": "Guías turísticos, asistencia de viajes, experiencias locales, turismo y servicios turísticos"
-        },
-        "other": {
-            "name": "Otros",
-            "description": "Otros tipos de tareas no cubiertas por otras categorías"
-        }
-    }
+	"categories": {
+		"cleaning": {
+			"name": "Limpieza y Mantenimiento",
+			"description": "Limpieza de casas, oficinas, alfombras, ventanas y tareas de mantenimiento"
+		},
+		"handyman": {
+			"name": "Servicios de Manitas",
+			"description": "Reparaciones generales, instalaciones, montaje de muebles y mantenimiento del hogar"
+		},
+		"moving": {
+			"name": "Mudanzas y Entrega",
+			"description": "Servicios de mudanza, entrega de muebles, servicios de mensajería y transporte"
+		},
+		"home-improvement": {
+			"name": "Mejoras del Hogar",
+			"description": "Pintura, renovaciones, plomería, trabajo eléctrico y mejoras del hogar"
+		},
+		"building-construction": {
+			"name": "Construcción y Edificación",
+			"description": "Construcción nueva, proyectos de construcción, trabajo estructural, construcción comercial y servicios de construcción residencial"
+		},
+		"gardening": {
+			"name": "Jardinería y Paisajismo",
+			"description": "Cuidado del césped, mantenimiento del jardín, paisajismo y servicios al aire libre"
+		},
+		"automotive": {
+			"name": "Automotriz",
+			"description": "Reparación de autos, mecánicos móviles, detallado de autos y servicios vehiculares"
+		},
+		"personal-services": {
+			"name": "Servicios Personales",
+			"description": "Servicios de belleza, entrenamiento físico, cuidado personal y bienestar"
+		},
+		"pet-care": {
+			"name": "Cuidado de Mascotas",
+			"description": "Cuidado de mascotas, paseo de perros, aseo y servicios de cuidado animal"
+		},
+		"events": {
+			"name": "Eventos y Entretenimiento",
+			"description": "Planificación de eventos, catering, entretenimiento y ocasiones especiales"
+		},
+		"professional": {
+			"name": "Servicios Profesionales",
+			"description": "Legal, contabilidad, consultoría empresarial y servicios profesionales"
+		},
+		"tutoring": {
+			"name": "Educación y Tutoría",
+			"description": "Tutoría privada, lecciones, coaching y servicios educativos"
+		},
+		"tech": {
+			"name": "Tecnología e IT",
+			"description": "Reparación de computadoras, soporte técnico, desarrollo de software y servicios digitales"
+		},
+		"it-web-development": {
+			"name": "IT y Desarrollo Web",
+			"description": "Desarrollo web, desarrollo de software, servicios de IT, integración de API, gestión de bases de datos y soluciones técnicas"
+		},
+		"creative": {
+			"name": "Creativo y Diseño",
+			"description": "Diseño gráfico, fotografía, videografía y servicios creativos"
+		},
+		"food": {
+			"name": "Comida y Catering",
+			"description": "Servicios de chef personal, preparación de comidas, catering y entrega de comida"
+		},
+		"financial-legal": {
+			"name": "Servicios Financieros y Legales",
+			"description": "Contabilidad, teneduría de libros, consultoría legal, servicios fiscales y planificación financiera"
+		},
+		"business-admin": {
+			"name": "Apoyo Empresarial y Administración",
+			"description": "Servicios administrativos, apoyo de RRHH, asistencia de ventas y consultoría empresarial"
+		},
+		"healthcare-wellness": {
+			"name": "Salud y Bienestar",
+			"description": "Servicios médicos, terapia, consultoría nutricional, entrenamiento físico y servicios de bienestar"
+		},
+		"marketing": {
+			"name": "Marketing",
+			"description": "Marketing digital, publicidad, creación de contenido, gestión de redes sociales y estrategia de marca"
+		},
+		"security-safety": {
+			"name": "Seguridad y Protección",
+			"description": "Servicios de seguridad, inspecciones de seguridad, servicios de cerrajería y consultoría de seguridad"
+		},
+		"waste-recycling": {
+			"name": "Residuos y Reciclaje",
+			"description": "Eliminación de basura, eliminación de chatarra, servicios de reciclaje y gestión de residuos"
+		},
+		"installation-assembly": {
+			"name": "Instalación y Montaje",
+			"description": "Instalación de electrodomésticos, montaje de muebles, configuración de electrónicos e instalación de equipos"
+		},
+		"inspection-assessment": {
+			"name": "Inspección y Evaluación",
+			"description": "Inspecciones de hogar, inspecciones de vehículos, evaluaciones de propiedades y evaluaciones de seguridad"
+		},
+		"delivery-logistics": {
+			"name": "Entrega y Logística",
+			"description": "Entrega de paquetes, entrega el mismo día, transporte especializado y servicios logísticos"
+		},
+		"real-estate": {
+			"name": "Bienes Raíces",
+			"description": "Gestión de propiedades, fotografía inmobiliaria, escenografía y servicios inmobiliarios"
+		},
+		"accommodation": {
+			"name": "Alojamiento",
+			"description": "Alquileres a corto plazo, reserva de habitaciones, servicios de alojamiento y estancias de hospitalidad"
+		},
+		"hospitality": {
+			"name": "Hospitalidad",
+			"description": "Servicios de restaurantes, catering, servicio de comida, hospitalidad en eventos y servicios de atención al cliente"
+		},
+		"tourism": {
+			"name": "Turismo",
+			"description": "Guías turísticos, asistencia de viajes, experiencias locales, turismo y servicios turísticos"
+		},
+		"transportation": {
+			"name": "Transporte",
+			"description": "Viajes compartidos, transporte de pasajeros, servicios de taxi, traslados al aeropuerto y transporte personal"
+		},
+		"childcare": {
+			"name": "Cuidado Infantil y Niñera",
+			"description": "Niñera, servicios de niñera, guardería, cuidado extraescolar y supervisión infantil"
+		},
+		"writing-editing": {
+			"name": "Redacción y Edición",
+			"description": "Redacción publicitaria, corrección, edición, escritura de contenido, currículums y ghostwriting"
+		},
+		"translation": {
+			"name": "Traducción",
+			"description": "Traducción de documentos, interpretación, localización y servicios multilingües"
+		},
+		"virtual-assistant": {
+			"name": "Asistente Virtual",
+			"description": "Soporte administrativo remoto, gestión de correo, programación, entrada de datos y organización personal"
+		},
+		"coaching-training": {
+			"name": "Coaching y Capacitación",
+			"description": "Coaching de vida, orientación profesional, desarrollo profesional, oratoria y capacitación corporativa"
+		},
+		"other": {
+			"name": "Otros",
+			"description": "Otros tipos de tareas no cubiertas por otras categorías"
+		}
+	}
 }

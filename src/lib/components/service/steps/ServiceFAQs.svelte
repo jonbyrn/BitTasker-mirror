@@ -51,7 +51,7 @@
 </script>
 
 <div
-	class="min-w-0 space-y-6 overflow-x-clip"
+	class="min-w-0 space-y-6"
 	in:fly={{
 		duration: 200,
 		easing: linear,
@@ -60,13 +60,11 @@
 	}}
 >
 	<div class="w-full">
-		<label class="label" for="faqs-title">
-			<span class="label-text-alt break-words">{$t('dashboard.services.create.faqs.hint')}</span>
-			<span class="label-text-alt ml-1 break-words"
-				>({($store.service.faqs || []).length}/{MAX_FAQS}
-				{$t('dashboard.services.create.faqs.max')})</span
-			>
-		</label>
+		<p class="text-base-content/70 text-sm">
+			{$t('dashboard.services.create.faqs.hint')}
+			({($store.service.faqs || []).length}/{MAX_FAQS}
+			{$t('dashboard.services.create.faqs.max')})
+		</p>
 	</div>
 
 	{#if ($store.service.faqs || []).length === 0}
@@ -76,14 +74,14 @@
 	{/if}
 
 	{#each $store.service.faqs || [] as faq (faq.id)}
-		<div class="card bg-base-200 min-w-0 space-y-4 overflow-hidden p-4">
+		<div class="card bg-base-200 min-w-0 space-y-4 p-4" transition:fly={{ y: 20, duration: 200 }}>
 			<div class="flex min-w-0 items-center justify-between gap-3">
 				<h4 class="min-w-0 font-semibold break-words">
 					{$t('dashboard.services.create.faqs.faq')} #{($store.service.faqs || []).indexOf(faq) + 1}
 				</h4>
 				<button
 					type="button"
-					class="btn btn-sm btn-error"
+					class="btn btn-circle btn-outline btn-error min-h-[44px] min-w-[44px] text-lg"
 					onclick={() => removeFAQ(faq.id)}
 					title={$t('dashboard.services.create.faqs.remove')}
 				>
@@ -94,7 +92,9 @@
 			<!-- FAQ Question -->
 			<div class="w-full">
 				<label for="faq-question-{faq.id}" class="label" id="faq-question-label-{faq.id}">
-					<span class="label-text break-words">{$t('dashboard.services.create.faqs.question_label')}</span>
+					<span class="label-text break-words"
+						>{$t('dashboard.services.create.faqs.question_label')}</span
+					>
 				</label>
 				<input
 					type="text"
@@ -109,7 +109,9 @@
 			<!-- FAQ Answer -->
 			<div class="w-full">
 				<label for="faq-answer-{faq.id}" class="label" id="faq-answer-label-{faq.id}">
-					<span class="label-text break-words">{$t('dashboard.services.create.faqs.answer_label')}</span>
+					<span class="label-text break-words"
+						>{$t('dashboard.services.create.faqs.answer_label')}</span
+					>
 				</label>
 				<textarea
 					id="faq-answer-{faq.id}"

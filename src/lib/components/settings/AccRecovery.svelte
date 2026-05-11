@@ -35,6 +35,7 @@
 	let passwordError = $state('');
 	let passwordMismatchError = $state('');
 	let copySuccess = $state('');
+	let recoveryExpanded = $state(false);
 
 	// Password strength state
 	let passwordStrength = $state<'weak' | 'medium' | 'strong'>('weak');
@@ -193,25 +194,18 @@
 
 <!-- Account Recovery Section -->
 {#if authMethod !== 'alby'}
-	<div class="card bg-base-100 mb-6 shadow-xl">
-		<div class="card-body">
-			<div class="mb-1 flex items-center gap-2">
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					class="h-6 w-6"
-					fill="none"
-					viewBox="0 0 24 24"
-					stroke="currentColor"
-				>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="2"
-						d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-					/>
-				</svg>
-				<h4 class="card-title">{$t('settings.recovery.title')}</h4>
-			</div>
+	<div
+		class="collapse-arrow bg-base-100 collapse mb-6 rounded-lg shadow-xl"
+		class:collapse-open={recoveryExpanded}
+	>
+		<button
+			type="button"
+			class="collapse-title border-base-300 flex items-center gap-2 border-b text-left"
+			onclick={() => (recoveryExpanded = !recoveryExpanded)}
+		>
+			<h4 class="text-lg font-semibold">{$t('settings.recovery.title')}</h4>
+		</button>
+		<div class="collapse-content">
 			<p class="text-base-content/70 mb-6">
 				{$t('settings.recovery.description')}
 			</p>
@@ -281,7 +275,7 @@
 						<!-- Show/Hide Password Button -->
 						<button
 							type="button"
-							class="absolute inset-y-0 right-0 flex items-center pr-3"
+							class="absolute inset-y-0 right-12 flex items-center pr-3"
 							onclick={() => (showRecoveryPassword = !showRecoveryPassword)}
 							disabled={recoveryLoading}
 							title={showRecoveryPassword ? 'Hide password' : 'Show password'}
@@ -327,7 +321,7 @@
 						<!-- Generate Password Button -->
 						<button
 							type="button"
-							class="absolute inset-y-0 right-12 flex items-center pr-3"
+							class="absolute inset-y-0 right-24 flex items-center pr-3"
 							onclick={handleGeneratePassword}
 							disabled={recoveryLoading}
 							title="Generate secure password"
@@ -351,7 +345,7 @@
 						<!-- Copy Button -->
 						<button
 							type="button"
-							class="absolute inset-y-0 right-24 flex items-center pr-3"
+							class="absolute inset-y-0 right-0 flex items-center pr-3"
 							onclick={() => _copyToClipboard(recoveryPassword, 'recovery')}
 							disabled={!recoveryPassword || recoveryLoading}
 							title="Copy password to clipboard"

@@ -1,25 +1,46 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import { linear } from 'svelte/easing';
-	import { fly, fade } from 'svelte/transition';
+	import { fly, slide } from 'svelte/transition';
 	import { serviceStore as store } from '$lib/stores/service.store';
 	import type { RushDelivery, ServiceTier, TierDeliveryTime } from '$lib/types/service.d';
 	import { t } from 'svelte-i18n';
 	import { get } from 'svelte/store';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import UsdSatsInput from '$lib/components/shared/UsdSatsInput.svelte';
+	import IconTruckDeliveryOutline from '~icons/mdi/truck-delivery-outline';
 
 	let { errors, direction } = $props();
 
 	const isBookNowEnabled = $derived($store.service.instantBuyLeadHours != null);
 
 	let btcPrice = $state<number>(0);
+	let btcPriceError = $state(false);
+	let openDropdownId = $state<string | null>(null);
+
+	function toggleDropdown(id: string) {
+		openDropdownId = openDropdownId === id ? null : id;
+	}
+
+	const unitOptions = [
+		{ value: 'minute', label: () => $t('dashboard.services.create.tiers.unit_minute') },
+		{ value: 'hour', label: () => $t('dashboard.services.create.tiers.unit_hour') },
+		{ value: 'day', label: () => $t('dashboard.services.create.tiers.unit_day') },
+		{ value: 'week', label: () => $t('dashboard.services.create.tiers.unit_week') },
+		{ value: 'month', label: () => $t('dashboard.services.create.tiers.unit_month') }
+	];
+
+	function getUnitLabel(unit: string): string {
+		return unitOptions.find((o) => o.value === unit)?.label() || unit;
+	}
 
 	async function fetchBtcPrice(): Promise<void> {
 		try {
 			btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
+			btcPriceError = false;
 		} catch (err) {
 			console.error('Error fetching BTC price:', err);
+			btcPriceError = true;
 		}
 	}
 
@@ -81,7 +102,7 @@
 			const defaultTiers: ServiceTier[] = [
 				{
 					id: crypto.randomUUID(),
-					name: translate('dashboard.services.create.tiers.default_basic'),
+					name: translate('dashboard.services.create.tiers.default_essential'),
 					description: '',
 					price: 0,
 					features: [],
@@ -89,7 +110,7 @@
 				},
 				{
 					id: crypto.randomUUID(),
-					name: translate('dashboard.services.create.tiers.default_standard'),
+					name: translate('dashboard.services.create.tiers.default_plus'),
 					description: '',
 					price: 0,
 					features: [],
@@ -122,14 +143,21 @@
 		if (currentTiers.length >= 4) return;
 
 		const translate = get(t);
+		const defaultNames = [
+			'dashboard.services.create.tiers.default_essential',
+			'dashboard.services.create.tiers.default_plus',
+			'dashboard.services.create.tiers.default_premium',
+			'dashboard.services.create.tiers.default_ultimate'
+		];
+		const nameKey =
+			defaultNames[currentTiers.length] || 'dashboard.services.create.tiers.tier_number';
 		const newTier: ServiceTier = {
 			id: crypto.randomUUID(),
-			name: translate('dashboard.services.create.tiers.tier_number', {
-				values: { n: currentTiers.length + 1 }
-			}),
+			name: translate(nameKey, { values: { n: currentTiers.length + 1 } }),
 			description: '',
 			price: 0,
-			features: []
+			features: [],
+			deliveryTime: isBookNowEnabled ? createDefaultTierDeliveryTime() : undefined
 		};
 
 		store.updateService({
@@ -164,26 +192,35 @@
 
 	function togglePopularTier(tierId: string) {
 		const currentTiers = $store.service.pricing?.tiers || [];
-		const nextPopularState = !currentTiers.find((tier) => tier.id === tierId)?.isPopular;
+		const targetTier = currentTiers.find((tier) => tier.id === tierId);
+		// Don't allow un-marking the popular tier — one must always be popular
+		if (!targetTier || targetTier.isPopular) return;
 
 		store.updateService({
 			pricing: {
 				...$store.service.pricing!,
 				tiers: currentTiers.map((tier) => ({
 					...tier,
-					isPopular: tier.id === tierId ? nextPopularState : false
+					isPopular: tier.id === tierId
 				}))
 			}
 		});
 	}
 
-	function addFeature(tierId: string) {
+	async function addFeature(tierId: string) {
 		const tier = $store.service.pricing?.tiers?.find((item) => item.id === tierId);
 		if (!tier) return;
 
+		const newIndex = (tier.features || []).length;
 		updateTier(tierId, {
 			features: [...(tier.features || []), '']
 		});
+
+		await tick();
+		const input = document.querySelector<HTMLInputElement>(
+			`#tier-features-${tierId} input[data-feature-index="${newIndex}"]`
+		);
+		input?.focus();
 	}
 
 	function updateFeature(tierId: string, featureIndex: number, value: string) {
@@ -215,10 +252,20 @@
 	function toggleRushDelivery(tierId: string, enabled: boolean) {
 		updateRushDelivery(tierId, enabled ? createDefaultRushDelivery() : undefined);
 	}
+	function getTierDisplayName(tierName: string | undefined, tierIndex: number): string {
+		if (tierName) return tierName;
+		const keys = [
+			'dashboard.services.create.tiers.default_essential',
+			'dashboard.services.create.tiers.default_plus',
+			'dashboard.services.create.tiers.default_premium',
+			'dashboard.services.create.tiers.default_ultimate'
+		];
+		return $t(keys[tierIndex] || keys[3]);
+	}
 </script>
 
 <div
-	class="min-w-0 space-y-6 overflow-x-hidden"
+	class="min-w-0 space-y-6"
 	in:fly={{
 		duration: 200,
 		easing: linear,
@@ -226,52 +273,58 @@
 		x: direction === 'forward' ? 20 : -20
 	}}
 >
-	<div class="w-full">
-		<label class="label" for="tiers-title">
-			<span class="label-text-alt wrap-break-words">
-				{$t('dashboard.services.create.tiers.hint')} ({($store.service.pricing?.tiers || [])
-					.length}/4)
-			</span>
-		</label>
+	<div class="w-full min-w-0">
+		<p class="text-base-content/70 text-sm">
+			{$t('dashboard.services.create.tiers.hint')} ({($store.service.pricing?.tiers || [])
+				.length}/4)
+		</p>
 	</div>
 
-	{#each $store.service.pricing?.tiers || [] as tier (tier.id)}
+	{#each $store.service.pricing?.tiers || [] as tier, tierIndex (tier.id)}
+		<!-- overflow-visible required: popular badge is absolutely positioned above the card -->
 		<div
-			class="card min-w-0 space-y-4 overflow-hidden border-2 p-4 transition-all duration-300 {tier.isPopular
+			class="card min-w-0 space-y-4 overflow-visible border-2 p-4 transition-all duration-300 {tier.isPopular
 				? 'border-primary bg-primary/5'
 				: 'border-base-300 bg-base-200'}"
+			transition:fly={{ y: 20, duration: 200 }}
 		>
+			{#if tier.isPopular}
+				<div class="absolute -top-3 left-1/2 z-10 -translate-x-1/2">
+					<span
+						class="badge badge-primary border-none px-4 py-3 text-[10px] font-black tracking-widest uppercase shadow-sm"
+					>
+						{$t('dashboard.services.create.tiers.popular')}
+					</span>
+				</div>
+			{/if}
 			<div class="flex items-start justify-between gap-3">
 				<div class="flex min-w-0 items-center gap-2">
-					<h4 class="wrap-break-words min-w-0 text-lg font-semibold">{tier.name}</h4>
-					{#if tier.isPopular}
-						<span class="badge badge-primary" transition:fade={{ duration: 200 }}>
-							{$t('dashboard.services.create.tiers.popular')}
-						</span>
-					{/if}
-				</div>
-				<div class="flex shrink-0 gap-2">
-					<button
-						type="button"
-						class="btn btn-sm btn-ghost transition-opacity {tier.isPopular
-							? 'text-primary opacity-100'
-							: 'text-base-content/60 opacity-40 hover:opacity-100'}"
-						onclick={() => togglePopularTier(tier.id)}
-						title={$t('dashboard.services.create.tiers.toggle_popular')}
-						aria-pressed={tier.isPopular ? 'true' : 'false'}
-					>
-						⭐
-					</button>
 					{#if ($store.service.pricing?.tiers || []).length > 2}
 						<button
 							type="button"
-							class="btn btn-sm btn-error"
+							class="btn btn-circle btn-outline btn-error min-h-[44px] min-w-[44px] text-lg"
 							onclick={() => removeTier(tier.id)}
 							title={$t('dashboard.services.create.tiers.remove')}
 						>
 							✕
 						</button>
 					{/if}
+					<h4 class="wrap-break-words line-clamp-2 min-w-0 text-lg font-semibold">
+						{getTierDisplayName(tier.name, tierIndex)}
+					</h4>
+				</div>
+				<div class="flex shrink-0 gap-2">
+					<button
+						type="button"
+						class="btn btn-sm btn-circle btn-ghost min-h-[44px] min-w-[44px] transition-all duration-300 {tier.isPopular
+							? 'text-primary border-primary border'
+							: 'text-base-content/40 border-base-content/20 border'}"
+						onclick={() => togglePopularTier(tier.id)}
+						title={$t('dashboard.services.create.tiers.toggle_popular')}
+						aria-pressed={tier.isPopular ? 'true' : 'false'}
+					>
+						⭐
+					</button>
 				</div>
 			</div>
 
@@ -285,7 +338,7 @@
 					type="text"
 					id="tier-name-{tier.id}"
 					value={tier.name}
-					onchange={(event) =>
+					oninput={(event) =>
 						updateTier(tier.id, { name: (event.target as HTMLInputElement).value })}
 					class="input input-bordered w-full"
 					placeholder={$t('dashboard.services.create.tiers.name_placeholder')}
@@ -320,13 +373,12 @@
 						{$t('dashboard.services.create.tiers.price_label')}
 						<span class="text-error">*</span>
 					</span>
-					<span class="label-text-alt wrap-break-words min-w-0 text-right">
-						{$t('dashboard.services.create.pricing.btc_price')}
-						{#if btcPrice > 0}
-							${Math.round(btcPrice).toLocaleString()}
-						{:else}
-							{$t('dashboard.services.create.pricing.btc_price_unavailable')}
-						{/if}
+					<span class="label-text-alt wrap-break-words min-w-0 text-right italic">
+						BTC: {#if btcPriceError}Error{:else if btcPrice > 0}${Math.round(
+								btcPrice
+							).toLocaleString()}{:else}{$t(
+								'dashboard.services.create.pricing.btc_price_unavailable'
+							)}{/if}
 					</span>
 				</label>
 				<UsdSatsInput
@@ -371,65 +423,78 @@
 					/>
 				</label>
 				{#if tier.deliveryTime}
-					<div class="mt-2 space-y-2">
+					<div class="mt-2 space-y-2" transition:slide={{ duration: 200 }}>
 						<div
-							class="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(8.5rem,10rem)] items-end gap-2 sm:max-w-md"
+							class="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(6rem,8rem)] items-end gap-2 sm:max-w-md"
 						>
 							<div class="min-w-0">
-								<label
-									for="delivery-value-{tier.id}"
-									class="label"
-									id="delivery-value-label-{tier.id}"
-								>
-									<span class="label-text-alt wrap-break-words">
-										{$t('dashboard.services.create.tiers.delivery_time_label')}
-									</span>
-								</label>
-								<input
-									type="number"
-									id="delivery-value-{tier.id}"
-									min="1"
-									value={tier.deliveryTime.value}
-									onchange={(event) => {
-										const value = Number((event.target as HTMLInputElement).value);
-										updateDeliveryTime(tier.id, {
-											...tier.deliveryTime!,
-											value,
-											display: formatTierDeliveryTime({ ...tier.deliveryTime!, value })
-										});
-									}}
-									class="input input-bordered w-full"
-								/>
+								<div class="flex items-center gap-2">
+									<IconTruckDeliveryOutline class="text-primary h-5 w-5 shrink-0" />
+									<input
+										type="number"
+										id="delivery-value-{tier.id}"
+										min="1"
+										value={tier.deliveryTime.value}
+										oninput={(event) => {
+											const value = Number((event.target as HTMLInputElement).value);
+											updateDeliveryTime(tier.id, {
+												...tier.deliveryTime!,
+												value,
+												display: formatTierDeliveryTime({ ...tier.deliveryTime!, value })
+											});
+										}}
+										class="input input-bordered w-full"
+									/>
+								</div>
 							</div>
 							<div class="min-w-0">
-								<label
-									for="delivery-unit-{tier.id}"
-									class="label"
-									id="delivery-unit-label-{tier.id}"
-								>
-									<span class="label-text-alt wrap-break-words">
-										{$t('dashboard.services.create.tiers.delivery_unit')}
-									</span>
-								</label>
-								<select
-									id="delivery-unit-{tier.id}"
-									class="select select-bordered w-full"
-									value={tier.deliveryTime.unit}
-									onchange={(event) => {
-										const unit = (event.target as HTMLSelectElement)
-											.value as TierDeliveryTime['unit'];
-										updateDeliveryTime(tier.id, {
-											...tier.deliveryTime!,
-											unit,
-											display: formatTierDeliveryTime({ ...tier.deliveryTime!, unit })
-										});
-									}}
-								>
-									<option value="hour">{$t('dashboard.services.create.tiers.unit_hour')}</option>
-									<option value="day">{$t('dashboard.services.create.tiers.unit_day')}</option>
-									<option value="week">{$t('dashboard.services.create.tiers.unit_week')}</option>
-									<option value="month">{$t('dashboard.services.create.tiers.unit_month')}</option>
-								</select>
+								<div class="dropdown w-full">
+									<button
+										type="button"
+										class="input input-bordered flex w-full cursor-pointer items-center justify-between"
+										onclick={() => toggleDropdown(`d-unit-${tier.id}`)}
+									>
+										<span>{getUnitLabel(tier.deliveryTime.unit)}</span>
+										<svg
+											class="h-4 w-4 opacity-50"
+											fill="none"
+											viewBox="0 0 24 24"
+											stroke="currentColor"
+											><path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												stroke-width="2"
+												d="M19 9l-7 7-7-7"
+											/></svg
+										>
+									</button>
+									{#if openDropdownId === `d-unit-${tier.id}`}
+										<ul
+											class="dropdown-content menu bg-base-100 rounded-box z-30 w-full shadow"
+											transition:fly={{ y: -10, duration: 200 }}
+										>
+											{#each unitOptions as opt (opt.value)}
+												<li>
+													<button
+														type="button"
+														class:active={tier.deliveryTime.unit === opt.value}
+														onclick={() => {
+															updateDeliveryTime(tier.id, {
+																...tier.deliveryTime!,
+																unit: opt.value as TierDeliveryTime['unit'],
+																display: formatTierDeliveryTime({
+																	...tier.deliveryTime!,
+																	unit: opt.value as TierDeliveryTime['unit']
+																})
+															});
+															openDropdownId = null;
+														}}>{opt.label()}</button
+													>
+												</li>
+											{/each}
+										</ul>
+									{/if}
+								</div>
 							</div>
 						</div>
 					</div>
@@ -450,91 +515,109 @@
 					/>
 				</label>
 				{#if tier.rushDelivery?.enabled}
-					<div class="mt-2 space-y-2">
-						<div>
-							<label for="rush-price-{tier.id}" class="label" id="rush-price-label-{tier.id}">
-								<span class="label-text-alt wrap-break-words">
-									{$t('dashboard.services.create.tiers.rush_price_label')}
-								</span>
-							</label>
-							<input
-								type="number"
-								id="rush-price-{tier.id}"
-								min="0"
-								step="0.01"
-								value={tier.rushDelivery.price}
-								onchange={(event) => {
-									const price = Number((event.target as HTMLInputElement).value);
-									updateRushDelivery(tier.id, {
-										...tier.rushDelivery!,
-										price
-									});
+					<div class="mt-2 space-y-2" transition:slide={{ duration: 200 }}>
+						<div class="w-full">
+							<UsdSatsInput
+								usdAmount={tier.rushDelivery.price}
+								{btcPrice}
+								showFieldLabels={false}
+								showBtcPrice={false}
+								usdInputId={`rush-price-usd-${tier.id}`}
+								satsInputId={`rush-price-sats-${tier.id}`}
+								btcPriceLabel={$t('dashboard.services.create.pricing.btc_price')}
+								satsLabel={$t('dashboard.services.create.pricing.sats_label')}
+								onUsdChange={({ usdAmount: nextUsdPrice }) => {
+									if (nextUsdPrice != null) {
+										updateRushDelivery(tier.id, { ...tier.rushDelivery!, price: nextUsdPrice });
+									}
 								}}
-								class="input input-bordered w-full sm:max-w-xs"
+								onSatsChange={({ usdAmount: nextUsdPrice }) => {
+									if (nextUsdPrice != null) {
+										updateRushDelivery(tier.id, { ...tier.rushDelivery!, price: nextUsdPrice });
+									}
+								}}
 							/>
 						</div>
 						<div
-							class="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(8.5rem,10rem)] items-end gap-2 sm:max-w-md"
+							class="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(6rem,8rem)] items-end gap-2 sm:max-w-md"
 						>
 							<div class="min-w-0">
-								<label for="rush-value-{tier.id}" class="label" id="rush-value-label-{tier.id}">
-									<span class="label-text-alt wrap-break-words">
-										{$t('dashboard.services.create.tiers.delivery_time_label')}
-									</span>
-								</label>
-								<input
-									type="number"
-									id="rush-value-{tier.id}"
-									min="1"
-									value={tier.rushDelivery.deliveryTime.value}
-									onchange={(event) => {
-										const value = Number((event.target as HTMLInputElement).value);
-										updateRushDelivery(tier.id, {
-											...tier.rushDelivery!,
-											deliveryTime: {
-												...tier.rushDelivery!.deliveryTime,
-												value,
-												display: formatTierDeliveryTime({
+								<div class="flex items-center gap-2">
+									<IconTruckDeliveryOutline class="text-primary h-5 w-5 shrink-0" />
+									<input
+										type="number"
+										id="rush-value-{tier.id}"
+										min="1"
+										value={tier.rushDelivery.deliveryTime.value}
+										oninput={(event) => {
+											const value = Number((event.target as HTMLInputElement).value);
+											updateRushDelivery(tier.id, {
+												...tier.rushDelivery!,
+												deliveryTime: {
 													...tier.rushDelivery!.deliveryTime,
-													value
-												})
-											}
-										});
-									}}
-									class="input input-bordered w-full"
-								/>
+													value,
+													display: formatTierDeliveryTime({
+														...tier.rushDelivery!.deliveryTime,
+														value
+													})
+												}
+											});
+										}}
+										class="input input-bordered w-full"
+									/>
+								</div>
 							</div>
 							<div class="min-w-0">
-								<label for="rush-unit-{tier.id}" class="label" id="rush-unit-label-{tier.id}">
-									<span class="label-text-alt wrap-break-words">
-										{$t('dashboard.services.create.tiers.delivery_unit')}
-									</span>
-								</label>
-								<select
-									id="rush-unit-{tier.id}"
-									class="select select-bordered w-full"
-									value={tier.rushDelivery.deliveryTime.unit}
-									onchange={(event) => {
-										const unit = (event.target as HTMLSelectElement)
-											.value as TierDeliveryTime['unit'];
-										updateRushDelivery(tier.id, {
-											...tier.rushDelivery!,
-											deliveryTime: {
-												...tier.rushDelivery!.deliveryTime,
-												unit,
-												display: formatTierDeliveryTime({
-													...tier.rushDelivery!.deliveryTime,
-													unit
-												})
-											}
-										});
-									}}
-								>
-									<option value="hour">{$t('dashboard.services.create.tiers.unit_hour')}</option>
-									<option value="day">{$t('dashboard.services.create.tiers.unit_day')}</option>
-									<option value="week">{$t('dashboard.services.create.tiers.unit_week')}</option>
-									<option value="month">{$t('dashboard.services.create.tiers.unit_month')}</option>
-								</select>
+								<div class="dropdown w-full">
+									<button
+										type="button"
+										class="input input-bordered flex w-full cursor-pointer items-center justify-between"
+										onclick={() => toggleDropdown(`r-unit-${tier.id}`)}
+									>
+										<span>{getUnitLabel(tier.rushDelivery.deliveryTime.unit)}</span>
+										<svg
+											class="h-4 w-4 opacity-50"
+											fill="none"
+											viewBox="0 0 24 24"
+											stroke="currentColor"
+											><path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												stroke-width="2"
+												d="M19 9l-7 7-7-7"
+											/></svg
+										>
+									</button>
+									{#if openDropdownId === `r-unit-${tier.id}`}
+										<ul
+											class="dropdown-content menu bg-base-100 rounded-box z-30 w-full shadow"
+											transition:fly={{ y: -10, duration: 200 }}
+										>
+											{#each unitOptions as opt (opt.value)}
+												<li>
+													<button
+														type="button"
+														class:active={tier.rushDelivery.deliveryTime.unit === opt.value}
+														onclick={() => {
+															updateRushDelivery(tier.id, {
+																...tier.rushDelivery!,
+																deliveryTime: {
+																	...tier.rushDelivery!.deliveryTime,
+																	unit: opt.value as TierDeliveryTime['unit'],
+																	display: formatTierDeliveryTime({
+																		...tier.rushDelivery!.deliveryTime,
+																		unit: opt.value as TierDeliveryTime['unit']
+																	})
+																}
+															});
+															openDropdownId = null;
+														}}>{opt.label()}</button
+													>
+												</li>
+											{/each}
+										</ul>
+									{/if}
+								</div>
 							</div>
 						</div>
 					</div>
@@ -542,20 +625,26 @@
 			</div>
 
 			<div class="w-full">
-				<div class="space-y-2">
+				<div class="space-y-2" id="tier-features-{tier.id}">
 					{#each tier.features || [] as feature, featureIndex (featureIndex)}
-						<div class="flex min-w-0 gap-2">
+						<div class="flex min-w-0 gap-2" transition:fly={{ y: -10, duration: 150 }}>
 							<input
 								type="text"
 								value={feature}
-								onchange={(event) =>
-									updateFeature(tier.id, featureIndex, (event.target as HTMLInputElement).value)}
+								data-feature-index={featureIndex}
+								oninput={(e) =>
+									updateFeature(tier.id, featureIndex, (e.target as HTMLInputElement).value)}
+								onblur={(e) => {
+									if (!(e.target as HTMLInputElement).value.trim()) {
+										removeFeature(tier.id, featureIndex);
+									}
+								}}
 								class="input input-bordered min-w-0 flex-1"
 								placeholder={$t('dashboard.services.create.tiers.feature_placeholder')}
 							/>
 							<button
 								type="button"
-								class="btn btn-sm btn-error"
+								class="btn btn-circle btn-outline btn-error min-h-[44px] min-w-[44px] text-lg"
 								onclick={() => removeFeature(tier.id, featureIndex)}
 								title={$t('dashboard.services.create.tiers.remove_feature')}
 							>
@@ -565,7 +654,7 @@
 					{/each}
 					<button
 						type="button"
-						class="btn btn-sm btn-outline w-full"
+						class="btn btn-sm btn-outline min-h-[44px] w-full"
 						onclick={() => addFeature(tier.id)}
 					>
 						+ {$t('dashboard.services.create.tiers.add_feature')}
@@ -576,7 +665,7 @@
 	{/each}
 
 	{#if ($store.service.pricing?.tiers || []).length < 4}
-		<button type="button" class="btn btn-outline w-full" onclick={addTier}>
+		<button type="button" class="btn btn-outline min-h-[44px] w-full" onclick={addTier}>
 			+ {$t('dashboard.services.create.tiers.add_tier')}
 		</button>
 	{/if}

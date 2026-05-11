@@ -47,7 +47,7 @@
 
 	// Line-clamp overflow (scrollHeight vs clientHeight), not character count — matches real UI
 	let serviceDescriptionEl = $state<HTMLDivElement | null>(null);
-	let serviceDescriptionOverflows = $state(false);
+	let _serviceDescriptionOverflows = $state(false);
 
 	function _needsTruncation(text: string | undefined | null): boolean {
 		if (!text) return false;
@@ -67,11 +67,11 @@
 				requestAnimationFrame(() => {
 					const el = serviceDescriptionEl;
 					if (!el) {
-						serviceDescriptionOverflows = false;
+						_serviceDescriptionOverflows = false;
 						return;
 					}
 					if (expanded) return;
-					serviceDescriptionOverflows = el.scrollHeight > el.clientHeight + 1;
+					_serviceDescriptionOverflows = el.scrollHeight > el.clientHeight + 1;
 				});
 			});
 		};
@@ -185,7 +185,7 @@
 </script>
 
 <div
-	class="min-w-0 space-y-6 overflow-x-hidden"
+	class="min-w-0 space-y-6"
 	in:fly={{
 		duration: 200,
 		easing: linear,

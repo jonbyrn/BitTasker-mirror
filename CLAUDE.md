@@ -1,264 +1,317 @@
-# Claude Code Configuration - RuFlo V3
+# BitTasker — Claude Code Configuration
 
-## Behavioral Rules (Always Enforced)
+## Project Identity
 
-- Do what has been asked; nothing more, nothing less
-- NEVER create files unless they're absolutely necessary for achieving your goal
-- ALWAYS prefer editing an existing file to creating a new one
-- NEVER proactively create documentation files (\*.md) or README files unless explicitly requested
-- NEVER save working files, text/mds, or tests to the root folder
-- Never continuously check status after spawning a swarm — wait for results
-- ALWAYS read a file before editing it
-- NEVER commit secrets, credentials, or .env files
-
-## File Organization
-
-- NEVER save to root folder — use the directories below
-- Use `/src` for source code files
-- Use `/tests` for test files
-- Use `/docs` for documentation and markdown files
-- Use `/config` for configuration files
-- Use `/scripts` for utility scripts
-- Use `/examples` for example code
-
-## Project Architecture
-
-- Follow Domain-Driven Design with bounded contexts
-- Keep files under 500 lines
-- Use typed interfaces for all public APIs
-- Prefer TDD London School (mock-first) for new code
-- Use event sourcing for state changes
-- Ensure input validation at system boundaries
-
-### Project Config
-
-- **Topology**: hierarchical-mesh
-- **Max Agents**: 15
-- **Memory**: hybrid
-- **HNSW**: Enabled
-- **Neural**: Enabled
+- **SvelteKit 5 + Capacitor** — cross-platform app (iOS, Android, PWA). Code runs on both web and native; Capacitor plugin calls (camera, location, notifications, clipboard) must be guarded with platform checks. Use `@capacitor/core` for device APIs.
+- **Nostr** (NDK v3, nostr-tools, @nostr-dev-kit/\*) — identity, events, DMs, wallet
+- **Bitcoin/Lightning** — boltz.exchange swaps, Rootstock (RSK) smart contracts, bolt11 invoices, liquidjs-lib (Cashu is a dependency but not actively used)
+- **Tailwind CSS 4 + daisyUI** — UI components and theming
+- **Cloudflare Workers** — backend via wrangler deploy
+- **Firebase** — push notifications; **Sentry** — error tracking
+- **Chart.js** — analytics; **svelte-i18n** — en/es localization
+- **Storybook** — component library; **Playwright** — e2e tests; **Vitest** — unit tests
 
 ## Build & Test
 
 ```bash
-# Build
-npm run build
-
-# Test
-npm test
-
-# Lint
-npm run lint
+npm run dev          # Dev server (port 3000)
+npm run build        # Production build (sync + vite + robots + sitemap) — SLOW, only run when needed
+npm run test         # Full vitest suite — SLOW, prefer targeted tests first
+npm run test:ci      # CI test suite (unit + integration + components)
+npm run test:e2e     # Playwright e2e tests
+npm run lint         # Prettier + ESLint
+npm run check        # svelte-check type validation
+npm run storybook    # Storybook dev server (port 6006)
 ```
 
-- ALWAYS run tests after making code changes
-- ALWAYS verify build succeeds before committing
+- **Do NOT run `npm run build` for isolated changes** (single component, utility, or type edit). Use `npm run check` + `npm run lint` for fast validation.
+- **In swarms: defer `npm run build` to the final integration step** — it serializes all of SvelteKit and is the slowest command in the pipeline.
+- **Do NOT run `npm run test` (full suite) first.** Use targeted commands: `npm run test:unit:components`, `npm run test:unit:stores`, `npm run test:unit:api`, etc. Run the full suite only after targeted tests pass.
+- Always run `npm run check` after TypeScript changes — catches type errors without a full build.
+- **Before committing when i18n keys have changed**: run `python3 scripts/find-missing-translations.py --fix-suggestions` to detect missing or mismatched translation keys. Fix all issues before committing.
 
-## Security Rules
+## Behavioral Rules
 
-- NEVER hardcode API keys, secrets, or credentials in source files
+- Do exactly what is asked; nothing more, nothing less
+- NEVER create files unless absolutely necessary
+- ALWAYS prefer editing existing files over creating new ones
+- NEVER proactively create \*.md or README files unless explicitly requested
+- NEVER save to root folder
+- ALWAYS read a file before editing it
+- NEVER commit secrets, credentials, or .env files
+- NEVER use `--no-verify` when committing or pushing — fix the underlying hook failure instead
+- ALWAYS create NEW commits (never amend) unless explicitly asked
+- ALWAYS run translation verification before committing when i18n keys have been added or modified
+
+## Project Structure
+
+```
+src/lib/
+├── components/     # Svelte UI components (organized by feature domain)
+├── services/       # API and data service layer
+├── stores/         # Svelte runes and stores
+├── utils/          # Shared utilities (nostr, wallet, search, etc.)
+├── types/          # TypeScript type definitions (*.d.ts)
+├── api/            # API endpoint handlers
+├── nostr/          # Nostr integration logic
+├── i18n/           # Internationalization setup
+├── data/           # Static data and constants
+├── mocks/          # Test mocks
+├── tests/          # Test suites
+└── polyfills.ts    # Browser polyfills
+
+src/routes/         # SvelteKit file-based routing
+static/locales/     # i18n translation files (en, es)
+```
+
+## Concurrency Rule: 1 MESSAGE = ALL RELATED OPERATIONS
+
+- Batch ALL file reads/writes/edits in ONE message
+- Batch ALL Bash commands in ONE message
+- Batch ALL agent spawns in ONE message with `run_in_background: true`
+- After spawning agents: STOP — do NOT poll or check status
+- When agent results arrive: review ALL before proceeding
+
+## Swarm Orchestration (RuFlo) — DEFAULT MODE
+
+**Swarm orchestration is the ONLY way to work on this project.** Every task — no matter how small — runs through the swarm. Direct edits bypassing the swarm are not permitted.
+
+### Daemon — MUST be running
+
+- **MANDATORY: verify daemon is running before any work.** Run `npx @claude-flow/cli@latest daemon status`. If STOPPED: `npx @claude-flow/cli@latest daemon start`
+- The daemon handles background sync, consolidation, worker scheduling, and memory bridge — without it, memory and coordination are degraded
+- If the daemon is already running, skip this check on subsequent tasks in the same session
+
+### Swarm Init — once per session
+
+- **MANDATORY: `mcp__claude-flow__swarm_init` with topology `hierarchical-mesh`, max 8 agents, strategy `specialized`, raft consensus**
+- Initialize once per session. Use the same swarmId for all subsequent agent spawns
+- All work is dispatched via `mcp__claude-flow__agent_spawn` — never run tools directly from the main thread when the swarm is active
+- Use Edit tool directly only when `[AGENT_BOOSTER_AVAILABLE]` appears AND the task is a single-line fix
+
+### Key RuFlo MCP Tools
+
+| Trigger                                  | Tool                                                             |
+| ---------------------------------------- | ---------------------------------------------------------------- |
+| **MANDATORY: session start**             | `daemon start` (if stopped) → `swarm_init` (if not initialized)  |
+| **MANDATORY: before starting any task**  | `mcp__claude-flow__memory_search` — check for prior patterns     |
+| **MANDATORY: after completing any task** | `mcp__claude-flow__memory_store` — save learnings                |
+| **MANDATORY: all work**                  | `mcp__claude-flow__agent_spawn` — dispatch via swarm             |
+| Multi-agent coordination                 | `mcp__claude-flow__swarm_init` + `mcp__claude-flow__agent_spawn` |
+| Before any edit                          | `mcp__gitnexus__impact` — blast radius check                     |
+| Before committing                        | `mcp__gitnexus__detect_changes` — verify affected scope          |
+
+## Security
+
+- NEVER hardcode API keys, secrets, or credentials
 - NEVER commit .env files or any file containing secrets
-- Always validate user input at system boundaries
-- Always sanitize file paths to prevent directory traversal
+- Validate user input at system boundaries; sanitize file paths
 - Run `npx @claude-flow/cli@latest security scan` after security-related changes
+- Never log, store, or expose nsec private keys, mnemonics, or seed phrases in code or logs
 
-## Concurrency: 1 MESSAGE = ALL RELATED OPERATIONS
+## Domain Skills
 
-- All operations MUST be concurrent/parallel in a single message
-- Use Claude Code's Task tool for spawning agents, not just MCP
-- ALWAYS batch ALL todos in ONE TodoWrite call (5-10+ minimum)
-- ALWAYS spawn ALL agents in ONE message with full instructions via Task tool
-- ALWAYS batch ALL file reads/writes/edits in ONE message
-- ALWAYS batch ALL Bash commands in ONE message
+**Before starting any task, check `.claude/skills/` for applicable skills.** Available skills are discoverable by listing the directory. Key project skills:
 
-## Swarm Orchestration
+- **Nostr development** — `/bittasker-nostr` — NDK, Nostr events, relays, NIPs, DMs, wallet, production reliability
+- **Wallet & payments** — `/bittasker-wallet` — boltz.exchange swaps, bolt11 invoices, transaction safety, fee handling
+- **i18n workflow** — `/bittasker-i18n` — adding user-facing strings, locale files
+- **E2E testing** — `/bittasker-e2e` — Playwright tests, UI verification
+- **Svelte 5 runes** — `/svelte-runes` — $state, $derived, $effect, $props, $bindable
+- **SvelteKit data flow** — `/sveltekit-data-flow` — load functions, form handling (client-only)
+- **SvelteKit structure** — `/sveltekit-structure` — routing, layouts, error boundaries
+- **Frontend design** — `/frontend-design` — polished UI, typography, color, motion
+- **TDD** — `/test-driven-development` — strict Red-Green-Refactor cycle
+- **Capacitor testing** — `/capacitor-testing` — platform mocking, native plugin tests
+- **Code exploration** — `/gitnexus-exploring` — trace execution flows, understand architecture
+- **Impact analysis** — `/gitnexus-impact-analysis` — blast radius check before editing
+- **Safe refactoring** — `/gitnexus-refactoring` — renames, extracts, restructures
+- **Debugging** — `/gitnexus-debugging` — systematic bug tracing
+- **UI audit** — `/web-design-guidelines` — accessibility, forms, touch, i18n, performance checks
+- **Webapp testing** — `/webapp-testing` — Playwright scripts, server lifecycle, DOM inspection
+- **Find skills** — `/find-skills` — discover community skills via npx skills CLI + skills.sh
+- **Skill creator** — `/skill-creator` — create, modify, and benchmark project skills
+- **Swarm orchestration** — `/swarm-orchestration` — multi-agent coordination, parallel execution, topology management
+- **Advanced swarm** — `/swarm-advanced` — complex distributed workflows, research swarms, testing swarms
 
-- MUST initialize the swarm using CLI tools when starting complex tasks
-- MUST spawn concurrent agents using Claude Code's Task tool
-- Never use CLI tools alone for execution — Task tool agents do the actual work
-- MUST call CLI tools AND Task tool in ONE message for complex work
+## Production Code Quality
 
-### 3-Tier Model Routing (ADR-026)
+### Deterministic Programming
 
-| Tier  | Handler              | Latency | Cost         | Use Cases                                           |
-| ----- | -------------------- | ------- | ------------ | --------------------------------------------------- |
-| **1** | Agent Booster (WASM) | <1ms    | $0           | Simple transforms (var→const, add types) — Skip LLM |
-| **2** | Haiku                | ~500ms  | $0.0002      | Simple tasks, low complexity (<30%)                 |
-| **3** | Sonnet/Opus          | 2-5s    | $0.003-0.015 | Complex reasoning, architecture, security (>30%)    |
+- Every function must have a single, predictable return path for a given input — avoid randomness and implicit state
+- Prefer pure functions; isolate side effects (API calls, store writes, Capacitor plugins) to dedicated modules
+- Never rely on execution order of async operations that are not explicitly chained — race conditions are the #1 source of bugs in this codebase
+- Svelte stores and runes must have a single source of truth — don't duplicate derived state across stores
 
-- Always check for `[AGENT_BOOSTER_AVAILABLE]` or `[TASK_MODEL_RECOMMENDATION]` before spawning agents
-- Use Edit tool directly when `[AGENT_BOOSTER_AVAILABLE]`
+### Defensive Practices
 
-## Swarm Configuration & Anti-Drift
+- **Validate at every boundary**: API responses, URL parameters, user input, Capacitor plugin return values — assume they are malformed until validated
+- **Null/undefined handling**: Every nullable value must be checked before access. Use optional chaining (`?.`) and nullish coalescing (`??`) aggressively. Never assume data exists.
+- **Type safety**: Use project types from `src/lib/types/`. Never use `any` — use `unknown` + type guards instead. Run `npm run check` after type changes.
+- **Platform guards**: Code runs on both web and native (iOS/Android). Always guard Capacitor plugin calls:
+  ```typescript
+  const isNative = Capacitor.isNativePlatform();
+  const isAvailable = Capacitor.isPluginAvailable('PluginName');
+  ```
+- **Browser guards**: All `svelte-i18n`, `fetch`, DOM, and localStorage access must be wrapped in `if (browser)` checks. The app may render server-side.
+- **Error handling**: Every async operation (fetch, plugin call, store write) must have error handling — never let a Promise rejection go uncaught. Use `tryCatch()` from `src/lib/utils/tryCatch.ts`.
+- **Silent failures are bugs**: If an operation fails, either surface the error to the user via a toast/alert, or log it to Sentry. Never `catch (e) {}` with an empty block.
+- **Sentry breadcrumbs**: Log key user actions (navigation, auth state change, wallet operation, Nostr event publish) as Sentry breadcrumbs for debugging production issues. Use `Sentry.addBreadcrumb()` — this is a Capacitor app with no server-side logs, so breadcrumbs are the primary debugging tool
+- **Network awareness**: Always check `navigator.onLine` and the app's `network-status.ts` store before initiating network operations. Show offline UI when unavailable — never silently fail. This is a mobile app; offline is normal
+- **App lifecycle**: Respect Capacitor app lifecycle events (pause/resume). Pause subscriptions and polling when the app backgrounds. Resume and refresh data when the app returns to foreground
+- **Deep links**: All deep link handlers must validate the incoming URL before routing. Never navigate to an unvalidated deep link path — see `src/lib/utils/deep-link.ts`
 
-- ALWAYS use hierarchical topology for coding swarms
-- Keep maxAgents at 6-8 for tight coordination
-- Use specialized strategy for clear role boundaries
-- Use `raft` consensus for hive-mind (leader maintains authoritative state)
-- Run frequent checkpoints via `post-task` hooks
-- Keep shared memory namespace for all agents
+### Svelte 5 Specific
 
-```bash
-npx @claude-flow/cli@latest swarm init --topology hierarchical --max-agents 8 --strategy specialized
-```
+- This project uses **Svelte 5** with runes (`$state`, `$derived`, `$effect`, `$props`)
+- Use `$state()` for reactive local variables, `$derived()` for computed values, `$effect()` for side effects
+- Do NOT use legacy Svelte 4 patterns (`$:`, `export let`, `on:click`) — use `$state`, `$props`, `onclick` instead
+- Always run `mcp__svelte__svelte-autofixer` after writing any .svelte file to catch version mismatches
 
-## Swarm Execution Rules
+### Edge Case Checklist
 
-- ALWAYS use `run_in_background: true` for all agent Task calls
-- ALWAYS put ALL agent Task calls in ONE message for parallel execution
-- After spawning, STOP — do NOT add more tool calls or check status
-- Never poll TaskOutput or check swarm status — trust agents to return
-- When agent results arrive, review ALL results before proceeding
+Before considering code complete, verify:
 
-## V3 CLI Commands
+- [ ] Empty state (no data / empty list / null)
+- [ ] Loading state (data fetching / async operation in progress)
+- [ ] Error state (API failure / network error / invalid data)
+- [ ] Boundary values (max length, zero, negative, overflow)
+- [ ] Platform variance (web vs iOS vs Android behavior differences)
+- [ ] **Memory**: searched AgentDB for prior patterns before starting (`mcp__claude-flow__memory_search`)
 
-### Core Commands
+## Automated Testing
 
-| Command     | Subcommands | Description                        |
-| ----------- | ----------- | ---------------------------------- |
-| `init`      | 4           | Project initialization             |
-| `agent`     | 8           | Agent lifecycle management         |
-| `swarm`     | 6           | Multi-agent swarm coordination     |
-| `memory`    | 11          | AgentDB memory with HNSW search    |
-| `task`      | 6           | Task creation and lifecycle        |
-| `session`   | 7           | Session state management           |
-| `hooks`     | 17          | Self-learning hooks + 12 workers   |
-| `hive-mind` | 6           | Byzantine fault-tolerant consensus |
+Testing must produce **95%+ confidence** that the implementation is correct. Untested code is assumed broken.
 
-### Quick CLI Examples
+### TDD Workflow
 
-```bash
-npx @claude-flow/cli@latest init --wizard
-npx @claude-flow/cli@latest agent spawn -t coder --name my-coder
-npx @claude-flow/cli@latest swarm init --v3-mode
-npx @claude-flow/cli@latest memory search --query "authentication patterns"
-npx @claude-flow/cli@latest doctor --fix
-```
+1. **Red** — write a failing test that defines the expected behavior
+2. **Green** — write the minimal code to make it pass
+3. **Refactor** — clean up while keeping tests green
+4. **Edge cases** — add tests for boundaries, nulls, errors, and platform variance
 
-## Available Agents (60+ Types)
+### Test Layers (Inner → Outer)
 
-### Core Development
+| Layer                      | Tool                               | What to test                                                                     | Confidence gain                         |
+| -------------------------- | ---------------------------------- | -------------------------------------------------------------------------------- | --------------------------------------- |
+| Pure functions & utilities | Vitest                             | Input/output, edge cases, error paths                                            | Foundation — every util must be covered |
+| Stores & runes             | Vitest + `@testing-library/svelte` | State transitions, subscriptions, derived values                                 | Core logic correctness                  |
+| Components                 | Vitest + `@testing-library/svelte` | Render states (empty/loading/error/populated), user interactions, event dispatch | UI behavior                             |
+| Integration                | Vitest                             | Service + store interplay, data flow, error propagation                          | System wiring                           |
+| E2E                        | Playwright                         | Critical user journeys, multi-page flows, real browser behavior                  | Real-world confidence                   |
 
-`coder`, `reviewer`, `tester`, `planner`, `researcher`
+### Testing Rules
 
-### Specialized
+- **Pure functions MUST be tested** — they are the foundation. No exceptions.
+- **New components MUST have tests** covering all 5 states (empty, loading, error, populated, edge case)
+- **Mock at boundaries**: API calls, Capacitor plugins, Nostr relays, NDK — use vitest mocks or `src/lib/mocks/`
+- **Use `tryCatch()`** from `src/lib/utils/tryCatch.ts` for error handling in tests — it returns `{ data, error }` tuples
+- **Run targeted tests first**: `npm run test:unit:components`, `npm run test:unit:stores`, etc. Full suite (`npm run test` / `npm run test:ci`) only after targeted tests pass
+- **Before committing**: at minimum, run targeted tests for the changed area. Run `npm run check` for type safety
+- **Before marking work complete**: run `npm run test:ci` and verify all tests pass
 
-`security-architect`, `security-auditor`, `memory-specialist`, `performance-engineer`
+### Confidence Gate
 
-### Swarm Coordination
+Mark code as complete only when:
 
-`hierarchical-coordinator`, `mesh-coordinator`, `adaptive-coordinator`
+- [ ] All new pure functions have unit tests with 90%+ branch coverage
+- [ ] All new components have tests covering 5 states (empty/loading/error/populated/edge)
+- [ ] Integration tests cover the happy path + 2 failure paths
+- [ ] `npm run check` passes (no type errors)
+- [ ] `npm run lint` passes (no style violations)
+- [ ] Targeted test suite passes (`npm run test:unit:components`, etc.)
+- [ ] E2E tests pass for any changed user flows (`npm run test:e2e`)
+- [ ] **Memory stored**: learnings, patterns, and key decisions saved via `mcp__claude-flow__memory_store`
 
-### GitHub & Repository
+## High-Confidence Code
 
-`pr-manager`, `code-review-swarm`, `issue-tracker`, `release-manager`
+Code the AI ships must be **functional, low-bug, and provide good UX**. Low confidence = more review cycles, more bugs, less trust.
 
-### SPARC Methodology
+### Confidence is Built Through Verification
 
-`sparc-coord`, `sparc-coder`, `specification`, `pseudocode`, `architecture`
+- **The AI's internal confidence is worthless without test evidence.** Every claim of correctness must be backed by a passing test or a verified type check.
+- **Uncertainty must be surfaced, not hidden.** If the AI cannot verify a code path (e.g., third-party API behavior, Capacitor plugin on real device), it must flag it with an explicit caveat rather than assuming it works.
+- **Never guess at API signatures.** Use `mcp__ts-introspect__*` or read the source. A wrong function signature cascades into multiple bugs.
 
-## Memory Commands Reference
+### Functional Correctness
 
-```bash
-# Store (REQUIRED: --key, --value; OPTIONAL: --namespace, --ttl, --tags)
-npx @claude-flow/cli@latest memory store --key "pattern-auth" --value "JWT with refresh" --namespace patterns
+- Every conditional branch must have a test exercising it — untested branches are latent bugs
+- State machines (auth flows, task lifecycle, wallet transactions) must have tests for every valid transition AND at least one invalid transition
+- Async operations must test: success, network failure, timeout, and invalid response shapes
 
-# Search (REQUIRED: --query; OPTIONAL: --namespace, --limit, --threshold)
-npx @claude-flow/cli@latest memory search --query "authentication patterns"
+### Low-Bug Practices
 
-# List (OPTIONAL: --namespace, --limit)
-npx @claude-flow/cli@latest memory list --namespace patterns --limit 10
+- **Minimize mutable state** — every `$state()` variable is a potential source of inconsistency. Prefer `$derived()` over manual state syncing
+- **Single-writer principle** — each store/state variable should have exactly one module that writes to it. Multiple writers = race conditions
+- **Validate early, fail fast** — validate inputs at the boundary (API response, user input, URL param) before they propagate into application state
+- **Prefer exhaustive checks** — use TypeScript's `never` type for switch statements over discriminated unions to catch missing cases at compile time
 
-# Retrieve (REQUIRED: --key; OPTIONAL: --namespace)
-npx @claude-flow/cli@latest memory retrieve --key "pattern-auth" --namespace patterns
-```
+### Component Management
 
-## Quick Setup
+- **ALWAYS search before creating**. Use these tools in order:
+  1. `mcp__gitnexus__query({query: "component purpose or concept"})` — semantic search, finds components by what they DO, not name
+  2. `mcp__code-index__search_code_advanced({pattern: "export function\|class\|interface", file_pattern: "*.svelte"})` — indexed code search, faster than raw grep
+  3. `Glob` / `Grep` — fallback only if indexed search misses
+- Duplicating an existing component is worse than creating a new one — it fragments patterns and doubles maintenance
+- Common generic components live at the top level of `src/lib/components/` (Modal, Toast, Input, etc.); feature-specific components are in subdirectories (task/, wallet/, nostr/, etc.)
+- **Reuse over rebuild**: if a component does 80% of what's needed, extend it with props rather than cloning it. Prefer composition (slot children, prop-driven variants) over forking
+- **Storybook exists**: run `npm run storybook` to browse existing components visually before building new ones
+- **New components** go in the correct feature subdirectory (`src/lib/components/task/`, `src/lib/components/wallet/`, etc.) or at top-level if truly generic
+- **Keep components focused**: one component = one responsibility. Extract sub-components when a file exceeds ~200 lines or handles multiple concerns
 
-```bash
-claude mcp add claude-flow -- npx -y @claude-flow/cli@latest
-npx @claude-flow/cli@latest daemon start
-npx @claude-flow/cli@latest doctor --fix
-```
+### UI/UX Quality
 
-## Claude Code vs CLI Tools
+- **Every interactive element must have**: a loading indicator during async actions, disabled state while in progress, error feedback on failure
+- **Consistent with existing patterns** — match the component patterns in `src/lib/components/`. Don't invent new UX patterns when one already exists
+- **Accessible (WCAG AA minimum)**: form inputs need labels, buttons need accessible names, interactive elements need visible focus indicators. Every new component must pass keyboard navigation (Tab/Enter/Escape). Modals must trap focus. Use semantic HTML by default. Run `/web-design-guidelines` for systematic audits. Test with screen reader before shipping user-facing changes
+- **Use daisyUI + Tailwind CSS 4** for styling:
+  - daisyUI components are the primary building blocks — `btn`, `card`, `modal`, `badge`, `input`, `select`, `textarea`, `table`, `tabs`, `collapse`, `drawer`, `dropdown`, `menu`, `navbar`, `toast`, `tooltip`, `avatar`, `divider`, `loading`, `skeleton`, `carousel`, `countdown`, `kbd`, `stat`, `steps`, `swap`, `timeline`, `chat`, `diff`, `fieldset`, `status`, `checkbox`, `radio`, `range`, `rating`, `file-input`, `label`, `toggle`, `validator`
+  - daisyUI theme colors are defined in `tailwind.config` — use semantic classes (`btn-primary`, `btn-secondary`, `bg-base-100`, `text-base-content`) not hardcoded hex values
+  - Tailwind utility classes for spacing, layout, and one-off adjustments — `flex`, `gap-4`, `p-6`, `rounded-lg`, `shadow-md`, `w-full`, `text-sm`
+  - **No inline styles** (`style=""`) — they break daisyUI theme consistency and can't be themed
+  - **No custom CSS files** — use Tailwind config or daisyUI theme variables for new design tokens
+  - **Responsive**: use Tailwind breakpoints (`sm:`, `md:`, `lg:`, `xl:`) — this is a mobile-first Capacitor app
+- **i18n-ready**: every user-visible string uses `$t()`. Run `python3 scripts/find-missing-translations.py --fix-suggestions` and fix all issues before committing. See `/bittasker-i18n` skill
 
-- Claude Code's Task tool handles ALL execution: agents, file ops, code generation, git
-- CLI tools handle coordination via Bash: swarm init, memory, hooks, routing
-- NEVER use CLI tools as a substitute for Task tool agents
+### Confidence Checklist (per change)
 
-## Support
+Before shipping code, the AI must confirm:
 
-- Documentation: https://github.com/ruvnet/claude-flow
-- Issues: https://github.com/ruvnet/claude-flow/issues
+- [ ] Types: `npm run check` passes with zero errors
+- [ ] Style: `npm run lint` passes with zero warnings
+- [ ] Tests: targeted test suite passes; `npm run test:ci` for multi-file changes
+- [ ] Coverage: new code has tests; uncovered lines are intentional and justified
+- [ ] UX audit: matches existing patterns, handles all 5 states, accessible, i18n'd, translations verified (`find-missing-translations.py`)
+- [ ] GitNexus: `detect_changes` confirms only expected symbols affected
+- [ ] Unsure paths flagged: any unverified behavior explicitly noted to the user
+- [ ] **Memory**: `memory_search` checked before start; `memory_store` saved key learnings after completion
 
-# Svelte MCP Server
+### Svelte (mcp**svelte**\*)
 
-You are able to use the Svelte MCP server, where you have access to comprehensive Svelte 5 and SvelteKit documentation. Here's how to use the available tools effectively:
+**When:** Writing or editing ANY .svelte file, using SvelteKit APIs, or creating components.
 
-## Available Svelte MCP Tools:
+- `list-sections` — discover available docs
+- `get-documentation` — fetch Svelte 5 / SvelteKit docs
+- `svelte-autofixer` — **MUST use** after writing any .svelte file; re-run until clean
+- `playground-link` — only if user confirms
 
-### 1. list-sections
+### GitNexus (mcp**gitnexus**\*)
 
-Use this FIRST to discover all available documentation sections. Returns a structured list with titles, use_cases, and paths.
-When asked about Svelte or SvelteKit topics, ALWAYS use this tool at the start of the chat to find relevant sections.
+**When:** Before editing ANY function/class/method, before committing, or exploring unfamiliar code.
 
-### 2. get-documentation
+- **MUST run `impact` before editing any symbol** — report blast radius and risk level
+- **MUST run `detect_changes` before committing** — verify affected scope
+- **NEVER ignore HIGH or CRITICAL risk** from impact analysis
+- Use `query` for execution flow discovery; use `context` for 360° symbol view
+- Never rename with find-and-replace — use `gitnexus_rename`
 
-Retrieves full documentation content for specific sections. Accepts single or multiple sections.
-After calling the list-sections tool, you MUST analyze the returned documentation sections (especially the use_cases field) and then use the get-documentation tool to fetch ALL documentation sections that are relevant for the user's task.
+### NostrBook (mcp**nostrbook**\*) — See `/bittasker-nostr` skill for full Nostr workflow
 
-### 3. svelte-autofixer
+### Playwright (mcp**plugin_playwright_playwright**\*) — See `/bittasker-e2e` skill for full e2e workflow
 
-Analyzes Svelte code and returns issues and suggestions.
-You MUST use this tool whenever writing Svelte code before sending it to the user. Keep calling it until no issues or suggestions are returned.
+### Additional MCP Servers
 
-### 4. playground-link
-
-Generates a Svelte Playground link with the provided code.
-After completing the code, ask the user if they want a playground link. Only call this tool after user confirmation and NEVER if code was written to files in their project.
-
-<!-- gitnexus:start -->
-
-# GitNexus — Code Intelligence
-
-This project is indexed by GitNexus as **BitTasker** (15165 symbols, 23105 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
-
-> If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
-
-## Always Do
-
-- **MUST run impact analysis before editing any symbol.** Before modifying a function, class, or method, run `gitnexus_impact({target: "symbolName", direction: "upstream"})` and report the blast radius (direct callers, affected processes, risk level) to the user.
-- **MUST run `gitnexus_detect_changes()` before committing** to verify your changes only affect expected symbols and execution flows.
-- **MUST warn the user** if impact analysis returns HIGH or CRITICAL risk before proceeding with edits.
-- When exploring unfamiliar code, use `gitnexus_query({query: "concept"})` to find execution flows instead of grepping. It returns process-grouped results ranked by relevance.
-- When you need full context on a specific symbol — callers, callees, which execution flows it participates in — use `gitnexus_context({name: "symbolName"})`.
-
-## Never Do
-
-- NEVER edit a function, class, or method without first running `gitnexus_impact` on it.
-- NEVER ignore HIGH or CRITICAL risk warnings from impact analysis.
-- NEVER rename symbols with find-and-replace — use `gitnexus_rename` which understands the call graph.
-- NEVER commit changes without running `gitnexus_detect_changes()` to check affected scope.
-
-## Resources
-
-| Resource                                   | Use for                                  |
-| ------------------------------------------ | ---------------------------------------- |
-| `gitnexus://repo/BitTasker/context`        | Codebase overview, check index freshness |
-| `gitnexus://repo/BitTasker/clusters`       | All functional areas                     |
-| `gitnexus://repo/BitTasker/processes`      | All execution flows                      |
-| `gitnexus://repo/BitTasker/process/{name}` | Step-by-step execution trace             |
-
-## CLI
-
-| Task                                         | Read this skill file                                        |
-| -------------------------------------------- | ----------------------------------------------------------- |
-| Understand architecture / "How does X work?" | `.claude/skills/gitnexus/gitnexus-exploring/SKILL.md`       |
-| Blast radius / "What breaks if I change X?"  | `.claude/skills/gitnexus/gitnexus-impact-analysis/SKILL.md` |
-| Trace bugs / "Why is X failing?"             | `.claude/skills/gitnexus/gitnexus-debugging/SKILL.md`       |
-| Rename / extract / split / refactor          | `.claude/skills/gitnexus/gitnexus-refactoring/SKILL.md`     |
-| Tools, resources, schema reference           | `.claude/skills/gitnexus/gitnexus-guide/SKILL.md`           |
-| Index, status, clean, wiki CLI commands      | `.claude/skills/gitnexus/gitnexus-cli/SKILL.md`             |
-
-<!-- gitnexus:end -->
+- `mcp__ts-introspect__*` — TypeScript type exploration. **When:** exploring unfamiliar types, checking package exports, or validating type signatures.
+- `mcp__ddg-search__*` — web search. **When:** looking up current docs, debugging errors, or researching APIs.
+- `mcp__pickapicon-mcp__*` — icon finder. **When:** adding icons to UI (project uses iconify-icon/mdi).
+- `mcp__code-index__*` — symbol search. **When:** finding function definitions, file lookups by name pattern.

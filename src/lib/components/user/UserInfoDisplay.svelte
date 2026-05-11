@@ -13,7 +13,8 @@
 		size = 'md',
 		pubkey = null, // Optional pubkey to fetch profile if username is invalid
 		memberSince = null, // Optional date/timestamp for "Member since" text
-		profileLink = null // Optional npub/pubkey for profile link
+		profileLink = null, // Optional npub/pubkey for profile link
+		onResolvedName = null
 	} = $props<{
 		avatar?: string | null;
 		username?: string | null;
@@ -23,6 +24,8 @@
 		pubkey?: string | null; // npub or hex pubkey for fetching profile metadata
 		memberSince?: Date | number | string | null; // Date, timestamp, or ISO string
 		profileLink?: string | null; // npub or hex pubkey for profile link
+		/** Callback invoked with the resolved display name after fetch completes or username changes. Never returns the fallback "Unknown User" string. */
+		onResolvedName?: ((name: string) => void) | null;
 	}>();
 
 	// State for fetched profile data (fetchProfileMetadata returns name, picture, createdAt)
@@ -188,6 +191,13 @@
 			return normalizedUsername;
 		}
 		return fallbackDisplayName;
+	});
+
+	// Notify parent when a real display name resolves (skip fallback "Unknown User")
+	$effect(() => {
+		if (!onResolvedName) return;
+		const name = normalizedFetchedProfileName || normalizedUsername;
+		if (name) onResolvedName(name);
 	});
 
 	/**

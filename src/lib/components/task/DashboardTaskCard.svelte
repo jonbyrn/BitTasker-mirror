@@ -87,6 +87,7 @@
 				deadline={task.deadline}
 				dateRangeStart={task.dateRange?.start}
 				dateRangeEnd={task.dateRange?.end}
+				showYear={false}
 			/>
 			<div class="badge {statusBadge.color} badge-sm shrink-0 truncate">
 				{$t(`common.status.${task.status.toLowerCase()}`) || statusBadge.text}

@@ -1,17 +1,16 @@
 <script lang="ts">
 	import { profileStore } from '$lib/stores/profile.store';
 	import { t, locale } from 'svelte-i18n';
+	import { formatTime12Hour } from '$lib/utils/helpers/dateFormatter';
 	import { onMount } from 'svelte';
 	import { getUserDisplayName } from '$lib/utils/helpers/userDisplayName';
 
 	// Helper function to get translated profile content
 	// Reactive to locale changes via $locale
-	function getTranslatedProfileContent(
-		field: 'professionalTitle' | 'about'
-	): string {
+	function getTranslatedProfileContent(field: 'professionalTitle' | 'about'): string {
 		const currentLang = $locale || 'en';
 		const originalText = $profileStore.data?.[field] || '';
-		
+
 		// If no translations, return original
 		if (!$profileStore.data?.translations) {
 			return originalText;
@@ -33,16 +32,26 @@
 	}
 
 	// Helper function to get translated skill name
-	function getTranslatedSkillName(skill: string | { name: string; translations?: any }): string {
+	function getTranslatedSkillName(
+		skill:
+			| string
+			| {
+					name: string;
+					translations?: {
+						sourceLanguage?: string;
+						translations?: Record<string, { name?: string; title?: string; description?: string }>;
+					};
+			  }
+	): string {
 		const currentLang = $locale || 'en';
-		
+
 		// If skill is a string, return as is
 		if (typeof skill === 'string') {
 			return skill;
 		}
 
 		const originalName = skill.name || '';
-		
+
 		// If no translations, return original
 		if (!skill.translations) {
 			return originalName;
@@ -64,10 +73,16 @@
 	}
 
 	// Helper function to get translated portfolio title
-	function getTranslatedPortfolioTitle(item: { title: string; translations?: any }): string {
+	function getTranslatedPortfolioTitle(item: {
+		title: string;
+		translations?: {
+			sourceLanguage?: string;
+			translations?: Record<string, { name?: string; title?: string; description?: string }>;
+		};
+	}): string {
 		const currentLang = $locale || 'en';
 		const originalTitle = item.title || '';
-		
+
 		// If no translations, return original
 		if (!item.translations) {
 			return originalTitle;
@@ -89,10 +104,16 @@
 	}
 
 	// Helper function to get translated portfolio description
-	function getTranslatedPortfolioDescription(item: { description: string; translations?: any }): string {
+	function getTranslatedPortfolioDescription(item: {
+		description: string;
+		translations?: {
+			sourceLanguage?: string;
+			translations?: Record<string, { name?: string; title?: string; description?: string }>;
+		};
+	}): string {
 		const currentLang = $locale || 'en';
 		const originalDescription = item.description || '';
-		
+
 		// If no translations, return original
 		if (!item.translations) {
 			return originalDescription;
@@ -113,6 +134,71 @@
 		return originalDescription;
 	}
 
+	// Format time slot
+	function formatTimeSlot(start: string, end: string): string {
+		return `${formatTime12Hour(start)} - ${formatTime12Hour(end)}`;
+	}
+
+	function getDaySchedule(
+		timeSlots: Array<{ day: number; start: string; end: string }>,
+		dayNumber: number
+	) {
+		const slot = timeSlots.find((slot) => slot.day === dayNumber);
+		return slot
+			? { available: true, hours: formatTimeSlot(slot.start, slot.end) }
+			: { available: false };
+	}
+
+	function getNextAvailable(
+		timeSlots: Array<{ day: number; start: string; end: string }>,
+		noticeHours: number
+	): string | null {
+		if (!timeSlots.length) return null;
+		const now = new Date();
+		const noticeMs = noticeHours * 60 * 60 * 1000;
+		const earliestPossibleTime = new Date(now.getTime() + noticeMs);
+		const sortedSlots = [...timeSlots].sort((a, b) => {
+			if (a.day === b.day) return a.start.localeCompare(b.start);
+			return a.day - b.day;
+		});
+		function getNextDay(targetDay: number): Date {
+			// eslint-disable-next-line svelte/prefer-svelte-reactivity
+			const result = new Date(now);
+			result.setHours(0, 0, 0, 0);
+			const currentDay = result.getDay();
+			const daysToAdd = (targetDay - currentDay + 7) % 7;
+			result.setDate(result.getDate() + daysToAdd);
+			return result;
+		}
+		for (let i = 0; i < 14; i++) {
+			for (const slot of sortedSlots) {
+				const slotDate = getNextDay(slot.day);
+				if (i > 0) slotDate.setDate(slotDate.getDate() + 7);
+				const [hours, minutes] = slot.start.split(':').map(Number);
+				slotDate.setHours(hours, minutes, 0, 0);
+				if (slotDate > earliestPossibleTime) return slotDate.toISOString();
+			}
+		}
+		return null;
+	}
+
+	let schedule = $derived(() => {
+		if (!$profileStore.data?.availability?.timeSlots) return {};
+		const weekSchedule: Record<string, { available: boolean; hours?: string; label: string }> = {};
+		const dayKeys = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+		dayKeys.forEach((dayKey, index) => {
+			const scheduleData = getDaySchedule($profileStore.data!.availability!.timeSlots, index);
+			weekSchedule[dayKey] = { ...scheduleData, label: $t(`days.${dayKey}`) };
+		});
+		return weekSchedule;
+	});
+
+	let nextAvailable = $derived(() => {
+		const availability = $profileStore.data?.availability;
+		if (!availability?.timeSlots?.length) return null;
+		return getNextAvailable(availability.timeSlots, availability.noticeHours);
+	});
+
 	let { formatDate } = $props<{
 		formatDate: (date: string) => string;
 	}>();
@@ -121,33 +207,31 @@
 	let descriptionElement: HTMLParagraphElement | null = $state(null);
 	let isDescriptionTruncated = $state(false);
 	let showFullDescription = $state(false);
-	
+
 	// Estado para el carrusel de imágenes de cada proyecto
 	let projectImageSlides = $state<Record<string, number>>({});
 
-	// Check if description is actually truncated (same logic as TranslatableTask)
+	// Check if description is actually truncated
 	function checkIfTruncated() {
 		if (!descriptionElement) return;
-		
+
 		// Create a hidden clone to measure full height without affecting layout
 		const clone = descriptionElement.cloneNode(true) as HTMLElement;
-		clone.className = descriptionElement.className.replace(/line-clamp-\d+/g, '');
 		clone.style.position = 'absolute';
 		clone.style.visibility = 'hidden';
+		clone.style.maxHeight = 'none';
 		clone.style.height = 'auto';
 		clone.style.width = descriptionElement.offsetWidth + 'px';
-		clone.style.whiteSpace = 'pre-line'; // Preserve line breaks
+		clone.style.whiteSpace = 'pre-line';
 		document.body.appendChild(clone);
-		
+
 		const fullHeight = clone.scrollHeight;
-		const lineHeight = parseFloat(getComputedStyle(descriptionElement).lineHeight) || 20;
-		const maxHeight = lineHeight * 2; // 2 lines
-		
-		// Clean up
+		// max-h-[6rem] = 96px (~4 lines)
+		const maxHeight = 96;
+
 		document.body.removeChild(clone);
-		
-		// Only show ellipsis if content is actually taller than 2 lines
-		isDescriptionTruncated = fullHeight > maxHeight + 1; // +1 for small margin
+
+		isDescriptionTruncated = fullHeight > maxHeight + 1;
 	}
 
 	// Initialize on mount
@@ -162,11 +246,11 @@
 	// React to description and locale changes
 	$effect(() => {
 		const currentDescription = getTranslatedProfileContent('about');
-		
+
 		if (descriptionElement && currentDescription) {
 			showFullDescription = false;
 			isDescriptionTruncated = false;
-			
+
 			requestAnimationFrame(() => {
 				checkIfTruncated();
 			});
@@ -215,23 +299,38 @@
 	{:else if $profileStore.data}
 		<!-- About -->
 		<div class="mb-8">
-			<h3 class="mb-4 text-md line-clamp-1 font-semibold">{$t('profile.about')}</h3>
+			<h3 class="mb-4 text-xl font-semibold">{$t('profile.about')}</h3>
 			{#if $profileStore.data.about}
-				<p 
-					bind:this={descriptionElement}
-					class="text-base-content/70 whitespace-pre-line {showFullDescription ? '' : 'line-clamp-2'}"
-					style="word-break: break-word; overflow-wrap: anywhere;"
-				>
-					{getTranslatedProfileContent('about')}
-				</p>
-				{#if isDescriptionTruncated}
-					<button 
-						class="btn btn-xs btn-ghost mt-1" 
-						onclick={toggleDescription}
+				<div class="relative">
+					<div
+						class="relative overflow-hidden transition-[max-height] duration-300 ease-out {showFullDescription
+							? 'max-h-[50rem]'
+							: 'max-h-[6rem]'}"
 					>
-						{showFullDescription ? $t('common.show_less') : $t('common.show_more')}
-					</button>
-				{/if}
+						<p
+							bind:this={descriptionElement}
+							class="text-base-content/70 whitespace-pre-line"
+							style="word-break: break-word; overflow-wrap: anywhere;"
+						>
+							{getTranslatedProfileContent('about')}
+						</p>
+						{#if isDescriptionTruncated}
+							<div
+								class="from-base-100 pointer-events-none absolute right-0 bottom-0 left-0 h-8 bg-gradient-to-t to-transparent transition-opacity duration-300 {showFullDescription
+									? 'opacity-0'
+									: 'opacity-100'}"
+							></div>
+						{/if}
+					</div>
+					{#if isDescriptionTruncated}
+						<button
+							class="text-primary relative z-10 mt-2 text-[10px] font-black tracking-wider uppercase"
+							onclick={toggleDescription}
+						>
+							{showFullDescription ? $t('common.show_less') : $t('common.show_more')}
+						</button>
+					{/if}
+				</div>
 			{:else}
 				<p class="text-base-content/70 line-clamp-2">{$t('profile.noDescription')}</p>
 			{/if}
@@ -242,7 +341,7 @@
 			<h3 class="mb-6 text-xl font-semibold">{$t('profile.skills.title')}</h3>
 			{#if $profileStore.data.skills && $profileStore.data.skills.length > 0}
 				<div class="flex flex-wrap gap-2">
-					{#each $profileStore.data.skills as skill}
+					{#each $profileStore.data.skills as skill (typeof skill === 'string' ? skill : skill.name)}
 						<div class="border-primary text-primary rounded-full border px-3 py-1 text-sm">
 							{getTranslatedSkillName(skill)}
 						</div>
@@ -260,9 +359,13 @@
 			<h3 class="mb-4 text-xl font-semibold">{$t('profile.certifications')}</h3>
 			{#if $profileStore.data.certifications && $profileStore.data.certifications.length > 0}
 				<div class="grid grid-cols-1 gap-3 md:grid-cols-3">
-					{#each $profileStore.data.certifications as cert}
+					{#each $profileStore.data.certifications as cert (cert.fileUrl || cert.name)}
 						<div class="card bg-base-200 flex flex-row items-center justify-start rounded-xl">
-							<img src={cert.fileUrl} alt={cert.name} class="h-full w-20 rounded-lg object-cover" />
+							<img
+								src={cert.fileUrl}
+								alt={cert.name}
+								class="h-full w-16 rounded-lg object-cover sm:w-20"
+							/>
 							<div class="card-body p-4">
 								<div class="flex items-start justify-between">
 									<h4 class="card-title text-base">{cert.name}</h4>
@@ -296,11 +399,13 @@
 			<h3 class="mb-4 text-xl font-semibold">{$t('profile.portfolio.title')}</h3>
 			{#if $profileStore.data.portfolio && $profileStore.data.portfolio.length > 0}
 				<div class="grid grid-cols-1 gap-6 md:grid-cols-2">
-					{#each $profileStore.data.portfolio as item}
+					{#each $profileStore.data.portfolio as item (item.id || item.title)}
 						<div class="card bg-base-200 rounded-xl">
 							<div class="card-body p-4">
-								<div class="flex items-center justify-between gap-2 mb-2">
-									<h4 class="card-title text-md line-clamp-1 font-bold">{getTranslatedPortfolioTitle(item)}</h4>
+								<div class="mb-2 flex items-center justify-between gap-2">
+									<h4 class="card-title text-md line-clamp-1 font-bold">
+										{getTranslatedPortfolioTitle(item)}
+									</h4>
 									{#if item?.link}
 										<a
 											href={item.link}
@@ -329,8 +434,8 @@
 								<p class="my-2 line-clamp-4">{getTranslatedPortfolioDescription(item)}</p>
 								<!-- Skills badges -->
 								{#if item.skills && item.skills.length > 0}
-									<div class="flex flex-wrap gap-1 mb-2">
-										{#each item.skills as skill}
+									<div class="mb-2 flex flex-wrap gap-1">
+										{#each item.skills as skill (skill)}
 											<span class="badge badge-info badge-outline badge-sm">
 												{skill}
 											</span>
@@ -342,14 +447,14 @@
 									{@const currentImageIndex = projectImageSlides[itemId] || 0}
 									{@const totalImages = item.images.length}
 									{@const hasMultipleImages = totalImages > 1}
-									
+
 									<!-- Carrusel de imágenes del proyecto -->
 									<div class="relative overflow-hidden rounded-lg">
 										<div
 											class="flex transition-transform duration-500 ease-in-out"
 											style="transform: translateX(-{currentImageIndex * 100}%)"
 										>
-											{#each item.images as image, imgIndex}
+											{#each item.images as image, imgIndex (image.url || imgIndex)}
 												<div class="w-full shrink-0">
 													<img
 														src={image.url}
@@ -359,38 +464,57 @@
 												</div>
 											{/each}
 										</div>
-										
+
 										<!-- Controles de navegación de imágenes (solo si hay más de una) -->
 										{#if hasMultipleImages}
 											<!-- Botón anterior -->
 											<button
 												onclick={() => prevProjectImage(itemId, totalImages)}
-												class="absolute left-4 top-1/2 -translate-y-1/2 btn btn-circle bg-black/80 hover:bg-black border-2 border-white/50 text-white shadow-xl z-20 backdrop-blur-sm"
+												class="btn btn-circle absolute top-1/2 left-4 z-20 min-h-[44px] min-w-[44px] -translate-y-1/2 border-2 border-white/50 bg-black/80 text-white shadow-xl backdrop-blur-sm hover:bg-black"
 												aria-label="Previous image"
 											>
-												<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
-													<path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+												<svg
+													xmlns="http://www.w3.org/2000/svg"
+													class="h-6 w-6"
+													fill="none"
+													viewBox="0 0 24 24"
+													stroke="currentColor"
+													stroke-width="3"
+												>
+													<path
+														stroke-linecap="round"
+														stroke-linejoin="round"
+														d="M15 19l-7-7 7-7"
+													/>
 												</svg>
 											</button>
-											
+
 											<!-- Botón siguiente -->
 											<button
 												onclick={() => nextProjectImage(itemId, totalImages)}
-												class="absolute right-4 top-1/2 -translate-y-1/2 btn btn-circle bg-black/80 hover:bg-black border-2 border-white/50 text-white shadow-xl z-20 backdrop-blur-sm"
+												class="btn btn-circle absolute top-1/2 right-4 z-20 min-h-[44px] min-w-[44px] -translate-y-1/2 border-2 border-white/50 bg-black/80 text-white shadow-xl backdrop-blur-sm hover:bg-black"
 												aria-label="Next image"
 											>
-												<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+												<svg
+													xmlns="http://www.w3.org/2000/svg"
+													class="h-6 w-6"
+													fill="none"
+													viewBox="0 0 24 24"
+													stroke="currentColor"
+													stroke-width="3"
+												>
 													<path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
 												</svg>
 											</button>
-											
+
 											<!-- Indicadores de imágenes -->
-											<div class="absolute bottom-2 left-1/2 flex -translate-x-1/2 gap-1 z-20">
-												{#each item.images as _, imgIndex}
+											<div class="absolute bottom-2 left-1/2 z-20 flex -translate-x-1/2 gap-1">
+												{#each item.images as _, imgIndex (imgIndex)}
 													<button
 														onclick={() => goToProjectImage(itemId, imgIndex)}
-														class="h-2 w-2 rounded-full transition-all duration-300 {currentImageIndex === imgIndex
-															? 'bg-white w-6'
+														class="h-2 w-2 rounded-full transition-all duration-300 {currentImageIndex ===
+														imgIndex
+															? 'w-6 bg-white'
 															: 'bg-white/50'}"
 														aria-label="Go to image {imgIndex + 1}"
 													></button>
@@ -410,65 +534,154 @@
 			{/if}
 		</div>
 
-		<!-- Reviews Section -->
-		<div class="mb-8">
-			<h3 class="mb-4 text-xl font-semibold">{$t('profile.reviews')}</h3>
-			{#if $profileStore.data.reviews && $profileStore.data.reviews.length > 0}
-				<div class="grid grid-cols-1 gap-6 md:grid-cols-2">
-					{#each $profileStore.data.reviews as review}
-						<div class="card bg-base-200">
-							<div class="card-body p-4">
-								<div class="flex items-start justify-between">
-									<div class="flex items-center gap-2">
-										<div class="avatar placeholder">
-											<div class="bg-neutral text-neutral-content w-8 rounded-full">
-												{#if review.from?.name}
-													<span>{review.from.name.charAt(0)}</span>
+		<!-- Availability Card -->
+		<div class="card bg-base-200 mb-6 rounded-xl">
+			<div class="card-body px-4 py-2">
+				<div class="collapse-arrow collapse rounded-none bg-transparent p-0">
+					<input type="checkbox" />
+					<h3 class="collapse-title card-title p-0 text-lg">
+						{$t('profile_availability.availabilityTitle')}
+					</h3>
+					<div class="collapse-content p-0">
+						{#if $profileStore.data.availability}
+							<div class="mt-2">
+								<p class="font-medium">{$t('profile_availability.weeklySchedule')}</p>
+								<div class="mt-2 space-y-2">
+									{#each Object.entries(schedule()) as [_day, scheduleData] (_day)}
+										<div class="border-base-300 flex items-center justify-between border-b py-1">
+											<span class="capitalize">{scheduleData.label}</span>
+											<span>
+												{#if scheduleData.available}
+													{scheduleData.hours}
 												{:else}
-													<span>?</span>
+													<span class="text-base-content/50"
+														>{$t('profile_availability.unavailable')}</span
+													>
 												{/if}
-											</div>
+											</span>
 										</div>
-										<div>
-											<p class="font-medium">{getUserDisplayName(review.from, '')}</p>
-											<p class="text-base-content/70 text-xs">{formatDate(review.date)}</p>
-										</div>
-									</div>
-									<div class="rating rating-sm">
-										{#each Array(5) as _, i}
-											<input
-												type="radio"
-												class="mask mask-star-2 bg-orange-400"
-												checked={i + 1 === review.rating}
-												disabled
-											/>
-										{/each}
-									</div>
+									{/each}
 								</div>
-								<p class="mt-2">{review.text}</p>
 							</div>
-						</div>
-					{/each}
+							<div class="divider"></div>
+							<div class="flex items-center justify-between">
+								{#if nextAvailable()}
+									<div>
+										<p class="font-medium">{$t('profile_availability.nextAvailable')}</p>
+										<p class="text-primary">{formatDate(nextAvailable())}</p>
+									</div>
+								{/if}
+								<div>
+									<p class="font-medium">{$t('profile_availability.timezone')}</p>
+									<p class="text-base-content/70">
+										{$profileStore.data.availability?.timezone ||
+											Intl.DateTimeFormat().resolvedOptions().timeZone}
+									</p>
+								</div>
+							</div>
+							<div class="divider"></div>
+							<div class="space-y-2 text-sm">
+								<div class="border-base-300 border-b pb-2">
+									<p class="font-medium">{$t('profile_availability.noticeRequired')}</p>
+									<p class="text-base-content/70">
+										{$profileStore.data.availability.noticeHours}
+										{$t('profile_availability.hours')}
+									</p>
+								</div>
+								<div class="border-base-300 border-b pb-2">
+									<p class="font-medium">{$t('profile_availability.maxBookingsPerDay')}</p>
+									<p class="text-base-content/70">
+										{$profileStore.data.availability.maxBookingsPerDay}
+									</p>
+								</div>
+								<div class="border-base-300 border-b pb-2">
+									<p class="font-medium">{$t('profile_availability.breakBetweenBookings')}</p>
+									<p class="text-base-content/70">
+										{$profileStore.data.availability.breakBetweenBookings}
+										{$t('profile_availability.minutes')}
+									</p>
+								</div>
+							</div>
+						{/if}
+					</div>
 				</div>
-			{:else}
-				<div class="card bg-base-200 rounded-lg p-6 text-center">
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="text-base-content/30 mx-auto h-12 w-12"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-						/>
-					</svg>
-					<p class="text-base-content/70 mt-4">{$t('profile.noReviews')}</p>
+			</div>
+		</div>
+
+		<!-- Reviews Section -->
+		<div class="card bg-base-200 mb-6 rounded-xl">
+			<div class="card-body px-4 py-2">
+				<div class="collapse-arrow collapse rounded-none bg-transparent p-0">
+					<input type="checkbox" />
+					<h3 class="collapse-title card-title p-0 text-lg">
+						{$t('profile.reviews')}
+						<span class="text-base-content/70 ml-2 text-base font-normal">
+							<span class="text-primary font-semibold"
+								>{$profileStore.stats.rating ? $profileStore.stats.rating.toFixed(1) : '0.0'}</span
+							>
+							({$profileStore.data?.reviews?.length || 0})
+						</span>
+					</h3>
+					<div class="collapse-content p-0">
+						{#if $profileStore.data.reviews && $profileStore.data.reviews.length > 0}
+							<div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+								{#each $profileStore.data.reviews as review (review.id || review.date)}
+									<div class="card bg-base-200">
+										<div class="card-body p-4">
+											<div class="flex items-start justify-between">
+												<div class="flex items-center gap-2">
+													<div class="avatar placeholder">
+														<div class="bg-neutral text-neutral-content w-8 rounded-full">
+															{#if review.from?.name}
+																<span>{review.from.name.charAt(0)}</span>
+															{:else}
+																<span>?</span>
+															{/if}
+														</div>
+													</div>
+													<div>
+														<p class="font-medium">{getUserDisplayName(review.from, '')}</p>
+														<p class="text-base-content/70 text-xs">{formatDate(review.date)}</p>
+													</div>
+												</div>
+												<div class="rating rating-sm">
+													{#each Array(5) as _, i (i)}
+														<input
+															type="radio"
+															class="mask mask-star-2 bg-orange-400"
+															checked={i + 1 === review.rating}
+															disabled
+														/>
+													{/each}
+												</div>
+											</div>
+											<p class="mt-2">{review.text}</p>
+										</div>
+									</div>
+								{/each}
+							</div>
+						{:else}
+							<div class="card bg-base-200 rounded-lg p-6 text-center">
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									class="text-base-content/30 mx-auto h-12 w-12"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke="currentColor"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+									/>
+								</svg>
+								<p class="text-base-content/70 mt-4">{$t('profile.noReviews')}</p>
+							</div>
+						{/if}
+					</div>
 				</div>
-			{/if}
+			</div>
 		</div>
 	{:else if $profileStore.error}
 		<div class="alert alert-error alert-outline">

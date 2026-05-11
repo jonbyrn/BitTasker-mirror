@@ -41,6 +41,7 @@
 	import IconTruckDeliveryOutline from '~icons/mdi/truck-delivery-outline';
 	import IconMapMarker from '~icons/mdi/map-marker';
 	import ServiceShareButton from './ServiceShareButton.svelte';
+	import ActionsMenu from '$lib/components/moderation/ActionsMenu.svelte';
 	import PhotoSwipeLightbox from 'photoswipe/lightbox';
 	import 'photoswipe/style.css';
 	import UserInfoDisplay from '$lib/components/user/UserInfoDisplay.svelte';
@@ -220,6 +221,12 @@
 	let selectedTierId = $state<string | null>(null);
 	let activeMobileTab = $state<string | null>(null);
 	let tierExpanded = $state<Record<string, boolean>>({});
+	let tierScrolledRight = $state(false);
+
+	function updateTierScroll(e: Event) {
+		const el = e.currentTarget as HTMLElement;
+		tierScrolledRight = el.scrollLeft + el.clientWidth < el.scrollWidth - 2;
+	}
 
 	const popularTierId = $derived.by(() => {
 		if (tiersWithPrice.length < 2) return null;
@@ -1755,7 +1762,17 @@
 										>
 									</div>
 									{#if !isPreview}
-										<ServiceShareButton {service} variant="circle" class="btn-sm" />
+										<span class="flex shrink-0 items-center gap-1">
+											<ServiceShareButton {service} variant="circle" class="btn-sm" />
+											{#if $authState.isAuthenticated && service.npub}
+												<ActionsMenu
+													contentType="service"
+													reportedPubkey={service.npub}
+													reportedEventId={service.id}
+													username={effectiveCreator?.username}
+												/>
+											{/if}
+										</span>
 									{/if}
 								</div>
 								<div class="text-base-content/70 mb-4 flex items-center gap-2 text-sm">
@@ -1800,12 +1817,20 @@
 							</div>
 
 							<div
-								class="grid grid-cols-1 gap-3 md:grid-cols-{tiersWithPrice.length === 2 ? 2 : 3}"
+								class={tiersWithPrice.length >= 3
+									? 'scrollbar-hide flex snap-x snap-mandatory gap-4 overflow-x-auto overflow-y-visible pt-4 pr-2 pb-6 pl-4'
+									: 'grid grid-cols-1 gap-3 md:grid-cols-2'}
+								onscroll={tiersWithPrice.length >= 3 ? updateTierScroll : undefined}
+								style={tiersWithPrice.length >= 3 && tierScrolledRight
+									? 'mask-image:linear-gradient(to right,black 0%,black 92%,transparent 100%);-webkit-mask-image:linear-gradient(to right,black 0%,black 92%,transparent 100%)'
+									: ''}
 							>
 								{#each tiersWithPrice as tier (tier.id)}
 									<div
-										class="card bg-base-100 relative cursor-pointer border {selectedTierId ===
-										tier.id
+										class="card bg-base-100 relative cursor-pointer border {tiersWithPrice.length >=
+										3
+											? 'md:w-[45%] md:shrink-0 md:snap-start'
+											: ''} {selectedTierId === tier.id
 											? 'border-primary ring-primary/20 shadow-md ring-2'
 											: 'border-base-300 hover:border-primary/50 shadow-sm'} transition-all duration-200"
 										onclick={() => (selectedTierId = tier.id)}
@@ -1827,7 +1852,9 @@
 										<div class="card-body flex h-full flex-col p-6">
 											<!-- Header -->
 											<div class="mb-4">
-												<h4 class="mb-1 text-xs font-black tracking-widest uppercase opacity-60">
+												<h4
+													class="mb-1 min-w-0 truncate text-xs font-black tracking-widest uppercase opacity-60"
+												>
 													{tier.name}
 												</h4>
 												<div class="text-primary text-3xl font-black">
@@ -1990,7 +2017,17 @@
 									>
 								</div>
 								{#if !isPreview}
-									<ServiceShareButton {service} variant="circle" class="btn-sm" />
+									<span class="flex shrink-0 items-center gap-1">
+										<ServiceShareButton {service} variant="circle" class="btn-sm" />
+										{#if $authState.isAuthenticated && service.npub}
+											<ActionsMenu
+												contentType="service"
+												reportedPubkey={service.npub}
+												reportedEventId={service.id}
+												username={effectiveCreator?.username}
+											/>
+										{/if}
+									</span>
 								{/if}
 							</div>
 							<div class="text-base-content/70 mb-4 flex items-center gap-2 text-sm">
@@ -2071,20 +2108,21 @@
 							<div class="tabs tabs-bordered bg-base-100 border-base-200 flex border-b p-1">
 								{#each tiersWithPrice as tier (tier.id)}
 									<button
-										class="tab relative h-14 flex-1 transition-all duration-200 {activeMobileTab ===
+										class="tab relative flex h-14 flex-1 flex-col justify-end transition-all duration-200 {activeMobileTab ===
 										tier.id
 											? 'tab-active text-primary font-bold'
 											: 'text-base-content/60'}"
 										onclick={() => handleTabChange(tier.id)}
 									>
-										<div class="flex flex-col items-center gap-0.5">
+										<div class="flex flex-col items-center gap-0.5 pb-1">
 											{#if tier.id === popularTierId}
 												<span
-													class="text-primary/70 -mt-1 text-[8px] font-black tracking-widest uppercase"
+													class="text-primary/70 -mt-1 text-[10px] font-black tracking-widest uppercase"
 													>{detailText('dashboard.services.detail.popular', 'Popular')}</span
 												>
 											{/if}
-											<span class="text-[10px] leading-none tracking-tighter uppercase opacity-70"
+											<span
+												class="truncate text-[10px] leading-none tracking-tighter uppercase opacity-70"
 												>{tier.name}</span
 											>
 											<span class="text-sm leading-none font-bold"
@@ -2097,9 +2135,9 @@
 
 							{#if selectedTier}
 								<div class="space-y-6 p-6">
-									<div class="flex items-start justify-between">
-										<h3 class="truncate text-xl font-bold">{selectedTier.name}</h3>
-										<span class="text-primary ml-4 shrink-0 text-2xl font-black"
+									<div class="grid grid-cols-[1fr_auto] items-start gap-4">
+										<h3 class="line-clamp-2 text-lg font-bold break-words">{selectedTier.name}</h3>
+										<span class="text-primary ml-4 shrink-0 text-xl font-black"
 											>${formatNumberWithTwoDecimals(selectedTier.price)}</span
 										>
 									</div>
@@ -2542,7 +2580,7 @@
 							<span class="text-base-content/60 text-[10px] font-bold tracking-wider uppercase"
 								>{detailText('dashboard.services.detail.total_price', 'Total')}</span
 							>
-							<span class="text-primary text-2xl leading-none font-black"
+							<span class="text-primary text-xl leading-none font-black"
 								>${formatNumberWithTwoDecimals(totalAmountUsd)}</span
 							>
 						</div>
@@ -2554,7 +2592,7 @@
 									<IconTruckDeliveryOutline class="text-base-content/50 h-6 w-6" />
 								{/if}
 								<div class="flex flex-col">
-									<span class="text-base-content/70 text-base leading-none font-medium"
+									<span class="text-base-content/70 text-sm leading-none font-medium"
 										>{displayDeliveryTime}</span
 									>
 									{#if requestRushDelivery && availableRushDelivery}

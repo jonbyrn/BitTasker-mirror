@@ -20,9 +20,6 @@ const KINDS = {
 	/** Availability schedule - parameterized replaceable */
 	PROFILE_AVAILABILITY: 30002,
 
-	/** Standard services offered - parameterized replaceable */
-	PROFILE_STANDARD_SERVICES: 30003,
-
 	/** User reviews - parameterized replaceable */
 	PROFILE_REVIEWS: 30004,
 

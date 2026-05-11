@@ -90,7 +90,8 @@ describe('DashboardServiceCard', () => {
 			btcPrice: 100000
 		});
 
-		expect(getByText(/From \$75\.00/)).toBeTruthy();
+		expect(getByText('From')).toBeTruthy();
+		expect(getByText('$75.00')).toBeTruthy();
 		expect(getByText('Lead Time:')).toBeTruthy();
 		expect(getByText('2 days')).toBeTruthy();
 		expect(getByText('Delivery Time:')).toBeTruthy();
@@ -262,7 +263,6 @@ describe('DashboardServiceCard', () => {
 		});
 
 		expect(getByText('Book Now')).toBeTruthy();
-		expect(getByText('Fixed')).toBeTruthy();
 		unmount();
 
 		const missingWalletService = {
@@ -279,6 +279,5 @@ describe('DashboardServiceCard', () => {
 		});
 
 		expect(withoutWallet.queryByText('Book Now')).toBeNull();
-		expect(withoutWallet.getByText('Fixed')).toBeTruthy();
 	});
 });
