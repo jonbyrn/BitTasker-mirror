@@ -432,6 +432,17 @@ export function serializeDateWithLocalTime(date: Date | null | undefined): strin
 }
 
 /**
+ * Convert a Date to Unix timestamp seconds (UTC).
+ * Useful when storing instants that must be consistent across timezones.
+ */
+export function toUnixSeconds(date: Date | null | undefined): number | null {
+	if (!date) return null;
+	const ms = date.getTime();
+	if (Number.isNaN(ms)) return null;
+	return Math.floor(ms / 1000);
+}
+
+/**
  * Format the duration between two dates as human-readable text (e.g., "18 hours and 45 minutes").
  * @param start - Start date
  * @param end - End date
@@ -453,25 +464,25 @@ export function formatDurationBetweenDates(
 	const parts: string[] = [];
 	if (diffDays > 0) {
 		parts.push(
-			`${diffDays} ${diffDays === 1 ? t('common.time_units.day') : t('common.time_units.days')}`
+			`${diffDays} ${diffDays === 1 ? t('dashboard.bids.bid_creation.day') : t('dashboard.bids.bid_creation.days')}`
 		);
 	}
 	if (diffHours > 0) {
 		parts.push(
-			`${diffHours} ${diffHours === 1 ? t('common.time_units.hour') : t('common.time_units.hours')}`
+			`${diffHours} ${diffHours === 1 ? t('dashboard.bids.bid_creation.hour') : t('dashboard.bids.bid_creation.hours')}`
 		);
 	}
 	if (diffMinutes > 0) {
 		parts.push(
-			`${diffMinutes} ${diffMinutes === 1 ? t('common.time_units.minute') : t('common.time_units.minutes')}`
+			`${diffMinutes} ${diffMinutes === 1 ? t('dashboard.bids.bid_creation.minute') : t('dashboard.bids.bid_creation.minutes')}`
 		);
 	}
 	if (parts.length === 0) {
-		return t('common.time_units.less_than_minute');
+		return t('dashboard.bids.bid_creation.one_hour');
 	}
 	if (parts.length === 1) return parts[0];
 	const lastPart = parts.pop()!;
-	const conjunction = t('common.time_units.and');
+	const conjunction = t('common.components.date_input.and');
 	return `${parts.join(', ')} ${conjunction} ${lastPart}`;
 }
 
@@ -510,4 +521,42 @@ export function parseDateWithLocalTime(dateString: string | null | undefined): D
 	);
 	const parsed = new Date(dateString);
 	return isNaN(parsed.getTime()) ? null : parsed;
+}
+
+/**
+ * Coerce various timestamp inputs to Unix seconds.
+ * - numbers: accepts seconds or milliseconds
+ * - strings: accepts numeric seconds/milliseconds, ISO strings, or our legacy local-time format
+ */
+export function coerceUnixSeconds(value: unknown): number | null {
+	if (value == null) return null;
+
+	if (typeof value === 'number') {
+		if (!Number.isFinite(value)) return null;
+		// If it's clearly milliseconds, convert to seconds.
+		return value > 1_000_000_000_000 ? Math.floor(value / 1000) : Math.floor(value);
+	}
+
+	if (typeof value === 'string') {
+		const trimmed = value.trim();
+		if (!trimmed) return null;
+
+		// Numeric string: seconds or milliseconds
+		if (/^\d+$/.test(trimmed)) {
+			const num = Number(trimmed);
+			if (!Number.isFinite(num)) return null;
+			return num > 1_000_000_000_000 ? Math.floor(num / 1000) : Math.floor(num);
+		}
+
+		// Legacy local-time string ("YYYY-MM-DDTHH:mm:ss") or ISO-like string.
+		const localParsed = parseDateWithLocalTime(trimmed);
+		if (localParsed) return Math.floor(localParsed.getTime() / 1000);
+
+		const isoParsed = new Date(trimmed);
+		if (!Number.isNaN(isoParsed.getTime())) return Math.floor(isoParsed.getTime() / 1000);
+
+		return null;
+	}
+
+	return null;
 }
