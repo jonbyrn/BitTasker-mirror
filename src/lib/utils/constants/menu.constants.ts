@@ -371,7 +371,7 @@ export const AVATAR_MENU_ITEMS: MenuItem[] = [
 	{
 		label: 'navbar.reviews',
 		icon: IconStar,
-		href: '/dashboard/reviews'
+		href: '/reviews'
 	},
 	{
 		label: 'navbar.settings',
@@ -397,7 +397,7 @@ export const MOBILE_DRAWER_LOGGED_IN: MenuItem[] = [
 	{
 		label: 'navbar.reviews',
 		icon: IconStar,
-		href: '/dashboard/reviews'
+		href: '/reviews'
 	},
 	{
 		label: 'navbar.settings',

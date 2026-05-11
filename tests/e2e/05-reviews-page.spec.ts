@@ -21,7 +21,7 @@ test.describe('Reviews page full flow (new signup user)', () => {
 
 		await completeSignupOnboarding(page);
 
-		await page.goto('/dashboard/reviews', { waitUntil: 'load' });
+		await page.goto('/reviews', { waitUntil: 'load' });
 		await page.waitForLoadState('networkidle');
 
 		await expect(page).toHaveURL(/\/dashboard\/reviews/);

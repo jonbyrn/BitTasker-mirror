@@ -49,7 +49,7 @@ export const sections = [
 	},
 	{
 		id: 'reviews',
-		path: '/dashboard/reviews',
+		path: '/reviews',
 		label: 'navbar.reviews',
 		icon: 'mdi:star-outline',
 		mobile: true

@@ -26,7 +26,7 @@ test.describe('Review Management (signup user via passkey)', () => {
 	}) => {
 		const page = authenticatedPageFromPasskeyFile;
 
-		await page.goto('/dashboard/reviews', { waitUntil: 'load' });
+		await page.goto('/reviews', { waitUntil: 'load' });
 		await page.waitForLoadState('networkidle');
 
 		await expect(page).toHaveURL(/\/dashboard\/reviews/);
