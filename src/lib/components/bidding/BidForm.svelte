@@ -13,12 +13,9 @@
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { pushNotificationService } from '$lib/api/services/push-notification.service';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
-	import DateInput from '$lib/components/date/DateInput.svelte';
+	import SchedulePeriodPicker from '$lib/components/date/SchedulePeriodPicker.svelte';
 	import KINDS from '$lib/utils/constants/kinds';
-	import {
-		formatDurationBetweenDates,
-		serializeDateWithLocalTime
-	} from '$lib/utils/helpers/dateFormatter';
+	import { toUnixSeconds } from '$lib/utils/helpers/dateFormatter';
 	import { SvelteDate } from 'svelte/reactivity';
 
 	// Props - Simplified to just task, onClose, and stickySubmit
@@ -148,10 +145,10 @@
 
 	function ensureMinimumDuration(start: Date | null, end: Date | null): Date | null {
 		if (!start) return end;
-		if (!end) return addDefaultDuration(start);
+		if (!end) return roundDateToInterval(addDefaultDuration(start), FIFTEEN_MINUTES_IN_MS, 'ceil');
 
 		if (end <= start) {
-			return addDefaultDuration(start);
+			return roundDateToInterval(addDefaultDuration(start), FIFTEEN_MINUTES_IN_MS, 'ceil');
 		}
 
 		return end;
@@ -226,6 +223,13 @@
 	function handleDateTimeChange() {
 		scheduleFieldsTouched = true;
 		clearFieldError('datetime');
+		if (startDateTime && endDateTime && endDateTime.getTime() <= startDateTime.getTime()) {
+			endDateTime = roundDateToInterval(
+				addDefaultDuration(startDateTime),
+				FIFTEEN_MINUTES_IN_MS,
+				'ceil'
+			);
+		}
 	}
 
 	// Helper function to clear specific validation errors
@@ -294,7 +298,46 @@
 	// Helper function to format duration for display (reactive)
 	const formatDurationForDisplay = $derived.by(() => {
 		if (startDateTime && endDateTime) {
-			return formatDurationBetweenDates(startDateTime, endDateTime, (k) => $t(k));
+			const diffMs = endDateTime.getTime() - startDateTime.getTime();
+			if (diffMs <= 0) {
+				return '';
+			}
+			const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+			const diffHours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+			const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+
+			const parts = [];
+
+			if (diffDays > 0) {
+				parts.push(
+					`${diffDays} ${diffDays === 1 ? $t('dashboard.bids.bid_creation.day') : $t('dashboard.bids.bid_creation.days')}`
+				);
+			}
+
+			if (diffHours > 0) {
+				parts.push(
+					`${diffHours} ${diffHours === 1 ? $t('dashboard.bids.bid_creation.hour') : $t('dashboard.bids.bid_creation.hours')}`
+				);
+			}
+
+			if (diffMinutes > 0) {
+				parts.push(
+					`${diffMinutes} ${diffMinutes === 1 ? $t('dashboard.bids.bid_creation.minute') : $t('dashboard.bids.bid_creation.minutes')}`
+				);
+			}
+
+			if (parts.length === 0) {
+				return $t('dashboard.bids.bid_creation.one_hour');
+			}
+
+			if (parts.length === 1) {
+				return parts[0];
+			}
+
+			// Join with translated "and"/"y" for multiple parts
+			const lastPart = parts.pop();
+			const conjunction = $t('common.components.date_input.and');
+			return `${parts.join(', ')} ${conjunction} ${lastPart}`;
 		}
 		return '';
 	});
@@ -317,6 +360,11 @@
 
 		try {
 			const rskAddress = await getRSKAddress();
+			const startDateTimeSeconds = toUnixSeconds(startDateTime);
+			const endDateTimeSeconds = toUnixSeconds(endDateTime);
+			if (!startDateTimeSeconds || !endDateTimeSeconds) {
+				throw new Error($t('bid_form.errors.datetime_required'));
+			}
 
 			// Generate translations for bid content (description, proposedApproach, coverLetter)
 			const bidTranslations = await generateBidTranslations({
@@ -362,9 +410,9 @@
 				// Add RSK wallet address for escrow funding
 				bidderWalletAddress: rskAddress,
 
-				// Add new datetime fields - serialize with local time to preserve user's selected time
-				startDateTime: serializeDateWithLocalTime(startDateTime),
-				endDateTime: serializeDateWithLocalTime(endDateTime),
+				// Store as Unix seconds so the instant is timezone-safe across viewers
+				startDateTime: startDateTimeSeconds,
+				endDateTime: endDateTimeSeconds,
 
 				// Add bid translations
 				...(bidTranslations && { translations: bidTranslations })
@@ -495,8 +543,8 @@
 				</div>
 
 				<!-- Fixed price bid amount - USD and Sats like in create-task -->
-				<div class="form-control">
-					<label class="label min-h-0 py-0.5" for="bid-amount">
+				<div class="form-control gap-3 pb-6">
+					<label class="label min-h-0" for="bid-amount">
 						<span class="label-text">{$t('bid_form.form.budget')}</span>
 						{#if task.budget?.amount != null}
 							<span class="label-text-alt text-info min-w-0 text-xs wrap-break-word">
@@ -555,55 +603,30 @@
 						</div>
 					{/if}
 					{#if amount > 0}
-						<span class="label-text-alt text-base-content/60 mt-1 block">
+						<span class="label-text-alt text-base-content/60 block">
 							{$t('bid_form.form.btc_price')} ${Math.round(btcPrice).toLocaleString()}
 						</span>
 					{/if}
 				</div>
 
 				<!-- Date and Time Selection for Fixed Price -->
-				<div class="form-control min-w-0">
-					<label class="label min-h-0 py-0.5" for="datetime-range">
-						<span class="label-text text-sm">{$t('bid_form.form.datetime_range')}</span>
-					</label>
-					<div class="flex min-w-0 flex-col gap-2 sm:flex-row">
-						<div class="flex-1">
-							<DateInput
-								bind:value={startDateTime}
-								type="datetime"
-								labelKey="bid_form.form.airdatepicker.select_start_datetime"
-								placeholderKey="bid_form.form.airdatepicker.select_start_datetime"
-								minDate={new Date()}
-								maxDate={undefined}
-								timeStep={15}
-								hideTimeRoundedHint={true}
-								onChange={(date: Date | null) => {
-									startDateTime = date;
-									handleDateTimeChange();
-								}}
-								className={bidFormErrors.datetime ? 'input-error' : ''}
-							/>
-						</div>
-						<div class="flex-1">
-							<DateInput
-								bind:value={endDateTime}
-								type="datetime"
-								labelKey="bid_form.form.airdatepicker.select_end_datetime"
-								placeholderKey="bid_form.form.airdatepicker.select_end_datetime"
-								minDate={startDateTime || new Date()}
-								maxDate={undefined}
-								timeStep={15}
-								hideTimeRoundedHint={true}
-								onChange={(date: Date | null) => {
-									endDateTime = date;
-									handleDateTimeChange();
-								}}
-								className={bidFormErrors.datetime ? 'input-error' : ''}
-							/>
-						</div>
-					</div>
+				<div class="form-control min-w-0 gap-4">
+					<SchedulePeriodPicker
+						bind:startValue={startDateTime}
+						bind:endValue={endDateTime}
+						minStartDate={new Date()}
+						minEndDate={startDateTime || new Date()}
+						onStartChange={(date: Date | null) => {
+							startDateTime = date;
+							handleDateTimeChange();
+						}}
+						onEndChange={(date: Date | null) => {
+							endDateTime = date;
+							handleDateTimeChange();
+						}}
+					/>
 					{#if bidFormErrors.datetime}
-						<div class="label w-full min-w-0">
+						<div class="label min-h-0 w-full min-w-0">
 							<span
 								class="label-text-alt text-error block wrap-break-word"
 								id="datetime-error"
@@ -611,9 +634,9 @@
 							>
 						</div>
 					{/if}
-					{#if startDateTime && endDateTime}
-						<div class="bg-info/10 mt-1.5 rounded-lg px-2.5 py-1">
-							<span class="text-info text-xs font-semibold">
+					{#if startDateTime && endDateTime && formatDurationForDisplay}
+						<div class="bg-info/10 mt-2 rounded-lg px-3 py-2">
+							<span class="text-info text-sm font-semibold">
 								{$t('bid_form.form.duration')}: {formatDurationForDisplay}
 							</span>
 						</div>
@@ -660,7 +683,7 @@
 						aria-label={$t('bid_form.form.additional_info_title')}
 					/>
 					<div
-						class="collapse-title text-primary bg-primary/10 min-h-0 py-2 text-left text-sm font-medium after:end-4"
+						class="collapse-title text-primary bg-primary/10 min-h-0 py-2 text-left text-sm font-medium after:inset-e-4"
 						role="button"
 						tabindex="0"
 						onclick={() => (additionalInfoOpen = !additionalInfoOpen)}

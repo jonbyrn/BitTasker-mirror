@@ -4,11 +4,8 @@
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { t } from 'svelte-i18n';
-	import DateInput from '$lib/components/date/DateInput.svelte';
-	import {
-		formatDurationBetweenDates,
-		serializeDateWithLocalTime
-	} from '$lib/utils/helpers/dateFormatter';
+	import SchedulePeriodPicker from '$lib/components/date/SchedulePeriodPicker.svelte';
+	import { toUnixSeconds } from '$lib/utils/helpers/dateFormatter';
 	import { SvelteDate } from 'svelte/reactivity';
 
 	// Props
@@ -83,6 +80,21 @@
 	function getDefaultFutureEnd(start: Date): Date {
 		const target = new SvelteDate(start.getTime() + DEFAULT_DURATION_IN_HOURS * MS_PER_HOUR);
 		return roundDateToInterval(target, FIFTEEN_MINUTES_IN_MS, 'ceil');
+	}
+
+	function normalizeEndAfterStart() {
+		if (!startDateTime || !endDateTime || endDateTime.getTime() > startDateTime.getTime()) {
+			return;
+		}
+		endDateTime = getDefaultFutureEnd(startDateTime);
+	}
+
+	function handleScheduleDateTimeChange() {
+		scheduleFieldsTouched = true;
+		if (validationErrors.datetime) {
+			validationErrors = { ...validationErrors, datetime: '' };
+		}
+		normalizeEndAfterStart();
 	}
 
 	// Prefill schedule fields
@@ -189,7 +201,20 @@
 	// Helper function to format duration for display
 	function formatDurationForDisplay(): string {
 		if (bidType === 'FIXED' && startDateTime && endDateTime) {
-			return formatDurationBetweenDates(startDateTime, endDateTime, (k) => $t(k));
+			const diffMs = endDateTime.getTime() - startDateTime.getTime();
+			if (diffMs <= 0) {
+				return '';
+			}
+			const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+			const diffHours = Math.ceil(diffMs / (1000 * 60 * 60));
+
+			if (diffDays > 1) {
+				return `${diffDays} ${$t('dashboard.bids.counter_offer.days')}`;
+			} else if (diffHours > 1) {
+				return `${diffHours} ${$t('dashboard.bids.counter_offer.hours')}`;
+			} else {
+				return $t('dashboard.bids.counter_offer.one_hour');
+			}
 		}
 		return '';
 	}
@@ -250,7 +275,10 @@
 		isSubmitting = true;
 
 		try {
-			const counterOffer = {
+			const startSeconds = bidType === 'FIXED' ? toUnixSeconds(startDateTime) : null;
+			const endSeconds = bidType === 'FIXED' ? toUnixSeconds(endDateTime) : null;
+
+			const counterOffer: Omit<CounterOffer, 'id' | 'bidId' | 'createdAt' | 'status'> = {
 				price: {
 					amount: getTotalAmount,
 					currency: 'SATS' as Currency
@@ -265,11 +293,13 @@
 							}
 						}
 					: {}),
-				// Add new datetime fields for fixed price - serialize with local time to preserve user's selected time
-				startDate: bidType === 'FIXED' ? serializeDateWithLocalTime(startDateTime) : null,
-				endDate: bidType === 'FIXED' ? serializeDateWithLocalTime(endDateTime) : null,
-				startTime: bidType === 'FIXED' ? serializeDateWithLocalTime(startDateTime) : null,
-				endTime: bidType === 'FIXED' ? serializeDateWithLocalTime(startDateTime) : null,
+				...(bidType === 'FIXED' &&
+				startSeconds != null &&
+				endSeconds != null &&
+				startSeconds > 0 &&
+				endSeconds > 0
+					? { startDateTime: startSeconds, endDateTime: endSeconds }
+					: {}),
 				message,
 				proposedBy: 'current-user-id' // This would come from user store
 			};
@@ -375,8 +405,8 @@
 
 			{#if bidType === 'FIXED'}
 				<!-- Fixed price counter offer amount - USD and Sats -->
-				<div class="form-control">
-					<label class="label" for="counter-amount">
+				<div class="form-control gap-3 pb-10">
+					<label class="label min-h-0 pt-0 pb-1" for="counter-amount">
 						<span class="label-text font-medium"
 							>{$t('dashboard.bids.counter_offer.counter_offer_amount')}</span
 						>
@@ -427,7 +457,7 @@
 						</div>
 					{/if}
 					{#if parseInt(amount || '0') > 0}
-						<span class="label-text-alt text-info mt-1 block">
+						<span class="label-text-alt text-info mt-2 block">
 							{$t('dashboard.bids.counter_offer.btc_price')} ${Math.round(
 								btcPrice
 							).toLocaleString()}
@@ -436,52 +466,32 @@
 				</div>
 
 				<!-- Date and Time Selection for Fixed Price -->
-				<div class="form-control">
-					<label class="label" for="datetime-range">
-						<span class="label-text">{$t('dashboard.bids.counter_offer.date_time_range')}</span>
-					</label>
-					<div class="flex flex-col gap-4">
-						<DateInput
-							bind:value={startDateTime}
-							type="datetime"
-							labelKey="dashboard.bids.counter_offer.airdatepicker.select_start_datetime"
-							placeholderKey="dashboard.bids.counter_offer.airdatepicker.select_start_datetime"
-							minDate={new Date()}
-							maxDate={undefined}
-							timeStep={15}
-							onChange={(date: Date | null) => {
-								startDateTime = date;
-								scheduleFieldsTouched = true;
-							}}
-							className={validationErrors.datetime ? 'input-error' : ''}
-						/>
-						<DateInput
-							bind:value={endDateTime}
-							type="datetime"
-							labelKey="dashboard.bids.counter_offer.airdatepicker.select_end_datetime"
-							placeholderKey="dashboard.bids.counter_offer.airdatepicker.select_end_datetime"
-							minDate={startDateTime || new Date()}
-							maxDate={undefined}
-							timeStep={15}
-							onChange={(date: Date | null) => {
-								endDateTime = date;
-								scheduleFieldsTouched = true;
-							}}
-							className={validationErrors.datetime ? 'input-error' : ''}
-						/>
-					</div>
+				<div class="form-control gap-4">
+					<SchedulePeriodPicker
+						bind:startValue={startDateTime}
+						bind:endValue={endDateTime}
+						minStartDate={new Date()}
+						minEndDate={startDateTime || new Date()}
+						onStartChange={handleScheduleDateTimeChange}
+						onEndChange={handleScheduleDateTimeChange}
+					/>
 					{#if validationErrors.datetime}
-						<div class="label">
+						<div class="label min-h-0 py-1">
 							<span id="datetime-error" class="label-text-alt text-error"
 								>{validationErrors.datetime}</span
 							>
 						</div>
 					{/if}
 					{#if startDateTime && endDateTime}
-						<span class="label-text-alt text-info mt-1 block">
-							{$t('dashboard.bids.counter_offer.duration')}
-							{formatDurationForDisplay()}
-						</span>
+						{@const scheduleDurationLabel = formatDurationForDisplay()}
+						{#if scheduleDurationLabel}
+							<div class="bg-info/10 mt-2 rounded-lg px-3 py-2.5">
+								<span class="text-info text-sm font-semibold">
+									{$t('dashboard.bids.counter_offer.duration')}
+									{scheduleDurationLabel}
+								</span>
+							</div>
+						{/if}
 					{/if}
 				</div>
 			{:else}

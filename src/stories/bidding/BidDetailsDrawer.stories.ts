@@ -49,9 +49,8 @@ const sampleCounterOffers: CounterOffer[] = [
 			amount: 0.012,
 			currency: 'BTC'
 		},
-		timeFrame: {
-			estimatedCompletion: '4 days'
-		},
+		startDateTime: Math.floor(Date.now() / 1000) + 86400,
+		endDateTime: Math.floor(Date.now() / 1000) + 86400 + 7200,
 		message: 'Would you be able to add an additional feature for this price?',
 		proposedBy: 'task-owner-123',
 		createdAt: new Date(Date.now() - 86400000).toISOString(), // 1 day ago
