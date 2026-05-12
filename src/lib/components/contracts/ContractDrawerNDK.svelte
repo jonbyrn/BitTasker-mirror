@@ -8,6 +8,7 @@
 	import ContractActionsDrawerNDK from './ContractActionsDrawerNDK.svelte';
 	import ResolutionProposalSplitDisplay from './ResolutionProposalSplitDisplay.svelte';
 	import Gallery from '$lib/components/Gallery.svelte';
+	import VerifiedReviewCard from '$lib/components/reviews/VerifiedReviewCard.svelte';
 	import {
 		getStatusColorClass,
 		getStatusTranslationKey
@@ -19,6 +20,10 @@
 	import { generateAllMapLinks } from '$lib/utils/location/maps';
 	import IconMapMarker from '~icons/mdi/map-marker';
 	import IconOpenInNew from '~icons/mdi/open-in-new';
+	import ReviewPromptModal from '$lib/components/reviews/ReviewPromptModal.svelte';
+	import { adaptNDKContract } from '$lib/utils/reviews/contractAdapter';
+	import { ContractStatus } from '$lib/utils/contract/types';
+	import { reviewStore } from '$lib/stores/review.store';
 
 	const { isOpen, onClose, contractRune, btcPrice } = $props<{
 		isOpen: boolean;
@@ -110,6 +115,67 @@
 	});
 
 	const isServiceContract = $derived(contract?.tagValue('contextType') === 'service');
+
+	// ── Review integration ──────────────────────────────────────────
+
+	const liveEscrowStatus = $derived.by(() => {
+		if (!contractRune) return undefined;
+		const status = contractRune.optimisticBlockchainStatus ?? contractRune.blockchainStatus;
+		return status !== undefined ? ContractStatus[status] : undefined;
+	});
+
+	const reviewContract = $derived.by(() => {
+		if (!contract) return null;
+		const bd = contractRune?.blockchainData;
+		const chainWallets =
+			bd?.tasker && bd?.taskee ? { tasker: bd.tasker, taskee: bd.taskee } : undefined;
+		return adaptNDKContract(contract, liveEscrowStatus, chainWallets);
+	});
+
+	const isReviewable = $derived(reviewContract?.isReviewable() ?? false);
+	const contractEventId = $derived(reviewContract?.contractId ?? '');
+	const contractPaymentId = $derived.by(() => {
+		const rc = reviewContract;
+		return rc?.paymentId ?? '';
+	});
+
+	// Default review state for when no contract is loaded
+	const defaultReviewState = {
+		userReviewed: false,
+		otherPartyReviewed: false,
+		isLoading: false,
+		revieweePubkey: null,
+		reviews: [],
+		reviewsLoading: false,
+		lastFetched: 0
+	};
+
+	// Reactive review state using Svelte's auto-subscription with $reviewStore
+	const reviewState = $derived.by(() => {
+		if (!contractEventId) {
+			return defaultReviewState;
+		}
+		return $reviewStore.byContractId.get(contractEventId) ?? defaultReviewState;
+	});
+
+	let showReviewModal = $state(false);
+
+	// Fetch review status when drawer opens and contract is reviewable
+	// Single effect that handles all review data fetching
+	$effect(() => {
+		if (!isOpen || !isReviewable || !contractEventId || !reviewContract) return;
+
+		// Use centralized store for fetching (handles caching and deduplication)
+		reviewStore.fetchReviewStatus(contractEventId, contractPaymentId, reviewContract);
+	});
+
+	function handleReviewSubmitted() {
+		// Optimistic update via centralized store
+		reviewStore.markAsReviewed(contractEventId);
+		showReviewModal = false;
+		// Refresh to get latest reviews
+		reviewStore.refreshReviews(contractEventId, contractPaymentId, reviewContract);
+	}
 </script>
 
 <Drawer {isOpen} title={drawerTitle} {onClose} position="right" isScrollable={true}>
@@ -251,8 +317,83 @@
 							/>
 						{/if}
 					</div>
+
+					<!-- Row 4: Review status and action -->
+					{#if isReviewable}
+						<div class="mb-3 flex flex-wrap items-center gap-2">
+							{#if reviewState.isLoading}
+								<div class="flex h-8 w-24 items-center justify-center">
+									<span class="loading loading-spinner loading-sm"></span>
+								</div>
+							{:else if reviewState.userReviewed}
+								<button
+									type="button"
+									class="btn btn-success btn-sm gap-1"
+									disabled
+									title={$t('reviews.you_reviewed')}
+								>
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										class="h-4 w-4"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+										><path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+										/></svg
+									>
+									{$t('reviews.reviewed')}
+								</button>
+							{:else if reviewState.revieweePubkey}
+								<button
+									type="button"
+									class="btn btn-warning btn-outline btn-sm gap-1"
+									title={$t('reviews.leave_review')}
+									onclick={() => (showReviewModal = true)}
+								>
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										class="h-4 w-4"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+										><path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"
+										/></svg
+									>
+									{$t('reviews.leave_review')}
+								</button>
+							{/if}
+							{#if reviewState.otherPartyReviewed && !reviewState.isLoading}
+								<div class="btn btn-info btn-sm btn-outline" title={$t('reviews.review_received')}>
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										class="h-4 w-4"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+										><path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
+										/></svg
+									>
+									{$t('reviews.review_received')}
+								</div>
+							{/if}
+						</div>
+					{/if}
+
+					<!-- Row 5: Bid details (full width, for non-service contracts) -->
 					{#if !isServiceContract}
-						<div class="w-full sm:order-3 sm:basis-full">
+						<div class="mb-3 w-full sm:order-3 sm:basis-full">
 							<div class="join join-vertical w-full">
 								<div
 									class="collapse-arrow join-item border-base-300 collapse border-b"
@@ -284,7 +425,7 @@
 						</div>
 					{/if}
 
-					<!-- Row 4: Buttons on their own row (right-aligned) -->
+					<!-- Row 6: Action buttons (right-aligned) -->
 					{#if contractRune}
 						<div class="flex justify-end gap-2">
 							<ContractActionsDrawerNDK {contractRune} {btcPrice} />
@@ -327,9 +468,9 @@
 								</div>
 							{/if}
 
-							{#if contractRune.completionAttachments.filter((att: Attachment) => !isVideoFile(att.url)).length > 0}
+							{#if (contractRune.completionAttachments || []).filter((att: Attachment) => !isVideoFile(att.url)).length > 0}
 								<div class="mb-4">
-									{#await prepareGalleryImages(contractRune.completionAttachments) then galleryImages}
+									{#await prepareGalleryImages(contractRune.completionAttachments || []) then galleryImages}
 										<Gallery
 											galleryID={`completion-evidence-gallery-ndk-${contract.paymentId || contract.id}`}
 											images={galleryImages}
@@ -339,9 +480,9 @@
 								</div>
 							{/if}
 
-							{#if contractRune.completionAttachments.filter( (att: Attachment) => isVideoFile(att.url) ).length > 0}
+							{#if (contractRune.completionAttachments || []).filter( (att: Attachment) => isVideoFile(att.url) ).length > 0}
 								<div class="grid grid-cols-2 gap-3 md:grid-cols-3">
-									{#each contractRune.completionAttachments.filter( (att: Attachment) => isVideoFile(att.url) ) as attachment (attachment.url)}
+									{#each (contractRune.completionAttachments || []).filter( (att: Attachment) => isVideoFile(att.url) ) as attachment (attachment.url)}
 										<div class="group relative">
 											<div class="bg-base-300 aspect-square overflow-hidden rounded-lg">
 												<video
@@ -383,6 +524,31 @@
 					</div>
 				</div>
 			</div>
+
+			<!-- Contract Reviews -->
+			{#if isReviewable && (reviewState.reviews.length > 0 || reviewState.reviewsLoading)}
+				<div class="card bg-base-200 flex-1">
+					<div class="card-body p-4">
+						<h4 class="mb-3 font-semibold">
+							{$t('reviews.summary.title')}
+						</h4>
+
+						{#if reviewState.reviewsLoading}
+							<span class="loading loading-spinner loading-sm"></span>
+						{:else}
+							<div class="space-y-4">
+								{#each reviewState.reviews as review (review.attestationEventId)}
+									<VerifiedReviewCard
+										{review}
+										showVerificationBadge={true}
+										revieweeRole={review.content.revieweeRole}
+									/>
+								{/each}
+							</div>
+						{/if}
+					</div>
+				</div>
+			{/if}
 
 			<!-- Technical Details -->
 			<div class="card bg-base-200 mb-16 overflow-hidden sm:mb-0">
@@ -452,3 +618,14 @@
 		</div>
 	{/if}
 </Drawer>
+
+{#if reviewContract}
+	<ReviewPromptModal
+		isOpen={showReviewModal}
+		contract={reviewContract}
+		escrowId={contractEventId}
+		escrowTxHash={reviewContract.txHash}
+		onClose={() => (showReviewModal = false)}
+		onSubmit={handleReviewSubmitted}
+	/>
+{/if}

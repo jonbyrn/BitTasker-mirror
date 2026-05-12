@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { bidTranslationService } from '$lib/services/bid-translation.service';
 	import { currentUserLanguage } from '$lib/stores/translation.store';
-	import type { BidTranslations } from '$lib/types/bid';
+	import type { BidTranslations } from '$lib/nostr/bid';
 
 	type BidWithTranslations = {
 		translations?: BidTranslations;

@@ -1,7 +1,5 @@
 <script lang="ts">
-	import { browser, dev } from '$app/environment';
 	import { onMount } from 'svelte';
-	import { SvelteSet } from 'svelte/reactivity';
 	import { t, locale } from 'svelte-i18n';
 	import type { Service } from '$lib/types/service.d';
 	import type { ServiceQuoteTimelineEntry } from '$lib/types/service-quote';
@@ -108,14 +106,6 @@
 		}
 	}
 
-	function logProviderRequestsDebug(event: string, details: Record<string, unknown>) {
-		if (!browser || !dev) {
-			return;
-		}
-
-		console.info('[DashboardServiceRequestsPanel]', event, details);
-	}
-
 	async function loadServices() {
 		loading = true;
 		error = null;
@@ -128,19 +118,6 @@
 		} finally {
 			loading = false;
 		}
-	}
-
-	async function refreshProviderTimelinesForServices(serviceAddresses: string[]) {
-		const targets = [...new Set(serviceAddresses.filter((value) => value.trim().length > 0))];
-		if (targets.length === 0) {
-			return;
-		}
-
-		const requestId =
-			targets.length === 1 && targets[0] === selectedServiceAddress ? focusedRequestId : null;
-		await loadProviderTimelinesInBatches(targets, requestId, {
-			force: true
-		});
 	}
 
 	onMount(() => {
@@ -298,13 +275,6 @@
 		}
 
 		lastProviderLoadKey = nextLoadKey;
-		logProviderRequestsDebug('provider-load-start', {
-			selectedServiceAddress,
-			focusedRequestId,
-			displayedQuoteServiceAddresses,
-			loadedQuoteServiceAddresses,
-			batchSize: PROVIDER_LOAD_BATCH_SIZE
-		});
 
 		void loadProviderTimelinesInBatches(loadedQuoteServiceAddresses, focusedRequestId);
 	});

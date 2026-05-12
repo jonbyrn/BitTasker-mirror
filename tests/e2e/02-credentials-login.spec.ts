@@ -14,17 +14,17 @@ import {
 	webauthnCredentialsFileExists,
 	CREDENTIALS_MISSING_MESSAGE
 } from './fixtures/passkey-auth-from-file';
+import { WEBAUTHN_CHROMIUM_ONLY_MESSAGE } from './utils/onboarding-helpers';
 
 /** Labels created by 01-signup-onboarding. Use fixed list so tests are discovered at load time. */
 const EXPECTED_LABELS = ['signup', 'nostr'] as const;
 
 test.describe('Credentials file login (validate each user can log in)', () => {
+	test.describe.configure({ timeout: 90_000 });
+	test.skip(({ browserName }) => browserName !== 'chromium', WEBAUTHN_CHROMIUM_ONLY_MESSAGE);
 	// Use a function so the condition is evaluated at runtime (when each test runs),
 	// not at load time. By then, 01-signup-onboarding has run and the file exists.
-	test.skip(
-		() => !webauthnCredentialsFileExists(),
-		CREDENTIALS_MISSING_MESSAGE
-	);
+	test.skip(() => !webauthnCredentialsFileExists(), CREDENTIALS_MISSING_MESSAGE);
 
 	for (const label of EXPECTED_LABELS) {
 		test.describe(`user: ${label}`, () => {

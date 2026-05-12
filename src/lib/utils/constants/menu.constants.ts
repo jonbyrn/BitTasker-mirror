@@ -9,6 +9,7 @@ import IconAccountCircle from '~icons/mdi/account-circle';
 import IconAccountGroup from '~icons/mdi/account-group';
 import IconAccountHardHat from '~icons/mdi/account-hard-hat';
 import IconAccount from '~icons/mdi/account';
+import IconStar from '~icons/mdi/star';
 import IconBriefcaseOutline from '~icons/mdi/briefcase-outline';
 import IconBriefcaseSearch from '~icons/mdi/briefcase-search';
 import IconChatOutline from '~icons/mdi/chat-outline';
@@ -368,6 +369,11 @@ export const AVATAR_MENU_ITEMS: MenuItem[] = [
 		href: '/dashboard/profile'
 	},
 	{
+		label: 'navbar.reviews',
+		icon: IconStar,
+		href: '/reviews'
+	},
+	{
 		label: 'navbar.settings',
 		icon: IconCog,
 		href: '/dashboard/settings'
@@ -383,6 +389,16 @@ export const AVATAR_MENU_ITEMS: MenuItem[] = [
  * Mobile drawer menu items (logged in)
  */
 export const MOBILE_DRAWER_LOGGED_IN: MenuItem[] = [
+	{
+		label: 'navbar.profile',
+		icon: IconAccount,
+		href: '/dashboard/profile'
+	},
+	{
+		label: 'navbar.reviews',
+		icon: IconStar,
+		href: '/reviews'
+	},
 	{
 		label: 'navbar.settings',
 		icon: IconCog,

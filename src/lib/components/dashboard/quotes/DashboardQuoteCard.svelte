@@ -62,7 +62,7 @@
 			case 'accepting':
 				return translateOrFallback(
 					'dashboard.service_requests.statuses.accepting_progress',
-					'Accepting...'
+					'Accepted'
 				);
 			case 'contract_sync_pending':
 				return translateOrFallback(

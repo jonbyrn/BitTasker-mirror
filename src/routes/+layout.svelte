@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { t } from 'svelte-i18n';
 	import '$lib/i18n/i18n';
+	import { browser } from '$app/environment';
 	import { page } from '$app/state';
 	import { darkMode, initializeTheme } from '$lib/stores/theme.store';
 	import { authState } from '$lib/stores/auth.store';
@@ -48,9 +49,20 @@
 	const currentPath = $derived(page.url.pathname);
 	const showTopBar = $derived(!currentPath.includes('/onboarding'));
 
+	/**
+	 * Route group `(protected)` is omitted from the URL but present in `page.route.id`
+	 * (e.g. `/(protected)/reviews` → pathname `/reviews`). Use this for parent-shell
+	 * behavior without maintaining a pathname allowlist per new route.
+	 * @see https://svelte.dev/docs/kit/advanced-routing#Advanced-layouts-group
+	 */
+	const isProtectedRoute = $derived(
+		page.route.id != null && page.route.id.startsWith('/(protected)')
+	);
+
 	// Hide complex footer for specific app-like pages to maximize content area
 	const hideFooter = $derived(
-		/^\/(tasks|npub|dashboard|earning|auth|services)(\/|$)/.test(currentPath) ||
+		isProtectedRoute ||
+			/^\/(tasks|npub|auth|services)(\/|$)/.test(currentPath) ||
 			currentPath === '/onboarding'
 	);
 
@@ -71,29 +83,46 @@
 		};
 	});
 
-	// Initialize device store for protected routes
-	async function initializeDeviceStore() {
-		const currentPath = page.url.pathname;
-
-		const isProtected =
-			currentPath.includes('/dashboard') ||
-			currentPath.includes('/profile') ||
-			currentPath.includes('/settings');
-
-		if (!isProtected) return;
-
-		const deviceModule = await import('$lib/stores/device.store');
-
-		await Promise.all([
-			deviceModule.initializeDevicePlatform(),
-			deviceModule.getOnboardingCompleted()
-		]);
-	}
-
 	// Must run before any child $effect fires so BottomNavBar's
 	// --app-dock-height measurement reflects the iOS PWA override.
 	$effect.pre(() => {
 		applyIOSPwaSafeAreaFix();
+	});
+
+	// Device store: only needed under (protected)/; follow `isProtectedRoute` on client navigations.
+	$effect(() => {
+		if (!browser || !isProtectedRoute) return;
+
+		let cancelled = false;
+
+		const run = async () => {
+			if (cancelled) return;
+			const deviceModule = await import('$lib/stores/device.store');
+			if (cancelled) return;
+			await Promise.all([
+				deviceModule.initializeDevicePlatform(),
+				deviceModule.getOnboardingCompleted()
+			]);
+		};
+
+		let idleCallbackId = 0;
+		let timeoutId: ReturnType<typeof setTimeout> | undefined;
+		let scheduledWithIdleCallback = false;
+
+		if (typeof requestIdleCallback !== 'undefined') {
+			scheduledWithIdleCallback = true;
+			idleCallbackId = requestIdleCallback(() => void run(), { timeout: 2000 });
+		} else {
+			timeoutId = setTimeout(() => void run(), 100);
+		}
+
+		return () => {
+			cancelled = true;
+			if (scheduledWithIdleCallback) {
+				cancelIdleCallback(idleCallbackId);
+			}
+			if (timeoutId !== undefined) clearTimeout(timeoutId);
+		};
 	});
 
 	let cleanupKb: (() => void) | undefined;
@@ -108,12 +137,6 @@
 				cleanupKb = cleanup;
 			});
 		});
-
-		if (typeof requestIdleCallback !== 'undefined') {
-			requestIdleCallback(() => initializeDeviceStore(), { timeout: 2000 });
-		} else {
-			setTimeout(() => initializeDeviceStore(), 100);
-		}
 
 		window.addEventListener('vite:preloadError', handlePreloadError);
 

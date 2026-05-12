@@ -96,8 +96,8 @@ vi.mock('$lib/components/contracts/ContractContextSummary.svelte', () => ({
 	})
 }));
 
-vi.mock('$lib/components/UserNostrBadge.svelte', () => ({
-	default: () => ({ $$render: () => '<div>User badge</div>' })
+vi.mock('$lib/components/user/UserInfoDisplay.svelte', () => ({
+	default: () => ({ $$render: () => '<div>User info</div>' })
 }));
 
 vi.mock('$lib/components/task/TaskDeadlineDisplay.svelte', () => ({

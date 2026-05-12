@@ -10,6 +10,56 @@
 - **Firebase** — push notifications; **Sentry** — error tracking
 - **Chart.js** — analytics; **svelte-i18n** — en/es localization
 - **Storybook** — component library; **Playwright** — e2e tests; **Vitest** — unit tests
+- Do what has been asked; nothing more, nothing less
+- NEVER create files unless they're absolutely necessary for achieving your goal
+- ALWAYS prefer editing an existing file to creating a new one
+- NEVER proactively create documentation files (\*.md) or README files unless explicitly requested
+- NEVER save working files, text/mds, or tests to the root folder
+- Never continuously check status after spawning a swarm — wait for results
+- ALWAYS read a file before editing it
+- NEVER commit secrets, credentials, or .env files
+- NEVER disable ESLint or TypeScript rules (`eslint-disable`, `ts-ignore`, `ts-expect-error`, `as any`). These rules exist to enforce quality and safety. Instead of suppressing them, fix the underlying issue: implement proper types, use correct imports, or refactor the code to satisfy the compiler statically.
+
+## Thinking Methodology (Always Enforced)
+
+Before making any decision, implementation, or change, follow this process:
+
+1. **Analyze the full context** — Read entire files, not chunks. Look at the bigger picture, trace dependencies, and account for related features. If the task touches reviews, understand contracts. If it touches contracts, understand payments. Build a complete mental model before acting.
+
+2. **Deep think, don't jump to conclusions** — Do not make assumptions. Do not make premature optimizations. Do not trust the first answer that seems right. Sit with the problem until the shape of the solution is clear.
+
+3. **Verify, don't trust** — Code and documentation in this project may be outdated, incorrect, or unaware of the full context. Always verify against the actual source. Read the files yourself. Check git history if relevant. Corroborate claims across multiple sources.
+
+4. **Iterate to ≥95% confidence** — Do not make decisions, implement, or declare completion until you have at least 95% confidence in your analysis. If you are uncertain, gather more context, run more tests, or ask clarifying questions. Confidence comes from verification, not from intuition.
+
+5. **Review and iterate again** — Once you reach a final state, ask Ruflo to review the implementation. Take the feedback seriously. Iterate from step 1 again until you reach a final state that passes review.
+
+## File Organization
+
+- NEVER save to root folder — use the directories below
+- Use `/src` for source code files
+- Use `/tests` for test files
+- Use `/docs` for documentation and markdown files
+- Use `/config` for configuration files
+- Use `/scripts` for utility scripts
+- Use `/examples` for example code
+
+## Project Architecture
+
+- Follow Domain-Driven Design with bounded contexts
+- Keep files under 500 lines
+- Use typed interfaces for all public APIs
+- Prefer TDD London School (mock-first) for new code
+- Use event sourcing for state changes
+- Ensure input validation at system boundaries
+
+### Project Config
+
+- **Topology**: hierarchical-mesh
+- **Max Agents**: 15
+- **Memory**: hybrid
+- **HNSW**: Enabled
+- **Neural**: Enabled
 
 ## Build & Test
 

@@ -22,7 +22,7 @@
 		onComplete = () => {},
 		btcPrice = 63000
 	} = $props<{
-		contract: ContractWithEvents | null;
+		contract: ContractWithEvents;
 		isOpen: boolean;
 		onClose: () => void;
 		onComplete: (attachments: Attachment[]) => Promise<void>;

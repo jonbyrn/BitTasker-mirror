@@ -20,6 +20,9 @@ const KINDS = {
 	/** Availability schedule - parameterized replaceable */
 	PROFILE_AVAILABILITY: 30002,
 
+	/** Standard services offered - parameterized replaceable */
+	PROFILE_STANDARD_SERVICES: 30003,
+
 	/** User reviews - parameterized replaceable */
 	PROFILE_REVIEWS: 30004,
 
@@ -94,6 +97,12 @@ const KINDS = {
 	HIDE_MESSAGE: 43,
 
 	/** Mute a user in channel context (NIP-28) */
-	MUTE_CHANNEL_USER: 44
+	MUTE_CHANNEL_USER: 44,
+
+	/** Review System (Attestation-Based Verified Reviews) */
+	REVIEW: 6430, // Review content (signed by reviewer, published by client)
+	ATTESTATION: 6431, // Attestation proof (signed by BitTasker issuer, published by backend)
+	REVIEW_REPLY: 6432, // Reply to a review (signed by reviewee, published by client)
+	REPLY_ATTESTATION: 6433 // Reply attestation proof (signed by BitTasker issuer)
 };
 export default KINDS;
