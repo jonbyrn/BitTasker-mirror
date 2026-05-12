@@ -19,7 +19,7 @@
 	>
 		{#each tabs as tab (tab.id)}
 			<button
-				class="tab text-center {activeTab === tab.id ? 'active-tab' : ''}"
+				class="tab text-center {activeTab === tab.id ? 'tab-active active-tab' : ''}"
 				onclick={() => onTabChange(tab.id)}
 				aria-selected={activeTab === tab.id}
 				role="tab"
@@ -37,7 +37,7 @@
 		<div class="tabs tabs-bordered min-w-max snap-x snap-mandatory flex-nowrap overflow-x-auto">
 			{#each tabs as tab (tab.id)}
 				<button
-					class="tab {activeTab === tab.id ? 'active-tab' : ''}"
+					class="tab {activeTab === tab.id ? 'tab-active active-tab' : ''}"
 					onclick={() => onTabChange(tab.id)}
 					aria-selected={activeTab === tab.id}
 					role="tab"

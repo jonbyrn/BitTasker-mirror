@@ -157,8 +157,6 @@
 
 <div class="card border-base-300 bg-base-100 border shadow-xl">
 	<div class="card-body">
-		<h2 class="card-title mb-4">{$t('reviews.summary.title')}</h2>
-
 		{#if !hasReviews}
 			<div
 				class="border-base-300 bg-base-200/60 rounded-2xl border border-dashed px-6 py-10 text-center"
@@ -222,7 +220,6 @@
 			</div>
 
 			<div class="mb-6">
-				<h3 class="mb-3 text-lg font-semibold">{$t('reviews.summary.rating_distribution')}</h3>
 				<div class="space-y-2">
 					{#each [5, 4, 3, 2, 1] as rating (rating)}
 						{@const percentage = getRatingPercentage(stats, rating as 1 | 2 | 3 | 4 | 5)}
