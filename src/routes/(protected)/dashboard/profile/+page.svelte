@@ -7,8 +7,6 @@
 	import ProfileInfoSection from '$lib/components/profile/ProfileInfoSection.svelte';
 	import ProfileSidebar from '$lib/components/profile/ProfileSidebar.svelte';
 	import ProfileReviewsSection from '$lib/components/profile/ProfileReviewsSection.svelte';
-	import ProfileStats from '$lib/components/profile/ProfileStats.svelte';
-	import ProfileServicesSection from '$lib/components/profile/ProfileServicesSection.svelte';
 
 	// Format date (passed to children)
 	function formatDate(dateString: string) {
@@ -78,10 +76,9 @@
 </script>
 
 <!-- Mismas dimensiones que Mi Panel -->
-<div class="mx-auto h-full max-w-6xl px-2 py-6 md:px-0 md:py-0">
-	<div class="mb-8">
-		<h3 class="mb-2 text-2xl font-bold">{$t('profile.page.title')}</h3>
-		<p class="text-base-content/70 text-lg">{$t('profile.page.description')}</p>
+<div class="mx-auto h-full max-w-6xl py-4 md:px-0 md:py-0">
+	<div class="mb-6">
+		<h3 class="font-bold">{$t('profile.page.title')}</h3>
 	</div>
 	<div class="bg-base-100 rounded-xl p-8 shadow-lg">
 		{#if isOtherUserReviewsView}
@@ -89,27 +86,21 @@
 		{:else}
 			<ProfileHeader />
 
-			<ProfileStats
-				stats={$profileStore.stats}
-				serviceCountState={$profileStore.servicesLoading
-					? 'loading'
-					: $profileStore.servicesError
-						? 'error'
-						: 'ready'}
-			/>
-			<ProfileServicesSection />
-
 			<!-- Profile Tabs -->
-			<div class="tabs tabs-boxed bg-base-200 mb-6">
+			<div class="tabs tabs-bordered mb-6 grid w-full grid-cols-2">
 				<button
-					class="tab {activeTab === 'overview' ? 'tab-active' : ''}"
+					class="tab text-center {activeTab === 'overview' ? 'tab-active' : ''}"
 					onclick={() => (activeTab = 'overview')}
+					role="tab"
+					aria-selected={activeTab === 'overview'}
 				>
 					{$t('profile.tabs.overview')}
 				</button>
 				<button
-					class="tab {activeTab === 'reviews' ? 'tab-active' : ''}"
+					class="tab text-center {activeTab === 'reviews' ? 'tab-active' : ''}"
 					onclick={() => (activeTab = 'reviews')}
+					role="tab"
+					aria-selected={activeTab === 'reviews'}
 				>
 					{$t('profile.tabs.reviews')}
 				</button>
@@ -118,7 +109,7 @@
 			<!-- Tab Content -->
 			{#if activeTab === 'overview'}
 				<ProfileInfoSection {formatDate} />
-				<ProfileSidebar {formatDate} />
+				<ProfileSidebar />
 			{:else if activeTab === 'reviews'}
 				<ProfileReviewsSection isCurrentUser={true} />
 			{/if}

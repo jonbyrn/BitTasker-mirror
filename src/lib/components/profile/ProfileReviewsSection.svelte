@@ -300,8 +300,70 @@
 
 <div class="space-y-6">
 	{#if isLoading}
-		<div class="flex items-center justify-center py-12" role="status" aria-live="polite">
-			<span class="loading loading-spinner loading-lg"></span>
+		<div role="status" aria-live="polite">
+			<!-- Match ReviewSummaryCard: split stat card -->
+			<div class="card border-base-300 bg-base-100 animate-pulse border shadow-xl">
+				<div class="card-body">
+					<div
+						class="divide-base-300 border-base-300 bg-base-200 flex divide-x overflow-hidden rounded-lg border"
+					>
+						<div class="flex flex-1 flex-col items-center px-4 py-6">
+							<div class="bg-base-300 h-3 w-20 rounded"></div>
+							<div class="bg-base-300 mt-3 h-8 w-12 rounded"></div>
+							<div class="bg-base-300 mt-1 h-3 w-24 rounded"></div>
+						</div>
+						<div class="flex flex-1 flex-col items-center px-4 py-6">
+							<div class="bg-base-300 h-3 w-20 rounded"></div>
+							<div class="bg-base-300 mt-3 h-8 w-12 rounded"></div>
+							<div class="bg-base-300 mt-1 h-3 w-16 rounded"></div>
+						</div>
+					</div>
+					<!-- Distribution bars skeleton -->
+					<div class="mt-6 space-y-2">
+						{#each Array(5) as _, i (i)}
+							<div class="flex items-center gap-3">
+								<div class="bg-base-300 h-4 w-8 rounded"></div>
+								<div class="bg-base-300 h-4 flex-1 rounded-full"></div>
+								<div class="bg-base-300 h-4 w-10 rounded"></div>
+							</div>
+						{/each}
+					</div>
+					<!-- Category bars skeleton -->
+					<div class="mt-6 space-y-3">
+						{#each Array(3) as _, i (i)}
+							<div class="space-y-1">
+								<div class="flex items-center justify-between">
+									<div class="bg-base-300 h-4 w-28 rounded"></div>
+									<div class="bg-base-300 h-4 w-10 rounded"></div>
+								</div>
+								<div class="bg-base-300 h-3 w-full rounded-full"></div>
+							</div>
+						{/each}
+					</div>
+				</div>
+			</div>
+			<!-- Match ReviewManagementTabs -->
+			<div class="bg-base-300 mt-6 h-10 w-full rounded-lg"></div>
+			<!-- Match review card list -->
+			<div class="mt-4 space-y-4">
+				{#each Array(2) as _, i (i)}
+					<div class="card border-base-300 bg-base-100 animate-pulse border p-5 shadow-sm">
+						<div class="flex items-center gap-3">
+							<div class="bg-base-300 h-10 w-10 rounded-full"></div>
+							<div class="flex-1 space-y-2">
+								<div class="bg-base-300 h-4 w-28 rounded"></div>
+								<div class="flex items-center gap-1">
+									{#each Array(5) as _, si (si)}
+										<div class="bg-base-300 h-3 w-3 rounded"></div>
+									{/each}
+								</div>
+							</div>
+						</div>
+						<div class="bg-base-300 mt-3 h-4 w-full rounded"></div>
+						<div class="bg-base-300 mt-2 h-4 w-3/4 rounded"></div>
+					</div>
+				{/each}
+			</div>
 			<span class="sr-only">{$t('reviews.management.loading')}</span>
 		</div>
 	{:else if error}

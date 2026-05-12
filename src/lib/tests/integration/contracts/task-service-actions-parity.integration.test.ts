@@ -104,6 +104,20 @@ vi.mock('$lib/utils/portal', () => ({
 	portal: vi.fn()
 }));
 
+vi.mock('$lib/stores/task.store', () => ({
+	taskStore: { subscribe: vi.fn(), set: vi.fn(), update: vi.fn() },
+	tasksStore: {
+		subscribe: vi.fn(),
+		set: vi.fn(),
+		update: vi.fn(),
+		removePubkeyTasks: vi.fn(),
+		reset: vi.fn()
+	},
+	myTasksStore: { subscribe: vi.fn(), set: vi.fn(), update: vi.fn(), reset: vi.fn() },
+	TASKS_PER_PAGE: 10,
+	STEPS: { subscribe: vi.fn(), update: vi.fn() }
+}));
+
 vi.mock('$lib/utils/location/sendLocation', () => ({
 	sendTaskCompletionMessageToTasker: vi.fn(),
 	sendPaymentReleasedMessageToTaskee: vi.fn()

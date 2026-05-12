@@ -83,7 +83,7 @@ import {
 	getFeePercentageDisplay,
 	formatRBTCAmount
 } from '$lib/utils/escrow/v1/escrowBid';
-import { serializeDateWithLocalTime } from '$lib/utils/helpers/dateFormatter';
+import { toUnixSeconds } from '$lib/utils/helpers/dateFormatter';
 import { escrow } from '$lib/utils/escrow/v1/escrow';
 import {
 	registerPendingContractByTxHash,
@@ -97,23 +97,11 @@ const mockCleanupPendingContractByTxHash = cleanupPendingContractByTxHash as Ret
 
 describe('escrowBid', () => {
 	const mockBidContent: NostrBidContent = {
-		type: 'bid',
-		taskId: 'task-123',
-		taskTitle: 'Test Task',
-		taskDescription: 'Test Task Description',
-		amount: 100,
-		currency: 'USD',
-		paymentType: 'FIXED',
-		description: 'Bid description',
-		estimatedDuration: '1 week',
-		proposedApproach: 'My approach',
-		coverLetter: 'Cover letter',
-		timestamp: Date.now(),
-		bidId: 'bid-123',
+		amount: 100, // USD
 		bidderId: 'npub1test',
 		bidderWalletAddress: '0x2222222222222222222222222222222222222222',
-		startDateTime: serializeDateWithLocalTime(new Date(Date.now() + 3600000)) || '',
-		endDateTime: serializeDateWithLocalTime(new Date(Date.now() + 7200000)) || ''
+		startDateTime: toUnixSeconds(new Date(Date.now() + 3600000)) || 0, // 1 hour from now
+		endDateTime: toUnixSeconds(new Date(Date.now() + 7200000)) || 0 // 2 hours from now
 	};
 
 	const mockTask: Task = {
@@ -121,8 +109,8 @@ describe('escrowBid', () => {
 		title: 'Test Task',
 		description: 'Test Description',
 		dateRange: {
-			start: serializeDateWithLocalTime(new Date(Date.now() + 3600000)) || '',
-			end: serializeDateWithLocalTime(new Date(Date.now() + 7200000)) || ''
+			start: new Date(Date.now() + 3600000).toISOString(),
+			end: new Date(Date.now() + 7200000).toISOString()
 		}
 	};
 
@@ -149,18 +137,13 @@ describe('escrowBid', () => {
 		it('should use bid timing when available', async () => {
 			const btcPrice = 50000;
 			const result = calculateBidEscrowDetails(mockBidContent, mockTask, btcPrice);
-
-			// Parse the date with local time to match the new parsing logic
-			const { parseDateWithLocalTime } = await import('$lib/utils/helpers/dateFormatter');
-			const startDate = parseDateWithLocalTime(mockBidContent.startDateTime!);
-			const expectedStart = startDate ? Math.floor(startDate.getTime() / 1000) : 0;
-			expect(result.estimatedStartTime).toBe(expectedStart);
+			expect(result.estimatedStartTime).toBe(mockBidContent.startDateTime);
 		});
 
 		it('should fallback to task dateRange when bid timing not available', () => {
 			const bidWithoutTiming = { ...mockBidContent };
-			delete bidWithoutTiming.startDateTime;
-			delete bidWithoutTiming.endDateTime;
+			delete (bidWithoutTiming as any).startDateTime;
+			delete (bidWithoutTiming as any).endDateTime;
 
 			const btcPrice = 50000;
 			const result = calculateBidEscrowDetails(bidWithoutTiming, mockTask, btcPrice);
@@ -186,8 +169,8 @@ describe('escrowBid', () => {
 		it('should throw error for invalid timing', () => {
 			const invalidBid = {
 				...mockBidContent,
-				startDateTime: serializeDateWithLocalTime(new Date(Date.now() + 7200000)) || '', // After end
-				endDateTime: serializeDateWithLocalTime(new Date(Date.now() + 3600000)) || '' // Before start
+				startDateTime: toUnixSeconds(new Date(Date.now() + 7200000)) || 0, // After end
+				endDateTime: toUnixSeconds(new Date(Date.now() + 3600000)) || 0 // Before start
 			};
 
 			expect(() => calculateBidEscrowDetails(invalidBid, mockTask, 50000)).toThrow(
@@ -389,8 +372,8 @@ describe('escrowBid', () => {
 
 			const pastBid = {
 				...mockBidContent,
-				startDateTime: serializeDateWithLocalTime(new Date(Date.now() - 600000)) || '', // 10 minutes ago
-				endDateTime: serializeDateWithLocalTime(new Date(Date.now() + 3600000)) || ''
+				startDateTime: toUnixSeconds(new Date(Date.now() - 600000)) || 0, // 10 minutes ago
+				endDateTime: toUnixSeconds(new Date(Date.now() + 3600000)) || 0
 			};
 
 			const mockBidEvent: NostrEventWithFollowup = {
@@ -514,8 +497,8 @@ describe('escrowBid', () => {
 			const exactly15MinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
 			const pastBid = {
 				...mockBidContent,
-				startDateTime: serializeDateWithLocalTime(exactly15MinutesAgo) || '',
-				endDateTime: serializeDateWithLocalTime(new Date(Date.now() + 3600000)) || ''
+				startDateTime: toUnixSeconds(exactly15MinutesAgo) || 0,
+				endDateTime: toUnixSeconds(new Date(Date.now() + 3600000)) || 0
 			};
 
 			const mockBidEvent: NostrEventWithFollowup = {
@@ -642,8 +625,8 @@ describe('escrowBid', () => {
 			const moreThan15MinutesAgo = new Date(Date.now() - 16 * 60 * 1000);
 			const pastBid = {
 				...mockBidContent,
-				startDateTime: serializeDateWithLocalTime(moreThan15MinutesAgo) || '',
-				endDateTime: serializeDateWithLocalTime(new Date(Date.now() + 3600000)) || ''
+				startDateTime: toUnixSeconds(moreThan15MinutesAgo) || 0,
+				endDateTime: toUnixSeconds(new Date(Date.now() + 3600000)) || 0
 			};
 
 			const mockBidEvent: NostrEventWithFollowup = {

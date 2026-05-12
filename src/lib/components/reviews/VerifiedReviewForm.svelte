@@ -392,7 +392,7 @@
 
 	function getRatingClass(rating: number, current: number): string {
 		if (current === 0) return 'text-base-content/20';
-		return current >= rating ? 'text-warning fill-warning' : 'text-base-content/20';
+		return current >= rating ? 'text-primary fill-primary' : 'text-base-content/20';
 	}
 </script>
 
@@ -798,7 +798,7 @@
 				</label>
 				<span
 					class="text-base-content/50 text-xs {comment.length > 900
-						? 'text-warning'
+						? 'text-primary'
 						: ''} {comment.length >= 1000 ? 'text-error' : ''}"
 				>
 					{comment.length}/1000

@@ -3,12 +3,10 @@
 	import { formatNumberForInput, satsFromUsd, usdFromSats } from '$lib/utils/helpers/crypto';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
-	import { t } from 'svelte-i18n';
-	import DateInput from '$lib/components/date/DateInput.svelte';
-	import {
-		formatDurationBetweenDates,
-		serializeDateWithLocalTime
-	} from '$lib/utils/helpers/dateFormatter';
+	import { t, locale } from 'svelte-i18n';
+	import DurationPickerModal from '$lib/components/date/DurationPickerModal.svelte';
+	import ScheduleDateTimeField from '$lib/components/date/ScheduleDateTimeField.svelte';
+	import { toUnixSeconds } from '$lib/utils/helpers/dateFormatter';
 	import { SvelteDate } from 'svelte/reactivity';
 
 	// Props
@@ -33,12 +31,27 @@
 
 	// New datetime fields for fixed price bids
 	let startDateTime = $state<Date | null>(null);
-	let endDateTime = $state<Date | null>(null);
 	let scheduleFieldsTouched = $state(false);
+	let durationDays = $state(0);
+	let durationHours = $state(1);
+	let durationMinutes = $state(0);
+	let durationModalOpen = $state(false);
 
 	const FIFTEEN_MINUTES_IN_MS = 15 * 60 * 1000;
 	const DEFAULT_START_OFFSET_HOURS = 1;
 	const DEFAULT_DURATION_IN_HOURS = 1;
+
+	const endDateTime = $derived.by(() => {
+		if (!startDateTime) return null;
+		const end = new SvelteDate(startDateTime.getTime());
+		end.setDate(end.getDate() + durationDays);
+		end.setHours(end.getHours() + durationHours);
+		end.setMinutes(end.getMinutes() + durationMinutes);
+		const rounded = new SvelteDate(end);
+		const remainder = rounded.getTime() % FIFTEEN_MINUTES_IN_MS;
+		if (remainder !== 0) rounded.setTime(rounded.getTime() + (FIFTEEN_MINUTES_IN_MS - remainder));
+		return rounded;
+	});
 	const MS_PER_HOUR = 60 * 60 * 1000;
 
 	// USDT conversion state
@@ -80,9 +93,21 @@
 		return roundDateToInterval(target, FIFTEEN_MINUTES_IN_MS, 'ceil');
 	}
 
-	function getDefaultFutureEnd(start: Date): Date {
+	function _getDefaultFutureEnd(start: Date): Date {
 		const target = new SvelteDate(start.getTime() + DEFAULT_DURATION_IN_HOURS * MS_PER_HOUR);
 		return roundDateToInterval(target, FIFTEEN_MINUTES_IN_MS, 'ceil');
+	}
+
+	function normalizeEndAfterStart() {
+		// Duration always yields end > start; no-op for duration-based flow
+	}
+
+	function handleScheduleDateTimeChange() {
+		scheduleFieldsTouched = true;
+		if (validationErrors.datetime) {
+			validationErrors = { ...validationErrors, datetime: '' };
+		}
+		normalizeEndAfterStart();
 	}
 
 	// Prefill schedule fields
@@ -92,14 +117,9 @@
 		}
 
 		const preferredStart = getDefaultFutureStart();
-		const preferredEnd = getDefaultFutureEnd(preferredStart);
 
 		if (!startDateTime) {
 			startDateTime = preferredStart;
-		}
-
-		if (!endDateTime) {
-			endDateTime = preferredEnd;
 		}
 	});
 
@@ -189,7 +209,20 @@
 	// Helper function to format duration for display
 	function formatDurationForDisplay(): string {
 		if (bidType === 'FIXED' && startDateTime && endDateTime) {
-			return formatDurationBetweenDates(startDateTime, endDateTime, (k) => $t(k));
+			const diffMs = endDateTime.getTime() - startDateTime.getTime();
+			if (diffMs <= 0) {
+				return '';
+			}
+			const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+			const diffHours = Math.ceil(diffMs / (1000 * 60 * 60));
+
+			if (diffDays > 1) {
+				return `${diffDays} ${$t('dashboard.bids.counter_offer.days')}`;
+			} else if (diffHours > 1) {
+				return `${diffHours} ${$t('dashboard.bids.counter_offer.hours')}`;
+			} else {
+				return $t('dashboard.bids.counter_offer.one_hour');
+			}
 		}
 		return '';
 	}
@@ -250,7 +283,10 @@
 		isSubmitting = true;
 
 		try {
-			const counterOffer = {
+			const startSeconds = bidType === 'FIXED' ? toUnixSeconds(startDateTime) : null;
+			const endSeconds = bidType === 'FIXED' ? toUnixSeconds(endDateTime) : null;
+
+			const counterOffer: Omit<CounterOffer, 'id' | 'bidId' | 'createdAt' | 'status'> = {
 				price: {
 					amount: getTotalAmount,
 					currency: 'SATS' as Currency
@@ -265,11 +301,13 @@
 							}
 						}
 					: {}),
-				// Add new datetime fields for fixed price - serialize with local time to preserve user's selected time
-				startDate: bidType === 'FIXED' ? serializeDateWithLocalTime(startDateTime) : null,
-				endDate: bidType === 'FIXED' ? serializeDateWithLocalTime(endDateTime) : null,
-				startTime: bidType === 'FIXED' ? serializeDateWithLocalTime(startDateTime) : null,
-				endTime: bidType === 'FIXED' ? serializeDateWithLocalTime(startDateTime) : null,
+				...(bidType === 'FIXED' &&
+				startSeconds != null &&
+				endSeconds != null &&
+				startSeconds > 0 &&
+				endSeconds > 0
+					? { startDateTime: startSeconds, endDateTime: endSeconds }
+					: {}),
 				message,
 				proposedBy: 'current-user-id' // This would come from user store
 			};
@@ -375,8 +413,8 @@
 
 			{#if bidType === 'FIXED'}
 				<!-- Fixed price counter offer amount - USD and Sats -->
-				<div class="form-control">
-					<label class="label" for="counter-amount">
+				<div class="form-control gap-3 pb-10">
+					<label class="label min-h-0 pt-0 pb-1" for="counter-amount">
 						<span class="label-text font-medium"
 							>{$t('dashboard.bids.counter_offer.counter_offer_amount')}</span
 						>
@@ -427,7 +465,7 @@
 						</div>
 					{/if}
 					{#if parseInt(amount || '0') > 0}
-						<span class="label-text-alt text-info mt-1 block">
+						<span class="label-text-alt text-info mt-2 block">
 							{$t('dashboard.bids.counter_offer.btc_price')} ${Math.round(
 								btcPrice
 							).toLocaleString()}
@@ -436,52 +474,77 @@
 				</div>
 
 				<!-- Date and Time Selection for Fixed Price -->
-				<div class="form-control">
-					<label class="label" for="datetime-range">
-						<span class="label-text">{$t('dashboard.bids.counter_offer.date_time_range')}</span>
-					</label>
-					<div class="flex flex-col gap-4">
-						<DateInput
+				<div class="form-control gap-4">
+					<div class="grid min-w-0 gap-3 sm:grid-cols-2 sm:gap-12 md:gap-16">
+						<ScheduleDateTimeField
 							bind:value={startDateTime}
-							type="datetime"
-							labelKey="dashboard.bids.counter_offer.airdatepicker.select_start_datetime"
-							placeholderKey="dashboard.bids.counter_offer.airdatepicker.select_start_datetime"
-							minDate={new Date()}
-							maxDate={undefined}
-							timeStep={15}
+							period="start"
+							minDate={new SvelteDate()}
+							headingKey="bid_form.form.schedule_section_start"
 							onChange={(date: Date | null) => {
 								startDateTime = date;
-								scheduleFieldsTouched = true;
+								handleScheduleDateTimeChange();
 							}}
-							className={validationErrors.datetime ? 'input-error' : ''}
 						/>
-						<DateInput
-							bind:value={endDateTime}
-							type="datetime"
-							labelKey="dashboard.bids.counter_offer.airdatepicker.select_end_datetime"
-							placeholderKey="dashboard.bids.counter_offer.airdatepicker.select_end_datetime"
-							minDate={startDateTime || new Date()}
-							maxDate={undefined}
-							timeStep={15}
-							onChange={(date: Date | null) => {
-								endDateTime = date;
-								scheduleFieldsTouched = true;
-							}}
-							className={validationErrors.datetime ? 'input-error' : ''}
-						/>
+						<!-- Duration trigger button -->
+						<div class="form-control min-w-0 gap-0.5 sm:gap-3">
+							<div class="label min-h-0 py-0">
+								<span class="label-text">{$t('common.components.duration_picker.title')}</span>
+							</div>
+							<button
+								type="button"
+								class="input input-bordered hover:bg-base-200/50 flex min-h-11 w-full items-center gap-1 px-1.5 py-0 text-left transition-colors sm:gap-1.5 sm:px-2"
+								onclick={() => (durationModalOpen = true)}
+							>
+								<span class="text-base-content flex shrink-0 items-center" aria-hidden="true">
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										class="block h-5 w-5"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="1.75"
+											d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"
+										/>
+									</svg>
+								</span>
+								<span class="text-base-content min-w-0 flex-1 truncate text-sm font-semibold">
+									{#if endDateTime}
+										{new Intl.DateTimeFormat($locale || 'en', {
+											month: 'short',
+											day: 'numeric',
+											hour: 'numeric',
+											minute: '2-digit',
+											hour12: true
+										}).format(endDateTime)}
+									{:else}
+										{$t('common.components.duration_picker.title')}
+									{/if}
+								</span>
+							</button>
+						</div>
 					</div>
 					{#if validationErrors.datetime}
-						<div class="label">
+						<div class="label min-h-0 py-1">
 							<span id="datetime-error" class="label-text-alt text-error"
 								>{validationErrors.datetime}</span
 							>
 						</div>
 					{/if}
 					{#if startDateTime && endDateTime}
-						<span class="label-text-alt text-info mt-1 block">
-							{$t('dashboard.bids.counter_offer.duration')}
-							{formatDurationForDisplay()}
-						</span>
+						{@const scheduleDurationLabel = formatDurationForDisplay()}
+						{#if scheduleDurationLabel}
+							<div class="bg-info/10 mt-2 rounded-lg px-3 py-2.5">
+								<span class="text-info text-sm font-semibold">
+									{$t('dashboard.bids.counter_offer.duration')}
+									{scheduleDurationLabel}
+								</span>
+							</div>
+						{/if}
 					{/if}
 				</div>
 			{:else}
@@ -656,3 +719,17 @@
 		</form>
 	</div>
 </div>
+
+<DurationPickerModal
+	open={durationModalOpen}
+	baseStartDate={startDateTime || new SvelteDate()}
+	value={{ days: durationDays, hours: durationHours, minutes: durationMinutes }}
+	onClose={() => (durationModalOpen = false)}
+	onSelect={(d) => {
+		durationDays = d.days;
+		durationHours = d.hours;
+		durationMinutes = d.minutes;
+		durationModalOpen = false;
+		handleScheduleDateTimeChange();
+	}}
+/>

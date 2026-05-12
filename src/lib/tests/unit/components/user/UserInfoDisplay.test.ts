@@ -88,6 +88,39 @@ vi.mock('$lib/utils/nostr-message', () => ({
 	fetchProfileMetadata
 }));
 
+// Mock $lib/nostr/ndk
+vi.mock('$lib/nostr/ndk', () => {
+	const getHexFromNpub = (npub: string) => {
+		if (npub.startsWith('npub1')) {
+			const cleaned = npub.replace('npub1', '').replace(/[^a-fA-F0-9]/g, '');
+			return cleaned.padEnd(64, '0').slice(0, 64);
+		}
+		return npub;
+	};
+	const getNpubFromHex = (hex: string) => {
+		return `npub1${hex.slice(0, 8)}...${hex.slice(-8)}`;
+	};
+	return {
+		ndk: {
+			getUser: vi.fn(({ npub, pubkey }: { npub?: string; pubkey?: string }) => {
+				if (npub) {
+					return {
+						pubkey: getHexFromNpub(npub),
+						npub: npub
+					};
+				}
+				if (pubkey) {
+					return {
+						pubkey: pubkey,
+						npub: getNpubFromHex(pubkey)
+					};
+				}
+				return { pubkey: '', npub: '' };
+			})
+		}
+	};
+});
+
 // Mock IconAccount
 vi.mock('~icons/mdi/account', () => ({
 	default: () => 'svg'
@@ -471,7 +504,7 @@ describe('UserInfoDisplay', () => {
 
 			await waitFor(
 				() => {
-					expect(screen.getByText('4')).toBeInTheDocument();
+					expect(screen.getByText('4.0')).toBeInTheDocument();
 					expect(document.querySelectorAll('.text-yellow-400').length).toBe(4);
 				},
 				{ timeout: 5000 }

@@ -345,6 +345,11 @@ export class NDKPaymentContract extends NDKEvent {
 		this.tags.push(['currency', value]);
 	}
 
+	/**
+	 * Unix timestamp in **seconds** (Nostr convention matching `created_at`).
+	 * Consumers must multiply by 1000 before passing to `new Date()`.
+	 * Returns `undefined` when the tag is absent or contains a non-finite value.
+	 */
 	get estimatedStartTime(): number | undefined {
 		const raw = this.tagValue('estimatedStartTime');
 		if (raw === undefined) return undefined;
@@ -352,11 +357,20 @@ export class NDKPaymentContract extends NDKEvent {
 		return Number.isFinite(n) ? n : undefined;
 	}
 
+	/**
+	 * Set the estimated start time as a Unix timestamp in **seconds**.
+	 * The value is stored as-is (no conversion); pass seconds, not milliseconds.
+	 */
 	set estimatedStartTime(value: number) {
 		this.removeTag('estimatedStartTime');
 		this.tags.push(['estimatedStartTime', String(value)]);
 	}
 
+	/**
+	 * Unix timestamp in **seconds** (Nostr convention matching `created_at`).
+	 * Consumers must multiply by 1000 before passing to `new Date()`.
+	 * Returns `undefined` when the tag is absent or contains a non-finite value.
+	 */
 	get estimatedCompletionTime(): number | undefined {
 		const raw = this.tagValue('estimatedCompletionTime');
 		if (raw === undefined) return undefined;
@@ -364,6 +378,10 @@ export class NDKPaymentContract extends NDKEvent {
 		return Number.isFinite(n) ? n : undefined;
 	}
 
+	/**
+	 * Set the estimated completion time as a Unix timestamp in **seconds**.
+	 * The value is stored as-is (no conversion); pass seconds, not milliseconds.
+	 */
 	set estimatedCompletionTime(value: number) {
 		this.removeTag('estimatedCompletionTime');
 		this.tags.push(['estimatedCompletionTime', String(value)]);

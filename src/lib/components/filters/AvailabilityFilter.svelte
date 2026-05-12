@@ -8,7 +8,7 @@
 	import DateInput from '$lib/components/date/DateInput.svelte';
 
 	// Props with bindable date range and deadline
-	let { 
+	let {
 		start = $bindable<string | undefined>(),
 		end = $bindable<string | undefined>(),
 		deadlineDate = $bindable<string | undefined>(),
@@ -27,6 +27,7 @@
 	});
 	let deadline = $state<Date | null>(null);
 
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars -- used in template
 	let timePreferences = $state<string[]>([]);
 
 	// Track last prop values to prevent unnecessary updates
@@ -54,6 +55,14 @@
 		}
 	});
 
+	// Extract YYYY-MM-DD from local date components (avoids UTC timezone shift)
+	function toLocalDateString(date: Date): string {
+		const year = date.getFullYear();
+		const month = String(date.getMonth() + 1).padStart(2, '0');
+		const day = String(date.getDate()).padStart(2, '0');
+		return `${year}-${month}-${day}`;
+	}
+
 	// Clear availability filters
 	function clearAvailability() {
 		timePreferences = [];
@@ -65,21 +74,21 @@
 	// Handle date changes and update bound values
 	function handleStartDateChange(date: Date | null) {
 		dateRange.start = date;
-		const newValue = date ? date.toISOString().split('T')[0] : undefined;
+		const newValue = date ? toLocalDateString(date) : undefined;
 		start = newValue;
 		lastStart = newValue;
 	}
 
 	function handleEndDateChange(date: Date | null) {
 		dateRange.end = date;
-		const newValue = date ? date.toISOString().split('T')[0] : undefined;
+		const newValue = date ? toLocalDateString(date) : undefined;
 		end = newValue;
 		lastEnd = newValue;
 	}
 
 	function handleDeadlineChange(date: Date | null) {
 		deadline = date;
-		const newValue = date ? date.toISOString().split('T')[0] : undefined;
+		const newValue = date ? toLocalDateString(date) : undefined;
 		deadlineDate = newValue;
 		lastDeadlineDate = newValue;
 	}
@@ -89,11 +98,13 @@
 	<!-- Filter Type Selection -->
 	<div class="flex items-center justify-between gap-2">
 		<label class="label" for="filter-type">
-			<span class="label-text font-medium">{$t('dashboard.bids.components.filters.availability.filter_type')}</span>
+			<span class="label-text font-medium"
+				>{$t('dashboard.bids.components.filters.availability.filter_type')}</span
+			>
 		</label>
 		<div class="flex flex-wrap gap-2">
 			<button
-				class="btn btn-sm"	
+				class="btn btn-sm"
 				class:btn-primary={filterMode === 'date_range'}
 				onclick={() => {
 					filterMode = 'date_range';
@@ -117,7 +128,9 @@
 		<!-- Date Range -->
 		<div>
 			<label class="label" for="date-range">
-				<span class="label-text font-medium">{$t('dashboard.bids.components.filters.availability.date_range')}</span>
+				<span class="label-text font-medium"
+					>{$t('dashboard.bids.components.filters.availability.date_range')}</span
+				>
 			</label>
 			<div class="grid grid-cols-2 gap-2">
 				<DateInput

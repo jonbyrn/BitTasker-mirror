@@ -18,8 +18,8 @@ vi.mock('svelte-i18n', async () => {
 });
 
 describe('ReviewManagementTabs', () => {
-	it('renders scrollable, non-wrapping tabs for current users', () => {
-		const { container } = render(ReviewManagementTabs, {
+	it('renders grid-based tabs-bordered layout for current users', () => {
+		render(ReviewManagementTabs, {
 			props: {
 				activeTab: 'received',
 				receivedCount: 12,
@@ -30,16 +30,11 @@ describe('ReviewManagementTabs', () => {
 			}
 		});
 
-		const scrollContainer = container.querySelector('.overflow-x-auto');
-		expect(scrollContainer).not.toBeNull();
-
 		const tablist = screen.getByRole('tablist', { name: 'Review Management' });
-		expect(tablist).toHaveClass('inline-flex');
-		expect(tablist).toHaveClass('min-w-full');
+		expect(tablist).toHaveClass('grid');
+		expect(tablist).toHaveClass('grid-cols-3');
+		expect(tablist).toHaveClass('tabs-bordered');
 
-		const pendingTab = screen.getByRole('tab', { name: /Pending/ });
-		expect(pendingTab).toHaveClass('shrink-0');
-		expect(pendingTab).toHaveClass('whitespace-nowrap');
 		expect(screen.getByRole('tab', { name: /Received/ })).toHaveAttribute(
 			'aria-controls',
 			'dashboard-reviews-panel-received'

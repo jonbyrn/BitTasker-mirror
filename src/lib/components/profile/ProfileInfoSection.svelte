@@ -3,7 +3,6 @@
 	import { t, locale } from 'svelte-i18n';
 	import { formatTime12Hour } from '$lib/utils/helpers/dateFormatter';
 	import { onMount } from 'svelte';
-	import { getUserDisplayName } from '$lib/utils/helpers/userDisplayName';
 
 	// Helper function to get translated profile content
 	// Reactive to locale changes via $locale
@@ -601,82 +600,6 @@
 										{$t('profile_availability.minutes')}
 									</p>
 								</div>
-							</div>
-						{/if}
-					</div>
-				</div>
-			</div>
-		</div>
-
-		<!-- Reviews Section -->
-		<div class="card bg-base-200 mb-6 rounded-xl">
-			<div class="card-body px-4 py-2">
-				<div class="collapse-arrow collapse rounded-none bg-transparent p-0">
-					<input type="checkbox" />
-					<h3 class="collapse-title card-title p-0 text-lg">
-						{$t('profile.reviews')}
-						<span class="text-base-content/70 ml-2 text-base font-normal">
-							<span class="text-primary font-semibold"
-								>{$profileStore.stats.rating ? $profileStore.stats.rating.toFixed(1) : '0.0'}</span
-							>
-							({$profileStore.data?.reviews?.length || 0})
-						</span>
-					</h3>
-					<div class="collapse-content p-0">
-						{#if $profileStore.data.reviews && $profileStore.data.reviews.length > 0}
-							<div class="grid grid-cols-1 gap-6 md:grid-cols-2">
-								{#each $profileStore.data.reviews as review (review.id || review.date)}
-									<div class="card bg-base-200">
-										<div class="card-body p-4">
-											<div class="flex items-start justify-between">
-												<div class="flex items-center gap-2">
-													<div class="avatar placeholder">
-														<div class="bg-neutral text-neutral-content w-8 rounded-full">
-															{#if review.from?.name}
-																<span>{review.from.name.charAt(0)}</span>
-															{:else}
-																<span>?</span>
-															{/if}
-														</div>
-													</div>
-													<div>
-														<p class="font-medium">{getUserDisplayName(review.from, '')}</p>
-														<p class="text-base-content/70 text-xs">{formatDate(review.date)}</p>
-													</div>
-												</div>
-												<div class="rating rating-sm">
-													{#each Array(5) as _, i (i)}
-														<input
-															type="radio"
-															class="mask mask-star-2 bg-orange-400"
-															checked={i + 1 === review.rating}
-															disabled
-														/>
-													{/each}
-												</div>
-											</div>
-											<p class="mt-2">{review.text}</p>
-										</div>
-									</div>
-								{/each}
-							</div>
-						{:else}
-							<div class="card bg-base-200 rounded-lg p-6 text-center">
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									class="text-base-content/30 mx-auto h-12 w-12"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke="currentColor"
-								>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										stroke-width="2"
-										d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-									/>
-								</svg>
-								<p class="text-base-content/70 mt-4">{$t('profile.noReviews')}</p>
 							</div>
 						{/if}
 					</div>

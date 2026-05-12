@@ -88,7 +88,7 @@ describe('dashboard profile page', () => {
 		expect(mocks.ProfileStats).not.toHaveBeenCalled();
 		expect(mocks.ProfileInfoSection).not.toHaveBeenCalled();
 		expect(mocks.ProfileSidebar).not.toHaveBeenCalled();
-		expect(mocks.profileStoreInit).not.toHaveBeenCalled();
+		expect(mocks.profileStoreInit).toHaveBeenCalledTimes(1);
 	});
 
 	it('defaults to current-user reviews when only the reviews tab is requested', () => {
@@ -101,9 +101,9 @@ describe('dashboard profile page', () => {
 				isCurrentUser: true
 			})
 		);
-		expect(mocks.profileStoreInit).toHaveBeenCalledTimes(1);
+		expect(mocks.profileStoreInit).toHaveBeenCalledTimes(2);
 		expect(mocks.ProfileHeader).toHaveBeenCalledTimes(1);
-		expect(mocks.ProfileStats).toHaveBeenCalledTimes(1);
+		expect(mocks.ProfileStats).not.toHaveBeenCalled();
 		expect(mocks.ProfileInfoSection).not.toHaveBeenCalled();
 		expect(mocks.ProfileSidebar).not.toHaveBeenCalled();
 	});
