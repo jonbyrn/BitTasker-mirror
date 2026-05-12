@@ -7,8 +7,6 @@
 	import ProfileInfoSection from '$lib/components/profile/ProfileInfoSection.svelte';
 	import ProfileSidebar from '$lib/components/profile/ProfileSidebar.svelte';
 	import ProfileReviewsSection from '$lib/components/profile/ProfileReviewsSection.svelte';
-	import ProfileStats from '$lib/components/profile/ProfileStats.svelte';
-	import ProfileServicesSection from '$lib/components/profile/ProfileServicesSection.svelte';
 
 	// Format date (passed to children)
 	function formatDate(dateString: string) {
@@ -89,16 +87,6 @@
 		{:else}
 			<ProfileHeader />
 
-			<ProfileStats
-				stats={$profileStore.stats}
-				serviceCountState={$profileStore.servicesLoading
-					? 'loading'
-					: $profileStore.servicesError
-						? 'error'
-						: 'ready'}
-			/>
-			<ProfileServicesSection />
-
 			<!-- Profile Tabs -->
 			<div class="tabs tabs-boxed bg-base-200 mb-6">
 				<button
@@ -118,7 +106,7 @@
 			<!-- Tab Content -->
 			{#if activeTab === 'overview'}
 				<ProfileInfoSection {formatDate} />
-				<ProfileSidebar {formatDate} />
+				<ProfileSidebar />
 			{:else if activeTab === 'reviews'}
 				<ProfileReviewsSection isCurrentUser={true} />
 			{/if}
