@@ -262,8 +262,8 @@ describe('schedulePicker', () => {
 		it('should return a grid for a normal month (April 2026)', () => {
 			// April 1, 2026 is a Wednesday (getDay() = 3)
 			const cells = getMonthGridCells(2026, 3); // April = month 3
-			// 3 leading nulls, 30 days
-			expect(cells.length).toBe(35); // 3 + 30 = 33, rounded up to 35
+			// 3 leading nulls, 30 days, padded to 42 (6 rows × 7)
+			expect(cells.length).toBe(42);
 			expect(cells[0]).toBeNull();
 			expect(cells[1]).toBeNull();
 			expect(cells[2]).toBeNull();
@@ -277,16 +277,17 @@ describe('schedulePicker', () => {
 			// Feb 1, 2026 is a Sunday (getDay() = 0)
 			// Feb 2026 has 28 days, not a leap year
 			const cells = getMonthGridCells(2026, 1); // February = month 1
-			expect(cells.length).toBe(28); // 0 leading nulls + 28, 28 % 7 = 0
+			expect(cells.length).toBe(42); // padded to 6 rows
 			expect(cells[0]).toBe(1);
 			expect(cells[27]).toBe(28);
+			expect(cells[28]).toBeNull();
 		});
 
 		it('should handle a leap year February (2024)', () => {
 			// Feb 1, 2024 is a Thursday (getDay() = 4)
 			// Feb 2024 has 29 days (leap year)
 			const cells = getMonthGridCells(2024, 1);
-			expect(cells.length).toBe(35); // 4 + 29 = 33, rounded up to 35
+			expect(cells.length).toBe(42); // padded to 6 rows
 			expect(cells[0]).toBeNull();
 			expect(cells[1]).toBeNull();
 			expect(cells[2]).toBeNull();

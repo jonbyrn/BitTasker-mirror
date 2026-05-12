@@ -93,12 +93,42 @@
 		minStr = el.value.replace(/\D/g, '').slice(0, 2);
 	}
 
+	function adjustHour(delta: number) {
+		commitHourFromInput();
+		hour12 += delta;
+		if (hour12 > 12) hour12 = 1;
+		if (hour12 < 1) hour12 = 12;
+		hourStr = String(hour12).padStart(2, '0');
+	}
+
+	function adjustMinute(delta: number) {
+		commitMinFromInput();
+		// Snap to nearest 15-min boundary, then step by delta
+		const step = 15;
+		const snapped = Math.round(minute / step) * step;
+		minute = snapped + delta;
+		if (minute >= 60) {
+			minute -= 60;
+			adjustHour(1);
+		} else if (minute < 0) {
+			minute += 60;
+			adjustHour(-1);
+		}
+		minStr = String(minute).padStart(2, '0');
+	}
+
 	function onHourKeydown(e: KeyboardEvent) {
 		if (e.key === 'Enter') {
 			e.preventDefault();
 			commitHourFromInput();
 			minInputEl?.focus();
 			minInputEl?.select();
+		} else if (e.key === 'ArrowUp') {
+			e.preventDefault();
+			adjustHour(1);
+		} else if (e.key === 'ArrowDown') {
+			e.preventDefault();
+			adjustHour(-1);
 		}
 	}
 
@@ -107,7 +137,23 @@
 			e.preventDefault();
 			commitMinFromInput();
 			confirm();
+		} else if (e.key === 'ArrowUp') {
+			e.preventDefault();
+			adjustMinute(15);
+		} else if (e.key === 'ArrowDown') {
+			e.preventDefault();
+			adjustMinute(-15);
 		}
+	}
+
+	function onHourWheel(e: WheelEvent) {
+		e.preventDefault();
+		adjustHour(e.deltaY < 0 ? 1 : -1);
+	}
+
+	function onMinWheel(e: WheelEvent) {
+		e.preventDefault();
+		adjustMinute(e.deltaY < 0 ? 15 : -15);
 	}
 
 	/** Only sync when the modal opens — not when `value`/`baseDate` change while open (that was resetting typed hours). */
@@ -247,6 +293,7 @@
 						oninput={onHourInput}
 						onblur={commitHourFromInput}
 						onkeydown={onHourKeydown}
+						onwheel={onHourWheel}
 						onfocus={(e) => e.currentTarget.select()}
 					/>
 					<label
@@ -275,6 +322,7 @@
 						oninput={onMinInput}
 						onblur={commitMinFromInput}
 						onkeydown={onMinKeydown}
+						onwheel={onMinWheel}
 						onfocus={(e) => e.currentTarget.select()}
 					/>
 					<label

@@ -204,6 +204,22 @@
 		onClose();
 	}
 
+	function handleGoToToday() {
+		const today = new Date();
+		// Navigate to today's month if we're viewing a different month
+		if (today.getFullYear() !== viewYear || today.getMonth() !== viewMonth) {
+			viewYear = today.getFullYear();
+			viewMonth = today.getMonth();
+		}
+		// Create a Date at noon to match the calendar's convention
+		const noon = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 12, 0, 0, 0);
+		// Respect min/max constraints
+		if (minDate && noon < minDate) return;
+		if (maxDate && noon > maxDate) return;
+		onSelect(noon);
+		onClose();
+	}
+
 	function isSelectedDay(day: number): boolean {
 		if (!selectedDate) return false;
 		const cell = new Date(viewYear, viewMonth, day, 12, 0, 0, 0);
@@ -312,7 +328,10 @@
 										role="gridcell"
 										class="btn btn-sm aspect-square min-h-11 border-0 p-0 font-normal {selected
 											? 'btn-primary text-primary-content'
-											: ''} {disabled ? 'opacity-30' : 'hover:bg-base-200'}"
+											: ''} {disabled ? 'opacity-30' : 'hover:bg-base-200'} {isToday(cell) &&
+										!selected
+											? 'ring-primary/40 ring-2 ring-inset'
+											: ''}"
 										{disabled}
 										data-idx={wi * 7 + ci}
 										aria-selected={selected || undefined}
@@ -332,6 +351,9 @@
 				<button type="button" class="btn btn-sm min-h-11" onclick={handleClear}
 					>{$t('common.clear')}</button
 				>
+				<button type="button" class="btn btn-primary btn-sm min-h-11" onclick={handleGoToToday}>
+					{$t('common.components.schedule_picker.today')}
+				</button>
 			</div>
 		</div>
 		<button

@@ -415,7 +415,8 @@
 				"period_toggle_aria": "Elegir AM o PM",
 				"duration_minutes": "{minutes} min",
 				"duration_hours": "{hours} h",
-				"duration_hours_minutes": "{hours} h {minutes} min"
+				"duration_hours_minutes": "{hours} h {minutes} min",
+				"today": "Hoy"
 			},
 			"date_input": {
 				"and": "y",

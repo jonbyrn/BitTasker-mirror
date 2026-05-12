@@ -121,7 +121,8 @@ export function getMonthGridCells(year: number, month: number): (number | null)[
 	for (let d = 1; d <= lastDay; d++) {
 		cells.push(d);
 	}
-	while (cells.length % 7 !== 0) {
+	// Always pad to 42 cells (6 rows × 7) to prevent layout shift between months
+	while (cells.length < 42) {
 		cells.push(null);
 	}
 	return cells;
