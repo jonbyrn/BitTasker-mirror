@@ -25,18 +25,21 @@ vi.mock('$lib/utils/nostrKeys', () => ({
 	getNpub: mocks.getNpub
 }));
 
-vi.mock('$lib/utils/nostr-review', () => ({
+vi.mock('$lib/utils/reviews/queries', () => ({
 	getReviewsForUser: mocks.getReviewsForUser,
-	getReviewsByReviewer: mocks.getReviewsByReviewer,
-	verifyNostrReview: mocks.verifyNostrReview
+	getReviewsByReviewer: mocks.getReviewsByReviewer
 }));
 
-vi.mock('$lib/utils/review-aggregation', () => ({
+vi.mock('$lib/utils/reviews/aggregation', () => ({
 	calculateReviewStats: mocks.calculateReviewStats
 }));
 
-vi.mock('$lib/utils/helpers/review', () => ({
+vi.mock('$lib/utils/reviews/helpers', () => ({
 	findPendingReviews: mocks.findPendingReviews
+}));
+
+vi.mock('$lib/utils/nostr-profile', () => ({
+	fetchContractProfile: vi.fn().mockResolvedValue({ name: null })
 }));
 
 vi.mock('../ReviewSummaryCard.svelte', async () => {

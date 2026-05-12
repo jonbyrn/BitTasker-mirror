@@ -16,11 +16,11 @@ vi.mock('svelte-i18n', async () => ({
 	isLoading: readable(false)
 }));
 
-vi.mock('$lib/utils/nostr-review', () => ({
+vi.mock('$lib/utils/reviews/queries', () => ({
 	getReviewsForUser: mocks.getReviewsForUser
 }));
 
-vi.mock('$lib/utils/review-aggregation', () => ({
+vi.mock('$lib/utils/reviews/aggregation', () => ({
 	calculateReviewStats: mocks.calculateReviewStats
 }));
 

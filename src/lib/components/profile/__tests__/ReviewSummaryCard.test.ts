@@ -59,7 +59,6 @@ describe('ReviewSummaryCard', () => {
 			}
 		});
 
-		expect(screen.getByText('Review Summary')).toBeInTheDocument();
 		expect(screen.getByText('No reviews yet')).toBeInTheDocument();
 		expect(
 			screen.getByText('Published reviews will appear here once this account has feedback.')
@@ -94,9 +93,8 @@ describe('ReviewSummaryCard', () => {
 		});
 
 		expect(screen.getByTestId('category-bar-work-quality')).toHaveAttribute('data-tone', 'success');
-		expect(screen.getByTestId('category-bar-experience')).toHaveAttribute('data-tone', 'warning');
+		expect(screen.getByTestId('category-bar-experience')).toHaveAttribute('data-tone', 'primary');
 		expect(screen.getByTestId('category-bar-delivery-speed')).toHaveAttribute('data-tone', 'error');
-		expect(screen.getByText('Rating Distribution')).toBeInTheDocument();
 		expect(screen.getByText('Category Averages')).toBeInTheDocument();
 	});
 

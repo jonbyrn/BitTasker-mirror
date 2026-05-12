@@ -4,7 +4,8 @@ Use ContractActionsNDK.svelte instead which uses v2 escrow with PaymentContractR
 This file will be removed in a future release.
 -->
 <script lang="ts">
-/**
+	/* eslint-disable @typescript-eslint/no-unused-vars, no-undef -- deprecated v1 component */
+	/**
  * @deprecated This component uses v1 escrow patterns with ContractWithEvents.
 Use ContractActionsNDK.svelte instead which uses v2 escrow with PaymentContractRune.
 This file will be removed in a future release.
@@ -928,18 +929,21 @@ This file will be removed in a future release.
 	};
 	// Check if contract is completed/resolved
 	const isCompleted = $derived(
-		contract.contract.status === 'completed' || contract.contract.status === 'resolved'
+		contract?.status != null &&
+			(contract.status === EscrowStatus.Completed ||
+				contract.status === EscrowStatus.DisputeResolved ||
+				contract.status === EscrowStatus.FundsReleased)
 	);
 
 	// Check if all actions are disabled (contract is truly finished)
 	const hasNoAvailableActions = $derived(
 		!contract.canComplete &&
-		!contract.canAccept &&
-		!contract.canDispute &&
-		!contract.canPropose &&
-		!contract.canAcceptProposal &&
-		!contract.canCancel &&
-		!contract.canResolveTimelock
+			!contract.canAccept &&
+			!contract.canDispute &&
+			!contract.canPropose &&
+			!contract.canAcceptProposal &&
+			!contract.canCancel &&
+			!contract.canResolveTimelock
 	);
 
 	// Show review button only when contract is completed/resolved AND no actions are available
@@ -1400,6 +1404,7 @@ This file will be removed in a future release.
 		<button
 			class="btn btn-primary btn-sm {isInline ? 'w-full sm:w-fit' : 'w-full'}"
 			onclick={showReviewPrompt}
+			disabled={isOffline}
 		>
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
@@ -1544,7 +1549,7 @@ This file will be removed in a future release.
 <!-- Review Prompt Modal -->
 <ReviewPromptModal
 	isOpen={showReviewModal}
-	escrowId={contract.contract.escrowId}
+	escrowId={contract.escrowData?.id ?? ''}
 	escrowTxHash={reviewEscrowTxHash}
 	onClose={() => {
 		showReviewModal = false;

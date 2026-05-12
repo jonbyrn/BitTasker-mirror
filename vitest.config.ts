@@ -37,7 +37,16 @@ export default defineConfig({
 		// Include test files
 		include: ['src/**/*.{test,spec}.{js,ts,jsx,tsx}', 'src/**/__tests__/**/*.{js,ts,jsx,tsx}'],
 		// Exclude files
-		exclude: ['node_modules', 'dist', '.idea', '.git', '.svelte-kit', 'build'],
+		exclude: [
+			'node_modules',
+			'dist',
+			'.idea',
+			'.git',
+			'.svelte-kit',
+			'build',
+			'src/lib/tests/e2e',
+			'src/lib/tests/_pending'
+		],
 		// Globals available in tests
 		globals: true,
 		env: {

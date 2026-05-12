@@ -81,7 +81,9 @@ This file will be removed in a future release.
 	$effect(() => {
 		(async () => {
 			const isCompleted =
-				contract.contract.status === 'completed' || contract.contract.status === 'resolved';
+				contract.status === EscrowStatus.Completed ||
+				contract.status === EscrowStatus.DisputeResolved ||
+				contract.status === EscrowStatus.FundsReleased;
 			if (!isCompleted) {
 				reviewStatus = { userReviewed: false, otherPartyReviewed: false, isLoading: false };
 				return;
@@ -100,13 +102,13 @@ This file will be removed in a future release.
 
 				// Check if user has reviewed
 				const userReviewed = await hasUserReviewedContract(
-					contract.contract.escrowId,
-					contract.contract.escrowId,
+					contract.escrowData?.id ?? '',
+					contract.escrowData?.id ?? '',
 					currentUserPubkey
 				);
 
 				// Check if other party has reviewed
-				const reviews = await getReviewsForContract(contract.contract.escrowId);
+				const reviews = await getReviewsForContract(contract.escrowData?.id ?? '');
 				const otherPartyPubkeyHex = getOtherPartyPubkey(contract, currentUserPubkey);
 
 				// Convert other party's hex pubkey to npub for comparison with reviews
@@ -244,26 +246,26 @@ This file will be removed in a future release.
 								onclick?.();
 							}}
 						>
-							{contract.contract.taskTitle}
+							{contract.contractEvent?.content?.taskTitle ?? ''}
 						</button>
 					</small>
 					<div class="text-base-content/60 mt-1 line-clamp-2">
-						{contract.contract.taskDescription}
+						{contract.contractEvent?.content?.taskDescription ?? ''}
 					</div>
 				</div>
 
 				<!-- Badges in top right corner -->
 				<div class="ml-4 flex shrink-0 flex-col items-end gap-2">
 					<div class="flex flex-wrap items-center justify-end gap-2">
-						<div class="badge {getStatusColorClass(contract.contract.status)} badge-sm">
-							{$t(`dashboard.contracts.status.${contract.contract.status}`)}
+						<div class="badge {getStatusColorClass(contract.status)} badge-sm">
+							{$t(getStatusTranslationKey(contract.status))}
 						</div>
 						<div class="badge {getRoleBadgeClass(contract.isClient)} badge-sm">
 							{contract.isClient ? $t('dashboard.client') : $t('dashboard.freelancer')}
 						</div>
 
 						<!-- Review Status Badges -->
-						{#if (contract.contract.status === 'completed' || contract.contract.status === 'resolved') && !reviewStatus.isLoading}
+						{#if (contract.status === EscrowStatus.Completed || contract.status === EscrowStatus.DisputeResolved || contract.status === EscrowStatus.FundsReleased) && !reviewStatus.isLoading}
 							{#if reviewStatus.userReviewed}
 								<div class="badge badge-success badge-sm gap-1" title={$t('reviews.you_reviewed')}>
 									<svg
@@ -335,7 +337,10 @@ This file will be removed in a future release.
 					<!-- Price with stacked design -->
 					<div class="text-right">
 						{#if btcPrice > 0}
-							{@const priceData = formatPriceStacked(contract.contract.amount, btcPrice)}
+							{@const priceData = formatPriceStacked(
+								contract.contractEvent?.content?.amount ?? '0',
+								btcPrice
+							)}
 							<div class="text-base-content text-lg font-bold">
 								{priceData.usd}
 							</div>
@@ -344,7 +349,7 @@ This file will be removed in a future release.
 							</div>
 						{:else}
 							<div class="text-base-content text-lg font-bold">
-								{formatRBTC(contract.contract.amount)} RBTC
+								{formatRBTC(contract.contractEvent?.content?.amount ?? '0')} RBTC
 							</div>
 						{/if}
 					</div>
@@ -528,9 +533,9 @@ This file will be removed in a future release.
 	{#if isReviewModalOpen && revieweePubkey}
 		<ReviewPromptModal
 			isOpen={isReviewModalOpen}
-			escrowId={contract.contract.escrowId}
+			escrowId={contract.escrowData?.id ?? ''}
 			{revieweePubkey}
-			escrowTxHash={contract.contract.transactionHash}
+			escrowTxHash={contract.contractEvent?.content?.transactionHash ?? ''}
 			onClose={() => {
 				isReviewModalOpen = false;
 			}}
