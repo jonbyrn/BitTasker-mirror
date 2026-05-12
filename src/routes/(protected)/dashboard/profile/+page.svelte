@@ -98,9 +98,7 @@
 			<ProfileHeader />
 
 			<!-- Profile Tabs -->
-			<div class="mb-6">
-				<Tabs tabs={profileTabs} {activeTab} onTabChange={handleProfileTabChange} evenSplit />
-			</div>
+			<Tabs tabs={profileTabs} {activeTab} onTabChange={handleProfileTabChange} />
 
 			<!-- Tab Content -->
 			{#if activeTab === 'overview'}
