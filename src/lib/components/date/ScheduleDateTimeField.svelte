@@ -178,10 +178,10 @@
 			aria-expanded={calendarOpen}
 			aria-label={$t(effectiveDateLabelKey) + ': ' + (dateDisplay || $t(datePlaceholderKey))}
 		>
-			<span class="text-base-content shrink-0" aria-hidden="true">
+			<span class="text-base-content flex shrink-0 items-center" aria-hidden="true">
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
-					class="h-5 w-5"
+					class="block h-5 w-5"
 					fill="none"
 					viewBox="0 0 24 24"
 					stroke="currentColor"
@@ -194,7 +194,7 @@
 					/>
 				</svg>
 			</span>
-			<span class="text-base-content min-w-0 flex-1 truncate text-sm leading-tight font-semibold">
+			<span class="text-base-content min-w-0 flex-1 self-center truncate text-sm font-semibold">
 				{dateDisplay || $t(datePlaceholderKey)}
 			</span>
 		</button>
@@ -209,10 +209,10 @@
 			aria-expanded={timeOpen}
 			aria-label={$t(effectiveTimeLabelKey) + ': ' + (value ? timeDisplay : $t(timePlaceholderKey))}
 		>
-			<span class="text-base-content shrink-0" aria-hidden="true">
+			<span class="text-base-content flex shrink-0 items-center" aria-hidden="true">
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
-					class="h-5 w-5"
+					class="block h-5 w-5"
 					fill="none"
 					viewBox="0 0 24 24"
 					stroke="currentColor"
@@ -238,12 +238,12 @@
 								class="text-base-content max-w-[min(100%,8rem)] truncate text-sm leading-tight font-semibold tabular-nums"
 								>{timeDisplayParts.main}</span
 							>
-							<span class="text-base-content/75 shrink-0 text-[0.7rem] leading-none font-medium"
+							<span class="text-base-content/75 shrink-0 text-[0.7rem] font-medium"
 								>{timeDisplayParts.suffix}</span
 							>
 						</span>
 					{:else}
-						<span class="text-base-content max-w-full truncate text-sm leading-tight font-semibold">
+						<span class="text-base-content max-w-full truncate text-sm font-semibold">
 							{value ? timeDisplay : $t(timePlaceholderKey)}
 						</span>
 					{/if}

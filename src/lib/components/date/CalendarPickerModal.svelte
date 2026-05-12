@@ -211,11 +211,11 @@
 			viewYear = today.getFullYear();
 			viewMonth = today.getMonth();
 		}
-		// Create a Date at noon to match the calendar's convention
 		const noon = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 12, 0, 0, 0);
-		// Respect min/max constraints
-		if (minDate && noon < minDate) return;
+		// Only block if today is entirely past maxDate
 		if (maxDate && noon > maxDate) return;
+		// If noon is before minDate, let the parent's onSelect handler
+		// (defaultDateTimeOnCalendarDay) clamp it forward
 		onSelect(noon);
 		onClose();
 	}
@@ -313,7 +313,10 @@
 						<div role="row" class="grid grid-cols-7 gap-1 {wi === 0 ? 'mt-2' : 'mt-1'}">
 							{#each week as cell, ci (wi * 7 + ci)}
 								{#if cell === null}
-									<div role="gridcell" class="aspect-square"></div>
+									<span
+										role="gridcell"
+										class="inline-flex aspect-square min-h-11 items-center justify-center"
+									></span>
 								{:else}
 									{@const disabled = isCalendarDayDisabled(
 										cell,

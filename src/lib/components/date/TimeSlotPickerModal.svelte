@@ -107,13 +107,9 @@
 		const step = 15;
 		const snapped = Math.round(minute / step) * step;
 		minute = snapped + delta;
-		if (minute >= 60) {
-			minute -= 60;
-			adjustHour(1);
-		} else if (minute < 0) {
-			minute += 60;
-			adjustHour(-1);
-		}
+		// Wrap within 0–59 independently (no hour carry-over)
+		if (minute >= 60) minute -= 60;
+		else if (minute < 0) minute += 60;
 		minStr = String(minute).padStart(2, '0');
 	}
 
@@ -230,7 +226,7 @@
 	}
 
 	const inputClass =
-		'input border-2 font-mono text-4xl font-bold tabular-nums transition-[box-shadow,background-color,border-color] ' +
+		'input border-2 font-mono text-4xl leading-none font-bold tabular-nums transition-[box-shadow,background-color,border-color] ' +
 		'min-h-17 w-[5.25rem] rounded-2xl border-base-300 bg-base-200/90 px-2 text-center text-base-content ' +
 		'focus:border-primary focus:bg-primary/10 focus:outline-none focus:ring-2 focus:ring-primary/25';
 </script>

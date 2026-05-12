@@ -286,7 +286,7 @@
 			</div>
 
 			<!-- inputs -->
-			<div class="flex items-center justify-center gap-x-2 gap-y-3 px-4 py-6">
+			<div class="flex items-center justify-center gap-x-2 gap-y-3 px-4 pt-4 pb-2">
 				<!-- Days -->
 				<div class="flex flex-col items-center gap-1.5">
 					<input
@@ -310,7 +310,10 @@
 				</div>
 
 				<!-- separator -->
-				<span class="text-base-content/60 text-4xl font-bold" aria-hidden="true">:</span>
+				<span
+					class="text-base-content/60 mt-4 self-start text-3xl leading-none font-light"
+					aria-hidden="true">:</span
+				>
 
 				<!-- Hours -->
 				<div class="flex flex-col items-center gap-1.5">
@@ -335,7 +338,10 @@
 				</div>
 
 				<!-- separator -->
-				<span class="text-base-content/60 text-4xl font-bold" aria-hidden="true">:</span>
+				<span
+					class="text-base-content/60 mt-4 self-start text-3xl leading-none font-light"
+					aria-hidden="true">:</span
+				>
 
 				<!-- Minutes -->
 				<div class="flex flex-col items-center gap-1.5">
@@ -361,7 +367,7 @@
 			</div>
 
 			<!-- computed end -->
-			<div class="bg-base-200/50 mx-4 my-4 rounded-xl px-4 py-4 text-center">
+			<div class="bg-base-200/50 mx-4 mt-2 mb-4 rounded-xl px-4 py-3 text-center">
 				<span class="text-base-content/60 text-xs font-medium">
 					{$t('common.components.duration_picker.completes_by')}
 				</span>
