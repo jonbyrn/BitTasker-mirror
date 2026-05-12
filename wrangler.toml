@@ -55,16 +55,8 @@ run_worker_first = [
 # ============================================
 # KV NAMESPACES (Cloudflare Stream)
 # ============================================
-# Create via: wrangler kv:namespace create <name> [--env <env>]
-# Then copy the returned ID below.
-#
-# [[kv_namespaces]]
-# binding = "VIDEO_STATUS"
-# id = "<created-by-wrangler>"
-#
-# [[kv_namespaces]]
-# binding = "VIDEO_AUTH"
-# id = "<created-by-wrangler>"
+# Non-inheritable — defined per-environment below.
+# Created via: wrangler kv namespace create VIDEO_STATUS / VIDEO_AUTH
 
 # ============================================
 # DEV Environment (default)
@@ -85,6 +77,17 @@ head_sampling_rate = 1.0
 # Cloudflare Stream binding — direct upload URLs + signed token generation
 [env.dev.stream]
 binding = "STREAM"
+
+[[env.dev.kv_namespaces]]
+binding = "VIDEO_STATUS"
+id = "096ca6be2d3b4b7db628f57fdba1dd21"
+
+[[env.dev.kv_namespaces]]
+binding = "VIDEO_AUTH"
+id = "e3ebf37679584874a2a673bcb002e8f1"
+
+[env.dev.triggers]
+crons = ["0 3 * * 0"]  # Sunday 3am UTC — abandoned upload cleanup
 
 [env.dev.vars]
 VITE_CLIENT_URL = "https://worker.dev.bittasker.com/"
@@ -112,6 +115,17 @@ head_sampling_rate = 1.0
 [env.staging.stream]
 binding = "STREAM"
 
+[[env.staging.kv_namespaces]]
+binding = "VIDEO_STATUS"
+id = "99d0e4378f0c4d64bf5a383e5102ff14"
+
+[[env.staging.kv_namespaces]]
+binding = "VIDEO_AUTH"
+id = "e443cc6599f6437c80e54034fb13cbb8"
+
+[env.staging.triggers]
+crons = ["0 3 * * 0"]
+
 [env.staging.vars]
 VITE_CLIENT_URL = "https://staging.bittasker.com/"
 VITE_NOSTR_RELAY_URL = "wss://relay1.bittasker.com"
@@ -137,6 +151,17 @@ head_sampling_rate = 0.1
 
 [env.production.stream]
 binding = "STREAM"
+
+[[env.production.kv_namespaces]]
+binding = "VIDEO_STATUS"
+id = "dbff03c996c6427bbc34b9d7b3795170"
+
+[[env.production.kv_namespaces]]
+binding = "VIDEO_AUTH"
+id = "5c05d20983c54e1d89269e838122dc4f"
+
+[env.production.triggers]
+crons = ["0 3 * * 0"]
 
 [env.production.vars]
 VITE_CLIENT_URL = "https://worker.prod.bittasker.com/"
