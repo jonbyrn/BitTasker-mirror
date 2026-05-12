@@ -66,19 +66,16 @@
 	}
 </script>
 
-<div class="overflow-x-auto pb-1">
+{#if isCurrentUser}
 	<div
-		class="tabs tabs-boxed bg-base-200 inline-flex min-w-full flex-nowrap gap-1 p-1"
+		class="tabs tabs-bordered mb-4 grid w-full grid-cols-3"
 		role="tablist"
 		aria-label={$t('reviews.management.title')}
-		aria-orientation="horizontal"
 	>
 		<button
 			id={`${idPrefix}-tab-received`}
 			type="button"
-			class={`tab h-auto shrink-0 px-3 py-2 whitespace-nowrap ${
-				activeTab === 'received' ? 'tab-active' : ''
-			}`}
+			class={`tab text-center ${activeTab === 'received' ? 'tab-active' : ''}`}
 			role="tab"
 			aria-selected={activeTab === 'received'}
 			aria-controls={`${idPrefix}-panel-received`}
@@ -86,50 +83,53 @@
 			onclick={() => handleTabClick('received')}
 			onkeydown={(event) => handleTabKeydown(event, 'received')}
 		>
-			<span>{$t('reviews.tabs.received')}</span>
-			{#if receivedCount > 0}
-				<span class="badge badge-primary badge-sm ml-2 shrink-0">{receivedCount}</span>
-			{/if}
+			{$t('reviews.tabs.received')} ({receivedCount})
 		</button>
-
-		{#if isCurrentUser}
-			<button
-				id={`${idPrefix}-tab-given`}
-				type="button"
-				class={`tab h-auto shrink-0 px-3 py-2 whitespace-nowrap ${
-					activeTab === 'given' ? 'tab-active' : ''
-				}`}
-				role="tab"
-				aria-selected={activeTab === 'given'}
-				aria-controls={`${idPrefix}-panel-given`}
-				tabindex={activeTab === 'given' ? 0 : -1}
-				onclick={() => handleTabClick('given')}
-				onkeydown={(event) => handleTabKeydown(event, 'given')}
-			>
-				<span>{$t('reviews.tabs.given')}</span>
-				{#if givenCount > 0}
-					<span class="badge badge-primary badge-sm ml-2 shrink-0">{givenCount}</span>
-				{/if}
-			</button>
-
-			<button
-				id={`${idPrefix}-tab-pending`}
-				type="button"
-				class={`tab h-auto shrink-0 px-3 py-2 whitespace-nowrap ${
-					activeTab === 'pending' ? 'tab-active' : ''
-				}`}
-				role="tab"
-				aria-selected={activeTab === 'pending'}
-				aria-controls={`${idPrefix}-panel-pending`}
-				tabindex={activeTab === 'pending' ? 0 : -1}
-				onclick={() => handleTabClick('pending')}
-				onkeydown={(event) => handleTabKeydown(event, 'pending')}
-			>
-				<span>{$t('reviews.tabs.pending')}</span>
-				{#if pendingCount > 0}
-					<span class="badge badge-sm badge-primary ml-2 shrink-0">{pendingCount}</span>
-				{/if}
-			</button>
-		{/if}
+		<button
+			id={`${idPrefix}-tab-given`}
+			type="button"
+			class={`tab text-center ${activeTab === 'given' ? 'tab-active' : ''}`}
+			role="tab"
+			aria-selected={activeTab === 'given'}
+			aria-controls={`${idPrefix}-panel-given`}
+			tabindex={activeTab === 'given' ? 0 : -1}
+			onclick={() => handleTabClick('given')}
+			onkeydown={(event) => handleTabKeydown(event, 'given')}
+		>
+			{$t('reviews.tabs.given')} ({givenCount})
+		</button>
+		<button
+			id={`${idPrefix}-tab-pending`}
+			type="button"
+			class={`tab text-center ${activeTab === 'pending' ? 'tab-active' : ''}`}
+			role="tab"
+			aria-selected={activeTab === 'pending'}
+			aria-controls={`${idPrefix}-panel-pending`}
+			tabindex={activeTab === 'pending' ? 0 : -1}
+			onclick={() => handleTabClick('pending')}
+			onkeydown={(event) => handleTabKeydown(event, 'pending')}
+		>
+			{$t('reviews.tabs.pending')} ({pendingCount})
+		</button>
 	</div>
-</div>
+{:else}
+	<div
+		class="tabs tabs-bordered mb-4 w-full"
+		role="tablist"
+		aria-label={$t('reviews.management.title')}
+	>
+		<button
+			id={`${idPrefix}-tab-received`}
+			type="button"
+			class={`tab text-center ${activeTab === 'received' ? 'tab-active' : ''}`}
+			role="tab"
+			aria-selected={activeTab === 'received'}
+			aria-controls={`${idPrefix}-panel-received`}
+			tabindex={activeTab === 'received' ? 0 : -1}
+			onclick={() => handleTabClick('received')}
+			onkeydown={(event) => handleTabKeydown(event, 'received')}
+		>
+			{$t('reviews.tabs.received')} ({receivedCount})
+		</button>
+	</div>
+{/if}

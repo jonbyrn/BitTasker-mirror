@@ -68,37 +68,15 @@
 
 	function formatDate(timestamp: number): string {
 		try {
-			const diffMs = timestamp - Date.now();
-			const absSeconds = Math.abs(diffMs) / 1000;
-			const formatter = new Intl.RelativeTimeFormat($locale || undefined, {
-				numeric: 'auto'
-			});
-
-			if (absSeconds < 60) {
-				return formatter.format(Math.round(diffMs / 1000), 'second');
-			}
-
-			const absMinutes = absSeconds / 60;
-			if (absMinutes < 60) {
-				return formatter.format(Math.round(diffMs / (60 * 1000)), 'minute');
-			}
-
-			const absHours = absMinutes / 60;
-			if (absHours < 24) {
-				return formatter.format(Math.round(diffMs / (60 * 60 * 1000)), 'hour');
-			}
-
-			const absDays = absHours / 24;
-			if (absDays < 30) {
-				return formatter.format(Math.round(diffMs / (24 * 60 * 60 * 1000)), 'day');
-			}
-
-			const absMonths = absDays / 30;
-			if (absMonths < 12) {
-				return formatter.format(Math.round(diffMs / (30 * 24 * 60 * 60 * 1000)), 'month');
-			}
-
-			return formatter.format(Math.round(diffMs / (365 * 24 * 60 * 60 * 1000)), 'year');
+			const date = new Date(timestamp > 1e12 ? timestamp : timestamp * 1000);
+			return new Intl.DateTimeFormat($locale || 'en', {
+				month: 'short',
+				day: 'numeric',
+				year: 'numeric',
+				hour: 'numeric',
+				minute: '2-digit',
+				hour12: true
+			}).format(date);
 		} catch {
 			return '';
 		}
@@ -131,22 +109,24 @@
 		<div class="mb-2 flex items-start justify-between">
 			<div class="flex-1">
 				<div class="mb-1 flex items-center gap-2">
-					{#if showVerificationBadge}
-						{#if isVerifying}
-							<span class="loading loading-spinner loading-xs" aria-hidden="true"></span>
-							<span class="sr-only">Verifying review</span>
-						{:else if isVerified}
-							<div class="badge badge-success badge-sm gap-1">
-								<IconCheckCircle class="h-3 w-3" />
-								{$t('reviews.verified')}
-							</div>
-						{:else}
-							<div class="badge badge-error badge-sm">
-								{$t('reviews.unverified')}
-							</div>
-						{/if}
-					{/if}
 					<span class="text-base-content/70 text-sm">{formatDate(review.createdAt)}</span>
+					{#if showVerificationBadge}
+						<div class="mt-1">
+							{#if isVerifying}
+								<span class="loading loading-spinner loading-xs" aria-hidden="true"></span>
+								<span class="sr-only">Verifying review</span>
+							{:else if isVerified}
+								<div class="badge badge-success badge-sm gap-1">
+									<IconCheckCircle class="h-3 w-3" />
+									{$t('reviews.verified')}
+								</div>
+							{:else}
+								<div class="badge badge-error badge-sm">
+									{$t('reviews.unverified')}
+								</div>
+							{/if}
+						</div>
+					{/if}
 				</div>
 			</div>
 
