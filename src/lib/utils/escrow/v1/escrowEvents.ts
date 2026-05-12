@@ -186,7 +186,11 @@ function persistPendingContractToStorage(
 		localStorage.setItem(PENDING_CONTRACTS_STORAGE_KEY, JSON.stringify(existingData));
 	} catch (error) {
 		// Defensive: log error but don't throw - persistence failure shouldn't break the happy path
-		d.warn('persistPendingContractToStorage: failed to persist pending contract', { txHash: txHash.slice(0, 10) }, error);
+		d.warn(
+			'persistPendingContractToStorage: failed to persist pending contract',
+			{ txHash: txHash.slice(0, 10) },
+			error
+		);
 	}
 }
 
@@ -204,7 +208,11 @@ function removePendingContractFromStorage(txHash: string): void {
 			localStorage.setItem(PENDING_CONTRACTS_STORAGE_KEY, JSON.stringify(existingData));
 		}
 	} catch (error) {
-		d.warn('removePendingContractFromStorage: failed to remove pending contract', { txHash: txHash.slice(0, 10) }, error);
+		d.warn(
+			'removePendingContractFromStorage: failed to remove pending contract',
+			{ txHash: txHash.slice(0, 10) },
+			error
+		);
 	}
 }
 
@@ -242,7 +250,9 @@ export function recoverPendingContractsFromStorage(): void {
 			const contract = storedContracts[txHash];
 			if (contract && typeof contract === 'object') {
 				pendingContractsByTxHash.set(txHash, contract);
-				d.log('recoverPendingContractsFromStorage: recovered contract', { txHash: txHash.slice(0, 10) });
+				d.log('recoverPendingContractsFromStorage: recovered contract', {
+					txHash: txHash.slice(0, 10)
+				});
 			}
 		}
 
@@ -1012,7 +1022,6 @@ export async function handleEscrowCreated(event: EscrowCreatedEvent): Promise<vo
 				}
 			}
 
-			// Success toast is shown in BidAcceptanceForm.svelte success screen
 			// No need to show duplicate toast here to avoid double notifications
 
 			// Reload the newly created contract from Nostr to populate the store.
@@ -1040,9 +1049,7 @@ export async function handleEscrowCreated(event: EscrowCreatedEvent): Promise<vo
 				transactionHashes: getTransactionHashCandidates(event)
 			});
 
-			// Note: Task acceptance message (locations/congratulations) is now sent from BidAcceptanceForm.svelte
-			// after successful acceptBidAndCreateEscrow, not from here. This keeps the flow cleaner and avoids
-			// redundant task fetching since we already have task data in the form.
+			// after successful acceptBidAndCreateEscrow, not from here. This keeps the flow cleaner and avoids redundant task fetching since we already have task data in the form.
 
 			d.log('handleEscrowCreated: completed', {
 				escrowId: event.escrowId,

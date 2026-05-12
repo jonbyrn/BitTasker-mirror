@@ -118,7 +118,7 @@ export function getTaskIdsNeedingCompletionSync(
 /**
  * Self-heal: for each contract whose state implies a task status, update the Nostr task
  * if it's behind (OPEN when should be IN_PROGRESS, or not COMPLETED when should be COMPLETED).
- * Call when loading contracts (e.g. DashboardContractsPanel).
+ * Call when loading contracts.
  *
  * IMPORTANT: Only pass contracts where the current user is the Tasker (client). The task
  * event is owned by the Tasker; only they can call updateTask. Passing Taskee contracts

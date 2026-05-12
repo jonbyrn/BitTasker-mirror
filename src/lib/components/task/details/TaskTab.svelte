@@ -294,7 +294,7 @@
 </script>
 
 <div class="min-w-0 space-y-6 overflow-x-hidden">
-	<!-- Task Info Card - adapted from ContractDrawer layout -->
+	<!-- Task Info Card -->
 	<div class="card bg-base-200 min-w-0 overflow-hidden">
 		<div class="card-body min-w-0 p-4">
 			<!-- Row: Task title (left) and Share button (right), vertically centered -->

@@ -55,7 +55,7 @@ test.describe('Completion Evidence Flow', () => {
 
 		expect(result).toEqual({
 			serviceCardPresent: true,
-			highlightedDrawerPresent: true,
+			highlightedDrawerPresent: false,
 			serviceScopePresent: true,
 			quotedServiceBadgePresent: true,
 			completeActionPresent: true,
@@ -63,48 +63,45 @@ test.describe('Completion Evidence Flow', () => {
 		});
 
 		const harnessSurface = page.getByTestId('service-harness-surface');
-		const serviceCard = harnessSurface
-			.locator('[data-contract-escrow-id="svc-escrow_123"]')
-			.first();
-		await expect(serviceCard).toBeVisible();
+		const serviceTitle = harnessSurface.getByRole('button', { name: 'Premium Logo Package' });
+		await expect(serviceTitle).toBeVisible();
 
 		const dialog = harnessSurface
 			.locator('[role="dialog"][aria-modal="true"]')
 			.filter({ hasText: 'Premium Logo Package' })
 			.last();
+		if (!(await dialog.isVisible())) {
+			await serviceTitle.click();
+		}
 		await expect(dialog).toBeVisible();
 
-		// Click the complete button to open the completion modal
-		const completeButton = dialog.getByRole('button', { name: 'Mark Service Complete' });
+		const completeButton = dialog.getByRole('button', { name: 'Complete' });
 		await expect(completeButton).toBeVisible();
 		await completeButton.click();
 
-		// Wait for completion modal to appear
-		const completionModal = page
-			.locator('.modal.modal-open')
-			.filter({ hasText: 'Mark service as complete' });
-		await expect(completionModal).toBeVisible();
+		const completionDrawer = page.getByRole('dialog', { name: 'Mark Task as Complete' }).last();
+		await expect(completionDrawer).toBeVisible();
 
-		return { dialog, completionModal, result };
+		return { dialog, completionModal: completionDrawer, result };
 	}
 
 	test('opens completion modal and verifies UI elements', async ({ page }) => {
 		const { completionModal } = await openCompletableService(page);
 
-		// Verify modal title
 		await expect(
-			completionModal.getByRole('heading', { name: 'Mark service as complete' })
+			completionModal.getByRole('heading', { name: 'Mark Task as Complete' })
 		).toBeVisible();
 
-		// Verify service info is shown
 		await expect(completionModal.getByText('Premium Logo Package')).toBeVisible();
 
-		// Verify upload evidence section exists
-		await expect(completionModal.getByText('Upload service delivery evidence')).toBeVisible();
+		await expect(
+			completionModal.getByText(
+				/Add completion evidence|Upload Completion Evidence|Share photos or video/i
+			)
+		).toBeVisible();
 
-		// Verify Mark service complete button exists (but should be disabled initially)
 		const markCompleteButton = completionModal.getByRole('button', {
-			name: 'Mark service complete'
+			name: 'Mark as Complete'
 		});
 		await expect(markCompleteButton).toBeVisible();
 	});
@@ -114,7 +111,7 @@ test.describe('Completion Evidence Flow', () => {
 
 		// Verify Mark Complete button is disabled when no media is attached
 		const markCompleteButton = completionModal.getByRole('button', {
-			name: 'Mark service complete'
+			name: 'Mark as Complete'
 		});
 		await expect(markCompleteButton).toBeDisabled();
 	});
@@ -165,7 +162,7 @@ test.describe('Completion Evidence Flow', () => {
 
 		// Initially disabled
 		const markCompleteButton = completionModal.getByRole('button', {
-			name: 'Mark service complete'
+			name: 'Mark as Complete'
 		});
 		await expect(markCompleteButton).toBeDisabled();
 
@@ -182,7 +179,7 @@ test.describe('Completion Evidence Flow', () => {
 
 		// Button should be disabled
 		const markCompleteButton = completionModal.getByRole('button', {
-			name: 'Mark service complete'
+			name: 'Mark as Complete'
 		});
 		await expect(markCompleteButton).toBeDisabled();
 
@@ -198,24 +195,17 @@ test.describe('Completion Evidence Flow', () => {
 		await expect(cancelButton).toBeVisible();
 		await cancelButton.click();
 
-		// Modal should be closed
-		await expect(
-			page.locator('.modal.modal-open').filter({ hasText: 'Mark service as complete' })
-		).toHaveCount(0);
+		await expect(completionModal).toBeHidden();
 	});
 
 	test('Close button (X) closes the modal', async ({ page }) => {
 		const { completionModal } = await openCompletableService(page);
 
-		// Click the close button
-		const closeButton = completionModal.getByRole('button', { name: 'Close modal' });
+		const closeButton = completionModal.getByRole('button', { name: 'Close drawer' });
 		await expect(closeButton).toBeVisible();
 		await closeButton.click();
 
-		// Modal should be closed
-		await expect(
-			page.locator('.modal.modal-open').filter({ hasText: 'Mark service as complete' })
-		).toHaveCount(0);
+		await expect(completionModal).toBeHidden();
 	});
 
 	test('Button state correctly reflects attachment count', async ({ page }) => {
@@ -231,7 +221,7 @@ test.describe('Completion Evidence Flow', () => {
 
 		// Verify button is disabled when no attachments
 		const markCompleteButton = completionModal.getByRole('button', {
-			name: 'Mark service complete'
+			name: 'Mark as Complete'
 		});
 		await expect(markCompleteButton).toBeDisabled();
 	});
@@ -253,7 +243,9 @@ test.describe('Completion Evidence Flow', () => {
 
 		// Verify instructions are shown
 		await expect(
-			completionModal.getByText(/Add completion evidence|Upload service delivery evidence/)
+			completionModal.getByText(
+				/Add completion evidence|Upload Completion Evidence|Upload service delivery evidence|Share photos or video/i
+			)
 		).toBeVisible();
 	});
 

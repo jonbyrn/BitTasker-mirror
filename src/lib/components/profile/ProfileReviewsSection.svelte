@@ -5,11 +5,11 @@
 	import { calculateReviewStats } from '$lib/utils/reviews/aggregation';
 	import { findPendingReviews, type PendingReview } from '$lib/utils/reviews/helpers';
 	import type { NostrVerifiedReview, ReviewStats } from '$lib/types/review';
-	import ReviewSummaryCard from './ReviewSummaryCard.svelte';
-	import ReviewManagementTabs from '../reviews/ReviewManagementTabs.svelte';
-	import ReviewList from '../reviews/ReviewList.svelte';
-	import VerifiedReviewCard from '../reviews/VerifiedReviewCard.svelte';
-	import PendingReviewsList from '../reviews/PendingReviewsList.svelte';
+	import ReviewSummaryCard from '$lib/components/profile/ReviewSummaryCard.svelte';
+	import ReviewManagementTabs from '$lib/components/reviews/ReviewManagementTabs.svelte';
+	import ReviewList from '$lib/components/reviews/ReviewList.svelte';
+	import VerifiedReviewCard from '$lib/components/reviews/VerifiedReviewCard.svelte';
+	import PendingReviewsList from '$lib/components/reviews/PendingReviewsList.svelte';
 
 	const ALL_REVIEWS_LIMIT = Number.MAX_SAFE_INTEGER;
 

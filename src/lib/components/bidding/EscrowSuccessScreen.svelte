@@ -28,7 +28,6 @@
 	let showDetails = $state(false);
 
 	// Mock gamification data
-	let userTier = $state('Bitcoin Beginner');
 	let tasksToNextTier = $state(5);
 	let nextTier = $state('Satoshi Stacker');
 	let nextTierDate = $state('2024-03-15');
@@ -39,12 +38,12 @@
 	);
 	let blockExplorerUrl = $derived(`https://blockstream.info/tx/${transactionHash}`);
 
-	// Calculate pricing breakdown (same as BidAcceptanceForm)
+	// Calculate pricing breakdown
 	let bidAmountUsd = $derived((props.bid.amount / 100000000) * props.btcPrice);
 	let platformFeeUsd = $derived(bidAmountUsd * 0.03); // 3% platform fee
 	let transactionFeeUsd = $derived(bidAmountUsd * 0.005); // 0.5% transaction fee
 	let totalFiatPrice = $derived(bidAmountUsd + platformFeeUsd + transactionFeeUsd);
-	
+
 	// Convert USD amounts back to sats for display
 	let platformFeeSats = $derived(Math.round((platformFeeUsd / props.btcPrice) * 100000000));
 	let transactionFeeSats = $derived(Math.round((transactionFeeUsd / props.btcPrice) * 100000000));
@@ -70,9 +69,9 @@
 <div class="bg-base-100 mx-auto max-h-[70vh] overflow-y-auto rounded-lg shadow-lg">
 	<!-- Header with close button -->
 	<div
-		class="bg-base-100  border-base-300 sticky top-0 z-10 flex items-center justify-between border pb-4 sm:p-6"
+		class="bg-base-100 border-base-300 sticky top-0 z-10 flex items-center justify-between border pb-4 sm:p-6"
 	>
-		<h4 class="font-bold p-4 sm:p-0">{$t('common.components.bidding.escrow_success.title')}</h4>
+		<h4 class="p-4 font-bold sm:p-0">{$t('common.components.bidding.escrow_success.title')}</h4>
 		<button
 			type="button"
 			class="btn btn-ghost btn-sm btn-circle"
@@ -132,7 +131,9 @@
 				{/if}
 			</div>
 
-			<h3 class="text-center text-lg font-bold">{$t('common.components.bidding.escrow_success.success_title')}</h3>
+			<h3 class="text-center text-lg font-bold">
+				{$t('common.components.bidding.escrow_success.success_title')}
+			</h3>
 			<p class="text-base-content/70 px-4 text-center text-sm">
 				{$t('common.components.bidding.escrow_success.success_message')}
 			</p>
@@ -142,28 +143,38 @@
 		{#if showDetails}
 			<div class="bg-base-200 rounded-lg p-4">
 				<!-- Task Title -->
-				<h4 class="mb-4 line-clamp-1 text-sm font-semibold">{$t('common.components.bidding.escrow_success.payment_summary')}</h4>
+				<h4 class="mb-4 line-clamp-1 text-sm font-semibold">
+					{$t('common.components.bidding.escrow_success.payment_summary')}
+				</h4>
 
-				<!-- Pricing Breakdown (same format as BidAcceptanceForm) -->
+				<!-- Pricing Breakdown -->
 				<div class="space-y-2">
 					<div class="flex items-center justify-between">
-						<span class="text-xs font-medium">{$t('common.components.bidding.escrow_success.bid_price')}</span>
+						<span class="text-xs font-medium"
+							>{$t('common.components.bidding.escrow_success.bid_price')}</span
+						>
 						<span class="text-xs font-bold">${formatNumberWithTwoDecimals(props.bid.amount)}</span>
 					</div>
 
 					<div class="flex items-center justify-between">
-						<span class="text-xs font-medium">{$t('common.components.bidding.escrow_success.platform_fee')}</span>
+						<span class="text-xs font-medium"
+							>{$t('common.components.bidding.escrow_success.platform_fee')}</span
+						>
 						<span class="text-xs font-bold">${platformFeeUsd.toFixed(2)}</span>
 					</div>
 
 					<div class="flex items-center justify-between">
-						<span class="text-xs font-medium">{$t('common.components.bidding.escrow_success.transaction_fee')}</span>
+						<span class="text-xs font-medium"
+							>{$t('common.components.bidding.escrow_success.transaction_fee')}</span
+						>
 						<span class="text-xs font-bold">${transactionFeeUsd.toFixed(2)}</span>
 					</div>
 
 					<div class="border-base-200 border-t pt-2">
 						<div class="flex items-center justify-between">
-							<span class="text-base font-bold">{$t('common.components.bidding.escrow_success.total_price')}</span>
+							<span class="text-base font-bold"
+								>{$t('common.components.bidding.escrow_success.total_price')}</span
+							>
 							<span class="text-base font-bold">${totalFiatPrice.toFixed(2)}</span>
 						</div>
 						<div class="mt-1 flex items-center justify-between">
@@ -178,7 +189,9 @@
 
 			<!-- Blockchain Verification -->
 			<div class="bg-base-200 mx-2 my-4 rounded-lg p-4">
-				<h4 class="mb-3 font-semibold">{$t('common.components.bidding.escrow_success.blockchain_verification')}</h4>
+				<h4 class="mb-3 font-semibold">
+					{$t('common.components.bidding.escrow_success.blockchain_verification')}
+				</h4>
 				<p class="text-base-content/70 mb-3 text-sm">
 					{$t('common.components.bidding.escrow_success.verification_message')}
 				</p>
@@ -215,9 +228,13 @@
 
 			<!-- Gamification Progress -->
 			<div class="bg-base-200 mx-2 mb-4 rounded-lg p-4">
-				<h4 class="mb-3 text-base font-bold">{$t('common.components.bidding.escrow_success.gamification_title')}</h4>
+				<h4 class="mb-3 text-base font-bold">
+					{$t('common.components.bidding.escrow_success.gamification_title')}
+				</h4>
 				<p class="mb-3 text-sm break-words">
-					{$t('common.components.bidding.escrow_success.gamification_message', { values: { tasks: tasksToNextTier, date: nextTierDate, tier: nextTier } })}
+					{$t('common.components.bidding.escrow_success.gamification_message', {
+						values: { tasks: tasksToNextTier, date: nextTierDate, tier: nextTier }
+					})}
 				</p>
 				<div class="bg-base-300 h-2 w-full rounded-full">
 					<div class="from-primary to-secondary h-2 w-3/4 rounded-full bg-gradient-to-r"></div>

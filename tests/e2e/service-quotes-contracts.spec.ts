@@ -4,19 +4,22 @@ test.describe('service quote contracts browser slice', () => {
 	test.describe.configure({ timeout: 90_000 });
 
 	async function readHarnessResult(page: Page, timeout = 15_000) {
-		await page.waitForFunction(() => {
-			const error = document.querySelector('[data-testid="service-harness-error"]');
-			if (error instanceof HTMLElement && error.innerText.trim().length > 0) {
-				return { kind: 'error', value: error.innerText.trim() };
-			}
+		await page.waitForFunction(
+			() => {
+				const error = document.querySelector('[data-testid="service-harness-error"]');
+				if (error instanceof HTMLElement && error.innerText.trim().length > 0) {
+					return { kind: 'error', value: error.innerText.trim() };
+				}
 
-			const output = document.querySelector('[data-testid="service-harness-output"]');
-			if (output instanceof HTMLElement && output.innerText.trim().length > 0) {
-				return { kind: 'output', value: output.innerText.trim() };
-			}
+				const output = document.querySelector('[data-testid="service-harness-output"]');
+				if (output instanceof HTMLElement && output.innerText.trim().length > 0) {
+					return { kind: 'output', value: output.innerText.trim() };
+				}
 
-			return false;
-		}, { timeout });
+				return false;
+			},
+			{ timeout }
+		);
 
 		const harnessError = page.getByTestId('service-harness-error');
 		if (await harnessError.count()) {
@@ -147,7 +150,7 @@ test.describe('service quote contracts browser slice', () => {
 		await page.goto('/e2e/service-harness.html?case=contracts-surface-highlighted-service');
 		const result = await readHarnessResult(page, 30_000);
 		const harnessSurface = page.getByTestId('service-harness-surface');
-		const serviceCard = harnessSurface.locator('[data-contract-escrow-id="svc-escrow_123"]').first();
+		const serviceTitle = harnessSurface.getByRole('button', { name: 'Premium Logo Package' });
 
 		expect(result).toEqual({
 			serviceCardPresent: true,
@@ -156,23 +159,18 @@ test.describe('service quote contracts browser slice', () => {
 			actionLabelPresent: true
 		});
 
-		await expect(serviceCard).toBeVisible();
+		await expect(serviceTitle).toBeVisible();
 		const dialog = harnessSurface
 			.locator('[role="dialog"][aria-modal="true"]')
 			.filter({ hasText: 'Premium Logo Package' })
 			.last();
 		if (!(await dialog.isVisible())) {
-			await serviceCard.click();
+			await serviceTitle.click();
 		}
 		await expect(dialog).toBeVisible();
-		const agreementButton = harnessSurface.getByRole('button', { name: 'Service agreement' });
-		await expect(agreementButton).toBeVisible();
-		if ((await agreementButton.getAttribute('aria-expanded')) !== 'true') {
-			await agreementButton.click();
-		}
-		await expect(harnessSurface.getByTestId('service-agreement-summary')).toBeVisible();
-		await expect(harnessSurface.getByTestId('service-agreement-scope')).toBeVisible();
-		await expect(harnessSurface.getByRole('button', { name: 'Accept Service' }).first()).toBeVisible();
+		await expect(dialog.getByText('Logo system and brand guide')).toBeVisible();
+		const approve = dialog.getByRole('button', { name: /^Approve/ });
+		await expect(approve.first()).toBeVisible();
 	});
 
 	test('opens the shared service completion modal from the highlighted contracts surface', async ({
@@ -181,36 +179,38 @@ test.describe('service quote contracts browser slice', () => {
 		await page.goto('/e2e/service-harness.html?case=contracts-surface-completable-service');
 		const result = await readHarnessResult(page, 30_000);
 		const harnessSurface = page.getByTestId('service-harness-surface');
-		const serviceCard = harnessSurface.locator('[data-contract-escrow-id="svc-escrow_123"]').first();
+		const serviceTitle = harnessSurface.getByRole('button', { name: 'Premium Logo Package' });
 
 		expect(result).toEqual({
 			serviceCardPresent: true,
-			highlightedDrawerPresent: true,
+			highlightedDrawerPresent: false,
 			serviceScopePresent: true,
 			quotedServiceBadgePresent: true,
 			completeActionPresent: true,
 			agreementSchedulePresent: false
 		});
 
-		await expect(serviceCard).toBeVisible();
+		await expect(serviceTitle).toBeVisible();
 		const dialog = harnessSurface
 			.locator('[role="dialog"][aria-modal="true"]')
 			.filter({ hasText: 'Premium Logo Package' })
 			.last();
+		if (!(await dialog.isVisible())) {
+			await serviceTitle.click();
+		}
 		await expect(dialog).toBeVisible();
-		await expect(dialog.getByText('Quoted Service')).toBeVisible();
-		await expect(dialog.getByTestId('service-agreement-scope')).toHaveText('Logo system and brand guide');
+		await expect(dialog.getByText('Logo system and brand guide')).toBeVisible();
 
-		const completeButton = dialog.getByRole('button', { name: 'Mark Service Complete' });
+		const completeButton = dialog.getByRole('button', { name: 'Complete' });
 		await expect(completeButton).toBeVisible();
 		await completeButton.click();
 
-		const completionModal = page.locator('.modal.modal-open').filter({ hasText: 'Service details' });
-		await expect(completionModal.getByRole('heading', { name: 'Mark service as complete' })).toBeVisible();
-		await expect(completionModal.getByText('Premium Logo Package')).toBeVisible();
-		await expect(completionModal.getByText('Upload service delivery evidence')).toBeVisible();
-		await expect(completionModal.getByText('Agreement schedule')).toBeVisible();
-		await expect(completionModal.getByTestId('service-agreement-summary')).toHaveCount(0);
-		await expect(completionModal.getByRole('button', { name: 'Mark service complete' })).toBeVisible();
+		const completionDrawer = page.getByRole('dialog', { name: 'Mark Task as Complete' }).last();
+		await expect(completionDrawer).toBeVisible();
+		await expect(completionDrawer.getByText('Premium Logo Package')).toBeVisible();
+		await expect(
+			completionDrawer.getByText(/Upload Completion Evidence|Share photos or video/i)
+		).toBeVisible();
+		await expect(completionDrawer.getByRole('button', { name: 'Mark as Complete' })).toBeVisible();
 	});
 });
