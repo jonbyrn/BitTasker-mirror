@@ -23,7 +23,7 @@
 	function getRatingTone(rating: number): 'success' | 'warning' | 'error' | 'neutral' {
 		if (!Number.isFinite(rating) || rating <= 0) return 'neutral';
 		if (rating >= 4.5) return 'success';
-		if (rating >= 3.5) return 'warning';
+		if (rating >= 3.5) return 'primary';
 		return 'error';
 	}
 
@@ -31,8 +31,8 @@
 		switch (getRatingTone(rating)) {
 			case 'success':
 				return 'text-success';
-			case 'warning':
-				return 'text-warning';
+			case 'primary':
+				return 'text-primary';
 			case 'error':
 				return 'text-error';
 			default:
@@ -44,8 +44,8 @@
 		switch (getRatingTone(rating)) {
 			case 'success':
 				return 'bg-success';
-			case 'warning':
-				return 'bg-warning';
+			case 'primary':
+				return 'bg-primary';
 			case 'error':
 				return 'bg-error';
 			default:
@@ -183,18 +183,29 @@
 				</p>
 			</div>
 		{:else}
-			<div class="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2">
-				<div class="stat bg-base-200 rounded-lg p-4">
+			<div
+				class="divide-base-300 border-base-300 bg-base-200 mb-6 flex divide-x overflow-hidden rounded-lg border"
+			>
+				<!-- Left: Total Reviews -->
+				<div class="flex flex-1 flex-col items-center justify-center px-4 py-6 text-center">
+					<div class="stat-title text-sm">{$t('reviews.summary.total_reviews')}</div>
+					<div class="text-3xl font-bold">{stats.totalReviews}</div>
+					<div class="text-base-content/70 mt-1 text-xs">
+						{$t('reviews.summary.reviews_received')}
+					</div>
+				</div>
+				<!-- Right: Average Rating -->
+				<div class="flex flex-1 flex-col items-center justify-center px-4 py-6 text-center">
 					<div class="stat-title text-sm">{$t('reviews.summary.average_rating')}</div>
-					<div class={`stat-value text-3xl ${getRatingColor(stats.averageRating)}`}>
+					<div class={`text-3xl font-bold ${getRatingColor(stats.averageRating)}`}>
 						{stats.averageRating.toFixed(1)}
 					</div>
-					<div class="stat-desc mt-1 flex items-center gap-0.5">
+					<div class="mt-1 flex items-center gap-0.5">
 						{#each ratingSteps as i (i)}
 							<svg
 								class={`h-3 w-3 ${
 									i < Math.round(stats.averageRating)
-										? 'fill-warning text-warning'
+										? 'fill-primary text-primary'
 										: 'text-base-content/20'
 								}`}
 								fill="currentColor"
@@ -206,14 +217,6 @@
 								/>
 							</svg>
 						{/each}
-					</div>
-				</div>
-
-				<div class="stat bg-base-200 rounded-lg p-4">
-					<div class="stat-title text-sm">{$t('reviews.summary.total_reviews')}</div>
-					<div class="stat-value text-3xl">{stats.totalReviews}</div>
-					<div class="stat-desc text-base-content/70">
-						{$t('reviews.summary.reviews_received')}
 					</div>
 				</div>
 			</div>
