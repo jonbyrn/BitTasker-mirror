@@ -1,6 +1,6 @@
 name = "bittasker-dev-worker"
 main = "workers-site/index.js"
-compatibility_date = "2025-10-07"
+compatibility_date = "2026-05-11"
 account_id = "0e47af3ee55b77b43b150879938ebbec"
 #account_id = "3fa48b084b262faa8a164ab089d702b6"
 
@@ -31,10 +31,40 @@ head_sampling_rate = 1.0  # 100% sampling for dev/staging (full visibility)
 # cpu_ms = 30_000  # 30 seconds
 
 # ============================================
-# SITE CONFIGURATION
+# STATIC ASSETS CONFIGURATION (Workers Static Assets)
 # ============================================
-[site]
-bucket = "./build"
+# Workers Sites ([site]) is deprecated in Wrangler v4.
+# Static Assets serves files directly from Cloudflare's edge cache
+# with automatic SPA fallback for client-side routing.
+[assets]
+directory = "./build"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+# API routes run through the Worker for Stream upload/token endpoints.
+# __data.json patterns cover SvelteKit client-side navigation preload.
+# Static assets bypass the Worker entirely — served directly from Cloudflare's
+# edge cache, faster and free (unlimited requests, no Worker billing).
+run_worker_first = [
+    "/api/*",
+    "/__data.json",
+    "/*/__data.json",
+    "/*/*/__data.json",
+    "/*/*/*/__data.json"
+]
+
+# ============================================
+# KV NAMESPACES (Cloudflare Stream)
+# ============================================
+# Create via: wrangler kv:namespace create <name> [--env <env>]
+# Then copy the returned ID below.
+#
+# [[kv_namespaces]]
+# binding = "VIDEO_STATUS"
+# id = "<created-by-wrangler>"
+#
+# [[kv_namespaces]]
+# binding = "VIDEO_AUTH"
+# id = "<created-by-wrangler>"
 
 # ============================================
 # DEV Environment (default)
@@ -52,12 +82,17 @@ zone_id = "2f577970e10b49266dbfc1ff6c5c8dc4"
 enabled = true
 head_sampling_rate = 1.0
 
+# Cloudflare Stream binding — direct upload URLs + signed token generation
+[env.dev.stream]
+binding = "STREAM"
+
 [env.dev.vars]
 VITE_CLIENT_URL = "https://worker.dev.bittasker.com/"
 VITE_NOSTR_RELAY_URL = "wss://relay.bittasker.hedgehackers.finance"
 VITE_NOSTR_RELAY_NESTJS = "https://relay.bittasker.com"
 VITE_RSK_NETWORK = "mainnet"
 VITE_BSC_NETWORK = "mainnet"
+VITE_STREAM_CUSTOMER_CODE = "customer-h1uh9jc2wp9hnxue"
 
 # ============================================
 # STAGING Environment
@@ -74,12 +109,16 @@ zone_id = "REPLACE_WITH_BITTASKER_ZONE_ID"
 enabled = true
 head_sampling_rate = 1.0
 
+[env.staging.stream]
+binding = "STREAM"
+
 [env.staging.vars]
 VITE_CLIENT_URL = "https://staging.bittasker.com/"
 VITE_NOSTR_RELAY_URL = "wss://relay1.bittasker.com"
 VITE_NOSTR_RELAY_NESTJS = "https://relay2.bittasker.com"
 VITE_RSK_NETWORK = "mainnet"
 VITE_BSC_NETWORK = "mainnet"
+VITE_STREAM_CUSTOMER_CODE = "customer-h1uh9jc2wp9hnxue"
 
 # ============================================
 # PRODUCTION Environment
@@ -96,12 +135,16 @@ zone_id = "REPLACE_WITH_BITTASKER_ZONE_ID"
 enabled = true
 head_sampling_rate = 0.1
 
+[env.production.stream]
+binding = "STREAM"
+
 [env.production.vars]
 VITE_CLIENT_URL = "https://worker.prod.bittasker.com/"
 VITE_NOSTR_RELAY_URL = "wss://relay1.bittasker.com"
 VITE_NOSTR_RELAY_NESTJS = "https://relay2.bittasker.com"
 VITE_RSK_NETWORK = "mainnet"
 VITE_BSC_NETWORK = "mainnet"
+VITE_STREAM_CUSTOMER_CODE = "customer-h1uh9jc2wp9hnxue"
 
 # ============================================
 # METRICS & ANALYTICS

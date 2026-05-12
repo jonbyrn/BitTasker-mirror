@@ -6,8 +6,9 @@
 	import { subscribeToProfileUpdates, deleteNostrEvent } from '$lib/nostr/profile';
 	import Uploader from '$lib/components/Uploader.svelte';
 	import uploadService from '$lib/api/services/upload.service';
+	import StreamPlayer from '$lib/components/StreamPlayer.svelte';
 
-	let { onComplete } = $props<{ 
+	let { onComplete } = $props<{
 		onComplete: (completed: boolean, fromSave?: boolean) => void;
 	}>();
 
@@ -77,7 +78,10 @@
 	});
 
 	// Publish video event to Nostr
-	async function publishVideoEvent(videoData: VideoIntroMetadata, relay = import.meta.env.VITE_NOSTR_RELAY_URL) {
+	async function publishVideoEvent(
+		videoData: VideoIntroMetadata,
+		relay = import.meta.env.VITE_NOSTR_RELAY_URL
+	) {
 		try {
 			// Publish to Nostr with extended metadata
 			const event = {
@@ -139,36 +143,14 @@
 				}
 			});
 
-			// Set video to a specific time to avoid black frame
-			video.currentTime = 0.1;
-
-			await new Promise((resolve) => {
-				video.onseeked = () => resolve(null);
-			});
-
-			const canvas = document.createElement('canvas');
-			canvas.width = video.videoWidth;
-			canvas.height = video.videoHeight;
-			const ctx = canvas.getContext('2d');
-
-			if (ctx) {
-				// Clear the canvas first
-				ctx.fillStyle = '#FFFFFF';
-				ctx.fillRect(0, 0, canvas.width, canvas.height);
-				// Draw the video frame
-				ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-			}
-
-			const thumbnailBlob = await new Promise<Blob>((resolve) => {
-				canvas.toBlob((blob) => resolve(blob!), 'image/webp', 0.7);
-			});
-
-			const thumbnailFile = new File([thumbnailBlob], 'thumbnail.webp', { type: 'image/webp' });
-			// TODO: Remove this once we have a real upload service
-			// const uploadedThumbnail = await uploadService.uploadSingleFile(thumbnailFile, 'thumbnails');
+			// Stream auto-thumbnail
 			const uploadedThumbnail = {
-				url: 'https://pub-9749cc3802084a9da8131640ddfd3403.r2.dev/thumbnails/1748624684204-ee1d033c0a6f338a.webp',
-				key: 'thumbnails/1748624684204-ee1d033c0a6f338a.webp'
+				url: `https://customer-${import.meta.env.VITE_STREAM_CUSTOMER_CODE}.cloudflarestream.com/${uploadedVideo.key}/thumbnails/thumbnail.jpg`,
+				key: `${uploadedVideo.key}/thumbnails/thumbnail.jpg`,
+				type: 'image/jpeg',
+				alt: videoFile.name.replace(/\.[^/.]+$/, '') + ' thumbnail',
+				width: video.videoWidth,
+				height: video.videoHeight
 			};
 
 			const videoMetadata = {
@@ -183,11 +165,10 @@
 				thumbnail: {
 					key: uploadedThumbnail.key,
 					url: uploadedThumbnail.url,
-					type: 'image/webp',
+					type: 'image/jpeg',
 					alt: videoFile.name.replace(/\.[^/.]+$/, '') + ' thumbnail',
 					width: video.videoWidth,
-					height: video.videoHeight,
-					size: thumbnailFile.size
+					height: video.videoHeight
 				}
 			};
 
@@ -210,6 +191,7 @@
 
 	// TODO: Check if not already natively supported by mobile
 	// Start recording
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	async function startRecording() {
 		try {
 			stream = await navigator.mediaDevices.getUserMedia({
@@ -273,7 +255,7 @@
 				}
 			});
 
-			// Generate and upload thumbnail
+			// Use Stream auto-thumbnail (keep video element for duration metadata)
 			const video = document.createElement('video');
 			video.preload = 'metadata';
 			video.crossOrigin = 'anonymous';
@@ -283,42 +265,18 @@
 
 			await new Promise((resolve) => {
 				video.onloadeddata = () => {
-					// Set a small timeout to ensure the video frame is actually loaded
 					setTimeout(() => resolve(null), 100);
 				};
 			});
 
-			// Set video to a specific time to avoid black frame
-			video.currentTime = 0.1;
+			URL.revokeObjectURL(videoUrl);
 
-			await new Promise((resolve) => {
-				video.onseeked = () => resolve(null);
-			});
-
-			const canvas = document.createElement('canvas');
-			canvas.width = video.videoWidth;
-			canvas.height = video.videoHeight;
-			const ctx = canvas.getContext('2d');
-
-			if (ctx) {
-				// Clear the canvas first
-				ctx.fillStyle = '#FFFFFF';
-				ctx.fillRect(0, 0, canvas.width, canvas.height);
-				// Draw the video frame
-				ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-			}
-
-			const thumbnailBlob = await new Promise<Blob>((resolve) => {
-				canvas.toBlob((blob) => resolve(blob!), 'image/webp', 0.7);
-			});
-
-			const thumbnailFile = new File([thumbnailBlob], 'thumbnail.webp', { type: 'image/webp' });
-			const uploadedThumbnail = await uploadService.uploadSingleFile(thumbnailFile, {
-				folder: 'thumbnails',
-				metadata: {
-					name: thumbnailFile.name
-				}
-			});
+			const uploadedThumbnail = {
+				url: `https://customer-${import.meta.env.VITE_STREAM_CUSTOMER_CODE}.cloudflarestream.com/${uploadedVideo.key}/thumbnails/thumbnail.jpg`,
+				key: `${uploadedVideo.key}/thumbnails/thumbnail.jpg`,
+				type: 'image/jpeg',
+				alt: videoFile.name.replace(/\.[^/.]+$/, '') + ' thumbnail'
+			};
 
 			// Update video data
 			const videoMetadata = {
@@ -407,7 +365,17 @@
 
 			<div class="space-y-4 pr-4">
 				<!-- Upload video -->
-				{#if !isLoading}
+				{#if videoData}
+					<StreamPlayer videoUid={videoData.video.key} private={false} controls={true} />
+					<button
+						type="button"
+						class="btn btn-error btn-block mt-2"
+						onclick={removeVideo}
+						disabled={isLoading}
+					>
+						{$t('common.components.media_uploader.remove_file')}
+					</button>
+				{:else if !isLoading}
 					<Uploader
 						id="videoUpload"
 						label={$t('profile.video.upload_title')}
@@ -417,8 +385,7 @@
 						className="w-full"
 						maxDuration={180}
 						maxFileSize={100}
-						files={videoData ? [videoData.video.url] : []}
-						onRemove={removeVideo}
+						files={[]}
 					/>
 				{:else}
 					<div class="bg-base-300 h-24 w-full animate-pulse rounded-lg border"></div>

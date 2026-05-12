@@ -2,6 +2,8 @@ import { BaseApiService } from '../apiService';
 import { ENDPOINTS } from '../endpoints';
 import cloudflareMediaService from './cloudflare-media.service';
 import { compressImage, validateImageFile } from '$lib/utils/imageCompression';
+import { addBreadcrumb } from '@sentry/sveltekit';
+import { uploadVideoFile } from '$lib/utils/video-upload';
 
 export interface UploadResult {
 	url: string;
@@ -20,6 +22,7 @@ export interface UploadOptions {
 	enableCompression?: boolean;
 	generateVariants?: boolean;
 	metadata?: Record<string, unknown>;
+	onProgress?: (bytesUploaded: number, bytesTotal: number) => void;
 }
 
 /**
@@ -112,45 +115,70 @@ class UploadService extends BaseApiService {
 			}
 		}
 
-		// Try Cloudflare upload first if configured and enabled
-		if (useCloudflare && cloudflareMediaService.isConfigured() && (isImage || isVideo)) {
+		// Try Cloudflare Worker upload first if enabled
+		if (useCloudflare && (isImage || isVideo)) {
 			try {
 				if (isImage) {
-					const cloudflareResult = await cloudflareMediaService.uploadImage(processedFile, {
-						folder: safeFolder,
-						...metadata,
-						originalName: file.name,
-						uploadedAt: new Date().toISOString(),
-						compressed
-					});
+					// Images: use Worker direct upload URL if possible, otherwise legacy path
+					if (cloudflareMediaService.isConfigured()) {
+						const cloudflareResult = await cloudflareMediaService.uploadImage(processedFile, {
+							folder: safeFolder,
+							...metadata,
+							originalName: file.name,
+							uploadedAt: new Date().toISOString(),
+							compressed
+						});
 
-					let variants: Record<string, string> = {};
-					if (generateVariants) {
-						variants = cloudflareMediaService.generateResponsiveImageUrls(cloudflareResult.id);
+						let variants: Record<string, string> = {};
+						if (generateVariants) {
+							variants = cloudflareMediaService.generateResponsiveImageUrls(cloudflareResult.id);
+						}
+
+						return {
+							url:
+								variants.original || cloudflareMediaService.generateImageUrl(cloudflareResult.id),
+							key: cloudflareResult.id,
+							cloudflareId: cloudflareResult.id,
+							variants,
+							type: 'image',
+							size: processedFile.size,
+							originalSize: compressed ? originalSize : undefined,
+							compressed
+						};
 					}
-
-					return {
-						url: variants.original || cloudflareMediaService.generateImageUrl(cloudflareResult.id),
-						key: cloudflareResult.id,
-						cloudflareId: cloudflareResult.id,
-						variants,
-						type: 'image',
-						size: processedFile.size,
-						originalSize: compressed ? originalSize : undefined,
-						compressed
-					};
 				} else if (isVideo) {
-					const cloudflareResult = await cloudflareMediaService.uploadVideo(processedFile, {
-						folder: safeFolder,
-						...metadata,
-						originalName: file.name,
-						uploadedAt: new Date().toISOString()
+					// Video: always use Worker endpoint (no API token needed client-side)
+					const maxDurationSeconds =
+						typeof options.metadata?.maxDuration === 'number'
+							? (options.metadata.maxDuration as number)
+							: 3600;
+					const { uploadURL, uid } =
+						await cloudflareMediaService.requestStreamUploadUrl(maxDurationSeconds);
+
+					addBreadcrumb({
+						category: 'stream',
+						message: `uploadSingleFile: video upload started - uid=${uid} size=${processedFile.size}`,
+						level: 'info'
+					});
+
+					// Platform-aware upload: native background on mobile, tus-js-client on web
+					// Uses @capgo/capacitor-uploader on iOS/Android for background-resilient uploads
+					// eslint-disable-next-line @typescript-eslint/no-explicit-any
+					const filePath = (processedFile as any).path || '';
+					await uploadVideoFile(filePath, uploadURL, processedFile, (progress) => {
+						options.onProgress?.(progress.bytesUploaded, progress.bytesTotal);
+					});
+
+					addBreadcrumb({
+						category: 'stream',
+						message: `uploadSingleFile: video upload complete - uid=${uid}`,
+						level: 'info'
 					});
 
 					return {
-						url: cloudflareResult.playback?.hls || cloudflareResult.preview || '',
-						key: cloudflareResult.uid,
-						cloudflareId: cloudflareResult.uid,
+						url: '',
+						key: uid,
+						cloudflareId: uid,
 						type: 'video',
 						size: processedFile.size,
 						originalSize,

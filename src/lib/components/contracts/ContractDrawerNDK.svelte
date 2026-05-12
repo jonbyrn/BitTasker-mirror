@@ -24,6 +24,7 @@
 	import { adaptNDKContract } from '$lib/utils/reviews/contractAdapter';
 	import { ContractStatus } from '$lib/utils/contract/types';
 	import { reviewStore } from '$lib/stores/review.store';
+	import StreamPlayer from '$lib/components/StreamPlayer.svelte';
 
 	const { isOpen, onClose, contractRune, btcPrice } = $props<{
 		isOpen: boolean;
@@ -59,6 +60,10 @@
 		const videoExtensions = ['.mp4', '.webm', '.ogg', '.mov'];
 		const urlLower = url.toLowerCase();
 		return videoExtensions.some((ext) => urlLower.endsWith(ext));
+	}
+
+	function getStreamUid(attachment: Attachment): string | undefined {
+		return attachment.cloudflareId;
 	}
 
 	const prepareGalleryImages = async (attachments: Attachment[]) => {
@@ -469,14 +474,22 @@
 									{#each (contractRune.completionAttachments || []).filter( (att: Attachment) => isVideoFile(att.url) ) as attachment (attachment.url)}
 										<div class="group relative">
 											<div class="bg-base-300 aspect-square overflow-hidden rounded-lg">
-												<video
-													src={attachment.url}
-													class="h-full w-full object-cover"
-													controls
-													preload="metadata"
-												>
-													<track kind="captions" src="" label="No captions available" />
-												</video>
+												{#if getStreamUid(attachment)}
+													<StreamPlayer
+														videoUid={getStreamUid(attachment)!}
+														private={true}
+														className="h-full w-full"
+													/>
+												{:else}
+													<video
+														src={attachment.url}
+														class="h-full w-full object-cover"
+														controls
+														preload="metadata"
+													>
+														<track kind="captions" src="" label="No captions available" />
+													</video>
+												{/if}
 											</div>
 											<div class="text-base-content/60 mt-2 truncate text-xs">
 												{attachment.alt || 'Evidence'}
