@@ -300,8 +300,36 @@
 
 <div class="space-y-6">
 	{#if isLoading}
-		<div class="flex items-center justify-center py-12" role="status" aria-live="polite">
-			<span class="loading loading-spinner loading-lg"></span>
+		<div role="status" aria-live="polite" class="space-y-6">
+			<!-- Review summary card skeleton -->
+			<div class="card bg-base-200 animate-pulse rounded-xl p-6">
+				<div class="flex items-center gap-4">
+					<div class="bg-base-300 h-12 w-12 rounded-full"></div>
+					<div class="flex-1 space-y-2">
+						<div class="bg-base-300 h-4 w-32 rounded"></div>
+						<div class="bg-base-300 h-3 w-48 rounded"></div>
+					</div>
+					<div class="bg-base-300 h-10 w-24 rounded"></div>
+				</div>
+			</div>
+			<!-- Tabs skeleton -->
+			<div class="bg-base-300 h-10 w-full rounded"></div>
+			<!-- Review cards skeleton -->
+			<div class="space-y-3">
+				{#each Array(3) as _, i (i)}
+					<div class="card bg-base-200 animate-pulse rounded-xl p-5">
+						<div class="flex items-center gap-3">
+							<div class="bg-base-300 h-10 w-10 rounded-full"></div>
+							<div class="flex-1 space-y-2">
+								<div class="bg-base-300 h-4 w-24 rounded"></div>
+								<div class="bg-base-300 h-3 w-40 rounded"></div>
+							</div>
+						</div>
+						<div class="bg-base-300 mt-3 h-4 w-full rounded"></div>
+						<div class="bg-base-300 mt-1 h-4 w-3/4 rounded"></div>
+					</div>
+				{/each}
+			</div>
 			<span class="sr-only">{$t('reviews.management.loading')}</span>
 		</div>
 	{:else if error}
