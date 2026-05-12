@@ -7,7 +7,6 @@
 	import ProfileInfoSection from '$lib/components/profile/ProfileInfoSection.svelte';
 	import ProfileSidebar from '$lib/components/profile/ProfileSidebar.svelte';
 	import ProfileReviewsSection from '$lib/components/profile/ProfileReviewsSection.svelte';
-	import Tabs from '$lib/components/Tabs.svelte';
 
 	// Format date (passed to children)
 	function formatDate(dateString: string) {
@@ -74,15 +73,6 @@
 		lastSyncedSearch = currentSearch;
 		activeTab = reviewTargetPubkey ? 'reviews' : requestedTab;
 	});
-
-	const profileTabs = $derived([
-		{ id: 'overview', label: $t('profile.tabs.overview') },
-		{ id: 'reviews', label: $t('profile.tabs.reviews') }
-	]);
-
-	function handleProfileTabChange(tabId: string) {
-		activeTab = tabId as 'overview' | 'reviews';
-	}
 </script>
 
 <!-- Mismas dimensiones que Mi Panel -->
@@ -98,7 +88,24 @@
 			<ProfileHeader />
 
 			<!-- Profile Tabs -->
-			<Tabs tabs={profileTabs} {activeTab} onTabChange={handleProfileTabChange} />
+			<div class="tabs tabs-bordered mb-6 grid w-full grid-cols-2">
+				<button
+					class="tab text-center {activeTab === 'overview' ? 'tab-active' : ''}"
+					onclick={() => (activeTab = 'overview')}
+					role="tab"
+					aria-selected={activeTab === 'overview'}
+				>
+					{$t('profile.tabs.overview')}
+				</button>
+				<button
+					class="tab text-center {activeTab === 'reviews' ? 'tab-active' : ''}"
+					onclick={() => (activeTab = 'reviews')}
+					role="tab"
+					aria-selected={activeTab === 'reviews'}
+				>
+					{$t('profile.tabs.reviews')}
+				</button>
+			</div>
 
 			<!-- Tab Content -->
 			{#if activeTab === 'overview'}
