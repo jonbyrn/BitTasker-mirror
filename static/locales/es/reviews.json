@@ -5,6 +5,7 @@
 			"subtitle": "Las reseñas son públicas e inmutables una vez enviadas.",
 			"category_ratings": "Calificaciones por Categoría",
 			"overall_rating": "Calificación General",
+			"overall_rating_calculated": "Calculado a partir de las calificaciones de categoría",
 			"quality": "Calidad",
 			"quality_taskee": "Calidad del Trabajo",
 			"quality_taskee_desc": "Calidad del trabajo entregado, entregables y resultados",

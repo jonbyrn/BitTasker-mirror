@@ -487,7 +487,7 @@
 									<UserInfoDisplay
 										avatar={bid.taskCreatorAvatar}
 										username={bid.taskCreatorUsername}
-										rating={bid.taskCreatorRating || 0}
+										rating={bid.taskCreatorRating ?? null}
 										size="md"
 										avatarAlt={$t('common.components.bidding.dashboard_bids.avatar_alt')}
 										pubkey={bid.taskCreatorPubkey}

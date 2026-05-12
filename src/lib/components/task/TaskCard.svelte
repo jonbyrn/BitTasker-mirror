@@ -178,7 +178,7 @@
 				<UserInfoDisplay
 					avatar={task.creator?.avatar}
 					username={task.creator?.username}
-					rating={task.creator?.rating || 0}
+					rating={task.creator?.rating ?? null}
 					size="md"
 					pubkey={task.npub}
 					memberSince={task.createdAt}

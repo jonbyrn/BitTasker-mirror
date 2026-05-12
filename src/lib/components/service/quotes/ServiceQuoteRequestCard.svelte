@@ -249,7 +249,7 @@
 		<div class="mb-3">
 			<UserInfoDisplay
 				pubkey={timeline.request.pubkey}
-				rating={0}
+				rating={null}
 				size="md"
 				memberSince={timeline.request.created_at}
 				avatarAlt={tr('dashboard.find_tasks.avatar_alt', 'Avatar')}

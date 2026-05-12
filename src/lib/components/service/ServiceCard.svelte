@@ -396,7 +396,7 @@
 			<UserInfoDisplay
 				avatar={service.creator?.avatar}
 				username={service.creator?.username}
-				rating={service.creator?.rating || 0}
+				rating={service.creator?.rating ?? null}
 				size="sm"
 				pubkey={service.npub}
 				memberSince={service.createdAt}

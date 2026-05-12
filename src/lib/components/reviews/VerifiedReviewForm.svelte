@@ -32,7 +32,17 @@
 		onCancel?: () => void;
 	}>();
 
-	let overallRating = $state(0);
+	const overallRating = $derived.by(() => {
+		if (revieweeRole === 'taskee') {
+			if (workQualityRating === 0 || experienceRating === 0 || deliverySpeedRating === 0) return 0;
+			return Math.round((workQualityRating + experienceRating + deliverySpeedRating) / 3);
+		} else if (revieweeRole === 'tasker') {
+			if (communicationRating === 0 || clarityRating === 0 || paymentTimelinessRating === 0)
+				return 0;
+			return Math.round((communicationRating + clarityRating + paymentTimelinessRating) / 3);
+		}
+		return 0;
+	});
 
 	// Role-specific category ratings
 	let workQualityRating = $state(0);
@@ -108,7 +118,6 @@
 	};
 	const getRatingAriaLabel = (
 		key:
-			| 'rate_overall_aria'
 			| 'rate_work_quality_aria'
 			| 'rate_experience_aria'
 			| 'rate_delivery_speed_aria'
@@ -120,7 +129,6 @@
 		getFormText(
 			key,
 			{
-				rate_overall_aria: `Rate ${rating} out of 5`,
 				rate_work_quality_aria: `Rate work quality ${rating} out of 5`,
 				rate_experience_aria: `Rate experience ${rating} out of 5`,
 				rate_delivery_speed_aria: `Rate delivery speed ${rating} out of 5`,
@@ -166,13 +174,6 @@
 
 	function validateForm(): boolean {
 		const newErrors: Record<string, string> = {};
-
-		if (overallRating === 0) {
-			newErrors.overallRating = getFormErrorText(
-				'overall_rating_required',
-				'Please provide an overall rating'
-			);
-		}
 
 		// Validate role-specific categories
 		if (revieweeRole === 'taskee') {
@@ -364,7 +365,6 @@
 
 	function setRating(
 		category:
-			| 'overall'
 			| 'workQuality'
 			| 'experience'
 			| 'deliverySpeed'
@@ -373,9 +373,7 @@
 			| 'paymentTimeliness',
 		value: number
 	) {
-		if (category === 'overall') {
-			overallRating = value;
-		} else if (category === 'workQuality') {
+		if (category === 'workQuality') {
 			workQualityRating = value;
 		} else if (category === 'experience') {
 			experienceRating = value;
@@ -432,54 +430,6 @@
 	{/if}
 
 	<div class="space-y-6">
-		<!-- Overall Rating - Featured -->
-		<div class="form-control">
-			<div class="mb-3 flex items-center justify-between">
-				<div class="label p-0">
-					<span class="text-base-content text-base font-semibold"
-						>{getFormText('overall_rating', 'Overall Rating')}</span
-					>
-					<span class="text-error ml-1 text-xs">*</span>
-				</div>
-				{#if overallRating > 0}
-					<div class="badge badge-primary badge-lg gap-1">
-						<span>{overallRating}</span>
-						<span class="text-xs">/ 5</span>
-					</div>
-				{/if}
-			</div>
-			<div class="bg-base-200/50 flex items-center gap-2 rounded-xl p-4">
-				{#each [1, 2, 3, 4, 5] as rating (rating)}
-					<button
-						type="button"
-						class="flex h-7 w-7 items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 {isSubmitting ||
-						alreadyReviewed
-							? 'cursor-not-allowed opacity-50'
-							: 'cursor-pointer'}"
-						onclick={() => setRating('overall', rating)}
-						disabled={isSubmitting || alreadyReviewed}
-						aria-label={getRatingAriaLabel('rate_overall_aria', rating)}
-					>
-						<IconStar
-							class="h-5 w-5 {getRatingClass(rating, overallRating)} transition-colors duration-200"
-						/>
-					</button>
-				{/each}
-			</div>
-			{#if errors.overallRating}
-				<div class="label">
-					<span class="label-text-alt text-error mt-1 text-xs">{errors.overallRating}</span>
-				</div>
-			{/if}
-		</div>
-
-		<!-- Divider -->
-		<div class="divider my-6">
-			<span class="text-base-content/40 text-xs"
-				>{getFormText('category_ratings', 'Category Ratings')}</span
-			>
-		</div>
-
 		<!-- Category Ratings - Role-Specific -->
 		<div class="grid gap-4">
 			{#if revieweeRole === 'taskee'}
@@ -788,6 +738,48 @@
 			{/if}
 		</div>
 
+		<!-- Divider -->
+		<div class="divider my-6">
+			<span class="text-base-content/40 text-xs"
+				>{getFormText('category_ratings', 'Category Ratings')}</span
+			>
+		</div>
+
+		<!-- Overall Rating (calculated from category ratings) -->
+		<div class="form-control">
+			<div class="mb-3 flex items-center justify-between">
+				<div class="label p-0">
+					<span class="text-base-content text-base font-semibold"
+						>{getFormText('overall_rating', 'Overall Rating')}</span
+					>
+				</div>
+				{#if overallRating > 0}
+					<div class="badge badge-primary badge-lg gap-1">
+						<span>{overallRating}</span>
+						<span class="text-xs">/ 5</span>
+					</div>
+				{/if}
+			</div>
+			<div class="bg-base-200/50 flex items-center gap-2 rounded-xl p-4">
+				{#each [1, 2, 3, 4, 5] as star (star)}
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="h-5 w-5 {star <= overallRating
+							? 'text-primary fill-primary'
+							: 'text-base-content/20'}"
+						fill="currentColor"
+						viewBox="0 0 24 24"
+					>
+						<path
+							d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+						/>
+					</svg>
+				{/each}
+			</div>
+			<p class="text-base-content/50 mt-2 text-xs">
+				{getFormText('overall_rating_calculated', 'Calculated from the category ratings above')}
+			</p>
+		</div>
 		<!-- Comment Section -->
 		<div class="form-control border-base-300 border-t pt-4">
 			<div class="mb-2 flex items-center justify-between">

@@ -79,7 +79,7 @@
 					<UserInfoDisplay
 						avatar={bidContent.bidderAvatar}
 						username={bidContent.bidderName ?? ''}
-						rating={bidContent.bidderRating ?? 0}
+						rating={bidContent.bidderRating ?? null}
 						size="md"
 						pubkey={bidContent.bidderId}
 						profileLink={bidContent.bidderId}

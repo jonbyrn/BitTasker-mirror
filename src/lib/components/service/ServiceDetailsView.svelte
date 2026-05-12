@@ -2654,7 +2654,7 @@
 		serviceTitle={displayTitle}
 		providerName={instantBuyDraft?.providerName ?? effectiveCreator?.username ?? null}
 		providerAvatar={effectiveCreator?.avatar ?? null}
-		providerRating={effectiveCreator?.rating ?? 0}
+		providerRating={effectiveCreator?.rating ?? null}
 		providerPubkey={service?.npub ?? null}
 		providerMemberSince={service?.createdAt ?? null}
 		amountUsd={instantBuyDraft?.amountUsd ?? null}

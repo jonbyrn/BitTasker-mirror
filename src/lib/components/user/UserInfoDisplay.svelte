@@ -7,6 +7,44 @@
 	import { calculateReviewStats } from '$lib/utils/reviews/aggregation';
 	import { calculateUserRanking, type UserRanking } from '$lib/utils/reviews/ranking';
 
+	// ── Module-level review cache (one fetch per pubkey per session) ──────────
+	interface CachedReviewData {
+		reviewCount: number;
+		averageRating: number;
+		ranking: UserRanking | null;
+		timestamp: number;
+	}
+	const REVIEWS_CACHE_TTL = 5 * 60 * 1000;
+	const MAX_CACHE_SIZE = 100;
+	const reviewsCache: Record<string, CachedReviewData> = {};
+	const inFlightRequests: Record<string, Promise<CachedReviewData>> = {};
+
+	function getCachedReviews(pubkey: string): CachedReviewData | null {
+		const entry = reviewsCache[pubkey];
+		if (!entry) return null;
+		if (Date.now() - entry.timestamp > REVIEWS_CACHE_TTL) {
+			delete reviewsCache[pubkey];
+			return null;
+		}
+		return entry;
+	}
+
+	function setCachedReviews(pubkey: string, data: CachedReviewData): void {
+		reviewsCache[pubkey] = data;
+		const keys = Object.keys(reviewsCache);
+		if (keys.length > MAX_CACHE_SIZE) {
+			let oldestKey = keys[0];
+			let oldestTime = reviewsCache[oldestKey].timestamp;
+			for (const k of keys) {
+				if (reviewsCache[k].timestamp < oldestTime) {
+					oldestTime = reviewsCache[k].timestamp;
+					oldestKey = k;
+				}
+			}
+			delete reviewsCache[oldestKey];
+		}
+	}
+
 	const {
 		avatar = null,
 		username = null,
@@ -18,7 +56,8 @@
 		profileLink = null, // Optional npub/pubkey for profile link
 		onResolvedName = null,
 		showRanking = false, // Show ranking badge
-		showReviewCount = true // Show review count next to stars
+		showReviewCount = true, // Show review count next to stars
+		reviewBadge = null // Text label shown as a subtle badge when this user has reviewed you
 	} = $props<{
 		avatar?: string | null;
 		username?: string | null;
@@ -32,6 +71,7 @@
 		onResolvedName?: ((name: string) => void) | null;
 		showRanking?: boolean;
 		showReviewCount?: boolean;
+		reviewBadge?: string | null; // Shows a subtle "reviewed you" indicator
 	}>();
 
 	// State for fetched profile data (fetchProfileMetadata returns name, picture, createdAt)
@@ -310,37 +350,67 @@
 	 */
 	async function loadUserReviews(currentPubkey: string, requestId: number) {
 		if (ratingProp !== null && ratingProp !== undefined) {
-			// If rating is explicitly provided, use it
 			calculatedRating = ratingProp;
 			return;
 		}
 
-		isLoadingReviews = true;
-		try {
-			const reviews = await getReviewsForUser(currentPubkey, 100);
-
-			if (requestId !== activeProfileRequestId) {
-				return;
-			}
-
-			reviewCount = reviews.length;
-
-			if (reviews.length > 0) {
-				const stats = calculateReviewStats(reviews);
-				calculatedRating = stats.averageRating;
-				userRanking = calculateUserRanking({ reviewStats: stats });
-			} else {
+		// Deduplicate in-flight requests for the same pubkey
+		const inFlight = inFlightRequests[currentPubkey];
+		if (inFlight) {
+			try {
+				const result = await inFlight;
+				if (requestId !== activeProfileRequestId) return;
+				reviewCount = result.reviewCount;
+				calculatedRating = result.averageRating;
+				userRanking = result.ranking;
+			} catch {
+				if (requestId !== activeProfileRequestId) return;
 				calculatedRating = 0;
 				userRanking = null;
 			}
-		} catch (error) {
-			if (requestId !== activeProfileRequestId) {
-				return;
+			return;
+		}
+
+		isLoadingReviews = true;
+
+		const promise = (async (): Promise<CachedReviewData> => {
+			const reviews = await getReviewsForUser(currentPubkey, 100);
+			let result: CachedReviewData;
+			if (reviews.length > 0) {
+				const stats = calculateReviewStats(reviews);
+				result = {
+					reviewCount: reviews.length,
+					averageRating: stats.averageRating,
+					ranking: calculateUserRanking({ reviewStats: stats }),
+					timestamp: Date.now()
+				};
+			} else {
+				result = {
+					reviewCount: 0,
+					averageRating: 0,
+					ranking: null,
+					timestamp: Date.now()
+				};
 			}
+			setCachedReviews(currentPubkey, result);
+			return result;
+		})();
+
+		inFlightRequests[currentPubkey] = promise;
+
+		try {
+			const result = await promise;
+			if (requestId !== activeProfileRequestId) return;
+			reviewCount = result.reviewCount;
+			calculatedRating = result.averageRating;
+			userRanking = result.ranking;
+		} catch (error) {
+			if (requestId !== activeProfileRequestId) return;
 			console.error('[UserInfoDisplay] Failed to load user reviews:', error);
 			calculatedRating = 0;
 			userRanking = null;
 		} finally {
+			delete inFlightRequests[currentPubkey];
 			isLoadingReviews = false;
 		}
 	}
@@ -358,15 +428,32 @@
 		const requestId = activeProfileRequestId;
 
 		fetchedProfile = null;
+
+		if (!currentPubkey) {
+			userRanking = null;
+			reviewCount = 0;
+			calculatedRating = 0;
+			return;
+		}
+
+		// Check cache first — avoid flash of empty state when data is already loaded
+		if (ratingProp === null || ratingProp === undefined) {
+			const cached = getCachedReviews(currentPubkey);
+			if (cached) {
+				reviewCount = cached.reviewCount;
+				calculatedRating = cached.averageRating;
+				userRanking = cached.ranking;
+				isLoadingReviews = false;
+				void loadUserProfile(currentPubkey, requestId);
+				return;
+			}
+		}
+
+		// Cache miss — reset and fetch both
 		userRanking = null;
 		reviewCount = 0;
 		calculatedRating = 0;
 
-		if (!currentPubkey) {
-			return;
-		}
-
-		// Load profile and reviews in parallel
 		void Promise.all([
 			loadUserProfile(currentPubkey, requestId),
 			loadUserReviews(currentPubkey, requestId)
@@ -499,6 +586,25 @@
 				{/if}
 			{/if}
 		</div>
+		{#if reviewBadge}
+			<span class="badge badge-info badge-xs gap-1" title={$t('reviews.review_received')}>
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					class="h-3 w-3"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke="currentColor"
+				>
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+					/>
+				</svg>
+				{reviewBadge}
+			</span>
+		{/if}
 
 		<!-- Ranking Badge (optional) -->
 		{#if showRanking && userRanking && userRanking.score > 0}

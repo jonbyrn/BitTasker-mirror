@@ -5,6 +5,7 @@
 			"subtitle": "Reviews are public and immutable once submitted.",
 			"category_ratings": "Category Ratings",
 			"overall_rating": "Overall Rating",
+			"overall_rating_calculated": "Calculated from the category ratings above",
 			"quality": "Quality",
 			"quality_taskee": "Work Quality",
 			"quality_taskee_desc": "Quality of work delivered, deliverables, and results",
