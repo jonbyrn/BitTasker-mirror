@@ -185,7 +185,7 @@
 			{#each [0, 1, 2, 3, 4] as i (i)}
 				<IconStar
 					class="{currentSizeClasses.star} {i < roundedRating
-						? 'text-warning'
+						? 'text-primary'
 						: 'text-base-content/30'}"
 					aria-hidden="true"
 				/>

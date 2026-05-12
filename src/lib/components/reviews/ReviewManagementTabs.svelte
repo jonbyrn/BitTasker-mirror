@@ -127,7 +127,7 @@
 			>
 				<span>{$t('reviews.tabs.pending')}</span>
 				{#if pendingCount > 0}
-					<span class="badge badge-sm badge-warning ml-2 shrink-0">{pendingCount}</span>
+					<span class="badge badge-sm badge-primary ml-2 shrink-0">{pendingCount}</span>
 				{/if}
 			</button>
 		{/if}

@@ -7,6 +7,7 @@
 	import ProfileInfoSection from '$lib/components/profile/ProfileInfoSection.svelte';
 	import ProfileSidebar from '$lib/components/profile/ProfileSidebar.svelte';
 	import ProfileReviewsSection from '$lib/components/profile/ProfileReviewsSection.svelte';
+	import Tabs from '$lib/components/Tabs.svelte';
 
 	// Format date (passed to children)
 	function formatDate(dateString: string) {
@@ -73,6 +74,15 @@
 		lastSyncedSearch = currentSearch;
 		activeTab = reviewTargetPubkey ? 'reviews' : requestedTab;
 	});
+
+	const profileTabs = $derived([
+		{ id: 'overview', label: $t('profile.tabs.overview') },
+		{ id: 'reviews', label: $t('profile.tabs.reviews') }
+	]);
+
+	function handleProfileTabChange(tabId: string) {
+		activeTab = tabId as 'overview' | 'reviews';
+	}
 </script>
 
 <!-- Mismas dimensiones que Mi Panel -->
@@ -88,19 +98,8 @@
 			<ProfileHeader />
 
 			<!-- Profile Tabs -->
-			<div class="tabs tabs-boxed bg-base-200 mb-6">
-				<button
-					class="tab {activeTab === 'overview' ? 'tab-active' : ''}"
-					onclick={() => (activeTab = 'overview')}
-				>
-					{$t('profile.tabs.overview')}
-				</button>
-				<button
-					class="tab {activeTab === 'reviews' ? 'tab-active' : ''}"
-					onclick={() => (activeTab = 'reviews')}
-				>
-					{$t('profile.tabs.reviews')}
-				</button>
+			<div class="mb-6">
+				<Tabs tabs={profileTabs} {activeTab} onTabChange={handleProfileTabChange} evenSplit />
 			</div>
 
 			<!-- Tab Content -->

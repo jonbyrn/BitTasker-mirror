@@ -106,7 +106,7 @@
 
 	function getRatingColor(rating: number): string {
 		if (rating >= 4.5) return 'text-success';
-		if (rating >= 3.5) return 'text-warning';
+		if (rating >= 3.5) return 'text-primary';
 		return 'text-error';
 	}
 
@@ -159,7 +159,7 @@
 					{#each [0, 1, 2, 3, 4] as i (i)}
 						<IconStar
 							class="h-3.5 w-3.5 {i < Math.round(review.content.overallRating)
-								? 'text-warning'
+								? 'text-primary'
 								: 'text-base-content/20'}"
 							aria-hidden="true"
 						/>
@@ -214,7 +214,7 @@
 							{#each [1, 2, 3, 4, 5] as star (star)}
 								<IconStar
 									class="h-3 w-3 {star <= Math.round(category.value)
-										? 'text-warning'
+										? 'text-primary'
 										: 'text-base-content/20'}"
 									aria-hidden="true"
 								/>
@@ -241,7 +241,7 @@
 							{#each [1, 2, 3, 4, 5] as star (star)}
 								<IconStar
 									class="h-3 w-3 {star <= Math.round(category.value)
-										? 'text-warning'
+										? 'text-primary'
 										: 'text-base-content/20'}"
 									aria-hidden="true"
 								/>
@@ -268,7 +268,7 @@
 							{#each [1, 2, 3, 4, 5] as star (star)}
 								<IconStar
 									class="h-3 w-3 {star <= Math.round(category.value)
-										? 'text-warning'
+										? 'text-primary'
 										: 'text-base-content/20'}"
 									aria-hidden="true"
 								/>
