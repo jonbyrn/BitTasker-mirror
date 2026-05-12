@@ -13,7 +13,8 @@
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { pushNotificationService } from '$lib/api/services/push-notification.service';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
-	import SchedulePeriodPicker from '$lib/components/date/SchedulePeriodPicker.svelte';
+	import DurationPickerModal from '$lib/components/date/DurationPickerModal.svelte';
+	import ScheduleDateTimeField from '$lib/components/date/ScheduleDateTimeField.svelte';
 	import KINDS from '$lib/utils/constants/kinds';
 	import { toUnixSeconds } from '$lib/utils/helpers/dateFormatter';
 	import { SvelteDate } from 'svelte/reactivity';
@@ -58,8 +59,20 @@
 	}
 
 	let startDateTime = $state<Date | null>(null);
-	let endDateTime = $state<Date | null>(null);
 	let scheduleFieldsTouched = $state(false);
+	let durationDays = $state(0);
+	let durationHours = $state(1);
+	let durationMinutes = $state(0);
+	let durationModalOpen = $state(false);
+
+	const endDateTime = $derived.by(() => {
+		if (!startDateTime) return null;
+		const end = new SvelteDate(startDateTime.getTime());
+		end.setDate(end.getDate() + durationDays);
+		end.setHours(end.getHours() + durationHours);
+		end.setMinutes(end.getMinutes() + durationMinutes);
+		return roundDateToInterval(end, FIFTEEN_MINUTES_IN_MS, 'ceil');
+	});
 	const FIFTEEN_MINUTES_IN_MS = 15 * 60 * 1000;
 	const DEFAULT_START_OFFSET_HOURS = 1;
 	const DEFAULT_DURATION_IN_HOURS = 1;
@@ -184,17 +197,13 @@
 		}
 
 		const preferredStart = buildPreferredStartDate();
-		const preferredEnd = ensureMinimumDuration(
+		const _preferredEnd = ensureMinimumDuration(
 			preferredStart,
 			buildPreferredEndDate(preferredStart)
 		);
 
 		if (preferredStart && !areDatesEqual(startDateTime, preferredStart)) {
 			startDateTime = preferredStart;
-		}
-
-		if (preferredEnd && !areDatesEqual(endDateTime, preferredEnd)) {
-			endDateTime = preferredEnd;
 		}
 	});
 
@@ -223,13 +232,6 @@
 	function handleDateTimeChange() {
 		scheduleFieldsTouched = true;
 		clearFieldError('datetime');
-		if (startDateTime && endDateTime && endDateTime.getTime() <= startDateTime.getTime()) {
-			endDateTime = roundDateToInterval(
-				addDefaultDuration(startDateTime),
-				FIFTEEN_MINUTES_IN_MS,
-				'ceil'
-			);
-		}
 	}
 
 	// Helper function to clear specific validation errors
@@ -611,20 +613,61 @@
 
 				<!-- Date and Time Selection for Fixed Price -->
 				<div class="form-control min-w-0 gap-4">
-					<SchedulePeriodPicker
-						bind:startValue={startDateTime}
-						bind:endValue={endDateTime}
-						minStartDate={new Date()}
-						minEndDate={startDateTime || new Date()}
-						onStartChange={(date: Date | null) => {
-							startDateTime = date;
-							handleDateTimeChange();
-						}}
-						onEndChange={(date: Date | null) => {
-							endDateTime = date;
-							handleDateTimeChange();
-						}}
-					/>
+					<div class="grid min-w-0 gap-3 sm:grid-cols-2 sm:gap-12 md:gap-16">
+						<ScheduleDateTimeField
+							bind:value={startDateTime}
+							period="start"
+							minDate={new Date()}
+							headingKey="bid_form.form.schedule_section_start"
+							onChange={(date: Date | null) => {
+								startDateTime = date;
+								handleDateTimeChange();
+							}}
+						/>
+						<!-- Duration trigger button -->
+						<div class="form-control min-w-0 gap-0.5 sm:gap-3">
+							{#if true}
+								<div class="label min-h-0 py-0">
+									<span class="label-text">{$t('common.components.duration_picker.title')}</span>
+								</div>
+							{/if}
+							<button
+								type="button"
+								class="input input-bordered hover:bg-base-200/50 flex min-h-11 min-w-0 flex-1 items-center gap-1 px-1.5 py-0 text-left transition-colors sm:gap-1.5 sm:px-2"
+								onclick={() => (durationModalOpen = true)}
+							>
+								<span class="text-base-content flex shrink-0 items-center" aria-hidden="true">
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										class="block h-5 w-5"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="1.75"
+											d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"
+										/>
+									</svg>
+								</span>
+								<span class="text-base-content min-w-0 flex-1 truncate text-sm font-semibold">
+									{#if endDateTime}
+										{new Intl.DateTimeFormat($locale || 'en', {
+											month: 'short',
+											day: 'numeric',
+											hour: 'numeric',
+											minute: '2-digit',
+											hour12: true
+										}).format(endDateTime)}
+									{:else}
+										{$t('common.components.duration_picker.title')}
+									{/if}
+								</span>
+							</button>
+						</div>
+					</div>
 					{#if bidFormErrors.datetime}
 						<div class="label min-h-0 w-full min-w-0">
 							<span
@@ -634,7 +677,7 @@
 							>
 						</div>
 					{/if}
-					{#if startDateTime && endDateTime && formatDurationForDisplay}
+					{#if startDateTime && endDateTime}
 						<div class="bg-info/10 mt-2 rounded-lg px-3 py-2">
 							<span class="text-info text-sm font-semibold">
 								{$t('bid_form.form.duration')}: {formatDurationForDisplay}
@@ -642,6 +685,20 @@
 						</div>
 					{/if}
 				</div>
+
+				<DurationPickerModal
+					open={durationModalOpen}
+					baseStartDate={startDateTime || new Date()}
+					value={{ days: durationDays, hours: durationHours, minutes: durationMinutes }}
+					onClose={() => (durationModalOpen = false)}
+					onSelect={(d) => {
+						durationDays = d.days;
+						durationHours = d.hours;
+						durationMinutes = d.minutes;
+						durationModalOpen = false;
+						handleDateTimeChange();
+					}}
+				/>
 
 				<!-- Remove the old estimated duration field since we now have datetime for fixed price -->
 				<!-- Estimated Completion Time field removed - not needed for either payment type -->

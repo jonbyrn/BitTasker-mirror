@@ -73,6 +73,7 @@
 			"next": "Next"
 		},
 		"today": "Today",
+		"at": "at",
 		"clear": "Clear",
 		"slide": "Slide",
 		"view_all": "View All",
@@ -418,6 +419,13 @@
 				"duration_hours": "{hours} hr",
 				"duration_hours_minutes": "{hours} hr {minutes} min",
 				"today": "Today"
+			},
+			"duration_picker": {
+				"title": "Duration",
+				"days": "Days",
+				"hours": "Hrs",
+				"minutes": "Mins",
+				"completes_by": "Completes by"
 			},
 			"date_input": {
 				"and": "and",
