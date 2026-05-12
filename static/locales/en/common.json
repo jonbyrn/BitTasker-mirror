@@ -425,7 +425,7 @@
 				"days": "Days",
 				"hours": "Hrs",
 				"minutes": "Mins",
-				"completes_by": "Completes by"
+				"completes_by": "End Time"
 			},
 			"date_input": {
 				"and": "and",

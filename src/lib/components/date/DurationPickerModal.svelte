@@ -286,9 +286,11 @@
 			</div>
 
 			<!-- inputs -->
-			<div class="flex items-center justify-center gap-x-2 gap-y-3 px-4 py-6">
+			<div
+				class="flex flex-col gap-x-2 gap-y-3 px-4 py-6 sm:flex-row sm:items-center sm:justify-center"
+			>
 				<!-- Days -->
-				<div class="flex flex-col items-center gap-1.5">
+				<div class="flex w-full flex-col items-center gap-1.5 sm:w-auto">
 					<input
 						id="bittasker-duration-days"
 						bind:this={daysInputEl}
@@ -297,7 +299,7 @@
 						autocomplete="off"
 						maxlength="3"
 						bind:value={daysStr}
-						class="input border-base-300 bg-base-200/90 focus:border-primary focus:bg-primary/10 focus:ring-primary/25 min-h-17 w-[5.25rem] rounded-2xl border-2 px-2 text-center font-mono text-4xl leading-none font-bold tabular-nums transition-[box-shadow,background-color,border-color] focus:ring-2 focus:outline-none"
+						class="input border-base-300 bg-base-200/90 focus:border-primary focus:bg-primary/10 focus:ring-primary/25 min-h-17 w-full rounded-2xl border-2 px-2 text-center font-mono text-4xl leading-none font-bold tabular-nums transition-[box-shadow,background-color,border-color] focus:ring-2 focus:outline-none sm:w-[5.25rem]"
 						oninput={onDaysInput}
 						onblur={commitDaysFromInput}
 						onkeydown={onDaysKeydown}
@@ -310,10 +312,12 @@
 				</div>
 
 				<!-- separator -->
-				<span class="text-base-content/60 text-4xl font-bold" aria-hidden="true">:</span>
+				<span class="text-base-content/60 hidden text-4xl font-bold sm:inline" aria-hidden="true"
+					>:</span
+				>
 
 				<!-- Hours -->
-				<div class="flex flex-col items-center gap-1.5">
+				<div class="flex w-full flex-col items-center gap-1.5 sm:w-auto">
 					<input
 						id="bittasker-duration-hours"
 						bind:this={hoursInputEl}
@@ -322,7 +326,7 @@
 						autocomplete="off"
 						maxlength="2"
 						bind:value={hoursStr}
-						class="input border-base-300 bg-base-200/90 focus:border-primary focus:bg-primary/10 focus:ring-primary/25 min-h-17 w-[5.25rem] rounded-2xl border-2 px-2 text-center font-mono text-4xl leading-none font-bold tabular-nums transition-[box-shadow,background-color,border-color] focus:ring-2 focus:outline-none"
+						class="input border-base-300 bg-base-200/90 focus:border-primary focus:bg-primary/10 focus:ring-primary/25 min-h-17 w-full rounded-2xl border-2 px-2 text-center font-mono text-4xl leading-none font-bold tabular-nums transition-[box-shadow,background-color,border-color] focus:ring-2 focus:outline-none sm:w-[5.25rem]"
 						oninput={onHoursInput}
 						onblur={commitHoursFromInput}
 						onkeydown={onHoursKeydown}
@@ -335,10 +339,12 @@
 				</div>
 
 				<!-- separator -->
-				<span class="text-base-content/60 text-4xl font-bold" aria-hidden="true">:</span>
+				<span class="text-base-content/60 hidden text-4xl font-bold sm:inline" aria-hidden="true"
+					>:</span
+				>
 
 				<!-- Minutes -->
-				<div class="flex flex-col items-center gap-1.5">
+				<div class="flex w-full flex-col items-center gap-1.5 sm:w-auto">
 					<input
 						id="bittasker-duration-minutes"
 						bind:this={minsInputEl}
@@ -347,7 +353,7 @@
 						autocomplete="off"
 						maxlength="2"
 						bind:value={minsStr}
-						class="input border-base-300 bg-base-200/90 focus:border-primary focus:bg-primary/10 focus:ring-primary/25 min-h-17 w-[5.25rem] rounded-2xl border-2 px-2 text-center font-mono text-4xl leading-none font-bold tabular-nums transition-[box-shadow,background-color,border-color] focus:ring-2 focus:outline-none"
+						class="input border-base-300 bg-base-200/90 focus:border-primary focus:bg-primary/10 focus:ring-primary/25 min-h-17 w-full rounded-2xl border-2 px-2 text-center font-mono text-4xl leading-none font-bold tabular-nums transition-[box-shadow,background-color,border-color] focus:ring-2 focus:outline-none sm:w-[5.25rem]"
 						oninput={onMinsInput}
 						onblur={commitMinsFromInput}
 						onkeydown={onMinsKeydown}
@@ -361,7 +367,7 @@
 			</div>
 
 			<!-- computed end -->
-			<div class="bg-base-200/50 mx-4 mb-4 rounded-xl px-4 py-3 text-center">
+			<div class="bg-base-200/50 mx-4 my-4 rounded-xl px-4 py-4 text-center">
 				<span class="text-base-content/60 text-xs font-medium">
 					{$t('common.components.duration_picker.completes_by')}
 				</span>
