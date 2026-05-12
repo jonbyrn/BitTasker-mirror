@@ -93,7 +93,6 @@
 		return roundDateToInterval(target, FIFTEEN_MINUTES_IN_MS, 'ceil');
 	}
 
-	 
 	function _getDefaultFutureEnd(start: Date): Date {
 		const target = new SvelteDate(start.getTime() + DEFAULT_DURATION_IN_HOURS * MS_PER_HOUR);
 		return roundDateToInterval(target, FIFTEEN_MINUTES_IN_MS, 'ceil');
@@ -494,7 +493,7 @@
 							</div>
 							<button
 								type="button"
-								class="input input-bordered hover:bg-base-200/50 flex min-h-11 min-w-0 flex-1 items-center gap-1 px-1.5 py-0 text-left transition-colors sm:gap-1.5 sm:px-2"
+								class="input input-bordered hover:bg-base-200/50 flex min-h-11 w-full items-center gap-1 px-1.5 py-0 text-left transition-colors sm:gap-1.5 sm:px-2"
 								onclick={() => (durationModalOpen = true)}
 							>
 								<span class="text-base-content flex shrink-0 items-center" aria-hidden="true">
