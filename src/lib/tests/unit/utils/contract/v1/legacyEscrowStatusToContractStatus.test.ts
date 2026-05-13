@@ -1,5 +1,24 @@
 import { describe, it, expect } from 'vitest';
-import { EscrowStatus } from '$lib/utils/escrow/v1/escrow.enum';
+// Legacy EscrowStatus numeric values (from deleted escrow.enum.ts), used as test inputs
+const EscrowStatus = {
+	Funded: 0,
+	InDispute: 1,
+	DisputeResolved: 2,
+	DisputeUnresolved: 3,
+	Completed: 4,
+	Cancelled: 5,
+	PendingFunding: 6,
+	InProgress: 7,
+	PendingCompletion: 8,
+	PendingCancellation: 9,
+	FundsReleased: 10,
+	PendingAcceptance: 11,
+	DisputeResolutionProposed: 12,
+	PendingDispute: 13,
+	PendingResolutionProposal: 14,
+	PendingProposalAcceptance: 15,
+	PendingTimelockResolution: 16
+} as const;
 import { ContractStatus } from '$lib/utils/contract/types';
 import {
 	isLegacyContractStatusWireVersion,
