@@ -369,11 +369,6 @@ export const AVATAR_MENU_ITEMS: MenuItem[] = [
 		href: '/dashboard/profile'
 	},
 	{
-		label: 'navbar.reviews',
-		icon: IconStar,
-		href: '/reviews'
-	},
-	{
 		label: 'navbar.settings',
 		icon: IconCog,
 		href: '/dashboard/settings'

@@ -298,7 +298,7 @@
 	}
 </script>
 
-<div class="space-y-6">
+<div class="space-y-6 pb-8">
 	{#if isLoading}
 		<div role="status" aria-live="polite">
 			<!-- Match ReviewSummaryCard: split stat card -->

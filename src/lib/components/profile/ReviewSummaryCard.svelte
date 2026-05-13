@@ -22,8 +22,8 @@
 
 	function getRatingTone(rating: number): 'success' | 'warning' | 'error' | 'neutral' {
 		if (!Number.isFinite(rating) || rating <= 0) return 'neutral';
-		if (rating >= 4.5) return 'success';
-		if (rating >= 3.5) return 'primary';
+		if (rating >= 4) return 'success';
+		if (rating >= 3) return 'warning';
 		return 'error';
 	}
 
@@ -31,25 +31,12 @@
 		switch (getRatingTone(rating)) {
 			case 'success':
 				return 'text-success';
-			case 'primary':
-				return 'text-primary';
+			case 'warning':
+				return 'text-warning';
 			case 'error':
 				return 'text-error';
 			default:
 				return 'text-base-content/60';
-		}
-	}
-
-	function getBarColor(rating: number): string {
-		switch (getRatingTone(rating)) {
-			case 'success':
-				return 'bg-success';
-			case 'primary':
-				return 'bg-primary';
-			case 'error':
-				return 'bg-error';
-			default:
-				return 'bg-base-300';
 		}
 	}
 
@@ -228,7 +215,7 @@
 							<div class="flex-1">
 								<div class="bg-base-200 h-4 w-full overflow-hidden rounded-full">
 									<div
-										class={`h-full transition-all duration-300 ${getBarColor(rating)}`}
+										class="bg-primary h-full transition-all duration-300"
 										data-testid={`distribution-bar-${rating}`}
 										data-tone={getRatingTone(rating)}
 										style={`width: ${percentage}%`}
@@ -271,7 +258,7 @@
 										</div>
 										<div class="bg-base-200 h-3 w-full overflow-hidden rounded-full">
 											<div
-												class={`h-full transition-all duration-300 ${getBarColor(category.value)}`}
+												class="bg-primary h-full transition-all duration-300"
 												data-testid={`category-bar-${category.id}`}
 												data-tone={getRatingTone(category.value)}
 												style={`width: ${(category.value / 5) * 100}%`}

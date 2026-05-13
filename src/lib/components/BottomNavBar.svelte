@@ -36,6 +36,7 @@
 	import IconAccountCircle from '~icons/mdi/account-circle';
 	import IconAccountOutline from '~icons/mdi/account-outline';
 	import IconCogOutline from '~icons/mdi/cog-outline';
+	import IconStarOutline from '~icons/mdi/star-outline';
 
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	type IconComponent = any;
@@ -60,7 +61,8 @@
 			label: 'navbar.my_account',
 			items: [
 				{ href: '/dashboard/profile', icon: IconAccountOutline, label: 'navbar.profile' },
-				{ href: '/dashboard/settings', icon: IconCogOutline, label: 'navbar.settings' }
+				{ href: '/dashboard/settings', icon: IconCogOutline, label: 'navbar.settings' },
+				{ href: '/reviews', icon: IconStarOutline, label: 'navbar.reviews' }
 			]
 		},
 		{

@@ -19,25 +19,15 @@
 		profileStore.init();
 	});
 
-	function getRequestedTabFromUrl(url: URL): 'overview' | 'reviews' {
-		return url.searchParams.get('tab') === 'reviews' ? 'reviews' : 'overview';
-	}
-
 	function getReviewTargetPubkeyFromUrl(url: URL): string | undefined {
 		const user = url.searchParams.get('user')?.trim();
 		return user || undefined;
 	}
 
-	// Tab management
-	let activeTab = $state<'overview' | 'reviews'>(
-		getReviewTargetPubkeyFromUrl(page.url) ? 'reviews' : getRequestedTabFromUrl(page.url)
-	);
-	let lastSyncedSearch = $state('');
 	const reviewTargetPubkey = $derived.by(() => {
 		return getReviewTargetPubkeyFromUrl(page.url);
 	});
 	const isOtherUserReviewsView = $derived(Boolean(reviewTargetPubkey));
-	const requestedTab = $derived<'overview' | 'reviews'>(getRequestedTabFromUrl(page.url));
 
 	let profileStoreInitialized = false;
 
@@ -62,17 +52,6 @@
 			}
 		};
 	});
-
-	$effect(() => {
-		const currentSearch = page.url.search;
-
-		if (currentSearch === lastSyncedSearch) {
-			return;
-		}
-
-		lastSyncedSearch = currentSearch;
-		activeTab = reviewTargetPubkey ? 'reviews' : requestedTab;
-	});
 </script>
 
 <!-- Mismas dimensiones que Mi Panel -->
@@ -85,34 +64,8 @@
 			<ProfileReviewsSection userPubkey={reviewTargetPubkey} isCurrentUser={false} />
 		{:else}
 			<ProfileHeader />
-
-			<!-- Profile Tabs -->
-			<div class="tabs tabs-bordered mb-6 grid w-full grid-cols-2">
-				<button
-					class="tab text-center {activeTab === 'overview' ? 'tab-active' : ''}"
-					onclick={() => (activeTab = 'overview')}
-					role="tab"
-					aria-selected={activeTab === 'overview'}
-				>
-					{$t('profile.tabs.overview')}
-				</button>
-				<button
-					class="tab text-center {activeTab === 'reviews' ? 'tab-active' : ''}"
-					onclick={() => (activeTab = 'reviews')}
-					role="tab"
-					aria-selected={activeTab === 'reviews'}
-				>
-					{$t('profile.tabs.reviews')}
-				</button>
-			</div>
-
-			<!-- Tab Content -->
-			{#if activeTab === 'overview'}
-				<ProfileInfoSection {formatDate} />
-				<ProfileSidebar />
-			{:else if activeTab === 'reviews'}
-				<ProfileReviewsSection isCurrentUser={true} />
-			{/if}
+			<ProfileInfoSection {formatDate} />
+			<ProfileSidebar />
 		{/if}
 	</div>
 </div>
