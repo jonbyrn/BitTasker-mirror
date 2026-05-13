@@ -10,7 +10,8 @@
 	import UsdSatsDisplay from '$lib/components/shared/UsdSatsDisplay.svelte';
 	import TaskDeadlineDisplay from '$lib/components/task/TaskDeadlineDisplay.svelte';
 	import { formatStandardDateTime } from '$lib/utils/helpers/dateFormatter';
-	import { escrow } from '$lib/utils/escrow';
+	import { ndk } from '$lib/nostr/ndk';
+	import KINDS from '$lib/utils/constants/kinds';
 	import TranslatableTask from '$lib/components/task/TranslatableTask.svelte';
 	import LocationDetailsCard from '$lib/components/location/LocationDetailsCard.svelte';
 	import TaskLocationDisplay from '../TaskLocationDisplay.svelte';
@@ -199,9 +200,12 @@
 			isCheckingEdit = true;
 
 			// Check if task has any contracts
-			const contracts = await escrow.contractOps.getContracts({ taskIds: [task.id] });
+			const contracts = await ndk.fetchEvents(
+				{ kinds: [KINDS.CONTRACT], '#t': [task.id], limit: 50 },
+				{ closeOnEose: true }
+			)
 
-			if (contracts.length === 0) {
+			if (contracts.size === 0) {
 				// No contracts found - can edit
 				canEdit = true;
 				return;
@@ -228,33 +232,29 @@
 		try {
 			isCheckingDelete = true;
 
-			// Check if task has any contracts (which means it has an escrow)
-			const contracts = await escrow.contractOps.getContracts({ taskIds: [task.id] });
+			// Check if task has any contracts
+			const contracts = await ndk.fetchEvents(
+				{ kinds: [KINDS.CONTRACT], '#t': [task.id], limit: 50 },
+				{ closeOnEose: true }
+			)
 
-			if (contracts.length === 0) {
+			if (contracts.size === 0) {
 				// No contracts found - task was never funded, can delete
 				canDelete = true;
 				return;
 			}
 
 			// Task has contracts - check if any escrow was funded
-			for (const contract of contracts) {
-				const fundingStatus = await escrow.escrowOps.checkEscrowFundingStatus(contract);
-
-				if (fundingStatus.error) {
-					// Error checking escrow - be conservative and disallow deletion
-					canDelete = false;
-					return;
-				}
-
-				if (fundingStatus.wasFunded) {
-					// Escrow was funded - cannot delete
+			for (const event of contracts) {
+				const dTag = event.tags.find((t: string[]) => t[0] === 'd')?.[1];
+				if (dTag) {
+					// Contract has a payment ID - was funded, cannot delete
 					canDelete = false;
 					return;
 				}
 			}
 
-			// All escrows were never funded - can delete
+			// All contracts were never funded - can delete
 			canDelete = true;
 		} catch (error) {
 			console.error('Error checking if task can be deleted:', error);

@@ -6,7 +6,7 @@
  */
 
 import { Interface, FunctionFragment } from 'ethers';
-import { escrow } from '$lib/utils/escrow';
+import abi from '$lib/utils/contract/v1/abi.json';
 import { hasContractInteraction } from './contractDetection';
 
 function isFunctionFragment(item: unknown): item is FunctionFragment {
@@ -46,7 +46,6 @@ let escrowFunctionSelectors: Map<string, string> | null = null;
  */
 function initializeEscrowInterface(): void {
 	if (!escrowInterface) {
-		const abi = escrow.getABI();
 		escrowInterface = new Interface(abi);
 		escrowFunctionSelectors = new Map();
 
@@ -122,7 +121,7 @@ export function parseEscrowFunction(inputData: string): ParsedFunction | null {
 		// Extract escrowId (first parameter for most escrow functions)
 		let escrowId: string | undefined;
 		if (parameters.escrowId !== undefined) {
-			escrowId = parameters.escrowId.toString();
+			escrowId = parameters.escrowId?.toString();
 		}
 
 		return {

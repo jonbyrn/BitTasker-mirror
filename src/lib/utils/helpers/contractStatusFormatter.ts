@@ -1,3 +1,9 @@
+/**
+ * @deprecated Use contractStatusFormatterV2.ts instead
+ * This file is part of the legacy escrow flow.
+ * New contracts should use the PaymentContractRune and v2 lifecycle.
+ * See docs/escrow-migration-plan.md for migration details.
+ */
 import { EscrowStatus } from '$lib/utils/escrow';
 import type { ContractStatusEvent } from '$lib/types/contract';
 

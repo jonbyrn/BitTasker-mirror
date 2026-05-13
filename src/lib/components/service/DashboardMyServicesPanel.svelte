@@ -41,14 +41,12 @@
 	import DashboardFilterBar from '$lib/components/shared/DashboardFilterBar.svelte';
 	import DashboardDropdown from '$lib/components/shared/DashboardDropdown.svelte';
 	import { createDashboardUrl } from '$lib/utils/service-quote/dashboard-route';
-	/**
-	 * V2 Migration Note:
-	 * The escrow facade is used for getContracts() which internally uses LATEST_ESCROW_VERSION (v2).
-	 * This is acceptable during transition but should eventually migrate to:
-	 * - contractStore.loadContracts() for reactive state
-	 * - NDK-based queries for direct Nostr access
-	 */
-	import { escrow } from '$lib/utils/escrow';
+	import { ndk } from '$lib/nostr/ndk';
+	import KINDS from '$lib/utils/constants/kinds';
+	import { NDKPaymentContract } from '$lib/nostr/events/contract';
+	import type { NDKFilter } from '@nostr-dev-kit/ndk';
+	import { ContractStatus } from '$lib/utils/contract/types';
+	import type { EscrowData } from '$lib/types/wallet';
 
 	const PAGE_SIZE = 12;
 	const MY_SERVICES_FETCH_LIMIT = 1000;
@@ -245,49 +243,144 @@
 		return $contractStore.contracts;
 	}
 
+	/** Convert an NDKPaymentContract to a minimal ContractWithEvents snapshot (no blockchain data). */
+	async function ndkContractToSnapshot(
+		contract: NDKPaymentContract,
+		currentPubkey: string
+	): Promise<ContractWithEvents | null> {
+		const pTags = contract.getMatchingTags('p');
+		const authorPubkey = contract.pubkey;
+		const taskerPubkey = authorPubkey;
+		const taskeePubkey = pTags.find((tag) => tag[1] !== authorPubkey)?.[1] ?? '';
+		const isClient = currentPubkey === taskeePubkey;
+
+		const statusValue = contract.status ? parseInt(contract.status, 10) : ContractStatus.Funded;
+
+		// Build minimal escrow data (blockchain fields unavailable from Nostr alone)
+		const escrowData = {
+			id: contract.paymentId,
+			client: isClient ? currentPubkey : taskeePubkey,
+			freelancer: isClient ? taskerPubkey : currentPubkey,
+			baseAmount: String(contract.amount ?? '0'),
+			clientFee: '0',
+			freelancerFee: '0',
+			totalAmount: String(contract.amount ?? '0'),
+			status: statusValue,
+			estimatedStartTime: contract.estimatedStartTime ?? 0,
+			estimatedCompletionTime: contract.estimatedCompletionTime ?? 0,
+			completionTime: 0,
+			timelockExpiry: 0,
+			clientFeeTier: 0,
+			freelancerFeeTier: 0,
+			createdAt: contract.created_at ?? 0,
+			lastUpdated: contract.created_at ?? 0
+		} as unknown as EscrowData;
+
+		return {
+			contractEvent: {
+				id: contract.id ?? '',
+				pubkey: contract.pubkey ?? '',
+				created_at: contract.created_at ?? 0,
+				kind: contract.kind ?? KINDS.CONTRACT,
+				tags: contract.tags as unknown as string[][],
+				content: {
+					escrowId: contract.paymentId,
+					taskId: contract.taskId,
+					freelancerPubkey: taskerPubkey,
+					clientPubkey: taskeePubkey,
+					amount: String(contract.amount ?? '0'),
+					currency: contract.currency,
+					status: statusValue,
+					estimatedStartTime: contract.estimatedStartTime ?? 0,
+					estimatedCompletionTime: contract.estimatedCompletionTime ?? 0,
+					type: 'contract' as const,
+					contextType: (contract.tagValue('contextType') ?? 'task') as 'task' | 'service',
+					contextId: contract.tagValue('contextId'),
+					serviceAddress: contract.tagValue('serviceAddress'),
+					serviceId: contract.tagValue('serviceId'),
+					contractAddress: contract.contractAddress,
+					transactionHash: contract.transactionHash
+				},
+				sig: contract.sig ?? ''
+			},
+			statusEvents: [],
+			isClient,
+			blockchainStatus: null,
+			escrowData,
+			status: statusValue,
+			isPending: false,
+			permissions: {
+				canComplete: false,
+				canAccept: false,
+				canDispute: false,
+				canPropose: false,
+				canAcceptProposal: false,
+				canCancel: false,
+				canRefund: false,
+				canResolveTimelock: false,
+				canDelete: false
+			},
+			disputeProposal: null,
+			completionAttachments: null,
+			completionText: null
+		};
+	}
+
 	async function fetchContractsSnapshot(): Promise<ContractWithEvents[]> {
 		if (loadContractsSnapshot) {
 			return await loadContractsSnapshot();
 		}
 
+		const currentPubkey = ndk.$currentPubkey;
+		if (!currentPubkey) {
+			return [];
+		}
+
 		const contractsByEscrowId: Record<string, ContractWithEvents> = {};
 		let until: number | null = null;
-		let previousBoundary: number | null = null;
 
 		for (let pageIndex = 0; pageIndex < MAX_CONTRACTS_SNAPSHOT_PAGES; pageIndex += 1) {
-			const batch = await escrow.contractOps.getContracts({
+			const filter: NDKFilter = {
+				kinds: [KINDS.CONTRACT] as number[],
+				'#p': [currentPubkey],
 				limit: CONTRACTS_SNAPSHOT_LIMIT,
 				...(typeof until === 'number' ? { until } : {})
-			});
+			};
 
-			if (batch.length === 0) {
+			const events = await ndk.fetchEvents(filter, { closeOnEose: true });
+
+			if (events.size === 0) {
 				break;
 			}
 
-			for (const contract of batch) {
-				const escrowId = contract.escrowData?.id ?? contract.contractEvent.content.escrowId;
-				contractsByEscrowId[escrowId] = contract;
+			for (const event of events) {
+				try {
+					const contract = await NDKPaymentContract.from(event);
+					if (!contract) continue;
+					const wrapped = await ndkContractToSnapshot(contract, currentPubkey);
+					if (wrapped) {
+						const escrowId =
+							wrapped.escrowData.id || wrapped.contractEvent.content.escrowId;
+						contractsByEscrowId[escrowId] = wrapped;
+					}
+				} catch {
+					// Skip contracts that fail conversion
+				}
 			}
 
-			if (batch.length < CONTRACTS_SNAPSHOT_LIMIT) {
+			if (events.size < CONTRACTS_SNAPSHOT_LIMIT) {
 				break;
 			}
 
-			const oldestTimestamp = batch[batch.length - 1]?.contractEvent.created_at ?? null;
-			if (oldestTimestamp === null) {
+			const sorted = [...events].sort(
+				(a, b) => (b.created_at ?? 0) - (a.created_at ?? 0)
+			);
+			const oldestTimestamp = sorted[sorted.length - 1]?.created_at ?? null;
+			if (oldestTimestamp === null || oldestTimestamp < 0) {
 				break;
 			}
 
-			const nextBoundary =
-				previousBoundary !== null && oldestTimestamp >= previousBoundary
-					? previousBoundary - 1
-					: oldestTimestamp - 1;
-			if (nextBoundary < 0) {
-				break;
-			}
-
-			previousBoundary = oldestTimestamp;
-			until = nextBoundary;
+			until = oldestTimestamp - 1;
 		}
 
 		return Object.values(contractsByEscrowId);

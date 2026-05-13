@@ -4,7 +4,6 @@
 	import type { Service } from '$lib/types/service.d';
 	import type { ServiceQuoteTimelineEntry } from '$lib/types/service-quote';
 	import { findMyServices } from '$lib/nostr/findServices';
-	import { contractStore } from '$lib/stores/contract.store';
 	import {
 		buildServiceAddress,
 		isRequestSyncActive,
@@ -122,24 +121,6 @@
 
 	onMount(() => {
 		void loadServices();
-		void contractStore.loadContracts().catch((contractError) => {
-			console.error('Failed to load contracts for requests continuity:', contractError);
-		});
-
-		/**
-		 * V2 Migration Note:
-		 * The v1 interval-based retry/reverify logic has been removed.
-		 *
-		 * In v2, contract lifecycle is handled differently:
-		 * 1. createServiceContract returns { tx, afterBroadcast, afterConfirmed }
-		 * 2. afterConfirmed() handles all post-confirmation tasks including:
-		 *    - Nostr event publishing (with automatic retry)
-		 *    - Status updates
-		 * 3. NDK subscriptions via PaymentContractRune handle real-time updates
-		 *
-		 * The old pattern of polling for "due" entries to retry is no longer needed
-		 * because the v2 flow handles these cases within the transaction lifecycle.
-		 */
 	});
 
 	$effect(() => {
@@ -428,7 +409,7 @@
 				serviceAddress,
 				requestId: null,
 				status
-			});
+	});
 		}}
 		onRequestFocusChange={(requestId) =>
 			onResolveQuotesRoute?.({ type: 'request', requestId, status })}
@@ -453,7 +434,7 @@
 				serviceAddress,
 				quoteRequestId: requestId,
 				...payload
-			});
+	});
 		}}
 		onDeleteProposal={async (requestId, proposalId) => {
 			const { serviceAddress } = resolveProposalServiceContext(requestId);
@@ -471,7 +452,7 @@
 				serviceAddress,
 				quoteRequestId: requestId,
 				proposalId
-			});
+	});
 		}}
 	/>
 {/if}

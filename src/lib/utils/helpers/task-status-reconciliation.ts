@@ -9,7 +9,7 @@
  * See docs/tasks/task-status.md.
  */
 
-import { EscrowStatus } from '$lib/utils/escrow';
+import { ContractStatus, DisplayOnlyStatus, type ContractDisplayStatus } from '$lib/utils/contract/types';
 import type { ContractWithEvents } from '$lib/types/contract';
 import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 import { updateTask } from '$lib/nostr/task';
@@ -29,26 +29,26 @@ export interface TaskStatusSyncItem {
  * Contract statuses that imply the task should be IN_PROGRESS (escrow exists and is active).
  * Excludes PendingFunding (escrow not confirmed) and final/terminal states.
  */
-const CONTRACT_STATES_IMPLYING_IN_PROGRESS: EscrowStatus[] = [
-	EscrowStatus.Funded,
-	EscrowStatus.InProgress,
-	EscrowStatus.PendingCompletion,
-	EscrowStatus.Completed,
-	EscrowStatus.PendingAcceptance,
-	EscrowStatus.PendingDispute,
-	EscrowStatus.InDispute,
-	EscrowStatus.DisputeResolutionProposed,
-	EscrowStatus.PendingResolutionProposal,
-	EscrowStatus.PendingProposalAcceptance,
-	EscrowStatus.PendingTimelockResolution
+const CONTRACT_STATES_IMPLYING_IN_PROGRESS: (ContractStatus | DisplayOnlyStatus)[] = [
+	ContractStatus.Funded,
+	DisplayOnlyStatus.InProgress,
+	ContractStatus.Completed,
+	ContractStatus.Completed,
+	ContractStatus.FundsReleased,
+	ContractStatus.InDispute,
+	ContractStatus.InDispute,
+	DisplayOnlyStatus.DisputeResolutionProposed,
+	ContractStatus.InDispute,
+	ContractStatus.DisputeResolved,
+	ContractStatus.Completed
 ];
 
 /**
  * Contract statuses that imply the task should be COMPLETED (payment released or dispute resolved).
  */
-const CONTRACT_STATES_IMPLYING_COMPLETED: EscrowStatus[] = [
-	EscrowStatus.FundsReleased,
-	EscrowStatus.DisputeResolved
+const CONTRACT_STATES_IMPLYING_COMPLETED: (ContractStatus | DisplayOnlyStatus)[] = [
+	ContractStatus.FundsReleased,
+	ContractStatus.DisputeResolved
 ];
 
 /**
@@ -65,7 +65,7 @@ function getTaskIdFromContract(contract: ContractWithEvents): string | undefined
 /**
  * Returns the task status that should be set given the contract status, or null if no sync needed.
  */
-function getExpectedTaskStatusForContract(contractStatus: EscrowStatus): TaskStatusEnum | null {
+function getExpectedTaskStatusForContract(contractStatus: ContractDisplayStatus): TaskStatusEnum | null {
 	if (CONTRACT_STATES_IMPLYING_COMPLETED.includes(contractStatus)) return TaskStatusEnum.COMPLETED;
 	if (CONTRACT_STATES_IMPLYING_IN_PROGRESS.includes(contractStatus))
 		return TaskStatusEnum.IN_PROGRESS;

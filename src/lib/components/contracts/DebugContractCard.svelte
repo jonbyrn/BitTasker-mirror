@@ -8,7 +8,7 @@
 	import { t } from 'svelte-i18n';
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 	import IconOpenInNew from '~icons/mdi/open-in-new';
-	import { escrow } from '$lib/utils/escrow/v1/escrow';
+	import { estimateWrite } from '$lib/utils/contract/v1/blockchainWrites';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import { onMount, onDestroy } from 'svelte';
 	import { ethers } from 'ethers';
@@ -45,12 +45,12 @@
 		safetyOverride: boolean;
 		isExecuting?: boolean;
 		onToggleRawData: () => void;
-		onExecuteFunction: (functionName: string, ...args: any[]) => Promise<void>;
+		onExecuteFunction: (functionName: string, ...args: string[]) => Promise<void>;
 	}>();
 
 	// Modal state
 	let showConfirmModal = $state(false);
-	let pendingFunction = $state<{ name: string; args: any[] } | null>(null);
+	let pendingFunction = $state<{ name: string; args: string[] } | null>(null);
 	let showResolutionForm = $state(false);
 	let proposedFreelancerAmount = $state('');
 
@@ -230,7 +230,7 @@
 	}
 
 	// Handle function execution
-	async function handleExecuteFunction(functionName: string, ...args: any[]) {
+	async function handleExecuteFunction(functionName: string, ...args: string[]) {
 		if (safetyOverride) {
 			// Skip confirmation if override is enabled
 			// onExecuteFunction expects (functionName, ...args) - parent adds contract.id
@@ -250,6 +250,14 @@
 			await onExecuteFunction(pendingFunction.name, ...pendingFunction.args);
 			pendingFunction = null;
 		}
+	}
+
+	// Get default contract address from env vars
+	function getDefaultContractAddress(): string | null {
+		const network = import.meta.env.VITE_RSK_NETWORK || 'testnet';
+		return network === 'mainnet'
+			? import.meta.env.VITE_RSK_CONTRACT_ADDRESS_MAINNET
+			: import.meta.env.VITE_RSK_CONTRACT_ADDRESS_TESTNET;
 	}
 
 	/**
@@ -272,13 +280,6 @@
 		timestamp: number | null;
 	} | null> {
 		try {
-			// Get contract address
-			const getDefaultContractAddress = (): string | null => {
-				const network = import.meta.env.VITE_RSK_NETWORK || 'testnet';
-				return network === 'mainnet'
-					? import.meta.env.VITE_RSK_CONTRACT_ADDRESS_MAINNET
-					: import.meta.env.VITE_RSK_CONTRACT_ADDRESS_TESTNET;
-			};
 
 			const escrowContractAddress = contractAddress || getDefaultContractAddress();
 			if (!escrowContractAddress) {
@@ -523,9 +524,16 @@
 	function isUnpredictableGasError(error: unknown): boolean {
 		if (!error) return false;
 		const ethersErr = isEthersError(error) ? error : null;
-		if (!ethersErr) return false;
-		// UNPREDICTABLE_GAS_LIMIT means gas estimation is uncertain, not necessarily that it will fail
-		return ethersErr.code === 'UNPREDICTABLE_GAS_LIMIT';
+		if (ethersErr) {
+			// UNPREDICTABLE_GAS_LIMIT means gas estimation is uncertain, not necessarily that it will fail
+			if (ethersErr.code === 'UNPREDICTABLE_GAS_LIMIT') return true;
+		}
+		// Plain Error message fallback (e.g. when estimateWrite wraps and rethrows)
+		const errorMessage = (error instanceof Error ? error.message : String(error)).toLowerCase();
+		return (
+			errorMessage.includes('unpredictable gas') ||
+			errorMessage.includes('gas estimation failed')
+		);
 	}
 
 	// Check if error is a network/provider error (not a contract block)
@@ -551,7 +559,7 @@
 	}
 
 	// Estimate gas for a specific function
-	async function estimateGasFee(functionName: string, ...args: any[]): Promise<void> {
+	async function estimateGasFee(functionName: string, ...args: string[]): Promise<void> {
 		if (estimatingGas.has(functionName)) return; // Already estimating
 
 		estimatingGas.add(functionName); // Direct mutation
@@ -559,8 +567,32 @@
 		estimatingGas = new Set(estimatingGas);
 
 		try {
-			const gasEstimation = await escrow.estimateContractGas(functionName, contract.id, ...args);
-			const rbtcCost = parseFloat(gasEstimation.totalCostFormatted);
+			// Build args for estimateWrite (contract ABI functions take escrowId as first arg)
+			// proposeResolution takes (escrowId, freelancerAmountWei)
+			let writeArgs: unknown[];
+			if (functionName === 'proposeResolution' && args.length > 0) {
+				const freelancerAmountWei = ethers.parseEther(String(args[0]));
+				writeArgs = [contract.id, freelancerAmountWei];
+			} else {
+				writeArgs = [contract.id];
+			}
+
+			const contractAddress = getDefaultContractAddress();
+			if (!contractAddress) {
+				throw new Error('Contract address not configured, cannot estimate gas');
+			}
+
+			const gasEstimation = await estimateWrite({
+				method: functionName,
+				args: writeArgs,
+				contractAddress
+			});
+
+			if (!gasEstimation.success) {
+				throw new Error(gasEstimation.error);
+			}
+
+			const rbtcCost = parseFloat(gasEstimation.estimatedCostFormatted);
 			const usdCost = rbtcCost * btcPrice;
 			gasEstimates.set(functionName, usdCost); // Direct mutation
 			// Create new Map instance to trigger reactivity (Svelte 5 needs new reference)
@@ -580,7 +612,7 @@
 			}
 
 			// Check error type and handle accordingly
-			// Note: estimateContractGas wraps errors, but preserves original in cause
+			// Note: estimateWrite wraps errors as { success: false, error: string }; thrown Error preserves the message
 			const originalError = isEthersError(error) && error.cause ? error.cause : error;
 
 			if (isContractRevertError(originalError) || isContractRevertError(error)) {
@@ -639,7 +671,7 @@
 		estimationAbortController = new AbortController();
 		const signal = estimationAbortController.signal;
 
-		const functionsToEstimate: Array<{ name: string; args: any[] }> = [];
+		const functionsToEstimate: Array<{ name: string; args: string[] }> = [];
 
 		// Always estimate all functions to determine their actual availability
 		// This allows us to show all buttons but disable based on contract state

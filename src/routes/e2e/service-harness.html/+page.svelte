@@ -6,7 +6,6 @@
 	import type { ContractWithEvents } from '$lib/types/contract';
 	import type { ServiceQuoteTimelineEntry } from '$lib/types/service-quote';
 	import { ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';
-	import { EscrowStatus } from '$lib/utils/escrow/v1/escrow.enum';
 	import { ContractStatus, type SecurePaymentLegacy } from '$lib/utils/contract/types';
 
 	type HarnessResult = Record<string, unknown>;
@@ -50,12 +49,12 @@
 		const baseContract = {
 			escrowData: {
 				id: 'svc-escrow_123',
-				status: EscrowStatus.Funded
+				status: ContractStatus.Funded
 			} as unknown as ContractWithEvents['escrowData'],
-			status: EscrowStatus.Funded,
+			status: ContractStatus.Funded,
 			isClient: true,
 			isPending: false,
-			blockchainStatus: EscrowStatus.Funded,
+			blockchainStatus: ContractStatus.Funded,
 			statusEvents: [],
 			completionAttachments: [],
 			completionText: null,
@@ -104,7 +103,7 @@
 					pricingSnapshot: {
 						serviceVersionRef: 'service-event-1'
 					},
-					status: EscrowStatus.Funded,
+					status: ContractStatus.Funded,
 					type: 'contract',
 					currency: 'RBTC'
 				}
@@ -819,10 +818,10 @@
 					const contract = createHarnessServiceContract({
 						escrowData: {
 							id: 'svc-escrow-live',
-							status: EscrowStatus.Funded
+							status: ContractStatus.Funded
 						} as unknown as ContractWithEvents['escrowData'],
-						status: EscrowStatus.Funded,
-						blockchainStatus: EscrowStatus.Funded,
+						status: ContractStatus.Funded,
+						blockchainStatus: ContractStatus.Funded,
 						content: {
 							contextId: service.uniqueId,
 							serviceId: service.uniqueId,
