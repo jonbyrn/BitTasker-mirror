@@ -273,7 +273,7 @@
 	}
 </script>
 
-<div class="mx-auto px-2 pt-2 pb-8 md:px-0">
+<div class="mx-auto h-full max-w-6xl px-2 py-6 pb-8 md:px-0 md:py-0">
 	<div class="mb-8">
 		<h3 class="mb-2 text-2xl font-bold">{$t('reviews.management.title')}</h3>
 		<p class="text-base-content/70 text-lg">{$t('reviews.management.description')}</p>
