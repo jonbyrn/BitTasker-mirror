@@ -1,4 +1,5 @@
 <script lang="ts">
+	/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, no-empty */
 	import { onMount } from 'svelte';
 	import { linear } from 'svelte/easing';
 	import { fly } from 'svelte/transition';
@@ -14,6 +15,7 @@
 	import { TASK_CATEGORIES } from '$lib/utils/constants/categories';
 	import { formatStandardDateShort, parseDateToLocalMidnight } from '$lib/utils/helpers/dateFormatter';
 	import type { Attachment } from '$lib/types/task';
+	import StreamPlayer from '$lib/components/StreamPlayer.svelte';
 
 	let { direction } = $props();
 
@@ -67,6 +69,11 @@
 		}
 	}
 
+	// Helper function to detect Cloudflare Stream videos
+	function isStreamVideo(att: Attachment): boolean {
+		return !!att.cloudflareId && (att.type || '').toLowerCase().startsWith('video/');
+	}
+
 	// Helper function to detect video files
 	function isVideoFile(url: string): boolean {
 		const videoExtensions = ['.mp4', '.webm', '.ogg', '.mov'];
@@ -105,6 +112,7 @@
 
 		return await Promise.all(imagePromises);
 	};
+	/* eslint-enable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, no-empty */
 </script>
 
 <div
@@ -210,7 +218,7 @@
 			<div class="mb-6">
 				<h4 class="mb-3 text-base font-semibold text-base-content">{$t('task.categories')}</h4>
 				<div class="flex flex-wrap gap-2">
-					{#each translatedCategories as category}
+					{#each translatedCategories as category (category)}
 						<span class="badge badge-primary badge-sm">{category}</span>
 					{/each}
 				</div>
@@ -219,7 +227,7 @@
 			<div>
 				<h4 class="mb-3 text-base font-semibold text-base-content">{$t('task.skills')}</h4>
 				<div class="flex flex-wrap gap-2">
-					{#each $store.task.skills as skill}
+					{#each $store.task.skills as skill (skill)}
 						<span class="badge badge-primary badge-sm">{skill}</span>
 					{/each}
 				</div>
@@ -241,13 +249,26 @@
 			</small>
 
 			<div class="grid grid-cols-2 gap-4 md:grid-cols-4 lg:grid-cols-5">
-				{#each $store.task.attachments as attachment, i}
-					{#if isVideoFile(attachment.url)}
-						<!-- Video -->
+				{#each $store.task.attachments as attachment, _i (attachment.key || _i)}
+					{#if isStreamVideo(attachment)}
+						<!-- Stream Video -->
+						<div class="bg-base-200 overflow-hidden rounded-lg pb-4">
+							<StreamPlayer videoUid={attachment.cloudflareId!} private={false} controls={true} />
+							<div class="p-3">
+								<p class="truncate text-sm font-medium">
+									{attachment?.alt || $t('dashboard.task_details_by_task.attachment')}
+								</p>
+								<p class="text-base-content/60 text-xs">
+									{(attachment.size / 1024 / 1024).toFixed(2)} MB
+								</p>
+							</div>
+						</div>
+					{:else if isVideoFile(attachment.url)}
+						<!-- Legacy Video -->
 						<div class="bg-base-200 overflow-hidden rounded-lg pb-4">
 							<video class="h-32 w-full object-cover" controls preload="metadata">
-								<source src={attachment.url} type="video/mp4" />
-								<track kind="captions" src="" label="English" />
+								<source src={attachment.url} type={attachment.type} />
+								
 								{$t('dashboard.task_details_by_task.video_not_supported')}
 							</video>
 							<div class="p-3">

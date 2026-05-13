@@ -691,8 +691,7 @@
 			<div class="relative flex max-h-[90vh] w-full max-w-5xl flex-col items-center justify-center">
 				<div class="w-full overflow-hidden rounded-lg bg-black shadow-2xl">
 					<video class="h-auto max-h-[85vh] w-full object-contain" controls autoplay preload="auto">
-						<source src={selectedVideo.url} type="video/mp4" />
-						<track kind="captions" src="" label="English" />
+						<source src={selectedVideo.url} type={selectedVideo.type || 'video/mp4'} />
 						{$t('dashboard.task_details_by_task.video_not_supported')}
 					</video>
 					{#if selectedVideo.alt || selectedVideo.size}
