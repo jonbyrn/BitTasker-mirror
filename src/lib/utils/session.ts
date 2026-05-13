@@ -12,7 +12,6 @@
 
 // Import stores
 import { appStore } from '$lib/stores/app.store';
-import { contractStore } from '$lib/stores/contract.store';
 import { bidStore } from '$lib/stores/bid.store';
 import { tasksStore, myTasksStore } from '$lib/stores/task.store';
 import { profileStore } from '$lib/stores/profile.store';
@@ -64,8 +63,7 @@ function resetAllStores(): void {
 	// Reset app store user-specific state (nostrKeys, biometricData)
 	appStore.resetUserState();
 
-	// Reset contract store (includes closing Nostr subscriptions)
-	contractStore.reset();
+	// NDK subscriptions auto-cleanup on signout
 
 	// Reset bid store (includes closing Nostr subscriptions)
 	bidStore.reset();

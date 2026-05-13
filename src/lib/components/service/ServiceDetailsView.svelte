@@ -20,8 +20,6 @@
 	} from '$lib/utils/serviceDisplayTranslation';
 	import { authState } from '$lib/stores/auth.store';
 	import { user } from '$lib/stores/user.store';
-	import { get } from 'svelte/store';
-	import { contractStore } from '$lib/stores/contract.store';
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { ServicePricingTypeEnum, ServiceLocationTypeEnum } from '$lib/utils/enums/service.enum';
 	import {
@@ -69,7 +67,6 @@
 	import { formatSats, totalBalances, walletManager, walletStore } from '$lib/stores/wallet.store';
 	import { queryTaskeeServiceQuoteThreads } from '$lib/utils/service-quote/query';
 	import { summarizeDeleteGuardForThreads } from '$lib/utils/service-quote/resolver';
-	import { getActiveServiceContractsForService } from '$lib/utils/service-contract/active-contracts';
 	import { deleteService } from '$lib/nostr/service';
 	import { browserNetworkStatus } from '$lib/utils/network-status';
 	import { buildEarningQueryUrl } from '$lib/utils/dashboardQuery';
@@ -91,6 +88,8 @@
 		type BookNowOutboxEntry
 	} from '$lib/utils/service-contract/book-now-outbox';
 	import { recoverBookNowContract } from '$lib/utils/service-contract/recover';
+	import { ndk } from '$lib/nostr/ndk';
+	import KINDS from '$lib/utils/constants/kinds';
 	import {
 		buildServiceContractLocationSnapshot,
 		buildTaskerProvidedLocationSnapshot
@@ -1380,13 +1379,36 @@
 		}
 
 		const quoteThreads = await queryTaskeeServiceQuoteThreads(service.id);
-		const { contracts } = get(contractStore);
-		const activeContracts = getActiveServiceContractsForService(contracts, service);
 
-		return {
-			...summarizeDeleteGuardForThreads(quoteThreads, activeContracts),
-			activeContractCount: activeContracts.length
-		};
+			let activeContractCount = 0;
+			const pubkey = ndk.$currentPubkey;
+			if (pubkey && service) {
+				try {
+					const events = await ndk.fetchEvents(
+						{ kinds: [KINDS.CONTRACT], '#p': [pubkey], limit: 50 },
+						{ closeOnEose: true }
+					);
+					const serviceKeys = new Set<string>();
+					if (service.id) serviceKeys.add(service.id);
+					if ((service as Record<string, unknown>).uniqueId) serviceKeys.add((service as Record<string, unknown>).uniqueId as string);
+
+					for (const ev of events) {
+						const cType = ev.tags.find((t: string[]) => t[0] === 'contextType')?.[1];
+						if (cType !== 'service') continue;
+						const sTag = ev.tags.find((t: string[]) => t[0] === 's')?.[1];
+						if (sTag && ['2','3','5','6','7','8'].includes(sTag)) continue;
+						const cServiceId = ev.tags.find((t: string[]) => t[0] === 'serviceId')?.[1];
+						if (cServiceId && serviceKeys.has(cServiceId)) { activeContractCount++; continue; }
+						const cServiceAddr = ev.tags.find((t: string[]) => t[0] === 'serviceAddress')?.[1];
+						if (cServiceAddr && serviceKeys.has(cServiceAddr)) { activeContractCount++; }
+					}
+				} catch { /* NDK query failed */ }
+			}
+
+			return {
+				...summarizeDeleteGuardForThreads(quoteThreads, activeContractCount),
+				activeContractCount
+			};
 	}
 
 	async function handleDeleteService() {

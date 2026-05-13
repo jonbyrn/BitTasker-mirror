@@ -4,7 +4,7 @@
 	import {
 		getStatusColorClass,
 		getStatusTranslationKey
-	} from '$lib/utils/helpers/contractStatusFormatter';
+	} from '$lib/utils/helpers/contractStatusFormatterV2';
 	import { t } from 'svelte-i18n';
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 	import IconOpenInNew from '~icons/mdi/open-in-new';

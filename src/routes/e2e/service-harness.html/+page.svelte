@@ -785,7 +785,6 @@
 							total: 1,
 							hasMore: false
 						}),
-						loadContractsContinuity: async () => undefined,
 						loadContractsSnapshot: async () => [],
 						queryProviderQuoteThreads: async () => [],
 						deletePortfolioMedia: async () => undefined
@@ -837,7 +836,6 @@
 							total: 1,
 							hasMore: false
 						}),
-						loadContractsContinuity: async () => undefined,
 						loadContractsSnapshot: async () => [contract],
 						queryProviderQuoteThreads: async () => [],
 						deletePortfolioMedia: async () => undefined

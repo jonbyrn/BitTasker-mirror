@@ -16,11 +16,7 @@
 	import IconPencilOutline from '~icons/mdi/pencil-outline';
 	import IconBriefcaseOutline from '~icons/mdi/briefcase-outline';
 	import DashboardServiceCard from './DashboardServiceCard.svelte';
-	import { contractStore } from '$lib/stores/contract.store';
-	import {
-		getActiveServiceContractsForService,
-		selectPrimaryActiveServiceContract
-	} from '$lib/utils/service-contract/active-contracts';
+	import { isTerminalPaymentState } from '$lib/utils/contract/v2/permittedActions';
 	import { buildServiceAddress } from '$lib/stores/service-quote-ui.store';
 	import { queryTaskeeServiceQuoteThreads } from '$lib/utils/service-quote/query';
 	import { summarizeDeleteGuardForThreads } from '$lib/utils/service-quote/resolver';
@@ -59,7 +55,6 @@
 		loadMyServices = findMyServices,
 		updateMyService = updateService,
 		deleteMyService = deleteService,
-		loadContractsContinuity = () => contractStore.loadContracts(),
 		loadContractsSnapshot,
 		queryProviderQuoteThreads = queryTaskeeServiceQuoteThreads,
 		deletePortfolioMedia = deleteServicePortfolioMedia,
@@ -69,7 +64,6 @@
 		loadMyServices?: typeof findMyServices;
 		updateMyService?: typeof updateService;
 		deleteMyService?: typeof deleteService;
-		loadContractsContinuity?: () => Promise<void>;
 		loadContractsSnapshot?: () => Promise<ContractWithEvents[]>;
 		queryProviderQuoteThreads?: typeof queryTaskeeServiceQuoteThreads;
 		deletePortfolioMedia?: typeof deleteServicePortfolioMedia;
@@ -221,9 +215,6 @@
 	onMount(() => {
 		loadServices();
 		fetchBtcPrice();
-		void loadContractsContinuity().catch((contractError) => {
-			console.error('Failed to load contracts for my services continuity:', contractError);
-		});
 		void refreshContractsSnapshot().catch((contractError) => {
 			console.error('Failed to load full contracts snapshot for my services:', contractError);
 		});
@@ -235,13 +226,31 @@
 		}
 	});
 
-	function getContractsForServiceChecks(): ContractWithEvents[] {
-		if (contractsSnapshotLoaded) {
-			return fullContractsSnapshot;
-		}
 
-		return $contractStore.contracts;
+
+	function isActiveServiceContract(contract: ContractWithEvents): boolean {
+		if ((contract.contractEvent.content.contextType ?? 'task') !== 'service') return false;
+		return !isTerminalPaymentState(contract.status);
 	}
+
+	function getActiveServiceContractsForService(
+		contracts: ContractWithEvents[],
+		service: Service
+	): ContractWithEvents[] {
+		const keys = new Set<string>();
+		try { const addr = buildServiceAddress(service); if (addr) keys.add(addr); } catch { /* */ }
+		if ((service as Record<string, unknown>).uniqueId) keys.add((service as Record<string, unknown>).uniqueId as string);
+		if (service.id) keys.add(service.id);
+
+		return contracts.filter((contract) => {
+			if (!isActiveServiceContract(contract)) return false;
+			const c = contract.contractEvent.content;
+			return [c.serviceAddress, c.contextId, c.serviceId].some(
+				(v) => typeof v === 'string' && keys.has(v)
+			);
+		});
+	}
+
 
 	/** Convert an NDKPaymentContract to a minimal ContractWithEvents snapshot (no blockchain data). */
 	async function ndkContractToSnapshot(
@@ -469,9 +478,6 @@
 		await handleDeleteClick(serviceToDelete);
 	}
 
-	function getPrimaryActiveContract(service: Service) {
-		return selectPrimaryActiveServiceContract(getContractsForServiceChecks(), service);
-	}
 
 	function closeDeleteModal() {
 		if (deleteSubmitServiceId) {
@@ -498,7 +504,7 @@
 
 	async function handleViewActiveContracts(service: Service) {
 		const contracts = await refreshContractsSnapshot();
-		const primaryContract = selectPrimaryActiveServiceContract(contracts, service);
+		const primaryContract = getActiveServiceContractsForService(contracts, service)[0] ?? null;
 		if (!primaryContract) {
 			return;
 		}
@@ -672,7 +678,7 @@
 			icon: 'view_quotes'
 		});
 
-		if (getPrimaryActiveContract(service)) {
+		if (getActiveServiceContractsForService(fullContractsSnapshot, service).length > 0) {
 			actions.push({
 				label: tr('dashboard.services.my_services.actions.contracts_short', 'Contracts'),
 				class: 'btn-success btn-outline btn-sm',

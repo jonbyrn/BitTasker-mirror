@@ -5,8 +5,8 @@
 	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 	import { t } from 'svelte-i18n';
 	import { walletStore, walletManager } from '$lib/stores/wallet.store';
-	import { determineContractState } from '$lib/utils/helpers/contractPermissions';
-	import { loadContractsByAddress } from '$lib/utils/wallet/loadContractsByAddress';
+	import { ndk } from '$lib/nostr/ndk';
+	import KINDS from '$lib/utils/constants/kinds';
 	import type { EscrowData } from '$lib/types/wallet';
 	import type { ContractPermissions, NostrContract } from '$lib/types/contract';
 	import { ContractStatus } from '$lib/utils/contract/types';
@@ -85,36 +85,21 @@
 
 		// Load dispute proposal if contract is in dispute
 		// Note: Debug view has no Nostr status events; dispute proposal left as null
-		let disputeProposal = null;
 		if (contract.status === ContractStatus.InDispute) {
 			// Debug view does not load Nostr status events, so dispute proposal is unavailable
 		}
 
-		const minimalContract: NostrContract = {
-			escrowId: contract.id,
-			taskId: '',
-			taskTitle: '',
-			taskDescription: '',
-			freelancerPubkey: contract.freelancer,
-			clientPubkey: contract.client,
-			amount: contract.baseAmount,
-			currency: 'RBTC',
-			status: contract.status,
-			estimatedStartTime: contract.estimatedStartTime,
-			estimatedCompletionTime: contract.estimatedCompletionTime,
-			type: 'contract'
+		const permissions = {
+			canComplete: isFreelancer,
+			canAccept: isClient,
+			canDispute: isClient,
+			canPropose: false,
+			canAcceptProposal: false,
+			canCancel: isClient,
+			canRefund: isFreelancer,
+			canResolveTimelock: false,
+			canDelete: false
 		};
-
-		const { permissions } = determineContractState(
-			contract.status,
-			[], // No status events for debug view
-			minimalContract,
-			contract,
-			disputeProposal,
-			false, // Not pending
-			isClient,
-			isFreelancer
-		);
 
 		return { permissions, isClient, isFreelancer };
 	}
@@ -152,7 +137,34 @@
 		}
 
 		try {
-			const contracts = await loadContractsByAddress(address, 100, network);
+			const events = await ndk.fetchEvents(
+					{ kinds: [KINDS.CONTRACT], '#p': [address], limit: 100 },
+					{ closeOnEose: true }
+				);
+				const contracts = [...events].map((ev) => {
+					const pTags = ev.tags.filter((t: string[]) => t[0] === 'p').map((t: string[]) => t[1]);
+					const sTag = ev.tags.find((t: string[]) => t[0] === 's')?.[1];
+					const dTag = ev.tags.find((t: string[]) => t[0] === 'd')?.[1];
+					const amountTag = ev.tags.find((t: string[]) => t[0] === 'amount')?.[1];
+					return {
+						id: dTag ?? '',
+						client: pTags[0] ?? '',
+						freelancer: pTags[1] ?? address,
+						baseAmount: amountTag ?? '0',
+						clientFee: '0',
+						freelancerFee: '0',
+						totalAmount: amountTag ?? '0',
+						status: sTag ? parseInt(sTag, 10) : 0,
+						estimatedStartTime: 0,
+						estimatedCompletionTime: 0,
+						completionTime: 0,
+						timelockExpiry: 0,
+						clientFeeTier: 0,
+						freelancerFeeTier: 0,
+						createdAt: ev.created_at ?? 0,
+						lastUpdated: ev.created_at ?? 0
+					} as EscrowData;
+				});
 
 			const contractsWithPermissions: ContractWithPermissions[] = await Promise.all(
 				contracts.map(async (contract) => {
