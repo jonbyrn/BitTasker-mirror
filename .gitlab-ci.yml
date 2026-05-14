@@ -171,65 +171,6 @@ coverage:
     - if: $CI_COMMIT_BRANCH == "master"
 
 # ============================================
-# SERVICE QUOTE GATES - Targeted quote/homepage regression gate
-# ============================================
-# service-quote-gates:
-#   image: node:22-bookworm-slim
-#   stage: validate
-#   tags:
-#     - self-hosted
-#   cache:
-#     key:
-#       files:
-#         - package-lock.json
-#     paths:
-#       - node_modules/
-#       - .npm/
-#     policy: pull
-#   script:
-#     - npm ci --cache .npm --prefer-offline
-#     - node --test tests/scripts/validate-service-e2e-bootstrap.test.mjs tests/scripts/fix-sveltekit-preview-manifest.test.mjs
-#     - npm run test:unit -- --run src/lib/tests/unit/service-quote/ src/lib/tests/unit/service-contract/ src/lib/tests/unit/service-instant-buy/ src/lib/tests/unit/services/ src/lib/tests/unit/nostr/service.delete-guard.test.ts src/lib/tests/unit/nostr/service.instant-buy.test.ts src/lib/tests/unit/nostr/service.update-conflict.test.ts src/lib/tests/unit/routes/create-service.edit-conflict.unit.test.ts src/lib/tests/unit/docs/service-doc-coverage.test.ts src/lib/tests/integration/service-quote/ src/lib/tests/integration/contracts/ src/lib/tests/integration/homepage/ src/lib/tests/integration/services-seo.integration.test.ts src/lib/tests/integration/docs/service-user-docs.integration.test.ts src/lib/tests/integration/services-a11y.smoke.test.ts src/lib/tests/integration/services-perf.smoke.test.ts src/lib/tests/components/service/ src/lib/tests/components/dashboard/ src/lib/tests/components/homepage/ src/lib/tests/components/contract/
-#   rules:
-#     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-#     - if: $CI_COMMIT_BRANCH == "dev"
-#     - if: $CI_COMMIT_BRANCH == "master"
-
-# ============================================
-# SERVICE QUOTE E2E - Quote, instant-buy, and homepage featured services
-# ============================================
-# service-quote-e2e:
-#   image: mcr.microsoft.com/playwright:v1.54.0-noble
-#   stage: validate
-#   tags:
-#     - self-hosted
-#   variables:
-#     SERVICE_E2E_BOOTSTRAP_MODE: "route-harness"
-#     VITE_E2E_TURNSTILE_BYPASS: "true"
-#   cache:
-#     key:
-#       files:
-#         - package-lock.json
-#     paths:
-#       - node_modules/
-#       - .npm/
-#     policy: pull
-#   needs:
-#     - build
-#   script:
-#     - npm ci --cache .npm --prefer-offline
-#     - npm run test:e2e:validate-service-bootstrap
-#     - CI=1 npx playwright test tests/e2e/service-quotes-*.spec.ts tests/e2e/service-ux-hardening*.spec.ts tests/e2e/service-instant-buy*.spec.ts tests/e2e/homepage-featured-services*.spec.ts tests/e2e/tasks-services-regression-*.spec.ts --project=chromium --workers=1 --retries=0 --reporter=line
-#     - CI=1 npx playwright test tests/e2e/service-quotes-*.spec.ts tests/e2e/service-ux-hardening*.spec.ts tests/e2e/service-instant-buy*.spec.ts tests/e2e/homepage-featured-services*.spec.ts tests/e2e/tasks-services-regression-*.spec.ts --project='Mobile Safari' --workers=1 --retries=0 --reporter=line
-#     - CI=1 npx playwright test tests/e2e/service-details-visual.spec.ts tests/e2e/service-quotes-visual*.spec.ts tests/e2e/homepage-featured-services-visual*.spec.ts --project=chromium --workers=1 --retries=0 --reporter=line
-#   environment:
-#     name: development
-#   rules:
-#     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-#     - if: $CI_COMMIT_BRANCH == "dev"
-#     - if: $CI_COMMIT_BRANCH == "master"
-
-# ============================================
 # PLAYWRIGHT E2E - COMMENTED OUT (backend not ready)
 # ============================================
 # Uncomment when dev backend is updated for E2E. Then add playwright back to deploy-development needs.
@@ -285,6 +226,7 @@ deploy-development:
     url: https://worker.dev.bittasker.com
   rules:
     - if: $CI_COMMIT_BRANCH == "dev"
+
 # ============================================
 # DEPLOY STAGING - dev branch only
 # ============================================

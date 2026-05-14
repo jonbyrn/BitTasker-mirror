@@ -1,6 +1,6 @@
 name = "bittasker-dev-worker"
 main = "workers-site/index.js"
-compatibility_date = "2025-10-07"
+compatibility_date = "2026-05-11"
 account_id = "0e47af3ee55b77b43b150879938ebbec"
 #account_id = "3fa48b084b262faa8a164ab089d702b6"
 
@@ -31,10 +31,32 @@ head_sampling_rate = 1.0  # 100% sampling for dev/staging (full visibility)
 # cpu_ms = 30_000  # 30 seconds
 
 # ============================================
-# SITE CONFIGURATION
+# STATIC ASSETS CONFIGURATION (Workers Static Assets)
 # ============================================
-[site]
-bucket = "./build"
+# Workers Sites ([site]) is deprecated in Wrangler v4.
+# Static Assets serves files directly from Cloudflare's edge cache
+# with automatic SPA fallback for client-side routing.
+[assets]
+directory = "./build"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+# API routes run through the Worker for Stream upload/token endpoints.
+# __data.json patterns cover SvelteKit client-side navigation preload.
+# Static assets bypass the Worker entirely — served directly from Cloudflare's
+# edge cache, faster and free (unlimited requests, no Worker billing).
+run_worker_first = [
+    "/api/*",
+    "/__data.json",
+    "/*/__data.json",
+    "/*/*/__data.json",
+    "/*/*/*/__data.json"
+]
+
+# ============================================
+# KV NAMESPACES (Cloudflare Stream)
+# ============================================
+# Non-inheritable — defined per-environment below.
+# Created via: wrangler kv namespace create VIDEO_STATUS / VIDEO_AUTH
 
 # ============================================
 # DEV Environment (default)
@@ -52,12 +74,57 @@ zone_id = "2f577970e10b49266dbfc1ff6c5c8dc4"
 enabled = true
 head_sampling_rate = 1.0
 
+# Cloudflare Stream binding — direct upload URLs + signed token generation
+[env.dev.stream]
+binding = "STREAM"
+
+[[env.dev.kv_namespaces]]
+binding = "VIDEO_STATUS"
+id = "096ca6be2d3b4b7db628f57fdba1dd21"
+
+[[env.dev.kv_namespaces]]
+binding = "VIDEO_AUTH"
+id = "e3ebf37679584874a2a673bcb002e8f1"
+
+[env.dev.triggers]
+crons = ["0 3 * * SUN"]  # Sunday 3am UTC — Cloudflare weekdays are 1–7 or SUN–SAT (not Unix 0–6)
+
 [env.dev.vars]
-VITE_CLIENT_URL = "https://worker.dev.bittasker.com/"
-VITE_NOSTR_RELAY_URL = "wss://relay.bittasker.hedgehackers.finance"
-VITE_NOSTR_RELAY_NESTJS = "https://relay.bittasker.com"
+# Public / client config
+VITE_CLIENT_HOSTNAME = "dev.bittasker.com"
+VITE_APP_ID = "com.bittasker.app.dev"
+VITE_APP_NAME = "BitTasker Dev"
+CAPACITOR_DEBUG_WEBVIEW = "true"
+VITE_API_URL = "https://api-dev.bittasker.com"
+VITE_NOSTR_RELAY_URL = "wss://relay1-dev.bittasker.com"
+VITE_NOSTR_RELAY_NESTJS = "https://relay2-dev.bittasker.com"
+VITE_NOSTR_TASK_RELAY_URL = "wss://relay2-dev.bittasker.com"
+VITE_GOOGLE_MAPS_API_KEY = "AIzaSyAqWtItXmQGJWbTOGX-CW2VciMuKiUMqZY"
+VITE_GOOGLE_MAPS_ID = "d00fd1a4d6927b0b72c9cd28"
+VITE_CLOUDFLARE_SITEKEY = "0x4AAAAAABboTbbIVmXVwEvm"
+VITE_FIREBASE_WEB_API_KEY = "AIzaSyCPvSA-3VNTbj0CeXsVPrr9R3RrnO6N1KY"
+VITE_FIREBASE_WEB_AUTH_DOMAIN = "bittasker-928ff.firebaseapp.com"
+VITE_FIREBASE_WEB_PROJECT_ID = "bittasker-928ff"
+VITE_FIREBASE_WEB_STORAGE_BUCKET = "bittasker-928ff.firebasestorage.app"
+VITE_FIREBASE_WEB_MESSAGING_SENDER_ID = "256658163015"
+VITE_FIREBASE_WEB_APP_ID = "1:256658163015:web:b220610251f027bf597862"
+VITE_FIREBASE_VAPID_KEY = "BDE2pFU2NcZs20HFnnz2W0sB5PvR56rh_Xj3bXVRJUkK51m_1KiaLM_GPh-1W-PXpFwhEzj8XmV17w8QcARkEXE"
+VITE_RSK_CONTRACT_ADDRESS_TESTNET = "0xf87e93E73431Aad778592C78E2F86Ef671461c32"
+VITE_RSK_CONTRACT_ADDRESS_MAINNET = "0x674A253Efe9B740193b34e69694B67971E4335bf"
 VITE_RSK_NETWORK = "mainnet"
+VITE_RSK_CONTRACT_ADDRESS_V2_TESTNET = "0x0e66475957148b55fbef3259b0880a23a5502de6"
+VITE_RSK_CONTRACT_ADDRESS_V2_MAINNET = "0x10169472537cc354d9e24aebe221af15827e6378"
+VITE_TX_RELAY_ENABLED = "true"
+VITE_TX_RELAY_BASE_URL = "https://tx-relay.bittasker.com"
 VITE_BSC_NETWORK = "mainnet"
+SENTRY_ORG = "bittasker"
+SENTRY_PROJECT = "bittasker-dev"
+VITE_SENTRY_DSN = "https://a73b696f38f7474686280e304cc5163c@gt.bittasker.com/2"
+VITE_E2E_TURNSTILE_BYPASS = "false"
+VITE_BETA_WARNING = "false"
+VITE_REVIEWS_ATTESTATION_API_URL = "https://reviews-attestation-backend-dev.scott-0e4.workers.dev"
+VITE_STREAM_CUSTOMER_CODE = "customer-h1uh9jc2wp9hnxue"
+# (secrets omitted: SENTRY_AUTH_TOKEN, VITE_BSCSCAN_API_KEY)
 
 # ============================================
 # STAGING Environment
@@ -74,12 +141,27 @@ zone_id = "REPLACE_WITH_BITTASKER_ZONE_ID"
 enabled = true
 head_sampling_rate = 1.0
 
+[env.staging.stream]
+binding = "STREAM"
+
+[[env.staging.kv_namespaces]]
+binding = "VIDEO_STATUS"
+id = "99d0e4378f0c4d64bf5a383e5102ff14"
+
+[[env.staging.kv_namespaces]]
+binding = "VIDEO_AUTH"
+id = "e443cc6599f6437c80e54034fb13cbb8"
+
+[env.staging.triggers]
+crons = ["0 3 * * SUN"]
+
 [env.staging.vars]
 VITE_CLIENT_URL = "https://staging.bittasker.com/"
 VITE_NOSTR_RELAY_URL = "wss://relay1.bittasker.com"
 VITE_NOSTR_RELAY_NESTJS = "https://relay2.bittasker.com"
 VITE_RSK_NETWORK = "mainnet"
 VITE_BSC_NETWORK = "mainnet"
+VITE_STREAM_CUSTOMER_CODE = "customer-h1uh9jc2wp9hnxue"
 
 # ============================================
 # PRODUCTION Environment
@@ -96,12 +178,27 @@ zone_id = "REPLACE_WITH_BITTASKER_ZONE_ID"
 enabled = true
 head_sampling_rate = 0.1
 
+[env.production.stream]
+binding = "STREAM"
+
+[[env.production.kv_namespaces]]
+binding = "VIDEO_STATUS"
+id = "dbff03c996c6427bbc34b9d7b3795170"
+
+[[env.production.kv_namespaces]]
+binding = "VIDEO_AUTH"
+id = "5c05d20983c54e1d89269e838122dc4f"
+
+[env.production.triggers]
+crons = ["0 3 * * SUN"]
+
 [env.production.vars]
 VITE_CLIENT_URL = "https://worker.prod.bittasker.com/"
 VITE_NOSTR_RELAY_URL = "wss://relay1.bittasker.com"
 VITE_NOSTR_RELAY_NESTJS = "https://relay2.bittasker.com"
 VITE_RSK_NETWORK = "mainnet"
 VITE_BSC_NETWORK = "mainnet"
+VITE_STREAM_CUSTOMER_CODE = "customer-h1uh9jc2wp9hnxue"
 
 # ============================================
 # METRICS & ANALYTICS

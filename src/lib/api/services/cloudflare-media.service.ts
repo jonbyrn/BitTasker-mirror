@@ -1,3 +1,5 @@
+import { addBreadcrumb } from '@sentry/sveltekit';
+
 /**
  * Cloudflare Media Service
  * Handles integration with Cloudflare Images and Stream for optimized media processing and delivery
@@ -6,7 +8,7 @@
 export interface CloudflareImageUploadResponse {
 	id: string;
 	filename: string;
-	meta: Record<string, any>;
+	meta: Record<string, unknown>;
 	uploaded: string;
 	requireSignedURLs: boolean;
 	variants: string[];
@@ -31,7 +33,7 @@ export interface CloudflareStreamUploadResponse {
 	};
 	created: string;
 	modified: string;
-	meta: Record<string, any>;
+	meta: Record<string, unknown>;
 	status: {
 		state: 'pendingupload' | 'downloading' | 'queued' | 'inprogress' | 'ready' | 'error';
 		pctComplete?: string;
@@ -90,8 +92,8 @@ class CloudflareMediaService {
 	 * @returns Upload response with image ID and variants
 	 */
 	async uploadImage(
-		file: File, 
-		metadata: Record<string, any> = {}
+		file: File,
+		metadata: Record<string, unknown> = {}
 	): Promise<CloudflareImageUploadResponse> {
 		if (!this.accountId || !this.apiToken) {
 			throw new Error('Cloudflare credentials not configured');
@@ -99,16 +101,16 @@ class CloudflareMediaService {
 
 		const formData = new FormData();
 		formData.append('file', file);
-		
+
 		// Add metadata if provided
-		Object.keys(metadata).forEach(key => {
+		Object.keys(metadata).forEach((key) => {
 			formData.append(`metadata[${key}]`, metadata[key]);
 		});
 
 		const response = await fetch(`${this.IMAGES_API_BASE}/${this.accountId}/images/v1`, {
 			method: 'POST',
 			headers: {
-				'Authorization': `Bearer ${this.apiToken}`
+				Authorization: `Bearer ${this.apiToken}`
 			},
 			body: formData
 		});
@@ -119,9 +121,11 @@ class CloudflareMediaService {
 		}
 
 		const result = await response.json();
-		
+
 		if (!result.success) {
-			throw new Error(`Cloudflare Images upload failed: ${result.errors?.[0]?.message || 'Unknown error'}`);
+			throw new Error(
+				`Cloudflare Images upload failed: ${result.errors?.[0]?.message || 'Unknown error'}`
+			);
 		}
 
 		return result.result;
@@ -139,7 +143,7 @@ class CloudflareMediaService {
 		}
 
 		const params = new URLSearchParams();
-		
+
 		if (options.width) params.append('width', options.width.toString());
 		if (options.height) params.append('height', options.height.toString());
 		if (options.fit) params.append('fit', options.fit);
@@ -152,7 +156,7 @@ class CloudflareMediaService {
 
 		const queryString = params.toString();
 		const variant = queryString ? `${queryString}/` : '';
-		
+
 		return `${this.IMAGES_DELIVERY_BASE}/${this.imageDeliveryHash}/${imageId}/${variant}`;
 	}
 
@@ -168,7 +172,7 @@ class CloudflareMediaService {
 		const response = await fetch(`${this.IMAGES_API_BASE}/${this.accountId}/images/v1/${imageId}`, {
 			method: 'DELETE',
 			headers: {
-				'Authorization': `Bearer ${this.apiToken}`
+				Authorization: `Bearer ${this.apiToken}`
 			}
 		});
 
@@ -178,9 +182,11 @@ class CloudflareMediaService {
 		}
 
 		const result = await response.json();
-		
+
 		if (!result.success) {
-			throw new Error(`Cloudflare Images deletion failed: ${result.errors?.[0]?.message || 'Unknown error'}`);
+			throw new Error(
+				`Cloudflare Images deletion failed: ${result.errors?.[0]?.message || 'Unknown error'}`
+			);
 		}
 	}
 
@@ -191,8 +197,8 @@ class CloudflareMediaService {
 	 * @returns Upload response with video UID and status
 	 */
 	async uploadVideo(
-		file: File, 
-		metadata: Record<string, any> = {}
+		file: File,
+		metadata: Record<string, unknown> = {}
 	): Promise<CloudflareStreamUploadResponse> {
 		if (!this.accountId || !this.apiToken) {
 			throw new Error('Cloudflare credentials not configured');
@@ -200,16 +206,16 @@ class CloudflareMediaService {
 
 		const formData = new FormData();
 		formData.append('file', file);
-		
+
 		// Add metadata if provided
-		Object.keys(metadata).forEach(key => {
+		Object.keys(metadata).forEach((key) => {
 			formData.append(`meta[${key}]`, metadata[key]);
 		});
 
 		const response = await fetch(`${this.STREAM_API_BASE}/${this.accountId}/stream`, {
 			method: 'POST',
 			headers: {
-				'Authorization': `Bearer ${this.apiToken}`
+				Authorization: `Bearer ${this.apiToken}`
 			},
 			body: formData
 		});
@@ -220,9 +226,11 @@ class CloudflareMediaService {
 		}
 
 		const result = await response.json();
-		
+
 		if (!result.success) {
-			throw new Error(`Cloudflare Stream upload failed: ${result.errors?.[0]?.message || 'Unknown error'}`);
+			throw new Error(
+				`Cloudflare Stream upload failed: ${result.errors?.[0]?.message || 'Unknown error'}`
+			);
 		}
 
 		return result.result;
@@ -240,7 +248,7 @@ class CloudflareMediaService {
 
 		const response = await fetch(`${this.STREAM_API_BASE}/${this.accountId}/stream/${videoId}`, {
 			headers: {
-				'Authorization': `Bearer ${this.apiToken}`
+				Authorization: `Bearer ${this.apiToken}`
 			}
 		});
 
@@ -250,9 +258,11 @@ class CloudflareMediaService {
 		}
 
 		const result = await response.json();
-		
+
 		if (!result.success) {
-			throw new Error(`Cloudflare Stream status check failed: ${result.errors?.[0]?.message || 'Unknown error'}`);
+			throw new Error(
+				`Cloudflare Stream status check failed: ${result.errors?.[0]?.message || 'Unknown error'}`
+			);
 		}
 
 		return result.result;
@@ -270,7 +280,7 @@ class CloudflareMediaService {
 		const response = await fetch(`${this.STREAM_API_BASE}/${this.accountId}/stream/${videoId}`, {
 			method: 'DELETE',
 			headers: {
-				'Authorization': `Bearer ${this.apiToken}`
+				Authorization: `Bearer ${this.apiToken}`
 			}
 		});
 
@@ -280,10 +290,75 @@ class CloudflareMediaService {
 		}
 
 		const result = await response.json();
-		
+
 		if (!result.success) {
-			throw new Error(`Cloudflare Stream deletion failed: ${result.errors?.[0]?.message || 'Unknown error'}`);
+			throw new Error(
+				`Cloudflare Stream deletion failed: ${result.errors?.[0]?.message || 'Unknown error'}`
+			);
 		}
+	}
+
+	/**
+	 * Request a Direct Creator Upload URL for Cloudflare Stream.
+	 * Calls the Worker endpoint — no API token needed client-side.
+	 * @param maxDurationSeconds Maximum video duration in seconds (capped at 600)
+	 * @returns Upload URL and video UID
+	 */
+	async requestStreamUploadUrl(
+		maxDurationSeconds = 3600
+	): Promise<{ uploadURL: string; uid: string }> {
+		addBreadcrumb({
+			category: 'stream',
+			message: 'requestStreamUploadUrl: requested',
+			level: 'info'
+		});
+		try {
+			const res = await fetch('/api/cloudflare/stream/upload-url', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ maxDurationSeconds: Math.min(maxDurationSeconds, 600) })
+			});
+			if (!res.ok) {
+				const err = await res.json().catch(() => ({}));
+				throw new Error(err?.error?.message || `Upload URL request failed: HTTP ${res.status}`);
+			}
+			const data = await res.json();
+			addBreadcrumb({
+				category: 'stream',
+				message: 'requestStreamUploadUrl: success',
+				level: 'info'
+			});
+			return data;
+		} catch (e) {
+			addBreadcrumb({
+				category: 'stream',
+				message: `requestStreamUploadUrl: error - ${e instanceof Error ? e.message : 'Unknown error'}`,
+				level: 'error'
+			});
+			throw e;
+		}
+	}
+
+	/**
+	 * Request a Direct Creator Upload URL for Cloudflare Images.
+	 * Calls the Worker endpoint — no API token needed client-side.
+	 * (Future: migrate image uploads to this path)
+	 * @param metadata Optional metadata for the image
+	 * @returns Upload URL and image ID
+	 */
+	async requestImagesUploadUrl(
+		metadata: Record<string, string> = {}
+	): Promise<{ uploadURL: string; id: string }> {
+		const res = await fetch('/api/cloudflare/images/upload-url', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ metadata })
+		});
+		if (!res.ok) {
+			const err = await res.json().catch(() => ({}));
+			throw new Error(err?.error?.message || `Image upload URL request failed: HTTP ${res.status}`);
+		}
+		return res.json();
 	}
 
 	/**
@@ -293,7 +368,12 @@ class CloudflareMediaService {
 	 */
 	generateResponsiveImageUrls(imageId: string) {
 		return {
-			thumbnail: this.generateImageUrl(imageId, { width: 150, height: 150, fit: 'cover', format: 'auto' }),
+			thumbnail: this.generateImageUrl(imageId, {
+				width: 150,
+				height: 150,
+				fit: 'cover',
+				format: 'auto'
+			}),
 			small: this.generateImageUrl(imageId, { width: 400, fit: 'scale-down', format: 'auto' }),
 			medium: this.generateImageUrl(imageId, { width: 800, fit: 'scale-down', format: 'auto' }),
 			large: this.generateImageUrl(imageId, { width: 1200, fit: 'scale-down', format: 'auto' }),
@@ -306,11 +386,7 @@ class CloudflareMediaService {
 	 * Configure service with credentials
 	 * @param config Configuration object
 	 */
-	configure(config: {
-		accountId: string;
-		apiToken: string;
-		imageDeliveryHash: string;
-	}): void {
+	configure(config: { accountId: string; apiToken: string; imageDeliveryHash: string }): void {
 		this.accountId = config.accountId;
 		this.apiToken = config.apiToken;
 		this.imageDeliveryHash = config.imageDeliveryHash;

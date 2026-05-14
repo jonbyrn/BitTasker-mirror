@@ -18,6 +18,7 @@
 	} from '$lib/utils/helpers/dateFormatter';
 	import KINDS from '$lib/utils/constants/kinds';
 	import Gallery from '$lib/components/Gallery.svelte';
+	import StreamPlayer from '$lib/components/StreamPlayer.svelte';
 	import nostrEventsService from '$lib/api/services/nostr/events';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import TaskLocationMap from '$lib/components/maps/TaskLocationMap.svelte';
@@ -216,6 +217,11 @@
 		const videoExtensions = ['.mp4', '.webm', '.ogg', '.mov'];
 		const urlLower = url.toLowerCase();
 		return videoExtensions.some((ext) => urlLower.endsWith(ext));
+	}
+
+	// Helper function to detect Cloudflare Stream videos
+	function isStreamVideo(att: Attachment): boolean {
+		return !!att.cloudflareId && (att.type || '').toLowerCase().startsWith('video/');
 	}
 
 	// Translation is now handled automatically by TranslatableTask component
@@ -641,11 +647,18 @@
 										<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
 											{#each task.attachments.filter( (att) => isVideoFile(att.url) ) as attachment (attachment.key)}
 												<div class="bg-base-200 overflow-hidden rounded-lg">
-													<video class="h-48 w-full object-cover" controls preload="metadata">
-														<source src={attachment.url} type="video/mp4" />
-														<track kind="captions" src="" label="English" />
-														{$t('dashboard.task_details_by_task.video_not_supported')}
-													</video>
+													{#if isStreamVideo(attachment)}
+														<StreamPlayer
+															videoUid={attachment.cloudflareId!}
+															private={false}
+															controls={true}
+														/>
+													{:else}
+														<video class="h-48 w-full object-cover" controls preload="metadata">
+															<source src={attachment.url} type={attachment.type} />
+															{$t('dashboard.task_details_by_task.video_not_supported')}
+														</video>
+													{/if}
 													<div class="p-3">
 														<p class="truncate text-sm font-medium">
 															{attachment?.alt || $t('dashboard.task_details_by_task.attachment')}

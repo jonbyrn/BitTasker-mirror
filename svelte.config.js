@@ -20,7 +20,10 @@ const config = {
 			pages: 'build',
 			assets: 'build',
 			// Precompress only when explicitly enabled
-			precompress: process.env.PRECOMPRESS === '1',
+			// Precompress disabled: Cloudflare's edge network handles Brotli/gzip
+			// automatically. The adapter-static precompress feature has known bugs
+			// (sveltejs/kit#10184, #13031) — .br/.gz files import uncompressed paths.
+			precompress: false,
 			// Make all paths strict - false allows fallback for dynamic routes
 			strict: false
 		}),
