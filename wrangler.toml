@@ -87,7 +87,7 @@ binding = "VIDEO_AUTH"
 id = "e3ebf37679584874a2a673bcb002e8f1"
 
 [env.dev.triggers]
-crons = ["0 3 * * 0"]  # Sunday 3am UTC — abandoned upload cleanup
+crons = ["0 3 * * SUN"]  # Sunday 3am UTC — Cloudflare weekdays are 1–7 or SUN–SAT (not Unix 0–6)
 
 [env.dev.vars]
 # Public / client config
@@ -153,7 +153,7 @@ binding = "VIDEO_AUTH"
 id = "e443cc6599f6437c80e54034fb13cbb8"
 
 [env.staging.triggers]
-crons = ["0 3 * * 0"]
+crons = ["0 3 * * SUN"]
 
 [env.staging.vars]
 VITE_CLIENT_URL = "https://staging.bittasker.com/"
@@ -190,7 +190,7 @@ binding = "VIDEO_AUTH"
 id = "5c05d20983c54e1d89269e838122dc4f"
 
 [env.production.triggers]
-crons = ["0 3 * * 0"]
+crons = ["0 3 * * SUN"]
 
 [env.production.vars]
 VITE_CLIENT_URL = "https://worker.prod.bittasker.com/"
