@@ -14,9 +14,9 @@
 
 	// Local state
 	let videoData = $state<VideoIntroMetadata | null>(null);
-	let isRecording = $state(false);
-	let mediaRecorder: MediaRecorder | null = $state(null);
-	let recordedChunks: Blob[] = $state([]);
+	// let isRecording = $state(false);
+	// let mediaRecorder: MediaRecorder | null = $state(null);
+	// let recordedChunks: Blob[] = $state([]);
 	let isLoading = $state(false);
 	let error = $state('');
 	let stream: MediaStream | null = $state(null);
@@ -191,125 +191,124 @@
 
 	// TODO: Check if not already natively supported by mobile
 	// Start recording
-	// eslint-disable-next-line @typescript-eslint/no-unused-vars
-	async function startRecording() {
-		try {
-			stream = await navigator.mediaDevices.getUserMedia({
-				video: true,
-				audio: true
-			});
+	// async function startRecording() {
+	// 	try {
+	// 		stream = await navigator.mediaDevices.getUserMedia({
+	// 			video: true,
+	// 			audio: true
+	// 		});
 
-			if (videoPreview) {
-				videoPreview.srcObject = stream;
-				videoPreview.play();
-			}
+	// 		if (videoPreview) {
+	// 			videoPreview.srcObject = stream;
+	// 			videoPreview.play();
+	// 		}
 
-			mediaRecorder = new MediaRecorder(stream);
-			recordedChunks = [];
+	// 		mediaRecorder = new MediaRecorder(stream);
+	// 		recordedChunks = [];
 
-			mediaRecorder.ondataavailable = (e) => {
-				if (e.data.size > 0) {
-					recordedChunks = [...recordedChunks, e.data];
-				}
-			};
+	// 		mediaRecorder.ondataavailable = (e) => {
+	// 			if (e.data.size > 0) {
+	// 				recordedChunks = [...recordedChunks, e.data];
+	// 			}
+	// 		};
 
-			mediaRecorder.start();
-			isRecording = true;
+	// 		mediaRecorder.start();
+	// 		isRecording = true;
 
-			// Stop recording after 3 minutes
-			setTimeout(() => {
-				if (isRecording) stopRecording();
-			}, 180000);
-		} catch (err) {
-			console.error('Failed to start recording:', err);
-			error = $t('profile.video.failed_to_access_camera');
-		}
-	}
+	// 		// Stop recording after 3 minutes
+	// 		setTimeout(() => {
+	// 			if (isRecording) stopRecording();
+	// 		}, 180000);
+	// 	} catch (err) {
+	// 		console.error('Failed to start recording:', err);
+	// 		error = $t('profile.video.failed_to_access_camera');
+	// 	}
+	// }
 
 	// TODO: Check if not already natively supported by mobile
 	// Stop recording
-	async function stopRecording() {
-		if (!mediaRecorder || !stream) return;
+	// async function stopRecording() {
+	// 	if (!mediaRecorder || !stream) return;
 
-		mediaRecorder.stop();
-		stream.getTracks().forEach((track) => track.stop());
-		isRecording = false;
+	// 	mediaRecorder.stop();
+	// 	stream.getTracks().forEach((track) => track.stop());
+	// 	isRecording = false;
 
-		// Wait for the last chunk
-		await new Promise<void>((resolve) => {
-			mediaRecorder!.onstop = () => resolve();
-		});
+	// 	// Wait for the last chunk
+	// 	await new Promise<void>((resolve) => {
+	// 		mediaRecorder!.onstop = () => resolve();
+	// 	});
 
-		try {
-			isLoading = true;
-			error = '';
+	// 	try {
+	// 		isLoading = true;
+	// 		error = '';
 
-			const videoBlob = new Blob(recordedChunks, { type: 'video/webm' });
-			const videoFile = new File([videoBlob], 'recording.webm', { type: 'video/webm' });
+	// 		const videoBlob = new Blob(recordedChunks, { type: 'video/webm' });
+	// 		const videoFile = new File([videoBlob], 'recording.webm', { type: 'video/webm' });
 
-			// Upload video
-			const uploadedVideo = await uploadService.uploadSingleFile(videoFile, {
-				folder: 'videos',
-				metadata: {
-					name: videoFile.name
-				}
-			});
+	// 		// Upload video
+	// 		const uploadedVideo = await uploadService.uploadSingleFile(videoFile, {
+	// 			folder: 'videos',
+	// 			metadata: {
+	// 				name: videoFile.name
+	// 			}
+	// 		});
 
-			// Use Stream auto-thumbnail (keep video element for duration metadata)
-			const video = document.createElement('video');
-			video.preload = 'metadata';
-			video.crossOrigin = 'anonymous';
+	// 		// Use Stream auto-thumbnail (keep video element for duration metadata)
+	// 		const video = document.createElement('video');
+	// 		video.preload = 'metadata';
+	// 		video.crossOrigin = 'anonymous';
 
-			const videoUrl = URL.createObjectURL(videoFile);
-			video.src = videoUrl;
+	// 		const videoUrl = URL.createObjectURL(videoFile);
+	// 		video.src = videoUrl;
 
-			await new Promise((resolve) => {
-				video.onloadeddata = () => {
-					setTimeout(() => resolve(null), 100);
-				};
-			});
+	// 		await new Promise((resolve) => {
+	// 			video.onloadeddata = () => {
+	// 				setTimeout(() => resolve(null), 100);
+	// 			};
+	// 		});
 
-			URL.revokeObjectURL(videoUrl);
+	// 		URL.revokeObjectURL(videoUrl);
 
-			const uploadedThumbnail = {
-				url: `https://customer-${import.meta.env.VITE_STREAM_CUSTOMER_CODE}.cloudflarestream.com/${uploadedVideo.key}/thumbnails/thumbnail.jpg`,
-				key: `${uploadedVideo.key}/thumbnails/thumbnail.jpg`,
-				type: 'image/jpeg',
-				alt: videoFile.name.replace(/\.[^/.]+$/, '') + ' thumbnail'
-			};
+	// 		const uploadedThumbnail = {
+	// 			url: `https://customer-${import.meta.env.VITE_STREAM_CUSTOMER_CODE}.cloudflarestream.com/${uploadedVideo.key}/thumbnails/thumbnail.jpg`,
+	// 			key: `${uploadedVideo.key}/thumbnails/thumbnail.jpg`,
+	// 			type: 'image/jpeg',
+	// 			alt: videoFile.name.replace(/\.[^/.]+$/, '') + ' thumbnail'
+	// 		};
 
-			// Update video data
-			const videoMetadata = {
-				video: {
-					url: uploadedVideo.url,
-					key: uploadedVideo.key,
-					type: videoFile.type,
-					alt: videoFile.name,
-					size: videoFile.size,
-					duration: video.duration
-				},
-				thumbnail: {
-					key: uploadedThumbnail.key,
-					url: uploadedThumbnail.url,
-					type: 'image/webp',
-					alt: videoFile.name.replace(/\.[^/.]+$/, '') + ' thumbnail'
-				}
-			};
+	// 		// Update video data
+	// 		const videoMetadata = {
+	// 			video: {
+	// 				url: uploadedVideo.url,
+	// 				key: uploadedVideo.key,
+	// 				type: videoFile.type,
+	// 				alt: videoFile.name,
+	// 				size: videoFile.size,
+	// 				duration: video.duration
+	// 			},
+	// 			thumbnail: {
+	// 				key: uploadedThumbnail.key,
+	// 				url: uploadedThumbnail.url,
+	// 				type: 'image/webp',
+	// 				alt: videoFile.name.replace(/\.[^/.]+$/, '') + ' thumbnail'
+	// 			}
+	// 		};
 
-			// Publish to Nostr
-			await publishVideoEvent(videoMetadata);
-			videoData = videoMetadata;
+	// 		// Publish to Nostr
+	// 		await publishVideoEvent(videoMetadata);
+	// 		videoData = videoMetadata;
 
-			// Notify completion change from save (triggers toast in parent)
-			onComplete(!!videoData, true);
-		} catch (err) {
-			console.error('Failed to save recording:', err);
-			error = $t('profile.video.failed_to_save_recording');
-		} finally {
-			isLoading = false;
-			recordedChunks = [];
-		}
-	}
+	// 		// Notify completion change from save (triggers toast in parent)
+	// 		onComplete(!!videoData, true);
+	// 	} catch (err) {
+	// 		console.error('Failed to save recording:', err);
+	// 		error = $t('profile.video.failed_to_save_recording');
+	// 	} finally {
+	// 		isLoading = false;
+	// 		recordedChunks = [];
+	// 	}
+	// }
 
 	// Remove video
 	async function removeVideo() {

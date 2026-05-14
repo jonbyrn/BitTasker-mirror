@@ -1,5 +1,5 @@
 <script lang="ts">
-	/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, no-empty */
+	/* eslint-disable @typescript-eslint/no-unused-vars, no-empty */
 	import { onMount } from 'svelte';
 	import { linear } from 'svelte/easing';
 	import { fly } from 'svelte/transition';
@@ -7,24 +7,25 @@
 	import { BudgetTypeEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import TaskReviewLocation from '../TaskReviewLocation.svelte';
-	import {
-		satsFromUsd
-	} from '$lib/utils/helpers/crypto';
+	import { satsFromUsd } from '$lib/utils/helpers/crypto';
 	import { t } from 'svelte-i18n';
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { TASK_CATEGORIES } from '$lib/utils/constants/categories';
-	import { formatStandardDateShort, parseDateToLocalMidnight } from '$lib/utils/helpers/dateFormatter';
+	import {
+		formatStandardDateShort,
+		parseDateToLocalMidnight
+	} from '$lib/utils/helpers/dateFormatter';
 	import type { Attachment } from '$lib/types/task';
 	import StreamPlayer from '$lib/components/StreamPlayer.svelte';
 
 	let { direction } = $props();
 
 	// Helper function to translate a single category
-	function translateCategory(category: string | any): string {
+	function translateCategory(category: string): string {
 		try {
 			// Extract ID from category (handle both string and object)
-			const categoryId = typeof category === 'string' ? category : (category as any).id;
-			const categoryObj = TASK_CATEGORIES.find(cat => cat.id === categoryId);
+			const categoryId = typeof category === 'string' ? category : category.id;
+			const categoryObj = TASK_CATEGORIES.find((cat) => cat.id === categoryId);
 			if (categoryObj) {
 				// Use slug for translation key (as defined in translation files)
 				const translatedName = $t(`categories.${categoryObj.slug}.name`);
@@ -34,14 +35,12 @@
 			return categoryId;
 		} catch (error) {
 			console.error('Error translating category:', error);
-			return typeof category === 'string' ? category : (category as any).id || '';
+			return typeof category === 'string' ? category : category.id || '';
 		}
 	}
 
 	// Convert category IDs to translated names for display (reactive)
-	let translatedCategories = $derived(
-		$store.task.categories.map(translateCategory)
-	);
+	let translatedCategories = $derived($store.task.categories.map(translateCategory));
 
 	// TODO: Refactor by adding to app store global state
 	/**
@@ -112,7 +111,6 @@
 
 		return await Promise.all(imagePromises);
 	};
-	/* eslint-enable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, no-empty */
 </script>
 
 <div
@@ -126,17 +124,17 @@
 >
 	<div class="card bg-base-200 shadow-sm">
 		<div class="card-body p-6">
-			<h4 class="mb-6 text-lg font-semibold text-base-content">{$t('task.basic_information')}</h4>
-			
+			<h4 class="text-base-content mb-6 text-lg font-semibold">{$t('task.basic_information')}</h4>
+
 			<!-- Task Details Grid -->
 			<div class="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
 				<div class="space-y-1">
-					<span class="text-sm font-medium text-base-content/70">{$t('task.title')}</span>
-					<p class="text-base font-medium text-base-content">{$store.task.title}</p>
+					<span class="text-base-content/70 text-sm font-medium">{$t('task.title')}</span>
+					<p class="text-base-content text-base font-medium">{$store.task.title}</p>
 				</div>
 
 				<div class="space-y-1">
-					<span class="text-sm font-medium text-base-content/70">{$t('task.task_type')}</span>
+					<span class="text-base-content/70 text-sm font-medium">{$t('task.task_type')}</span>
 					<div class="flex items-center gap-2">
 						<span class="badge badge-primary badge-sm">
 							{$store.task.taskType === TaskTypeEnum.IN_PERSON
@@ -147,15 +145,21 @@
 				</div>
 
 				<div class="space-y-1 sm:col-span-2">
-					<span class="text-sm font-medium text-base-content/70">{$t('task.timeline')}</span>
+					<span class="text-base-content/70 text-sm font-medium">{$t('task.timeline')}</span>
 					<div class="flex flex-col gap-1">
 						{#if $store.task.dateRange}
-							<span class="text-base font-medium text-base-content">
-								{$t('task.complete_between')} {formatDateWithoutYear(new Date($store.task.dateRange.start))} {$t('task.and')} {formatStandardDateShort(new Date($store.task.dateRange.end))}
+							<span class="text-base-content text-base font-medium">
+								{$t('task.complete_between')}
+								{formatDateWithoutYear(new Date($store.task.dateRange.start))}
+								{$t('task.and')}
+								{formatStandardDateShort(new Date($store.task.dateRange.end))}
 							</span>
 						{:else if $store.task.deadline}
-							<span class="text-base font-medium text-base-content">
-								{$t('task.complete_by')} {formatStandardDateShort(parseDateToLocalMidnight($store.task.deadline) || new Date($store.task.deadline))}
+							<span class="text-base-content text-base font-medium">
+								{$t('task.complete_by')}
+								{formatStandardDateShort(
+									parseDateToLocalMidnight($store.task.deadline) || new Date($store.task.deadline)
+								)}
 							</span>
 						{/if}
 					</div>
@@ -167,10 +171,10 @@
 	<!-- Budget Section -->
 	<div class="card bg-base-200 shadow-sm">
 		<div class="card-body p-6">
-			<h5 class="mb-4 text-base font-semibold text-base-content">{$t('task.budget_details')}</h5>
+			<h5 class="text-base-content mb-4 text-base font-semibold">{$t('task.budget_details')}</h5>
 			<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
 				<div class="space-y-1">
-					<span class="text-sm font-medium text-base-content/70">{$t('task.budget_type')}</span>
+					<span class="text-base-content/70 text-sm font-medium">{$t('task.budget_type')}</span>
 					<div class="flex items-center gap-2">
 						<span class="badge badge-outline badge-sm">
 							{$store.task.budget.type === BudgetTypeEnum.FIXED
@@ -178,20 +182,21 @@
 								: $t('task.budget_hourly')}
 						</span>
 						{#if $store.task.budget.type === BudgetTypeEnum.HOURLY}
-							<span class="text-sm text-base-content/70">
-								({$store.task.budget.estimatedHours} {$t('task.hours')})
+							<span class="text-base-content/70 text-sm">
+								({$store.task.budget.estimatedHours}
+								{$t('task.hours')})
 							</span>
 						{/if}
 					</div>
 				</div>
 
 				<div class="space-y-1">
-					<span class="text-sm font-medium text-base-content/70">{$t('task.budget_amount')}</span>
+					<span class="text-base-content/70 text-sm font-medium">{$t('task.budget_amount')}</span>
 					<div class="flex flex-col">
-						<span class="text-2xl font-bold text-primary">
+						<span class="text-primary text-2xl font-bold">
 							${formatNumberWithTwoDecimals($store.task.budget.amount)}
 						</span>
-						<span class="text-sm text-base-content/60">
+						<span class="text-base-content/60 text-sm">
 							{satsFromUsd($store.task.budget.amount, btcPrice)}
 						</span>
 					</div>
@@ -203,10 +208,12 @@
 	<!-- Description Section -->
 	<div class="card bg-base-200 shadow-sm">
 		<div class="card-body p-6">
-			<h5 class="mb-3 text-base font-semibold text-base-content">{$t('task.description_label')}</h5>
-			<div class="bg-base-100 rounded-lg border border-base-300 p-4">
+			<h5 class="text-base-content mb-3 text-base font-semibold">{$t('task.description_label')}</h5>
+			<div class="bg-base-100 border-base-300 rounded-lg border p-4">
 				<div class="max-h-32 overflow-y-auto">
-					<p class="text-sm leading-relaxed text-base-content whitespace-pre-wrap">{$store.task.description}</p>
+					<p class="text-base-content text-sm leading-relaxed whitespace-pre-wrap">
+						{$store.task.description}
+					</p>
 				</div>
 			</div>
 		</div>
@@ -216,7 +223,7 @@
 	<div class="card bg-base-200 shadow-sm">
 		<div class="card-body p-6">
 			<div class="mb-6">
-				<h4 class="mb-3 text-base font-semibold text-base-content">{$t('task.categories')}</h4>
+				<h4 class="text-base-content mb-3 text-base font-semibold">{$t('task.categories')}</h4>
 				<div class="flex flex-wrap gap-2">
 					{#each translatedCategories as category (category)}
 						<span class="badge badge-primary badge-sm">{category}</span>
@@ -225,7 +232,7 @@
 			</div>
 
 			<div>
-				<h4 class="mb-3 text-base font-semibold text-base-content">{$t('task.skills')}</h4>
+				<h4 class="text-base-content mb-3 text-base font-semibold">{$t('task.skills')}</h4>
 				<div class="flex flex-wrap gap-2">
 					{#each $store.task.skills as skill (skill)}
 						<span class="badge badge-primary badge-sm">{skill}</span>
@@ -268,7 +275,7 @@
 						<div class="bg-base-200 overflow-hidden rounded-lg pb-4">
 							<video class="h-32 w-full object-cover" controls preload="metadata">
 								<source src={attachment.url} type={attachment.type} />
-								
+
 								{$t('dashboard.task_details_by_task.video_not_supported')}
 							</video>
 							<div class="p-3">
@@ -282,7 +289,7 @@
 						</div>
 					{:else}
 						<!-- Image -->
-						<div class="overflow-hidden rounded-lg pb-4 bg-base-200">
+						<div class="bg-base-200 overflow-hidden rounded-lg pb-4">
 							<img
 								src={attachment.url}
 								alt={attachment?.alt || 'Attachment'}
