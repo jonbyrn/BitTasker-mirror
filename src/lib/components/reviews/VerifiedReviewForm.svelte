@@ -7,8 +7,8 @@
 	import { appStore } from '$lib/stores/app.store';
 	import type { TaskeeCategoryRatings, TaskerCategoryRatings } from '$lib/types/review';
 	import { createDebug } from '$lib/utils/debug';
+	import { portal } from '$lib/utils/portal';
 	import IconStar from '~icons/mdi/star';
-	import IconStarOutline from '~icons/mdi/star-outline';
 	import IconAlertTriangle from '~icons/mdi/alert-outline';
 	import IconCheck from '~icons/mdi/check';
 
@@ -35,11 +35,13 @@
 	const overallRating = $derived.by(() => {
 		if (revieweeRole === 'taskee') {
 			if (workQualityRating === 0 || experienceRating === 0 || deliverySpeedRating === 0) return 0;
-			return Math.round((workQualityRating + experienceRating + deliverySpeedRating) / 3);
+			const avg = (workQualityRating + experienceRating + deliverySpeedRating) / 3;
+			return Math.round(avg * 10) / 10;
 		} else if (revieweeRole === 'tasker') {
 			if (communicationRating === 0 || clarityRating === 0 || paymentTimelinessRating === 0)
 				return 0;
-			return Math.round((communicationRating + clarityRating + paymentTimelinessRating) / 3);
+			const avg = (communicationRating + clarityRating + paymentTimelinessRating) / 3;
+			return Math.round(avg * 10) / 10;
 		}
 		return 0;
 	});
@@ -392,26 +394,20 @@
 		if (current === 0) return 'text-base-content/20';
 		return current >= rating ? 'text-primary fill-primary' : 'text-base-content/20';
 	}
+
+	let hoverState = $state<{ category: string; rating: number } | null>(null);
+
+	function isHovered(category: string, rating: number): boolean {
+		return hoverState?.category === category && hoverState.rating >= rating;
+	}
+	const clipPrefix = `star-clip-${Math.random().toString(36).slice(2, 8)}`;
+
+	function starFillFraction(star: number): number {
+		return Math.max(0, Math.min(1, overallRating - star + 1));
+	}
 </script>
 
 <div class="w-full">
-	<!-- Header Section -->
-	<div class="border-base-300 mb-6 border-b pb-4">
-		<div class="mb-3 flex items-center gap-3">
-			<div class="bg-primary/10 border-primary/20 rounded-xl border p-2.5">
-				<IconStarOutline class="text-primary h-6 w-6" />
-			</div>
-			<div>
-				<h2 class="text-base-content text-2xl font-bold">
-					{getFormText('title', 'Write a Review')}
-				</h2>
-				<p class="text-base-content/60 mt-1 text-sm">
-					{getFormText('subtitle', 'Reviews are public and immutable once submitted.')}
-				</p>
-			</div>
-		</div>
-	</div>
-
 	{#if alreadyReviewed}
 		<div class="alert alert-outline alert-warning mb-6">
 			<IconAlertTriangle class="h-5 w-5 shrink-0" />
@@ -454,23 +450,24 @@
 							'Quality of work delivered, deliverables, and results'
 						)}
 					</p>
-					<div class="flex items-center gap-2">
-						{#each [1, 2, 3, 4, 5] as rating (rating)}
+					<div class="star-group flex flex-row-reverse justify-end gap-2">
+						{#each [5, 4, 3, 2, 1] as rating (rating)}
 							<button
 								type="button"
-								class="flex h-7 w-7 items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 {isSubmitting ||
+								class="star-btn flex h-7 w-7 items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 {isSubmitting ||
 								alreadyReviewed
 									? 'cursor-not-allowed opacity-50'
 									: 'cursor-pointer'}"
 								onclick={() => setRating('workQuality', rating)}
+								onmouseenter={() => (hoverState = { category: 'workQuality', rating })}
+								onmouseleave={() => (hoverState = null)}
 								disabled={isSubmitting || alreadyReviewed}
 								aria-label={getRatingAriaLabel('rate_work_quality_aria', rating)}
 							>
 								<IconStar
-									class="h-5 w-5 {getRatingClass(
-										rating,
-										workQualityRating
-									)} transition-colors duration-200"
+									class="star-icon h-5 w-5 {isHovered('workQuality', rating)
+										? 'text-primary fill-primary'
+										: getRatingClass(rating, workQualityRating)} transition-colors duration-200"
 								/>
 							</button>
 						{/each}
@@ -501,23 +498,24 @@
 							'Level of experience, expertise, and skill demonstrated'
 						)}
 					</p>
-					<div class="flex items-center gap-2">
-						{#each [1, 2, 3, 4, 5] as rating (rating)}
+					<div class="star-group flex flex-row-reverse justify-end gap-2">
+						{#each [5, 4, 3, 2, 1] as rating (rating)}
 							<button
 								type="button"
-								class="flex h-7 w-7 items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 {isSubmitting ||
+								class="star-btn flex h-7 w-7 items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 {isSubmitting ||
 								alreadyReviewed
 									? 'cursor-not-allowed opacity-50'
 									: 'cursor-pointer'}"
 								onclick={() => setRating('experience', rating)}
+								onmouseenter={() => (hoverState = { category: 'experience', rating })}
+								onmouseleave={() => (hoverState = null)}
 								disabled={isSubmitting || alreadyReviewed}
 								aria-label={getRatingAriaLabel('rate_experience_aria', rating)}
 							>
 								<IconStar
-									class="h-5 w-5 {getRatingClass(
-										rating,
-										experienceRating
-									)} transition-colors duration-200"
+									class="star-icon h-5 w-5 {isHovered('experience', rating)
+										? 'text-primary fill-primary'
+										: getRatingClass(rating, experienceRating)} transition-colors duration-200"
 								/>
 							</button>
 						{/each}
@@ -548,23 +546,24 @@
 							'How quickly work was completed and deadlines were met'
 						)}
 					</p>
-					<div class="flex items-center gap-2">
-						{#each [1, 2, 3, 4, 5] as rating (rating)}
+					<div class="star-group flex flex-row-reverse justify-end gap-2">
+						{#each [5, 4, 3, 2, 1] as rating (rating)}
 							<button
 								type="button"
-								class="flex h-7 w-7 items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 {isSubmitting ||
+								class="star-btn flex h-7 w-7 items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 {isSubmitting ||
 								alreadyReviewed
 									? 'cursor-not-allowed opacity-50'
 									: 'cursor-pointer'}"
 								onclick={() => setRating('deliverySpeed', rating)}
+								onmouseenter={() => (hoverState = { category: 'deliverySpeed', rating })}
+								onmouseleave={() => (hoverState = null)}
 								disabled={isSubmitting || alreadyReviewed}
 								aria-label={getRatingAriaLabel('rate_delivery_speed_aria', rating)}
 							>
 								<IconStar
-									class="h-5 w-5 {getRatingClass(
-										rating,
-										deliverySpeedRating
-									)} transition-colors duration-200"
+									class="star-icon h-5 w-5 {isHovered('deliverySpeed', rating)
+										? 'text-primary fill-primary'
+										: getRatingClass(rating, deliverySpeedRating)} transition-colors duration-200"
 								/>
 							</button>
 						{/each}
@@ -597,23 +596,24 @@
 							'Quality of communication, responsiveness, and clarity in interactions'
 						)}
 					</p>
-					<div class="flex items-center gap-2">
-						{#each [1, 2, 3, 4, 5] as rating (rating)}
+					<div class="star-group flex flex-row-reverse justify-end gap-2">
+						{#each [5, 4, 3, 2, 1] as rating (rating)}
 							<button
 								type="button"
-								class="flex h-7 w-7 items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 {isSubmitting ||
+								class="star-btn flex h-7 w-7 items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 {isSubmitting ||
 								alreadyReviewed
 									? 'cursor-not-allowed opacity-50'
 									: 'cursor-pointer'}"
 								onclick={() => setRating('communication', rating)}
+								onmouseenter={() => (hoverState = { category: 'communication', rating })}
+								onmouseleave={() => (hoverState = null)}
 								disabled={isSubmitting || alreadyReviewed}
 								aria-label={getRatingAriaLabel('rate_communication_aria', rating)}
 							>
 								<IconStar
-									class="h-5 w-5 {getRatingClass(
-										rating,
-										communicationRating
-									)} transition-colors duration-200"
+									class="star-icon h-5 w-5 {isHovered('communication', rating)
+										? 'text-primary fill-primary'
+										: getRatingClass(rating, communicationRating)} transition-colors duration-200"
 								/>
 							</button>
 						{/each}
@@ -644,23 +644,24 @@
 							'Clarity of requirements, instructions, and feedback provided'
 						)}
 					</p>
-					<div class="flex items-center gap-2">
-						{#each [1, 2, 3, 4, 5] as rating (rating)}
+					<div class="star-group flex flex-row-reverse justify-end gap-2">
+						{#each [5, 4, 3, 2, 1] as rating (rating)}
 							<button
 								type="button"
-								class="flex h-7 w-7 items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 {isSubmitting ||
+								class="star-btn flex h-7 w-7 items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 {isSubmitting ||
 								alreadyReviewed
 									? 'cursor-not-allowed opacity-50'
 									: 'cursor-pointer'}"
 								onclick={() => setRating('clarity', rating)}
+								onmouseenter={() => (hoverState = { category: 'clarity', rating })}
+								onmouseleave={() => (hoverState = null)}
 								disabled={isSubmitting || alreadyReviewed}
 								aria-label={getRatingAriaLabel('rate_clarity_aria', rating)}
 							>
 								<IconStar
-									class="h-5 w-5 {getRatingClass(
-										rating,
-										clarityRating
-									)} transition-colors duration-200"
+									class="star-icon h-5 w-5 {isHovered('clarity', rating)
+										? 'text-primary fill-primary'
+										: getRatingClass(rating, clarityRating)} transition-colors duration-200"
 								/>
 							</button>
 						{/each}
@@ -693,23 +694,27 @@
 							'Speed of payment processing and payment timeliness'
 						)}
 					</p>
-					<div class="flex items-center gap-2">
-						{#each [1, 2, 3, 4, 5] as rating (rating)}
+					<div class="star-group flex flex-row-reverse justify-end gap-2">
+						{#each [5, 4, 3, 2, 1] as rating (rating)}
 							<button
 								type="button"
-								class="flex h-7 w-7 items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 {isSubmitting ||
+								class="star-btn flex h-7 w-7 items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 {isSubmitting ||
 								alreadyReviewed
 									? 'cursor-not-allowed opacity-50'
 									: 'cursor-pointer'}"
 								onclick={() => setRating('paymentTimeliness', rating)}
+								onmouseenter={() => (hoverState = { category: 'paymentTimeliness', rating })}
+								onmouseleave={() => (hoverState = null)}
 								disabled={isSubmitting || alreadyReviewed}
 								aria-label={getRatingAriaLabel('rate_payment_timeliness_aria', rating)}
 							>
 								<IconStar
-									class="h-5 w-5 {getRatingClass(
-										rating,
-										paymentTimelinessRating
-									)} transition-colors duration-200"
+									class="star-icon h-5 w-5 {isHovered('paymentTimeliness', rating)
+										? 'text-primary fill-primary'
+										: getRatingClass(
+												rating,
+												paymentTimelinessRating
+											)} transition-colors duration-200"
 								/>
 							</button>
 						{/each}
@@ -747,34 +752,40 @@
 
 		<!-- Overall Rating (calculated from category ratings) -->
 		<div class="form-control">
-			<div class="mb-3 flex items-center justify-between">
-				<div class="label p-0">
-					<span class="text-base-content text-base font-semibold"
-						>{getFormText('overall_rating', 'Overall Rating')}</span
-					>
+			<div class="bg-base-200/50 flex items-center justify-between gap-3 rounded-xl p-4 opacity-80">
+				<span class="text-base-content text-base font-semibold">
+					{getFormText('overall_rating', 'Overall Rating')}
+				</span>
+				<div class="flex items-center gap-1.5">
+					{#if overallRating > 0}
+						<span class="text-base-content/70 text-sm font-medium tabular-nums"
+							>{overallRating}/5</span
+						>
+					{/if}
+					{#each [1, 2, 3, 4, 5] as star (star)}
+						{@const frac = starFillFraction(star)}
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="text-base-content/15 h-4 w-4"
+							fill="currentColor"
+							viewBox="0 0 24 24"
+						>
+							<path
+								d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+							/>
+							{#if frac > 0}
+								<clipPath id="{clipPrefix}-{star}">
+									<rect x="0" y="0" width={frac * 24} height="24" />
+								</clipPath>
+								<path
+									class="fill-primary/60"
+									clip-path="url(#{clipPrefix}-{star})"
+									d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+								/>
+							{/if}
+						</svg>
+					{/each}
 				</div>
-				{#if overallRating > 0}
-					<div class="badge badge-primary badge-lg gap-1">
-						<span>{overallRating}</span>
-						<span class="text-xs">/ 5</span>
-					</div>
-				{/if}
-			</div>
-			<div class="bg-base-200/50 flex items-center gap-2 rounded-xl p-4">
-				{#each [1, 2, 3, 4, 5] as star (star)}
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="h-5 w-5 {star <= overallRating
-							? 'text-primary fill-primary'
-							: 'text-base-content/20'}"
-						fill="currentColor"
-						viewBox="0 0 24 24"
-					>
-						<path
-							d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
-						/>
-					</svg>
-				{/each}
 			</div>
 			<p class="text-base-content/50 mt-2 text-xs">
 				{getFormText('overall_rating_calculated', 'Calculated from the category ratings above')}
@@ -812,10 +823,13 @@
 					<span class="label-text-alt text-error mt-1 text-xs">{errors.comment}</span>
 				</div>
 			{/if}
+			<p class="text-base-content/50 mt-2 text-xs">
+				{getFormText('subtitle', 'Reviews are public and immutable once submitted.')}
+			</p>
 		</div>
 
-		<!-- Actions -->
-		<div class="border-base-300 flex gap-3 border-t pt-6">
+		<!-- Actions — portalled to Drawer footer so they remain fixed while content scrolls -->
+		<div use:portal={'review-form-footer'} class="flex gap-3">
 			{#if onCancel}
 				<button class="btn btn-ghost btn-outline flex-1" onclick={onCancel} disabled={isSubmitting}>
 					{getCommonText('cancel', 'Cancel')}
@@ -834,7 +848,7 @@
 					<span>{getFormText('submitting', 'Submitting...')}</span>
 				{:else}
 					<IconCheck class="h-5 w-5" />
-					<span>{getFormText('submit', 'Submit Review')}</span>
+					<span>{getFormText('submit', 'Submit')}</span>
 				{/if}
 			</button>
 		</div>

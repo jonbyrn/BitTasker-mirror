@@ -16,6 +16,7 @@
 	import DashboardTasksPanel from '$lib/components/task/DashboardTasksPanel.svelte';
 	import DashboardContractsPanelNDK from '$lib/components/contracts/DashboardContractsPanelNDK.svelte';
 	import MyQuotesPanel from '$lib/components/dashboard/quotes/MyQuotesPanel.svelte';
+	import PendingReviewBanner from '$lib/components/reviews/PendingReviewBanner.svelte';
 	import {
 		createDashboardUrl,
 		getTaskerTimelines,
@@ -312,9 +313,9 @@
 		// Check if task has contracts - prevent editing if contracts exist
 		try {
 			const contracts = await ndk.fetchEvents(
-					{ kinds: [KINDS.CONTRACT], '#t': [taskToEdit.id], limit: 1 },
-					{ closeOnEose: true }
-				)
+				{ kinds: [KINDS.CONTRACT], '#t': [taskToEdit.id], limit: 1 },
+				{ closeOnEose: true }
+			);
 			if (contracts.size > 0) {
 				appStore.showErrorToast(
 					$t('dashboard.task_details_by_task.cannot_edit_with_contract') ||
@@ -434,6 +435,9 @@
 			<span>{activeTab.buttonLabel}</span>
 		</a>
 	</div>
+
+	<!-- Pending Review Banner -->
+	<PendingReviewBanner />
 
 	<!-- Dashboard Tabs -->
 	<Tabs {tabs} activeTab={activeTabId} onTabChange={handleTabChange} />

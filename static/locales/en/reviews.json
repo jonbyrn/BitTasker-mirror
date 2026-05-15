@@ -3,7 +3,7 @@
 		"form": {
 			"title": "Write a Review",
 			"subtitle": "Reviews are public and immutable once submitted.",
-			"category_ratings": "Category Ratings",
+			"category_ratings": "Summary",
 			"overall_rating": "Overall Rating",
 			"overall_rating_calculated": "Calculated from the category ratings above",
 			"quality": "Quality",
@@ -36,7 +36,7 @@
 			"role_unknown": "Unable to determine role. Please ensure contract information is available.",
 			"comment": "Comment (Optional)",
 			"comment_placeholder": "Share your experience...",
-			"submit": "Submit Review",
+			"submit": "Submit",
 			"submitting": "Submitting...",
 			"success": "Review submitted successfully!",
 			"already_reviewed": "You have already reviewed this escrow. Reviews are immutable once submitted.",
@@ -80,7 +80,7 @@
 		"photo_alt": "Review photo {index}",
 		"reviewed": "Reviewed",
 		"review_pending": "Review",
-		"leave_review": "Leave Review",
+		"leave_review": "Review",
 		"review_received": "Review Received",
 		"you_reviewed": "You have reviewed this contract",
 		"list": {
@@ -129,6 +129,8 @@
 			"review_for": "Review for",
 			"nostr_id": "Nostr ID",
 			"completed_on": "Completed on",
+			"banner_count_one": "You have {count} pending review",
+			"banner_count_other": "You have {count} pending reviews",
 			"review_now": "Review Now",
 			"only_current_user": "Pending reviews are only visible to the account owner"
 		},
