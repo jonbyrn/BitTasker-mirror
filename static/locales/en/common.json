@@ -475,7 +475,8 @@
 				"toggle_torch": "Toggle flashlight",
 				"camera_permission_denied": "Camera permission denied. Please enable camera access in your settings.",
 				"no_camera_found": "No camera found on this device.",
-				"point_camera_at_qr": "Point your camera at a QR code"
+				"point_camera_at_qr": "Point your camera at a QR code",
+				"get_qr_from_settings": "Get your QR code from Settings"
 			},
 			"devices": {
 				"platforms": {

@@ -474,7 +474,8 @@
 				"toggle_torch": "Alternar linterna",
 				"camera_permission_denied": "Permiso de cámara denegado. Por favor habilita el acceso a la cámara en tu configuración.",
 				"no_camera_found": "No se encontró cámara en este dispositivo.",
-				"point_camera_at_qr": "Apunta tu cámara a un código QR"
+				"point_camera_at_qr": "Apunta tu cámara a un código QR",
+				"get_qr_from_settings": "Obtén tu código QR desde Configuración"
 			},
 			"devices": {
 				"platforms": {
