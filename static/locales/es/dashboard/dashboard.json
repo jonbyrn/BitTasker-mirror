@@ -134,7 +134,7 @@
 				"withdrawn": "Retirada",
 				"expired": "Expirada",
 				"accepting": "Aceptando",
-				"accepting_progress": "Aceptando...",
+				"accepting_progress": "Aceptada",
 				"contract_sync_pending": "Sincronizando contrato",
 				"accept_failed": "Error al aceptar",
 				"accept_unknown": "Aceptación desconocida",

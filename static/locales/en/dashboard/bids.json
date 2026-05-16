@@ -168,6 +168,8 @@
 				"select_start_datetime": "Start date and time",
 				"select_end_datetime": "End date and time"
 			},
+			"schedule_section_start": "Schedule Start",
+			"schedule_section_end": "Schedule End",
 			"datetime_range": "Scheduled Period",
 			"start_datetime": "Start Date & Time",
 			"end_datetime": "End Date & Time",

@@ -164,6 +164,10 @@
 			},
 			"profile_updated": "Profile updated successfully!"
 		},
+		"tabs": {
+			"overview": "Overview",
+			"reviews": "Reviews"
+		},
 		"about": "About",
 		"noDescription": "No description added yet.",
 		"skills2": "Skills",

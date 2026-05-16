@@ -18,12 +18,14 @@
 	} from '$lib/utils/helpers/dateFormatter';
 	import KINDS from '$lib/utils/constants/kinds';
 	import Gallery from '$lib/components/Gallery.svelte';
+	import StreamPlayer from '$lib/components/StreamPlayer.svelte';
 	import nostrEventsService from '$lib/api/services/nostr/events';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import TaskLocationMap from '$lib/components/maps/TaskLocationMap.svelte';
 	import TranslatableTask from '$lib/components/task/TranslatableTask.svelte';
 	import BidForm from '$lib/components/bidding/BidForm.svelte';
 	import Drawer from '$lib/components/Drawer.svelte';
+	import UsdSatsDisplay from '$lib/components/shared/UsdSatsDisplay.svelte';
 	import IconAlertCircle from '~icons/mdi/alert-circle';
 	import IconCalendarClock from '~icons/mdi/calendar-clock';
 	import IconMapMarker from '~icons/mdi/map-marker';
@@ -31,7 +33,7 @@
 	import { taskTranslationService } from '$lib/services/task-translation.service';
 	import { currentUserLanguage } from '$lib/stores/translation.store';
 	import { TASK_CATEGORIES } from '$lib/utils/constants/categories';
-	import UsdSatsDisplay from '../shared/UsdSatsDisplay.svelte';
+	import UserRatingDisplay from '$lib/components/reviews/UserRatingDisplay.svelte';
 
 	// Props
 	let { taskId } = $props<{ taskId: string }>();
@@ -215,6 +217,11 @@
 		const videoExtensions = ['.mp4', '.webm', '.ogg', '.mov'];
 		const urlLower = url.toLowerCase();
 		return videoExtensions.some((ext) => urlLower.endsWith(ext));
+	}
+
+	// Helper function to detect Cloudflare Stream videos
+	function isStreamVideo(att: Attachment): boolean {
+		return !!att.cloudflareId && (att.type || '').toLowerCase().startsWith('video/');
 	}
 
 	// Translation is now handled automatically by TranslatableTask component
@@ -561,6 +568,45 @@
 								</div>
 							{/if}
 
+							<!-- Username and Review Stars -->
+							<div class="flex flex-col">
+								<span class="text-base font-medium">
+									{task.creator.username || $t('dashboard.task_details_by_task.anonymous')}
+								</span>
+								<!-- Review Stars from Review System -->
+								{#if task.npub}
+									<div class="flex items-center gap-2">
+										<UserRatingDisplay userPubkey={task.npub} size="md" showCount={true} />
+										<a
+											href="/dashboard/profile?user={task.npub}&tab=reviews"
+											class="text-xs text-primary hover:underline"
+										>
+											{$t('reviews.view_all')}
+										</a>
+									</div>
+								{:else}
+									<div class="flex items-center">
+										{#each Array(5) as _, i}	
+											<svg
+												xmlns="http://www.w3.org/2000/svg"
+												class="h-4 w-4 text-base-content/30"
+												fill="currentColor"
+												viewBox="0 0 24 24"
+											>
+												<path
+													d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+												/>
+											</svg>
+										{/each}
+										<span class="text-base-content/60 ml-2 text-sm">0</span>
+									</div>
+								{/if}
+								<p class="text-base-content/60 text-sm">
+									{$t('dashboard.task_details_by_task.member_since')}
+									{formatDateString(task.createdAt)}
+								</p>
+							</div>
+
 							<!-- Categories -->
 							{#if task.categories?.length > 0}
 								<div class="border-base-300 border-t pt-6">
@@ -601,11 +647,18 @@
 										<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
 											{#each task.attachments.filter( (att) => isVideoFile(att.url) ) as attachment (attachment.key)}
 												<div class="bg-base-200 overflow-hidden rounded-lg">
-													<video class="h-48 w-full object-cover" controls preload="metadata">
-														<source src={attachment.url} type="video/mp4" />
-														<track kind="captions" src="" label="English" />
-														{$t('dashboard.task_details_by_task.video_not_supported')}
-													</video>
+													{#if isStreamVideo(attachment)}
+														<StreamPlayer
+															videoUid={attachment.cloudflareId!}
+															private={false}
+															controls={true}
+														/>
+													{:else}
+														<video class="h-48 w-full object-cover" controls preload="metadata">
+															<source src={attachment.url} type={attachment.type} />
+															{$t('dashboard.task_details_by_task.video_not_supported')}
+														</video>
+													{/if}
 													<div class="p-3">
 														<p class="truncate text-sm font-medium">
 															{attachment?.alt || $t('dashboard.task_details_by_task.attachment')}

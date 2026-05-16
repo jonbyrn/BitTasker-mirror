@@ -143,8 +143,10 @@
 	});
 
 	// Escape key handler
+	// Uses stopImmediatePropagation to prevent nested drawers from both closing
 	function handleKeydown(e: KeyboardEvent) {
-		if (e.key === 'Escape' && props.isOpen) {
+		if (e.key === 'Escape' && props.isOpen && !props.isSubmitting) {
+			e.stopImmediatePropagation();
 			props.onClose();
 		}
 	}
@@ -153,13 +155,19 @@
 <svelte:window onkeydown={handleKeydown} />
 
 <!-- Drawer Overlay -->
+<!-- Uses stopPropagation to prevent nested drawer overlays from interfering -->
 <div
 	class="fixed inset-0 z-60 bg-black/50 transition-opacity duration-300 ease-in-out"
 	style={`bottom: ${effectiveBottomOffset};`}
 	class:opacity-0={!visualOpenState}
 	class:pointer-events-none={!visualOpenState || !props.isOpen}
 	class:invisible={!props.isOpen && !visualOpenState}
-	onclick={props.isSubmitting ? undefined : props.onClose}
+	onclick={(e) => {
+		if (!props.isSubmitting) {
+			e.stopPropagation();
+			props.onClose();
+		}
+	}}
 	role="presentation"
 	aria-hidden="true"
 ></div>
@@ -191,7 +199,12 @@
 			</h4>
 			<button
 				class="btn btn-ghost btn-circle shrink-0"
-				onclick={props.isSubmitting ? undefined : props.onClose}
+				onclick={(e) => {
+					if (!props.isSubmitting) {
+						e.stopPropagation();
+						props.onClose();
+					}
+				}}
 				aria-label={$t('common.components.drawer.close')}
 			>
 				<svg

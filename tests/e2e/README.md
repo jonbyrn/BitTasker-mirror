@@ -16,6 +16,8 @@ Tests must run in order so that the credentials file exists before specs that lo
 | **02-credentials-login.spec.ts**       | Loads credentials from file; for each user (`signup`, `nostr`) injects passkey, logs in, asserts dashboard.                      | —                                                                                |
 | **03-wallet-post-login.spec.ts**       | Signup user: login → navigate to `/dashboard/wallet` → validate page loads.                                                      | [e2e-wallet-post-login.md](../docs/testing/e2e-wallet-post-login.md)             |
 | **04-messages-start-new-chat.spec.ts** | Nostr user sends message to signup user; signup user opens conversation and sees same message. Requires Nostr relay.             | [e2e-messages-start-new-chat.md](../docs/testing/e2e-messages-start-new-chat.md) |
+| **05-reviews-page.spec.ts**            | Full signup/onboarding flow followed by `/dashboard/reviews`, validating deterministic empty states for a new user.              | [e2e-testing.md](../docs/testing/e2e-testing.md)                                 |
+| **reviews/management.spec.ts**         | Signup user logs in with the credentials file and validates the review management empty states.                                  | [e2e-testing.md](../docs/testing/e2e-testing.md)                                 |
 | **wallet/balance-management.spec.ts**  | Skipped (`describe.skip`). Re-enable when wallet E2E is added.                                                                   | —                                                                                |
 
 **Recommended:** Run the full ordered suite (credentials phase first, then the rest):
@@ -39,6 +41,8 @@ npx playwright test tests/e2e/01-signup-onboarding.spec.ts tests/e2e/02-credenti
 ```
 
 **Environment:** Set **VITE_API_URL** (and **VITE_E2E_TURNSTILE_BYPASS** if you start the dev server yourself). See [docs/testing/e2e-testing.md](../docs/testing/e2e-testing.md) for the full list. Locally, Playwright can start the dev server; in CI it runs build + preview.
+
+**WebAuthn note:** Specs that create or inject passkeys use Chromium CDP virtual authenticators. Run them with `--project=chromium`; non-Chromium projects should skip those specs.
 
 ### Service browser slices in CI
 

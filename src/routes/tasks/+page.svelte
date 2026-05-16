@@ -29,6 +29,8 @@
 	import Drawer from '$lib/components/Drawer.svelte';
 	import TaskListSkeleton from '$lib/components/task/TaskListSkeleton.svelte';
 	import TaskListControls from '$lib/components/task/TaskListControls.svelte';
+	import TranslatableTask from '$lib/components/task/TranslatableTask.svelte';
+	import UserRatingDisplay from '$lib/components/reviews/UserRatingDisplay.svelte';
 
 	// Icon imports for unplugin-icons
 	import IconAlertCircle from '~icons/mdi/alert-circle';
@@ -1090,6 +1092,250 @@
 										{$t('find_tasks.refresh') || 'Refresh'}
 									</button>
 								</div>
+							<!-- {:else if $tasksStore.items && $tasksStore.items.length > 0}
+								<div class="space-y-4">
+									{#each $tasksStore.items as task, index}
+										<div
+											use:registerTaskCard={{ taskId: task.id }}
+											class="card bg-base-100 cursor-pointer rounded-xl shadow-md transition-shadow hover:shadow-lg"
+											onclick={() => selectTaskForMap(task)}
+											tabindex="0"
+											role="button"
+											class:bg-base-300={selectedTask?.id === task.id}
+											aria-label={$t('find_tasks.view_task')}
+											aria-pressed={selectedTask?.id === task.id}
+											aria-current={selectedTask?.id === task.id}
+											aria-disabled={task.status !== TaskStatusEnum.OPEN}
+											aria-hidden={task.status !== TaskStatusEnum.OPEN}
+											data-task-id={task.id}
+										>
+											<div class="card-body p-4 md:p-4">
+												<div
+													class="mb-1 flex flex-col gap-3 md:flex-row md:items-start md:justify-between"
+												>
+													<div class="card-title line-clamp-2 text-lg">
+														<TranslatableTask {task} />
+													</div>
+												</div>
+
+												<div class="mb-3 flex flex-col gap-4 md:flex-row md:flex-wrap">
+													<div class="flex w-full items-center justify-between">
+														<div class="flex items-center gap-2">
+															<svg
+																xmlns="http://www.w3.org/2000/svg"
+																class="text-base-content/60 h-4 w-4 shrink-0"
+																fill="none"
+																viewBox="0 0 24 24"
+																stroke="currentColor"
+															>
+																<path
+																	stroke-linecap="round"
+																	stroke-linejoin="round"
+																	stroke-width="2"
+																	d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+																/>
+															</svg>
+															<div class="flex flex-col px-2">
+																{#if task.deadline}
+																	<small class="text-base-content/60 text-xs"
+																		>{$t('dashboard.task_details_by_task.deadline')}</small
+																	>
+																	<span class="text-sm font-medium">
+																		{formatDateTimeReactive(new Date(task.deadline))}
+																	</span>
+																{:else if task.dateRange}
+																	<small class="text-base-content/60 text-xs"
+																		>{$t('dashboard.task_details_by_task.date_range')}</small
+																	>
+																	<span class="text-sm font-medium">
+																		{formatDateRangeReactive(new Date(task.dateRange.start), new Date(task.dateRange.end))}
+																	</span>
+																{/if}
+															</div>
+														</div>
+
+														<div class="text-lg font-bold">
+															${formatNumberWithTwoDecimals(task.budget.amount)}
+
+															<div class="text-base-content/60 text-sm">
+																{satsFromUsd(task.budget.amount, btcPrice)}
+															</div>
+														</div>
+													</div>
+
+													<div class="flex w-full items-start gap-2">
+														<svg
+															xmlns="http://www.w3.org/2000/svg"
+															class="text-base-content/60 mt-1 h-4 w-4 shrink-0"
+															fill="none"
+															viewBox="0 0 24 24"
+															stroke="currentColor"
+														>
+															<path
+																stroke-linecap="round"
+																stroke-linejoin="round"
+																stroke-width="2"
+																d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+															/>
+															<path
+																stroke-linecap="round"
+																stroke-linejoin="round"
+																stroke-width="2"
+																d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+															/>
+														</svg>
+														<div class="flex min-w-0 flex-1 flex-col">
+															<small class="text-base-content/60 text-xs">
+																{$t('dashboard.task_details_by_task.location_details')}
+															</small>
+															<span class="line-clamp-2 text-sm font-medium">
+																{#if task.dropOffLocation?.displayName}
+																	{task.dropOffLocation.displayName}
+																{:else if task.pickupLocation?.displayName}
+																	{task.pickupLocation.displayName}
+																{:else}
+																	{$t('dashboard.task_details_by_task.remote')}
+																{/if}
+															</span>
+														</div>
+													</div>
+												</div>
+
+												<div
+													class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between"
+												>
+													<div class="flex min-w-0 flex-1 items-center gap-3">
+														<div class="avatar">
+															<div
+																class="bg-base-300 flex h-8 w-8 items-center justify-center rounded-full"
+															>
+																{#if task.creator?.avatar}
+																	<img
+																		src={task.creator.avatar}
+																		alt={$t('dashboard.find_tasks.avatar_alt') || 'Avatar'}
+																		class="h-8 w-8 rounded-full object-cover"
+																	/>
+																{:else}
+																	<div
+																		class="avatar placeholder text-neutral-content bg-primary flex h-8 w-8 items-center justify-center overflow-hidden rounded-full text-center"
+																	>
+																		{#if task.creator?.username}
+																			<span class="text-lg font-semibold">
+																				{task.creator.username.charAt(0).toUpperCase()}
+																			</span>
+																		{:else}
+																			<svg
+																				xmlns="http://www.w3.org/2000/svg"
+																				class="text-base-content/60 h-6 w-6"
+																				fill="none"
+																				viewBox="0 0 24 24"
+																				stroke="currentColor"
+																			>
+																				<path
+																					stroke-linecap="round"
+																					stroke-linejoin="round"
+																					stroke-width="2"
+																					d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+																				/>
+																			</svg>
+																		{/if}
+																	</div>
+																{/if}
+															</div>
+														</div>
+
+														<div class="flex min-w-0 flex-1 flex-col">
+															<span class="truncate text-sm font-medium">
+																{task.creator?.username ||
+																	$t('dashboard.task_details_by_task.anonymous')}
+															</span>
+															{#if task.npub}
+																<UserRatingDisplay userPubkey={task.npub} size="sm" showCount={false} />
+															{:else}
+																<div class="flex items-center">
+																	{#each Array(5) as _, i}
+																		<svg
+																			xmlns="http://www.w3.org/2000/svg"
+																			class="h-3 w-3 text-base-content/30"
+																			fill="currentColor"
+																			viewBox="0 0 24 24"
+																		>
+																			<path
+																				d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+																			/>
+																		</svg>
+																	{/each}
+																	<span class="text-base-content/60 ml-1 text-xs">0</span>
+																</div>
+															{/if}
+														</div>
+													</div>
+
+													<div class="flex w-full shrink-0 items-center gap-2 md:w-auto">
+														<button
+															class="btn btn-primary btn-sm flex-1 md:flex-none"
+															class:btn-disabled={task.status !== TaskStatusEnum.OPEN}
+															onclick={(e) => {
+																e.stopPropagation();
+																onSelectTask(task);
+															}}
+															aria-label={$t('dashboard.find_tasks.sign_up_to_bid_aria') || 'Sign up to bid on this task'}
+														>
+															<svg
+																xmlns="http://www.w3.org/2000/svg"
+																class="h-4 w-4"
+																fill="none"
+																viewBox="0 0 24 24"
+																stroke="currentColor"
+															>
+																<path
+																	stroke-linecap="round"
+																	stroke-linejoin="round"
+																	stroke-width="2"
+																	d="M12 4v16m8-8H4"
+																/>
+															</svg>
+															{task.status === TaskStatusEnum.OPEN
+																? ($t('dashboard.find_tasks.sign_up_to_bid') || 'Sign up to bid')
+																: ($t('dashboard.find_tasks.bidding_closed') || 'Bidding closed')}
+														</button>
+
+														<button
+															class="btn btn-secondary btn-sm flex-1 md:flex-none"
+															onclick={(e) => {
+																e.stopPropagation();
+																goto(`/tasks/task/${task.id}`);
+															}}
+															aria-label={$t('find_tasks.view_task')}
+														>
+															<svg
+																xmlns="http://www.w3.org/2000/svg"
+																class="h-4 w-4"
+																fill="none"
+																viewBox="0 0 24 24"
+																stroke="currentColor"
+															>
+																<path
+																	stroke-linecap="round"
+																	stroke-linejoin="round"
+																	stroke-width="2"
+																	d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+																/>
+																<path
+																	stroke-linecap="round"
+																	stroke-linejoin="round"
+																	stroke-width="2"
+																	d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+																/>
+															</svg>
+															{$t('find_tasks.view_task')}
+														</button>
+													</div>
+												</div>
+											</div>
+										</div>
+									{/each}
+								</div> -->
 							{:else if $tasksStore.items.length > 0}
 								<ul class="task-list-items mb-0 space-y-4 pb-0" role="list">
 									{#each $tasksStore.items as task (task.id)}

@@ -83,7 +83,7 @@ describe('ServiceShareButton', () => {
 			expect(navigator.share).toHaveBeenCalledWith({
 				title: 'Localized service title',
 				text: 'Localized service title\n\nA great service description',
-				url: 'http://localhost:3000/services/service-123'
+				url: 'http://localhost/services/service-123'
 			});
 		});
 

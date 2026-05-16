@@ -1,288 +1,92 @@
-import { getAssetFromKV, serveSinglePageApp, NotFoundError } from '@cloudflare/kv-asset-handler';
+/**
+ * BitTasker - Cloudflare Workers Static Assets
+ *
+ * Serves the SvelteKit SPA build with platform-level SPA fallback
+ * (not_found_handling = "single-page-application").
+ *
+ * API routes run before the fallback:
+ *   /api/cloudflare/stream/* - upload URLs, signed tokens, status
+ *   /api/cloudflare/images/* - (future) direct image upload URLs
+ *   /__data.json wildcards   - SvelteKit client-side navigation preload
+ */
 
-addEventListener('fetch', (event) => {
-	event.respondWith(handleRequest(event));
-});
+import { handleStreamRoute } from './handlers/stream.js';
 
 /**
- * Structured logging helper for observability
- * Logs are automatically collected by Cloudflare Workers Logs
+ * Weekly cleanup: delete abandoned Stream videos stuck in pendingupload state.
+ * Runs Sunday 3am UTC via cron trigger in wrangler.toml.
  */
-function logEvent(event, data = {}) {
-	const logEntry = {
-		event,
-		timestamp: new Date().toISOString(),
-		...data
-	};
-	
-	// Use console.log for structured logging (automatically captured by Workers Logs)
-	console.log(JSON.stringify(logEntry));
-}
+async function cleanupAbandonedUploads(env) {
+	const ACCOUNT_ID = env.CLOUDFLARE_ACCOUNT_ID;
+	const API_TOKEN = env.CLOUDFLARE_API_TOKEN;
+	if (!ACCOUNT_ID || !API_TOKEN) return;
 
-/**
- * Error logging helper with context
- */
-function logError(error, context = {}) {
-	const errorEntry = {
-		event: 'error',
-		error: {
-			message: error.message,
-			stack: error.stack,
-			status: error.status || 'unknown'
-		},
-		timestamp: new Date().toISOString(),
-		...context
-	};
-	
-	console.error(JSON.stringify(errorEntry));
-}
+	const base = `https://api.cloudflare.com/client/v4/accounts/${ACCOUNT_ID}/stream`;
 
-async function handleRequest(event) {
-	const requestStartTime = Date.now();
-	const url = new URL(event.request.url);
-	const pathname = url.pathname;
-	const method = event.request.method;
-	const userAgent = event.request.headers.get('User-Agent') || 'unknown';
-	const cfRay = event.request.headers.get('CF-Ray') || 'unknown';
-	
-	// Request classification
-	const isDataRequest = pathname.includes('/__data.json');
-	const isAssetRequest = /\.(js|css|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot|webp|txt|xml|pdf)$/i.test(pathname) && !isDataRequest;
-	const isImmutableAsset = pathname.includes('/_app/immutable/');
-	const requestType = isDataRequest ? 'data' : isAssetRequest ? 'asset' : 'page';
-	
-	// Log request start (only for non-asset requests to reduce log volume)
-	if (!isAssetRequest) {
-		logEvent('request_start', {
-			method,
-			pathname,
-			requestType,
-			cfRay,
-			userAgent: userAgent.substring(0, 100) // Truncate for privacy
-		});
-	}
-	
-	// Determine cache TTLs
-	const htmlBrowserTTL = 60 * 30;              // 30 minutes for HTML browser cache
-	const htmlEdgeTTL = 60 * 60 * 24 * 7;        // 7 days for HTML edge cache
-	const immutableBrowserTTL = 60 * 60 * 24 * 30; // 30 days for immutable assets browser
-	const immutableEdgeTTL = 60 * 60 * 24 * 30;    // 30 days for immutable assets edge
-	const staticBrowserTTL = 60 * 60 * 24 * 7;     // 7 days for other static assets browser
-	const staticEdgeTTL = 60 * 60 * 24 * 30;       // 30 days for other static assets edge
-	
-	// Determine cache TTL based on file type
-	let browserTTL, edgeTTL;
-	if (isImmutableAsset) {
-		browserTTL = immutableBrowserTTL;
-		edgeTTL = immutableEdgeTTL;
-	} else if (isAssetRequest) {
-		browserTTL = staticBrowserTTL;
-		edgeTTL = staticEdgeTTL;
-	} else {
-		// HTML files
-		browserTTL = htmlBrowserTTL;
-		edgeTTL = htmlEdgeTTL;
-	}
-	
 	try {
-		const kvStartTime = Date.now();
-		
-		// Use serveSinglePageApp so "/" and all SPA routes map to index.html before lookup.
-		// This fixes "Asset not found: /" when visiting the root path.
-		const response = await getAssetFromKV(event, {
-			mapRequestToAsset: serveSinglePageApp,
-			cacheControl: {
-				browserTTL: browserTTL,
-				edgeTTL: edgeTTL,
-				bypassCache: false,
-			},
+		// List recent videos
+		const listRes = await fetch(`${base}?limit=100&asc=false`, {
+			headers: { Authorization: `Bearer ${API_TOKEN}` }
 		});
-		
-		const kvDuration = Date.now() - kvStartTime;
-		const totalDuration = Date.now() - requestStartTime;
-		
-		// Get cache status from response headers
-		const cacheStatus = response.headers.get('CF-Cache-Status') || 'unknown';
-		const contentType = response.headers.get('Content-Type') || 'unknown';
-		const contentLength = response.headers.get('Content-Length') || 'unknown';
-		
-		// Log successful response (only for non-asset requests)
-		if (!isAssetRequest) {
-			logEvent('request_success', {
-				method,
-				pathname,
-				requestType,
-				status: response.status,
-				cacheStatus,
-				contentType,
-				contentLength,
-				kvDuration_ms: kvDuration,
-				totalDuration_ms: totalDuration,
-				cfRay
-			});
-		}
-		
-		// Skip custom compression: it was causing gibberish (gzip bytes without correct
-		// Content-Encoding). Cloudflare edge can compress; return uncompressed for now.
-		// To re-enable: return await compressResponse(event.request, response);
-		return response;
-	} catch (error) {
-		const totalDuration = Date.now() - requestStartTime;
-		const isNotFound = error?.status === 404 || error instanceof NotFoundError;
-		
-		// Handle 404 errors
-		if (isNotFound) {
-			// For SvelteKit __data.json requests that don't exist, return empty object
-			if (isDataRequest) {
-				logEvent('data_request_missing', {
-					pathname,
-					duration_ms: totalDuration,
-					cfRay
+		const listData = await listRes.json();
+		const videos = listData?.result || [];
+
+		let deleted = 0;
+		const cutoff = Date.now() - 24 * 60 * 60 * 1000; // 24 hours ago
+
+		for (const video of videos) {
+			const isStuck = video.status?.state === 'pendingupload';
+			const uploadedAt = new Date(video.uploaded || video.created).getTime();
+			if (isStuck && uploadedAt < cutoff) {
+				await fetch(`${base}/${video.uid}`, {
+					method: 'DELETE',
+					headers: { Authorization: `Bearer ${API_TOKEN}` }
 				});
-				
-				return new Response(JSON.stringify({ type: 'data', nodes: [{}] }), {
-					status: 200,
-					headers: {
-						'Content-Type': 'application/json',
-						'Cache-Control': 'no-store'
-					}
-				});
-			}
-			
-			// For non-asset requests (page navigation), serve index.html
-			// Note: This should rarely be reached since serveSinglePageApp already maps routes to index.html
-			// This is a safety fallback in case serveSinglePageApp doesn't catch something
-			if (!isAssetRequest) {
-				try {
-					const indexStartTime = Date.now();
-					const indexResponse = await getAssetFromKV(event, {
-						mapRequestToAsset: (req) => {
-							const url = new URL(req.url);
-							url.pathname = '/index.html';
-							return new Request(url.toString(), req);
-						},
-						cacheControl: {
-							browserTTL: htmlBrowserTTL,
-							edgeTTL: htmlEdgeTTL,
-							bypassCache: false,
-						},
-					});
-					
-					const indexDuration = Date.now() - indexStartTime;
-					
-					logEvent('spa_fallback', {
-						pathname,
-						fallbackTo: '/index.html',
-						indexDuration_ms: indexDuration,
-						totalDuration_ms: totalDuration,
-						cfRay
-					});
-					
-					return indexResponse;
-				} catch (indexError) {
-					logError(indexError, {
-						pathname,
-						errorType: 'index_not_found',
-						duration_ms: totalDuration,
-						cfRay
-					});
-					
-					return new Response('Application not found. Please ensure the app is built correctly.', { 
-						status: 500,
-						headers: { 'Content-Type': 'text/plain' }
-					});
-				}
+				deleted++;
 			}
 		}
-		
-		// Log 404 errors for missing assets
-		if (isNotFound && isAssetRequest) {
-			logEvent('asset_not_found', {
-				pathname,
-				requestType: 'asset',
-				duration_ms: totalDuration,
-				cfRay
-			});
-		} else if (!isNotFound) {
-			// Log non-404 errors
-			logError(error, {
-				pathname,
-				method,
-				requestType,
-				duration_ms: totalDuration,
-				cfRay
-			});
+
+		if (deleted > 0) {
+			console.log(`cleanup: deleted ${deleted} abandoned uploads`);
 		}
-		
-		// For actual missing assets, return 404
-		return new Response(`Asset not found: ${pathname}`, {
-			status: 404,
-			headers: { 'Content-Type': 'text/plain' }
-		});
+	} catch (e) {
+		console.error('cleanup: failed', e.message);
 	}
 }
 
-// Compression helper function
-async function compressResponse(request, response) {
-	// Check if client supports gzip (Workers CompressionStream supports gzip/deflate only, not Brotli)
-	const acceptEncoding = request.headers.get('Accept-Encoding') || '';
-	const supportsGzip = acceptEncoding.includes('gzip');
-	
-	// Don't compress if already compressed or if no gzip support
-	if (response.headers.get('Content-Encoding') || !supportsGzip) {
-		return response;
+export default {
+	async fetch(request, env) {
+		const url = new URL(request.url);
+		const pathname = url.pathname;
+
+		// API routes - checked first so they never hit the SPA fallback
+		if (pathname.startsWith('/api/cloudflare/stream/')) {
+			return handleStreamRoute(request, env);
+		}
+
+		// Future images endpoint
+		if (pathname.startsWith('/api/cloudflare/images/')) {
+			return new Response(
+				JSON.stringify({
+					error: { code: 'NOT_IMPLEMENTED', message: 'Images direct upload coming soon' }
+				}),
+				{ status: 501, headers: { 'Content-Type': 'application/json' } }
+			);
+		}
+
+		// SvelteKit client-side navigation data requests
+		// With adapter-static there are no server-rendered data files
+		if (pathname.includes('/__data.json')) {
+			return new Response(JSON.stringify({ type: 'data', nodes: [{}] }), {
+				headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }
+			});
+		}
+
+		// Static assets - unmatched routes get index.html via SPA fallback
+		return env.ASSETS.fetch(request);
+	},
+
+	async scheduled(event, env, ctx) {
+		ctx.waitUntil(cleanupAbandonedUploads(env));
 	}
-	
-	// Don't compress small files (< 1KB) or already compressed types
-	const contentType = response.headers.get('Content-Type') || '';
-	const shouldCompress = response.body && 
-		!contentType.includes('image/') && 
-		!contentType.includes('font/') && 
-		!contentType.includes('video/') &&
-		!contentType.includes('audio/');
-	
-	if (!shouldCompress) {
-		return response;
-	}
-	
-	// Check if we're in dev mode first (before reading body)
-	// In dev mode (wrangler dev), Miniflare may handle compression differently
-	// Skip compression in dev to avoid double-compression issues
-	const url = new URL(request.url);
-	const isDevMode = url.hostname === 'localhost' || url.hostname.includes('127.0.0.1');
-	
-	if (isDevMode) {
-		// In dev mode, return uncompressed to avoid double-compression
-		// Miniflare may pre-compress assets, so we skip our compression
-		return response;
-	}
-	
-	// Production: compress the content
-	// Read body into memory for compression (acceptable for static assets)
-	try {
-		const bodyArrayBuffer = await response.arrayBuffer();
-		const encoding = 'gzip';
-		const compressionStream = new CompressionStream(encoding);
-		const stream = new ReadableStream({
-			start(controller) {
-				controller.enqueue(bodyArrayBuffer);
-				controller.close();
-			}
-		});
-		const compressedBody = stream.pipeThrough(compressionStream);
-		
-		return new Response(compressedBody, {
-			status: response.status,
-			statusText: response.statusText,
-			headers: {
-				...Object.fromEntries(response.headers),
-				'Content-Encoding': 'gzip',
-				'Vary': 'Accept-Encoding'
-			}
-		});
-	} catch (error) {
-		// If check fails, return original response (safer than double-compressing)
-		console.warn('Failed to check/compress response:', error);
-		return response;
-	}
-}
+};

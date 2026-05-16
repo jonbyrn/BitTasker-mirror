@@ -5,12 +5,21 @@
 	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 	import { t } from 'svelte-i18n';
 	import { walletStore, walletManager } from '$lib/stores/wallet.store';
-	import { escrow } from '$lib/utils/escrow/v1/escrow';
-	import { determineContractState } from '$lib/utils/helpers/contractPermissions';
-	import { loadContractsByAddress } from '$lib/utils/wallet/loadContractsByAddress';
+	import { ndk } from '$lib/nostr/ndk';
+	import KINDS from '$lib/utils/constants/kinds';
 	import type { EscrowData } from '$lib/types/wallet';
 	import type { ContractPermissions, NostrContract } from '$lib/types/contract';
-	import { EscrowStatus } from '$lib/utils/escrow/v1/escrow.enum';
+	import { ContractStatus } from '$lib/utils/contract/types';
+	import {
+		completeTask,
+		acceptTask,
+		disputeTask,
+		proposeResolution,
+		acceptProposal,
+		resolveAfterTimelock,
+		cancelPaymentContract
+	} from '$lib/utils/contract/v1/blockchainWrites';
+	import { ethers } from 'ethers';
 	import { appStore } from '$lib/stores/app.store';
 	import { getErrorMessage } from '$lib/utils/wallet/contractErrorHandler';
 	import DebugContractCard from '$lib/components/contracts/DebugContractCard.svelte';
@@ -75,40 +84,22 @@
 		const isFreelancer = freelancerAddr !== '' && freelancerAddr === userAddr;
 
 		// Load dispute proposal if contract is in dispute
-		let disputeProposal = null;
-		if (contract.status === EscrowStatus.InDispute) {
-			try {
-				disputeProposal = await escrow.getDisputeProposal(contract.id);
-			} catch (error) {
-				console.warn(`Failed to load dispute proposal for ${contract.id}:`, error);
-			}
+		// Note: Debug view has no Nostr status events; dispute proposal left as null
+		if (contract.status === ContractStatus.InDispute) {
+			// Debug view does not load Nostr status events, so dispute proposal is unavailable
 		}
 
-		const minimalContract: NostrContract = {
-			escrowId: contract.id,
-			taskId: '',
-			taskTitle: '',
-			taskDescription: '',
-			freelancerPubkey: contract.freelancer,
-			clientPubkey: contract.client,
-			amount: contract.baseAmount,
-			currency: 'RBTC',
-			status: contract.status,
-			estimatedStartTime: contract.estimatedStartTime,
-			estimatedCompletionTime: contract.estimatedCompletionTime,
-			type: 'contract'
+		const permissions = {
+			canComplete: isFreelancer,
+			canAccept: isClient,
+			canDispute: isClient,
+			canPropose: false,
+			canAcceptProposal: false,
+			canCancel: isClient,
+			canRefund: isFreelancer,
+			canResolveTimelock: false,
+			canDelete: false
 		};
-
-		const { permissions } = determineContractState(
-			contract.status,
-			[], // No status events for debug view
-			minimalContract,
-			contract,
-			disputeProposal,
-			false, // Not pending
-			isClient,
-			isFreelancer
-		);
 
 		return { permissions, isClient, isFreelancer };
 	}
@@ -146,7 +137,34 @@
 		}
 
 		try {
-			const contracts = await loadContractsByAddress(address, 100, network);
+			const events = await ndk.fetchEvents(
+					{ kinds: [KINDS.CONTRACT], '#p': [address], limit: 100 },
+					{ closeOnEose: true }
+				);
+				const contracts = [...events].map((ev) => {
+					const pTags = ev.tags.filter((t: string[]) => t[0] === 'p').map((t: string[]) => t[1]);
+					const sTag = ev.tags.find((t: string[]) => t[0] === 's')?.[1];
+					const dTag = ev.tags.find((t: string[]) => t[0] === 'd')?.[1];
+					const amountTag = ev.tags.find((t: string[]) => t[0] === 'amount')?.[1];
+					return {
+						id: dTag ?? '',
+						client: pTags[0] ?? '',
+						freelancer: pTags[1] ?? address,
+						baseAmount: amountTag ?? '0',
+						clientFee: '0',
+						freelancerFee: '0',
+						totalAmount: amountTag ?? '0',
+						status: sTag ? parseInt(sTag, 10) : 0,
+						estimatedStartTime: 0,
+						estimatedCompletionTime: 0,
+						completionTime: 0,
+						timelockExpiry: 0,
+						clientFeeTier: 0,
+						freelancerFeeTier: 0,
+						createdAt: ev.created_at ?? 0,
+						lastUpdated: ev.created_at ?? 0
+					} as EscrowData;
+				});
 
 			const contractsWithPermissions: ContractWithPermissions[] = await Promise.all(
 				contracts.map(async (contract) => {
@@ -186,8 +204,8 @@
 
 	// Load all contracts
 	async function loadAllContracts() {
-		// Reset cached contract to ensure fresh provider connection
-		escrow.resetCachedContract();
+		// Reset cached contract - obsolete in new contract API
+		// Contract address resolution uses env vars via getDefaultContractAddress
 
 		const addresses = getConnectedAddresses();
 
@@ -230,6 +248,14 @@
 		}
 	}
 
+	// Get default contract address from env vars
+	function getDefaultContractAddress(): string | null {
+		const network = import.meta.env.VITE_RSK_NETWORK || 'testnet';
+		return network === 'mainnet'
+			? import.meta.env.VITE_RSK_CONTRACT_ADDRESS_MAINNET
+			: import.meta.env.VITE_RSK_CONTRACT_ADDRESS_TESTNET;
+	}
+
 	// Execute contract function
 	async function executeContractFunction(
 		contractId: string,
@@ -240,32 +266,37 @@
 		executingActions.set(actionKey, true);
 
 		try {
+			const contractAddress = getDefaultContractAddress();
+			if (!contractAddress) {
+				throw new Error('Contract address not configured');
+			}
+
 			switch (functionName) {
 				case 'completeTask':
-					// Second arg: counterparty pubkey for Nostr (unused when no contractEventId)
-					await escrow.completeTask(contractId, '');
+					await completeTask(contractId, { contractAddress });
 					break;
 				case 'acceptTask':
-					await escrow.acceptTask(contractId, '');
+					await acceptTask(contractId, { contractAddress });
 					break;
 				case 'cancelEscrow':
-					await escrow.cancelEscrow(contractId, '');
+					await cancelPaymentContract(contractId, { contractAddress });
 					break;
 				case 'disputeTask':
-					await escrow.disputeTask(contractId, '');
+					await disputeTask(contractId, { contractAddress });
 					break;
 				case 'proposeResolution': {
 					const freelancerAmount =
 						typeof args[0] === 'string' ? args[0] : args[0] != null ? String(args[0]) : '0';
-					await escrow.proposeResolution(contractId, '', freelancerAmount);
+					const freelancerAmountWei = ethers.parseEther(freelancerAmount);
+					await proposeResolution(contractId, freelancerAmountWei, { contractAddress });
 					break;
 				}
 				case 'acceptProposal':
-					await escrow.acceptProposal(contractId, '');
+					await acceptProposal(contractId, { contractAddress });
 					break;
 				case 'resolveAfterTimelock': {
-					const escrowStatusArg = typeof args[0] === 'number' ? args[0] : Number(args[0]) || 0;
-					await escrow.resolveAfterTimelock(contractId, '', escrowStatusArg);
+					// resolveAfterTimelock only does the blockchain tx; Nostr event handling is separated
+					await resolveAfterTimelock(contractId, { contractAddress });
 					break;
 				}
 				default:

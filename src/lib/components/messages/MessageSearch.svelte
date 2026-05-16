@@ -8,13 +8,17 @@
 	} from '$lib/utils/message-search';
 	import { formatTimeAgo } from '$lib/utils/helpers/date';
 	import Avatar from '$lib/components/Avatar.svelte';
-	import { fetchProfileMetadata } from '$lib/utils/nostr-message';
 	import { t } from 'svelte-i18n';
+
+	type HighlightSegment = {
+		text: string;
+		matches: boolean;
+	};
 
 	// Props
 	let {
 		pubkey = '',
-		onMessageSelect = (message: DecryptedMessage) => {},
+		onMessageSelect = () => {},
 		placeholder = $t('dashboard.bids.components.messages.message_search.search_messages'),
 		profile = null
 	}: {
@@ -44,7 +48,7 @@
 	let resultsContainer: HTMLElement | null = $state(null);
 
 	// Debounced search
-	let searchTimeout: NodeJS.Timeout | undefined = undefined;
+	let searchTimeout: ReturnType<typeof setTimeout> | undefined = undefined;
 
 	function debounceSearch() {
 		if (searchTimeout) clearTimeout(searchTimeout);
@@ -171,11 +175,20 @@
 		showAdvanced = !showAdvanced;
 	}
 
-	function highlightText(text: string, query: string): string {
-		if (!query.trim()) return text;
+	function highlightText(text: string, query: string): HighlightSegment[] {
+		if (!query.trim()) return [{ text, matches: false }];
 
-		const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
-		return text.replace(regex, '<mark class="bg-yellow-200 dark:bg-yellow-800">$1</mark>');
+		const sourcePattern = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+		const splitRegex = new RegExp(`(${sourcePattern})`, 'gi');
+		const matchRegex = new RegExp(`^${sourcePattern}$`, 'i');
+
+		return text
+			.split(splitRegex)
+			.filter((part) => part.length > 0)
+			.map((part) => ({
+				text: part,
+				matches: matchRegex.test(part)
+			}));
 	}
 
 	// Close results when clicking outside
@@ -221,7 +234,11 @@
 
 		<div class="absolute inset-y-0 right-0 flex items-center space-x-2 pr-3">
 			{#if searchQuery}
-				<button onclick={clearSearch} class="btn btn-ghost btn-xs" aria-label={$t('dashboard.bids.components.messages.message_search.clear_search_aria')}>
+				<button
+					onclick={clearSearch}
+					class="btn btn-ghost btn-xs"
+					aria-label={$t('dashboard.bids.components.messages.message_search.clear_search_aria')}
+				>
 					<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 						<path
 							stroke-linecap="round"
@@ -237,7 +254,9 @@
 				onclick={toggleAdvanced}
 				class="btn btn-ghost btn-xs"
 				class:btn-active={showAdvanced}
-				aria-label={$t('dashboard.bids.components.messages.message_search.advanced_search_options_aria')}
+				aria-label={$t(
+					'dashboard.bids.components.messages.message_search.advanced_search_options_aria'
+				)}
 			>
 				<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 					<path
@@ -287,7 +306,7 @@
 	<!-- Suggestions -->
 	{#if suggestions.length > 0 && !showResults}
 		<div class="bg-base-100 border-base-300 absolute z-10 mt-1 w-full rounded-lg border shadow-lg">
-			{#each suggestions as suggestion}
+			{#each suggestions as suggestion (suggestion)}
 				<button
 					onclick={() => selectSuggestion(suggestion)}
 					class="hover:bg-base-200 w-full px-4 py-2 text-left first:rounded-t-lg last:rounded-b-lg"
@@ -310,11 +329,11 @@
 				</div>
 			{:else if searchResults.length === 0}
 				<div class="p-4 text-center text-gray-500">
-					{$t('messages.no_messages_found', { query: searchQuery })}
+					{$t('messages.no_messages_found')} "{searchQuery}"
 				</div>
 			{:else}
 				<div bind:this={resultsContainer}>
-					{#each searchResults as result, index}
+					{#each searchResults as result, index (result.message.event.id ?? `${result.pubkey}-${index}`)}
 						<button
 							onclick={() => selectResult(result)}
 							class="hover:bg-base-200 border-base-300 w-full border-b p-3 text-left first:rounded-t-lg last:rounded-b-lg last:border-b-0"
@@ -323,10 +342,8 @@
 							<div class="flex items-start gap-3">
 								{#if profile}
 									<Avatar
-										user={{
-											name: profile.name || $t('messages.unknown'),
-											picture: profile.picture || null
-										}}
+										name={profile.name || $t('messages.unknown')}
+										picture={profile.picture ?? undefined}
 										size="sm"
 									/>
 								{/if}
@@ -341,15 +358,21 @@
 										</span>
 									</div>
 
-									{#each result.snippets as snippet}
+									{#each result.snippets as snippet, snippetIndex (`${result.message.event.id ?? result.pubkey}-${snippetIndex}`)}
 										<p class="line-clamp-2 text-sm text-gray-600 dark:text-gray-300">
-											{@html highlightText(snippet, searchQuery)}
+											{#each highlightText(snippet, searchQuery) as segment, segmentIndex (`${snippetIndex}-${segmentIndex}`)}
+												{#if segment.matches}
+													<mark class="bg-yellow-200 dark:bg-yellow-800">{segment.text}</mark>
+												{:else}
+													{segment.text}
+												{/if}
+											{/each}
 										</p>
 									{/each}
 
 									<div class="mt-2 flex items-center justify-between">
 										<span class="text-xs text-gray-400">
-											{$t('messages.score', { score: Math.round(result.score) })}
+											{$t('messages.score')}: {Math.round(result.score)}
 										</span>
 									</div>
 								</div>

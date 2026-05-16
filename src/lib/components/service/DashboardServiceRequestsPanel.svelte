@@ -1,12 +1,9 @@
 <script lang="ts">
-	import { browser, dev } from '$app/environment';
 	import { onMount } from 'svelte';
-	import { SvelteSet } from 'svelte/reactivity';
 	import { t, locale } from 'svelte-i18n';
 	import type { Service } from '$lib/types/service.d';
 	import type { ServiceQuoteTimelineEntry } from '$lib/types/service-quote';
 	import { findMyServices } from '$lib/nostr/findServices';
-	import { contractStore } from '$lib/stores/contract.store';
 	import {
 		buildServiceAddress,
 		isRequestSyncActive,
@@ -108,14 +105,6 @@
 		}
 	}
 
-	function logProviderRequestsDebug(event: string, details: Record<string, unknown>) {
-		if (!browser || !dev) {
-			return;
-		}
-
-		console.info('[DashboardServiceRequestsPanel]', event, details);
-	}
-
 	async function loadServices() {
 		loading = true;
 		error = null;
@@ -130,39 +119,8 @@
 		}
 	}
 
-	async function refreshProviderTimelinesForServices(serviceAddresses: string[]) {
-		const targets = [...new Set(serviceAddresses.filter((value) => value.trim().length > 0))];
-		if (targets.length === 0) {
-			return;
-		}
-
-		const requestId =
-			targets.length === 1 && targets[0] === selectedServiceAddress ? focusedRequestId : null;
-		await loadProviderTimelinesInBatches(targets, requestId, {
-			force: true
-		});
-	}
-
 	onMount(() => {
 		void loadServices();
-		void contractStore.loadContracts().catch((contractError) => {
-			console.error('Failed to load contracts for requests continuity:', contractError);
-		});
-
-		/**
-		 * V2 Migration Note:
-		 * The v1 interval-based retry/reverify logic has been removed.
-		 *
-		 * In v2, contract lifecycle is handled differently:
-		 * 1. createServiceContract returns { tx, afterBroadcast, afterConfirmed }
-		 * 2. afterConfirmed() handles all post-confirmation tasks including:
-		 *    - Nostr event publishing (with automatic retry)
-		 *    - Status updates
-		 * 3. NDK subscriptions via PaymentContractRune handle real-time updates
-		 *
-		 * The old pattern of polling for "due" entries to retry is no longer needed
-		 * because the v2 flow handles these cases within the transaction lifecycle.
-		 */
 	});
 
 	$effect(() => {
@@ -298,13 +256,6 @@
 		}
 
 		lastProviderLoadKey = nextLoadKey;
-		logProviderRequestsDebug('provider-load-start', {
-			selectedServiceAddress,
-			focusedRequestId,
-			displayedQuoteServiceAddresses,
-			loadedQuoteServiceAddresses,
-			batchSize: PROVIDER_LOAD_BATCH_SIZE
-		});
 
 		void loadProviderTimelinesInBatches(loadedQuoteServiceAddresses, focusedRequestId);
 	});
@@ -458,7 +409,7 @@
 				serviceAddress,
 				requestId: null,
 				status
-			});
+	});
 		}}
 		onRequestFocusChange={(requestId) =>
 			onResolveQuotesRoute?.({ type: 'request', requestId, status })}
@@ -483,7 +434,7 @@
 				serviceAddress,
 				quoteRequestId: requestId,
 				...payload
-			});
+	});
 		}}
 		onDeleteProposal={async (requestId, proposalId) => {
 			const { serviceAddress } = resolveProposalServiceContext(requestId);
@@ -501,7 +452,7 @@
 				serviceAddress,
 				quoteRequestId: requestId,
 				proposalId
-			});
+	});
 		}}
 	/>
 {/if}

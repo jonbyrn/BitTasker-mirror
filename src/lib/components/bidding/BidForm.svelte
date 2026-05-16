@@ -13,12 +13,10 @@
 	import { formatNumberWithTwoDecimals } from '$lib/utils/helpers/currencyFormatter';
 	import { pushNotificationService } from '$lib/api/services/push-notification.service';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
-	import DateInput from '$lib/components/date/DateInput.svelte';
+	import DurationPickerModal from '$lib/components/date/DurationPickerModal.svelte';
+	import ScheduleDateTimeField from '$lib/components/date/ScheduleDateTimeField.svelte';
 	import KINDS from '$lib/utils/constants/kinds';
-	import {
-		formatDurationBetweenDates,
-		serializeDateWithLocalTime
-	} from '$lib/utils/helpers/dateFormatter';
+	import { toUnixSeconds } from '$lib/utils/helpers/dateFormatter';
 	import { SvelteDate } from 'svelte/reactivity';
 
 	// Props - Simplified to just task, onClose, and stickySubmit
@@ -61,8 +59,20 @@
 	}
 
 	let startDateTime = $state<Date | null>(null);
-	let endDateTime = $state<Date | null>(null);
 	let scheduleFieldsTouched = $state(false);
+	let durationDays = $state(0);
+	let durationHours = $state(1);
+	let durationMinutes = $state(0);
+	let durationModalOpen = $state(false);
+
+	const endDateTime = $derived.by(() => {
+		if (!startDateTime) return null;
+		const end = new SvelteDate(startDateTime.getTime());
+		end.setDate(end.getDate() + durationDays);
+		end.setHours(end.getHours() + durationHours);
+		end.setMinutes(end.getMinutes() + durationMinutes);
+		return roundDateToInterval(end, FIFTEEN_MINUTES_IN_MS, 'ceil');
+	});
 	const FIFTEEN_MINUTES_IN_MS = 15 * 60 * 1000;
 	const DEFAULT_START_OFFSET_HOURS = 1;
 	const DEFAULT_DURATION_IN_HOURS = 1;
@@ -148,10 +158,10 @@
 
 	function ensureMinimumDuration(start: Date | null, end: Date | null): Date | null {
 		if (!start) return end;
-		if (!end) return addDefaultDuration(start);
+		if (!end) return roundDateToInterval(addDefaultDuration(start), FIFTEEN_MINUTES_IN_MS, 'ceil');
 
 		if (end <= start) {
-			return addDefaultDuration(start);
+			return roundDateToInterval(addDefaultDuration(start), FIFTEEN_MINUTES_IN_MS, 'ceil');
 		}
 
 		return end;
@@ -187,17 +197,13 @@
 		}
 
 		const preferredStart = buildPreferredStartDate();
-		const preferredEnd = ensureMinimumDuration(
+		const _preferredEnd = ensureMinimumDuration(
 			preferredStart,
 			buildPreferredEndDate(preferredStart)
 		);
 
 		if (preferredStart && !areDatesEqual(startDateTime, preferredStart)) {
 			startDateTime = preferredStart;
-		}
-
-		if (preferredEnd && !areDatesEqual(endDateTime, preferredEnd)) {
-			endDateTime = preferredEnd;
 		}
 	});
 
@@ -294,7 +300,46 @@
 	// Helper function to format duration for display (reactive)
 	const formatDurationForDisplay = $derived.by(() => {
 		if (startDateTime && endDateTime) {
-			return formatDurationBetweenDates(startDateTime, endDateTime, (k) => $t(k));
+			const diffMs = endDateTime.getTime() - startDateTime.getTime();
+			if (diffMs <= 0) {
+				return '';
+			}
+			const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+			const diffHours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+			const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+
+			const parts = [];
+
+			if (diffDays > 0) {
+				parts.push(
+					`${diffDays} ${diffDays === 1 ? $t('dashboard.bids.bid_creation.day') : $t('dashboard.bids.bid_creation.days')}`
+				);
+			}
+
+			if (diffHours > 0) {
+				parts.push(
+					`${diffHours} ${diffHours === 1 ? $t('dashboard.bids.bid_creation.hour') : $t('dashboard.bids.bid_creation.hours')}`
+				);
+			}
+
+			if (diffMinutes > 0) {
+				parts.push(
+					`${diffMinutes} ${diffMinutes === 1 ? $t('dashboard.bids.bid_creation.minute') : $t('dashboard.bids.bid_creation.minutes')}`
+				);
+			}
+
+			if (parts.length === 0) {
+				return $t('dashboard.bids.bid_creation.one_hour');
+			}
+
+			if (parts.length === 1) {
+				return parts[0];
+			}
+
+			// Join with translated "and"/"y" for multiple parts
+			const lastPart = parts.pop();
+			const conjunction = $t('common.components.date_input.and');
+			return `${parts.join(', ')} ${conjunction} ${lastPart}`;
 		}
 		return '';
 	});
@@ -317,6 +362,11 @@
 
 		try {
 			const rskAddress = await getRSKAddress();
+			const startDateTimeSeconds = toUnixSeconds(startDateTime);
+			const endDateTimeSeconds = toUnixSeconds(endDateTime);
+			if (!startDateTimeSeconds || !endDateTimeSeconds) {
+				throw new Error($t('bid_form.errors.datetime_required'));
+			}
 
 			// Generate translations for bid content (description, proposedApproach, coverLetter)
 			const bidTranslations = await generateBidTranslations({
@@ -362,9 +412,9 @@
 				// Add RSK wallet address for escrow funding
 				bidderWalletAddress: rskAddress,
 
-				// Add new datetime fields - serialize with local time to preserve user's selected time
-				startDateTime: serializeDateWithLocalTime(startDateTime),
-				endDateTime: serializeDateWithLocalTime(endDateTime),
+				// Store as Unix seconds so the instant is timezone-safe across viewers
+				startDateTime: startDateTimeSeconds,
+				endDateTime: endDateTimeSeconds,
 
 				// Add bid translations
 				...(bidTranslations && { translations: bidTranslations })
@@ -495,8 +545,8 @@
 				</div>
 
 				<!-- Fixed price bid amount - USD and Sats like in create-task -->
-				<div class="form-control">
-					<label class="label min-h-0 py-0.5" for="bid-amount">
+				<div class="form-control gap-3 pb-6">
+					<label class="label min-h-0" for="bid-amount">
 						<span class="label-text">{$t('bid_form.form.budget')}</span>
 						{#if task.budget?.amount != null}
 							<span class="label-text-alt text-info min-w-0 text-xs wrap-break-word">
@@ -555,55 +605,71 @@
 						</div>
 					{/if}
 					{#if amount > 0}
-						<span class="label-text-alt text-base-content/60 mt-1 block">
+						<span class="label-text-alt text-base-content/60 block">
 							{$t('bid_form.form.btc_price')} ${Math.round(btcPrice).toLocaleString()}
 						</span>
 					{/if}
 				</div>
 
 				<!-- Date and Time Selection for Fixed Price -->
-				<div class="form-control min-w-0">
-					<label class="label min-h-0 py-0.5" for="datetime-range">
-						<span class="label-text text-sm">{$t('bid_form.form.datetime_range')}</span>
-					</label>
-					<div class="flex min-w-0 flex-col gap-2 sm:flex-row">
-						<div class="flex-1">
-							<DateInput
-								bind:value={startDateTime}
-								type="datetime"
-								labelKey="bid_form.form.airdatepicker.select_start_datetime"
-								placeholderKey="bid_form.form.airdatepicker.select_start_datetime"
-								minDate={new Date()}
-								maxDate={undefined}
-								timeStep={15}
-								hideTimeRoundedHint={true}
-								onChange={(date: Date | null) => {
-									startDateTime = date;
-									handleDateTimeChange();
-								}}
-								className={bidFormErrors.datetime ? 'input-error' : ''}
-							/>
-						</div>
-						<div class="flex-1">
-							<DateInput
-								bind:value={endDateTime}
-								type="datetime"
-								labelKey="bid_form.form.airdatepicker.select_end_datetime"
-								placeholderKey="bid_form.form.airdatepicker.select_end_datetime"
-								minDate={startDateTime || new Date()}
-								maxDate={undefined}
-								timeStep={15}
-								hideTimeRoundedHint={true}
-								onChange={(date: Date | null) => {
-									endDateTime = date;
-									handleDateTimeChange();
-								}}
-								className={bidFormErrors.datetime ? 'input-error' : ''}
-							/>
+				<div class="form-control min-w-0 gap-4">
+					<div class="grid min-w-0 gap-3 sm:grid-cols-2 sm:gap-12 md:gap-16">
+						<ScheduleDateTimeField
+							bind:value={startDateTime}
+							period="start"
+							minDate={new Date()}
+							headingKey="bid_form.form.schedule_section_start"
+							onChange={(date: Date | null) => {
+								startDateTime = date;
+								handleDateTimeChange();
+							}}
+						/>
+						<!-- Duration trigger button -->
+						<div class="form-control min-w-0 gap-0.5 sm:gap-3">
+							{#if true}
+								<div class="label min-h-0 py-0">
+									<span class="label-text">{$t('common.components.duration_picker.title')}</span>
+								</div>
+							{/if}
+							<button
+								type="button"
+								class="input input-bordered hover:bg-base-200/50 flex min-h-11 w-full items-center gap-1 px-1.5 py-0 text-left transition-colors sm:gap-1.5 sm:px-2"
+								onclick={() => (durationModalOpen = true)}
+							>
+								<span class="text-base-content flex shrink-0 items-center" aria-hidden="true">
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										class="block h-5 w-5"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="1.75"
+											d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"
+										/>
+									</svg>
+								</span>
+								<span class="text-base-content min-w-0 flex-1 truncate text-sm font-semibold">
+									{#if endDateTime}
+										{new Intl.DateTimeFormat($locale || 'en', {
+											month: 'short',
+											day: 'numeric',
+											hour: 'numeric',
+											minute: '2-digit',
+											hour12: true
+										}).format(endDateTime)}
+									{:else}
+										{$t('common.components.duration_picker.title')}
+									{/if}
+								</span>
+							</button>
 						</div>
 					</div>
 					{#if bidFormErrors.datetime}
-						<div class="label w-full min-w-0">
+						<div class="label min-h-0 w-full min-w-0">
 							<span
 								class="label-text-alt text-error block wrap-break-word"
 								id="datetime-error"
@@ -612,13 +678,27 @@
 						</div>
 					{/if}
 					{#if startDateTime && endDateTime}
-						<div class="bg-info/10 mt-1.5 rounded-lg px-2.5 py-1">
-							<span class="text-info text-xs font-semibold">
+						<div class="bg-info/10 mt-2 rounded-lg px-3 py-2">
+							<span class="text-info text-sm font-semibold">
 								{$t('bid_form.form.duration')}: {formatDurationForDisplay}
 							</span>
 						</div>
 					{/if}
 				</div>
+
+				<DurationPickerModal
+					open={durationModalOpen}
+					baseStartDate={startDateTime || new Date()}
+					value={{ days: durationDays, hours: durationHours, minutes: durationMinutes }}
+					onClose={() => (durationModalOpen = false)}
+					onSelect={(d) => {
+						durationDays = d.days;
+						durationHours = d.hours;
+						durationMinutes = d.minutes;
+						durationModalOpen = false;
+						handleDateTimeChange();
+					}}
+				/>
 
 				<!-- Remove the old estimated duration field since we now have datetime for fixed price -->
 				<!-- Estimated Completion Time field removed - not needed for either payment type -->
@@ -660,7 +740,7 @@
 						aria-label={$t('bid_form.form.additional_info_title')}
 					/>
 					<div
-						class="collapse-title text-primary bg-primary/10 min-h-0 py-2 text-left text-sm font-medium after:end-4"
+						class="collapse-title text-primary bg-primary/10 min-h-0 py-2 text-left text-sm font-medium after:inset-e-4"
 						role="button"
 						tabindex="0"
 						onclick={() => (additionalInfoOpen = !additionalInfoOpen)}

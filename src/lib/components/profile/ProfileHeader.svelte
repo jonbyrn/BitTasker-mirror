@@ -150,11 +150,11 @@
 								{getTranslatedProfileContent('professionalTitle')}
 							</p>
 						{/if}
-						<div class="text-warning mt-1 flex items-center gap-1 text-sm">
+						<div class="text-primary mt-1 flex items-center gap-1 text-sm">
 							{#each Array(5) as _, i (i)}
 								<svg
 									class="h-4 w-4 {i < Math.round($profileStore.stats.rating || 0)
-										? 'text-warning'
+										? 'text-primary'
 										: 'text-base-content/20'}"
 									fill="currentColor"
 									viewBox="0 0 20 20"

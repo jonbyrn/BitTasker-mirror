@@ -138,7 +138,7 @@ export async function loadNamespaces(
  */
 async function loadEssentialTranslations(currentLocale: SupportedLanguage): Promise<void> {
 	// Only load critical translations needed for initial render
-	const essentialNamespaces = ['home', 'common', 'notifications'];
+	const essentialNamespaces = ['home', 'common', 'notifications', 'reviews'];
 
 	await loadNamespaces(currentLocale, essentialNamespaces);
 }
@@ -163,6 +163,8 @@ export function getNamespacesForRoute(route: string): string[] {
 		namespaces.push('dashboard/recomendations', 'categories');
 		// Include moderation namespace for report/mute menus on task cards
 		namespaces.push('moderation');
+		// StreamPlayer component for contract drawers and task evidence
+		namespaces.push('stream_player');
 	}
 	// Protected workspace routes
 	// Earning routes
@@ -226,17 +228,25 @@ export function getNamespacesForRoute(route: string): string[] {
 			);
 		}
 		if (route.includes('/create-task')) {
-			namespaces.push('dashboard/tasks/create', 'categories', 'uploader');
+			namespaces.push('dashboard/tasks/create', 'categories', 'uploader', 'stream_player');
 		}
 		if (route.includes('/messages')) {
 			namespaces.push('dashboard/messages');
 		}
 		if (route.includes('/create-service')) {
-			namespaces.push('dashboard/services/create', 'categories', 'uploader');
+			namespaces.push('dashboard/services/create', 'categories', 'uploader', 'stream_player');
+		}
+
+		// StreamPlayer component appears in contract drawers and profile video
+		if (route.includes('/contract') || route.includes('/profile')) {
+			namespaces.push('stream_player');
 		}
 		if (route.includes('/settings')) {
 			namespaces.push('dashboard/settings');
 		}
+	if (route.includes('/reviews')) {
+		namespaces.push('reviews');
+	}
 	}
 
 	if (route.includes('/services')) {
@@ -245,7 +255,8 @@ export function getNamespacesForRoute(route: string): string[] {
 			'dashboard/services/create',
 			'dashboard/services/detail',
 			'categories',
-			'moderation'
+			'moderation',
+			'stream_player'
 		);
 	}
 

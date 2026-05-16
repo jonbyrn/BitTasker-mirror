@@ -410,25 +410,14 @@ export function parseDateToLocalMidnight(dateString: string | null | undefined):
 }
 
 /**
- * Serialize a Date object to a string preserving local time (not UTC)
- * This is used when sending dates through JSON to preserve the user's selected time
- * Format: "YYYY-MM-DDTHH:mm:ss" (without timezone indicator)
- * @param date - The Date object to serialize
- * @returns ISO-like string with local time components (no timezone)
+ * Convert a Date to Unix timestamp seconds (UTC).
+ * Useful when storing instants that must be consistent across timezones.
  */
-export function serializeDateWithLocalTime(date: Date | null | undefined): string | null {
+export function toUnixSeconds(date: Date | null | undefined): number | null {
 	if (!date) return null;
-
-	// Extract local time components to preserve the user's selected time
-	const year = date.getFullYear();
-	const month = String(date.getMonth() + 1).padStart(2, '0');
-	const day = String(date.getDate()).padStart(2, '0');
-	const hours = String(date.getHours()).padStart(2, '0');
-	const minutes = String(date.getMinutes()).padStart(2, '0');
-	const seconds = String(date.getSeconds()).padStart(2, '0');
-
-	// Return as "YYYY-MM-DDTHH:mm:ss" (no timezone, preserving local time)
-	return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+	const ms = date.getTime();
+	if (Number.isNaN(ms)) return null;
+	return Math.floor(ms / 1000);
 }
 
 /**
@@ -453,25 +442,25 @@ export function formatDurationBetweenDates(
 	const parts: string[] = [];
 	if (diffDays > 0) {
 		parts.push(
-			`${diffDays} ${diffDays === 1 ? t('common.time_units.day') : t('common.time_units.days')}`
+			`${diffDays} ${diffDays === 1 ? t('dashboard.bids.bid_creation.day') : t('dashboard.bids.bid_creation.days')}`
 		);
 	}
 	if (diffHours > 0) {
 		parts.push(
-			`${diffHours} ${diffHours === 1 ? t('common.time_units.hour') : t('common.time_units.hours')}`
+			`${diffHours} ${diffHours === 1 ? t('dashboard.bids.bid_creation.hour') : t('dashboard.bids.bid_creation.hours')}`
 		);
 	}
 	if (diffMinutes > 0) {
 		parts.push(
-			`${diffMinutes} ${diffMinutes === 1 ? t('common.time_units.minute') : t('common.time_units.minutes')}`
+			`${diffMinutes} ${diffMinutes === 1 ? t('dashboard.bids.bid_creation.minute') : t('dashboard.bids.bid_creation.minutes')}`
 		);
 	}
 	if (parts.length === 0) {
-		return t('common.time_units.less_than_minute');
+		return t('dashboard.bids.bid_creation.one_hour');
 	}
 	if (parts.length === 1) return parts[0];
 	const lastPart = parts.pop()!;
-	const conjunction = t('common.time_units.and');
+	const conjunction = t('common.components.date_input.and');
 	return `${parts.join(', ')} ${conjunction} ${lastPart}`;
 }
 
@@ -510,4 +499,49 @@ export function parseDateWithLocalTime(dateString: string | null | undefined): D
 	);
 	const parsed = new Date(dateString);
 	return isNaN(parsed.getTime()) ? null : parsed;
+}
+
+/**
+ * Coerce various timestamp inputs to Unix seconds.
+ * - numbers: accepts seconds or milliseconds
+ * - strings: accepts numeric seconds/milliseconds, ISO strings, or our legacy local-time format
+ */
+export function coerceUnixSeconds(value: unknown): number | null {
+	if (value == null) return null;
+
+	if (typeof value === 'number') {
+		if (!Number.isFinite(value)) return null;
+		// If it's clearly milliseconds, convert to seconds.
+		return value > 1_000_000_000_000 ? Math.floor(value / 1000) : Math.floor(value);
+	}
+
+	if (typeof value === 'string') {
+		const trimmed = value.trim();
+		if (!trimmed) return null;
+
+		// Numeric string: seconds or milliseconds
+		if (/^\d+$/.test(trimmed)) {
+			const num = Number(trimmed);
+			if (!Number.isFinite(num)) return null;
+			return num > 1_000_000_000_000 ? Math.floor(num / 1000) : Math.floor(num);
+		}
+
+		// ISO string with timezone indicator: use Date constructor directly (preserves UTC)
+		if (/Z$|[+-]\d{2}:\d{2}$/.test(trimmed)) {
+			const isoParsed = new Date(trimmed);
+			if (!Number.isNaN(isoParsed.getTime())) return Math.floor(isoParsed.getTime() / 1000);
+			return null;
+		}
+
+		// Legacy local-time string ("YYYY-MM-DDTHH:mm:ss") — no timezone indicator.
+		const localParsed = parseDateWithLocalTime(trimmed);
+		if (localParsed) return Math.floor(localParsed.getTime() / 1000);
+
+		const isoParsed = new Date(trimmed);
+		if (!Number.isNaN(isoParsed.getTime())) return Math.floor(isoParsed.getTime() / 1000);
+
+		return null;
+	}
+
+	return null;
 }

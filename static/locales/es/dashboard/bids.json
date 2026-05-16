@@ -171,6 +171,8 @@
 				"select_start_datetime": "Fecha de inicio",
 				"select_end_datetime": "Fecha de fin"
 			},
+			"schedule_section_start": "Inicio del horario",
+			"schedule_section_end": "Fin del horario",
 			"datetime_range": "Rango de Fechas",
 			"start_datetime": "Fecha y Hora de Inicio",
 			"end_datetime": "Fecha y Hora de Fin",

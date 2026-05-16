@@ -10,7 +10,6 @@
 		onBlur = () => {}
 	} = $props();
 
-	let multiselectRef: Multiselect | null = $state(null);
 	let currentInputValue = $state('');
 	let forceRerender = $state(0);
 
@@ -63,7 +62,7 @@
 		<Multiselect
 			allowUserOptions="append"
 			bind:selected={selectedSkills}
-			max={maxSelections}
+			maxSelect={maxSelections}
 			{placeholder}
 			noMatchingOptionsMsg="No matching skills found"
 			createOptionMsg="Add new skill"
@@ -77,7 +76,6 @@
 			options={[]}
 			onblur={handleBlur}
 			oninput={handleInput}
-			bind:this={multiselectRef}
 		/>
 	{/key}
 </div>

@@ -4,6 +4,7 @@
 	import { goto } from '$app/navigation';
 	import { t } from 'svelte-i18n';
 	import Tabs from '$lib/components/Tabs.svelte';
+	import PendingReviewBanner from '$lib/components/reviews/PendingReviewBanner.svelte';
 
 	let { children } = $props();
 
@@ -49,7 +50,7 @@
 			},
 			{
 				id: 'my-services',
-				label: 'Services',
+				label: translateOrFallback(translate, 'dashboard.tabs.my_services', 'Services'),
 				buttonLabel: translateOrFallback(
 					translate,
 					'dashboard.services.my_services.create_service',
@@ -158,6 +159,8 @@
 						<span>{activeTab.buttonLabel}</span>
 					</a>
 				</div>
+
+				<PendingReviewBanner />
 
 				<Tabs {tabs} activeTab={activeTabId} onTabChange={handleTabChange} />
 

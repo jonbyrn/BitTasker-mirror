@@ -5,7 +5,7 @@
 	import { goto } from '$app/navigation';
 	// import { getProfileUrl } from '$lib/utils/helpers/profile';
 	import { formatConvertedAmount } from '$lib/utils/helpers/currencyFormatter';
-	import { formatStandardDateTime, parseDateWithLocalTime } from '$lib/utils/helpers/dateFormatter';
+	import { formatStandardDateTime, coerceUnixSeconds } from '$lib/utils/helpers/dateFormatter';
 	import { btcPrice } from '$lib/runes/btcPrice.svelte';
 	import UserInfoDisplay from '$lib/components/user/UserInfoDisplay.svelte';
 	import ActionsMenu from '$lib/components/moderation/ActionsMenu.svelte';
@@ -79,7 +79,7 @@
 					<UserInfoDisplay
 						avatar={bidContent.bidderAvatar}
 						username={bidContent.bidderName ?? ''}
-						rating={bidContent.bidderRating ?? 0}
+						rating={bidContent.bidderRating ?? null}
 						size="md"
 						pubkey={bidContent.bidderId}
 						profileLink={bidContent.bidderId}
@@ -157,8 +157,10 @@
 							</small>
 							<span class="text-sm font-medium">
 								{(() => {
-									const startDate = parseDateWithLocalTime(bidContent.startDateTime);
-									const endDate = parseDateWithLocalTime(bidContent.endDateTime);
+									const startSec = coerceUnixSeconds(bidContent.startDateTime);
+									const endSec = coerceUnixSeconds(bidContent.endDateTime);
+									const startDate = startSec !== null ? new Date(startSec * 1000) : null;
+									const endDate = endSec !== null ? new Date(endSec * 1000) : null;
 									return startDate && endDate
 										? `${formatStandardDateTime(startDate, $locale || 'en')} - ${formatStandardDateTime(endDate, $locale || 'en')}`
 										: 'N/A';

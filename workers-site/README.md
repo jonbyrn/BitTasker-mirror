@@ -1,46 +1,68 @@
-# Cloudflare Workers Site
+# Cloudflare Worker (Static Assets + API)
 
-This directory contains the Cloudflare Worker script that serves the static SvelteKit build.
+This directory contains the Cloudflare Worker script that runs alongside the static SvelteKit build.
 
-## Why Workers Instead of Pages?
+## Architecture Overview
 
-This project uses Cloudflare Workers Sites (not Pages) because:
+The Worker runs on the edge using **Cloudflare Workers Static Assets** (not Workers Sites / `@cloudflare/kv-asset-handler`, which is deprecated in Wrangler v4).
 
-1. **Capacitor Compatibility**: Requires `@sveltejs/adapter-static` for mobile app builds
-2. **Client-Side Routing**: SPA routing is handled by the Worker fallback to `404.html`
-3. **Better Control**: More flexibility over serving static assets and routing logic
+### How It Works
 
-## How It Works
+1. **Static Assets** — The SvelteKit build output in `./build/` is served directly from Cloudflare's edge cache via the `[assets]` configuration in `wrangler.toml`. Static files never hit the Worker, so there are no Worker invocation fees for assets.
 
-The Worker (`index.js`) does the following:
+2. **API-first Routing** — Certain paths are configured with `run_worker_first` so they always hit the Worker before the static asset fallback:
 
-1. **Serves Static Assets**: Uses `@cloudflare/kv-asset-handler` to serve files from the `./build` directory
-2. **SPA Fallback**: When a route is not found, it serves `index.html` to enable client-side routing
-3. **Caching**: Implements edge and browser caching for better performance
+   - `/api/*` — Stream upload, token, and status endpoints
+   - `/__data.json` and wildcards — SvelteKit client-side navigation preload
+   - All other paths serve static files from the edge cache directly
+
+3. **SPA Fallback** — When a route doesn't match a static file, `not_found_handling = "single-page-application"` serves `index.html` automatically, enabling client-side routing without Worker involvement.
+
+### Worker Responsibilities
+
+The Worker (`index.js`) handles:
+
+- **`/api/cloudflare/stream/`** — Cloudflare Stream integration:
+  - `POST /upload-url` — Generate one-time direct creator upload URLs
+  - `GET /token/:uid` — Generate signed playback JWTs for private videos
+  - `GET /status/:uid` — Poll video encoding status (backed by KV)
+  - `POST /webhook` — Receive encoding state change notifications (HMAC-signed)
+- **`/api/cloudflare/images/`** — (Future) Direct image upload URLs
+- **`/__data.json`** — Returns empty SvelteKit data response (adapter-static has no SSR)
+
+This approach keeps the Worker lightweight: only API requests and SvelteKit navigation data requests invoke it. Everything else is served directly from Cloudflare's edge — faster, cheaper, and with unlimited request volume.
 
 ## Dependencies
 
-Dependencies for the worker are managed in the root `package.json` file:
-- `@cloudflare/kv-asset-handler`: Handles serving static assets from KV storage
+Worker dependencies are managed in the root `package.json`:
+
+- No `@cloudflare/kv-asset-handler` — static assets are handled natively by `[assets]` configuration
+- KV bindings (`VIDEO_STATUS`, `VIDEO_AUTH`) are configured via `wrangler.toml` `[[kv_namespaces]]`
 
 ## Deployment
 
 ### Dev Worker (worker.dev.bittasker.com)
+
 ```bash
 npm run deploy:workers:dev
 ```
+
 Builds with dev vars, deploys to worker `bittasker-dev-worker`, then runs cache purge when in CI (skips locally).
 
 ### Staging (staging.bittasker.com)
+
 ```bash
 npm run deploy:workers
 ```
+
 Deploys to staging worker.
 
 ### Production Environment
+
 ```bash
 npm run deploy:workers:production
 ```
+
 Deploys to: `bittasker.com` (worker: `bittasker-prod-worker`)
 
 **Note:** The deploy commands explicitly specify the environment using `--env=""` (for default) or `--env production` to avoid deployment ambiguity.
@@ -50,9 +72,29 @@ Deploys to: `bittasker.com` (worker: `bittasker-prod-worker`)
 Environment variables are configured in the root `wrangler.toml` file under `[vars]` sections.
 
 To add secrets (sensitive data):
+
 ```bash
-wrangler secret put SECRET_NAME
+npx wrangler secret put SECRET_NAME
+npx wrangler secret put CLOUDFLARE_STREAM_WEBHOOK_SECRET
 ```
+
+## KV Namespaces
+
+Two KV namespaces support the Stream integration:
+
+| Binding        | Purpose                                                              |
+| -------------- | -------------------------------------------------------------------- |
+| `VIDEO_STATUS` | Caches encoding state (populated by webhook) for the status endpoint |
+| `VIDEO_AUTH`   | Maps video UIDs to authorized pubkeys for private video access       |
+
+Create them before deploying:
+
+```bash
+npx wrangler kv:namespace create VIDEO_STATUS
+npx wrangler kv:namespace create VIDEO_AUTH
+```
+
+Then copy the returned IDs into `wrangler.toml` under `[[kv_namespaces]]`.
 
 ## Custom Domains
 
@@ -66,12 +108,15 @@ After deploying, set up custom domains in the Cloudflare dashboard:
 ## Troubleshooting
 
 ### Worker not updating after deployment
+
 Clear the Cloudflare cache or wait a few minutes for propagation.
 
 ### 404 errors on dynamic routes
-Ensure your SvelteKit build has a `404.html` file (configured in `svelte.config.js` with `fallback: '404.html'`).
+
+Ensure `svelte.config.js` uses `fallback: '404.html'` and `wrangler.toml` has `not_found_handling = "single-page-application"`.
 
 ### Environment variables not working
+
 Make sure they're defined in `wrangler.toml` under the correct environment section.
 
 ### Client-side env (`VITE_*`) when using `wrangler dev`
@@ -94,6 +139,6 @@ When you run the app with `npx wrangler dev`, Turnstile may:
 - **Take ~30 seconds to enable the sign-up button** after you pass the challenge (vs instant with `npm run dev`).
 - Log in the console: `POST https://localhost:…/cdn-cgi/challenge-platform/… net::ERR_SSL_PROTOCOL_ERROR` and `[Cloudflare Turnstile] Error contacting Turnstile, aborting clearance redemption.`
 
-**Why:** Turnstile tries to redeem the challenge by POSTing to your **page origin** at `/cdn-cgi/challenge-platform/…`. That path is normally handled by Cloudflare’s edge when the site is on a real Cloudflare-proxied domain. On localhost with wrangler dev there is no Cloudflare edge, so the POST fails (SSL or 404). Turnstile retries/timeouts (~30s) and then may still call your success callback, so the button eventually enables.
+**Why:** Turnstile tries to redeem the challenge by POSTing to your **page origin** at `/cdn-cgi/challenge-platform/…`. That path is normally handled by Cloudflare's edge when the site is on a real Cloudflare-proxied domain. On localhost with wrangler dev there is no Cloudflare edge, so the POST fails (SSL or 404). Turnstile retries/timeouts (~30s) and then may still call your success callback, so the button eventually enables.
 
 **What to do:** For normal local dev (Vite), use `npm run dev` so Turnstile behaves as expected. When testing the Worker locally with `wrangler dev`, either accept the delay or test Turnstile on a deployed URL (e.g. worker.dev.bittasker.com) where Cloudflare handles the challenge platform.

@@ -10,6 +10,23 @@ const baseUrl = (import.meta.env.VITE_CLIENT_URL || 'https://bittasker.com').rep
 
 export const prerender = false;
 
+type TaskEventContent = Task & { uniqueId?: string };
+
+type SeoData = {
+	title: string;
+	description: string;
+	keywords: string;
+	canonical: string;
+	ogTitle: string;
+	ogDescription: string;
+	ogImage: string;
+	twitterTitle: string;
+	twitterDescription: string;
+	twitterImage: string;
+	jsonLd: ReturnType<typeof generateTaskJsonLd> | null;
+	task: Task | null;
+};
+
 /**
  * Check if a string is a Nostr event ID (64-character hex string)
  */
@@ -117,7 +134,7 @@ export const load: PageLoad = async ({ params }) => {
 			if (event) {
 				// Extract uniqueId from the event content
 				try {
-					const taskData = JSON.parse(event.content) as Task;
+					const taskData = JSON.parse(event.content) as TaskEventContent;
 					if (taskData.uniqueId) {
 						uniqueId = taskData.uniqueId;
 						shouldRedirect = true; // Redirect to UUID URL for stability
@@ -148,7 +165,7 @@ export const load: PageLoad = async ({ params }) => {
 				event = result.data;
 				// Extract uniqueId for redirect
 				try {
-					const taskData = JSON.parse(event.content) as Task;
+					const taskData = JSON.parse(event.content) as TaskEventContent;
 					if (taskData.uniqueId) {
 						uniqueId = taskData.uniqueId;
 						shouldRedirect = true; // Redirect to UUID URL for stability
@@ -168,7 +185,7 @@ export const load: PageLoad = async ({ params }) => {
 				event = result.data;
 				// Extract uniqueId for redirect
 				try {
-					const taskData = JSON.parse(event.content) as Task;
+					const taskData = JSON.parse(event.content) as TaskEventContent;
 					if (taskData.uniqueId) {
 						uniqueId = taskData.uniqueId;
 						shouldRedirect = true; // Redirect to UUID URL for stability
@@ -214,7 +231,7 @@ export const load: PageLoad = async ({ params }) => {
 	const canonicalUrl = `${baseUrl}/tasks/${uniqueId}`;
 
 	// Default SEO data
-	let seo = {
+	let seo: SeoData = {
 		title: 'Task Details - BitTasker',
 		description:
 			'View task details and submit your bid on BitTasker, the Bitcoin-powered task marketplace.',
@@ -233,11 +250,20 @@ export const load: PageLoad = async ({ params }) => {
 	};
 
 	if (event) {
-		const taskData = JSON.parse(event.content) as Task;
+		const taskData = JSON.parse(event.content) as TaskEventContent;
 		const dTag = event.tags?.find((tag: string[]) => tag[0] === 'd')?.[1];
-		const task = {
+		const resolvedTaskId = dTag ?? event.id;
+
+		if (!resolvedTaskId) {
+			return {
+				seo,
+				taskId: uniqueId
+			};
+		}
+
+		const task: Task = {
 			...taskData,
-			id: dTag || event.id,
+			id: resolvedTaskId,
 			npub: event.pubkey
 		};
 

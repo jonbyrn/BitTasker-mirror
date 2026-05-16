@@ -1,0 +1,25 @@
+# BitTasker — Cloudflare Workers Static Assets headers
+#
+# Security headers applied to all routes.
+# Immutable asset caching — these files are content-hashed and can never change.
+#
+# Cloudflare Workers applies these headers automatically at the edge.
+# https://developers.cloudflare.com/workers/static-assets/
+
+/*
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+  Permissions-Policy: camera=(self), microphone=(self), geolocation=(self)
+
+# Immutable assets: content-hashed files in SvelteKit's _app/immutable directory.
+# These files never change — cache for 1 year.
+/_app/immutable/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# HTML pages: short-lived cache since they contain the SPA shell.
+# The SPA fallback (not_found_handling) already serves index.html for all routes.
+# User-facing HTML should revalidate frequently to pick up new deployments.
+/index.html
+  Cache-Control: public, max-age=0, must-revalidate

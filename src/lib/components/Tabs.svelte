@@ -1,16 +1,25 @@
 <script lang="ts">
-	const { tabs, activeTab, onTabChange } = $props<{
+	const {
+		tabs,
+		activeTab,
+		onTabChange,
+		evenSplit = false
+	} = $props<{
 		tabs: { id: string; label: string }[];
 		activeTab: string;
 		onTabChange: (tabId: string) => void;
+		evenSplit?: boolean;
 	}>();
 </script>
 
-<div class="tabs-container no-scrollbar relative overflow-x-auto pb-2 md:overflow-visible md:pb-4">
-	<div class="tabs tabs-bordered min-w-max snap-x snap-mandatory flex-nowrap overflow-x-auto">
+{#if evenSplit}
+	<div
+		class="tabs tabs-bordered grid w-full"
+		style="grid-template-columns: repeat({tabs.length}, 1fr)"
+	>
 		{#each tabs as tab (tab.id)}
 			<button
-				class="tab {activeTab === tab.id ? 'active-tab' : ''}"
+				class="tab text-center {activeTab === tab.id ? 'tab-active active-tab' : ''}"
 				onclick={() => onTabChange(tab.id)}
 				aria-selected={activeTab === tab.id}
 				role="tab"
@@ -21,7 +30,26 @@
 			</button>
 		{/each}
 	</div>
-</div>
+{:else}
+	<div
+		class="tabs-container no-scrollbar relative overflow-x-auto pb-2 md:overflow-visible md:pb-4"
+	>
+		<div class="tabs tabs-bordered min-w-max snap-x snap-mandatory flex-nowrap overflow-x-auto">
+			{#each tabs as tab (tab.id)}
+				<button
+					class="tab {activeTab === tab.id ? 'tab-active active-tab' : ''}"
+					onclick={() => onTabChange(tab.id)}
+					aria-selected={activeTab === tab.id}
+					role="tab"
+					aria-controls="panel-{tab.id}"
+					id="tab-{tab.id}"
+				>
+					{tab.label}
+				</button>
+			{/each}
+		</div>
+	</div>
+{/if}
 
 <style>
 	.no-scrollbar::-webkit-scrollbar {
@@ -44,7 +72,7 @@
 		left: 0;
 		width: 100%;
 		height: 2px;
-		background-color: orange;
+		background-color: oklch(var(--p));
 		border-radius: 1px;
 	}
 </style>

@@ -24,7 +24,7 @@ if (fs.existsSync(envPath)) {
 		const trimmedLine = line.trim();
 		// Skip comments and empty lines
 		if (!trimmedLine || trimmedLine.startsWith('#')) continue;
-		
+
 		const match = trimmedLine.match(/^([^=]+)=(.*)$/);
 		if (match) {
 			const key = match[1].trim();
@@ -46,7 +46,7 @@ if (process.env.CI !== 'true') {
 
 const ZONE_ID = process.env.CLOUDFLARE_CACHE_ZONE_ID;
 const API_TOKEN = process.env.CLOUDFLARE_CACHE_PURGE_TOKEN;
-const ENV = process.env.ENVIRONMENT || 'staging';
+const ENV = process.env.ENVIRONMENT || 'dev';
 
 if (!ZONE_ID || !API_TOKEN) {
 	console.log('⏭️  Skipping cache purge (credentials not set)');
@@ -61,10 +61,10 @@ try {
 		{
 			method: 'POST',
 			headers: {
-				'Authorization': `Bearer ${API_TOKEN}`,
-				'Content-Type': 'application/json',
+				Authorization: `Bearer ${API_TOKEN}`,
+				'Content-Type': 'application/json'
 			},
-			body: JSON.stringify({ purge_everything: true }),
+			body: JSON.stringify({ purge_everything: true })
 		}
 	);
 

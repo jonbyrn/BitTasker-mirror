@@ -7,7 +7,7 @@
 
 import type { ethers } from 'ethers';
 import type { SwapPairs, Transaction } from '@bittasker/wallet-core';
-import { EscrowStatus } from "$lib/utils/escrow";
+import { ContractStatus } from "$lib/utils/contract/types";
 
 export type RSKUnit = 'rbtc' | 'wei';
 export type BSCUnit = 'usdt' | 'wei';
@@ -40,7 +40,7 @@ export interface EscrowData {
     clientFee: string;
     freelancerFee: string;
     totalAmount: string;
-    status: EscrowStatus;
+    status: ContractStatus;
     estimatedStartTime: number;
     estimatedCompletionTime: number;
     completionTime: number;

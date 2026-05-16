@@ -1,9 +1,9 @@
 /**
  * Component rendering tests for DebugContractCard
- * 
+ *
  * These tests run in a real browser environment using Vitest Browser Mode.
  * Business logic tests are in DebugContractCard.logic.test.ts
- * 
+ *
  * This test file is configured to run in browser mode via the 'component' project
  * in vite.config.ts
  */
@@ -15,8 +15,7 @@ import type { EscrowData } from '$lib/types/wallet';
 import type { ContractPermissions } from '$lib/types/contract';
 import { EscrowStatus } from '$lib/utils/escrow';
 
-// Mock translation
-const mockT = (key: string, options?: { values?: Record<string, string> }) => {
+const mockT = vi.hoisted(() => (key: string, options?: { values?: Record<string, string> }) => {
 	if (options?.values) {
 		let result = key;
 		Object.entries(options.values).forEach(([k, v]) => {
@@ -25,16 +24,18 @@ const mockT = (key: string, options?: { values?: Record<string, string> }) => {
 		return result;
 	}
 	return key;
-};
+});
 
 vi.mock('svelte-i18n', () => ({
 	t: {
-		subscribe: (fn: (value: any) => void) => {
+		subscribe: (
+			fn: (value: (key: string, options?: { values?: Record<string, string> }) => string) => void
+		) => {
 			fn(mockT);
-			return () => { };
+			return () => {};
 		}
 	},
-	locale: { subscribe: vi.fn(() => () => { }) }
+	locale: { subscribe: vi.fn(() => () => {}) }
 }));
 
 // Mock ConfirmModal
@@ -173,8 +174,7 @@ describe('DebugContractCard Component', () => {
 
 			const buttons = screen.getAllByRole('button');
 			const actionButtons = buttons.filter(
-				(btn) =>
-					btn.textContent?.includes('Complete') || btn.textContent?.includes('Accept')
+				(btn) => btn.textContent?.includes('Complete') || btn.textContent?.includes('Accept')
 			);
 
 			actionButtons.forEach((button) => {
@@ -241,10 +241,7 @@ describe('DebugContractCard Component', () => {
 			await fireEvent.click(cancelButton);
 
 			await waitFor(() => {
-				expect(mockExecuteFunction).toHaveBeenCalledWith(
-					mockContract.id,
-					'cancelEscrow'
-				);
+				expect(mockExecuteFunction).toHaveBeenCalledWith(mockContract.id, 'cancelEscrow');
 			});
 		});
 

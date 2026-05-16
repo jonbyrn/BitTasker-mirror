@@ -28,8 +28,8 @@ export interface NostrBidContent {
 	timestamp: number;
 	bidId: string;
 	// Updated datetime fields to match actual data structure
-	startDateTime: string;
-	endDateTime: string;
+	startDateTime: number;
+	endDateTime: number;
 
 	taskCreatorUsername?: string;
 	taskCreatorAvatar?: string;
@@ -53,10 +53,6 @@ export interface NostrBidContent {
 
 	// Translations (optional, may not be present in older bids)
 	translations?: BidTranslations;
-
-	// V2 contract params
-	upfrontDeposit?: number;
-	cancellationFee?: number;
 }
 
 /**
@@ -220,6 +216,12 @@ export interface CounterOffer {
 		amount: number;
 		currency: Currency;
 	};
+	/** Same as Nostr bids: Unix seconds (UTC) for FIXED counter-offer schedule */
+	startDateTime?: number;
+	endDateTime?: number;
+	paymentType?: PaymentType;
+	hourlyRate?: number | null;
+	estimatedHours?: number | null;
 	timeFrame?: {
 		estimatedCompletion: string;
 	};
@@ -274,8 +276,8 @@ export interface SimplifiedTaskBid {
 	coverLetter: string;
 	status: 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'WITHDRAWN' | 'COUNTERED';
 	createdAt: string;
-	startDateTime: string;
-	endDateTime: string;
+	startDateTime: number;
+	endDateTime: number;
 	userProfile: {
 		user: {
 			rating: number;

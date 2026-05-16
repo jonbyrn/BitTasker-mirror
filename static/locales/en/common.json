@@ -73,6 +73,7 @@
 			"next": "Next"
 		},
 		"today": "Today",
+		"at": "at",
 		"clear": "Clear",
 		"slide": "Slide",
 		"view_all": "View All",
@@ -392,6 +393,40 @@
 			}
 		},
 		"components": {
+			"schedule_picker": {
+				"date": "Date",
+				"time": "Time",
+				"select_date": "Select a date",
+				"select_time": "Select a time",
+				"placeholder_date_start": "Select start date",
+				"placeholder_date_end": "Select end date",
+				"placeholder_time_start": "Select start time",
+				"placeholder_time_end": "Select end time",
+				"time_label_start": "Start time",
+				"time_label_end": "End time",
+				"date_accessibility_start": "Start date",
+				"date_accessibility_end": "End date",
+				"close_picker": "Close",
+				"previous_month": "Previous month",
+				"next_month": "Next month",
+				"hour_short_label": "Hour",
+				"minute_short_label": "Minute",
+				"clock_ok": "OK",
+				"am": "AM",
+				"pm": "PM",
+				"period_toggle_aria": "Choose AM or PM",
+				"duration_minutes": "{minutes} min",
+				"duration_hours": "{hours} hr",
+				"duration_hours_minutes": "{hours} hr {minutes} min",
+				"today": "Today"
+			},
+			"duration_picker": {
+				"title": "Duration",
+				"days": "Days",
+				"hours": "Hrs",
+				"minutes": "Mins",
+				"completes_by": "End Time"
+			},
 			"date_input": {
 				"and": "and",
 				"less_than_minute": "less than a minute",
@@ -440,7 +475,8 @@
 				"toggle_torch": "Toggle flashlight",
 				"camera_permission_denied": "Camera permission denied. Please enable camera access in your settings.",
 				"no_camera_found": "No camera found on this device.",
-				"point_camera_at_qr": "Point your camera at a QR code"
+				"point_camera_at_qr": "Point your camera at a QR code",
+				"get_qr_from_settings": "Get your QR code from Settings"
 			},
 			"devices": {
 				"platforms": {
