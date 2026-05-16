@@ -32,12 +32,12 @@
 #   See docs/ci/pipeline-branch-strategy.md for the full approach.
 #
 # -----------------------------------------------------------------------------------------------
-# E2E (PLAYWRIGHT)
+# E2E (PLAYWRIGHT) — COMMENTED OUT
 # -----------------------------------------------------------------------------------------------
-#   The legacy full-app Playwright job remains commented out, but the service/homepage browser slices
-#   are active through `service-quote-e2e`. That job runs against the built preview app and first
-#   executes `npm run test:e2e:validate-service-bootstrap` to fail closed if the harness/mocked
-#   service suite contract drifts.
+#   Playwright is disabled until the development backend is updated for E2E. When re-enabling:
+#   - Uncomment the playwright job below.
+#   - Add needs: [build, playwright] to deploy-development (and deploy-staging/deploy-production).
+#   - Ensure VITE_API_URL, VITE_E2E_TURNSTILE_BYPASS, VITE_NOSTR_RELAY_URL are set in CI/CD Variables.
 #
 # -----------------------------------------------------------------------------------------------
 # CACHE
@@ -215,8 +215,6 @@ deploy-development:
     policy: pull
   needs:
     - build
-    # - service-quote-gates
-    # - service-quote-e2e
   script:
     - npm ci --cache .npm --prefer-offline
     - npx wrangler deploy --env dev

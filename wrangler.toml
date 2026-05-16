@@ -123,7 +123,7 @@ VITE_SENTRY_DSN = "https://a73b696f38f7474686280e304cc5163c@gt.bittasker.com/2"
 VITE_E2E_TURNSTILE_BYPASS = "false"
 VITE_BETA_WARNING = "false"
 VITE_REVIEWS_ATTESTATION_API_URL = "https://reviews-attestation-backend-dev.scott-0e4.workers.dev"
-VITE_STREAM_CUSTOMER_CODE = "customer-h1uh9jc2wp9hnxue"
+VITE_STREAM_CUSTOMER_CODE = "h1uh9jc2wp9hnxue"
 # (secrets omitted: SENTRY_AUTH_TOKEN, VITE_BSCSCAN_API_KEY)
 
 # ============================================
@@ -161,7 +161,7 @@ VITE_NOSTR_RELAY_URL = "wss://relay1.bittasker.com"
 VITE_NOSTR_RELAY_NESTJS = "https://relay2.bittasker.com"
 VITE_RSK_NETWORK = "mainnet"
 VITE_BSC_NETWORK = "mainnet"
-VITE_STREAM_CUSTOMER_CODE = "customer-h1uh9jc2wp9hnxue"
+VITE_STREAM_CUSTOMER_CODE = "h1uh9jc2wp9hnxue"
 
 # ============================================
 # PRODUCTION Environment
@@ -198,7 +198,7 @@ VITE_NOSTR_RELAY_URL = "wss://relay1.bittasker.com"
 VITE_NOSTR_RELAY_NESTJS = "https://relay2.bittasker.com"
 VITE_RSK_NETWORK = "mainnet"
 VITE_BSC_NETWORK = "mainnet"
-VITE_STREAM_CUSTOMER_CODE = "customer-h1uh9jc2wp9hnxue"
+VITE_STREAM_CUSTOMER_CODE = "h1uh9jc2wp9hnxue"
 
 # ============================================
 # METRICS & ANALYTICS

@@ -1,14 +1,31 @@
 /**
- * Video upload utilities for Cloudflare Stream.
+ * Video upload utilities for Cloudflare Stream using TUS protocol.
  *
  * Platform-aware upload strategy:
  * - Native (iOS/Android): @capgo/capacitor-uploader for background uploads
- * - Web: tus-js-client for resumable chunked uploads
+ * - Web: Uppy + @uppy/tus for resumable chunked uploads via TUS protocol
  * - Both: cellular/battery warnings before large uploads
+ *
+ * Cloudflare Stream TUS Requirements:
+ * - Minimum chunk size: 5,242,880 bytes (5 MB)
+ * - Recommended chunk size: 52,428,800 bytes (50 MB) for reliable connections
+ * - Maximum chunk size: 209,715,200 bytes (200 MB)
+ * - Chunk size must be divisible by 256 KiB (262,144 bytes)
+ *
+ * @see https://developers.cloudflare.com/stream/uploading-videos/upload-video-file/#resumable-uploads-with-tus-for-large-files
  */
 
 import { browser } from '$app/environment';
 import { addBreadcrumb } from '@sentry/sveltekit';
+
+/** TUS chunk size: 50 MB (divisible by 256 KiB = 262,144 bytes) */
+export const TUS_CHUNK_SIZE = 52_428_800;
+
+/** Retry delays for TUS uploads (milliseconds) */
+export const TUS_RETRY_DELAYS = [0, 1000, 3000, 5000, 10000, 20000];
+
+/** TUS proxy endpoint on our Worker */
+export const TUS_PROXY_ENDPOINT = '/api/cloudflare/stream/tus';
 
 export interface UploadProgress {
 	percent: number;
@@ -23,6 +40,12 @@ export interface UploadResult {
 export interface UploadWarning {
 	code: 'cellular' | 'low_battery' | 'large_file';
 	message: string;
+}
+
+export interface UploadCallbacks {
+	onProgress?: (progress: UploadProgress) => void;
+	onError?: (error: Error) => void;
+	onSuccess?: (result: UploadResult) => void;
 }
 
 /**
@@ -92,27 +115,32 @@ export async function checkUploadWarnings(fileSize: number): Promise<UploadWarni
 }
 
 /**
- * Upload a video file using the platform-appropriate transport.
+ * Upload a video file using Uppy + TUS protocol (web) or native uploader (mobile).
  *
  * On native (iOS/Android): uses @capgo/capacitor-uploader for background uploads
- * that survive app suspension. Falls back to tus-js-client if the plugin fails.
+ * that survive app suspension.
  *
- * On web: uses tus-js-client for chunked resumable uploads.
+ * On web: uses Uppy with @uppy/tus for resumable chunked uploads. This provides:
+ * - Automatic resumption of interrupted uploads
+ * - Chunked uploads (50MB chunks by default)
+ * - Real-time progress tracking
+ * - Automatic retries with exponential backoff
  *
- * @param filePath - Native file path (Capacitor) or the File object's URL for web
- * @param uploadURL - Cloudflare Stream Direct Creator Upload URL (one-time)
- * @param file - The File object (used for web uploads)
- * @param onProgress - Progress callback
+ * @param file - The File object to upload
+ * @param tusEndpoint - TUS upload endpoint URL (from requestTusUploadUrl)
+ * @param callbacks - Progress, error, and success callbacks
+ * @returns Promise that resolves with the video UID
  */
-export async function uploadVideoFile(
-	filePath: string,
-	uploadURL: string,
+export async function uploadVideoWithTus(
 	file: File,
-	onProgress?: (progress: UploadProgress) => void
-): Promise<void> {
+	tusEndpoint: string,
+	callbacks: UploadCallbacks = {}
+): Promise<UploadResult> {
+	// const { onProgress, onError, onSuccess } = callbacks;
+
 	addBreadcrumb({
 		category: 'stream',
-		message: `uploadVideoFile: starting - size=${file.size}`,
+		message: `uploadVideoWithTus: starting - size=${file.size}, endpoint=${tusEndpoint.substring(0, 50)}...`,
 		level: 'info'
 	});
 
@@ -124,7 +152,314 @@ export async function uploadVideoFile(
 		// Not a native platform
 	}
 
-	// Try native upload on mobile platforms
+	// ── Native (iOS/Android) ──────────────────────────────────────────
+	if (isNativePlatform) {
+		return uploadVideoNative(file, tusEndpoint, callbacks);
+	}
+
+	// ── Web: Uppy + @uppy/tus ─────────────────────────────────────────
+	return uploadVideoUppy(file, tusEndpoint, callbacks);
+}
+
+/**
+ * Native video upload using @capgo/capacitor-uploader.
+ * Provides background upload support on iOS/Android.
+ */
+async function uploadVideoNative(
+	file: File,
+	uploadURL: string,
+	callbacks: UploadCallbacks
+): Promise<UploadResult> {
+	const { onProgress, onError, onSuccess } = callbacks;
+
+	try {
+		const { Uploader } = await import('@capgo/capacitor-uploader');
+
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const filePath = (file as any).path || '';
+
+		return new Promise((resolve, reject) => {
+			let videoUid: string | null = null;
+
+			const setupListener = async () => {
+				const handle = await Uploader.addListener(
+					'events',
+					(event: {
+						name: string;
+						payload?: { percent?: number; statusCode?: number; error?: string; id?: string };
+					}) => {
+						if (event.name === 'uploading') {
+							const percent = event.payload?.percent ?? 0;
+							onProgress?.({
+								percent,
+								bytesUploaded: Math.round((percent / 100) * file.size),
+								bytesTotal: file.size
+							});
+						} else if (event.name === 'completed') {
+							addBreadcrumb({
+								category: 'stream',
+								message: 'uploadVideoNative: completed',
+								level: 'info'
+							});
+
+							const result: UploadResult = { uid: videoUid || event.payload?.id || '' };
+							onSuccess?.(result);
+							handle.remove();
+							resolve(result);
+						} else if (event.name === 'failed') {
+							const error = new Error(event.payload?.error || 'Native upload failed');
+							addBreadcrumb({
+								category: 'stream',
+								message: `uploadVideoNative: failed - ${error.message}`,
+								level: 'error'
+							});
+							onError?.(error);
+							handle.remove();
+							reject(error);
+						}
+					}
+				);
+
+				return handle;
+			};
+
+			setupListener()
+				.then(async () => {
+					const result = await Uploader.startUpload({
+						filePath,
+						serverUrl: uploadURL,
+						method: 'POST',
+						uploadType: 'multipart',
+						headers: {},
+						mimeType: file.type || 'video/mp4',
+						fileField: 'file',
+						notificationTitle: 'Uploading video...',
+						maxRetries: 3
+					});
+
+					videoUid = result.id;
+
+					addBreadcrumb({
+						category: 'stream',
+						message: `uploadVideoNative: started - id=${result.id}`,
+						level: 'info'
+					});
+				})
+				.catch((e) => {
+					const error = e instanceof Error ? e : new Error(String(e));
+					onError?.(error);
+					reject(error);
+				});
+		});
+	} catch (e) {
+		addBreadcrumb({
+			category: 'stream',
+			message: `uploadVideoNative: plugin failed, falling back to web - ${e}`,
+			level: 'warning'
+		});
+		// Fall back to web upload
+		return uploadVideoUppy(file, uploadURL, callbacks);
+	}
+}
+
+/**
+ * Web video upload using Uppy + @uppy/tus.
+ * Provides resumable chunked uploads with progress tracking.
+ */
+async function uploadVideoUppy(
+	file: File,
+	tusEndpoint: string,
+	callbacks: UploadCallbacks
+): Promise<UploadResult> {
+	const { onProgress, onError, onSuccess } = callbacks;
+
+	// Dynamically import Uppy to avoid SSR issues
+	const [{ default: Uppy }, { default: Tus }] = await Promise.all([
+		import('@uppy/core'),
+		import('@uppy/tus')
+	]);
+
+	return new Promise((resolve, reject) => {
+		let videoUid: string | null = null;
+
+		// Create fresh File to reset browser's internal Blob read cursor
+		const freshFile = new File([file], file.name, { type: file.type || 'video/mp4' });
+
+		// Initialize Uppy instance
+		const uppy = new Uppy({
+			id: `video-upload-${Date.now()}`,
+			autoProceed: true,
+			restrictions: {
+				maxNumberOfFiles: 1,
+				allowedFileTypes: ['video/*']
+			},
+			debug: false
+		});
+
+		// Configure TUS plugin for Cloudflare Stream
+		uppy.use(Tus, {
+			endpoint: tusEndpoint,
+			chunkSize: TUS_CHUNK_SIZE,
+			retryDelays: TUS_RETRY_DELAYS,
+			removeFingerprintOnSuccess: true,
+			headers: {
+				'Upload-Creator': 'bittasker-web'
+			},
+			onAfterResponse: (_req, res) => {
+				// Extract video UID from response headers
+				const mediaId = res.getHeader('stream-media-id');
+				if (mediaId) {
+					videoUid = mediaId;
+					addBreadcrumb({
+						category: 'stream',
+						message: `uploadVideoUppy: received media ID - ${mediaId}`,
+						level: 'info'
+					});
+				}
+			}
+		});
+
+		// Track upload progress
+		uppy.on('upload-progress', (_uppyFile, progress) => {
+			if (progress.bytesTotal && progress.bytesUploaded !== undefined) {
+				const percent = Math.round((progress.bytesUploaded / progress.bytesTotal) * 100);
+				onProgress?.({
+					percent,
+					bytesUploaded: progress.bytesUploaded,
+					bytesTotal: progress.bytesTotal
+				});
+			}
+		});
+
+		// Handle upload success
+		uppy.on('upload-success', (_uppyFile, response) => {
+			addBreadcrumb({
+				category: 'stream',
+				message: `uploadVideoUppy: success - uid=${videoUid || 'unknown'}`,
+				level: 'info'
+			});
+
+			// Try to extract UID from response if not already captured
+			if (!videoUid && response.uploadURL) {
+				const urlParts = response.uploadURL.split('/');
+				videoUid = urlParts[urlParts.length - 1] || null;
+			}
+
+			const result: UploadResult = { uid: videoUid || '' };
+			onSuccess?.(result);
+
+			// Cleanup Uppy instance
+			uppy.clear();
+			uppy.destroy();
+
+			resolve(result);
+		});
+
+		// Handle upload errors
+		uppy.on('upload-error', (_uppyFile, error) => {
+			const uploadError = error instanceof Error ? error : new Error(String(error));
+			addBreadcrumb({
+				category: 'stream',
+				message: `uploadVideoUppy: error - ${uploadError.message}`,
+				level: 'error'
+			});
+			onError?.(uploadError);
+
+			// Cleanup Uppy instance
+			uppy.clear();
+			uppy.destroy();
+
+			reject(uploadError);
+		});
+
+		// Handle complete (all files done)
+		uppy.on('complete', (result) => {
+			if (result.failed && result.failed.length > 0) {
+				const failedFile = result.failed[0];
+				const error = failedFile.error
+					? new Error(String(failedFile.error))
+					: new Error('Upload failed');
+				onError?.(error);
+
+				uppy.clear();
+				uppy.destroy();
+
+				reject(error);
+			}
+		});
+
+		// Add file and start upload
+		try {
+			uppy.addFile({
+				name: freshFile.name,
+				type: freshFile.type,
+				data: freshFile,
+				source: 'Local',
+				isRemote: false
+			});
+
+			addBreadcrumb({
+				category: 'stream',
+				message: `uploadVideoUppy: file added, starting upload`,
+				level: 'info'
+			});
+		} catch (e) {
+			const error = e instanceof Error ? e : new Error(String(e));
+			addBreadcrumb({
+				category: 'stream',
+				message: `uploadVideoUppy: failed to add file - ${error.message}`,
+				level: 'error'
+			});
+			onError?.(error);
+
+			uppy.clear();
+			uppy.destroy();
+
+			reject(error);
+		}
+	});
+}
+
+/**
+ * Legacy upload function for backwards compatibility.
+ * Delegates to uploadVideoWithTus for TUS endpoints or falls back to XHR POST.
+ *
+ * @param filePath - Native file path (Capacitor); ignored on web
+ * @param uploadURL - Upload URL (TUS or Direct Creator Upload)
+ * @param file - The File object to upload
+ * @param onProgress - Progress callback (percent, bytes)
+ * @deprecated Use uploadVideoWithTus for new implementations
+ */
+export async function uploadVideoFile(
+	filePath: string,
+	uploadURL: string,
+	file: File,
+	onProgress?: (progress: UploadProgress) => void
+): Promise<void> {
+	// Check if this is a TUS endpoint
+	const isTusEndpoint = uploadURL.includes('/tus') || uploadURL.includes('tus.');
+
+	if (isTusEndpoint) {
+		await uploadVideoWithTus(file, uploadURL, { onProgress });
+		return;
+	}
+
+	// Fall back to legacy XHR POST for non-TUS endpoints
+	addBreadcrumb({
+		category: 'stream',
+		message: `uploadVideoFile: using legacy XHR POST - size=${file.size}`,
+		level: 'info'
+	});
+
+	let isNativePlatform = false;
+	try {
+		const { Capacitor: cap } = await import('@capacitor/core');
+		isNativePlatform = cap.isNativePlatform();
+	} catch {
+		// Not a native platform
+	}
+
+	// Native upload
 	if (isNativePlatform) {
 		try {
 			const { Uploader } = await import('@capgo/capacitor-uploader');
@@ -136,37 +471,25 @@ export async function uploadVideoFile(
 					payload?: { percent?: number; statusCode?: number; error?: string };
 				}) => {
 					if (event.name === 'uploading') {
-						onProgress?.({ percent: event.payload.percent, bytesUploaded: 0, bytesTotal: 0 });
-					} else if (event.name === 'completed') {
-						addBreadcrumb({
-							category: 'stream',
-							message: 'uploadVideoFile: native upload completed',
-							level: 'info'
-						});
-					} else if (event.name === 'failed') {
-						addBreadcrumb({
-							category: 'stream',
-							message: `uploadVideoFile: native upload failed - ${event.payload?.error}`,
-							level: 'error'
+						onProgress?.({
+							percent: event.payload?.percent ?? 0,
+							bytesUploaded: 0,
+							bytesTotal: file.size
 						});
 					}
 				}
 			);
 
-			const result = await Uploader.startUpload({
+			await Uploader.startUpload({
 				filePath,
 				serverUrl: uploadURL,
-				method: 'PUT',
+				method: 'POST',
+				uploadType: 'multipart',
 				headers: {},
 				mimeType: file.type || 'video/mp4',
+				fileField: 'file',
 				notificationTitle: 'Uploading video...',
 				maxRetries: 3
-			});
-
-			addBreadcrumb({
-				category: 'stream',
-				message: `uploadVideoFile: native upload started - id=${result.id}`,
-				level: 'info'
 			});
 
 			await handle.remove();
@@ -174,44 +497,52 @@ export async function uploadVideoFile(
 		} catch (e) {
 			addBreadcrumb({
 				category: 'stream',
-				message: `uploadVideoFile: native upload failed, falling back to tus - ${e}`,
+				message: `uploadVideoFile: native upload failed, falling back to web - ${e}`,
 				level: 'warning'
 			});
-			// Fall through to web upload
 		}
 	}
 
-	// Web fallback: tus-js-client chunked upload
+	// Web: XHR POST with multipart/form-data
+	const freshFile = new File([file], file.name, { type: file.type || 'video/mp4' });
+
 	return new Promise((resolve, reject) => {
-		import('tus-js-client')
-			.then(({ Upload }) => {
-				const upload = new Upload(file, {
-					endpoint: uploadURL,
-					chunkSize: 10 * 1024 * 1024,
-					retryDelays: [0, 3000, 5000, 10000, 20000],
-					metadata: { filename: file.name, filetype: file.type },
-					onError(error: Error) {
-						addBreadcrumb({
-							category: 'stream',
-							message: `tus upload error: ${error.message}`,
-							level: 'error'
-						});
-						reject(error);
-					},
-					onProgress(bytesUploaded: number, bytesTotal: number) {
-						onProgress?.({
-							percent: Math.round((bytesUploaded / bytesTotal) * 100),
-							bytesUploaded,
-							bytesTotal
-						});
-					},
-					onSuccess() {
-						addBreadcrumb({ category: 'stream', message: 'tus upload completed', level: 'info' });
-						resolve();
-					}
+		const formData = new FormData();
+		formData.append('file', freshFile);
+
+		const xhr = new XMLHttpRequest();
+
+		xhr.upload.onprogress = (event) => {
+			if (event.lengthComputable) {
+				const percent = Math.round((event.loaded / event.total) * 100);
+				onProgress?.({
+					percent,
+					bytesUploaded: event.loaded,
+					bytesTotal: event.total
 				});
-				upload.start();
-			})
-			.catch(reject);
+			}
+		};
+
+		xhr.onload = () => {
+			if (xhr.status >= 200 && xhr.status < 300) {
+				addBreadcrumb({
+					category: 'stream',
+					message: `uploadVideoFile: completed - status=${xhr.status}`,
+					level: 'info'
+				});
+				resolve();
+			} else {
+				const errorMessage = `Upload failed: HTTP ${xhr.status} - ${xhr.responseText || 'Unknown error'}`;
+				reject(new Error(errorMessage));
+			}
+		};
+
+		xhr.onerror = () => reject(new Error('Upload failed: Network error'));
+		xhr.ontimeout = () => reject(new Error('Upload failed: Request timed out'));
+		xhr.onabort = () => reject(new Error('Upload cancelled'));
+
+		xhr.open('POST', uploadURL, true);
+		xhr.timeout = 0;
+		xhr.send(formData);
 	});
 }

@@ -4,6 +4,7 @@
 			"uploading": "Uploading... {progress}%",
 			"encoding": "Processing video...",
 			"queued": "Video is queued for processing...",
+			"paused": "Upload paused",
 			"token_loading": "Loading video...",
 			"poster_loading": "Loading preview...",
 			"error": "Video could not be loaded",
@@ -19,7 +20,8 @@
 		},
 		"action": {
 			"retry": "Retry",
-			"resume": "Resume Upload",
+			"resume": "Resume",
+			"pause": "Pause",
 			"refresh": "Refresh",
 			"cancel": "Cancel"
 		},

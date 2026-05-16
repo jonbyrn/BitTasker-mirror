@@ -687,7 +687,6 @@ export function closeNostrPool(): void {
 
 	// Close all subscriptions
 	for (const [_, subs] of profileSubscriptions) {
-		console.log(_);
 		subs.sub.close();
 	}
 	profileSubscriptions.clear();

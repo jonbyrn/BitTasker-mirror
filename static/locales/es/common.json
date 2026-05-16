@@ -52,7 +52,8 @@
 			"cancel": "Cancelar",
 			"retry": "Reintentar",
 			"close": "Cerrar",
-			"refresh": "Actualizar"
+			"refresh": "Actualizar",
+			"upload": "Subir"
 		},
 		"toast": {
 			"link_copied": "Enlace copiado al portapapeles",

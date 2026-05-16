@@ -201,6 +201,22 @@ export default defineConfig(({ mode }) => {
 			// - http://localhost:3000 with `adb reverse`
 			// Allowing all hosts prevents Vite from blocking these.
 			allowedHosts: true,
+			// Proxy Cloudflare Stream/Images API calls to the deployed Worker.
+			// These endpoints don't exist in the SvelteKit dev server — they only
+			// run on the Worker. Without the proxy, local uploads fall back to the
+			// NestJS backend and video keys are not valid Stream UIDs.
+			proxy: {
+				'/api/cloudflare/stream': {
+					target: 'https://worker.dev.bittasker.com',
+					changeOrigin: true,
+					secure: true
+				},
+				'/api/cloudflare/images': {
+					target: 'https://worker.dev.bittasker.com',
+					changeOrigin: true,
+					secure: true
+				}
+			},
 			watch: {
 				ignored: [
 					'**/.git/**',

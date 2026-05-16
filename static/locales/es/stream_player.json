@@ -4,6 +4,7 @@
 			"uploading": "Subiendo... {progress}%",
 			"encoding": "Procesando video...",
 			"queued": "Video en cola para procesar...",
+			"paused": "Subida en pausa",
 			"token_loading": "Cargando video...",
 			"poster_loading": "Cargando vista previa...",
 			"error": "No se pudo cargar el video",
@@ -19,7 +20,8 @@
 		},
 		"action": {
 			"retry": "Reintentar",
-			"resume": "Reanudar Subida",
+			"resume": "Reanudar",
+			"pause": "Pausar",
 			"refresh": "Actualizar",
 			"cancel": "Cancelar"
 		},

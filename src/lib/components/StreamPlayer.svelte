@@ -48,11 +48,18 @@
 	}: Props = $props();
 
 	const customerCode = browser ? import.meta.env.VITE_STREAM_CUSTOMER_CODE : '';
+	// Cloudflare Stream UIDs are 32-character hex strings
+	const isStreamUid = $derived(/^[a-f0-9]{32}$/.test(videoUid));
 	let token = $state<string | null>(null);
 	let tokenError = $state(false);
 	let posterLoaded = $state(false);
 	let encodingTimedOut = $state(false);
-	let encodingTimer = $state<ReturnType<typeof setTimeout> | null>(null);
+
+	// Timer handles are plain variables — not $state — so the $effect
+	// never re-runs when they change. This avoids the infinite-loop footgun
+	// that comes from reading/writing reactive timer handles in an effect.
+	let encodingTimer: ReturnType<typeof setTimeout> | null = null;
+	let pollingTimer: ReturnType<typeof setInterval> | null = null;
 
 	// Token cache to avoid re-fetching until 5 min before expiry
 	const tokenCache = new SvelteMap<string, { token: string; expiresAt: number }>();
@@ -113,11 +120,84 @@
 		fetchToken();
 	}
 
+	// ── Encoding state: poll /api/cloudflare/stream/status/:uid ──────
+	// Timer reads/writes happen in plain functions outside the $effect so
+	// the effect only depends on status / browser / videoUid / isStreamUid.
+
+	function clearTimers() {
+		if (encodingTimer) {
+			clearTimeout(encodingTimer);
+			encodingTimer = null;
+		}
+		if (pollingTimer) {
+			clearInterval(pollingTimer);
+			pollingTimer = null;
+		}
+	}
+
+	function startEncodingPoll() {
+		clearTimers();
+		encodingTimedOut = false;
+
+		encodingTimer = setTimeout(
+			() => {
+				encodingTimedOut = true;
+				addBreadcrumb({
+					category: 'stream',
+					message: `StreamPlayer: encoding timed out for ${videoUid}`,
+					level: 'warning'
+				});
+			},
+			30 * 60 * 1000
+		);
+
+		async function poll() {
+			try {
+				const res = await fetch(`/api/cloudflare/stream/status/${encodeURIComponent(videoUid)}`);
+				if (!res.ok) return;
+				const data = await res.json();
+				if (data.state === 'ready') {
+					clearTimers();
+					addBreadcrumb({
+						category: 'stream',
+						message: `StreamPlayer: encoding complete for ${videoUid}`,
+						level: 'info'
+					});
+					onready?.(videoUid);
+				} else if (data.state === 'error') {
+					clearTimers();
+					addBreadcrumb({
+						category: 'stream',
+						message: `StreamPlayer: encoding failed for ${videoUid} - ${data.errorReason || 'unknown'}`,
+						level: 'error'
+					});
+					onerror?.(data.errorReason || 'Video processing failed - please try re-uploading');
+				}
+			} catch {
+				// Network error during poll — silently retry next interval
+			}
+		}
+
+		pollingTimer = setInterval(poll, 30_000);
+		poll();
+	}
+
+	$effect(() => {
+		if ((status === 'encoding' || status === 'queued') && browser && videoUid && isStreamUid) {
+			startEncodingPoll();
+			return clearTimers;
+		}
+	});
+
+	// ── Token loading for private videos ─────────────────────────────
+
 	$effect(() => {
 		if (isPrivate && status === 'ready' && browser) {
 			fetchToken();
 		}
 	});
+
+	// ── Poster preloading ────────────────────────────────────────────
 
 	$effect(() => {
 		if (poster) {
@@ -131,21 +211,7 @@
 		}
 	});
 
-	$effect(() => {
-		if ((status === 'encoding' || status === 'queued') && browser) {
-			encodingTimedOut = false;
-			if (encodingTimer) clearTimeout(encodingTimer);
-			encodingTimer = setTimeout(
-				() => {
-					encodingTimedOut = true;
-				},
-				30 * 60 * 1000
-			);
-		}
-		return () => {
-			if (encodingTimer) clearTimeout(encodingTimer);
-		};
-	});
+	// ── Sentry breadcrumbs for state transitions ─────────────────────
 
 	$effect(() => {
 		if (!browser) return;
@@ -268,8 +334,14 @@
 		<div class="bg-base-200 text-base-content/60 flex h-full items-center justify-center">
 			<p class="text-sm">{$t('stream_player.status.error')}</p>
 		</div>
+	{:else if videoUrl && !isStreamUid}
+		<video src={videoUrl} controls playsinline class="h-full w-full" aria-label={ariaLabel}>
+			<track kind="captions" />
+		</video>
 	{:else if videoUrl && !videoUid}
-		<video src={videoUrl} controls playsinline class="h-full w-full" aria-label={ariaLabel}></video>
+		<video src={videoUrl} controls playsinline class="h-full w-full" aria-label={ariaLabel}>
+			<track kind="captions" />
+		</video>
 	{:else}
 		<iframe
 			src={buildStreamUrl()}
