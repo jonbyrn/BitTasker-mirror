@@ -1,16 +1,14 @@
 <script lang="ts">
-	import { onMount, tick } from 'svelte';
+	import { onMount } from 'svelte';
 	import { t } from 'svelte-i18n';
-	import { goto, afterNavigate } from '$app/navigation';
+	import { goto } from '$app/navigation';
 	import { findPendingReviews, PartialPendingReviewsError } from '$lib/utils/reviews/helpers';
-	import { appStore } from '$lib/stores/app.store';
 	import { createDebug } from '$lib/utils/debug';
 
 	const d = createDebug('reviews:banner');
 
 	let pendingCount = $state(0);
 	let isVisible = $state(false);
-	let hasInitialFetch = $state(false);
 
 	async function fetchPending() {
 		d.log('fetchPending: start');
@@ -21,53 +19,24 @@
 			d.log('fetchPending: success, count=%d', reviews.length);
 		} catch (err) {
 			if (err instanceof PartialPendingReviewsError) {
-				pendingCount = err.partialResult.length;
-				d.warn('fetchPending: partial, count=%d', err.partialResult.length);
+				pendingCount = err.pendingReviews.length;
+				d.warn('fetchPending: partial, count=%d', err.pendingReviews.length);
 			} else {
 				pendingCount = 0;
 				d.error('fetchPending: error=%s', err instanceof Error ? err.message : String(err));
 			}
 		}
 
-		hasInitialFetch = true;
 		d.log('fetchPending: pendingCount=%d', pendingCount);
 		if (pendingCount > 0) {
-			await tick();
 			isVisible = true;
 			d.log('fetchPending: banner visible');
 		}
 	}
 
-	// Wait for auth to be ready before the initial fetch.
-	// On full page refresh auth may still be initializing when the
-	// component mounts — subscribe to the store and fire once npub is set.
 	onMount(() => {
-		d.log('onMount: subscribing to appStore');
-		const unsub = appStore.subscribe((store) => {
-			const npub = store.nostrKeys.npub;
-			d.log('appStore update: npub=%s', npub ? npub.slice(0, 12) + '...' : 'null');
-			if (npub) {
-				d.log('appStore: auth ready, fetching');
-				unsub();
-				fetchPending();
-			}
-		});
-		return unsub;
-	});
-
-	// Re-fetch after client-side navigations so the banner stays
-	// current when the user reviews contracts and returns.
-	// Skip the initial afterNavigate that fires on page refresh —
-	// onMount + appStore.subscribe handles the initial fetch.
-	afterNavigate(() => {
-		if (!hasInitialFetch) return;
-		d.log('afterNavigate: re-fetching');
 		fetchPending();
 	});
-
-	function goToReviews() {
-		goto('/reviews');
-	}
 </script>
 
 {#if pendingCount > 0}
@@ -103,7 +72,7 @@
 					)}
 				</span>
 			</div>
-			<button class="btn btn-primary btn-sm" onclick={goToReviews}>
+			<button class="btn btn-primary btn-sm" onclick={() => goto('/reviews')}>
 				{$t('reviews.pending.review_now')}
 			</button>
 		</div>
