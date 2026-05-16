@@ -290,7 +290,7 @@
 				// 2. View Contract (if we have an escrow ID)
 				if (task.acceptedBidMetadata?.escrowId) {
 					inProgressButtons.push({
-						label: $t('navbar.contracts'),
+						label: $t('dashboard.tabs.contracts'),
 						class: 'btn-primary btn-sm',
 						onclick: (e: MouseEvent | KeyboardEvent) => {
 							e.stopPropagation();

@@ -10,9 +10,11 @@
 	import VerifiedReviewForm from '$lib/components/reviews/VerifiedReviewForm.svelte';
 	import Drawer from '$lib/components/Drawer.svelte';
 	import UserInfoDisplay from '$lib/components/user/UserInfoDisplay.svelte';
+	import { createPortal } from '$lib/utils/portal';
 	import { createDebug } from '$lib/utils/debug';
 	import IconCloseCircle from '~icons/mdi/close-circle-outline';
 	import IconAlertTriangle from '~icons/mdi/alert-outline';
+	import IconStarOutline from '~icons/mdi/star-outline';
 
 	const d = createDebug('reviews:prompt');
 
@@ -218,13 +220,18 @@
 			<p class="text-base-content/50 mb-3 text-xs font-medium tracking-wide uppercase">
 				{$t('reviews.prompt.reviewing')}
 			</p>
-			<UserInfoDisplay
-				pubkey={targetRevieweePubkey}
-				username={targetRevieweeName}
-				size="md"
-				showReviewCount={true}
-				showRanking={false}
-			/>
+			<div class="flex items-center gap-3">
+				<div class="bg-primary/10 border-primary/20 rounded-xl border p-2.5">
+					<IconStarOutline class="text-primary h-6 w-6" />
+				</div>
+				<UserInfoDisplay
+					pubkey={targetRevieweePubkey}
+					username={targetRevieweeName}
+					size="md"
+					showReviewCount={true}
+					showRanking={false}
+				/>
+			</div>
 		</div>
 		{#if targetRevieweePubkey && escrowId}
 			<VerifiedReviewForm
@@ -249,4 +256,10 @@
 			<span class="text-sm">{$t('reviews.prompt.missing_info')}</span>
 		</div>
 	{/if}
+
+	{#snippet footer()}
+		{#if targetRevieweePubkey && escrowId}
+			<div use:createPortal={'review-form-footer'}></div>
+		{/if}
+	{/snippet}
 </Drawer>

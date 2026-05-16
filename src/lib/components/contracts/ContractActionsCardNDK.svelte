@@ -30,11 +30,13 @@
 	let {
 		contractRune,
 		btcPrice = 0,
-		onOpenDrawer
+		onOpenDrawer,
+		onContractCompleted
 	}: {
 		contractRune: PaymentContractRune;
 		btcPrice?: number;
 		onOpenDrawer: () => void;
+		onContractCompleted?: () => void;
 	} = $props();
 
 	/** Primary action: happy path forward for the current role */
@@ -156,6 +158,7 @@
 				throw new Error('markTaskComplete failed');
 			}
 			appStore.showSuccessToast(get(t)('dashboard.contracts.actions.task_completed_success'));
+			onContractCompleted?.();
 		} finally {
 			pendingAction = null;
 		}
@@ -171,6 +174,7 @@
 				return;
 			}
 			appStore.showSuccessToast(get(t)('dashboard.contracts.actions.payment_released_success'));
+			onContractCompleted?.();
 		} finally {
 			pendingAction = null;
 		}
@@ -293,6 +297,7 @@
 				return;
 			}
 			appStore.showSuccessToast(get(t)('dashboard.contracts.actions.accept_proposal_success'));
+			onContractCompleted?.();
 		} finally {
 			pendingAction = null;
 		}
@@ -308,6 +313,7 @@
 				return;
 			}
 			appStore.showSuccessToast(get(t)('dashboard.contracts.actions.resolve_timelock_success'));
+			onContractCompleted?.();
 		} finally {
 			pendingAction = null;
 		}
@@ -350,7 +356,7 @@
 	}
 </script>
 
-<div class="flex w-full flex-row gap-2 md:flex-wrap md:justify-end">
+<div class="flex flex-1 flex-row gap-2 md:flex-none md:flex-wrap md:justify-end">
 	{#if primaryAction}
 		<button
 			type="button"

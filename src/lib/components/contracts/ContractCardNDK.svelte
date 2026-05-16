@@ -94,6 +94,7 @@
 	});
 
 	let showReviewModal = $state(false);
+	let pendingReviewPrompt = $state(false);
 
 	// Fetch review status when contract becomes reviewable
 	$effect(() => {
@@ -103,12 +104,28 @@
 		reviewStore.fetchReviewStatus(contractEventId, contractPaymentId, reviewContract);
 	});
 
+	// Auto-open review modal after a completion action (accept, complete, etc.)
+	$effect(() => {
+		if (
+			pendingReviewPrompt &&
+			isReviewable &&
+			!reviewState.isLoading &&
+			!reviewState.userReviewed
+		) {
+			showReviewModal = true;
+			pendingReviewPrompt = false;
+		}
+	});
+
 	function handleReviewSubmitted() {
-		// Optimistic update via centralized store
 		reviewStore.markAsReviewed(contractEventId);
 		showReviewModal = false;
-		// Refresh to get latest reviews
+		pendingReviewPrompt = false;
 		reviewStore.refreshReviews(contractEventId, contractPaymentId, reviewContract);
+	}
+
+	function handleContractCompleted() {
+		pendingReviewPrompt = true;
 	}
 
 	function openDrawer() {
@@ -254,8 +271,7 @@
 					: null}
 			/>
 
-			<!-- Review on left of actions (desktop), below actions (mobile) -->
-			<div class="flex flex-col-reverse gap-2 md:flex-row md:items-center">
+			<div class="flex flex-row items-center gap-2 md:justify-end">
 				{#if statusAndActionsReady && isReviewable}
 					{#if reviewState.isLoading}
 						<div class="flex h-8 w-24 items-center justify-center">
@@ -286,7 +302,7 @@
 					{:else if reviewState.revieweePubkey}
 						<button
 							type="button"
-							class="btn btn-warning btn-outline btn-sm gap-1"
+							class="btn btn-warning btn-outline btn-sm flex-1 gap-1 md:flex-none"
 							onclick={() => (showReviewModal = true)}
 						>
 							<svg
@@ -311,6 +327,7 @@
 						{contractRune}
 						btcPrice={btcPrice.price}
 						onOpenDrawer={openDrawer}
+						onContractCompleted={handleContractCompleted}
 					/>
 				{/if}
 			</div>

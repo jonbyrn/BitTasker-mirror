@@ -164,6 +164,7 @@
 	});
 
 	let showReviewModal = $state(false);
+	let pendingReviewPrompt = $state(false);
 
 	// Fetch review status when drawer opens and contract is reviewable
 	// Single effect that handles all review data fetching
@@ -174,12 +175,28 @@
 		reviewStore.fetchReviewStatus(contractEventId, contractPaymentId, reviewContract);
 	});
 
+	// Auto-open review modal after a completion action (accept, complete, etc.)
+	$effect(() => {
+		if (
+			pendingReviewPrompt &&
+			isReviewable &&
+			!reviewState.isLoading &&
+			!reviewState.userReviewed
+		) {
+			showReviewModal = true;
+			pendingReviewPrompt = false;
+		}
+	});
+
 	function handleReviewSubmitted() {
-		// Optimistic update via centralized store
 		reviewStore.markAsReviewed(contractEventId);
 		showReviewModal = false;
-		// Refresh to get latest reviews
+		pendingReviewPrompt = false;
 		reviewStore.refreshReviews(contractEventId, contractPaymentId, reviewContract);
+	}
+
+	function handleContractCompleted() {
+		pendingReviewPrompt = true;
 	}
 </script>
 
@@ -327,7 +344,7 @@
 
 					<!-- Row 4: Review status and action -->
 					{#if isReviewable}
-						<div class="mb-3 flex flex-wrap items-center gap-2">
+						<div class="mb-3 flex flex-wrap items-center justify-end gap-2">
 							{#if reviewState.isLoading}
 								<div class="flex h-8 w-24 items-center justify-center">
 									<span class="loading loading-spinner loading-sm"></span>
@@ -417,7 +434,11 @@
 					<!-- Row 6: Action buttons (right-aligned) -->
 					{#if contractRune}
 						<div class="flex justify-end gap-2">
-							<ContractActionsDrawerNDK {contractRune} {btcPrice} />
+							<ContractActionsDrawerNDK
+								{contractRune}
+								{btcPrice}
+								onContractCompleted={handleContractCompleted}
+							/>
 						</div>
 					{/if}
 				</div>

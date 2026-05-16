@@ -27,8 +27,15 @@
 
 	const d = createDebug('contracts:actionsDrawerNDK');
 
-	let { contractRune, btcPrice = 0 }: { contractRune: PaymentContractRune; btcPrice?: number } =
-		$props();
+	let {
+		contractRune,
+		btcPrice = 0,
+		onContractCompleted
+	}: {
+		contractRune: PaymentContractRune;
+		btcPrice?: number;
+		onContractCompleted?: () => void;
+	} = $props();
 
 	let pendingAction = $state<ContractModalAction | null>(null);
 	let activeModal = $state<ContractModalAction>(ContractModalAction.None);
@@ -58,6 +65,7 @@
 				throw new Error('markTaskComplete failed');
 			}
 			appStore.showSuccessToast(get(t)('dashboard.contracts.actions.task_completed_success'));
+			onContractCompleted?.();
 		} finally {
 			pendingAction = null;
 		}
@@ -73,6 +81,7 @@
 				return;
 			}
 			appStore.showSuccessToast(get(t)('dashboard.contracts.actions.approve_success'));
+			onContractCompleted?.();
 		} finally {
 			pendingAction = null;
 		}
@@ -195,6 +204,7 @@
 				return;
 			}
 			appStore.showSuccessToast(get(t)('dashboard.contracts.actions.accept_proposal_success'));
+			onContractCompleted?.();
 		} finally {
 			pendingAction = null;
 		}
@@ -210,6 +220,7 @@
 				return;
 			}
 			appStore.showSuccessToast(get(t)('dashboard.contracts.actions.resolve_timelock_success'));
+			onContractCompleted?.();
 		} finally {
 			pendingAction = null;
 		}
