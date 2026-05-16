@@ -16,6 +16,7 @@
 	import IconAccount from '~icons/mdi/account';
 	import IconChatOutline from '~icons/mdi/chat-outline';
 	import IconCog from '~icons/mdi/cog';
+	import IconStarOutline from '~icons/mdi/star-outline';
 	import WarningPopup from '$lib/components/WarningPopup.svelte';
 	import NotificationPermissionBanner from '$lib/components/notifications/NotificationPermissionBanner.svelte';
 
@@ -99,6 +100,8 @@
 													<IconChatOutline class="text-primary" />
 												{:else if section.icon === 'mdi:cog'}
 													<IconCog class="text-primary" />
+												{:else if section.icon === 'mdi:star-outline'}
+													<IconStarOutline class="text-primary" />
 												{:else}
 													<IconTrendingUp class="text-primary" />
 												{/if}

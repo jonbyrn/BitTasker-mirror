@@ -12,6 +12,14 @@ export default ts.config(
 	// Ignore known parser bugs
 	{ ignores: ['src/routes/+page.svelte'] },
 	includeIgnoreFile(gitignorePath),
+	{
+		ignores: [
+			'eslint.config.js',
+			'svelte.config.js',
+			'src/**/__tests__/mocks/**/*.svelte',
+			'src/lib/tests/mocks/**/*.svelte'
+		]
+	},
 	js.configs.recommended,
 	...ts.configs.recommended,
 	...svelte.configs.recommended,
@@ -30,8 +38,6 @@ export default ts.config(
 	},
 	{
 		files: ['**/*.svelte', '**/*.svelte.ts', '**/*.svelte.js'],
-		ignores: ['eslint.config.js', 'svelte.config.js'],
-
 		languageOptions: {
 			parserOptions: {
 				projectService: true,

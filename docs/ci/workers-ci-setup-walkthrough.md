@@ -6,12 +6,12 @@ This guide walks through setting up GitLab CI/CD to deploy BitTasker to Cloudfla
 
 ## Overview
 
-| Branch | Pipeline Behavior |
-|--------|-------------------|
-| `feat/workers-deployment` | Validate → **Deploy to development** (worker.dev.bittasker.com). Deploy job runs `npm run build` then `wrangler deploy --env dev`. |
-| `dev` | Validate → **Deploy to staging** (staging.bittasker.com). Deploy job runs `npm run build` then `wrangler deploy --env staging`. |
-| `main` | Validate → **Deploy to production** (worker.prod.bittasker.com). Deploy job runs `npm run build:production` then `wrangler deploy --env production`. |
-| Other branches | **Validate only** (test/lint/check can be enabled; no deploy) |
+| Branch                    | Pipeline Behavior                                                                                                                                    |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `feat/workers-deployment` | Validate → **Deploy to development** (worker.dev.bittasker.com). Deploy job runs `npm run build` then `wrangler deploy --env dev`.                   |
+| `dev`                     | Validate → **Deploy to staging** (staging.bittasker.com). Deploy job runs `npm run build` then `wrangler deploy --env staging`.                      |
+| `main`                    | Validate → **Deploy to production** (worker.prod.bittasker.com). Deploy job runs `npm run build:production` then `wrangler deploy --env production`. |
+| Other branches            | **Validate only** (test/lint/check can be enabled; no deploy)                                                                                        |
 
 ---
 
@@ -19,10 +19,10 @@ This guide walks through setting up GitLab CI/CD to deploy BitTasker to Cloudfla
 
 The pipeline runs in a GitLab runner (container). There is no browser and no interactive `wrangler login`. Wrangler gets credentials from **environment variables** that GitLab injects into the job:
 
-| Variable | Purpose |
-|----------|---------|
-| `CLOUDFLARE_API_TOKEN` | API token with Workers edit permission. Wrangler reads this (or `CF_API_TOKEN`) to authenticate. Set in GitLab CI/CD Variables (masked). |
-| `CLOUDFLARE_ACCOUNT_ID` | Your Cloudflare account ID. Set in GitLab CI/CD Variables. |
+| Variable                | Purpose                                                                                                                                  |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `CLOUDFLARE_API_TOKEN`  | API token with Workers edit permission. Wrangler reads this (or `CF_API_TOKEN`) to authenticate. Set in GitLab CI/CD Variables (masked). |
+| `CLOUDFLARE_ACCOUNT_ID` | Your Cloudflare account ID. Set in GitLab CI/CD Variables.                                                                               |
 
 When the deploy job runs:
 
@@ -38,11 +38,11 @@ So: **add the token and account ID (and all build-time `VITE_*`) in GitLab CI/CD
 
 Create these environments in GitLab (**Settings** → **CI/CD** → **Environments**) and attach them to the deploy jobs so deployments are visible and (optionally) scoped with variables.
 
-| Environment | URL | Branch | Purpose |
-|-------------|-----|--------|---------|
-| **development** | https://worker.dev.bittasker.com | `feat/workers-deployment` (or branch you choose) | Test the **full pipeline path** (validate + deploy) without touching staging or production. Use to verify CI build env (e.g. Turnstile sitekey from GitLab vars), wrangler deploy from CI, and cache purge. |
-| **staging** | https://staging.bittasker.com | `dev` | Pre-production: QA, demos, integration tests. Mirrors production config; deploy from `dev` before merging to `main`. |
-| **production** | https://worker.prod.bittasker.com | `main` | Live site. Deploy only from `main`; protect the branch (e.g. require MR and approvals). |
+| Environment     | URL                               | Branch                                           | Purpose                                                                                                                                                                                                     |
+| --------------- | --------------------------------- | ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **development** | https://worker.dev.bittasker.com  | `feat/workers-deployment` (or branch you choose) | Test the **full pipeline path** (validate + deploy) without touching staging or production. Use to verify CI build env (e.g. Turnstile sitekey from GitLab vars), wrangler deploy from CI, and cache purge. |
+| **staging**     | https://staging.bittasker.com     | `dev`                                            | Pre-production: QA, demos, integration tests. Mirrors production config; deploy from `dev` before merging to `main`.                                                                                        |
+| **production**  | https://worker.prod.bittasker.com | `main`                                           | Live site. Deploy only from `main`; protect the branch (e.g. require MR and approvals).                                                                                                                     |
 
 **Why have all three:**
 
@@ -75,10 +75,10 @@ So the pipeline is: **GitLab (build once → E2E with preview → deploy reuses 
 
 **What to do with existing Cloudflare automation (Pages):** Right now, a **Pages** project is likely connected to the repo (e.g. via webhook), so every push triggers a **full build on Cloudflare**. That is redundant once you use this pipeline. You have two options:
 
-| Option | When to use |
-|--------|-------------|
+| Option                        | When to use                                                                                                                                                                                                                                                                                                                         |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Disable Pages auto-builds** | When you are ready to rely only on GitLab. In Cloudflare Dashboard → **Workers & Pages** → your **Pages** project → **Settings** → **Builds & deployments** → turn off automatic deployments (or disconnect the GitLab integration). Then only GitLab deploys (via wrangler to Workers); Cloudflare no longer builds on every push. |
-| **Keep Pages as-is for now** | Use this GitLab pipeline only for the **Workers** URLs (e.g. staging.bittasker.com, worker.prod.bittasker.com). Leave the Pages project connected so existing Pages URLs still update on push. When you are ready to fully switch, disable Pages auto-builds and point traffic to the Workers. |
+| **Keep Pages as-is for now**  | Use this GitLab pipeline only for the **Workers** URLs (e.g. staging.bittasker.com, worker.prod.bittasker.com). Leave the Pages project connected so existing Pages URLs still update on push. When you are ready to fully switch, disable Pages auto-builds and point traffic to the Workers.                                      |
 
 You do **not** need a new Cloudflare "app" for Workers: the same account and Workers are used; only the **source** of deployments changes (GitLab + wrangler instead of Pages building from Git).
 
@@ -88,11 +88,13 @@ You do **not** need a new Cloudflare "app" for Workers: the same account and Wor
 
 The Worker you see in the dashboard **is** the Worker version of the BitTasker app. It does this:
 
-| Piece | Role |
-|-------|------|
-| **Worker script** (`workers-site/index.js`) | Runs on every request: fetches the requested path from KV, serves `index.html` for SPA routes, adds caching headers, optionally gzip-compresses responses. |
-| **KV namespace** `__STATIC_CONTENT` | Stores the **built** static site (the contents of `build/` after `npm run build`). Wrangler uploads `build/` into this KV when you run `wrangler deploy`. |
-| **Variables & Secrets** | Runtime env (e.g. `VITE_*`) for the Worker; build-time `VITE_*` are baked into the bundle during `npm run build` before upload. |
+| Piece                                       | Role                                                                                                                                                                                                                                                                       |
+| ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Worker script** (`workers-site/index.js`) | Runs on every request: fetches the requested path from KV, serves `index.html` for SPA routes, adds caching headers, optionally gzip-compresses responses.                                                                                                                 |
+| **KV namespace** `__STATIC_CONTENT`         | Stores the **built** static site (the contents of `build/` after `npm run build`). Wrangler uploads `build/` into this KV when you run `wrangler deploy`.                                                                                                                  |
+| **Stream binding** (`[[stream]]`)           | Declared in `wrangler.toml` under `[[stream]]`. Grants the Worker (or client-side `VITE_STREAM_CUSTOMER_CODE`) access to Cloudflare Stream for video upload/playback via signed tokens and thumbnail generation.                                                           |
+| **KV namespaces** (in `wrangler.toml`)      | In addition to the built-in `__STATIC_CONTENT` KV, additional KV namespaces may be defined in `wrangler.toml` under `[[kv_namespaces]]` for runtime data (e.g., caching, session state, feature flags). Each namespace binding is listed with its `binding` name and `id`. |
+| **Variables & Secrets**                     | Runtime env (e.g. `VITE_*`) for the Worker; build-time `VITE_*` are baked into the bundle during `npm run build` before upload.                                                                                                                                            |
 
 So: **build** produces `build/` → **wrangler deploy** uploads `build/` to KV and deploys the Worker script → the Worker serves those files from KV at `worker.dev.bittasker.com`. It's the same app, just served by a Worker instead of Pages.
 
@@ -123,14 +125,14 @@ Add these variables. Mark sensitive ones as **Masked**. For **Protected**: if a 
 
 ### Required for deploy jobs (development, staging, production)
 
-| Variable | Type | Protected | Masked | Description |
-|----------|------|-----------|--------|-------------|
-| `CLOUDFLARE_API_TOKEN` | Variable | ✅ | ✅ | API token with Workers edit permission. Wrangler uses this in CI (no `wrangler login`). |
-| `CLOUDFLARE_ACCOUNT_ID` | Variable | ❌ | ❌ | Your Cloudflare account ID (also in wrangler.toml) |
-| `CLOUDFLARE_CACHE_ZONE_ID` | Variable | Optional | ❌ | Zone ID for cache purge (purge-cache.js skips if unset) |
-| `CLOUDFLARE_CACHE_PURGE_TOKEN` | Variable | Optional | ✅ | Token with "Purge Cache" permission (purge-cache.js skips if unset) |
+| Variable                       | Type     | Protected | Masked | Description                                                                             |
+| ------------------------------ | -------- | --------- | ------ | --------------------------------------------------------------------------------------- |
+| `CLOUDFLARE_API_TOKEN`         | Variable | ✅        | ✅     | API token with Workers edit permission. Wrangler uses this in CI (no `wrangler login`). |
+| `CLOUDFLARE_ACCOUNT_ID`        | Variable | ❌        | ❌     | Your Cloudflare account ID (also in wrangler.toml)                                      |
+| `CLOUDFLARE_CACHE_ZONE_ID`     | Variable | Optional  | ❌     | Zone ID for cache purge (purge-cache.js skips if unset)                                 |
+| `CLOUDFLARE_CACHE_PURGE_TOKEN` | Variable | Optional  | ✅     | Token with "Purge Cache" permission (purge-cache.js skips if unset)                     |
 
-### Build-Time Variables (VITE_*)
+### Build-Time Variables (VITE\_\*)
 
 The SvelteKit build bakes these into the client bundle. **Set the values from your `wrangler.toml`**.
 
@@ -153,15 +155,15 @@ The Turnstile sitekey is **baked into the client bundle at build time**. It is *
 
 The pipeline runs the full E2E suite (`npm run test:e2e`) on MRs and on branches `feat/workers-deployment`, `dev`, and `main`. Set these so E2E can reach your backend and Nostr relay:
 
-| Variable | Purpose |
-|----------|---------|
-| `VITE_API_URL` | Backend API base URL (signup, onboarding, passkey). Required for 01–02 and app behavior. |
-| `VITE_NOSTR_RELAY_URL` | Nostr relay URL (e.g. `wss://relay.example.com`). Required for 04-messages (Messages E2E). |
-| `VITE_E2E_TURNSTILE_BYPASS` | Set to `true` to bypass Turnstile in E2E (optional; script may warn if unset). |
+| Variable                    | Purpose                                                                                    |
+| --------------------------- | ------------------------------------------------------------------------------------------ |
+| `VITE_API_URL`              | Backend API base URL (signup, onboarding, passkey). Required for 01–02 and app behavior.   |
+| `VITE_NOSTR_RELAY_URL`      | Nostr relay URL (e.g. `wss://relay.example.com`). Required for 04-messages (Messages E2E). |
+| `VITE_E2E_TURNSTILE_BYPASS` | Set to `true` to bypass Turnstile in E2E (optional; script may warn if unset).             |
 
 See [docs/testing/e2e-testing.md](../testing/e2e-testing.md) for the full list and run order.
 
-### Minimum VITE_ Variables (from wrangler.toml)
+### Minimum VITE\_ Variables (from wrangler.toml)
 
 Copy these from `wrangler.toml` `[env.staging.vars]` and `[env.production.vars]`:
 
@@ -170,6 +172,7 @@ Copy these from `wrangler.toml` `[env.staging.vars]` and `[env.production.vars]`
 - `VITE_NOSTR_RELAY_NESTJS`
 - `VITE_RSK_NETWORK`
 - `VITE_BSC_NETWORK`
+- `VITE_STREAM_CUSTOMER_CODE`
 
 For production builds, also set:
 
@@ -255,7 +258,7 @@ After Workers deployment is verified:
 
 **Environment scope:** Variables scoped to "development" are only available to jobs that have `environment: name: development`. The deploy-development job has that, so scope is correct; the usual issue is Protected + unprotected branch.
 
-### Build fails with "VITE_* is undefined"
+### Build fails with "VITE\_\* is undefined"
 
 - Add the missing `VITE_*` variable to GitLab CI/CD variables
 - Ensure it is available in the deploy job (not just validate)
@@ -336,14 +339,14 @@ To run Playwright on every branch (not only MRs and deploy branches), remove or 
 
 ## Files in this setup
 
-| File | Role |
-|------|------|
-| `.gitlab-ci.yml` | Defines stages: **validate**, **deploy**. Validate runs unit test + optional **playwright** job (smoke E2E). Deploy jobs run `npm run build` (or `build:production`) then `wrangler deploy` and purge. No separate build stage. |
-| `package.json` | Includes `wrangler` and scripts `deploy:workers:dev`, `deploy:workers`, `deploy:workers:production` |
-| `scripts/purge-cache.js` | Runs after deploy in CI (when `CI=true` and zone/token set); skips locally |
-| `docs/ci/workers-ci-setup-walkthrough.md` | This guide |
-| `docs/ci/workers-pipeline-migration.md` | Migration plan and environment rationale |
-| `tests/e2e/smoke.spec.ts` | Playwright smoke tests (homepage load, app shell). Run in CI via **playwright** job. |
-| `playwright.config.ts` | Playwright config; `webServer` starts `npm run dev` for local and CI. |
+| File                                      | Role                                                                                                                                                                                                                            |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `.gitlab-ci.yml`                          | Defines stages: **validate**, **deploy**. Validate runs unit test + optional **playwright** job (smoke E2E). Deploy jobs run `npm run build` (or `build:production`) then `wrangler deploy` and purge. No separate build stage. |
+| `package.json`                            | Includes `wrangler` and scripts `deploy:workers:dev`, `deploy:workers`, `deploy:workers:production`                                                                                                                             |
+| `scripts/purge-cache.js`                  | Runs after deploy in CI (when `CI=true` and zone/token set); skips locally                                                                                                                                                      |
+| `docs/ci/workers-ci-setup-walkthrough.md` | This guide                                                                                                                                                                                                                      |
+| `docs/ci/workers-pipeline-migration.md`   | Migration plan and environment rationale                                                                                                                                                                                        |
+| `tests/e2e/smoke.spec.ts`                 | Playwright smoke tests (homepage load, app shell). Run in CI via **playwright** job.                                                                                                                                            |
+| `playwright.config.ts`                    | Playwright config; `webServer` starts `npm run dev` for local and CI.                                                                                                                                                           |
 
 No changes to `wrangler.toml` or `workers-site/` for the pipeline; they define Worker config and serving logic.

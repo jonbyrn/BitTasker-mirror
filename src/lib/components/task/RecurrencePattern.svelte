@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
 	import { RecurringFrequencyEnum } from '$lib/utils/enums/task.enum';
+	import { normalizeDateToUTC } from '$lib/utils/helpers/dateFormatter';
 	import Input from '../Input.svelte';
 	import DateInput from '$lib/components/date/DateInput.svelte';
 
@@ -17,13 +18,14 @@
 	type PatternProp = RecurrencePattern | null; // Allow null for initialization or empty states
 
 	let {
+		 
 		pattern,
 		isEditing = false,
-		onPatternChange = (pattern: RecurrencePattern) => {}
+		onPatternChange = (_pattern: RecurrencePattern) => {}
 	} = $props<{
 		pattern: PatternProp;
 		isEditing?: boolean;
-		onPatternChange?: (pattern: RecurrencePattern) => void;
+		onPatternChange?: (_pattern: RecurrencePattern) => void;
 	}>();
 
 	// Use mutable state initialized from the prop
@@ -123,7 +125,7 @@
 
 	// Handle end date change
 	function handleEndDateChange(value: Date | null) {
-		localPattern.endDate = value ? value.toISOString() : null;
+		localPattern.endDate = value ? (normalizeDateToUTC(value) ?? null) : null;
 		emitUpdate();
 	}
 
@@ -217,7 +219,7 @@
 					<span class="label-text">{$t('common.task.recurrence_pattern.on_these_days')}</span>
 				</label>
 				<div class="flex flex-wrap gap-2">
-					{#each dayLabels as day, index}
+					{#each dayLabels as day, index (index)}
 						<button
 							type="button"
 							class="btn btn-sm {localPattern.daysOfWeek?.includes(index)
@@ -273,7 +275,7 @@
 					>
 				</label>
 				<div class="flex flex-wrap gap-2">
-					{#each dayLabels as day, index}
+					{#each dayLabels as day, index (index)}
 						<button
 							type="button"
 							class="btn btn-sm {localPattern.daysOfWeek?.includes(index)

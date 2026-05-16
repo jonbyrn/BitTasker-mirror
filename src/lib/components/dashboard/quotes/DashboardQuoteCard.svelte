@@ -62,7 +62,7 @@
 			case 'accepting':
 				return translateOrFallback(
 					'dashboard.service_requests.statuses.accepting_progress',
-					'Accepting...'
+					'Accepted'
 				);
 			case 'contract_sync_pending':
 				return translateOrFallback(
@@ -184,7 +184,6 @@
 	});
 	const providerUsername = $derived(service?.creator?.username ?? null);
 	const providerAvatar = $derived(service?.creator?.avatar ?? null);
-	const providerRating = $derived(service?.creator?.rating ?? 0);
 </script>
 
 <div class="card bg-base-100 rounded-xl shadow-md transition-shadow hover:shadow-lg">
@@ -283,7 +282,7 @@
 				avatar={providerAvatar}
 				username={providerUsername}
 				pubkey={providerPubkey}
-				rating={providerRating}
+				rating={service?.creator?.rating ?? null}
 				size="md"
 				memberSince={service?.createdAt ??
 					timeline.latestProposal?.created_at ??

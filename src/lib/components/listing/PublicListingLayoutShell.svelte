@@ -16,6 +16,7 @@
 	import IconChatOutline from '~icons/mdi/chat-outline';
 	import IconCog from '~icons/mdi/cog';
 	import IconTrendingUp from '~icons/mdi/trending-up';
+	import IconStarOutline from '~icons/mdi/star-outline';
 
 	let {
 		layoutClassName = 'listing-layout',
@@ -85,6 +86,8 @@
 												<IconCog class="text-primary" />
 											{:else if section.icon === 'mdi:trending-up'}
 												<IconTrendingUp class="text-primary" />
+											{:else if section.icon === 'mdi:star-outline'}
+												<IconStarOutline class="text-primary" />
 											{:else}
 												<IconFormatListBulleted class="text-primary" />
 											{/if}

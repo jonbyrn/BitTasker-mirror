@@ -517,6 +517,17 @@ async function generateServiceTags(
 		}
 	}
 
+	// Emit thumb tags for video portfolio items (Cloudflare Stream auto-thumbnails)
+	const portfolio = serviceData.portfolio || [];
+	for (const item of portfolio) {
+		if (item.cloudflareId || item.type === 'video/*') {
+			const thumbUrl = item.cloudflareId
+				? `https://customer-${import.meta.env.VITE_STREAM_CUSTOMER_CODE}.cloudflarestream.com/${item.cloudflareId}/thumbnails/thumbnail.jpg`
+				: item.url;
+			tags.push(['thumb', thumbUrl]);
+		}
+	}
+
 	return tags;
 }
 

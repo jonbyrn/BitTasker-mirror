@@ -160,6 +160,10 @@
 			},
 			"profile_updated": "¡Perfil actualizado exitosamente!"
 		},
+		"tabs": {
+			"overview": "Resumen",
+			"reviews": "Reseñas"
+		},
 		"about": "Acerca de",
 		"noDescription": "Aún no se ha agregado una descripción.",
 		"skills2": "Habilidades",

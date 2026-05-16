@@ -49,6 +49,7 @@ export interface Attachment {
 	type: string;
 	alt: string;
 	size: number;
+	cloudflareId?: string;
 }
 
 export interface TaskBody {

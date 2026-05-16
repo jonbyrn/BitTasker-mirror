@@ -27,7 +27,7 @@ export interface ContractModalConfig {
 // Modal configurations mapping (no onConfirm functions)
 export const CONTRACT_MODAL_CONFIGS: Record<ContractModalAction, ContractModalConfig | null> = {
 	[ContractModalAction.None]: null,
-	[ContractModalAction.Complete]: null, // Uses custom modal (TaskCompletionModal)
+	[ContractModalAction.Complete]: null,
 	[ContractModalAction.Accept]: {
 		titleKey: 'dashboard.contracts.actions.approve_confirm_title',
 		messageKey: 'dashboard.contracts.actions.approve_confirm_message',

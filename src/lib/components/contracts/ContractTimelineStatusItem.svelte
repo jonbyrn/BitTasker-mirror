@@ -57,10 +57,7 @@
 	});
 
 	/** Whether this event is recent (< 24 hours) and shows relative time */
-	const isRecentEvent = $derived.by(() => {
-		const label = timeLabel;
-		return label.includes('ago') || label.includes('just_now') || label.includes('minutes');
-	});
+	const isRecentEvent = $derived(Date.now() - statusEventTimestampMs(event) < 24 * 60 * 60 * 1000);
 
 	const timeDate = $derived.by(() => {
 		get(locale);

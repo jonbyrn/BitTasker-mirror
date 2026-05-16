@@ -25,7 +25,7 @@
 		serviceTitle = '',
 		providerName = null,
 		providerAvatar = null,
-		providerRating = 0,
+		providerRating = null,
 		providerPubkey = null,
 		providerMemberSince = null,
 		amountUsd = null,
@@ -69,7 +69,7 @@
 		serviceTitle?: string;
 		providerName?: string | null;
 		providerAvatar?: string | null;
-		providerRating?: number;
+		providerRating?: number | null;
 		providerPubkey?: string | null;
 		providerMemberSince?: number | string | Date | null;
 		amountUsd?: number | null;

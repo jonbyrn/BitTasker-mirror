@@ -22,6 +22,8 @@ PODS:
   - CapacitorMlkitBarcodeScanning (8.0.1):
     - Capacitor
     - GoogleMLKit/BarcodeScanning (~> 8.0.0)
+  - CapacitorNetwork (8.0.1):
+    - Capacitor
   - CapacitorPreferences (8.0.1):
     - Capacitor
   - CapacitorPushNotifications (8.0.1):
@@ -37,6 +39,8 @@ PODS:
   - CapacitorWebauthn (0.0.12):
     - Capacitor
   - CapawesomeCapacitorScreenOrientation (7.1.0):
+    - Capacitor
+  - CapgoCapacitorUploader (8.2.1):
     - Capacitor
   - GoogleDataTransport (10.1.0):
     - nanopb (~> 3.30910.0)
@@ -98,6 +102,7 @@ DEPENDENCIES:
   - "CapacitorKeyboard (from `../../node_modules/@capacitor/keyboard`)"
   - "CapacitorLocalNotifications (from `../../node_modules/@capacitor/local-notifications`)"
   - "CapacitorMlkitBarcodeScanning (from `../../node_modules/@capacitor-mlkit/barcode-scanning`)"
+  - "CapacitorNetwork (from `../../node_modules/@capacitor/network`)"
   - "CapacitorPreferences (from `../../node_modules/@capacitor/preferences`)"
   - "CapacitorPushNotifications (from `../../node_modules/@capacitor/push-notifications`)"
   - "CapacitorScreenOrientation (from `../../node_modules/@capacitor/screen-orientation`)"
@@ -106,6 +111,7 @@ DEPENDENCIES:
   - "CapacitorStatusBar (from `../../node_modules/@capacitor/status-bar`)"
   - CapacitorWebauthn (from `../../node_modules/capacitor-webauthn`)
   - "CapawesomeCapacitorScreenOrientation (from `../../node_modules/@capawesome/capacitor-screen-orientation`)"
+  - "CapgoCapacitorUploader (from `../../node_modules/@capgo/capacitor-uploader`)"
 
 SPEC REPOS:
   trunk:
@@ -145,6 +151,8 @@ EXTERNAL SOURCES:
     :path: "../../node_modules/@capacitor/local-notifications"
   CapacitorMlkitBarcodeScanning:
     :path: "../../node_modules/@capacitor-mlkit/barcode-scanning"
+  CapacitorNetwork:
+    :path: "../../node_modules/@capacitor/network"
   CapacitorPreferences:
     :path: "../../node_modules/@capacitor/preferences"
   CapacitorPushNotifications:
@@ -161,6 +169,8 @@ EXTERNAL SOURCES:
     :path: "../../node_modules/capacitor-webauthn"
   CapawesomeCapacitorScreenOrientation:
     :path: "../../node_modules/@capawesome/capacitor-screen-orientation"
+  CapgoCapacitorUploader:
+    :path: "../../node_modules/@capgo/capacitor-uploader"
 
 SPEC CHECKSUMS:
   Capacitor: 47b825120c6b8b6d6f9f053e9350a8960d436710
@@ -174,6 +184,7 @@ SPEC CHECKSUMS:
   CapacitorKeyboard: d7868c079a4d5277a3deca27a10a488fcbbb8b69
   CapacitorLocalNotifications: bc5325611c92ac302732413bc69244575cd4eaaf
   CapacitorMlkitBarcodeScanning: d97b2398adb4a8686fce9b1c0c6f09623f1baae8
+  CapacitorNetwork: 8812ce60d11fb63d8f2e4ba51a49b2e59892ebe2
   CapacitorPreferences: cca2021f386efb75947c850334447d9ff22b14f1
   CapacitorPushNotifications: 99644101c6a82036e459929b6d897ee1cb27d97f
   CapacitorScreenOrientation: 6c3c84223ea1dd44aaa7184e2b416dd1192270d0
@@ -182,6 +193,7 @@ SPEC CHECKSUMS:
   CapacitorStatusBar: 32206abd53b14f339763da26f71286deaa891e16
   CapacitorWebauthn: 368d3f73ca9a16196ad644e63979609302bc3e27
   CapawesomeCapacitorScreenOrientation: 3c69f06737dae8a9340d5f51891a58321987123c
+  CapgoCapacitorUploader: 80b48c8ff160853e28680e66d156b821c0397472
   GoogleDataTransport: aae35b7ea0c09004c3797d53c8c41f66f219d6a7
   GoogleMLKit: ddd51d7dff36ff28defa69afedd9cdce684fd857
   GoogleToolboxForMac: d1a2cbf009c453f4d6ded37c105e2f67a32206d8
@@ -195,6 +207,6 @@ SPEC CHECKSUMS:
   nanopb: fad817b59e0457d11a5dfbde799381cd727c1275
   PromisesObjC: f5707f49cb48b9636751c5b2e7d227e43fba9f47
 
-PODFILE CHECKSUM: b5056e3260d71d8d1b74755eb60880bc42b273a5
+PODFILE CHECKSUM: c2768016e49a846e69edc8108f8048b9efc17346
 
 COCOAPODS: 1.16.2

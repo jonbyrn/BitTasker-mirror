@@ -16,6 +16,10 @@
 	import { authState } from '$lib/stores/auth.store';
 	import Avatar from '$lib/components/Avatar.svelte';
 	import ActionsMenu from '$lib/components/moderation/ActionsMenu.svelte';
+	import { getReviewsForUser, getReviewsByReviewer } from '$lib/utils/reviews/queries';
+	import { calculateReviewStats } from '$lib/utils/reviews/aggregation';
+	import type { ReviewStats } from '$lib/types/review';
+	import { SvelteSet } from 'svelte/reactivity';
 
 	// Helper function to get translated profile content
 	// Reactive to locale changes via $locale
@@ -197,6 +201,11 @@
 	// Estado para el carrusel de imágenes de cada proyecto
 	let projectImageSlides = $state<Record<number, number>>({});
 
+	// State for attestation-based review stats
+	let reviewStats = $state<ReviewStats | null>(null);
+	let tasksCompleted = $state(0); // Unique contracts where user participated
+	let isLoadingReviews = $state(false);
+
 	// Estado para el botón "ver más/ver menos" en la sección "Acerca de"
 	let aboutElement: HTMLParagraphElement | null = $state(null);
 	let isAboutTruncated = $state(false);
@@ -288,6 +297,61 @@
 		showFullAbout = !showFullAbout;
 	}
 
+	// Function to load attestation-based review stats
+	// Tasks completed = unique contracts where user participated (as reviewer OR reviewee)
+	// Rating = calculated from reviews RECEIVED (where user is reviewee)
+	async function loadUserReviews(pubkey: string) {
+		try {
+			isLoadingReviews = true;
+
+			// Fetch both reviews received and reviews given in parallel
+			const [reviewsReceived, reviewsGiven] = await Promise.all([
+				getReviewsForUser(pubkey, 100), // User was reviewee
+				getReviewsByReviewer(pubkey, 100) // User was reviewer
+			]);
+
+			// Calculate tasks completed from unique contract IDs
+			// A contract is "completed" when either party has reviewed
+			const uniqueContractIds = new SvelteSet<string>();
+
+			// Add contracts from reviews received (user completed work as taskee OR got reviewed as tasker)
+			for (const review of reviewsReceived) {
+				if (review.contractId) {
+					uniqueContractIds.add(review.contractId);
+				} else {
+					// If no contractId, use attestation event ID as unique identifier
+					uniqueContractIds.add(review.attestationEventId);
+				}
+			}
+
+			// Add contracts from reviews given (user completed a contract and reviewed the other party)
+			for (const review of reviewsGiven) {
+				if (review.contractId) {
+					uniqueContractIds.add(review.contractId);
+				} else {
+					// If no contractId, use attestation event ID as unique identifier
+					uniqueContractIds.add(review.attestationEventId);
+				}
+			}
+
+			tasksCompleted = uniqueContractIds.size;
+
+			// Rating stats are calculated ONLY from reviews received (where user is reviewee)
+			// This represents their reputation based on how others rated them
+			if (reviewsReceived.length > 0) {
+				reviewStats = calculateReviewStats(reviewsReceived);
+			} else {
+				reviewStats = null;
+			}
+		} catch (error) {
+			console.error('Failed to load user reviews:', error);
+			reviewStats = null;
+			tasksCompleted = 0;
+		} finally {
+			isLoadingReviews = false;
+		}
+	}
+
 	// Función para cargar el perfil del usuario
 	async function loadUserProfile() {
 		if (!hexPubkey) {
@@ -300,8 +364,11 @@
 			loadingProfile = true;
 			profileError = null;
 
-			// Hacer la petición para obtener el perfil completo
-			const profile = await fetchComprehensiveProfile(hexPubkey);
+			// Fetch profile and reviews in parallel
+			const [profile] = await Promise.all([
+				fetchComprehensiveProfile(hexPubkey),
+				loadUserReviews(hexPubkey)
+			]);
 
 			// Check if profile is empty (no name and no data)
 			if (!profile || (!profile.name && !profile.about && !profile.picture)) {
@@ -389,14 +456,9 @@
 		}
 	}
 
-	// Calcular rating promedio
+	// Calcular rating promedio from attestation-based reviews
 	const averageRating = $derived(
-		userProfile?.reviews && userProfile.reviews.length > 0
-			? (
-					userProfile.reviews.reduce((acc, review) => acc + review.rating, 0) /
-					userProfile.reviews.length
-				).toFixed(1)
-			: null
+		reviewStats && reviewStats.totalReviews > 0 ? reviewStats.averageRating.toFixed(1) : null
 	);
 
 	// Generar nombre de usuario para email (user.name@bittasker.com)
@@ -997,17 +1059,20 @@
 										>{$t('common.profile.tasks_completed')}</span
 									>
 									<span class="text-primary text-lg font-bold">
-										{userProfile?.reviews?.length || 0}
+										{#if isLoadingReviews}
+											<span class="loading loading-spinner loading-xs"></span>
+										{:else}
+											{tasksCompleted}
+										{/if}
 									</span>
 								</div>
 								<div class="flex items-center justify-between">
 									<span class="text-base-content/70 text-sm">{$t('common.profile.rating')}</span>
 									<div class="flex items-center gap-1">
-										{#if userProfile?.reviews && userProfile.reviews.length > 0}
-											{@const avgRating =
-												userProfile.reviews.reduce((sum, review) => sum + review.rating, 0) /
-												userProfile.reviews.length}
-											<span class="text-lg font-bold">{avgRating.toFixed(1)}</span>
+										{#if isLoadingReviews}
+											<span class="loading loading-spinner loading-xs"></span>
+										{:else if reviewStats && reviewStats.totalReviews > 0}
+											<span class="text-lg font-bold">{reviewStats.averageRating.toFixed(1)}</span>
 											<svg class="h-4 w-4 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
 												<path
 													fill-rule="evenodd"

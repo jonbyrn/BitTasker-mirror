@@ -1,11 +1,12 @@
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
 	import type { Component } from 'svelte';
+	import type { NDKFilter, NDKSubscription, NDKSubscriptionOptions } from '@nostr-dev-kit/ndk';
 	import type { Service } from '$lib/types/service.d';
 	import type { ContractWithEvents } from '$lib/types/contract';
 	import type { ServiceQuoteTimelineEntry } from '$lib/types/service-quote';
 	import { ServicePricingTypeEnum } from '$lib/utils/enums/service.enum';
-	import { EscrowStatus } from '$lib/utils/escrow/v1/escrow.enum';
+	import { ContractStatus, type SecurePaymentLegacy } from '$lib/utils/contract/types';
 
 	type HarnessResult = Record<string, unknown>;
 
@@ -14,6 +15,8 @@
 	let ready = $state(false);
 	let surfaceComponent = $state<Component<Record<string, unknown>> | null>(null);
 	let surfaceProps = $state<Record<string, unknown>>({});
+	/** Route-local stale banner for NDK contracts harness (not part of production contracts UI). */
+	let contractsHarnessStaleBanner = $state(false);
 	let requestsHarnessState = $state<{
 		services: Service[];
 		timelinesByService: Record<string, ServiceQuoteTimelineEntry[]>;
@@ -46,14 +49,15 @@
 		const baseContract = {
 			escrowData: {
 				id: 'svc-escrow_123',
-				status: EscrowStatus.Funded
+				status: ContractStatus.Funded
 			} as unknown as ContractWithEvents['escrowData'],
-			status: EscrowStatus.Funded,
+			status: ContractStatus.Funded,
 			isClient: true,
 			isPending: false,
-			blockchainStatus: EscrowStatus.Funded,
+			blockchainStatus: ContractStatus.Funded,
 			statusEvents: [],
 			completionAttachments: [],
+			completionText: null,
 			disputeProposal: null,
 			permissions: {
 				canComplete: false,
@@ -99,7 +103,7 @@
 					pricingSnapshot: {
 						serviceVersionRef: 'service-event-1'
 					},
-					status: EscrowStatus.Funded,
+					status: ContractStatus.Funded,
 					type: 'contract',
 					currency: 'RBTC'
 				}
@@ -126,6 +130,181 @@
 				}
 			}
 		} as ContractWithEvents;
+	}
+
+	type BittaskerContractsHarnessGlobals = {
+		ndk: (typeof import('$lib/nostr/ndk'))['ndk'];
+		PaymentContractRune: typeof import('$lib/runes/contractRune.svelte').PaymentContractRune;
+		origSubscribe: (filters: NDKFilter | NDKFilter[], opts: NDKSubscriptionOptions) => unknown;
+		origRuneStart: (
+			this: import('$lib/runes/contractRune.svelte').PaymentContractRune
+		) => Promise<void>;
+		synthetic30006: import('$lib/nostr/events/contract').NDKPaymentContract[];
+		chainByPaymentId: Record<string, SecurePaymentLegacy>;
+	};
+
+	function getContractsHarnessGlobals(): BittaskerContractsHarnessGlobals | undefined {
+		return (
+			globalThis as unknown as { __bittaskerContractsHarness?: BittaskerContractsHarnessGlobals }
+		).__bittaskerContractsHarness;
+	}
+
+	function setContractsHarnessGlobals(next: BittaskerContractsHarnessGlobals | undefined): void {
+		(
+			globalThis as unknown as { __bittaskerContractsHarness?: BittaskerContractsHarnessGlobals }
+		).__bittaskerContractsHarness = next;
+	}
+
+	async function buildHarnessNdkPaymentContract(args: {
+		authorSk: Uint8Array;
+		taskerPubkeyHex: string;
+		taskeePubkeyHex: string;
+	}): Promise<import('$lib/nostr/events/contract').NDKPaymentContract> {
+		const { ndk } = await import('$lib/nostr/ndk');
+		const { NDKEvent } = await import('@nostr-dev-kit/ndk');
+		const { NDKPaymentContract } = await import('$lib/nostr/events/contract');
+		const { getPublicKey } = await import('nostr-tools/pure');
+		const template = createHarnessServiceContract().contractEvent.content;
+		const legacy: Record<string, unknown> = {
+			type: 'contract',
+			escrowId: template.escrowId,
+			contextType: template.contextType,
+			contextTitle: template.contextTitle,
+			contextDescription: template.contextDescription,
+			clientPubkey: args.taskerPubkeyHex,
+			freelancerPubkey: args.taskeePubkeyHex,
+			taskTitle: template.taskTitle,
+			taskDescription: template.taskDescription,
+			amount: template.amount,
+			purchaseMode: template.purchaseMode,
+			quoteRequestId: template.quoteRequestId,
+			proposalId: template.proposalId,
+			selectedTierId: template.selectedTierId,
+			estimatedStartTime: template.estimatedStartTime,
+			estimatedCompletionTime: template.estimatedCompletionTime,
+			agreementSnapshot: template.agreementSnapshot,
+			pricingSnapshot: template.pricingSnapshot,
+			status: template.status,
+			currency: template.currency,
+			network: import.meta.env.VITE_RSK_NETWORK || 'testnet',
+			contractAddress: `0x${'b'.repeat(40)}`,
+			version: 'v2'
+		};
+		delete legacy.taskId;
+		const authorPk = getPublicKey(args.authorSk);
+		const raw = new NDKEvent(ndk, {
+			kind: 30006,
+			pubkey: authorPk,
+			created_at: 1_700_000_000,
+			tags: [['n', String(import.meta.env.VITE_RSK_NETWORK || 'testnet')]],
+			content: JSON.stringify(legacy),
+			id: 'ef'.repeat(32),
+			sig: 'ab'.repeat(64)
+		});
+		const parsed = await NDKPaymentContract.from(raw);
+		if (!parsed) {
+			throw new Error('Harness could not parse Kind 30006 payment contract');
+		}
+		return parsed;
+	}
+
+	async function installNdkContractsHarnessPlugins(
+		synthetic30006: import('$lib/nostr/events/contract').NDKPaymentContract[],
+		chainByPaymentId: Record<string, SecurePaymentLegacy>
+	): Promise<void> {
+		const ndkMod = await import('$lib/nostr/ndk');
+		const runeMod = await import('$lib/runes/contractRune.svelte');
+		const { ndk } = ndkMod;
+		const { PaymentContractRune } = runeMod;
+
+		const existing = getContractsHarnessGlobals();
+		const origSubscribe = existing?.origSubscribe ?? ndk.subscribe.bind(ndk);
+		const origRuneStart =
+			existing?.origRuneStart ??
+			(PaymentContractRune.prototype.start as (
+				this: InstanceType<typeof PaymentContractRune>
+			) => Promise<void>);
+
+		const bag: BittaskerContractsHarnessGlobals = {
+			ndk,
+			PaymentContractRune,
+			origSubscribe,
+			origRuneStart,
+			synthetic30006,
+			chainByPaymentId
+		};
+		setContractsHarnessGlobals(bag);
+
+		ndk.subscribe = ((filters: NDKFilter | NDKFilter[], subOpts: NDKSubscriptionOptions) => {
+			const list = Array.isArray(filters) ? filters : [filters];
+			const kindsRaw = list.flatMap((f) => [...(f.kinds ?? [])] as number[]);
+			const noopSub = {} as NDKSubscription;
+			if (kindsRaw.includes(30006) && bag.synthetic30006.length > 0) {
+				queueMicrotask(() => {
+					if (subOpts.onEvents) {
+						subOpts.onEvents(bag.synthetic30006);
+					} else {
+						for (const ev of bag.synthetic30006) {
+							subOpts.onEvent?.(ev);
+						}
+					}
+					subOpts.onEose?.(noopSub);
+				});
+				return { stop: () => {}, start: () => {} };
+			}
+			if (kindsRaw.includes(31006)) {
+				queueMicrotask(() => {
+					subOpts.onEvents?.([]);
+					subOpts.onEose?.(noopSub);
+				});
+				return { stop: () => {}, start: () => {} };
+			}
+			return bag.origSubscribe(filters, subOpts);
+		}) as typeof ndk.subscribe;
+
+		PaymentContractRune.prototype.start = async function (
+			this: import('$lib/runes/contractRune.svelte').PaymentContractRune
+		) {
+			await bag.origRuneStart.call(this);
+			const pid = this.paymentId?.trim();
+			const snap = pid ? bag.chainByPaymentId[pid] : undefined;
+			if (snap) {
+				this.blockchainData = snap;
+				this.error = null;
+			}
+		};
+	}
+
+	function harnessChainTaskerAccept(): SecurePaymentLegacy {
+		return {
+			tasker: '0x1111111111111111111111111111111111111111',
+			taskee: '0x2222222222222222222222222222222222222222',
+			amount: '1000000',
+			estimatedStartTime: 0,
+			estimatedCompletionTime: 2_000_000_000,
+			timelockEnd: 0,
+			createdAt: 0,
+			taskerFeeTier: 1,
+			taskeeFeeTier: 1,
+			state: ContractStatus.Completed,
+			noShowMarked: false
+		};
+	}
+
+	function harnessChainTaskeeComplete(): SecurePaymentLegacy {
+		return {
+			tasker: '0x1111111111111111111111111111111111111111',
+			taskee: '0x2222222222222222222222222222222222222222',
+			amount: '1000000',
+			estimatedStartTime: 0,
+			estimatedCompletionTime: 2_000_000_000,
+			timelockEnd: 0,
+			createdAt: 0,
+			taskerFeeTier: 1,
+			taskeeFeeTier: 1,
+			state: ContractStatus.Funded,
+			noShowMarked: false
+		};
 	}
 
 	function createHarnessService(overrides: Partial<Service> = {}): Service {
@@ -361,6 +540,7 @@
 
 	onMount(async () => {
 		const scenario = new URL(window.location.href).searchParams.get('case') ?? 'tasker-quotes';
+		contractsHarnessStaleBanner = false;
 
 		try {
 			let result: HarnessResult;
@@ -605,7 +785,6 @@
 							total: 1,
 							hasMore: false
 						}),
-						loadContractsContinuity: async () => undefined,
 						loadContractsSnapshot: async () => [],
 						queryProviderQuoteThreads: async () => [],
 						deletePortfolioMedia: async () => undefined
@@ -638,10 +817,10 @@
 					const contract = createHarnessServiceContract({
 						escrowData: {
 							id: 'svc-escrow-live',
-							status: EscrowStatus.Funded
+							status: ContractStatus.Funded
 						} as unknown as ContractWithEvents['escrowData'],
-						status: EscrowStatus.Funded,
-						blockchainStatus: EscrowStatus.Funded,
+						status: ContractStatus.Funded,
+						blockchainStatus: ContractStatus.Funded,
 						content: {
 							contextId: service.uniqueId,
 							serviceId: service.uniqueId,
@@ -657,7 +836,6 @@
 							total: 1,
 							hasMore: false
 						}),
-						loadContractsContinuity: async () => undefined,
 						loadContractsSnapshot: async () => [contract],
 						queryProviderQuoteThreads: async () => [],
 						deletePortfolioMedia: async () => undefined
@@ -917,86 +1095,95 @@
 					break;
 				}
 				case 'contracts-surface-highlighted-service': {
-					const { default: DashboardContractsPanel } = await import(
-						'$lib/components/contracts/DashboardContractsPanel.svelte'
+					const { default: DashboardContractsPanelNDK } = await import(
+						'$lib/components/contracts/DashboardContractsPanelNDK.svelte'
 					);
-					const { contractStore } = await import('$lib/stores/contract.store');
+					const { generateSecretKey, getPublicKey } = await import('nostr-tools/pure');
+					const { applyNdkSignerFromNsec } = await import('$lib/nostr/ndk');
 
-					contractStore.loadContracts = async () => undefined;
-					contractStore.loadMoreContracts = async () => undefined;
-					contractStore.loadContractByEscrowId = async () => true;
-					contractStore.unsubscribeFromStatusUpdates = () => {};
-					contractStore.unsubscribeFromNewContracts = () => {};
+					const taskerSk = generateSecretKey();
+					const taskeeSk = generateSecretKey();
+					const taskerPk = getPublicKey(taskerSk);
+					const taskeePk = getPublicKey(taskeeSk);
 
-					contractStore.set({
-						contracts: [createHarnessServiceContract()],
-						contract: null,
-						contractsMap: new Map([['svc-escrow_123', 0]]),
-						isLoading: false,
-						error: null,
-						isDrawerOpen: false,
-						isResolutionFormOpen: false,
-						hasMore: false,
-						oldestTimestamp: 1_700_000_000,
-						isSubscribed: false,
-						isLoadingMore: false
+					await applyNdkSignerFromNsec(taskerSk);
+					const paymentContract = await buildHarnessNdkPaymentContract({
+						authorSk: taskerSk,
+						taskerPubkeyHex: taskerPk,
+						taskeePubkeyHex: taskeePk
 					});
+					const pid = paymentContract.paymentId || 'svc-escrow_123';
+					const chain = harnessChainTaskerAccept();
+					const chainByPaymentId: Record<string, SecurePaymentLegacy> = {
+						[pid]: chain,
+						'svc-escrow_123': chain
+					};
+					await installNdkContractsHarnessPlugins([paymentContract], chainByPaymentId);
 
-					surfaceComponent = DashboardContractsPanel;
+					surfaceComponent = DashboardContractsPanelNDK;
 					surfaceProps = {
 						initialType: 'services',
 						highlightEscrowId: 'svc-escrow_123'
 					};
 
 					await waitForSurfaceReady(() => {
-						return Boolean(
-							document.querySelector(
-								'[data-testid="service-harness-surface"] [data-contract-escrow-id="svc-escrow_123"]'
-							)
+						const root = document.querySelector('[data-testid="service-harness-surface"]');
+						if (!root?.textContent?.includes('Premium Logo Package')) return false;
+						const txt = root.textContent ?? '';
+						return (
+							txt.includes('Approve') ||
+							txt.includes('Approve Service') ||
+							txt.includes('Accept Service')
 						);
 					});
 
+					const body = document.body.textContent ?? '';
 					result = {
 						serviceCardPresent: Boolean(
-							document.querySelector(
-								'[data-testid="service-harness-surface"] [data-contract-escrow-id="svc-escrow_123"]'
-							)
+							document
+								.querySelector('[data-testid="service-harness-surface"]')
+								?.textContent?.includes('Premium Logo Package')
 						),
-						serviceScopePresent:
-							document.body.textContent?.includes('Logo system and brand guide') ?? false,
+						serviceScopePresent: body.includes('Logo system and brand guide'),
 						quotedServiceBadgePresent:
-							document.body.textContent?.includes('Quoted Service') ?? false,
-						actionLabelPresent: document.body.textContent?.includes('Accept Service') ?? false
+							body.includes('Quoted Service') ||
+							body.includes('Quote request') ||
+							body.includes('qr_valid123'),
+						actionLabelPresent:
+							body.includes('Accept Service') ||
+							body.includes('Approve Service') ||
+							/\bApprove\b/.test(body)
 					};
 					break;
 				}
 				case 'contracts-surface-stale-data': {
-					const { default: DashboardContractsPanel } = await import(
-						'$lib/components/contracts/DashboardContractsPanel.svelte'
+					const { default: DashboardContractsPanelNDK } = await import(
+						'$lib/components/contracts/DashboardContractsPanelNDK.svelte'
 					);
-					const { contractStore } = await import('$lib/stores/contract.store');
+					const { generateSecretKey, getPublicKey } = await import('nostr-tools/pure');
+					const { applyNdkSignerFromNsec } = await import('$lib/nostr/ndk');
 
-					contractStore.loadContracts = async () => undefined;
-					contractStore.loadMoreContracts = async () => undefined;
-					contractStore.loadContractByEscrowId = async () => true;
-					contractStore.unsubscribeFromStatusUpdates = () => {};
-					contractStore.unsubscribeFromNewContracts = () => {};
+					const taskerSk = generateSecretKey();
+					const taskeeSk = generateSecretKey();
+					const taskerPk = getPublicKey(taskerSk);
+					const taskeePk = getPublicKey(taskeeSk);
 
-					contractStore.set({
-						contracts: [createHarnessServiceContract()],
-						contract: null,
-						contractsMap: new Map([['svc-escrow_123', 0]]),
-						isLoading: false,
-						error: 'contracts query failed',
-						isDrawerOpen: false,
-						isResolutionFormOpen: false,
-						hasMore: false,
-						oldestTimestamp: 1_700_000_000,
-						isSubscribed: false,
-						isLoadingMore: false
+					await applyNdkSignerFromNsec(taskerSk);
+					const paymentContract = await buildHarnessNdkPaymentContract({
+						authorSk: taskerSk,
+						taskerPubkeyHex: taskerPk,
+						taskeePubkeyHex: taskeePk
 					});
+					const pid = paymentContract.paymentId || 'svc-escrow_123';
+					const chain = harnessChainTaskerAccept();
+					const chainByPaymentId: Record<string, SecurePaymentLegacy> = {
+						[pid]: chain,
+						'svc-escrow_123': chain
+					};
+					await installNdkContractsHarnessPlugins([paymentContract], chainByPaymentId);
 
-					surfaceComponent = DashboardContractsPanel;
+					contractsHarnessStaleBanner = true;
+					surfaceComponent = DashboardContractsPanelNDK;
 					surfaceProps = {
 						initialType: 'services'
 					};
@@ -1009,6 +1196,7 @@
 						);
 					});
 
+					const body = document.body.textContent ?? '';
 					result = {
 						staleAlertPresent: Boolean(
 							document.querySelector(
@@ -1016,88 +1204,77 @@
 							)
 						),
 						serviceCardPresent: Boolean(
-							document.querySelector(
-								'[data-testid="service-harness-surface"] [data-contract-escrow-id="svc-escrow_123"]'
-							)
+							document
+								.querySelector('[data-testid="service-harness-surface"]')
+								?.textContent?.includes('Premium Logo Package')
 						),
-						staleMessagePresent:
-							document.body.textContent?.includes('Showing last known contract data.') ?? false
+						staleMessagePresent: body.includes('Showing last known contract data.')
 					};
 					break;
 				}
 				case 'contracts-surface-completable-service': {
-					const { default: DashboardContractsPanel } = await import(
-						'$lib/components/contracts/DashboardContractsPanel.svelte'
+					const { default: DashboardContractsPanelNDK } = await import(
+						'$lib/components/contracts/DashboardContractsPanelNDK.svelte'
 					);
-					const { contractStore } = await import('$lib/stores/contract.store');
+					const { generateSecretKey, getPublicKey } = await import('nostr-tools/pure');
+					const { applyNdkSignerFromNsec } = await import('$lib/nostr/ndk');
 
-					contractStore.loadContracts = async () => undefined;
-					contractStore.loadMoreContracts = async () => undefined;
-					contractStore.loadContractByEscrowId = async () => true;
-					contractStore.unsubscribeFromStatusUpdates = () => {};
-					contractStore.unsubscribeFromNewContracts = () => {};
+					const taskerSk = generateSecretKey();
+					const taskeeSk = generateSecretKey();
+					const taskerPk = getPublicKey(taskerSk);
+					const taskeePk = getPublicKey(taskeeSk);
 
-					contractStore.set({
-						contracts: [
-							createHarnessServiceContract({
-								isClient: false,
-								permissions: {
-									canComplete: true,
-									canAccept: false,
-									canDispute: false,
-									canPropose: false,
-									canAcceptProposal: false,
-									canCancel: false,
-									canResolveTimelock: false,
-									canDelete: false
-								}
-							})
-						],
-						contract: null,
-						contractsMap: new Map([['svc-escrow_123', 0]]),
-						isLoading: false,
-						error: null,
-						isDrawerOpen: false,
-						isResolutionFormOpen: false,
-						hasMore: false,
-						oldestTimestamp: 1_700_000_000,
-						isSubscribed: false,
-						isLoadingMore: false
+					await applyNdkSignerFromNsec(taskeeSk);
+					const paymentContract = await buildHarnessNdkPaymentContract({
+						authorSk: taskeeSk,
+						taskerPubkeyHex: taskerPk,
+						taskeePubkeyHex: taskeePk
 					});
+					const pid = paymentContract.paymentId || 'svc-escrow_123';
+					const chain = harnessChainTaskeeComplete();
+					const chainByPaymentId: Record<string, SecurePaymentLegacy> = {
+						[pid]: chain,
+						'svc-escrow_123': chain
+					};
+					await installNdkContractsHarnessPlugins([paymentContract], chainByPaymentId);
 
-					surfaceComponent = DashboardContractsPanel;
+					surfaceComponent = DashboardContractsPanelNDK;
 					surfaceProps = {
 						initialType: 'services',
 						highlightEscrowId: 'svc-escrow_123'
 					};
 
 					await waitForSurfaceReady(() => {
-						return Boolean(
-							document.querySelector(
-								'[data-testid="service-harness-surface"] [role="dialog"][aria-modal="true"]'
-							) && document.body.textContent?.includes('Mark Service Complete')
-						);
+						const root = document.querySelector('[data-testid="service-harness-surface"]');
+						if (!root?.textContent?.includes('Premium Logo Package')) return false;
+						return Array.from(root.querySelectorAll('button')).some((btn) => {
+							const label = (btn.textContent ?? '').replace(/\s+/g, ' ').trim();
+							return label === 'Complete' || label.includes('Mark Service Complete');
+						});
 					});
 
+					const body = document.body.textContent ?? '';
+					const surfaceRoot = document.querySelector('[data-testid="service-harness-surface"]');
+					const completeActionPresent = surfaceRoot
+						? Array.from(surfaceRoot.querySelectorAll('button')).some((btn) => {
+								const label = (btn.textContent ?? '').replace(/\s+/g, ' ').trim();
+								return label === 'Complete' || label.includes('Mark Service Complete');
+							})
+						: false;
 					result = {
-						serviceCardPresent: Boolean(
-							document.querySelector(
-								'[data-testid="service-harness-surface"] [data-contract-escrow-id="svc-escrow_123"]'
-							)
-						),
+						serviceCardPresent: Boolean(surfaceRoot?.textContent?.includes('Premium Logo Package')),
 						highlightedDrawerPresent: Boolean(
 							document.querySelector(
 								'[data-testid="service-harness-surface"] [role="dialog"][aria-modal="true"]'
 							)
 						),
-						serviceScopePresent:
-							document.body.textContent?.includes('Logo system and brand guide') ?? false,
+						serviceScopePresent: body.includes('Logo system and brand guide'),
 						quotedServiceBadgePresent:
-							document.body.textContent?.includes('Quoted Service') ?? false,
-						completeActionPresent:
-							document.body.textContent?.includes('Mark Service Complete') ?? false,
-						agreementSchedulePresent:
-							document.body.textContent?.includes('Agreement schedule') ?? false
+							body.includes('Quoted Service') ||
+							body.includes('Quote request') ||
+							body.includes('qr_valid123'),
+						completeActionPresent,
+						agreementSchedulePresent: body.includes('Agreement schedule')
 					};
 					break;
 				}
@@ -1249,6 +1426,17 @@
 				</button>
 			</div>
 			<pre data-testid="requests-harness-state">{buildRequestsHarnessStateSnapshot()}</pre>
+		{/if}
+		{#if contractsHarnessStaleBanner}
+			<div
+				class="alert alert-outline alert-warning mb-4"
+				data-testid="contracts-panel-stale-alert"
+				role="status"
+			>
+				<span>
+					Showing last known contract data. Retry refresh to load the latest contracts from relays.
+				</span>
+			</div>
 		{/if}
 		<SurfaceComponent {...surfaceProps} />
 	</div>

@@ -15,7 +15,8 @@ import type {
 	ServiceContractAgreementSnapshot,
 	ServiceContractPricingSnapshot
 } from '$lib/types/contract';
-import { contractStore } from '$lib/stores/contract.store';
+import { ndk } from '$lib/nostr/ndk';
+import KINDS from '$lib/utils/constants/kinds';
 import { initContract } from '$lib/utils/contract';
 import { publishServiceContractEvent } from '$lib/utils/contract/v2/service-creation';
 import { getSecurePaymentContractAddress } from '$lib/utils/contract/v2/contractAddress';
@@ -60,8 +61,8 @@ function normalizeTransactionHash(transactionHash: string): string {
 
 async function loadContractIfAvailable(paymentId: string): Promise<boolean> {
 	try {
-		const loaded = await contractStore.loadContractByEscrowId(paymentId);
-		return Boolean(loaded);
+		const events = await ndk.fetchEvents({ kinds: [KINDS.CONTRACT], '#d': [paymentId], limit: 1 }, { closeOnEose: true });
+		return events.size > 0;
 	} catch {
 		return false;
 	}
@@ -166,7 +167,7 @@ export async function recoverBookNowContract(
 			console.warn('[recoverBookNowContract] publish failed:', publishResult.error);
 		}
 
-		if (await contractStore.loadContractByEscrowId(paymentId)) {
+		if ((await ndk.fetchEvents({ kinds: [KINDS.CONTRACT], '#d': [paymentId], limit: 1 }, { closeOnEose: true })).size > 0) {
 			return {
 				status: 'contract_ready',
 				escrowId: paymentId,

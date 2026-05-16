@@ -378,7 +378,7 @@
 							<UserInfoDisplay
 								avatar={service?.creator?.avatar ?? null}
 								username={service?.creator?.username ?? ''}
-								rating={service?.creator?.rating ?? 0}
+								rating={service?.creator?.rating ?? null}
 								size="sm"
 								pubkey={latestProposal.pubkey}
 								profileLink={latestProposal.pubkey}

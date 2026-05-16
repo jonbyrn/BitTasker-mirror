@@ -8,13 +8,15 @@
 	import { taskStore } from '$lib/stores/task.store';
 	import { deleteTask } from '$lib/nostr/task';
 	import { myTasksStore } from '$lib/stores/task.store';
-	import { escrow } from '$lib/utils/escrow';
+	import { ndk } from '$lib/nostr/ndk';
+	import KINDS from '$lib/utils/constants/kinds';
 	import { appStore } from '$lib/stores/app.store';
 	import Tabs from '$lib/components/Tabs.svelte';
 	import TaskDrawer from '$lib/components/task/TaskDrawer.svelte';
 	import DashboardTasksPanel from '$lib/components/task/DashboardTasksPanel.svelte';
 	import DashboardContractsPanelNDK from '$lib/components/contracts/DashboardContractsPanelNDK.svelte';
 	import MyQuotesPanel from '$lib/components/dashboard/quotes/MyQuotesPanel.svelte';
+	import PendingReviewBanner from '$lib/components/reviews/PendingReviewBanner.svelte';
 	import {
 		createDashboardUrl,
 		getTaskerTimelines,
@@ -310,8 +312,11 @@
 
 		// Check if task has contracts - prevent editing if contracts exist
 		try {
-			const contracts = await escrow.contractOps.getContracts({ taskIds: [taskToEdit.id] });
-			if (contracts.length > 0) {
+			const contracts = await ndk.fetchEvents(
+				{ kinds: [KINDS.CONTRACT], '#t': [taskToEdit.id], limit: 1 },
+				{ closeOnEose: true }
+			);
+			if (contracts.size > 0) {
 				appStore.showErrorToast(
 					$t('dashboard.task_details_by_task.cannot_edit_with_contract') ||
 						'Cannot edit task: A contract has been created for this task.'
@@ -430,6 +435,9 @@
 			<span>{activeTab.buttonLabel}</span>
 		</a>
 	</div>
+
+	<!-- Pending Review Banner -->
+	<PendingReviewBanner />
 
 	<!-- Dashboard Tabs -->
 	<Tabs {tabs} activeTab={activeTabId} onTabChange={handleTabChange} />

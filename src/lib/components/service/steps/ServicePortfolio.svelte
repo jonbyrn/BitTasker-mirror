@@ -5,9 +5,12 @@
 	import { serviceStore as store } from '$lib/stores/service.store';
 	import type { Attachment } from '$lib/types/task';
 	import { get } from 'svelte/store';
+	import { browser } from '$app/environment';
 	import uploadService from '$lib/api/services/upload.service';
 	import { compressImage, validateImageFile } from '$lib/utils/imageCompression';
 	import { t } from 'svelte-i18n';
+	import StreamPlayer from '$lib/components/StreamPlayer.svelte';
+	import Modal from '$lib/components/Modal.svelte';
 
 	let { errors, direction, attachmentsToRemove = $bindable([]) } = $props();
 
@@ -18,6 +21,18 @@
 
 	// Store object URLs for immediate preview (will be cleaned up)
 	let filePreviewUrls = $state<Map<File, string>>(new Map());
+
+	// Video preview modal state
+	let showVideoModal = $state(false);
+	let selectedVideoId = $state<string | null>(null);
+	let selectedVideoAlt = $state('');
+
+	// Custom thumbnail upload state
+	let customThumbnails = $state<Record<string, string>>({}); // uid -> thumbnailUrl
+	let thumbnailTargetUid = $state<string | null>(null);
+	let isUploadingThumbnail = $state(false);
+
+	const customerCode = browser ? import.meta.env.VITE_STREAM_CUSTOMER_CODE : '';
 
 	onMount(() => {
 		if (!$store.service.portfolio) {
@@ -68,6 +83,43 @@
 		}
 
 		return true;
+	}
+
+	// Thumbnail upload for video portfolio items
+	async function handleThumbnailUpload(event: Event) {
+		const input = event.target as HTMLInputElement;
+		const file = input.files?.[0];
+		const uid = thumbnailTargetUid;
+		if (!file || !uid) return;
+
+		isUploadingThumbnail = true;
+		try {
+			const compressed = await compressImage(file, {
+				maxSizeMB: 2,
+				maxWidthOrHeight: 3840,
+				quality: 0.8,
+				fileType: 'image/webp'
+			});
+			const result = await uploadService.uploadSingleFile(compressed.file, {
+				folder: 'thumbnails',
+				useCloudflare: true,
+				enableCompression: false,
+				generateVariants: true,
+				metadata: {
+					uploadedAt: new Date().toISOString(),
+					sourceVideoUid: uid
+				}
+			});
+			customThumbnails[uid] = result.url;
+			error = '';
+		} catch (err) {
+			console.error('Thumbnail upload failed:', err);
+			error = 'Failed to upload thumbnail';
+		} finally {
+			isUploadingThumbnail = false;
+			thumbnailTargetUid = null;
+			input.value = '';
+		}
 	}
 
 	async function handleFileChange(event: Event) {
@@ -297,27 +349,103 @@
 									loading="lazy"
 								/>
 							{:else if fileType === 'video/*' || fileType.startsWith('video/')}
-								<div
-									class="bg-base-200 flex h-full w-full flex-col items-center justify-center p-2"
+								<button
+									type="button"
+									class="relative h-full w-full cursor-pointer overflow-hidden"
+									onclick={() => {
+										selectedVideoId = file.key;
+										selectedVideoAlt =
+											file.alt || $t('dashboard.services.create.portfolio.video_label');
+										showVideoModal = true;
+									}}
 								>
-									<svg
-										xmlns="http://www.w3.org/2000/svg"
-										class="text-base-content/50 mb-2 h-12 w-12"
-										fill="none"
-										viewBox="0 0 24 24"
-										stroke="currentColor"
-										stroke-width="2"
-									>
-										<path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+									{#if customerCode && file.key}
+										<img
+											src={`https://customer-${customerCode}.cloudflarestream.com/${file.key}/thumbnails/thumbnail.jpg`}
+											alt={file.alt || $t('dashboard.services.create.portfolio.video_label')}
+											class="h-full w-full object-cover"
+											loading="lazy"
 										/>
-									</svg>
-									<span class="text-base-content/70 line-clamp-2 text-center text-xs"
-										>{file.alt || $t('dashboard.services.create.portfolio.video_label')}</span
-									>
-								</div>
+									{:else}
+										<div
+											class="bg-base-200 flex h-full w-full flex-col items-center justify-center p-2"
+										>
+											<svg
+												xmlns="http://www.w3.org/2000/svg"
+												class="text-base-content/50 mb-2 h-12 w-12"
+												fill="none"
+												viewBox="0 0 24 24"
+												stroke="currentColor"
+												stroke-width="2"
+											>
+												<path
+													stroke-linecap="round"
+													stroke-linejoin="round"
+													d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+												/>
+											</svg>
+											<span class="text-base-content/70 line-clamp-2 text-center text-xs"
+												>{file.alt || $t('dashboard.services.create.portfolio.video_label')}</span
+											>
+										</div>
+									{/if}
+									<div class="absolute inset-0 flex items-center justify-center bg-black/30">
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											class="h-10 w-10 text-white"
+											fill="currentColor"
+											viewBox="0 0 24 24"
+										>
+											<path d="M8 5v14l11-7z" />
+										</svg>
+									</div>
+									{#if file.key}
+										<!-- Thumbnail upload button -->
+										<div
+											role="button"
+											tabindex="0"
+											class="bg-base-100/80 hover:bg-base-100 absolute right-1 bottom-1 z-10 flex h-6 w-6 cursor-pointer items-center justify-center rounded-full p-1 shadow-md"
+											onclick={(e) => {
+												e.stopPropagation();
+												thumbnailTargetUid = file.key;
+												const input = document.getElementById(
+													'thumbnail-upload-input'
+												) as HTMLInputElement;
+												input?.click();
+											}}
+											onkeydown={(e) => {
+												if (e.key === 'Enter' || e.key === ' ') {
+													e.stopPropagation();
+													thumbnailTargetUid = file.key;
+													const input = document.getElementById(
+														'thumbnail-upload-input'
+													) as HTMLInputElement;
+													input?.click();
+												}
+											}}
+											title="Upload custom thumbnail"
+											aria-label="Upload custom thumbnail"
+										>
+											{#if isUploadingThumbnail && thumbnailTargetUid === file.key}
+												<span class="loading loading-spinner loading-xs"></span>
+											{:else}
+												<svg
+													xmlns="http://www.w3.org/2000/svg"
+													class="h-3.5 w-3.5"
+													viewBox="0 0 24 24"
+													fill="none"
+													stroke="currentColor"
+													stroke-width="2"
+												>
+													<path
+														d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"
+													/>
+													<circle cx="12" cy="13" r="4" />
+												</svg>
+											{/if}
+										</div>
+									{/if}
+								</button>
 							{:else}
 								<div class="bg-base-200 flex h-full w-full items-center justify-center">
 									<span class="text-base-content/70 text-xs"
@@ -439,6 +567,15 @@
 			{/if}
 		</div>
 
+		<!-- Hidden file input for custom thumbnail upload -->
+		<input
+			id="thumbnail-upload-input"
+			type="file"
+			accept="image/*"
+			class="hidden"
+			onchange={handleThumbnailUpload}
+		/>
+
 		{#if isUploading}
 			<div class="space-y-2">
 				<div class="text-info text-sm">
@@ -467,4 +604,22 @@
 	{#if errors.portfolio}
 		<span class="label-text-alt text-error block">{errors.portfolio}</span>
 	{/if}
+
+	<!-- Video preview modal -->
+	<Modal
+		isOpen={showVideoModal}
+		title={selectedVideoAlt}
+		onClose={() => (showVideoModal = false)}
+		size="xl"
+	>
+		{#if selectedVideoId}
+			<StreamPlayer
+				videoUid={selectedVideoId}
+				poster={customThumbnails[selectedVideoId] || null}
+				private={false}
+				controls={true}
+				autoplay={true}
+			/>
+		{/if}
+	</Modal>
 </div>

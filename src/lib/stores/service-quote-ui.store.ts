@@ -10,7 +10,8 @@ import type {
 	ServiceProposalStatusContent,
 	ServiceQuoteTimelineEntry
 } from '$lib/types/service-quote';
-import { contractStore } from '$lib/stores/contract.store';
+import { ndk } from '$lib/nostr/ndk';
+import KINDS from '$lib/utils/constants/kinds';
 import { walletStore } from '$lib/stores/wallet.store';
 import {
 	buildServiceAddress,
@@ -834,7 +835,7 @@ function createServiceQuoteUiStore() {
 			proposalId: timeline.latestProposal?.content.proposalId ?? null,
 			resolvedStatus: timeline.resolvedStatus,
 			linkedEscrowId: timeline.linkedEscrowId ?? null,
-			loadedContractCount: get(contractStore).contracts.length
+			loadedContractCount: 0
 		});
 
 		if (timeline.linkedEscrowId) {
@@ -849,19 +850,30 @@ function createServiceQuoteUiStore() {
 			return { status: 'no_change' };
 		}
 
-		const contracts = get(contractStore).contracts;
-		const matchingContract = contracts.find(
-			(contract) =>
-				contract.metadata?.serviceId === timeline.request.content.serviceId ||
-				contract.taskId === timeline.request.content.serviceId
-		);
+		const serviceId = timeline.request.content.serviceId;
+		if (serviceId) {
+			const currentPubkey = ndk.$currentPubkey;
+			if (currentPubkey) {
+				try {
+					const events = await ndk.fetchEvents(
+						{ kinds: [KINDS.CONTRACT], '#p': [currentPubkey], limit: 50 },
+						{ closeOnEose: true }
+					);
 
-		if (matchingContract) {
-			return {
-				status: 'accepted',
-				escrowId: matchingContract.escrowId,
-				transactionHash: matchingContract.metadata?.transactionHash
-			};
+					for (const ev of events) {
+						const cServiceId = ev.tags.find((t: string[]) => t[0] === 'serviceId')?.[1];
+						if (cServiceId === serviceId) {
+							const dTag = ev.tags.find((t: string[]) => t[0] === 'd')?.[1] || '';
+							const txHash = ev.tags.find((t: string[]) => t[0] === 'transactionHash')?.[1] || '';
+							return {
+								status: 'accepted',
+								escrowId: dTag,
+								transactionHash: txHash || undefined
+							};
+						}
+					}
+				} catch { /* NDK query failed */ }
+			}
 		}
 
 		return { status: 'no_change' };

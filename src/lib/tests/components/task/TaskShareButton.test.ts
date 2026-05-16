@@ -98,7 +98,7 @@ describe('TaskShareButton', () => {
 			expect(navigator.share).toHaveBeenCalledWith({
 				title: 'Translated task title',
 				text: expect.stringContaining('Translated task description'),
-				url: 'http://localhost:3000/tasks/task-123'
+				url: 'http://localhost/tasks/task-123'
 			});
 		});
 

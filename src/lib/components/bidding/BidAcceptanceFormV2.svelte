@@ -351,7 +351,7 @@
 								<UserInfoDisplay
 									avatar={bidContent.bidderAvatar}
 									username={bidContent.bidderName ?? ''}
-									rating={bidContent.bidderRating ?? 0}
+									rating={bidContent.bidderRating ?? null}
 									size="sm"
 									pubkey={bidContent.bidderId ?? null}
 									profileLink={bidContent.bidderId ?? null}
@@ -1000,7 +1000,7 @@
 						<UserInfoDisplay
 							avatar={bidContent.bidderAvatar}
 							username={bidContent.bidderName}
-							rating={bidContent.bidderRating ?? 0}
+							rating={bidContent.bidderRating ?? null}
 							size="sm"
 							pubkey={bidContent.bidderId ?? null}
 							memberSince={bid?.created_at ?? null}

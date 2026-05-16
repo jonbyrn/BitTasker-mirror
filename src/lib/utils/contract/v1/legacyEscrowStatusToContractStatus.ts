@@ -6,7 +6,6 @@
  * @see docs/payments-v2/v1-contract-rune-integration-plan.md §5.2–§5.3
  */
 
-import { EscrowStatus } from '$lib/utils/escrow/v1/escrow.enum';
 import { ContractStatus } from '$lib/utils/contract/types';
 
 /** `v` tag on 31006: legacy EscrowStatus semantics in `s`. */
@@ -24,50 +23,50 @@ export function normalizeLegacyEscrowStatusTagToContractStatus(
 	chainState?: number
 ): ContractStatus | undefined {
 	switch (legacyS) {
-		case EscrowStatus.Funded:
+		case 0:
 			return ContractStatus.Funded;
-		case EscrowStatus.InDispute:
+		case 1:
 			return ContractStatus.InDispute;
-		case EscrowStatus.DisputeResolved:
+		case 2:
 			return ContractStatus.DisputeResolved;
-		case EscrowStatus.DisputeUnresolved:
+		case 3:
 			return ContractStatus.DisputeUnresolved;
-		case EscrowStatus.Completed:
+		case 4:
 			return ContractStatus.Completed;
-		case EscrowStatus.Cancelled:
+		case 5:
 			return ContractStatus.Cancelled;
 
-		case EscrowStatus.PendingFunding:
+		case 6:
 			return ContractStatus.Funded;
 
-		case EscrowStatus.InProgress:
+		case 7:
 			return ContractStatus.WorkInProgress;
 
-		case EscrowStatus.PendingCompletion:
+		case 8:
 			return ContractStatus.Completed;
 
-		case EscrowStatus.PendingCancellation:
+		case 9:
 			return ContractStatus.Cancelled;
 
-		case EscrowStatus.FundsReleased:
+		case 10:
 			return ContractStatus.FundsReleased;
 
-		case EscrowStatus.PendingAcceptance:
+		case 11:
 			return ContractStatus.FundsReleased;
 
-		case EscrowStatus.DisputeResolutionProposed:
+		case 12:
 			return ContractStatus.InDispute;
 
-		case EscrowStatus.PendingDispute:
+		case 13:
 			return ContractStatus.InDispute;
 
-		case EscrowStatus.PendingResolutionProposal:
+		case 14:
 			return ContractStatus.InDispute;
 
-		case EscrowStatus.PendingProposalAcceptance:
+		case 15:
 			return ContractStatus.DisputeResolved;
 
-		case EscrowStatus.PendingTimelockResolution:
+		case 16:
 			if (chainState === ContractStatus.Completed) return ContractStatus.Completed;
 			if (chainState === ContractStatus.InDispute) return ContractStatus.InDispute;
 			return undefined;
