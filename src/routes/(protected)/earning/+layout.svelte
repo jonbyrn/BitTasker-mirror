@@ -4,7 +4,6 @@
 	import { goto } from '$app/navigation';
 	import { t } from 'svelte-i18n';
 	import Tabs from '$lib/components/Tabs.svelte';
-	import PendingReviewBanner from '$lib/components/reviews/PendingReviewBanner.svelte';
 
 	let { children } = $props();
 
@@ -159,8 +158,6 @@
 						<span>{activeTab.buttonLabel}</span>
 					</a>
 				</div>
-
-				<PendingReviewBanner />
 
 				<Tabs {tabs} activeTab={activeTabId} onTabChange={handleTabChange} />
 

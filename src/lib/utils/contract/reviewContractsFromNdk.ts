@@ -9,8 +9,7 @@ import { ndk } from '$lib/nostr/ndk';
 import KINDS from '$lib/utils/constants/kinds';
 import { getNpub } from '$lib/utils/nostrKeys';
 import { nip19 } from 'nostr-tools';
-import { loadPaymentContractDetails } from '$lib/utils/contract/v1';
-import { loadPaymentContractDetailsV2 } from '$lib/utils/contract/v2/loadPaymentContractDetailsV2';
+import { loadPaymentContractDetails } from '$lib/utils/contract/loadPaymentContractDetails';
 import type { ContractChain, SecurePaymentLegacy } from '$lib/utils/contract/types';
 import { ContractStatus } from '$lib/utils/contract/types';
 import type { IContractForReview } from '$lib/utils/reviews/contract-interface';
@@ -26,11 +25,85 @@ function pubkeyHexFromNpubOrHex(npubOrHex: string): string {
 	return npubOrHex;
 }
 
-function contractStateToLabel(state: number | undefined): string {
+export function contractStateToLabel(state: number | undefined): string {
 	if (state === undefined) return '';
 	const byNumber = ContractStatus as unknown as Record<number, string>;
 	const label = byNumber[state];
 	return typeof label === 'string' ? label : '';
+}
+
+/**
+ * Fetch the latest Kind 31006 status for each contract event ID in a single Nostr query.
+ * Groups by #e tag and keeps the newest event per contract.
+ * Contracts without any Kind 31006 events are absent from the map.
+ */
+export async function fetchLatestStatusFromNostr(
+	contractEventIds: string[]
+): Promise<Map<string, ContractStatus>> {
+	const out = new Map<string, ContractStatus>();
+	if (contractEventIds.length === 0) return out;
+
+	const events = await ndk.fetchEvents(
+		{ kinds: [KINDS.CONTRACT_STATUS], '#e': contractEventIds },
+		{ closeOnEose: true }
+	);
+
+	const newest = new Map<string, { created_at: number; rawS: string }>();
+	for (const event of events) {
+		const parentId = event.tagValue('e');
+		if (!parentId) continue;
+		const existing = newest.get(parentId);
+		if (!existing || (event.created_at ?? 0) > existing.created_at) {
+			newest.set(parentId, {
+				created_at: event.created_at ?? 0,
+				rawS: event.tagValue('s') ?? ''
+			});
+		}
+	}
+
+	for (const [contractId, { rawS }] of newest) {
+		const num = parseInt(rawS, 10);
+		if (!isNaN(num) && num >= 0 && num <= 11) {
+			out.set(contractId, num as ContractStatus);
+		}
+	}
+
+	return out;
+}
+
+/**
+ * Adapt a contract using the latest Kind 31006 s tag instead of an on-chain read.
+ * Wallet addresses are left undefined — the caller should resolve them on demand
+ * when the user opens the review form.
+ */
+export async function buildIContractForReviewFromNdkWithNostrStatus(
+	contract: NDKPaymentContract,
+	statusByContractId?: Map<string, ContractStatus>
+): Promise<IContractForReview | null> {
+	let liveStatus: string | undefined;
+
+	const cached = statusByContractId?.get(contract.id ?? '');
+	if (cached !== undefined) {
+		liveStatus = contractStateToLabel(cached) || undefined;
+	}
+
+	if (!liveStatus) {
+		const events = await ndk.fetchEvents(
+			{ kinds: [KINDS.CONTRACT_STATUS], '#e': [contract.id], limit: 1 },
+			{ closeOnEose: true }
+		);
+		const sorted = [...events].sort((a, b) => (b.created_at ?? 0) - (a.created_at ?? 0));
+		const newest = sorted[0];
+		if (newest) {
+			const rawS = newest.tagValue('s') ?? '';
+			const num = parseInt(rawS, 10);
+			if (!isNaN(num)) {
+				liveStatus = contractStateToLabel(num) || undefined;
+			}
+		}
+	}
+
+	return adaptNDKContract(contract, liveStatus || undefined, null);
 }
 
 async function loadSecurePaymentForContract(
@@ -43,18 +116,12 @@ async function loadSecurePaymentForContract(
 		return null;
 	}
 
-	const version = contract.version === 'v2' ? 'v2' : 'v1';
-
 	try {
-		if (version === 'v2') {
-			return await loadPaymentContractDetailsV2(paymentId, contractAddress, chain);
-		}
 		return await loadPaymentContractDetails(paymentId, contractAddress, chain);
 	} catch (err) {
 		d.warn('loadSecurePaymentForContract: chain read failed', {
 			paymentId,
 			contractAddress,
-			version,
 			err
 		});
 		return null;

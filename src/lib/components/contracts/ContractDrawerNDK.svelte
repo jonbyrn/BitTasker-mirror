@@ -125,7 +125,12 @@
 
 	const liveEscrowStatus = $derived.by(() => {
 		if (!contractRune) return undefined;
-		const status = contractRune.optimisticBlockchainStatus ?? contractRune.blockchainStatus;
+		// Use displayStatus (lifecycle-aware) instead of raw blockchainStatus so that V1 contracts
+		// correctly map chain Completed → FundsReleased via Kind 31006 status events.
+		// DisplayOnlyStatus values (InProgress=13, DisputeResolutionProposed=12) are not present
+		// in ContractStatus so ContractStatus[status] returns undefined, causing adaptNDKContract
+		// to fall back to the Nostr contract.status tag instead.
+		const status = contractRune.displayStatus;
 		return status !== undefined ? ContractStatus[status] : undefined;
 	});
 

@@ -132,6 +132,7 @@
 			"banner_count_one": "You have {count} pending review",
 			"banner_count_other": "You have {count} pending reviews",
 			"review_now": "Review Now",
+			"dismiss": "Dismiss",
 			"only_current_user": "Pending reviews are only visible to the account owner"
 		},
 		"management": {
@@ -139,6 +140,10 @@
 			"description": "Manage your reviews, view pending reviews, and see reviews you've given and received",
 			"loading": "Loading reviews",
 			"partial_load_warning": "Received reviews are available, but some review management data could not be refreshed."
+		},
+		"notification": {
+			"title": "{reviewerName} sent you a review",
+			"body": "Rate them back!"
 		},
 		"prompt": {
 			"title": "Write a Review",

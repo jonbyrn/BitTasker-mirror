@@ -6,15 +6,25 @@
 import type { IContractForReview } from '$lib/utils/reviews/contract-interface';
 import {
 	isReviewableStatus as isReviewable,
-	isConfirmedCompletionAction as isCompletion
+	isConfirmedCompletionAction as isCompletion,
+	isReviewableStatus
 } from '$lib/utils/reviews/status-mapper';
 import { hasUserReviewedContract } from '$lib/utils/reviews/queries';
 import { getNpub } from '$lib/utils/nostrKeys';
 import { fetchProfileMetadata } from '$lib/utils/nostr-message';
 import { normalizeNostrPubkey, nostrPubkeysMatch } from '$lib/utils/nostr-pubkey';
 import { ndk } from '$lib/nostr/ndk';
-import { fetchContractsForReview } from '$lib/utils/contract/reviewContractsFromNdk';
+import {
+	fetchNdkPaymentContractsForUser,
+	fetchLatestStatusFromNostr,
+	buildIContractForReviewFromNdkWithNostrStatus
+} from '$lib/utils/contract/reviewContractsFromNdk';
 import { createDebug } from '$lib/utils/debug';
+import { StorageKeys } from '../constants/storage';
+import { Preferences } from '@capacitor/preferences';
+import { goto } from '$app/navigation';
+import { appStore } from '$lib/stores/app.store';
+import KINDS from '$lib/utils/constants/kinds';
 
 const d = createDebug('reviews:helpers');
 
@@ -83,12 +93,106 @@ export function getOtherPartyPubkey(
  */
 async function fetchUserContracts(): Promise<IContractForReview[]> {
 	try {
-		const list = await fetchContractsForReview({ limit: 100 });
-		d.log('fetchUserContracts: Fetched contracts (NDK):', list.length);
-		return list;
+		const ndkContracts = await fetchNdkPaymentContractsForUser(100);
+		d.log('fetchUserContracts: Fetched NDK contracts:', ndkContracts.length);
+		if (ndkContracts.length === 0) return [];
+
+		const contractIds = ndkContracts.map((c) => c.id).filter(Boolean);
+		const statusMap = await fetchLatestStatusFromNostr(contractIds);
+
+		const results: IContractForReview[] = [];
+		for (const c of ndkContracts) {
+			const adapted = await buildIContractForReviewFromNdkWithNostrStatus(c, statusMap);
+			if (adapted) results.push(adapted);
+		}
+		return results;
 	} catch (err) {
 		d.error('fetchUserContracts: Error fetching contracts:', err);
 		return [];
+	}
+}
+
+/**
+ * Lightweight pending review count for notification badges.
+ *
+ * Uses exactly 3 Nostr queries and zero on-chain reads:
+ *   1. Kind 30006 — fetch user's contracts
+ *   2. Kind 6431 — fetch attestations by #e (contract event IDs)
+ *   3. Kind 31006 — fetch latest status for unreviewed contracts
+ *
+ * Key implementation note: attestation events carry TWO e tags —
+ *   e[0] = Kind 6430 review event ID
+ *   e[1] = Kind 30006 contract event ID  (subjectId passed by the client)
+ * The relay's #e filter matches on any e tag, so the batch query returns
+ * correctly. But tagValue('e') returns only the first tag (review event ID),
+ * which is never in our contractIds set. We must check ALL e tags and
+ * intersect with the known contract ID set.
+ */
+export async function getPendingReviewCount(): Promise<number> {
+	try {
+		const currentUserPubkey = await getNpub();
+		d.log('getPendingReviewCount: Current user pubkey:', currentUserPubkey?.slice(0, 16));
+		if (!currentUserPubkey) return 0;
+
+		// 1. Fetch user's contracts (Kind 30006)
+		const ndkContracts = await fetchNdkPaymentContractsForUser(100);
+		if (ndkContracts.length === 0) return 0;
+
+		const contractIds = ndkContracts.map((c) => c.id).filter(Boolean);
+		const contractIdSet = new Set(contractIds);
+
+		// 2. Fetch attestations that reference any of the contract IDs via #e.
+		//    The relay matches on ANY e tag — including the second one which holds
+		//    the contract event ID. After the query we check ALL e tags per attestation
+		//    and mark the matching contract as reviewed.
+		const reviewedContractIds = new Set<string>();
+		const attestationEvents = await ndk.fetchEvents(
+			{ kinds: [KINDS.ATTESTATION], '#e': contractIds },
+			{ closeOnEose: true }
+		);
+
+		for (const att of attestationEvents) {
+			try {
+				const attContent = JSON.parse(att.content);
+				if (!nostrPubkeysMatch(attContent.reviewerPubkey, currentUserPubkey)) continue;
+
+				// Walk all e tags and pick the one that matches a known contract ID.
+				// Attestations always have: e[0]=reviewEventId, e[1]=contractEventId.
+				// Using getMatchingTags covers both orders and the old single-e-tag format.
+				for (const tag of att.getMatchingTags('e')) {
+					if (contractIdSet.has(tag[1])) {
+						reviewedContractIds.add(tag[1]);
+						break;
+					}
+				}
+			} catch {
+				/* malformed attestation content — skip */
+			}
+		}
+
+		// 3. For contracts not yet marked as reviewed, check Kind 31006 status.
+		//    Only count those in a terminal reviewable state (FundsReleased, FundsClaimed,
+		//    DisputeResolved).
+		const unreviewedIds = contractIds.filter((id) => !reviewedContractIds.has(id));
+		if (unreviewedIds.length === 0) return 0;
+
+		const statusMap = await fetchLatestStatusFromNostr(unreviewedIds);
+
+		let count = 0;
+		for (const [, status] of statusMap) {
+			if (isReviewableStatus(status)) count++;
+		}
+
+		d.log(
+			'getPendingReviewCount: count=%d reviewed=%d unreviewed=%d',
+			count,
+			reviewedContractIds.size,
+			unreviewedIds.length
+		);
+		return count;
+	} catch (err) {
+		d.error('getPendingReviewCount: failed', err);
+		return 0;
 	}
 }
 
@@ -166,6 +270,79 @@ export async function findPendingReviews(
 
 export async function getPendingReviewsCount(contracts: IContractForReview[]): Promise<number> {
 	return (await findPendingReviews(contracts)).length;
+}
+
+// ── Banner trigger ───────────────────────────────────
+
+interface BannerDismissState {
+	count: number;
+	until: number;
+}
+
+async function wasBannerDismissed(currentCount: number): Promise<boolean> {
+	try {
+		const raw = await Preferences.get({ key: StorageKeys.PENDING_REVIEW_BANNER_DISMISSED });
+		if (!raw.value) return false;
+		const state: BannerDismissState = JSON.parse(raw.value);
+		if (Date.now() > state.until) return false;
+		if (currentCount > state.count) return false;
+		return true;
+	} catch {
+		return false;
+	}
+}
+
+async function updateDismissState(count: number) {
+	const state: BannerDismissState = {
+		count,
+		until: Date.now() + 24 * 60 * 60 * 1000 // 24 hours
+	};
+	await Preferences.set({
+		key: StorageKeys.PENDING_REVIEW_BANNER_DISMISSED,
+		value: JSON.stringify(state)
+	});
+}
+
+/**
+ * Checks pending review count and shows a banner toast if needed.
+ * Deduplication ensures only one banner exists at a time (per count).
+ * Dismissal is remembered in Preferences and reset when count changes.
+ * Returns the toast id, or null if no banner was shown.
+ */
+export async function triggerPendingReviewBanner(
+	reviewNowLabel: string,
+	dismissLabel: string
+): Promise<number | null> {
+	try {
+		const count = await getPendingReviewCount();
+		if (count <= 0 || (await wasBannerDismissed(count))) return null;
+
+		const message =
+			count === 1 ? `You have ${count} pending review` : `You have ${count} pending reviews`;
+
+		const dedupKey = `pending-review-banner-${count}`;
+
+		return appStore.showBanner({
+			message,
+			dedupKey,
+			actions: [
+				{
+					label: reviewNowLabel,
+					onClick: () => goto('/reviews'),
+					variant: 'primary'
+				},
+				{
+					label: dismissLabel,
+					onClick: () => updateDismissState(count),
+					variant: 'ghost'
+				}
+			],
+			dismissible: true,
+			duration: 0
+		});
+	} catch {
+		return null;
+	}
 }
 
 export function getRevieweeRoleFromContractParticipants(

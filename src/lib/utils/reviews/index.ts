@@ -15,6 +15,8 @@ export {
 	isConfirmedReviewCompletionAction,
 	findPendingReviews,
 	getPendingReviewsCount,
+	getPendingReviewCount,
+	triggerPendingReviewBanner,
 	getRevieweeRoleFromContractParticipants,
 	PartialPendingReviewsError
 } from './helpers';
