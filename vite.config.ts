@@ -233,7 +233,31 @@ export default defineConfig(({ mode }) => {
 					'status/**',
 					'.storybook/**',
 					'android/**',
-					'ios/**'
+					'ios/**',
+					'requirements/**',
+					// Tooling directories — prevent hot reloads from Claude/Ruflo/IDE writes
+					'**/.claude-flow/**',
+					'**/.swarm/**',
+					'**/.gitnexus/**',
+					'**/.svelte-kit/**',
+					'**/.wrangler/**',
+					'**/.ts-morph-cache/**',
+					'**/agentdb.rvf*',
+					'**/ruvector.db*',
+					'**/.idea/**',
+					'**/.vscode/**',
+					'**/.cursor/**',
+					'**/.gemini/**',
+					'**/.codex-plan-loop/**',
+					'**/.claude-plugin/**',
+					'**/.gitlab/**',
+					'**/.husky/**',
+					// Actively written during Claude sessions
+					'**/data/memory/**',
+					// Claude project-local config (hooks, skills, settings)
+					'**/.claude/**',
+					// E2E test artifacts (generated while dev server runs)
+					'**/playwright-report/**'
 				]
 			}
 		}
