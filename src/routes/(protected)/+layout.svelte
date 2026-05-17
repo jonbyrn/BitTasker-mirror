@@ -18,6 +18,7 @@
 	import IconCog from '~icons/mdi/cog';
 	import IconStarOutline from '~icons/mdi/star-outline';
 	import WarningPopup from '$lib/components/WarningPopup.svelte';
+	import { triggerPendingReviewBanner } from '$lib/utils/reviews';
 	import NotificationPermissionBanner from '$lib/components/notifications/NotificationPermissionBanner.svelte';
 
 	const { children } = $props();
@@ -40,6 +41,14 @@
 			if (!walletState.isConnected || !walletState.rsk?.wallet || !walletState.rsk?.provider) {
 				await walletManager.initialize();
 				walletState = get(walletStore);
+			}
+
+			// Trigger pending review banner (skip on /reviews)
+			if (page.url.pathname !== '/reviews') {
+				triggerPendingReviewBanner(
+					$t('reviews.pending.review_now') || 'Review Now',
+					$t('reviews.pending.dismiss') || 'Dismiss'
+				);
 			}
 		} catch (error) {
 			const d = createDebug('layout');
