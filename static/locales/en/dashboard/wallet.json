@@ -14,6 +14,7 @@
 		"show": "Show",
 		"liquid_balance": "Liquid Balance",
 		"send_button": "Send",
+		"more_options": "More",
 		"recent_transactions": "Recent Transactions",
 		"type": "Type",
 		"amount": "Amount",
@@ -325,9 +326,7 @@
 				"liquid_bitcoin": "Liquid Bitcoin",
 				"liquid_bitcoin_description": "L-BTC on Liquid network",
 				"bitcoin": "Bitcoin",
-				"bitcoin_description": "Native Bitcoin network",
-				"liquid_usdt": "Liquid USDT",
-				"liquid_usdt_description": "USDT on Liquid network"
+				"bitcoin_description": "Native Bitcoin network"
 			},
 			"coming_soon": "Coming Soon",
 			"usd_not_available": "USD sending functionality is not yet available.",
@@ -335,14 +334,12 @@
 				"lightning": "Lightning invoice or Lightning address",
 				"liquid_bitcoin": "Liquid address",
 				"bitcoin": "Bitcoin address",
-				"liquid_usdt": "Liquid USDT address",
 				"rootstock": "Rootstock address (0x...)"
 			},
 			"send_button": {
 				"lightning_bitcoin": "Send Lightning Bitcoin",
 				"liquid_bitcoin": "Send Liquid Bitcoin",
 				"bitcoin": "Send Bitcoin",
-				"liquid_usdt": "Send USDT",
 				"rootstock_bitcoin": "Send rBTC"
 			}
 		},
@@ -434,12 +431,10 @@
 			"placeholder_lightning": "Lightning invoice or Lightning address",
 			"placeholder_liquid_btc": "Liquid address",
 			"placeholder_bitcoin": "Bitcoin address",
-			"placeholder_liquid_usdt": "Liquid USDT address",
 			"placeholder_rootstock": "Rootstock address (0x...)",
 			"button_lightning": "Send Lightning Bitcoin",
 			"button_liquid_btc": "Send Liquid Bitcoin",
 			"button_bitcoin": "Send Bitcoin",
-			"button_liquid_usdt": "Send USDT",
 			"button_rootstock": "Send rBTC",
 			"scan_qr_code": "Scan QR Code",
 			"scan_qr_code_description": "Point your camera at a payment QR code",
@@ -461,6 +456,8 @@
 			"estimated_time_1_2_minutes": "1 - 2 minutes",
 			"seconds": "seconds",
 			"instant": "Instant",
+			"source_wallet": "Source Wallet",
+			"no_funds": "No funds",
 			"confirmation_warning": "This action cannot be undone. Please verify all details before confirming.",
 			"invalid_qr_code": "Invalid payment QR code. Only Rootstock, Lightning, Liquid, Bitcoin, or BSC USDT addresses are supported.",
 			"scanned_qr_code": "Scanned QR Code",
@@ -550,7 +547,6 @@
 		"bitcoin": "Bitcoin",
 		"rootstock_bitcoin": "Rootstock Bitcoin",
 		"l2_btc": "L2 BTC",
-		"usdt_liquid": "USDT (Liquid)",
 		"usdt_binance_chain": "USDT (Binance Chain)",
 		"coming_soon": "Coming Soon",
 		"retry": "Retry",
@@ -866,9 +862,10 @@
 					"description": "Native Bitcoin network",
 					"fee_info": "Network fee"
 				},
-				"liquid_usdt": {
-					"label": "Liquid USDT",
-					"description": "USDT on Liquid network"
+				"bsc_usdt": {
+					"label": "BSC USDT",
+					"description": "USDT on Binance Smart Chain",
+					"fee_info": "Network gas fee"
 				}
 			}
 		},
@@ -956,6 +953,46 @@
 				"estimated_confirmation_time": "Estimated confirmation time",
 				"estimated_time_remaining": "Estimated Time Remaining"
 			}
+		},
+
+		"chain_selector": {
+			"label": "Network",
+			"select_placeholder": "Select network",
+			"chain_name": "{chainName}",
+			"native_currency": "Native: {symbol}"
+		},
+
+		"gas_fee_display": {
+			"estimating": "Estimating gas...",
+			"gas_fee": "Gas fee",
+			"fee_amount": "{amount} {token}",
+			"confidence": "Confidence: {percent}%",
+			"paymaster_status": "Paymaster: {status}",
+			"paymaster_available": "Available",
+			"paymaster_degraded": "Degraded",
+			"paymaster_unavailable": "Unavailable",
+			"paymaster_status_green": "Paymaster available",
+			"paymaster_status_grey": "Paymaster not available for this operation",
+			"paymaster_status_red": "Paymaster unavailable"
+		},
+
+		"delegation_recovery": {
+			"title": "Cleanup Required",
+			"description": "Your previous transaction didn't finish cleaning up. Your funds are safe.",
+			"recovering": "Recovering...",
+			"cleanup_pending": "Cleanup pending. Your account will return to normal soon.",
+			"retry_button": "Retry Recovery",
+			"dismiss_button": "Dismiss",
+			"retry_attempt": "Attempt {current} of {max}",
+			"status_idle": "Ready",
+			"status_auth_signing": "Authorizing...",
+			"status_auth_signed": "Authorized",
+			"status_tx1_submitted": "Sending transaction...",
+			"status_tx1_mined": "Transaction sent",
+			"status_cleanup_needed": "Cleanup needed",
+			"status_tx2_submitted": "Cleaning up...",
+			"status_tx2_mined": "Cleanup complete",
+			"status_recovery_needed": "Recovery needed"
 		}
 	}
 }

@@ -13,6 +13,7 @@
 		"show": "Mira",
 		"liquid_balance": "Saldo Liquid",
 		"send_button": "Enviar",
+		"more_options": "Más",
 		"recent_transactions": "Transacciones recientes",
 		"type": "Tipo",
 		"amount": "Monto",
@@ -322,9 +323,7 @@
 				"liquid_bitcoin": "Bitcoin Liquid",
 				"liquid_bitcoin_description": "L-BTC en la red Liquid",
 				"bitcoin": "Bitcoin",
-				"bitcoin_description": "Red nativa de Bitcoin",
-				"liquid_usdt": "USDT Liquid",
-				"liquid_usdt_description": "USDT en la red Liquid"
+				"bitcoin_description": "Red nativa de Bitcoin"
 			},
 			"coming_soon": "Próximamente",
 			"usd_not_available": "La funcionalidad de envío de USD aún no está disponible.",
@@ -332,14 +331,12 @@
 				"lightning": "Factura Lightning o dirección Lightning",
 				"liquid_bitcoin": "Dirección Liquid",
 				"bitcoin": "Dirección Bitcoin",
-				"liquid_usdt": "Dirección USDT Liquid",
 				"rootstock": "Dirección Rootstock (0x...)"
 			},
 			"send_button": {
 				"lightning_bitcoin": "Enviar Bitcoin Lightning",
 				"liquid_bitcoin": "Enviar Bitcoin Liquid",
 				"bitcoin": "Enviar Bitcoin",
-				"liquid_usdt": "Enviar USDT",
 				"rootstock_bitcoin": "Enviar rBTC"
 			}
 		},
@@ -405,12 +402,10 @@
 			"placeholder_lightning": "Factura Lightning o dirección Lightning",
 			"placeholder_liquid_btc": "Dirección Liquid",
 			"placeholder_bitcoin": "Dirección Bitcoin",
-			"placeholder_liquid_usdt": "Dirección USDT Liquid",
 			"placeholder_rootstock": "Dirección Rootstock (0x...)",
 			"button_lightning": "Enviar Lightning Bitcoin",
 			"button_liquid_btc": "Enviar Liquid Bitcoin",
 			"button_bitcoin": "Enviar Bitcoin",
-			"button_liquid_usdt": "Enviar USDT",
 			"button_rootstock": "Enviar rBTC",
 			"scan_qr_code": "Escanear Código QR",
 			"scan_qr_code_description": "Apunta tu cámara a un código QR de pago",
@@ -432,6 +427,8 @@
 			"estimated_time_1_2_minutes": "1 - 2 minutos",
 			"seconds": "segundos",
 			"instant": "Instantáneo",
+			"source_wallet": "Billetera de Origen",
+			"no_funds": "Sin fondos",
 			"confirmation_warning": "Esta acción no se puede deshacer. Por favor, verifica todos los detalles antes de confirmar.",
 			"invalid_qr_code": "Código QR de pago inválido. Solo se admiten direcciones de Rootstock, Lightning, Liquid, Bitcoin o USDT en BSC.",
 			"scanned_qr_code": "Código QR Escaneado",
@@ -546,7 +543,6 @@
 		"bitcoin": "Bitcoin",
 		"rootstock_bitcoin": "Bitcoin Rootstock",
 		"l2_btc": "L2 BTC",
-		"usdt_liquid": "USDT (Liquid)",
 		"usdt_binance_chain": "USDT (Binance Chain)",
 		"coming_soon": "Próximamente",
 		"retry": "Reintentar",
@@ -875,9 +871,10 @@
 					"description": "Red Bitcoin nativa",
 					"fee_info": "Tarifa de red"
 				},
-				"liquid_usdt": {
-					"label": "USDT Liquid",
-					"description": "USDT en la red Liquid"
+				"bsc_usdt": {
+					"label": "USDT BSC",
+					"description": "USDT en Binance Smart Chain",
+					"fee_info": "Tarifa de gas de red"
 				}
 			}
 		},

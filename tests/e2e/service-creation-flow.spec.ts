@@ -24,14 +24,14 @@ test.describe('Service Creation Wizard', () => {
 
 		// Check for next button
 		const nextButton = page.locator('button:has-text(/next|continue/i)').first();
-		if (await nextButton.count() > 0) {
+		if ((await nextButton.count()) > 0) {
 			const isEnabled = await nextButton.isEnabled();
 			console.log(`✓ Next button available: ${isEnabled}`);
 		}
 
 		// Check for progress indicator
 		const progress = page.locator('[role="progressbar"], .progress, [class*="step"]').first();
-		if (await progress.count() > 0) {
+		if ((await progress.count()) > 0) {
 			console.log('✓ Progress indicator visible');
 		}
 	});
@@ -41,8 +41,12 @@ test.describe('Service Creation Wizard', () => {
 		await page.waitForLoadState('networkidle');
 
 		// Look for title input
-		const titleInput = page.locator('input[placeholder*="title" i], input[placeholder*="service name" i], input[type="text"]').first();
-		if (await titleInput.count() > 0) {
+		const titleInput = page
+			.locator(
+				'input[placeholder*="title" i], input[placeholder*="service name" i], input[type="text"]'
+			)
+			.first();
+		if ((await titleInput.count()) > 0) {
 			await titleInput.fill('Test Service');
 			const value = await titleInput.inputValue();
 			console.log(`✓ Service title input works: "${value}"`);
@@ -50,9 +54,8 @@ test.describe('Service Creation Wizard', () => {
 
 		// Look for description input
 		const descriptionInput = page.locator('textarea').first();
-		if (await descriptionInput.count() > 0) {
+		if ((await descriptionInput.count()) > 0) {
 			await descriptionInput.fill('This is a test service description');
-			const value = await descriptionInput.textContent();
 			console.log(`✓ Service description input works`);
 		}
 	});
@@ -62,14 +65,18 @@ test.describe('Service Creation Wizard', () => {
 		await page.waitForLoadState('networkidle');
 
 		// Look for category selector
-		const categoryButton = page.locator('button:has-text(/categor/i), [data-testid*="category"]').first();
-		if (await categoryButton.count() > 0) {
+		const categoryButton = page
+			.locator('button:has-text(/categor/i), [data-testid*="category"]')
+			.first();
+		if ((await categoryButton.count()) > 0) {
 			await categoryButton.click();
 			await page.waitForTimeout(300);
 			console.log('✓ Category selector opened');
 
 			// Look for category options
-			const categoryOptions = page.locator('[role="option"], label:has-text(/design|development/i)');
+			const categoryOptions = page.locator(
+				'[role="option"], label:has-text(/design|development/i)'
+			);
 			const count = await categoryOptions.count();
 			console.log(`✓ Found ${count} category options`);
 		}
@@ -80,11 +87,11 @@ test.describe('Service Creation Wizard', () => {
 		await page.waitForLoadState('networkidle');
 
 		// Navigate through steps to find pricing section
-		let nextButton = page.locator('button:has-text(/next|continue/i)').first();
+		const nextButton = page.locator('button:has-text(/next|continue/i)').first();
 		let stepCount = 0;
 
 		// Go through several steps to reach pricing
-		while (stepCount < 3 && await nextButton.count() > 0) {
+		while (stepCount < 3 && (await nextButton.count()) > 0) {
 			const enabled = await nextButton.isEnabled();
 			if (enabled) {
 				await nextButton.click();
@@ -106,10 +113,9 @@ test.describe('Service Creation Wizard', () => {
 		await page.waitForLoadState('networkidle');
 
 		// Try to submit without filling required fields
-		const submitButton = page.locator('button:has-text(/submit|create|save/i)').first();
 		const nextButton = page.locator('button:has-text(/next|continue/i)').first();
 
-		if (await nextButton.count() > 0 && await nextButton.isEnabled()) {
+		if ((await nextButton.count()) > 0 && (await nextButton.isEnabled())) {
 			// Click next without filling form - should show validation error
 			await nextButton.click();
 			await page.waitForTimeout(300);
@@ -126,19 +132,19 @@ test.describe('Service Creation Wizard', () => {
 
 		// Fill in service title
 		const titleInput = page.locator('input[type="text"]').first();
-		if (await titleInput.count() > 0) {
+		if ((await titleInput.count()) > 0) {
 			await titleInput.fill('Persistent Service Title');
 			const initialValue = await titleInput.inputValue();
 
 			// Look for next button and click it (if wizard exists)
 			const nextButton = page.locator('button:has-text(/next|continue/i)').first();
-			if (await nextButton.count() > 0 && await nextButton.isEnabled()) {
+			if ((await nextButton.count()) > 0 && (await nextButton.isEnabled())) {
 				await nextButton.click();
 				await page.waitForTimeout(300);
 
 				// Look for back button and go back
 				const backButton = page.locator('button:has-text(/back|previous/i)').first();
-				if (await backButton.count() > 0) {
+				if ((await backButton.count()) > 0) {
 					await backButton.click();
 					await page.waitForTimeout(300);
 
@@ -158,7 +164,7 @@ test.describe('Service Creation Wizard', () => {
 
 		// Fill in some basic info
 		const titleInput = page.locator('input[type="text"]').first();
-		if (await titleInput.count() > 0) {
+		if ((await titleInput.count()) > 0) {
 			await titleInput.fill('Draft Service Test');
 			await page.waitForTimeout(500); // Wait for autosave
 
@@ -168,7 +174,7 @@ test.describe('Service Creation Wizard', () => {
 
 			// Check if draft was restored
 			const restoredInput = page.locator('input[type="text"]').first();
-			if (await restoredInput.count() > 0) {
+			if ((await restoredInput.count()) > 0) {
 				const restoredValue = await restoredInput.inputValue();
 				const restored = restoredValue === 'Draft Service Test';
 				console.log(`✓ Draft autosave: ${restored ? 'working' : 'not visible'}`);
@@ -197,7 +203,7 @@ test.describe('Service Creation Wizard', () => {
 		await page.waitForLoadState('networkidle');
 
 		// Look for required field indicators
-		const requiredLabels = page.locator('label:has-text(/required|\*/i), .required');
+		const requiredLabels = page.locator('label:has-text(/required|[*]/i), .required');
 		const requiredCount = await requiredLabels.count();
 		console.log(`✓ Required field indicators: ${requiredCount} found`);
 

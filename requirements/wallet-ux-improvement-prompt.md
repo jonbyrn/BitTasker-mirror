@@ -36,6 +36,7 @@ Use Tailwind utility classes for responsive sizing:
 - **Footer**: `sticky lg:static bottom-0 bg-base-100 border-t border-base-300 p-4 lg:p-6`
 
 **Key Features:**
+
 - Focus trapping and keyboard handling (Escape to close, Tab navigation)
 - Body scroll lock when modal is open
 - Svelte transitions (fly for mobile, scale for desktop)
@@ -72,12 +73,14 @@ Use Tailwind utility classes for responsive sizing:
 ### Design Specifications
 
 **Colors:**
+
 - Primary button: DaisyUI `btn-primary` (Bitcoin orange theme)
 - Cancel button: DaisyUI `btn-error`
 - Active toggle: `bg-primary`
 - Text: `text-base-content` (primary), `text-base-content/70` (secondary)
 
 **Typography:**
+
 - Title: `text-2xl md:text-3xl font-bold`
 - Primary amount: `text-4xl md:text-5xl lg:text-6xl font-bold`
 - Conversion: `text-sm md:text-base text-base-content/70`
@@ -86,21 +89,25 @@ Use Tailwind utility classes for responsive sizing:
 ## Functional Requirements
 
 ### 1. Live Price Ticker
+
 - Display: `BTC $93,427.18` (current price)
 - Source: `cryptoPriceService.getCurrentPrice('BTC')`
 - Update: Every 30-60 seconds or on mount
 
 ### 2. Amount Display
+
 - **Primary**: Show amount in selected unit (sats or USD), very large, bold, center-aligned
 - **Conversion**: Show equivalent in other unit below (smaller, gray)
 - Update in real-time as amount changes
 
 ### 3. Unit Toggle
+
 - Options: "Sats" and "USD"
 - Visual: Radio-style buttons with orange filled circle (◉) for active, empty circle (○) for inactive
 - Behavior: Convert amount using current BTC price when switching units, preserve precision
 
 ### 4. Calculator Interface
+
 - **Layout**: 4x4 grid of buttons
 - **Functions**:
   - Numbers (0-9): Append to current amount
@@ -109,20 +116,22 @@ Use Tailwind utility classes for responsive sizing:
   - Delete (⌫): Remove last digit
   - Operators (+, −, ×, ÷): Enable users to calculate total amounts directly in the wallet (e.g., add multiple items, calculate fees, etc.)
 - **Styling**: Minimum 44px height, DaisyUI button styles, grid layout with gap
-- **Validation**: 
+- **Validation**:
   - USD mode: Allow decimals
   - Sats mode: Whole numbers only
   - Prevent invalid amounts
 
 ### 5. Network Selector
+
 - Display: Pill-shaped button with network name and dropdown arrow
-- Options: 
+- Options:
   - **Bitcoin networks**: `lightning-bitcoin`, `rootstock-bitcoin`, `liquid-bitcoin`, `bitcoin` (on-chain)
   - **USD networks**: `usdt-bsc` (BSC USDT)
 - Behavior: Dropdown menu, show network icon, update fee estimates on change, disable unavailable networks
 - Network availability: Check `$walletStore.hasAnyConnection` and network-specific connection states
 
 ### 6. Fee Display
+
 - Label: "Network Fees:"
 - Value: Estimated fee calculated using existing fee estimation functions
 - **Fee Calculation Methods**:
@@ -134,16 +143,18 @@ Use Tailwind utility classes for responsive sizing:
 - Display: Show fee in sats with USD equivalent if BTC price available
 
 ### 7. Total Received
+
 - Label: "Total Received"
 - Value: Net amount after fees (`amount - networkFees - swapFees`)
 - Display: Large, prominent (smaller than primary amount)
 - Format: Always display in sats
-- **Calculation**: 
+- **Calculation**:
   - For swaps: `amount - serviceFee - minerFee`
   - For direct sends: `amount - gasFee`
   - Real-time update as fees change
 
 ### 8. Action Buttons
+
 - **Cancel**: `btn-error`, closes/resets form
 - **Generate Invoice** (Receive) / **Send** (Send): `btn-primary`, disabled when invalid, shows loading state
 
@@ -186,22 +197,22 @@ let selectedNetwork = $state('lightning-bitcoin');
 
 // Derived values
 let amountInSats = $derived(() => {
-  if (unit === 'sats') {
-    return Math.floor(parseFloat(amount) || 0);
-  } else {
-    const usdAmount = parseFloat(amount) || 0;
-    if (btcPrice === 0) return 0;
-    return Math.floor((usdAmount / btcPrice) * 100_000_000);
-  }
+	if (unit === 'sats') {
+		return Math.floor(parseFloat(amount) || 0);
+	} else {
+		const usdAmount = parseFloat(amount) || 0;
+		if (btcPrice === 0) return 0;
+		return Math.floor((usdAmount / btcPrice) * 100_000_000);
+	}
 });
 
 let amountInUSD = $derived(() => {
-  if (unit === 'usd') {
-    return parseFloat(amount) || 0;
-  } else {
-    const sats = parseFloat(amount) || 0;
-    return (sats / 100_000_000) * btcPrice;
-  }
+	if (unit === 'usd') {
+		return parseFloat(amount) || 0;
+	} else {
+		const sats = parseFloat(amount) || 0;
+		return (sats / 100_000_000) * btcPrice;
+	}
 });
 ```
 
@@ -215,56 +226,64 @@ let previousValue = $state<number | null>(null);
 let operator = $state<string | null>(null);
 
 function handleCalculatorInput(value: string) {
-  if (value === 'C') {
-    calculatorValue = '';
-    amount = '';
-    previousValue = null;
-    operator = null;
-  } else if (value === '⌫') {
-    calculatorValue = calculatorValue.slice(0, -1);
-    amount = calculatorValue;
-  } else if (value === '.') {
-    if (unit === 'sats') return; // No decimals for sats
-    if (!calculatorValue.includes('.')) {
-      calculatorValue += '.';
-      amount = calculatorValue;
-    }
-  } else if (['+', '−', '×', '÷'].includes(value)) {
-    // Store current value and operator
-    if (calculatorValue) {
-      previousValue = parseFloat(calculatorValue) || 0;
-      operator = value;
-      calculatorValue = '';
-    }
-  } else if (value === '=') {
-    // Perform calculation
-    if (previousValue !== null && operator && calculatorValue) {
-      const currentValue = parseFloat(calculatorValue) || 0;
-      let result = 0;
-      
-      switch (operator) {
-        case '+': result = previousValue + currentValue; break;
-        case '−': result = previousValue - currentValue; break;
-        case '×': result = previousValue * currentValue; break;
-        case '÷': result = currentValue !== 0 ? previousValue / currentValue : 0; break;
-      }
-      
-      // Update amount with result
-      if (unit === 'sats') {
-        amount = Math.floor(result).toString();
-      } else {
-        amount = result.toFixed(2);
-      }
-      calculatorValue = amount;
-      previousValue = null;
-      operator = null;
-    }
-  } else {
-    // Number input
-    if (unit === 'sats' && calculatorValue.includes('.')) return; // No decimals for sats
-    calculatorValue += value;
-    amount = calculatorValue;
-  }
+	if (value === 'C') {
+		calculatorValue = '';
+		amount = '';
+		previousValue = null;
+		operator = null;
+	} else if (value === '⌫') {
+		calculatorValue = calculatorValue.slice(0, -1);
+		amount = calculatorValue;
+	} else if (value === '.') {
+		if (unit === 'sats') return; // No decimals for sats
+		if (!calculatorValue.includes('.')) {
+			calculatorValue += '.';
+			amount = calculatorValue;
+		}
+	} else if (['+', '−', '×', '÷'].includes(value)) {
+		// Store current value and operator
+		if (calculatorValue) {
+			previousValue = parseFloat(calculatorValue) || 0;
+			operator = value;
+			calculatorValue = '';
+		}
+	} else if (value === '=') {
+		// Perform calculation
+		if (previousValue !== null && operator && calculatorValue) {
+			const currentValue = parseFloat(calculatorValue) || 0;
+			let result = 0;
+
+			switch (operator) {
+				case '+':
+					result = previousValue + currentValue;
+					break;
+				case '−':
+					result = previousValue - currentValue;
+					break;
+				case '×':
+					result = previousValue * currentValue;
+					break;
+				case '÷':
+					result = currentValue !== 0 ? previousValue / currentValue : 0;
+					break;
+			}
+
+			// Update amount with result
+			if (unit === 'sats') {
+				amount = Math.floor(result).toString();
+			} else {
+				amount = result.toFixed(2);
+			}
+			calculatorValue = amount;
+			previousValue = null;
+			operator = null;
+		}
+	} else {
+		// Number input
+		if (unit === 'sats' && calculatorValue.includes('.')) return; // No decimals for sats
+		calculatorValue += value;
+		amount = calculatorValue;
+	}
 }
 ```
 
@@ -274,22 +293,22 @@ function handleCalculatorInput(value: string) {
 
 ```svelte
 {#if $walletStore.isInitializing}
-  <div class="loading-state">
-    <span class="loading loading-spinner"></span>
-    <p>Initializing wallet...</p>
-  </div>
+	<div class="loading-state">
+		<span class="loading loading-spinner"></span>
+		<p>Initializing wallet...</p>
+	</div>
 {:else if $walletStore.error}
-  <div class="error-state">
-    <p>Wallet initialization failed</p>
-    <button onclick={() => walletManager.initialize()}>Retry</button>
-  </div>
+	<div class="error-state">
+		<p>Wallet initialization failed</p>
+		<button onclick={() => walletManager.initialize()}>Retry</button>
+	</div>
 {:else if !$walletStore.hasAnyConnection}
-  <div class="no-wallet-state">
-    <p>Wallet not connected</p>
-    <button onclick={() => walletManager.initialize()}>Connect Wallet</button>
-  </div>
+	<div class="no-wallet-state">
+		<p>Wallet not connected</p>
+		<button onclick={() => walletManager.initialize()}>Connect Wallet</button>
+	</div>
 {:else}
-  <!-- Show payment form -->
+	<!-- Show payment form -->
 {/if}
 ```
 
@@ -298,6 +317,7 @@ function handleCalculatorInput(value: string) {
 ### Invoice Content
 
 Invoices should include:
+
 - **Address**: Payment address (Lightning invoice, RBTC address, L-BTC address, or BSC USDT address)
 - **Amount**: Requested amount in sats
 - **Memo**: Optional description/memo field
@@ -305,21 +325,25 @@ Invoices should include:
 ### Invoice Generation
 
 **Lightning (reverse swap)**:
+
 - Use existing `LightningReceive.svelte` component logic
 - Call `walletManager.reverseSwapService.createReverseSwap()` with amount
 - Returns Lightning invoice from Boltz API
 
 **Liquid (chain swap)**:
+
 - Use existing `LBTCReceive.svelte` component logic
 - Call `walletManager.chainSwapService.createChainSwap()` with amount
 - Returns L-BTC address and payment URI
 
 **Rootstock (direct)**:
+
 - Use existing `RSKReceive.svelte` component logic
 - Get address from `walletManager.getRSKWallet().getAddress()`
 - Display address as QR code
 
 **BSC USDT**:
+
 - Get BSC wallet address from `walletManager.getBSCWallet().getAddress()`
 - Display address as QR code
 
@@ -329,113 +353,112 @@ After invoice generation, display using existing QR code generation function:
 
 ```svelte
 <script lang="ts">
-  import generateQrCodeUrl from '$lib/utils/helpers/generateQrCodeUrl';
-  import { copyToClipboard } from '$lib/utils/helpers/clipboard';
-  import IconContentCopy from '~icons/mdi/content-copy';
-  import { appStore } from '$lib/stores/app.store';
-  
-  let qrCodeDataUrl = $state('');
-  let addressCopied = $state(false);
-  
-  // Generate QR code when invoice is created
-  $effect(async () => {
-    if (invoiceAddress) {
-      try {
-        qrCodeDataUrl = await generateQrCodeUrl(invoiceAddress);
-      } catch (error) {
-        console.error('Failed to generate QR code:', error);
-        appStore.showErrorToast('Failed to generate QR code');
-      }
-    }
-  });
-  
-  async function copyAddress() {
-    if (invoiceAddress) {
-      await copyToClipboard(invoiceAddress);
-      appStore.showSuccessToast($t('wallet.address_copied'));
-      addressCopied = true;
-      setTimeout(() => {
-        addressCopied = false;
-      }, 2000);
-    }
-  }
+	import generateQrCodeUrl from '$lib/utils/helpers/generateQrCodeUrl';
+	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
+	import IconContentCopy from '~icons/mdi/content-copy';
+	import { appStore } from '$lib/stores/app.store';
+
+	let qrCodeDataUrl = $state('');
+	let addressCopied = $state(false);
+
+	// Generate QR code when invoice is created
+	$effect(async () => {
+		if (invoiceAddress) {
+			try {
+				qrCodeDataUrl = await generateQrCodeUrl(invoiceAddress);
+			} catch (error) {
+				console.error('Failed to generate QR code:', error);
+				appStore.showErrorToast('Failed to generate QR code');
+			}
+		}
+	});
+
+	async function copyAddress() {
+		if (invoiceAddress) {
+			await copyToClipboard(invoiceAddress);
+			appStore.showSuccessToast($t('wallet.address_copied'));
+			addressCopied = true;
+			setTimeout(() => {
+				addressCopied = false;
+			}, 2000);
+		}
+	}
 </script>
 
 <div class="invoice-display space-y-6">
-  <!-- Very Large QR Code (minimum 300px on mobile, 400px on desktop) -->
-  <div class="qr-code-container flex justify-center">
-    {#if qrCodeDataUrl}
-      <div class="rounded-lg bg-white p-2 shadow-lg">
-        <div class="w-full max-w-[300px] md:max-w-[400px]">
-          <img 
-            src={qrCodeDataUrl} 
-            alt="Payment QR Code" 
-            class="h-full w-full" 
-          />
-        </div>
-      </div>
-    {:else}
-      <div class="flex h-[300px] md:h-[400px] w-[300px] md:w-[400px] items-center justify-center rounded-lg bg-base-200">
-        <span class="loading loading-spinner loading-lg"></span>
-      </div>
-    {/if}
-  </div>
-  
-  <!-- Address Display (copyable) -->
-  <div class="address-display">
-    <label class="label">
-      <span class="label-text font-semibold">{$t('wallet.address')}</span>
-    </label>
-    <div class="flex items-center gap-2">
-      <button
-        class="btn btn-outline flex-1 justify-start h-auto min-h-12 p-3 text-left break-all"
-        onclick={copyAddress}
-      >
-        <code class="text-xs leading-relaxed break-all">
-          {invoiceAddress}
-        </code>
-      </button>
-      {#if addressCopied}
-        <div class="badge badge-success">{$t('wallet.copied')}</div>
-      {/if}
-    </div>
-  </div>
-  
-  <!-- Amount Display -->
-  <div class="amount-display">
-    <label class="label">
-      <span class="label-text font-semibold">{$t('wallet.amount')}</span>
-    </label>
-    <div class="text-2xl font-bold">{amountInSats.toLocaleString()} sats</div>
-    {#if btcPrice > 0}
-      <div class="text-base-content/70">
-        ≈ ${amountInUSD.toFixed(2)} USD
-      </div>
-    {/if}
-  </div>
-  
-  <!-- Memo (if provided) -->
-  {#if memo}
-    <div class="memo-display">
-      <label class="label">
-        <span class="label-text font-semibold">{$t('wallet.description')}</span>
-      </label>
-      <div class="text-base">{memo}</div>
-    </div>
-  {/if}
-  
-  <!-- Share Button (mobile) -->
-  <button class="btn btn-outline w-full" onclick={shareInvoice}>
-    {$t('wallet.share_invoice')}
-  </button>
+	<!-- Very Large QR Code (minimum 300px on mobile, 400px on desktop) -->
+	<div class="qr-code-container flex justify-center">
+		{#if qrCodeDataUrl}
+			<div class="rounded-lg bg-white p-2 shadow-lg">
+				<div class="w-full max-w-[300px] md:max-w-[400px]">
+					<img src={qrCodeDataUrl} alt="Payment QR Code" class="h-full w-full" />
+				</div>
+			</div>
+		{:else}
+			<div
+				class="bg-base-200 flex h-[300px] w-[300px] items-center justify-center rounded-lg md:h-[400px] md:w-[400px]"
+			>
+				<span class="loading loading-spinner loading-lg"></span>
+			</div>
+		{/if}
+	</div>
+
+	<!-- Address Display (copyable) -->
+	<div class="address-display">
+		<label class="label">
+			<span class="label-text font-semibold">{$t('wallet.address')}</span>
+		</label>
+		<div class="flex items-center gap-2">
+			<button
+				class="btn btn-outline h-auto min-h-12 flex-1 justify-start p-3 text-left break-all"
+				onclick={copyAddress}
+			>
+				<code class="text-xs leading-relaxed break-all">
+					{invoiceAddress}
+				</code>
+			</button>
+			{#if addressCopied}
+				<div class="badge badge-success">{$t('wallet.copied')}</div>
+			{/if}
+		</div>
+	</div>
+
+	<!-- Amount Display -->
+	<div class="amount-display">
+		<label class="label">
+			<span class="label-text font-semibold">{$t('wallet.amount')}</span>
+		</label>
+		<div class="text-2xl font-bold">{amountInSats.toLocaleString()} sats</div>
+		{#if btcPrice > 0}
+			<div class="text-base-content/70">
+				≈ ${amountInUSD.toFixed(2)} USD
+			</div>
+		{/if}
+	</div>
+
+	<!-- Memo (if provided) -->
+	{#if memo}
+		<div class="memo-display">
+			<label class="label">
+				<span class="label-text font-semibold">{$t('wallet.description')}</span>
+			</label>
+			<div class="text-base">{memo}</div>
+		</div>
+	{/if}
+
+	<!-- Share Button (mobile) -->
+	<button class="btn btn-outline w-full" onclick={shareInvoice}>
+		{$t('wallet.share_invoice')}
+	</button>
 </div>
 ```
 
 **QR Code Implementation**:
+
 - **Use existing function**: `generateQrCodeUrl()` from `$lib/utils/helpers/generateQrCodeUrl`
 - **Function signature**: `generateQrCodeUrl(data: string): Promise<string>`
 - **Returns**: Data URL string (can be used directly in `<img src={qrUrl} />`)
-- **Features**: 
+- **Features**:
   - Includes BitTasker logo overlay
   - High error correction level ('H') for logo overlay
   - Default width: 256px (can be scaled via CSS)
@@ -458,85 +481,81 @@ The send payment form uses a two-tab interface:
 **Default Tab**: Opens to QR code scanner by default for better mobile UX.
 
 **Implementation**:
+
 ```svelte
 <script lang="ts">
-  import QrCodeScanner from '$lib/components/QrCodeScanner.svelte';
-  import { parsePaymentAddress } from '$lib/utils/helpers/paymentAddressParser';
-  
-  let activeTab = $state<'scan' | 'enter'>('scan'); // Default to 'scan'
-  let scannedData = $state<PaymentData | null>(null);
-  let showConfirmation = $state(false);
-  
-  // Payment data structure
-  interface PaymentData {
-    address: string;
-    network: 'lightning-bitcoin' | 'rootstock-bitcoin' | 'liquid-bitcoin' | 'bitcoin' | 'usdt-bsc';
-    amount: number | null; // null if not specified in QR code
-    memo: string | null;
-    rawData: string; // Original scanned data
-  }
-  
-  async function handleQRScan(barcode: { rawValue: string }) {
-    try {
-      // Parse the scanned QR code data
-      const parsed = await parsePaymentAddress(barcode.rawValue);
-      
-      if (!parsed.isValid) {
-        appStore.showErrorToast('Invalid payment QR code');
-        return;
-      }
-      
-      scannedData = {
-        address: parsed.address,
-        network: parsed.network,
-        amount: parsed.amount,
-        memo: parsed.memo,
-        rawData: barcode.rawValue
-      };
-      
-      // Show confirmation screen
-      showConfirmation = true;
-    } catch (error) {
-      console.error('Failed to parse QR code:', error);
-      appStore.showErrorToast('Failed to parse QR code');
-    }
-  }
+	import QrCodeScanner from '$lib/components/QrCodeScanner.svelte';
+	import { parsePaymentAddress } from '$lib/utils/helpers/paymentAddressParser';
+
+	let activeTab = $state<'scan' | 'enter'>('scan'); // Default to 'scan'
+	let scannedData = $state<PaymentData | null>(null);
+	let showConfirmation = $state(false);
+
+	// Payment data structure
+	interface PaymentData {
+		address: string;
+		network: 'lightning-bitcoin' | 'rootstock-bitcoin' | 'liquid-bitcoin' | 'bitcoin' | 'usdt-bsc';
+		amount: number | null; // null if not specified in QR code
+		memo: string | null;
+		rawData: string; // Original scanned data
+	}
+
+	async function handleQRScan(barcode: { rawValue: string }) {
+		try {
+			// Parse the scanned QR code data
+			const parsed = await parsePaymentAddress(barcode.rawValue);
+
+			if (!parsed.isValid) {
+				appStore.showErrorToast('Invalid payment QR code');
+				return;
+			}
+
+			scannedData = {
+				address: parsed.address,
+				network: parsed.network,
+				amount: parsed.amount,
+				memo: parsed.memo,
+				rawData: barcode.rawValue
+			};
+
+			// Show confirmation screen
+			showConfirmation = true;
+		} catch (error) {
+			console.error('Failed to parse QR code:', error);
+			appStore.showErrorToast('Failed to parse QR code');
+		}
+	}
 </script>
 
 {#if activeTab === 'scan'}
-  {#if !showConfirmation}
-    <!-- QR Code Scanner -->
-    <div class="flex flex-col items-center gap-4">
-      <h3 class="text-xl font-bold">{$t('wallet.send.scan_qr_code')}</h3>
-      <p class="text-sm text-base-content/70">{$t('wallet.send.scan_qr_code_description')}</p>
-      
-      <QrCodeScanner 
-        onScan={handleQRScan} 
-        onClose={() => activeTab = 'enter'}
-      />
-      
-      <button 
-        class="btn btn-ghost btn-sm"
-        onclick={() => activeTab = 'enter'}
-      >
-        {$t('wallet.send.enter_details_instead')}
-      </button>
-    </div>
-  {:else}
-    <!-- Confirmation Screen -->
-    <SendConfirmationScreen 
-      paymentData={scannedData}
-      onConfirm={handleSend}
-      onEdit={() => {
-        showConfirmation = false;
-        activeTab = 'enter';
-      }}
-    />
-  {/if}
+	{#if !showConfirmation}
+		<!-- QR Code Scanner -->
+		<div class="flex flex-col items-center gap-4">
+			<h3 class="text-xl font-bold">{$t('wallet.send.scan_qr_code')}</h3>
+			<p class="text-base-content/70 text-sm">{$t('wallet.send.scan_qr_code_description')}</p>
+
+			<QrCodeScanner onScan={handleQRScan} onClose={() => (activeTab = 'enter')} />
+
+			<button class="btn btn-ghost btn-sm" onclick={() => (activeTab = 'enter')}>
+				{$t('wallet.send.enter_details_instead')}
+			</button>
+		</div>
+	{:else}
+		<!-- Confirmation Screen -->
+		<SendConfirmationScreen
+			paymentData={scannedData}
+			onConfirm={handleSend}
+			onEdit={() => {
+				showConfirmation = false;
+				activeTab = 'enter';
+			}}
+		/>
+	{/if}
 {/if}
 ```
 
 **Confirmation Screen**:
+
 - Shows all parsed details: network, address, amount (if present), memo
 - **Conditional amount field**: If QR code doesn't include amount, show editable amount field (required)
 - Shows estimated fees
@@ -556,121 +575,114 @@ The send payment form uses a two-tab interface:
 ### Tab 2: Enter Payment Details
 
 **Implementation**:
+
 ```svelte
 {#if activeTab === 'enter'}
-  <div class="space-y-6">
-    <div class="flex items-center justify-between">
-      <h3 class="text-xl font-bold">{$t('wallet.send.enter_payment_details')}</h3>
-        <button
-        class="btn btn-ghost btn-sm"
-        onclick={() => activeTab = 'scan'}
-      >
-        {$t('wallet.send.scan_qr_code_instead')}
-      </button>
-    </div>
-    
-    <!-- Address Input with Recent Addresses Dropdown -->
-    <div class="form-control">
-      <label class="label">
-        <span class="label-text">{$t('wallet.send.address_or_invoice')}</span>
-      </label>
-      <div class="relative">
-        <input
-          type="text"
-          class="input input-bordered w-full"
-          placeholder="Enter address, invoice, or scan QR code"
-          bind:value={addressInput}
-          oninput={handleAddressInput}
-          onfocus={() => showRecentAddresses = true}
-        />
-        {#if showRecentAddresses && recentAddresses.length > 0}
-          <div class="absolute z-10 w-full mt-1 bg-base-100 border border-base-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-            {#each recentAddresses as recentAddress}
-              <button
-                class="w-full text-left px-4 py-2 hover:bg-base-200 flex items-center justify-between"
-                onclick={() => {
-                  addressInput = recentAddress.address;
-                  showRecentAddresses = false;
-                  handleAddressInput();
-                }}
-              >
-                <div class="flex-1 min-w-0">
-                  <div class="font-semibold truncate">{recentAddress.label || recentAddress.address.slice(0, 20)}...</div>
-                  {#if recentAddress.network}
-                    <div class="text-xs text-base-content/70">{recentAddress.network}</div>
-                  {/if}
-                </div>
-                <div class="text-xs text-base-content/50 ml-2">
-                  {recentAddress.lastUsed ? formatDate(recentAddress.lastUsed) : ''}
-                </div>
-        </button>
-            {/each}
-          </div>
-        {/if}
-      </div>
-      {#if addressError}
-        <div class="label">
-          <span class="label-text-alt text-error">{addressError}</span>
-        </div>
-      {/if}
-    </div>
-    
-    <!-- Auto-detected Network Display -->
-    {#if detectedNetwork}
-      <div class="alert alert-info">
-        <span>Network: {detectedNetwork}</span>
-      </div>
-    {/if}
-    
-    <!-- Amount Field (conditional) -->
-    {#if amountRequired}
-      <div class="form-control">
-        <label class="label">
-          <span class="label-text">{$t('wallet.send.amount')}</span>
-        </label>
-        <!-- Use calculator interface here -->
-        <AmountDisplay 
-          amount={amount}
-          unit={unit}
-          onAmountChange={(val) => amount = val}
-        />
-        <CalculatorKeypad onInput={handleCalculatorInput} />
-      </div>
-    {:else if detectedAmount}
-      <div class="alert alert-success">
-        <span>Amount: {detectedAmount.toLocaleString()} sats (from invoice)</span>
-      </div>
-    {/if}
-    
-    <!-- Memo Field (if detected) -->
-    {#if detectedMemo}
-      <div class="form-control">
-        <label class="label">
-          <span class="label-text">{$t('wallet.send.memo')}</span>
-        </label>
-        <input
-          type="text"
-          class="input input-bordered w-full"
-          bind:value={memo}
-          disabled
-        />
-      </div>
-        {/if}
-    
-    <!-- Fee Display -->
-    {#if estimatedFees}
-      <div class="card bg-base-200 p-4">
-        <div class="flex justify-between">
-          <span>Network Fees:</span>
-          <span>{estimatedFees.toLocaleString()} sats</span>
-      </div>
-        <div class="flex justify-between font-bold">
-          <span>Total to Send:</span>
-          <span>{(detectedAmount || amount) + estimatedFees} sats</span>
-    </div>
-  </div>
-{/if}
-  </div>
+	<div class="space-y-6">
+		<div class="flex items-center justify-between">
+			<h3 class="text-xl font-bold">{$t('wallet.send.enter_payment_details')}</h3>
+			<button class="btn btn-ghost btn-sm" onclick={() => (activeTab = 'scan')}>
+				{$t('wallet.send.scan_qr_code_instead')}
+			</button>
+		</div>
+
+		<!-- Address Input with Recent Addresses Dropdown -->
+		<div class="form-control">
+			<label class="label">
+				<span class="label-text">{$t('wallet.send.address_or_invoice')}</span>
+			</label>
+			<div class="relative">
+				<input
+					type="text"
+					class="input input-bordered w-full"
+					placeholder="Enter address, invoice, or scan QR code"
+					bind:value={addressInput}
+					oninput={handleAddressInput}
+					onfocus={() => (showRecentAddresses = true)}
+				/>
+				{#if showRecentAddresses && recentAddresses.length > 0}
+					<div
+						class="bg-base-100 border-base-300 absolute z-10 mt-1 max-h-60 w-full overflow-y-auto rounded-lg border shadow-lg"
+					>
+						{#each recentAddresses as recentAddress}
+							<button
+								class="hover:bg-base-200 flex w-full items-center justify-between px-4 py-2 text-left"
+								onclick={() => {
+									addressInput = recentAddress.address;
+									showRecentAddresses = false;
+									handleAddressInput();
+								}}
+							>
+								<div class="min-w-0 flex-1">
+									<div class="truncate font-semibold">
+										{recentAddress.label || recentAddress.address.slice(0, 20)}...
+									</div>
+									{#if recentAddress.network}
+										<div class="text-base-content/70 text-xs">{recentAddress.network}</div>
+									{/if}
+								</div>
+								<div class="text-base-content/50 ml-2 text-xs">
+									{recentAddress.lastUsed ? formatDate(recentAddress.lastUsed) : ''}
+								</div>
+							</button>
+						{/each}
+					</div>
+				{/if}
+			</div>
+			{#if addressError}
+				<div class="label">
+					<span class="label-text-alt text-error">{addressError}</span>
+				</div>
+			{/if}
+		</div>
+
+		<!-- Auto-detected Network Display -->
+		{#if detectedNetwork}
+			<div class="alert alert-info">
+				<span>Network: {detectedNetwork}</span>
+			</div>
+		{/if}
+
+		<!-- Amount Field (conditional) -->
+		{#if amountRequired}
+			<div class="form-control">
+				<label class="label">
+					<span class="label-text">{$t('wallet.send.amount')}</span>
+				</label>
+				<!-- Use calculator interface here -->
+				<AmountDisplay {amount} {unit} onAmountChange={(val) => (amount = val)} />
+				<CalculatorKeypad onInput={handleCalculatorInput} />
+			</div>
+		{:else if detectedAmount}
+			<div class="alert alert-success">
+				<span>Amount: {detectedAmount.toLocaleString()} sats (from invoice)</span>
+			</div>
+		{/if}
+
+		<!-- Memo Field (if detected) -->
+		{#if detectedMemo}
+			<div class="form-control">
+				<label class="label">
+					<span class="label-text">{$t('wallet.send.memo')}</span>
+				</label>
+				<input type="text" class="input input-bordered w-full" bind:value={memo} disabled />
+			</div>
+		{/if}
+
+		<!-- Fee Display -->
+		{#if estimatedFees}
+			<div class="card bg-base-200 p-4">
+				<div class="flex justify-between">
+					<span>Network Fees:</span>
+					<span>{estimatedFees.toLocaleString()} sats</span>
+				</div>
+				<div class="flex justify-between font-bold">
+					<span>Total to Send:</span>
+					<span>{(detectedAmount || amount) + estimatedFees} sats</span>
+				</div>
+			</div>
+		{/if}
+	</div>
 {/if}
 ```
 
@@ -682,58 +694,59 @@ The send payment form uses a two-tab interface:
 import { loadTransactions } from '$lib/utils/wallet/transactionHistory';
 
 interface RecentAddress {
-  address: string;
-  network: string;
-  label?: string;
-  lastUsed: Date;
-  count: number; // Number of times used
+	address: string;
+	network: string;
+	label?: string;
+	lastUsed: Date;
+	count: number; // Number of times used
 }
 
 let recentAddresses = $state<RecentAddress[]>([]);
 let showRecentAddresses = $state(false);
 
 async function loadRecentAddresses() {
-  try {
-    const transactions = await loadTransactions();
-    
-    // Extract unique addresses from sent transactions
-    const addressMap = new Map<string, RecentAddress>();
-    
-    transactions
-      .filter(tx => tx.type === 'sent')
-      .forEach(tx => {
-        const existing = addressMap.get(tx.to);
-        if (existing) {
-          existing.count++;
-          if (new Date(tx.date) > existing.lastUsed) {
-            existing.lastUsed = new Date(tx.date);
-          }
-        } else {
-          addressMap.set(tx.to, {
-            address: tx.to,
-            network: tx.network,
-            lastUsed: new Date(tx.date),
-            count: 1
-          });
-        }
-      });
-    
-    // Sort by last used (most recent first), limit to 10
-    recentAddresses = Array.from(addressMap.values())
-      .sort((a, b) => b.lastUsed.getTime() - a.lastUsed.getTime())
-      .slice(0, 10);
-  } catch (error) {
-    console.error('Failed to load recent addresses:', error);
-  }
+	try {
+		const transactions = await loadTransactions();
+
+		// Extract unique addresses from sent transactions
+		const addressMap = new Map<string, RecentAddress>();
+
+		transactions
+			.filter((tx) => tx.type === 'sent')
+			.forEach((tx) => {
+				const existing = addressMap.get(tx.to);
+				if (existing) {
+					existing.count++;
+					if (new Date(tx.date) > existing.lastUsed) {
+						existing.lastUsed = new Date(tx.date);
+					}
+				} else {
+					addressMap.set(tx.to, {
+						address: tx.to,
+						network: tx.network,
+						lastUsed: new Date(tx.date),
+						count: 1
+					});
+				}
+			});
+
+		// Sort by last used (most recent first), limit to 10
+		recentAddresses = Array.from(addressMap.values())
+			.sort((a, b) => b.lastUsed.getTime() - a.lastUsed.getTime())
+			.slice(0, 10);
+	} catch (error) {
+		console.error('Failed to load recent addresses:', error);
+	}
 }
 
 // Load on component mount
 $effect(() => {
-  loadRecentAddresses();
+	loadRecentAddresses();
 });
 ```
 
 **Display in Address Input**:
+
 - Show dropdown when input is focused and has recent addresses
 - Display address (truncated), network, and last used date
 - Click to auto-fill address
@@ -749,127 +762,127 @@ import { validateRSKAddress } from '$lib/utils/helpers/validators';
 import { validateBitcoinAddress } from '$lib/utils/helpers/validators';
 
 async function parsePaymentAddress(input: string): Promise<{
-  isValid: boolean;
-  address: string;
-  network: string | null;
-  amount: number | null;
-  memo: string | null;
+	isValid: boolean;
+	address: string;
+	network: string | null;
+	amount: number | null;
+	memo: string | null;
 }> {
-  const trimmed = input.trim();
-  
-  // 1. Check for Lightning invoice/address
-  const lightningType = detectLightningType(trimmed);
-  if (lightningType === 'bolt11') {
-    const parsed = parseLightningInvoice(trimmed);
-    return {
-      isValid: parsed.isValid,
-      address: trimmed,
-      network: 'lightning-bitcoin',
-      amount: parsed.amountSats,
-      memo: null // Lightning invoices don't include memo in QR code typically
-    };
-  }
-  
-  if (lightningType === 'lightning-address') {
-    return {
-      isValid: true,
-      address: trimmed,
-      network: 'lightning-bitcoin',
-      amount: null, // Lightning addresses require amount to be specified
-      memo: null
-    };
-  }
-  
-  // 2. Check for RSK address (with optional query params)
-  if (validateRSKAddress(trimmed.split('?')[0]).isValid) {
-    const url = new URL(trimmed.includes('://') ? trimmed : `rsk:${trimmed}`);
-    const params = url.searchParams;
-    
-    let amount: number | null = null;
-    if (params.has('value')) {
-      // Convert wei to sats: 1 sat = 1e10 wei
-      const wei = BigInt(params.get('value')!);
-      amount = Number(wei / BigInt(1e10));
-    }
-    
-    return {
-      isValid: true,
-      address: url.pathname || trimmed.split('?')[0],
-      network: 'rootstock-bitcoin',
-      amount,
-      memo: params.get('message') || null
-    };
-  }
-  
-  // 3. Check for Bitcoin address (with optional amount/memo)
-  if (validateBitcoinAddress(trimmed.split('?')[0]).isValid) {
-    const url = new URL(trimmed.includes('://') ? trimmed : `bitcoin:${trimmed}`);
-    const params = url.searchParams;
-    
-    let amount: number | null = null;
-    if (params.has('amount')) {
-      // Convert BTC to sats
-      const btc = parseFloat(params.get('amount')!);
-      amount = Math.floor(btc * 100_000_000);
-    }
-    
-    return {
-      isValid: true,
-      address: url.pathname || trimmed.split('?')[0],
-      network: 'bitcoin',
-      amount,
-      memo: params.get('label') || params.get('message') || null
-    };
-  }
-  
-  // 4. Check for Liquid address
-  // Similar parsing for Liquid addresses with assetid parameter
-  
-  // 5. Check for BSC USDT address
-  // Similar parsing for BSC addresses
-  
-  return {
-    isValid: false,
-    address: trimmed,
-    network: null,
-    amount: null,
-    memo: null
-  };
+	const trimmed = input.trim();
+
+	// 1. Check for Lightning invoice/address
+	const lightningType = detectLightningType(trimmed);
+	if (lightningType === 'bolt11') {
+		const parsed = parseLightningInvoice(trimmed);
+		return {
+			isValid: parsed.isValid,
+			address: trimmed,
+			network: 'lightning-bitcoin',
+			amount: parsed.amountSats,
+			memo: null // Lightning invoices don't include memo in QR code typically
+		};
+	}
+
+	if (lightningType === 'lightning-address') {
+		return {
+			isValid: true,
+			address: trimmed,
+			network: 'lightning-bitcoin',
+			amount: null, // Lightning addresses require amount to be specified
+			memo: null
+		};
+	}
+
+	// 2. Check for RSK address (with optional query params)
+	if (validateRSKAddress(trimmed.split('?')[0]).isValid) {
+		const url = new URL(trimmed.includes('://') ? trimmed : `rsk:${trimmed}`);
+		const params = url.searchParams;
+
+		let amount: number | null = null;
+		if (params.has('value')) {
+			// Convert wei to sats: 1 sat = 1e10 wei
+			const wei = BigInt(params.get('value')!);
+			amount = Number(wei / BigInt(1e10));
+		}
+
+		return {
+			isValid: true,
+			address: url.pathname || trimmed.split('?')[0],
+			network: 'rootstock-bitcoin',
+			amount,
+			memo: params.get('message') || null
+		};
+	}
+
+	// 3. Check for Bitcoin address (with optional amount/memo)
+	if (validateBitcoinAddress(trimmed.split('?')[0]).isValid) {
+		const url = new URL(trimmed.includes('://') ? trimmed : `bitcoin:${trimmed}`);
+		const params = url.searchParams;
+
+		let amount: number | null = null;
+		if (params.has('amount')) {
+			// Convert BTC to sats
+			const btc = parseFloat(params.get('amount')!);
+			amount = Math.floor(btc * 100_000_000);
+		}
+
+		return {
+			isValid: true,
+			address: url.pathname || trimmed.split('?')[0],
+			network: 'bitcoin',
+			amount,
+			memo: params.get('label') || params.get('message') || null
+		};
+	}
+
+	// 4. Check for Liquid address
+	// Similar parsing for Liquid addresses with assetid parameter
+
+	// 5. Check for BSC USDT address
+	// Similar parsing for BSC addresses
+
+	return {
+		isValid: false,
+		address: trimmed,
+		network: null,
+		amount: null,
+		memo: null
+	};
 }
 
 function handleAddressInput() {
-  if (!addressInput) {
-    detectedNetwork = null;
-    detectedAmount = null;
-    detectedMemo = null;
-    amountRequired = true;
-    return;
-  }
-  
-  parsePaymentAddress(addressInput).then(parsed => {
-    if (parsed.isValid) {
-      detectedNetwork = parsed.network;
-      detectedAmount = parsed.amount;
-      detectedMemo = parsed.memo;
-      
-      // Amount field is required if address doesn't include amount
-      amountRequired = parsed.amount === null;
-      
-      // If amount is detected, disable amount field
-      if (parsed.amount !== null) {
-        amount = parsed.amount;
-      }
-      
-      // Recalculate fees when network/amount changes
-      calculateFees();
-  } else {
-      addressError = 'Invalid address format';
-      detectedNetwork = null;
-      detectedAmount = null;
-      detectedMemo = null;
-      amountRequired = true;
-    }
-  });
+	if (!addressInput) {
+		detectedNetwork = null;
+		detectedAmount = null;
+		detectedMemo = null;
+		amountRequired = true;
+		return;
+	}
+
+	parsePaymentAddress(addressInput).then((parsed) => {
+		if (parsed.isValid) {
+			detectedNetwork = parsed.network;
+			detectedAmount = parsed.amount;
+			detectedMemo = parsed.memo;
+
+			// Amount field is required if address doesn't include amount
+			amountRequired = parsed.amount === null;
+
+			// If amount is detected, disable amount field
+			if (parsed.amount !== null) {
+				amount = parsed.amount;
+			}
+
+			// Recalculate fees when network/amount changes
+			calculateFees();
+		} else {
+			addressError = 'Invalid address format';
+			detectedNetwork = null;
+			detectedAmount = null;
+			detectedMemo = null;
+			amountRequired = true;
+		}
+	});
 }
 ```
 
@@ -879,61 +892,67 @@ function handleAddressInput() {
 
 ```typescript
 let amountToSend = $derived(() => {
-  const baseAmount = detectedAmount || amount || 0;
-  const fees = estimatedFees || 0;
-  
-  // For sends: total = baseAmount + fees
-  // Receiver gets: baseAmount
-  // Network gets: fees
-  return baseAmount + fees;
+	const baseAmount = detectedAmount || amount || 0;
+	const fees = estimatedFees || 0;
+
+	// For sends: total = baseAmount + fees
+	// Receiver gets: baseAmount
+	// Network gets: fees
+	return baseAmount + fees;
 });
 
 let receiverGets = $derived(() => {
-  return detectedAmount || amount || 0;
+	return detectedAmount || amount || 0;
 });
 ```
 
 **Display**:
+
 ```svelte
 <div class="fee-breakdown">
-  <div class="flex justify-between">
-    <span>Amount to Receive:</span>
-    <span>{receiverGets.toLocaleString()} sats</span>
-  </div>
-  <div class="flex justify-between">
-    <span>Network Fees:</span>
-    <span>{estimatedFees.toLocaleString()} sats</span>
-  </div>
-  <div class="flex justify-between font-bold text-lg">
-    <span>Total to Send:</span>
-    <span>{amountToSend.toLocaleString()} sats</span>
-  </div>
+	<div class="flex justify-between">
+		<span>Amount to Receive:</span>
+		<span>{receiverGets.toLocaleString()} sats</span>
+	</div>
+	<div class="flex justify-between">
+		<span>Network Fees:</span>
+		<span>{estimatedFees.toLocaleString()} sats</span>
+	</div>
+	<div class="flex justify-between text-lg font-bold">
+		<span>Total to Send:</span>
+		<span>{amountToSend.toLocaleString()} sats</span>
+	</div>
 </div>
 ```
 
 ### Network-Specific Behavior
 
 **Lightning Invoice with Amount**:
+
 - Network: Auto-selected to `lightning-bitcoin`
 - Amount: Disabled (read-only, shows amount from invoice)
 - Memo: Not typically included in Lightning invoices
 
 **Lightning Invoice without Amount**:
+
 - Network: Auto-selected to `lightning-bitcoin`
 - Amount: Enabled and required
 - Memo: Not typically included
 
 **RSK Address with Query Params**:
+
 - Network: Auto-selected to `rootstock-bitcoin`
 - Amount: If `?value=` present, disabled and shows amount; otherwise enabled and required
 - Memo: If `?message=` present, shows in memo field
 
 **Bitcoin Address with URI**:
+
 - Network: Auto-selected to `bitcoin`
 - Amount: If `?amount=` present, disabled and shows amount; otherwise enabled and required
 - Memo: If `?label=` or `?message=` present, shows in memo field
 
 **Liquid/BSC Addresses**:
+
 - Similar parsing logic for Liquid and BSC addresses
 - Network auto-detected based on address format
 
@@ -944,24 +963,28 @@ let receiverGets = $derived(() => {
 After invoice generation, monitor for payment in the background:
 
 **Lightning (reverse swap)**:
+
 - Monitor swap status via `walletManager.reverseSwapService.getSwap(swapId)`
 - Poll every 5 seconds
 - Success states: `invoice.settled`
 - Show success screen when status reaches success state
 
 **Liquid (chain swap)**:
+
 - Monitor swap status via `walletManager.chainSwapService.getSwap(swapId)`
 - Poll every 5 seconds
 - Success states: `transaction.claimed`
 - Show success screen when status reaches success state
 
 **Rootstock (direct)**:
+
 - Monitor transaction history for incoming transactions
 - Check `walletManager.loadTransactions()` periodically
 - Match by address and amount
 - Show success screen when transaction confirmed
 
 **BSC USDT**:
+
 - Monitor transaction history for incoming USDT transactions
 - Check `walletManager.loadTransactions()` periodically
 - Match by address and amount
@@ -973,35 +996,29 @@ When payment is received, show success screen:
 
 ```svelte
 <div class="success-screen">
-  <div class="success-icon">
-    <svg class="w-24 h-24 text-success">...</svg>
-  </div>
-  <h2 class="text-3xl font-bold">Payment Received!</h2>
-  <div class="amount-display">
-    <div class="text-4xl font-bold">{amountInSats.toLocaleString()} sats</div>
-    <div class="text-base-content/70">≈ ${amountInUSD.toFixed(2)} USD</div>
-  </div>
-  <div class="transaction-details">
-    <div>Network: {selectedNetwork}</div>
-    <div>Transaction: {txHash}</div>
-  </div>
-  <div class="flex flex-col gap-2">
-    <a 
-      href={explorerUrl} 
-      target="_blank" 
-      rel="noopener noreferrer"
-      class="btn btn-outline"
-    >
-      {$t('wallet.send.success.view_on_explorer')}
-    </a>
-    <button class="btn btn-primary" onclick={handleClose}>
-      Done
-</button>
-  </div>
+	<div class="success-icon">
+		<svg class="text-success h-24 w-24">...</svg>
+	</div>
+	<h2 class="text-3xl font-bold">Payment Received!</h2>
+	<div class="amount-display">
+		<div class="text-4xl font-bold">{amountInSats.toLocaleString()} sats</div>
+		<div class="text-base-content/70">≈ ${amountInUSD.toFixed(2)} USD</div>
+	</div>
+	<div class="transaction-details">
+		<div>Network: {selectedNetwork}</div>
+		<div>Transaction: {txHash}</div>
+	</div>
+	<div class="flex flex-col gap-2">
+		<a href={explorerUrl} target="_blank" rel="noopener noreferrer" class="btn btn-outline">
+			{$t('wallet.send.success.view_on_explorer')}
+		</a>
+		<button class="btn btn-primary" onclick={handleClose}> Done </button>
+	</div>
 </div>
 ```
 
 **Success Screen Behavior**:
+
 - Auto-close after 5 seconds (optional)
 - Allow manual close
 - Update wallet balance display
@@ -1025,68 +1042,68 @@ import { getWebBiometricData } from '$lib/utils/helpers/webBiometrics';
 import { Capacitor } from '@capacitor/core';
 
 async function requireAuthentication(): Promise<boolean> {
-  try {
-    // Check if amount exceeds user's authentication threshold
-    const threshold = await getUserAuthThreshold(); // Get from user preferences
-    const amountUSD = amountInUSD;
-    
-    if (amountUSD >= threshold) {
-      // Determine authentication method (biometrics or passkey)
-      const isMobile = Capacitor.getPlatform() !== 'web';
-      const authMethod = isMobile ? 'biometrics' : 'passkey';
-      
-      if (isMobile) {
-        const biometricData = await getBiometricData('biometrics', true);
-        return !!biometricData;
-      } else {
-        const passkeyData = await getWebBiometricData(true);
-        return !!passkeyData;
-      }
-    }
-    
-    return true; // Below threshold, no authentication required
-  } catch (error) {
-    console.error('Authentication failed:', error);
-    return false;
-  }
+	try {
+		// Check if amount exceeds user's authentication threshold
+		const threshold = await getUserAuthThreshold(); // Get from user preferences
+		const amountUSD = amountInUSD;
+
+		if (amountUSD >= threshold) {
+			// Determine authentication method (biometrics or passkey)
+			const isMobile = Capacitor.getPlatform() !== 'web';
+			const authMethod = isMobile ? 'biometrics' : 'passkey';
+
+			if (isMobile) {
+				const biometricData = await getBiometricData('biometrics', true);
+				return !!biometricData;
+			} else {
+				const passkeyData = await getWebBiometricData(true);
+				return !!passkeyData;
+			}
+		}
+
+		return true; // Below threshold, no authentication required
+	} catch (error) {
+		console.error('Authentication failed:', error);
+		return false;
+	}
 }
 ```
 
 **User Preference for Authentication Threshold**:
+
 - Settings option: "Require authentication for sends over: $X"
 - Default: $0 (always require authentication)
 - Options: $0, $10, $50, $100, $500, $1000, Custom
 - Stored in user preferences/settings
 
 **Implementation**:
+
 ```svelte
 <script lang="ts">
-  let authThreshold = $state(0); // Get from user preferences
-  let requiresAuth = $derived(amountInUSD >= authThreshold);
-  let isAuthenticated = $state(false);
-  
-  async function handleSend() {
-    if (requiresAuth && !isAuthenticated) {
-      const authenticated = await requireAuthentication();
-      if (!authenticated) {
-        appStore.showErrorToast('Authentication required to send');
-        return;
-      }
-      isAuthenticated = true;
-    }
-    
-    // Proceed with send
-    await executeSend();
-  }
+	let authThreshold = $state(0); // Get from user preferences
+	let requiresAuth = $derived(amountInUSD >= authThreshold);
+	let isAuthenticated = $state(false);
+
+	async function handleSend() {
+		if (requiresAuth && !isAuthenticated) {
+			const authenticated = await requireAuthentication();
+			if (!authenticated) {
+				appStore.showErrorToast('Authentication required to send');
+				return;
+			}
+			isAuthenticated = true;
+		}
+
+		// Proceed with send
+		await executeSend();
+	}
 </script>
 
 {#if requiresAuth && !isAuthenticated}
-  <div class="alert alert-warning">
-    <span>Authentication required to send this amount</span>
-    <button class="btn btn-sm" onclick={handleSend}>
-      Authenticate & Send
-    </button>
-  </div>
+	<div class="alert alert-warning">
+		<span>Authentication required to send this amount</span>
+		<button class="btn btn-sm" onclick={handleSend}> Authenticate & Send </button>
+	</div>
 {/if}
 ```
 
@@ -1096,41 +1113,51 @@ async function requireAuthentication(): Promise<boolean> {
 
 ```svelte
 <script lang="ts">
-  const LARGE_AMOUNT_THRESHOLD = 1000; // $1,000 USD
-  let showLargeAmountWarning = $derived(amountInUSD > LARGE_AMOUNT_THRESHOLD);
-  let largeAmountConfirmed = $state(false);
+	const LARGE_AMOUNT_THRESHOLD = 1000; // $1,000 USD
+	let showLargeAmountWarning = $derived(amountInUSD > LARGE_AMOUNT_THRESHOLD);
+	let largeAmountConfirmed = $state(false);
 </script>
 
 {#if showLargeAmountWarning && !largeAmountConfirmed}
-  <div class="alert alert-error">
-    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
-    </svg>
-    <div class="flex-1">
-      <h3 class="font-bold">{$t('wallet.send.large_amount_warning.title')}</h3>
-      <div class="text-sm">
-        <p>{$t('wallet.send.large_amount_warning.message', { values: { amount: amountInUSD.toFixed(2) } })}</p>
-        <div class="mt-2 p-2 bg-base-200 rounded">
-          <div>Amount in Sats: <strong>{amountInSats.toLocaleString()} sats</strong></div>
-          <div>Amount in USD: <strong>${amountInUSD.toFixed(2)}</strong></div>
-        </div>
-      </div>
-      <div class="form-control mt-4">
-        <label class="label cursor-pointer justify-start gap-2">
-          <input 
-            type="checkbox" 
-            class="checkbox checkbox-error"
-            bind:checked={largeAmountConfirmed}
-          />
-          <span class="label-text">{$t('wallet.send.large_amount_warning.confirm_checkbox')}</span>
-        </label>
-      </div>
-    </div>
-  </div>
+	<div class="alert alert-error">
+		<svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+			<path
+				stroke-linecap="round"
+				stroke-linejoin="round"
+				stroke-width="2"
+				d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
+			></path>
+		</svg>
+		<div class="flex-1">
+			<h3 class="font-bold">{$t('wallet.send.large_amount_warning.title')}</h3>
+			<div class="text-sm">
+				<p>
+					{$t('wallet.send.large_amount_warning.message', {
+						values: { amount: amountInUSD.toFixed(2) }
+					})}
+				</p>
+				<div class="bg-base-200 mt-2 rounded p-2">
+					<div>Amount in Sats: <strong>{amountInSats.toLocaleString()} sats</strong></div>
+					<div>Amount in USD: <strong>${amountInUSD.toFixed(2)}</strong></div>
+				</div>
+			</div>
+			<div class="form-control mt-4">
+				<label class="label cursor-pointer justify-start gap-2">
+					<input
+						type="checkbox"
+						class="checkbox checkbox-error"
+						bind:checked={largeAmountConfirmed}
+					/>
+					<span class="label-text">{$t('wallet.send.large_amount_warning.confirm_checkbox')}</span>
+				</label>
+			</div>
+		</div>
+	</div>
 {/if}
 ```
 
 **Warning Behavior**:
+
 - Show warning when amount > $1,000 USD
 - Display both sats and USD amounts clearly
 - Require explicit confirmation checkbox
@@ -1144,63 +1171,63 @@ async function requireAuthentication(): Promise<boolean> {
 ```typescript
 // Balance check
 const availableBalance = $derived(() => {
-  const asset = $allAssets.find(a => {
-    if (selectedNetwork === 'rootstock-bitcoin') return a.network === 'RSK';
-    if (selectedNetwork === 'usdt-bsc') return a.network === 'BSC' && a.ticker === 'USDT';
-    // Add other network mappings
-  });
-  return asset?.balance || 0;
+	const asset = $allAssets.find((a) => {
+		if (selectedNetwork === 'rootstock-bitcoin') return a.network === 'RSK';
+		if (selectedNetwork === 'usdt-bsc') return a.network === 'BSC' && a.ticker === 'USDT';
+		// Add other network mappings
+	});
+	return asset?.balance || 0;
 });
 
 // Minimum amounts
 const MIN_AMOUNTS = {
-  'lightning-bitcoin': 1, // 1 sat minimum
-  'rootstock-bitcoin': 1000, // Dust limit
-  'liquid-bitcoin': 100, // Minimum for swaps
-  'usdt-bsc': 1, // 1 wei minimum (but show in USDT units)
-  'bitcoin': 546, // Bitcoin dust limit
+	'lightning-bitcoin': 1, // 1 sat minimum
+	'rootstock-bitcoin': 1000, // Dust limit
+	'liquid-bitcoin': 100, // Minimum for swaps
+	'usdt-bsc': 1, // 1 wei minimum (but show in USDT units)
+	bitcoin: 546 // Bitcoin dust limit
 };
 
 // Maximum amounts (from swap limits)
 let maxAmount = $state<number>(Infinity);
 
 async function loadMaxAmount() {
-  if (selectedNetwork === 'lightning-bitcoin' || selectedNetwork === 'liquid-bitcoin') {
-    const swapLimits = await walletManager.getSwapLimits();
-    maxAmount = swapLimits[selectedNetwork]?.max || Infinity;
-  } else {
-    maxAmount = Infinity;
-  }
+	if (selectedNetwork === 'lightning-bitcoin' || selectedNetwork === 'liquid-bitcoin') {
+		const swapLimits = await walletManager.getSwapLimits();
+		maxAmount = swapLimits[selectedNetwork]?.max || Infinity;
+	} else {
+		maxAmount = Infinity;
+	}
 }
 
 // Real-time validation
 const amountValidation = $derived(() => {
-  const amountNum = parseFloat(amount) || 0;
-  const minAmount = MIN_AMOUNTS[selectedNetwork] || 1;
-  
-  if (amountNum < minAmount) {
-    return { 
-      isValid: false, 
-      error: `Minimum amount is ${minAmount} ${unit === 'sats' ? 'sats' : 'USD'}` 
-    };
-  }
-  
-  if (amountNum > maxAmount) {
-    return { 
-      isValid: false, 
-      error: `Maximum amount is ${maxAmount.toLocaleString()} ${unit === 'sats' ? 'sats' : 'USD'}` 
-    };
-  }
-  
-  // Check balance (for send mode)
-  if (mode === 'send' && amountNum > availableBalance) {
-    return { 
-      isValid: false, 
-      error: 'Insufficient balance' 
-    };
-  }
-  
-  return { isValid: true };
+	const amountNum = parseFloat(amount) || 0;
+	const minAmount = MIN_AMOUNTS[selectedNetwork] || 1;
+
+	if (amountNum < minAmount) {
+		return {
+			isValid: false,
+			error: `Minimum amount is ${minAmount} ${unit === 'sats' ? 'sats' : 'USD'}`
+		};
+	}
+
+	if (amountNum > maxAmount) {
+		return {
+			isValid: false,
+			error: `Maximum amount is ${maxAmount.toLocaleString()} ${unit === 'sats' ? 'sats' : 'USD'}`
+		};
+	}
+
+	// Check balance (for send mode)
+	if (mode === 'send' && amountNum > availableBalance) {
+		return {
+			isValid: false,
+			error: 'Insufficient balance'
+		};
+	}
+
+	return { isValid: true };
 });
 ```
 
@@ -1208,14 +1235,15 @@ const amountValidation = $derived(() => {
 
 ```svelte
 {#if !amountValidation.isValid}
-  <div class="alert alert-error alert-sm">
-    <span>{amountValidation.error}</span>
-  </div>
+	<div class="alert alert-error alert-sm">
+		<span>{amountValidation.error}</span>
+	</div>
 {/if}
 
 <!-- Show available balance -->
-<div class="text-sm text-base-content/70">
-  Available: {availableBalance.toLocaleString()} {unit === 'sats' ? 'sats' : 'USD'}
+<div class="text-base-content/70 text-sm">
+	Available: {availableBalance.toLocaleString()}
+	{unit === 'sats' ? 'sats' : 'USD'}
 </div>
 ```
 
@@ -1228,64 +1256,52 @@ const amountValidation = $derived(() => {
 ```svelte
 <!-- wallet/+page.svelte -->
 <script lang="ts">
-  import BalanceCard from '$lib/components/wallet/BalanceCard.svelte';
-  import WalletPaymentModal from '$lib/components/wallet/WalletPaymentModal.svelte';
-  
-  let showReceiveModal = $state(false);
-  let showSendModal = $state(false);
-  let showBuySellModal = $state(false);
-  let showSwapModal = $state(false);
+	import BalanceCard from '$lib/components/wallet/BalanceCard.svelte';
+	import WalletPaymentModal from '$lib/components/wallet/WalletPaymentModal.svelte';
+
+	let showReceiveModal = $state(false);
+	let showSendModal = $state(false);
+	let showBuySellModal = $state(false);
+	let showSwapModal = $state(false);
 </script>
 
 <div class="wallet-page">
-  <!-- Keep existing balance card -->
-  <BalanceCard />
-  
-  <!-- Convert tabs to buttons -->
-  <div class="flex flex-col gap-3 mt-6">
-    <button 
-      class="btn btn-primary btn-lg"
-      onclick={() => showReceiveModal = true}
-    >
-      {$t('wallet.tab_receive')}
-    </button>
-    
-<button
-      class="btn btn-secondary btn-lg"
-      onclick={() => showSendModal = true}
->
-      {$t('wallet.tab_send')}
-</button>
-    
-    <button 
-      class="btn btn-outline btn-lg"
-      onclick={() => showBuySellModal = true}
-    >
-      {$t('wallet.tab_buy_sell')}
-    </button>
-    
-    <button 
-      class="btn btn-outline btn-lg"
-      onclick={() => showSwapModal = true}
-    >
-      {$t('wallet.tab_swap')}
-    </button>
-  </div>
+	<!-- Keep existing balance card -->
+	<BalanceCard />
+
+	<!-- Convert tabs to buttons -->
+	<div class="mt-6 flex flex-col gap-3">
+		<button class="btn btn-primary btn-lg" onclick={() => (showReceiveModal = true)}>
+			{$t('wallet.tab_receive')}
+		</button>
+
+		<button class="btn btn-secondary btn-lg" onclick={() => (showSendModal = true)}>
+			{$t('wallet.tab_send')}
+		</button>
+
+		<button class="btn btn-outline btn-lg" onclick={() => (showBuySellModal = true)}>
+			{$t('wallet.tab_buy_sell')}
+		</button>
+
+		<button class="btn btn-outline btn-lg" onclick={() => (showSwapModal = true)}>
+			{$t('wallet.tab_swap')}
+		</button>
+	</div>
 </div>
 
 <!-- Modals -->
 <WalletPaymentModal
-  isOpen={showReceiveModal}
-  mode="receive"
-  onClose={() => showReceiveModal = false}
-  onSuccess={handleReceiveSuccess}
+	isOpen={showReceiveModal}
+	mode="receive"
+	onClose={() => (showReceiveModal = false)}
+	onSuccess={handleReceiveSuccess}
 />
 
 <WalletPaymentModal
-  isOpen={showSendModal}
-  mode="send"
-  onClose={() => showSendModal = false}
-  onSuccess={handleSendSuccess}
+	isOpen={showSendModal}
+	mode="send"
+	onClose={() => (showSendModal = false)}
+	onSuccess={handleSendSuccess}
 />
 ```
 
@@ -1293,30 +1309,35 @@ const amountValidation = $derived(() => {
 
 **New modal components should use existing functionality while improving UX:**
 
-- **ReceivePaymentForm**: 
+- **ReceivePaymentForm**:
+
   - Wraps `LightningReceive`, `LBTCReceive`, `RSKReceive` components
   - Adds calculator interface, improved amount display, real-time fee calculations
   - Uses existing swap services for invoice generation
   - Maintains existing swap monitoring logic
 
 - **SendPaymentForm**:
+
   - Wraps `SubmarineSend` for Lightning sends
   - Uses existing `walletManager.sendRBTC()` for Rootstock sends
   - Uses existing `walletManager.sendBSCUSDT()` for BSC USDT sends
   - Adds calculator interface, improved amount display, address validation
 
 - **Fee Calculations**:
+
   - Reuse `walletManager.estimateRBTCGas()` for Rootstock
   - Reuse `walletManager.getSubmarineSwapPairs()` for Lightning fee breakdown
   - Reuse `walletManager.getChainSwapPairs()` for Liquid fee breakdown
   - Reuse existing BSC gas estimation for BSC USDT
 
 - **Validation**:
+
   - Reuse `validateRSKAddress()`, `validateBitcoinAddress()`, `validateLightningInvoice()`
   - Reuse existing balance checks from `$allAssets`
   - Reuse existing swap limits from `walletManager.getSwapLimits()`
 
 - **QR Code Generation**:
+
   - Use existing `generateQrCodeUrl()` from `$lib/utils/helpers/generateQrCodeUrl`
   - Function signature: `generateQrCodeUrl(data: string): Promise<string>`
   - Returns data URL string for direct use in `<img src={qrUrl} />`
@@ -1335,26 +1356,31 @@ const amountValidation = $derived(() => {
 ## Mobile Optimizations
 
 ### Touch Targets
+
 - Minimum 44x44px for all interactive elements
 - Calculator buttons: 60-70px height on mobile
 - Action buttons: 48-56px height, full-width on mobile
 - Minimum 8px gap between touch targets
 
 ### Touch Feedback
+
 - Use Tailwind classes: `touch-manipulation select-none active:scale-95 transition-transform duration-100`
 - Optional haptic feedback via Capacitor Haptics plugin
 - Inline style: `-webkit-tap-highlight-color: transparent`
 
 ### Gestures
+
 - Swipe down to close modal (optional enhancement)
 - Threshold: 100px or 30% of screen height
 
 ### Keyboard Handling
+
 - Don't auto-focus amount input (prevents mobile keyboard popup)
 - Use calculator buttons instead of native keyboard
 - Desktop: Support numeric keypad, Escape to close, Enter to submit, Backspace to delete, C to clear
 
 ### Performance
+
 - Use `will-change-transform` and `transform-gpu` for animations
 - Lazy load BTC price on modal open
 - Defer network fee calculations until needed
@@ -1363,6 +1389,7 @@ const amountValidation = $derived(() => {
 ### Haptic Feedback and Animations
 
 **Haptic Feedback** (Mobile):
+
 - Use Capacitor Haptics plugin for tactile feedback
 - Trigger on:
   - Calculator button presses
@@ -1394,6 +1421,7 @@ onclick={() => {
 ```
 
 **Animations**:
+
 - **Button Press**: `active:scale-95 transition-transform duration-100`
 - **Modal Open**: Svelte `fly` transition for mobile, `scale` for desktop
 - **Success Screen**: Fade in with scale animation
@@ -1405,41 +1433,52 @@ onclick={() => {
 
 ```svelte
 <!-- Success Animation -->
-<div 
-  class="success-icon"
-  transition:scale={{ duration: 300, delay: 100 }}
-  style="animation: successPulse 0.6s ease-out;"
+<div
+	class="success-icon"
+	transition:scale={{ duration: 300, delay: 100 }}
+	style="animation: successPulse 0.6s ease-out;"
 >
-  <svg class="w-24 h-24 text-success">...</svg>
+	<svg class="text-success h-24 w-24">...</svg>
 </div>
 
 <!-- Amount Display Pulse on Change -->
-<div 
-  class="amount-display"
-  class:pulse={amountChanged}
->
-  {amountInSats.toLocaleString()} sats
+<div class="amount-display" class:pulse={amountChanged}>
+	{amountInSats.toLocaleString()} sats
 </div>
 
 <style>
-  @keyframes successPulse {
-    0% { transform: scale(0); opacity: 0; }
-    50% { transform: scale(1.1); }
-    100% { transform: scale(1); opacity: 1; }
-  }
-  
-  .pulse {
-    animation: pulse 0.3s ease-out;
-  }
-  
-  @keyframes pulse {
-    0%, 100% { transform: scale(1); }
-    50% { transform: scale(1.02); }
-  }
+	@keyframes successPulse {
+		0% {
+			transform: scale(0);
+			opacity: 0;
+		}
+		50% {
+			transform: scale(1.1);
+		}
+		100% {
+			transform: scale(1);
+			opacity: 1;
+		}
+	}
+
+	.pulse {
+		animation: pulse 0.3s ease-out;
+	}
+
+	@keyframes pulse {
+		0%,
+		100% {
+			transform: scale(1);
+		}
+		50% {
+			transform: scale(1.02);
+		}
+	}
 </style>
 ```
 
 **Animation Guidelines**:
+
 - Keep animations subtle and purposeful
 - Respect `prefers-reduced-motion` (disable animations if user prefers)
 - Use CSS transforms for performance (GPU-accelerated)
@@ -1460,59 +1499,59 @@ All text must use `svelte-i18n`:
 
 ```json
 {
-  "wallet": {
-    "receive": {
-      "title": "Request Payment",
-      "unit_sats": "Sats",
-      "unit_usd": "USD",
-      "network_fees": "Network Fees",
-      "total_received": "Total Received",
-      "cancel": "Cancel",
-      "generate_invoice": "Generate Invoice"
-    },
-    "send": {
-      "title": "Send Payment",
-      "send_button": "Send",
-      "scan_qr_code": "Scan QR Code",
-      "scan_qr_code_description": "Point your camera at a payment QR code",
-      "enter_payment_details": "Enter Payment Details",
-      "enter_details_instead": "Enter Details Instead",
-      "scan_qr_code_instead": "Scan QR Code Instead",
-      "address_or_invoice": "Address or Invoice",
-      "amount": "Amount",
-      "memo": "Memo",
-      "confirmation": {
-        "title": "Confirm Payment",
-        "network": "Network",
-        "address": "Address",
-        "amount_to_receive": "Amount to Receive",
-        "network_fees": "Network Fees",
-        "total_to_send": "Total to Send",
-        "edit": "Edit",
-        "send": "Send Payment",
-        "auth_required": "Authentication required to send",
-        "authenticate_and_send": "Authenticate & Send"
-      },
-      "large_amount_warning": {
-        "title": "Large Amount Warning",
-        "message": "You're about to send {amount} USD. This is a large amount. Did you mean to enter this in sats instead?",
-        "confirm_checkbox": "I confirm this is the correct amount in USD"
-      },
-      "recent_addresses": {
-        "title": "Recent Addresses",
-        "no_recent": "No recent addresses"
-      },
-      "success": {
-        "view_on_explorer": "View on Explorer",
-        "payment_sent": "Payment Sent!",
-        "transaction_hash": "Transaction Hash"
-      }
-    },
-    "calculator": {
-      "clear": "C",
-      "delete": "⌫"
-    }
-  }
+	"wallet": {
+		"receive": {
+			"title": "Request Payment",
+			"unit_sats": "Sats",
+			"unit_usd": "USD",
+			"network_fees": "Network Fees",
+			"total_received": "Total Received",
+			"cancel": "Cancel",
+			"generate_invoice": "Generate Invoice"
+		},
+		"send": {
+			"title": "Send Payment",
+			"send_button": "Send",
+			"scan_qr_code": "Scan QR Code",
+			"scan_qr_code_description": "Point your camera at a payment QR code",
+			"enter_payment_details": "Enter Payment Details",
+			"enter_details_instead": "Enter Details Instead",
+			"scan_qr_code_instead": "Scan QR Code Instead",
+			"address_or_invoice": "Address or Invoice",
+			"amount": "Amount",
+			"memo": "Memo",
+			"confirmation": {
+				"title": "Confirm Payment",
+				"network": "Network",
+				"address": "Address",
+				"amount_to_receive": "Amount to Receive",
+				"network_fees": "Network Fees",
+				"total_to_send": "Total to Send",
+				"edit": "Edit",
+				"send": "Send Payment",
+				"auth_required": "Authentication required to send",
+				"authenticate_and_send": "Authenticate & Send"
+			},
+			"large_amount_warning": {
+				"title": "Large Amount Warning",
+				"message": "You're about to send {amount} USD. This is a large amount. Did you mean to enter this in sats instead?",
+				"confirm_checkbox": "I confirm this is the correct amount in USD"
+			},
+			"recent_addresses": {
+				"title": "Recent Addresses",
+				"no_recent": "No recent addresses"
+			},
+			"success": {
+				"view_on_explorer": "View on Explorer",
+				"payment_sent": "Payment Sent!",
+				"transaction_hash": "Transaction Hash"
+			}
+		},
+		"calculator": {
+			"clear": "C",
+			"delete": "⌫"
+		}
+	}
 }
 ```
 
@@ -1532,11 +1571,13 @@ All text must use `svelte-i18n`:
 ### Phase 1: Modal Infrastructure
 
 #### Step 1: Create `WalletPaymentModal.svelte`
+
 Create `WalletPaymentModal.svelte` with responsive sizing, backdrop, focus trapping, safe area support.
 
 **REQUIRED TESTS** (Run `npm run test:unit` - all must pass):
 
 **Unit Tests** (`src/lib/tests/components/WalletPaymentModal.test.ts`):
+
 - Modal opens when `isOpen={true}`
 - Modal closes when `isOpen={false}`
 - Backdrop click closes modal (calls `onClose`)
@@ -1550,6 +1591,7 @@ Create `WalletPaymentModal.svelte` with responsive sizing, backdrop, focus trapp
 - Respects `prefers-reduced-motion` for animations
 
 **Component Tests** (`src/lib/tests/components/WalletPaymentModal.test.ts`):
+
 - Renders modal content when open
 - Does not render modal content when closed
 - Calls `onClose` when cancel button is clicked
@@ -1560,21 +1602,25 @@ Create `WalletPaymentModal.svelte` with responsive sizing, backdrop, focus trapp
 - ARIA attributes are correct (`role="dialog"`, `aria-modal="true"`, `aria-labelledby`)
 
 **Integration Tests** (`tests/integration/wallet-modal.spec.ts`):
+
 - Modal opens from wallet page button click
 - Modal closes and returns to wallet page
 - Modal state persists during navigation
 - Multiple modals cannot be open simultaneously
 
 **MOCKING REQUIREMENTS**:
+
 - Mock `authState` store to simulate logged-in user:
+
   ```typescript
   import { authState } from '$lib/stores/auth.store';
   import { get } from 'svelte/store';
-  
+
   // In test setup
   authState.login(); // Simulate logged-in state
   expect(get(authState).isAuthenticated).toBe(true);
   ```
+
 - Mock `Preferences` (already mocked in `vitest-setup-client.ts`)
 - Mock `walletStore` to provide wallet connection state
 
@@ -1585,11 +1631,13 @@ Create `WalletPaymentModal.svelte` with responsive sizing, backdrop, focus trapp
 ### Phase 2: Core Components
 
 #### Step 2: Create `CalculatorKeypad.svelte`
+
 Create `CalculatorKeypad.svelte` (4x4 grid, touch-optimized, 44px+ height).
 
 **REQUIRED TESTS** (Run `npm run test:unit` - all must pass):
 
 **Unit Tests** (`src/lib/tests/components/CalculatorKeypad.test.ts`):
+
 - All number buttons (0-9) trigger `onInput` callback with correct value
 - Decimal button (.) triggers `onInput` callback
 - Clear button (C) triggers `onInput` callback with 'C'
@@ -1601,6 +1649,7 @@ Create `CalculatorKeypad.svelte` (4x4 grid, touch-optimized, 44px+ height).
 - Buttons have proper ARIA labels
 
 **Component Tests** (`src/lib/tests/components/CalculatorKeypad.test.ts`):
+
 - Renders 4x4 grid layout correctly
 - All buttons are visible and clickable
 - Button press triggers haptic feedback (mocked)
@@ -1609,6 +1658,7 @@ Create `CalculatorKeypad.svelte` (4x4 grid, touch-optimized, 44px+ height).
 - Respects `prefers-reduced-motion` for animations
 
 **Integration Tests** (`tests/integration/calculator-keypad.spec.ts`):
+
 - Calculator input updates amount display in parent component
 - Calculator operations (+, −, ×, ÷) work correctly
 - Calculator state resets when Clear is pressed
@@ -1619,11 +1669,13 @@ Create `CalculatorKeypad.svelte` (4x4 grid, touch-optimized, 44px+ height).
 ---
 
 #### Step 3: Create `AmountDisplay.svelte`
+
 Create `AmountDisplay.svelte` (large display, conversion, unit toggle).
 
 **REQUIRED TESTS** (Run `npm run test:unit` - all must pass):
 
 **Unit Tests** (`src/lib/tests/utils/amountConversion.test.ts`):
+
 - Converts sats to USD correctly using BTC price
 - Converts USD to sats correctly using BTC price
 - Handles zero amount
@@ -1634,6 +1686,7 @@ Create `AmountDisplay.svelte` (large display, conversion, unit toggle).
 - Handles missing/invalid BTC price gracefully
 
 **Component Tests** (`src/lib/tests/components/AmountDisplay.test.ts`):
+
 - Displays amount in primary unit (sats or USD)
 - Displays conversion in secondary unit
 - Unit toggle switches between sats and USD
@@ -1645,6 +1698,7 @@ Create `AmountDisplay.svelte` (large display, conversion, unit toggle).
 - ARIA live region announces amount changes
 
 **Integration Tests** (`tests/integration/amount-display.spec.ts`):
+
 - Amount display integrates with calculator input
 - Unit toggle updates amount correctly
 - BTC price updates trigger conversion recalculation
@@ -1655,11 +1709,13 @@ Create `AmountDisplay.svelte` (large display, conversion, unit toggle).
 ---
 
 #### Step 4: Create `ReceivePaymentForm.svelte`
+
 Create `ReceivePaymentForm.svelte` (integrate calculator, network selector, fee calculations).
 
 **REQUIRED TESTS** (Run `npm run test:unit` - all must pass):
 
 **Unit Tests** (`src/lib/tests/utils/feeCalculation.test.ts`):
+
 - Lightning reverse swap fee calculation (0.25% service fee + miner fees)
 - Rootstock gas fee estimation using `walletManager.estimateRBTCGas()`
 - Liquid chain swap fee calculation (service fee + miner fees)
@@ -1671,6 +1727,7 @@ Create `ReceivePaymentForm.svelte` (integrate calculator, network selector, fee 
 - Total received calculation (amount - fees) is correct
 
 **Component Tests** (`src/lib/tests/components/ReceivePaymentForm.test.ts`):
+
 - Renders calculator keypad
 - Renders amount display
 - Renders network selector
@@ -1688,6 +1745,7 @@ Create `ReceivePaymentForm.svelte` (integrate calculator, network selector, fee 
 - Form validation shows errors for insufficient balance (if applicable)
 
 **Integration Tests** (`tests/integration/receive-payment-form.spec.ts`):
+
 - Form integrates with `LightningReceive` component for Lightning invoices
 - Form integrates with `LBTCReceive` component for Liquid invoices
 - Form integrates with `RSKReceive` component for Rootstock addresses
@@ -1698,6 +1756,7 @@ Create `ReceivePaymentForm.svelte` (integrate calculator, network selector, fee 
 - Invoice generation shows success state with invoice display
 
 **MOCKING REQUIREMENTS**:
+
 - Mock `walletManager` and its methods:
   ```typescript
   vi.mock('$lib/utils/wallet/walletManager', () => ({
@@ -1716,20 +1775,20 @@ Create `ReceivePaymentForm.svelte` (integrate calculator, network selector, fee 
 - Mock `cryptoPriceService`:
   ```typescript
   vi.mock('$lib/services/cryptoPriceService', () => ({
-    cryptoPriceService: {
-      getCurrentPrice: vi.fn().mockResolvedValue(93427.18)
-    }
+  	cryptoPriceService: {
+  		getCurrentPrice: vi.fn().mockResolvedValue(93427.18)
+  	}
   }));
   ```
 - Mock `walletStore`:
   ```typescript
   vi.mock('$lib/stores/wallet.store', () => ({
-    walletStore: {
-      subscribe: vi.fn((fn) => {
-        fn({ hasAnyConnection: true, isInitializing: false });
-        return () => {};
-      })
-    }
+  	walletStore: {
+  		subscribe: vi.fn((fn) => {
+  			fn({ hasAnyConnection: true, isInitializing: false });
+  			return () => {};
+  		})
+  	}
   }));
   ```
 
@@ -1738,11 +1797,13 @@ Create `ReceivePaymentForm.svelte` (integrate calculator, network selector, fee 
 ---
 
 #### Step 5: Create `SendPaymentForm.svelte`
+
 Create `SendPaymentForm.svelte` with two-tab interface, address parsing, authentication, and all features.
 
 **REQUIRED TESTS** (Run `npm run test:unit` - all must pass):
 
 **Unit Tests** (`src/lib/tests/utils/addressParsing.test.ts`):
+
 - Parses Lightning BOLT11 invoice correctly
 - Parses Lightning BOLT12 invoice correctly
 - Parses Lightning address correctly
@@ -1758,6 +1819,7 @@ Create `SendPaymentForm.svelte` with two-tab interface, address parsing, authent
 - Handles addresses with amount (disables amount field)
 
 **Unit Tests** (`src/lib/tests/utils/authentication.test.ts`):
+
 - Requires authentication when amount >= threshold
 - Skips authentication when amount < threshold
 - Authentication threshold is read from user preferences
@@ -1767,6 +1829,7 @@ Create `SendPaymentForm.svelte` with two-tab interface, address parsing, authent
 - Authentication success allows send
 
 **Unit Tests** (`src/lib/tests/utils/amountValidation.test.ts`):
+
 - Validates minimum amounts per network
 - Validates maximum amounts per network
 - Validates balance sufficiency for sends
@@ -1777,6 +1840,7 @@ Create `SendPaymentForm.svelte` with two-tab interface, address parsing, authent
 - Large amount confirmation is required before send
 
 **Component Tests** (`src/lib/tests/components/SendPaymentForm.test.ts`):
+
 - Renders "Scan QR Code" tab by default
 - Renders "Enter Payment Details" tab when selected
 - Tab switching works correctly
@@ -1802,6 +1866,7 @@ Create `SendPaymentForm.svelte` with two-tab interface, address parsing, authent
 - Explorer link is shown on success screen
 
 **Component Tests** (`src/lib/tests/components/QrCodeScanner.test.ts`):
+
 - QR code scanner requests camera permission
 - QR code scanner shows camera view
 - QR code scanner calls `onScan` callback with scanned data
@@ -1810,6 +1875,7 @@ Create `SendPaymentForm.svelte` with two-tab interface, address parsing, authent
 - QR code scanner handles camera errors gracefully
 
 **Integration Tests** (`tests/integration/send-payment-form.spec.ts`):
+
 - Complete send flow: scan QR → confirm → authenticate → send → success
 - Complete send flow: enter address → parse → confirm → authenticate → send → success
 - Send integrates with `SubmarineSend` for Lightning sends
@@ -1822,31 +1888,32 @@ Create `SendPaymentForm.svelte` with two-tab interface, address parsing, authent
 - Recent addresses are loaded from transaction history
 
 **MOCKING REQUIREMENTS**:
+
 - Mock `QrCodeScanner` component:
   ```typescript
   vi.mock('$lib/components/QrCodeScanner.svelte', () => ({
-    default: vi.fn(({ onScan, onClose }) => {
-      // Simulate QR scan
-      if (onScan) onScan({ rawValue: 'lnbc1000...' });
-      return {};
-    })
+  	default: vi.fn(({ onScan, onClose }) => {
+  		// Simulate QR scan
+  		if (onScan) onScan({ rawValue: 'lnbc1000...' });
+  		return {};
+  	})
   }));
   ```
 - Mock `getBiometricData` and `getWebBiometricData`:
   ```typescript
   vi.mock('$lib/utils/helpers/biometrics', () => ({
-    getBiometricData: vi.fn().mockResolvedValue({ username: 'test', password: 'encrypted' })
+  	getBiometricData: vi.fn().mockResolvedValue({ username: 'test', password: 'encrypted' })
   }));
   vi.mock('$lib/utils/helpers/webBiometrics', () => ({
-    getWebBiometricData: vi.fn().mockResolvedValue({ username: 'test', password: 'encrypted' })
+  	getWebBiometricData: vi.fn().mockResolvedValue({ username: 'test', password: 'encrypted' })
   }));
   ```
 - Mock `loadTransactions` for recent addresses:
   ```typescript
   vi.mock('$lib/utils/wallet/transactionHistory', () => ({
-    loadTransactions: vi.fn().mockResolvedValue([
-      { type: 'sent', to: '0x123...', network: 'RSK', date: new Date() }
-    ])
+  	loadTransactions: vi
+  		.fn()
+  		.mockResolvedValue([{ type: 'sent', to: '0x123...', network: 'RSK', date: new Date() }])
   }));
   ```
 - Mock `walletManager` send methods:
@@ -1862,11 +1929,13 @@ Create `SendPaymentForm.svelte` with two-tab interface, address parsing, authent
 ### Phase 3: Mobile Optimizations
 
 #### Step 6-8: Mobile Optimizations
+
 Add swipe-to-close gesture, optimize touch interactions, implement safe area handling.
 
 **REQUIRED TESTS** (Run `npm run test:unit` - all must pass):
 
 **Component Tests** (`src/lib/tests/components/WalletPaymentModal.test.ts` - additional):
+
 - Swipe down gesture closes modal (mobile only)
 - Touch targets are minimum 44px height
 - Touch feedback is applied on button press
@@ -1874,6 +1943,7 @@ Add swipe-to-close gesture, optimize touch interactions, implement safe area han
 - Haptic feedback triggers on interactions (mocked)
 
 **Integration Tests** (`tests/integration/mobile-optimizations.spec.ts`):
+
 - Touch interactions work correctly on mobile viewport
 - Gestures work correctly on mobile devices
 - Safe areas are respected on devices with notches
@@ -1886,11 +1956,13 @@ Add swipe-to-close gesture, optimize touch interactions, implement safe area han
 ### Phase 4: Integration and Polish
 
 #### Step 9: Integrate with Wallet Page
+
 Integrate with existing wallet page, convert tabs to buttons.
 
 **REQUIRED TESTS** (Run `npm run test:unit` - all must pass):
 
 **Component Tests** (`src/lib/tests/components/WalletPage.test.ts`):
+
 - Balance card is displayed on wallet page
 - Receive button opens receive modal
 - Send button opens send modal
@@ -1900,6 +1972,7 @@ Integrate with existing wallet page, convert tabs to buttons.
 - Modal closes when navigating away
 
 **Integration Tests** (`tests/integration/wallet-page.spec.ts`):
+
 - Wallet page loads correctly
 - Balance card displays current balances
 - Button clicks open correct modals
@@ -1911,17 +1984,20 @@ Integrate with existing wallet page, convert tabs to buttons.
 ---
 
 #### Step 10: Create `InvoiceDisplay.svelte`
+
 Add invoice display component with QR code, address, amount, memo.
 
 **REQUIRED TESTS** (Run `npm run test:unit` - all must pass):
 
 **Unit Tests** (`src/lib/tests/utils/qrCodeGeneration.test.ts`):
+
 - `generateQrCodeUrl()` generates valid data URL
 - QR code includes BitTasker logo overlay
 - QR code has high error correction level
 - QR code is scalable via CSS
 
 **Component Tests** (`src/lib/tests/components/InvoiceDisplay.test.ts`):
+
 - Displays QR code (large, 300px+ mobile, 400px+ desktop)
 - Displays address (copyable)
 - Displays amount in sats and USD
@@ -1934,22 +2010,24 @@ Add invoice display component with QR code, address, amount, memo.
 - QR code error state is handled gracefully
 
 **Integration Tests** (`tests/integration/invoice-display.spec.ts`):
+
 - Invoice display integrates with receive payment form
 - QR code is scannable and contains correct data
 - Address copy functionality works
 - Share functionality works on mobile and desktop
 
 **MOCKING REQUIREMENTS**:
+
 - Mock `generateQrCodeUrl`:
   ```typescript
   vi.mock('$lib/utils/helpers/generateQrCodeUrl', () => ({
-    default: vi.fn().mockResolvedValue('data:image/png;base64,...')
+  	default: vi.fn().mockResolvedValue('data:image/png;base64,...')
   }));
   ```
 - Mock `copyToClipboard`:
   ```typescript
   vi.mock('$lib/utils/helpers/clipboard', () => ({
-    copyToClipboard: vi.fn().mockResolvedValue(undefined)
+  	copyToClipboard: vi.fn().mockResolvedValue(undefined)
   }));
   ```
 - Mock native share API:
@@ -1962,11 +2040,13 @@ Add invoice display component with QR code, address, amount, memo.
 ---
 
 #### Step 11: Implement Background Transaction Monitoring
+
 Implement background transaction monitoring for all networks.
 
 **REQUIRED TESTS** (Run `npm run test:unit` - all must pass):
 
 **Unit Tests** (`src/lib/tests/utils/transactionMonitoring.test.ts`):
+
 - Lightning swap status polling works (every 5 seconds)
 - Liquid swap status polling works (every 5 seconds)
 - Rootstock transaction history monitoring works
@@ -1977,6 +2057,7 @@ Implement background transaction monitoring for all networks.
 - Error handling for polling failures
 
 **Component Tests** (`src/lib/tests/components/TransactionMonitoring.test.ts`):
+
 - Success screen is shown when payment is received
 - Success screen displays transaction details
 - Success screen shows explorer link
@@ -1985,6 +2066,7 @@ Implement background transaction monitoring for all networks.
 - Success screen can be manually closed
 
 **Integration Tests** (`tests/integration/transaction-monitoring.spec.ts`):
+
 - Background monitoring detects Lightning payments
 - Background monitoring detects Liquid payments
 - Background monitoring detects Rootstock payments
@@ -1994,17 +2076,20 @@ Implement background transaction monitoring for all networks.
 - Explorer links work correctly
 
 **MOCKING REQUIREMENTS**:
+
 - Mock swap services:
   ```typescript
-  walletManager.reverseSwapService.getSwap = vi.fn()
-    .mockResolvedValueOnce({ status: 'pending' })
-    .mockResolvedValueOnce({ status: 'invoice.settled' });
+  walletManager.reverseSwapService.getSwap = vi
+  	.fn()
+  	.mockResolvedValueOnce({ status: 'pending' })
+  	.mockResolvedValueOnce({ status: 'invoice.settled' });
   ```
 - Mock transaction history:
   ```typescript
-  walletManager.loadTransactions = vi.fn()
-    .mockResolvedValueOnce([])
-    .mockResolvedValueOnce([{ to: 'address', amount: 100000, confirmed: true }]);
+  walletManager.loadTransactions = vi
+  	.fn()
+  	.mockResolvedValueOnce([])
+  	.mockResolvedValueOnce([{ to: 'address', amount: 100000, confirmed: true }]);
   ```
 
 **TEST COMMAND**: `npm run test:unit -- TransactionMonitoring`
@@ -2012,11 +2097,13 @@ Implement background transaction monitoring for all networks.
 ---
 
 #### Step 12-14: Translations, Accessibility, Performance
+
 Add translations, accessibility features, performance optimizations.
 
 **REQUIRED TESTS** (Run `npm run test:unit` - all must pass):
 
 **Component Tests** (`src/lib/tests/components/Accessibility.test.ts`):
+
 - All buttons have ARIA labels
 - Modal has correct ARIA attributes
 - Keyboard navigation works (Tab, Shift+Tab, Escape, Enter)
@@ -2025,6 +2112,7 @@ Add translations, accessibility features, performance optimizations.
 - Color contrast meets WCAG 2.1 AA standards (4.5:1)
 
 **Integration Tests** (`tests/integration/accessibility.spec.ts`):
+
 - Complete keyboard-only navigation works
 - Screen reader can navigate all components
 - All interactive elements are accessible
@@ -2032,6 +2120,7 @@ Add translations, accessibility features, performance optimizations.
 - Language switching works correctly
 
 **Performance Tests** (`tests/performance/wallet-modal.spec.ts`):
+
 - Modal opens in < 100ms
 - Calculator input responds in < 50ms
 - Fee calculations complete in < 200ms
@@ -2046,11 +2135,13 @@ Add translations, accessibility features, performance optimizations.
 ### Phase 5: Final Testing and Validation
 
 #### Step 15-20: Comprehensive Testing
+
 Run all tests, visual testing, and integration validation.
 
 **REQUIRED TEST SUITE** (Run `npm run test:unit` and `npm run test:integration` - all must pass):
 
 **Complete Test Coverage**:
+
 - All unit tests pass (100% of critical paths)
 - All component tests pass
 - All integration tests pass
@@ -2058,6 +2149,7 @@ Run all tests, visual testing, and integration validation.
 - No linting errors (`npm run lint`)
 
 **Visual Testing** (Manual - use Cursor browser):
+
 - Test on mobile viewport (375px, 414px)
 - Test on tablet viewport (768px, 1024px)
 - Test on desktop viewport (1280px, 1920px)
@@ -2072,6 +2164,7 @@ Run all tests, visual testing, and integration validation.
 - Test transaction success screens
 
 **Functional Testing** (Manual):
+
 - Calculator operations (+, −, ×, ÷) work correctly
 - Unit conversions (sats ↔ USD) work correctly
 - Network selection works correctly
@@ -2087,6 +2180,7 @@ Run all tests, visual testing, and integration validation.
 - Recent addresses dropdown works correctly
 
 **Accessibility Testing** (Manual):
+
 - Screen reader navigation works
 - Keyboard-only navigation works
 - Color contrast is sufficient
@@ -2094,6 +2188,7 @@ Run all tests, visual testing, and integration validation.
 - ARIA labels are correct
 
 **TEST COMMANDS**:
+
 - Unit tests: `npm run test:unit`
 - Integration tests: `npm run test:integration`
 - Type check: `npm run check`
@@ -2116,24 +2211,24 @@ import { get } from 'svelte/store';
 
 // Simulate logged-in user
 beforeEach(() => {
-  // Mock Preferences to return access token
-  vi.mocked(Preferences.get).mockImplementation(async ({ key }) => {
-    if (key === StorageKeys.ACCESS_TOKEN) {
-      return { value: 'mock-access-token' };
-    }
-    if (key === StorageKeys.NPUB) {
-      return { value: 'mock-npub' };
-    }
-    return { value: null };
-  });
-  
-  // Set auth state to logged in
-  authState.login();
-  expect(get(authState).isAuthenticated).toBe(true);
+	// Mock Preferences to return access token
+	vi.mocked(Preferences.get).mockImplementation(async ({ key }) => {
+		if (key === StorageKeys.ACCESS_TOKEN) {
+			return { value: 'mock-access-token' };
+		}
+		if (key === StorageKeys.NPUB) {
+			return { value: 'mock-npub' };
+		}
+		return { value: null };
+	});
+
+	// Set auth state to logged in
+	authState.login();
+	expect(get(authState).isAuthenticated).toBe(true);
 });
 
 afterEach(() => {
-  authState.logout();
+	authState.logout();
 });
 ```
 
@@ -2143,17 +2238,17 @@ Mock the authentication functions directly:
 
 ```typescript
 vi.mock('$lib/utils/helpers/biometrics', () => ({
-  getBiometricData: vi.fn().mockResolvedValue({
-    username: 'test-npub',
-    password: JSON.stringify({ encrypted: 'data' })
-  })
+	getBiometricData: vi.fn().mockResolvedValue({
+		username: 'test-npub',
+		password: JSON.stringify({ encrypted: 'data' })
+	})
 }));
 
 vi.mock('$lib/utils/helpers/webBiometrics', () => ({
-  getWebBiometricData: vi.fn().mockResolvedValue({
-    username: 'test-npub',
-    password: JSON.stringify({ encrypted: 'data' })
-  })
+	getWebBiometricData: vi.fn().mockResolvedValue({
+		username: 'test-npub',
+		password: JSON.stringify({ encrypted: 'data' })
+	})
 }));
 ```
 
@@ -2200,6 +2295,7 @@ tests/
 ### Test Execution Requirements
 
 **Before proceeding to next step**:
+
 1. Write all required tests for current step
 2. Run `npm run test:unit -- <ComponentName>` to run specific tests
 3. Fix any failing tests
@@ -2209,11 +2305,13 @@ tests/
 7. Only then proceed to next step
 
 **Test Coverage Goals**:
+
 - Unit tests: 80%+ coverage for utility functions
 - Component tests: 70%+ coverage for UI components
 - Integration tests: All critical user flows covered
 
 **Continuous Testing**:
+
 - Run tests after each small change
 - Fix failing tests immediately
 - Don't accumulate technical debt
@@ -2226,7 +2324,7 @@ tests/
 - **Wallet initialization**: Must handle loading, error, and disconnected states
 - **Network support**: Align with existing network identifiers:
   - Bitcoin: `lightning-bitcoin`, `rootstock-bitcoin`, `liquid-bitcoin`, `bitcoin`
-  - USD: `usdt-bsc` (BSC USDT, not Liquid USDT)
+  - USD: `usdt-bsc`
 - **Calculator use case**: Enable users to calculate totals directly in the wallet (e.g., adding multiple items, calculating fees, computing totals)
 - **Component integration**: New modal components wrap existing functionality (`LightningReceive`, `LBTCReceive`, `RSKReceive`, `SubmarineSend`) while improving UX with calculator interface and better displays
 - **Balance page**: Keep existing balance page, convert other tabs (Receive, Send, Buy/Sell, Swap) to buttons that launch full-screen modals
