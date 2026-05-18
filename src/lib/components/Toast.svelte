@@ -21,7 +21,7 @@
 		>
 			{#if isBanner}
 				<div
-					class="bg-base-100 border-primary/20 shadow-primary/10 relative rounded-xl border p-4 shadow-lg ring-1 ring-black/5"
+					class="bg-base-100 border-primary/50 shadow-primary/40 relative rounded-xl border p-4 shadow-lg ring-1 ring-black/5"
 				>
 					<!-- Close button — top right -->
 					{#if toast.dismissible !== false}
@@ -42,11 +42,11 @@
 					>
 						<p class="text-base-content flex-1 text-sm leading-relaxed">{toast.message}</p>
 						{#if toast.actions && toast.actions.length > 0}
-							<div class="flex shrink-0 flex-wrap gap-2 sm:justify-end">
+							<div class="flex shrink-0 flex-wrap justify-end gap-2">
 								{#each toast.actions as action (action.label)}
 									<button
 										class="btn {action.variant === 'ghost'
-											? 'btn-ghost'
+											? 'btn-ghost btn-outline'
 											: action.variant === 'secondary'
 												? 'btn-outline'
 												: 'btn-primary'} btn-sm"

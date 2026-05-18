@@ -3,7 +3,6 @@ import { ENDPOINTS } from '../endpoints';
 import cloudflareMediaService from './cloudflare-media.service';
 import { compressImage, validateImageFile } from '$lib/utils/imageCompression';
 import { addBreadcrumb } from '@sentry/sveltekit';
-import { uploadVideoFile } from '$lib/utils/video-upload';
 
 export interface UploadResult {
 	url: string;
@@ -147,31 +146,39 @@ class UploadService extends BaseApiService {
 						};
 					}
 				} else if (isVideo) {
-					// Video: always use Worker endpoint (no API token needed client-side)
-					const maxDurationSeconds =
+					// Video: use TUS resumable upload via Worker TUS proxy
+					const actualDuration =
 						typeof options.metadata?.maxDuration === 'number'
 							? (options.metadata.maxDuration as number)
-							: 3600;
-					const { uploadURL, uid } =
-						await cloudflareMediaService.requestStreamUploadUrl(maxDurationSeconds);
+							: undefined;
+
+					const { tusEndpoint, uid } = await cloudflareMediaService.requestTusUploadUrl(
+						processedFile.size,
+						600,
+						{
+							filename: processedFile.name,
+							filetype: processedFile.type,
+							actualDurationSeconds: actualDuration
+						}
+					);
 
 					addBreadcrumb({
 						category: 'stream',
-						message: `uploadSingleFile: video upload started - uid=${uid} size=${processedFile.size}`,
+						message: `uploadSingleFile: video TUS upload started - uid=${uid} size=${processedFile.size}`,
 						level: 'info'
 					});
 
-					// Platform-aware upload: native background on mobile, tus-js-client on web
-					// Uses @capgo/capacitor-uploader on iOS/Android for background-resilient uploads
-					// eslint-disable-next-line @typescript-eslint/no-explicit-any
-					const filePath = (processedFile as any).path || '';
-					await uploadVideoFile(filePath, uploadURL, processedFile, (progress) => {
-						options.onProgress?.(progress.bytesUploaded, progress.bytesTotal);
+					// Use TUS resumable upload with Uppy
+					const { uploadVideoWithTus } = await import('$lib/utils/video-upload');
+					await uploadVideoWithTus(processedFile, tusEndpoint, {
+						onProgress: (progress) => {
+							options.onProgress?.(progress.bytesUploaded, progress.bytesTotal);
+						}
 					});
 
 					addBreadcrumb({
 						category: 'stream',
-						message: `uploadSingleFile: video upload complete - uid=${uid}`,
+						message: `uploadSingleFile: video TUS upload complete - uid=${uid}`,
 						level: 'info'
 					});
 

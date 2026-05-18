@@ -356,6 +356,7 @@ export async function handleStreamRoute(request, env) {
 			const statusData = {
 				uid,
 				state,
+				pctComplete: video.status?.pctComplete ? parseFloat(video.status.pctComplete) : undefined,
 				errorReason,
 				duration: video.duration,
 				readyToStream: video.readyToStream

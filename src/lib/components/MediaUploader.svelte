@@ -62,6 +62,7 @@
 	let uploadProgress = $state({ completed: 0, total: 0, currentFile: '' });
 	let compressionInfo = $state<CompressionResult[]>([]);
 	let uploadResults = $state<UploadResult[]>([]);
+	let detectedVideoDuration = $state<number | null>(null);
 
 	// Label is now passed as a prop and doesn't need to be overridden
 
@@ -190,6 +191,9 @@
 					return null;
 				}
 
+				// Store detected duration for Cloudflare optimization
+				detectedVideoDuration = Math.ceil(video.duration);
+
 				URL.revokeObjectURL(video.src);
 			} catch (err) {
 				console.error('Failed to validate video duration:', err);
@@ -301,7 +305,8 @@
 				generateVariants,
 				metadata: {
 					uploadedAt: new Date().toISOString(),
-					clientCompressed: enableImageCompression && hasImages
+					clientCompressed: enableImageCompression && hasImages,
+					...(detectedVideoDuration != null ? { maxDuration: detectedVideoDuration } : {})
 				}
 			};
 
@@ -330,6 +335,7 @@
 		} finally {
 			isUploading = false;
 			uploadProgress = { completed: 0, total: 0, currentFile: '' };
+			detectedVideoDuration = null;
 		}
 	}
 

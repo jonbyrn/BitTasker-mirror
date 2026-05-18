@@ -365,17 +365,17 @@ export async function triggerPendingReviewBanner(
 			dedupKey,
 			actions: [
 				{
-					label: reviewNowLabel,
-					onClick: () => goto('/reviews'),
-					variant: 'primary'
-				},
-				{
 					label: dismissLabel,
 					onClick: () => {
 						updateDismissState(contractIds);
 						if (toastId !== null) appStore.dismissBanner(toastId);
 					},
 					variant: 'ghost'
+				},
+				{
+					label: reviewNowLabel,
+					onClick: () => goto('/reviews'),
+					variant: 'primary'
 				}
 			],
 			dismissible: false,

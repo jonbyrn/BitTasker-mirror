@@ -45,6 +45,7 @@
 	let isPaused = $state(false);
 	let uploadError = $state<string | null>(null);
 	let isUploading = $state(false);
+	let isTransitioning = $state(false);
 	let uploadWarnings = $state<UploadWarning[]>([]);
 	let showWarningModal = $state(false);
 	let _pendingFile = $state<File | null>(null);
@@ -234,6 +235,13 @@
 				uppy?.removeFile(file.id);
 				return;
 			}
+
+			// Tell Cloudflare Stream the actual video duration so it can optimize encoding
+			// (with 50% headroom) instead of always preparing for 10-minute videos
+			uppy?.setFileMeta(file.id, {
+				...file.meta,
+				maxDurationSeconds: String(Math.ceil(videoDuration! * 1.5))
+			});
 		} catch (err) {
 			console.error('Video validation failed:', err);
 			uploadError = $t('common.components.media_uploader.failed_to_validate_video');
@@ -268,6 +276,7 @@
 		response: { uploadURL?: string; body?: VideoBody; status?: number }
 	) {
 		try {
+			isTransitioning = true;
 			isLoading = true;
 			streamStatus = 'encoding';
 
@@ -308,11 +317,13 @@
 
 			await publishVideoEvent(videoMetadata);
 			videoData = videoMetadata;
+			isTransitioning = false;
 			onComplete(!!videoData, true);
 
 			// Reset upload state
 			resetUploadState();
 		} catch (err) {
+			isTransitioning = false;
 			console.error('Failed to process upload:', err);
 			uploadError = err instanceof Error ? err.message : $t('profile.video.failed_to_upload');
 			streamStatus = 'error';
@@ -379,11 +390,13 @@
 
 	function cancelUpload() {
 		if (!uppy) return;
+		isTransitioning = false;
 		uppy.cancelAll();
 		resetUploadState();
 	}
 
 	function dismissWarning() {
+		isTransitioning = false;
 		showWarningModal = false;
 		_pendingFile = null;
 		resetUploadState();
@@ -443,10 +456,6 @@
 		if (uppy) uppy.destroy();
 		if (previewUrl) URL.revokeObjectURL(previewUrl);
 	});
-
-	$effect(() => {
-		onComplete(!!videoData);
-	});
 </script>
 
 {#if isInitialLoading}
@@ -474,6 +483,7 @@
 					<StreamPlayer
 						videoUid={videoData.video.key}
 						videoUrl={videoData.video.url || null}
+						poster={videoData.thumbnail?.url || null}
 						private={false}
 						controls={true}
 						status={streamStatus === 'uploading' ? 'encoding' : streamStatus}
@@ -494,7 +504,7 @@
 						{$t('common.components.media_uploader.remove_file')}
 					</button>
 				{:else if uppy}
-					{#if isUploading || selectedFile}
+					{#if isUploading || selectedFile || isTransitioning}
 						<!-- Upload in progress or file selected -->
 						<div class="card bg-base-200 border-base-300 border">
 							<div class="card-body p-4">

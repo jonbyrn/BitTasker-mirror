@@ -305,8 +305,14 @@ class CloudflareMediaService {
 	 * @returns Upload URL and video UID
 	 */
 	async requestStreamUploadUrl(
-		maxDurationSeconds = 3600
+		maxDurationSeconds = 3600,
+		actualDurationSeconds?: number
 	): Promise<{ uploadURL: string; uid: string }> {
+		// When we know the actual video duration, use it (with 50% headroom) so Cloudflare
+		// can optimize encoding for a realistic duration instead of always preparing for 10 min.
+		const effectiveMaxDuration = actualDurationSeconds
+			? Math.min(Math.ceil(actualDurationSeconds * 1.5), 600)
+			: Math.min(maxDurationSeconds, 600);
 		addBreadcrumb({
 			category: 'stream',
 			message: 'requestStreamUploadUrl: requested',
@@ -316,7 +322,7 @@ class CloudflareMediaService {
 			const res = await fetch('/api/cloudflare/stream/upload-url', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ maxDurationSeconds: Math.min(maxDurationSeconds, 600) })
+				body: JSON.stringify({ maxDurationSeconds: effectiveMaxDuration })
 			});
 			if (!res.ok) {
 				const err = await res.json().catch(() => ({}));
@@ -359,7 +365,7 @@ class CloudflareMediaService {
 	async requestTusUploadUrl(
 		fileSize: number,
 		maxDurationSeconds = 600,
-		metadata: { filename?: string; filetype?: string } = {}
+		metadata: { filename?: string; filetype?: string; actualDurationSeconds?: number } = {}
 	): Promise<{ tusEndpoint: string; uid: string }> {
 		addBreadcrumb({
 			category: 'stream',
@@ -376,7 +382,10 @@ class CloudflareMediaService {
 			if (metadata.filetype) {
 				metadataParts.push(`filetype ${btoa(metadata.filetype)}`);
 			}
-			metadataParts.push(`maxDurationSeconds ${btoa(String(Math.min(maxDurationSeconds, 600)))}`);
+			const effectiveMaxDuration = metadata.actualDurationSeconds
+				? Math.min(Math.ceil(metadata.actualDurationSeconds * 1.5), 600)
+				: Math.min(maxDurationSeconds, 600);
+			metadataParts.push(`maxDurationSeconds ${btoa(String(effectiveMaxDuration))}`);
 
 			const headers: Record<string, string> = {
 				'Tus-Resumable': '1.0.0',

@@ -52,12 +52,16 @@
 	const isStreamUid = $derived(/^[a-f0-9]{32}$/.test(videoUid));
 	let token = $state<string | null>(null);
 	let tokenError = $state(false);
+	let pollingActive = $state(false);
 	let posterLoaded = $state(false);
 	let encodingTimedOut = $state(false);
+	let pollAttempt = $state(0);
 
-	// Timer handles are plain variables — not $state — so the $effect
-	// never re-runs when they change. This avoids the infinite-loop footgun
-	// that comes from reading/writing reactive timer handles in an effect.
+	// Breadcrumbs for state transitions are logged inline at the source
+	// (encoding poll ready/error, iframe load, encoding timeout) rather
+	// than via a watcher, to avoid Svelte effect/reactivity footguns.
+
+	// // Timer handles are plain variables (not reactive) —
 	let encodingTimer: ReturnType<typeof setTimeout> | null = null;
 	let pollingTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -120,6 +124,39 @@
 		fetchToken();
 	}
 
+	// ── Svelte actions (use: directive) — replace $effect blocks ──────
+
+	// Action: encoding polling + online listener lifecycle
+	function encodingPoll(_node: HTMLElement) {
+		startEncodingPoll();
+
+		const handleOnline = () => {
+			clearTimers();
+			startEncodingPoll();
+		};
+		window.addEventListener('online', handleOnline);
+
+		return {
+			destroy() {
+				clearTimers();
+				window.removeEventListener('online', handleOnline);
+				pollingActive = false;
+			}
+		};
+	}
+
+	// Action: token loading for private videos
+	function tokenLoad(_node: HTMLElement) {
+		fetchToken();
+		return { destroy() {} };
+	}
+
+	// Action: poster preloading
+	function posterPreload(_node: HTMLElement) {
+		posterLoaded = false;
+		return { destroy() {} };
+	}
+
 	// ── Encoding state: poll /api/cloudflare/stream/status/:uid ──────
 	// Timer reads/writes happen in plain functions outside the $effect so
 	// the effect only depends on status / browser / videoUid / isStreamUid.
@@ -130,15 +167,25 @@
 			encodingTimer = null;
 		}
 		if (pollingTimer) {
-			clearInterval(pollingTimer);
+			clearTimeout(pollingTimer);
 			pollingTimer = null;
 		}
 	}
 
 	function startEncodingPoll() {
+		if (pollingActive) return; // Prevent double-starts
+		pollingActive = true;
 		clearTimers();
 		encodingTimedOut = false;
+		pollAttempt = 0;
 
+		// Adaptive backoff: 3s → 6s → 12s → 30s (capped)
+		const backoffDelays = [3_000, 6_000, 12_000, 30_000];
+
+		// Encoding timeout proportional to expected video length.
+		// We don't know the exact duration, but a short video should time out faster.
+		// Default 30 min; for the adaptive-first approach we still use 30 min as fallback
+		// since we don't have duration info at this level.
 		encodingTimer = setTimeout(
 			() => {
 				encodingTimedOut = true;
@@ -157,14 +204,35 @@
 				if (!res.ok) return;
 				const data = await res.json();
 				if (data.state === 'ready') {
-					clearTimers();
-					addBreadcrumb({
-						category: 'stream',
-						message: `StreamPlayer: encoding complete for ${videoUid}`,
-						level: 'info'
-					});
-					onready?.(videoUid);
+					// Verify manifest is actually available at CDN edge before showing iframe.
+					// Cloudflare's Admin API reports "ready" before manifests have propagated
+					// to the CDN edge (customer-*.cloudflarestream.com), causing 404s.
+					try {
+						const manifestUrl = `https://customer-${customerCode}.cloudflarestream.com/${videoUid}/manifest/video.mpd?parentOrigin=${encodeURIComponent(window.location.origin)}`;
+						const manifestRes = await fetch(manifestUrl, { method: 'HEAD' });
+						if (manifestRes.ok) {
+							pollingActive = false;
+							clearTimers();
+							addBreadcrumb({
+								category: 'stream',
+								message: `StreamPlayer: encoding complete + manifest confirmed for ${videoUid}`,
+								level: 'info'
+							});
+							onready?.(videoUid);
+						} else {
+							// Manifest not propagated yet — continue polling
+							const delay = backoffDelays[Math.min(pollAttempt, backoffDelays.length - 1)];
+							pollAttempt++;
+							pollingTimer = setTimeout(poll, delay);
+						}
+					} catch {
+						// Network error during manifest check — continue polling
+						const delay = backoffDelays[Math.min(pollAttempt, backoffDelays.length - 1)];
+						pollAttempt++;
+						pollingTimer = setTimeout(poll, delay);
+					}
 				} else if (data.state === 'error') {
+					pollingActive = false;
 					clearTimers();
 					addBreadcrumb({
 						category: 'stream',
@@ -172,59 +240,23 @@
 						level: 'error'
 					});
 					onerror?.(data.errorReason || 'Video processing failed - please try re-uploading');
+				} else {
+					// Schedule next poll with adaptive backoff
+					const delay = backoffDelays[Math.min(pollAttempt, backoffDelays.length - 1)];
+					pollAttempt++;
+					pollingTimer = setTimeout(poll, delay);
 				}
 			} catch {
-				// Network error during poll — silently retry next interval
+				// Network error during poll — retry with backoff
+				const delay = backoffDelays[Math.min(pollAttempt, backoffDelays.length - 1)];
+				pollAttempt++;
+				pollingTimer = setTimeout(poll, delay);
 			}
 		}
 
-		pollingTimer = setInterval(poll, 30_000);
+		// First poll immediately
 		poll();
 	}
-
-	$effect(() => {
-		if ((status === 'encoding' || status === 'queued') && browser && videoUid && isStreamUid) {
-			startEncodingPoll();
-			return clearTimers;
-		}
-	});
-
-	// ── Token loading for private videos ─────────────────────────────
-
-	$effect(() => {
-		if (isPrivate && status === 'ready' && browser) {
-			fetchToken();
-		}
-	});
-
-	// ── Poster preloading ────────────────────────────────────────────
-
-	$effect(() => {
-		if (poster) {
-			posterLoaded = false;
-			const img = new Image();
-			img.onload = () => (posterLoaded = true);
-			img.onerror = () => (posterLoaded = true);
-			img.src = poster;
-		} else {
-			posterLoaded = true;
-		}
-	});
-
-	// ── Sentry breadcrumbs for state transitions ─────────────────────
-
-	$effect(() => {
-		if (!browser) return;
-		if (status === 'ready') {
-			addBreadcrumb({ category: 'stream', message: 'StreamPlayer: ready', level: 'info' });
-		} else if (status === 'error') {
-			addBreadcrumb({ category: 'stream', message: 'StreamPlayer: error', level: 'error' });
-		} else if (status === 'expired') {
-			addBreadcrumb({ category: 'stream', message: 'StreamPlayer: expired', level: 'warning' });
-		} else if (status === 'offline') {
-			addBreadcrumb({ category: 'stream', message: 'StreamPlayer: offline', level: 'warning' });
-		}
-	});
 </script>
 
 <div
@@ -232,6 +264,13 @@
 	role="region"
 	aria-label={ariaLabel}
 >
+	<!-- Lifecycle drivers: these hidden elements control polling, token loading, and poster preloading via Svelte use: actions (no $effect) -->
+	{#if (status === 'encoding' || status === 'queued') && browser && videoUid && isStreamUid}
+		<div style="display:none" aria-hidden="true" use:encodingPoll></div>
+	{/if}
+	{#if isPrivate && status === 'ready' && browser}
+		<div style="display:none" aria-hidden="true" use:tokenLoad></div>
+	{/if}
 	<!-- offline -->
 	{#if status === 'offline'}
 		<div
@@ -272,12 +311,30 @@
 			role="status"
 			aria-live="polite"
 		>
-			<div class="skeleton h-4/5 w-full rounded-lg motion-reduce:hidden"></div>
-			<p class="mt-2 text-center text-sm">
-				{status === 'queued'
-					? $t('stream_player.status.queued')
-					: $t('stream_player.status.encoding')}
-			</p>
+			{#if poster}
+				<div
+					class="relative flex w-full flex-1 items-center justify-center overflow-hidden rounded-lg"
+				>
+					<img src={poster} alt="" class="h-full w-full object-cover opacity-40" />
+					<div class="absolute inset-0 flex flex-col items-center justify-center bg-black/30">
+						<span class="loading loading-spinner loading-lg text-primary mb-3"></span>
+						<p class="text-sm font-medium text-white">
+							{status === 'queued'
+								? $t('stream_player.status.queued')
+								: $t('stream_player.status.encoding')}
+						</p>
+						<progress class="progress progress-primary mt-2 w-48"></progress>
+					</div>
+				</div>
+			{:else}
+				<span class="loading loading-spinner loading-lg text-primary mb-3"></span>
+				<progress class="progress progress-primary w-full max-w-xs"></progress>
+				<p class="mt-2 text-center text-sm">
+					{status === 'queued'
+						? $t('stream_player.status.queued')
+						: $t('stream_player.status.encoding')}
+				</p>
+			{/if}
 		</div>
 
 		<!-- encoding timed out -->
@@ -326,9 +383,17 @@
 		>
 			<div class="loading loading-spinner loading-md"></div>
 		</div>
-	{:else if !posterLoaded}
+	{:else if poster && !posterLoaded}
 		<div class="bg-base-200 flex h-full items-center justify-center">
 			<div class="skeleton h-full w-full rounded-lg"></div>
+			<img
+				src={poster}
+				alt=""
+				class="hidden"
+				use:posterPreload
+				onload={() => (posterLoaded = true)}
+				onerror={() => (posterLoaded = true)}
+			/>
 		</div>
 	{:else if !videoUid && !videoUrl}
 		<div class="bg-base-200 text-base-content/60 flex h-full items-center justify-center">
@@ -350,7 +415,6 @@
 			class="h-full w-full"
 			loading="lazy"
 			onload={() => {
-				onready?.(videoUid);
 				addBreadcrumb({
 					category: 'stream',
 					message: 'StreamPlayer: iframe loaded',
