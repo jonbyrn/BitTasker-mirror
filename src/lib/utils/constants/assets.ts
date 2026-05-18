@@ -4,22 +4,16 @@
  * These are well-known asset IDs that never change on the Liquid Network
  */
 
-import type { AssetMetadata } from "$lib/types/wallet";
+import type { AssetMetadata } from '$lib/types/wallet';
 
 export const LIQUID_ASSET_IDS = {
 	mainnet: {
 		// L-BTC (Liquid Bitcoin) - the native asset of Liquid Network
-		LBTC: '6f0279e9ed041c3d710a9f57d0c02928416460c4b722ae3457a11eec381c526d',
-		// Tether USD on Liquid
-		USDT: 'ce091c998b83c78bb71a632313ba3760f1763d9cfcffae02258ffa9865a37bd2',
-		// Add more mainnet assets as needed
+		LBTC: '6f0279e9ed041c3d710a9f57d0c02928416460c4b722ae3457a11eec381c526d'
 	},
 	testnet: {
 		// Testnet L-BTC
-		LBTC: '144c654344aa716d6f3abcc1ca90e5641e4e2a7f633bc09fe3baf64585819a49',
-		// Testnet USDT
-		USDT: 'b612eb46313a2cd6ebabd8b7a8eed5696e29898b87a43bff41c94f51acef9d73',
-		// Add more testnet assets as needed
+		LBTC: '144c654344aa716d6f3abcc1ca90e5641e4e2a7f633bc09fe3baf64585819a49'
 	}
 } as const;
 
@@ -31,14 +25,6 @@ export const ASSET_METADATA: Record<'mainnet' | 'testnet', Record<string, AssetM
 			ticker: 'L-BTC',
 			precision: 8,
 			icon: '/images/chains/Liquid-Bitcoin.svg'
-		},
-		[LIQUID_ASSET_IDS.mainnet.USDT]: {
-			assetId: LIQUID_ASSET_IDS.mainnet.USDT,
-			name: 'Tether USD',
-			ticker: 'USDt',
-			precision: 8,
-			icon: '/images/chains/Tether-USD.svg',
-			fiatId: 'USD' // Enables fee payment with USDT
 		}
 	},
 	testnet: {
@@ -48,14 +34,6 @@ export const ASSET_METADATA: Record<'mainnet' | 'testnet', Record<string, AssetM
 			ticker: 'L-BTC',
 			precision: 8,
 			icon: '/images/chains/Liquid-Bitcoin.svg'
-		},
-		[LIQUID_ASSET_IDS.testnet.USDT]: {
-			assetId: LIQUID_ASSET_IDS.testnet.USDT,
-			name: 'Testnet Tether USD',
-			ticker: 'USDt',
-			precision: 8,
-			icon: '/images/chains/Tether-USD.svg',
-			fiatId: 'USD'
 		}
 	}
 };
@@ -63,7 +41,10 @@ export const ASSET_METADATA: Record<'mainnet' | 'testnet', Record<string, AssetM
 /**
  * Get asset metadata by network and asset ID
  */
-export function getAssetMetadata(network: 'mainnet' | 'testnet', assetId: string): AssetMetadata | undefined {
+export function getAssetMetadata(
+	network: 'mainnet' | 'testnet',
+	assetId: string
+): AssetMetadata | undefined {
 	return ASSET_METADATA[network][assetId];
 }
 
@@ -84,7 +65,7 @@ export function getCurrentNetwork(): 'mainnet' | 'testnet' {
 /**
  * Get the appropriate asset ID for current network
  */
-export function getAssetId(asset: 'LBTC' | 'USDT'): string {
+export function getAssetId(asset: 'LBTC'): string {
 	const network = getCurrentNetwork();
 	return LIQUID_ASSET_IDS[network][asset];
 }

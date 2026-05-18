@@ -19,7 +19,6 @@ The Breez SDK - Nodeless (Liquid Implementation) provides developers with an end
 - ✅ Multi-device support
 - ✅ Real-time state backup
 - ✅ Keys are only held by users
-- ✅ USDT and multi-asset support on Liquid
 - ✅ Built-in fiat on-ramp
 - ✅ Free open-source solution
 
@@ -40,7 +39,6 @@ The Breez SDK - Nodeless uses submarine swaps and reverse submarine swaps to sen
 | No setup fees for end-users | Channel opening and closing fees |
 | Minimum 100 sats to receive, 21 sats to send | No minimum limit for transactions (after channel opening) |
 | Static low fees | Setup costs are correlated to Bitcoin mining fees |
-| Bitcoin, USDT & multi-asset support | Bitcoin only |
 
 ## Installation
 
@@ -604,115 +602,6 @@ if (input.type === 'lnUrlAuth') {
     console.log('Failed to authenticate')
   }
 }
-```
-
-## Multi-Asset Support
-
-### Default Asset Metadata
-
-The SDK includes metadata for L-BTC and Tether USD by default:
-
-#### Mainnet
-
-| Name | Ticker | Asset ID | Precision |
-|------|--------|----------|-----------|
-| Bitcoin | BTC | 6f0279e9ed041c3d710a9f57d0c02928416460c4b722ae3457a11eec381c526d | 8 |
-| Tether USD | USDt | ce091c998b83c78bb71a632313ba3760f1763d9cfcffae02258ffa9865a37bd2 | 8 |
-
-#### Testnet
-
-| Name | Ticker | Asset ID | Precision |
-|------|--------|----------|-----------|
-| Testnet Bitcoin | BTC | 144c654344aa716d6f3abcc1ca90e5641e4e2a7f633bc09fe3baf64585819a49 | 8 |
-| Testnet Tether USD | USDt | b612eb46313a2cd6ebabd8b7a8eed5696e29898b87a43bff41c94f51acef9d73 | 8 |
-
-### Adding Asset Metadata
-
-```javascript
-// Create the default config
-const config = defaultConfig('mainnet', '<your-Breez-API-key>')
-
-// Configure asset metadata. Setting the optional fiat ID will enable
-// paying fees using the asset (if available).
-config.assetMetadata = [
-  {
-    assetId: '18729918ab4bca843656f08d4dd877bed6641fbd596a0a963abbf199cfeb3cec',
-    name: 'PEGx EUR',
-    ticker: 'EURx',
-    precision: 8,
-    fiatId: 'EUR'
-  }
-]
-```
-
-### Receiving Non-Bitcoin Assets
-
-```javascript
-// Create a Liquid BIP21 URI/address to receive an asset payment to.
-// Note: Not setting the amount will generate an amountless BIP21 URI.
-const usdtAssetId = 'ce091c998b83c78bb71a632313ba3760f1763d9cfcffae02258ffa9865a37bd2'
-const optionalAmount = {
-  type: 'asset',
-  assetId: usdtAssetId,
-  payerAmount: 1.5
-}
-
-const prepareResponse = await sdk.prepareReceivePayment({
-  paymentMethod: 'liquidAddress',
-  amount: optionalAmount
-})
-```
-
-### Sending Non-Bitcoin Assets
-
-```javascript
-// Set the Liquid BIP21 or Liquid address you wish to pay
-const destination = '<Liquid BIP21 or address>'
-// If the destination is an address or an amountless BIP21 URI,
-// you must specify an asset amount
-const usdtAssetId = 'ce091c998b83c78bb71a632313ba3760f1763d9cfcffae02258ffa9865a37bd2'
-const optionalAmount = {
-  type: 'asset',
-  assetId: usdtAssetId,
-  receiverAmount: 1.5,
-  estimateAssetFees: false
-}
-
-const prepareResponse = await sdk.prepareSendPayment({
-  destination,
-  amount: optionalAmount
-})
-```
-
-### Paying Fees with Assets
-
-For some assets like Tether USD, you can pay transaction fees with the asset itself:
-
-```javascript
-const destination = '<Liquid BIP21 or address>'
-const usdtAssetId = 'ce091c998b83c78bb71a632313ba3760f1763d9cfcffae02258ffa9865a37bd2'
-// Set the optional estimate asset fees param to true
-const optionalAmount = {
-  type: 'asset',
-  assetId: usdtAssetId,
-  receiverAmount: 1.5,
-  estimateAssetFees: true
-}
-
-const prepareResponse = await sdk.prepareSendPayment({
-  destination,
-  amount: optionalAmount
-})
-
-// If the asset fees are set, you can use these fees to pay to send the asset
-const sendAssetFees = prepareResponse.estimatedAssetFees
-console.log(`Estimated Fees: ~${sendAssetFees}`)
-
-// Set the use asset fees param to true
-const sendResponse = await sdk.sendPayment({
-  prepareResponse,
-  useAssetFees: true
-})
 ```
 
 ## On-Chain Transactions

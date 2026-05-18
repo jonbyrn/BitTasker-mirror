@@ -10,7 +10,7 @@
 		bid: TaskBid;
 		taskTitle: string;
 		escrowDetails: {
-			paymentMethod: 'bitcoin-lightning' | 'lbtc-liquid' | 'usdt-liquid';
+			paymentMethod: 'bitcoin-lightning' | 'lbtc-liquid';
 			address: string;
 			qrCode: string;
 		};
@@ -39,13 +39,6 @@
 				return {
 					name: $t('common.components.bidding.external_wallet.payment_methods.lbtc'),
 					icon: '/currency-symbols/LBTC.svg',
-					color: 'from-cyan-400 to-cyan-600',
-					network: $t('common.components.bidding.external_wallet.networks.liquid')
-				};
-			case 'usdt-liquid':
-				return {
-					name: $t('common.components.bidding.external_wallet.payment_methods.usdt'),
-					icon: '/currency-symbols/USDt.svg',
 					color: 'from-cyan-400 to-cyan-600',
 					network: $t('common.components.bidding.external_wallet.networks.liquid')
 				};
@@ -151,9 +144,17 @@
 							/>
 						</svg>
 						<div class="text-info text-xs">
-							<ul class="space-y-1 ">
-								<li>{$t('common.components.bidding.external_wallet.instructions.send_exactly', { values: { amount: totalFiatPrice.toFixed(2) } })}</li>
-								<li>{$t('common.components.bidding.external_wallet.instructions.use_network', { values: { network: paymentInfo().network } })}</li>
+							<ul class="space-y-1">
+								<li>
+									{$t('common.components.bidding.external_wallet.instructions.send_exactly', {
+										values: { amount: totalFiatPrice.toFixed(2) }
+									})}
+								</li>
+								<li>
+									{$t('common.components.bidding.external_wallet.instructions.use_network', {
+										values: { network: paymentInfo().network }
+									})}
+								</li>
 								<li>{$t('common.components.bidding.external_wallet.instructions.no_exchange')}</li>
 							</ul>
 						</div>
@@ -163,20 +164,27 @@
 
 			<!-- Right Column: QR Code Only -->
 			<div class="flex flex-col items-center">
-
 				<div class="rounded-lg bg-white p-4 shadow-lg">
-					<img src={props.escrowDetails.qrCode} alt={$t('common.components.bidding.external_wallet.qr_alt')} class="h-40 w-40" />
+					<img
+						src={props.escrowDetails.qrCode}
+						alt={$t('common.components.bidding.external_wallet.qr_alt')}
+						class="h-40 w-40"
+					/>
 				</div>
 				<!-- Payment Status -->
 				<div class="mt-4 text-center">
-					<div class="text-base-content/70 text-xs">{$t('common.components.bidding.external_wallet.scan_qr')}</div>
+					<div class="text-base-content/70 text-xs">
+						{$t('common.components.bidding.external_wallet.scan_qr')}
+					</div>
 				</div>
 			</div>
 		</div>
 
 		<!-- Address Section -->
 		<div class="">
-			<label for="payment-address" class="mb-2 block text-sm font-medium">{$t('common.components.bidding.external_wallet.payment_address')}</label>
+			<label for="payment-address" class="mb-2 block text-sm font-medium"
+				>{$t('common.components.bidding.external_wallet.payment_address')}</label
+			>
 			<div class="bg-base-200 flex items-center gap-2 rounded-lg p-3">
 				<span id="payment-address" class="flex-1 font-mono text-xs break-all"
 					>{props.escrowDetails.address}</span
@@ -216,7 +224,9 @@
 	<div
 		class="bg-base-100 border-base-300 sticky bottom-0 flex w-full flex-col justify-end gap-3 border-t p-4 sm:flex-row md:py-2"
 	>
-		<button type="button" class="btn btn-error" onclick={props.onCancel}> {$t('common.components.bidding.external_wallet.cancel')} </button>
+		<button type="button" class="btn btn-error" onclick={props.onCancel}>
+			{$t('common.components.bidding.external_wallet.cancel')}
+		</button>
 		<button type="button" class="btn btn-primary" onclick={confirmPayment}>
 			{$t('common.components.bidding.external_wallet.payment_sent')}
 		</button>

@@ -9,8 +9,8 @@ import authService from '$lib/api/services/auth.service';
 
 // Helper function to get mnemonic using the same logic as wallet.store.ts
 export async function getMnemonic(): Promise<string> {
-	if (process.env.NODE_ENV === 'development') {
-		// return 'draw mobile oven airport ostrich jar fiber motion main move mom firm';
+	if (import.meta.env.VITE_TEST_MNEMONIC) {
+		return import.meta.env.VITE_TEST_MNEMONIC;
 	}
 
 	// E2E test bypass: read mnemonic directly from localStorage

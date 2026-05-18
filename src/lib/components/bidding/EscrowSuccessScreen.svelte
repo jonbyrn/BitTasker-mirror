@@ -13,8 +13,8 @@
 		taskTitle: string;
 		escrowDetails: {
 			method: 'bittasker' | 'external';
-			asset?: 'LBTC' | 'USDT';
-			paymentMethod?: 'bitcoin-lightning' | 'lbtc-liquid' | 'usdt-liquid';
+			asset?: 'LBTC';
+			paymentMethod?: 'bitcoin-lightning' | 'lbtc-liquid';
 			address?: string;
 			qrCode?: string;
 		};
