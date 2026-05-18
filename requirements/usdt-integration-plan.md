@@ -1,6 +1,6 @@
 # USDT Integration Plan — EIP-7702 Gas Abstraction
 
-> **Revision**: v4.1 — Debit Card Infrastructure + Feature Flag Architecture
+> **Revision**: v4.4 — USDT Gas Abstraction + Changelly Swaps + RSK Migration
 
 ---
 
@@ -21,7 +21,6 @@ This plan also includes migrating existing RSK users to the industry-standard EV
 ## Table of Contents
 
 1. [Architecture Overview](#1-architecture-overview)
-   - 1.4 [Debit Card Infrastructure](#14-debit-card-infrastructure--baanx-non-custodial-visa-cards)
 2. [EIP-7702 Delegation Lifecycle](#2-eip-7702-delegation-lifecycle)
    - 2.4 [Gas Payment for Cleanup Transaction](#24-gas-payment-for-cleanup-transaction)
    - 2.5 [Nonce Management During Delegation Window](#25-nonce-management-during-delegation-window)
@@ -35,11 +34,9 @@ This plan also includes migrating existing RSK users to the industry-standard EV
 8. [Testing Strategy](#8-testing-strategy)
 9. [Risk Analysis & Mitigations](#9-risk-analysis--mitigations)
 10. [Operational Safety: Kill Switch & Rollback](#10-operational-safety)
-    - 10.1.1 [Polling Behavior](#1011-polling-behavior)
-    - 10.1.2 [Config Response Authentication](#1012-config-response-authentication)
-    - 10.1.3 [Kill Switch Infrastructure Independence](#1013-kill-switch-infrastructure-independence)
+    - 10.2 [Rollback Procedure](#102-rollback-procedure)
+    - 10.3 [Paymaster Pause Mechanism](#103-paymaster-pause-mechanism)
     - 10.4 [Paymaster Rate Limiting](#104-paymaster-rate-limiting)
-    - 10.1.4 [Feature Flag Architecture](#1014-feature-flag-architecture--two-tier-system)
     - 10.5 [Defensive & Deterministic Programming](#105-defensive--deterministic-programming)
 11. [Dependencies & Tooling](#11-dependencies--tooling)
 12. [Audit Trail & Confidence Tracking](#12-audit-trail)
@@ -69,12 +66,9 @@ This plan also includes migrating existing RSK users to the industry-standard EV
 |     Changelly Layer (NEW)                                           |
 |   Swap API (HMAC-SHA256 via CF Worker) | Fiat API (SDK direct)    |
 +------------------------------------------------------------------+
-|     Baanx Layer (NEW)                                           |
-|   Card API client | Delegation registry | Tokenization proxy     |
-+------------------------------------------------------------------+
 |              Stability Layer (NEW)                                  |
 |   Kill Switch | Chain Lock | Delegation Journal                    |
-|   Capacitor Lifecycle Handlers | Remote Config Poller              |
+|   Capacitor Lifecycle Handlers                     |
 +------------------------------------------------------------------+
 |              Chain Providers                                        |
 |   BSC (chainId 56) | RSK (chainId 30) | Future Chains              |
@@ -94,12 +88,10 @@ This plan also includes migrating existing RSK users to the industry-standard EV
 | `StablecoinRegistry`                 | Chain-agnostic registry of supported stablecoins and paymasters                                                                     | **NEW**    |
 | `DerivationMigrator`                 | RSK path migration with two-phase commit and reorg resilience                                                                       | **NEW**    |
 | `GasModeStore`                       | User preference + paymaster health + depeg circuit breaker                                                                          | **NEW**    |
-| `KillSwitch`                         | Remote-config-based emergency disable (EIP-7702 + USDT independently)                                                               | **NEW**    |
+| `KillSwitch`                         | Emergency disable (EIP-7702 + USDT independently)                                                                                   | **NEW**    |
 | `DelegationJournal`                  | Persistent record of every delegation + outcome for recovery (prune completed entries older than 30 days; max 100 entries retained) | **NEW**    |
 | `ChainLock`                          | Prevents chain switching during active transactions                                                                                 | **NEW**    |
-| `BaanxCardService`                   | Virtual/physical Visa Debit card issuance, non-custodial funding via USDT, Google Pay tokenization                                  | **NEW**    |
-| `CardStore`                          | Card state management: balance, freeze/unfreeze, spending limits, transaction history                                               | **NEW**    |
-| `FeatureFlagService`                 | Unified FF gating — VITE\_ env vars (build-time) + Firebase Remote Config (runtime)                                                 | **NEW**    |
+| `FeatureFlagService`                 | Unified FF gating — VITE\_ env vars (build-time)                                                                                    | **NEW**    |
 
 ### 1.3 EIP-7702: Corrected Understanding
 
@@ -122,117 +114,6 @@ EIP-7702 introduces a transaction type where an EOA can set its smart contract c
 ```
 
 ---
-
-### 1.4 Debit Card Infrastructure — Baanx Non-Custodial Visa Cards
-
-Users can generate virtual Visa Debit cards funded by USDT from their BitTasker wallet. The card is issued via **Baanx Group** (FCA-regulated, the same infrastructure powering the MetaMask Card). Users can spend anywhere Visa is accepted, online or in-store via Google Pay.
-
-**Card Model: Non-Custodial Delegation (same pattern as MetaMask Card)**
-
-```
-+-------------------+     Delegation (time-bound)     +-------------------+
-|  BitTasker Wallet | ---------------------------> |  Baanx Card API   |
-|  (user's EOA)     |                              |                   |
-|  USDT on BSC      |                              |  Virtual Visa     |
-+-------------------+                              |  Mastercard       |
-        |                                          |  Google Pay token |
-        |  USDT sweep at transaction time          |                   |
-        +----------------------------------------->|                   |
-                                                   +-------------------+
-                                                            |
-                                                   Visa/Mastercard Network
-                                                            |
-                                                   Merchant POS / Online
-```
-
-**Two delegation models coexist**: The BitTasker wallet uses two distinct delegation mechanisms — Nostr delegation (persistent, for card spending) and EIP-7702 delegation (per-transaction, for gas abstraction). These operate on different layers (application vs EVM) and do not conflict. Card spending never triggers an EIP-7702 delegation; wallet USDT transfers never trigger a Nostr delegation.
-
-**How non-custodial works (Baanx pattern):**
-
-1. **Time-bound setup**: User signs a Nostr delegation event authorizing a spending pubkey with configurable limits. This delegation is registered with Baanx.
-2. **Card issuance**: Baanx generates a virtual Visa card number. Card exists in Google Pay via tokenization. No physical card required.
-3. **Transaction**: User taps/swipes at merchant → Baanx checks the user's on-chain USDT balance → approves authorization → sweeps exact USDT amount from user's wallet → converts to fiat → settles to merchant.
-4. **No per-transaction wallet signature**: The time-bound delegation covers all transactions within the spending limit. UX is identical to a regular debit card.
-
-**Delegation lifecycle**: Card spending delegations are time-bound (90-day maximum, auto-expiry). Users can: (a) revoke from app settings via "Revoke All Cards" button, (b) broadcast an on-chain revocation transaction from any wallet, (c) publish a Nostr replaceable event (kind TBD) to update delegation state. When a delegation expires or is revoked, Baanx MUST zero any remaining card balance back to the user's wallet. The app checks delegation expiry on startup and prompts re-authorization 7 days before expiry.
-
-**On-chain spending limit enforcement**: The Nostr delegation event encodes spending limits (daily cap, per-transaction cap) as signed parameters. Baanx verifies these client-side before each sweep. A secondary on-chain validation contract on BSC verifies cumulative daily sweeps against the encoded limit, providing cryptographic enforcement even if the Baanx spending infrastructure is compromised. The contract enforces: (a) daily sweep cap = user-configured limit (default $5,000), (b) per-transaction cap = user-configured limit (default $500), (c) cooldown on limit increases = 24 hours.
-
-**Key management note**: The same EOA private key is used for both EIP-7702 delegation signing (RestrictedSigner, §2.3 D-007) and Nostr delegation signing (NDK). The Nostr signing path does NOT pass through RestrictedSigner. Implementation MUST ensure Nostr delegation signing is equally scoped — only the specific Nostr delegation event kind (TBD) is signable. All other NDK signing operations (DMs, profile updates, event publishing) MUST use a separate Nostr-specific key or explicit user confirmation for each signature. The CardStore MUST verify that the delegation event's pubkey matches the wallet's EOA address before registration with Baanx.
-
-**KYC requirements**: Tier 1 (name, address, DOB). Baanx is FCA-regulated; identity verification is mandatory under Visa/Mastercard rules. No source-of-funds check at Tier 1. Card is issued in the user's real name.
-
-**Privacy notice** (shown at card creation): "Card transactions are processed by Baanx Group (FCA-regulated, UK). Your legal name, daily spending patterns, and transaction amounts are visible to Baanx and the Visa/Mastercard network as required for payment processing and fraud prevention. This data is not shared with BitTasker."
-
-**KYC data protection prerequisites (Phase 8 gate)**:
-
-- Data Processing Agreement (DPA) signed with Baanx before Phase 8 begins
-- Confirm Baanx supports a redirect model where user enters KYC directly on Baanx's portal — if not, formalize forwarding compliance
-- GDPR: Verify Baanx data center locations against user locations; if EU users are served, confirm UK adequacy decision or SCCs in place
-- Sentry filter rule: Strip PII fields (name, address, DOB) from all error logs, breadcrumbs, and crash reports
-- Worker-level header: `Cache-Control: no-store` on all KYC proxy responses
-- KYC data MUST never appear in Worker console.log, Sentry breadcrumbs, or Capacitor Preferences
-
-**Spending limits (Tier 1)**:
-| Limit | Value | Enforcement |
-|-------|-------|-------------|
-| Daily spend | ~$5,000 | Encoded in delegation event |
-| Per-transaction | $500 (default, user-configurable up to daily limit) | Encoded in delegation event, enforced on-chain |
-| ATM withdrawal | Not supported (purchase-only) |
-| Reload | Any amount (up to wallet USDT balance) |
-
-**Interaction with EIP-7702 limits**: Card-backed EIP-7702 transactions (e.g., funding an escrow from card balance) are subject to the paymaster's per-transaction limit of 5,000 USDT (§10.4). Card purchases via Visa/Mastercard use a separate authorization path and are NOT subject to paymaster rate limits. The lower of the card daily limit and paymaster per-tx limit applies when card balance funds an on-chain transaction.
-
-**Transaction display deduplication**: Card loads (USDT sweep from wallet to Baanx) appear as an on-chain USDT transfer in the wallet transaction history. They do NOT appear as a separate "card load" transaction to avoid double-counting. Card purchases (Visa/Mastercard authorizations) appear only in the card transaction history, not in the wallet history. The card balance displayed is the Baanx-reported balance, which may briefly differ from the on-chain wallet balance during sweep settlement (~2–5 seconds).
-
-**One-click card creation flow:**
-
-```
-User opens Banking tab
-        │
-        ▼
-"Debit Card" card with "Get Virtual Card" button
-        │
-        ▼ (one tap)
-KYC if not already completed (name, address, DOB)
-        │
-        ▼
-Card appears instantly — virtual Visa number + "Add to Google Pay"
-        │
-        ▼
-User loads with USDT from wallet → card is immediately spendable
-```
-
-**Google Pay integration**: Baanx handles Visa tokenization for Google Pay. The virtual card number is tokenized into a device-specific token. No additional integration required beyond Baanx's API.
-
-**Google Pay tokenization security**: Tokenization requests to Baanx require biometric authentication in the BitTasker app before the request is forwarded. Baanx cryptographically binds the token to the user's registered device via Google's device attestation. Tokenization from new/unrecognized devices is blocked until confirmed via push notification to the user's primary device. All tokenization attempts are logged as Sentry breadcrumbs.
-
-**Two-way fund movement**: Users can withdraw unspent card balance back to their BitTasker wallet USDT balance via the Baanx off-ramp API (same delegation signature).
-
-**Feature flag — VITE_BAANX_CARDS_ENABLED**: Gated behind a build-time `.env` feature flag because Baanx requires a business relationship and API credentials. The flag controls whether the entire debit card UI surface is visible. When disabled, the Banking tab shows only swap/buy/sell options.
-
-```
-# .env (build-time feature flag)
-VITE_BAANX_CARDS_ENABLED=false   # Set to 'true' when Baanx partnership is active
-
-# Runtime remote-config flag (Section 10)
-baanx_cards_enabled: false       # Emergency disable without redeploy
-```
-
-**API integration**: Baanx provides a REST API with OpenAPI 3.1 spec. Key endpoints:
-| Endpoint | Purpose |
-|----------|---------|
-| `/api/card/order` | Issue virtual card |
-| `/api/card/balance` | Check card balance |
-| `/api/card/freeze` / `/api/card/unfreeze` | Card controls |
-| `/api/card/limits` | Set spending limits |
-| `/api/card/transactions` | Transaction history |
-| `/api/delegation/register` | Register spending delegation |
-| `/api/card/tokenize` | Google Pay tokenization |
-
-**Rate limiting** (enforced at CF Worker proxy): Per-wallet-address: 30 requests/minute. Global: 100 requests/minute across all wallets. Sensitive endpoints (`/api/delegation/register`, `/api/card/order`, `/api/card/freeze`, `/api/card/withdraw`): 5 requests/hour per wallet. Anomaly detection: flag + alert if > 5 card operations per wallet per hour.
-
-**Estimated integration effort**: ~4–6 hours for custodial path, ~6 hours for non-custodial delegation path (per Baanx docs). Business onboarding: 4–12 weeks (gated by compliance review, not technical integration).
 
 ---
 
@@ -702,6 +583,8 @@ The escrow contract pipeline in `src/lib/utils/contract/v2/` is hardcoded for rB
 
 USDT features are accessible via the consolidated Banking menu and Swap button on the wallet dashboard. Send, Receive, Buy, and Sell flows are launched from the Banking modal. Swaps are handled separately via Changelly integration.
 
+**Component reuse policy**: Existing wallet screens are preserved and adapted, not replaced. `SendPaymentForm.svelte` and `ReceivePaymentForm.svelte` gain USDT awareness via token selection and chain switching — their core layout, validation, and transaction construction remain unchanged. All numeric amount input uses the existing `AmountInputSection.svelte` component with its `mode` prop (extended to support `send`, `buy`, `sell`, and `load` modes). ASCII mockups below show adapted states, not new components.
+
 ### 6.1 Wallet Dashboard — Consolidated Actions
 
 The dashboard shows two asset accordions (BTC and USD) without inline action buttons. Primary actions are "Banking" and "Swap":
@@ -764,13 +647,13 @@ When user taps "Send USDT on BNB Smart Chain" from Banking:
 |        USDT                                                  |
 |                                                              |
 |  ┌───────┬───────┬───────┬───────┐                          |
-|  │   1   │   2   │   3   │   C   │                          |
+|  │   1   │   2   │   3   │   ⌫   │                          |
 |  ├───────┼───────┼───────┼───────┤                          |
-|  │   4   │   5   │   6   │   ⌫   │                          |
+|  │   4   │   5   │   6   │       │                          |
+|  ├───────┼───────┼───────┤  MAX  │                          |
+|  │   7   │   8   │   9   │       │                          |
 |  ├───────┼───────┼───────┼───────┤                          |
-|  │   7   │   8   │   9   │   .   │                          |
-|  ├───────┼───────┼───────┼───────┤                          |
-|  │   +   │   -   │   ×   │   ÷   │                          |
+|  │   .   │   0   │   ⌫   │  MAX  │                          |
 |  └───────┴───────┴───────┴───────┘                          |
 |                                                              |
 |  To: [ 0x742d35Cc6634C0532925a3b844Bc9e7595f0bDc3 ]        |
@@ -779,6 +662,8 @@ When user taps "Send USDT on BNB Smart Chain" from Banking:
 |  [Back]                              [Review]               |
 +--------------------------------------------------------------+
 ```
+
+Note: Uses existing `AmountInputSection.svelte` with `mode='send'`. `inputmode='decimal'` for mobile keyboards.
 
 ### 6.4 Send — Review & Confirm
 
@@ -976,7 +861,7 @@ The "From" dropdown lists all tokens supported by Changelly that have a swap pai
 
 ### 6.12 Escrow Creation — With USDT Option
 
-The existing escrow flow adds a token picker and a "Pay with Card" option that buys USDT and funds the escrow in one step:
+The existing escrow flow adds a token picker for the escrow payment:
 
 ```
 +-- Fund Escrow ──────────────────────────────────────────────+
@@ -999,78 +884,28 @@ The existing escrow flow adds a token picker and a "Pay with Card" option that b
 |                                                              |
 +--------------------------------------------------------------+
 |  [Back]                      [Fund Escrow — 525.04 USDT]    |
-|                                                              |
-|  Don't have enough USDT?  [Pay with Card →]                  |
 +--------------------------------------------------------------+
-```
-
-The "Pay with Card →" link triggers the buy-and-auto-fund flow described in 6.12a below.
-
-### 6.12a Escrow — Pay with Card (Buy + Auto-Fund)
-
-When the user taps "Pay with Card", they enter the card-on-ramp flow. The app calculates the exact fiat amount needed:
-
-```
-+-- Pay with Card ────────────────────────────────────────────+
-|                                                              |
-|  Fund escrow with your card                                  |
-|                                                              |
-|  Escrow total needed:    525.04 USDT                         |
-|  Card processing fee:      2.63 USDT  (est. 0.5%)            |
-|  Network fee buffer:       0.10 USDT  (safety margin)        |
-|  You'll be charged:     ~527.77 USDT                         |
-|                                                              |
-|  You pay: $527.77 via card                                   |
-|                                                              |
-|  After payment, the escrow is funded automatically.          |
-|  This takes about 2 minutes. You can use the app normally    |
-|  while it completes.                                         |
-|                                                              |
-+--------------------------------------------------------------+
-|  [Back]                        [Pay $515.20]                |
-+--------------------------------------------------------------+
-```
-
-**Amount guarantee:** The card charge always covers the escrow total + platform fee + network fees + a 0.10 USDT safety buffer. If the received USDT exceeds what's needed, the excess stays in the wallet as USDT balance. The escrow is NEVER short.
-
-**Non-blocking flow:** After the user confirms payment, the app returns to the dashboard. A non-blocking progress indicator shows "Funding escrow..." in the task card. The user can navigate the app, send/receive, or view other tasks while the Changelly on-ramp and escrow funding complete in the background. When done, the task status updates to "Funded" and a push notification confirms it.
-
-```
-+-- Escrow Funding... (non-blocking) ─────────────────────────+
-|                                                              |
-|  ⟳  Funding escrow for "Build dashboard component"          |
-|                                                              |
-|  Step 1: Processing card payment...    ✓                     |
-|  Step 2: USDT arriving on BSC...       ⟳                    |
-|  Step 3: Creating escrow...            ○                     |
-|                                                              |
-|  You can use the app normally. We'll notify you when done.   |
-|                                                              |
-+--------------------------------------------------------------+
-```
-
-If the card payment fails: user is not charged, escrow is not created, error shown inline in the task.
-If USDT arrives but escrow creation fails: USDT sits in wallet, "Retry Escrow" button appears.
-If received amount is exactly right: escrow funded, excess dust stays in wallet.
 
 ### 6.13 Derivation Migration Prompt
 
 Shown during wallet setup ONLY if a legacy derivation path is detected AND the user has an rBTC balance. If the balance is zero, migration happens silently — the derivation path switches and the new address is derived without any user prompt.
 
 ```
+
 +-- Wallet Update ────────────────────────────────────────────+
-|                                                              |
-|  Your wallet uses an older address format.                   |
-|  Updating gives you the same address on all EVM chains.      |
-|                                                              |
-|  Old: 0x1234...5678                                          |
-|  New: 0xabcd...ef01  (same address everywhere)               |
-|                                                              |
-|  Balance to move: 0.0523 rBTC                                |
-|                                                              |
+| |
+| Your wallet uses an older address format. |
+| Updating gives you the same address on all EVM chains. |
+| |
+| Old: 0x1234...5678 |
+| New: 0xabcd...ef01 (same address everywhere) |
+| |
+| Balance to move: 0.0523 rBTC |
+| |
 +--------------------------------------------------------------+
-|  [Remind Me Later]                    [Update]               |
+| [Remind Me Later] [Update] |
 +--------------------------------------------------------------+
+
 ```
 
 ### 6.14 USDT Service Paused (Kill Switch Active)
@@ -1078,26 +913,30 @@ Shown during wallet setup ONLY if a legacy derivation path is detected AND the u
 Overlay on the wallet dashboard when USDT is globally disabled:
 
 ```
+
 +-- USDT Temporarily Unavailable ─────────────────────────────+
-|  USDT features are paused for maintenance.                   |
-|  Your rBTC works as normal.                                  |
+| USDT features are paused for maintenance. |
+| Your rBTC works as normal. |
 +--------------------------------------------------------------+
+
 ```
 
 ### 6.15 Send — Insufficient Balance
 
 ```
+
 +-- Insufficient Balance ─────────────────────────────────────+
-|                                                              |
-|  You don't have enough USDT.                                 |
-|                                                              |
-|  Balance:        95.00 USDT                                  |
-|  Needed:        100.02 USDT                                  |
-|  Short:           5.02 USDT                                  |
-|                                                              |
+| |
+| You don't have enough USDT. |
+| |
+| Balance: 95.00 USDT |
+| Needed: 100.02 USDT |
+| Short: 5.02 USDT |
+| |
 +--------------------------------------------------------------+
-|  [Cancel]                         [Reduce Amount]           |
+| [Cancel] [Reduce Amount] |
 +--------------------------------------------------------------+
+
 ```
 
 ### 6.16 Send — Network Unavailable
@@ -1105,31 +944,35 @@ Overlay on the wallet dashboard when USDT is globally disabled:
 Shown when BSC RPC is unreachable or the gas sponsor is temporarily down:
 
 ```
+
 +-- Network Unavailable ──────────────────────────────────────+
-|                                                              |
-|  Can't reach BNB Smart Chain right now.                      |
-|  Your USDT is safe. Try again in a moment.                   |
-|                                                              |
-|  Balances shown may be from a few minutes ago.               |
-|                                                              |
+| |
+| Can't reach BNB Smart Chain right now. |
+| Your USDT is safe. Try again in a moment. |
+| |
+| Balances shown may be from a few minutes ago. |
+| |
 +--------------------------------------------------------------+
-|  [Cancel]                           [Retry]                  |
+| [Cancel] [Retry] |
 +--------------------------------------------------------------+
+
 ```
 
 ### 6.17 Transaction Failed
 
 ```
+
 +-- Failed ───────────────────────────────────────────────────+
-|                                                              |
-|          ✕                                                  |
-|                                                              |
-|    The transaction didn't go through.                        |
-|    Your USDT hasn't moved.                                   |
-|                                                              |
-|    [Try Again]                    [Close]                    |
-|                                                              |
+| |
+| ✕ |
+| |
+| The transaction didn't go through. |
+| Your USDT hasn't moved. |
+| |
+| [Try Again] [Close] |
+| |
 +--------------------------------------------------------------+
+
 ```
 
 ### 6.18 Transaction Success
@@ -1137,19 +980,21 @@ Shown when BSC RPC is unreachable or the gas sponsor is temporarily down:
 Matches the existing `TransactionSuccessScreen`:
 
 ```
+
 +-- Sent ─────────────────────────────────────────────────────+
-|                                                              |
-|          ✓                                                  |
-|                                                              |
-|    500.00 USDT                                               |
-|                                                              |
-|    to 0x742d...bDc3 on BNB Smart Chain                      |
-|                                                              |
-|    [View in Block Explorer]                                  |
-|                                                              |
+| |
+| ✓ |
+| |
+| 500.00 USDT |
+| |
+| to 0x742d...bDc3 on BNB Smart Chain |
+| |
+| [View in Block Explorer] |
+| |
 +--------------------------------------------------------------+
-|                            [Done]                            |
+| [Done] |
 +--------------------------------------------------------------+
+
 ```
 
 ### 6.19 Pending Transaction
@@ -1157,19 +1002,21 @@ Matches the existing `TransactionSuccessScreen`:
 Matches the existing `PendingTransactionScreen` pattern:
 
 ```
+
 +-- Sending... ───────────────────────────────────────────────+
-|                                                              |
-|          ⟳                                                  |
-|                                                              |
-|    500.00 USDT to 0x742d...bDc3                             |
-|                                                              |
-|    This usually takes a few seconds.                         |
-|    You can close the app — we'll finish on our own.          |
-|                                                              |
-|    Transaction: 0x1234...5678                                |
-|    [View in Block Explorer]                                  |
-|                                                              |
+| |
+| ⟳ |
+| |
+| 500.00 USDT to 0x742d...bDc3 |
+| |
+| This usually takes a few seconds. |
+| You can close the app — we'll finish on our own. |
+| |
+| Transaction: 0x1234...5678 |
+| [View in Block Explorer] |
+| |
 +--------------------------------------------------------------+
+
 ```
 
 ### 6.20 Transaction History — Multi-Chain
@@ -1177,114 +1024,61 @@ Matches the existing `PendingTransactionScreen` pattern:
 Existing history pattern, now showing BSC transactions:
 
 ```
+
 +-- History ──────────────────────────────────────────────────+
-|                                                              |
-|  [All ▾]  [All chains ▾]                                    |
-|                                                              |
-|  ┌─ Sent ──────────────────────────────────────────────────┐|
-|  │  -500.00 USDT                    May 14, 3:45 PM        │|
-|  │  to 0x742d...bDc3               on BNB Smart Chain      │|
-|  │  fee: 0.02 USDT                  ✓ confirmed            │|
-|  └──────────────────────────────────────────────────────────┘|
-|  ┌─ Received ──────────────────────────────────────────────┐|
-|  │  +0.01 rBTC                       May 14, 10:15 AM      │|
-|  │  from 0xabcd...ef01              on Rootstock           │|
-|  │  fee: 0.00003 rBTC                ✓ confirmed            │|
-|  └──────────────────────────────────────────────────────────┘|
-|  ┌─ Swapped ──────────────────────────────────────────────┐|
-|  │  0.005 rBTC → 100 USDT            May 13, 2:30 PM       │|
-|  │  via Changelly swap               ✓ completed            │|
-|  └──────────────────────────────────────────────────────────┘|
-|                                                              |
+| |
+| [All ▾] [All chains ▾] |
+| |
+| ┌─ Sent ──────────────────────────────────────────────────┐|
+| │ -500.00 USDT May 14, 3:45 PM │|
+| │ to 0x742d...bDc3 on BNB Smart Chain │|
+| │ fee: 0.02 USDT ✓ confirmed │|
+| └──────────────────────────────────────────────────────────┘|
+| ┌─ Received ──────────────────────────────────────────────┐|
+| │ +0.01 rBTC May 14, 10:15 AM │|
+| │ from 0xabcd...ef01 on Rootstock │|
+| │ fee: 0.00003 rBTC ✓ confirmed │|
+| └──────────────────────────────────────────────────────────┘|
+| ┌─ Swapped ──────────────────────────────────────────────┐|
+| │ 0.005 rBTC → 100 USDT May 13, 2:30 PM │|
+| │ via Changelly swap ✓ completed │|
+| └──────────────────────────────────────────────────────────┘|
+| |
 +--------------------------------------------------------------+
+
 ```
 
 ### 6.21 Rate Limit Reached
 
 ```
+
 +-- Limit Reached ────────────────────────────────────────────+
-|                                                              |
-|  You've reached the transaction limit.                       |
-|  Please wait a moment before trying again.                   |
-|                                                              |
+| |
+| You've reached the transaction limit. |
+| Please wait a moment before trying again. |
+| |
 +--------------------------------------------------------------+
-|                            [OK]                              |
+| [OK] |
 +--------------------------------------------------------------+
+
 ```
 
 ### 6.22 Depeg Warning (Escrow Blocked)
 
 ```
+
 +-- USDT Unavailable for Escrow ──────────────────────────────+
-|                                                              |
-|  USDT is currently trading below its usual value.            |
-|  Escrow and swap operations are paused for your safety.      |
-|                                                              |
-|  You can still send and receive USDT.                        |
-|                                                              |
+| |
+| USDT is currently trading below its usual value. |
+| Escrow and swap operations are paused for your safety. |
+| |
+| You can still send and receive USDT. |
+| |
 +--------------------------------------------------------------+
-|                            [OK]                              |
+| [OK] |
 +--------------------------------------------------------------+
-```
 
-### 6.23 Saved Payment Methods
-
-```
-+-- Saved Cards ─────────────────────────────────────────────+
-|                                                              |
-|  Saved payment methods for faster checkout                   |
-|                                                              |
-|  ┌─ Visa ••••4242  (default) ──────────────────────────────┐|
-|  │  Last used: May 14, 2026            [Remove]            │|
-|  └──────────────────────────────────────────────────────────┘|
-|  ┌─ Add New Card ──────────────────────────────────────────┐|
-|  │  [+ Add debit or credit card]                           │|
-|  └──────────────────────────────────────────────────────────┘|
-|                                                              |
-|  Auto-refill: when USDT balance drops below [ 100.00 ]       |
-|  refill to [ 200.00 ] USDT using saved card.                 |
-|                                                              |
-|  [ ] Confirm before refilling                                |
-|                                                              |
-+--------------------------------------------------------------+
-```
-
-### 6.24 Auto-Refill Confirmation
-
-```
-+-- Auto-Refill Triggered ────────────────────────────────────+
-|                                                              |
-|  Your USDT balance dropped below 100.00.                     |
-|  Auto-refilling 100.00 USDT from Visa ••••4242.              |
-|                                                              |
-|  You'll be charged ~$103.50 (includes 3.5% card fee).        |
-|                                                              |
-|  [Cancel]          [Refill Now]                              |
-+--------------------------------------------------------------+
-```
-
-### 6.25 Auto-Convert Earnings Setting
-
-```
-+-- Earnings Preference ──────────────────────────────────────+
-|                                                              |
-|  When you receive USDT payments:                             |
-|                                                              |
-|  ┌─ (•) Keep as USDT ──────────────────────────────────────┐|
-|  │  Receive and hold USDT in your wallet                    │|
-|  └──────────────────────────────────────────────────────────┘|
-|  ┌─ ( ) Convert to rBTC ───────────────────────────────────┐|
-|  │  Automatically swap to rBTC (0.25% Changelly fee)        │|
-|  └──────────────────────────────────────────────────────────┘|
-|  ┌─ ( ) Split 50/50 ───────────────────────────────────────┐|
-|  │  Keep half as USDT, convert half to rBTC                 │|
-|  └──────────────────────────────────────────────────────────┘|
-|                                                              |
-|  Last conversion: May 14 — 500 USDT → 0.0249 rBTC            |
-|  (0.25% fee = $1.25)                                         |
-|                                                              |
-+--------------------------------------------------------------+
-```
+````
 
 ### Skeleton / Loading States
 
@@ -1305,7 +1099,7 @@ Existing loading states are reused:
 
 | Task | File(s)                    | Description                                                                                                       |
 | ---- | -------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| 1.1  | `kill-switch.ts`           | Remote-config kill switch (`eip7702_enabled`, `usdt_enabled`) polled at startup and periodically                  |
+| 1.1  | `kill-switch.ts`           | VITE_ feature flag gating                                                                                           |
 | 1.2  | `gas-abstraction/types.ts` | `GasAbstractionProvider` interface (EIP-agnostic)                                                                 |
 | 1.3  | `stablecoin-registry.ts`   | Chain/token registry with BSC mainnet + testnet configs, RPC failover, token address validation                   |
 | 1.4  | `restricted-signer.ts`     | Scoped signer that never exposes raw private key to third-party SDKs                                              |
@@ -1335,10 +1129,7 @@ Existing loading states are reused:
 | 2.5.3 | `@changelly/fiat-api-sdk-node`                 | Fiat on/off-ramp integration via CF Worker (NOT client-side). Create `workers-site/handlers/changelly-fiat.js` handling `/api/changelly/fiat/*`. Init `ChangellyFiatClient` with secrets from env. Client calls Worker endpoint, Worker calls SDK. Run `npm audit` on `@changelly/fiat-api-sdk-node` before deployment. Pin to exact version. Monitor for security advisories.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | 2.5.4 | `BankingMenu.svelte`                           | Consolidated banking modal                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | 2.5.5 | `BuyUSDTForm.svelte` and `SellUSDTForm.svelte` | Buy/sell USDT flows                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| 2.5.6 | `escrow-auto-fund.service.ts`                  | Auto-fund escrow: buy USDT via Changelly with card, receive on BSC, immediately fund escrow. Non-blocking — returns control to dashboard immediately. Calculates exact fiat charge: escrow total + card processing fee + 0.10 USDT safety buffer. If received > needed, excess stays in wallet. Escrow is NEVER short. **Monitoring:** Hybrid poll + webhook. Card payment status polled via Worker (every 5s for first 2 min, then every 30s). USDT arrival detected via BSC block listener on wallet address. Escrow funding tx submitted via existing EIP-7702 flow. If app is killed mid-funding: on restart, delegatioin journal + Changelly transaction status check reconstruct state and resume from last completed step. Progress indicator updates via store (`$autoFundState`) watched by task card component. Firebase push notification on completion. |
 | 2.5.7 | Push notification service                      | Extend Firebase Cloud Messaging for USDT wallet events: incoming USDT deposit detected (BSC block listener on user's address), swap completed via Changelly, escrow funded/released in USDT, low gas reserve warning (< 0.20 USDT remaining). Use existing FCM infrastructure — add USDT-specific notification payloads with chainId, tokenSymbol, amount, txHash.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| 2.5.8 | `saved-payment-methods.service.ts`             | Tokenize card from Changelly fiat SDK. Store encrypted token in Capacitor Preferences using Web Crypto API (SubtleCrypto.generateKey + AES-GCM) with key derived from device biometric keystore. Auto-refill: monitor USDT balance, if below user-set threshold, trigger Changelly on-ramp with saved card. Require biometric confirmation before each auto-refill.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| 2.5.9 | `auto-convert.service.ts`                      | Auto-convert earnings: on escrow release event, check user preference (keep/convert/split). If convert or split: call Changelly estimate → create swap with payout to RSK address → send USDT to Changelly payin address → poll until complete → notify user. All steps are non-blocking. If Changelly fails, USDT stays in wallet with retry option.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 
 **Proxy implementation requirements:**
 
@@ -1381,9 +1172,9 @@ Existing loading states are reused:
 | 5.3  | `v2/service-creation.ts`      | USDT pricing options                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | 5.4  | `contractRegistry.ts`         | Add `bsc.testnet` entries                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | 5.5  | `index.ts` (`initContract()`) | Chain-aware provider/contract initialization                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| 5.6  | Escrow creation UI            | Add token selector and "Pay with Card" option. When USDT selected, gas display switches to USDT estimate. "Pay with Card" triggers auto-fund flow (Changelly on-ramp → receive → fund). Platform fee is 5% for USDT (each side: tasker and taskee); rBTC fee tiers are separate (1.5%–2.5% per existing fee tier system). Card charge includes escrow total + card fee + safety buffer. Non-blocking — user returns to dashboard while funding completes. ContractAddress resolved via contractRegistry. |
+| 5.6  | Escrow creation UI            | Add token selector for escrow funding. When USDT selected, gas display switches to USDT estimate. Platform fee is 5% for USDT (each side: tasker and taskee); rBTC fee tiers are separate (1.5%–2.5% per existing fee tier system). ContractAddress resolved via contractRegistry. |
 | 5.7  | Bid acceptance flow           | Bid acceptance: if escrow was created in USDT, acceptance tx uses USDT gas via EIP-7702. Same contract function, different chain.                                                                                                                                                                                                                                                                                                                                                                        |
-| 5.8  | Task completion/release       | USDT release transactions; trigger auto-convert if freelancer has preference set                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| 5.8  | Task completion/release       | USDT release transactions with token-aware notifications                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | 5.9  | Dispute resolution            | USDT dispute handling                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | 5.10 | Nostr escrow events           | In `src/lib/nostr/events/contract.ts`, extend event publishing to include `{ chainId, tokenSymbol, tokenAddress }` in escrow event tags.                                                                                                                                                                                                                                                                                                                                                                 |
 
@@ -1405,46 +1196,10 @@ Existing loading states are reused:
 | 7.3  | Offline UX — offline banner on wallet dashboard, disabled send when offline, cached balance display with "last updated" timestamp                                                                                                                                                                                                                                                               |
 | 7.4  | Performance profiling — mobile focus: gas estimation latency, RPC failover speed                                                                                                                                                                                                                                                                                                                |
 | 7.5  | Security audit — delegation cleanup finality, restricted signer, kill switch                                                                                                                                                                                                                                                                                                                    |
-| 7.6  | Rollback drill — simulate critical bug, verify sub-2-minute kill cascade                                                                                                                                                                                                                                                                                                                        |
+| 7.6  | Rollback drill — simulate critical bug, rebuild with flag disabled, redeploy, verify feature hidden                                                                                                                                                                                                                                                                                                                        |
 | 7.7  | Mobile-native UX — env(safe-area-inset-\*) for iPhone notch, keyboard avoidance for send screen, pull-to-refresh on wallet dashboard, haptic feedback on tx completion                                                                                                                                                                                                                          |
 | 7.8  | E2E tests — all critical paths (see §8)                                                                                                                                                                                                                                                                                                                                                         |
 | 7.9  | Re-audit via swarm — all 4 dimensions must score ≥95%                                                                                                                                                                                                                                                                                                                                           |
-
-### Phase 8: Baanx Debit Card Integration (Week 8-10, feature-flagged)
-
-**Prerequisite:** Baanx business partnership approved and API credentials provisioned (`VITE_BAANX_CARDS_ENABLED=true`).
-
-| Task | File(s)                          | Description                                                                                                                                                                                                                                                            |
-| ---- | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 8.1  | `baanx-card.service.ts`          | Baanx REST API client (card issuance, balance, freeze/unfreeze, delegation, tokenization)                                                                                                                                                                              |
-| 8.1a | `workers-site/handlers/baanx.js` | CF Worker proxy for Baanx REST API. Routes POST /api/baanx/card/\* to Baanx API. Auth: `BAANX_API_KEY` + `BAANX_API_SECRET` via `wrangler secret put`. Origin validation, rate limiting, error filtering (strip internal details). Follow pattern from `changelly.js`. |
-| 8.2  | `card.store.ts`                  | Card state management: balance, status, spending limits, transaction history                                                                                                                                                                                           |
-| 8.3  | `feature-flags.ts`               | Two-tier feature flag service (VITE\_ env + Firebase Remote Config)                                                                                                                                                                                                    |
-| 8.4  | `CardDashboard.svelte`           | Card UI: virtual card display, balance, "Add to Google Pay" button, freeze/unfreeze toggle                                                                                                                                                                             |
-| 8.5  | `CreateCardFlow.svelte`          | One-click card creation: KYC form (name/address/DOB) → delegation sign → card issued                                                                                                                                                                                   |
-| 8.6  | `LoadCardModal.svelte`           | Fund card from USDT wallet balance                                                                                                                                                                                                                                     |
-| 8.7  | `CardTransactionHistory.svelte`  | Per-card transaction list with real-time updates                                                                                                                                                                                                                       |
-| 8.8  | `BankingMenu.svelte` (update)    | Add "Debit Card" section, gated by `VITE_BAANX_CARDS_ENABLED`                                                                                                                                                                                                          |
-| 8.9  | `wallet.store.ts` (update)       | Add card balance to totals, card load/sweep transactions                                                                                                                                                                                                               |
-| 8.9a | Sentry breadcrumbs               | Log all card API calls + state transitions (issuance, load, spend, freeze, withdraw) as Sentry breadcrumbs                                                                                                                                                             |
-| 8.10 | Nostr delegation event           | Kind for card spending delegation (limits, expiry, revocable)                                                                                                                                                                                                          |
-| 8.11 | Tests                            | Unit + integration for card service, store, and UI components                                                                                                                                                                                                          |
-| 8.12 | E2E                              | Create card → load → spend (mock Baanx API) → withdraw flow                                                                                                                                                                                                            |
-| 8.13 | `WithdrawFromCardModal.svelte`   | Withdraw unspent card balance back to USDT wallet                                                                                                                                                                                                                      |
-| 8.14 | `CardLimitsForm.svelte`          | Set/modify daily spending limits                                                                                                                                                                                                                                       |
-| 8.15 | Google Pay error handling        | Tokenization failure fallback UX: retry, skip, contact support                                                                                                                                                                                                         |
-| 8.16 | Delegation revocation            | Cancel card → revoke Nostr delegation → zero card balance sweep                                                                                                                                                                                                        |
-| 8.17 | KYC retry/denial UX              | KYC failure: show reason, allow correction, retry flow                                                                                                                                                                                                                 |
-| 8.18 | Card issuance status             | Handle pending/failed/delayed card issuance states                                                                                                                                                                                                                     |
-| 8.19 | Card push notifications          | Firebase push on card transactions (spend alerts, load confirmations)                                                                                                                                                                                                  |
-
-**Feature flag gating:**
-
-- `VITE_BAANX_CARDS_ENABLED=false` → entire card UI surface is absent. No API calls, no store initialization, no UI components rendered.
-- `VITE_BAANX_CARDS_ENABLED=true` but `baanx_cards_enabled=false` (remote config) → UI shows "Debit Cards temporarily unavailable" banner. No API calls.
-- Both true → full card functionality available.
-
----
 
 ## 8. Testing Strategy
 
@@ -1457,7 +1212,7 @@ Existing loading states are reused:
 | `GasAbstractionProvider`   | Interface compliance for EIP7702 implementation                                                 |
 | `EIP7702DelegationManager` | Each state transition, timeout handling, recovery from each state                               |
 | `DerivationMigrator`       | Path detection, sweep calculation, two-phase commit, idempotency, escrow inventory              |
-| `KillSwitch`               | Remote config parsing, feature gating, stale config handling                                    |
+| `KillSwitch`               | Feature gating via VITE_ flags                                    |
 | `DelegationJournal`        | Persist/restore, prune old entries, recovery from corrupted state                               |
 | `GasModeStore`             | Preference persistence, paymaster health, depeg detection                                       |
 | `ChainLock`                | Lock acquisition, timeout, forced release                                                       |
@@ -1487,7 +1242,7 @@ Existing loading states are reused:
 | Gas settings               | Verify gas payment uses USDT by default                                                     |
 | Migration                  | Detect legacy → view active escrows (only if balance exists) → migrate → verify new address |
 | Chain lock                 | Start send → try switch chain → blocked modal                                               |
-| Kill switch                | Remote config returns disabled → USDT features hidden → banner shown                        |
+| VITE_ flags                | Feature flag disabled → USDT features hidden → banner shown                        |
 | Depeg warning              | Mock price deviation → warning banner shown; sends and receives remain fully functional     |
 | Push notifications         | USDT deposit triggers push, swap complete triggers push, low gas reserve warning appears    |
 
@@ -1525,7 +1280,7 @@ Existing loading states are reused:
 | 4   | **BSC does not support EIP-7702**                                                          | CRITICAL | Verify on BSC testnet BEFORE any implementation (Phase 2.6); if unsupported, fall back to ERC-4337 EntryPoint model or relay server                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | 5   | **Candide contracts compromised**                                                          | HIGH     | Pin exact audited versions; fork and verify bytecode; kill switch; review upgrade mechanism;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | 6   | **Paymaster underfunded mid-transaction**                                                  | HIGH     | On-chain deposit check before every tx (not cached); 2x safety margin; server-side monitoring alert; explicit user notification                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| 7   | **USDT depeg**                                                                             | HIGH     | Circuit breaker at 5%+ deviation disables USDT escrow creation and swaps. Wallet sends and receives are NEVER blocked — the user can always move USDT to an exchange or another wallet. Two-of-three oracle median; re-peg threshold: <2% for 30 min to re-enable. The depeg circuit breaker is a sub-state of usdt_operations_enabled. When depeg is detected (>2% deviation for 5 minutes): escrow creation and swaps are blocked; sends and receives remain functional. The kill switch (usdt_operations_enabled = false) is a separate, broader mechanism that blocks ALL USDT operations. The depeg state auto-clears when the peg recovers (<2% deviation for 30 minutes). |
+| 7   | **USDT depeg**                                                                             | HIGH     | Circuit breaker at 5%+ deviation disables USDT escrow creation and swaps. Wallet sends and receives are NEVER blocked — the user can always move USDT to an exchange or another wallet. Two-of-three oracle median; re-peg threshold: <2% for 30 min to re-enable. When depeg is detected (>2% deviation for 5 minutes): escrow creation and swaps are blocked; sends and receives remain functional. The VITE_ feature flag is a separate mechanism that blocks ALL USDT operations. The depeg state auto-clears when the peg recovers (<2% deviation for 30 minutes). |
 | 8   | **Gas price spike between estimate and mine**                                              | HIGH     | Dynamic buffer: p90 trailing gas price + 20%; on-chain `maxGasSpend` in auth; user-defined max in confirmation screen                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | 9   | **Cross-chain swap asymmetric failure**                                                    | HIGH     | Background swap monitor polling all pending swaps; notification on refundable state; chain-specific confirmation counts                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | 10  | **App backgrounds during delegation**                                                      | HIGH     | Capacitor Preferences persistence at each state; resume detection + on-chain verification; Sentry breadcrumbs                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
@@ -1533,7 +1288,7 @@ Existing loading states are reused:
 | 12  | **Old RSK address referenced by active escrows after migration**                           | HIGH     | Pre-migration escrow inventory; block migration if active escrows exist; preserve old path for contract access; 180-day old address monitoring                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | 13  | **USDT approve race condition / non-standard ERC-20**                                      | MEDIUM   | Verify paymaster uses SafeERC20; test with BEP-20 USDT specifically; handle void-return transfers                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | 14  | **Single RPC URL failure**                                                                 | MEDIUM   | Multiple RPC URLs per chain with health check and automatic failover                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| 15  | **Oracle returns stale/zero price**                                                        | MEDIUM   | Staleness check (reject > 5min, consistent with Risk 31); reject zero price; fallback oracle; if both oracles are stale, refuse to execute transaction (no hardcoded fallback)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| 15  | **Oracle returns stale/zero price**                                                        | MEDIUM   | Staleness check (reject > 5min, consistent with Risk 15); reject zero price; fallback oracle; if both oracles are stale, refuse to execute transaction (no hardcoded fallback)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | 16  | **EIP superseded**                                                                         | MEDIUM   | GasAbstractionProvider interface abstracts the provider; version field in paymaster config enables client-side rejection of unsupported versions                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | 17  | **Insufficient USDT for both send amount + gas**                                           | MEDIUM   | Pre-flight balance check: `balance >= amount + maxGasInToken`; if not, show clear shortfall message; minGasReserve warning (not blocker)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | 18  | **Approve circular dependency** (need BNB to approve paymaster — but BNB is not available) | MEDIUM   | The initial USDT approval for the paymaster is bundled into the first EIP-7702 transaction (Tx1 delegates + approves paymaster + executes business logic in one transaction). This eliminates the circular dependency entirely — the user never needs BNB even for the first transaction. The approval is for the exact amount + gas only (no infinite approval). SafeERC20 is used throughout. The hidden BNB fallback (D-003) covers the case where the paymaster is unavailable for the approval tx.                                                                                                                                                                          |
@@ -1543,12 +1298,12 @@ Existing loading states are reused:
 | 22  | **BSC chain reorganization**                                                               | LOW      | 1-confirmation is standard for BSC but monitor reorg depth; for high-value txs (>$10k), require 5+ confirmations                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | 23  | **Emergency cleanup path missing**                                                         | CRITICAL | Hidden BNB fallback (D-003) provides the emergency path. If BNB is unavailable AND the paymaster is broken, delegation code is inert.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | 24  | **Nonce collision on Tx2**                                                                 | HIGH     | If another tx uses nonce N+1 before Tx2 submits. Mitigation: transaction queue freeze during delegation window.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| 25  | **Kill switch served by same infrastructure it protects**                                  | HIGH     | If CF Worker is broken, kill switch is too. Mitigation: primary channel via Firebase Remote Config.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| 25  | **Feature flag served by same infrastructure it protects**                                  | HIGH     | Since feature flags are build-time VITE_ env vars embedded in the bundle, they are not affected by CF Worker outages.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | 26  | **Capacitor Preferences async write race with app termination**                            | MEDIUM   | Already mitigated: sequence diagram shows `await Preferences.set()` before proceeding to signAuth(). Cross-tab guard via Capacitor Preferences lock key.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| 27  | **Offline kill switch staleness**                                                          | MEDIUM   | If cached config is stale > 1hr, default to disabled (fail-safe).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| 27  | **Stale bundle**                                                                  | MEDIUM   | Requires redeploy to change feature availability. Users must update the app to receive new flags.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | 28  | **Account delegated + user imports seed into another wallet during delegation window**     | MEDIUM   | Warn users not to use wallet with other apps during active transaction.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | 29  | **BSC chain halt during delegation**                                                       | LOW      | Account remains delegated until chain resumes. Recovery path runs automatically on resume.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| 30  | **Oracle staleness for gas estimation**                                                    | HIGH     | 5-minute staleness check, reject stale data, use fallback oracle                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| 30  | **Oracle staleness for gas estimation**                                                    | HIGH     | 5-minute staleness check, reject stale data, use fallback oracle. This is the same oracle staleness concern as Risk 15, applied specifically to gas estimation.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | 31  | **Multiple browser tabs creating conflicting delegations**                                 | MEDIUM   | Lock via Capacitor Preferences prevents cross-tab conflicts.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | 32  | **Changelly API abuse via unauthenticated proxy**                                          | MEDIUM   | Per-wallet rate limiting in CF Worker proxy; input sanitization; auth check on all proxy requests                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 
@@ -1556,65 +1311,16 @@ Existing loading states are reused:
 
 ## 10. Operational Safety: Kill Switch & Rollback
 
-### 10.1 Kill Switch Architecture
+### 10.1 Feature Flag Architecture
 
-```
-Client (every app start + periodic poll)
-  │
-  ├─ GET /api/v1/feature-flags (secondary channel)
-  ├─ Firebase Remote Config (PRIMARY channel)
-  │    Response: {
-  │      "eip7702_gas_enabled": true,
-  │      "usdt_operations_enabled": true,
-  │      "changelly_swaps_enabled": true,
-  │      "min_client_version": "2.0.0",
-  │      "reason": null
-  │    }
-  │
-  ├─ If eip7702_gas_enabled === false:
-  │    → Users are shown a clear message: "USDT gas payment is temporarily unavailable. Transactions requiring gas will resume when service is restored."
-  │    → All USDT gas-related UI hidden
-  │
-  ├─ If changelly_swaps_enabled === false:
-  │    → Swap and Buy/Sell features hidden.
-  │    → Send/Receive remain functional.
-  │
-  └─ If usdt_operations_enabled === false:
-       → All USDT balances, send, receive, escrow hidden
-       → Wallet reverts to rBTC-only mode
-       → UI banner: "USDT operations temporarily paused."
-```
+All features with external dependencies are gated by VITE_ environment variables. Set to `false` during development or before a partnership is active; set to `true` after the dependency is provisioned. Requires redeploy. No runtime kill switch — the app must be rebuilt and redeployed to change feature availability.
 
-#### 10.1.1 Polling Behavior
-
-- Poll every 30 seconds during active transactions or with wallet open
-- Poll every 5 minutes when app is backgrounded
-- Check immediately on app resume
-- Use Firebase push notification (already in project) as out-of-band kill switch trigger for backgrounded apps
-
-#### 10.1.2 Config Response Authentication
-
-Firebase Remote Config responses are authenticated by the Firebase SDK natively (API key + signed tokens). No additional HMAC layer is required. The `min_client_version` field is validated with an upper bound to prevent malicious force-upgrade. If Firebase Remote Config is unavailable, the cached last-known-good config is used with the fail-safe timeout (Section 10.2): > 1 hour stale defaults to DISABLED.
-
-#### 10.1.3 Kill Switch Infrastructure Independence
-
-Serve feature flags from Firebase Remote Config (already in project for push notifications) as the PRIMARY kill switch channel. The API endpoint is the secondary channel. This ensures kill switch works even if the app's Cloudflare Worker backend is broken.
-
-#### 10.1.4 Feature Flag Architecture — Two-Tier System
-
-All features with external dependencies use a **two-tier feature flag system**: build-time VITE\_ env variables for deploy-time gating, and runtime Firebase Remote Config for emergency disable.
-
-**Tier 1 — Build-time (`.env` file):** Controls whether a feature's code and UI surface exist at all. Set to `false` during development or before a partnership is active; set to `true` after the dependency is provisioned. Requires redeploy. Prevents dead code paths from appearing in production.
-
-**Tier 2 — Runtime (Firebase Remote Config):** Emergency disable without redeploy. Polled every 30 seconds. Fails safe (disabled on stale config).
-
-| Feature               | `.env` Flag (Tier 1)           | Remote Config Flag (Tier 2) | External Dependency         |
-| --------------------- | ------------------------------ | --------------------------- | --------------------------- |
-| USDT Operations       | _(always on)_                  | `usdt_operations_enabled`   | BSC RPC, USDT contract      |
-| EIP-7702 Gas          | _(always on when USDT is on)_  | `eip7702_gas_enabled`       | Candide Paymaster + Bundler |
-| Changelly Swaps       | `VITE_CHANGELLY_ENABLED`       | `changelly_swaps_enabled`   | Changelly API               |
-| Changelly Fiat Ramp   | `VITE_CHANGELLY_FIAT_ENABLED`  | `changelly_fiat_enabled`    | Changelly Fiat SDK          |
-| **Baanx Debit Cards** | **`VITE_BAANX_CARDS_ENABLED`** | **`baanx_cards_enabled`**   | **Baanx API**               |
+| Feature               | VITE_ Flag                        | External Dependency         |
+| --------------------- | --------------------------------- | --------------------------- |
+| USDT Operations       | _(always on)_                     | BSC RPC, USDT contract      |
+| EIP-7702 Gas          | _(always on when USDT is on)_     | Candide Paymaster + Bundler |
+| Changelly Swaps       | `VITE_CHANGELLY_ENABLED`          | Changelly API               |
+| Changelly Fiat Ramp   | `VITE_CHANGELLY_FIAT_ENABLED`     | Changelly Fiat SDK          |
 
 **`.env` pattern:**
 
@@ -1622,32 +1328,23 @@ All features with external dependencies use a **two-tier feature flag system**: 
 # Build-time feature flags — set to 'true' when external dependency is provisioned
 VITE_CHANGELLY_ENABLED=true
 VITE_CHANGELLY_FIAT_ENABLED=false
-VITE_BAANX_CARDS_ENABLED=false   # Requires Baanx partnership (4–12 week onboarding)
-```
+````
 
 **Implementation pattern (`FeatureFlagService`):**
 
 ```typescript
 // src/lib/services/feature-flags.ts
-const FF_BAANX_CARDS = import.meta.env.VITE_BAANX_CARDS_ENABLED === 'true';
 const FF_CHANGELLY_SWAPS = import.meta.env.VITE_CHANGELLY_ENABLED === 'true';
 const FF_CHANGELLY_FIAT = import.meta.env.VITE_CHANGELLY_FIAT_ENABLED === 'true';
-
-// Combined with runtime kill switch
-export function isBaanxCardsEnabled(runtimeFlags: RuntimeFlags): boolean {
-	return FF_BAANX_CARDS && runtimeFlags.baanx_cards_enabled;
-}
 ```
 
-**First-launch defaults**: ALL runtime feature flags default to `false` before the first successful Firebase Remote Config fetch. A feature is NEVER enabled based on JavaScript default values. The initial fetch timeout is 10 seconds — if Firebase is unreachable on first launch, all runtime-gated features remain disabled. On subsequent launches, the last-known-good cached config is used. The `FeatureFlagService` logs at startup whether flags were resolved from cache or fresh fetch.
-
-**VITE\_ flag visibility**: VITE* prefixed environment variables are statically embedded in the client bundle at build time and visible in source maps. Do NOT place secrets, API keys, or sensitive configuration values in VITE* flags. These flags control feature surface only (UI visibility, store initialization). Actual API credentials for Baanx, Changelly, and Candide are stored as CF Worker secrets (never in VITE\_ or client code).
+**VITE\_ flag visibility**: VITE* prefixed environment variables are statically embedded in the client bundle at build time and visible in source maps. Do NOT place secrets, API keys, or sensitive configuration values in VITE* flags. These flags control feature surface only (UI visibility, store initialization). Actual API credentials for Changelly and Candide are stored as CF Worker secrets (never in VITE\_ or client code).
 
 **`.env` file in version control:** `.env.example` is committed with all feature flags set to `false`. Actual `.env` is in `.gitignore` (prevents accidental commits of API keys and enabled flags). CI/CD sets flags per environment via deployment secrets.
 
 ### 10.2 Rollback Procedure
 
-**Stale-config timeout:** If feature flags have not been refreshed in > 1 hour, default to DISABLED for `eip7702_gas_enabled` (fail-safe).
+Rolling back requires rebuilding the app with the feature's `VITE_` flag set to \`false\` and redeploying.
 
 ### 10.3 Paymaster Pause Mechanism
 
@@ -1671,7 +1368,7 @@ To prevent a single user or attacker from rapidly draining the paymaster pool, t
 
 These limits are calibrated to the paymaster's BNB pool size: `max_hourly_exposure = global_rate x per_tx_cap`. The pool size must sustain at minimum 4 hours of maximum throughput at current BNB prices. If the pool size changes, rate limits are adjusted via multisig. The operations team monitors the ratio of `pool_balance / max_hourly_exposure` and alerts at < 2x coverage. All limits are stored as configurable parameters on the paymaster contract and can be adjusted by the BitTasker operations team (via multisig) without requiring client updates. The client also performs a pre-flight check via `healthCheck()` (returning `estimatedRemainingTx` for the user address) to surface rate limit warnings before the user attempts a transaction.
 
-**Implementation note:** If the deployed paymaster contract does not natively support these rate limits, they are enforced client-side via the `pre-flight check` in `healthCheck()`. The per-transaction value cap and per-address daily cap are checked before submission. Global rate limiting is deferred to a server-side proxy or future contract upgrade. The specification defines the desired limits; the implementation location depends on the deployed paymaster's capabilities.
+**Implementation note:** If the deployed paymaster contract does not natively support these rate limits, they are enforced server-side via the CF Worker proxy. Client-side pre-flight checks are advisory only and provide UX feedback (rate limit warnings). The authoritative enforcement point is the Worker proxy or on-chain paymaster contract. Client-only enforcement is not acceptable for production. The per-transaction value cap and per-address daily cap are checked before submission. Global rate limiting is deferred to a server-side proxy or future contract upgrade. The specification defines the desired limits; the implementation location depends on the deployed paymaster's capabilities.
 
 ### 10.5 Defensive & Deterministic Programming Principles
 
@@ -1719,9 +1416,8 @@ Before any USDT gas transaction is submitted, verify:
 ```json
 {
 	"dependencies": {
-		"abstractionkit": "0.3.7",
-		"@changelly/fiat-api-sdk-node": "1.0.3",
-		"@baanx/card-api-client": "1.0.0"
+		"abstractionkit": "0.3.8",
+		"@changelly/fiat-api-sdk-node": "1.0.3"
 	}
 }
 ```
@@ -1771,7 +1467,7 @@ Auth: HMAC-SHA256. Each request includes headers `api-key`, `sign`, and `nonce`.
 
 ### 11.3 AbstractionKit API
 
-The `abstractionkit@0.3.7` library provides EIP-7702 delegation via `Calibur7702Account` and gas sponsorship via `CandidePaymaster`. The contracts are audited by OpenZeppelin and Cantina.
+The `abstractionkit@0.3.8` library provides EIP-7702 delegation via `Calibur7702Account` and gas sponsorship via `CandidePaymaster`. The contracts are audited by OpenZeppelin and Cantina.
 
 **Docs:** https://docs.candide.dev/wallet/abstractionkit/calibur-account/
 **Paymaster docs:** https://docs.candide.dev/wallet/abstractionkit/paymaster/
@@ -1835,27 +1531,9 @@ const isEOA = code === '0x';
 
 **Bundle for cleanup (Tx2):** The cleanup UserOperation is constructed with a single transaction that calls the delegation contract's code-reset function (sets code to `address(0)`). Both Tx1 and Tx2 UserOperations are sponsored through the same paymaster flow, paid in USDT.
 
-### 11.4 Baanx Card API
+### 11.4 Secrets Management Policy
 
-The Baanx REST API provides card issuing, management, and non-custodial delegation for Visa/Mastercard debit cards. Baanx Group Ltd is FCA-regulated and powers the MetaMask Card.
-
-**API**: REST with OpenAPI 3.1 specification. Base URL provisioned per tenant.
-**Auth**: API key + OAuth2 client credentials. Credentials stored as CF Worker secrets (`BAANX_API_KEY`, `BAANX_API_SECRET`).
-**Docs**: https://docs.baanx.com/
-
-**Non-custodial pattern**: Users sign one Nostr delegation event at card creation. Baanx sweeps USDT from the user's wallet at transaction time. No per-transaction wallet signature needed. Users can withdraw unspent balance back to wallet.
-
-**Business onboarding**: Requires partnership agreement. Estimated 4–12 weeks for compliance review. Gated behind `VITE_BAANX_CARDS_ENABLED=false` until provisioned.
-
-**Baanx KYC data flow**: The `CreateCardFlow.svelte` form collects name, address, and DOB. This data is transmitted to Baanx's API via the CF Worker proxy (`workers-site/handlers/baanx.js`). The data MUST NOT be cached, stored, or logged by BitTasker infrastructure at any layer (no `Preferences.set()`, no `localStorage`, no `console.log`, no Sentry breadcrumb with PII). The CF Worker proxy acts as a stateless relay only — it forwards the KYC payload to Baanx and returns the response without retaining the data. The app displays a consent notice: "Your identity data will be sent to Baanx Group (FCA-regulated) for card issuance verification." Request and response headers MUST set `Cache-Control: no-store`.
-
-**PCI/card data**: Card numbers, CVV, and billing details are handled entirely by Baanx's PCI-compliant infrastructure. Card data never reaches BitTasker's servers, Workers, or client code. The app displays only the last 4 digits and tokenized Google Pay references.
-
-**API security model**: The Baanx CF Worker proxy (§8.1a) requires BOTH a valid BitTasker app session AND the Worker-level API key before forwarding any request to Baanx. This prevents a leaked API key from being sufficient to call Baanx endpoints. Session verification includes: (a) Nostr auth event signature check, (b) session expiry (< 1 hour), (c) pubkey matches the wallet address for delegation operations. The proxy also maintains an audit log of all forwarded requests (no PII) for security monitoring.
-
-### 11.5 Secrets Management Policy
-
-All external API credentials (Baanx, Changelly, Candide) follow these rules:
+All external API credentials (Changelly, Candide) follow these rules:
 
 | Policy                 | Requirement                                                                                     |
 | ---------------------- | ----------------------------------------------------------------------------------------------- |
@@ -1872,7 +1550,7 @@ All external API credentials (Baanx, Changelly, Candide) follow these rules:
 
 ## 12. Audit Trail & Confidence Tracking
 
-This document was developed through multiple audit rounds. The pre-v4.1 combined confidence score across all four dimensions (Security, UX, Completeness, Risk) reached **96%**, with all dimensions scoring **>=95%**. The v4.1 additions (Baanx card infrastructure, feature flag architecture) require re-audit.
+This document was developed through multiple audit rounds. The pre-v4.1 combined confidence score across all four dimensions (Security, UX, Completeness, Risk) reached **96%**, with all dimensions scoring **>=95%**.
 
 ### Confidence Gate (Must Pass Before Marking Complete)
 
@@ -1886,7 +1564,6 @@ This document was developed through multiple audit rounds. The pre-v4.1 combined
 - [ ] No `eslint-disable`, `ts-ignore`, or `as any` anywhere
 - [ ] All user-facing strings translated (en/es) — verify with `find-missing-translations.py`
 - [ ] WCAG AA accessibility audit passes: radio groups as `<fieldset><legend>`, focus indicators, aria-labels, keyboard nav
-- [ ] Kill switch verified: setting `eip7702_gas_enabled: false` disables USDT gas within 1 poll cycle
 - [ ] Paymaster pause function deployed and verified (multisig)
 - [ ] BSC EIP-7702 support verified on testnet (Phase 2.6 gate)
 - [ ] RestrictedSigner verified: raw private key never passed to Candide SDK
@@ -1900,39 +1577,33 @@ This document was developed through multiple audit rounds. The pre-v4.1 combined
 - [ ] Hidden BNB fallback exists but is never exposed in UI; no user-facing gas mode choice
 - [ ] All user-visible error states have deterministic, tested render paths
 - [ ] **Third swarm audit: all 4 dimensions >=95% with v4.1 additions**
-- [ ] All Baanx card API calls mocked and tested (card issuance, delegation, freeze, load, withdraw)
-- [ ] One-click card creation flow tested (happy path + KYC failure + delegation failure)
-- [ ] `VITE_BAANX_CARDS_ENABLED=false` verified: no card UI, no API calls, no store init
-- [ ] `baanx_cards_enabled=false` (remote) verified: UI shows unavailable banner, no API calls
+- [ ] `VITE_CHANGELLY_ENABLED=false` verified: no swap UI, no swap API calls, no swap store init
+- [ ] `VITE_CHANGELLY_FIAT_ENABLED=false` verified: no fiat ramp UI, no fiat API calls, no fiat store init
 - [ ] All VITE\_ feature flags documented in `.env.example`
-- [ ] Feature flag gating applied to ALL external-dependency features (Changelly, Changelly Fiat, Baanx)
+- [ ] Feature flag gating applied to ALL external-dependency features (Changelly, Changelly Fiat)
 
 ---
 
 ## 13. Feature Flag Dependency Map
 
-Every feature that depends on an external API/service must be gated by a two-tier feature flag (VITE\_ env + Firebase Remote Config). This ensures:
+Every feature that depends on an external API/service must be gated by a VITE\_ environment variable. This ensures:
 
 1. **Development can proceed** without all external dependencies provisioned
-2. **Emergency disable** works without redeploy
-3. **Dead code** doesn't appear in production before partnerships are active
+2. **Dead code** doesn't appear in production before partnerships are active
 
-| Feature             | External Dependency    | Tier 1 (`VITE_`)              | Tier 2 (Remote Config)    | Provisioned? | Notes                                                                                               |
-| ------------------- | ---------------------- | ----------------------------- | ------------------------- | ------------ | --------------------------------------------------------------------------------------------------- |
-| USDT Operations     | BSC RPC, USDT contract | _(always on)_                 | `usdt_operations_enabled` | Yes          | Built into wallet                                                                                   |
-| EIP-7702 Gas        | Candide Paymaster      | _(always on)_                 | `eip7702_gas_enabled`     | Pending      | Requires paymaster deposit                                                                          |
-| Changelly Swaps     | Changelly API          | `VITE_CHANGELLY_ENABLED`      | `changelly_swaps_enabled` | Yes          | API key provisioned                                                                                 |
-| Changelly Fiat Ramp | Changelly Fiat SDK     | `VITE_CHANGELLY_FIAT_ENABLED` | `changelly_fiat_enabled`  | No           | Requires separate agreement                                                                         |
-| Baanx Debit Cards   | Baanx API              | `VITE_BAANX_CARDS_ENABLED`    | `baanx_cards_enabled`     | No           | Requires 4–12 week onboarding                                                                       |
-| Escrow Auto-Fund    | Changelly Fiat SDK     | `VITE_CHANGELLY_FIAT_ENABLED` | `changelly_fiat_enabled`  | No           | Gated transitively by Changelly Fiat flag; "Pay with Card" button in escrow UI hidden when disabled |
+| Feature             | External Dependency    | VITE\_ Flag                   | Provisioned? | Notes                       |
+| ------------------- | ---------------------- | ----------------------------- | ------------ | --------------------------- |
+| USDT Operations     | BSC RPC, USDT contract | _(always on)_                 | Yes          | Built into wallet           |
+| EIP-7702 Gas        | Candide Paymaster      | _(always on when USDT is on)_ | Pending      | Requires paymaster deposit  |
+| Changelly Swaps     | Changelly API          | `VITE_CHANGELLY_ENABLED`      | Yes          | API key provisioned         |
+| Changelly Fiat Ramp | Changelly Fiat SDK     | `VITE_CHANGELLY_FIAT_ENABLED` | No           | Requires separate agreement |
 
 ### How to add a new feature-flagged dependency
 
 1. Add `VITE_YOUR_FEATURE_ENABLED=false` to `.env.example`
-2. Add `your_feature_enabled: false` to Firebase Remote Config defaults
-3. Gate all UI, store init, and API calls behind `FeatureFlagService.isEnabled('your_feature')`
-4. Add to this table
-5. Audit: verify `false` state hides everything; no API calls fire
+2. Gate all UI, store init, and API calls behind `FeatureFlagService.isEnabled('your_feature')`
+3. Add to this table
+4. Audit: verify `false` state hides everything; no API calls fire
 
 ---
 
@@ -1944,7 +1615,7 @@ src/lib/services/gas-abstraction/eip7702-provider.ts — EIP-7702 implementation
 src/lib/services/gas-abstraction/restricted-signer.ts— Scoped signer wrapper
 src/lib/services/stablecoin-registry.ts              — Chain/token configuration
 src/lib/services/derivation-migrator.ts              — RSK path migration (two-phase)
-src/lib/services/kill-switch.ts                      — Remote config kill switch
+src/lib/services/kill-switch.ts                      — VITE_ feature flag gating
 src/lib/services/delegation-journal.ts               — Persistent delegation records
 src/lib/services/chain-lock.ts                       — Prevent chain switch during tx
 src/lib/stores/gas-mode.store.ts                     — Gas preference + health state
@@ -1952,22 +1623,12 @@ src/lib/components/wallet/ChainSelector.svelte       — Reusable token+chain pi
 src/lib/components/wallet/GasFeeDisplay.svelte       — Gas cost with confidence %
 src/lib/components/wallet/DelegationRecoveryModal.svelte — Recovery UI for stuck delegations
 src/lib/services/changelly.service.ts              — Changelly swap API wrapper
-src/lib/services/escrow-auto-fund.service.ts       — Buy + auto-fund escrow via Changelly
 src/lib/components/wallet/BankingMenu.svelte       — Banking entry point modal
 src/lib/components/wallet/BuyUSDTForm.svelte       — Buy USDT flow
 src/lib/components/wallet/SellUSDTForm.svelte      — Sell USDT flow
 workers-site/handlers/changelly.js                 — CF Worker proxy for swap API
 workers-site/handlers/changelly-fiat.js            — CF Worker proxy for fiat API
-workers-site/handlers/baanx.js                    — CF Worker proxy for Baanx card API
-src/lib/services/baanx-card.service.ts            — Baanx REST API client (cards, delegation, tokenization)
 src/lib/services/feature-flags.ts                  — Two-tier feature flag service
-src/lib/stores/card.store.ts                       — Card state management
-src/lib/components/wallet/CardDashboard.svelte     — Virtual card display + controls
-src/lib/components/wallet/CreateCardFlow.svelte    — One-click card creation + KYC
-src/lib/components/wallet/LoadCardModal.svelte     — Fund card from USDT wallet
-src/lib/components/wallet/CardTransactionHistory.svelte — Per-card transaction list
-src/lib/services/saved-payment-methods.service.ts  — Saved cards + auto-refill service
-src/lib/services/auto-convert.service.ts           — Auto-convert USDT earnings to rBTC
 ```
 
 ## Appendix B: Modified Files
